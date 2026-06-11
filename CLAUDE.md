@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository. It is kept deliberately short (target: under 200 lines); domain detail lives in on-demand files noted throughout — read those when working in their area.
 
 ## Project Overview
 
@@ -12,41 +12,26 @@ When @jeffrey is working, Claude hook events are written to a local encrypted me
 
 - **Hook**: `.claude/settings.json` → `UserPromptSubmit` → `node memory/hook.mjs`
 - **Git hook**: `.githooks/post-commit` → commit log + Codex import + remote flush
-- **Local store**: `~/.ac-agent-memory` (overridable via `AGENT_MEMORY_HOME`)
-- **Encryption**: AES-256-GCM (`AGENT_MEMORY_KEY` optional; local key file otherwise)
-- **Redaction**: metadata and summaries are redacted before indexing/sync
-- **CLI**: `node memory/cli.mjs` (`list`, `remember`, `checkpoint`, `doctor`, `profile`, `flush-remote`)
-- **Codex import**: `node memory/codex-sync.mjs`
-
-Remote writes are optional and disabled by default:
-
-- `AGENT_MEMORY_REMOTE_ENABLED=true` + `AGENT_MEMORY_REMOTE_URL=...` enables queued remote sync
-
-`remember` continuity is represented as lineage (`remembered_from`) instead of taking over a live mutable session.
+- **Local store**: `~/.ac-agent-memory` (overridable via `AGENT_MEMORY_HOME`); AES-256-GCM; redacted before indexing/sync
+- **CLI**: `node memory/cli.mjs` (`list`, `remember`, `checkpoint`, `doctor`, `profile`, `flush-remote`); Codex import via `node memory/codex-sync.mjs`
+- Remote writes are optional and disabled by default (`AGENT_MEMORY_REMOTE_ENABLED=true` + `AGENT_MEMORY_REMOTE_URL=...` to enable). `remember` continuity is lineage (`remembered_from`), not session takeover.
 
 ## AestheticAnts & Score.md
 
-This repository uses an automated maintenance system called "AestheticAnts" (AA). The main score lives at `SCORE.md`, and ant-specific mindset/rules live in `ants/mindset-and-rules.md`. Read both before contributing.
+Automated maintenance system ("AA"). Main score: `SCORE.md`; ant mindset/rules: `ants/mindset-and-rules.md`. Read both before contributing.
 
 **Important:** Do not modify `ants/mindset-and-rules.md` unless you are the queen (@jeffrey).
 
 ## The Hand (Code Style)
 
-`HAND.md` at the repo root is the code-style guide — the companion to `papers/VOICE.md` (which governs prose). It codifies the terse, single-mind discipline of AC's hand-written era and how to keep new code legible as an *instrument*, not just runnable. Read it before writing or carving core code. Key idea: leaves (pieces) stay small and can be loop-generated; the foundational libs are the instrument and want knowability over raw terseness. The active "rehandify" campaign and its guardrails live at the bottom of that file.
+`HAND.md` at the repo root is the code-style guide — companion to `papers/VOICE.md` (prose). Read it before writing or carving core code. Key idea: leaves (pieces) stay small and can be loop-generated; the foundational libs are the instrument and want knowability over raw terseness. The active "rehandify" campaign and its guardrails live at the bottom of that file.
 
 ## Development Commands
 
 ### Running the Development Environment
 
-The system consists of multiple servers that run concurrently:
-
 ```bash
-# Run all servers (site, session, edge, stripe) - primary dev command
-npm run aesthetic
-# or shorthand:
-npm run ac
-
-# Run individual servers:
+npm run aesthetic         # Run all servers (site, session, edge, stripe) — primary dev command (alias: npm run ac)
 npm run site              # Main dev server (port 8888)
 npm run server:session    # Session backend (port 8889)
 npm run stripe            # Stripe webhook listener
@@ -55,75 +40,34 @@ npm run stripe            # Stripe webhook listener
 ### Testing
 
 ```bash
-# Run all tests
-npm test
-
-# KidLisp tests (with auto-reload on changes)
-npm run test:kidlisp
-
-# KidLisp tests (direct, no watch)
-npm run test:kidlisp:direct
-
-# Performance tests
-npm run test:perf
-npm run test:perf:chrome
-npm run test:perf:lighthouse
+npm test                  # All tests
+npm run test:kidlisp      # KidLisp tests (watch; :direct for no watch)
+npm run test:perf         # Performance tests (:chrome, :lighthouse variants)
 ```
 
 ### Health Check (Doctor)
 
-Run a stack-wide preflight before debugging — it tells you *which* layer is
-sick (local dev servers, production hosts, the asset CDN, host tooling) so you
-don't chase the wrong one:
+Stack-wide preflight before debugging — tells you *which* layer is sick:
 
 ```bash
-npm run doctor               # full sweep
-npm run doctor -- --local    # only local dev servers + host tooling
-npm run doctor -- --prod     # only production reachability
-npm run doctor -- --strict   # exit non-zero if a CRITICAL check fails (CI)
+npm run doctor            # full sweep; -- --local / -- --prod / -- --strict
 ```
 
-Stopped dev servers read as ⚠️ (advisory); only prod site + CDN are critical.
-Add checks in the `CHECKS` array of `toolchain/doctor.mjs` (dependency-free).
+Stopped dev servers read as ⚠️ (advisory); only prod site + CDN are critical. Add checks in the `CHECKS` array of `toolchain/doctor.mjs` (dependency-free).
 
-### Creating New Pieces
-
-```bash
-# Generate a new piece from the blank.mjs template
-npm run new piece-name "Description of the piece"
-```
-
-### Working with Sessions
+### Pieces, Sessions, Assets
 
 ```bash
-# List active session backends
-npm run session:alive
-
-# View logs for a specific session
-npm run server:session:logs SESSION_ID
-
-# Reset/terminate a session
-npm run session:reset SESSION_ID
-
-# Deploy session server
-npm run session:publish
-```
-
-### Assets Management
-
-```bash
-# Sync assets down from Digital Ocean Spaces
-npm run assets:sync:down
-
-# Sync assets up to Digital Ocean Spaces
-npm run assets:sync:up
+npm run new piece-name "Description"   # New piece from blank.mjs template
+npm run session:alive                  # List active session backends
+npm run server:session:logs ID         # Logs for a session (session:reset ID to terminate)
+npm run session:publish                # Deploy session server
+npm run assets:sync:down               # Sync assets from DO Spaces (:up to push)
 ```
 
 ### AC Native OS (fedac/native/)
 
-**Routine OTA releases are built remotely on the oven.** When fedac/native/
-changes land on `origin/main`, oven's git poller auto-triggers a build. To
-trigger or observe a build explicitly:
+**Routine OTA releases are built remotely on the oven.** When fedac/native/ changes land on `origin/main`, oven's git poller auto-triggers a build.
 
 ```bash
 ac-os oven          # Trigger remote OTA build for HEAD
@@ -132,297 +76,65 @@ ac-os oven watch    # Tail active build logs (SSE)
 ac-os oven cancel   # Cancel active oven job
 ```
 
-**Use `ac-os oven` for OTA releases — not `ac-os upload`.** `ac-os upload`
-is a local-build-and-push fallback that requires a clean tree and has
-historically auto-stashed uncommitted work in ways that strand changes.
+**Use `ac-os oven` for OTA releases — not `ac-os upload`.** `ac-os upload` is a local-build-and-push fallback that requires a clean tree and has historically auto-stashed uncommitted work in ways that strand changes.
 
-Local-only commands (rarely needed for OTA):
-
-```bash
-# Full build pipeline: binary → initramfs → kernel
-ac-os build
-
-# Build + flash USB
-ac-os flash
-
-# Build + upload OTA release (legacy local path — prefer `ac-os oven`)
-ac-os upload
-
-# Build + flash + upload
-ac-os flash+upload
-```
+Local-only commands (rarely needed): `ac-os build` (binary → initramfs → kernel), `ac-os flash`, `ac-os upload`, `ac-os flash+upload`.
 
 **Critical:** `ac-os upload` always does a full rebuild before uploading. The kernel embeds the git hash and build name at compile time (`AC_GIT_HASH`, `AC_BUILD_NAME` in the Makefile). Uploading without rebuilding would serve a stale kernel with the wrong version string.
 
 ### Notation
 
 - **compush** - commit & push
-- **sticky the X** - on a macOS host, run `node toolchain/macos/sticky.mjs` on X — drops it into a translucent, larger-text Stickies note sized to fit the content and centered on screen. See `toolchain/macos/README.md`.
+- **sticky the X** - on a macOS host, run `node toolchain/macos/sticky.mjs` on X — translucent, larger-text Stickies note sized to fit and centered. See `toolchain/macos/README.md`.
 
 ## Architecture
 
 ### Core Components
 
-1. **Boot System** (`system/public/aesthetic.computer/boot.mjs`)
-   - Entry point that loads the BIOS and initializes the runtime
-   - Manages service worker registration for module caching
-   - Handles WebSocket module loader for hot reloading
-   - Boot telemetry system logs to `/api/boot-log`
-
-2. **BIOS** (`system/public/aesthetic.computer/bios.mjs`)
-   - Main runtime coordinator
-   - Manages piece lifecycle (boot, act, paint, sim, etc.)
-   - Provides the API surface for pieces
-   - Handles routing and navigation
-
-3. **Disk System** (`system/public/aesthetic.computer/lib/disk.mjs`)
-   - Large module (~572KB) that provides the core API for pieces
-   - Graphics primitives, audio, input handling, UI components
-   - All pieces interact with AC through the Disk API
-
-4. **Module Loader** (`system/public/aesthetic.computer/module-loader.mjs`)
-   - WebSocket-based dynamic module loading
-   - Enables hot reloading during development
-   - Prefetches commonly used modules
+1. **Boot** (`system/public/aesthetic.computer/boot.mjs`) — entry point; loads BIOS, service-worker module caching, WebSocket module loader for hot reload, boot telemetry to `/api/boot-log`.
+2. **BIOS** (`system/public/aesthetic.computer/bios.mjs`) — main runtime coordinator; piece lifecycle, API surface, routing/navigation.
+3. **Disk** (`system/public/aesthetic.computer/lib/disk.mjs`) — large (~572KB) core API for pieces: graphics primitives, audio, input, UI. All pieces talk to AC through the Disk API.
+4. **Module loader** (`system/public/aesthetic.computer/module-loader.mjs`) — WebSocket dynamic loading; hot reload in dev; prefetches common modules.
 
 ### Pieces
 
-Pieces are the fundamental unit of content in AC. Each piece is a single `.mjs` or `.lisp` file located in `system/public/aesthetic.computer/disks/`.
-
-#### Piece Structure (JavaScript)
-
-Pieces export lifecycle functions that receive an API object:
-
-```javascript
-// boot: runs once when the piece loads
-function boot({ wipe, screen, params, colon, api }) {
-  // Initialize state
-}
-
-// paint: runs every frame
-function paint({ wipe, ink, line, circle, screen }) {
-  // Render graphics
-}
-
-// act: handles user input and events
-function act({ event: e }) {
-  if (e.is("keyboard:down:space")) {
-    // Handle spacebar press
-  }
-}
-
-// sim: simulation/game logic that runs every frame
-function sim() {
-  // Update game state
-}
-
-export { boot, paint, act, sim };
-```
-
-Common lifecycle functions:
-- `boot` - Initialization, runs once
-- `paint` - Rendering, runs every frame
-- `act` - Event handling (input, network, etc.)
-- `sim` - Simulation/logic, runs every frame
-- `leave` - Cleanup when exiting the piece
-- `preview` - Static preview image generation
-
-#### Piece API Surface
-
-The API is provided through function parameters. Common APIs:
-- **Graphics**: `wipe`, `ink`, `line`, `box`, `circle`, `plot`, `paste`, etc.
-- **Text**: `write`, `type`, `paste`, `help`
-- **Input**: `event`, `pen`, `hand`, `gamepad`
-- **Audio**: `sound`, `speaker`, `microphone`
-- **UI**: `ui.Button`, `ui.TextInput`, `cursor`
-- **System**: `screen`, `params`, `colon`, `store`, `net`, `jump`, `send`
+All pieces live in `system/public/aesthetic.computer/disks/` (`.mjs` and `.lisp`). **The authoring guide — lifecycle functions, API surface, event patterns, multiplayer dual-channel, UI components, publishing — is `system/public/aesthetic.computer/disks/CLAUDE.md`** (loads automatically when working there). Canonical multiplayer reference: `squash.mjs`.
 
 ### Servers and Services
 
-1. **System Server** (`system/` + `lith/`)
-   - Production: **lith** monolith — Express + Caddy on a DigitalOcean VPS (`lith.aesthetic.computer`). Deployed with `fish lith/deploy.fish`, which pulls from the tangled knot `git@knot.aesthetic.computer:aesthetic.computer/core`. Netlify is no longer the host.
-   - Dev: `npm run site` (port 8888)
-   - Backend function handlers live in `system/netlify/functions/` — the path is historical, but lith's Express adapts each file as a route, so keep adding new endpoints there.
-   - Handles piece serving, authentication, storage APIs
-
-2. **Session Server** (`session-server/`)
-   - Per-session backend using Jamsocket for ephemeral deployments
-   - WebSocket server using Geckos.io for real-time communication
-   - Manages chat, multiplayer state, and real-time features
-   - Uses Redis for state synchronization
-
-3. **Feed Server** (`dp1-feed/`)
-   - Cloudflare Worker for activity feeds
-   - Deployed separately to Cloudflare Workers
+1. **System Server** (`system/` + `lith/`) — production is **lith**: Express + Caddy monolith on a DigitalOcean VPS (`lith.aesthetic.computer`), deployed with `fish lith/deploy.fish`, pulling from the tangled knot `git@knot.aesthetic.computer:aesthetic.computer/core`. Netlify is no longer the host. Dev: `npm run site` (port 8888). Backend function handlers live in `system/netlify/functions/` — path is historical; lith's Express adapts each file as a route, so keep adding endpoints there.
+2. **Session Server** (`session-server/`) — per-session backend via Jamsocket; Geckos.io WebSocket+UDP for chat, multiplayer, real-time state; Redis for sync.
+3. **Feed Server** (`dp1-feed/`) — Cloudflare Worker for activity feeds, deployed separately.
 
 ### KidLisp
 
-KidLisp is a minimal Lisp dialect for generative art, with 118 built-in functions across 12 categories. See `kidlisp/README.md` for comprehensive documentation.
-
-**Key files:**
-- `system/public/aesthetic.computer/lib/kidlisp.mjs` - Main evaluator
-- `system/netlify/functions/store-kidlisp.mjs` - Storage API
-- `kidlisp/tools/` - Analysis and debugging tools
-
-**Running KidLisp tools:**
-```bash
-# Analyze piece structure (requires dev server running)
-./kidlisp/tools/source-tree.mjs $cow
-
-# Get source code
-./kidlisp/tools/get-source.mjs $piece-code
-```
+Minimal Lisp dialect for generative art (118 built-ins across 12 categories). **Comprehensive docs: `kidlisp/README.md`.** Evaluator: `system/public/aesthetic.computer/lib/kidlisp.mjs`; storage API: `system/netlify/functions/store-kidlisp.mjs`; tools in `kidlisp/tools/` (`./kidlisp/tools/source-tree.mjs $cow`, `get-source.mjs $piece-code`; dev server must be running).
 
 ### Data Storage
 
-- **MongoDB**: User data, handles, chat messages, moods
-- **Redis**: Session state, real-time coordination
-- **Firebase**: Authentication, cloud messaging
-- **Digital Ocean Spaces**: Asset storage (CDN)
+**MongoDB** (users, handles, chat, moods) · **Redis** (session state) · **Firebase** (auth, messaging) · **DO Spaces** (asset CDN).
 
 ### Routing and URLs
 
-- Pieces are URL-addressable: `https://aesthetic.computer/piece-name`
-- Parameters: `piece-name:param1:param2`
-- User pieces: `@handle/piece-name`
-- QR code sharing: `share piece-name`
+Pieces are URL-addressable: `aesthetic.computer/piece-name`, params `piece-name:p1:p2`, user pieces `@handle/piece-name`, QR via `share piece-name`.
 
 ## Development Workflow
 
-### Local Development in Codespaces
-
-When running in GitHub Codespaces, the server is accessible at:
-```
-https://{CODESPACE_NAME}-8888.app.github.dev
-```
-
-Get your Codespace name: `echo $CODESPACE_NAME`
-
-### Hot Reloading
-
-The module loader provides hot reloading during development:
-- Piece changes are reflected immediately when saved
-- WebSocket connection shown in boot canvas
-- Use `channel custom-name` for multi-device testing
-
-### Publishing
-
-```bash
-# In the AC prompt:
-publish                    # Publish current piece
-publish piece-name         # Publish with custom name
-source                     # Download blank template
-source piece-name          # Fork existing piece
-```
+- **Codespaces**: server at `https://{CODESPACE_NAME}-8888.app.github.dev` (`echo $CODESPACE_NAME`).
+- **Hot reload**: piece changes reflect on save via the module loader; WebSocket status shows in the boot canvas; use `channel custom-name` for multi-device testing.
 
 ## Important Directories
 
-- `system/public/aesthetic.computer/disks/` - All pieces (.mjs and .lisp files)
-- `system/public/aesthetic.computer/lib/` - Shared libraries and utilities
-- `system/netlify/functions/` - Serverless backend functions
+- `system/public/aesthetic.computer/disks/` - All pieces (+ authoring guide CLAUDE.md)
+- `system/public/aesthetic.computer/lib/` - Shared libraries
+- `system/netlify/functions/` - Serverless backend functions (served by lith)
 - `session-server/` - Real-time session backend
 - `shared/` - Code shared between system and session servers
-- `kidlisp/` - KidLisp language documentation and tools
+- `kidlisp/` - KidLisp docs and tools
 - `spec/` - Jasmine tests for KidLisp
-- `ants/` - AestheticAnts automated maintenance system
-
-## Key Patterns
-
-### Event Handling in Pieces
-
-Events use a string-based pattern matching system:
-```javascript
-event.is("keyboard:down:a")          // 'a' key pressed
-event.is("touch")                     // Any touch event
-event.is("lift")                      // Touch/click released
-event.is("draw")                      // Drag with pen down
-event.is("keyboard:down:arrowup")    // Arrow key
-```
-
-### State Management
-
-Pieces maintain state in module-level variables:
-```javascript
-let score = 0;
-let enemies = [];
-
-function boot() {
-  // Initialize state
-}
-
-function sim() {
-  // Update state
-  score += 1;
-}
-```
-
-### API Requests from Pieces
-
-Use the `net` API for HTTP requests:
-```javascript
-function boot({ net }) {
-  net.pieces("@user/list").then((data) => {
-    // Handle response
-  });
-}
-```
-
-### Multiplayer Networking (Dual-Channel Pattern)
-
-Multiplayer pieces use both WebSocket (reliable) and UDP (low-latency) channels. See `squash.mjs` for the canonical implementation.
-
-```javascript
-function boot({ net: { socket, udp }, handle }) {
-  // UDP for high-frequency position sync (low latency, may drop packets)
-  udpChannel = udp((type, content) => {
-    if (type === "game:move") {
-      const d = typeof content === "string" ? JSON.parse(content) : content;
-      // Update remote player position
-    }
-  });
-
-  // WebSocket for reliable game events (join/leave, scoring, round control)
-  server = socket((id, type, content) => {
-    if (type.startsWith("connected")) { /* joined session */ }
-    if (type === "left") { /* player disconnected */ }
-    if (type === "game:join") { /* another player joined */ }
-    if (type === "game:score") { /* reliable score event */ }
-  });
-
-  // Send reliable event
-  server.send("game:join", { handle: handle() });
-  // Send low-latency position update
-  udpChannel.send("game:move", { x, y, vx, vy });
-}
-```
-
-**Session server routing:**
-- UDP handlers: add `channel.on("game:move", ...)` in geckos section of `session-server/session.mjs`
-- WebSocket: position messages use `others()` (relay to all except sender), game events use `everyone()` (catch-all relay)
-- Chat invites: typing `'piece-name'` in chat creates a clickable link to join
-
-**Reference pieces:** `squash.mjs` (2D platformer), `1v1.mjs` (3D FPS), `udp.mjs` (minimal UDP test)
-
-### UI Components
-
-```javascript
-function boot({ ui: { Button, TextInput } }) {
-  const btn = new Button("Click me", { box: [10, 10, 100, 40] });
-}
-
-function act({ event: e }) {
-  if (btn.trigger(e)) {
-    // Button was clicked
-  }
-}
-```
+- `ants/` - AestheticAnts automated maintenance
 
 ## Notes
 
-- The codebase uses `.mjs` extension for ES modules
-- Prefer `const` destructuring for API parameters to minimize imports
-- Graphics operations are immediate-mode (no retained scene graph)
-- All coordinates are in pixels
-- Default color depth is 8-bit RGB (0-255 per channel)
-- The `wipe` function clears the screen and should be called first in `paint`
+- `.mjs` ES modules throughout
 - When making changes, consult `ants/mindset-and-rules.md` for the ant operating philosophy

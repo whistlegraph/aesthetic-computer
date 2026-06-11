@@ -1,0 +1,301 @@
+% !TEX program = xelatex
+\documentclass[11pt,letterpaper]{article}
+
+% === GEOMETRY === (narrow measure, PG-style)
+\usepackage[top=1in, bottom=1in, left=1.15in, right=1.15in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+
+\setmainfont{Latin Modern Roman}[
+  Extension=.otf,
+  UprightFont=lmroman10-regular,
+  BoldFont=lmroman10-bold,
+  ItalicFont=lmroman10-italic,
+  BoldItalicFont=lmroman10-bolditalic,
+]
+\setsansfont{Latin Modern Sans}[
+  Extension=.otf,
+  UprightFont=lmsans10-regular,
+  BoldFont=lmsans10-bold,
+  ItalicFont=lmsans10-oblique,
+  BoldItalicFont=lmsans10-boldoblique,
+]
+\setmonofont{Latin Modern Mono}[
+  Extension=.otf,
+  UprightFont=lmmono10-regular,
+  ItalicFont=lmmono10-italic,
+  Scale=0.85,
+]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{booktabs}
+
+\usepackage{ac-paper-essay}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={What the Prompt Sees},
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acgray}\thepage}
+
+\newcommand{\ac}{Aesthetic\textcolor{acpink}{.}Computer}
+
+% Excerpt block: verbatim quotations from the live context
+\newenvironment{excerpt}{%
+  \par\vspace{0.5em}%
+  \begin{quote}\small\color{acdark}%
+}{%
+  \end{quote}\vspace{0.3em}\par%
+}
+
+% Local: this title at 42pt overruns the measure; shrink to fit.
+\renewcommand{\essaytitle}[1]{%
+  \begin{center}%
+    \begin{tikzpicture}
+      \node[acdark, opacity=0.25,
+            font=\aclight\fontsize{37pt}{41pt}\selectfont,
+            inner sep=0pt] at (2.2pt, -2.2pt) {#1};
+      \node[acpink,
+            font=\aclight\fontsize{37pt}{41pt}\selectfont,
+            inner sep=0pt] at (0, 0) {#1};
+    \end{tikzpicture}%
+  \end{center}%
+  \vspace{0.6em}%
+}
+
+\begin{document}
+
+\thispagestyle{empty}
+\vspace*{0.6in}
+
+\essaytitle{What the Prompt Sees}
+\essaydate{June 2026 --- a context census with excerpts, and a field report \\ on how this setup compares to what the rest of the world is doing}
+
+Every time you type a message into this session, the model does not see your message alone. It sees a stack of injected context assembled by the harness before your words arrive: a system prompt, tool definitions, project instructions, a memory index, a git snapshot, a list of skills, and a roster of dormant tools. This essay is a census of that stack as it stood at the moment you asked for it --- what each layer contains, with verbatim excerpts, roughly what it costs, which layers are yours to trim, and how the whole arrangement measures against the context-engineering strategies the field has converged on over the past year.
+
+The short version, sharpened by research: your memory architecture is almost exactly the design Anthropic ships and the design that wins benchmarks --- but the index is \textbf{nine lines from a silent truncation cliff}. Your \texttt{CLAUDE.md}, at 428 lines, is more than double the official sub-200-line target, in the size territory where Anthropic's own docs say rules start getting ignored. And your three duplicate \texttt{chrome-devtools} servers reproduce, in miniature, the exact failure mode Anthropic documents for tool selection. The good news: every fix is an afternoon's work, and the field's published numbers suggest the payoff is real.
+
+\section{The Stack, Top to Bottom}
+
+Here is the whole thing in one view, ordered roughly as it appears in the context window. Sizes are measured where I could measure (byte and line counts on disk) and estimated where the harness does not expose them.\enote{Token estimates use the usual $\sim$4 characters per token. The harness layers (system prompt, tool schemas) are estimated from their rendered length; I can see them but not weigh them precisely.}
+
+\begin{center}
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Layer} & \textbf{Size} & \textbf{Yours to trim?} \\
+\midrule
+System prompt (identity, conduct, env) & $\sim$3--4k tokens & no \\
+Core tool schemas ($\times$10) & $\sim$8--10k tokens & no \\
+\quad of which \texttt{Workflow} alone & $\sim$4--5k tokens & no \\
+Deferred tool names ($\times$143) & $\sim$1.5k tokens & \textbf{partly --- MCP servers} \\
+Skill descriptions ($\times$14) & $\sim$1.5k tokens & partly \\
+\texttt{CLAUDE.md} & 14.5 KB, 428 lines & \textbf{yes} \\
+\texttt{MEMORY.md} index & 19.3 KB, 191 lines & \textbf{yes} \\
+Memory-system instructions & $\sim$0.6k tokens & no \\
+Git status snapshot & $\sim$0.5k tokens & indirectly \\
+Email, date, session guidance & $\sim$0.5k tokens & no \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Call it roughly 25--28k tokens of standing context before the first word of conversation. Of that, the slice you can actually edit --- \texttt{CLAUDE.md}, \texttt{MEMORY.md}, MCP connections, skills --- is around 11--12k tokens, and \texttt{MEMORY.md} is the single largest editable block.
+
+\section{The Harness Layer, with Excerpts}
+
+The fixed bottom of the stack. The system prompt establishes identity (Claude Code, running Fable~5) and a surprising amount of editorial doctrine. A sample of what rides along on every turn:
+
+\begin{excerpt}
+``Lead with the outcome. Your first sentence after finishing should answer `what happened' or `what did you find' --- the thing the user would ask for if they said `just give me the TLDR.'\,''
+\end{excerpt}
+
+\begin{excerpt}
+``You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking `Want me to\ldots?' or `Shall I\ldots?' will block the work.''
+\end{excerpt}
+
+Then the environment block: working directory, platform (macOS, fish shell), today's date, your email, and a one-time git snapshot --- current branch \texttt{main}, seventeen modified files, eleven untracked paths, five recent commit subjects.\enote{The git snapshot is taken once at session start and never refreshed. It is small, but a session opened on a messy tree carries that mess in every turn's context --- and your tree currently lists everything from \texttt{bios.mjs} to \texttt{texput.log}.}
+
+Ten tools arrive with full schemas: \texttt{Bash}, \texttt{Read}, \texttt{Write}, \texttt{Edit}, \texttt{Agent}, \texttt{Skill}, \texttt{Workflow}, \texttt{ToolSearch}, \texttt{AskUserQuestion}, \texttt{ScheduleWakeup}. The standout is \texttt{Workflow}, whose documentation --- orchestration patterns, budget semantics, worked code examples --- is several times longer than any other tool's and likely the single largest contiguous block in the entire context. Its register is unmistakable:
+
+\begin{excerpt}
+``DEFAULT TO pipeline(). Only reach for a barrier (parallel between stages) when you genuinely need ALL prior-stage results together. \ldots\ A barrier is NOT justified by: `I need to flatten/map/filter first' \ldots\ `The stages are conceptually separate' \ldots\ `It's cleaner code' --- barrier latency is real.''
+\end{excerpt}
+
+Even the sleep-scheduling tool carries doctrine, tuned to prompt-cache economics:
+
+\begin{excerpt}
+``Don't pick 300s. It's the worst-of-both: you pay the cache miss without amortizing it. \ldots\ Don't think in round-number minutes --- think in cache windows.'' (\texttt{ScheduleWakeup})
+\end{excerpt}
+
+The \texttt{Agent} tool's description embeds your custom agent roster, and your authored entries ride along in every prompt of every session, musical or not:
+
+\begin{excerpt}
+``dj-usb-maker: Prepare a USB stick for use as a DJ source \ldots\ Use this when @jeffrey says `make a DJ USB', `burn this music to a stick for the Neo', `format a DJ thumbdrive', or similar.''
+\end{excerpt}
+
+You cannot trim the harness. It is worth knowing its weight, because it dwarfs most of what you \textit{can} trim --- and because, as we will see, the field's instruction-budget research says your own rules compete with all of this for the model's attention.
+
+\section{The Deferred Tool Roster}
+
+143 tool names are listed without schemas, waiting to be loaded on demand via \texttt{ToolSearch}. The breakdown is lopsided:
+
+\begin{itemize}[leftmargin=1.4em, itemsep=0.1em]
+\item 90 are \texttt{chrome-devtools} tools, because \textbf{three} instances of the same MCP server are connected at once: default, \texttt{-chicken}, and \texttt{-panda}. Same 30 tools, three hostname suffixes --- \texttt{take\_screenshot}, \texttt{take\_screenshot}, \texttt{take\_screenshot}.
+\item 20 are harness extras (cron, tasks, plan mode, web fetch/search, LSP, notebooks).
+\item 33 are the rest: Gmail (12), Google Calendar (8), emacs (7), mail (6).
+\end{itemize}
+
+The deferral itself is best practice --- it is precisely the \texttt{defer\_loading} pattern Anthropic shipped in November 2025, which in their published evals cut tool-definition overhead by over 85\% and \textit{improved} accuracy (Opus 4 went from 49\% to 74\% on MCP evals with large tool libraries once irrelevant schemas were deferred).\enote{Anthropic, ``Introducing advanced tool use on the Claude Developer Platform,'' Nov 2025. \url{https://www.anthropic.com/engineering/advanced-tool-use}. The docs add: ``Claude's ability to correctly pick the right tool degrades significantly once you exceed 30--50 available tools.''} Without deferral, the cost would be brutal: independent measurements put a single chrome-devtools MCP server at roughly 11--17k tokens of definitions,\enote{paddo.dev, ``The Context Wars: Why Your Browser Tools Are Bleeding Tokens,'' Jan 2026, measures Chrome DevTools MCP at $\sim$17,000 tokens of tool definitions; vibebrowser.app's comparison counts $\sim$11k. Your three instances, fully loaded, would run 33--50k tokens --- a quarter of a 200k window --- before any work began.} so your three instances would consume a quarter of the context window if fully loaded.
+
+What deferral does \textit{not} fix is the triplication hazard. Anthropic's own failure-mode documentation:
+
+\begin{excerpt}
+``The most common failures are wrong tool selection and incorrect parameters, especially when tools have similar names like \texttt{notification-send-user} vs.\ \texttt{notification-send-channel}.''
+\end{excerpt}
+
+Three identical toolsets distinguished only by hostname suffix is that hazard in its purest form. Connecting the minis' DevTools bridges only during fuser or slab work would cut the roster by more than a third and eliminate the ambiguity.
+
+\section{CLAUDE.md --- Heavier Than the Field Runs It}
+
+At 14.5~KB and 428 lines, the project instructions are dense and mostly earn their place: dev commands, the lith deploy reality, the oven-not-upload OTA rule, piece lifecycle, KidLisp pointers. Some of it is irreplaceable institutional memory:
+
+\begin{excerpt}
+``\textbf{Critical:} \texttt{ac-os upload} always does a full rebuild before uploading. The kernel embeds the git hash and build name at compile time \ldots\ Uploading without rebuilding would serve a stale kernel with the wrong version string.''
+\end{excerpt}
+
+\begin{excerpt}
+``\textbf{Important:} Do not modify \texttt{ants/mindset-and-rules.md} unless you are the queen (@jeffrey).''
+\end{excerpt}
+
+\begin{excerpt}
+``\textbf{compush} --- commit \& push.''
+\end{excerpt}
+
+This is the file that stops me from running \texttt{ac-os upload} and stranding your working tree. But the field has moved, and the numbers are now explicit. Anthropic's memory documentation states a target: \textit{``Size: target under 200 lines per CLAUDE.md file. Longer files consume more context and reduce adherence.''}\enote{Claude Code docs, Memory: \url{https://code.claude.com/docs/en/memory}. The best-practices doc is blunter: ``Keep it concise. For each line, ask: `Would removing this cause Claude to make mistakes?' If not, cut it. Bloated CLAUDE.md files cause Claude to ignore your actual instructions!''} You are at 428 --- a little over double.
+
+Measured against real high-profile repos (byte sizes pulled live from GitHub on June 10, 2026), you sit in the heavyweight decile:
+
+\begin{center}
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Repo} & \textbf{Agent file} & \textbf{Size} \\
+\midrule
+getsentry/sentry & \texttt{CLAUDE.md} & 11 bytes (\texttt{@AGENTS.md} pointer) \\
+microsoft/vscode & \texttt{AGENTS.md} & 271 bytes (pointer) \\
+ghostty-org/ghostty & \texttt{AGENTS.md} & 1.4 KB \\
+getsentry/sentry & \texttt{AGENTS.md} & 7.9 KB \\
+\textbf{aesthetic-computer} & \texttt{CLAUDE.md} & \textbf{14.5 KB} \\
+PostHog/posthog & \texttt{CLAUDE.md} & 18.6 KB (+ 39 nested files) \\
+openai/codex & \texttt{AGENTS.md} & 20.9 KB \\
+vercel/next.js & \texttt{AGENTS.md} & 22.1 KB \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The emerging big-repo norm is the sentry/vscode pattern: a near-empty pointer file plus scoped, on-demand documents. OpenAI's internal monorepo reportedly carries 88 \textit{nested} \texttt{AGENTS.md} files rather than one monolith, and Codex hard-caps the concatenated total at 32~KiB.\enote{agents.md (the spec site, now stewarded by the Agentic AI Foundation under the Linux Foundation, used by 60,000+ open-source projects); OpenAI Codex docs, \texttt{project\_doc\_max\_bytes}. Claude Code's equivalent mechanism is \texttt{.claude/rules/} with \texttt{paths:} frontmatter --- rules load only when matching files are touched.}
+
+The trimmable quarter of your file is the inline example code: the piece-structure skeleton, the UI-components snippet, and especially the $\sim$40-line multiplayer networking example --- the file already names \texttt{squash.mjs} as the canonical reference, and the pointer suffices. Moving piece-authoring and KidLisp material into path-scoped rules or skills would put the always-loaded core near the 200-line target without losing a single guardrail.
+
+\section{MEMORY.md --- Right Architecture, Nine Lines from the Cliff}
+
+The memory index is the largest block you own: 164 one-line pointers across 13 sections, every line loaded into every session whether you are mixing a track, drafting an email, or asking what time it is. Each line is a compressed pointer to an on-demand file:
+
+\begin{excerpt}
+``[imagegen no motion blur](feedback\_imagegen\_no\_motion\_blur.md) --- gpt-image-2 amplifies blur globally; pose only''\\[0.3em]
+``[jeffrey vapes weed](jeffrey\_vape.md) --- USB-stick vape pen prop, Stiiizy-style LED''\\[0.3em]
+``[trancenwaltzi deprecated](project\_trancenwaltzi\_deprecated.md) --- trancepenta is sole active dance track''
+\end{excerpt}
+
+Here is the strongest finding in this report. The official loader reads \textit{``the first 200 lines of MEMORY.md, or the first 25KB, whichever comes first \ldots\ Content beyond that threshold is not loaded at session start.''}\enote{Claude Code docs, Memory: \url{https://code.claude.com/docs/en/memory}.} Your index is \textbf{191 lines}. The next nine lines you add are the last that load; the tenth falls silently off the end of every future session. Sections sort roughly by topic age, so what truncates first is whatever you taught me most recently. You would not get an error. You would get an assistant that mysteriously forgot only its newest lessons.
+
+Architecturally, though, this is the setup the field validates. The index-plus-topic-files design is exactly Anthropic's shipped auto-memory shape, and the file-based school it belongs to is winning on evidence, not fashion: Letta's August 2025 benchmark found that agents \textit{``simply storing conversation histories in files''} and searching them with grep-like tools scored 74.0\% on the LoCoMo memory benchmark --- beating Mem0's purpose-built graph-memory architecture at 68.5\%.\enote{Letta, ``Benchmarking AI Agent Memory: Is a Filesystem All You Need?,'' Aug 2025. \url{https://www.letta.com/blog/benchmarking-ai-agent-memory}. In the coding-agent sphere specifically, the 2026 momentum is plain-markdown, locally stored memory: claude-mem (81k stars), basic-memory, and native auto-memory --- versus database-backed systems dominating only the API-agent market.} When a community audit dismantled the most-hyped heavyweight alternative this spring (more below), its recommended replacement was precisely ``native Claude auto-memory'' --- the thing you already run.
+
+So the architecture stays. The index goes on a diet, via three patterns:
+
+\textbf{Style-guide sprawl.} Imagegen (24 entries) and recap (21) are together more than a quarter of the index, and nearly all are aesthetic rules for the same two pipelines. They want to be \textit{one} consolidated style-guide file per pipeline --- full rule list in the body, a single index line apiece. That removes $\sim$40 lines with zero information loss, since body files load whenever the topic comes up.
+
+\textbf{Finished business.} Entries describing shipped or dead work: \texttt{trancenwaltzi} deprecated, the May 18 DistroKid ticket, one-time site setups (thomaslawson, quiltnet, drvkforlife, bonneville). Delete the index line; the file stays on disk, re-indexable if the client calls back.
+
+\textbf{Near-duplicates.} Slab's 13 entries are mostly facets of one fact; pop's 26 are justified while pop is the active lane, but the one-shots (BBC Rewind, trancenwaltzi) fold into neighbors.
+
+A realistic pass lands the index at 90--100 lines: every fact preserved, headroom restored to a hundred lines instead of nine, and the standing cost nearly halved. The test for each line: \textit{would a session that needs this fact also mention its topic by name?} If yes, the fact belongs in a body file reached by topic, not in the always-on index.
+
+\section{Skills and the Rest}
+
+Fourteen skills are listed with one-to-three-line descriptions --- most are harness built-ins. The skill block's hidden weight is the \texttt{claude-api} entry, which carries a paragraph-length activation rulebook in every prompt:
+
+\begin{excerpt}
+``TRIGGER --- read BEFORE opening the target file; don't skip because it `looks like a one-liner' --- whenever: the prompt names Claude/Anthropic in any form \ldots\ the user asks about an LLM (pricing/model choice/limits/caching) --- never answer from memory \ldots''
+\end{excerpt}
+
+It is a built-in, so not yours to trim. The skills \textit{mechanism}, though, is worth dwelling on, because it is the pattern the whole field converged on this year --- and the pattern your memory index already follows: name and description always resident, body loaded on demand.
+
+\acbreak
+
+\section{The Field: What a Year of Research Says}
+
+Everything above gains its meaning from a body of work that accumulated fast between mid-2025 and now. Four findings matter most.
+
+\textbf{Irrelevant context actively hurts.} Chroma's ``Context Rot'' study (July 2025) tested 18 models and found performance \textit{``grows increasingly unreliable as input length grows,''} far below context-window limits, even on simple tasks. The killer result for standing context: across all models, the same question answered from a focused $\sim$300-token prompt significantly beat the identical question buried in a $\sim$113k-token context --- and \textit{``Claude models exhibited the most pronounced performance gap between focused and full prompts.''}\enote{Chroma Research, ``Context Rot: How Increasing Input Tokens Impacts LLM Performance,'' July 2025. \url{https://www.trychroma.com/research/context-rot}. Even a single distractor measurably reduced performance. Anthropic's own engineering guidance cites these findings: ``Context must be treated as a finite resource with diminishing marginal returns.''} Your 25--28k of standing context is not free even when it is ignored.
+
+\textbf{Instructions have a budget.} The IFScale benchmark (July 2025) measured how many simultaneous instructions models can follow: frontier models hold up to roughly 150--200 before compliance decays --- linearly, with a bias toward earlier instructions --- and even the best managed only 68\% accuracy at 500.\enote{Jaroslawicz et al., ``How Many Instructions Can LLMs Follow at Once?,'' arXiv:2507.11538, July 2025. HumanLayer's widely-cited gloss (Nov 2025): Claude Code's system prompt already contains $\sim$50 instructions, so ``your CLAUDE.md competes for a limited instruction budget''; their own root file is under sixty lines, and ``general consensus is that $<$300 lines is best, and shorter is even better.''} This is the mechanism behind the official warning that bloated instruction files cause ignored rules --- the model is not being lazy; it is rationing attention you spent elsewhere.
+
+\textbf{Tool definitions were the biggest waste, and deferral fixed it.} Anthropic's November 2025 ``Code execution with MCP'' post documented agents burning \textit{``hundreds of thousands of tokens before reading a request''} and showed a workflow dropping from 150,000 tokens to 2,000 --- 98.7\% --- by loading tools on demand.\enote{Anthropic, ``Code execution with MCP,'' Nov 2025. \url{https://www.anthropic.com/engineering/code-execution-with-mcp}. Simon Willison's gloss: GitHub's official MCP server ``famously consumes tens of thousands of tokens of context'' before any work happens; his personal resolution was to drop MCP for CLI tools entirely.} The Tool Search release the same month put numbers on accuracy too: deferring irrelevant tools took Opus 4 from 49\% to 74\%. The strategy stack of late 2025 --- skills (October), code-execution-MCP (November), tool search (November) --- all converge on one principle: \textit{keep names resident, defer bodies}. Your harness already does this; your memory index independently reinvented it.
+
+\textbf{Practitioners run a utilization ceiling.} The operational folklore, from HumanLayer's Dex Horthy: degradation sets in around 40\% context utilization --- \textit{``shoot to keep it under 40\%, and if you get up to 60\%, think about wrapping it up.''} Scott Spence's measured all-servers-on Claude Code session started at 72\% utilization before the first message; selective enablement halved it.\enote{Scott Spence, ``Optimising MCP Server Context Usage in Claude Code,'' Sept 2025. \url{https://scottspence.com/posts/optimising-mcp-server-context-usage-in-claude-code} --- ``my MCP tools were consuming 66,000+ tokens of context before I even started a conversation.'' His follow-up tool, McPick, toggles servers per task --- the exact remedy proposed here for the chicken/panda DevTools instances.}
+
+\section{The Field: What GitHub Says}
+
+The open-source sphere ran the same experiment at population scale, and the star counts are a referendum. The 2026 winners are all load-on-demand architectures: \texttt{obra/superpowers} ($\sim$224k stars in eight months --- a skills framework whose orchestrator \textit{``loads only the relevant skill for each phase''}), Anthropic's official skills repo ($\sim$149k), GitHub's spec-kit ($\sim$111k, context generated per-feature on demand), and claude-mem ($\sim$82k, hook-captured session memory compressed into searchable archives). The always-loaded persona frameworks plateaued: SuperClaude ($\sim$23k) was measured \textit{by its own users} at 23.7k tokens of resident framework files --- an issue thread trimmed it to 15.8k and still found the framework eating a fifth of the window before any work.\enote{SuperClaude\_Framework issue \#286; star counts pulled live from the GitHub API, June 10, 2026.}
+
+The cautionary tale of the season is claude-flow/Ruflo ($\sim$59k stars): an April 2026 community audit titled \textit{``300+ MCP Tools --- 99\% Theater, 1\% Real, 5x Token Waste''} found roughly ten of its three hundred tools did anything, agent ``swarms'' that wrote inert status entries, and an 8.7~MB context file re-read on every message, injecting the same memory pattern five times per turn. The audit's recommended replacement stack: code-navigation MCP, Bash, and \textit{``native Claude auto-memory \ldots\ zero token waste.''}\enote{roman-rr, ``Ruflo / Claude-Flow Audit,'' gist, April 2026. \url{https://gist.github.com/roman-rr/ed603b676af019b8740423d2bb8e4bf6}. The maintainer acknowledged the findings and shipped fixes in v3.6.22.} The minimalist counter-movement has its own slogan, from OpenClaw's Peter Steinberger: \textit{``MCPs were a mistake. Bash is better.''} You, with a repo full of \texttt{toolchain/} CLI scripts and one memory directory, are closer to the audit's recommended endpoint than most of the 59,000 people who starred the framework.
+
+One more datapoint lands close to home: the system-reminder wrapper Claude Code puts around your CLAUDE.md --- \textit{``this context may or may not be relevant to your tasks''} --- is itself cited in the field literature as evidence that the harness hedges on your behalf.\enote{HumanLayer, ``Writing a good CLAUDE.md,'' Nov 2025. \url{https://www.humanlayer.dev/blog/writing-a-good-claude-md}. I can confirm the wrapper is present, verbatim, in the prompt this essay describes.} Your instructions arrive pre-disclaimed. The shorter and sharper they are, the more they survive the hedge.
+
+\section{Scorecard}
+
+Measuring this setup against the field's published numbers and norms:
+
+\begin{center}
+\small
+\begin{tabular}{lp{3.4in}}
+\toprule
+\textbf{Layer} & \textbf{Verdict} \\
+\midrule
+Memory architecture & \textbf{A.} Index + on-demand files is the shipped Anthropic design and the benchmark-winning school (files+grep 74.0\% vs.\ graph-memory 68.5\% on LoCoMo). \\
+Memory index size & \textbf{C.} 191 of 200 loadable lines used; nine-line headroom before silent truncation of newest entries. Consolidation to $\sim$95 lines restores it. \\
+\texttt{CLAUDE.md} & \textbf{B$-$.} Content is high-signal, but 428 lines is 2.1$\times$ the official target, in the range where the docs say rules get lost. Top-decile size among measured big repos. \\
+Tool roster & \textbf{B.} Deferral matches 2025--26 best practice (85\%+ savings, accuracy gains); the 3$\times$ chrome-devtools duplication is a documented wrong-tool-selection hazard. \\
+Overall posture & \textbf{B$+$.} Far leaner than the framework-maximalist sphere; the remaining waste is concentrated in three known, fixable places. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\acbreak
+
+If you do only three things, the research says do these, in this order. First, consolidate the imagegen and recap memory sections into two style-guide files and sweep the dead projects --- not just for token savings but because the index is nine lines from the truncation cliff, and what falls off first is whatever you taught me last. Second, halve \texttt{CLAUDE.md} by converting example code to pointers and piece-authoring material to path-scoped rules; the official target is under 200 lines, and the instruction-budget research says every rule past the budget costs compliance on the rules that matter, like the one that keeps \texttt{ac-os upload} from stranding your tree. Third, stop auto-connecting the chicken and panda DevTools servers in sessions that do not need them --- per-task MCP enablement is now standard practice with tooling built around it, and it removes both the token cost and the triplicate-name ambiguity at once.
+
+None of this is a rebuild. The architecture you converged on --- plain files, an index, on-demand bodies, CLI tools over tool sprawl --- is the one the field spent 2025 discovering and benchmarking its way toward. The work left is editorial, and you are nine lines from needing it anyway.
+
+\vspace{2em}
+{\small\color{acgray}\noindent Written by Claude (Fable 5) inside the session it describes, at @jeffrey's request, June 10, 2026. Local measurements taken live (\texttt{wc} on the markdown files, hand-counts on the prompt); field research gathered the same day by three parallel research agents; GitHub star counts and file sizes pulled from the GitHub API at retrieval time. Excerpts are verbatim from the live context. Second edition, expanded with excerpts and field comparison.}
+
+\end{document}
