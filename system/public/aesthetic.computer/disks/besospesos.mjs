@@ -204,9 +204,21 @@ function reset() {
   floaters = [];
 }
 
-function boot({ hud }) {
+// 🖼️ Scene art — gpt-image-2 colored-pencil backdrops (first-person pov of
+// the domestic world) + cutout standing figures, composited at paint time.
+// Lives on the assets bucket; the parametric pixel portraits remain as the
+// select-screen identity and the fallback while art loads.
+const ART_BASE = "https://assets.aesthetic.computer/besospesos";
+let art = {}; // key -> { bg, fg } bitmaps as they arrive
+
+function boot({ hud, net: { preload } }) {
   reset();
   hud?.label?.(""); // hide the top-left corner label (nom-style; the game owns its HUD)
+  CEOS.forEach((c) => {
+    art[c.key] = art[c.key] || {};
+    preload(`${ART_BASE}/bg-${c.key}.webp`).then((f) => (art[c.key].bg = f.img)).catch(() => {});
+    preload(`${ART_BASE}/fg-${c.key}.webp`).then((f) => (art[c.key].fg = f.img)).catch(() => {});
+  });
 }
 
 // 🎵 nom-style scheduled blips.
@@ -453,7 +465,7 @@ function drawHeart(ink, box, x, y, s, col) {
   }
 }
 
-function paint({ wipe, ink, box, screen, write }) {
+function paint({ wipe, ink, box, screen, write, paste }) {
   const w = screen.width;
   const h = screen.height;
   wipe(26, 12, 28); // dusky telenovela plum
@@ -521,19 +533,48 @@ function paint({ wipe, ink, box, screen, write }) {
   }
 
   if (state === "date") {
-    const s = max(2, floor(min(w, h) / 56));
-    const px = w / 2;
-    const py = 18 + 10 * s;
+    const a = art[ceo.key] || {};
     const mood = phase === "ask" ? 0 : (ceo.dates[q].choices[picked]?.besos ?? 0) > 0 ? 1 : (ceo.dates[q].choices[picked]?.besos ?? 0) < 0 ? -1 : 0;
-    drawCEO(ink, box, ceo, px, py, s, phase === "verdict" ? (dateBesos >= KISS_AT ? 1 : -1) : mood);
-    ink(255, 235, 240).write(ceo.name, { x: px - (ceo.name.length * charW) / 2, y: py + 8 * s });
+    const sceneMood = phase === "verdict" ? (dateBesos >= KISS_AT ? 1 : -1) : mood;
+    let px = w / 2;
+    let py;
+    let heartsX, heartsY, textY;
+
+    if (a.bg && paste) {
+      // 🏠 First-person pov backdrop, cover-cropped to the screen.
+      const cover = max(w / a.bg.width, h / a.bg.height);
+      paste(a.bg, (w - a.bg.width * cover) / 2, (h - a.bg.height * cover) / 2, cover);
+      if (a.fg) {
+        // 🧍 The ceo stands in the open floor zone (center-right), idling
+        // with a slow sway; a happy beat lifts him slightly off his heels.
+        const fs = (h * 0.58) / a.fg.height;
+        const sway = Math.sin(frames / 38) * 1.5;
+        const lift = sceneMood > 0 ? -2 : 0;
+        px = w * 0.62;
+        paste(a.fg, px - (a.fg.width * fs) / 2 + sway, h * 0.72 - a.fg.height * fs + lift, fs);
+      }
+      // Dim the scene behind the dialogue band so text stays legible.
+      ink(20, 8, 20, 165).box(0, h * 0.55, w, h * 0.45);
+      py = 18; // name + hearts ride the top band over the art
+      ink(255, 235, 240).write(ceo.name, { x: 8, y: py });
+      heartsX = 8;
+      heartsY = py + 11;
+      textY = floor(h * 0.55) + 8;
+    } else {
+      // ✏️ Fallback: the parametric pixel portrait (art still loading / offline).
+      const s = max(2, floor(min(w, h) / 56));
+      py = 18 + 10 * s;
+      drawCEO(ink, box, ceo, px, py, s, sceneMood);
+      ink(255, 235, 240).write(ceo.name, { x: px - (ceo.name.length * charW) / 2, y: py + 8 * s });
+      heartsX = px - (KISS_AT * 9) / 2;
+      heartsY = py + 8 * s + 11;
+      textY = py + 8 * s + 24;
+    }
 
     // date besos meter — little hearts under the name
     for (let i = 0; i < KISS_AT; i += 1) {
-      drawHeart(ink, box, px - (KISS_AT * 9) / 2 + i * 9, py + 8 * s + 11, 1, i < dateBesos ? [255, 90, 140] : [70, 45, 60]);
+      drawHeart(ink, box, heartsX + i * 9, heartsY, 1, i < dateBesos ? [255, 90, 140] : [70, 45, 60]);
     }
-
-    const textY = py + 8 * s + 24;
 
     if (phase === "verdict") {
       const kissed = dateBesos >= KISS_AT;
