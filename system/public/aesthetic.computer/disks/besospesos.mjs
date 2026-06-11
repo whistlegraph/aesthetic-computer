@@ -204,8 +204,9 @@ function reset() {
   floaters = [];
 }
 
-function boot() {
+function boot({ hud }) {
   reset();
+  hud?.label?.(""); // hide the top-left corner label (nom-style; the game owns its HUD)
 }
 
 // 🎵 nom-style scheduled blips.
@@ -295,6 +296,7 @@ function advance() {
 }
 
 function startDate(c) {
+  state = "date";
   ceo = c;
   q = 0;
   phase = "ask";
@@ -477,8 +479,8 @@ function paint({ wipe, ink, box, screen, write }) {
       if (i % 2) drawHeart(ink, box, fx, h - fy, 1, [120, 40, 70]);
       else ink(50, 90, 50).write("$", { x: fx, y: h - fy });
     }
-    ink(255, 120, 160).write("besos", { x: cx - 5 * charW * 2, y: h / 3, size: 2 });
-    ink(140, 230, 140).write("pesos", { x: cx, y: h / 3 + 18, size: 2 });
+    ink(255, 120, 160).write("besos", { x: cx - 42, y: h / 3, size: 2 });
+    ink(140, 230, 140).write("pesos", { x: cx - 18, y: h / 3 + 18, size: 2 });
     ink(230, 210, 220).write("a ceo dating sim", { x: cx - 8 * charW / 2 - charW * 4, y: h / 3 + 44 });
     if ((frames >> 5) % 2 === 0) {
       ink(255, 230, 120).write("tap to fall in love", { x: cx - 9.5 * charW, y: h - 24 });
