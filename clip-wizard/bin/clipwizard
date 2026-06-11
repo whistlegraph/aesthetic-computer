@@ -1,0 +1,14 @@
+#!/bin/sh
+# clip-wizard/bin/clipwizard — build (cached) + launch ClipWizard.
+#
+# usage:  clip-wizard/bin/clipwizard <lane> <slug>
+#   e.g.  clip-wizard/bin/clipwizard marimba marimbaba
+#
+# Runs from anywhere; resolves the repo root from its own location so
+# --pop always points at the real pop/ directory.
+set -e
+HERE="$(cd "$(dirname "$0")" && pwd)"
+WIZ="$HERE/.."
+REPO="$(cd "$WIZ/.." && pwd)"
+swift build -c release --package-path "$WIZ" 2>&1 | grep -v '^$' | tail -2
+exec "$WIZ/.build/release/ClipWizard" "$@" --pop "$REPO/pop"

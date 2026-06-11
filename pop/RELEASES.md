@@ -15,7 +15,7 @@ All AC YouTube cuts are **1920×1080 landscape only** (vertical = Short, metadat
 |---|---|---|
 | Trancepenta | [Em_lvTYET7M](https://youtu.be/Em_lvTYET7M) | `preview-score-trancepenta-yt.mjs` (canonical side-stamps) |
 | Trancenwaltz | [RBG3k_XsfLA](https://youtu.be/RBG3k_XsfLA) | `cover-video.mjs --size 1920x1080` w/ v10b landscape illys |
-| Marimbaba (v3) | [jXdnJjdV_kY](https://youtu.be/jXdnJjdV_kY) | `preview-score-marimbaba-yt.mjs` — vignette removed (mirrors trancepenta-yt fix); replaces v2 `X63Ni-Lb_Kc` (deleted 2026-05-26, edges were crushed by the leftover contrast vignette) |
+| Marimbaba (v4) | [EqX7Lkr5aRs](https://youtu.be/EqX7Lkr5aRs) | `motion-score-marimbaba-yt.mjs` — FIRST MOTION CUT: Seedance 2.0 image-to-video shots (gen-motion-marimbaba.mjs, fal.ai) as the background, full preview-score chrome on top, capital-M side badges; replaces v3 `jXdnJjdV_kY` (panel Ken-Burns build, deleted 2026-06-11) which replaced v2 `X63Ni-Lb_Kc` (deleted 2026-05-26, vignette edge-crush) |
 | Helpabeach (v3) | [KVynj0RAwg8](https://youtu.be/KVynj0RAwg8) | `preview-score-helpabeach-yt.mjs` — multiply vignette half of `drawBacklight` dropped (warm sunset screen-glow kept); replaces v2 `WKdMYawwDPY` (deleted 2026-05-29 for the same side-darkening complaint) |
 | Amaythingra | [2FwOYCXS4UA](https://youtu.be/2FwOYCXS4UA) | `preview-score-yt.mjs` (big-pictures fork) — 32 cinematic beats, 3 render modes (photoreal office / glossy-grey metaverse / psychedelic AC-glitch degradation); chrome: per-slide tint, stained-glass colour-sep backlight, radial chromatic+blur edge-warp, glowy lanes, slide-blink bar, shimmer labels, kick beat-bump. Replaces `-at3b-chBbE`/`F-RhEL9OQ1g`/`KpK_MV8-178` (all deleted) |
 | Hellsine (v2) | [IjMGmPDvO4I](https://youtu.be/IjMGmPDvO4I) | `preview-score-hellsine-yt.mjs` — `drawVignette(c, v_i)` call removed from `paintSectionPanel` (function kept as dead code, mirrors marimbaba v3 / trancepenta-yt fix); replaces v1 `9KPUr6mA5e8` (deleted 2026-05-29, side-darkening crushed the felt-puppet panel edges); promoted to public 2026-05-29 |
@@ -677,25 +677,30 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
 
 ---
 
-## moronbobasleep — WIP (10-minute Bachian remix of marimbaba)
+## mombobasleep — WIP (10-minute Bachian remix of marimbaba)
 
-- **Lane:** `pop/moronboba/` · a 10:00 **remix of marimbaba**, the twin of
+- **Lane:** `pop/momboba/` · a 10:00 **remix of marimbaba**, the twin of
   marimbaba the way `pop/sleephellsine/` is the twin of `pop/hellsine/` —
   but it keeps the **actual marimba synth** (`pop/marimba/synths/marimba.mjs`),
   which is what makes it a marimbaba *remix* and not a sleephellsine clone.
   Began as a calm sleep drone; evolved (2026-06-08) into a slow, **Bachian,
   rolling, ever-transforming** piece that travels through keys over its 10
-  minutes. "Moron" = the lullaby gone dozy + dumb-slow. Part of the *pixsies*
-  body.
+  minutes. "Mom" = the lullaby rocked dozy + dumb-slow (renamed from
+  "moronbobasleep" 2026-06-10). Part of the *pixsies* body.
 - **Artist:** Aesthetic Dot Computer (intended)
-- **Status:** WIP — sound + cover iterating (last pass 2026-06-08); not yet on
-  the CDN or DistroKid.
-- **Engine:** `pop/moronboba/bin/render-moronbobasleep.mjs` — a **generative**
-  renderer (deterministic per `--seed`, default `moronbobasleep`). It opens on
-  a real **CC0 rainforest-rain** sample (Freesound #634889 "El Yunque", by
-  lkillam7 — see `assets/.sfx-credits.txt`), big then settling to a bed, and
-  then builds a contrapuntal baroque texture over a fixed **functional
-  progression** (ii–V–I / plagal / modal Eb) in F major:
+- **Status:** DistroKid-READY (2026-06-11) — sweep-free master rendered +
+  clip-tested (−16.0 LUFS / −2.6 dBTP), mp3 tagged (`title=mombobasleep ·
+  artist=Aesthetic Dot Computer · album=pixsies · date=2026`) with the new
+  cover embedded; upload assets staged in `~/Documents/Shelf/momboba/`
+  (MASTER.wav + mombobasleep.mp3 + mombobasleep-cover-3000.png). Awaiting
+  @jeffrey's ear-check + manual DistroKid upload. Not yet on the CDN.
+- **Engine:** `pop/momboba/bin/render-mombobasleep.mjs` — a **generative**
+  renderer (deterministic per `--seed`, default `mombobasleep`). 100%
+  synthesized — the CC0 rain sample + brownian/air hiss beds were REMOVED
+  (2026-06-10: too repetitive as a loop, environmental noise out of the track
+  completely); it opens on the tonic pad + drone alone, then builds a
+  contrapuntal baroque texture over a fixed **functional progression**
+  (ii–V–I / plagal / modal Eb) in F major:
   - **FIBONACCI-ARCH NIGHT NARRATIVE** — 9 movements (bars 3·5·8·13·21·34·55·34·13)
     that are chapters of a night (drift → settle → sink → deepening → dreaming
     → deep dream → THE DREAM → strange REM → dawn). Bar-counts grow to a LATE
@@ -706,42 +711,155 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
     keep it (verified: per-minute loudness swells ≈ −21 → −17 → −21 dB);
   - **per-chapter PROGRESSIONS** — each movement walks its OWN functional
     progression (calm tonic → ii–V–I → circle-ish turns → modal Eb in REM →
-    plagal homecoming), so the harmony itself journeys, not just the dynamics;
+    plagal homecoming), so the harmony itself journeys, not just the dynamics.
+    NO chord ever repeats bar-to-bar (2026-06-11, incl. cycle wraps + chapter
+    seams — verified 0/186; resty chapters alternate F with Dm/Bb, the piece
+    ends Dm → F-tail at the loop seam);
   - **broken-chord arpeggio** figuration (Prelude-in-C style), felt-soft, drawn
     from an **8-pattern library** the renderer walks through bar to bar (range
     widening from 5→7 tones into the dream) so it keeps reshaping;
-  - a **WHISTLE** top melody (MenuBand instrument-79 vibe — sine + breath +
-    fade-in vibrato + pitch scoop), voice-led + harmonised a third below;
+  - a **WHISTLE** top melody (MenuBand instrument-79 vibe — pure sine +
+    faint partials, fade-in vibrato + pitch scoop; its breath-noise whisper
+    was removed 2026-06-11 as the last "airy" texture), voice-led +
+    harmonised a third below;
   - a **walking bass**, a **quaternary (alto)** inner voice in the bigger
     movements (four-part harmony), a chord sparkle on a **Euclidean E(5,8)**
     rhythm, **triplet** flourishes deep in;
   - fractal **pterodactyl swoops** — gnarly self-similar up-then-dive screech
     runs clustering at the climax;
-  - underneath: the **felted** 5-voice drone (warbly + fizzy, phaser + stereo
-    chorus) + deep sub **wub**, **reverso sine bells** that peak on chord
-    arrivals, and a lush Schroeder reverb;
-  - **sidechain tempering** — the bass pumps the drone/sub; the arpeggio ducks
-    under the whistle (voices breathe around each other);
+  - underneath: the **felted** 5-voice drone (warbly, pure tone — stereo
+    chorus only) + a fixed-filter deep **sub**, **reverso sine bells** that
+    peak on chord arrivals, and a lush Schroeder reverb. ALL remaining filter
+    sweeps + texture were removed 2026-06-11 (the drone's 4-stage phaser
+    sweep, its felting noise-fizz, and the sub's LFO-swept lowpass "wub") —
+    the bed is now sweep-free pitched tone, moved only by chorus +
+    per-voice vibrato/drift;
+  - **sidechain tempering** — the arpeggio ducks under the whistle. (The
+    bass→bed pump was REMOVED 2026-06-11: its 45% dip-and-recover on every
+    bass onset read as a kick drum. Same day the bass mallet went from the
+    hardest strike (5 ms attack) to the softest (35 ms) — the walking bass
+    swells now, it never thumps);
   - **SOFT FELT MALLETS** throughout (long mallet contact + slow attack).
   Every render self-runs a **clip test** (sample/true peak + LUFS).
-- **Master:** `~/Documents/Shelf/moronboba/moronbobasleep-MASTER.wav`
-  (44.1 kHz / 24-bit) + `moronbobasleep.mp3` (320k). **Sleep** chain (kept
-  gentle so the dynamic arc lives): highpass 22 → +3 dB low shelf @ 85 → −1 dB
-  shelf @ 4.2 k → ONE soft slow glue comp (2:1, no leveller) → whisper of air
-  → 8 s fade-in / 14 s fade-out → **two-pass `loudnorm I=-16 TP=-1 LRA=18`**,
-  truncate to 10:00. Measured **≈ −16 LUFS / −2.6 dBTP, no clipping**. (Durable
+- **Master:** `~/Documents/Shelf/momboba/mombobasleep-MASTER.wav`
+  (44.1 kHz / 24-bit) + `mombobasleep.mp3` (320k). **Sleep** chain (kept
+  gentle so the dynamic arc lives): highpass 22 → +3 dB low shelf @ 85 →
+  −3.5 dB shelf @ 3.2 k → ONE soft slow glue comp (2:1, no leveller) →
+  2 s fade-in / 5 s fade-out guarding the loop seam → **measured LINEAR gain
+  to −16 LUFS / −1 dBTP** (loudnorm as meter only), truncate to 10:00. (Durable
   home is `~/Documents/Shelf/` — Desktop auto-cleans, [[feedback_desktop_autocleaned]].)
-- **Cover:** `pop/moronboba/out/moronbobasleep-cover.png` (1024²,
-  gpt-image-2 via `bin/gen-illy.mjs` + `moronbobasleep.illy.txt`) —
-  marimbaba's cover identity reborn as **felt characters**: needle-felted
-  wool dolls of jeffrey + Bill Gates asleep, leaning together, in a ravey
-  **dayglow night-light** glow (neon stars, glowing full moon, foveated
-  soft edges), the **white IBM Selectric** (chrome type ball, from the
-  marimbaba video prompts) under their resting hands. jeffrey's yellow
-  Sailor pen + Gates' red pen kept; embedded in the mp3.
+- **Cover:** `pop/momboba/out/mombobasleep-cover.png` (1024²,
+  gpt-image-2 via `bin/gen-illy.mjs` + `mombobasleep.illy.txt`) — replaced
+  the felted-doll naptime (2026-06-11, per @jeffrey): now a dim warm
+  phone-snapshot of the REAL jeffrey deep asleep on the couch under a
+  blanket, actual outfit from the platter refs, red glasses folded beside
+  his head, his CLOSED Citrus MacBook Neo tucked against him like a pet
+  (white-scrap whistlegraph butterfly on the lid; no screens, no text, no
+  wordmarks — diegetic amber lamp light only). Embedded in the mp3;
+  DistroKid upscale at `~/Documents/Shelf/momboba/mombobasleep-cover-3000.png`.
+- **Graphic score:** `pop/momboba/out/mombobasleep-score.png` (3200×1400,
+  also on ~/Desktop) — the whole 10:00 visualized: 9 Fibonacci movement
+  bands, the 186-chord walk, per-voice lanes (whistle/bells/sparkle/arp/
+  alto/pad/drone+sub ribbons), the baked dynamic arc, golden-section climax
+  at 6:11, loop-seam note. Built by `bin/score-extract.mjs` (verbatim
+  composition copy, verified bit-identical to struct.json) +
+  `bin/build-score.mjs` → chrome-shot. Watchable as a **scorodeon**
+  (`pop/bin/scorodeon.mjs` — NEW shared infra for ALL pop lanes, named by
+  @jeffrey, score + ὠδεῖον): a scrolling dynamic canvas on the
+  preview-score machinery (node-canvas → `spawnFFmpegEncode`) — the
+  track's event data flies past a FIXED CENTER LINE, events light up +
+  pop as they sound, chord rail, movement banners, drone ribbon, and a
+  whole-piece minimap with the dynamic arc. Any `--size` aspect (default
+  1080×1920 story-vertical), `--zoom` = seconds visible per screen.
+  Generic JSON contract; lane adapter `bin/scorodeon-data.mjs` →
+  `out/mombobasleep.scorodeon.json` → `out/mombobasleep-scorodeon.mp4`.
 - **Next:** ear-check the master → CDN
-  (`assets.aesthetic.computer/pop/moronbobasleep.jpg` / `.mp3`) →
+  (`assets.aesthetic.computer/pop/mombobasleep.jpg` / `.mp3`) →
   DistroKid → promote this entry to **RELEASED**.
+
+---
+
+## nullabye — WIP (lullaby carved from cancelled noise)
+
+- **Lane:** `pop/nullabye/` · 1:19 · 76 BPM · C major 4/4 · 24 bars.
+  Technique study after Andy Brewer's "this song has no instruments in it"
+  ([_Rk-hmIMv6I](https://youtu.be/_Rk-hmIMv6I)): two copies of pink noise,
+  one phase-inverted (sum = perfect silence), notes carved by automating
+  peaking-EQ bells on one copy — what you hear is the cancellation
+  *breaking*. A 24-band pool (matching the video's 24 EQ points, enforced
+  with a throw) acts as a breathy noise-sine polysynth; pink noise +
+  constant-Q bells give equal voice energy at any pitch. nullabye uses
+  15 bands, peak 10 sounding. Part of the *pixsies* body.
+- **Artist:** Aesthetic Dot Computer (intended)
+- **Engine:** `pop/nullabye/bin/render-nullabye.mjs` — `--proof` renders
+  all bands flat and asserts bit-exact digital silence (verified). Sections:
+  breaths (wide-bell swells that demo the trick) → lullaby-a (pads + Q 55
+  whistle lead + heartbeat 54 Hz kick) → lullaby-b (+ bass roots, 8.2 kHz
+  hats, Q 70 sparkles) → veil-lifts (250 Hz → 6 kHz wide sweep, last lone
+  whistle, EQ goes flat — ends in literal silence). Lead pitches
+  Goertzel-verified (E5/D5 exact). −21.4 LUFS integrated, LRA 11.2 —
+  deliberately hushed; revisit level if it ships.
+- **Cut 2: nuellaby** (`bin/render-nuellaby.mjs` → `out/nuellaby.mp3`,
+  exactly 2:00 — 38 bars @ 76 BPM = 120.0 s, −16.2 LUFS) — the
+  complexity-arch cut, named by @jeffrey (nullabyte → noellabye →
+  **nuellaby**): the EQ rack doubles 2→4→8→16→32→64→128, then folds
+  back down 64→2 (2 bars per halving) and empties — band count as the
+  musical-complexity arc. Full spectral-zone carve per @jeffrey: REAL
+  kick (110→42 Hz pitch-drop bell) + closed/open hats + snare-shh +
+  rim + shaker 16ths + tom fills + ticks + risers, plus drones / floor
+  pad / octave pads / arps / twinkle clouds / detunes; ×128 keystone =
+  12-partial harmonic choir + 21-band diatonic halo. Engine adds
+  **lanes** (persistent monophonic EQ points; consecutive notes drag the
+  bell to a new frequency — per-lane events must be inserted in time
+  order or the mono-clip silences the earlier note) + a per-stage cap
+  audit that throws past each power of two; measured arch
+  `2/2 4/4 8/8 16/16 30/32 51/64 92/128 49 29 15 8 4 2`, silence proof
+  passes with all 92 lanes flat.
+- **C engine (2026-06-11):** `pop/nullabye/c/nullnoise.c` — generic
+  cancelled-noise renderer (hellsine-style split: JS composes + bakes a
+  score, C does all DSP). `render-nuellaby.mjs --bake` → score.txt →
+  `c/run-c.mjs <score> --out x.mp3 --master lullaby|techno`. Verified vs
+  the JS reference by `c/compare.mjs`: diff −145 dB below signal
+  (libm-ulp territory). `--proof` works in C too. nuellaby itself
+  evolved to the **accumulation form** (no stages: 85 points join ~1 per
+  beat, bloom, shed ~2/beat LIFO; veil bed runs throughout; key journey
+  C→Eb→F→C; per-bar loudness ride). CRITICAL DSP LESSON: the EQ chain is
+  SERIAL, so two bells at the same frequency ADD their dB — detuned pad
+  doubles (+19+13+13=+45) and a root-partial choir both blew up the mix
+  this way; layers must own disjoint frequencies.
+- **Next:** @jeffrey ear-check both cuts → decide if one grows into a
+  full single (more sections, maybe formant-vowel bells for a "choir" à
+  la [[feedback_chillwave_formant_voice]]) or they stay studies.
+
+---
+
+## teknull — WIP (fast techno, 32 EQ points, C engine)
+
+- **Lane:** `pop/teknull/` · 2:00 exactly (70 bars @ 140 BPM) · A minor ·
+  carved-noise techno on a strict **32-EQ-point budget** (uses 27/32).
+  Composition in `bin/render-teknull.mjs`, ALL DSP through the shared C
+  engine (`pop/nullabye/c/nullnoise.c`) with the `techno` master preset.
+  The technique is home turf here: the **clap is literally the noise**
+  (wide 2.3k bell on 2+4), the **acid line is one monophonic EQ point**
+  (303 slides = freqEnd glides, accents = gain, note-off = mono-cut),
+  kick = 115→44 Hz pitch-drop bell, offbeat 55 Hz sub "oontz".
+  Form: intro → build → acid → drop A (+stabs, lead hook) → breakdown
+  (kick out, chord swells, rising noise-wash, subdrop boom) → drop B
+  (+ride 16ths, acid echo 8va) → outro. −14.8 LUFS integrated.
+- **Artist:** Aesthetic Dot Computer (intended)
+- **Groove + bass + harmony pass (2026-06-11, per @jeffrey):** soft kicks
+  from bar 0 (+22 dB slow-attack → full thump by bar 8); deep bass =
+  longer kick tail (115→38, 320 ms) + stacked kickSub body (52→40) +
+  45 Hz master bell; swing on odd 16ths (SW=0.08) + eager hats / dragged
+  claps + rests in the acid line; lead riff rides whole drops, lifts a
+  5th in back halves. NEVER-SILENT floor: veil/drone/air beds as 8-BAR
+  events — per-bar bed events notch −35 dB at every bar seam via the
+  mono-cut (verified zero sub-−30 LUFS momentary windows; floor then
+  trimmed ~3.5 dB per "too loud"). **Harmony channel:** engine `group`
+  support = second independent noise pair, residues sum in PARALLEL (no
+  serial dB collision) — voice-led Am/F/C/G pads + top-voice double,
+  exactly 32/32 points.
+- **Next:** @jeffrey ear-check → tune acid pattern/drops by ear.
 
 ---
 

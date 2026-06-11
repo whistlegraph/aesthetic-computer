@@ -60,6 +60,7 @@ final class WaveWizardAppDelegate: NSObject, NSApplicationDelegate {
     var wizard: WizardController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        DockIcon.install(prefix: "wavewizard")
         let args = CommandLine.arguments
         guard args.count >= 2 else {
             print("usage: WaveWizard <spec.json>")
