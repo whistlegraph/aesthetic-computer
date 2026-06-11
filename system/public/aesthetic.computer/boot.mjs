@@ -1886,7 +1886,7 @@ window.addEventListener("message", (event) => {
 // live there (push / notificationclick events). Server side: shared/push.mjs.
 
 const AC_VAPID_PUBLIC_KEY =
-  "BKyIh2AHGF417ZQSlcYoR5Enixh_EAKtmXWMlw7dMtg8NonwBm7O8uCrGxHCOogbiKcWo-UqjSZmjUy6r2L5JzY";
+  "BIgGeN262eCK5bDaTdifFEsyvgcd6wwRztK_H7m6uhM49egJZsUKz2tiTVgjlD-JypqyVnvTqL3iZK3L4tAeFKk";
 
 // Stable per-install identity so devices can be individually addressed
 // (`tell @handle ... device:phone`, /api/push { device }).

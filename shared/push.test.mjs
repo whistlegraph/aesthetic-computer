@@ -41,9 +41,16 @@ const body = encryptWebPush(plaintext, uaPublic, authSecret, { asJwk, salt });
 check("RFC 8291 aes128gcm test vector", body.toString("base64url"), expectedBody);
 
 // — VAPID JWT shape (signature verifies against the public key) —
-process.env.VAPID_PUBLIC_KEY ||=
-  "BKyIh2AHGF417ZQSlcYoR5Enixh_EAKtmXWMlw7dMtg8NonwBm7O8uCrGxHCOogbiKcWo-UqjSZmjUy6r2L5JzY";
-process.env.VAPID_PRIVATE_KEY ||= "-Ltkk_V0ndbYgrhUdjtJc4dLIhGKoRcu2hFo5tdosmc";
+// Ephemeral test keypair, never a real one: production keys live only in the
+// vault env files.
+const testPair = crypto.generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+const testJwk = testPair.privateKey.export({ format: "jwk" });
+process.env.VAPID_PUBLIC_KEY = Buffer.concat([
+  Buffer.from([4]),
+  Buffer.from(testJwk.x, "base64url"),
+  Buffer.from(testJwk.y, "base64url"),
+]).toString("base64url");
+process.env.VAPID_PRIVATE_KEY = testJwk.d;
 
 // vapidJWT isn't exported; verify indirectly by reconstructing one the same way.
 const pub = Buffer.from(process.env.VAPID_PUBLIC_KEY, "base64url");
