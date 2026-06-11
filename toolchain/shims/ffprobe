@@ -1,0 +1,13 @@
+#!/bin/sh
+# QoS shim — run ffprobe at utility priority so long renders never starve
+# the UI (or a Claude session) on a RAM/core-constrained machine. Utility
+# QoS still uses every idle core, so an unloaded render is no slower; it
+# only yields under contention. Wired into PATH ahead of homebrew by
+# ~/.config/fish/config.fish on hosts that opt in. The absolute REAL path
+# (not `command -v`) is what prevents the shim from exec'ing itself.
+REAL=/opt/homebrew/bin/ffprobe
+[ -x "$REAL" ] || REAL=/usr/local/bin/ffprobe
+if [ -x /usr/sbin/taskpolicy ]; then
+  exec /usr/sbin/taskpolicy -c utility "$REAL" "$@"
+fi
+exec "$REAL" "$@"

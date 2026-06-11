@@ -155,6 +155,14 @@ async function run(cmd, args, { input, timeout = 30_000 } = {}) {
   return { stdout: stdout.trim(), stderr: stderr.trim() };
 }
 
+// Every tool registers on a fresh McpServer from this factory. A factory —
+// not a module-level singleton — because the shared HTTP daemon mode at the
+// bottom builds one server per request (the SDK's stateless pattern):
+// parallel Claude sessions would collide JSON-RPC request ids on a shared
+// instance. Registration only stores closures, so a build per call is cheap.
+// The body keeps top-level indentation to leave the tool definitions' diff
+// history readable.
+function buildServer() {
 const server = new McpServer({
   name: "mail",
   version: "1.0.0",
@@ -470,6 +478,58 @@ server.tool(
   },
 );
 
-// Start
-const transport = new StdioServerTransport();
-await server.connect(transport);
+return server;
+}
+
+// Start — stdio by default (Claude spawns one process per session), or a
+// shared daemon with `--http [port]` so any number of parallel sessions
+// reuse ONE resident process (wired up by toolchain/mcp/install-daemons.sh
+// + a local-scope http entry in ~/.claude.json). Stateless streamable
+// HTTP: fresh server + transport per POST, closed when the response ends.
+const httpFlag = process.argv.indexOf("--http");
+if (httpFlag !== -1) {
+  const port = Number(process.argv[httpFlag + 1]) || 7765;
+  const { StreamableHTTPServerTransport } = await import(
+    "@modelcontextprotocol/sdk/server/streamableHttp.js"
+  );
+  const { createServer } = await import("node:http");
+  createServer(async (req, res) => {
+    if (req.method !== "POST") {
+      res.writeHead(405, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({
+        jsonrpc: "2.0",
+        error: { code: -32000, message: "stateless server: POST only" },
+        id: null,
+      }));
+      return;
+    }
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    try {
+      const server = buildServer();
+      const transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: undefined,
+        enableJsonResponse: true,
+      });
+      res.on("close", () => {
+        transport.close();
+        server.close();
+      });
+      await server.connect(transport);
+      await transport.handleRequest(req, res, JSON.parse(body));
+    } catch (err) {
+      if (!res.headersSent) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({
+          jsonrpc: "2.0",
+          error: { code: -32603, message: err.message },
+          id: null,
+        }));
+      }
+    }
+  }).listen(port, "127.0.0.1", () => {
+    console.error(`📬 mail-mcp shared daemon on http://127.0.0.1:${port}`);
+  });
+} else {
+  await buildServer().connect(new StdioServerTransport());
+}

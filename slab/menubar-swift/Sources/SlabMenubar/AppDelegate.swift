@@ -589,6 +589,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ShellRunner.run("/usr/bin/open", args: [Paths.soundsDir])
     }
 
+    @objc func openActivityMonitor() {
+        ShellRunner.run("/usr/bin/open", args: ["-a", "Activity Monitor"])
+    }
+
     /// Open iTerm2 running the RFA ("request for audio") wizard for a /pop
     /// lane — a per-note loop that plays the pitch, shows the word, records
     /// you singing it, then recompiles the track + plays it back. It's

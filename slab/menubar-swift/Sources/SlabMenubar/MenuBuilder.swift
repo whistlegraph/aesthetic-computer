@@ -39,6 +39,7 @@ enum MenuBuilder {
         menu.autoenablesItems = false
 
         menu.addItem(info("Status: \(state.statusLine)"))
+        menu.addItem(buildSystem(state: state, target: target))
         menu.addItem(.separator())
 
         appendPopRenders(to: menu, state: state)
@@ -138,6 +139,50 @@ enum MenuBuilder {
         }
     }
 
+    /// Whole-machine RAM/swap/load line with a submenu of the top
+    /// memory hogs — the "what's cutting into resources" view for the
+    /// 8 GB Neo. The title goes orange once SystemStats.pressure trips
+    /// (free < 15% or swap > 90% full) so a squeeze is visible at a
+    /// glance before the machine starts thrashing.
+    private static func buildSystem(state: StateSnapshot, target: AppDelegate) -> NSMenuItem {
+        let s = state.system
+        var bits: [String] = []
+        if s.memFreePct > 0 { bits.append("mem \(s.memFreePct)% free") }
+        if s.swapTotalMB > 0 {
+            bits.append(String(format: "swap %.1f/%.0fG",
+                               Double(s.swapUsedMB) / 1024, Double(s.swapTotalMB) / 1024))
+        }
+        if s.loadAvg > 0 { bits.append(String(format: "load %.1f", s.loadAvg)) }
+        let title = bits.isEmpty ? "System: —" : bits.joined(separator: " · ")
+
+        let parent = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        parent.isEnabled = true
+        var attrs: [NSAttributedString.Key: Any] = [.font: renderFont]
+        if s.pressure { attrs[.foregroundColor] = NSColor.systemOrange }
+        parent.attributedTitle = NSAttributedString(string: title, attributes: attrs)
+
+        let sub = NSMenu()
+        sub.autoenablesItems = false
+        for hog in s.hogs {
+            let mem = "\(hog.rssMB)M".padding(toLength: 6, withPad: " ", startingAt: 0)
+            let cpu = String(format: "%3.0f%%", hog.cpu)
+                .padding(toLength: 6, withPad: " ", startingAt: 0)
+            let row = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+            row.isEnabled = false
+            row.attributedTitle = NSAttributedString(
+                string: "\(mem)\(cpu)\(hog.name)",
+                attributes: [.font: renderFont])
+            sub.addItem(row)
+        }
+        if !s.hogs.isEmpty { sub.addItem(.separator()) }
+        let open = item("Open Activity Monitor",
+                        selector: #selector(AppDelegate.openActivityMonitor),
+                        target: target)
+        sub.addItem(open)
+        parent.submenu = sub
+        return parent
+    }
+
     /// Identifier prefix used to tag each pop-render NSMenuItem so
     /// `updatePopRenders(in:state:)` can find and rewrite it in place
     /// while the menu is open. Full identifier = prefix + heartbeat id.
@@ -225,7 +270,11 @@ enum MenuBuilder {
             countText = ""
         }
         let countCell = countText.padding(toLength: 11, withPad: " ", startingAt: 0)
-        return "\(type)\(bar)  \(pctText)  \(countCell)\(r.label)"
+        // Driver-process resident memory, when the heartbeat pid is alive —
+        // ties each running job to what it actually costs in RAM.
+        let memCell = (r.rssMB.map { "\($0)M" } ?? "")
+            .padding(toLength: 7, withPad: " ", startingAt: 0)
+        return "\(type)\(bar)  \(pctText)  \(countCell)\(memCell)\(r.label)"
     }
 
     private static func buildTailnet(state: StateSnapshot, target: AppDelegate) -> NSMenuItem {

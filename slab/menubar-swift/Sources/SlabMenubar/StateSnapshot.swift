@@ -12,6 +12,33 @@ struct PopRender {
     var done: Int?          // e.g. frame 142, panel 3
     var total: Int?         // e.g. of 240, of 11
     var startedAt: Double   // ms since epoch
+    /// Resident memory of the writer pid, sampled at read time via
+    /// proc_pid_rusage — driver process only, not its ffmpeg/python
+    /// children (those surface in the system hogs list instead).
+    var rssMB: Int? = nil
+}
+
+/// One heavyweight process for the "System" hogs submenu.
+struct SystemHog {
+    var pid: Int
+    var rssMB: Int
+    var cpu: Double
+    var name: String
+}
+
+/// Whole-machine telemetry for the 8 GB Neo — answers "what's cutting
+/// into RAM/CPU right now" from the menubar instead of Activity Monitor.
+struct SystemStats {
+    var memFreePct: Int = 0      // kern.memorystatus_level (what memory_pressure -Q prints)
+    var swapUsedMB: Int = 0
+    var swapTotalMB: Int = 0
+    var loadAvg: Double = 0      // 1-minute load
+    var hogs: [SystemHog] = []   // top processes by resident memory
+    /// Red-flag threshold: the machine is about to start thrashing.
+    var pressure: Bool {
+        memFreePct > 0 && memFreePct < 15
+            || swapTotalMB > 0 && swapUsedMB * 10 >= swapTotalMB * 9
+    }
 }
 
 /// How aggressively to shrink the tile font. Far = "comfortable from
@@ -89,6 +116,9 @@ struct StateSnapshot {
     /// Deskflow KVM — present only on machines with a deskflow.json; the
     /// menu shows a status line + Start/Stop/Restart for the LaunchAgent.
     var deskflow: DeskflowState = DeskflowState()
+    /// Whole-machine RAM/swap/load + top hogs, refreshed each gather()
+    /// tick so resource squeezes are visible the moment the menu opens.
+    var system: SystemStats = SystemStats()
     /// True when slab-call-record is actively capturing a meeting WAV.
     /// Populated from ~/.ac-meeting-recording.json — the recorder script
     /// owns the state file; the menubar only reads it.
@@ -145,6 +175,7 @@ struct StateSnapshot {
         s.tailnetPeers = TailnetPeer.query()
         s.claudeSessions = ClaudeSessionReader.active()
         s.popRenders = readPopRenders()
+        s.system = readSystemStats()
         let (rec, recPath) = readCallRecordingState()
         s.callRecording = rec
         s.callRecordingPath = recPath
@@ -226,9 +257,68 @@ struct StateSnapshot {
                 pct: (pctRaw is NSNull) ? nil : (pctRaw as? Int),
                 done: (doneRaw is NSNull) ? nil : (doneRaw as? Int),
                 total: (totalRaw is NSNull) ? nil : (totalRaw as? Int),
-                startedAt: (obj["startedAt"] as? Double) ?? 0))
+                startedAt: (obj["startedAt"] as? Double) ?? 0,
+                rssMB: residentMB(of: pid)))
         }
         return out.sorted { $0.startedAt < $1.startedAt }
+    }
+
+    /// Resident set size of a same-user process in MB, or nil if the pid
+    /// is gone / not ours. In-process syscall — no fork, safe per tick.
+    private static func residentMB(of pid: Int) -> Int? {
+        guard pid > 0 else { return nil }
+        var usage = rusage_info_current()
+        let rc = withUnsafeMutablePointer(to: &usage) { ptr -> Int32 in
+            ptr.withMemoryRebound(to: (rusage_info_t?).self, capacity: 1) {
+                proc_pid_rusage(pid_t(pid), RUSAGE_INFO_CURRENT, $0)
+            }
+        }
+        guard rc == 0 else { return nil }
+        return Int(usage.ri_resident_size / 1_048_576)
+    }
+
+    /// Whole-machine telemetry. The free percentage is
+    /// kern.memorystatus_level — the same number `memory_pressure -Q`
+    /// prints — and swap comes from vm.swapusage; both are in-process
+    /// sysctls. The hogs list is one `ps` fork (memory-sorted), which is
+    /// in line with the ioreg/pmset/pgrep forks gather() already pays.
+    private static func readSystemStats() -> SystemStats {
+        var stats = SystemStats()
+
+        var level: Int32 = 0
+        var levelSize = MemoryLayout<Int32>.size
+        if sysctlbyname("kern.memorystatus_level", &level, &levelSize, nil, 0) == 0 {
+            stats.memFreePct = Int(level)
+        }
+
+        var swap = xsw_usage()
+        var swapSize = MemoryLayout<xsw_usage>.size
+        if sysctlbyname("vm.swapusage", &swap, &swapSize, nil, 0) == 0 {
+            stats.swapUsedMB = Int(swap.xsu_used / 1_048_576)
+            stats.swapTotalMB = Int(swap.xsu_total / 1_048_576)
+        }
+
+        var loads = [Double](repeating: 0, count: 3)
+        if getloadavg(&loads, 3) >= 1 {
+            stats.loadAvg = loads[0]
+        }
+
+        if let out = ShellRunner.output(
+            "/bin/ps", args: ["axm", "-o", "rss=,pcpu=,pid=,comm="], timeout: 2) {
+            for line in out.split(separator: "\n").prefix(6) {
+                let cols = line.trimmingCharacters(in: .whitespaces)
+                    .split(separator: " ", maxSplits: 3, omittingEmptySubsequences: true)
+                guard cols.count == 4,
+                      let rssKB = Int(cols[0]),
+                      let cpu = Double(cols[1]),
+                      let pid = Int(cols[2])
+                else { continue }
+                let name = (String(cols[3]) as NSString).lastPathComponent
+                stats.hogs.append(SystemHog(
+                    pid: pid, rssMB: rssKB / 1024, cpu: cpu, name: name))
+            }
+        }
+        return stats
     }
 
     private static func parseLidState() -> Bool {
