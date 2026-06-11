@@ -1,10 +1,11 @@
-// tell, 26.04.23
+// tell, 26.04.23 → 26.06.11 (FCM → standard push migration)
 // Send a one-way "tell" from one AC user to another. The recipient gets a
-// push notification on every registered device and the message is stored
-// in the `tells` collection as their inbox.
+// push notification on every registered device — or just one, when `device`
+// names a deviceId or label — and the message is stored in the `tells`
+// collection as their inbox.
 //
 // POST /api/tell
-//   body: { to: "@handle", text: "message" }
+//   body: { to: "@handle", text: "message", device?: "deviceId-or-label" }
 //   headers: Authorization: Bearer <Auth0 token>
 
 import {
@@ -16,9 +17,7 @@ import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 import { filter } from "../../backend/filter.mjs";
 import { shell } from "../../backend/shell.mjs";
-
-import { initializeApp, cert, getApps } from "firebase-admin/app";
-import { getMessaging } from "firebase-admin/messaging";
+import { sendToUser } from "../../../shared/push.mjs";
 
 const MAX_TEXT_LENGTH = 500;
 
@@ -67,78 +66,32 @@ export async function handler(event) {
       when,
     });
 
-    // Look up recipient's registered push tokens.
-    const pushTokens = await database.db
-      .collection("push-tokens")
-      .find({ user: recipientSub })
-      .project({ _id: 0, token: 1 })
-      .toArray();
-    const tokens = pushTokens.map((d) => d.token).filter(Boolean);
-
-    let pushSummary = { attempted: 0, succeeded: 0, failed: 0 };
-
-    if (tokens.length > 0) {
-      const { got } = await import("got");
-      const serviceAccount = (
-        await got(process.env.GCM_FIREBASE_CONFIG_URL, { responseType: "json" })
-      ).body;
-      if (getApps().length === 0) {
-        initializeApp({ credential: cert(serviceAccount) });
-      }
-
-      const message = {
-        notification: {
+    // Push to the recipient's registered devices (all, or one if addressed).
+    let pushSummary = { attempted: 0, succeeded: 0, failed: 0, pruned: 0 };
+    try {
+      pushSummary = await sendToUser(
+        database.db,
+        recipientSub,
+        {
           title: `${fromHandle} told you`,
           body: text,
+          data: {
+            kind: "tell",
+            from: fromHandle || "",
+            tellId: insertResult.insertedId.toString(),
+            piece: "chat",
+          },
         },
-        data: {
-          kind: "tell",
-          from: fromHandle || "",
-          tellId: insertResult.insertedId.toString(),
+        {
+          device:
+            typeof body.device === "string" && body.device
+              ? body.device
+              : undefined,
         },
-        apns: {
-          payload: { aps: { sound: "default", "mutable-content": 1 } },
-        },
-      };
-
-      try {
-        const response = await getMessaging().sendEachForMulticast({
-          tokens,
-          ...message,
-        });
-        pushSummary = {
-          attempted: tokens.length,
-          succeeded: response.successCount,
-          failed: response.failureCount,
-        };
-
-        const invalid = [];
-        response.responses.forEach((resp, i) => {
-          if (resp.success) return;
-          const code = resp.error?.code || "";
-          if (
-            code === "messaging/registration-token-not-registered" ||
-            code === "messaging/invalid-registration-token" ||
-            code === "messaging/invalid-argument"
-          ) {
-            invalid.push(tokens[i]);
-          } else {
-            shell.log(
-              `⚠️ tell push error for ${recipientSub}:`,
-              code,
-              resp.error?.message,
-            );
-          }
-        });
-        if (invalid.length) {
-          await database.db
-            .collection("push-tokens")
-            .deleteMany({ token: { $in: invalid } });
-          shell.log(`🧹 Pruned ${invalid.length} stale push tokens.`);
-        }
-      } catch (err) {
-        shell.log("🔴 tell push send failed:", err?.message || err);
-      }
+        shell.log,
+      );
+    } catch (err) {
+      shell.log("🔴 tell push send failed:", err?.message || err);
     }
 
     return respond(200, {

@@ -40,8 +40,7 @@ import { shouldMirror, postMoodToBluesky } from "../../backend/bluesky-mirror.mj
 import { fetchBlueskyEngagement } from "../../backend/bluesky-engagement.mjs";
 // const dev = process.env.CONTEXT === "dev";
 
-import { initializeApp, cert } from "firebase-admin/app"; // Firebase notifications.
-import { getMessaging } from "firebase-admin/messaging";
+import { broadcastToTopic } from "../../../shared/push.mjs"; // Push notifications.
 
 import { shell } from "../../backend/shell.mjs";
 import { publishProfileEvent } from "../../backend/profile-stream.mjs";
@@ -367,39 +366,13 @@ export async function handler(event, context) {
             }
           }
 
-          const { got } = await import("got");
-
-          const serviceAccount = (
-            await got(process.env.GCM_FIREBASE_CONFIG_URL, {
-              responseType: "json",
-            })
-          ).body;
-
-          const app = initializeApp({ credential: cert(serviceAccount) }); // Send a notification.
-
           console.log("🌙 Setting a mood for:", handle, body.mood);
 
-          const response = await getMessaging().send({
-            notification: {
-              title: `${handle}'s mood is`,
-              body: `${mood}`,
-            },
-            apns: {
-              payload: {
-                aps: { "mutable-content": 1 },
-              },
-              fcm_options: {
-                image: "https://aesthetic.computer/api/logo.png",
-              },
-            },
-            webpush: {
-              headers: {
-                image: "https://aesthetic.computer/api/logo.png",
-              },
-            },
-            topic: "mood",
+          await broadcastToTopic(database.db, "mood", {
+            title: `${handle}'s mood is`,
+            body: `${mood}`,
+            data: { piece: "moods" },
           });
-          console.log("☎️  Successfully sent notification:", response);
         }
 
         await database.disconnect();

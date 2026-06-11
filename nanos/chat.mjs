@@ -14,7 +14,7 @@
 // https://console.cloud.google.com/compute/instances?project=aesthetic-computer
 
 import { WebSocketServer, WebSocket } from "ws";
-import { promises as fs, readFileSync } from "fs";
+import { readFileSync } from "fs";
 
 import fetch from "node-fetch";
 import http from "http";
@@ -32,8 +32,7 @@ import { MongoClient } from "mongodb"; // MongoDB
 import dotenv from "dotenv";
 dotenv.config({ path: "chat.env" });
 
-import { initializeApp, cert } from "firebase-admin/app"; // Firebase notifications.
-import { getMessaging } from "firebase-admin/messaging";
+import { broadcastToTopic } from "./push.mjs"; // Standard push (no Firebase).
 
 const MAX_MESSAGES = 500; // Maximum messages to keep in memory
 
@@ -94,27 +93,6 @@ const subsToHandles = {}; // Cached list of handles.
 const subsToSubscribers = {}; // Cached list of active subscribers for this
 //                               instance if supported.
 const authorizedConnections = {};
-
-let serviceAccount;
-try {
-  // console.log(
-  //   "🔥 Loading Firebase configuration from file: ./gcp-service-key.json",
-  // );
-  const data = await fs.readFile("./gcp-firebase-service-key.json", "utf8");
-  serviceAccount = JSON.parse(data);
-} catch (error) {
-  console.error("Error loading service account:", error);
-  // Handle the error as needed
-}
-
-// console.log("🔥 Initializing Firebase App from:", serviceAccount);
-
-initializeApp(
-  { credential: cert(serviceAccount) }, //,
-  // "aesthetic" + ~~performance.now(),
-);
-
-// console.log("🔥 Firebase App initialized...");
 
 let server,
   agent,
@@ -1006,55 +984,22 @@ async function getHandleFromSub(fromSub) {
 // #endregion
 
 function notify(title, body) {
-  if (!dev) {
+  if (!dev && db) {
     // ☎️ Send a notification
-    console.log("🟡 Sending FCM notification...", performance.now());
-    // const topicName = "industry-tech";
+    console.log("🟡 Sending push notification...", performance.now());
 
-    getMessaging()
-      .send({
-        notification: { title, body },
-        // android: {
-        //   notification: {
-        //     imageUrl: "https://aesthetic.computer/api/logo.png",
-        //   },
-        apns: {
-          payload: {
-            aps: {
-              "mutable-content": 1,
-              "interruption-level": "time-sensitive", // Marks as time-sensitive
-              priority: 10, // Highest priority
-              "content-available": 1, // Tells iOS to wake the app
-            },
-          },
-          headers: {
-            "apns-priority": "10", // Immediate delivery priority
-            "apns-push-type": "alert", // Explicit push type
-            "apns-expiration": "0", // Message won't be stored by APNs
-          },
-          // fcm_options: {
-          //  image: "https://aesthetic.computer/api/logo.png",
-          // },
-        },
-        webpush: {
-          headers: {
-            Urgency: "high",
-            TTL: "0",
-            image: "https://aesthetic.computer/api/logo.png",
-          },
-          fcmOptions: {
-            analyticsLabel: "immediate-delivery",
-          },
-        },
-        topic: "mood", // <- TODO: Eventually replace this to wider range topic
-        //                         that also must be set inside the iOS client.
-        // topic: "chat-system",
-        data: { piece: "chat" }, // This should send a tappable link to the chat piece.
-      })
-      .then((response) => {
+    broadcastToTopic(db, "mood", {
+      // <- TODO: Eventually use a wider-range topic.
+      title,
+      body,
+      urgent: true, // time-sensitive on iOS, Urgency: high on web
+      ttl: 0, // don't store undelivered chat pings
+      data: { piece: "chat" }, // Tappable link to the chat piece.
+    })
+      .then((summary) => {
         console.log(
           "☎️  Successfully sent notification:",
-          response,
+          summary,
           performance.now(),
         );
       })

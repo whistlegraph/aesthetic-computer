@@ -113,27 +113,8 @@ process.on('unhandledRejection', (reason, promise) => {
 
 import { exec } from "child_process";
 
-// FCM (Firebase Cloud Messaging)
-import { initializeApp, cert } from "firebase-admin/app"; // Firebase notifications.
-//import serviceAccount from "./aesthetic-computer-firebase-adminsdk-79w8j-5b5cdfced8.json" assert { type: "json" };
-import { getMessaging } from "firebase-admin/messaging";
-
-let serviceAccount;
-try {
-  const response = await fetch(process.env.GCM_FIREBASE_CONFIG_URL);
-  if (!response.ok) {
-    throw new Error(`HTTP error! Status: ${response.status}`);
-  }
-  serviceAccount = await response.json();
-} catch (error) {
-  console.error("Error fetching service account:", error);
-  // Handle the error as needed
-}
-
-initializeApp(
-  { credential: cert(serviceAccount) }, //,
-  //"aesthetic" + ~~performance.now(),
-);
+// 🔔 Push notifications (standard Web Push + direct APNs — no Firebase).
+import { broadcastToTopic } from "../shared/push.mjs";
 
 // Initialize ChatManager for multi-instance chat support
 const chatManager = new ChatManager({ dev: process.env.NODE_ENV === "development" });
@@ -2465,50 +2446,22 @@ wss.on("connection", async (ws, req) => {
           if (out.indexOf("pond") > -1) piece = "pond";
           else if (out.indexOf("field") > -1) piece = "field";
 
-          //if (!dev) {
-          getMessaging()
-            .send({
-              notification: {
+          if (chatManager?.db) {
+            broadcastToTopic(
+              chatManager.db,
+              "scream",
+              {
                 title: "😱 Scream",
-                body: out, //,
+                body: out,
+                urgent: true, // time-sensitive on iOS, Urgency: high on web
+                ttl: 0, // don't store undelivered screams
+                data: { piece },
               },
-              // android: {
-              //   notification: {
-              //     imageUrl: "https://aesthetic.computer/api/logo.png",
-              //   },
-              apns: {
-                payload: {
-                  aps: {
-                    "mutable-content": 1,
-                    "interruption-level": "time-sensitive", // Marks as time-sensitive
-                    priority: 10, // Highest priority
-                    "content-available": 1, // Tells iOS to wake the app
-                  },
-                },
-                headers: {
-                  "apns-priority": "10", // Immediate delivery priority
-                  "apns-push-type": "alert", // Explicit push type
-                  "apns-expiration": "0", // Message won't be stored by APNs
-                },
-                fcm_options: {
-                  image: "https://aesthetic.computer/api/logo.png",
-                },
-              },
-              webpush: {
-                headers: {
-                  image: "https://aesthetic.computer/api/logo.png",
-                },
-              },
-              topic: "scream",
-              data: { piece },
-            })
-            .then((response) => {
-              log("☎️  Successfully sent notification:", response);
-            })
-            .catch((error) => {
+              log,
+            ).catch((error) => {
               log("📵  Error sending notification:", error);
             });
-          //}
+          }
         })
         .catch((error) => {
           log("🙅‍♀️ Error publishing scream:", error);

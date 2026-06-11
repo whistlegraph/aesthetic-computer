@@ -1,59 +1,63 @@
-// subscribe-to-topic, 24.02.26.19.55
-// Subscribes a user's web client to certain notification topics.
-// Such as "mood", and "scream".
+// subscribe-to-topic, 24.02.26.19.55 → 26.06.11 (FCM → standard push migration)
+// Adds or removes a notification topic ("mood", "scream", "chat-system", ...)
+// on an existing push registration. Topic fan-out now lives in our own Mongo
+// `push-tokens` collection (see shared/push.mjs) — no Firebase.
+//
+// POST /api/subscribe-to-topic
+//   body: { token: string, topic: string, unsubscribe?: true }
+//   `token` is the registration key: the Web Push subscription endpoint, or
+//   the APNs device token. Owning it is the capability — no auth needed.
 
 import { respond } from "../../backend/http.mjs";
-// const dev = process.env.CONTEXT === "dev";
-import { initializeApp, cert } from "firebase-admin/app"; // Firebase notifications.
-import { getMessaging } from "firebase-admin/messaging";
-let app;
+import { connect } from "../../backend/database.mjs";
 
-export async function handler(event, context) {
-  // console.log("😀 Subscribing...");
+const KNOWN_TOPICS = [
+  "scream",
+  "mood",
+  "chat-system",
+  "chat-sotce",
+  "chat-clock",
+];
 
+export async function handler(event) {
   if (event.httpMethod !== "POST") {
     return respond(405, { message: "Method Not Allowed" });
   }
 
-  const body = JSON.parse(event.body);
-
+  let body;
   try {
-    const { got } = await import("got");
+    body = JSON.parse(event.body || "{}");
+  } catch {
+    return respond(400, { message: "Invalid JSON body" });
+  }
 
-    const serviceAccount = (
-      await got(process.env.GCM_FIREBASE_CONFIG_URL, { responseType: "json" })
-    ).body;
+  const { token, topic, unsubscribe } = body;
+  if (typeof token !== "string" || !token) {
+    return respond(400, { message: "Invalid token" });
+  }
+  if (!KNOWN_TOPICS.includes(topic)) {
+    return respond(400, { message: "Unknown topic" });
+  }
 
-    app ||= initializeApp({ credential: cert(serviceAccount) });
-
-    // 📯 Subscribe to a topic.
-    try {
-      const messaging = getMessaging();
-      const response = await messaging.subscribeToTopic(
-        [body.token],
-        body.topic,
-      );
-      console.log(`🟢 Successfully subscribed to topic: ${body.topic}`, response);
-      return respond(200, { status: "subscribed", topic: body.topic });
-    } catch (err) {
-      console.log("🔴 Error subscribing to topic:", err);
-      throw new Error(err);
+  const database = await connect();
+  try {
+    const collection = database.db.collection("push-tokens");
+    const update = unsubscribe
+      ? { $pull: { topics: topic } }
+      : { $addToSet: { topics: topic } };
+    const result = await collection.updateOne({ token }, update);
+    if (result.matchedCount === 0) {
+      // Includes legacy FCM clients posting old tokens — nothing to do.
+      return respond(404, { message: "Registration not found" });
     }
-
-    // 🔔 Send a notification.
-    // getMessaging()
-    //   .send({
-    //     notification: { title: `${handle}'s mood is`, body: `${mood}` },
-    //     topic: "mood",
-    //   })
-    //   .then((response) => {
-    //     console.log("☎️  Successfully sent notification:", response);
-    //   })
-    //   .catch((error) => {
-    //     console.log("📵  Error sending notification:", error);
-    //   });
-  } catch (error) {
-    console.log("🔴 Error:", error);
-    return respond(500, { status: error });
+    return respond(200, {
+      status: unsubscribe ? "unsubscribed" : "subscribed",
+      topic,
+    });
+  } catch (err) {
+    console.error("🔴 subscribe-to-topic error:", err);
+    return respond(500, { message: err?.message || "Server error" });
+  } finally {
+    await database.disconnect();
   }
 }

@@ -44,7 +44,6 @@
   "author": "Jeffrey Alan Scudder",
   "dependencies": {
     "dotenv": "^17.2.3",
-    "firebase-admin": "^13.5.0",
     "mongodb": "^6.20.0",
     "node-fetch": "^3.3.2",
     "obscenity": "^0.4.5",

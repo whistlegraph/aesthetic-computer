@@ -12,7 +12,7 @@ import { redact, unredact } from "./redact.mjs";
 import { ensureIndexes as ensureHeartsIndexes, toggleHeart, countHearts } from "./hearts.mjs";
 
 import { MongoClient, ObjectId } from "mongodb";
-import { getMessaging } from "firebase-admin/messaging";
+import { broadcastToTopic } from "../shared/push.mjs"; // Standard push (no Firebase).
 
 const MAX_MESSAGES = 500;
 
@@ -725,41 +725,18 @@ export class ChatManager {
       title = handle + " " + getClockEmoji(when);
     }
 
-    try {
-      getMessaging().send({
-        notification: { title, body: text },
-        apns: {
-          payload: {
-            aps: {
-              "mutable-content": 1,
-              "interruption-level": "time-sensitive",
-              priority: 10,
-              "content-available": 1,
-            },
-          },
-          headers: {
-            "apns-priority": "10",
-            "apns-push-type": "alert",
-            "apns-expiration": "0",
-          },
-        },
-        webpush: {
-          headers: {
-            Urgency: "high",
-            TTL: "0",
-            image: "https://aesthetic.computer/api/logo.png",
-          },
-        },
-        topic: instance.config.topic,
-        data: { piece: "chat" },
-      }).then((response) => {
-        console.log("💬 Notification sent:", response);
-      }).catch((err) => {
-        console.log("💬 Notification error:", err);
-      });
-    } catch (err) {
-      console.error("💬 Notification error:", err);
-    }
+    if (!this.db) return;
+    broadcastToTopic(this.db, instance.config.topic, {
+      title,
+      body: text,
+      urgent: true, // time-sensitive on iOS, Urgency: high on web
+      ttl: 0, // don't store undelivered chat pings
+      data: { piece: "chat" },
+    }).then((summary) => {
+      console.log("💬 Notification sent:", summary);
+    }).catch((err) => {
+      console.log("💬 Notification error:", err);
+    });
   }
 
   // Handle HTTP log endpoint

@@ -10157,20 +10157,23 @@ async function makeFrame({ data: { type, content } }) {
 
   // 🎵 ac-electron drag-drop: a file was dropped onto the app icon or
   // window. Stash it on system.droppedFile, fire a dropped:file act event
-  // for the live piece, and auto-jump to `play` when we aren't already in it.
+  // for the live piece, and auto-jump to `dj` unless a player piece (dj or
+  // play) is already running and will swap tracks itself.
   if (type === "dropped:file") {
     if (!content || !content.url) return;
     if ($commonApi?.system) $commonApi.system.droppedFile = content;
     actAlerts.push("dropped:file");
     try {
       const slug = $commonApi?.slug || "";
-      const inPlay =
-        slug === "play" ||
-        slug.startsWith("play~") ||
-        slug.startsWith("play:") ||
-        (currentPath && currentPath.endsWith("/play"));
-      if (!inPlay && $commonApi?.jump) {
-        $commonApi.jump("play");
+      const inPlayer = ["dj", "play"].some(
+        (p) =>
+          slug === p ||
+          slug.startsWith(p + "~") ||
+          slug.startsWith(p + ":") ||
+          (currentPath && currentPath.endsWith("/" + p)),
+      );
+      if (!inPlayer && $commonApi?.jump) {
+        $commonApi.jump("dj");
       }
     } catch (e) {
       console.warn("🎵 dropped:file auto-jump failed:", e?.message || e);
@@ -11385,11 +11388,9 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   // 🎵 Streaming Audio messages - forward to piece receive function
-  if (type === "stream:playing" ||
-      type === "stream:paused" ||
-      type === "stream:stopped" ||
-      type === "stream:error" ||
-      type === "stream:frequencies-data") {
+  // (the whole family: playing/paused/stopped/error/state, time-data,
+  //  seeked, frequencies/waveform/peaks-data, speed-data)
+  if (type.startsWith("stream:")) {
     if (typeof receive === "function") {
       try {
         receive({ type, content });

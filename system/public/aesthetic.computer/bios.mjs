@@ -16766,7 +16766,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // Cache-bust the stream URL to force a fresh connection and avoid stale
       // buffered data. Matches the approach used by kpbj.fm's own navbar player.
-      const bustedUrl = url + (url.includes("?") ? "&" : "?") + "t=" + Date.now();
+      // (blob: object urls — dropped local files — don't take query strings.)
+      const bustedUrl = url.startsWith("blob:")
+        ? url
+        : url + (url.includes("?") ? "&" : "?") + "t=" + Date.now();
 
       // Per-station CORS policy:
       //   cors === false → Icecast/no-CORS server (e.g. stream.kpbj.fm); skip
@@ -16951,6 +16954,58 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         streamAudio[id].audio.currentTime = time;
         send({ type: "stream:seeked", content: { id, time } });
       }
+      return;
+    }
+
+    // Set playback rate (dj pitch fader / scratch). preservesPitch is turned
+    // off so speed bends pitch like vinyl. HTMLMediaElement can't run in
+    // reverse, so the rate floors just above zero — backward scratching is
+    // the piece's job (silent seeks).
+    if (type === "stream:speed") {
+      const { id, speed } = content;
+      const entry = streamAudio[id];
+      if (entry?.audio) {
+        const rate = Math.min(4, Math.max(0.0625, speed));
+        entry.audio.preservesPitch = false;
+        entry.audio.webkitPreservesPitch = false;
+        entry.audio.playbackRate = rate;
+        send({ type: "stream:speed-data", content: { id, speed: rate } });
+      }
+      return;
+    }
+
+    // Whole-track peak overview for waveform strips (dj). Fetches and decodes
+    // the full file alongside the streaming element — needs CORS-readable
+    // audio (the ac-electron loopback server sends ACAO: *). Replies with an
+    // empty array on any failure so pieces can fall back to a plain bar.
+    if (type === "stream:peaks") {
+      const { id, url, count } = content;
+      (async () => {
+        const res = await fetch(url);
+        const buf = await res.arrayBuffer();
+        // The main audioContext only exists after sound activation; a
+        // suspended throwaway context decodes just fine before that.
+        const ctx = audioContext || new AudioContext();
+        const decoded = await ctx.decodeAudioData(buf);
+        if (ctx !== audioContext) ctx.close();
+        const chan = decoded.getChannelData(0);
+        const n = Math.max(16, Math.min(4096, count || 1024));
+        const step = Math.floor(chan.length / n) || 1;
+        const peaks = new Array(n).fill(0);
+        for (let i = 0; i < n; i += 1) {
+          let max = 0;
+          const end = Math.min((i + 1) * step, chan.length);
+          for (let j = i * step; j < end; j += 16) {
+            const v = Math.abs(chan[j]);
+            if (v > max) max = v;
+          }
+          peaks[i] = max;
+        }
+        send({ type: "stream:peaks-data", content: { id, peaks } });
+      })().catch((err) => {
+        console.warn("🎵 stream:peaks failed:", err?.message || err);
+        send({ type: "stream:peaks-data", content: { id, peaks: [] } });
+      });
       return;
     }
 
@@ -20969,6 +21024,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         };
         reader.readAsArrayBuffer(file);
+      // 🎵 Long-form audio (.mp3 etc.) — same `dropped:file` path the
+      // ac-electron host uses, but with an object url, so the `dj` piece
+      // streams it straight from memory.
+      } else if (["mp3", "m4a", "aac", "ogg", "opus", "flac", "webm"].includes(ext)) {
+        const url = URL.createObjectURL(file);
+        console.log("🎵 BIOS: Dropped audio file:", file.name, url);
+        send({
+          type: "dropped:file",
+          content: { url, name: file.name, mime: file.type },
+        });
       // 🎵 Ableton Live Set file (ZIP archive containing XML)
       } else if (ext === "als") {
         
@@ -21581,45 +21646,75 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   };
 
   // 🔔 Native push-token bridge.
-  // Swift calls window.iOSReceivePushToken when FCM hands it a token.
-  // If the user is logged in we POST it to /api/register-push-token right
-  // away; otherwise we stash it and register once session:started fires
-  // (see iOSTryRegisterPushToken, called from boot.mjs after login).
+  // Swift calls window.iOSReceivePushToken with the raw APNs device token
+  // (hex) — no Firebase. We register it right away, anonymously if no one is
+  // logged in (topic broadcasts still arrive), then re-register bound to the
+  // user once session:started fires (iOSTryRegisterPushToken, called from
+  // boot.mjs after login) so tells and per-device addressing work.
   let _iosPushToken = null;
-  let _iosPushPlatform = "ios";
-  let _iosPushRegistered = false;
+  let _iosPushRegisteredAs; // undefined = not registered; null = anonymous
   let _iosPushInflight = false;
 
-  window.iOSReceivePushToken = (token, platform) => {
-    if (typeof token !== "string" || !token) return;
-    if (_iosPushToken === token && _iosPushRegistered) return;
-    _iosPushToken = token;
-    _iosPushPlatform = platform || "ios";
-    _iosPushRegistered = false;
+  function iosPushDeviceId() {
+    let id;
+    try {
+      id = localStorage.getItem("ac-push-device-id");
+      if (!id) {
+        id = crypto.randomUUID();
+        localStorage.setItem("ac-push-device-id", id);
+      }
+    } catch {
+      id = crypto.randomUUID();
+    }
+    return id;
+  }
+
+  window.iOSReceivePushToken = (token) => {
+    if (typeof token !== "string" || !/^[0-9a-fA-F]{32,512}$/.test(token)) {
+      console.warn("📱 🔔 Ignoring malformed APNs token.");
+      return;
+    }
+    if (_iosPushToken !== token) {
+      _iosPushToken = token;
+      _iosPushRegisteredAs = undefined;
+    }
     window.iOSTryRegisterPushToken();
   };
 
   window.iOSTryRegisterPushToken = async () => {
-    if (!_iosPushToken || _iosPushRegistered || _iosPushInflight) return;
-    if (!window.auth0Client || !window.acUSER) return; // wait for login
+    if (!_iosPushToken || _iosPushInflight) return;
+    const sub = window.acUSER?.sub || null;
+    if (_iosPushRegisteredAs !== undefined && _iosPushRegisteredAs === sub)
+      return; // Already registered for this identity.
     _iosPushInflight = true;
     try {
-      const authToken = await window.auth0Client.getTokenSilently();
-      if (!authToken) return;
+      const headers = { "Content-Type": "application/json" };
+      if (sub && window.auth0Client) {
+        try {
+          const authToken = await window.auth0Client.getTokenSilently();
+          if (!authToken) return; // Retry after the session settles.
+          headers.Authorization = `Bearer ${authToken}`;
+        } catch {
+          return;
+        }
+      }
       const res = await fetch("/api/register-push-token", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`,
-        },
+        headers,
         body: JSON.stringify({
+          kind: "apns",
           token: _iosPushToken,
-          platform: _iosPushPlatform,
+          platform: "ios",
+          deviceId: iosPushDeviceId(),
+          label: /iPad/.test(navigator.userAgent) ? "iPad app" : "iPhone app",
+          topics: ["scream", "mood"],
         }),
       });
       if (res.ok) {
-        _iosPushRegistered = true;
-        console.log("📱 🔔 Push token registered.");
+        _iosPushRegisteredAs = sub;
+        console.log(
+          `📱 🔔 Push token registered${sub ? " (user-bound)" : " (anonymous)"}.`,
+        );
       } else {
         console.warn("📱 🔔 Push token registration failed:", res.status);
       }
@@ -21631,19 +21726,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   };
 
   window.iOSUnregisterPushToken = async () => {
-    if (!_iosPushToken || !window.auth0Client || !window.acUSER) return;
+    if (!_iosPushToken) return;
     try {
-      const authToken = await window.auth0Client.getTokenSilently();
-      if (!authToken) return;
+      // The token itself is the capability — no auth needed to remove it.
       await fetch("/api/register-push-token", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify({ token: _iosPushToken, remove: true }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind: "apns",
+          token: _iosPushToken,
+          remove: true,
+        }),
       });
-      _iosPushRegistered = false;
+      _iosPushRegisteredAs = undefined;
+      console.log("📱 🔕 Push token unregistered.");
     } catch (err) {
       console.warn("📱 🔔 Push token unregister error:", err);
     }

@@ -1881,99 +1881,142 @@ window.addEventListener("message", (event) => {
   }
 });
 
-// 🔔 Subscribe to web / client notifications.
-// TODO: Test this to make sure it's skipped in the native apps,
-//       and factor it out. 24.02.26.19.29
+// 🔔 Web push notifications — standard Web Push (VAPID), no Firebase.
+// The subscription rides the main /sw.js registration; payload + tap handling
+// live there (push / notificationclick events). Server side: shared/push.mjs.
 
-async function initNotifications() {
-try {
-  const { initializeApp } = await import(
-    "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"
-  );
+const AC_VAPID_PUBLIC_KEY =
+  "BKyIh2AHGF417ZQSlcYoR5Enixh_EAKtmXWMlw7dMtg8NonwBm7O8uCrGxHCOogbiKcWo-UqjSZmjUy6r2L5JzY";
 
-  const { getMessaging, onMessage, getToken } = await import(
-    "https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging.js"
-  );
-
-  async function getFirebaseClientConfig() {
-    // 1) Optional: page can inject config at runtime.
-    if (window.AC_FIREBASE_CONFIG?.apiKey) return window.AC_FIREBASE_CONFIG;
-
-    // 2) Default: fetch from Netlify function so secrets aren't in git.
-    try {
-      const res = await fetch("/api/firebase-config", {
-        cache: "no-store",
-        headers: { Accept: "application/json" },
-      });
-      if (!res.ok) return null;
-      return await res.json();
-    } catch {
-      return null;
+// Stable per-install identity so devices can be individually addressed
+// (`tell @handle ... device:phone`, /api/push { device }).
+function pushDeviceId() {
+  let id;
+  try {
+    id = localStorage.getItem("ac-push-device-id");
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem("ac-push-device-id", id);
     }
+  } catch {
+    id = crypto.randomUUID();
   }
-
-  async function setupNotifications() {
-    const firebaseConfig = await getFirebaseClientConfig();
-    if (!firebaseConfig?.apiKey) return;
-
-    const app = initializeApp(firebaseConfig);
-    const messaging = getMessaging(app);
-
-    getToken(messaging, {
-      vapidKey:
-        "BDEh3JDD1xZo7eQU00TgsYb_o8ENJlpU-ovbZzWoCOu4AOeFJD8PVbZ3pif_7rMEk65Uj00-lwdXgc3qJVLp4ys",
-    })
-      .then((token) => {
-        if (token) {
-          // Send the token to your server and update the UI if necessary
-          function subscribe(token, topic, then) {
-            fetch("/api/subscribe-to-topic", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ token, topic }),
-            })
-              .then((response) => {
-                if (!response.ok) throw new Error("Bad response.");
-                return response.json(); // Parse the JSON in the response
-              })
-              .then((data) => {
-                // console.log("Subcribed to:", data.topic);
-                then?.(); // Subscribe to another topic if necessary.
-              })
-              .catch((error) => {
-                console.error("🚫 Topic subscription error:", error);
-              });
-          }
-
-          subscribe(token, "scream", () => subscribe(token, "mood"));
-
-          onMessage(messaging, (payload) => {
-            console.log(
-              "🗨️ Client notification received. ",
-              payload.notification,
-            );
-          });
-        } else {
-          console.warn("🔔 No registration token available.");
-        }
-      })
-      .catch((err) => {
-        // console.warn("🔔 An error occurred while retrieving token.", err);
-      });
-  }
-
-  // Call the setup function  
-  await setupNotifications();
-} catch (err) {
-  console.warn("🔥 Could not initialize firebase notifications:", err);
+  return id;
 }
+
+function pushDeviceLabel() {
+  const ua = navigator.userAgent;
+  let browser = "Browser";
+  if (/Edg\//.test(ua)) browser = "Edge";
+  else if (/Chrome\//.test(ua)) browser = "Chrome";
+  else if (/Firefox\//.test(ua)) browser = "Firefox";
+  else if (/Safari\//.test(ua)) browser = "Safari";
+  let os = "";
+  if (/iPhone|iPad/.test(ua)) os = "iOS";
+  else if (/Android/.test(ua)) os = "Android";
+  else if (/Mac/.test(ua)) os = "macOS";
+  else if (/Windows/.test(ua)) os = "Windows";
+  else if (/Linux/.test(ua)) os = "Linux";
+  const pwa = window.matchMedia?.("(display-mode: standalone)")?.matches;
+  return `${browser}${os ? " on " + os : ""}${pwa ? " (PWA)" : ""}`;
+}
+
+async function pushAuthHeaders() {
+  try {
+    if (window.auth0Client && window.acUSER) {
+      const token = await window.auth0Client.getTokenSilently();
+      if (token) return { Authorization: `Bearer ${token}` };
+    }
+  } catch {
+    // Anonymous registration still receives topic broadcasts.
+  }
+  return {};
+}
+
+async function initNotifications(enable = true) {
+  try {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      console.warn("🔔 Push not supported in this browser.");
+      return;
+    }
+    const registration = await navigator.serviceWorker.ready;
+
+    if (!enable) {
+      const existing = await registration.pushManager.getSubscription();
+      if (existing) {
+        await fetch("/api/register-push-token", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(await pushAuthHeaders()),
+          },
+          body: JSON.stringify({
+            kind: "webpush",
+            token: existing.endpoint,
+            remove: true,
+          }),
+        }).catch(() => {});
+        await existing.unsubscribe();
+      }
+      console.log("🔕 Web push disabled.");
+      return;
+    }
+
+    const applicationServerKey = Uint8Array.from(
+      atob(AC_VAPID_PUBLIC_KEY.replace(/-/g, "+").replace(/_/g, "/")),
+      (c) => c.charCodeAt(0),
+    );
+
+    // Drop any subscription minted under a previous VAPID key (e.g. the old
+    // Firebase one) — its pushes could never be authorized again.
+    let subscription = await registration.pushManager.getSubscription();
+    if (subscription?.options?.applicationServerKey) {
+      const current = new Uint8Array(subscription.options.applicationServerKey);
+      const matches =
+        current.length === applicationServerKey.length &&
+        current.every((b, i) => b === applicationServerKey[i]);
+      if (!matches) {
+        await subscription.unsubscribe();
+        subscription = null;
+      }
+    }
+
+    subscription ||= await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey,
+    });
+
+    const res = await fetch("/api/register-push-token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(await pushAuthHeaders()),
+      },
+      body: JSON.stringify({
+        kind: "webpush",
+        subscription: subscription.toJSON(),
+        deviceId: pushDeviceId(),
+        label: pushDeviceLabel(),
+        platform: "web",
+        topics: ["scream", "mood"],
+      }),
+    });
+    if (res.ok) {
+      console.log("🔔 Web push registered.");
+    } else {
+      console.warn("🔔 Web push registration failed:", res.status);
+    }
+  } catch (err) {
+    console.warn("🔔 Could not initialize web push:", err);
+  }
 }
 
 let notificationsInitialized = false;
 
-window.acRequestNotifications = function requestNotifications() {
-  if (notificationsInitialized) return;
+window.acRequestNotifications = function requestNotifications(content) {
+  const enable = content?.enable !== false;
+  if (enable && notificationsInitialized) return;
   if (previewOrIcon || sandboxed) return;
-  notificationsInitialized = true;
-  initNotifications();
+  notificationsInitialized = enable;
+  initNotifications(enable);
 };
