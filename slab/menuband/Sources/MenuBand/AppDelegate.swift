@@ -199,6 +199,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // that runs only while either effect is in progress.
     private var lastKnownOctaveShift: Int = 0
     private var lastLitCount: Int = 0
+    /// Monotonic note counter for the desktop-badge easter egg: each fresh
+    /// note bumps it and writes "<seq> <noteName>" to the badge's signal file,
+    /// which makes the blueberry sticker open its mouth and float a note out.
+    /// No-ops on machines without the badge installed.
+    private var badgeNoteSeq: Int = 0
     private var slideDirection: Int = 0
     private var slideStartedAt: CFTimeInterval = 0
     private var slideIsLimitNudge = false
@@ -476,6 +481,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 // fx exactly where they are (mid-hold or mid-ramp) so
                 // the sound continues seamlessly and never resets.
                 self.cancelFxRelease()
+                // Ping the desktop badge so the blueberry sings (no-op if absent).
+                let topName = self.menuBand.litNotes.max().map(MenuBandController.noteName) ?? ""
+                self.emitBadgeNote(topName)
             }
             // Pitch-bend cursor lifecycle — only engages when
             // the user is playing via the KEYBOARD (not mouse
@@ -3338,6 +3346,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fxRampTimer?.invalidate()
         fxRampTimer = nil
         fxRampStart = nil
+    }
+
+    /// Write "<seq> <noteName>" to the desktop-badge note signal file so the
+    /// blueberry sticker opens its mouth + floats a note. Fire-and-forget on a
+    /// utility queue; silently does nothing on machines without the badge dir.
+    private func emitBadgeNote(_ name: String) {
+        badgeNoteSeq &+= 1
+        let seq = badgeNoteSeq
+        let dir = NSString(string: "~/.local/share/desktop-badge").expandingTildeInPath
+        DispatchQueue.global(qos: .utility).async {
+            var isDir: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: dir, isDirectory: &isDir),
+                  isDir.boolValue else { return }
+            try? "\(seq) \(name)".write(toFile: dir + "/note",
+                                        atomically: true, encoding: .utf8)
+        }
     }
 
     /// Tear down the pitch-bend cursor lock + floating overlay and
