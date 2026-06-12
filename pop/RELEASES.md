@@ -677,7 +677,7 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
 
 ---
 
-## momabobasheep — WIP (10-minute Bachian remix of marimbaba)
+## momabobasheep — RELEASED 2026-06-12 (10-minute Bachian remix of marimbaba)
 
 - **Lane:** `pop/momboba/` · a 10:00 **remix of marimbaba**, the twin of
   marimbaba the way `pop/sleephellsine/` is the twin of `pop/hellsine/` —
@@ -691,17 +691,29 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
   → "mombobasleep" (2026-06-10) → **momabobasheep** (2026-06-11). NOTE:
   the render seed stays `"mombobasleep"` — it keys this exact composed
   walk. Part of the *pixsies* body.
-- **Artist:** Aesthetic Dot Computer (intended)
-- **Status:** DistroKid-READY (2026-06-11, final) — master rendered +
-  clip-tested (−16.0 LUFS integrated / −2.8 dBTP, no clipping). MASTERING
-  CALL: −16 LUFS is deliberate for a sleep mix — louder would sacrifice
-  the baked dynamic arc, and every platform normalizes playback anyway;
-  no brightening pass (warm/dark is the genre, unlike the trance lane's
-  note below). mp3 tagged (`title=momabobasheep ·
-  artist=Aesthetic Dot Computer · album=pixsies · date=2026`) with the new
+- **Artist:** Aesthetic Dot Computer
+- **Status:** RELEASED — uploaded to DistroKid by @jeffrey 2026-06-12:
+  <https://distrokid.com/dashboard/album/?albumuuid=2456D650-9AEC-4C1A-831BCE628047AF6C>.
+  Master clip-tested (−16.0 LUFS integrated / −2.8 dBTP, no clipping).
+  MASTERING CALL: −16 LUFS is deliberate for a sleep mix — louder would
+  sacrifice the baked dynamic arc, and every platform normalizes playback
+  anyway; no brightening pass (warm/dark is the genre, unlike the trance
+  lane's note below). mp3 tagged (`title=momabobasheep ·
+  artist=Aesthetic Dot Computer · album=pixsies · date=2026`) with the
   cover embedded; upload assets staged in `~/Documents/Shelf/momboba/`
-  (MASTER.wav + momabobasheep.mp3 + momabobasheep-cover-3000.png). Awaiting
-  @jeffrey's ear-check + manual DistroKid upload. Not yet on the CDN.
+  (MASTER.wav + momabobasheep.mp3 + momabobasheep-cover-3000.png). Not yet
+  on the CDN. TODO: Spotify Canvas upload via Spotify for Artists once the
+  track goes live (`momabobasheep-canvas.mp4`, staged on the Shelf).
+- **Promo (2026-06-12):** full-motion 9:16 set via the Seedance lane —
+  8 felt story beats (`pop/momboba/reel/`, gpt-image-2) animated through
+  `bin/gen-motion-momabobasheep-reel.mjs` (door-morph entrance,
+  drink-down boba continuity, spilled-cup ASCENSION morph into the dream)
+  + `bin/chrome-reel.mjs` two-variant chrome over one 1080×1920@30 base:
+  `out/momabobasheep-story.mp4` (pals + segmented progress bar +
+  timecode) and `out/momabobasheep-reel.mp4` (pals only — marimbaba's
+  --reel split for the Reels UI). Canvas: `bin/build-canvas.mjs` —
+  8 s silent ping-pong of the dream take. Audio bed = the track from
+  5:20, swelling into THE DREAM's golden-section climax.
 - **Engine:** `pop/momboba/bin/render-momabobasheep.mjs` — a **generative**
   renderer (deterministic per `--seed`; the default seed string remains
   `mombobasleep`, the PRNG key for this exact walk). **C ENGINE

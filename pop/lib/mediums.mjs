@@ -29,6 +29,27 @@ IN MOTION: the tooth stays FIXED like a real sheet under an animation rostrum ca
 the drawn figures move over the paper; the grain itself never swims, slides, or \
 re-randomizes per frame. hatched linework may carry a gentle hand-drawn boil.`;
 
+// Needle-felted wool diorama (momabobasheep reel et al) — a real
+// photographed miniature, not a render. The scale law pins fiber size
+// to the WOOL, so close-ups enlarge the fuzz instead of cleaning it up.
+export const NEEDLE_FELT_WOOL = `MEDIUM SPECIFICATION (formal — hold exactly, at every zoom level): \
+a real photograph of a hand-crafted NEEDLE-FELTED WOOL diorama — soft matted wool \
+throughout, visible fibers everywhere, fuzzy edges, tiny felting imperfections that \
+prove human hands. SCALE LAW — individual wool fibers are about 0.1 mm thick and \
+stray wisps lift 1–3 mm off every surface; a WIDE shot frames a roughly 40 cm \
+diorama so the fuzz reads as a soft halo on every silhouette; a CLOSE-UP frames \
+only ~8–10 cm of the same wool, so single fibers, needle pokes, and matted clumps \
+resolve clearly. the fiber scale is locked to the WOOL, never to the screen: moving \
+the camera closer ENLARGES the fuzz proportionally. NOT a 3d render, NOT clay, NOT \
+plastic, NOT smooth fabric — crisp photographic focus, gentle dim lighting, soft \
+felt shadows.`;
+
+export const NEEDLE_FELT_WOOL_MOTION = `${NEEDLE_FELT_WOOL} \
+IN MOTION: this is stop-motion-like puppetry of real wool under a real camera — \
+the felt surfaces stay physically coherent; fibers may tremble softly as dolls \
+move but the wool never swims, melts, liquefies, or re-randomizes per frame. \
+dolls move with the gentle weight and slight stiffness of felted figures.`;
+
 // ── formal media framing — the FRAME spec, separate from the viewport
 // content (the scene). Affixed to every prompt alongside the medium so
 // composition survives chrome overlays and edge crops.

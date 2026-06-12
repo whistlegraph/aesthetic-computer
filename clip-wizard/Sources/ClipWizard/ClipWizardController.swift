@@ -38,6 +38,14 @@ final class ClipWizardController: NSWindowController, NSWindowDelegate {
     var assembleButton: NSButton!
     var finalButton: NSButton!
     var statusLabel: NSTextField!
+    // job progress — visible in EVERY breakpoint (the min view hides
+    // statusLabel, so this thin bar is the re-roll's only heartbeat there)
+    var jobProgressBar: NSProgressIndicator!
+    var jobTimer: Timer?
+    var jobStarted: Date?
+    var rerollingSection: String?   // pre-made "rendering…" slot in the strip
+    weak var ghostChip: NSButton?
+    let shotETA: TimeInterval = 150 // typical fast-tier Seedance shot
     // inputs sidebar
     var inputsHeading: NSTextField!
     var panelThumb: NSImageView!
@@ -57,7 +65,9 @@ final class ClipWizardController: NSWindowController, NSWindowDelegate {
             backing: .buffered, defer: false
         )
         window.title = "ClipWizard — \(project.slug)"
-        window.appearance = NSAppearance(named: .darkAqua)
+        // follows the system light/dark appearance, like wave-wizard —
+        // semantic colors adapt on their own; the layer-backed thumbs
+        // re-resolve via the theme observer below
         // shrinks to a corner-of-screen monitor; rows fold away as the
         // window tightens (relayout breakpoints)
         window.minSize = NSSize(width: 360, height: 280)
@@ -65,8 +75,14 @@ final class ClipWizardController: NSWindowController, NSWindowDelegate {
         super.init(window: window)
         window.delegate = self
         setupUI()
+        applyThemeLayers()
+        DistributedNotificationCenter.default().addObserver(
+            forName: NSNotification.Name("AppleInterfaceThemeChangedNotification"),
+            object: nil, queue: .main
+        ) { [weak self] _ in self?.applyThemeLayers() }
         relayout()
         showSection(0)
+        refreshFalBalance()
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -103,6 +119,13 @@ final class ClipWizardController: NSWindowController, NSWindowDelegate {
         statusLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
         statusLabel.lineBreakMode = .byTruncatingHead
 
+        jobProgressBar = NSProgressIndicator(frame: .zero)
+        jobProgressBar.style = .bar
+        jobProgressBar.isIndeterminate = false
+        jobProgressBar.minValue = 0
+        jobProgressBar.maxValue = 1
+        jobProgressBar.isHidden = true
+
         inputsHeading = label(size: 11, weight: .semibold)
         inputsHeading.stringValue = "INPUTS"
         inputsHeading.textColor = .tertiaryLabelColor
@@ -118,7 +141,7 @@ final class ClipWizardController: NSWindowController, NSWindowDelegate {
         promptText = NSTextView(frame: .zero)
         promptText.isEditable = false
         promptText.drawsBackground = true
-        promptText.backgroundColor = NSColor.black.withAlphaComponent(0.35)
+        promptText.backgroundColor = NSColor.labelColor.withAlphaComponent(0.07)
         promptText.textColor = .labelColor
         promptText.font = NSFont.systemFont(ofSize: 12)
         promptText.textContainerInset = NSSize(width: 8, height: 8)
@@ -141,6 +164,7 @@ final class ClipWizardController: NSWindowController, NSWindowDelegate {
         cv.addSubview(assembleButton)
         cv.addSubview(finalButton)
         cv.addSubview(statusLabel)
+        cv.addSubview(jobProgressBar)
         cv.addSubview(inputsHeading)
         cv.addSubview(panelThumb)
         cv.addSubview(endThumb)
@@ -172,8 +196,19 @@ final class ClipWizardController: NSWindowController, NSWindowDelegate {
         iv.wantsLayer = true
         iv.layer?.cornerRadius = 6
         iv.layer?.masksToBounds = true
-        iv.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.3).cgColor
         return iv
+    }
+
+    // CGColors don't track appearance changes — resolve the thumb
+    // backgrounds for the CURRENT theme, and again whenever it flips
+    // (same notification DockIcon listens to for its icon swap).
+    func applyThemeLayers() {
+        guard let appearance = window?.effectiveAppearance else { return }
+        appearance.performAsCurrentDrawingAppearance {
+            let bg = NSColor.labelColor.withAlphaComponent(0.10).cgColor
+            panelThumb.layer?.backgroundColor = bg
+            endThumb.layer?.backgroundColor = bg
+        }
     }
 
     // ── responsive layout ─────────────────────────────────────────────
@@ -237,6 +272,9 @@ final class ClipWizardController: NSWindowController, NSWindowDelegate {
             musicButton.frame = NSRect(x: pad + leftW - 104, y: stripY + 2, width: 104, height: 28)
         }
         statusLabel.frame = NSRect(x: buttonsEnd, y: barY + 2, width: max(0, leftW - buttonsEnd + pad), height: 26)
+        // thin heartbeat strip in the gap between the action row and the
+        // takes strip — never folded away by any breakpoint
+        jobProgressBar.frame = NSRect(x: pad, y: barY + barH + 2, width: W - 2 * pad, height: 4)
 
         let playerTop = headerY - 8
         let playerBottom = stripY + stripRowH
@@ -314,7 +352,18 @@ final class ClipWizardController: NSWindowController, NSWindowDelegate {
         takesStrip.arrangedSubviews.forEach { $0.removeFromSuperview() }
         guard !previewingFinal else { return }
         let s = project.sections[current]
-        if s.takes.isEmpty {
+        // pre-made slot for the take being re-rolled — appears the moment
+        // the job starts, fills with % + elapsed, becomes "current" on land
+        if rerollingSection == s.name {
+            let g = NSButton(title: "↻ rendering 0%", target: nil, action: nil)
+            g.bezelStyle = .rounded
+            g.setButtonType(.momentaryPushIn)
+            g.isEnabled = false
+            g.contentTintColor = .systemOrange
+            takesStrip.addArrangedSubview(g)
+            ghostChip = g
+        }
+        if s.takes.isEmpty && rerollingSection != s.name {
             let l = label(size: 12, weight: .regular)
             l.stringValue = "no takes yet — ↻ re-roll to generate"
             l.textColor = .secondaryLabelColor
@@ -399,6 +448,39 @@ final class ClipWizardController: NSWindowController, NSWindowDelegate {
         musicButton.title = "♪ music"
     }
 
+    // ── fal credit balance — shown beside the re-roll cost. Needs an
+    // ADMIN-scoped key (FAL_ADMIN_KEY in the vault env; the generation
+    // FAL_KEY gets a 403 from the billing endpoint and the readout
+    // simply stays hidden) ─────────────────────────────────────────────
+    var falBalance: Double?
+
+    func vaultEnvValue(_ name: String) -> String? {
+        let env = project.repoRoot
+            .appendingPathComponent("aesthetic-computer-vault/.devcontainer/envs/devcontainer.env")
+        guard let text = try? String(contentsOf: env, encoding: .utf8) else { return nil }
+        for line in text.split(separator: "\n") where line.hasPrefix("\(name)=") {
+            return String(line.dropFirst(name.count + 1))
+                .trimmingCharacters(in: CharacterSet(charactersIn: "\"' "))
+        }
+        return nil
+    }
+
+    func refreshFalBalance() {
+        guard let key = vaultEnvValue("FAL_ADMIN_KEY") ?? vaultEnvValue("FAL_KEY"),
+              let url = URL(string: "https://api.fal.ai/v1/account/billing?expand=credits")
+        else { return }
+        var req = URLRequest(url: url)
+        req.setValue("Key \(key)", forHTTPHeaderField: "Authorization")
+        URLSession.shared.dataTask(with: req) { [weak self] data, _, _ in
+            guard let data,
+                  let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let credits = obj["credits"] as? [String: Any],
+                  let bal = credits["current_balance"] as? Double
+            else { return }
+            DispatchQueue.main.async { self?.falBalance = bal }
+        }.resume()
+    }
+
     // ── re-roll: editable prompt, or package the ask for Claude ───────
     @objc func reroll() {
         guard !jobs.running else { return }
@@ -408,8 +490,9 @@ final class ClipWizardController: NSWindowController, NSWindowDelegate {
         let alert = NSAlert()
         alert.messageText = "Re-roll \(s.name)"
         let cost = info.map { Double($0.dur) * ($0.ratePerSec ?? 0.2419) } ?? 0
+        let balanceNote = falBalance.map { String(format: " fal balance: $%.2f →  $%.2f after.", $0, $0 - cost) } ?? ""
         alert.informativeText = String(format:
-            "Edit the prompt below, then generate (~$%.2f — the current take is archived, never deleted). Or copy the shot context to ask Claude for a rewrite.", cost)
+            "Edit the prompt below, then generate (~$%.2f — the current take is archived, never deleted).%@ Or copy the shot context to ask Claude for a rewrite.", cost, balanceNote)
         alert.addButton(withTitle: "Re-roll ($)")
         alert.addButton(withTitle: "Copy ask-Claude")
         alert.addButton(withTitle: "Cancel")
@@ -456,6 +539,16 @@ final class ClipWizardController: NSWindowController, NSWindowDelegate {
     func runJob(args: [String], verb: String) {
         setActionsEnabled(false)
         status("\(verb) …")
+        jobStarted = Date()
+        if let i = args.firstIndex(of: "--only"), i + 1 < args.count {
+            rerollingSection = args[i + 1]
+        }
+        jobProgressBar.doubleValue = 0
+        jobProgressBar.isHidden = false
+        jobTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            self?.tickJob()
+        }
+        rebuildTakesStrip()
         _ = jobs.run(driver: project.driverURL, args: args, cwd: project.repoRoot,
                      onLine: { [weak self] chunk in
                          let line = chunk.split(separator: "\n").last.map(String.init) ?? chunk
@@ -463,8 +556,14 @@ final class ClipWizardController: NSWindowController, NSWindowDelegate {
                      },
                      onExit: { [weak self] code in
                          guard let self else { return }
+                         self.jobTimer?.invalidate()
+                         self.jobTimer = nil
+                         self.jobStarted = nil
+                         self.rerollingSection = nil
+                         self.jobProgressBar.isHidden = true
                          self.setActionsEnabled(true)
                          self.project.rescan()
+                         self.refreshFalBalance()
                          self.status(code == 0 ? "\(verb) done ✓" : "\(verb) failed (exit \(code)) — see terminal")
                          if code == 0 && args.contains("--assemble") {
                              self.previewFinal()
@@ -472,6 +571,17 @@ final class ClipWizardController: NSWindowController, NSWindowDelegate {
                              self.showSection(self.current)
                          }
                      })
+    }
+
+    // soft ETA — fills toward 95% over the typical shot time, lands on
+    // exit. Drives the thin bar AND the ghost chip's % label.
+    func tickJob() {
+        guard let t0 = jobStarted else { return }
+        let el = Date().timeIntervalSince(t0)
+        let frac = min(0.95, el / shotETA)
+        jobProgressBar.doubleValue = frac
+        ghostChip?.title = String(format: "↻ rendering %d%% · %d:%02d",
+                                  Int(frac * 100), Int(el) / 60, Int(el) % 60)
     }
 
     func setActionsEnabled(_ on: Bool) {
