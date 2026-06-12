@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // analyze-whistlegraph.mjs — pull the sung melody out of a whistlegraph
 // performance video's audio: a dependency-free YIN f0 tracker → segmented
-// notes → a structural + dynamic summary used to shape moronbobasleep's arc.
+// notes → a structural + dynamic summary used to shape mombobasleep's arc.
 //
 //   ffmpeg -i <piece>-web.mp4 -ac 1 -ar 16000 out.wav   (caller does this)
 //   node analyze-whistlegraph.mjs out.wav

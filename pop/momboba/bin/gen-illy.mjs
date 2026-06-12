@@ -1,20 +1,20 @@
 #!/usr/bin/env node
-// moronboba/bin/gen-illy.mjs — generate the moronbobasleep album cover via
+// momboba/bin/gen-illy.mjs — generate the momabobasheep album cover via
 // gpt-image-2, then embed it into the rendered mp3 as ID3 art.
 //
-// Moronbobasleep is the sleep-mix remix of marimbaba, so it inherits
-// marimbaba's cover identity verbatim (jeffrey + Bill Gates at the Model M,
-// colored-pencil + gouache) — recomposed as a sleepy nocturne: the two have
-// drowsed off mid-task. Same identity-ref path as pop/marimba/bin/gen-illy.mjs.
+// Mombobasleep's cover is a felted naptime: a needle-felted wool doll of
+// jeffrey alone, fast asleep in a nest of felt bedding with his little felt
+// laptop dozing beside him (no Bill Gates, no night sky — see the .illy.txt).
+// Same identity-ref path as pop/marimba/bin/gen-illy.mjs.
 //
-// Prompt: pop/moronboba/moronbobasleep.illy.txt (lowercase fragments — papers voice)
-// Output: pop/moronboba/out/moronbobasleep-cover.png
-// Embed:  pop/moronboba/out/moronbobasleep.mp3  (ID3v2 attached picture)
+// Prompt: pop/momboba/momabobasheep.illy.txt (lowercase fragments — papers voice)
+// Output: pop/momboba/out/momabobasheep-cover.png
+// Embed:  pop/momboba/out/momabobasheep.mp3  (ID3v2 attached picture)
 //
 // Usage:
-//   node pop/moronboba/bin/gen-illy.mjs            # cached if cover exists
-//   node pop/moronboba/bin/gen-illy.mjs --force    # regenerate
-//   node pop/moronboba/bin/gen-illy.mjs --embed-only   # skip gen, just embed
+//   node pop/momboba/bin/gen-illy.mjs            # cached if cover exists
+//   node pop/momboba/bin/gen-illy.mjs --force    # regenerate
+//   node pop/momboba/bin/gen-illy.mjs --embed-only   # skip gen, just embed
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from "node:fs";
 import { resolve, dirname } from "node:path";
@@ -33,9 +33,9 @@ const FORCE = flags.force === true;
 const SIZE = "1024x1024";
 
 const _af = (k, d) => { const i = process.argv.indexOf(k); return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : d; };
-const PROMPT_PATH = resolve(process.cwd(), _af("--prompt", `${LANE}/moronbobasleep.illy.txt`));
-const OUT_PATH    = resolve(process.cwd(), _af("--cover",  `${LANE}/out/moronbobasleep-cover.png`));
-const MP3_PATH    = resolve(process.cwd(), _af("--mp3",    `${LANE}/out/moronbobasleep.mp3`));
+const PROMPT_PATH = resolve(process.cwd(), _af("--prompt", `${LANE}/momabobasheep.illy.txt`));
+const OUT_PATH    = resolve(process.cwd(), _af("--cover",  `${LANE}/out/momabobasheep-cover.png`));
+const MP3_PATH    = resolve(process.cwd(), _af("--mp3",    `${LANE}/out/momabobasheep.mp3`));
 mkdirSync(`${LANE}/out`, { recursive: true });
 
 // ── identity refs (mirrors marimba/bin/gen-illy.mjs) ─────────────────────
@@ -95,7 +95,7 @@ if (existsSync(OUT_PATH) && !FORCE) {
 
 const apiKey = loadOpenAIKey();
 const prompt = readFileSync(PROMPT_PATH, "utf8").trim();
-console.log(`▸ moronbobasleep cover · ${SIZE} · ${REFS.length} refs`);
+console.log(`▸ momabobasheep cover · ${SIZE} · ${REFS.length} refs`);
 const t0 = Date.now();
 
 const fd = new FormData();

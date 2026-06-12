@@ -1,0 +1,9 @@
+# Compiled engine binary (rebuild via build.sh)
+momabobasheep
+
+# Derived by bake.mjs (from out/momabobasheep.events.json + voice/locked)
+score.h
+vocals/
+
+# Engine isolation / debug renders
+out/

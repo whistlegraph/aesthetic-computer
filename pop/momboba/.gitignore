@@ -9,3 +9,6 @@ assets/*.p-*.wav
 
 # recorded voice takes — RFA captures live outside the repo
 voice-takes/*.wav
+
+# derived vocal assets — regenerate via bin/tune-voice.mjs
+voice/

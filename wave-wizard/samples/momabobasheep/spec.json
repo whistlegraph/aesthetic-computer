@@ -1,0 +1,34 @@
+{
+  "title": "momabobasheep — jeffrey harmony vowels",
+  "outDir": "/Users/jas/aesthetic-computer/wave-wizard/samples/momabobasheep/takes",
+  "trim": {
+    "thresholdPctOfPeak": 0.04,
+    "padHeadMs": 60,
+    "padTailMs": 260,
+    "fadeMs": 14,
+    "normalizeDb": -3.0
+  },
+  "autoStop": {
+    "onsetDb": -28,
+    "silenceDb": -42,
+    "silenceDurationMs": 1000,
+    "maxRecordSec": 9
+  },
+  "samples": [
+    {
+      "name": "momabobasheep-vowel",
+      "desc": "Five sustained vowel shapes for the sleep-mix harmony bed: oo, oh, ah, eh, mm (closed hum). One vowel per take. Sing each as ONE steady tone in a comfortable LOW chest voice and hold it 4-5 seconds, soft and even like a lullaby drone — no vibrato push, no scooping, just a calm straight tone that fades out naturally. The exact pitch does not matter and can differ per take; it gets pitch-analyzed and tuned onto the chord tones afterward.",
+      "lyric": "oo oh ah eh mm",
+      "score": {
+        "rootMel": 48,
+        "notes": [
+          { "off": 0, "beats": 4.0 },
+          { "off": 0, "beats": 4.0 },
+          { "off": 0, "beats": 4.0 },
+          { "off": 0, "beats": 4.0 },
+          { "off": 0, "beats": 4.0 }
+        ]
+      }
+    }
+  ]
+}

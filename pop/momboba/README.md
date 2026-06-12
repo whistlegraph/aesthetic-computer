@@ -1,14 +1,14 @@
-# moronboba
+# momboba
 
-**Moronbobasleep** — our first 10-minute extended **sleep mix**, a remix of
+**Mombobasleep** — our first 10-minute extended **sleep mix**, a remix of
 [`pop/marimba/marimbaba`](../marimba/). The calm nocturne twin of the lullaby,
 the way [`pop/sleephellsine`](../sleephellsine/) is the calm twin of
 [`pop/hellsine`](../hellsine/).
 
 The difference: sleephellsine *abandoned* hellsine's instruments for pure sine.
-Moronbobasleep keeps the **actual marimba synth** (`../marimba/synths/marimba.mjs`)
+Mombobasleep keeps the **actual marimba synth** (`../marimba/synths/marimba.mjs`)
 — that's what makes it a marimbaba *remix* and not a sleephellsine clone.
-"Moron" = the lullaby gone dozy, dumb-happy, and very, very slow.
+"Mom" = the lullaby rocked dozy, dumb-happy, and very, very slow.
 
 ## The formula
 
@@ -29,44 +29,56 @@ on a deterministic random walk (seeded, so re-renders are bit-identical):
   `bass` (the rocking chair, deep + soft), `vibraphone_off` (the dream-haze pad,
   held thirds, 14 ms haas-widened), `rosewood` (the singer), `kalimba`
   (twinkles on phrase tails).
-- A soft **brownian bed** underneath — two independent stereo random walks,
-  slow 90 s sneak-in, dry — the room tone under the marimba.
+- A felted 5-voice **drone bed** underneath (stereo chorus + a fixed-filter
+  sub) — every layer is pitched and musical: **no field recordings, no noise
+  beds, no filter sweeps, no texture layers**. The old rain sample +
+  brownian/air hiss went first (too repetitive, too noisy for sleep); the
+  phaser sweep, the sub's LFO-swept "wub", and the felting noise-fizz
+  followed (2026-06-11). Movement comes only from the chorus and each drone
+  voice's own woozy vibrato/drift.
 
 ## Audio target
 
-- **Length:** 10:00 final master (engine renders 10:10; the master fades out
-  over 14 s and truncates to 600 s).
-- **Master:** same sleep chain as sleephellsine — highpass 28 Hz, −1.5 dB shelf
-  above 4 kHz, `loudnorm` to **−28 LUFS** (TP −6, LRA 14), soft limiter at 0.35,
-  **60 s fade-in** from silence, 14 s fade-out.
+- **Length:** 10:00 final master (engine renders 10:10 and truncates to 600 s).
+- **Master:** gentle sleep chain — highpass 22 Hz, +3 dB low shelf @ 85 Hz,
+  −3.5 dB shelf above 3.2 kHz, one soft 2:1 glue compressor (no leveller), a
+  measured LINEAR gain to **−16 LUFS / −1 dBTP**, with a 2 s fade-in and 5 s
+  fade-out guarding the loop seam — nothing ever cuts abruptly.
 
 ## Files
 
-- `bin/render-moronbobasleep.mjs` — the generative renderer + inline sleep
+- `bin/render-momabobasheep.mjs` — the generative renderer + inline sleep
   master. Reuses `mixEventMarimba` from the marimba lane.
-- `bin/gen-illy.mjs` — cover generator. Inherits marimbaba's cover identity
-  verbatim (jeffrey + Bill Gates at the Model M), recomposed as a sleepy
-  nocturne — the two have drowsed off mid-task.
-- `moronbobasleep.illy.txt` — cover prompt (lowercase fragments, papers voice).
-- `out/moronbobasleep.struct.json` — the chord walk (for any future visualizer).
+- `bin/gen-illy.mjs` — cover generator. A felted naptime: one needle-felted
+  wool doll of jeffrey alone, asleep in a nest of felt bedding, his little
+  felt laptop dozing beside him.
+- `momabobasheep.illy.txt` — cover prompt (lowercase fragments, papers voice).
+- `out/momabobasheep.struct.json` — the chord walk (for any future visualizer).
 
 ## Run
 
 ```bash
-# render + sleep-master in one go → out/moronbobasleep.mp3
-node pop/moronboba/bin/render-moronbobasleep.mjs
+# render + sleep-master in one go → out/momabobasheep.mp3
+node pop/momboba/bin/render-momabobasheep.mjs
 
 # write the master elsewhere
-node pop/moronboba/bin/render-moronbobasleep.mjs --out ~/moronbobasleep.mp3
+node pop/momboba/bin/render-momabobasheep.mjs --out ~/momabobasheep.mp3
 
 # a different overnight — same parts, new random walk
-node pop/moronboba/bin/render-moronbobasleep.mjs --seed nightfall
+node pop/momboba/bin/render-momabobasheep.mjs --seed nightfall
 
-# cover (cached unless --force); embeds into out/moronbobasleep.mp3
-node pop/moronboba/bin/gen-illy.mjs
-node pop/moronboba/bin/gen-illy.mjs --force
-node pop/moronboba/bin/gen-illy.mjs --embed-only
+# cover (cached unless --force); embeds into out/momabobasheep.mp3
+node pop/momboba/bin/gen-illy.mjs
+node pop/momboba/bin/gen-illy.mjs --force
+node pop/momboba/bin/gen-illy.mjs --embed-only
+```
+
+```bash
+# scorodeon — watch the score fly by a fixed center line (vertical, story-ready)
+node pop/momboba/bin/scorodeon-data.mjs   # events.json → scorodeon.json
+node pop/bin/scorodeon.mjs pop/momboba/out/momabobasheep.scorodeon.json \
+  pop/momboba/out/momabobasheep.mp3 --desktop          # --size WxH --zoom sec
 ```
 
 Listen with QuickTime, not Apple Music:
-`open -a "QuickTime Player" pop/moronboba/out/moronbobasleep.mp3`
+`open -a "QuickTime Player" pop/momboba/out/momabobasheep.mp3`

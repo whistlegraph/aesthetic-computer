@@ -677,7 +677,7 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
 
 ---
 
-## mombobasleep — WIP (10-minute Bachian remix of marimbaba)
+## momabobasheep — WIP (10-minute Bachian remix of marimbaba)
 
 - **Lane:** `pop/momboba/` · a 10:00 **remix of marimbaba**, the twin of
   marimbaba the way `pop/sleephellsine/` is the twin of `pop/hellsine/` —
@@ -685,17 +685,32 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
   which is what makes it a marimbaba *remix* and not a sleephellsine clone.
   Began as a calm sleep drone; evolved (2026-06-08) into a slow, **Bachian,
   rolling, ever-transforming** piece that travels through keys over its 10
-  minutes. "Mom" = the lullaby rocked dozy + dumb-slow (renamed from
-  "moronbobasleep" 2026-06-10). Part of the *pixsies* body.
+  minutes. **THE CONCEPT (jas, 2026-06-11): MoMA (the art museum) + boba
+  tea + sheep — "jeffrey goes to the MoMA", drinks a boba, and falls
+  asleep counting sheep in the galleries.** Name history: "moronbobasleep"
+  → "mombobasleep" (2026-06-10) → **momabobasheep** (2026-06-11). NOTE:
+  the render seed stays `"mombobasleep"` — it keys this exact composed
+  walk. Part of the *pixsies* body.
 - **Artist:** Aesthetic Dot Computer (intended)
-- **Status:** DistroKid-READY (2026-06-11) — sweep-free master rendered +
-  clip-tested (−16.0 LUFS / −2.6 dBTP), mp3 tagged (`title=mombobasleep ·
+- **Status:** DistroKid-READY (2026-06-11, final) — master rendered +
+  clip-tested (−16.0 LUFS integrated / −2.8 dBTP, no clipping). MASTERING
+  CALL: −16 LUFS is deliberate for a sleep mix — louder would sacrifice
+  the baked dynamic arc, and every platform normalizes playback anyway;
+  no brightening pass (warm/dark is the genre, unlike the trance lane's
+  note below). mp3 tagged (`title=momabobasheep ·
   artist=Aesthetic Dot Computer · album=pixsies · date=2026`) with the new
   cover embedded; upload assets staged in `~/Documents/Shelf/momboba/`
-  (MASTER.wav + mombobasleep.mp3 + mombobasleep-cover-3000.png). Awaiting
+  (MASTER.wav + momabobasheep.mp3 + momabobasheep-cover-3000.png). Awaiting
   @jeffrey's ear-check + manual DistroKid upload. Not yet on the CDN.
-- **Engine:** `pop/momboba/bin/render-mombobasleep.mjs` — a **generative**
-  renderer (deterministic per `--seed`, default `mombobasleep`). 100%
+- **Engine:** `pop/momboba/bin/render-momabobasheep.mjs` — a **generative**
+  renderer (deterministic per `--seed`; the default seed string remains
+  `mombobasleep`, the PRNG key for this exact walk). **C ENGINE
+  (2026-06-11, house pattern like hellsine/americomputadora):**
+  `pop/momboba/c/` — composition stays in JS (score-extract + bake.mjs
+  fan-out with an rng parity gate), `momabobasheep.c` executes the DSP
+  ~30× faster (610 s in ~20 s) and matches the JS reference to ≤0.01 dB
+  on every compare metric (`c/compare.mjs` verdict: all PASS). Run:
+  `node pop/momboba/c/render-c.mjs`. 100%
   synthesized — the CC0 rain sample + brownian/air hiss beds were REMOVED
   (2026-06-10: too repetitive as a loop, environmental noise out of the track
   completely); it opens on the tonic pad + drone alone, then builds a
@@ -741,23 +756,32 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
     swells now, it never thumps);
   - **SOFT FELT MALLETS** throughout (long mallet contact + slow attack).
   Every render self-runs a **clip test** (sample/true peak + LUFS).
-- **Master:** `~/Documents/Shelf/momboba/mombobasleep-MASTER.wav`
-  (44.1 kHz / 24-bit) + `mombobasleep.mp3` (320k). **Sleep** chain (kept
+- **Master:** `~/Documents/Shelf/momboba/momabobasheep-MASTER.wav`
+  (44.1 kHz / 24-bit) + `momabobasheep.mp3` (320k). **Sleep** chain (kept
   gentle so the dynamic arc lives): highpass 22 → +3 dB low shelf @ 85 →
   −3.5 dB shelf @ 3.2 k → ONE soft slow glue comp (2:1, no leveller) →
   2 s fade-in / 5 s fade-out guarding the loop seam → **measured LINEAR gain
   to −16 LUFS / −1 dBTP** (loudnorm as meter only), truncate to 10:00. (Durable
   home is `~/Documents/Shelf/` — Desktop auto-cleans, [[feedback_desktop_autocleaned]].)
-- **Cover:** `pop/momboba/out/mombobasleep-cover.png` (1024²,
-  gpt-image-2 via `bin/gen-illy.mjs` + `mombobasleep.illy.txt`) — replaced
-  the felted-doll naptime (2026-06-11, per @jeffrey): now a dim warm
-  phone-snapshot of the REAL jeffrey deep asleep on the couch under a
-  blanket, actual outfit from the platter refs, red glasses folded beside
-  his head, his CLOSED Citrus MacBook Neo tucked against him like a pet
-  (white-scrap whistlegraph butterfly on the lid; no screens, no text, no
-  wordmarks — diegetic amber lamp light only). Embedded in the mp3;
-  DistroKid upscale at `~/Documents/Shelf/momboba/mombobasleep-cover-3000.png`.
-- **Graphic score:** `pop/momboba/out/mombobasleep-score.png` (3200×1400,
+- **Cover:** `pop/momboba/out/momabobasheep-cover.png` (1024²,
+  gpt-image-2 via `bin/gen-illy.mjs` + `momabobasheep.illy.txt`) — FINAL
+  (2026-06-11, soft-felt return): **the whole concept as a NEEDLE-FELTED
+  WOOL diorama** — felt jeffrey-doll (real outfit in felt, red felt
+  glasses folded by his hand) asleep on a felt gallery bench, the
+  water-lily room as a monumental FELTED TAPESTRY filling the wall, a
+  tiny felted boba with wool pearls on the bench, and a flock of
+  needle-felt sheep grazing the felt floor (wool playing itself). No
+  text/wordmarks/screens. (Concept lineage: felted couch-doll →
+  photographic MoMA scene → this felt MoMA scene.) Embedded in BOTH
+  engine mp3s; DistroKid upscale at
+  `~/Documents/Shelf/momboba/momabobasheep-cover-3000.png` + Desktop
+  mirrors of cover + all four masters.
+- **Reel (FMV-ready):** `pop/momboba/reel/` — 8 vertical (1024×1536)
+  felt story beats via `bin/gen-reel.mjs` (PREAMBLE + per-beat prompts):
+  arrival-with-boba → the sip → galleries → pond-room awe → heavy eyes →
+  first sheep → asleep among the flock → the dream on the lily pad.
+  Outputs `reel/out/NN-*.png` + Desktop mirrors, for a ~30 s IG reel cut.
+- **Graphic score:** `pop/momboba/out/momabobasheep-score.png` (3200×1400,
   also on ~/Desktop) — the whole 10:00 visualized: 9 Fibonacci movement
   bands, the 186-chord walk, per-voice lanes (whistle/bells/sparkle/arp/
   alto/pad/drone+sub ribbons), the baked dynamic arc, golden-section climax
@@ -772,9 +796,9 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
   whole-piece minimap with the dynamic arc. Any `--size` aspect (default
   1080×1920 story-vertical), `--zoom` = seconds visible per screen.
   Generic JSON contract; lane adapter `bin/scorodeon-data.mjs` →
-  `out/mombobasleep.scorodeon.json` → `out/mombobasleep-scorodeon.mp4`.
+  `out/momabobasheep.scorodeon.json` → `out/momabobasheep-scorodeon.mp4`.
 - **Next:** ear-check the master → CDN
-  (`assets.aesthetic.computer/pop/mombobasleep.jpg` / `.mp3`) →
+  (`assets.aesthetic.computer/pop/momabobasheep.jpg` / `.mp3`) →
   DistroKid → promote this entry to **RELEASED**.
 
 ---
