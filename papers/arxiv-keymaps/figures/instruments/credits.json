@@ -1,0 +1,42 @@
+{
+  "guitar": {
+    "objectID": 503283,
+    "title": "Guitar",
+    "maker": "Manuel Ramírez",
+    "date": "1912",
+    "place": "Madrid",
+    "accession": "1986.353.2",
+    "url": "https://www.metmuseum.org/art/collection/search/503283",
+    "license": "CC0 (Met Open Access)"
+  },
+  "violin": {
+    "objectID": 503057,
+    "title": "Violin",
+    "maker": "Nicolò Amati (Cremona 1596–1684 Cremona)",
+    "date": "1669",
+    "place": "Cremona",
+    "accession": "1974.229a–d",
+    "url": "https://www.metmuseum.org/art/collection/search/503057",
+    "license": "CC0 (Met Open Access)"
+  },
+  "trumpet": {
+    "objectID": 503961,
+    "title": "Valve Trumpet in F",
+    "maker": "Courtois & Mille",
+    "date": "1881–85",
+    "place": "Paris",
+    "accession": "2001.187a–i",
+    "url": "https://www.metmuseum.org/art/collection/search/503961",
+    "license": "CC0 (Met Open Access)"
+  },
+  "ocarina": {
+    "objectID": 503242,
+    "title": "Ocarina",
+    "maker": "Tairona People; Gayraca style",
+    "date": "1300–1500",
+    "place": "Colombia",
+    "accession": "1984.507.9",
+    "url": "https://www.metmuseum.org/art/collection/search/503242",
+    "license": "CC0 (Met Open Access)"
+  }
+}
