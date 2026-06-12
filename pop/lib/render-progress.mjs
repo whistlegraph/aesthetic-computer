@@ -20,6 +20,7 @@
 // than STALE_MS, so a crashed render never leaves a ghost bar behind.
 
 import { mkdirSync, writeFileSync, rmSync, readdirSync, readFileSync } from "node:fs";
+import { execSync } from "node:child_process";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -30,14 +31,44 @@ function ensureDir() {
   try { mkdirSync(RENDERS_DIR, { recursive: true }); } catch { /* ignore */ }
 }
 
+// Which Claude session launched this render? Walk up the process tree to
+// the claude pid (the same loop slab's hooks use), then match it against
+// the live $SLAB_HOME/state/active-prompts markers. The heartbeat carries
+// the answer so the Slab menubar can flip that session's row to the pink
+// `rendering` state — a backgrounded build never reads as idle. "" when
+// the render wasn't started from a Claude session.
+function resolveClaudeSessionId() {
+  try {
+    let pid = process.pid, claude = 0;
+    for (let i = 0; i < 12 && pid > 1; i++) {
+      const line = execSync(`ps -o ppid=,comm= -p ${pid}`, { encoding: "utf8" }).trim();
+      const m = line.match(/^(\d+)\s+(.*)$/);
+      if (!m) break;
+      if (m[2].includes("claude")) { claude = pid; break; }
+      pid = Number(m[1]);
+    }
+    if (!claude) return "";
+    const dir = join(process.env.SLAB_HOME || join(homedir(), ".local/share/slab"),
+      "state", "active-prompts");
+    for (const f of readdirSync(dir)) {
+      try {
+        const j = JSON.parse(readFileSync(join(dir, f), "utf8"));
+        if (Number(j.claude_pid) === claude) return j.session_id || "";
+      } catch { /* skip unparsable marker */ }
+    }
+  } catch { /* no ps / no markers — not a claude launch */ }
+  return "";
+}
+
 // ── writer side (the render process) ─────────────────────────────────
 let _id = null, _file = null, _type = null, _label = null;
-let _started = 0, _lastWrite = 0;
+let _started = 0, _lastWrite = 0, _sessionId = "";
 
 export function begin({ type, label } = {}) {
   ensureDir();
   _type = type || "render";
   _label = label || _type;
+  _sessionId = resolveClaudeSessionId();
   _started = Date.now();
   _id = `${_type}-${process.pid}-${_started.toString(36)}`;
   _file = join(RENDERS_DIR, `${_id}.json`);
@@ -69,7 +100,7 @@ function _write(pct, counts) {
   const done = counts && Number.isFinite(counts.done) ? Math.max(0, Math.round(counts.done)) : null;
   const total = counts && Number.isFinite(counts.total) ? Math.max(0, Math.round(counts.total)) : null;
   const rec = {
-    id: _id, type: _type, label: _label,
+    id: _id, type: _type, label: _label, sessionId: _sessionId,
     pct: pct == null ? null : Math.max(0, Math.min(100, Math.round(pct))),
     done, total,
     pid: process.pid, startedAt: _started, updatedAt: _lastWrite,
