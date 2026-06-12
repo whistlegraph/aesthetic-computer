@@ -3,3 +3,10 @@
 # captures/ holds local puppeteer captures from `bin/capture-ac-native.mjs`.
 campaigns/*/gens/
 captures/
+
+# story videos — keep vo.txt + build.mjs, skip rendered/cached output.
+campaigns/*/story/build/
+campaigns/*/story/*.mp4
+campaigns/*/story/*.mp3
+campaigns/*/story/*.alignment.json
+campaigns/*/story/*.hash
