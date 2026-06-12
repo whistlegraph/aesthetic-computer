@@ -1,0 +1,76 @@
+A photograph of a colored-pencil and gouache drawing on warm cream
+paper, in wide horizontal landscape orientation. Confident hatching
+and striping build tone. Tapered pencil edges. Optical mixing in
+patterned surfaces. Visible paper grain. Print-work sensibility.
+Diegetic light only — never overlay glow. Candid iPhone-snapshot tone,
+deadpan everyday-tech — NOT cinematic, NOT neon-noir, NOT an
+advertisement. The figure never looks at the camera or acknowledges
+the viewer; he is fully absorbed in his screen. The drawing dissolves
+softly to pure cream paper at the edges with no hard frame and no app
+UI overlays of any kind.
+
+The scene: jeffrey's lived-in los angeles home office, mid-morning. A
+long warm-walnut desk against a tall window, warm sun falling across
+the desk from the right. A pale oak floor with a small worn persian
+rug underfoot. A half-drunk mug of black coffee on a cork coaster. A
+yellow legal pad with a few hand-written notes pushed to the edge.
+One small monstera leaf at the corner of the desk.
+
+At the desk, seated, in a relaxed 3/4 view: the man in the reference
+photos — recognizably him, medium-length brown hair tucked behind one
+ear, soft red plastic glasses on his face. He wears a faded printed
+crewneck t-shirt — a small hand-screened design across the chest that
+reads as a tiny hand-lettered piece-name word but is not legible as a
+real brand — and wide-leg medium-cobalt linen trousers. His posture is
+calm and matter-of-fact, both hands resting at the edge of the desk,
+waiting. His eyes are on his screen — attentive, faintly amused,
+engaged with what is happening on it. He is NOT looking at the brush,
+NOT looking at the camera.
+
+On the desk directly in front of him: his chartreuse citrus-green
+Apple MacBook Neo, clamshell open, lid open AWAY from the camera so
+the screen faces the viewer at a slight 3/4 angle — the lid-back is
+NOT visible. The saturated green chassis is one of the two brightest
+objects in the frame.
+
+Plugged bottom-first into the Neo's side usb-c port: the 2FA Brush —
+an electric toothbrush that is also a hardware security key. It
+sticks straight out sideways like a comically oversized yubikey,
+bristles tilted up. Saturated mint-teal handle, a snap-on coral
+identity ring at its base where it meets the port, and a tiny
+cornflower-blue LED lit near the connector — a small flat gouache dot
+with short hatched rays, diegetic, never an overlay glow.
+
+ON the Neo's screen, drawn in the same colored-pencil hatching as
+everything else — never a glossy ui render: a spare lock screen, a
+small hand-drawn key glyph inside a circular progress ring about
+two-thirds complete, and a short row of soft dots where a passphrase
+would be. Nothing else — no readable text, no icons, no menus, and the
+screen is NOT a reflection or thumbnail of the surrounding room.
+
+Also on the desk, incongruously among the work things: a rolled tube
+of toothpaste and the brush's round mint-teal charging dock with a
+butter-yellow usb-c cable looping off the desk edge.
+
+Read of the picture: he is logging in. The toothbrush is the key. He
+finds this completely normal. The humor is carried entirely by the
+deadpan — an ordinary morning of authentication, drawn like any other
+quiet desk scene.
+
+Palette: warm cream paper as the ground; warm late-morning sun hatched
+in from the right; warm walnut desk; muted persian-rug reds and blues;
+TWO saturated pops — the chartreuse-citrus Neo and the mint-teal
+brush — side by side where the brush meets the port; one coral accent
+on the identity ring; butter-yellow on the cable; cobalt blue on his
+trousers; soft red pop on his glasses. Hand-drawn, hatched,
+print-tech-aware, print-comic restraint.
+
+Avoid: photoreal product rendering; cinematic neon glow; any css-
+overlay light; motion blur; any readable real brand text (the apple
+logo is ok, nothing else); any app, social-media, or story ui chrome
+beyond the single hand-hatched lock screen; recursive screen-of-the-
+room reflections; cartoon exaggeration; smoothed-out skin; the figure
+looking at or acknowledging the camera; hero-pose centering; stickers
+or butterflies on the laptop lid; anything occluding the laptop or the
+brush in the camera plane. Keep one matter-of-fact eye-line and let
+the joke read on its own.

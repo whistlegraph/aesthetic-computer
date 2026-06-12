@@ -1,0 +1,9 @@
+this is the twofa brush.
+it's an electric toothbrush.
+it's also a hardware security key.
+you brush for two minutes every morning, and that's the passphrase.
+then it plugs into your laptop, bottom first, like an oversized yubikey.
+i log in with it. i code with it. it knows my brushprint.
+nobody borrows your toothbrush.
+that's the whole security model.
+the twofa brush, from aesthetic dot computer.

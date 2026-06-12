@@ -1,0 +1,304 @@
+% !TEX program = xelatex
+% 2FA Brush — faux product sheet (marketing/products/2fa-brush).
+%   Two pages: Overview / Specs & Pricing. House style follows
+%   quotes/AE-2026-00x (YWFT Processing + Berkeley Mono, acpaper page,
+%   rounded rtables, page-map rule, pals stamp).
+% Build: tectonic -X compile sheet.tex   (run from this directory)
+%   Needs the hero gen at ../gens/v3-hero.png —
+%   regen with: node marketing/bin/gen-promo.mjs comodiddies/twofa
+%               --variant v3-hero   (jeffrey refs on; colored-pencil house style)
+% This product does not exist. That is part of the product.
+\documentclass[11pt]{article}
+\usepackage[margin=0.62in]{geometry}
+\usepackage[table]{xcolor}
+\usepackage{graphicx}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{fontspec}
+\usepackage{tikz}
+\usepackage{eso-pic}
+\usepackage{wrapfig}
+\pagestyle{empty}
+\flushbottom
+
+% === SHEET METADATA ===
+\newcommand{\sheetid}{AC-2FB-01}
+\newcommand{\docslug}{2fa-brush}
+\newcommand{\doctimestamp}{Concept sheet · June 10, 2026}
+
+% --- Aesthetic.Computer palette ---
+\definecolor{acink}{HTML}{1E1E1E}
+\definecolor{acpaper}{HTML}{FBFAFF}
+\definecolor{acline}{HTML}{E2DEEC}
+\definecolor{cellbg}{HTML}{FCFBFE}
+% --- 2FA Brush accents ---
+\definecolor{brushmint}{HTML}{1FA98C}     % fresh — hygiene, verification
+\definecolor{keyindigo}{HTML}{34418C}     % security — credentials, structure
+\definecolor{brushamber}{HTML}{B8791A}    % pricing / caution
+\definecolor{brushslate}{HTML}{3A3F4F}    % structural
+\definecolor{pricegreen}{HTML}{1E8A5B}
+
+\newfontfamily\acprocessing[
+  Path=../../../system/public/type/webfonts/,
+  Extension=.ttf, UprightFont=ywft-processing-regular,
+  BoldFont=ywft-processing-bold, ItalicFont=ywft-processing-alternate
+]{YWFT Processing}
+\newfontfamily\acberkeley[
+  Path=../../../bills/invoices/,
+  Extension=.ttf, UprightFont=BerkeleyMonoVariable-Regular,
+  ItalicFont=BerkeleyMonoVariable-Italic
+]{BerkeleyMonoVariable}
+\hypersetup{hidelinks}
+
+\newcommand{\palsimg}{../../../bills/invoices/pals.pdf}
+\newcommand{\palsstamp}{../../../bills/invoices/pals-stamp.png}
+\newcommand{\heroimg}{../gens/v3-hero.png}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.42em}
+\renewcommand{\arraystretch}{1.0}
+\setlength{\extrarowheight}{0pt}
+\setlength{\tabcolsep}{7pt}
+\newcommand{\cellstrut}{\rule[-7.3pt]{0pt}{20.3pt}}
+\arrayrulecolor{acline}
+
+\newcommand{\headgap}{\par\vspace{0.7em}}
+\newcommand{\modgap}{\par\vspace{1.05em plus 0.5em minus 0.45em}}
+\newcommand{\pagefoot}{\par\vspace{2pt plus 1fil}\null}
+
+\newcommand{\acdot}{\textcolor{keyindigo}{.}}
+
+% subheaders — section color with a soft dark drop shadow
+\newcommand{\subhead}[2]{{\acprocessing\fontsize{15pt}{17pt}\bfseries\selectfont%
+  \makebox[0pt][l]{\raisebox{-0.9pt}{\hspace{0.9pt}\textcolor{acink!40}{#2}}}%
+  \textcolor{#1}{#2}}}
+\newcommand{\cellbgcolor}{cellbg}
+\newcommand{\cathead}[2]{%
+  \renewcommand{\cellbgcolor}{#1!8}%
+  \subhead{#1}{#2}%
+  \par\nopagebreak\vspace{0.55em}
+}
+
+\newcommand{\grandtot}[1]{%
+  \par\vspace{2pt}\noindent\hfill
+  \begin{tikzpicture}
+    \node[font={\acberkeley\Large\bfseries}, inner xsep=9pt, inner ysep=7pt]
+      (t) {\phantom{#1}};
+    \filldraw[fill=brushmint, fill opacity=0.30, draw=brushmint, line width=1.1pt, rounded corners=8pt]
+      (t.south west) rectangle (t.north east);
+    \node[font={\acberkeley\Large\bfseries}, text=black] at (t.center) {#1};
+  \end{tikzpicture}%
+  \par
+}
+
+\newcommand{\boxon}{\tikz[baseline=-0.45ex]{%
+  \draw[pricegreen,line width=1.2pt,line cap=round,line join=round]
+    (-1.05mm,0.05mm)--(-0.2mm,-0.9mm)--(1.3mm,1.1mm);}}
+
+% === BACKGROUND — footer line + ledger line ===
+\AddToShipoutPictureBG{%
+  \begin{tikzpicture}[remember picture, overlay]
+    \draw[acline, line width=0.4pt]
+      ([xshift=0.62in,yshift=0.58in]current page.south west) --
+      ([xshift=-0.62in,yshift=0.58in]current page.south east);
+    \node[anchor=south, inner sep=0pt] at ([yshift=0.4in]current page.south)
+      {\makebox[\dimexpr\paperwidth-1.24in\relax]{{\acberkeley\footnotesize\color{acink}%
+        \doctimestamp\hfill \sheetid\ \ \textcolor{acline}{$\cdot$}\ \ \docslug\hfill \thepage\,/\,2}}};
+  \end{tikzpicture}%
+}
+
+% top page-map — two segments, the page you're on is lit
+\newcommand{\pageseg}[3]{%
+  \ifnum#1=#2 \textcolor{#3}{\rule{0.49\linewidth}{7pt}}%
+  \else \textcolor{#3!22!white}{\rule{0.49\linewidth}{7pt}}\fi
+}
+\newcommand{\acrule}[1]{%
+  \noindent
+  \pageseg{1}{#1}{brushmint}\hspace{0.02\linewidth}%
+  \pageseg{2}{#1}{keyindigo}%
+}
+
+% column types
+\newcolumntype{L}{>{\columncolor{\cellbgcolor}\cellstrut\raggedright\arraybackslash}X}
+\newcolumntype{R}[1]{>{\columncolor{brushamber!14}\cellstrut\raggedleft\arraybackslash}p{#1}}
+\newcolumntype{C}[1]{>{\columncolor{keyindigo!9}\cellstrut\raggedright\arraybackslash}p{#1}}
+
+% rtable — rounded-corner table wrapper
+\newsavebox{\rtbox}
+\newenvironment{rtable}{\begin{lrbox}{\rtbox}}{%
+  \end{lrbox}%
+  \par\noindent
+  \begin{tikzpicture}
+    \node[inner sep=0pt] (rt) {\phantom{\usebox{\rtbox}}};
+    \begin{scope}
+      \clip[rounded corners=6pt] (rt.south west) rectangle (rt.north east);
+      \node[inner sep=0pt] at (rt.center) {\usebox{\rtbox}};
+    \end{scope}
+    \draw[rounded corners=6pt, acline, line width=0.9pt]
+      (rt.south west) rectangle (rt.north east);
+  \end{tikzpicture}\par
+}
+
+\begin{document}
+\pagecolor{acpaper}
+\color{acink}
+\fontsize{10.5pt}{12.9pt}\selectfont
+
+%% ====================== PAGE 1 — OVERVIEW ======================
+
+% pals stamp — rotated, hanging off the bottom-right corner (invoice style)
+\begin{tikzpicture}[remember picture,overlay]
+  \node[anchor=south east, rotate=18, opacity=0.92]
+  at ([xshift=1.10cm,yshift=-0.40cm]current page.south east)
+  {\includegraphics[height=5.6cm]{\palsstamp}};
+\end{tikzpicture}
+
+\begin{tabularx}{\linewidth}{@{}Xr@{}}
+  {{\acprocessing\LARGE\bfseries\makebox[0pt][l]{\raisebox{-1.0pt}{\hspace{1.0pt}\textcolor{acink!55}{2FA Brush}}}\textcolor{brushmint}{2FA Brush}}} &
+  \raisebox{-0.85cm}{\includegraphics[height=1.9cm]{\palsimg}} \\
+  {{\acprocessing\Large\bfseries Aesthetic\acdot Computer Hardware}} & {} \\
+\end{tabularx}
+
+\vspace{0.45em}\acrule{1}
+
+\vspace{0.7em}
+
+\begin{tabularx}{\linewidth}{@{}Xr@{}}
+\textbf{Model:} \sheetid & \textbf{Ships:} Spring 2031 (projected, unprojected) \\
+\textbf{Class:} Personal hygiene / hardware security token & \textbf{Status:} Concept --- does not exist yet \\
+\end{tabularx}
+
+\vspace{0.7em}
+
+\begin{minipage}[t]{0.56\linewidth}
+\vspace{0pt}
+
+\cathead{brushmint}{The short version}
+A security brush. An electric toothbrush that is also a hardware
+security key --- a YubiKey you brush your teeth with. It charges over
+USB-C on the bottom, and that same port plugs into your laptop to
+authenticate and hold your credentials.
+
+The security key problem is a habit problem: keys get lost, left in
+drawers, forgotten on other keychains. A toothbrush has the strongest
+habit loop of any object you own --- twice a day, every day, one fixed
+location. The 2FA Brush piggybacks identity on hygiene: the one
+device you never forget to touch.
+
+And nobody borrows your toothbrush.
+
+\modgap
+
+\cathead{keyindigo}{Brushing is the passphrase}
+The 6-axis motion sensor learns your \textbf{brushprint} --- the
+personal signature of how you brush. Two minutes in the morning
+unlocks the day's credentials. A stolen 2FA Brush is just a brush.
+
+\end{minipage}\hfill
+\begin{minipage}[t]{0.40\linewidth}
+\vspace{0pt}
+\begin{tikzpicture}
+  \node[inner sep=0pt] (hero) {\phantom{\includegraphics[width=\linewidth]{\heroimg}}};
+  \begin{scope}
+    \clip[rounded corners=10pt] (hero.south west) rectangle (hero.north east);
+    \node[inner sep=0pt] at (hero.center) {\includegraphics[width=\linewidth]{\heroimg}};
+  \end{scope}
+  \draw[rounded corners=10pt, acline, line width=1pt]
+    (hero.south west) rectangle (hero.north east);
+\end{tikzpicture}
+{\acberkeley\footnotesize\textcolor{acink!70}{Pictured: a user, mid-
+passphrase. The product drawn does not exist.}}
+\end{minipage}
+
+\modgap
+
+\cathead{brushslate}{Key features}
+\begin{rtable}
+\begin{tabularx}{\linewidth}{>{\columncolor{\cellbgcolor}\cellstrut}c|L}
+\boxon & \textbf{Secure element in the handle} --- FIDO2 / WebAuthn, TOTP, SSH \& PGP keys. Same class as a dedicated security key. \\ \hline
+\boxon & \textbf{One port, two jobs} --- flush USB-C on the bottom face: drops into the dock at night, plugs into the laptop to auth. \\ \hline
+\boxon & \textbf{Brushprint liveness} --- brushing unlocks; possession alone doesn't. \\ \hline
+\boxon & \textbf{NFC tap-to-auth} --- phone 2FA without leaving the bathroom. \\ \hline
+\boxon & \textbf{Heads are replaceable, identity is not} --- credentials live in the handle; swap bristles, keep keys. \\ \hline
+\boxon & \textbf{Session LED} --- one soft light near the base, breathing while a session is live. The only tell. \\
+\end{tabularx}
+\end{rtable}
+
+\pagefoot
+
+%% ================= PAGE 2 — SPECS & PRICING =================
+\pagebreak
+\pagecolor{acpaper}
+
+\begin{tabularx}{\linewidth}{@{}Xr@{}}
+  {{\acprocessing\LARGE\bfseries\makebox[0pt][l]{\raisebox{-1.0pt}{\hspace{1.0pt}\textcolor{acink!55}{2FA Brush}}}\textcolor{keyindigo}{2FA Brush}}} &
+  \raisebox{-0.85cm}{\includegraphics[height=1.9cm]{\palsimg}} \\
+  {{\acprocessing\Large\bfseries Specifications \& Pricing}} & {} \\
+\end{tabularx}
+
+\vspace{0.45em}\acrule{2}
+
+\headgap
+
+\cathead{keyindigo}{Technical specifications}
+\begin{rtable}
+\begin{tabularx}{\linewidth}{C{4.2cm}|L}
+\rowcolor{keyindigo!12}
+\textbf{Spec} & \textbf{Value} \\ \hline
+Secure element & Tamper-resistant, CC EAL6+ class; keys never leave the handle \\ \hline
+Protocols & FIDO2 / WebAuthn, U2F, TOTP, SSH, PGP; NFC Type 4 tap-to-auth \\ \hline
+Liveness & 6-axis IMU brushprint --- 2:00 of your brushing unlocks a 24h session \\ \hline
+Motor & Sonic, 31{,}000 strokes/min; quad-pacer marks the four mouth zones \\ \hline
+Battery & 30 days per charge; USB-C 5V on the bottom face, steel-ringed, flush \\ \hline
+Water & IPX7 --- port sealed for brushing; data only when dry (the dock knows) \\ \hline
+Heads & Replaceable, standard mount, 3-month service life; identity stays in handle \\ \hline
+Finishes & Matte chalk, graphite, mint; four snap-on color rings in every box \\
+\end{tabularx}
+\end{rtable}
+
+\modgap
+
+\cathead{brushamber}{Pricing}
+\begin{rtable}
+\begin{tabularx}{\linewidth}{L|R{2.6cm}}
+\rowcolor{keyindigo!12}
+\textbf{Item} & \textbf{Price} \\ \hline
+2FA Brush --- handle, dock, two heads, four color rings & \$129.00 \\ \hline
+Family 4-pack --- four handles, four identities, one dock with four bays & \$399.00 \\ \hline
+Replacement heads, 3-pack (bristles only --- your keys aren't in there) & \$24.00 \\ \hline
+Travel dock --- charges and locks the port shut in one gesture & \$39.00 \\ \hline
+BrushCare\,+ --- encrypted credential backup \& recovery, per month & \$4.00 \\
+\end{tabularx}
+\end{rtable}
+
+\vspace{0.5em}
+\grandtot{Starting at\quad\$129.00}
+
+\modgap
+
+\cathead{brushmint}{The family bathroom problem}
+Four identical brushes are four identical attack surfaces, so the 2FA
+Brush refuses to be identical: snap-on color rings disambiguate at
+arm's length, and the brushprint disambiguates when the rings get
+swapped by a six-year-old. Picking up the wrong brush fails
+\textit{both} factors --- which is, for once, the hygienic outcome too.
+
+\modgap
+
+\cathead{brushslate}{Recovery story}
+Credentials pair to the handle and back up (encrypted, opt-in) under
+BrushCare\,+. Lose the brush, buy a new one, brush for two minutes to
+re-attest, restore. The bristles were due for replacement anyway.
+
+\vspace{0.6em}
+{\acberkeley\footnotesize\textcolor{acink!70}{The 2FA Brush is a
+speculative product from the Aesthetic\acdot Computer futures shelf
+(marketing/products). It is not for sale, not FCC certified, and not
+endorsed by any dental association. Brushing twice daily is real
+advice; the rest of this document is not.}}
+
+\pagefoot
+
+\end{document}

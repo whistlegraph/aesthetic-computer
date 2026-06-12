@@ -1,0 +1,56 @@
+A photograph of a colored-pencil and gouache drawing on warm cream
+paper, in tall vertical portrait orientation. Confident hatching and
+striping build tone. Tapered pencil edges. Optical mixing in patterned
+surfaces. Visible paper grain. Print-work sensibility. Diegetic light
+only — never overlay glow. Candid iPhone-snapshot tone, deadpan
+everyday-tech — NOT cinematic, NOT neon-noir, NOT an advertisement.
+The figure never looks at the camera or acknowledges the viewer; he is
+fully absorbed in his work. The drawing dissolves softly to pure cream
+paper at the edges with no hard frame and no app UI overlays of any
+kind.
+
+The scene, composed tall: jeffrey's lived-in los angeles home office,
+mid-morning, seen from the FAR SIDE of the desk so the laptop's closed
+lid faces the viewer and its screen faces away — no screen content is
+visible anywhere in the picture. The desk fills the lower half of the
+frame and the window light fills the upper. A warm-walnut desk, warm
+sun falling in from the right, a tall plant in the upper background, a
+half-drunk mug of black coffee on a cork coaster.
+
+Behind the laptop, seated, framed from the chest up over the top edge
+of the lid: the man in the reference photos — recognizably him,
+medium-length brown hair tucked behind one ear, soft red plastic
+glasses on his face. He wears one of the ACTUAL outfits he is wearing
+in the reference photos — match the real clothing in the reference
+photos faithfully, do not invent new garments. Both hands are down on
+the keyboard behind the lid, actually typing, mid-keystroke. His eyes
+are down on his screen — focused, faintly amused. He is NOT looking at
+the camera.
+
+The laptop is his Apple MacBook Neo in Citrus — the bright
+yellow-green, grassy chartreuse one. Its lid is the picture's anchor,
+one of the two brightest objects in the frame, with a small hatched
+apple logo.
+
+Plugged bottom-first into the Neo's side usb-c port: the 2FA Brush —
+an electric toothbrush that is also a hardware security key, sticking
+straight out sideways like a comically oversized yubikey, bristles
+tilted up. Saturated mint-teal handle, snap-on coral identity ring at
+its base, tiny cornflower-blue LED lit near the connector — a small
+flat gouache dot with short hatched rays, diegetic.
+
+Read of the picture: a normal workday. The session stays unlocked
+because the toothbrush is plugged in. He finds this completely normal.
+
+Palette: warm cream paper ground; warm sun hatched from the right;
+warm walnut desk; TWO saturated pops — the citrus-green Neo lid and
+the mint-teal brush, side by side at the port; coral accent on the
+ring; soft red pop on his glasses. His clothing colors come from the
+reference photos. Hand-drawn, hatched, print-comic restraint.
+
+Avoid: any visible screen or screen content — the display faces away;
+photoreal product rendering; cinematic neon glow; css-overlay light;
+motion blur; readable real brand text (the apple logo is ok, nothing
+else); cartoon exaggeration; smoothed-out skin; invented outfits, tank
+tops, or costumes; the figure looking at the camera; hero-pose
+centering; stickers or butterflies on the laptop lid.

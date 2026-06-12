@@ -1,0 +1,19 @@
+# comodiddies — keep prompts, processes, sheets; skip regen-able outputs.
+# gens/ holds gpt-image-2 PNGs (large, regen-able from *-prompt.txt + refs).
+*/gens/
+
+# story videos — keep vo.txt + build.mjs + driver, skip rendered/cached output.
+*/story/build/
+*/story/*.mp4
+*/story/*.mp3
+*/story/*.alignment.json
+*/story/*.hash
+
+# motion takes are PAID Seedance outputs — they stay local (never deleted,
+# see pop-motion-pipeline); the manifests + picks are tracked.
+*/story/motion/*.mp4
+*/story/motion/archive/
+
+# gen-promo refs that are derived copies of gens/ or build artifacts —
+# regenerable, don't track the duplicate bytes.
+twofa/refs/

@@ -47,3 +47,19 @@ export const FRAMING_YT_LANDSCAPE_MOTION = `${FRAMING_YT_LANDSCAPE} \
 IN MOTION: camera moves respect the same zones — subjects stay in the \
 lower-and-mid band throughout the move, the upper third stays calm in every \
 frame, and nothing story-critical enters the outer 5% margins mid-motion.`;
+
+// Instagram-story portrait (2fa-brush et al): IG UI owns the top, the
+// caption band owns the bottom, side-stamp chrome owns the edges.
+export const FRAMING_IG_STORY_PORTRAIT = `MEDIA FRAMING (formal — the frame, \
+independent of the scene content): a TALL 9:16 portrait frame, full-bleed, \
+never letterboxed. SAFE ZONES — the top 15% is platform-UI territory and the \
+bottom 20% is a CAPTION ZONE: both stay compositionally calm (wall, counter, \
+desk surface, breathing room) with no faces and no story-critical objects. \
+primary figures and action sit in the middle band of the frame. the outer 8% \
+of the left and right edges is chrome margin: nothing story-critical touches \
+the side edges.`;
+
+export const FRAMING_IG_STORY_PORTRAIT_MOTION = `${FRAMING_IG_STORY_PORTRAIT} \
+IN MOTION: camera moves respect the same zones — subjects stay in the middle \
+band throughout the move, top and bottom stay calm in every frame, and \
+nothing story-critical enters the side margins mid-motion.`;

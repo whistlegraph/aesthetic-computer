@@ -1,0 +1,66 @@
+A photograph of a colored-pencil and gouache drawing on warm cream
+paper, in tall vertical portrait orientation. Confident hatching and
+striping build tone. Tapered pencil edges. Optical mixing in patterned
+surfaces. Visible paper grain. Print-work sensibility. Diegetic light
+only — never overlay glow. Candid iPhone-snapshot tone, deadpan
+morning-ritual everyday — NOT cinematic, NOT neon-noir, NOT an
+advertisement hero pose. The figure never looks at the camera or
+acknowledges the viewer; he is fully absorbed in brushing his teeth.
+The drawing dissolves softly to pure cream paper at the edges with no
+hard frame and no app UI overlays of any kind.
+
+The scene: a small lived-in los angeles bathroom, early morning. White
+square ceramic tile with slightly uneven hand-hatched grout lines, a
+plain white porcelain sink, warm morning sun coming through a small
+frosted window on the left and falling across the counter. A
+butter-yellow hand towel on a simple brass hook. A small potted
+succulent on the windowsill.
+
+At the sink, in profile / slight 3/4 from behind the shoulder: the man
+in the reference photos — recognizably him, medium-length brown hair
+tucked behind one ear, still sleep-rumpled, soft red plastic glasses
+ON his face. He wears a plain faded heather-grey crewneck t-shirt and
+soft navy cotton pajama pants. He is mid-brush, head tipped slightly
+down toward the sink, eyes calmly half-lowered in the unfocused
+middle-distance stare of someone brushing their teeth — absorbed in
+the ritual, patient, a little sleepy. One hand holds the brush; the
+other rests flat on the counter edge.
+
+The brush he is using: the 2FA Brush — an electric toothbrush that is
+also a hardware security key. A saturated mint-teal handle, the
+single brightest object in the frame, with a snap-on coral identity
+ring around its base and a tiny cornflower-blue LED near the bottom,
+lit — drawn as a small flat gouache dot with a few short hatched rays,
+diegetic, not a glow overlay. The bottom face of the handle is a
+flush usb-c port ringed in steel, just visible.
+
+On the counter beside the sink: the brush's small round charging dock
+in matching mint-teal with a short butter-yellow usb-c cable looping
+off the counter edge, a rolled tube of toothpaste, and one spare
+detached brush head with a marigold identity ring, lying flat. Three
+more snap-on rings — cobalt, marigold, coral — sit in a neat little
+row near the dock, hinting at the rest of the household.
+
+Read of the picture: two minutes of brushing is the passphrase. He is
+not posing, not demonstrating — just a guy brushing his teeth while,
+incidentally, the day's credentials unlock. The security event is
+completely invisible except for one small lit LED. The joke reads on
+its own.
+
+Palette: warm cream paper as the ground; warm morning sun hatched into
+the marks from the left; white tile with cool grey shadow hatching;
+one saturated mint-teal pop on the brush and dock (the brightest
+objects in the frame); coral and marigold and cobalt accents on the
+identity rings; butter-yellow on the towel and cable; soft red pop on
+his glasses; muted navy on the pajama pants. Hand-drawn, hatched,
+print-comic restraint.
+
+Avoid: photoreal product rendering; cinematic neon glow; any css-
+overlay light (the LED and sun are hatched diegetic marks); motion
+blur of any kind — the brushing is conveyed by pose alone, hand still;
+toothpaste foam excess; any readable real brand text or logos; any
+mirror reflection of his face (the mirror, if visible at all, catches
+only tile and window light); any app or UI chrome; figures looking at
+or acknowledging the camera; advertisement hero-pose centering;
+smoothed-out skin; costume sleepwear — keep the clothes real. Let the
+small lit LED carry the entire premise.

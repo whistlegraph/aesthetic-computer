@@ -1,0 +1,61 @@
+A photograph of a colored-pencil and gouache drawing on warm cream
+paper, in tall vertical portrait orientation. Confident hatching and
+striping build tone. Tapered pencil edges. Optical mixing in patterned
+surfaces. Visible paper grain. Print-work sensibility. Diegetic light
+only — never overlay glow. Candid iPhone-snapshot tone, deadpan
+everyday-tech — NOT cinematic, NOT neon-noir, NOT an advertisement.
+The figure never looks at the camera or acknowledges the viewer. The
+drawing dissolves softly to pure cream paper at the edges with no hard
+frame and no app UI overlays of any kind.
+
+The scene, composed tall and close: jeffrey's warm-walnut desk,
+morning. An intimate over-the-shoulder close-up — his shoulder and the
+side of his head occupy the lower left, slightly soft, while his
+laptop fills the middle of the frame in crisp focus. The laptop is an
+Apple MacBook Neo in Citrus — the bright yellow-green, grassy
+chartreuse one — and it is unmistakably a LAPTOP sitting OPEN in
+profile: the flat BASE (the keyboard half) lies on the desk, and the
+lid rises up from the hinge at a natural open angle. NEVER a tablet,
+never a detached screen propped upright. We see it from the side and
+slightly behind, so the lid's citrus back faces us and the screen is
+NOT visible — no screen content appears anywhere in the picture. On
+the side of the BASE, low, close to the desk: the laptop's usb-c
+port. Warm sun hatched in from the right.
+
+The man in the reference photos — recognizably him from behind and to
+the side, medium-length brown hair tucked behind one ear, the arm of
+his soft red plastic glasses just visible. He wears one of the ACTUAL
+outfits he is wearing in the reference photos — match the real
+clothing in the reference photos faithfully, do not invent new
+garments. One of his hands is in frame, mid-motion, holding the 2FA
+Brush HORIZONTALLY like an oversized usb stick and sliding it
+BOTTOM-FIRST into the usb-c port on the side of the laptop's BASE:
+the brush's flat bottom end (its usb-c connector) meets the port near
+the desk surface, the handle sticks straight out sideways, and the
+bristle head is the far end, pointing away from the laptop with the
+bristles tilted up. The brush plugs into the BASE like a thumbdrive —
+never into the lid, never into the desk, never bristles-first.
+
+The 2FA Brush — an electric toothbrush that is also a hardware
+security key. Saturated mint-teal handle, the brightest object in the
+frame with the Neo, snap-on coral identity ring at its base, bristles
+tilted up, tiny cornflower-blue LED just lighting near the connector —
+a small flat gouache dot with short hatched rays, diegetic.
+
+Read of the picture: the exact moment of authentication. Toothbrush
+meets laptop, the little LED wakes up, and the morning continues. The
+security event is the size of a postage stamp.
+
+Palette: warm cream paper ground; warm sun hatched from the right;
+warm walnut desk; TWO saturated pops — the citrus-green Neo and the
+mint-teal brush, meeting at the port; coral accent on the identity
+ring; soft red pop on the glasses arm. His clothing colors come from
+the reference photos. Hand-drawn, hatched, print-comic restraint.
+
+Avoid: any visible screen or screen content — the laptop is edge-on;
+photoreal product rendering; cinematic neon glow; css-overlay light;
+motion blur; readable real brand text (the apple logo is ok, nothing
+else); cartoon exaggeration; smoothed-out skin; invented outfits, tank
+tops, or costumes; the face turning toward the camera; hero-pose
+centering; stickers or butterflies on the laptop lid; any second
+screen or phone in frame.

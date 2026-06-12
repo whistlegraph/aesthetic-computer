@@ -1,0 +1,29 @@
+{
+  "sections": [
+    {
+      "name": "brush",
+      "startSec": 0,
+      "endSec": 10.089
+    },
+    {
+      "name": "auth",
+      "startSec": 10.089,
+      "endSec": 15.813
+    },
+    {
+      "name": "coding",
+      "startSec": 15.813,
+      "endSec": 17.23
+    },
+    {
+      "name": "brush-close",
+      "startSec": 17.23,
+      "endSec": 24.184
+    },
+    {
+      "name": "sheet",
+      "startSec": 24.184,
+      "endSec": 28.660999999999998
+    }
+  ]
+}

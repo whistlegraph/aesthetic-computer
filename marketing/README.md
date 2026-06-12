@@ -11,6 +11,7 @@ marketing/
     jeffrey-refs.mjs         # shared SHOOT + SELFIE refs for jeffrey identity
   campaigns/                 # in-repo campaigns (when not staging on Desktop)
   captures/                  # local puppeteer captures (gitignored)
+  ../comodiddies/            # numbered sci-fi products (sheet + story + piece) — lifted off this stack
 ```
 
 prompts and processes are tracked. outputs (`campaigns/*/gens/`,
