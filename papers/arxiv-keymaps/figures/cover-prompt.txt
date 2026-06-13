@@ -1,1 +1,59 @@
-A single chromatic keycap floating dead-centre on white paper, viewed from a low three-quarter angle and tilted slightly. The cap is a hybrid form: the upper face is a square QWERTY keycap with the letter "C" cleanly engraved into its top surface in a friendly hand-cut typeface; the lower half of the same key tapers into the shape of a piano white-key, long and slender, with a single short piano-black-key shape sitting flush against its upper-right shoulder. The keycap is rendered in warm ivory with the faintest violet shadow inside the engraved letter; the black-key wedge is matte indigo. A fingertip — only the tip, no hand, no arm — presses gently into the cap from above, depressing it about a millimetre; the cap shows a soft compression highlight where the fingertip meets the cap. Rising from the struck key, a small constellation of pencil-drawn musical note glyphs — four or five quarter-notes and a single sharp — sweep softly outward and upward in a gentle arc, growing fainter as they go, dissolving into the white paper before reaching any edge. No keyboard frame, no surrounding keys, no housing, no surface beneath the key, no shadow, no horizon, no logo, no label, no wordmark. The keycap sits in pure white space; only the cap, the fingertip, and the dissolving note-arc are present.
+A photograph of a colored-pencil and gouache drawing on pure white
+paper, square. Confident hatching and striping build tone. Tapered
+pencil edges. Optical mixing in patterned surfaces. Visible paper
+grain. Print-work sensibility. Diegetic light only — never overlay
+glow. Candid iphone-snapshot tone, deadpan everyday — NOT cinematic,
+NOT an advertisement hero pose. The figure never looks at the camera;
+he is fully absorbed in playing. The drawing dissolves softly to pure
+white paper at the edges with no hard frame, no border, no caption,
+no wordmark, no title lettering anywhere on the page.
+
+the scene: one man alone, sitting on a simple wooden chair in white
+space — no room, no floor line beyond a soft hatched shadow under the
+chair legs. it's the man in the reference photos — recognizably him,
+medium-length brown hair tucked behind one ear. he wears his usual
+outfit: a plain solid button-down shirt, mostly buttoned but relaxed,
+top button undone, no graphic print — a bright-yellow torpedo-shaped
+fountain pen with a gold clip tucked in the chest pocket, and a small
+yellow embroidered bear-shaped badge stitched on the chest, part of
+the shirt itself.
+
+on his lap: a small black 11.6-inch ThinkPad — chunky, rugged,
+student-laptop proportions, matte black, with the small red TrackPoint
+nub in the middle of the keyboard and a small ThinkPad wordmark on the
+lid corner. the lid is open about 110 degrees with the screen facing
+him; the camera sits at a three-quarter angle off his left shoulder,
+slightly below eye level, so we see his face in three-quarter view,
+both hands spread on the keyboard like a pianist's — left hand on the
+left half, right hand on the right half, fingers genuinely on the
+letter keys — and the screen foreshortened at an angle. his head is
+tipped down toward the screen, eyes on it, absorbed — playing it like
+an instrument, a small private half-smile.
+
+the screen shows the interface from the reference screenshot: two
+blocks of bright candy-colored note tiles along the bottom — coral,
+orange, yellow, olive, green, teal, blue, purple, magenta — a thin
+pale strip above them, small gray slider rows at the top. render it
+as flat hand-hatched color fields matching the screenshot's layout
+and palette; tiny text may stay illegible. the screen casts a faint
+multicolor wash onto his hands and shirt front — hatched diegetic
+marks, not a glow overlay.
+
+keyboard accuracy: standard QWERTY layout, 6 rows including a top
+function row, full-width spacebar, trackpad below — drawn simply and
+correctly, not a jumble. laptops have ONE screen and it lives on the
+inside of the lid — nothing on the lid back, base, or underside.
+
+palette: white paper as the ground; matte black laptop with one red
+TrackPoint accent; the candy-colored tile grid on the screen as the
+brightest passage in the drawing; muted earth tone on the shirt;
+warm brown hair; pale wooden chair. hand-drawn, hatched, print-comic
+restraint.
+
+avoid: photoreal rendering; cinematic glow; any css-overlay light;
+motion blur of any kind — the playing is conveyed by pose alone,
+hands still; soft-focus haze — the drawing is crisp throughout,
+confident pencil lines from foreground to back; extra furniture,
+desks, cables, mugs, or props; any second screen; any readable
+institutional lettering; tank tops or invented garments; the
+chartreuse green laptop — this is the black ThinkPad scene.

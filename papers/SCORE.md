@@ -102,6 +102,19 @@ Smaller scoped collections. Each has its own `manifest.json` + `sync.mjs`:
 
 Jeffrey's CV is built through the same pipeline (LaTeX → PDF → site deploy) and treated as a long-form paper for tooling purposes. Hidden from the public index.
 
+### 10. Print editions (`first print edition`)
+
+The physical lane (added **2026-06-12**). A paper from any other lane can be **cut as a numbered print edition** — a finite physical run, hand-numbered `__/N`, carrying a colophon plaque that records the git hash the edition was cut from and a QR to its canonical, still-updating permalink. The point is the lane's own thesis made material: the printed object is itself a *versioned virtual object* (per `arxiv-keymaps`), so cutting it to paper does not freeze it — the edition is one dated snapshot, and the canonical URL keeps moving.
+
+Mechanics:
+- **Version stamp.** Papers in this lane do `\InputIfFileExists{version}{}{...}`. [`cli.mjs`](cli.mjs) `stampVersion()` regenerates `version.tex` (`\paperhash`, `\paperrev`) from `git rev-parse --short HEAD` + the `metadata.json` revision counter on every build. The hash gets a `+` suffix on a dirty tree (`git describe --dirty` convention), so a clean oven build stamps a bare release hash. `version.tex` is **gitignored** — never commit it, or the oven's clean-tree regeneration would diff against a dirty value and loop.
+- **Plaque.** An end-of-paper colophon (double-ruled border, `FIRST PRINT EDITION` header, publication line, `__/N` slot in a `pals`-mark particle field, the version line, and a canonical-URL QR with the "this object does not end here" note). Pinned to the bottom/right of the final references column.
+- **Canonical QR** lives at `figures/qr/canonical.png`, pointing at `papers.aesthetic.computer/<siteName>.pdf`.
+
+| Edition | Paper | Run | Cut for | Status |
+|---|---|---|---|---|
+| First print edition | Keymaps as Social Software (`arxiv-keymaps`) | 64 | *Scores for Social Software*, UCLA Social Software Cycle 2, June 2026 | first ever — proofing |
+
 ## Tooling
 
 The mill's code lives at the top of `papers/` and in [`bin/`](bin/). All scripts are runnable as `node papers/bin/<name>.mjs`.

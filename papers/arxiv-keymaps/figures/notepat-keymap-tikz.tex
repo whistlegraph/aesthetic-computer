@@ -1,0 +1,174 @@
+% Native TikZ rendering of the notepat keymap diagram (Figure 1).
+% Replaces the slide-pipeline PNG so the figure matches the paper's
+% other vector diagrams. Piano keyboard (with the QWERTY letter that
+% plays each note) above, QWERTY keyboard below, dashed color-matched
+% connectors between the naturals. No hand labels — the hand split is
+% carried by the two background tints and the caption.
+% Key mapping verified against fedac/native/pieces/notepat.mjs and the
+% AC Native screenshot: H I J K L M N = C5..B5 alphabetically (M=A5,
+% N=B5), sharps V S W R Q (lower) and T Y U O P (upper).
+\begingroup
+% --- notepat note colors (from slides/notepat-keymap/template.html) ---
+\definecolor{ncc}{HTML}{FF3232}\definecolor{ncd}{HTML}{FFA000}%
+\definecolor{nce}{HTML}{FFE600}\definecolor{ncf}{HTML}{32C832}%
+\definecolor{ncg}{HTML}{3278FF}\definecolor{nca}{HTML}{8232C8}%
+\definecolor{ncb}{HTML}{B450FF}%
+\definecolor{nCC}{HTML}{FF2850}\definecolor{nDD}{HTML}{FFB400}%
+\definecolor{nEE}{HTML}{FFFF32}\definecolor{nFF}{HTML}{32FF64}%
+\definecolor{nGG}{HTML}{32C8FF}\definecolor{nAA}{HTML}{B432FF}%
+\definecolor{nBB}{HTML}{FF50FF}%
+\definecolor{extbg}{HTML}{FFF4D6}\definecolor{extfg}{HTML}{8A7330}%
+\definecolor{extbd}{HTML}{D4C075}%
+\definecolor{extbk}{HTML}{5A4818}\definecolor{extbkfg}{HTML}{F8E7A0}%
+\definecolor{octbg}{HTML}{F4ECFF}\definecolor{octfg}{HTML}{6B3FC0}%
+\definecolor{octbd}{HTML}{B89DF0}%
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}
+% --- geometry ---
+% piano: 17 white keys, pitch 1.02, key 0.98 x [4.4 .. 7.5]
+% qwerty: caps 0.95, pitch 1.0, rows at y = 2.30 / 1.15 / 0
+\def\pw{1.02}
+\def\qx{2.45}
+% --- piano key macros ---
+\def\pkey#1#2#3#4{\begin{scope}[shift={({#1*\pw},0)}]
+  \draw[acdark, fill=white, line width=0.8pt, rounded corners=1.5pt]
+    (0,4.4) rectangle (0.98,7.5);
+  \fill[#4] (0.04,4.44) rectangle (0.94,4.86);
+  \draw[acdark!45, line width=0.4pt] (0.04,4.86) -- (0.94,4.86);
+  % letter + note name live in the band BELOW the black keys
+  \node[font=\large\ttfamily\bfseries, text=acdark] at (0.49,5.34) {#2};
+  \node[font=\scriptsize\ttfamily, text=acdark!80] at (0.49,5.02) {#3};
+\end{scope}}
+\def\pkeyext#1#2#3{\begin{scope}[shift={({#1*\pw},0)}]
+  \draw[extbd, dashed, fill=extbg, fill opacity=0.55, line width=0.8pt, rounded corners=1.5pt]
+    (0,4.4) rectangle (0.98,7.5);
+  \node[font=\large\ttfamily\bfseries, text=extfg, opacity=0.75] at (0.49,5.34) {#2};
+  \node[font=\scriptsize\ttfamily, text=extfg, opacity=0.75] at (0.49,5.02) {#3};
+\end{scope}}
+\def\pbkey#1#2#3{\begin{scope}[shift={({#1},0)}]
+  \draw[black, fill=black!92, line width=0.8pt, rounded corners=1.2pt]
+    (-0.31,5.55) rectangle (0.31,7.5);
+  \node[font=\normalsize\ttfamily\bfseries, text=white] at (0,6.98) {#2};
+  \node[font=\fontsize{5.5pt}{5.5pt}\selectfont\ttfamily, text=white!75!black]
+    at (0,6.45) {#3};
+\end{scope}}
+\def\pbkeyext#1#2#3{\begin{scope}[shift={({#1},0)}]
+  \draw[extbk!80!black, dashed, fill=extbk, fill opacity=0.55, line width=0.8pt, rounded corners=1.2pt]
+    (-0.31,5.55) rectangle (0.31,7.5);
+  \node[font=\normalsize\ttfamily\bfseries, text=extbkfg, opacity=0.8] at (0,6.98) {#2};
+  \node[font=\fontsize{5.5pt}{5.5pt}\selectfont\ttfamily, text=extbkfg!80]
+    at (0,6.45) {#3};
+\end{scope}}
+% --- qwerty cap macros ---
+% mapped natural: colored fill; #5 = label color (white or dark)
+\def\qcap#1#2#3#4#5#6{\begin{scope}[shift={({#1},{#2})}]
+  \draw[#4, fill=#3, line width=1pt, rounded corners=2.2pt]
+    (0,0) rectangle (0.95,0.95);
+  \node[font=\large\ttfamily\bfseries, text=#5] at (0.475,0.475) {\strut#6};
+\end{scope}}
+% sharp: near-black cap, border in the sharp's note color
+\def\qsharp#1#2#3#4{\begin{scope}[shift={({#1},{#2})}]
+  \draw[#3, fill=black!90, line width=1.1pt, rounded corners=2.2pt]
+    (0,0) rectangle (0.95,0.95);
+  \node[font=\large\ttfamily\bfseries, text=white] at (0.475,0.475) {\strut#4};
+\end{scope}}
+\def\qext#1#2#3{\begin{scope}[shift={({#1},{#2})}]
+  \draw[extbd, dashed, fill=extbg, fill opacity=0.55, line width=1pt, rounded corners=2.2pt]
+    (0,0) rectangle (0.95,0.95);
+  \node[font=\large\ttfamily\bfseries, text=extfg, opacity=0.75] at (0.475,0.475) {\strut#3};
+\end{scope}}
+\def\qextbk#1#2#3{\begin{scope}[shift={({#1},{#2})}]
+  \draw[extbk!80!black, dashed, fill=extbk, fill opacity=0.55, line width=1pt, rounded corners=2.2pt]
+    (0,0) rectangle (0.95,0.95);
+  \node[font=\large\ttfamily\bfseries, text=extbkfg, opacity=0.75] at (0.475,0.475) {\strut#3};
+\end{scope}}
+\def\qghost#1#2#3{\begin{scope}[shift={({#1},{#2})}]
+  \draw[black!22, dashed, line width=0.9pt, rounded corners=2.2pt]
+    (0,0) rectangle (0.95,0.95);
+  \node[font=\large\ttfamily, text=black!30] at (0.475,0.475) {\strut#3};
+\end{scope}}
+\def\qoct#1#2#3#4{\begin{scope}[shift={({#1},{#2})}]
+  \draw[octbd, fill=octbg, line width=1pt, rounded corners=2.2pt]
+    (0,0) rectangle (0.95,0.95);
+  \node[font=\large\ttfamily\bfseries, text=octfg] at (0.475,0.55) {\strut#3};
+  \node[font=\fontsize{5pt}{5pt}\selectfont\sffamily\bfseries, text=octfg!75]
+    at (0.475,0.2) {#4};
+\end{scope}}
+% --- hand-split background tints behind the qwerty block ---
+\fill[acblue!8, rounded corners=4pt] (\qx-0.25,-0.3) rectangle (\qx+6.07,3.55);
+\fill[acpink!8, rounded corners=4pt] (\qx+6.07,-0.3) rectangle (\qx+12.6,3.55);
+% --- connectors (drawn LAST so they compose over the keys) ---
+\def\conn#1#2#3#4#5{%
+  \draw[#4, dashed, line width=1.1pt, opacity=#5, line cap=round]
+    ({#1*\pw+0.49},4.62) -- ({#2+0.475},{#3+0.80});
+  \fill[#4, opacity=#5] ({#1*\pw+0.49},4.62) circle (0.055);
+  \fill[#4, opacity=#5] ({#2+0.475},{#3+0.80}) circle (0.055);}
+% --- piano: white keys ---
+\pkeyext{0}{X}{B3}
+\pkey{1}{C}{C4}{ncc}  \pkey{2}{D}{D4}{ncd}  \pkey{3}{E}{E4}{nce}
+\pkey{4}{F}{F4}{ncf}  \pkey{5}{G}{G4}{ncg}  \pkey{6}{A}{A4}{nca}
+\pkey{7}{B}{B4}{ncb}
+\pkey{8}{H}{C5}{nCC}  \pkey{9}{I}{D5}{nDD}  \pkey{10}{J}{E5}{nEE}
+\pkey{11}{K}{F5}{nFF} \pkey{12}{L}{G5}{nGG} \pkey{13}{M}{A5}{nAA}
+\pkey{14}{N}{B5}{nBB}
+\pkeyext{15}{;}{C6} \pkeyext{16}{]}{D6}
+% --- piano: black keys (centered on white-key boundaries) ---
+\pbkeyext{0.35}{Z}{A\#3}
+\pbkey{2.04}{V}{C\#4}  \pbkey{3.06}{S}{D\#4}
+\pbkey{5.10}{W}{F\#4}  \pbkey{6.12}{R}{G\#4}  \pbkey{7.14}{Q}{A\#4}
+\pbkey{9.18}{T}{C\#5}  \pbkey{10.20}{Y}{D\#5}
+\pbkey{12.24}{U}{F\#5} \pbkey{13.26}{O}{G\#5} \pbkey{14.28}{P}{A\#5}
+\pbkeyext{16.32}{'}{C\#6}
+% --- qwerty row 0 (top): Q W E R T Y U I O P [ ] ---
+\qsharp{\qx+0}{2.30}{nca}{Q}
+\qsharp{\qx+1}{2.30}{ncf}{W}
+\qcap{\qx+2}{2.30}{nce}{nce!60!black}{black!75}{E}
+\qsharp{\qx+3}{2.30}{ncg}{R}
+\qsharp{\qx+4}{2.30}{nCC}{T}
+\qsharp{\qx+5}{2.30}{nDD}{Y}
+\qsharp{\qx+6}{2.30}{nFF}{U}
+\qcap{\qx+7}{2.30}{nDD}{nDD!60!black}{white}{I}
+\qsharp{\qx+8}{2.30}{nGG}{O}
+\qsharp{\qx+9}{2.30}{nAA}{P}
+\qghost{\qx+10}{2.30}{[}
+\qext{\qx+11}{2.30}{]}
+% --- qwerty row 1 (home): A S D F G H J K L ; ' ---
+\qcap{\qx+0.28+0}{1.15}{nca}{nca!60!black}{white}{A}
+\qsharp{\qx+0.28+1}{1.15}{ncd}{S}
+\qcap{\qx+0.28+2}{1.15}{ncd}{ncd!60!black}{white}{D}
+\qcap{\qx+0.28+3}{1.15}{ncf}{ncf!60!black}{white}{F}
+\qcap{\qx+0.28+4}{1.15}{ncg}{ncg!60!black}{white}{G}
+\qcap{\qx+0.28+5}{1.15}{nCC}{nCC!60!black}{white}{H}
+\qcap{\qx+0.28+6}{1.15}{nEE}{nEE!55!black}{black!70}{J}
+\qcap{\qx+0.28+7}{1.15}{nFF}{nFF!55!black}{black!60}{K}
+\qcap{\qx+0.28+8}{1.15}{nGG}{nGG!55!black}{black!60}{L}
+\qext{\qx+0.28+9}{1.15}{;}
+\qextbk{\qx+0.28+10}{1.15}{'}
+% --- qwerty row 2 (bottom): Z X C V B N M , . / ---
+\qextbk{\qx+0.84+0}{0}{Z}
+\qext{\qx+0.84+1}{0}{X}
+\qcap{\qx+0.84+2}{0}{ncc}{ncc!60!black}{white}{C}
+\qsharp{\qx+0.84+3}{0}{ncc}{V}
+\qcap{\qx+0.84+4}{0}{ncb}{ncb!60!black}{white}{B}
+\qcap{\qx+0.84+5}{0}{nBB}{nBB!60!black}{white}{N}
+\qcap{\qx+0.84+6}{0}{nAA}{nAA!60!black}{white}{M}
+\qoct{\qx+0.84+7}{0}{,}{OCT$-$}
+\qoct{\qx+0.84+8}{0}{.}{OCT$+$}
+\qghost{\qx+0.84+9}{0}{/}
+% connectors drawn last — composed over the keys
+\conn{1}{\qx+0.84+2}{0}{ncc}{0.85}      % C4 -> C (row 2)
+\conn{2}{\qx+0.28+2}{1.15}{ncd}{0.65}   % D4 -> D
+\conn{3}{\qx+2}{2.30}{nce!75!black}{0.55} % E4 -> E
+\conn{4}{\qx+0.28+3}{1.15}{ncf}{0.50}   % F4 -> F
+\conn{5}{\qx+0.28+4}{1.15}{ncg}{0.45}   % G4 -> G
+\conn{6}{\qx+0.28+0}{1.15}{nca}{0.40}   % A4 -> A
+\conn{7}{\qx+0.84+4}{0}{ncb}{0.35}      % B4 -> B
+\conn{8}{\qx+0.28+5}{1.15}{nCC}{0.55}   % C5 -> H
+\conn{9}{\qx+7}{2.30}{nDD}{0.45}        % D5 -> I
+\conn{10}{\qx+0.28+6}{1.15}{nEE!70!black}{0.40} % E5 -> J
+\conn{11}{\qx+0.28+7}{1.15}{nFF!80!black}{0.40} % F5 -> K
+\conn{12}{\qx+0.28+8}{1.15}{nGG!80!black}{0.40} % G5 -> L
+\conn{13}{\qx+0.84+6}{0}{nAA}{0.35}     % A5 -> M
+\conn{14}{\qx+0.84+5}{0}{nBB}{0.32}     % B5 -> N
+\end{tikzpicture}}
+\endgroup
