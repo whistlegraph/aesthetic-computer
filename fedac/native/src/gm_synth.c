@@ -675,18 +675,22 @@ static const GMSynthBassRow gm_synthbass_programs[] = {
 // 47 Timpani = modal (see init). Bowed rows below.
 #define GM_STRINGS_FIRST 40
 static const GMProgramParams gm_strings_programs[5] = {
-    // 41 Violin — shortest bore, bright; body air ~280 / wood ~460, bridge hill.
+    // 41 Violin — shortest bore, bright. Body = air (A0) ~280, main wood (B1)
+    // ~460, + a mid wood mode; the wg_fmt is the bridge-hill cluster on top.
+    // The multi-mode body is what stops it sounding like a hollow tube.
     { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_BOWED, .wg_bore_mult = 1.0,
       .wg_loop_damp = 0.30, .wg_breath_max = 0.65, .wg_noise = 0.04,
       .wg_attack_ms = 45.0, .wg_vib_hz = 5.5, .wg_vib_depth = 0.008,
       .wg_bow_beta = 0.13, .wg_bow_slope = 3.0,
+      .bodyf = {280.0, 460.0, 580.0}, .bodyq = {4.0, 5.5, 7.0}, .bodyg = {0.26, 0.20, 0.13},
       .wg_fmt_f = 2600.0, .wg_fmt_q = 1.2, .wg_fmt_gain = 0.30,
       .wg_out_scale = 2.2 },
     // 42 Viola — fifth lower, nasal; lower body modes, weakened bridge hill.
     { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_BOWED, .wg_bore_mult = 1.0,
       .wg_loop_damp = 0.36, .wg_breath_max = 0.63, .wg_noise = 0.045,
       .wg_attack_ms = 48.0, .wg_vib_hz = 5.2, .wg_vib_depth = 0.008,
-      .wg_bow_beta = 0.12, .wg_bow_slope = 3.0,
+      .wg_bow_beta = 0.13, .wg_bow_slope = 3.1,
+      .bodyf = {220.0, 350.0, 440.0}, .bodyq = {4.0, 5.5, 7.0}, .bodyg = {0.28, 0.22, 0.14},
       .wg_fmt_f = 2000.0, .wg_fmt_q = 1.0, .wg_fmt_gain = 0.18,
       .wg_out_scale = 2.2 },
     // 43 Cello — long bore, warm woody corpus; low high-Q body modes.
@@ -694,6 +698,7 @@ static const GMProgramParams gm_strings_programs[5] = {
       .wg_loop_damp = 0.42, .wg_breath_max = 0.62, .wg_noise = 0.05,
       .wg_attack_ms = 55.0, .wg_vib_hz = 5.0, .wg_vib_depth = 0.009,
       .wg_bow_beta = 0.10, .wg_bow_slope = 3.2,
+      .bodyf = {95.0, 175.0, 250.0}, .bodyq = {5.0, 6.5, 8.0}, .bodyg = {0.30, 0.22, 0.15},
       .wg_fmt_f = 1200.0, .wg_fmt_q = 2.0, .wg_fmt_gain = 0.34,
       .wg_out_scale = 2.4 },
     // 44 Contrabass — lowest, darkest loss, fundamental-dominated; bow grind.
@@ -701,6 +706,7 @@ static const GMProgramParams gm_strings_programs[5] = {
       .wg_loop_damp = 0.52, .wg_breath_max = 0.60, .wg_noise = 0.09,
       .wg_attack_ms = 60.0, .wg_vib_hz = 4.8, .wg_vib_depth = 0.010,
       .wg_bow_beta = 0.08, .wg_bow_slope = 3.4,
+      .bodyf = {62.0, 100.0, 150.0}, .bodyq = {5.0, 6.5, 8.0}, .bodyg = {0.30, 0.22, 0.15},
       .wg_fmt_f = 100.0, .wg_fmt_q = 2.0, .wg_fmt_gain = 0.30,
       .wg_out_scale = 2.6 },
     // 45 Tremolo Strings — mid bowed voice + fast amplitude LFO + per-stroke grit.
@@ -708,6 +714,7 @@ static const GMProgramParams gm_strings_programs[5] = {
       .wg_loop_damp = 0.38, .wg_breath_max = 0.64, .wg_noise = 0.12,
       .wg_attack_ms = 20.0, .wg_vib_hz = 5.3, .wg_vib_depth = 0.008,
       .wg_bow_beta = 0.12, .wg_bow_slope = 3.0,
+      .bodyf = {260.0, 430.0, 560.0}, .bodyq = {4.0, 5.5, 7.0}, .bodyg = {0.24, 0.18, 0.12},
       .wg_fmt_f = 2200.0, .wg_fmt_q = 1.2, .wg_fmt_gain = 0.25,
       .wg_out_scale = 2.2, .wg_trem_hz = 9.0, .wg_trem_depth = 0.5 },
 };
@@ -1366,6 +1373,10 @@ static void gm_waveguide_init(GMVoice *v, const GMProgramParams *p, double f0,
         // the bridge line + its write pointer; ks_buf was cleared above.
         memset(v->bore_buf, 0, sizeof(v->bore_buf));
         v->bore_w = 0;
+        // Multi-mode body resonator (air + wood modes) so the string sounds
+        // like a real instrument body, not a hollow tube. Applied parallel to
+        // the bridge tap in the render (mirrors the plucked-string body bank).
+        gm_setup_body_resonance(v, p, sr, mul);
     } else if (p->wg_mode == GM_WG_LIP) {
         // Lip-resonance biquad bandpass tracking f0 (RBJ), near-unit pole.
         double pole = p->wg_lip_pole > 0.0 ? p->wg_lip_pole : 0.997;
@@ -2694,6 +2705,18 @@ static inline double generate_waveguide_sample(GMVoice *v, double sample_rate,
         double y = bridge_out - v->wg_hp_x1 + 0.995 * v->wg_hp_y1;
         v->wg_hp_x1 = bridge_out; v->wg_hp_y1 = y;
         out = y;
+        // Parallel multi-mode body resonator (air + wood modes) — the woody
+        // richness that makes it read as a real bowed instrument rather than a
+        // hollow tube. Same stable bank the plucked strings use; on the OUTPUT
+        // only (not in the string loop) so it never affects pitch/stability.
+        for (int bi = 0; bi < v->ks_body_n; bi++) {
+            double by = v->ks_body_g[bi] * out
+                        - v->ks_body_a1[bi] * v->ks_body_y1[bi]
+                        - v->ks_body_a2[bi] * v->ks_body_y2[bi];
+            v->ks_body_y2[bi] = v->ks_body_y1[bi];
+            v->ks_body_y1[bi] = by;
+            out += by;
+        }
     } else if (v->wg_mode == GM_WG_LIP) {
         // STK Brass: breath pressure → lip-resonance biquad → quadratic valve.
         double breath = v->wg_breath_max * onset;
