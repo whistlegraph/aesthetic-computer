@@ -754,35 +754,35 @@ static const GMModalParams gm_timpani_program = {
 // excited, above it the valve saturates shut. Output scaled ~0.8-1.0.
 static const GMProgramParams gm_brass_programs[6] = {
     // 57 Trumpet — short bright bore; high pressure, low loss.
-    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_LIP, .wg_bore_mult = 2.0,
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_LIP, .wg_bore_mult = 1.0,
       .wg_loop_damp = 0.06, .wg_breath_max = 3.2, .wg_noise = 0.05,
       .wg_attack_ms = 28.0, .wg_vib_hz = 5.5, .wg_vib_depth = 0.004,
       .wg_lip_pole = 0.997, .wg_lip_gain = 10.0, .wg_out_scale = 1.0 },
     // 58 Trombone — longer bore, darker loss, glissando-capable (slew at host).
-    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_LIP, .wg_bore_mult = 2.0,
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_LIP, .wg_bore_mult = 1.0,
       .wg_loop_damp = 0.10, .wg_breath_max = 3.0, .wg_noise = 0.05,
       .wg_attack_ms = 40.0, .wg_vib_hz = 5.0, .wg_vib_depth = 0.004,
       .wg_lip_pole = 0.997, .wg_lip_gain = 8.0, .wg_out_scale = 1.0 },
     // 59 Tuba — longest bore, darkest, round soft attack.
-    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_LIP, .wg_bore_mult = 2.0,
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_LIP, .wg_bore_mult = 1.0,
       .wg_loop_damp = 0.14, .wg_breath_max = 2.7, .wg_noise = 0.05,
       .wg_attack_ms = 65.0, .wg_vib_hz = 4.5, .wg_vib_depth = 0.003,
       .wg_lip_pole = 0.995, .wg_lip_gain = 6.0, .wg_out_scale = 1.0 },
     // 60 Muted Trumpet — trumpet + mute LP + nasal mid bandpass.
-    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_LIP, .wg_bore_mult = 2.0,
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_LIP, .wg_bore_mult = 1.0,
       .wg_loop_damp = 0.09, .wg_breath_max = 3.0, .wg_noise = 0.06,
       .wg_attack_ms = 26.0, .wg_vib_hz = 5.5, .wg_vib_depth = 0.004,
       .wg_lip_pole = 0.996, .wg_lip_gain = 9.0,
       .wg_fmt_f = 1700.0, .wg_fmt_q = 2.5, .wg_fmt_gain = 0.45,
-      .wg_out_lp_hz = 3200.0, .wg_out_scale = 1.1 },
+      .wg_out_lp_hz = 3200.0, .wg_out_scale = 0.9 },
     // 61 French Horn — long, mellow lip, dark loss, soft attack.
-    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_LIP, .wg_bore_mult = 2.0,
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_LIP, .wg_bore_mult = 1.0,
       .wg_loop_damp = 0.12, .wg_breath_max = 2.8, .wg_noise = 0.04,
       .wg_attack_ms = 55.0, .wg_vib_hz = 4.8, .wg_vib_depth = 0.003,
       .wg_lip_pole = 0.995, .wg_lip_gain = 7.0,
       .wg_out_lp_hz = 5000.0, .wg_out_scale = 1.0 },
     // 62 Brass Section — bright lip + section amplitude shimmer.
-    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_LIP, .wg_bore_mult = 2.0,
+    { .engine = GM_ENGINE_WAVEGUIDE, .wg_mode = GM_WG_LIP, .wg_bore_mult = 1.0,
       .wg_loop_damp = 0.07, .wg_breath_max = 3.1, .wg_noise = 0.06,
       .wg_attack_ms = 35.0, .wg_vib_hz = 5.0, .wg_vib_depth = 0.005,
       .wg_lip_pole = 0.997, .wg_lip_gain = 9.0, .wg_out_scale = 1.0,
@@ -1370,7 +1370,7 @@ static void gm_waveguide_init(GMVoice *v, const GMProgramParams *p, double f0,
 
     double bore_mult = (p->wg_bore_mult > 0.0) ? p->wg_bore_mult : 1.0;
     double base_delay = (sr / fdet) * bore_mult;
-    if (p->wg_mode == GM_WG_LIP) base_delay += 3.0;   // STK half-wave correction
+    if (p->wg_mode == GM_WG_LIP) base_delay += 0.7;   // in-loop filter group delay
     else if (p->wg_mode == GM_WG_BOWED) base_delay -= 4.0; // filter group delay
     if (base_delay < 4.0) base_delay = 4.0;
     if (base_delay > (double)(GM_KS_BIG_N - 4)) base_delay = (double)(GM_KS_BIG_N - 4);
@@ -1434,7 +1434,17 @@ static void gm_waveguide_init(GMVoice *v, const GMProgramParams *p, double f0,
         v->wg_lip_b1 = 0.0;
         v->wg_lip_b2 = -(1.0 - r);
         v->wg_lip_x1 = v->wg_lip_x2 = v->wg_lip_y1 = v->wg_lip_y2 = 0.0;
-        v->wg_lip_gain = p->wg_lip_gain > 0.0 ? p->wg_lip_gain : 0.03;
+        // Lip-formant drive: the program's wg_lip_gain (6-10, sized for the old
+        // quadratic valve) is far too hot for the new reed-table topology — it
+        // only colours the pressure drive here, so scale it right down.
+        double lipg = p->wg_lip_gain > 0.0 ? p->wg_lip_gain : 6.0;
+        v->wg_lip_gain = lipg * 0.04;
+        // Brass embouchure reed-table (reuses the REED offset/slope fields, idle
+        // for LIP) — same self-oscillating shape as the conical reed bore, which
+        // locks the bore fundamental reliably. offset ≈ rest reflection, slope ≈
+        // how hard the lips buzz (jittered per voice like a real section).
+        v->wg_reed_offset = 0.6;
+        v->wg_reed_slope  = voice_jitter(v, -0.85, 0.06, mul);
     } else if (p->wg_mode == GM_WG_REED) {
         v->wg_reed_offset = p->wg_reed_offset;
         // Reed slope ≈ brightness/energy lever; jitter like FM index (f, ±6%).
@@ -2682,9 +2692,14 @@ static inline double generate_waveguide_sample(GMVoice *v, double sample_rate,
         if (v->wg_vib_phase >= 1.0) v->wg_vib_phase -= 1.0;
     }
 
-    // Track host frequency (glissando / pitch glide) while honoring the baked
-    // bore multiplier (brass half-wave). Re-derive delay each sample (cheap).
-    double bore_mult = (v->wg_mode == GM_WG_LIP) ? 2.0 : 1.0;
+    // Track host frequency (glissando / pitch glide). Re-derive delay each
+    // sample (cheap). LIP brass formerly used a half-wave bore (×2.0) on the
+    // theory that a lip reed picks the right harmonic — but the self-oscillating
+    // loop locked to whatever bore mode won (random partial chaos, ±300¢, note-
+    // dependent). Like the bowed-string fix: drive the bore so its FUNDAMENTAL
+    // equals the requested pitch (delay = SR/f) and let the lip junction supply
+    // the brassy excitation + nonlinearity, NOT the pitch selection.
+    double bore_mult = 1.0;
     // Clarinet (cylindrical, inverting bore): a closed-open cylinder resonates
     // at λ/4, so a full-wavelength bore plays an OCTAVE LOW. Halve the bore so
     // the played pitch lands on the requested note (verified: −1198¢ → ~0¢).
@@ -2694,7 +2709,10 @@ static inline double generate_waveguide_sample(GMVoice *v, double sample_rate,
     if (frequency > 20.0) {
         double f = clampd(frequency, 20.0, sr * 0.20);
         double d = (sr / f) * bore_mult;
-        if (v->wg_mode == GM_WG_LIP) d += 3.0;
+        // LIP: the in-loop filters (loop-LP + DC blocker) shorten the effective
+        // period slightly; add a small compensation so the self-oscillation
+        // lands on f0 (tuned against the pitch audit: ~+16¢ → +0.7 samples).
+        if (v->wg_mode == GM_WG_LIP) d += 0.7;
         // (bowed: the old −4 group-delay comp was tuned for the broken
         // single-buffer topology; the two-delay-line rewrite needs no offset.)
         delay = d;
@@ -2763,27 +2781,53 @@ static inline double generate_waveguide_sample(GMVoice *v, double sample_rate,
         }
         out = v->rbody_dry * out + body_sum;
     } else if (v->wg_mode == GM_WG_LIP) {
-        // STK Brass: breath pressure → lip-resonance biquad → quadratic valve.
-        double breath = v->wg_breath_max * onset;
-        breath += v->wg_noise_gain * white * 0.05;   // breath turbulence
-        double mouth = 0.3 * breath;
+        // Brass lip-reed, rebuilt so the BORE sets the pitch (not the lip).
+        //
+        // Old design fed a quadratic-valve "mix" straight back into the loop;
+        // the squared lip term spawned harmonics the loop happily locked onto,
+        // so pitch wandered ±300-600¢ note-to-note. New design = a reed-table
+        // pressure-controlled valve (à la the REED branch, which is rock-solid):
+        // the delay line carries the bore round-trip (delay = SR/f0 ⇒ the loop
+        // rings at the requested fundamental), and the lip injects energy via a
+        // BOUNDED reflection coefficient. Bounded reflection can't subdivide or
+        // multiply the loop period, so the bore fundamental always wins. The lip
+        // adds a flared-bell BRIGHTNESS colour on top — it does NOT set pitch.
+        double pTarget = 0.55 + 0.45 * onset;
+        v->wg_breath += (pTarget - v->wg_breath) * 0.01;
+        // Mouth pressure must sit in the reed-table's ACTIVE region (~[0,1]); the
+        // big brass wg_breath_max (2.7-3.2) is a loudness lever (applied at the
+        // output), not a bore-drive — feed it in scaled so pDiff modulates the
+        // lip reflection instead of railing it to a DC value the DC-blocker eats.
+        double Pm = v->wg_breath * (0.22 + 0.05 * v->wg_breath_max)
+                    * (1.0 + v->wg_noise_gain * white * 0.5);
         double bore_out = gm_frac_read(v->ks_buf, N, v->wg_w, delay);
         v->wg_loop_lp = (1.0 - v->wg_loop_damp) * bore_out
                         + v->wg_loop_damp * v->wg_loop_lp;
-        double bore_pressure = 0.85 * v->wg_loop_lp;
-        double dp = mouth - bore_pressure;
-        // Lip resonance biquad (tracks f0).
-        double lf = v->wg_lip_b0 * dp + v->wg_lip_b1 * v->wg_lip_x1
+        double refl = v->wg_loop_lp;                  // brass bell = open, conical-like
+        double pDiff = Pm - refl;
+        // Brass lip reed-table (reuses idle REED offset/slope fields): bounded in
+        // [-1,1] so it can modulate energy but never the loop period.
+        double lipRefl = v->wg_reed_offset + v->wg_reed_slope * pDiff;
+        if (lipRefl > 1.0) lipRefl = 1.0;
+        if (lipRefl < -1.0) lipRefl = -1.0;
+        double into_bore = refl + lipRefl * pDiff;
+        // Lip-resonance biquad tracking f0: a gentle brass formant / buzz colour
+        // on the bore signal (brightness), low gain so it never seizes pitch.
+        double lf = v->wg_lip_b0 * into_bore + v->wg_lip_b1 * v->wg_lip_x1
                     + v->wg_lip_b2 * v->wg_lip_x2
                     - v->wg_lip_a1 * v->wg_lip_y1 - v->wg_lip_a2 * v->wg_lip_y2;
-        v->wg_lip_x2 = v->wg_lip_x1; v->wg_lip_x1 = dp;
+        v->wg_lip_x2 = v->wg_lip_x1; v->wg_lip_x1 = into_bore;
         v->wg_lip_y2 = v->wg_lip_y1; v->wg_lip_y1 = lf;
-        double opening = dp + v->wg_lip_gain * lf;
-        opening = opening * opening;                 // quadratic NL (pressure→area)
-        if (opening > 1.0) opening = 1.0;            // valve opens only so far
-        double mix = opening * mouth + (1.0 - opening) * bore_pressure;
-        double y = mix - v->wg_hp_x1 + 0.995 * v->wg_hp_y1;  // DC block
-        v->wg_hp_x1 = mix; v->wg_hp_y1 = y;
+        into_bore += v->wg_lip_gain * lf;             // brass buzz brightening
+        // Flared-bell brassiness: a gentle uniform cubic adds the odd-harmonic
+        // brass edge, then tanh bounds the loop (so brightness never destabilises
+        // pitch). Per-instrument brightness is carried by the in-loop loss filter
+        // (wg_loop_damp: trumpet 0.06 = bright, tuba 0.14 = dark) — the table's
+        // physical lever — plus each program's output LP / mute formant.
+        double sb = into_bore;
+        into_bore = tanh(into_bore + 0.25 * sb * sb * sb);
+        double y = into_bore - v->wg_hp_x1 + 0.995 * v->wg_hp_y1;  // DC block
+        v->wg_hp_x1 = into_bore; v->wg_hp_y1 = y;
         v->ks_buf[v->wg_w] = (float)y;
         v->wg_w = (v->wg_w + 1) % N;
         out = y;
