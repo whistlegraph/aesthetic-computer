@@ -266,22 +266,43 @@ typedef struct {
 
 #define GM_PIANO_PROGRAM_COUNT 8
 static const GMProgramParams gm_piano_programs[GM_PIANO_PROGRAM_COUNT] = {
+    // ── GMPIANO is now a struck-string waveguide (PhysMidi): a tuned KS string
+    //    line excited by a velocity-shaped hammer burst, a loop-loss LPF that
+    //    bleeds brightness over time ("bloom then mellow"), a stiffness allpass
+    //    that stretches the upper partials sharp (piano inharmonicity), and a
+    //    3-band resonant SOUNDBOARD body (ks_body_* biquad bank, tuned low &
+    //    broad — a piano belly, not a violin's). Field reuse, per program:
+    //      B           → stiffness allpass strength (inharmonic stretch)
+    //      tau0        → string sustain T60 (s) → loop gain (<1)
+    //      partial_tilt→ hammer contact brightness (harder strike = brighter)
+    //      hammer_amp  → string excitation drive ; hammer_ms → contact burst time
+    //      dual_cents  → honky-tonk: 2nd detuned string (bore_buf line)
+    //      drive       → output tanh saturation (electric grand)
+    //      bodyf/q/g   → soundboard modes
     // GM 1 — Acoustic Grand
-    { .engine = GM_ENGINE_GMPIANO, .partials = 10, .B = 0.0009, .partial_tilt = 1.0,
-      .tilt_from = 0, .tau0 = 9.0, .hammer_amp = 0.18, .hammer_ms = 5.0,
-      .dual_cents = 0.0, .drive = 0.0 },
+    { .engine = GM_ENGINE_GMPIANO, .partials = 10, .B = 0.00060, .partial_tilt = 0.50,
+      .tilt_from = 0, .tau0 = 9.0, .hammer_amp = 0.85, .hammer_ms = 5.0,
+      .dual_cents = 0.0, .drive = 0.0,
+      .bodyf = {118.0, 224.0, 396.0}, .bodyq = {7.0, 9.0, 11.0},
+      .bodyg = {0.16, 0.10, 0.06} },
     // GM 2 — Bright Acoustic
-    { .engine = GM_ENGINE_GMPIANO, .partials = 11, .B = 0.0010, .partial_tilt = 1.45,
-      .tilt_from = 4, .tau0 = 9.5, .hammer_amp = 0.24, .hammer_ms = 3.5,
-      .dual_cents = 0.0, .drive = 0.0 },
+    { .engine = GM_ENGINE_GMPIANO, .partials = 11, .B = 0.00070, .partial_tilt = 0.72,
+      .tilt_from = 4, .tau0 = 9.5, .hammer_amp = 0.95, .hammer_ms = 3.2,
+      .dual_cents = 0.0, .drive = 0.0,
+      .bodyf = {128.0, 252.0, 470.0}, .bodyq = {6.5, 8.5, 10.0},
+      .bodyg = {0.14, 0.10, 0.07} },
     // GM 3 — Electric Grand
-    { .engine = GM_ENGINE_GMPIANO, .partials = 7, .B = 0.00045, .partial_tilt = 1.1,
-      .tilt_from = 1, .tau0 = 7.0, .hammer_amp = 0.10, .hammer_ms = 4.0,
-      .dual_cents = 0.0, .drive = 0.10 },
+    { .engine = GM_ENGINE_GMPIANO, .partials = 7, .B = 0.00030, .partial_tilt = 0.55,
+      .tilt_from = 1, .tau0 = 7.0, .hammer_amp = 0.70, .hammer_ms = 4.0,
+      .dual_cents = 0.0, .drive = 0.10,
+      .bodyf = {150.0, 300.0}, .bodyq = {5.0, 7.0},
+      .bodyg = {0.12, 0.07} },
     // GM 4 — Honky-tonk
-    { .engine = GM_ENGINE_GMPIANO, .partials = 9, .B = 0.0011, .partial_tilt = 1.15,
-      .tilt_from = 2, .tau0 = 6.0, .hammer_amp = 0.26, .hammer_ms = 4.5,
-      .dual_cents = 14.0, .drive = 0.0 },
+    { .engine = GM_ENGINE_GMPIANO, .partials = 9, .B = 0.00075, .partial_tilt = 0.62,
+      .tilt_from = 2, .tau0 = 6.0, .hammer_amp = 0.95, .hammer_ms = 4.2,
+      .dual_cents = 14.0, .drive = 0.0,
+      .bodyf = {120.0, 236.0, 430.0}, .bodyq = {6.0, 8.0, 9.0},
+      .bodyg = {0.15, 0.10, 0.06} },
     // GM 5 — Electric Piano 1 (Rhodes tine)
     { .engine = GM_ENGINE_EPIANO, .fm_ratio = 1.0, .fm_index0 = 1.2, .fm_index_ms = 700.0,
       .fm_tine_ratio = 14.0, .fm_tine_index0 = 0.9, .fm_tine_ms = 18.0,
@@ -2119,45 +2140,73 @@ int gm_voice_init(GMVoice *v, int program, double freq, double sample_rate,
     v->engine = p->engine;
 
     if (p->engine == GM_ENGINE_GMPIANO) {
+        // ── Struck-string waveguide piano (PhysMidi). ──
+        // A hammer burst is injected into a Karplus-Strong string (ks_buf); the
+        // loop carries a brightness-bleeding loss LPF + a stiffness allpass that
+        // stretches partials sharp; the string drives a resonant soundboard
+        // body. Honky-tonk adds a 2nd slightly-detuned string in bore_buf.
         const double mul = 0.8;
-        int N = p->partials;
-        if (N > GM_MAX_PARTIALS) N = GM_MAX_PARTIALS;
-        if (N < 1) N = 1;
-        v->p_count = N;
-        v->gm_dual = (p->dual_cents > 0.0) ? 1 : 0;
+        v->gm_dual  = (p->dual_cents > 0.0) ? 1 : 0;
         v->gm_drive = p->drive;
-        double norm = 1.0 / sqrt((double)N);
-        double sum_check = 0.0;
-        for (int k = 0; k < N; k++) {
-            int n = k + 1;
-            double fn = (double)n * f0 * sqrt(1.0 + p->B * (double)(n * n));
-            fn = voice_detune(v, fn, 6.0, mul);
-            if (fn > sr * 0.45) fn = sr * 0.45;
-            v->p_finc[k] = fn / sr;
-            double a = norm / (double)n;
-            if (k >= (int)p->tilt_from) a *= p->partial_tilt;
-            a = voice_jitter(v, a, 0.15, mul);
-            v->p_amp[k] = a;
-            sum_check += a;
-            v->p_phase[k] = voice_rand_phase(v);
-            double tau = p->tau0 / (1.0 + 0.6 * (double)(n - 1));
-            tau = voice_jitter(v, tau, 0.15, mul);
-            if (tau < 0.02) tau = 0.02;
-            v->p_dec_mult[k] = exp(-1.0 / (tau * sr));
-            if (v->gm_dual) {
-                double f2 = fn * cents_to_ratio(p->dual_cents);
-                if (f2 > sr * 0.45) f2 = sr * 0.45;
-                v->p2_finc[k] = f2 / sr;
-                v->p2_phase[k] = voice_rand_phase(v);
-            }
-        }
-        (void)sum_check;
+
+        // Loop gain from the requested T60 over one string period: g = 10^(-3T/(T60*f)).
+        // Bounded < 0.9995 so the string is unconditionally stable.
+        double f0c   = clampd(f0, 25.0, sr * 0.20);
+        double period = 1.0 / f0c;                              // seconds per period
+        double t60   = voice_jitter(v, p->tau0, 0.10, mul);
+        if (t60 < 0.2) t60 = 0.2;
+        double loop_gain = pow(10.0, -3.0 * period / t60);
+        if (loop_gain > 0.9995) loop_gain = 0.9995;
+        if (loop_gain < 0.90)   loop_gain = 0.90;
+        v->ks_stretch = loop_gain;                              // per-sample loop gain
+
+        // Loop-loss LPF: starts open (bright bloom) and the brightness bleeds as
+        // the note rings. ks_loop_b is the LPF mix coeff (more = darker).
+        // partial_tilt picks the contact brightness; brighter strike = lower coeff.
+        double bright = clampd(p->partial_tilt, 0.1, 1.0);
+        v->ks_loop_b  = clampd(0.55 - 0.35 * bright, 0.05, 0.6);
+        v->harp_lp1   = 0.0;                                    // string1 loss-LPF state
+        v->fm_hp_y1   = 0.0;                                    // string2 loss-LPF state
+
+        // Stiffness allpass coefficient from inharmonicity B: a 1st-order allpass
+        // y = -a*x + xz1 + a*yz1 adds frequency-dependent delay that pushes the
+        // upper partials progressively sharp — the piano's inharmonic signature.
+        double ap = clampd(p->B * 320.0, 0.0, 0.45);
+        v->ks_beta = ap;                                        // allpass coeff
+        v->nx1 = 0.0; v->ny1 = 0.0;                             // string1 allpass z
+        v->nx2 = 0.0; v->ny2 = 0.0;                             // string2 allpass z
+        // The allpass + loop-loss LPF add ~constant sample group delay to the
+        // loop, which would flat-tune the string (worse at high notes where the
+        // period is short). Compensate by shortening the read delay. Allpass DC
+        // group delay ≈ (1+a)/(1-a); one-pole LPF ≈ b/(1-b). ks_drive holds it.
+        double ap_gd  = (1.0 + ap) / (1.0 - ap);                // allpass samples
+        double lp_gd  = v->ks_loop_b / (1.0 - v->ks_loop_b);    // LPF samples
+        v->ks_drive   = ap_gd + lp_gd;                          // total delay comp
+
+        // Soundboard body (3-band resonant biquad bank, ks_body_*). Tuned low &
+        // broad per program (the gm_piano_programs bodyf/q/g).
+        gm_setup_body_resonance(v, p, sr, mul);
+        v->ks_pick_amt = 0.5;                                   // body wet mix
+
+        // String delay lines (recomputed per-sample in the generator, but seed
+        // them here so the very first reads are sane).
+        memset(v->ks_buf, 0, sizeof(v->ks_buf));
+        v->ks_w = 0;
+        if (v->gm_dual) { memset(v->bore_buf, 0, sizeof(v->bore_buf)); v->bore_w = 0; }
+
+        // Hammer contact: a short shaped noise burst, both injected into the
+        // string AND mixed (lightly) as the audible felt thump. hammer_amp sets
+        // the excitation drive; hammer_ms the contact time (LPF on the burst).
         double htau = (p->hammer_ms * 0.001);
         if (htau < 0.0005) htau = 0.0005;
-        v->gm_hammer_amp = voice_jitter(v, p->hammer_amp, 0.15, mul);
+        v->gm_hammer_amp = voice_jitter(v, p->hammer_amp, 0.12, mul);
         v->gm_hammer_env = 1.0;
         v->gm_hammer_dec = exp(-1.0 / (htau * sr));
         v->gm_hammer_lp = 0.0;
+        // Felt contact LPF coefficient: a harder (brighter) program lets more HF
+        // through the hammer → brighter excitation. Stored in fm_hp_x1 (free here).
+        v->fm_hp_x1 = clampd(0.30 + 0.45 * bright, 0.2, 0.85);
+        v->p_count = 0;                                         // additive bank unused now
     } else if (p->engine == GM_ENGINE_EPIANO) {
         const double mul = 0.7;
         double fc = voice_detune(v, f0, 6.0, mul);
@@ -2435,35 +2484,86 @@ static int gm_voice_init_batch2(GMVoice *v, int program, double freq,
 // Generators (operate on GMVoice; env + frequency supplied by host)
 // ============================================================
 
+// ── Struck-string waveguide piano (PhysMidi GMPIANO). ──
+// One Karplus-Strong string per voice (two for honky-tonk), excited by a
+// velocity-shaped hammer burst, with a loop-loss LPF (brightness bloom→mellow)
+// and a stiffness allpass (inharmonic partial stretch), driving a resonant
+// soundboard body. ks_buf = string 1, bore_buf = string 2 (honky-tonk).
 static inline double generate_gmpiano_sample(GMVoice *v, double sample_rate,
-                                              double env) {
-    (void)sample_rate;
-    double s = 0.0;
-    int N = v->p_count;
-    for (int k = 0; k < N; k++) {
-        double a = v->p_amp[k];
-        s += a * wt_sin(v->p_phase[k]);
-        v->p_phase[k] += v->p_finc[k];
-        if (v->p_phase[k] >= 1.0) v->p_phase[k] -= 1.0;
-        if (v->gm_dual) {
-            s += a * wt_sin(v->p2_phase[k]);
-            v->p2_phase[k] += v->p2_finc[k];
-            if (v->p2_phase[k] >= 1.0) v->p2_phase[k] -= 1.0;
-        }
-        v->p_amp[k] *= v->p_dec_mult[k];
-    }
-    if (v->gm_dual) s *= 0.5;
+                                             double env, double frequency) {
+    double sr = sample_rate;
+
+    // Hammer contact burst: a felt-filtered noise impulse. It is injected into
+    // the string this sample AND mixed (lightly) as the audible thump.
+    double excite = 0.0, thump = 0.0;
     if (v->gm_hammer_env > 0.0001) {
         double white = ((double)xorshift32(&v->rng_seed) / (double)UINT32_MAX) * 2.0 - 1.0;
-        v->gm_hammer_lp = 0.2 * white + 0.8 * v->gm_hammer_lp;
-        s += v->gm_hammer_amp * v->gm_hammer_env * v->gm_hammer_lp;
+        double g = v->fm_hp_x1;                 // contact LPF coeff (brightness)
+        v->gm_hammer_lp = (1.0 - g) * white + g * v->gm_hammer_lp;
+        double burst = v->gm_hammer_amp * v->gm_hammer_env * v->gm_hammer_lp;
+        excite = burst;                         // → into the string
+        thump  = 0.18 * burst;                  // → audible felt thump
         v->gm_hammer_env *= v->gm_hammer_dec;
     }
+
+    // ── String 1 (ks_buf). ──
+    double f1 = clampd(frequency > 20.0 ? frequency : 261.63, 25.0, sr * 0.20);
+    double d1 = sr / f1 - v->ks_drive;          // subtract loop group-delay comp
+    if (d1 > (double)(GM_KS_BIG_N - 4)) d1 = (double)(GM_KS_BIG_N - 4);
+    if (d1 < 4.0) d1 = 4.0;
+    double s1 = gm_frac_read(v->ks_buf, GM_KS_BIG_N, v->ks_w, d1);
+    // Loop-loss LPF (brightness bleeds over time → bloom then mellow).
+    v->harp_lp1 = (1.0 - v->ks_loop_b) * s1 + v->ks_loop_b * v->harp_lp1;
+    double fb1 = v->ks_stretch * v->harp_lp1;
+    // Stiffness allpass: y = -a*x + xz1 + a*yz1 (1st-order, stretches partials).
+    double a = v->ks_beta;
+    double ap1 = -a * fb1 + v->nx1 + a * v->ny1;
+    v->nx1 = fb1; v->ny1 = ap1;
+    double w1 = ap1 + excite;
+    if (w1 > 4.0) w1 = 4.0; else if (w1 < -4.0) w1 = -4.0;
+    v->ks_buf[v->ks_w] = (float)w1;
+    v->ks_w = (v->ks_w + 1) % GM_KS_BIG_N;
+
+    double s = s1;
+
+    // ── String 2 (bore_buf): honky-tonk's detuned twin. ──
+    if (v->gm_dual) {
+        double f2 = f1 * cents_to_ratio(14.0);
+        double d2 = sr / f2 - v->ks_drive;      // same loop group-delay comp
+        if (d2 > (double)(GM_BORE_N - 4)) d2 = (double)(GM_BORE_N - 4);
+        if (d2 < 4.0) d2 = 4.0;
+        double s2 = gm_frac_read(v->bore_buf, GM_BORE_N, v->bore_w, d2);
+        v->fm_hp_y1 = (1.0 - v->ks_loop_b) * s2 + v->ks_loop_b * v->fm_hp_y1;
+        double fb2 = v->ks_stretch * v->fm_hp_y1;
+        double ap2 = -a * fb2 + v->nx2 + a * v->ny2;
+        v->nx2 = fb2; v->ny2 = ap2;
+        double w2 = ap2 + excite;
+        if (w2 > 4.0) w2 = 4.0; else if (w2 < -4.0) w2 = -4.0;
+        v->bore_buf[v->bore_w] = (float)w2;
+        v->bore_w = (v->bore_w + 1) % GM_BORE_N;
+        s = 0.5 * (s1 + s2);
+    }
+
+    s += thump;
+
+    // ── Soundboard body (ks_body_* resonant biquad bank). ──
+    double dry = s;
+    double body = 0.0;
+    for (int i = 0; i < v->ks_body_n; i++) {
+        double by = v->ks_body_g[i] * dry
+                    - v->ks_body_a1[i] * v->ks_body_y1[i]
+                    - v->ks_body_a2[i] * v->ks_body_y2[i];
+        v->ks_body_y2[i] = v->ks_body_y1[i];
+        v->ks_body_y1[i] = by;
+        body += by;
+    }
+    double out = dry + v->ks_pick_amt * body;
+
     if (v->gm_drive > 0.0) {
         double pre = 1.0 + 4.0 * v->gm_drive;
-        s = tanh(pre * s) * (1.0 / pre) * (1.0 + v->gm_drive);
+        out = tanh(pre * out) * (1.0 / pre) * (1.0 + v->gm_drive);
     }
-    return s * env;
+    return 2.6 * out * env;
 }
 
 static inline double generate_epiano_sample(GMVoice *v, double sample_rate,
@@ -3521,7 +3621,7 @@ double gm_voice_render(GMVoice *v, double sample_rate, double env,
                        double frequency) {
     double s;
     switch (v->engine) {
-    case GM_ENGINE_GMPIANO:   s = generate_gmpiano_sample(v, sample_rate, env); break;
+    case GM_ENGINE_GMPIANO:   s = generate_gmpiano_sample(v, sample_rate, env, frequency); break;
     case GM_ENGINE_EPIANO:    s = generate_epiano_sample(v, sample_rate, env); break;
     case GM_ENGINE_PLUCK:     s = generate_pluck_sample(v, sample_rate, env, frequency); break;
     case GM_ENGINE_MODAL:     s = generate_modal_sample(v, sample_rate, env); break;
