@@ -2031,6 +2031,7 @@ function setGmProgram(program, sound, system) {
   // device can switch patches.
   system?.usbMidi?.programChange?.(program, 0);
   sendUdpMidiEvent(system, "program_change", program, 0, 0);
+  syncVoiceIndex(); // keep the global voice chooser in lockstep
 }
 
 function noteToFreq(note, oct) {
@@ -2380,6 +2381,7 @@ function setWave(nextWave, sound) {
     if (prev === "sample") sound?.microphone?.close?.();
     playWaveSound(sound, wave);
   }
+  syncVoiceIndex(); // keep the global voice chooser in lockstep
 }
 
 function scheduleAutoUpdateCheck(delayFrames = 0) {
@@ -2431,6 +2433,10 @@ function boot({ wipe, system, sound }) {
   sound?.wobble?.setMix?.(wobbleMix);
   loadUdpMidiConfig(system);
   udpMidiNextHeartbeatFrame = 0;
+  // Anchor the global voice chooser to the current voice so its first open
+  // shows the right entry (default wave=sine → AC slot, not GM #1).
+  syncVoiceIndex();
+  voiceScroll = voiceIndex;
   const mic = sound?.microphone || null;
   if (mic && (mic.sampleLength || 0) > 0) {
     sampleLoaded = true;
@@ -2826,18 +2832,23 @@ function act({ event: e, sound, wifi, system }) {
       selectGmDigit(key, sound, system);
       return;
     }
+    // Left/Right arrows now drive the GLOBAL VOICE CHOOSER — the single
+    // horizontal strip of all 128 GM programs followed by the 8 AC
+    // wavetypes. Each press steps the selection by one entry (clamped at
+    // both ends) and applies it through the existing setGmProgram/setWave
+    // routes, so it stays in lockstep with the number-row digit picker and
+    // the wave-button row. (Up/Down still adjust master volume below.)
     if (key === "arrowleft") {
-      arrowSelectedSide = 0;
-      sound?.speak?.("left");
-      flashArrowNotice(`L vol ${Math.round(leftMasterVol * 100)}%`);
+      stepVoice(-1, sound, system);
       return;
     }
     if (key === "arrowright") {
-      arrowSelectedSide = 1;
-      sound?.speak?.("right");
-      flashArrowNotice(`R vol ${Math.round(rightMasterVol * 100)}%`);
+      stepVoice(+1, sound, system);
       return;
     }
+    // Up/Down: master volume. Side-select used to ride Left/Right; now that
+    // those drive the voice chooser, Up/Down nudge whichever side is armed
+    // (arrowSelectedSide, still toggled by tapping a grid's master slider).
     if (key === "arrowup") {
       if (arrowSelectedSide === 0) {
         leftMasterVol = Math.min(1.5, leftMasterVol + 0.1);
@@ -4307,6 +4318,1214 @@ const CHARACTER_SPRITES = {
   },
 };
 
+// === GENERAL MIDI FAMILY BANDMATES ===
+// 128 unique characters is too many to author well, so each of the 16 GM
+// families (8 programs apiece — Piano 0-7, Chromatic Perc 8-15, Organ
+// 16-23, … Sound FX 120-127) gets ONE bandmate in the same pixel-art style
+// as CHARACTER_SPRITES above: a palette + paletteLight map of single-char →
+// [r,g,b], plus spriteA/spriteB animation frames ~18 wide × 22 tall. Every
+// one carries the shared "bandmate" personality — eyes (E) that track the
+// cursor, a dual mouth (M/N), and at least one note-emission origin (O) —
+// over a family-specific instrument motif (keyboard / bell / organ pipes /
+// guitar body / bass / violin+bow / choir / horn bell / reed / pan-flute /
+// lead bolt / pad cloud / sparkle / sitar / drum / radio). A GM voice draws
+// its family's character and shows the specific program NAME beneath it, so
+// all 128 stay recognizable from 16 sprites. Keyed by family index 0..15;
+// gmFamilyKey(program) resolves a program to its key. drawBandmate() and the
+// chooser both look up CHARACTER_SPRITES first, then GM_FAMILY_SPRITES.
+const GM_FAMILY_SPRITES = {
+  // 0 — Piano (0-7): grand-piano keytop head, ivory + ebony key teeth.
+  gm0: {
+    palette: {
+      H: [40, 40, 55], h: [25, 25, 38], S: [240, 205, 175],
+      M: [120, 60, 70], N: [170, 80, 95], L: [150, 80, 90],
+      K: [240, 235, 220], k: [30, 28, 40], F: [220, 180, 80],
+      O: [0, 0, 0], P: [10, 10, 20], E: [255, 255, 255],
+    },
+    paletteLight: {
+      H: [60, 60, 75], h: [40, 40, 55], S: [240, 205, 175],
+      M: [120, 50, 60], N: [160, 70, 85], L: [140, 70, 80],
+      K: [250, 248, 240], k: [40, 35, 50], F: [200, 160, 60],
+      O: [0, 0, 0], P: [10, 10, 20], E: [255, 255, 255],
+    },
+    spriteA: [
+      "....HHHHHHHH......",
+      "...HHHHHHHHHH.....",
+      "..HHFFFFFFFFHH....",
+      "..HHKkKkKkKkHH....",
+      "..SSEESSSSEESS....",
+      "..SSEESSSSEESS....",
+      "..SSSSSSSSSSSS....",
+      "..SSSMMMMMMSSS....",
+      "..SSSSLLLLSSSS....",
+      "...SSSSOSSSS......",
+      "....HHHHHHHH......",
+      "...KKKKKKKKKK.....",
+      "..KKkKKkKKkKKK....",
+      "..KKkKKkKKkKKK....",
+      "..KKKKKKKKKKKK....",
+      "..KKkKKkKKkKKK....",
+      "..KKKKKKKKKKKK....",
+      "...hhh....hhh.....",
+      "...hhh....hhh.....",
+      "..hhh......hhh....",
+      "..hhh......hhh....",
+      ".hhh........hhh...",
+    ],
+    spriteB: [
+      "....HHHHHHHH......",
+      "...HHHHHHHHHH.....",
+      "..HHFFFFFFFFHH....",
+      "..HHKkKkKkKkHH....",
+      "..SSEESSSSEESS....",
+      "..SSEESSSSEESS....",
+      "..SSSSSSSSSSSS....",
+      "..SSSNNNNNNSSS....",
+      "..SSSSLLLLSSSS....",
+      "...SSSSOSSSS......",
+      "....HHHHHHHH......",
+      "...KKKKKKKKKK.....",
+      "..KKKKKKKKKKKK....",
+      "..KKkKKkKKkKKK....",
+      "..KKkKKkKKkKKK....",
+      "..KKKKKKKKKKKK....",
+      "..KKkKKkKKkKKK....",
+      "...hhh....hhh.....",
+      "...hhh....hhh.....",
+      "..hhh......hhh....",
+      "..hhh......hhh....",
+      ".hhh........hhh...",
+    ],
+  },
+  // 1 — Chromatic Percussion (8-15): glockenspiel/bells, mallet in hand.
+  gm1: {
+    palette: {
+      H: [200, 160, 60], h: [150, 110, 30], S: [240, 205, 175],
+      M: [120, 60, 70], N: [170, 80, 95], L: [150, 80, 90],
+      B: [120, 210, 230], b: [70, 150, 180], W: [255, 250, 200],
+      O: [255, 250, 200], P: [10, 20, 30], E: [255, 255, 255],
+    },
+    paletteLight: {
+      H: [200, 160, 60], h: [150, 110, 30], S: [240, 205, 175],
+      M: [120, 50, 60], N: [160, 70, 85], L: [140, 70, 80],
+      B: [90, 180, 210], b: [50, 130, 160], W: [240, 230, 150],
+      O: [240, 230, 150], P: [10, 20, 30], E: [255, 255, 255],
+    },
+    spriteA: [
+      ".....HHHHHH.......",
+      "....HHHHHHHH......",
+      "...HHHHHHHHHH.....",
+      "..HHEESSSSEEHH....",
+      "..HHEESSSSEEHH....",
+      "..HHSSSSSSSSHH....",
+      "...SSSMMMMSSS.....",
+      "...SSSSLLSSSO.....",
+      "....SSSSSSSS......",
+      "...BBBBBBBBBB.....",
+      "..BBbBBbBBbBBb....",
+      "..BBBBBBBBBBBB....",
+      "..bbbbbbbbbbbb....",
+      "....W.....W.W.....",
+      "....W....hh.......",
+      "....W...hh........",
+      "....W..hh.........",
+      "...hh.............",
+      "..hh..............",
+      "..h...............",
+      "..................",
+      "..................",
+    ],
+    spriteB: [
+      ".....HHHHHH.......",
+      "....HHHHHHHH......",
+      "...HHHHHHHHHH.....",
+      "..HHEESSSSEEHH....",
+      "..HHEESSSSEEHH....",
+      "..HHSSSSSSSSHH....",
+      "...SSSNNNNSSS.....",
+      "...SSSSLLSSSO.....",
+      "....SSSSSSSS......",
+      "...BBBBBBBBBB.....",
+      "..BBbBBbBBbBBb....",
+      "..BBBBBBBBBBBB....",
+      "..bbbbbbbbbbbb....",
+      "..WW......W.W.....",
+      "...hh.....W.......",
+      "....hh....W.......",
+      ".....hh...W.......",
+      "......hh.hh.......",
+      ".......hh.........",
+      ".......h..........",
+      "..................",
+      "..................",
+    ],
+  },
+  // 2 — Organ (16-23): cathedral pipe crown over the head.
+  gm2: {
+    palette: {
+      H: [150, 110, 70], h: [100, 70, 40], S: [240, 205, 175],
+      M: [120, 60, 70], N: [170, 80, 95], L: [150, 80, 90],
+      G: [200, 200, 215], g: [120, 120, 140], W: [240, 220, 120],
+      O: [240, 220, 120], P: [20, 15, 25], E: [255, 255, 255],
+    },
+    paletteLight: {
+      H: [150, 110, 70], h: [100, 70, 40], S: [240, 205, 175],
+      M: [120, 50, 60], N: [160, 70, 85], L: [140, 70, 80],
+      G: [180, 180, 195], g: [110, 110, 130], W: [210, 180, 80],
+      O: [210, 180, 80], P: [20, 15, 25], E: [255, 255, 255],
+    },
+    spriteA: [
+      "..G.G.G.G.G.G.G...",
+      "..G.G.G.G.G.G.G...",
+      "..GgGgGgGgGgGgG...",
+      "..gggggggggggg....",
+      "...HHHHHHHHHH.....",
+      "..HHEESSSSEEHH....",
+      "..HHEESSSSEEHH....",
+      "..HHSSSSSSSSHH....",
+      "...SSMMMMMMSS.....",
+      "...SSSLLLLSSO.....",
+      "....SSSSSSSS......",
+      "...HHHHHHHHHH.....",
+      "..HHHHHHHHHHHH....",
+      "..HHHWWWWWWHHH....",
+      "..HHHHHHHHHHHH....",
+      "..HHHHHHHHHHHH....",
+      "...hhh....hhh.....",
+      "...hhh....hhh.....",
+      "..hhh......hhh....",
+      "..hhh......hhh....",
+      "..................",
+      "..................",
+    ],
+    spriteB: [
+      "..G.G.G.G.G.G.G...",
+      "..G.G.G.G.G.G.G...",
+      "..GgGgGgGgGgGgG...",
+      "..gggggggggggg....",
+      "...HHHHHHHHHH.....",
+      "..HHEESSSSEEHH....",
+      "..HHEESSSSEEHH....",
+      "..HHSSSSSSSSHH....",
+      "...SSNNNNNNSS.....",
+      "...SSSLLLLSSO.....",
+      "....SSSSSSSS......",
+      "...HHHHHHHHHH.....",
+      "..HHHHHHHHHHHH....",
+      "..HHHWWWWWWHHH....",
+      "..HHHWWWWWWHHH....",
+      "..HHHHHHHHHHHH....",
+      "...hhh....hhh.....",
+      "...hhh....hhh.....",
+      "..hhh......hhh....",
+      "..hhh......hhh....",
+      "..................",
+      "..................",
+    ],
+  },
+  // 3 — Guitar (24-31): hollow-body guitar with soundhole O.
+  gm3: {
+    palette: {
+      H: [120, 70, 40], h: [80, 45, 25], S: [240, 205, 175],
+      M: [120, 60, 70], N: [170, 80, 95], L: [150, 80, 90],
+      G: [200, 140, 70], g: [150, 95, 45], W: [240, 230, 200],
+      O: [25, 15, 10], P: [20, 12, 8], E: [255, 255, 255],
+    },
+    paletteLight: {
+      H: [120, 70, 40], h: [80, 45, 25], S: [240, 205, 175],
+      M: [120, 50, 60], N: [160, 70, 85], L: [140, 70, 80],
+      G: [200, 140, 70], g: [150, 95, 45], W: [220, 205, 170],
+      O: [25, 15, 10], P: [20, 12, 8], E: [255, 255, 255],
+    },
+    spriteA: [
+      "....HHHHHHHH......",
+      "...HHHHHHHHHH.....",
+      "..HHEESSSSEEHH....",
+      "..HHEESSSSEEHH....",
+      "..HHSSSSSSSSHH....",
+      "...SSMMMMMMSS.....",
+      "...SSSLLLLSSS.....",
+      "....SSSSSSSS......",
+      ".....GGGGGG.......",
+      "....GGGGGGGG......",
+      "...GGGGGGGGGG.....",
+      "..GGGGGOOGGGGG....",
+      "..GGGGGOOGGGGG....",
+      "..GGGGGGGGGGGG....",
+      "...GGGGGGGGGG.....",
+      "....GGGGGGGG......",
+      ".....gWWWWg.......",
+      ".....gWWWWg.......",
+      ".....gWWWWg.......",
+      ".....gWWWWg.......",
+      ".....g....g.......",
+      "..................",
+    ],
+    spriteB: [
+      "....HHHHHHHH......",
+      "...HHHHHHHHHH.....",
+      "..HHEESSSSEEHH....",
+      "..HHEESSSSEEHH....",
+      "..HHSSSSSSSSHH....",
+      "...SSNNNNNNSS.....",
+      "...SSSLLLLSSS.....",
+      "....SSSSSSSS......",
+      ".....GGGGGG.......",
+      "....GGGGGGGG......",
+      "...GGGGGGGGGG.....",
+      "..GGGGGOOGGGGG....",
+      "..GGGGGOOGGGGG....",
+      "..GGGGGGGGGGGG....",
+      "...GGGGGGGGGG.....",
+      "....GGGGGGGG......",
+      ".....WggggW.......",
+      ".....WggggW.......",
+      ".....WggggW.......",
+      ".....WggggW.......",
+      ".....g....g.......",
+      "..................",
+    ],
+  },
+  // 4 — Bass (32-39): big-bodied low dude with a 4-string bass neck.
+  gm4: {
+    palette: {
+      H: [60, 50, 90], h: [40, 33, 65], S: [240, 205, 175],
+      M: [120, 60, 70], N: [170, 80, 95], L: [150, 80, 90],
+      B: [90, 70, 140], b: [60, 45, 100], W: [220, 210, 180],
+      O: [220, 210, 180], P: [15, 12, 30], E: [255, 255, 255],
+    },
+    paletteLight: {
+      H: [80, 70, 120], h: [55, 48, 85], S: [240, 205, 175],
+      M: [120, 50, 60], N: [160, 70, 85], L: [140, 70, 80],
+      B: [110, 90, 170], b: [75, 60, 120], W: [200, 190, 160],
+      O: [200, 190, 160], P: [15, 12, 30], E: [255, 255, 255],
+    },
+    spriteA: [
+      "....HHHHHHHH......",
+      "...HHHHHHHHHH.....",
+      "..HHHHHHHHHHHH....",
+      "..HHEESSSSEEHH....",
+      "..HHEESSSSEEHH....",
+      "..HHSSSSSSSSHH....",
+      "..HSSSMMMMSSSH....",
+      "..HSSSSLLSSSSH....",
+      "...SSSSSSSSO......",
+      "...BBBBBBBBBB.....",
+      "..BBBBBBBBBBBB....",
+      "..BBBBBBBBBBBB....",
+      "..BBBWWWWWWBBB....",
+      "..bbBBBBBBBBbb....",
+      "..bbBBBBBBBBbb....",
+      "...bbbBBBBbbb.....",
+      "....WWWWWWWW......",
+      "....W.W.W.W.......",
+      "....W.W.W.W.......",
+      "...bbb....bbb.....",
+      "..bbb......bbb....",
+      "..................",
+    ],
+    spriteB: [
+      "....HHHHHHHH......",
+      "...HHHHHHHHHH.....",
+      "..HHHHHHHHHHHH....",
+      "..HHEESSSSEEHH....",
+      "..HHEESSSSEEHH....",
+      "..HHSSSSSSSSHH....",
+      "..HSSSNNNNSSSH....",
+      "..HSSSSLLSSSSH....",
+      "...SSSSSSSSO......",
+      "...BBBBBBBBBB.....",
+      "..BBBBBBBBBBBB....",
+      "..BBBWWWWWWBBB....",
+      "..BBBBBBBBBBBB....",
+      "..bbBBBBBBBBbb....",
+      "..bbBBBBBBBBbb....",
+      "...bbbBBBBbbb.....",
+      "....WWWWWWWW......",
+      "....W.W.W.W.......",
+      "....W.W.W.W.......",
+      "...bbb....bbb.....",
+      "..bbb......bbb....",
+      "..................",
+    ],
+  },
+  // 5 — Strings (40-47): violinist, instrument tucked at chin + bow O.
+  gm5: {
+    palette: {
+      H: [150, 90, 50], h: [110, 65, 35], S: [240, 205, 175],
+      M: [120, 60, 70], N: [170, 80, 95], L: [150, 80, 90],
+      V: [180, 110, 50], v: [120, 70, 30], W: [230, 220, 190],
+      O: [230, 220, 190], P: [20, 12, 8], E: [255, 255, 255],
+    },
+    paletteLight: {
+      H: [150, 90, 50], h: [110, 65, 35], S: [240, 205, 175],
+      M: [120, 50, 60], N: [160, 70, 85], L: [140, 70, 80],
+      V: [180, 110, 50], v: [120, 70, 30], W: [210, 200, 170],
+      O: [210, 200, 170], P: [20, 12, 8], E: [255, 255, 255],
+    },
+    spriteA: [
+      "....HHHHHHHH......",
+      "...HHHHHHHHHH.....",
+      "..HHEESSSSEEHH....",
+      "..HHEESSSSEEHH....",
+      "..HHSSSSSSSSHH....",
+      "...SSMMMMMMSS.....",
+      "...SSSLLLLSSS.....",
+      "....SSSSSSVV......",
+      ".....SSSVVVV......",
+      "....WVVVVVVVW.....",
+      "...WVVVVVVVVVW....",
+      "..WOVVVvvVVVVVW...",
+      "...WVVVvvVVVVW....",
+      "....WVVVVVVVW.....",
+      ".....VVVVVVV......",
+      "......vvvvv.......",
+      ".....hhh.hhh......",
+      "....hhh...hhh.....",
+      "...hhh.....hhh....",
+      "..hhh.......hhh...",
+      "..................",
+      "..................",
+    ],
+    spriteB: [
+      "....HHHHHHHH......",
+      "...HHHHHHHHHH.....",
+      "..HHEESSSSEEHH....",
+      "..HHEESSSSEEHH....",
+      "..HHSSSSSSSSHH....",
+      "...SSNNNNNNSS.....",
+      "...SSSLLLLSSS.....",
+      "....SSSSSSVV......",
+      ".....SSSVVVV......",
+      "....WVVVVVVVW.....",
+      "...WVVVVVVVVVW....",
+      "..WVVVVvvVVVVOW...",
+      "...WVVVvvVVVVW....",
+      "....WVVVVVVVW.....",
+      ".....VVVVVVV......",
+      "......vvvvv.......",
+      ".....hhh.hhh......",
+      "....hhh...hhh.....",
+      "...hhh.....hhh....",
+      "..hhh.......hhh...",
+      "..................",
+      "..................",
+    ],
+  },
+  // 6 — Ensemble (48-55): choir trio — three little heads singing.
+  gm6: {
+    palette: {
+      H: [70, 110, 160], h: [45, 75, 115], S: [240, 205, 175],
+      M: [120, 60, 70], N: [170, 80, 95], L: [150, 80, 90],
+      R: [200, 130, 120], r: [150, 90, 80], W: [220, 230, 245],
+      O: [220, 230, 245], P: [15, 25, 40], E: [255, 255, 255],
+    },
+    paletteLight: {
+      H: [90, 130, 180], h: [60, 90, 130], S: [240, 205, 175],
+      M: [120, 50, 60], N: [160, 70, 85], L: [140, 70, 80],
+      R: [200, 130, 120], r: [150, 90, 80], W: [200, 215, 235],
+      O: [200, 215, 235], P: [15, 25, 40], E: [255, 255, 255],
+    },
+    spriteA: [
+      "...HHH..HHH..HHH..",
+      "..HHHH.HHHH.HHHH..",
+      "..hSSh.hSSh.hSSh..",
+      "..SEES.SEES.SEES..",
+      "..SSSS.SSSS.SSSS..",
+      "..SMMS.SMMSO.SMMS.",
+      "..SSSS.SSSS.SSSS..",
+      "...WW...WW...WW...",
+      "..RRRR.RRRR.RRRR..",
+      ".RRRRR.RRRR.RRRRR.",
+      ".RRRRRRRRRRRRRRRR.",
+      ".RRRRRRRRRRRRRRRR.",
+      "..rrrrrrrrrrrrrr..",
+      "..rr.rr.rr.rr.rr..",
+      "..rr.rr.rr.rr.rr..",
+      "..hh.hh.hh.hh.hh..",
+      "..hh.hh.hh.hh.hh..",
+      "..................",
+      "..................",
+      "..................",
+      "..................",
+      "..................",
+    ],
+    spriteB: [
+      "...HHH..HHH..HHH..",
+      "..HHHH.HHHH.HHHH..",
+      "..hSSh.hSSh.hSSh..",
+      "..SEES.SEES.SEES..",
+      "..SSSS.SSSS.SSSS..",
+      "..SNNS.SNNSO.SNNS.",
+      "..SSSS.SSSS.SSSS..",
+      "...WW...WW...WW...",
+      "..RRRR.RRRR.RRRR..",
+      ".RRRRR.RRRR.RRRRR.",
+      ".RRRRRRRRRRRRRRRR.",
+      ".RRRRRRRRRRRRRRRR.",
+      "..rrrrrrrrrrrrrr..",
+      "..rr.rr.rr.rr.rr..",
+      "..rr.rr.rr.rr.rr..",
+      "..hh.hh.hh.hh.hh..",
+      "..hh.hh.hh.hh.hh..",
+      "..................",
+      "..................",
+      "..................",
+      "..................",
+      "..................",
+    ],
+  },
+  // 7 — Brass (56-63): trumpeter with a flared horn bell + valves.
+  gm7: {
+    palette: {
+      H: [110, 70, 40], h: [75, 47, 25], S: [240, 205, 175],
+      M: [120, 60, 70], N: [170, 80, 95], L: [150, 80, 90],
+      G: [240, 200, 70], g: [180, 140, 40], W: [255, 245, 180],
+      O: [255, 245, 180], P: [20, 12, 8], E: [255, 255, 255],
+    },
+    paletteLight: {
+      H: [110, 70, 40], h: [75, 47, 25], S: [240, 205, 175],
+      M: [120, 50, 60], N: [160, 70, 85], L: [140, 70, 80],
+      G: [230, 185, 55], g: [170, 130, 35], W: [240, 225, 150],
+      O: [240, 225, 150], P: [20, 12, 8], E: [255, 255, 255],
+    },
+    spriteA: [
+      "...HHHHHHHH.......",
+      "..HHHHHHHHHH......",
+      ".HHEESSSSEEHH.....",
+      ".HHEESSSSEEHH.....",
+      ".HHSSSSSSSSHH.....",
+      "..SSSMMMMSS.......",
+      "..SSSSLLSS.GGG....",
+      "...SSSSSO.GGGGG...",
+      "....GgGgGgGGGGG...",
+      "...GGGGGGGGGGGG...",
+      "...GgGgGgGGGGG....",
+      "....G.G.G.GGG.....",
+      "....g.g.g.G.......",
+      "..................",
+      "..................",
+      "...hhh....hhh.....",
+      "...hhh....hhh.....",
+      "..hhh......hhh....",
+      "..hhh......hhh....",
+      ".hhh........hhh...",
+      "..................",
+      "..................",
+    ],
+    spriteB: [
+      "...HHHHHHHH.......",
+      "..HHHHHHHHHH......",
+      ".HHEESSSSEEHH.....",
+      ".HHEESSSSEEHH.....",
+      ".HHSSSSSSSSHH.....",
+      "..SSSNNNNSS.......",
+      "..SSSSLLSS..GGG...",
+      "...SSSSSO..GGGGG..",
+      "....GgGgGgGGGGGG..",
+      "...GGGGGGGGGGGGG..",
+      "...GgGgGgGGGGGG...",
+      "....G.G.G.GGG.....",
+      "....g.g.g.G.......",
+      "..................",
+      "..................",
+      "...hhh....hhh.....",
+      "...hhh....hhh.....",
+      "..hhh......hhh....",
+      "..hhh......hhh....",
+      ".hhh........hhh...",
+      "..................",
+      "..................",
+    ],
+  },
+  // 8 — Reed (64-71): sax/clarinet player, reed pipe with keys down side.
+  gm8: {
+    palette: {
+      H: [60, 60, 70], h: [40, 40, 50], S: [240, 205, 175],
+      M: [120, 60, 70], N: [170, 80, 95], L: [150, 80, 90],
+      G: [220, 190, 90], g: [160, 135, 55], W: [240, 220, 130],
+      O: [240, 220, 130], P: [15, 15, 20], E: [255, 255, 255],
+    },
+    paletteLight: {
+      H: [80, 80, 90], h: [55, 55, 65], S: [240, 205, 175],
+      M: [120, 50, 60], N: [160, 70, 85], L: [140, 70, 80],
+      G: [210, 175, 75], g: [150, 125, 45], W: [225, 200, 110],
+      O: [225, 200, 110], P: [15, 15, 20], E: [255, 255, 255],
+    },
+    spriteA: [
+      "....HHHHHHHH......",
+      "...HHHHHHHHHH.....",
+      "..HHEESSSSEEHH....",
+      "..HHEESSSSEEHH....",
+      "..HHSSSSSSSSHH....",
+      "...SSMMMMSSS......",
+      "...SSSLLSSO.......",
+      "....SSSSGG........",
+      ".....SSGGGg.......",
+      ".......GGGg.......",
+      ".......GgGg.......",
+      ".......GGGg.......",
+      "......GgGGg.......",
+      "......GGGGg.......",
+      ".....GgGGGg.......",
+      ".....GGGGGg.......",
+      ".....GGGGGg.......",
+      "......gggGG.......",
+      ".......GGGG.......",
+      "...hhh..GG.hhh....",
+      "..hhh......hhh....",
+      "..................",
+    ],
+    spriteB: [
+      "....HHHHHHHH......",
+      "...HHHHHHHHHH.....",
+      "..HHEESSSSEEHH....",
+      "..HHEESSSSEEHH....",
+      "..HHSSSSSSSSHH....",
+      "...SSNNNNSSS......",
+      "...SSSLLSSO.......",
+      "....SSSSGG........",
+      ".....SSGGGg.......",
+      ".......GGGg.......",
+      ".......GgGg.......",
+      ".......GGGg.......",
+      "......GGGGg.......",
+      "......GgGGg.......",
+      ".....GGGGGg.......",
+      ".....GgGGGg.......",
+      ".....GGGGGg.......",
+      "......gggGG.......",
+      ".......GGGG.......",
+      "...hhh..GG.hhh....",
+      "..hhh......hhh....",
+      "..................",
+    ],
+  },
+  // 9 — Pipe (72-79): pan-flute / flute player, row of pipes below face.
+  gm9: {
+    palette: {
+      H: [90, 130, 90], h: [60, 95, 60], S: [240, 205, 175],
+      M: [120, 60, 70], N: [170, 80, 95], L: [150, 80, 90],
+      G: [190, 150, 90], g: [140, 105, 60], W: [220, 230, 210],
+      O: [220, 230, 210], P: [15, 25, 15], E: [255, 255, 255],
+    },
+    paletteLight: {
+      H: [110, 150, 110], h: [75, 110, 75], S: [240, 205, 175],
+      M: [120, 50, 60], N: [160, 70, 85], L: [140, 70, 80],
+      G: [185, 145, 85], g: [135, 100, 55], W: [205, 215, 195],
+      O: [205, 215, 195], P: [15, 25, 15], E: [255, 255, 255],
+    },
+    spriteA: [
+      "....HHHHHHHH......",
+      "...HHHHHHHHHH.....",
+      "..HHEESSSSEEHH....",
+      "..HHEESSSSEEHH....",
+      "..HHSSSSSSSSHH....",
+      "...SSSMMMMSS......",
+      "...SSSSLLSSO......",
+      "....SSSSSSS.......",
+      "..GGGGGGGGGG......",
+      "..GgGgGgGgGg......",
+      "..GgGgGgGgGg......",
+      "..GgGgGgGgGg......",
+      "..GgGgGgGgGg......",
+      "..GgGgGgGgGg......",
+      "..GGGGGGGGGg......",
+      "...GgGgGgGg.......",
+      "....GgGgGg........",
+      ".....GgGg.........",
+      "...hhh...hhh......",
+      "..hhh.....hhh.....",
+      "..................",
+      "..................",
+    ],
+    spriteB: [
+      "....HHHHHHHH......",
+      "...HHHHHHHHHH.....",
+      "..HHEESSSSEEHH....",
+      "..HHEESSSSEEHH....",
+      "..HHSSSSSSSSHH....",
+      "...SSSNNNNSS......",
+      "...SSSSLLSSO......",
+      "....SSSSSSS.......",
+      "..GGGGGGGGGG......",
+      "..GgGgGgGgGg......",
+      "..GgGgGgGgGg......",
+      "..GgGgGgGgGg......",
+      "..GgGgGgGgGg......",
+      "..GgGgGgGgGg......",
+      "..GGGGGGGGGg......",
+      "...GgGgGgGg.......",
+      "....GgGgGg........",
+      ".....GgGg.........",
+      "...hhh...hhh......",
+      "..hhh.....hhh.....",
+      "..................",
+      "..................",
+    ],
+  },
+  // 10 — Synth Lead (80-87): neon shades + a jagged lightning lead bolt.
+  gm10: {
+    palette: {
+      H: [180, 40, 160], h: [120, 25, 110], S: [240, 205, 175],
+      M: [120, 60, 70], N: [170, 80, 95], L: [150, 80, 90],
+      G: [40, 30, 50], W: [120, 255, 220], Z: [255, 240, 90],
+      O: [255, 240, 90], P: [10, 10, 20], E: [120, 255, 220],
+    },
+    paletteLight: {
+      H: [190, 60, 170], h: [130, 35, 120], S: [240, 205, 175],
+      M: [120, 50, 60], N: [160, 70, 85], L: [140, 70, 80],
+      G: [50, 40, 60], W: [40, 200, 170], Z: [230, 200, 50],
+      O: [230, 200, 50], P: [10, 10, 20], E: [40, 200, 170],
+    },
+    spriteA: [
+      "....HHHHHHHH......",
+      "...HHHHHHHHHH.....",
+      "..HHHHHHHHHHHH....",
+      "..GGGGGGGGGGGG....",
+      "..GEEGGGGGGEEG....",
+      "..GEEGGGGGGEEG....",
+      "..SSSSSSSSSSSS....",
+      "...SSMMMMMMSS.....",
+      "...SSSLLLLSSO.....",
+      "....SSSSSSSS......",
+      ".......Z..........",
+      "......ZZ..........",
+      ".....ZZ...........",
+      "....ZZZZ..........",
+      "......ZZ..........",
+      ".....ZZ...........",
+      "....ZZ............",
+      "...hhh....hhh.....",
+      "..hhh......hhh....",
+      "..................",
+      "..................",
+      "..................",
+    ],
+    spriteB: [
+      "....HHHHHHHH......",
+      "...HHHHHHHHHH.....",
+      "..HHHHHHHHHHHH....",
+      "..GGGGGGGGGGGG....",
+      "..GEEGGGGGGEEG....",
+      "..GEEGGGGGGEEG....",
+      "..SSSSSSSSSSSS....",
+      "...SSNNNNNNSS.....",
+      "...SSSLLLLSSO.....",
+      "....SSSSSSSS......",
+      "........Z.........",
+      ".......ZZ.........",
+      "......ZZ..........",
+      ".....ZZZZ.........",
+      ".......ZZ.........",
+      "......ZZ..........",
+      ".....ZZ...........",
+      "...hhh....hhh.....",
+      "..hhh......hhh....",
+      "..................",
+      "..................",
+      "..................",
+    ],
+  },
+  // 11 — Synth Pad (88-95): dreamy cloud head, soft pastel swells.
+  gm11: {
+    palette: {
+      H: [120, 110, 200], h: [85, 78, 150], S: [240, 205, 175],
+      M: [120, 60, 70], N: [170, 80, 95], L: [150, 80, 90],
+      W: [200, 200, 245], w: [160, 160, 215], C: [180, 220, 255],
+      O: [200, 200, 245], P: [20, 18, 40], E: [255, 255, 255],
+    },
+    paletteLight: {
+      H: [140, 130, 210], h: [100, 92, 160], S: [240, 205, 175],
+      M: [120, 50, 60], N: [160, 70, 85], L: [140, 70, 80],
+      W: [210, 210, 250], w: [170, 170, 225], C: [160, 205, 245],
+      O: [210, 210, 250], P: [20, 18, 40], E: [255, 255, 255],
+    },
+    spriteA: [
+      "....CC..CC..CC....",
+      "...CCCCCCCCCCC....",
+      "..WWWWWWWWWWWW....",
+      ".WWWWWWWWWWWWWW...",
+      ".WWHHHHHHHHHHWW...",
+      "..HHEEHHHHEEHH....",
+      "..HHEEHHHHEEHH....",
+      "..HHHHHHHHHHHH....",
+      "..HHHHMMMMHHHH....",
+      "..wwHHLLLLHHww....",
+      "...wwHHHHHHww.....",
+      "....wwwwwwwwO.....",
+      "...WWWWWWWWWW.....",
+      "..WWWWWWWWWWWW....",
+      "..wwWWWWWWWWww....",
+      "...wwwwwwwwww.....",
+      "....ww....ww......",
+      "....ww....ww......",
+      "..................",
+      "..................",
+      "..................",
+      "..................",
+    ],
+    spriteB: [
+      "...CC..CC..CC.....",
+      "..CCCCCCCCCCC.....",
+      "..WWWWWWWWWWWW....",
+      ".WWWWWWWWWWWWWW...",
+      ".WWHHHHHHHHHHWW...",
+      "..HHEEHHHHEEHH....",
+      "..HHEEHHHHEEHH....",
+      "..HHHHHHHHHHHH....",
+      "..HHHHNNNNHHHH....",
+      "..wwHHLLLLHHww....",
+      "...wwHHHHHHww.....",
+      "....wwwwwwwwO.....",
+      "...WWWWWWWWWW.....",
+      "..WWWWWWWWWWWW....",
+      "..wwWWWWWWWWww....",
+      "...wwwwwwwwww.....",
+      "....ww....ww......",
+      "....ww....ww......",
+      "..................",
+      "..................",
+      "..................",
+      "..................",
+    ],
+  },
+  // 12 — Synth FX (96-103): sparkle-burst crystal sprite.
+  gm12: {
+    palette: {
+      H: [40, 160, 170], h: [25, 110, 120], S: [240, 205, 175],
+      M: [120, 60, 70], N: [170, 80, 95], L: [150, 80, 90],
+      W: [180, 255, 250], Z: [255, 255, 200], C: [120, 230, 230],
+      O: [255, 255, 200], P: [10, 30, 35], E: [255, 255, 255],
+    },
+    paletteLight: {
+      H: [50, 170, 180], h: [35, 120, 130], S: [240, 205, 175],
+      M: [120, 50, 60], N: [160, 70, 85], L: [140, 70, 80],
+      W: [150, 230, 225], Z: [235, 220, 120], C: [100, 200, 200],
+      O: [235, 220, 120], P: [10, 30, 35], E: [255, 255, 255],
+    },
+    spriteA: [
+      "....Z....Z..Z.....",
+      "..Z...ZZ......Z...",
+      "....HHHHHHHH......",
+      "...HHHHHHHHHH.....",
+      "..HHEEHHHHEEHH....",
+      "..HHEEHHHHEEHH....",
+      "..HHHHHHHHHHHH....",
+      "..CCCCMMMMCCCC....",
+      "..CCCCLLLLCCCO....",
+      "...CCCCCCCCCC.....",
+      "..WWWCWCWCWWW.....",
+      ".WCWCWCWCWCWCW....",
+      "..WWWCWCWCWWW.....",
+      "...CWCWCWCWC......",
+      "....CWCWCWC.......",
+      ".....CWCWC........",
+      "..Z....C....Z.....",
+      "...Z..ZZZ..Z......",
+      "..................",
+      "..................",
+      "..................",
+      "..................",
+    ],
+    spriteB: [
+      "..Z...Z....Z......",
+      "....Z....ZZ...Z...",
+      "....HHHHHHHH......",
+      "...HHHHHHHHHH.....",
+      "..HHEEHHHHEEHH....",
+      "..HHEEHHHHEEHH....",
+      "..HHHHHHHHHHHH....",
+      "..CCCCNNNNCCCC....",
+      "..CCCCLLLLCCCO....",
+      "...CCCCCCCCCC.....",
+      "..WCWCWCWCWCW.....",
+      ".WWWCWCWCWCWWW....",
+      "..WCWCWCWCWCW.....",
+      "...CWCWCWCWC......",
+      "....CWCWCWC.......",
+      ".....CWCWC........",
+      "...Z...C...Z......",
+      "..Z..ZZZ....Z.....",
+      "..................",
+      "..................",
+      "..................",
+      "..................",
+    ],
+  },
+  // 13 — Ethnic (104-111): sitar player, long-necked gourd lute.
+  gm13: {
+    palette: {
+      H: [150, 60, 30], h: [105, 42, 20], S: [240, 205, 175],
+      M: [120, 60, 70], N: [170, 80, 95], L: [150, 80, 90],
+      G: [200, 150, 90], g: [150, 105, 55], W: [240, 230, 200],
+      O: [240, 230, 200], P: [20, 10, 5], E: [255, 255, 255],
+    },
+    paletteLight: {
+      H: [150, 60, 30], h: [105, 42, 20], S: [240, 205, 175],
+      M: [120, 50, 60], N: [160, 70, 85], L: [140, 70, 80],
+      G: [195, 145, 85], g: [145, 100, 50], W: [220, 210, 175],
+      O: [220, 210, 175], P: [20, 10, 5], E: [255, 255, 255],
+    },
+    spriteA: [
+      "....HHHHHHHH......",
+      "...HHHHHHHHHH.....",
+      "..HHEESSSSEEHH....",
+      "..HHEESSSSEEHH....",
+      "..HHSSSSSSSSHH....",
+      "...SSMMMMMMSS.....",
+      "...SSSLLLLSSS.....",
+      "....SSSSSSSS.G....",
+      ".....SSSSS.GG.....",
+      "..........GG......",
+      ".........GG.......",
+      "........GG........",
+      ".......GGGG.......",
+      "......GGGGGG......",
+      ".....GGGOOGGG.....",
+      "....GGGGGGGGGG....",
+      "....GGGGGGGGGG....",
+      ".....GGGGGGGG.....",
+      "......gGGGGg......",
+      "...hhh....hhh.....",
+      "..hhh......hhh....",
+      "..................",
+    ],
+    spriteB: [
+      "....HHHHHHHH......",
+      "...HHHHHHHHHH.....",
+      "..HHEESSSSEEHH....",
+      "..HHEESSSSEEHH....",
+      "..HHSSSSSSSSHH....",
+      "...SSNNNNNNSS.....",
+      "...SSSLLLLSSS.....",
+      "....SSSSSSSS.G....",
+      ".....SSSSS.GG.....",
+      "..........GG......",
+      ".........GG.......",
+      "........GG........",
+      ".......GGGG.......",
+      "......GGGGGG......",
+      ".....GGGOOGGG.....",
+      "....GGGGGGGGGG....",
+      "....GGGGGGGGGG....",
+      ".....GGGGGGGG.....",
+      "......gGGGGg......",
+      "...hhh....hhh.....",
+      "..hhh......hhh....",
+      "..................",
+    ],
+  },
+  // 14 — Percussive (112-119): drummer with a taiko/drum + sticks.
+  gm14: {
+    palette: {
+      H: [60, 55, 60], h: [40, 36, 40], S: [240, 205, 175],
+      M: [120, 60, 70], N: [170, 80, 95], L: [150, 80, 90],
+      D: [200, 60, 50], d: [150, 40, 35], R: [230, 220, 200],
+      W: [240, 230, 200], O: [240, 230, 200], P: [15, 12, 15], E: [255, 255, 255],
+    },
+    paletteLight: {
+      H: [80, 75, 80], h: [55, 50, 55], S: [240, 205, 175],
+      M: [120, 50, 60], N: [160, 70, 85], L: [140, 70, 80],
+      D: [200, 60, 50], d: [150, 40, 35], R: [215, 205, 185],
+      W: [220, 210, 180], O: [220, 210, 180], P: [15, 12, 15], E: [255, 255, 255],
+    },
+    spriteA: [
+      "....HHHHHHHH......",
+      "...HHHHHHHHHH.....",
+      "..HHEESSSSEEHH....",
+      "..HHEESSSSEEHH....",
+      "..HHSSSSSSSSHH....",
+      "...SSMMMMMMSS.....",
+      "...SSSLLLLSSS.....",
+      "....SSSSSSSS......",
+      "..W..........W....",
+      "..W...........W...",
+      "..DDDDDDDDDDDD....",
+      ".DRRRRRRRRRRRRD...",
+      ".DRRRRRRRRRRORD...",
+      ".DRRRRRRRRRRRRD...",
+      "..DDDDDDDDDDDD....",
+      "..dddddddddddd....",
+      "..dd........dd....",
+      "..dd........dd....",
+      "..hh........hh....",
+      "..................",
+      "..................",
+      "..................",
+    ],
+    spriteB: [
+      "....HHHHHHHH......",
+      "...HHHHHHHHHH.....",
+      "..HHEESSSSEEHH....",
+      "..HHEESSSSEEHH....",
+      "..HHSSSSSSSSHH....",
+      "...SSNNNNNNSS.....",
+      "...SSSLLLLSSS.....",
+      "....SSSSSSSS......",
+      "...W........W.....",
+      "..W..........W....",
+      "..DDDDDDDDDDDD....",
+      ".DRRRRRRRRRRRRD...",
+      ".DRORRRRRRRRRD....",
+      ".DRRRRRRRRRRRRD...",
+      "..DDDDDDDDDDDD....",
+      "..dddddddddddd....",
+      "..dd........dd....",
+      "..dd........dd....",
+      "..hh........hh....",
+      "..................",
+      "..................",
+      "..................",
+    ],
+  },
+  // 15 — Sound FX (120-127): retro radio/TV head broadcasting static.
+  gm15: {
+    palette: {
+      H: [80, 80, 95], h: [55, 55, 70], S: [240, 205, 175],
+      M: [120, 60, 70], N: [170, 80, 95], L: [150, 80, 90],
+      G: [40, 45, 55], W: [120, 230, 130], Z: [200, 210, 220],
+      O: [120, 230, 130], P: [10, 12, 18], E: [120, 230, 130],
+    },
+    paletteLight: {
+      H: [100, 100, 115], h: [70, 70, 85], S: [240, 205, 175],
+      M: [120, 50, 60], N: [160, 70, 85], L: [140, 70, 80],
+      G: [50, 55, 65], W: [60, 180, 80], Z: [180, 190, 200],
+      O: [60, 180, 80], P: [10, 12, 18], E: [60, 180, 80],
+    },
+    spriteA: [
+      ".......W..........",
+      "....W..W..W.......",
+      "..HHHHHHHHHHHH....",
+      "..HHHHHHHHHHHH....",
+      "..HGGGGGGGGGGH....",
+      "..HGEZGGGGZEGH....",
+      "..HGEZGGGGZEGH....",
+      "..HGGGGGGGGGGH....",
+      "..HGGMMMMMMGGH....",
+      "..HGGGLLLLGGOH....",
+      "..HGGGGGGGGGGH....",
+      "..HHHHHHHHHHHH....",
+      "..HH.WW..WW.HH....",
+      "..HHHHHHHHHHHH....",
+      "...hhh....hhh.....",
+      "...hhh....hhh.....",
+      "..hhh......hhh....",
+      "..hhh......hhh....",
+      "..................",
+      "..................",
+      "..................",
+      "..................",
+    ],
+    spriteB: [
+      "....W..W..........",
+      ".......W....W.....",
+      "..HHHHHHHHHHHH....",
+      "..HHHHHHHHHHHH....",
+      "..HGGGGGGGGGGH....",
+      "..HGEZGGGGZEGH....",
+      "..HGEZGGGGZEGH....",
+      "..HGGGGGGGGGGH....",
+      "..HGGNNNNNNGGH....",
+      "..HGGGLLLLGGOH....",
+      "..HGGGGGGGGGGH....",
+      "..HHHHHHHHHHHH....",
+      "..HH.WW..WW.HH....",
+      "..HHHHHHHHHHHH....",
+      "...hhh....hhh.....",
+      "...hhh....hhh.....",
+      "..hhh......hhh....",
+      "..hhh......hhh....",
+      "..................",
+      "..................",
+      "..................",
+      "..................",
+    ],
+  },
+};
+
+// GM program (0..127) → its family bandmate key. 16 families of 8 each.
+function gmFamilyKey(program) {
+  const p = Math.max(0, Math.min(127, program | 0));
+  return "gm" + Math.floor(p / 8);
+}
+
+// Resolve any voice to the sprite table that holds its character. AC
+// wavetypes live in CHARACTER_SPRITES; GM voices use GM_FAMILY_SPRITES.
+function bandmateSprite(key) {
+  return CHARACTER_SPRITES[key] || GM_FAMILY_SPRITES[key] || null;
+}
+
+// === GLOBAL VOICE CHOOSER ===
+// One continuous horizontal strip of every selectable voice: all 128 General
+// MIDI programs FIRST (index 0..127, in GM order), then the 8 AC native
+// wavetypes at the END (index 128..135). This is the single "global voice
+// slider" — Left/Right arrows step through it, and it stays in sync with the
+// number-row digit GM picker and the wave-button row (each just moves the
+// same selection). voiceCount = 136. The chooser owns no audio path of its
+// own: stepping into GM range calls setGmProgram(), stepping into AC range
+// calls setWave() — the exact same routes the existing pickers use.
+const VOICE_GM_COUNT = 128;
+const VOICE_TOTAL = VOICE_GM_COUNT + 8; // 128 GM + 8 AC wavetypes = 136
+let voiceIndex = 0;            // 0..135 — current position in the combined strip
+let voiceScroll = 0;           // animated scroll position (eases toward voiceIndex)
+let chooserVisible = false;    // shown briefly after a step, then fades
+let chooserUntil = 0;          // frame at which the chooser auto-hides
+
+// Voice index 0..135 → its bandmate sprite key (gm0..gm15 or an AC wavetype).
+function voiceSpriteKey(idx) {
+  if (idx < VOICE_GM_COUNT) return gmFamilyKey(idx);
+  return wavetypes[idx - VOICE_GM_COUNT] || "sine";
+}
+
+// Voice index → human label (GM program name, or the AC wavetype name).
+function voiceLabel(idx) {
+  if (idx < VOICE_GM_COUNT) {
+    return String(idx + 1).padStart(3, "0") + " " + (GM_PROGRAM_NAMES[idx] || "");
+  }
+  return "AC " + (wavetypes[idx - VOICE_GM_COUNT] || "sine");
+}
+
+// Recompute voiceIndex from the live selection state so the chooser always
+// agrees with whatever picked the current voice (digits, wave buttons, Tab).
+// GM selected → its program index; otherwise the AC wavetype's slot.
+function syncVoiceIndex() {
+  if (gmProgram !== null) {
+    voiceIndex = Math.max(0, Math.min(VOICE_GM_COUNT - 1, gmProgram));
+  } else {
+    const wi = wavetypes.indexOf(wave);
+    voiceIndex = VOICE_GM_COUNT + (wi < 0 ? 0 : wi);
+  }
+}
+
+// Apply a chooser index to the actual voice state, reusing the existing
+// selection routes so notes really play it. GM range → setGmProgram (sets
+// gmProgram + emits Program Change); AC range → setWave (clears GM, switches
+// wave). Clamped to [0, VOICE_TOTAL). Surfaces the chooser overlay for ~2.5s.
+function selectVoiceIndex(idx, sound, system) {
+  const next = Math.max(0, Math.min(VOICE_TOTAL - 1, idx | 0));
+  voiceIndex = next;
+  chooserVisible = true;
+  chooserUntil = frame + 150; // ~2.5s, matches gmNotice dwell
+  if (next < VOICE_GM_COUNT) {
+    gmPassthrough = false;
+    setGmProgram(next, sound, system);
+  } else {
+    setWave(wavetypes[next - VOICE_GM_COUNT], sound);
+  }
+}
+
+// Step the chooser by ±1 (clamped — safer than wrapping so you can't blow
+// past either end accidentally). Bound to Left/Right arrows.
+function stepVoice(delta, sound, system) {
+  syncVoiceIndex(); // re-anchor in case digits/buttons moved us since last step
+  selectVoiceIndex(voiceIndex + delta, sound, system);
+}
+
+// Render one bandmate sprite into an arbitrary box at an arbitrary block
+// scale, dimmed by `dim` (0..1). A trimmed-down sibling of drawBandmate used
+// only by the chooser strip: it skips the eye-tracking / mouth-animation /
+// note-emission machinery (purely a still preview) so neighbors stay cheap,
+// but it honors the same palette/theme + O/E/P transparency rules so the art
+// reads identically. `bob` shifts the sprite up by a pixel on alternate
+// frames for a subtle idle nod on the centered (focused) entry.
+function drawChooserSprite(key, ink, box, cx, baseY, block, dark, dim, bob) {
+  const char = bandmateSprite(key);
+  if (!char) return;
+  const palette = dark ? char.palette : char.paletteLight;
+  const sprite = (Math.floor(frame / 16) % 2 === 0) ? char.spriteA : char.spriteB;
+  const spW = sprite[0].length;
+  const spH = sprite.length;
+  const sx = Math.floor(cx - (spW * block) / 2);
+  const sy = baseY - spH * block - (bob ? ((frame >> 3) & 1) * block : 0);
+  const skin = palette["S"] || [240, 205, 175];
+  for (let row = 0; row < spH; row++) {
+    const lineStr = sprite[row];
+    for (let col = 0; col < spW; col++) {
+      let ch = lineStr[col];
+      if (ch === "." || ch === " " || ch === "O" || ch === "P") continue;
+      // Eyes render as flat skin-tone whites (no pupil tracking in preview).
+      let color = ch === "E" ? skin : palette[ch];
+      if (!color) continue;
+      let r = color[0], g = color[1], b = color[2];
+      if (dim < 1) { r = Math.round(r * dim); g = Math.round(g * dim); b = Math.round(b * dim); }
+      ink(r, g, b);
+      box(sx + col * block, sy + row * block, block, block, true);
+    }
+  }
+}
+
+// Draw the GLOBAL VOICE CHOOSER strip — the centered current voice big, with
+// its immediate neighbors peeking in at the sides, plus the program/wave name
+// and a tiny "n / 136" position counter. It eases voiceScroll toward
+// voiceIndex each frame for a smooth slide, and fades out a beat after the
+// last step (chooserUntil). Drawn as a top overlay near the end of paint.
+function drawVoiceChooser(ink, box, write, w, h, dark) {
+  // Ease the animated scroll toward the live index (fract carries the slide).
+  voiceScroll += (voiceIndex - voiceScroll) * 0.3;
+  if (Math.abs(voiceIndex - voiceScroll) < 0.01) voiceScroll = voiceIndex;
+
+  if (frame >= chooserUntil) { chooserVisible = false; return; }
+  const remaining = chooserUntil - frame;
+  const alpha = Math.min(255, Math.round(remaining * 2.2)); // fade over last ~1.9s
+
+  // Strip geometry: a band centered vertically, tall enough for one ~22px
+  // sprite at block scale 3 (≈66px) plus a name line. Neighbors sit at the
+  // quarter points; the focus sits dead center, larger.
+  const stripH = 86;
+  const stripY = Math.max(0, Math.floor(h / 2 - stripH / 2));
+  const cx = w / 2;
+  const baseY = stripY + 70;        // sprite feet line
+  const slot = Math.min(96, Math.floor(w / 3)); // horizontal spacing per entry
+
+  // Backdrop band so the art reads over any grid behind it.
+  ink(dark ? 8 : 235, dark ? 10 : 238, dark ? 16 : 245, Math.floor(alpha * 0.82));
+  box(0, stripY, w, stripH, true);
+  ink(dark ? 60 : 150, dark ? 120 : 170, dark ? 200 : 210, Math.floor(alpha * 0.7));
+  box(0, stripY, w, 1, true);
+  box(0, stripY + stripH - 1, w, 1, true);
+
+  // Draw a few entries on each side of the focus (centered on voiceScroll so
+  // the whole row slides). Offsets -2..+2 cover the visible peeking neighbors.
+  for (let off = -2; off <= 2; off++) {
+    const idx = Math.round(voiceScroll) + off;
+    if (idx < 0 || idx >= VOICE_TOTAL) continue;
+    // Position relative to the eased scroll so motion is continuous.
+    const ex = cx + (idx - voiceScroll) * slot;
+    if (ex < -slot || ex > w + slot) continue;
+    const focused = idx === voiceIndex;
+    const block = focused ? 3 : 2;
+    // Distance-based dim so neighbors recede; focus is full-bright.
+    const dist = Math.abs(idx - voiceScroll);
+    const dim = Math.max(0.32, 1 - dist * 0.34) * (alpha / 255);
+    drawChooserSprite(voiceSpriteKey(idx), ink, box, ex, baseY, block, dark, dim, focused);
+  }
+
+  // Focus highlight ring under the centered sprite.
+  ink(dark ? 120 : 40, dark ? 200 : 120, dark ? 255 : 220, Math.floor(alpha * 0.8));
+  box(Math.floor(cx - 30), baseY + 2, 60, 1, true);
+
+  // Voice name (centered) + an "AC instruments ◂ start" / "MIDI" hint.
+  const label = voiceLabel(voiceIndex);
+  const lw = label.length * 6;
+  ink(dark ? 230 : 20, dark ? 245 : 30, dark ? 255 : 60, alpha);
+  write(label, { x: Math.max(2, Math.floor(cx - lw / 2)), y: stripY + 4, font: "font_1" });
+
+  // Position counter "n/136" + range tag, small, bottom-right of the strip.
+  const region = voiceIndex < VOICE_GM_COUNT ? "MIDI" : "AC";
+  const tag = `${voiceIndex + 1}/${VOICE_TOTAL}  ${region}`;
+  ink(dark ? 130 : 110, dark ? 150 : 120, dark ? 180 : 140, alpha);
+  write(tag, { x: Math.max(2, w - tag.length * 6 - 3), y: stripY + stripH - 11, font: "font_1" });
+
+  // Arrow affordances at the strip edges (dim near the clamped ends).
+  const atStart = voiceIndex === 0;
+  const atEnd = voiceIndex === VOICE_TOTAL - 1;
+  ink(dark ? 200 : 60, dark ? 220 : 80, dark ? 255 : 120, Math.floor(alpha * (atStart ? 0.25 : 0.9)));
+  write("◂", { x: 4, y: baseY - 36, font: "font_1" });
+  ink(dark ? 200 : 60, dark ? 220 : 80, dark ? 255 : 120, Math.floor(alpha * (atEnd ? 0.25 : 0.9)));
+  write("▸", { x: w - 10, y: baseY - 36, font: "font_1" });
+}
+
 // Floating music-note particles emitted by the active bandmate when notes
 // play. Pure visual layer — additive, max ~80, drift up + sway, fade out.
 let musicNotes = [];
@@ -4370,7 +5589,7 @@ function drawMusicNotes(ink, box) {
 // origin point for music notes (mouth/'O' marker) so the caller can
 // emit particles from the right spot.
 function drawBandmate(wave, ink, box, ctx) {
-  const char = CHARACTER_SPRITES[wave];
+  const char = bandmateSprite(wave);
   if (!char) return null;
   const { dark, frame, activeCount, lastKeyFrame, hoverX, hoverY,
           centerX, topY, bottomY } = ctx;
@@ -5734,7 +6953,10 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   // for the per-character sprite tables and palettes.
   const betweenX0 = leftX + gridW;
   const betweenX1 = rightX;
-  const bandmateOrigin = drawBandmate(wave, ink, box, {
+  // When a GM program is active its family character stands in for the AC
+  // wavetype bandmate, so the center figure matches the sounding voice.
+  const bandmateKey = gmProgram !== null ? gmFamilyKey(gmProgram) : wave;
+  const bandmateOrigin = drawBandmate(bandmateKey, ink, box, {
     dark, frame, activeCount, lastKeyFrame, hoverX, hoverY,
     centerX: (betweenX0 + betweenX1) / 2,
     topY: topBarH,
@@ -7326,6 +8548,15 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     // Footer hint — always visible, always inside the panel
     ink(dark ? 100 : 140, dark ? 100 : 140, dark ? 125 : 160);
     write("meta to close", { x: px + padX, y: py + panelH - padY - 2, size: 1, font: "font_1" });
+  }
+
+  // GLOBAL VOICE CHOOSER overlay — the single horizontal strip of all 128 GM
+  // voices then the 8 AC wavetypes. Drawn here (near the very end of paint) so
+  // it floats above the grids/HUD; visible for a beat after each Left/Right
+  // step (or any voice change), then fades. drawVoiceChooser eases its own
+  // scroll each call, so we keep stepping the animation even while fading.
+  if (chooserVisible || frame < chooserUntil || Math.abs(voiceIndex - voiceScroll) > 0.01) {
+    drawVoiceChooser(ink, box, write, w, h, isDark());
   }
 
   // Shift = GLOBAL alternate-sound mode. While held, draw an outline
