@@ -2625,6 +2625,11 @@ static inline double generate_waveguide_sample(GMVoice *v, double sample_rate,
     // Track host frequency (glissando / pitch glide) while honoring the baked
     // bore multiplier (brass half-wave). Re-derive delay each sample (cheap).
     double bore_mult = (v->wg_mode == GM_WG_LIP) ? 2.0 : 1.0;
+    // Clarinet (cylindrical, inverting bore): a closed-open cylinder resonates
+    // at λ/4, so a full-wavelength bore plays an OCTAVE LOW. Halve the bore so
+    // the played pitch lands on the requested note (verified: −1198¢ → ~0¢).
+    // The conical reeds (sax/oboe/bassoon, wg_bore_invert=0) are already right.
+    if (v->wg_mode == GM_WG_REED && v->wg_bore_invert) bore_mult = 0.5;
     double delay = v->wg_base_delay;
     if (frequency > 20.0) {
         double f = clampd(frequency, 20.0, sr * 0.20);
