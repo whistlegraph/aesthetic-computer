@@ -113,7 +113,7 @@ Mechanics:
 
 | Edition | Paper | Run | Cut for | Status |
 |---|---|---|---|---|
-| First print edition | Keymaps as Social Software (`arxiv-keymaps`) | 64 | *Scores for Social Software*, UCLA Social Software Cycle 2, June 2026 | first ever — proofing |
+| First print edition | Keymaps as Social Software (`arxiv-keymaps`) | 64 | *Scores for Social Software*, UCLA Social Software Cycle 2, June 2026 | **printed — run of 64 cut June 2026** |
 
 ## Tooling
 

@@ -371,6 +371,9 @@
     "ja": {
       "title": "PLOrk'ing the Planet",
       "subtitle": "アイビーリーグのラップトップオーケストラから子どもにやさしい地球規模のオルガンへ"
+    },
+    "ru": {
+      "title": "PLOrk'ing the Planet"
     }
   },
   "calarts": {
@@ -495,8 +498,28 @@
   },
   "keymaps": {
     "en": {
-      "title": "Keymaps as Social Software",
-      "subtitle": "Versioned Virtual Objects via Social Contract"
+      "title": "Keymaps as Social Software"
+    },
+    "da": {
+      "title": "Keymaps as Social Software"
+    },
+    "es": {
+      "title": "Keymaps as Social Software"
+    },
+    "zh": {
+      "title": "作为社会软件的键位映射"
+    },
+    "ja": {
+      "title": "社会的ソフトウェアとしてのキーマップ"
+    },
+    "ru": {
+      "title": "Раскладки как социальное ПО"
+    }
+  },
+  "calarts-news": {
+    "en": {
+      "title": "What's New CalArts!?",
+      "subtitle": "why the president got booed off the stage — a letter, with sources"
     }
   }
 }

@@ -5,13 +5,22 @@
   <link rel="alternate" type="text/html" href="https://papers.aesthetic.computer/"/>
   <link rel="self" type="application/atom+xml" href="https://papers.aesthetic.computer/feed.xml"/>
   <id>https://papers.aesthetic.computer/</id>
-  <updated>2026-05-23T15:53:13.635Z</updated>
+  <updated>2026-06-13T23:44:42.265Z</updated>
   <author>
     <name>@jeffrey</name>
     <uri>https://prompt.ac/@jeffrey</uri>
   </author>
   <icon>https://papers.aesthetic.computer/papers-og.jpg</icon>
   <rights>CC BY 4.0 unless noted otherwise.</rights>
+  <entry>
+    <title>Keymaps as Social Software</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/keymaps-social-software-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/keymaps-social-software-26-arxiv.pdf</id>
+    <updated>2026-06-13T23:44:42.265Z</updated>
+    <published>2026-05-02T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+  </entry>
   <entry>
     <title>Jeffrey Alan Scudder — CV</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/jeffrey-alan-scudder-cv.pdf"/>
@@ -139,15 +148,6 @@
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
     <summary type="text">John Holden&apos;s Proto-Cognitive Music Theory and Aesthetic Computer · arXiv 7pp — The Potter and the Prompt argues that AC independently converges on the core principles of John Holden&apos;s 1770 proto-cognitive music theory. It proposes AC as a computational laboratory for advancing Holden&apos;s unfinished program on grouping, attention, and the module.</summary>
-  </entry>
-  <entry>
-    <title>Keymaps as Social Software</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/keymaps-social-software-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/keymaps-social-software-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:16:55.495Z</updated>
-    <published>2026-05-02T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
   </entry>
   <entry>
     <title>KidLisp Cards</title>

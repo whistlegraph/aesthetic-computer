@@ -821,6 +821,7 @@ function updateIndex(entries) {
 
   // Importance ranking — curated order for 2026 impact
   const IMPORTANCE = {
+    "keymaps-social-software-26-arxiv": 0.5,
     "aesthetic-computer-26-arxiv": 1,
     "kidlisp-26-arxiv": 2,
     "plorking-the-planet-26-arxiv": 3,

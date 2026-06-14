@@ -177,6 +177,15 @@
  \providecommand{\paperhash}{dev}\providecommand{\paperrev}{?}}
 \InputIfFileExists{history}{}{\providecommand{\paperhistory}{}}
 
+% Cover language bar. The same paper is published in six languages; each
+% edition links to the others by their canonical permalink. Language codes
+% (not autonyms) keep the row legible in every font --- the Latin-only
+% editions cannot render CJK/Cyrillic glyphs. \klanghere marks the current
+% language; \klang links a sibling edition by its URL suffix ("" for en).
+\newcommand{\klang}[2]{\href{https://papers.aesthetic.computer/keymaps-social-software-26-arxiv#2.pdf}{\color{acgray}#1}}
+\newcommand{\klanghere}[1]{{\bfseries\color{acpink}#1}}
+\newcommand{\klangsep}{{\color{acgray!60}\,\textperiodcentered\,}}
+
 \begin{document}
 
 \twocolumn[{%
@@ -188,7 +197,9 @@
 {\itshape\fontsize{14.5pt}{17pt}\selectfont\color{acpink} Versioned Virtual Objects via Social Contract}\par
 \vspace{0.5em}
 {\small\color{acgray} \href{https://prompt.ac/@jeffrey}{@jeffrey} \,$\cdot$\, Aesthetic{\acdot}Computer \,$\cdot$\, ORCID \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
-\vspace{0.6em}
+\vspace{0.45em}
+{\footnotesize\sffamily\klanghere{EN}\klangsep\klang{DA}{-da}\klangsep\klang{ES}{-es}\klangsep\klang{ZH}{-zh}\klangsep\klang{JA}{-ja}\klangsep\klang{RU}{-ru}}\par
+\vspace{0.55em}
 {\color{acpink}\rule{\textwidth}{1.2pt}}
 \vspace{0.5em}
 \end{center}

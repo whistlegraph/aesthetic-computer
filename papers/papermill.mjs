@@ -26,8 +26,8 @@ const SITE_DIR = join(
   PAPERS_DIR,
   "../system/public/papers.aesthetic.computer",
 );
-const LANGS = ["da", "es", "zh", "ja"];
-const LANG_NAMES = { da: "Danish", es: "Spanish", zh: "Chinese", ja: "Japanese" };
+const LANGS = ["da", "es", "zh", "ja", "ru"];
+const LANG_NAMES = { da: "Danish", es: "Spanish", zh: "Chinese", ja: "Japanese", ru: "Russian" };
 
 // Map paper dir name to output PDF base name (matching existing site naming)
 const PAPER_MAP = {
@@ -276,8 +276,11 @@ function extractTitleFromTex(texPath) {
 
   // Title pattern: any bold font + large fontsize + \color{*dark*} — can span multiple lines
   // Matches \acbold, \kidlispbold, \wgbold, etc.
+  // The bold-font prefix (\acbold, \kidlispbold, …) is optional: CJK/Cyrillic
+  // editions drop it (those display faces are Latin-only) and set the title in
+  // \fontsize…\selectfont\bfseries\color{…dark} instead, so accept both forms.
   const titleRe =
-    /\\[a-z]+bold\\fontsize\{[^}]+\}\{[^}]+\}\\selectfont\\color\{[a-z]+\}\s*(.+?)\s*\}\\par/;
+    /\\(?:[a-z]+bold\\)?fontsize\{[^}]+\}\{[^}]+\}\\selectfont(?:\\bfseries)?\\color\{[a-z]*dark\}\s*(.+?)\s*\}\\par/;
   // Subtitle pattern: any light font + smaller fontsize + \color{*pink/brand*}
   const subtitleRe =
     /\\[a-z]+(?:light|font)\\fontsize\{[^}]+\}\{[^}]+\}\\selectfont\\color\{[a-z]+\}\s*(.+?)\s*\}\\par/;
