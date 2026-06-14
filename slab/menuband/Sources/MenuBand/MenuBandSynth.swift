@@ -581,6 +581,16 @@ final class MenuBandSynth {
             engine.detach(old)
             midiSynth = nil
         }
+        // CRITICAL: the old AU is now detached, so the graph no longer has a
+        // MIDISynth wired into `preLimiterMixer`. `connectMIDISynthIfNeeded`
+        // is guarded by this flag and would otherwise skip connecting the
+        // FRESH AU built below — leaving it attached but floating (output to
+        // nowhere). That is the silent-after-device-switch bug: the rebuilt
+        // synth reports "ready", program changes apply, but no note is audible
+        // because the node never reaches the mixer (and `midiSynthReady=true`
+        // then disconnects the sampler fallback too). Clear it so the new AU
+        // actually gets connected.
+        midiSynthConnected = false
         startMIDISynthBackend()
     }
 
