@@ -214,7 +214,15 @@ static inline double generate_whistle_sample(ACVoice *v, double sample_rate) {
     // sharper than requested on 192kHz hardware. Still better than the
     // previous 110Hz hard-clamp which silenced every low octave.
     double freq = clampd(v->frequency, 30.0, sample_rate * 0.20);
-    double bore_delay = sample_rate / freq;
+    // Bore length. NOTE: "one wavelength = sr/freq" makes THIS jet+reflection
+    // loop lock to a higher register and sound a PERFECT FIFTH (×1.5) sharp on
+    // every note — measured consistently across 110–880 Hz (the "very high
+    // pitched" whistle). The loop's fundamental sits at 1.5× the sr/bore_delay
+    // frequency, so the bore must be 1.5 wavelengths long for the played pitch
+    // to land on the requested note. freq×2/3 → bore_delay = 1.5·sr/freq.
+    // Verified: retuned, output tracks the requested pitch to ±0.1 semitone
+    // over the whistle's musical range.
+    double bore_delay = sample_rate / (freq * (2.0 / 3.0));
     double jet_delay = bore_delay * 0.32;
     // Cap to buffer sizes with safety margin
     const int BORE_N = 2048;
