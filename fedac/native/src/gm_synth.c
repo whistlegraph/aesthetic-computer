@@ -1150,6 +1150,49 @@ static void gm_setup_body_resonance(GMVoice *v, const GMProgramParams *p,
     }
 }
 
+// Reference violin-corpus body modes (air cavity + low plate modes + the
+// bridge-hill cluster), frequencies relative to the ~275 Hz A0 air resonance.
+// A real instrument body is a 3D resonant volume; its response is a DENSE field
+// of eigenmodes — far more than the 3-peak bank above, which is why that reads
+// as a few isolated peaks rather than a body. This is the practical "volumetric"
+// model: the corpus eigenmodes baked into a bank of parallel resonators, scaled
+// per instrument so a cello/bass gets the same modal SHAPE an octave+ lower.
+static const struct { double fr, q, g; } GM_BODY_MODES[] = {
+    { 1.00,  9.0, 1.00 }, { 1.47, 11.0, 0.70 }, { 1.67, 12.0, 0.95 },
+    { 1.93, 12.0, 0.65 }, { 2.25, 10.0, 0.45 }, { 2.55, 11.0, 0.40 },
+    { 2.98, 12.0, 0.42 }, { 3.64, 11.0, 0.32 }, { 4.70, 10.0, 0.28 },
+    { 6.20,  9.0, 0.30 }, { 8.00,  7.0, 0.45 }, { 9.50,  7.0, 0.50 },
+    { 10.90, 7.0, 0.38 }, { 13.10, 6.0, 0.22 },
+};
+#define GM_N_BODY_MODES ((int)(sizeof(GM_BODY_MODES) / sizeof(GM_BODY_MODES[0])))
+
+// Set up the dense modal body. Anchored on bodyf[0] (the corpus air resonance)
+// for size and bodyg[0] for overall level — reuses the existing per-program body
+// params so each string keeps its voicing. Parallel resonators, output-only.
+static void gm_setup_rich_body(GMVoice *v, const GMProgramParams *p,
+                               double sr, double mul) {
+    v->rbody_n = 0;
+    v->rbody_dry = 1.0;
+    double anchor = p->bodyf[0] > 0.0 ? p->bodyf[0] : 275.0;
+    double scale  = anchor / 275.0;
+    double level  = p->bodyg[0] > 0.0 ? p->bodyg[0] : 0.2;
+    for (int i = 0; i < GM_N_BODY_MODES && v->rbody_n < 24; i++) {
+        double f = GM_BODY_MODES[i].fr * 275.0 * scale;
+        if (f < 20.0 || f > sr * 0.45) continue;   // keep modes in band
+        double Q = GM_BODY_MODES[i].q;
+        double w0 = 2.0 * M_PI * f / sr;
+        double alpha = sin(w0) / (2.0 * Q);
+        double a0 = 1.0 + alpha;
+        int n = v->rbody_n;
+        v->rbody_a1[n] = (-2.0 * cos(w0)) / a0;
+        v->rbody_a2[n] = (1.0 - alpha) / a0;
+        v->rbody_g[n]  = voice_jitter(v, GM_BODY_MODES[i].g * level, 0.10, mul) * (alpha / a0);
+        v->rbody_y1[n] = 0.0;
+        v->rbody_y2[n] = 0.0;
+        v->rbody_n = n + 1;
+    }
+}
+
 // Modal-bank note-on.
 static void gm_modal_init(GMVoice *v, const GMModalParams *m, double f0,
                           double sr) {
@@ -1373,10 +1416,9 @@ static void gm_waveguide_init(GMVoice *v, const GMProgramParams *p, double f0,
         // the bridge line + its write pointer; ks_buf was cleared above.
         memset(v->bore_buf, 0, sizeof(v->bore_buf));
         v->bore_w = 0;
-        // Multi-mode body resonator (air + wood modes) so the string sounds
-        // like a real instrument body, not a hollow tube. Applied parallel to
-        // the bridge tap in the render (mirrors the plucked-string body bank).
-        gm_setup_body_resonance(v, p, sr, mul);
+        // Dense modal body (corpus eigenmodes: air + plates + bridge hill) so
+        // the string radiates through a real resonant volume, not a few peaks.
+        gm_setup_rich_body(v, p, sr, mul);
     } else if (p->wg_mode == GM_WG_LIP) {
         // Lip-resonance biquad bandpass tracking f0 (RBJ), near-unit pole.
         double pole = p->wg_lip_pole > 0.0 ? p->wg_lip_pole : 0.997;
@@ -2705,18 +2747,21 @@ static inline double generate_waveguide_sample(GMVoice *v, double sample_rate,
         double y = bridge_out - v->wg_hp_x1 + 0.995 * v->wg_hp_y1;
         v->wg_hp_x1 = bridge_out; v->wg_hp_y1 = y;
         out = y;
-        // Parallel multi-mode body resonator (air + wood modes) — the woody
-        // richness that makes it read as a real bowed instrument rather than a
-        // hollow tube. Same stable bank the plucked strings use; on the OUTPUT
-        // only (not in the string loop) so it never affects pitch/stability.
-        for (int bi = 0; bi < v->ks_body_n; bi++) {
-            double by = v->ks_body_g[bi] * out
-                        - v->ks_body_a1[bi] * v->ks_body_y1[bi]
-                        - v->ks_body_a2[bi] * v->ks_body_y2[bi];
-            v->ks_body_y2[bi] = v->ks_body_y1[bi];
-            v->ks_body_y1[bi] = by;
-            out += by;
+        // Dense modal body resonator — the corpus's eigenmodes radiating in
+        // parallel with the string. This is the "volumetric" body: many modes
+        // (air cavity, plate modes, bridge hill) instead of a few peaks, so it
+        // reads as a real resonant instrument body. OUTPUT only (not in the
+        // string loop), so it never affects pitch or loop stability.
+        double body_sum = 0.0;
+        for (int bi = 0; bi < v->rbody_n; bi++) {
+            double by = v->rbody_g[bi] * out
+                        - v->rbody_a1[bi] * v->rbody_y1[bi]
+                        - v->rbody_a2[bi] * v->rbody_y2[bi];
+            v->rbody_y2[bi] = v->rbody_y1[bi];
+            v->rbody_y1[bi] = by;
+            body_sum += by;
         }
+        out = v->rbody_dry * out + body_sum;
     } else if (v->wg_mode == GM_WG_LIP) {
         // STK Brass: breath pressure → lip-resonance biquad → quadratic valve.
         double breath = v->wg_breath_max * onset;

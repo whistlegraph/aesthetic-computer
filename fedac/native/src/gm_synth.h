@@ -150,6 +150,15 @@ typedef struct {
     double ks_body_g[3];
     double ks_body_y1[3], ks_body_y2[3];  // body-resonance biquad state
     int    ks_body_n;
+    // -- Rich modal body (bowed strings): a dense bank of resonant modes that
+    //    approximates the instrument corpus's volumetric eigenmodes (air cavity
+    //    + plate modes + bridge hill), so it reads as a real resonant body
+    //    rather than a few isolated peaks. Parallel resonators on the output. --
+    double rbody_a1[24], rbody_a2[24];
+    double rbody_g[24];
+    double rbody_y1[24], rbody_y2[24];
+    double rbody_dry;          // dry passthrough (1 = full string + body on top)
+    int    rbody_n;
 
     // Attack-noise burst (finger thump / pick click / slap clack) — own biquad +
     // envelope (these aliased the engine noise biquad + gun_click_* in audio.c).
