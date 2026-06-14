@@ -22,7 +22,7 @@ final class ClipWizardController: NSWindowController, NSWindowDelegate {
     var previewingFinal = false
     var previewFile: String?
 
-    var mascot: MascotView!
+    var mascot: BackdropView!
     var titleLabel: NSTextField!
     var progressLabel: NSTextField!
     var prevButton: NSButton!
@@ -92,7 +92,7 @@ final class ClipWizardController: NSWindowController, NSWindowDelegate {
         guard let cv = window?.contentView else { return }
         cv.wantsLayer = true
 
-        mascot = MascotView(frame: cv.bounds)
+        mascot = BackdropView(frame: cv.bounds)
         mascot.autoresizingMask = [.width, .height]
         cv.addSubview(mascot)
 

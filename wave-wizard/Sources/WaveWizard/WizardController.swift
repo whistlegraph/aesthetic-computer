@@ -30,7 +30,7 @@ final class WizardController: NSWindowController, NSWindowDelegate, AVAudioPlaye
     var hasGreeted: Bool = false
 
     // UI
-    var mascot: MascotView!
+    var mascot: BackdropView!
     var timeline: TimelineView!
     var alignment: AlignmentView!
     var crossfader: NSSlider!
@@ -124,7 +124,7 @@ final class WizardController: NSWindowController, NSWindowDelegate, AVAudioPlaye
         let colW = W - 2 * pad          // vertical room (stripes ~23 px tall)
 
         // Background mascot — full window, faded watermark
-        mascot = MascotView(frame: cv.bounds)
+        mascot = BackdropView(frame: cv.bounds)
         mascot.autoresizingMask = [NSView.AutoresizingMask.width, NSView.AutoresizingMask.height]
         cv.addSubview(mascot)
 
