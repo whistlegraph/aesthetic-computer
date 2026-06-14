@@ -1359,6 +1359,13 @@ static void gm_waveguide_init(GMVoice *v, const GMProgramParams *p, double f0,
         v->wg_bow_beta = clampd(p->wg_bow_beta, 0.02, 0.5);
         // Bow force / pluck-position-like jitter (e, ±8%) on the friction slope.
         v->wg_bow_slope = voice_jitter(v, p->wg_bow_slope, 0.08, mul);
+        // Proper STK bowed string uses TWO delay lines split at the bow point:
+        // ks_buf = neck segment (bow→nut), bore_buf = bridge segment (bow→bridge).
+        // (Reading two taps off ONE line, as before, made the loop lock to the
+        // short bridge tap → pitch ~1/beta too high, i.e. +2-3 octaves.) Clear
+        // the bridge line + its write pointer; ks_buf was cleared above.
+        memset(v->bore_buf, 0, sizeof(v->bore_buf));
+        v->bore_w = 0;
     } else if (p->wg_mode == GM_WG_LIP) {
         // Lip-resonance biquad bandpass tracking f0 (RBJ), near-unit pole.
         double pole = p->wg_lip_pole > 0.0 ? p->wg_lip_pole : 0.997;
@@ -2635,7 +2642,8 @@ static inline double generate_waveguide_sample(GMVoice *v, double sample_rate,
         double f = clampd(frequency, 20.0, sr * 0.20);
         double d = (sr / f) * bore_mult;
         if (v->wg_mode == GM_WG_LIP) d += 3.0;
-        else if (v->wg_mode == GM_WG_BOWED) d -= 4.0;
+        // (bowed: the old −4 group-delay comp was tuned for the broken
+        // single-buffer topology; the two-delay-line rewrite needs no offset.)
         delay = d;
     }
     delay *= (1.0 + vib);
@@ -2646,20 +2654,29 @@ static inline double generate_waveguide_sample(GMVoice *v, double sample_rate,
     double out = 0.0;
 
     if (v->wg_mode == GM_WG_BOWED) {
-        // STK Bowed: two delay taps split at the bow point (bridge + neck).
-        double bridge_delay = delay * v->wg_bow_beta;
-        double neck_delay   = delay * (1.0 - v->wg_bow_beta);
-        if (bridge_delay < 1.0) bridge_delay = 1.0;
+        // STK BowedString proper: TWO travelling-wave delay lines meeting at the
+        // bow. ks_buf carries the neck segment (bow→nut→bow), bore_buf the
+        // bridge segment (bow→bridge→bow); their lengths sum to the full string
+        // so the fundamental is SR/(neck+bridge) = the requested pitch. The
+        // friction junction injects velocity between them.
+        double neck_delay   = delay * (1.0 - v->wg_bow_beta);   // longer → ks_buf
+        double bridge_delay = delay * v->wg_bow_beta;           // shorter → bore_buf
         if (neck_delay < 1.0) neck_delay = 1.0;
+        if (neck_delay > (double)(N - 4)) neck_delay = (double)(N - 4);
+        if (bridge_delay < 1.0) bridge_delay = 1.0;
+        if (bridge_delay > (double)(GM_BORE_N - 4)) bridge_delay = (double)(GM_BORE_N - 4);
+
         double bow_velocity = v->wg_breath_max * onset
                               * (1.0 + v->wg_noise_gain * white * (1.0 - onset));
-        // Bridge: 1-pole loss LPF then sign-invert; nut: rigid sign-invert.
-        double bore_out = gm_frac_read(v->ks_buf, N, v->wg_w, bridge_delay);
-        v->wg_loop_lp = (1.0 - v->wg_loop_damp) * bore_out
-                        + v->wg_loop_damp * v->wg_loop_lp;
+
+        // Read each segment's returning wave (lastOut, before we write).
+        double neck_out   = gm_frac_read(v->ks_buf,   N,          v->wg_w,   neck_delay);
+        double bridge_out = gm_frac_read(v->bore_buf, GM_BORE_N,  v->bore_w, bridge_delay);
+        // String (loop-loss) filter on the bridge reflection; nut is rigid.
+        v->wg_loop_lp = (1.0 - v->wg_loop_damp) * bridge_out + v->wg_loop_damp * v->wg_loop_lp;
         double bridge_refl = -v->wg_loop_lp;
-        double nut_refl = -gm_frac_read(v->ks_buf, N, v->wg_w, neck_delay);
-        double string_vel = bridge_refl + nut_refl;
+        double nut_refl    = -neck_out;
+        double string_vel  = bridge_refl + nut_refl;     // velocity at the bow
         double dv = bow_velocity - string_vel;
         // STK BowTable friction: pow(|slope·dv|+0.75, -4), clamped [0.01,0.98].
         double bt = fabs(v->wg_bow_slope * dv) + 0.75;
@@ -2667,13 +2684,16 @@ static inline double generate_waveguide_sample(GMVoice *v, double sample_rate,
         if (bt < 0.01) bt = 0.01;
         if (bt > 0.98) bt = 0.98;
         double new_vel = dv * bt;
-        double inject = bridge_refl + new_vel;
-        // DC block before writing back into the loop.
-        double y = inject - v->wg_hp_x1 + 0.995 * v->wg_hp_y1;
-        v->wg_hp_x1 = inject; v->wg_hp_y1 = y;
-        v->ks_buf[v->wg_w] = (float)y;
-        v->wg_w = (v->wg_w + 1) % N;
-        out = bridge_refl;
+        // Scatter back into BOTH lines (STK: neck ← bridgeRefl+newVel,
+        // bridge ← nutRefl+newVel) and advance each line's own pointer.
+        v->ks_buf[v->wg_w]   = (float)(bridge_refl + new_vel);
+        v->wg_w   = (v->wg_w + 1) % N;
+        v->bore_buf[v->bore_w] = (float)(nut_refl + new_vel);
+        v->bore_w = (v->bore_w + 1) % GM_BORE_N;
+        // Output the bridge tap (drives the body) through a DC blocker.
+        double y = bridge_out - v->wg_hp_x1 + 0.995 * v->wg_hp_y1;
+        v->wg_hp_x1 = bridge_out; v->wg_hp_y1 = y;
+        out = y;
     } else if (v->wg_mode == GM_WG_LIP) {
         // STK Brass: breath pressure → lip-resonance biquad → quadratic valve.
         double breath = v->wg_breath_max * onset;
