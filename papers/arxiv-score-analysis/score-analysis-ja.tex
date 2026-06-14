@@ -8,7 +8,7 @@
 \usepackage{fontspec}
 \usepackage{unicode-math}
 \usepackage{xeCJK}
-\setCJKmainfont{Droid Sans Japanese}
+\setCJKmainfont{Hiragino Sans}
 \setmainfont{Latin Modern Roman}[
   Extension=.otf,
   UprightFont=lmroman10-regular,
@@ -120,9 +120,11 @@
 \begin{document}
 
 % === TITLE ===
-\twocolumn[
+\twocolumn[{%
 \begin{center}
 {\acbold\LARGE スコアを読む：SCORE.mdのガバナンス、インターフェース、\\および創作形式としての批判的分析\par}
+\includegraphics[width=0.5\textwidth]{figures/cover}\par
+\vspace{0.35em}
 \vspace{0.4em}
 {\large @jeffrey}\\
 {\small\color{acgray} ORCID: 0009-0007-4460-4913}\\
@@ -146,7 +148,7 @@ Aesthetic Computerプロジェクトは、そのREADMEをSCORE.mdという名前
 \end{minipage}
 \vspace{1em}
 \end{center}
-]
+}]
 
 \section{スコアとは何か？}
 
