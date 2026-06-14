@@ -3382,18 +3382,27 @@ static inline double generate_soundfx_sample(GMVoice *v, double sample_rate,
 
 double gm_voice_render(GMVoice *v, double sample_rate, double env,
                        double frequency) {
+    double s;
     switch (v->engine) {
-    case GM_ENGINE_GMPIANO:   return generate_gmpiano_sample(v, sample_rate, env);
-    case GM_ENGINE_EPIANO:    return generate_epiano_sample(v, sample_rate, env);
-    case GM_ENGINE_PLUCK:     return generate_pluck_sample(v, sample_rate, env, frequency);
-    case GM_ENGINE_MODAL:     return generate_modal_sample(v, sample_rate, env);
-    case GM_ENGINE_SYNTHBASS: return generate_synthbass_sample(v, sample_rate, env);
-    case GM_ENGINE_WAVEGUIDE: return generate_waveguide_sample(v, sample_rate, env, frequency);
-    case GM_ENGINE_ORGAN:     return generate_organ_sample(v, sample_rate, env);
-    case GM_ENGINE_SUPERSAW:  return generate_supersaw_sample(v, sample_rate, env);
-    case GM_ENGINE_FORMANT:   return generate_formant_sample(v, sample_rate, env);
-    case GM_ENGINE_SYNTHFX:   return generate_synthfx_sample(v, sample_rate, env);
-    case GM_ENGINE_SOUNDFX:   return generate_soundfx_sample(v, sample_rate, env);
+    case GM_ENGINE_GMPIANO:   s = generate_gmpiano_sample(v, sample_rate, env); break;
+    case GM_ENGINE_EPIANO:    s = generate_epiano_sample(v, sample_rate, env); break;
+    case GM_ENGINE_PLUCK:     s = generate_pluck_sample(v, sample_rate, env, frequency); break;
+    case GM_ENGINE_MODAL:     s = generate_modal_sample(v, sample_rate, env); break;
+    case GM_ENGINE_SYNTHBASS: s = generate_synthbass_sample(v, sample_rate, env); break;
+    case GM_ENGINE_WAVEGUIDE: s = generate_waveguide_sample(v, sample_rate, env, frequency); break;
+    case GM_ENGINE_ORGAN:     s = generate_organ_sample(v, sample_rate, env); break;
+    case GM_ENGINE_SUPERSAW:  s = generate_supersaw_sample(v, sample_rate, env); break;
+    case GM_ENGINE_FORMANT:   s = generate_formant_sample(v, sample_rate, env); break;
+    case GM_ENGINE_SYNTHFX:   s = generate_synthfx_sample(v, sample_rate, env); break;
+    case GM_ENGINE_SOUNDFX:   s = generate_soundfx_sample(v, sample_rate, env); break;
     default:                  return 0.0;
     }
+    // Final NaN/Inf trap. A couple of the feedback engines (Chamberlin SVF in
+    // supersaw, the conical-reed waveguide bore loop) can go unstable for some
+    // program/pitch settings and diverge to Inf→NaN; the per-engine output
+    // clampd() does NOT catch this (NaN compares false against both bounds), so
+    // the poison would otherwise reach the host mixer/limiter and crash it.
+    // No-op for every well-behaved voice (their sample is already finite); a
+    // diverged voice is muted to silence rather than taking down the engine.
+    return isfinite(s) ? s : 0.0;
 }
