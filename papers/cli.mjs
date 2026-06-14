@@ -763,18 +763,17 @@ function genAllThumbnails() {
   if (!existsSync(SITE_DIR)) return 0;
   let count = 0;
   const pdfs = readdirSync(SITE_DIR).filter((n) => n.endsWith(".pdf"));
-  const pdfSet = new Set(pdfs);
   for (const name of pdfs) {
     const siteName = name.slice(0, -4);
     // The cards (4x6 single-sheet) variant is the cover art. Surface it via
     // the base paper's thumbnail; don't waste a thumb on the cards file
     // itself (the index never references `${siteName}-cards.jpg`).
     if (siteName.endsWith("-cards")) continue;
-    // Prefer the cards PDF as the cover source — it's designed to read as a
-    // card, unlike the dense arXiv first page. Fall back to the full PDF.
-    const cardsName = `${siteName}-cards.pdf`;
-    const source = pdfSet.has(cardsName) ? cardsName : name;
-    if (genThumbnail(join(SITE_DIR, source), siteName)) count++;
+    // Source the thumbnail from the FULL paper's first page: it now leads with
+    // the cover emblem (title → cover → subtitle), and unlike the cards PDF it
+    // renders everywhere — the cards' pgf-transparency groups blank out under
+    // some poppler builds (local macOS), which silently produced empty thumbs.
+    if (genThumbnail(join(SITE_DIR, name), siteName)) count++;
   }
   return count;
 }
