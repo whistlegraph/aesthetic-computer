@@ -1,0 +1,14 @@
+# build artifacts
+out/
+c/out/
+
+# compiled engine binaries (named after the .c, no extension)
+c/minitek
+c/hypnotek
+c/dubtek
+c/acidtek
+c/peaktek
+c/deeptek
+c/brokentek
+c/rumbletek
+c/glitchtek
