@@ -1,0 +1,7 @@
+# Compiled engine binary (rebuild via build.sh)
+wobble
+
+# Engine isolation / debug renders
+*.f32
+*.raw
+out/

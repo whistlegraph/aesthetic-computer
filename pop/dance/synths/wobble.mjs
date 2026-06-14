@@ -95,15 +95,21 @@ function midiToFreq(midi) {
   return 440 * Math.pow(2, (midi - 69) / 12);
 }
 
-// Deterministic xorshift RNG (same pattern as skrill/supersaw) — keeps
-// per-voice phase + S&H reproducible per event.
-function makeRng(seedStr) {
+// FNV-1a → uint32 seed. Exported via wobbleSeed so the C engine
+// (pop/dance/c/wobble.c) can reproduce the exact per-event RNG stream.
+function fnv1a(str) {
   let s = 2166136261 >>> 0;
-  for (let i = 0; i < seedStr.length; i++) {
-    s ^= seedStr.charCodeAt(i);
+  for (let i = 0; i < str.length; i++) {
+    s ^= str.charCodeAt(i);
     s = Math.imul(s, 16777619);
   }
-  s = s >>> 0 || 1;
+  return (s >>> 0) || 1;
+}
+
+// Deterministic xorshift32 from a uint32 seed — keeps per-voice phase +
+// S&H reproducible per event (the same stream the C port replays).
+function makeRngFromSeed(seed) {
+  let s = (seed >>> 0) || 1;
   return () => {
     s ^= s << 13; s >>>= 0;
     s ^= s >>> 17; s >>>= 0;
@@ -111,6 +117,15 @@ function makeRng(seedStr) {
     return (s >>> 0) / 0xffffffff;
   };
 }
+
+// The exact uint32 seed renderWobble uses for an event — the C engine
+// takes this per note so its RNG stream matches op-for-op.
+export function wobbleSeed(presetName, midi, startSec) {
+  return fnv1a(`wobble:${presetName}:${midi}:${(startSec ?? 0).toFixed(4)}`);
+}
+
+// LFO shape → integer code, shared with the C engine's score format.
+export const LFO_SHAPE_CODES = { sine: 0, tri: 1, saw: 2, square: 3, sh: 4 };
 
 // One unipolar LFO sample in [0,1]. `sh` holds a value per cycle for S&H.
 function lfoValue(shape, phase, sh) {
@@ -135,41 +150,65 @@ function buildDetune(voices, detuneCents) {
   return t;
 }
 
+// ── shared param resolver ──────────────────────────────────────────────
+// The SINGLE source of truth for how an event + opts collapse to concrete
+// DSP params. renderWobble (JS) and emitWobbleScore (the C feed) both go
+// through this, so the JS reference and the C engine can never drift on
+// preset/override precedence. Returns fully-resolved scalars only.
+export function resolveWobbleParams(ev, opts = {}) {
+  const bpm = opts.bpm ?? DEFAULT_BPM;
+  const presetName = ev.preset || opts.preset || DEFAULT_PRESET;
+  const P = { ...(WOBBLE_PRESETS[presetName] || WOBBLE_PRESETS[DEFAULT_PRESET]), ...opts.params };
+  const cutLo = Math.max(40, P.cutLo ?? 120);
+  return {
+    presetName,
+    attack: opts.attack ?? P.attack ?? 0.008,
+    decay:  opts.decay  ?? P.decay  ?? 0.14,
+    voices: Math.max(1, P.voices ?? 3),
+    detuneCents: P.detuneCents ?? 16,
+    lfoHz: resolveLfoHz(ev.lfo || opts.lfo || P.lfo, bpm),
+    lfoShape: P.lfoShape || "sine",
+    lfoDepth: P.lfoDepth ?? 1.0,
+    cutLo,
+    cutHi: Math.max(cutLo + 1, P.cutHi ?? 2200),
+    q: P.q ?? 6,
+    drive: P.drive ?? 2.5,
+    crush: P.crush ?? 0,
+    subGain: P.subGain ?? 0.4,
+    edge: P.edge ?? 0.2,
+  };
+}
+
 // ── the DSP engine ─────────────────────────────────────────────────────
 // Renders ONE wobble event into a fresh mono Float32Array. ev: { midi,
 // durSec, gain?, preset?, lfo? }. Per-note `preset`/`lfo` override opts so
 // a .np verb token maps straight through.
 export function renderWobble(ev, opts = {}) {
   const sampleRate = opts.sampleRate ?? DEFAULT_SAMPLE_RATE;
-  const bpm        = opts.bpm        ?? DEFAULT_BPM;
-  const presetName = ev.preset || opts.preset || DEFAULT_PRESET;
-  const P = { ...(WOBBLE_PRESETS[presetName] || WOBBLE_PRESETS[DEFAULT_PRESET]), ...opts.params };
-
   if (!Number.isFinite(ev.midi) || !Number.isFinite(ev.durSec) || ev.durSec <= 0) {
     return new Float32Array(0);
   }
   const gain = Number.isFinite(ev.gain) ? ev.gain : 1.0;
   if (gain === 0) return new Float32Array(0);
 
-  const attack = opts.attack ?? P.attack ?? 0.008;
-  const decay  = opts.decay  ?? P.decay  ?? 0.14;
+  const pp = resolveWobbleParams(ev, opts);
   // Match bus.mjs / native envelope window: auto-extend so the linear
   // decay completes to true silence without an end click.
   const durS = Math.ceil(ev.durSec * sampleRate);
-  const attS = Math.max(1, Math.floor(attack * sampleRate));
-  const decS = Math.max(1, Math.floor(decay * sampleRate));
+  const attS = Math.max(1, Math.floor(pp.attack * sampleRate));
+  const decS = Math.max(1, Math.floor(pp.decay * sampleRate));
   const ns   = Math.max(durS, attS + decS);
   const decayStart = ns - decS;
   const out = new Float32Array(ns);
 
   const fund     = midiToFreq(ev.midi);
-  const lfoHz    = resolveLfoHz(ev.lfo || opts.lfo || P.lfo, bpm);
-  const lfoDepth = P.lfoDepth ?? 1.0;
-  const voices   = Math.max(1, P.voices ?? 3);
-  const detune   = buildDetune(voices, P.detuneCents ?? 16);
-  const edge     = P.edge ?? 0.2;
+  const lfoHz    = pp.lfoHz;
+  const lfoDepth = pp.lfoDepth;
+  const voices   = pp.voices;
+  const detune   = buildDetune(voices, pp.detuneCents);
+  const edge     = pp.edge;
 
-  const rng = makeRng(`wobble:${presetName}:${ev.midi}:${(ev.startSec ?? 0).toFixed(4)}`);
+  const rng = makeRngFromSeed(wobbleSeed(pp.presetName, ev.midi, ev.startSec));
 
   // Per-voice saw phase (random start so unison doesn't cohere on attack)
   // and per-sample phase increment.
@@ -185,9 +224,9 @@ export function renderWobble(ev, opts = {}) {
   let lfoPhase = rng();
   const sh = { value: rng() };
   let low = 0, band = 0;
-  const damp = 1 / Math.max(0.5, P.q ?? 6);     // 1/Q → resonance
-  const cutLo = Math.max(40, P.cutLo ?? 120);
-  const cutHi = Math.max(cutLo + 1, P.cutHi ?? 2200);
+  const damp = 1 / Math.max(0.5, pp.q);         // 1/Q → resonance
+  const cutLo = pp.cutLo;
+  const cutHi = pp.cutHi;
   const ratio = cutHi / cutLo;                  // exponential sweep span
   const subInc = (fund * 0.5) / sampleRate;     // sub an octave down
   let subPhase = rng();
@@ -203,7 +242,7 @@ export function renderWobble(ev, opts = {}) {
     // ── beat-synced wub LFO ──
     lfoPhase += lfoHz / sampleRate;
     if (lfoPhase >= 1) { lfoPhase -= 1; sh.value = rng(); }
-    const lv = lfoValue(P.lfoShape || "sine", lfoPhase, sh) * lfoDepth;
+    const lv = lfoValue(pp.lfoShape, lfoPhase, sh) * lfoDepth;
 
     // ── Reese source: detuned saws (+ optional square edge) ──
     let src = 0;
@@ -227,15 +266,15 @@ export function renderWobble(ev, opts = {}) {
     let s = low;
 
     // ── grit: tanh saturation + optional bitcrush ──
-    s = Math.tanh(s * (P.drive ?? 2.5));
-    if (P.crush && P.crush > 0) {
-      const steps = Math.pow(2, P.crush);
+    s = Math.tanh(s * pp.drive);
+    if (pp.crush && pp.crush > 0) {
+      const steps = Math.pow(2, pp.crush);
       s = Math.round(s * steps) / steps;
     }
 
     // ── clean sine sub an octave down (unmodulated body) ──
     subPhase += subInc; if (subPhase >= 1) subPhase -= 1;
-    const sub = Math.sin(TWO_PI * subPhase) * (P.subGain ?? 0.4);
+    const sub = Math.sin(TWO_PI * subPhase) * pp.subGain;
 
     let mix = s * 0.8 + sub;
     // Trap NaN/Inf from a runaway resonant filter (cf. gm_synth lesson) —
@@ -244,6 +283,38 @@ export function renderWobble(ev, opts = {}) {
     out[i] = mix * env * gain;
   }
   return out;
+}
+
+// ── score emitter (the C-engine feed) ──────────────────────────────────
+// Serializes events → the text score pop/dance/c/wobble.c parses. Every
+// field is pre-resolved here (via resolveWobbleParams) and the per-event
+// seed is baked in, so the C engine is a dumb, faithful replayer.
+export function emitWobbleScore(events, opts = {}) {
+  const sampleRate = opts.sampleRate ?? DEFAULT_SAMPLE_RATE;
+  const lines = [];
+  let dur = 0;
+  for (const ev of events) {
+    if (!Number.isFinite(ev.midi) || !Number.isFinite(ev.durSec) || ev.durSec <= 0) continue;
+    const gain = Number.isFinite(ev.gain) ? ev.gain : 1.0;
+    if (gain === 0) continue;
+    const pp = resolveWobbleParams(ev, opts);
+    const start = ev.startSec ?? 0;
+    const noteLen = Math.max(ev.durSec, pp.attack + pp.decay);
+    dur = Math.max(dur, start + noteLen);
+    const seed = wobbleSeed(pp.presetName, ev.midi, ev.startSec);
+    // Emit every float at full round-trippable precision (default toString)
+    // so the C engine's strtod yields the IDENTICAL double — sample-accurate
+    // start/length placement, not toFixed-quantized (which can shift a note
+    // by a sample at certain bar times and break bit-parity).
+    lines.push([
+      start, ev.midi, ev.durSec, gain,
+      pp.voices, pp.detuneCents, pp.lfoHz, LFO_SHAPE_CODES[pp.lfoShape] ?? 0,
+      pp.lfoDepth, pp.cutLo, pp.cutHi, pp.q, pp.drive, pp.crush, pp.subGain, pp.edge,
+      pp.attack, pp.decay, seed,
+    ].join(" "));
+  }
+  const header = [`sr ${sampleRate}`, `dur ${(dur + 0.05).toFixed(6)}`, `note ${lines.length}`];
+  return header.concat(lines).join("\n") + "\n";
 }
 
 // ── node-side buffer mixer (the /pop bed-render path) ──────────────────

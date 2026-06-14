@@ -16,16 +16,44 @@
 //   node pop/dance/bin/bake-wobble.mjs --only woe      # just wobblewoe
 //   node pop/dance/bin/bake-wobble.mjs --out ~/Desktop --no-open
 
-import { writeFileSync, mkdirSync, unlinkSync } from "node:fs";
-import { resolve } from "node:path";
+import { writeFileSync, readFileSync, mkdirSync, unlinkSync, existsSync, statSync, mkdtempSync, rmSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 
-import { mixEventWobble } from "../synths/wobble.mjs";
+import { mixEventWobble, emitWobbleScore } from "../synths/wobble.mjs";
 import { mixEventSupersaw } from "../synths/supersaw.mjs";
 import { mixEventSinePower } from "../synths/sinepower.mjs";
 
 const SR = 48_000;
+const C_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "../c");
+const C_ENGINE = resolve(C_DIR, "wobble");
+
+// Render a whole wobble-bass layer into `out`, either through the JS
+// reference (mixEventWobble per event) or the C engine (emitWobbleScore →
+// wobble.c → raw f32, added in). Both are sample-identical (compare.mjs).
+function renderWobbleLayer(events, out, opts, engine) {
+  if (engine !== "c") {
+    for (const ev of events) mixEventWobble(ev, out, opts);
+    return;
+  }
+  if (!existsSync(C_ENGINE) || statSync(resolve(C_DIR, "wobble.c")).mtimeMs > statSync(C_ENGINE).mtimeMs) {
+    console.log("[bake-wobble] building C wobble engine…");
+    const b = spawnSync("bash", [resolve(C_DIR, "build.sh")], { stdio: "inherit" });
+    if (b.status !== 0) throw new Error("C engine build failed");
+  }
+  const tmp = mkdtempSync(resolve(tmpdir(), "wob-bake-"));
+  const scorePath = resolve(tmp, "score.txt");
+  const rawPath = resolve(tmp, "out.f32");
+  writeFileSync(scorePath, emitWobbleScore(events, opts));
+  const r = spawnSync(C_ENGINE, [scorePath, "--raw", rawPath], { stdio: ["ignore", "ignore", "inherit"] });
+  if (r.status !== 0) { rmSync(tmp, { recursive: true, force: true }); throw new Error("C engine failed"); }
+  const buf = readFileSync(rawPath);
+  const seg = new Float32Array(buf.buffer, buf.byteOffset, Math.floor(buf.byteLength / 4));
+  for (let i = 0; i < seg.length && i < out.length; i++) out[i] += seg[i];
+  rmSync(tmp, { recursive: true, force: true });
+}
 
 // ── tiny deterministic RNG (for hat/snare noise) ───────────────────────
 function makeRng(seed) {
@@ -118,7 +146,7 @@ const TRACKS = {
   },
 };
 
-function arrange(spec) {
+function arrange(spec, engine) {
   const beat = 60 / spec.bpm;
   const bar = beat * 4;
   const introBars = 2;
@@ -130,6 +158,10 @@ function arrange(spec) {
   const bpm = spec.bpm;
 
   const rootAt = (barIdx) => spec.roots[((barIdx % spec.roots.length) + spec.roots.length) % spec.roots.length];
+
+  // Collect the wobble-bass events so the whole layer renders through one
+  // engine (JS or C) at the end — the rest of the kit/toppings is JS.
+  const wobbleEvents = [];
 
   for (let b = 0; b < totalBars; b++) {
     const t0 = b * bar;
@@ -150,11 +182,10 @@ function arrange(spec) {
     // ── wobble bass: two half-bar notes so it re-attacks mid-bar ──
     const bassGain = isIntro ? 0.7 : 1.0;
     for (let half = 0; half < 2; half++) {
-      mixEventWobble(
-        { startSec: t0 + half * 2 * beat, midi: root, gain: bassGain, durSec: 2 * beat * 0.98,
-          preset: spec.wobble.preset, lfo: spec.wobble.lfo },
-        out, { sampleRate: SR, bpm },
-      );
+      wobbleEvents.push({
+        startSec: t0 + half * 2 * beat, midi: root, gain: bassGain, durSec: 2 * beat * 0.98,
+        preset: spec.wobble.preset, lfo: spec.wobble.lfo,
+      });
     }
 
     if (isIntro) continue;
@@ -192,14 +223,17 @@ function arrange(spec) {
     }
   }
 
+  // Render the collected wobble-bass layer through the chosen engine.
+  renderWobbleLayer(wobbleEvents, out, { sampleRate: SR, bpm }, engine);
+
   return out;
 }
 
 // ── master + encode ─────────────────────────────────────────────────────
-function bakeTrack(key, outDir, openIt) {
+function bakeTrack(key, outDir, openIt, engine) {
   const spec = TRACKS[key];
-  console.log(`\n[bake-wobble] ${spec.title} · ${spec.bpm} BPM · wobble:${spec.wobble.preset}`);
-  const buf = arrange(spec);
+  console.log(`\n[bake-wobble] ${spec.title} · ${spec.bpm} BPM · wobble:${spec.wobble.preset} · engine:${engine}`);
+  const buf = arrange(spec, engine);
 
   // peak-normalize before handing to ffmpeg loudnorm.
   let peak = 0;
@@ -251,10 +285,11 @@ function expandHome(p) {
 
 const outDir = expandHome(flags.out) || resolve(homedir(), "Documents/Shelf/wobble-out");
 const openIt = !flags["no-open"];
+const engine = flags.engine === "c" ? "c" : "js";   // --engine c routes the bass through wobble.c
 const aliases = { woe: "woe", wobblewoe: "woe", bomp: "bomp", wobblebomp: "bomp", row: "row", wobblrow: "row" };
 const only = flags.only ? aliases[String(flags.only).toLowerCase()] : null;
 const keys = only ? [only] : ["woe", "bomp", "row"];
 
 const made = [];
-for (const k of keys) { const p = bakeTrack(k, outDir, openIt); if (p) made.push(p); }
-console.log(`\n[bake-wobble] done → ${made.length}/${keys.length} track(s) in ${outDir}`);
+for (const k of keys) { const p = bakeTrack(k, outDir, openIt, engine); if (p) made.push(p); }
+console.log(`\n[bake-wobble] done → ${made.length}/${keys.length} track(s) in ${outDir} (wobble engine: ${engine})`);
