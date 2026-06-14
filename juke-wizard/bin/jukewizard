@@ -1,0 +1,19 @@
+#!/bin/sh
+# juke-wizard/bin/jukewizard — build (cached) + launch JukeWizard.
+#
+# usage:
+#   juke-wizard/bin/jukewizard [<playlist.m3u8 | folder | file.mp3> ...] [--watch <dir>]
+#   (no args → opens ~/Desktop/MASTER-playlist.m3u8 if present)
+#
+# Runs from anywhere; resolves the package from its own location.
+set -e
+HERE="$(cd "$(dirname "$0")" && pwd)"
+WIZ="$HERE/.."
+REPO="$(cd "$WIZ/.." && pwd)"
+swift build -c release --package-path "$WIZ" 2>&1 | grep -v '^$' | tail -2 || true
+# default: open the whole /pop library (status + metadata). Pass args to override.
+if [ "$#" -eq 0 ]; then
+  node "$REPO/pop/bin/pop-library.mjs" >/dev/null 2>&1 || true   # refresh the index
+  exec "$WIZ/.build/release/JukeWizard" "$REPO/pop/out/pop-library.json"
+fi
+exec "$WIZ/.build/release/JukeWizard" "$@"
