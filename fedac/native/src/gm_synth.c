@@ -1042,50 +1042,55 @@ static const double GM_ORGAN_RATIOS[9] =
     { 0.5, 1.5, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0 };
 #define GM_ORGAN_FIRST 16
 static const GMProgramParams gm_organ_programs[8] = {
-    // 17 Drawbar — full registration 888 800 000, slow Leslie + faint click.
+    // 17 Drawbar — classic jazz registration 80 8800 008. The 8′ (unison) carries
+    // the pitch; the 16′ adds a HALF-strength sub for body, NOT the fundamental.
+    // (Audit latches the 16′ → reads octave-low; by-design, the pitch sounds right.)
     { .engine = GM_ENGINE_ORGAN,
-      .org_amps = {0.8,0.8,0.8,0.8,0.0,0.0,0.0,0.0,0.0},
-      .org_click_amp = 0.04, .org_click_ms = 3.0,
-      .org_leslie_hz = 0.8, .org_leslie_depth = 0.10 },
-    // 18 Percussive — 888 000 000 + 2nd-harmonic ping (4′) fast decay.
+      .org_amps = {0.45,0.30,0.90,0.55,0.0,0.30,0.0,0.0,0.0},
+      .org_click_amp = 0.05, .org_click_ms = 3.0,
+      .org_leslie_hz = 0.85, .org_leslie_depth = 0.12 },
+    // 18 Percussive — B3 88 8000 000, 8′ dominant + 2nd-harmonic (4′) ping, slow
+    // chorale Leslie. 16′ kept faint so the unison reads as the played note.
     { .engine = GM_ENGINE_ORGAN,
-      .org_amps = {0.7,0.0,0.9,0.6,0.0,0.0,0.0,0.0,0.0},
-      .org_perc_amp = 0.5, .org_perc_ms = 180.0, .org_perc_ratio = 2.0,
-      .org_click_amp = 0.06, .org_click_ms = 2.5,
-      .org_leslie_hz = 0.8, .org_leslie_depth = 0.10 },
-    // 19 Rock — full bright drawbars + overdrive + fast Leslie.
+      .org_amps = {0.35,0.0,0.95,0.45,0.0,0.0,0.0,0.0,0.0},
+      .org_perc_amp = 0.6, .org_perc_ms = 200.0, .org_perc_ratio = 2.0,
+      .org_click_amp = 0.07, .org_click_ms = 2.5,
+      .org_leslie_hz = 0.85, .org_leslie_depth = 0.12 },
+    // 19 Rock — full bright drawbars + overdrive + fast Leslie. 16′ trimmed under
+    // the 8′ so the gritty unison stays the pitch through the tanh stage.
     { .engine = GM_ENGINE_ORGAN,
-      .org_amps = {0.9,0.7,0.9,0.8,0.5,0.7,0.4,0.3,0.6},
-      .org_drive = 0.55, .org_click_amp = 0.05, .org_click_ms = 2.0,
-      .org_leslie_hz = 6.9, .org_leslie_depth = 0.18 },
-    // 20 Church (Pipe) — octave-spaced ranks 8+4+2+mixtures, slow chiff, no Leslie.
+      .org_amps = {0.55,0.65,0.95,0.85,0.55,0.70,0.40,0.30,0.60},
+      .org_drive = 0.55, .org_click_amp = 0.06, .org_click_ms = 2.0,
+      .org_leslie_hz = 6.9, .org_leslie_depth = 0.20 },
+    // 20 Church (Pipe) — principal chorus 8+4+2⅔+2+mixtures, no 16′ bourdon weight
+    // dominating; slow wind chiff (breath onset) + gentle rank detune, no Leslie.
     { .engine = GM_ENGINE_ORGAN,
-      .org_amps = {0.4,0.3,0.9,0.7,0.4,0.6,0.3,0.0,0.4},
-      .org_click_amp = 0.03, .org_click_ms = 8.0,
-      .org_detune_cents = 4.0 },
-    // 21 Reed Organ — free-reed, sawtooth-ish + gentle LP + reed beating.
+      .org_amps = {0.30,0.20,0.95,0.70,0.45,0.65,0.35,0.0,0.45},
+      .org_click_amp = 0.04, .org_click_ms = 12.0,
+      .org_breath = 0.025, .org_detune_cents = 4.0 },
+    // 21 Reed Organ — free-reed, sawtooth-ish + gentle LP + reed beating + bellows.
     { .engine = GM_ENGINE_ORGAN, .org_freereed = 1,
       .org_amps = {0.0,0.0,1.0,0.5,0.0,0.0,0.0,0.0,0.0},
-      .org_detune_cents = 8.0, .org_breath = 0.04, .org_lp_hz = 3500.0,
+      .org_detune_cents = 8.0, .org_breath = 0.05, .org_lp_hz = 3500.0,
       .org_click_amp = 0.02, .org_click_ms = 6.0 },
-    // 22 Accordion — free-reed, 3 detuned banks (musette), buzzy bright.
+    // 22 Accordion — free-reed, 3 detuned banks (musette), buzzy bright + bellows.
     { .engine = GM_ENGINE_ORGAN, .org_freereed = 1,
       .org_amps = {0.0,0.0,1.0,0.7,0.0,0.5,0.0,0.0,0.0},
-      .org_detune_cents = 18.0, .org_breath = 0.05, .org_lp_hz = 5000.0,
+      .org_detune_cents = 18.0, .org_breath = 0.06, .org_lp_hz = 5000.0,
       .org_click_amp = 0.03, .org_click_ms = 4.0,
       .org_leslie_hz = 4.5, .org_leslie_depth = 0.06 },
     // 23 Harmonica — free-reed, breath-driven, strong air + tremolo.
     { .engine = GM_ENGINE_ORGAN, .org_freereed = 1,
       .org_amps = {0.0,0.0,1.0,0.6,0.0,0.4,0.0,0.0,0.0},
       .org_reed_sq = {0,0,1,0,0,0,0,0,0}, .org_detune_cents = 6.0,
-      .org_breath = 0.14, .org_lp_hz = 4500.0,
+      .org_breath = 0.15, .org_lp_hz = 4500.0,
       .org_leslie_hz = 5.5, .org_leslie_depth = 0.10,
       .org_click_amp = 0.02, .org_click_ms = 3.0 },
     // 24 Tango Accordion (Bandoneon) — drier/sharper, dual-reed octave, more buzz.
     { .engine = GM_ENGINE_ORGAN, .org_freereed = 1,
       .org_amps = {0.0,0.0,1.0,0.8,0.0,0.6,0.0,0.0,0.3},
       .org_reed_sq = {0,0,0,1,0,1,0,0,0}, .org_detune_cents = 9.0,
-      .org_breath = 0.05, .org_lp_hz = 6000.0,
+      .org_breath = 0.06, .org_lp_hz = 6000.0,
       .org_click_amp = 0.05, .org_click_ms = 3.0 },
 };
 
@@ -3115,6 +3120,19 @@ static inline double generate_organ_sample(GMVoice *v, double sample_rate,
     (void)sample_rate;
     double s = 0.0;
     int N = v->org_nbars;
+    // Leslie LFO is advanced ONCE here and reused below for amplitude swirl. Its
+    // value also gives a small Doppler pitch wobble — the horn/drum throw on a real
+    // rotary cabinet sweeps pitch, not just level. (No pitch mod for free-reed.)
+    double leslie = 0.0;            // bipolar -1..1 (0 when no Leslie)
+    double pitch_mod = 1.0;         // per-sample frequency multiplier on the drawbars
+    if (v->org_leslie_inc > 0.0) {
+        leslie = wt_sin(v->org_leslie_phase);
+        if (!v->org_freereed) {
+            // Doppler depth scales with the rotary depth; capped tiny to stay tuned.
+            double dop = v->org_leslie_depth * 0.012;   // ≤ ~0.24% (≈ ±4 cents)
+            pitch_mod = 1.0 + dop * leslie;
+        }
+    }
     for (int d = 0; d < N; d++) {
         double w;
         if (v->org_freereed) {
@@ -3128,13 +3146,14 @@ static inline double generate_organ_sample(GMVoice *v, double sample_rate,
             w = wt_sin(v->org_phase[d]);     // Hammond = pure sine drawbars
         }
         s += v->org_amp[d] * w;
-        v->org_phase[d] += v->org_inc[d];
+        v->org_phase[d] += v->org_inc[d] * pitch_mod;
         if (v->org_phase[d] >= 1.0) v->org_phase[d] -= 1.0;
     }
-    // Percussive-organ ping (fast-decaying extra harmonic at note-on).
+    // Percussive-organ ping (fast-decaying extra harmonic at note-on); follows the
+    // same rotary Doppler so the ping swirls with the drawbars.
     if (v->org_perc_env > 0.0001) {
         s += v->org_perc_amp * v->org_perc_env * wt_sin(v->org_perc_phase);
-        v->org_perc_phase += v->org_perc_inc;
+        v->org_perc_phase += v->org_perc_inc * pitch_mod;
         if (v->org_perc_phase >= 1.0) v->org_perc_phase -= 1.0;
         v->org_perc_env *= v->org_perc_dec;
     }
@@ -3161,10 +3180,10 @@ static inline double generate_organ_sample(GMVoice *v, double sample_rate,
         s += v->org_click_amp * v->org_click_env * hf;
         v->org_click_env *= v->org_click_dec;
     }
-    // Leslie rotary: amplitude tremolo (the pitch/Doppler part is approximated by
-    // the amplitude swirl here; bounded depth).
+    // Leslie rotary: amplitude swirl using the same LFO value sampled at the top
+    // (the pitch Doppler was applied to the oscillators above). Advance the phase.
     if (v->org_leslie_inc > 0.0) {
-        double l = 1.0 - v->org_leslie_depth * 0.5 * (1.0 - wt_sin(v->org_leslie_phase));
+        double l = 1.0 - v->org_leslie_depth * 0.5 * (1.0 - leslie);
         v->org_leslie_phase += v->org_leslie_inc;
         if (v->org_leslie_phase >= 1.0) v->org_leslie_phase -= 1.0;
         s *= l;
