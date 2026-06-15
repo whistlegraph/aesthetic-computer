@@ -114,6 +114,14 @@
         file_server
     }
 
+    # --- nela.aesthetic.computer (NELA Computer Club donate page) ---
+    @nela host nela.aesthetic.computer
+    handle @nela {
+        root * /opt/ac/system/public/nela.aesthetic.computer
+        try_files {path} {path}.html /index.html
+        file_server
+    }
+
     # --- give.aesthetic.computer ---
     @give host give.aesthetic.computer
     handle @give {
