@@ -3,12 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Donate &mdash; NELA Computer Club</title>
+    <title>Support &mdash; NELA Computer Club</title>
     <!--
       Sketch by aesthetic.computer (Studio Zollo) for NELA Computer Club.
-      Palette + type lifted 1:1 from nelacomputer.club/styles.css so this
-      page drops in next to index.html. Self-contained CSS for portability.
-      Amounts are PLACEHOLDERS — committee to confirm before publishing.
+      Palette + type lifted 1:1 from nelacomputer.club/styles.css.
+
+      Membership is a $1–15/month sliding scale (NOTAFLOF). The slider
+      builds an OpenCollective donate link on Metagov, per the committee's
+      direction (cf. metagov/projects/rewritela).
+
+      ⚠ SET THE SLUG: NCC's OpenCollective project doesn't exist yet — when
+      it does, change OC.project below to its slug. Until then these links
+      404 gracefully on OpenCollective.
     -->
     <style>
         :root {
@@ -68,20 +74,54 @@
             color: var(--link);
         }
 
-        /* ── donation tiers ────────────────────────────────────────── */
-        .tier {
+        /* ── membership card (the primary ask) ─────────────────────── */
+        .member {
             margin-top: 1em;
             border: 1px solid var(--fg);
-            padding: 10px;
+            padding: 12px;
         }
-        .tier .amount { font-weight: bold; color: var(--fg); }
-        .tier .name { color: var(--link); font-weight: bold; }
-        .tier p { margin: 0.4em 0 0 0; }
+        .member p { margin: 0.4em 0 0 0; }
+
+        /* live amount readout */
+        .readout {
+            margin: 0.6em 0 0.2em 0;
+            font-weight: bold;
+            font-size: 1.6em;
+            line-height: 1.6rem;
+            color: var(--fg);
+        }
+        .readout .per { font-size: 0.6em; }
+
+        /* ── the slider — terminal-styled range input ──────────────── */
+        .slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 1.4em;
+            background: transparent;
+            margin: 0.6em 0 0.2em 0;
+            cursor: pointer;
+        }
+        .slider::-webkit-slider-runnable-track { height: 4px; background: var(--fg); }
+        .slider::-moz-range-track { height: 4px; background: var(--fg); }
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 14px; height: 22px; margin-top: -9px;
+            background: var(--fg); border: 2px solid #000; border-radius: 0;
+        }
+        .slider::-moz-range-thumb {
+            width: 14px; height: 22px;
+            background: var(--fg); border: 2px solid #000; border-radius: 0;
+        }
+        .scale {
+            display: flex; justify-content: space-between;
+            font-size: 0.85em; color: var(--link);
+        }
 
         /* ── the give button — AC terminal-prompt flavor ───────────── */
         .give {
             display: inline-block;
-            margin-top: 0.8em;
+            margin-top: 0.9em;
             padding: 6px 10px;
             border: 1px solid var(--fg);
             background-color: var(--bg);
@@ -108,6 +148,8 @@
             animation: blink 1s steps(1) infinite;
         }
         @keyframes blink { 50% { opacity: 0; } }
+
+        .fine { margin-top: 1.4em; }
 
         .colophon {
             margin-top: 4em;
@@ -140,9 +182,23 @@
     <h2>Support NCC<span class="cursor">&nbsp;</span></h2>
     <pre>▒▒▒▒▒▒▒▒▒▒▒▒</pre>
 
-    <p>NCC is something we keep going together. Showing up is free &mdash;
-    there's no prerequisite, and a computer is optional. But the room isn't,
-    so members chip in.</p>
+    <p>NCC is something we keep going together. Members chip in monthly to
+    keep the room. No one is turned away for lack of funds.</p>
+
+    <h2>Become a member</h2>
+    <pre>▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒</pre>
+
+    <div class="member">
+        <p>Pay what you can, a month. Slide to whatever works for you.</p>
+
+        <p class="readout"><span id="amount">$8</span><span class="per"> / month</span></p>
+
+        <input class="slider" type="range" id="slider" min="1" max="15" step="1" value="8"
+               aria-label="Monthly membership amount in dollars" />
+        <div class="scale"><span>$1</span><span>$15</span></div>
+
+        <p><a class="give" id="memberBtn" href="#" target="_blank" rel="noopener">become a member</a></p>
+    </div>
 
     <h2>What it pays for</h2>
     <pre>▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒</pre>
@@ -156,34 +212,10 @@
         </ul>
     </div>
 
-    <h2>Membership</h2>
-    <pre>▒▒▒▒▒▒▒▒▒▒▒▒</pre>
+    <p class="fine">Just visiting? Showing up is always free &mdash; bring a
+    laptop. You can also <a id="onceBtn" href="#" target="_blank" rel="noopener">give once</a>.</p>
 
-    <div class="tier">
-        <p><span class="name">DROP-IN</span> &mdash; <span class="amount">$0</span></p>
-        <p>Always free. Bring a laptop.</p>
-        <p><a class="give" href="https://nelacomputer.club">come to a meeting</a></p>
-    </div>
-
-    <div class="tier">
-        <p><span class="name">MEMBER</span> &mdash; <span class="amount">$10 / month</span></p>
-        <p>Keep the room, and take part in how NCC runs.</p>
-        <p><a class="give" href="#" data-amount="10" data-recurring="true">become a member</a></p>
-    </div>
-
-    <div class="tier">
-        <p><span class="name">SUSTAINER</span> &mdash; <span class="amount">$30 / month</span></p>
-        <p>A member's share, with a little left over.</p>
-        <p><a class="give" href="#" data-amount="30" data-recurring="true">sustain NCC</a></p>
-    </div>
-
-    <div class="tier">
-        <p><span class="name">ONE-TIME</span> &mdash; <span class="amount">any amount</span></p>
-        <p>Give once.</p>
-        <p><a class="give" href="#" data-amount="" data-recurring="false">give once</a></p>
-    </div>
-
-    <h3 id="not-money">Or give time.</h3>
+    <h3 id="give-time">Or give time.</h3>
     <p>Teach something. Help someone get unstuck. Bring a project to share,
     or contribute to the open-source software that quietly runs the world.</p>
 
@@ -196,23 +228,41 @@
 </div><!--.container-->
 
 <script>
-    // Placeholder handler — wire each .give to your real processor
-    // (Stripe Payment Link, Open Collective, Donorbox, etc.).
-    // Each button carries data-amount + data-recurring for routing.
-    document.querySelectorAll('a.give[href="#"]').forEach((el) => {
-        el.addEventListener("click", (e) => {
-            e.preventDefault();
-            const amount = el.dataset.amount || "custom";
-            const recurring = el.dataset.recurring === "true";
-            console.log("[NCC donate]", { amount, recurring });
-            alert(
-                "Donation flow not wired yet.\n\n" +
-                "Amount: " + (amount === "custom" ? "you choose" : "$" + amount) +
-                (recurring ? " / month" : " (one-time)") +
-                "\n\nDrop in your Stripe / Open Collective link here."
-            );
-        });
-    });
+    // OpenCollective config. NCC is fiscally sponsored by Metagov, so the
+    // collective lives under metagov as a project (like rewritela).
+    // ⚠ SET project to NCC's real slug once the collective is created.
+    const OC = {
+        host: "metagov",
+        project: "nela-computer-club", // PLACEHOLDER slug — update when live
+    };
+
+    // Build a donate link: monthly memberships prefill amount + interval;
+    // one-time sends people to the open donate flow to choose.
+    function ocDonate({ amount, monthly }) {
+        const base =
+            "https://opencollective.com/" + OC.host + "/projects/" + OC.project + "/donate";
+        const p = new URLSearchParams();
+        if (monthly) p.set("interval", "month");
+        if (amount) p.set("amount", String(amount));
+        const qs = p.toString();
+        return qs ? base + "?" + qs : base;
+    }
+
+    const slider = document.getElementById("slider");
+    const amountEl = document.getElementById("amount");
+    const memberBtn = document.getElementById("memberBtn");
+
+    function syncMember() {
+        const v = Number(slider.value);
+        amountEl.textContent = "$" + v;
+        memberBtn.textContent = "become a member · $" + v + "/mo";
+        memberBtn.href = ocDonate({ amount: v, monthly: true });
+    }
+    slider.addEventListener("input", syncMember);
+    syncMember();
+
+    // One-time: open donate flow, no preset interval.
+    document.getElementById("onceBtn").href = ocDonate({ monthly: false });
 </script>
 </body>
 </html>
