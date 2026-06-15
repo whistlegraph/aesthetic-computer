@@ -6,6 +6,7 @@ Active applications, deadlines, and status. Newest deadlines first.
 
 | Application | Deadline | Amount | Status | Folder |
 |---|---|---|---|---|
+| **SSRC Just Tech Fellowship** | **2026-06-28 (23:59 EST)** | up to **$60,000 unrestricted** (1 yr, Jan–Dec 2027) | **DRAFT v0 ready** (2026-06-15) · spine = AC as a digital community commons + AC Native low-end creative OS / public device library. Personal statement (~560 words, room to grow) + full work proposal mapped to all 6 required sub-questions; `RESEARCH.md` has exact caps + fellow precedents (incl. p5.js's McCarthy). **Next: confirm portal fields, trim to caps (≤1,000 / ≤3,000 words), pick 2 work samples, refresh number ledger.** | `ssrc-just-tech-2026/` |
 | **transmediale Lattice Labs 2027** (Berlin residency) | **2026-06-07 (23:59 CEST)** | travel + Berlin-week lodging + production budget; FREE to apply (no personal stipend confirmed) | DRAFT v0 ready · pitched to "Reclaiming the Interface" lab (Olia Lialina). **Confirm if 2 letters required — 6-day window** | `transmediale-lattice-labs-2027/` |
 | **TOKAS Int'l Creator Residency 2027** (Tokyo, 3 mo) | **2026-06-16 (18:00 JST)** | airfare + housing + studio + ¥4,200/day + ¥300k fee (per-diem & fee taxed 20.42%) | DRAFT v0 ready · exact form fields pulled. **Need: 2 referee letters + pick period (①/②/③)** | `tokas-2027/` |
 | IDFA DocLab 2026 (festival selection) | 2026-06-16 (final tier) | exposure only (€45 entry / €25 student); no cash | DRAFT v0 · **borderline NO-GO** — enter only if a Whistlegraph perf was completed/first-shown after 2025-07-04 | `idfa-doclab-2026/` |
@@ -33,7 +34,6 @@ in `personal/honeydo.md` for the source quotes.
 
 | Opportunity | Deadline | Amount | Fit / next |
 |---|---|---|---|
-| SSRC Just Tech Fellowship | 2026-06-28 (23:59 EST) | up to $60,000 / yr | Tech-and-society creative practice — strong AC fit. Promote to `grants/ssrc-just-tech-2026/` + RESEARCH. Source: Fia link 2026-05-14. |
 | Pollock-Krasner Foundation | rolling | up to $50,000 | Visual artists w/ exhibition record + financial need; Jeffrey qualifies (KADIST/SMK). Could fund SF / PAX East travel. Source: Fia 2026-05-15 ("got it easily before"). |
 | Critical Playground (pitch) | unconfirmed | unknown | criticalplayground.org publication; Smarthistory-style pitch-first. Verify the call exists. Source: Fia 2026-04-15. |
 | CAC Individual Artist Fellowship — **Legacy** (via LAPP, LA County) | 2026-06-06 (23:59 PT) | $50,000 unrestricted | DRAFT v0 ready · 5 narrative answers (Legacy tier) + samples plan + letter-of-support plan + checklist in `cac-iaf-2026/DRAFT.md`. Local guideline PDF in `cac-iaf-2026/reference/`. Next: ask Casey Reas for the colleague letter (required, uploaded by him). |

@@ -1,0 +1,209 @@
+% !TEX program = xelatex
+% Jeffrey Alan Scudder — CV tailored for the SSRC Just Tech Fellowship 2027 (2pp).
+% Selected from the full CV (papers/cv/cv.tex), weighted toward technology-and-
+% society, public-engagement, teaching, and the Aesthetic Computer commons.
+%
+% Build (from this directory):
+%   tectonic -X compile cv.tex        # produces cv.pdf
+%   # or: xelatex cv.tex
+
+\documentclass[10pt,letterpaper]{article}
+
+\usepackage[top=0.6in, bottom=0.6in, left=0.85in, right=0.85in]{geometry}
+
+\usepackage{fontspec}
+\setmainfont[
+  Extension = .otf,
+  UprightFont = lmroman10-regular,
+  BoldFont = lmroman10-bold,
+  ItalicFont = lmroman10-italic,
+  BoldItalicFont = lmroman10-bolditalic,
+]{lmroman10}
+\setsansfont[
+  Extension = .otf,
+  UprightFont = lmsans10-regular,
+  BoldFont = lmsans10-bold,
+  ItalicFont = lmsans10-oblique,
+]{lmsans10}
+\setmonofont[
+  Extension = .otf,
+  UprightFont = lmmono10-regular,
+  ItalicFont = lmmono10-italic,
+  Scale = 0.85,
+]{lmmono10}
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{microtype}
+\usepackage{parskip}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={Jeffrey Alan Scudder},
+  pdftitle={Jeffrey Alan Scudder --- CV (SSRC Just Tech 2027)},
+  pdfsubject={Curriculum Vitae},
+}
+
+\titleformat{name=\section,numberless}[block]
+  {\normalfont\bfseries\small\color{acdark}}
+  {}
+  {0pt}
+  {\MakeUppercase}
+  [\vspace{-0.25em}{\color{acgray}\rule{\linewidth}{0.4pt}}]
+\titlespacing*{\section}{0pt}{0.9em}{0.4em}
+
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[L]{\footnotesize\color{acgray} Jeffrey Alan Scudder --- CV}
+\fancyhead[R]{\footnotesize\color{acgray}\href{https://aesthetic.computer}{aesthetic.computer}}
+\fancyfoot[C]{\footnotesize\color{acgray}\thepage}
+
+\fancypagestyle{firstpage}{%
+  \fancyhf{}%
+  \renewcommand{\headrulewidth}{0pt}%
+  \fancyfoot[C]{\footnotesize\color{acgray}\thepage}%
+}
+
+\newlength{\cvyearwidth}
+\setlength{\cvyearwidth}{4.4em}
+\newenvironment{cvlist}{%
+  \begin{list}{}{%
+    \setlength{\leftmargin}{\cvyearwidth}%
+    \setlength{\labelwidth}{\cvyearwidth}%
+    \setlength{\labelsep}{0.4em}%
+    \setlength{\itemsep}{0.08em}%
+    \setlength{\parsep}{0pt}%
+    \setlength{\topsep}{0.15em}%
+    \renewcommand{\makelabel}[1]{\color{acgray}\small ##1\hfill}%
+  }%
+}{\end{list}}
+\newcommand{\cv}[2]{\item[#1] #2}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.2em}
+\widowpenalty=10000
+\clubpenalty=10000
+
+\begin{document}
+\thispagestyle{firstpage}
+
+\begin{center}
+  {\fontsize{20pt}{22pt}\selectfont\color{acdark}\textbf{Jeffrey Alan Scudder}}\par
+  \vspace{0.2em}
+  {\small\color{acpink} Artist, educator, toolmaker --- Los Angeles, CA}\par
+  \vspace{0.4em}
+  {\small
+    \href{https://aesthetic.computer}{aesthetic.computer} \; \textperiodcentered \;
+    \href{https://jas.life}{jas.life} \; \textperiodcentered \;
+    \href{mailto:mail@aesthetic.computer}{mail@aesthetic.computer}
+  }\par
+\end{center}
+
+\vspace{0.3em}
+{\color{acgray}\rule{\linewidth}{0.4pt}}
+\vspace{0.2em}
+
+% ============ PROFILE ============
+\section*{Profile}
+Artist, educator, and toolmaker who builds creative-computing instruments for
+other people to use and own. Creator of \textbf{Aesthetic Computer} --- a
+runtime, bare-metal operating system, and online commons for creative computing
+(\textasciitilde2,900 registered members; 400+ community-authored programs;
+20,000+ public commits) --- and of \textbf{Whistlegraph}, \textbf{KidLisp}, and
+\textbf{No Paint}. Work centers on re-founding the personal computer as a public,
+commonly-owned thing, run on salvaged hardware and legible all the way down.
+
+% ============ EDUCATION ============
+\section*{Education}
+\begin{cvlist}
+  \cv{2013}{Yale School of Art --- MFA}
+  \cv{2011}{Ringling College of Art + Design --- BFA}
+  \cv{2010}{AICAD New York Studio Program Residency}
+\end{cvlist}
+
+% ============ RESIDENCY ============
+\section*{Current Residency}
+\begin{cvlist}
+  \cv{2026}{Author in Residence, UCLA Social Software (Casey Reas \& Lauren Lee McCarthy), Los Angeles, CA}
+\end{cvlist}
+
+% ============ SOFTWARE / PROJECTS ============
+\section*{Software \& Platforms}
+\begin{cvlist}
+  \cv{2021--}{\href{https://aesthetic.computer}{Aesthetic Computer} --- creative-computing runtime, OS, and social commons (open source)}
+  \cv{2025--}{AC Native --- bare-metal creative operating system; boots salvaged laptops from USB as PID 1 in \textasciitilde7s}
+  \cv{2024--}{KidLisp --- minimal language for generative art (118 built-ins); short-code sharing}
+  \cv{2024--}{notepat --- open-source phone/keyboard instrument (Hacker News front page)}
+  \cv{2016--}{No Paint --- performable paint program / Radical Digital Painting (Hacker News front page)}
+\end{cvlist}
+
+% ============ TEACHING ============
+\section*{Teaching}
+\begin{cvlist}
+  \cv{2026}{Author in Residence, UCLA Social Software (Casey Reas), Los Angeles, CA}
+  \cv{2024}{UCLA Department of Media Arts --- Summer Section: Interactivity}
+  \cv{2019}{Assistant Professor of Emerging Digital Practices, Southern Oregon University}
+  \cv{2016}{Visiting Professor, UCLA Digital Media Arts}
+  \cv{2013--16}{Adjunct Professor, Parsons School for Design, New York}
+\end{cvlist}
+
+% ============ COLLECTIONS ============
+\section*{Public Collections}
+\begin{cvlist}
+  \cv{}{KADIST Foundation, San Francisco}
+  \cv{}{SMK --- National Gallery of Denmark}
+\end{cvlist}
+
+% ============ SELECTED EXHIBITIONS ============
+\section*{Selected Exhibitions}
+\begin{cvlist}
+  \cv{2026}{47th Venice Family Clinic Art Exhibition + Auction, Venice, CA}
+  \cv{2025}{Turbo Cheap (inaugural exhibition), Los Angeles, CA}
+  \cv{2022}{\href{https://feralfile.com/exhibitions/ten-whistlegraphs-thv}{Ten Whistlegraphs}, Feral File (solo, w/ Whistlegraph)}
+  \cv{2019}{Internet Archive Artist-in-Residency Exhibition, San Francisco, CA}
+  \cv{2018}{Radical Digital Painting: Los Angeles, The Newsstand Project + CAP, LA}
+  \cv{2018}{OPEN CODES (Schloss Solitude Web Residencies), ZKM, Karlsruhe}
+  \cv{2017}{\href{https://left.gallery/tumpin}{Tumpin}, left.gallery (solo, online)}
+\end{cvlist}
+
+% ============ SELECTED LECTURES / PERFORMANCES ============
+\section*{Selected Lectures \& Performances}
+\begin{cvlist}
+  \cv{2022}{The Longest Whistlegraph Ever (so far), New Museum, New York}
+  \cv{2020}{New Dynamic Graphics: Whistlegraph Recital, Korea HCI keynote}
+  \cv{2019}{New Dynamic Graphics, India HCI keynote, Hyderabad}
+  \cv{2019}{Radical Digital Painting + VJ, Internet Archive DWeb Camp, CA}
+  \cv{2018}{\href{https://media.ccc.de/v/35c3-9774-radical_digital_painting}{Radical Digital Painting}, 35c3 Chaos Communication Congress, Leipzig}
+  \cv{2018}{Casey Reas \& Jeffrey Alan Scudder in Conversation, bitforms gallery, NYC}
+  \cv{2016--18}{European performance-drawing tours w/ Goodiepal \& Pals (Cafe OTO, Mayhem, Louisiana Museum, Pioneer Works, et al.)}
+\end{cvlist}
+
+% ============ SELECTED PRESS ============
+\section*{Selected Press}
+\begin{cvlist}
+  \cv{2023}{\href{https://dirt.fyi/article/2023/09/whistlegraph}{Whistlegraph --- A new audience for generative art}, Dirt}
+  \cv{2017}{\href{https://rhizome.org/editorial/2017/dec/05/Artist-Profile-Jeffrey-Alan-Scudder}{Artist Profile: Jeffrey Alan Scudder}, Rhizome}
+  \cv{2017}{\href{https://schloss-post.com/manifesto-radical-digital-painting}{A Manifesto for Radical Digital Painting}, Schlosspost}
+  \cv{2017}{\href{https://www.artsy.net/article/artsy-editorial-microsoft-paints-influence-artists-bigger}{Microsoft Paint's Influence on Artists}, Artsy}
+  \cv{2020/24}{Hacker News front page --- \emph{No Paint} (2020), \emph{notepat} (2024)}
+\end{cvlist}
+
+% ============ COMMUNITY ============
+\section*{Community}
+\begin{cvlist}
+  \cv{2025--}{Host, biweekly NELA Computer Club demos, Plot.Place, Chinatown, Los Angeles}
+\end{cvlist}
+
+\end{document}
