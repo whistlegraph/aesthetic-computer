@@ -1,12 +1,24 @@
-# Oracle Egg — BROILER Residency (Fall 2026) — Application Draft
+# Oracle Egg — BROILER Residency — Application Draft
 
-> **Deadline:** 2026-05-15, 23:59 PST
-> **Length:** 3–7 days, full facility access
-> **Window:** September – December 2026
-> **Submit:** Google Form linked from https://www.oracleegg.com/broiler
+> **STATUS (verified 2026-06-15): CYCLE CLOSED — no open call right now.**
+> BROILER runs seasonal cohorts (NOT rolling). Pattern: open call ~Nov →
+> mid-Dec deadline → spring residencies. Last call: Nov 2025 → Dec 11, 2025
+> deadline → Spring 2026 cohort (performing now). The old "2026-05-15" in
+> our tracker was a *performance* date, not an application deadline.
+> **Next call expected ~Nov 2026; residencies likely early 2027.**
+> Action: watch @oracle_egg + join the oracleegg.com newsletter; this draft
+> stays warm for that call.
 >
-> *This draft is a starting frame; trim and re-shape once we have the
-> exact form fields. Length targets below are guesses pending the form.*
+> **Length:** 3–7 days, full facility access (3,000 sq ft loft, 939 Maple
+> Ave, DTLA Fashion District) · **Docs:** high-quality documentation ·
+> **Public:** culminating ticketed performance · **Cost:** FREE to apply,
+> no published stipend (in-kind support) · **Run by:** Melissa Achten &
+> Eli Klausner, fiscally sponsored by Fulcrum Arts · **Submit:** form
+> linked from https://www.oracleegg.com/broiler (live only during a call).
+>
+> *Exact form fields unknown until the next call opens. Length targets
+> below are guesses; the project frame is a strong fit (ambitious sound +
+> performance, priority to early-development work).*
 
 ---
 
