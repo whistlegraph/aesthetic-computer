@@ -1180,10 +1180,13 @@ static const GMProgramParams gm_lead_programs[8] = {
     // 87 Fifths — lead osc + perfect-fifth (1.5x) layer, LPF, organum.
     { .engine = GM_ENGINE_SUPERSAW, .ss_nosc = 1, .ss_fifth_gain = 0.9,
       .ss_cut0 = 3500.0, .ss_res = 0.25, .ss_attack_ms = 6.0, .ss_out_scale = 0.6 },
-    // 88 Bass+Lead — saw + sub-octave square, keytracked LPF, fat split.
+    // 88 Bass+Lead — saw + sub-octave square, keytracked LPF, fat split. Sub is
+    // kept well under the saws (0.20, not 0.7) so the fundamental — not the
+    // sub-octave — owns the perceived pitch; at 0.7 a square sub put all its
+    // energy at f0/2 and both the patch and the detectors read an octave low.
     { .engine = GM_ENGINE_SUPERSAW, .ss_nosc = 2, .ss_spread_cents = 6.0,
-      .ss_sub_mix = 0.7, .ss_sub_sq = 1,
-      .ss_cut0 = 3000.0, .ss_res = 0.30, .ss_attack_ms = 6.0, .ss_out_scale = 0.6 },
+      .ss_sub_mix = 0.20, .ss_sub_sq = 1,
+      .ss_cut0 = 3000.0, .ss_res = 0.30, .ss_attack_ms = 6.0, .ss_out_scale = 0.64 },
 };
 
 // ── Synth Pad (GM 89-96 / 0-based 88-95) — detuned multi-osc + slow sweep ──
@@ -1739,7 +1742,10 @@ static void gm_supersaw_init(GMVoice *v, const GMProgramParams *p, double f0,
         double sideGain   = -0.73764*m*m + 1.2841*m + 0.044372;
         for (int i = 0; i < 7; i++) {
             // Per-osc detune wobble (lever a) on top of the fixed Szabo spread.
-            double jit = 1.0 + 0.0008 * mul * voice_rand_bipolar(v);
+            // A hair wider than before so the seven saws don't sit on the maths-
+            // perfect Szabo grid — analog VCOs never tune identically, and the
+            // extra decorrelation is what makes the beating read lush, not digital.
+            double jit = 1.0 + 0.0018 * mul * voice_rand_bipolar(v);
             double fi = fc * (1.0 + off[i] * d) * jit;
             if (fi > sr * 0.45) fi = sr * 0.45;
             v->ss_inc[i] = fi / sr;
@@ -3268,13 +3274,36 @@ static inline double generate_supersaw_sample(GMVoice *v, double sample_rate,
         if (v->ss_sweep_phase >= 1.0) v->ss_sweep_phase -= 1.0;
         cut *= pow(2.0, oct);
     }
-    cut = clampd(cut, 30.0, sr * 0.45);
-    // Chamberlin SVF (f = 2·sin(π·fc/sr), q = 1/res-ish → use 2(1-res) damping).
+    // Chamberlin SVF (f = 2·sin(π·fc/sr), q damping = 2(1-res)). The classic
+    // form is only conditionally stable: it needs fc ≲ sr/6 AND f < 2-q, or the
+    // bp/lp pair rings up into NaN (the bug historically trapped at dispatch).
+    // We keep cutoff under sr/6 so f stays ≤ 1.0, floor the damping so the peak
+    // can't self-oscillate to infinity, and shrink f as damping drops to hold the
+    // f < 2-q margin. A finite-check resets the state if it ever escapes.
+    cut = clampd(cut, 30.0, sr * (1.0 / 6.0));
     double f = 2.0 * sin(M_PI * cut / sr);  if (f > 1.0) f = 1.0;
     double q = 2.0 * (1.0 - v->ss_res);     // resonance: smaller q = more peak
+    if (q < 0.30) q = 0.30;                  // floor damping → self-osc headroom
+    double fmax = (2.0 - q) * 0.95;          // stay inside the f < 2-q region
+    if (f > fmax) f = fmax;
     double hp = sig - v->ss_svf_lp - q * v->ss_svf_bp;
     v->ss_svf_bp += f * hp;
+    // Analog resonance saturation: a real VCF soft-limits its resonant peak in
+    // the feedback path instead of ringing to infinity. Soft-clip the bandpass
+    // state (the resonant branch) — adds characterful compression as it rings AND
+    // bounds the loop, so self-oscillation stays musical rather than explosive.
+    if (v->ss_res > 0.45) {
+        double b = v->ss_svf_bp;
+        if (b > 1.5 || b < -1.5) v->ss_svf_bp = 1.5 * tanh(b * (1.0 / 1.5));
+    }
     v->ss_svf_lp += f * v->ss_svf_bp;
+    // Hard guard: if the SVF ever diverges (denormal/NaN/runaway), reset it so a
+    // single bad sample can't poison the rest of the note (no dispatch garbage).
+    if (!isfinite(v->ss_svf_lp) || !isfinite(v->ss_svf_bp) ||
+        fabs(v->ss_svf_lp) > 8.0 || fabs(v->ss_svf_bp) > 8.0) {
+        v->ss_svf_lp = clampd(isfinite(v->ss_svf_lp) ? v->ss_svf_lp : 0.0, -2.0, 2.0);
+        v->ss_svf_bp = 0.0;
+    }
     double out = v->ss_svf_lp;
 
     // Charang / overdrive.
