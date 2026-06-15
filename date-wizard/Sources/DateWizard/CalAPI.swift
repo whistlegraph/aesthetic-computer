@@ -75,7 +75,7 @@ private struct MessageEnvelope: Codable { var message: String? }
 // ── errors ───────────────────────────────────────────────────────────
 
 enum CalAPIError: Error, LocalizedError {
-    case unauthorized                 // 401 — token missing/expired; re-pair.
+    case unauthorized                 // 401 — token missing/expired; sign in again.
     case http(Int, String)            // any non-2xx with a server message.
     case transport(Error)             // URLSession failure.
     case decode(Error)                // JSON shape mismatch.
@@ -83,7 +83,7 @@ enum CalAPIError: Error, LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .unauthorized: return "Authorization failed — re-link the device."
+        case .unauthorized: return "Authorization failed — run ac-login to sign in."
         case .http(let code, let msg): return "HTTP \(code): \(msg)"
         case .transport(let e): return "Network error: \(e.localizedDescription)"
         case .decode(let e): return "Decode error: \(e.localizedDescription)"

@@ -18,34 +18,29 @@ swift run DateWizard # build + launch the window
 
 Requires macOS 12+ and a Swift 5.9 toolchain.
 
-## Link-code auth (device pairing)
+## Sign in (shared AC session)
 
-DateWizard talks to `/api/cal` with your Auth0 bearer token. On first run (or
-after the token expires and a request comes back `401`), it shows a **link
-screen**:
+DateWizard uses your shared AC session from `ac-login` (`~/.ac-token`) — the
+same login `ac-os` uses. Run `ac-login` once to sign in.
 
-1. It requests a code from
-   `POST https://aesthetic.computer/.netlify/functions/device-pair {action:"create"}`.
-2. The window displays the code prominently, e.g. **`link ABC123`**.
-   Click **Open prompt.ac** to jump to the claim site.
-3. On [prompt.ac](https://prompt.ac), while logged in, type:
+On first run (or after the token expires and a request comes back `401`), it
+shows a **sign-in screen**:
 
-   ```
-   link ABC123
-   ```
+- **Sign in (run ac-login)** launches `ac-login` in Terminal so you can
+  authenticate without leaving the app.
+- It then auto-polls `~/.ac-token` every ~2s and proceeds automatically once a
+  valid token appears. (Or click **I've signed in** to check immediately.)
 
-4. DateWizard polls
-   `GET .../device-pair?code=ABC123` every ~2s. When the response is
-   `{ status:"claimed", token, handle, sub }`, it saves your credentials and
-   loads the current week.
-
-Credentials persist to:
+The token file is JSON written by the AC stack:
 
 ```
-~/Library/Application Support/DateWizard/auth.json   # { token, handle, sub }
+~/.ac-token   # { "access_token": "<jwt>", "refresh_token": "...", "expires_at": <ms-epoch> }
 ```
 
-Delete that file (or trigger a `401`) to re-link.
+`access_token` is sent as `Authorization: Bearer …` on every `/api/cal` call.
+The token is treated as expired when the file is missing, unparseable, or
+`expires_at` is in the past — at which point you're prompted to run `ac-login`
+again.
 
 ## Using the week
 
@@ -94,11 +89,11 @@ Times are ISO-8601 UTC strings.
 Sources/DateWizard/
   main.swift             NSApplication bootstrap
   AppDelegate.swift      window + WizardController; ensure auth then load week
-  WizardController.swift owns state (week, events, token); paging/refresh/editor/auth screen
+  WizardController.swift owns state (week, events, token); paging/refresh/editor/sign-in screen
   WeekView.swift         custom NSView: 7-column Sun→Sat grid, hour rows, now line, legend
   EventEditor.swift      native sheet: Title/Start/End/Note/privacy + Add/Save/Delete
   CalAPI.swift           URLSession networking + Codable models
-  Auth.swift             device-pair flow + auth.json persistence
+  Auth.swift             reads the shared AC session token (~/.ac-token) from ac-login
 ```
 
 ## Notes / TODO

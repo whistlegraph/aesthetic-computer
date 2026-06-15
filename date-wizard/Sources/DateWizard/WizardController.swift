@@ -1,6 +1,6 @@
 // WizardController.swift — owns the window + all state (focused week, the
 // events, the auth token). Drives:
-//   • the device-pair auth screen (when there's no token / on a 401),
+//   • the sign-in screen (when there's no shared AC token / on a 401),
 //   • the week view (paging, refresh),
 //   • the add/edit/delete editor sheet for aesthetical events,
 //   • a "Connect a Google calendar" action.
@@ -9,9 +9,10 @@ import AppKit
 final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDelegate {
 
     // ── state ────────────────────────────────────────────────────────
-    private var creds: AuthCreds?
     private var api: CalAPI
     private let auth = Auth()
+    // Polls ~/.ac-token while the sign-in screen is up.
+    private var tokenPollTimer: Timer?
 
     // The Sunday that begins the focused week.
     private var weekStart = WeekView.startOfWeek(for: Date())
@@ -32,15 +33,14 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
 
     // Auth overlay (shown when unauthenticated).
     private var authOverlay: NSView?
-    private var codeLabel: NSTextField?
     private var authStatusLabel: NSTextField?
 
     private var editor: EventEditor?
 
     // ── lifecycle ────────────────────────────────────────────────────
     init() {
-        self.creds = Auth.loadCreds()
-        self.api = CalAPI(token: creds?.token)
+        let auth = Auth()
+        self.api = CalAPI(token: auth.currentToken())
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 840, height: 560),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
@@ -58,11 +58,12 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
     // Called by the AppDelegate after the window shows. Ensures auth,
     // then loads the current week.
     func start() {
-        if creds?.token == nil || creds?.token.isEmpty == true {
-            showAuthScreen()
-        } else {
+        if let token = auth.currentToken() {
+            api.setToken(token)
             hideAuthScreen()
             refresh()
+        } else {
+            showAuthScreen()
         }
     }
 
@@ -162,7 +163,8 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
 
     // ── data load ────────────────────────────────────────────────────
     func refresh() {
-        guard creds?.token != nil else { showAuthScreen(); return }
+        guard let token = auth.currentToken() else { showAuthScreen(); return }
+        api.setToken(token)
         let (from, to) = weekBounds()
         statusLabel.stringValue = "Loading…"
 
@@ -363,11 +365,9 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
                       end: start.addingTimeInterval(3600), note: "", visibility: "private")
     }
 
-    // ── auth screen ──────────────────────────────────────────────────
+    // ── sign-in screen ───────────────────────────────────────────────
     private func handleUnauthorized() {
-        // Token expired or invalid — clear it and re-pair.
-        Auth.clearCreds()
-        creds = nil
+        // Token missing/expired — drop it and ask the user to sign in.
         api.setToken(nil)
         showAuthScreen()
     }
@@ -381,42 +381,43 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         overlay.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         overlay.autoresizingMask = [.width, .height]
 
-        let title = NSTextField(labelWithString: "Link DateWizard to your account")
+        let title = NSTextField(labelWithString: "Sign in to Aesthetic Computer")
         title.font = .systemFont(ofSize: 18, weight: .semibold)
         title.alignment = .center
-        title.frame = NSRect(x: 0, y: cv.bounds.height - 140, width: cv.bounds.width, height: 28)
+        title.frame = NSRect(x: 0, y: cv.bounds.height - 150, width: cv.bounds.width, height: 28)
         title.autoresizingMask = [.width, .minYMargin]
         overlay.addSubview(title)
 
-        let instr = NSTextField(labelWithString:
-            "On prompt.ac (logged in), type:")
+        let instr = NSTextField(labelWithString: "Run  ac-login  in your terminal")
         instr.alignment = .center
         instr.font = .systemFont(ofSize: 13)
         instr.textColor = .secondaryLabelColor
-        instr.frame = NSRect(x: 0, y: cv.bounds.height - 180, width: cv.bounds.width, height: 22)
+        instr.frame = NSRect(x: 0, y: cv.bounds.height - 190, width: cv.bounds.width, height: 22)
         instr.autoresizingMask = [.width, .minYMargin]
         overlay.addSubview(instr)
 
-        let code = NSTextField(labelWithString: "…")
-        code.font = .monospacedSystemFont(ofSize: 40, weight: .bold)
-        code.alignment = .center
-        code.textColor = .controlAccentColor
-        code.frame = NSRect(x: 0, y: cv.bounds.height - 250, width: cv.bounds.width, height: 56)
-        code.autoresizingMask = [.width, .minYMargin]
-        overlay.addSubview(code)
-        self.codeLabel = code
+        let signInBtn = NSButton(title: "Sign in (run ac-login)",
+                                 target: self, action: #selector(runAcLoginAction))
+        signInBtn.bezelStyle = .rounded
+        signInBtn.keyEquivalent = "\r"
+        signInBtn.frame = NSRect(x: cv.bounds.width / 2 - 110, y: cv.bounds.height - 240,
+                                 width: 220, height: 30)
+        signInBtn.autoresizingMask = [.minXMargin, .maxXMargin, .minYMargin]
+        overlay.addSubview(signInBtn)
 
-        let openBtn = NSButton(title: "Open prompt.ac", target: self, action: #selector(openPromptAction))
-        openBtn.bezelStyle = .rounded
-        openBtn.frame = NSRect(x: cv.bounds.width / 2 - 70, y: cv.bounds.height - 300, width: 140, height: 28)
-        openBtn.autoresizingMask = [.minXMargin, .maxXMargin, .minYMargin]
-        overlay.addSubview(openBtn)
+        let signedInBtn = NSButton(title: "I've signed in",
+                                   target: self, action: #selector(checkSignedInAction))
+        signedInBtn.bezelStyle = .rounded
+        signedInBtn.frame = NSRect(x: cv.bounds.width / 2 - 70, y: cv.bounds.height - 278,
+                                   width: 140, height: 28)
+        signedInBtn.autoresizingMask = [.minXMargin, .maxXMargin, .minYMargin]
+        overlay.addSubview(signedInBtn)
 
-        let status = NSTextField(labelWithString: "Requesting a link code…")
+        let status = NSTextField(labelWithString: "Waiting for ~/.ac-token…")
         status.alignment = .center
         status.font = .systemFont(ofSize: 12)
         status.textColor = .tertiaryLabelColor
-        status.frame = NSRect(x: 0, y: cv.bounds.height - 340, width: cv.bounds.width, height: 20)
+        status.frame = NSRect(x: 0, y: cv.bounds.height - 320, width: cv.bounds.width, height: 20)
         status.autoresizingMask = [.width, .minYMargin]
         overlay.addSubview(status)
         self.authStatusLabel = status
@@ -424,40 +425,52 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         cv.addSubview(overlay)
         self.authOverlay = overlay
 
-        beginPairing()
+        startTokenPolling()
     }
 
     private func hideAuthScreen() {
-        auth.stopPolling()
+        stopTokenPolling()
         authOverlay?.removeFromSuperview()
         authOverlay = nil
-        codeLabel = nil
         authStatusLabel = nil
     }
 
-    private func beginPairing() {
-        auth.createCode { [weak self] result in
-            guard let self else { return }
-            switch result {
-            case .success(let code):
-                self.codeLabel?.stringValue = "link \(code)"
-                self.authStatusLabel?.stringValue = "Waiting for you to claim this code on prompt.ac…"
-                self.auth.startPolling(code: code) { [weak self] creds in
-                    guard let self else { return }
-                    self.creds = creds
-                    self.api.setToken(creds.token)
-                    let who = creds.handle.map { "@\($0)" } ?? "your account"
-                    self.authStatusLabel?.stringValue = "Linked as \(who)."
-                    self.hideAuthScreen()
-                    self.refresh()
-                }
-            case .failure(let err):
-                self.authStatusLabel?.stringValue = "Couldn't get a code: \(err.localizedDescription)"
-            }
+    // Watch ~/.ac-token every ~2s; proceed automatically once it's valid.
+    private func startTokenPolling() {
+        stopTokenPolling()
+        let timer = Timer(timeInterval: 2.0, repeats: true) { [weak self] _ in
+            self?.checkForToken()
         }
+        RunLoop.main.add(timer, forMode: .common)
+        tokenPollTimer = timer
     }
 
-    @objc private func openPromptAction() { Auth.openPromptAC() }
+    private func stopTokenPolling() {
+        tokenPollTimer?.invalidate()
+        tokenPollTimer = nil
+    }
+
+    private func checkForToken() {
+        guard let token = auth.currentToken() else { return }
+        api.setToken(token)
+        let who = auth.handle.map { "Signed in as \($0)." } ?? "Signed in."
+        authStatusLabel?.stringValue = who
+        hideAuthScreen()
+        refresh()
+    }
+
+    @objc private func runAcLoginAction() {
+        auth.runAcLogin()
+        authStatusLabel?.stringValue = "Finish signing in your terminal — waiting for ~/.ac-token…"
+    }
+
+    @objc private func checkSignedInAction() {
+        if auth.currentToken() != nil {
+            checkForToken()
+        } else {
+            authStatusLabel?.stringValue = "No token yet — run  ac-login  in your terminal first."
+        }
+    }
 
     // ── parsing helpers ──────────────────────────────────────────────
     private static let isoFractional: ISO8601DateFormatter = {
@@ -502,6 +515,6 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
 
     // ── window lifecycle ─────────────────────────────────────────────
     func windowWillClose(_ notification: Notification) {
-        auth.stopPolling()
+        stopTokenPolling()
     }
 }

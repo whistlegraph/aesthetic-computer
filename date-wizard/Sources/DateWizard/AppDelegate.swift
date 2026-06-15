@@ -8,7 +8,7 @@ final class DateWizardAppDelegate: NSObject, NSApplicationDelegate {
         wizard = controller
         controller.showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
-        // Ensure auth (device-pair screen if needed), then load the week.
+        // Ensure auth (sign-in screen if no shared ~/.ac-token), then load the week.
         controller.start()
     }
 
