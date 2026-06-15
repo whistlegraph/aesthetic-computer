@@ -3594,7 +3594,10 @@ static inline double generate_synthfx_sample(GMVoice *v, double sample_rate,
         v->fx_ring_phase += v->fx_ring_inc;  if (v->fx_ring_phase >= 1.0) v->fx_ring_phase -= 1.0;
         shimmer = (1.0 - v->fx_ring_mix) * shimmer + v->fx_ring_mix * shimmer * ring;
         s = drops + 0.18 * shimmer;
-        return s * v->fx_out_scale * env;
+        // Match the generic SYNTHFX path: clamp before scaling. PhISEM droplet
+        // collisions can momentarily stack and push raw s past 2.0 (~3.9 peak
+        // seen in audit); without this the overshoot reaches the host mixer.
+        return clampd(s, -2.0, 2.0) * v->fx_out_scale * env;
     }
 
     // Generic layered FX for soundtrack/crystal/atmosphere/brightness/goblins/
@@ -3740,7 +3743,12 @@ static inline double generate_soundfx_sample(GMVoice *v, double sample_rate,
     }
     case GM_SFX_FRET: {
         // Short swept band-pass noise squeak. Slide the BP center via cut env.
-        double bed = gm_fx_noise_bed(v);
+        // The constant-skirt RBJ band-pass (b0 = sin(w0)/(2Q)/a0) is heavily
+        // attenuated at the high Q this squeak uses (~4), so the raw bed peaks
+        // near +-0.04 — inaudible. Compensate ~Q so the fret reaches sibling
+        // levels (~+-0.5) without re-tuning the shared gm_fx_make_bp.
+        double fret_gain = (v->fx_res > 0.5) ? v->fx_res * 2.5 : 10.0;
+        double bed = gm_fx_noise_bed(v) * fret_gain;
         s = bed;
         if (v->fx_amp_dec < 1.0) { s *= v->fx_amp_env; v->fx_amp_env *= v->fx_amp_dec; }
         // Re-tune the BP center each block-ish (cheap: every sample, small step).
