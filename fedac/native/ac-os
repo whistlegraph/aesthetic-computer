@@ -32,6 +32,24 @@ export AC_BUILD_NAME="${AC_BUILD_NAME:-$(cd "${SCRIPT_DIR}" && bash scripts/buil
 log()  { echo -e "\033[0;36m[ac-os]\033[0m $*"; }
 err()  { echo -e "\033[0;31m[ac-os]\033[0m $*" >&2; }
 
+# Drive the AC Electron menu-bar "USB" badge (~/.ac-os/tray.json, watched live
+# by ac-electron's tray-renderer). States: ready (image staged to burn — slow
+# blink), flashing (writing now — fast pulse), clear (gone). Best-effort; never
+# fails the flash. Skip on non-macOS (the badge is a macOS menu-bar feature).
+ac_tray_state() {
+    [ "$(uname)" = "Darwin" ] || return 0
+    local f="${HOME}/.ac-os/tray.json"
+    mkdir -p "${HOME}/.ac-os" 2>/dev/null || true
+    case "$1" in
+        ready)
+            printf '%s\n' '{ "show": true, "badge": "USB", "logoColor": "accent", "color": "accent", "bg": "#ffffff", "outline": "accent", "outlineWidth": 1, "pt": 8, "effect": "blink", "periodMs": 1600, "fps": 8 }' > "$f" 2>/dev/null || true ;;
+        flashing)
+            printf '%s\n' '{ "show": true, "badge": "USB", "logoColor": "accent", "color": "accent", "bg": "#ffffff", "outline": "accent", "outlineWidth": 1, "pt": 8, "effect": "pulse", "periodMs": 650, "fps": 15 }' > "$f" 2>/dev/null || true ;;
+        clear|*)
+            rm -f "$f" 2>/dev/null || true ;;
+    esac
+}
+
 # shellcheck source=/workspaces/aesthetic-computer/fedac/native/scripts/media-layout.sh
 source "${MEDIA_LAYOUT_LIB}"
 
@@ -1135,8 +1153,11 @@ flash_usb() {
         fi
         local SRC="${PULL_DIR:-/tmp/ac-os-pull}"
         log "Flashing ${MAC_USB} via flash-mac.sh (source: ${SRC})..."
+        ac_tray_state flashing
         sudo "${SCRIPT_DIR}/scripts/flash-mac.sh" "${MAC_USB}" "${SRC}"
-        return $?
+        local _frc=$?
+        [ "${_frc}" -eq 0 ] && ac_tray_state clear   # burned → clear the badge
+        return "${_frc}"
     fi
 
     local USB_DEV
@@ -1195,6 +1216,7 @@ flash_usb() {
     log "Verified config: $(ac_media_summarize_config_file "${CONFIG_FILE}")"
     log "Verified $(ac_media_summarize_wifi_creds_file "${WIFI_CREDS_FILE}")"
     cleanup_flash_usb
+    ac_tray_state clear   # burned → clear the menu-bar badge
 }
 
 load_vault_creds() {
@@ -1699,6 +1721,7 @@ pull_ota() {
         fi
     fi
     log "SHA256 verified: ${EXPECTED_HASH:0:16}..."
+    ac_tray_state ready   # local image staged & verified → badge the menu bar
 
     # Download slim kernel + initramfs for universal Mac/ThinkPad boot
     local SLIM_URL="${CDN_BASE}/native-notepat-latest.vmlinuz-slim"
