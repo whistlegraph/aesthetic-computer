@@ -30,6 +30,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
                             WaveformViewDelegate, NSTextViewDelegate {
     let library: Library
     let watchDirs: [String]
+    let selectPath: String?
     var current: Int = -1
     var watchTimer: Timer?
     var watchMtimes: [String: Date] = [:]
@@ -54,9 +55,10 @@ final class JukeController: NSWindowController, NSWindowDelegate,
 
     let sidebarW: CGFloat = 290
 
-    init(library: Library, watch: [String]) {
+    init(library: Library, watch: [String], select selectArg: String? = nil) {
         self.library = library
         self.watchDirs = watch
+        self.selectPath = selectArg
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1120, height: 720),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
@@ -68,7 +70,13 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         window.delegate = self
         setupUI()
         relayout()
-        if !library.tracks.isEmpty { select(0, autoplay: false) }
+        // open on the requested track (and play it) if given; else the top.
+        if let sp = selectPath {
+            let want = URL(fileURLWithPath: (sp as NSString).expandingTildeInPath).standardizedFileURL.path
+            if let idx = library.tracks.firstIndex(where: { $0.url.standardizedFileURL.path == want }) {
+                select(idx, autoplay: true)
+            } else if !library.tracks.isEmpty { select(0, autoplay: false) }
+        } else if !library.tracks.isEmpty { select(0, autoplay: false) }
         armWatch()
         installKeyMonitor()
     }

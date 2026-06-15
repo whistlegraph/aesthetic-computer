@@ -1,0 +1,4 @@
+# media — reproducible from code + the whistlegraph URL
+out/
+src/*.wav
+!src/*.analysis.json

@@ -1,9 +1,15 @@
 #!/bin/sh
 # juke-wizard/bin/jukewizard — build (cached) + launch JukeWizard.
 #
+# JukeWizard is the MASTER JUKE: it ALWAYS loads the whole /pop library so
+# every track is visible. Open it with no args to browse, or pass a specific
+# track to jump straight to it — the full library still loads underneath.
+#
 # usage:
-#   juke-wizard/bin/jukewizard [<playlist.m3u8 | folder | file.mp3> ...] [--watch <dir>]
-#   (no args → opens ~/Desktop/MASTER-playlist.m3u8 if present)
+#   juke-wizard/bin/jukewizard                       # browse the whole /pop library
+#   juke-wizard/bin/jukewizard <file.mp3>            # load library + select/play that track
+#   juke-wizard/bin/jukewizard <folder | playlist>   # load library + add these too
+#   juke-wizard/bin/jukewizard ... --watch <dir>     # auto-pop new renders
 #
 # Runs from anywhere; resolves the package from its own location.
 set -e
@@ -11,9 +17,23 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 WIZ="$HERE/.."
 REPO="$(cd "$WIZ/.." && pwd)"
 swift build -c release --package-path "$WIZ" 2>&1 | grep -v '^$' | tail -2 || true
-# default: open the whole /pop library (status + metadata). Pass args to override.
+
+BIN="$WIZ/.build/release/JukeWizard"
+LIB="$REPO/pop/out/pop-library.json"
+node "$REPO/pop/bin/pop-library.mjs" >/dev/null 2>&1 || true   # refresh the index
+
+# No args → just the master library.
 if [ "$#" -eq 0 ]; then
-  node "$REPO/pop/bin/pop-library.mjs" >/dev/null 2>&1 || true   # refresh the index
-  exec "$WIZ/.build/release/JukeWizard" "$REPO/pop/out/pop-library.json"
+  exec "$BIN" "$LIB"
 fi
-exec "$WIZ/.build/release/JukeWizard" "$@"
+
+# A specific audio file → load the master library AND select/play it
+# (absolutized so it matches the library entry; added to the queue if it's a
+# fresh draft not in the index yet).
+if [ -f "$1" ]; then
+  case "$1" in /*) SEL="$1";; *) SEL="$(pwd)/$1";; esac
+  exec "$BIN" "$LIB" "$@" --select "$SEL"
+fi
+
+# A folder / playlist / flags → load the master library and add them too.
+exec "$BIN" "$LIB" "$@"

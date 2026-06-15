@@ -1,0 +1,7 @@
+# heavy media — reproducible from URL via grab.mjs
+*.mp4
+*.wav
+*.m4a
+# keep the small analysis + index
+!*.analysis.json
+!INDEX.json

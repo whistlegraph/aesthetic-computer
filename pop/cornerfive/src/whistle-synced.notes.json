@@ -1,0 +1,257 @@
+{
+  "tuning": "original melody (beat-aligned + cents-shifted)",
+  "bpm": 73.2,
+  "quantize": 16,
+  "notes": [
+    {
+      "note": "D4",
+      "midi": 62,
+      "startSec": 0
+    },
+    {
+      "note": "B3",
+      "midi": 59,
+      "startSec": 0.205
+    },
+    {
+      "note": "C4",
+      "midi": 60,
+      "startSec": 0.41
+    },
+    {
+      "note": "B3",
+      "midi": 59,
+      "startSec": 0.615
+    },
+    {
+      "note": "C4",
+      "midi": 60,
+      "startSec": 0.82
+    },
+    {
+      "note": "E4",
+      "midi": 64,
+      "startSec": 1.025
+    },
+    {
+      "note": "D#4",
+      "midi": 63,
+      "startSec": 1.23
+    },
+    {
+      "note": "F4",
+      "midi": 65,
+      "startSec": 2.049
+    },
+    {
+      "note": "F#4",
+      "midi": 66,
+      "startSec": 2.254
+    },
+    {
+      "note": "D4",
+      "midi": 62,
+      "startSec": 2.869
+    },
+    {
+      "note": "D#4",
+      "midi": 63,
+      "startSec": 3.484
+    },
+    {
+      "note": "D4",
+      "midi": 62,
+      "startSec": 3.893
+    },
+    {
+      "note": "D#4",
+      "midi": 63,
+      "startSec": 4.098
+    },
+    {
+      "note": "E4",
+      "midi": 64,
+      "startSec": 4.098
+    },
+    {
+      "note": "D#4",
+      "midi": 63,
+      "startSec": 4.303
+    },
+    {
+      "note": "E4",
+      "midi": 64,
+      "startSec": 4.508
+    },
+    {
+      "note": "D#4",
+      "midi": 63,
+      "startSec": 4.713
+    },
+    {
+      "note": "D4",
+      "midi": 62,
+      "startSec": 4.918
+    },
+    {
+      "note": "C#4",
+      "midi": 61,
+      "startSec": 5.123
+    },
+    {
+      "note": "D4",
+      "midi": 62,
+      "startSec": 5.328
+    },
+    {
+      "note": "C#4",
+      "midi": 61,
+      "startSec": 5.533
+    },
+    {
+      "note": "B3",
+      "midi": 59,
+      "startSec": 5.738
+    },
+    {
+      "note": "C4",
+      "midi": 60,
+      "startSec": 5.943
+    },
+    {
+      "note": "A#3",
+      "midi": 58,
+      "startSec": 6.148
+    },
+    {
+      "note": "B3",
+      "midi": 59,
+      "startSec": 6.352
+    },
+    {
+      "note": "A#3",
+      "midi": 58,
+      "startSec": 6.557
+    },
+    {
+      "note": "B3",
+      "midi": 59,
+      "startSec": 6.762
+    },
+    {
+      "note": "A#3",
+      "midi": 58,
+      "startSec": 6.967
+    },
+    {
+      "note": "B3",
+      "midi": 59,
+      "startSec": 7.172
+    },
+    {
+      "note": "C4",
+      "midi": 60,
+      "startSec": 7.377
+    },
+    {
+      "note": "C#4",
+      "midi": 61,
+      "startSec": 7.582
+    },
+    {
+      "note": "C4",
+      "midi": 60,
+      "startSec": 7.787
+    },
+    {
+      "note": "A#3",
+      "midi": 58,
+      "startSec": 7.992
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 8.197
+    },
+    {
+      "note": "A#3",
+      "midi": 58,
+      "startSec": 8.402
+    },
+    {
+      "note": "B3",
+      "midi": 59,
+      "startSec": 8.607
+    },
+    {
+      "note": "A#3",
+      "midi": 58,
+      "startSec": 8.811
+    },
+    {
+      "note": "B3",
+      "midi": 59,
+      "startSec": 9.016
+    },
+    {
+      "note": "C#4",
+      "midi": 61,
+      "startSec": 9.221
+    },
+    {
+      "note": "F4",
+      "midi": 65,
+      "startSec": 9.836
+    },
+    {
+      "note": "C#4",
+      "midi": 61,
+      "startSec": 10.246
+    },
+    {
+      "note": "D4",
+      "midi": 62,
+      "startSec": 10.451
+    },
+    {
+      "note": "C#4",
+      "midi": 61,
+      "startSec": 10.656
+    },
+    {
+      "note": "D4",
+      "midi": 62,
+      "startSec": 11.27
+    },
+    {
+      "note": "D#4",
+      "midi": 63,
+      "startSec": 11.475
+    },
+    {
+      "note": "D4",
+      "midi": 62,
+      "startSec": 11.885
+    },
+    {
+      "note": "D#4",
+      "midi": 63,
+      "startSec": 12.09
+    },
+    {
+      "note": "D4",
+      "midi": 62,
+      "startSec": 12.295
+    },
+    {
+      "note": "D#4",
+      "midi": 63,
+      "startSec": 12.5
+    },
+    {
+      "note": "G3",
+      "midi": 55,
+      "startSec": 12.91
+    }
+  ]
+}

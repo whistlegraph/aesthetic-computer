@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "clips": [
+    {
+      "id": "7651341048442047775",
+      "title": "five in the corner x2",
+      "account": "whistlegraph",
+      "url": "https://www.tiktok.com/@whistlegraph/video/7651341048442047775",
+      "durationSec": 13.12,
+      "tempoBPM": 74.9,
+      "key": "D# minor",
+      "keyConfidence": 0.467,
+      "noteCount": 63,
+      "pitchRange": [
+        "G3",
+        "G#4"
+      ],
+      "mp4": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7651341048442047775.mp4",
+      "analysis": "~/aesthetic-computer/toolchain/whistlegraph/downloads/whistlegraph-7651341048442047775.analysis.json"
+    }
+  ]
+}

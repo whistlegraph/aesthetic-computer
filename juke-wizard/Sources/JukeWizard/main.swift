@@ -20,9 +20,11 @@ final class JukeAppDelegate: NSObject, NSApplicationDelegate {
         let args = Array(CommandLine.arguments.dropFirst())
         var watch: [String] = []
         var paths: [String] = []
+        var selectPath: String? = nil
         var i = 0
         while i < args.count {
             if args[i] == "--watch", i + 1 < args.count { watch.append(args[i + 1]); i += 2; continue }
+            if args[i] == "--select", i + 1 < args.count { selectPath = args[i + 1]; i += 2; continue }
             paths.append(args[i]); i += 1
         }
         if paths.isEmpty {
@@ -30,12 +32,21 @@ final class JukeAppDelegate: NSObject, NSApplicationDelegate {
             if FileManager.default.fileExists(atPath: master) { paths = [master] }
         }
         let library = Library(inputs: paths)
+        // Make sure the requested track is in the queue even if it's a draft
+        // not yet in the library index — so we can always select + play it.
+        if let sp = selectPath {
+            let u = URL(fileURLWithPath: (sp as NSString).expandingTildeInPath)
+            if !library.tracks.contains(where: { $0.url.standardizedFileURL.path == u.standardizedFileURL.path }) {
+                let lane = u.deletingLastPathComponent().deletingLastPathComponent().lastPathComponent
+                library.addFile(u, lane: lane)
+            }
+        }
         guard !library.tracks.isEmpty else {
             print("JukeWizard: no tracks found.")
-            print("usage: jukewizard [<playlist.m3u8 | folder | file.mp3> ...] [--watch <dir>]")
+            print("usage: jukewizard [<playlist.m3u8 | folder | file.mp3> ...] [--select <file>] [--watch <dir>]")
             NSApp.terminate(nil); return
         }
-        controller = JukeController(library: library, watch: watch)
+        controller = JukeController(library: library, watch: watch, select: selectPath)
         controller?.showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
