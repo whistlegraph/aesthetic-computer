@@ -770,6 +770,40 @@
             .p .detail { font-size: 0.85em; }
             .pals { width: 64px; }
         }
+
+        /* === DESIGN TRIAL: illustration + title gallery === */
+        .cat-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+            gap: 1.3em 1em;
+            align-items: start;
+        }
+        .cat-list .p {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0.5em;
+            padding: 0.2em;
+            border-bottom: none;
+            border-radius: 4px;
+        }
+        .cat-list .p:nth-child(even) { background: none; }
+        .cat-list .p:hover { background: none; }
+        .cat-list .p .thumb { width: 100%; }
+        .cat-list .p .body { width: 100%; min-width: 0; }
+        .cat-list .p .detail,
+        .cat-list .p .abstract,
+        .cat-list .p .meta-row,
+        .cat-list .p .format-icons { display: none; }
+        .cat-list .p .title {
+            font-size: 0.8em;
+            line-height: 1.28;
+            font-weight: 500;
+            text-align: center;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
     </style>
 </head>
 <body>

@@ -757,23 +757,53 @@ function genThumbnail(pdfPath, siteName) {
   }
 }
 
+// Square illustration tile straight from the paper's cover art — the index
+// is a cover-and-title gallery, so the tile is the standalone emblem/illy,
+// not the full first page. Lazy: skip if the tile is newer than the source.
+function genCoverTile(coverPath, siteName) {
+  if (!existsSync(coverPath)) return false;
+  mkdirSync(THUMBS_DIR, { recursive: true });
+  const out = join(THUMBS_DIR, `${siteName}.jpg`);
+  if (existsSync(out) && statSync(out).mtimeMs >= statSync(coverPath).mtimeMs) {
+    return true;
+  }
+  try {
+    execSync(
+      `magick "${coverPath}" -resize 520x520^ -gravity center -extent 520x520 -quality 84 "${out}"`,
+      { stdio: "pipe", timeout: 30000 },
+    );
+    return true;
+  } catch (e) {
+    console.warn(`  TILE fail ${siteName}: ${String(e.message).slice(0, 120)}`);
+    return false;
+  }
+}
+
+// siteName → its paper's cover.png, from PAPER_MAP.
+function coverTileSources() {
+  const map = {};
+  for (const [dir, info] of Object.entries(PAPER_MAP)) {
+    const cover = join(PAPERS_DIR, dir, "figures", "cover.png");
+    if (existsSync(cover)) map[info.siteName] = cover;
+  }
+  return map;
+}
+
 // Generate thumbs for every PDF in SITE_DIR (covers PAPER_MAP papers, JOSS
-// extras, ELS, guest PDFs — anything published).
+// extras, ELS, guest PDFs — anything published). Prefer the cover-art tile;
+// fall back to the PDF first page for anything without a cover.png (JOSS, etc.).
 function genAllThumbnails() {
   if (!existsSync(SITE_DIR)) return 0;
   let count = 0;
+  const tiles = coverTileSources();
   const pdfs = readdirSync(SITE_DIR).filter((n) => n.endsWith(".pdf"));
   for (const name of pdfs) {
     const siteName = name.slice(0, -4);
-    // The cards (4x6 single-sheet) variant is the cover art. Surface it via
-    // the base paper's thumbnail; don't waste a thumb on the cards file
-    // itself (the index never references `${siteName}-cards.jpg`).
     if (siteName.endsWith("-cards")) continue;
-    // Source the thumbnail from the FULL paper's first page: it now leads with
-    // the cover emblem (title → cover → subtitle), and unlike the cards PDF it
-    // renders everywhere — the cards' pgf-transparency groups blank out under
-    // some poppler builds (local macOS), which silently produced empty thumbs.
-    if (genThumbnail(join(SITE_DIR, name), siteName)) count++;
+    const ok = tiles[siteName]
+      ? genCoverTile(tiles[siteName], siteName)
+      : genThumbnail(join(SITE_DIR, name), siteName);
+    if (ok) count++;
   }
   return count;
 }
