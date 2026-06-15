@@ -45,7 +45,7 @@ if (process.platform === 'linux') {
 
 // =============================================================================
 // 🎵 Drag-drop audio onto Dock icon / running window
-// Drag an mp3/wav/flac/ogg/m4a onto the app and the `play` piece opens it.
+// Drag an mp3/wav/flac/ogg/m4a onto the app and the `dj` piece opens it.
 // Files are served from a localhost streaming http server (Range supported)
 // so scrubbing works and we don't blow up memory on big files.
 // =============================================================================
@@ -300,6 +300,7 @@ let trayBlinkInterval = null;
 let trayIconState = 'normal'; // 'normal', 'update', 'blink'
 let originalTrayIcon = null;
 let updateTrayIcon = null;
+let trayRenderer = null; // animatable, live-editable pals+badge tray renderer
 const UPDATE_CHECK_INTERVAL = 60 * 60 * 1000; // Check every hour
 const SILO_RELEASE_URL = 'https://silo.aesthetic.computer/desktop/latest';
 
@@ -1151,6 +1152,19 @@ async function createSystemTray() {
 
   // Build and set the context menu
   rebuildTrayMenu();
+
+  // Animatable, live-editable tray renderer (pals + optional badge label).
+  // Default state hides the badge, so this renders the plain pals icon exactly
+  // as before — until ~/.ac-os/tray.json sets {"show":true,"badge":"USB",...},
+  // which it watches and applies live (edit the file → icon updates instantly).
+  try {
+    const { TrayRenderer } = require('./tray-renderer');
+    if (trayRenderer) trayRenderer.dispose();
+    trayRenderer = new TrayRenderer(tray);
+    trayRenderer.startWatching();
+  } catch (e) {
+    console.warn('[tray] renderer init failed:', e.message);
+  }
 
   if (process.platform === 'darwin') {
     // macOS: pop the menu manually so a plain left-click reliably opens it
