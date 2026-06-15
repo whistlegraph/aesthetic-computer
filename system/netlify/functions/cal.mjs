@@ -21,9 +21,13 @@
 //   GET    /api/cal?handle=<name>           PUBLIC — public feed via mutable handle alias
 //          ...add &format=ics to either public GET → text/calendar VCALENDAR body
 //   POST   /api/cal                         AUTH  — create an event
+//   POST   /api/cal { import:{url|ics} }    AUTH  — import an external .ics feed
 //   PUT    /api/cal                         AUTH  — update one of your events by uid
 //   DELETE /api/cal?uid=<uid>               AUTH  — delete one of your events by uid
 //   OPTIONS                                 — CORS preflight
+//
+// Imported events get uid = "ics:" + <source UID> so a re-import upserts
+// (idempotent) rather than duplicating; they are always stored visibility:"private".
 
 import crypto from "crypto";
 import {
@@ -147,6 +151,220 @@ function eventsToICS(events, handleLabel) {
   return lines.map(icsFold).join("\r\n") + "\r\n";
 }
 
+// 📥 Minimal RFC 5545 VCALENDAR parser (no npm deps).
+//
+// Supports, per VEVENT: UID, SUMMARY, DTSTART, DTEND, RRULE, DESCRIPTION, plus
+// the VALUE=DATE (all-day) and TZID=... property parameters. It does NOT do
+// full IANA-timezone math: a TZID date-time is read as a "floating" wall-clock
+// time and stamped as UTC (good enough to place an event on the right day; the
+// minute may be off by the source's UTC offset). `...Z` UTC and VALUE=DATE
+// all-day forms are exact. VTIMEZONE blocks, VALARMs, attendees, attachments,
+// and multi-value/structured params beyond the above are ignored.
+
+const MAX_ICS_BYTES = 5 * 1024 * 1024; // 5MB guard.
+
+// Unfold RFC 5545 folded content lines: a line beginning with a space or tab is
+// a continuation of the previous line (the leading whitespace is consumed).
+function unfoldICS(text) {
+  const raw = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+  const out = [];
+  for (const line of raw) {
+    if ((line.startsWith(" ") || line.startsWith("\t")) && out.length) {
+      out[out.length - 1] += line.slice(1);
+    } else {
+      out.push(line);
+    }
+  }
+  return out;
+}
+
+// Unescape a TEXT value per spec: \\ \, \; and \n / \N (newline).
+function icsUnescape(value) {
+  return String(value ?? "")
+    .replace(/\\n/gi, "\n")
+    .replace(/\\,/g, ",")
+    .replace(/\\;/g, ";")
+    .replace(/\\\\/g, "\\");
+}
+
+// Split a content line into { name, params, value }. The name+params half is
+// everything before the first unescaped colon; params are ;KEY=VALUE pairs.
+function parseICSLine(line) {
+  const colon = line.indexOf(":");
+  if (colon === -1) return null;
+  const head = line.slice(0, colon);
+  const value = line.slice(colon + 1);
+  const segs = head.split(";");
+  const name = segs[0].toUpperCase();
+  const params = {};
+  for (let i = 1; i < segs.length; i++) {
+    const eq = segs[i].indexOf("=");
+    if (eq === -1) continue;
+    params[segs[i].slice(0, eq).toUpperCase()] = segs[i].slice(eq + 1);
+  }
+  return { name, params, value };
+}
+
+// Convert a parsed DTSTART/DTEND ({ params, value }) into an ISO UTC string and
+// an allDay flag. Handles three forms:
+//   VALUE=DATE  → "YYYYMMDD"                (all-day, midnight UTC)
+//   "...Z"      → "YYYYMMDDTHHMMSSZ"        (UTC instant, exact)
+//   TZID / bare → "YYYYMMDDTHHMMSS"         (floating wall-clock → stamped UTC)
+function icsDateToISO(prop) {
+  if (!prop || !prop.value) return null;
+  const v = prop.value.trim();
+  const isDateValue = prop.params?.VALUE === "DATE" || /^\d{8}$/.test(v);
+
+  if (isDateValue) {
+    const m = /^(\d{4})(\d{2})(\d{2})$/.exec(v);
+    if (!m) return null;
+    const iso = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], 0, 0, 0)).toISOString();
+    return { iso, allDay: true };
+  }
+
+  const m = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z)?$/.exec(v);
+  if (!m) return null;
+  // Both UTC (`Z`) and floating/TZID times are placed onto the UTC clock. For
+  // floating/TZID we accept the wall-clock minute as-is (no offset table).
+  const iso = new Date(
+    Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]),
+  ).toISOString();
+  return { iso, allDay: false };
+}
+
+// Parse a whole VCALENDAR body into an array of normalized event objects:
+//   { sourceUID, title, start, end, allDay, rrule, note }
+// Events missing a UID or a start are returned with those fields null so the
+// caller can count them as skipped.
+function parseVCalendar(text) {
+  const lines = unfoldICS(text);
+  const events = [];
+  let cur = null;
+
+  for (const line of lines) {
+    const upper = line.toUpperCase();
+    if (upper === "BEGIN:VEVENT") {
+      cur = {
+        sourceUID: null,
+        title: "",
+        dtstart: null,
+        dtend: null,
+        rrule: null,
+        note: "",
+      };
+      continue;
+    }
+    if (upper === "END:VEVENT") {
+      if (cur) {
+        const start = icsDateToISO(cur.dtstart);
+        const end = icsDateToISO(cur.dtend);
+        events.push({
+          sourceUID: cur.sourceUID,
+          title: cur.title,
+          start: start?.iso || null,
+          end: end?.iso || null,
+          allDay: start?.allDay || false,
+          rrule: cur.rrule,
+          note: cur.note,
+        });
+      }
+      cur = null;
+      continue;
+    }
+    if (!cur) continue;
+
+    const parsed = parseICSLine(line);
+    if (!parsed) continue;
+    switch (parsed.name) {
+      case "UID":
+        cur.sourceUID = parsed.value.trim();
+        break;
+      case "SUMMARY":
+        cur.title = icsUnescape(parsed.value);
+        break;
+      case "DESCRIPTION":
+        cur.note = icsUnescape(parsed.value);
+        break;
+      case "DTSTART":
+        cur.dtstart = parsed;
+        break;
+      case "DTEND":
+        cur.dtend = parsed;
+        break;
+      case "RRULE":
+        cur.rrule = parsed.value.trim();
+        break;
+      default:
+        break;
+    }
+  }
+  return events;
+}
+
+// Fetch + sanity-check an external .ics feed. Accepts webcal:// (rewritten to
+// https://). Rejects non-text or oversized payloads. Returns the raw text.
+async function fetchICS(url) {
+  let target = String(url).trim();
+  if (/^webcal:\/\//i.test(target)) target = target.replace(/^webcal:\/\//i, "https://");
+  if (!/^https?:\/\//i.test(target)) {
+    throw new Error("Import URL must be http(s) or webcal.");
+  }
+
+  const res = await fetch(target, {
+    headers: { Accept: "text/calendar, text/plain, */*" },
+    redirect: "follow",
+  });
+  if (!res.ok) throw new Error(`Fetch failed (${res.status}).`);
+
+  const len = Number(res.headers.get("content-length") || 0);
+  if (len && len > MAX_ICS_BYTES) throw new Error("Calendar too large (>5MB).");
+
+  const text = await res.text();
+  if (text.length > MAX_ICS_BYTES) throw new Error("Calendar too large (>5MB).");
+  if (!/BEGIN:VCALENDAR/i.test(text)) {
+    throw new Error("Not an iCalendar (no VCALENDAR) document.");
+  }
+  return text;
+}
+
+// Upsert parsed events into the `calendar` collection, keyed by { user, uid }
+// where uid = "ics:" + sourceUID. Idempotent: re-importing updates in place.
+async function importEvents(collection, sub, handle, parsed) {
+  let imported = 0;
+  let updated = 0;
+  let skipped = 0;
+
+  for (const ev of parsed) {
+    if (!ev.sourceUID || !ev.start) {
+      skipped++;
+      continue;
+    }
+    const uid = "ics:" + ev.sourceUID;
+    const result = await collection.updateOne(
+      { user: sub, uid },
+      {
+        $set: {
+          handle: handle || null,
+          title: ev.title || "(untitled)",
+          start: ev.start,
+          end: ev.end || ev.start,
+          allDay: ev.allDay === true,
+          rrule: ev.rrule || null,
+          note: ev.note || "",
+          visibility: "private",
+          when: new Date(),
+        },
+        $setOnInsert: { user: sub, uid, seq: 0 },
+      },
+      { upsert: true },
+    );
+    if (result.upsertedCount > 0) imported++;
+    else updated++;
+  }
+
+  return { imported, updated, skipped };
+}
+
 export async function handler(event, context) {
   // CORS preflight.
   if (event.httpMethod === "OPTIONS") {
@@ -252,6 +470,42 @@ export async function handler(event, context) {
         body = JSON.parse(event.body || "{}");
       } catch {
         return respond(400, { message: "Invalid JSON body." });
+      }
+
+      // 📥 Import branch: { import: { url?, ics? } }. Detected before the normal
+      // create path so an import request never falls through to event creation.
+      if (body.import && typeof body.import === "object") {
+        const { url, ics } = body.import;
+        let text;
+        try {
+          if (typeof ics === "string" && ics.trim()) {
+            if (ics.length > MAX_ICS_BYTES) {
+              return respond(400, { message: "Calendar too large (>5MB)." });
+            }
+            if (!/BEGIN:VCALENDAR/i.test(ics)) {
+              return respond(400, {
+                message: "Not an iCalendar (no VCALENDAR) document.",
+              });
+            }
+            text = ics;
+          } else if (typeof url === "string" && url.trim()) {
+            text = await fetchICS(url);
+          } else {
+            return respond(400, { message: "Provide import.url or import.ics." });
+          }
+        } catch (err) {
+          return respond(400, { message: err?.message || "Import failed." });
+        }
+
+        const importHandle = await getHandleOrEmail(user.sub);
+        const parsed = parseVCalendar(text);
+        const counts = await importEvents(
+          collection,
+          user.sub,
+          importHandle,
+          parsed,
+        );
+        return respond(200, counts);
       }
 
       if (!body.title || !body.start || !body.end) {

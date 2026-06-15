@@ -45,7 +45,10 @@ import {
     WEEK readout — 7 day rows for the focused week (today highlighted) listing
       each day's events (time + title). Tap a day row's "+" to start an ADD on
       that day; tap an event to open the EDIT/DELETE form; ‹ / › page weeks;
-      "Add" jumps to a blank add-form on the focused day; "Close" dismisses.
+      "Add" jumps to a blank add-form on the focused day; "Import" opens a
+      single-field prompt for an external .ics URL (webcal:// or https://) that
+      POSTs { import:{ url } } to /api/cal and refreshes on success (sign-in
+      required — shows "log in to import" when local); "Close" dismisses.
     ADD / EDIT form — fields stack: Title, Start, End, Note, plus a private/
       public Visibility toggle. ↑/↓ (or tap a field) move the active field;
       typing edits Title/Note; Start/End are time steppers (−/+ or ←/→). On a
@@ -121,8 +124,15 @@ let confirmBtn = null; // form: "Add"/"Save"
 let deleteBtn = null; // form (edit): "Delete"
 let weekCloseBtn = null; // week readout: "Close"
 let weekAddBtn = null; // week readout: "Add" (blank form on focused day)
+let weekImportBtn = null; // week readout: "Import" (sync an external .ics URL)
 let weekPrevBtn = null; // week readout: "‹"
 let weekNextBtn = null; // week readout: "›"
+
+// 📥 Import prompt — a tiny single-field text input layered over the week
+// readout for pasting an .ics URL. `importPrompt` is null when not collecting.
+let importPrompt = null; // { url, status } — status: null | "working" | "<message>"
+let importCancelBtn = null; // import prompt: "Cancel"
+let importGoBtn = null; // import prompt: "Import"
 
 // 🗝️ Local-calendar storage key (device-local fallback when signed out).
 const LOCAL_KEY = "cal:events:local";
@@ -145,6 +155,7 @@ function boot({ colon, store, net, handle, user, ui, screen, send }) {
   simClock = 0;
   frameCount = 0;
   wizard = null;
+  importPrompt = null;
 
   signedIn = !!(handle?.() || user);
 
@@ -508,6 +519,66 @@ function wizardBackspace() {
   const key = WIZ_FIELDS[wizard.field];
   if (key !== "title" && key !== "note") return;
   wizard[key] = wizard[key].slice(0, -1);
+}
+
+// 📥 Import — open a single-field prompt for an external .ics URL. Import only
+// works signed-in (it writes to the caller's account), so show a hint and bail
+// when local.
+function openImportPrompt() {
+  if (!signedIn) {
+    importPrompt = { url: "", status: "log in to import" };
+    $send?.({ type: "keyboard:close" });
+    return;
+  }
+  importPrompt = { url: "", status: null };
+  $send?.({ type: "keyboard:open" });
+}
+
+function closeImportPrompt() {
+  importPrompt = null;
+  $send?.({ type: "keyboard:close" });
+}
+
+function importPromptType(ch) {
+  if (!importPrompt || importPrompt.status === "working") return;
+  if (importPrompt.url.length >= 512) return;
+  importPrompt.url += ch;
+  importPrompt.status = null;
+}
+
+function importPromptBackspace() {
+  if (!importPrompt || importPrompt.status === "working") return;
+  importPrompt.url = importPrompt.url.slice(0, -1);
+}
+
+// Commit the import: POST { import: { url } } and, on success, refresh the
+// visible range so the synced events appear. Requires sign-in (no local path).
+async function commitImport() {
+  if (!importPrompt || importPrompt.status === "working") return;
+  const url = importPrompt.url.trim();
+  if (!url) {
+    importPrompt.status = "enter a URL";
+    return;
+  }
+  if (!signedIn || !$net?.userRequest) {
+    importPrompt.status = "log in to import";
+    return;
+  }
+  importPrompt.status = "working";
+  try {
+    const res = await $net.userRequest("POST", "/api/cal", { import: { url } });
+    if (res && typeof res.imported === "number") {
+      const { imported, updated, skipped } = res;
+      closeImportPrompt();
+      await fetchRange(); // pull the freshly-imported events into view
+      // Surface a brief outcome in the calendar's error/status line.
+      error = `imported ${imported}, updated ${updated}, skipped ${skipped}`;
+    } else {
+      importPrompt.status = (res?.message || "import failed").slice(0, 40);
+    }
+  } catch (err) {
+    importPrompt.status = (err?.message || "import failed").slice(0, 40);
+  }
 }
 
 // Build the event body from the form and POST (add) or PUT (edit), then return
@@ -1109,16 +1180,79 @@ function paintWizardWeek($) {
     rows.push({ y: ry, h: useRowH, iso: cell.iso, plus, evHits });
   }
 
-  // Footer: Add (blank form on focused day) / Close.
+  // Footer: Add (blank form on focused day) · Import (sync .ics) · Close.
   const btnY = py + ph - footH;
   if (!weekAddBtn) weekAddBtn = new ui.TextButton("Add", { x: 0, y: 0, screen });
+  if (!weekImportBtn) weekImportBtn = new ui.TextButton("Import", { x: 0, y: 0, screen });
   if (!weekCloseBtn) weekCloseBtn = new ui.TextButton("Close", { x: 0, y: 0, screen });
   weekAddBtn.reposition({ x: px + 4, y: btnY, screen });
   weekCloseBtn.reposition({ right: w - (px + pw - 4), y: btnY, screen });
+  weekImportBtn.reposition({ center: "x", y: btnY, screen });
   weekAddBtn.paint($, ADD_SCHEME, ADD_HOVER);
+  weekImportBtn.paint($, WIZ_SCHEME, WIZ_HOVER);
   weekCloseBtn.paint($, BTN_SCHEME, BTN_HOVER);
 
   wizard.hitboxes = { rows, panel: { x: px, y: py, w: pw, h: ph } };
+
+  // 📥 Import prompt overlay sits on top of the week readout when collecting.
+  if (importPrompt) paintImportPrompt($);
+}
+
+// 📥 Draw the import URL prompt: a small centered panel with one text field for
+// the .ics URL plus Import / Cancel buttons. Reuses the wizard's button schemes.
+function paintImportPrompt($) {
+  const { ink, screen, text, ui } = $;
+  const { width: w, height: h } = screen;
+
+  ink(0, 0, 0, 190).box(0, 0, w, h);
+
+  const pw = Math.min(w - 12, 260);
+  const px = Math.floor(w / 2 - pw / 2);
+  const ph = 60;
+  const py = Math.max(8, Math.floor(h / 2 - ph / 2));
+
+  ink(...COLORS.cellIn).box(px, py, pw, ph);
+  ink(...COLORS.recur).box(px, py, pw, ph, "outline");
+
+  ink(...COLORS.recur).write(
+    "Import .ics URL", { x: px + 4, y: py + 4 }, false, undefined, false, FONT,
+  );
+
+  // URL field (show the tail so the cursor end stays visible).
+  const fieldY = py + 16;
+  ink(...COLORS.focusFill).box(px + 2, fieldY, pw - 4, 11);
+  const maxChars = Math.max(4, Math.floor((pw - 8) / 4));
+  const url = importPrompt.url || "";
+  const shown = url.length > maxChars ? "…" + url.slice(-(maxChars - 1)) : url;
+  ink(...(url ? COLORS.title : COLORS.dim)).write(
+    shown || "webcal:// or https://…", { x: px + 4, y: fieldY + 2 },
+    false, undefined, false, FONT,
+  );
+  if (Math.floor(frameCount / 30) % 2 === 0) {
+    const cx = px + 4 + text.width(shown, FONT) + 1;
+    ink(...COLORS.focus).box(cx, fieldY + 1, 1, 9);
+  }
+  $.needsPaint(); // keep the cursor blinking / status animating
+
+  // Status line (error or progress).
+  if (importPrompt.status) {
+    const isWorking = importPrompt.status === "working";
+    ink(...(isWorking ? COLORS.dim : COLORS.error)).write(
+      isWorking
+        ? "importing" + ".".repeat(Math.floor(frameCount / 12) % 4)
+        : importPrompt.status.slice(0, maxChars),
+      { x: px + 4, y: fieldY + 13 }, false, undefined, false, FONT,
+    );
+  }
+
+  // Buttons: Cancel · Import.
+  const btnY = py + ph - 16;
+  if (!importCancelBtn) importCancelBtn = new ui.TextButton("Cancel", { x: 0, y: 0, screen });
+  if (!importGoBtn) importGoBtn = new ui.TextButton("Import", { x: 0, y: 0, screen });
+  importCancelBtn.reposition({ x: px + 4, y: btnY, screen });
+  importGoBtn.reposition({ right: w - (px + pw - 4), y: btnY, screen });
+  importCancelBtn.paint($, BTN_SCHEME, BTN_HOVER);
+  importGoBtn.paint($, ADD_SCHEME, ADD_HOVER);
 }
 
 // Truncate a string to fit `maxW` pixels (rough, char-stepping). Helper for the
@@ -1325,9 +1459,16 @@ function switchView(next) {
 
 // 🧙 Route input while the wizard WEEK readout is open.
 function actWizardWeek(e) {
+  // 📥 The import prompt, when open, owns all input.
+  if (importPrompt) {
+    actImportPrompt(e);
+    return;
+  }
+
   weekPrevBtn?.act(e, () => wizardPageWeek(-1));
   weekNextBtn?.act(e, () => wizardPageWeek(1));
   weekAddBtn?.act(e, () => openAddForm(focusIso));
+  weekImportBtn?.act(e, () => openImportPrompt());
   weekCloseBtn?.act(e, () => closeWizard());
 
   const hb = wizard.hitboxes;
@@ -1348,6 +1489,29 @@ function actWizardWeek(e) {
   if (e.is("keyboard:down:arrowright")) wizardPageWeek(1);
   if (e.is("keyboard:down:enter")) { openAddForm(focusIso); return; }
   if (e.is("keyboard:down:escape") || e.is("keyboard:down:`")) { closeWizard(); return; }
+}
+
+// 📥 Route input while the import URL prompt is open.
+function actImportPrompt(e) {
+  importCancelBtn?.act(e, () => closeImportPrompt());
+  importGoBtn?.act(e, () => commitImport());
+
+  if (e.is("keyboard:down:backspace")) { importPromptBackspace(); return; }
+  if (e.is("keyboard:down:enter")) { commitImport(); return; }
+  if (e.is("keyboard:down:escape") || e.is("keyboard:down:`")) { closeImportPrompt(); return; }
+
+  // Printable characters extend the URL. `` ` `` is reserved for close above.
+  if (
+    typeof e.name === "string" &&
+    e.name.startsWith("keyboard:down:") &&
+    typeof e.key === "string" &&
+    e.key.length === 1 &&
+    e.key !== "`" &&
+    !e.ctrl &&
+    !e.alt
+  ) {
+    importPromptType(e.key);
+  }
 }
 
 // 🧙 Route input while the wizard ADD/EDIT form is open.
