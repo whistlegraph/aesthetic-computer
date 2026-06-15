@@ -1,0 +1,400 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}[
+  Extension=.otf,
+  UprightFont=lmroman10-regular,
+  BoldFont=lmroman10-bold,
+  ItalicFont=lmroman10-italic,
+  BoldItalicFont=lmroman10-bolditalic,
+]
+\setsansfont{Latin Modern Sans}[
+  Extension=.otf,
+  UprightFont=lmsans10-regular,
+  BoldFont=lmsans10-bold,
+  ItalicFont=lmsans10-oblique,
+  BoldItalicFont=lmsans10-boldoblique,
+]
+\setmonofont{Latin Modern Mono}[
+  Extension=.otf,
+  UprightFont=lmmono10-regular,
+  ItalicFont=lmmono10-italic,
+  Scale=0.85,
+]
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{graphicx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+
+% === COLORS ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+\definecolor{codebg}{RGB}{244,241,247}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={AesthetiCal: A URL-Addressable Calendar for Aesthetic Computer},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acgray}\textit{Aesthetic Computer --- AesthetiCal}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em, itemsep=0.1em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.6em}
+{\acbold\fontsize{30pt}{32pt}\selectfont\color{acdark} Aestheti{\color{acpink}Cal}}\par
+\vspace{0.35em}
+\includegraphics[width=0.46\textwidth]{figures/cover}\par
+\vspace{0.35em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} A URL-Addressable Calendar for Aesthetic Computer}\par
+\vspace{0.6em}
+{\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer/cal} \enspace$\cdot$\enspace \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acgray} Aesthetic Computer \enspace$\cdot$\enspace June 2026 \enspace$\cdot$\enspace v1 deployed}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Abstract.}
+This paper specifies \texttt{cal}, a calendar for \ac{}~\citep{scudder2026ac}: a single, URL-addressable piece (\texttt{aesthetic.computer/cal}) backed by a per-handle synced store and an interchange layer that speaks the standard iCalendar format~\citep{rfc5545}. Time has been the one primitive the system never owned --- pieces address space, color, sound, and identity, but never the day. \texttt{cal} adds it without adding a second app: the same piece runs on the website, inside the AC Native OS~\citep{scudder2026nativeos}, and in a dedicated menu-bar icon hosted by the AC desktop app alongside the nom games~\citep{scudder2026nom}. Appointments are stored server-side keyed by Auth0 \texttt{sub} and decorated with the author's \texttt{@handle}~\citep{scudder2026identity}, mirroring the moods and paintings sync model already in production. Two front-ends share that store: the \texttt{cal} piece (month / week / day views, addressable as \texttt{cal:2026:6}, \texttt{cal:week}, \texttt{cal:day}), and \emph{DateWizard} (\texttt{cal:wizard}), a Claude-poppable wizard in the family of RFA and WaveWizard whose week read-out you pop up to see the week and add, edit, or delete appointments. Each calendar's canonical, never-changing address is its owner's \emph{permahandle} (the immutable \texttt{ac25\dots} code on the \texttt{users} record, e.g.\ \texttt{/api/cal?code=ac25namuc}); the mutable \texttt{@handle} is a pretty alias over it. Calendars both export and import the standard \texttt{.ics} format (subscribable from, and ingestible into, Apple or Google Calendar), with CalDAV~\citep{rfc4791} reserved as a later phase. A v1 of this system --- backend, piece, DateWizard, desktop tray, and \texttt{.ics} interchange --- is deployed in production and in daily use; the contribution is not a new calendar but a demonstration that a creative-computing runtime can absorb time as just another addressable medium.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Introduction}
+
+\ac{} is organized around a small set of primitives that every piece can reach: a screen to draw on, a synth to sound, an input stream, a URL to be addressed by, and --- since the handle system landed --- a verified identity~\citep{scudder2026identity}. What it has never had is \emph{time}. A piece can ask what frame it is on; it cannot ask what day it is in any first-class way, and the system has no shared notion of an appointment, a deadline, or a recurring event. Calendars are among the oldest information structures humans maintain~\citep{zerubavel1985seven}, and their absence has meant that scheduling around AC --- shows, studio sessions, release dates, collaborative jams --- happens in other people's software.
+
+This paper specifies \texttt{cal}: an attempt to add time to the system the same way every other capability was added, as a \emph{piece} rather than an application. The design follows three commitments that recur throughout AC:
+
+\begin{enumerate}
+  \item \textbf{One artifact, many surfaces.} The same \texttt{cal} piece runs in the browser, in the native OS, and framed inside a desktop menu-bar window. There is no separate ``calendar app'' --- there is a piece, addressed by URL, wherever a piece can run.
+  \item \textbf{Addressable state.} A calendar view is a URL. \texttt{cal} shows today; \texttt{cal:2026:6} shows June 2026; \texttt{@jeffrey/cal} shows a handle's public calendar. Time becomes navigable the way space already is.
+  \item \textbf{Standards at the edge, AC in the center.} Internally, events are plain documents in MongoDB. At the boundary they serialize to iCalendar~\citep{rfc5545} so that any conformant client can subscribe, and parse from \texttt{.ics} so that an existing calendar can be imported.
+\end{enumerate}
+
+The name of the backing service is \emph{aesthetical} --- the calendar half of \ac{}, the part that owns the almanac. The rest of the paper walks the feature from the user inward: the \texttt{cal} command and piece (\S2), the DateWizard overlay (\S3), the aesthetical backend and data model (\S4), the iCalendar interchange layer (\S5), per-handle sync and sharing (\S6), the desktop menu-bar surface (\S7), and a phased implementation plan (\S8).
+
+\section{The \texttt{cal} Piece}
+
+\subsection{Command and routing}
+
+\texttt{cal} is registered the way every short verb in AC is: a one-line entry in the prompt command registry (\texttt{lib/prompt-commands.mjs}), which the prompt piece uses to build its help text and to validate input. Typing \texttt{cal} at the prompt resolves to the piece module \texttt{disks/cal.mjs}, loaded dynamically by BIOS. Colon parameters carry view state into \texttt{boot} through the \texttt{colon} array, exactly as \texttt{notepat}~\citep{scudder2026notepat} and the nom games do:
+
+\begin{itemize}
+  \item \texttt{cal} --- today, in the default view (month).
+  \item \texttt{cal:week} / \texttt{cal:day} --- the current week or day view.
+  \item \texttt{cal:wizard} --- pop DateWizard open on the week read-out.
+  \item \texttt{cal:add} --- pop DateWizard straight into the add form.
+  \item \texttt{cal:2026:6} --- June 2026.
+  \item \texttt{@jeffrey/cal} --- a handle's public calendar (read-only unless it is yours; a pretty alias over the permahandle feed).
+\end{itemize}
+
+\subsection{Lifecycle and rendering}
+
+The piece uses the standard AC lifecycle --- \texttt{boot}, \texttt{paint}, \texttt{act}, \texttt{sim}, \texttt{leave} --- documented in the disks authoring guide. There is no retained scene graph; \texttt{paint} redraws the grid every frame from immediate-mode primitives (\texttt{wipe}, \texttt{ink}, \texttt{box}, \texttt{line}, \texttt{write}). The reference template is \texttt{commits.mjs}, which already demonstrates the two patterns \texttt{cal} needs: a paginated fetch on boot and a scrollable, cached layout.
+
+\begin{itemize}
+  \item \textbf{boot}\,\texttt{(\{ colon, store, net, handle, user \})} --- parse the view and date from \texttt{colon}; restore the last-used view from \texttt{store.retrieve("cal:view", "local")}; kick off a fetch of the visible range.
+  \item \textbf{paint} --- draw the month grid (a 7-column week lattice), week column, or day timeline; tint cells by event density; highlight today using the same time-of-day palette \texttt{notepat} uses for its background.
+  \item \textbf{act}\,\texttt{(\{ event \})} --- tap a day to zoom in, swipe or arrow to page months, tap an event to open it, long-press an empty slot to create one.
+  \item \textbf{sim} --- advance a one-minute clock so ``now'' moves; no per-frame animation is required.
+\end{itemize}
+
+A shared engine, \texttt{lib/cal.mjs}, factors the grid math (first-weekday, days-in-month, week-of, event layout) out of the piece, following the \texttt{lib/nom.mjs} pattern where one engine backs several thin wrapper pieces. This lets \texttt{cal}, the DateWizard, and any future variant (a year view, a public-show feed) share one source of truth for date arithmetic.
+
+\subsection{Reading and writing events}
+
+Pieces never hold credentials; they call \texttt{net.userRequest(method, endpoint, body)}, which attaches the user's Auth0 bearer token and issues the fetch. \texttt{cal} reads a range and writes appointments through the aesthetical endpoints (\S4):
+
+\begin{quote}\small\ttfamily
+net.userRequest("GET",\\
+\hspace*{1em}"/api/cal?from=...\&to=...")\\[0.4em]
+net.userRequest("POST", "/api/cal", \{\\
+\hspace*{1em}title, start, end, allDay, rrule, note\\
+\})
+\end{quote}
+
+Unauthenticated visitors still get a calendar: \texttt{cal} falls back to \texttt{store.persist(\dots,"local")} so a logged-out user can keep a private, device-local calendar, which the first successful login can offer to migrate into aesthetical.
+
+\section{DateWizard}
+
+\subsection{What a Wizard is}
+
+A \emph{Wizard} in AC is a guided, step-through helper that @jeffrey (or Claude on his behalf) can pop up to perform a focused task without leaving the current context. The established members of the family are RFA (\texttt{pop/bin/rfa.mjs}), a CLI that walks a vocal score note by note, and the native Swift wizards (WaveWizard, JukeWizard, ClipWizard) that step through a spec offering \emph{keep / redo / skip} at each item. They are launched from the Slab menu-bar via an \texttt{osascript} bridge that opens a terminal or a native window. DateWizard joins this family as the \emph{temporal} wizard.
+
+\subsection{Behavior}
+
+DateWizard is a thin overlay over the same aesthetical store the \texttt{cal} piece uses, optimized for a single guided question: \emph{what does this week hold, and what should I change?} As shipped it opens on a \textbf{week read-out} --- seven day rows, today highlighted, each listing that day's events --- and folds out into an add/edit form and back to the readout after any write, so the result is seen in context. It presents:
+
+\begin{itemize}
+  \item a week read-out of existing appointments (the default pop-up), pageable by week, that doubles as the entry point for everything else;
+  \item a step-through \emph{add} flow --- title, start, end, note, and a private/public visibility toggle --- echoing the keep/redo/skip rhythm of the other wizards;
+  \item \emph{edit} and \emph{delete} of an existing event by tapping its chip (recurring instances edit their master);
+  \item natural-language entry (``lunch with Fia next Tuesday at 1'') parsed into a structured event before it is written;
+  \item a confirmation step before any write, consistent with the house rule that outward or hard-to-reverse actions are confirmed first.
+\end{itemize}
+
+\subsection{Two bodies, one wizard}
+
+DateWizard ships in the same two forms the other wizards already take:
+
+\begin{enumerate}
+  \item \textbf{In-piece overlay.} Inside the \texttt{cal} piece, DateWizard is a modal layer drawn with the standard UI primitives (\texttt{ui.Button}, \texttt{ui.TextInput}). This is what a human taps ``add'' to get.
+  \item \textbf{Claude-poppable surface.} For Claude to ``pop up'' DateWizard the way it triggers RFA, the wizard is also reachable as a launchable target: a Slab/menu-bar action that opens \texttt{cal} focused on the add-flow, and an agent-facing path (an MCP-style tool over the same \texttt{/api/cal} endpoints) so Claude can read the day and draft appointments for approval. Because both bodies write through aesthetical, there is exactly one calendar regardless of who is driving.
+\end{enumerate}
+
+\section{The Aesthetical Backend}
+
+\subsection{Endpoint shape}
+
+Aesthetical is a backend function, \texttt{system/netlify/functions/cal.mjs}, served by lith at \texttt{/api/cal}. It follows the canonical AC CRUD shape used by \texttt{store-kidlisp.mjs} and \texttt{mood.mjs}: authorize, resolve the handle, connect, operate, disconnect.
+
+\begin{quote}\small\ttfamily
+import \{ authorize, getHandleOrEmail \}\\
+\hspace*{1em}from "../../backend/authorization.mjs";\\
+import \{ connect \}\\
+\hspace*{1em}from "../../backend/database.mjs";\\[0.4em]
+export async function handler(event) \{\\
+\hspace*{1em}const user = await authorize(event.headers);\\
+\hspace*{1em}const handle =\\
+\hspace*{2em}await getHandleOrEmail(user.sub);\\
+\hspace*{1em}const db = await connect();\\
+\hspace*{1em}const cal = db.db.collection("calendar");\\
+\hspace*{1em}// GET range / POST create / PUT edit / DELETE\\
+\hspace*{1em}await db.disconnect();\\
+\}
+\end{quote}
+
+Reads of a public calendar (\texttt{@handle/cal}) skip the \texttt{authorize} step and filter on the visibility flag; all writes require a valid token whose \texttt{sub} owns the event.
+
+\subsection{Data model}
+
+Events are keyed by Auth0 \texttt{sub} (the stable per-account id), with the \texttt{@handle} denormalized in for display and feed lookups --- the same choice moods and paintings make. The \texttt{@handles} collection maps \texttt{sub}\,$\leftrightarrow$\,handle; aesthetical never trusts a handle supplied by the client.
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{l X}
+\toprule
+\textbf{Field} & \textbf{Meaning} \\
+\midrule
+\texttt{user} & Auth0 \texttt{sub} --- owner, the key \\
+\texttt{handle} & denormalized \texttt{@handle} for display \\
+\texttt{uid} & stable event id (maps to iCal \texttt{UID}) \\
+\texttt{title} & summary line \\
+\texttt{start} / \texttt{end} & ISO instants (UTC) \\
+\texttt{tz} & IANA zone the event was authored in \\
+\texttt{allDay} & boolean \\
+\texttt{rrule} & RFC 5545 recurrence rule, optional \\
+\texttt{note} & free text / description \\
+\texttt{visibility} & \texttt{private} \textbar{} \texttt{public} \\
+\texttt{when} & server write timestamp \\
+\texttt{seq} & revision counter for sync / ETag \\
+\bottomrule
+\end{tabularx}
+\caption{The \texttt{calendar} collection document.}
+\label{tab:schema}
+\end{table}
+
+\subsection{Indexes and operations}
+
+A compound index \texttt{\{ user: 1, start: 1 \}} serves the dominant query --- one owner's events within a date range --- and \texttt{\{ user: 1, uid: 1 \}} (unique) backs idempotent upsert by \texttt{UID}, which is what makes \texttt{.ics} import and CalDAV writes safe to retry. Table~\ref{tab:endpoints} lists the surface.
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{l X}
+\toprule
+\textbf{Route} & \textbf{Purpose} \\
+\midrule
+\texttt{GET /api/cal?from\&to} & events in the range for the caller (auth) \\
+\texttt{GET /api/cal?code=} & public feed by permahandle (canonical) \\
+\texttt{GET /api/cal?handle=} & public feed by \texttt{@handle} (alias) \\
+\texttt{\dots\&format=ics} & same, serialized as RFC 5545 \texttt{.ics} \\
+\texttt{POST /api/cal} & create an event (auth) \\
+\texttt{PUT /api/cal} & edit by \texttt{uid} (bumps \texttt{seq}, auth) \\
+\texttt{DELETE /api/cal?uid=} & remove (auth) \\
+\texttt{POST /api/cal \{import\}} & ingest an \texttt{.ics} URL or text (auth) \\
+\bottomrule
+\end{tabularx}
+\caption{Aesthetical endpoints.}
+\label{tab:endpoints}
+\end{table}
+
+Optional, mirroring moods: emit a profile event on write so a handle's public timeline can surface upcoming public dates, and reserve an ATProto record type for later federation.
+
+\section{Standard-Format Interchange}
+
+The system speaks iCalendar~\citep{rfc5545} at its edge so that \texttt{cal} is never a silo. The mapping is direct because the data model was chosen to match: \texttt{uid}\,$\to$\,\texttt{UID}, \texttt{title}\,$\to$\,\texttt{SUMMARY}, \texttt{start}/\texttt{end}\,$\to$\,\texttt{DTSTART}/\texttt{DTEND} (with \texttt{VALUE=DATE} for all-day), \texttt{rrule}\,$\to$\,\texttt{RRULE}, \texttt{note}\,$\to$\,\texttt{DESCRIPTION}, \texttt{seq}\,$\to$\,\texttt{SEQUENCE}.
+
+\begin{itemize}
+  \item \textbf{Export (live).} \texttt{GET /api/cal?code=<permahandle>\&format=ics} returns a \texttt{VCALENDAR} of that owner's public events, subscribable read-only from Apple Calendar, Google Calendar, or any RFC~5545 client. The permahandle keys the feed so the subscription URL never breaks; \texttt{?handle=} resolves the same feed by mutable alias.
+  \item \textbf{Import (live).} \texttt{POST /api/cal} with an \texttt{\{import:\,\{url\}\}} body fetches an external \texttt{.ics} (e.g.\ a Google Calendar ``secret address in iCal format'' URL, \texttt{webcal://} accepted) and upserts each \texttt{VEVENT} by \texttt{UID} (prefixed \texttt{ics:}), so re-importing edits rather than duplicates. This is the self-serve path for pulling an existing calendar in; an agent can also drive it directly through DateWizard.
+  \item \textbf{CalDAV (later).} Two-way editing from native clients via CalDAV~\citep{rfc4791} --- \texttt{PROPFIND}/\texttt{REPORT}/\texttt{PUT}/\texttt{DELETE}, ETags from \texttt{seq}, sync-tokens for deltas, \texttt{.well-known} discovery --- is deferred to a dedicated phase because its surface dwarfs the rest of the feature. The \texttt{uid}/\texttt{seq} fields are in the schema from day one precisely so this phase needs no migration.
+\end{itemize}
+
+Both the serializer and the parser are hand-rolled in the backend (no \texttt{ical.js}/\texttt{rrule.js} dependency); the piece stays format-agnostic and talks JSON.
+
+\section{Per-Handle Sync and Sharing}
+
+Because every event is keyed by \texttt{sub} and stamped with a \texttt{@handle}, a calendar \emph{is} a handle's calendar. Sync across a user's devices is automatic: any client that authenticates with the same Auth0 identity sees the same \texttt{GET /api/cal} results. The canonical address of that calendar, though, is the owner's \emph{permahandle} --- the immutable \texttt{ac25\dots} code on the \texttt{users} record, distinct from the renameable \texttt{@handle} --- so a subscription URL survives any handle change. The sharing posture mirrors how moods and paintings already expose per-handle public feeds:
+
+\begin{itemize}
+  \item \textbf{Private by default.} New events are \texttt{visibility:\,private}; only the owner's authenticated requests return them. The DateWizard form carries a private/public toggle.
+  \item \textbf{Opt-in public.} An event marked \texttt{public} appears in that owner's permahandle feed (and its \texttt{@handle} alias) and in the \texttt{.ics} export --- a read-only window others can view or subscribe to, never write.
+  \item \textbf{Future: named calendars.} The schema's room for a \texttt{calendar} label leaves the door open to \texttt{@jeffrey/cal/shows} versus \texttt{.../studio} without a breaking change.
+\end{itemize}
+
+\section{Desktop Menu-Bar Surface}
+
+The AC desktop (Electron) app already runs a system-tray icon --- the pink ``pals'' logo whose context menu launches the nom muncher games by navigating a webview to \texttt{aesthetic.computer/<piece>}. The app also carries a second, currently-disabled tray (\texttt{createNotepatTray}) that is the exact template for a dedicated calendar icon: its own \texttt{Tray}, its own template-image asset, its own context menu, opening its own framed window.
+
+A \texttt{createCalendarTray} added beside it gives \texttt{cal} a first-class menu-bar home:
+
+\begin{itemize}
+  \item a dedicated \texttt{calendarTrayTemplate.png} icon (monochrome template on macOS), distinct from the pals logo;
+  \item a context menu --- \emph{Calendar}, \emph{Add Appointment} (opens DateWizard's add-flow), and \emph{Day / Week / Month} items that navigate to \texttt{cal:day} \textbar{} \texttt{cal:week} \textbar{} \texttt{cal:month};
+  \item a left-click that opens a small framed window loading the \texttt{cal} piece via the existing flip-view renderer, exactly as the notepat window does.
+\end{itemize}
+
+On the menu bar, then, the calendar sits next to the nom games as a sibling: same launcher mechanics, same piece-over-webview loading, one more verb in the same instrument. The same \texttt{cal} piece is simultaneously the website calendar, the native-OS calendar, and the contents of this window --- one artifact, three surfaces.
+
+\section{Implementation}
+
+The shipped system is small --- one backend function, one piece, one shared engine, and a tray addition --- because it borrows the rest (auth, DB, handles, the piece runtime, the desktop shell) from the platform. Table~\ref{tab:files} is the whole of it.
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{l X}
+\toprule
+\textbf{Component} & \textbf{Role} \\
+\midrule
+\texttt{functions/cal.mjs} & the \emph{aesthetical} backend: CRUD, range/public reads, \texttt{.ics} export serializer + import parser \\
+\texttt{disks/cal.mjs} & the piece: month/week/day views + DateWizard (week readout, add/edit/delete, import) \\
+\texttt{lib/cal.mjs} & dependency-free engine: grids, week/day layout, \texttt{expandRecurrences} \\
+\texttt{ac-electron} & \texttt{createCalendarTray} + template icon \\
+\texttt{calendar} (Mongo) & the event store, keyed \texttt{\{user,uid\}} \\
+\texttt{prompt-commands} & registers the \texttt{cal} verb \\
+\bottomrule
+\end{tabularx}
+\caption{The whole implementation. Everything else (Auth0, MongoDB, the \texttt{@handles}/permahandle resolvers, \texttt{net.userRequest}, the piece lifecycle, the Electron tray runtime) is reused unchanged.}
+\label{tab:files}
+\end{table}
+
+The data path is one loop: the piece calls \texttt{net.userRequest} $\to$ \texttt{functions/cal.mjs} authorizes the bearer, resolves the \texttt{sub}, and reads or writes the \texttt{calendar} collection $\to$ the response is laid out by \texttt{lib/cal.mjs} and drawn by the piece. Public reads and the \texttt{.ics} feed branch off the same function by permahandle. The Electron tray and the AC Native OS surface are not separate clients --- they load the same \texttt{disks/cal.mjs} over a webview, so there is exactly one piece behind all three faces.
+
+The work decomposed into phases that each left something usable; phases 1--5 are deployed, the last is the open stretch:
+
+\begin{enumerate}
+  \item \textbf{Store \& piece (v1).} \emph{(shipped)} \texttt{calendar} collection + \texttt{GET}/\texttt{POST} on \texttt{/api/cal}; \texttt{disks/cal.mjs} with a month view and local-only fallback; \texttt{cal} registered as a command.
+  \item \textbf{Edit \& views.} \emph{(shipped)} \texttt{PUT}/\texttt{DELETE}; week and day views; the shared \texttt{lib/cal.mjs} engine; recurrence expansion (\texttt{rrule}) for display.
+  \item \textbf{DateWizard.} \emph{(shipped)} week read-out $\rightleftarrows$ add/edit overlay; the Claude-poppable launch path and an agent-facing path over \texttt{/api/cal}.
+  \item \textbf{iCalendar edge.} \emph{(shipped)} \texttt{.ics} export feed keyed by permahandle + \texttt{.ics} URL import; public-visibility toggle.
+  \item \textbf{Desktop \& native.} \emph{(shipped)} \texttt{createCalendarTray} in the Electron app; the same piece serves the website, the native OS, and the tray window.
+  \item \textbf{CalDAV (stretch).} \emph{(open)} two-way sync for native clients, built on the \texttt{uid}/\texttt{seq} fields already present; a Google Calendar API bridge for live bidirectional sync is the sibling open item.
+\end{enumerate}
+
+\section{Next Phase: Events, Invites, and Aestheticks}
+
+Today an AesthetiCal entry is a private appointment. The next phase generalizes it into a public, bookable \emph{show}: an event with a host, a venue, a capacity, and a guest list, so that a space or collective can post an open slot, an artist can book it, and an audience can be invited and ticketed --- all addressable by URL like everything else in the system.
+
+The schema already leans this way. A show is just an event with \texttt{visibility:\,public} plus a few fields --- \texttt{kind:\,"show"}, \texttt{host} (a handle), \texttt{venue}, \texttt{capacity} --- and two new relations layered on the existing store:
+
+\begin{itemize}
+  \item \textbf{Invites / RSVP.} An invited \texttt{@handle} sees the show appear on \emph{their} AesthetiCal as a tentative entry (a cross-handle write, the same broadcast mechanism moods and paintings already use to fan out to a profile feed), and can accept or decline. The host's guest list is the set of accepted handles. An \texttt{.ics} \texttt{VEVENT} carries the same invite to anyone outside AC, so an invitation is just a calendar URL.
+  \item \textbf{Booking.} A venue handle publishes an open slot (a show with no host yet); an artist claims it. Because slots are events, the whole booking calendar of a space --- e.g.\ a room like the one at \texttt{laklok} --- is a subscribable public feed, and double-booking is a uniqueness constraint, not a workflow.
+\end{itemize}
+
+This is where \textbf{Aestheticks} enters --- the ticketing surface to AesthetiCal's almanac. AesthetiCal owns the \emph{when} and \emph{where}; Aestheticks owns \emph{who holds a ticket}. A ticket is a per-handle record granting entry to a show; the guest list is the set of ticket holders, capped at \texttt{capacity}. Free shows issue RSVP tickets; paid or limited shows can mint tickets on Tezos, reusing the platform's existing minting path, so a ticket is a real on-chain (or off-chain) object a holder owns rather than a row in someone else's database. Entry is verified the way AC already verifies everything: a handle, a signature, a QR code from \texttt{share}. Nothing here is a new app --- a show is a calendar event, an invite is a URL, a ticket is a record, and the venue's season is an \texttt{.ics} feed.
+
+\section{Conclusion}
+
+\texttt{cal} treats time the way \ac{} treats everything else: not as an application to be bolted on but as a medium to be addressed. A day is a URL, an appointment is a document keyed to a handle, and a calendar is a piece that happens to run on a website, on bare metal, and inside a menu-bar window without being rewritten for any of them. The standards live at the edge --- iCalendar out, iCalendar in, CalDAV when it earns its keep --- while the center stays plain JSON that the rest of the system already knows how to sync. DateWizard makes the same store conversational, so that adding ``next Tuesday at 1'' is a step-through the human taps or the agent drafts. The bet is modest and consistent with the rest of the platform: if the system can own the day the way it owns the screen and the synth, scheduling around the work can finally happen \emph{inside} the work.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

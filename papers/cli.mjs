@@ -222,6 +222,11 @@ const PAPER_MAP = {
     siteName: "nom-games-26-arxiv",
     title: "The nom Games",
   },
+  "arxiv-cal": {
+    base: "cal",
+    siteName: "cal-aesthetical-26-arxiv",
+    title: "AesthetiCal: A URL-Addressable Calendar",
+  },
   "cv": {
     base: "cv",
     siteName: "jeffrey-alan-scudder-cv",
@@ -369,6 +374,7 @@ const CATEGORIES = [
       "arxiv-api",
       "arxiv-pieces",
       "arxiv-notepat",
+      "arxiv-cal",
       "arxiv-kidlisp-reference",
       "arxiv-kidlisp-cards",
       "arxiv-keymaps",
@@ -974,6 +980,11 @@ function updateIndex(entries) {
       detail: "From Keyboard Toy to System Front Door &middot; arXiv 5pp",
       abstract:
         "notepat.com is framed as a keyboard-first front door to the system. The paper follows the toy-like input surface as it grows into a fuller creative interface.",
+    },
+    "cal-aesthetical-26-arxiv": {
+      detail: "A URL-Addressable Calendar for Aesthetic Computer &middot; arXiv 6pp",
+      abstract:
+        "AesthetiCal adds time to Aesthetic Computer as a piece, not a second app: month/week/day views and a DateWizard share a per-handle synced store, addressable by permahandle and interchangeable as standard iCalendar. The paper describes the shipped v1 and sketches the next phase — bookable shows, invites, and the Aestheticks ticketing tie-in.",
     },
     "radical-computer-art-26-arxiv": {
       detail: "Goodiepalian Approaches in Aesthetic Computer &middot; arXiv 5pp",

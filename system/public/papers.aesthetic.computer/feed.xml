@@ -5,13 +5,31 @@
   <link rel="alternate" type="text/html" href="https://papers.aesthetic.computer/"/>
   <link rel="self" type="application/atom+xml" href="https://papers.aesthetic.computer/feed.xml"/>
   <id>https://papers.aesthetic.computer/</id>
-  <updated>2026-06-13T23:44:42.265Z</updated>
+  <updated>2026-06-15T19:47:40.190Z</updated>
   <author>
     <name>@jeffrey</name>
     <uri>https://prompt.ac/@jeffrey</uri>
   </author>
   <icon>https://papers.aesthetic.computer/papers-og.jpg</icon>
   <rights>CC BY 4.0 unless noted otherwise.</rights>
+  <entry>
+    <title>Jeffrey Alan Scudder — CV</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/jeffrey-alan-scudder-cv.pdf"/>
+    <id>https://papers.aesthetic.computer/jeffrey-alan-scudder-cv.pdf</id>
+    <updated>2026-06-15T19:47:40.190Z</updated>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+  </entry>
+  <entry>
+    <title>AesthetiCal: A URL-Addressable Calendar</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/cal-aesthetical-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/cal-aesthetical-26-arxiv.pdf</id>
+    <updated>2026-06-15T00:00:00.000Z</updated>
+    <published>2026-06-15T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">A URL-Addressable Calendar for Aesthetic Computer · arXiv 6pp — AesthetiCal adds time to Aesthetic Computer as a piece, not a second app: month/week/day views and a DateWizard share a per-handle synced store, addressable by permahandle and interchangeable as standard iCalendar. The paper describes the shipped v1 and sketches the next phase — bookable shows, invites, and the Aestheticks ticketing tie-in.</summary>
+  </entry>
   <entry>
     <title>Keymaps as Social Software</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/keymaps-social-software-26-arxiv.pdf"/>
@@ -22,12 +40,34 @@
     <author><name>@jeffrey</name></author>
   </entry>
   <entry>
-    <title>Jeffrey Alan Scudder — CV</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/jeffrey-alan-scudder-cv.pdf"/>
-    <id>https://papers.aesthetic.computer/jeffrey-alan-scudder-cv.pdf</id>
-    <updated>2026-05-23T15:53:13.635Z</updated>
+    <title>The Hand and the Loop</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/hand-and-loop-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/hand-and-loop-26-arxiv.pdf</id>
+    <updated>2026-06-08T00:00:00.000Z</updated>
+    <published>2026-06-08T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
+    <summary type="text">Three Eras of My Own Code: Hand-Written, GPT-Grafted, Agentic · arXiv 4pp — The Hand and the Loop reads AC&apos;s git history across three eras — hand-written, GPT-grafted, and fully agentic — and asks honestly whether the codebase is better off. It weighs 5x velocity and five new subsystems against the loss of instrument-like minimalism, and argues for keeping the loop in the leaves while a human hand carves the foundational libraries.</summary>
+  </entry>
+  <entry>
+    <title>The nom Games</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/nom-games-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/nom-games-26-arxiv.pdf</id>
+    <updated>2026-06-08T00:00:00.000Z</updated>
+    <published>2026-06-08T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Muncher Arcade for Aesthetic Computer · arXiv — The nom games rebuild MECC&apos;s Word and Number Munchers as Aesthetic Computer pieces --- numbnom, engnom, mexinom, and notenom. The paper shows how one shared engine and a reusable virtual synth controller turn each new subject or language into a content table rather than a new game, with the answer key in notenom doubling as a playable instrument.</summary>
+  </entry>
+  <entry>
+    <title>Aesthetic May &apos;26</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-may-26-essay.pdf"/>
+    <id>https://papers.aesthetic.computer/aesthetic-may-26-essay.pdf</id>
+    <updated>2026-05-25T00:00:00.000Z</updated>
+    <published>2026-05-25T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Essay · ~5pp — Aesthetic May &apos;26 is a magazine-style essay companion to Five Years from Now. May is both the month and the modal verb of possibility; the essay reads the present as a field of branching maybes rather than a line of probabilities --- where the music lane may go, what jeffrey may do, what may not happen this year, and the weather acting on all of it. First entry in the essay-* lane.</summary>
   </entry>
   <entry>
     <title>Creative Time — A Dossier</title>
