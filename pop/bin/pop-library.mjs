@@ -49,7 +49,7 @@ function parseReleases() {
 
 // ── walk every pop/**/out for mp3s ─────────────────────────────────────────
 // Lanes whose every track is a kept deliverable (this session's batches).
-const KEEP_ALL = new Set(["minitek", "maytrax"]);
+const KEEP_ALL = new Set(["minitek", "maytrax", "cornerfive"]);
 function walkMp3(dir, acc) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     const p = resolve(dir, e.name);
