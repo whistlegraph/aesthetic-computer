@@ -1000,6 +1000,75 @@ function launchNativeNotepat() {
   }
 }
 
+// ========== Aesthetic Computer account (shared ~/.ac-token) ==========
+// The whole AC suite (ac-os, DateWizard, wizards, slab, menuband, …) shares one
+// login through a single file at ~/.ac-token, written by the `ac-login` CLI
+// (tezos/ac-login.mjs). This app acts as the account manager from its tray:
+// it can sign in (CLI runs the OAuth+PKCE browser flow and writes the file) and
+// sign out (CLI clears it), so every AC tool reads the same session.
+const os = require('os');
+const AC_TOKEN_PATH = path.join(os.homedir(), '.ac-token');
+const acLoginPath = path.join(__dirname, '..', 'tezos', 'ac-login.mjs');
+
+// Read the shared AC session and derive a sign-in status + identity hint.
+// Returns { state: 'signed-in' | 'expired' | 'signed-out', who, expiresAt }.
+// Any failure (missing file, bad JSON, etc.) reads as 'signed-out'.
+function readAcSession() {
+  try {
+    if (!fs.existsSync(AC_TOKEN_PATH)) {
+      return { state: 'signed-out', who: null, expiresAt: null };
+    }
+    const raw = JSON.parse(fs.readFileSync(AC_TOKEN_PATH, 'utf8'));
+    // Identity for display: the token file stores a `user` object (the
+    // access_token itself is an encrypted JWE and not client-decodable).
+    // Show the @handle only — never the email/name (PII).
+    const handle = raw?.user?.handle;
+    const who = handle ? (handle.startsWith('@') ? handle : '@' + handle) : null;
+    const expiresAt = typeof raw?.expires_at === 'number' ? raw.expires_at : null;
+    const state = expiresAt != null && expiresAt <= Date.now() ? 'expired' : 'signed-in';
+    return { state, who, expiresAt };
+  } catch (_) {
+    return { state: 'signed-out', who: null, expiresAt: null };
+  }
+}
+
+// Run the ac-login CLI under Electron's bundled node (no external node needed).
+// No args = interactive login (CLI opens the browser); ['logout'] clears the
+// token. When the child exits we refresh the tray status and notify the suite.
+function runAcLogin(args = []) {
+  if (!fs.existsSync(acLoginPath)) {
+    console.warn('[ac-creds] ac-login CLI not found at', acLoginPath);
+    return;
+  }
+  try {
+    console.log('[ac-creds] running ac-login', args.join(' ') || '(login)');
+    const child = spawn(process.execPath, [acLoginPath, ...args], {
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+      stdio: 'ignore',
+      detached: false,
+    });
+    child.on('error', (err) => {
+      console.warn('[ac-creds] ac-login spawn error:', err?.message || err);
+    });
+    child.on('exit', (code) => {
+      console.log('[ac-creds] ac-login exited with code', code);
+      rebuildTrayMenu();
+      broadcastCredentialsChanged();
+    });
+  } catch (err) {
+    console.warn('[ac-creds] failed to run ac-login:', err?.message || err);
+  }
+}
+
+// Signal the rest of the AC suite that the shared token changed.
+// Suite apps (DateWizard, wizards, slab, menuband) read ~/.ac-token directly;
+// a future enhancement can post an NSDistributedNotification here for instant
+// refresh. The real cross-app mechanism is the shared file itself.
+function broadcastCredentialsChanged() {
+  console.log('[ac-creds] credentials changed; ~/.ac-token updated');
+}
+// ========== End Aesthetic Computer account ==========
+
 // ========== System Tray ==========
 let tray = null;
 let notepatTray = null;
@@ -1264,6 +1333,25 @@ function rebuildTrayMenu() {
 
   // Prompt (home).
   menuItems.push({ label: 'prompt', click: () => navigateToPiece('prompt') });
+
+  // Aesthetic Computer account section — manages the shared ~/.ac-token that
+  // the rest of the AC suite reads. Sign in writes it (OAuth+PKCE via the
+  // ac-login CLI), sign out clears it.
+  menuItems.push({ type: 'separator' });
+  if (!fs.existsSync(acLoginPath)) {
+    menuItems.push({ label: 'AC sign-in unavailable', enabled: false });
+  } else {
+    const session = readAcSession();
+    if (session.state === 'signed-in') {
+      menuItems.push({ label: `✓ AC: ${session.who || 'signed in'}`, enabled: false });
+      menuItems.push({ label: 'Sign out', click: () => runAcLogin(['logout']) });
+    } else if (session.state === 'expired') {
+      menuItems.push({ label: 'AC session expired', enabled: false });
+      menuItems.push({ label: 'Sign in to Aesthetic Computer', click: () => runAcLogin() });
+    } else {
+      menuItems.push({ label: 'Sign in to Aesthetic Computer', click: () => runAcLogin() });
+    }
+  }
 
   menuItems.push({ type: 'separator' });
 
