@@ -38,7 +38,10 @@ export async function handler(event) {
 
           // Resolve handles from subs
           for (const u of userStats) {
-            const handleDoc = await handlesCol.findOne({ user: u.user });
+            const handleDoc = await handlesCol.findOne(
+              { user: u.user },
+              { projection: { _id: 1, handle: 1 } }, // never pull secret fields into memory
+            );
             topUsers.push({
               handle: handleDoc?._id || null,
               hits: u.hits,

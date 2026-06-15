@@ -7,6 +7,7 @@
 import { authorize } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
+import { getDeviceCreds } from "../../backend/device-creds.mjs";
 
 function generateCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no I/O/0/1 for clarity
@@ -101,12 +102,14 @@ export async function handler(event) {
         const user = await authorize(event.headers);
         if (!user) return respond(401, { message: "unauthorized" });
 
-        // Look up handle + device tokens
+        // Look up handle (for display) + device creds (from the dedicated store)
         const handleDoc = await database.db
           .collection("@handles")
-          .findOne({ _id: user.sub });
+          .findOne({ _id: user.sub }, { projection: { handle: 1 } });
         if (!handleDoc)
           return respond(404, { message: "No handle found for this account" });
+
+        const creds = await getDeviceCreds(database.db, user.sub);
 
         // Get the auth token from the request (pass it through to the device)
         const authHeader = event.headers.authorization || "";
@@ -124,8 +127,8 @@ export async function handler(event) {
               sub: user.sub,
               email: user.email || "",
               token: authToken,
-              claudeToken: handleDoc.claudeCodeToken || "",
-              githubPat: handleDoc.githubPat || "",
+              claudeToken: creds?.claudeToken || "",
+              githubPat: creds?.githubPat || "",
             },
           },
         );

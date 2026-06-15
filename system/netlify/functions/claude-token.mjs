@@ -11,6 +11,7 @@
 import { authorize, hasAdmin } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
+import { getDeviceCreds, setDeviceCreds } from "../../backend/device-creds.mjs";
 
 export async function handler(event) {
   // GET: Retrieve tokens for the authenticated user — or, when an admin
@@ -23,24 +24,29 @@ export async function handler(event) {
     const targetHandle = event.queryStringParameters?.handle;
     const database = await connect();
     try {
+      // Resolve which handle/sub we're fetching creds for (self, or another
+      // handle when an admin is flashing on their behalf).
       let existing;
       if (targetHandle) {
         const isAdmin = await hasAdmin(user, "aesthetic");
         if (!isAdmin) return respond(403, { message: "admin only" });
         existing = await database.db
           .collection("@handles")
-          .findOne({ handle: targetHandle });
+          .findOne({ handle: targetHandle }, { projection: { handle: 1 } });
       } else {
         existing = await database.db
           .collection("@handles")
-          .findOne({ _id: user.sub });
+          .findOne({ _id: user.sub }, { projection: { handle: 1 } });
       }
       if (!existing) return respond(404, { message: "Handle not found" });
+
+      // Creds live in the dedicated device-creds store, keyed by sub.
+      const creds = await getDeviceCreds(database.db, existing._id);
       return respond(200, {
         handle: existing.handle,
         sub: existing._id,
-        token: existing.claudeCodeToken || null,
-        githubPat: existing.githubPat || null,
+        token: creds?.claudeToken || null,
+        githubPat: creds?.githubPat || null,
       });
     } finally {
       await database.disconnect();
@@ -59,32 +65,28 @@ export async function handler(event) {
       return respond(400, { message: "Invalid JSON" });
     }
 
-    const updates = {};
-    if (body.token && body.token.startsWith("sk-ant-")) {
-      updates.claudeCodeToken = body.token;
-      updates.claudeCodeTokenUpdated = new Date();
-    }
-    if (body.githubPat && body.githubPat.startsWith("ghp_")) {
-      updates.githubPat = body.githubPat;
-      updates.githubPatUpdated = new Date();
-    }
-
-    if (Object.keys(updates).length === 0) {
-      return respond(400, { message: "No valid tokens provided" });
-    }
-
     const database = await connect();
     try {
       const handles = database.db.collection("@handles");
-      const existing = await handles.findOne({ _id: user.sub });
+      const existing = await handles.findOne(
+        { _id: user.sub },
+        { projection: { handle: 1 } },
+      );
       if (!existing) return respond(404, { message: "Handle not found" });
 
-      await handles.updateOne({ _id: user.sub }, { $set: updates });
+      // Write into the dedicated device-creds store (never onto @handles).
+      const { saved } = await setDeviceCreds(database.db, user.sub, {
+        claudeToken: body.token,
+        githubPat: body.githubPat,
+      });
+      if (saved.length === 0) {
+        return respond(400, { message: "No valid tokens provided" });
+      }
 
       return respond(200, {
         message: `Tokens saved for @${existing.handle}`,
         handle: existing.handle,
-        saved: Object.keys(updates).filter((k) => !k.endsWith("Updated")),
+        saved,
       });
     } finally {
       await database.disconnect();
