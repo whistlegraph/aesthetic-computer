@@ -303,14 +303,16 @@ static const GMProgramParams gm_piano_programs[GM_PIANO_PROGRAM_COUNT] = {
       .dual_cents = 14.0, .drive = 0.0,
       .bodyf = {120.0, 236.0, 430.0}, .bodyq = {6.0, 8.0, 9.0},
       .bodyg = {0.15, 0.10, 0.06} },
-    // GM 5 — Electric Piano 1 (Rhodes tine)
+    // GM 5 — Electric Piano 1 (Rhodes tine): crisp bell ping (high tine ratio +
+    // hotter, faster-decaying tine index) over a warm sustained body operator.
     { .engine = GM_ENGINE_EPIANO, .fm_ratio = 1.0, .fm_index0 = 1.2, .fm_index_ms = 700.0,
-      .fm_tine_ratio = 14.0, .fm_tine_index0 = 0.9, .fm_tine_ms = 18.0,
-      .fm_pickup = 0.18 },
-    // GM 6 — Electric Piano 2 (Wurli reed)
+      .fm_tine_ratio = 14.0, .fm_tine_index0 = 1.6, .fm_tine_ms = 11.0,
+      .fm_pickup = 0.20 },
+    // GM 6 — Electric Piano 2 (Wurli reed): more bark — harder, brighter strike
+    // (hotter tine + slightly longer ping) and a grittier pickup nonlinearity.
     { .engine = GM_ENGINE_EPIANO, .fm_ratio = 2.0, .fm_index0 = 1.6, .fm_index_ms = 420.0,
-      .fm_tine_ratio = 10.0, .fm_tine_index0 = 0.7, .fm_tine_ms = 14.0,
-      .fm_pickup = 0.34 },
+      .fm_tine_ratio = 10.0, .fm_tine_index0 = 1.3, .fm_tine_ms = 16.0,
+      .fm_pickup = 0.40 },
     // GM 7 — Harpsichord
     { .engine = GM_ENGINE_PLUCK, .ks_stretch = 0.9965, .ks_loop_b = 0.18,
       .ks_beta = 0.13, .ks_pick = 0.95, .ks_drive = 0.0 },
@@ -742,14 +744,17 @@ typedef struct {
     GMProgramParams p;
 } GMSynthBassRow;
 static const GMSynthBassRow gm_synthbass_programs[] = {
+    // sb_sub is an octave-below sine — kept low so the NAMED fundamental stays
+    // dominant (a hot sub fools pitch trackers into reading an octave low; the
+    // new TPT filter no longer masks it with resonant ring as the old one did).
     { 38, { .engine = GM_ENGINE_SYNTHBASS, .sb_o2_cents = -7.0, .sb_o2_mix = 0.7,
-            .sb_sub = 0.4, .sb_cut0 = 2600.0, .sb_cut1 = 380.0, .sb_cut_ms = 150.0,
-            .sb_res = 0.55, .sb_psweep = 1.12, .sb_psweep_ms = 10.0,
+            .sb_sub = 0.18, .sb_cut0 = 2600.0, .sb_cut1 = 420.0, .sb_cut_ms = 150.0,
+            .sb_res = 0.5, .sb_psweep = 1.12, .sb_psweep_ms = 10.0,
             .sb_sustained = 0 } },
     { 39, { .engine = GM_ENGINE_SYNTHBASS, .sb_o2_cents = 0.0, .sb_o2_mix = 0.6,
-            .sb_o2_sq = 1, .sb_sub = 0.3, .sb_fm0 = 1.4, .sb_fm_ms = 80.0,
-            .sb_cut0 = 3200.0, .sb_cut1 = 320.0, .sb_cut_ms = 110.0,
-            .sb_res = 0.7, .sb_psweep = 1.12, .sb_psweep_ms = 8.0,
+            .sb_o2_sq = 1, .sb_sub = 0.08, .sb_fm0 = 1.4, .sb_fm_ms = 80.0,
+            .sb_cut0 = 3200.0, .sb_cut1 = 360.0, .sb_cut_ms = 110.0,
+            .sb_res = 0.6, .sb_psweep = 1.10, .sb_psweep_ms = 7.0,
             .sb_sustained = 0 } },
     { 109, { .engine = GM_ENGINE_SYNTHBASS, .sb_o2_cents = 4.0, .sb_o2_mix = 0.5,
              .sb_cut0 = 4200.0, .sb_cut1 = 4200.0, .sb_cut_ms = 5.0, .sb_res = 0.3,
@@ -1135,13 +1140,13 @@ static const GMProgramParams gm_choir_program = {  // 53 Choir Aahs — /a/, 3 v
     .engine = GM_ENGINE_FORMANT, .fmt_nsrc = 3, .fmt_src_sq = 0, .fmt_detune_cents = 7.0,
     .fmt_f = {600.0, 1040.0, 2250.0}, .fmt_bw = {60.0, 70.0, 110.0},
     .fmt_gain_db = {0.0, -7.0, -9.0}, .fmt_attack_ms = 120.0, .fmt_breath = 0.05,
-    .fmt_vib_hz = 5.5, .fmt_vib_depth = 0.012, .fmt_out_scale = 1.6,
+    .fmt_vib_hz = 5.5, .fmt_vib_depth = 0.012, .fmt_out_scale = 5.3,
 };
 static const GMProgramParams gm_voiceoohs_program = {  // 54 Voice Oohs — /u/, 3 voices
     .engine = GM_ENGINE_FORMANT, .fmt_nsrc = 3, .fmt_src_sq = 0, .fmt_detune_cents = 7.0,
     .fmt_f = {350.0, 600.0, 2400.0}, .fmt_bw = {40.0, 80.0, 100.0},
     .fmt_gain_db = {0.0, -20.0, -32.0}, .fmt_attack_ms = 140.0, .fmt_breath = 0.04,
-    .fmt_vib_hz = 5.2, .fmt_vib_depth = 0.012, .fmt_out_scale = 1.8,
+    .fmt_vib_hz = 5.2, .fmt_vib_depth = 0.012, .fmt_out_scale = 6.0,
 };
 static const GMProgramParams gm_synthvoice_program = {  // 55 Synth Voice — solo, neutral
     .engine = GM_ENGINE_FORMANT, .fmt_nsrc = 1, .fmt_src_sq = 0, .fmt_detune_cents = 0.0,
@@ -2682,9 +2687,19 @@ static inline double generate_gmpiano_sample(GMVoice *v, double sample_rate,
 static inline double generate_epiano_sample(GMVoice *v, double sample_rate,
                                              double env) {
     (void)sample_rate;
+    // 3-operator Rhodes/Wurlitzer tine FM: a carrier modulated by a warm BODY
+    // operator (ratio≈1-2, slow index decay → the sustain "tone") plus a high-
+    // ratio TINE operator (fast index decay → the metallic bell "ping" attack).
     double bodymod = wt_sin(v->fm_mphase) * v->fm_index;
-    double tinemod = wt_sin(v->fm_tphase) * v->fm_tindex;
-    double car = wt_sin(v->fm_cphase + bodymod + tinemod);
+    // The tine PINGS: its own self-FM (a touch of feedback on the tine operator)
+    // sharpens the bell partial into a brighter, slightly inharmonic strike that
+    // decays to nothing — the "tine bark" you hear on a hard note. The feedback
+    // term is the tine's previous output (stored in fm_hp_x1's sibling fm_tindex
+    // is in use, so reuse the body op's last value is unsafe) — instead fold a
+    // small cubic on the tine itself, which adds the odd-harmonic bell edge.
+    double traw = wt_sin(v->fm_tphase);
+    double tine = (traw + 0.30 * traw * traw * traw) * v->fm_tindex;
+    double car = wt_sin(v->fm_cphase + bodymod + tine);
     v->fm_cphase += v->fm_cinc;  if (v->fm_cphase >= 1.0) v->fm_cphase -= 1.0;
     v->fm_mphase += v->fm_minc;  if (v->fm_mphase >= 1.0) v->fm_mphase -= 1.0;
     v->fm_tphase += v->fm_tinc;  if (v->fm_tphase >= 1.0) v->fm_tphase -= 1.0;
@@ -2692,12 +2707,21 @@ static inline double generate_epiano_sample(GMVoice *v, double sample_rate,
     v->fm_tindex *= v->fm_tindex_dec;
     double x = car;
     if (v->fm_pickup_bias > 0.0) {
-        double biased = tanh(x + v->fm_pickup_bias);
+        // Electromagnetic pickup nonlinearity. The tine swings ASYMMETRICALLY
+        // past the pickup coil, so the transfer is biased; and the coil saturates
+        // more as the tine swings wider, which on a HARD strike (large |x| while
+        // the tine index is still high) adds extra grit/"bark". Model both: a DC
+        // bias (asymmetry → even harmonics) and an amplitude-dependent drive.
+        double drive = 1.0 + 1.6 * v->fm_pickup_bias;
+        double biased = tanh(drive * x + v->fm_pickup_bias);
+        // De-bias and DC-block (one-pole HP) so the steady tone has no offset but
+        // the per-cycle asymmetry survives as harmonic colour.
         double y = biased - v->fm_hp_x1 + 0.999 * v->fm_hp_y1;
         v->fm_hp_x1 = biased;
         v->fm_hp_y1 = y;
-        x = y;
+        x = y / drive;            // normalise so loudness ~independent of drive
     }
+    if (!isfinite(x)) x = 0.0;
     return x * env;
 }
 
@@ -2869,12 +2893,30 @@ static inline double generate_synthbass_sample(GMVoice *v, double sample_rate,
 
     v->sb_cut = v->sb_cut_target + (v->sb_cut - v->sb_cut_target) * v->sb_cut_dec;
     double fc = clampd(v->sb_cut, 30.0, sample_rate * 0.45);
-    double g = 1.0 - exp(-2.0 * M_PI * fc / sample_rate);
-    double in = sig - v->sb_res * 4.0 * (v->sb_lp2 - v->sb_bp2);
-    v->sb_lp1 += g * (in - v->sb_lp1);
-    v->sb_lp2 += g * (v->sb_lp1 - v->sb_lp2);
-    v->sb_bp2 = v->sb_lp1;
-    double out = v->sb_lp2;
+    // TPT (zero-delay-feedback) state-variable lowpass — Zavalishin topology.
+    // Unconditionally stable for any cutoff, and resonance is bounded by k=1/Q so
+    // the filter can NEVER self-oscillate into a high ringing tone. The old
+    // ad-hoc cascade with res·4 feedback was conditionally unstable: at the high
+    // start cutoffs + res 0.6-0.7 of programs 38/39/63 it rang at its resonant
+    // peak (~1.9 kHz for SynthBrass 2) which dominated the fundamental and read
+    // ~octave-and-a-half sharp (+3456¢). Here res∈[0,1] → k∈[1.8 … 0.3]; the
+    // oscillator fundamental always passes, and the loop cannot diverge.
+    double gtan = tan(M_PI * fc / sample_rate);   // prewarped cutoff coefficient
+    if (gtan > 8.0) gtan = 8.0;                    // guard near Nyquist
+    double k = 1.8 - 1.5 * clampd(v->sb_res, 0.0, 1.0);  // k = 1/Q, always > 0
+    double a1 = 1.0 / (1.0 + gtan * (gtan + k));
+    double a2 = gtan * a1;
+    // ic1eq → sb_lp1 (bandpass integrator state), ic2eq → sb_lp2 (lowpass state).
+    double v3 = sig - v->sb_lp2;
+    double bp = a1 * v->sb_lp1 + a2 * v3;          // bandpass state
+    double lp = gtan * bp + v->sb_lp2;             // lowpass output
+    v->sb_lp1 = 2.0 * bp - v->sb_lp1;
+    v->sb_lp2 = 2.0 * lp - v->sb_lp2;
+    // Soft-clip the bandpass integrator so a hot resonant peak stays musical
+    // (analog-ish saturation) without letting the loop run away.
+    v->sb_lp1 = tanh(v->sb_lp1);
+    double out = lp;
+    if (!isfinite(out)) { out = 0.0; v->sb_lp1 = v->sb_lp2 = 0.0; }
     return clampd(out, -1.5, 1.5) * env;
 }
 
@@ -3354,18 +3396,43 @@ static inline double generate_formant_sample(GMVoice *v, double sample_rate,
         v->fmt_attack_env += v->fmt_attack_inc;
         if (v->fmt_attack_env > 1.0) v->fmt_attack_env = 1.0;
     }
-    // Buzz source: sum of detuned saws, each with decorrelated vibrato.
+    // Glottal source: sum of detuned voices, each a Rosenberg-style glottal
+    // pulse (NOT a bare saw). A raw saw is a flat -6 dB/oct buzz whose strong
+    // high harmonics swamp the formant peaks — it reads reedy, not vocal. The
+    // Rosenberg pulse has a smooth open phase + abrupt closure, giving the
+    // characteristic ~-12 dB/oct glottal spectrum: the formant resonances then
+    // stand out clearly, so the VOWEL reads. Each voice keeps its decorrelated
+    // vibrato (essential — without it the stack reads as an organ).
     double src = 0.0;
     int n = v->fmt_nsrc;
     for (int i = 0; i < n; i++) {
         double vib = 1.0 + v->fmt_vib_depth * wt_sin(v->fmt_vib_phase[i]);
         v->fmt_vib_phase[i] += v->fmt_vib_inc[i];
         if (v->fmt_vib_phase[i] >= 1.0) v->fmt_vib_phase[i] -= 1.0;
-        src += (2.0 * v->fmt_src_phase[i] - 1.0);
+        // Rosenberg glottal pulse over the open quotient OQ (~0.6): a rising-then-
+        // falling lobe during the open phase, zero (closed) after. Its derivative
+        // (lip radiation) is what excites the tract; here we feed the flow pulse
+        // and let the bandpass formants do the differentiating shaping.
+        double ph = v->fmt_src_phase[i];
+        const double OQ = 0.62;            // open quotient
+        double g;
+        if (ph < OQ * 0.5) {               // opening branch (smooth rise)
+            double t = ph / (OQ * 0.5);
+            g = 0.5 * (1.0 - cos(M_PI * t));         // 0 → 1
+        } else if (ph < OQ) {              // closing branch (faster fall)
+            double t = (ph - OQ * 0.5) / (OQ * 0.5);
+            g = cos(M_PI * 0.5 * t);                 // 1 → 0
+        } else {
+            g = 0.0;                       // closed phase
+        }
+        src += (2.0 * g - 1.0);            // centre around 0
         v->fmt_src_phase[i] += v->fmt_src_inc[i] * vib;
         if (v->fmt_src_phase[i] >= 1.0) v->fmt_src_phase[i] -= 1.0;
     }
     src /= (double)n;
+    // The Rosenberg pulse delivers less through-formant energy than a raw saw;
+    // the per-program out_scale (choir/oohs/voice) is re-tuned to match. (Only
+    // GM 52/53/54 use this engine — 86/92/95 are SUPERSAW, unaffected.)
     // Aspiration / breath noise into the formants (the airy choral texture).
     if (v->fmt_breath_amt > 0.0) {
         double white = ((double)xorshift32(&v->rng_seed) / (double)UINT32_MAX) * 2.0 - 1.0;
