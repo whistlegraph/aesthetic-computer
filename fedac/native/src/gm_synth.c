@@ -574,82 +574,135 @@ static const GMFxParams gm_revcymbal_program = {
 #define GM_GUITAR_FIRST 24
 #define GM_GUITAR_COUNT 8
 static const GMProgramParams gm_guitar_programs[GM_GUITAR_COUNT] = {
+    // 25 Nylon — classical guitar: big light spruce/cedar box. Helmholtz air
+    // mode (~100 Hz) + lowest top-plate mode (~200) + a mid wood mode give the
+    // round, woody "soundbox" tone. ks_pick (=body mix) kept high.
     { .engine = GM_ENGINE_PLUCK, .ks_stretch = 0.9975, .ks_loop_b = 0.30,
       .ks_beta = 0.13, .ks_pick = 0.85, .ks_drive = 0.0,
       .ks_big = 1, .ks_exc_smooth = 0.7, .ks_attack_amp = 0.04, .ks_attack_ms = 4.0,
-      .bodyf = {100.0, 200.0}, .bodyq = {6.0, 8.0}, .bodyg = {0.12, 0.07} },
+      .bodyf = {102.0, 200.0, 392.0}, .bodyq = {6.0, 8.0, 9.0},
+      .bodyg = {0.16, 0.12, 0.07} },
+    // 26 Steel — dreadnought: tighter, brighter box, stronger upper plate mode.
     { .engine = GM_ENGINE_PLUCK, .ks_stretch = 0.9982, .ks_loop_b = 0.16,
       .ks_beta = 0.10, .ks_pick = 0.95, .ks_drive = 0.0,
       .ks_big = 1, .ks_exc_smooth = 0.2, .ks_attack_amp = 0.07, .ks_attack_ms = 2.5,
-      .bodyf = {110.0, 220.0, 400.0}, .bodyq = {7.0, 9.0, 10.0},
-      .bodyg = {0.14, 0.09, 0.05} },
+      .bodyf = {112.0, 224.0, 410.0}, .bodyq = {7.0, 9.0, 10.0},
+      .bodyg = {0.15, 0.11, 0.07} },
+    // 27 Jazz (hollow-body archtop) — woody but boxier/nasal; mid wood mode
+    // pushed up, lower Q so the body "speaks" through the mellow tone.
     { .engine = GM_ENGINE_PLUCK, .ks_stretch = 0.9985, .ks_loop_b = 0.34,
       .ks_beta = 0.18, .ks_pick = 0.80, .ks_drive = 0.0,
-      .ks_big = 1, .ks_exc_smooth = 0.45, .ks_attack_amp = 0.05, .ks_attack_ms = 3.0 },
+      .ks_big = 1, .ks_exc_smooth = 0.45, .ks_attack_amp = 0.05, .ks_attack_ms = 3.0,
+      .bodyf = {130.0, 260.0, 460.0}, .bodyq = {5.0, 6.5, 8.0},
+      .bodyg = {0.13, 0.10, 0.06} },
+    // 28 Clean (solid-body) — no air cavity: a thin wood-mass resonance only, so
+    // it stays bright/electric but is no longer a bald sine. Light body gains.
     { .engine = GM_ENGINE_PLUCK, .ks_stretch = 0.9980, .ks_loop_b = 0.14,
       .ks_beta = 0.12, .ks_pick = 0.90, .ks_drive = 0.0,
-      .ks_big = 1, .ks_exc_smooth = 0.25, .ks_attack_amp = 0.06, .ks_attack_ms = 2.5 },
+      .ks_big = 1, .ks_exc_smooth = 0.25, .ks_attack_amp = 0.06, .ks_attack_ms = 2.5,
+      .bodyf = {185.0, 400.0, 760.0}, .bodyq = {4.0, 5.5, 7.0},
+      .bodyg = {0.08, 0.06, 0.04} },
+    // 29 Muted — small palm-muted thunk: very light, low box just for weight.
     { .engine = GM_ENGINE_PLUCK, .ks_stretch = 0.985, .ks_loop_b = 0.55,
       .ks_beta = 0.12, .ks_pick = 0.90, .ks_drive = 0.0,
-      .ks_big = 1, .ks_exc_smooth = 0.3, .ks_attack_amp = 0.08, .ks_attack_ms = 2.0 },
+      .ks_big = 1, .ks_exc_smooth = 0.3, .ks_attack_amp = 0.08, .ks_attack_ms = 2.0,
+      .bodyf = {150.0, 320.0}, .bodyq = {4.0, 5.5}, .bodyg = {0.07, 0.05} },
+    // 30 Overdrive — solid-body driven: body feeds the post-drive mix and reads
+    // as amp/cabinet body; modest so the saturation stays the star.
     { .engine = GM_ENGINE_PLUCK, .ks_stretch = 0.9988, .ks_loop_b = 0.12,
       .ks_beta = 0.11, .ks_pick = 0.90, .ks_drive = 0.6,
-      .ks_big = 1, .ks_exc_smooth = 0.2, .ks_attack_amp = 0.06, .ks_attack_ms = 2.5 },
+      .ks_big = 1, .ks_exc_smooth = 0.2, .ks_attack_amp = 0.06, .ks_attack_ms = 2.5,
+      .bodyf = {180.0, 420.0, 800.0}, .bodyq = {4.0, 5.0, 6.0},
+      .bodyg = {0.07, 0.05, 0.03} },
+    // 31 Distortion — same solid body, a touch lower so the grind has weight.
     { .engine = GM_ENGINE_PLUCK, .ks_stretch = 0.9991, .ks_loop_b = 0.10,
       .ks_beta = 0.10, .ks_pick = 0.90, .ks_drive = 1.0, .ks_hard = 1,
-      .ks_big = 1, .ks_exc_smooth = 0.15, .ks_attack_amp = 0.05, .ks_attack_ms = 2.5 },
+      .ks_big = 1, .ks_exc_smooth = 0.15, .ks_attack_amp = 0.05, .ks_attack_ms = 2.5,
+      .bodyf = {160.0, 380.0, 720.0}, .bodyq = {4.0, 5.0, 6.0},
+      .bodyg = {0.07, 0.05, 0.03} },
+    // 32 Harmonics — chimey: a faint high body so the flageolet rings in a room.
     { .engine = GM_ENGINE_PLUCK, .ks_stretch = 0.9990, .ks_loop_b = 0.10,
       .ks_beta = 0.5, .ks_pick = 1.0, .ks_drive = 0.2,
-      .ks_big = 1, .ks_exc_smooth = 0.4, .ks_attack_amp = 0.03, .ks_attack_ms = 2.0 },
+      .ks_big = 1, .ks_exc_smooth = 0.4, .ks_attack_amp = 0.03, .ks_attack_ms = 2.0,
+      .bodyf = {200.0, 440.0}, .bodyq = {5.0, 7.0}, .bodyg = {0.06, 0.04} },
 };
 
 // ── Bass plucked (GM 33-38) ──
 #define GM_BASS_FIRST 32
 #define GM_BASS_PLUCK_COUNT 6
 static const GMProgramParams gm_bass_programs[GM_BASS_PLUCK_COUNT] = {
+    // 33 Acoustic Bass — big upright box: deep air mode + low body mode for the
+    // hollow double-bass corpus weight under the round, dark string.
     { .engine = GM_ENGINE_PLUCK, .ks_stretch = 0.996, .ks_loop_b = 0.45,
       .ks_beta = 0.35, .ks_pick = 0.70, .ks_drive = 0.0,
       .ks_big = 1, .ks_exc_smooth = 0.85, .ks_attack_amp = 0.05, .ks_attack_ms = 6.0,
-      .bodyf = {100.0}, .bodyq = {5.0}, .bodyg = {0.15} },
+      .bodyf = {62.0, 100.0, 175.0}, .bodyq = {5.0, 6.0, 7.0},
+      .bodyg = {0.16, 0.12, 0.07} },
+    // 34 Finger Bass — electric body: low solid-body wood-mass resonance, a touch
+    // of mid so the round fingerstyle note sits in a real instrument.
     { .engine = GM_ENGINE_PLUCK, .ks_stretch = 0.998, .ks_loop_b = 0.28,
       .ks_beta = 0.25, .ks_pick = 0.80, .ks_drive = 0.0,
-      .ks_big = 1, .ks_exc_smooth = 0.6, .ks_attack_amp = 0.05, .ks_attack_ms = 4.0 },
+      .ks_big = 1, .ks_exc_smooth = 0.6, .ks_attack_amp = 0.05, .ks_attack_ms = 4.0,
+      .bodyf = {90.0, 180.0, 320.0}, .bodyq = {4.0, 5.5, 7.0},
+      .bodyg = {0.11, 0.08, 0.05} },
+    // 35 Pick Bass — same electric body, brighter mid for the plectrum edge.
     { .engine = GM_ENGINE_PLUCK, .ks_stretch = 0.997, .ks_loop_b = 0.18,
       .ks_beta = 0.12, .ks_pick = 0.92, .ks_drive = 0.0,
-      .ks_big = 1, .ks_exc_smooth = 0.2, .ks_attack_amp = 0.10, .ks_attack_ms = 1.5 },
+      .ks_big = 1, .ks_exc_smooth = 0.2, .ks_attack_amp = 0.10, .ks_attack_ms = 1.5,
+      .bodyf = {95.0, 200.0, 380.0}, .bodyq = {4.0, 5.5, 7.0},
+      .bodyg = {0.10, 0.08, 0.05} },
+    // 36 Fretless — woody, vocal "mwah": deeper, higher-Q box closer to upright.
     { .engine = GM_ENGINE_PLUCK, .ks_stretch = 0.9985, .ks_loop_b = 0.36,
       .ks_beta = 0.30, .ks_pick = 0.78, .ks_drive = 0.0,
-      .ks_big = 1, .ks_exc_smooth = 0.7, .ks_attack_amp = 0.04, .ks_attack_ms = 5.0 },
+      .ks_big = 1, .ks_exc_smooth = 0.7, .ks_attack_amp = 0.04, .ks_attack_ms = 5.0,
+      .bodyf = {78.0, 150.0, 270.0}, .bodyq = {5.0, 6.5, 8.0},
+      .bodyg = {0.14, 0.10, 0.06} },
+    // 37 Slap Bass 1 — tight bright body so the popped string snaps over a box.
     { .engine = GM_ENGINE_PLUCK, .ks_stretch = 0.997, .ks_loop_b = 0.20,
       .ks_beta = 0.20, .ks_pick = 0.88, .ks_drive = 0.0,
       .ks_big = 1, .ks_exc_smooth = 0.15, .ks_attack_amp = 0.22, .ks_attack_ms = 5.0,
-      .ks_attack_bp = 14.0 },
+      .ks_attack_bp = 14.0,
+      .bodyf = {100.0, 220.0, 440.0}, .bodyq = {4.0, 5.0, 6.0},
+      .bodyg = {0.09, 0.07, 0.04} },
+    // 38 Slap Bass 2 — same tight body, slightly lower for the heavier slap.
     { .engine = GM_ENGINE_PLUCK, .ks_stretch = 0.995, .ks_loop_b = 0.16,
       .ks_beta = 0.10, .ks_pick = 0.92, .ks_drive = 0.0,
       .ks_big = 1, .ks_exc_smooth = 0.10, .ks_attack_amp = 0.24, .ks_attack_ms = 3.0,
-      .ks_attack_bp = 22.0, .ks_sec_ms = 10.0, .ks_sec_amp = 0.5 },
+      .ks_attack_bp = 22.0, .ks_sec_ms = 10.0, .ks_sec_amp = 0.5,
+      .bodyf = {90.0, 200.0, 400.0}, .bodyq = {4.0, 5.0, 6.0},
+      .bodyg = {0.09, 0.07, 0.04} },
 };
 
 // ── Ethnic plucked (GM 105-108) ──
 #define GM_ETHNIC_FIRST 104
 static const GMProgramParams gm_ethnic_pluck_programs[4] = {
+    // 105 Sitar — the big hollow gourd (tumba) resonator: a strong low cavity
+    // mode plus mid wood modes give the drony, woody body under the jawari buzz.
     { .engine = GM_ENGINE_PLUCK, .ks_stretch = 0.9985, .ks_loop_b = 0.14,
       .ks_beta = 0.12, .ks_pick = 0.92, .ks_drive = 0.0,
       .ks_big = 1, .ks_exc_smooth = 0.2, .ks_jawari = 0.5,
-      .ks_attack_amp = 0.05, .ks_attack_ms = 2.5 },
+      .ks_attack_amp = 0.05, .ks_attack_ms = 2.5,
+      .bodyf = {190.0, 360.0, 620.0}, .bodyq = {5.0, 7.0, 8.0},
+      .bodyg = {0.15, 0.10, 0.06} },
+    // 106 Banjo — small tight head/pot resonance (kept as-is, already bodied).
     { .engine = GM_ENGINE_PLUCK, .ks_stretch = 0.992, .ks_loop_b = 0.10,
       .ks_beta = 0.14, .ks_pick = 0.92, .ks_drive = 0.0,
       .ks_big = 1, .ks_exc_smooth = 0.15, .ks_attack_amp = 0.08, .ks_attack_ms = 2.0,
       .bodyf = {300.0, 480.0, 720.0}, .bodyq = {5.0, 7.0, 8.0},
       .bodyg = {0.16, 0.10, 0.06} },
+    // 107 Shamisen — small skin-headed body (kept as-is, already bodied).
     { .engine = GM_ENGINE_PLUCK, .ks_stretch = 0.993, .ks_loop_b = 0.18,
       .ks_beta = 0.15, .ks_pick = 0.90, .ks_drive = 0.0,
       .ks_big = 1, .ks_exc_smooth = 0.1, .ks_jawari = 0.2,
       .ks_attack_amp = 0.14, .ks_attack_ms = 2.0,
       .bodyf = {250.0, 520.0}, .bodyq = {4.0, 6.0}, .bodyg = {0.12, 0.06} },
+    // 108 Koto — long paulownia (kiri) box: low/mid wood resonances give the
+    // warm, woody soundboard that a bare KS string was missing.
     { .engine = GM_ENGINE_PLUCK, .ks_stretch = 0.9982, .ks_loop_b = 0.26,
       .ks_beta = 0.18, .ks_pick = 0.85, .ks_drive = 0.0,
-      .ks_big = 1, .ks_exc_smooth = 0.5, .ks_attack_amp = 0.04, .ks_attack_ms = 3.5 },
+      .ks_big = 1, .ks_exc_smooth = 0.5, .ks_attack_amp = 0.04, .ks_attack_ms = 3.5,
+      .bodyf = {160.0, 300.0, 520.0}, .bodyq = {5.0, 6.5, 8.0},
+      .bodyg = {0.14, 0.10, 0.06} },
 };
 
 // ── Subtractive (SYNTHBASS): Synth Bass 1/2 (GM 39-40) + reed approximations ──
@@ -745,17 +798,27 @@ static const GMProgramParams gm_strings_programs[5] = {
 // the feedback loop, which pushes loop gain marginally >1 for higher notes —
 // existing driven guitars stay bounded only because their tanh waveshaper caps
 // the loop (e.g. clavi prog 7). We give pizz/harp a small ks_drive for the same
-// guaranteed bound, and keep body resonance OFF (its parallel biquad is the
-// other pre-existing runaway path). The seed-baked comb still shapes the attack.
+// guaranteed bound. The body bank (bodyf/q/g below) is now ON: it is a parallel,
+// output-only resonator applied AFTER the drive limiter — it does NOT feed the
+// string loop, so it cannot drive the documented runaway path. Gains are kept
+// modest. The seed-baked comb still shapes the attack.
 static const GMProgramParams gm_pizz_program = {  // GM 46 Pizzicato Strings
+    // Plucked violin-family corpus: a wood box around the air/main-wood modes so
+    // the short pizz "tock" rings off a body instead of a dry impulse.
     .engine = GM_ENGINE_PLUCK, .ks_stretch = 0.992, .ks_loop_b = 0.30,
     .ks_beta = 0.15, .ks_pick = 0.85, .ks_drive = 0.22,
     .ks_big = 1, .ks_exc_smooth = 0.35, .ks_attack_amp = 0.06, .ks_attack_ms = 2.0,
+    .bodyf = {280.0, 460.0, 600.0}, .bodyq = {4.0, 5.5, 7.0},
+    .bodyg = {0.10, 0.08, 0.05},
 };
 static const GMProgramParams gm_harp_program = {  // GM 47 Orchestral Harp
+    // Large wooden soundboard + resonant column: low air mode + plate modes give
+    // the warm bloom that makes a harp read as a big resonant frame.
     .engine = GM_ENGINE_PLUCK, .ks_stretch = 0.9985, .ks_loop_b = 0.28,
     .ks_beta = 0.20, .ks_pick = 0.85, .ks_drive = 0.18,
     .ks_big = 1, .ks_exc_smooth = 0.45, .ks_attack_amp = 0.04, .ks_attack_ms = 3.0,
+    .bodyf = {120.0, 240.0, 430.0}, .bodyq = {5.0, 7.0, 8.0},
+    .bodyg = {0.12, 0.09, 0.05},
 };
 // GM 48 Timpani — Rossing diametric modes (1,1)…(5,1): 1:1.5:2:2.44:2.9.
 static const GMModalParams gm_timpani_program = {
@@ -2274,11 +2337,15 @@ static int gm_voice_init_batch2(GMVoice *v, int program, double freq,
         return 0;
     }
     if (program == 15) {
+        // GM 16 Dulcimer — hammered-dulcimer trapezoidal wood soundbox: low/mid
+        // plate resonances give the bright struck string a ringing wooden body.
         GMProgramParams dul = {
             .engine = GM_ENGINE_PLUCK, .ks_stretch = 0.9990, .ks_loop_b = 0.14,
             .ks_beta = 0.18, .ks_pick = 0.85, .ks_drive = 0.0,
             .ks_big = 1, .ks_exc_smooth = 0.25,
-            .ks_attack_amp = 0.10, .ks_attack_ms = 2.0
+            .ks_attack_amp = 0.10, .ks_attack_ms = 2.0,
+            .bodyf = {175.0, 330.0, 560.0}, .bodyq = {5.0, 6.5, 8.0},
+            .bodyg = {0.12, 0.09, 0.05}
         };
         v->engine = GM_ENGINE_PLUCK;
         gm_ks_big_init(v, &dul, f0, sr);
