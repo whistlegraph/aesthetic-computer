@@ -1,10 +1,9 @@
 // cal — calendar, 2026.06.15
-// View, add, edit, and delete appointments. Ships MONTH, WEEK, and DAY views.
-// The DateWizard is the primary pop-up: it opens on the focused WEEK as a
-// readout, and folds out to an add/edit form. All date-math (grid + week/day
-// layout + recurrence expansion + event bucketing) lives in the shared engine
-// lib/cal.mjs so every view reuses it. Events come from /api/cal when signed in,
-// or from a device-local store when not.
+// Editing/scheduling lives in the native DateWizard app; this piece is the web
+// calendar view. It ships MONTH, WEEK, and DAY browsing surfaces. All date-math
+// (grid + week/day layout + recurrence expansion + event bucketing) lives in the
+// shared engine lib/cal.mjs so every view reuses it. Events come from /api/cal
+// when signed in, or from a device-local store when not.
 
 import {
   WEEKDAYS,
@@ -15,9 +14,8 @@ import {
   monthRange,
   addMonths,
   addWeeks,
-  weekStart,
-  weekLayout,
   dayLayout,
+  weekLayout,
   expandRecurrences,
   isoOf,
   isoDate,
@@ -28,33 +26,14 @@ import {
   Colon params → view + date:
     cal              → month view, today
     cal:2026:6       → month view, June 2026  (year:month, month 1-indexed)
-    cal:add          → DateWizard add-form open on today
-    cal:wizard       → DateWizard WEEK readout open (the primary pop-up)
     cal:week         → top-level WEEK view (focused week, hour-less day columns)
     cal:day          → top-level DAY view (single day, hour rows)
 
-  Controls (calendar views):
+  Controls (read-only viewer):
     Tap a day        — focus it (month: its events list at the bottom)
     ← / →            — page (month pages months; week pages weeks; day pages days)
-    "wizard" button  — open the DateWizard on the focused week
-    "add" button     — open the DateWizard add-form on the focused day
-    Tap an event     — (focused-day list / week / day) open it to EDIT or DELETE
+    m / w / d        — switch view; t — today
     Esc / `          — back to prompt
-
-  DateWizard (the primary pop-up, two modes):
-    WEEK readout — 7 day rows for the focused week (today highlighted) listing
-      each day's events (time + title). Tap a day row's "+" to start an ADD on
-      that day; tap an event to open the EDIT/DELETE form; ‹ / › page weeks;
-      "Add" jumps to a blank add-form on the focused day; "Import" opens a
-      single-field prompt for an external .ics URL (webcal:// or https://) that
-      POSTs { import:{ url } } to /api/cal and refreshes on success (sign-in
-      required — shows "log in to import" when local); "Close" dismisses.
-    ADD / EDIT form — fields stack: Title, Start, End, Note, plus a private/
-      public Visibility toggle. ↑/↓ (or tap a field) move the active field;
-      typing edits Title/Note; Start/End are time steppers (−/+ or ←/→). On a
-      new event "Add" POSTs; on an existing event "Save" PUTs and a "Delete"
-      button DELETEs. "Back" returns to the week readout. Writes go through the
-      same auth-vs-local path the calendar fetch uses.
 #endregion */
 
 const FONT = "MatrixChunky8";
@@ -78,7 +57,6 @@ const COLORS = {
   title: [220, 226, 245],
   dim: [90, 100, 130],
   error: [255, 120, 120],
-  delete: [255, 120, 120],
 };
 
 // 🌐 State (module-level; reset in boot since this module can survive nav).
@@ -97,52 +75,23 @@ let signedIn = false; // drives net.userRequest vs. local store
 let simClock = 0; // frame counter for the ~1/min "now" refresh
 let frameCount = 0;
 
-// Captured AC handles (so async fetch + button callbacks can reach them).
+// Captured AC handles (so async fetch can reach them).
 let $net = null;
 let $store = null;
-let $send = null; // for keyboard:open / keyboard:close around the wizard
 
 // UI buttons (built in boot, painted in paint, handled in act).
 let prevBtn = null;
 let nextBtn = null;
 let todayBtn = null;
-let addBtn = null;
-let wizardBtn = null;
-
-// 🧙 DateWizard — the primary pop-up. `wizard` is null when closed. It has two
-// modes:
-//   mode:"week"  → the week readout (rows of days + their events). Carries
-//                  `hitboxes` (day "+" boxes, event rows, pager) rebuilt each
-//                  paint so act() can tap without re-deriving geometry.
-//   mode:"form"  → the add/edit form. `formMode` is "add" or "edit". Form state:
-//                  iso, title, note, startMin, endMin, visibility, field,
-//                  editUid (the event being edited, or null), saving, hitboxes.
-let wizard = null;
-const WIZ_FIELDS = ["title", "start", "end", "note", "visibility"];
-let cancelBtn = null; // form: "Back" → week readout
-let confirmBtn = null; // form: "Add"/"Save"
-let deleteBtn = null; // form (edit): "Delete"
-let weekCloseBtn = null; // week readout: "Close"
-let weekAddBtn = null; // week readout: "Add" (blank form on focused day)
-let weekImportBtn = null; // week readout: "Import" (sync an external .ics URL)
-let weekPrevBtn = null; // week readout: "‹"
-let weekNextBtn = null; // week readout: "›"
-
-// 📥 Import prompt — a tiny single-field text input layered over the week
-// readout for pasting an .ics URL. `importPrompt` is null when not collecting.
-let importPrompt = null; // { url, status } — status: null | "working" | "<message>"
-let importCancelBtn = null; // import prompt: "Cancel"
-let importGoBtn = null; // import prompt: "Import"
 
 // 🗝️ Local-calendar storage key (device-local fallback when signed out).
 const LOCAL_KEY = "cal:events:local";
 
 // ──────────────────────────────────────────────────────────────────────────
 
-function boot({ colon, store, net, handle, user, ui, screen, send }) {
+function boot({ colon, store, net, handle, user, ui, screen }) {
   $net = net;
   $store = store;
-  $send = send;
 
   // Reset per-entry state (module is a session singleton).
   events = [];
@@ -154,8 +103,6 @@ function boot({ colon, store, net, handle, user, ui, screen, send }) {
   error = null;
   simClock = 0;
   frameCount = 0;
-  wizard = null;
-  importPrompt = null;
 
   signedIn = !!(handle?.() || user);
 
@@ -171,11 +118,7 @@ function boot({ colon, store, net, handle, user, ui, screen, send }) {
   // Parse view + date from the colon params.
   //   cal:week / cal:day → those top-level views.
   //   cal:YYYY:MM        → month view on that month.
-  //   cal:add            → open the DateWizard add-form on today.
-  //   cal:wizard         → open the DateWizard week readout (the primary pop-up).
   const first = colon?.[0];
-  const openAddOnBoot = first === "add";
-  const openWeekWizardOnBoot = first === "wizard";
   if (first === "week") view = "week";
   else if (first === "day") view = "day";
   else view = "month";
@@ -190,7 +133,7 @@ function boot({ colon, store, net, handle, user, ui, screen, send }) {
 
   // Restore the last view (so reopening `cal` lands where you left off), unless
   // the colon explicitly asked for one.
-  if (!first || first === "add" || first === "wizard") {
+  if (!first) {
     store.retrieve("cal:view", "local").then((saved) => {
       if (saved === "week" || saved === "day" || saved === "month") view = saved;
     });
@@ -207,10 +150,6 @@ function boot({ colon, store, net, handle, user, ui, screen, send }) {
   buildButtons({ ui, screen });
   rebuildModels();
   fetchRange();
-
-  // cal:add opens the add-form straight away; cal:wizard opens the week readout.
-  if (openAddOnBoot) openAddForm(focusIso);
-  else if (openWeekWizardOnBoot) openWeekWizard();
 }
 
 function clampMonth(m) {
@@ -220,8 +159,8 @@ function clampMonth(m) {
 }
 
 // 🧩 Expand recurrences over the visible range, then rebuild whichever view
-// model is active. Called after every fetch / paging / mutation so all views
-// (and the wizard) re-layout from one place.
+// model is active. Called after every fetch / paging so all views re-layout
+// from one place.
 function rebuildModels() {
   if (view === "week") {
     const { from, to } = weekLayout(focusDate, []); // cheap range probe
@@ -237,16 +176,6 @@ function rebuildModels() {
     const expanded = expandRecurrences(events, from, to);
     layoutEvents(weeks, expanded);
   }
-  // The wizard's week readout always re-layouts its own week from the raw set.
-  if (wizard && wizard.mode === "week") rebuildWizardWeek();
-}
-
-// The wizard week readout uses the wizard's own `weekDate` anchor (it pages
-// independently of the underlying calendar view), expanding recurrences first.
-function rebuildWizardWeek() {
-  const { from, to } = weekLayout(wizard.weekDate, []);
-  const expanded = expandRecurrences(events, from, to);
-  wizard.week = weekLayout(wizard.weekDate, expanded);
 }
 
 // 📡 Fetch the visible range's events (auth → /api/cal; else local store). The
@@ -310,324 +239,6 @@ async function loadLocal() {
   });
 }
 
-async function persistLocal(event) {
-  const all = (await $store?.retrieve(LOCAL_KEY, "local")) || [];
-  all.push(event);
-  $store?.persist(LOCAL_KEY, all, "local");
-}
-
-async function updateLocal(uid, fields) {
-  const all = (await $store?.retrieve(LOCAL_KEY, "local")) || [];
-  const idx = all.findIndex((e) => e.uid === uid);
-  if (idx >= 0) all[idx] = { ...all[idx], ...fields };
-  $store?.persist(LOCAL_KEY, all, "local");
-}
-
-async function deleteLocal(uid) {
-  const all = (await $store?.retrieve(LOCAL_KEY, "local")) || [];
-  $store?.persist(LOCAL_KEY, all.filter((e) => e.uid !== uid), "local");
-}
-
-// ✍️ Create an event through the auth-vs-local path (POST /api/cal, else local).
-async function commitEvent(body) {
-  if (signedIn && $net?.userRequest) {
-    const res = await $net.userRequest("POST", "/api/cal", body);
-    if (res?.event) {
-      events = [...events, res.event];
-    } else if (res?.message === "unauthorized") {
-      signedIn = false;
-      await persistLocal({ uid: localUid(), ...body });
-      await loadLocal();
-    } else {
-      error = res?.message || "add failed";
-    }
-  } else {
-    await persistLocal({ uid: localUid(), ...body });
-    await loadLocal();
-  }
-  rebuildModels();
-}
-
-// ✏️ Update an existing event (PUT /api/cal {uid,...}, else local). Mirrors the
-// commitEvent local-store fallback so unauthenticated edits persist too.
-async function updateEvent(uid, fields) {
-  if (signedIn && $net?.userRequest) {
-    const res = await $net.userRequest("PUT", "/api/cal", { uid, ...fields });
-    if (res?.event) {
-      events = events.map((e) => (e.uid === uid ? res.event : e));
-    } else if (res?.message === "unauthorized") {
-      signedIn = false;
-      await updateLocal(uid, fields);
-      await loadLocal();
-    } else {
-      error = res?.message || "save failed";
-    }
-  } else {
-    await updateLocal(uid, fields);
-    await loadLocal();
-  }
-  rebuildModels();
-}
-
-// 🗑️ Delete an event (DELETE /api/cal?uid=, else local).
-async function deleteEvent(uid) {
-  if (signedIn && $net?.userRequest) {
-    const res = await $net.userRequest(
-      "DELETE",
-      `/api/cal?uid=${encodeURIComponent(uid)}`,
-    );
-    if (res?.ok) {
-      events = events.filter((e) => e.uid !== uid);
-    } else if (res?.message === "unauthorized") {
-      signedIn = false;
-      await deleteLocal(uid);
-      await loadLocal();
-    } else {
-      error = res?.message || "delete failed";
-    }
-  } else {
-    await deleteLocal(uid);
-    await loadLocal();
-  }
-  rebuildModels();
-}
-
-function localUid() {
-  return "local-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-}
-
-// 🧙 DateWizard ────────────────────────────────────────────────────────────────
-
-// Open the wizard's WEEK readout on the focused day's week (the primary pop-up).
-function openWeekWizard() {
-  const anchor = isoToDate(focusIso) || focusDate || new Date();
-  wizard = {
-    mode: "week",
-    weekDate: weekStart(anchor),
-    week: null,
-    hitboxes: null,
-  };
-  rebuildWizardWeek();
-}
-
-// Page the wizard's week readout by `delta` weeks.
-function wizardPageWeek(delta) {
-  if (!wizard || wizard.mode !== "week") return;
-  wizard.weekDate = addWeeks(wizard.weekDate, delta);
-  rebuildWizardWeek();
-}
-
-// Open the ADD form on an ISO day, defaulting 12:00→13:00. Sends keyboard:open
-// so touch devices raise a soft keyboard for the Title field.
-function openAddForm(iso) {
-  wizard = {
-    mode: "form",
-    formMode: "add",
-    iso: iso || focusIso || today.iso,
-    editUid: null,
-    title: "",
-    note: "",
-    startMin: 12 * 60, // 12:00
-    endMin: 13 * 60, // 13:00
-    visibility: "private",
-    field: 0,
-    hitboxes: null,
-    saving: false,
-  };
-  $send?.({ type: "keyboard:open" });
-}
-
-// Open the EDIT form prefilled from an existing event. Recurring instances edit
-// their master document (masterUid), so the whole series moves consistently.
-function openEditForm(ev) {
-  const start = ev.start ? new Date(ev.start) : new Date();
-  const end = ev.end ? new Date(ev.end) : start;
-  wizard = {
-    mode: "form",
-    formMode: "edit",
-    iso: isoOf(start),
-    editUid: ev.masterUid || ev.uid,
-    title: ev.title || "",
-    note: ev.note || "",
-    startMin: start.getHours() * 60 + start.getMinutes(),
-    endMin: end.getHours() * 60 + end.getMinutes(),
-    visibility: ev.visibility === "public" ? "public" : "private",
-    field: 0,
-    hitboxes: null,
-    saving: false,
-  };
-  $send?.({ type: "keyboard:open" });
-}
-
-function closeWizard() {
-  wizard = null;
-  $send?.({ type: "keyboard:close" });
-}
-
-// Form → back to the week readout (anchored on the form's day).
-function formBackToWeek() {
-  const anchor = isoToDate(wizard?.iso) || focusDate || new Date();
-  wizard = { mode: "week", weekDate: weekStart(anchor), week: null, hitboxes: null };
-  rebuildWizardWeek();
-  $send?.({ type: "keyboard:close" });
-}
-
-// Move the active form field, wrapping. Used by ↑/↓ and tapping a row.
-function wizardMoveField(delta) {
-  if (!wizard || wizard.mode !== "form") return;
-  const n = WIZ_FIELDS.length;
-  wizard.field = (wizard.field + delta + n) % n;
-}
-
-// Nudge the active time field by `mins`, clamped to the day. The end is kept
-// after the start (and the start kept before the end) so the range stays valid.
-function wizardNudgeTime(mins) {
-  if (!wizard || wizard.mode !== "form") return;
-  if (wizard.field === 1) {
-    wizard.startMin = clampMin(wizard.startMin + mins);
-    if (wizard.endMin <= wizard.startMin)
-      wizard.endMin = clampMin(wizard.startMin + 30);
-  } else if (wizard.field === 2) {
-    wizard.endMin = clampMin(wizard.endMin + mins);
-    if (wizard.endMin <= wizard.startMin)
-      wizard.startMin = clampMin(wizard.endMin - 30);
-  }
-}
-
-function wizardToggleVisibility() {
-  if (!wizard || wizard.mode !== "form") return;
-  wizard.visibility = wizard.visibility === "public" ? "private" : "public";
-}
-
-function clampMin(m) {
-  if (m < 0) return 0;
-  if (m > 23 * 60 + 59) return 23 * 60 + 59;
-  return m;
-}
-
-// Append a printable character to the active text field (Title / Note).
-function wizardType(ch) {
-  if (!wizard || wizard.mode !== "form") return;
-  const key = WIZ_FIELDS[wizard.field];
-  if (key !== "title" && key !== "note") return;
-  if (wizard[key].length >= 64) return;
-  wizard[key] += ch;
-}
-
-function wizardBackspace() {
-  if (!wizard || wizard.mode !== "form") return;
-  const key = WIZ_FIELDS[wizard.field];
-  if (key !== "title" && key !== "note") return;
-  wizard[key] = wizard[key].slice(0, -1);
-}
-
-// 📥 Import — open a single-field prompt for an external .ics URL. Import only
-// works signed-in (it writes to the caller's account), so show a hint and bail
-// when local.
-function openImportPrompt() {
-  if (!signedIn) {
-    importPrompt = { url: "", status: "log in to import" };
-    $send?.({ type: "keyboard:close" });
-    return;
-  }
-  importPrompt = { url: "", status: null };
-  $send?.({ type: "keyboard:open" });
-}
-
-function closeImportPrompt() {
-  importPrompt = null;
-  $send?.({ type: "keyboard:close" });
-}
-
-function importPromptType(ch) {
-  if (!importPrompt || importPrompt.status === "working") return;
-  if (importPrompt.url.length >= 512) return;
-  importPrompt.url += ch;
-  importPrompt.status = null;
-}
-
-function importPromptBackspace() {
-  if (!importPrompt || importPrompt.status === "working") return;
-  importPrompt.url = importPrompt.url.slice(0, -1);
-}
-
-// Commit the import: POST { import: { url } } and, on success, refresh the
-// visible range so the synced events appear. Requires sign-in (no local path).
-async function commitImport() {
-  if (!importPrompt || importPrompt.status === "working") return;
-  const url = importPrompt.url.trim();
-  if (!url) {
-    importPrompt.status = "enter a URL";
-    return;
-  }
-  if (!signedIn || !$net?.userRequest) {
-    importPrompt.status = "log in to import";
-    return;
-  }
-  importPrompt.status = "working";
-  try {
-    const res = await $net.userRequest("POST", "/api/cal", { import: { url } });
-    if (res && typeof res.imported === "number") {
-      const { imported, updated, skipped } = res;
-      closeImportPrompt();
-      await fetchRange(); // pull the freshly-imported events into view
-      // Surface a brief outcome in the calendar's error/status line.
-      error = `imported ${imported}, updated ${updated}, skipped ${skipped}`;
-    } else {
-      importPrompt.status = (res?.message || "import failed").slice(0, 40);
-    }
-  } catch (err) {
-    importPrompt.status = (err?.message || "import failed").slice(0, 40);
-  }
-}
-
-// Build the event body from the form and POST (add) or PUT (edit), then return
-// to the week readout + refresh.
-async function confirmWizard() {
-  if (!wizard || wizard.mode !== "form" || wizard.saving) return;
-  wizard.saving = true;
-  const { iso, startMin, endMin, note, visibility, formMode, editUid } = wizard;
-  const [y, m, d] = iso.split("-").map((n) => parseInt(n, 10));
-  const title = wizard.title.trim() || "New appointment";
-  const start = new Date(y, m - 1, d, Math.floor(startMin / 60), startMin % 60, 0).toISOString();
-  const end = new Date(y, m - 1, d, Math.floor(endMin / 60), endMin % 60, 0).toISOString();
-  const body = {
-    title,
-    start,
-    end,
-    note: note.trim() || undefined,
-    allDay: false,
-    visibility,
-  };
-  focusIso = iso; // keep the touched day focused for the bottom panel
-  if (formMode === "edit" && editUid) {
-    await updateEvent(editUid, body);
-  } else {
-    await commitEvent(body);
-  }
-  // Land back on the week readout so the user sees the result in context.
-  formBackToWeek();
-}
-
-// Delete the event being edited, then return to the week readout.
-async function deleteFromWizard() {
-  if (!wizard || wizard.mode !== "form" || !wizard.editUid || wizard.saving) return;
-  wizard.saving = true;
-  const uid = wizard.editUid;
-  await deleteEvent(uid);
-  formBackToWeek();
-}
-
-// "1:05 PM" style label for a minutes-since-midnight value.
-function timeLabel(mins) {
-  let h = Math.floor(mins / 60);
-  const mm = String(mins % 60).padStart(2, "0");
-  const ap = h < 12 ? "AM" : "PM";
-  h = h % 12;
-  if (h === 0) h = 12;
-  return `${h}:${mm} ${ap}`;
-}
-
 // 🧭 Paging — month view pages months; week pages weeks; day pages days.
 function pageView(delta) {
   if (view === "week") {
@@ -684,8 +295,6 @@ function buildButtons({ ui, screen }) {
   prevBtn = new ui.TextButton("<", { left: 4, top: 4, screen });
   nextBtn = new ui.TextButton(">", { right: 4, top: 4, screen });
   todayBtn = new ui.TextButton("today", { left: 4, bottom: 4, screen });
-  addBtn = new ui.TextButton("add", { right: 4, bottom: 4, screen });
-  wizardBtn = new ui.TextButton("wizard", { center: "x", bottom: 4, screen });
 }
 
 function syncButtons({ screen }) {
@@ -693,18 +302,10 @@ function syncButtons({ screen }) {
   prevBtn.reposition({ left: 4, top: 4, screen });
   nextBtn.reposition({ right: 4, top: 4, screen });
   todayBtn.reposition({ left: 4, bottom: 4, screen });
-  addBtn.reposition({ right: 4, bottom: 4, screen });
-  wizardBtn.reposition({ center: "x", bottom: 4, screen });
 }
 
 const BTN_SCHEME = [[20, 24, 34], [80, 90, 120], [180, 190, 220]];
 const BTN_HOVER = [[30, 35, 50], [140, 160, 210], [220, 230, 255]];
-const ADD_SCHEME = [[14, 28, 20], [60, 160, 100], [140, 230, 170]];
-const ADD_HOVER = [[20, 40, 30], [110, 220, 150], [200, 255, 220]];
-const WIZ_SCHEME = [[24, 18, 34], [120, 90, 170], [200, 170, 255]];
-const WIZ_HOVER = [[34, 24, 50], [160, 130, 220], [225, 205, 255]];
-const DEL_SCHEME = [[34, 16, 18], [160, 70, 70], [230, 140, 140]];
-const DEL_HOVER = [[50, 22, 24], [220, 110, 110], [255, 200, 200]];
 
 // 🎨 Paint ────────────────────────────────────────────────────────────────────
 function paint($) {
@@ -725,8 +326,6 @@ function paint($) {
   prevBtn.paint($, BTN_SCHEME, BTN_HOVER);
   nextBtn.paint($, BTN_SCHEME, BTN_HOVER);
   todayBtn.paint($, BTN_SCHEME, BTN_HOVER);
-  addBtn.paint($, ADD_SCHEME, ADD_HOVER);
-  wizardBtn.paint($, WIZ_SCHEME, WIZ_HOVER);
 
   // Local-mode hint near the bottom buttons.
   if (!signedIn) {
@@ -738,15 +337,9 @@ function paint($) {
       false, undefined, false, FONT,
     );
   }
-
-  // 🧙 DateWizard overlay sits on top of everything when open.
-  if (wizard) {
-    if (wizard.mode === "week") paintWizardWeek($);
-    else paintWizardForm($);
-  }
 }
 
-// 📅 MONTH view (the original grid + focused-day panel).
+// 📅 MONTH view (the grid + focused-day panel).
 function paintMonthView($) {
   const { ink, screen, text, needsPaint } = $;
   const { width: w, height: h } = screen;
@@ -836,7 +429,7 @@ function paintMonthView($) {
     }
   }
 
-  // ── Focused-day event panel (taps open EDIT). Stash row hitboxes for act().
+  // ── Focused-day event panel (read-only list).
   const panelTop = h - botBar - panelH;
   ink(0, 0, 0, 120).box(0, panelTop, w, panelH);
   ink(...COLORS.grid).line(0, panelTop, w, panelTop);
@@ -847,7 +440,6 @@ function paintMonthView($) {
     headLabel, { x: 4, y: panelTop + 3 }, false, undefined, false, FONT,
   );
 
-  monthPanelHits = []; // reset hit list each paint
   if (loading) {
     const dots = ".".repeat(Math.floor(frameCount / 12) % 4);
     ink(...COLORS.dim).write(
@@ -871,7 +463,6 @@ function paintMonthView($) {
       ink(...(ev.recurring ? COLORS.recur : COLORS.title)).write(
         shown, { x: tx, y: ey }, false, undefined, false, FONT,
       );
-      monthPanelHits.push({ y: ey - 1, h: 9, ev }); // tap → edit
       ey += 9;
     });
     if (focusCell.events.length > maxRows) {
@@ -882,7 +473,7 @@ function paintMonthView($) {
     }
   } else {
     ink(...COLORS.dim).write(
-      signedIn ? "no events — tap add" : "no events (local) — tap add",
+      signedIn ? "no events" : "no events (local)",
       { x: 4, y: panelTop + 14 }, false, undefined, false, FONT,
     );
   }
@@ -890,8 +481,8 @@ function paintMonthView($) {
 
 // 📆 WEEK view (top-level): 7 day columns, each listing the day's events. We use
 // day columns (not an hour grid) so it stays readable on a phone; today's column
-// is highlighted. Tapping an event opens EDIT; tapping a column header focuses
-// that day. Reuses lib/cal.mjs's weekLayout via rebuildModels().
+// is highlighted. Tapping a column header focuses that day. Reuses lib/cal.mjs's
+// weekLayout via rebuildModels().
 function paintWeekView($) {
   const { ink, screen, text } = $;
   const { width: w, height: h } = screen;
@@ -947,7 +538,7 @@ function paintWeekView($) {
     ink(...COLORS.grid).line(x + 1, gridTop + 11, x + cw - 1, gridTop + 11);
     weekViewHits.push({ x, y: gridTop, w: cw, h: 11, iso: cell.iso }); // header → focus day
 
-    // Event list (time + truncated title), tappable for EDIT.
+    // Event list (time + truncated title).
     let ey = gridTop + 13;
     const maxChars = Math.max(1, Math.floor((cw - 3) / 4));
     const maxRows = Math.floor((colH - 14) / 9);
@@ -959,7 +550,6 @@ function paintWeekView($) {
       ink(...(ev.recurring ? COLORS.recur : COLORS.event)).write(
         shown, { x: x + 2, y: ey }, false, undefined, false, FONT,
       );
-      weekViewHits.push({ x, y: ey - 1, w: cw, h: 9, ev });
       ey += 9;
     });
     if (cell.events.length > maxRows) {
@@ -1036,7 +626,6 @@ function paintDayView($) {
   }
 
   // Place events as boxes spanning their [start,end] within the visible hours.
-  dayViewHits = [];
   const evs = cell?.events || [];
   evs.forEach((ev, idx) => {
     const s = ev.start ? new Date(ev.start) : null;
@@ -1064,7 +653,6 @@ function paintDayView($) {
     const maxChars = Math.max(1, Math.floor((bw - 4) / 4));
     const shown = label.length > maxChars ? label.slice(0, maxChars - 1) + "…" : label;
     ink(...COLORS.title).write(shown, { x: bx + 2, y: top + 2 }, false, undefined, false, FONT);
-    dayViewHits.push({ x: bx, y: top, w: bw, h: bh, ev });
   });
 
   if (loading) {
@@ -1073,296 +661,12 @@ function paintDayView($) {
   } else if (error) {
     ink(...COLORS.error).write(error.slice(0, 40), { x: 4, y: gridTop - 12 }, false, undefined, false, FONT);
   } else if (!evs.length) {
-    ink(...COLORS.dim).write("no events — tap add", { x: colX + 4, y: gridTop + 4 }, false, undefined, false, FONT);
+    ink(...COLORS.dim).write("no events", { x: colX + 4, y: gridTop + 4 }, false, undefined, false, FONT);
   }
 }
 
-// Hit lists rebuilt each paint (event taps → edit; week headers → focus).
-let monthPanelHits = [];
+// Hit list rebuilt each paint (week headers → focus day).
 let weekViewHits = [];
-let dayViewHits = [];
-
-// 🧙 Draw the DateWizard WEEK readout: a stacked list of the 7 days for the
-// wizard's focused week. Each day row shows weekday+date and its events; a "+"
-// at the row's right starts an ADD on that day, and tapping an event opens
-// EDIT. Header carries ‹ / › week pagers; footer has Add / Close.
-function paintWizardWeek($) {
-  const { ink, screen, text, ui } = $;
-  const { width: w, height: h } = screen;
-  const week = wizard.week;
-  const days = week?.days || [];
-
-  // Dim everything behind the modal.
-  ink(0, 0, 0, 180).box(0, 0, w, h);
-
-  const pw = Math.min(w - 12, 260);
-  const px = Math.floor(w / 2 - pw / 2);
-  const headH = 16;
-  const footH = 18;
-  const rowH = 22;
-  const ph = Math.min(h - 12, headH + rowH * 7 + footH + 8);
-  const py = Math.max(6, Math.floor(h / 2 - ph / 2));
-
-  ink(...COLORS.cellIn).box(px, py, pw, ph);
-  ink(...COLORS.recur).box(px, py, pw, ph, "outline");
-
-  // Header: "Week of Jun 15" + ‹ › pagers.
-  const first = days[0];
-  const headStr = first
-    ? `Week of ${MONTHS_SHORT[first.month - 1]} ${first.day}`
-    : "Week";
-  ink(...COLORS.recur).write(
-    headStr, { x: px + 4, y: py + 4 }, false, undefined, false, FONT,
-  );
-
-  if (!weekPrevBtn) weekPrevBtn = new ui.TextButton("‹", { x: 0, y: 0, screen });
-  if (!weekNextBtn) weekNextBtn = new ui.TextButton("›", { x: 0, y: 0, screen });
-  weekNextBtn.reposition({ right: w - (px + pw - 4), y: py + 2, screen });
-  weekPrevBtn.reposition({ right: w - (px + pw - 4 - weekNextBtn.width - 4), y: py + 2, screen });
-  weekPrevBtn.paint($, WIZ_SCHEME, WIZ_HOVER);
-  weekNextBtn.paint($, WIZ_SCHEME, WIZ_HOVER);
-
-  // Day rows.
-  const rows = [];
-  const listTop = py + headH;
-  const availH = ph - headH - footH - 4;
-  const useRowH = Math.min(rowH, availH / 7);
-  for (let i = 0; i < 7; i++) {
-    const cell = days[i];
-    if (!cell) continue;
-    const ry = listTop + i * useRowH;
-    const isToday = cell.iso === today.iso;
-
-    if (isToday) ink(...COLORS.todayFill).box(px + 2, ry, pw - 4, useRowH - 1);
-    // Date label (left).
-    const lbl = `${WEEKDAYS[i]} ${cell.day}`;
-    ink(...(isToday ? COLORS.today : COLORS.header)).write(
-      lbl, { x: px + 4, y: ry + 2 }, false, undefined, false, FONT,
-    );
-
-    // "+" add box at the row's right.
-    const s = 11;
-    const plus = { x: px + pw - 4 - s, y: ry + 2, w: s, h: s };
-    ink(...COLORS.grid).box(plus.x, plus.y, plus.w, plus.h);
-    ink(...COLORS.event).box(plus.x, plus.y, plus.w, plus.h, "outline");
-    const pwd = text.width("+", FONT);
-    ink(...COLORS.event).write(
-      "+", { x: plus.x + Math.floor(plus.w / 2 - pwd / 2), y: plus.y + 2 },
-      false, undefined, false, FONT,
-    );
-
-    // Events on a second line (compact); each is its own tappable hit.
-    const evHits = [];
-    let ex = px + 4 + text.width(lbl + "  ", FONT);
-    const evBaseY = ry + 2;
-    const lineMax = plus.x - 4;
-    if (cell.events.length === 0) {
-      ink(...COLORS.dim).write("—", { x: ex, y: evBaseY }, false, undefined, false, FONT);
-    } else {
-      cell.events.forEach((ev) => {
-        if (ex >= lineMax) return; // ran out of room on this row
-        const tl = eventTimeLabel(ev);
-        const ttl = ev.title || "(untitled)";
-        const chip = `${tl} ${ttl}`;
-        const cwid = text.width(chip + " ", FONT);
-        const shown =
-          ex + cwid > lineMax
-            ? clipToWidth(chip, lineMax - ex, text) + "…"
-            : chip;
-        ink(...(ev.recurring ? COLORS.recur : COLORS.event)).write(
-          shown, { x: ex, y: evBaseY }, false, undefined, false, FONT,
-        );
-        const sw = text.width(shown + " ", FONT);
-        evHits.push({ x: ex, y: ry, w: sw, h: useRowH, ev });
-        ex += sw + 2;
-      });
-    }
-    rows.push({ y: ry, h: useRowH, iso: cell.iso, plus, evHits });
-  }
-
-  // Footer: Add (blank form on focused day) · Import (sync .ics) · Close.
-  const btnY = py + ph - footH;
-  if (!weekAddBtn) weekAddBtn = new ui.TextButton("Add", { x: 0, y: 0, screen });
-  if (!weekImportBtn) weekImportBtn = new ui.TextButton("Import", { x: 0, y: 0, screen });
-  if (!weekCloseBtn) weekCloseBtn = new ui.TextButton("Close", { x: 0, y: 0, screen });
-  weekAddBtn.reposition({ x: px + 4, y: btnY, screen });
-  weekCloseBtn.reposition({ right: w - (px + pw - 4), y: btnY, screen });
-  weekImportBtn.reposition({ center: "x", y: btnY, screen });
-  weekAddBtn.paint($, ADD_SCHEME, ADD_HOVER);
-  weekImportBtn.paint($, WIZ_SCHEME, WIZ_HOVER);
-  weekCloseBtn.paint($, BTN_SCHEME, BTN_HOVER);
-
-  wizard.hitboxes = { rows, panel: { x: px, y: py, w: pw, h: ph } };
-
-  // 📥 Import prompt overlay sits on top of the week readout when collecting.
-  if (importPrompt) paintImportPrompt($);
-}
-
-// 📥 Draw the import URL prompt: a small centered panel with one text field for
-// the .ics URL plus Import / Cancel buttons. Reuses the wizard's button schemes.
-function paintImportPrompt($) {
-  const { ink, screen, text, ui } = $;
-  const { width: w, height: h } = screen;
-
-  ink(0, 0, 0, 190).box(0, 0, w, h);
-
-  const pw = Math.min(w - 12, 260);
-  const px = Math.floor(w / 2 - pw / 2);
-  const ph = 60;
-  const py = Math.max(8, Math.floor(h / 2 - ph / 2));
-
-  ink(...COLORS.cellIn).box(px, py, pw, ph);
-  ink(...COLORS.recur).box(px, py, pw, ph, "outline");
-
-  ink(...COLORS.recur).write(
-    "Import .ics URL", { x: px + 4, y: py + 4 }, false, undefined, false, FONT,
-  );
-
-  // URL field (show the tail so the cursor end stays visible).
-  const fieldY = py + 16;
-  ink(...COLORS.focusFill).box(px + 2, fieldY, pw - 4, 11);
-  const maxChars = Math.max(4, Math.floor((pw - 8) / 4));
-  const url = importPrompt.url || "";
-  const shown = url.length > maxChars ? "…" + url.slice(-(maxChars - 1)) : url;
-  ink(...(url ? COLORS.title : COLORS.dim)).write(
-    shown || "webcal:// or https://…", { x: px + 4, y: fieldY + 2 },
-    false, undefined, false, FONT,
-  );
-  if (Math.floor(frameCount / 30) % 2 === 0) {
-    const cx = px + 4 + text.width(shown, FONT) + 1;
-    ink(...COLORS.focus).box(cx, fieldY + 1, 1, 9);
-  }
-  $.needsPaint(); // keep the cursor blinking / status animating
-
-  // Status line (error or progress).
-  if (importPrompt.status) {
-    const isWorking = importPrompt.status === "working";
-    ink(...(isWorking ? COLORS.dim : COLORS.error)).write(
-      isWorking
-        ? "importing" + ".".repeat(Math.floor(frameCount / 12) % 4)
-        : importPrompt.status.slice(0, maxChars),
-      { x: px + 4, y: fieldY + 13 }, false, undefined, false, FONT,
-    );
-  }
-
-  // Buttons: Cancel · Import.
-  const btnY = py + ph - 16;
-  if (!importCancelBtn) importCancelBtn = new ui.TextButton("Cancel", { x: 0, y: 0, screen });
-  if (!importGoBtn) importGoBtn = new ui.TextButton("Import", { x: 0, y: 0, screen });
-  importCancelBtn.reposition({ x: px + 4, y: btnY, screen });
-  importGoBtn.reposition({ right: w - (px + pw - 4), y: btnY, screen });
-  importCancelBtn.paint($, BTN_SCHEME, BTN_HOVER);
-  importGoBtn.paint($, ADD_SCHEME, ADD_HOVER);
-}
-
-// Truncate a string to fit `maxW` pixels (rough, char-stepping). Helper for the
-// week readout's per-event chips.
-function clipToWidth(str, maxW, text) {
-  let out = "";
-  for (const ch of str) {
-    if (text.width(out + ch, FONT) > maxW) break;
-    out += ch;
-  }
-  return out || str[0] || "";
-}
-
-// 🧙 Draw the DateWizard ADD/EDIT form. Fields: Title, Start, End, Note,
-// Visibility. Edit mode shows a Delete button + a "Save" confirm label.
-function paintWizardForm($) {
-  const { ink, screen, text, ui } = $;
-  const { width: w, height: h } = screen;
-
-  ink(0, 0, 0, 170).box(0, 0, w, h);
-
-  const pw = Math.min(w - 16, 220);
-  const rowH = 16;
-  const headH = 16;
-  const footH = 18;
-  const ph = headH + rowH * 5 + footH + 8; // 5 fields now (+visibility)
-  const px = Math.floor(w / 2 - pw / 2);
-  const py = Math.max(8, Math.floor(h / 2 - ph / 2));
-
-  ink(...COLORS.cellIn).box(px, py, pw, ph);
-  ink(...COLORS.focus).box(px, py, pw, ph, "outline");
-
-  // Header: "Add · Mon Jun 15" or "Edit · …".
-  const verb = wizard.formMode === "edit" ? "Edit" : "Add";
-  ink(...COLORS.focus).write(
-    `${verb} · ${humanDay(wizard.iso)}`,
-    { x: px + 4, y: py + 4 }, false, undefined, false, FONT,
-  );
-
-  const rows = [];
-  const fieldY = py + headH;
-  const fieldValues = [
-    wizard.title || "(title)",
-    timeLabel(wizard.startMin),
-    timeLabel(wizard.endMin),
-    wizard.note || "(optional)",
-    wizard.visibility === "public" ? "public 🌍" : "private 🔒",
-  ];
-  const labels = ["Title", "Start", "End", "Note", "Vis"];
-
-  for (let i = 0; i < 5; i++) {
-    const ry = fieldY + i * rowH;
-    const active = wizard.field === i;
-    if (active) ink(...COLORS.focusFill).box(px + 2, ry, pw - 4, rowH - 1);
-    ink(...(active ? COLORS.focus : COLORS.dim)).write(
-      labels[i], { x: px + 4, y: ry + 4 }, false, undefined, false, FONT,
-    );
-    const valX = px + 4 + 34;
-    const isEmpty = (i === 0 && !wizard.title) || (i === 3 && !wizard.note);
-    ink(...(isEmpty ? COLORS.dim : COLORS.title)).write(
-      fieldValues[i], { x: valX, y: ry + 4 }, false, undefined, false, FONT,
-    );
-
-    if (active && (i === 0 || i === 3) && Math.floor(frameCount / 30) % 2 === 0) {
-      const shown = i === 0 ? wizard.title : wizard.note;
-      const cx = valX + (shown ? text.width(shown, FONT) : 0) + 1;
-      ink(...COLORS.focus).box(cx, ry + 3, 1, 9);
-    }
-
-    // Time steppers on Start / End rows.
-    let minus = null, plus = null, toggle = null;
-    if (i === 1 || i === 2) {
-      const s = 11;
-      plus = { x: px + pw - 4 - s, y: ry + 2, w: s, h: s };
-      minus = { x: plus.x - s - 2, y: ry + 2, w: s, h: s };
-      for (const [b, sym] of [[minus, "-"], [plus, "+"]]) {
-        ink(...COLORS.grid).box(b.x, b.y, b.w, b.h);
-        ink(...COLORS.focus).box(b.x, b.y, b.w, b.h, "outline");
-        const sw = text.width(sym, FONT);
-        ink(...COLORS.focus).write(
-          sym, { x: b.x + Math.floor(b.w / 2 - sw / 2), y: b.y + 2 },
-          false, undefined, false, FONT,
-        );
-      }
-    }
-    // The whole Visibility row is its toggle target.
-    if (i === 4) toggle = { x: px + 2, y: ry, w: pw - 4, h: rowH - 1 };
-    rows.push({ y: ry, h: rowH, minus, plus, toggle });
-  }
-
-  // Footer: Back · (Delete on edit) · Add/Save.
-  const btnY = fieldY + rowH * 5 + 3;
-  if (!cancelBtn) cancelBtn = new ui.TextButton("Back", { x: 0, y: 0, screen });
-  if (!confirmBtn) confirmBtn = new ui.TextButton("Add", { x: 0, y: 0, screen });
-  cancelBtn.reposition({ x: px + 4, y: btnY, screen });
-  confirmBtn.reposition(
-    { right: w - (px + pw - 4), y: btnY, screen },
-    wizard.formMode === "edit" ? "Save" : "Add",
-  );
-  cancelBtn.paint($, BTN_SCHEME, BTN_HOVER);
-  confirmBtn.paint($, ADD_SCHEME, ADD_HOVER);
-
-  if (wizard.formMode === "edit") {
-    if (!deleteBtn) deleteBtn = new ui.TextButton("Delete", { x: 0, y: 0, screen });
-    deleteBtn.reposition({ center: "x", y: btnY, screen });
-    deleteBtn.paint($, DEL_SCHEME, DEL_HOVER);
-  }
-
-  wizard.hitboxes = { rows, panel: { x: px, y: py, w: pw, h: ph } };
-}
 
 // Find the day cell matching an ISO key in the current month grid.
 function findCell(iso) {
@@ -1382,39 +686,19 @@ function humanDay(iso) {
 function act({ event: e, screen, jump, ui }) {
   if (!prevBtn) buildButtons({ ui, screen });
 
-  // 🧙 While the wizard is open it owns all input.
-  if (wizard) {
-    if (wizard.mode === "week") actWizardWeek(e);
-    else actWizardForm(e);
-    if (e.is("reframed")) syncButtons({ screen });
-    return;
-  }
-
   prevBtn.act(e, () => pageView(-1));
   nextBtn.act(e, () => pageView(1));
   todayBtn.act(e, () => goToday());
-  addBtn.act(e, () => openAddForm(focusIso));
-  wizardBtn.act(e, () => openWeekWizard());
 
-  // Tap an event row in any view → open it for EDIT. Tap a bare day → focus.
+  // Tap a day → focus it (month grid hit-test; week column headers).
   if (e.is("touch")) {
     if (view === "month") {
-      const hit = monthPanelHits.find((b) => e.y >= b.y && e.y < b.y + b.h);
-      if (hit) { openEditForm(hit.ev); return; }
       focusAt(e, screen);
     } else if (view === "week") {
       const hit = weekViewHits.find(
         (b) => e.x >= b.x && e.x < b.x + b.w && e.y >= b.y && e.y < b.y + b.h,
       );
-      if (hit) {
-        if (hit.ev) { openEditForm(hit.ev); return; }
-        if (hit.iso) { focusIso = hit.iso; focusDate = isoToDate(hit.iso); rebuildModels(); }
-      }
-    } else if (view === "day") {
-      const hit = dayViewHits.find(
-        (b) => e.x >= b.x && e.x < b.x + b.w && e.y >= b.y && e.y < b.y + b.h,
-      );
-      if (hit?.ev) { openEditForm(hit.ev); return; }
+      if (hit?.iso) { focusIso = hit.iso; focusDate = isoToDate(hit.iso); rebuildModels(); }
     }
   }
 
@@ -1455,120 +739,6 @@ function switchView(next) {
   $store?.persist("cal:view", view, "local");
   rebuildModels();
   fetchRange();
-}
-
-// 🧙 Route input while the wizard WEEK readout is open.
-function actWizardWeek(e) {
-  // 📥 The import prompt, when open, owns all input.
-  if (importPrompt) {
-    actImportPrompt(e);
-    return;
-  }
-
-  weekPrevBtn?.act(e, () => wizardPageWeek(-1));
-  weekNextBtn?.act(e, () => wizardPageWeek(1));
-  weekAddBtn?.act(e, () => openAddForm(focusIso));
-  weekImportBtn?.act(e, () => openImportPrompt());
-  weekCloseBtn?.act(e, () => closeWizard());
-
-  const hb = wizard.hitboxes;
-  if (e.is("touch") && hb) {
-    for (const r of hb.rows) {
-      if (inBox(e, r.plus)) { openAddForm(r.iso); return; } // "+" → add on this day
-      for (const evh of r.evHits) {
-        if (e.x >= evh.x && e.x < evh.x + evh.w && e.y >= evh.y && e.y < evh.y + evh.h) {
-          openEditForm(evh.ev); // tap an event chip → edit
-          return;
-        }
-      }
-    }
-  }
-
-  // ‹ / › arrows page weeks; Enter opens add; Esc closes.
-  if (e.is("keyboard:down:arrowleft")) wizardPageWeek(-1);
-  if (e.is("keyboard:down:arrowright")) wizardPageWeek(1);
-  if (e.is("keyboard:down:enter")) { openAddForm(focusIso); return; }
-  if (e.is("keyboard:down:escape") || e.is("keyboard:down:`")) { closeWizard(); return; }
-}
-
-// 📥 Route input while the import URL prompt is open.
-function actImportPrompt(e) {
-  importCancelBtn?.act(e, () => closeImportPrompt());
-  importGoBtn?.act(e, () => commitImport());
-
-  if (e.is("keyboard:down:backspace")) { importPromptBackspace(); return; }
-  if (e.is("keyboard:down:enter")) { commitImport(); return; }
-  if (e.is("keyboard:down:escape") || e.is("keyboard:down:`")) { closeImportPrompt(); return; }
-
-  // Printable characters extend the URL. `` ` `` is reserved for close above.
-  if (
-    typeof e.name === "string" &&
-    e.name.startsWith("keyboard:down:") &&
-    typeof e.key === "string" &&
-    e.key.length === 1 &&
-    e.key !== "`" &&
-    !e.ctrl &&
-    !e.alt
-  ) {
-    importPromptType(e.key);
-  }
-}
-
-// 🧙 Route input while the wizard ADD/EDIT form is open.
-function actWizardForm(e) {
-  cancelBtn?.act(e, () => formBackToWeek());
-  confirmBtn?.act(e, () => confirmWizard());
-  if (wizard.formMode === "edit") deleteBtn?.act(e, () => deleteFromWizard());
-
-  const hb = wizard.hitboxes;
-  if (e.is("touch") && hb) {
-    const { x: px, w: pw } = hb.panel;
-    for (let i = 0; i < hb.rows.length; i++) {
-      const r = hb.rows[i];
-      if (inBox(e, r.minus)) { wizard.field = i; wizardNudgeTime(-30); return; }
-      if (inBox(e, r.plus)) { wizard.field = i; wizardNudgeTime(30); return; }
-      if (inBox(e, r.toggle)) { wizard.field = i; wizardToggleVisibility(); return; }
-      if (e.y >= r.y && e.y < r.y + r.h && e.x >= px && e.x < px + pw) {
-        wizard.field = i;
-        return;
-      }
-    }
-  }
-
-  if (e.is("keyboard:down:arrowup")) wizardMoveField(-1);
-  if (e.is("keyboard:down:arrowdown")) wizardMoveField(1);
-  if (e.is("keyboard:down:tab")) wizardMoveField(1);
-  // On the Visibility row, ← / → (and Space) toggle; elsewhere nudge time.
-  if (WIZ_FIELDS[wizard.field] === "visibility") {
-    if (e.is("keyboard:down:arrowleft") || e.is("keyboard:down:arrowright") ||
-        e.is("keyboard:down:space")) {
-      wizardToggleVisibility();
-      return;
-    }
-  } else {
-    if (e.is("keyboard:down:arrowleft")) wizardNudgeTime(-30);
-    if (e.is("keyboard:down:arrowright")) wizardNudgeTime(30);
-  }
-
-  if (e.is("keyboard:down:backspace")) { wizardBackspace(); return; }
-  if (e.is("keyboard:down:enter")) { confirmWizard(); return; }
-  if (e.is("keyboard:down:escape") || e.is("keyboard:down:`")) { formBackToWeek(); return; }
-
-  if (
-    typeof e.name === "string" &&
-    e.name.startsWith("keyboard:down:") &&
-    typeof e.key === "string" &&
-    e.key.length === 1 &&
-    !e.ctrl &&
-    !e.alt
-  ) {
-    wizardType(e.key);
-  }
-}
-
-// Point-in-box test (box may be null on rows that lack that target).
-function inBox(e, b) {
-  return b && e.x >= b.x && e.x < b.x + b.w && e.y >= b.y && e.y < b.y + b.h;
 }
 
 // Hit-test the MONTH grid for a touch and focus the cell under it.
@@ -1615,7 +785,7 @@ function sim() {
 function meta() {
   return {
     title: "Calendar",
-    desc: "View, add, edit, and delete appointments.",
+    desc: "View your appointments. Month, week, and day views.",
   };
 }
 

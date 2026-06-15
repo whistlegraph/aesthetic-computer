@@ -26,8 +26,18 @@
 //   DELETE /api/cal?uid=<uid>               AUTH  — delete one of your events by uid
 //   OPTIONS                                 — CORS preflight
 //
+//   --- Connected calendars (live, read-only overlay; "cal-feeds" collection) ---
+//   GET    /api/cal?feeds=1                  AUTH  — list caller's subscribed feeds (no cached events)
+//   POST   /api/cal { feed:{url,label?,color?} } AUTH — subscribe to an external .ics feed
+//   GET    /api/cal?feedEvents=1&from=&to=   AUTH  — live (cached) events from all feeds in [from,to]
+//   DELETE /api/cal?feedId=<id>              AUTH  — unsubscribe from a feed
+//
 // Imported events get uid = "ics:" + <source UID> so a re-import upserts
 // (idempotent) rather than duplicating; they are always stored visibility:"private".
+//
+// SUBSCRIBE vs IMPORT: `{import:...}` COPIES events into the editable `calendar`
+// store once. `{feed:...}` SUBSCRIBES — it overlays an external calendar live and
+// read-only (events are cached in the "cal-feeds" doc, never copied into `calendar`).
 
 import crypto from "crypto";
 import {
@@ -162,6 +172,22 @@ function eventsToICS(events, handleLabel) {
 // and multi-value/structured params beyond the above are ignored.
 
 const MAX_ICS_BYTES = 5 * 1024 * 1024; // 5MB guard.
+const FEED_CACHE_MS = 10 * 60 * 1000; // 10min live-feed cache TTL.
+
+// Classify a feed URL: "google" when the host is a Google Calendar endpoint,
+// otherwise a generic "ics" subscription.
+function feedKind(url) {
+  try {
+    const host = new URL(
+      String(url).replace(/^webcal:\/\//i, "https://"),
+    ).hostname.toLowerCase();
+    // calendar.google.com and any *.google.com host.
+    if (/(^|\.)google\.com$/.test(host)) return "google";
+  } catch {
+    // fall through
+  }
+  return "ics";
+}
 
 // Unfold RFC 5545 folded content lines: a line beginning with a space or tab is
 // a continuation of the previous line (the leading whitespace is consumed).
@@ -389,6 +415,10 @@ export async function handler(event, context) {
     await collection
       .createIndex({ user: 1, uid: 1 }, { unique: true })
       .catch(() => {});
+    await database.db
+      .collection("cal-feeds")
+      .createIndex({ user: 1, id: 1 }, { unique: true })
+      .catch(() => {});
 
     // ───────────────────────────────────────────────────────────── GET ──
     if (method === "GET") {
@@ -442,6 +472,89 @@ export async function handler(event, context) {
         return respond(401, { message: "Authorization failure." });
       }
 
+      // 🔗 Connected-calendar GET branches. Distinguished from the normal range
+      // read by the presence of the `feeds` / `feedEvents` query flags.
+      if (params.feeds) {
+        const feedsCol = database.db.collection("cal-feeds");
+        const feeds = await feedsCol
+          .find({ user: user.sub })
+          .project({ _id: 0, id: 1, label: 1, url: 1, color: 1, kind: 1 })
+          .toArray();
+        return respond(200, { feeds });
+      }
+
+      if (params.feedEvents) {
+        const feedsCol = database.db.collection("cal-feeds");
+        const feeds = await feedsCol.find({ user: user.sub }).toArray();
+
+        let { from, to } = params;
+        if (!from || !to) {
+          const range = currentMonthRange();
+          from = from || range.from;
+          to = to || range.to;
+        }
+
+        const out = [];
+        const errors = [];
+        const now = Date.now();
+
+        for (const feed of feeds) {
+          try {
+            let cached = feed.cachedEvents;
+            const fresh =
+              feed.cachedAt &&
+              now - new Date(feed.cachedAt).getTime() < FEED_CACHE_MS &&
+              Array.isArray(cached);
+
+            if (!fresh) {
+              const text = await fetchICS(feed.url);
+              const parsed = parseVCalendar(text);
+              cached = parsed
+                .filter((ev) => ev.start)
+                .map((ev) => ({
+                  uid: ev.sourceUID || crypto.randomUUID(),
+                  title: ev.title || "(untitled)",
+                  start: ev.start,
+                  end: ev.end || ev.start,
+                  allDay: ev.allDay === true,
+                  note: ev.note || "",
+                }));
+              await feedsCol.updateOne(
+                { user: user.sub, id: feed.id },
+                { $set: { cachedEvents: cached, cachedAt: new Date() } },
+              );
+            }
+
+            for (const ev of cached) {
+              // Overlap test against [from,to] (string ISO compare).
+              const evEnd = ev.end || ev.start;
+              if (ev.start < to && evEnd > from) {
+                out.push({
+                  uid: ev.uid,
+                  title: ev.title,
+                  start: ev.start,
+                  end: ev.end,
+                  allDay: ev.allDay === true,
+                  note: ev.note || "",
+                  source: feed.id,
+                  label: feed.label || null,
+                  color: feed.color || null,
+                  readOnly: true,
+                });
+              }
+            }
+          } catch (err) {
+            errors.push({
+              id: feed.id,
+              label: feed.label || null,
+              message: err?.message || String(err),
+            });
+          }
+        }
+
+        return respond(200, { events: out, errors });
+      }
+
       let { from, to } = params;
       if (!from || !to) {
         const range = currentMonthRange();
@@ -470,6 +583,57 @@ export async function handler(event, context) {
         body = JSON.parse(event.body || "{}");
       } catch {
         return respond(400, { message: "Invalid JSON body." });
+      }
+
+      // 🔗 Subscribe branch: { feed: { url, label?, color? } }. Detected before
+      // import/create so a subscribe request never falls through. Unlike import,
+      // this overlays the feed live + read-only (cached in "cal-feeds").
+      if (body.feed && typeof body.feed === "object") {
+        const { url, label, color } = body.feed;
+        if (typeof url !== "string" || !url.trim()) {
+          return respond(400, { message: "Provide feed.url." });
+        }
+
+        let text;
+        try {
+          text = await fetchICS(url); // Validates fetchable + has BEGIN:VCALENDAR.
+        } catch (err) {
+          return respond(400, { message: err?.message || "Feed fetch failed." });
+        }
+
+        // Prime the cache with the first parse so the first read is instant.
+        const parsed = parseVCalendar(text);
+        const cachedEvents = parsed
+          .filter((ev) => ev.start)
+          .map((ev) => ({
+            uid: ev.sourceUID || crypto.randomUUID(),
+            title: ev.title || "(untitled)",
+            start: ev.start,
+            end: ev.end || ev.start,
+            allDay: ev.allDay === true,
+            note: ev.note || "",
+          }));
+
+        const feedsCol = database.db.collection("cal-feeds");
+        const id = crypto.randomUUID();
+        const kind = feedKind(url);
+        const doc = {
+          _id: undefined,
+          user: user.sub,
+          id,
+          label: typeof label === "string" && label.trim() ? label : "Calendar",
+          url: url.trim(),
+          color: typeof color === "string" && color.trim() ? color : null,
+          kind,
+          cachedEvents,
+          cachedAt: new Date(),
+        };
+        delete doc._id;
+        await feedsCol.insertOne(doc);
+
+        return respond(200, {
+          feed: { id, label: doc.label, url: doc.url, color: doc.color, kind },
+        });
       }
 
       // 📥 Import branch: { import: { url?, ics? } }. Detected before the normal
@@ -596,6 +760,20 @@ export async function handler(event, context) {
       const user = await authorize(event.headers);
       if (!user?.sub) {
         return respond(401, { message: "Authorization failure." });
+      }
+
+      // 🔗 Unsubscribe branch: ?feedId=<id>. Distinguished from event delete by
+      // the `feedId` query param (vs `uid`); removes from "cal-feeds" only.
+      if (params.feedId) {
+        const feedsCol = database.db.collection("cal-feeds");
+        const fres = await feedsCol.deleteOne({
+          user: user.sub,
+          id: params.feedId,
+        });
+        if (fres.deletedCount === 0) {
+          return respond(404, { message: "Not found." });
+        }
+        return respond(200, { ok: true });
       }
 
       const uid = params.uid;
