@@ -259,15 +259,23 @@
 <script>
     // OpenCollective config. NCC is fiscally sponsored by Metagov, so the
     // collective lives under metagov as a project (like rewritela).
-    // ⚠ SET project to NCC's real slug once the collective is created.
+    //
+    // ⚠ TO GO LIVE: the collective doesn't exist yet. When it's created,
+    //    (1) set `project` to its real slug, (2) flip `live` to true.
+    //    Until then `live: false` routes the give buttons to the club site
+    //    instead of a dead OpenCollective 404.
     const OC = {
         host: "metagov",
-        project: "nela-computer-club", // PLACEHOLDER slug — update when live
+        project: "nela-computer-club", // PLACEHOLDER slug — set the real one
+        live: false,                   // flip true once the collective exists
+        fallback: "https://nelacomputer.club", // where clicks go until then
     };
 
     // Build a donate link: monthly memberships prefill amount + interval;
-    // one-time sends people to the open donate flow to choose.
+    // one-time sends people to the open donate flow to choose. While the
+    // collective isn't live, return the safe fallback (no 404s).
     function ocDonate({ amount, monthly }) {
+        if (!OC.live) return OC.fallback;
         const base =
             "https://opencollective.com/" + OC.host + "/projects/" + OC.project + "/donate";
         const p = new URLSearchParams();
