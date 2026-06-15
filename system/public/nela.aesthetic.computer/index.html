@@ -17,11 +17,23 @@
       404 gracefully on OpenCollective.
     -->
     <style>
+        /* dark is canonical (matches nelacomputer.club) */
         :root {
             --bg: #000;
             --fg: #00d080;     /* NCC green body text */
             --link: #00c4fd;   /* NCC cyan links / boxes */
             --link-dim: #006888;
+        }
+
+        /* light mode — auto, follows the OS theme. paper palette,
+           deeper green/cyan so the terminal look stays readable on white */
+        @media (prefers-color-scheme: light) {
+            :root {
+                --bg: #f3f0e6;     /* warm paper */
+                --fg: #0b6b46;     /* deep green body text */
+                --link: #0a6e93;   /* deep cyan links / boxes */
+                --link-dim: #5a7a86;
+            }
         }
 
         body {
@@ -50,7 +62,7 @@
         h3 {
             margin-top: 2em;
             background-color: var(--fg);
-            color: #000;
+            color: var(--bg);
             padding: 2px 2px 2px 2px;
         }
 
@@ -116,11 +128,11 @@
         .slider::-webkit-slider-thumb {
             -webkit-appearance: none; appearance: none;
             width: 14px; height: 22px; margin-top: -9px;
-            background: var(--fg); border: 2px solid #000; border-radius: 0;
+            background: var(--fg); border: 2px solid var(--bg); border-radius: 0;
         }
         .slider::-moz-range-thumb {
             width: 14px; height: 22px;
-            background: var(--fg); border: 2px solid #000; border-radius: 0;
+            background: var(--fg); border: 2px solid var(--bg); border-radius: 0;
         }
         .scale {
             display: flex; justify-content: space-between;
@@ -143,7 +155,7 @@
         }
         .give:hover, .give:focus {
             background-color: var(--fg);
-            color: #000;
+            color: var(--bg);
             outline: none;
         }
         .give::before { content: "> "; }
@@ -177,8 +189,11 @@
 <div class="container">
 <div class="textRegion">
 
-    <img class="banner" src="banner.jpg" width="1200" height="800"
-         alt="NELA Computer Club — a workbench of salvaged laptops, breadboards, an oscilloscope, and a modular synth glowing green in the dark, people working together." />
+    <picture>
+        <source srcset="banner-light.jpg" media="(prefers-color-scheme: light)" />
+        <img class="banner" src="banner.jpg" width="1200" height="800"
+             alt="NELA Computer Club — a workbench of salvaged laptops, breadboards, an oscilloscope, and a modular synth, people working together." />
+    </picture>
 
     <header>
         <pre>░░░░░░░░░░░░░░░░░░░</pre>
@@ -232,8 +247,7 @@
     or contribute to the open-source software that quietly runs the world.</p>
 
     <p class="colophon">
-        ░ a shared, decentralized project &mdash; <a href="https://nelacomputer.club">nelacomputer.club</a><br/>
-        ░ page sketched at <a href="https://aesthetic.computer">aesthetic.computer</a>
+        ░ a shared, decentralized project &mdash; <a href="https://nelacomputer.club">nelacomputer.club</a>
     </p>
 
 </div><!--.textRegion-->
