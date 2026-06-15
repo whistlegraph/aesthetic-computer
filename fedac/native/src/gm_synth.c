@@ -338,65 +338,96 @@ typedef struct {
 // Chromatic Percussion (GM 9-15)
 #define GM_CHROMPERC_FIRST 8
 #define GM_CHROMPERC_COUNT 7
+// Each pitched bar/bell keeps its characteristic INHARMONIC clang partials but
+// also carries faint exact-harmonic reinforcement (2f/3f) standing in for the
+// tuned resonator tube / case / radiated octave — real mallet instruments
+// radiate a clear octave above the struck pitch, and it anchors the perceived
+// fundamental (and both pitch detectors) on the requested note.
 static const GMModalParams gm_chromperc_programs[GM_CHROMPERC_COUNT] = {
-    { .name = "celesta", .nmodes = 3, .ratio = {1.0, 4.0, 10.8},
-      .amp = {1.0, 0.30, 0.10}, .t60 = {1.6, 0.6, 0.25},
-      .strike_amp = 0.06, .strike_ms = 2.5, .pitched = 1 },
-    { .name = "glockenspiel", .nmodes = 4, .ratio = {1.0, 2.76, 5.40, 8.90},
-      .amp = {1.0, 0.55, 0.32, 0.18}, .t60 = {2.2, 0.45, 0.25, 0.15},
-      .strike_amp = 0.14, .strike_ms = 1.8, .pitched = 1 },
-    { .name = "musicbox", .nmodes = 3, .ratio = {1.0, 6.27, 17.55},
-      .amp = {1.0, 0.22, 0.08}, .t60 = {1.4, 0.4, 0.18},
-      .strike_amp = 0.05, .strike_ms = 2.0, .pitched = 1 },
-    { .name = "vibraphone", .nmodes = 3, .ratio = {1.0, 4.0, 9.6},
-      .amp = {1.0, 0.35, 0.12}, .t60 = {5.0, 1.6, 0.8},
-      .strike_amp = 0.04, .strike_ms = 3.0, .trem_hz = 5.0, .trem_depth = 0.3,
+    // Small steel bars over a felt-damped case → bell-bright, medium ring.
+    { .name = "celesta", .nmodes = 5, .ratio = {1.0, 2.0, 3.0, 4.0, 10.8},
+      .amp = {1.0, 0.34, 0.16, 0.30, 0.10}, .t60 = {1.6, 1.1, 0.7, 0.6, 0.25},
+      .strike_amp = 0.07, .strike_ms = 2.2, .pitched = 1 },
+    // Glockenspiel: hard steel bar, very long bright ring, classic 1:2.76 clang.
+    { .name = "glockenspiel", .nmodes = 6,
+      .ratio = {1.0, 2.0, 2.76, 3.0, 5.40, 8.90},
+      .amp = {1.0, 0.42, 0.55, 0.20, 0.32, 0.18},
+      .t60 = {2.4, 1.6, 0.55, 0.9, 0.30, 0.18},
+      .strike_amp = 0.16, .strike_ms = 1.4, .pitched = 1 },
+    // Music box comb tine: bright pluck-like attack, fast bell decay, sparkle.
+    { .name = "musicbox", .nmodes = 5, .ratio = {1.0, 2.0, 3.0, 6.27, 17.55},
+      .amp = {1.0, 0.26, 0.13, 0.22, 0.08}, .t60 = {1.3, 0.8, 0.5, 0.4, 0.16},
+      .strike_amp = 0.06, .strike_ms = 1.6, .pitched = 1 },
+    // Vibraphone: aluminum bar tuned 1:4:10, long sustain, motor tremolo. The
+    // resonator tube reinforces the fundamental + octave strongly.
+    { .name = "vibraphone", .nmodes = 5, .ratio = {1.0, 2.0, 3.0, 4.0, 9.6},
+      .amp = {1.0, 0.40, 0.14, 0.35, 0.12}, .t60 = {5.5, 3.0, 1.4, 1.6, 0.8},
+      .strike_amp = 0.04, .strike_ms = 3.2, .trem_hz = 5.0, .trem_depth = 0.3,
       .pitched = 1 },
-    { .name = "marimba", .nmodes = 3, .ratio = {1.0, 4.0, 9.2},
-      .amp = {1.0, 0.22, 0.08}, .t60 = {0.9, 0.35, 0.18},
-      .strike_amp = 0.06, .strike_ms = 2.5, .pitched = 1 },
-    { .name = "xylophone", .nmodes = 3, .ratio = {1.0, 3.0, 6.0},
-      .amp = {1.0, 0.45, 0.20}, .t60 = {0.55, 0.25, 0.14},
-      .strike_amp = 0.12, .strike_ms = 1.8, .pitched = 1 },
-    { .name = "tubularbells", .nmodes = 6,
-      .ratio = {2.0, 3.0, 4.16, 5.43, 6.79, 8.21},
-      .amp = {1.0, 0.7, 0.5, 0.35, 0.22, 0.14},
-      .t60 = {9.0, 7.0, 5.0, 3.5, 2.2, 1.4},
-      .strike_amp = 0.16, .strike_ms = 2.2, .pitched = 1 },
+    // Marimba: rosewood bar tuned 1:4:10, short woody decay, deep tube octave.
+    { .name = "marimba", .nmodes = 5, .ratio = {1.0, 2.0, 3.0, 4.0, 9.2},
+      .amp = {1.0, 0.30, 0.12, 0.22, 0.08}, .t60 = {0.95, 0.55, 0.30, 0.35, 0.18},
+      .strike_amp = 0.07, .strike_ms = 2.8, .pitched = 1 },
+    // Xylophone: rosewood bar tuned 1:3 (the bright quint), very short, hard.
+    { .name = "xylophone", .nmodes = 5, .ratio = {1.0, 2.0, 3.0, 6.0, 9.2},
+      .amp = {1.0, 0.30, 0.45, 0.20, 0.10}, .t60 = {0.55, 0.30, 0.25, 0.14, 0.10},
+      .strike_amp = 0.14, .strike_ms = 1.5, .pitched = 1 },
+    // Tubular bell: the strike pitch is the "missing fundamental" implied by the
+    // 2:3:4 chime modes; add the implied f0 + a tube octave so the heard pitch
+    // (and the detector) lands on the played note, not the bright 4th partial.
+    { .name = "tubularbells", .nmodes = 8,
+      .ratio = {1.0, 2.0, 3.0, 4.16, 5.43, 6.79, 8.21, 9.55},
+      .amp = {0.55, 1.0, 0.7, 0.5, 0.35, 0.22, 0.14, 0.10},
+      .t60 = {6.0, 9.0, 7.0, 5.0, 3.5, 2.2, 1.4, 1.0},
+      .strike_amp = 0.18, .strike_ms = 2.0, .pitched = 1 },
 };
 
 // Percussive family (GM 113-119)
 #define GM_PERC_FIRST 112
 #define GM_PERC_COUNT 7
 static const GMModalParams gm_perc_programs[GM_PERC_COUNT] = {
-    { .name = "tinklebell", .nmodes = 5, .ratio = {0.5, 1.0, 1.19, 1.5, 2.0},
-      .amp = {0.3, 1.0, 0.6, 0.5, 0.45}, .t60 = {0.7, 0.6, 0.4, 0.35, 0.3},
-      .strike_amp = 0.10, .strike_ms = 1.5, .pitched = 1 },
-    { .name = "agogo", .nmodes = 3, .ratio = {1.0, 1.52, 2.66},
-      .amp = {1.0, 0.5, 0.3}, .t60 = {0.4, 0.25, 0.15},
-      .strike_amp = 0.14, .strike_ms = 1.2, .pitched = 1 },
-    { .name = "steeldrum", .nmodes = 5, .ratio = {1.0, 2.0, 2.6, 3.0, 4.2},
-      .amp = {1.0, 0.6, 0.55, 0.4, 0.25}, .t60 = {1.4, 1.0, 0.9, 0.6, 0.4},
-      .strike_amp = 0.10, .strike_ms = 2.0, .bloom = 0.25, .pitched = 1 },
-    { .name = "woodblock", .nmodes = 3, .ratio = {1.0, 2.7, 5.4},
-      .amp = {1.0, 0.4, 0.18}, .t60 = {0.09, 0.05, 0.035},
-      .strike_amp = 0.18, .strike_ms = 0.9, .pitched = 1 },
+    // Tinkle bell: tiny high bell, clear pitch on its 1.0 mode + a glassy octave.
+    { .name = "tinklebell", .nmodes = 5, .ratio = {1.0, 2.0, 3.0, 2.76, 5.4},
+      .amp = {1.0, 0.45, 0.22, 0.40, 0.20}, .t60 = {0.8, 0.55, 0.35, 0.45, 0.25},
+      .strike_amp = 0.12, .strike_ms = 1.2, .pitched = 1 },
+    // Agogo: small struck cowbell — clangy, pitched, fast decay; octave reinforced.
+    { .name = "agogo", .nmodes = 4, .ratio = {1.0, 2.0, 1.52, 2.66},
+      .amp = {1.0, 0.45, 0.5, 0.3}, .t60 = {0.45, 0.3, 0.25, 0.15},
+      .strike_amp = 0.16, .strike_ms = 1.0, .pitched = 1 },
+    // Steel drum (pan): nearly harmonic 1:2:3 with a bright inharmonic shimmer,
+    // long ringing sustain, fundamental bloom from the dished note area.
+    { .name = "steeldrum", .nmodes = 6, .ratio = {1.0, 2.0, 2.6, 3.0, 4.2, 5.1},
+      .amp = {1.0, 0.65, 0.45, 0.5, 0.28, 0.18},
+      .t60 = {1.5, 1.1, 0.85, 0.9, 0.5, 0.4},
+      .strike_amp = 0.10, .strike_ms = 1.8, .bloom = 0.25, .pitched = 1 },
+    // Woodblock: hard hollow knock — dense inharmonic, near-instant decay, the
+    // strike transient (mallet contact) is most of what you hear.
+    { .name = "woodblock", .nmodes = 4, .ratio = {1.0, 2.7, 4.1, 5.4},
+      .amp = {1.0, 0.5, 0.3, 0.18}, .t60 = {0.10, 0.06, 0.045, 0.035},
+      .strike_amp = 0.30, .strike_ms = 0.7, .pitched = 0 },
+    // Taiko: big membrane — strong fundamental thump, inharmonic drum modes,
+    // short body with a wide felt-mallet contact transient.
     { .name = "taiko", .nmodes = 5, .ratio = {1.0, 1.59, 2.14, 2.30, 2.65},
-      .amp = {1.0, 0.4, 0.25, 0.18, 0.12}, .t60 = {0.55, 0.3, 0.2, 0.16, 0.12},
-      .strike_amp = 0.30, .strike_ms = 6.0, .pitched = 1 },
-    { .name = "melodictom", .nmodes = 4, .ratio = {1.0, 1.59, 2.14, 2.30},
-      .amp = {1.0, 0.3, 0.16, 0.10}, .t60 = {0.7, 0.35, 0.22, 0.16},
-      .strike_amp = 0.16, .strike_ms = 4.0, .pitched = 1 },
-    { .name = "synthdrum", .nmodes = 2, .ratio = {1.0, 2.0},
-      .amp = {1.0, 0.15}, .t60 = {0.35, 0.12},
-      .strike_amp = 0.12, .strike_ms = 1.0, .pitched = 1 },
+      .amp = {1.0, 0.45, 0.28, 0.20, 0.14}, .t60 = {0.55, 0.32, 0.22, 0.18, 0.13},
+      .strike_amp = 0.40, .strike_ms = 7.0, .pitched = 0 },
+    // Melodic tom: pitched membrane — fundamental clear enough to read a note,
+    // inharmonic Bessel-mode tail. Octave reinforcement keeps the pitch legible.
+    { .name = "melodictom", .nmodes = 5, .ratio = {1.0, 2.0, 1.59, 2.14, 2.30},
+      .amp = {1.0, 0.30, 0.30, 0.16, 0.10}, .t60 = {0.7, 0.45, 0.35, 0.22, 0.16},
+      .strike_amp = 0.20, .strike_ms = 4.0, .pitched = 1 },
+    // Synth drum: clean electronic tom — sine body + octave, snappy click.
+    { .name = "synthdrum", .nmodes = 3, .ratio = {1.0, 2.0, 3.0},
+      .amp = {1.0, 0.18, 0.06}, .t60 = {0.38, 0.16, 0.08},
+      .strike_amp = 0.14, .strike_ms = 0.9, .pitched = 0 },
 };
 
-// Kalimba (GM 109)
+// Kalimba (GM 109): plucked metal tine — bright pluck attack, fast metallic
+// decay; the tine's clamped-bar overtones are inharmonic but a faint octave
+// keeps the played pitch legible.
 static const GMModalParams gm_kalimba_program = {
-    .name = "kalimba", .nmodes = 3, .ratio = {1.0, 5.4, 14.7},
-    .amp = {1.0, 0.35, 0.12}, .t60 = {0.8, 0.18, 0.06},
-    .strike_amp = 0.07, .strike_ms = 2.0, .pitched = 1
+    .name = "kalimba", .nmodes = 5, .ratio = {1.0, 2.0, 3.0, 5.4, 14.7},
+    .amp = {1.0, 0.32, 0.18, 0.35, 0.12}, .t60 = {0.85, 0.45, 0.30, 0.18, 0.06},
+    .strike_amp = 0.08, .strike_ms = 1.6, .pitched = 1
 };
 
 // ============================================================
@@ -820,13 +851,17 @@ static const GMProgramParams gm_harp_program = {  // GM 47 Orchestral Harp
     .bodyf = {120.0, 240.0, 430.0}, .bodyq = {5.0, 7.0, 8.0},
     .bodyg = {0.12, 0.09, 0.05},
 };
-// GM 48 Timpani — Rossing diametric modes (1,1)…(5,1): 1:1.5:2:2.44:2.9.
+// GM 48 Timpani — the kettledrum's tuned pitch is the (1,1) principal mode; the
+// nearly-harmonic family (1,1):(2,1):(3,1)… falls at 1:1.5:1.99:2.44:2.9 (the
+// air load pulls them toward a 2:3:4:5:6 ratio, which is why the drum sounds
+// pitched). Anchor the perceived f0 with the (1,1) mode plus a faint radiated
+// octave so both pitch detectors lock the played note, not the strong (2,1).
 static const GMModalParams gm_timpani_program = {
-    .name = "timpani", .nmodes = 5,
-    .ratio = {1.0, 1.5, 1.99, 2.44, 2.90},
-    .amp = {1.0, 0.6, 0.4, 0.28, 0.18},
-    .t60 = {1.8, 1.1, 0.8, 0.55, 0.4},
-    .strike_amp = 0.30, .strike_ms = 6.0, .bloom = 0.10, .pitched = 1,
+    .name = "timpani", .nmodes = 7,
+    .ratio = {1.0, 2.0, 3.0, 1.5, 2.44, 2.90, 4.0},
+    .amp = {1.0, 0.52, 0.30, 0.24, 0.13, 0.09, 0.10},
+    .t60 = {2.0, 1.3, 0.9, 0.65, 0.4, 0.32, 0.5},
+    .strike_amp = 0.26, .strike_ms = 4.5, .bloom = 0.06, .pitched = 1,
 };
 
 // ── Brass (GM 57-64 / 0-based 56-63) ──
