@@ -90,6 +90,9 @@ export const commandDescriptions = {
   // 💬 Social
   chat: "Open chat",
   channel: "Join a channel",
+
+  // 📅 Calendar
+  cal: "Calendar — view and add appointments",
   
   // 📱 Platform
   "at": "Open ATProto pages",
