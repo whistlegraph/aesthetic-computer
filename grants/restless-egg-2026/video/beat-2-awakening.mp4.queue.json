@@ -1,0 +1,10 @@
+{
+  "status": "IN_QUEUE",
+  "request_id": "019ececa-e461-7531-91d8-a93ae3d8cd72",
+  "response_url": "https://queue.fal.run/bytedance/seedance-2.0/requests/019ececa-e461-7531-91d8-a93ae3d8cd72",
+  "status_url": "https://queue.fal.run/bytedance/seedance-2.0/requests/019ececa-e461-7531-91d8-a93ae3d8cd72/status",
+  "cancel_url": "https://queue.fal.run/bytedance/seedance-2.0/requests/019ececa-e461-7531-91d8-a93ae3d8cd72/cancel",
+  "logs": null,
+  "metrics": {},
+  "queue_position": 0
+}

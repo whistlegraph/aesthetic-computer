@@ -1,71 +1,78 @@
 {
-  "title": "Restless Egg — 60s Intro",
-  "width": 1920,
-  "height": 1080,
-  "fps": 30,
-  "voAudio": "vo.mp3",
-  "shots": [
+  "fps" : 30,
+  "height" : 1080,
+  "title" : "Restless Egg — 60s Intro",
+  "width" : 1920,
+  "voAudio" : "vo.mp3",
+  "shots" : [
     {
-      "id": "1-emblem",
-      "t0": 0, "t1": 6,
-      "lane": "GEN",
-      "vo": "I'm Jeffrey Scudder — a painter who spent the last decade building instruments instead of paintings.",
-      "source": "../figures/cover.png",
-      "prompt": "Slow reverent cinematic push-in on the laptop; the screen glows brighter and the colored mark shimmers to life; dust motes drift.",
-      "clip": "seedance-1-emblem.mp4",
-      "status": "done"
+      "t1" : 20,
+      "vo" : "This is notepat — a software instrument. Keyboard, touch, MIDI, even pressure.",
+      "prompt" : "Screen capture: notepat playing, tiles lighting as notes trigger, waveform reacting. Hard cuts between wide UI and macro on the tiles.",
+      "lane" : "CAP",
+      "id" : "3-notepat",
+      "status" : "pending",
+      "t0" : 10
     },
     {
-      "id": "2-morph",
-      "t0": 6, "t1": 10,
-      "lane": "GEN",
-      "vo": "(beat — first notepat notes hit)",
-      "source": "../figures/cover.png",
-      "prompt": "The one signature morph: emblem laptop screen dissolves into the live notepat UI as the melody bed begins.",
-      "status": "pending"
+      "t1" : 28,
+      "vo" : "Under it, a 128-voice synthesizer I built from scratch — it models real instruments instead of playing back samples.",
+      "prompt" : "Chrome number card: '128 PHYSICALLY-MODELED VOICES', number animates 1 to 128, over abstract waveguide/string-resonance motion. Tri-layer backlight.",
+      "lane" : "CARD",
+      "id" : "4-moat",
+      "status" : "pending",
+      "t0" : 20
     },
     {
-      "id": "3-notepat",
-      "t0": 10, "t1": 20,
-      "lane": "CAP",
-      "vo": "This is notepat — a software instrument. Keyboard, touch, MIDI, even pressure.",
-      "prompt": "Screen capture: notepat playing, tiles lighting as notes trigger, waveform reacting. Hard cuts between wide UI and macro on the tiles.",
-      "status": "pending"
+      "t1" : 10,
+      "vo" : "(beat — first notepat notes hit)",
+      "source" : "../figures/cover.png",
+      "prompt" : "The one signature morph: emblem laptop screen dissolves into the live notepat UI as the melody bed begins.",
+      "lane" : "GEN",
+      "id" : "2-morph",
+      "status" : "pending",
+      "t0" : 6
     },
     {
-      "id": "4-moat",
-      "t0": 20, "t1": 28,
-      "lane": "CARD",
-      "vo": "Under it, a 128-voice synthesizer I built from scratch — it models real instruments instead of playing back samples.",
-      "prompt": "Chrome number card: '128 PHYSICALLY-MODELED VOICES', number animates 1 to 128, over abstract waveguide/string-resonance motion. Tri-layer backlight.",
-      "status": "pending"
+      "t1" : 6,
+      "vo" : "I'm Jeffrey Scudder — a painter who spent the last decade building instruments instead of paintings.",
+      "source" : "../figures/cover.png",
+      "prompt" : "Slow reverent cinematic push-in on the laptop; the screen glows brighter and the colored mark shimmers to life; dust motes drift.",
+      "clip" : "seedance-1-emblem.mp4",
+      "lane" : "GEN",
+      "id" : "1-emblem",
+      "status" : "done",
+      "t0" : 0
     },
     {
-      "id": "5-anywhere",
-      "t0": 28, "t1": 40,
-      "lane": "GEN",
-      "vo": "The wild part — notepat runs anywhere. Your browser, your phone, and as the first thing that boots on a salvaged fifty-dollar laptop. No operating system underneath it.",
-      "source": "still-boot.png",
-      "prompt": "Three accelerating cuts: browser, phone, then the bare-metal boot beauty shot — warm screen-glow blooming. 'No OS underneath it' lands on the boot frame.",
-      "clip": "seedance-5-boot.mp4",
-      "status": "done"
+      "t1" : 40,
+      "vo" : "The wild part — notepat runs anywhere. Your browser, your phone, and as the first thing that boots on a salvaged fifty-dollar laptop. No operating system underneath it.",
+      "source" : "still-boot.png",
+      "prompt" : "Three accelerating cuts: browser, phone, then the bare-metal boot beauty shot — warm screen-glow blooming. 'No OS underneath it' lands on the boot frame.",
+      "clip" : "seedance-5-boot.mp4",
+      "lane" : "GEN",
+      "id" : "5-anywhere",
+      "status" : "done",
+      "t0" : 28
     },
     {
-      "id": "6-platform",
-      "t0": 40, "t1": 50,
-      "lane": "CAP",
-      "vo": "It grows out of Aesthetic Computer — where eighteen thousand people have already made sixteen thousand little programs.",
-      "prompt": "Machine-gun montage of KidLisp $code pieces, then a traction card '18,000 MAKERS · 16,000 PROGRAMS' chrome-stamps in.",
-      "status": "pending"
+      "t1" : 50,
+      "vo" : "It grows out of Aesthetic Computer — where eighteen thousand people have already made sixteen thousand little programs.",
+      "prompt" : "Machine-gun montage of KidLisp $code pieces, then a traction card '18,000 MAKERS · 16,000 PROGRAMS' chrome-stamps in.",
+      "lane" : "CAP",
+      "id" : "6-platform",
+      "status" : "pending",
+      "t0" : 40
     },
     {
-      "id": "7-ask",
-      "t0": 50, "t1": 60,
-      "lane": "CARD",
-      "vo": "My company turns that into instruments people play, and pay for. I want to make computing something you play again. That's what I'd do with Restless Egg.",
-      "source": "../figures/cover.png",
-      "prompt": "Emblem returns and holds; chrome title 'MAKE COMPUTING SOMETHING YOU PLAY AGAIN'; end card: notepat.com · aesthetic.computer · Aesthetic Inc. × Restless Egg.",
-      "status": "pending"
+      "t1" : 60,
+      "vo" : "My company turns that into instruments people play, and pay for. I want to make computing something you play again. That's what I'd do with Restless Egg.",
+      "source" : "../figures/cover.png",
+      "prompt" : "Emblem returns and holds; chrome title 'MAKE COMPUTING SOMETHING YOU PLAY AGAIN'; end card: notepat.com · aesthetic.computer · Aesthetic Inc. × Restless Egg.",
+      "lane" : "CARD",
+      "id" : "7-ask",
+      "status" : "pending",
+      "t0" : 50
     }
   ]
 }
