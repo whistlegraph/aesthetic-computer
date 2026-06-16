@@ -1,62 +1,32 @@
-// Auth.swift — reads the shared AC session token written by `ac-login`.
+// Auth.swift — thin wrapper over the canonical shared ACSession.
 //
-// The AC stack (ac-login CLI, ac-os, …) stores a single session token at
-// ~/.ac-token as JSON:
-//
-//   { "access_token": "<jwt>", "refresh_token": "...", "expires_at": <ms-epoch> }
-//
-// DateWizard reuses this exact token as the Authorization Bearer for /api/cal.
-// There is no device-pair / link-code flow anymore — signing in is just
-// running `ac-login` in a terminal, which (re)writes ~/.ac-token.
+// The whole AC macOS suite shares ONE sign-in via ~/.ac-token (written by
+// `ac-login` / the AC Electron tray). ACSession.swift (copied from
+// shared/swift/) does the real work — parsing, expiry, live file-watch
+// broadcast, and the sign-in helper. This wrapper keeps DateWizard's existing
+// call sites (currentToken / handle / runAcLogin) stable.
 import AppKit
 
 final class Auth {
-    // The on-disk shared token shape.
-    private struct TokenFile: Codable {
-        var access_token: String?
-        var refresh_token: String?
-        var expires_at: Double?     // ms-epoch
-        // Optional identity hints — present in some writers, ignored if absent.
-        var email: String?
-        var sub: String?
-        var handle: String?
-    }
+    private let session = ACSession.shared
 
-    // ~/.ac-token
-    static var tokenURL: URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".ac-token")
-    }
+    static var tokenURL: URL { ACSession.tokenURL }
 
-    private func load() -> TokenFile? {
-        guard let data = try? Data(contentsOf: Self.tokenURL) else { return nil }
-        return try? JSONDecoder().decode(TokenFile.self, from: data)
-    }
+    /// The current valid access token, or nil if missing/expired.
+    func currentToken() -> String? { session.token() }
 
-    // The current valid access token, or nil if the file is missing,
-    // unparseable, has no access_token, or has expired.
-    func currentToken() -> String? {
-        guard let tf = load(),
-              let token = tf.access_token, !token.isEmpty else { return nil }
-        if let exp = tf.expires_at, exp < Date().timeIntervalSince1970 * 1000 {
-            return nil   // expired
-        }
-        return token
-    }
+    /// "@handle" for display, or nil — never email/PII.
+    var handle: String? { session.displayName }
 
-    // Best-effort identity for display. Often nil — never block on it.
-    var handle: String? {
-        guard let tf = load() else { return nil }
-        return tf.handle ?? tf.email ?? tf.sub
+    /// Fire `onChange` (main queue) whenever the shared session changes —
+    /// sign-in, sign-out, refresh — across any app in the suite. Replaces the
+    /// old 2-second polling loop.
+    @discardableResult
+    func startWatching(_ onChange: @escaping () -> Void) -> UUID {
+        session.startWatching(onChange)
     }
+    func stopWatching(_ id: UUID) { session.stopWatching(id) }
 
-    // Launch `ac-login` in Terminal so the user can sign in without leaving
-    // the app. (Re)writes ~/.ac-token on success.
-    func runAcLogin() {
-        let script = "tell application \"Terminal\"\nactivate\ndo script \"ac-login\"\nend tell"
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        task.arguments = ["-e", script]
-        try? task.run()
-    }
+    /// Launch `ac-login` in Terminal to (re)write ~/.ac-token.
+    func runAcLogin() { session.runAcLogin() }
 }

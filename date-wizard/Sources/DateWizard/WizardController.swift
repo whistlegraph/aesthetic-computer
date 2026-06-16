@@ -11,8 +11,9 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
     // ── state ────────────────────────────────────────────────────────
     private var api: CalAPI
     private let auth = Auth()
-    // Polls ~/.ac-token while the sign-in screen is up.
-    private var tokenPollTimer: Timer?
+    // Live watch on the shared ~/.ac-token (suite-wide broadcast). Active for
+    // the whole app lifetime so a sign-in/out in any AC app updates us live.
+    private var sessionWatch: UUID?
 
     // The Sunday that begins the focused week.
     private var weekStart = WeekView.startOfWeek(for: Date())
@@ -59,11 +60,34 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
     // Called by the AppDelegate after the window shows. Ensures auth,
     // then loads the current week.
     func start() {
+        // Live suite-wide session watch: any sign-in/out (this app, another
+        // wizard, or the AC Electron tray) updates us without a restart.
+        if sessionWatch == nil {
+            sessionWatch = auth.startWatching { [weak self] in self?.handleSessionChange() }
+        }
         if let token = auth.currentToken() {
             api.setToken(token)
             hideAuthScreen()
             refresh()
         } else {
+            showAuthScreen()
+        }
+    }
+
+    // Reacts to a change in the shared ~/.ac-token (broadcast).
+    private func handleSessionChange() {
+        let who = auth.handle ?? "—"
+        NSLog("[ac-session] broadcast: token=\(auth.currentToken() != nil ? "present" : "none") handle=\(who)")
+        if let token = auth.currentToken() {
+            api.setToken(token)
+            if authOverlay != nil {
+                authStatusLabel?.stringValue = auth.handle.map { "Signed in as \($0)." } ?? "Signed in."
+                hideAuthScreen()
+            }
+            refresh()
+        } else {
+            // Signed out / expired elsewhere — drop to the sign-in screen.
+            api.setToken(nil)
             showAuthScreen()
         }
     }
@@ -435,39 +459,14 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
 
         cv.addSubview(overlay)
         self.authOverlay = overlay
-
-        startTokenPolling()
+        // No polling — the live session watch (installed in start()) proceeds
+        // automatically the instant ~/.ac-token appears.
     }
 
     private func hideAuthScreen() {
-        stopTokenPolling()
         authOverlay?.removeFromSuperview()
         authOverlay = nil
         authStatusLabel = nil
-    }
-
-    // Watch ~/.ac-token every ~2s; proceed automatically once it's valid.
-    private func startTokenPolling() {
-        stopTokenPolling()
-        let timer = Timer(timeInterval: 2.0, repeats: true) { [weak self] _ in
-            self?.checkForToken()
-        }
-        RunLoop.main.add(timer, forMode: .common)
-        tokenPollTimer = timer
-    }
-
-    private func stopTokenPolling() {
-        tokenPollTimer?.invalidate()
-        tokenPollTimer = nil
-    }
-
-    private func checkForToken() {
-        guard let token = auth.currentToken() else { return }
-        api.setToken(token)
-        let who = auth.handle.map { "Signed in as \($0)." } ?? "Signed in."
-        authStatusLabel?.stringValue = who
-        hideAuthScreen()
-        refresh()
     }
 
     @objc private func runAcLoginAction() {
@@ -477,7 +476,7 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
 
     @objc private func checkSignedInAction() {
         if auth.currentToken() != nil {
-            checkForToken()
+            handleSessionChange()
         } else {
             authStatusLabel?.stringValue = "No token yet — run  ac-login  in your terminal first."
         }
@@ -526,6 +525,6 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
 
     // ── window lifecycle ─────────────────────────────────────────────
     func windowWillClose(_ notification: Notification) {
-        stopTokenPolling()
+        if let id = sessionWatch { auth.stopWatching(id); sessionWatch = nil }
     }
 }
