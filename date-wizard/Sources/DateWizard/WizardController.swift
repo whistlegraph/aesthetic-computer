@@ -21,6 +21,7 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
     private var feedEvents: [FeedEvent] = []
 
     // ── UI ───────────────────────────────────────────────────────────
+    private var backdrop: BackdropView!
     private var weekView: WeekView!
     private var titleLabel: NSTextField!
     private var statusLabel: NSTextField!
@@ -71,6 +72,13 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
     private func setupUI() {
         guard let cv = window?.contentView else { return }
         cv.wantsLayer = true
+
+        // Living video backdrop (Seedance loop of the mascot illy), drawn
+        // behind everything at low opacity. Sits at the back of the view
+        // stack; the week grid and toolbar render in front of it.
+        backdrop = BackdropView(frame: cv.bounds)
+        backdrop.autoresizingMask = [.width, .height]
+        cv.addSubview(backdrop)
 
         let pad: CGFloat = 12
         let topH: CGFloat = 40
@@ -378,7 +386,10 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
 
         let overlay = NSView(frame: cv.bounds)
         overlay.wantsLayer = true
-        overlay.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+        // Translucent scrim so the living mascot backdrop shows through
+        // behind the sign-in prompt.
+        overlay.layer?.backgroundColor = NSColor.windowBackgroundColor
+            .withAlphaComponent(0.62).cgColor
         overlay.autoresizingMask = [.width, .height]
 
         let title = NSTextField(labelWithString: "Sign in to Aesthetic Computer")

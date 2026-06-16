@@ -96,9 +96,16 @@ final class WeekView: NSView {
 
     // ── drawing ──────────────────────────────────────────────────────
 
+    // Scrim opacity over the living backdrop. 0 = fully transparent (raw
+    // video), 1 = solid. Low enough to see the DateWizard loop behind the
+    // cells, high enough to keep small calendar text legible.
+    private let scrimAlpha: CGFloat = 0.24
+
     override func draw(_ dirtyRect: NSRect) {
-        let bg = NSColor.windowBackgroundColor
-        bg.setFill()
+        // Transparent background: the living DateWizard backdrop (sibling
+        // BackdropView, drawn behind this view) shows through. Only a faint
+        // scrim is laid down for legibility.
+        NSColor.windowBackgroundColor.withAlphaComponent(scrimAlpha).setFill()
         bounds.fill()
 
         drawHeaderAndGrid()

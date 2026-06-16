@@ -4,6 +4,7 @@ final class DateWizardAppDelegate: NSObject, NSApplicationDelegate {
     var wizard: WizardController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        DockIcon.install(prefix: "datewizard")
         let controller = WizardController()
         wizard = controller
         controller.showWindow(nil)
