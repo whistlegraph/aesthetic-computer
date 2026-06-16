@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- star body -->
+  <path d="M64 8 L78.1 44.6 L117.3 46.7 L86.8 71.4 L96.9 109.3 L64 88 L31.1 109.3 L41.2 71.4 L10.7 46.7 L49.9 44.6 Z"
+        fill="#D7DDE3" stroke="#98A1AC" stroke-width="5" stroke-linejoin="round"/>
+  <!-- glint -->
+  <ellipse cx="50" cy="40" rx="6" ry="9" fill="#F4F8FC" opacity="0.9" transform="rotate(-22 50 40)"/>
+  <!-- cheeks -->
+  <ellipse cx="44" cy="71" rx="7" ry="4.5" fill="#FF9DB0" opacity="0.7"/>
+  <ellipse cx="84" cy="71" rx="7" ry="4.5" fill="#FF9DB0" opacity="0.7"/>
+  <!-- eyes (blink — happy closed arcs) -->
+  <path d="M46 61 Q52 55 58 61" fill="none" stroke="#2E343C" stroke-width="4" stroke-linecap="round"/>
+  <path d="M70 61 Q76 55 82 61" fill="none" stroke="#2E343C" stroke-width="4" stroke-linecap="round"/>
+  <!-- smile -->
+  <path d="M53 73 Q64 84 75 73" fill="none" stroke="#2E343C" stroke-width="4" stroke-linecap="round"/>
+</svg>
