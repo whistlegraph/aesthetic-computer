@@ -20,18 +20,23 @@ Requires macOS 12+ and a Swift 5.9 toolchain.
 
 ## Sign in (shared AC session)
 
-DateWizard uses your shared AC session from `ac-login` (`~/.ac-token`) — the
-same login `ac-os` uses. Run `ac-login` once to sign in.
+DateWizard signs you in **natively, in-app** — no terminal, no CLI. It shares
+the same `~/.ac-token` the rest of the AC suite uses, so one sign-in serves
+`ac-os`, the other wizards, and the Electron tray.
 
 On first run (or after the token expires and a request comes back `401`), it
 shows a **sign-in screen**:
 
-- **Sign in (run ac-login)** launches `ac-login` in Terminal so you can
-  authenticate without leaving the app.
-- It then auto-polls `~/.ac-token` every ~2s and proceeds automatically once a
-  valid token appears. (Or click **I've signed in** to check immediately.)
+- **Sign in** runs AC's OAuth2 + PKCE browser flow directly (`ACLogin.swift`):
+  it spins up a localhost loopback callback on port `44233`, opens your browser
+  to `hi.aesthetic.computer`, then on the redirect exchanges the code, fetches
+  your `@handle`, and writes `~/.ac-token` itself — the same token the
+  `ac-login` CLI would write. The app proceeds automatically the instant the
+  token lands (via the shared session file-watch).
+- **Use ac-login CLI instead** is a fallback that launches `ac-login` in
+  Terminal — only needed if the native flow can't bind its loopback port.
 
-The token file is JSON written by the AC stack:
+The token file is JSON written either by the native flow or the AC stack:
 
 ```
 ~/.ac-token   # { "access_token": "<jwt>", "refresh_token": "...", "expires_at": <ms-epoch> }
@@ -39,8 +44,7 @@ The token file is JSON written by the AC stack:
 
 `access_token` is sent as `Authorization: Bearer …` on every `/api/cal` call.
 The token is treated as expired when the file is missing, unparseable, or
-`expires_at` is in the past — at which point you're prompted to run `ac-login`
-again.
+`expires_at` is in the past — at which point you're prompted to sign in again.
 
 ## Using the week
 
