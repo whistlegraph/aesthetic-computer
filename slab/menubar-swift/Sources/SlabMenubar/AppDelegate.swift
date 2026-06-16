@@ -75,6 +75,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// System-wide ⌘⌥T → re-tile claude terminals. Kept alive for the app's
     /// lifetime; unregistered in `applicationWillTerminate`.
     private var tileHotkey: GlobalHotkey?
+    /// System-wide ⌃⌥⌘A → toggle Dark Mode across this host + tailscale macs.
+    private var appearanceHotkey: GlobalHotkey?
+
+    /// Macs (beyond this host) to flip when going dark/light. ssh aliases that
+    /// resolve on the LAN/tailnet; unreachable ones are skipped silently.
+    private static let appearanceHosts = ["panda", "chicken", "blueberry"]
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -100,12 +106,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         refreshTimer = timer
         RunLoop.main.add(timer, forMode: .common)
 
+        // Title-component hygiene for the Slab-* Terminal profiles: the
+        // working-dir and active-process checkboxes are NOT scriptable and
+        // a running Terminal serves profiles from memory (and clobbers
+        // external plist writes on its next save). The only safe window is
+        // while Terminal is down — patch at launch if it isn't running,
+        // and again every time it quits.
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self, selector: #selector(appDidTerminate(_:)),
+            name: NSWorkspace.didTerminateApplicationNotification, object: nil)
+        if NSRunningApplication.runningApplications(
+            withBundleIdentifier: "com.apple.Terminal").isEmpty {
+            DispatchQueue.global(qos: .utility).async {
+                Self.patchTerminalTitleComponents()
+            }
+        }
+
         // Global ⌘⌥T re-tiles claude terminals — same payload as the menu's
         // "Tile now" item, no need to open the dropdown.
         let hotkey = GlobalHotkey { [weak self] in self?.tileNow() }
         if hotkey.register(keyCode: UInt32(kVK_ANSI_T),
                            modifiers: UInt32(cmdKey | optionKey)) {
             tileHotkey = hotkey
+        }
+
+        // Global ⌃⌥⌘A toggles Dark Mode on this host + the tailscale macs.
+        // Distinct id so it can't collide with the tiling hotkey's slot.
+        let appHotkey = GlobalHotkey(id: 2) { [weak self] in self?.toggleAppearance() }
+        if appHotkey.register(keyCode: UInt32(kVK_ANSI_A),
+                              modifiers: UInt32(controlKey | optionKey | cmdKey)) {
+            appearanceHotkey = appHotkey
         }
 
         // setDesktopImageURL only writes the wallpaper on the active Space of
@@ -122,6 +152,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         tileHotkey?.unregister()
+        appearanceHotkey?.unregister()
         passphraseServer.stop()
         NSWorkspace.shared.notificationCenter.removeObserver(self)
     }
@@ -150,6 +181,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // cache probes + fire-and-forget gen kicks, so the main thread
             // never waits on node/network (see slab-menubar-perf).
             snapshot.claudeSessions = self.resolveWallpapers(snapshot.claudeSessions)
+            // Sticky per-session title emoji — assigned here (off-main,
+            // serialized by the `gathering` guard) so decor + menu read one
+            // consistent mark.
+            snapshot.claudeSessions = TitleEmoji.assign(snapshot.claudeSessions)
+            // RENDERING overlay — a session whose turn is done but whose
+            // launched render (a ~/.ac-pop-renders heartbeat tagged with its
+            // sessionId) is still running shows pink `rendering` instead of
+            // idle slate, so a backgrounded build never reads as "not
+            // working on anything". Attention states (awaiting/interrupted)
+            // still win; a genuinely working session stays green.
+            let renderSids = Set(snapshot.popRenders.map(\.sessionId).filter { !$0.isEmpty })
+            if !renderSids.isEmpty {
+                snapshot.claudeSessions = snapshot.claudeSessions.map { s in
+                    var s = s
+                    if s.state == .complete, renderSids.contains(s.sessionId) {
+                        s.state = .rendering
+                    }
+                    return s
+                }
+            }
             DispatchQueue.main.async {
                 self.gathering = false
                 self.state = snapshot
@@ -187,6 +238,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
 
                 // No menu rebuild here — it's lazy via menuNeedsUpdate(_:).
+                // Consume any "open this PDF / video" asks (tiny main-thread
+                // stats; see PdfViewer.swift / VideoViewer.swift contracts).
+                // The lookup hands each viewer chip the sticky TitleEmoji of
+                // the Claude session that asked (state is main-thread here).
+                let emojiFor: (String) -> String = { sid in
+                    self.state.claudeSessions.first(where: { $0.sessionId == sid })?.emoji ?? ""
+                }
+                PdfViewer.shared.consumeRequests(emojiFor: emojiFor)
+                VideoViewer.shared.consumeRequests(emojiFor: emojiFor)
                 self.applyTerminalDecor()
                 self.applyDesktopTint()
             }
@@ -824,6 +884,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", script])
     }
 
+    /// Menu items "All Macs → Dark/Light" — representedObject is "dark"/"light".
+    @objc func setAppearance(_ sender: NSMenuItem) {
+        guard let mode = sender.representedObject as? String else { return }
+        applyAppearance(mode)
+    }
+
+    /// Global ⌃⌥⌘A — flip to the opposite of this host's current mode.
+    @objc func toggleAppearance() {
+        let isDark = UserDefaults.standard.string(forKey: "AppleInterfaceStyle") == "Dark"
+        applyAppearance(isDark ? "light" : "dark")
+    }
+
+    /// Set macOS Dark Mode on this host and each reachable tailscale mac. Every
+    /// call is dispatched async (no local shell), so the menu never blocks and
+    /// an offline/asleep host just times out its ssh quietly.
+    private func applyAppearance(_ mode: String) {
+        let val = (mode == "dark") ? "true" : "false"
+        let osa = "tell application \"System Events\" to tell appearance preferences to set dark mode to \(val)"
+        // Local host (neo).
+        ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", osa])
+        // Remotes: pass the remote command as a single ssh arg (no local shell),
+        // so the AppleScript's double quotes survive untouched on the far end.
+        for host in Self.appearanceHosts {
+            ShellRunner.runAsync("/usr/bin/ssh",
+                                 args: ["-o", "ConnectTimeout=4", "-o", "BatchMode=yes",
+                                        host, "osascript -e '\(osa)'"])
+        }
+    }
+
     @objc func sshPeer(_ sender: NSMenuItem) {
         guard let host = sender.representedObject as? String else { return }
         let safeHost = host.replacingOccurrences(of: "\\", with: "\\\\")
@@ -1028,6 +1117,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         switch s {
         case .blank:       return "blank"
         case .working:     return "working"
+        case .rendering:   return "rendering"
         case .complete:    return "complete"
         case .awaiting:    return "awaiting"
         case .interrupted: return "interrupted"
@@ -1117,6 +1207,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                            bold: (56000, 65535, 60000), cursor: (24000, 56000, 34000)), "● working")
                 : (Palette(bg: (55000, 65535, 58000), text: (2500, 20000, 8000),
                            bold: (1000, 13000, 4000), cursor: (4000, 42000, 15000)), "● working")
+        // Rendering = pink (turn done, but a launched render is still
+        // cooking — between working-green and awaiting-amber). Light: bright
+        // rose page, deep magenta ink; dark: deep rose page, bright pink ink.
+        case .rendering:
+            return dark
+                ? (Palette(bg: (9000, 1800, 5800), text: (62000, 44000, 54000),
+                           bold: (65535, 56000, 62000), cursor: (58000, 18000, 40000)), "◐ rendering")
+                : (Palette(bg: (65535, 54500, 60000), text: (26000, 2500, 15000),
+                           bold: (17000, 1000, 9500), cursor: (54000, 6000, 31000)), "◐ rendering")
         // Complete = slate (turn done — "look when ready"). Blink: a small,
         // same-hue nudge so the window breathes rather than flashes. Direction
         // flips by appearance — dark mode lifts toward brighter slate, bright
@@ -1188,6 +1287,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         switch state {
         case .blank:    s = "blank"
         case .working:  s = "working"
+        case .rendering: s = "rendering"
         case .complete: s = "complete"
         case .awaiting: s = "awaiting"
         // No dedicated Terminal.app settings set for interrupted — reuse the
@@ -1275,8 +1375,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             // Blank windows get an empty custom title so Terminal shows just
             // its default tty/process line — no "● working · …" badge while
-            // the page is meant to look blank.
-            let title = (s.state == .blank) ? "" : "\(glyph) · \(s.titleString)"
+            // the page is meant to look blank. Every other window leads with
+            // its sticky session emoji — the anchor that survives retiles.
+            let emojiPrefix = s.emoji.isEmpty ? "" : "\(s.emoji) "
+            let title = (s.state == .blank) ? "" : "\(emojiPrefix)\(glyph) · \(s.titleString)"
             // Terminal.app profile name. The "-msg" suffix gives the "she
             // texted" magenta-tinted palette its own settings set so Terminal
             // windows show the accent too (their colors come from the profile,
@@ -1425,6 +1527,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // Slab can close terminals (dev servers, REPLs) without a popover.
             tm.append("    try")
             tm.append("      set clean commands of slabSS to {\"screen\", \"tmux\", \"less\", \"more\", \"view\", \"mandoc\", \"tail\", \"log\", \"top\", \"htop\", \"bash\", \"zsh\", \"sh\", \"fish\", \"node\", \"npm\", \"pnpm\", \"yarn\", \"bun\", \"deno\", \"turbo\", \"vite\", \"tsx\", \"ts-node\", \"nodemon\", \"esbuild\", \"git\", \"ssh\", \"python\", \"python3\", \"ruby\", \"claude\"}")
+            tm.append("    end try")
+            // A fresh `make new settings set` inherits Terminal's FACTORY
+            // title components (working dir + process + size all on), not
+            // the user's default profile — so a themed window read
+            // "aesthetic-computer — <title> — claude — 80×24". Turn off
+            // every component AppleScript can reach; the two it can't
+            // (working dir + active process) are plist-only and handled by
+            // `patchTerminalTitleComponents()` when Terminal next quits.
+            tm.append("    try")
+            tm.append("      set title displays window size of slabSS to false")
+            tm.append("      set title displays device name of slabSS to false")
+            tm.append("      set title displays shell path of slabSS to false")
+            tm.append("      set title displays settings name of slabSS to false")
             tm.append("    end try")
             if let bg = pal.bg {
                 tm.append("    try")
@@ -1857,9 +1972,85 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// slab-terminal-font-zoom). It steals focus for ~0.35 s/window, so the
     /// frequent auto-retile-after-close path passes false (fresh/unchanged
     /// windows already render their profile font).
+    ///
+    /// Fast path: windows snap into the grid via the in-process AX API
+    /// (see AXTiler — milliseconds, no focus steal); the Terminal font pass
+    /// is an async catch-up that only runs when the grid font actually
+    /// changed (or on an explicit resetZoom tile). Falls back to the legacy
+    /// osascript path when Accessibility trust is missing.
     func tileNowImpl(resetZoom: Bool) {
         guard let geom = Self.screenGeom() else { return }
         let textSize = state.textSize
+        guard AXTiler.trusted else {
+            tileNowLegacy(resetZoom: resetZoom, geom: geom, textSize: textSize)
+            return
+        }
+        let prevFont = lastTiledFontSize
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let pass = Self.axTilePass(geom: geom, textSize: textSize) else { return }
+            DispatchQueue.main.async {
+                self?.lastTiledFontSize = pass.fontSize
+                // Reset decor memo so the next refresh re-themes every
+                // window from scratch (a re-pack invalidates prior placement).
+                self?.lastTerminalDecor.removeAll()
+            }
+            // Geometry is already done — the grid snapped above. Terminal
+            // text size catches up asynchronously, and only when needed:
+            // the profile-font write + Default-Font-Size menu dance is the
+            // slow, focus-stealing part of the old tiler.
+            guard pass.nTerm > 0, resetZoom || prevFont != pass.fontSize else { return }
+            var lines: [String] = [
+                "tell application \"Terminal\"",
+                "    set _slabIds to id of (every window whose miniaturized is false)",
+                "    repeat with _wid in _slabIds",
+                "      try",
+                "        set font size of current settings of (first window whose id is (contents of _wid)) to \(pass.fontSize)",
+                "      end try",
+                "    end repeat",
+                "end tell",
+            ]
+            if resetZoom {
+                lines.append("tell application \"Terminal\" to activate")
+                lines.append("repeat with _wid in _slabIds")
+                lines.append("  try")
+                lines.append("    tell application \"Terminal\" to set index of (first window whose id is (contents of _wid)) to 1")
+                lines.append("    delay 0.25")
+                lines.append("    tell application \"System Events\" to tell process \"Terminal\" to click menu item \"Default Font Size\" of menu 1 of menu bar item \"View\" of menu bar 1")
+                lines.append("    delay 0.1")
+                lines.append("  end try")
+                lines.append("end repeat")
+            }
+            ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", lines.joined(separator: "\n")]) {
+                // The profile switch / zoom reset can reflow window frames —
+                // re-pin the grid (instant, AX again).
+                Self.axTilePass(geom: geom, textSize: textSize)
+            }
+        }
+    }
+
+    /// One AX tile sweep: enumerate both terminals' tileable windows
+    /// (iTerm2 fills the grid first, matching the legacy order), compute
+    /// the layout, and pin every frame. Returns nil when nothing is open.
+    private struct AXPass { let nIterm: Int; let nTerm: Int; let fontSize: Int }
+    @discardableResult
+    private static func axTilePass(geom: ScreenGeom, textSize: TextSize) -> AXPass? {
+        let iterm = AXTiler.windows(bundleId: "com.googlecode.iterm2")
+        let term = AXTiler.windows(bundleId: "com.apple.Terminal")
+        let all = iterm + term
+        guard !all.isEmpty,
+              let layout = computeTileLayout(count: all.count, geom: geom, size: textSize)
+        else { return nil }
+        for (i, w) in all.enumerated() {
+            let cell = layout.cellAt(index: i).bounds
+            AXTiler.setFrame(w, left: cell.left, top: cell.top,
+                             right: cell.right, bottom: cell.bottom)
+        }
+        return AXPass(nIterm: iterm.count, nTerm: term.count, fontSize: layout.fontSize)
+    }
+
+    /// The pre-AX tiler, kept verbatim as the no-Accessibility fallback:
+    /// three osascript spawns (two count probes + one bounds script).
+    private func tileNowLegacy(resetZoom: Bool, geom: ScreenGeom, textSize: TextSize) {
         DispatchQueue.global(qos: .userInitiated).async {
             // Size the grid to everything on screen across both apps. The
             // `is running` guard never launches a quit Terminal.app, so a
@@ -1958,6 +2149,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private static func windowCount(app: String) -> Int {
+        // Fast path: count in-process via AX (no osascript spawn, no Apple
+        // Events round-trip). NSRunningApplication returning nothing for a
+        // quit app keeps the never-launches guarantee.
+        if AXTiler.trusted {
+            let bid = app == "iTerm2" ? "com.googlecode.iterm2" : "com.apple.Terminal"
+            return AXTiler.windows(bundleId: bid).count
+        }
         let spec = appSpecifier(app)
         // Terminal exposes `miniaturized`, so minimized windows are excluded
         // from the tile grid (they shouldn't consume a cell). iTerm2 doesn't
@@ -1998,6 +2196,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 self?.refreshMailCount()
             }
         }
+    }
+
+    /// Terminal quit → patch the Slab profiles' unscriptable title keys.
+    /// Delayed a beat so Terminal's own final prefs flush lands first
+    /// (whoever writes last wins, and we want it to be us).
+    @objc private func appDidTerminate(_ note: Notification) {
+        guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey]
+                as? NSRunningApplication,
+              app.bundleIdentifier == "com.apple.Terminal" else { return }
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 2) {
+            Self.patchTerminalTitleComponents()
+        }
+    }
+
+    /// Force the title bar of every Slab-* Terminal profile down to just
+    /// the custom title: the "Working directory or document", "Active
+    /// process name", and "Window size" components have no AppleScript
+    /// terms, so they can only be cleared in the prefs plist — and only
+    /// while Terminal is NOT running (it serves profiles from memory and
+    /// rewrites the whole domain on save, clobbering external edits).
+    /// Idempotent; no-ops when Terminal is up or nothing needs changing.
+    private static func patchTerminalTitleComponents() {
+        guard NSRunningApplication.runningApplications(
+            withBundleIdentifier: "com.apple.Terminal").isEmpty else { return }
+        let domain = "com.apple.Terminal" as CFString
+        guard var ws = CFPreferencesCopyAppValue("Window Settings" as CFString, domain)
+                as? [String: Any] else { return }
+        var dirty = false
+        for (name, value) in ws where name.hasPrefix("Slab") {
+            guard var prof = value as? [String: Any] else { continue }
+            for key in ["ShowRepresentedURLInTitle",
+                        "ShowActiveProcessInTitle",
+                        "ShowDimensionsInTitle",
+                        "ShowTTYNameInTitle"] where (prof[key] as? Bool) != false {
+                prof[key] = false
+                dirty = true
+            }
+            ws[name] = prof
+        }
+        guard dirty else { return }
+        CFPreferencesSetAppValue("Window Settings" as CFString, ws as CFDictionary, domain)
+        CFPreferencesAppSynchronize(domain)
     }
 
     /// True when the system is currently in Dark mode. Reads NSApp's

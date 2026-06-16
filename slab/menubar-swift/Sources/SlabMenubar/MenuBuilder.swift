@@ -52,6 +52,8 @@ enum MenuBuilder {
         menu.addItem(buildImsg(status: imsgStatus, configured: imsgConfigured, target: target))
         menu.addItem(buildAsana(state: asana, target: target))
         appendOvertime(to: menu, target: target)
+        menu.addItem(buildPdf(target: target))
+        menu.addItem(buildVideo(target: target))
         if state.deskflow.configured {
             menu.addItem(buildDeskflow(state: state, target: target))
         }
@@ -99,6 +101,8 @@ enum MenuBuilder {
         let saver = item("Start screensaver", selector: #selector(AppDelegate.startScreensaver), target: target)
         saver.toolTip = "Launch the currently-selected screen saver now (Slab Status if chosen in System Settings)."
         menu.addItem(saver)
+
+        menu.addItem(buildAppearance(target: target))
 
         let mute = item("Mute ambient sonification", selector: #selector(AppDelegate.toggleMute), target: target)
         mute.state = state.muted ? .on : .off
@@ -277,6 +281,34 @@ enum MenuBuilder {
         return "\(type)\(bar)  \(pctText)  \(countCell)\(memCell)\(r.label)"
     }
 
+    /// "Appearance" submenu — flip macOS Dark Mode on this host plus the
+    /// reachable tailscale macs in one click. Mirrors the global ⌃⌥⌘A toggle.
+    private static func buildAppearance(target: AppDelegate) -> NSMenuItem {
+        let parent = NSMenuItem(title: "Appearance", action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+
+        let dark = NSMenuItem(title: "All Macs → Dark",
+                              action: #selector(AppDelegate.setAppearance(_:)), keyEquivalent: "")
+        dark.target = target
+        dark.representedObject = "dark"
+        sub.addItem(dark)
+
+        let light = NSMenuItem(title: "All Macs → Light",
+                               action: #selector(AppDelegate.setAppearance(_:)), keyEquivalent: "")
+        light.target = target
+        light.representedObject = "light"
+        sub.addItem(light)
+
+        sub.addItem(.separator())
+        let toggle = NSMenuItem(title: "Toggle  (⌃⌥⌘A)",
+                                action: #selector(AppDelegate.toggleAppearance), keyEquivalent: "")
+        toggle.target = target
+        sub.addItem(toggle)
+
+        parent.submenu = sub
+        return parent
+    }
+
     private static func buildTailnet(state: StateSnapshot, target: AppDelegate) -> NSMenuItem {
         let online = state.tailnetPeers.filter { $0.online }.count
         let total = state.tailnetPeers.count
@@ -344,6 +376,7 @@ enum MenuBuilder {
             switch s.state {
             case .awaiting:    dot = "◉"
             case .working:     dot = "●"
+            case .rendering:   dot = "◐"   // turn done, its render still cooking
             case .complete:    dot = "✓"
             case .interrupted: dot = "✕"   // Esc'd, idle at the prompt
             case .blank:       dot = "·"   // tiny midpoint — fresh, nothing yet
@@ -358,8 +391,11 @@ enum MenuBuilder {
                 if !s2.isEmpty { return s2 }
                 return s.state == .blank ? "(new)" : s2
             }()
+            // The session's sticky emoji rides between dot and subject so a
+            // menu row and its window wear the same mark (see TitleEmoji).
+            let emojiPrefix = s.emoji.isEmpty ? "" : "\(s.emoji) "
             let entry = NSMenuItem(
-                title: "\(dot) \(subjectText)\(tail)",
+                title: "\(dot) \(emojiPrefix)\(subjectText)\(tail)",
                 action: #selector(AppDelegate.focusClaudeSession(_:)),
                 keyEquivalent: ""
             )
@@ -367,7 +403,7 @@ enum MenuBuilder {
             entry.representedObject = s.tty
             entry.toolTip = sessionTooltip(s)
             entry.isEnabled = !s.tty.isEmpty
-            entry.attributedTitle = coloredTitle(for: s, dot: dot, subject: subjectText, tail: tail)
+            entry.attributedTitle = coloredTitle(for: s, dot: dot, subject: "\(emojiPrefix)\(subjectText)", tail: tail)
             menu.addItem(entry)
         }
     }
@@ -462,6 +498,7 @@ enum MenuBuilder {
         // awaiting = warm amber (needs you), blank = quiet gray (fresh, no
         // input yet), stale = gray.
         case .working:  dotColor = NSColor(deviceHue: 0.33, saturation: 0.70, brightness: 0.78, alpha: 1.0)
+        case .rendering: dotColor = NSColor(deviceHue: 0.92, saturation: 0.62, brightness: 0.96, alpha: 1.0) // pink — between green and amber
         case .complete: dotColor = NSColor(deviceHue: 0.58, saturation: 0.30, brightness: 0.70, alpha: 1.0)
         case .awaiting: dotColor = NSColor(deviceHue: 0.10, saturation: 0.95, brightness: 0.95, alpha: 1.0)
         case .interrupted: dotColor = NSColor(deviceHue: 0.78, saturation: 0.55, brightness: 0.80, alpha: 1.0) // violet
@@ -488,6 +525,8 @@ enum MenuBuilder {
             parts.append("turn complete (idle)")
         case .working:
             parts.append("working")
+        case .rendering:
+            parts.append("rendering (a launched render is still running)")
         case .interrupted:
             parts.append("interrupted (Esc'd, idle at prompt)")
         case .blank:
@@ -571,6 +610,59 @@ enum MenuBuilder {
     /// iMessage submenu — mirrors Mail. The parent title is whatever the
     /// helper reported (the contact's display name lives only in the
     /// untracked config, never here), so nothing personal is in tracked code.
+    /// PDF viewer submenu — slab's minimal scroller (PdfViewer.swift). Lists
+    /// every open document (click → bring forward), plus open/close-all. The
+    /// title carries the count so glancing tells you what slab is holding.
+    private static func buildPdf(target: AppDelegate) -> NSMenuItem {
+        let open = PdfViewer.shared.openPaths
+        let parent = NSMenuItem(
+            title: open.isEmpty ? "PDF viewer" : "PDF viewer: \(open.count)",
+            action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        sub.autoenablesItems = false
+        sub.addItem(item("Open PDF…", selector: #selector(AppDelegate.openPdfFromPanel), target: target))
+        if !open.isEmpty {
+            sub.addItem(.separator())
+            for path in open {
+                let row = item((path as NSString).lastPathComponent,
+                               selector: #selector(AppDelegate.focusPdf(_:)), target: target)
+                row.representedObject = path
+                row.toolTip = path
+                sub.addItem(row)
+            }
+            sub.addItem(.separator())
+            sub.addItem(item("Close all", selector: #selector(AppDelegate.closeAllPdfs), target: target))
+        }
+        parent.submenu = sub
+        return parent
+    }
+
+    /// Video viewer submenu — slab's minimal player (VideoViewer.swift), so
+    /// rendered videos preview without QuickTime. Same shape as buildPdf.
+    private static func buildVideo(target: AppDelegate) -> NSMenuItem {
+        let open = VideoViewer.shared.openPaths
+        let parent = NSMenuItem(
+            title: open.isEmpty ? "Video viewer" : "Video viewer: \(open.count)",
+            action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        sub.autoenablesItems = false
+        sub.addItem(item("Open video…", selector: #selector(AppDelegate.openVideoFromPanel), target: target))
+        if !open.isEmpty {
+            sub.addItem(.separator())
+            for path in open {
+                let row = item((path as NSString).lastPathComponent,
+                               selector: #selector(AppDelegate.focusVideo(_:)), target: target)
+                row.representedObject = path
+                row.toolTip = path
+                sub.addItem(row)
+            }
+            sub.addItem(.separator())
+            sub.addItem(item("Close all", selector: #selector(AppDelegate.closeAllVideos), target: target))
+        }
+        parent.submenu = sub
+        return parent
+    }
+
     private static func buildImsg(status: String, configured: Bool, target: AppDelegate) -> NSMenuItem {
         let parent = NSMenuItem(title: status, action: nil, keyEquivalent: "")
         let sub = NSMenu()
