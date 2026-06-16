@@ -1,11 +1,13 @@
 #!/usr/bin/env node
-// gen-keyframes.mjs — the 4 narrative key-frames (gpt-image-2), painterly
-// /pop illustration style, jeffrey as a recurring faceless 3/4-back character.
-// These seed the Seedance 2 image-to-video clips. See NARRATIVE.md.
+// gen-keyframes.mjs — the 4 narrative key-frames with JEFFREY's real likeness,
+// via gpt-image-2 /v1/images/edits conditioned on the canonical jeffrey refs
+// (marketing/lib/jeffrey-refs.mjs). Painterly /pop style; he's kept 3/4-back /
+// profile / silhouette so it reads as him AND survives Seedance face moderation.
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { jeffreyRefs } from "../../../marketing/lib/jeffrey-refs.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "../../..");
@@ -17,46 +19,58 @@ function key() {
   throw new Error("no OPENAI_API_KEY");
 }
 
+const REFS = jeffreyRefs();
 const STYLE =
-  "Painterly digital illustration, cinematic 16:9, warm and moody, rich color, soft glow " +
-  "and gentle film grain, hand-painted indie-animated-film concept-art feel. Recurring " +
-  "character: a man seen from 3/4-BEHIND or in SILHOUETTE — NEVER his face, no front face — " +
-  "casual hoodie, a creative coder/painter. Aesthetic Computer palette: warm cream, deep " +
-  "violet, citrus-green terminal glow, coral accents. No readable text, no logos. ";
+  "Painterly digital illustration, cinematic 16:9, warm and moody, rich color, soft glow and gentle " +
+  "film grain, hand-painted indie-animated-film concept-art feel. The MAN in the scene is the specific " +
+  "person in the reference photos — match his face, hair, beard, build and vibe so it is clearly HIM — " +
+  "but frame him from 3/4-behind, side profile, or silhouette (no straight-on front face). Aesthetic " +
+  "Computer palette: warm cream, deep violet, citrus-green terminal glow, coral accents. No readable " +
+  "text, no logos. ";
 
 const BEATS = {
   "key-1-painter.png":
-    STYLE + "A cluttered Los Angeles studio at night. He sits at a desk seen from 3/4-behind in a " +
-    "painter's posture, brush in hand — but his canvas is a glowing laptop screen full of colored light. " +
-    "A quiet stack of old, closed, dead laptops sits beside him. Warm desk lamp, faint green terminal " +
-    "glow. Intimate and nocturnal — the origin of an idea.",
+    STYLE + "He sits at a cluttered Los Angeles studio desk at night, seen from 3/4-behind so we catch " +
+    "his profile in the warm lamp light — a painter's posture, brush in hand — but his canvas is a glowing " +
+    "laptop screen full of colored light. A quiet stack of old, closed, dead laptops beside him. Faint " +
+    "green terminal glow. Intimate, nocturnal — the origin of an idea.",
   "key-2-awakening.png":
-    STYLE + "Close on his hands flipping open a small salvaged laptop and slotting in a USB stick. The " +
-    "screen blooms to life with a vivid grid of glowing colored musical note-tiles and a bright waveform, " +
-    "light and color flooding out of the machine into the dark room. A cheap laptop becoming a glowing " +
-    "instrument. Magical, warm.",
+    STYLE + "Close over-the-shoulder on him (his profile and hands visible) flipping open a small salvaged " +
+    "laptop and slotting in a USB stick. The screen blooms with a vivid grid of glowing colored musical " +
+    "note-tiles and a bright waveform; light and color flood out of the machine onto his face and into the " +
+    "dark room. A cheap laptop becoming a glowing instrument. Magical, warm.",
   "key-3-commons.png":
-    STYLE + "A vast pull-back view: a dark constellation where thousands of tiny glowing screens blink on, " +
-    "each showing a small distinct piece of colorful generative art, connected by faint threads of light — " +
-    "a galaxy of a creative community. His small silhouette stands at the lower edge looking up at it. Awe " +
-    "and scale.",
+    STYLE + "A vast pull-back: a dark constellation where thousands of tiny glowing screens blink on, each " +
+    "a small distinct piece of colorful generative art, threads of light connecting them. He stands in the " +
+    "lower foreground from behind, clearly him by his hair and build and outfit, looking up at the galaxy " +
+    "of a creative community. Awe and scale.",
   "key-4-invitation.png":
-    STYLE + "A single refurbished laptop alone on a warm, softly-spotlit dark stage, glowing like a musical " +
-    "instrument waiting to be played. His silhouette has just set it down and is stepping back into shadow. " +
-    "Hopeful, reverent, an invitation. Cinematic rim light.",
+    STYLE + "A single refurbished laptop alone on a warm, softly-spotlit dark stage, glowing like an " +
+    "instrument waiting to be played. His silhouette — recognizably him — has just set it down and is " +
+    "stepping back into the shadow. Hopeful, reverent, an invitation. Cinematic rim light.",
 };
 
 const apiKey = key();
 const force = process.argv.includes("--force");
+console.log(`refs: ${REFS.length} jeffrey photos`);
 for (const [name, prompt] of Object.entries(BEATS)) {
   const out = join(HERE, name);
   if (existsSync(out) && !force) { console.log(`· cached ${name}`); continue; }
   const t0 = Date.now();
   process.stdout.write(`▸ ${name} … `);
-  const res = await fetch("https://api.openai.com/v1/images/generations", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "gpt-image-2", prompt, size: "1536x1024", quality: "high", n: 1 }),
+  const fd = new FormData();
+  fd.append("model", "gpt-image-2");
+  fd.append("prompt", prompt);
+  fd.append("size", "1536x1024");
+  fd.append("quality", "high");
+  fd.append("n", "1");
+  for (const ref of REFS) {
+    const buf = readFileSync(ref);
+    const ext = ref.toLowerCase().endsWith(".png") ? "png" : "jpeg";
+    fd.append("image[]", new Blob([buf], { type: `image/${ext}` }), ref.split("/").pop());
+  }
+  const res = await fetch("https://api.openai.com/v1/images/edits", {
+    method: "POST", headers: { Authorization: `Bearer ${apiKey}` }, body: fd,
   });
   if (!res.ok) { console.log(`FAIL ${res.status}: ${(await res.text()).slice(0, 160)}`); continue; }
   const j = await res.json();
