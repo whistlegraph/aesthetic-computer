@@ -69,6 +69,13 @@ private struct FeedEventsEnvelope: Codable {
 }
 private struct FeedsEnvelope: Codable { var feeds: [Feed] }
 private struct FeedEnvelope: Codable { var feed: Feed }
+
+// The caller's secret subscription link (full calendar, private included).
+struct SubscriptionLink: Codable {
+    var token: String
+    var code: String?
+    var url: String?     // ready-to-paste ICS subscription URL
+}
 private struct OkEnvelope: Codable { var ok: Bool }
 private struct MessageEnvelope: Codable { var message: String? }
 
@@ -206,6 +213,26 @@ final class CalAPI {
         comps.queryItems = [URLQueryItem(name: "feedId", value: id)]
         request(url: comps.url!, method: "DELETE", body: nil) { result in
             completion(result.flatMap { Self.decode(OkEnvelope.self, $0).map { $0.ok } })
+        }
+    }
+
+    // Fetch (minting on first use) the caller's secret subscription link.
+    func fetchSubscriptionLink(
+        completion: @escaping (Result<SubscriptionLink, CalAPIError>) -> Void) {
+        var comps = URLComponents(string: "\(Self.base)/api/cal")!
+        comps.queryItems = [URLQueryItem(name: "calToken", value: "1")]
+        request(url: comps.url!, method: "GET", body: nil) { result in
+            completion(result.flatMap { Self.decode(SubscriptionLink.self, $0) })
+        }
+    }
+
+    // Rotate the secret (invalidates all existing subscription URLs).
+    func rotateSubscriptionLink(
+        completion: @escaping (Result<SubscriptionLink, CalAPIError>) -> Void) {
+        let body: [String: Any] = ["rotateToken": true]
+        request(url: URL(string: "\(Self.base)/api/cal")!, method: "POST",
+                body: Self.json(body)) { result in
+            completion(result.flatMap { Self.decode(SubscriptionLink.self, $0) })
         }
     }
 

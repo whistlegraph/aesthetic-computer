@@ -41,6 +41,11 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
     private var authOverlay: NSView?
     private var authStatusLabel: NSTextField?
 
+    // Calendars panel (subscription link + connectors), live-updated by async loads.
+    private var subLinkField: NSTextField?
+    private var connectorsBox: NSView?
+    private weak var calendarsWindow: NSWindow?
+
     private var editor: EventEditor?
 
     // ── lifecycle ────────────────────────────────────────────────────
@@ -123,7 +128,7 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         todayButton = NSButton(title: "Today", target: self, action: #selector(goToday))
         refreshButton = NSButton(title: "Refresh", target: self, action: #selector(refreshAction))
         addButton = NSButton(title: "+ Event", target: self, action: #selector(addEventAction))
-        connectButton = NSButton(title: "Connect Google…", target: self, action: #selector(connectFeedAction))
+        connectButton = NSButton(title: "Calendars…", target: self, action: #selector(calendarsPanelAction))
         modeButton = NSButton(title: dayCount == 1 ? "Week" : "Day",
                               target: self, action: #selector(toggleModeAction))
 
@@ -136,7 +141,7 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         // Lay buttons out right-to-left across the top.
         var x: CGFloat = 840 - pad
         let widths: [(NSButton, CGFloat)] = [
-            (connectButton, 130), (addButton, 78), (refreshButton, 76),
+            (connectButton, 96), (addButton, 78), (refreshButton, 76),
             (modeButton, 54), (todayButton, 58), (nextButton, 30), (prevButton, 30),
         ]
         for (b, w) in widths {
@@ -381,6 +386,152 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
                     if case .unauthorized = err { self.handleUnauthorized() }
                     else { self.statusLabel.stringValue = err.localizedDescription }
                 }
+            }
+        }
+    }
+
+    // ── calendars panel: subscription link + connectors ──────────────
+    @objc private func calendarsPanelAction() {
+        guard let window else { return }
+        let W: CGFloat = 470
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: W, height: 248))
+
+        let linkTitle = NSTextField(labelWithString: "Your AesthetiCal subscription link")
+        linkTitle.font = .systemFont(ofSize: 12, weight: .semibold)
+        linkTitle.frame = NSRect(x: 0, y: 226, width: W, height: 18)
+        container.addSubview(linkTitle)
+
+        let hint = NSTextField(labelWithString: "Subscribe in Apple/Google Calendar. Full calendar (private incl.) — keep it secret.")
+        hint.font = .systemFont(ofSize: 10); hint.textColor = .secondaryLabelColor
+        hint.frame = NSRect(x: 0, y: 210, width: W, height: 14)
+        container.addSubview(hint)
+
+        let field = NSTextField(frame: NSRect(x: 0, y: 182, width: 352, height: 22))
+        field.isEditable = false; field.isSelectable = true
+        field.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
+        field.stringValue = "Loading…"
+        container.addSubview(field)
+        self.subLinkField = field
+
+        let copyBtn = NSButton(title: "Copy", target: self, action: #selector(copySubLink))
+        copyBtn.bezelStyle = .rounded
+        copyBtn.frame = NSRect(x: 356, y: 181, width: 48, height: 24)
+        container.addSubview(copyBtn)
+        let rotateBtn = NSButton(title: "Rotate", target: self, action: #selector(rotateSubLink))
+        rotateBtn.bezelStyle = .rounded
+        rotateBtn.frame = NSRect(x: 406, y: 181, width: 60, height: 24)
+        container.addSubview(rotateBtn)
+
+        let sep = NSBox(frame: NSRect(x: 0, y: 166, width: W, height: 1))
+        sep.boxType = .separator
+        container.addSubview(sep)
+
+        let connTitle = NSTextField(labelWithString: "Connected calendars")
+        connTitle.font = .systemFont(ofSize: 12, weight: .semibold)
+        connTitle.frame = NSRect(x: 0, y: 142, width: 300, height: 18)
+        container.addSubview(connTitle)
+
+        let box = NSView(frame: NSRect(x: 0, y: 0, width: W, height: 134))
+        container.addSubview(box)
+        self.connectorsBox = box
+
+        let alert = NSAlert()
+        alert.messageText = "Calendars"
+        alert.accessoryView = container
+        alert.addButton(withTitle: "Done")
+        alert.addButton(withTitle: "Connect a Calendar…")
+        alert.beginSheetModal(for: window) { [weak self] resp in
+            guard let self else { return }
+            self.subLinkField = nil
+            self.connectorsBox = nil
+            // "Connect a Calendar…" — present its sheet now that this one is gone.
+            if resp == .alertSecondButtonReturn { self.connectFeedAction() }
+        }
+
+        loadSubLink()
+        reloadConnectors()
+    }
+
+    private func loadSubLink() {
+        api.fetchSubscriptionLink { [weak self] r in
+            guard let self else { return }
+            switch r {
+            case .success(let link):
+                self.subLinkField?.stringValue = link.url ?? "(no link — handle not set)"
+            case .failure(let e):
+                if case .unauthorized = e { self.handleUnauthorized() }
+                self.subLinkField?.stringValue = "Error: \(e.localizedDescription)"
+            }
+        }
+    }
+
+    @objc private func copySubLink() {
+        guard let s = subLinkField?.stringValue, s.hasPrefix("http") else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(s, forType: .string)
+        statusLabel.stringValue = "Subscription link copied."
+    }
+
+    @objc private func rotateSubLink() {
+        subLinkField?.stringValue = "Rotating…"
+        api.rotateSubscriptionLink { [weak self] r in
+            guard let self else { return }
+            switch r {
+            case .success(let link):
+                self.subLinkField?.stringValue = link.url ?? "(no link)"
+                self.statusLabel.stringValue = "Subscription link rotated — old links revoked."
+            case .failure(let e):
+                if case .unauthorized = e { self.handleUnauthorized() }
+                self.subLinkField?.stringValue = "Error: \(e.localizedDescription)"
+            }
+        }
+    }
+
+    private func reloadConnectors() {
+        api.fetchFeeds { [weak self] r in
+            guard let self, let box = self.connectorsBox else { return }
+            box.subviews.forEach { $0.removeFromSuperview() }
+            switch r {
+            case .success(let feeds):
+                if feeds.isEmpty {
+                    let l = NSTextField(labelWithString: "No calendars connected yet — use “Connect a Calendar…”.")
+                    l.font = .systemFont(ofSize: 11); l.textColor = .secondaryLabelColor
+                    l.frame = NSRect(x: 0, y: box.bounds.height - 22, width: box.bounds.width, height: 18)
+                    box.addSubview(l)
+                    return
+                }
+                var y = box.bounds.height - 26
+                for feed in feeds {
+                    let name = NSTextField(labelWithString: feed.label ?? "Calendar")
+                    name.font = .systemFont(ofSize: 11)
+                    name.frame = NSRect(x: 0, y: y + 3, width: 340, height: 18)
+                    box.addSubview(name)
+                    let rm = NSButton(title: "Remove", target: self,
+                                      action: #selector(self.removeConnector(_:)))
+                    rm.bezelStyle = .rounded
+                    rm.frame = NSRect(x: box.bounds.width - 84, y: y, width: 84, height: 24)
+                    rm.identifier = NSUserInterfaceItemIdentifier(feed.id)
+                    box.addSubview(rm)
+                    y -= 30
+                }
+            case .failure(let e):
+                if case .unauthorized = e { self.handleUnauthorized() }
+            }
+        }
+    }
+
+    @objc private func removeConnector(_ sender: NSButton) {
+        guard let id = sender.identifier?.rawValue else { return }
+        sender.isEnabled = false
+        api.removeFeed(id: id) { [weak self] r in
+            guard let self else { return }
+            switch r {
+            case .success:
+                self.reloadConnectors()
+                self.refresh()
+            case .failure(let e):
+                sender.isEnabled = true
+                if case .unauthorized = e { self.handleUnauthorized() }
             }
         }
     }
