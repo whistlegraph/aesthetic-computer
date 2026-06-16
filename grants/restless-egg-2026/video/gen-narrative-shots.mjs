@@ -3,7 +3,7 @@
 // image-to-video (fal, /pop harness). The illustration carries the look; the
 // prompt carries MOTION only. See NARRATIVE.md.
 
-import { resolve, dirname, join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { generateShot, RATE_PER_SEC } from "../../../pop/lib/fal-seedance.mjs";
 

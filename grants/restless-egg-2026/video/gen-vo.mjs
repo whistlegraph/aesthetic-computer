@@ -69,9 +69,11 @@ async function tts(apiKey, text, outBase) {
   return { wavPath, dur };
 }
 
-const text = readFileSync(join(HERE, "vo-script.txt"), "utf8").trim();
+const SCRIPT = process.argv[2] || "vo-script.txt";
+const OUTBASE = process.argv[3] || "vo";
+const text = readFileSync(join(HERE, SCRIPT), "utf8").trim();
 const apiKey = loadKey();
-console.log(`[gen-vo] voice=${VOICE_ID} model=${MODEL_ID} stability=${process.env.STABILITY ?? 0.5}`);
-const { dur } = await tts(apiKey, text, "vo");
-console.log(`[gen-vo] wrote vo.mp3 / vo.wav / vo.json`);
+console.log(`[gen-vo] voice=${VOICE_ID} model=${MODEL_ID} stability=${process.env.STABILITY ?? 0.5} → ${OUTBASE}`);
+const { dur } = await tts(apiKey, text, OUTBASE);
+console.log(`[gen-vo] wrote ${OUTBASE}.mp3 / ${OUTBASE}.wav / ${OUTBASE}.json`);
 console.log(`[gen-vo] duration ≈ ${dur ? dur.toFixed(1) + "s" : "unknown"}`);
