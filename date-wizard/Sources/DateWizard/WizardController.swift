@@ -631,7 +631,7 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         title.autoresizingMask = [.width, .minYMargin]
         overlay.addSubview(title)
 
-        let instr = NSTextField(labelWithString: "Run  ac-login  in your terminal")
+        let instr = NSTextField(labelWithString: "Sign in with your browser — no terminal needed")
         instr.alignment = .center
         instr.font = .systemFont(ofSize: 13)
         instr.textColor = .secondaryLabelColor
@@ -639,8 +639,8 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         instr.autoresizingMask = [.width, .minYMargin]
         overlay.addSubview(instr)
 
-        let signInBtn = NSButton(title: "Sign in (run ac-login)",
-                                 target: self, action: #selector(runAcLoginAction))
+        let signInBtn = NSButton(title: "Sign in",
+                                 target: self, action: #selector(signInAction))
         signInBtn.bezelStyle = .rounded
         signInBtn.keyEquivalent = "\r"
         signInBtn.frame = NSRect(x: cv.bounds.width / 2 - 110, y: cv.bounds.height - 240,
@@ -648,15 +648,18 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         signInBtn.autoresizingMask = [.minXMargin, .maxXMargin, .minYMargin]
         overlay.addSubview(signInBtn)
 
-        let signedInBtn = NSButton(title: "I've signed in",
-                                   target: self, action: #selector(checkSignedInAction))
-        signedInBtn.bezelStyle = .rounded
-        signedInBtn.frame = NSRect(x: cv.bounds.width / 2 - 70, y: cv.bounds.height - 278,
-                                   width: 140, height: 28)
-        signedInBtn.autoresizingMask = [.minXMargin, .maxXMargin, .minYMargin]
-        overlay.addSubview(signedInBtn)
+        let cliBtn = NSButton(title: "Use ac-login CLI instead",
+                              target: self, action: #selector(runAcLoginAction))
+        cliBtn.bezelStyle = .inline
+        cliBtn.isBordered = false
+        cliBtn.contentTintColor = .tertiaryLabelColor
+        cliBtn.font = .systemFont(ofSize: 11)
+        cliBtn.frame = NSRect(x: cv.bounds.width / 2 - 110, y: cv.bounds.height - 274,
+                              width: 220, height: 22)
+        cliBtn.autoresizingMask = [.minXMargin, .maxXMargin, .minYMargin]
+        overlay.addSubview(cliBtn)
 
-        let status = NSTextField(labelWithString: "Waiting for ~/.ac-token…")
+        let status = NSTextField(labelWithString: "")
         status.alignment = .center
         status.font = .systemFont(ofSize: 12)
         status.textColor = .tertiaryLabelColor
@@ -677,17 +680,24 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         authStatusLabel = nil
     }
 
+    @objc private func signInAction() {
+        authStatusLabel?.stringValue = "Opening browser… finish signing in there."
+        auth.signIn { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .success:
+                // The session file-watch (start()) will proceed automatically;
+                // call directly too so we don't wait on the debounce.
+                self.handleSessionChange()
+            case .failure(let error):
+                self.authStatusLabel?.stringValue = error.localizedDescription
+            }
+        }
+    }
+
     @objc private func runAcLoginAction() {
         auth.runAcLogin()
         authStatusLabel?.stringValue = "Finish signing in your terminal — waiting for ~/.ac-token…"
-    }
-
-    @objc private func checkSignedInAction() {
-        if auth.currentToken() != nil {
-            handleSessionChange()
-        } else {
-            authStatusLabel?.stringValue = "No token yet — run  ac-login  in your terminal first."
-        }
     }
 
     // ── parsing helpers ──────────────────────────────────────────────

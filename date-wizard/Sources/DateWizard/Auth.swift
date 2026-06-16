@@ -27,6 +27,18 @@ final class Auth {
     }
     func stopWatching(_ id: UUID) { session.stopWatching(id) }
 
-    /// Launch `ac-login` in Terminal to (re)write ~/.ac-token.
+    /// Native in-app sign-in — runs AC's OAuth2 + PKCE browser flow and writes
+    /// ~/.ac-token directly, no CLI/Terminal. `completion` gets "@handle" (or an
+    /// email/name fallback) on success. ACSession's file-watch ALSO fires the
+    /// instant the token lands, so observers refresh on their own.
+    func signIn(forcePrompt: Bool = false,
+                completion: @escaping (Result<String, Error>) -> Void) {
+        ACLogin.shared.signIn(forcePrompt: forcePrompt, completion: completion)
+    }
+
+    var isSigningIn: Bool { ACLogin.shared.isSigningIn }
+
+    /// Fallback: launch the `ac-login` CLI in Terminal (used only if the native
+    /// flow can't bind its loopback port).
     func runAcLogin() { session.runAcLogin() }
 }

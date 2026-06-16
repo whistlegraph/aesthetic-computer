@@ -70,6 +70,13 @@ targets:
       - path: AppIcon.icns
         buildPhase: resources
 
+      # The Aesthetic Computer GM synth C core (gm_synth.c, symlinked from
+      # fedac/native/src). MenuBandGMSynth.swift does `import CGMSynth`.
+      # Package.swift models this as a separate CGMSynth target; here we
+      # compile the single .c straight into the app and expose its module map
+      # via SWIFT_INCLUDE_PATHS / HEADER_SEARCH_PATHS below (see settings).
+      - path: Sources/CGMSynth/gm_synth.c
+
     dependencies:
       # Package.swift links IOKit explicitly (used without a Swift import);
       # everything else (AppKit, AVFoundation, CoreMIDI, CoreAudio, Metal,
@@ -91,3 +98,9 @@ targets:
         # Don't let Xcode generate a competing Info.plist.
         GENERATE_INFOPLIST_FILE: NO
         COMBINE_HIDPI_IMAGES: YES
+        # Resolve `import CGMSynth`: the module map (module.modulemap) and its
+        # header live in Sources/CGMSynth/include. SWIFT_INCLUDE_PATHS lets the
+        # Swift side find the module; HEADER_SEARCH_PATHS lets gm_synth.c find
+        # its own "gm_synth.h".
+        SWIFT_INCLUDE_PATHS: $(SRCROOT)/Sources/CGMSynth/include
+        HEADER_SEARCH_PATHS: $(SRCROOT)/Sources/CGMSynth/include
