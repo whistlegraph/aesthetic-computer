@@ -32,6 +32,10 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
     private var refreshButton: NSButton!
     private var addButton: NSButton!
     private var connectButton: NSButton!
+    private var modeButton: NSButton!
+
+    // Display span: 7 = week (Sun→Sat), 1 = a single day.
+    private var dayCount: Int = 7
 
     // Auth overlay (shown when unauthenticated).
     private var authOverlay: NSView?
@@ -120,8 +124,10 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         refreshButton = NSButton(title: "Refresh", target: self, action: #selector(refreshAction))
         addButton = NSButton(title: "+ Event", target: self, action: #selector(addEventAction))
         connectButton = NSButton(title: "Connect Google…", target: self, action: #selector(connectFeedAction))
+        modeButton = NSButton(title: dayCount == 1 ? "Week" : "Day",
+                              target: self, action: #selector(toggleModeAction))
 
-        let buttons = [prevButton!, nextButton!, todayButton!, refreshButton!, addButton!, connectButton!]
+        let buttons = [prevButton!, nextButton!, todayButton!, modeButton!, refreshButton!, addButton!, connectButton!]
         for b in buttons {
             b.bezelStyle = .rounded
             b.font = .systemFont(ofSize: 12)
@@ -131,7 +137,7 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         var x: CGFloat = 840 - pad
         let widths: [(NSButton, CGFloat)] = [
             (connectButton, 130), (addButton, 78), (refreshButton, 76),
-            (todayButton, 58), (nextButton, 30), (prevButton, 30),
+            (modeButton, 54), (todayButton, 58), (nextButton, 30), (prevButton, 30),
         ]
         for (b, w) in widths {
             x -= w
@@ -146,6 +152,7 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
                                           height: 560 - topH - pad * 2 - 22))
         weekView.autoresizingMask = [.width, .height]
         weekView.weekStart = weekStart
+        weekView.dayCount = dayCount
         weekView.delegate = self
         cv.addSubview(weekView)
 
@@ -161,6 +168,20 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
 
     private func weekRangeTitle() -> String {
         let cal = Calendar.current
+        if dayCount == 1 {
+            // Day mode: "Today / Tomorrow / Yesterday · Tue, Jun 16 2026".
+            let fmt = DateFormatter(); fmt.dateFormat = "EEE, MMM d yyyy"
+            let dayDelta = cal.dateComponents([.day],
+                from: cal.startOfDay(for: Date()), to: weekStart).day ?? 0
+            let word: String
+            switch dayDelta {
+            case 0: word = "Today · "
+            case 1: word = "Tomorrow · "
+            case -1: word = "Yesterday · "
+            default: word = ""
+            }
+            return "\(word)\(fmt.string(from: weekStart))"
+        }
         let end = cal.date(byAdding: .day, value: 6, to: weekStart) ?? weekStart
         let fmt = DateFormatter()
         fmt.dateFormat = "MMM d"
@@ -168,14 +189,50 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         return "\(fmt.string(from: weekStart)) – \(fmt.string(from: end)), \(yfmt.string(from: end))"
     }
 
-    // ── week paging ──────────────────────────────────────────────────
-    @objc private func prevWeek() { shiftWeek(by: -7) }
-    @objc private func nextWeek() { shiftWeek(by: 7) }
+    // ── paging ─────────────────────────────────────────────────────────
+    @objc private func prevWeek() { shiftWeek(by: -dayCount) }
+    @objc private func nextWeek() { shiftWeek(by: dayCount) }
     @objc private func goToday() {
-        weekStart = WeekView.startOfWeek(for: Date())
+        weekStart = (dayCount == 1)
+            ? Calendar.current.startOfDay(for: Date())
+            : WeekView.startOfWeek(for: Date())
         weekView.weekStart = weekStart
         titleLabel.stringValue = weekRangeTitle()
         refresh()
+    }
+
+    // Day ⇄ Week. Keeps the currently-focused day in view across the switch.
+    @objc private func toggleModeAction() {
+        let cal = Calendar.current
+        // The day to keep focused: today if it's in the current span, else the
+        // span's first visible day.
+        let now = Date()
+        let focus = (weekStart <= now && now < weekBounds().to)
+            ? now : weekStart
+        if dayCount == 1 {
+            dayCount = 7
+            weekStart = WeekView.startOfWeek(for: focus)
+        } else {
+            dayCount = 1
+            weekStart = cal.startOfDay(for: focus)
+        }
+        modeButton.title = (dayCount == 1) ? "Week" : "Day"
+        weekView.dayCount = dayCount
+        weekView.weekStart = weekStart
+        titleLabel.stringValue = weekRangeTitle()
+        refresh()
+    }
+
+    // Pre-set a single-day view BEFORE start() (used by the --tomorrow / --day
+    // launch flag). Does NOT refresh — start() does the single initial load, so
+    // we don't race a stale week fetch against the day fetch.
+    func setDayMode(_ date: Date) {
+        dayCount = 1
+        weekStart = Calendar.current.startOfDay(for: date)
+        modeButton?.title = "Week"
+        weekView?.dayCount = dayCount
+        weekView?.weekStart = weekStart
+        titleLabel?.stringValue = weekRangeTitle()
     }
 
     private func shiftWeek(by days: Int) {
@@ -189,7 +246,7 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
 
     // The visible window's UTC bounds [weekStart, weekStart+7d).
     private func weekBounds() -> (from: Date, to: Date) {
-        let to = Calendar.current.date(byAdding: .day, value: 7, to: weekStart) ?? weekStart
+        let to = Calendar.current.date(byAdding: .day, value: dayCount, to: weekStart) ?? weekStart
         return (weekStart, to)
     }
 

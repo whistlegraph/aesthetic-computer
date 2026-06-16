@@ -36,8 +36,13 @@ protocol WeekViewDelegate: AnyObject {
 final class WeekView: NSView {
     weak var delegate: WeekViewDelegate?
 
-    // The Sunday that begins the displayed week (local midnight).
+    // The local-midnight date that begins the displayed range (a Sunday in
+    // week mode; any day in day mode).
     var weekStart: Date = WeekView.startOfWeek(for: Date()) {
+        didSet { needsDisplay = true }
+    }
+    // How many day columns to draw: 7 = week, 1 = single day.
+    var dayCount: Int = 7 {
         didSet { needsDisplay = true }
     }
     var events: [LaidEvent] = [] { didSet { needsDisplay = true } }
@@ -71,14 +76,18 @@ final class WeekView: NSView {
                height: bounds.height - headerH - legendH)
     }
 
-    private func columnWidth() -> CGFloat { gridRect.width / 7.0 }
+    private func columnWidth() -> CGFloat { gridRect.width / CGFloat(max(1, dayCount)) }
     private func rowHeight() -> CGFloat { gridRect.height / CGFloat(hourCount) }
 
-    // Day index 0..6 for a date relative to weekStart (-1 if outside).
+    // Day index 0..<dayCount for a date relative to weekStart (-1 if outside).
+    // Compare by start-of-day so a partial-day offset (e.g. tonight vs. tomorrow
+    // midnight) doesn't round to 0 and leak into the wrong column.
     private func dayIndex(for date: Date) -> Int {
         let cal = Calendar.current
-        let days = cal.dateComponents([.day], from: weekStart, to: date).day ?? -1
-        return (days >= 0 && days < 7) ? days : -1
+        let days = cal.dateComponents([.day],
+            from: cal.startOfDay(for: weekStart),
+            to: cal.startOfDay(for: date)).day ?? -1
+        return (days >= 0 && days < dayCount) ? days : -1
     }
 
     // Fractional hours-from-startHour for a date (clamped to the visible band).
@@ -121,7 +130,10 @@ final class WeekView: NSView {
         let cal = Calendar.current
         let today = dayIndex(for: Date())
 
-        let dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+        // Short weekday names, indexed by calendar weekday (1 = Sunday). In day
+        // mode the single column can be any weekday, so derive the name from the
+        // column's actual date rather than assuming column 0 is Sunday.
+        let dayNames = ["", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
         // Today's column highlight.
         if today >= 0 {
@@ -151,7 +163,7 @@ final class WeekView: NSView {
         }
 
         // Day columns + header labels.
-        for d in 0...7 {
+        for d in 0...dayCount {
             let x = grid.minX + CGFloat(d) * colW
             let line = NSBezierPath()
             line.move(to: NSPoint(x: x, y: headerH))
@@ -159,11 +171,19 @@ final class WeekView: NSView {
             line.lineWidth = 0.5
             line.stroke()
         }
-        for d in 0..<7 {
+        for d in 0..<dayCount {
             let date = dayDate(d)
             let dayNum = cal.component(.day, from: date)
+            let weekday = cal.component(.weekday, from: date)   // 1...7
             let isToday = (d == today)
-            let header = "\(dayNames[d]) \(dayNum)"
+            // Day mode: a fuller "Tue, Jun 16" label since there's room.
+            let header: String
+            if dayCount == 1 {
+                let mfmt = DateFormatter(); mfmt.dateFormat = "MMM"
+                header = "\(dayNames[weekday]), \(mfmt.string(from: date)) \(dayNum)"
+            } else {
+                header = "\(dayNames[weekday]) \(dayNum)"
+            }
             let style = NSMutableParagraphStyle(); style.alignment = .center
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: 11, weight: isToday ? .bold : .medium),
@@ -326,7 +346,7 @@ final class WeekView: NSView {
         let rowH = rowHeight()
         let d = Int((p.x - grid.minX) / colW)
         let hourOffset = Int((p.y - grid.minY) / rowH)
-        guard d >= 0 && d < 7 else { return }
+        guard d >= 0 && d < dayCount else { return }
         let day = dayDate(d)
         delegate?.weekView(self, didRequestNewEventAt: day, hour: startHour + hourOffset)
     }
