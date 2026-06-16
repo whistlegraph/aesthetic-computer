@@ -64,12 +64,31 @@ async function ensureIndexes(collection) {
       name: 'kidlisp_code_unique'
     });
     
-    // Create unique index on hash field for deduplication
-    await collection.createIndex({ hash: 1 }, { 
-      unique: true, 
+    // Create unique index on hash field for deduplication.
+    // PARTIAL on string hashes only: rows without a real hash (e.g. Datomic-only
+    // pieces upserted by keep-confirm) must NOT all collide on { hash: null }.
+    const hashIndexOptions = {
+      unique: true,
       background: true,
-      name: 'kidlisp_hash_unique'
-    });
+      name: 'kidlisp_hash_unique',
+      partialFilterExpression: { hash: { $type: 'string' } },
+    };
+    try {
+      await collection.createIndex({ hash: 1 }, hashIndexOptions);
+    } catch (err) {
+      // A pre-existing plain-unique index has different options — migrate it.
+      const conflict =
+        err?.code === 85 || err?.code === 86 ||
+        err?.codeName === 'IndexOptionsConflict' ||
+        err?.codeName === 'IndexKeySpecsConflict';
+      if (conflict) {
+        console.warn('♻️  Migrating kidlisp_hash_unique → partial unique index…');
+        await collection.dropIndex('kidlisp_hash_unique');
+        await collection.createIndex({ hash: 1 }, hashIndexOptions);
+      } else {
+        throw err;
+      }
+    }
     
     // Create index on when field for analytics/cleanup queries
     await collection.createIndex({ when: 1 }, { 
