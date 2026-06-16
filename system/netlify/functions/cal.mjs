@@ -391,6 +391,56 @@ async function importEvents(collection, sub, handle, parsed) {
   return { imported, updated, skipped };
 }
 
+// ── Secret subscription token ────────────────────────────────────────────
+// A per-user secret stored on the `users` doc (`calFeedToken`). Whoever holds
+// it can read the user's FULL calendar (private included) over the public ICS
+// endpoint — the AesthetiCal equivalent of Google's "secret address in iCal
+// format". Revocable by rotating. NEVER logged.
+function newCalToken() {
+  return crypto.randomBytes(24).toString("hex"); // 48 hex chars
+}
+
+// Read (minting on first use) the caller's secret token.
+async function ensureCalToken(database, sub) {
+  const users = database.db.collection("users");
+  const u = await users.findOne({ _id: sub }, { projection: { calFeedToken: 1 } });
+  if (u?.calFeedToken) return u.calFeedToken;
+  const token = newCalToken();
+  await users.updateOne({ _id: sub }, { $set: { calFeedToken: token } });
+  return token;
+}
+
+// Replace the secret (invalidates every existing subscription URL).
+async function rotateCalToken(database, sub) {
+  const token = newCalToken();
+  await database.db
+    .collection("users")
+    .updateOne({ _id: sub }, { $set: { calFeedToken: token } });
+  return token;
+}
+
+// Constant-time check of a provided token against the user's stored secret.
+async function verifyCalToken(database, sub, provided) {
+  if (typeof provided !== "string" || !provided) return false;
+  const u = await database.db
+    .collection("users")
+    .findOne({ _id: sub }, { projection: { calFeedToken: 1 } });
+  const expected = u?.calFeedToken;
+  if (typeof expected !== "string" || !expected) return false;
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
+// The caller's permahandle code (for building their subscription URL).
+async function permahandleFor(database, sub) {
+  const u = await database.db
+    .collection("users")
+    .findOne({ _id: sub }, { projection: { code: 1 } });
+  return u?.code || null;
+}
+
 export async function handler(event, context) {
   // CORS preflight.
   if (event.httpMethod === "OPTIONS") {
@@ -449,10 +499,19 @@ export async function handler(event, context) {
           handleStr = "@" + clean;
         }
 
-        // Public reads NEVER return private events, and project only the
-        // allowed event fields (never the resolved handle doc).
+        // By default public reads NEVER return private events. A valid secret
+        // subscription token (the user's `calFeedToken`) unlocks the FULL
+        // calendar — this is what an external calendar app subscribes to, since
+        // it can carry a secret in the URL but not a login bearer.
+        let query = { user: sub, visibility: "public" };
+        if (params.token) {
+          const ok = await verifyCalToken(database, sub, params.token);
+          if (!ok) return respond(403, { message: "Invalid subscription token." });
+          query = { user: sub }; // full calendar (private + public)
+        }
+
         const events = await collection
-          .find({ user: sub, visibility: "public" })
+          .find(query)
           .project(EVENT_PROJECTION)
           .sort({ start: 1 })
           .toArray();
@@ -470,6 +529,18 @@ export async function handler(event, context) {
       const user = await authorize(event.headers);
       if (!user?.sub) {
         return respond(401, { message: "Authorization failure." });
+      }
+
+      // 🔑 Subscription-link branch: return (minting on first use) the caller's
+      // secret token + the ready-to-paste AesthetiCal ICS subscription URL.
+      if (params.calToken) {
+        const token = await ensureCalToken(database, user.sub);
+        const code = await permahandleFor(database, user.sub);
+        const base = "https://aesthetic.computer/api/cal";
+        const url = code
+          ? `${base}?code=${code}&token=${token}&format=ics`
+          : null;
+        return respond(200, { token, code, url });
       }
 
       // 🔗 Connected-calendar GET branches. Distinguished from the normal range
@@ -583,6 +654,17 @@ export async function handler(event, context) {
         body = JSON.parse(event.body || "{}");
       } catch {
         return respond(400, { message: "Invalid JSON body." });
+      }
+
+      // 🔑 Rotate the secret subscription token (invalidates old links).
+      if (body.rotateToken === true) {
+        const token = await rotateCalToken(database, user.sub);
+        const code = await permahandleFor(database, user.sub);
+        const base = "https://aesthetic.computer/api/cal";
+        const url = code
+          ? `${base}?code=${code}&token=${token}&format=ics`
+          : null;
+        return respond(200, { token, code, url });
       }
 
       // 🔗 Subscribe branch: { feed: { url, label?, color? } }. Detected before
