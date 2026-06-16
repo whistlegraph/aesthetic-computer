@@ -1,0 +1,22 @@
+#!/bin/sh
+# shot-wizard/bin/shotwizard — build (cached) + launch ShotWizard.
+#
+# usage:  shot-wizard/bin/shotwizard <board.json | project-dir>
+#   e.g.  shot-wizard/bin/shotwizard grants/restless-egg-2026/video
+#
+# Runs from anywhere; resolves a relative board path against the caller's
+# working directory before handing the app an absolute path.
+set -e
+HERE="$(cd "$(dirname "$0")" && pwd)"
+WIZ="$HERE/.."
+CALLER_PWD="$(pwd)"
+
+ARG="${1:-}"
+[ -n "$ARG" ] || { echo "usage: shotwizard <board.json | project-dir>"; exit 1; }
+case "$ARG" in
+  /*) BOARD="$ARG" ;;
+  *)  BOARD="$CALLER_PWD/$ARG" ;;
+esac
+
+swift build -c release --package-path "$WIZ" 2>&1 | grep -v '^$' | tail -2
+exec "$WIZ/.build/release/ShotWizard" "$BOARD"
