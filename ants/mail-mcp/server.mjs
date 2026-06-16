@@ -103,14 +103,23 @@ async function loadEmailStyle() {
   }
 }
 
+// URLs stay verbatim — Drive file ids and similar are case-sensitive,
+// and a lowercased link is a dead link.
+function lowercasePreservingUrls(text) {
+  return text
+    .split(/(https?:\/\/\S+|www\.\S+)/g)
+    .map((segment, i) => (i % 2 ? segment : segment.toLowerCase()))
+    .join("");
+}
+
 function applyEmailStyle({ subject, body, preserveCase, signature }, style) {
   let nextSubject = subject;
   let nextBody = body;
   const finalSignature = (signature || style.defaultSignature).trim();
 
   if (style.forceLowercase && !preserveCase) {
-    nextSubject = nextSubject.toLowerCase();
-    nextBody = nextBody.toLowerCase();
+    nextSubject = lowercasePreservingUrls(nextSubject);
+    nextBody = lowercasePreservingUrls(nextBody);
   }
 
   if (style.appendSignature && finalSignature) {

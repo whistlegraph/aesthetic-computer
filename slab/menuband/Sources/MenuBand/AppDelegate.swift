@@ -711,6 +711,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil
         )
 
+        // Sibling remote: toggle the popover's instrument-chart
+        // disclosure (same path as pressing the instrument name).
+        // Lets the shell exercise the expand/collapse resize without
+        // clicking.
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(handleToggleChartNotification(_:)),
+            name: NSNotification.Name("computer.aestheticcomputer.menuband.toggleChart"),
+            object: nil
+        )
+
         // Sibling remote: open the About window directly. Lets the
         // shell verify (or screenshot) that the About panel renders
         // correctly without first walking through the popover.
@@ -2806,6 +2817,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if !self.isPopoverPanelShown {
                 self.showPopover()
             }
+        }
+    }
+
+    @objc private func handleToggleChartNotification(_ note: Notification) {
+        DispatchQueue.main.async { [weak self] in
+            self?.popoverVC?.debugToggleChart()
         }
     }
 

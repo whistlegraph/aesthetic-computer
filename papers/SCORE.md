@@ -97,6 +97,7 @@ Smaller scoped collections. Each has its own `manifest.json` + `sync.mjs`:
 - [`jeffrey-lexicon/`](jeffrey-lexicon/) — frequency-attributed dictionary of words used by Jeffrey, sourced only from first-hand textual + transcribed material (textual analogue of `jeffrey-platter`'s photo index and the `jeffrey-pvc` voice clone)
 - [`whistlegraph-platter/`](whistlegraph-platter/) — Whistlegraph-specific artifacts and references
 - [`people-platter/`](people-platter/) — TODO; will hold AC-adjacent people biographies
+- [`corporate-graphics-platter/`](corporate-graphics-platter/) — reference library of historic bank/corporate/seal/privacy marks (66, from Wikimedia Commons) collected to inform logo work; four sections (banks-finance, modernist-canon, seals-monograms, surveillance-consent) each with `manifest.md` + a `_sheet-*.png` contact sheet. Built via `fetch-logos.mjs` + `finalize.mjs`. Third-party trademarks — research/moodboard reference only.
 
 ### 9. CV (`cv/`)
 

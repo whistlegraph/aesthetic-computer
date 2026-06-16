@@ -8,6 +8,9 @@ struct PopRender {
     var id: String
     var type: String        // "audio" | "illy" | "video"
     var label: String
+    /// Claude session that launched the render (render-progress.mjs resolves
+    /// it from the process tree). Lets that session's row go pink/rendering.
+    var sessionId: String = ""
     var pct: Int?           // 0…100, or nil for an indeterminate render
     var done: Int?          // e.g. frame 142, panel 3
     var total: Int?         // e.g. of 240, of 11
@@ -254,6 +257,7 @@ struct StateSnapshot {
                 id: (obj["id"] as? String) ?? url.lastPathComponent,
                 type: (obj["type"] as? String) ?? "render",
                 label: (obj["label"] as? String) ?? "",
+                sessionId: (obj["sessionId"] as? String) ?? "",
                 pct: (pctRaw is NSNull) ? nil : (pctRaw as? Int),
                 done: (doneRaw is NSNull) ? nil : (doneRaw as? Int),
                 total: (totalRaw is NSNull) ? nil : (totalRaw as? Int),

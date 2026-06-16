@@ -51,7 +51,11 @@ if [[ -n "$input" ]]; then
                 n = (NF > 7) ? 7 : NF;
                 out = "";
                 for (i = 1; i <= n; i++) out = (i == 1 ? $i : out " " $i);
+                # Elliptical, always: any truncation (by word count or by
+                # width) trails off in an ellipsis so the title reads as a
+                # trailing thought, never a mid-sentence chop.
                 if (length(out) > 48) out = substr(out, 1, 45) "…";
+                else if (NF > n) out = out "…";
                 print out;
             }')
 

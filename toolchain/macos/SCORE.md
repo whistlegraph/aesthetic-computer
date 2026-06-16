@@ -101,6 +101,25 @@ du -sh /Library/Developer/* 2>/dev/null | sort -rh # Xcode/simulators
 `/Library/Developer/CoreSimulator` — reports ~6 GB when actually
 35 GB). Cross-check with `simctl runtime list`.
 
+### When deleting frees NOTHING — APFS local snapshots
+
+If you `rm` gigabytes and `df` doesn't budge (or the volume is at literally
+**0 bytes** and even Claude Code's task-output writes fail with `ENOSPC`), the
+freed blocks are pinned by **APFS local Time Machine snapshots**. Deletes don't
+reclaim space until the snapshots release it. Fix without sudo:
+
+```bash
+tmutil thinlocalsnapshots / 21474836480 4   # urgency 4 = aggressive; frees ~target bytes
+tmutil listlocalsnapshots /                  # confirm they're gone
+```
+
+(`tmutil deletelocalsnapshots /` may silently need sudo and appear to no-op;
+`thinlocalsnapshots ... 4` worked unprivileged 2026-06-15.) When the disk is so
+full Bash can't even capture output, redirect to a file and Read it:
+`cmd > /tmp/probe.txt 2>&1` then Read the file. After thinning, THEN clear the
+buckets below — and check `/System/Volumes/Data` (not `/`, the sealed system
+snapshot) for the real usage.
+
 ### Safe regenerable buckets
 
 Always clear first — fully recover with no judgment call:
@@ -116,6 +135,10 @@ Always clear first — fully recover with no judgment call:
 - `~/Library/Messages/Caches` — iMessage media cache (~1 GB,
   regenerates from iCloud)
 - `npm cache clean --force` — npm content-addressed cache
+- `~/.cache/huggingface/hub/models--*` — model weights, redownloadable
+  but check first: gemma-4-e2b is the ACTIVE local MLX model (keep);
+  sdxl-turbo was a 13 GB dormant experiment (deleted 2026-06-11)
+- `brew cleanup --prune=all` — Homebrew download cache (~200 MB)
 
 ### Slab session recordings — trim by age
 
@@ -177,6 +200,9 @@ These look like caches but encode hard-to-rebuild state:
 - `~/Pictures/Photos Library.photoslibrary` — Apple Photos
 - `~/.ac-instagram-profile` / `~/.distrokid-profile` — Chromium
   profiles for IG / DK automation; deleting logs you out
+- `~/Developer/fuser-*` — fuser client git worktrees (~3.3 GB each,
+  ~23 GB total as of 2026-06-11); may hold uncommitted client work —
+  ask @jeffrey before pruning even merged-looking ones
 
 ### Gotcha — the auto-classifier blocks batched rm
 

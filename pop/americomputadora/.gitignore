@@ -9,3 +9,10 @@ variations/
 catalog.json
 audition.html
 out/
+# snapped/ is the autotuned + whispered hook library, fully derived by
+# bin/hooks.mjs from utterances/. hooks.json + hooks.html are its index/UI.
+snapped/
+hooks.json
+hooks.html
+# demucs vocal stems + proxy windows for marathon sources (bin/clean.mjs)
+.cache/

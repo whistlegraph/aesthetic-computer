@@ -184,6 +184,12 @@ final class MenuBandPopoverViewController: NSViewController {
     private static let tapeBezelHeight: CGFloat = 88 + 12
     // [v1 cutoff] metronome removed.
 
+    /// Height of everything in the popover EXCEPT the instrument
+    /// cluster (title row, footer, stack spacing, edge insets).
+    /// Measured once in loadView while the view is unhosted and its
+    /// fitting size is still trustworthy; refitAndResizePanel adds the
+    /// cluster's live fitting height to it on chart expand/collapse.
+    private var chromeExtraHeight: CGFloat = 0
     /// [v1] The instrument cluster (GM bee-vision grid + program readout +
     /// QWERTY map + arrow stepper + Notepat/Ableton mode picker), lifted
     /// out of the now-retired floating piano window and hosted directly in
@@ -418,6 +424,12 @@ final class MenuBandPopoverViewController: NSViewController {
             }
             cluster.onStepDown = { [weak self] in
                 self?.menuBand?.stepMelodicProgram(delta: InstrumentListView.cols)
+            }
+            // Instrument name pressed → chart shown/hidden; grow/shrink
+            // the whole popover panel to match (top edge stays pinned
+            // under the menubar).
+            cluster.onChartToggled = { [weak self] in
+                self?.refitAndResizePanel()
             }
             instrumentCluster = cluster
             stack.addArrangedSubview(cluster)
@@ -834,23 +846,24 @@ final class MenuBandPopoverViewController: NSViewController {
         // the footer row gets a flag emoji prepended so users know
         // there are options behind it (language + plugins + version).
 
-        // Quit — red bezel, white bold title. Bottom-right of the footer
-        // row; crash-send button (when present) sits at the left of the
-        // same row.
+        // Quit — outlined chip, peer to About / Keymap. Wears the AC pink
+        // outline (the three footer chips each get a distinct subtle hue).
+        // Bottom-right of the footer row; crash-send button (when present)
+        // sits at the left of the same row.
         let quit = NSButton()
         quit.bezelStyle = .rounded
         quit.isBordered = true
-        quit.bezelColor = .controlAccentColor
         quit.controlSize = .small
         quit.target = self
         quit.action = #selector(quitApp)
         quit.attributedTitle = NSAttributedString(
             string: L("popover.about.quit"),
             attributes: [
-                .foregroundColor: NSColor.white,
+                .foregroundColor: NSColor.controlTextColor,
                 .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
             ]
         )
+        Self.outlineFooterButton(quit, color: Self.quitOutlineColor)
         // "Keymap" — plain (default-tint) button. Closes the popover and opens
         // the full-screen keymap view (large piano + QWERTY + Notepat/
         // Conventional toggle). Reuses the existing mini-visualizer-expand
@@ -869,6 +882,7 @@ final class MenuBandPopoverViewController: NSViewController {
                 .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
             ])
         keymapButton.toolTip = "Open the full-screen keymap (piano + QWERTY)"
+        Self.outlineFooterButton(keymapButton, color: Self.keymapOutlineColor)
 
         // "About" — plain (default-tint) button, peer to Keymap and Quit.
         // Opens the identity/settings window (icon + flat-map language
@@ -886,6 +900,7 @@ final class MenuBandPopoverViewController: NSViewController {
                 .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
             ])
         aboutButton.toolTip = "About / language / version"
+        Self.outlineFooterButton(aboutButton, color: Self.aboutOutlineColor)
 
         let quitRow = NSStackView()
         quitRow.orientation = .horizontal
@@ -901,11 +916,20 @@ final class MenuBandPopoverViewController: NSViewController {
         quitRow.widthAnchor.constraint(equalTo: stack.widthAnchor,
                                        constant: -16).isActive = true
 
+        // Bottom pin is sub-required: while the host panel animates
+        // taller/shorter than the stack's natural height (the
+        // instrument-chart disclosure), a required pin would force the
+        // stack to stretch — fighting the cluster's required internal
+        // chain, corrupting the engine, and freezing `fittingSize` at
+        // the stretched height. At 500 the stack hugs its content and
+        // the window simply shows slack during the 0.2 s resize.
+        let stackBottom = stack.bottomAnchor.constraint(equalTo: root.bottomAnchor)
+        stackBottom.priority = NSLayoutConstraint.Priority(500)
         NSLayoutConstraint.activate([
             stack.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             stack.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             stack.topAnchor.constraint(equalTo: root.topAnchor),
-            stack.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            stackBottom,
         ])
 
         view = root
@@ -920,6 +944,11 @@ final class MenuBandPopoverViewController: NSViewController {
         // contents allow.
         preferredContentSize = NSSize(width: fitting.width,
                                        height: fitting.height)
+        // Baseline for the chart-disclosure resize: everything except
+        // the cluster. Captured here, pre-hosting, while fittingSize
+        // is uncontaminated by the panel's fixed frame.
+        chromeExtraHeight = fitting.height
+            - (instrumentCluster?.fittingSize.height ?? 0)
     }
 
     // Pause the visualizer's display link whenever the popover isn't on
@@ -1175,6 +1204,36 @@ final class MenuBandPopoverViewController: NSViewController {
         // multi-line crash hint can grow the layout and would otherwise
         // be clipped at the bottom of the popover.
         refitContentSize()
+    }
+
+    /// Re-measure the popover and push the new size to BOTH
+    /// `preferredContentSize` (used at next open) and the live host
+    /// panel via `onRequestResize` (animated grow/shrink while the
+    /// popover is up). Used by the instrument-chart disclosure.
+    private func refitAndResizePanel() {
+        guard isViewLoaded, let cluster = instrumentCluster else { return }
+        // Don't trust `view.fittingSize` here — once the root is pinned
+        // inside the host panel, its fitting freezes at whatever the
+        // engine solved at install time. The CLUSTER's fitting stays
+        // correct (self-contained constraint chain), so the target is
+        // cluster + the non-cluster chrome measured at loadView.
+        let target = NSSize(
+            width: preferredContentSize.width,
+            height: chromeExtraHeight + cluster.fittingSize.height)
+        NSLog("MenuBand popover refit: cluster=%.0f extra=%.0f → %.0f×%.0f",
+              cluster.fittingSize.height, chromeExtraHeight,
+              target.width, target.height)
+        guard target.width > 0, target.height > 0 else { return }
+        preferredContentSize = target
+        onRequestResize?(target)
+    }
+
+    /// Dev affordance — drives the instrument-chart disclosure the same
+    /// way pressing the instrument name does. Used by the
+    /// `…menuband.toggleChart` distributed notification for remote
+    /// debugging/screenshots.
+    func debugToggleChart() {
+        instrumentCluster?.toggleChart()
     }
 
     /// Re-measure the stack's intrinsic fitting size and update
@@ -1570,6 +1629,31 @@ final class MenuBandPopoverViewController: NSViewController {
         box.boxType = .separator
         return box
     }
+
+    /// Hairline outline ring on the plain footer buttons (About /
+    /// Keymap) — the default rounded bezel renders nearly flat on the
+    /// glass, so without it they don't read as pressable. Mid-gray
+    /// works against both light and dark appearances.
+    /// Footer chip outline. Each footer peer (About / Keymap / Quit)
+    /// passes its own subtle brand hue so the trio reads as three
+    /// distinct links rather than one repeated control. Default keeps
+    /// the original neutral gray for any other caller.
+    static func outlineFooterButton(_ button: NSButton,
+                                    color: NSColor = NSColor(white: 0.5, alpha: 0.55)) {
+        button.wantsLayer = true
+        button.layer?.cornerRadius = 6
+        button.layer?.borderWidth = 1
+        button.layer?.borderColor = color.cgColor
+    }
+
+    /// Subtle brand hues for the three footer chips — AC violet, teal,
+    /// and pink at low alpha so the outlines whisper rather than shout.
+    static let aboutOutlineColor =
+        NSColor(red: 167/255, green: 139/255, blue: 250/255, alpha: 0.55) // AC violet
+    static let keymapOutlineColor =
+        NSColor(red: 100/255, green: 210/255, blue: 220/255, alpha: 0.55) // teal
+    static let quitOutlineColor =
+        NSColor(red: 255/255, green: 107/255, blue: 157/255, alpha: 0.55) // AC pink
 
     /// Badge-style link button — flat HoverLinkButton with a layer-painted
     /// fill + optional border, so the per-link attributed title sits

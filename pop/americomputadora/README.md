@@ -78,19 +78,103 @@ double-click to drop into the right-hand "arrangement" pane, then **▶ play in
 sequence** to hear the string. **export json** dumps the arrangement so a
 follow-up render script can turn it into a fixed mix.
 
-## current state (2026-05-26)
+## word isolation (bin/clean.mjs)
 
-- ✅ pipeline scripts (`fetch`, `extract`, `say-computer`, `variations`, `catalog`)
-- ✅ `computer/` TTS — **69 utterances**, **1,173 variations**, all in
-  `utterances/computer/` and `variations/computer/`
-- ⏳ `america/` + `dora/` — sources blocked by harness auto-mode classifier;
-  run `node bin/fetch.mjs` yourself, then fill timestamps in `clips.json` and
-  re-run `bin/extract.mjs` and `bin/variations.mjs`
-- ⏳ render script (`bin/render.mjs`) — not yet written; will consume an
-  `arrangement.json` + a bed score (notepat `.np` + bubblegum synths) and mix
-  the final track
-- ⏳ bed: needs DX-bell stab synth, toy-piano preset (might reuse
-  `pop/booch/synths/rhodes.mjs` with stretched partials), square lead
+the america/dora cuts came straight off full mixes — crowd, band and
+theme-music rode under every word, and the whisper transform smears that bed
+into the breath. `clean.mjs` fixes it at the source:
+
+1. **demucs** (two-stems) separates each source recording into vocals /
+   accompaniment. full recordings give the model context that sub-second
+   clips can't; marathon sources (the 3-hour soy-dora compilation) get a
+   ±15 s proxy window per clip so an 8 GB machine survives. stems cache in
+   `.cache/demucs/`.
+2. every clip in clips.json is **re-cut from the vocal stem**, denoised
+   (`afftdn`), silence-trimmed on both ends — the music bleed is silence
+   now, so the word boundary tightens itself — micro-faded, loudnormed.
+3. results overwrite `utterances/<group>/` under the same names.
+
+```bash
+node bin/clean.mjs --resnap   # separate + re-cut + rebuild snapped/ + hooks.html
+```
+
+falls back to a denoised mix-cut (and says so) if a stem comes up empty for
+some span. demucs installed via `pipx install demucs` + `pipx inject demucs
+torchcodec`.
+
+## the hook machine (bin/hooks.mjs)
+
+every utterance gets **autotuned** to every target note its slot needs across
+the hook variants, plus a **whispered twin** (FFT phase randomization — the
+word's formants survive, the pitch dissolves into breath). that's the
+`snapped/` library, indexed by `hooks.json`. from there every combination of
+the full phrase — currently **22,218** (14 america × 69 computer × 23 dora) —
+is playable instantly, no per-combo render.
+
+```bash
+node bin/hooks.mjs                  # build snapped library + hooks.html
+node bin/hooks.mjs flight --count 24 --seed 7   # random stitched mp3s → out/hooks/
+node bin/serve.mjs                  # then open http://localhost:7777/hooks.html
+node bin/hooks.mjs render --fav hooks-favorites.json  # stitch kept combos
+```
+
+`hooks.html`: three columns (america / computer / dora), per-slot whisper
+toggles, melody-variant selector, beat-grid playback. **space** plays,
+**s** surfs a random combo, **f** keeps it, arrows/`,`/`.` cycle each slot.
+export favorites json and feed it straight to `render.mjs --fav`.
+
+`out/hooks/_flight-all.mp3` is the contact sheet — every flight combo in one
+listen with a breath between.
+
+## bachiamatrixian mode (render.mjs)
+
+the hook sections now ride a **serious four-on-the-floor kick** (42 Hz body,
+tanh drive) with a deep sidechain pump (duck to 0.22, cosine recovery across
+the beat). a **bach arp** — 16th-note baroque figuration, chord tones + the
+diatonic ninth, plucked like a harpsichord pixel — rains above the vocal and
+takes the full pump. three `bach-*` hook variants in melody.json give the
+vocals baroque contours to follow; the variant rotation reaches them on the
+second chorus. the bridge is the matrix breakdown: kick + sub + arp alone in
+8ths an octave down.
+
+**the canonical mix** (the old bubblegum-only cut is deprecated):
+
+```bash
+node bin/render.mjs \
+  --pick america=whitney-houston-w1 \
+  --pick computer=samantha-slow,fred-slow,karen-slow,daniel-slow,moira-slow,ralph-slow,kathy-slow,albert-slow \
+  --stretch computer=1.4 --decap computer --whisper computer \
+  --pick dora=theme-song-w1 \
+  --out out/americomputadora-bach-whisperz.mp3
+```
+
+- comma lists in `--pick` are a **roster that rotates per hook phrase** —
+  a different computer voice every utterance.
+- `--stretch group=1.4` time-stretches (pitch kept): "cawwwmputerrrr".
+- `--decap group` chops the leading consonant — vowel-onset detection
+  (energy + zero-crossing) finds where /k/ ends, so "computer" becomes
+  "ahmputer" and pours straight out of america's open "aaaah". detection
+  runs on the voiced twin even when the whispered file is used.
+- every vocal clip is RMS-matched after processing so the three words sit
+  at the same loudness in the same space.
+- `--fav hooks-favorites.json --fav-index 2` renders a kept combo.
+
+render pulls clips from `snapped/` directly (already tuned + loudnormed,
+whisper twins included) and only live-shifts when a snap is missing.
+
+## current state (2026-06-09)
+
+- ✅ all three sample groups cut: america **14**, computer **69**, dora **23**
+  utterances (+1,802 variations)
+- ✅ america/dora words demucs-isolated from their mixes, denoised,
+  boundary-tightened (`bin/clean.mjs`, 37/37 clean — no fallbacks)
+- ✅ `bin/hooks.mjs` — snapped/whispered library (940 wavs), `hooks.html`
+  combinatorial audition page, `flight` + `render --fav` stitchers
+- ✅ `bin/render.mjs` — full mix with bubblegum kit, bach arps, serious
+  sidechained kicks, `--pick/--whisper/--fav` hook selection
+- ✅ melody.json — 4 classic + 3 bachiamatrixian hook variants
+- ⏳ pick THE hook: surf hooks.html, keep favorites, render each with
+  `--fav`, A/B until one sticks
 
 ## album
 

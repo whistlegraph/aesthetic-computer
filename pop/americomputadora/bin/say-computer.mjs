@@ -27,6 +27,10 @@ const VOICES = [
   // "Pipe Organ" sometimes registers as "Organ"; "Bad News" / "Good News"
   // also work when present on the host
   "Bad News", "Good News", "Pipe Organ", "Princess",
+  // modern conversational voices (Siri-generation; actual Siri voices are
+  // not exposed to `say`) — the smooth end of the spectrum
+  "Flo (English (US))", "Sandy (English (US))", "Shelley (English (US))",
+  "Reed (English (US))", "Eddy (English (US))",
 ];
 
 const RATES = [
@@ -45,8 +49,10 @@ function listInstalledVoices() {
   const out = execSync("say -v '?'", { encoding: "utf8" });
   const set = new Set();
   for (const line of out.split("\n")) {
-    // line format: "<name>  <locale>  # comment"
-    const m = line.match(/^(.+?)\s{2,}[a-z]{2}_[A-Z]{2}\b/);
+    // line format: "<name>  <locale>  # comment" — parenthesized names
+    // ("Eddy (English (US))") sit only ONE space from the locale, so match
+    // lazily up to any whitespace + locale.
+    const m = line.match(/^(.+?)\s+[a-z]{2}_[A-Z]{2}\b/);
     if (m) set.add(m[1].trim());
   }
   _voices = set;

@@ -7,6 +7,8 @@ append_signature_if_missing: true
 ## Defaults
 
 - keep subjects and body copy all lowercase by default
+- URLs are never lowercased — Drive file ids and similar are
+  case-sensitive, and a lowercased link is a dead link
 - sign emails as `@jeffrey`
 - append signature automatically if missing
 

@@ -38,7 +38,7 @@ jungle/out/jungleton.mp3|jungleton
 jungle/out/rodando.mp3|rodando
 maytrax/out/maytrax.mp3|maytrax
 hippyhayzard/out/hippyhayzard.mp3|hippyhayzard
-moronboba/out/moronbobasleep.mp3|moronbobasleep
+momboba/out/mombobasleep.mp3|mombobasleep
 booch/out/visualize-my-booch-song.mp3|visualize-my-booch
 "
 echo "${LOCAL}" | while IFS='|' read -r src name; do

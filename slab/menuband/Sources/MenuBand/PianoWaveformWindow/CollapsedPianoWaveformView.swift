@@ -24,11 +24,10 @@ final class CollapsedPianoWaveformView: NSView {
     /// Active program number + name, sitting right above the GM
     /// chooser grid. Uses YWFT Processing so the readout matches
     /// the popover's title typography. Color-keyed to the family.
-    private let instrumentReadoutLabel = NSTextField(labelWithString: "")
-    /// Dark rounded "pill" behind the readout for contrast. A SIBLING behind
-    /// the label (not its parent) so the label never gets layer-backed — that
-    /// would soften the 1px Riso-misregister shadow (see note in init).
-    private let readoutBackground = NSView()
+    /// A HoverLinkButton (pointing-hand cursor) — pressing the name
+    /// shows/hides the chooser grid below, so the popover opens compact
+    /// and only grows when the user wants to browse instruments.
+    private let instrumentReadoutButton = HoverLinkButton()
     /// QWERTY keymap visualization — moved out of the popover so
     /// the user can see which physical keys play which notes while
     /// the chooser is open. Lit cells reflect held keys.
@@ -64,6 +63,21 @@ final class CollapsedPianoWaveformView: NSView {
     var onStepDown: (() -> Void)?
     /// Fired when the Keymap button is clicked — opens the full-screen view.
     var onOpenKeymap: (() -> Void)?
+    /// Fired after the chooser grid is shown/hidden via the instrument
+    /// name — the host popover re-fits its panel height in response.
+    var onChartToggled: (() -> Void)?
+
+    /// Whether the GM chooser grid is visible. Collapsed by default —
+    /// the instrument name is the disclosure control. Persisted so the
+    /// popover reopens the way the user left it.
+    private static let chartExpandedKey = "MBInstrumentChartExpanded"
+    private(set) var chartExpanded =
+        UserDefaults.standard.bool(forKey: CollapsedPianoWaveformView.chartExpandedKey)
+    /// Bottom edge of the cluster tracks the grid (expanded) or the
+    /// readout (collapsed). Exactly one is active at a time — both at
+    /// once over-constrains the fixed-height grid.
+    private var gridExpandedBottom: NSLayoutConstraint!
+    private var gridCollapsedBottom: NSLayoutConstraint!
 
     /// Light up an arrow cap as if the keyboard was pressing it.
     /// Direction indices match `ArrowKeysIndicator`:
@@ -227,25 +241,17 @@ final class CollapsedPianoWaveformView: NSView {
             }
         }
 
-        instrumentReadoutLabel.translatesAutoresizingMaskIntoConstraints = false
-        instrumentReadoutLabel.alignment = .center
-        instrumentReadoutLabel.maximumNumberOfLines = 1
-        instrumentReadoutLabel.lineBreakMode = .byTruncatingTail
-        instrumentReadoutLabel.drawsBackground = false
-        instrumentReadoutLabel.isBordered = false
-        instrumentReadoutLabel.isEditable = false
-        instrumentReadoutLabel.isSelectable = false
-        // Don't layer-back — a CA rasterization step softens the
-        // 1px Riso-misregister shadow we apply in refresh().
-        instrumentReadoutLabel.setContentHuggingPriority(.required, for: .vertical)
-        instrumentReadoutLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
-
-        // Dark contrast pill behind the readout. Fill + border are themed in
-        // refresh(); here just the shape.
-        readoutBackground.translatesAutoresizingMaskIntoConstraints = false
-        readoutBackground.wantsLayer = true
-        readoutBackground.layer?.cornerRadius = 7
-        readoutBackground.layer?.masksToBounds = true
+        instrumentReadoutButton.translatesAutoresizingMaskIntoConstraints = false
+        instrumentReadoutButton.isBordered = false
+        instrumentReadoutButton.setButtonType(.momentaryPushIn)
+        instrumentReadoutButton.alignment = .center
+        instrumentReadoutButton.target = self
+        instrumentReadoutButton.action = #selector(readoutClicked(_:))
+        // No backing pill, no wantsLayer — a CA rasterization step would
+        // soften the 1px Riso-misregister shadow we apply in refresh(),
+        // and the name reads fine straight on the glass.
+        instrumentReadoutButton.setContentHuggingPriority(.required, for: .vertical)
+        instrumentReadoutButton.setContentCompressionResistancePriority(.required, for: .horizontal)
 
         // Single accent "Keymap" button — opens the full-screen keymap
         // view. The QWERTY graphic + Notepat/Conventional mode toggle now
@@ -274,8 +280,7 @@ final class CollapsedPianoWaveformView: NSView {
         contentContainer.addSubview(instrumentGridContainer)
         instrumentGridContainer.addSubview(instrumentList)
         contentContainer.addSubview(waveformStrip)
-        contentContainer.addSubview(readoutBackground)   // behind the label
-        contentContainer.addSubview(instrumentReadoutLabel)
+        contentContainer.addSubview(instrumentReadoutButton)
         // [v1] Skip our own glass backdrop when embedded in the popover's
         // glass surface — otherwise the two stack into a doubled sheet.
         if !embedded { installLiquidGlassBackgrounds() }
@@ -300,30 +305,20 @@ final class CollapsedPianoWaveformView: NSView {
             waveformStrip.heightAnchor.constraint(equalToConstant: 30),
 
             // Active-instrument readout below the strip.
-            instrumentReadoutLabel.leadingAnchor.constraint(
+            instrumentReadoutButton.leadingAnchor.constraint(
                 greaterThanOrEqualTo: contentContainer.leadingAnchor,
                 constant: Self.edgePadding),
-            instrumentReadoutLabel.trailingAnchor.constraint(
+            instrumentReadoutButton.trailingAnchor.constraint(
                 lessThanOrEqualTo: contentContainer.trailingAnchor,
                 constant: -Self.edgePadding),
-            instrumentReadoutLabel.centerXAnchor.constraint(
+            instrumentReadoutButton.centerXAnchor.constraint(
                 equalTo: contentContainer.centerXAnchor),
-            instrumentReadoutLabel.topAnchor.constraint(
+            instrumentReadoutButton.topAnchor.constraint(
                 equalTo: waveformStrip.bottomAnchor, constant: Self.rowGap),
-
-            // Pill hugs the label with a little padding (h:10, v:4).
-            readoutBackground.leadingAnchor.constraint(
-                equalTo: instrumentReadoutLabel.leadingAnchor, constant: -10),
-            readoutBackground.trailingAnchor.constraint(
-                equalTo: instrumentReadoutLabel.trailingAnchor, constant: 10),
-            readoutBackground.topAnchor.constraint(
-                equalTo: instrumentReadoutLabel.topAnchor, constant: -4),
-            readoutBackground.bottomAnchor.constraint(
-                equalTo: instrumentReadoutLabel.bottomAnchor, constant: 4),
 
             // Instrument chooser grid below the readout.
             instrumentGridContainer.centerXAnchor.constraint(equalTo: contentContainer.centerXAnchor),
-            instrumentGridContainer.topAnchor.constraint(equalTo: readoutBackground.bottomAnchor, constant: Self.rowGap),
+            instrumentGridContainer.topAnchor.constraint(equalTo: instrumentReadoutButton.bottomAnchor, constant: Self.rowGap + 2),
             instrumentGridContainer.widthAnchor.constraint(
                 equalToConstant: InstrumentListView.preferredWidth + Self.gridPadding * 2
             ),
@@ -337,14 +332,48 @@ final class CollapsedPianoWaveformView: NSView {
             instrumentList.bottomAnchor.constraint(equalTo: instrumentGridContainer.bottomAnchor, constant: -Self.gridPadding),
             instrumentList.widthAnchor.constraint(equalToConstant: InstrumentListView.preferredWidth),
             instrumentList.heightAnchor.constraint(equalToConstant: InstrumentListView.preferredHeight),
-
-            // Grid is the bottom element — the Keymap button now lives in
-            // the popover footer alongside About / Quit.
-            instrumentGridContainer.bottomAnchor.constraint(
-                equalTo: contentContainer.bottomAnchor, constant: -Self.bottomInset),
         ])
 
+        // Bottom edge: grid (expanded) or readout (collapsed). Built
+        // outside the activate() block — applyChartVisibility() flips
+        // exactly one of the pair on.
+        gridExpandedBottom = instrumentGridContainer.bottomAnchor.constraint(
+            equalTo: contentContainer.bottomAnchor, constant: -Self.bottomInset)
+        gridCollapsedBottom = instrumentReadoutButton.bottomAnchor.constraint(
+            equalTo: contentContainer.bottomAnchor, constant: -Self.bottomInset)
+        applyChartVisibility()
+
         refresh()
+    }
+
+    /// Show/hide the chooser grid and re-anchor the cluster's bottom
+    /// edge. Deactivate before activate — both bottoms at once
+    /// over-constrain the fixed-height grid.
+    private func applyChartVisibility() {
+        instrumentGridContainer.isHidden = !chartExpanded
+        if chartExpanded {
+            gridCollapsedBottom.isActive = false
+            gridExpandedBottom.isActive = true
+        } else {
+            gridExpandedBottom.isActive = false
+            gridCollapsedBottom.isActive = true
+        }
+    }
+
+    @objc private func readoutClicked(_ sender: NSButton) {
+        toggleChart()
+    }
+
+    /// Shared toggle path — the readout press and the dev
+    /// `toggleChart` distributed notification both land here.
+    func toggleChart() {
+        chartExpanded.toggle()
+        UserDefaults.standard.set(chartExpanded, forKey: Self.chartExpandedKey)
+        applyChartVisibility()
+        refresh()           // chevron direction in the title
+        NSLog("MenuBand chart: %@ — cluster fitting h=%.0f",
+              chartExpanded ? "expanded" : "collapsed", fittingSize.height)
+        onChartToggled?()
     }
 
     @objc private func keymapButtonClicked(_ sender: NSButton) {
@@ -499,13 +528,14 @@ final class CollapsedPianoWaveformView: NSView {
             NSLog("MenuBand: YWFT bold descriptor unavailable; collapsed-panel readout falling back to system font")
             return NSFont.systemFont(ofSize: 16, weight: .black)
         }()
-        // Always light text — the readout now sits on a dark contrast pill.
-        let textColor: NSColor = .white
+        // Max-contrast text with the family-colored hard 1px Riso shadow —
+        // the contrast pill is gone, the name sits straight on the glass.
+        let textColor: NSColor = isDark ? .white : .black
         let shadow = NSShadow()
         shadow.shadowColor = (badgeColor.highlight(withLevel: 0.4) ?? badgeColor)
         shadow.shadowOffset = NSSize(width: 1, height: -1)
         shadow.shadowBlurRadius = 0
-        instrumentReadoutLabel.attributedStringValue = NSAttributedString(
+        let attr = NSMutableAttributedString(
             string: title,
             attributes: [
                 .font: titleFont,
@@ -513,14 +543,20 @@ final class CollapsedPianoWaveformView: NSView {
                 .shadow: shadow,
             ]
         )
-        instrumentReadoutLabel.toolTip = title
-        // Dark pill + a 1px family-colored hairline so the readout keeps its
-        // instrument identity while gaining contrast.
-        readoutBackground.layer?.backgroundColor =
-            NSColor.black.withAlphaComponent(isDark ? 0.62 : 0.78).cgColor
-        readoutBackground.layer?.borderColor =
-            badgeColor.withAlphaComponent(0.85).cgColor
-        readoutBackground.layer?.borderWidth = 1.0
+        // Disclosure chevron — the name doubles as the show/hide control
+        // for the chooser grid below.
+        attr.append(NSAttributedString(
+            string: chartExpanded ? "  ▴" : "  ▾",
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 11, weight: .bold),
+                .foregroundColor: textColor.withAlphaComponent(0.55),
+                .baselineOffset: 2,
+            ]
+        ))
+        instrumentReadoutButton.attributedTitle = attr
+        instrumentReadoutButton.toolTip = chartExpanded
+            ? "Hide the instrument chart"
+            : "Show the instrument chart"
     }
 
     @objc private func whyKeymapClicked(_ sender: NSButton) {

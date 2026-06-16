@@ -3048,6 +3048,106 @@ async function halt($, text) {
 
     makeFlash($);
     return true;
+  } else if (text.startsWith("packjs ")) {
+    // Generate aesthetic.computer.js — a frozen single-file JS *library*
+    // version of the AC runtime (mirrors `pack`, but emits a .js library
+    // instead of a self-contained HTML document).
+    const pieceCode = params[0];
+    if (!pieceCode) {
+      notice("Usage: packjs $code or packjs piece", ["red"]);
+      flashColor = [255, 0, 0];
+      makeFlash($);
+      return true;
+    }
+
+    const isKidlisp = pieceCode.startsWith("$");
+    const code = isKidlisp ? pieceCode.slice(1) : pieceCode;
+    const displayName = isKidlisp ? `$${code}` : code;
+
+    const timeline = makePackTimeline();
+    advancePackStep(timeline, "fetch", `Fetching ${displayName}...`);
+    packProgress = { timeline, startTime: performance.now(), code: displayName };
+    needsPaint();
+
+    try {
+      // Hit the oven directly (same as `pack`) to avoid proxy timeouts/SSE buffering.
+      const bundleParam = isKidlisp ? `code=$${code}` : `piece=${code}`;
+      const response = await fetch(`https://oven.aesthetic.computer/packjs?${bundleParam}&format=stream`);
+      if (!response.ok) throw new Error(`PackJS API returned ${response.status}`);
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let result = null;
+      let currentEventType = null;
+      let serverError = null;
+
+      const parseSSELines = (lines) => {
+        for (const line of lines) {
+          if (line.startsWith("event: ")) {
+            currentEventType = line.slice(7);
+          } else if (line.startsWith("data: ") && currentEventType) {
+            if (currentEventType === "error") {
+              try { serverError = JSON.parse(line.slice(6)).error || "Unknown server error"; }
+              catch (e) { serverError = line.slice(6); }
+              currentEventType = null;
+              continue;
+            }
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (currentEventType === "progress") {
+                if (data.stage) advancePackStep(packProgress.timeline, data.stage, data.message);
+                needsPaint();
+              } else if (currentEventType === "complete") {
+                result = data;
+                advancePackStep(packProgress.timeline, "complete", "Done!");
+                finalizePackTimeline(packProgress.timeline);
+                needsPaint();
+              }
+            } catch (parseErr) {
+              console.warn("SSE parse error:", parseErr, "line:", line.slice(0, 100));
+            }
+            currentEventType = null;
+          }
+        }
+      };
+
+      const PACK_TIMEOUT = 120_000;
+      const timeoutId = setTimeout(() => reader.cancel(), PACK_TIMEOUT);
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) { buffer += decoder.decode(); break; }
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          parseSSELines(lines);
+          if (serverError) break;
+        }
+      } finally {
+        clearTimeout(timeoutId);
+      }
+
+      if (buffer.trim()) parseSSELines(buffer.split("\n"));
+
+      if (serverError) throw new Error(serverError);
+      if (!result) throw new Error("No result received from packjs API");
+
+      const jsContent = atob(result.content);
+      download(result.filename, jsContent, { type: "application/javascript" });
+
+      notice("Downloaded " + result.filename + " (" + result.sizeKB + "KB)", ["lime"]);
+      flashColor = [0, 255, 0];
+    } catch (err) {
+      console.error("PackJS error:", err);
+      notice("PackJS failed: " + err.message, ["red"]);
+      flashColor = [255, 0, 0];
+    }
+
+    packProgress = null;
+    makeFlash($);
+    return true;
   } else if (text.startsWith("m4d ") || text.startsWith("4d ")) {
     // Generate an offline Max for Live device (.amxd) for any piece
     const pieceRef = params[0];

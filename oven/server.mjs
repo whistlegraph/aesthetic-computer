@@ -14,7 +14,7 @@ import { healthHandler, bakeHandler, statusHandler, bakeCompleteHandler, bakeSta
 import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, ensureLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, getAllProgress, getConcurrencyStatus, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus, getFrozenPieces, clearFrozenPiece, getLatestOGImageUrl, regenerateOGImagesBackground, generateKidlispBackdrop, getLatestBackdropUrl, APP_SCREENSHOT_PRESETS, generateNotepatOGImage, getLatestNotepatOGUrl, prewarmGrabBrowser, generateNewsOGImage } from './grabber.mjs';
 import archiver from 'archiver';
 import sharp from 'sharp';
-import { createBundle, createJSPieceBundle, createM4DBundle, generateDeviceHTML, prewarmCache, getCacheStatus, setSkipMinification } from './bundler.mjs';
+import { createBundle, createJSPieceBundle, createJSLibraryBundle, createM4DBundle, generateDeviceHTML, prewarmCache, getCacheStatus, setSkipMinification } from './bundler.mjs';
 import { bundleMini, fetchPieceSource } from './kidlisp-mini/bundle.mjs';
 import { streamOSImage, getOSBuildStatus, invalidateManifest, purgeOSBuildCache, clearOSBuildLocalCache } from './os-builder.mjs';
 import { startOSBaseBuild, getOSBaseBuild, getOSBaseBuildsSummary, cancelOSBaseBuild } from './os-base-build.mjs';
@@ -2947,6 +2947,42 @@ app.get(['/pack-html', '/bundle-html'], async (req, res) => {
     }
   }
 
+  // JS library mode: emit aesthetic.computer.js (a frozen runtime *library*,
+  // not an HTML doc). Supports SSE streaming (format=js-stream) and a plain
+  // file download / json (format=js).
+  if (format === 'js' || format === 'js-stream') {
+    if (format === 'js-stream') {
+      res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'X-Accel-Buffering': 'no' });
+      res.flushHeaders();
+      const sendEvent = (type, data) => {
+        res.write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`);
+        if (typeof res.flush === 'function') res.flush();
+      };
+      try {
+        const onProgress = (p) => sendEvent('progress', p);
+        const { js, filename, sizeKB } = await createJSLibraryBundle(bundleTarget, isJSPiece, onProgress, density, nocache);
+        sendEvent('complete', { filename, content: Buffer.from(js).toString('base64'), sizeKB });
+      } catch (error) {
+        console.error('JS library bundle failed:', error);
+        sendEvent('error', { error: error.message });
+      }
+      return res.end();
+    }
+    try {
+      const onProgress = (p) => console.log(`[bundler] js ${p.stage}: ${p.message}`);
+      const { js, filename, sizeKB } = await createJSLibraryBundle(bundleTarget, isJSPiece, onProgress, density, nocache);
+      if (req.query.json === '1') {
+        return res.json({ filename, content: Buffer.from(js).toString('base64'), sizeKB });
+      }
+      const headers = { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=3600' };
+      if (!inline) headers['Content-Disposition'] = `attachment; filename="${filename}"`;
+      return res.set(headers).send(js);
+    } catch (error) {
+      console.error('JS library bundle failed:', error);
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
   // SSE streaming mode
   if (format === 'stream') {
     res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'X-Accel-Buffering': 'no' });
@@ -2988,6 +3024,52 @@ app.get(['/pack-html', '/bundle-html'], async (req, res) => {
     return res.set(headers).send(html);
   } catch (error) {
     console.error('Bundle failed:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// JS library packer — convenience alias for /pack-html?...&format=js
+// Emits aesthetic.computer.js, a frozen single-file AC runtime *library*.
+app.get('/packjs', async (req, res) => {
+  const code = req.query.code;
+  const piece = req.query.piece;
+  const density = parseInt(req.query.density) || null;
+  const nocache = req.query.nocache === '1' || req.query.nocache === 'true';
+  const inline = req.query.inline === '1' || req.query.inline === 'true';
+  const stream = req.query.format === 'stream';
+
+  const isJSPiece = !!piece;
+  const bundleTarget = piece || code;
+  if (!bundleTarget) {
+    return res.status(400).json({ error: "Missing 'code' or 'piece' parameter.", usage: { kidlisp: "/packjs?code=39j", javascript: "/packjs?piece=notepat" } });
+  }
+
+  if (stream) {
+    res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'X-Accel-Buffering': 'no' });
+    res.flushHeaders();
+    const sendEvent = (type, data) => {
+      res.write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`);
+      if (typeof res.flush === 'function') res.flush();
+    };
+    try {
+      const onProgress = (p) => sendEvent('progress', p);
+      const { js, filename, sizeKB } = await createJSLibraryBundle(bundleTarget, isJSPiece, onProgress, density, nocache);
+      sendEvent('complete', { filename, content: Buffer.from(js).toString('base64'), sizeKB });
+    } catch (error) {
+      console.error('JS library bundle failed:', error);
+      sendEvent('error', { error: error.message });
+    }
+    return res.end();
+  }
+
+  try {
+    const onProgress = (p) => console.log(`[bundler] packjs ${p.stage}: ${p.message}`);
+    const { js, filename, sizeKB } = await createJSLibraryBundle(bundleTarget, isJSPiece, onProgress, density, nocache);
+    const headers = { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=3600', 'X-Bundle-Size-KB': String(sizeKB) };
+    if (!inline) headers['Content-Disposition'] = `attachment; filename="${filename}"`;
+    return res.set(headers).send(js);
+  } catch (error) {
+    console.error('JS library bundle failed:', error);
     return res.status(500).json({ error: error.message });
   }
 });

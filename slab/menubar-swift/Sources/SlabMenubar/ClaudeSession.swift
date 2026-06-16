@@ -17,7 +17,11 @@ struct ClaudeSession {
     ///              + the running-tool heartbeat (a long real tool keeps the
     ///              marker fresh and stays `working`/green).
     /// `stale`    — claude_pid is gone; about to be reaped.
-    enum State { case blank, working, complete, awaiting, interrupted, stale }
+    /// `rendering` — the turn is done but a long render this session launched
+    ///              (a ~/.ac-pop-renders heartbeat carrying its sessionId) is
+    ///              still running. Pink — between working-green and
+    ///              awaiting-amber: not idle, the machine is cooking.
+    enum State { case blank, working, rendering, complete, awaiting, interrupted, stale }
 
     /// Seconds of hook silence (no tool start/stop, no prompt) before a
     /// `working` session is treated as interrupted. Generous so normal
@@ -44,6 +48,10 @@ struct ClaudeSession {
     /// resolved off-main during refresh (instant cache probe; empty until
     /// the async generator has produced one). Empty → leave bg image unset.
     var wallpaper: String = ""
+    /// Sticky per-session emoji (see TitleEmoji) prefixed to the window
+    /// title and menu row so the eye can re-find a session after the tiler
+    /// shuffles the grid. Stamped during refresh; "" until the first prompt.
+    var emoji: String = ""
     /// Number of subagents currently in-flight under this session — both
     /// `Task`-tool agents (per-session markers from `claude-tool-pre.sh`) and
     /// live Workflow-tool agents (counted from the workflow journals). Drawn
@@ -158,9 +166,10 @@ enum ClaudeSessionReader {
                 case .awaiting:    return 0
                 case .interrupted: return 1
                 case .complete:    return 2
-                case .working:     return 3
-                case .blank:       return 4
-                case .stale:       return 5
+                case .rendering:   return 3   // busy, nothing to read yet
+                case .working:     return 4
+                case .blank:       return 5
+                case .stale:       return 6
                 }
             }
             let ra = rank(a.state), rb = rank(b.state)

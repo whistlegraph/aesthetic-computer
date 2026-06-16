@@ -96,6 +96,8 @@ final class MenuBandPopoverPanel: NSPanel {
     func resizeContent(to contentSize: NSSize, animated: Bool) {
         let newH = contentSize.height + Self.arrowHeight
         let newW = max(contentSize.width, frame.width)
+        NSLog("MenuBand panel resize: %.0f×%.0f → %.0f×%.0f",
+              frame.width, frame.height, newW, newH)
         let top = frame.maxY                         // pin top edge
         let originX = frame.minX                      // keep left edge
         let newFrame = NSRect(x: originX, y: top - newH,

@@ -15,6 +15,8 @@
 //   node marketing/bin/capture-ac-native.mjs                      # writes to marketing/captures/
 //   node marketing/bin/capture-ac-native.mjs --out <dir>          # custom out dir
 //   node marketing/bin/capture-ac-native.mjs --out ~/Desktop/foo/refs
+//   node marketing/bin/capture-ac-native.mjs --width 480 --height 320 --scale 1
+//   node marketing/bin/capture-ac-native.mjs --hold c,j            # hold note keys during the notepat shot so tiles render pressed
 
 import { existsSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
@@ -57,7 +59,11 @@ const browser = await puppeteer.launch({
 
 for (const t of targets) {
   const page = await browser.newPage();
-  await page.setViewport({ width: 960, height: 640, deviceScaleFactor: 2 });
+  await page.setViewport({
+    width: parseInt(flags.width || 960, 10),
+    height: parseInt(flags.height || 640, 10),
+    deviceScaleFactor: parseFloat(flags.scale || 2),
+  });
   page.on("pageerror", (e) => console.log(`  [${t.name}/pageerror] ${e.message}`));
   await page.goto(t.url, { waitUntil: "networkidle0" });
   await page.evaluate(() => {
@@ -68,8 +74,17 @@ for (const t of targets) {
   await new Promise((r) => setTimeout(r, 3000));
   if (t.type === "prompt") await page.keyboard.type("notepat", { delay: 80 });
   await new Promise((r) => setTimeout(r, 4000));
+  const held = [];
+  if (t.type === "notepat" && typeof flags.hold === "string") {
+    for (const k of flags.hold.split(",")) {
+      const key = k.trim();
+      if (key) { await page.keyboard.down(key.toUpperCase().length === 1 ? `Key${key.toUpperCase()}` : key); held.push(key); }
+    }
+    await new Promise((r) => setTimeout(r, 600));
+  }
   const out = `${OUT}/${t.name}.png`;
   await page.screenshot({ path: out, omitBackground: false });
+  for (const k of held) await page.keyboard.up(k.toUpperCase().length === 1 ? `Key${k.toUpperCase()}` : k);
   console.log(`✓ ${out}`);
   await page.close();
 }

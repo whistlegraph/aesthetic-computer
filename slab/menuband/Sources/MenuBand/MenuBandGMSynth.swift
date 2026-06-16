@@ -77,10 +77,25 @@ final class MenuBandGMSynth {
     /// control thread.
     private var seedCounter: UInt32 = 0x9E3779B9
 
-    /// Global pitch multiplier from the trackpad bend (1.0 = none, 2.0 =
-    /// +1 octave). Written main-thread, read render-thread; a plain Double
-    /// is atomic enough (worst case one block reads a half-stale value).
+    /// Global pitch multiplier TARGET from the trackpad bend (1.0 = none,
+    /// 2.0 = +1 octave). Written main-thread, read render-thread; a plain
+    /// Double is atomic enough (worst case one block reads a half-stale
+    /// value).
     private var pitchScale: Double = 1.0
+
+    /// Render-thread-owned smoothed pitch that glides toward `pitchScale`.
+    /// The trackpad hands us a NEW target on every mouse-moved tick, so
+    /// applying it as a hard per-block step makes the native voices'
+    /// pitch-derived state jump — a Karplus-Strong delay line resizes,
+    /// modal banks re-tune — and that discontinuity reads as a skip/pop
+    /// while sliding. Easing per-sample toward the target keeps the bend
+    /// continuous so the slide is smooth. ~4 ms time constant: fast enough
+    /// to feel immediate, slow enough to declick.
+    private var glidePitch: Double = 1.0
+    /// Per-sample glide coefficient, set from the real sample rate in
+    /// `attach` (before the render thread runs) so render never has to
+    /// derive it. ~4 ms one-pole time constant.
+    private var pitchGlideCoeff: Double = 1.0 - exp(-1.0 / (48_000 * 0.004))
 
     // MARK: Control → render handoff
 
@@ -108,6 +123,7 @@ final class MenuBandGMSynth {
         self.engine = engine
         let outRate = engine.outputNode.outputFormat(forBus: 0).sampleRate
         sampleRate = outRate > 0 ? outRate : 48_000
+        pitchGlideCoeff = 1.0 - exp(-1.0 / (sampleRate * 0.004))
         format = AVAudioFormat(standardFormatWithSampleRate: sampleRate,
                                channels: 2)!
         sourceNode = AVAudioSourceNode(format: format) {
@@ -243,36 +259,69 @@ final class MenuBandGMSynth {
         }
 
         let dt = 1.0 / sampleRate
-        let pitch = pitchScale
         let g = masterGain
+        // Smooth the trackpad bend into a per-sample glide so frequency
+        // never steps between blocks. Each voice rides the SAME trajectory,
+        // so we replay the identical recurrence (same start, target, coeff)
+        // per voice and commit the final value once at the end.
+        let pitchStart = glidePitch
+        let pitchTarget = pitchScale
+        let pitchCoeff = pitchGlideCoeff
 
         for idx in 0..<maxVoices where voices[idx].active {
-            // Bend the perceived frequency (gm_voice_render takes the
-            // current Hz each sample; the C core re-derives increments).
-            let f = voices[idx].freq * pitch
+            // Hoist EVERY per-voice field into a local before opening the
+            // `&voices[idx].core` pointer below. `withUnsafeMutablePointer(to:
+            // &voices[idx].core)` begins an exclusive access to the `voices`
+            // array (the element is reached through the array subscript); any
+            // OTHER `voices[idx].…` access inside that closure is a second,
+            // overlapping access to the same array and Swift's runtime
+            // exclusivity check aborts the process (EXC_CRASH/SIGABRT in
+            // swift_beginAccess) — that is the crash on the first AC-OS-MIDI
+            // note. So inside the closure we touch only `ptr` + these locals,
+            // then write the mutated envelope state back afterwards.
+            let baseFreq = voices[idx].freq
             let vGain = voices[idx].velocityGain
+            let gainL = Double(voices[idx].gainL)
+            let gainR = Double(voices[idx].gainR)
             let attackInc = voices[idx].attack > 0 ? dt / voices[idx].attack : 1.0
             let releaseDec = voices[idx].release > 0 ? dt / voices[idx].release : 1.0
+            let releasing = voices[idx].releasing
+            var env = voices[idx].env
+            var active = true
+            var pitch = pitchStart
             withUnsafeMutablePointer(to: &voices[idx].core) { ptr in
                 for i in 0..<frameCount {
+                    pitch += (pitchTarget - pitch) * pitchCoeff
+                    let f = baseFreq * pitch
                     // Advance the outer AR envelope.
-                    if voices[idx].releasing {
-                        voices[idx].env -= releaseDec
-                        if voices[idx].env <= 0 {
-                            voices[idx].env = 0
-                            voices[idx].active = false
-                            break
-                        }
-                    } else if voices[idx].env < 1.0 {
-                        voices[idx].env += attackInc
-                        if voices[idx].env > 1.0 { voices[idx].env = 1.0 }
+                    if releasing {
+                        env -= releaseDec
+                        if env <= 0 { env = 0; active = false; break }
+                    } else if env < 1.0 {
+                        env += attackInc
+                        if env > 1.0 { env = 1.0 }
                     }
-                    let s = gm_voice_render(ptr, sampleRate, voices[idx].env, f)
+                    let s = gm_voice_render(ptr, sampleRate, env, f)
+                    // Belt-and-suspenders against a divergent C voice: a NaN/Inf
+                    // sample summed into the mix poisons the whole buffer and
+                    // takes down the downstream limiter/engine. The C core now
+                    // traps this at the source, but never trust a render-thread
+                    // value blindly — kill the voice and stop mixing it.
+                    if !s.isFinite { active = false; break }
                     let amp = s * vGain * g
-                    left[i] += Float(amp * Double(voices[idx].gainL))
-                    right[i] += Float(amp * Double(voices[idx].gainR))
+                    left[i] += Float(amp * gainL)
+                    right[i] += Float(amp * gainR)
                 }
             }
+            voices[idx].env = env
+            voices[idx].active = active
         }
+
+        // Advance the shared glide once for this block (covers the
+        // no-voices-active case too, so the bend is current when the next
+        // note starts). Mirrors the per-sample recurrence above exactly.
+        var p = pitchStart
+        for _ in 0..<frameCount { p += (pitchTarget - p) * pitchCoeff }
+        glidePitch = p
     }
 }

@@ -864,6 +864,377 @@ export async function createJSPieceBundle(pieceName, onProgress = () => {}, noco
   return { html: finalHtml, filename, sizeKB: Math.round(finalHtml.length / 1024) };
 }
 
+// ─── JS library bundle (aesthetic.computer.js) ──────────────────────
+//
+// Same frozen runtime as the HTML pack, but emitted as a standalone
+// JavaScript file instead of an HTML document. Including the file with a
+// <script> tag (or import) exposes a global `AestheticComputer` whose
+// `boot(opts)` runs the exact Phase-1 setup the HTML pack does inline
+// (VFS → blob URLs → import map → fetch shim) and then imports boot.mjs.
+//
+// Unlike the HTML pack, there is no <head>/<body> shell — the consumer's
+// page owns the document. boot.mjs still takes over document.body (it
+// builds its own wrapper + canvas), so a packjs library boots into the
+// page it is loaded by, the same way the HTML pack boots into its own doc.
+
+export async function createJSLibraryBundle(
+  pieceName,
+  isJSPiece,
+  onProgress = () => {},
+  density = null,
+  forceRefresh = false,
+) {
+  const bundleTimestamp = timestamp();
+  let opts;
+
+  if (isJSPiece) {
+    const acDir = AC_SOURCE_DIR;
+    onProgress({ stage: "init", message: `Bundling ${pieceName}...` });
+
+    const packTime = Date.now();
+    const packDate = new Date().toLocaleString("en-US", {
+      timeZone: "America/Los_Angeles", year: "numeric", month: "long", day: "numeric",
+      hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true,
+    });
+
+    const coreFiles = await getCoreBundle(onProgress, forceRefresh);
+    const files = { ...coreFiles };
+    for (const [stubPath, stubContent] of Object.entries(VFS_STUBS)) {
+      files[stubPath] = { content: stubContent, binary: false, type: "mjs" };
+    }
+
+    const piecePath = `disks/${pieceName}.mjs`;
+    const pieceFullPath = path.join(acDir, piecePath);
+    if (!fsSync.existsSync(pieceFullPath)) {
+      throw new Error(`Piece '${pieceName}' not found at ${piecePath}`);
+    }
+
+    onProgress({ stage: "piece", message: `Loading ${pieceName}.mjs...` });
+    const pieceContent = await fs.readFile(pieceFullPath, "utf8");
+    files[piecePath] = { content: rewriteImports(pieceContent, piecePath), binary: false, type: "mjs" };
+
+    const pieceDepFiles = await discoverDependencies(acDir, [piecePath], SKIP_FILES);
+    onProgress({ stage: "deps", message: `Found ${pieceDepFiles.length} dependencies...` });
+    for (const depFile of pieceDepFiles) {
+      if (files[depFile]) continue;
+      const depFullPath = path.join(acDir, depFile);
+      try {
+        if (!fsSync.existsSync(depFullPath)) continue;
+        let content = await fs.readFile(depFullPath, "utf8");
+        content = depFile.startsWith("disks/") ? rewriteImports(content, depFile) : await minifyJS(content, depFile);
+        files[depFile] = { content, binary: false, type: path.extname(depFile).slice(1) };
+      } catch { /* skip */ }
+    }
+
+    const bdfGlyphs = files.__bdfGlyphs || {};
+    delete files.__bdfGlyphs;
+
+    opts = {
+      pieceName, isKidLisp: false, files, bdfGlyphs,
+      packDate, packTime, gitVersion: GIT_COMMIT, density,
+      mainSource: null, kidlispSources: null, paintingData: null,
+      authorHandle: "@jeffrey", bgColor: null,
+    };
+  } else {
+    const PIECE_NAME_NO_DOLLAR = pieceName.replace(/^\$/, "");
+    const PIECE_NAME = "$" + PIECE_NAME_NO_DOLLAR;
+
+    onProgress({ stage: "fetch", message: `Fetching $${PIECE_NAME_NO_DOLLAR}...` });
+    const { sources: kidlispSources, authorHandle } = await getKidLispSourceWithDeps(PIECE_NAME_NO_DOLLAR);
+    const mainSource = kidlispSources[PIECE_NAME_NO_DOLLAR];
+    const depCount = Object.keys(kidlispSources).length - 1;
+    onProgress({ stage: "deps", message: `Found ${depCount} dependenc${depCount === 1 ? "y" : "ies"}` });
+
+    const packTime = Date.now();
+    const packDate = new Date().toLocaleString("en-US", {
+      timeZone: "America/Los_Angeles", year: "numeric", month: "long", day: "numeric",
+      hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true,
+    });
+
+    const coreFiles = await getCoreBundle(onProgress, forceRefresh);
+    const files = { ...coreFiles };
+    for (const [stubPath, stubContent] of Object.entries(VFS_STUBS)) {
+      files[stubPath] = { content: stubContent, binary: false, type: "mjs" };
+    }
+
+    const allKidlispSource = Object.values(kidlispSources).join("\n");
+    const paintingCodes = extractPaintingCodes(allKidlispSource);
+    const paintingData = {};
+    if (paintingCodes.length > 0) {
+      onProgress({ stage: "paintings", message: `Embedding ${paintingCodes.length} painting${paintingCodes.length === 1 ? "" : "s"}...` });
+    }
+    for (const code of paintingCodes) {
+      const resolved = await resolvePaintingCode(code);
+      if (resolved) {
+        paintingData[code] = resolved;
+        const img = await fetchPaintingImage(resolved.handle, resolved.slug);
+        if (img) files[`paintings/${code}.png`] = { content: img, binary: true, type: "png" };
+      }
+    }
+    for (const [name, source] of Object.entries(kidlispSources)) {
+      files[`disks/${name}.lisp`] = { content: source, binary: false, type: "lisp" };
+    }
+
+    const bdfGlyphs = files.__bdfGlyphs || {};
+    delete files.__bdfGlyphs;
+
+    opts = {
+      pieceName: PIECE_NAME, pieceNameNoDollar: PIECE_NAME_NO_DOLLAR, isKidLisp: true,
+      files, bdfGlyphs, packDate, packTime, gitVersion: GIT_COMMIT, density,
+      mainSource, kidlispSources, paintingData,
+      authorHandle, bgColor: extractFirstColor(mainSource),
+    };
+  }
+
+  onProgress({ stage: "generate", message: "Generating aesthetic.computer.js..." });
+  const js = generateJSLibrary(opts);
+
+  const safeName = (isJSPiece ? pieceName : pieceName.replace(/^\$/, "$")).replace(/[^a-zA-Z0-9$_-]/g, "_");
+  const filename = `aesthetic.computer.js`;
+  void safeName; void bundleTimestamp;
+
+  return { js, filename, sizeKB: Math.round(js.length / 1024) };
+}
+
+function generateJSLibrary(opts) {
+  const {
+    pieceName, pieceNameNoDollar, isKidLisp, files, bdfGlyphs,
+    packDate, packTime, gitVersion, density,
+    mainSource, kidlispSources, paintingData, authorHandle, bgColor,
+  } = opts;
+
+  // Serialize VFS / glyphs once; close </script> just in case the file is
+  // ever inlined into an HTML <script> tag by a consumer.
+  const vfsJSON = JSON.stringify(files).replace(/<\/script>/g, "<\\/script>");
+  const glyphsJSON = JSON.stringify(bdfGlyphs);
+  const colophon = isKidLisp
+    ? {
+        piece: { name: pieceNameNoDollar, sourceCode: mainSource, isKidLisp: true },
+        build: { author: authorHandle, packTime, gitCommit: gitVersion, gitIsDirty: false, fileCount: Object.keys(files).length },
+      }
+    : {
+        piece: { name: pieceName, isKidLisp: false },
+        build: { author: authorHandle || "@jeffrey", packTime, gitCommit: gitVersion, gitIsDirty: false, fileCount: Object.keys(files).length },
+      };
+
+  // The smart-density snippet matches the HTML pack so a packjs library
+  // picks a sensible resolution when the caller doesn't pass `density`.
+  const densitySnippet = density
+    ? `window.acPACK_DENSITY = ${density};`
+    : `if (window.acPACK_DENSITY === undefined) { var sw = window.screen.width * (window.devicePixelRatio || 1); var sh = window.screen.height * (window.devicePixelRatio || 1); var maxDim = Math.max(sw, sh); if (maxDim >= 3840) { window.acPACK_DENSITY = 8; } else if (Math.abs(sw - sh) < 100 && maxDim >= 1000 && maxDim <= 1200) { window.acPACK_DENSITY = 4; } else { window.acPACK_DENSITY = 3; } }`;
+
+  return `/*! aesthetic.computer.js — frozen AC runtime library
+ *  piece: ${pieceName}   packed: ${packDate}   commit: ${gitVersion}
+ *
+ *  Usage (script tag):
+ *    <script src="aesthetic.computer.js"></script>
+ *    <script>AestheticComputer.boot();</script>
+ *
+ *  Usage (module):
+ *    import AC from "./aesthetic.computer.js"; AC.boot();
+ *
+ *  boot(opts?) options:
+ *    piece   — override the embedded starting piece (default: ${pieceName})
+ *    density — pixel density override (default: smart)
+ *  Returns a Promise that resolves once boot.mjs has been imported.
+ *  Note: the runtime takes over document.body, like the HTML pack.
+ */
+(function (root, factory) {
+  var AC = factory();
+  if (typeof module === "object" && module.exports) module.exports = AC;
+  root.AestheticComputer = AC;
+})(typeof self !== "undefined" ? self : this, function () {
+  "use strict";
+
+  var VFS = ${vfsJSON};
+  var GLYPHS = ${glyphsJSON};
+  var DEFAULT_PIECE = ${JSON.stringify(pieceName)};
+  var KIDLISP_SOURCE = ${isKidLisp ? JSON.stringify(mainSource) : "null"};
+  var KIDLISP_SOURCES = ${isKidLisp ? JSON.stringify(kidlispSources) : "null"};
+  var PAINTING_CODE_MAP = ${isKidLisp ? JSON.stringify(paintingData) : "{}"};
+  var COLOPHON = ${JSON.stringify(colophon)};
+  var IS_KIDLISP = ${isKidLisp ? "true" : "false"};
+  var BG_COLOR = ${JSON.stringify(bgColor || "black")};
+
+  var booted = false;
+
+  function decodePaintingToBitmap(base64Data) {
+    return new Promise(function (resolve, reject) {
+      var img = new Image();
+      img.onload = function () {
+        var c = document.createElement("canvas");
+        c.width = img.width; c.height = img.height;
+        var ctx = c.getContext("2d");
+        ctx.drawImage(img, 0, 0);
+        var d = ctx.getImageData(0, 0, c.width, c.height);
+        resolve({ width: d.width, height: d.height, pixels: d.data });
+      };
+      img.onerror = reject;
+      img.src = "data:image/png;base64," + base64Data;
+    });
+  }
+
+  function setupPhase1(piece) {
+    // ── Globals (mirror the HTML pack's Phase-1 block) ───────────────
+    window.acPACK_MODE = true;
+    window.acUseWebGLComposite = false;
+    window.KIDLISP_SUPPRESS_SNAPSHOT_LOGS = true;
+    window.__acKidlispConsoleEnabled = false;
+    window.acKEEP_MODE = IS_KIDLISP;
+    window.acSTARTING_PIECE = piece;
+    window.acPACK_PIECE = piece;
+    window.acPACK_DATE = ${JSON.stringify(packDate)};
+    window.acPACK_GIT = ${JSON.stringify(gitVersion)};
+    window.acPACK_COLOPHON = COLOPHON;
+    window.acBUNDLED_GLYPHS = GLYPHS;
+    window.acOBJKT_MATRIX_CHUNKY_GLYPHS = GLYPHS.MatrixChunky8 || {};
+    window.VFS = VFS;
+    ${densitySnippet}
+
+    if (IS_KIDLISP) {
+      window.acKIDLISP_SOURCE = KIDLISP_SOURCE;
+      window.EMBEDDED_KIDLISP_SOURCE = KIDLISP_SOURCE;
+      window.EMBEDDED_KIDLISP_PIECE = ${JSON.stringify(pieceNameNoDollar || "")};
+      window.objktKidlispCodes = KIDLISP_SOURCES;
+      window.acPREFILL_CODE_CACHE = KIDLISP_SOURCES;
+      window.acPAINTING_CODE_MAP = PAINTING_CODE_MAP;
+      window.acEMBEDDED_PAINTING_BITMAPS = {};
+      window.acPAINTING_BITMAPS_READY = false;
+    }
+
+    // ── Block live CSS/font <link> injection ─────────────────────────
+    var origAppend = Element.prototype.appendChild;
+    Element.prototype.appendChild = function (child) {
+      if (child.tagName === "LINK" && child.rel === "stylesheet" && child.href && child.href.includes(".css")) return child;
+      return origAppend.call(this, child);
+    };
+    var origBodyAppend = HTMLBodyElement.prototype.append;
+    HTMLBodyElement.prototype.append = function () {
+      var args = []; for (var i = 0; i < arguments.length; i++) { var n = arguments[i]; if (!(n.tagName === "LINK" && n.rel === "stylesheet")) args.push(n); }
+      return origBodyAppend.apply(this, args);
+    };
+
+    // ── VFS → blob URLs ──────────────────────────────────────────────
+    window.VFS_BLOB_URLS = {};
+    window.modulePaths = [];
+    Object.entries(window.VFS).forEach(function (entry) {
+      var p = entry[0], file = entry[1];
+      if (p.endsWith(".mjs") || p.endsWith(".js")) {
+        var blob = new Blob([file.content], { type: "application/javascript" });
+        window.VFS_BLOB_URLS[p] = URL.createObjectURL(blob);
+        window.modulePaths.push(p);
+      }
+    });
+
+    // ── Import map (must be in the DOM before the first module import) ─
+    var entries = {};
+    for (var i = 0; i < window.modulePaths.length; i++) {
+      var fp = window.modulePaths[i];
+      if (window.VFS_BLOB_URLS[fp]) {
+        entries[fp] = window.VFS_BLOB_URLS[fp];
+        entries["/" + fp] = window.VFS_BLOB_URLS[fp];
+        entries["./" + fp] = window.VFS_BLOB_URLS[fp];
+        entries["../" + fp] = window.VFS_BLOB_URLS[fp];
+        entries["../../" + fp] = window.VFS_BLOB_URLS[fp];
+        entries["aesthetic.computer/" + fp] = window.VFS_BLOB_URLS[fp];
+        entries["/aesthetic.computer/" + fp] = window.VFS_BLOB_URLS[fp];
+        entries["./aesthetic.computer/" + fp] = window.VFS_BLOB_URLS[fp];
+        entries["https://aesthetic.computer/" + fp] = window.VFS_BLOB_URLS[fp];
+      }
+    }
+    var imScript = document.createElement("script");
+    imScript.type = "importmap";
+    imScript.textContent = JSON.stringify({ imports: entries });
+    document.head.appendChild(imScript);
+
+    // ── fetch shim: serve the VFS / glyphs / paintings, neuter /api/ ─
+    var origFetch = window.fetch;
+    window.fetch = function (url, options) {
+      var urlStr = typeof url === "string" ? url : url.toString();
+      if (urlStr.includes("/api/")) {
+        if (urlStr.includes("/api/bdf-glyph") && window.acBUNDLED_GLYPHS) {
+          var fontM = urlStr.match(/[?&]font=([^&]+)/);
+          var charsM = urlStr.match(/[?&]chars?=([^&]+)/);
+          var fontKey = fontM ? decodeURIComponent(fontM[1]) : "unifont";
+          if (fontKey === "unifont-16.0.03") fontKey = "unifont";
+          var fontMap = window.acBUNDLED_GLYPHS[fontKey] || {};
+          var glyphs = {};
+          if (charsM) { for (var c of charsM[1].split(",")) { var hex = c.trim().toUpperCase(); if (fontMap[hex]) glyphs[c.trim()] = fontMap[hex]; } }
+          return Promise.resolve(new Response(JSON.stringify({ glyphs: glyphs }), { status: 200, headers: { "Content-Type": "application/json" } }));
+        }
+        if (urlStr.includes("/api/painting-code")) {
+          var m = urlStr.match(/[?&]code=([^&]+)/);
+          if (m) { var info = window.acPAINTING_CODE_MAP && window.acPAINTING_CODE_MAP[m[1]]; if (info) return Promise.resolve(new Response(JSON.stringify({ code: info.code, handle: info.handle, slug: info.slug }), { status: 200, headers: { "Content-Type": "application/json" } })); }
+          return Promise.resolve(new Response(JSON.stringify({ error: "Not found" }), { status: 404 }));
+        }
+        return Promise.resolve(new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } }));
+      }
+      var vfsPath = decodeURIComponent(urlStr).replace(/^https?:\\/\\/[^\\/]+\\//g, "").replace(/^aesthetic\\.computer\\//g, "").replace(/#.*$/g, "").replace(/\\?.*$/g, "");
+      vfsPath = vfsPath.replace(/^\\.\\.\\/+/g, "").replace(/^\\.\\//g, "").replace(/^\\//g, "").replace(/^aesthetic\\.computer\\//g, "");
+      if (IS_KIDLISP && urlStr.includes("/media/") && urlStr.includes("/painting/")) {
+        var pk = Object.keys(window.acPAINTING_CODE_MAP || {});
+        for (var pi = 0; pi < pk.length; pi++) {
+          var pcode = pk[pi], pinfo = window.acPAINTING_CODE_MAP[pcode];
+          if (urlStr.includes(pinfo.slug)) {
+            var pvfs = "paintings/" + pcode + ".png";
+            if (window.VFS[pvfs]) { var f0 = window.VFS[pvfs]; var b0 = atob(f0.content); var u0 = new Uint8Array(b0.length); for (var z0 = 0; z0 < b0.length; z0++) u0[z0] = b0.charCodeAt(z0); return Promise.resolve(new Response(u0, { status: 200, headers: { "Content-Type": "image/png" } })); }
+          }
+        }
+      }
+      if (window.VFS[vfsPath]) {
+        var file = window.VFS[vfsPath]; var content; var ct = "text/plain";
+        if (file.binary) { var bs = atob(file.content); var bytes = new Uint8Array(bs.length); for (var j = 0; j < bs.length; j++) bytes[j] = bs.charCodeAt(j); content = bytes; if (file.type === "png") ct = "image/png"; else if (file.type === "jpg" || file.type === "jpeg") ct = "image/jpeg"; }
+        else { content = file.content; if (file.type === "mjs" || file.type === "js") ct = "application/javascript"; else if (file.type === "json") ct = "application/json"; }
+        return Promise.resolve(new Response(content, { status: 200, headers: { "Content-Type": ct } }));
+      }
+      if (vfsPath.includes("disks/drawings/font_") || vfsPath.endsWith(".mjs") || vfsPath.includes("cursors/") || vfsPath.endsWith(".svg") || vfsPath.endsWith(".css") || urlStr.includes("/type/webfonts/")) {
+        return Promise.resolve(new Response("", { status: 200, headers: { "Content-Type": "text/css" } }));
+      }
+      return origFetch.call(this, url, options);
+    };
+
+    // ── Decode embedded paintings (KidLisp only) ─────────────────────
+    if (IS_KIDLISP) {
+      var promises = [];
+      var map = window.acPAINTING_CODE_MAP || {};
+      Object.keys(map).forEach(function (code) {
+        var vfsPath2 = "paintings/" + code + ".png";
+        if (window.VFS[vfsPath2]) {
+          promises.push(decodePaintingToBitmap(window.VFS[vfsPath2].content).then(function (bitmap) {
+            window.acEMBEDDED_PAINTING_BITMAPS["#" + code] = bitmap;
+            window.acEMBEDDED_PAINTING_BITMAPS[code] = bitmap;
+          }).catch(function () {}));
+        }
+      });
+      return Promise.all(promises).then(function () { window.acPAINTING_BITMAPS_READY = true; });
+    }
+    return Promise.resolve();
+  }
+
+  function boot(o) {
+    o = o || {};
+    if (booted) { console.warn("[aesthetic.computer] already booted"); return Promise.resolve(); }
+    booted = true;
+    if (typeof window === "undefined") return Promise.reject(new Error("AestheticComputer.boot() requires a browser environment"));
+    if (o.density != null) window.acPACK_DENSITY = o.density;
+    var piece = o.piece || DEFAULT_PIECE;
+    document.documentElement.style.background = BG_COLOR;
+    return Promise.resolve(setupPhase1(piece)).then(function () {
+      return import(window.VFS_BLOB_URLS["boot.mjs"]);
+    });
+  }
+
+  return {
+    boot: boot,
+    version: ${JSON.stringify(gitVersion)},
+    piece: DEFAULT_PIECE,
+    isKidLisp: IS_KIDLISP,
+    colophon: COLOPHON,
+  };
+});
+`;
+}
+
 // ─── M4D (Max for Live) ─────────────────────────────────────────────
 
 const M4L_HEADER_INSTRUMENT = Buffer.from(
