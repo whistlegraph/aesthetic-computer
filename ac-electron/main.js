@@ -208,6 +208,14 @@ if (!acDropSingleLock) {
   app.quit();
 } else {
   app.on('second-instance', (_event, argv) => {
+    // `--preview <url>` from a relaunch (slab requesting a preview): open a
+    // new frameless preview window in this primary instance and stop — don't
+    // fall through to focusing an unrelated existing window.
+    const previewURL = parsePreviewArg(argv);
+    if (previewURL) {
+      app.whenReady().then(() => openPreviewWindow(previewURL));
+      return;
+    }
     for (const arg of argv) {
       if (acDropIsAudio(arg)) {
         app.whenReady().then(() => acDropHandleFile(arg));
@@ -252,6 +260,14 @@ app.commandLine.appendSwitch('disable-background-timer-throttling');
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 app.commandLine.appendSwitch('js-flags', '--max-old-space-size=4096');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+
+// Always expose a local CDP endpoint so external drivers (slab, Claude) can
+// attach to any window/preview — eval, screenshot, instrument. Idempotent: if
+// a launch flag already set the port (npm start scripts pass 9222) this is a
+// no-op. Chromium binds remote debugging to 127.0.0.1 by default → local-only.
+if (!process.argv.some((a) => a.startsWith('--remote-debugging-port'))) {
+  app.commandLine.appendSwitch('remote-debugging-port', '9222');
+}
 
 // Preferences storage
 const PREFS_PATH = path.join(app.getPath('userData'), 'preferences.json');
@@ -579,6 +595,16 @@ const pieceArg =
   args.find((a) => a.startsWith('--piece=')) ||
   (pieceFlagIdx >= 0 ? args[pieceFlagIdx + 1] : undefined);
 const initialPiece = pieceArg?.replace('--piece=', '') || 'prompt';
+
+// `--preview <url>` opens a frameless, CDP-attached preview window for any URL
+// (used by slab to render dynamic/web previews and tile them with terminals).
+function parsePreviewArg(list) {
+  const eq = list.find((a) => a.startsWith('--preview='));
+  if (eq) return eq.slice('--preview='.length);
+  const i = list.indexOf('--preview');
+  return i >= 0 ? list[i + 1] : undefined;
+}
+const initialPreviewURL = parsePreviewArg(args);
 
 // URLs - nogap removes the aesthetic gap border for desktop mode
 const URLS = {
@@ -1550,6 +1576,67 @@ function navigateToPiece(piece) {
 async function openAcPaneWindow(options = {}) {
   return openAcPaneWindowInternal(options);
 }
+
+// Open a FRAMELESS preview window for an arbitrary URL/path. This is slab's
+// "dynamic preview" engine: chromeless (no title bar), a normal-level window
+// so the slab tiler (AXTiler) packs it into the terminal grid, and — like
+// every ac-electron window — automatically a CDP target on the local
+// remote-debugging port, so slab/Claude can attach, eval, and screenshot it.
+// Re-requesting the same URL focuses the existing preview instead of stacking.
+const previewWindows = new Map();      // url -> BrowserWindow
+function openPreviewWindow(rawUrl) {
+  if (!rawUrl) return null;
+  let url = rawUrl;
+  if (!/^(https?|file):\/\//.test(url)) {
+    url = 'file://' + (url.startsWith('/') ? url : path.resolve(url));
+  }
+  const existing = previewWindows.get(url);
+  if (existing && !existing.isDestroyed()) {
+    if (existing.isMinimized()) existing.restore();
+    existing.focus();
+    return existing;
+  }
+  const win = new BrowserWindow({
+    width: 480,
+    height: 360,
+    title: url,
+    frame: false,                 // chromeless
+    transparent: false,
+    backgroundColor: '#000000',
+    alwaysOnTop: false,           // a normal window → AXTiler treats it as standard
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: false,             // so preview-preload.js can use ipcRenderer
+      backgroundThrottling: false,
+      preload: getAppPath('renderer/preview-preload.js'),  // click-drag to move
+    },
+  });
+  win.loadURL(url);
+  const windowId = windowIdCounter++;
+  windows.set(windowId, { window: win, mode: 'preview' });
+  previewWindows.set(url, win);
+  win.on('focus', () => { focusedWindowId = windowId; });
+  win.on('closed', () => { windows.delete(windowId); previewWindows.delete(url); });
+  return win;
+}
+
+// Frameless preview drag-to-move: the preload streams cursor screen coords; we
+// move the window by the delta from where the drag began. Keyed per webContents
+// so multiple previews drag independently.
+const previewDragOrigin = new Map();   // webContents.id -> { win:[x,y], sx, sy }
+ipcMain.on('preview-drag-start', (event, { sx, sy }) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) previewDragOrigin.set(event.sender.id, { win: win.getPosition(), sx, sy });
+});
+ipcMain.on('preview-drag-move', (event, { sx, sy }) => {
+  const o = previewDragOrigin.get(event.sender.id);
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (o && win && !win.isDestroyed()) {
+    win.setPosition(o.win[0] + Math.round(sx - o.sx), o.win[1] + Math.round(sy - o.sy));
+  }
+});
+ipcMain.on('preview-drag-end', (event) => { previewDragOrigin.delete(event.sender.id); });
 
 // Open a standalone Notepat window — compact window dedicated to the /notepat piece
 let notepatWindow = null;
@@ -3083,7 +3170,9 @@ app.whenReady().then(async () => {
   // Create initial window(s)
   // When launched silently at login, stay in menubar-daemon mode: no AC
   // window, no dock icon. The user opens things explicitly from the tray.
-  if (!launchedSilently || acDropColdLaunchFile) {
+  if (initialPreviewURL) {
+    openPreviewWindow(initialPreviewURL);   // launched as a preview host (slab)
+  } else if (!launchedSilently || acDropColdLaunchFile) {
     openAcPaneWindow({ piece: initialPiece });
   }
 
