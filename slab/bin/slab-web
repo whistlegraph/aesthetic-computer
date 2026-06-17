@@ -1,25 +1,28 @@
 #!/usr/bin/env bash
-# slab-web — open a frameless, CDP-attached, tileable WEB preview in slab,
-# rendered by the AC Electron app (Aesthetic.Computer.app).
+# slab-web — open a frameless WEB preview in slab.
 #
-# Mirrors the slab-pdf / slab-video contract but for dynamic/web content: the
-# AC Electron app opens a chromeless (frameless) window for the URL, exposes it
-# on the local CDP port (9222) so slab/Claude can drive it, and because it's a
-# normal external app window the slab tiler (AXTiler) packs it into the same
-# grid as your Terminal/iTerm windows.
+# Two backends:
+#   (default) AC Electron app — chromeless, CDP-attached (:9222), auto-tiles
+#             into the terminal grid via the slab menubar's AXTiler.
+#   --chrome  your REAL Google Chrome, --app (frameless) mode, using your main
+#             profile — so it's logged into everything you are (GitHub, etc.).
+#             Best for authed pages (e.g. private PRs). Uses the running Chrome
+#             instance (your session); CDP only if Chrome was started with a
+#             --remote-debugging-port, and Chrome --app windows aren't
+#             auto-tiled (can't be told apart from your normal Chrome windows).
 #
 # Usage:
-#   slab-web <url|path>
-#   slab-web http://localhost:8123/spatial-self-3d.html
+#   slab-web <url|path|$code>
+#   slab-web --chrome https://github.com/fuserstudio/fuser/pull/608
 #   slab-web ~/aesthetic-computer/studies/spatial-flow.html
-#   slab-web '$gla'                 # an AC piece/$code → aesthetic.computer
-#
-# CDP endpoint after open:  http://127.0.0.1:9222/json   (ws targets per window)
 set -euo pipefail
 
 APP="Aesthetic.Computer"
+CHROME=0
+if [ "${1:-}" = "--chrome" ] || [ "${1:-}" = "-c" ]; then CHROME=1; shift; fi
+
 url="${1:-}"
-[ -n "$url" ] || { echo "usage: slab-web <url|path>" >&2; exit 1; }
+[ -n "$url" ] || { echo "usage: slab-web [--chrome] <url|path>" >&2; exit 1; }
 
 case "$url" in
   http://*|https://*|file://*) : ;;                 # full URL — as-is
@@ -29,17 +32,24 @@ case "$url" in
   *)             url="https://aesthetic.computer/$url" ;;  # bare token → AC piece/$code
 esac
 
-# Resolve the app: prefer the installed copy, then fall back to a Spotlight
-# lookup by bundle id (mdfind can return several copies — build artifacts in
-# dist/ etc. — so the explicit install path wins to avoid launching a stray).
+if [ "$CHROME" = "1" ]; then
+  # Real Chrome, --app (frameless) mode, main profile (authed). Invoke the
+  # binary directly so a running Chrome forwards the new app window into your
+  # existing session instead of spawning an isolated instance.
+  chrome="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+  [ -x "$chrome" ] || { echo "Google Chrome not found at $chrome" >&2; exit 1; }
+  "$chrome" --app="$url" >/dev/null 2>&1 &
+  disown
+  exit 0
+fi
+
+# Default: AC Electron preview (chromeless, CDP, tiled). Resolve the installed
+# app (prefer /Applications; fall back to a Spotlight lookup by bundle id).
 app_path="/Applications/$APP.app"
 [ -d "$app_path" ] || app_path="$(mdfind "kMDItemCFBundleIdentifier == 'computer.aesthetic.app'" 2>/dev/null | head -1)"
 
-# `open -na … --args --preview <url>` launches a transient instance; the AC
-# app's single-instance lock hands the args to the running primary via its
-# `second-instance` handler (which opens the preview window there). If the app
-# isn't running yet, this cold-launches it straight into preview mode.
-# Use the `--preview=<url>` equals form (not space-separated): Chromium can
-# inject its own switches into argv, and a bare `--preview <url>` risks the
-# parser pairing --preview with an injected flag instead of our URL.
+# `open -na … --args --preview=<url>` routes through the AC app's single-instance
+# lock so the running instance opens the preview window (cold-launches if not up).
+# Equals form: Chromium can inject switches into argv; a space-separated
+# `--preview <url>` risks pairing the flag with an injected switch.
 exec open -na "$app_path" --args "--preview=$url"
