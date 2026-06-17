@@ -42,7 +42,7 @@ final class FrameCapture {
         let mode = (try? String(contentsOfFile: Paths.frameReq, encoding: .utf8)) ?? ""
         try? fm.removeItem(atPath: Paths.frameReq)
         try? fm.removeItem(atPath: Paths.frameDone)
-        produce(noOCR: mode.contains("noocr"))
+        produce(noOCR: mode.contains("noocr"), fast: mode.contains("fast"))
         fm.createFile(atPath: Paths.frameDone, contents: nil)
     }
 
@@ -70,10 +70,11 @@ final class FrameCapture {
 
     // MARK: - OCR (text + click-center coords, in logical points)
 
-    private func ocr(_ cg: CGImage, scale: Double) -> [[String: Any]] {
+    private func ocr(_ cg: CGImage, scale: Double, fast: Bool = false) -> [[String: Any]] {
         let req = VNRecognizeTextRequest()
-        req.recognitionLevel = .accurate
+        req.recognitionLevel = fast ? .fast : .accurate
         req.usesLanguageCorrection = false
+        req.recognitionLanguages = ["en-US"]
         try? VNImageRequestHandler(cgImage: cg, options: [:]).perform([req])
         let W = Double(cg.width), H = Double(cg.height)
         var out: [[String: Any]] = []
@@ -187,21 +188,36 @@ final class FrameCapture {
 
     // MARK: - assemble + write the envelope
 
-    private func produce(noOCR: Bool) {
+    private func produce(noOCR: Bool, fast: Bool = false) {
         func nowNs() -> UInt64 { DispatchTime.now().uptimeNanoseconds }
         func msSince(_ t: UInt64) -> Double { (Double(nowNs() - t) / 1e6 * 10).rounded() / 10 }
         var env: [String: Any] = [:]
         var tm: [String: Double] = [:]
+
+        // The AX walk is independent of the screenshot, so run it CONCURRENTLY
+        // with capture+OCR: wall-clock becomes max(ax, capture+ocr) instead of
+        // the sum. AX is ~150ms and capture+OCR ~280ms, so this hides the AX
+        // cost entirely. (AXUIElement calls are fine off the main thread.)
+        var axResult: [String: Any] = [:]
+        var axMs: Double = 0
+        let grp = DispatchGroup()
+        grp.enter()
+        let axStart = nowNs()
+        DispatchQueue.global(qos: .userInitiated).async {
+            axResult = self.axTree()
+            axMs = msSince(axStart)
+            grp.leave()
+        }
+
         var t = nowNs(); let mt = meta(); tm["meta"] = msSince(t)
         env["meta"] = mt
-        t = nowNs(); env["ax"] = axTree(); tm["ax"] = msSince(t)
         let scale = ((mt["screen"] as? [String: Any])?["scale"] as? CGFloat).map(Double.init) ?? 1.0
         t = nowNs(); let cg = captureDisplay(); tm["capture"] = msSince(t)
         if let cg = cg {
             if noOCR {
                 env["ocr"] = []
             } else {
-                t = nowNs(); env["ocr"] = ocr(cg, scale: scale); tm["ocr"] = msSince(t)
+                t = nowNs(); env["ocr"] = ocr(cg, scale: scale, fast: fast); tm["ocr"] = msSince(t)
             }
             t = nowNs()
             if let jpg = thumbJPEG(cg, maxWidth: 1568) {
@@ -215,6 +231,10 @@ final class FrameCapture {
             env["capture"] = "permission_needed"
             env["permission"] = "screen_recording"
         }
+        grp.wait()                 // join the concurrent AX walk
+        env["ax"] = axResult
+        tm["ax"] = axMs
+        tm["wall"] = (tm["meta"]! + tm["capture"]! + (tm["ocr"] ?? 0) + tm["thumb"]!)  // serial part; ax overlapped
         env["timings_ms"] = tm
         if let d = try? JSONSerialization.data(withJSONObject: env, options: []) {
             try? d.write(to: URL(fileURLWithPath: Paths.frameOut))

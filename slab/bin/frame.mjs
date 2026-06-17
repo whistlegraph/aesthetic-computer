@@ -88,13 +88,13 @@ function runOn(name, machines, cmd, { timeoutMs = 15000 } = {}) {
   return ssh(sshHostFor(name, machines), cmd, { timeoutMs });
 }
 
-function captureFrame(name, { noOCR = false, out, json = false } = {}) {
+function captureFrame(name, { noOCR = false, fast = false, out, json = false } = {}) {
   const machines = loadMachines();
   if (!machines[name]) {
     console.error(`unknown machine "${name}" — known: ${Object.keys(machines).join(", ") || "(none)"}`);
     process.exit(1);
   }
-  const mode = noOCR ? "noocr" : "full";
+  const mode = noOCR ? "noocr" : fast ? "fast" : "full";
   // Drop the request, wait for the daemon's done marker (≤4s), emit the envelope.
   const remote =
     `d=${REMOTE_STATE}; mkdir -p "$d"; rm -f "$d/frame.done"; ` +
@@ -223,7 +223,8 @@ const opt = (f) => {
 if (!cmd || cmd === "-h" || cmd === "--help") {
   console.log(
     "frame — capture a rich frame (pixels + OCR + AX + state) of a remote Mac\n\n" +
-      "  frame <machine> [--no-ocr] [--out file.jpg] [--json]\n" +
+      "  frame <machine> [--no-ocr] [--fast] [--out file.jpg] [--json]\n" +
+      "      --fast: Vision .fast OCR (lower latency, less accurate on small text)\n" +
       "  frame doctor [machine]      per-machine daemon + permission status\n" +
       "  frame setup <machine>       trigger + guide the one-time Screen Recording grant\n" +
       "  frame list                  registered machines\n",
@@ -233,4 +234,4 @@ if (!cmd || cmd === "-h" || cmd === "--help") {
 if (cmd === "doctor") doctor(argv[1]);
 else if (cmd === "setup") setup(argv[1]);
 else if (cmd === "list") list();
-else captureFrame(cmd, { noOCR: flag("--no-ocr"), out: opt("--out"), json: flag("--json") });
+else captureFrame(cmd, { noOCR: flag("--no-ocr"), fast: flag("--fast"), out: opt("--out"), json: flag("--json") });
