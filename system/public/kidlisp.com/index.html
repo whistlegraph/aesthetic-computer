@@ -9328,7 +9328,8 @@
             </div>
           </div>
           <div class="list-subcontent hidden" id="keeps-subcontent">
-            <iframe id="keeps-iframe" data-src="https://kidlisp.com/keeps" style="width: 100%; height: 100%; border: none; flex: 1;"></iframe>
+            <!-- keeps.html directly (same-origin) — NOT /keeps, which 301s cross-origin to keep.kidlisp.com and breaks the embedded postMessage/localStorage handshake. -->
+            <iframe id="keeps-iframe" data-src="https://kidlisp.com/keeps.html" style="width: 100%; height: 100%; border: none; flex: 1;"></iframe>
           </div>
         </div><!-- /list-content -->
         <div class="docs-content hidden" id="jukebox-content">
