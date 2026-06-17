@@ -23,7 +23,12 @@ enum AXTiler {
     /// Tileable windows of `bundleId`, front-to-back: standard windows
     /// only (no panels/sheets/hotkey drawers), minimized excluded — the
     /// same filter the AppleScript tiler applied. App not running → [].
-    static func windows(bundleId: String) -> [AXUIElement] {
+    ///
+    /// `requireStandardSubrole: false` keeps frameless windows in the set —
+    /// the AC Electron preview windows (slab-web) are created `frame: false`,
+    /// so macOS reports a non-standard subrole and the strict filter would
+    /// drop them from the grid. We still exclude minimized + zero-size junk.
+    static func windows(bundleId: String, requireStandardSubrole: Bool = true) -> [AXUIElement] {
         var out: [AXUIElement] = []
         for app in NSRunningApplication.runningApplications(withBundleIdentifier: bundleId) {
             let el = AXUIElementCreateApplication(app.processIdentifier)
@@ -32,8 +37,11 @@ enum AXTiler {
                   let list = ref as? [AXUIElement] else { continue }
             for w in list {
                 if boolAttr(w, kAXMinimizedAttribute) == true { continue }
-                if let sub = stringAttr(w, kAXSubroleAttribute),
+                if requireStandardSubrole,
+                   let sub = stringAttr(w, kAXSubroleAttribute),
                    sub != kAXStandardWindowSubrole as String { continue }
+                // Skip degenerate (hidden/zero-size) windows when accepting any subrole.
+                if !requireStandardSubrole, let sz = sizeAttr(w), sz.width < 80 || sz.height < 80 { continue }
                 out.append(w)
             }
         }
@@ -64,5 +72,14 @@ enum AXTiler {
         var ref: CFTypeRef?
         guard AXUIElementCopyAttributeValue(el, attr as CFString, &ref) == .success else { return nil }
         return ref as? String
+    }
+
+    private static func sizeAttr(_ el: AXUIElement) -> CGSize? {
+        var ref: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(el, kAXSizeAttribute as CFString, &ref) == .success,
+              let v = ref, CFGetTypeID(v) == AXValueGetTypeID() else { return nil }
+        var size = CGSize.zero
+        guard AXValueGetValue(v as! AXValue, .cgSize, &size) else { return nil }
+        return size
     }
 }
