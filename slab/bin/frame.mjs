@@ -34,7 +34,6 @@ const CONFIG_PATH =
 const FRAMES_DIR = join(HOME, ".local", "share", "slab", "frames");
 const SOCK_PATH = process.env.SLAB_FRAME_SOCK || join(HOME, ".local", "share", "slab", "frame.sock");
 const APP_BUNDLE = "computer.slab.menubar";
-const REMOTE_STATE = "~/.local/share/slab/state"; // expanded by the remote shell
 
 // The remote read-loop agent: ONE per machine, held open by the server so each
 // frame is a stdin-write + stdout-read on an already-open ssh channel — no
@@ -42,14 +41,29 @@ const REMOTE_STATE = "~/.local/share/slab/state"; // expanded by the remote shel
 // SCRIPT from stdin, so the agent can't also read modes from stdin — instead we
 // drop this script on the target once and feed modes to `bash <file>` over the
 // persistent channel. Emits exactly one JSON line per mode (terminator-framed).
+// Emits a length-prefixed binary frame per request: `ACF1 <jsonLen> <jpgLen>\n`
+// then the JSON bytes then the raw JPEG bytes — no base64. One frame per mode
+// line read on stdin.
+// NOTE: this is a JS template literal — bash `${...}` would be interpreted as JS
+// interpolation, so the script uses only `$var` and `$(...)` (both literal here).
 const AGENT_SCRIPT = String.raw`#!/bin/bash
 d="$HOME/.local/share/slab/state"; mkdir -p "$d"
+emit() {
+  local j="$d/frame.out.json" p="$d/frame.out.jpg" jl pl e el
+  jl=$(wc -c < "$j" 2>/dev/null | tr -d ' '); [ -z "$jl" ] && jl=0
+  pl=$(wc -c < "$p" 2>/dev/null | tr -d ' '); [ -z "$pl" ] && pl=0
+  if [ "$jl" = 0 ]; then
+    e='{"capture":"error","reason":"no-out"}'
+    el=$(printf '%s' "$e" | wc -c | tr -d ' ')
+    printf 'ACF1 %s 0\n%s' "$el" "$e"; return
+  fi
+  printf 'ACF1 %s %s\n' "$jl" "$pl"; cat "$j"; [ "$pl" != 0 ] && cat "$p"
+}
 while IFS= read -r mode; do
   [ -z "$mode" ] && mode=full
   rm -f "$d/frame.done"; printf '%s' "$mode" > "$d/frame.req"
   for i in $(seq 1 400); do [ -f "$d/frame.done" ] && break; sleep 0.01; done
-  out="$(cat "$d/frame.out.json" 2>/dev/null)"
-  if [ -n "$out" ]; then printf '%s\n' "$out"; else printf '%s\n' '{"capture":"error","reason":"no-out"}'; fi
+  emit
 done`;
 const AGENT_REMOTE_PATH = "~/.local/share/slab/frame-agent.sh";
 
@@ -116,6 +130,30 @@ function sshOpts(host) {
   ];
 }
 
+// ─── ACF1 binary frame codec ──────────────────────────────────────────────
+// Wire format: `ACF1 <jsonLen> <jpgLen>\n` + <jsonLen bytes JSON> + <jpgLen
+// bytes raw JPEG>. No base64. Parses one frame off the front of a Buffer.
+// Returns {frame:{json,jpg}, rest} when complete, {skip, rest} for a non-ACF1
+// line (ssh banner), or null when more bytes are needed.
+function parseFrame(buf) {
+  const nl = buf.indexOf(0x0a);
+  if (nl < 0) return null;
+  const header = buf.subarray(0, nl).toString("ascii");
+  const m = header.match(/^ACF1 (\d+) (\d+)$/);
+  if (!m) return { skip: true, rest: buf.subarray(nl + 1) };
+  const jl = +m[1], pl = +m[2];
+  const start = nl + 1, end = start + jl + pl;
+  if (buf.length < end) return null;
+  return {
+    frame: { json: buf.subarray(start, start + jl).toString("utf8"), jpg: buf.subarray(start + jl, end) },
+    rest: buf.subarray(end),
+  };
+}
+function frameBytes(json, jpg) {
+  const jb = Buffer.from(json, "utf8");
+  return Buffer.concat([Buffer.from(`ACF1 ${jb.length} ${jpg.length}\n`, "ascii"), jb, jpg]);
+}
+
 // ─── persistent server: one held-open agent per machine ───────────────────
 // Removes the two per-call costs the transport audit found: node cold-start
 // (the server stays warm) and ssh channel setup (each agent is a single ssh
@@ -150,22 +188,22 @@ function spawnAgent(name, machines) {
       stdio: ["pipe", "pipe", "ignore"],
     });
   }
-  const ag = { proc, pending: [], buf: "" };
-  proc.stdout.setEncoding("utf8");
+  const ag = { proc, pending: [], buf: Buffer.alloc(0) }; // buf is binary
   proc.stdout.on("data", (chunk) => {
-    ag.buf += chunk;
-    let nl;
-    while ((nl = ag.buf.indexOf("\n")) >= 0) {
-      const line = ag.buf.slice(0, nl);
-      ag.buf = ag.buf.slice(nl + 1);
-      if (!line.startsWith("{")) continue; // skip ssh banners / blank lines
+    ag.buf = Buffer.concat([ag.buf, chunk]);
+    for (;;) {
+      const r = parseFrame(ag.buf);
+      if (!r) break;
+      ag.buf = r.rest;
+      if (r.skip) continue; // ssh banner line
       const resolve = ag.pending.shift();
-      if (resolve) resolve(line);
+      if (resolve) resolve(r.frame);
     }
   });
   proc.on("exit", () => {
     agents.delete(name);
-    ag.pending.forEach((r) => r('{"capture":"error","reason":"agent-exit"}'));
+    const dead = { json: '{"capture":"error","reason":"agent-exit"}', jpg: Buffer.alloc(0) };
+    ag.pending.forEach((r) => r(dead));
   });
   agents.set(name, ag);
   return ag;
@@ -181,7 +219,7 @@ function agentRequest(name, machines, mode, timeoutMs = 15000) {
       return;
     }
     const timer = setTimeout(() => reject(new Error("agent timeout")), timeoutMs);
-    ag.pending.push((line) => { clearTimeout(timer); resolve(line); });
+    ag.pending.push((frame) => { clearTimeout(timer); resolve(frame); });
     ag.proc.stdin.write(mode + "\n");
   });
 }
@@ -190,21 +228,23 @@ function runServer() {
   mkdirSync(dirname(SOCK_PATH), { recursive: true });
   try { unlinkSync(SOCK_PATH); } catch {}
   const server = net.createServer((sock) => {
-    let buf = "";
+    // Request is a JSON line; response is an ACF1 binary frame (forwarded from
+    // the held agent), so we frame the request side on '\n' but write binary.
+    let buf = Buffer.alloc(0);
     sock.on("data", async (chunk) => {
-      buf += chunk;
+      buf = Buffer.concat([buf, chunk]);
       let nl;
-      while ((nl = buf.indexOf("\n")) >= 0) {
-        const line = buf.slice(0, nl);
-        buf = buf.slice(nl + 1);
+      while ((nl = buf.indexOf(0x0a)) >= 0) {
+        const line = buf.subarray(0, nl).toString("utf8");
+        buf = buf.subarray(nl + 1);
         if (!line.trim()) continue;
         let req;
-        try { req = JSON.parse(line); } catch { sock.write('{"error":"bad json"}\n'); continue; }
+        try { req = JSON.parse(line); } catch { sock.write(frameBytes('{"error":"bad json"}', Buffer.alloc(0))); continue; }
         try {
-          const env = await agentRequest(req.machine, loadMachines(), req.mode || "full");
-          sock.write(env + "\n");
+          const frame = await agentRequest(req.machine, loadMachines(), req.mode || "full");
+          sock.write(frameBytes(frame.json, frame.jpg));
         } catch (e) {
-          sock.write(JSON.stringify({ error: String(e.message || e) }) + "\n");
+          sock.write(frameBytes(JSON.stringify({ error: String(e.message || e) }), Buffer.alloc(0)));
         }
       }
     });
@@ -220,14 +260,52 @@ function runServer() {
 function requestViaServer(machine, mode, timeoutMs = 15000) {
   return new Promise((resolve, reject) => {
     const sock = net.createConnection(SOCK_PATH);
-    let buf = "";
+    let buf = Buffer.alloc(0);
     const timer = setTimeout(() => { sock.destroy(); reject(new Error("server rpc timeout")); }, timeoutMs);
     sock.on("error", (e) => { clearTimeout(timer); reject(e); });
     sock.on("connect", () => sock.write(JSON.stringify({ machine, mode }) + "\n"));
     sock.on("data", (chunk) => {
-      buf += chunk;
-      const nl = buf.indexOf("\n");
-      if (nl >= 0) { clearTimeout(timer); sock.end(); resolve(buf.slice(0, nl)); }
+      buf = Buffer.concat([buf, chunk]);
+      const r = parseFrame(buf);
+      if (r && r.frame) { clearTimeout(timer); sock.end(); resolve(r.frame); }
+    });
+  });
+}
+
+// One-shot direct path (no server): spawn ssh/local, feed the request, read one
+// ACF1 frame off stdout. Returns {json, jpg}.
+function directFrame(name, machines, mode, timeoutMs = 15000) {
+  return new Promise((resolve, reject) => {
+    const remote =
+      `d="$HOME/.local/share/slab/state"; mkdir -p "$d"; rm -f "$d/frame.done"; ` +
+      `printf '%s' '${mode}' > "$d/frame.req"; ` +
+      `for i in $(seq 1 400); do [ -f "$d/frame.done" ] && break; sleep 0.01; done; ` +
+      `j="$d/frame.out.json"; p="$d/frame.out.jpg"; ` +
+      `jl=$(wc -c < "$j" 2>/dev/null | tr -d ' '); pl=$(wc -c < "$p" 2>/dev/null | tr -d ' '); ` +
+      `[ -z "$jl" ] && jl=0; [ -z "$pl" ] && pl=0; ` +
+      `printf 'ACF1 %s %s\\n' "$jl" "$pl"; cat "$j" 2>/dev/null; [ "$pl" != 0 ] && cat "$p" 2>/dev/null`;
+    let proc;
+    if (machines[name]?.local) {
+      proc = spawn("bash", ["-c", remote], { stdio: ["ignore", "pipe", "ignore"] });
+    } else {
+      const host = sshHostFor(name, machines);
+      proc = spawn("ssh", [...sshOpts(host), host, "bash -s"], { stdio: ["pipe", "pipe", "ignore"] });
+      proc.stdin.end(remote);
+    }
+    let buf = Buffer.alloc(0), settled = false;
+    const finish = (fn, arg) => { if (!settled) { settled = true; clearTimeout(timer); fn(arg); } };
+    const timer = setTimeout(() => { proc.kill(); finish(reject, new Error("direct timeout")); }, timeoutMs);
+    proc.stdout.on("data", (chunk) => {
+      buf = Buffer.concat([buf, chunk]);
+      let r = parseFrame(buf);
+      while (r && r.skip) { buf = r.rest; r = parseFrame(buf); }
+      if (r && r.frame) { finish(resolve, r.frame); proc.kill(); }
+    });
+    proc.on("error", (e) => finish(reject, e));
+    proc.on("exit", () => {
+      const r = parseFrame(buf);
+      if (r && r.frame) finish(resolve, r.frame);
+      else finish(reject, new Error("no frame"));
     });
   });
 }
@@ -239,35 +317,22 @@ async function captureFrame(name, { noOCR = false, fast = false, out, json = fal
     process.exit(1);
   }
   const mode = noOCR ? "noocr" : fast ? "fast" : "full";
-  // Drop the request, wait for the daemon's done marker (≤4s), emit the envelope.
-  const remote =
-    `d=${REMOTE_STATE}; mkdir -p "$d"; rm -f "$d/frame.done"; ` +
-    `printf '%s' '${mode}' > "$d/frame.req"; ` +
-    `for i in $(seq 1 200); do [ -f "$d/frame.done" ] && break; sleep 0.02; done; ` +
-    `cat "$d/frame.out.json" 2>/dev/null`;
-  let raw = null;
-  // Use the resident server ONLY if it's already running (started explicitly
-  // with `frame server`). Measured: for one-shot CLI calls it's no faster than
-  // direct — ControlMaster already amortizes ssh, and the client's own node
-  // cold-start + OCR + payload dominate. The server pays off for a LONG-LIVED
-  // consumer that holds the socket open (no per-call node-start); we don't
-  // auto-spawn a daemon for a single call.
+  // Use the resident server only if already running (opt-in; see runServer);
+  // otherwise a one-shot direct ssh. Both return an ACF1 {json, jpg} frame —
+  // the JPEG is raw bytes, never base64.
+  let frame = null;
   if (!direct && existsSync(SOCK_PATH)) {
-    try {
-      raw = await requestViaServer(name, mode);
-    } catch { raw = null; } // stale socket / dead server → one-shot direct ssh
+    try { frame = await requestViaServer(name, mode); } catch { frame = null; }
   }
-  if (raw == null) {
-    try {
-      raw = runOn(name, machines, remote);
-    } catch (e) {
-      console.error(`${name} unreachable: ${e.message.split("\n")[0]}`);
+  if (!frame) {
+    try { frame = await directFrame(name, machines, mode); } catch (e) {
+      console.error(`${name} unreachable: ${String(e.message || e).split("\n")[0]}`);
       process.exit(1);
     }
   }
   let env;
   try {
-    env = JSON.parse(raw);
+    env = JSON.parse(frame.json);
   } catch {
     console.error(`no frame from ${name} — is SlabMenubar running there? (frame doctor ${name})`);
     process.exit(1);
@@ -279,18 +344,19 @@ async function captureFrame(name, { noOCR = false, fast = false, out, json = fal
         `  (AX + window/meta still captured; pixels + OCR are blocked until granted)`,
     );
   }
-  // Write the thumbnail out; keep the base64 out of stdout unless --json.
+  // Write the raw JPEG to disk (no base64 anywhere on the path).
   const outPath = out || join(FRAMES_DIR, `${name}.jpg`);
-  if (env.thumb_jpg_b64) {
+  const hasJpg = frame.jpg && frame.jpg.length > 0;
+  if (hasJpg) {
     mkdirSync(dirname(outPath), { recursive: true });
-    writeFileSync(outPath, Buffer.from(env.thumb_jpg_b64, "base64"));
+    writeFileSync(outPath, frame.jpg);
   }
   if (json) {
-    process.stdout.write(JSON.stringify(env));
+    process.stdout.write(frame.json);
     return;
   }
-  const { thumb_jpg_b64, ...rest } = env;
-  rest.thumb = env.thumb_jpg_b64 ? outPath : null;
+  const rest = { ...env };
+  rest.thumb = hasJpg ? outPath : null;
   rest.ocr_count = (env.ocr || []).length;
   rest.ax_count = (env.ax?.elements || []).length;
   delete rest.ocr;

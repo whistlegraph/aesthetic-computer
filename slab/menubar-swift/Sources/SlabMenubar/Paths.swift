@@ -80,6 +80,7 @@ enum Paths {
     /// `frame.out.json` (pixels + OCR + AX + meta) and touches `frame.done`.
     static var frameReq: String { "\(slabHome)/state/frame.req" }
     static var frameOut: String { "\(slabHome)/state/frame.out.json" }
+    static var frameOutJpg: String { "\(slabHome)/state/frame.out.jpg" }
     static var frameDone: String { "\(slabHome)/state/frame.done" }
 
     static var mailDir: String {

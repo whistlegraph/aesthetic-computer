@@ -213,6 +213,11 @@ final class FrameCapture {
         env["meta"] = mt
         let scale = ((mt["screen"] as? [String: Any])?["scale"] as? CGFloat).map(Double.init) ?? 1.0
         t = nowNs(); let cg = captureDisplay(); tm["capture"] = msSince(t)
+        // The JPEG ships as RAW BYTES in a sidecar file (frame.out.jpg), not
+        // base64 in the JSON — base64 inflates the payload +33% and burns
+        // encode/decode CPU. The transport length-prefixes the two. Written
+        // BEFORE the JSON + done marker so a reader that sees `done` has both.
+        var jpgBytes = 0
         if let cg = cg {
             if noOCR {
                 env["ocr"] = []
@@ -220,17 +225,19 @@ final class FrameCapture {
                 t = nowNs(); env["ocr"] = ocr(cg, scale: scale, fast: fast); tm["ocr"] = msSince(t)
             }
             t = nowNs()
-            if let jpg = thumbJPEG(cg, maxWidth: 1568) {
-                env["thumb_jpg_b64"] = jpg.base64EncodedString()
-            }
+            let jpg = thumbJPEG(cg, maxWidth: 1568) ?? Data()
+            try? jpg.write(to: URL(fileURLWithPath: Paths.frameOutJpg))
+            jpgBytes = jpg.count
             tm["thumb"] = msSince(t)
             env["capture"] = "ok"
         } else {
             env["ocr"] = []
+            try? Data().write(to: URL(fileURLWithPath: Paths.frameOutJpg)) // truncate stale jpg
             // Either Screen Recording isn't granted yet, or this is < macOS 14.
             env["capture"] = "permission_needed"
             env["permission"] = "screen_recording"
         }
+        env["thumb_bytes"] = jpgBytes
         grp.wait()                 // join the concurrent AX walk
         env["ax"] = axResult
         tm["ax"] = axMs
