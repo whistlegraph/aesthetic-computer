@@ -2803,6 +2803,37 @@
     .embedded #keeps-embed-empty { display: flex; }
     .embedded.has-piece #keeps-embed-empty { display: none; }
 
+    /* Embedded keep flow is the tab's content, NOT a modal: no dark backdrop,
+       no floating centered box, no close × / Cancel (you just switch tabs).
+       Fills the panel as one scrolling column, tightened for small viewports. */
+    .embedded .keeps-mint-overlay {
+      position: absolute;
+      background: var(--bg-primary);
+      padding: 0;
+      z-index: 1;
+    }
+    .embedded .keeps-mint-overlay.open { animation: none; }
+    .embedded .keeps-mint-modal {
+      max-width: none;
+      width: 100%;
+      height: 100%;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+      animation: none;
+    }
+    .embedded .keeps-modal-close { display: none; }
+    .embedded .mint-action-btn.cancel { display: none; }
+    .embedded .mint-header { padding: 10px 12px; }
+    .embedded .mint-header-title { font-size: 14px; }
+    .embedded .mint-body { padding: 12px; }
+    .embedded .mint-preview-frame { aspect-ratio: 16 / 10; max-height: 40vh; }
+    @media (max-width: 420px) {
+      .embedded .mint-header { padding: 8px 10px; }
+      .embedded .mint-header-title { font-size: 13px; }
+      .embedded .mint-body { padding: 10px; }
+    }
+
     /* ========================================
        FOOTER
        ======================================== */

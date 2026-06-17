@@ -17141,10 +17141,13 @@ s("ape_breaks_3").loopAt(2)</textarea>
       
       // Listen for cursor position changes to update Learn tab documentation
       editor.onDidChangeCursorPosition((e) => {
-        // Skip while content is being set programmatically (initial restore /
-        // code-load / decrypt animation). Monaco is still chunking in then, and
-        // these fire spuriously, evaluating references against transient content
-        // and pushing them at the Learn tab.
+        // Only react to genuine user cursor movement. Programmatic content
+        // changes — initial restore, code-load, and the startup scramble/decrypt
+        // reveal (which calls setValue every frame) — fire with reason
+        // ContentFlush and would otherwise flip the Learn tab rapidly through
+        // half-formed/non-existent functions while Monaco chunks in.
+        const ContentFlush = window.monaco?.editor?.CursorChangeReason?.ContentFlush ?? 1;
+        if (e.reason === ContentFlush) return;
         if (isSettingValueProgrammatically) return;
         const model = editor.getModel();
         if (!model) return;
