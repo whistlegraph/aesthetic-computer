@@ -188,16 +188,26 @@ final class FrameCapture {
     // MARK: - assemble + write the envelope
 
     private func produce(noOCR: Bool) {
+        func nowNs() -> UInt64 { DispatchTime.now().uptimeNanoseconds }
+        func msSince(_ t: UInt64) -> Double { (Double(nowNs() - t) / 1e6 * 10).rounded() / 10 }
         var env: [String: Any] = [:]
-        let mt = meta()
+        var tm: [String: Double] = [:]
+        var t = nowNs(); let mt = meta(); tm["meta"] = msSince(t)
         env["meta"] = mt
-        env["ax"] = axTree()
+        t = nowNs(); env["ax"] = axTree(); tm["ax"] = msSince(t)
         let scale = ((mt["screen"] as? [String: Any])?["scale"] as? CGFloat).map(Double.init) ?? 1.0
-        if let cg = captureDisplay() {
-            env["ocr"] = noOCR ? [] : ocr(cg, scale: scale)
+        t = nowNs(); let cg = captureDisplay(); tm["capture"] = msSince(t)
+        if let cg = cg {
+            if noOCR {
+                env["ocr"] = []
+            } else {
+                t = nowNs(); env["ocr"] = ocr(cg, scale: scale); tm["ocr"] = msSince(t)
+            }
+            t = nowNs()
             if let jpg = thumbJPEG(cg, maxWidth: 1568) {
                 env["thumb_jpg_b64"] = jpg.base64EncodedString()
             }
+            tm["thumb"] = msSince(t)
             env["capture"] = "ok"
         } else {
             env["ocr"] = []
@@ -205,6 +215,7 @@ final class FrameCapture {
             env["capture"] = "permission_needed"
             env["permission"] = "screen_recording"
         }
+        env["timings_ms"] = tm
         if let d = try? JSONSerialization.data(withJSONObject: env, options: []) {
             try? d.write(to: URL(fileURLWithPath: Paths.frameOut))
         }
