@@ -63,6 +63,16 @@ final class ShotWizardController: NSWindowController, NSWindowDelegate {
         relayout()
         buildStrip()
         select(0)
+        // ←/→ arrow keys NAVIGATE between shots (non-destructive). Reordering
+        // is only the explicit "◀ reorder / reorder ▶" buttons. Skip while a
+        // text field is being edited so arrows still move the caret there.
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
+            guard let self else { return e }
+            if self.window?.firstResponder is NSText { return e }
+            if e.keyCode == 123 { self.select(max(0, self.sel - 1)); return nil }            // ←
+            if e.keyCode == 124 { self.select(min(self.board.shots.count - 1, self.sel + 1)); return nil } // →
+            return e
+        }
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -107,8 +117,12 @@ final class ShotWizardController: NSWindowController, NSWindowDelegate {
         stripScroll.layer?.cornerRadius = 8
         stripScroll.layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(0.05).cgColor
 
-        moveLeftButton = button("◀ move", #selector(moveShotLeft))
-        moveRightButton = button("move ▶", #selector(moveShotRight))
+        // These REORDER the sequence (they shift the selected shot in the
+        // running order). Plain ←/→ arrow keys just NAVIGATE between shots
+        // (non-destructive) — so the buttons say "reorder" to avoid being
+        // mistaken for next/prev.
+        moveLeftButton = button("◀ reorder", #selector(moveShotLeft))
+        moveRightButton = button("reorder ▶", #selector(moveShotRight))
 
         idLabel = label(15, .semibold)
         laneLabel = label(11, .semibold)
