@@ -3992,17 +3992,6 @@
       color: #fffbeb;
     }
 
-    /* While the embedded keep flow is open, the keeps iframe takes over the full
-       kidlisp window so the Beacon/Taquito wallet modal renders desktop-size. */
-    #keeps-iframe.keeps-iframe-fullscreen {
-      position: fixed;
-      inset: 0;
-      width: 100vw;
-      height: 100vh;
-      z-index: 100000;
-      background: var(--bg-primary);
-    }
-
     /* Dark mode adjustments for tab colors - brighter text for contrast */
     :root.dark #guide-tab {
       background: rgba(34, 197, 94, 0.4);
@@ -15587,15 +15576,89 @@ s("ape_breaks_3").loopAt(2)</textarea>
     }
 
     // The embedded keeps page announces readiness; (re)send the current piece.
-    // It also asks to expand to the full window during the keep flow so the
-    // Beacon/Taquito wallet modal renders full-size (not the cramped mobile one).
     window.addEventListener('message', (e) => {
       if (e.origin !== window.location.origin) return;
-      if (e.data?.type === 'keeps:ready') {
-        postCurrentPieceToKeeps();
-      } else if (e.data?.type === 'keeps:expand') {
+      if (e.data?.type === 'keeps:ready') postCurrentPieceToKeeps();
+    });
+
+    // ── Global Tezos wallet (parent-hosted) ──────────────────────────────────
+    // One Beacon DAppClient lives here in the top-level kidlisp.com window. The
+    // embedded keeps iframe delegates connect / getActiveAccount /
+    // requestOperation / disconnect to it over postMessage, so the wallet's
+    // connect/sign modal renders at full desktop size (not the cramped mobile
+    // modal forced inside the tiny iframe) and the connection is shared app-wide.
+    let _kidlispBeacon = null;
+    let _kidlispBeaconNet = null;
+    async function _loadBeaconSDKForParent() {
+      if (window.beacon) return;
+      // Beacon v4 calls Object.defineProperty(window,'ethereum',…) repeatedly;
+      // a non-configurable extension-defined 'ethereum' makes that throw. Patch
+      // defineProperty to swallow exactly that case (kept active permanently).
+      const orig = Object.defineProperty;
+      Object.defineProperty = function (obj, prop, desc) {
+        if (obj === window && prop === 'ethereum') {
+          try { return orig.call(this, obj, prop, desc); } catch { return obj; }
+        }
+        return orig.call(this, obj, prop, desc);
+      };
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://unpkg.com/@airgap/beacon-sdk@4.8.1/dist/walletbeacon.min.js';
+        s.onload = () => resolve();
+        s.onerror = (e) => { Object.defineProperty = orig; reject(e); };
+        document.head.appendChild(s);
+      });
+    }
+    async function _ensureKidlispBeacon(network) {
+      const net = network === 'ghostnet' ? 'ghostnet' : 'mainnet';
+      if (_kidlispBeacon && _kidlispBeaconNet === net) return _kidlispBeacon;
+      if (_kidlispBeacon && _kidlispBeaconNet !== net) {
+        try { await _kidlispBeacon.destroy(); } catch (e) {}
+        _kidlispBeacon = null;
+      }
+      await _loadBeaconSDKForParent();
+      _kidlispBeacon = new window.beacon.DAppClient({
+        name: 'KidLisp',
+        network: { type: net === 'ghostnet' ? window.beacon.NetworkType.GHOSTNET : window.beacon.NetworkType.MAINNET },
+        walletConnectOptions: { projectId: '647c41004744244efab53b7c6ef80443' },
+      });
+      _kidlispBeaconNet = net;
+      return _kidlispBeacon;
+    }
+    window.addEventListener('message', async (e) => {
+      if (e.origin !== window.location.origin) return;
+      const d = e.data;
+      if (d?.type !== 'wallet:rpc') return;
+      const reply = (ok, payload) => {
         const kf = document.getElementById('keeps-iframe');
-        if (kf) kf.classList.toggle('keeps-iframe-fullscreen', !!e.data.on);
+        kf?.contentWindow?.postMessage(
+          ok
+            ? { type: 'wallet:rpc:reply', id: d.id, ok: true, result: payload }
+            : { type: 'wallet:rpc:reply', id: d.id, ok: false, error: String(payload?.message || payload || 'wallet error') },
+          window.location.origin,
+        );
+      };
+      try {
+        const client = await _ensureKidlispBeacon(d.params?.network);
+        if (d.method === 'connect') {
+          const active = await client.getActiveAccount();
+          if (active?.address) { reply(true, { address: active.address }); return; }
+          const perms = await client.requestPermissions();
+          reply(true, { address: perms.address });
+        } else if (d.method === 'getActiveAccount') {
+          const active = await client.getActiveAccount();
+          reply(true, { address: active?.address || null });
+        } else if (d.method === 'requestOperation') {
+          const res = await client.requestOperation(d.params.operation);
+          reply(true, { transactionHash: res?.transactionHash || null });
+        } else if (d.method === 'disconnect') {
+          try { await client.clearActiveAccount(); } catch (e) {}
+          reply(true, { ok: true });
+        } else {
+          reply(false, new Error('unknown wallet method: ' + d.method));
+        }
+      } catch (err) {
+        reply(false, err);
       }
     });
 
