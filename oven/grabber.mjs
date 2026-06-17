@@ -2352,7 +2352,11 @@ export async function grabPiece(piece, options = {}) {
   
   serverLog('queue', '📋', `Grab queued: ${piece} (${format} ${width}×${height})`);  
   // Track active grab - store original piece name (with $ if KidLisp)
-  activeGrabs.set(grabId, {
+  // Hold a stable local reference. The map entry can be evicted mid-capture by
+  // cleanupStaleGrabs()/clearAllActiveGrabs(); re-fetching via get() then yields
+  // undefined and `.status =` throws "Cannot set properties of undefined". The
+  // local ref survives map mutation so the capture always completes.
+  const grabRecord = {
     id: grabId,
     piece: piece, // Keep original with $ prefix for URL generation
     format,
@@ -2366,14 +2370,15 @@ export async function grabPiece(piece, options = {}) {
     author: author || null,
     pieceCreatedAt: pieceCreatedAt || null,
     requestOrigin: requestOrigin || null,
-  });
+  };
+  activeGrabs.set(grabId, grabRecord);
 
   // Use queue to serialize capture operations (avoid parallel puppeteer sessions)
   // Pass metadata for queue visibility + priority scheduling
   return enqueueGrab(async () => {
     try {
       let result;
-      activeGrabs.get(grabId).status = 'capturing';
+      grabRecord.status = 'capturing';
       
       // Initialize progress state for this grab
       updateProgress(grabId, {
@@ -2386,7 +2391,7 @@ export async function grabPiece(piece, options = {}) {
         framesTotal: Math.ceil((duration / 1000) * fps),
         author: author || null,
         pieceCreatedAt: pieceCreatedAt || null,
-        requestedAt: activeGrabs.get(grabId)?.startTime || Date.now(),
+        requestedAt: grabRecord.startTime || Date.now(),
         source: source || 'manual',
         requestOrigin: requestOrigin || null,
       });
@@ -2533,7 +2538,7 @@ export async function grabPiece(piece, options = {}) {
 
             recordFrozenPiece(piece, `Dud — ${uniformCheck.reason}, still frame returned`, dudPreviewUrl);
           } else {
-            activeGrabs.get(grabId).status = 'encoding';
+            grabRecord.status = 'encoding';
 
             // Update progress: encoding stage
             updateProgress(grabId, {
@@ -2560,8 +2565,8 @@ export async function grabPiece(piece, options = {}) {
         }
       }
       
-      // Update status
-      const grab = activeGrabs.get(grabId);
+      // Update status (local ref — immune to map eviction mid-capture)
+      const grab = grabRecord;
       grab.status = 'complete';
       grab.completedAt = Date.now();
       grab.duration = grab.completedAt - grab.startTime;
@@ -2635,7 +2640,7 @@ export async function grabPiece(piece, options = {}) {
       // Clear progress state on error
       clearProgress(grabId);
       
-      const grab = activeGrabs.get(grabId);
+      const grab = grabRecord;
       if (grab) {
         grab.status = 'failed';
         grab.error = error.message;
