@@ -66,7 +66,7 @@ function resolveVersion(secretDoc, profile, network) {
 }
 
 function rpcForNetwork(network) {
-  return network === "mainnet" ? "https://rpc.tzbeta.net" : "https://rpc.ghostnet.teztnets.com";
+  return network === "mainnet" ? "https://rpc.tzkt.io/mainnet" : "https://rpc.ghostnet.teztnets.com";
 }
 
 function tzktForNetwork(network) {

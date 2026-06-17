@@ -36,7 +36,7 @@ const NETWORK = process.env.TEZOS_NETWORK || "mainnet";
 const OVEN_URL = process.env.OVEN_URL || "https://oven.aesthetic.computer";
 const OVEN_FALLBACK_URL = "https://oven.aesthetic.computer";
 const RPC_URL = NETWORK === "mainnet"
-  ? "https://rpc.tzbeta.net"
+  ? "https://rpc.tzkt.io/mainnet"
   : "https://rpc.ghostnet.teztnets.com";
 
 const VERSION_BY_PROFILE = {
