@@ -49,6 +49,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// scales typography off this — `.awaiting` ("orange") tiles get bumped
     /// up so focus reads typographically while the cell geometry stays put.
     private var lastTiledFontSize: Int?
+    /// Count of AC Electron (preview) windows seen last tick — when it changes
+    /// we auto re-pack the grid so previews slot in with the terminals.
+    private var lastAcWindowCount = 0
     private var rainbowPhase: CGFloat = 0
     private var rotationPhase: CGFloat = 0
     private var mailTickCount = 0
@@ -247,6 +250,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
                 PdfViewer.shared.consumeRequests(emojiFor: emojiFor)
                 VideoViewer.shared.consumeRequests(emojiFor: emojiFor)
+                // Auto-tile: when the number of AC Electron preview windows
+                // changes (a slab-web preview opened or closed), re-pack the
+                // grid so the buffer fits in with the terminals — no manual
+                // ⌘⌥T. Only meaningful when AX-trusted (else count stays 0).
+                if AXTiler.trusted {
+                    let acCount = AXTiler.windows(bundleId: "computer.aesthetic.app",
+                                                  requireStandardSubrole: false).count
+                    if acCount != self.lastAcWindowCount {
+                        self.lastAcWindowCount = acCount
+                        self.tileNowImpl(resetZoom: false)
+                    }
+                }
                 self.applyTerminalDecor()
                 self.applyDesktopTint()
             }
@@ -2021,9 +2036,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 lines.append("end repeat")
             }
             ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", lines.joined(separator: "\n")]) {
-                // The profile switch / zoom reset can reflow window frames —
-                // re-pin the grid (instant, AX again).
+                // Terminal sizes by character CELLS, so the font change reflows
+                // each window to a new pixel size — and that reflow can land a
+                // beat AFTER osascript returns, undoing a single re-pin (window
+                // gets "stuck" mid-resize). Re-pin now and again across short
+                // settles so the geometry is always the LAST thing to apply and
+                // wins. The windows already snapped instantly in the first pass
+                // above; these are tiny AX corrections (sub-ms, no focus steal),
+                // so it stays snappy while resolving cleanly after the reflow.
                 Self.axTilePass(geom: geom, textSize: textSize)
+                for delay in [0.10, 0.25, 0.45] {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                        Self.axTilePass(geom: geom, textSize: textSize)
+                    }
+                }
             }
         }
     }
@@ -2040,6 +2066,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // macOS reports a non-standard window subrole — accept any subrole here
         // so these frameless previews pack into the same grid as the terminals.
         let acpane = AXTiler.windows(bundleId: "computer.aesthetic.app", requireStandardSubrole: false)
+        let acProcs = NSRunningApplication.runningApplications(withBundleIdentifier: "computer.aesthetic.app").count
+        NSLog("🧩 [tile] trusted=\(AXTiler.trusted) acProcs=\(acProcs) iterm=\(iterm.count) term=\(term.count) acpane=\(acpane.count)")
         let all = iterm + term + acpane
         guard !all.isEmpty,
               let layout = computeTileLayout(count: all.count, geom: geom, size: textSize)
