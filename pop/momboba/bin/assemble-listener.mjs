@@ -47,9 +47,14 @@ const W = 1920, H = 1080, FPS = 30;
 const SHOTS = ["arrival", "boba-sip", "galleries", "waterlily-awe",
   "first-sheep", "asleep-flock", "the-dream", "morning", "resolve"];
 
-// total runtime comes from the score data (authoritative timing).
+// total runtime comes from the score data (authoritative timing); --dur caps it
+// for short examples. --xfade sets the crossfade-between-scenes seconds.
 const S = JSON.parse(readFileSync(`${OUT}/momabobasheep.scorodeon.json`, "utf8"));
-const TOTAL = S.dur;                                  // 600
+const TOTAL = opt("dur") ? parseFloat(opt("dur")) : S.dur;   // 600 (or a short example)
+const XF = parseFloat(opt("xfade", "0.8"));          // crossfade between scenes (0 = hard cut)
+const TRIM = parseFloat(opt("trim", "0.6"));         // drop each clip's jumpy tail (no end-loop snap)
+const SLOMO = parseFloat(opt("slomo", "1.35"));      // slow the shots (>1 = slower, dreamier)
+const SHOTFPS = parseFloat(opt("shotfps", "12"));    // decimate shot motion → stop-motion stutter
 
 const takesPath = `${MOTION}/takes.json`;
 const takes = existsSync(takesPath) ? JSON.parse(readFileSync(takesPath, "utf8")) : {};
@@ -96,11 +101,20 @@ function clipDur(p) {
   return Number.isFinite(d) && d > 0 ? d : 5;
 }
 
-// gather every available clip (movement order), with its real duration.
+// gather clips. --clips <comma-list> (ShotWizard driver) wins; else scan the
+// movement-order shot files. Each carries its real duration.
 const clips = [];
-for (let i = 0; i < SHOTS.length; i++) {
-  const p = clipFor(i, SHOTS[i]);
-  if (p) clips.push({ name: SHOTS[i], path: p, dur: clipDur(p) });
+const clipsFlag = opt("clips", null);
+if (clipsFlag) {
+  for (const p of clipsFlag.split(",").map((s) => s.trim()).filter(Boolean)) {
+    if (!existsSync(p)) { console.error(`✗ clip missing: ${rel(p)}`); continue; }
+    clips.push({ name: p.split("/").pop().replace(/\.mp4$/, ""), path: p, dur: clipDur(p) });
+  }
+} else {
+  for (let i = 0; i < SHOTS.length; i++) {
+    const p = clipFor(i, SHOTS[i]);
+    if (p) clips.push({ name: SHOTS[i], path: p, dur: clipDur(p) });
+  }
 }
 if (!clips.length) { console.error("✗ no clips found"); process.exit(1); }
 
@@ -109,36 +123,58 @@ if (!clips.length) { console.error("✗ no clips found"); process.exit(1); }
 // back — under a fresh crop each time it comes round (MOVES advances on its own
 // stride; gcd(MOVES, clips)=1 → every clip sees every crop before any repeat).
 // No string/track/warp — just the clips, cropped, cycling.
-let t = 0, ci = 0, si = 0;
-const segs = [];
-while (t < TOTAL - 0.1) {
+let placed = 0, ci = 0, si = 0;                          // placed = EFFECTIVE output dur
+const segs = [], durs = [];
+while (placed < TOTAL - 0.05) {
   const clip = clips[ci % clips.length]; ci++;
   const mv = MOVES[si % MOVES.length]; si++;
-  let shotDur = clip.dur;
-  if (t + shotDur > TOTAL) shotDur = TOTAL - t;            // trim the last one
-  if (shotDur < 0.4) break;
+  const first = segs.length === 0;
+  const usable = Math.max(1.0, clip.dur - TRIM);          // drop the jumpy tail
+  let shotDur = usable * SLOMO;                            // then slow it down
+  const contrib = first ? shotDur : shotDur - XF;         // effective added length
+  if (placed + contrib > TOTAL) shotDur = TOTAL - placed + (first ? 0 : XF);
+  if (shotDur < XF + 0.3) break;
   const SW = Math.round(W * mv.z), SH = Math.round(H * mv.z);
   const rx = SW - W, ry = SH - H;                          // pan range at this zoom
   const D = shotDur.toFixed(3);
   const xE = `${rx}*(${mv.fx}+(${mv.tx}-${mv.fx})*t/${D})`;
   const yE = `${ry}*(${mv.fy}+(${mv.ty}-${mv.fy})*t/${D})`;
   const seg = `${TMP}/seg-${String(segs.length).padStart(3, "0")}-${clip.name}.mp4`;
-  // play the clip once, freeze its last frame (clone) if the shot outruns it —
-  // the moving crop keeps it alive — then pan a 1080p window across it.
+  // trim the jumpy tail, SLOW the motion (setpts), drop to FPS, freeze-pad if
+  // the shot still outruns it, then pan a 1080p crop window across.
   run(["-i", clip.path, "-t", D, "-vf",
-    `fps=${FPS},tpad=stop_mode=clone:stop_duration=60,` +
+    `trim=0:${usable.toFixed(3)},setpts=PTS*${SLOMO},fps=${SHOTFPS},` +
+    `tpad=stop_mode=clone:stop_duration=60,` +
     `scale=${SW}:${SH}:force_original_aspect_ratio=increase,crop=${SW}:${SH},setsar=1,` +
     `crop=${W}:${H}:x=${xE}:y=${yE}`,
     "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p", "-r", String(FPS), "-an", seg]);
-  segs.push(seg);
-  t += shotDur;
+  segs.push(seg); durs.push(shotDur);
+  placed += first ? shotDur : shotDur - XF;
 }
-console.log(`  ${segs.length} crop-shots cycling ${clips.length} clips → ${t.toFixed(1)}s`);
+console.log(`  ${segs.length} crop-shots cycling ${clips.length} clips → ${placed.toFixed(1)}s (xfade ${XF}s)`);
 
-const listPath = `${TMP}/concat.txt`;
-writeFileSync(listPath, segs.map((s) => `file '${s}'`).join("\n") + "\n");
-console.log(`  concatenating ${segs.length} segments (hard cuts) …`);
-run(["-f", "concat", "-safe", "0", "-i", listPath, "-c", "copy", "-movflags", "+faststart", PLATE]);
+if (XF > 0 && segs.length > 1) {
+  // chain an xfade dissolve between every consecutive crop-shot (smooth
+  // crossfade between scenes). offset accumulates as the output grows.
+  const inputs = segs.flatMap((s) => ["-i", s]);
+  const filter = [];
+  let prev = "[0:v]", outDur = durs[0];
+  for (let i = 1; i < segs.length; i++) {
+    const off = Math.max(0, outDur - XF);
+    filter.push(`${prev}[${i}:v]xfade=transition=fade:duration=${XF}:offset=${off.toFixed(3)}[v${i}]`);
+    prev = `[v${i}]`;
+    outDur = outDur + durs[i] - XF;
+  }
+  console.log(`  crossfading ${segs.length} segments …`);
+  run([...inputs, "-filter_complex", filter.join(";"), "-map", prev,
+    "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p", "-r", String(FPS),
+    "-movflags", "+faststart", PLATE]);
+} else {
+  const listPath = `${TMP}/concat.txt`;
+  writeFileSync(listPath, segs.map((s) => `file '${s}'`).join("\n") + "\n");
+  console.log(`  concatenating ${segs.length} segments (hard cuts) …`);
+  run(["-f", "concat", "-safe", "0", "-i", listPath, "-c", "copy", "-movflags", "+faststart", PLATE]);
+}
 
 rmSync(TMP, { recursive: true, force: true });
 const probe = spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=duration",

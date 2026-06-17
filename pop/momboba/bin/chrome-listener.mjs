@@ -160,6 +160,11 @@ const canvas = createCanvas(W * SS, H * SS);
 const ctx = canvas.getContext("2d");
 ctx.scale(SS, SS);
 
+// offscreen plate holder for the gentle analog "wavy" displacement pass.
+const plateCanvas = createCanvas(W * SS, H * SS);
+const pctx = plateCanvas.getContext("2d");
+const WAVE = parseFloat(opt("wave", "0.45"));        // wavy displacement amount (0 = off)
+
 // ── the /pop verlet string — a plucked physical thread down the centre that
 // the music tugs (organic, watery) and that bends the felt under it. ───────
 const PLAYHEAD_X = Math.round(W / 2);
@@ -334,7 +339,7 @@ const CHAR_SCALE = (H * 0.30) / Math.max(1, titleTotalW);
 const CHAR_SPAN = titleTotalW * CHAR_SCALE;
 const BOUNCE_BUF = 20;
 // staggered on Y so the two side marks aren't parallel: LEFT lower, RIGHT higher
-const LCHARS_CY = H * 0.74, RCHARS_CY = H * 0.34;    // left badge dropped lower
+const LCHARS_CY = H * 0.74, RCHARS_CY = H * 0.28;    // left badge low, right badge high
 // pals sits BEFORE the first char on each side. Left column reads top→bottom
 // (start at top → pals above); right column reads bottom→top (start at bottom
 // → pals below). Right was at the top = AFTER the title; flip it under.
@@ -483,6 +488,23 @@ function drawPalsTitleChars(now) {
   ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 1;
 }
 
+// gentle analog "wavy" displacement of the felt — thin horizontal bands eased
+// by a slow sine, overscanned so no edge ever shows. (jas: "wavy fuzz".)
+function drawPlateWave(plate, now) {
+  pctx.putImageData(plate, 0, 0);
+  const BH = Math.max(2, Math.round(6 * SS));
+  const amp = WAVE * 0.004 * PLATE_W;
+  const Z = 1.025, ox = -(Z - 1) / 2 * PLATE_W;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);                // device px
+  for (let y = 0; y < PLATE_H; y += BH) {
+    const dh = Math.min(BH, PLATE_H - y);
+    const sx = amp * Math.sin(y * 0.018 + now * 1.1) + amp * 0.4 * Math.sin(y * 0.045 - now * 0.7);
+    ctx.drawImage(plateCanvas, 0, y, PLATE_W, dh, ox + sx, y, PLATE_W * Z, dh);
+  }
+  ctx.restore();
+}
+
 let envBounce = 0, rotSpring = 0;                     // smooth-rotation easing state
 function drawFrame(now, fi, plate) {
   const e0 = env[Math.min(env.length - 1, fi)] ?? 0;
@@ -491,8 +513,8 @@ function drawFrame(now, fi, plate) {
   pluckFromMusic(now, fi);
   _vs.step();
 
-  // ── A. background — the felt motion plate, drawn upright ───────────────
-  if (plate) ctx.putImageData(plate, 0, 0);
+  // ── A. background — the felt motion plate (gentle wavy displacement) ───
+  if (plate) { if (WAVE) drawPlateWave(plate, now); else ctx.putImageData(plate, 0, 0); }
   else drawCoverKB(now, e0);
 
   // ── B. the rotating disc — felt bends under the string, and the track
@@ -607,11 +629,18 @@ progress.begin({ type: "video", label: `${TITLE} listener · ${total} frames` })
 // custom encode so we can run a SHARPENING post-pass (unsharp ≈ lanczos edge
 // sharpen) over the overlaid UI — crisps the thin waveform lines + string.
 const SHARP = has("nosharp") ? null : parseFloat(opt("sharp", "1.3"));
+const GRAIN = parseFloat(opt("grain", "10"));         // analog film-fuzz amount (0 = off)
+// post chain: gentle temporal grain (fuzz) → whole-frame luma+chroma sharpen.
+const post = [
+  ...(GRAIN > 0 ? [`noise=alls=${GRAIN}:allf=t+u`] : []),
+  ...(SHARP ? [`unsharp=5:5:${SHARP}:5:5:${(SHARP * 0.5).toFixed(2)}`] : []),
+];
 const enc = spawn("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y",
   "-f", "rawvideo", "-pix_fmt", "bgra", "-s", `${W * SS}x${H * SS}`, "-r", String(FPS), "-i", "-",
   "-i", audioPath,
-  ...(SHARP ? ["-vf", `unsharp=5:5:${SHARP}:5:5:${(SHARP * 0.5).toFixed(2)}`] : []),  // whole-frame luma+chroma
+  ...(post.length ? ["-vf", post.join(",")] : []),
   "-c:v", "libx264", "-preset", "faster", "-crf", "19", "-threads", "0",
+  "-maxrate", opt("maxrate", "14M"), "-bufsize", "28M",   // cap so grain doesn't bloat the file
   "-c:a", "aac", "-b:a", "192k", "-pix_fmt", "yuv420p", "-shortest", "-movflags", "+faststart", OUT],
   { stdio: ["pipe", "inherit", "inherit"] });
 const plateProc = PLATE ? openPlateStream() : null;

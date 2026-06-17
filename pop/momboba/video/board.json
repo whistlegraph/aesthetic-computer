@@ -1,0 +1,172 @@
+{
+  "title": "Momabobasheep — Listener",
+  "width": 1920,
+  "height": 1080,
+  "fps": 30,
+  "voAudio": "../out/momabobasheep.mp3",
+  "driver": "build.mjs",
+  "shots": [
+    {
+      "id": "arrival",
+      "lane": "GEN",
+      "t0": 0,
+      "t1": 5,
+      "status": "done",
+      "source": "../pano/out/01-arrival.png",
+      "clip": "../out/motion/momabobasheep-listener-shot-0-arrival.mp4",
+      "prompt": "felt jeffrey stands in place on the dusk sidewalk holding his boba; a gentle breeze stirs his hair and the tree leaves, he glances up at the sky and takes a slow sip; FEET PLANTED, he does NOT walk, camera still"
+    },
+    {
+      "id": "boba-sip",
+      "lane": "GEN",
+      "t0": 5,
+      "t1": 10,
+      "status": "done",
+      "source": "../pano/out/02-boba-sip.png",
+      "clip": "../out/motion/momabobasheep-listener-shot-1-boba-sip.mp4",
+      "prompt": "a slow sip of boba; pearls shift in the cup; gentle"
+    },
+    {
+      "id": "galleries",
+      "lane": "GEN",
+      "t0": 10,
+      "t1": 15,
+      "status": "done",
+      "source": "../pano/out/03-galleries.png",
+      "clip": "../out/motion/momabobasheep-listener-shot-2-galleries.mp4",
+      "prompt": "drifting through the felt galleries; soft sway"
+    },
+    {
+      "id": "waterlily-awe",
+      "lane": "GEN",
+      "t0": 15,
+      "t1": 20,
+      "status": "done",
+      "source": "../pano/out/04-waterlily-awe.png",
+      "clip": "../out/motion/momabobasheep-listener-shot-3-waterlily-awe.mp4",
+      "prompt": "awe before the felt Monet pond; wool ripples breathe"
+    },
+    {
+      "id": "first-sheep",
+      "lane": "GEN",
+      "t0": 20,
+      "t1": 25,
+      "status": "done",
+      "source": "../pano/out/05-first-sheep.png",
+      "clip": "../out/motion/momabobasheep-listener-shot-4-first-sheep.mp4",
+      "prompt": "the first woolly sheep drifts past; sleepy"
+    },
+    {
+      "id": "asleep-flock",
+      "lane": "GEN",
+      "t0": 25,
+      "t1": 30,
+      "status": "done",
+      "source": "../pano/out/06-asleep-flock.png",
+      "clip": "../out/motion/momabobasheep-listener-shot-5-asleep-flock.mp4",
+      "prompt": "asleep among the flock on the felt bench; slow breathing"
+    },
+    {
+      "id": "the-dream",
+      "lane": "GEN",
+      "t0": 30,
+      "t1": 42,
+      "status": "done",
+      "source": "../pano/out/07-the-dream.png",
+      "clip": "../out/motion/momabobasheep-listener-shot-6-the-dream.mp4",
+      "prompt": "the dream on the lily pad; sheep drift like clouds; weightless"
+    },
+    {
+      "id": "morning",
+      "lane": "GEN",
+      "t0": 42,
+      "t1": 47,
+      "status": "done",
+      "source": "../pano/out/08-morning.png",
+      "clip": "../out/motion/momabobasheep-listener-shot-7-morning.mp4",
+      "prompt": "waking in soft morning light; gentle stir"
+    },
+    {
+      "id": "resolve",
+      "lane": "GEN",
+      "t0": 47,
+      "t1": 52,
+      "status": "done",
+      "source": "../pano/out/09-resolve.png",
+      "clip": "../out/motion/momabobasheep-listener-shot-8-resolve.mp4",
+      "prompt": "home, at rest; the night resolves; calm"
+    },
+    {
+      "id": "boba-macro",
+      "lane": "GEN",
+      "t0": 52,
+      "t1": 57,
+      "status": "done",
+      "stillPrompt": "EXTREME CLOSE-UP of a needle-felt-wool boba milk-tea cup on a felt table: round wool tapioca pearls heaped at the bottom, a paper straw, soft beaded condensation on the cup, warm low light, shallow depth, no face, no figure.",
+      "prompt": "the wool pearls settle slowly, one bubble rises through the milk-tea, a faint curl of steam; tiny gentle drift, no cuts",
+      "source": "../pano/out/boba-macro.png",
+      "clip": "../out/motion/boba-macro.mp4"
+    },
+    {
+      "id": "sheep-sky",
+      "lane": "GEN",
+      "t0": 57,
+      "t1": 62,
+      "status": "done",
+      "stillPrompt": "a wide felt dusk sky made of soft wool clouds in pastel pink and lavender, three plump woolly sheep drifting among the clouds like balloons, no ground, no figure, dreamy and weightless.",
+      "prompt": "the woolly sheep drift slowly across the sky, the wool clouds breathe and shift; serene slow motion",
+      "source": "../pano/out/sheep-sky.png",
+      "clip": "../out/motion/sheep-sky.mp4"
+    },
+    {
+      "id": "pond-koi",
+      "lane": "GEN",
+      "t0": 62,
+      "t1": 67,
+      "status": "done",
+      "stillPrompt": "a needle-felt water-lily pond seen from above: wool lily pads and pink felt blossoms on rippling blue-green wool water, two orange felt koi gliding beneath, no figure, calm.",
+      "prompt": "the felt koi glide slowly, concentric wool ripples spread out across the pond; tranquil drift",
+      "source": "../pano/out/pond-koi.png",
+      "clip": "../out/motion/pond-koi.mp4"
+    },
+    {
+      "id": "color-field",
+      "lane": "GEN",
+      "t0": 67,
+      "t1": 72,
+      "status": "done",
+      "stillPrompt": "a felt museum wall holding one large abstract wool color-field painting — soft stacked rust, amber and deep-blue felt rectangles, Rothko-like, gentle fuzz at the edges, a quiet gallery floor below, no figure.",
+      "prompt": "a slow drift across the wool color-field, the felt fibers shimmer faintly in the gallery light; meditative",
+      "source": "../pano/out/color-field.png",
+      "clip": "../out/motion/color-field.mp4"
+    },
+    {
+      "id": "night-moon",
+      "lane": "GEN",
+      "t0": 72,
+      "t1": 77,
+      "status": "done",
+      "stillPrompt": "a deep-indigo felt night sky, a round pale wool moon, scattered hand-stitched star points, one tiny woolly sheep drifting far below the moon, no figure, hushed and dim.",
+      "prompt": "the stitched stars twinkle faintly, the wool moon glows softly, the tiny sheep drifts; very slow, sleepy",
+      "source": "../pano/out/night-moon.png",
+      "clip": "../out/motion/night-moon.mp4"
+    },
+    {
+      "id": "sketchbook",
+      "lane": "GEN",
+      "t0": 77,
+      "t1": 82,
+      "status": "done",
+      "stillPrompt": "felt jeffrey sitting cozily, holding an open needle-felt SKETCHBOOK on his lap and paging through it; the open pages show small felt sketches of the day — the museum galleries, the water-lily pond, the boba cup, drifting sheep — like a travel journal; warm lamp light, calm",
+      "prompt": "he slowly turns a page of the felt sketchbook and looks down at the day’s sketches; calm, paging through, no cuts",
+      "refs": [
+        "../pano/out/03-galleries.png",
+        "../pano/out/04-waterlily-awe.png",
+        "../pano/out/02-boba-sip.png",
+        "../pano/out/05-first-sheep.png"
+      ],
+      "source": "../pano/out/sketchbook.png",
+      "clip": "../out/motion/sketchbook.mp4"
+    }
+  ]
+}
