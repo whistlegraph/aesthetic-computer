@@ -1,0 +1,125 @@
+one of the reference images is a finished colored-pencil drawing of
+the man singing on a chair with the laptop draped over his knees —
+that is the COMPOSITION reference. recreate that drawing faithfully:
+same man, same pose, same chair, same flipped-down laptop, same
+swirling notes, same style — changing ONLY the laptop's screen
+contents, which must now match the colorful tile interface
+screenshot among the references, tile for tile.
+
+A photograph of a colored-pencil and gouache drawing on pure white
+paper, square. Confident hatching and striping build tone. Tapered
+pencil edges. Optical mixing in patterned surfaces. Visible paper
+grain. Print-work sensibility. Diegetic light only — never overlay
+glow. Candid iphone-snapshot tone — NOT cinematic, NOT an
+advertisement hero pose. The figure never looks at the camera. The
+drawing dissolves softly to pure white paper at the edges with no
+hard frame, no border, no caption, no wordmark, no title lettering
+anywhere on the page.
+
+the scene: a tiny acoustic concert with an audience of nobody — one
+man alone, sitting on a simple wooden chair in white space, no room,
+no floor line beyond a soft hatched shadow under the chair legs,
+performing his heart out. the FULL FIGURE is in frame as one
+complete gestalt: head, both arms, the whole chair, both legs, and
+both shoes entirely inside the picture, nothing cropped by any edge
+— the man-chair-laptop unit floats as a single drawn object in the
+middle of the white paper with generous white margin on all four
+sides, like a figure study centered on the page. it's the man in the reference photos —
+recognizably him, medium-length brown hair tucked behind one ear. he
+wears his usual outfit: a plain solid button-down shirt, mostly
+buttoned but relaxed, top button undone, no graphic print — a
+bright-yellow torpedo-shaped fountain pen with a gold clip tucked in
+the chest pocket, and a small yellow embroidered bear-shaped badge
+stitched on the chest, part of the shirt itself.
+
+his instrument, on his lap: the exact laptop shown in the laptop
+reference image — a black Lenovo ThinkPad Yoga 11e, the small
+convertible whose lid rotates a full 360 degrees through the
+watchband hinge, as the reference's ghosted lid positions show. the base sits flat on
+his thighs, keyboard facing up toward him; the lid is folded ALL
+the way around and DOWN — rotated past 180 degrees at the hinge on
+the front edge of the base — so the screen panel hangs down over
+the front of his knees, like a little marquee draped from his lap,
+with the SCREEN facing OUT at the audience — at the camera. the
+keyboard stays fully visible from the front-above, his hands on it;
+the screen panel hangs vertically below the keyboard plane, in
+front of his shins, facing us. nothing stands up behind the
+keyboard — the lid is down over the knees, not raised. matte black,
+chunky student-laptop proportions, and SMALL — an 11-to-12-inch
+machine that looks compact on a grown man's lap, noticeably narrower
+than his knees are apart, almost toylike — never a wide 15-inch
+slab.
+
+the screen, fully visible to the camera, shows the interface from
+the tile-interface reference screenshot, reproduced faithfully —
+and because the flipped-back panel does not rotate its picture, the
+interface appears UPSIDE DOWN to the audience, exactly as the
+reference screenshot is oriented. the tile grid arithmetic is
+exact and non-negotiable: TWO side-by-side banks of note tiles,
+one bank per octave, and each bank is EXACTLY 4 TILES WIDE and
+3 TILES TALL — a full chromatic octave of 12 tiles per bank laid
+out in reading order, 24 tiles total, with a narrow gap between
+the two banks. each tile is a wide flat rectangle of a different
+candy color, every tile in a bank the same size, packed edge to
+edge in a clean 4-column by 3-row lattice like a sheet of postage
+stamps. a thin vertical slider strip hugs the OUTER edge of each
+bank — one at the far left of the left bank, one at the far right
+of the right bank — the per-octave volume faders. count the
+columns: four in the left bank, four in the right bank. never cut
+off, crop, or merge a column or row; both banks fit on the screen
+whole, all edges visible. this geometry is the entire concept of
+the image — the two banks are the instrument's two octaves, one
+for each of his two hands: a drawing that loses a column has
+broken the instrument, like drawing a piano with six white keys
+per octave. the audience must be able to read the two complete
+4-by-3 banks at a glance. directly below the banks (in the
+audience's upside-down view) runs the thin pale waveform strip,
+and further down the remaining interface rows sit smaller and
+fainter. beyond the tile blocks: the thin waveform strip and
+the small slider rows, as in the screenshot. render it all as flat
+hand-hatched color fields matching the screenshot's layout and
+palette; small note labels may stay illegible. the interface is
+alive, not inert: in the reference, three tiles are PRESSED
+mid-chord — bright saturated red, blue, and yellow against their
+pastel neighbors — keep those pressed tiles lit exactly as the
+screenshot shows them.
+
+his pose: both hands on the keyboard like a pianist — left hand on
+its half, right hand on its half, fingers on the letter keys, hands
+still — and he is SINGING HIS HEART OUT, pure joy: chin lifted high,
+eyes scrunched shut with happiness, mouth wide open mid-note, big
+beaming grin shaping the note, eyebrows up, head tipped back a
+little, shoulders lifted like he's mid-bounce, one heel raised off
+the ground tapping time — the unguarded face of someone having the
+best time of his life playing a song he loves.
+
+the music: pencil-drawn musical note glyphs — quarter notes, eighth
+notes, beamed pairs, one sharp sign — pour from his open mouth and
+from the laptop and SWIRL around the whole figure in space: a
+volumetric helix of notes that circles behind his shoulders, in
+front of his knees, around the chair, near and far — near notes
+drawn larger and darker, far notes smaller and fainter, overlapping
+the figure where the spiral passes in front of him — so the swirl
+reads as a three-dimensional current of music wrapping the
+man-chair-laptop unit, thinning and dissolving into the white paper
+before reaching any edge. simple hand-drawn glyphs in dark pencil
+with hints of the screen's candy colors, never a printed music-font
+look.
+
+palette: white paper as the ground; matte black laptop as the
+biggest dark mass; the candy-colored tile grid on the screen as the
+brightest passage; muted earth tone on the shirt; warm brown hair;
+pale wooden chair; dark pencil note glyphs. hand-drawn, hatched,
+print-comic restraint.
+
+avoid: a third panel — the laptop is exactly TWO slabs joined at
+ONE hinge, base and lid, nothing more; any screen standing up
+behind the keyboard — the lid is folded down in front of the
+keyboard, so behind the keyboard there is only him; photoreal
+rendering; cinematic glow; any css-overlay light; motion blur of
+any kind; soft-focus haze — the drawing is crisp throughout,
+confident pencil lines from foreground to back; extra furniture,
+desks, cables, mugs, microphones, or props; any second screen;
+screens on the lid back or base; any readable institutional
+lettering; tank tops or invented garments; the chartreuse green
+laptop — this is the black ThinkPad scene.

@@ -58,6 +58,13 @@ const FORCE = flags.force === true;
 // (preview-score-marimbaba-yt.mjs). Default stays portrait 9:16 for the
 // existing insta-story cut.
 const LANDSCAPE = flags.landscape === true;
+// --faceless → portrait panels where the OLDER man's face is never shown
+// (turned away / bowed / shadow / out of frame), the "recognizably Bill
+// Gates" likeness dropped. Written to a ".faceless.png" infix so the
+// canonical -p- panels (used by the score reel) are left untouched. Used
+// to clear the 9:16 motion reel's partner_validation_failed moderation
+// rejections (public-figure likeness) — see pop-motion-pipeline memory.
+const FACELESS = flags.faceless === true;
 const SIZE  = LANDSCAPE ? "1536x1024" : "1024x1536";
 const TAG   = LANDSCAPE ? "-yt" : "-p";
 mkdirSync(`${LANE}/out`, { recursive: true });
@@ -117,6 +124,18 @@ const GATES =
 const SELECTRIC =
 `THE TYPEWRITER — the only device in the story is a lovely WHITE IBM Selectric portable typewriter — the iconic 1970s/80s Selectric II model with the spherical metal TYPE BALL (no traditional swinging typebars; the chrome/silver type-element ball rotates and tilts to strike the paper). a clean glossy white plastic shell with the small IBM oval emblem on the front-right (rendered as an indistinct emblem, NOT a readable wordmark), cream/tan rubber platen with the round platen knob on the right side, a black ribbon cartridge sitting visibly behind the type ball, a chrome paper-bail bar across the front of the platen. a single sheet of plain white typing paper is rolled into the platen — BUT THE AUDIENCE NEVER SEES WHAT IS TYPED ON THE PAGE: every shot frames the typewriter from front-three-quarter or from the side or from behind the figures so the paper / platen surface is occluded by the type ball mechanism, the typebar housing, jeffrey's or Bill's hands, or the typewriter's own carriage body. NEVER a top-down or over-the-shoulder shot of the paper, NEVER a readable line of typed text, NEVER a thought-bubble or floating words. ABSOLUTELY NO screen, monitor, laptop, phone, tablet or any display anywhere — only this typewriter.`;
 
+// Faceless older-man descriptor for --faceless panels: same character by
+// sweater + pen continuity, but the celebrity likeness is dropped and the
+// face is never depicted (the public-figure face is the moderation trip).
+const GATES_FACELESS =
+`THE OLDER MAN (the one being helped) — grey hair, soft rectangular glasses, a muted sage-green crewneck sweater (a clearly different colour from jeffrey's blue shirt); his deep-red fountain pen — same cigar-shaped Sailor barrel as jeffrey's — hangs from the sweater's ribbed neckline, its metal clip HOOKED OVER AND GRIPPING the collar edge. CRUCIAL — his FACE IS NEVER SHOWN in this panel: he is seen from behind, or his head is bowed / fully turned away, or his face falls into soft shadow or sits out of frame. do NOT draw his eyes, nose or mouth; he is identified ONLY by his grey hair, glasses-arm, sage sweater and red pen. he is pensive, still, attentive — read through posture, not face.`;
+
+// Hard override appended LAST so it beats any earlier "both faces" beat
+// language. jeffrey's face shows normally (he is the user, not a flagged
+// figure); only the older man is faceless.
+const FACELESS_NOTE =
+`FACELESS CONSTRAINT (HARD — overrides any earlier instruction): the OLDER man's face must NOT appear anywhere in this image — no eyes, nose, mouth, or recognizable facial features for him. depict him from behind, head bowed, turned away, in shadow, or cropped out. JEFFREY's face MAY and should show normally and carry the beat's emotion. Wherever an earlier line says "both faces" or describes the older man's expression, render that emotion through his POSTURE and GESTURE only, never his face. This is a deliberate composition — never "fix" it by adding his face.`;
+
 const PALETTE =
 `PALETTE — warm cream paper ground; light-blue cotton shirt and sage-green knit; soft brown hair and warm grey; buttery yellow on jeffrey's pen, deep red on Bill's; one coral pop on the glasses-cord; glossy white plastic on the Selectric typewriter with chrome accents on the type ball and paper bail; the gentle amber pool of the desk lamp against cool blue night dark. hand-drawn, hatched, print-tech-aware.`;
 
@@ -169,8 +188,9 @@ function build(sectionBeat, tightCrop) {
   const orient = LANDSCAPE
     ? `\n\n${LANDSCAPE_NOTE}`
     : (tightCrop ? "" : `\n\n${PORTRAIT_NOTE}`);
-  return [MEDIUM, JEFFREY, GATES, SELECTRIC, sectionBeat, PALETTE, AVOID].join("\n\n")
-    + orient + "\n";
+  const olderMan = FACELESS ? GATES_FACELESS : GATES;
+  return [MEDIUM, JEFFREY, olderMan, SELECTRIC, sectionBeat, PALETTE, AVOID].join("\n\n")
+    + orient + (FACELESS ? `\n\n${FACELESS_NOTE}` : "") + "\n";
 }
 
 const apiKey = loadOpenAIKey();
@@ -263,8 +283,8 @@ for (let i = 0; i < SECTION_ORDER.length; i++) {
   if (!wants(name)) continue;
   jobs.push({
     prompt: build(SECTION_VARIANTS[name], false),
-    out: `${LANE}/out/marimbaba${TAG}-sec-${i}-${safeName(name)}.png`,
-    label: `marimbaba${TAG} §${i} ${name}`,
+    out: `${LANE}/out/marimbaba${TAG}-sec-${i}-${safeName(name)}${FACELESS ? ".faceless" : ""}.png`,
+    label: `marimbaba${TAG} §${i} ${name}${FACELESS ? " (faceless)" : ""}`,
   });
 }
 

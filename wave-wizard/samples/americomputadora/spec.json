@@ -1,0 +1,36 @@
+{
+  "title": "americomputadora — jeffrey syllable chant",
+  "outDir": "/Users/jas/aesthetic-computer/wave-wizard/samples/americomputadora/takes",
+  "trim": {
+    "thresholdPctOfPeak": 0.04,
+    "padHeadMs": 40,
+    "padTailMs": 160,
+    "fadeMs": 8,
+    "normalizeDb": -3.0
+  },
+  "autoStop": {
+    "onsetDb": -28,
+    "silenceDb": -42,
+    "silenceDurationMs": 1100,
+    "maxRecordSec": 5
+  },
+  "samples": [
+    {
+      "name": "americomputadora-chant",
+      "desc": "Sing the americomputadora chant, one syllable per beat, in a comfortable low voice: ah, mer, ick, ahmp, uter, do, rah. Each take captures one syllable — just sing the vowel cleanly and hold it for the beat. The pitch only needs to be a comfortable reference; it gets tuned to the melody afterward.",
+      "lyric": "ah mer ick ahmp u-ter do rah",
+      "score": {
+        "rootMel": 50,
+        "notes": [
+          { "off": 0, "beats": 1.0 },
+          { "off": 2, "beats": 1.0 },
+          { "off": 4, "beats": 1.0 },
+          { "off": 5, "beats": 1.0 },
+          { "off": 7, "beats": 1.0 },
+          { "off": 4, "beats": 1.0 },
+          { "off": 0, "beats": 1.0 }
+        ]
+      }
+    }
+  ]
+}

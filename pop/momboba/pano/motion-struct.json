@@ -1,0 +1,50 @@
+{
+  "totalSec": 52,
+  "sections": [
+    {
+      "name": "arrival",
+      "startSec": 0,
+      "endSec": 5
+    },
+    {
+      "name": "boba-sip",
+      "startSec": 5,
+      "endSec": 10
+    },
+    {
+      "name": "galleries",
+      "startSec": 10,
+      "endSec": 15
+    },
+    {
+      "name": "waterlily-awe",
+      "startSec": 15,
+      "endSec": 20
+    },
+    {
+      "name": "first-sheep",
+      "startSec": 20,
+      "endSec": 25
+    },
+    {
+      "name": "asleep-flock",
+      "startSec": 25,
+      "endSec": 30
+    },
+    {
+      "name": "the-dream",
+      "startSec": 30,
+      "endSec": 42
+    },
+    {
+      "name": "morning",
+      "startSec": 42,
+      "endSec": 47
+    },
+    {
+      "name": "resolve",
+      "startSec": 47,
+      "endSec": 52
+    }
+  ]
+}

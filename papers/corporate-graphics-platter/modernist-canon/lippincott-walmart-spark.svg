@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" width="1280px" height="168.7px" viewBox="0 0 1280 168.7" style="enable-background:new 0 0 612 792;">
+  <style type="text/css">
+	.st0{display:none;}
+	.st1{display:inline;}
+	.st2{clip-path:url(#SVGID_2_);}
+	.st3{clip-path:url(#SVGID_4_);enable-background:new    ;}
+	.st4{clip-path:url(#SVGID_6_);}
+	.st5{clip-path:url(#SVGID_8_);fill:#007DC3;}
+	.st6{clip-path:url(#SVGID_8_);fill:#FDBB30;}
+	.st7{clip-path:url(#SVGID_10_);}
+	.st8{fill:#FFFFFF;}
+	.st9{font-family:'MyriadPro-Bold';}
+	.st10{font-size:10px;}
+	.st11{clip-path:url(#SVGID_12_);fill:#007DC3;}
+	.st12{clip-path:url(#SVGID_12_);fill:#FDBB30;}
+	.st13{clip-path:url(#SVGID_14_);}
+	.st14{fill:#007DC3;}
+	.st15{font-family:'MyriadPro-Light';}
+	.st16{font-size:30px;}
+	.st17{letter-spacing:-1;}
+	.st18{font-size:18px;}
+	.st19{font-size:9px;}
+	.st20{font-family:'MyriadPro-Regular';}
+	
+		.st21{clip-path:url(#SVGID_14_);fill:none;stroke:#000000;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:0,4.04;}
+	.st22{clip-path:url(#SVGID_14_);fill:none;stroke:#000000;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+	.st23{clip-path:url(#SVGID_14_);fill:#FFFFFF;}
+	.st24{clip-path:url(#SVGID_16_);fill:#00539B;}
+	.st25{clip-path:url(#SVGID_18_);fill:#007DC3;}
+	.st26{clip-path:url(#SVGID_18_);fill:#FDBB30;}
+	.st27{clip-path:url(#SVGID_20_);fill:#007DC3;}
+	.st28{clip-path:url(#SVGID_20_);fill:#FDBB30;}
+	.st29{clip-path:url(#SVGID_22_);}
+	
+		.st30{clip-path:url(#SVGID_22_);fill:none;stroke:#000000;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:0,3.986;}
+	.st31{clip-path:url(#SVGID_22_);fill:none;stroke:#000000;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+	.st32{clip-path:url(#SVGID_24_);fill:#00539B;}
+</style>
+  <g transform="matrix(1, 0, 0, 1, -121.370003, -267.899994)">
+    <defs>
+      <rect id="SVGID_23_" x="112" y="259.9" width="500" height="93.2"/>
+    </defs>
+    <clipPath id="SVGID_24_">
+      <rect x="-96814" y="-82796" width="5191340" height="967702" style="overflow: visible;"/>
+    </clipPath>
+    <path class="st32" d="M 1374.49 290.393 C 1374.49 283.436 1379.77 278.155 1386.51 278.155 C 1393.15 278.155 1398.44 283.464 1398.44 290.393 C 1398.44 297.435 1393.15 302.604 1386.51 302.604 C 1379.77 302.604 1374.49 297.435 1374.49 290.393 M 1386.51 305.063 C 1394.52 305.063 1401.37 298.86 1401.37 290.393 C 1401.37 281.955 1394.52 275.724 1386.51 275.724 C 1378.4 275.724 1371.53 281.955 1371.53 290.393 C 1371.53 298.888 1378.4 305.063 1386.51 305.063 M 1383.38 291.567 L 1386.34 291.567 L 1390.78 298.888 L 1393.69 298.888 L 1388.88 291.455 C 1391.37 291.148 1393.27 289.835 1393.27 286.789 C 1393.27 283.464 1391.31 281.955 1387.29 281.955 L 1380.83 281.955 L 1380.83 298.888 L 1383.38 298.888 L 1383.38 291.567 Z M 1383.38 289.388 L 1383.38 284.079 L 1386.9 284.079 C 1388.66 284.079 1390.58 284.526 1390.58 286.593 C 1390.58 289.192 1388.63 289.36 1386.42 289.36 L 1383.38 289.36 L 1383.38 289.388 Z" style=""/>
+    <polyline class="st32" points="497.527 267.9 543.044 267.9 543.044 392.55 600.968 392.55 600.968 436.614 497.527 436.614" style=""/>
+    <polyline class="st32" points="350.439 267.9 306.934 267.9 284.664 398.026 264.406 268.878 211.958 268.878 192.147 404.425 167.419 267.9 121.37 267.9 162.836 436.614 217.239 436.614 238.643 327.752 259.46 436.614 311.376 436.614" style=""/>
+    <path class="st32" d="M 440.776 267.9 L 373.548 267.9 L 323.727 436.587 L 370.167 436.587 L 377.459 401.435 L 435.383 401.435 L 444.297 436.587 L 490.737 436.587 M 387.854 360.891 L 406.156 300.508 L 423.955 360.891 L 387.854 360.891 Z" style=""/>
+    <polyline class="st32" points="1217.79 267.9 1357.31 267.9 1357.31 313.893 1310.78 313.893 1310.78 436.614 1264.29 436.614 1264.29 313.893 1217.79 313.893" style=""/>
+    <polyline class="st32" points="716.313 267.9 785.554 267.9 809.836 399.954 832.58 267.9 902.324 267.9 902.324 436.614 858.818 436.614 858.818 319.341 831.099 436.614 787.091 436.614 760.378 315.905 760.378 436.614 716.313 436.614" style=""/>
+    <path class="st32" d="M 1024.32 267.9 L 956.56 267.9 L 907.214 436.587 L 951.754 436.587 L 962.008 401.435 L 1017.42 401.435 L 1028.2 436.587 L 1073.16 436.587 M 971.872 360.416 L 988.721 302.492 L 1007.5 360.416 L 971.872 360.416 Z" style=""/>
+    <path class="st32" d="M 1171.77 366.34 C 1171.77 366.34 1212.82 356.449 1212.82 312.915 C 1212.82 269.381 1172.75 267.9 1172.75 267.9 L 1079.28 267.9 L 1079.28 436.587 L 1124.8 436.587 L 1124.8 371.286 L 1165.99 436.614 L 1219.41 436.614 M 1153.97 340.102 L 1123.82 340.102 L 1123.82 309.925 L 1153.44 309.925 C 1153.44 309.925 1166.85 309.925 1166.85 322.303 C 1166.85 337.644 1153.97 340.102 1153.97 340.102" style=""/>
+    <polyline class="st32" points="670.572 355.247 706.254 329.121 662.106 329.121 648.47 287.068 634.778 329.121 590.35 329.121 626.228 355.275 612.313 397.887 648.442 371.426 684.208 397.496" style=""/>
+  </g>
+</svg>

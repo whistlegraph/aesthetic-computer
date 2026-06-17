@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# slab-video <file.mp4> [more.mov …] — open videos in slab's minimal player.
+# Appends absolute paths to $SLAB_HOME/state/open-video; the menubar's 2 s
+# tick consumes the file and raises a chromeless AVKit panel per movie
+# (plays immediately; Esc closes, space toggles, one "QuickTime" button
+# escapes to QuickTime Player). Re-asking for an open file brings its
+# window forward and restarts playback. The panel watches the file and
+# reloads on rewrite, so render loops feel live. See
+# slab/menubar-swift/Sources/SlabMenubar/VideoViewer.swift.
+set -euo pipefail
+
+SLAB_HOME="${SLAB_HOME:-$HOME/.local/share/slab}"
+REQUEST="$SLAB_HOME/state/open-video"
+
+if [ $# -eq 0 ]; then
+    echo "usage: slab-video <file.mp4> [more.mov …]" >&2
+    exit 1
+fi
+
+mkdir -p "$SLAB_HOME/state"
+
+# Which Claude session asked? Walk up the process tree to the claude pid
+# (same loop as claude-prompt-log.sh) and match it against the live
+# active-prompts markers — the viewer chip then wears that session's
+# sticky emoji. Empty when not launched from a Claude session.
+session_id=""
+claude_pid=$$
+for _ in 1 2 3 4 5 6 7 8; do
+    parent=$(ps -o ppid= -p "$claude_pid" 2>/dev/null | tr -d ' ')
+    [ -z "$parent" ] || [ "$parent" = "1" ] && break
+    comm=$(ps -o comm= -p "$parent" 2>/dev/null | tr -d ' ')
+    claude_pid=$parent
+    case "$comm" in *claude*) break ;; esac
+done
+if command -v jq >/dev/null 2>&1; then
+    for marker in "$SLAB_HOME"/state/active-prompts/*; do
+        [ -f "$marker" ] || continue
+        if [ "$(jq -r '.claude_pid // 0' "$marker" 2>/dev/null)" = "$claude_pid" ]; then
+            session_id=$(jq -r '.session_id // ""' "$marker" 2>/dev/null)
+            break
+        fi
+    done
+fi
+
+for f in "$@"; do
+    if [ ! -f "$f" ]; then
+        echo "slab-video: no such file: $f" >&2
+        exit 1
+    fi
+    # realpath isn't guaranteed on stock macOS bash paths — resolve by hand.
+    abs="$(cd "$(dirname "$f")" && pwd)/$(basename "$f")"
+    printf '%s\t%s\n' "$abs" "$session_id" >> "$REQUEST"
+done

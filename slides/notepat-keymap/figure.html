@@ -1,0 +1,433 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  /* Canonical paper-figure variant of the notepat keymap diagram.
+     Piano octaves + QWERTY + color-matched connectors ONLY — no title,
+     no rationale, no implementation list, no QR codes, no brand block.
+     Derived from template.html; key geometry must stay in sync with it. */
+  @font-face {
+    font-family: "Berkeley Mono";
+    src: url("__BERKELEY__") format("woff2");
+    font-weight: normal;
+    font-style: normal;
+  }
+  @font-face {
+    font-family: "YWFT Processing";
+    src: url("__YWFT_BOLD__") format("woff2");
+    font-weight: 800;
+    font-style: normal;
+  }
+
+  html, body { margin: 0; padding: 0; }
+  body {
+    width: 2400px;
+    height: 860px;
+    background: #ffffff;
+    color: #121012;
+    font-family: "YWFT Processing", -apple-system, "Helvetica Neue", sans-serif;
+    box-sizing: border-box;
+    padding: 36px 40px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  .connectors {
+    position: absolute;
+    inset: 0;
+    width: 2400px;
+    height: 860px;
+    pointer-events: none;
+    z-index: 50;
+  }
+
+  /* ---------------- Piano ---------------- */
+  .piano-wrap { display: flex; justify-content: center; margin-bottom: 26px; }
+  .piano {
+    position: relative;
+    height: 340px;
+    width: 2076px;
+    padding-left: 36px;
+    box-sizing: border-box;
+  }
+  .wkey, .bkey {
+    position: absolute;
+    box-sizing: border-box;
+    border-radius: 0 0 10px 10px;
+    border: 2px solid #121012;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    padding-bottom: 16px;
+  }
+  .wkey {
+    width: 120px;
+    height: 320px;
+    background: #fff;
+    color: #121012;
+    overflow: hidden;
+  }
+  .wkey .keyswatch {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    height: 44px;
+    border-top: 2px solid rgba(0,0,0,0.22);
+  }
+  .wkey .qkey {
+    font-family: "Berkeley Mono", "SF Mono", monospace;
+    font-size: 64px;
+    font-weight: 800;
+    line-height: 1;
+    color: #121012;
+    position: absolute;
+    top: 96px; left: 0; right: 0;
+    text-align: center;
+  }
+  .wkey .nname {
+    position: absolute;
+    bottom: 60px; left: 0; right: 0;
+    text-align: center;
+    font-family: "Berkeley Mono", "SF Mono", monospace;
+    font-size: 22px;
+    color: #2a2a2a;
+    letter-spacing: 0.05em;
+    margin: 0;
+    font-weight: 700;
+    z-index: 2;
+  }
+  .wkey[data-pn="c"]  .keyswatch { background: #ff3232; }
+  .wkey[data-pn="d"]  .keyswatch { background: #ffa000; }
+  .wkey[data-pn="e"]  .keyswatch { background: #ffe600; }
+  .wkey[data-pn="f"]  .keyswatch { background: #32c832; }
+  .wkey[data-pn="g"]  .keyswatch { background: #3278ff; }
+  .wkey[data-pn="a"]  .keyswatch { background: #8232c8; }
+  .wkey[data-pn="b"]  .keyswatch { background: #b450ff; }
+  .wkey[data-pn="C5"] .keyswatch { background: #ff2850; }
+  .wkey[data-pn="D5"] .keyswatch { background: #ffb400; }
+  .wkey[data-pn="E5"] .keyswatch { background: #ffff32; }
+  .wkey[data-pn="F5"] .keyswatch { background: #32ff64; }
+  .wkey[data-pn="G5"] .keyswatch { background: #32c8ff; }
+  .wkey[data-pn="A5"] .keyswatch { background: #b432ff; }
+  .wkey[data-pn="B5"] .keyswatch { background: #ff50ff; }
+
+  .bkey {
+    width: 72px;
+    height: 210px;
+    background: #0a0a0a;
+    color: #fff;
+    border-color: #000;
+    z-index: 2;
+  }
+  .bkey .qkey {
+    font-family: "Berkeley Mono", "SF Mono", monospace;
+    font-size: 38px;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .bkey .nname {
+    font-family: "Berkeley Mono", "SF Mono", monospace;
+    font-size: 16px;
+    color: #bbb;
+    letter-spacing: 0.05em;
+    margin-top: 6px;
+    font-weight: 700;
+  }
+
+  .wkey.ext { background: #fff4d6; color: #8a7330; border-color: #d4c075; opacity: 0.78; }
+  .wkey.ext .qkey { color: #8a7330; text-shadow: none; position: static; padding-top: 22px; }
+  .wkey.ext .keyswatch { display: none; }
+  .wkey.ext .nname { position: static; color: #a89855; text-shadow: none; font-size: 22px; font-weight: 700; }
+  .bkey.ext { background: #5a4818; color: #f8e7a0; border-color: #4a3814; opacity: 0.78; }
+  .bkey.ext .nname { color: #d8c878; }
+  .wkey.ext .ext-tag, .bkey.ext .ext-tag {
+    font-family: "Berkeley Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-top: 4px;
+    opacity: 0.85;
+    font-weight: 700;
+  }
+
+  /* ---------------- QWERTY ---------------- */
+  .below { display: flex; justify-content: center; }
+  .below-left { flex: 0 0 1380px; display: flex; flex-direction: column; }
+
+  .hand-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    font-family: "YWFT Processing";
+    font-size: 22px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    font-weight: 800;
+    padding: 0 24px;
+  }
+  .hand-labels .l { color: #2a64d4; }
+  .hand-labels .r { color: #c8324b; }
+  /* YWFT Processing has no arrow/middle-dot glyphs (renders as `&`); use
+     system font just for those characters so labels read correctly. */
+  .glyph {
+    font-family: -apple-system, "Helvetica Neue", "Arial Unicode MS", sans-serif;
+    font-weight: 800;
+  }
+
+  .qwerty-bg {
+    position: relative;
+    padding: 18px 20px;
+    border-radius: 16px;
+    background: linear-gradient(to right,
+      rgba(42, 100, 212, 0.10) 0%,
+      rgba(42, 100, 212, 0.10) 48%,
+      rgba(200, 50, 75, 0.10) 52%,
+      rgba(200, 50, 75, 0.10) 100%);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+  }
+  .qwerty-wrap { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; width: 100%; }
+  .qrow { display: flex; gap: 12px; }
+  .qrow.r0 { padding-left: 0; }
+  .qrow.r1 { padding-left: 28px; }
+  .qrow.r2 { padding-left: 84px; }
+  .qcap {
+    width: 100px; height: 100px;
+    border-radius: 14px;
+    border: 3px solid #121012;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Berkeley Mono", "SF Mono", monospace;
+    font-size: 46px;
+    font-weight: 800;
+    text-transform: uppercase;
+    flex-shrink: 0;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.18);
+  }
+  .qcap.white { background: #fff; color: #121012; }
+  .qcap.black { background: #121012; color: #fff; border-color: #000; }
+
+  .qcap[data-qn="c"]  { background: #ff3232; color: #fff; border-color: #a51c1c; text-shadow: 0 2px 0 rgba(0,0,0,0.22); }
+  .qcap[data-qn="d"]  { background: #ffa000; color: #fff; border-color: #b56b00; text-shadow: 0 2px 0 rgba(0,0,0,0.22); }
+  .qcap[data-qn="e"]  { background: #ffe600; color: #3a2a00; border-color: #b89c00; text-shadow: 0 2px 0 rgba(255,255,255,0.4); }
+  .qcap[data-qn="f"]  { background: #32c832; color: #fff; border-color: #1d7a1d; text-shadow: 0 2px 0 rgba(0,0,0,0.22); }
+  .qcap[data-qn="g"]  { background: #3278ff; color: #fff; border-color: #1c4ba8; text-shadow: 0 2px 0 rgba(0,0,0,0.22); }
+  .qcap[data-qn="a"]  { background: #8232c8; color: #fff; border-color: #4f1d80; text-shadow: 0 2px 0 rgba(0,0,0,0.22); }
+  .qcap[data-qn="b"]  { background: #b450ff; color: #fff; border-color: #6f2faa; text-shadow: 0 2px 0 rgba(0,0,0,0.22); }
+  .qcap[data-qn="C5"] { background: #ff2850; color: #fff; border-color: #b01a37; text-shadow: 0 2px 0 rgba(0,0,0,0.22); }
+  .qcap[data-qn="D5"] { background: #ffb400; color: #fff; border-color: #b58000; text-shadow: 0 2px 0 rgba(0,0,0,0.22); }
+  .qcap[data-qn="E5"] { background: #ffff32; color: #4a4400; border-color: #b8b400; text-shadow: 0 2px 0 rgba(255,255,255,0.4); }
+  .qcap[data-qn="F5"] { background: #32ff64; color: #0a3a14; border-color: #1a9a3a; text-shadow: 0 2px 0 rgba(255,255,255,0.35); }
+  .qcap[data-qn="G5"] { background: #32c8ff; color: #06283d; border-color: #1a7ab0; text-shadow: 0 2px 0 rgba(255,255,255,0.35); }
+  .qcap[data-qn="A5"] { background: #b432ff; color: #fff; border-color: #6f1cb0; text-shadow: 0 2px 0 rgba(0,0,0,0.22); }
+  .qcap[data-qn="B5"] { background: #ff50ff; color: #fff; border-color: #b02db0; text-shadow: 0 2px 0 rgba(0,0,0,0.22); }
+  .qcap.sharp { background: #121012; color: #fff; border-color: #000; }
+  .qcap.sharp[data-sharp-of="c"] { box-shadow: 0 4px 0 rgba(0,0,0,0.18), inset 0 0 0 2px rgba(255,50,50,0.55); }
+  .qcap.sharp[data-sharp-of="d"] { box-shadow: 0 4px 0 rgba(0,0,0,0.18), inset 0 0 0 2px rgba(255,160,0,0.55); }
+  .qcap.sharp[data-sharp-of="f"] { box-shadow: 0 4px 0 rgba(0,0,0,0.18), inset 0 0 0 2px rgba(50,200,50,0.55); }
+  .qcap.sharp[data-sharp-of="g"] { box-shadow: 0 4px 0 rgba(0,0,0,0.18), inset 0 0 0 2px rgba(50,120,255,0.55); }
+  .qcap.sharp[data-sharp-of="a"] { box-shadow: 0 4px 0 rgba(0,0,0,0.18), inset 0 0 0 2px rgba(130,50,200,0.55); }
+
+  .qcap.ext-white {
+    background: #fff4d6; color: #8a7330;
+    border-color: #d4c075;
+    opacity: 0.78;
+    flex-direction: column;
+  }
+  .qcap.ext-black {
+    background: #5a4818; color: #f8e7a0;
+    border-color: #4a3814;
+    opacity: 0.78;
+    flex-direction: column;
+  }
+  .qcap .ext-tag {
+    font-family: "Berkeley Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-top: 5px;
+    opacity: 0.9;
+    font-weight: 700;
+  }
+  .qcap.ghost {
+    background: transparent;
+    color: #c8c8c8;
+    border: 2.5px dashed #d4d4d4;
+    font-weight: 600;
+    font-size: 30px;
+    box-shadow: none;
+  }
+  .qcap.octshift {
+    background: #f4ecff;
+    color: #6b3fc0;
+    border: 2.5px solid #b89df0;
+    font-weight: 800;
+    font-size: 26px;
+    flex-direction: column;
+  }
+  .qcap.octshift .lbl {
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    opacity: 0.75;
+    margin-top: 3px;
+    font-family: "YWFT Processing";
+  }
+</style>
+</head>
+<body>
+  <!-- PIANO -->
+  <div class="piano-wrap">
+    <div class="piano">
+      <div class="wkey ext" style="left:36px;">   <div class="qkey">X</div><div class="nname">B3</div><div class="ext-tag">ext</div></div>
+      <div class="wkey" data-pn="c" style="left:156px;">  <div class="keyswatch"></div><div class="qkey">C</div><div class="nname">C4</div></div>
+      <div class="wkey" data-pn="d" style="left:276px;">  <div class="keyswatch"></div><div class="qkey">D</div><div class="nname">D4</div></div>
+      <div class="wkey" data-pn="e" style="left:396px;">  <div class="keyswatch"></div><div class="qkey">E</div><div class="nname">E4</div></div>
+      <div class="wkey" data-pn="f" style="left:516px;">  <div class="keyswatch"></div><div class="qkey">F</div><div class="nname">F4</div></div>
+      <div class="wkey" data-pn="g" style="left:636px;">  <div class="keyswatch"></div><div class="qkey">G</div><div class="nname">G4</div></div>
+      <div class="wkey" data-pn="a" style="left:756px;">  <div class="keyswatch"></div><div class="qkey">A</div><div class="nname">A4</div></div>
+      <div class="wkey" data-pn="b" style="left:876px;">  <div class="keyswatch"></div><div class="qkey">B</div><div class="nname">B4</div></div>
+      <div class="wkey" data-pn="C5" style="left:996px;"> <div class="keyswatch"></div><div class="qkey">H</div><div class="nname">C5</div></div>
+      <div class="wkey" data-pn="D5" style="left:1116px;"><div class="keyswatch"></div><div class="qkey">I</div><div class="nname">D5</div></div>
+      <div class="wkey" data-pn="E5" style="left:1236px;"><div class="keyswatch"></div><div class="qkey">J</div><div class="nname">E5</div></div>
+      <div class="wkey" data-pn="F5" style="left:1356px;"><div class="keyswatch"></div><div class="qkey">K</div><div class="nname">F5</div></div>
+      <div class="wkey" data-pn="G5" style="left:1476px;"><div class="keyswatch"></div><div class="qkey">L</div><div class="nname">G5</div></div>
+      <div class="wkey" data-pn="A5" style="left:1596px;"><div class="keyswatch"></div><div class="qkey">M</div><div class="nname">A5</div></div>
+      <div class="wkey" data-pn="B5" style="left:1716px;"><div class="keyswatch"></div><div class="qkey">N</div><div class="nname">B5</div></div>
+      <div class="wkey ext" style="left:1836px;"><div class="qkey">;</div><div class="nname">C6</div><div class="ext-tag">ext</div></div>
+      <div class="wkey ext" style="left:1956px;"><div class="qkey">]</div><div class="nname">D6</div><div class="ext-tag">ext</div></div>
+
+      <!-- Sharps -->
+      <div class="bkey ext" style="left:0px;">    <div class="qkey">Z</div><div class="nname">A♯3</div></div>
+      <div class="bkey" style="left:240px;">  <div class="qkey">V</div><div class="nname">C♯4</div></div>
+      <div class="bkey" style="left:360px;">  <div class="qkey">S</div><div class="nname">D♯4</div></div>
+      <div class="bkey" style="left:600px;">  <div class="qkey">W</div><div class="nname">F♯4</div></div>
+      <div class="bkey" style="left:720px;">  <div class="qkey">R</div><div class="nname">G♯4</div></div>
+      <div class="bkey" style="left:840px;">  <div class="qkey">Q</div><div class="nname">A♯4</div></div>
+      <div class="bkey" style="left:1080px;"> <div class="qkey">T</div><div class="nname">C♯5</div></div>
+      <div class="bkey" style="left:1200px;"> <div class="qkey">Y</div><div class="nname">D♯5</div></div>
+      <div class="bkey" style="left:1440px;"> <div class="qkey">U</div><div class="nname">F♯5</div></div>
+      <div class="bkey" style="left:1560px;"> <div class="qkey">O</div><div class="nname">G♯5</div></div>
+      <div class="bkey" style="left:1680px;"> <div class="qkey">P</div><div class="nname">A♯5</div></div>
+      <div class="bkey ext" style="left:1920px;"> <div class="qkey">'</div><div class="nname">C♯6</div></div>
+    </div>
+  </div>
+
+  <!-- QWERTY -->
+  <div class="below">
+    <div class="below-left">
+      <div class="hand-labels">
+        <div class="l"><span class="glyph">←</span> Left hand <span class="glyph">·</span> lower octave</div>
+        <div class="r">Right hand <span class="glyph">·</span> upper octave <span class="glyph">→</span></div>
+      </div>
+      <div class="qwerty-bg">
+        <div class="qwerty-wrap">
+          <div class="qrow r0">
+            <div class="qcap sharp" data-sharp-of="a">Q</div>
+            <div class="qcap sharp" data-sharp-of="f">W</div>
+            <div class="qcap" data-qn="e">E</div>
+            <div class="qcap sharp" data-sharp-of="g">R</div>
+            <div class="qcap sharp" data-sharp-of="c">T</div>
+            <div class="qcap sharp" data-sharp-of="d">Y</div>
+            <div class="qcap sharp" data-sharp-of="f">U</div>
+            <div class="qcap" data-qn="D5">I</div>
+            <div class="qcap sharp" data-sharp-of="g">O</div>
+            <div class="qcap sharp" data-sharp-of="a">P</div>
+            <div class="qcap ghost">[</div>
+            <div class="qcap ext-white">]<div class="ext-tag">ext</div></div>
+          </div>
+          <div class="qrow r1">
+            <div class="qcap" data-qn="a">A</div>
+            <div class="qcap sharp" data-sharp-of="d">S</div>
+            <div class="qcap" data-qn="d">D</div>
+            <div class="qcap" data-qn="f">F</div>
+            <div class="qcap" data-qn="g">G</div>
+            <div class="qcap" data-qn="C5">H</div>
+            <div class="qcap" data-qn="E5">J</div>
+            <div class="qcap" data-qn="F5">K</div>
+            <div class="qcap" data-qn="G5">L</div>
+            <div class="qcap ext-white">;<div class="ext-tag">ext</div></div>
+            <div class="qcap ext-black">'<div class="ext-tag">ext</div></div>
+          </div>
+          <div class="qrow r2">
+            <div class="qcap ext-black">Z<div class="ext-tag">ext</div></div>
+            <div class="qcap ext-white">X<div class="ext-tag">ext</div></div>
+            <div class="qcap" data-qn="c">C</div>
+            <div class="qcap sharp" data-sharp-of="c">V</div>
+            <div class="qcap" data-qn="b">B</div>
+            <div class="qcap" data-qn="A5">N</div>
+            <div class="qcap" data-qn="B5">M</div>
+            <div class="qcap octshift">,<div class="lbl">oct−</div></div>
+            <div class="qcap octshift">.<div class="lbl">oct+</div></div>
+            <div class="qcap ghost">/</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Connector overlay: piano white key → QWERTY note cap, color-matched -->
+  <svg class="connectors" id="connectors"></svg>
+
+  <script>
+    document.fonts.ready.then(() => {
+      drawConnectors();
+    });
+
+    function drawConnectors() {
+      const svg = document.getElementById("connectors");
+      const naturals = [
+        { pn: "c", qn: "c", color: "#ff3232", op: 0.85 },
+        { pn: "d", qn: "d", color: "#ffa000", op: 0.65 },
+        { pn: "e", qn: "e", color: "#d4b400", op: 0.55 },
+        { pn: "f", qn: "f", color: "#32c832", op: 0.50 },
+        { pn: "g", qn: "g", color: "#3278ff", op: 0.45 },
+        { pn: "a", qn: "a", color: "#8232c8", op: 0.40 },
+        { pn: "b", qn: "b", color: "#b450ff", op: 0.35 },
+        { pn: "C5", qn: "C5", color: "#ff2850", op: 0.55 },
+        { pn: "D5", qn: "D5", color: "#ffb400", op: 0.45 },
+        { pn: "E5", qn: "E5", color: "#b8b400", op: 0.40 },
+        { pn: "F5", qn: "F5", color: "#32ff64", op: 0.40 },
+        { pn: "G5", qn: "G5", color: "#32c8ff", op: 0.40 },
+        { pn: "A5", qn: "A5", color: "#b432ff", op: 0.35 },
+        { pn: "B5", qn: "B5", color: "#ff50ff", op: 0.32 },
+      ];
+      const NS = "http://www.w3.org/2000/svg";
+      for (const { pn, qn, color, op } of naturals) {
+        const piano = document.querySelector(`.wkey[data-pn="${pn}"]`);
+        const qwerty = document.querySelector(`.qcap[data-qn="${qn}"]`);
+        if (!piano || !qwerty) continue;
+        const pr = piano.getBoundingClientRect();
+        const qr = qwerty.getBoundingClientRect();
+        const x1 = pr.left + pr.width / 2;
+        const y1 = pr.bottom - 12;
+        const x2 = qr.left + qr.width / 2;
+        const y2 = qr.top + 12;
+        const line = document.createElementNS(NS, "line");
+        line.setAttribute("x1", x1);
+        line.setAttribute("y1", y1);
+        line.setAttribute("x2", x2);
+        line.setAttribute("y2", y2);
+        line.setAttribute("stroke", color);
+        line.setAttribute("stroke-width", "4");
+        line.setAttribute("stroke-dasharray", "10 8");
+        line.setAttribute("stroke-linecap", "round");
+        line.setAttribute("opacity", op);
+        svg.appendChild(line);
+        const dotOp = Math.min(0.7, op * 0.8);
+        for (const [cx, cy] of [[x1, y1], [x2, y2]]) {
+          const dot = document.createElementNS(NS, "circle");
+          dot.setAttribute("cx", cx);
+          dot.setAttribute("cy", cy);
+          dot.setAttribute("r", 5);
+          dot.setAttribute("fill", color);
+          dot.setAttribute("opacity", dotOp);
+          svg.appendChild(dot);
+        }
+      }
+    }
+  </script>
+</body>
+</html>

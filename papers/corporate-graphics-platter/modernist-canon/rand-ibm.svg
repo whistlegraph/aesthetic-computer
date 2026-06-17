@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="31.2mm" height="10.6mm" version="1.1" viewBox="0 0 31.2 10.6" xmlns="http://www.w3.org/2000/svg" xmlns:cc="http://creativecommons.org/ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:xlink="http://www.w3.org/1999/xlink">
+ <title>IBM i logo</title>
+ <desc>An operating system for IBM Power Systems</desc>
+ <defs>
+  <linearGradient id="vlpd">
+   <stop style="stop-color:#0d74f0" offset="0"/>
+   <stop style="stop-color:#0aa7ca" offset="1"/>
+  </linearGradient>
+  <linearGradient id="vlpf" x1="25.2" x2="11.2" y1="6.57" y2="10.8" gradientUnits="userSpaceOnUse" xlink:href="#vlpd"/>
+  <linearGradient id="vlpe" x1="27.9" x2="-.507" y1="5.34" y2="11" gradientTransform="matrix(.992 0 0 1 .26 0)" gradientUnits="userSpaceOnUse" xlink:href="#vlpd"/>
+  <linearGradient id="vlpg" x1="27.9" x2="-.507" y1="5.34" y2="11" gradientTransform="matrix(.992 0 0 1 -1.25 0)" gradientUnits="userSpaceOnUse" xlink:href="#vlpd"/>
+ </defs>
+ <metadata>
+  <rdf:RDF>
+   <cc:Work rdf:about="">
+    <dc:format>image/svg+xml</dc:format>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:title>IBM i logo</dc:title>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <g transform="translate(-1.04 -.12)">
+  <g style="fill:url(#vlpf);stroke-width:.265">
+   <path d="m1.04 10.7v-1.71h1.26v-6.43h-1.26v-1.71h4.65v1.71h-1.26v6.43h1.26v1.71z" style="fill:url(#vlpe);stroke-width:.264"/>
+   <path d="m7.47 0.838h4.75q1.22 0 1.89 0.691 0.686 0.691 0.686 1.83 0 0.564-0.154 0.96-0.14 0.395-0.392 0.649-0.238 0.254-0.574 0.381-0.322 0.113-0.7 0.127v0.0847q0.35 0 0.728 0.127 0.392 0.127 0.714 0.409 0.322 0.268 0.532 0.706 0.224 0.437 0.224 1.07 0 0.579-0.196 1.1-0.182 0.508-0.518 0.889t-0.798 0.607q-0.462 0.212-1.01 0.212h-5.18zm2.13 8.04h2.45q0.42 0 0.658-0.226 0.252-0.24 0.252-0.663v-0.48q0-0.423-0.252-0.649-0.238-0.24-0.658-0.24h-2.45zm0-4.01h2.11q0.42 0 0.658-0.24t0.238-0.663v-0.423q0-0.423-0.238-0.663t-0.658-0.24h-2.11z" style="fill:url(#vlpe);stroke-width:.264"/>
+   <path d="m24.1 4.22h-0.042l-0.714 1.44-1.9 3.49-1.86-3.47-0.742-1.55h-0.042v6.56h-2v-9.85h2.25l2.39 4.61h0.028l2.37-4.61h2.27v9.85h-2z" style="fill:url(#vlpe);stroke-width:.264"/>
+   <path d="m31 2.49q-0.63 0-0.924-0.282-0.28-0.296-0.28-0.748v-0.31q0-0.452 0.28-0.734 0.294-0.296 0.924-0.296t0.91 0.296q0.294 0.282 0.294 0.734v0.31q0 0.452-0.294 0.748-0.28 0.282-0.91 0.282zm-1.04 0.79h2.07v7.41h-2.07z" style="fill:url(#vlpg);stroke-width:.264"/>
+  </g>
+ </g>
+</svg>
