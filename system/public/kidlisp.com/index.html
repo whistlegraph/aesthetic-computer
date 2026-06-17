@@ -20351,7 +20351,17 @@ s("ape_breaks_3").loopAt(2)</textarea>
             useRefreshTokensFallback: true
           });
           if (window.location.search.includes('code=') || window.location.search.includes('error=')) {
-            try { await acAuth0Client.handleRedirectCallback(); window.history.replaceState({}, document.title, window.location.pathname); } catch (e) { /* auth callback error */ }
+            try {
+              const cbResult = await acAuth0Client.handleRedirectCallback();
+              const returnTo = cbResult?.appState?.returnTo;
+              // Land back on the piece the user logged in from. Auth0 redirects
+              // to the registered origin, so the $code path lives in appState.
+              if (returnTo && returnTo !== '/' && returnTo !== (window.location.pathname + window.location.search + window.location.hash)) {
+                window.location.replace(returnTo);
+                return; // navigating away; initAuth0 re-runs on the fresh load
+              }
+              window.history.replaceState({}, document.title, window.location.pathname);
+            } catch (e) { /* auth callback error */ }
           }
           let isAuthenticated = await acAuth0Client.isAuthenticated();
           if (!isAuthenticated) {
@@ -20404,23 +20414,23 @@ s("ape_breaks_3").loopAt(2)</textarea>
             return;
           }
           if (!acAuth0Client) {
-            // SDK may still be loading — kick off init but don't block the gesture.
-            // loginWithRedirect must run in the same user-gesture context, so we
-            // can't await a long poll here.  Retry once quickly, then bail.
-            if (window.auth0) {
-              await initAuth0();
-            } else {
-              console.warn('[AUTH] Auth0 SDK still loading — try again in a moment');
-              return;
-            }
+            // SDK may still be loading. initAuth0() waits up to 10s for it; a
+            // full-page redirect (below) doesn't need a popup user-gesture, so
+            // awaiting here is safe and avoids the "try again in a moment" dead end.
+            await initAuth0();
           }
           if (!acAuth0Client) {
-            console.warn('[AUTH] initAuth0 failed — acAuth0Client still null');
+            console.warn('[AUTH] Auth0 unavailable — SDK failed to load');
             return;
           }
           console.log('[AUTH] Redirecting to Auth0 login...');
           logAuth('check');
-          await acAuth0Client.loginWithRedirect({ authorizationParams: { prompt: 'login' } });
+          // Carry the current piece path through the Auth0 roundtrip so login
+          // returns to /$code instead of the app root.
+          await acAuth0Client.loginWithRedirect({
+            authorizationParams: { prompt: 'login' },
+            appState: { returnTo: window.location.pathname + window.location.search + window.location.hash },
+          });
         } catch (e) { console.error('[AUTH] acLogin error:', e); }
       }
 
@@ -20455,11 +20465,12 @@ s("ape_breaks_3").loopAt(2)</textarea>
                 window.parent?.postMessage({ type: 'login', tenant: 'aesthetic' }, '*');
                 return;
               }
-              if (!acAuth0Client && window.auth0) await initAuth0();
+              if (!acAuth0Client) await initAuth0();
               if (!acAuth0Client) return;
               logAuth('check');
               await acAuth0Client.loginWithRedirect({
-                authorizationParams: { prompt: 'login', screen_hint: 'signup' }
+                authorizationParams: { prompt: 'login', screen_hint: 'signup' },
+                appState: { returnTo: window.location.pathname + window.location.search + window.location.hash },
               });
             } catch (e) { /* signup error */ }
           });
