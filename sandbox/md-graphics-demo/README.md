@@ -1,154 +1,244 @@
 # Inline graphics — a pattern language (no committed files)
 
 Graphics that render on **github.com** from **text alone** — nothing committed but
-this `.md`. No SVG, no PNG, no STL: if it isn't a fence or `$math$`, it's not here.
-
-Companion to `HAND.md` (code style) and `papers/VOICE.md` (prose). The craft guide
-for *visual* explanation that lives entirely in the diff.
+this `.md`. No SVG, no PNG, no STL. Companion to `HAND.md` and `papers/VOICE.md`.
 
 > [!NOTE]
-> This page is the live render test. On github.com every block paints; in a plain
-> editor you see raw fences — that's expected, GitHub renders them server-side.
+> This page is the live render test. On github.com every block should paint; a
+> ❌ below marks a form GitHub's MathJax **rejected** ("unable to render").
 
 ---
 
-## The inline palette (and its hard limit)
-
-Text-only, this is everything you get:
+## The inline palette
 
 | Method | Draws | Cost |
 |---|---|---|
 | ` ```mermaid ` | diagrams **and charts** (15+ types) | text |
-| `$…$` / ` ```math ` | formulas — **and arbitrary bitmaps** (see the hack) | text |
-| ` ```geojson ` / ` ```topojson ` | interactive maps | text |
+| `$…$` / ` ```math ` | formulas — **and bitmaps/paths** (the hacks below) | text |
+| ` ```geojson ` | interactive maps | text |
 | prose primitives | tables, task lists, `<details>`, alerts, footnotes | text |
-
-> [!IMPORTANT]
-> **Hard limit:** inline-only **cannot** embed photos, 3D, or high-res raster —
-> those need a committed file. The math-bitmap hack below is the closest you get
-> to "draw anything," and it's practical only at small (icon/sparkline) sizes.
 
 ---
 
-## Pattern 1 — Mermaid for diagrams
-
-**When:** boxes/arrows/flow/state. Label nodes with real names (`disk.mjs`,
-`session-server`) — a diagram that names the code is navigable.
+## Pattern 1 — Mermaid diagram
 
 ```mermaid
 flowchart LR
-  browser([browser / AC native]) -->|HTTPS| lith[lith\nExpress + Caddy]
-  browser -->|WS + UDP| sess[session-server\nGeckos.io]
+  browser([browser]) -->|HTTPS| lith[lith]
+  browser -->|WS+UDP| sess[session-server]
   lith --> mongo[(MongoDB)]
   sess --> redis[(Redis)]
-  browser --> feed[feed worker\nCloudflare]
 ```
 
-## Pattern 2 — Mermaid for charts (data-viz, still text)
-
-Mermaid isn't only diagrams — `pie`, `xychart-beta`, `sankey-beta`, `quadrantChart`
-give you **inline data-viz** with no plotting library and no image file.
-
-```mermaid
-pie title Render time by stage
-  "typecheck" : 45
-  "bundle" : 25
-  "deploy" : 30
-```
+## Pattern 2 — Mermaid charts (inline data-viz)
 
 ```mermaid
 xychart-beta
-  title "boot latency (ms) by build"
+  title "boot latency (ms)"
   x-axis [b1, b2, b3, b4, b5]
   y-axis "ms" 0 --> 400
   bar [320, 280, 210, 190, 150]
 ```
 
-## Pattern 3 — Mermaid styling = your palette inline
+## Pattern 3 — Math, the real thing
 
-`classDef` colors nodes — the AC chartreuse-on-black look without leaving text.
-
-```mermaid
-flowchart TD
-  A[boot] --> B[BIOS] --> C[disk] --> D[pieces]
-  classDef ac fill:#11160d,stroke:#9bd64a,color:#d7f0b0;
-  class A,B,C,D ac;
-```
-
-## Pattern 4 — Math for the actual math
-
-Per-sample phase step for long sine (matches fedac, avoids drift):
-$\Delta\varphi = 2\pi f / f_s$.
+$\Delta\varphi = 2\pi f / f_s$
 
 ```math
-\varphi_{n+1} = (\varphi_n + \tfrac{2\pi f}{f_s}) \bmod 2\pi, \qquad y_n = \sin(\varphi_n)
+\varphi_{n+1} = (\varphi_n + \tfrac{2\pi f}{f_s}) \bmod 2\pi
 ```
 
-## Pattern 5 — GeoJSON map
+## Pattern 4 — GeoJSON map
 
 ```geojson
 { "type": "FeatureCollection", "features": [
   { "type": "Feature", "properties": { "name": "LACMA" },
-    "geometry": { "type": "Point", "coordinates": [-118.3592, 34.0639] } },
-  { "type": "Feature", "properties": { "name": "CalArts" },
-    "geometry": { "type": "Point", "coordinates": [-118.5690, 34.3884] } }
-] }
+    "geometry": { "type": "Point", "coordinates": [-118.3592, 34.0639] } } ] }
 ```
 
 ---
 
-## Pattern 6 — The math-bitmap hack: "draw anything" inline
+## Drawing with math — what actually renders on GitHub
 
-The escape hatch when you refuse committed files. GitHub's MathJax autoloads the
-`color`/`bbox` extensions, so **`\rule` = a filled rectangle = a pixel**, and an
-`array` lays pixels on a grid. This is genuinely arbitrary 2D — at icon scale.
+We probe each primitive in isolation so the support matrix is empirical, not
+assumed. (GitHub's MathJax autoloads the `color` extension.)
 
-### 6a — Color swatch / bar (the atom)
+**Probe A — `\textcolor` + `\rule` (a colored pixel):**
 
-A colored block is just `\textcolor{#hex}{\rule{w}{h}}`:
+$\textcolor{#9bd64a}{\rule{40px}{16px}}$
 
-```math
-\textcolor{#9bd64a}{\rule{40px}{16px}}\;\textcolor{#e8ff8a}{\rule{40px}{16px}}\;\textcolor{#5fae3a}{\rule{40px}{16px}}
-```
+**Probe B — `\color` two-arg form:**
 
-### 6b — "Taller": struts and bars
+$\color{#9bd64a}{\rule{40px}{16px}}$
 
-Height is whatever you ask. A sparkline = bars of differing height on one line;
-an invisible strut `\rule{0pt}{H}` forces vertical extent:
+**Probe C — `\rlap` + `\hspace` (zero-width overlap + x-offset):**
 
-```math
-\textcolor{#9bd64a}{\rule{10px}{12px}}\,\textcolor{#9bd64a}{\rule{10px}{28px}}\,\textcolor{#9bd64a}{\rule{10px}{20px}}\,\textcolor{#9bd64a}{\rule{10px}{44px}}\,\textcolor{#9bd64a}{\rule{10px}{32px}}\,\textcolor{#9bd64a}{\rule{10px}{60px}}
-```
+$\rlap{\textcolor{#9bd64a}{\rule{16px}{16px}}}\hspace{30px}\textcolor{#5fae3a}{\rule{16px}{16px}}$
 
-### 6c — A bitmap (pixel art)
+**Probe D — `\raise` (y-offset):**
 
-Each cell is a pixel; `@{}` kills column gaps, `\\[-Npt]` closes rows; transparent
-pixels are `\phantom{\rule{..}{..}}`. A heart in AC pink:
+$\raise 14px {\textcolor{#e8ff8a}{\rule{16px}{16px}}}\ \textcolor{#9bd64a}{\rule{16px}{16px}}$
+
+**Probe E — plain `array` of rules (no `@{}`):**
 
 ```math
-\begin{array}{@{}c@{}c@{}c@{}c@{}c@{}c@{}c@{}c@{}}
-\phantom{\rule{12px}{12px}} & \textcolor{#ff4d6d}{\rule{12px}{12px}} & \textcolor{#ff4d6d}{\rule{12px}{12px}} & \phantom{\rule{12px}{12px}} & \phantom{\rule{12px}{12px}} & \textcolor{#ff4d6d}{\rule{12px}{12px}} & \textcolor{#ff4d6d}{\rule{12px}{12px}} & \phantom{\rule{12px}{12px}} \\[-3pt]
-\textcolor{#ff4d6d}{\rule{12px}{12px}} & \textcolor{#ff4d6d}{\rule{12px}{12px}} & \textcolor{#ff4d6d}{\rule{12px}{12px}} & \textcolor{#ff4d6d}{\rule{12px}{12px}} & \textcolor{#ff4d6d}{\rule{12px}{12px}} & \textcolor{#ff4d6d}{\rule{12px}{12px}} & \textcolor{#ff4d6d}{\rule{12px}{12px}} & \textcolor{#ff4d6d}{\rule{12px}{12px}} \\[-3pt]
-\textcolor{#ff4d6d}{\rule{12px}{12px}} & \textcolor{#ff4d6d}{\rule{12px}{12px}} & \textcolor{#ff4d6d}{\rule{12px}{12px}} & \textcolor{#ff4d6d}{\rule{12px}{12px}} & \textcolor{#ff4d6d}{\rule{12px}{12px}} & \textcolor{#ff4d6d}{\rule{12px}{12px}} & \textcolor{#ff4d6d}{\rule{12px}{12px}} & \textcolor{#ff4d6d}{\rule{12px}{12px}} \\[-3pt]
-\phantom{\rule{12px}{12px}} & \textcolor{#ff4d6d}{\rule{12px}{12px}} & \textcolor{#ff4d6d}{\rule{12px}{12px}} & \textcolor{#ff4d6d}{\rule{12px}{12px}} & \textcolor{#ff4d6d}{\rule{12px}{12px}} & \textcolor{#ff4d6d}{\rule{12px}{12px}} & \textcolor{#ff4d6d}{\rule{12px}{12px}} & \phantom{\rule{12px}{12px}} \\[-3pt]
-\phantom{\rule{12px}{12px}} & \phantom{\rule{12px}{12px}} & \textcolor{#ff4d6d}{\rule{12px}{12px}} & \textcolor{#ff4d6d}{\rule{12px}{12px}} & \textcolor{#ff4d6d}{\rule{12px}{12px}} & \textcolor{#ff4d6d}{\rule{12px}{12px}} & \phantom{\rule{12px}{12px}} & \phantom{\rule{12px}{12px}} \\[-3pt]
-\phantom{\rule{12px}{12px}} & \phantom{\rule{12px}{12px}} & \phantom{\rule{12px}{12px}} & \textcolor{#ff4d6d}{\rule{12px}{12px}} & \textcolor{#ff4d6d}{\rule{12px}{12px}} & \phantom{\rule{12px}{12px}} & \phantom{\rule{12px}{12px}} & \phantom{\rule{12px}{12px}}
+\begin{array}{cc}
+\textcolor{#ff4d6d}{\rule{12px}{12px}} & \phantom{\rule{12px}{12px}} \\
+\phantom{\rule{12px}{12px}} & \textcolor{#ff4d6d}{\rule{12px}{12px}}
 \end{array}
 ```
 
-### 6d — Overlap / custom positioning
+**Probe F — `array` with `@{}` tight columns + negative row gap → ❌ "unable to
+render expression" on GitHub.** This is what broke the first heart; `@{}` and
+`\\[-Npt]` aren't supported. Conclusion: **don't use arrays for bitmaps** — use
+the `\rlap` canvas below, which needs no array at all.
 
-`\rlap` draws without advancing, so you can stack; `\raise`/`\hspace` offset.
-Two overlapping blocks (composite, not grid):
+---
+
+## The `\rlap` canvas — draw arbitrary paths inline
+
+`\rlap` typesets with **zero width** (cursor doesn't advance), so a flat sequence
+of `\rlap{\hspace{x}\raise y{dot}}` places dots at absolute (x, y). A trailing
+`\phantom{\rule{W}{H}}` claims the canvas box. Emit one dot per filled sample and
+you trace **any path** — sparse art costs far fewer rules than a full grid.
+
+**Limit:** `\rule` is axis-aligned and MathJax has no rotation, so curves
+stair-step (you're rasterizing, not stroking) and there's no antialiasing.
+
+Generated by `node path-to-math.mjs smiley` (124 dots) — a smiley, drawn in math:
 
 ```math
-\rlap{\textcolor{#9bd64a}{\rule{50px}{50px}}}\raise14px{\hspace{18px}\textcolor{#e8ff8a}{\rule{50px}{50px}}}
+\rlap{\hspace{142px}\raise 78px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{141px}\raise 73px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{141px}\raise 69px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{140px}\raise 65px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{139px}\raise 61px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{138px}\raise 57px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{137px}\raise 53px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{135px}\raise 49px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{133px}\raise 46px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{131px}\raise 42px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{128px}\raise 39px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{126px}\raise 35px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{123px}\raise 32px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{120px}\raise 29px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{116px}\raise 27px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{113px}\raise 24px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{110px}\raise 22px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{106px}\raise 20px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{102px}\raise 18px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{98px}\raise 17px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{94px}\raise 16px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{90px}\raise 15px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{86px}\raise 14px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{82px}\raise 14px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{78px}\raise 14px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{73px}\raise 14px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{69px}\raise 14px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{65px}\raise 15px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{61px}\raise 16px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{57px}\raise 17px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{53px}\raise 18px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{49px}\raise 20px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{46px}\raise 22px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{42px}\raise 24px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{39px}\raise 27px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{35px}\raise 29px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{32px}\raise 32px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{29px}\raise 35px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{27px}\raise 39px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{24px}\raise 42px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{22px}\raise 46px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{20px}\raise 49px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{18px}\raise 53px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{17px}\raise 57px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{16px}\raise 61px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{15px}\raise 65px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{14px}\raise 69px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{14px}\raise 73px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{14px}\raise 77px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{14px}\raise 82px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{14px}\raise 86px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{15px}\raise 90px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{16px}\raise 94px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{17px}\raise 98px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{18px}\raise 102px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{20px}\raise 106px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{22px}\raise 110px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{24px}\raise 113px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{27px}\raise 116px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{29px}\raise 120px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{32px}\raise 123px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{35px}\raise 126px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{39px}\raise 128px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{42px}\raise 131px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{45px}\raise 133px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{49px}\raise 135px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{53px}\raise 137px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{57px}\raise 138px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{61px}\raise 139px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{65px}\raise 140px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{69px}\raise 141px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{73px}\raise 141px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{77px}\raise 142px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{82px}\raise 141px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{86px}\raise 141px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{90px}\raise 140px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{94px}\raise 139px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{98px}\raise 138px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{102px}\raise 137px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{106px}\raise 135px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{110px}\raise 133px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{113px}\raise 131px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{116px}\raise 128px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{120px}\raise 126px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{123px}\raise 123px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{126px}\raise 120px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{128px}\raise 116px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{131px}\raise 113px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{133px}\raise 110px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{135px}\raise 106px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{137px}\raise 102px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{138px}\raise 98px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{139px}\raise 94px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{140px}\raise 90px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{141px}\raise 86px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{141px}\raise 82px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{54px}\raise 94px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{56px}\raise 94px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{102px}\raise 94px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{100px}\raise 94px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{102px}\raise 45px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{100px}\raise 44px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{98px}\raise 42px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{96px}\raise 41px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{94px}\raise 40px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{92px}\raise 39px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{90px}\raise 38px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{88px}\raise 37px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{86px}\raise 36px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{83px}\raise 36px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{81px}\raise 36px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{79px}\raise 36px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{76px}\raise 36px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{74px}\raise 36px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{72px}\raise 36px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{69px}\raise 36px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{67px}\raise 37px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{65px}\raise 38px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{63px}\raise 39px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{61px}\raise 40px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{59px}\raise 41px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{57px}\raise 42px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{55px}\raise 44px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\rlap{\hspace{53px}\raise 45px {\textcolor{#e8ff8a}{\rule{5px}{5px}}}}
+\phantom{\rule{160px}{160px}}
 ```
 
-> [!CAUTION]
-> The math-bitmap is a **hack**: source grows as W×H rules, spacing needs tuning
-> per renderer, and there's no antialiasing. Use it for glyphs, swatches, progress
-> bars, and sparklines — reach for Mermaid charts before hand-rolling a bitmap.
+Swap the shape function in `path-to-math.mjs` for anything parametric —
+`node path-to-math.mjs flower` emits a flower (petals + core + stem + leaf). The
+*output* is pure inline math; the generator is just a convenience for plotting the
+points.
 
 ---
 
@@ -156,20 +246,18 @@ Two overlapping blocks (composite, not grid):
 
 ```mermaid
 flowchart TD
-  q{show what?} --> d{flow / state / boxes?}
+  q{show what?} --> d{flow / state?}
   d -->|yes| mer[Mermaid diagram]
-  d -->|no| c{quantities / trend?}
-  c -->|yes| chart[Mermaid pie / xychart / sankey]
-  c -->|no| f{a formula?}
+  d -->|no| c{quantities?}
+  c -->|yes| chart[Mermaid chart]
+  c -->|no| f{formula?}
   f -->|yes| math[math block]
   f -->|no| g{geographic?}
-  g -->|yes| geo[geojson map]
-  g -->|no| b[math-bitmap hack\nicon-scale only]
+  g -->|yes| geo[geojson]
+  g -->|no| canvas[rlap math-canvas\nicon scale]
 ```
 
 ## Papers-platter caveat
 
-None of this reaches the `papers/` xelatex PDFs — GitHub Mermaid/MathJax is a
-**github.com** feature. In a paper, the same ideas are native: TikZ for diagrams,
-real LaTeX math, `pgfplots` for charts. This pattern language is for the GitHub
-surface (PRs, RFCs, issues, READMEs).
+None of this reaches `papers/` xelatex PDFs — it's a **github.com** feature. In a
+paper the equivalents are native: TikZ, real LaTeX math, `pgfplots`.
