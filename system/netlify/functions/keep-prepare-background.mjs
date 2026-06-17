@@ -547,6 +547,25 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
   const pieceSourceHash = hashSource(piece.source || "");
   const forceFresh = Boolean(regenerate);
 
+  // Identity fields to seed when an upsert below INSERTS a Mongo mirror row for
+  // a piece that, under KIDLISP_DATOMIC, lives only in Datomic. Without these
+  // the new row has no `hash`, lands as { hash: null }, and collides with the
+  // partial-but-formerly-plain kidlisp_hash_unique index. The canonical `hash`
+  // is sha256(source.trim()) — matching store-kidlisp — NOT the sliced
+  // hashSource() used for ipfsMedia.sourceHash.
+  const identityOnInsert = {};
+  if (typeof piece.source === "string" && piece.source.length > 0) {
+    identityOnInsert.source = piece.source;
+    identityOnInsert.hash = createHash("sha256")
+      .update(piece.source.trim())
+      .digest("hex");
+    identityOnInsert.when = new Date();
+  }
+  const withInsertIdentity = (ops) =>
+    Object.keys(identityOnInsert).length > 0
+      ? { ...ops, $setOnInsert: identityOnInsert }
+      : ops;
+
   // Check cached media
   const useCachedMedia = !regenerate && isCachedMediaValid(piece);
   let artifactUri, thumbnailUri, metadataUri;
@@ -782,7 +801,7 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
     // upsert: pieces that live only in Datomic don't have a Mongo row yet.
     // Write one on first bake so ipfsMedia / mediaHistory / kept can land
     // and subsequent keep operations (rebake, confirm, sync) work.
-    await col.updateOne({ code: pieceName }, updateOps, { upsert: true });
+    await col.updateOne({ code: pieceName }, withInsertIdentity(updateOps), { upsert: true });
     await mirrorIpfsMedia(pieceName, updateOps.$set.ipfsMedia);
   }
 
@@ -802,7 +821,7 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
     };
     await col.updateOne(
       { code: pieceName },
-      { $set: { pendingRebake: rebakePayload } },
+      withInsertIdentity({ $set: { pendingRebake: rebakePayload } }),
       { upsert: true }
     );
     await mirrorPendingRebake(pieceName, rebakePayload);
