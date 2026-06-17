@@ -50,6 +50,17 @@ SIGN_CN="Slab Menubar Self-Signed"
 SIGN_KEYCHAIN="${HOME}/Library/Keychains/slab-signing.keychain-db"
 SIGN_KC_PASS="${SLAB_SIGN_KC_PASS:-slab-signing}"
 
+# SHA-1 hash of the stable cert in the DEDICATED keychain, or "" if it doesn't
+# exist yet. We sign by this hash, not by CN, because a same-CN cert may also
+# exist in login.keychain (legacy installs) — signing by CN is then "ambiguous"
+# and fails. Reading from "${SIGN_KEYCHAIN}" explicitly guarantees we get the
+# right cert even when a duplicate lives elsewhere.
+slab_sign_hash() {
+    [ -f "${SIGN_KEYCHAIN}" ] || return 0
+    security find-certificate -Z -c "${SIGN_CN}" "${SIGN_KEYCHAIN}" 2>/dev/null \
+        | awk '/SHA-1 hash:/{print $3; exit}'
+}
+
 # Sign an app bundle with the stable identity. codesign needs a real Security
 # session to reach the private key; over SSH (notty) it returns
 # errSecInternalComponent, so a direct sign only works when install.sh runs in
@@ -59,12 +70,22 @@ SIGN_KC_PASS="${SLAB_SIGN_KC_PASS:-slab-signing}"
 # produces a "${SIGN_CN}" signature (caller then falls back to ad-hoc).
 codesign_app() {
     local app="$1"
+    # Sign by the cert's SHA-1 HASH, never by CN. If a same-CN cert also lives in
+    # login.keychain (an older install.sh left one there on some machines),
+    # codesign --sign "<CN>" errors out "ambiguous (matches … in login.keychain
+    # and … in slab-signing.keychain)". The hash is unique to the cert in the
+    # dedicated keychain, so it always picks the right one. We can only compute
+    # the hash once the keychain+cert exist; the direct-sign shortcut below is
+    # therefore best-effort and silently no-ops on the first run (no cert yet),
+    # falling through to the gui-bootstrap path which creates it.
+    local hash=""
+    hash="$(slab_sign_hash)"
     # Only try a direct sign when we're already in an Aqua session (install.sh
-    # run from a GUI Terminal). Over SSH a direct sign fails with
-    # errSecInternalComponent AND can pop a keychain dialog on the machine's
+    # run from a GUI Terminal) AND we have a hash. Over SSH a direct sign fails
+    # with errSecInternalComponent AND can pop a keychain dialog on the machine's
     # screen, so skip straight to the gui-bootstrap path below.
-    if [ -n "${SECURITYSESSIONID:-}" ] && \
-       codesign --force --deep --sign "${SIGN_CN}" \
+    if [ -n "${SECURITYSESSIONID:-}" ] && [ -n "${hash}" ] && \
+       codesign --force --deep --sign "${hash}" \
         --identifier computer.slab.menubar "${app}" >/dev/null 2>&1; then
         return 0
     fi
@@ -83,7 +104,7 @@ codesign_app() {
 KC='${SIGN_KEYCHAIN}'; PASS='${SIGN_KC_PASS}'; CN='${SIGN_CN}'; APP='${app}'
 exec > '${log}' 2>&1
 [ -f "\$KC" ] || security create-keychain -p "\$PASS" "\$KC"
-security set-keychain-settings "\$KC"
+security set-keychain-settings "\$KC" 2>/dev/null || true  # best-effort: drop lock-timeout
 security unlock-keychain -p "\$PASS" "\$KC"
 if ! security find-certificate -c "\$CN" "\$KC" >/dev/null 2>&1; then
   T="\$(mktemp -d)"
@@ -98,7 +119,10 @@ fi
 security set-key-partition-list -S apple-tool:,apple: -s -k "\$PASS" "\$KC" >/dev/null 2>&1 || true
 CUR="\$(security list-keychains -d user | sed -e 's/\"//g' -e 's/^ *//')"
 case "\$CUR" in *slab-signing*) : ;; *) security list-keychains -d user -s \$CUR "\$KC" ;; esac
-codesign --force --deep --sign "\$CN" --identifier computer.slab.menubar "\$APP"
+# Sign by the cert's SHA-1 hash from THIS keychain, never by CN — a legacy
+# same-CN cert in login.keychain would make a sign-by-CN "ambiguous" and fail.
+HASH="\$(security find-certificate -Z -c "\$CN" "\$KC" 2>/dev/null | awk '/SHA-1 hash:/{print \$3; exit}')"
+codesign --force --deep --sign "\$HASH" --identifier computer.slab.menubar "\$APP"
 echo "rc=\$?"
 EOS
     cat > "${plist}" <<EOP
@@ -108,12 +132,19 @@ EOS
 <key>ProgramArguments</key><array><string>/bin/bash</string><string>${script}</string></array>
 <key>RunAtLoad</key><true/></dict></plist>
 EOP
+    : > "${log}"  # pre-create so the marker gate has a file to poll from t=0
     launchctl bootout "gui/${uid}/${label}" 2>/dev/null || true
     if launchctl bootstrap "gui/${uid}" "${plist}" 2>/dev/null; then
+        # RunAtLoad starts the job exactly once. Do NOT kickstart -k it: that
+        # forces a SECOND run that races the first (both re-sign the same
+        # bundle), and our verify can land while the second run has the
+        # signature half-written → a spurious ad-hoc fallback. Just wait.
+        #
         # Gate on the helper's own completion marker (the rc= line it echoes
         # last) rather than a fixed clock, so a job whose *start* launchd
         # throttles still gets waited out instead of us racing it to an ad-hoc
-        # fallback. ~60s ceiling.
+        # fallback. The helper script stays on disk until the marker appears (we
+        # never delete it mid-run). ~60s ceiling.
         for i in $(seq 1 240); do
             grep -q '^rc=' "${log}" 2>/dev/null && break
             sleep 0.25
@@ -121,7 +152,14 @@ EOP
         launchctl bootout "gui/${uid}/${label}" 2>/dev/null || true
     fi
     rm -f "${script}" "${plist}"
-    if codesign -dvv "${app}" 2>&1 | grep -q "Authority=${SIGN_CN}"; then
+    # Verify the bundle now carries the stable authority. Capture first, then
+    # grep a string — do NOT pipe `codesign -dvv` into `grep -q`: under
+    # `set -o pipefail`, grep -q closes the pipe on first match, codesign takes
+    # SIGPIPE and exits non-zero, and the whole pipeline reports failure even
+    # though the signature matched (this caused a spurious ad-hoc fallback).
+    local sig
+    sig="$(codesign -dvv "${app}" 2>&1)"
+    if [[ "${sig}" == *"Authority=${SIGN_CN}"* ]]; then
         rm -f "${log}"
         return 0
     fi
