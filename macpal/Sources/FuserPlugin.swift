@@ -293,8 +293,30 @@ final class PaneRenderer {
 // ── the plugin ───────────────────────────────────────────────────────────
 final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     private let home: String       // fuser state dir (== config.supportDir)
-    private let repo: String       // repo to read git status from
+    private var repo: String       // repo to read git status from (live-switchable)
+    private var repoLabel: String  // the chosen repo's menu label
     private weak var c: PalController?
+
+    // Which repository the pal reads git status from is a right-click choice,
+    // persisted in UserDefaults. The launch `--repo` arg seeds the default;
+    // picking a repo in the menu overrides it (per machine, so neo/blueberry
+    // can read aesthetic-computer while panda/chicken stay on fuser).
+    static let repoKey = "MacPal.repo"
+    static let knownRepos: [(label: String, path: String)] = [
+        ("aesthetic-computer", NSString(string: "~/aesthetic-computer").expandingTildeInPath),
+        ("fuser", NSString(string: "~/Developer/fuser").expandingTildeInPath),
+    ]
+    /// The selectable repos: the known set, plus the launch `--repo` path if
+    /// it isn't one of them — so the active repo always has a checkbox.
+    private var repoChoices: [(label: String, path: String)] {
+        var choices = Self.knownRepos
+        if !choices.contains(where: { $0.path == initRepo }) {
+            let name = (initRepo as NSString).lastPathComponent
+            choices.append((label: name.isEmpty ? "repo" : name, path: initRepo))
+        }
+        return choices
+    }
+    private let initRepo: String   // the --repo launch arg (default fallback)
 
     private var statusFile: String { home + "/gitstatus" }
     private var paneLog: String { home + "/pane.log" }
@@ -330,7 +352,18 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
 
     init(home: String, repo: String) {
         self.home = home
-        self.repo = repo
+        self.initRepo = repo
+        // A persisted menu choice wins over the launch arg; otherwise track the
+        // --repo path (labeled from the known set when it matches).
+        if let lbl = UserDefaults.standard.string(forKey: Self.repoKey),
+           let choice = Self.knownRepos.first(where: { $0.label == lbl }) {
+            self.repo = choice.path
+            self.repoLabel = lbl
+        } else {
+            self.repo = repo
+            self.repoLabel = Self.knownRepos.first(where: { $0.path == repo })?.label
+                ?? (repo as NSString).lastPathComponent
+        }
         self.hasPane = FileManager.default.fileExists(atPath: home + "/pane.log")
         super.init()
     }
@@ -487,7 +520,34 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         let item = NSMenuItem(title: "Overtime", action: #selector(toggleOvertime), keyEquivalent: "")
         item.target = self
         item.state = FileManager.default.fileExists(atPath: overtimeFlag) ? .on : .off
-        return [item]
+
+        // Repo ▸ — which repository this pal reads git status from. Checkmark
+        // marks the active one; picking another switches it live + persists.
+        let repoItem = NSMenuItem(title: "Repo", action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        for choice in repoChoices {
+            let mi = NSMenuItem(title: choice.label, action: #selector(pickRepo(_:)), keyEquivalent: "")
+            mi.target = self
+            mi.representedObject = choice.label
+            mi.state = (choice.label == repoLabel) ? .on : .off
+            sub.addItem(mi)
+        }
+        repoItem.submenu = sub
+        return [item, repoItem]
+    }
+
+    /// Switch the tracked repo from the right-click menu: persist the choice,
+    /// repoint git, and force a fresh read so the badge updates immediately.
+    @objc func pickRepo(_ sender: NSMenuItem) {
+        guard let lbl = sender.representedObject as? String,
+              let choice = repoChoices.first(where: { $0.label == lbl }) else { return }
+        UserDefaults.standard.set(lbl, forKey: Self.repoKey)
+        repo = choice.path
+        repoLabel = lbl
+        lastBranch = ""; lastDirty = false   // invalidate cache → next tick re-reads
+        tick4 = 0
+        c?.nameLabel.bounce()
+        refresh()
     }
 
     // ── overtime ───────────────────────────────────────────────────────────
