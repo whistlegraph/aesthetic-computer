@@ -39,4 +39,7 @@ app_path="/Applications/$APP.app"
 # app's single-instance lock hands the args to the running primary via its
 # `second-instance` handler (which opens the preview window there). If the app
 # isn't running yet, this cold-launches it straight into preview mode.
-exec open -na "$app_path" --args --preview "$url"
+# Use the `--preview=<url>` equals form (not space-separated): Chromium can
+# inject its own switches into argv, and a bare `--preview <url>` risks the
+# parser pairing --preview with an injected flag instead of our URL.
+exec open -na "$app_path" --args "--preview=$url"
