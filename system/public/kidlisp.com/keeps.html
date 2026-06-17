@@ -6059,6 +6059,7 @@
       clearTrackLog();
       document.getElementById('mint-overlay').classList.add('open');
       document.body.style.overflow = 'hidden';
+      requestEmbedExpand(true);
 
       // Permalink: reflect the open mint modal in the URL so sharing /kept/$code
       // or /unkept/$code reopens this exact view. Only push when the URL isn't
@@ -6086,6 +6087,7 @@
       mintAutoSyncAfterRebake = false;
       document.getElementById('mint-overlay').classList.remove('open');
       document.body.style.overflow = '';
+      requestEmbedExpand(false);
 
       // Permalink: restore URL to tab root when the modal closes. Matches
       // /kept/$code or /unkept/$code (and bare /$code inside unkept context)
@@ -7195,6 +7197,15 @@
       embedHandledKey = key;
       document.documentElement.classList.add('has-piece');
       openMintModal({ code });
+    }
+
+    // Ask the parent editor to expand this iframe to cover the full kidlisp
+    // window while the keep flow is open. The Beacon/Taquito wallet modals
+    // render into THIS document's viewport — full-window means a proper desktop
+    // connect/sign modal instead of the cramped mobile-forced one in a tiny tab.
+    function requestEmbedExpand(on) {
+      if (!IS_EMBEDDED) return;
+      try { window.parent.postMessage({ type: 'keeps:expand', on: !!on }, window.location.origin); } catch (e) {}
     }
 
     if (IS_EMBEDDED) {

@@ -3887,6 +3887,9 @@
       #jukebox-tab:hover {
         background: rgba(59, 130, 246, 0.35);
       }
+      #keep-tab:hover {
+        background: rgba(245, 158, 11, 0.4);
+      }
       #reference-tab:hover {
         background: rgba(34, 197, 94, 0.35);
       }
@@ -3969,6 +3972,35 @@
     #reference-tab.active {
       background: rgba(34, 197, 94, 0.55);
       color: #14532d;
+    }
+
+    /* Keep - Amber/Gold (Tezos) */
+    #keep-tab {
+      background: rgba(245, 158, 11, 0.22);
+      color: #b45309;
+    }
+    #keep-tab.active {
+      background: rgba(245, 158, 11, 0.55);
+      color: #7c2d12;
+    }
+    :root.dark #keep-tab {
+      background: rgba(245, 158, 11, 0.3);
+      color: #fde68a;
+    }
+    :root.dark #keep-tab.active {
+      background: rgba(245, 158, 11, 0.55);
+      color: #fffbeb;
+    }
+
+    /* While the embedded keep flow is open, the keeps iframe takes over the full
+       kidlisp window so the Beacon/Taquito wallet modal renders desktop-size. */
+    #keeps-iframe.keeps-iframe-fullscreen {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 100000;
+      background: var(--bg-primary);
     }
 
     /* Dark mode adjustments for tab colors - brighter text for contrast */
@@ -15555,9 +15587,16 @@ s("ape_breaks_3").loopAt(2)</textarea>
     }
 
     // The embedded keeps page announces readiness; (re)send the current piece.
+    // It also asks to expand to the full window during the keep flow so the
+    // Beacon/Taquito wallet modal renders full-size (not the cramped mobile one).
     window.addEventListener('message', (e) => {
       if (e.origin !== window.location.origin) return;
-      if (e.data?.type === 'keeps:ready') postCurrentPieceToKeeps();
+      if (e.data?.type === 'keeps:ready') {
+        postCurrentPieceToKeeps();
+      } else if (e.data?.type === 'keeps:expand') {
+        const kf = document.getElementById('keeps-iframe');
+        if (kf) kf.classList.toggle('keeps-iframe-fullscreen', !!e.data.on);
+      }
     });
 
     // Configure Monaco with jsDelivr CDN (modern, well-supported)
