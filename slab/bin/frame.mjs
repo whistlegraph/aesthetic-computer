@@ -35,12 +35,20 @@ const APP_BUNDLE = "computer.slab.menubar";
 const REMOTE_STATE = "~/.local/share/slab/state"; // expanded by the remote shell
 
 function loadMachines() {
-  if (!existsSync(CONFIG_PATH)) {
-    console.error(`no config at ${CONFIG_PATH} — register machines (puppet config)`);
-    process.exit(1);
+  let machines = {};
+  if (existsSync(CONFIG_PATH)) {
+    machines = JSON.parse(readFileSync(CONFIG_PATH, "utf8")).machines || {};
   }
-  const cfg = JSON.parse(readFileSync(CONFIG_PATH, "utf8"));
-  return cfg.machines || {};
+  // The controller captures itself with no ssh (ssh-to-self is host-key
+  // fragile). Expose it under its LocalHostName as a `local: true` machine —
+  // synthetic, so it never has to live in puppet.json (which puppet's daemon
+  // also reads and would try to CDP-connect).
+  let self = "local";
+  try {
+    self = execFileSync("scutil", ["--get", "LocalHostName"], { encoding: "utf8" }).trim() || "local";
+  } catch {}
+  if (!machines[self]) machines[self] = { local: true };
+  return machines;
 }
 
 function sshHostFor(name, machines) {
@@ -48,6 +56,10 @@ function sshHostFor(name, machines) {
 }
 
 // One ssh invocation with a warm multiplexed master so repeated frames are fast.
+// The command is fed to `bash -s` over stdin, NOT passed as an argument: the
+// remote runs the login shell, and some machines use fish (blueberry) which
+// can't parse the bash `for/$()/done` syntax. `bash -s` + stdin is shell-
+// agnostic and sidesteps all quoting.
 function ssh(host, remoteCmd, { timeoutMs = 15000 } = {}) {
   const cp = join(HOME, ".ssh", `cm-${host}`);
   return execFileSync(
@@ -58,10 +70,22 @@ function ssh(host, remoteCmd, { timeoutMs = 15000 } = {}) {
       "-o", "ControlPersist=300",
       "-o", "BatchMode=yes",
       host,
-      remoteCmd,
+      "bash -s",
     ],
-    { encoding: "utf8", timeout: timeoutMs, maxBuffer: 64 * 1024 * 1024 },
+    { input: remoteCmd, encoding: "utf8", timeout: timeoutMs, maxBuffer: 64 * 1024 * 1024 },
   );
+}
+
+// Run a shell command on a machine — locally (no ssh) when it's flagged
+// "local" in the registry (e.g. neo, the controller, capturing its own screen;
+// `ssh localhost` is awkward/host-key-fragile), otherwise over the warm master.
+function runOn(name, machines, cmd, { timeoutMs = 15000 } = {}) {
+  if (machines[name]?.local) {
+    return execFileSync("bash", ["-c", cmd], {
+      encoding: "utf8", timeout: timeoutMs, maxBuffer: 64 * 1024 * 1024,
+    });
+  }
+  return ssh(sshHostFor(name, machines), cmd, { timeoutMs });
 }
 
 function captureFrame(name, { noOCR = false, out, json = false } = {}) {
@@ -70,7 +94,6 @@ function captureFrame(name, { noOCR = false, out, json = false } = {}) {
     console.error(`unknown machine "${name}" — known: ${Object.keys(machines).join(", ") || "(none)"}`);
     process.exit(1);
   }
-  const host = sshHostFor(name, machines);
   const mode = noOCR ? "noocr" : "full";
   // Drop the request, wait for the daemon's done marker (≤4s), emit the envelope.
   const remote =
@@ -80,9 +103,9 @@ function captureFrame(name, { noOCR = false, out, json = false } = {}) {
     `cat "$d/frame.out.json" 2>/dev/null`;
   let raw;
   try {
-    raw = ssh(host, remote);
+    raw = runOn(name, machines, remote);
   } catch (e) {
-    console.error(`ssh ${host} failed: ${e.message.split("\n")[0]}`);
+    console.error(`${name} unreachable: ${e.message.split("\n")[0]}`);
     process.exit(1);
   }
   let env;
@@ -118,14 +141,14 @@ function captureFrame(name, { noOCR = false, out, json = false } = {}) {
   console.log(JSON.stringify(rest, null, 2));
 }
 
-// Read a TCC grant state over ssh (system DB is world-readable here).
-function srGrant(host) {
+// Read a TCC grant state (system DB is world-readable here).
+function srGrant(name, machines) {
   try {
     const q =
       `sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" ` +
       `"select auth_value from access where service='kTCCServiceScreenCapture' ` +
       `and client='${APP_BUNDLE}';" 2>/dev/null`;
-    return ssh(host, q).trim();
+    return runOn(name, machines, q).trim();
   } catch {
     return "";
   }
@@ -139,15 +162,14 @@ function doctor(name) {
     process.exit(1);
   }
   for (const n of names) {
-    const host = sshHostFor(n, machines);
     let running = "?";
     try {
-      running = ssh(host, "pgrep -x slab-menubar >/dev/null && echo yes || echo no").trim();
+      running = runOn(n, machines, "pgrep -x slab-menubar >/dev/null && echo yes || echo no").trim();
     } catch (e) {
       console.log(`${n}: UNREACHABLE (${e.message.split("\n")[0]})`);
       continue;
     }
-    const sr = srGrant(host);
+    const sr = srGrant(n, machines);
     const srLabel = sr === "2" ? "granted" : sr === "" ? "not listed (capture once to register)" : `denied (auth=${sr})`;
     console.log(
       `${n}: SlabMenubar ${running === "yes" ? "running" : "NOT running"} | ` +
@@ -162,10 +184,9 @@ function setup(name) {
     console.error(`unknown machine "${name}"`);
     process.exit(1);
   }
-  const host = sshHostFor(name, machines);
   console.log(`Triggering a capture on ${name} to surface the Screen Recording prompt…`);
   captureFrame(name, { noOCR: true });
-  const sr = srGrant(host);
+  const sr = srGrant(name, machines);
   if (sr === "2") {
     console.log(`✓ ${name}: Screen Recording already granted — frames will include pixels + OCR.`);
     return;
