@@ -148,6 +148,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             selector: #selector(activeSpaceDidChange),
             name: NSWorkspace.activeSpaceDidChangeNotification,
             object: nil)
+
+        // Fleet "frame" capture: watch for an SSH-dropped request file and
+        // answer with pixels + OCR + AX + window state. Only spins a file
+        // watcher — never touches ScreenCaptureKit until a frame is actually
+        // requested, so no Screen Recording prompt at launch (lazy grant).
+        FrameCapture.shared.start()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
