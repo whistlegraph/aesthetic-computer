@@ -1,6 +1,6 @@
 # The Hand — a code style guide for Aesthetic Computer
 
-companion to `papers/VOICE.md`. VOICE.md governs how papers *sound*; this governs how the code *reads*.
+companion to `papers/VOICE.md` and `GRAPHICS.md`. VOICE.md governs how papers *sound*, GRAPHICS.md how a PR or doc *draws*; this governs how the code *reads*.
 
 it exists because of what *The Hand and the Loop* (`papers/arxiv-hand-and-loop`) found: across three eras the codebase gained velocity and breadth and lost the instrument — the terse, single-mind discipline of the hand-written years. this guide is how the hand gets handed back to the loop. an agent that reads this should write code that knows it's part of an instrument, not just code that runs.
 
