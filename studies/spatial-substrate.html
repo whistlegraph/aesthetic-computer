@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spatial Substrate — a matrix field that lives</title>
+<style>
+  :root { --bg:#0a0b14; --panel:#161a2c; --line:#2a2f48; --ink:#cdd5e6; --dim:#717c96; --pink:#ff5b8a; --gold:#ffd23c; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; background:var(--bg); color:var(--ink);
+         font:14px/1.5 Georgia,"Times New Roman",serif; }
+  header { padding:14px 22px 10px; border-bottom:1px solid var(--line); }
+  header h1 { margin:0; font-size:19px; } header h1 small { color:var(--pink); font-style:italic; font-size:13px; }
+  header p { margin:6px 0 0; color:var(--dim); font-size:12.5px; max-width:80ch; }
+  main { display:flex; gap:18px; padding:16px 22px; flex-wrap:wrap; align-items:flex-start; }
+  .stage { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:10px; }
+  canvas { display:block; image-rendering:pixelated; border-radius:6px; background:#000; cursor:crosshair; }
+  .panel { flex:1; min-width:280px; max-width:380px; display:flex; flex-direction:column; gap:14px; }
+  .box { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:13px; }
+  .box h2 { margin:0 0 9px; font-size:13px; letter-spacing:.4px; text-transform:uppercase; color:var(--dim); }
+  .brushes { display:flex; flex-wrap:wrap; gap:6px; }
+  .brushes button { background:#0a0b14; color:var(--ink); border:1px solid var(--line); border-radius:7px;
+                    padding:6px 9px; cursor:pointer; font:inherit; font-size:12px; }
+  .brushes button:hover { border-color:var(--pink); }
+  .brushes button[aria-pressed="true"] { background:var(--pink); color:#1a0510; border-color:var(--pink); }
+  label.row { display:flex; align-items:center; gap:10px; font-size:12px; color:var(--dim); margin:9px 0 0; }
+  label.row input[type=range] { flex:1; accent-color:var(--pink); }
+  label.row .v { font-family:"Latin Modern Mono",monospace; color:var(--gold); min-width:3ch; text-align:right; }
+  .actions { display:flex; gap:6px; margin-top:6px; flex-wrap:wrap; }
+  .actions button { background:#0a0b14; color:var(--ink); border:1px solid var(--line); border-radius:7px;
+                    padding:6px 11px; cursor:pointer; font:inherit; font-size:12px; }
+  .actions button:hover { border-color:var(--pink); }
+  .toggle { display:inline-flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; user-select:none; }
+  .toggle input { accent-color:var(--pink); width:16px; height:16px; }
+  .legend { font-size:11.5px; color:var(--dim); line-height:1.8; }
+  .legend b { color:var(--ink); }
+  code { font-family:"Latin Modern Mono",monospace; color:var(--gold); font-size:11.5px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Spatial Substrate <small>— a matrix field that lives</small></h1>
+  <p>Every pixel holds a 2-vector <code>s</code>. Every cell also holds its own local 2×2 <code>M(x,y)</code> — a
+  <span style="color:var(--pink)">matrix field</span> you paint. Each tick: <code>s ← φ( M·s )</code> diffused with neighbors.
+  Color = the vector's <b style="color:#ff8fa6">direction</b>, brightness = its magnitude. Rotations make pinwheels,
+  shear makes streaks, det≈0 flattens to lines. Toggle <b>agents</b> to release walkers that ride the local flow and feed back into it.</p>
+</header>
+
+<main>
+  <div class="stage"><canvas id="cv" width="200" height="150"></canvas></div>
+
+  <div class="panel">
+    <div class="box">
+      <h2>brush — paint a local map</h2>
+      <div class="brushes" id="brushes"></div>
+      <label class="row">size <input id="size" type="range" min="2" max="30" value="12"><span class="v" id="sizeV">12</span></label>
+      <label class="row">diffuse <input id="diff" type="range" min="0" max="40" value="12"><span class="v" id="diffV">.12</span></label>
+      <label class="row">tick <input id="speed" type="range" min="1" max="4" value="1"><span class="v" id="speedV">1×</span></label>
+      <div class="actions">
+        <button id="seed">seed noise</button>
+        <button id="clearState">clear field</button>
+        <button id="resetM">reset maps</button>
+        <button id="pause">pause</button>
+      </div>
+    </div>
+
+    <div class="box">
+      <h2>agents — walkers on the field</h2>
+      <label class="toggle"><input type="checkbox" id="agentsOn"> release agents</label>
+      <label class="row">count <input id="acount" type="range" min="50" max="1500" value="400"><span class="v" id="acountV">400</span></label>
+      <label class="row">deposit <input id="adep" type="range" min="0" max="100" value="45"><span class="v" id="adepV">.45</span></label>
+      <p class="legend" style="margin:9px 0 0">Each agent turns its heading by the local matrix (<code>h ← M·h</code>), steps forward,
+      and deposits a vector back into the field — stigmergy. The matrix field steers the agents; the agents reshape the field.</p>
+    </div>
+
+    <div class="box">
+      <h2>reading it</h2>
+      <p class="legend">
+        <b>swirl</b> — local rotation; eigenvalues complex, magnitude conserved → persistent spiral waves.<br>
+        <b>expand / contract</b> — det &gt; 1 grows, &lt; 1 decays; the saturation φ keeps it from blowing up.<br>
+        <b>flatten</b> — det = 0; the cell projects onto one eigen-line → streaks.<br>
+        <b>shear</b> — repeated eigenvalue; combs the field into bands.
+      </p>
+    </div>
+  </div>
+</main>
+
+<script>
+// ===========================================================================
+// grid + buffers
+// ===========================================================================
+const cv = document.getElementById("cv");
+const ctx = cv.getContext("2d");
+const GW = cv.width, GH = cv.height, N = GW*GH, SCALE = 3.2;
+cv.style.width = (GW*SCALE)+"px"; cv.style.height = (GH*SCALE)+"px";
+const img = ctx.createImageData(GW, GH), pix = img.data;
+
+// vector state (ping-pong)
+let sx = new Float32Array(N), sy = new Float32Array(N);
+let nx = new Float32Array(N), ny = new Float32Array(N);
+// matrix field
+const Ma = new Float32Array(N), Mb = new Float32Array(N), Mc = new Float32Array(N), Md = new Float32Array(N);
+
+// ===========================================================================
+// brushes — each writes a 2x2 into the M field under the cursor
+// ===========================================================================
+const rot = (t)=>[Math.cos(t), -Math.sin(t), Math.sin(t), Math.cos(t)];
+const BRUSHES = [
+  { name:"swirl ↻",   m: rot( 0.22) },
+  { name:"swirl ↺",   m: rot(-0.22) },
+  { name:"expand",    m: [1.05,0,0,1.05] },
+  { name:"contract",  m: [0.95,0,0,0.95] },
+  { name:"shear →",   m: [1,0.35,0,1] },
+  { name:"shear ↑",   m: [1,0,0.35,1] },
+  { name:"flatten x", m: [1,0,0,0.0] },
+  { name:"flatten y", m: [0.0,0,0,1] },
+  { name:"identity",  m: [1,0,0,1] },
+];
+let brush = BRUSHES[0];
+const brushesEl = document.getElementById("brushes");
+BRUSHES.forEach((b,i)=>{
+  const btn=document.createElement("button"); btn.textContent=b.name;
+  btn.setAttribute("aria-pressed", i===0);
+  btn.onclick=()=>{ brush=b; [...brushesEl.children].forEach((c,j)=>c.setAttribute("aria-pressed", j===i)); };
+  brushesEl.appendChild(btn);
+});
+
+// ===========================================================================
+// init
+// ===========================================================================
+const DEFAULT_M = rot(0.10);   // gentle baseline rotation so the field is never inert
+function resetM(){ for(let i=0;i<N;i++){ Ma[i]=DEFAULT_M[0]; Mb[i]=DEFAULT_M[1]; Mc[i]=DEFAULT_M[2]; Md[i]=DEFAULT_M[3]; } }
+function clearState(){ sx.fill(0); sy.fill(0); }
+function seedNoise(){ for(let i=0;i<N;i++){ const a=rnd()*6.283, r=rnd()*0.9; sx[i]=Math.cos(a)*r; sy[i]=Math.sin(a)*r; } }
+
+// deterministic-ish PRNG (no Math.random ban concerns here, but keep it simple)
+let seed = 1234567;
+function rnd(){ seed = (seed*1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; }
+
+resetM(); seedNoise();
+
+// ===========================================================================
+// update — the substrate step
+// ===========================================================================
+let diffuse = 0.12, paused = false, substeps = 1;
+function step(){
+  for(let y=0;y<GH;y++){
+    const yu = (y-1+GH)%GH, yd = (y+1)%GH;
+    for(let x=0;x<GW;x++){
+      const i = y*GW + x;
+      const xl = (x-1+GW)%GW, xr = (x+1)%GW;
+      // local linear map
+      const vx = sx[i], vy = sy[i];
+      let tx = Ma[i]*vx + Mb[i]*vy;
+      let ty = Mc[i]*vx + Md[i]*vy;
+      // diffuse toward neighbour average (4-neighbourhood, wrap)
+      const il=y*GW+xl, ir=y*GW+xr, iu=yu*GW+x, id=yd*GW+x;
+      const ax = (sx[il]+sx[ir]+sx[iu]+sx[id])*0.25;
+      const ay = (sy[il]+sy[ir]+sy[iu]+sy[id])*0.25;
+      tx = tx*(1-diffuse) + ax*diffuse;
+      ty = ty*(1-diffuse) + ay*diffuse;
+      // φ — soft saturation: keep direction, clamp magnitude (excitable medium)
+      const mag = Math.hypot(tx,ty) + 1e-6;
+      const sat = Math.tanh(mag*1.15) / mag;       // magnitude → ~1
+      nx[i] = tx*sat; ny[i] = ty*sat;
+    }
+  }
+  // sparse seeding keeps the medium alive without input
+  for(let k=0;k<24;k++){ const i=(rnd()*N)|0, a=rnd()*6.283; nx[i]=Math.cos(a)*0.8; ny[i]=Math.sin(a)*0.8; }
+  // swap
+  let t=sx; sx=nx; nx=t; t=sy; sy=ny; ny=t;
+}
+
+// ===========================================================================
+// agents — walkers steered by M, depositing back into s (option C)
+// ===========================================================================
+let agentsOn = false, agentCount = 400, deposit = 0.45;
+let agents = [];
+function makeAgents(n){
+  agents = [];
+  for(let k=0;k<n;k++){ const a=rnd()*6.283; agents.push({ x:rnd()*GW, y:rnd()*GH, hx:Math.cos(a), hy:Math.sin(a) }); }
+}
+makeAgents(agentCount);
+function stepAgents(){
+  for(const ag of agents){
+    const xi=(ag.x|0), yi=(ag.y|0), i=((yi+GH)%GH)*GW + ((xi+GW)%GW);
+    // turn heading by local matrix, renormalise
+    let hx = Ma[i]*ag.hx + Mb[i]*ag.hy;
+    let hy = Mc[i]*ag.hx + Md[i]*ag.hy;
+    const m = Math.hypot(hx,hy)+1e-6; hx/=m; hy/=m;
+    ag.hx=hx; ag.hy=hy;
+    ag.x = (ag.x + hx*0.9 + GW) % GW;
+    ag.y = (ag.y + hy*0.9 + GH) % GH;
+    // deposit a vector aligned with motion (stigmergy)
+    const j=((ag.y|0))*GW + (ag.x|0);
+    sx[j] += hx*deposit; sy[j] += hy*deposit;
+  }
+}
+
+// ===========================================================================
+// render — vector field → color (hue=angle, value=magnitude)
+// ===========================================================================
+function hsv(h,s,v,out,o){            // h 0..1
+  const i=(h*6)|0, f=h*6-i, p=v*(1-s), q=v*(1-f*s), t=v*(1-(1-f)*s);
+  let r,g,b;
+  switch(i%6){ case 0:r=v;g=t;b=p;break; case 1:r=q;g=v;b=p;break; case 2:r=p;g=v;b=t;break;
+    case 3:r=p;g=q;b=v;break; case 4:r=t;g=p;b=v;break; default:r=v;g=p;b=q; }
+  out[o]=r*255; out[o+1]=g*255; out[o+2]=b*255; out[o+3]=255;
+}
+function render(){
+  for(let i=0;i<N;i++){
+    const vx=sx[i], vy=sy[i];
+    const mag=Math.hypot(vx,vy);
+    const h=(Math.atan2(vy,vx)/6.283)+0.5;
+    hsv(h, 0.85, Math.min(1, mag*1.1), pix, i*4);
+  }
+  // overlay agents as bright sparks
+  if(agentsOn){
+    for(const ag of agents){
+      const i=(((ag.y|0))*GW + (ag.x|0))*4;
+      pix[i]=255; pix[i+1]=255; pix[i+2]=255; pix[i+3]=255;
+    }
+  }
+  ctx.putImageData(img,0,0);
+}
+
+// ===========================================================================
+// painting
+// ===========================================================================
+let brushSize = 12, painting = false;
+function paintAt(mx, my){
+  const cx = mx/SCALE, cy = my/SCALE;
+  const r = brushSize, r2 = r*r;
+  for(let dy=-r;dy<=r;dy++) for(let dx=-r;dx<=r;dx++){
+    if(dx*dx+dy*dy>r2) continue;
+    const x=((cx+dx)|0), y=((cy+dy)|0);
+    if(x<0||y<0||x>=GW||y>=GH) continue;
+    const i=y*GW+x;
+    Ma[i]=brush.m[0]; Mb[i]=brush.m[1]; Mc[i]=brush.m[2]; Md[i]=brush.m[3];
+    // a little state so the painted region's behaviour shows immediately
+    if(sx[i]*sx[i]+sy[i]*sy[i] < 0.04){ const a=rnd()*6.283; sx[i]=Math.cos(a)*0.5; sy[i]=Math.sin(a)*0.5; }
+  }
+}
+cv.addEventListener("pointerdown", e=>{ painting=true; const b=cv.getBoundingClientRect(); paintAt(e.clientX-b.left, e.clientY-b.top); });
+window.addEventListener("pointermove", e=>{ if(!painting)return; const b=cv.getBoundingClientRect(); paintAt(e.clientX-b.left, e.clientY-b.top); });
+window.addEventListener("pointerup", ()=> painting=false);
+
+// ===========================================================================
+// controls
+// ===========================================================================
+const bind=(id,fn)=>document.getElementById(id).addEventListener("input",fn);
+bind("size", e=>{ brushSize=+e.target.value; document.getElementById("sizeV").textContent=brushSize; });
+bind("diff", e=>{ diffuse=+e.target.value/100; document.getElementById("diffV").textContent=diffuse.toFixed(2).slice(1); });
+bind("speed", e=>{ substeps=+e.target.value; document.getElementById("speedV").textContent=substeps+"×"; });
+bind("acount", e=>{ agentCount=+e.target.value; document.getElementById("acountV").textContent=agentCount; makeAgents(agentCount); });
+bind("adep", e=>{ deposit=+e.target.value/100; document.getElementById("adepV").textContent=deposit.toFixed(2).slice(1); });
+document.getElementById("agentsOn").addEventListener("change", e=>{ agentsOn=e.target.checked; if(agentsOn) makeAgents(agentCount); });
+document.getElementById("seed").onclick=seedNoise;
+document.getElementById("clearState").onclick=clearState;
+document.getElementById("resetM").onclick=resetM;
+document.getElementById("pause").onclick=(e)=>{ paused=!paused; e.target.textContent=paused?"play":"pause"; };
+
+// ===========================================================================
+// loop
+// ===========================================================================
+function frame(){
+  if(!paused){ for(let s=0;s<substeps;s++){ step(); if(agentsOn) stepAgents(); } }
+  render();
+  requestAnimationFrame(frame);
+}
+frame();
+</script>
+</body>
+</html>

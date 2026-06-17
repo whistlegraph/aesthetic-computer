@@ -330,38 +330,40 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         // default off and their live shortcuts stay in place, so the
         // toggles can return to About after release.
 
-        // "Use AC OS MIDI" — route melodic GM notes through the native
-        // Aesthetic Computer gm_synth voices (modal piano, FM Rhodes,
-        // Karplus pluck, modal bank, synth bass) instead of the system
-        // soundfont. Programs gm_synth doesn't implement fall back to
-        // MIDISynth, so the grid always sounds. Off by default.
-        stack.setCustomSpacing(14, after: playersLink)
-        let acMIDIRow = NSStackView()
-        acMIDIRow.orientation = .vertical
-        acMIDIRow.alignment = .leading
-        acMIDIRow.spacing = 1
-        acMIDIRow.translatesAutoresizingMaskIntoConstraints = false
-        let acMIDIToggle = NSButton(
-            checkboxWithTitle: "Use AC OS MIDI",
-            target: self,
-            action: #selector(toggleUseACMIDI(_:)))
-        acMIDIToggle.state = UserDefaults.standard
-            .bool(forKey: MenuBandSynth.useACMIDIDefaultsKey) ? .on : .off
-        acMIDIToggle.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
-        acMIDIToggle.translatesAutoresizingMaskIntoConstraints = false
-        let acMIDISub = NSTextField(labelWithString:
-            "synthesize GM instruments with the Aesthetic Computer engine "
-            + "instead of the system soundfont")
-        acMIDISub.font = NSFont.systemFont(ofSize: 9, weight: .regular)
-        acMIDISub.textColor = .secondaryLabelColor
-        acMIDISub.lineBreakMode = .byWordWrapping
-        acMIDISub.maximumNumberOfLines = 2
-        acMIDISub.translatesAutoresizingMaskIntoConstraints = false
-        acMIDIRow.addArrangedSubview(acMIDIToggle)
-        acMIDIRow.addArrangedSubview(acMIDISub)
-        stack.addArrangedSubview(acMIDIRow)
-        acMIDIRow.widthAnchor.constraint(
-            equalTo: stack.widthAnchor, constant: -56).isActive = true
+        // [v1.5.0 cutoff] "Use AC OS MIDI" checkbox deprecated for this
+        // release — the gm_synth routing (CGMSynth) is still wired up and
+        // the `useACMIDIDefaultsKey` flag stays off by default, so the grid
+        // sounds via the system soundfont. The toggle can return to About
+        // once the AC OS voices are release-ready. (`toggleUseACMIDI(_:)`
+        // remains for when it does.)
+        //
+        // stack.setCustomSpacing(14, after: playersLink)
+        // let acMIDIRow = NSStackView()
+        // acMIDIRow.orientation = .vertical
+        // acMIDIRow.alignment = .leading
+        // acMIDIRow.spacing = 1
+        // acMIDIRow.translatesAutoresizingMaskIntoConstraints = false
+        // let acMIDIToggle = NSButton(
+        //     checkboxWithTitle: "Use AC OS MIDI",
+        //     target: self,
+        //     action: #selector(toggleUseACMIDI(_:)))
+        // acMIDIToggle.state = UserDefaults.standard
+        //     .bool(forKey: MenuBandSynth.useACMIDIDefaultsKey) ? .on : .off
+        // acMIDIToggle.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
+        // acMIDIToggle.translatesAutoresizingMaskIntoConstraints = false
+        // let acMIDISub = NSTextField(labelWithString:
+        //     "synthesize GM instruments with the Aesthetic Computer engine "
+        //     + "instead of the system soundfont")
+        // acMIDISub.font = NSFont.systemFont(ofSize: 9, weight: .regular)
+        // acMIDISub.textColor = .secondaryLabelColor
+        // acMIDISub.lineBreakMode = .byWordWrapping
+        // acMIDISub.maximumNumberOfLines = 2
+        // acMIDISub.translatesAutoresizingMaskIntoConstraints = false
+        // acMIDIRow.addArrangedSubview(acMIDIToggle)
+        // acMIDIRow.addArrangedSubview(acMIDISub)
+        // stack.addArrangedSubview(acMIDIRow)
+        // acMIDIRow.widthAnchor.constraint(
+        //     equalTo: stack.widthAnchor, constant: -56).isActive = true
 
         // Crash-report summary — single orange ⚠️ button reading
         // "Menu Band crashed N times". Opens the scroll viewer where

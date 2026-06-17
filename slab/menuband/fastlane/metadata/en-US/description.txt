@@ -1,0 +1,12 @@
+Menu Band brings the built-in macOS instruments — the ones GarageBand uses — into your menu bar.
+
+A tiny piano sits at the right of your menu bar. Click any key to play, or type to play while Menu Band is the active app, using the Notepat or Ableton-style QWERTY layouts.
+
+Menu Band publishes a virtual MIDI source named "Menu Band": pick it as an input in any DAW and the keys you tap (or letters you type) play through your DAW's instruments. When no DAW is running, a built-in General MIDI synth covers hundreds of patches.
+
+More to play with:
+• Hold the backtick key to sample a sound from your microphone.
+• Drag in a MIDI file to play it back.
+• Bend pitch with a trackpad gesture.
+
+A political project: accessible music-making is as essential as time, network connectivity, and battery life. Menu Band is open source, with a free full version — including system-wide typing from any app — available as a direct download at prompt.ac/menuband.

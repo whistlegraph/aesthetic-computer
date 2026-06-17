@@ -49,7 +49,7 @@ final class WeekView: NSView {
 
     private let startHour = 6
     private let endHour = 24
-    private let headerH: CGFloat = 30
+    private let headerH: CGFloat = 38
     private let legendH: CGFloat = 26
     private let gutterW: CGFloat = 44
 
@@ -135,9 +135,9 @@ final class WeekView: NSView {
         // column's actual date rather than assuming column 0 is Sunday.
         let dayNames = ["", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
-        // Today's column highlight.
+        // Today's column highlight — washed in today's own day color.
         if today >= 0 {
-            NSColor.controlAccentColor.withAlphaComponent(0.08).setFill()
+            DayPalette.color(for: dayDate(today)).withAlphaComponent(0.10).setFill()
             NSRect(x: grid.minX + CGFloat(today) * colW, y: 0,
                    width: colW, height: bounds.height - legendH).fill()
         }
@@ -184,14 +184,22 @@ final class WeekView: NSView {
             } else {
                 header = "\(dayNames[weekday]) \(dayNum)"
             }
+            // Headers stay black (label color), larger type, today bolder. A
+            // soft shadow keeps them legible over the living backdrop.
             let style = NSMutableParagraphStyle(); style.alignment = .center
+            let shadow = NSShadow()
+            shadow.shadowColor = NSColor.white.withAlphaComponent(0.6)
+            shadow.shadowBlurRadius = 1.5
+            shadow.shadowOffset = NSSize(width: 0, height: -0.5)
             let attrs: [NSAttributedString.Key: Any] = [
-                .font: NSFont.systemFont(ofSize: 11, weight: isToday ? .bold : .medium),
-                .foregroundColor: isToday ? NSColor.controlAccentColor : NSColor.labelColor,
+                .font: NSFont.systemFont(ofSize: dayCount == 1 ? 15 : 13,
+                                         weight: isToday ? .heavy : .bold),
+                .foregroundColor: NSColor.labelColor,
                 .paragraphStyle: style,
+                .shadow: shadow,
             ]
             (header as NSString).draw(
-                in: NSRect(x: grid.minX + CGFloat(d) * colW, y: 8, width: colW, height: 16),
+                in: NSRect(x: grid.minX + CGFloat(d) * colW, y: 9, width: colW, height: 20),
                 withAttributes: attrs)
         }
     }

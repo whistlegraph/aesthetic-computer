@@ -103,9 +103,16 @@ final class MenuBandPopoverPanel: NSPanel {
         let newFrame = NSRect(x: originX, y: top - newH,
                               width: newW, height: newH)
         if animated {
+            let timing = CAMediaTimingFunction(name: .easeInEaseOut)
+            // Animate the mask silhouette in lockstep with the frame so the
+            // glass body grows downward (top edge pinned) and the picker
+            // slides into view, rather than the mask snapping to full size
+            // while the window frame catches up.
+            chrome.animateMask(toPanelSize: newFrame.size, duration: 0.2,
+                               timing: timing)
             NSAnimationContext.runAnimationGroup { ctx in
                 ctx.duration = 0.2
-                ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                ctx.timingFunction = timing
                 animator().setFrame(newFrame, display: true)
             }
         } else {
@@ -225,7 +232,27 @@ final class MenuBandPopoverChrome: NSView {
     private func rebuildMask() {
         let size = bounds.size
         guard size.width > 0, size.height > 0 else { return }
+        maskLayer.path = bodyArrowPath(for: size)
+        maskLayer.frame = bounds
 
+        // Clip the content view to the same rounded body rect so its
+        // corners match the backdrop instead of showing sharp edges.
+        let cb = content.bounds
+        if cb.width > 0, cb.height > 0 {
+            contentMaskLayer.path = CGPath(
+                roundedRect: cb, cornerWidth: MenuBandPopoverPanel.cornerRadius,
+                cornerHeight: MenuBandPopoverPanel.cornerRadius, transform: nil)
+            contentMaskLayer.frame = cb
+        }
+    }
+
+    /// Build the continuous body+arrow silhouette path for a given panel
+    /// `size` (chrome-local coords, origin bottom-left). Extracted from
+    /// `rebuildMask` so the mask can be *animated* to a new size (see
+    /// `animateMask(toPanelSize:duration:timing:)`) rather than only
+    /// rebuilt synchronously in `layout()` — which is what made the
+    /// instrument-picker open snap instead of slide.
+    private func bodyArrowPath(for size: CGSize) -> CGPath {
         let arrowH = MenuBandPopoverPanel.arrowHeight
         let arrowW = MenuBandPopoverPanel.arrowWidth
         let radius = MenuBandPopoverPanel.cornerRadius
@@ -263,18 +290,37 @@ final class MenuBandPopoverChrome: NSView {
                     tangent2End: CGPoint(x: 0, y: bodyTop - radius),
                     radius: radius)
         path.closeSubpath()
+        return path
+    }
 
-        maskLayer.path = path
-        maskLayer.frame = bounds
+    /// Animate the liquid-glass silhouette + content clip to a new panel
+    /// size in lockstep with the window's frame animation, so the body
+    /// grows/shrinks fluidly (instrument-picker slide) instead of the
+    /// mask snapping to the final shape while the frame catches up — the
+    /// desync that read as "the whole popover moves."
+    func animateMask(toPanelSize size: CGSize, duration: TimeInterval,
+                     timing: CAMediaTimingFunction) {
+        let radius = MenuBandPopoverPanel.cornerRadius
+        let bodyTarget = bodyArrowPath(for: size)
+        let contentRect = CGRect(
+            x: 0, y: 0, width: size.width,
+            height: max(0, size.height - MenuBandPopoverPanel.arrowHeight))
+        let contentTarget = CGPath(roundedRect: contentRect,
+                                   cornerWidth: radius, cornerHeight: radius,
+                                   transform: nil)
 
-        // Clip the content view to the same rounded body rect so its
-        // corners match the backdrop instead of showing sharp edges.
-        let cb = content.bounds
-        if cb.width > 0, cb.height > 0 {
-            contentMaskLayer.path = CGPath(
-                roundedRect: cb, cornerWidth: radius, cornerHeight: radius,
-                transform: nil)
-            contentMaskLayer.frame = cb
+        func animate(_ layer: CAShapeLayer, to target: CGPath, frame: CGRect) {
+            let anim = CABasicAnimation(keyPath: "path")
+            anim.fromValue = layer.presentation()?.path ?? layer.path
+            anim.toValue = target
+            anim.duration = duration
+            anim.timingFunction = timing
+            layer.path = target
+            layer.frame = frame
+            layer.add(anim, forKey: "maskResize")
         }
+        animate(maskLayer, to: bodyTarget,
+                frame: CGRect(origin: .zero, size: size))
+        animate(contentMaskLayer, to: contentTarget, frame: contentRect)
     }
 }

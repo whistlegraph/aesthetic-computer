@@ -70,6 +70,10 @@ final class ExpandedPianoWaveformView: NSView {
 
     private let pianoScale: CGFloat = 1.6
     private let inset: CGFloat = 14
+    /// Top inset for the content — larger than `inset` so the first row
+    /// (the waveform section) clears the close (✕) button that sits in the
+    /// top-left corner of the panel (≈6 pt corner inset + 30 pt button).
+    private let topInset: CGFloat = 44
     private let gap: CGFloat = 8
     private let hintHeight: CGFloat = 24
     private let heldNotesRowHeight: CGFloat = 0   // held-note pills retired
@@ -312,7 +316,7 @@ final class ExpandedPianoWaveformView: NSView {
         NSLayoutConstraint.activate([
             widthConstraint,
 
-            contentStack.topAnchor.constraint(equalTo: topAnchor, constant: inset),
+            contentStack.topAnchor.constraint(equalTo: topAnchor, constant: topInset),
             contentStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
             contentStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
             contentStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -inset),

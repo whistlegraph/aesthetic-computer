@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Graphical Linear Algebra — Explorer</title>
+<style>
+  :root {
+    --bg:     #101220;   /* deep indigo (matches gla.lisp wipe 16 18 32) */
+    --panel:  #181b2e;
+    --wire:   #788296;   /* 120 130 150 */
+    --signal: #f0dc3c;   /* 240 220 60  */
+    --ink:    #c8d0e0;
+    --dim:    #6a7488;
+    --pink:   #ff5b8a;    /* acpink-ish */
+    --line:   #2a2e45;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font: 14px/1.5 "Latin Modern Roman", Georgia, "Times New Roman", serif;
+    display: flex; flex-direction: column; min-height: 100%;
+  }
+  header {
+    padding: 18px 22px 12px; border-bottom: 1px solid var(--line);
+  }
+  header h1 { margin: 0; font-size: 20px; letter-spacing: .2px; }
+  header h1 small { color: var(--pink); font-size: 13px; font-style: italic; }
+  header p { margin: 6px 0 0; color: var(--dim); font-size: 12.5px; max-width: 70ch; }
+  nav { display: flex; gap: 6px; padding: 10px 22px 0; flex-wrap: wrap; }
+  nav button {
+    background: var(--panel); color: var(--ink); border: 1px solid var(--line);
+    padding: 7px 14px; border-radius: 7px; cursor: pointer; font: inherit; font-size: 13px;
+  }
+  nav button:hover { border-color: var(--pink); }
+  nav button[aria-selected="true"] { background: var(--pink); color: #1a0510; border-color: var(--pink); }
+  main { flex: 1; display: flex; gap: 18px; padding: 16px 22px 24px; flex-wrap: wrap; align-items: flex-start; }
+  .stage { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+  canvas { display: block; border-radius: 6px; background: var(--bg); }
+  .side { flex: 1; min-width: 260px; max-width: 460px; }
+  .side h2 { font-size: 15px; margin: 2px 0 8px; color: var(--ink); }
+  .side p { font-size: 13px; color: var(--ink); margin: 8px 0; }
+  .side .muted { color: var(--dim); font-size: 12.5px; }
+  .key { color: var(--pink); font-weight: bold; }
+  .controls { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .controls label { font-size: 12.5px; color: var(--dim); display: flex; align-items: center; gap: 10px; }
+  .controls input[type="range"] { flex: 1; accent-color: var(--pink); }
+  .controls .val { font-family: "Latin Modern Mono", monospace; color: var(--signal); min-width: 3ch; text-align: right; }
+  .toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--dim); cursor: pointer; }
+  table.gen { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 8px; }
+  table.gen td { padding: 4px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.gen td:first-child { color: var(--pink); white-space: nowrap; }
+  .chip { display: inline-block; width: 11px; height: 11px; border-radius: 50%; vertical-align: -1px; margin-right: 5px; border: 1px solid var(--wire); }
+  .chip.black { background: #000; }
+  .chip.white { background: #fff; }
+  footer { padding: 10px 22px 18px; color: var(--dim); font-size: 11.5px; border-top: 1px solid var(--line); }
+  footer a { color: var(--pink); }
+  code { font-family: "Latin Modern Mono", monospace; color: var(--signal); font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Graphical Linear Algebra <small>— an interactive explorer</small></h1>
+  <p>The notation of Bonchi, Sobociński &amp; Zanasi: linear algebra drawn as string diagrams.
+     <span class="key">Color is meaning</span> here — black is the <em>copying</em> structure, white is the <em>adding</em> structure, and inverting color is a real mathematical operation (duality), not decoration.</p>
+</header>
+
+<nav>
+  <button data-scene="generators" aria-selected="true">Generators</button>
+  <button data-scene="bizarro">Bizarro duality</button>
+  <button data-scene="flow">Signal flow</button>
+</nav>
+
+<main>
+  <div class="stage"><canvas id="cv" width="560" height="380"></canvas></div>
+  <div class="side" id="side"></div>
+</main>
+
+<footer>
+  Canonical conventions from Sobociński's
+  <a href="https://graphicallinearalgebra.net/2015/05/09/copying-discarding-and-the-slogan/" target="_blank" rel="noopener">graphicallinearalgebra.net</a>
+  (ep. 7–8) &amp; <em>Interacting Hopf Algebras</em>. Companion to <code>studies/graphical-linear-algebra-kidlisp-study.md</code> and the AC piece <code>$gla</code>.
+</footer>
+
+<script>
+const cv = document.getElementById("cv");
+const ctx = cv.getContext("2d");
+const side = document.getElementById("side");
+const COL = getComputedStyle(document.documentElement);
+const C = {
+  bg:     COL.getPropertyValue("--bg").trim(),
+  wire:   COL.getPropertyValue("--wire").trim(),
+  signal: COL.getPropertyValue("--signal").trim(),
+  ink:    COL.getPropertyValue("--ink").trim(),
+  dim:    COL.getPropertyValue("--dim").trim(),
+  pink:   COL.getPropertyValue("--pink").trim(),
+};
+
+// --- drawing primitives -----------------------------------------------------
+function wire(x1, y1, x2, y2, col = C.wire, w = 2) {
+  ctx.strokeStyle = col; ctx.lineWidth = w;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+}
+// A GLA generator node. fill: 'black' | 'white'. Outlined so it reads on dark bg.
+function node(x, y, fill, r = 9) {
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fillStyle = fill === "black" ? "#000" : "#fff"; ctx.fill();
+  ctx.lineWidth = 2; ctx.strokeStyle = fill === "black" ? C.wire : "#000"; ctx.stroke();
+}
+function dot(x, y, r = 3, col = C.signal) {
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fillStyle = col; ctx.fill();
+}
+function label(txt, x, y, col = C.dim, size = 12, align = "center") {
+  ctx.fillStyle = col; ctx.font = size + 'px "Latin Modern Mono", monospace';
+  ctx.textAlign = align; ctx.textBaseline = "middle"; ctx.fillText(txt, x, y);
+}
+function lerp(a, b, t) { return a + (b - a) * t; }
+function clear() { ctx.fillStyle = C.bg; ctx.fillRect(0, 0, cv.width, cv.height); }
+
+// Draw one generator in a cell: returns nothing, draws centered at (cx, cy).
+// kind decides wire layout. fill is node color.
+function generator(cx, cy, kind, fill) {
+  const sp = 26, len = 30;      // fork spread + wire length
+  if (kind === "add") {         // 2 in (left) -> 1 out (right)
+    wire(cx - len, cy - sp/1.4, cx, cy); wire(cx - len, cy + sp/1.4, cx, cy);
+    wire(cx, cy, cx + len, cy); node(cx, cy, fill);
+  } else if (kind === "copy") { // 1 in (left) -> 2 out (right)
+    wire(cx - len, cy, cx, cy);
+    wire(cx, cy, cx + len, cy - sp/1.4); wire(cx, cy, cx + len, cy + sp/1.4);
+    node(cx, cy, fill);
+  } else if (kind === "zero") { // 0 in -> 1 out (right). unit of add.
+    wire(cx, cy, cx + len, cy); node(cx, cy, fill);
+  } else if (kind === "discard") { // 1 in -> 0 out. counit of copy.
+    wire(cx - len, cy, cx, cy); node(cx, cy, fill);
+  } else if (kind === "scalar") {  // triangle holding a number; 1 in -> 1 out
+    wire(cx - len, cy, cx - 10, cy); wire(cx + 10, cy, cx + len, cy);
+    ctx.beginPath(); ctx.moveTo(cx - 10, cy - 11); ctx.lineTo(cx + 12, cy); ctx.lineTo(cx - 10, cy + 11); ctx.closePath();
+    ctx.fillStyle = C.pink; ctx.fill();
+    label("k", cx - 3, cy, "#1a0510", 12);
+  }
+}
+
+// --- scenes -----------------------------------------------------------------
+let scene = "generators";
+let raf = null;
+let phase = 0;
+let inputVal = 3;
+let bizarroT = 0, bizarroDir = 0; // animation of the duality flip
+
+function stop() { if (raf) cancelAnimationFrame(raf); raf = null; }
+
+function drawGenerators() {
+  clear();
+  label("the generators", 20, 22, C.pink, 13, "left");
+  const rowY = [88, 168, 248];
+  const colX = [150, 410];
+  // add / copy
+  generator(colX[0], rowY[0], "add", "white");  label("add  ○   2 → 1", colX[0], rowY[0] + 44, C.ink, 12);
+  generator(colX[1], rowY[0], "copy", "black");  label("copy ●   1 → 2", colX[1], rowY[0] + 44, C.ink, 12);
+  // zero / discard
+  generator(colX[0], rowY[1], "zero", "white");  label("zero ○   0 → 1", colX[0], rowY[1] + 44, C.ink, 12);
+  generator(colX[1], rowY[1], "discard", "black"); label("discard ●  1 → 0", colX[1], rowY[1] + 44, C.ink, 12);
+  // scalar
+  generator(280, rowY[2], "scalar"); label("scalar △  multiply by k", 280, rowY[2] + 44, C.ink, 12);
+
+  // duality braces
+  ctx.setLineDash([4, 4]);
+  wire(colX[0], rowY[0] + 60, colX[1], rowY[0] + 60, C.dim, 1);
+  wire(colX[0], rowY[1] + 60, colX[1], rowY[1] + 60, C.dim, 1);
+  ctx.setLineDash([]);
+  label("← reflect + invert color = the dual →", 280, rowY[0] + 72, C.dim, 11);
+  label("← reflect + invert color = the dual →", 280, rowY[1] + 72, C.dim, 11);
+
+  side.innerHTML = `
+    <h2>Two structures, four generators</h2>
+    <p>Everything is built from <span class="key">adding</span> (white) and <span class="key">copying</span> (black),
+       each with its unit. A third generator, the <span class="key">scalar</span>, multiplies by a number.</p>
+    <table class="gen">
+      <tr><td><span class="chip white"></span>add</td><td>2 wires in → 1 out. A commutative monoid: merge two values into their sum.</td></tr>
+      <tr><td><span class="chip white"></span>zero</td><td>0 in → 1 out. add's unit — emits the constant 0.</td></tr>
+      <tr><td><span class="chip black"></span>copy</td><td>1 in → 2 out. A cocommutative comonoid: fan one value out to two wires.</td></tr>
+      <tr><td><span class="chip black"></span>discard</td><td>1 in → 0 out. copy's counit — throws a value away.</td></tr>
+      <tr><td>△ scalar</td><td>1 in → 1 out. multiply the value by <code>k</code>.</td></tr>
+    </table>
+    <p class="muted">The slogan: <em>“linear algebra is the mathematics of adding and copying.”</em>
+       Add a scalar and the white/black/scalar interactions give <strong>Interacting Hopf Algebras</strong> —
+       the <em>complete</em> presentation of linear relations.</p>`;
+}
+
+function drawBizarro() {
+  clear();
+  // top: a small diagram (copy then discard one branch). bottom: its bizarro.
+  // Animate: reflect horizontally + invert node colors as t goes 0->1.
+  const t = bizarroT;
+  label("the “bizarro” transformation:  reflect ←→  +  swap ● ↔ ○", 280, 26, C.pink, 12);
+  label("press the button — watch copy become add", 280, 46, C.dim, 11);
+
+  const cx = 280, cy = 200, len = 90, sp = 46;
+  // original copy node (black), reflected toward an add node (white)
+  const reflected = t; // 0 = copy on left, 1 = mirrored
+  // We morph node x position by reflecting the whole diagram about cx.
+  const sign = lerp(1, -1, t);
+  const nodeX = cx;
+  // wires: single trunk on the (1-t) side, fork on the t side
+  const trunkX = cx - sign * len;
+  const forkX  = cx + sign * len;
+  wire(trunkX, cy, nodeX, cy);
+  wire(nodeX, cy, forkX, cy - sp); wire(nodeX, cy, forkX, cy + sp);
+  // color morphs black -> white
+  const fill = t < 0.5 ? "black" : "white";
+  node(nodeX, cy, fill, 11);
+
+  label(t < 0.5 ? "copy ●  (1 → 2)" : "add ○  (2 → 1)", cx, cy + 60, C.ink, 13);
+  label(t < 0.5 ? "fan one wire out to two" : "merge two wires into one",
+        cx, cy + 80, C.dim, 11);
+
+  side.innerHTML = `
+    <h2>Color is a mathematical operation</h2>
+    <p>In GLA, taking the <span class="key">mirror image</span> of a diagram and
+       <span class="key">inverting every node's color</span> turns any theorem into its
+       <em>dual</em> theorem — for free. Sobociński nicknames it <strong>“bizarro.”</strong></p>
+    <p>So <span class="chip black"></span><strong>copy</strong> is literally
+       <span class="chip white"></span><strong>add</strong> reflected-and-color-flipped;
+       <strong>discard</strong> is <strong>zero</strong> flipped. Two pictures, one duality.</p>
+    <p class="muted">This is exactly why getting the colors right matters: a color-inverted diagram
+       isn't “a slightly different style” — to a reader it is the <em>dual</em> statement.</p>
+    <div class="controls">
+      <button id="flip" style="background:var(--pink);color:#1a0510;border:none;padding:9px 14px;border-radius:7px;cursor:pointer;font:inherit;">
+        ⟲ apply bizarro
+      </button>
+    </div>`;
+  document.getElementById("flip").onclick = () => { bizarroDir = bizarroT < 0.5 ? 1 : -1; };
+  if (!raf) loopBizarro();
+}
+
+function loopBizarro() {
+  raf = requestAnimationFrame(loopBizarro);
+  if (bizarroDir !== 0) {
+    bizarroT += bizarroDir * 0.03;
+    if (bizarroT >= 1) { bizarroT = 1; bizarroDir = 0; }
+    if (bizarroT <= 0) { bizarroT = 0; bizarroDir = 0; }
+  }
+  if (scene === "bizarro") drawBizarro();
+}
+
+// Southwell's worked example: x -> copy -> (x,x) -> add -> 2x
+function drawFlow() {
+  clear();
+  phase = (phase + 1 / 90) % 1;
+  const t = phase;
+  const x0 = 40, xc = 180, xa = 380, xr = 520, cy = 200, sp = 60;
+
+  // wires
+  wire(x0, cy, xc, cy);                         // input trunk
+  wire(xc, cy, xa, cy - sp); wire(xc, cy, xa, cy + sp); // the two copies
+  wire(xa, cy, xr, cy);                         // output
+
+  // generators (CANONICAL colors): copy = black, add = white
+  node(xc, cy, "black", 11);
+  node(xa, cy, "white", 11);
+
+  // labels
+  label("in", x0 - 4, cy - 16, C.dim, 12);
+  label("copy ●", xc, cy + 30, C.ink, 12);
+  label("add ○", xa, cy - 30, C.ink, 12);
+  label("out", xr + 2, cy - 16, C.dim, 12);
+
+  // live numbers on the wires
+  const v = inputVal;
+  label(String(v), (x0 + xc) / 2, cy - 14, C.signal, 13);
+  label(String(v), (xc + xa) / 2, cy - sp - 14, C.signal, 13);
+  label(String(v), (xc + xa) / 2, cy + sp + 16, C.signal, 13);
+  label(String(v + v), (xa + xr) / 2, cy - 14, C.signal, 13);
+
+  // animated signal dots
+  dot(lerp(x0, xc, t), cy);
+  dot(lerp(xc, xa, t), lerp(cy, cy - sp, t));
+  dot(lerp(xc, xa, t), lerp(cy, cy + sp, t));
+  dot(lerp(xa, xr, t), cy);
+
+  // headline
+  label(`put ${v} in  →  copy  →  ${v} and ${v}  →  add  →  ${v + v}`, 280, 40, C.pink, 13);
+
+  side.innerHTML = `
+    <h2>The diagram <em>is</em> the computation</h2>
+    <p>Richard Southwell's worked example, live: a number flows in, the
+       <span class="chip black"></span><strong>black copy</strong> node fans it out, the
+       <span class="chip white"></span><strong>white add</strong> node merges the two copies.</p>
+    <p>Put <span class="key">${inputVal}</span> in, get <span class="key">${inputVal + inputVal}</span> out.
+       The whole picture denotes the linear map <code>x ↦ 2x</code> — you compute by drawing.</p>
+    <div class="controls">
+      <label>input&nbsp;x <input id="xin" type="range" min="0" max="12" step="1" value="${inputVal}">
+        <span class="val">${inputVal}</span></label>
+    </div>
+    <p class="muted">Note the colors: copy is black, add is white — the canonical GLA convention.
+       (The <code>$gla</code> KidLisp piece currently has these inverted.)</p>`;
+  const sl = document.getElementById("xin");
+  sl.oninput = (e) => { inputVal = +e.target.value; };
+}
+
+function loopFlow() {
+  raf = requestAnimationFrame(loopFlow);
+  if (scene === "flow") drawFlow();
+}
+
+// --- scene routing ----------------------------------------------------------
+function setScene(name) {
+  scene = name; stop();
+  document.querySelectorAll("nav button").forEach(b =>
+    b.setAttribute("aria-selected", b.dataset.scene === name));
+  if (name === "generators") drawGenerators();
+  else if (name === "bizarro") { bizarroT = 0; bizarroDir = 0; drawBizarro(); }
+  else if (name === "flow") { phase = 0; loopFlow(); }
+}
+
+document.querySelectorAll("nav button").forEach(b =>
+  b.onclick = () => setScene(b.dataset.scene));
+
+setScene("generators");
+</script>
+</body>
+</html>

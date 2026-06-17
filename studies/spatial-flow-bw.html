@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>flow · binary — bits ride a current</title>
+<style>
+  :root{ --glass:rgba(10,10,14,.86); --line:rgba(255,255,255,.14); --ink:#f0f0f0; --dim:#888; --acc:#fff; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; overflow:hidden; background:#000; color:var(--ink);
+             font:13px/1.45 ui-monospace,monospace; }
+  #v{ position:fixed; left:0; top:0; image-rendering:pixelated; cursor:crosshair; touch-action:none; background:#000; }
+  .ui{ position:fixed; background:var(--glass); border:1px solid var(--line); border-radius:12px;
+       backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); }
+  #dock{ top:14px; left:14px; width:214px; padding:12px 13px; }
+  #dock.collapsed .body{ display:none; }
+  .hd{ display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none; letter-spacing:1px; }
+  .hd .chev{ color:var(--dim); }
+  .body{ margin-top:10px; display:flex; flex-direction:column; gap:11px; }
+  .grp{ display:flex; flex-direction:column; gap:6px; }
+  .lab{ font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--dim); }
+  .seg{ display:flex; flex-wrap:wrap; gap:5px; }
+  .seg button{ flex:1 1 auto; background:rgba(255,255,255,.06); color:var(--ink); border:1px solid var(--line);
+               border-radius:7px; padding:6px 8px; cursor:pointer; font:inherit; font-size:12px; white-space:nowrap; }
+  .seg button:hover{ border-color:#fff; }
+  .seg button[aria-pressed=true]{ background:#fff; color:#000; border-color:#fff; font-weight:700; }
+  .row{ display:flex; align-items:center; gap:9px; font-size:11px; color:var(--dim); }
+  .row input[type=range]{ flex:1; accent-color:#fff; height:3px; }
+  .row .val{ color:#fff; min-width:30px; text-align:right; }
+  .actions{ display:flex; gap:6px; }
+  .actions button{ flex:1; background:rgba(255,255,255,.06); border:1px solid var(--line); color:var(--ink);
+                   border-radius:7px; padding:6px 8px; cursor:pointer; font:inherit; font-size:12px; }
+  .actions button:hover{ border-color:#fff; }
+  .hide{ display:none!important; }
+  #tip{ bottom:14px; left:14px; padding:8px 12px; color:var(--dim); font-size:11px; }
+  #tip b{ color:#fff; }
+</style>
+</head>
+<body>
+<canvas id="v"></canvas>
+
+<div id="dock" class="ui">
+  <div class="hd" id="hd"><b>FLOW · BINARY</b><span class="chev">▾</span></div>
+  <div class="body">
+    <div class="grp">
+      <div class="lab">tool</div>
+      <div class="seg" id="tools">
+        <button data-t="flow" aria-pressed="true">flow</button>
+        <button data-t="ink">ink</button>
+        <button data-t="sort">sort</button>
+        <button data-t="erase">erase</button>
+      </div>
+    </div>
+    <div class="grp">
+      <div class="lab">brush</div>
+      <div class="seg" id="shapes">
+        <button data-s="circle" aria-pressed="true">● circle</button>
+        <button data-s="rect">▮ rect</button>
+      </div>
+      <div class="row">size <input id="sz" type="range" min="3" max="90" value="24"><span class="val" id="szV">24</span></div>
+    </div>
+
+    <div class="grp">
+      <div class="lab">spatial rule</div>
+      <div class="seg" id="rule">
+        <button data-r="flow" aria-pressed="true">flow</button>
+        <button data-r="life">life</button>
+        <button data-r="dilate">dilate</button>
+        <button data-r="erode">erode</button>
+        <button data-r="majority">major</button>
+        <button data-r="xor">xor</button>
+      </div>
+    </div>
+
+    <div class="grp hide" id="inkGrp">
+      <div class="lab">ink</div>
+      <div class="seg" id="bit">
+        <button data-bit="1" aria-pressed="true">white</button>
+        <button data-bit="0">black</button>
+      </div>
+    </div>
+
+    <div class="grp hide" id="sortGrp">
+      <div class="lab">sort (segregate 0 / 1)</div>
+      <div class="seg" id="algo">
+        <button data-a="bubble" aria-pressed="true">bubble</button>
+        <button data-a="insertion">insert</button>
+        <button data-a="selection">select</button>
+      </div>
+      <div class="seg" id="dir">
+        <button data-d="1" aria-pressed="true">black ▸ white</button>
+        <button data-d="-1">white ▸ black</button>
+      </div>
+      <div class="row">speed <input id="ss" type="range" min="1" max="80" value="16"><span class="val" id="ssV">16</span></div>
+    </div>
+
+    <div class="grp">
+      <div class="lab">field</div>
+      <div class="row">flow <input id="fl" type="range" min="0" max="40" value="16"><span class="val" id="flV">1.6</span></div>
+      <div class="row">smooth <input id="df" type="range" min="0" max="100" value="0"><span class="val" id="dfV">.00</span></div>
+      <div class="row">rate <input id="rt" type="range" min="1" max="16" value="1"><span class="val" id="rtV">1</span></div>
+    </div>
+
+    <div class="grp">
+      <div class="actions">
+        <button id="seed">seed</button>
+        <button id="noise">noise</button>
+        <button id="clear">clear</button>
+        <button id="pause">pause</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="tip" class="ui"><b>drag</b> to push the current · bits ride it · <b>ink</b> paints, <b>sort</b> segregates a region</div>
+
+<script>
+const v=document.getElementById('v'), ctx=v.getContext('2d');
+
+// square pixels filling the viewport
+const CELL=Math.max(2, Math.round(window.innerHeight/180));
+const GW=Math.ceil(window.innerWidth/CELL), GH=Math.ceil(window.innerHeight/CELL), N=GW*GH;
+v.width=GW; v.height=GH; v.style.width=(GW*CELL)+'px'; v.style.height=(GH*CELL)+'px';
+const img=ctx.createImageData(GW,GH), px=img.data;
+
+// THE field: one bit per pixel (+ painted flow vector + sort flag)
+let val=new Uint8Array(N), nval=new Uint8Array(N);
+const fx=new Float32Array(N), fy=new Float32Array(N);
+const flag=new Uint8Array(N);
+
+// seeds — every one FILLS the whole field (full coverage, ~50% density)
+const BAYER=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
+let rs=22222;
+function seedFill(type){
+  const cx=GW/2, cy=GH/2;
+  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){ const i=y*GW+x; let on;
+    if(type==='noise'){ rs^=rs<<13; rs^=rs>>>17; rs^=rs<<5; rs>>>=0; on=(rs&255)>128; }
+    else if(type==='dither'){ on=BAYER[(y&3)*4+(x&3)]<8; }
+    else if(type==='rings'){ on=(Math.hypot(x-cx,y-cy)%10)<5; }
+    else if(type==='stripes'){ on=(((x+y)>>2)&1)===0; }
+    else { on=(Math.sin(x*0.07)+Math.sin(y*0.08+1.3)+Math.sin((x+y)*0.05+2.7)+Math.sin((x-y)*0.06))>0; } // plasma
+    val[i]=on?1:0;
+  }
+}
+function clearAll(){ val.fill(0); fx.fill(0); fy.fill(0); flag.fill(0); sortOn=false; }
+seedFill('plasma');
+
+// nearest-cell sample with wrap → stays binary
+function bit(X,Y){ X=((Math.round(X)%GW)+GW)%GW; Y=((Math.round(Y)%GH)+GH)%GH; return val[Y*GW+X]; }
+
+// step: one binary SPATIAL operation per tick, chosen by `rule` (everything wraps).
+//   flow   — bits ride the painted current (advection)
+//   life   — Conway B3/S23 (universal spatial computer)
+//   dilate — OR of the 3×3 neighbourhood (morphology: grow)
+//   erode  — AND of the 3×3 neighbourhood (morphology: shrink)
+//   major  — majority vote of the 3×3 (denoise / coalesce)
+//   xor    — cell XOR its left neighbour (spatial logic → interference / fractals)
+let flow=1.6, smooth=0.0, paused=false, rule='flow', stepEvery=1, frameN=0;
+function step(){
+  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){
+    const i=y*GW+x;
+    if(flag[i]){ nval[i]=val[i]; continue; }            // frozen for sorting
+    const xl=(x+GW-1)%GW, xr=(x+1)%GW, yu=(y+GH-1)%GH, yd=(y+1)%GH, s=val[i];
+    let out;
+    if(rule==='flow'){
+      out=bit(x-fx[i]*flow, y-fy[i]*flow);
+      if(smooth>0){ const avg=(val[y*GW+xl]+val[y*GW+xr]+val[yu*GW+x]+val[yd*GW+x])*0.25;
+        out=(out*(1-smooth)+avg*smooth)>=0.5?1:0; }
+    } else if(rule==='xor'){
+      out = s ^ val[y*GW+xl];
+    } else {
+      const n=val[yu*GW+xl]+val[yu*GW+x]+val[yu*GW+xr]+val[y*GW+xl]+val[y*GW+xr]
+             +val[yd*GW+xl]+val[yd*GW+x]+val[yd*GW+xr];     // 8-neighbour sum
+      if(rule==='life')        out = s ? (n===2||n===3?1:0) : (n===3?1:0);
+      else if(rule==='dilate') out = (s||n>0)?1:0;
+      else if(rule==='erode')  out = (s&&n===8)?1:0;
+      else                     out = (s+n)>=5?1:0;          // majority
+    }
+    nval[i]=out;
+  }
+  const t=val; val=nval; nval=t;
+  if(sortOn) sortPass();
+}
+
+// classic sorts → on binary keys this segregates 0s and 1s; watch it partition
+const SS={ s:new Int32Array(GH).fill(-1), e:new Int32Array(GH), i:new Int32Array(GH),
+           j:new Int32Array(GH), m:new Int32Array(GH), end:new Int32Array(GH), done:new Uint8Array(GH) };
+function swap(a,c){ const t=val[a]; val[a]=val[c]; val[c]=t; }
+let sortOn=false, algo='bubble', sdir=1, ssteps=16;
+function sortPass(){
+  for(let y=0;y<GH;y++){
+    let s=-1,e=0; const base=y*GW;
+    for(let x=0;x<GW;x++){ if(flag[base+x]){ if(s<0)s=x; e=x+1; } }
+    if(s<0){ SS.s[y]=-1; continue; }
+    s+=base; e+=base;
+    if(SS.s[y]!==s||SS.e[y]!==e){ SS.s[y]=s;SS.e[y]=e;SS.done[y]=0;
+      SS.i[y]=algo==='insertion'?s+1:s; SS.j[y]=s+1; SS.m[y]=s; SS.end[y]=e; }
+    for(let k=0;k<ssteps && !SS.done[y]; k++){
+      if(algo==='insertion'){ let i=SS.i[y],j=SS.j[y];
+        if(i>=e){SS.done[y]=1;break;}
+        if(j>s && (val[j-1]-val[j])*sdir>0){ swap(j-1,j); j--; } else { i++; j=i; }
+        SS.i[y]=i; SS.j[y]=j;
+      } else if(algo==='selection'){ let i=SS.i[y],j=SS.j[y],m=SS.m[y];
+        if(i>=e-1){SS.done[y]=1;break;}
+        if(j<e){ if((val[j]-val[m])*sdir<0) m=j; j++; } else { swap(i,m); i++; m=i; j=i+1; }
+        SS.i[y]=i; SS.j[y]=j; SS.m[y]=m;
+      } else { let i=SS.i[y],end=SS.end[y];
+        if(end<=s+1){SS.done[y]=1;break;}
+        if((val[i]-val[i+1])*sdir>0) swap(i,i+1);
+        i++; if(i>=end-1){ i=s; end--; }
+        SS.i[y]=i; SS.end[y]=end;
+      }
+    }
+  }
+}
+
+function render(){ for(let i=0;i<N;i++){ const o=i*4, c=val[i]?255:0; px[o]=px[o+1]=px[o+2]=c; px[o+3]=255; }
+  ctx.putImageData(img,0,0); }
+function loop(){ if(!paused && (frameN++ % stepEvery===0)) step(); render(); requestAnimationFrame(loop); }
+requestAnimationFrame(loop);
+
+// painting
+let tool='flow', shape='circle', size=24, inkBit=1, down=false, lastX=0,lastY=0;
+function cell(ev){ const rc=v.getBoundingClientRect(); return { x:(ev.clientX-rc.left)/rc.width*GW, y:(ev.clientY-rc.top)/rc.height*GH }; }
+function stamp(cx,cy,vx,vy){
+  const rad=size/2, r2=rad*rad;
+  for(let dy=-rad;dy<=rad;dy++)for(let dx=-rad;dx<=rad;dx++){
+    if(shape==='circle'){ if(dx*dx+dy*dy>r2) continue; } else { if(Math.abs(dx)>rad||Math.abs(dy)>rad) continue; }
+    const x=(cx+dx)|0, y=(cy+dy)|0; if(x<0||y<0||x>=GW||y>=GH) continue;
+    const i=y*GW+x;
+    if(tool==='flow'){ fx[i]=vx; fy[i]=vy; }
+    else if(tool==='ink'){ val[i]=inkBit; }
+    else if(tool==='sort'){ flag[i]=1; }
+    else { flag[i]=0; fx[i]=0; fy[i]=0; }
+  }
+}
+v.addEventListener('pointerdown',e=>{ down=true; v.setPointerCapture(e.pointerId); const c=cell(e); lastX=c.x; lastY=c.y; stamp(c.x,c.y,0,0); if(tool==='sort') sortOn=true; });
+v.addEventListener('pointermove',e=>{ if(!down) return; const c=cell(e);
+  let vx=c.x-lastX, vy=c.y-lastY; const m=Math.hypot(vx,vy)||1; vx/=m; vy/=m;
+  stamp(c.x,c.y,vx,vy); lastX=c.x; lastY=c.y; });
+v.addEventListener('pointerup',()=>down=false);
+
+// UI
+function seg(id,attr,fn){ const el=document.getElementById(id);
+  el.querySelectorAll('button').forEach(btn=>btn.onclick=()=>{
+    el.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed','false'));
+    btn.setAttribute('aria-pressed','true'); fn(btn.dataset[attr]); }); }
+seg('tools','t',x=>{ tool=x;
+  document.getElementById('inkGrp').classList.toggle('hide',x!=='ink');
+  document.getElementById('sortGrp').classList.toggle('hide',x!=='sort'); });
+seg('shapes','s',x=>shape=x);
+seg('rule','r',x=>rule=x);
+seg('bit','bit',x=>inkBit=+x);
+seg('algo','a',x=>algo=x);
+seg('dir','d',x=>sdir=+x);
+function sl(id,fn,fmt){ const el=document.getElementById(id),o=document.getElementById(id+'V');
+  el.oninput=()=>{ o.textContent=fmt(fn(+el.value)); }; }
+sl('sz',x=>size=x,x=>x);
+sl('ss',x=>ssteps=x,x=>x);
+sl('fl',x=>flow=x/10,x=>x.toFixed(1));
+sl('df',x=>smooth=x/100,x=>x.toFixed(2).slice(1));
+sl('rt',x=>stepEvery=x,x=>x);
+document.getElementById('seed').onclick=seedBlobs;
+document.getElementById('noise').onclick=seedNoise;
+document.getElementById('clear').onclick=clearAll;
+document.getElementById('pause').onclick=e=>{ paused=!paused; e.target.textContent=paused?'play':'pause'; };
+document.getElementById('hd').onclick=()=>document.getElementById('dock').classList.toggle('collapsed');
+</script>
+</body>
+</html>

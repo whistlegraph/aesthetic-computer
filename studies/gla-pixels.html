@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GLA — pixel-buffer notations</title>
+<style>
+  :root { --bg:#101220; --line:#2a2e45; --ink:#c8d0e0; --dim:#6a7488; --pink:#ff5b8a; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font:14px/1.5 Georgia,"Times New Roman",serif; }
+  header { padding:18px 22px 8px; border-bottom:1px solid var(--line); }
+  header h1 { margin:0; font-size:19px; }
+  header h1 small { color:var(--pink); font-style:italic; font-size:13px; }
+  header p { margin:6px 0 0; color:var(--dim); font-size:12.5px; max-width:74ch; }
+  .grid { display:flex; flex-wrap:wrap; gap:20px; padding:20px 22px; align-items:flex-start; }
+  .card { background:#181b2e; border:1px solid var(--line); border-radius:10px; padding:12px; }
+  canvas { display:block; image-rendering:pixelated; image-rendering:crisp-edges;
+           border-radius:4px; background:#101220; }
+  .card h2 { margin:10px 2px 2px; font-size:14px; }
+  .card p { margin:3px 2px 0; font-size:12px; color:var(--dim); max-width:42ch; }
+  .ctl { margin:9px 2px 2px; display:flex; align-items:center; gap:8px; font-size:12px; color:var(--dim); }
+  .ctl button { background:#101220; color:var(--ink); border:1px solid var(--line);
+                border-radius:6px; padding:4px 9px; cursor:pointer; font:inherit; font-size:12px; }
+  .ctl button:hover { border-color:var(--pink); }
+  footer { padding:10px 22px 20px; color:var(--dim); font-size:11.5px; border-top:1px solid var(--line); }
+  footer a { color:var(--pink); }
+  code { color:#f0dc3c; font-family:"Latin Modern Mono",monospace; font-size:11.5px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Graphical Linear Algebra <small>— notations rendered into pixel buffers</small></h1>
+  <p>Each card is a low-resolution <code>ImageData</code> pixel buffer, plotted with the same
+     immediate-mode primitives as the AC piece <code>$gla</code> (<code>wipe / ink / line / circle</code>) —
+     including a 3×5 bitmap font — then blitted into a <code>&lt;canvas&gt;</code> with nearest-neighbour scaling.
+     Canonical colors: <b>copy = black ●</b>, <b>add = white ○</b>.</p>
+</header>
+
+<div class="grid" id="grid"></div>
+
+<footer>
+  Buffers are written pixel-by-pixel (no <code>ctx.arc</code> / <code>ctx.fillText</code>) to mirror Aesthetic Computer's
+  display model. Conventions from <a href="https://graphicallinearalgebra.net/2015/05/09/copying-discarding-and-the-slogan/" target="_blank" rel="noopener">graphicallinearalgebra.net</a>.
+</footer>
+
+<script>
+// ============================================================================
+// Plotter — a tiny KidLisp-style immediate-mode pixel buffer over ImageData.
+// ============================================================================
+class Plotter {
+  constructor(w, h, scale) {
+    this.w = w; this.h = h; this.scale = scale;
+    this.canvas = document.createElement("canvas");
+    this.canvas.width = w; this.canvas.height = h;
+    this.canvas.style.width = (w * scale) + "px";
+    this.canvas.style.height = (h * scale) + "px";
+    this.ctx = this.canvas.getContext("2d");
+    this.img = this.ctx.createImageData(w, h);
+    this.buf = this.img.data;
+    this.col = [255, 255, 255];
+  }
+  ink(r, g, b) { this.col = [r, g, b]; return this; }
+  wipe(r, g, b) {
+    for (let i = 0; i < this.buf.length; i += 4) {
+      this.buf[i] = r; this.buf[i+1] = g; this.buf[i+2] = b; this.buf[i+3] = 255;
+    }
+  }
+  plot(x, y) {
+    x |= 0; y |= 0;
+    if (x < 0 || y < 0 || x >= this.w || y >= this.h) return;
+    const i = (y * this.w + x) * 4;
+    this.buf[i] = this.col[0]; this.buf[i+1] = this.col[1]; this.buf[i+2] = this.col[2]; this.buf[i+3] = 255;
+  }
+  line(x0, y0, x1, y1) {                 // Bresenham
+    x0 |= 0; y0 |= 0; x1 |= 0; y1 |= 0;
+    const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0);
+    const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+    let err = dx + dy;
+    for (;;) {
+      this.plot(x0, y0);
+      if (x0 === x1 && y0 === y1) break;
+      const e2 = 2 * err;
+      if (e2 >= dy) { err += dy; x0 += sx; }
+      if (e2 <= dx) { err += dx; y0 += sy; }
+    }
+  }
+  circleFill(cx, cy, r) {
+    for (let y = -r; y <= r; y++)
+      for (let x = -r; x <= r; x++)
+        if (x * x + y * y <= r * r) this.plot(cx + x, cy + y);
+  }
+  circleStroke(cx, cy, r) {
+    const lo = (r - 0.6) * (r - 0.6), hi = (r + 0.4) * (r + 0.4);
+    for (let y = -r - 1; y <= r + 1; y++)
+      for (let x = -r - 1; x <= r + 1; x++) {
+        const d = x * x + y * y;
+        if (d >= lo && d <= hi) this.plot(cx + x, cy + y);
+      }
+  }
+  // 3x5 bitmap text. step 4px/char. returns advance width.
+  text(str, x, y) {
+    str = String(str).toUpperCase();
+    for (let c = 0; c < str.length; c++) {
+      const g = FONT[str[c]] || FONT["?"];
+      for (let ry = 0; ry < 5; ry++)
+        for (let rx = 0; rx < 3; rx++)
+          if (g[ry][rx] === "1") this.plot(x + c * 4 + rx, y + ry);
+    }
+    return str.length * 4;
+  }
+  textCentered(str, cx, y) { this.text(str, (cx - String(str).length * 2) | 0, y); }
+  flush() { this.ctx.putImageData(this.img, 0, 0); }
+}
+
+// --- 3x5 font ---------------------------------------------------------------
+const F = (s) => s.split("|");
+const FONT = {
+  "A":F("010|101|111|101|101"),"B":F("110|101|110|101|110"),"C":F("011|100|100|100|011"),
+  "D":F("110|101|101|101|110"),"E":F("111|100|110|100|111"),"F":F("111|100|110|100|100"),
+  "G":F("011|100|101|101|011"),"H":F("101|101|111|101|101"),"I":F("111|010|010|010|111"),
+  "J":F("001|001|001|101|010"),"K":F("101|110|100|110|101"),"L":F("100|100|100|100|111"),
+  "M":F("101|111|111|101|101"),"N":F("101|111|111|111|101"),"O":F("010|101|101|101|010"),
+  "P":F("110|101|110|100|100"),"Q":F("010|101|101|011|001"),"R":F("110|101|110|101|101"),
+  "S":F("011|100|010|001|110"),"T":F("111|010|010|010|010"),"U":F("101|101|101|101|111"),
+  "V":F("101|101|101|101|010"),"W":F("101|101|111|111|101"),"X":F("101|101|010|101|101"),
+  "Y":F("101|101|010|010|010"),"Z":F("111|001|010|100|111"),
+  "0":F("111|101|101|101|111"),"1":F("010|110|010|010|111"),"2":F("110|001|010|100|111"),
+  "3":F("111|001|011|001|111"),"4":F("101|101|111|001|001"),"5":F("111|100|110|001|110"),
+  "6":F("011|100|110|101|010"),"7":F("111|001|010|010|010"),"8":F("010|101|010|101|010"),
+  "9":F("010|101|011|001|110"),
+  " ":F("000|000|000|000|000"),"+":F("000|010|111|010|000"),"-":F("000|000|111|000|000"),
+  "=":F("000|111|000|111|000"),".":F("000|000|000|000|010"),":":F("000|010|000|010|000"),
+  ">":F("000|001|111|001|000"),"(":F("001|010|010|010|001"),")":F("100|010|010|010|100"),
+  "?":F("110|001|010|000|010"),
+};
+
+// --- GLA node: canonical colors on dark bg (outline keeps it legible) -------
+const WIRE = [120, 130, 150], SIGNAL = [240, 220, 60], BG = [16, 18, 32], PINK = [255, 91, 138], DIM=[150,160,180];
+function glaNode(p, x, y, fill, r = 5) {     // fill: "black" | "white"
+  if (fill === "black") { p.ink(0,0,0).circleFill(x, y, r); p.ink(...WIRE).circleStroke(x, y, r); }
+  else { p.ink(255,255,255).circleFill(x, y, r); p.ink(0,0,0).circleStroke(x, y, r); }
+}
+const lerp = (a, b, t) => a + (b - a) * t;
+
+// ============================================================================
+// Panels — each owns a Plotter and a draw(frame) fn.
+// ============================================================================
+const panels = [];
+function makeCard(title, caption, w, h, scale, draw, control) {
+  const card = document.createElement("div"); card.className = "card";
+  const p = new Plotter(w, h, scale);
+  card.appendChild(p.canvas);
+  const state = {};
+  if (control) card.appendChild(control(state, p));
+  const h2 = document.createElement("h2"); h2.textContent = title; card.appendChild(h2);
+  const cap = document.createElement("p"); cap.innerHTML = caption; card.appendChild(cap);
+  document.getElementById("grid").appendChild(card);
+  panels.push({ p, draw, state });
+}
+
+// 1) Signal flow — Southwell: x -> copy -> (x,x) -> add -> 2x ----------------
+makeCard(
+  "Signal flow",
+  "A number flows in; the <b>black copy</b> fans it out; the <b>white add</b> merges the copies. The picture <i>is</i> the map x ↦ 2x.",
+  168, 104, 3,
+  (p, f, s) => {
+    const t = (f % 90) / 90;
+    const x0 = 16, xc = 60, xa = 120, xr = 154, cy = 56, sp = 26;
+    p.wipe(...BG);
+    p.ink(...PINK); p.textCentered("SIGNAL FLOW", 84, 8);
+    // wires
+    p.ink(...WIRE);
+    p.line(x0, cy, xc, cy);
+    p.line(xc, cy, xa, cy - sp); p.line(xc, cy, xa, cy + sp);
+    p.line(xa, cy, xr, cy);
+    // generators (canonical: copy black, add white)
+    glaNode(p, xc, cy, "black"); glaNode(p, xa, cy, "white");
+    // labels
+    p.ink(...DIM);
+    p.textCentered("IN", x0, cy - 12); p.textCentered("OUT", xr - 2, cy - 12);
+    p.textCentered("COPY", xc, cy + 14); p.textCentered("ADD", xa, cy + 14);
+    // live numbers
+    const v = s.val ?? 3;
+    p.ink(...SIGNAL);
+    p.textCentered(v, (x0 + xc) / 2, cy - 9);
+    p.textCentered(v, (xc + xa) / 2, cy - sp - 8);
+    p.textCentered(v, (xc + xa) / 2, cy + sp + 4);
+    p.textCentered(v + v, (xa + xr) / 2, cy - 9);
+    // signal dots
+    p.circleFill(lerp(x0, xc, t), cy, 2);
+    p.circleFill(lerp(xc, xa, t), lerp(cy, cy - sp, t), 2);
+    p.circleFill(lerp(xc, xa, t), lerp(cy, cy + sp, t), 2);
+    p.circleFill(lerp(xa, xr, t), cy, 2);
+    // headline
+    p.ink(...DIM); p.textCentered("PUT " + v + " IN  GET " + (v + v), 84, 96);
+  },
+  (state) => {
+    state.val = 3;
+    const d = document.createElement("div"); d.className = "ctl";
+    const mk = (lbl, fn) => { const b = document.createElement("button"); b.textContent = lbl; b.onclick = fn; return b; };
+    const span = document.createElement("span"); span.textContent = "x = 3";
+    d.appendChild(mk("−", () => { state.val = Math.max(0, state.val - 1); span.textContent = "x = " + state.val; }));
+    d.appendChild(mk("+", () => { state.val = Math.min(12, state.val + 1); span.textContent = "x = " + state.val; }));
+    d.appendChild(span);
+    return d;
+  }
+);
+
+// 2) Bizarro duality — copy ● reflects+inverts into add ○ --------------------
+makeCard(
+  "Bizarro duality",
+  "Mirror a diagram <i>and</i> swap ● ↔ ○ and you get its dual for free. Copy is just add, reflected and color-flipped.",
+  168, 104, 3,
+  (p, f) => {
+    p.wipe(...BG);
+    p.ink(...PINK); p.textCentered("BIZARRO", 84, 8);
+    const cy = 54, sp = 22, len = 30;
+    // left: copy (black, 1 in -> 2 out)
+    const lx = 40;
+    p.ink(...WIRE);
+    p.line(lx - len, cy, lx, cy);
+    p.line(lx, cy, lx + len, cy - sp); p.line(lx, cy, lx + len, cy + sp);
+    glaNode(p, lx, cy, "black");
+    p.ink(...DIM); p.textCentered("COPY", lx, cy + sp + 8);
+    // right: add (white, 2 in -> 1 out) — the mirror image
+    const rx = 128;
+    p.ink(...WIRE);
+    p.line(rx + len, cy, rx, cy);
+    p.line(rx, cy, rx - len, cy - sp); p.line(rx, cy, rx - len, cy + sp);
+    glaNode(p, rx, cy, "white");
+    p.ink(...DIM); p.textCentered("ADD", rx, cy + sp + 8);
+    // arrow + caption between
+    const t = (f % 120) / 120;
+    p.ink(...SIGNAL);
+    const ax = lerp(72, 96, t);
+    p.line(72, cy, 96, cy); p.line(96, cy, 92, cy - 3); p.line(96, cy, 92, cy + 3);
+    p.circleFill(ax, cy, 1);
+    p.ink(...DIM); p.textCentered("REFLECT + INVERT", 84, 96);
+  }
+);
+
+// 3) The generators — the full palette with canonical colors -----------------
+makeCard(
+  "The generators",
+  "Two structures (add ○ / copy ●) with their units, plus the scalar △. Everything else is built by wiring these.",
+  168, 128, 3,
+  (p) => {
+    p.wipe(...BG);
+    p.ink(...PINK); p.textCentered("GENERATORS", 84, 8);
+    const L = 22;
+    function gen(cx, cy, kind, fill, name) {
+      p.ink(...WIRE);
+      if (kind === "add")     { p.line(cx-L, cy-12, cx, cy); p.line(cx-L, cy+12, cx, cy); p.line(cx, cy, cx+L, cy); }
+      if (kind === "copy")    { p.line(cx-L, cy, cx, cy); p.line(cx, cy, cx+L, cy-12); p.line(cx, cy, cx+L, cy+12); }
+      if (kind === "zero")    { p.line(cx, cy, cx+L, cy); }
+      if (kind === "discard") { p.line(cx-L, cy, cx, cy); }
+      if (kind === "scalar")  {
+        p.line(cx-L, cy, cx-6, cy); p.line(cx+6, cy, cx+L, cy);
+        p.ink(...PINK);
+        for (let yy = -6; yy <= 6; yy++) { const xr = Math.round((1 - Math.abs(yy)/6) * 9); for (let xx = -6; xx <= xr; xx++) p.plot(cx + xx, cy + yy); }
+      }
+      if (fill) glaNode(p, cx, cy, fill);
+      p.ink(...DIM); p.textCentered(name, cx, cy + 18);
+    }
+    gen(46, 34, "add", "white", "ADD");    gen(122, 34, "copy", "black", "COPY");
+    gen(46, 78, "zero", "white", "ZERO");  gen(122, 78, "discard", "black", "DISCARD");
+    gen(84, 116, "scalar", null, "SCALAR K");
+  }
+);
+
+// ============================================================================
+// One shared animation loop drives every buffer.
+// ============================================================================
+let frame = 0;
+function tick() {
+  for (const { p, draw, state } of panels) { draw(p, frame, state); p.flush(); }
+  frame++;
+  requestAnimationFrame(tick);
+}
+tick();
+</script>
+</body>
+</html>

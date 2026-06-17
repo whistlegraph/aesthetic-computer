@@ -12,6 +12,20 @@ import AppKit
 final class WaveformStripView: NSView {
     weak var menuBand: MenuBandController?
 
+    /// Fired when the strip is clicked. The popover wires this to open the
+    /// full keymap view — same action as the "Keymap" button — so the live
+    /// scope doubles as a keymap affordance.
+    var onClick: (() -> Void)?
+
+    override func mouseDown(with event: NSEvent) {
+        if onClick != nil { onClick?() } else { super.mouseDown(with: event) }
+    }
+
+    /// Pointing-hand cursor so the strip reads as clickable.
+    override func resetCursorRects() {
+        if onClick != nil { addCursorRect(bounds, cursor: .pointingHand) }
+    }
+
     /// One frame's worth of the tap ring, reduced to a single min/max
     /// column. Sized to cover MORE than one 30 fps frame even at 96 kHz
     /// (96000/30 = 3200 samples) so consecutive columns don't skip audio
