@@ -6374,7 +6374,7 @@
                   const frame = progress.currentFrame != null && progress.totalFrames
                     ? ` (${progress.currentFrame}/${progress.totalFrames})`
                     : '';
-                  const pct = progress.percent != null ? ` ${progress.percent}%` : '';
+                  const pct = progress.percent != null ? ` ${Math.round(progress.percent)}%` : '';
                   const msg = `${detail}${frame}${pct}`.trim();
                   if (msg && (lastStage === 'thumbnail' || lastStage === 'bundle')) {
                     setMintStep(lastStage, 'active', msg);
