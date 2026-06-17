@@ -15617,6 +15617,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
       } finally {
         try { window.define = savedDefine; } catch (e) {}
       }
+      console.log('🔑 [PARENT wallet] Beacon SDK load done — window.beacon =', !!window.beacon);
     }
     async function _ensureKidlispBeacon(network) {
       const net = network === 'ghostnet' ? 'ghostnet' : 'mainnet';
@@ -15638,7 +15639,9 @@ s("ape_breaks_3").loopAt(2)</textarea>
       if (e.origin !== window.location.origin) return;
       const d = e.data;
       if (d?.type !== 'wallet:rpc') return;
+      console.log('🔑 [PARENT wallet:rpc] received:', d.method, 'net=', d.params?.network);
       const reply = (ok, payload) => {
+        console.log('🔑 [PARENT wallet:rpc] reply:', d.method, ok ? 'OK' : 'ERR', ok ? payload : payload);
         const kf = document.getElementById('keeps-iframe');
         kf?.contentWindow?.postMessage(
           ok
@@ -15667,6 +15670,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
           reply(false, new Error('unknown wallet method: ' + d.method));
         }
       } catch (err) {
+        console.warn('🔑 [PARENT wallet:rpc] threw for', d.method, '—', err?.message || err);
         reply(false, err);
       }
     });

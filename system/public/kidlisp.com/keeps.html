@@ -3423,9 +3423,10 @@
       return new Promise((resolve, reject) => {
         const id = 'wrpc-' + (++_walletRpcId);
         _walletRpcPending.set(id, { resolve, reject });
+        console.log('🔑 [iframe wallet] → parent RPC:', method, 'origin=', window.location.origin, 'sameTop=', (window.self === window.top));
         try {
           window.parent.postMessage({ type: 'wallet:rpc', id, method, params: params || null }, window.location.origin);
-        } catch (e) { _walletRpcPending.delete(id); reject(e); return; }
+        } catch (e) { _walletRpcPending.delete(id); console.warn('🔑 [iframe wallet] postMessage failed', e); reject(e); return; }
         // Generous timeout — signing can wait on the user in their wallet app.
         setTimeout(() => {
           if (_walletRpcPending.has(id)) { _walletRpcPending.delete(id); reject(new Error('Wallet request timed out')); }
@@ -3437,6 +3438,7 @@
         if (e.origin !== window.location.origin) return;
         const d = e.data;
         if (d?.type !== 'wallet:rpc:reply') return;
+        console.log('🔑 [iframe wallet] ← parent reply:', d.id, d.ok ? 'OK' : ('ERR ' + d.error));
         const pending = _walletRpcPending.get(d.id);
         if (!pending) return;
         _walletRpcPending.delete(d.id);
