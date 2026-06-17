@@ -333,92 +333,120 @@ function text(str, x, y, size, color, weight = 700, align = "center", rounded = 
   ctx.fillText(str, x, y); ctx.textAlign = "left";
 }
 
-// ── scene timeline (fractions of TOTAL so it adapts to the waltz length) ───
-// open (drops in immediately) · HERO keyboard · card flip · languages · end
-const SCENES = [
-  { name: "open", from: 0.00, to: 0.05, tint: [167, 139, 250] },
-  { name: "play", from: 0.05, to: 0.52, tint: [97, 158, 255] },
-  { name: "flip", from: 0.52, to: 0.70, tint: [255, 153, 46] },
-  { name: "langs", from: 0.70, to: 0.88, tint: [51, 209, 179] },
-  { name: "end", from: 0.88, to: 1.00, tint: [255, 77, 107] },
-].map((s) => ({ ...s, from: s.from * TOTAL, to: s.to * TOTAL }));
-const sceneAt = (t) => SCENES.find((s) => t >= s.from && t < s.to) ?? SCENES[SCENES.length - 1];
+// ── real About window captures (one per language) — the second half ────────
+const ABOUT_CACHE = `${OUT}/about-frames`;
+mkdirSync(ABOUT_CACHE, { recursive: true });
+const ABOUT_LANGS = ["en", "es", "zh", "ja", "ru", "da"];
+const aboutImgs = [];
+async function prerenderAbout() {
+  if (!existsSync(MENUBAR_BIN)) return;
+  console.log(`▸ capturing ${ABOUT_LANGS.length} real About windows via MenuBand --render-about …`);
+  for (const code of ABOUT_LANGS) {
+    const png = `${ABOUT_CACHE}/about-${code}.png`;
+    if (!existsSync(png)) {
+      const r = spawnSync(MENUBAR_BIN, ["--render-about", "--lang", code, "--scale", "3", "--out", png],
+        { stdio: ["ignore", "ignore", "pipe"] });
+      if (r.status !== 0) console.error(`  ✗ about ${code}: ${r.stderr?.toString().slice(-160)}`);
+    }
+    if (existsSync(png)) aboutImgs.push(await loadImage(png));
+  }
+}
 
-// window geometry (centered card)
-const WIN = { x: 150, y: 560, w: 780, h: 900 };
+// ── scene timeline: the MENU front-and-center (first half) → the real ABOUT
+// window dropping in from the middle → end card with the QR. ────────────────
+const SCENES = [
+  { name: "menu", from: 0.00, to: 0.50, tint: [97, 158, 255] },
+  { name: "about", from: 0.50, to: 0.90, tint: [167, 139, 250] },
+  { name: "end", from: 0.90, to: 1.00, tint: [255, 77, 107] },
+].map((s) => ({ ...s, from: s.from * TOTAL, to: s.to * TOTAL }));
+const sceneAt = (t) => SCENES.find((s) => t >= s.from && t < s.to) ?? SCENES.at(-1);
+
+// The MENU, front and center: a floating macOS menu bar (Apple · title · clock)
+// holding the REAL captured piano, scaled large and vertically centered.
+function drawBigMenu(t, alpha) {
+  const img = menubarCache.get(barKey(barNotesAt(t))) || menubarIdle;
+  const plateW = W * 0.94, plateH = 168;
+  const px = (W - plateW) / 2, py = H / 2 - plateH / 2;
+  ctx.save(); ctx.globalAlpha = alpha;
+  ctx.shadowColor = "rgba(0,0,0,0.45)"; ctx.shadowBlur = 55; ctx.shadowOffsetY = 20;
+  roundRect(px, py, plateW, plateH, 30); ctx.fillStyle = "rgba(22,18,32,0.94)"; ctx.fill();
+  ctx.shadowColor = "transparent";
+  const cy = py + 40;
+  ctx.fillStyle = "rgba(255,255,255,0.95)"; ctx.beginPath(); ctx.arc(px + 40, cy, 13, 0, 7); ctx.fill();
+  ctx.fillStyle = "rgba(22,18,32,0.95)"; ctx.beginPath(); ctx.arc(px + 47, cy - 4, 7.5, 0, 7); ctx.fill();
+  text("Menu Band", px + 138, cy, 30, "rgba(255,255,255,0.96)", 700, "left", false);
+  text("9:41", px + plateW - 34, cy, 28, "rgba(255,255,255,0.9)", 500, "right", false);
+  if (img) {
+    const iw = plateW - 96, ih = iw * img.height / img.width;
+    ctx.drawImage(img, px + 48, py + plateH - ih - 26, iw, ih);
+  }
+  ctx.restore();
+  ctx.save(); ctx.globalAlpha = alpha;
+  text("your menu bar", W / 2, py - 96, 58, "white", 800);
+  text("is a synthesizer", W / 2, py - 36, 58, "white", 800);
+  text("type · click · send MIDI", W / 2, py + plateH + 64, 32, AC_PURPLE, 700);
+  ctx.restore();
+}
+
+// The real captured About window, framed as a macOS window (titlebar + lights).
+function drawAbout(img, alpha, yOff) {
+  if (!img) return;
+  const tb = 42;
+  const contentH = Math.min(H * 0.66, 1180);
+  const aw = contentH * img.width / img.height;
+  const ah = contentH + tb;
+  const ax = (W - aw) / 2, ay = (H - ah) / 2 + yOff;
+  ctx.save(); ctx.globalAlpha = alpha;
+  ctx.shadowColor = "rgba(0,0,0,0.45)"; ctx.shadowBlur = 60; ctx.shadowOffsetY = 24;
+  roundRect(ax, ay, aw, ah, 26); ctx.fillStyle = "white"; ctx.fill();
+  ctx.shadowColor = "transparent";
+  ctx.save(); roundRect(ax, ay, aw, ah, 26); ctx.clip();
+  ctx.fillStyle = "rgb(238,235,245)"; ctx.fillRect(ax, ay, aw, tb);
+  const lights = ["rgb(255,95,86)", "rgb(255,189,46)", "rgb(39,201,63)"];
+  for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.fillStyle = lights[i]; ctx.arc(ax + 28 + i * 28, ay + tb / 2, 9, 0, 7); ctx.fill(); }
+  ctx.drawImage(img, ax, ay + tb, aw, contentH);
+  ctx.restore();
+  ctx.restore();
+  return { ax, ay, aw, ah };
+}
 
 function drawFrame(t) {
   drawDesktop();
-  const lit = litKeysAt(t);
   const sc = sceneAt(t);
   const local = (sc.to - sc.from) > 0 ? (t - sc.from) / (sc.to - sc.from) : 1;
-
-  // window drops in IMMEDIATELY from the menubar (visible from frame 0 — never
-  // a blank intro): it eases down from just under the bar and settles.
-  let winY = WIN.y, winA = 1, winScale = 1;
-  if (sc.name === "open") {
-    const e = easeOut(local);
-    winY = (MBAR_H + 8) + (WIN.y - (MBAR_H + 8)) * e;
-    winA = 0.5 + 0.5 * e; winScale = 0.92 + 0.08 * e;
-  }
-
-  if (winA > 0.01) {
-    ctx.save(); ctx.globalAlpha = winA;
-    const cx = WIN.x + WIN.w / 2, cy = winY + WIN.h / 2;
-    ctx.translate(cx, cy); ctx.scale(winScale, winScale); ctx.translate(-cx, -cy);
-    const rc = drawWindow(WIN.x, winY, WIN.w, WIN.h, "Menu Band");
-
-    if (sc.name === "play" || sc.name === "open") {
-      // HERO: the big icon keyboard, playing. Big lit keys + title + tagline.
-      const icoPx = 460, ix = rc.x + (rc.w - icoPx) / 2, iy = rc.y + 70;
-      drawIcon(ix, iy, icoPx, lit);
-      text("Menu Band", rc.x + rc.w / 2, iy + icoPx + 70, 60, "rgb(60,40,100)", 800);
-      text("your menu bar is a synthesizer", rc.x + rc.w / 2, iy + icoPx + 130, 30, "rgba(90,70,120,0.9)", 600);
-      text("type · click · send MIDI", rc.x + rc.w / 2, iy + icoPx + 180, 27, AC_PURPLE, 700);
-    } else if (sc.name === "flip") {
-      // card flip: icon ⇄ QR with a horizontal-scale flip + note burst.
-      const icoPx = 420, ix = rc.x + (rc.w - icoPx) / 2, iy = rc.y + 80;
-      const flips = 2; // two flips across the scene
-      const sx = Math.abs(Math.cos(local * flips * Math.PI));
-      const showQR = (Math.floor(local * flips * 2) % 2) === 1;
-      ctx.save();
-      ctx.translate(ix + icoPx / 2, iy + icoPx / 2); ctx.scale(Math.max(0.04, sx), 1);
-      ctx.translate(-(ix + icoPx / 2), -(iy + icoPx / 2));
-      if (showQR) drawQR(ix + icoPx * 0.08, iy + icoPx * 0.08, icoPx * 0.84);
-      else drawIcon(ix, iy, icoPx, lit);
-      ctx.restore();
-      text("Menu Band", rc.x + rc.w / 2, iy + icoPx + 80, 56, "rgb(60,40,100)", 800);
-      text("prompt.ac/menuband", rc.x + rc.w / 2, iy + icoPx + 140, 30, AC_PURPLE, 700);
-    } else if (sc.name === "langs") {
-      const icoPx = 150, ix = rc.x + (rc.w - icoPx) / 2;
-      drawIcon(ix, rc.y + 36, icoPx, lit);
-      text("speaks your language", rc.x + rc.w / 2, rc.y + 36 + icoPx + 44, 40, "rgb(60,40,100)", 800);
-      drawLanguageMap({ x: rc.x, y: rc.y + icoPx + 110, w: rc.w, h: rc.h - icoPx - 150 }, t);
-    } else if (sc.name === "end") {
-      const icoPx = 360, ix = rc.x + (rc.w - icoPx) / 2;
-      const e = easeOut(local * 1.6);
-      drawIcon(ix, rc.y + 80, icoPx, lit);
-      text("Menu Band", rc.x + rc.w / 2, rc.y + 80 + icoPx + 70, 70, "rgb(50,30,90)", 800);
-      text("free · macOS 11+ · universal", rc.x + rc.w / 2, rc.y + 80 + icoPx + 135, 28, "rgba(90,70,120,0.9)", 600);
-      ctx.save(); ctx.globalAlpha = e;
-      drawQR(rc.x + rc.w / 2 - 110, rc.y + 80 + icoPx + 190, 220);
-      ctx.restore();
-      text("prompt.ac/menuband", rc.x + rc.w / 2, rc.y + 80 + icoPx + 450, 30, AC_PURPLE, 700);
-    }
-    ctx.restore();
-  }
-
-  // menubar always on top; its little icon mirrors the lit keys.
-  drawMenubar(t);
-
-  // particles ride above everything (spawned on note onsets during play/flip).
   const dt = 1 / FPS;
-  if (sc.name === "play" || sc.name === "flip" || sc.name === "open") {
+
+  if (sc.name === "menu") {
+    // first half — the menu, front and center, playing the melody.
+    drawBigMenu(t, 1);
     for (const n of onsetsBetween(t - dt, t)) {
       const idx = ((n.midi % 12) + 12) % 12 % 5;
-      spawnNote(WIN.x + WIN.w / 2, WIN.y + 260, KEY_COLORS[idx]);
+      spawnNote(W / 2 + Math.sin(n.t * 9) * 220, H / 2 - 110, KEY_COLORS[idx]);
     }
-  } else { onsetsBetween(t - dt, t); }   // keep cursor advancing
+  } else {
+    onsetsBetween(t - dt, t);   // keep the onset cursor advancing
+    // second half — the REAL About window, language cycling, dropping in.
+    let img, alpha = 1, yOff = 0;
+    if (sc.name === "about") {
+      const idx = Math.min(aboutImgs.length - 1, Math.floor(local * aboutImgs.length));
+      img = aboutImgs[idx];
+      const e = easeOut(Math.min(1, local * 6));   // quick drop-in at the middle
+      yOff = -(H * 0.66) * (1 - e); alpha = e;
+    } else {
+      img = aboutImgs[0];
+    }
+    const rc = drawAbout(img, alpha, yOff);
+    if (sc.name === "end" && rc && qrImg) {
+      const e = easeOut(local * 1.8);
+      ctx.save(); ctx.globalAlpha = e;
+      drawQR(W / 2 - 120, rc.ay + rc.ah - 280, 240);
+      text("prompt.ac/menuband", W / 2, rc.ay + rc.ah + 44, 32, "white", 800);
+      ctx.restore();
+    }
+  }
+
+  // the real macOS menu bar stays pinned at the very top for context.
+  drawMenubar(t);
   stepAndDrawParticles(dt);
 
   // gentle global vignette
@@ -429,6 +457,7 @@ function drawFrame(t) {
 
 // ── render → ffmpeg (muxed with the waltz) ─────────────────────────────────
 await prerenderMenubars();
+await prerenderAbout();
 console.log(`▸ menuband sim · ${FRAMES} frames · ${TOTAL.toFixed(1)}s · ${W}x${H}@${FPS} · ${leadNotes.length} lead notes`);
 const enc = spawnFFmpegEncode({ audioPath: AUDIO, w: W, h: H, fps: FPS, outPath: BASE, crf: 18 });
 const t0 = Date.now();
