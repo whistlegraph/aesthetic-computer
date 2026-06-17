@@ -2036,7 +2036,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private static func axTilePass(geom: ScreenGeom, textSize: TextSize) -> AXPass? {
         let iterm = AXTiler.windows(bundleId: "com.googlecode.iterm2")
         let term = AXTiler.windows(bundleId: "com.apple.Terminal")
-        let all = iterm + term
+        // AC Electron preview windows (slab-web) are external standard windows,
+        // so they pack into the same grid as the terminals — frameless dynamic
+        // previews tiled right next to your shells.
+        let acpane = AXTiler.windows(bundleId: "computer.aesthetic.app")
+        let all = iterm + term + acpane
         guard !all.isEmpty,
               let layout = computeTileLayout(count: all.count, geom: geom, size: textSize)
         else { return nil }

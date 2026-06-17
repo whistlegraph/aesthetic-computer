@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# slab-web — open a frameless, CDP-attached, tileable WEB preview in slab,
+# rendered by the AC Electron app (Aesthetic.Computer.app).
+#
+# Mirrors the slab-pdf / slab-video contract but for dynamic/web content: the
+# AC Electron app opens a chromeless (frameless) window for the URL, exposes it
+# on the local CDP port (9222) so slab/Claude can drive it, and because it's a
+# normal external app window the slab tiler (AXTiler) packs it into the same
+# grid as your Terminal/iTerm windows.
+#
+# Usage:
+#   slab-web <url|path>
+#   slab-web http://localhost:8123/spatial-self-3d.html
+#   slab-web ~/aesthetic-computer/studies/spatial-flow.html
+#   slab-web '$gla'                 # an AC piece/$code → aesthetic.computer
+#
+# CDP endpoint after open:  http://127.0.0.1:9222/json   (ws targets per window)
+set -euo pipefail
+
+APP="Aesthetic.Computer"
+url="${1:-}"
+[ -n "$url" ] || { echo "usage: slab-web <url|path>" >&2; exit 1; }
+
+case "$url" in
+  http://*|https://*|file://*) : ;;                 # full URL — as-is
+  /*)            url="file://$url" ;;                # absolute path
+  ./*|../*|*/*)  url="file://$(cd "$(dirname "$url")" && pwd)/$(basename "$url")" ;;  # relative path
+  *.html)        url="file://$PWD/$url" ;;           # bare file in cwd
+  *)             url="https://aesthetic.computer/$url" ;;  # bare token → AC piece/$code
+esac
+
+# `open -na … --args --preview <url>` launches a transient instance; the AC
+# app's single-instance lock hands the args to the running primary via its
+# `second-instance` handler (which opens the preview window there). If the app
+# isn't running yet, this cold-launches it straight into preview mode.
+exec open -na "$APP" --args --preview "$url"

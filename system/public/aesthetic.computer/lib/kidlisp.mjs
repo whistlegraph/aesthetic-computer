@@ -3125,17 +3125,23 @@ class KidLisp {
         return [op, tokens, rightValue];
       }
 
-      // Check for chained math expressions like "width/5.67666*0.828"
+      // Check for chained math expressions like "width/5.67666*0.828" or
+      // "w-S*2". Operands may be variables (e.g. a def'd "S") or numbers, and
+      // we honor operator precedence: * / % bind tighter than + -.
       const chainedMatch = expr.match(
-        /^(\w+)\s*([+\-*/%])\s*(\d+(?:\.\d+)?)\s*([+\-*/%])\s*(\d+(?:\.\d+)?)$/,
+        /^(\w+)\s*([+\-*/%])\s*(\w+|\d+(?:\.\d+)?)\s*([+\-*/%])\s*(\w+|\d+(?:\.\d+)?)$/,
       );
       if (chainedMatch) {
-        const [, variable, op1, num1, op2, num2] = chainedMatch;
-
-        // Convert to nested prefix expressions: (* (/ width 5.67666) 0.828)
-        const innerExpr = [op1, variable, parseFloat(num1)];
-        const outerExpr = [op2, innerExpr, parseFloat(num2)];
-        return outerExpr;
+        const [, a, op1, b, op2, c] = chainedMatch;
+        const conv = (t) => (/^\d+(?:\.\d+)?$/.test(t) ? parseFloat(t) : t);
+        const A = conv(a), B = conv(b), C = conv(c);
+        const mulDiv = (op) => op === "*" || op === "/" || op === "%";
+        // + - followed by * / %  →  A op1 (B op2 C), e.g. w - (S*2)
+        if (!mulDiv(op1) && mulDiv(op2)) {
+          return [op1, A, [op2, B, C]];
+        }
+        // Otherwise left-associative: (A op1 B) op2 C
+        return [op2, [op1, A, B], C];
       }
 
       // Check for simple infix math expressions
