@@ -4132,16 +4132,6 @@
       color: #5c3d1e;
     }
     
-    /* Sub-tab colors - Keeps (Gray) */
-    .list-subtab[data-subtab="keeps"] {
-      background: rgba(250, 204, 21, 0.65);
-      color: #78716c;
-    }
-    .list-subtab[data-subtab="keeps"].active {
-      background: linear-gradient(to bottom, #a3a3a3 0%, #d4d4d4 100%);
-      color: #262626;
-    }
-    
     /* Dark mode sub-tabs */
     [data-theme="dark"] .list-subtab[data-subtab="examples"] {
       background: rgba(253, 224, 71, 0.8);
@@ -4166,14 +4156,6 @@
     [data-theme="dark"] .list-subtab[data-subtab="history"].active {
       background: linear-gradient(to bottom, #a3724a 0%, #6b4423 100%);
       color: #e8d4bc;
-    }
-    [data-theme="dark"] .list-subtab[data-subtab="keeps"] {
-      background: rgba(253, 224, 71, 0.8);
-      color: #57534e;
-    }
-    [data-theme="dark"] .list-subtab[data-subtab="keeps"].active {
-      background: linear-gradient(to bottom, #737373 0%, #525252 100%);
-      color: #f5f5f5;
     }
     
     /* Slideshow icon button in subtabs bar */
@@ -4944,11 +4926,6 @@
       background: linear-gradient(to bottom, rgba(180, 130, 90, 0.35) 0%, rgba(180, 130, 90, 0.1) 40%, rgba(250, 204, 21, 0.05) 100%);
     }
     
-    #keeps-subcontent:not(.hidden) {
-      display: flex;
-      overflow: hidden;
-    }
-
     .language-tab {
       border-left: 1px solid var(--border-color);
       border-right: 1px solid var(--border-color);
@@ -9293,6 +9270,7 @@
           <div class="tab active" data-tab="guide" id="guide-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">Learn</div>
           <div class="tab" data-tab="list" id="list-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">List</div>
           <div class="tab" data-tab="jukebox" id="jukebox-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">Music</div>
+          <div class="tab" data-tab="keep" id="keep-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">Keep</div>
           <div class="tab" data-tab="jockey" id="jockey-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0; display: none;">Jockey</div>
         </div>
         <!-- Console content (shown in mobile single-column mode) -->
@@ -9308,7 +9286,6 @@
             <div class="list-subtab active" data-subtab="examples">Top Hits</div>
             <div class="list-subtab" data-subtab="recent">Recent</div>
             <div class="list-subtab" data-subtab="history">History</div>
-            <div class="list-subtab" data-subtab="keeps">Keeps</div>
           </div>
           <!-- List sub-contents -->
           <div class="list-subcontent" id="examples-subcontent">
@@ -9327,11 +9304,11 @@
               <div id="recent-list" class="code-list-items"><div class="code-list-loading">Loading...</div></div>
             </div>
           </div>
-          <div class="list-subcontent hidden" id="keeps-subcontent">
-            <!-- keeps.html directly (same-origin) — NOT /keeps, which 301s cross-origin to keep.kidlisp.com and breaks the embedded postMessage/localStorage handshake. -->
-            <iframe id="keeps-iframe" data-src="https://kidlisp.com/keeps.html" style="width: 100%; height: 100%; border: none; flex: 1;"></iframe>
-          </div>
         </div><!-- /list-content -->
+        <div class="docs-content hidden" id="keep-content">
+          <!-- keeps.html directly (same-origin) — NOT /keeps, which 301s cross-origin to keep.kidlisp.com and breaks the embedded postMessage/localStorage handshake. -->
+          <iframe id="keeps-iframe" data-src="https://kidlisp.com/keeps.html" style="width: 100%; height: 100%; border: none; flex: 1;"></iframe>
+        </div>
         <div class="docs-content hidden" id="jukebox-content">
           <!-- Jukebox sub-tabs -->
           <div class="jukebox-subtabs">
@@ -17053,6 +17030,11 @@ s("ape_breaks_3").loopAt(2)</textarea>
       
       // Listen for cursor position changes to update Learn tab documentation
       editor.onDidChangeCursorPosition((e) => {
+        // Skip while content is being set programmatically (initial restore /
+        // code-load / decrypt animation). Monaco is still chunking in then, and
+        // these fire spuriously, evaluating references against transient content
+        // and pushing them at the Learn tab.
+        if (isSettingValueProgrammatically) return;
         const model = editor.getModel();
         if (!model) return;
 
@@ -20080,12 +20062,14 @@ s("ape_breaks_3").loopAt(2)</textarea>
     const listContent = document.getElementById('list-content');
     const jukeboxContent = document.getElementById('jukebox-content');
     const jockeyContent = document.getElementById('jockey-content');
+    const keepContent = document.getElementById('keep-content');
     const mobileConsoleContent = document.getElementById('mobile-console-content');
     const codeTab = document.getElementById('reference-tab');
     const guideTab = document.getElementById('guide-tab');
     const listTab = document.getElementById('list-tab');
     const jukeboxTab = document.getElementById('jukebox-tab');
     const jockeyTab = document.getElementById('jockey-tab');
+    const keepTab = document.getElementById('keep-tab');
     const consoleTab = document.getElementById('console-tab');
     let examplesLoaded = false;
     let recentLoaded = false;
@@ -20099,6 +20083,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
       listContent?.classList.add('hidden');
       jukeboxContent?.classList.add('hidden');
       jockeyContent?.classList.add('hidden');
+      keepContent?.classList.add('hidden');
       mobileConsoleContent?.classList.add('hidden');
     }
 
@@ -20109,6 +20094,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
       listTab?.classList.remove('active');
       jukeboxTab?.classList.remove('active');
       jockeyTab?.classList.remove('active');
+      keepTab?.classList.remove('active');
       consoleTab?.classList.remove('active');
     }
     
@@ -20134,18 +20120,6 @@ s("ape_breaks_3").loopAt(2)</textarea>
         if (!recentLoaded) loadRecent();
       } else if (subtab === 'history') {
         loadHistory();
-      } else if (subtab === 'keeps') {
-        // Lazy-load keeps iframe on first click (avoid loading 14k+ items on page init)
-        const keepsIframe = document.getElementById('keeps-iframe');
-        if (keepsIframe && !keepsIframe.hasAttribute('src')) {
-          console.log('📦 [KEEPS] Lazy-loading keeps iframe');
-          // Post the current piece once the embedded keeps page loads.
-          keepsIframe.addEventListener('load', postCurrentPieceToKeeps, { once: true });
-          keepsIframe.src = keepsIframe.dataset.src;
-        } else {
-          // Already loaded — re-target it at whatever piece is open now.
-          postCurrentPieceToKeeps();
-        }
       }
 
       const listIdBySubtab = {
@@ -20283,6 +20257,28 @@ s("ape_breaks_3").loopAt(2)</textarea>
         jockeyContent.classList.remove('hidden');
         expandReferencePanelOnMobile();
         updateJockeyPanel();
+      });
+
+      // Keep tab - embedded focused-keep panel for the current editor piece
+      keepTab?.addEventListener('click', function(e) {
+        e.stopPropagation();
+        e.preventDefault();
+        log.tabs.debug('Keep tab');
+        deactivateAllTabs();
+        hideAllTabContents();
+        keepTab.classList.add('active');
+        keepContent.classList.remove('hidden');
+        expandReferencePanelOnMobile();
+        // Lazy-load keeps iframe on first open; otherwise re-target at the
+        // piece that's open now.
+        const keepsIframe = document.getElementById('keeps-iframe');
+        if (keepsIframe && !keepsIframe.hasAttribute('src')) {
+          console.log('📦 [KEEPS] Lazy-loading keeps iframe');
+          keepsIframe.addEventListener('load', postCurrentPieceToKeeps, { once: true });
+          keepsIframe.src = keepsIframe.dataset.src;
+        } else {
+          postCurrentPieceToKeeps();
+        }
       });
 
       // List sub-tab click handlers
