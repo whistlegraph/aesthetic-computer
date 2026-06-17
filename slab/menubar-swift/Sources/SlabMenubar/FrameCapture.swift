@@ -91,16 +91,33 @@ final class FrameCapture {
 
     // MARK: - Accessibility element tree of the frontmost app (trust already held)
 
-    private func axAttr(_ el: AXUIElement, _ k: String) -> AnyObject? {
-        var v: AnyObject?
-        return AXUIElementCopyAttributeValue(el, k as CFString, &v) == .success ? v : nil
+    // Fetch several attributes in ONE IPC round-trip instead of one call each.
+    // The old walk did ~6 `AXUIElementCopyAttributeValue` calls per node (role,
+    // children, title, value, desc, position, size) — each a synchronous Mach
+    // round-trip into the target app's main thread, so a 300-element tree cost
+    // ~2000 IPCs. `AXUIElementCopyMultipleAttributeValues` collapses that to one
+    // call per node. Returns values parallel to `attrs`; a failed slot comes
+    // back as an AXValue of type .axError, mapped to nil here.
+    private let AX_ATTRS = ["AXRole", "AXChildren", "AXTitle", "AXValue", "AXDescription", "AXPosition", "AXSize"]
+    private func axBatch(_ el: AXUIElement) -> [AnyObject?] {
+        var raw: CFArray?
+        let err = AXUIElementCopyMultipleAttributeValues(
+            el, AX_ATTRS as CFArray, AXCopyMultipleAttributeOptions(rawValue: 0), &raw)
+        guard err == .success, let arr = raw as? [AnyObject] else {
+            return Array(repeating: nil, count: AX_ATTRS.count)
+        }
+        return arr.map { v -> AnyObject? in
+            if CFGetTypeID(v) == AXValueGetTypeID(), AXValueGetType((v as! AXValue)) == .axError { return nil }
+            if v is NSNull { return nil }
+            return v
+        }
     }
-    private func axPoint(_ el: AXUIElement) -> (CGFloat, CGFloat)? {
-        guard let v = axAttr(el, "AXPosition") else { return nil }
+    private func axCGPoint(_ v: AnyObject?) -> (CGFloat, CGFloat)? {
+        guard let v = v, CFGetTypeID(v) == AXValueGetTypeID() else { return nil }
         var p = CGPoint.zero; AXValueGetValue(v as! AXValue, .cgPoint, &p); return (p.x, p.y)
     }
-    private func axSize(_ el: AXUIElement) -> (CGFloat, CGFloat)? {
-        guard let v = axAttr(el, "AXSize") else { return nil }
+    private func axCGSize(_ v: AnyObject?) -> (CGFloat, CGFloat)? {
+        guard let v = v, CFGetTypeID(v) == AXValueGetTypeID() else { return nil }
         var s = CGSize.zero; AXValueGetValue(v as! AXValue, .cgSize, &s); return (s.width, s.height)
     }
     private func axTree() -> [String: Any] {
@@ -117,19 +134,19 @@ final class FrameCapture {
         func walk(_ el: AXUIElement, _ depth: Int) {
             if count > 2000 || depth > 28 { return }
             count += 1
-            let role = (axAttr(el, "AXRole") as? String) ?? ""
-            if want.contains(role), let (x, y) = axPoint(el), let (w, h) = axSize(el), w > 0, h > 0 {
-                let title = (axAttr(el, "AXTitle") as? String)
-                    ?? (axAttr(el, "AXValue") as? String)
-                    ?? (axAttr(el, "AXDescription") as? String) ?? ""
+            let v = axBatch(el) // role, children, title, value, desc, position, size
+            let role = (v[0] as? String) ?? ""
+            if want.contains(role),
+               let (x, y) = axCGPoint(v[5]), let (w, h) = axCGSize(v[6]), w > 0, h > 0 {
+                let title = (v[2] as? String) ?? (v[3] as? String) ?? (v[4] as? String) ?? ""
                 var acts: CFArray?
-                AXUIElementCopyActionNames(el, &acts)
+                AXUIElementCopyActionNames(el, &acts) // only for matched elements
                 out.append(["role": role, "title": String(title.prefix(80)),
                     "cx": Int(x + w / 2), "cy": Int(y + h / 2),
                     "r": [Int(x), Int(y), Int(w), Int(h)],
                     "actions": (acts as? [String]) ?? []])
             }
-            if let kids = axAttr(el, "AXChildren") as? [AXUIElement] {
+            if let kids = v[1] as? [AXUIElement] {
                 for k in kids { walk(k, depth + 1) }
             }
         }
