@@ -4,18 +4,21 @@
       "type": "stdio",
       "command": "node",
       "args": [
-        "/workspaces/aesthetic-computer/artery/emacs-mcp.mjs"
+        "artery/emacs-mcp.mjs"
       ],
       "env": {
-        "EMACSCLIENT": "/usr/sbin/emacsclient"
+        "EMACSCLIENT": "emacsclient"
       }
     },
     "mail": {
       "type": "stdio",
       "command": "node",
       "args": [
-        "/workspaces/aesthetic-computer/ants/mail-mcp/server.mjs"
-      ]
+        "ants/mail-mcp/server.mjs"
+      ],
+      "env": {
+        "AC_EMAIL_STYLE_GUIDE": "/Users/jas/aesthetic-computer/toolchain/email/style-guide.md"
+      }
     }
   }
 }
