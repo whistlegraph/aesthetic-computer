@@ -604,7 +604,10 @@ function parsePreviewArg(list) {
   const i = list.indexOf('--preview');
   return i >= 0 ? list[i + 1] : undefined;
 }
-const initialPreviewURL = parsePreviewArg(args);
+// Parse from the FULL argv, not the sliced `args`: a packaged app's argv is
+// [exePath, --preview, url] (slice(2) would drop --preview), whereas dev is
+// [electron, '.', --preview, url]. Searching the whole list handles both.
+const initialPreviewURL = parsePreviewArg(process.argv);
 
 // URLs - nogap removes the aesthetic gap border for desktop mode
 const URLS = {
