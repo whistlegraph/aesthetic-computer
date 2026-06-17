@@ -12,6 +12,11 @@ if MenubarCLI.runIfRequested(CommandLine.arguments) {
     exit(0)
 }
 
+// Headless capture of the real About window for promos/reels.
+if AboutCLI.runIfRequested(CommandLine.arguments) {
+    exit(0)
+}
+
 // Singleton guard: when MenuBand is spawned by both launchd's
 // KeepAlive (after crash / sleep wake) AND MenuBandLauncher's
 // double-tap path at the same time, we get two instances fighting
