@@ -18,15 +18,15 @@ final class ShotWizardController: NSWindowController, NSWindowDelegate {
     var titleLabel: NSTextField!
     var totalLabel: NSTextField!
     var playAllButton: NSButton!
+    var navPrevButton: NSButton!     // browse ‹ (select previous shot)
+    var navNextButton: NSButton!     // browse › (select next shot)
     var playerView: ScrubPlayerView!
     var stillView: NSImageView!
     var player: AVPlayer?
     var loopObserver: NSObjectProtocol?
 
     var stripScroll: NSScrollView!
-    var stripStack: NSStackView!
-    var moveLeftButton: NSButton!
-    var moveRightButton: NSButton!
+    var strip: ThumbStripView!
 
     // sidebar
     var idLabel: NSTextField!
@@ -94,6 +94,10 @@ final class ShotWizardController: NSWindowController, NSWindowDelegate {
         let last = board.shots.last?.t1 ?? 0
         totalLabel.stringValue = String(format: "%d shots · %.0fs", board.shots.count, last)
         playAllButton = button("▶ play all", #selector(playAll))
+        // Browse buttons — step the SELECTION through the shots (same as the
+        // ←/→ arrow keys; non-destructive, never reorder).
+        navPrevButton = button("‹ prev", #selector(navPrev))
+        navNextButton = button("next ›", #selector(navNext))
 
         playerView = ScrubPlayerView(frame: .zero)
         stillView = NSImageView(frame: .zero)
@@ -103,26 +107,18 @@ final class ShotWizardController: NSWindowController, NSWindowDelegate {
         stillView.layer?.cornerRadius = 8
         stillView.isHidden = true
 
-        stripStack = NSStackView(frame: .zero)
-        stripStack.orientation = .horizontal
-        stripStack.alignment = .centerY
-        stripStack.spacing = 8
-        stripStack.edgeInsets = NSEdgeInsets(top: 6, left: 6, bottom: 6, right: 6)
+        // The filmstrip: a thumbnail per shot, click to select, DRAG to
+        // reorder. Lives inside a horizontal scroll view.
+        strip = ThumbStripView(frame: .zero)
+        strip.controller = self
         stripScroll = NSScrollView(frame: .zero)
-        stripScroll.documentView = stripStack
+        stripScroll.documentView = strip
         stripScroll.hasHorizontalScroller = true
         stripScroll.hasVerticalScroller = false
         stripScroll.drawsBackground = false
         stripScroll.wantsLayer = true
         stripScroll.layer?.cornerRadius = 8
         stripScroll.layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(0.05).cgColor
-
-        // These REORDER the sequence (they shift the selected shot in the
-        // running order). Plain ←/→ arrow keys just NAVIGATE between shots
-        // (non-destructive) — so the buttons say "reorder" to avoid being
-        // mistaken for next/prev.
-        moveLeftButton = button("◀ reorder", #selector(moveShotLeft))
-        moveRightButton = button("reorder ▶", #selector(moveShotRight))
 
         idLabel = label(15, .semibold)
         laneLabel = label(11, .semibold)
@@ -169,8 +165,8 @@ final class ShotWizardController: NSWindowController, NSWindowDelegate {
         jobLog.lineBreakMode = .byTruncatingHead
 
         let views: [NSView] = [
-            titleLabel, totalLabel, playAllButton, playerView, stillView,
-            stripScroll, moveLeftButton, moveRightButton, idLabel, laneLabel,
+            titleLabel, totalLabel, playAllButton, navPrevButton, navNextButton, playerView, stillView,
+            stripScroll, idLabel, laneLabel,
             timeLabel, voScroll, sourceThumb, promptScroll, statusLabel,
             genButton, assembleButton, jobProgress, jobLog,
         ]
@@ -210,19 +206,19 @@ final class ShotWizardController: NSWindowController, NSWindowDelegate {
         let W = cv.bounds.width, H = cv.bounds.height
         let pad: CGFloat = 16
 
-        // header
+        // header: title (left) · [‹ prev][next ›] · total · ▶ play all (right)
         let headerY = H - 42
-        titleLabel.frame = NSRect(x: pad, y: headerY, width: W - 2 * pad - 220, height: 28)
+        let navW: CGFloat = 64
         playAllButton.frame = NSRect(x: W - pad - 110, y: headerY, width: 110, height: 28)
-        totalLabel.frame = NSRect(x: W - pad - 110 - 150 - 8, y: headerY + 4, width: 150, height: 20)
+        navNextButton.frame = NSRect(x: W - pad - 110 - 8 - navW, y: headerY, width: navW, height: 28)
+        navPrevButton.frame = NSRect(x: navNextButton.frame.minX - 4 - navW, y: headerY, width: navW, height: 28)
+        totalLabel.frame = NSRect(x: navPrevButton.frame.minX - 8 - 130, y: headerY + 4, width: 130, height: 20)
+        titleLabel.frame = NSRect(x: pad, y: headerY, width: max(80, totalLabel.frame.minX - 2 * pad), height: 28)
 
-        // bottom strip + move buttons
+        // bottom filmstrip — full width (drag a tile to reorder)
         let stripY = pad
-        let moveW: CGFloat = 78
-        moveLeftButton.frame = NSRect(x: pad, y: stripY + (stripH - 26) / 2, width: moveW, height: 26)
-        moveRightButton.frame = NSRect(x: W - pad - moveW, y: stripY + (stripH - 26) / 2, width: moveW, height: 26)
-        stripScroll.frame = NSRect(x: pad + moveW + 8, y: stripY,
-                                   width: W - 2 * (pad + moveW + 8), height: stripH)
+        stripScroll.frame = NSRect(x: pad, y: stripY, width: W - 2 * pad, height: stripH)
+        strip?.reload()
 
         // right sidebar
         let sx = W - pad - sidebarW
@@ -260,29 +256,7 @@ final class ShotWizardController: NSWindowController, NSWindowDelegate {
     }
 
     // ── strip ─────────────────────────────────────────────────────────
-    func buildStrip() {
-        stripStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        for (i, shot) in board.shots.enumerated() {
-            let b = NSButton(frame: NSRect(x: 0, y: 0, width: 150, height: 92))
-            b.imagePosition = .imageOnly
-            b.bezelStyle = .regularSquare
-            b.isBordered = false
-            b.image = thumbnail(for: shot)
-            b.imageScaling = .scaleProportionallyUpOrDown
-            b.tag = i
-            b.target = self
-            b.action = #selector(stripClicked(_:))
-            b.toolTip = "\(i + 1). \(shot.id) · \(shot.lane.rawValue) · \(shot.effectiveStatus)"
-            b.wantsLayer = true
-            b.layer?.cornerRadius = 6
-            b.layer?.masksToBounds = true
-            b.layer?.borderWidth = i == sel ? 3 : 1.5
-            b.layer?.borderColor = borderColor(for: shot, selected: i == sel).cgColor
-            b.widthAnchor.constraint(equalToConstant: 150).isActive = true
-            b.heightAnchor.constraint(equalToConstant: 92).isActive = true
-            stripStack.addArrangedSubview(b)
-        }
-    }
+    func buildStrip() { strip?.reload() }
 
     func borderColor(for shot: Shot, selected: Bool) -> NSColor {
         if selected { return .systemYellow }
@@ -411,21 +385,16 @@ final class ShotWizardController: NSWindowController, NSWindowDelegate {
         vp.play()
     }
 
-    // ── reorder (the core "line up the sequence" gesture) ─────────────
-    @objc func moveShotLeft() {
-        guard sel > 0 else { return }
-        board.move(from: sel, to: sel - 1)
-        sel -= 1
-        buildStrip(); select(sel)
-        status("moved ◀ — sequence saved")
-    }
+    // ── browse (non-destructive: just move the selection) ─────────────
+    @objc func navPrev() { select(max(0, sel - 1)) }
+    @objc func navNext() { select(min(board.shots.count - 1, sel + 1)) }
 
-    @objc func moveShotRight() {
-        guard sel < board.shots.count - 1 else { return }
-        board.move(from: sel, to: sel + 1)
-        sel += 1
-        buildStrip(); select(sel)
-        status("moved ▶ — sequence saved")
+    // ── reorder (drag-and-drop in the filmstrip) ──────────────────────
+    func reorder(from: Int, to: Int) {
+        guard from != to, board.shots.indices.contains(from), board.shots.indices.contains(to) else { return }
+        board.move(from: from, to: to)
+        select(to)                       // select() rebuilds the strip + preview
+        status("reordered — sequence saved")
     }
 
     // ── generate / assemble via the board driver ──────────────────────
