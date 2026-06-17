@@ -21,7 +21,8 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { once } from "node:events";
-import { createCanvas, registerFont } from "canvas";
+import { spawnSync } from "node:child_process";
+import { createCanvas, registerFont, loadImage } from "canvas";
 import { spawnFFmpegEncode } from "../../lib/preview-shared.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -58,6 +59,19 @@ const KEY_COLORS = [
 const SQ_TL = [211, 80, 196], SQ_BR = [67, 29, 113];   // squircle gradient
 const CREAM = [246, 242, 232], KEYBLACK = [27, 26, 25], EDGE = [40, 28, 22];
 const AC_PURPLE = "rgb(167,139,250)";
+
+// The real menubar-piano ROYGBIV palette by pitch class (KeyboardIconRenderer.swift
+// naturals; blacks interpolated) — the menu bar IS the keyboard, lit per note.
+const PC_COLOR = {
+  0: [255, 50, 50], 1: [255, 100, 0], 2: [255, 160, 0], 3: [150, 210, 0],
+  4: [255, 230, 0], 5: [50, 200, 50], 6: [0, 180, 150], 7: [50, 120, 255],
+  8: [90, 80, 230], 9: [130, 50, 200], 10: [220, 80, 230], 11: [180, 80, 255],
+};
+
+// Real scannable QR to the landing page (qrencode → PNG → loaded once).
+const QR_PNG = `${OUT}/qr-menuband.png`;
+spawnSync("qrencode", ["-o", QR_PNG, "-s", "16", "-m", "1", "-l", "H", "https://prompt.ac/menuband"]);
+const qrImg = existsSync(QR_PNG) ? await loadImage(QR_PNG) : null;
 
 const canvas = createCanvas(W, H);
 const ctx = canvas.getContext("2d");
@@ -137,40 +151,81 @@ function drawDesktop() {
   ctx.fillStyle = s; ctx.fillRect(0, 0, W, H);
 }
 
-// ── macOS menubar (translucent, Apple logo, app menus, clock + glyphs) ─────
-const MBAR_H = 64;
-function drawMenubar(highlightBand) {
-  ctx.fillStyle = "rgba(28,24,40,0.55)";
+// ── macOS menubar — but the menu bar IS the keyboard: a live ROYGBIV
+// piano (C4..B5) lives in it and lights per played note. The whole pitch
+// of Menu Band, up top. ──────────────────────────────────────────────────
+const MBAR_H = 96;
+const WHITE_MIDIS = [60, 62, 64, 65, 67, 69, 71, 72, 74, 76, 77, 79, 81, 83]; // 2 octaves
+const PIANO_W = 600, PIANO_X = (W - PIANO_W) / 2 + 30, KEY_W = PIANO_W / WHITE_MIDIS.length;
+
+function drawMenubar(litPCs) {
+  ctx.fillStyle = "rgba(28,24,40,0.62)";
   ctx.fillRect(0, 0, W, MBAR_H);
-  ctx.fillStyle = "rgba(255,255,255,0.95)";
-  ctx.font = "600 30px MBSans";
-  ctx.textBaseline = "middle";
-  // Apple logo (stylized circle bite)
+  const cy = MBAR_H / 2;
+  // Apple logo
   ctx.save();
   ctx.fillStyle = "rgba(255,255,255,0.95)";
-  ctx.beginPath(); ctx.arc(38, MBAR_H / 2, 13, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = "rgba(28,24,40,0.85)";
-  ctx.beginPath(); ctx.arc(46, MBAR_H / 2 - 4, 8, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(44, cy, 15, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "rgba(28,24,40,0.9)";
+  ctx.beginPath(); ctx.arc(53, cy - 5, 9, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
-  // app menus
-  ctx.fillStyle = "rgba(255,255,255,0.95)";
-  ctx.font = "700 28px MBSans";
-  ctx.fillText("Menu Band", 70, MBAR_H / 2 + 1);
-  ctx.font = "400 27px MBSans";
-  let mx = 270;
-  for (const item of ["File", "Edit", "View"]) { ctx.fillText(item, mx, MBAR_H / 2 + 1); mx += ctx.measureText(item).width + 34; }
-  // right side: control-center dots, battery, clock
-  ctx.textAlign = "right";
-  ctx.font = "400 27px MBSans";
-  ctx.fillText("9:41", W - 28, MBAR_H / 2 + 1);
-  ctx.textAlign = "left";
-  // control glyphs (battery + wifi-ish)
+  ctx.fillStyle = "rgba(255,255,255,0.96)";
+  ctx.textBaseline = "middle"; ctx.font = "700 30px MBSans";
+  ctx.fillText("Menu Band", 78, cy + 1);
+  // right: clock + battery
+  ctx.textAlign = "right"; ctx.font = "500 29px MBSans";
+  ctx.fillText("9:41", W - 30, cy + 1); ctx.textAlign = "left";
   ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.lineWidth = 3;
-  roundRect(W - 200, MBAR_H / 2 - 9, 40, 18, 4); ctx.stroke();
-  ctx.fillStyle = "rgba(255,255,255,0.9)"; ctx.fillRect(W - 196, MBAR_H / 2 - 5, 26, 10);
-  // the Menu Band menubar icon (the little colorful piano) — its key band
-  // mirrors highlightBand (the live lit keys), so the menubar dances too.
-  drawIcon(W - 320, 6, MBAR_H - 12, highlightBand);
+  roundRect(W - 232, cy - 11, 46, 22, 5); ctx.stroke();
+  ctx.fillStyle = "rgba(255,255,255,0.9)"; ctx.fillRect(W - 227, cy - 6, 30, 12);
+
+  drawMenubarPiano(litPCs);
+}
+
+// The status-item piano: skeuomorphic white + black keys, each washing its
+// ROYGBIV color (by pitch class) and depressing when its note sounds.
+function drawMenubarPiano(litPCs) {
+  const padY = 11, keyTop = padY, keyH = MBAR_H - padY * 2;
+  // white keys
+  for (let i = 0; i < WHITE_MIDIS.length; i++) {
+    const pc = WHITE_MIDIS[i] % 12;
+    const on = litPCs.has(pc);
+    const x = PIANO_X + i * KEY_W, dy = on ? 2 : 0;
+    roundRect(x + 1, keyTop + dy, KEY_W - 2, keyH - dy, 5);
+    if (on) {
+      const c = PC_COLOR[pc];
+      const g = ctx.createLinearGradient(0, keyTop, 0, keyTop + keyH);
+      g.addColorStop(0, rgb(c)); g.addColorStop(1, rgb(c.map((v) => v * 0.62)));
+      ctx.fillStyle = g;
+    } else {
+      const g = ctx.createLinearGradient(0, keyTop, 0, keyTop + keyH);
+      g.addColorStop(0, "rgb(252,250,246)"); g.addColorStop(1, "rgb(222,218,210)");
+      ctx.fillStyle = g;
+    }
+    ctx.fill();
+    ctx.strokeStyle = "rgba(40,30,30,0.35)"; ctx.lineWidth = 1.5; ctx.stroke();
+  }
+  // black keys (between C-D, D-E, F-G, G-A, A-B)
+  const bw = KEY_W * 0.62, bh = keyH * 0.62;
+  for (let i = 0; i < WHITE_MIDIS.length; i++) {
+    const wm = WHITE_MIDIS[i] % 12;
+    if (![0, 2, 5, 7, 9].includes(wm)) continue;      // no black after E(4) or B(11)
+    const pc = (WHITE_MIDIS[i] + 1) % 12;
+    const on = litPCs.has(pc);
+    const x = PIANO_X + (i + 1) * KEY_W - bw / 2, dy = on ? 2 : 0;
+    roundRect(x, keyTop, bw, bh + dy, 4);
+    if (on) {
+      const c = PC_COLOR[pc];
+      const g = ctx.createLinearGradient(0, keyTop, 0, keyTop + bh);
+      g.addColorStop(0, rgb(c.map((v) => Math.min(255, v * 1.1)))); g.addColorStop(1, rgb(c.map((v) => v * 0.5)));
+      ctx.fillStyle = g;
+    } else {
+      const g = ctx.createLinearGradient(0, keyTop, 0, keyTop + bh);
+      g.addColorStop(0, "rgb(58,54,64)"); g.addColorStop(1, "rgb(20,18,24)");
+      ctx.fillStyle = g;
+    }
+    ctx.fill();
+  }
 }
 
 // ── note-particle system (vector eighth-notes puffing up) ──────────────────
@@ -237,6 +292,12 @@ function litKeysAt(t) {
   for (const n of leadNotes) if (t >= n.t && t < n.t + Math.max(0.12, n.dur)) lit.add(((n.midi % 12) + 12) % 12 % 5);
   return lit;
 }
+// pitch classes (0-11) of active lead notes — drives the menubar piano.
+function litPCsAt(t) {
+  const s = new Set();
+  for (const n of leadNotes) if (t >= n.t && t < n.t + Math.max(0.12, n.dur)) s.add(((n.midi % 12) + 12) % 12);
+  return s;
+}
 // onset detection per frame for particle spawns
 let noteCursor = 0;
 const sortedLead = [...leadNotes].sort((a, b) => a.t - b.t);
@@ -278,23 +339,11 @@ function drawLanguageMap(rx, t) {
 }
 
 // ── faux QR (finder patterns + module field) → reads as "scan me" ──────────
+// the REAL scannable QR (qrencode PNG), on a white rounded tile.
 function drawQR(x, y, s) {
   ctx.fillStyle = "white"; roundRect(x, y, s, s, s * 0.08); ctx.fill();
-  const pad = s * 0.12, n = 13, cell = (s - pad * 2) / n;
-  ctx.fillStyle = "rgb(40,28,60)";
-  // deterministic module field
-  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
-    if (((i * 7 + j * 13 + i * j) % 5) < 2) ctx.fillRect(x + pad + i * cell, y + pad + j * cell, cell, cell);
-  }
-  // finder patterns (corners)
-  const finder = (fx, fy) => {
-    ctx.fillStyle = "rgb(40,28,60)"; ctx.fillRect(fx, fy, cell * 3, cell * 3);
-    ctx.fillStyle = "white"; ctx.fillRect(fx + cell * 0.6, fy + cell * 0.6, cell * 1.8, cell * 1.8);
-    ctx.fillStyle = "rgb(40,28,60)"; ctx.fillRect(fx + cell, fy + cell, cell, cell);
-  };
-  finder(x + pad, y + pad);
-  finder(x + s - pad - cell * 3, y + pad);
-  finder(x + pad, y + s - pad - cell * 3);
+  const pad = s * 0.10;
+  if (qrImg) ctx.drawImage(qrImg, x + pad, y + pad, s - pad * 2, s - pad * 2);
 }
 
 const easeOut = (u) => 1 - Math.pow(1 - Math.max(0, Math.min(1, u)), 3);
@@ -306,13 +355,12 @@ function text(str, x, y, size, color, weight = 700, align = "center", rounded = 
 }
 
 // ── scene timeline (fractions of TOTAL so it adapts to the waltz length) ───
-// intro · open · HERO keyboard · card flip · languages · end card
+// open (drops in immediately) · HERO keyboard · card flip · languages · end
 const SCENES = [
-  { name: "intro", from: 0.00, to: 0.10, tint: [150, 96, 180] },
-  { name: "open", from: 0.10, to: 0.17, tint: [167, 139, 250] },
-  { name: "play", from: 0.17, to: 0.55, tint: [97, 158, 255] },
-  { name: "flip", from: 0.55, to: 0.72, tint: [255, 153, 46] },
-  { name: "langs", from: 0.72, to: 0.88, tint: [51, 209, 179] },
+  { name: "open", from: 0.00, to: 0.05, tint: [167, 139, 250] },
+  { name: "play", from: 0.05, to: 0.52, tint: [97, 158, 255] },
+  { name: "flip", from: 0.52, to: 0.70, tint: [255, 153, 46] },
+  { name: "langs", from: 0.70, to: 0.88, tint: [51, 209, 179] },
   { name: "end", from: 0.88, to: 1.00, tint: [255, 77, 107] },
 ].map((s) => ({ ...s, from: s.from * TOTAL, to: s.to * TOTAL }));
 const sceneAt = (t) => SCENES.find((s) => t >= s.from && t < s.to) ?? SCENES[SCENES.length - 1];
@@ -323,13 +371,18 @@ const WIN = { x: 150, y: 560, w: 780, h: 900 };
 function drawFrame(t) {
   drawDesktop();
   const lit = litKeysAt(t);
+  const litPC = litPCsAt(t);
   const sc = sceneAt(t);
   const local = (sc.to - sc.from) > 0 ? (t - sc.from) / (sc.to - sc.from) : 1;
 
-  // window appears from `open` onward, sliding down from the menubar icon.
+  // window drops in IMMEDIATELY from the menubar (visible from frame 0 — never
+  // a blank intro): it eases down from just under the bar and settles.
   let winY = WIN.y, winA = 1, winScale = 1;
-  if (sc.name === "intro") { winA = 0; }
-  else if (sc.name === "open") { const e = easeOut(local); winY = -WIN.h + (WIN.y + WIN.h) * e; winA = e; winScale = 0.9 + 0.1 * e; }
+  if (sc.name === "open") {
+    const e = easeOut(local);
+    winY = (MBAR_H + 8) + (WIN.y - (MBAR_H + 8)) * e;
+    winA = 0.5 + 0.5 * e; winScale = 0.92 + 0.08 * e;
+  }
 
   if (winA > 0.01) {
     ctx.save(); ctx.globalAlpha = winA;
@@ -378,7 +431,7 @@ function drawFrame(t) {
   }
 
   // menubar always on top; its little icon mirrors the lit keys.
-  drawMenubar(lit);
+  drawMenubar(litPC);
 
   // particles ride above everything (spawned on note onsets during play/flip).
   const dt = 1 / FPS;
