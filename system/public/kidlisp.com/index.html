@@ -26,7 +26,10 @@
   <!-- Note: We use inline @font-face instead of external CSS which has broken relative URLs -->
   <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css" media="print" onload="this.media='all'" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <script src="/aesthetic.computer/dep/auth0-spa-js.production.js" async onload="window.__auth0SDKReady=true"></script>
+  <!-- Auth0 SDK is loaded on demand by loadAuth0SDK() with Monaco's AMD define()
+       hidden — a static UMD <script> races the AMD loader and never sets
+       window.auth0, hanging the login button. -->
+
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Comic+Relief:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+Mono:wght@400;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
   <!-- Flag icons for language selector (lazy-loaded — not needed at startup) -->
@@ -20429,6 +20432,24 @@ s("ape_breaks_3").loopAt(2)</textarea>
       }
       
       // === Auth0 Login/Logout ===
+      let _auth0SDKPromise = null;
+      function loadAuth0SDK() {
+        if (window.auth0) return Promise.resolve();
+        if (_auth0SDKPromise) return _auth0SDKPromise;
+        _auth0SDKPromise = new Promise((resolve, reject) => {
+          // Hide Monaco's AMD define() so the UMD bundle takes the global path.
+          const savedDefine = window.define;
+          try { window.define = undefined; } catch (e) {}
+          const restore = () => { try { window.define = savedDefine; } catch (e) {} };
+          const s = document.createElement('script');
+          s.src = '/aesthetic.computer/dep/auth0-spa-js.production.js';
+          s.onload = () => { restore(); window.__auth0SDKReady = true; resolve(); };
+          s.onerror = (e) => { restore(); _auth0SDKPromise = null; reject(e); };
+          document.head.appendChild(s);
+        });
+        return _auth0SDKPromise;
+      }
+
       async function initAuth0() {
         try {
           console.log('[AUTH] initAuth0 called, externalSessionHydrated:', externalSessionHydrated, 'window.auth0:', typeof window.auth0);
@@ -20438,15 +20459,12 @@ s("ape_breaks_3").loopAt(2)</textarea>
             logBoot('auth', 'session');
             return;
           }
-          // Wait for async Auth0 SDK to finish loading (up to 10s)
+          // Load the Auth0 SDK (UMD). The editor has Monaco's AMD loader, which
+          // would otherwise capture this UMD via define() and never set
+          // window.auth0 — the root of the "SDK still loading" login hang. We
+          // load it ourselves with define hidden so it sets the global.
           if (!window.auth0) {
-            await new Promise((resolve) => {
-              if (window.__auth0SDKReady) { resolve(); return; }
-              const check = setInterval(() => {
-                if (window.auth0 || window.__auth0SDKReady) { clearInterval(check); resolve(); }
-              }, 100);
-              setTimeout(() => { clearInterval(check); resolve(); }, 10000);
-            });
+            try { await loadAuth0SDK(); } catch (e) { console.warn('[AUTH] Auth0 SDK load failed:', e?.message || e); }
           }
           if (!window.auth0) {
             console.warn('[AUTH] window.auth0 SDK failed to load');
