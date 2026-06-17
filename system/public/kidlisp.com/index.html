@@ -15601,13 +15601,22 @@ s("ape_breaks_3").loopAt(2)</textarea>
         }
         return orig.call(this, obj, prop, desc);
       };
-      await new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = 'https://unpkg.com/@airgap/beacon-sdk@4.8.1/dist/walletbeacon.min.js';
-        s.onload = () => resolve();
-        s.onerror = (e) => { Object.defineProperty = orig; reject(e); };
-        document.head.appendChild(s);
-      });
+      // The editor has Monaco's AMD loader (window.define), so the Beacon UMD
+      // bundle would register via define() and never set window.beacon. Hide AMD
+      // during the load so it takes the global-assignment path, then restore.
+      const savedDefine = window.define;
+      try { window.define = undefined; } catch (e) {}
+      try {
+        await new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = 'https://unpkg.com/@airgap/beacon-sdk@4.8.1/dist/walletbeacon.min.js';
+          s.onload = () => resolve();
+          s.onerror = (e) => { Object.defineProperty = orig; reject(e); };
+          document.head.appendChild(s);
+        });
+      } finally {
+        try { window.define = savedDefine; } catch (e) {}
+      }
     }
     async function _ensureKidlispBeacon(network) {
       const net = network === 'ghostnet' ? 'ghostnet' : 'mainnet';
