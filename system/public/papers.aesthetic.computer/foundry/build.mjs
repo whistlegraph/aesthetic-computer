@@ -57,9 +57,25 @@ const GROUPS = [
     { name: "Bravura", tag: "music notation · SMuFL", spec: web("'Bravura',serif", `<div class="big">𝄞 ♩ ♪ ♫ ♬ ♭ ♮ ♯</div>`, "tall"),
       lic: ["ofl","SIL OFL — Steinberg"], used: ["slab/menuband"] },
   ]},
+  { title: "Candidates — FOSS, bundleable (not yet adopted)", color: "green", faces: [
+    { name: "Departure Mono", tag: "pixel mono", spec: web("'Departure Mono',monospace", `<div class="big">freehand tape</div>`),
+      lic: ["mit","MIT — Helena Zhang","lo-fi pixel mono","https://departuremono.com"], role: "candidate · bundleable now" },
+    { name: "Space Mono", tag: "display mono", spec: web("'Space Mono',monospace", `<div class="big">prompt notepat</div>`),
+      lic: ["ofl","SIL OFL — Colophon"], role: "candidate · bundleable now" },
+    { name: "Space Grotesk", tag: "geometric display", spec: web("'Space Grotesk',sans-serif", `<div class="big">aesthetic computer</div>`),
+      lic: ["ofl","SIL OFL — Florian Karsten"], role: "candidate · bundleable now" },
+    { name: "Inter", tag: "UI sans", spec: web("'Inter',sans-serif", `<div class="big">painting melody</div>`),
+      lic: ["ofl","SIL OFL — Rasmus Andersson"], role: "candidate · bundleable now" },
+    { name: "Silkscreen", tag: "pixel · bitmap", spec: web("'Silkscreen',sans-serif", `<div class="big">kidlisp chat</div>`),
+      lic: ["ofl","SIL OFL — Jason Kottke"], role: "candidate · bundleable now" },
+    { name: "Press Start 2P", tag: "arcade pixel", spec: web("'Press Start 2P',monospace", `<div class="big">balls</div>`),
+      lic: ["ofl","SIL OFL — CodeMan38"], role: "candidate · bundleable now" },
+    { name: "Handjet", tag: "variable pixel / element", spec: web("'Handjet',monospace", `<div class="big">wand bleep</div>`),
+      lic: ["ofl","SIL OFL — Rosetta"], role: "candidate · bundleable now" },
+  ]},
 ];
 
-const KIND = { native:["AC NATIVE","cyan"], cc:["CC-BY","green"], gpl:["GPL","purple"], gust:["GUST","green"], commercial:["COMMERCIAL","pink"], proprietary:["PROPRIETARY","gold"], ofl:["OFL","green"], pd:["PD","green"] };
+const KIND = { native:["AC NATIVE","cyan"], cc:["CC-BY","green"], gpl:["GPL","purple"], gust:["GUST","green"], mit:["MIT","green"], commercial:["COMMERCIAL","pink"], proprietary:["PROPRIETARY","gold"], ofl:["OFL","green"], pd:["PD","green"] };
 function licBlock(lic){
   const [kind, label, ...rest] = lic;
   const [klabel, kcolor] = KIND[kind];
@@ -72,7 +88,7 @@ function licBlock(lic){
 const card = (f) => `<div class="face"><div class="fh"><span class="fn">${f.name}</span><span class="ft">${f.tag}</span></div>`
   + (f.spec?`<div class="spec">${f.spec}</div>`:"")
   + licBlock(f.lic)
-  + `<div class="used">used: ${f.used.join(", ")}</div></div>`;
+  + `<div class="used">${f.role || ("used: " + f.used.join(", "))}</div></div>`;
 const SECTIONS = GROUPS.map((g)=>`<section class="grp"><div class="gh" data-color="${g.color}"><h2>${g.title}</h2></div><div class="faces">${g.faces.map(card).join("")}</div></section>`).join("");
 
 const HTML = `<!DOCTYPE html><html lang="en"><head>
@@ -90,6 +106,13 @@ const HTML = `<!DOCTYPE html><html lang="en"><head>
   @font-face{ font-family:'Latin Modern Roman'; src:url('fonts/lmroman10-regular.otf'); font-display:swap; }
   @font-face{ font-family:'Latin Modern Sans'; src:url('fonts/lmsans10-regular.otf'); font-display:swap; }
   @font-face{ font-family:'Latin Modern Mono'; src:url('fonts/lmmono10-regular.otf'); font-display:swap; }
+  @font-face{ font-family:'Departure Mono'; src:url('fonts/DepartureMono-Regular.woff2') format('woff2'); font-display:swap; }
+  @font-face{ font-family:'Space Mono'; src:url('fonts/SpaceMono-Regular.ttf'); font-display:swap; }
+  @font-face{ font-family:'Space Grotesk'; src:url('fonts/SpaceGrotesk-Variable.ttf'); font-display:swap; }
+  @font-face{ font-family:'Inter'; src:url('fonts/Inter-Variable.ttf'); font-display:swap; }
+  @font-face{ font-family:'Silkscreen'; src:url('fonts/Silkscreen-Regular.ttf'); font-display:swap; }
+  @font-face{ font-family:'Press Start 2P'; src:url('fonts/PressStart2P-Regular.ttf'); font-display:swap; }
+  @font-face{ font-family:'Handjet'; src:url('fonts/Handjet-Variable.ttf'); font-display:swap; }
   :root{ --bg:#1a1a2e; --text:#e8e8e8; --dim:#888; --pink:#cd5c9b; --cyan:#4ecdc4; --purple:#7850b4; --gold:#d4a017; --green:#4ecb71; --box-bg:rgba(255,255,255,0.035); --box-border:rgba(255,255,255,0.11); --spec-bg:rgba(255,255,255,0.04); }
   @media (prefers-color-scheme: light){ :root:not(.dark-mode){ --bg:#f5f5f5; --text:#1a1a2e; --dim:#666; --pink:#b4489a; --cyan:#0891b2; --purple:#7850b4; --gold:#a07800; --green:#0a8a3e; --box-bg:rgba(0,0,0,0.025); --box-border:rgba(0,0,0,0.13); --spec-bg:rgba(0,0,0,0.03); } }
   :root.light-mode{ --bg:#f5f5f5; --text:#1a1a2e; --dim:#666; --pink:#b4489a; --cyan:#0891b2; --purple:#7850b4; --gold:#a07800; --green:#0a8a3e; --box-bg:rgba(0,0,0,0.025); --box-border:rgba(0,0,0,0.13); --spec-bg:rgba(0,0,0,0.03); }
