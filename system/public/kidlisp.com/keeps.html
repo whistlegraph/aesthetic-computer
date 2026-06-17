@@ -2779,6 +2779,29 @@
     /* Embedded in parent editor iframe — hide branding */
     .embedded .keeps-hero { display: none; }
     .embedded .keeps-footer { display: none; }
+    /* Embedded focused-keep mode: hide the browse chrome and the preamble so the
+       tab opens straight onto the current editor piece's keep panel. */
+    .embedded .keeps-tabs { display: none; }
+    .embedded #index-search-bar { display: none; }
+    .embedded #keeps-grid { display: none; }
+    .embedded #keeps-about-inline { display: none !important; }
+    .embedded #keeps-castle { display: none; }
+    #keeps-embed-empty {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 40px 20px;
+      text-align: center;
+      color: #8a8a8a;
+      font-size: 13px;
+      line-height: 1.5;
+      min-height: 180px;
+    }
+    #keeps-embed-empty .embed-empty-code { font-size: 22px; opacity: 0.5; }
+    .embedded #keeps-embed-empty { display: flex; }
+    .embedded.has-piece #keeps-embed-empty { display: none; }
 
     /* ========================================
        FOOTER
@@ -3280,6 +3303,12 @@
     <div class="market-grid" id="market-grid">
       <div class="market-empty">Loading listings…</div>
     </div>
+  </div>
+
+  <!-- EMBEDDED FOCUSED-KEEP empty state (shown in editor iframe before a piece arrives) -->
+  <div id="keeps-embed-empty">
+    <div class="embed-empty-code">$</div>
+    <div>Open or run a piece in the editor<br>to keep it on Tezos.</div>
   </div>
 
   <!-- KEEP MODAL (unified) -->
@@ -7128,9 +7157,82 @@
     }
 
     // =========================================
+    // EMBEDDED FOCUSED-KEEP MODE
+    // When this page runs inside the kidlisp.com editor's "Keeps" tab iframe it
+    // skips the browse UI / preamble and opens straight onto a single piece —
+    // the one currently open in the editor — for keeping on Tezos. The editor
+    // and this page are same-origin, so the current piece arrives either via
+    // postMessage or directly from the shared localStorage seed.
+    // =========================================
+    const IS_EMBEDDED = window.self !== window.top;
+    let pendingEmbedPayload = null;
+    let embedHandledKey = null;
+
+    async function openEmbeddedKeep(payload = {}) {
+      let code = String(payload.code || '').replace(/^\$/, '').trim();
+      const source = typeof payload.source === 'string' ? payload.source : '';
+      // Dedupe so repeated posts of the same piece don't reopen the modal.
+      const key = source && source.trim()
+        ? 'src:' + source.length + ':' + source.trim().slice(0, 48)
+        : (code ? 'code:' + code : '');
+      if (!key || key === embedHandledKey) return;
+
+      // Auto-store the current source first: store-kidlisp dedupes by hash and
+      // returns the canonical $code, so we always keep exactly what's in the
+      // editor (even if the cached code was for an older edit).
+      if (source && source.trim()) {
+        try {
+          const headers = { 'Content-Type': 'application/json' };
+          if (acToken) headers['Authorization'] = `Bearer ${acToken}`;
+          const res = await fetch(`${AC_BASE}/api/store-kidlisp`, {
+            method: 'POST', headers, body: JSON.stringify({ source }),
+          });
+          if (res.ok) { const d = await res.json(); if (d.code) code = d.code; }
+        } catch (e) { console.warn('[KEEPS embed] store-kidlisp failed:', e?.message || e); }
+      }
+      if (!code) return;
+
+      embedHandledKey = key;
+      document.documentElement.classList.add('has-piece');
+      openMintModal({ code });
+    }
+
+    if (IS_EMBEDDED) {
+      window.addEventListener('message', (e) => {
+        if (e.origin !== window.location.origin) return;
+        const d = e.data;
+        if (!d || d.type !== 'keeps:piece') return;
+        pendingEmbedPayload = d;
+        openEmbeddedKeep(d);
+      });
+    }
+
+    // =========================================
     // INIT
     // =========================================
     async function init() {
+      // Embedded: reveal immediately, skip the preamble + the 14k-item grid,
+      // and focus on the editor's current piece.
+      if (IS_EMBEDDED) {
+        await ensureKeepsConfig();
+        loading.style.display = 'none';
+        revealUI();
+        hideInlineAbout();
+        const tabsEl = document.querySelector('.keeps-tabs');
+        if (tabsEl) tabsEl.classList.remove('locked');
+        initTezosWallet().catch(() => {});
+        // Tell the parent editor we're ready for the current piece.
+        try { window.parent.postMessage({ type: 'keeps:ready' }, window.location.origin); } catch (e) {}
+        if (pendingEmbedPayload) {
+          openEmbeddedKeep(pendingEmbedPayload);
+        } else {
+          // Fallback: same-origin localStorage seed the editor keeps updated.
+          const seeded = (localStorage.getItem('kidlisp-current-code') || '').trim();
+          if (seeded) openEmbeddedKeep({ code: seeded });
+        }
+        return;
+      }
+
       setIndexSearchVisible(false);
       loading.style.display = 'flex';
       grid.innerHTML = '';

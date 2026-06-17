@@ -15560,6 +15560,28 @@ s("ape_breaks_3").loopAt(2)</textarea>
       if (learnIframe) learnIframe.dataset.src = 'https://localhost:8888/kidlisp.com/learn.html';
     }
 
+    // Hand the embedded Keeps tab the piece currently open in the editor so it
+    // can keep exactly that (same-origin iframe → postMessage with our origin).
+    function postCurrentPieceToKeeps() {
+      try {
+        const keepsIframe = document.getElementById('keeps-iframe');
+        if (!keepsIframe?.contentWindow) return;
+        const code = (localStorage.getItem('kidlisp-current-code') || '').trim();
+        const source = (window.editor?.getValue?.() || '').trim();
+        if (!code && !source) return;
+        keepsIframe.contentWindow.postMessage(
+          { type: 'keeps:piece', code, source },
+          window.location.origin,
+        );
+      } catch (e) { /* iframe not ready / cross-origin — ignore */ }
+    }
+
+    // The embedded keeps page announces readiness; (re)send the current piece.
+    window.addEventListener('message', (e) => {
+      if (e.origin !== window.location.origin) return;
+      if (e.data?.type === 'keeps:ready') postCurrentPieceToKeeps();
+    });
+
     // Configure Monaco with jsDelivr CDN (modern, well-supported)
     require.config({ 
       paths: { 
@@ -20116,7 +20138,12 @@ s("ape_breaks_3").loopAt(2)</textarea>
         const keepsIframe = document.getElementById('keeps-iframe');
         if (keepsIframe && !keepsIframe.hasAttribute('src')) {
           console.log('📦 [KEEPS] Lazy-loading keeps iframe');
+          // Post the current piece once the embedded keeps page loads.
+          keepsIframe.addEventListener('load', postCurrentPieceToKeeps, { once: true });
           keepsIframe.src = keepsIframe.dataset.src;
+        } else {
+          // Already loaded — re-target it at whatever piece is open now.
+          postCurrentPieceToKeeps();
         }
       }
 
