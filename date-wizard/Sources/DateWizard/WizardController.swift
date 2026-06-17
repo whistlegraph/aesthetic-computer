@@ -21,8 +21,17 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
     private var aestheticalEvents: [CalEvent] = []
     private var feedEvents: [FeedEvent] = []
 
+    // Broadcast the focused day (nil in week mode) so the menu bar strip can
+    // light the same dot. Wired by the AppDelegate.
+    var onFocusedDayChanged: ((Date?) -> Void)?
+
     // ── UI ───────────────────────────────────────────────────────────
     private var backdrop: BackdropView!
+    // Inner radial glow framing the window in the focused day's color (only
+    // in single-day mode). A subtle edge highlight, not a full wash.
+    private var dayGlow: DayGlowView!
+    // In-window twin of the menu bar strip: seven ROYGBIV day dots.
+    private var dayDots: DayDotsView!
     private var weekView: WeekView!
     private var titleLabel: NSTextField!
     private var statusLabel: NSTextField!
@@ -116,40 +125,30 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         let pad: CGFloat = 12
         let topH: CGFloat = 40
 
-        // Toolbar row (top).
+        // Toolbar row (top): title · day-dots · + Event. Week/day paging,
+        // refresh, "today", and calendar management all live in the
+        // ac-login / wizard CLI — the window stays deliberately minimal.
         titleLabel = NSTextField(labelWithString: weekRangeTitle())
-        titleLabel.font = .systemFont(ofSize: 14, weight: .semibold)
-        titleLabel.frame = NSRect(x: pad, y: 560 - topH + 8, width: 300, height: 22)
+        titleLabel.font = .systemFont(ofSize: 17, weight: .bold)
+        titleLabel.frame = NSRect(x: pad, y: 560 - topH + 4, width: 245, height: 28)
         titleLabel.autoresizingMask = [.maxXMargin, .minYMargin]
         cv.addSubview(titleLabel)
 
-        prevButton = NSButton(title: "‹", target: self, action: #selector(prevWeek))
-        nextButton = NSButton(title: "›", target: self, action: #selector(nextWeek))
-        todayButton = NSButton(title: "Today", target: self, action: #selector(goToday))
-        refreshButton = NSButton(title: "Refresh", target: self, action: #selector(refreshAction))
-        addButton = NSButton(title: "+ Event", target: self, action: #selector(addEventAction))
-        connectButton = NSButton(title: "Calendars…", target: self, action: #selector(calendarsPanelAction))
-        modeButton = NSButton(title: dayCount == 1 ? "Week" : "Day",
-                              target: self, action: #selector(toggleModeAction))
+        // Day-dots, to the right of the title — the in-window twin of the menu
+        // bar strip. Click a dot to jump to that day of the week.
+        dayDots = DayDotsView(frame: NSRect(x: pad + 252, y: 560 - topH + 7,
+                                            width: 190, height: 26))
+        dayDots.autoresizingMask = [.minYMargin]
+        dayDots.onSelect = { [weak self] idx in self?.focusDayInCurrentWeek(idx) }
+        cv.addSubview(dayDots)
 
-        let buttons = [prevButton!, nextButton!, todayButton!, modeButton!, refreshButton!, addButton!, connectButton!]
-        for b in buttons {
-            b.bezelStyle = .rounded
-            b.font = .systemFont(ofSize: 12)
-            b.autoresizingMask = [.minXMargin, .minYMargin]
-        }
-        // Lay buttons out right-to-left across the top.
-        var x: CGFloat = 840 - pad
-        let widths: [(NSButton, CGFloat)] = [
-            (connectButton, 96), (addButton, 78), (refreshButton, 76),
-            (modeButton, 54), (todayButton, 58), (nextButton, 30), (prevButton, 30),
-        ]
-        for (b, w) in widths {
-            x -= w
-            b.frame = NSRect(x: x, y: 560 - topH + 6, width: w, height: 26)
-            cv.addSubview(b)
-            x -= 6
-        }
+        // + Event, far right.
+        addButton = NSButton(title: "+ Event", target: self, action: #selector(addEventAction))
+        addButton.bezelStyle = .rounded
+        addButton.font = .systemFont(ofSize: 12)
+        addButton.autoresizingMask = [.minXMargin, .minYMargin]
+        addButton.frame = NSRect(x: 840 - pad - 78, y: 560 - topH + 6, width: 78, height: 26)
+        cv.addSubview(addButton)
 
         // Week view (fills the middle).
         weekView = WeekView(frame: NSRect(x: pad, y: pad + 22,
@@ -169,6 +168,47 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         statusLabel.autoresizingMask = [.width, .maxYMargin]
         statusLabel.lineBreakMode = .byTruncatingTail
         cv.addSubview(statusLabel)
+
+        // Inner radial glow, added last so it frames everything (click-through).
+        dayGlow = DayGlowView(frame: cv.bounds)
+        dayGlow.autoresizingMask = [.width, .height]
+        cv.addSubview(dayGlow)
+
+        updateDayTheme()
+    }
+
+    // Single source of truth for the day-color theme: washes the pane, lights
+    // the in-window dots, colors the title, and tells the menu bar which day
+    // is focused. In week mode there's no single focus (the week shows all
+    // seven), so the wash clears and the title returns to neutral.
+    private func updateDayTheme() {
+        let dayMode = (dayCount == 1)
+        let dayColor = DayPalette.color(for: weekStart)
+
+        // Frame the window in the day color (edge glow), not a full wash.
+        dayGlow?.color = dayMode ? dayColor : nil
+
+        dayDots?.todayIndex = DayPalette.index(for: Date())
+        dayDots?.selectedIndex = dayMode ? DayPalette.index(for: weekStart) : nil
+
+        titleLabel?.textColor = dayMode ? dayColor : .labelColor
+
+        onFocusedDayChanged?(dayMode ? weekStart : nil)
+    }
+
+    // A dot in the in-window strip was clicked: focus that weekday within the
+    // currently displayed week, switching to day mode.
+    private func focusDayInCurrentWeek(_ idx: Int) {
+        let base = WeekView.startOfWeek(for: weekStart)
+        let date = Calendar.current.date(byAdding: .day, value: idx, to: base) ?? weekStart
+        dayCount = 1
+        weekStart = Calendar.current.startOfDay(for: date)
+        modeButton?.title = "Week"
+        weekView.dayCount = 1
+        weekView.weekStart = weekStart
+        titleLabel.stringValue = weekRangeTitle()
+        updateDayTheme()
+        refresh()
     }
 
     private func weekRangeTitle() -> String {
@@ -194,6 +234,21 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         return "\(fmt.string(from: weekStart)) – \(fmt.string(from: end)), \(yfmt.string(from: end))"
     }
 
+    // Show the window and jump to today (menu bar "Go to Today").
+    func revealToday() {
+        showWindow(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        goToday()
+    }
+
+    // Show the window focused on a single day (menu bar day-circle tap).
+    func revealDay(_ date: Date) {
+        showWindow(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        setDayMode(date)
+        refresh()
+    }
+
     // ── paging ─────────────────────────────────────────────────────────
     @objc private func prevWeek() { shiftWeek(by: -dayCount) }
     @objc private func nextWeek() { shiftWeek(by: dayCount) }
@@ -203,6 +258,7 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
             : WeekView.startOfWeek(for: Date())
         weekView.weekStart = weekStart
         titleLabel.stringValue = weekRangeTitle()
+        updateDayTheme()
         refresh()
     }
 
@@ -225,6 +281,7 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         weekView.dayCount = dayCount
         weekView.weekStart = weekStart
         titleLabel.stringValue = weekRangeTitle()
+        updateDayTheme()
         refresh()
     }
 
@@ -238,12 +295,14 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         weekView?.dayCount = dayCount
         weekView?.weekStart = weekStart
         titleLabel?.stringValue = weekRangeTitle()
+        updateDayTheme()
     }
 
     private func shiftWeek(by days: Int) {
         weekStart = Calendar.current.date(byAdding: .day, value: days, to: weekStart) ?? weekStart
         weekView.weekStart = weekStart
         titleLabel.stringValue = weekRangeTitle()
+        updateDayTheme()
         refresh()
     }
 
@@ -742,6 +801,15 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
     }
 
     // ── window lifecycle ─────────────────────────────────────────────
+    // Always-on app: hide the window instead of closing it, so the shared
+    // session watch (and live event state) survives. The menu bar strip
+    // keeps running; clicking it re-shows the window. Real teardown happens
+    // on app terminate.
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        window?.orderOut(nil)
+        return false
+    }
+
     func windowWillClose(_ notification: Notification) {
         if let id = sessionWatch { auth.stopWatching(id); sessionWatch = nil }
     }

@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spatial Linear Algebra — pixels as vectors</title>
+<style>
+  :root { --bg:#0b0d18; --panel:#161a2c; --line:#2a2f48; --ink:#cdd5e6; --dim:#717c96; --pink:#ff5b8a; --i:#ff5b6e; --j:#5bff9a; --gold:#ffd23c; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; background:var(--bg); color:var(--ink);
+         font:14px/1.5 Georgia,"Times New Roman",serif; }
+  header { padding:16px 22px 10px; border-bottom:1px solid var(--line); }
+  header h1 { margin:0; font-size:20px; } header h1 small { color:var(--pink); font-style:italic; font-size:13px; }
+  header p { margin:6px 0 0; color:var(--dim); font-size:12.5px; max-width:78ch; }
+  main { display:flex; gap:20px; padding:18px 22px; flex-wrap:wrap; align-items:flex-start; }
+  .stage { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px; }
+  canvas { display:block; image-rendering:pixelated; border-radius:6px; background:#0b0d18; }
+  .panel { flex:1; min-width:300px; max-width:440px; display:flex; flex-direction:column; gap:16px; }
+  .box { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px; }
+  .box h2 { margin:0 0 10px; font-size:14px; letter-spacing:.3px; }
+  .mat { display:flex; align-items:center; gap:12px; }
+  .bracket { font-size:64px; color:var(--dim); font-family:"Latin Modern Mono",monospace; line-height:.8; }
+  .cells { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .cell { display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .cell input { width:64px; background:#0b0d18; border:1px solid var(--line); color:var(--ink);
+                font:16px "Latin Modern Mono",monospace; text-align:center; padding:6px 4px; border-radius:6px; }
+  .cell:nth-child(1) input { border-color:var(--i); color:#ffb9c1; }
+  .cell:nth-child(3) input { border-color:var(--i); color:#ffb9c1; }
+  .cell:nth-child(2) input { border-color:var(--j); color:#baf3cf; }
+  .cell:nth-child(4) input { border-color:var(--j); color:#baf3cf; }
+  .cell small { color:var(--dim); font-size:10px; font-family:"Latin Modern Mono",monospace; }
+  .presets { display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
+  .presets button, .prob button { background:#0b0d18; color:var(--ink); border:1px solid var(--line);
+        border-radius:7px; padding:5px 10px; cursor:pointer; font:inherit; font-size:12px; }
+  .presets button:hover, .prob button:hover { border-color:var(--pink); }
+  .readout { margin-top:12px; font-family:"Latin Modern Mono",monospace; font-size:12.5px; color:var(--dim); line-height:1.9; }
+  .readout b { color:var(--gold); }
+  .readout .flip { color:var(--pink); }
+  .prob { display:flex; flex-direction:column; gap:9px; }
+  .prob .item { border:1px solid var(--line); border-radius:9px; padding:10px 11px; background:#0b0d18; }
+  .prob .item.solved { border-color:var(--j); background:#0e1a14; }
+  .prob .q { font-size:13px; }
+  .prob .q b { color:var(--pink); }
+  .prob .row { display:flex; align-items:center; gap:8px; margin-top:7px; }
+  .prob .verdict { font-family:"Latin Modern Mono",monospace; font-size:12px; }
+  .prob .verdict.ok { color:var(--j); } .prob .verdict.no { color:var(--pink); }
+  footer { padding:8px 22px 22px; color:var(--dim); font-size:11.5px; border-top:1px solid var(--line); }
+  code { font-family:"Latin Modern Mono",monospace; color:var(--gold); font-size:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Spatial Linear Algebra <small>— the pixels are the vectors</small></h1>
+  <p>A 2×2 matrix is a <span style="color:var(--pink)">recipe for moving space</span>. The columns say where the
+  basis vectors land: <span style="color:var(--i)">î → (a,&nbsp;c)</span>, <span style="color:var(--j)">ĵ → (b,&nbsp;d)</span>.
+  The image lives on the unit square; every pixel rides the same transform. Determinant = how much area is stretched
+  (negative = the space flips over). Edit the matrix, or solve the problems.</p>
+</header>
+
+<main>
+  <div class="stage"><canvas id="cv" width="320" height="320"></canvas></div>
+
+  <div class="panel">
+    <div class="box">
+      <h2>the matrix&nbsp; M</h2>
+      <div class="mat">
+        <div class="bracket">[</div>
+        <div class="cells">
+          <div class="cell"><input id="a" value="1"><small>a</small></div>
+          <div class="cell"><input id="b" value="0"><small>b</small></div>
+          <div class="cell"><input id="c" value="0"><small>c</small></div>
+          <div class="cell"><input id="d" value="1"><small>d</small></div>
+        </div>
+        <div class="bracket">]</div>
+      </div>
+      <div class="presets">
+        <button data-m="1,0,0,1">identity</button>
+        <button data-m="0,-1,1,0">rotate 90°</button>
+        <button data-m="0.71,-0.71,0.71,0.71">rotate 45°</button>
+        <button data-m="-1,0,0,1">flip&nbsp;x</button>
+        <button data-m="1,0,0,-1">flip&nbsp;y</button>
+        <button data-m="1,0.8,0,1">shear</button>
+        <button data-m="1.6,0,0,1.6">scale</button>
+        <button data-m="1,1,1,1">singular</button>
+      </div>
+      <div class="readout" id="readout"></div>
+    </div>
+
+    <div class="box">
+      <h2>example problems</h2>
+      <div class="prob" id="prob"></div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  Pixels sampled through <code>M⁻¹</code> into an <code>ImageData</code> buffer (nearest-neighbour, pixelated upscale).
+  Companion to the Graphical-Linear-Algebra studies — this is the <i>matrix</i> side of the same idea: the picture is the computation.
+</footer>
+
+<script>
+// ===========================================================================
+// pixel buffer
+// ===========================================================================
+const cv = document.getElementById("cv");
+const ctx = cv.getContext("2d");
+const W = cv.width, H = cv.height, SCALE = 1.7;
+cv.style.width = (W*SCALE)+"px"; cv.style.height = (H*SCALE)+"px";
+const img = ctx.createImageData(W, H), buf = img.data;
+let col = [255,255,255];
+const ink = (r,g,b)=>{ col=[r,g,b]; };
+function wipe(r,g,b){ for(let i=0;i<buf.length;i+=4){ buf[i]=r;buf[i+1]=g;buf[i+2]=b;buf[i+3]=255; } }
+function plot(x,y){ x|=0;y|=0; if(x<0||y<0||x>=W||y>=H)return; const i=(y*W+x)*4; buf[i]=col[0];buf[i+1]=col[1];buf[i+2]=col[2];buf[i+3]=255; }
+function blend(x,y,a){ x|=0;y|=0; if(x<0||y<0||x>=W||y>=H)return; const i=(y*W+x)*4; buf[i]=buf[i]*(1-a)+col[0]*a; buf[i+1]=buf[i+1]*(1-a)+col[1]*a; buf[i+2]=buf[i+2]*(1-a)+col[2]*a; }
+function line(x0,y0,x1,y1){ x0|=0;y0|=0;x1|=0;y1|=0; const dx=Math.abs(x1-x0),dy=-Math.abs(y1-y0),sx=x0<x1?1:-1,sy=y0<y1?1:-1; let e=dx+dy; for(;;){ plot(x0,y0); if(x0===x1&&y0===y1)break; const e2=2*e; if(e2>=dy){e+=dy;x0+=sx;} if(e2<=dx){e+=dx;y0+=sy;} } }
+function thick(x0,y0,x1,y1){ line(x0,y0,x1,y1); line(x0+1,y0,x1+1,y1); line(x0,y0+1,x1,y1+1); }
+function disc(cx,cy,r){ for(let y=-r;y<=r;y++)for(let x=-r;x<=r;x++)if(x*x+y*y<=r*r)plot(cx+x,cy+y); }
+const F=(s)=>s.split("|"); const FONT={"I":F("111|010|010|010|111"),"J":F("001|001|001|101|010"),"0":F("111|101|101|101|111"),"1":F("010|110|010|010|111"),"2":F("110|001|010|100|111"),"3":F("111|001|011|001|111"),"4":F("101|101|111|001|001"),"5":F("111|100|110|001|110"),"6":F("011|100|110|101|010"),"7":F("111|001|010|010|010"),"8":F("010|101|010|101|010"),"9":F("010|101|011|001|110"),"-":F("000|000|111|000|000"),".":F("000|000|000|000|010")};
+function text(s,x,y){ s=String(s); for(let c=0;c<s.length;c++){ const g=FONT[s[c]]; if(!g)continue; for(let ry=0;ry<5;ry++)for(let rx=0;rx<3;rx++)if(g[ry][rx]==="1")plot(x+c*4+rx,y+ry); } }
+
+// ===========================================================================
+// world <-> screen.  origin placed so flips/rotations stay on-screen.
+// ===========================================================================
+const SP = 66;                 // pixels per unit
+const OX = 132, OY = 196;      // origin in buffer px (y grows down)
+const sx = (wx)=> OX + wx*SP;
+const sy = (wy)=> OY - wy*SP;
+
+// ===========================================================================
+// the source texture on the unit square [0,1]^2  (v up). returns [r,g,b].
+// An "F" — its chirality reveals reflections; gold corner marks (0,0).
+// ===========================================================================
+function tex(u,v){
+  // F strokes (pink)
+  const stem = u>=0.30&&u<=0.44 && v>=0.12&&v<=0.88;
+  const top  = u>=0.30&&u<=0.76 && v>=0.74&&v<=0.88;
+  const mid  = u>=0.30&&u<=0.66 && v>=0.46&&v<=0.58;
+  if(stem||top||mid) return [255,90,140];
+  if(u<0.13&&v<0.13) return [255,210,60];          // origin-corner marker
+  // gradient backdrop
+  const r=40+ (60-40)*(1-v), g=180+(60-180)*(1-v), b=180+(150-180)*(1-v);
+  return [r*0.62, g*0.62, b*0.62];
+}
+
+// ===========================================================================
+// matrix state (animated toward target)
+// ===========================================================================
+const I = {a:1,b:0,c:0,d:1};
+let target = {...I}, cur = {...I};
+const $ = (id)=>document.getElementById(id);
+function readInputs(){ target = { a:+$("a").value||0, b:+$("b").value||0, c:+$("c").value||0, d:+$("d").value||0 }; checkAll(); }
+["a","b","c","d"].forEach(id=> $(id).addEventListener("input", readInputs));
+function setMatrix(a,b,c,d){ $("a").value=a; $("b").value=b; $("c").value=c; $("d").value=d; readInputs(); }
+document.querySelectorAll(".presets button").forEach(btn=>{
+  btn.onclick=()=>{ const [a,b,c,d]=btn.dataset.m.split(",").map(Number); setMatrix(a,b,c,d); };
+});
+
+// ===========================================================================
+// render
+// ===========================================================================
+function draw(){
+  // ease current -> target
+  for(const k of ["a","b","c","d"]) cur[k]+= (target[k]-cur[k])*0.18;
+  const {a,b,c,d}=cur;
+  const det=a*d-b*c;
+
+  wipe(11,13,24);
+
+  // faint original grid (untransformed)
+  ink(26,30,48);
+  for(let k=-2;k<=4;k++){ line(sx(k),sy(-2),sx(k),sy(3)); line(sx(-2),sy(k),sx(4),sy(k)); }
+
+  // transformed grid (the deforming space) — straight lines stay straight
+  ink(46,54,86);
+  const T=(wx,wy)=>({x:sx(a*wx+b*wy), y:sy(c*wx+d*wy)});
+  for(let k=-2;k<=4;k++){
+    let p=T(k,-2),q=T(k,3); line(p.x,p.y,q.x,q.y);
+    p=T(-2,k); q=T(4,k); line(p.x,p.y,q.x,q.y);
+  }
+
+  // the transformed image — inverse-sample every pixel in the parallelogram bbox
+  if(Math.abs(det)>0.02){
+    const corners=[[0,0],[1,0],[0,1],[1,1]].map(([u,v])=>({x:sx(a*u+b*v),y:sy(c*u+d*v)}));
+    let minx=W,miny=H,maxx=0,maxy=0;
+    for(const p of corners){ minx=Math.min(minx,p.x);maxx=Math.max(maxx,p.x);miny=Math.min(miny,p.y);maxy=Math.max(maxy,p.y); }
+    minx=Math.max(0,minx|0); miny=Math.max(0,miny|0); maxx=Math.min(W-1,maxx+1|0); maxy=Math.min(H-1,maxy+1|0);
+    for(let py=miny;py<=maxy;py++) for(let px=minx;px<=maxx;px++){
+      const wx=(px-OX)/SP, wy=(OY-py)/SP;
+      const u=( d*wx - b*wy)/det, v=(-c*wx + a*wy)/det;
+      if(u>=0&&u<=1&&v>=0&&v<=1){ const cpx=tex(u,v); col=cpx; plot(px,py); }
+    }
+  } else {
+    // singular: the square collapses to a segment
+    ink(255,90,140);
+    const p=T(0,0),q=T(1,0),r=T(0,1);
+    thick(p.x,p.y,q.x,q.y); thick(p.x,p.y,r.x,r.y);
+  }
+
+  // unit-square outline (transformed) faint
+  ink(120,130,160);
+  const o=T(0,0),i=T(1,0),j=T(0,1),ij=T(1,1);
+  line(o.x,o.y,i.x,i.y); line(i.x,i.y,ij.x,ij.y); line(ij.x,ij.y,j.x,j.y); line(j.x,j.y,o.x,o.y);
+
+  // origin
+  ink(150,160,190); disc(sx(0),sy(0),2);
+
+  // basis vectors î (a,c) red, ĵ (b,d) green — as arrows
+  arrow(o,i,[255,91,110],"I");
+  arrow(o,j,[91,255,154],"J");
+
+  ctx.putImageData(img,0,0);
+  updateReadout(det);
+}
+function arrow(o,p,c,lbl){
+  ink(...c); thick(o.x,o.y,p.x,p.y); disc(p.x,p.y,2);
+  // arrowhead
+  const ang=Math.atan2(p.y-o.y,p.x-o.x), L=7;
+  line(p.x,p.y, p.x-L*Math.cos(ang-0.5), p.y-L*Math.sin(ang-0.5));
+  line(p.x,p.y, p.x-L*Math.cos(ang+0.5), p.y-L*Math.sin(ang+0.5));
+  ink(...c); text(lbl, p.x+4, p.y-2);
+}
+
+function updateReadout(det){
+  const {a,b,c,d}=target;
+  const flipped = (a*d-b*c) < -1e-6;
+  $("readout").innerHTML =
+    `î lands at (<b>${a}</b>, <b>${c}</b>) &nbsp; ĵ lands at (<b>${b}</b>, <b>${d}</b>)<br>`+
+    `det M = ad − bc = <b>${(a*d-b*c).toFixed(2)}</b> &nbsp; → area ×<b>${Math.abs(a*d-b*c).toFixed(2)}</b>`+
+    (Math.abs(a*d-b*c)<1e-6 ? ` <span class="flip">· collapsed to a line</span>`
+      : flipped ? ` <span class="flip">· orientation flipped</span>` : ``);
+}
+
+// ===========================================================================
+// example problems
+// ===========================================================================
+const PROBLEMS = [
+  { q:`Rotate the F a quarter-turn <b>counter-clockwise</b>.`,
+    test:(m)=> close(m,[0,-1,1,0]), hint:[0,-1,1,0] },
+  { q:`<b>Mirror</b> the F so its chirality flips — reflect across the vertical axis.`,
+    test:(m)=> close(m,[-1,0,0,1]), hint:[-1,0,0,1] },
+  { q:`<b>Shear</b> the F to the right: keep ĵ vertical but slide its top over by 1.`,
+    test:(m)=> Math.abs(m.a-1)<.05 && Math.abs(m.c)<.05 && Math.abs(m.d-1)<.05 && Math.abs(m.b-1)<.05, hint:[1,1,0,1] },
+  { q:`Make the F cover <b>exactly twice</b> the area, without rotating or shearing it.`,
+    test:(m)=> Math.abs(Math.abs(m.a*m.d-m.b*m.c)-2)<.06 && Math.abs(m.b)<.05 && Math.abs(m.c)<.05, hint:[2,0,0,1] },
+  { q:`<b>Collapse</b> the F onto a single line — make M non-invertible (det = 0, but not all-zero).`,
+    test:(m)=> Math.abs(m.a*m.d-m.b*m.c)<.02 && (Math.abs(m.a)+Math.abs(m.b)+Math.abs(m.c)+Math.abs(m.d))>0.3, hint:[1,1,1,1] },
+];
+function close(m,[a,b,c,d]){ return Math.abs(m.a-a)<.06&&Math.abs(m.b-b)<.06&&Math.abs(m.c-c)<.06&&Math.abs(m.d-d)<.06; }
+
+const probEl = $("prob");
+PROBLEMS.forEach((p,idx)=>{
+  const item=document.createElement("div"); item.className="item"; item.dataset.i=idx;
+  item.innerHTML=`<div class="q"><b>${idx+1}.</b> ${p.q}</div>
+    <div class="row"><button data-act="show">show me</button><span class="verdict"></span></div>`;
+  item.querySelector('[data-act="show"]').onclick=()=>{ const h=p.hint; setMatrix(h[0],h[1],h[2],h[3]); };
+  probEl.appendChild(item);
+});
+function checkAll(){
+  PROBLEMS.forEach((p,idx)=>{
+    const item=probEl.querySelector(`.item[data-i="${idx}"]`);
+    const v=item.querySelector(".verdict");
+    if(p.test(target)){ item.classList.add("solved"); v.textContent="✓ solved"; v.className="verdict ok"; }
+    else { item.classList.remove("solved"); v.textContent=""; v.className="verdict"; }
+  });
+}
+
+// ===========================================================================
+readInputs();
+(function loop(){ draw(); requestAnimationFrame(loop); })();
+</script>
+</body>
+</html>

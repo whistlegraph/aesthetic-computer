@@ -274,6 +274,9 @@ final class CollapsedPianoWaveformView: NSView {
         keymapButton.toolTip = "Open the full-screen keymap (piano + QWERTY)"
 
         waveformStrip.menuBand = menuBand
+        // Clicking the live scope opens the full keymap view — same action
+        // as the "Keymap" button below it.
+        waveformStrip.onClick = { [weak self] in self?.onOpenKeymap?() }
         waveformStrip.translatesAutoresizingMaskIntoConstraints = false
 
         addSubview(contentContainer)

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- chicken SING — beak open mid-cluck while the menu band plays. Static render. -->
+  <g>
+    <g fill="#ff5a52"><circle cx="43" cy="26" r="5"/><circle cx="51" cy="21" r="6"/><circle cx="59" cy="26" r="5"/></g>
+    <ellipse cx="50" cy="58" rx="30" ry="29" fill="#ffe14d"/>
+    <ellipse cx="40" cy="50" rx="14" ry="10" fill="#fff3a8" opacity="0.7"/>
+    <path d="M27 54 q-9 7 -1 17 q9 2 13 -5 z" fill="#ffd11a"/>
+    <!-- open beak: upper + lower mandible with a dark gap -->
+    <ellipse cx="46" cy="64.5" rx="3.4" ry="2.8" fill="#7a1f1f"/>
+    <path d="M50 59 l-9 4 l9 1.5 z" fill="#ff9f1c"/>
+    <path d="M50 70 l-9 -3 l9 1.5 z" fill="#e8821a"/>
+    <g fill="#2b2b2b">
+      <circle cx="42" cy="51" r="3.6"/>
+      <circle cx="58" cy="51" r="3.6"/>
+    </g>
+    <circle cx="43.1" cy="49.6" r="1.2" fill="#fff"/>
+    <circle cx="59.1" cy="49.6" r="1.2" fill="#fff"/>
+    <circle cx="35" cy="62" r="4" fill="#ff8aa0" opacity="0.55"/>
+    <circle cx="65" cy="62" r="4" fill="#ff8aa0" opacity="0.55"/>
+    <g stroke="#ff9f1c" stroke-width="2.2" stroke-linecap="round" fill="none">
+      <path d="M44 86 v5 M44 91 l-3 3 M44 91 l3 3"/>
+      <path d="M56 86 v5 M56 91 l-3 3 M56 91 l3 3"/>
+    </g>
+  </g>
+</svg>

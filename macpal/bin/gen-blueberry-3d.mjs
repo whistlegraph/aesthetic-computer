@@ -20,7 +20,6 @@ import { fileURLToPath } from "node:url";
 import { falKey } from "../../pop/lib/fal-seedance.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const OUT_DIR = resolve(HERE, "../Resources/blueberry-3d");
 const ENDPOINT = "fal-ai/meshy/v6/text-to-3d";
 
 const argv = process.argv.slice(2);
@@ -30,20 +29,29 @@ const opt = (f, d) => {
   return i >= 0 && argv[i + 1] ? argv[i + 1] : d;
 };
 
+// Per-machine model name → its own folder + file stem (blueberry, neo, …).
+const NAME = opt("--name", "blueberry");
+// DO Spaces assets bin (gitignored, synced via `npm run assets:sync:up`) — the
+// 3D files are large and don't belong in the tracked tree.
+const OUT_DIR = resolve(HERE, `../../system/public/assets/macpal/${NAME}-3d`);
+
 const FORCE = has("--force");
 const LOWPOLY = has("--lowpoly");
 
-// The blueberry pal: one plump, friendly berry with a tiny leaf-crown and a
-// soft dusty bloom — a desktop companion, not a photoreal fruit. Texture
-// prompt carries the surface look so geometry stays clean.
+// Default is the blueberry pal; pass --prompt / --texture-prompt for another
+// machine. Keep it a clear humanoid T-pose so Meshy's auto-rig can find a
+// skeleton (anim-3d.mjs rigs + animates it afterward).
 const PROMPT = opt("--prompt",
-  "A single cute cartoon blueberry character, one plump round berry with a soft " +
-  "matte deep-blue skin and a gentle frosty bloom, a small five-point star calyx " +
-  "crown and one tiny green leaf on top, simple friendly mascot, smooth clean " +
-  "geometry, centered, full body, neutral pose.");
-const TEXTURE_PROMPT =
+  "A cute anthropomorphic blueberry mascot character in a clear symmetric T-pose: a round " +
+  "deep-blue blueberry body as the torso with a friendly smiling face and two big eyes, " +
+  "clearly defined separated humanoid arms held straight out to the sides with simple rounded " +
+  "hands, two clearly separated straight legs standing slightly apart with little rounded shoes, " +
+  "a small green leaf and a five-point star calyx on top of the head, soft matte deep-blue skin " +
+  "with a dusty frosty bloom, simple friendly full-body cartoon mascot, clean game-ready humanoid " +
+  "topology, centered, symmetric, standing.");
+const TEXTURE_PROMPT = opt("--texture-prompt",
   "soft matte blueberry skin, deep indigo-blue with a dusty powder-blue bloom, " +
-  "a subtle pale star calyx, fresh green leaf, gentle hand-illustrated look.";
+  "a subtle pale star calyx, fresh green leaf, gentle hand-illustrated look.");
 
 const input = {
   prompt: PROMPT,
@@ -57,7 +65,7 @@ const input = {
   enable_pbr: true,
 };
 
-const OBJ_OUT = `${OUT_DIR}/blueberry.obj`;
+const OBJ_OUT = `${OUT_DIR}/${NAME}.obj`;
 const QUEUE_PATH = `${OUT_DIR}/.queue.json`;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const log = (...a) => console.log(...a);
@@ -179,14 +187,14 @@ const download = async (url, dest) => {
 };
 
 await download(urls.obj.url, OBJ_OUT);
-if (urls.glb?.url) await download(urls.glb.url, `${OUT_DIR}/blueberry.glb`);   // self-contained backup
-if (result.thumbnail?.url) await download(result.thumbnail.url, `${OUT_DIR}/blueberry-thumb.png`);
+if (urls.glb?.url) await download(urls.glb.url, `${OUT_DIR}/${NAME}.glb`);   // self-contained backup
+if (result.thumbnail?.url) await download(result.thumbnail.url, `${OUT_DIR}/${NAME}-thumb.png`);
 
 // PBR texture maps — MacPal applies base_color to the SceneKit material; the
 // rest are kept for future PBR shading.
 const tex = (result.texture_urls && result.texture_urls[0]) || {};
 for (const [kind, file] of Object.entries(tex)) {
-  if (file?.url) await download(file.url, `${OUT_DIR}/blueberry-${kind}.png`);
+  if (file?.url) await download(file.url, `${OUT_DIR}/${NAME}-${kind}.png`);
 }
 
 // Record provenance so a rebuild is reproducible.

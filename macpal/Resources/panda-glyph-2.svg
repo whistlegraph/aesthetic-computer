@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- panda state 2 — happy blink: squashed, closed-eye arcs, open mouth + tongue -->
+  <g transform="translate(50 72) scale(1.05 .95) translate(-50 -72)">
+    <circle cx="29" cy="31" r="11" fill="#2b2b2b"/>
+    <circle cx="71" cy="31" r="11" fill="#2b2b2b"/>
+    <ellipse cx="50" cy="56" rx="32" ry="30" fill="#ffffff"/>
+    <ellipse cx="37" cy="53" rx="9" ry="12" fill="#2b2b2b" transform="rotate(-18 37 53)"/>
+    <ellipse cx="63" cy="53" rx="9" ry="12" fill="#2b2b2b" transform="rotate(18 63 53)"/>
+    <g stroke="#ffffff" stroke-width="2.2" fill="none" stroke-linecap="round">
+      <path d="M34 56 Q38 52.5 42 56"/>
+      <path d="M58 56 Q62 52.5 66 56"/>
+    </g>
+    <ellipse cx="50" cy="66" rx="3.6" ry="2.7" fill="#2b2b2b"/>
+    <path d="M44 70 Q50 76.5 56 70 Z" fill="#2b2b2b"/>
+    <ellipse cx="50" cy="72.5" rx="2.8" ry="1.7" fill="#ffb3c1"/>
+    <circle cx="30" cy="66" r="4.8" fill="#ffb3c1" opacity="0.6"/>
+    <circle cx="70" cy="66" r="4.8" fill="#ffb3c1" opacity="0.6"/>
+  </g>
+</svg>

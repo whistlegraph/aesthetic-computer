@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- panda state 3 — head tilt: whole face cocked, pupils glance left -->
+  <g transform="rotate(6 50 56)">
+    <circle cx="29" cy="31" r="11" fill="#2b2b2b"/>
+    <circle cx="71" cy="31" r="11" fill="#2b2b2b"/>
+    <ellipse cx="50" cy="56" rx="32" ry="30" fill="#ffffff"/>
+    <ellipse cx="37" cy="53" rx="9" ry="12" fill="#2b2b2b" transform="rotate(-18 37 53)"/>
+    <ellipse cx="63" cy="53" rx="9" ry="12" fill="#2b2b2b" transform="rotate(18 63 53)"/>
+    <circle cx="36" cy="55.6" r="3.4" fill="#ffffff"/>
+    <circle cx="60" cy="55.6" r="3.4" fill="#ffffff"/>
+    <ellipse cx="50" cy="66" rx="3.6" ry="2.7" fill="#2b2b2b"/>
+    <path d="M50 69 Q45.5 74 41.5 71 M50 69 Q54.5 74 58.5 71" stroke="#2b2b2b" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+    <circle cx="30" cy="66" r="4.2" fill="#ffb3c1" opacity="0.55"/>
+    <circle cx="70" cy="66" r="4.2" fill="#ffb3c1" opacity="0.55"/>
+  </g>
+</svg>

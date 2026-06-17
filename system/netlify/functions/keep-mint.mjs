@@ -39,8 +39,8 @@ const NETWORK = process.env.TEZOS_NETWORK || "mainnet";
 const OVEN_URL = process.env.OVEN_URL || "https://oven.aesthetic.computer";
 const OVEN_FALLBACK_URL = "https://oven.aesthetic.computer"; // Always available fallback
 const RPC_URL = NETWORK === "mainnet" 
-  ? "https://mainnet.ecadinfra.com"
-  : "https://ghostnet.ecadinfra.com";
+  ? "https://rpc.tzkt.io/mainnet"
+  : "https://rpc.ghostnet.teztnets.com";
 
 // IPFS Gateway configuration
 // When USE_GATEWAY_URLS is true, metadata will use full HTTPS URLs instead of ipfs:// URIs

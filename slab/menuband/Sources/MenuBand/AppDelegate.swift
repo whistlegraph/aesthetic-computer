@@ -2936,7 +2936,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // slides in or out (metronome on/off), keeping the top edge
             // pinned under the menubar.
             vc.onRequestResize = { [weak panel] size in
-                panel?.resizeContent(to: size, animated: true)
+                // Snap (not animate) the panel to its new height: the top
+                // edge stays pinned under the menubar and the BOTTOM drops
+                // to reserve the picker's space instantly, so the content
+                // above never reflow-bounces while a frame animation catches
+                // up. The picker fills the new bottom space in place.
+                panel?.resizeContent(to: size, animated: false)
             }
 
             // Show the floating piano FIRST so its frame is known and

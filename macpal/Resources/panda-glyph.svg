@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <style>
+    .float{ animation:float 6s ease-in-out infinite; transform-origin:50px 50px }
+    .bob  { animation:bob 5s ease-in-out infinite; transform-origin:50px 56px }
+    .body { animation:breathe 5s ease-in-out infinite; transform-origin:50px 72px }
+    .eyes { animation:blink 6.5s ease-in-out infinite; transform-origin:50px 55px }
+    @keyframes float  { 0%,100%{transform:translate(0,0)} 33%{transform:translate(2px,-2px)} 66%{transform:translate(-2px,-1px)} }
+    @keyframes bob    { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-2.5px)} }
+    @keyframes breathe{ 0%,100%{transform:scale(1,1)} 50%{transform:scale(1.04,0.96)} }
+    @keyframes blink  { 0%,91%,100%{transform:scaleY(1)} 95.5%{transform:scaleY(0.08)} }
+  </style>
+  <g class="float"><g class="bob"><g class="body">
+    <circle cx="29" cy="31" r="11" fill="#2b2b2b"/>
+    <circle cx="71" cy="31" r="11" fill="#2b2b2b"/>
+    <ellipse cx="50" cy="56" rx="32" ry="30" fill="#ffffff"/>
+    <ellipse cx="37" cy="53" rx="9" ry="12" fill="#2b2b2b" transform="rotate(-18 37 53)"/>
+    <ellipse cx="63" cy="53" rx="9" ry="12" fill="#2b2b2b" transform="rotate(18 63 53)"/>
+    <g class="eyes">
+      <circle cx="38" cy="55" r="3.4" fill="#ffffff"/>
+      <circle cx="62" cy="55" r="3.4" fill="#ffffff"/>
+    </g>
+    <ellipse cx="50" cy="66" rx="3.6" ry="2.7" fill="#2b2b2b"/>
+    <path d="M50 69 Q45.5 74 41.5 71 M50 69 Q54.5 74 58.5 71" stroke="#2b2b2b" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+    <circle cx="30" cy="66" r="4.2" fill="#ffb3c1" opacity="0.55"/>
+    <circle cx="70" cy="66" r="4.2" fill="#ffb3c1" opacity="0.55"/>
+  </g></g></g>
+</svg>

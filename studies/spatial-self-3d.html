@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>self · 3d — a volumetric substrate</title>
+<style>
+  html,body{ margin:0; height:100%; overflow:hidden; background:#000; }
+  canvas{ display:block; }
+</style>
+</head>
+<body>
+<script type="module">
+import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+
+// ---- volumetric binary substrate -------------------------------------------
+const GD=48, N=GD*GD*GD;
+let cur=new Uint8Array(N), nxt=new Uint8Array(N);
+const age=new Uint16Array(N), prev=new Uint8Array(N);
+
+// the current UTC moment, dispersed across the whole VOLUME, is the seed (click to re-seed)
+function seed(){
+  const t=Date.now(), t0=t>>>0, t1=Math.floor(t/4294967296)>>>0;
+  for(let z=0;z<GD;z++)for(let y=0;y<GD;y++)for(let x=0;x<GD;x++){
+    let h=(Math.imul(x,0x9E3779B1)^Math.imul(y,0x85EBCA77)^Math.imul(z,0xC2B2AE3D)^Math.imul(t0,0x27D4EB2F)^Math.imul(t1,0x165667B1))>>>0;
+    h^=h>>>15; h=Math.imul(h,0x2C1B3C6D); h^=h>>>13; h=Math.imul(h,0x297A2D39); h^=h>>>16;
+    cur[(z*GD+y)*GD+x]=h&1;
+  }
+  age.fill(0);
+}
+seed();
+
+// 3D cohesion: self-balancing majority over the 27-cell (self + 26) neighbourhood,
+// with a hysteresis keep-band — coheres into a microscopic sponge, can't collapse.
+function step(){
+  prev.set(cur);
+  let ones=0; for(let i=0;i<N;i++) ones+=cur[i]; const d=ones/N;
+  const target=0.32;                      // hold a sustained, see-through cloud
+  let hi=15, lo=13;                        // deadband: hold near target
+  if(d>target+0.02){ hi=17; lo=14; }       // a touch too dense → thin
+  else if(d<target-0.02){ hi=14; lo=11; }  // a touch too sparse → grow back
+  for(let z=0;z<GD;z++){ const zu=(z+GD-1)%GD, zd=(z+1)%GD;
+    for(let y=0;y<GD;y++){ const yu=(y+GD-1)%GD, yd=(y+1)%GD;
+      for(let x=0;x<GD;x++){ const xl=(x+GD-1)%GD, xr=(x+1)%GD;
+        let s=0;
+        for(let dz=0;dz<3;dz++){ const Z=dz===0?zu:dz===1?z:zd;
+          for(let dy=0;dy<3;dy++){ const Y=dy===0?yu:dy===1?y:yd;
+            const ro=(Z*GD+Y)*GD; s+=cur[ro+xl]+cur[ro+x]+cur[ro+xr]; } }
+        const i=(z*GD+y)*GD+x;
+        nxt[i]= s>=hi ? 1 : s<=lo ? 0 : cur[i];
+      } } }
+  const t=cur; cur=nxt; nxt=t;
+  for(let i=0;i<N;i++){ if(cur[i]===prev[i]){ if(age[i]<255) age[i]++; } else age[i]=0; }
+}
+
+// ---- three.js voxel cloud --------------------------------------------------
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(2, devicePixelRatio));
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const scene=new THREE.Scene();
+const cam=new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 2000);
+cam.position.set(0,0,GD*1.9);
+const group=new THREE.Group(); group.rotation.x=0.4; scene.add(group);
+
+// soft radial sprite → fuzzy puffs that accumulate into a cloud
+const sprite=(()=>{ const cv=document.createElement('canvas'); cv.width=cv.height=64; const g=cv.getContext('2d');
+  const grd=g.createRadialGradient(32,32,0,32,32,32);
+  grd.addColorStop(0,'rgba(255,255,255,1)'); grd.addColorStop(0.5,'rgba(255,255,255,0.35)'); grd.addColorStop(1,'rgba(255,255,255,0)');
+  g.fillStyle=grd; g.fillRect(0,0,64,64); return new THREE.CanvasTexture(cv); })();
+
+const positions=new Float32Array(N*3), colors=new Float32Array(N*3);
+const geo=new THREE.BufferGeometry();
+geo.setAttribute('position', new THREE.BufferAttribute(positions,3));
+geo.setAttribute('color',    new THREE.BufferAttribute(colors,3));
+const mat=new THREE.PointsMaterial({ size:2.8, map:sprite, vertexColors:true, sizeAttenuation:true,
+  transparent:true, opacity:0.5, blending:THREE.AdditiveBlending, depthWrite:false }); // density → opacity, a real cloud
+const points=new THREE.Points(geo, mat); group.add(points);
+
+const col=new THREE.Color(), h2=GD/2;
+function rebuild(){
+  const off=(Date.now()/60000)%1;            // palette drifts with UTC
+  let c=0;
+  for(let z=0;z<GD;z++)for(let y=0;y<GD;y++)for(let x=0;x<GD;x++){
+    const i=(z*GD+y)*GD+x; if(!cur[i]) continue;
+    col.setHSL(((x*0.25+y*0.15+z*0.45)/GD + off)%1, 0.8, 0.5);   // 3D hue gradient → varied
+    positions[c*3]=x-h2; positions[c*3+1]=y-h2; positions[c*3+2]=z-h2;
+    colors[c*3]=col.r; colors[c*3+1]=col.g; colors[c*3+2]=col.b;
+    c++;
+  }
+  geo.setDrawRange(0,c);
+  geo.attributes.position.needsUpdate=true;
+  geo.attributes.color.needsUpdate=true;
+}
+rebuild();
+addEventListener('pointerdown', ()=> seed());   // click to re-seed from the current moment
+
+let f=0;
+function animate(){
+  requestAnimationFrame(animate);
+  if((f++ % 3)===0){ step(); rebuild(); }     // sim ~20Hz
+  group.rotation.y += 0.0035;
+  renderer.render(scene, cam);
+}
+animate();
+
+addEventListener('resize', ()=>{ cam.aspect=innerWidth/innerHeight; cam.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+</script>
+</body>
+</html>

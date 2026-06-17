@@ -1,0 +1,393 @@
+% !TEX program = xelatex
+\documentclass[11pt, letterpaper]{article}
+
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}[
+  Extension=.otf,
+  UprightFont=lmroman10-regular,
+  BoldFont=lmroman10-bold,
+  ItalicFont=lmroman10-italic,
+  BoldItalicFont=lmroman10-bolditalic,
+]
+\setsansfont{Latin Modern Sans}[
+  Extension=.otf,
+  UprightFont=lmsans10-regular,
+  BoldFont=lmsans10-bold,
+  ItalicFont=lmsans10-oblique,
+  BoldItalicFont=lmsans10-boldoblique,
+]
+\setmonofont{Latin Modern Mono}[
+  Extension=.otf,
+  UprightFont=lmmono10-regular,
+  ItalicFont=lmmono10-italic,
+  Scale=0.88,
+]
+
+\usepackage{xcolor}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../arxiv-ac/figures/}}
+\usepackage{booktabs}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{multicol}
+\usepackage{listings}
+
+\usepackage[
+  top=2.2cm, bottom=2.5cm, left=2.0cm, right=2.0cm
+]{geometry}
+
+\makeatletter
+\def\input@path{{../}}
+\makeatother
+\usepackage{ac-paper-layout}
+
+% Override the shared watermark: drop the left/right side pals logos,
+% keep only the diagonal WORKING DRAFT text.
+\ClearShipoutPicture
+\AddToShipoutPictureBG{%
+  \begin{tikzpicture}[remember picture, overlay]
+    \node[opacity=0.12, rotate=45, anchor=center]
+      at (current page.center)
+      {{\aclight\fontsize{2.5cm}{3cm}\selectfont\color{acpink} WORKING DRAFT}};
+  \end{tikzpicture}%
+}
+
+% --- listings style for KidLisp ---
+\lstdefinestyle{kidlisp}{
+  basicstyle=\ttfamily\footnotesize\color{acdark},
+  keywordstyle=\color{acpurple}\bfseries,
+  commentstyle=\color{acgray}\itshape,
+  showstringspaces=false,
+  breaklines=true,
+  columns=fullflexible,
+  morekeywords={seq, par, add, copy, discard, scale, in-A, in-B, out-1, out-2},
+  morecomment=[l]{;},
+  frame=leftline,
+  framesep=6pt,
+  rulecolor=\color{acpink},
+  xleftmargin=8pt,
+}
+
+\newcommand{\gla}{\textsc{Graphical Linear Algebra}}
+
+\hypersetup{
+  pdftitle={Drawing Is Computing: KidLisp as an Interactive Medium for Graphical Linear Algebra},
+  pdfauthor={Jeffrey (prompt.ac / @jeffrey)},
+}
+
+\begin{document}
+
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+\includegraphics[height=8em]{pals}\par\vspace{0.4em}
+{\acbold\fontsize{20pt}{24pt}\selectfont\color{acdark} Drawing Is Computing}\par
+\vspace{0.35em}
+{\fontsize{11pt}{14pt}\selectfont\color{acpink} KidLisp as an Interactive Medium for Graphical Linear Algebra}\par
+\vspace{1.0em}
+{\normalsize\color{cyan!70!blue}\textbf{@jeffrey}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.8em}
+\rule{0.6\textwidth}{1pt}\par
+\vspace{0.4em}
+{\small\color{acpink!50}\textit{a position paper and collaboration proposal --- not for citation}}\par
+\vspace{0.3em}
+{\footnotesize\color{acgray} June 2026}\par
+\end{center}
+\vspace*{\fill}
+\clearpage
+
+\begin{multicols}{2}
+
+\begin{abstract}
+\noindent
+\gla{} (GLA) reframes linear algebra as a diagrammatic language: linear
+maps and relations become \emph{string diagrams}---generators wired
+together, composed in sequence and in parallel---and proofs become visual
+rewrites. Its pedagogy and its research artifacts, however, are
+overwhelmingly \emph{static}: PDFs, slides, chalk. This paper argues that
+Aesthetic Computer (AC) and its embedded language KidLisp are a natural
+\emph{interactive} substrate for GLA. I sketch three concrete
+bridges---a diagram renderer, an executable term language for props, and
+an animated signal-flow playground---note honestly where the tree/graph
+mismatch makes the problem interesting rather than trivial, and close with
+a proposal for collaboration with the GLA / Applied Category Theory (ACT)
+community.
+\end{abstract}
+
+\section{What Graphical Linear Algebra is}
+
+GLA is the research program of Filippo Bonchi, Pawe\l{} Soboci\'nski, and
+Fabio Zanasi (with Robin Piedeleu and others), popularised through
+Soboci\'nski's long-running blog \emph{graphicallinearalgebra.net}. Its
+core move is to stop writing linear algebra in matrices and symbols and
+start \emph{drawing} it.
+
+A diagram is built from a tiny set of \textbf{generators}---addition, the
+constant zero, copy, discard, and multiplication-by-a-scalar---drawn as
+boxes with wires. Two composition operators glue them:
+
+\begin{itemize}
+  \item \textbf{sequential} ($\circ$): connect the outputs of one diagram
+    to the inputs of the next, left to right;
+  \item \textbf{parallel} ($\otimes$): stack two diagrams side by side.
+\end{itemize}
+
+The algebra of these diagrams is captured by the symmetric monoidal
+theory of \textbf{Interacting Hopf Algebras (IHA)}, a complete
+presentation of the \emph{prop of linear relations}---relations that are
+also linear subspaces. ``Complete'' is the punchline: two diagrams denote
+the same linear relation \textbf{if and only if} one can be rewritten into
+the other by the IHA equations. You no longer \emph{calculate}; you
+\emph{redraw}. A headline application is \textbf{signal flow
+graphs}---the dataflow diagrams engineers already use for linear
+dynamical systems and circuits---which GLA gives a fully compositional
+semantics.
+
+The key conceptual inversion: in GLA the picture is not an
+\emph{illustration} of the mathematics. The picture \textbf{is} the
+mathematics.
+
+\section{What Aesthetic Computer and KidLisp are}
+
+Aesthetic Computer is a mobile-first runtime and social network for
+creative computing: a musical-instrument-like interface where users
+discover memorisable paths and run published ``pieces''---small
+interactive programs addressed by URL. \textbf{KidLisp} is its embedded
+Lisp dialect for generative art: S-expressions over ${\sim}118$ graphics,
+timing, and math primitives, hot-reloaded live in the browser, every piece
+shareable by a short link.
+
+Two properties of AC matter for what follows:
+
+\begin{enumerate}
+  \item \textbf{It is live and shareable by default.} A piece is a URL.
+    There is no build step between an idea and a running, linkable
+    artifact.
+  \item \textbf{It treats spatial/visual interfaces as carriers of real
+    computational meaning}---the same bet GLA makes about diagrams, aimed
+    at a different domain.
+\end{enumerate}
+
+\section{The bridges}
+
+\subsection{A diagram renderer (the easy, immediately useful one)}
+
+A string diagram is a planar wiring of boxes: sequential composition runs
+left-to-right, parallel composition stacks vertically. KidLisp already
+draws boxes, lines, and text. A renderer that lays out GLA generators and
+their wires is a short piece---the companion artifact \texttt{gla.lisp}
+is a first, hand-placed instance: two inputs feeding an \textbf{add}
+node, whose sum feeds a \textbf{copy} node that fans out to two outputs,
+with animated dots showing the signal propagate. It runs in the browser
+today.
+
+The value here is pedagogical and immediate: GLA's teaching materials are
+static; an embeddable, linkable, \emph{animated} diagram is not.
+
+\subsection{An executable term language for props (the interesting one)}
+
+The naive pitch---``Lisp is already a diagram language''---undersells the
+problem, and saying so honestly is the whole point.
+
+\textbf{Lisp S-expressions are trees. String diagrams are graphs.} A tree
+has exactly one root and no sharing; an expression \texttt{(f (g x) (h
+x))} \emph{names} \texttt{x} twice but the term structure is still a tree
+with variables doing the sharing. GLA's power lives precisely in the
+structure trees cannot express directly:
+
+\begin{itemize}
+  \item \textbf{copy / fan-out}---one wire becoming two---is sharing made
+    first-class, \emph{without} a variable to name it;
+  \item \textbf{discard}---throwing a wire away---is structural weakening;
+  \item \textbf{feedback loops}---a signal flow graph's defining
+    feature---are cycles, which a term tree simply does not have.
+\end{itemize}
+
+So ``render Lisp as diagrams'' is not the task. The real task is to design
+a \textbf{textual syntax for a prop}---a term language whose denotation is
+a morphism in a symmetric monoidal category, with explicit \texttt{copy},
+\texttt{discard}, sequential $\circ$, and parallel $\otimes$ combinators,
+plus a trace / feedback operator. This is a known and respected problem
+(the \emph{internal language of monoidal categories}; related to the
+algebra of Frobenius/Hopf structures and to hypergraph categories). A
+KidLisp-flavored surface syntax that \textbf{evaluates} to a concrete
+linear relation---and renders the corresponding diagram as it goes---would
+be a genuine contribution: an executable, inspectable bridge between the
+textual and the diagrammatic, with a live runtime attached.
+
+Concretely, a generator set might read:
+
+\begin{lstlisting}[style=kidlisp]
+(seq                  ; sequential  o
+  (par in-A in-B)     ; parallel    (x)
+  add                 ; *  two in, one out
+  copy                ; o  one in, two out
+  (par out-1 out-2))
+\end{lstlisting}
+
+\noindent where evaluation produces both the matrix/relation it denotes
+\emph{and} the drawn diagram---two views of one object, exactly GLA's
+thesis made interactive.
+
+\subsection{A signal-flow playground (the demonstrable one)}
+
+Signal flow graphs are GLA's flagship application and are
+\emph{intrinsically animated}: values stream down wires, scalars amplify,
+feedback accumulates. AC is built for exactly this---real-time,
+frame-driven, interactive. A piece where you wire generators on a canvas
+and \textbf{watch the linear system run}---adjust a scalar and see the
+trajectory change---is something the ACT community largely does not have.
+It is the most compelling demo of all three because it shows the diagram
+\emph{computing}, not just sitting.
+
+\section{Why this is worth a paper, a tool, or a thesis}
+
+The honest framing of the opportunity:
+
+\begin{itemize}
+  \item \textbf{For pedagogy:} GLA wants to be approachable---that is why
+    the blog exists. Interactive, linkable diagrams lower the entry cost
+    further than any PDF can.
+  \item \textbf{For research:} \S3.2 is a real open-flavored problem at
+    the intersection of programming-language design and category
+    theory---a term language and live evaluator for props/linear
+    relations.
+  \item \textbf{For the field's culture:} ACT prizes \emph{working}
+    compositional tools. A browser-native, shareable GLA playground is a
+    contribution in a form the community values and currently lacks.
+\end{itemize}
+
+A fair caveat, stated plainly: a PhD in these groups is \textbf{formal
+category theory}---props, monoidal categories, completeness proofs,
+papers. The tool-building is an excellent entry credential and complement,
+not a substitute for the abstract mathematics the degree demands. The
+right posture is to lead with the artifact and learn the formalism, not
+the reverse.
+
+\section{The people and the path}
+
+The GLA authors are the centre of gravity of Applied Category Theory:
+
+\begin{itemize}
+  \item \textbf{Pawe\l{} Soboci\'nski}---Professor, \emph{TalTech}
+    (Tallinn, Estonia); leads the Laboratory for Compositional Systems and
+    Methods; supervises PhD students and coordinates a doctoral programme.
+    Author of the GLA blog and an outreach-minded researcher. \textbf{The
+    most natural first contact.}
+  \item \textbf{Fabio Zanasi}---Professor, \emph{UCL} (London);
+    co-author of the foundational GLA papers.
+  \item \textbf{Filippo Bonchi}---\emph{University of Pisa}; the third
+    co-author.
+\end{itemize}
+
+Two timely venues, both chaired by Soboci\'nski in Tallinn:
+
+\begin{itemize}
+  \item \textbf{ACT 2026} (Applied Category Theory), 6--10 July 2026;
+  \item \textbf{DIAGRAMS 2026}, 24--28 August 2026---arguably the better
+    fit for an interactive-diagrams contribution.
+\end{itemize}
+
+Estonian doctoral positions are \textbf{salaried}, sidestepping the
+tuition-debt model of the US/UK.
+
+\subsection*{Proposed first move}
+
+Not ``may I do a PhD,'' but: \textbf{ship the smallest working demo and
+point at it.} A KidLisp piece that renders and animates a GLA string
+diagram (now in hand) plus a short note to Soboci\'nski---``here is what I
+build; I'd like to build it for category theory; DIAGRAMS 2026?''---tests
+the collaboration, funding, and thesis paths simultaneously, on the
+strength of a running artifact rather than a cold ask. Practitioners in
+this field notice tools.
+
+\section{Kindred voices: Richard Southwell and the diagrammatic turn}
+
+The case for an \emph{interactive} diagrammatic mathematics is not mine
+alone. In his 2026 talk \emph{Speculations about the future of
+mathematics}, the category-theory educator \textbf{Richard
+Southwell}---author of \emph{Categories and Toposes: Visualized and
+Explained}---argues that mathematics is shifting ``from this sort of
+algebraic, encoded style of maths to something more like'' drawing
+diagrams. His framing arrives, independently, at the exact metaphor
+underpinning this paper and my whistlegraph practice:
+
+\begin{quote}
+\itshape ``I liken [algebra] to \textbf{sheet music}---as opposed to [the
+diagram], which is the \textbf{actual music}. This is what our visual
+cortex can process.'' --- Richard Southwell
+\end{quote}
+
+His worked example \emph{is} the companion piece \texttt{gla.lisp}: ``a
+number flows in from the left; the black node \textbf{copies} it; the
+white node \textbf{adds}---put a 3 in, get a 3 and a 3, add them, get 6.''
+He closes with a plea that is, almost verbatim, the mission of Aesthetic
+Computer: that people who understand graphical methods should ``spend more
+time trying to make it easier for the rest of us.'' Southwell---an
+independent educator actively seeking collaborators who make the subject
+visual---is plausibly a lower-friction first contact than a cold email to
+a department.
+
+\textbf{A calibration, stated honestly.} Southwell's talk pairs GLA with a
+second, far more speculative program: Norman Wildberger's \emph{box
+arithmetic}, which takes multisets (drawn as nested boxes, with
+``anti-boxes'' for negatives) as a finitist foundation that rejects
+infinities and the real numbers. The two are \textbf{not} the same tier.
+GLA is rigorous, peer-reviewed, and complete (the IHA theorem); box
+arithmetic is heterodox, ultrafinitist, and---by Southwell's own
+admission---``the wild west,'' not even proven consistent. For a serious
+collaboration or thesis pitch, build on GLA. Box arithmetic is better
+treated as provocation and art-fuel. Notably, its nested-box structure is
+\emph{operadic}---rooted \textbf{trees}---which places it on the opposite
+side of the same tree-vs-graph divide drawn in \S3.2: GLA is the graph
+side, box arithmetic the tree side, and AC's score practice straddles
+both.
+
+\section{Status and next steps}
+
+\begin{itemize}
+  \item[$\checkmark$] \texttt{gla.lisp}---animated signal-flow string
+    diagram, live in AC.
+  \item[$\circ$] Generalise from hand-placed coordinates to a small
+    layout pass (a list of generators $\to$ auto-wired diagram).
+  \item[$\circ$] Prototype the \S3.2 term language: \texttt{seq} /
+    \texttt{par} / \texttt{add} / \texttt{copy} / \texttt{discard} /
+    \texttt{scale} evaluating to both a relation and a drawing.
+  \item[$\circ$] Add interaction: drag generators, edit scalars, watch
+    the signal flow respond (\S3.3).
+  \item[$\circ$] Draft a one-page note $+$ demo links for Soboci\'nski;
+    target DIAGRAMS 2026.
+\end{itemize}
+
+\section*{References}
+
+\begin{itemize}
+  \item Bonchi, Soboci\'nski, Zanasi --- \emph{Interacting Hopf Algebras}
+    / \emph{A Categorical Semantics of Signal Flow Graphs}.
+  \item Soboci\'nski --- \emph{Graphical Linear Algebra},
+    graphicallinearalgebra.net.
+  \item Bonchi, Piedeleu, Soboci\'nski, Zanasi --- \emph{Graphical Affine
+    Algebra} / \emph{Graphical Resource Algebra}.
+  \item Soboci\'nski --- \emph{Laboratory for Compositional Systems and
+    Methods}, TalTech (compose.ee/pawel).
+  \item Richard Southwell --- \emph{Speculations about the future of
+    mathematics} (2026), \url{https://www.youtube.com/watch?v=l619jN5wkJA};
+    \emph{Categories and Toposes: Visualized and Explained}.
+  \item Norman Wildberger --- \emph{box arithmetic} lectures (multiset
+    foundations; ultrafinitist).
+\end{itemize}
+
+\end{multicols}
+
+\vspace{1em}
+\noindent\rule{\textwidth}{0.5pt}\par
+\vspace{0.3em}
+{\footnotesize\color{acgray} Companion artifacts: \texttt{gla.lisp}
+(Aesthetic Computer piece) and
+\texttt{studies/graphical-linear-algebra-kidlisp-study.md}. Source
+transcript: \texttt{studies/southwell-future-of-math-transcript.md}.}
+
+\end{document}

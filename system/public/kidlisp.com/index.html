@@ -3887,6 +3887,9 @@
       #jukebox-tab:hover {
         background: rgba(59, 130, 246, 0.35);
       }
+      #keep-tab:hover {
+        background: rgba(245, 158, 11, 0.4);
+      }
       #reference-tab:hover {
         background: rgba(34, 197, 94, 0.35);
       }
@@ -3969,6 +3972,35 @@
     #reference-tab.active {
       background: rgba(34, 197, 94, 0.55);
       color: #14532d;
+    }
+
+    /* Keep - Amber/Gold (Tezos) */
+    #keep-tab {
+      background: rgba(245, 158, 11, 0.22);
+      color: #b45309;
+    }
+    #keep-tab.active {
+      background: rgba(245, 158, 11, 0.55);
+      color: #7c2d12;
+    }
+    :root.dark #keep-tab {
+      background: rgba(245, 158, 11, 0.3);
+      color: #fde68a;
+    }
+    :root.dark #keep-tab.active {
+      background: rgba(245, 158, 11, 0.55);
+      color: #fffbeb;
+    }
+
+    /* While the embedded keep flow is open, the keeps iframe takes over the full
+       kidlisp window so the Beacon/Taquito wallet modal renders desktop-size. */
+    #keeps-iframe.keeps-iframe-fullscreen {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 100000;
+      background: var(--bg-primary);
     }
 
     /* Dark mode adjustments for tab colors - brighter text for contrast */
@@ -4132,16 +4164,6 @@
       color: #5c3d1e;
     }
     
-    /* Sub-tab colors - Keeps (Gray) */
-    .list-subtab[data-subtab="keeps"] {
-      background: rgba(250, 204, 21, 0.65);
-      color: #78716c;
-    }
-    .list-subtab[data-subtab="keeps"].active {
-      background: linear-gradient(to bottom, #a3a3a3 0%, #d4d4d4 100%);
-      color: #262626;
-    }
-    
     /* Dark mode sub-tabs */
     [data-theme="dark"] .list-subtab[data-subtab="examples"] {
       background: rgba(253, 224, 71, 0.8);
@@ -4166,14 +4188,6 @@
     [data-theme="dark"] .list-subtab[data-subtab="history"].active {
       background: linear-gradient(to bottom, #a3724a 0%, #6b4423 100%);
       color: #e8d4bc;
-    }
-    [data-theme="dark"] .list-subtab[data-subtab="keeps"] {
-      background: rgba(253, 224, 71, 0.8);
-      color: #57534e;
-    }
-    [data-theme="dark"] .list-subtab[data-subtab="keeps"].active {
-      background: linear-gradient(to bottom, #737373 0%, #525252 100%);
-      color: #f5f5f5;
     }
     
     /* Slideshow icon button in subtabs bar */
@@ -4944,11 +4958,6 @@
       background: linear-gradient(to bottom, rgba(180, 130, 90, 0.35) 0%, rgba(180, 130, 90, 0.1) 40%, rgba(250, 204, 21, 0.05) 100%);
     }
     
-    #keeps-subcontent:not(.hidden) {
-      display: flex;
-      overflow: hidden;
-    }
-
     .language-tab {
       border-left: 1px solid var(--border-color);
       border-right: 1px solid var(--border-color);
@@ -9293,6 +9302,7 @@
           <div class="tab active" data-tab="guide" id="guide-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">Learn</div>
           <div class="tab" data-tab="list" id="list-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">List</div>
           <div class="tab" data-tab="jukebox" id="jukebox-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">Music</div>
+          <div class="tab" data-tab="keep" id="keep-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">Keep</div>
           <div class="tab" data-tab="jockey" id="jockey-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0; display: none;">Jockey</div>
         </div>
         <!-- Console content (shown in mobile single-column mode) -->
@@ -9308,7 +9318,6 @@
             <div class="list-subtab active" data-subtab="examples">Top Hits</div>
             <div class="list-subtab" data-subtab="recent">Recent</div>
             <div class="list-subtab" data-subtab="history">History</div>
-            <div class="list-subtab" data-subtab="keeps">Keeps</div>
           </div>
           <!-- List sub-contents -->
           <div class="list-subcontent" id="examples-subcontent">
@@ -9327,10 +9336,11 @@
               <div id="recent-list" class="code-list-items"><div class="code-list-loading">Loading...</div></div>
             </div>
           </div>
-          <div class="list-subcontent hidden" id="keeps-subcontent">
-            <iframe id="keeps-iframe" data-src="https://kidlisp.com/keeps" style="width: 100%; height: 100%; border: none; flex: 1;"></iframe>
-          </div>
         </div><!-- /list-content -->
+        <div class="docs-content hidden" id="keep-content">
+          <!-- keeps.html directly (same-origin) — NOT /keeps, which 301s cross-origin to keep.kidlisp.com and breaks the embedded postMessage/localStorage handshake. -->
+          <iframe id="keeps-iframe" data-src="https://kidlisp.com/keeps.html" style="width: 100%; height: 100%; border: none; flex: 1;"></iframe>
+        </div>
         <div class="docs-content hidden" id="jukebox-content">
           <!-- Jukebox sub-tabs -->
           <div class="jukebox-subtabs">
@@ -15560,6 +15570,35 @@ s("ape_breaks_3").loopAt(2)</textarea>
       if (learnIframe) learnIframe.dataset.src = 'https://localhost:8888/kidlisp.com/learn.html';
     }
 
+    // Hand the embedded Keeps tab the piece currently open in the editor so it
+    // can keep exactly that (same-origin iframe → postMessage with our origin).
+    function postCurrentPieceToKeeps() {
+      try {
+        const keepsIframe = document.getElementById('keeps-iframe');
+        if (!keepsIframe?.contentWindow) return;
+        const code = (localStorage.getItem('kidlisp-current-code') || '').trim();
+        const source = (window.editor?.getValue?.() || '').trim();
+        if (!code && !source) return;
+        keepsIframe.contentWindow.postMessage(
+          { type: 'keeps:piece', code, source },
+          window.location.origin,
+        );
+      } catch (e) { /* iframe not ready / cross-origin — ignore */ }
+    }
+
+    // The embedded keeps page announces readiness; (re)send the current piece.
+    // It also asks to expand to the full window during the keep flow so the
+    // Beacon/Taquito wallet modal renders full-size (not the cramped mobile one).
+    window.addEventListener('message', (e) => {
+      if (e.origin !== window.location.origin) return;
+      if (e.data?.type === 'keeps:ready') {
+        postCurrentPieceToKeeps();
+      } else if (e.data?.type === 'keeps:expand') {
+        const kf = document.getElementById('keeps-iframe');
+        if (kf) kf.classList.toggle('keeps-iframe-fullscreen', !!e.data.on);
+      }
+    });
+
     // Configure Monaco with jsDelivr CDN (modern, well-supported)
     require.config({ 
       paths: { 
@@ -17030,6 +17069,11 @@ s("ape_breaks_3").loopAt(2)</textarea>
       
       // Listen for cursor position changes to update Learn tab documentation
       editor.onDidChangeCursorPosition((e) => {
+        // Skip while content is being set programmatically (initial restore /
+        // code-load / decrypt animation). Monaco is still chunking in then, and
+        // these fire spuriously, evaluating references against transient content
+        // and pushing them at the Learn tab.
+        if (isSettingValueProgrammatically) return;
         const model = editor.getModel();
         if (!model) return;
 
@@ -20057,12 +20101,14 @@ s("ape_breaks_3").loopAt(2)</textarea>
     const listContent = document.getElementById('list-content');
     const jukeboxContent = document.getElementById('jukebox-content');
     const jockeyContent = document.getElementById('jockey-content');
+    const keepContent = document.getElementById('keep-content');
     const mobileConsoleContent = document.getElementById('mobile-console-content');
     const codeTab = document.getElementById('reference-tab');
     const guideTab = document.getElementById('guide-tab');
     const listTab = document.getElementById('list-tab');
     const jukeboxTab = document.getElementById('jukebox-tab');
     const jockeyTab = document.getElementById('jockey-tab');
+    const keepTab = document.getElementById('keep-tab');
     const consoleTab = document.getElementById('console-tab');
     let examplesLoaded = false;
     let recentLoaded = false;
@@ -20076,6 +20122,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
       listContent?.classList.add('hidden');
       jukeboxContent?.classList.add('hidden');
       jockeyContent?.classList.add('hidden');
+      keepContent?.classList.add('hidden');
       mobileConsoleContent?.classList.add('hidden');
     }
 
@@ -20086,6 +20133,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
       listTab?.classList.remove('active');
       jukeboxTab?.classList.remove('active');
       jockeyTab?.classList.remove('active');
+      keepTab?.classList.remove('active');
       consoleTab?.classList.remove('active');
     }
     
@@ -20111,13 +20159,6 @@ s("ape_breaks_3").loopAt(2)</textarea>
         if (!recentLoaded) loadRecent();
       } else if (subtab === 'history') {
         loadHistory();
-      } else if (subtab === 'keeps') {
-        // Lazy-load keeps iframe on first click (avoid loading 14k+ items on page init)
-        const keepsIframe = document.getElementById('keeps-iframe');
-        if (keepsIframe && !keepsIframe.hasAttribute('src')) {
-          console.log('📦 [KEEPS] Lazy-loading keeps iframe');
-          keepsIframe.src = keepsIframe.dataset.src;
-        }
       }
 
       const listIdBySubtab = {
@@ -20257,6 +20298,28 @@ s("ape_breaks_3").loopAt(2)</textarea>
         updateJockeyPanel();
       });
 
+      // Keep tab - embedded focused-keep panel for the current editor piece
+      keepTab?.addEventListener('click', function(e) {
+        e.stopPropagation();
+        e.preventDefault();
+        log.tabs.debug('Keep tab');
+        deactivateAllTabs();
+        hideAllTabContents();
+        keepTab.classList.add('active');
+        keepContent.classList.remove('hidden');
+        expandReferencePanelOnMobile();
+        // Lazy-load keeps iframe on first open; otherwise re-target at the
+        // piece that's open now.
+        const keepsIframe = document.getElementById('keeps-iframe');
+        if (keepsIframe && !keepsIframe.hasAttribute('src')) {
+          console.log('📦 [KEEPS] Lazy-loading keeps iframe');
+          keepsIframe.addEventListener('load', postCurrentPieceToKeeps, { once: true });
+          keepsIframe.src = keepsIframe.dataset.src;
+        } else {
+          postCurrentPieceToKeeps();
+        }
+      });
+
       // List sub-tab click handlers
       document.querySelectorAll('.list-subtab').forEach(subtab => {
         subtab.addEventListener('click', function(e) {
@@ -20323,7 +20386,17 @@ s("ape_breaks_3").loopAt(2)</textarea>
             useRefreshTokensFallback: true
           });
           if (window.location.search.includes('code=') || window.location.search.includes('error=')) {
-            try { await acAuth0Client.handleRedirectCallback(); window.history.replaceState({}, document.title, window.location.pathname); } catch (e) { /* auth callback error */ }
+            try {
+              const cbResult = await acAuth0Client.handleRedirectCallback();
+              const returnTo = cbResult?.appState?.returnTo;
+              // Land back on the piece the user logged in from. Auth0 redirects
+              // to the registered origin, so the $code path lives in appState.
+              if (returnTo && returnTo !== '/' && returnTo !== (window.location.pathname + window.location.search + window.location.hash)) {
+                window.location.replace(returnTo);
+                return; // navigating away; initAuth0 re-runs on the fresh load
+              }
+              window.history.replaceState({}, document.title, window.location.pathname);
+            } catch (e) { /* auth callback error */ }
           }
           let isAuthenticated = await acAuth0Client.isAuthenticated();
           if (!isAuthenticated) {
@@ -20376,23 +20449,23 @@ s("ape_breaks_3").loopAt(2)</textarea>
             return;
           }
           if (!acAuth0Client) {
-            // SDK may still be loading — kick off init but don't block the gesture.
-            // loginWithRedirect must run in the same user-gesture context, so we
-            // can't await a long poll here.  Retry once quickly, then bail.
-            if (window.auth0) {
-              await initAuth0();
-            } else {
-              console.warn('[AUTH] Auth0 SDK still loading — try again in a moment');
-              return;
-            }
+            // SDK may still be loading. initAuth0() waits up to 10s for it; a
+            // full-page redirect (below) doesn't need a popup user-gesture, so
+            // awaiting here is safe and avoids the "try again in a moment" dead end.
+            await initAuth0();
           }
           if (!acAuth0Client) {
-            console.warn('[AUTH] initAuth0 failed — acAuth0Client still null');
+            console.warn('[AUTH] Auth0 unavailable — SDK failed to load');
             return;
           }
           console.log('[AUTH] Redirecting to Auth0 login...');
           logAuth('check');
-          await acAuth0Client.loginWithRedirect({ authorizationParams: { prompt: 'login' } });
+          // Carry the current piece path through the Auth0 roundtrip so login
+          // returns to /$code instead of the app root.
+          await acAuth0Client.loginWithRedirect({
+            authorizationParams: { prompt: 'login' },
+            appState: { returnTo: window.location.pathname + window.location.search + window.location.hash },
+          });
         } catch (e) { console.error('[AUTH] acLogin error:', e); }
       }
 
@@ -20427,11 +20500,12 @@ s("ape_breaks_3").loopAt(2)</textarea>
                 window.parent?.postMessage({ type: 'login', tenant: 'aesthetic' }, '*');
                 return;
               }
-              if (!acAuth0Client && window.auth0) await initAuth0();
+              if (!acAuth0Client) await initAuth0();
               if (!acAuth0Client) return;
               logAuth('check');
               await acAuth0Client.loginWithRedirect({
-                authorizationParams: { prompt: 'login', screen_hint: 'signup' }
+                authorizationParams: { prompt: 'login', screen_hint: 'signup' },
+                appState: { returnTo: window.location.pathname + window.location.search + window.location.hash },
               });
             } catch (e) { /* signup error */ }
           });

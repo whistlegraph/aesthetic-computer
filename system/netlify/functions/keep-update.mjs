@@ -24,8 +24,8 @@ if (dev) {
 const NETWORK = process.env.TEZOS_NETWORK || "mainnet";
 const TZKT_API = NETWORK === "mainnet" ? "https://api.tzkt.io/v1" : `https://api.${NETWORK}.tzkt.io/v1`;
 const RPC_URL = NETWORK === "mainnet" 
-  ? "https://mainnet.ecadinfra.com"
-  : "https://ghostnet.ecadinfra.com";
+  ? "https://rpc.tzkt.io/mainnet"
+  : "https://rpc.ghostnet.teztnets.com";
 
 // Helper to convert string to bytes (for Tezos metadata)
 function stringToBytes(str) {

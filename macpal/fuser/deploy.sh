@@ -1,0 +1,1 @@
+../../aesthetic-computer-vault/fuser/bin/desktop-badge/deploy.sh

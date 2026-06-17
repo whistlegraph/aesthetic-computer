@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>Spatial Substrate — multithreaded</title>
+<style>
+  :root { --ink:#e6ebf6; --dim:#8b95b0; --pink:#ff5b8a; --gold:#ffd23c; --line:rgba(255,255,255,.10); --glass:rgba(14,16,28,.82); }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; overflow:hidden; background:#05060d; color:var(--ink);
+              font:13px/1.45 ui-sans-serif,system-ui,"Helvetica Neue",sans-serif; }
+  #view { position:fixed; left:0; top:0; display:block; background:#05060d;
+          image-rendering:pixelated; cursor:crosshair; touch-action:none; }
+
+  /* floating, overlapping UI */
+  .ui { position:fixed; background:var(--glass); border:1px solid var(--line); border-radius:14px;
+        backdrop-filter:blur(9px); -webkit-backdrop-filter:blur(9px); box-shadow:0 8px 40px rgba(0,0,0,.5); }
+  #dock { top:14px; left:14px; width:262px; padding:12px 13px; }
+  #dock.collapsed .body { display:none; }
+  .hd { display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none; }
+  .hd b { font-size:13px; letter-spacing:.3px; } .hd b span { color:var(--pink); }
+  .hd .chev { color:var(--dim); font-size:12px; }
+  .body { margin-top:10px; display:flex; flex-direction:column; gap:11px; }
+  .grp { display:flex; flex-direction:column; gap:6px; }
+  .grp > .lab { font-size:10px; letter-spacing:.6px; text-transform:uppercase; color:var(--dim); }
+  .seg { display:flex; flex-wrap:wrap; gap:5px; }
+  .seg button { flex:1 1 auto; background:rgba(255,255,255,.05); color:var(--ink); border:1px solid var(--line);
+                border-radius:8px; padding:6px 8px; cursor:pointer; font:inherit; font-size:12px; white-space:nowrap; }
+  .seg button:hover { border-color:var(--pink); }
+  .seg button[aria-pressed="true"] { background:var(--pink); color:#1a0510; border-color:var(--pink); font-weight:600; }
+  .row { display:flex; align-items:center; gap:9px; font-size:11px; color:var(--dim); }
+  .row input[type=range] { flex:1; accent-color:var(--pink); height:3px; }
+  .row .v { font-variant-numeric:tabular-nums; color:var(--gold); min-width:34px; text-align:right; }
+  .swatches { display:flex; gap:5px; flex-wrap:wrap; }
+  .swatches button { width:22px; height:22px; border-radius:6px; border:1px solid var(--line); cursor:pointer; padding:0; }
+  .swatches button[aria-pressed="true"] { outline:2px solid #fff; outline-offset:1px; }
+  .actions { display:flex; gap:6px; flex-wrap:wrap; }
+  .actions button { background:rgba(255,255,255,.05); border:1px solid var(--line); color:var(--ink);
+                    border-radius:8px; padding:6px 10px; cursor:pointer; font:inherit; font-size:12px; }
+  .actions button:hover { border-color:var(--pink); }
+  .hide { display:none !important; }
+
+  #stat { bottom:14px; left:14px; padding:8px 12px; font-variant-numeric:tabular-nums; color:var(--dim); font-size:11px; }
+  #stat b { color:var(--ink); } #stat .pink { color:var(--pink); }
+  #help { bottom:14px; right:14px; max-width:300px; padding:10px 13px; color:var(--dim); font-size:11px; line-height:1.6; }
+  #help b { color:var(--ink); }
+  #warn { top:14px; right:14px; max-width:280px; padding:10px 13px; color:#ffd0d0; font-size:11px; border-color:rgba(255,90,90,.4); }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+
+<div id="dock" class="ui">
+  <div class="hd" id="dockHd"><b>spatial <span>substrate</span></b><span class="chev">▾</span></div>
+  <div class="body">
+
+    <div class="grp">
+      <div class="lab">tool</div>
+      <div class="seg" id="tools">
+        <button data-tool="matrix" aria-pressed="true">matrix</button>
+        <button data-tool="color">color</button>
+        <button data-tool="sort">sort</button>
+        <button data-tool="erase">erase</button>
+      </div>
+    </div>
+
+    <div class="grp">
+      <div class="lab">brush shape</div>
+      <div class="seg" id="shapes">
+        <button data-shape="circle" aria-pressed="true">● circle</button>
+        <button data-shape="rect">▮ rect</button>
+      </div>
+      <div class="row">w <input id="bw" type="range" min="4" max="120" value="34"><span class="v" id="bwV">34</span></div>
+      <div class="row">h <input id="bh" type="range" min="4" max="120" value="34"><span class="v" id="bhV">34</span></div>
+    </div>
+
+    <div class="grp" id="matGrp">
+      <div class="lab">matrix brush</div>
+      <div class="seg" id="mats">
+        <button data-m="swirlcw" aria-pressed="true">swirl ↻</button>
+        <button data-m="swirlccw">swirl ↺</button>
+        <button data-m="expand">expand</button>
+        <button data-m="contract">contract</button>
+        <button data-m="shearx">shear →</button>
+        <button data-m="sheary">shear ↑</button>
+        <button data-m="flattenx">flatten x</button>
+        <button data-m="identity">reset</button>
+      </div>
+    </div>
+
+    <div class="grp hide" id="colGrp">
+      <div class="lab">pigment</div>
+      <div class="swatches" id="swatches"></div>
+    </div>
+
+    <div class="grp hide" id="sortGrp">
+      <div class="lab">sort algorithm</div>
+      <div class="seg" id="sortAlgo">
+        <button data-a="bubble" aria-pressed="true">bubble</button>
+        <button data-a="insertion">insertion</button>
+        <button data-a="selection">selection</button>
+      </div>
+      <div class="lab">sort key</div>
+      <div class="seg" id="sortKeys">
+        <button data-k="bright" aria-pressed="true">brightness</button>
+        <button data-k="hue">hue</button>
+        <button data-k="sat">saturation</button>
+        <button data-k="red">red</button>
+      </div>
+      <div class="seg" id="sortDir">
+        <button data-d="1" aria-pressed="true">ascend →</button>
+        <button data-d="-1">descend ←</button>
+      </div>
+      <div class="row">speed <input id="ss" type="range" min="1" max="80" value="12"><span class="v" id="ssV">12</span></div>
+    </div>
+
+    <div class="grp">
+      <div class="lab">boundary</div>
+      <div class="seg" id="bounds">
+        <button data-b="wrap" aria-pressed="true">wrap</button>
+        <button data-b="clamp">edge-indep</button>
+        <button data-b="mirror">edge-aware</button>
+      </div>
+    </div>
+
+    <div class="grp">
+      <div class="lab">dynamics</div>
+      <div class="row">flow&nbsp;diffuse <input id="vd" type="range" min="0" max="40" value="12"><span class="v" id="vdV">.12</span></div>
+      <div class="row">color&nbsp;diffuse <input id="cd" type="range" min="0" max="40" value="8"><span class="v" id="cdV">.08</span></div>
+      <div class="row">advect <input id="ad" type="range" min="0" max="100" value="55"><span class="v" id="adV">.55</span></div>
+      <div class="row">hue&nbsp;stir <input id="st" type="range" min="0" max="100" value="30"><span class="v" id="stV">.30</span></div>
+      <div class="row">regen <input id="dc" type="range" min="0" max="60" value="6"><span class="v" id="dcV">.06</span></div>
+    </div>
+
+    <div class="grp">
+      <div class="actions">
+        <button id="seedBtn">seed</button>
+        <button id="clearBtn">clear</button>
+        <button id="pauseBtn">pause</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="stat" class="ui">—</div>
+<div id="help" class="ui"><b>paint</b> to stamp the active tool · <b>matrix</b> sculpts the flow · <b>color</b> injects pigment · <b>sort</b> flags pixels to sort each tick · <b>erase</b> resets. Drag to draw.</div>
+<div id="warn" class="ui hide"></div>
+
+<script>
+// ===========================================================================
+// ENGINE  — shared by workers (stringified) AND the main-thread fallback.
+// One band = a horizontal slab of the grid. The volumetric port adds a second
+// halo axis (front/back planes) exchanged the same way as top/bottom here.
+// ===========================================================================
+function EngineFactory(){
+  const CH = 6;                 // vx, vy, r, g, b, flag
+  const VX=0, VY=1, R=2, G=3, B=4, FL=5;
+  const INV3 = 1/Math.sqrt(3);
+
+  function hsv(h,s,v){ const i=Math.floor(h*6),f=h*6-i,p=v*(1-s),q=v*(1-f*s),t=v*(1-(1-f)*s);
+    switch(((i%6)+6)%6){case 0:return[v,t,p];case 1:return[q,v,p];case 2:return[p,v,t];case 3:return[p,q,v];case 4:return[t,p,v];default:return[v,p,q];} }
+
+  function rngFrom(s){ let x=s>>>0||1; return ()=>{ x^=x<<13; x^=x>>>17; x^=x<<5; x>>>=0; return x/4294967296; }; }
+
+  function createBand(cfg){
+    const GW=cfg.GW, rows=cfg.rows, y0=cfg.y0;
+    const N = rows*GW;
+    let cur = new Float32Array(N*CH);
+    let nxt = new Float32Array(N*CH);
+    const M = new Float32Array(N*4);     // per-cell 2x2 matrix field
+    const rng = rngFrom(cfg.seed||1);
+    // per-row classic-sort state (re-armed when a row's flagged run changes)
+    const SS={ s:new Int32Array(rows).fill(-1), e:new Int32Array(rows), i:new Int32Array(rows),
+               j:new Int32Array(rows), m:new Int32Array(rows), end:new Int32Array(rows), done:new Uint8Array(rows) };
+
+    function seed(){
+      const ct=Math.cos(0.10), s2=Math.sin(0.10);
+      for(let ly=0; ly<rows; ly++){
+        const gy=y0+ly;
+        for(let x=0; x<GW; x++){
+          const i=(ly*GW+x), o=i*CH;
+          const a=rng()*6.283, r=rng()*0.6;
+          cur[o+VX]=Math.cos(a)*r; cur[o+VY]=Math.sin(a)*r;
+          // a colorful, smoothly varying starting pigment
+          cur[o+R]=0.16+0.14*Math.sin(x*0.045+gy*0.01);
+          cur[o+G]=0.16+0.14*Math.sin(gy*0.05+1.7);
+          cur[o+B]=0.16+0.14*Math.sin((x+gy)*0.03+3.1);
+          cur[o+FL]=0;
+          M[i*4]=ct; M[i*4+1]=-s2; M[i*4+2]=s2; M[i*4+3]=ct;
+        }
+      }
+    }
+    function clear(){ cur.fill(0); for(let i=0;i<N;i++){ M[i*4]=1;M[i*4+1]=0;M[i*4+2]=0;M[i*4+3]=1; } }
+
+    // boundary-resolved horizontal index
+    function rx(x, mode){
+      if(x>=0 && x<GW) return x;
+      if(mode==='wrap') return (x%GW+GW)%GW;
+      if(mode==='mirror'){ if(x<0) return -x-1; return 2*GW-1-x; }
+      return x<0?0:GW-1;            // clamp
+    }
+    // fetch a channel at local (x,ly); ly may be -1 (ghostAbove) or rows (ghostBelow)
+    function get(x, ly, c, ga, gb){
+      if(ly<0)    return ga ? ga[x*CH+c] : cur[(0*GW+x)*CH+c];
+      if(ly>=rows)return gb ? gb[x*CH+c] : cur[((rows-1)*GW+x)*CH+c];
+      return cur[(ly*GW+x)*CH+c];
+    }
+
+    function step(p, ghostAbove, ghostBelow, tick){
+      const mode=p.boundary, vdiff=p.vDiffuse, cdiff=p.colorDiffuse,
+            advect=p.advect, stir=p.stir, gen=p.gen;
+      for(let ly=0; ly<rows; ly++){
+        for(let x=0; x<GW; x++){
+          const o=(ly*GW+x)*CH, mi=(ly*GW+x)*4;
+          const vx=cur[o+VX], vy=cur[o+VY];
+          // --- flow: local linear map, then diffuse, then saturate φ ---
+          let tx=M[mi]*vx+M[mi+1]*vy, ty=M[mi+2]*vx+M[mi+3]*vy;
+          const xl=rx(x-1,mode), xr=rx(x+1,mode);
+          const avx=(get(xl,ly,VX,ghostAbove,ghostBelow)+get(xr,ly,VX,ghostAbove,ghostBelow)+get(x,ly-1,VX,ghostAbove,ghostBelow)+get(x,ly+1,VX,ghostAbove,ghostBelow))*0.25;
+          const avy=(get(xl,ly,VY,ghostAbove,ghostBelow)+get(xr,ly,VY,ghostAbove,ghostBelow)+get(x,ly-1,VY,ghostAbove,ghostBelow)+get(x,ly+1,VY,ghostAbove,ghostBelow))*0.25;
+          tx=tx*(1-vdiff)+avx*vdiff; ty=ty*(1-vdiff)+avy*vdiff;
+          const mag=Math.hypot(tx,ty)+1e-6, sat=Math.tanh(mag*1.15)/mag;
+          let nvx=tx*sat, nvy=ty*sat;
+
+          // --- color: advect along -v, diffuse, hue-rotate by the field ---
+          const sxi=rx(x-(vx>0.4?1:vx<-0.4?-1:0),mode);
+          const syi=ly-(vy>0.4?1:vy<-0.4?-1:0);
+          let cr=get(sxi,syi,R,ghostAbove,ghostBelow), cg=get(sxi,syi,G,ghostAbove,ghostBelow), cb=get(sxi,syi,B,ghostAbove,ghostBelow);
+          const dr=(get(xl,ly,R,ghostAbove,ghostBelow)+get(xr,ly,R,ghostAbove,ghostBelow)+get(x,ly-1,R,ghostAbove,ghostBelow)+get(x,ly+1,R,ghostAbove,ghostBelow))*0.25;
+          const dg=(get(xl,ly,G,ghostAbove,ghostBelow)+get(xr,ly,G,ghostAbove,ghostBelow)+get(x,ly-1,G,ghostAbove,ghostBelow)+get(x,ly+1,G,ghostAbove,ghostBelow))*0.25;
+          const db=(get(xl,ly,B,ghostAbove,ghostBelow)+get(xr,ly,B,ghostAbove,ghostBelow)+get(x,ly-1,B,ghostAbove,ghostBelow)+get(x,ly+1,B,ghostAbove,ghostBelow))*0.25;
+          let rr=cr*(1-advect)+dr*advect, gg=cg*(1-advect)+dg*advect, bb=cb*(1-advect)+db*advect;
+          // hue rotation about (1,1,1) by θ = stir * vx  (Rodrigues, luminance-ish preserving)
+          const th=stir*nvx*2.0, cs=Math.cos(th), sn=Math.sin(th), avg=(rr+gg+bb)/3;
+          const r2=rr*cs+INV3*(gg-bb)*sn+avg*(1-cs);
+          const g2=gg*cs+INV3*(bb-rr)*sn+avg*(1-cs);
+          const b2=bb*cs+INV3*(rr-gg)*sn+avg*(1-cs);
+          nxt[o+VX]=nvx; nxt[o+VY]=nvy;
+          nxt[o+FL]=cur[o+FL];           // flags persist (set/cleared by paint)
+          if(cur[o+FL]>=0.5){            // frozen — the sorter owns these pixels
+            nxt[o+R]=cur[o+R]; nxt[o+G]=cur[o+G]; nxt[o+B]=cur[o+B];
+          } else {
+            // self-colour ONLY where it's dark, so injected pigment survives and flows
+            const lum=0.299*r2+0.587*g2+0.114*b2;
+            const ang=((Math.atan2(nvy,nvx)/6.2831+0.5)%1+1)%1;
+            const gm=Math.min(1,Math.hypot(nvx,nvy)*1.3);
+            const gc=hsv(ang,0.85,gm), a2=gen*gm*(1-lum);
+            nxt[o+R]=Math.min(1,Math.max(0,r2*(1-a2)+gc[0]*a2));
+            nxt[o+G]=Math.min(1,Math.max(0,g2*(1-a2)+gc[1]*a2));
+            nxt[o+B]=Math.min(1,Math.max(0,b2*(1-a2)+gc[2]*a2));
+          }
+        }
+      }
+      // sparse re-seed so the medium never dies
+      for(let s=0;s<rows;s++){ const x=(rng()*GW)|0, ly=(rng()*rows)|0, o=(ly*GW+x)*CH, a=rng()*6.283;
+        nxt[o+VX]=Math.cos(a)*0.7; nxt[o+VY]=Math.sin(a)*0.7; }
+
+      // swap, then classical sort pass on flagged horizontal runs
+      const t=cur; cur=nxt; nxt=t;
+      if(p.sortOn) sortPass(p, tick);
+    }
+
+    function keyAt(ly,x,key){ const o=(ly*GW+x)*CH, r=cur[o+R],g=cur[o+G],b=cur[o+B];
+      if(key==='red') return r;
+      if(key==='sat'){ const mx=Math.max(r,g,b),mn=Math.min(r,g,b); return mx<=0?0:(mx-mn)/mx; }
+      if(key==='hue'){ const mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn||1e-6; let h;
+        if(mx===r)h=((g-b)/d)%6; else if(mx===g)h=(b-r)/d+2; else h=(r-g)/d+4; return (h+6)%6; }
+      return 0.299*r+0.587*g+0.114*b; // brightness (luma)
+    }
+    function swapC(ly,a,b){ const oa=(ly*GW+a)*CH, ob=(ly*GW+b)*CH;
+      const r=cur[oa+R],g=cur[oa+G],bl=cur[oa+B];
+      cur[oa+R]=cur[ob+R];cur[oa+G]=cur[ob+G];cur[oa+B]=cur[ob+B];
+      cur[ob+R]=r;cur[ob+G]=g;cur[ob+B]=bl;
+    }
+    // classic in-place sorts — one micro-step per call so you watch them run
+    function sortPass(p){
+      const algo=p.sortAlgo, dir=p.sortDir, key=p.sortKey, steps=Math.max(1,p.sortSteps|0);
+      for(let ly=0; ly<rows; ly++){
+        let s=-1, e=0;                       // this row's flagged run [s,e)
+        for(let x=0;x<GW;x++){ if(cur[(ly*GW+x)*CH+FL]>=0.5){ if(s<0)s=x; e=x+1; } }
+        if(s<0){ SS.s[ly]=-1; continue; }
+        if(SS.s[ly]!==s || SS.e[ly]!==e){    // (re)arm when the run changes
+          SS.s[ly]=s; SS.e[ly]=e; SS.done[ly]=0;
+          SS.i[ly]= algo==='insertion'? s+1 : s; SS.j[ly]=s+1; SS.m[ly]=s; SS.end[ly]=e;
+        }
+        for(let k=0;k<steps && !SS.done[ly]; k++){
+          if(algo==='insertion'){
+            let i=SS.i[ly], j=SS.j[ly];
+            if(i>=e){ SS.done[ly]=1; break; }
+            if(j>s && (keyAt(ly,j-1,key)-keyAt(ly,j,key))*dir>0){ swapC(ly,j-1,j); j--; }
+            else { i++; j=i; }
+            SS.i[ly]=i; SS.j[ly]=j;
+          } else if(algo==='selection'){
+            let i=SS.i[ly], j=SS.j[ly], m=SS.m[ly];
+            if(i>=e-1){ SS.done[ly]=1; break; }
+            if(j<e){ if((keyAt(ly,j,key)-keyAt(ly,m,key))*dir<0) m=j; j++; }
+            else { swapC(ly,i,m); i++; m=i; j=i+1; }
+            SS.i[ly]=i; SS.j[ly]=j; SS.m[ly]=m;
+          } else {                           // bubble
+            let i=SS.i[ly], end=SS.end[ly];
+            if(end<=s+1){ SS.done[ly]=1; break; }
+            if((keyAt(ly,i,key)-keyAt(ly,i+1,key))*dir>0) swapC(ly,i,i+1);
+            i++; if(i>=end-1){ i=s; end--; }
+            SS.i[ly]=i; SS.end[ly]=end;
+          }
+        }
+      }
+    }
+
+    // paint ops in GLOBAL coords; each worker keeps only what's in its rows
+    function applyOps(ops){
+      for(const op of ops){
+        const halfW=op.w/2, halfH=op.h/2;
+        const gy0=Math.floor(op.y-halfH), gy1=Math.ceil(op.y+halfH);
+        for(let gy=gy0; gy<=gy1; gy++){
+          const ly=gy-y0; if(ly<0||ly>=rows) continue;
+          for(let gx=Math.floor(op.x-halfW); gx<=Math.ceil(op.x+halfW); gx++){
+            if(gx<0||gx>=GW) continue;
+            const dx=(gx-op.x)/(halfW||1), dy=(gy-op.y)/(halfH||1);
+            if(op.shape==='circle'){ if(dx*dx+dy*dy>1) continue; }
+            else { if(Math.abs(dx)>1||Math.abs(dy)>1) continue; }
+            const i=ly*GW+gx, o=i*CH;
+            if(op.tool==='matrix'){ M[i*4]=op.mat[0];M[i*4+1]=op.mat[1];M[i*4+2]=op.mat[2];M[i*4+3]=op.mat[3];
+              if(cur[o+VX]*cur[o+VX]+cur[o+VY]*cur[o+VY]<0.04){ const a=rng()*6.283; cur[o+VX]=Math.cos(a)*0.5; cur[o+VY]=Math.sin(a)*0.5; } }
+            else if(op.tool==='color'){ cur[o+R]=op.col[0]; cur[o+G]=op.col[1]; cur[o+B]=op.col[2]; }
+            else if(op.tool==='sort'){ cur[o+FL]=1; }
+            else if(op.tool==='erase'){ cur[o+FL]=0; cur[o+VX]=0; cur[o+VY]=0; M[i*4]=1;M[i*4+1]=0;M[i*4+2]=0;M[i*4+3]=1; }
+          }
+        }
+      }
+    }
+
+    function render(){
+      const px=new Uint8ClampedArray(N*4);
+      for(let i=0;i<N;i++){ const o=i*CH;
+        px[i*4]=cur[o+R]*255; px[i*4+1]=cur[o+G]*255; px[i*4+2]=cur[o+B]*255; px[i*4+3]=255; }
+      return px;
+    }
+    function edges(){
+      const top=new Float32Array(GW*CH), bot=new Float32Array(GW*CH);
+      top.set(cur.subarray(0, GW*CH));
+      bot.set(cur.subarray((rows-1)*GW*CH, rows*GW*CH));
+      return {top, bot};
+    }
+
+    seed();
+    return { seed, clear, step, applyOps, render, edges, CH };
+  }
+  return { createBand, CH };
+}
+
+// ===========================================================================
+// WORKER HARNESS (stringified into the blob worker)
+// ===========================================================================
+function WorkerHarness(){
+  const E = EngineFactory();
+  let band=null, wid=0;
+  self.onmessage=(e)=>{
+    const m=e.data;
+    if(m.type==='init'){ wid=m.wid; band=E.createBand(m); self.postMessage({type:'ready', wid}); }
+    else if(m.type==='seed'){ band.seed(); }
+    else if(m.type==='clear'){ band.clear(); }
+    else if(m.type==='step'){
+      if(m.ops && m.ops.length) band.applyOps(m.ops);
+      band.step(m.params, m.ghostAbove, m.ghostBelow, m.tick);
+      const px=band.render(); const ed=band.edges();
+      self.postMessage({type:'done', wid, edgeTop:ed.top, edgeBottom:ed.bot, pixels:px}, [px.buffer]);
+    }
+  };
+}
+
+// ===========================================================================
+// MAIN — conductor: scatter step, gather results, relay halos, blit
+// ===========================================================================
+const view=document.getElementById('view'), ctx=view.getContext('2d');
+const CH=6;
+
+// SQUARE pixels that fill the viewport (sub-cell excess cropped via body overflow:hidden).
+// Grid is sized so one cell == CELL×CELL screen pixels — never stretched.
+const CELL=Math.max(2, Math.round(window.innerHeight/170));
+const GW=Math.ceil(window.innerWidth/CELL);
+const GH=Math.ceil(window.innerHeight/CELL);
+view.width=GW; view.height=GH;
+view.style.width=(GW*CELL)+'px'; view.style.height=(GH*CELL)+'px';
+const imgData=ctx.createImageData(GW,GH);
+
+// spin up workers (blob-url so it runs from file://) with single-thread fallback
+const HW=Math.max(2, Math.min(8, (navigator.hardwareConcurrency||4)));
+let Wn=Math.min(HW, Math.floor(GH/12)||1);
+const bandY=[]; { let acc=0; const base=Math.floor(GH/Wn), rem=GH%Wn;
+  for(let w=0; w<Wn; w++){ const r=base+(w<rem?1:0); bandY.push([acc, acc+r]); acc+=r; } }
+
+let workers=[], inlineBands=null, threaded=true;
+try {
+  // EngineFactory must be a function DECLARATION in the worker (global binding),
+  // not a parenthesised expression — otherwise WorkerHarness can't see it.
+  const src=EngineFactory.toString()+';('+WorkerHarness.toString()+')();';
+  const url=URL.createObjectURL(new Blob([src], {type:'application/javascript'}));
+  for(let w=0; w<Wn; w++){ const wk=new Worker(url); workers.push(wk); }
+} catch(err){ threaded=false; }
+
+// per-worker last edge rows (for halo relay); zero on first tick
+const zeroRow=()=>new Float32Array(GW*CH);
+let lastTop=Array.from({length:Wn}, zeroRow), lastBot=Array.from({length:Wn}, zeroRow);
+
+// params + paint queue
+const P={ boundary:'wrap', vDiffuse:.12, colorDiffuse:.08, advect:.55, stir:.30, gen:.06,
+          sortOn:false, sortAlgo:'bubble', sortKey:'bright', sortDir:1, sortSteps:12 };
+let opsQueue=[], tick=0, paused=false;
+
+// ---- threaded orchestration ----
+let pending=0, frameReady=false;
+function ghostsFor(w){
+  const above = (w>0) ? lastBot[w-1] : (P.boundary==='wrap' ? lastBot[Wn-1] : lastTop[w]);
+  const below = (w<Wn-1) ? lastTop[w+1] : (P.boundary==='wrap' ? lastTop[0] : lastBot[w]);
+  return {above, below};
+}
+function scatter(){
+  pending=Wn; const ops=opsQueue; opsQueue=[];
+  for(let w=0; w<Wn; w++){
+    const g=ghostsFor(w);
+    workers[w].postMessage({ type:'step', tick, params:P, ghostAbove:g.above, ghostBelow:g.below, ops });
+  }
+  tick++;
+}
+let started=false;
+function startInline(reason){
+  if(started) return; started=true; threaded=false;
+  workers.forEach(w=>{ try{ w.terminate(); }catch(e){} }); workers=[];
+  const E=EngineFactory();
+  inlineBands=bandY.map((b,w)=>E.createBand({GW, rows:b[1]-b[0], y0:b[0], seed:(w*2654435761)>>>0}));
+  const wn=document.getElementById('warn'); wn.classList.remove('hide');
+  wn.innerHTML='workers '+reason+' — running single-threaded. Serve over http(s) for the parallel path.';
+  requestAnimationFrame(loop);
+}
+if(threaded){
+  let ready=0;
+  const guard=setTimeout(()=>startInline('did not respond'), 1500);  // file:// blob-worker block
+  workers.forEach((wk,w)=>{
+    wk.onerror=()=>{ clearTimeout(guard); startInline('errored'); };
+    wk.onmessage=(e)=>{
+      const m=e.data;
+      if(m.type==='ready'){ if(++ready===Wn){ clearTimeout(guard); started=true; requestAnimationFrame(loop); } return; }
+      if(m.type==='done'){
+        lastTop[w]=m.edgeTop; lastBot[w]=m.edgeBottom;
+        imgData.data.set(m.pixels, bandY[w][0]*GW*4);
+        if(--pending===0) frameReady=true;
+      }
+    };
+    wk.postMessage({ type:'init', wid:w, GW, rows:bandY[w][1]-bandY[w][0], y0:bandY[w][0], seed:(w*2654435761)>>>0 });
+  });
+} else {
+  // single-thread fallback
+  const E=EngineFactory();
+  inlineBands=bandY.map((b,w)=>E.createBand({GW, rows:b[1]-b[0], y0:b[0], seed:(w*2654435761)>>>0}));
+  document.getElementById('warn').classList.remove('hide');
+  document.getElementById('warn').innerHTML='workers blocked — running single-threaded. Serve over http(s) for the parallel path.';
+  requestAnimationFrame(loop);
+}
+
+function inlineTick(){
+  const tops=inlineBands.map(b=>b.edges().top), bots=inlineBands.map(b=>b.edges().bot);
+  for(let w=0; w<Wn; w++){
+    const above=(w>0)?bots[w-1]:(P.boundary==='wrap'?bots[Wn-1]:tops[w]);
+    const below=(w<Wn-1)?tops[w+1]:(P.boundary==='wrap'?tops[0]:bots[w]);
+    if(opsQueue.length) inlineBands[w].applyOps(opsQueue);
+    inlineBands[w].step(P, above, below, tick);
+  }
+  opsQueue=[]; tick++;
+  for(let w=0; w<Wn; w++) imgData.data.set(inlineBands[w].render(), bandY[w][0]*GW*4);
+  frameReady=true;
+}
+
+// ---- main loop ----
+let fps=0, lastT=performance.now(), acc=0, frames=0;
+function loop(now){
+  if(!paused){
+    if(threaded){ if(pending===0) scatter(); }
+    else inlineTick();
+  }
+  if(frameReady){ ctx.putImageData(imgData,0,0); frameReady=false; }
+  // fps
+  frames++; acc+=now-lastT; lastT=now;
+  if(acc>=500){ fps=Math.round(frames*1000/acc); frames=0; acc=0; updateStat(); }
+  requestAnimationFrame(loop);
+}
+function updateStat(){
+  document.getElementById('stat').innerHTML=
+    `<span class="pink">${threaded?Wn+' workers':'1 thread'}</span> · <b>${GW}×${GH}</b> (${(GW*GH).toLocaleString()} cells) · <b>${fps}</b> fps · tick ${tick}`;
+}
+
+// ===========================================================================
+// INPUT — painting
+// ===========================================================================
+const MATS={ swirlcw:rot(0.22), swirlccw:rot(-0.22), expand:[1.05,0,0,1.05], contract:[0.95,0,0,0.95],
+             shearx:[1,0.35,0,1], sheary:[1,0,0.35,1], flattenx:[1,0,0,0.0], identity:[1,0,0,1] };
+function rot(t){ return [Math.cos(t),-Math.sin(t),Math.sin(t),Math.cos(t)]; }
+const SWATCHES=[[1,0.18,0.42],[1,0.6,0.1],[1,0.85,0.2],[0.3,0.9,0.45],[0.2,0.7,1],[0.6,0.35,1],[1,1,1],[0.02,0.02,0.05]];
+
+let tool='matrix', shape='circle', mat='swirlcw', color=SWATCHES[4],
+    sortAlgo='bubble', sortKey='bright', sortDir=1, sortSteps=12;
+let bw=34, bh=34, painting=false;
+
+function toCell(ev){
+  const r=view.getBoundingClientRect();
+  return { x:(ev.clientX-r.left)/r.width*GW, y:(ev.clientY-r.top)/r.height*GH };
+}
+function emit(c){
+  const op={ tool, shape, x:c.x, y:c.y, w:bw, h:bh };
+  if(tool==='matrix') op.mat=MATS[mat];
+  if(tool==='color') op.col=color;
+  opsQueue.push(op);
+  if(tool==='sort'){ P.sortOn=true; P.sortAlgo=sortAlgo; P.sortKey=sortKey; P.sortDir=sortDir; P.sortSteps=sortSteps; }
+}
+view.addEventListener('pointerdown', e=>{ painting=true; view.setPointerCapture(e.pointerId); emit(toCell(e)); });
+view.addEventListener('pointermove', e=>{ if(painting) emit(toCell(e)); });
+view.addEventListener('pointerup',   ()=> painting=false);
+
+// ===========================================================================
+// UI wiring
+// ===========================================================================
+function seg(id, attr, fn, init){
+  const el=document.getElementById(id);
+  el.querySelectorAll('button').forEach(b=>{
+    b.onclick=()=>{ el.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed','false'));
+      b.setAttribute('aria-pressed','true'); fn(b.dataset[attr]); };
+  });
+}
+seg('tools','tool', v=>{ tool=v;
+  document.getElementById('matGrp').classList.toggle('hide', v!=='matrix');
+  document.getElementById('colGrp').classList.toggle('hide', v!=='color');
+  document.getElementById('sortGrp').classList.toggle('hide', v!=='sort');
+});
+seg('shapes','shape', v=>shape=v);
+seg('mats','m', v=>mat=v);
+seg('sortAlgo','a', v=>{ sortAlgo=v; P.sortAlgo=v; });
+seg('sortKeys','k', v=>{ sortKey=v; P.sortKey=v; });
+seg('sortDir','d', v=>{ sortDir=+v; P.sortDir=+v; });
+seg('bounds','b', v=>P.boundary=v);
+
+const sw=document.getElementById('swatches');
+SWATCHES.forEach((c,i)=>{ const b=document.createElement('button');
+  b.style.background=`rgb(${c[0]*255|0},${c[1]*255|0},${c[2]*255|0})`;
+  b.setAttribute('aria-pressed', i===4);
+  b.onclick=()=>{ sw.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed','false')); b.setAttribute('aria-pressed','true'); color=c; };
+  sw.appendChild(b); });
+
+function slider(id, fn, fmt){ const el=document.getElementById(id), v=document.getElementById(id+'V');
+  el.oninput=()=>{ const val=fn(+el.value); v.textContent=fmt(val); }; }
+slider('bw', x=>bw=x, x=>x); slider('bh', x=>bh=x, x=>x);
+slider('vd', x=>P.vDiffuse=x/100, x=>x.toFixed(2).slice(1));
+slider('cd', x=>P.colorDiffuse=x/100, x=>x.toFixed(2).slice(1));
+slider('ad', x=>P.advect=x/100, x=>x.toFixed(2).slice(1));
+slider('st', x=>P.stir=x/100, x=>x.toFixed(2).slice(1));
+slider('dc', x=>P.gen=x/100, x=>x.toFixed(2).slice(1));
+slider('ss', x=>{ sortSteps=x; P.sortSteps=x; return x; }, x=>x);
+
+document.getElementById('seedBtn').onclick=()=>{ if(threaded) workers.forEach(w=>w.postMessage({type:'seed'})); else inlineBands.forEach(b=>b.seed()); };
+document.getElementById('clearBtn').onclick=()=>{ P.sortOn=false; if(threaded) workers.forEach(w=>w.postMessage({type:'clear'})); else inlineBands.forEach(b=>b.clear()); };
+document.getElementById('pauseBtn').onclick=(e)=>{ paused=!paused; e.target.textContent=paused?'play':'pause'; };
+
+const dock=document.getElementById('dock');
+document.getElementById('dockHd').onclick=()=>dock.classList.toggle('collapsed');
+
+updateStat();
+</script>
+</body>
+</html>

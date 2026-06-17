@@ -4,6 +4,7 @@
 // This is called after the user signs the transaction with their wallet
 // to update the kidlisp record with mint information.
 
+import crypto from "crypto";
 import { authorize } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
@@ -342,12 +343,24 @@ export async function handler(event, context) {
 
     // upsert: pieces that live only in Datomic (KIDLISP_DATOMIC=on) don't
     // yet have a Mongo row on first keep. Writing on upsert creates one so
-    // ipfsMedia / kept persist.
+    // ipfsMedia / kept persist. Seed the row's identity fields on insert from
+    // the Datomic record so it never lands as a hash-less { hash: null } doc.
+    const setOnInsert = {};
+    if (typeof record?.source === "string" && record.source.length > 0) {
+      setOnInsert.source = record.source;
+      setOnInsert.hash = crypto
+        .createHash("sha256")
+        .update(record.source.trim())
+        .digest("hex");
+      setOnInsert.when = now;
+    }
+
     const updateResult = await collection.updateOne(
       { code: cleanPiece },
       {
         $set: setOps,
         ...(Object.keys(unsetOps).length > 0 ? { $unset: unsetOps } : {}),
+        ...(Object.keys(setOnInsert).length > 0 ? { $setOnInsert: setOnInsert } : {}),
       },
       { upsert: true }
     );

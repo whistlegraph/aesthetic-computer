@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>self — the substrate sets its own rule</title>
+<style>
+  html,body{ margin:0; height:100%; overflow:hidden; background:#000; }
+  #v{ position:fixed; left:0; top:0; image-rendering:pixelated; }
+</style>
+</head>
+<body>
+<canvas id="v"></canvas>
+
+<script>
+const v=document.getElementById('v'), ctx=v.getContext('2d');
+
+// square pixels filling the viewport
+const CELL=Math.max(2, Math.round(window.innerHeight/200));
+const GW=Math.ceil(window.innerWidth/CELL), GH=Math.ceil(window.innerHeight/CELL), N=GW*GH;
+v.width=GW; v.height=GH; v.style.width=(GW*CELL)+'px'; v.style.height=(GH*CELL)+'px';
+const img=ctx.createImageData(GW,GH), px=img.data;
+
+let val=new Uint8Array(N), nval=new Uint8Array(N);
+const age=new Uint16Array(N), prev=new Uint8Array(N);   // age = ticks a cell has held its state
+
+// THE CURRENT UTC MOMENT IS THE STARTING SEED — dispersed across the whole field
+// by hashing each cell's (x,y) with the live milliseconds. Every instant boots a
+// different universe; from there the substrate evolves on its own.
+function seedFromTime(){
+  const t=Date.now(), t0=t>>>0, t1=Math.floor(t/4294967296)>>>0;
+  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){
+    let h=(Math.imul(x,0x9E3779B1)^Math.imul(y,0x85EBCA77)^Math.imul(t0,0xC2B2AE3D)^Math.imul(t1,0x27D4EB2F))>>>0;
+    h^=h>>>15; h=Math.imul(h,0x2C1B3C6D); h^=h>>>13; h=Math.imul(h,0x297A2D39); h^=h>>>16;
+    val[y*GW+x]=h&1;
+  }
+}
+seedFromTime();
+
+// The substrate SORTS ITSELF. Three coupled, low-noise processes:
+//   1. cohesion — the anneal (twisted-majority) CA pulls bits into coherent,
+//      microscopic blobs (the sticky texture, no speckle).
+//   2. lateral drift — a slow horizontal slide gives microscopic sideways motion.
+//   3. self-sorting — within small local WINDOWS, each row sorts itself by a
+//      classical algorithm; sorting reorders bits left/right, so it reads as
+//      lateral migration. The algorithm cycles with UTC; merge's doubling block
+//      sizes make the computation recursive & localized.
+let tick=0, curDir=1, W=32;
+function cs(a,b){ if((val[a]-val[b])*curDir>0){ const t=val[a]; val[a]=val[b]; val[b]=t; } }
+function bubble(base,s,e){ for(let i=s+((tick+s)&1); i+1<e; i+=2) cs(base+i,base+i+1); }       // odd-even migration
+function shell(base,s,e){ const g=1<<((tick&3)+1); for(let i=s;i+g<e;i++) cs(base+i,base+i+g); } // gapped passes
+function merge(base,s,e){ const bs=1<<((tick%5)+1);                                            // recursive doubling
+  for(let p=s;p<e;p+=bs){ const q=Math.min(e,p+bs), len=q-p; let ones=0;
+    for(let x=p;x<q;x++) ones+=val[base+x]; const zeros=len-ones;
+    for(let x=0;x<len;x++) val[base+p+x]=(curDir>0?(x<zeros?0:1):(x<ones?1:0)); } }
+function rollH(){ for(let y=0;y<GH;y++){ const base=y*GW;
+  if(curDir>0){ const z=val[base+GW-1]; for(let x=GW-1;x>0;x--) val[base+x]=val[base+x-1]; val[base]=z; }
+  else { const z=val[base]; for(let x=0;x<GW-1;x++) val[base+x]=val[base+x+1]; val[base+GW-1]=z; } } }
+function step(){
+  const now=Date.now();                                        // UTC IS THE INPUT
+  prev.set(val);
+  const algo=Math.floor(now/5000)%3;                           // cycles algorithm every 5s
+  curDir=(Math.floor(now/11000)%2)?1:-1;                       // flips sort/drift direction
+  // 1) cohesion — self-balancing majority (measures its own density so it can
+  //    never collapse to all-black/all-white), with a hysteresis keep-band.
+  let ones=0; for(let i=0;i<N;i++) ones+=val[i]; const d=ones/N;
+  let hi=6, lo=3; if(d>0.51){ hi=7; lo=4; } else if(d<0.49){ hi=5; lo=2; }
+  for(let y=0;y<GH;y++){ const yu=(y+GH-1)%GH, yd=(y+1)%GH;
+    for(let x=0;x<GW;x++){ const i=y*GW+x, xl=(x+GW-1)%GW, xr=(x+1)%GW;
+      const s=val[i]+val[yu*GW+xl]+val[yu*GW+x]+val[yu*GW+xr]+val[y*GW+xl]+val[y*GW+xr]+val[yd*GW+xl]+val[yd*GW+x]+val[yd*GW+xr];
+      nval[i]= s>=hi ? 1 : s<=lo ? 0 : val[i]; } }
+  const t=val; val=nval; nval=t;
+  // 2) lateral drift (slow)
+  if(tick%4===0) rollH();
+  // 3) localized self-sort
+  for(let y=0;y<GH;y++){ const base=y*GW;
+    for(let s=0;s<GW;s+=W){ const e=Math.min(GW,s+W);
+      if(algo===0) bubble(base,s,e); else if(algo===1) shell(base,s,e); else merge(base,s,e); } }
+  for(let i=0;i<N;i++){ if(val[i]===prev[i]){ if(age[i]<255) age[i]++; } else age[i]=0; }  // track stability
+  tick++;
+}
+function hsv(h,s,v){ const i=Math.floor(h*6),f=h*6-i,p=v*(1-s),q=v*(1-f*s),t=v*(1-(1-f)*s);
+  switch(((i%6)+6)%6){case 0:return[v,t,p];case 1:return[q,v,p];case 2:return[p,v,t];case 3:return[p,q,v];case 4:return[t,p,v];default:return[v,p,q];} }
+
+function render(){
+  const off=(Date.now()/60000)%1;                              // palette slowly rotates with UTC
+  for(let i=0;i<N;i++){ const o=i*4;
+    if(!val[i]){ px[o]=px[o+1]=px[o+2]=0; px[o+3]=255; continue; }
+    const a=Math.min(1, age[i]/30);                            // young edges → warm, old cores → cool
+    const c=hsv((0.04+0.58*a+off)%1, 0.8, 1);
+    px[o]=c[0]*255; px[o+1]=c[1]*255; px[o+2]=c[2]*255; px[o+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+}
+
+let ff=0;
+function loop(){ if((ff++ & 1)===0) step(); render(); requestAnimationFrame(loop); }
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

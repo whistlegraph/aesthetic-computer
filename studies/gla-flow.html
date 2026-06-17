@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GLA · signal flow</title>
+<style>
+  html, body { margin:0; height:100%; background:#07060f; overflow:hidden;
+               font:13px/1.4 "Latin Modern Mono", ui-monospace, monospace; color:#9aa6c0; }
+  #c { display:block; width:100vw; height:100vh; }
+  #hud { position:fixed; left:18px; top:14px; pointer-events:none; }
+  #hud b { color:#ff5b8a; font-weight:normal; letter-spacing:2px; }
+  #hud span { color:#5a6480; }
+  #legend { position:fixed; left:18px; bottom:16px; line-height:1.9; pointer-events:none; }
+  .sw { display:inline-block; width:12px; height:12px; border-radius:50%; vertical-align:-1px; margin-right:7px; }
+  #tip { position:fixed; right:18px; bottom:16px; color:#4a5474; pointer-events:none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud"><b>GRAPHICAL LINEAR ALGEBRA</b><br><span>signal flow · a feedback circuit, computing by drawing</span></div>
+<div id="legend">
+  <div><span class="sw" style="background:#000;box-shadow:0 0 8px #38e0ff,inset 0 0 0 1px #38e0ff;"></span>copy &nbsp;(black ● — fan out)</div>
+  <div><span class="sw" style="background:#fff;box-shadow:0 0 10px #ff5b8a;"></span>add &nbsp;&nbsp;(white ○ — merge)</div>
+  <div><span class="sw" style="background:#ffd23c;box-shadow:0 0 9px #ffd23c;"></span>scalar (△ — multiply &amp; delay)</div>
+</div>
+<div id="tip">drag a node · scroll to change feedback gain</div>
+
+<script>
+const cv = document.getElementById("c");
+const ctx = cv.getContext("2d");
+let W, H, DPR;
+function resize() {
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = W * DPR; cv.height = H * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  layout();
+}
+window.addEventListener("resize", resize);
+
+// --- the circuit: a first-order signal-flow graph with feedback ------------
+//   in → ○add → ●copy → out
+//              ●copy → △scalar → (back into ○add)   ← the loop
+const N = {
+  in:  { x:0, y:0, kind:"in" },
+  add: { x:0, y:0, kind:"add" },
+  cpy: { x:0, y:0, kind:"copy" },
+  scl: { x:0, y:0, kind:"scalar" },
+  out: { x:0, y:0, kind:"out" },
+};
+function layout() {
+  N.in.x  = W*0.10; N.in.y  = H*0.46;
+  N.add.x = W*0.32; N.add.y = H*0.46;
+  N.cpy.x = W*0.58; N.cpy.y = H*0.46;
+  N.out.x = W*0.90; N.out.y = H*0.30;
+  N.scl.x = W*0.45; N.scl.y = H*0.74;
+}
+
+// edges as parametric paths p(u)->{x,y}; straight or quadratic-bezier (loop arms)
+function lin(a, b) { return (u) => ({ x: a.x+(b.x-a.x)*u, y: a.y+(b.y-a.y)*u }); }
+function qbez(a, c, b) { return (u) => { const k=1-u; return {
+  x: k*k*a.x + 2*k*u*c.x + u*u*b.x, y: k*k*a.y + 2*k*u*c.y + u*u*b.y }; }; }
+
+let EDGES;
+function buildEdges() {
+  EDGES = [
+    { from:"in",  to:"add", path: lin(N.in, N.add),  hot:[16,18] },
+    { from:"add", to:"cpy", path: lin(N.add, N.cpy), hot:[] },
+    { from:"cpy", to:"out", path: lin(N.cpy, N.out), hot:[] },
+    // feedback arm down to scalar, then a sweeping curve back up into add
+    { from:"cpy", to:"scl", path: qbez(N.cpy, {x:N.cpy.x, y:N.scl.y}, N.scl), hot:[] },
+    { from:"scl", to:"add", path: qbez(N.scl, {x:N.add.x, y:N.scl.y}, N.add), hot:[], loop:true },
+  ];
+}
+
+// --- particles: evenly-spaced streams that glow ----------------------------
+const SPEED = 0.12;          // u per second baseline (scaled by inverse length)
+function edgeLen(path) { let L=0, p=path(0); for (let i=1;i<=24;i++){ const q=path(i/24); L+=Math.hypot(q.x-p.x,q.y-p.y); p=q; } return L; }
+
+let gain = 0.7;              // feedback scalar value (scroll to change)
+let pulse = {};             // node -> brightness 0..1
+
+function draw(tSec) {
+  // fade trails instead of hard clear → motion smear
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = "rgba(7,6,15,0.30)";
+  ctx.fillRect(0, 0, W, H);
+
+  // wires (soft underglow + bright core)
+  for (const e of EDGES) drawWire(e);
+
+  // particles (additive)
+  ctx.globalCompositeOperation = "lighter";
+  for (const e of EDGES) {
+    const L = e._len || (e._len = edgeLen(e.path));
+    const count = Math.max(2, Math.round(L / 46));
+    const speed = SPEED * (260 / L) * (e.loop ? gain*1.4+0.3 : 1);
+    const col = e.loop ? [255,210,60] : [120,225,255];
+    for (let i = 0; i < count; i++) {
+      const u = ((tSec * speed) + i / count) % 1;
+      const p = e.path(u);
+      // trigger node pulse as particle arrives
+      if (u > 0.93) pulse[e.to] = 1;
+      sprite(p.x, p.y, 3.2, col, e.loop ? 0.9 : 1);
+    }
+  }
+  ctx.globalCompositeOperation = "source-over";
+
+  // nodes
+  for (const k in N) drawNode(N[k], pulse[k] || 0);
+  for (const k in pulse) pulse[k] *= 0.90;
+}
+
+function drawWire(e) {
+  const path = e.path;
+  ctx.lineCap = "round";
+  // underglow
+  ctx.strokeStyle = e.loop ? "rgba(255,200,60,0.10)" : "rgba(90,180,230,0.10)";
+  ctx.lineWidth = 9; stroke(path);
+  // core
+  ctx.strokeStyle = e.loop ? "rgba(255,210,80,0.35)" : "rgba(150,200,235,0.30)";
+  ctx.lineWidth = 1.6; stroke(path);
+}
+function stroke(path) {
+  ctx.beginPath();
+  const s = path(0); ctx.moveTo(s.x, s.y);
+  for (let i = 1; i <= 40; i++) { const p = path(i/40); ctx.lineTo(p.x, p.y); }
+  ctx.stroke();
+}
+
+function sprite(x, y, r, [cr,cg,cb], a) {
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r*4);
+  g.addColorStop(0, `rgba(${cr},${cg},${cb},${a})`);
+  g.addColorStop(0.4, `rgba(${cr},${cg},${cb},${a*0.4})`);
+  g.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(x, y, r*4, 0, 7); ctx.fill();
+}
+
+function drawNode(n, pl) {
+  const x = n.x, y = n.y;
+  const baseR = 16, glow = 1 + pl * 0.6;
+  if (n.kind === "in" || n.kind === "out") {
+    ctx.fillStyle = "#3a4straints"; // (unused) ports drawn as small rings
+    ring(x, y, 6, "rgba(150,160,190,0.6)", 1.5);
+    label(n.kind === "in" ? "in" : "out", x, y - 18, "#6a7488");
+    return;
+  }
+  if (n.kind === "add") {                 // white ○ with pink halo
+    halo(x, y, baseR*1.7*glow, "rgba(255,91,138,", pl*0.5+0.25);
+    disc(x, y, baseR, "#ffffff"); ring(x, y, baseR, "rgba(0,0,0,0.5)", 2);
+    glyph("+", x, y, "#1a0510");
+    label("add", x, y + baseR + 14, "#cfa");
+  } else if (n.kind === "copy") {          // black ● with cyan halo
+    halo(x, y, baseR*1.7*glow, "rgba(56,224,255,", pl*0.6+0.3);
+    disc(x, y, baseR, "#000000"); ring(x, y, baseR, "rgba(56,224,255,0.9)", 2);
+    label("copy", x, y + baseR + 14, "#9fe");
+  } else if (n.kind === "scalar") {        // △ amber
+    halo(x, y, baseR*1.6*glow, "rgba(255,210,60,", pl*0.5+0.3);
+    ctx.fillStyle = "#ffd23c";
+    ctx.beginPath();
+    ctx.moveTo(x - baseR*0.9, y - baseR*0.95);
+    ctx.lineTo(x + baseR*1.15, y);
+    ctx.lineTo(x - baseR*0.9, y + baseR*0.95);
+    ctx.closePath(); ctx.fill();
+    glyph(gain.toFixed(1), x - 3, y, "#3a2600", 11);
+    label("scalar", x, y + baseR + 14, "#fe9");
+  }
+}
+function halo(x, y, r, rgbaPrefix, a) {
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, rgbaPrefix + a + ")");
+  g.addColorStop(1, rgbaPrefix + "0)");
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+}
+function disc(x, y, r, fill) { ctx.fillStyle = fill; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); }
+function ring(x, y, r, col, w) { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke(); }
+function glyph(t, x, y, col, size=20) { ctx.fillStyle = col; ctx.font = `${size}px "Latin Modern Mono",monospace`; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(t, x, y); }
+function label(t, x, y, col) { ctx.fillStyle = col; ctx.font = '12px "Latin Modern Mono",monospace'; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(t, x, y); }
+
+// --- interaction: drag nodes, scroll changes gain --------------------------
+let dragging = null;
+cv.addEventListener("pointerdown", (e) => {
+  for (const k in N) { if (Math.hypot(e.clientX-N[k].x, e.clientY-N[k].y) < 26) { dragging = N[k]; break; } }
+});
+window.addEventListener("pointermove", (e) => {
+  if (dragging) { dragging.x = e.clientX; dragging.y = e.clientY; buildEdges(); for (const ed of EDGES) ed._len = 0; }
+});
+window.addEventListener("pointerup", () => dragging = null);
+window.addEventListener("wheel", (e) => { gain = Math.max(0, Math.min(1.4, gain + (e.deltaY > 0 ? -0.05 : 0.05))); }, { passive: true });
+
+// --- run --------------------------------------------------------------------
+resize(); buildEdges();
+let t0 = null;
+function frame(ts) { if (t0 === null) t0 = ts; draw((ts - t0) / 1000); requestAnimationFrame(frame); }
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
