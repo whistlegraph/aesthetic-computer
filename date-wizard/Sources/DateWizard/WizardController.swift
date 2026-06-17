@@ -35,13 +35,25 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
     private var weekView: WeekView!
     private var titleLabel: NSTextField!
     private var statusLabel: NSTextField!
-    private var prevButton: NSButton!
-    private var nextButton: NSButton!
-    private var todayButton: NSButton!
-    private var refreshButton: NSButton!
-    private var addButton: NSButton!
-    private var connectButton: NSButton!
+    private var addButton: NSButton!          // "+ Event" — the only toolbar button.
+    // Vestigial: there's no mode-toggle button in the window anymore (mode is
+    // driven by launch flags / CLI). Live code still harmlessly sets its title.
     private var modeButton: NSButton!
+
+    // MARK: - Deprecated toolbar buttons
+    // Paging, "today", refresh, and calendars were removed from the window;
+    // their equivalents live in the wizard / ac-login CLI. Kept for reference
+    // alongside the matching deprecated actions further down.
+    @available(*, deprecated, message: "Removed from window UI — paging lives in the CLI.")
+    private var prevButton: NSButton!
+    @available(*, deprecated, message: "Removed from window UI — paging lives in the CLI.")
+    private var nextButton: NSButton!
+    @available(*, deprecated, message: "Removed from window UI — use the menu bar 'Go to Today'.")
+    private var todayButton: NSButton!
+    @available(*, deprecated, message: "Removed from window UI — refresh is automatic / CLI.")
+    private var refreshButton: NSButton!
+    @available(*, deprecated, message: "Removed from window UI — calendar setup lives in the CLI.")
+    private var connectButton: NSButton!
 
     // Display span: 7 = week (Sun→Sat), 1 = a single day.
     private var dayCount: Int = 7
@@ -250,7 +262,11 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
     }
 
     // ── paging ─────────────────────────────────────────────────────────
+    // DEPRECATED: week paging was removed from the window UI (CLI / launch
+    // flags handle it). Kept for reference; shiftWeek below backs these.
+    @available(*, deprecated, message: "Removed from window UI — paging lives in the CLI.")
     @objc private func prevWeek() { shiftWeek(by: -dayCount) }
+    @available(*, deprecated, message: "Removed from window UI — paging lives in the CLI.")
     @objc private func nextWeek() { shiftWeek(by: dayCount) }
     @objc private func goToday() {
         weekStart = (dayCount == 1)
@@ -262,7 +278,10 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         refresh()
     }
 
-    // Day ⇄ Week. Keeps the currently-focused day in view across the switch.
+    // DEPRECATED: the Day⇄Week toggle button was removed from the window;
+    // mode is set via launch flags / CLI. Keeps the currently-focused day in
+    // view across the switch. Kept for reference.
+    @available(*, deprecated, message: "Removed from window UI — mode is set via CLI / launch flags.")
     @objc private func toggleModeAction() {
         let cal = Calendar.current
         // The day to keep focused: today if it's in the current span, else the
@@ -298,6 +317,7 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         updateDayTheme()
     }
 
+    // DEPRECATED backing helper for prevWeek/nextWeek (both removed from UI).
     private func shiftWeek(by days: Int) {
         weekStart = Calendar.current.date(byAdding: .day, value: days, to: weekStart) ?? weekStart
         weekView.weekStart = weekStart
@@ -306,6 +326,8 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         refresh()
     }
 
+    // DEPRECATED: the Refresh button was removed; refresh is automatic / CLI.
+    @available(*, deprecated, message: "Removed from window UI — refresh is automatic / CLI.")
     @objc private func refreshAction() { refresh() }
 
     // The visible window's UTC bounds [weekStart, weekStart+7d).
@@ -449,7 +471,14 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         }
     }
 
+    // MARK: - Deprecated calendars UI
     // ── calendars panel: subscription link + connectors ──────────────
+    // DEPRECATED: the "Calendars…" button was removed from the window;
+    // subscription links and Google-calendar connectors are managed via the
+    // CLI now. This panel and its helpers (loadSubLink/copySubLink/
+    // rotateSubLink/reloadConnectors/removeConnector/connectFeedAction below)
+    // are kept for reference and reachable only from here.
+    @available(*, deprecated, message: "Removed from window UI — manage calendars via the CLI.")
     @objc private func calendarsPanelAction() {
         guard let window else { return }
         let W: CGFloat = 470
