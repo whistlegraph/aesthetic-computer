@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- neo SING — mouth open in an O while the menu band plays. Static render. -->
+  <g>
+    <path d="M50 22 C71 22 82 41 82 59 C82 79 67 88 50 88 C33 88 18 79 18 59 C18 41 29 22 50 22 Z" fill="#a6e22e"/>
+    <ellipse cx="40" cy="44" rx="15" ry="10" fill="#d7f78a" opacity="0.7"/>
+    <circle cx="33" cy="64" r="6" fill="#ff8aa0" opacity="0.6"/>
+    <circle cx="67" cy="64" r="6" fill="#ff8aa0" opacity="0.6"/>
+    <g fill="#1c3a08">
+      <circle cx="40" cy="55.5" r="5"/>
+      <circle cx="60" cy="55.5" r="5"/>
+    </g>
+    <circle cx="41.8" cy="53.8" r="1.6" fill="#eaffc0"/>
+    <circle cx="61.8" cy="53.8" r="1.6" fill="#eaffc0"/>
+    <ellipse cx="50" cy="70" rx="5" ry="6.6" fill="#1c3a08"/>
+    <ellipse cx="50" cy="72.5" rx="3" ry="3.2" fill="#ff8aa0"/>
+    <path d="M50 22 C50 14 56 9 62 9 C61 17 56 22 50 22 Z" fill="#7fc41e"/>
+  </g>
+</svg>

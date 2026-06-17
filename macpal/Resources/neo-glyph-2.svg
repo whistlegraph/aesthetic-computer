@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- neo state 2 — happy blink: squashed body, closed eyes, open grin, leaf perks -->
+  <g transform="translate(50 88) scale(1.06 .94) translate(-50 -88)">
+    <path d="M50 22 C71 22 82 41 82 59 C82 79 67 88 50 88 C33 88 18 79 18 59 C18 41 29 22 50 22 Z" fill="#a6e22e"/>
+    <ellipse cx="40" cy="44" rx="15" ry="10" fill="#d7f78a" opacity="0.8"/>
+    <circle cx="33" cy="64" r="6.5" fill="#ff8aa0" opacity="0.5"/>
+    <circle cx="67" cy="64" r="6.5" fill="#ff8aa0" opacity="0.5"/>
+    <g stroke="#1c3a08" stroke-width="2.6" fill="none" stroke-linecap="round">
+      <path d="M35 57 Q40 52.5 45 57"/>
+      <path d="M55 57 Q60 52.5 65 57"/>
+    </g>
+    <path d="M42 66 Q50 77 58 66 Z" fill="#1c3a08"/>
+    <ellipse cx="50" cy="71.5" rx="3.4" ry="2" fill="#ff8aa0"/>
+    <path d="M50 22 C50 14 56 9 62 9 C61 17 56 22 50 22 Z" fill="#7fc41e" transform="rotate(9 50 22)"/>
+  </g>
+</svg>

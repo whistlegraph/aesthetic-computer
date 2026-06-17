@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <style>
+    .float{ animation:float 6.5s ease-in-out infinite; transform-origin:50px 50px }
+    .bob  { animation:bob 4.6s ease-in-out infinite; transform-origin:50px 58px }
+    .body { animation:breathe 4.6s ease-in-out infinite; transform-origin:50px 74px }
+    .wing { animation:flap 2.8s ease-in-out infinite; transform-origin:30px 60px }
+    .eyes { animation:blink 5.5s ease-in-out infinite; transform-origin:50px 50px }
+    @keyframes float  { 0%,100%{transform:translate(0,0)} 33%{transform:translate(-2px,-2px)} 66%{transform:translate(2px,-1px)} }
+    @keyframes bob    { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-2.5px)} }
+    @keyframes breathe{ 0%,100%{transform:scale(1,1)} 50%{transform:scale(1.05,0.95)} }
+    @keyframes flap   { 0%,100%{transform:rotate(-4deg)} 50%{transform:rotate(8deg)} }
+    @keyframes blink  { 0%,90%,100%{transform:scaleY(1)} 95%{transform:scaleY(0.1)} }
+  </style>
+  <g class="float"><g class="bob">
+    <g fill="#ff5a52"><circle cx="43" cy="26" r="5"/><circle cx="51" cy="21" r="6"/><circle cx="59" cy="26" r="5"/></g>
+    <g class="body">
+      <ellipse cx="50" cy="58" rx="30" ry="29" fill="#ffe14d"/>
+      <ellipse cx="40" cy="50" rx="14" ry="10" fill="#fff3a8" opacity="0.7"/>
+      <path class="wing" d="M27 54 q-9 7 -1 17 q9 2 13 -5 z" fill="#ffd11a"/>
+      <path d="M50 60 l-6 4 l6 4 z" fill="#ff9f1c"/>
+      <g class="eyes" fill="#2b2b2b">
+        <circle cx="42" cy="51" r="3.4"/>
+        <circle cx="58" cy="51" r="3.4"/>
+      </g>
+      <circle cx="43.1" cy="49.8" r="1.1" fill="#fff"/>
+      <circle cx="59.1" cy="49.8" r="1.1" fill="#fff"/>
+      <circle cx="35" cy="62" r="4" fill="#ff8aa0" opacity="0.5"/>
+      <circle cx="65" cy="62" r="4" fill="#ff8aa0" opacity="0.5"/>
+      <g stroke="#ff9f1c" stroke-width="2.2" stroke-linecap="round" fill="none">
+        <path d="M44 86 v5 M44 91 l-3 3 M44 91 l3 3"/>
+        <path d="M56 86 v5 M56 91 l-3 3 M56 91 l3 3"/>
+      </g>
+    </g>
+  </g></g>
+</svg>

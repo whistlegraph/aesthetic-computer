@@ -1,140 +1,23 @@
-// MacPal — a friendly little character who lives in the corner of your screen.
+// PalCore — the shared heart of MacPal: a friendly little character who lives
+// in the corner of your screen.
 //
-// This is the FIRST, deliberately-tiny MacPal: just the pal. No work
-// features, no git, no menus — a star named "star" who floats in a corner,
-// blinks and leans on his own, springs when you hover, squashes when you
-// press, and rides along when you drag him (snapping to the nearest corner
-// with a little clink on release). Click him and he ESCAPES — collapses into
-// a micro chip tucked into his corner, name beside him; click again and he
-// tinks back to full size. Corner + collapsed state persist across launches.
+// This is the avatar and nothing domain-specific: a glyph that floats, blinks
+// and leans on its own, springs when you hover, squashes when you press, and
+// rides along when you drag (snapping to the nearest corner with a clink).
+// Click it and it ESCAPES — collapses into a micro chip tucked into its corner,
+// name beside it; click again and it tinks back. Corner, color, and collapsed
+// state persist across launches. It also speaks the Menu Band "sing" protocol
+// (see noteSignalDir below).
 //
-// It is the seed of a distributable MacPal (eventual Mac App Store build):
-// a single .app bundle, signed, that registers itself as a login item on
-// first run so it's always there to say hi.
+// Everything that differs between the distributable star (Fía) and the fuser
+// machines' badge (neo/panda/chicken/blueberry) is a PalPlugin stacked beneath
+// the name. The profile chosen in MacPal.swift decides the PalConfig + plugins.
 //
-// Built from one Swift file with swiftc (see build.sh). The badge it grew
-// out of lives in the aesthetic-computer slab/fuser tooling; this one is
-// stripped down to the charm and nothing else.
+// Built from one swiftc invocation over Sources/*.swift (see build.sh).
 
 import AppKit
-import ServiceManagement
 
-setbuf(stdout, nil)
-
-// ── identity ────────────────────────────────────────────────────────────
-let palName = "star"
-let palEmoji = "⭐"   // fallback if the glyph art can't load
-
-// Per-user state lives in Application Support (an App-Store-friendly home,
-// unlike the badge's ~/.local/share). Just two tiny marker files.
-let support = NSString(string: "~/Library/Application Support/MacPal").expandingTildeInPath
-try? FileManager.default.createDirectory(atPath: support, withIntermediateDirectories: true)
-let cornerFile = support + "/corner"
-let collapsedFlag = support + "/collapsed"
-let colorFile = support + "/color"
-
-// ── Menu Band compatibility ───────────────────────────────────────────────
-// Menu Band (the AC menu-bar piano) pings a "now playing" note by writing
-// "<seq> <noteName>" to ~/.local/share/desktop-badge/note — but ONLY if that
-// directory exists. We create it and poll the file, so when Menu Band plays,
-// the star opens his mouth and floats the note out. This is the existing,
-// unchanged Menu Band protocol (shared with the slab desktop-badge), so the
-// two ship independently and just work together. Future signal kinds can land
-// in the same dir without touching Menu Band.
-let badgeDir = NSString(string: "~/.local/share/desktop-badge").expandingTildeInPath
-let noteSignalFile = badgeDir + "/note"
-try? FileManager.default.createDirectory(atPath: badgeDir, withIntermediateDirectories: true)
-
-// gold (factory) or silver — toggled from the right-click menu, persisted.
-var starColor: String = {
-    let s = ((try? String(contentsOfFile: colorFile, encoding: .utf8)) ?? "")
-        .trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-    return s == "silver" ? "silver" : "gold"
-}()
-func glyphBase() -> String { starColor == "silver" ? "star-silver" : "star-glyph" }
-func glyphPoseNames() -> [String] { [glyphBase(), glyphBase() + "-2", glyphBase() + "-3"] }
-func glyphSingName() -> String { glyphBase() + "-sing" }
-
-// Where he sits on a fresh install, before any drag. A dragged-to corner
-// outlives this: the file wins once it holds a valid value.
-let factoryCorner = "BR"
-var corner: String = {
-    let saved = ((try? String(contentsOfFile: cornerFile, encoding: .utf8)) ?? "")
-        .trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-    return ["TL", "TR", "BL", "BR"].contains(saved) ? saved : factoryCorner
-}()
-
-// ── app bootstrap ───────────────────────────────────────────────────────
-let app = NSApplication.shared
-app.setActivationPolicy(.accessory)   // no Dock icon, no menu bar item
-
-// First-run: add MacPal to the user's Login Items so the pal is always there.
-// SMAppService reflects real system state, so we only ask once — if she later
-// removes it from System Settings, we don't fight her.
-func registerLoginItemOnce() {
-    let key = "MacPal.didRegisterLoginItem"
-    guard !UserDefaults.standard.bool(forKey: key) else { return }
-    if #available(macOS 13.0, *) {
-        do { try SMAppService.mainApp.register() } catch {
-            print("MacPal: login-item register skipped — \(error)")
-        }
-    }
-    UserDefaults.standard.set(true, forKey: key)
-}
-
-// ── windows & views ───────────────────────────────────────────────────────
-
-// A Spotlight-style non-activating panel: clicking the pal never steals focus
-// from whatever you were working in.
-final class KeyWindow: NSPanel {
-    override var canBecomeKey: Bool { true }
-    override var canBecomeMain: Bool { false }
-}
-
-// Click-through everywhere except the registered live rect (the pal himself).
-final class PassThroughView: NSView {
-    var liveRects: [NSRect] = []
-    override func hitTest(_ p: NSPoint) -> NSView? {
-        for r in liveRects where r.contains(p) { return super.hitTest(p) }
-        return nil
-    }
-}
-
-// The pal is also his own handle: press-and-move drags the whole window, a
-// still press stays a click. The 4px slop keeps shaky clicks from registering
-// as micro-drags. Past the slop the drag is handed to the window server via
-// performDrag — app-side per-event moves stutter on a layered transparent
-// window; the native drag is the smooth move a titlebar gets. The server
-// swallows the mouseUp, so the drop is detected by polling pressedMouseButtons.
-final class ClickView: NSView {
-    var onClick: () -> Void = {}
-    var onPress: () -> Void = {}
-    var onDragStart: () -> Void = {}
-    var onRightClick: (NSEvent) -> Void = { _ in }
-    override func rightMouseDown(with e: NSEvent) { onRightClick(e) }
-    private var dragging = false
-    private var downAt = NSPoint.zero
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-    override func mouseDown(with e: NSEvent) {
-        dragging = false
-        downAt = NSEvent.mouseLocation
-        onPress()
-    }
-    override func mouseDragged(with e: NSEvent) {
-        guard !dragging else { return }
-        let p = NSEvent.mouseLocation
-        guard abs(p.x - downAt.x) > 4 || abs(p.y - downAt.y) > 4 else { return }
-        dragging = true
-        onDragStart()
-        window?.performDrag(with: e)
-    }
-    override func mouseUp(with e: NSEvent) {
-        if !dragging { onClick() }
-        dragging = false
-    }
-}
-
-// ── helpers ────────────────────────────────────────────────────────────────
+// ── shared helpers (visible to every Sources/*.swift file) ────────────────────
 let accent = NSColor.controlAccentColor
 
 func hexColor(_ v: UInt32) -> NSColor {
@@ -156,11 +39,122 @@ func resource(_ name: String, _ ext: String) -> String? {
     Bundle.main.path(forResource: name, ofType: ext)
 }
 
+// ── profile configuration ─────────────────────────────────────────────────
+// Seeded once in MacPal.swift from the launch profile. Replaces what used to be
+// file-scope globals so the same controller drives the star and the badge.
+struct PalConfig {
+    var profile: String                  // "star" | "fuser"
+    var palName: String                  // "star", or a machine name like "panda"
+    var palEmoji: String                 // fallback if the glyph art can't load
+    var supportDir: String               // per-profile state home
+    var noteSignalDir: String            // Menu Band "now playing" dir (shared protocol)
+    var factoryCorner: String            // where it sits before any drag
+    var fixedCorner: String?             // fuser pins a corner; star is draggable (nil)
+    var marginX: CGFloat                 // resting gap from the screen's side
+    var marginY: CGFloat                 // resting gap from the screen's top/bottom
+    var draggable: Bool                   // star drags to corners; badge stays put
+    var colorTogglable: Bool             // star: gold/silver right-click toggle
+    var registersLoginItem: Bool         // star adds itself to Login Items once
+    var showsAbout: Bool                  // star shows the About panel
+    var aboutDedication: String?         // the dedication line in About
+    // 3D avatar (e.g. the blueberry). When set, the pal renders a SceneKit
+    // model instead of the flat SVG/emoji glyph. `model3DPath` nil (or missing)
+    // → a procedural placeholder berry, so the 3D path is always live.
+    var model3D: Bool = false
+    var model3DPath: String? = nil
+    // When true, the right-click menu offers a 3D ⇄ 2D avatar toggle (the
+    // blueberry can show its SceneKit self or a flat thumbnail). Persisted in
+    // avatar2DFlag.
+    var avatarTogglable: Bool = false
+    // Glyph resolution. Given the active color ("gold"/"silver"/""), return the
+    // absolute pose paths (home · blink · lean) and the open-mouth "sing" pose.
+    // Star reads bundle Resources; the badge reads files staged in its home dir.
+    var posePaths: (_ color: String) -> [String]
+    var singPath: (_ color: String) -> String?
+
+    var cornerFile: String { supportDir + "/corner" }
+    var collapsedFlag: String { supportDir + "/collapsed" }
+    var colorFile: String { supportDir + "/color" }
+    var avatar2DFlag: String { supportDir + "/avatar2d" }   // present ⇒ 2D mode
+    var noteSignalFile: String { noteSignalDir + "/note" }
+}
+
+// ── plugin protocol ─────────────────────────────────────────────────────────
+// A plugin owns whatever stacks BENEATH the name. The controller owns the glyph,
+// the name, collapse, drag, and the sing easter egg; it asks each plugin for its
+// reserved height, lets it place its rows, and ticks it on the shared timer.
+protocol PalPlugin: AnyObject {
+    func attach(to c: PalController)                       // build subviews once
+    func stackHeight(in c: PalController) -> CGFloat       // height to reserve under the name (full mode)
+    func layoutRows(in c: PalController, originY: CGFloat) // place rows upward from originY; may append liveRects
+    func setCollapsed(_ collapsed: Bool)                   // hide/show rows
+    func tick()                                            // periodic refresh (polling)
+    func menuItems(for c: PalController) -> [NSMenuItem]   // contributed right-click items
+}
+extension PalPlugin {
+    func stackHeight(in c: PalController) -> CGFloat { 0 }
+    func layoutRows(in c: PalController, originY: CGFloat) {}
+    func setCollapsed(_ collapsed: Bool) {}
+    func tick() {}
+    func menuItems(for c: PalController) -> [NSMenuItem] { [] }
+}
+
+// ── windows & views ───────────────────────────────────────────────────────
+// A Spotlight-style non-activating panel: clicking the pal never steals focus.
+final class KeyWindow: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
+}
+
+// Click-through everywhere except the registered live rects (the pal + any
+// plugin rows that need the mouse, like the fuser pane).
+final class PassThroughView: NSView {
+    var liveRects: [NSRect] = []
+    override func hitTest(_ p: NSPoint) -> NSView? {
+        for r in liveRects where r.contains(p) { return super.hitTest(p) }
+        return nil
+    }
+}
+
+// The pal is also his own handle: press-and-move drags the whole window, a still
+// press stays a click. Past a 4px slop the drag is handed to the window server
+// via performDrag (app-side per-event moves stutter on a transparent window).
+// The server swallows the mouseUp, so the drop is detected by polling
+// pressedMouseButtons.
+final class ClickView: NSView {
+    var onClick: () -> Void = {}
+    var onPress: () -> Void = {}
+    var onDragStart: () -> Void = {}
+    var onRightClick: (NSEvent) -> Void = { _ in }
+    var draggable = true
+    override func rightMouseDown(with e: NSEvent) { onRightClick(e) }
+    private var dragging = false
+    private var downAt = NSPoint.zero
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override func mouseDown(with e: NSEvent) {
+        dragging = false
+        downAt = NSEvent.mouseLocation
+        onPress()
+    }
+    override func mouseDragged(with e: NSEvent) {
+        guard draggable, !dragging else { return }
+        let p = NSEvent.mouseLocation
+        guard abs(p.x - downAt.x) > 4 || abs(p.y - downAt.y) > 4 else { return }
+        dragging = true
+        onDragStart()
+        window?.performDrag(with: e)
+    }
+    override func mouseUp(with e: NSEvent) {
+        if !dragging { onClick() }
+        dragging = false
+    }
+}
+
 // ── per-character name label ──────────────────────────────────────────────
 // Each character is its own CALayer, hand-placed with a deterministic static
 // jitter (baseline nudge + tilt). At idle they drift on a slow, subtle wave;
-// bounce() fires a full-energy hop (used on expand). Kept whole from the badge
-// because it's self-contained and is most of the pal's personality.
+// bounce() fires a full-energy hop (used on expand / new affirmation / new
+// fuser output).
 final class CharLayer: CALayer {
     var attr: NSAttributedString?
     var inset: CGFloat = 0
@@ -295,6 +289,9 @@ final class WiggleLabel: NSView {
 
 // ── the pal ────────────────────────────────────────────────────────────────
 final class PalController: NSObject {
+    let config: PalConfig
+    var plugins: [PalPlugin] = []
+
     var window: NSWindow!
     var content: PassThroughView!
     var glyphView: NSView!
@@ -314,11 +311,39 @@ final class PalController: NSObject {
     var singUntil: CFTimeInterval = 0  // hold the open mouth until this time
     var showingSing = false
 
-    var collapsed = FileManager.default.fileExists(atPath: collapsedFlag)
-    let W: CGFloat = 160        // full-size window width
+    var starColor: String
+    var collapsed: Bool
+    var corner: String
+    var use3D: Bool            // render the SceneKit avatar vs the flat glyph
+    let W: CGFloat = 160        // full-size window width (the star); plugins may widen via plugin metrics
     let micro: CGFloat = 34     // collapsed glyph size
-    let marginX: CGFloat = 4
-    let marginY: CGFloat = 14
+    var marginX: CGFloat { config.marginX }
+    var marginY: CGFloat { config.marginY }
+
+    init(config: PalConfig) {
+        self.config = config
+        try? FileManager.default.createDirectory(atPath: config.supportDir, withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(atPath: config.noteSignalDir, withIntermediateDirectories: true)
+        if config.colorTogglable {
+            let s = ((try? String(contentsOfFile: config.colorFile, encoding: .utf8)) ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            starColor = s == "silver" ? "silver" : "gold"
+        } else {
+            starColor = ""
+        }
+        collapsed = FileManager.default.fileExists(atPath: config.collapsedFlag)
+        // 3D by default when a model is configured; the menu can flip to 2D.
+        use3D = config.model3D && !FileManager.default.fileExists(atPath: config.avatar2DFlag)
+        if let fixed = config.fixedCorner,
+           ["TL", "TR", "BL", "BR"].contains(fixed.uppercased()) {
+            corner = fixed.uppercased()
+        } else {
+            let saved = ((try? String(contentsOfFile: config.cornerFile, encoding: .utf8)) ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            corner = ["TL", "TR", "BL", "BR"].contains(saved) ? saved : config.factoryCorner
+        }
+        super.init()
+    }
 
     func styleField(_ f: NSTextField) {
         f.isBordered = false; f.drawsBackground = false; f.alignment = .center
@@ -326,6 +351,50 @@ final class PalController: NSObject {
         sh.shadowColor = accent; sh.shadowBlurRadius = 0
         sh.shadowOffset = NSSize(width: 2, height: 2)
         f.shadow = sh
+    }
+
+    // Build the glyph view for the current avatar mode — reusable so the 3D⇄2D
+    // menu toggle can swap it live. The 3D pal gets a bigger frame so it reads.
+    func makeGlyphView() -> NSView {
+        if use3D, let path = config.model3DPath {
+            glyphW = 188; glyphH = 188
+            let v = Pal3DView(frame: NSRect(x: (fullWidth - glyphW) / 2, y: 0, width: glyphW, height: glyphH),
+                              objPath: path, tint: accent)
+            v.wantsLayer = true
+            return v
+        }
+        glyphW = 128; glyphH = 116
+        if let img = glyphImages.first {
+            let iv = NSImageView(frame: NSRect(x: (fullWidth - glyphW) / 2, y: 0, width: glyphW, height: glyphH))
+            iv.image = img
+            iv.imageScaling = .scaleProportionallyUpOrDown
+            iv.wantsLayer = true
+            let sh = NSShadow()
+            sh.shadowColor = accent; sh.shadowBlurRadius = 0
+            sh.shadowOffset = NSSize(width: 2, height: -2)
+            iv.shadow = sh
+            DispatchQueue.main.async { [weak self] in self?.scheduleGlyphPose() }
+            return iv
+        }
+        glyphH = 76
+        let e = NSTextField(labelWithString: config.palEmoji)
+        e.font = NSFont.systemFont(ofSize: 60); e.alignment = .center
+        e.isBordered = false; e.drawsBackground = false
+        return e
+    }
+
+    // Swap the avatar in place (3D ⇄ 2D) without relaunching.
+    func rebuildGlyph() {
+        let old = glyphView
+        let nv = makeGlyphView()
+        glyphView = nv
+        if let cc = clickCatcher {
+            content.addSubview(nv, positioned: .below, relativeTo: cc)
+        } else {
+            content.addSubview(nv)
+        }
+        old?.removeFromSuperview()
+        layout()
     }
 
     func build() {
@@ -342,32 +411,14 @@ final class PalController: NSObject {
         content = PassThroughView(frame: NSRect(x: 0, y: 0, width: W, height: 158))
         content.wantsLayer = true
 
-        // Load the star's poses for the current color (gold/silver).
         loadGlyphs()
-        if let img = glyphImages.first {
-            let iv = NSImageView(frame: NSRect(x: (W - glyphW) / 2, y: 0, width: glyphW, height: glyphH))
-            iv.image = img
-            iv.imageScaling = .scaleProportionallyUpOrDown
-            iv.wantsLayer = true
-            let sh = NSShadow()
-            sh.shadowColor = accent; sh.shadowBlurRadius = 0
-            sh.shadowOffset = NSSize(width: 2, height: -2)
-            iv.shadow = sh
-            glyphView = iv
-            scheduleGlyphPose()
-        } else {
-            glyphH = 76
-            let e = NSTextField(labelWithString: palEmoji)
-            e.font = NSFont.systemFont(ofSize: 60); e.alignment = .center
-            e.isBordered = false; e.drawsBackground = false
-            glyphView = e
-        }
+        glyphView = makeGlyphView()
         content.addSubview(glyphView)
 
-        nameLabel.setText(palName, font: playfulFont(29, bold: true),
+        nameLabel.setText(config.palName, font: playfulFont(29, bold: true),
                           fill: .white, stroke: NSColor(white: 0.08, alpha: 1), strokeW: 4)
         styleField(microLabel)
-        microLabel.attributedStringValue = NSAttributedString(string: palName, attributes: [
+        microLabel.attributedStringValue = NSAttributedString(string: config.palName, attributes: [
             .font: playfulFont(14, bold: true),
             .foregroundColor: NSColor.white,
             .strokeColor: NSColor(white: 0.08, alpha: 1),
@@ -377,7 +428,11 @@ final class PalController: NSObject {
         content.addSubview(nameLabel)
         content.addSubview(microLabel)
 
+        // Plugins build their rows before the click-catcher so they sit beneath it.
+        for p in plugins { p.attach(to: self) }
+
         clickCatcher = ClickView(frame: .zero)
+        clickCatcher.draggable = config.draggable
         clickCatcher.onClick = { [weak self] in self?.toggleCollapsed() }
         clickCatcher.onPress = { [weak self] in self?.pressPop() }
         clickCatcher.onRightClick = { [weak self] e in self?.showContextMenu(e) }
@@ -400,46 +455,44 @@ final class PalController: NSObject {
         layout()
         win.orderFrontRegardless()
 
-        // 20Hz tick keeps the click-through flag fresh so a fast click can
-        // never land stale (event monitors usually beat it; this is the cap).
+        // 20Hz tick keeps the click-through flag fresh and drives the note poll.
         Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
             self?.updateClickability()
             self?.tickNotes()
         }
+        // Plugins poll on their own cadence off a 1s tick (cheap; each gates itself).
+        Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            self?.plugins.forEach { $0.tick() }
+        }
+        plugins.forEach { $0.tick() }   // first fill immediately
         NotificationCenter.default.addObserver(self, selector: #selector(layout),
             name: NSApplication.didChangeScreenParametersNotification, object: nil)
-        // Re-theme the moment the user picks a new system accent in Settings.
-        // The glyph/micro shadows hold the dynamic accent color and just need a
-        // redraw; the name's shadow is baked into CALayers, so re-render it.
         NotificationCenter.default.addObserver(self, selector: #selector(accentChanged),
             name: NSColor.systemColorsDidChangeNotification, object: nil)
     }
 
     @objc func accentChanged() {
-        nameLabel.setText(palName, font: playfulFont(29, bold: true),
+        nameLabel.setText(config.palName, font: playfulFont(29, bold: true),
                           fill: .white, stroke: NSColor(white: 0.08, alpha: 1), strokeW: 4)
         glyphView?.needsDisplay = true
         microLabel.needsDisplay = true
     }
 
-    // ── glyph art (gold / silver) ─────────────────────────────────────────
-    // NSImage renders the SVG natively — no WKWebView (its SafeBrowsing init
-    // can deadlock the runloop, and its clipped box crops the drop shadow).
-    // Reloadable so the right-click menu can swap the whole pose set live.
+    // ── glyph art ─────────────────────────────────────────────────────────
+    // NSImage renders the SVG natively — no WKWebView (its SafeBrowsing init can
+    // deadlock the runloop, and its clipped box crops the drop shadow).
     func loadGlyphs() {
-        glyphImages = glyphPoseNames()
-            .compactMap { resource($0, "svg") }
-            .compactMap { NSImage(contentsOfFile: $0) }
+        glyphImages = config.posePaths(starColor).compactMap { NSImage(contentsOfFile: $0) }
         glyphBitmaps = glyphImages.compactMap {
             $0.tiffRepresentation.flatMap { NSBitmapImageRep(data: $0) }
         }
-        singImage = resource(glyphSingName(), "svg").flatMap { NSImage(contentsOfFile: $0) }
+        singImage = config.singPath(starColor).flatMap { NSImage(contentsOfFile: $0) }
     }
 
     func setStarColor(_ c: String) {
-        guard c != starColor, c == "gold" || c == "silver" else { return }
+        guard config.colorTogglable, c != starColor, c == "gold" || c == "silver" else { return }
         starColor = c
-        try? c.write(toFile: colorFile, atomically: true, encoding: .utf8)
+        try? c.write(toFile: config.colorFile, atomically: true, encoding: .utf8)
         loadGlyphs()
         glyphState = min(glyphState, max(0, glyphImages.count - 1))
         if let iv = glyphView as? NSImageView, !glyphImages.isEmpty {
@@ -456,33 +509,57 @@ final class PalController: NSObject {
     }
 
     // ── right-click menu ──────────────────────────────────────────────────
+    // Plugins contribute items (fuser: Overtime); the star adds About + color +
+    // Quit. A fuser badge with no About just shows Overtime · Quit.
     func showContextMenu(_ e: NSEvent) {
         let menu = NSMenu()
-        let about = menu.addItem(withTitle: "About MacPal",
-                                 action: #selector(showAbout), keyEquivalent: "")
-        about.target = self
-        menu.addItem(.separator())
-        let gold = menu.addItem(withTitle: "Gold Star",
-                                action: #selector(pickGold), keyEquivalent: "")
-        gold.target = self; gold.state = starColor == "gold" ? .on : .off
-        let silver = menu.addItem(withTitle: "Silver Star",
-                                  action: #selector(pickSilver), keyEquivalent: "")
-        silver.target = self; silver.state = starColor == "silver" ? .on : .off
-        menu.addItem(.separator())
-        let quit = menu.addItem(withTitle: "Quit MacPal",
-                                action: #selector(quit), keyEquivalent: "q")
+        var items = plugins.flatMap { $0.menuItems(for: self) }
+        if config.showsAbout {
+            let about = NSMenuItem(title: "About MacPal", action: #selector(showAbout), keyEquivalent: "")
+            about.target = self
+            items.append(about)
+        }
+        if config.colorTogglable {
+            let gold = NSMenuItem(title: "Gold Star", action: #selector(pickGold), keyEquivalent: "")
+            gold.target = self; gold.state = starColor == "gold" ? .on : .off
+            let silver = NSMenuItem(title: "Silver Star", action: #selector(pickSilver), keyEquivalent: "")
+            silver.target = self; silver.state = starColor == "silver" ? .on : .off
+            items.append(gold); items.append(silver)
+        }
+        if config.avatarTogglable {
+            let m3 = NSMenuItem(title: "3D Blueberry", action: #selector(use3DAvatar), keyEquivalent: "")
+            m3.target = self; m3.state = use3D ? .on : .off
+            let m2 = NSMenuItem(title: "2D Blueberry", action: #selector(use2DAvatar), keyEquivalent: "")
+            m2.target = self; m2.state = use3D ? .off : .on
+            items.append(m3); items.append(m2)
+        }
+        items.forEach { menu.addItem($0) }
+        if !items.isEmpty { menu.addItem(.separator()) }
+        let quit = NSMenuItem(title: "Quit MacPal", action: #selector(quit), keyEquivalent: "q")
         quit.target = self
+        menu.addItem(quit)
         NSMenu.popUpContextMenu(menu, with: e, for: clickCatcher)
     }
 
-    @objc func showAbout() { AboutWindow.show() }
+    @objc func showAbout() { AboutWindow.show(config: config) }
     @objc func pickGold() { setStarColor("gold") }
     @objc func pickSilver() { setStarColor("silver") }
+    @objc func use3DAvatar() { setAvatar3D(true) }
+    @objc func use2DAvatar() { setAvatar3D(false) }
     @objc func quit() { NSApp.terminate(nil) }
 
+    // Swap between the SceneKit pal and the flat thumbnail; the choice persists.
+    func setAvatar3D(_ on: Bool) {
+        guard config.avatarTogglable, on != use3D else { return }
+        use3D = on
+        if on { try? FileManager.default.removeItem(atPath: config.avatar2DFlag) }
+        else { FileManager.default.createFile(atPath: config.avatar2DFlag, contents: nil) }
+        rebuildGlyph()
+        nameLabel.bounce()
+        let s = NSSound(named: "Tink"); s?.volume = 0.4; s?.play()
+    }
+
     // ── Menu Band "sing" easter egg ───────────────────────────────────────
-    // Poll the note signal file: each fresh seq opens the mouth and floats a
-    // note out. lastNoteSeq < 0 on the first read so we don't erupt on launch.
     func tickNotes() {
         let now = CACurrentMediaTime()
         if showingSing, now >= singUntil {
@@ -491,12 +568,11 @@ final class PalController: NSObject {
                 iv.image = glyphImages[min(glyphState, glyphImages.count - 1)]
             }
         }
-        guard let raw = try? String(contentsOfFile: noteSignalFile, encoding: .utf8) else { return }
+        guard let raw = try? String(contentsOfFile: config.noteSignalFile, encoding: .utf8) else { return }
         let parts = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             .split(separator: " ", maxSplits: 1)
         guard let first = parts.first, let seq = Int(first) else { return }
         if lastNoteSeq < 0 { lastNoteSeq = seq; return }
-        // Fire on any CHANGE — Menu Band restarts reset its counter to 0.
         guard seq != lastNoteSeq else { return }
         let burst = seq > lastNoteSeq ? min(seq - lastNoteSeq, 3) : 1
         lastNoteSeq = seq
@@ -510,6 +586,7 @@ final class PalController: NSObject {
 
     func sing(_ name: String) {
         singUntil = CACurrentMediaTime() + 0.26
+        if let pal = glyphView as? Pal3DView { pal.sing(); pal.playClip("cheer") }   // 3D pal cheers to the music
         if let iv = glyphView as? NSImageView, let s = singImage {
             iv.image = s
             showingSing = true
@@ -520,21 +597,28 @@ final class PalController: NSObject {
                 l.add(pop, forKey: "singPop")
             }
         }
-        floatNote(name)
+        if !collapsed { floatNote(name) }
     }
 
     // A musical glyph rises out of the mouth, drifting + fading + spinning a
     // touch, tinted by the note's pitch class.
     func floatNote(_ name: String) {
-        guard let host = content.layer else { return }
         let glyphs = ["♪", "♫", "♩", "♬"]
         let pick = glyphs[((name.hashValue % glyphs.count) + glyphs.count) % glyphs.count]
+        // In 3D the note is spawned inside the SceneKit scene (a CALayer overlay
+        // would render behind the metal view).
+        if let pal = glyphView as? Pal3DView {
+            pal.floatNote(pick, color: noteTint(name), up: !corner.hasPrefix("T"))
+            return
+        }
+        guard let host = content.layer else { return }
         let t = CATextLayer()
         t.string = pick
         t.font = NSFont.boldSystemFont(ofSize: 19)
         t.fontSize = 19
         t.foregroundColor = noteTint(name).cgColor
         t.alignmentMode = .center
+        t.zPosition = 1000   // float ABOVE the 3D SCNView's metal layer, not behind it
         t.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
         t.shadowColor = NSColor.black.cgColor
         t.shadowOffset = CGSize(width: 1, height: -1)
@@ -588,6 +672,7 @@ final class PalController: NSObject {
                                    : Double.random(in: 0.45...1.0)
         DispatchQueue.main.asyncAfter(deadline: .now() + hold) { [weak self] in
             guard let self = self, let iv = self.glyphView as? NSImageView else { return }
+            if CACurrentMediaTime() < self.singUntil { self.scheduleGlyphPose(); return }
             if self.glyphState == 0 {
                 self.glyphState = Int.random(in: 1..<self.glyphImages.count)
             } else if self.glyphImages.count > 2, Int.random(in: 0..<4) == 0 {
@@ -609,20 +694,17 @@ final class PalController: NSObject {
 
     func toggleCollapsed() {
         collapsed.toggle()
-        if collapsed { FileManager.default.createFile(atPath: collapsedFlag, contents: nil) }
-        else { try? FileManager.default.removeItem(atPath: collapsedFlag) }
+        if collapsed { FileManager.default.createFile(atPath: config.collapsedFlag, contents: nil) }
+        else { try? FileManager.default.removeItem(atPath: config.collapsedFlag) }
         let s = NSSound(named: collapsed ? "Pop" : "Tink")
         s?.volume = 0.5
         s?.play()
+        plugins.forEach { $0.setCollapsed(collapsed) }
         layout()
         if !collapsed { nameLabel.bounce() }
     }
 
     // ── per-pixel click-through ───────────────────────────────────────────
-    // The star is clickable only where he's actually painted; over a
-    // transparent pixel the whole window flips ignoresMouseEvents so the click
-    // sails through to whatever is underneath. Window-level ignore is the only
-    // thing that can do this — a swallowed event never reaches the app below.
     func glyphHit(_ p: NSPoint) -> Bool {
         guard let iv = glyphView as? NSImageView, let img = iv.image else { return true }
         let rep = glyphState < glyphBitmaps.count ? glyphBitmaps[glyphState] : glyphBitmaps.first
@@ -645,8 +727,6 @@ final class PalController: NSObject {
         NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] e in
             guard let self = self else { return }
             self.updateClickability()
-            // Backstop: a left-click that slipped past a stale ignore flag but
-            // landed on his painted pixels STILL toggles him — clicks resolve.
             if e.type == .leftMouseDown, let window = self.window {
                 let p = window.convertPoint(fromScreen: NSEvent.mouseLocation)
                 if self.glyphView.frame.contains(p),
@@ -672,6 +752,10 @@ final class PalController: NSObject {
                 live = microChipRect.contains(p)
             } else if glyphView.frame.contains(p) {
                 live = glyphHit(glyphView.convert(p, from: nil))
+            } else {
+                // A plugin row under the mouse (e.g. the fuser pane) keeps the
+                // window live so it can be scrolled / selected.
+                for r in content.liveRects where r != glyphView.frame && r.contains(p) { live = true }
             }
             window.ignoresMouseEvents = !live
         }
@@ -679,11 +763,10 @@ final class PalController: NSObject {
             || glyphView.frame.contains(window.convertPoint(fromScreen: m))))
     }
 
-    // Cursor over him springs him a touch bigger, with a quiet tick on enter.
-    // Model-value transform so the additive pose/press pops stack on top.
     func setHover(_ h: Bool) {
         guard hovering != h else { return }
         hovering = h
+        if h { (glyphView as? Pal3DView)?.playClip("wave") }   // 3D pal waves hello
         guard let l = glyphView.layer else { return }
         let s: CGFloat = h ? 1.12 : 1.0
         let target = CATransform3DMakeScale(s, s, 1)
@@ -711,9 +794,6 @@ final class PalController: NSObject {
         l.add(a, forKey: "press")
     }
 
-    // Drop him and he picks his new home: whichever corner of the drop screen
-    // his center is closest to. The pick is written so it sticks, then layout()
-    // computes the snapped frame and the window eases over with a clink.
     func snapToNearestCorner() {
         guard draggingBadge else { return }
         draggingBadge = false
@@ -721,7 +801,7 @@ final class PalController: NSObject {
         let f = screen.frame
         let mid = NSPoint(x: window.frame.midX, y: window.frame.midY)
         corner = (mid.y > f.midY ? "T" : "B") + (mid.x > f.midX ? "R" : "L")
-        try? corner.write(toFile: cornerFile, atomically: true, encoding: .utf8)
+        try? corner.write(toFile: config.cornerFile, atomically: true, encoding: .utf8)
         let dropped = window.frame
         layout()
         let target = window.frame
@@ -738,6 +818,12 @@ final class PalController: NSObject {
 
     var microChipRect = NSRect.zero
 
+    // The full window width: the star is W; a plugin (the fuser pane) may want
+    // more, so plugins can raise it via `preferredWidth`.
+    var fullWidth: CGFloat {
+        plugins.map { ($0 as? WidthHinting)?.preferredWidth ?? W }.max() ?? W
+    }
+
     @objc func layout() {
         guard !draggingBadge else { return }
         guard let screen = window.screen ?? NSScreen.main ?? NSScreen.screens.first else {
@@ -747,10 +833,6 @@ final class PalController: NSObject {
         let f = screen.frame
 
         if collapsed {
-            // Micro chip escapes to ITS corner — TL tucks under the Apple menu,
-            // TR hugs the clock, B* sit just above the Dock line — with the name
-            // riding beside him. A negative gap tucks the name (the field carries
-            // internal stroke/shadow pad) snug against him.
             let gap: CGFloat = -3
             let nat = microLabel.intrinsicContentSize
             let lblW = ceil(nat.width) + 10
@@ -778,6 +860,7 @@ final class PalController: NSObject {
             microChipRect = NSRect(x: 0, y: 0, width: totalW, height: micro)
             clickCatcher.frame = microChipRect
             content.liveRects = [microChipRect]
+            plugins.forEach { $0.setCollapsed(true) }
             if let l = glyphView.layer {
                 l.anchorPoint = CGPoint(x: 0.5, y: 0.5)
                 l.position = CGPoint(x: glyphView.frame.midX, y: glyphView.frame.midY)
@@ -787,25 +870,35 @@ final class PalController: NSObject {
 
         microLabel.isHidden = true
         nameLabel.isHidden = false
+        plugins.forEach { $0.setCollapsed(false) }
         if let e = glyphView as? NSTextField { e.font = NSFont.systemFont(ofSize: 60) }
-        // Stack, bottom-up: name · glyph.
-        let nameY: CGFloat = 12
+
+        let win = fullWidth
+        // Stack, bottom-up: [plugin rows] · name · glyph.
+        let stackH = plugins.reduce(CGFloat(0)) { $0 + $1.stackHeight(in: self) }
+        let nameY: CGFloat = 12 + stackH
         let glyphY = nameY + 44 + 4
         let totalH = glyphY + glyphH + 8
         var o = NSPoint(x: f.minX + marginX, y: f.maxY - totalH - marginY)   // TL
         switch corner {
-        case "TR": o = NSPoint(x: f.maxX - W - marginX, y: f.maxY - totalH - marginY)
+        case "TR": o = NSPoint(x: f.maxX - win - marginX, y: f.maxY - totalH - marginY)
         case "BL": o = NSPoint(x: f.minX + marginX, y: f.minY + marginY)
-        case "BR": o = NSPoint(x: f.maxX - W - marginX, y: f.minY + marginY)
+        case "BR": o = NSPoint(x: f.maxX - win - marginX, y: f.minY + marginY)
         default: break
         }
-        window.setFrame(NSRect(origin: o, size: NSSize(width: W, height: totalH)), display: true)
-        content.frame = NSRect(x: 0, y: 0, width: W, height: totalH)
-        let gw: CGFloat = (glyphView is NSImageView) ? glyphW : W
-        glyphView.frame = NSRect(x: (W - gw) / 2, y: glyphY, width: gw, height: glyphH)
-        nameLabel.frame = NSRect(x: 0, y: nameY, width: W, height: 44)
+        window.setFrame(NSRect(origin: o, size: NSSize(width: win, height: totalH)), display: true)
+        content.frame = NSRect(x: 0, y: 0, width: win, height: totalH)
+        let gw: CGFloat = (glyphView is NSImageView) ? glyphW : win
+        glyphView.frame = NSRect(x: (win - gw) / 2, y: glyphY, width: gw, height: glyphH)
+        nameLabel.frame = NSRect(x: 0, y: nameY, width: win, height: 44)
         clickCatcher.frame = glyphView.frame
         content.liveRects = [glyphView.frame]
+        // Plugins lay their rows out bottom-up from y=12 and append any live rects.
+        var cursor: CGFloat = 12
+        for p in plugins {
+            p.layoutRows(in: self, originY: cursor)
+            cursor += p.stackHeight(in: self)
+        }
         if let l = glyphView.layer {
             l.anchorPoint = CGPoint(x: 0.5, y: 0.5)
             l.position = CGPoint(x: glyphView.frame.midX, y: glyphView.frame.midY)
@@ -813,25 +906,29 @@ final class PalController: NSObject {
     }
 }
 
+// A plugin that wants a wider window than the star's default declares it.
+protocol WidthHinting { var preferredWidth: CGFloat { get } }
+
 // ── About window ───────────────────────────────────────────────────────────
-// Modeled on the Menu Band About panel: a small transparent-titlebar window
-// with a centered masthead — star icon, bold "MacPal", a dedication, then the
-// quiet version + copyright footer every macOS About panel closes with. The
-// "i" in Fia wears the live system accent, tying the panel to the pal's theme.
+// A small transparent-titlebar window with a centered masthead — glyph icon,
+// bold "MacPal", a dedication, then the version + copyright footer. The "í" in
+// the dedication wears the live system accent, tying it to the pal's theme.
 final class AboutWindow: NSObject, NSWindowDelegate {
     static var shared: AboutWindow?
     let window: NSWindow
+    let config: PalConfig
     private var accentObserver: NSObjectProtocol?
 
-    static func show() {
-        let a = shared ?? AboutWindow()
+    static func show(config: PalConfig) {
+        let a = shared ?? AboutWindow(config: config)
         shared = a
         NSApp.activate(ignoringOtherApps: true)
         a.window.center()
         a.window.makeKeyAndOrderFront(nil)
     }
 
-    override init() {
+    init(config: PalConfig) {
+        self.config = config
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 300, height: 300),
                           styleMask: [.titled, .closable, .fullSizeContentView],
                           backing: .buffered, defer: false)
@@ -843,7 +940,6 @@ final class AboutWindow: NSObject, NSWindowDelegate {
         window.level = .floating
         window.delegate = self
         buildContent()
-        // Re-color the accented "i" when the system accent changes.
         accentObserver = NotificationCenter.default.addObserver(
             forName: NSColor.systemColorsDidChangeNotification, object: nil, queue: .main
         ) { [weak self] _ in self?.buildContent() }
@@ -872,8 +968,8 @@ final class AboutWindow: NSObject, NSWindowDelegate {
             stack.bottomAnchor.constraint(equalTo: content.bottomAnchor),
         ])
 
-        // Masthead — the star in his current color.
-        if let path = resource(glyphBase(), "svg"), let star = NSImage(contentsOfFile: path) {
+        if let path = config.posePaths(config.colorTogglable ? "gold" : "").first,
+           let star = NSImage(contentsOfFile: path) {
             let iv = NSImageView()
             iv.image = star
             iv.wantsLayer = true
@@ -899,36 +995,34 @@ final class AboutWindow: NSObject, NSWindowDelegate {
         stack.addArrangedSubview(tagline)
         stack.setCustomSpacing(16, after: tagline)
 
-        // Dedication — "This MacPal was made for Fía and is maintained by
-        // @jeffrey". The í wears an acute accent mark AND the live system accent
-        // color (a touch bolder) so it pops twice over; the @handle is semibold.
-        let line = "This MacPal was made for Fía and is maintained by @jeffrey"
-        let para = NSMutableParagraphStyle()
-        para.alignment = .center; para.lineBreakMode = .byWordWrapping
-        let dedication = NSMutableAttributedString(string: line, attributes: [
-            .font: NSFont.systemFont(ofSize: 13),
-            .foregroundColor: NSColor.labelColor,
-            .paragraphStyle: para,
-        ])
-        let ns = line as NSString
-        let fia = ns.range(of: "Fía")
-        if fia.location != NSNotFound {
-            let iRange = NSRange(location: fia.location + 1, length: 1)   // the 'í'
-            dedication.addAttribute(.foregroundColor, value: NSColor.controlAccentColor, range: iRange)
-            dedication.addAttribute(.font, value: NSFont.systemFont(ofSize: 14, weight: .heavy), range: iRange)
+        if let line = config.aboutDedication {
+            let para = NSMutableParagraphStyle()
+            para.alignment = .center; para.lineBreakMode = .byWordWrapping
+            let dedication = NSMutableAttributedString(string: line, attributes: [
+                .font: NSFont.systemFont(ofSize: 13),
+                .foregroundColor: NSColor.labelColor,
+                .paragraphStyle: para,
+            ])
+            let ns = line as NSString
+            let fia = ns.range(of: "Fía")
+            if fia.location != NSNotFound {
+                let iRange = NSRange(location: fia.location + 1, length: 1)   // the 'í'
+                dedication.addAttribute(.foregroundColor, value: NSColor.controlAccentColor, range: iRange)
+                dedication.addAttribute(.font, value: NSFont.systemFont(ofSize: 14, weight: .heavy), range: iRange)
+            }
+            let handle = ns.range(of: "@jeffrey")
+            if handle.location != NSNotFound {
+                dedication.addAttribute(.font, value: NSFont.systemFont(ofSize: 13, weight: .semibold), range: handle)
+            }
+            let ded = NSTextField(wrappingLabelWithString: "")
+            ded.attributedStringValue = dedication
+            ded.alignment = .center
+            ded.translatesAutoresizingMaskIntoConstraints = false
+            ded.preferredMaxLayoutWidth = 244
+            ded.widthAnchor.constraint(equalToConstant: 244).isActive = true
+            stack.addArrangedSubview(ded)
+            stack.setCustomSpacing(20, after: ded)
         }
-        let handle = ns.range(of: "@jeffrey")
-        if handle.location != NSNotFound {
-            dedication.addAttribute(.font, value: NSFont.systemFont(ofSize: 13, weight: .semibold), range: handle)
-        }
-        let ded = NSTextField(wrappingLabelWithString: "")
-        ded.attributedStringValue = dedication
-        ded.alignment = .center
-        ded.translatesAutoresizingMaskIntoConstraints = false
-        ded.preferredMaxLayoutWidth = 244
-        ded.widthAnchor.constraint(equalToConstant: 244).isActive = true
-        stack.addArrangedSubview(ded)
-        stack.setCustomSpacing(20, after: ded)
 
         let version = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "?"
         let versionLabel = NSTextField(labelWithString: "Version \(version)")
@@ -944,19 +1038,7 @@ final class AboutWindow: NSObject, NSWindowDelegate {
         copyright.alignment = .center
         stack.addArrangedSubview(copyright)
 
-        // Size the window to exactly fit the stack — keeps the masthead from
-        // being squeezed and leaves no dead space below the footer.
         content.layoutSubtreeIfNeeded()
         window.setContentSize(NSSize(width: 300, height: ceil(content.fittingSize.height)))
     }
 }
-
-registerLoginItemOnce()
-let pal = PalController()
-pal.build()
-// Dev affordance: `MacPal --about` opens the About window on launch (for QA /
-// screenshots without driving a right-click menu).
-if CommandLine.arguments.contains("--about") {
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { AboutWindow.show() }
-}
-app.run()

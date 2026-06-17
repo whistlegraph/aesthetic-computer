@@ -20,16 +20,21 @@ echo "› cleaning $APP"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
-echo "› compiling Sources/MacPal.swift"
+echo "› compiling Sources/*.swift"
 swiftc -O \
     -framework AppKit \
     -framework ServiceManagement \
-    Sources/MacPal.swift \
+    -framework SceneKit \
+    -framework ModelIO \
+    Sources/*.swift \
     -o "$APP/Contents/MacOS/$APP_NAME"
 
 echo "› assembling bundle"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
-cp Resources/*.svg "$APP/Contents/Resources/"
+# Only the star's art ships in Fía's bundle; the fuser machine glyphs in
+# Resources/ are source the fuser installer (macpal/fuser/install.sh) stages
+# on-device — they're loaded from disk, not the bundle.
+cp Resources/star-*.svg "$APP/Contents/Resources/"
 [[ -f Resources/AppIcon.icns ]] && cp Resources/AppIcon.icns "$APP/Contents/Resources/"
 
 echo "› signing ($SIGN_ID)"

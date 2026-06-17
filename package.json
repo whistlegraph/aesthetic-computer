@@ -84,6 +84,7 @@
     "site:debug": "cd system; npm run codespaces-dev-debug",
     "site:live": "cd system; npm run codespaces-dev-public",
     "new": "node utilities/generate-new-piece.mjs",
+    "affirm": "node macpal/affirm.mjs",
     "notepat:build": "node ac-m4l/build-notepat.mjs",
     "notepat:build:desktop": "node ac-m4l/build-notepat.mjs --desktop --log",
     "notepat:publish": "node ac-m4l/build-notepat.mjs --sync-spaces --log",

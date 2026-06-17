@@ -22,9 +22,11 @@ command -v rsvg-convert >/dev/null && [[ ! -f Resources/AppIcon.icns ]] && ./mak
 echo "› clean build of $APP"
 rm -rf "$APP"; mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 swiftc -O -framework AppKit -framework ServiceManagement \
-    Sources/MacPal.swift -o "$APP/Contents/MacOS/$APP_NAME"
+    Sources/*.swift -o "$APP/Contents/MacOS/$APP_NAME"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
-cp Resources/*.svg "$APP/Contents/Resources/"
+# Only the star's art ships; fuser machine glyphs in Resources/ are installer
+# source (macpal/fuser), loaded from disk on the fleet, not from the bundle.
+cp Resources/star-*.svg "$APP/Contents/Resources/"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/"
 
 echo "› signing with Developer ID (hardened runtime)"

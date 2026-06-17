@@ -62,23 +62,63 @@ signing uses the *Developer ID Application: Jeffrey Scudder (FB5948YR3S)* cert.
 squircle) from `star-glyph.svg` via `rsvg-convert` + `iconutil`. Re-run it after
 changing the star art. `package.sh` regenerates it automatically if missing.
 
+## Profiles & plugins
+
+One binary, two lives, chosen by launch profile:
+
+- **(no args)** → the **star**, for Fía, with the **affirmations** plugin (a
+  caption @jeffrey can change remotely — see below). This is the App-Store build.
+- **`--profile fuser --name panda --corner TL [--repo …]`** → the **fuser badge**
+  for the fleet (neo / panda / chicken / blueberry): git status, Asana tasks,
+  ⚡OVERTIME, and a live terminal pane, via the **fuser** plugin.
+
+The avatar (float, poses, name wiggle, hover, drag-to-corner, collapse, Menu
+Band sing) lives in `PalCore.swift` and is shared. Everything that stacks
+*beneath the name* is a `PalPlugin`.
+
+## Affirmations (remote status under the star)
+
+The star polls `GET /api/macpal-status?to=fia` every ~45s and shows the message
+under herself; a new one slides in with a hop and a soft chime, and the last is
+cached so it persists offline. @jeffrey pushes one (admin-only) with:
+
+```bash
+node macpal/affirm.mjs "proud of you 💛"        # → to=fia, production
+npm run affirm "great work today ✨" -- --to fia
+node macpal/affirm.mjs "testing" --local         # → https://localhost:8888
+node macpal/affirm.mjs --clear                   # blank the caption
+```
+
+Auth uses `~/.ac-token` (run `node tezos/ac-login.mjs` once). The endpoint is
+`system/netlify/functions/macpal-status.mjs` (Redis-backed, served by lith).
+
 ## Layout
 
 ```
 macpal/
-├── build.sh                  swiftc → .app bundle, sign, optional install
+├── build.sh                  swiftc Sources/*.swift → .app, sign, optional install
 ├── package.sh                Developer ID sign + notarize → AirDrop-ready
 ├── make-icon.sh              render Resources/AppIcon.icns from the star
+├── affirm.mjs                CLI: push an affirmation to a star (admin-only)
 ├── Sources/
-│   └── MacPal.swift          the whole app, one file
-└── Resources/
-    ├── Info.plist            bundle metadata (LSUIElement, min macOS 13)
-    ├── star-glyph*.svg       gold poses: home · blink · lean · sing
-    └── star-silver*.svg      silver poses: home · blink · lean · sing
+│   ├── main.swift            entry: parse profile → PalConfig → attach plugins
+│   ├── PalCore.swift         shared avatar + PalPlugin protocol + About
+│   ├── AffirmationsPlugin.swift   Fía: remote affirmation caption
+│   └── FuserPlugin.swift     fleet: git · Asana · OVERTIME · terminal pane
+├── Resources/
+│   ├── Info.plist            bundle metadata (LSUIElement, min macOS 13)
+│   ├── star-glyph*.svg       gold poses: home · blink · lean · sing  (bundled)
+│   ├── star-silver*.svg      silver poses                            (bundled)
+│   └── {neo,panda,chicken}-glyph*.svg   fleet glyphs (installer source, not bundled)
+└── fuser/                    symlinks into the vault (client-sensitive deploy bits)
+    ├── install.sh, deploy.sh        build the badge from Sources, flip the fleet
+    └── badge-asana-sync.sh, …       (kept in aesthetic-computer-vault)
 ```
 
-Per-user state (chosen corner, color, collapsed flag) lives in
-`~/Library/Application Support/MacPal/`.
+Per-user star state (corner, color, collapsed flag, last affirmation) lives in
+`~/Library/Application Support/MacPal/`; the fuser badge uses
+`~/.local/share/desktop-badge/`. Both share the Menu Band note signal at
+`~/.local/share/desktop-badge/note`.
 
 ## Swap the avatar
 
@@ -89,8 +129,9 @@ loader cycles through the `home`/`-2`/`-3` poses for the active color and uses
 
 ## Lineage
 
-Carved down from the `desktop-badge` corner character in the slab/fuser tooling,
-stripped of git status, Asana tasks, OVERTIME mode, the terminal pane, and the
-display glow — keeping the charm (floating avatar, drag-to-corner snap,
-click-to-collapse, idle pose cycling, name wiggle, hover spring, and the Menu
-Band sing) plus a focused right-click menu (About / color / Quit).
+MacPal began as the charm carved out of the fleet `desktop-badge`. The two have
+now merged the other way: the badge's features (git status, Asana, OVERTIME, the
+terminal pane) returned as the `FuserPlugin`, the shared avatar became
+`PalCore`, and the star gained the `AffirmationsPlugin`. The old
+`aesthetic-computer-vault/fuser/bin/desktop-badge/desktop-badge.swift` is
+superseded by `macpal --profile fuser`.
