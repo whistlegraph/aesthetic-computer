@@ -3080,6 +3080,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         mt.onTempo = { [weak self] bpm in self?.engine.setBPM(bpm) }
                         self.micTempo = mt
                     }
+                    // `kick=1`: hit a kick on every detected onset (beat follow),
+                    // so the machine locks to the *phase* of the room's beat,
+                    // not just its tempo.
+                    if ["1", "true"].contains((info["kick"] ?? "").lowercased()) {
+                        let v = UInt8(info["kickvel"] ?? "") ?? 122
+                        self.micTempo?.onOnset = { [weak self] in
+                            self?.menuBand.engineDrum(.kick, velocity: v)
+                        }
+                    } else {
+                        self.micTempo?.onOnset = nil
+                    }
                     self.micTempo?.start()
                 }
             default:
