@@ -1210,9 +1210,21 @@ function updateIndex(entries) {
     const thumbHtml = thumbExists
       ? `<a class="thumb" href="/${p.siteName}.pdf" tabindex="-1" aria-hidden="true"><img src="/thumbs/${thumbName}" alt="" loading="lazy" decoding="async"></a>`
       : "";
+    // Links under the illustration: cards format + any translated editions.
+    const cardsTl = hasCards
+      ? `<a class="tl tl-cards" href="/${p.siteName}-cards.pdf" title="Mobile-friendly cards format">cards</a>`
+      : "";
+    const langTl = LANGS.filter((l) => l !== "en")
+      .filter((l) => existsSync(join(SITE_DIR, `${p.siteName}-${l}.pdf`)))
+      .map((l) => `<a class="tl tl-lang" href="/${p.siteName}-${l}.pdf" title="${LANG_NAMES[l]}">${l.toUpperCase()}</a>`)
+      .join("");
+    const thumbLinks = cardsTl || langTl ? `<div class="thumb-links">${cardsTl}${langTl}</div>` : "";
+    const thumbCol = thumbHtml || thumbLinks
+      ? `<div class="thumb-col">${thumbHtml}${thumbLinks}</div>`
+      : "";
     return `
     <div class="p" data-paper-id="${tKey}"${hasCards ? "" : ` data-no-cards="1"`}${p.psycho ? ` data-psycho="1"` : ""}${p.deprecated ? ` data-deprecated="1"` : ""} data-created="${p.created || ""}" data-updated="${updatedISO}">
-        ${thumbHtml}<div class="body">
+        ${thumbCol}<div class="body">
         <div class="title"><a href="/${p.siteName}.pdf" data-base="/${p.siteName}">${p.title}</a></div>
         <div class="detail">${detail}</div>
         <div class="abstract">${abstract}</div>
