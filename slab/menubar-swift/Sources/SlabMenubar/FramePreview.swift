@@ -105,10 +105,19 @@ private final class FrameWindowController: NSObject, NSWindowDelegate {
         panel.isFloatingPanel = false
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
+        // Always open at our computed small size — never let AppKit restore a
+        // stale saved frame (e.g. a size from a since-disconnected display).
+        panel.isRestorable = false
         panel.delegate = self
         panel.title = machine // for Mission Control, not chrome
         panel.isOpaque = false
         panel.backgroundColor = .black
+        // Resizable, but with a sane floor and aspect locked to the frame so a
+        // drag-resize scales the image rather than letterboxing it.
+        panel.minSize = NSSize(width: 280, height: 160)
+        if image.size.width > 0 && image.size.height > 0 {
+            panel.contentAspectRatio = image.size
+        }
 
         let content = panel.contentView!
         imageView.image = image
@@ -117,6 +126,15 @@ private final class FrameWindowController: NSObject, NSWindowDelegate {
         // A glance pane, not an editor: any drag moves the window (matches
         // DraggablePdfView's "click-drag relocates" feel).
         imageView.translatesAutoresizingMaskIntoConstraints = false
+        // NSImageView's intrinsicContentSize is the IMAGE's pixel size; with the
+        // edge-pinned constraints below that would drag the window out to the
+        // native ~1568px frame, overriding our small contentRect. Drop hugging
+        // and compression resistance so the window keeps the size we ask for and
+        // the image just scales to fit (aspect via .scaleProportionallyUpOrDown).
+        imageView.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        imageView.setContentHuggingPriority(.defaultLow, for: .vertical)
+        imageView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        imageView.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
         content.addSubview(imageView)
 
         NSLayoutConstraint.activate([
@@ -231,22 +249,39 @@ private final class FrameWindowController: NSObject, NSWindowDelegate {
         onClose()
     }
 
-    /// Size the window to the image's aspect, ~3/4 of the screen tall (matches
-    /// the pdf/video viewers' framing).
+    /// Open SMALL: a glance pane, not a takeover. A frame is usually a
+    /// LANDSCAPE desktop (~1568×882), so sizing by height like the portrait
+    /// pdf/video viewers would make it span the screen. Instead start from a
+    /// modest target WIDTH (~38% of the screen, ~640pt floor) and derive height
+    /// from the image aspect, then clamp both axes so it never dominates the
+    /// display. The window is `.resizable`, the imageView aspect-fits
+    /// (`.scaleProportionallyUpOrDown`), and the badge is corner-pinned — so
+    /// the user can drag it to any size and the image scales while the chip
+    /// stays put. Anchored to the top-right corner (not centered/full-bleed).
     private static func idealFrame(for image: NSImage) -> NSRect {
         let screen = NSScreen.main?.visibleFrame
             ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let size = image.size.width > 0 && image.size.height > 0
-            ? image.size : NSSize(width: 1568, height: 980)
+            ? image.size : NSSize(width: 1568, height: 882)
         let aspect = size.width / max(size.height, 1)
-        var height = min(screen.height * 0.78, 980)
-        var width = height * aspect
-        if width > screen.width * 0.85 {
-            width = screen.width * 0.85
-            height = width / max(aspect, 0.001)
+
+        // Target a small default width, with a sensible floor and a cap that
+        // keeps the whole window comfortably inside the screen.
+        var width = min(max(screen.width * 0.38, 640), screen.width * 0.6)
+        var height = width / max(aspect, 0.001)
+        // Don't let a tall/square frame run off the bottom either.
+        let maxHeight = screen.height * 0.6
+        if height > maxHeight {
+            height = maxHeight
+            width = height * aspect
         }
-        return NSRect(x: screen.midX - width / 2, y: screen.midY - height / 2,
-                      width: width, height: height)
+
+        // Corner-anchor (top-right) with a small inset — visible but not
+        // full-bleed, and out from under the menubar piano.
+        let inset: CGFloat = 24
+        let x = screen.maxX - width - inset
+        let y = screen.maxY - height - inset
+        return NSRect(x: x, y: y, width: width, height: height)
     }
 }
 
