@@ -132,9 +132,13 @@
 % === PAGE BORDER + DRAFT WATERMARK + MARGIN URL ===
 \RequirePackage{eso-pic}
 \RequirePackage{tikz}
+% Draft watermark toggle. On by default; a printed/published edition sets
+% \acdraftfalse in its preamble to drop the "WORKING DRAFT" overlay.
+\newif\ifacdraft\acdrafttrue
 \AddToShipoutPictureBG{%
   \begin{tikzpicture}[remember picture, overlay]
     % Draft watermark — tiled pattern across content pages (skip cover)
+    \ifacdraft
     \ifnum\c@page>1\relax
       \foreach \xoff in {-3cm, 1cm, 5cm} {
         \foreach \yoff in {-5cm, -1.5cm, 2cm, 5.5cm} {
@@ -143,6 +147,7 @@
             {\color{red!70!acpink}WORKING DRAFT};
         }
       }
+    \fi
     \fi
     % Tappable URL at bottom center of every page
     \ifx\acpdfbase\empty\else

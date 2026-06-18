@@ -97,6 +97,9 @@
   pdftitle={Keymaps as Social Software: Versioned Virtual Objects via Social Contract},
 }
 
+% First print edition — drop the WORKING DRAFT watermark.
+\acdraftfalse
+
 \renewcommand{\acpdfbase}{keymaps-social-software-26-arxiv}
 \begin{document}
 
@@ -104,25 +107,20 @@
 % TITLE CARD
 % ============================================================
 \thispagestyle{empty}
-\vspace*{\fill}
+\vspace*{0.3em}
 \begin{center}
-\href{https://papers.aesthetic.computer}{\includegraphics[height=9em]{pals}}\par\vspace{0.1em}
+\href{https://papers.aesthetic.computer}{\includegraphics[width=0.74\textwidth]{figures/cover}}\par
+\vspace{0.45em}
 {\acbold\fontsize{18pt}{22pt}\selectfont\color{acdark} Keymaps as Social Software}\par
-\vspace{0.1em}
-\vspace{0.3em}
-{\normalsize\color{cyan!70!blue}\href{https://prompt.ac/@jeffrey}{\textbf{@jeffrey}}}\par
-{\small\color{acgray} Aesthetic.Computer}\par
-{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.35em}
+{\scriptsize\color{acgray}\href{https://prompt.ac/@jeffrey}{\color{cyan!70!blue}\textbf{@jeffrey}}\,\textperiodcentered\,Aesthetic{\acdot}Computer\,\textperiodcentered\,ORCID~\href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
 \vspace{0.4em}
 \rule{0.5\textwidth}{0.5pt}\par
-\vspace{0.15em}
-\colorbox{yellow!60}{\small\color{red!80!black}\textbf{\textit{working draft --- not for citation}}}\par
-\vspace{0.1em}
-{\footnotesize\color{acgray} March 2026 · \href{https://github.com/whistlegraph/aesthetic-computer/commit/462fcf0c0}{462fcf0c0}}\par
-\vspace{0.35em}
-{\footnotesize\sffamily\klanghere{EN}\klangsep\klang{DA}{-da}\klangsep\klang{ES}{-es}\klangsep\klang{ZH}{-zh}\klangsep\klang{JA}{-ja}\klangsep\klang{RU}{-ru}}\par
+\vspace{0.2em}
+{\small\sffamily\klanghere{EN}\klangsep\klang{DA}{-da}\klangsep\klang{ES}{-es}\klangsep\klang{ZH}{-zh}\klangsep\klang{JA}{-ja}\klangsep\klang{RU}{-ru}}\par
+\vspace{0.2em}
+{\scriptsize\color{acgray} March 2026 \,\textperiodcentered\, \href{https://github.com/whistlegraph/aesthetic-computer/commit/462fcf0c0}{462fcf0c0}}\par
 \end{center}
-\vspace*{\fill}
 
 % ============================================================
 % INDEX CARD
@@ -685,54 +683,42 @@ Because \texttt{notepat.com}'s notes name themselves, a song written for it need
 \bibliography{references}
 }
 
-% === COLOPHON: two stacked badges + changelog ===
-% Forced into the RIGHT column of the last page: \newpage ends the
-% (left) column the bibliography finishes in, so this block lands at the
-% top of the second column.
+% === COLOPHON: edition badge + revision/QR badge + changelog ===
+% Cards are single-column at \textwidth (~3.2in / 8.1cm); the badges are
+% ~7.7cm wide and centered. (The two-column arxiv edition uses a
+% half-column variant — do not copy these widths back to keymaps.tex.)
 \definecolor{acgold}{HTML}{C9A227}
 \newpage
-\noindent\begin{minipage}{\dimexpr0.5\textwidth-6pt\relax}
-\centerline{%
+\noindent\begin{minipage}{\textwidth}
+\centering
 \begin{tikzpicture}
-% The badges otherwise sit flush-right in the column; padding the
-% bounding box on the right nudges the visible content back to center.
-\useasboundingbox (-3.7,-5.95) rectangle (5.0,5.95);
-% ---------- PINK badge: FIRST PRINT EDITION (top) ----------
-\begin{scope}[shift={(0,3.05)}]
- \fill[acpink!4, rounded corners=7pt] (-3.65,-2.75) rectangle (3.65,2.75);
- \draw[acpink!60, line width=1.0pt, rounded corners=7pt] (-3.65,-2.75) rectangle (3.65,2.75);
- \draw[acpink!32, line width=0.4pt, rounded corners=5.5pt] (-3.5,-2.6) rectangle (3.5,2.6);
- \node at (0, 2.28) {\small\sffamily\bfseries\color{acpink} FIRST PRINT EDITION};
- \draw[acpink!32, line width=0.4pt] (-3.2,1.98) -- (3.2,1.98);
- \node at (0, 1.58) {\normalsize\color{acgray} Published for \emph{Scores for Social Software}};
- \node at (0, 1.12) {\normalsize\color{acgray} June 2026 \,\textperiodcentered\, edition of 64};
- % a fuller multicolored pals field around the number slot (larger)
- \foreach \x/\y/\s/\r/\o/\c in {
-  -3.20/-0.60/0.58/ 18/0.36/blue,  -2.78/ 0.42/0.50/-22/0.32/green,
-  -2.40/-1.55/0.66/  8/0.44/pink,  -1.95/ 0.30/0.56/ 30/0.36/yellow,
-  -1.55/-1.05/0.74/-14/0.50/purple,-1.10/ 0.52/0.54/ 20/0.36/orange,
-  -0.85/-1.80/0.48/ -6/0.32/blue,   0.85/-1.80/0.48/ 12/0.32/green,
-   1.12/ 0.54/0.56/-20/0.38/pink,   1.55/-1.02/0.74/ 10/0.50/blue,
-   1.98/ 0.30/0.54/-28/0.34/yellow,  2.40/-1.55/0.66/ -8/0.44/orange,
-   2.80/ 0.44/0.50/ 22/0.32/purple,  3.20/-0.60/0.58/-16/0.36/pink%
- }{\node[opacity=\o, rotate=\r] at (\x,\y) {\includegraphics[width=\s cm]{figures/pals-\c.png}};}
- \node at (0, -1.05) {\normalfont\fontsize{30pt}{32pt}\selectfont\color{acdark}\rule[0pt]{3.4em}{0.8pt}\,/\,64};
+\useasboundingbox (-3.9,-5.05) rectangle (3.9,3.05);
+% ---------- PINK badge: FIRST PRINT EDITION (top, compact) ----------
+\begin{scope}[shift={(0,1.7)}]
+ \fill[acpink!4, rounded corners=7pt] (-3.85,-1.25) rectangle (3.85,1.25);
+ \draw[acpink!60, line width=1.0pt, rounded corners=7pt] (-3.85,-1.25) rectangle (3.85,1.25);
+ \draw[acpink!32, line width=0.4pt, rounded corners=5.5pt] (-3.7,-1.1) rectangle (3.7,1.1);
+ \node at (0, 0.80) {\small\sffamily\bfseries\color{acpink} FIRST PRINT EDITION};
+ \draw[acpink!32, line width=0.4pt] (-3.4,0.50) -- (3.4,0.50);
+ \node at (0, 0.08) {\footnotesize\color{acgray} Published for \emph{Scores for Social Software}};
+ \node at (0, -0.55) {\footnotesize\color{acgray} June 2026 \,\textperiodcentered\, UCLA Design\,\textbar\,Media Arts};
 \end{scope}
-% ---------- YELLOW badge: version, QR centered (bottom) ----------
-\begin{scope}[shift={(0,-3.05)}]
- \fill[acgold!8, rounded corners=7pt] (-3.65,-2.75) rectangle (3.65,2.75);
- \draw[acgold!75, line width=1.0pt, rounded corners=7pt] (-3.65,-2.75) rectangle (3.65,2.75);
- \draw[acgold!42, line width=0.4pt, rounded corners=5.5pt] (-3.5,-2.6) rectangle (3.5,2.6);
- \node at (0, 2.28) {\small\sffamily\bfseries\color{acgold!80!black} REVISION \paperrev};
- \draw[acgold!42, line width=0.4pt] (-3.2,1.98) -- (3.2,1.98);
- \node at (0, 0.28) {\includegraphics[width=2.7cm]{figures/qr/canonical.png}};
- \node at (0, -1.42) {\footnotesize\ttfamily\color{acgray} \paperhash};
- \node at (0, -2.12) {\scriptsize\ttfamily\color{acgray} papers.aesthetic.computer/keymaps-social-software-26-arxiv};
+% ---------- YELLOW badge: revision + QR (bottom) ----------
+\begin{scope}[shift={(0,-2.35)}]
+ \fill[acgold!8, rounded corners=7pt] (-3.85,-2.6) rectangle (3.85,2.6);
+ \draw[acgold!75, line width=1.0pt, rounded corners=7pt] (-3.85,-2.6) rectangle (3.85,2.6);
+ \draw[acgold!42, line width=0.4pt, rounded corners=5.5pt] (-3.7,-2.45) rectangle (3.7,2.45);
+ \node at (0, 2.18) {\small\sffamily\bfseries\color{acgold!80!black} REVISION \paperrev};
+ \draw[acgold!42, line width=0.4pt] (-3.4,1.88) -- (3.4,1.88);
+ \node at (0, 0.18) {\includegraphics[width=2.7cm]{figures/qr/canonical.png}};
+ \node at (0, -1.55) {\footnotesize\ttfamily\color{acgray} \paperhash};
+ \node at (0, -2.20) {\scriptsize\ttfamily\color{acgray} papers.aesthetic.computer/keymaps-social-software-26-arxiv};
 \end{scope}
-\end{tikzpicture}}
-\vspace{7pt}
-{\scriptsize\raggedright\setlength{\parindent}{0pt}%
-{\sffamily\bfseries\color{acgold!80!black} Revision history}\par\smallskip
+\end{tikzpicture}
+\par\vspace{10pt}
+{\footnotesize\raggedright\setlength{\parindent}{0pt}%
+{\sffamily\bfseries\color{acgold!80!black} Revision history}\par
+\vspace{0.3em}\hrule height0.4pt\vspace{0.4em}
 \paperhistory\par}
 \end{minipage}
 
