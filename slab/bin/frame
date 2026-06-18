@@ -1,0 +1,35 @@
+#!/bin/bash
+# frame — node-resolving wrapper around frame.mjs (mirrors the asana wrapper).
+#
+# Symlinked into ~/.local/bin like the other slab bins; resolves through the
+# symlink so SCRIPT points at frame.mjs next to this wrapper, then finds a
+# usable node even under launchd's minimal PATH.
+set -u
+SRC="${BASH_SOURCE[0]}"
+while [ -L "$SRC" ]; do
+  DIR="$(cd -P "$(dirname "$SRC")" && pwd)"
+  SRC="$(readlink "$SRC")"
+  [[ "$SRC" != /* ]] && SRC="$DIR/$SRC"
+done
+HERE="$(cd -P "$(dirname "$SRC")" && pwd)"
+SCRIPT="$HERE/frame.mjs"
+
+find_node() {
+  if command -v node >/dev/null 2>&1; then command -v node; return; fi
+  local c
+  for c in \
+    "$HOME/.local/share/fnm/aliases/default/bin/node" \
+    "$HOME/.fnm/aliases/default/bin/node" \
+    /opt/homebrew/bin/node \
+    /usr/local/bin/node \
+    "$HOME/.volta/bin/node"; do
+    [ -x "$c" ] && { echo "$c"; return; }
+  done
+  c=$(ls -td "$HOME"/.local/share/fnm/node-versions/*/installation/bin/node \
+        2>/dev/null | head -1)
+  [ -n "$c" ] && [ -x "$c" ] && { echo "$c"; return; }
+  return 1
+}
+
+NODE="$(find_node)" || { echo "frame: no node found" >&2; exit 1; }
+exec "$NODE" "$SCRIPT" "$@"

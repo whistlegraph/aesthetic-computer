@@ -151,6 +151,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             selector: #selector(activeSpaceDidChange),
             name: NSWorkspace.activeSpaceDidChangeNotification,
             object: nil)
+
+        // Fleet "frame" capture: watch for an SSH-dropped request file and
+        // answer with pixels + OCR + AX + window state. Only spins a file
+        // watcher — never touches ScreenCaptureKit until a frame is actually
+        // requested, so no Screen Recording prompt at launch (lazy grant).
+        FrameCapture.shared.start()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -262,6 +268,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                         self.tileNowImpl(resetZoom: false)
                     }
                 }
+                // Pulled `frame` screenshots open in FramePreview, badged with
+                // the source machine name (see FramePreview.swift / `frame
+                // --preview`). Machine identity leads, so no session emoji here.
+                FramePreview.shared.consumeRequests()
                 self.applyTerminalDecor()
                 self.applyDesktopTint()
             }

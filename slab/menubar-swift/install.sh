@@ -41,65 +41,132 @@ command -v swift >/dev/null 2>&1 || {
 }
 
 SIGN_CN="Slab Menubar Self-Signed"
-SIGN_KEYCHAIN="${HOME}/Library/Keychains/login.keychain-db"
+# A DEDICATED keychain, not login.keychain. Over SSH the login keychain is
+# locked and can't be unlocked without user interaction ("User interaction is
+# not allowed"), so identity import there fails on the headless minis. A
+# dedicated keychain with a known passphrase unlocks non-interactively. The
+# passphrase guards only a local self-signed code-signing cert (no real
+# secret), so a constant default is fine; override with SLAB_SIGN_KC_PASS.
+SIGN_KEYCHAIN="${HOME}/Library/Keychains/slab-signing.keychain-db"
+SIGN_KC_PASS="${SLAB_SIGN_KC_PASS:-slab-signing}"
 
-ensure_signing_identity() {
-    # find-certificate works for self-signed certs even if untrusted, unlike
-    # `find-identity -p codesigning` which filters by trust.
-    if security find-certificate -c "${SIGN_CN}" "${SIGN_KEYCHAIN}" >/dev/null 2>&1; then
+# SHA-1 hash of the stable cert in the DEDICATED keychain, or "" if it doesn't
+# exist yet. We sign by this hash, not by CN, because a same-CN cert may also
+# exist in login.keychain (legacy installs) — signing by CN is then "ambiguous"
+# and fails. Reading from "${SIGN_KEYCHAIN}" explicitly guarantees we get the
+# right cert even when a duplicate lives elsewhere.
+slab_sign_hash() {
+    [ -f "${SIGN_KEYCHAIN}" ] || return 0
+    security find-certificate -Z -c "${SIGN_CN}" "${SIGN_KEYCHAIN}" 2>/dev/null \
+        | awk '/SHA-1 hash:/{print $3; exit}'
+}
+
+# Sign an app bundle with the stable identity. codesign needs a real Security
+# session to reach the private key; over SSH (notty) it returns
+# errSecInternalComponent, so a direct sign only works when install.sh runs in
+# a GUI Terminal. When it fails we run the exact same sign INSIDE the logged-in
+# Aqua session via a one-shot launchd job — the same gui-bootstrap trick the
+# frame capture uses to reach the WindowServer. Returns 1 if neither path
+# produces a "${SIGN_CN}" signature (caller then falls back to ad-hoc).
+codesign_app() {
+    local app="$1"
+    # Sign by the cert's SHA-1 HASH, never by CN. If a same-CN cert also lives in
+    # login.keychain (an older install.sh left one there on some machines),
+    # codesign --sign "<CN>" errors out "ambiguous (matches … in login.keychain
+    # and … in slab-signing.keychain)". The hash is unique to the cert in the
+    # dedicated keychain, so it always picks the right one. We can only compute
+    # the hash once the keychain+cert exist; the direct-sign shortcut below is
+    # therefore best-effort and silently no-ops on the first run (no cert yet),
+    # falling through to the gui-bootstrap path which creates it.
+    local hash=""
+    hash="$(slab_sign_hash)"
+    # Only try a direct sign when we're already in an Aqua session (install.sh
+    # run from a GUI Terminal) AND we have a hash. Over SSH a direct sign fails
+    # with errSecInternalComponent AND can pop a keychain dialog on the machine's
+    # screen, so skip straight to the gui-bootstrap path below.
+    if [ -n "${SECURITYSESSIONID:-}" ] && [ -n "${hash}" ] && \
+       codesign --force --deep --sign "${hash}" \
+        --identifier computer.slab.menubar "${app}" >/dev/null 2>&1; then
         return 0
     fi
-    say "creating self-signed code signing identity '${SIGN_CN}' (one-time)"
-    local tmpdir
-    tmpdir="$(mktemp -d)"
-    cat > "${tmpdir}/openssl.cnf" <<EOF
-[req]
-distinguished_name = dn
-prompt = no
-[dn]
-CN = ${SIGN_CN}
-[v3_ext]
-keyUsage = critical,digitalSignature
-extendedKeyUsage = critical,codeSigning
-basicConstraints = critical,CA:FALSE
-EOF
-    if ! openssl req -x509 -newkey rsa:2048 -nodes -days 36500 \
-        -keyout "${tmpdir}/key.pem" \
-        -out "${tmpdir}/cert.pem" \
-        -config "${tmpdir}/openssl.cnf" \
-        -extensions v3_ext >/dev/null 2>&1; then
-        warn "openssl req failed; will fall back to ad-hoc signing"
-        rm -rf "${tmpdir}"
-        return 1
+    local uid label script plist log i
+    uid="$(id -u)"; label="ac.slabsign.$$"
+    # Use shared /tmp, NOT mktemp: over SSH mktemp lands in the ssh session's
+    # private $TMPDIR (/var/folders/…), which the GUI-session launchd job can't
+    # read — so the helper would never run. /tmp is visible to both sessions.
+    script="/tmp/slab-sign.$$.sh"; plist="/tmp/slab-sign.$$.plist"; log="/tmp/slab-sign.$$.log"
+    # Self-contained recipe run IN the Aqua session: create the dedicated
+    # keychain if missing, create the identity ONCE (find-certificate guard →
+    # the cert is reused on every later rebuild, so grants stay bound), set the
+    # partition list (no GUI prompt), keep it on the search list, then sign.
+    cat > "${script}" <<EOS
+#!/bin/bash
+KC='${SIGN_KEYCHAIN}'; PASS='${SIGN_KC_PASS}'; CN='${SIGN_CN}'; APP='${app}'
+exec > '${log}' 2>&1
+[ -f "\$KC" ] || security create-keychain -p "\$PASS" "\$KC"
+security set-keychain-settings "\$KC" 2>/dev/null || true  # best-effort: drop lock-timeout
+security unlock-keychain -p "\$PASS" "\$KC"
+if ! security find-certificate -c "\$CN" "\$KC" >/dev/null 2>&1; then
+  T="\$(mktemp -d)"
+  printf '%s\n' '[req]' 'distinguished_name=dn' 'prompt=no' '[dn]' "CN=\$CN" \
+    '[v3]' 'keyUsage=critical,digitalSignature' 'extendedKeyUsage=critical,codeSigning' \
+    'basicConstraints=critical,CA:FALSE' > "\$T/o.cnf"
+  openssl req -x509 -newkey rsa:2048 -nodes -days 36500 -keyout "\$T/k.pem" -out "\$T/c.pem" -config "\$T/o.cnf" -extensions v3 >/dev/null 2>&1
+  openssl pkcs12 -export -macalg sha1 -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES -out "\$T/b.p12" -inkey "\$T/k.pem" -in "\$T/c.pem" -name "\$CN" -passout pass:p12 >/dev/null 2>&1
+  security import "\$T/b.p12" -k "\$KC" -P p12 -T /usr/bin/codesign -T /usr/bin/security >/dev/null 2>&1
+  rm -rf "\$T"
+fi
+security set-key-partition-list -S apple-tool:,apple: -s -k "\$PASS" "\$KC" >/dev/null 2>&1 || true
+CUR="\$(security list-keychains -d user | sed -e 's/\"//g' -e 's/^ *//')"
+case "\$CUR" in *slab-signing*) : ;; *) security list-keychains -d user -s \$CUR "\$KC" ;; esac
+# Sign by the cert's SHA-1 hash from THIS keychain, never by CN — a legacy
+# same-CN cert in login.keychain would make a sign-by-CN "ambiguous" and fail.
+HASH="\$(security find-certificate -Z -c "\$CN" "\$KC" 2>/dev/null | awk '/SHA-1 hash:/{print \$3; exit}')"
+codesign --force --deep --sign "\$HASH" --identifier computer.slab.menubar "\$APP"
+echo "rc=\$?"
+EOS
+    cat > "${plist}" <<EOP
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict><key>Label</key><string>${label}</string>
+<key>ProgramArguments</key><array><string>/bin/bash</string><string>${script}</string></array>
+<key>RunAtLoad</key><true/></dict></plist>
+EOP
+    : > "${log}"  # pre-create so the marker gate has a file to poll from t=0
+    launchctl bootout "gui/${uid}/${label}" 2>/dev/null || true
+    if launchctl bootstrap "gui/${uid}" "${plist}" 2>/dev/null; then
+        # RunAtLoad starts the job exactly once. Do NOT kickstart -k it: that
+        # forces a SECOND run that races the first (both re-sign the same
+        # bundle), and our verify can land while the second run has the
+        # signature half-written → a spurious ad-hoc fallback. Just wait.
+        #
+        # Gate on the helper's own completion marker (the rc= line it echoes
+        # last) rather than a fixed clock, so a job whose *start* launchd
+        # throttles still gets waited out instead of us racing it to an ad-hoc
+        # fallback. The helper script stays on disk until the marker appears (we
+        # never delete it mid-run). ~60s ceiling.
+        for i in $(seq 1 240); do
+            grep -q '^rc=' "${log}" 2>/dev/null && break
+            sleep 0.25
+        done
+        launchctl bootout "gui/${uid}/${label}" 2>/dev/null || true
     fi
-    # Apple's Security framework PKCS12 importer needs SHA1-MAC + 3DES PBE,
-    # AND a non-empty password (empty pass triggers MAC verification quirks
-    # with OpenSSL 3 even with the legacy MAC algorithm).
-    local p12pass="slab-import-$$"
-    if ! openssl pkcs12 -export \
-        -macalg sha1 -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES \
-        -out "${tmpdir}/bundle.p12" \
-        -inkey "${tmpdir}/key.pem" \
-        -in "${tmpdir}/cert.pem" \
-        -name "${SIGN_CN}" \
-        -passout "pass:${p12pass}" >/dev/null 2>&1; then
-        warn "pkcs12 export failed; will fall back to ad-hoc signing"
-        rm -rf "${tmpdir}"
-        return 1
+    rm -f "${script}" "${plist}"
+    # Verify the bundle now carries the stable authority. Capture first, then
+    # grep a string — do NOT pipe `codesign -dvv` into `grep -q`: under
+    # `set -o pipefail`, grep -q closes the pipe on first match, codesign takes
+    # SIGPIPE and exits non-zero, and the whole pipeline reports failure even
+    # though the signature matched (this caused a spurious ad-hoc fallback).
+    local sig
+    sig="$(codesign -dvv "${app}" 2>&1)"
+    if [[ "${sig}" == *"Authority=${SIGN_CN}"* ]]; then
+        rm -f "${log}"
+        return 0
     fi
-    if ! security import "${tmpdir}/bundle.p12" \
-        -k "${SIGN_KEYCHAIN}" \
-        -P "${p12pass}" \
-        -T /usr/bin/codesign \
-        -T /usr/bin/security >/dev/null 2>&1; then
-        warn "keychain import failed; will fall back to ad-hoc signing"
-        rm -rf "${tmpdir}"
-        return 1
-    fi
-    rm -rf "${tmpdir}"
-    ok "code signing identity created"
-    warn "first signing may prompt for keychain access — click 'Always Allow'"
-    return 0
+    warn "stable-sign helper did not produce a '${SIGN_CN}' signature; last output:"
+    tail -4 "${log}" 2>/dev/null | sed 's/^/    /' >&2 || true
+    rm -f "${log}"
+    return 1
 }
 
 # Provision iTerm2 profiles for the per-session tiled topic wallpapers: every
@@ -197,15 +264,11 @@ fi
 # Accessibility grant survives rebuilds (ad-hoc embeds the cdhash in the
 # designated requirement, which changes every build).
 SIGN_OK=0
-if ensure_signing_identity; then
-    if codesign --force --deep --sign "${SIGN_CN}" \
-        --identifier computer.slab.menubar \
-        "${APP_DIR}" >/dev/null 2>&1; then
-        SIGN_OK=1
-        ok "signed with '${SIGN_CN}' (stable identity — TCC grant should persist)"
-    else
-        warn "codesign with '${SIGN_CN}' failed; falling back to ad-hoc"
-    fi
+if codesign_app "${APP_DIR}"; then
+    SIGN_OK=1
+    ok "signed with '${SIGN_CN}' (stable identity — TCC grants persist across rebuilds)"
+else
+    warn "stable signing unavailable; using ad-hoc (TCC grants reset each rebuild)"
 fi
 if [[ "${SIGN_OK}" -eq 0 ]]; then
     codesign --force --deep --sign - \

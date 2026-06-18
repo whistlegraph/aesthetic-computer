@@ -19,6 +19,7 @@ All AC YouTube cuts are **1920×1080 landscape only** (vertical = Short, metadat
 | Helpabeach (v3) | [KVynj0RAwg8](https://youtu.be/KVynj0RAwg8) | `preview-score-helpabeach-yt.mjs` — multiply vignette half of `drawBacklight` dropped (warm sunset screen-glow kept); replaces v2 `WKdMYawwDPY` (deleted 2026-05-29 for the same side-darkening complaint) |
 | Amaythingra | [2FwOYCXS4UA](https://youtu.be/2FwOYCXS4UA) | `preview-score-yt.mjs` (big-pictures fork) — 32 cinematic beats, 3 render modes (photoreal office / glossy-grey metaverse / psychedelic AC-glitch degradation); chrome: per-slide tint, stained-glass colour-sep backlight, radial chromatic+blur edge-warp, glowy lanes, slide-blink bar, shimmer labels, kick beat-bump. Replaces `-at3b-chBbE`/`F-RhEL9OQ1g`/`KpK_MV8-178` (all deleted) |
 | Hellsine (v2) | [IjMGmPDvO4I](https://youtu.be/IjMGmPDvO4I) | `preview-score-hellsine-yt.mjs` — `drawVignette(c, v_i)` call removed from `paintSectionPanel` (function kept as dead code, mirrors marimbaba v3 / trancepenta-yt fix); replaces v1 `9KPUr6mA5e8` (deleted 2026-05-29, side-darkening crushed the felt-puppet panel edges); promoted to public 2026-05-29 |
+| Momabobasheep | [GCOhg5J-brw](https://youtu.be/GCOhg5J-brw) | **listener video** (not a preview-score cut) — 15 felt Seedance clips (`pop/momboba/video/board.json` + `build.mjs` driver, auditioned in ShotWizard) cycling so no clip repeats back-to-back, each under a fresh crop drift, smooth xfade dissolves between scenes, trimmed jumpy tails + slo-mo + stop-motion fps, gentle wavy displacement + film grain + unsharp, staggered pals badges (left low / right high, pals leading each rotated title column). `bin/assemble-listener.mjs` (cycling/crossfade plate) + `bin/chrome-listener.mjs`. Public 2026-06-17 |
 
 YouTube API quota: **6 video_insert / day / project** (`defaultVideoInsertPerDayPerProject`); deletes count toward the same window. On 2026-05-29 the de-vignette pass burned 5 of 6 (hellsine v1 upload at 02:04Z + delete hellsine v1 + delete helpabeach v2 + upload hellsine v2 + upload helpabeach v3) — next YT churn must wait for the 24h rolling window to clear.
 
@@ -714,6 +715,22 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
   --reel split for the Reels UI). Canvas: `bin/build-canvas.mjs` —
   8 s silent ping-pong of the dream take. Audio bed = the track from
   5:20, swelling into THE DREAM's golden-section climax.
+- **YouTube (2026-06-17):** listener video PUBLIC →
+  <https://youtu.be/GCOhg5J-brw> (1920×1080, 10:00, ~1.07 GB). NOT a
+  preview-score cut — a new **listener** pipeline: 15 felt Seedance clips
+  (the 9 movement scenes + 6 added vignettes: boba-macro, sheep-sky,
+  pond-koi, color-field, night-moon, and a closing **sketchbook** shot that
+  feeds the day's prior stills forward as gpt-image-2 refs so the pages
+  relive the day) **cycled** so no clip repeats back-to-back, each under a
+  fresh crop drift, **xfade dissolves** between every scene, trimmed jumpy
+  tails + slo-mo + stop-motion fps, gentle wavy displacement + film grain +
+  unsharp, staggered pals side-badges (left low / right high, pals leading
+  each rotated title column). Storyboarded/auditioned in **ShotWizard**
+  (`pop/momboba/video/board.json` + `build.mjs` driver: `--shot <id>` gens
+  still+clip, `--assemble` cuts the full video). Built by
+  `bin/assemble-listener.mjs` (cycling/crossfade plate) →
+  `bin/chrome-listener.mjs` (chrome + post). Title "Momabobasheep",
+  hashtag-only description. Thumbnail = the lily-pad dream frame.
 - **Engine:** `pop/momboba/bin/render-momabobasheep.mjs` — a **generative**
   renderer (deterministic per `--seed`; the default seed string remains
   `mombobasleep`, the PRNG key for this exact walk). **C ENGINE
