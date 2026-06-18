@@ -2874,9 +2874,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     ///   - `program`: GM melodic program 0–127 (default 78 = Whistle).
     ///   - `bpm`:     tempo in beats/min (default 132).
     ///   - `velocity`: 1–127 (default 100).
-    ///   - `notes`:   comma-separated `midi:beats` tokens; `r:beats` is a
-    ///                rest. e.g. "67:1,72:1,76:1,79:1,81:2,r:1". Beats are
-    ///                fractional-friendly ("60:0.5").
+    ///   - `notes`:   comma-separated `sym:beats` tokens. `sym` is a MIDI
+    ///                note ("67"), a drum letter (k/s/h/ho/c/rd/cr — kick,
+    ///                snare, closed/open hat, clap, ride, crash), or `r` for a
+    ///                rest. e.g. "67:1,72:1,r:1" or "k:1,h:0.5,s:1,h:0.5".
+    ///                Beats are fractional-friendly ("60:0.5").
+    ///   - `notes2`/`notes3`/`notes4`: optional extra voices played in
+    ///                parallel from the same start — one per drum so a kit can
+    ///                groove under a melody. Each honors `velocity2`/`3`/`4`.
     ///   - `startEpoch`: optional Unix time (seconds, fractional ok) to begin
     ///                playback at. Lets two NTP-synced machines start on the
     ///                exact same beat for call-and-response across the fleet —
@@ -2897,36 +2902,76 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let epoch = Double(info["startEpoch"] ?? "") {
             leadIn = max(0.2, epoch - Date().timeIntervalSince1970)
         }
-        // Default refrain: a breezy 4-bar pentatonic phrase in C, sized for
-        // the whistle's sweet spot (G4–A5).
-        let spec = info["notes"]
-            ?? "67:1,72:1,76:1,79:1,81:2,79:1,76:1,74:1,76:1,79:1,76:1,72:3,r:1"
         let beat = 60.0 / max(1, bpm)
+        // Up to four parallel voices share the same start instant: `notes`
+        // plus `notes2`/`notes3`/`notes4`. Each can carry its own
+        // `velocity`/`velocity2`/… (falling back to the shared velocity).
+        // That lets ONE post lay a drum kit — kick, snare, hat on separate
+        // tracks — optionally under a melody. A bare post (no `notes`) plays
+        // the default whistle refrain.
+        var tracks: [(spec: String, vel: UInt8)] = []
+        for suffix in ["", "2", "3", "4"] {
+            guard let s = info["notes" + suffix] else { continue }
+            let v = UInt8(info["velocity" + suffix] ?? "") ?? velocity
+            tracks.append((s, v))
+        }
+        if tracks.isEmpty {
+            tracks.append(("67:1,72:1,76:1,79:1,81:2,79:1,76:1,74:1,76:1,79:1,76:1,72:3,r:1",
+                           velocity))
+        }
 
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             if !self.isPopoverPanelShown { self.showPopover() }
             self.menuBand.setMelodicProgram(program)
 
-            var t = leadIn  // wait for the shared start instant (or 0.2s)
-            for token in spec.split(separator: ",") {
-                let parts = token.split(separator: ":")
-                guard parts.count == 2, let beats = Double(parts[1]) else { continue }
-                let dur = beats * beat
-                if parts[0] == "r" { t += dur; continue }
-                guard let midi = UInt8(parts[0]) else { continue }
-                let onAt = t
-                // Hold for most of the slot; a small gap keeps repeated
-                // notes articulated instead of slurring into one.
-                let offAt = t + dur * 0.9
-                DispatchQueue.main.asyncAfter(deadline: .now() + onAt) { [weak self] in
-                    self?.menuBand.startTapNote(midi, velocity: velocity)
+            for track in tracks {
+                var t = leadIn  // wait for the shared start instant (or 0.2s)
+                let vel = track.vel
+                for token in track.spec.split(separator: ",") {
+                    let parts = token.split(separator: ":")
+                    guard parts.count == 2, let beats = Double(parts[1]) else { continue }
+                    let dur = beats * beat
+                    let sym = parts[0]
+                    if sym == "r" { t += dur; continue }   // rest
+                    let onAt = t
+                    if let drum = AppDelegate.drum(for: sym) {
+                        // Percussion one-shot on menuband's native drum engine
+                        // (GM-independent; kick/snare/hat just hit and ring).
+                        DispatchQueue.main.asyncAfter(deadline: .now() + onAt) { [weak self] in
+                            _ = self?.menuBand.percussionNoteOn(drum, velocity: vel,
+                                                                pan: 64, accent: false)
+                        }
+                    } else if let midi = UInt8(sym) {
+                        // Melodic note via the real tap path (lights keys + waveform).
+                        // Hold for most of the slot; a small gap keeps repeated
+                        // notes articulated instead of slurring into one.
+                        let offAt = t + dur * 0.9
+                        DispatchQueue.main.asyncAfter(deadline: .now() + onAt) { [weak self] in
+                            self?.menuBand.startTapNote(midi, velocity: vel)
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + offAt) { [weak self] in
+                            self?.menuBand.stopTapNote(midi)
+                        }
+                    }
+                    t += dur
                 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + offAt) { [weak self] in
-                    self?.menuBand.stopTapNote(midi)
-                }
-                t += dur
             }
+        }
+    }
+
+    /// Map a `play` drum token to a kit voice. `k` kick · `s` snare ·
+    /// `h` closed hat · `ho` open hat · `c` clap · `rd` ride · `cr` crash.
+    private static func drum(for sym: Substring) -> MenuBandPercussion.Drum? {
+        switch sym {
+        case "k":  return .kick
+        case "s":  return .snare
+        case "h":  return .hatClosed
+        case "ho": return .hatOpen
+        case "c":  return .clap
+        case "rd": return .ride
+        case "cr": return .crash
+        default:   return nil
         }
     }
 
