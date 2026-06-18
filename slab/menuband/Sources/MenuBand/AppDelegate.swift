@@ -14,6 +14,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Live conductible drone/arp/drum loop (see MenuBandEngine + the
     /// `engine.*` distributed-notification handlers).
     private lazy var engine = MenuBandEngine(menuBand: menuBand)
+    /// Mic tempo follower — steers the engine's BPM to the room (engine.listen).
+    private var micTempo: MenuBandMicTempo?
     private let hoverResponder = HoverResponder()
     /// Bridges typing in the macOS Stickies app to Menu Band note
     /// playback when the focused sticky matches the trigger color.
@@ -763,7 +765,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // indefinitely and morphs on command (see MenuBandEngine). Four
         // verbs — start / chord / pattern / stop — let the fleet evolve a
         // piece of music over ssh without ever stopping the sound.
-        for verb in ["start", "chord", "pattern", "stop"] {
+        for verb in ["start", "chord", "pattern", "stop", "listen"] {
             DistributedNotificationCenter.default().addObserver(
                 self,
                 selector: #selector(handleEngineNotification(_:)),
@@ -3026,6 +3028,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 if let s = Double(info["step"] ?? "") { self.engine.setStepBeats(s) }
             case "stop":
                 self.engine.stop(fade: Double(info["fade"] ?? "") ?? 0.6)
+            case "listen":
+                // Mic-driven tempo follow: detect the room's BPM and steer the
+                // engine's loop to it. `on=0/false/off` stops listening.
+                let off = ["0", "false", "off"].contains((info["on"] ?? "1").lowercased())
+                if off {
+                    self.micTempo?.stop()
+                } else {
+                    if self.micTempo == nil {
+                        let mt = MenuBandMicTempo()
+                        mt.onTempo = { [weak self] bpm in self?.engine.setBPM(bpm) }
+                        self.micTempo = mt
+                    }
+                    self.micTempo?.start()
+                }
             default:
                 break
             }
