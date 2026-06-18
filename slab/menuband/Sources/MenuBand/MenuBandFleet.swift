@@ -43,7 +43,10 @@ final class MenuBandFleet: NSObject {
         browser.delegate = self
     }
 
+    private func log(_ s: String) { NSLog("🛰️ fleet: \(s)") }
+
     func start() {
+        log("start advertise+browse as '\(myPeer.displayName)' service=\(Self.serviceType)")
         advertiser.startAdvertisingPeer()
         browser.startBrowsingForPeers()
     }
@@ -80,6 +83,8 @@ final class MenuBandFleet: NSObject {
 
 extension MenuBandFleet: MCSessionDelegate {
     func session(_ session: MCSession, peer peerID: MCPeerID, didChange state: MCSessionState) {
+        let names = ["notConnected", "connecting", "connected"]
+        log("peer '\(peerID.displayName)' -> \(names[state.rawValue])")
         DispatchQueue.main.async {
             if state == .connected { self.startPinging() }
             else if state == .notConnected { self.offsets[peerID] = nil }
@@ -123,17 +128,29 @@ extension MenuBandFleet: MCNearbyServiceAdvertiserDelegate {
                     didReceiveInvitationFromPeer peerID: MCPeerID,
                     withContext context: Data?,
                     invitationHandler: @escaping (Bool, MCSession?) -> Void) {
+        log("invitation from '\(peerID.displayName)' -> accept")
         invitationHandler(true, session)            // auto-accept
+    }
+    func advertiser(_ advertiser: MCNearbyServiceAdvertiser,
+                    didNotStartAdvertisingPeer error: Error) {
+        log("ADVERTISE FAILED: \(error.localizedDescription)")
     }
 }
 
 extension MenuBandFleet: MCNearbyServiceBrowserDelegate {
     func browser(_ browser: MCNearbyServiceBrowser, foundPeer peerID: MCPeerID,
                  withDiscoveryInfo info: [String: String]?) {
+        let invite = myPeer.displayName < peerID.displayName
+        log("found '\(peerID.displayName)' invite=\(invite)")
         // Tie-break so only one side invites (lower name invites the higher).
-        if myPeer.displayName < peerID.displayName {
+        if invite {
             browser.invitePeer(peerID, to: session, withContext: nil, timeout: 30)
         }
     }
-    func browser(_ browser: MCNearbyServiceBrowser, lostPeer peerID: MCPeerID) {}
+    func browser(_ browser: MCNearbyServiceBrowser, lostPeer peerID: MCPeerID) {
+        log("lost '\(peerID.displayName)'")
+    }
+    func browser(_ browser: MCNearbyServiceBrowser, didNotStartBrowsingForPeers error: Error) {
+        log("BROWSE FAILED: \(error.localizedDescription)")
+    }
 }
