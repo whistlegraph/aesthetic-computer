@@ -742,6 +742,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil
         )
 
+        // Sibling remote: autoplay a melody. Switches to the GM program
+        // named in userInfo["program"] (default Whistle, 78) and plays the
+        // note sequence in userInfo["notes"] through the real tap path, so
+        // the audio, the lit menubar keys, and the popover waveform all
+        // animate exactly as if a human were playing. Lets the fleet drive
+        // a machine to literally perform a refrain over ssh — no keyboard,
+        // no AX, just one posted notification. See `handlePlayNotification`.
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(handlePlayNotification(_:)),
+            name: NSNotification.Name("computer.aestheticcomputer.menuband.play"),
+            object: nil
+        )
+
         // Trackpad pitch-bend: while local capture is armed (the
         // user is playing notes via the keyboard), single-finger
         // trackpad cursor-Y movement bends the pitch of every
@@ -2852,6 +2866,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func handleShowKeymapNotification(_ note: Notification) {
         DispatchQueue.main.async { [weak self] in
             self?.pianoWaveformWindowDelegate.showExpandedForPopover()
+        }
+    }
+
+    /// Remote autoplay. `userInfo` (all string-valued, since it crosses a
+    /// process boundary via DistributedNotificationCenter):
+    ///   - `program`: GM melodic program 0–127 (default 78 = Whistle).
+    ///   - `bpm`:     tempo in beats/min (default 132).
+    ///   - `velocity`: 1–127 (default 100).
+    ///   - `notes`:   comma-separated `midi:beats` tokens; `r:beats` is a
+    ///                rest. e.g. "67:1,72:1,76:1,79:1,81:2,r:1". Beats are
+    ///                fractional-friendly ("60:0.5").
+    /// Each note rides `startTapNote`/`stopTapNote` so it lights the keys
+    /// and feeds the waveform — the machine performs, it doesn't just emit
+    /// audio. A bare post (no userInfo) plays the default whistle refrain.
+    @objc private func handlePlayNotification(_ note: Notification) {
+        let info = note.userInfo as? [String: String] ?? [:]
+        let program = UInt8(info["program"] ?? "") ?? 78
+        let bpm = Double(info["bpm"] ?? "") ?? 132
+        let velocity = UInt8(info["velocity"] ?? "") ?? 100
+        // Default refrain: a breezy 4-bar pentatonic phrase in C, sized for
+        // the whistle's sweet spot (G4–A5).
+        let spec = info["notes"]
+            ?? "67:1,72:1,76:1,79:1,81:2,79:1,76:1,74:1,76:1,79:1,76:1,72:3,r:1"
+        let beat = 60.0 / max(1, bpm)
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if !self.isPopoverPanelShown { self.showPopover() }
+            self.menuBand.setMelodicProgram(program)
+
+            var t = 0.2  // small lead-in so the program change settles
+            for token in spec.split(separator: ",") {
+                let parts = token.split(separator: ":")
+                guard parts.count == 2, let beats = Double(parts[1]) else { continue }
+                let dur = beats * beat
+                if parts[0] == "r" { t += dur; continue }
+                guard let midi = UInt8(parts[0]) else { continue }
+                let onAt = t
+                // Hold for most of the slot; a small gap keeps repeated
+                // notes articulated instead of slurring into one.
+                let offAt = t + dur * 0.9
+                DispatchQueue.main.asyncAfter(deadline: .now() + onAt) { [weak self] in
+                    self?.menuBand.startTapNote(midi, velocity: velocity)
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + offAt) { [weak self] in
+                    self?.menuBand.stopTapNote(midi)
+                }
+                t += dur
+            }
         }
     }
 
