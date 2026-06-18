@@ -16,6 +16,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var engine = MenuBandEngine(menuBand: menuBand)
     /// Mic tempo follower — steers the engine's BPM to the room (engine.listen).
     private var micTempo: MenuBandMicTempo?
+    /// Text-to-speech voice for the `say` hook (machines talking to each other).
+    private let speechSynth = AVSpeechSynthesizer()
     private let hoverResponder = HoverResponder()
     /// Bridges typing in the macOS Stickies app to Menu Band note
     /// playback when the focused sticky matches the trigger color.
@@ -773,6 +775,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 object: nil
             )
         }
+
+        // Text-to-speech: let one machine speak (machines chatting before a
+        // duet, count-ins, narration). Synced via startEpoch like everything
+        // else. See handleSayNotification.
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(handleSayNotification(_:)),
+            name: NSNotification.Name("computer.aestheticcomputer.menuband.say"),
+            object: nil
+        )
 
         // Trackpad pitch-bend: while local capture is armed (the
         // user is playing notes via the keyboard), single-finger
@@ -3046,6 +3058,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 break
             }
         }
+    }
+
+    /// Speak text via AVSpeechSynthesizer. userInfo: `text` (required),
+    /// `voice` (a voice name like "Daniel"/"Samantha", an AVSpeech identifier,
+    /// or a BCP-47 language), `rate` (0–1, default ~0.5), `pitch` (0.5–2),
+    /// `volume` (0–1), `startEpoch` (UTC instant to speak at, for synced
+    /// cross-machine dialogue/count-ins).
+    @objc private func handleSayNotification(_ note: Notification) {
+        let info = note.userInfo as? [String: String] ?? [:]
+        guard let text = info["text"], !text.isEmpty else { return }
+        let rate = Float(info["rate"] ?? "") ?? AVSpeechUtteranceDefaultSpeechRate
+        let pitch = Float(info["pitch"] ?? "") ?? 1.0
+        let volume = Float(info["volume"] ?? "") ?? 1.0
+        let voiceName = info["voice"]
+        var leadIn = 0.0
+        if let epoch = Double(info["startEpoch"] ?? "") {
+            leadIn = max(0, epoch - Date().timeIntervalSince1970)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + leadIn) { [weak self] in
+            let u = AVSpeechUtterance(string: text)
+            u.rate = rate
+            u.pitchMultiplier = max(0.5, min(2.0, pitch))
+            u.volume = max(0, min(1, volume))
+            if let name = voiceName, let v = AppDelegate.speechVoice(named: name) {
+                u.voice = v
+            }
+            self?.speechSynth.speak(u)
+        }
+    }
+
+    /// Resolve a `say` voice: exact AVSpeech identifier, then voice name
+    /// (case-insensitive, exact then contains), then a BCP-47 language.
+    private static func speechVoice(named s: String) -> AVSpeechSynthesisVoice? {
+        let all = AVSpeechSynthesisVoice.speechVoices()
+        if let v = all.first(where: { $0.identifier == s }) { return v }
+        let lower = s.lowercased()
+        if let v = all.first(where: { $0.name.lowercased() == lower }) { return v }
+        if let v = all.first(where: { $0.name.lowercased().contains(lower) }) { return v }
+        return AVSpeechSynthesisVoice(language: s)
     }
 
     private static func parseBytes(_ s: String?) -> [UInt8] {
