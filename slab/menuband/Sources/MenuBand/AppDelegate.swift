@@ -2877,6 +2877,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     ///   - `notes`:   comma-separated `midi:beats` tokens; `r:beats` is a
     ///                rest. e.g. "67:1,72:1,76:1,79:1,81:2,r:1". Beats are
     ///                fractional-friendly ("60:0.5").
+    ///   - `startEpoch`: optional Unix time (seconds, fractional ok) to begin
+    ///                playback at. Lets two NTP-synced machines start on the
+    ///                exact same beat for call-and-response across the fleet —
+    ///                the sequence waits until that wall-clock instant
+    ///                regardless of when the notification arrived. If absent
+    ///                or already past, playback starts right away.
     /// Each note rides `startTapNote`/`stopTapNote` so it lights the keys
     /// and feeds the waveform — the machine performs, it doesn't just emit
     /// audio. A bare post (no userInfo) plays the default whistle refrain.
@@ -2885,6 +2891,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let program = UInt8(info["program"] ?? "") ?? 78
         let bpm = Double(info["bpm"] ?? "") ?? 132
         let velocity = UInt8(info["velocity"] ?? "") ?? 100
+        // Shared start instant (see `startEpoch` above). 0.2s minimum so a
+        // local post still gets a beat for the program change to settle.
+        var leadIn = 0.2
+        if let epoch = Double(info["startEpoch"] ?? "") {
+            leadIn = max(0.2, epoch - Date().timeIntervalSince1970)
+        }
         // Default refrain: a breezy 4-bar pentatonic phrase in C, sized for
         // the whistle's sweet spot (G4–A5).
         let spec = info["notes"]
@@ -2896,7 +2908,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if !self.isPopoverPanelShown { self.showPopover() }
             self.menuBand.setMelodicProgram(program)
 
-            var t = 0.2  // small lead-in so the program change settles
+            var t = leadIn  // wait for the shared start instant (or 0.2s)
             for token in spec.split(separator: ",") {
                 let parts = token.split(separator: ":")
                 guard parts.count == 2, let beats = Double(parts[1]) else { continue }
