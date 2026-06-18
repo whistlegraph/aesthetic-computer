@@ -34,5 +34,14 @@
 	<string>By aesthetic.computer</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Menu Band records short clips from your microphone when you hold ` so you can play them back as a sampling voice.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Menu Band finds nearby Menu Bands so two machines can play together in sync over peer-to-peer Wi-Fi and Bluetooth, no router needed.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Menu Band uses Bluetooth to discover and sync with nearby Menu Bands for multi-machine performances.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_acmenuband._tcp</string>
+		<string>_acmenuband._udp</string>
+	</array>
 </dict>
 </plist>

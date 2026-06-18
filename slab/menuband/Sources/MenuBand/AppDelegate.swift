@@ -18,6 +18,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var micTempo: MenuBandMicTempo?
     /// Text-to-speech voice for the `say` hook (machines talking to each other).
     private let speechSynth = AVSpeechSynthesizer()
+    /// Peer-to-peer link to other Menu Bands (Bluetooth + peer Wi-Fi, no LAN).
+    private let fleet = MenuBandFleet()
     private let hoverResponder = HoverResponder()
     /// Bridges typing in the macOS Stickies app to Menu Band note
     /// playback when the focused sticky matches the trigger color.
@@ -783,6 +785,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self,
             selector: #selector(handleSayNotification(_:)),
             name: NSNotification.Name("computer.aestheticcomputer.menuband.say"),
+            object: nil
+        )
+
+        // Multipeer fleet: play a received part, and expose two local triggers
+        // — `fleet.play` (conduct self + relay the peer's part over MC) and
+        // `fleet.status` (speak the connection state, for testing).
+        fleet.onMessage = { [weak self] msg in
+            guard (msg["t"] as? String) == "play" else { return }
+            var info: [String: String] = [:]
+            for (k, v) in msg { if let s = v as? String { info[k] = s } }
+            self?.playFromInfo(info)
+        }
+        fleet.start()
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(handleFleetPlayNotification(_:)),
+            name: NSNotification.Name("computer.aestheticcomputer.menuband.fleet.play"),
+            object: nil
+        )
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(handleFleetStatusNotification(_:)),
+            name: NSNotification.Name("computer.aestheticcomputer.menuband.fleet.status"),
             object: nil
         )
 
@@ -2922,7 +2947,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// and feeds the waveform — the machine performs, it doesn't just emit
     /// audio. A bare post (no userInfo) plays the default whistle refrain.
     @objc private func handlePlayNotification(_ note: Notification) {
-        let info = note.userInfo as? [String: String] ?? [:]
+        playFromInfo(note.userInfo as? [String: String] ?? [:])
+    }
+
+    /// Parse a play spec (from a distributed notification or a fleet message)
+    /// and schedule it. Keys are documented on handlePlayNotification.
+    func playFromInfo(_ info: [String: String]) {
         let program = UInt8(info["program"] ?? "") ?? 78
         let bpm = Double(info["bpm"] ?? "") ?? 132
         let velocity = UInt8(info["velocity"] ?? "") ?? 100
@@ -3083,6 +3113,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 u.voice = v
             }
             self?.speechSynth.speak(u)
+        }
+    }
+
+    /// Conductor trigger (local): play `notesSelf` here and relay `notesPeer`
+    /// to the connected Multipeer peer, both at one shared instant (peer's
+    /// clock = mine + the measured offset). userInfo: program/bpm/velocity/lead
+    /// + notesSelf + notesPeer. No ssh, no LAN — the relay rides Bluetooth/AWDL.
+    @objc private func handleFleetPlayNotification(_ note: Notification) {
+        let info = note.userInfo as? [String: String] ?? [:]
+        let lead = Double(info["lead"] ?? "") ?? 1.2
+        let startLocal = Date().timeIntervalSince1970 + lead
+        var mine = info
+        mine["notes"] = info["notesSelf"] ?? ""
+        mine["startEpoch"] = String(format: "%.3f", startLocal)
+        mine.removeValue(forKey: "notesSelf")
+        mine.removeValue(forKey: "notesPeer")
+        playFromInfo(mine)
+        if let off = fleet.firstPeerOffset {
+            fleet.send([
+                "t": "play",
+                "program": info["program"] ?? "78",
+                "bpm": info["bpm"] ?? "132",
+                "velocity": info["velocity"] ?? "100",
+                "notes": info["notesPeer"] ?? "",
+                "startEpoch": String(format: "%.3f", startLocal + off),
+            ])
+        }
+    }
+
+    /// Speak the fleet connection state — audible test feedback over ssh.
+    @objc private func handleFleetStatusNotification(_ note: Notification) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            let peers = self.fleet.connectedPeers.map { $0.displayName }
+            let txt: String
+            if peers.isEmpty {
+                txt = "No peers connected yet."
+            } else {
+                let off = Int((self.fleet.firstPeerOffset ?? 0) * 1000)
+                txt = "Connected to \(peers.joined(separator: ", ")). Offset \(off) milliseconds."
+            }
+            self.speechSynth.speak(AVSpeechUtterance(string: txt))
         }
     }
 
