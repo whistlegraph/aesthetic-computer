@@ -6493,10 +6493,18 @@ export const handler = async (event, context) => {
                 await setCacheMeta(totalPages, lastModified);
               }
               
-              // Cache the loaded pages (by page number for backwards compat)
-              for (const page of loadedPagesData) {
-                const idx = pageIndex || (totalPages - loadedPagesData.length + loadedPagesData.indexOf(page) + 1);
-                await setCachedPage(idx, page);
+              // Cache the loaded pages (by page number for backwards compat) for
+              // faster subsequent loads. Batched into a single transaction and left
+              // un-awaited so it never blocks first paint — matters most when the
+              // full history is loaded.
+              {
+                const cacheStartNum = totalPages - loadedPagesData.length + 1;
+                setCachedPagesBatch(
+                  loadedPagesData.map((page, i) => ({
+                    pageIndex: pageIndex || cacheStartNum + i,
+                    data: page,
+                  })),
+                );
               }
 
               // 🎨 CANVAS-BASED PAGE RENDERING (single page + transitions)
@@ -9859,7 +9867,26 @@ export const handler = async (event, context) => {
                 });
               } catch { return false; }
             }
-            
+
+            // Write many pages in ONE transaction. Far cheaper than N separate
+            // setCachedPage calls, and meant to be fired un-awaited so it stays
+            // off the first-paint critical path.
+            async function setCachedPagesBatch(entries) {
+              if (!entries || entries.length === 0) return false;
+              try {
+                const db = await openPageCache();
+                return new Promise((resolve) => {
+                  const tx = db.transaction(PAGE_CACHE_STORE, "readwrite");
+                  const store = tx.objectStore(PAGE_CACHE_STORE);
+                  for (const { pageIndex, data } of entries) {
+                    store.put({ pageIndex, data });
+                  }
+                  tx.oncomplete = () => resolve(true);
+                  tx.onerror = () => resolve(false);
+                });
+              } catch { return false; }
+            }
+
             async function getCachedPages(startIndex, endIndex) {
               try {
                 const db = await openPageCache();
