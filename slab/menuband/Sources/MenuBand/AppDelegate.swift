@@ -11,6 +11,9 @@ extension Notification.Name {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private let menuBand = MenuBandController()
+    /// Live conductible drone/arp/drum loop (see MenuBandEngine + the
+    /// `engine.*` distributed-notification handlers).
+    private lazy var engine = MenuBandEngine(menuBand: menuBand)
     private let hoverResponder = HoverResponder()
     /// Bridges typing in the macOS Stickies app to Menu Band note
     /// playback when the focused sticky matches the trigger color.
@@ -755,6 +758,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             name: NSNotification.Name("computer.aestheticcomputer.menuband.play"),
             object: nil
         )
+
+        // Live engine: a conductible drone/arp/drum loop that runs
+        // indefinitely and morphs on command (see MenuBandEngine). Four
+        // verbs — start / chord / pattern / stop — let the fleet evolve a
+        // piece of music over ssh without ever stopping the sound.
+        for verb in ["start", "chord", "pattern", "stop"] {
+            DistributedNotificationCenter.default().addObserver(
+                self,
+                selector: #selector(handleEngineNotification(_:)),
+                name: NSNotification.Name("computer.aestheticcomputer.menuband.engine.\(verb)"),
+                object: nil
+            )
+        }
 
         // Trackpad pitch-bend: while local capture is armed (the
         // user is playing notes via the keyboard), single-finger
@@ -2973,6 +2989,64 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case "cr": return .crash
         default:   return nil
         }
+    }
+
+    /// Single entry point for all `engine.*` verbs. `userInfo` (string-valued):
+    ///   start   — `bpm`, `chord` ("60,64,67"), `program`, `arp` ("0,1,2,1"
+    ///             chord-tone indices, -1 = rest), `step` (beats/step),
+    ///             `drums` ("k,h,s,h,…", empty = rest). Begins the loop and
+    ///             holds the chord as a pad.
+    ///   chord   — `chord` + `glide` (s): crossfade-morph the held chord; the
+    ///             arpeggio follows the new tones automatically.
+    ///   pattern — any of `arp`/`drums`/`bpm`/`step`: reshape the loop live
+    ///             without stopping the sound.
+    ///   stop    — `fade` (s): fade the pad out and halt the loop.
+    @objc private func handleEngineNotification(_ note: Notification) {
+        let info = note.userInfo as? [String: String] ?? [:]
+        let verb = note.name.rawValue.components(separatedBy: ".").last ?? ""
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            switch verb {
+            case "start":
+                if !self.isPopoverPanelShown { self.showPopover() }
+                self.engine.start(
+                    bpm: Double(info["bpm"] ?? "") ?? 110,
+                    chord: AppDelegate.parseBytes(info["chord"]),
+                    program: UInt8(info["program"] ?? "") ?? 89,
+                    arp: AppDelegate.parseInts(info["arp"]),
+                    stepBeats: Double(info["step"] ?? "") ?? 0.5,
+                    drums: AppDelegate.parseSteps(info["drums"]))
+            case "chord":
+                self.engine.morph(toChord: AppDelegate.parseBytes(info["chord"]),
+                                  glide: Double(info["glide"] ?? "") ?? 1.5)
+            case "pattern":
+                if let a = info["arp"]   { self.engine.setArp(AppDelegate.parseInts(a)) }
+                if let d = info["drums"] { self.engine.setDrums(AppDelegate.parseSteps(d)) }
+                if let b = Double(info["bpm"] ?? "")  { self.engine.setBPM(b) }
+                if let s = Double(info["step"] ?? "") { self.engine.setStepBeats(s) }
+            case "stop":
+                self.engine.stop(fade: Double(info["fade"] ?? "") ?? 0.6)
+            default:
+                break
+            }
+        }
+    }
+
+    private static func parseBytes(_ s: String?) -> [UInt8] {
+        (s ?? "").split(separator: ",").compactMap {
+            UInt8($0.trimmingCharacters(in: .whitespaces))
+        }
+    }
+    private static func parseInts(_ s: String?) -> [Int] {
+        (s ?? "").split(separator: ",").compactMap {
+            Int($0.trimmingCharacters(in: .whitespaces))
+        }
+    }
+    /// Comma-split keeping empties so a `drums` pattern preserves its rests.
+    private static func parseSteps(_ s: String?) -> [String] {
+        guard let s = s, !s.isEmpty else { return [] }
+        return s.split(separator: ",", omittingEmptySubsequences: false)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
     }
 
     @objc private func handleShowAboutNotification(_ note: Notification) {

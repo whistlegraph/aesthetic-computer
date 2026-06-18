@@ -737,6 +737,39 @@ final class MenuBandController {
         synth.percussionPulses()
     }
 
+    // MARK: - Live engine primitives
+    // Low-level voice control for `MenuBandEngine` (the conductible
+    // drone/arp/drum loop). These bypass the round-robin tap path and address
+    // explicit channels so the engine can hold a sustained chord on one bank
+    // while crossfading a new chord onto another. GM channel 9 stays reserved
+    // for percussion.
+
+    /// Hold a sustained melodic voice on an explicit channel (no auto-off).
+    func engineVoiceOn(_ note: UInt8, channel: UInt8, velocity: UInt8) {
+        synth.setPan(64, channel: channel)
+        synth.noteOn(note, velocity: velocity, channel: channel)
+    }
+
+    /// Release a sustained engine voice.
+    func engineVoiceOff(_ note: UInt8, channel: UInt8) {
+        synth.noteOff(note, channel: channel)
+    }
+
+    /// Per-channel Expression (CC 11) — the engine's crossfade lever.
+    func engineExpression(_ value: UInt8, channel: UInt8) {
+        synth.sendExpression(value: value, channel: channel)
+    }
+
+    /// One-shot percussion hit for the engine's drum loop.
+    func engineDrum(_ drum: MenuBandPercussion.Drum, velocity: UInt8) {
+        _ = synth.percussionNoteOn(drum, velocity: velocity, pan: 64, accent: false)
+    }
+
+    /// Set the melodic patch the engine's pad + arp voices speak through.
+    func engineSetProgram(_ program: UInt8) {
+        synth.setMelodicProgram(program)
+    }
+
     /// True when the given menubar display note is a right-hand drum key
     /// (split armed and the note is in the upper half).
     func isPercussionDisplayNote(_ displayNote: UInt8) -> Bool {
