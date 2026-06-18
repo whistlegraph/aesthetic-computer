@@ -24,7 +24,7 @@
 // host (the minis are ssh aliases); set "sshHost" per machine to override.
 
 import { execFileSync, spawn } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import { dirname, join } from "node:path";
 
@@ -33,6 +33,12 @@ const CONFIG_PATH =
   process.env.SLAB_PUPPET_CONFIG || join(HOME, ".config", "slab", "puppet.json");
 const FRAMES_DIR = join(HOME, ".local", "share", "slab", "frames");
 const SOCK_PATH = process.env.SLAB_FRAME_SOCK || join(HOME, ".local", "share", "slab", "frame.sock");
+// The menubar app on THIS (controller) Mac watches `state/open-frame` and
+// raises a preview window per machine, badged with the machine name (see
+// FramePreview.swift). Opt-in via `--preview` / `frame view <machine>` so a
+// plain `frame` call never pops a window. SLAB_HOME mirrors the Swift side.
+const SLAB_HOME = process.env.SLAB_HOME || join(HOME, ".local", "share", "slab");
+const FRAME_REQUEST_FILE = join(SLAB_HOME, "state", "open-frame");
 const APP_BUNDLE = "computer.slab.menubar";
 
 // The remote read-loop agent: ONE per machine, held open by the server so each
@@ -152,6 +158,16 @@ function parseFrame(buf) {
 function frameBytes(json, jpg) {
   const jb = Buffer.from(json, "utf8");
   return Buffer.concat([Buffer.from(`ACF1 ${jb.length} ${jpg.length}\n`, "ascii"), jb, jpg]);
+}
+
+// Ask the local menubar app to open (or live-reload) a preview window for a
+// pulled frame. One `path\tmachine` line appended to `state/open-frame`; the
+// app's 2 s tick consumes it (FramePreview.consumeRequests). Re-asking the
+// same machine raises + reloads its window. Best-effort: a missing menubar
+// just leaves an unconsumed line, which is harmless.
+function requestPreview(machine, jpgPath) {
+  mkdirSync(dirname(FRAME_REQUEST_FILE), { recursive: true });
+  appendFileSync(FRAME_REQUEST_FILE, `${jpgPath}\t${machine}\n`);
 }
 
 // ─── persistent server: one held-open agent per machine ───────────────────
@@ -310,7 +326,7 @@ function directFrame(name, machines, mode, timeoutMs = 15000) {
   });
 }
 
-async function captureFrame(name, { noOCR = false, fast = false, out, json = false, direct = false } = {}) {
+async function captureFrame(name, { noOCR = false, fast = false, out, json = false, direct = false, preview = false } = {}) {
   const machines = loadMachines();
   if (!machines[name]) {
     console.error(`unknown machine "${name}" — known: ${Object.keys(machines).join(", ") || "(none)"}`);
@@ -350,6 +366,12 @@ async function captureFrame(name, { noOCR = false, fast = false, out, json = fal
   if (hasJpg) {
     mkdirSync(dirname(outPath), { recursive: true });
     writeFileSync(outPath, frame.jpg);
+  }
+  // Opt-in: pop (or live-reload) the local preview window, badged `name`.
+  // Only with pixels in hand — a permission-blocked frame has nothing to show.
+  if (preview && hasJpg) requestPreview(name, outPath);
+  else if (preview && !hasJpg) {
+    console.error(`(no pixels to preview for ${name} — capture blocked; run: frame setup ${name})`);
   }
   if (json) {
     process.stdout.write(frame.json);
@@ -446,9 +468,11 @@ const opt = (f) => {
 if (!cmd || cmd === "-h" || cmd === "--help") {
   console.log(
     "frame — capture a rich frame (pixels + OCR + AX + state) of a remote Mac\n\n" +
-      "  frame <machine> [--no-ocr] [--fast] [--direct] [--out file.jpg] [--json]\n" +
+      "  frame <machine> [--no-ocr] [--fast] [--direct] [--preview] [--out file.jpg] [--json]\n" +
       "      --fast: Vision .fast OCR (lower latency, less accurate on small text)\n" +
       "      --direct: bypass the resident server, do a one-shot ssh\n" +
+      "      --preview: pop a labeled preview window of the pulled frame on THIS Mac\n" +
+      "  frame view <machine>        capture + open the badged preview window (= --preview)\n" +
       "  frame doctor [machine]      per-machine daemon + permission status\n" +
       "  frame setup <machine>       trigger + guide the one-time Screen Recording grant\n" +
       "  frame list                  registered machines\n" +
@@ -466,4 +490,10 @@ else if (cmd === "stop") {
 } else if (cmd === "doctor") doctor(argv[1]);
 else if (cmd === "setup") await setup(argv[1]);
 else if (cmd === "list") list();
-else await captureFrame(cmd, { noOCR: flag("--no-ocr"), fast: flag("--fast"), direct: flag("--direct"), out: opt("--out"), json: flag("--json") });
+else if (cmd === "view") {
+  // `frame view <machine>` — capture + open the badged preview window.
+  // Sugar for `frame <machine> --preview` so it reads like the slab-video /
+  // slab-pdf "show me this" verbs.
+  if (!argv[1]) { console.error("usage: frame view <machine>"); process.exit(1); }
+  await captureFrame(argv[1], { noOCR: flag("--no-ocr"), fast: flag("--fast"), direct: flag("--direct"), out: opt("--out"), preview: true });
+} else await captureFrame(cmd, { noOCR: flag("--no-ocr"), fast: flag("--fast"), direct: flag("--direct"), out: opt("--out"), json: flag("--json"), preview: flag("--preview") });

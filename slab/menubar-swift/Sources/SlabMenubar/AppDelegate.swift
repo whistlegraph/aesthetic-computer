@@ -253,6 +253,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
                 PdfViewer.shared.consumeRequests(emojiFor: emojiFor)
                 VideoViewer.shared.consumeRequests(emojiFor: emojiFor)
+                // Pulled `frame` screenshots open in FramePreview, badged with
+                // the source machine name (see FramePreview.swift / `frame
+                // --preview`). Machine identity leads, so no session emoji here.
+                FramePreview.shared.consumeRequests()
                 self.applyTerminalDecor()
                 self.applyDesktopTint()
             }
