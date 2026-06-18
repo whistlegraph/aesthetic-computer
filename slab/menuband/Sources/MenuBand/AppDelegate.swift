@@ -3085,11 +3085,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     // not just its tempo.
                     if ["1", "true"].contains((info["kick"] ?? "").lowercased()) {
                         let v = UInt8(info["kickvel"] ?? "") ?? 122
-                        self.micTempo?.onOnset = { [weak self] in
+                        // Kick fires from the phase-locked beat clock (steady +
+                        // aligned), not raw onsets (jittery).
+                        self.micTempo?.onBeat = { [weak self] in
                             self?.menuBand.engineDrum(.kick, velocity: v)
                         }
                     } else {
-                        self.micTempo?.onOnset = nil
+                        self.micTempo?.onBeat = nil
                     }
                     self.micTempo?.start()
                 }

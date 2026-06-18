@@ -14,6 +14,15 @@ import CoreAudio
 final class MenuBandMicTempo {
     var onTempo: ((Double) -> Void)?      // smoothed BPM (main thread)
     var onOnset: (() -> Void)?            // a kick-like onset just happened (main thread)
+    var onBeat: (() -> Void)?             // a phase-locked beat tick (main thread)
+
+    // Phase-locked beat clock: a steady pulse at the detected period whose
+    // phase is nudged toward detected onsets. Emits onBeat for an even,
+    // consistent kick that rides the song instead of chasing raw transients.
+    private var period = 0.0
+    private var lastBeat = 0.0
+    private var clockRunning = false
+    private let latencyComp = 0.02        // s, push beats early to offset input lag
 
     private let aue = AVAudioEngine()
     private(set) var running = false
@@ -50,7 +59,7 @@ final class MenuBandMicTempo {
         setSmallIOBuffer()                 // ask CoreAudio for low latency
         let fmt = input.inputFormat(forBus: 0)
         sr = fmt.sampleRate > 0 ? fmt.sampleRate : 44100
-        lpAlpha = 1 - exp(-2 * Double.pi * 150 / sr)
+        lpAlpha = 1 - exp(-2 * Double.pi * 90 / sr)   // ~90 Hz: kick fundamental, reject snare
         input.installTap(onBus: 0, bufferSize: 256, format: fmt) { [weak self] b, _ in
             self?.process(b)
         }
@@ -75,6 +84,7 @@ final class MenuBandMicTempo {
         aue.stop()
         analyzeTimer?.invalidate(); analyzeTimer = nil
         running = false
+        clockRunning = false; period = 0
         lock.lock(); novelty = [Float](repeating: 0, count: cap); head = 0; filled = 0; lock.unlock()
         recent.removeAll(); carry.removeAll(); prevLogE = -12; fluxMean = 0; fluxVar = 0
     }
@@ -92,6 +102,40 @@ final class MenuBandMicTempo {
             mSelector: kAudioDevicePropertyBufferFrameSize,
             mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
         AudioObjectSetPropertyData(dev, &faddr, 0, nil, UInt32(MemoryLayout<UInt32>.size), &frames)
+    }
+
+    // MARK: - Phase-locked beat clock
+    private func startClockIfNeeded() {
+        guard onBeat != nil, !clockRunning, period > 0 else { return }
+        clockRunning = true
+        lastBeat = CACurrentMediaTime()
+        NSLog("🎧 beat clock: start @ \(Int(60/period)) bpm")
+        scheduleNextBeat()
+    }
+
+    private func scheduleNextBeat() {
+        guard clockRunning, period > 0 else { return }
+        let now = CACurrentMediaTime()
+        var target = lastBeat + period
+        if target <= now { target = now + 0.005; lastBeat = target - period }
+        DispatchQueue.main.asyncAfter(deadline: .now() + (target - now)) { [weak self] in
+            guard let self = self, self.clockRunning else { return }
+            self.lastBeat = target
+            self.onBeat?()
+            self.scheduleNextBeat()
+        }
+    }
+
+    /// PLL: pull the beat grid toward an onset, but only if the onset lands
+    /// near an expected beat (so off-beat snares/claps are ignored).
+    private func correctPhase(at onsetTime: Double) {
+        guard clockRunning, period > 0 else { return }
+        let t = onsetTime - latencyComp
+        let k = ((t - lastBeat) / period).rounded()
+        let err = t - (lastBeat + k * period)
+        if abs(err) < period * 0.28 {
+            lastBeat += 0.15 * err
+        }
     }
 
     private func process(_ b: AVAudioPCMBuffer) {
@@ -122,7 +166,11 @@ final class MenuBandMicTempo {
             let now = CACurrentMediaTime()
             if flux > fluxMean + 1.7 * std, flux > 0.015, now - lastOnset > refractory {
                 lastOnset = now
-                DispatchQueue.main.async { [weak self] in self?.onOnset?() }
+                let t = now
+                DispatchQueue.main.async { [weak self] in
+                    self?.correctPhase(at: t)     // nudge the beat clock toward this onset
+                    self?.onOnset?()
+                }
             }
             off += hop
         }
@@ -157,11 +205,15 @@ final class MenuBandMicTempo {
         recent.append(bpm); if recent.count > 5 { recent.removeFirst() }
         let sorted = recent.sorted(); let med = sorted[sorted.count / 2]
         let spread = (sorted.last ?? med) - (sorted.first ?? med)
-        if recent.count >= 3, spread < 6, abs(med - lastReported) >= 2 {
-            lastReported = med
-            let out = (med * 10).rounded() / 10
-            NSLog("🎧 mic tempo: \(Int(out)) bpm")
-            DispatchQueue.main.async { [weak self] in self?.onTempo?(out) }
+        if recent.count >= 3, spread < 8 {
+            period = 60.0 / med                         // drive the beat clock
+            DispatchQueue.main.async { [weak self] in self?.startClockIfNeeded() }
+            if abs(med - lastReported) >= 2 {
+                lastReported = med
+                let out = (med * 10).rounded() / 10
+                NSLog("🎧 mic tempo: \(Int(out)) bpm")
+                DispatchQueue.main.async { [weak self] in self?.onTempo?(out) }
+            }
         }
     }
 }
