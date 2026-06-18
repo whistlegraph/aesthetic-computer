@@ -390,7 +390,7 @@ export const handler = async (event, context) => {
               
               /* Page/Background Colors */
               --background-color: #FFD1DC;
-              --garden-background: #FFD1DC;
+              --garden-background: #C6E0F5; /* bluish — diary only (gate uses --background-color) */
               --chat-background: rgb(240, 235, 230);
               --chat-input-bar-background: rgb(255, 240, 235);
               --backpage-color: rgb(250, 250, 250);
@@ -465,7 +465,7 @@ export const handler = async (event, context) => {
               :root {
                 /* Page/Background Colors - deep rose/plum evening */
                 --background-color: #2d1f2a;
-                --garden-background: #2d1f2a;
+                --garden-background: #1f2838; /* bluish — diary only (gate uses --background-color) */
                 --chat-background: #231a20;
                 --chat-input-bar-background: #2a1f26;
                 --backpage-color: #1e171b;
@@ -9671,9 +9671,9 @@ export const handler = async (event, context) => {
                   const questionMatchUrl = path.match(/^\\/q(\\d+)$/);
                   const subscribeOptions = {};
                   
-                  // Always load plenty of pages for the feed - don't set pageNumber
-                  // which would limit server to just that one page
-                  subscribeOptions.limit = 100;
+                  // Load the entire history so scrollback reaches the very first page.
+                  // (don't set pageNumber, which would limit the server to one page)
+                  subscribeOptions.loadAll = true;
                   
                   console.log("📄 subscribeOptions:", subscribeOptions, "for path:", path);
 
@@ -10290,16 +10290,21 @@ export const handler = async (event, context) => {
         
         // Pagination parameters
         const requestedPage = body.pageNumber; // Specific page number (1-indexed)
-        const limit = Math.min(body.limit || 5, 500); // Default to 5, max 500 pages per request
         const offset = body.offset || 0; // For loading older pages
         const metaOnly = body.metaOnly; // Only return page count and last modified
-        
-        shell.log("📄 Pagination: requestedPage=", requestedPage, "limit=", limit, "offset=", offset);
-        
+
         // Always get total count and last modified for cache validation
         // Exclude Q&A pages (isQA: true) — those are shown as question cards from sotce-asks
         const pageFilter = { state: "published", isQA: { $ne: true } };
         const totalCount = await pages.countDocuments(pageFilter);
+
+        // When loadAll is set, return the full history so scrollback reaches the very
+        // first page; otherwise fall back to a bounded window.
+        const limit = body.loadAll
+          ? Math.max(totalCount, 1) // $limit must be positive
+          : Math.min(body.limit || 5, 500); // Default to 5, max 500 pages per request
+
+        shell.log("📄 Pagination: requestedPage=", requestedPage, "limit=", limit, "offset=", offset, "loadAll=", !!body.loadAll);
         const lastModifiedDoc = await pages.findOne(
           pageFilter,
           { sort: { updatedAt: -1 }, projection: { updatedAt: 1, when: 1 } }
@@ -10358,7 +10363,7 @@ export const handler = async (event, context) => {
         const answeredQuestions = await asks
           .find({ state: "answered" })
           .sort({ answeredAt: -1 })
-          .limit(50) // Reasonable limit for now
+          .limit(body.loadAll ? 0 : 50) // 0 = no limit (full history) when loading all
           .project({ draftAnswer: 0, draftStartedAt: 0, draftLastEditedAt: 0 })
           .toArray();
         
@@ -10593,7 +10598,7 @@ export const handler = async (event, context) => {
       const handles = [];
       for (const [index, touch] of pageTouches.entries()) {
         // if (touch.user === user.sub) continue;
-        handle = await handleFor(touch.user, "sotce"); // Cross-network handle request.
+        const handle = await handleFor(touch.user, "sotce"); // Cross-network handle request.
         if (handle) {
           handles.push("@" + handle);
         } // else {
