@@ -2952,7 +2952,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            if !self.isPopoverPanelShown { self.showPopover() }
             self.menuBand.setMelodicProgram(program)
 
             for track in tracks {
@@ -3022,7 +3021,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self = self else { return }
             switch verb {
             case "start":
-                if !self.isPopoverPanelShown { self.showPopover() }
                 self.engine.start(
                     bpm: Double(info["bpm"] ?? "") ?? 110,
                     chord: AppDelegate.parseBytes(info["chord"]),
