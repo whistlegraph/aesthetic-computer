@@ -19,6 +19,12 @@
     <key>com.apple.security.network.client</key>
     <true/>
 
+    <!-- Bluetooth game controllers (Xbox / DualSense / generic) played via
+         the GameController framework. Required so the sandboxed App Store
+         build can receive input from a paired wireless controller. -->
+    <key>com.apple.security.device.bluetooth</key>
+    <true/>
+
     <!-- NOT included, and why:
          • No global keystroke capture (CGEventTap / Carbon hotkeys) — the
            sandbox forbids it; gated out behind #if MAC_APP_STORE.

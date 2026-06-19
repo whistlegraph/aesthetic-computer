@@ -169,6 +169,27 @@ enum MenuBandLayout {
         let s = table[Int(keyCode)]
         return s == Int8.min ? nil : Int(s)
     }
+
+    // MARK: - Gamepad note mapping
+
+    /// Semitone offsets from middle C for a one-octave C-major scale,
+    /// scale degrees 0...7 = C D E F G A B C. A gamepad plays these eight
+    /// notes regardless of which QWERTY keymap is active.
+    static let cMajorSemitones: [Int8] = [0, 2, 4, 5, 7, 9, 11, 12]
+
+    /// Hardware key codes that produce the C-major scale (degrees 0...7)
+    /// in the given keymap. Derived from the same semitone tables the
+    /// keyboard uses, so a gamepad note routes through the normal
+    /// `playKeyEvent` path and inherits per-key pan, the menubar lit
+    /// state, the percussion split, linger and MIDI-out for free. Both
+    /// keymaps contain a full C-major scale, so every degree resolves;
+    /// the `?? 0` is an unreachable safety net.
+    static func cMajorKeyCodes(for keymap: Keymap) -> [UInt16] {
+        let table = (keymap == .ableton) ? semitoneByKeyCodeAbleton : semitoneByKeyCode
+        return cMajorSemitones.map { semitone in
+            UInt16(table.firstIndex(of: semitone) ?? 0)
+        }
+    }
 }
 
 final class MenuBandMIDI {

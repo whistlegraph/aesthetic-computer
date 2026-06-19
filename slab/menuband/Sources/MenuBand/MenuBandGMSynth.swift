@@ -227,25 +227,36 @@ final class MenuBandGMSynth {
             switch cmd {
             case let .noteOn(midi, channel, velocity, prog, seed):
                 let slot = allocateVoice()
-                var v = Voice()
-                v.midi = midi
-                v.channel = channel
                 let f = MenuBandGMSynth.freq(forMIDI: midi)
-                v.freq = f
-                v.velocityGain = max(0.05, min(1.0, Double(velocity) / 127.0))
-                // Constant-power center pan (the GM voices are mono).
-                v.gainL = 0.707
-                v.gainR = 0.707
-                v.env = 0
-                v.releasing = false
-                let ok = withUnsafeMutablePointer(to: &v.core) { ptr in
+                // Init the C voice IN PLACE in the pool. A local `var v = Voice()`
+                // would put ~80 KB (GMVoice inlines ks_buf/fx_delay/bore_buf/
+                // ss_chorus_buf) on the audio render thread's stack, plus another
+                // ~80 KB for the `voices[slot] = v` copy. render() then reserves
+                // that frame on every call, so its prologue stack probe
+                // (___chkstk_darwin) hits the guard page once the deep AudioUnit
+                // pull chain has eaten most of the IOThread stack — the
+                // EXC_BAD_ACCESS (code=2) crash. gm_voice_init memsets the whole
+                // struct, so initializing the slot directly is equivalent without
+                // the stack temporary.
+                let ok = withUnsafeMutablePointer(to: &voices[slot].core) { ptr in
                     gm_voice_init(ptr, prog, f, sampleRate, seed)
                 }
                 // -1 means unimplemented; the control thread already gated
                 // on gm_program_implemented, but stay safe and drop it.
                 if ok == 0 {
-                    v.active = true
-                    voices[slot] = v
+                    voices[slot].midi = midi
+                    voices[slot].channel = channel
+                    voices[slot].freq = f
+                    voices[slot].velocityGain = max(0.05, min(1.0, Double(velocity) / 127.0))
+                    // Constant-power center pan (the GM voices are mono).
+                    voices[slot].gainL = 0.707
+                    voices[slot].gainR = 0.707
+                    voices[slot].env = 0
+                    voices[slot].releasing = false
+                    voices[slot].active = true
+                } else {
+                    // Unimplemented program: make sure a stolen slot is freed.
+                    voices[slot].active = false
                 }
             case let .noteOff(midi, channel):
                 for i in 0..<maxVoices where

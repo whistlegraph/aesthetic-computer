@@ -1,5 +1,6 @@
 import AppKit
 import Carbon
+import GameController
 
 /// NSButton subclass for chip-shaped link buttons — paints a layer-backed
 /// fill/border, swaps to a brighter "hover" pair when the cursor enters,
@@ -127,6 +128,8 @@ final class MenuBandPopoverViewController: NSViewController {
     private var midiSwitch: NSSwitch!
     private var midiInlineLabel: NSTextField!
     private var midiSelfTestLabel: NSTextField!  // legacy — created but never added to stack
+    private var gamepadSchemePopUp: NSPopUpButton!
+    private var gamepadStatusLabel: NSTextField!
     private var instrumentReadout: NSTextField!
     private var instrumentLabel: NSTextField!
     private var instrumentTitleRow: NSStackView!
@@ -884,6 +887,52 @@ final class MenuBandPopoverViewController: NSViewController {
         keymapButton.toolTip = "Open the full-screen keymap (piano + QWERTY)"
         Self.outlineFooterButton(keymapButton, color: Self.keymapOutlineColor)
 
+        // Gamepad control scheme — switch live to feel out which mapping is
+        // most natural. The sublabel shows the connected controller's name.
+        stack.addArrangedSubview(makeSeparator())
+
+        let gamepadRow = NSStackView()
+        gamepadRow.orientation = .horizontal
+        gamepadRow.alignment = .centerY
+        gamepadRow.spacing = 10
+        gamepadRow.distribution = .fill
+
+        let gamepadLabelStack = NSStackView()
+        gamepadLabelStack.orientation = .vertical
+        gamepadLabelStack.alignment = .leading
+        gamepadLabelStack.spacing = 1
+        let gamepadTitle = NSTextField(labelWithString: "Gamepad")
+        gamepadTitle.font = NSFont.systemFont(ofSize: 12, weight: .semibold)
+        gamepadTitle.textColor = .labelColor
+        gamepadStatusLabel = NSTextField(labelWithString:
+            GCController.controllers().first?.vendorName ?? "No controller connected")
+        gamepadStatusLabel.font = NSFont.systemFont(ofSize: 10)
+        gamepadStatusLabel.textColor = .secondaryLabelColor
+        gamepadStatusLabel.lineBreakMode = .byTruncatingTail
+        gamepadLabelStack.addArrangedSubview(gamepadTitle)
+        gamepadLabelStack.addArrangedSubview(gamepadStatusLabel)
+
+        gamepadSchemePopUp = NSPopUpButton(frame: .zero, pullsDown: false)
+        gamepadSchemePopUp.controlSize = .small
+        gamepadSchemePopUp.font = NSFont.systemFont(ofSize: 11)
+        gamepadSchemePopUp.target = self
+        gamepadSchemePopUp.action = #selector(gamepadSchemeChanged(_:))
+        for scheme in GamepadControlScheme.allCases {
+            gamepadSchemePopUp.addItem(withTitle: scheme.displayName)
+            gamepadSchemePopUp.lastItem?.representedObject = scheme.rawValue
+        }
+        gamepadSchemePopUp.selectItem(withTitle: GamepadDefaults.scheme.displayName)
+
+        let gamepadSpacer = NSView()
+        gamepadSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        gamepadRow.addArrangedSubview(gamepadLabelStack)
+        gamepadRow.addArrangedSubview(gamepadSpacer)
+        gamepadRow.addArrangedSubview(gamepadSchemePopUp)
+
+        stack.addArrangedSubview(gamepadRow)
+        gamepadRow.widthAnchor.constraint(equalTo: stack.widthAnchor,
+                                          constant: -16).isActive = true
+
         // "About" — plain (default-tint) button, peer to Keymap and Quit.
         // Opens the identity/settings window (icon + flat-map language
         // picker + version + the "Looking For Players?" link).
@@ -1169,6 +1218,7 @@ final class MenuBandPopoverViewController: NSViewController {
         }
         updateFocusShortcutControls()
         updatePlayPaletteShortcutControls()
+        refreshGamepadStatus()
         applyPopoverRootChrome()
         applyAppearanceToVisualizer()
         updateInstrumentReadout()
@@ -1763,6 +1813,25 @@ final class MenuBandPopoverViewController: NSViewController {
         row.addArrangedSubview(spacer)
         row.addArrangedSubview(switchControl)
         return row
+    }
+
+    // MARK: - Gamepad
+
+    @objc private func gamepadSchemeChanged(_ sender: NSPopUpButton) {
+        guard let raw = sender.selectedItem?.representedObject as? String,
+              let scheme = GamepadControlScheme(rawValue: raw) else { return }
+        GamepadDefaults.scheme = scheme
+        NotificationCenter.default.post(name: .menuBandGamepadConfigChanged, object: nil)
+    }
+
+    /// Refresh the gamepad row: keep the dropdown synced with the stored
+    /// scheme and show the connected controller (or "No controller"). Called
+    /// on popover open and on controller connect/disconnect.
+    func refreshGamepadStatus() {
+        guard isViewLoaded, gamepadSchemePopUp != nil else { return }
+        gamepadSchemePopUp.selectItem(withTitle: GamepadDefaults.scheme.displayName)
+        gamepadStatusLabel.stringValue =
+            GCController.controllers().first?.vendorName ?? "No controller connected"
     }
 
     /// Hit the manifest at assets.aesthetic.computer/menuband/latest.json

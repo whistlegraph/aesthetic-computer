@@ -300,13 +300,23 @@ final class MenuBandSynth {
     /// held note doesn't hang on the now-bypassed node.
     func setUseACMIDI(_ on: Bool) {
         useACMIDI = on
-        if !on { gmSynth.panic() }
+        if gmSynthEnabled, !on { gmSynth.panic() }
     }
 
+    /// Feature flag: the AC OS native GM synth (`gmSynth`) is disabled for
+    /// now while a render-thread `EXC_BAD_ACCESS` crash is investigated. While
+    /// false, melodic notes never route to `gmSynth` — everything falls back to
+    /// MIDISynth, exactly as if the "Use AC OS MIDI" toggle were off. The node
+    /// stays attached but silent (a proven-safe state: no voice ever goes
+    /// active, so the crashing render path is never entered). Flip to true to
+    /// re-enable once the crash is fixed.
+    private let gmSynthEnabled = false
+
     /// True when a melodic note for `program` should route to `gmSynth`:
-    /// the toggle is on and the GM core actually implements that program.
+    /// the feature is enabled, the toggle is on, and the GM core actually
+    /// implements that program.
     private func gmRoutable(_ program: UInt8) -> Bool {
-        useACMIDI && MenuBandGMSynth.programImplemented(program)
+        gmSynthEnabled && useACMIDI && MenuBandGMSynth.programImplemented(program)
     }
 
     /// Attach an external `MenuBandTape` to this synth's audio graph.
@@ -396,8 +406,13 @@ final class MenuBandSynth {
         // trackpad space/echo/proximity exactly like every other melodic
         // voice. (Its own pitch-bend is routed in-process; the fx are the
         // master ones.) Silent until a note is routed here.
-        gmSynth.attach(to: engine, output: preLimiterMixer)
-        gmSynth.setProgram(currentMelodicProgram)
+        // Disabled for now (see `gmSynthEnabled`): leaving the node UNATTACHED
+        // means its render callback never runs, so the crashing audio-thread
+        // path can't be entered at all.
+        if gmSynthEnabled {
+            gmSynth.attach(to: engine, output: preLimiterMixer)
+            gmSynth.setProgram(currentMelodicProgram)
+        }
         // Spacebar reverse-replay voice. Plays DRY into mainMixerNode (NOT
         // the pre-limiter bus) so the already-effected captured audio isn't
         // re-processed. Its rolling capture ring is fed from a dedicated tap
@@ -1576,7 +1591,7 @@ final class MenuBandSynth {
         // Keep the AC GM node's program in sync so a note-on routed there
         // synthesizes the selected instrument. (Sounding voices keep their
         // own; this only affects future note-ons.)
-        gmSynth.setProgram(program)
+        if gmSynthEnabled { gmSynth.setProgram(program) }
         // Leaving GarageBand mode: route melodic through MIDISynth/sampler
         // again. Reload the GM bank into `melodic` since the GB patch
         // load replaced its instrument data.
@@ -2066,7 +2081,7 @@ final class MenuBandSynth {
     /// sample, so (like the varispeed backends) it doesn't see MIDI
     /// pitch-bend — we route the signed amount in-process instead.
     func setGMPitchBend(amount: Float) {
-        gmSynth.setPitchBend(amount: amount)
+        if gmSynthEnabled { gmSynth.setPitchBend(amount: amount) }
     }
 
     /// Route the trackpad pitch-bend into the KPBJ radio backend. Like
@@ -2147,7 +2162,7 @@ final class MenuBandSynth {
         guard started else { return }
         activeNotes.removeAll()
         gmRoutedNotes.removeAll()
-        gmSynth.panic()
+        if gmSynthEnabled { gmSynth.panic() }
         defer { scheduleIdleSuspendIfNeeded() }
         if midiSynthReady, let au = midiSynth?.audioUnit {
             for ch: UInt8 in 0..<16 {

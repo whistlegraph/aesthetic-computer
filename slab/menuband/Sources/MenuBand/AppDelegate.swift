@@ -184,6 +184,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// or when an actual key is pressed — visual signal that "you're
     /// capturing, type now."
     private let localCapture = LocalKeyCapture()
+    // Bluetooth game controller (Xbox / DualSense / generic) → notes + all
+    // controls. Lazy so `menuBand` is available to hand it. See GamepadManager.
+    private lazy var gamepad = GamepadManager(controller: menuBand)
     /// Retained `ProcessInfo` activity token. Held for the app's
     /// lifetime so macOS treats Menu Band as a latency-critical
     /// instrument: no App Nap, no timer coalescing, no background
@@ -983,6 +986,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         localCapture.onTrackpadTouchActiveChanged = { [weak self] active in
             self?.setTrackpadTouchActive(active)
         }
+
+        // Bluetooth game controller. The Menu button toggles the popover
+        // (showPopover already closes it when shown); connect/disconnect
+        // refreshes the popover's gamepad status line.
+        gamepad.onTogglePopover = { [weak self] in self?.showPopover() }
+        gamepad.onConnectionChanged = { [weak self] in
+            self?.popoverVC?.refreshGamepadStatus()
+        }
+        gamepad.start()
 
         // Pre-instance the popover VC + force its view to load now so the
         // first click pops it instantly. The actual NSPanel host is
