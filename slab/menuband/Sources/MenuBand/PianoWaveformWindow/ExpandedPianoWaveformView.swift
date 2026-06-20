@@ -7,6 +7,7 @@
 
 
 import AppKit
+import GameController
 
 final class ExpandedPianoWaveformView: NSView {
     static var shouldUseLiquidGlass: Bool {
@@ -58,6 +59,10 @@ final class ExpandedPianoWaveformView: NSView {
     /// see at a glance which physical keys play which notes. Driven
     /// at 2× scale so it's legible at the floating palette's size.
     private let qwertyView = QwertyLayoutView()
+    /// Gamepad config — pinned bottom-right of this full-screen keymap overlay
+    /// (moved here from the popover). Scheme picker + connected-controller name.
+    private let gamepadSchemePopUp = NSPopUpButton(frame: .zero, pullsDown: false)
+    private let gamepadStatusLabel = NSTextField(labelWithString: "No controller connected")
 
     private var outlineBorderColor: NSColor = .separatorColor.withAlphaComponent(0.55)
 
@@ -401,11 +406,73 @@ final class ExpandedPianoWaveformView: NSView {
                 equalToConstant: QwertyLayoutView.intrinsicSize.height * 1.4
             ),
         ])
+        installGamepadCluster()
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         nil
+    }
+
+    // MARK: - Gamepad config (bottom-right corner)
+
+    /// Build the gamepad scheme picker + controller-status cluster and pin it
+    /// to the overlay's bottom-right corner. Self-contained: it drives the live
+    /// mapping through the global `GamepadDefaults` + `.menuBandGamepadConfigChanged`
+    /// (the same contract the popover used), and keeps its status fresh off the
+    /// GameController connect/disconnect notifications.
+    private func installGamepadCluster() {
+        let title = NSTextField(labelWithString: "Gamepad")
+        title.font = .systemFont(ofSize: 12, weight: .semibold)
+        title.textColor = .labelColor
+        gamepadStatusLabel.font = .systemFont(ofSize: 10)
+        gamepadStatusLabel.textColor = .secondaryLabelColor
+        gamepadStatusLabel.lineBreakMode = .byTruncatingTail
+        let labels = NSStackView(views: [title, gamepadStatusLabel])
+        labels.orientation = .vertical
+        labels.alignment = .leading
+        labels.spacing = 1
+
+        gamepadSchemePopUp.controlSize = .small
+        gamepadSchemePopUp.font = .systemFont(ofSize: 11)
+        gamepadSchemePopUp.target = self
+        gamepadSchemePopUp.action = #selector(gamepadSchemeChanged(_:))
+        for scheme in GamepadControlScheme.allCases {
+            gamepadSchemePopUp.addItem(withTitle: scheme.displayName)
+            gamepadSchemePopUp.lastItem?.representedObject = scheme.rawValue
+        }
+        gamepadSchemePopUp.selectItem(withTitle: GamepadDefaults.scheme.displayName)
+
+        let cluster = NSStackView(views: [labels, gamepadSchemePopUp])
+        cluster.orientation = .horizontal
+        cluster.alignment = .centerY
+        cluster.spacing = 10
+        cluster.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(cluster)
+        NSLayoutConstraint.activate([
+            cluster.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -(inset + 8)),
+            cluster.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -(inset + 8)),
+        ])
+
+        let nc = NotificationCenter.default
+        for name in [Notification.Name.GCControllerDidConnect,
+                     .GCControllerDidDisconnect, .menuBandGamepadConfigChanged] {
+            nc.addObserver(self, selector: #selector(refreshGamepadStatus), name: name, object: nil)
+        }
+        refreshGamepadStatus()
+    }
+
+    @objc private func gamepadSchemeChanged(_ sender: NSPopUpButton) {
+        guard let raw = sender.selectedItem?.representedObject as? String,
+              let scheme = GamepadControlScheme(rawValue: raw) else { return }
+        GamepadDefaults.scheme = scheme
+        NotificationCenter.default.post(name: .menuBandGamepadConfigChanged, object: nil)
+    }
+
+    @objc private func refreshGamepadStatus() {
+        gamepadSchemePopUp.selectItem(withTitle: GamepadDefaults.scheme.displayName)
+        gamepadStatusLabel.stringValue =
+            GCController.controllers().first?.vendorName ?? "No controller connected"
     }
 
     private func installLiquidGlassBackgrounds() {

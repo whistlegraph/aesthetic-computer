@@ -988,12 +988,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         // Bluetooth game controller. The Menu button toggles the popover
-        // (showPopover already closes it when shown); connect/disconnect
-        // refreshes the popover's gamepad status line.
+        // (showPopover already closes it when shown). The gamepad config UI
+        // now lives in the full-screen Keymap overlay and self-refreshes off
+        // the GameController connect/disconnect notifications, so no popover
+        // callback is needed here.
         gamepad.onTogglePopover = { [weak self] in self?.showPopover() }
-        gamepad.onConnectionChanged = { [weak self] in
-            self?.popoverVC?.refreshGamepadStatus()
-        }
         gamepad.start()
 
         // Pre-instance the popover VC + force its view to load now so the
