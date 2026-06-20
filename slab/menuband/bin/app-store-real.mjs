@@ -26,7 +26,7 @@ const RAW = resolve(DESK, "raw");
 const FL = resolve(ROOT, "fastlane/screenshots/en-US");
 const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const W = 2880, H = 1800;
-const PURPLE = "#6d24c4";        // solid desktop
+const PURPLE = "#46464b";        // solid desktop (neutral gray)
 const BAR_H = 76;
 const S = 56 / 22;               // shared screen scale: menubar status item 22pt -> 56px
 
@@ -40,12 +40,17 @@ const render = (args, out) => {
   return out;
 };
 console.log("rendering real UI surfaces…");
-render(["--render-menubar", "--notes", "60,64,67"], "menubar.png");
+render(["--render-menubar", "--light"], "menubar.png");   // keys at rest, light theme
 render(["--render-popover", "--program", "0"], "popover.png");
 render(["--render-about"], "about.png");
 render(["--render-jam"], "jam.png");
 
 const uri = (f) => `data:image/png;base64,${readFileSync(resolve(RAW, f)).toString("base64")}`;
+// Real macOS menu-bar glyphs cropped from the live bar (committed under
+// bin/menubar-assets) — black variants for the LIGHT bar that pairs with the
+// light piano keys.
+const ASSETS = resolve(__dirname, "menubar-assets");
+const asset = (f) => `data:image/png;base64,${readFileSync(resolve(ASSETS, f)).toString("base64")}`;
 // native point heights of each surface (from the Swift renders), for shared scale
 const NATIVE_H = { popover: 456, about: 487, jam: 360 };
 
@@ -53,10 +58,9 @@ const NATIVE_H = { popover: 456, about: 487, jam: 360 };
 // `center` floats the window centered below the bar; `drop` anchors it under
 // the top-right status item like the live popover.
 const SHOTS = [
-  { file: "01-menu-bar",            screen: null },
-  { file: "02-menu-bar-popover",    screen: "popover", place: "drop" },
-  { file: "03-about",               screen: "about",   place: "center" },
-  { file: "04-looking-for-players", screen: "jam",     place: "center" },
+  { file: "01-menu-band",           screen: "popover", place: "drop" },
+  { file: "02-about",               screen: "about",   place: "center" },
+  { file: "03-looking-for-players", screen: "jam",     place: "center" },
 ];
 
 const FILL = "#f3f3f5";          // solid light-theme backing behind the panels
@@ -64,8 +68,11 @@ const screenCSS = (s) => {
   if (!s.screen) return "";
   const h = Math.round(NATIVE_H[s.screen] * S);
   const img = uri(`${s.screen}.png`);
+  // `drop`: sit the popover directly under the menu-bar piano strip (its center
+  // lands ~774px from the right edge given the bar layout below). `center`:
+  // float the window centered in the desktop below the bar.
   const pos = s.place === "drop"
-    ? `top:${BAR_H - 8}px; right:320px;`
+    ? `top:${BAR_H - 6}px; right:774px;`
     : `top:${BAR_H + Math.round((H - BAR_H - h) / 2)}px; left:50%; transform:translateX(-50%);`;
   // The captured panels have translucent (vibrancy) backgrounds. Fill them with
   // a solid light-theme color so the purple desktop doesn't bleed through —
@@ -78,17 +85,23 @@ const screenCSS = (s) => {
 const html = (s) => `<!doctype html><meta charset="utf8"><style>
   *{margin:0;padding:0;box-sizing:border-box}html,body{width:${W}px;height:${H}px;overflow:hidden}
   body{font-family:-apple-system,"SF Pro Display",sans-serif;background:${PURPLE};position:relative}
+  /* Transparent menu bar — content sits directly on the solid wallpaper, the
+     macOS look over a medium-dark desktop (white glyphs, no bar fill). */
   .menubar{position:absolute;top:0;left:0;width:100%;height:${BAR_H}px;display:flex;align-items:center;
-    justify-content:space-between;padding:0 40px;background:rgba(20,6,44,.34);backdrop-filter:blur(30px);
-    border-bottom:1px solid rgba(255,255,255,.10)}
-  .apple{color:#fff;font-size:40px;line-height:1}
-  .right{display:flex;align-items:center;gap:34px}
-  .right img{height:56px;width:auto;display:block}
-  .clock{color:#fff;font-size:31px;font-weight:500}
+    justify-content:space-between;padding:0 36px;background:transparent}
+  .apple{height:38px;width:auto;display:block}
+  .right{display:flex;align-items:center;gap:46px}
+  .right .strip{height:54px;width:auto;display:block}
+  .right .sys{height:34px;width:auto;display:block}
+  .clock{color:#fff;font-size:30px;font-weight:500;white-space:nowrap}
 </style>
 <div class="menubar">
-  <span class="apple"></span>
-  <div class="right"><img src="${uri('menubar.png')}"><span class="clock">9:41</span></div>
+  <img class="apple" src="${asset('apple.png')}">
+  <div class="right">
+    <img class="strip" src="${uri('menubar.png')}">
+    <img class="sys" src="${asset('sys.png')}">
+    <span class="clock">Sat Jun 20&nbsp;&nbsp;9:41&#8202;AM</span>
+  </div>
 </div>
 ${screenCSS(s)}`;
 

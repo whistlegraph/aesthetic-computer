@@ -365,48 +365,32 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         // acMIDIRow.widthAnchor.constraint(
         //     equalTo: stack.widthAnchor, constant: -56).isActive = true
 
-        // Crash-report summary — single orange ⚠️ button reading
-        // "Menu Band crashed N times". Opens the scroll viewer where
-        // the user can review the .ips contents and click Send to
-        // Aesthetic.Computer. Lives bottom-left of the About window
-        // (secondary-action position) so it never crowds the
-        // primary brand chrome.
+        // Crash-report affordance — a single quiet ⚠️ sign pinned to the
+        // bottom-right CORNER of the About window (overlaying the stack, not
+        // taking a row). It's a tooltip-first hint: hovering names the crash
+        // count, one click opens the scroll viewer where the user can review
+        // the .ips contents and Send to Aesthetic.Computer. Replaces the old
+        // orange "Menu Band crashed N times" banner so a single crash never
+        // crowds the brand chrome.
         let logs = CrashLogReader.recentLogs()
         if !logs.isEmpty {
-            stack.setCustomSpacing(14, after: playersLink)
             let summary = logs.count == 1
                 ? L("popover.about.crash.summaryOne")
                 : L("popover.about.crash.summaryMany", String(logs.count))
-            let btn = NSButton(title: "",
-                               target: self,
-                               action: #selector(viewCrashLogs(_:)))
-            btn.bezelStyle = .rounded
-            btn.isBordered = true
-            btn.bezelColor = .systemOrange
-            btn.controlSize = .mini
-            btn.attributedTitle = NSAttributedString(
-                string: "⚠️  \(summary)",
-                attributes: [
-                    .foregroundColor: NSColor.white,
-                    .font: NSFont.systemFont(ofSize: 9, weight: .medium),
-                ]
-            )
-
-            let crashRow = NSStackView()
-            crashRow.orientation = .horizontal
-            crashRow.alignment = .centerY
-            crashRow.spacing = 0
-            crashRow.translatesAutoresizingMaskIntoConstraints = false
-            let spacer = NSView()
-            spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-            crashRow.addArrangedSubview(btn)
-            crashRow.addArrangedSubview(spacer)
-            stack.addArrangedSubview(crashRow)
-            // Match the inner content width — stack's edgeInsets are
-            // 28 left + 28 right, so the row spans the same inset
-            // area the body label uses.
-            crashRow.widthAnchor.constraint(
-                equalTo: stack.widthAnchor, constant: -56).isActive = true
+            let warn = NSButton(title: "⚠️",
+                                target: self,
+                                action: #selector(viewCrashLogs(_:)))
+            warn.isBordered = false
+            warn.bezelStyle = .regularSquare
+            warn.font = NSFont.systemFont(ofSize: 13)
+            warn.toolTip = summary
+            warn.setButtonType(.momentaryChange)
+            warn.translatesAutoresizingMaskIntoConstraints = false
+            content.addSubview(warn)
+            NSLayoutConstraint.activate([
+                warn.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -10),
+                warn.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -6),
+            ])
         }
 
         if let info = updateInfo,
