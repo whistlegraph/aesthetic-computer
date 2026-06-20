@@ -31,22 +31,30 @@ Open follow-ups (queued, not blockers):
 
 ## boombaboom — WIP
 
-- **Lane:** `pop/boombaboom/` · peak-time techno · 140 BPM · D minor · 2:27 ·
-  84 bars. @jeffrey's "boom-ba-boom" vocal chant
-  (`~/Downloads/boombaboom.MP4`, a 32.5s melodic chant around C#4 with a
-  recurring **E-E-F** hook) fitted onto an AC-native C techno bed.
-- **Treatment:** hybrid — hook kept *as-sung* (gently WORLD-locked to E4/E4/F4),
-  verses *re-mapped* onto a rolling D-minor topline (his phonemes, designed
-  pitches). 29 onset-sliced cells → WORLD f0-lock → rubberband stretch → placed
-  on the bed's drops/breakdowns. See `boombaboom/README.md`.
-- **Bed:** `c/boombaboom.c`, forked from `minitek/c/deeptek.c` — keeps deeptek's
-  **deep round chill kick**, adds peak-time drive (offbeat open-hat, backbeat
-  clap, harder pump 0.80, bigger drop impacts, real breakdowns, FM lead pulled
-  back so the vocal leads). Form: intro·build·grvA·brkdn·grvB·bigbrk·grvC·outro;
-  drops at 27.4 / 68.6 / 109.7s.
-- **Status:** WIP — first full bake rendered 2026-06-20 to
-  `~/Documents/Shelf/boombaboom/boombaboom.mp3` (+ `-MASTER.wav`). Awaiting
-  @jeffrey's listen + mix notes.
+- **Lane:** `pop/boombaboom/` · sine-techno · D minor · ~3:19 (accelerando) ·
+  @jeffrey's "boom-ba-boom" vocal chant (`~/Downloads/boombaboom.MP4` — a 32.5s
+  melodic whistlegraph-drawing take around C#4 with a recurring **E-E-F** hook)
+  re-cast as a hypnotic sine-techno track, rendered ENTIRELY in C.
+- **Vocal:** autotuned to D minor (`bin/autotune.py`, note-mode) → **beat-aligned**
+  ('boom' plosives → beats, 'ma' → bars, `bin/grid-warp.py` rubberband timemap,
+  R3 smooth) → **stretched 1.3× for epic sustained vowels**. Sits deep + soft +
+  whistle-dark, with a deep octave-down "throat" under it, fifth/third choral
+  harmonies, and high "angel" octave-up layers on the back half.
+- **Bed (sine-only law + a few samples):** `c/boombaboom.c` — sine kick
+  (tick-tock D/A), sine bells (long flanged decay), a healing **432 Hz
+  sine-swarm that IS his voice** (energy-following deep echo), deep chord pad,
+  power sines, a dribbly filtered **square lead** under the vocal, tight dark
+  hat. Samples: faint deep **rainforest rain** + a close **LA helicopter** flyby
+  (both Freesound CC0, see `sources/*.CREDITS.txt`).
+- **Form:** lost-vocal prelude → build → strong drop on the first boom →
+  3 passes / breakdowns (whistle-feature breakdown) → octave-lower "true ending".
+  Whole mix **gradually accelerates +9%**. Humanized timing throughout.
+- **Pipeline:** `c/render.sh` (autotune → grid-warp → stretch → harmonies →
+  osc/boom/ma cuts → C engine → pop master → accelerando). Graphic score:
+  `bin/gen-score.mjs`. Felt cover (jeffrey + the whistlegraph drawing):
+  `bin/gen-illy.mjs` → `illy/boombaboom-cover.png`.
+- **Status:** WIP — rendered + cover embedded (ID3 album "pixsies"). Committed
+  `boombaboom.mp3` to the lane. Master in `~/Documents/Shelf/boombaboom/`.
 
 ---
 

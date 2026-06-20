@@ -137,7 +137,7 @@ enum Localization {
         "popover.about.crash.summaryMany": "Menu Band crashed %@ times",
         "popover.about.crash.viewerTitle": "Crash reports",
         "popover.about.crash.sendToAC": "Send to Aesthetic.Computer",
-        "popover.about.nela": "Say hi at NELA Computer Club — Tuesdays in LA",
+        "popover.about.nela": "NELA Computer Club · Tuesdays in LA",
         "popover.about.startaclub": "Start a computer club of your own",
 
         // Popover — language switcher

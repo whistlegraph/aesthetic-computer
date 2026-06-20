@@ -44,3 +44,13 @@ samples/*/*.aif
 samples/*/*.aiff
 samples/*/*.m4a
 samples/*/jam
+
+# boombaboom — compiled binary + render outputs + heavy derived/freesound audio.
+# Tracked: c/*.c, bin/*, *.sh, *.np, *.illy.txt, README, cells.json, the cover,
+# the final mp3, *.CREDITS.txt, and the raw vocal seed.
+boombaboom/c/boombaboom
+boombaboom/c/out/
+boombaboom/snapped/
+boombaboom/illy/frame-*.jpg
+boombaboom/sources/*.wav
+!boombaboom/sources/boombaboom-raw.wav

@@ -626,18 +626,23 @@ int main(int argc, char **argv) {
     // final drop). Skipped if the file is missing. ──────────────────────────
     {
         long heliN = 0; float *heli = load_wav_mono("../sources/heli.wav", &heliN);
+        fprintf(stderr, "# heli: %s (%.1fs)\n", heli ? "LOADED" : "MISSING", heliN / (double)SR);
         if (heli && heliN > SR) {
-            double when[2] = { (passBar[0] + PASS) * BAR, (passBar[2] - 3) * BAR };
-            double gain[2] = { 0.16, 0.22 };
-            for (int w = 0; w < 2; w++) {
+            // LOUD enough to clearly hear the chopper pass overhead. Three
+            // flybys: into bridge 1, the big breakdown, and the final drop.
+            double when[3] = { (passBar[0] + PASS) * BAR, (passBar[1] + PASS) * BAR, (passBar[2] - 3) * BAR };
+            double gain[3] = { 0.42, 0.46, 0.52 };
+            for (int w = 0; w < 3; w++) {
                 long off = (long)(when[w] * SR);
                 for (long i = 0; i < heliN; i++) {
                     long j = off + i; if (j < 0 || j >= N) continue;
                     double p = (double)i / heliN;             // 0→1 = flies across
-                    double pan = p * 2 - 1;                    // L→R sweep
+                    double pan = p * 2 - 1;                    // hard L→R sweep
                     double v = heli[i] * gain[w];
-                    musL[j] += (float)(v * (1 - pan * 0.5)); musR[j] += (float)(v * (1 + pan * 0.5));
-                    addR(j, v * 0.25, v * 0.25);
+                    // mostly DRY (close + present) + a touch of verb. Goes on the
+                    // DRUM bus so the sidechain doesn't duck it away.
+                    drumL[j] += (float)(v * (1 - pan * 0.6)); drumR[j] += (float)(v * (1 + pan * 0.6));
+                    addR(j, v * 0.18, v * 0.18);
                 }
             }
             free(heli);
