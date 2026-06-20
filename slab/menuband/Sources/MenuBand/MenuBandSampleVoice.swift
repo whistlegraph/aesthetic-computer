@@ -10,13 +10,20 @@ extension Notification.Name {
 
 /// Microphone-sampled voice — the user holds backtick (`) to capture a
 /// short clip from the default input device, then plays it back as a
-/// pitched piano voice via per-note AVAudioPlayerNode + Varispeed pairs.
+/// pitched piano voice via per-note AVAudioPlayerNode + TimePitch pairs.
+///
+/// Pitch is shifted INDEPENDENTLY of speed: `AVAudioUnitTimePitch` is a
+/// phase vocoder, so a higher note rings at the same tempo/duration as a
+/// lower one (no tape-style "chipmunk" speed-up). This replaced the old
+/// `AVAudioUnitVarispeed` path, which resampled — coupling pitch to rate
+/// so high notes played faster and shorter. Mirrors `KPBJRadioStream`'s
+/// independent-pitch approach (pitch in cents, ±2400 hard limit).
 ///
 /// Architecture:
 ///   recordEngine.inputNode ──(tap)──► recordBuffer (mono float32, ≤10 s)
 ///                                              │
 ///                  per active note             ▼
-///              AVAudioPlayerNode ──► Varispeed ──► voiceMixer ──► output
+///              AVAudioPlayerNode ──► TimePitch ──► voiceMixer ──► output
 ///
 /// `voiceMixer.outputVolume` is the master gate — closed (0.0) when the
 /// sample backend isn't active, opened (1.0) when it is. Voices attach
@@ -130,16 +137,23 @@ final class MenuBandSampleVoice {
     private let hotMicIdleSeconds: TimeInterval = 30.0
 
     /// Per-note voice slot. Pool keyed by (channel, midi) so a note
-    /// retriggered on the same channel reuses the same player + varispeed
+    /// retriggered on the same channel reuses the same player + TimePitch
     /// pair. Players persist in the engine graph for the app's lifetime
     /// once allocated — AVAudioEngine prefers stable graphs over
     /// frequent attach/detach.
     private final class Voice {
         let node = AVAudioPlayerNode()
-        let varispeed = AVAudioUnitVarispeed()
+        // TimePitch (phase vocoder) shifts pitch with duration/speed held
+        // constant — see the type doc above. `.rate` stays 1.0; only
+        // `.pitch` (cents) moves.
+        let timePitch = AVAudioUnitTimePitch()
         var midi: UInt8 = 60
         var releaseWork: DispatchWorkItem?
     }
+
+    /// AVAudioUnitTimePitch's pitch parameter is hard-limited to ±2400
+    /// cents (±2 octaves). Notes/bends past that clamp here.
+    private static let maxPitchCents: Float = 2400
 
     private var voices: [UInt16: Voice] = [:]
 
@@ -814,9 +828,9 @@ final class MenuBandSampleVoice {
         guard let engine = engine else { return nil }
         let v = Voice()
         engine.attach(v.node)
-        engine.attach(v.varispeed)
-        engine.connect(v.node, to: v.varispeed, format: storageFormat)
-        engine.connect(v.varispeed, to: voiceMixer, format: storageFormat)
+        engine.attach(v.timePitch)
+        engine.connect(v.node, to: v.timePitch, format: storageFormat)
+        engine.connect(v.timePitch, to: voiceMixer, format: storageFormat)
         // Prepare with a small frame count — AVAudioPlayerNode
         // pre-fetches this many frames before play() and that
         // pre-fetch is on the noteOn critical path. 256 frames @
@@ -828,17 +842,20 @@ final class MenuBandSampleVoice {
         return v
     }
 
-    /// Pitch ratio for `midi` relative to middle C (60). 60 → 1.0.
+    /// Pitch shift in CENTS for `midi` relative to middle C (60). 60 → 0.
+    /// 100 cents per semitone. Drives `AVAudioUnitTimePitch.pitch`, which
+    /// shifts pitch without touching duration/speed.
     @inline(__always)
-    private func ratio(forNote midi: UInt8) -> Float {
-        Float(pow(2.0, Double(Int(midi) - 60) / 12.0))
+    private func cents(forNote midi: UInt8) -> Float {
+        Float(Int(midi) - 60) * 100.0
     }
 
-    /// Multiplicative pitch factor for the current trackpad bend.
-    /// `bendSemitones = 0` → 1.0 (no change).
+    /// Combined note + trackpad-bend pitch in cents, clamped to the
+    /// TimePitch ±2400-cent range.
     @inline(__always)
-    private func bendRateFactor() -> Float {
-        Float(pow(2.0, Double(bendSemitones) / 12.0))
+    private func pitchCents(forNote midi: UInt8) -> Float {
+        let total = cents(forNote: midi) + bendSemitones * 100.0
+        return min(max(total, -Self.maxPitchCents), Self.maxPitchCents)
     }
 
     /// Linger fade hook. Adjust every currently-playing voice that
@@ -870,20 +887,18 @@ final class MenuBandSampleVoice {
     }
 
     /// Trackpad pitch-bend hook. `amount` is the controller-side
-    /// signed bend; one unit = one octave (12 semitones). No clamp
-    /// — the trackpad accumulator can swing far past ±1, and
-    /// AVAudioUnitVarispeed will pitch-shift the loop accordingly
-    /// until the rate hits its own internal range (~0.25×–4.0× ≈
-    /// ±2 octaves). Updates every currently playing voice's
-    /// varispeed.rate live so the bend slides audible pitch in
-    /// real time, and stashes the bend so notes triggered after
-    /// this call inherit it.
+    /// signed bend; one unit = one octave (12 semitones). The
+    /// trackpad accumulator can swing far past ±1; the resulting
+    /// pitch is clamped to TimePitch's ±2400-cent (±2 octave) range
+    /// in `pitchCents`. Updates every currently playing voice's
+    /// `timePitch.pitch` live so the bend slides audible pitch in
+    /// real time (duration unchanged), and stashes the bend so notes
+    /// triggered after this call inherit it.
     func setBend(amount: Float) {
         bendSemitones = amount * 12.0
-        let factor = bendRateFactor()
         for (_, v) in voices {
             if v.node.isPlaying {
-                v.varispeed.rate = ratio(forNote: v.midi) * factor
+                v.timePitch.pitch = pitchCents(forNote: v.midi)
             }
         }
     }
@@ -924,11 +939,12 @@ final class MenuBandSampleVoice {
         voice.releaseWork = nil
 
         voice.midi = midi
-        // Compose the pitch ratio from the note's base ratio AND the
-        // current trackpad pitch bend so dragging the cursor while a
-        // sample voice rings shifts pitch in real time — mirror of
-        // the MIDISynth pitch-bend path.
-        voice.varispeed.rate = ratio(forNote: midi) * bendRateFactor()
+        // Compose the pitch (cents) from the note AND the current
+        // trackpad pitch bend so dragging the cursor while a sample
+        // voice rings shifts pitch in real time — mirror of the
+        // MIDISynth pitch-bend path. `.rate` stays at its 1.0 default,
+        // so duration/speed never changes with pitch.
+        voice.timePitch.pitch = pitchCents(forNote: midi)
         voice.node.volume = Float(velocity) / 127.0
 
         if voice.node.isPlaying {

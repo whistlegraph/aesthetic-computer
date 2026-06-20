@@ -40,7 +40,8 @@ final class MenuBandSynth {
     /// `start()`; AVPlayer only spins up while `usingRadioBackend` is on.
     private let radio = KPBJRadioStream()
     /// Microphone-sampled "voice": user holds backtick to record a clip,
-    /// then plays it back as a varispeed-pitched piano voice. Same
+    /// then plays it back as a duration-preserving pitch-shifted piano
+    /// voice (TimePitch). Same
     /// melodic-only routing semantics as the radio backend (channel 9
     /// drums always pass through to GM).
     private let sampleVoice = MenuBandSampleVoice()
@@ -2046,10 +2047,10 @@ final class MenuBandSynth {
 
     /// Trackpad pitch-bend passthrough for the sample voice backend.
     /// `amount` is the same -1...+1 signed value the controller
-    /// hands to `sendPitchBend` — sample voice multiplies it by ±2
-    /// semitones to drive its AVAudioUnitVarispeed nodes. AVAudio's
-    /// varispeed doesn't respond to MIDI pitch-bend so we have to
-    /// route this signal in-process.
+    /// hands to `sendPitchBend` — sample voice multiplies it by one
+    /// octave (12 semitones) to drive its AVAudioUnitTimePitch nodes'
+    /// `.pitch` (cents). AVAudio's time-pitch doesn't respond to MIDI
+    /// pitch-bend so we have to route this signal in-process.
     func setSamplePitchBend(amount: Float) {
         sampleVoice.setBend(amount: amount)
     }

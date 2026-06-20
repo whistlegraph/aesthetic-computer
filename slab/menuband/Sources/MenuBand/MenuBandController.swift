@@ -1025,7 +1025,7 @@ final class MenuBandController {
         debugLog("setBend amt=\(amount) value=\(value) channels=\(channels) midiMode=\(midiMode)")
         if !midiMode {
             for ch in channels { synth.sendPitchBend(value: value, channel: ch) }
-            // Sample voice runs through AVAudioUnitVarispeed and
+            // Sample voice runs through AVAudioUnitTimePitch and
             // ignores MIDI pitch-bend — route the signed amount
             // separately so trackpad pitch-bend slides the looping
             // sample alongside the MIDISynth-based voices.
@@ -2670,8 +2670,8 @@ final class MenuBandController {
         // Backtick (`, keyCode 50) is the microphone sampler trigger:
         // hold the key to record a clip from the default input device,
         // release to switch the active voice to that clip. Subsequent
-        // notes play the recording back at varispeed (rate =
-        // 2^((midi−60)/12)). Pressing any number key flips back to a
+        // notes pitch-shift the recording with duration preserved
+        // (TimePitch, cents = (midi−60)×100). Pressing any number key flips back to a
         // GM voice (`setMelodicProgram` exits sample mode internally).
         if keyCode == 50 {
             return handleSampleRecordKey(isDown: isDown, isRepeat: isRepeat, source: typeMode ? "type" : "local")

@@ -86,10 +86,14 @@ targets:
     settings:
       base:
         PRODUCT_NAME: MenuBand
-        PRODUCT_BUNDLE_IDENTIFIER: computer.aestheticcomputer.menuband
-        INFOPLIST_FILE: Info.plist
-        MARKETING_VERSION: "1.4.1"
-        CURRENT_PROJECT_VERSION: "141"
+        # MAS build ships under a DISTINCT bundle id from the direct-download
+        # DMG (computer.aestheticcomputer.menuband) so both can coexist on one
+        # Mac. Matches the existing App Store Connect record. INFOPLIST_FILE is
+        # the MAS-only fork (Info-AppStore.plist) for the same reason.
+        PRODUCT_BUNDLE_IDENTIFIER: computer.aesthetic.menuband
+        INFOPLIST_FILE: Info-AppStore.plist
+        MARKETING_VERSION: "1.5.0"
+        CURRENT_PROJECT_VERSION: "150"
         CODE_SIGN_ENTITLEMENTS: MenuBand-AppStore.entitlements
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: FB5948YR3S

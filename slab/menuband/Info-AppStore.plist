@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Mac App Store build ONLY. Forked from Info.plist (the direct-download
+     Developer ID build) so the two channels carry DISTINCT bundle ids and can
+     coexist on one Mac:
+       • direct download (DMG): computer.aestheticcomputer.menuband  (Info.plist)
+       • Mac App Store:         computer.aesthetic.menuband          (this file)
+     project.yml points the MAS target's INFOPLIST_FILE here. Keep the two
+     plists in sync for everything EXCEPT CFBundleIdentifier. -->
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>Menu Band</string>
+	<key>CFBundleExecutable</key>
+	<string>MenuBand</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIdentifier</key>
+	<string>computer.aesthetic.menuband</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Menu Band</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.5.0</string>
+	<key>CFBundleVersion</key>
+	<string>150</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.music</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>11.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSHumanReadableCopyright</key>
+	<string>By aesthetic.computer</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Menu Band records short clips from your microphone when you hold ` so you can play them back as a sampling voice.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Menu Band finds nearby Menu Bands so two machines can play together in sync over peer-to-peer Wi-Fi and Bluetooth, no router needed.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Menu Band uses Bluetooth to discover and sync with nearby Menu Bands for multi-machine performances.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_acmenuband._tcp</string>
+		<string>_acmenuband._udp</string>
+	</array>
+</dict>
+</plist>
