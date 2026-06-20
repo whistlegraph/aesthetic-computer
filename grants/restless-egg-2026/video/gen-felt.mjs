@@ -125,6 +125,24 @@ const BEATS = {
     "daylight, gentle felt shadow beneath it.",
 };
 
+// Per-beat REAL aesthetic.computer UI screenshots, appended as extra image[]
+// refs AFTER the jeffrey identity refs, so gpt-image-2 keys the felt laptop
+// SCREENS to the actual software (notepat tile grid + waveform, KidLisp pieces).
+const CAPTURES = `${REPO}/marketing/captures/platter`;
+const SCREENS = {
+  painter: [`${CAPTURES}/notepat.png`],
+  instrument: [`${CAPTURES}/notepat.png`],
+  boot: [`${CAPTURES}/notepat.png`],
+  synth: [`${CAPTURES}/notepat.png`],
+  invitation: [`${CAPTURES}/notepat.png`],
+  close: [`${CAPTURES}/notepat.png`],
+  commons: [
+    `${CAPTURES}/notepat.png`,
+    `${CAPTURES}/kidlisp-roz.png`,
+    `${CAPTURES}/kidlisp-ger.png`,
+  ],
+};
+
 function loadKey() {
   if (process.env.OPENAI_API_KEY) return process.env.OPENAI_API_KEY;
   const vault = `${REPO}/aesthetic-computer-vault/.devcontainer/envs/devcontainer.env`;
@@ -150,7 +168,11 @@ async function gen(beat) {
   }
   const prompt = buildPrompt(beat);
   writeFileSync(`${OUT}/felt-${beat}.prompt.txt`, prompt);
-  console.log(`▸ felt-${beat} · ${SIZE} · ${REFS.length} refs`);
+  // Real AC UI screenshots for this beat's laptop screen (appended after REFS).
+  const screens = (SCREENS[beat] || []).filter(
+    (p) => existsSync(p) || (console.warn(`  ⚠ screen missing: ${p}`), false),
+  );
+  console.log(`▸ felt-${beat} · ${SIZE} · ${REFS.length} refs · ${screens.length} screens`);
   const t0 = Date.now();
   const fd = new FormData();
   fd.append("model", "gpt-image-2");
@@ -158,7 +180,7 @@ async function gen(beat) {
   fd.append("size", SIZE);
   fd.append("quality", "high");
   fd.append("n", "1");
-  for (const ref of REFS) {
+  for (const ref of [...REFS, ...screens]) {
     const buf = readFileSync(ref);
     const ext = ref.toLowerCase().endsWith(".png") ? "png" : "jpeg";
     fd.append("image[]", new Blob([buf], { type: `image/${ext}` }), ref.split("/").pop());
