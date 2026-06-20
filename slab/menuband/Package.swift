@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "MenuBand",
-    platforms: [.macOS(.v13)],
+    platforms: [.macOS(.v11)],
     targets: [
         // Tiny always-running daemon whose only job is to watch for the
         // double-tap right-Command gesture and relaunch Menu Band.app

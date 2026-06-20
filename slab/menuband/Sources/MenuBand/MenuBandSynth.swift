@@ -303,14 +303,18 @@ final class MenuBandSynth {
         if gmSynthEnabled, !on { gmSynth.panic() }
     }
 
-    /// Feature flag: the AC OS native GM synth (`gmSynth`) is disabled for
-    /// now while a render-thread `EXC_BAD_ACCESS` crash is investigated. While
-    /// false, melodic notes never route to `gmSynth` — everything falls back to
-    /// MIDISynth, exactly as if the "Use AC OS MIDI" toggle were off. The node
-    /// stays attached but silent (a proven-safe state: no voice ever goes
-    /// active, so the crashing render path is never entered). Flip to true to
-    /// re-enable once the crash is fixed.
-    private let gmSynthEnabled = false
+    /// Feature flag: the AC OS native GM synth (`gmSynth`). Re-enabled now
+    /// that the render-thread `EXC_BAD_ACCESS (code=2)` is fixed at its root:
+    /// it was an audio-thread STACK OVERFLOW from constructing a `Voice`
+    /// (whose `core: GMVoice` inlines ~80 KB of ks_buf/fx_delay/bore_buf/
+    /// ss_chorus_buf) as a `var v = Voice()` local on the IOThread stack, then
+    /// copying it into the pool — ~160 KB the deep AudioUnit pull chain could
+    /// not afford. `MenuBandGMSynth.noteOn` now inits the C voice IN PLACE in
+    /// the heap pool (`withUnsafeMutablePointer(to: &voices[slot].core)`), and
+    /// the render loop only ever touches `core` via pointer — no by-value
+    /// `Voice` copy on the audio thread. Set false to fall everything back to
+    /// MIDISynth if a new render-path issue ever appears.
+    private let gmSynthEnabled = true
 
     /// True when a melodic note for `program` should route to `gmSynth`:
     /// the feature is enabled, the toggle is on, and the GM core actually
