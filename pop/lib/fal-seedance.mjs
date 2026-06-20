@@ -27,7 +27,14 @@ export function falKey() {
   throw new Error("FAL_KEY not set and not found in vault devcontainer.env");
 }
 
-const mime = (p) => p.match(/\.jpe?g$/i) ? "image/jpeg" : p.match(/\.webp$/i) ? "image/webp" : "image/png";
+const mime = (p) =>
+  p.match(/\.jpe?g$/i) ? "image/jpeg" :
+  p.match(/\.webp$/i) ? "image/webp" :
+  p.match(/\.mp4$/i) ? "video/mp4" :
+  p.match(/\.mov$/i) ? "video/quicktime" :
+  p.match(/\.mp3$/i) ? "audio/mpeg" :
+  p.match(/\.wav$/i) ? "audio/wav" :
+  "image/png";
 export const dataUri = (p) => `data:${mime(p)};base64,${readFileSync(p).toString("base64")}`;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -40,12 +47,9 @@ export async function generateShot({
   resolution = "720p", tier = "fast", audio = false, seed = null,
   outPath, label = "shot", log = console.log,
 }) {
-  const key = falKey();
-  const auth = { Authorization: `Key ${key}`, "Content-Type": "application/json" };
   const endpoint = tier === "standard"
     ? "bytedance/seedance-2.0/image-to-video"
     : "bytedance/seedance-2.0/fast/image-to-video";
-
   const input = {
     prompt,
     image_url: dataUri(image),
@@ -56,6 +60,43 @@ export async function generateShot({
     generate_audio: audio,
     seed: seed ?? undefined,
   };
+  return runQueueJob({ endpoint, input, outPath, label, log });
+}
+
+// Reference-to-video: generate a fresh clip steered by `prompt`, pulling
+// style/motion/sound from up to 9 images, 3 videos (combined 2–15s, <50MB),
+// and 3 audio clips (combined ≤15s). Refer to them in the prompt as
+// @Image1 / @Video1 / @Audio1. Each ref is a local file path → data URI.
+export async function generateReferenceShot({
+  images = [], videos = [], audios = [], prompt,
+  duration = "auto", ratio = "auto", resolution = "720p",
+  tier = "fast", audio = true, seed = null,
+  outPath, label = "ref-shot", log = console.log,
+}) {
+  if (!videos.length && !images.length)
+    throw new Error("reference-to-video needs at least one image or video ref");
+  const endpoint = tier === "standard"
+    ? "bytedance/seedance-2.0/reference-to-video"
+    : "bytedance/seedance-2.0/fast/reference-to-video";
+  const input = {
+    prompt,
+    image_urls: images.length ? images.map(dataUri) : undefined,
+    video_urls: videos.length ? videos.map(dataUri) : undefined,
+    audio_urls: audios.length ? audios.map(dataUri) : undefined,
+    duration: String(duration),
+    resolution,
+    aspect_ratio: ratio,
+    generate_audio: audio,
+    seed: seed ?? undefined,
+  };
+  return runQueueJob({ endpoint, input, outPath, label, log });
+}
+
+// Submit one job to a fal queue endpoint, poll to completion, download the
+// mp4 to outPath. Shared by every Seedance entry point above.
+async function runQueueJob({ endpoint, input, outPath, label, log }) {
+  const key = falKey();
+  const auth = { Authorization: `Key ${key}`, "Content-Type": "application/json" };
 
   // A submitted job keeps running (and billing) on fal even if this
   // process dies, so the queue handles are persisted beside the output
@@ -70,9 +111,22 @@ export async function generateShot({
 
   const MAX_SUBMIT = 4;
   for (let attempt = 1; !queued && attempt <= MAX_SUBMIT; attempt++) {
-    const res = await fetch(`https://queue.fal.run/${endpoint}`, {
-      method: "POST", headers: auth, body: JSON.stringify(input),
-    });
+    let res;
+    try {
+      res = await fetch(`https://queue.fal.run/${endpoint}`, {
+        method: "POST", headers: auth, body: JSON.stringify(input),
+      });
+    } catch (err) {
+      // A thrown fetch (e.g. UND_ERR_HEADERS_TIMEOUT uploading a big data
+      // URI body) means the job never reached fal — safe to retry, nothing
+      // billed and no queue handle to resume.
+      if (attempt < MAX_SUBMIT) {
+        log(`  ⚠ ${label}: submit ${err.cause?.code ?? err.message} — retry ${attempt}/${MAX_SUBMIT - 1} in ${5 * attempt}s`);
+        await sleep(5000 * attempt);
+        continue;
+      }
+      return { ok: false, error: `submit threw: ${err.cause?.code ?? err.message}` };
+    }
     if (res.ok) {
       queued = await res.json();
       writeFileSync(queuePath, JSON.stringify(queued, null, 2));

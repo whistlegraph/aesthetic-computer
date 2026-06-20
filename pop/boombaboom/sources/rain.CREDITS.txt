@@ -1,0 +1,18 @@
+rain.wav — deep Amazon rainforest rain ambience
+
+Freesound attribution
+  sound id: 673947
+  title:    Rain under a tree at the edge of the forest, with drops on foliage and the ground recorded in Amazon rainforest
+  author:   felix.blume
+  license:  CC0 1.0 Public Domain Dedication (http://creativecommons.org/publicdomain/zero/1.0/)
+  url:      https://freesound.org/people/felix.blume/sounds/673947/
+
+Attribution line:
+  "Rain under a tree at the edge of the forest" by felix.blume — Freesound #673947 — CC0 1.0 — https://freesound.org/people/felix.blume/sounds/673947/
+
+Processing
+  Source: Freesound HQ preview (48 kHz stereo MP3, ~170 s) fetched via pop/lib/freesound.mjs.
+  Region: 36 s extracted from 42 s (steadiest, no bird/transient spikes).
+  Output: mono, 48000 Hz, 16-bit PCM WAV; loudnorm I=-20 TP=-3; 0.2 s fade in/out.
+
+Note: CC0 requires no attribution, but credit retained per pop convention.

@@ -1,0 +1,39 @@
+# boombaboom — @jeffrey's "boom-ba-boom" chant, fitted to a peak-time
+# techno bed (boombaboom.c · 140 BPM · D minor).
+#
+# SOURCE: ~/Downloads/boombaboom.MP4 → boombaboom/sources/boombaboom-raw.wav
+# (a ~32.5s continuous melodic chant sitting around C#4, 96% voiced, in a
+# D-minor space. Onset-sliced into 29 "cells" by bin/slice-cells.py →
+# cells.json. WORLD f0-detection over the source found a recurring HOOK
+# motif — E-E-F ("boom-ba-boom") — at 0.5s, 7.5s, 14.7s, 21.5s.)
+#
+# HYBRID treatment (@jeffrey's call 2026-06-20):
+#   • HOOK kept as-sung — cells 01/02/03 (E4 E4 F4) gently WORLD-locked to
+#     the notes he already sang, so it still sounds like him, just steadied.
+#   • VERSES re-mapped — other cells WORLD-locked onto the tighter D-minor
+#     line below, so jeffrey's phonemes ride a designed techno topline.
+#
+# Scale: D minor with the raised-7th C# leading tone (D harmonic/melodic
+# blend), bluesy C/B passing tones — matches what he actually sang.
+# notation: NOTE:syllable*beats   (continuation syllables start with -)
+#
+# Placement (which cell lands where, over the bed's sections) lives in
+# bin/bake.mjs; this file is the melodic INTENT — the score is the artifact.
+
+# ── HOOK — kept as-sung (cells 01 02 03 ≈ E4 E4 F4) ──────────────────
+# "boom-ba-boooom": two pickup booms into a held F. Lands on the drops.
+hook
+E4:boom*1 E4:ba*1 F4:boom*4
+
+# ── VERSE — re-mapped onto a rolling D-minor line ────────────────────
+# A descending answer to the bass (Dm–Bb–F–C), pulled from the verse cells
+# and WORLD-locked to these targets. Sits in the breakdowns + groove tails.
+verse
+D4:boom*2 C4:ba*1 A3:boom*1
+A3:ba*1 F3:boom*2 A3:ba*1
+D4:boom*2 C#4:ba*2
+A3:boom*1 D4:ba*1 F4:boom*4
+
+# ── PAD — a sustained held cell, drenched, for the big breakdown ─────
+pad
+D4:booom*8

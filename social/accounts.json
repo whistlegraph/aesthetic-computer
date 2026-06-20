@@ -1,0 +1,49 @@
+{
+  "_comment": "Stats snapshot store for AC social accounts. Append a new object to each account's `snapshots` array when you log fresh numbers. Dates are absolute (YYYY-MM-DD).",
+  "accounts": [
+    {
+      "id": "aesthetic-computer-ig",
+      "handle": "@aesthetic.computer",
+      "platform": "instagram",
+      "url": "https://instagram.com/aesthetic.computer",
+      "role": "primary-growth-target",
+      "goal": "1000 followers (unlocks Instagram Trial Reels)",
+      "snapshots": [
+        { "date": null, "followers": null, "following": null, "posts": null, "notes": "TODO: fill in current numbers" }
+      ]
+    },
+    {
+      "id": "aesthetic-computer-tiktok",
+      "handle": "@aesthetic.computer",
+      "platform": "tiktok",
+      "url": "https://tiktok.com/@aesthetic.computer",
+      "role": "primary-growth-target",
+      "goal": "Grow in tandem with IG; feed cross-traffic to IG",
+      "snapshots": [
+        { "date": null, "followers": null, "following": null, "posts": null, "notes": "TODO: fill in current numbers" }
+      ]
+    },
+    {
+      "id": "whistlegraph-ig",
+      "handle": "@whistlegraph",
+      "platform": "instagram",
+      "url": "https://instagram.com/whistlegraph",
+      "role": "established-funnel-source",
+      "goal": "Maintain; occasional 'made with aesthetic.computer' funnel to primary",
+      "snapshots": [
+        { "date": null, "followers": null, "following": null, "posts": null, "notes": "TODO: fill in current numbers" }
+      ]
+    },
+    {
+      "id": "whistlegraph-tiktok",
+      "handle": "@whistlegraph",
+      "platform": "tiktok",
+      "url": "https://tiktok.com/@whistlegraph",
+      "role": "established-funnel-source",
+      "goal": "Maintain; occasional funnel to primary",
+      "snapshots": [
+        { "date": null, "followers": null, "following": null, "posts": null, "notes": "TODO: fill in current numbers" }
+      ]
+    }
+  ]
+}

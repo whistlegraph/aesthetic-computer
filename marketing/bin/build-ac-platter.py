@@ -31,13 +31,11 @@ FALLBACK = "/System/Library/Fonts/SFNS.ttf"
 LABELS = [
     ("notepat",      "notepat — the instrument"),
     ("prompt",       "the prompt — aesthetic.computer"),
-    ("kidlisp-berz", "$berz — a KidLisp piece"),
-    ("kidlisp-cow",  "$cow — a KidLisp piece"),
     ("kidlisp-roz",  "$roz — a KidLisp piece"),
-    ("kidlisp-ican", "$ican — a KidLisp piece"),
+    ("kidlisp-ger",  "$ger — a KidLisp piece"),
+    ("laklok",       "laklok"),
 ]
 
-COLS = 2
 THUMB_W = 1080
 PAD = 80
 GAP = 56
@@ -61,6 +59,8 @@ def fit_contain(img, tw, th, bg=(18, 14, 24)):
 present = [(n, l) for n, l in LABELS if (SHOTS / f"{n}.png").exists()]
 if not present:
     raise SystemExit(f"no captures found in {SHOTS} — run capture-ac-platter.mjs first")
+
+COLS = {1: 1, 2: 2, 3: 3, 4: 2}.get(len(present), 3)  # balanced grid, no empty cells
 
 # thumbnail height from the first shot's aspect (they share a viewport)
 first = Image.open(SHOTS / f"{present[0][0]}.png")

@@ -29,6 +29,27 @@ Open follow-ups (queued, not blockers):
 
 ---
 
+## boombaboom — WIP
+
+- **Lane:** `pop/boombaboom/` · peak-time techno · 140 BPM · D minor · 2:27 ·
+  84 bars. @jeffrey's "boom-ba-boom" vocal chant
+  (`~/Downloads/boombaboom.MP4`, a 32.5s melodic chant around C#4 with a
+  recurring **E-E-F** hook) fitted onto an AC-native C techno bed.
+- **Treatment:** hybrid — hook kept *as-sung* (gently WORLD-locked to E4/E4/F4),
+  verses *re-mapped* onto a rolling D-minor topline (his phonemes, designed
+  pitches). 29 onset-sliced cells → WORLD f0-lock → rubberband stretch → placed
+  on the bed's drops/breakdowns. See `boombaboom/README.md`.
+- **Bed:** `c/boombaboom.c`, forked from `minitek/c/deeptek.c` — keeps deeptek's
+  **deep round chill kick**, adds peak-time drive (offbeat open-hat, backbeat
+  clap, harder pump 0.80, bigger drop impacts, real breakdowns, FM lead pulled
+  back so the vocal leads). Form: intro·build·grvA·brkdn·grvB·bigbrk·grvC·outro;
+  drops at 27.4 / 68.6 / 109.7s.
+- **Status:** WIP — first full bake rendered 2026-06-20 to
+  `~/Documents/Shelf/boombaboom/boombaboom.mp3` (+ `-MASTER.wav`). Awaiting
+  @jeffrey's listen + mix notes.
+
+---
+
 ## marimbaba — RELEASED
 
 - **Lane:** `pop/marimba/` · lullaby for synthesized marimba, 1:24 ·

@@ -1,0 +1,20 @@
+heli.wav — close police helicopter hovering overhead (LA "ghetto bird" rotor thump)
+
+Freesound attribution
+  sound id: 548340
+  title:    helicopter hovering (close)
+  author:   thegreatbelow
+  license:  CC0 1.0 Public Domain Dedication (http://creativecommons.org/publicdomain/zero/1.0/)
+  url:      https://freesound.org/people/thegreatbelow/sounds/548340/
+
+Attribution line:
+  "helicopter hovering (close)" by thegreatbelow — Freesound #548340 — CC0 1.0 — https://freesound.org/people/thegreatbelow/sounds/548340/
+
+Processing
+  Source: Freesound HQ preview (48 kHz mono MP3, ~60.6 s) fetched via pop/lib/freesound.mjs.
+  Region: 18 s extracted from 13 s (steadiest, closest overhead hover; loudest + most consistent rotor thump).
+  Output: mono, 48000 Hz, 16-bit PCM WAV; loudnorm I=-20 TP=-3; 0.2 s fade in/out.
+  Character: dominant low-rotor blade slap (<200 Hz only ~1.7 dB below full-band) — the WHUP-WHUP chopper vibe.
+
+Note: CC0 requires no attribution, but credit retained per pop convention.
+  Tagged on Freesound: 911, chopper, emergency, helicopter, hover, police.

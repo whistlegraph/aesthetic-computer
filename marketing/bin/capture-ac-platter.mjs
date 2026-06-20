@@ -44,13 +44,19 @@ const puppeteer = (await import(`${PUPPETEER_DIR}/lib/esm/puppeteer/puppeteer.js
 // Curated platter of live AC screens. boot=true → click + Space to wake audio/
 // piece; settle is per-target ms to let the piece paint.
 const BASE = "https://aesthetic.computer";
+// Every note key across the whole notepat board (two octaves of tiles).
+const SWEEP = ["KeyC","KeyV","KeyD","KeyS","KeyE","KeyF","KeyW","KeyG","KeyR","KeyA","KeyQ","KeyB",
+               "KeyH","KeyT","KeyI","KeyY","KeyJ","KeyK","KeyU","KeyL","KeyO","KeyM","KeyP","KeyN"];
 const TARGETS = [
-  { name: "notepat",   url: `${BASE}/notepat`,  label: "notepat — the instrument",        settle: 6000, boot: true },
-  { name: "prompt",    url: `${BASE}/prompt`,   label: "aesthetic.computer — the prompt",  settle: 5000, boot: true, type: "notepat" },
-  { name: "kidlisp-berz", url: `${BASE}/$berz`, label: "$berz — a KidLisp piece",          settle: 7000, boot: true },
-  { name: "kidlisp-cow",  url: `${BASE}/$cow`,  label: "$cow — a KidLisp piece",           settle: 7000, boot: true },
-  { name: "kidlisp-roz",  url: `${BASE}/$roz`,  label: "$roz — a KidLisp piece",           settle: 7000, boot: true },
-  { name: "kidlisp-ican", url: `${BASE}/$ican`, label: "$ican — a KidLisp piece",          settle: 7000, boot: true },
+  // notepat: boot, Tab to switch from gm → sine, then sweep every key across the
+  // whole board (×3) so the center timeline fills, ending on a held chord.
+  { name: "notepat",   url: `${BASE}/notepat`,  label: "notepat — the instrument",        settle: 4000, boot: true,
+    setup: ["Tab"], play: [...SWEEP, ...SWEEP, ...SWEEP], playDelay: 70,
+    hold: ["KeyC","KeyE","KeyG","KeyH"] },
+  { name: "prompt",    url: `${BASE}/prompt`,   label: "aesthetic.computer — the prompt",  settle: 6000, boot: false },
+  { name: "kidlisp-roz",  url: `${BASE}/$roz`,  label: "$roz — a KidLisp piece",           settle: 16000, boot: true },
+  { name: "kidlisp-ger",  url: `${BASE}/$ger`,  label: "$ger — a KidLisp piece",           settle: 16000, boot: true },
+  { name: "laklok",       url: `${BASE}/laklok`, label: "laklok",                          settle: 24000, boot: true },
 ];
 
 // Chunkier pixels read better as laptop-screen imagery / felt-screen refs.
@@ -97,13 +103,34 @@ for (const t of targets) {
     await page.keyboard.press("Space").catch(() => {});
   }
   await new Promise((r) => setTimeout(r, t.settle));
-  // optional: type a command to reveal the prompt's live discovery UI (no Enter)
+  // optional: type a command (e.g. to reveal the prompt discovery UI, no Enter)
   if (typeof t.type === "string") {
     await page.keyboard.type(t.type, { delay: 110 }).catch(() => {});
     await new Promise((r) => setTimeout(r, 2500));
   }
+  // optional: one-shot setup keys (e.g. Tab to switch notepat's synth → sine)
+  if (Array.isArray(t.setup)) {
+    for (const k of t.setup) {
+      await page.keyboard.press(k).catch(() => {});
+      await new Promise((r) => setTimeout(r, 500));
+    }
+  }
+  // optional: play a run of note keys to populate the center (notepat roll)
+  if (Array.isArray(t.play)) {
+    for (const k of t.play) {
+      await page.keyboard.press(k).catch(() => {});
+      await new Promise((r) => setTimeout(r, t.playDelay || 150));
+    }
+  }
+  // optional: hold a chord down through the screenshot, then release
+  const held = [];
+  if (Array.isArray(t.hold)) {
+    for (const k of t.hold) { await page.keyboard.down(k).catch(() => {}); held.push(k); }
+    await new Promise((r) => setTimeout(r, 600));
+  }
   const out = `${OUT}/${t.name}.png`;
   await page.screenshot({ path: out, omitBackground: false });
+  for (const k of held) await page.keyboard.up(k).catch(() => {});
   console.log(`✓ ${t.name} → ${out}`);
   await page.close();
 }

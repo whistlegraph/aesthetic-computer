@@ -2,9 +2,11 @@
 
 *An introduction to "Keymaps as Social Software," written for the Social Software /docs, on the occasion of Cycle 2.*
 
-There is a small diagram on the front page of `notepat.com`. It says that the QWERTY key A plays one note, that S plays the next, that the letters under your fingers are also pitches. It contains no code. It is not a binary, not a service, not a runtime. It is a table — a list of agreements about what a key means. And it is software in every sense that matters: it is versioned, it is invented, it is forked, people demand it from one application to the next and complain when it is missing.
+The keymap is a small table. It says that the QWERTY key A plays one note, that S plays the next, that the letters under your fingers are also pitches. It contains no code. It is not a binary, not a service, not a runtime. It is a list of agreements about what a key means. And it is software in every sense that matters: it is versioned, it is invented, it is forked, people demand it from one application to the next and complain when it is missing.
 
-I wrote a paper about that table. This is the short version of why.
+I first made it as notepat — a small JavaScript piece on Aesthetic.Computer, at notepat.com. Since then the same keymap has been implemented again and again: across the Aesthetic.Computer operating system, as the notepat instrument for upcycled computers, and in the Mac Menu Band app, written in collaboration with Esteban Uribe. The notes stay the same; only the body around them changes. That portability is the point — and the reason I think a keymap is worth a paper.
+
+This is the short version of why.
 
 ## A thing without a name
 
@@ -26,9 +28,9 @@ That last part is the half the paper cares about most. A keymap has two bodies: 
 
 ## The edition
 
-This document accompanies the first numbered print edition of the paper, cut in June 2026 as my contribution to Cycle 2. The edition mechanic is the part I love most, because it is itself a piece of social software: every member of the cohort produced sixty-four copies of their own score, and on June 13, 2026, at Fuser in Frogtown, we brought them all into one room and collated them into a single publication — one assembled set per copy, eleven scores deep, sixty-four times over. A paper about conventions that exist because people agree to act on them, bound by hand into an object that exists because eleven people showed up and agreed to make it.
+This document accompanies the first numbered print edition of the paper, cut in June 2026 as my contribution to Cycle 2. The edition mechanic is the part I love most, because it is itself a piece of social software: every member of the cohort produced sixty-four copies of their own score, and on June 13, 2026, at Fuser — 1811 Blake Ave, in Frogtown — we brought them all into one room and collated them into a single publication. One assembled set per copy, sixty-four times over. A paper about conventions that exist because people agree to act on them, bound by hand into an object that exists because a room full of people showed up and agreed to make it.
 
-The cohort, who turned a stack of loose ideas into an edition: Alexander Espinosa, Banyi Huang, Chelly Jin, Darlyn Phan, Emmanuel Lugo, Jordan Silver, Mavyn Vu, Peter Sullivan, Thomas Noya, and Æther Cavendish. Convened by Casey Reas and Lauren Lee McCarthy, produced with Wylie Kasai. Reading their scores next to mine is the best argument I can make for the category: none of us shipped a binary, and all of us shipped software.
+The cohort each arrived with a score: Jordan Silver's *Sonic Architecture*, Em Lugo's *Ambling Los Angeles*, Æther Cavendish's *Vigil Score*, Thomas Noya's *Biophonía*, Mavyn Vu's *the radio is an altar : portal*, Alex Espinosa's *Music for World Computers*, Darlyn Phan's *Meridians*, Chelly Jin's *Software as a Choreography*, Banyi Huang's *Conjuring Notness*, and mine — the keymaps paper, under the banner of Aesthetic.Computer. Convened by Casey Reas and Lauren Lee McCarthy, produced with Wylie Kasai. Reading those scores next to each other is the best argument I can make for the category: none of us shipped a binary, and all of us shipped software.
 
 The keymap on the front of notepat is still there. It still contains no code. It is still just a table of agreements — which, it turns out, is one of the oldest and most durable kinds of software we have. It only needed a name.
 
