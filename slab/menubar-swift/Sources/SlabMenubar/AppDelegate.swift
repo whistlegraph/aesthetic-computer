@@ -272,6 +272,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 // the source machine name (see FramePreview.swift / `frame
                 // --preview`). Machine identity leads, so no session emoji here.
                 FramePreview.shared.consumeRequests()
+                // Groups of images (e.g. App Store screenshots) open as a tiled
+                // wall of chromeless glass panels — Preview-free review. See
+                // ImageGroupPreview.swift / `slab-images`.
+                ImageGroupPreview.shared.consumeRequests()
                 self.applyTerminalDecor()
                 self.applyDesktopTint()
             }

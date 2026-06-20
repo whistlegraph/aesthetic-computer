@@ -929,6 +929,9 @@ final class MenuBandPopoverViewController: NSViewController {
         gamepadRow.addArrangedSubview(gamepadSpacer)
         gamepadRow.addArrangedSubview(gamepadSchemePopUp)
 
+        // Tagged so the App Store screenshot capture (PopoverCapture.swift)
+        // can hide this row — gamepad config is noise in a marketing shot.
+        gamepadRow.identifier = NSUserInterfaceItemIdentifier("mb.gamepadRow")
         stack.addArrangedSubview(gamepadRow)
         gamepadRow.widthAnchor.constraint(equalTo: stack.widthAnchor,
                                           constant: -16).isActive = true

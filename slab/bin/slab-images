@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# slab-images <a.png> [b.png …] — open a GROUP of images as a tiled wall of
+# chromeless glass panels (Preview-free review). Writes one absolute path per
+# line to $SLAB_HOME/state/open-images; the menubar's 2 s tick consumes the
+# whole file as ONE group, grid-tiles it across the main screen, and replaces
+# any previous group. Esc/⌘W dismiss a panel. See
+# slab/menubar-swift/Sources/SlabMenubar/ImageGroupPreview.swift.
+set -euo pipefail
+
+SLAB_HOME="${SLAB_HOME:-$HOME/.local/share/slab}"
+REQUEST="$SLAB_HOME/state/open-images"
+
+if [ $# -eq 0 ]; then
+    echo "usage: slab-images <image> [more …]" >&2
+    exit 1
+fi
+
+mkdir -p "$SLAB_HOME/state"
+
+# Truncate: each invocation is one fresh group (the tick reads the whole file).
+: > "$REQUEST"
+for f in "$@"; do
+    if [ ! -f "$f" ]; then
+        echo "slab-images: no such file: $f" >&2
+        exit 1
+    fi
+    abs="$(cd "$(dirname "$f")" && pwd)/$(basename "$f")"
+    printf '%s\n' "$abs" >> "$REQUEST"
+done
+echo "slab-images: queued $# image(s) → $REQUEST"
