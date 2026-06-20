@@ -1,0 +1,53 @@
+{
+  "title": "Restless Egg — Felt Illys (laptop-geometry QA)",
+  "width": 1536,
+  "height": 1024,
+  "fps": 30,
+  "shots": [
+    {
+      "id": "painter",
+      "t0": 0, "t1": 3,
+      "lane": "CARD",
+      "card": "felt-painter.png",
+      "status": "done",
+      "vo": "GEOMETRY OK — three-quarter laptop, screen faces him.",
+      "prompt": "KEEP (untouched). Screen on interior face, angled toward him. Was already fine."
+    },
+    {
+      "id": "instrument",
+      "t0": 3, "t1": 6,
+      "lane": "CARD",
+      "card": "felt-instrument.png",
+      "status": "done",
+      "vo": "GEOMETRY OK — hero shot, hands on keys, screen faces him.",
+      "prompt": "KEEP (untouched). Best of the set. Screen + keyboard correctly co-hinged."
+    },
+    {
+      "id": "boot",
+      "t0": 6, "t1": 9,
+      "lane": "CARD",
+      "card": "felt-boot.png",
+      "status": "done",
+      "vo": "FIXED — proper open wedge, screen on inner face angled toward him, USB to the side.",
+      "prompt": "REGENERATED 2026-06-20 with hinged-wedge NOTEPAT clause. Geometry now coherent."
+    },
+    {
+      "id": "commons",
+      "t0": 9, "t1": 12,
+      "lane": "CARD",
+      "card": "felt-commons.png",
+      "status": "done",
+      "vo": "FIXED — every laptop an open hinged wedge, screens on interior faces; no back-screens.",
+      "prompt": "REGENERATED 2026-06-20 with 'open wedge / rear machines = blank lid' clause added to the commons scene line. Impossible back-screens gone."
+    },
+    {
+      "id": "invitation",
+      "t0": 12, "t1": 15,
+      "lane": "CARD",
+      "card": "felt-invitation.png",
+      "status": "done",
+      "vo": "FIXED — real open-laptop wedge, screen hinged up, keyboard base receding.",
+      "prompt": "REGENERATED 2026-06-20 with hinged-wedge NOTEPAT clause. No longer a flat coplanar slab."
+    }
+  ]
+}
