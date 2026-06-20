@@ -57,7 +57,7 @@ if profile == "fuser" {
         noteSignalDir: noteDir,
         factoryCorner: corner,
         fixedCorner: corner,
-        marginX: 16, marginY: 16,    // the badge's historical resting gap
+        marginX: 4, marginY: 4,      // hug the screen corner
         draggable: false,
         colorTogglable: false,
         registersLoginItem: false,
@@ -68,7 +68,7 @@ if profile == "fuser" {
         },
         singPath: { _ in fuserHome + "/glyph-sing.svg" }
     )
-    plugins = [FuserPlugin(home: fuserHome, repo: repo)]
+    plugins = [FuserPlugin(home: fuserHome, repo: repo, minimal: argv.contains("--minimal"))]
 } else {
     // The star, for Fía. Glyph art ships in the .app's Resources (gold/silver).
     func base(_ color: String) -> String { color == "silver" ? "star-silver" : "star-glyph" }
@@ -105,9 +105,13 @@ if profile == "fuser" {
         config.model3D = true
         config.model3DPath = modelPath
         config.avatarTogglable = true   // right-click → 3D ⇄ 2D
-        // 2D mode shows the model's flat thumbnail (no SVG glyph for these).
-        config.posePaths = { _ in [fuserHome + "/\(m)-3d/\(m)-thumb.png"] }
-        config.singPath = { _ in nil }
+        // 2D keeps the flat SVG glyph poses (set by the fuser config above) so
+        // the toggle flips between the SceneKit pal and the animated glyph —
+        // only fall back to the model's static thumbnail if no SVGs are staged.
+        if !FileManager.default.fileExists(atPath: fuserHome + "/glyph.svg") {
+            config.posePaths = { _ in [fuserHome + "/\(m)-3d/\(m)-thumb.png"] }
+            config.singPath = { _ in nil }
+        }
     }
 }
 

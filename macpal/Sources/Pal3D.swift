@@ -146,7 +146,10 @@ final class Pal3DView: NSView {
             for clip in ["wave", "cheer"] {
                 let cp = "\(dir)/\(stem)-\(clip).usdc"
                 guard FileManager.default.fileExists(atPath: cp),
-                      let n = loadUSD(cp, tint: tint, loop: false) else { continue }
+                      // Clips (neo-wave/neo-cheer) carry no PBR sidecars of their
+                      // own — reuse the idle model's textures (neo-base_color.png)
+                      // so a hover/cheer swap stays textured, not raw-material green.
+                      let n = loadUSD(cp, tint: tint, loop: false, textureStem: stem) else { continue }
                 // Same rig as the idle → reuse the idle's exact fit transform so
                 // swapping clips never zooms/shifts the camera framing. (Fitting
                 // each independently differs because they load at different poses.)
@@ -179,7 +182,8 @@ final class Pal3DView: NSView {
     // SceneKit reads UsdSkel animation natively; .playRepeatedly auto-starts and
     // loops every embedded clip. glb→usd conversion can drop textures, so the
     // sibling PBR maps are re-applied (same as the OBJ path).
-    private static func loadUSD(_ path: String, tint: NSColor, loop: Bool = true) -> SCNNode? {
+    private static func loadUSD(_ path: String, tint: NSColor, loop: Bool = true,
+                                textureStem: String? = nil) -> SCNNode? {
         let url = URL(fileURLWithPath: path)
         let policy: SCNSceneSource.AnimationImportPolicy = loop ? .playRepeatedly : .doNotPlay
         guard let scene = try? SCNScene(url: url, options: [.animationImportPolicy: policy]) else { return nil }
@@ -188,7 +192,9 @@ final class Pal3DView: NSView {
         if holder.childNodes.isEmpty { return nil }
 
         let dir = url.deletingLastPathComponent()
-        let stem = url.deletingPathExtension().lastPathComponent   // e.g. "blueberry" / "neo"
+        // Clips pass `textureStem` to reuse the idle model's PBR maps (their own
+        // <stem>-base_color.png doesn't exist); the idle uses its own stem.
+        let stem = textureStem ?? url.deletingPathExtension().lastPathComponent   // e.g. "blueberry" / "neo"
         let tintColor = accentTint(tint, 0.5)   // pull the model toward the accent indigo
         func map(_ suffix: String) -> NSImage? {
             for n in ["\(stem)-\(suffix).png", "blueberry-\(suffix).png"] {

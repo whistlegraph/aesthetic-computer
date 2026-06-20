@@ -357,7 +357,7 @@ final class PalController: NSObject {
     // menu toggle can swap it live. The 3D pal gets a bigger frame so it reads.
     func makeGlyphView() -> NSView {
         if use3D, let path = config.model3DPath {
-            glyphW = 188; glyphH = 188
+            glyphW = 224; glyphH = 224
             let v = Pal3DView(frame: NSRect(x: (fullWidth - glyphW) / 2, y: 0, width: glyphW, height: glyphH),
                               objPath: path, tint: accent)
             v.wantsLayer = true
@@ -527,9 +527,9 @@ final class PalController: NSObject {
             items.append(gold); items.append(silver)
         }
         if config.avatarTogglable {
-            let m3 = NSMenuItem(title: "3D Blueberry", action: #selector(use3DAvatar), keyEquivalent: "")
+            let m3 = NSMenuItem(title: "3D", action: #selector(use3DAvatar), keyEquivalent: "")
             m3.target = self; m3.state = use3D ? .on : .off
-            let m2 = NSMenuItem(title: "2D Blueberry", action: #selector(use2DAvatar), keyEquivalent: "")
+            let m2 = NSMenuItem(title: "2D", action: #selector(use2DAvatar), keyEquivalent: "")
             m2.target = self; m2.state = use3D ? .off : .on
             items.append(m3); items.append(m2)
         }
@@ -876,9 +876,14 @@ final class PalController: NSObject {
         let win = fullWidth
         // Stack, bottom-up: [plugin rows] · name · glyph.
         let stackH = plugins.reduce(CGFloat(0)) { $0 + $1.stackHeight(in: self) }
-        let nameY: CGFloat = 12 + stackH
-        let glyphY = nameY + 44 + 4
-        let totalH = glyphY + glyphH + 8
+        let nameY: CGFloat = 8 + stackH
+        let nameH: CGFloat = 40
+        // Tuck the title right under the avatar. The name is drawn centered (and
+        // doesn't clip), and the avatar art has whitespace at its base, so a tight
+        // — even slightly negative — gap reads as "graphic sitting on the title."
+        // 3D has extra frame headroom, so it tucks further.
+        let glyphY = nameY + nameH + (use3D ? -40 : -4)
+        let totalH = glyphY + glyphH + 6
         var o = NSPoint(x: f.minX + marginX, y: f.maxY - totalH - marginY)   // TL
         switch corner {
         case "TR": o = NSPoint(x: f.maxX - win - marginX, y: f.maxY - totalH - marginY)
@@ -890,7 +895,7 @@ final class PalController: NSObject {
         content.frame = NSRect(x: 0, y: 0, width: win, height: totalH)
         let gw: CGFloat = (glyphView is NSImageView) ? glyphW : win
         glyphView.frame = NSRect(x: (win - gw) / 2, y: glyphY, width: gw, height: glyphH)
-        nameLabel.frame = NSRect(x: 0, y: nameY, width: win, height: 44)
+        nameLabel.frame = NSRect(x: 0, y: nameY, width: win, height: nameH)
         clickCatcher.frame = glyphView.frame
         content.liveRects = [glyphView.frame]
         // Plugins lay their rows out bottom-up from y=12 and append any live rects.

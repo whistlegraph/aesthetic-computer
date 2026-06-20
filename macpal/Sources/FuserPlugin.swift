@@ -350,7 +350,12 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
 
     private var tick4 = 0   // git refresh every 4th tick (~4s)
 
-    init(home: String, repo: String) {
+    // minimal: hide every info row (status line, tasks, overtime, terminal pane)
+    // so the badge is just the avatar graphic + the name title.
+    let minimal: Bool
+
+    init(home: String, repo: String, minimal: Bool = false) {
+        self.minimal = minimal
         self.home = home
         self.initRepo = repo
         // A persisted menu choice wins over the launch arg; otherwise track the
@@ -364,7 +369,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
             self.repoLabel = Self.knownRepos.first(where: { $0.path == repo })?.label
                 ?? (repo as NSString).lastPathComponent
         }
-        self.hasPane = FileManager.default.fileExists(atPath: home + "/pane.log")
+        self.hasPane = !minimal && FileManager.default.fileExists(atPath: home + "/pane.log")
         super.init()
     }
 
@@ -462,6 +467,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     // Reserved height from the y=12 baseline up to where the name sits — the
     // exact bottom-up stack the original badge computed.
     func stackHeight(in controller: PalController) -> CGFloat {
+        if minimal { return 0 }
         let off = (hasPane && curPaneH > 0) ? curPaneH + 8 : 0
         let tasksH: CGFloat = taskLines.isEmpty ? 0 : CGFloat(taskLines.count) * 13 + 3
         let chipH: CGFloat = overtimeOn ? 36 : 0
@@ -472,6 +478,12 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     }
 
     func layoutRows(in controller: PalController, originY: CGFloat) {
+        if minimal {
+            statusField.isHidden = true; tasksField.isHidden = true
+            overtimeField.isHidden = true; overtimeChip.isHidden = true
+            paneContainer?.isHidden = true
+            return
+        }
         let base = originY                     // 12 in practice (single plugin)
         let W = controller.fullWidth
         let off = (hasPane && curPaneH > 0) ? curPaneH + 8 : 0
@@ -503,6 +515,12 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     }
 
     func setCollapsed(_ collapsed: Bool) {
+        if minimal {
+            statusField.isHidden = true; tasksField.isHidden = true
+            overtimeField.isHidden = true; overtimeChip.isHidden = true
+            paneContainer?.isHidden = true
+            return
+        }
         let hide = collapsed
         statusField.isHidden = hide
         tasksField.isHidden = hide || taskLines.isEmpty
