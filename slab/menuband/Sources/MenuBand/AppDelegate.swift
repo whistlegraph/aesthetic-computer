@@ -292,6 +292,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var fxRampFromEcho: Float = 0
     private var fxRampFromX: Float = 0
     private var fxRampStart: Date?
+    // MARK: Source-side bend smoothing
+    /// The trackpad gesture writes its latest accumulated pitch-bend TARGET
+    /// here; `bendEaseTimer` then slews `bendAmount` (the value actually sent
+    /// to the synths) toward it at a bounded rate. Without this, one trackpad
+    /// `.mouseMoved` event jumps `bendAmount` in a single step and EVERY
+    /// backend re-pitches at the next render quantum — the DLS MIDISynth, the
+    /// varispeed sample/radio voices, and even the GM synth (whose own ~4 ms
+    /// internal glide is too fast to bridge the ~10 ms between frames). That
+    /// per-frame discontinuity is the "pop" heard while sliding fast. Easing
+    /// at the source keeps each step well under a quarter-tone so nothing
+    /// clicks.
+    private var bendGestureTarget: Float = 0
+    private var bendEaseTimer: Timer?
+    /// Whether the in-flight ease should broadcast to all channels (Shift).
+    private var bendEaseAllChannels: Bool = false
     /// True while one or more fingers rest on the trackpad (fed by
     /// LocalKeyCapture's touch sensor). The bend holds — and survives
     /// note changes / legato — for as long as this is true; it only
@@ -378,6 +393,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// AVAudioUnitTimePitch's hard limit (±2400 cents) for the radio voice,
     /// so the radio reaches its true floor/ceiling at the grid edges.
     private static let bendRange: Float = 2.0
+    /// Max bend slew, in `bendAmount` units per second, while easing the
+    /// applied bend toward the gesture target (see `bendGestureTarget`). The
+    /// full ±range (4 units peak-to-peak) resolves in ~⅓ s and a typical
+    /// one-octave flick in ~85 ms — sized so each ~8 ms ease tick moves pitch
+    /// by well under a quarter-tone, small enough that no backend clicks at
+    /// the step yet fast enough to still read as immediate under the finger.
+    private static let bendSlewPerSecond: Float = 12.0
+    /// Ease tick rate (Hz). Fine-grained relative to a CoreAudio render
+    /// quantum so the synths see a continuous slide, not a staircase.
+    private static let bendEaseHz: Double = 120.0
     /// Trackpad-points-per-unit-space (X-axis). Deliberately less
     /// touchy than pitch: ~200pt of horizontal travel sweeps fully
     /// dry → full room, so it's a controllable ambience wash rather
@@ -3575,8 +3600,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // pulls straight back (no dead travel unwinding old overshoot). The
         // overlay puck normalizes against the same range, so the grid edge
         // IS the cap. ±bendRange = two octaves down / up.
-        bendAmount = max(-Self.bendRange, min(Self.bendRange, bendAmount + bendDelta))
-        menuBand.setBend(amount: bendAmount, allChannels: shift)
+        //
+        // Accumulate onto the TARGET, not the applied value, and let the
+        // ease timer slew `bendAmount` toward it (see `bendGestureTarget`).
+        // When the easer isn't already running we're (re)starting a slide —
+        // sync the target to the value currently sounding so the accumulator
+        // continues from there (handles a fresh grab AND a re-grab during the
+        // post-release spring-back, where `cancelFxRelease` above just froze
+        // `bendAmount` mid-glide).
+        if bendEaseTimer == nil { bendGestureTarget = bendAmount }
+        bendGestureTarget = max(-Self.bendRange,
+                                min(Self.bendRange, bendGestureTarget + bendDelta))
+        bendEaseAllChannels = shift
+        startBendEase()
         menuBand.setSpace(amount: spaceAmount)
         menuBand.setEcho(amount: echoAmount)
         pushStaffPitchShift()
@@ -3725,6 +3761,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fxRampStart = nil
     }
 
+    /// Slew `bendAmount` toward `bendGestureTarget` at `bendSlewPerSecond`,
+    /// pushing each small step to every backend so the pitch slides instead
+    /// of jumping (see `bendGestureTarget` for why). Idempotent — a running
+    /// easer just keeps tracking the moving target; it self-cancels once it
+    /// reaches the target.
+    private func startBendEase() {
+        guard bendEaseTimer == nil else { return }
+        let dt = 1.0 / Self.bendEaseHz
+        let maxStep = Self.bendSlewPerSecond * Float(dt)
+        let timer = Timer(timeInterval: dt, repeats: true) { [weak self] t in
+            guard let self = self else { t.invalidate(); return }
+            let diff = self.bendGestureTarget - self.bendAmount
+            if abs(diff) <= maxStep {
+                self.bendAmount = self.bendGestureTarget
+            } else {
+                self.bendAmount += diff > 0 ? maxStep : -maxStep
+            }
+            self.menuBand.setBend(amount: self.bendAmount,
+                                  allChannels: self.bendEaseAllChannels)
+            self.updatePitchBendOverlayImage()
+            if self.bendAmount == self.bendGestureTarget {
+                t.invalidate()
+                self.bendEaseTimer = nil
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        bendEaseTimer = timer
+    }
+
+    /// Stop the bend easer and snap the target to wherever the applied bend
+    /// currently sits — used when the post-release ramp takes over driving
+    /// `bendAmount` so the two don't fight over it.
+    private func stopBendEase() {
+        bendEaseTimer?.invalidate()
+        bendEaseTimer = nil
+        bendGestureTarget = bendAmount
+    }
+
     /// Write "<seq> <noteName>" to the desktop-badge note signal file so the
     /// blueberry sticker opens its mouth + floats a note. Fire-and-forget on a
     /// utility queue; silently does nothing on machines without the badge dir.
@@ -3788,6 +3862,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pitchBendEndTimer?.invalidate()
         pitchBendEndTimer = nil
         pitchBendReleaseGraceUntil = nil
+        // Stop the bend easer so it can't keep nudging pitch after teardown;
+        // the fx spring-back (startFxRelease below) owns `bendAmount` now.
+        stopBendEase()
         // Clear the latched mode regardless of cursor-lock state so an
         // Esc / focus-loss always fully exits, even if the lock flag was
         // somehow already cleared.
@@ -3843,6 +3920,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func startFxRamp() {
         fxHoldTimer?.invalidate()
         fxHoldTimer = nil
+        // The ramp drives `bendAmount` directly from here on; hand it off so
+        // the gesture easer (which may still be settling toward the target)
+        // doesn't fight the glide to neutral.
+        stopBendEase()
         fxRampFromBend = bendAmount
         fxRampFromSpace = spaceAmount
         fxRampFromEcho = echoAmount

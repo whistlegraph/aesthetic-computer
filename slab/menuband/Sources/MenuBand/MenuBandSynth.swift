@@ -187,13 +187,22 @@ final class MenuBandSynth {
     /// every keystroke pays only the realtime buffer latency. The power
     /// saving still kicks in if the user walks away from the keyboard.
     private let idleSuspendDelay: TimeInterval = 60.0
-    /// Audio I/O frames the device renders per cycle. macOS uses
-    /// `max(all clients)` in shared mode, so on a real system this
-    /// request is observed but typically ignored (something else
-    /// holds the device at 512). Kept for the rare case where Menu
-    /// Band IS the sole client — then the device drops to ~1.3 ms
-    /// at 96 kHz × 128 frames.
-    private static let targetIOBufferFrames: UInt32 = 128
+    /// Audio I/O frames the device renders per cycle — the render-thread
+    /// deadline budget. macOS uses `max(all clients)` in shared mode, so on a
+    /// real system this request is observed but typically ignored (something
+    /// else holds the device at 512). When Menu Band IS the sole client the
+    /// device drops to this size.
+    ///
+    /// 512 @ 96 kHz ≈ 5.3 ms — a deliberately conservative budget. The full
+    /// synth stack (GM C core + DLS MIDISynth + per-note sample voices +
+    /// percussion + fx + limiter) must finish WITHIN this window every cycle
+    /// or CoreAudio underruns and you hear a click/pop, in any playback. On a
+    /// memory-constrained / few-core machine an ultra-low buffer (we used to
+    /// dive to the device minimum, 32 frames / 0.33 ms) can't survive normal
+    /// scheduling jitter, so it popped constantly. 5.3 ms is still well below
+    /// the perceptual threshold for a keyboard instrument; bump it back down
+    /// only on a machine with headroom to spare.
+    private static let targetIOBufferFrames: UInt32 = 512
     /// True once we've successfully taken hog mode on the active
     /// output device. Tracks the device ID alongside so we can
     /// release the right one on shutdown / device switch.
@@ -1275,16 +1284,18 @@ final class MenuBandSynth {
         let rangeStatus = AudioObjectGetPropertyData(
             deviceID, &rangeAddr, 0, nil, &rangeSize, &range)
 
-        // Aim for the device's reported MINIMUM buffer (with hog mode that
-        // floor is genuinely reachable), so keypress→sound sits as close to
-        // the hardware's theoretical limit as macOS allows. Keep a small
-        // safety floor so the built-in output doesn't xrun under load.
-        let safetyFloor: UInt32 = 32
+        // Aim for `targetIOBufferFrames` — a deadline budget the synth stack
+        // can actually meet every cycle — clamped into the device's supported
+        // range. We deliberately do NOT dive to the device MINIMUM: that floor
+        // (typically 32 frames / 0.33 ms at 96 kHz) leaves no slack for
+        // scheduling jitter on a constrained machine and underruns into
+        // constant pops. Clamp the target UP to the device min only if the
+        // hardware can't go as small as our target.
         var target = Self.targetIOBufferFrames
         if rangeStatus == noErr {
-            let lo = max(safetyFloor, UInt32(range.mMinimum))
+            let lo = UInt32(range.mMinimum)
             let hi = UInt32(range.mMaximum)
-            target = min(hi, lo)
+            target = min(hi, max(lo, Self.targetIOBufferFrames))
         }
 
         var currAddr = AudioObjectPropertyAddress(
