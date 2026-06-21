@@ -48,12 +48,34 @@ const assetsDir = `${OUT}/chrome-assets`;
 mkdirSync(assetsDir, { recursive: true });
 
 const W = 1080, H = 1920;
-const FPS = META.fps;
+const FPS = META.targetFps ?? META.fps ?? 30;
 const SRC_W = META.width, SRC_H = META.height;   // captured piece dimensions
-const frameFiles = readdirSync(FRAMES_DIR).filter((f) => f.endsWith(".png")).sort();
-const FRAMES = frameFiles.length;
-if (FRAMES === 0) throw new Error(`no frames in ${FRAMES_DIR}`);
 const TITLE = CODE;                              // "$tezz" — the side-stamp text
+
+// Resample the realtime-captured frames to a constant FPS by TRUE elapsed time,
+// so the piece plays at its real speed (heavy pieces captured below FPS get
+// frames duplicated, never time-compressed). META.frames = [{file, t}] in
+// ascending t; realDuration is the actual wall-clock span we captured.
+const captured = (META.frames ?? []).filter((f) => existsSync(`${FRAMES_DIR}/${f.file}`));
+if (captured.length === 0) {
+  // legacy capture (no timestamps): fall back to on-disk order at FPS
+  const files = readdirSync(FRAMES_DIR).filter((f) => f.endsWith(".png")).sort();
+  for (let i = 0; i < files.length; i++) captured.push({ file: files[i], t: i / FPS });
+}
+if (captured.length === 0) throw new Error(`no frames in ${FRAMES_DIR}`);
+const realDuration = META.realDuration ?? captured[captured.length - 1].t;
+const FRAMES = Math.max(1, Math.round(realDuration * FPS));
+// frameFiles[j] = the captured PNG nearest output time j/FPS (pointer walk).
+const frameFiles = [];
+{
+  let p = 0;
+  for (let j = 0; j < FRAMES; j++) {
+    const tOut = j / FPS;
+    while (p < captured.length - 1 && Math.abs(captured[p + 1].t - tOut) <= Math.abs(captured[p].t - tOut)) p++;
+    frameFiles.push(captured[p].file);
+  }
+}
+console.log(`▸ resampled ${captured.length} real frames (${realDuration.toFixed(1)}s) → ${FRAMES} frames @ ${FPS}fps (true speed)`);
 
 // Word-bounce speed — lower = slower. (@jeffrey: bounce the words slower.)
 const BOUNCE_RATE = 1.5;
@@ -293,9 +315,15 @@ function spawnSilentEncode(outPath) {
 console.log(`▸ kidlisp reel · ${FRAMES} frames · "${TITLE}" · tint rgb(${tintRgb.join(",")}) · silent`);
 const enc = spawnSilentEncode(OUTFILE);
 let prevPx = null;
+let cachedFile = null, cachedImg = null;
 const t0 = Date.now();
 for (let i = 0; i < FRAMES; i++) {
-  const img = await loadImage(`${FRAMES_DIR}/${frameFiles[i]}`);
+  // resampling duplicates frames for heavy pieces — only reload on file change
+  if (frameFiles[i] !== cachedFile) {
+    cachedImg = await loadImage(`${FRAMES_DIR}/${frameFiles[i]}`);
+    cachedFile = frameFiles[i];
+  }
+  const img = cachedImg;
 
   // motion envelope: mean abs luma delta vs previous frame, normalized
   const { px } = sampleLuma(img);

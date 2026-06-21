@@ -46,14 +46,13 @@ if (!CODE) {
 const SLUG = CODE.replace(/^\$/, "").replace(/[^a-z0-9_-]/gi, "-").toLowerCase() || "piece";
 
 const DURATION = parseFloat(flags.duration || 12);
-const FPS = parseInt(flags.fps || 30, 10);
-const DENSITY = String(flags.density || 3);
+const FPS = parseInt(flags.fps || 30, 10);     // target playback fps (resampled in render)
+const DENSITY = String(flags.density || 6);    // higher = chunkier pixels (buffer = viewport/density)
 // Portrait by default: the piece fills the whole 9:16 reel frame (full-bleed).
 // --square (or --width/--height) captures a 1080×1080 piece for the center-band look.
 const CAP_W = parseInt(flags.width || (flags.square ? 1080 : 1080), 10);
 const CAP_H = parseInt(flags.height || (flags.square ? 1080 : 1920), 10);
 const SETTLE = parseInt(flags.settle || 2500, 10);  // ms for first paint + asset load
-const FRAMES = Math.round(DURATION * FPS);
 
 const OUT = resolve((flags.out || `${LANE}/out/${SLUG}`).replace(/^~/, process.env.HOME));
 const FRAMES_DIR = `${OUT}/frames`;
@@ -80,7 +79,7 @@ const url = `${BASE}/${CODE}?nolabel&nogap&tv&density=${DENSITY}&spoofaudio`;
 
 console.log(`▸ capture-kidlisp ${CODE} → ${FRAMES_DIR}`);
 console.log(`  ${url}`);
-console.log(`  ${CAP_W}×${CAP_H} · ${FPS}fps · ${DURATION}s = ${FRAMES} frames${CHROME ? `  [${CHROME.split("/").pop()}]` : ""}`);
+console.log(`  ${CAP_W}×${CAP_H} · realtime capture for ${DURATION}s → resample to ${FPS}fps${CHROME ? `  [${CHROME.split("/").pop()}]` : ""}`);
 
 const browser = await puppeteer.launch({
   headless: "new",
@@ -107,28 +106,33 @@ await page.keyboard.press("Space").catch(() => {});
 
 await new Promise((r) => setTimeout(r, SETTLE));
 
-// Frame loop. Wall-clock screenshotting can't hit FPS exactly (each grab costs
-// ~30–80ms), so the strip is treated as a sequential frame list and encoded at
-// FPS downstream — the piece plays at a steady cadence. (CDP virtual-time would
-// give frame-exact determinism; a v0.2 upgrade.)
+// REALTIME capture. The piece animates on wall-clock time in the browser, and
+// each screenshot costs ~30–80ms (more for heavy pieces). So we DON'T try to
+// hit a fixed fps — we grab frames as fast as we can for DURATION real seconds
+// and record each frame's true elapsed time. render-reel resamples these to the
+// playback fps by timestamp, so the animation plays at its TRUE speed (heavy
+// pieces just yield fewer real frames → duped on resample, never sped up).
 const t0 = Date.now();
-const interval = 1000 / FPS;
-let next = Date.now();
-for (let i = 0; i < FRAMES; i++) {
-  const path = `${FRAMES_DIR}/frame-${String(i).padStart(5, "0")}.png`;
-  await page.screenshot({ path, omitBackground: false });
-  next += interval;
-  const wait = next - Date.now();
-  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
-  if ((i + 1) % 60 === 0) console.log(`  ${i + 1}/${FRAMES} · ${((Date.now() - t0) / 1000).toFixed(0)}s`);
+const stamps = [];
+let i = 0;
+while (true) {
+  const t = (Date.now() - t0) / 1000;
+  if (t >= DURATION) break;
+  const file = `frame-${String(i).padStart(5, "0")}.png`;
+  await page.screenshot({ path: `${FRAMES_DIR}/${file}`, omitBackground: false });
+  stamps.push({ file, t });
+  i++;
+  if (i % 60 === 0) console.log(`  ${i} frames · ${t.toFixed(1)}/${DURATION}s real (${(i / Math.max(t, 0.001)).toFixed(1)} fps)`);
 }
+const realDuration = (Date.now() - t0) / 1000;
 
 await browser.close();
 
 writeFileSync(`${OUT}/capture.json`, JSON.stringify({
-  code: CODE, slug: SLUG, frames: FRAMES, fps: FPS, width: CAP_W, height: CAP_H,
-  duration: DURATION, density: DENSITY, url, capturedAt: null,
+  code: CODE, slug: SLUG, captured: stamps.length, targetFps: FPS,
+  width: CAP_W, height: CAP_H, duration: DURATION, realDuration,
+  density: DENSITY, url, frames: stamps,
 }, null, 2));
 
-console.log(`✓ captured ${FRAMES} frames → ${FRAMES_DIR}`);
+console.log(`✓ captured ${stamps.length} real frames over ${realDuration.toFixed(1)}s (${(stamps.length / realDuration).toFixed(1)} fps avg) → ${FRAMES_DIR}`);
 console.log(`  next: node marketing/kidlisp-reels/bin/render-reel.mjs ${CODE}`);
