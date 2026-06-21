@@ -12,7 +12,8 @@
       "lane": "CARD",
       "card": "felt/felt-painter.png",
       "status": "done",
-      "vo": "Hi I'm Jeffrey Scudder I'm a programmer and internet artist and I've spent the last decade building"
+      "vo": "Hi I'm Jeffrey Scudder I'm a programmer and internet artist and I've spent the last decade building",
+      "approved": false
     },
     {
       "id": "02-instrument",
@@ -30,7 +31,8 @@
       "lane": "CARD",
       "card": "felt/felt-synth.png",
       "status": "done",
-      "vo": "it with a keyboard a touchscreen MIDI even pressure. Underneath is a hundred-and-twenty-eight-voice"
+      "vo": "it with a keyboard a touchscreen MIDI even pressure. Underneath is a hundred-and-twenty-eight-voice",
+      "approved": true
     },
     {
       "id": "04-boot",

@@ -532,14 +532,16 @@ final class ShotWizardController: NSWindowController, NSWindowDelegate, NSTextFi
         guard let beat = shot.beat else { status("no felt beat for this shot (regen only works on felt cards)"); return }
         let gen = board.baseDir.appendingPathComponent("gen-felt.mjs")
         guard FileManager.default.fileExists(atPath: gen.path) else { status("gen-felt.mjs not found beside board.json"); return }
-        // feed any reviewer note into the gen as extra guidance via env? keep simple: log it.
-        if let n = shot.note, !n.isEmpty { status("regen \(beat) — note: \(n)") }
-        runJob(driver: gen, args: ["--only", beat, "--force"], verb: "regenerating \(beat)")
+        var args = ["--only", beat, "--force"]
+        if let n = shot.note, !n.isEmpty { args += ["--note", n] }   // fold reject reason into the prompt
+        runJob(driver: gen, args: args, verb: "regenerating \(beat)")
     }
 
     func runJob(driver: URL, args: [String], verb: String) {
         genButton.isEnabled = false
         assembleButton.isEnabled = false
+        regenButton.isEnabled = false
+        regenButton.title = "⏳ regenerating…"
         jobProgress.isHidden = false
         jobProgress.startAnimation(nil)
         status(verb + " …")
@@ -554,6 +556,8 @@ final class ShotWizardController: NSWindowController, NSWindowDelegate, NSTextFi
                          self.jobProgress.isHidden = true
                          self.genButton.isEnabled = true
                          self.assembleButton.isEnabled = true
+                         self.regenButton.isEnabled = true
+                         self.regenButton.title = "↻ regenerate"
                          self.thumbCache.removeAll()
                          self.board.reload()
                          self.status(code == 0 ? "\(verb) done ✓" : "\(verb) failed (exit \(code))")

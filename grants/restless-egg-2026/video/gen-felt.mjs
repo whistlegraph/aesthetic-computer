@@ -53,7 +53,9 @@ const STYLE =
 const DOLL =
   "the central figure is a needle-felted wool doll of the man in the " +
   "reference photos — recognizably HIM in doll form, about 30, medium-length " +
-  "tousled brown wool hair, short brown wool beard, soft red felt glasses, " +
+  "tousled brown wool hair, CLEAN-SHAVEN with a smooth felt face (NO beard, NO " +
+  "stubble, NO five-o'clock shadow — even if the reference photos show facial " +
+  "hair), and NO glasses (do NOT add the red glasses from the references). " +
   "warm friendly felted face clearly visible and never cropped. his doll " +
   "wears a tiny felt version of the ACTUAL clothing he is wearing in the " +
   "reference photos — match the real clothes faithfully in felt, do not " +
@@ -233,6 +235,10 @@ const apiKey = loadKey();
 const QA = !argv.includes("--no-qa");
 const qaIdx = argv.indexOf("--qa-retries");
 const QA_RETRIES = qaIdx >= 0 ? parseInt(argv[qaIdx + 1], 10) : 2;
+// Reviewer note (from ShotWizard reject reason) — folded into the prompt so a
+// regenerate actually addresses the human feedback, not just the auto-QA.
+const noteIdx = argv.indexOf("--note");
+const NOTE = noteIdx >= 0 ? (argv[noteIdx + 1] || "") : "";
 const QA_MODEL = "gpt-4o";
 const GEOMETRY_FIX =
   "Render EVERY laptop from the front or side with its screen angled toward the " +
@@ -313,7 +319,10 @@ async function requestImage(promptText, refs) {
 
 function buildPrompt(beat) {
   const screenNote = (SCREENS[beat] || []).length ? `\n\n${SCREEN_NOTE}` : "";
-  return `${STYLE}\n\n${OFFICE}\n\n${DOLL}\n\n${BEATS[beat]}\n\n${TAIL}${screenNote}`;
+  const reviewerNote = NOTE
+    ? `\n\nREVIEWER NOTE (a human rejected the previous version — address this specifically): ${NOTE}`
+    : "";
+  return `${STYLE}\n\n${OFFICE}\n\n${DOLL}\n\n${BEATS[beat]}\n\n${TAIL}${screenNote}${reviewerNote}`;
 }
 
 async function gen(beat) {
