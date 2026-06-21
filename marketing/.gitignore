@@ -10,3 +10,4 @@ campaigns/*/story/*.mp4
 campaigns/*/story/*.mp3
 campaigns/*/story/*.alignment.json
 campaigns/*/story/*.hash
+kidlisp-reels/out/

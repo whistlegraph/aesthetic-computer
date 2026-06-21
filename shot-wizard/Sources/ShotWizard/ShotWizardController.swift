@@ -9,7 +9,7 @@
 import AppKit
 import AVFoundation
 
-final class ShotWizardController: NSWindowController, NSWindowDelegate {
+final class ShotWizardController: NSWindowController, NSWindowDelegate, NSTextFieldDelegate {
     let board: Board
     let jobs = JobRunner()
     var sel = 0
@@ -43,7 +43,19 @@ final class ShotWizardController: NSWindowController, NSWindowDelegate {
     var jobProgress: NSProgressIndicator!
     var jobLog: NSTextField!
 
-    let sidebarW: CGFloat = 320
+    // review panel
+    var scriptLabel: NSTextField!
+    var refsLabel: NSTextField!
+    var promptLabel: NSTextField!
+    var refsRow: NSView!
+    var refsScroll: NSScrollView!
+    var approveButton: NSButton!
+    var rejectButton: NSButton!
+    var verdictLabel: NSTextField!
+    var noteField: NSTextField!
+    var regenButton: NSButton!
+
+    let sidebarW: CGFloat = 360
     let stripH: CGFloat = 110
     var thumbCache: [String: NSImage] = [:]
 
@@ -164,13 +176,44 @@ final class ShotWizardController: NSWindowController, NSWindowDelegate {
         jobLog.font = NSFont.monospacedSystemFont(ofSize: 10, weight: .regular)
         jobLog.lineBreakMode = .byTruncatingHead
 
+        // ── review panel ──
+        scriptLabel = sectionLabel("SCRIPT / CAPTIONS")
+        refsLabel = sectionLabel("REFS (prompt inputs)")
+        promptLabel = sectionLabel("PROMPT")
+        refsRow = NSView(frame: NSRect(x: 0, y: 0, width: sidebarW, height: 60))
+        refsRow.wantsLayer = true
+        refsScroll = NSScrollView(frame: .zero)
+        refsScroll.documentView = refsRow
+        refsScroll.hasHorizontalScroller = true
+        refsScroll.hasVerticalScroller = false
+        refsScroll.drawsBackground = false
+        refsScroll.wantsLayer = true
+        refsScroll.layer?.cornerRadius = 6
+        refsScroll.layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(0.06).cgColor
+        verdictLabel = label(12, .semibold)
+        approveButton = button("✓ approve", #selector(approveShot))
+        rejectButton = button("✗ reject", #selector(rejectShot))
+        regenButton = button("↻ regenerate", #selector(regenShot))
+        noteField = NSTextField(frame: .zero)
+        noteField.placeholderString = "comment / reason…"
+        noteField.font = NSFont.systemFont(ofSize: 12)
+        noteField.delegate = self
+
         let views: [NSView] = [
             titleLabel, totalLabel, playAllButton, navPrevButton, navNextButton, playerView, stillView,
-            stripScroll, idLabel, laneLabel,
-            timeLabel, voScroll, sourceThumb, promptScroll, statusLabel,
-            genButton, assembleButton, jobProgress, jobLog,
+            stripScroll, idLabel, laneLabel, timeLabel,
+            scriptLabel, voScroll, refsLabel, refsScroll, promptLabel, promptScroll,
+            verdictLabel, approveButton, rejectButton, noteField,
+            regenButton, assembleButton, statusLabel, jobProgress, jobLog,
         ]
         for v in views { cv.addSubview(v) }
+    }
+
+    private func sectionLabel(_ s: String) -> NSTextField {
+        let l = label(10, .semibold)
+        l.textColor = .secondaryLabelColor
+        l.stringValue = s
+        return l
     }
 
     private func label(_ size: CGFloat, _ weight: NSFont.Weight) -> NSTextField {
@@ -220,27 +263,41 @@ final class ShotWizardController: NSWindowController, NSWindowDelegate {
         stripScroll.frame = NSRect(x: pad, y: stripY, width: W - 2 * pad, height: stripH)
         strip?.reload()
 
-        // right sidebar
+        // right sidebar — review inspector
         let sx = W - pad - sidebarW
         let contentTop = headerY - 12
         let contentBottom = stripY + stripH + 12
-        idLabel.frame = NSRect(x: sx, y: contentTop - 22, width: sidebarW, height: 22)
-        laneLabel.frame = NSRect(x: sx, y: contentTop - 40, width: 90, height: 16)
-        timeLabel.frame = NSRect(x: sx + 92, y: contentTop - 40, width: sidebarW - 92, height: 16)
-        let voH: CGFloat = 86
-        voScroll.frame = NSRect(x: sx, y: contentTop - 48 - voH, width: sidebarW, height: voH)
-        let thumbH = sidebarW * 9 / 16
-        sourceThumb.frame = NSRect(x: sx, y: contentTop - 56 - voH - thumbH, width: sidebarW, height: thumbH)
-        // action row at the sidebar bottom
-        genButton.frame = NSRect(x: sx, y: contentBottom, width: 150, height: 28)
-        assembleButton.frame = NSRect(x: sx + 158, y: contentBottom, width: sidebarW - 158, height: 28)
-        statusLabel.frame = NSRect(x: sx, y: contentBottom + 34, width: sidebarW, height: 16)
-        jobProgress.frame = NSRect(x: sx, y: contentBottom + 54, width: sidebarW, height: 12)
-        jobLog.frame = NSRect(x: sx, y: contentBottom + 70, width: sidebarW, height: 14)
-        let promptTop = contentTop - 64 - voH - thumbH
-        let promptBottom = contentBottom + 92
+
+        // top-down: id · lane/time · SCRIPT · REFS · PROMPT(fills)
+        idLabel.frame     = NSRect(x: sx, y: contentTop - 22, width: sidebarW, height: 22)
+        laneLabel.frame   = NSRect(x: sx, y: contentTop - 40, width: 90, height: 16)
+        timeLabel.frame   = NSRect(x: sx + 92, y: contentTop - 40, width: sidebarW - 92, height: 16)
+        let voH: CGFloat = 72
+        scriptLabel.frame = NSRect(x: sx, y: contentTop - 58, width: sidebarW, height: 14)
+        voScroll.frame    = NSRect(x: sx, y: contentTop - 58 - voH, width: sidebarW, height: voH)
+        let refsH: CGFloat = 60
+        let refsLabY = contentTop - 58 - voH - 20
+        refsLabel.frame   = NSRect(x: sx, y: refsLabY, width: sidebarW, height: 14)
+        refsScroll.frame  = NSRect(x: sx, y: refsLabY - refsH, width: sidebarW, height: refsH)
+        let promptLabY = refsLabY - refsH - 20
+        promptLabel.frame = NSRect(x: sx, y: promptLabY, width: sidebarW, height: 14)
+
+        // bottom-up: [regen | assemble] · note · [approve | reject  verdict] · status · progress · log
+        let rowH: CGFloat = 28
+        regenButton.frame    = NSRect(x: sx, y: contentBottom, width: 168, height: rowH)
+        assembleButton.frame = NSRect(x: sx + 176, y: contentBottom, width: sidebarW - 176, height: rowH)
+        noteField.frame      = NSRect(x: sx, y: contentBottom + 36, width: sidebarW, height: 24)
+        approveButton.frame  = NSRect(x: sx, y: contentBottom + 68, width: 116, height: rowH)
+        rejectButton.frame   = NSRect(x: sx + 122, y: contentBottom + 68, width: 104, height: rowH)
+        verdictLabel.frame   = NSRect(x: sx + 232, y: contentBottom + 72, width: sidebarW - 232, height: 20)
+        statusLabel.frame    = NSRect(x: sx, y: contentBottom + 102, width: sidebarW, height: 16)
+        jobProgress.frame    = NSRect(x: sx, y: contentBottom + 122, width: sidebarW, height: 12)
+        jobLog.frame         = NSRect(x: sx, y: contentBottom + 138, width: sidebarW, height: 14)
+
+        // prompt fills the gap between PROMPT label and the bottom block
+        let promptBottom = contentBottom + 158
         promptScroll.frame = NSRect(x: sx, y: promptBottom,
-                                    width: sidebarW, height: max(0, promptTop - promptBottom))
+                                    width: sidebarW, height: max(40, promptLabY - promptBottom))
 
         // main preview fills the left of the sidebar, between header and strip
         let leftW = sx - pad - 14
@@ -260,6 +317,8 @@ final class ShotWizardController: NSWindowController, NSWindowDelegate {
 
     func borderColor(for shot: Shot, selected: Bool) -> NSColor {
         if selected { return .systemYellow }
+        if shot.approved == true { return .systemGreen }
+        if shot.approved == false { return .systemRed }
         switch shot.effectiveStatus {
         case "done": return .systemGreen
         case "wip": return .systemOrange
@@ -320,15 +379,51 @@ final class ShotWizardController: NSWindowController, NSWindowDelegate {
         idLabel.stringValue = "\(i + 1). \(shot.id)"
         laneLabel.stringValue = "\(shot.lane.glyph) \(shot.lane.rawValue)"
         timeLabel.stringValue = String(format: "%.1f–%.1fs (%.1fs)", shot.t0, shot.t1, shot.dur)
-        voText.string = shot.vo ?? "—"
-        promptText.string = shot.prompt ?? "(no motion prompt)"
-        sourceThumb.image = board.sourceURL(shot).flatMap { NSImage(contentsOf: $0) }
+        voText.string = (shot.vo?.isEmpty == false) ? shot.vo! : "—"
+        // felt prompt + refs from the gen sidecar (felt-<beat>.meta.json)
+        if let m = board.meta(shot) {
+            promptText.string = m.prompt
+            populateRefs(m.refs)
+        } else {
+            promptText.string = shot.prompt ?? "(no prompt sidecar yet — ↻ regenerate to capture it)"
+            populateRefs([])
+        }
+        noteField.stringValue = shot.note ?? ""
+        updateVerdict(shot)
         let st = shot.effectiveStatus
         statusLabel.stringValue = "status: \(st)"
         statusLabel.textColor = st == "done" ? .systemGreen : (st == "wip" ? .systemOrange : .secondaryLabelColor)
         loadPreview(shot)
         buildStrip()
         relayout()
+    }
+
+    func updateVerdict(_ shot: Shot) {
+        switch shot.approved {
+        case .some(true):  verdictLabel.stringValue = "✓ approved"; verdictLabel.textColor = .systemGreen
+        case .some(false): verdictLabel.stringValue = "✗ rejected"; verdictLabel.textColor = .systemRed
+        default:           verdictLabel.stringValue = "— unreviewed"; verdictLabel.textColor = .secondaryLabelColor
+        }
+    }
+
+    /// Lay out the shot's ref thumbnails (screens + jeffrey) in the refs strip.
+    func populateRefs(_ urls: [URL]) {
+        refsRow.subviews.forEach { $0.removeFromSuperview() }
+        let tw: CGFloat = 84, th: CGFloat = 52, gap: CGFloat = 6
+        for (i, u) in urls.enumerated() {
+            let iv = NSImageView(frame: NSRect(x: gap + CGFloat(i) * (tw + gap), y: 4, width: tw, height: th))
+            iv.imageScaling = .scaleProportionallyUpOrDown
+            iv.wantsLayer = true
+            iv.layer?.cornerRadius = 4
+            iv.layer?.masksToBounds = true
+            iv.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.25).cgColor
+            iv.image = NSImage(contentsOf: u)
+            iv.toolTip = u.lastPathComponent
+            refsRow.addSubview(iv)
+        }
+        let total = gap + CGFloat(max(0, urls.count)) * (tw + gap)
+        refsRow.frame = NSRect(x: 0, y: 0,
+                               width: max(total, refsScroll.contentSize.width), height: 60)
     }
 
     func loadPreview(_ shot: Shot) {
@@ -409,6 +504,37 @@ final class ShotWizardController: NSWindowController, NSWindowDelegate {
         guard !jobs.running else { return }
         guard let driver = board.driverURL else { status("no driver in board.json (add \"driver\")"); return }
         runJob(driver: driver, args: ["--assemble"], verb: "assembling")
+    }
+
+    // ── review: approve / reject / note / regenerate ──────────────────
+    @objc func approveShot() {
+        board.setApproved(sel, board.shots[sel].approved == true ? nil : true)
+        updateVerdict(board.shots[sel]); buildStrip()
+        status("\(board.shots[sel].id): \(board.shots[sel].approved == true ? "approved ✓" : "cleared")")
+    }
+
+    @objc func rejectShot() {
+        board.setApproved(sel, board.shots[sel].approved == false ? nil : false)
+        updateVerdict(board.shots[sel]); buildStrip()
+        let rejected = board.shots[sel].approved == false
+        status(rejected ? "\(board.shots[sel].id): rejected ✗ — add a reason, then ↻ regenerate"
+                        : "\(board.shots[sel].id): cleared")
+    }
+
+    func controlTextDidEndEditing(_ obj: Notification) {
+        guard (obj.object as? NSTextField) === noteField else { return }
+        board.setNote(sel, noteField.stringValue)
+    }
+
+    @objc func regenShot() {
+        guard !jobs.running else { return }
+        let shot = board.shots[sel]
+        guard let beat = shot.beat else { status("no felt beat for this shot (regen only works on felt cards)"); return }
+        let gen = board.baseDir.appendingPathComponent("gen-felt.mjs")
+        guard FileManager.default.fileExists(atPath: gen.path) else { status("gen-felt.mjs not found beside board.json"); return }
+        // feed any reviewer note into the gen as extra guidance via env? keep simple: log it.
+        if let n = shot.note, !n.isEmpty { status("regen \(beat) — note: \(n)") }
+        runJob(driver: gen, args: ["--only", beat, "--force"], verb: "regenerating \(beat)")
     }
 
     func runJob(driver: URL, args: [String], verb: String) {

@@ -30,8 +30,17 @@ struct Shot: Codable {
     var clip: String?      // rendered mp4 for this shot
     var card: String?      // rendered still (png) for a CARD/CAP shot
     var status: String?    // "done" | "pending" | "wip"
+    var approved: Bool?    // review verdict: true=approved, false=rejected, nil=unreviewed
+    var note: String?      // reviewer comment (the "why", esp. on reject)
 
     var dur: Double { max(0, t1 - t0) }
+    /// Beat slug for regen — from the felt card filename (felt-<beat>.png).
+    var beat: String? {
+        guard let c = card else { return nil }
+        let base = (c as NSString).lastPathComponent
+        guard base.hasPrefix("felt-"), base.hasSuffix(".png") else { return nil }
+        return String(base.dropFirst(5).dropLast(4))
+    }
     var effectiveStatus: String {
         if let s = status { return s }
         return (clip != nil || card != nil) ? "done" : "pending"
@@ -123,6 +132,36 @@ final class Board {
         guard shots.indices.contains(index) else { return }
         shots[index].prompt = prompt
         save()
+    }
+
+    func setApproved(_ index: Int, _ approved: Bool?) {
+        guard shots.indices.contains(index) else { return }
+        shots[index].approved = approved
+        save()
+    }
+
+    func setNote(_ index: Int, _ note: String) {
+        guard shots.indices.contains(index) else { return }
+        shots[index].note = note.isEmpty ? nil : note
+        save()
+    }
+
+    /// Read the gen sidecar (felt-<beat>.meta.json) → (prompt, [refURLs]).
+    /// Falls back to felt-<beat>.prompt.txt (refs unknown) for stills generated
+    /// before the sidecar existed.
+    func meta(_ shot: Shot) -> (prompt: String, refs: [URL])? {
+        guard let beat = shot.beat else { return nil }
+        let mu = baseDir.appendingPathComponent("felt/felt-\(beat).meta.json")
+        if let data = try? Data(contentsOf: mu),
+           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            let prompt = (obj["prompt"] as? String) ?? ""
+            let jeff = (obj["jeffreyRefs"] as? [String]) ?? []
+            let screens = (obj["screens"] as? [String]) ?? []
+            return (prompt, (screens + jeff).map { URL(fileURLWithPath: $0) })
+        }
+        let pu = baseDir.appendingPathComponent("felt/felt-\(beat).prompt.txt")
+        if let p = try? String(contentsOf: pu, encoding: .utf8) { return (p, []) }
+        return nil
     }
 
     func reload() {

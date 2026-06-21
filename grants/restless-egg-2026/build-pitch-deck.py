@@ -143,25 +143,27 @@ def render(slide, n):
     d = ImageDraw.Draw(img)
 
     if hero and image and Path(image).exists():
-        # full-bleed felt image, dark gradient panel bottom for text
+        # full-bleed felt image; header/subheader anchored TOP-LEFT (LACMA style),
+        # over a top scrim for legibility.
         bg = fit_cover(Image.open(image).convert("RGB"), W, H)
         img.paste(bg, (0, 0))
         d = ImageDraw.Draw(img, "RGBA")
-        d.rectangle([0, H - 430, W, H], fill=(20, 12, 26, 150))
-        # tag
+        d.rectangle([0, 0, W, 440], fill=(20, 12, 26, 150))
+        # tag (top-left)
         tf = font(ARIAL_BOLD, 30)
-        d.text((M, H - 400), tag.upper(), font=tf, fill=accent)
-        # title
-        y = H - 350
+        d.text((M, M - 8), tag.upper(), font=tf, fill=accent)
+        d.rectangle([M, M + 34, M + 64, M + 40], fill=accent)
+        # title (top-left)
+        y = M + 78
         for line in title_lines:
             f = font(YWFT_BOLD, 120)
             d.text((M + 3, y + 3), line, font=f, fill=(0, 0, 0, 200))
             d.text((M, y), line, font=f, fill=CREAM); y += 128
-        # body
+        # subheader / body (top-left)
         bf = font(ARIAL, 38)
         for line in body:
             if line:
-                d.text((M, y + 12), line, font=bf, fill=(238, 230, 214));
+                d.text((M, y + 12), line, font=bf, fill=(238, 230, 214))
             y += 50
         img.save(OUT / f"slide-{n:02d}.png", quality=95); return
 

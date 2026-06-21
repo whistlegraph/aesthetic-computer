@@ -1,7 +1,7 @@
 // ThumbStripView — the bottom filmstrip: every shot as a thumbnail tile in
 // running order, the selected one ringed. Click a tile to select it; DRAG a
 // tile to reorder the sequence (drag-and-drop replaces the old ◀/▶ reorder
-// buttons). Portrait tiles (the reel is 9:16). Lives as the documentView of
+// buttons). Tile aspect tracks the board dimensions. Lives as the documentView of
 // the strip scroll view so it scrolls when there are more tiles than fit.
 import AppKit
 
@@ -20,7 +20,13 @@ final class ThumbStripView: NSView {
 
     private var count: Int { controller?.board.shots.count ?? 0 }
     private var tileH: CGFloat { max(40, bounds.height - inset * 2) }
-    private var tileW: CGFloat { tileH * 9.0 / 16.0 }   // portrait reel
+    /// Tile aspect tracks the board's real dimensions (landscape 16:9, portrait
+    /// 9:16, square — whatever the project is), not a hardcoded reel shape.
+    private var aspect: CGFloat {
+        guard let b = controller?.board, b.width > 0, b.height > 0 else { return 9.0 / 16.0 }
+        return CGFloat(b.width) / CGFloat(b.height)
+    }
+    private var tileW: CGFloat { tileH * aspect }
     private var stride: CGFloat { tileW + gap }
 
     /// Total content width so the enclosing scroll view can scroll.
@@ -80,7 +86,9 @@ final class ThumbStripView: NSView {
             let w = iw * scale, h = ih * scale
             dr = NSRect(x: r.midX - w / 2, y: r.midY - h / 2, width: w, height: h)
         }
-        img.draw(in: dr, from: .zero, operation: .copy, fraction: 1.0)
+        // respectFlipped so still PNGs aren't drawn upside-down in this flipped view
+        img.draw(in: dr, from: .zero, operation: .copy, fraction: 1.0,
+                 respectFlipped: true, hints: nil)
         NSGraphicsContext.restoreGraphicsState()
         // ring
         let ring = NSBezierPath(roundedRect: r.insetBy(dx: 1.5, dy: 1.5), xRadius: 6, yRadius: 6)

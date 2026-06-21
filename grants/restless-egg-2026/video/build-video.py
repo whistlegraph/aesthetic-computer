@@ -56,8 +56,8 @@ def is_video(p):
 #    rewritten as flowing prose so delivery reads natural.
 # ========================================================================
 SCRIPT = (
-    "Hi, I'm Jeffrey Scudder — a painter who spent the last decade building "
-    "instruments instead of paintings. "
+    "Hi, I'm Jeffrey Scudder — I'm a programmer and internet artist, and I've "
+    "spent the last decade building instruments instead of apps. "
     "This is notepat. It's a software instrument: you play it with a keyboard, "
     "a touchscreen, MIDI, even pressure. "
     "Underneath is a hundred-and-twenty-eight-voice synthesizer I built from "
@@ -163,13 +163,10 @@ def sent_end(i):
 # 6 My company, Aesthetic Inc. ... and pay for.               ┐
 # 7 I want to build the studio ... play again.                ┴─ INVITATION
 # 8 That's what I'd do with Restless Egg.                     -> CLOSE
-t_painter_end = sent_end(0)
-t_instr_end   = sent_end(2)
-t_synth_end   = sent_end(3)
-t_boot_end    = sent_end(4)
-t_commons_end = sent_end(5)
-t_invite_end  = sent_end(7)
-t_close_end   = sent_end(8) + 1.0
+# 12 cards now distribute across the full VO as a montage (captions stay
+# word-timed independently). Each card carries a weight; end times are the
+# weighted cumulative split of the VO total.
+VO_TOTAL = sent_ends[-1] + 1.0
 
 
 # ========================================================================
@@ -206,21 +203,22 @@ def make_bg(out, bg_path, tint_rgba=(20, 12, 26, 110)):
     img.convert("RGB").save(out, quality=95)
 
 
-def make_text_overlay(out, title_lines, subline=None, pink_idx=None, colorize=False):
+def make_text_overlay(out, title_lines, subline=None, pink_idx=None, colorize=False, label=None):
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(img, "RGBA")
     ink = CREAM; dim = (230, 220, 200)
 
-    sizes = []; total_h = 0
+    # Title + subline anchored TOP-LEFT (LACMA-style header), left-aligned.
+    # Title width is capped short of the top-right QR.
+    LEFT = 64
+    sizes = []
     for line in title_lines:
-        fs = 132; f = font(YWFT_BOLD, fs)   # LACMA title scale
-        while d.textlength(line, font=f) > W * 0.90 and fs > 30:
-            fs -= 4; f = font(YWFT_BOLD, fs)
-        if d.textlength(line, font=f) < W * 0.3 and fs < 132:
-            fs = min(132, fs + 12); f = font(YWFT_BOLD, fs)
-        sizes.append((line, fs, f)); total_h += fs + 16
+        fs = 72; f = font(YWFT_BOLD, fs)   # compact top-left header
+        while d.textlength(line, font=f) > W * 0.80 and fs > 24:
+            fs -= 3; f = font(YWFT_BOLD, fs)
+        sizes.append((line, fs, f))
 
-    y = (H - total_h) / 2 - (32 if subline else 0) - 24
+    y = 56  # top anchor
 
     def shadowed(txt, x, yy, f, fill, dx=3, dy=3):
         d.text((x + dx, yy + dy), txt, font=f, fill=(0, 0, 0, 230))
@@ -238,52 +236,117 @@ def make_text_overlay(out, title_lines, subline=None, pink_idx=None, colorize=Fa
             cx += cw; ci += 1
 
     for i, (line, fs, f) in enumerate(sizes):
-        tw = d.textlength(line, font=f)
         if colorize:
-            rainbow_line(line, (W - tw)/2, y, f)
+            rainbow_line(line, LEFT, y, f)
         else:
             color = CORAL if pink_idx == i else ink
-            shadowed(line, (W - tw)/2, y, f, color)
-        y += fs + 16
+            shadowed(line, LEFT, y, f, color)
+        y += fs + 14
     if subline:
-        sfs = 38; sf = font(YWFT_REG, sfs)
-        while d.textlength(subline, font=sf) > W * 0.92 and sfs > 16:
+        sfs = 26; sf = font(YWFT_REG, sfs)
+        while d.textlength(subline, font=sf) > W * 0.80 and sfs > 14:
             sfs -= 2; sf = font(YWFT_REG, sfs)
-        tw = d.textlength(subline, font=sf)
-        shadowed(subline, (W - tw)/2, y + 20, sf, dim, dx=2, dy=2)
+        shadowed(subline, LEFT, y + 10, sf, dim, dx=2, dy=2)
+    # slide label (for review comments) — small pale-yellow tag, top-left above title
+    if label:
+        lf = font(ARIAL_BOLD, 22)
+        shadowed(label.upper(), LEFT, 16, lf, (250, 238, 150), dx=2, dy=2)
     img.save(out)
 
 
-cards = [
-    # (name, end_time, bg, title_lines, subline, pink_idx, zoom_dir, colorize)
-    ("01-painter",   t_painter_end + 0.2, HERE / "felt" / "felt-painter.png",
-        ["a painter who builds", "instruments"],
+# 12 cards: (name, weight, felt-beat, title_lines, subline, pink_idx, zoom, colorize)
+CARD_DEFS = [
+    ("01-painter",    1.0, "painter",
+        ["builds instruments,", "not apps"],
         "Jeffrey Scudder / Aesthetic, Inc.", None, "in", False),
-    ("02-instrument", t_instr_end, HERE / "felt" / "felt-instrument.png",
+    ("02-instrument", 1.2, "instrument",
         ["notepat"],
         "a software instrument / keyboard / touch / MIDI / pressure", None, "in", True),
-    ("03-synth",     t_synth_end, HERE / "felt" / "felt-synth.png",
+    ("03-synth",      1.0, "synth",
         ["128 voices,", "modeled from scratch"],
         "a real synthesizer, not sample playback", None, "in", False),
-    ("04-boot",      t_boot_end, HERE / "felt" / "felt-boot.png",
+    ("04-boot",       1.0, "boot",
         ["boots a $50 laptop", "into an instrument"],
-        "browser / phone / bare metal / no OS underneath", None, "in", False),
-    ("05-commons",   t_commons_end, HERE / "felt" / "felt-commons.png",
+        "no operating system underneath", None, "in", False),
+    ("05-anywhere",   1.0, "anywhere",
+        ["plays everywhere"],
+        "browser / phone / desktop / bare metal", None, "pan-lr", False),
+    ("06-prompt",     1.0, "prompt",
+        ["one prompt,", "endless pieces"],
+        "type a word, find an instrument", None, "in", False),
+    ("07-roz",        0.9, "kidlisp-roz",
+        ["made with KidLisp"],
+        "six lines become a world", None, "pan-lr", False),
+    ("08-ger",        0.9, "kidlisp-ger",
+        ["anyone can make one"],
+        "a language you play", None, "pan-rl", False),
+    ("09-commons",    1.1, "commons",
         ["18,000 makers", "16,000 programs"],
         "built on Aesthetic Computer", None, "pan-rl", False),
-    ("06-invitation", t_invite_end, HERE / "felt" / "felt-invitation.png",
+    ("10-chat",       1.0, "chat",
+        ["a place,", "not an app"],
+        "makers together, in real time", None, "in", False),
+    ("11-invitation", 1.1, "invitation",
         ["instruments you play,", "not tools you manage"],
         "Aesthetic, Inc. / an instruments studio", None, "in", False),
-    ("07-close",     t_close_end, HERE / "felt" / "felt-close.png",
+    ("12-close",      1.2, "close",
         ["something you play again"],
         "notepat.com / Restless Egg / Batch 2", None, "in", True),
 ]
+_wsum = sum(c[1] for c in CARD_DEFS)
+cards = []
+_acc = 0.0
+for _name, _w, _beat, _lines, _sub, _pink, _zd, _col in CARD_DEFS:
+    _acc += _w
+    _end = VO_TOTAL * _acc / _wsum
+    cards.append((_name, _end, HERE / "felt" / f"felt-{_beat}.png",
+                  _lines, _sub, _pink, _zd, _col))
+
+# Emit board.json so ShotWizard reflects the real 12 felt cards (single source
+# of truth — its filmstrip shows the felt stills, landscape-correct).
+# Per-shot `vo` = the actual narration spoken during that card's window (so the
+# review tool shows the script/captions per slide). Review verdicts
+# (approved/note) set in ShotWizard are PRESERVED across rebuilds.
+_prior = {}
+_bp = HERE / "board.json"
+if _bp.exists():
+    try:
+        for _s in json.loads(_bp.read_text()).get("shots", []):
+            _prior[_s.get("id")] = (_s.get("approved"), _s.get("note"))
+    except Exception:
+        pass
+
+def _vo_for(t0, t1):
+    parts = []
+    for (w, s, e) in words:
+        if t0 <= s < t1:
+            if w in ".!?,;:" and parts: parts[-1] += w
+            elif w not in ".!?,;:": parts.append(w)
+    return " ".join(parts)
+
+_shots = []; _prev = 0.0
+for (_n, _e, _bg, _li, _su, _p, _z, _c) in cards:
+    _shot = {
+        "id": _n, "t0": round(_prev, 2), "t1": round(_e, 2), "lane": "CARD",
+        "card": f"felt/{_bg.name}", "status": "done",
+        "vo": _vo_for(_prev, _e),
+    }
+    _ap, _nt = _prior.get(_n, (None, None))
+    if _ap is not None: _shot["approved"] = _ap
+    if _nt: _shot["note"] = _nt
+    _shots.append(_shot)
+    _prev = _e
+(HERE / "board.json").write_text(json.dumps({
+    "title": "Restless Egg — felt intro (12 cards)",
+    "width": W, "height": H, "fps": 30, "voAudio": "vo-full.mp3",
+    "shots": _shots,
+}, indent=2))
 
 print("→ generating cards")
 for name, end_t, bg, lines, sub, pink, zd, colorize in cards:
     if not is_video(bg):
         make_bg(CARDS / f"{name}-bg.jpg", str(bg))
-    make_text_overlay(CARDS / f"{name}-text.png", lines, sub, pink, colorize)
+    make_text_overlay(CARDS / f"{name}-text.png", lines, sub, pink, colorize, label=name)
 
 
 def zp_expr(zoom_dir, frames):
@@ -309,7 +372,7 @@ def zp_expr(zoom_dir, frames):
 # ========================================================================
 segments = []
 prev = 0.0
-print(f"→ card timings (VO total: {sent_ends[-1]:.2f}s, video total: {t_close_end:.2f}s)")
+print(f"→ card timings (VO total: {sent_ends[-1]:.2f}s, video total: {VO_TOTAL:.2f}s, {len(cards)} cards)")
 for name, end_t, bg, lines, sub, pink, zd, colorize in cards:
     dur = end_t - prev
     frames = max(int(dur * 30), 30)

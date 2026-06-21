@@ -9,6 +9,8 @@ marketing/
     capture-ac-native.mjs    # puppeteer screenshots of ac-native WASM (prompt + notepat)
   lib/
     jeffrey-refs.mjs         # shared SHOOT + SELFIE refs for jeffrey identity
+  cast/
+    CAST.md                  # recurring-character bible (pixsies, NELA, CEOs, jeffrey) — see SCORE.md
   campaigns/                 # in-repo campaigns (when not staging on Desktop)
   captures/                  # local puppeteer captures (gitignored)
   ../comodiddies/            # numbered sci-fi products (sheet + story + piece) — lifted off this stack
