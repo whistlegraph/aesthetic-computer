@@ -31,6 +31,7 @@
 
 static const int SR = 48000;
 static double BPMV = 140, BEAT, BAR;
+static int SINES = 0;   // --sines: pure-sine variant (no square/noise/samples in the bed)
 
 static uint32_t rng_s = 0x626f6f6d; // "boom"
 static inline double rnd(void) { rng_s ^= rng_s << 13; rng_s ^= rng_s >> 17; rng_s ^= rng_s << 5; return (double)rng_s / 4294967296.0; }
@@ -41,6 +42,7 @@ static long N;
 // two buses: the kick is dry; the bells + vocal share a music bus that the
 // kick ducks (a gentle sidechain breathe). revL/R is a light bell reverb send.
 static float *drumL, *drumR, *musL, *musR, *revL, *revR, *trig;
+static float *vocL, *vocR;   // vocals on their own bus (kick-synced wub sidechain + comp)
 static inline void addD(long i, double l, double r) { if (i >= 0 && i < N) { drumL[i] += (float)l; drumR[i] += (float)r; } }
 static inline void addM(long i, double l, double r) { if (i >= 0 && i < N) { musL[i] += (float)l; musR[i] += (float)r; } }
 static inline void addR(long i, double l, double r) { if (i >= 0 && i < N) { revL[i] += (float)l; revR[i] += (float)r; } }
@@ -110,15 +112,17 @@ static float *load_wav_mono(const char *path, long *out_n) {
 // hair of tanh round-off + a soft sine "click". Round and chill. Stamps the
 // sidechain trigger so the bells breathe.
 static void kick(double t, double g, double floorf) {
-    long s0 = (long)(t * SR), n = (long)(0.42 * SR); double ph = 0;
+    long s0 = (long)(t * SR), n = (long)(0.50 * SR); double ph = 0, phs = 0;
     if (s0 >= 0 && s0 < N) trig[s0] = 1.0f;
     for (long i = 0; i < n; i++) {
         double tt = (double)i / SR;
-        double pf = floorf + 58 * exp(-tt * 38.0);   // floorf = the "tick"/"tock" pitch
+        double pf = floorf + 70 * exp(-tt * 34.0);   // deeper start, big pitch drop
         ph += TAU * pf / SR;
-        double amp = exp(-tt * 7.8);                                      // tighter body
-        double click = sin(TAU * 2200.0 * tt) * exp(-tt * 320.0) * 0.46;  // brighter, faster click
-        double v = tanh((sin(ph) + click) * 1.6) * amp * g;
+        phs += TAU * (floorf * 0.66) / SR;           // a pure DEEP sub layer under it
+        double amp = exp(-tt * 5.6);                                      // longer body = bassier
+        double sub = sin(phs) * exp(-tt * 3.6) * 0.55;                    // sustained sub weight
+        double click = sin(TAU * 1700.0 * tt) * exp(-tt * 300.0) * 0.32;  // small click
+        double v = tanh((sin(ph) + sub + click) * 2.5) * amp * g;         // harder tanh = CRUNCH
         addD(s0 + i, v, v);
     }
 }
@@ -157,7 +161,7 @@ static void sqbell(double note, double t, double dur, double g, double pan) {
     for (long i = 0; i < n; i++) {
         double tt = (double)i / SR;
         ph += f / SR; if (ph >= 1) ph -= 1;
-        double sq = (ph < 0.5) ? 1.0 : -1.0;
+        double sq = SINES ? sin(TAU * ph) : ((ph < 0.5) ? 1.0 : -1.0);
         double env = exp(-tt * 5.5); if (i < att) env *= (double)i / att;
         double v = sq * env * g * 0.42;
         addM(s0 + i, v * lg, v * rg);
@@ -168,6 +172,9 @@ static void sqbell(double note, double t, double dur, double g, double pan) {
 // square LEAD — a pulse wave through a resonant lowpass with a CUTOFF SWEEP
 // envelope (the filter sweep) and a long release: a digital melodic voice that
 // sings its own evolving line (not a static chord stab).
+// a CONTINUOUS flanger shared across all square-lead notes (a slow-swept short
+// comb delay with feedback) so the square line swooshes.
+static float fln_buf[2048]; static int fln_pos = 0; static double fln_lfo = 0;
 static void sqlead(double note, double t, double dur, double g, double cut0, double cut1, double res, double pan) {
     double f = midi_hz(note); long s0 = (long)(t * SR), n = (long)(dur * SR);
     double ph = 0, low = 0, band = 0, q = 1.0 / fmax(0.5, res), lg = 1 - pan * 0.5, rg = 1 + pan * 0.5;
@@ -175,13 +182,20 @@ static void sqlead(double note, double t, double dur, double g, double cut0, dou
     for (long i = 0; i < n; i++) {
         double tt = (double)i / SR;
         ph += f / SR; if (ph >= 1) ph -= 1;
-        double sq = (ph < 0.5) ? 1.0 : -1.0;
+        double sq = SINES ? sin(TAU * ph) : ((ph < 0.5) ? 1.0 : -1.0);   // sine in --sines mode
         double cut = cut1 + (cut0 - cut1) * exp(-tt * 2.2);       // sweep cut0 → cut1
         double fc = 2.0 * sin(M_PI * fmin(cut, SR * 0.45) / SR);
         double high = sq - low - q * band; band += fc * high; low += fc * band;
         double env = 1; if (i < att) env = (double)i / att; else if (i > n - rel) env = fmax(0, (double)(n - i) / rel);
-        double v = low * env * g;
-        addM(s0 + i, v * lg, v * rg); addR(s0 + i, v * 0.3 * lg, v * 0.3 * rg);
+        double dry = low * env * g;
+        // FLANGE — modulated comb delay (1–6 ms) with feedback, continuous.
+        fln_lfo += TAU * 0.22 / SR;
+        int dt = (int)((1.0 + 5.0 * (0.5 + 0.5 * sin(fln_lfo))) * 0.001 * SR);
+        float wet = fln_buf[(fln_pos - dt + 2048) & 2047];
+        double out = dry + 0.7 * wet;
+        fln_buf[fln_pos & 2047] = (float)(dry + 0.45 * wet);     // feedback
+        fln_pos++;
+        addM(s0 + i, out * lg, out * rg); addR(s0 + i, out * 0.3 * lg, out * 0.3 * rg);
     }
 }
 
@@ -250,20 +264,48 @@ static void impact(double t, double g) {
 
 // snare — a BANGING backbeat: a punchy tonal body (~185 Hz) + a bright
 // bandpassed noise crack, tanh-saturated for weight. Sends to the verb.
+// snare — a tight "pffp" HIP-HOP snare: noise-FORWARD bright bandpassed crack
+// (the "pff") with a quick snappy decay and only a touch of tonal body. Drier.
 static void snare(double t, double g, double pan) {
-    long s0 = (long)(t * SR), n = (long)(0.24 * SR);
-    double ph = 0, low = 0, band = 0, prev = 0, lg = 1 - pan * 0.5, rg = 1 + pan * 0.5;
+    long s0 = (long)(t * SR), n = (long)(0.15 * SR);          // tight / short
+    double ph = 0, ph2 = 0, low = 0, band = 0, prev = 0, lg = 1 - pan * 0.5, rg = 1 + pan * 0.5;
     for (long i = 0; i < n; i++) {
-        double tt = (double)i / SR, nz = rnd2();
-        ph += TAU * 185.0 / SR;
-        double body = sin(ph) * exp(-tt * 32.0) * 0.55;
-        double hp = nz - prev; prev = nz;
-        double fc = 2.0 * sin(M_PI * 3200.0 / SR), q = 1.0 / 0.85;
-        double high = hp - low - q * band; band += fc * high; low += fc * band;
-        double crack = band * exp(-tt * 15.0);
-        double v = tanh((body + crack) * 1.5) * g;
+        double tt = (double)i / SR, v;
+        if (SINES) {                                          // sine-burst snare approximation
+            double pf = 220.0 + 380.0 * exp(-tt * 60.0);      // quick pitch drop "pp"
+            ph += TAU * pf / SR; ph2 += TAU * pf * 2.7 / SR;  // + an inharmonic partial for snap
+            v = (sin(ph) + 0.5 * sin(ph2)) * exp(-tt * 34.0) * g * 0.7;
+        } else {
+            double nz = rnd2();
+            ph += TAU * 210.0 / SR;
+            double body = sin(ph) * exp(-tt * 60.0) * 0.22;   // just a hint of tone, fast
+            double hp = nz - prev; prev = nz;
+            double fc = 2.0 * sin(M_PI * 3800.0 / SR), q = 1.0 / 0.8;   // brighter "pff"
+            double high = hp - low - q * band; band += fc * high; low += fc * band;
+            double crack = band * exp(-tt * 26.0) * 1.4;      // snappy, noise-forward
+            v = tanh((body + crack) * 1.4) * g;
+        }
         addD(s0 + i, v * lg, v * rg);
-        addR(s0 + i, v * 0.22, v * 0.22);
+        addR(s0 + i, v * 0.12, v * 0.12);
+    }
+}
+
+// pitched vocal one-shot — resamples a vocal sample to a pitch offset (semis)
+// for vocal arpeggios/ornaments. Pad-ish decay; `atkMs` sets the attack (small
+// = sharp start). Goes to the vocal bus (so it rides the wub + comp).
+static void vocnote(float *buf, long bn, double t, double dur, double semis, double g, double atkMs, double pan) {
+    if (!buf || bn < 2) return;
+    long s0 = (long)(t * SR), n = (long)(dur * SR), att = (long)(atkMs * 0.001 * SR) + 1;
+    double rate = pow(2.0, semis / 12.0), pos = 0, lg = 1 - pan * 0.5, rg = 1 + pan * 0.5;
+    for (long i = 0; i < n; i++) {
+        if (pos > bn - 2) pos = bn - 2;
+        long i0 = (long)pos; double fr = pos - i0;
+        double s = buf[i0] * (1 - fr) + buf[i0 + 1] * fr;
+        double env = exp(-((double)i / SR) * 3.0);       // pad-ish (longer) tail
+        if (i < att) env *= (double)i / att;             // attack — sharp when atkMs small
+        double v = s * env * g;
+        long j = s0 + i; if (j >= 0 && j < N) { vocL[j] += (float)(v * lg); vocR[j] += (float)(v * rg); addR(j, v * 0.3 * lg, v * 0.3 * rg); }
+        pos += rate;
     }
 }
 
@@ -296,6 +338,23 @@ static void perc(double t, double g, double pan) {
     }
 }
 
+// supersampling scratch — plays a sample with a rapidly oscillating back-and-
+// forth playback rate, linearly interpolated (supersampled) = a turntable
+// scratch on a vocal hit.
+static void scratch(float *buf, long bn, double t, double dur, double g, double pan) {
+    if (!buf || bn < 4) return;
+    long s0 = (long)(t * SR), n = (long)(dur * SR); double pos = bn * 0.2, lg = 1 - pan * 0.5, rg = 1 + pan * 0.5;
+    for (long i = 0; i < n; i++) {
+        double tt = (double)i / SR;
+        double rate = 1.7 * sin(TAU * 6.5 * tt);            // forward/back scratch motion
+        pos += rate; if (pos < 0) pos = 0; if (pos > bn - 2) pos = bn - 2;
+        long i0 = (long)pos; double fr = pos - i0;
+        double s = buf[i0] * (1 - fr) + buf[i0 + 1] * fr;   // supersampled interp
+        double v = s * exp(-tt * 4.5) * g;
+        addD(s0 + i, v * lg, v * rg); addR(s0 + i, v * 0.2, v * 0.2);
+    }
+}
+
 // reverse bell — a bell ringing UP into the hit (reversed envelope), drenched.
 static void revbell(double note, double t, double dur, double g, double pan) {
     long s1 = (long)(t * SR), n = (long)(dur * SR), s0 = s1 - n;
@@ -310,11 +369,18 @@ static void revbell(double note, double t, double dur, double g, double pan) {
 // hat — a soft closed hat / shaker. LOW-PITCHED: the noise is lowpassed to a
 // dark "shh" (not a bright "tss") so it sits down out of the way.
 static void hat(double t, double g, double pan) {
-    long s0 = (long)(t * SR), n = (long)(0.05 * SR); double low = 0, lg = 1 - pan * 0.5, rg = 1 + pan * 0.5;
+    long s0 = (long)(t * SR), n = (long)(0.05 * SR); double low = 0, ph = 0, lg = 1 - pan * 0.5, rg = 1 + pan * 0.5;
     for (long i = 0; i < n; i++) {
-        double tt = (double)i / SR, nz = rnd2();
-        low += 0.32 * (nz - low);                    // lowpass → darker, lower-pitched
-        double v = low * exp(-tt * 120.0) * g * 0.30;
+        double tt = (double)i / SR;
+        double v;
+        if (SINES) {                                 // pure-sine "tick" approximating a hat
+            ph += TAU * 4200.0 / SR;
+            v = sin(ph) * exp(-tt * 140.0) * g * 0.22;
+        } else {
+            double nz = rnd2();
+            low += 0.32 * (nz - low);                // lowpass → darker, lower-pitched
+            v = low * exp(-tt * 120.0) * g * 0.30;
+        }
         addD(s0 + i, v * lg, v * rg);
     }
 }
@@ -338,14 +404,20 @@ static void sweep(double t, double dur, double g) {
 // Roots walk i–VI–III–VII (Dm–Bb–F–C) over 4 bars — the same pole his sung
 // melody orbits. Bell arpeggio = chord tones up the octave; sub-bell = root.
 static const int ROOT[4]   = { 38, 34, 41, 36 };                 // D2 Bb1 F2 C2 (sub-bell)
-static const int ARP[4][4] = { {62,65,69,74}, {58,62,65,70}, {65,69,72,77}, {60,64,67,72} };
-//                              Dm: D4 F4 A4 D5  Bb: Bb3 D4 F4 Bb4  F: F4 A4 C5 F5  C: C4 E4 G4 C5
-// deep triads (octave 3) for the chord pad — Dm, Bb, F, C.
-static const int CHORD[4][3] = { {50,53,57}, {46,50,53}, {53,57,60}, {48,52,55} };
-// square-lead melody — a low D-minor line in the VOCAL'S register (oct 3–4) so
-// it pitch-matches and sits UNDER the voice. Dm·Bb·F·C chord/melody tones.
-static const int SQMEL[4][4] = { {50,57,62,65}, {46,53,58,62}, {53,60,57,65}, {48,55,60,64} };
-//                                Dm:D3 A3 D4 F4  Bb:Bb2 F3 Bb3 D4  F:F3 C4 A3 F4  C:C3 G3 C4 E4
+// ARP tops echo the vocal HOOK (E/F) + plant C#, but trace a SMOOTH settling
+// apex (C#5→A4→C5→C5) instead of a jagged zig-zag (B's voice-leading fix).
+static const int ARP[4][4] = { {62,65,69,73}, {58,62,65,69}, {65,64,69,72}, {60,64,67,72} };
+//                              Dm: D4 F4 A4 C#5  Bb: Bb3 D4 F4 A4  F: F4 E4 A4 C5  C: C4 E4 G4 C5
+// chord pad — C#4 on the Dm bar (so the swarm, CHORD+12, sings C#5 = his home
+// note) AND F3 HELD common across Dm→Bb→F (B's common-tone voice-leading) so
+// the pad/swarm stop sliding in parallel blocks.
+static const int CHORD[4][3] = { {50,53,61}, {46,53,58}, {48,53,57}, {48,52,55} };
+//                                Dm:D3 F3 C#4  Bb:Bb2 F3 Bb3  F:C3 F3 A3  C:C3 E3 G3
+// square lead SHADOWS the vocal line per chord (its actual sung pitches) so it
+// answers the voice directly — C#4→D4 resolve on the Dm bar, the F4-E4 hook on
+// the F bar, the B3-C4-D4-E4 verse tail on the C bar.
+static const int SQMEL[4][4] = { {62,61,57,60}, {58,57,53,57}, {65,64,60,57}, {60,59,62,64} };
+//                                Dm:D4 C#4 A3 C4  Bb:Bb3 A3 F3 A3  F:F4 E4 C4 A3  C:C4 B3 D4 E4
 
 // place a mono vocal layer onto the music bus: a one-pole ~110 Hz highpass
 // clears its rumble out of the kick's lane, gain + pan position it, and its
@@ -364,7 +436,7 @@ static void place_layer(float *buf, long bn, long trim, int startBar, double g, 
         lp += LP_C * (y - lp);                       // smooth the top = less texture
         long j = off + i;
         if (j >= 0 && j < N) {
-            musL[j] += (float)(lp * lg); musR[j] += (float)(lp * rg);
+            vocL[j] += (float)(lp * lg); vocR[j] += (float)(lp * rg);   // → vocal bus
             if (rev > 0) addR(j, lp * lg * rev, lp * rg * rev);
         }
     }
@@ -380,8 +452,23 @@ static void place_at(float *buf, long bn, long trim, double atSec, double g, dou
         double x = buf[i], y = hp_a * (yp + x - xp); xp = x; yp = y;
         long j = off + i;
         if (j >= 0 && j < N) {
-            musL[j] += (float)(y * lg); musR[j] += (float)(y * rg);
+            vocL[j] += (float)(y * lg); vocR[j] += (float)(y * rg);   // → vocal bus
             if (rev > 0) addR(j, y * lg * rev, y * rg * rev);
+        }
+    }
+}
+
+// place a sample onto the DRUM bus (dry, punchy, NOT wub-sidechained) — for the
+// short percussive boom/ma hits so they cut like little drums.
+static void place_drum(float *buf, long bn, double atSec, double g, double pan, double rev) {
+    if (!buf || g <= 0) return;
+    long off = (long)(atSec * SR);
+    double lg = (1 - pan * 0.5) * g, rg = (1 + pan * 0.5) * g;
+    for (long i = 0; i < bn; i++) {
+        long j = off + i;
+        if (j >= 0 && j < N) {
+            drumL[j] += (float)(buf[i] * lg); drumR[j] += (float)(buf[i] * rg);
+            if (rev > 0) addR(j, buf[i] * lg * rev, buf[i] * rg * rev);
         }
     }
 }
@@ -403,6 +490,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--harmdn") && i + 1 < argc) harmdn_path = argv[++i];
         else if (!strcmp(argv[i], "--osc") && i + 1 < argc) osc_path = argv[++i];
         else if (!strcmp(argv[i], "--bpm") && i + 1 < argc) BPMV = atof(argv[++i]);
+        else if (!strcmp(argv[i], "--sines")) SINES = 1;   // pure-sine variant
     }
     BEAT = 60.0 / BPMV; BAR = BEAT * 4;
 
@@ -420,6 +508,9 @@ int main(int argc, char **argv) {
     float *oscd = load_wav_mono("../sources/boombaboom-osc-dn.wav", &oscdN);
     float *boomS = load_wav_mono("../sources/boombaboom-boom.wav", &boomN);
     float *maS = load_wav_mono("../sources/boombaboom-ma.wav", &maN);
+    long boompN = 0, mapN = 0;
+    float *boomP = load_wav_mono("../sources/boombaboom-boomp.wav", &boompN);  // short percussive boom
+    float *maP = load_wav_mono("../sources/boombaboom-map.wav", &mapN);        // short percussive ma
     fprintf(stderr, "# samples: oscu=%s oscd=%s boom=%s ma=%s\n",
             oscu?"ok":"MISS", oscd?"ok":"MISS", boomS?"ok":"MISS", maS?"ok":"MISS");
     double voxSec = (double)voxN / SR;
@@ -433,13 +524,14 @@ int main(int argc, char **argv) {
     // booms anchor to the kick).
     // PRELUDE = lingering "lost vocal" ambient (no beat) · INTRO = build/sweep ·
     // then the drop on the first BOOM. Start lingers; kick hits strong at PB0.
-    const int PRELUDE = 8, INTRO = 8, PASS = 26, BR = 8, OUTRO = 10;   // longer passes fit the stretched vocal
+    const int PRELUDE = 4, INTRO = 4, PASS = 30, BR = 8, OUTRO = 10;   // less intro (faster to the drop), long passes fit the stretched vocal
     const int NP = 3;
     const int DROP = PRELUDE + INTRO;                     // first BOOM / strong kick / sweep ends
     int passBar[3] = { DROP, DROP + PASS + BR, DROP + PASS + BR + PASS + BR };
     const int TB = passBar[2] + PASS + OUTRO;                  // total bars
     double totalSec = TB * BAR + 2.0; N = (long)(totalSec * SR);
     drumL = calloc(N, 4); drumR = calloc(N, 4); musL = calloc(N, 4); musR = calloc(N, 4);
+    vocL = calloc(N, 4); vocR = calloc(N, 4);
     revL = calloc(N, 4); revR = calloc(N, 4); trig = calloc(N, 4);
     fprintf(stderr, "# boombaboom.c · %g BPM · %d bars · %.1fs · sine bells + kick + choral + hats\n", BPMV, TB, totalSec);
     fprintf(stderr, "# take %.1fs (trim %.2fs) · passes @ bars %d %d %d\n", voxSec, (double)vox0/SR, passBar[0], passBar[1], passBar[2]);
@@ -450,20 +542,23 @@ int main(int argc, char **argv) {
     // spread L↔R. On the LAST pass the stack drops to the octave BELOW (the
     // grounded "true ending") instead of the bright octave above.
     //                              pass0  pass1  pass2(end)
-    const double G_OUP[3] = { 0.70, 0.90, 0.28 };   // octave UP (pulled back at the end)
-    const double G_ODN[3] = { 0.55, 0.65, 1.00 };   // octave DOWN — a deep "throat" double UNDER the lead, all passes
-    const double G_FIF[3] = { 0.50, 0.85, 0.85 };
-    const double G_THR[3] = { 0.00, 0.55, 0.80 };
+    // fuller, more POWERFUL choral arrangement — harmonies pushed up.
+    const double G_OUP[3] = { 0.95, 1.20, 0.45 };   // octave UP (pulled back at the end)
+    const double G_FIF[3] = { 0.75, 1.10, 1.10 };
+    const double G_THR[3] = { 0.40, 0.85, 1.05 };
     for (int pass = 0; pass < NP; pass++) {
         int sb = passBar[pass];
-        // vocals sit DEEP and SOFT — pulled back, darkened to a whistle-like
-        // tone, with LOTS of reverb/space so they're embedded, not out front.
-        // A deep octave-down "throat" voice always sits UNDER the main one.
-        place_layer(vox, voxN, vox0, sb, 1.45,        0.00, 0.50);  // lead — centre, deep + soft
-        place_layer(hd,  hdN,  vox0, sb, G_ODN[pass] * 0.80, 0.00, 0.40);  // deep throat — UNDER, centre
-        place_layer(ho,  hoN,  vox0, sb, G_OUP[pass] * 0.70, 0.20, 0.46);  // octave up
-        place_layer(h5,  h5N,  vox0, sb, G_FIF[pass] * 0.70, -0.45, 0.48); // fifth — left
-        place_layer(h3,  h3N,  vox0, sb, G_THR[pass] * 0.70, 0.45, 0.48);  // third — right
+        // FEMALE lead (his take in its own octave = the higher voice) — leads,
+        // present every pass, soft + deep + drenched.
+        place_layer(vox, voxN, vox0, sb, 1.75, 0.00, 0.46);    // more powerful lead
+        // MALE counterpart (octave-DOWN = the deeper second voice). It enters
+        // AFTER the female intro (pass ≥ 1) and answers her in COUNTERPOINT —
+        // the same line a half-bar behind = a deep call-and-response round.
+        if (pass >= 1)
+            place_at(hd, hdN, vox0, sb * BAR + 2 * BEAT, (pass == 1 ? 1.05 : 1.25), 0.00, 0.42);
+        // MINIMAL harmony — lead + deep male + a single soft octave-up only.
+        // (No fifth/third/doublings — keep it spare so the voice is clear.)
+        place_layer(ho, hoN, vox0, sb, G_OUP[pass] * 0.55, 0.25, 0.46);  // octave up, soft
     }
     // LOST-VOCAL PRELUDE — a SINGLE lost-vocal phrase, sung at three octaves
     // AT THE SAME TIME (no confusing time-offsets): the wobble + its octave-up
@@ -474,12 +569,11 @@ int main(int argc, char **argv) {
         // SOUND FROM THE START — the VOCAL itself opens the track (no startup
         // chime): the phrase + its deep octave-down, CENTRED, soft + very wet,
         // landing almost immediately and restated once.
-        double at1 = 0.12 * BAR, at2 = 4.0 * BAR;
-        for (int pass = 0; pass < 2; pass++) {
-            double at = pass ? at2 : at1, g = pass ? 0.30 : 0.42;
-            place_at(osc,  oscN,  0, at, g,        0.00, 0.95);   // the phrase, centre, drenched
-            place_at(oscd, oscdN, 0, at, g * 0.60, 0.00, 0.90);   // octave down — centre, deep
-        }
+        // ONE voice at the start — just the single phrase, centred + drenched.
+        // No octave stacking (the opening reads as a lone lost voice).
+        double at1 = 0.12 * BAR, at2 = 2.5 * BAR;
+        place_at(osc, oscN, 0, at1, 0.46, 0.00, 0.95);
+        place_at(osc, oscN, 0, at2, 0.32, 0.00, 0.95);
     }
     // SQUARE-WAVE STARTUP TRIO — a digital boot-chime that lands WITH THE KICK
     // at the drop (not at t=0), a LOWER octave (D3·A3·D4) so it sits under the
@@ -518,7 +612,7 @@ int main(int argc, char **argv) {
         float *env = calloc(N, 4);
         double e = 0, atk = exp(-1.0 / (0.012 * SR)), rel = exp(-1.0 / (0.50 * SR));
         for (long i = 0; i < N; i++) {                       // follower on the placed vocal
-            double v = (fabs(musL[i]) + fabs(musR[i])) * 0.5;
+            double v = (fabs(vocL[i]) + fabs(vocR[i])) * 0.5;
             e = (v > e) ? atk * e + (1 - atk) * v : rel * e + (1 - rel) * v;
             env[i] = (float)e;
         }
@@ -543,9 +637,11 @@ int main(int argc, char **argv) {
                 double amp = s * drive * 0.085;
                 sl += amp * (1 - pan * 0.5); sr += amp * (1 + pan * 0.5);
             }
-            // swarm plays from the start now (instrumentation from the open).
-            musL[i] += (float)(heal + sl); musR[i] += (float)(heal + sr);
-            addR(i, (heal + sl) * 0.3, (heal + sr) * 0.3);
+            // VOCALS-ONLY OPENING — hold the swarm (+ drone) out of the prelude;
+            // ramp in across the first 2 bars of the build.
+            double pg = fmin(1.0, fmax(0.0, ((double)i / SR - PRELUDE * BAR) / (2 * BAR)));
+            musL[i] += (float)((heal + sl) * pg); musR[i] += (float)((heal + sr) * pg);
+            addR(i, (heal + sl) * 0.3 * pg, (heal + sr) * 0.3 * pg);
         }
         free(env);
     }
@@ -570,7 +666,7 @@ int main(int argc, char **argv) {
         double ph = 0, lp = 0;
         for (long i = 0; i < N; i++) {
             ph += midi_hz(38) / SR; if (ph >= 1) ph -= 1;        // D2 pedal
-            double sq = (ph < 0.5) ? 1.0 : -1.0;
+            double sq = SINES ? sin(TAU * ph) : ((ph < 0.5) ? 1.0 : -1.0);
             lp += 0.018 * (sq - lp);                             // ~heavy LP → soft
             double pg = fmin(1.0, fmax(0.0, ((double)i / SR - PRELUDE * BAR) / (2 * BAR)));
             double v = lp * 0.075 * pg;                          // out of the opening
@@ -580,7 +676,7 @@ int main(int argc, char **argv) {
 
     // ── GRANULAR HISS — an airy bed of tiny filtered-noise grains scattered
     // across the whole track (tape-air atmosphere), drifting slowly L↔R ──────
-    {
+    if (!SINES) {                                            // noise — off in the all-sines cut
         double prev = 0; long gstart = 0, gend = 0; double gdur = 1, gamp = 0;
         for (long i = 0; i < N; i++) {
             if (i >= gend) {                                     // retrigger a grain
@@ -603,7 +699,7 @@ int main(int argc, char **argv) {
     // "pitched around" (drifting playback rate) for a living, dreamy ambience.
     // Held out of the opening like the other beds. (Skipped if the file is
     // missing — re-render once it's fetched.) ──────────────────────────────
-    {
+    if (!SINES) {                                            // sample — off in the all-sines cut
         long rainN = 0; float *rain = load_wav_mono("../sources/rain.wav", &rainN);
         if (rain && rainN > SR) {
             double pos = 0;
@@ -624,7 +720,7 @@ int main(int argc, char **argv) {
     // ── LA HELICOPTER flyby (freesound) — a close chopper passes overhead,
     // panning L→R, at a couple of dramatic moments (into bridge 1 + into the
     // final drop). Skipped if the file is missing. ──────────────────────────
-    {
+    if (!SINES) {                                            // sample — off in the all-sines cut
         long heliN = 0; float *heli = load_wav_mono("../sources/heli.wav", &heliN);
         fprintf(stderr, "# heli: %s (%.1fs)\n", heli ? "LOADED" : "MISSING", heliN / (double)SR);
         if (heli && heliN > SR) {
@@ -682,7 +778,7 @@ int main(int argc, char **argv) {
         if (kickOn)
             for (int beat = 0; beat < 4; beat++) {
                 if (bar % 8 == 6 && beat == 3) continue;        // SKIP a kick for a stutter
-                double floorf = (beat & 1) ? 55.0 : 38.0;       // A (tick) / D (tock)
+                double floorf = (beat & 1) ? 46.0 : 31.0;       // deeper A (tick) / D (tock)
                 kick(bar * BAR + beat * BEAT + hum, 0.74 * fmin(1.18, intens), floorf);
                 // a syncopated ghost-kick "skip" pushes some bars forward
                 if (bar % 4 == 2 && beat == 1) kick(bar * BAR + beat * BEAT + BEAT * 0.5 + hum, 0.40, 40.0);
@@ -690,35 +786,36 @@ int main(int argc, char **argv) {
 
         // TIGHT closed hat — centred, on the offbeat 8ths, no swing wobble, no
         // panning. Simple and locked.
-        double hatg = (inPass ? 1.0 : 0.0) * (0.30 + 0.06 * (pass > 0 ? pass : 0));
+        double hatg = (inPass ? 1.0 : 0.0) * (0.15 + 0.04 * (pass > 0 ? pass : 0));   // pulled way down
         if (hatg > 0)
             for (int st = 1; st < 8; st += 2)
                 hat(bar * BAR + st * (BEAT / 2.0) + hum, hatg, 0.0);
 
-        // sub-bell — root once per bar, from the very start (softer in prelude).
-        subbell(ROOT[phr], bar * BAR + hum, BAR * (phr == 0 ? 1.4 : 1.0), inPrelude ? 0.16 : 0.26);
-
-        // deep chorded sine pad — warm bed, present (soft) from the start.
-        chordpad(CHORD[phr], 3, bar * BAR, BAR * 1.02,
-                 inPrelude ? 0.09 : (inBridge ? 0.20 : 0.13), (phr & 1) ? 0.22 : -0.22);
+        // VOCALS-ONLY OPENING — sub-bell + pad are SILENT in the prelude.
+        if (!inPrelude) subbell(ROOT[phr], bar * BAR + hum, BAR * (phr == 0 ? 1.4 : 1.0), 0.26);
+        if (!inPrelude)
+            chordpad(CHORD[phr], 3, bar * BAR, BAR * 1.02,
+                     (inBridge ? 0.20 : 0.13), (phr & 1) ? 0.22 : -0.22);
 
         // bell arpeggio — from the INTRO build onward (no bells in the prelude).
         // Gentle pluck on the 8ths; busier + brighter on later passes, dropped
         // an octave on the final (grounded) verse.
-        {   // sine bells play from the very start (sparser/softer in the prelude)
+        // sine bells — NOT in the prelude (vocals-only opening). Lower register
+        // now + a LESS REGULAR, syncopated pattern that flips each bar.
+        if (!inPrelude) {
             const int *arp = ARP[phr];
-            const char *pat = (pass >= 1) ? "x.x.x.x." : "x..x..x.";
+            const char *PAT[2] = { "x..x.x..", "x.x...x." };   // irregular, flips per bar
+            const char *pat = PAT[bar & 1];
             int ai = 0;
             for (int st = 0; st < 8; st++) {
                 if (pat[st] != 'x') continue;
-                int note = arp[ai % 4] + boct + ((pass == 1) && (st % 4 == 2) ? 12 : 0);
+                int note = arp[ai % 4] + boct - 12;             // an octave LOWER (less high)
                 ai++;
                 double bg = ((inBridge ? 0.22 : 0.18) + (pass >= 1 ? 0.04 : 0.0)) * fmin(1.2, intens);
-                if (inPrelude) bg *= 0.7;                       // gentler in the opening
                 double bpan = panLFO * 0.45 + ((st & 2) ? 0.25 : -0.25);   // movement
                 bell(note, swung(st) + hum, BEAT * 4.0, bg, bpan);   // SWUNG + humanized + long ring
             }
-            if (inBridge) bell(ARP[phr][3] + 12, bar * BAR + 2 * BEAT, BEAT * 4.0, 0.16, -panLFO * 0.5);
+            if (inBridge) bell(ARP[phr][3], bar * BAR + 2 * BEAT, BEAT * 4.0, 0.16, -panLFO * 0.5);
             // DIGITAL square bell sparkle — a bright accent on the phrase
             // downbeat in the passes (echoes the startup-trio timbre).
             // SQUARE LEAD MELODY — a long, evolving digital line (its OWN melody,
@@ -747,10 +844,24 @@ int main(int argc, char **argv) {
         if (inPass && pass >= 1)
             for (int b2 = 1; b2 < 4; b2 += 2) snare(bar * BAR + b2 * BEAT + hum, 0.62 * intens, (rnd() - 0.5) * 0.3);
 
-        // REVERSE swells for SWING — a reverse kick whooshes into the downbeat of
-        // the 2nd & 4th bar of each phrase; a reverse bell rises into phrase tops.
-        if (inPass && (phr == 1 || phr == 3)) revkick(bar * BAR, BEAT * 1.5, 0.50 * intens);
-        if (inPass && phr == 0)             revbell(ARP[phr][2], bar * BAR, BEAT * 2.0, 0.13, -panLFO * 0.4);
+        // (reverse-swell risers removed — the "shheeep" every ~4 bars was too repetitive)
+
+        // SUPERSAMPLING SCRATCH fill — a turntable scratch on the boom sample at
+        // phrase ends in the passes (busier as the track pushes harder).
+        if (inPass && phr == 3 && boomS && !SINES)
+            scratch(boomS, boomN, bar * BAR + 3 * BEAT + hum, BEAT * 0.95, 0.45 * intens, (rnd() - 0.5) * 0.4);
+
+        // VOCAL ADLIB ARP — little "bird/elf" chirps: a fast 8th-note STAIRCASE
+        // up AND down the D-minor scale, pitched HIGH, pad-ish with SHARPER
+        // starts on alternate steps. An ornament every other phrase.
+        if (inPass && (bar % 8 == 7) && maS) {
+            static const int stair[8] = { 12, 15, 17, 19, 17, 15, 14, 12 };   // up then down (staircase), high
+            for (int s = 0; s < 8; s++) {
+                double t = bar * BAR + s * (BEAT / 2.0) + hum;
+                double atk = (s & 1) ? 20.0 : 1.5;                            // sharper starts on some
+                vocnote(maS, maN, t, BEAT * 1.2, stair[s], 0.28, atk, (s & 1) ? 0.45 : -0.45);
+            }
+        }
 
         // WHISTLE FEATURE — the breakdown before the final drop goes FULL
         // ethereal: a pure whistle climbs the chord, drenched, taking the
@@ -761,12 +872,7 @@ int main(int argc, char **argv) {
             if (phr == 2) whistle(CHORD[phr][1] + 24, bar * BAR + 2 * BEAT, BAR * 1.2, 0.20, -0.35);
         }
 
-        // filter-sweep risers. The FIRST one resolves on the DROP (the first
-        // BOOM): it climbs across the 4 bars before DROP and ends as the kick
-        // hits. Later passes get a 2-bar sweep into the pass downbeat.
-        if (bar == passBar[0] - 4) sweep((passBar[0] - 4) * BAR, 4 * BAR, 0.11);   // pulled back
-        for (int p = 1; p < NP; p++)
-            if (bar == passBar[p] - 2) sweep(bar * BAR, 2 * BAR, 0.08 + 0.02 * p);
+        // (filter-sweep risers removed — they were too repetitive into every pass)
     }
 
     // ── scattered single-beat BOOM / MA vocal hits — rhythmic accents placed
@@ -778,14 +884,51 @@ int main(int argc, char **argv) {
             if (bar % 4 == 2 && boomS) place_at(boomS, boomN, 0, bar * BAR + 1 * BEAT, 0.5, -0.3, 0.40);
             if (bar % 4 == 3 && maS)   place_at(maS,   maN,   0, bar * BAR + 3 * BEAT, 0.45, 0.3, 0.45);
             if (bar % 8 == 5 && boomS) place_at(boomS, boomN, 0, bar * BAR + 2 * BEAT + 0.25 * BEAT, 0.42, 0.2, 0.40);
+            // SHORT PERCUSSIVE boom/ma hits — tight transients scattered like
+            // little drum elements on a syncopated 16th pattern (boom=B, ma=m).
+            if (boomP && maP && !SINES) {
+                const char *PB = "B..m..B..m.B..m.";   // booms + mas as percussion
+                for (int s = 0; s < 16; s++) {
+                    double t = bar * BAR + s * (BEAT / 4.0) + ((s & 1) ? 0.18 * (BEAT / 4.0) : 0.0);
+                    double pan = ((s * 5) % 7) / 7.0 - 0.5;
+                    // DRUM bus (dry, punchy, not ducked) + boosted so they CUT.
+                    if (PB[s] == 'B') place_drum(boomP, boompN, t, 0.85, pan, 0.12);
+                    else if (PB[s] == 'm') place_drum(maP, mapN, t, 0.72, pan, 0.14);
+                }
+            }
         }
     }
-    free(boomS); free(maS);
+    free(boomS); free(maS); free(boomP); free(maP);
 
-    // ── sidechain: the kick ducks the whole music bus (bells + chord + VOCAL)
-    // so the voice pumps WITH the beat and sits in the pocket, not floating ──
+    // ── sidechain: the kick ducks the music bed (bells/chord/swarm/etc.) ──────
     { double depth = 0.45, rel = exp(-1.0 / (0.13 * SR)), env = 0;
       for (long i = 0; i < N; i++) { if (trig[i] > 0) env = 1; else env *= rel; double d = 1.0 - depth * env; musL[i] *= (float)d; musR[i] *= (float)d; } }
+
+    // ── VOCAL WUB SIDECHAIN — the voice is "connected" to the kick: on every
+    // kick it DUCKS and a lowpass cutoff DIPS down then springs back open, so
+    // the vocal pitches/wobbles down into each kick (wub-wub). ───────────────
+    { double env = 0, atk = exp(-1.0 / (0.004 * SR)), rel = exp(-1.0 / (0.20 * SR));
+      double ll = 0, lr = 0;
+      for (long i = 0; i < N; i++) {
+          double trg = (trig[i] > 0) ? 1.0 : 0.0;
+          env = trg > env ? atk * env + (1 - atk) * trg : rel * env + (1 - rel) * trg;
+          double duck = 1.0 - 0.55 * env;                       // amplitude dip
+          double cut = 1100.0 + 16000.0 * (1.0 - env);          // cutoff dives to ~1.1k on the kick
+          double fc = 1.0 - exp(-TAU * cut / SR);
+          ll += fc * (vocL[i] - ll); lr += fc * (vocR[i] - lr);
+          vocL[i] = (float)(ll * duck); vocR[i] = (float)(lr * duck);
+      } }
+
+    // ── COMPRESSOR over the vocal bus — glue + push it forward evenly. ───────
+    { double env = 0, atk = exp(-1.0 / (0.006 * SR)), rel = exp(-1.0 / (0.16 * SR));
+      double thr = 0.18, ratio = 3.2, makeup = 1.5;
+      for (long i = 0; i < N; i++) {
+          double a = fmax(fabs(vocL[i]), fabs(vocR[i]));
+          env = a > env ? atk * env + (1 - atk) * a : rel * env + (1 - rel) * a;
+          double g = makeup;
+          if (env > thr) g = makeup * (thr + (env - thr) / ratio) / env;
+          vocL[i] *= (float)g; vocR[i] *= (float)g;
+      } }
 
     // ── light Schroeder reverb on the bell send ──────────────────────────────
     {
@@ -808,8 +951,15 @@ int main(int argc, char **argv) {
     }
 
     // ── mix, normalize, fades ────────────────────────────────────────────────
+    // BLEND — instruments quieter (drums + bed) so everything folds UNDER the
+    // voice into one whole; the vocal stays forward.
     float *busL = drumL, *busR = drumR;
-    for (long i = 0; i < N; i++) { busL[i] += musL[i]; busR[i] += musR[i]; }
+    const double IG = 0.85;   // instrument (drum + music bed) level vs the vocal
+    for (long i = 0; i < N; i++) {
+        busL[i] = (float)(drumL[i] * IG + musL[i] * IG + vocL[i]);
+        busR[i] = (float)(drumR[i] * IG + musR[i] * IG + vocR[i]);
+    }
+    free(vocL); free(vocR);
     double peak = 0; for (long i = 0; i < N; i++) { double a = fmax(fabs(busL[i]), fabs(busR[i])); if (a > peak) peak = a; }
     if (peak > 0) { double g = 0.92 / peak; for (long i = 0; i < N; i++) { busL[i] *= (float)g; busR[i] *= (float)g; } }
     long fin = (long)(0.4 * SR), fout = (long)(2.2 * SR);

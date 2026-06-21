@@ -8,6 +8,7 @@
 import { readFileSync, writeFileSync, existsSync, unlinkSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "../..");
@@ -200,4 +201,75 @@ async function runQueueJob({ endpoint, input, outPath, label, log }) {
   writeFileSync(outPath, mp4);
   unlinkSync(queuePath);
   return { ok: true, seed: result.seed, seconds: (Date.now() - t0) / 1000, bytes: mp4.length };
+}
+
+// Text-to-video: generate a clip from a prompt alone (no source image). The
+// counterpart to generateShot (image+text) — together the helper covers both
+// the image-led and text-led paths.
+export async function generateTextShot({
+  prompt, duration = "5", ratio = "16:9", resolution = "720p",
+  tier = "fast", audio = false, seed = null, outPath, label = "text-shot", log = console.log,
+}) {
+  const endpoint = tier === "standard"
+    ? "bytedance/seedance-2.0/text-to-video"
+    : "bytedance/seedance-2.0/fast/text-to-video";
+  const input = {
+    prompt,
+    duration: String(duration),
+    resolution,
+    aspect_ratio: ratio,
+    generate_audio: audio,
+    seed: seed ?? undefined,
+  };
+  return runQueueJob({ endpoint, input, outPath, label, log });
+}
+
+// Blend across 2–3+ keyframe stills (e.g. gpt-image gens): render a Seedance
+// morph for each adjacent pair (images[i] → images[i+1], using start+end frames)
+// then concat the segments into one mp4. `prompts` is either one MOTION string
+// reused for every segment, or one per segment (length images.length - 1).
+// Each segment caches/resumes independently via generateShot. Returns
+// { ok, outPath, segments, seconds, error }.
+export async function generateBlendSequence({
+  images, prompts = "a smooth, gentle blend between the two scenes; subtle continuous motion; locked camera",
+  duration = "5", ratio = "9:16", resolution = "720p", tier = "fast", audio = false,
+  seed = null, outPath, label = "blend", log = console.log,
+}) {
+  if (!Array.isArray(images) || images.length < 2)
+    throw new Error("blend sequence needs ≥2 keyframe images");
+  for (const img of images) if (!existsSync(img)) throw new Error(`keyframe not found: ${img}`);
+  const segPrompts = Array.isArray(prompts) ? prompts : images.slice(1).map(() => prompts);
+
+  const t0 = Date.now();
+  const segPaths = [];
+  for (let i = 0; i < images.length - 1; i++) {
+    const segOut = outPath.replace(/\.mp4$/i, `.seg${i + 1}.mp4`);
+    log(`  ${label}: segment ${i + 1}/${images.length - 1} · ${images[i].split("/").pop()} → ${images[i + 1].split("/").pop()}`);
+    const r = await generateShot({
+      image: images[i], endImage: images[i + 1], prompt: segPrompts[i] ?? segPrompts[0],
+      duration, ratio, resolution, tier, audio, seed: seed ?? undefined,
+      outPath: segOut, label: `${label}-seg${i + 1}`, log,
+    });
+    if (!r.ok) return { ok: false, error: `segment ${i + 1}: ${r.error}`, segments: segPaths };
+    segPaths.push(segOut);
+  }
+
+  if (segPaths.length === 1) {
+    writeFileSync(outPath, readFileSync(segPaths[0]));
+    return { ok: true, outPath, segments: segPaths, seconds: (Date.now() - t0) / 1000 };
+  }
+
+  // concat the segments (re-encode — Seedance segments share params but a clean
+  // re-encode avoids concat-demuxer timestamp seams between morph clips)
+  const listPath = `${outPath}.concat.txt`;
+  writeFileSync(listPath, segPaths.map((p) => `file '${p.replace(/'/g, "'\\''")}'`).join("\n") + "\n");
+  const r = spawnSync("ffmpeg", [
+    "-hide_banner", "-loglevel", "error", "-y", "-f", "concat", "-safe", "0", "-i", listPath,
+    "-c:v", "libx264", "-preset", "faster", "-crf", "18", "-pix_fmt", "yuv420p",
+    ...(audio ? ["-c:a", "aac", "-b:a", "192k"] : ["-an"]),
+    "-movflags", "+faststart", outPath,
+  ], { stdio: "inherit" });
+  unlinkSync(listPath);
+  if (r.status !== 0) return { ok: false, error: `concat ffmpeg exit ${r.status}`, segments: segPaths };
+  return { ok: true, outPath, segments: segPaths, seconds: (Date.now() - t0) / 1000 };
 }

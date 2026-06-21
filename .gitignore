@@ -492,3 +492,18 @@ marketing/campaigns/serpentine-video/*/gens/
 
 # ac-shop frontpage editor backup (regenerated locally, not source of truth)
 ac-shop/.frontpage-backup.json
+
+# pop C engine — compiled binaries + audio caches (media, never git; see pop/ASSETS.md)
+pop/**/out/
+pop/**/c/syl-cache/
+pop/**/c/fx/
+pop/**/c/vocals/
+pop/americomputadora/c/americomputadora
+
+# stray local artifacts / generated bundles (keep the public tree clean)
+.local-tmp/
+@blueberry.local
+aesthetic.computer.js
+packjs-verify.png
+arena-native/build/
+wave-wizard/samples/

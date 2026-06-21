@@ -44,9 +44,16 @@ run("render (C engine)", join(HERE, "americomputadora"),
 const mastered = join(HERE, "out", "c-mastered.wav");
 const acdsp = join(POP, "dsp", "c", "acdsp");
 if (existsSync(acdsp)) {
-  run("master (acdsp 1176 + eq)", acdsp, [
+  // "baked to vinyl" finishing chain: subsonic trim, the 1176 glue driven
+  // into transformer-iron saturation for analog warmth, a warm low-shelf
+  // tilt + body, a crisp presence/air lift, then a gentle ~16 kHz rolloff —
+  // the high ceiling of a cut lacquer, no brittle digital top.
+  run("master (acdsp vinyl chain)", acdsp, [
     rawWav, mastered, "--chain",
-    "1176:ratio=4:in=-8:out=+9:attack=4:release=4 eq:warmth=+1 eq:air=+1.5",
+    "eq:rumble " +
+    "1176:ratio=4:in=-10:out=+10:iron=1:attack=4:release=5 " +
+    "eq:tilt-warm=+1.5 eq:warmth=+1 eq:presence=+1.5 eq:air=+1 " +
+    "eq:lp:f=16000:q=0.7",
     "--bits", "24",
   ]);
 } else {
@@ -54,9 +61,13 @@ if (existsSync(acdsp)) {
 }
 
 const src = existsSync(mastered) ? mastered : rawWav;
-run("encode mp3 (ffmpeg, io only)", "ffmpeg", [
+// crisp normalization over the whole thing — one even, present level
+// (EBU R128, -11 LUFS / -1 dBTP) so it lands consistent end to end.
+run("encode mp3 (ffmpeg + loudnorm)", "ffmpeg", [
   "-hide_banner", "-y", "-loglevel", "error",
   "-i", src,
+  "-af", "loudnorm=I=-11:TP=-1.0:LRA=11",
+  "-ar", "48000",
   "-c:a", "libmp3lame", "-q:a", "2",
   "-metadata", "title=americomputadora",
   "-metadata", "artist=jeffrey",

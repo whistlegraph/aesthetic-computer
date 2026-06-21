@@ -19,9 +19,12 @@ HARMDN="$ROOT/sources/boombaboom-harmdn.wav"
 OSC="$ROOT/sources/boombaboom-osc.wav"
 H5TMP="$ROOT/sources/.boombaboom-harm5-pre.wav"
 H3TMP="$ROOT/sources/.boombaboom-harm3-pre.wav"
-BEDRAW="$HERE/out/boombaboom-raw.wav"
-MASTER="$OUT/boombaboom-MASTER.wav"
-MP3="$OUT/boombaboom.mp3"
+# --sines (or env SINES=1) → pure-sine variant with a -sines suffix.
+SINES_FLAG=""; SUF=""
+if [ "${SINES:-0}" = "1" ] || [ "${2:-}" = "--sines" ]; then SINES_FLAG="--sines"; SUF="-sines"; fi
+BEDRAW="$HERE/out/boombaboom${SUF}-raw.wav"
+MASTER="$OUT/boombaboom${SUF}-MASTER.wav"
+MP3="$OUT/boombaboom${SUF}.mp3"
 PY="$POP/.venv/bin/python"
 mkdir -p "$HERE/out"
 BPM=140
@@ -39,9 +42,9 @@ fi
 if [ ! -f "$ALIGNED" ] || [ "$TUNED" -nt "$ALIGNED" ]; then
   echo "# beat-align → $BPM, booms snapped to the KICK (beats)"
   "$PY" "$ROOT/bin/grid-warp.py" "$TUNED" "$ALIGNED" --bpm "$BPM" --grid 1
-  # then STRETCH it longer for epic, sustained vowels (formant-preserving R3).
-  echo "# stretch vocal 1.3× → epic sustained vowels"
-  rubberband -3 --time 1.3 --formant "$ALIGNED" "$ROOT/sources/.aligned-stretch.wav" >/dev/null 2>&1 \
+  # then STRETCH it longer for an epic, drawn-out "boooooma" (formant-preserving R3).
+  echo "# stretch vocal 1.5× → long sustained boooooma"
+  rubberband -3 --time 1.5 --formant "$ALIGNED" "$ROOT/sources/.aligned-stretch.wav" >/dev/null 2>&1 \
     && mv "$ROOT/sources/.aligned-stretch.wav" "$ALIGNED"
 fi
 
@@ -82,8 +85,8 @@ OSCUP="$ROOT/sources/boombaboom-osc-up.wav"
 OSCDN="$ROOT/sources/boombaboom-osc-dn.wav"
 if [ ! -f "$OSC" ] || [ "$ALIGNED" -nt "$OSC" ]; then
   echo "# osc feature: end wobble segment (+ octaves)"
-  ffmpeg -hide_banner -loglevel error -y -ss 36.0 -i "$ALIGNED" \
-    -af "afade=t=in:st=0:d=0.04,afade=t=out:st=5.0:d=0.5" -t 5.5 \
+  ffmpeg -hide_banner -loglevel error -y -ss 42.0 -i "$ALIGNED" \
+    -af "afade=t=in:st=0:d=0.04,afade=t=out:st=5.5:d=0.6" -t 6.2 \
     -ar 48000 -ac 1 "$OSC"
   rubberband -3 --pitch 12 --formant "$OSC" "$OSCUP" >/dev/null 2>&1
   rubberband -3 --pitch -12 --formant "$OSC" "$OSCDN" >/dev/null 2>&1
@@ -98,16 +101,24 @@ if [ ! -f "$BOOM" ] || [ "$ALIGNED" -nt "$BOOM" ]; then
   ffmpeg -hide_banner -loglevel error -y -ss 0.0 -i "$ALIGNED" \
     -af "afade=t=in:st=0:d=0.005,afade=t=out:st=0.40:d=0.06" -t 0.46 \
     -ar 48000 -ac 1 "$BOOM"
-  ffmpeg -hide_banner -loglevel error -y -ss 2.6 -i "$ALIGNED" \
+  ffmpeg -hide_banner -loglevel error -y -ss 3.0 -i "$ALIGNED" \
     -af "afade=t=in:st=0:d=0.02,afade=t=out:st=0.40:d=0.06" -t 0.46 \
     -ar 48000 -ac 1 "$MA"
+  # SHORT, percussive isolations of the transient — tight hits to scatter like
+  # drums on their own track (boom = the plosive attack, ma = the nasal onset).
+  ffmpeg -hide_banner -loglevel error -y -ss 0.0 -i "$ALIGNED" \
+    -af "afade=t=in:st=0:d=0.003,afade=t=out:st=0.15:d=0.04" -t 0.19 \
+    -ar 48000 -ac 1 "$ROOT/sources/boombaboom-boomp.wav"
+  ffmpeg -hide_banner -loglevel error -y -ss 3.0 -i "$ALIGNED" \
+    -af "afade=t=in:st=0:d=0.01,afade=t=out:st=0.13:d=0.04" -t 0.17 \
+    -ar 48000 -ac 1 "$ROOT/sources/boombaboom-map.wav"
 fi
 
 # 4 · build + render the C engine (sine bed + 3 vocal layers + harmonies + osc).
 #     Run FROM the engine dir so its relative "../sources/" defaults (osc
 #     octaves, boom/ma, rain) resolve to pop/boombaboom/sources.
 bash "$HERE/build.sh"
-( cd "$HERE" && ./boombaboom --out "$BEDRAW" --bpm "$BPM" \
+( cd "$HERE" && ./boombaboom --out "$BEDRAW" --bpm "$BPM" $SINES_FLAG \
   --vocal "$ALIGNED" --harm5 "$HARM5" --harmoct "$HARMOCT" \
   --harm3 "$HARM3" --harmdn "$HARMDN" --osc "$OSC" )
 
@@ -122,11 +133,11 @@ equalizer=f=6500:t=q:w=1.0:g=0.7,\
 highshelf=f=12000:g=3.2,\
 highshelf=f=16000:g=2.2,\
 lowpass=f=19000,\
-acompressor=threshold=-16dB:ratio=2.6:attack=15:release=180:makeup=2.6:knee=6,\
-asoftclip=type=tanh:threshold=0.95,\
-stereotools=slev=1.10,\
-loudnorm=I=-9:TP=-1.0:LRA=9,\
-alimiter=limit=0.97:attack=4:release=70"
+acompressor=threshold=-20dB:ratio=1.9:attack=30:release=260:makeup=1.3:knee=8,\
+asoftclip=type=tanh:threshold=0.985,\
+stereotools=slev=1.08,\
+loudnorm=I=-13:TP=-1.5:LRA=12,\
+alimiter=limit=0.95:attack=5:release=90"
 
 echo "# master → $MASTER"
 ffmpeg -hide_banner -loglevel error -y -i "$BEDRAW" -af "$MASTER_AF" \
@@ -135,12 +146,12 @@ ffmpeg -hide_banner -loglevel error -y -i "$BEDRAW" -af "$MASTER_AF" \
 # 6 · ACCELERANDO — gradually speed the whole mix up (pitch-preserving), so the
 # track pushes faster as it goes. Applied to the master so bed + vocal ramp in
 # sync. (+9% by the end.)
-echo "# accelerando (+9% by the end)"
-"$PY" "$ROOT/bin/accel.py" "$MASTER" "$ROOT/sources/.master-accel.wav" 0.09
+echo "# accelerando (+18% by the end → trance build)"
+"$PY" "$ROOT/bin/accel.py" "$MASTER" "$ROOT/sources/.master-accel.wav" 0.18
 # re-normalize after the accel (rubberband overshoots past the limiter) with a
 # true-peak ceiling so there is NO clipping.
 ffmpeg -hide_banner -loglevel error -y -i "$ROOT/sources/.master-accel.wav" \
-  -af "loudnorm=I=-9:TP=-1.2:LRA=9,aformat=s16" -ar 44100 "$MASTER"
+  -af "loudnorm=I=-13:TP=-1.5:LRA=12,aformat=s16" -ar 44100 "$MASTER"
 rm -f "$ROOT/sources/.master-accel.wav"
 
 ffmpeg -hide_banner -loglevel error -y -i "$MASTER" -c:a libmp3lame -b:a 320k "$MP3"

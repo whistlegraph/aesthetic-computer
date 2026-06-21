@@ -87,9 +87,24 @@ const screenCSS = (s) => {
   // `drop`: sit the popover directly under the menu-bar piano strip (its center
   // lands ~407px from the right edge given the bar layout below). `center`:
   // float the window centered in the desktop below the bar.
+  // Popover geometry: it anchors UNDER the menu-bar piano strip. Compute the
+  // strip's center from the bar layout so the popover (and its callout arrow)
+  // line up with the real status item rather than floating off to the side.
+  const POP_W = Math.round(h * 798 / 1368);   // popover render aspect (798x1368 @3x)
+  const STRIP_CENTER = 831;                    // px from left — piano strip center (see bar layout)
+  const popLeft = Math.round(STRIP_CENTER - POP_W / 2);
+  const popTop = BAR_H + 12;                    // leave room for the callout arrow
   const pos = s.place === "drop"
-    ? `top:${BAR_H - 4}px; right:407px;`
+    ? `top:${popTop}px; left:${popLeft}px;`
     : `top:${BAR_H + Math.round((H - BAR_H - h) / 2)}px; left:50%; transform:translateX(-50%);`;
+  // NSPopover callout arrow — a triangle pointing UP at the status item, tip at
+  // the menu-bar bottom, base meeting the popover top, centered on the strip.
+  const arrow = s.place === "drop"
+    ? `<div style="position:absolute;left:${STRIP_CENTER - 13}px;top:${BAR_H}px;width:0;height:0;
+        border-left:13px solid transparent;border-right:13px solid transparent;
+        border-bottom:12px solid ${FILL};
+        filter:drop-shadow(0 -1px 1.5px rgba(30,60,45,.14));"></div>`
+    : "";
   // The captured panels are content-views only (no window frame), so windows
   // get macOS traffic lights drawn top-left here — the close (✕) affordance the
   // capture can't include. The popover is a popover and correctly has none.
@@ -98,7 +113,7 @@ const screenCSS = (s) => {
   const lights = s.chrome
     ? `<div class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>`
     : "";
-  return `<div class="win" style="position:absolute;${pos}height:${h}px;
+  return `${arrow}<div class="win" style="position:absolute;${pos}height:${h}px;
     border-radius:15px; background:${FILL};
     box-shadow:0 30px 60px -18px rgba(30,60,45,.4), 0 0 0 1px rgba(0,0,0,.05);">
     <img style="display:block;height:${h}px;width:auto;border-radius:15px;" src="${img}">${lights}

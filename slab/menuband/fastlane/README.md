@@ -15,22 +15,6 @@ For _fastlane_ installation instructions, see [Installing _fastlane_](https://do
 
 ## Mac
 
-### mac check
-
-```sh
-[bundle exec] fastlane mac check
-```
-
-
-
-### mac state
-
-```sh
-[bundle exec] fastlane mac state
-```
-
-
-
 ### mac shots
 
 ```sh

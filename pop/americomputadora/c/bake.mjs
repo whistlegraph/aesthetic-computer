@@ -389,13 +389,14 @@ words.forEach((word, w) => {
   });
 });
 
-// ── syllable chant: 'ah mer ick ahmp uter do rah' (dora split do+rah),
-// two voices (jeffrey + a computer voice), pitched to every verse-melody
-// degree. KEY: we analyze each syllable's ACTUAL base pitch and choose the
-// octave of the target note NEAREST that base — so jeffrey is nudged only
-// a few semitones, never hauled across an octave. retain<1 keeps his
-// natural inflection. each syllable is stretched a touch for legato.
-const SYL_NAMES = ["ah", "mer", "ick", "ahmp", "uter", "do", "rah"];
+// ── syllable chant: 'a me ri com pu ta do ra' (the literal phonetics of
+// americomputadora — eight syllables, grouped [4,2,2]), two voices (jeffrey
+// + a computer voice), pitched to every verse-melody degree. KEY: we analyze
+// each syllable's ACTUAL base pitch and choose the octave of the target note
+// NEAREST that base — so jeffrey is nudged only a few semitones, never hauled
+// across an octave. retain<1 keeps his natural inflection. each syllable is
+// stretched a touch for legato.
+const SYL_NAMES = ["a", "me", "ri", "com", "pu", "ta", "do", "ra"];
 const sylDir = join(HERE, "syl-cache");
 let sylNotes = [], sylPaths = [], sylPathsC = [];
 const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];

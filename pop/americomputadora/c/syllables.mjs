@@ -21,16 +21,20 @@ mkdirSync(cacheDir, { recursive: true });
 const force = process.argv.includes("--force");
 const SAY_URL = process.env.SAY_ENDPOINT || "https://aesthetic.computer/api/say";
 
-// name → what jeffrey actually says (punctuation shapes the delivery).
-// dora is split into do + rah so the chant lands it across two beats.
+// name → what jeffrey actually says (text shapes the pronunciation).
+// the literal phonetics of americomputadora: a-me-ri-com-pu-ta-do-ra.
+// eight syllables — grouped [4,2,2] (americom / puta / dora), and an even
+// 8 against a 4-beat bar so the word restarts on the downbeat every 2 bars
+// instead of precessing (the old 7-syllable pun drifted out of phase).
 const SYLS = [
-  ["ah", "ah"],
-  ["mer", "mer"],
-  ["ick", "ick"],
-  ["ahmp", "ahmp"],
-  ["uter", "ooter"],
-  ["do", "doe"],
-  ["rah", "rah"],
+  ["a",   "ah"],
+  ["me",  "meh"],
+  ["ri",  "ree"],
+  ["com", "comb"],
+  ["pu",  "poo"],
+  ["ta",  "tah"],
+  ["do",  "doe"],
+  ["ra",  "rah"],
 ];
 
 // a second voice — a macOS "computer" — chants the SAME syllables in

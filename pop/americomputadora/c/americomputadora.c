@@ -35,6 +35,13 @@ static inline double rng(void) {
 }
 static inline double rnd2(void) { return rng() * 2.0 - 1.0; } // -1..1
 
+// ── humanize: deterministic per-hit timing + velocity jitter so the grid
+// breathes instead of clicking like a sequencer. transients get a few ms of
+// push/pull and a little velocity spread; sustained beds (sub/pad/choir)
+// stay tight to avoid phasing.
+static inline double hum_t(double t, double ms)   { return t + rnd2() * ms * 0.001; }
+static inline double hum_g(double g, double frac) { return g * (1.0 + rnd2() * frac); }
+
 static inline double midi_hz(double m) { return 440.0 * pow(2.0, (m - 69.0) / 12.0); }
 
 // ── buffers ─────────────────────────────────────────────────────────────
@@ -143,6 +150,7 @@ static Clip *get_clip(int tier, int w, int r, int v) {
 
 // ── synth voices (ports of render.mjs, same constants) ─────────────────
 static void kick(float *buf, double t, double g) {
+    t = hum_t(t, 6); g = hum_g(g, 0.09); // humanize
     int n = (int)(0.18 * SR); long s0 = (long)(t * SR);
     double ph = 0;
     for (int i = 0; i < n; i++) {
@@ -156,6 +164,7 @@ static void kick(float *buf, double t, double g) {
 }
 
 static void kick_serious(float *buf, double t, double g) {
+    t = hum_t(t, 6); g = hum_g(g, 0.09); // humanize
     int n = (int)(0.32 * SR); long s0 = (long)(t * SR);
     double ph = 0;
     for (int i = 0; i < n; i++) {
@@ -169,6 +178,7 @@ static void kick_serious(float *buf, double t, double g) {
 }
 
 static void snare_hit(float *buf, double t, double g) {
+    t = hum_t(t, 9); g = hum_g(g, 0.12); // humanize
     int n = (int)(0.22 * SR); long s0 = (long)(t * SR);
     double prev = 0, ph = 0;
     for (int i = 0; i < n; i++) {
@@ -182,6 +192,7 @@ static void snare_hit(float *buf, double t, double g) {
 }
 
 static void clap(float *buf, double t, double g) {
+    t = hum_t(t, 10); g = hum_g(g, 0.12); // humanize
     for (int b = 0; b < 4; b++) {
         double bt = t + b * 0.007;
         long s0 = (long)(bt * SR); int n = (int)(0.012 * SR);
@@ -202,6 +213,7 @@ static void clap(float *buf, double t, double g) {
 }
 
 static void tamb(float *buf, double t, double g) {
+    t = hum_t(t, 6); g = hum_g(g, 0.18); // humanize
     int n = (int)(0.05 * SR); long s0 = (long)(t * SR);
     double prev = 0;
     for (int i = 0; i < n; i++) {
@@ -222,6 +234,7 @@ static void crash(float *buf, double t, double g) {
 }
 
 static void bell(float *buf, double t, double midi, double dur, double g) {
+    t = hum_t(t, 8); g = hum_g(g, 0.08); // humanize
     double fc = midi_hz(midi), fm = fc * 3.5;
     int n = (int)(dur * SR); long s0 = (long)(t * SR);
     double phc = 0, phm = 0;
@@ -266,6 +279,7 @@ static void sub_bass(float *buf, double t, double midi, double dur, double g) {
 }
 
 static void toy_piano(float *buf, double t, double midi, double dur, double g) {
+    t = hum_t(t, 9); g = hum_g(g, 0.12); // humanize — slight strum across chord notes
     double f = midi_hz(midi);
     int n = (int)(dur * SR); long s0 = (long)(t * SR);
     double p1 = 0, p2 = 0, p3 = 0;
@@ -280,6 +294,7 @@ static void toy_piano(float *buf, double t, double midi, double dur, double g) {
 }
 
 static void pluck(float *buf, double t, double midi, double dur, double g) {
+    t = hum_t(t, 8); g = hum_g(g, 0.10); // humanize
     double f = midi_hz(midi);
     int n = (int)(dur * SR); long s0 = (long)(t * SR);
     double ph = 0, lp = 0;
@@ -473,34 +488,43 @@ int main(int argc, char **argv) {
                     toy_piano(toy, bt + BEAT * 2, root + 24, BEAT * 0.85, 0.06);
                     toy_piano(toy, bt + BEAT * 3, fifth + 12, BEAT * 0.85, 0.06);
 #if N_SYL > 0
-                    // HARMONIC opener: both voices chant together on chord
-                    // tones — jeffrey on one degree, the computer voice a
-                    // harmony above. four beats, a moving little chorale.
+                    // OPENER — human + machine in unison: jeffrey (ElevenLabs)
+                    // and the computer voice chant the word TOGETHER from the
+                    // very first note (america + computadora, said as one),
+                    // then a harmony line (both voices, a third/fifth above)
+                    // blooms in over the last two words as the intro lifts
+                    // into the first hook.
                     {
-                        // (jeffrey degree, computer degree) per beat — thirds
-                        // and fifths apart so they harmonize.
-                        // two computer-voice lines a third/fifth apart —
-                        // harmony with itself (jeffrey's wizard takes removed).
                         const int loDeg[4] = {root, third, fifth, third};
                         const int hiDeg[4] = {third, fifth, root + 12, fifth};
                         for (int k = 0; k < 4; k++) {
                             long s0 = (long)((bt + k * BEAT) * SR);
                             long slot = (long)(BEAT * 1.7 * SR);
                             int af = (int)(0.05 * SR), rf = (int)(0.30 * SR);
-                            for (int ln = 0; ln < 2; ln++) {
+                            // the unison carries the first 3 words; the harmony
+                            // line eases in over the next 2.
+                            double harmG = intro_beat < 3 * N_SYL ? 0.0
+                                : fmin(1.0, (double)(intro_beat - 3 * N_SYL) / (2.0 * N_SYL));
+                            int nLines = harmG > 0 ? 2 : 1;
+                            int si = intro_beat % N_SYL;
+                            for (int ln = 0; ln < nLines; ln++) {
                                 int deg = ln == 0 ? loDeg[k] : hiDeg[k];
                                 int ti = -1;
                                 for (int q = 0; q < N_SYLT; q++) if (SYL_NOTES[q] == deg) { ti = q; break; }
                                 if (ti < 0) continue;
-                                Clip *sc = get_syl(1, intro_beat % N_SYL, ti); // computer voice
-                                if (!sc) continue;
-                                long lim = sc->n < slot ? sc->n : slot;
-                                double g = ln == 0 ? 0.55 : 0.42;
-                                for (long i = 0; i < lim; i++) {
-                                    double env = 1;
-                                    if (i < af) env = (double)i / af;
-                                    else if (i > lim - rf) env = (double)(lim - i) / rf;
-                                    addb(voc, s0 + i, sc->s[i] * g * env);
+                                double lineG = ln == 0 ? 1.0 : harmG;
+                                // both voices in unison: jeffrey (0) + computer (1)
+                                for (int vx = 0; vx < 2; vx++) {
+                                    Clip *sc = get_syl(vx, si, ti);
+                                    if (!sc) continue;
+                                    long lim = sc->n < slot ? sc->n : slot;
+                                    double g = (vx == 0 ? 0.50 : 0.52) * lineG;
+                                    for (long i = 0; i < lim; i++) {
+                                        double env = 1;
+                                        if (i < af) env = (double)i / af;
+                                        else if (i > lim - rf) env = (double)(lim - i) / rf;
+                                        addb(voc, s0 + i, sc->s[i] * g * env);
+                                    }
                                 }
                             }
                             intro_beat++;
@@ -518,10 +542,11 @@ int main(int argc, char **argv) {
                     snare_hit(snr, bt + BEAT, 0.5);
                     snare_hit(snr, bt + BEAT * 3, 0.5);
 #if N_SYL > 0
-                    // jeffrey chant — verse 2 only (the sparse every-other-
-                    // beat melody at ~1:40): one syllable per beat, pitched
-                    // to the tones that melody walks (third → octave), on
-                    // top of the normal verse vocal.
+                    // verse-2 chant (the sparse every-other-beat melody at
+                    // ~1:40): one syllable per beat, pitched to the tones the
+                    // melody walks (third → octave), on top of the normal verse
+                    // vocal — same human + machine unison as the opener:
+                    // jeffrey (ElevenLabs) + the computer voice together.
                     if (!strcmp(sec->feel, "sparse"))
                     for (int k = 0; k < 4; k++) {
                         int deg = k < 2 ? third : root + 12;
@@ -531,13 +556,14 @@ int main(int argc, char **argv) {
                             int si = verse_beat % N_SYL;
                             long s0 = (long)((bt + k * BEAT) * SR);
                             long slot = (long)(BEAT * 0.98 * SR);
-                            // computer voice only (jeffrey's wizard takes removed)
-                            Clip *sc = get_syl(1, si, ti);
-                            if (sc) {
+                            for (int vx = 0; vx < 2; vx++) {
+                                Clip *sc = get_syl(vx, si, ti); // jeffrey (0) + computer (1)
+                                if (!sc) continue;
+                                double g = vx == 0 ? 0.48 : 0.50;
                                 long lim = sc->n < slot ? sc->n : slot;
                                 for (long i = 0; i < lim; i++) {
                                     double env = i > lim - 480 ? (double)(lim - i) / 480 : 1.0;
-                                    addb(voc, s0 + i, sc->s[i] * 0.5 * env);
+                                    addb(voc, s0 + i, sc->s[i] * g * env);
                                 }
                             }
                         }
@@ -745,9 +771,11 @@ int main(int argc, char **argv) {
             hb += STRUCTURE[si].bars * STRUCTURE[si].reps;
         }
         long lead0 = (long)(hb * BAR * SR);
-        long lfin = (long)(2 * BAR * SR);
+        // the drop hits at full: the lead vocal slams in at MAX volume — no
+        // swell, no fade — just a 12 ms declick so the onset doesn't pop.
+        long lfin = (long)(0.012 * SR);
         for (long i = 0; i < lfin && lead0 + i < N; i++)
-            voc[lead0 + i] *= (float)(0.5 - 0.5 * cos(M_PI * (double)i / lfin));
+            voc[lead0 + i] *= (float)i / lfin;
     }
 
     // ── FX one-shots: gong + record scratches (freesound, c/fx/) ──────
@@ -842,13 +870,16 @@ int main(int argc, char **argv) {
             s = kik[i] + voc[i] * (0.75 + 0.25 * dk) + tail0 * dk
               + cho[i] * 0.7 + room[i] * 0.35;
         } else {
-            double drums = (drm[i] + kik[i] + snr[i]) * 0.92;
-            double melodic = (bel[i] + sqr[i] + toy[i] + arp[i] + pds[i] + cho[i]) * dk;
+            // mix balance: drums punchy, the dense melodic bus pulled back a
+            // touch to clear room for the voice, vocals brought forward and
+            // sitting on a tighter (less washy) reverb.
+            double drums = (drm[i] + kik[i] + snr[i]) * 0.96;
+            double melodic = (bel[i] + sqr[i] + toy[i] + arp[i] + pds[i] + cho[i]) * 0.86 * dk;
             double subb = sb[i] * (0.55 + 0.45 * dk);
             double tail = (echo[i] - voc[i]) * 0.28;
-            double vocal = voc[i] * (0.75 + 0.25 * dk) + tail * dk;
-            double rm = room[i] * 0.55 * (0.7 + 0.3 * dk);
-            s = drums + melodic + subb + vocal * 0.78 + rm;
+            double vocal = voc[i] * (0.78 + 0.22 * dk) + tail * dk;
+            double rm = room[i] * 0.48 * (0.7 + 0.3 * dk);
+            s = drums + melodic + subb + vocal * 0.90 + rm;
         }
         double fade = i >= fade_s ? fmax(0, 1.0 - (double)(i - fade_s) / (N - fade_s)) : 1.0;
         double v = tanh(s * 0.95) * fade;
