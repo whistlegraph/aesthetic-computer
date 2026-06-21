@@ -873,9 +873,12 @@ final class PalController: NSObject {
         plugins.forEach { $0.setCollapsed(false) }
         if let e = glyphView as? NSTextField { e.font = NSFont.systemFont(ofSize: 60) }
 
-        let win = fullWidth
         // Stack, bottom-up: [plugin rows] · name · glyph.
         let stackH = plugins.reduce(CGFloat(0)) { $0 + $1.stackHeight(in: self) }
+        // No rows (minimal mode) → there's nothing but glyph + name, so hug the
+        // glyph instead of the terminal-width window. Otherwise the glyph floats
+        // centered in the wide pane, leaving dead space that shoves it inward.
+        let win = stackH == 0 ? glyphW + 12 : fullWidth
         let nameY: CGFloat = 8 + stackH
         let nameH: CGFloat = 40
         // Tuck the title right under the avatar. The name is drawn centered (and
