@@ -148,9 +148,16 @@
             root * /opt/ac/system/public/give.aesthetic.computer
             file_server
         }
-        root * /opt/ac/system/public/give.aesthetic.computer
-        try_files {path} {path}.html /index.html
-        file_server
+        # Static fallback MUST be wrapped in `handle {}` so it's mutually
+        # exclusive with `handle /api/*`. Bare `try_files`/`file_server` is
+        # reordered ahead of `handle` by Caddy's default directive order, which
+        # rewrites /api/* POSTs to /index.html → file_server 405s them (this
+        # broke the give-portal cancel button). See news/feed blocks below.
+        handle {
+            root * /opt/ac/system/public/give.aesthetic.computer
+            try_files {path} {path}.html /index.html
+            file_server
+        }
     }
 
     # --- news.aesthetic.computer ---
