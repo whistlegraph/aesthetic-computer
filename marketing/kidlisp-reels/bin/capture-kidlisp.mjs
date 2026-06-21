@@ -81,10 +81,17 @@ console.log(`▸ capture-kidlisp ${CODE} → ${FRAMES_DIR}`);
 console.log(`  ${url}`);
 console.log(`  ${CAP_W}×${CAP_H} · realtime capture for ${DURATION}s → resample to ${FPS}fps${CHROME ? `  [${CHROME.split("/").pop()}]` : ""}`);
 
+// GPU rendering is REQUIRED for KidLisp GL effects (e.g. `blur`, `zoom`, `spin`)
+// to actually render — the old --use-gl=swiftshader (software) silently dropped
+// them and capped fps. --use-angle=metal drives the real GPU on macOS. Pass
+// --swiftshader to force software, or --headful if headless GPU misbehaves.
+const gpuArgs = flags.swiftshader
+  ? ["--use-gl=swiftshader"]
+  : ["--use-gl=angle", "--use-angle=metal", "--enable-gpu", "--ignore-gpu-blocklist"];
 const browser = await puppeteer.launch({
-  headless: "new",
+  headless: flags.headful ? false : "new",
   ...(CHROME ? { executablePath: CHROME } : {}),
-  args: ["--no-sandbox", "--use-gl=swiftshader", "--autoplay-policy=no-user-gesture-required",
+  args: ["--no-sandbox", "--autoplay-policy=no-user-gesture-required", ...gpuArgs,
          `--window-size=${CAP_W},${CAP_H}`],
 });
 
@@ -106,25 +113,42 @@ await page.keyboard.press("Space").catch(() => {});
 
 await new Promise((r) => setTimeout(r, SETTLE));
 
-// REALTIME capture. The piece animates on wall-clock time in the browser, and
-// each screenshot costs ~30–80ms (more for heavy pieces). So we DON'T try to
-// hit a fixed fps — we grab frames as fast as we can for DURATION real seconds
-// and record each frame's true elapsed time. render-reel resamples these to the
-// playback fps by timestamp, so the animation plays at its TRUE speed (heavy
-// pieces just yield fewer real frames → duped on resample, never sped up).
-const t0 = Date.now();
+// REALTIME capture via CDP screencast. The browser streams a frame every time
+// the page paints (up to ~60fps) — far faster + smoother than per-frame
+// page.screenshot() RPCs. Each frame carries a monotonic timestamp; render-reel
+// resamples by timestamp to true-speed playback fps.
+const client = await page.createCDPSession();
 const stamps = [];
 let i = 0;
-while (true) {
-  const t = (Date.now() - t0) / 1000;
-  if (t >= DURATION) break;
+let t0 = null;
+let realDuration = 0;
+let stop = false;
+
+client.on("Page.screencastFrame", async ({ data, sessionId, metadata }) => {
+  // ack immediately so the stream keeps flowing
+  client.send("Page.screencastFrameAck", { sessionId }).catch(() => {});
+  if (stop) return;
+  const ts = metadata.timestamp ?? Date.now() / 1000;
+  if (t0 === null) t0 = ts;
+  const t = ts - t0;
+  if (t >= DURATION) { stop = true; realDuration = t; return; }
   const file = `frame-${String(i).padStart(5, "0")}.png`;
-  await page.screenshot({ path: `${FRAMES_DIR}/${file}`, omitBackground: false });
+  writeFileSync(`${FRAMES_DIR}/${file}`, Buffer.from(data, "base64"));
   stamps.push({ file, t });
   i++;
   if (i % 60 === 0) console.log(`  ${i} frames · ${t.toFixed(1)}/${DURATION}s real (${(i / Math.max(t, 0.001)).toFixed(1)} fps)`);
+});
+
+await client.send("Page.startScreencast", {
+  format: "png", everyNthFrame: 1, maxWidth: CAP_W, maxHeight: CAP_H,
+});
+// run until we've collected DURATION seconds of stamped frames (+ grace)
+const wallStart = Date.now();
+while (!stop && (Date.now() - wallStart) / 1000 < DURATION + 8) {
+  await new Promise((r) => setTimeout(r, 100));
 }
-const realDuration = (Date.now() - t0) / 1000;
+await client.send("Page.stopScreencast").catch(() => {});
+if (!realDuration) realDuration = stamps.length ? stamps[stamps.length - 1].t : 0;
 
 await browser.close();
 

@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 import { once } from "node:events";
 import { createCanvas, loadImage } from "canvas";
 import { spawnSync } from "node:child_process";
-import { prerenderTitleChars } from "../../../pop/lib/preview-shared.mjs";
+import { prerenderTitleChars, setPreviewFont } from "../../../pop/lib/preview-shared.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const LANE = resolve(HERE, "..");
@@ -77,8 +77,24 @@ const frameFiles = [];
 }
 console.log(`▸ resampled ${captured.length} real frames (${realDuration.toFixed(1)}s) → ${FRAMES} frames @ ${FPS}fps (true speed)`);
 
+// Seamless loop (--loop <sec>): crossfade the tail back into the head. The
+// output is FRAMES - Xf long; its first Xf frames blend frame[j] (head) with
+// frame[j + OUT_FRAMES] (the tail continuation), so the wrap is continuous —
+// the tail dissolves into the head, hiding the only real jump. Needs the
+// capture to run ~loop-seconds longer than the desired loop length.
+// --no-stamps: clean full-bleed piece, no pals side-stamps (good for TikTok).
+const NO_STAMPS = !!flags["no-stamps"];
+const LOOP_SEC = flags.loop ? parseFloat(flags.loop) : 0;
+const Xf = LOOP_SEC > 0 ? Math.min(FRAMES - 1, Math.round(LOOP_SEC * FPS)) : 0;
+const OUT_FRAMES = FRAMES - Xf;
+if (LOOP_SEC > 0) console.log(`▸ seamless loop: ${OUT_FRAMES} frames (${(OUT_FRAMES / FPS).toFixed(1)}s), ${LOOP_SEC}s tail→head crossfade`);
+if (NO_STAMPS) console.log(`▸ no-stamps: clean full-bleed, no side chrome`);
+
 // Word-bounce speed — lower = slower. (@jeffrey: bounce the words slower.)
 const BOUNCE_RATE = 1.5;
+// Pals side-stamp motion speed — scales the wiggle/bob/swivel frequencies.
+// Lower = calmer stamps. (@jeffrey: pals logos were moving too fast.)
+const PALS_SPEED = 0.18;
 
 // Placement: if the capture already matches the 9:16 reel aspect, the piece is
 // drawn full-bleed (fills the whole frame). Otherwise it sits full-width in a
@@ -90,16 +106,35 @@ const PIECE_H = Math.round(SRC_H * (W / SRC_W)); // contain-to-width
 const PIECE_Y = Math.round((H - PIECE_H) / 2);
 
 // ── title chars + pals raster ────────────────────────────────────────────────
+// The $code reads in YWFT (the default geometric/computery preview font), EXCEPT
+// the leading "$" sigil, which is set in Comic Relief (KidLisp's own $ typeface).
 const titleFontSize = 96;
 const { chars: titleChars, totalWidth: titleTotalW } = await prerenderTitleChars({
   text: TITLE, ptSize: titleFontSize, palette: ["#FFFFFF"], shadowColor: null, assetsDir,
 });
+const DOLLAR_FONT = `${REPO}/oven/fonts/ComicRelief-Regular.ttf`;  // lighter than the Bold
+if (existsSync(DOLLAR_FONT) && titleChars.some((c) => c.char === "$")) {
+  setPreviewFont(DOLLAR_FONT);
+  const d = await prerenderTitleChars({ text: "$", ptSize: titleFontSize, palette: ["#FFFFFF"], shadowColor: null, assetsDir });
+  setPreviewFont("ywft");  // restore for any later use
+  const di = d.chars[0]?.img;
+  if (di) for (const c of titleChars) if (c.char === "$") c.img = di;
+}
 const PALS_S = 145, PALS_HALF = PALS_S / 2;
-const PALS_EDGE_X = 64, CHARS_EDGE_X = PALS_EDGE_X + 12;
+const PALS_EDGE_X = 110, CHARS_EDGE_X = PALS_EDGE_X + 12;  // badges pulled in from the edges
 const CHAR_SCALE = 0.48;
-const CHAR_SPAN = titleTotalW * CHAR_SCALE;
+const KERN = 0;                                           // natural YWFT kerning (the spacing that read right)
+const DOLLAR_SCALE = 0.78;                                // the $ sigil a bit smaller than the code letters
+const DOLLAR_DX = -16;                                    // …and nudged left (toward the word start)
+const titleSpanGlyph = titleTotalW + (titleChars.length - 1) * KERN;
+const CHAR_SPAN = titleSpanGlyph * CHAR_SCALE;
 const BOUNCE_BUF = 26;
-const LEFT_CHARS_CY = H * 0.78, RIGHT_CHARS_CY = H * 0.22;
+
+// KidLisp reel palette — subtle lime-green/yellow with VHS chromatic-aberration
+// fringe (magenta/cyan ghosts split a few px around a lime-yellow core).
+const CORE = [180, 240, 70], CORE_HI = [225, 255, 150];
+const CHROMA_R = [255, 60, 120], CHROMA_B = [70, 170, 255], CHROMA_PX = 3;
+const LEFT_CHARS_CY = H * 0.86, RIGHT_CHARS_CY = H * 0.14;  // pushed toward the top/bottom edges
 const LEFT_PALS_CY = LEFT_CHARS_CY - CHAR_SPAN / 2 - BOUNCE_BUF - PALS_HALF;
 const RIGHT_PALS_CY = RIGHT_CHARS_CY + CHAR_SPAN / 2 + BOUNCE_BUF + PALS_HALF;
 
@@ -144,23 +179,6 @@ function sampleLuma(img) {
   return { mean: sum / n, px, rgb: [rs / n, gs / n, bs / n] };
 }
 
-// ── reel tint: average color across first/mid/last frames, nudged saturated ──
-const tintRgb = await (async () => {
-  const idxs = [0, Math.floor(FRAMES / 2), FRAMES - 1];
-  let r = 0, g = 0, b = 0;
-  for (const i of idxs) {
-    const img = await loadImage(`${FRAMES_DIR}/${frameFiles[i]}`);
-    const s = sampleLuma(img);
-    r += s.rgb[0]; g += s.rgb[1]; b += s.rgb[2];
-  }
-  r /= idxs.length; g /= idxs.length; b /= idxs.length;
-  // pull toward a readable mid-bright stamp color (avoid muddy averages)
-  const lift = (v) => Math.round(Math.min(255, 70 + v * 0.85));
-  return [lift(r), lift(g), lift(b)];
-})();
-
-function sectionTcRgb() { return tintRgb; }
-
 function palsTinted(src, c) {
   const ww = src.width, wh = src.height;
   wmCanvas.width = ww; wmCanvas.height = wh;
@@ -186,52 +204,37 @@ function tintCharGlyph(img, c) {
   return charTintCanvas;
 }
 
+// Draw one glyph as a subtle VHS stamp: soft shadow + magenta/cyan chromatic
+// ghosts split ±CHROMA_PX + a lime-yellow core + a gentle env glow. `tintFn`
+// returns a tinted glyph canvas (palsTinted or tintCharGlyph).
+function drawChroma(tintFn, sharp, soft, dx, dy, dw, dh, env) {
+  ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 0.20;
+  ctx.drawImage(tintFn(sharp, [8, 10, 6]), dx + 2.5, dy + 3, dw, dh);
+  ctx.globalCompositeOperation = "screen";
+  ctx.globalAlpha = 0.30; ctx.drawImage(tintFn(soft, CHROMA_R), dx - CHROMA_PX, dy, dw, dh);
+  ctx.globalAlpha = 0.30; ctx.drawImage(tintFn(soft, CHROMA_B), dx + CHROMA_PX, dy, dw, dh);
+  ctx.globalAlpha = 0.60; ctx.drawImage(tintFn(sharp, CORE), dx, dy, dw, dh);
+  if (env > 0.02) { ctx.globalAlpha = 0.08 + 0.18 * env; ctx.drawImage(tintFn(soft, CORE_HI), dx, dy, dw, dh); }
+  ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 1;
+}
+
 function drawWatermark(t, env) {
   const s = PALS_S;
   const u = (t * FPS) / FRAMES;
   const TAU = Math.PI * 2;
-  const col = sectionTcRgb();
-  const e = Math.min(1, env);
-  const glow = e * e;
-  const ledCol = [
-    Math.round(col[0] + (255 - col[0]) * glow * 0.6),
-    Math.round(col[1] + (255 - col[1]) * glow * 0.6),
-    Math.round(col[2] + (255 - col[2]) * glow * 0.6),
-  ];
-  const wig = 13 * Math.sin(TAU * 24 * u + 0.7) + 4 * Math.sin(TAU * 9 * u);
-  const bob = 3 * Math.sin(TAU * 17 * u + 2.1) + 1.5 * Math.sin(TAU * 31 * u);
-  const swiv = 0.05 * Math.sin(TAU * 19 * u) + 0.025 * Math.sin(TAU * 38 * u + 1.4);
+  const sp = PALS_SPEED;
+  const wig = 13 * Math.sin(TAU * 24 * sp * u + 0.7) + 4 * Math.sin(TAU * 9 * sp * u);
+  const bob = 3 * Math.sin(TAU * 17 * sp * u + 2.1) + 1.5 * Math.sin(TAU * 31 * sp * u);
+  const swiv = 0.05 * Math.sin(TAU * 19 * sp * u) + 0.025 * Math.sin(TAU * 38 * sp * u + 1.4);
   const spots = [
     { cx: PALS_EDGE_X - wig, cy: LEFT_PALS_CY + bob, rot: Math.PI / 2 + swiv },
     { cx: W - PALS_EDGE_X + wig, cy: RIGHT_PALS_CY - bob, rot: -Math.PI / 2 - swiv },
   ];
-  const passes = [["multiply", 0.78], ["color-burn", 0.42], ["overlay", 0.58], ["source-over", 0.06]];
-  for (const sp of spots) {
+  for (const spot of spots) {
     ctx.save();
-    ctx.translate(sp.cx, sp.cy);
-    ctx.rotate(sp.rot);
-    palsTinted(palsImg, [0, 0, 0]);
-    ctx.globalCompositeOperation = "source-over";
-    ctx.globalAlpha = 0.26;
-    ctx.drawImage(wmCanvas, -s / 2 + 3, -s / 2 + 4, s, s);
-    palsTinted(palsBlur, col);
-    for (const [op, a] of passes) {
-      ctx.globalCompositeOperation = op; ctx.globalAlpha = a;
-      ctx.drawImage(wmCanvas, -s / 2, -s / 2, s, s);
-    }
-    ctx.globalCompositeOperation = "source-over";
-    ctx.globalAlpha = 0.30;
-    ctx.drawImage(wmCanvas, -s / 2, -s / 2, s, s);
-    if (glow > 0.001) {
-      palsTinted(palsBlur, ledCol);
-      ctx.globalCompositeOperation = "screen";
-      ctx.globalAlpha = 0.14 + 0.78 * glow;
-      ctx.drawImage(wmCanvas, -s / 2, -s / 2, s, s);
-      palsTinted(palsImg, ledCol);
-      ctx.globalCompositeOperation = "source-over";
-      ctx.globalAlpha = 0.18 + 0.46 * glow;
-      ctx.drawImage(wmCanvas, -s / 2, -s / 2, s, s);
-    }
+    ctx.translate(spot.cx, spot.cy);
+    ctx.rotate(spot.rot);
+    drawChroma((src, c) => palsTinted(src, c), palsImg, palsBlur, -s / 2, -s / 2, s, s, env);
     ctx.restore();
   }
   ctx.globalCompositeOperation = "source-over";
@@ -242,9 +245,8 @@ function drawWatermark(t, env) {
 function drawPalsTitleChars(t, env) {
   const u = (t * FPS) / FRAMES;
   const TAU = Math.PI * 2;
-  const wig = 11 * Math.sin(TAU * 30 * u + 3.6) + 4 * Math.sin(TAU * 12 * u + 1.1);
-  const span = titleTotalW * CHAR_SCALE;
-  const palsRgb = sectionTcRgb();
+  const wig = 11 * Math.sin(TAU * 30 * PALS_SPEED * u + 3.6) + 4 * Math.sin(TAU * 12 * PALS_SPEED * u + 1.1);
+  const span = CHAR_SPAN;
   const spots = [
     { charsCx: CHARS_EDGE_X - wig, cy: LEFT_CHARS_CY, rot: Math.PI / 2 },
     { charsCx: W - CHARS_EDGE_X + wig, cy: RIGHT_CHARS_CY, rot: -Math.PI / 2 },
@@ -257,44 +259,19 @@ function drawPalsTitleChars(t, env) {
     for (let i = 0; i < titleChars.length; i++) {
       const ch = titleChars[i];
       if (!ch.img) continue;
-      const x = startX + ch.prefixWidth * CHAR_SCALE;
-      const dw = ch.img.width * CHAR_SCALE;
-      const dh = ch.img.height * CHAR_SCALE;
-      const lift = 4 * Math.sin(t * BOUNCE_RATE + i * 0.8) * (0.3 + env);
+      const isDollar = ch.char === "$";
+      const cs = isDollar ? CHAR_SCALE * DOLLAR_SCALE : CHAR_SCALE;
+      const x = startX + (ch.prefixWidth + i * KERN) * CHAR_SCALE + (isDollar ? DOLLAR_DX : 0);
+      const dw = ch.img.width * cs;
+      const dh = ch.img.height * cs;
+      const lift = 3.5 * Math.sin(t * BOUNCE_RATE + i * 0.8) * (0.6 + 0.25 * env);
       const y = -dh / 2 + lift;
-      const charRot = 0.03 * Math.sin(t * BOUNCE_RATE * 0.8 + i * 1.15);
+      const charRot = 0.025 * Math.sin(t * BOUNCE_RATE * 0.8 + i * 1.15);
       ctx.save();
       ctx.translate(x + dw / 2, y + dh / 2);
       ctx.rotate(charRot);
       ctx.translate(-(x + dw / 2), -(y + dh / 2));
-      const sh = 0.5 + 0.5 * Math.sin(t * BOUNCE_RATE * 0.85 - i * 0.7);
-      const charRgb = [
-        Math.round(palsRgb[0] + (255 - palsRgb[0]) * sh * 0.35),
-        Math.round(palsRgb[1] + (255 - palsRgb[1]) * sh * 0.35),
-        Math.round(palsRgb[2] + (255 - palsRgb[2]) * sh * 0.35),
-      ];
-      ctx.save();
-      ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 0.26;
-      ctx.drawImage(tintCharGlyph(ch.img, [0, 0, 0]), x + 3, y + 4, dw, dh);
-      ctx.restore();
-      const charPasses = [["multiply", 0.78], ["color-burn", 0.42], ["overlay", 0.58], ["source-over", 0.06]];
-      for (const [op, a] of charPasses) {
-        ctx.save();
-        ctx.globalCompositeOperation = op; ctx.globalAlpha = a;
-        ctx.drawImage(tintCharGlyph(ch.img, charRgb), x, y, dw, dh);
-        ctx.restore();
-      }
-      ctx.save();
-      ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 0.46;
-      ctx.drawImage(tintCharGlyph(ch.img, palsRgb), x, y, dw, dh);
-      ctx.restore();
-      if (env > 0.45) {
-        ctx.save();
-        ctx.globalCompositeOperation = "screen";
-        ctx.globalAlpha = 0.14 + 0.46 * Math.min(1, (env - 0.45) / 0.55);
-        ctx.drawImage(tintCharGlyph(ch.img, charRgb), x, y, dw, dh);
-        ctx.restore();
-      }
+      drawChroma((img, c) => tintCharGlyph(img, c), ch.img, ch.img, x, y, dw, dh, env);
       ctx.restore();
     }
     ctx.restore();
@@ -312,18 +289,38 @@ function spawnSilentEncode(outPath) {
 }
 
 // ── frame pump: each PNG → backdrop + crisp piece + chrome → encoder ─────────
-console.log(`▸ kidlisp reel · ${FRAMES} frames · "${TITLE}" · tint rgb(${tintRgb.join(",")}) · silent`);
+console.log(`▸ kidlisp reel · ${FRAMES} frames · "${TITLE}" · VHS lime-green chrome · silent`);
 const enc = spawnSilentEncode(OUTFILE);
 let prevPx = null;
-let cachedFile = null, cachedImg = null;
-const t0 = Date.now();
-for (let i = 0; i < FRAMES; i++) {
-  // resampling duplicates frames for heavy pieces — only reload on file change
-  if (frameFiles[i] !== cachedFile) {
-    cachedImg = await loadImage(`${FRAMES_DIR}/${frameFiles[i]}`);
-    cachedFile = frameFiles[i];
+let envSmooth = 0;  // heavily smoothed so the color/glow doesn't flicker on chaotic pieces
+const frameCache = new Map();  // small LRU of decoded source frames
+async function getFrame(file) {
+  let im = frameCache.get(file);
+  if (!im) {
+    im = await loadImage(`${FRAMES_DIR}/${file}`);
+    frameCache.set(file, im);
+    if (frameCache.size > 8) frameCache.delete(frameCache.keys().next().value);
   }
-  const img = cachedImg;
+  return im;
+}
+const blendCanvas = createCanvas(SRC_W, SRC_H);
+const bctx = blendCanvas.getContext("2d");
+const t0 = Date.now();
+for (let i = 0; i < OUT_FRAMES; i++) {
+  let img;
+  if (Xf > 0 && i < Xf) {
+    // crossfade region: (1-w)*tail + w*head → seamless wrap
+    const w = i / Xf;
+    const tail = await getFrame(frameFiles[i + OUT_FRAMES]);
+    const head = await getFrame(frameFiles[i]);
+    bctx.globalAlpha = 1; bctx.clearRect(0, 0, SRC_W, SRC_H);
+    bctx.drawImage(tail, 0, 0, SRC_W, SRC_H);
+    bctx.globalAlpha = w; bctx.drawImage(head, 0, 0, SRC_W, SRC_H);
+    bctx.globalAlpha = 1;
+    img = blendCanvas;
+  } else {
+    img = await getFrame(frameFiles[i]);
+  }
 
   // motion envelope: mean abs luma delta vs previous frame, normalized
   const { px } = sampleLuma(img);
@@ -331,6 +328,7 @@ for (let i = 0; i < FRAMES; i++) {
   if (prevPx) { for (let k = 0; k < px.length; k++) motion += Math.abs(px[k] - prevPx[k]); motion /= px.length; }
   prevPx = px;
   const env = Math.min(1, motion / 24);          // ~24 luma units of delta = full pulse
+  envSmooth = envSmooth * 0.92 + env * 0.08;     // low-pass → calm, non-flickery glow
 
   ctx.globalCompositeOperation = "source-over";
   ctx.globalAlpha = 1;
@@ -358,12 +356,12 @@ for (let i = 0; i < FRAMES; i++) {
     ctx.imageSmoothingEnabled = true;
   }
 
-  // side-stamp chrome
-  drawWatermark(i / FPS, env);
+  // side-stamp chrome (skipped in --no-stamps clean mode)
+  if (!NO_STAMPS) drawWatermark(i / FPS, envSmooth);
 
   if (!enc.stdin.write(canvas.toBuffer("raw"))) await once(enc.stdin, "drain");
-  if ((i + 1) % 60 === 0) console.log(`  ${i + 1}/${FRAMES} · ${((Date.now() - t0) / 1000).toFixed(0)}s`);
+  if ((i + 1) % 60 === 0) console.log(`  ${i + 1}/${OUT_FRAMES} · ${((Date.now() - t0) / 1000).toFixed(0)}s`);
 }
 enc.stdin.end();
 await new Promise((res, rej) => { enc.on("close", (c) => (c === 0 ? res() : rej(new Error(`ffmpeg exit ${c}`)))); });
-console.log(`✓ ${OUTFILE} (${FRAMES} frames chromed, silent)`);
+console.log(`✓ ${OUTFILE} (${OUT_FRAMES} frames${NO_STAMPS ? "" : " chromed"}${LOOP_SEC > 0 ? ", seamless loop" : ""}, silent)`);
