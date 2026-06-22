@@ -92,6 +92,9 @@ const browser = await puppeteer.launch({
   headless: flags.headful ? false : "new",
   ...(CHROME ? { executablePath: CHROME } : {}),
   args: ["--no-sandbox", "--autoplay-policy=no-user-gesture-required", ...gpuArgs,
+         // keep the piece animating — never let headless throttle/pause rAF/timers
+         "--disable-background-timer-throttling", "--disable-backgrounding-occluded-windows",
+         "--disable-renderer-backgrounding", "--disable-features=CalculateNativeWinOcclusion",
          `--window-size=${CAP_W},${CAP_H}`],
 });
 

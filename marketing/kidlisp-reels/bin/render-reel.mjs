@@ -86,7 +86,7 @@ console.log(`▸ resampled ${captured.length} real frames (${realDuration.toFixe
 const NO_STAMPS = !!flags["no-stamps"];
 const LOOP_SEC = flags.loop ? parseFloat(flags.loop) : 0;
 const Xf = LOOP_SEC > 0 ? Math.min(FRAMES - 1, Math.round(LOOP_SEC * FPS)) : 0;
-const OUT_FRAMES = FRAMES - Xf;
+let OUT_FRAMES = FRAMES - Xf;
 if (LOOP_SEC > 0) console.log(`▸ seamless loop: ${OUT_FRAMES} frames (${(OUT_FRAMES / FPS).toFixed(1)}s), ${LOOP_SEC}s tail→head crossfade`);
 if (NO_STAMPS) console.log(`▸ no-stamps: clean full-bleed, no side chrome`);
 
@@ -122,10 +122,12 @@ if (existsSync(DOLLAR_FONT) && titleChars.some((c) => c.char === "$")) {
 }
 const PALS_S = 145, PALS_HALF = PALS_S / 2;
 const PALS_EDGE_X = 110, CHARS_EDGE_X = PALS_EDGE_X + 12;  // badges pulled in from the edges
-const CHAR_SCALE = 0.48;
+const CHAR_SCALE = 0.72;                                  // code letters scaled up for readability (~pals scale)
 const KERN = 0;                                           // natural YWFT kerning (the spacing that read right)
-const DOLLAR_SCALE = 0.78;                                // the $ sigil a bit smaller than the code letters
-const DOLLAR_DX = -16;                                    // …and nudged left (toward the word start)
+const DOLLAR_SCALE = 1.25;                                // the $ sigil LARGER than the code letters
+const DOLLAR_DX = 0;                                      // $ x-nudge (the gap below handles separation)
+const DOLLAR_GAP = 20;                                    // extra room after the big $ so letters don't collide
+const DOLLAR_SPIN = 0.7;                                  // $ rotates on its own (rad/s), separate from the letters
 const titleSpanGlyph = titleTotalW + (titleChars.length - 1) * KERN;
 const CHAR_SPAN = titleSpanGlyph * CHAR_SCALE;
 const BOUNCE_BUF = 26;
@@ -251,7 +253,7 @@ function drawPalsTitleChars(t, env) {
     { charsCx: CHARS_EDGE_X - wig, cy: LEFT_CHARS_CY, rot: Math.PI / 2 },
     { charsCx: W - CHARS_EDGE_X + wig, cy: RIGHT_CHARS_CY, rot: -Math.PI / 2 },
   ];
-  const startX = -span / 2;
+  const startX = -(span + DOLLAR_GAP) / 2;
   for (const sp of spots) {
     ctx.save();
     ctx.translate(sp.charsCx, sp.cy);
@@ -261,12 +263,14 @@ function drawPalsTitleChars(t, env) {
       if (!ch.img) continue;
       const isDollar = ch.char === "$";
       const cs = isDollar ? CHAR_SCALE * DOLLAR_SCALE : CHAR_SCALE;
-      const x = startX + (ch.prefixWidth + i * KERN) * CHAR_SCALE + (isDollar ? DOLLAR_DX : 0);
+      // letters after the $ shift right by DOLLAR_GAP to clear the larger sigil
+      const x = startX + (ch.prefixWidth + i * KERN) * CHAR_SCALE + (isDollar ? DOLLAR_DX : DOLLAR_GAP);
       const dw = ch.img.width * cs;
       const dh = ch.img.height * cs;
       const lift = 3.5 * Math.sin(t * BOUNCE_RATE + i * 0.8) * (0.6 + 0.25 * env);
       const y = -dh / 2 + lift;
-      const charRot = 0.025 * Math.sin(t * BOUNCE_RATE * 0.8 + i * 1.15);
+      // the $ tumbles on its own continuous spin; letters keep their subtle wobble
+      const charRot = isDollar ? t * DOLLAR_SPIN : 0.025 * Math.sin(t * BOUNCE_RATE * 0.8 + i * 1.15);
       ctx.save();
       ctx.translate(x + dw / 2, y + dh / 2);
       ctx.rotate(charRot);
@@ -288,11 +292,6 @@ function spawnSilentEncode(outPath) {
   ], { stdio: ["pipe", "inherit", "inherit"] });
 }
 
-// ── frame pump: each PNG → backdrop + crisp piece + chrome → encoder ─────────
-console.log(`▸ kidlisp reel · ${FRAMES} frames · "${TITLE}" · VHS lime-green chrome · silent`);
-const enc = spawnSilentEncode(OUTFILE);
-let prevPx = null;
-let envSmooth = 0;  // heavily smoothed so the color/glow doesn't flicker on chaotic pieces
 const frameCache = new Map();  // small LRU of decoded source frames
 async function getFrame(file) {
   let im = frameCache.get(file);
@@ -303,6 +302,34 @@ async function getFrame(file) {
   }
   return im;
 }
+
+// Trailing-static trim: some KidLisp pieces (e.g. $tezz, $ceo) reach a near-
+// static end state, so the reel would "freeze" partway. Walk backward from the
+// end and drop frames until motion resumes, so a reel ALWAYS ends on movement.
+// (Skipped for --loop, which has its own tail handling.)
+if (LOOP_SEC === 0) {
+  const STATIC = 1.2, PAD = Math.round(0.3 * FPS), MIN = Math.round(4 * FPS);
+  let prev = null, lastLively = OUT_FRAMES - 1;
+  for (let j = OUT_FRAMES - 1; j >= 0; j--) {
+    const { px } = sampleLuma(await getFrame(frameFiles[j]));
+    if (prev) {
+      let m = 0; for (let k = 0; k < px.length; k++) m += Math.abs(px[k] - prev[k]); m /= px.length;
+      if (m > STATIC) { lastLively = j; break; }
+    }
+    prev = px;
+  }
+  const trimmed = Math.max(MIN, Math.min(OUT_FRAMES, lastLively + 1 + PAD));
+  if (trimmed < OUT_FRAMES) {
+    console.log(`▸ trailing-static trim: ${OUT_FRAMES}→${trimmed} frames (${(trimmed / FPS).toFixed(1)}s — piece went static)`);
+    OUT_FRAMES = trimmed;
+  }
+}
+
+// ── frame pump: each PNG → backdrop + crisp piece + chrome → encoder ─────────
+console.log(`▸ kidlisp reel · ${OUT_FRAMES} frames · "${TITLE}" · VHS lime-green chrome · silent`);
+const enc = spawnSilentEncode(OUTFILE);
+let prevPx = null;
+let envSmooth = 0;  // heavily smoothed so the color/glow doesn't flicker on chaotic pieces
 const blendCanvas = createCanvas(SRC_W, SRC_H);
 const bctx = blendCanvas.getContext("2d");
 const t0 = Date.now();
