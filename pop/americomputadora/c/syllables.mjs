@@ -28,13 +28,17 @@ const SAY_URL = process.env.SAY_ENDPOINT || "https://aesthetic.computer/api/say"
 // instead of precessing (the old 7-syllable pun drifted out of phase).
 const SYLS = [
   ["a",   "ah"],
-  ["me",  "meh"],
-  ["ri",  "ree"],
+  ["me",  "may"],
+  ["ri",  "rick"],   // ah-may-rick → "America"
   ["com", "comb"],
-  ["pu",  "poo"],
+  ["pu",  "pew"],
   ["ta",  "tah"],
-  ["do",  "doe"],
+  ["do",  "door"],   // door-ah → "dora"
   ["ra",  "rah"],
+  // extra takes for jeffrey's 1:45 re-entrance phrase
+  // ("ahh may rico puter door ahh!") — not part of the 8-syllable word cycle.
+  ["rico",  "rico"],
+  ["puter", "pewter"],
 ];
 
 // a second voice — a macOS "computer" — chants the SAME syllables in

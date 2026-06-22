@@ -18,13 +18,13 @@ static const int VARIANT_NOTES[N_VARIANTS][N_WORDS] = {
 typedef struct { const char *section; int bars; int reps; const char *feel; } Sec;
 static const Sec STRUCTURE[] = {
   {"intro", 10, 1, "soft"},
-  {"hook", 4, 4, "full"},
-  {"verse", 8, 1, "thin"},
-  {"hook", 4, 4, "full"},
-  {"verse", 8, 1, "sparse"},
+  {"hook", 4, 3, "full"},
+  {"verse", 6, 1, "thin"},
+  {"hook", 4, 3, "full"},
+  {"verse", 6, 1, "sparse"},
   {"bridge", 4, 1, "breakdown"},
   {"stop", 1, 1, "claps-only"},
-  {"hook", 4, 4, "full"},
+  {"hook", 4, 3, "full"},
   {"outro", 8, 1, "fade"},
 };
 #define N_SECS 9

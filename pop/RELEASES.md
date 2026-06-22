@@ -909,7 +909,28 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
   SERIAL, so two bells at the same frequency ADD their dB — detuned pad
   doubles (+19+13+13=+45) and a root-partial choir both blew up the mix
   this way; layers must own disjoint frequencies.
-- **Next:** @jeffrey ear-check both cuts → decide if one grows into a
+- **Cut 3: nullabata** (`bin/render-nullabata.mjs` → `out/nullabata.mp3`,
+  ~4:21, −19.1 LUFS) — the **sonata cut** (*nullaby + sonata*): four
+  carved-noise movements running **attacca (no silence between)**, bound by
+  one lullaby motif (semitone offsets from a per-movement voice tonic)
+  transformed per movement: **I. Andante** C maj 72 BPM (theme + warm pads
+  + heartbeat kick) · **II. Scherzo** A min 132 BPM (theme shattered into a
+  fast arp + twinkle cloud) · **III. Adagio** F maj 56 BPM (theme in long
+  tones over sustained pads + drones + spice-partial choir, no perc) ·
+  **IV. Finale** C maj 84 BPM (theme recapitulated over a compact 47-point
+  accumulation arch: 2→bloom→2, nuellaby's Boléro logic gathering the suite
+  home). **CLARITY = Q:** first pass sounded like radio static — every
+  bell-on-noise voice is breathy, and a wide bell passes a wide band of
+  hiss. Fix was to run the engine at its TONAL extreme: high Q on all
+  pitched voices (lead 110 / pads 55 / drones 45 / choir+halo 50+), **kill
+  the wide veil bed entirely** (Q 0.55 = the worst static source),
+  narrow/strip the noise perc (no shaker/open-hat; hats → narrow pitched
+  ticks), and master with a 15 kHz lowpass + no treble boost — energy
+  >12 kHz now sits 36 dB below full band. New engine piece: a **per-second,
+  movement-aware loudness ride** (`rideTargetAt(t)`) so four very different
+  tempos/densities land evenly. 47 lanes, `--proof` passes flat;
+  `--bake` → `c/run-c.mjs` renders the same score.
+- **Next:** @jeffrey ear-check the three cuts → decide if one grows into a
   full single (more sections, maybe formant-vowel bells for a "choir" à
   la [[feedback_chillwave_formant_voice]]) or they stay studies.
 

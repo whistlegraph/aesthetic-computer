@@ -151,8 +151,16 @@ echo "# accelerando (+18% by the end → trance build)"
 # re-normalize after the accel (rubberband overshoots past the limiter) with a
 # true-peak ceiling so there is NO clipping.
 ffmpeg -hide_banner -loglevel error -y -i "$ROOT/sources/.master-accel.wav" \
-  -af "loudnorm=I=-13:TP=-1.5:LRA=12,aformat=s16" -ar 44100 "$MASTER"
+  -af "loudnorm=I=-13:TP=-1.5:LRA=12,aformat=s16" -ar 44100 "$ROOT/sources/.master-pre.wav"
 rm -f "$ROOT/sources/.master-accel.wav"
+
+# FINAL fade-out AFTER loudnorm (so the normalizer can't pump the tail back up —
+# that was the "stops then starts again" ending). Clean 9s fade.
+DUR=$("$PY" -c "import soundfile as sf; print(sf.info('$ROOT/sources/.master-pre.wav').duration)")
+FST=$("$PY" -c "print(max(0.0, $DUR - 9.0))")
+ffmpeg -hide_banner -loglevel error -y -i "$ROOT/sources/.master-pre.wav" \
+  -af "afade=t=out:st=${FST}:d=9,aformat=s16" -ar 44100 "$MASTER"
+rm -f "$ROOT/sources/.master-pre.wav"
 
 ffmpeg -hide_banner -loglevel error -y -i "$MASTER" -c:a libmp3lame -b:a 320k "$MP3"
 echo "✓ $MP3"

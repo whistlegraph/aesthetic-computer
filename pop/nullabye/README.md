@@ -76,3 +76,40 @@ two; measured arch: `2/2 4/4 8/8 16/16 30/32 51/64 92/128 49 29 15 8 4 2`.
 - **veil-lifts** (20–23) — one wide bell sweeps 250 Hz → 6 kHz letting
   the raw noise wash through, a last lone whistle, then the EQ goes
   flat and the song ends in literal silence.
+
+## nullabata — the sonata cut
+
+Third cut in the lane (`bin/render-nullabata.mjs` → `out/nullabata.mp3`,
+~4:21): *nullaby + sonata*. **Four movements run attacca — no silence
+between them** — bound by one lullaby motif (semitone offsets from a
+per-movement voice tonic) transformed in each:
+
+```
+I.   Andante   C maj    72 BPM   18 bars   the theme, lyrical whistle + warm pads
+II.  Scherzo   A min   132 BPM   32 bars   theme shattered into a fast arp/twinkle cloud
+III. Adagio    F maj    56 BPM   13 bars   theme sung slow over sustained pads + drones
+IV.  Finale    C maj    84 BPM   30 bars   theme recapitulated: 2→bloom→2 accumulation
+```
+
+**Clarity is a Q decision.** In this engine every voice is a peaking-EQ
+bell on noise: a *narrow* (high-Q) bell rings like a breathy tone, a *wide*
+(low-Q) bell passes a wide band of raw noise (hiss). nullabata runs the
+engine at its **tonal extreme** — high Q on every pitched voice (lead 110,
+pads 55, drones 45, choir/halo 50+), **no wide "veil" wash** (the single
+biggest static source in the lane), and percussion kept narrow (no shaker /
+open-hat; hats are narrow pitched ticks). Master drops the treble boost and
+adds a 15 kHz lowpass; energy above 12 kHz sits 36 dB below the full band.
+
+Otherwise reuses the engine wholesale — lanes, the serial-dB
+disjoint-frequency discipline, sorted mono events. The loudness ride is
+**per-second, movement-aware** (each movement targets its own dBFS curve)
+so the four very different tempos and densities land evenly; integrated
+**−19.1 LUFS**. The Finale runs a compact accumulation arch (47-point
+roster, 2 → bloom → 2). `--proof` passes with all 47 lanes flat (bit-exact
+silence); the `--bake` → `c/run-c.mjs` C path renders the same score.
+
+```bash
+node pop/nullabye/bin/render-nullabata.mjs            # → out/nullabata.mp3
+node pop/nullabye/bin/render-nullabata.mjs --proof    # flat ⇒ bit-exact silence
+node pop/nullabye/bin/render-nullabata.mjs --bake out/nullabata.score.txt
+```

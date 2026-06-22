@@ -404,6 +404,40 @@ static int n_kicks = 0;
 static void push_kick(double t, int serious) {
     if (n_kicks < 4096) { kick_times[n_kicks].t = t; kick_times[n_kicks].serious = serious; n_kicks++; }
 }
+// dora onsets (last word of each hook phrase) — collected during the render
+// so the FX pass can throw a record scratch on some of them.
+static double dora_times[256];
+static int n_doras = 0;
+// light shuffle: nudge the off-8th (odd half-beat) later so the hats swing.
+static inline double swing8(double t, int i) { return (i & 1) ? t + 0.085 * BEAT : t; }
+
+// place a clip with a time-varying pitch ratio (linear-interp resample), for
+// whistley swoops + theremin waver. ratio>1 = higher & shorter; <1 = stretched
+// & lower. slide bends the pitch across the note (portamento); vib adds a sine
+// waver. af_s/rf_s are attack/release fades in seconds.
+static void place_pitched(float *buf, const float *clip, long cn, double t,
+                          double ratio, double slide, double vibHz, double vibDepth,
+                          double g, double af_s, double rf_s) {
+    if (!clip || cn < 2) return;
+    long s0 = (long)(t * SR);
+    long af = (long)(af_s * SR), rf = (long)(rf_s * SR);
+    long outEst = (long)(cn / (ratio + 0.5 * slide > 0.25 ? ratio + 0.5 * slide : 0.25));
+    if (outEst < 1) outEst = 1;
+    double pos = 0;
+    for (long i = 0; pos < cn - 1; i++) {
+        double frac = (double)i / outEst;
+        double r = ratio + slide * frac + vibDepth * sin(2.0 * M_PI * vibHz * i / SR);
+        if (r < 0.25) r = 0.25;
+        long j = (long)pos; double fr = pos - j;
+        double s = clip[j] * (1 - fr) + clip[j + 1] * fr;
+        double env = 1;
+        if (i < af) env = (double)i / af;
+        else if (i > outEst - rf) env = (double)(outEst - i) / (rf > 0 ? rf : 1);
+        if (env < 0) env = 0;
+        addb(buf, s0 + i, s * g * env);
+        pos += r;
+    }
+}
 
 static const ChordDef *chord_at_bar(int bar_idx) {
     int b = bar_idx % PROG_BARS;
@@ -457,23 +491,33 @@ int main(int argc, char **argv) {
                 const ChordDef *ch = chord_at_bar(bar_cursor + b);
                 int root = ch->root, third = root + (ch->minor ? 3 : 4), fifth = root + 7;
 
-                // very faint harmony bed — every bar, no matter what
-                choir(cho, bt, root, third, fifth, 0.022);
+                // very faint harmony bed — every bar EXCEPT the first 3 bars of
+                // the opener: those are bone-dry, just the vocal, no pads.
+                if (!(!strcmp(sec->section, "intro") && b < 3))
+                    choir(cho, bt, root, third, fifth, 0.022);
 
                 if (strcmp(sec->feel, "claps-only") && strcmp(sec->feel, "fade")) {
                     double sg = (!strcmp(sec->feel, "thin") || !strcmp(sec->feel, "sparse")) ? 0.22 : 0.35;
-                    if (!strcmp(sec->section, "intro")) sg = 0.10; // hushed under the hats
-                    sub_bass(sb, bt, root, BAR * 0.95, sg);
+                    if (!strcmp(sec->section, "intro")) {
+                        // opener is just the vocal — sub holds out, then eases
+                        // in over the last 4 bars toward the drop.
+                        sg = 0.10 * fmax(0.0, fmin(1.0, (b - 5) / 4.0));
+                    }
+                    if (sg > 0) sub_bass(sb, bt, root, BAR * 0.95, sg);
                 }
 
                 if (!strcmp(sec->section, "stop") || !strcmp(sec->feel, "claps-only")) {
                     clap(drm, bt + BEAT, 1.05);
                     clap(drm, bt + BEAT * 3, 1.05);
                 } else if (!strcmp(sec->section, "intro")) {
-                    // the opener: soft hats + the toy-piano melody (the same
-                    // every-other-beat figure from verse 2) + a very quiet,
-                    // smooth jeffrey syllable chant. spare and pretty.
-                    for (int i = 0; i < 8; i++) tamb(drm, bt + i * (BEAT / 2), 0.08);
+                    // the opener: for the first 6 bars it's JUST jeffrey's
+                    // vocal (whistley + stretchy). the instrumental — soft hats
+                    // + toy-piano melody — holds out and only enters over the
+                    // last 4 bars, building into the drop.
+                    // hats enter from the 2nd bar; the toy piano (and the rest)
+                    // hold out until bar 6.
+                    if (b >= 2) for (int i = 0; i < 8; i++) tamb(drm, bt + i * (BEAT / 2), 0.08);
+                    if (b >= 6) {
                     // toy piano — fuller now: a soft chord on 1 and 3 (triad
                     // + inversion) under a stepping melody line on every beat.
                     toy_piano(toy, bt,            root,      BEAT * 1.9, 0.06);
@@ -487,6 +531,7 @@ int main(int argc, char **argv) {
                     toy_piano(toy, bt + BEAT,     fifth + 12, BEAT * 0.85, 0.06);
                     toy_piano(toy, bt + BEAT * 2, root + 24, BEAT * 0.85, 0.06);
                     toy_piano(toy, bt + BEAT * 3, fifth + 12, BEAT * 0.85, 0.06);
+                    }
 #if N_SYL > 0
                     // OPENER — human + machine in unison: jeffrey (ElevenLabs)
                     // and the computer voice chant the word TOGETHER from the
@@ -513,17 +558,43 @@ int main(int argc, char **argv) {
                                 for (int q = 0; q < N_SYLT; q++) if (SYL_NOTES[q] == deg) { ti = q; break; }
                                 if (ti < 0) continue;
                                 double lineG = ln == 0 ? 1.0 : harmG;
+                                // OPENER ARC: word 1 is the whistley swoop (kept —
+                                // it's the hook of the intro). From word 2 on
+                                // jeffrey EAGERLY becomes musical: pitching IN to
+                                // tune (slide → 0), lengthening into sustained sung
+                                // notes, the waver settling to a gentle musical
+                                // vibrato — blooming into the drop.
                                 // both voices in unison: jeffrey (0) + computer (1)
                                 for (int vx = 0; vx < 2; vx++) {
                                     Clip *sc = get_syl(vx, si, ti);
                                     if (!sc) continue;
-                                    long lim = sc->n < slot ? sc->n : slot;
-                                    double g = (vx == 0 ? 0.50 : 0.52) * lineG;
-                                    for (long i = 0; i < lim; i++) {
-                                        double env = 1;
-                                        if (i < af) env = (double)i / af;
-                                        else if (i > lim - rf) env = (double)(lim - i) / rf;
-                                        addb(voc, s0 + i, sc->s[i] * g * env);
+                                    double g = (vx == 0 ? 0.60 : 0.07) * lineG; // jeffrey carries it; computer way back in the background
+                                    if (vx == 0 && intro_beat < N_SYL) {
+                                        // word 1 — whistley swoop
+                                        double slide = (intro_beat & 1) ? 0.20 : -0.16;
+                                        place_pitched(voc, sc->s, sc->n, bt + k * BEAT,
+                                                      0.90, slide, 5.5, 0.05, g, 0.05, 0.34);
+                                    } else if (vx == 0) {
+                                        // words 2+ — eagerly turn musical over ~2 words:
+                                        // stay IN TUNE (ratio 1.0 — no pitching lower
+                                        // and lower), the portamento settles onto the
+                                        // note, the waver becomes a musical vibrato,
+                                        // and the legato tail lengthens.
+                                        double p = fmin(1.0, (double)(intro_beat - N_SYL) / (2.0 * N_SYL));
+                                        double slide = (1.0 - p) * ((intro_beat & 1) ? 0.12 : -0.10); // pitch in
+                                        double vib   = 0.045 - 0.026 * p;                      // waver → musical vibrato
+                                        double rel   = 0.34 + 0.18 * p;                        // legato tail grows
+                                        place_pitched(voc, sc->s, sc->n, bt + k * BEAT,
+                                                      1.0, slide, 5.2, vib, g * (1.0 + 0.12 * p), 0.05, rel);
+                                    } else {
+                                        // the bg computer voice — straight
+                                        long lim = sc->n < slot ? sc->n : slot;
+                                        for (long i = 0; i < lim; i++) {
+                                            double env = 1;
+                                            if (i < af) env = (double)i / af;
+                                            else if (i > lim - rf) env = (double)(lim - i) / rf;
+                                            addb(voc, s0 + i, sc->s[i] * g * env);
+                                        }
                                     }
                                 }
                             }
@@ -559,7 +630,7 @@ int main(int argc, char **argv) {
                             for (int vx = 0; vx < 2; vx++) {
                                 Clip *sc = get_syl(vx, si, ti); // jeffrey (0) + computer (1)
                                 if (!sc) continue;
-                                double g = vx == 0 ? 0.48 : 0.50;
+                                double g = vx == 0 ? 0.52 : 0.07; // jeffrey carries it; computer way back in the background
                                 long lim = sc->n < slot ? sc->n : slot;
                                 for (long i = 0; i < lim; i++) {
                                     double env = i > lim - 480 ? (double)(lim - i) / 480 : 1.0;
@@ -596,7 +667,7 @@ int main(int argc, char **argv) {
                         kick_serious(kik, bt + BEAT * 2, 0.95); push_kick(bt + BEAT * 2, 1);
                         snare_hit(snr, bt + BEAT, 0.8);
                         snare_hit(snr, bt + BEAT * 3, 0.8);
-                        for (int i = 0; i < 8; i++) tamb(drm, bt + i * (BEAT / 2), 0.04);
+                        for (int i = 0; i < 8; i++) tamb(drm, swing8(bt + i * (BEAT / 2), i), 0.04);
                     } else {
                         int floor4 = tins > 0.95;
                         for (int i = 0; i < 4; i++) {
@@ -608,7 +679,7 @@ int main(int argc, char **argv) {
                         }
                         snare_hit(snr, bt + BEAT, 0.95);
                         snare_hit(snr, bt + BEAT * 3, 0.95);
-                        for (int i = 0; i < 8; i++) tamb(drm, bt + i * (BEAT / 2), 0.055);
+                        for (int i = 0; i < 8; i++) tamb(drm, swing8(bt + i * (BEAT / 2), i), 0.055);
                     }
                     bell(bel, bt, root + 12, BAR * 0.95, 0.10 + 0.05 * tins);
                     bach_arp(arp, bt, root, ch->minor, 16, 12, 0.07 + 0.04 * tins);
@@ -677,9 +748,16 @@ int main(int argc, char **argv) {
                         Clip *c = get_clip(tier, w, phrase_idx % ROSTER_N[w], vi);
                         if (c) {
                             Break breaks[2]; int nb; double attack, gain;
+                            // first Whitney hit at the drop lands LOUD — the
+                            // opening "america" of the very first hook gets a
+                            // big lift, the rest of that phrase a smaller one.
+                            double firstHookG = (is_hook && hook_count == 0 && p == 0)
+                                ? (w == 0 ? 1.40 : 1.12) : 1.0;
                             if (last) {
                                 breaks[0] = (Break){phrase_len - onsets[w] + 0.06, 0, 0.22};
-                                nb = 1; attack = 0.008; gain = 1.22 * sec_gain; /* dora! */
+                                nb = 1; attack = 0.008; gain = 1.22 * sec_gain * firstHookG; /* dora! */
+                                if (is_hook && n_doras < 256)
+                                    dora_times[n_doras++] = phrase_start + onsets[w]; // for the scratch
                             } else {
                                 double duck_at = onsets[w + 1] - onsets[w] + lead;
                                 double choke_at = (w + 2 < N_WORDS ? onsets[w + 2] : phrase_len) - onsets[w] + lead;
@@ -695,9 +773,13 @@ int main(int argc, char **argv) {
                                 }
                                 nb = 2;
                                 attack = w == 0 ? 0 : BLEND;
-                                gain = 0.95 * sec_gain;
+                                gain = 0.95 * sec_gain * firstHookG;
                             }
-                            paint_shaped(voc, c->s, c->n, phrase_start + onsets[w] - lead,
+                            // soften "computer": skip the hard "co" transient so
+                            // the long crossfade swells in as "...uhmmmputer".
+                            long coSkip = (w == 1) ? (long)(0.085 * SR) : 0;
+                            paint_shaped(voc, c->s + coSkip, c->n - coSkip,
+                                         phrase_start + onsets[w] - lead,
                                          gain, breaks, nb, attack);
                         }
                         if (is_hook)
@@ -782,32 +864,38 @@ int main(int argc, char **argv) {
     // scratches sprinkle the first 30s and cluster around ~2:15; the gong
     // marks the top of the finale. mixed into the drum bus.
     {
-        long gn = 0, s1n = 0, s2n = 0;
+        long gn = 0, s1n = 0, s2n = 0, shn = 0;
         char fp[512];
         snprintf(fp, sizeof fp, "%sfx/gong.wav", voc_base);   float *gong = load_wav_mono(fp, &gn);
         snprintf(fp, sizeof fp, "%sfx/scratch1.wav", voc_base); float *sc1 = load_wav_mono(fp, &s1n);
         snprintf(fp, sizeof fp, "%sfx/scratch2.wav", voc_base); float *sc2 = load_wav_mono(fp, &s2n);
+        snprintf(fp, sizeof fp, "%sfx/shock-rifle.wav", voc_base); float *shk = load_wav_mono(fp, &shn);
         // place a clip into drm at time t with gain
         #define PLACE(CLIP, CN, T, G) do { \
             if (CLIP) { long _s0 = (long)((T) * SR); \
                 for (long _i = 0; _i < (CN); _i++) addb(drm, _s0 + _i, (CLIP)[_i] * (G)); } } while (0)
-        // scratches arrive WITH the main vocal (first chorus, after the
-        // quiet intro) — not over the opener.
+        // TWO deliberate moments only (computed from the structure so they
+        // stay aligned when the arrangement changes) — kept sparse on purpose:
+        //   1) the DROP — first hook after the quiet opener
+        //   2) the FINALE LAUNCH — the stop/pad-dropout into the last hook
         double choir_in = (!strcmp(STRUCTURE[0].section, "intro")
             ? STRUCTURE[0].bars * STRUCTURE[0].reps : 0) * BAR;
-        PLACE(sc1, s1n, choir_in + 0.0, 0.5);
-        PLACE(sc2, s2n, choir_in + 4 * BAR, 0.45);
-        PLACE(sc1, s1n, choir_in + 8 * BAR + 2.5 * BEAT, 0.5);
-        // ~2:15 cluster
-        PLACE(sc2, s2n, 133.0, 0.6);
-        PLACE(sc1, s1n, 135.0, 0.55);
-        PLACE(sc2, s2n, 136.5, 0.5);
-        // gong marks the lift OUT of the intro into the first chorus, and
-        // the finale push (~2:18). a soft swell, not a hit at bar 0.
-        PLACE(gong, gn, choir_in - 0.4, 0.55);
-        PLACE(gong, gn, 138.0, 0.7);
+        int lastHook = -1;
+        for (int s = 0; s < N_SECS; s++) if (!strcmp(STRUCTURE[s].section, "hook")) lastHook = s;
+        double finale = 0;
+        { int bb = 0; for (int s = 0; s < lastHook; s++) bb += STRUCTURE[s].bars * STRUCTURE[s].reps;
+          finale = bb * BAR; }
+        // 1) drop
+        PLACE(gong, gn, choir_in - 0.40, 0.55); // soft swell into the drop
+        PLACE(shk, shn, choir_in - 0.18, 0.80); // shock rifle fires the first Whitney hit in
+        PLACE(sc1, s1n, choir_in + 0.00, 0.90); // one loud scratch announces it
+        // 2) finale launch — shock rifle + scratch + gong all land together as
+        // the pads drop out and the last hook hits.
+        PLACE(gong, gn, finale - 0.45, 0.65);
+        PLACE(shk, shn, finale - 0.18, 0.85);
+        PLACE(sc1, s1n, finale + 0.00, 0.75);
         #undef PLACE
-        free(gong); free(sc1); free(sc2);
+        free(gong); free(sc1); free(sc2); free(shk);
     }
 
     if (stem_voc) {
@@ -818,9 +906,20 @@ int main(int argc, char **argv) {
     }
 
     // ── reverb send → schroeder ───────────────────────────────────────
+    // the main vocal starts DRY — its reverb send fades in across the first
+    // ~75s, so the opener and the drop punch dry and the space only opens up
+    // as the song develops. (instruments keep their constant send.)
+    // the main vocal is bone-DRY (zero reverb) through the whole opener, then
+    // its send fades in over ~60s after the drop — the space opens up only as
+    // the song develops. (instruments keep their constant send.)
+    double introEnd = STRUCTURE[0].bars * STRUCTURE[0].reps * BAR;
+    double rvStart = introEnd * SR, rvLen = 60.0 * SR;
     float *send = malloc(N * 4);
-    for (long i = 0; i < N; i++)
-        send[i] = voc[i] * 0.85f + snr[i] * 0.65f + bel[i] * 0.55f + sqr[i] * 0.5f + arp[i] * 0.3f;
+    for (long i = 0; i < N; i++) {
+        double vfade = i < rvStart ? 0.0 : fmin(1.0, (i - rvStart) / rvLen);
+        send[i] = (float)(voc[i] * 0.85 * vfade)
+                + snr[i] * 0.65f + bel[i] * 0.55f + sqr[i] * 0.5f + arp[i] * 0.3f;
+    }
     float *room = calloc(N, 4);
     {
         static const double CDEL[4] = {0.0297, 0.0371, 0.0411, 0.0437};
@@ -857,6 +956,22 @@ int main(int argc, char **argv) {
     for (long i = 0; i < N; i++)
         echo[i] = voc[i] + (i >= dsamp ? echo[i - dsamp] * 0.40f : 0);
 
+    // ── vocal-keyed sidechain: the backing DIPS while the lead vocal sounds
+    // so the voice sits forward and the track flows (envelope follower on the
+    // dry vocal — fast attack, slow release). ────────────────────────────
+    float *vSide = malloc(N * 4);
+    {
+        double e = 0;
+        double atk = exp(-1.0 / (0.004 * SR)); // 4 ms attack
+        double rel = exp(-1.0 / (0.18 * SR));  // 180 ms release
+        for (long i = 0; i < N; i++) {
+            double x = fabs(voc[i]);
+            double c = x > e ? atk : rel;
+            e = x + c * (e - x);
+            vSide[i] = (float)fmin(1.0, e * 2.2); // normalize → ~0..1 presence
+        }
+    }
+
     // ── master ────────────────────────────────────────────────────────
     float *mix = malloc(N * 4);
     double peak = 0;
@@ -873,8 +988,11 @@ int main(int argc, char **argv) {
             // mix balance: drums punchy, the dense melodic bus pulled back a
             // touch to clear room for the voice, vocals brought forward and
             // sitting on a tighter (less washy) reverb.
-            double drums = (drm[i] + kik[i] + snr[i]) * 0.96;
-            double melodic = (bel[i] + sqr[i] + toy[i] + arp[i] + pds[i] + cho[i]) * 0.86 * dk;
+            // vocal sidechain: melodic bus ducks hardest, drums a touch, so the
+            // lead vocal carves its own space (flow).
+            double vd = vSide[i];
+            double drums = (drm[i] + kik[i] + snr[i]) * 0.96 * (1.0 - 0.16 * vd);
+            double melodic = (bel[i] + sqr[i] + toy[i] + arp[i] + pds[i] + cho[i]) * 0.86 * dk * (1.0 - 0.45 * vd);
             double subb = sb[i] * (0.55 + 0.45 * dk);
             double tail = (echo[i] - voc[i]) * 0.28;
             double vocal = voc[i] * (0.78 + 0.22 * dk) + tail * dk;

@@ -61,17 +61,30 @@ if (existsSync(acdsp)) {
 }
 
 const src = existsSync(mastered) ? mastered : rawWav;
-// crisp normalization over the whole thing — one even, present level
-// (EBU R128, -11 LUFS / -1 dBTP) so it lands consistent end to end.
-run("encode mp3 (ffmpeg + loudnorm)", "ffmpeg", [
-  "-hide_banner", "-y", "-loglevel", "error",
-  "-i", src,
-  "-af", "loudnorm=I=-11:TP=-1.0:LRA=11",
-  "-ar", "48000",
-  "-c:a", "libmp3lame", "-q:a", "2",
+// DistroKid-ready master: EBU R128 normalization to -11 LUFS / -1 dBTP, one
+// even present level end to end. We render TWO deliverables from the same
+// loudnorm pass — a 320 kbps CBR mp3, and a 16-bit/44.1 kHz WAV (the format
+// DistroKid prefers for upload).
+const LOUDNORM = "loudnorm=I=-11:TP=-1.0:LRA=11";
+const META = [
   "-metadata", "title=americomputadora",
   "-metadata", "artist=jeffrey",
   "-metadata", "album=pixsies",
-  outMp3,
+];
+run("encode mp3 (320k CBR + loudnorm)", "ffmpeg", [
+  "-hide_banner", "-y", "-loglevel", "error",
+  "-i", src,
+  "-af", LOUDNORM, "-ar", "48000",
+  "-c:a", "libmp3lame", "-b:a", "320k",
+  ...META, outMp3,
 ]);
 console.log(`✓ ${outMp3}`);
+
+const outWav = join(ROOT, "out", "americomputadora-master.wav");
+run("master wav (16-bit / 44.1k, DistroKid)", "ffmpeg", [
+  "-hide_banner", "-y", "-loglevel", "error",
+  "-i", src,
+  "-af", LOUDNORM, "-ar", "44100", "-sample_fmt", "s16",
+  ...META, outWav,
+]);
+console.log(`✓ ${outWav}`);

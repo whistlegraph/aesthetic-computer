@@ -1,0 +1,19 @@
+highway.wav — deep continuous highway/freeway roar (inside a car at speed: tire roar + wind + distant traffic whoosh; no honks/sirens/stop-and-go)
+
+Freesound attribution
+  sound id: 581022
+  title:    S_Amb_InsideACarWhileDriving_Mono_01.wav
+  author:   yake01
+  license:  CC0 1.0 Public Domain Dedication (http://creativecommons.org/publicdomain/zero/1.0/)
+  url:      https://freesound.org/people/yake01/sounds/581022/
+
+Attribution line:
+  "S_Amb_InsideACarWhileDriving_Mono_01.wav" by yake01 — Freesound #581022 — CC0 1.0 — https://freesound.org/people/yake01/sounds/581022/
+
+Processing
+  Source: Freesound HQ preview (44.1 kHz mono-source MP3, ~403.5 s) fetched via pop/lib/freesound.mjs.
+  Region: 35 s extracted from 60 s — the steadiest stretch (per-10s mean held -17.7 to -17.8 dB, no transient spikes/horns/bumps).
+  Output: mono, 48000 Hz, 16-bit PCM WAV; loudnorm I=-20 TP=-3 LRA=7; 0.2 s fade in/out.
+  Character: deep, even roar — low band (<250 Hz) within ~0.6 dB of full-band; highs (>2 kHz) ~29 dB down. Continuous rushing wall, not city stop-and-go.
+
+Note: CC0 requires no attribution, but credit retained per pop convention.

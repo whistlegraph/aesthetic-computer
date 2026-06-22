@@ -9,17 +9,31 @@
 #
 # This is marimbaba's daytime sibling. Same lane, same whistlegraph
 # DNA, opposite vibe: bright C major, brisk 4/4 at 124 BPM, no haze.
-# A 62-second pop romp instead of a nap.
+#
+# ── next stage of /pop (this build) ───────────────────────────────────
+# The original hop had no low end. This stage adds a sample-free
+# synthesized rhythm section (../synths/perc.mjs) and complexifies the
+# form: a 4-bar drum INTRO that builds the groove, a gritty bass-perc
+# bassline that bounces under the whole track, a kick/snare/hat/shaker
+# kit with per-section dynamics, a soft vibraphone counter-pad under the
+# lead, and a 4-bar OUTRO that reprises the butterfly hook and buttons
+# the song. ~62 s → ~78 s.
 #
 # Key: C major. 4/4, ~124 BPM (1 beat ≈ 0.484 s, 1 bar ≈ 1.94 s).
-# Form: 32 bars / ~62 s. The score lives at flutterbap.np; the actual
-# event scheduling + mix lives in bin/render-flutterbap.mjs.
+# Form: 4 (intro) + 32 (hook/verse) + 4 (outro) = 40 bars / ~78 s. The
+# score lives here; event scheduling + mix lives in
+# bin/render-flutterbap.mjs. Mallet voices are written against the
+# original 1-based body bar numbers (1–32 below) and shifted past the
+# intro at render time.
 #
 # Voices:
 #   xylophone      — the singer; bright daytime syllabic lead
-#   bass           — the bouncing ball (low C / G alternating, on 1 & 3)
+#   bass(marimba)  — the bouncing ball (low C / G alternating, on 1 & 3)
 #   kalimba        — twinkles on phrase tails (cute, off-beat)
 #   glockenspiel   — high steel sparkle on the climaxes (mommy-wow, fly)
+#   vibraphone     — soft sustained chord pad under the lead (new)
+#   bass-perc      — gritty pitched sub; the groove's backbone (new)
+#   kick/snare/hat/shaker — synthesized kit, dynamic per section (new)
 #
 # ── unspoken lyric, syllable-by-syllable ──────────────────────────────
 #
@@ -66,6 +80,20 @@
 #   bar 30: and       LAND                         (D5 ─ C5)
 #   bar 31: land-ing  HERE                         (E5 D5 ─ C5)
 #   bar 32: (here)                                 (C4 held, low landing)
+#
+# ── rhythm section (the build-out) ────────────────────────────────────
+# Bass-perc lives low (C2 ≈ root, G1 ≈ fifth) and bounces; the kit fills
+# in around it. Groove intensity by section:
+#
+#   intro      build: bar1 sub+shaker → +kick → +snare → fill into drop
+#   butterfly  light:  kick 1&3, soft hats, bass-perc bounce (no backbeat)
+#   palofmine  full:   + snare on 2&4, busy hats; bass walks C–F–G–C
+#   mommywow   HUSH:   kit pulled back — soft kick on 1, long sub, open-hat
+#   slinky     drive:  springy syncopated bass-perc, snare 2&4, busy hats
+#   fly        peak:   four-on-the-floor lift, driving bass-perc on roots
+#   land       resolve: kit thins, bass-perc settles to a held low C
+#   outro      reprise: groove + butterfly hook again, rising flourish,
+#              then a buttoned final hit (kick + sub + bell + vibe chord)
 #
 # Below: section markers for the renderer (sections by name).
 

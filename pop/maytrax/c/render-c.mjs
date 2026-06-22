@@ -44,7 +44,13 @@ if (!SINEFAM && !flags["no-bake"]) run("bake (score.h)", "node", [join(HERE, "ba
 run("cc", "cc", ["-O3", "-std=c11", "-Wall", "-Wextra", "-Wno-unused-parameter", "-o", join(HERE, ENGINE), join(HERE, `${ENGINE}.c`), "-lm"]);
 
 const rawWav = join(HERE, "out", `${ENGINE}-raw.wav`);
-run("render (C engine)", join(HERE, ENGINE), ["--out", rawWav]);
+// pianotrax voices the real Salamander grand from fedac/native/samples/piano —
+// pass an absolute path so it loads regardless of the cwd it's spawned from.
+const engineArgs = ["--out", rawWav];
+if (ENGINE === "pianotrax") {
+  engineArgs.push("--piano-dir", resolve(HERE, "..", "..", "..", "fedac", "native", "samples", "piano"));
+}
+run("render (C engine)", join(HERE, ENGINE), engineArgs);
 
 // ── pop master chain (ported from bin/maytrax.mjs) ────────────────────────
 // chiller, warmer, more dynamic master than the old hot pop chain: lower
@@ -68,9 +74,15 @@ const MASTER_CORE = [
 const INTRO_FADE = "afade=t=in:curve=cub:st=0:d=13";
 // sinetrax is gentle bells (and fades itself) — master it softer + more
 // dynamic with no extra fade; maytrax gets the slow cubic intro fade.
-const MASTER_MP3 = SINEFAM
-  ? `${MASTER_CORE},loudnorm=I=-13:TP=-1.5:LRA=13,alimiter=limit=0.95:attack=8:release=120`
-  : `${MASTER_CORE},loudnorm=I=-11:TP=-1.5:LRA=11,alimiter=limit=0.93:attack=5:release=90,${INTRO_FADE}`;
+// pianotrax wants extra volume but a WIDE dynamic range (the beat drops in for
+// the waves, the hushes breathe) — louder loudnorm target, high LRA, a gentle
+// limiter ceiling so the key-press transients still punch.
+const MASTER_MP3 =
+  ENGINE === "pianotrax"
+    ? `${MASTER_CORE},loudnorm=I=-11.5:TP=-1.3:LRA=13,alimiter=limit=0.97:attack=6:release=110`
+    : SINEFAM
+    ? `${MASTER_CORE},loudnorm=I=-13:TP=-1.5:LRA=13,alimiter=limit=0.95:attack=8:release=120`
+    : `${MASTER_CORE},loudnorm=I=-11:TP=-1.5:LRA=11,alimiter=limit=0.93:attack=5:release=90,${INTRO_FADE}`;
 
 run("master (ffmpeg) → mp3", "ffmpeg", [
   "-hide_banner", "-y", "-loglevel", "error",

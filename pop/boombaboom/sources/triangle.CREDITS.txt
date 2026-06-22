@@ -1,0 +1,20 @@
+triangle.wav — orchestral percussion triangle: a single bright "ting" with a long shimmering metallic ring-out
+
+Freesound attribution
+  sound id: 349502
+  title:    Triangle_Open_03
+  author:   cabled_mess
+  license:  CC0 1.0 Public Domain Dedication (http://creativecommons.org/publicdomain/zero/1.0/)
+  url:      https://freesound.org/people/cabled_mess/sounds/349502/
+
+Attribution line:
+  "Triangle_Open_03" by cabled_mess — Freesound #349502 — CC0 1.0 — https://freesound.org/people/cabled_mess/sounds/349502/
+
+Processing
+  Source: Freesound HQ preview (48 kHz mono MP3, 5.21 s) fetched via pop/lib/freesound.mjs.
+  Region: one clean open-triangle strike. Attack placed at sample 0 (silenceremove of leading sub-threshold pre-roll), kept the full ring decay out to 2.4 s.
+  Output: mono, 48000 Hz, 16-bit PCM WAV; 5 ms fade-out on the tail.
+  Character: single bright "ting" attack (peak -1.79 dB at sample 0), long shimmering metallic ring (~-32 dB at 1.0 s, gently decaying to ~-34.5 dB by 2.0 s). Not a roll, not a loop.
+
+Note: CC0 requires no attribution, but credit retained per pop convention.
+  Considered alternates: #349503 (cabled_mess, CC0, shorter ring), #375581 (sgossner VSCO, CC0, 44.1k stereo, brief gap after hit), #360327 (InspectorJ, CC-BY, requires attribution).
