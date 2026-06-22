@@ -159,7 +159,10 @@ function vib(t0, midi, beats, gain = 0.4) {
 // Drums keep tighter timing than the mallets but vary their velocity a lot
 // (especially the hats — that's where a programmed beat gives itself away).
 function KICK(ab, beat, g = 0.95, o = {}) {
-  mixKick({ startSec: jit(t(ab, beat), 4), gain: vel(g, 0.10), ...o }, kickBuf, { sampleRate: SR });
+  // deeper kick: lower sub fundamental (41 Hz vs 48) + longer body + a touch
+  // more drive, so it lands with real chest weight. Per-call `o` still wins.
+  mixKick({ startSec: jit(t(ab, beat), 4), gain: vel(g, 0.10),
+    fEnd: 41, ampDecay: 0.46, pitchDecay: 0.062, drive: 1.75, ...o }, kickBuf, { sampleRate: SR });
 }
 function SNR(ab, beat, g = 0.7, o = {}) {
   mixSnare({ startSec: jit(t(ab, beat), 5), gain: vel(g, 0.14), ...o }, snareBuf, { sampleRate: SR });
@@ -316,7 +319,10 @@ G(32, 0, N.C6, 4, 0.5); G(32, 1, N.E6, 3, 0.4);
 // ── VIBRAPHONE counter-pad — sustained chord beds under the lead ──────
 // Soft, low in the mix; gives the bright mallets a harmonic floor that the
 // hook never had. Triads follow the implied harmony of each section.
-function V(bar, b, midis, d, g = 0.34) { for (const m of midis) vib(tb(bar, b), m, d, g); }
+function V(bar, b, midis, d, g = 0.34) {
+  for (const m of midis) vib(tb(bar, b), m, d, g);
+  vib(tb(bar, b), midis[0] - 12, d, g * 0.72);   // octave-down root — fuller range + warmth under the lead
+}
 V(5, 0, [N.C4, N.E4, N.G4], 4);                    // C  under pal-of-mine
 V(6, 0, [N.F3, N.A3, N.C4], 2);                    // F
 V(7, 0, [N.G3, N.B3, N.D4], 2);                    // G
@@ -335,26 +341,34 @@ V(29, 0, [N.C4, N.E4, N.G4], 4, 0.30);             // settle under the landing
 // groove builds in the intro, eases for the hush, drives through the body,
 // and resolves at the landing.
 
-// ── INTRO (abs 0–3): build the groove from nothing ──
-// bar 0 — bass-perc breath + shaker only
-BP(0, 0, N.C2, 3.5, 0.7, { drive: 1.8 });
-for (let e = 0; e < 4; e++) SHK(0, e + 0.5, 0.16);
-// bar 1 — kick joins on 1 & 3, hats start
-KICK(1, 0, 0.85); KICK(1, 2, 0.7);
-BP(1, 0, N.C2, 1.6, 0.74); BP(1, 2.5, N.G1, 1.0, 0.66);
-hats8(1, 0.18);
+// ── INTRO (abs 0–3): start with PRESENCE, then build a clear arrival ──
+// (was a slow fade-in from near-silence — felt hidden. Now the groove is
+// already moving at bar 0 and crescendos into the hook at abs bar 4 ≈ 7.7s,
+// which is where the song "really starts".)
+// bar 0 — kick + bass-perc + shaker + a soft bell beacon set the key, moving
+KICK(0, 0, 0.82); KICK(0, 2, 0.64);
+BP(0, 0, N.C2, 1.7, 0.8, { drive: 1.9 }); BP(0, 2.5, N.G1, 1.0, 0.68);
+for (let e = 0; e < 4; e++) SHK(0, e + 0.5, 0.2);
+hats8(0, 0.16);
+bell(t(0, 0), N.C6, 3, 0.34); bell(t(0, 2), N.G5, 2, 0.3);          // soft tonal beacon
+// bar 1 — fuller kick + hats, bass bounces
+KICK(1, 0, 0.9); KICK(1, 2, 0.76);
+BP(1, 0, N.C2, 1.6, 0.8); BP(1, 2.5, N.G1, 1.0, 0.72);
+hats8(1, 0.22);
+spark(t(1, 3.5), N.E6, 0.5, 0.4);                                   // kalimba twinkle
 // bar 2 — snare backbeat enters, bass-perc bounces
-KICK(2, 0, 0.9); KICK(2, 2, 0.75);
-SNR(2, 2, 0.55);
-BP(2, 0, N.C2, 1.4, 0.76); BP(2, 1.5, N.C2, 0.5, 0.6); BP(2, 2.5, N.G1, 1.2, 0.7);
-hats8(2, 0.22);
-// bar 3 — full preview + a snare fill spilling into the drop
-KICK(3, 0, 0.92); KICK(3, 2, 0.78);
-SNR(3, 1, 0.5); SNR(3, 3, 0.55);
-BP(3, 0, N.C2, 1.4, 0.78); BP(3, 2.5, N.G1, 0.8, 0.7);
-hats8(3, 0.24);
-for (const fb of [3, 3.25, 3.5, 3.75]) SNR(3, fb, 0.35 + (fb - 3) * 0.5);  // crescendo fill
-spark(t(3, 3.5), N.G5, 0.5, 0.4); spark(t(3, 3.75), N.C6, 0.5, 0.45);      // kalimba pickup
+KICK(2, 0, 0.94); KICK(2, 2, 0.82);
+SNR(2, 2, 0.62);
+BP(2, 0, N.C2, 1.4, 0.82); BP(2, 1.5, N.C2, 0.5, 0.64); BP(2, 2.5, N.G1, 1.2, 0.74);
+hats8(2, 0.26);
+spark(t(2, 3.5), N.G5, 0.5, 0.45);                                  // kalimba pickup
+// bar 3 — full preview + a crescendo fill spilling into the drop
+KICK(3, 0, 0.96); KICK(3, 2, 0.84);
+SNR(3, 1, 0.56); SNR(3, 3, 0.6);
+BP(3, 0, N.C2, 1.4, 0.82); BP(3, 2.5, N.G1, 0.8, 0.74);
+hats8(3, 0.28);
+for (const fb of [3, 3.25, 3.5, 3.75]) SNR(3, fb, 0.4 + (fb - 3) * 0.6);   // crescendo fill
+spark(t(3, 3.5), N.G5, 0.5, 0.48); spark(t(3, 3.75), N.C6, 0.5, 0.55);     // kalimba run-up
 
 // ── helper: a standard groove bar (abs bar) at an intensity level ──
 // level 0 = light (kick 1&3, soft hats), 1 = full (snare 2&4, busy hats),
@@ -447,12 +461,16 @@ lead(t(39, 0), N.C6, 4, 0.85);
 //     2 bars of swell starting ≈0:27, landing on the slinky downbeat.
 //   • a softer lift into the fly soar (abs 24).
 //   • a wash into the outro hook reprise (abs 36).
+rise(4,  1.5 * BAR, [N.G5, N.C6, N.E6, N.G6], 0.44); // intro → THE START: lands the hook at ~7.7s
 rise(16, 2 * BAR, [N.E5, N.G5, N.C6, N.E6], 0.52);   // mommy-wow → slinky (the 0:27 break)
 rise(24, 1.5 * BAR, [N.G5, N.C6, N.E6, N.G6], 0.40); // → fly soar
 rise(36, 1.5 * BAR, [N.C6, N.E6, N.G6], 0.34);       // → outro reprise
-// reverse kicks — the low-end whoosh under the two big risers
+// reverse kicks — the low-end whoosh under the risers
+riseKick(4,  1.0 * BAR, 0.55);                       // arrival whoosh into the hook
 riseKick(16, 1.4 * BAR, 0.7);                        // big slinky drop
 riseKick(24, 1.0 * BAR, 0.5);                        // fly soar
+// a bright bell chime right on the hook downbeat — the song clearly "starts"
+bell(t(4, 0), N.C6, 3, 0.55); bell(t(4, 0.05), N.E6, 3, 0.42); bell(t(4, 0.10), N.G6, 3, 0.34);
 
 // ── SUPER SCRATCHES — DJ flavour through the wild sections ────────────
 SC(3, 2, "scribble", 0.5, 52); SC(3, 3, "chirp", 0.55, 50);   // intro build into the drop
@@ -487,19 +505,22 @@ function place(buf, p, gain) {
   const [lg, rg] = pan(p);
   for (let i = 0; i < ns; i++) { const s = buf[i] * gain; outL[i] += s * lg; outR[i] += s * rg; }
 }
-place(leadBuf,   0.00, 1.00);
-place(bassBuf,   0.00, 0.80);   // mallet bass eases back — the bass-perc now owns the low
-place(vibBuf,   -0.18, 0.70);
+// Wider, clearer image: lead + low end stay centred; the harmonic/sparkle
+// voices (vib, glock, kalimba) are pushed out AND lifted so they read as their
+// own parts instead of hiding under the lead.
+place(leadBuf,   0.00, 1.02);   // the singer, dead centre + a touch more present
+place(bassBuf,   0.00, 0.72);   // mallet bass eases back — the bass-perc owns the low
+place(vibBuf,   -0.24, 0.86);   // pad: wider + much more audible (was buried)
 place(riseBuf,   0.00, 0.85);   // reverse-bell risers, centred + wide
-place(scrBuf,    0.22, 0.80);   // scratches, slightly off-centre (the DJ hand)
-place(screamBuf,-0.40, 0.62);   // kitten screams, panned wide-left so they don't mask the lead
-place(sparkBuf,  0.38, 0.82);
-place(bellBuf,  -0.32, 0.78);
-place(kickBuf,   0.00, 1.00);
+place(scrBuf,    0.34, 0.80);   // scratches, off to the DJ hand
+place(screamBuf,-0.50, 0.62);   // kitten screams, wide-left (the squeaks!) — kept proud
+place(sparkBuf,  0.44, 0.88);   // kalimba twinkles, hard-ish right + brighter
+place(bellBuf,  -0.42, 0.86);   // glockenspiel halo, left + brighter
+place(kickBuf,   0.00, 1.02);   // deeper kick, centred
 place(subBuf,    0.00, 0.98);   // bass-perc — the groove backbone, centred
-place(snareBuf,  0.05, 0.78);
-place(hatBuf,    0.30, 0.55);
-place(shakBuf,  -0.28, 0.45);
+place(snareBuf,  0.04, 0.80);
+place(hatBuf,    0.34, 0.58);
+place(shakBuf,  -0.34, 0.48);
 
 // scrub non-finite + peak-normalise
 let nan = 0;
@@ -546,20 +567,31 @@ writeFileSync(rawPath, b);
 // weight the sub, de-mud, keep the mallet presence + daytime air, glue +
 // brickwall.
 const MASTER = [
-  "highpass=f=28",
-  "equalizer=f=60:t=q:w=0.9:g=2.2",        // sub weight under the bass-perc + kick
+  "highpass=f=26",
+  "equalizer=f=48:t=q:w=0.9:g=2.7",        // deep sub weight under the deeper kick + bass-perc
+  "equalizer=f=90:t=q:w=1.0:g=1.2",        // kick/bass body punch
   "equalizer=f=240:t=q:w=1.1:g=-1.3",      // de-mud
-  "equalizer=f=3000:t=q:w=1.5:g=0.8",      // mallet presence
-  "treble=g=1.3:f=8000",                   // daytime air
+  "equalizer=f=3000:t=q:w=1.5:g=0.9",      // mallet presence
+  "treble=g=1.4:f=8000",                   // daytime air
   "acompressor=threshold=-18dB:ratio=2.8:attack=14:release=170:makeup=2.4:knee=6",
   "alimiter=limit=0.95:attack=4:release=70",
 ].join(",");
 const ff = spawnSync("ffmpeg", ["-hide_banner", "-y", "-loglevel", "error",
   "-f", "f32le", "-ar", String(SR), "-ac", "2", "-i", rawPath,
   "-af", MASTER, "-c:a", "libmp3lame", "-q:a", "2", outPath], { stdio: "inherit" });
-try { unlinkSync(rawPath); } catch {}
-if (ff.status !== 0) { console.error("✗ ffmpeg failed"); process.exit(1); }
+if (ff.status !== 0) { try { unlinkSync(rawPath); } catch {} console.error("✗ ffmpeg failed"); process.exit(1); }
 console.log(`✓ ${outPath} (pop-mastered · ${(trimN / SR).toFixed(1)} s)`);
+
+// ── DistroKid WAV master — same chain → loudnorm to -14 LUFS / -1.5 TP,
+// 44.1 kHz / 16-bit PCM. Gentle target keeps the squeaks + scratches alive.
+const wavOut = outPath.replace(/\.mp3$/i, "") + ".distrokid.wav";
+const ffw = spawnSync("ffmpeg", ["-hide_banner", "-y", "-loglevel", "error",
+  "-f", "f32le", "-ar", String(SR), "-ac", "2", "-i", rawPath,
+  "-af", `${MASTER},loudnorm=I=-14:TP=-1.5:LRA=11`,
+  "-ar", "44100", "-ac", "2", "-c:a", "pcm_s16le", wavOut], { stdio: "inherit" });
+try { unlinkSync(rawPath); } catch {}
+if (ffw.status === 0) console.log(`✓ ${wavOut} (DistroKid master · 44.1 kHz / 16-bit · -14 LUFS)`);
+else console.error("✗ DistroKid WAV master failed");
 
 // ── struct.json — section map for any future visualizer ───────────────
 {
