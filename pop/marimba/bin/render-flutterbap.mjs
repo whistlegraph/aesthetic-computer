@@ -37,7 +37,7 @@
 // All timing in seconds. 124 BPM 4/4 → beat = 60/124 ≈ 0.484, bar ≈ 1.935.
 
 import { mixEventMarimba } from "../synths/marimba.mjs";
-import { mixKick, mixBassPerc, mixSnare, mixHat, mixShaker, mixReverseBell, mixReverseKick, mixScratch, mixScream } from "../synths/perc.mjs";
+import { mixKick, mixBassPerc, mixSnare, mixHat, mixShaker, mixReverseBell, mixReverseKick, mixScratch, mixScream, renderHat } from "../synths/perc.mjs";
 import { writeFileSync, mkdirSync, unlinkSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -59,8 +59,10 @@ const BAR = 4 * BEAT;
 // helper, so the hook score never had to be renumbered.
 const INTRO_BARS = 4;
 const BODY_BARS = 32;
-const OUTRO_BARS = 4;
-const TOTAL_BARS = INTRO_BARS + BODY_BARS + OUTRO_BARS;   // 40
+// extended coda after the landing: cave (4) → squabble (2) → chord
+// progression + button (5) = 11 bars.
+const OUTRO_BARS = 11;
+const TOTAL_BARS = INTRO_BARS + BODY_BARS + OUTRO_BARS;   // 47
 const totalSec = TOTAL_BARS * BAR + 2.8;   // + tail for the final ring
 const ns = Math.ceil(totalSec * SR);
 
@@ -131,6 +133,7 @@ const subBuf   = new Float32Array(ns);   // bass-perc — gritty pitched sub
 const snareBuf = new Float32Array(ns);   // snare
 const hatBuf   = new Float32Array(ns);   // hats (closed + open)
 const shakBuf  = new Float32Array(ns);   // shaker
+const caveBuf  = new Float32Array(ns);   // CAVE section bus — gets a big Schroeder reverb at mixdown
 
 // ── mallet voice routes (humanized: ±ms timing, ±% velocity) ──────────
 function lead(t0, midi, beats, gain = 1.0) {
@@ -186,6 +189,32 @@ function rise(landBar, dur, midis, g) {
 function riseKick(landBar, dur, g) {
   mixReverseKick({ landSec: t(landBar, 0), dur, gain: g }, kickBuf, { sampleRate: SR });
 }
+// ── reverse HAT — an open hat played backwards so it SWELLS up into the
+// beat and snaps off on the downbeat. Lands at t(landAb, landBeat). ──
+function rhat(targetBuf, landAb, landBeat, g = 0.32) {
+  const seg = renderHat({ gain: g, open: true }, { sampleRate: SR });
+  const startIdx = Math.floor(t(landAb, landBeat) * SR) - seg.length;
+  for (let i = 0; i < seg.length; i++) {
+    const d = startIdx + i;
+    if (d >= 0 && d < targetBuf.length) targetBuf[d] += seg[seg.length - 1 - i];   // reversed
+  }
+}
+// ── Schroeder reverb (4 parallel feedback combs → 2 series allpasses),
+// applied in place to a bus. Used to drench the CAVE section. ──
+function reverbInPlace(buf, { wet = 0.6, decay = 0.8 } = {}) {
+  const combDelays = [0.0297, 0.0371, 0.0411, 0.0437], apDelays = [0.005, 0.0017];
+  const out = new Float32Array(buf.length);
+  for (const cd of combDelays) {
+    const d = Math.max(1, Math.floor(cd * SR)), ring = new Float32Array(d);
+    for (let i = 0; i < buf.length; i++) { const y = ring[i % d]; out[i] += y; ring[i % d] = buf[i] + y * decay; }
+  }
+  for (let i = 0; i < out.length; i++) out[i] /= combDelays.length;
+  for (const ad of apDelays) {
+    const d = Math.max(1, Math.floor(ad * SR)), ring = new Float32Array(d), g = 0.7;
+    for (let i = 0; i < out.length; i++) { const bd = ring[i % d], y = -g * out[i] + bd; ring[i % d] = out[i] + g * y; out[i] = y; }
+  }
+  for (let i = 0; i < buf.length; i++) buf[i] = buf[i] * (1 - wet) + out[i] * wet;
+}
 
 // ── turntable scratches — four flavours ───────────────────────────────
 const SCR = {
@@ -219,8 +248,10 @@ const SECTIONS = [
   { name: "mommywow",  bar0: 12, bars: 4 },
   { name: "slinky",    bar0: 16, bars: 8 },
   { name: "fly",       bar0: 24, bars: 8 },
-  { name: "land",      bar0: 32, bars: 4 },
-  { name: "outro",     bar0: 36, bars: OUTRO_BARS },
+  { name: "land",        bar0: 32, bars: 4 },
+  { name: "cave",        bar0: 36, bars: 4 },
+  { name: "squabble",    bar0: 40, bars: 2 },
+  { name: "progression", bar0: 42, bars: 5 },   // 42–45 + button at 46
 ];
 
 // ══════════════════════════════════════════════════════════════════════
@@ -432,27 +463,79 @@ for (let i = 0; i < 4; i++) {
 }
 BP(35, 0, N.C2, 3.0, 0.7, { decay: 1.1 });   // final low resolve
 
-// ── OUTRO (abs 36–39): reprise the butterfly hook over the groove ──
-// One last cute statement of "but-ter-FLY", then a buttoned final hit.
-function O(ab, beat, midi, d, g) { lead(t(ab, beat), midi, d, g ?? 1.0); }
-for (let i = 0; i < 3; i++) {                  // 3 bars of groove
-  const ab = 36 + i;
-  groove(ab, i < 2 ? 1 : 2, 0.9);
-  BP(ab, 0, N.C2, 1.4, 0.78); BP(ab, 2, N.G1, 1.0, 0.7); BP(ab, 3, N.C2, 0.8, 0.62);
+// ══════════════════════════════════════════════════════════════════════
+//  EXTENDED CODA — cave → squabble → chord progression → resolve (abs 36–46)
+//  After the landing the track drifts into a reverby cave, erupts in a
+//  squeak-scratch squabble, then a chord progression walks it home to a
+//  final resolved button.
+// ══════════════════════════════════════════════════════════════════════
+
+// ── CAVE (abs 36–39): sparse + drenched. Everything routes into caveBuf,
+// which gets a big Schroeder reverb at mixdown. Reverse swells (bell + hat
+// + kick) breathe in and out of the dark. ──
+{
+  const caveVib = (tt, m, beats, g) => mixEventMarimba({ startSec: tt, midi: m, durSec: beats * BEAT, gain: g, preset: "vibraphone_off", decayMul: 1.5 }, caveBuf, { sampleRate: SR });
+  const caveLead = (tt, m, beats, g) => mixEventMarimba({ startSec: tt, midi: m, durSec: beats * BEAT, gain: g, preset: "xylophone", decayMul: 1.4 }, caveBuf, { sampleRate: SR });
+  for (const m of [N.A3, N.C4, N.E4, N.A4]) caveVib(t(36, 0), m, 7, 0.30);   // Am pad floor
+  for (const m of [N.F3, N.A3, N.C4]) caveVib(t(38, 0), m, 7, 0.28);          // F
+  caveLead(t(36, 1), N.E5, 1, 0.50); caveLead(t(36, 2.5), N.A5, 1.5, 0.46);   // lost butterfly motif
+  caveLead(t(38, 1), N.C6, 1, 0.46); caveLead(t(38, 2.5), N.G5, 1.5, 0.42);
+  mixReverseBell({ landSec: t(36, 0), dur: 1.4 * BAR, midis: [N.A5, N.C6, N.E6], gain: 0.40 }, caveBuf, { sampleRate: SR });
+  mixReverseBell({ landSec: t(38, 2), dur: 1.0 * BAR, midis: [N.E6, N.G6], gain: 0.32 }, caveBuf, { sampleRate: SR });
+  mixKick({ startSec: t(36, 0), gain: 0.45, fEnd: 38, ampDecay: 0.6 }, caveBuf, { sampleRate: SR });   // distant heartbeat
+  mixKick({ startSec: t(37, 2), gain: 0.45, fEnd: 38, ampDecay: 0.6 }, caveBuf, { sampleRate: SR });
+  mixKick({ startSec: t(39, 0), gain: 0.5, fEnd: 38, ampDecay: 0.7 }, caveBuf, { sampleRate: SR });
+  mixReverseKick({ landSec: t(38, 0), dur: 1.0 * BAR, gain: 0.4 }, caveBuf, { sampleRate: SR });
+  rhat(caveBuf, 37, 0, 0.32); rhat(caveBuf, 39, 0, 0.34);                      // reverse hats swelling in
+  mixHat({ startSec: t(36, 2), gain: 0.18, open: true }, caveBuf, { sampleRate: SR });
+  mixHat({ startSec: t(38, 2), gain: 0.18, open: true }, caveBuf, { sampleRate: SR });
 }
-// the hook reprise (butterfly motif), bars 36–37
-O(36, 0, N.E5, 1); O(36, 1, N.G5, 1); O(36, 2, N.C6, 2);
-O(37, 0, N.C6, 1); O(37, 1, N.E6, 1); O(37, 2, N.G6, 2);
-spark(t(37, 3.5), N.C6, 0.5, 0.45);
-// bar 38 — a rising mallet flourish + open hat into the button
-for (let s = 0; s < 6; s++) lead(t(38, s * 0.5), [N.C5, N.E5, N.G5, N.C6, N.E6, N.G6][s], 0.5, 0.9);
-HAT(38, 3.5, 0.4, { open: true });
-// bar 39 — the button: big resolved hit, then ring out
-KICK(39, 0, 1.0); BP(39, 0, N.C2, 3.0, 0.85, { decay: 1.3 });
-SNR(39, 0, 0.5);
-bell(t(39, 0), N.C6, 4, 0.5); bell(t(39, 0.06), N.E6, 4, 0.4); bell(t(39, 0.12), N.G6, 4, 0.35);
-vib(t(39, 0), N.C4, 4, 0.4); vib(t(39, 0), N.E4, 4, 0.35); vib(t(39, 0), N.G4, 4, 0.3);
-lead(t(39, 0), N.C6, 4, 0.85);
+
+// ── SQUABBLE (abs 40–41): SQUEAK SCRATCH OUT SQUABBLE — the feral break.
+// dense kitten-screams + turntable scratches trading blows, DRY + up-front
+// so the squeaks bite, over a skeletal kick/hat groove. ──
+SCREAM(40, 0,   90, 0.55, { bend: 9,  rasp: 0.75, dur: 0.50 });  SC(40, 0.5, "scribble",  0.60, 52);
+SCREAM(40, 1,   85, 0.50, { bend: 11, rasp: 0.70, dur: 0.40 });  SC(40, 1.5, "transform", 0.62, 49);
+SCREAM(40, 2,   93, 0.56, { bend: 7,  rasp: 0.78, dur: 0.45 });  SC(40, 2.5, "chirp",     0.60, 55);
+SCREAM(40, 3,   88, 0.50, { bend: 10, rasp: 0.72, dur: 0.42 });  SC(40, 3.5, "scribble",  0.58, 50);
+SCREAM(41, 0,   95, 0.58, { bend: 8,  rasp: 0.80, dur: 0.50 });  SC(41, 0.5, "transform", 0.64, 48);
+SC(41, 1, "chirp", 0.60, 53);  SCREAM(41, 1.5, 84, 0.50, { bend: 12, rasp: 0.70, dur: 0.40 });
+SC(41, 2, "baby", 0.56, 50);   SC(41, 2.5, "scribble", 0.62, 56);
+SCREAM(41, 3,   91, 0.56, { bend: 9, rasp: 0.76, dur: 0.45 });
+for (const fb of [3, 3.25, 3.5, 3.75]) SNR(41, fb, 0.4 + (fb - 3) * 0.6);     // snare fill into the progression
+KICK(40, 0, 0.8); KICK(40, 2, 0.7); KICK(41, 0, 0.82); KICK(41, 2, 0.72);
+for (let e = 0; e < 8; e++) { HAT(40, e * 0.5, 0.2, { open: e === 7 }); HAT(41, e * 0.5, 0.22, { open: e === 7 }); }
+
+// ── PROGRESSION (abs 42–45): a real chord progression walks it home.
+// C → G → Am → F (I–V–vi–IV); the button then resolves to C. Vibraphone
+// triads + bass-perc roots + a butterfly-motif reprise riding the changes. ──
+const PROG = [
+  { root: N.C2, triad: [N.C4, N.E4, N.G4] },   // C
+  { root: N.G1, triad: [N.G3, N.B3, N.D4] },   // G
+  { root: N.A1, triad: [N.A3, N.C4, N.E4] },   // Am
+  { root: N.F1, triad: [N.F3, N.A3, N.C4] },   // F
+];
+const PROG_TOP = [N.C6, N.B5, N.A5, N.A5];
+for (let i = 0; i < 4; i++) {
+  const ab = 42 + i, ch = PROG[i];
+  groove(ab, 1, 0.86);
+  BP(ab, 0, ch.root, 1.5, 0.76); BP(ab, 2, ch.root, 1.0, 0.70); BP(ab, 3, ch.root, 0.8, 0.60);
+  for (const m of ch.triad) vib(t(ab, 0), m, 4, 0.34);
+  vib(t(ab, 0), ch.triad[0] - 12, 4, 0.24);    // octave-down warmth
+  lead(t(ab, 0), PROG_TOP[i], 1, 0.90);         // motif riding the changes
+  lead(t(ab, 1), ch.triad[2], 1, 0.80);
+  lead(t(ab, 2), ch.triad[1] + 12, 2, 0.82);
+  spark(t(ab, 3.5), N.E6, 0.5, 0.40);
+  bell(t(ab, 0), ch.triad[2] + 12, 2, 0.40);
+}
+rhat(hatBuf, 46, 0, 0.42);                      // reverse-hat swell into the button
+
+// ── BUTTON (abs 46): final resolved C hit + ring ──
+KICK(46, 0, 1.0); BP(46, 0, N.C2, 3.2, 0.86, { decay: 1.4 });
+SNR(46, 0, 0.5);
+bell(t(46, 0), N.C6, 4, 0.5); bell(t(46, 0.06), N.E6, 4, 0.4); bell(t(46, 0.12), N.G6, 4, 0.35);
+vib(t(46, 0), N.C4, 4, 0.4); vib(t(46, 0), N.E4, 4, 0.35); vib(t(46, 0), N.G4, 4, 0.3);
+lead(t(46, 0), N.C6, 4, 0.85);
 
 // ── REVERSE SINE-BELL RISERS — at the breaks ──────────────────────────
 // The signature transition: a glassy sine swell rising out of the texture
@@ -464,7 +547,6 @@ lead(t(39, 0), N.C6, 4, 0.85);
 rise(4,  1.5 * BAR, [N.G5, N.C6, N.E6, N.G6], 0.44); // intro → THE START: lands the hook at ~7.7s
 rise(16, 2 * BAR, [N.E5, N.G5, N.C6, N.E6], 0.52);   // mommy-wow → slinky (the 0:27 break)
 rise(24, 1.5 * BAR, [N.G5, N.C6, N.E6, N.G6], 0.40); // → fly soar
-rise(36, 1.5 * BAR, [N.C6, N.E6, N.G6], 0.34);       // → outro reprise
 // reverse kicks — the low-end whoosh under the risers
 riseKick(4,  1.0 * BAR, 0.55);                       // arrival whoosh into the hook
 riseKick(16, 1.4 * BAR, 0.7);                        // big slinky drop
@@ -483,7 +565,6 @@ SC(24, 0, "chirp", 0.6, 52);                                   // fly entrance
 for (let ab = 24; ab <= 31; ab++)                              // fly: transform/chirp accents
   SC(ab, 2.5, ab % 2 ? "transform" : "chirp", 0.5, 47 + (ab % 4) * 3);
 SC(31, 3, "scribble", 0.62, 50);                               // fill into the landing
-SC(38, 0, "scribble", 0.55, 53); SC(38, 2, "chirp", 0.5, 50);  // outro flourish
 
 // ── SCRATCHY KITTEN SCREAMS — feral little shrieks at the wild bits ───
 SCREAM(16, 0, 88, 0.5, { bend: 8, rasp: 0.7, dur: 0.55 });     // ride the slinky drop
@@ -521,6 +602,9 @@ place(subBuf,    0.00, 0.98);   // bass-perc — the groove backbone, centred
 place(snareBuf,  0.04, 0.80);
 place(hatBuf,    0.34, 0.58);
 place(shakBuf,  -0.34, 0.48);
+// CAVE bus — drench in Schroeder reverb, then place centred + present
+reverbInPlace(caveBuf, { wet: 0.62, decay: 0.82 });
+place(caveBuf,   0.00, 0.92);
 
 // scrub non-finite + peak-normalise
 let nan = 0;

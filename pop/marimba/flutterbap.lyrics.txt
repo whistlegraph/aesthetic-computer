@@ -1,0 +1,65 @@
+# flutterbap — lyrics, locked to the xylophone melody (CAPS = the long/stressed
+# note). Syllable count per line = note count in that bar of flutterbap.np, so
+# the words follow the tune exactly. Theme: flutterbap is my friend. Sung by
+# jeffrey's ElevenLabs voice, each syllable pitch-snapped to its melody note and
+# placed on the beat.
+
+[butterfly]  (bars 1–4)
+  1  flut-ter-BAP          (E5  G5  C6)
+  2  is  my  FRIEND        (C6  E6  C6)
+  3  flut-ter-BAP          (D5  G5  B5)
+  4  till  the  END        (C6      G5)
+
+[pal-of-mine]  (bars 5–8)
+  5  flut-ter-BAP          (E5  G5  C6)
+  6  pal  of  MINE         (A5  G5  F5)
+  7  fly  with  me  we'll  (E5  F5  G5  A5)
+  8  FINE                  (C6 held)
+
+[mommy-wow]  (bars 9–12)
+  9  WOW                   (G5 held)
+  10 look  at  YOU         (C6  E6  G6)
+  11 WOW                   (G5 held)
+  12 up  in  the  BLUE     (G6  E6  C6  G6)
+
+[slinky]  (bars 13–20)
+  13 slin-ky  SPRING       (C5  E5  G5)
+  14 wob-bl-y  THING       (G5  F5  E5  D5)
+  15 slin-ky  SPRING       (C5  E5  G5)
+  16 climb the lit-tle slin-ky stair-case   (C5 D5 E5 F5 G5 A5 B5 C6)
+  17 down the lit-tle slin-ky stair-case    (C6 B5 A5 G5 F5 E5 D5 C5)
+  18 round  and  round  we (C5  E5  G5  C6)
+  19 tum-ble  down  and    (C6  A5  F5  D5)
+  20 up  we  SPRING        (E5  G5  C5)
+
+[lately-when-i-fly]  (bars 21–28)
+  21 late-ly  when  i      (C5  D5  E5  G5)
+  22 FLY                   (C6 held)
+  23 reach-ing  for  the   (E5  F5  G5  A5)
+  24 SKY                   (D6 held)
+  25 no-thing  holds  me   (E6  D6  C6  G5)
+  26 way  up  HIGH         (A5  C6  G6)
+  27 then  i  cir-cle      (G6  E6  C6  A5)
+  28 back  to  YOU         (G5  E5  C5)
+
+[landing]  (bars 29–32)
+  29 soft-ly  now  we      (C6  G5  E5  C5)
+  30 come  DOWN            (D5  C5)
+  31 to  the  GROUND       (E5  D5  C5)
+  32 (friend…)             (C4 held, low)
+
+[cave]  (abs 36–39 — sparse, drenched, echoing)
+  where    are    you    now            (E5 … A5 … C6 … G5)
+
+[squabble]  (abs 40–41 — shouted over the screams + scratches)
+  SQUEAK!  SCRATCH!  OUT!  SQUABBLE!
+
+[progression / resolve]  (abs 42–46 — the hook comes home)
+  42 flut-ter-BAP          (C6  …  G4)
+  43 is  my  FRIEND        (B5  …  D4)
+  44 to  the               (A5  …)
+  45 ve-ry  END            (A5  …  C4)
+  46 FRIEND                (C6 button, held + ring)
+
+# rhyme scheme: FRIEND/END · MINE/FINE · YOU/BLUE · SPRING/THING ·
+#               FLY/SKY/HIGH · DOWN/GROUND · FRIEND/END (reprise)

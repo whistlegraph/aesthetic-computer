@@ -29,6 +29,11 @@ for (let i = 2; i < process.argv.length; i++) {
   if (process.argv[i].startsWith("--")) flags[process.argv[i].slice(2)] = true;
 }
 const FORCE = flags.force === true;
+// --norefs: skip the jeffrey identity refs and generate from the prompt alone
+// (images/generations instead of images/edits). For object-only covers — e.g.
+// a cover that is ONLY plastic butterflies, no figure — where the portrait refs
+// would wrongly bias toward a person.
+const NOREFS = flags.norefs === true;
 const SIZE = "1024x1024";
 
 // --prompt / --cover / --mp3 let variation tracks reuse this script;
@@ -98,26 +103,36 @@ if (existsSync(OUT_PATH) && !FORCE) {
 
 const apiKey = loadOpenAIKey();
 const prompt = readFileSync(PROMPT_PATH, "utf8").trim();
-console.log(`▸ marimbaba cover · ${SIZE} · ${REFS.length} refs`);
+console.log(`▸ cover · ${SIZE} · ${NOREFS ? "no refs (generations)" : `${REFS.length} refs (edits)`}`);
 const t0 = Date.now();
 
-const fd = new FormData();
-fd.append("model", "gpt-image-2");
-fd.append("prompt", prompt);
-fd.append("size", SIZE);
-fd.append("quality", "high");
-fd.append("n", "1");
-for (const ref of REFS) {
-  const buf = readFileSync(ref);
-  const ext = ref.toLowerCase().endsWith(".png") ? "png"
-            : ref.toLowerCase().endsWith(".webp") ? "webp" : "jpeg";
-  fd.append("image[]", new Blob([buf], { type: `image/${ext}` }), ref.split("/").pop());
+let res;
+if (NOREFS) {
+  // prompt-only generation — no identity refs to leak a figure in
+  res = await fetch("https://api.openai.com/v1/images/generations", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model: "gpt-image-2", prompt, size: SIZE, quality: "high", n: 1 }),
+  });
+} else {
+  const fd = new FormData();
+  fd.append("model", "gpt-image-2");
+  fd.append("prompt", prompt);
+  fd.append("size", SIZE);
+  fd.append("quality", "high");
+  fd.append("n", "1");
+  for (const ref of REFS) {
+    const buf = readFileSync(ref);
+    const ext = ref.toLowerCase().endsWith(".png") ? "png"
+              : ref.toLowerCase().endsWith(".webp") ? "webp" : "jpeg";
+    fd.append("image[]", new Blob([buf], { type: `image/${ext}` }), ref.split("/").pop());
+  }
+  res = await fetch("https://api.openai.com/v1/images/edits", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: fd,
+  });
 }
-const res = await fetch("https://api.openai.com/v1/images/edits", {
-  method: "POST",
-  headers: { Authorization: `Bearer ${apiKey}` },
-  body: fd,
-});
 if (!res.ok) {
   console.error(`✗ OpenAI ${res.status}: ${(await res.text()).slice(0, 600)}`);
   process.exit(1);
