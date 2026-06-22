@@ -108,6 +108,37 @@ export function overlayClearExpr() {
   return `(()=>{const s=document.getElementById("__analysis_overlay");if(s)s.remove();return true;})()`;
 }
 
+// ─── observation scan (page-side "what I'm reading") ───────────────────────
+// A DOM analogue of OCR: box every readable text run (green) and every
+// interactive target (dashed blue) currently on the page, drawn into a
+// persistent #__ao_scan layer of the analysis overlay so a watcher SEES what
+// the agent is observing. Pixel-accurate (browser viewport space, unlike
+// whole-screen Vision OCR). `ttl` ms auto-clears the scan (0 = persist).
+// Returns {text, targets} counts.
+export function scanExpr(ttl = 2600) {
+  return `(()=>{
+const NS="http://www.w3.org/2000/svg";
+let s=document.getElementById("__analysis_overlay");
+if(!s){s=document.createElementNS(NS,"svg");s.id="__analysis_overlay";
+  s.style.cssText="position:fixed;inset:0;width:100vw;height:100vh;z-index:2147483646;pointer-events:none";
+  document.documentElement.appendChild(s);}
+const mk=(t,a,txt)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);if(txt!=null)e.textContent=txt;return e;};
+const old=s.querySelector("#__ao_scan");if(old)old.remove();
+const g=mk("g",{id:"__ao_scan"});
+const vw=innerWidth,vh=innerHeight,seen=new Set();
+const vis=el=>{const r=el.getBoundingClientRect();if(r.width<6||r.height<6||r.bottom<0||r.top>vh||r.right<0||r.left>vw)return null;const st=getComputedStyle(el);if(st.visibility==="hidden"||st.opacity==="0"||st.display==="none")return null;return r;};
+// interactive targets (dashed blue) — what I can act on
+let nT=0;for(const el of document.querySelectorAll("button,a[href],input,textarea,select,[role=button],[role=option],[contenteditable=true]")){const r=vis(el);if(!r)continue;const k=Math.round(r.x)+","+Math.round(r.y)+","+Math.round(r.width);if(seen.has(k))continue;seen.add(k);nT++;
+  g.appendChild(mk("rect",{x:r.x,y:r.y,width:r.width,height:r.height,rx:4,fill:"rgba(92,168,255,.06)",stroke:"#5ca8ff","stroke-width":1.2,"stroke-dasharray":"4 3"}));}
+// readable text runs (green) — what I'm reading
+let nX=0;const walk=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let node;while((node=walk.nextNode())){const t=(node.textContent||"").trim();if(t.length<2||nX>180)continue;const el=node.parentElement;if(!el)continue;const r=vis(el);if(!r||r.width>vw*0.98)continue;const k="t"+Math.round(r.x)+","+Math.round(r.y);if(seen.has(k))continue;seen.add(k);nX++;
+  g.appendChild(mk("rect",{x:r.x-1,y:r.y-1,width:r.width+2,height:r.height+2,rx:2,fill:"none",stroke:"#39d98a","stroke-width":1,"stroke-opacity":.7}));}
+s.appendChild(g);
+if(${ttl}>0)setTimeout(()=>{const x=document.getElementById("__ao_scan");if(x)x.remove();const o=document.getElementById("__analysis_overlay");if(o&&!o.childNodes.length)o.remove();},${ttl});
+return JSON.stringify({text:nX,targets:nT});
+})()`;
+}
+
 // ─── CLI: emit a per-machine sidecar envelope for the JPEG viewer ──────────
 // `frame <m> --json` prints the envelope to stdout; pipe it here to drop the
 // sidecar the viewer reads:  frame panda --json | analysis-layer.mjs emit panda

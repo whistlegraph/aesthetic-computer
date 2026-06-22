@@ -40,7 +40,7 @@ import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "
 import net from "node:net";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import { logHit, overlayDrawExpr, overlayClearExpr } from "./analysis-layer.mjs";
+import { logHit, overlayDrawExpr, overlayClearExpr, scanExpr } from "./analysis-layer.mjs";
 
 const HOME = homedir();
 const CONFIG_PATH =
@@ -341,13 +341,25 @@ class Machine {
     if (live && opts.format === "jpeg" && !opts.fresh) {
       try {
         const fs = await import("node:fs");
-        return fs.readFileSync(live).toString("base64"); // 0ms: latest screencast frame
+        const data = fs.readFileSync(live).toString("base64"); // 0ms: latest screencast frame
+        this.analysisScan(sessionId);
+        return data;
       } catch {}
     }
     const params = { format: opts.format ?? "png" };
     if (params.format === "jpeg") params.quality = opts.quality ?? 80;
     const r = await this.call("Page.captureScreenshot", params, sessionId);
+    // After the capture (so the shot stays clean), light up the observation
+    // overlay on the LIVE page — a watcher sees what was just looked at.
+    this.analysisScan(sessionId);
     return r.data; // base64
+  }
+
+  // Fire the observation scan (text + interactive boxes) on the page, fire-
+  // and-forget. No-op unless analysis is on for this machine.
+  analysisScan(sessionId) {
+    if (!this.analysisOn) return;
+    this.callNoWait("Runtime.evaluate", { expression: scanExpr() }, sessionId);
   }
 
   // Trusted mouse drag through points, virtual cursor overlay riding along.
@@ -698,6 +710,10 @@ async function handleRequest(req, sock) {
     // analysis on|off [machine|all] — toggle the realtime hit-scan overlay +
     // hit logging per machine. Works on disconnected machines too (just sets
     // the flag); turning off clears any live page-side overlay.
+    // scan: draw the observation overlay (text + interactive boxes) on the
+    // page so a watcher sees what the agent is reading. Returns {text,targets}.
+    case "scan":
+      return one(machine).eval(scanExpr(args.ttl ?? 2600), args.target);
     case "analysis": {
       const want = args.on !== false && args.on !== "off";
       const names = !machine || machine === "all" ? [...machines.keys()] : [machine];
@@ -1008,6 +1024,12 @@ async function main() {
       });
       console.log("cursor placed");
       return;
+    // puppet scan <machine> [--ttl=2600]  — draw the observation overlay
+    case "scan":
+      console.log(
+        await rpc({ cmd: "scan", machine: args[0], args: { ttl: flags.ttl ? Number(flags.ttl) : undefined, target: flags.target } }),
+      );
+      return;
     // puppet analysis on|off [machine|all]  — realtime hit-scan overlay layer
     case "analysis": {
       const on = (args[0] || "on").toLowerCase() !== "off";
@@ -1034,7 +1056,7 @@ async function main() {
       return;
     default:
       console.log(
-        "usage: puppet daemon|config|status|list|eval|evalall|batch|broadcast|fanout|nav|newtab|close|reload|shot|watch|unwatch|stroke|gesture|key|cursor|analysis|tail (see header)",
+        "usage: puppet daemon|config|status|list|eval|evalall|batch|broadcast|fanout|nav|newtab|close|reload|shot|watch|unwatch|stroke|gesture|key|cursor|scan|analysis|tail (see header)",
       );
   }
 }
