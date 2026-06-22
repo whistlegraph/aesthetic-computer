@@ -40,6 +40,7 @@ import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "
 import net from "node:net";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { logHit, overlayDrawExpr, overlayClearExpr } from "./analysis-layer.mjs";
 
 const HOME = homedir();
 const CONFIG_PATH =
@@ -94,6 +95,26 @@ class Machine {
     this.connected = false;
     this.lastError = null;
     this.triedTunnel = false;
+    this.analysisOn = false; // analysis layer: log + flash interaction points
+  }
+
+  // Analysis layer: when toggled on for this machine, record every trusted
+  // interaction point (for the out-of-page frame viewer) and flash it on the
+  // page-side SVG overlay — the realtime "hit scan" visualization. No-op when
+  // off, so normal driving pays nothing. See analysis-layer.mjs.
+  analysisFlash(sessionId, points, label = "hit") {
+    if (!this.analysisOn || !points?.length) return;
+    for (const [x, y] of points) logHit(this.name, { x, y, kind: label, label });
+    this.callNoWait(
+      "Runtime.evaluate",
+      {
+        expression: overlayDrawExpr(
+          [],
+          points.map(([x, y], i) => ({ x, y, label: i === 0 ? label : "" })),
+        ),
+      },
+      sessionId,
+    );
   }
 
   log(msg) {
@@ -351,6 +372,7 @@ class Machine {
       sessionId,
     );
     await this.cursorMove(sessionId, xn, yn, false);
+    this.analysisFlash(sessionId, points, "stroke");
     return points.length;
   }
 
@@ -425,6 +447,7 @@ class Machine {
         sessionId,
       );
     await this.cursorMove(sessionId, Math.round(x), Math.round(y), false);
+    this.analysisFlash(sessionId, [from, [Math.round(x), Math.round(y)]], "gesture");
     return steps;
   }
 
@@ -465,11 +488,14 @@ class Machine {
       {
         expression: `(()=>{let c=document.getElementById("__puppet_cursor");
 if(!c){c=document.createElement("div");c.id="__puppet_cursor";
-c.style.cssText="position:fixed;z-index:2147483647;width:18px;height:18px;border-radius:50%;border:2px solid #fff;background:rgba(255,64,129,.8);pointer-events:none;transform:translate(-50%,-50%);box-shadow:0 0 8px rgba(0,0,0,.5);transition:opacity .3s";
+c.style.cssText="position:fixed;z-index:2147483647;width:18px;height:18px;border-radius:50%;border:2px solid #fff;background:rgba(255,64,129,.8);pointer-events:none;transform:translate(-50%,-50%);box-shadow:0 0 8px rgba(0,0,0,.5);transition:opacity .4s";
 document.documentElement.appendChild(c);
+// idle auto-fade: show on movement, fade out 1.2s after the last move so the
+// dot never lingers on the page once driving stops (shared by cursorMove).
+window.__pcFade=()=>{clearTimeout(window.__pcTimer);c.style.opacity=1;window.__pcTimer=setTimeout(()=>{c.style.opacity=0;},1200);};
 // page-side follower: the overlay rides the (trusted) pointer stream itself,
 // so drivers never spend a round-trip moving it
-document.addEventListener("mousemove",e=>{c.style.left=e.clientX+"px";c.style.top=e.clientY+"px";c.style.opacity=1;},{passive:true,capture:true});
+document.addEventListener("mousemove",e=>{c.style.left=e.clientX+"px";c.style.top=e.clientY+"px";window.__pcFade();},{passive:true,capture:true});
 }return true;})()`,
         returnByValue: true,
       },
@@ -482,8 +508,9 @@ document.addEventListener("mousemove",e=>{c.style.left=e.clientX+"px";c.style.to
       "Runtime.evaluate",
       {
         expression: `(()=>{const c=document.getElementById("__puppet_cursor");
-if(c){c.style.left=${x}+"px";c.style.top=${y}+"px";c.style.opacity=1;
-c.style.background=${pressed} ? "rgba(255,64,129,.9)" : "rgba(255,64,129,.45)";}return true;})()`,
+if(c){c.style.left=${x}+"px";c.style.top=${y}+"px";
+c.style.background=${pressed} ? "rgba(255,64,129,.9)" : "rgba(255,64,129,.45)";
+(window.__pcFade||(()=>{c.style.opacity=1;}))();}return true;})()`,
         returnByValue: true,
       },
       sessionId,
@@ -661,7 +688,28 @@ async function handleRequest(req, sock) {
       const sessionId = await m.session(args.target);
       await m.cursorEval(sessionId);
       await m.cursorMove(sessionId, args.x, args.y, false);
+      m.analysisFlash(sessionId, [[args.x, args.y]], "cursor");
       return true;
+    }
+    // analysis on|off [machine|all] — toggle the realtime hit-scan overlay +
+    // hit logging per machine. Works on disconnected machines too (just sets
+    // the flag); turning off clears any live page-side overlay.
+    case "analysis": {
+      const want = args.on !== false && args.on !== "off";
+      const names = !machine || machine === "all" ? [...machines.keys()] : [machine];
+      const out = {};
+      for (const name of names) {
+        const m = machines.get(name);
+        if (!m) { out[name] = "unknown"; continue; }
+        m.analysisOn = want;
+        out[name] = want ? "on" : "off";
+        if (!want && m.connected) {
+          m.session(args.target)
+            .then(sid => m.callNoWait("Runtime.evaluate", { expression: overlayClearExpr() }, sid))
+            .catch(() => {});
+        }
+      }
+      return out;
     }
     case "watch":
       return one(machine).watch(args.target, args.out, args.opts ?? {});
@@ -956,6 +1004,15 @@ async function main() {
       });
       console.log("cursor placed");
       return;
+    // puppet analysis on|off [machine|all]  — realtime hit-scan overlay layer
+    case "analysis": {
+      const on = (args[0] || "on").toLowerCase() !== "off";
+      const machine = args[1] || "all";
+      console.log(
+        JSON.stringify(await rpc({ cmd: "analysis", machine, args: { on, target: flags.target } }), null, 2),
+      );
+      return;
+    }
     case "watch":
       console.log(
         await rpc({
@@ -973,7 +1030,7 @@ async function main() {
       return;
     default:
       console.log(
-        "usage: puppet daemon|config|status|list|eval|evalall|batch|broadcast|fanout|nav|newtab|close|reload|shot|watch|unwatch|stroke|gesture|key|cursor|tail (see header)",
+        "usage: puppet daemon|config|status|list|eval|evalall|batch|broadcast|fanout|nav|newtab|close|reload|shot|watch|unwatch|stroke|gesture|key|cursor|analysis|tail (see header)",
       );
   }
 }
