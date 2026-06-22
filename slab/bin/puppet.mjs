@@ -95,7 +95,11 @@ class Machine {
     this.connected = false;
     this.lastError = null;
     this.triedTunnel = false;
-    this.analysisOn = false; // analysis layer: log + flash interaction points
+    // analysis layer: log + flash interaction points. On by default now
+    // (@jeffrey) so the hit-scan overlay survives daemon restarts; the
+    // overlays self-clear so always-on costs nothing visible when idle.
+    // Override per machine at runtime with `puppet analysis off <machine>`.
+    this.analysisOn = true;
   }
 
   // Analysis layer: when toggled on for this machine, record every trusted
