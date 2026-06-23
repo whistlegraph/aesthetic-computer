@@ -3483,11 +3483,15 @@ const $commonApi = {
     send({ type: "file-encode:request", content: file });
     return prom;
   },
-  file: async () => {
+  // Open a local file picker. Pass { mode: "video" } (and optionally
+  // { accept }) to pick a clip and resolve with
+  // { kind:"video", data:ArrayBuffer, mime, name, duration }; the default
+  // resolves with a bitmap (image picker).
+  file: async (opts = {}) => {
     const prom = new Promise((resolve, reject) => {
       fileOpenRequest = { resolve, reject };
     });
-    send({ type: "file-open:request" });
+    send({ type: "file-open:request", content: opts });
     return prom;
   },
   // Authorize a user.
@@ -11101,7 +11105,13 @@ async function makeFrame({ data: { type, content } }) {
     type === "tape:preload-error" ||
     type === "tape:frames" ||
     type === "tape:audio-context-state" ||
-    type === "tape:playback-progress"
+    type === "tape:playback-progress" ||
+    // Video-backed (kind:"mp4") tape playback callbacks → video.mjs.
+    type === "tape:mp4-ready" ||
+    type === "tape:mp4-playing" ||
+    type === "tape:mp4-paused" ||
+    // Camera-roll clip upload result → chat.mjs (insert !code).
+    type === "chat:video-tape:posted"
   ) {
     // Check if actEvents exists without causing ReferenceError
     try {

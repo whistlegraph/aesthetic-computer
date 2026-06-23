@@ -5014,6 +5014,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   //  willReadFrequently: true,
   // });
   let tapeManager; // Multi-tape manager for smooth transitions (tv.mjs)
+  let mp4PlaybackVideo; // DOM <video> for kind:"mp4" tape playback (camera-roll clips)
 
     async function reinitAudioSystem(options = {}) {
       const { latencyHint, sampleRate, speakerPerformanceMode } = options;
@@ -11227,6 +11228,90 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // 📼 Play a video-backed tape (kind:"mp4", e.g. a posted camera-roll
+    // clip). Frame/zip tapes go through tape:play above; this path skips all
+    // the frame extraction and just drops a DOM <video> into the #underlay so
+    // the (transparent) AC canvas overlays it — same layering the camera uses.
+    if (type === "tape:play-mp4") {
+      console.log("📼 Playing MP4 tape:", content);
+      const { mp4Url } = content || {};
+      if (!mp4Url) {
+        send({ type: "tape:error", content: "No mp4Url for MP4 tape" });
+        return;
+      }
+
+      // Tear down any prior frame-tape playback / underlay first.
+      stopTapePlayback?.();
+      tapeManager?.cleanup?.();
+      tapeManager = null;
+      underlayFrame?.remove();
+      underlayFrame = undefined;
+
+      underlayFrame = document.createElement("div");
+      underlayFrame.id = "underlay";
+
+      const video = document.createElement("video");
+      mp4PlaybackVideo = video;
+      video.src = mp4Url;
+      video.playsInline = true;
+      video.setAttribute("playsinline", "");
+      video.loop = true;
+      video.muted = false;
+      video.controls = false;
+      video.preload = "auto";
+
+      underlayFrame.appendChild(video);
+      document.body.insertBefore(underlayFrame, document.body.firstChild);
+
+      video.onloadedmetadata = () => {
+        send({
+          type: "tape:info-reply",
+          content: {
+            frameCount: 0,
+            totalDuration: Number.isFinite(video.duration) ? video.duration : 0,
+            hasAudio: true,
+            kind: "mp4",
+          },
+        });
+      };
+
+      video.ontimeupdate = () => {
+        if (!video.duration) return;
+        send({
+          type: "tape:playback-progress",
+          content: { progress: video.currentTime / video.duration },
+        });
+      };
+
+      video.onerror = () => {
+        console.error("📼 MP4 tape failed to load:", mp4Url);
+        send({ type: "tape:error", content: "MP4 tape failed to load" });
+      };
+
+      // Autoplay (best-effort — browsers may block until a user gesture, in
+      // which case the first tap in the video piece resumes it).
+      video.play().catch((err) => {
+        console.warn("📼 MP4 autoplay blocked (will resume on tap):", err?.message || err);
+      });
+
+      send({ type: "tape:mp4-ready", content: { mp4Url } });
+      return;
+    }
+
+    // 📼 Toggle play/pause for the MP4 tape (tap gesture in the video piece).
+    if (type === "tape:toggle-play-mp4") {
+      const video = mp4PlaybackVideo;
+      if (!video) return;
+      if (video.paused) {
+        video.play().catch(() => {});
+        send({ type: "tape:mp4-playing" });
+      } else {
+        video.pause();
+        send({ type: "tape:mp4-paused" });
+      }
+      return;
+    }
+
     // 📼 Get tape information (duration, frame count, etc.)
     if (type === "tape:get-info") {
       const info = {
@@ -11253,6 +11338,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       stopTapePlayback?.();
       tapeManager?.cleanup();
       tapeManager = null;
+      // Tear down MP4-tape playback if it was a video-backed tape.
+      if (mp4PlaybackVideo) {
+        try {
+          mp4PlaybackVideo.pause();
+          mp4PlaybackVideo.removeAttribute("src");
+          mp4PlaybackVideo.load();
+        } catch {}
+        mp4PlaybackVideo = undefined;
+        underlayFrame?.remove();
+        underlayFrame = undefined;
+      }
       return;
     }
 
@@ -11967,12 +12063,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     // Send a locally opened file across the thread.
+    // `content` may carry { mode, accept } to pick a video instead of an image.
     if (type === "file-open:request") {
-      const file = await openFile();
-      send({
-        type: "file-open:response",
-        content: { data: file, result: file ? "success" : "error" },
-      });
+      try {
+        const file = await openFile(content || {});
+        send({
+          type: "file-open:response",
+          content: { data: file, result: file ? "success" : "error" },
+        });
+      } catch (err) {
+        send({
+          type: "file-open:response",
+          content: { data: null, result: "error", error: String(err) },
+        });
+      }
       return;
     }
 
@@ -13759,6 +13863,38 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const { recordingSlug, ...uploadData } = content;
       console.log("🔍 UPLOAD MESSAGE HANDLER: recordingSlug=", recordingSlug, "content keys=", Object.keys(content));
       receivedUpload(uploadData, "upload", null, recordingSlug);
+      return;
+    }
+
+    // 📼 Upload a camera-roll clip as an MP4-backed tape. Mirrors the ZIP
+    // tape flow (create-and-post-tape → receivedUpload(..., "tape:posted",
+    // metadata)) but the data is the already-encoded clip bytes, so there's
+    // no frame/zip step. track-tape mints a !code and marks kind "mp4".
+    if (type === "upload-video-tape") {
+      const { data, mime, duration, callback } = content || {};
+      // Logged-in users get a dotted-timestamp filename (no "-" so the
+      // presigned server sorts it under {sub}/<ts>.mp4, mirroring zip tapes);
+      // guests fall back to a generic name and the server mints a nanoid.
+      const token = await authorize().catch(() => null);
+      let filename;
+      if (token) {
+        const slug = new Date()
+          .toISOString()
+          .replace(/[-:]/g, ".")
+          .replace("T", ".")
+          .replace("Z", "")
+          .split(".").slice(0, 7).join(".");
+        filename = `${slug}.mp4`;
+      } else {
+        filename = "tape.mp4";
+      }
+      const blob = new Blob([data], { type: mime || "video/mp4" });
+      const metadata = { totalDuration: duration || 0, source: "camera-roll" };
+      receivedUpload(
+        { filename, data: blob },
+        callback || "tape:posted",
+        metadata,
+      );
       return;
     }
 
@@ -18893,8 +19029,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             content: uploadProgress,
           });
           
-          // For tape uploads (ZIP with metadata), also send as transcode-progress in 90-100% range
-          if (ext === "zip" && metadata) {
+          // For tape uploads (ZIP/MP4 with metadata), also send as transcode-progress in 90-100% range
+          if ((ext === "zip" || ext === "mp4") && metadata) {
             const transcodeProgress = 0.90 + (uploadProgress * 0.10); // Map 0-100% upload to 90-100% overall
             send({
               type: "recorder:transcode-progress",
@@ -18909,8 +19045,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         xhr.onreadystatechange = async function () {
           if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
-            // Handle tape posting (ZIP files with metadata) - works for BOTH user and guest
-            if (ext === "zip" && metadata) {
+            // Handle tape posting (ZIP frame tapes and MP4 video tapes, with
+            // metadata) - works for BOTH user and guest. The `ext` flows
+            // straight through to api/track-tape, which sets kind "zip" vs
+            // "mp4" and (for mp4) marks the tape complete immediately.
+            if ((ext === "zip" || ext === "mp4") && metadata) {
               if (debug) {
                 console.log(
                   "📼 Adding tape to database:",
@@ -19182,14 +19321,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   }
 
   // Request and open local file from the user.
-  // TODO: Only supports images for now.
+  // `mode` selects what we resolve with:
+  //   "image" (default) → a bitmap (existing photo-attach behavior).
+  //   "video"           → the raw clip as
+  //                        { kind:"video", data:ArrayBuffer, mime, name, duration }
+  //                        where duration (seconds) is measured off a temp
+  //                        <video> element so callers can enforce a length cap.
   // TODO: Make sure this works on mobile platforms.
-  async function openFile() {
+  async function openFile(opts = {}) {
+    const mode = opts.mode || "image";
+    const accept = opts.accept || (mode === "video" ? "video/*" : "image/*");
     pen?.up(); // Synthesize a pen `up` event so it doesn't stick
     //            due to the modal.
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = "image/*";
+    input.accept = accept;
     input.style.position = "absolute";
     input.style.left = "-9999px"; // Position off-screen
 
@@ -19209,7 +19355,45 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const file = input.files[0];
         if (!file) {
           reject("No file was selected!");
-        } else if (!file.type.startsWith("image/")) {
+          return;
+        }
+
+        if (mode === "video") {
+          if (!file.type.startsWith("video/")) {
+            reject("Selected file is not a video.");
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = async () => {
+            const data = reader.result; // ArrayBuffer
+            // Measure duration via a throwaway <video> element. The object
+            // URL is revoked once metadata loads (or on error) so we don't
+            // leak it.
+            const blob = new Blob([data], { type: file.type });
+            const objectUrl = URL.createObjectURL(blob);
+            const probe = document.createElement("video");
+            probe.preload = "metadata";
+            probe.muted = true;
+            const finish = (duration) => {
+              URL.revokeObjectURL(objectUrl);
+              resolve({
+                kind: "video",
+                data,
+                mime: file.type || "video/mp4",
+                name: file.name || "video.mp4",
+                duration: Number.isFinite(duration) ? duration : 0,
+              });
+            };
+            probe.onloadedmetadata = () => finish(probe.duration);
+            probe.onerror = () => finish(0); // Resolve anyway; caller validates.
+            probe.src = objectUrl;
+          };
+          reader.onerror = (error) => reject(error);
+          reader.readAsArrayBuffer(file);
+          return;
+        }
+
+        if (!file.type.startsWith("image/")) {
           reject("Selected file is not an image.");
         } else {
           const reader = new FileReader();
