@@ -205,6 +205,13 @@ let scroll = 0,
 let paintingPreviewCache = new Map(); // Store loaded painting previews
 let paintingLoadQueue = new Set(); // Track which paintings are being loaded
 let paintingLoadProgress = new Map(); // Track loading progress (0-1) for each painting
+// 🛑 Codes whose load failed (bad slug, 404, CORS, network). Without this the
+// paint loop re-fires loadPaintingPreview every frame for a broken code,
+// flooding the network + console and locking up the whole chat. Failures stick
+// for the session; a reload clears them (so a fixed code can retry).
+let paintingFailedCache = new Set();
+const PAINTING_LOAD_MAX_ATTEMPTS = 2; // transient retries before giving up
+let paintingAttemptCounts = new Map();
 let paintingAnimations = new Map(); // Track Ken Burns animation state for each painting
 let modalPainting = null; // Track fullscreen modal painting { painting, code, metadata }
 let modalJustOpened = false; // Prevent closing modal on the same click that opened it
@@ -4212,12 +4219,27 @@ async function loadPaintingPreview(code, get, store) {
   if (paintingPreviewCache.has(code)) {
     return paintingPreviewCache.get(code);
   }
-  
+
+  // 🛑 Give up on codes that already failed — otherwise the paint loop retries
+  // every frame and floods the network/console.
+  if (paintingFailedCache.has(code)) {
+    return null;
+  }
+
   // Check if already loading
   if (paintingLoadQueue.has(code)) {
     return null; // Still loading
   }
-  
+
+  // Mark a failure (after a few transient retries) so we stop hammering.
+  const markFailed = () => {
+    paintingLoadQueue.delete(code);
+    paintingLoadProgress.delete(code);
+    const attempts = (paintingAttemptCounts.get(code) || 0) + 1;
+    paintingAttemptCounts.set(code, attempts);
+    if (attempts >= PAINTING_LOAD_MAX_ATTEMPTS) paintingFailedCache.add(code);
+  };
+
   paintingLoadQueue.add(code);
   paintingLoadProgress.set(code, 0); // Start at 0%
   
@@ -4235,8 +4257,7 @@ async function loadPaintingPreview(code, get, store) {
     } else {
       const response = await fetch(`/api/painting-code?code=${normalized}`);
       if (!response.ok) {
-        paintingLoadQueue.delete(code);
-        paintingLoadProgress.delete(code);
+        markFailed();
         return null;
       }
       metadata = await response.json();
@@ -4249,8 +4270,7 @@ async function loadPaintingPreview(code, get, store) {
     }
     
     if (!metadata?.slug || !metadata?.handle) {
-      paintingLoadQueue.delete(code);
-      paintingLoadProgress.delete(code);
+      markFailed();
       return null;
     }
     
@@ -4271,8 +4291,7 @@ async function loadPaintingPreview(code, get, store) {
     return result;
   } catch (err) {
     console.warn(`Failed to load painting preview #${code}:`, err);
-    paintingLoadQueue.delete(code);
-    paintingLoadProgress.delete(code);
+    markFailed();
     return null;
   }
 }
