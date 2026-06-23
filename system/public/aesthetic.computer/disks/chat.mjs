@@ -210,7 +210,7 @@ let paintingLoadProgress = new Map(); // Track loading progress (0-1) for each p
 // flooding the network + console and locking up the whole chat. Failures stick
 // for the session; a reload clears them (so a fixed code can retry).
 let paintingFailedCache = new Set();
-const PAINTING_LOAD_MAX_ATTEMPTS = 2; // transient retries before giving up
+const PAINTING_LOAD_MAX_ATTEMPTS = 1; // bad slug/404/CORS won't recover — one try
 let paintingAttemptCounts = new Map();
 let paintingAnimations = new Map(); // Track Ken Burns animation state for each painting
 let modalPainting = null; // Track fullscreen modal painting { painting, code, metadata }
@@ -1350,7 +1350,7 @@ function paint(
       const code = message.layout.paintingCodes[codeIdx];
       const cached = paintingPreviewCache.get(code);
       
-      if (!cached && !paintingLoadQueue.has(code)) {
+      if (!cached && !paintingLoadQueue.has(code) && !paintingFailedCache.has(code)) {
         // Trigger async loading
         loadPaintingPreview(code, api.get, store).then(result => {
           if (result) {
@@ -1451,6 +1451,17 @@ function paint(
         
         // Reserve space for the painting preview
         previewX += previewSize + 4;
+      } else if (paintingFailedCache.has(code)) {
+        // 🚫 Broken/unavailable painting — a static placeholder instead of an
+        // endless spinner (the code failed to load: bad slug, 404, etc).
+        const bSize = 64;
+        ink(60, 40, 45, 200).box(previewX, previewY, bSize, bSize);
+        ink(120, 80, 85, 220).box(previewX, previewY, bSize, bSize, "outline");
+        // A small "broken image" mark: diagonal slash through a frame.
+        ink(150, 90, 95, 220)
+          .line(previewX + 8, previewY + 8, previewX + bSize - 8, previewY + bSize - 8);
+        ink(170, 110, 115).write("broken", { x: previewX + 14, y: previewY + bSize / 2 - 4 }, false, undefined, false, "MatrixChunky8");
+        previewX += bSize + 4;
       } else {
         // Show loading indicator only when NOT cached
         // Get loading progress (0-1)
@@ -4237,7 +4248,10 @@ async function loadPaintingPreview(code, get, store) {
     paintingLoadProgress.delete(code);
     const attempts = (paintingAttemptCounts.get(code) || 0) + 1;
     paintingAttemptCounts.set(code, attempts);
-    if (attempts >= PAINTING_LOAD_MAX_ATTEMPTS) paintingFailedCache.add(code);
+    if (attempts >= PAINTING_LOAD_MAX_ATTEMPTS) {
+      paintingFailedCache.add(code);
+      console.warn(`🚫 Painting #${code.replace(/^#/, "")} unavailable — giving up after ${attempts} tr${attempts === 1 ? "y" : "ies"}.`);
+    }
   };
 
   paintingLoadQueue.add(code);
@@ -4290,8 +4304,7 @@ async function loadPaintingPreview(code, get, store) {
     
     return result;
   } catch (err) {
-    console.warn(`Failed to load painting preview #${code}:`, err);
-    markFailed();
+    markFailed(); // logs once on final give-up
     return null;
   }
 }
