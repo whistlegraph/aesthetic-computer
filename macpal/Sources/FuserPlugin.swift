@@ -37,10 +37,12 @@ final class GhostView: NSView {
 final class MarqueeField: NSView {
     private let lead = CALayer()
     private let trail = CALayer()
+    private let fadeMask = CAGradientLayer()
     private var textW: CGFloat = 0
     private var textH: CGFloat = 0
     private let gap: CGFloat = 28
     private let speed: CGFloat = 26   // px/s
+    private let fadeW: CGFloat = 18   // edge fade margin when scrolling
 
     init() {
         super.init(frame: .zero)
@@ -48,6 +50,12 @@ final class MarqueeField: NSView {
         wantsLayer = true
         layer?.masksToBounds = true
         for l in [lead, trail] { l.anchorPoint = .zero; layer?.addSublayer(l) }
+        fadeMask.startPoint = CGPoint(x: 0, y: 0.5)
+        fadeMask.endPoint = CGPoint(x: 1, y: 0.5)
+        fadeMask.colors = [
+            CGColor(gray: 0, alpha: 0), CGColor(gray: 0, alpha: 1),
+            CGColor(gray: 0, alpha: 1), CGColor(gray: 0, alpha: 0),
+        ]
     }
     required init?(coder: NSCoder) { fatalError("no nib") }
 
@@ -81,8 +89,13 @@ final class MarqueeField: NSView {
         if textW <= bounds.width {
             trail.isHidden = true
             lead.position = CGPoint(x: (bounds.width - textW) / 2, y: y)
+            layer?.mask = nil
         } else {
             trail.isHidden = false
+            let f = bounds.width > 0 ? min(0.5, fadeW / bounds.width) : 0
+            fadeMask.frame = bounds
+            fadeMask.locations = [0, f as NSNumber, (1 - f) as NSNumber, 1]
+            layer?.mask = fadeMask
             let span = textW + gap
             lead.position = CGPoint(x: 0, y: y)
             trail.position = CGPoint(x: span, y: y)
@@ -493,10 +506,10 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
             ? CGFloat(overtimeLines.count) * 16 + 3 : 0
         let overtimeH: CGFloat = overtimeOn ? chipH + (queueH > 0 ? queueH + 4 : 0) : 0
         let statusY = base + off + (tasksH > 0 ? tasksH + 5 : 0)
-        let overtimeY = statusY + 18 + (overtimeH > 0 ? 4 : 0)
+        let overtimeY = statusY + 22 + (overtimeH > 0 ? 4 : 0)
 
         statusField.isHidden = false
-        statusField.frame = NSRect(x: 0, y: statusY, width: W, height: 18)
+        statusField.frame = NSRect(x: 0, y: statusY, width: W, height: 22)
         overtimeField.isHidden = queueH <= 0
         overtimeField.frame = NSRect(x: 6, y: overtimeY, width: W - 12, height: queueH)
         overtimeChip.isHidden = chipH <= 0
@@ -681,9 +694,9 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         else if sync.contains("ahead") { syncColor = hexColor(0xffd66b) }
         else if sync.contains("behind") { syncColor = hexColor(0xff6b6b) }
         else { syncColor = hexColor(0xa5b1bd) }
-        let f10 = monoFont(10)
+        let f13 = monoFont(13)
         func seg(_ s: String, _ col: NSColor) -> NSAttributedString {
-            NSAttributedString(string: s, attributes: [.font: f10, .foregroundColor: col])
+            NSAttributedString(string: s, attributes: [.font: f13, .foregroundColor: col])
         }
         let dim = NSColor.white.withAlphaComponent(0.55)
         let line = NSMutableAttributedString()
