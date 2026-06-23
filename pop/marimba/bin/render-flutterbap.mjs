@@ -96,6 +96,14 @@ const tb = (bar1, beat = 0) => t(bar1 - 1 + INTRO_BARS, beat);
 // natural micro-strum. Pass --robotic to disable. mulberry32 RNG keeps the
 // sequence identical run-to-run (the scheduling order is fixed).
 const HUMANIZE = !process.argv.includes("--robotic");
+// ── loop mode ──────────────────────────────────────────────────────────
+// --loop renders a seam-perfect loop: the file is trimmed to an exact whole
+// number of bars (so the downbeat lands on the loop point), the decay tail
+// that rings past the boundary is folded back onto the head (so the final
+// button + reverb continues into the next pass instead of being cut), and
+// the intro/outro fades are skipped (a fade would break the seam). Use the
+// .distrokid.wav for truly gapless playback — MP3 carries encoder padding.
+const LOOP = process.argv.includes("--loop");
 let _hs = 0x1a2b3c4d >>> 0;
 function hrand() {
   _hs = (_hs + 0x6d2b79f5) >>> 0;
@@ -491,20 +499,17 @@ BP(35, 0, N.C2, 3.0, 0.7, { decay: 1.1 });   // final low resolve
   mixHat({ startSec: t(38, 2), gain: 0.18, open: true }, caveBuf, { sampleRate: SR });
 }
 
-// ── SQUABBLE (abs 40–41): SQUEAK SCRATCH OUT SQUABBLE — the feral break.
-// dense kitten-screams + turntable scratches trading blows, DRY + up-front
-// so the squeaks bite, over a skeletal kick/hat groove. ──
-SCREAM(40, 0,   90, 0.55, { bend: 9,  rasp: 0.75, dur: 0.50 });  SC(40, 0.5, "scribble",  0.60, 52);
-SCREAM(40, 1,   85, 0.50, { bend: 11, rasp: 0.70, dur: 0.40 });  SC(40, 1.5, "transform", 0.62, 49);
-SCREAM(40, 2,   93, 0.56, { bend: 7,  rasp: 0.78, dur: 0.45 });  SC(40, 2.5, "chirp",     0.60, 55);
-SCREAM(40, 3,   88, 0.50, { bend: 10, rasp: 0.72, dur: 0.42 });  SC(40, 3.5, "scribble",  0.58, 50);
-SCREAM(41, 0,   95, 0.58, { bend: 8,  rasp: 0.80, dur: 0.50 });  SC(41, 0.5, "transform", 0.64, 48);
-SC(41, 1, "chirp", 0.60, 53);  SCREAM(41, 1.5, 84, 0.50, { bend: 12, rasp: 0.70, dur: 0.40 });
-SC(41, 2, "baby", 0.56, 50);   SC(41, 2.5, "scribble", 0.62, 56);
-SCREAM(41, 3,   91, 0.56, { bend: 9, rasp: 0.76, dur: 0.45 });
-for (const fb of [3, 3.25, 3.5, 3.75]) SNR(41, fb, 0.4 + (fb - 3) * 0.6);     // snare fill into the progression
-KICK(40, 0, 0.8); KICK(40, 2, 0.7); KICK(41, 0, 0.82); KICK(41, 2, 0.72);
-for (let e = 0; e < 8; e++) { HAT(40, e * 0.5, 0.2, { open: e === 7 }); HAT(41, e * 0.5, 0.22, { open: e === 7 }); }
+// ── SQUABBLE (abs 40–41): a light, playful squeak-and-scratch break.
+// Tamed from the old feral fight (dense, loud, dry shrieks): now just a
+// couple of soft kitten chirps trading with a scratch over a continuing
+// groove that cadences Am → G — vi → V leading cleanly into the C of the
+// progression. Musical and brief, not abrasive or abrupt. ──
+groove(40, 0, 0.8); groove(41, 1, 0.82);                          // groove keeps moving — no hole
+BP(40, 0, N.A1, 1.5, 0.7); BP(40, 2, N.A1, 1.0, 0.64);            // Am
+BP(41, 0, N.G1, 1.5, 0.72); BP(41, 2, N.G1, 1.0, 0.66);          // G (V into the progression's C)
+SCREAM(40, 1.5, 84, 0.30, { bend: 6, rasp: 0.45, dur: 0.34 });  SC(40, 2.5, "baby",  0.40, 52);
+SCREAM(41, 1.5, 88, 0.30, { bend: 7, rasp: 0.42, dur: 0.32 });  SC(41, 3,   "chirp", 0.40, 50);
+for (const fb of [3, 3.5]) SNR(41, fb, 0.4 + (fb - 3) * 0.4);     // soft fill into the progression
 
 // ── PROGRESSION (abs 42–45): a real chord progression walks it home.
 // C → G → Am → F (I–V–vi–IV); the button then resolves to C. Vibraphone
@@ -573,7 +578,7 @@ SCREAM(22, 2, 84, 0.4, { bend: 9, rasp: 0.6, dur: 0.45 });
 SCREAM(24, 0, 90, 0.5, { bend: 7, rasp: 0.72, dur: 0.5 });     // answer the fly soar
 SCREAM(27, 3.5, 86, 0.44, { bend: 10, rasp: 0.7, dur: 0.42 });
 SCREAM(30, 2.5, 93, 0.46, { bend: 6, rasp: 0.68, dur: 0.38 }); // high screech near the peak
-SCREAM(39, 0, 88, 0.5, { bend: 8, rasp: 0.75, dur: 0.6 });     // last cry on the button
+SCREAM(39, 0, 88, 0.38, { bend: 8, rasp: 0.55, dur: 0.5 });    // last soft cry out of the cave
 
 // ═══════════════════════════════════════════════════════════════════
 //  STEREO MIXDOWN
@@ -613,25 +618,47 @@ for (let i = 0; i < ns; i++) {
   if (!Number.isFinite(outR[i])) { outR[i] = 0; nan++; }
 }
 if (nan) console.warn(`     ! scrubbed ${nan} non-finite samples`);
+
+// ── loop fold ──────────────────────────────────────────────────────────
+// In --loop mode the file is an exact whole number of bars. Any tail that
+// rings past the loop boundary (final button + reverb) is folded back onto
+// the head so it continues seamlessly into the next pass. outN is the span
+// we keep + master + write.
+let outN = ns;
+if (LOOP) {
+  const loopN = Math.round(TOTAL_BARS * BAR * SR);
+  for (let i = loopN; i < ns; i++) {
+    const d = i - loopN;
+    if (d < loopN) { outL[d] += outL[i]; outR[d] += outR[i]; }
+  }
+  outN = loopN;
+}
+
 let peak = 0;
-for (let i = 0; i < ns; i++) {
+for (let i = 0; i < outN; i++) {
   const a = Math.abs(outL[i]); if (a > peak) peak = a;
   const b = Math.abs(outR[i]); if (b > peak) peak = b;
 }
-if (peak > 0) { const nrm = 0.84 / peak; for (let i = 0; i < ns; i++) { outL[i] *= nrm; outR[i] *= nrm; } }
+if (peak > 0) { const nrm = 0.84 / peak; for (let i = 0; i < outN; i++) { outL[i] *= nrm; outR[i] *= nrm; } }
 
-// trim trailing silence + tiny fades
-let lastLoud = ns - 1;
-while (lastLoud > 0 && Math.abs(outL[lastLoud]) < 0.004 && Math.abs(outR[lastLoud]) < 0.004) lastLoud--;
-const trimN = Math.min(ns, lastLoud + Math.floor(0.6 * SR));
-const fadeIn = Math.floor(0.004 * SR);
-const fadeOut = Math.floor(1.4 * SR);
-for (let i = 0; i < fadeIn && i < trimN; i++) { const g = i / fadeIn; outL[i] *= g; outR[i] *= g; }
-for (let i = 0; i < fadeOut && i < trimN; i++) {
-  const idx = trimN - 1 - i, g = i / fadeOut; outL[idx] *= g; outR[idx] *= g;
+let trimN;
+if (LOOP) {
+  // no trailing-silence trim, no fades — the seam must stay sample-accurate.
+  trimN = outN;
+} else {
+  // trim trailing silence + tiny fades
+  let lastLoud = outN - 1;
+  while (lastLoud > 0 && Math.abs(outL[lastLoud]) < 0.004 && Math.abs(outR[lastLoud]) < 0.004) lastLoud--;
+  trimN = Math.min(outN, lastLoud + Math.floor(0.6 * SR));
+  const fadeIn = Math.floor(0.004 * SR);
+  const fadeOut = Math.floor(1.4 * SR);
+  for (let i = 0; i < fadeIn && i < trimN; i++) { const g = i / fadeIn; outL[i] *= g; outR[i] *= g; }
+  for (let i = 0; i < fadeOut && i < trimN; i++) {
+    const idx = trimN - 1 - i, g = i / fadeOut; outL[idx] *= g; outR[idx] *= g;
+  }
 }
 
-console.log(`→ flutterbap · ${TOTAL_BARS} bars · C major 4/4 @ ${BPM} BPM · ${(trimN / SR).toFixed(1)} s · bass-perc kit · risers · scratches · kitten screams · swing=${SWING.toFixed(2)} · humanize=${HUMANIZE ? "on" : "off"}`);
+console.log(`→ flutterbap · ${TOTAL_BARS} bars · C major 4/4 @ ${BPM} BPM · ${(trimN / SR).toFixed(1)} s · bass-perc kit · risers · scratches · kitten screams · swing=${SWING.toFixed(2)} · humanize=${HUMANIZE ? "on" : "off"}${LOOP ? " · LOOP (seam-folded)" : ""}`);
 
 // ── write out ─────────────────────────────────────────────────────────
 function expandHome(p) {
@@ -640,7 +667,7 @@ function expandHome(p) {
   if (p.startsWith("~/")) return resolve(homedir(), p.slice(2));
   return p;
 }
-const outPath = expandHome(_argi("--out")) || resolve(HERE, "..", "out", "flutterbap.mp3");
+const outPath = expandHome(_argi("--out")) || resolve(HERE, "..", "out", LOOP ? "flutterbap-loop.mp3" : "flutterbap.mp3");
 mkdirSync(dirname(outPath), { recursive: true });
 const rawPath = `${outPath}.f32.raw`;
 const b = Buffer.alloc(trimN * 2 * 4);
