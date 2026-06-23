@@ -411,7 +411,8 @@ function scaleBitmapDown(api, bmp, maxDim) {
 // the bottom "Enter message" button shows.
 function insertIntoInput(str, send) {
   if (!input) return;
-  const cur = input.text || "";
+  let cur = input.text || "";
+  if (cur === "...") cur = ""; // ignore the empty call-to-action placeholder
   const sep = cur.length > 0 && !/\s$/.test(cur) ? " " : "";
   input.text = cur + sep + str;
   draftMessage = input.text;
@@ -433,7 +434,11 @@ async function attachImage(bitmap, api, send, handle) {
   try {
     api.notice?.("UPLOADING…", ["yellow", 0]);
     const img = scaleBitmapDown(api, bitmap, 1024);
-    const filename = `chat-${Date.now()}.png`;
+    // Must match the painting convention `painting-<dotted-timestamp>.png`
+    // (same as uploadPainting). The "painting-" prefix routes it into the
+    // /painting/ folder and the dotted timestamp becomes the stored slug, so
+    // the inline preview loader (get.painting(slug).by(handle)) can resolve it.
+    const filename = `painting-${api.num.timestamp()}.png`;
     const data = await api.upload(filename, {
       pixels: img.pixels,
       width: img.width || img.w,
