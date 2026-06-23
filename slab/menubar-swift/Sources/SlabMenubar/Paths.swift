@@ -39,6 +39,14 @@ enum Paths {
     static var asanaHelper: String { "\(slabBin)/asana" }
     static var asanaConfig: String { "\(home)/.config/slab/asana.json" }
 
+    /// Deploy-status bridge for the Deploy submenu. The watched repos and an
+    /// optional GitHub PAT live in the untracked config below (never in tracked
+    /// code) — same convention as asanaConfig. The helper reads Cloudflare
+    /// "Workers Builds" GitHub check-runs and prints a per-environment JSON
+    /// deploy summary (deployed / building / failing).
+    static var deployStatusHelper: String { "\(slabBin)/deploy-status" }
+    static var deployStatusConfig: String { "\(home)/.config/slab/deploy-status.json" }
+
     /// OVERTIME — autonomous task execution on machines armed as overtime
     /// workers. The flag file is shared with the desktop badge (right-click
     /// the avatar) and the worker LaunchAgent; the menubar is a third toggle

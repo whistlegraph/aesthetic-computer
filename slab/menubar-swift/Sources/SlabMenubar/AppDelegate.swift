@@ -73,6 +73,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var asanaTickCount = 29   // primed so the first tick loads tasks
     private var asanaPending = false
     private var asanaState = AsanaState()
+    /// Deploy status. Polled off-main on a slow cadence via the helper, which
+    /// reads Cloudflare "Workers Builds" GitHub check-runs. Repos + token live
+    /// only in the untracked deploy-status config (see slab-public-repo PII).
+    private var deployTickCount = 28   // offset from asana so polls don't collide
+    private var deployPending = false
+    private var deployState = DeployStatusState()
     private var state = StateSnapshot()
     private let passphraseServer = PassphraseServer()
     /// System-wide ⌘⌥T → re-tile claude terminals. Kept alive for the app's
@@ -246,6 +252,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     self.refreshAsana()
                 }
 
+                // Deploy status — changes on a merge cadence; poll ~every 30
+                // ticks via the helper (GitHub check-runs round-trip).
+                self.deployTickCount += 1
+                if self.deployTickCount >= 30 && !self.deployPending {
+                    self.deployTickCount = 0
+                    self.refreshDeploy()
+                }
+
                 // No menu rebuild here — it's lazy via menuNeedsUpdate(_:).
                 // Consume any "open this PDF / video" asks (tiny main-thread
                 // stats; see PdfViewer.swift / VideoViewer.swift contracts).
@@ -296,6 +310,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             imsgStatus: imsgStatus,
             imsgConfigured: imsgConfigured,
             asana: asanaState,
+            deploy: deployState,
             target: self
         )
     }
@@ -565,6 +580,81 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ShellRunner.runAsync(Paths.asanaHelper, args: ["config"])
         let path = Paths.asanaConfig
         // Give the helper a beat to drop the stub, then open in the editor.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            NSWorkspace.shared.open(URL(fileURLWithPath: path))
+        }
+    }
+
+    /// Pull deploy status off-main via `slab/bin/deploy-status status`. The
+    /// helper exits 0 with one JSON line: `{configured,label,target,envs:[…]}`
+    /// where each env carries its rolled-up state + per-worker apps. We decode
+    /// it into `deployState` for the lazy menu rebuild.
+    private func refreshDeploy() {
+        let helper = Paths.deployStatusHelper
+        guard FileManager.default.isExecutableFile(atPath: helper) else {
+            deployState = DeployStatusState(configured: false, label: "Deploy: helper missing")
+            return
+        }
+        deployPending = true
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let out = ShellRunner.run(helper, args: ["status"], timeout: 15).output
+            let line = out.split(separator: "\n").last.map(String.init) ?? ""
+            let parsed = Self.parseDeploy(line)
+            DispatchQueue.main.async {
+                self?.deployState = parsed
+                self?.deployPending = false
+            }
+        }
+    }
+
+    /// Decode one JSON status line into a DeployStatusState. Defensive: any
+    /// missing field collapses to an empty/unconfigured state, never throws.
+    private static func parseDeploy(_ line: String) -> DeployStatusState {
+        guard let data = line.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return DeployStatusState(configured: false, label: "Deploy: —") }
+        var s = DeployStatusState()
+        s.configured = (obj["configured"] as? Bool) ?? false
+        s.label = (obj["label"] as? String) ?? s.label
+        s.target = (obj["target"] as? String) ?? ""
+        s.url = (obj["url"] as? String) ?? ""
+        let envs = (obj["envs"] as? [[String: Any]]) ?? []
+        s.envs = envs.map { e in
+            let apps = (e["apps"] as? [[String: Any]]) ?? []
+            return DeployEnv(
+                env: (e["env"] as? String) ?? "?",
+                state: (e["state"] as? String) ?? "none",
+                sha: (e["sha"] as? String) ?? "",
+                message: (e["message"] as? String) ?? "",
+                apps: apps.map { a in
+                    DeployApp(
+                        name: (a["name"] as? String) ?? "?",
+                        state: (a["state"] as? String) ?? "none",
+                        url: (a["url"] as? String) ?? "")
+                },
+                url: (e["url"] as? String) ?? "")
+        }
+        return s
+    }
+
+    /// Force an immediate deploy re-poll from the submenu's "Refresh now".
+    @objc func refreshDeployNow() {
+        deployTickCount = 0
+        if !deployPending { refreshDeploy() }
+    }
+
+    /// Open the commit / build log carried on the item's representedObject
+    /// (falls back to the repo URL).
+    @objc func openDeploy(_ sender: NSMenuItem) {
+        let url = (sender.representedObject as? String) ?? deployState.url
+        guard !url.isEmpty, let u = URL(string: url) else { return }
+        NSWorkspace.shared.open(u)
+    }
+
+    /// Ensure the (untracked) deploy-status config exists, then open it.
+    @objc func openDeployConfig() {
+        ShellRunner.runAsync(Paths.deployStatusHelper, args: ["config"])
+        let path = Paths.deployStatusConfig
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             NSWorkspace.shared.open(URL(fileURLWithPath: path))
         }

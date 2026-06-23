@@ -94,6 +94,36 @@ struct AsanaState {
     var projects: [AsanaProject] = []
 }
 
+/// One deployed worker within an environment (e.g. `api` in staging).
+struct DeployApp {
+    var name: String
+    var state: String       // "deployed" | "building" | "failing"
+    var url: String = ""
+}
+
+/// One watched environment (e.g. staging→staging, production→main), rolled up
+/// from its Workers Builds check-runs on the branch tip.
+struct DeployEnv {
+    var env: String
+    var state: String = "none"   // deployed | building | failing | none | error
+    var sha: String = ""
+    var message: String = ""
+    var apps: [DeployApp] = []
+    var url: String = ""
+}
+
+/// Deploy status for the menubar, polled off-main via `slab/bin/deploy-status`
+/// (mirrors the Asana bridge). Watched repos + token come from the untracked
+/// config — nothing repo-specific lives in tracked code. Unconfigured machines
+/// show a one-line "set up" hint instead of the environment tree.
+struct DeployStatusState {
+    var configured: Bool = false
+    var label: String = "Deploy: —"   // menu parent title from the helper
+    var target: String = ""
+    var envs: [DeployEnv] = []
+    var url: String = ""
+}
+
 struct StateSnapshot {
     var lidClosed: Bool = false
     var sleepDisabled: Bool = false

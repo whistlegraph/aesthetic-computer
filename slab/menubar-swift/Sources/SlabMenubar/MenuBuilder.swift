@@ -7,6 +7,7 @@ enum MenuBuilder {
         imsgStatus: String,
         imsgConfigured: Bool,
         asana: AsanaState,
+        deploy: DeployStatusState,
         target: AppDelegate
     ) -> NSMenu {
         let menu = NSMenu()
@@ -17,6 +18,7 @@ enum MenuBuilder {
             imsgStatus: imsgStatus,
             imsgConfigured: imsgConfigured,
             asana: asana,
+            deploy: deploy,
             target: target
         )
         return menu
@@ -33,6 +35,7 @@ enum MenuBuilder {
         imsgStatus: String,
         imsgConfigured: Bool,
         asana: AsanaState,
+        deploy: DeployStatusState,
         target: AppDelegate
     ) {
         menu.removeAllItems()
@@ -51,6 +54,7 @@ enum MenuBuilder {
         menu.addItem(buildMail(status: mailStatus, target: target))
         menu.addItem(buildImsg(status: imsgStatus, configured: imsgConfigured, target: target))
         menu.addItem(buildAsana(state: asana, target: target))
+        menu.addItem(buildDeploy(state: deploy, target: target))
         appendOvertime(to: menu, target: target)
         menu.addItem(buildPdf(target: target))
         menu.addItem(buildVideo(target: target))
@@ -717,6 +721,102 @@ enum MenuBuilder {
                          selector: #selector(AppDelegate.openAsanaConfig), target: target))
         parent.submenu = sub
         return parent
+    }
+
+    /// Deploy submenu — a per-environment rollup of Cloudflare Workers Builds.
+    /// The parent title is the helper's glyph summary (e.g. "fuser ✓ staging
+    /// ✗ production"); each environment expands to its branch tip + per-worker
+    /// build states. Repo identity stays in the untracked config; an
+    /// unconfigured machine shows a one-line set-up hint.
+    private static func buildDeploy(state: DeployStatusState, target: AppDelegate) -> NSMenuItem {
+        let parent = NSMenuItem(title: state.label, action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        sub.autoenablesItems = false
+
+        if !state.configured {
+            sub.addItem(info("Not set up — add a repo + GitHub token:"))
+            sub.addItem(item("Edit deploy-status config",
+                             selector: #selector(AppDelegate.openDeployConfig), target: target))
+            parent.submenu = sub
+            return parent
+        }
+
+        if state.envs.isEmpty {
+            sub.addItem(info("No environments configured"))
+        } else {
+            for (i, env) in state.envs.enumerated() {
+                if i > 0 { sub.addItem(.separator()) }
+                sub.addItem(deployEnvItem(env, target: target))
+                for app in env.apps {
+                    sub.addItem(deployAppItem(app, target: target))
+                }
+            }
+        }
+
+        sub.addItem(.separator())
+        sub.addItem(item("Refresh now", selector: #selector(AppDelegate.refreshDeployNow), target: target))
+        sub.addItem(item("Edit deploy-status config",
+                         selector: #selector(AppDelegate.openDeployConfig), target: target))
+        parent.submenu = sub
+        return parent
+    }
+
+    /// Environment header: "<glyph> <env> <sha> — <message>", colored by state,
+    /// opening the branch-tip commit on click.
+    private static func deployEnvItem(_ env: DeployEnv, target: AppDelegate) -> NSMenuItem {
+        let sha = env.sha.isEmpty ? "" : " \(env.sha)"
+        let msg = env.message.isEmpty ? "" : " — \(env.message)"
+        let title = "\(deployGlyph(env.state)) \(env.env)\(sha)\(msg)"
+        let mi = NSMenuItem(title: title,
+                            action: #selector(AppDelegate.openDeploy(_:)),
+                            keyEquivalent: "")
+        mi.target = target
+        mi.isEnabled = !env.url.isEmpty
+        mi.representedObject = env.url
+        mi.attributedTitle = deployColored(title, state: env.state)
+        return mi
+    }
+
+    /// One worker row, indented and colored by state; opens its build log.
+    private static func deployAppItem(_ app: DeployApp, target: AppDelegate) -> NSMenuItem {
+        let title = "    \(deployGlyph(app.state)) \(app.name)"
+        let mi = NSMenuItem(title: title,
+                            action: #selector(AppDelegate.openDeploy(_:)),
+                            keyEquivalent: "")
+        mi.target = target
+        mi.isEnabled = !app.url.isEmpty
+        mi.representedObject = app.url
+        mi.attributedTitle = deployColored(title, state: app.state)
+        return mi
+    }
+
+    private static func deployGlyph(_ state: String) -> String {
+        switch state {
+        case "deployed": return "✓"
+        case "building": return "⏳"
+        case "failing":  return "✗"
+        case "error":    return "⚠"
+        default:         return "·"
+        }
+    }
+
+    /// Tint a whole row green/amber/red/orange by deploy state; unknown stays
+    /// default so failing workers jump out of the list.
+    private static func deployColored(_ title: String, state: String) -> NSAttributedString {
+        let attr = NSMutableAttributedString(string: title)
+        let color: NSColor?
+        switch state {
+        case "deployed": color = .systemGreen
+        case "building": color = .systemYellow
+        case "failing":  color = .systemRed
+        case "error":    color = .systemOrange
+        default:         color = nil
+        }
+        if let c = color {
+            attr.addAttribute(.foregroundColor, value: c,
+                              range: NSRange(location: 0, length: attr.length))
+        }
+        return attr
     }
 
     /// OVERTIME toggle — only on machines armed as overtime workers (the
