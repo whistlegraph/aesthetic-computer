@@ -1872,7 +1872,7 @@ function paint(
 
   // 📎 Attach (+) button — opens a little menu to post a photo (video soon).
   // Square, same height as the handle button, sitting just to its right.
-  const plusGap = 2;
+  const plusGap = 0; // flush against the handle button (shares its right border)
   const plusBtnW = btnH;
   const plusBtnX = handleBtn.btn.box.x + handleBtn.btn.box.w + plusGap;
   const plusBtnY = handleBtn.btn.box.y;
@@ -1883,7 +1883,12 @@ function paint(
     pen.y >= plusBtnY && pen.y < plusBtnY + plusBtnH;
   const plusActive = attachMenuOpen || plusOver;
   ink(...footerBg, 255).box(plusBtnX, plusBtnY, plusBtnW, plusBtnH);
-  ink(...breakColor).box(plusBtnX, plusBtnY, plusBtnW, plusBtnH, "outline");
+  // Borders: top, right, bottom only — no left edge (it would double the
+  // handle button's right border, like the send button to the right of it).
+  ink(...breakColor)
+    .line(plusBtnX, plusBtnY, plusBtnX + plusBtnW - 1, plusBtnY) // top
+    .line(plusBtnX + plusBtnW - 1, plusBtnY, plusBtnX + plusBtnW - 1, plusBtnY + plusBtnH - 1) // right
+    .line(plusBtnX, plusBtnY + plusBtnH - 1, plusBtnX + plusBtnW - 1, plusBtnY + plusBtnH - 1); // bottom
   {
     const plusInk = attachUploading
       ? [255, 200, 80]
