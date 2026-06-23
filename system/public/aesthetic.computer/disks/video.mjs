@@ -63,6 +63,13 @@ let tapeLoadPhase = ""; // download, frames, audio
 let tapeLoadProgress = 0; // 0-1
 let tapeLoadMessage = ""; // Status message
 
+// Video-backed tape (kind:"mp4") playback state. When true the clip plays via
+// a DOM <video> in the #underlay (managed by bios) rather than the frame path.
+let isMp4Tape = false;
+let mp4Playing = true; // best-effort autoplay starts playing
+let mp4Progress = 0; // 0-1, from bios tape:playback-progress
+let mp4BackBtn = null; // Back-to-chat/prompt button for MP4 tapes
+
 // Tape info from bios
 let tapeInfo = null; // { frameCount, totalDuration, hasAudio }
 const MAX_TAPE_DURATION = 30; // Must match server limit
@@ -236,7 +243,11 @@ function boot({ wipe, rec, gizmo, jump, notice, store, params, send, hud }) {
   scrubStripBtn = null;
   scrubMoved = false;
   scrubAudioSpeed = 1;
-  
+  isMp4Tape = false;
+  mp4Playing = true;
+  mp4Progress = 0;
+  mp4BackBtn = null;
+
   // Check if a tape code was passed (e.g., "video !abc")
   if (params[0] && params[0].startsWith("!")) {
     const tapeCode = params[0].substring(1); // Remove the "!" prefix
@@ -274,16 +285,46 @@ function boot({ wipe, rec, gizmo, jump, notice, store, params, send, hud }) {
         if (metadata.nuked) {
           throw new Error(`Tape !${tapeCode} has been deleted`);
         }
-        
+
+        // Branch on backing store. Video-backed tapes (kind:"mp4", e.g. posted
+        // camera-roll clips) play via a DOM <video>; frame-based tapes
+        // (kind:"zip", the default) keep the existing frame-extraction path.
+        if (metadata.kind === "mp4") {
+          isMp4Tape = true;
+          tapeLoadPhase = "download";
+          tapeLoadProgress = 0;
+          tapeLoadMessage = "LOADING VIDEO";
+
+          // /media/tapes/<code>.mp4 redirects to the stored clip (kind-aware
+          // route also resolves bare <code>, but the explicit ext is safest).
+          const mp4Url = `${location.origin}/media/tapes/${tapeCode}.mp4`;
+
+          console.log("📼 Requesting MP4 tape playback from bios:", mp4Url);
+          send({
+            type: "tape:play-mp4",
+            content: { code: tapeCode, mp4Url, metadata },
+          });
+
+          // No frame download to track — clear the loading overlay shortly.
+          setTimeout(() => {
+            isLoadingTape = false;
+            tapeLoadPhase = "";
+            tapeLoadProgress = 0;
+            tapeLoadMessage = "";
+            requestPaint();
+          }, 300);
+          return;
+        }
+
         tapeLoadPhase = "download";
         tapeLoadProgress = 0;
         tapeLoadMessage = "DOWNLOADING ZIP";
-        
+
         // Use /media endpoint which handles tape resolution via code
         const zipUrl = `${location.origin}/media/tapes/${tapeCode}`;
-        
+
         console.log("📦 Requesting tape playback from bios:", zipUrl);
-        
+
         // Request bios to load and play the tape
         send({
           type: "tape:play",
@@ -368,6 +409,30 @@ function paint({
       const mr = p[mid], mg = p[mid+1], mb = p[mid+2], ma = p[mid+3];
       console.log(`🎬 VIDEO paint #${_pc}: buf=${p.length} (${screen.width}×${screen.height}) corner=[${r},${g},${b},${a}] mid=[${mr},${mg},${mb},${ma}]`);
     }
+  }
+
+  // 📼 Video-backed tape (kind:"mp4"): the clip plays in the DOM <video>
+  // underlay, so here we just draw the lightweight overlay — a pause glyph
+  // when paused, a thin progress bar, and a Back button. No frame UI.
+  if (isMp4Tape) {
+    if (!mp4Playing) {
+      ink(255, 200).write("||", { center: "xy" });
+      ink(255, 75).box(0, 0, screen.width, screen.height, "inline");
+    }
+    // Thin progress bar along the bottom.
+    const barH = 2;
+    const barY = screen.height - barH;
+    ink(255, 40).box(0, barY, screen.width, barH);
+    ink(255, 200, 0).box(0, barY, Math.floor(mp4Progress * screen.width), barH);
+
+    if (!mp4BackBtn) {
+      mp4BackBtn = new ui.TextButton("Back", { left: 6, bottom: 6, screen });
+    }
+    mp4BackBtn.reposition({ left: 6, bottom: 6, screen }, "Back");
+    mp4BackBtn.paint(api);
+
+    if (postedTapeCode) hud.label(`!${postedTapeCode}`);
+    return true;
   }
 
   if (presenting && !playing && !isPrinting) {
@@ -793,6 +858,30 @@ function act({
   // Handle system messages first
   if (handleSystemMessage({ event: e, rec, needsPaint, jump })) {
     return; // Exit early if a system message was handled
+  }
+
+  // 📼 Video-backed tape (kind:"mp4") input: Back button exits, a tap
+  // anywhere else toggles the DOM <video> play/pause (also satisfies the
+  // user-gesture requirement if autoplay was blocked).
+  if (isMp4Tape) {
+    if (mp4BackBtn) {
+      let handledBack = false;
+      mp4BackBtn.act(e, {
+        push: () => {
+          handledBack = true;
+          synth({ type: "sine", tone: 700, attack: 0.1, decay: 0.5, volume: 0.5, duration: 0.005 });
+          send({ type: "tape:stop" });
+          jump("prompt");
+        },
+      });
+      if (handledBack) return;
+      if (mp4BackBtn.down) return; // Swallow the press that's on the button.
+    }
+    if (e.is("touch")) {
+      send({ type: "tape:toggle-play-mp4" });
+      triggerRender();
+    }
+    return;
   }
 
   if (!rec.presenting && (isScrubbing || inertiaActive)) {
@@ -2157,6 +2246,32 @@ function receive(e) {
     return true;
   }
 
+  // 📼 MP4-tape playback callbacks (kind:"mp4" video-backed tapes).
+  if (e.is("tape:mp4-ready")) {
+    isMp4Tape = true;
+    mp4Playing = true;
+    requestPaint();
+    return true;
+  }
+  if (e.is("tape:mp4-playing")) {
+    mp4Playing = true;
+    requestPaint();
+    return true;
+  }
+  if (e.is("tape:mp4-paused")) {
+    mp4Playing = false;
+    requestPaint();
+    return true;
+  }
+  if (e.is("tape:playback-progress") && isMp4Tape) {
+    const p = e.content?.progress;
+    if (typeof p === "number") {
+      mp4Progress = p;
+      requestPaint();
+    }
+    return true;
+  }
+
   // Handle AudioContext state updates from BIOS
   if (e.is("tape:audio-context-state")) {
     console.log("🎵 ✅ Video piece received AudioContext state:", e.content);
@@ -2438,6 +2553,8 @@ function leave({ send }) {
   scrubStripBtn = null;
   scrubMoved = false;
   scrubAudioSpeed = 1;
+  isMp4Tape = false;
+  mp4BackBtn = null;
   
   // Stop any playing tape audio/video
   send({ type: "tape:audio-shift", content: 0 });

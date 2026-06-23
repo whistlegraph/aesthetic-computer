@@ -240,6 +240,8 @@ let youtubeModalOpen = false; // Track if YouTube modal is open
 let youtubeModalVideoId = null; // Current video in modal
 let domApi = null; // Store dom API reference for modal
 let jumpApi = null; // Store jump reference for iOS external-link fallback
+let sendApi = null; // Store send reference (used by receive() for tape callbacks)
+let noticeApi = null; // Store notice reference (used by receive() for tape callbacks)
 let netPreload = null; // Store net.preload reference for YouTube loading
 let globalYoutubeThumbCache = null;
 
@@ -472,6 +474,43 @@ async function attachImage(bitmap, api, send, handle) {
   }
 }
 
+const MAX_TAPE_DURATION = 30; // seconds — must match the server cap.
+
+// 📎 Upload a picked camera-roll clip as an MP4-backed !tape and drop its
+// !code into the input. Mirrors attachImage, but the clip bytes are posted
+// straight through the tape pipeline (no frame/zip step). The track-tape
+// mint happens in bios; we await its `chat:video-tape:posted` /
+// `tape:post-error` callbacks in receive() to finish (insert code / show error).
+async function attachVideo(file, api, send, handle) {
+  if (!file || file.kind !== "video" || !file.data || attachUploading) return;
+  if (!handle?.()) {
+    api.notice?.("NO HANDLE", ["red", "yellow"]);
+    return;
+  }
+  if ((file.duration || 0) > MAX_TAPE_DURATION) {
+    api.notice?.(`VIDEO TOO LONG (MAX ${MAX_TAPE_DURATION}s)`, ["red", "yellow"]);
+    return;
+  }
+  attachUploading = true;
+  try {
+    api.notice?.("UPLOADING…", ["yellow", 0]);
+    send({
+      type: "upload-video-tape",
+      content: {
+        data: file.data,
+        mime: file.mime,
+        duration: file.duration,
+        callback: "chat:video-tape:posted",
+      },
+    });
+    // attachUploading clears in receive() when the callback arrives.
+  } catch (err) {
+    console.error("📎 attachVideo failed:", err);
+    api.notice?.("UPLOAD ERROR", ["red", "yellow"]);
+    attachUploading = false;
+  }
+}
+
 async function boot(
   {
     api,
@@ -497,6 +536,10 @@ async function boot(
 ) {
   // Clear handle colors cache on each boot so edits are picked up.
   handleColorsCache.clear();
+
+  // Capture send/notice for receive() (tape upload callbacks land there).
+  sendApi = send;
+  noticeApi = notice;
 
   // Store dom API reference for YouTube modal
   domApi = dom;
@@ -1907,7 +1950,7 @@ function paint(
   if (attachMenuOpen) {
     const items = [
       { key: "photo", label: "photo", enabled: true },
-      { key: "video", label: "video soon", enabled: false },
+      { key: "video", label: "video", enabled: true },
     ];
     const itemH = 16;
     const panelW = 96;
@@ -2391,6 +2434,9 @@ function paint(
     if (type === "url") {
       actionLabel = "Open URL?";
       actionColor = [120, 200, 255]; // Cyan for URLs
+    } else if (type === "tape") {
+      actionLabel = "Play tape?";
+      actionColor = [255, 120, 200]; // Pink for tapes
     } else if (type === "handle") {
       actionLabel = "Go to profile?";
       actionColor = [255, 150, 200]; // Pink for handles
@@ -2637,6 +2683,7 @@ function act(
 
   // 📺 Capture `jump` for the iOS YouTube fallback (opens links externally).
   jumpApi = jump;
+  sendApi = send;
 
   // 📺 YouTube modal swallows all chat interaction while it is open.
   // The overlay lives in the DOM on the main thread and reports its own
@@ -2654,6 +2701,10 @@ function act(
     if (e.painting) attachImage(e.painting, api, send, handle);
     return;
   }
+
+  // 📎 Video-tape upload result is delivered to receive() (not act), because
+  // the bios→piece routing for these custom types lands on the piece's
+  // receive function — see chat's receive() below.
 
   // 📎 Attach (+) button — toggle the photo/video menu.
   if ((e.is("touch") || e.is("lift")) && attachBtnBounds && e.x !== undefined) {
@@ -2685,9 +2736,16 @@ function act(
               if (err && err !== "No file was selected!")
                 console.warn("📎 photo pick cancelled/failed:", err);
             });
-        } else if (item.key === "video") {
-          // Phase 2: camera-roll video → !tape (reuses the tape pipeline).
-          api.notice?.("VIDEO COMING SOON", ["yellow", 0]);
+        } else if (item.key === "video" && item.enabled) {
+          // Camera-roll video → MP4-backed !tape (reuses the tape pipeline).
+          // api.file({ mode:"video" }) opens the native picker and resolves
+          // with { kind:"video", data, mime, name, duration }.
+          api.file?.({ mode: "video" })
+            .then((file) => attachVideo(file, api, send, handle))
+            .catch((err) => {
+              if (err && err !== "No file was selected!")
+                console.warn("📎 video pick cancelled/failed:", err);
+            });
         }
         return;
       }
@@ -3358,6 +3416,21 @@ function act(
                 break;
               } else if (element.type === "url") {
                 beep();
+                // `!code` tokens are tapes, not external URLs — open them in
+                // the video player (matches tapes.mjs: jump(`video~!${id}`)).
+                // The chat-highlighting parser tags tapes as "url" so they
+                // share link rendering; we branch here on the "!" prefix.
+                if (element.text.startsWith("!")) {
+                  const tapeCode = element.text.slice(1);
+                  linkConfirmModal = {
+                    type: "tape",
+                    text: element.text,
+                    displayText: element.text,
+                    description: "Play this tape",
+                    action: () => jump(`video~!${tapeCode}`)
+                  };
+                  break;
+                }
                 // Show confirmation modal for external URL
                 linkConfirmModal = {
                   type: "url",
@@ -4051,6 +4124,29 @@ function sim({ api, num, send, net, store }) {
 
 // 📻 Handle BIOS messages for radio streaming
 function receive({ type, content }) {
+  // 📎 Camera-roll clip → !tape upload result. The bios mints the code via
+  // track-tape and fires this back; insert !code like the photo path inserts
+  // #code. (Handled here, not in act, because bios→piece routing for these
+  // custom types lands on the piece's receive function.)
+  if (type === "chat:video-tape:posted") {
+    attachUploading = false;
+    const code = content?.code;
+    if (code) {
+      insertIntoInput(`!${code}`, sendApi);
+      noticeApi?.("ATTACHED");
+    } else {
+      noticeApi?.("UPLOAD ERROR", ["red", "yellow"]);
+    }
+    return;
+  }
+  if (type === "tape:post-error") {
+    if (attachUploading) {
+      attachUploading = false;
+      noticeApi?.("UPLOAD ERROR", ["red", "yellow"]);
+    }
+    return;
+  }
+
   if (!r8dioEnabled) return;
   const streamId = radioConfig().streamId;
   if (content?.id !== streamId) return;
