@@ -155,11 +155,14 @@ export async function handler(event, context) {
           record.nuked = false;
           record.kind = body.ext === "mp4" ? "mp4" : "zip";
           if (body.ext === "mp4") {
-            // ac-native produced an already-baked MP4. Skip the oven step
-            // and mark as complete. mp4Url is computed below after the
-            // S3 key is known, since user vs guest path differs.
+            // An already-baked MP4 (ac-native recorder, or a posted
+            // camera-roll clip). Skip the oven step and mark complete. mp4Url
+            // is computed below after the S3 key is known (user vs guest path
+            // differs). `source` distinguishes origin ("ac-native" default,
+            // "camera-roll" for chat uploads) — clients reading the tapes
+            // collection don't otherwise need to know.
             record.mp4Status = "complete";
-            record.source = "ac-native";
+            record.source = body.metadata?.source || "ac-native";
           } else {
             record.mp4Status = "pending"; // Oven will convert the zip
           }
@@ -200,6 +203,18 @@ export async function handler(event, context) {
         // Handle tapes differently - send to oven for async processing
         if (type === 'tapes') {
           const tapeExt = body.ext; // "zip" or "mp4"
+
+          // Use the actual upload key (NO /video/ subdirectory for tapes).
+          // ZIP/MP4 tapes from web AC arrive with a fully-qualified slug
+          // ("{sub}/{ts}" — the presigned pipeline returns the storage key as
+          // the slug), while ac-native sends a bare slug. Only prepend the user
+          // prefix when it isn't already there, otherwise we double it and the
+          // ACL/URL miss the real object. Shared by the ACL command and the
+          // direct S3 URL below.
+          const tapeKey = user
+            ? (slug.startsWith(`${user.sub}/`) ? `${slug}.${tapeExt}` : `${user.sub}/${slug}.${tapeExt}`)
+            : `${slug}.${tapeExt}`;
+
           // Make the uploaded tape publicly readable
           try {
             const s3Client = new S3Client({
@@ -211,19 +226,14 @@ export async function handler(event, context) {
               },
             });
 
-            // Use the actual upload key (NO /video/ subdirectory for tapes)
-            // ZIP tapes from web AC: "{sub}/{slug}.zip"
-            // MP4 tapes from ac-native: "{sub}/{slug}.mp4"
-            const aclKey = user ? `${user.sub}/${slug}.${tapeExt}` : `${slug}.${tapeExt}`;
-            
             const aclCommand = new PutObjectAclCommand({
               Bucket: record.bucket,
-              Key: aclKey,
+              Key: tapeKey,
               ACL: "public-read",
             });
             
             await s3Client.send(aclCommand);
-            console.log(`✅ Set public-read ACL for ${record.bucket}/${aclKey}`);
+            console.log(`✅ Set public-read ACL for ${record.bucket}/${tapeKey}`);
             
             // Small delay to allow ACL propagation
             await new Promise(resolve => setTimeout(resolve, 500));
@@ -240,9 +250,9 @@ export async function handler(event, context) {
           const isDev = process.env.CONTEXT === 'dev' || process.env.NODE_ENV === 'development';
           const baseUrl = isDev ? 'https://localhost:8888' : (process.env.URL || 'https://aesthetic.computer');
 
-          // Generate direct S3 URL instead of going through /media redirect
-          const key = user ? `${user.sub}/${slug}.${tapeExt}` : `${slug}.${tapeExt}`;
-          const zipUrl = `https://${record.bucket}.sfo3.digitaloceanspaces.com/${key}`;
+          // Generate direct S3 URL instead of going through /media redirect.
+          // Reuse the deduped tape key computed above.
+          const zipUrl = `https://${record.bucket}.sfo3.digitaloceanspaces.com/${tapeKey}`;
 
           // MP4 tapes from ac-native are already baked — no oven step needed.
           // Patch the record with mp4Url + complete status, fire an ATProto

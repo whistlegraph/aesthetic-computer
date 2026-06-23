@@ -924,7 +924,14 @@ app.all("/media/*rest", async (req, res) => {
         const tape = JSON.parse(result.body);
         const bucket = tape.bucket || "art-aesthetic-computer";
         const ext = reqExt || (tape.kind === "mp4" ? "mp4" : "zip");
-        const key = tape.user ? `${tape.user}/${tape.slug}.${ext}` : `${tape.slug}.${ext}`;
+        const slug = tape.slug;
+        // Slug may already be fully-qualified (e.g. "auth0|.../TS" when the
+        // upload pipeline returned the storage key as the slug). Only prepend
+        // the user prefix when it's a bare slug, otherwise we double the
+        // prefix and 404. Mirrors the /media/paintings/ dedup above.
+        const key = tape.user && !slug.startsWith(`${tape.user}/`)
+          ? `${tape.user}/${slug}.${ext}`
+          : `${slug}.${ext}`;
         return res.redirect(302, `https://${bucket}.sfo3.digitaloceanspaces.com/${key}`);
       }
     } catch {}
