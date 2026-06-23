@@ -78,14 +78,33 @@ function writeStub() {
   }
 }
 
+// Ask the GitHub CLI for a token. The menubar spawns us under launchd's
+// minimal PATH (no Homebrew/fnm shims), so `gh` won't be on PATH — resolve it
+// at the usual absolute locations, mirroring the wrapper's node lookup.
+function ghToken() {
+  const candidates = [
+    "gh",
+    "/opt/homebrew/bin/gh",
+    "/usr/local/bin/gh",
+    `${HOME}/.local/bin/gh`,
+  ];
+  for (const bin of candidates) {
+    try {
+      const r = spawnSync(bin, ["auth", "token"], { encoding: "utf8" });
+      if (r.status === 0 && r.stdout.trim()) return r.stdout.trim();
+    } catch {
+      // try the next candidate
+    }
+  }
+  return null;
+}
+
 // Token precedence: config → env → `gh auth token` (CLI sign-in).
 function resolveToken(cfg) {
   if (cfg?.token && !/REPLACE_ME/.test(cfg.token)) return cfg.token;
   if (process.env.GH_TOKEN) return process.env.GH_TOKEN;
   if (process.env.GITHUB_TOKEN) return process.env.GITHUB_TOKEN;
-  const r = spawnSync("gh", ["auth", "token"], { encoding: "utf8" });
-  if (r.status === 0) return r.stdout.trim();
-  return null;
+  return ghToken();
 }
 
 // ─── GitHub REST ───────────────────────────────────────────────────────────
