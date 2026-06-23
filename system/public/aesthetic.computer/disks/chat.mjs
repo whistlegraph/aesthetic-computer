@@ -210,6 +210,15 @@ let modalPainting = null; // Track fullscreen modal painting { painting, code, m
 let modalJustOpened = false; // Prevent closing modal on the same click that opened it
 let draftMessage = ""; // Store draft message text persistently
 
+// 📎 Attach (+) menu — post a photo (#painting) now; video (!tape) is Phase 2.
+// The button lives in the bottom bar between the handle button and the message
+// field, the spot every chat app trains people to look for "add".
+let attachMenuOpen = false;
+let attachBtnBounds = null; // + button hit box
+let attachMenuPanelBounds = null; // open-menu panel hit box
+let attachMenuItemBounds = []; // per-item hit boxes
+let attachUploading = false; // guard against overlapping uploads
+
 // 📺 YouTube preview system
 let youtubePreviewCache = new Map(); // Store loaded YouTube thumbnails
 let youtubeLoadQueue = new Set(); // Track which videos are being loaded
@@ -381,6 +390,67 @@ function buildScaledPreview(imageData, targetW, targetH, api) {
   return api.painting(targetW, targetH, (p) => {
     p.paste(imageData, floor(offsetX), floor(offsetY), scaleFactor);
   });
+}
+
+// 📎 Downscale a bitmap so its longest side is <= maxDim. Keeps the upload and
+// the inline chat preview small (phone photos are huge). Returns the original
+// when it already fits.
+function scaleBitmapDown(api, bmp, maxDim) {
+  const w = bmp.width || bmp.w || 0;
+  const h = bmp.height || bmp.h || 0;
+  if (!w || !h || (w <= maxDim && h <= maxDim)) return bmp;
+  const scale = Math.min(maxDim / w, maxDim / h);
+  const nw = max(1, floor(w * scale));
+  const nh = max(1, floor(h * scale));
+  return api.painting(nw, nh, (p) => p.paste(bmp, 0, 0, scale)) || bmp;
+}
+
+// 📎 Append text (e.g. a "#code") to the chat input as a pending draft so the
+// user can add a caption before sending. Mirrors the @handle autocomplete
+// insert path (set text → snap → keyboard:text:replace) and updates the draft
+// the bottom "Enter message" button shows.
+function insertIntoInput(str, send) {
+  if (!input) return;
+  const cur = input.text || "";
+  const sep = cur.length > 0 && !/\s$/.test(cur) ? " " : "";
+  input.text = cur + sep + str;
+  draftMessage = input.text;
+  input.addUserText?.(input.text);
+  input.snap?.();
+  send?.({ type: "keyboard:text:replace", content: { text: input.text } });
+}
+
+// 📎 Upload a picked/dropped bitmap as a painting and drop its #code into the
+// input. Reuses the same pipeline as print/mug (api.upload → track-media short
+// code), which the chat already renders inline as a 64px preview.
+async function attachImage(bitmap, api, send, handle) {
+  if (!bitmap || !bitmap.pixels || attachUploading) return;
+  if (!handle?.()) {
+    api.notice?.("NO HANDLE", ["red", "yellow"]);
+    return;
+  }
+  attachUploading = true;
+  try {
+    api.notice?.("UPLOADING…", ["yellow", 0]);
+    const img = scaleBitmapDown(api, bitmap, 1024);
+    const filename = `chat-${Date.now()}.png`;
+    const data = await api.upload(filename, {
+      pixels: img.pixels,
+      width: img.width || img.w,
+      height: img.height || img.h,
+    });
+    if (data?.code) {
+      insertIntoInput(`#${data.code}`, send);
+      api.notice?.("ATTACHED");
+    } else {
+      api.notice?.("UPLOAD ERROR", ["red", "yellow"]);
+    }
+  } catch (err) {
+    console.error("📎 attachImage failed:", err);
+    api.notice?.("UPLOAD ERROR", ["red", "yellow"]);
+  } finally {
+    attachUploading = false;
+  }
 }
 
 async function boot(
@@ -1765,15 +1835,74 @@ function paint(
   
   ink(btnScheme[0]).box(handleBtn.btn.box, "fill");
   ink(btnScheme[1]).box(handleBtn.btn.box, "outline");
-  ink(btnScheme[2]).write(handleBtn.text, { 
-    x: handleBtnX + btnGap, 
-    y: handleBtnY + btnGap 
+  ink(btnScheme[2]).write(handleBtn.text, {
+    x: handleBtnX + btnGap,
+    y: handleBtnY + btnGap
   }, btnScheme[3], undefined, false, selectedTypeface);
+
+  // 📎 Attach (+) button — opens a little menu to post a photo (video soon).
+  // Square, same height as the handle button, sitting just to its right.
+  const plusGap = 2;
+  const plusBtnW = btnH;
+  const plusBtnX = handleBtn.btn.box.x + handleBtn.btn.box.w + plusGap;
+  const plusBtnY = handleBtn.btn.box.y;
+  const plusBtnH = btnH;
+  attachBtnBounds = { x: plusBtnX, y: plusBtnY, w: plusBtnW, h: plusBtnH };
+  const plusOver =
+    pen && pen.x >= plusBtnX && pen.x < plusBtnX + plusBtnW &&
+    pen.y >= plusBtnY && pen.y < plusBtnY + plusBtnH;
+  const plusActive = attachMenuOpen || plusOver;
+  ink(...footerBg, 255).box(plusBtnX, plusBtnY, plusBtnW, plusBtnH);
+  ink(...breakColor).box(plusBtnX, plusBtnY, plusBtnW, plusBtnH, "outline");
+  {
+    const plusInk = attachUploading
+      ? [255, 200, 80]
+      : plusActive
+        ? "yellow"
+        : (Array.isArray(theme.prompt) ? theme.prompt : [255, 255, 255]);
+    const glyph = attachUploading ? "…" : "+";
+    const gw = text.width(glyph, selectedTypeface);
+    ink(plusInk).write(glyph, {
+      x: plusBtnX + max(0, floor((plusBtnW - gw) / 2)),
+      y: plusBtnY + btnGap,
+    }, false, undefined, false, selectedTypeface);
+  }
+
+  // 📎 Attach menu panel (drops UP from the + button) when open.
+  if (attachMenuOpen) {
+    const items = [
+      { key: "photo", label: "photo", enabled: true },
+      { key: "video", label: "video soon", enabled: false },
+    ];
+    const itemH = 16;
+    const panelW = 96;
+    const panelH = items.length * itemH + 8;
+    const panelX = plusBtnX;
+    const panelY = max(topMargin, plusBtnY - panelH - 3);
+    attachMenuPanelBounds = { x: panelX, y: panelY, w: panelW, h: panelH };
+    attachMenuItemBounds = [];
+    ink(20, 16, 28, 240).box(panelX, panelY, panelW, panelH);
+    ink(...breakColor).box(panelX, panelY, panelW, panelH, "outline");
+    items.forEach((it, i) => {
+      const itemX = panelX + 4;
+      const itemY = panelY + 4 + i * itemH;
+      const itemW = panelW - 8;
+      const itemHH = itemH - 2;
+      attachMenuItemBounds.push({ x: itemX, y: itemY, w: itemW, h: itemHH, key: it.key, enabled: it.enabled });
+      const over = pen && pen.x >= itemX && pen.x < itemX + itemW && pen.y >= itemY && pen.y < itemY + itemHH;
+      if (over && it.enabled) ink(50, 45, 70).box(itemX, itemY, itemW, itemHH);
+      const labelInk = !it.enabled ? [120, 120, 130] : (over ? "yellow" : [210, 210, 220]);
+      ink(labelInk).write(it.label, { x: itemX + 3, y: itemY + 4 }, false, undefined, false, "MatrixChunky8");
+    });
+  } else {
+    attachMenuPanelBounds = null;
+    attachMenuItemBounds = [];
+  }
 
   // Draw "Enter message" button with visible border - 3px taller than handle button
   const gapWidth = 1; // 1px gap between buttons
-  
-  const inputBtnX = handleBtn.btn.box.x + handleBtn.btn.box.w + gapWidth;
+
+  const inputBtnX = plusBtnX + plusBtnW + gapWidth;
   const inputBtnWidth = screen.width - inputBtnX - 5; // 1px less width on right side
   const inputBtnHeight = handleBtn.btn.box.h + 2; // 2px taller than handle button (was +3)
   
@@ -2460,7 +2589,73 @@ function act(
     return;
   }
   if (youtubeModalOpen) return;
-  
+
+  // 📎 Dropped image (desktop drag-drop) → upload + insert its #code.
+  if (e.is("dropped:bitmap")) {
+    if (e.painting) attachImage(e.painting, api, send, handle);
+    return;
+  }
+
+  // 📎 Attach (+) button — toggle the photo/video menu.
+  if ((e.is("touch") || e.is("lift")) && attachBtnBounds && e.x !== undefined) {
+    const inBtn =
+      e.x >= attachBtnBounds.x && e.x < attachBtnBounds.x + attachBtnBounds.w &&
+      e.y >= attachBtnBounds.y && e.y < attachBtnBounds.y + attachBtnBounds.h;
+    if (inBtn && e.is("lift")) {
+      beep();
+      attachMenuOpen = !attachMenuOpen;
+      return;
+    }
+  }
+
+  // 📎 Attach menu — item selection + tap-outside-to-close.
+  if (attachMenuOpen && (e.is("touch") || e.is("lift")) && e.x !== undefined) {
+    for (const item of attachMenuItemBounds) {
+      const inItem =
+        e.x >= item.x && e.x < item.x + item.w &&
+        e.y >= item.y && e.y < item.y + item.h;
+      if (inItem && e.is("lift")) {
+        beep();
+        attachMenuOpen = false;
+        if (item.key === "photo" && item.enabled) {
+          // api.file() opens the native picker (camera + photo library on
+          // mobile) and resolves to a bitmap.
+          api.file?.()
+            .then((bmp) => attachImage(bmp, api, send, handle))
+            .catch((err) => {
+              if (err && err !== "No file was selected!")
+                console.warn("📎 photo pick cancelled/failed:", err);
+            });
+        } else if (item.key === "video") {
+          // Phase 2: camera-roll video → !tape (reuses the tape pipeline).
+          api.notice?.("VIDEO COMING SOON", ["yellow", 0]);
+        }
+        return;
+      }
+    }
+    if (e.is("lift")) {
+      const inPanel =
+        attachMenuPanelBounds &&
+        e.x >= attachMenuPanelBounds.x && e.x < attachMenuPanelBounds.x + attachMenuPanelBounds.w &&
+        e.y >= attachMenuPanelBounds.y && e.y < attachMenuPanelBounds.y + attachMenuPanelBounds.h;
+      const inBtn =
+        attachBtnBounds &&
+        e.x >= attachBtnBounds.x && e.x < attachBtnBounds.x + attachBtnBounds.w &&
+        e.y >= attachBtnBounds.y && e.y < attachBtnBounds.y + attachBtnBounds.h;
+      if (!inPanel && !inBtn) {
+        attachMenuOpen = false;
+        return;
+      }
+    }
+  }
+
+  // 📎 Escape closes the attach menu.
+  if (attachMenuOpen && e.is("keyboard:down:escape")) {
+    attachMenuOpen = false;
+    return;
+  }
+
+
   // 📰 News ticker interaction (hover + click)
   if (newsTickerBounds && pen && !linkConfirmModal && !messageCopyModal && !modalPainting) {
     const inBounds = pen.x >= newsTickerBounds.x && pen.x < newsTickerBounds.x + newsTickerBounds.w &&
