@@ -4294,9 +4294,14 @@ async function loadPaintingPreview(code, get, store) {
     }
     
     paintingLoadProgress.set(code, 0.6); // 60% - starting image load
-    
-    // Load the painting
-    const got = await get.painting(metadata.slug).by(metadata.handle);
+
+    // Load the painting BY ITS SHORT CODE, not the stored slug. The slug from
+    // painting-code is the full storage key (e.g. "auth0|…/painting/<ts>"),
+    // which get.painting would turn into /media/paintings/<full-slug>.png — a
+    // path the /media route can't resolve (it reads one segment as the code) →
+    // 404. The code endpoint /media/paintings/<code>.png resolves correctly
+    // (get-painting handles the fully-qualified slug server-side).
+    const got = await get.painting(normalized).by(metadata.handle);
     const painting = got.img;
     
     paintingLoadProgress.set(code, 0.9); // 90% - image loaded
