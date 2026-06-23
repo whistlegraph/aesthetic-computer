@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 25 25">
+    <!-- black shadow layer (offset +1,+1 to match precise.svg) -->
+    <circle cx="13" cy="13" r="6.5" fill="none" stroke="black" stroke-width="3" />
+    <circle cx="13" cy="13" r="2.5" fill="black" />
+    <!-- cyan "active" reticle ring + white center dot -->
+    <circle cx="12" cy="12" r="6.5" fill="none" stroke="#00FFFF" stroke-width="2.5" />
+    <circle cx="12" cy="12" r="2" fill="#FFFFFF" />
+</svg>

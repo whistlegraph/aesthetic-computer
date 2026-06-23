@@ -219,6 +219,13 @@ let attachMenuPanelBounds = null; // open-menu panel hit box
 let attachMenuItemBounds = []; // per-item hit boxes
 let attachUploading = false; // guard against overlapping uploads
 
+// 🖱️ Hover cursor — swap the crosshair (precise.svg) for an "active" reticle
+// (active.svg) while the pen is over any interactive control. Tracks the
+// current state so we only call cursor() on a change, not every frame.
+let hoverCursorOn = false;
+const CURSOR_ACTIVE = "url('/aesthetic.computer/cursors/active.svg') 12 12, pointer";
+const CURSOR_PRECISE = "url('/aesthetic.computer/cursors/precise.svg') 12 12, auto";
+
 // 📺 YouTube preview system
 let youtubePreviewCache = new Map(); // Store loaded YouTube thumbnails
 let youtubeLoadQueue = new Set(); // Track which videos are being loaded
@@ -2548,6 +2555,30 @@ function paint(
       { ink, write: (t, opts) => ink().write(t, opts), box: (x, y, w, h, style) => ink().box(x, y, w, h, style), screen },
       { x: dropdownX, y: dropdownY }
     );
+  }
+
+  // 🖱️ Swap to the "active" cursor when the pen is over any interactive
+  // control (handle / + / message field / font + attach menus). Desktop
+  // nicety via the CSS SVG cursor; only fires on a state change.
+  {
+    const inBox = (b) => {
+      if (!b || !pen) return false;
+      const w = b.w ?? b.width, h = b.h ?? b.height;
+      return pen.x >= b.x && pen.x < b.x + w && pen.y >= b.y && pen.y < b.y + h;
+    };
+    const boxes = [
+      handleBtn?.btn?.box,
+      attachBtnBounds,
+      inputBtn?.box,
+      fontPickerBtnBounds,
+      ...attachMenuItemBounds,
+      ...fontPickerItemBounds,
+    ];
+    const overUI = !leaving() && !!pen && boxes.some(inBox);
+    if (overUI !== hoverCursorOn) {
+      hoverCursorOn = overUI;
+      api.cursor?.(overUI ? CURSOR_ACTIVE : CURSOR_PRECISE);
+    }
   }
 }
 
