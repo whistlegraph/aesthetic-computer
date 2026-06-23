@@ -911,15 +911,20 @@ app.all("/media/*rest", async (req, res) => {
     };
   }
 
-  // /media/tapes/CODE → get-tape function → redirect to DO Spaces
+  // /media/tapes/CODE → get-tape function → redirect to DO Spaces.
+  // The backing store is .mp4 for video-based tapes (kind "mp4") and .zip for
+  // frame-based recordings (kind "zip", the default for legacy tapes). An
+  // explicit extension on the request (CODE.mp4 / CODE.zip) wins over kind.
   if (parts[0] === "tapes" && parts[1]) {
-    const code = parts[1].replace(/\.zip$/, "");
+    const reqExt = /\.(mp4|zip)$/.exec(parts[1])?.[1];
+    const code = parts[1].replace(/\.(mp4|zip)$/, "");
     try {
       const result = await functions["get-tape"](mediaEvent("/api/get-tape", { code }), {});
       if (result.statusCode === 200) {
         const tape = JSON.parse(result.body);
         const bucket = tape.bucket || "art-aesthetic-computer";
-        const key = tape.user ? `${tape.user}/${tape.slug}.zip` : `${tape.slug}.zip`;
+        const ext = reqExt || (tape.kind === "mp4" ? "mp4" : "zip");
+        const key = tape.user ? `${tape.user}/${tape.slug}.${ext}` : `${tape.slug}.${ext}`;
         return res.redirect(302, `https://${bucket}.sfo3.digitaloceanspaces.com/${key}`);
       }
     } catch {}

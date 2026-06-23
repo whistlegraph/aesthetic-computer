@@ -31,7 +31,9 @@ export async function handler(event, context) {
       return respond(404, { message: "Tape not found" });
     }
 
-    // Return tape info (excluding mp4 fields - not needed for playback)
+    // Return tape info. `kind` distinguishes the backing store:
+    // "zip" = frame-based recording (default for legacy tapes),
+    // "mp4" = video-based tape (e.g. a posted camera-roll clip).
     return respond(200, {
       slug: tape.slug,
       code: tape.code,
@@ -39,6 +41,8 @@ export async function handler(event, context) {
       bucket: tape.bucket,
       user: tape.user,
       nuked: tape.nuked || false,
+      kind: tape.kind || "zip",
+      mp4Status: tape.mp4Status,
     });
 
   } catch (error) {
