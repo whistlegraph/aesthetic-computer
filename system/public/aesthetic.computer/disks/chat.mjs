@@ -1913,7 +1913,7 @@ function paint(
     y: handleBtnY + btnGap
   }, btnScheme[3], undefined, false, selectedTypeface);
 
-  // 📎 Attach (+) button — opens a little menu to post a photo (video soon).
+  // 📎 Attach (+) button — opens a little menu to post a photo or video.
   // Square, same height as the handle button, sitting just to its right.
   const plusGap = 0; // flush against the handle button (shares its right border)
   const plusBtnW = btnH;
