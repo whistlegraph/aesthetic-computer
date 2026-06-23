@@ -20,6 +20,8 @@
 //   puppet broadcast <js>             evaluate on ALL connected machines at once
 //   puppet nav <machine> <url>        navigate the active page
 //   puppet shot <machine> <out.png|.jpg>  screenshot (jpeg reads live watch frame)
+//     --fullscreen|--screen  WHOLE screen (all windows) + OCR via frame.mjs;
+//                            writes <out>.jpg + <out>.jpg.ocr.json (--fast,--no-ocr)
 //   puppet watch <machine> <out.jpg>  screencast → latest frame on disk (--nth=N)
 //   puppet stroke <machine> x1,y1 x2,y2 [...]   trusted mouse drag through points
 //   puppet cursor <machine> <x> <y>   show/move a virtual cursor overlay
@@ -35,11 +37,12 @@
 //                               "tunnelCmd": "ssh -fN -L 9223:127.0.0.1:9222 <host>" } } }
 // `tunnelCmd` is optional — run when the cdpUrl is unreachable, then retried.
 
-import { execSync } from "node:child_process";
+import { execFileSync, execSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { logHit, overlayDrawExpr, overlayClearExpr, scanExpr } from "./analysis-layer.mjs";
 
 const HOME = homedir();
@@ -834,6 +837,7 @@ function parseFlags(argv) {
   for (const a of argv) {
     const m = a.match(/^--([^=]+)=(.*)$/);
     if (m) flags[m[1]] = m[2];
+    else if (/^--[^=]+$/.test(a)) flags[a.slice(2)] = "1"; // bare boolean flag
     else rest.push(a);
   }
   return { flags, rest };
@@ -974,9 +978,43 @@ async function main() {
       return;
     }
     case "shot": {
+      const out = args[1];
+      // --fullscreen / --screen: capture the WHOLE screen (all windows, any
+      // native app) + OCR via the SlabMenubar frame mechanism, not the CDP
+      // per-page screenshot. Delegates to the sibling frame.mjs (which talks to
+      // the on-target app that holds Screen Recording + AX trust — plain ssh
+      // screencapture can't reach the WindowServer). Writes the JPEG to `out`
+      // and an `<out>.ocr.json` sidecar; prints an OCR summary.
+      if (flags.fullscreen || flags.screen) {
+        const framePath = join(dirname(fileURLToPath(import.meta.url)), "frame.mjs");
+        const jpgOut = /\.jpe?g$/i.test(out || "") ? out : (out || "frame") + ".jpg";
+        const fArgs = [framePath, args[0], "--out", jpgOut, "--json"];
+        if (flags.fast) fArgs.push("--fast");
+        if (flags["no-ocr"]) fArgs.push("--no-ocr");
+        let envJson;
+        try {
+          envJson = execFileSync("node", fArgs, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+        } catch (e) {
+          console.error(`fullscreen capture failed: ${String(e.message).split("\n")[0]}`);
+          process.exit(1);
+        }
+        let env = {};
+        try { env = JSON.parse(envJson); } catch {}
+        // The frame envelope carries the image as base64 (thumb_jpg_b64); the
+        // ACF1 binary jpg can be empty, so frame.mjs may not have written a
+        // file — decode + write it here when needed.
+        if (!existsSync(jpgOut) && env.thumb_jpg_b64) {
+          writeFileSync(jpgOut, Buffer.from(env.thumb_jpg_b64, "base64"));
+        }
+        const ocr = env.ocr || [];
+        if (ocr.length) writeFileSync(jpgOut + ".ocr.json", JSON.stringify(ocr, null, 2));
+        const wrote = existsSync(jpgOut);
+        console.log(`${wrote ? "wrote " + jpgOut : "(no pixels)"} (fullscreen) — ${ocr.length} OCR runs${ocr.length ? `, → ${jpgOut}.ocr.json` : ""}` +
+          (env.capture === "permission_needed" ? " ⚠ Screen Recording not granted (frame setup " + args[0] + ")" : ""));
+        return;
+      }
       // format inferred from extension (.jpg → jpeg); --fresh=1 forces a
       // real capture instead of returning a live watch frame.
-      const out = args[1];
       const format = flags.format || (/\.jpe?g$/i.test(out || "") ? "jpeg" : "png");
       const b64 = await rpc({
         cmd: "shot",
