@@ -295,7 +295,10 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         }
         langMap.selectedCode = Localization.current
         langMap.translatesAutoresizingMaskIntoConstraints = false
-        langMap.onPick = { [weak self] item in self?.applyLanguage(item) }
+        // Press/slide speaks the name instantly (sample-board); release commits
+        // the actual language switch.
+        langMap.onPlay = { [weak self] item in self?.onSpeakLanguage?(item.label, item.code) }
+        langMap.onPick = { [weak self] item in self?.switchLanguage(item) }
         langMap.widthAnchor.constraint(equalToConstant: 264).isActive = true
         // Height comes from the view's intrinsic size (rows × rowH), so the
         // grid grows with the number of languages.
@@ -447,18 +450,22 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
     /// Pick a language from the flat map: speak its own name through the
     /// Menu Band fx (easter egg — works even when re-picking the active
     /// language), then switch + rebuild the panel so every string re-reads.
-    private func applyLanguage(_ item: LanguageMapView.Item) {
-        // Speak first so the audio fires regardless of whether this is a
-        // real switch — re-clicking your current language still talks.
-        onSpeakLanguage?(item.label, item.code)
+    /// Commit a language switch (on release). The spoken name already fired on
+    /// press via `onPlay`, so this does NOT speak — it only applies the strings.
+    private func switchLanguage(_ item: LanguageMapView.Item) {
+        // No-op if it's already the current language — keeps rapid playing snappy.
         guard item.code != Localization.current else { return }
         Localization.current = item.code
-        // Rebuild the About content to apply the new strings. Cheaper than
-        // tearing down the window.
-        if let content = window?.contentView {
-            for sub in content.subviews { sub.removeFromSuperview() }
+        // Defer the (heavier) content rebuild to the next runloop tick so it
+        // never blocks the press / the audio. The string swap applies a beat
+        // after the sound, keeping the tap feeling instant.
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if let content = self.window?.contentView {
+                for sub in content.subviews { sub.removeFromSuperview() }
+            }
+            self.buildContent()
         }
-        buildContent()
     }
 
     // MARK: - Icon loader
