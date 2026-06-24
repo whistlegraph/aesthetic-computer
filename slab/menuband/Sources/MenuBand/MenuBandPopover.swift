@@ -587,6 +587,25 @@ final class MenuBandPopoverViewController: NSViewController {
             modeButtons.append(b)
             modeStack.addArrangedSubview(b)
         }
+        // Sample Voice — selectable mic-sampler backend. Picking it switches
+        // the active voice to the recorded sample(s); record with ` (global,
+        // clears per-key) or ~+key (per-key). Un-sampled keys fall back to the
+        // last GM instrument, so it doubles as a hybrid kit.
+        let sampleVoiceBtn = NSButton(title: "Sample Voice", target: self,
+                                      action: #selector(sampleVoiceButtonClicked(_:)))
+        sampleVoiceBtn.bezelStyle = .recessed
+        sampleVoiceBtn.setButtonType(.momentaryPushIn)
+        sampleVoiceBtn.controlSize = .regular
+        sampleVoiceBtn.alignment = .left
+        sampleVoiceBtn.imagePosition = .imageLeading
+        sampleVoiceBtn.imageHugsTitle = true
+        sampleVoiceBtn.image = NSImage(systemSymbolName: "mic.fill",
+                                       accessibilityDescription: "Sample Voice")
+        sampleVoiceBtn.translatesAutoresizingMaskIntoConstraints = false
+        sampleVoiceBtn.widthAnchor.constraint(
+            equalToConstant: InstrumentListView.preferredWidth
+        ).isActive = true
+        modeStack.addArrangedSubview(sampleVoiceBtn)
         modeStack.widthAnchor.constraint(
             equalToConstant: InstrumentListView.preferredWidth
         ).isActive = true
@@ -2052,6 +2071,15 @@ final class MenuBandPopoverViewController: NSViewController {
             #endif
         default: break
         }
+    }
+
+    @objc private func sampleVoiceButtonClicked(_ sender: NSButton) {
+        guard let m = menuBand else { return }
+        // Activate the mic-sampler backend. If nothing's recorded yet, keys
+        // fall back to the last GM instrument until you record (` / ~+key).
+        m.setSampleBackend(true)
+        applyPopoverRootChrome()
+        updateInstrumentReadout()
     }
 
     @objc private func focusShortcutButtonClicked(_ sender: NSButton) {
