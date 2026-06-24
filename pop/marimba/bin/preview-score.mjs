@@ -172,6 +172,20 @@ const SECTION_TINTS = {
   baba2:    "rgba(176,196,168,1)",   // sage — teamwork
   sleep1:   "rgba(236,196,160,1)",   // warm glow — triumph
   sleep2:   "rgba(214,180,180,1)",   // soft rose — drowsy close
+  // fluttabap360 — "the monarch keeper" beats (warm park palette,
+  // climbing brighter with the C→D→E→C→F key journey). Distinct keys
+  // from marimbaba's, so this map serves both slugs from one driver.
+  intro:       "rgba(150,170,205,1)",  // cool pale dawn-blue — pre-sun still
+  butterfly:   "rgba(214,200,165,1)",  // warming oat — the hook wakes
+  palofmine:   "rgba(238,228,205,1)",  // warm cream — partner found
+  mommywow:    "rgba(244,224,160,1)",  // soft gold-cream — held hush
+  slinky:      "rgba(196,210,150,1)",  // sap-green + amber — the spiral
+  fly:         "rgba(248,206,120,1)",  // bright amber — full flight
+  ride:        "rgba(214,224,120,1)",  // bright lime-gold — mischief
+  cave:        "rgba(110,130,180,1)",  // cool dusk-blue (DARK) — breakdown
+  progression: "rgba(250,212,118,1)",  // bright F-gold — recommitment
+  land:        "rgba(238,196,128,1)",  // evening-gold — soft landing
+  button:      "rgba(232,188,168,1)",  // warm rose-gold — last frame
 };
 const TITLE_PALETTE = ["#f0e6cd", "#a6bcd6", "#b0c4a8", "#eec48c", "#d6b4b4"];
 const BACKLIGHT_RGB = "255,196,116";       // deeper warm desk-lamp amber (was too pale)

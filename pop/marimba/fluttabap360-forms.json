@@ -1,0 +1,18 @@
+{
+  "_comment": "Figure + face bounding boxes per unique story beat, in panel-image coords (1024x1536, the portrait monarch-keeper set). Keyed by section NAME (preview-score.mjs looks up FORMS by SECTIONS[i].name; names repeat across the C/D/E/F passes, so ONE entry per unique name covers every pass). Single figure (the keeper) per beat -> one box under `jeffrey`. `face` drives the in/out face zoom + the warm sun-rim halo; `figure` drives the per-figure backlight. RE-EYEBALLED 2026-06-24 against the real generated masters (out/_fluttabap360-beat-<name>.png). intro keeper is tiny + far (mid-right, at the horizon line). fly/cover/progression are full-body lift poses (head high, arms overhead). butterfly/palofmine/slinky/ride/land/button are standing/striding full-body shots with the head in the upper third.",
+  "imgW": 1024,
+  "imgH": 1536,
+  "sections": {
+    "intro":      { "jeffrey": { "figure": [278, 295, 78, 130],  "face": [296, 298, 46, 52] } },
+    "butterfly":  { "jeffrey": { "figure": [90, 120, 280, 470],  "face": [150, 128, 100, 110] } },
+    "palofmine":  { "jeffrey": { "figure": [70, 80, 290, 490],   "face": [176, 88, 100, 108] } },
+    "mommywow":   { "jeffrey": { "figure": [120, 68, 200, 500],  "face": [164, 70, 98, 110] } },
+    "slinky":     { "jeffrey": { "figure": [120, 98, 230, 450],  "face": [184, 100, 92, 108] } },
+    "fly":        { "jeffrey": { "figure": [90, 128, 250, 392],  "face": [128, 128, 92, 108] } },
+    "ride":       { "jeffrey": { "figure": [120, 128, 210, 410], "face": [174, 130, 94, 108] } },
+    "cave":       { "jeffrey": { "figure": [115, 74, 200, 482],  "face": [164, 76, 96, 108] } },
+    "progression":{ "jeffrey": { "figure": [110, 128, 222, 418], "face": [164, 130, 94, 108] } },
+    "land":       { "jeffrey": { "figure": [115, 108, 218, 434], "face": [164, 110, 94, 108] } },
+    "button":     { "jeffrey": { "figure": [108, 98, 234, 464],  "face": [138, 98, 94, 108] } }
+  }
+}

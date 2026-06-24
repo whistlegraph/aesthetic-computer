@@ -1,0 +1,163 @@
+fluttabap360 — storyline visualizer (1080×1920 vertical insta-story / reel)
+
+THE STORY — "the monarch keeper"
+================================
+
+near-future, an AESTHETIC COMPUTER nature-park: a green public lawn
+threaded with quiet computational infrastructure. the monarch
+butterflies here are LIVING DATA — real-painted-paper monarchs that are
+also little creatures of the park's system, drifting on their own arcs,
+carrying colour. the butterfly cosplayer (the jeffrey identity-ref
+character from the cover — about 30, soft brown curly hair, pale-yellow
+short-sleeve button-down, hand-made monarch paper-mache wings on wooden
+dowels, antenna headband) is the KEEPER who learns to DANCE with them:
+the dance is how you talk to the data. not a swarm — a current of grace.
+
+the track climbs C → D → E → (home C cave breath) → F. the story climbs
+WITH it: a slow water-drop dawn, the butterfly hook waking, three
+brightening ballet passes as he and the monarchs learn each other, a
+dub-cave breakdown where the data goes dark and he holds his breath, a
+euphoric final lift into F, then a soft landing and a held last frame on
+the cover pose.
+
+medium = hand-drawn colored-pencil + gouache on warm cream paper, exactly
+as the cover. diegetic light only — clean morning/park sun, NO glow
+filters, NO neon, NO motion-blur language. NOT a photograph, NOT
+cinematic. no text, no wordmarks, no readable logos. the character never
+looks at the camera — eyes always following the butterflies.
+
+the AC sci-fi register is QUIET and HAND-DRAWN, like amaythingra's
+office→metaverse arc but warm instead of grey: the "computation" reads as
+gentle painted-paper data-monarchs, faint hand-ruled ground-grids in the
+lawn, soft signal-arcs trailing the butterflies — never glowing UI, never
+screens. think a public park that happens to think.
+
+
+ELEVEN STORY BEATS (one illustration per unique section name)
+=============================================================
+the struct repeats these names across four passes (C / D / E / F) — the
+SAME illustration is reused per name; the visualizer's per-section tint +
+key-brightening makes each pass read brighter and higher. so we draw 11
+panels + 1 cover, not 34.
+
+1. intro — DAWN, water-drop
+   wide low vertical shot of the empty park lawn at first light, dew
+   still on the grass. ONE monarch (painted-paper, orange + black) rests
+   folded on a single tall grass blade, a fat dew-drop hanging from the
+   blade tip about to fall — caught the instant before it drops. the
+   keeper is far off and small, just arriving at the edge of the frame,
+   barely awake. cool pale-blue pre-sun sky, long soft shadows, a faint
+   hand-ruled ground-grid in the lawn (the park's quiet computation),
+   almost invisible. stillness. the whole world holding its breath
+   before the first note.
+
+2. butterfly — THE HOOK WAKES
+   the keeper, mid-frame now, lifts one open hand and the resting
+   monarch UNFOLDS and lifts off toward his fingertips — the very first
+   flutter, the hook of the song. his face lighting up with recognition,
+   not surprise. a faint soft signal-arc trails the butterfly's path
+   (hand-drawn dotted curve, pencil). morning sun warming the lawn behind
+   him. he is just beginning the dance — weight shifting onto the ball of
+   one foot.
+
+3. palofmine — PARTNER FOUND
+   tighter three-quarter shot: the monarch settles for a beat on his
+   outstretched fingertip, the two of them regarding each other — "pal of
+   mine." his curly head tilted, a quiet grin, antenna headband springs
+   tipped with felt balls. one or two more monarchs drift in on their own
+   little arcs at frame edges. warm and companionable. the data has
+   chosen to land on him.
+
+4. mommywow — THE HELD HUSH
+   a held, breath-held beat (this lands under the long tonic-pad swell).
+   the keeper goes still, both hands cupped softly open at chest height,
+   eyes closed or half-lowered, a monarch hovering a hand-span above his
+   open palms — neither touching. soft awe. the lawn behind blurs into
+   warm cream paper. time suspended on the chord. "mommy — wow."
+
+5. slinky — THE LEARNING SPIRAL
+   the keeper begins to MOVE — a slinky, loose, spiralling step, body
+   uncoiling, arms drawing a long S-curve through the air, and three or
+   four monarchs trace the SAME spiralling path beside him on their arcs,
+   learning his shape / he learning theirs. faint dotted signal-arcs
+   describe the shared spiral (hand-drawn). playful, gathering momentum.
+   the wings on his back tipping open with the motion.
+
+6. fly — FULL FLIGHT (the big lift of the pass)
+   the brightest, widest beat of each pass: the keeper at full ballet
+   lift — relevé + low arabesque + port de bras, exactly the COVER pose
+   — both arms lifted and curved overhead, four or five monarchs circling
+   his lifted hands and arched back like dance partners, all sharing the
+   same upward turning motion. open joy, chin lifted, lost in it. clean
+   late-morning sun. this is the cover pose re-staged as a full-body
+   vertical action shot (camera pulled back + up). a current of grace.
+
+7. ride — THE SQUEAK-RIDE DUET
+   a quick, mischievous beat (the melodic scratch+squeak duet): the
+   keeper mid-turn, ONE monarch swooping in low and another answering up
+   high — a call-and-response chase, his head whipping to follow the
+   high one, a delighted open-mouthed laugh. light, fast, a little wild.
+   two crossing signal-arcs (one low, one high) describe the duet.
+
+8. cave — DUB BREAKDOWN (the data goes dark)
+   the cool, somber breakdown beat — the only DARK panel. the park dims:
+   the keeper has stepped into the mouth of a cool computational cave /
+   under a deep arching shade, the lawn falling away to dusk-blue behind
+   him. he stands very still, head bowed, ONE monarch perched on his
+   lowered hand, its wings half-folded and dim — the data resting, the
+   system breathing. the faint ground-grid glows a touch more visible in
+   the low light (still hand-drawn, never neon). holding his breath. home
+   key C — a return to the start's stillness, but knowing now.
+
+9. progression — THE RECOMMITMENT (climbing out into F)
+   he steps back OUT of the cave-shade into bright F-major light, the
+   monarchs streaming back to him from the lawn, gathering — a rising
+   procession of three, four, five butterflies converging on his lifting
+   hands as he re-enters the dance, brighter and higher than any pass
+   before. the recommitment. the brightest light yet, sun fully up.
+
+10. land — THE SOFT LANDING
+    the keeper coming gently down out of the lift, descending from
+    relevé back to flat-footed, arms lowering in a soft port de bras, the
+    monarchs settling around him — one returning to rest on his
+    fingertip, others alighting on the grass and on his shoulders. the
+    motion resolving, weight returning to the earth. warm, satisfied,
+    spent. evening-gold light now.
+
+11. button — THE LAST FRAME (lands on the cover)
+    the final held image: the keeper at rest on the lawn, the dance done,
+    the monarchs settled, ONE last monarch lifting off his fingertip into
+    the warm gold sky — a quiet goodbye, a held breath out. composes
+    toward the locked album-cover feeling: balanced, light, grinning,
+    eyes following the last butterfly up. NOT looking at camera. the soft
+    ground-shadow anchors his foot to the lawn. the end.
+
+
+PER-SECTION VISUALIZER TINT (warm park palette, climbing brighter)
+==================================================================
+intro       cool pale dawn-blue          (still, pre-sun)
+butterfly   warming oat                  (the hook wakes)
+palofmine   warm cream                   (partner found)
+mommywow    soft gold-cream              (held hush)
+slinky      sap-green + amber            (the spiral)
+fly         bright amber                 (full flight — brightest)
+ride        bright lime-gold             (mischief)
+cave        cool dusk-blue (DARK)        (breakdown / breath)
+progression bright F-gold                (recommitment, brightest yet)
+land        evening-gold                 (soft landing)
+button      warm rose-gold               (last frame)
+
+
+NOTES FOR @JEFFREY
+==================
+- improved the seed concept: the monarchs as LIVING DATA the keeper talks
+  to by DANCING keeps the AC sci-fi register but stays warm + hand-drawn
+  (no screens, no neon) — the "computation" is faint ground-grids +
+  dotted signal-arcs only.
+- the cave beat is the one dark panel (matches the dub breakdown + the
+  home-C "breath"); everything else climbs in warmth + height with the
+  key.
+- the `fly` beat is the cover pose re-staged full-body, so the
+  visualizer's most-repeated/biggest beat IS the cover.
+- per-section forms.json face/figure boxes drive the zoom + backlight,
+  hand-placed per panel (single figure, so one box per section).
