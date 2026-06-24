@@ -49,6 +49,12 @@ final class InstrumentListView: NSView {
     /// Fires when the user clicks the MIDI-OUT cell at the top of the
     /// grid. The popover wires this to `menuBand.toggleMIDIMode()`.
     var onMidiOutCommit: (() -> Void)?
+    /// Fires when the SAMPLE cell (right end of the MIDI-OUT row) is clicked.
+    /// The popover wires this to `menuBand.setSampleBackend(true)`.
+    var onSampleCommit: (() -> Void)?
+    /// True while the mic-sampler backend is active — fills the SAMPLE cell
+    /// the same way `midiModeActive` fills MIDI OUT.
+    var sampleBackendActive: Bool = false { didSet { needsDisplay = true } }
     /// Fires whenever the hovered cell changes (including transitions to
     /// "no hover" → nil). Drives the controller's hover-preview note for
     /// sonic browsing.
@@ -174,8 +180,21 @@ final class InstrumentListView: NSView {
     /// "0 MIDI OUT" cell — a full-width row at the TOP of the board, above
     /// the patch grid. Hit-test is exclusive of the patch grid below and
     /// the radio strip at the bottom.
+    /// Width of the SAMPLE cell carved off the right end of the top row.
+    private var sampleCellW: CGFloat { min(86, bounds.width * 0.32) }
+
     private var midiOutRect: NSRect {
-        NSRect(x: 0, y: 0, width: bounds.width, height: Self.midiOutH)
+        NSRect(x: 0, y: 0, width: bounds.width - sampleCellW, height: Self.midiOutH)
+    }
+
+    /// SAMPLE cell — sits to the right of MIDI OUT on the top row.
+    private var sampleRect: NSRect {
+        NSRect(x: bounds.width - sampleCellW, y: 0,
+               width: sampleCellW, height: Self.midiOutH)
+    }
+
+    private func isSampleHit(_ point: NSPoint) -> Bool {
+        sampleRect.contains(point)
     }
 
     private func program(at point: NSPoint) -> Int? {
@@ -300,6 +319,31 @@ final class InstrumentListView: NSView {
             let size = str.size()
             str.draw(at: NSPoint(x: midiR.midX - size.width / 2,
                                  y: midiR.midY - size.height / 2))
+        }
+
+        // SAMPLE cell — right end of the top row. Mirrors MIDI OUT: filled
+        // when the sampler backend is active, outlined when inactive.
+        let sampleR = sampleRect
+        if sampleR.intersects(dirtyRect) {
+            let tint = NSColor.systemRed
+            let cap = NSBezierPath(roundedRect: sampleR.insetBy(dx: 1.75, dy: 1.5),
+                                   xRadius: 3, yRadius: 3)
+            if sampleBackendActive {
+                tint.withAlphaComponent(0.85).setFill(); cap.fill()
+                tint.setStroke(); cap.lineWidth = 1.4; cap.stroke()
+            } else {
+                tint.withAlphaComponent(0.10).setFill(); cap.fill()
+                tint.withAlphaComponent(0.55).setStroke(); cap.lineWidth = 0.8; cap.stroke()
+            }
+            let labelColor: NSColor = sampleBackendActive ? .white : .labelColor
+            let str = NSAttributedString(string: "SAMPLE", attributes: [
+                .font: NSFont.systemFont(ofSize: 10.5, weight: .semibold),
+                .foregroundColor: labelColor.withAlphaComponent(sampleBackendActive ? 1.0 : 0.85),
+                .kern: 0.4,
+            ])
+            let size = str.size()
+            str.draw(at: NSPoint(x: sampleR.midX - size.width / 2,
+                                 y: sampleR.midY - size.height / 2))
         }
 
         // Radio-station cells in the full-width strip at the BOTTOM, below
@@ -469,6 +513,11 @@ final class InstrumentListView: NSView {
         // there's no audible preview to start.
         if isMidiOutHit(pt) {
             onMidiOutCommit?()
+            return
+        }
+        // SAMPLE cell — switch to the mic-sampler backend. No audible preview.
+        if isSampleHit(pt) {
+            onSampleCommit?()
             return
         }
         dragging = true

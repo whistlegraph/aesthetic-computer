@@ -149,6 +149,11 @@ final class CollapsedPianoWaveformView: NSView {
             self?.menuBand?.toggleMIDIMode()
             self?.refresh()
         }
+        // SAMPLE cell (right of MIDI OUT) — switch to the mic-sampler backend.
+        instrumentList.onSampleCommit = { [weak self] in
+            self?.menuBand?.setSampleBackend(true)
+            self?.refresh()
+        }
         instrumentList.onHover = { [weak self] prog in
             self?.menuBand?.setInstrumentPreview(prog.map { UInt8($0) })
             self?.refresh()
@@ -220,22 +225,6 @@ final class CollapsedPianoWaveformView: NSView {
                 modeStack.addArrangedSubview(help)
             }
         }
-        // Sample Voice — selects the mic-sampler backend. Record with ` (global,
-        // clears per-key) or ~+key (per-key); un-sampled keys fall back to the
-        // last GM instrument, so it doubles as a hybrid kit.
-        let sampleBtn = NSButton(title: "Sample",
-                                 target: self,
-                                 action: #selector(sampleVoiceModeClicked(_:)))
-        sampleBtn.bezelStyle = .recessed
-        sampleBtn.setButtonType(.momentaryPushIn)
-        sampleBtn.controlSize = .small
-        sampleBtn.imagePosition = .imageLeading
-        sampleBtn.imageHugsTitle = true
-        sampleBtn.image = NSImage(systemSymbolName: "mic.fill",
-                                  accessibilityDescription: "Sample Voice")?
-            .withSymbolConfiguration(modeSymbolConfig)
-        sampleBtn.translatesAutoresizingMaskIntoConstraints = false
-        modeStack.addArrangedSubview(sampleBtn)
 
         arrowsCluster.translatesAutoresizingMaskIntoConstraints = false
         arrowsCluster.displayMode = .cluster
@@ -448,6 +437,7 @@ final class CollapsedPianoWaveformView: NSView {
         instrumentList.selectedProgram = menuBand.effectiveMelodicProgram
         instrumentList.midiModeActive = menuBand.midiMode
         instrumentList.radioBackendActive = (menuBand.instrumentBackend == .kpbj)
+        instrumentList.sampleBackendActive = (menuBand.instrumentBackend == .sample)
         instrumentList.selectedRadioStationID = menuBand.radioStation.id
 
         applyInstrumentReadout(safe: safe, familyColor: familyColor, isDark: isDark)
@@ -592,12 +582,6 @@ final class CollapsedPianoWaveformView: NSView {
             "https://papers.aesthetic.computer/keymaps-social-software-26-arxiv.pdf") {
             NSWorkspace.shared.open(url)
         }
-    }
-
-    @objc private func sampleVoiceModeClicked(_ sender: NSButton) {
-        // Switch the active voice to the mic sampler. With nothing recorded
-        // yet, keys fall back to the last GM instrument until you record.
-        menuBand?.setSampleBackend(true)
     }
 
     @objc private func modeButtonClicked(_ sender: NSButton) {
