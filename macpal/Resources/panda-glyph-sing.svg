@@ -1,17 +1,29 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <!-- panda SING — mouth open in an O while the menu band plays. Static render. -->
+  <!-- panda SING — mouth wide open in an O, joyful arc eyes. Same bear geometry as base. Static render. -->
   <g>
-    <circle cx="29" cy="31" r="11" fill="#2b2b2b"/>
-    <circle cx="71" cy="31" r="11" fill="#2b2b2b"/>
-    <ellipse cx="50" cy="56" rx="32" ry="30" fill="#ffffff"/>
-    <ellipse cx="37" cy="53" rx="9" ry="12" fill="#2b2b2b" transform="rotate(-18 37 53)"/>
-    <ellipse cx="63" cy="53" rx="9" ry="12" fill="#2b2b2b" transform="rotate(18 63 53)"/>
-    <circle cx="38" cy="54.5" r="3.6" fill="#ffffff"/>
-    <circle cx="62" cy="54.5" r="3.6" fill="#ffffff"/>
-    <ellipse cx="50" cy="65" rx="3.6" ry="2.7" fill="#2b2b2b"/>
-    <ellipse cx="50" cy="73" rx="4.4" ry="5.6" fill="#2b2b2b"/>
-    <ellipse cx="50" cy="75" rx="2.5" ry="2.8" fill="#ffb3c1"/>
-    <circle cx="30" cy="66" r="4.2" fill="#ffb3c1" opacity="0.6"/>
-    <circle cx="70" cy="66" r="4.2" fill="#ffb3c1" opacity="0.6"/>
+    <!-- ears -->
+    <circle cx="34" cy="17" r="8.5" fill="#2b2b2b"/>
+    <circle cx="66" cy="17" r="8.5" fill="#2b2b2b"/>
+    <!-- body (white belly) -->
+    <ellipse cx="50" cy="71" rx="20" ry="19" fill="#ffffff"/>
+    <!-- arms -->
+    <ellipse cx="33" cy="67" rx="7" ry="10.5" fill="#2b2b2b" transform="rotate(24 33 67)"/>
+    <ellipse cx="67" cy="67" rx="7" ry="10.5" fill="#2b2b2b" transform="rotate(-24 67 67)"/>
+    <!-- legs -->
+    <ellipse cx="40" cy="87" rx="7.5" ry="7" fill="#2b2b2b"/>
+    <ellipse cx="60" cy="87" rx="7.5" ry="7" fill="#2b2b2b"/>
+    <!-- head -->
+    <ellipse cx="50" cy="34" rx="23" ry="21" fill="#ffffff"/>
+    <ellipse cx="41" cy="32.5" rx="6.5" ry="8.8" fill="#2b2b2b" transform="rotate(-18 41 32.5)"/>
+    <ellipse cx="59" cy="32.5" rx="6.5" ry="8.8" fill="#2b2b2b" transform="rotate(18 59 32.5)"/>
+    <g stroke="#ffffff" stroke-width="2" fill="none" stroke-linecap="round">
+      <path d="M38.2 35 Q41.5 32 44.8 35"/>
+      <path d="M55.2 35 Q58.5 32 61.8 35"/>
+    </g>
+    <ellipse cx="50" cy="41" rx="3.2" ry="2.4" fill="#2b2b2b"/>
+    <ellipse cx="50" cy="48" rx="4.2" ry="4.8" fill="#2b2b2b"/>
+    <ellipse cx="50" cy="49.8" rx="2.4" ry="2.3" fill="#ffb3c1"/>
+    <circle cx="34.5" cy="42" r="3.6" fill="#ffb3c1" opacity="0.6"/>
+    <circle cx="65.5" cy="42" r="3.6" fill="#ffb3c1" opacity="0.6"/>
   </g>
 </svg>
