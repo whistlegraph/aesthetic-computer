@@ -1,17 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <!-- neo state 3 — curious lean: tilted body, eyes glance right, little "o" mouth -->
-  <g transform="rotate(-5 50 74)">
-    <path d="M50 22 C71 22 82 41 82 59 C82 79 67 88 50 88 C33 88 18 79 18 59 C18 41 29 22 50 22 Z" fill="#a6e22e"/>
-    <ellipse cx="42" cy="43" rx="15" ry="10" fill="#d7f78a" opacity="0.7"/>
-    <circle cx="33" cy="64" r="6" fill="#ff8aa0" opacity="0.45"/>
-    <circle cx="67" cy="64" r="6" fill="#ff8aa0" opacity="0.45"/>
+  <!-- neo state 3 — glint flare: same gem, eyes glance toward a big sparkle, little "o" mouth -->
+  <g>
+    <polygon points="33,16 67,16 88,46 50,90 12,46" fill="#a6e22e"/>
+    <polygon points="33,16 67,16 61,30 39,30" fill="#d7f78a"/>
+    <polygon points="33,16 39,30 12,46" fill="#7fc41e"/>
+    <polygon points="67,16 88,46 61,30" fill="#c8f06a"/>
+    <polygon points="12,46 36,46 50,90" fill="#7fc41e"/>
+    <polygon points="64,46 88,46 50,90" fill="#c8f06a"/>
+    <ellipse cx="43" cy="38" rx="10" ry="5.5" fill="#eaffc0" opacity="0.7"/>
+    <circle cx="33" cy="55" r="5" fill="#ff8aa0" opacity="0.45"/>
+    <circle cx="67" cy="55" r="5" fill="#ff8aa0" opacity="0.45"/>
     <g fill="#1c3a08">
-      <circle cx="43" cy="55" r="4.6"/>
-      <circle cx="63" cy="55" r="4.6"/>
-      <circle cx="44.8" cy="53.4" r="1.5" fill="#eaffc0"/>
-      <circle cx="64.8" cy="53.4" r="1.5" fill="#eaffc0"/>
+      <circle cx="43" cy="48.5" r="4.6"/>
+      <circle cx="61" cy="48.5" r="4.6"/>
     </g>
-    <ellipse cx="51.5" cy="69" rx="3" ry="3.6" fill="#1c3a08"/>
-    <path d="M50 22 C50 14 56 9 62 9 C61 17 56 22 50 22 Z" fill="#7fc41e" transform="rotate(-14 50 22)"/>
+    <circle cx="44.8" cy="46.9" r="1.5" fill="#eaffc0"/>
+    <circle cx="62.8" cy="46.9" r="1.5" fill="#eaffc0"/>
+    <ellipse cx="51.5" cy="61" rx="3" ry="3.6" fill="#1c3a08"/>
+    <path d="M72 17 L74.6 23.4 L81 26 L74.6 28.6 L72 35 L69.4 28.6 L63 26 L69.4 23.4 Z" fill="#f8ffe6"/>
+    <circle cx="27" cy="26" r="2.2" fill="#f4ffd9"/>
+    <path d="M32 71 L33.2 73.8 L36 75 L33.2 76.2 L32 79 L30.8 76.2 L28 75 L30.8 73.8 Z" fill="#f4ffd9"/>
   </g>
 </svg>

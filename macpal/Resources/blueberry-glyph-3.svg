@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- blueberry state 3 — wink lean: tilted, one-eye wink, leaf swept back. Footless floater. -->
+  <g transform="rotate(-6 50 60)">
+    <path d="M62 27 q12 -9 18 -2 q-7 9 -18 6 z" fill="#6fbf73" transform="rotate(-14 62 28)"/>
+    <path d="M58 30 q2 -7 6 -10" stroke="#4e8f54" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+    <ellipse cx="50" cy="58" rx="30" ry="29" fill="#5b6bd6"/>
+    <ellipse cx="40" cy="50" rx="14" ry="10" fill="#92a0ef" opacity="0.7"/>
+    <path d="M50 32 l4 5 6 -2 -1 6 6 3 -6 3 1 6 -6 -2 -4 5 -4 -5 -6 2 1 -6 -6 -3 6 -3 -1 -6 6 2 z" fill="#3a4490"/>
+    <circle cx="50" cy="38" r="3" fill="#2c346f"/>
+    <circle cx="42" cy="53" r="3.4" fill="#2b2b2b"/>
+    <circle cx="43.1" cy="51.8" r="1.1" fill="#fff"/>
+    <path d="M55 53 Q58 51 61 53" stroke="#2b2b2b" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+    <path d="M45 62 q5 4 10 -1" stroke="#2b2b2b" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+    <circle cx="35" cy="62" r="4" fill="#b08ae0" opacity="0.55"/>
+    <circle cx="65" cy="62" r="4" fill="#b08ae0" opacity="0.55"/>
+  </g>
+</svg>

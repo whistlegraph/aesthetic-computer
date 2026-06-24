@@ -1,27 +1,38 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- panda base — full bear: big head, round white belly, stubby black limbs -->
   <style>
     .float{ animation:float 6s ease-in-out infinite; transform-origin:50px 50px }
     .bob  { animation:bob 5s ease-in-out infinite; transform-origin:50px 56px }
     .body { animation:breathe 5s ease-in-out infinite; transform-origin:50px 72px }
-    .eyes { animation:blink 6.5s ease-in-out infinite; transform-origin:50px 55px }
+    .eyes { animation:blink 6.5s ease-in-out infinite; transform-origin:50px 34px }
     @keyframes float  { 0%,100%{transform:translate(0,0)} 33%{transform:translate(2px,-2px)} 66%{transform:translate(-2px,-1px)} }
     @keyframes bob    { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-2.5px)} }
     @keyframes breathe{ 0%,100%{transform:scale(1,1)} 50%{transform:scale(1.04,0.96)} }
     @keyframes blink  { 0%,91%,100%{transform:scaleY(1)} 95.5%{transform:scaleY(0.08)} }
   </style>
   <g class="float"><g class="bob"><g class="body">
-    <circle cx="29" cy="31" r="11" fill="#2b2b2b"/>
-    <circle cx="71" cy="31" r="11" fill="#2b2b2b"/>
-    <ellipse cx="50" cy="56" rx="32" ry="30" fill="#ffffff"/>
-    <ellipse cx="37" cy="53" rx="9" ry="12" fill="#2b2b2b" transform="rotate(-18 37 53)"/>
-    <ellipse cx="63" cy="53" rx="9" ry="12" fill="#2b2b2b" transform="rotate(18 63 53)"/>
+    <!-- ears -->
+    <circle cx="34" cy="17" r="8.5" fill="#2b2b2b"/>
+    <circle cx="66" cy="17" r="8.5" fill="#2b2b2b"/>
+    <!-- body (white belly) -->
+    <ellipse cx="50" cy="71" rx="20" ry="19" fill="#ffffff"/>
+    <!-- arms (black, stubby) -->
+    <ellipse cx="33" cy="67" rx="7" ry="10.5" fill="#2b2b2b" transform="rotate(24 33 67)"/>
+    <ellipse cx="67" cy="67" rx="7" ry="10.5" fill="#2b2b2b" transform="rotate(-24 67 67)"/>
+    <!-- legs (black, stubby) -->
+    <ellipse cx="40" cy="87" rx="7.5" ry="7" fill="#2b2b2b"/>
+    <ellipse cx="60" cy="87" rx="7.5" ry="7" fill="#2b2b2b"/>
+    <!-- head -->
+    <ellipse cx="50" cy="34" rx="23" ry="21" fill="#ffffff"/>
+    <ellipse cx="41" cy="32.5" rx="6.5" ry="8.8" fill="#2b2b2b" transform="rotate(-18 41 32.5)"/>
+    <ellipse cx="59" cy="32.5" rx="6.5" ry="8.8" fill="#2b2b2b" transform="rotate(18 59 32.5)"/>
     <g class="eyes">
-      <circle cx="38" cy="55" r="3.4" fill="#ffffff"/>
-      <circle cx="62" cy="55" r="3.4" fill="#ffffff"/>
+      <circle cx="41.5" cy="34" r="2.7" fill="#ffffff"/>
+      <circle cx="58.5" cy="34" r="2.7" fill="#ffffff"/>
     </g>
-    <ellipse cx="50" cy="66" rx="3.6" ry="2.7" fill="#2b2b2b"/>
-    <path d="M50 69 Q45.5 74 41.5 71 M50 69 Q54.5 74 58.5 71" stroke="#2b2b2b" stroke-width="1.8" fill="none" stroke-linecap="round"/>
-    <circle cx="30" cy="66" r="4.2" fill="#ffb3c1" opacity="0.55"/>
-    <circle cx="70" cy="66" r="4.2" fill="#ffb3c1" opacity="0.55"/>
+    <ellipse cx="50" cy="42" rx="3.2" ry="2.4" fill="#2b2b2b"/>
+    <path d="M50 44.5 Q46.5 48.5 43.5 46.2 M50 44.5 Q53.5 48.5 56.5 46.2" stroke="#2b2b2b" stroke-width="1.7" fill="none" stroke-linecap="round"/>
+    <circle cx="34.5" cy="42" r="3.6" fill="#ffb3c1" opacity="0.55"/>
+    <circle cx="65.5" cy="42" r="3.6" fill="#ffb3c1" opacity="0.55"/>
   </g></g></g>
 </svg>
