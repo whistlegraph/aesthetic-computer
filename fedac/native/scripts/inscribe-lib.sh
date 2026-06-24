@@ -256,7 +256,7 @@ aci_collect_local_claude() {
 # and ACI_MOOD (plain string).
 aci_build_usb_config_json() {
     node -e "
-        const [handle, sub, email, token, claudeToken, githubPat, claudeCreds, claudeState, colorsJson, mood] = process.argv.slice(1);
+        const [handle, sub, email, token, claudeToken, githubPat, claudeCreds, claudeState, colorsJson, mood, city] = process.argv.slice(1);
         const cfg = { handle, sub, email, token };
         if (claudeToken) cfg.claudeToken = claudeToken;
         if (githubPat)   cfg.githubPat   = githubPat;
@@ -269,11 +269,12 @@ aci_build_usb_config_json() {
             }
         } catch (e) {}
         if (mood) cfg.mood = mood;
+        if (city) cfg.city = city;
         process.stdout.write(JSON.stringify(cfg));
     " "${ACI_HANDLE:-}" "${ACI_SUB:-}" "${ACI_EMAIL:-}" "${ACI_ACCESS_TOKEN:-}" \
       "${ACI_CLAUDE_TOKEN:-}" "${ACI_GITHUB_PAT:-}" \
       "${ACI_CLAUDE_CREDS:-}" "${ACI_CLAUDE_STATE:-}" \
-      "${ACI_HANDLE_COLORS_JSON:-}" "${ACI_MOOD:-}"
+      "${ACI_HANDLE_COLORS_JSON:-}" "${ACI_MOOD:-}" "${ACI_CITY:-}"
 }
 
 # aci_build_inscription_json <out_path>
