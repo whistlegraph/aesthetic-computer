@@ -27,6 +27,9 @@ enum PopoverCLI {
         let app = NSApplication.shared
         app.setActivationPolicy(.prohibited)
         app.appearance = NSAppearance(named: args.contains("--dark") ? .darkAqua : .aqua)
+        // Register YWFT Processing so the instrument title renders in the real
+        // typeface (not the system fallback) — this path skips app launch.
+        AppDelegate.registerBundledFonts()
 
         // Load with the instrument chart EXPANDED so the shot shows the full
         // GM grid + QWERTY map, not just the collapsed readout. This writes to
@@ -106,6 +109,7 @@ enum JamCLI {
         let app = NSApplication.shared
         app.setActivationPolicy(.prohibited)
         app.appearance = NSAppearance(named: args.contains("--dark") ? .darkAqua : .aqua)
+        AppDelegate.registerBundledFonts()
         if let lang = val("--lang") { Localization.current = lang }
 
         let ctrl = JamWindowController()

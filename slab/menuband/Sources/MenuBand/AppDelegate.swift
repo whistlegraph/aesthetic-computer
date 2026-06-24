@@ -1984,7 +1984,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// because both cuts share a PostScript name (the original 0.7/0.8
     /// title-rendering bug), so callers should prefer the cached
     /// descriptors. Called once at launch.
-    private static func registerBundledFonts() {
+    /// Internal (not private) so the headless capture entry points
+    /// (PopoverCLI/AboutCLI/JamCLI) can register the bundled YWFT Processing
+    /// font too — they build the view tree without going through
+    /// applicationDidFinishLaunching, so without this call the instrument
+    /// title falls back to system font in App Store screenshots.
+    static func registerBundledFonts() {
         let bundle = Bundle.appResources
         for name in ["ywft-processing-regular", "ywft-processing-bold"] {
             guard let url = bundle.url(forResource: name, withExtension: "ttf") else {

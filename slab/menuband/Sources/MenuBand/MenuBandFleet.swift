@@ -45,7 +45,16 @@ final class MenuBandFleet: NSObject {
 
     private func log(_ s: String) { NSLog("🛰️ fleet: \(s)") }
 
+    /// True once advertising/browsing has begun. Starting Bonjour is what
+    /// triggers the macOS Local Network permission prompt, so `start()` is
+    /// deferred to first *use* of the fleet (opening "Looking For Players" or a
+    /// fleet trigger) rather than app launch — a user who never plays together
+    /// is never prompted. Idempotent so every entry point can call it freely.
+    private(set) var started = false
+
     func start() {
+        guard !started else { return }
+        started = true
         log("start advertise+browse as '\(myPeer.displayName)' service=\(Self.serviceType)")
         advertiser.startAdvertisingPeer()
         browser.startBrowsingForPeers()

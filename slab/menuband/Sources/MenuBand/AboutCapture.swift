@@ -24,6 +24,7 @@ enum AboutCLI {
         // About follows system appearance; default to light (aqua) so it reads
         // as a clean window card in the reel. --dark flips it.
         app.appearance = NSAppearance(named: args.contains("--dark") ? .darkAqua : .aqua)
+        AppDelegate.registerBundledFonts()
         if let lang = val("--lang") { Localization.current = lang }
 
         let ctrl = AboutWindowController(updateInfo: nil)
