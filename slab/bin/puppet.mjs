@@ -716,7 +716,7 @@ async function handleRequest(req, sock) {
     // scan: draw the observation overlay (text + interactive boxes) on the
     // page so a watcher sees what the agent is reading. Returns {text,targets}.
     case "scan":
-      return one(machine).eval(scanExpr(args.ttl ?? 2600), args.target);
+      return one(machine).eval(scanExpr(args.ttl ?? 7000), args.target);
     case "analysis": {
       const want = args.on !== false && args.on !== "off";
       const names = !machine || machine === "all" ? [...machines.keys()] : [machine];
