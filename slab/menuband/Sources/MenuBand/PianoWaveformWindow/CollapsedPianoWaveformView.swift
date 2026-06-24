@@ -149,6 +149,11 @@ final class CollapsedPianoWaveformView: NSView {
             self?.menuBand?.toggleMIDIMode()
             self?.refresh()
         }
+        // SAMPLE cell (right of MIDI OUT) — switch to the mic-sampler backend.
+        instrumentList.onSampleCommit = { [weak self] in
+            self?.menuBand?.setSampleBackend(true)
+            self?.refresh()
+        }
         instrumentList.onHover = { [weak self] prog in
             self?.menuBand?.setInstrumentPreview(prog.map { UInt8($0) })
             self?.refresh()
@@ -432,6 +437,7 @@ final class CollapsedPianoWaveformView: NSView {
         instrumentList.selectedProgram = menuBand.effectiveMelodicProgram
         instrumentList.midiModeActive = menuBand.midiMode
         instrumentList.radioBackendActive = (menuBand.instrumentBackend == .kpbj)
+        instrumentList.sampleBackendActive = (menuBand.instrumentBackend == .sample)
         instrumentList.selectedRadioStationID = menuBand.radioStation.id
 
         applyInstrumentReadout(safe: safe, familyColor: familyColor, isDark: isDark)

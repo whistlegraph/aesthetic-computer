@@ -26,6 +26,24 @@ final class FrameCapture {
     private var timer: DispatchSourceTimer?
     private let fm = FileManager.default
 
+    // Transient overlay windows we draw (capture flash, OCR boxes). We exclude
+    // them from the screen capture by windowID so they never appear in a frame
+    // — that's the "doesn't interfere" guarantee. (The badge etc. still show.)
+    // Capture at this multiple of the display's point size — 2x makes small,
+    // dense text (terminals) physically larger in the buffer, pushing it over
+    // Vision's recognition threshold. The OCR scale uses the same factor so
+    // box coords still map back to screen points.
+    private let captureScale: Double = 1.0
+    private let overlayLock = NSLock()
+    private var overlayWindowIDs = Set<Int>()
+    private var ocrOverlayWindow: NSWindow?
+    private func registerOverlay(_ w: NSWindow) {
+        overlayLock.lock(); overlayWindowIDs.insert(w.windowNumber); overlayLock.unlock()
+    }
+    private func unregisterOverlay(_ w: NSWindow) {
+        overlayLock.lock(); overlayWindowIDs.remove(w.windowNumber); overlayLock.unlock()
+    }
+
     func start() {
         let dir = (Paths.frameReq as NSString).deletingLastPathComponent
         try? fm.createDirectory(atPath: dir, withIntermediateDirectories: true)
@@ -46,6 +64,92 @@ final class FrameCapture {
         fm.createFile(atPath: Paths.frameDone, contents: nil)
     }
 
+    // A subtle whole-display flash, fired AFTER the pixels are grabbed so it
+    // never lands in the capture — just end-user awareness that a frame was
+    // snapped. Runs on the main thread, click-through, brief and low-alpha; the
+    // capture/OCR pipeline keeps going on its own queue meanwhile.
+    private func flashCaptureIndicator() {
+        DispatchQueue.main.async {
+            for screen in NSScreen.screens {
+                let win = NSWindow(contentRect: screen.frame, styleMask: .borderless,
+                                   backing: .buffered, defer: false)
+                win.isOpaque = false
+                win.backgroundColor = .clear
+                win.level = .screenSaver
+                win.ignoresMouseEvents = true
+                win.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
+                let view = NSView(frame: NSRect(origin: .zero, size: screen.frame.size))
+                view.wantsLayer = true
+                view.layer?.backgroundColor = NSColor.white.cgColor
+                win.contentView = view
+                win.alphaValue = 0.0
+                win.orderFrontRegardless()
+                self.registerOverlay(win)
+                NSAnimationContext.runAnimationGroup({ ctx in
+                    ctx.duration = 0.06
+                    win.animator().alphaValue = 0.22
+                }, completionHandler: {
+                    NSAnimationContext.runAnimationGroup({ ctx in
+                        ctx.duration = 0.34
+                        win.animator().alphaValue = 0.0
+                    }, completionHandler: { self.unregisterOverlay(win); win.orderOut(nil) })
+                })
+            }
+        }
+    }
+
+    // Draw the whole-screen OCR boxes as a brief screen-wide overlay, so a
+    // watcher sees what was read across the ENTIRE display — not just inside a
+    // browser window (puppet's page-side scan). Click-through, excluded from
+    // captures by windowID, holds ~7s then fades. Boxes are points/top-left
+    // (from ocr()); CALayer is bottom-left, so Y flips against screen height.
+    private func showOcrOverlay(_ boxes: [[String: Any]]) {
+        guard !boxes.isEmpty else { return }
+        DispatchQueue.main.async {
+            guard let screen = NSScreen.main else { return }
+            if let old = self.ocrOverlayWindow { self.unregisterOverlay(old); old.orderOut(nil) }
+            let H = screen.frame.height
+            let win = NSWindow(contentRect: screen.frame, styleMask: .borderless,
+                               backing: .buffered, defer: false)
+            win.isOpaque = false
+            win.backgroundColor = .clear
+            win.level = .screenSaver
+            win.ignoresMouseEvents = true
+            win.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
+            let view = NSView(frame: NSRect(origin: .zero, size: screen.frame.size))
+            view.wantsLayer = true
+            if let root = view.layer {
+                for b in boxes {
+                    guard let r = b["r"] as? [Int], r.count == 4 else { continue }
+                    let box = CALayer()
+                    box.frame = CGRect(x: CGFloat(r[0]), y: H - CGFloat(r[1]) - CGFloat(r[3]),
+                                       width: CGFloat(r[2]), height: CGFloat(r[3]))
+                    // A random hue per box, semi-transparent fill — so the whole
+                    // read is vivid and every box stands out against the others.
+                    let c = NSColor(hue: .random(in: 0...1), saturation: 0.8, brightness: 1.0, alpha: 1.0)
+                    box.backgroundColor = c.withAlphaComponent(0.28).cgColor
+                    box.borderColor = c.withAlphaComponent(0.95).cgColor
+                    box.borderWidth = 1.2
+                    box.cornerRadius = 2
+                    root.addSublayer(box)
+                }
+            }
+            win.contentView = view
+            win.orderFrontRegardless()
+            self.registerOverlay(win)
+            self.ocrOverlayWindow = win
+            DispatchQueue.main.asyncAfter(deadline: .now() + 7.0) {
+                guard self.ocrOverlayWindow === win else { return }
+                NSAnimationContext.runAnimationGroup({ ctx in
+                    ctx.duration = 0.4
+                    win.animator().alphaValue = 0.0
+                }, completionHandler: {
+                    self.unregisterOverlay(win); win.orderOut(nil); self.ocrOverlayWindow = nil
+                })
+            }
+        }
+    }
+
     // MARK: - capture (in-process; no screencapture subprocess → no launchd throttle)
 
     private func captureDisplay() -> CGImage? {
@@ -57,10 +161,21 @@ final class FrameCapture {
             guard let content = try? await SCShareableContent.excludingDesktopWindows(
                     false, onScreenWindowsOnly: true),
                   let display = content.displays.first else { return }
-            let filter = SCContentFilter(display: display, excludingWindows: [])
+            // GUARANTEE we capture UNDER everything this app draws. Belt: any
+            // window we own (flash, OCR overlay, badge, previews) by bundle id.
+            // Suspenders: the explicitly-tracked overlay window ids, in case a
+            // window's owning app is momentarily unresolved. A frame is always
+            // the machine's real content beneath our overlays — never them.
+            let myBundle = Bundle.main.bundleIdentifier
+            let exclude = content.windows.filter { w in
+                if w.owningApplication?.bundleIdentifier == myBundle { return true }
+                self.overlayLock.lock(); defer { self.overlayLock.unlock() }
+                return self.overlayWindowIDs.contains(Int(w.windowID))
+            }
+            let filter = SCContentFilter(display: display, excludingWindows: exclude)
             let cfg = SCStreamConfiguration()
-            cfg.width = display.width
-            cfg.height = display.height
+            cfg.width = Int(Double(display.width) * self.captureScale)
+            cfg.height = Int(Double(display.height) * self.captureScale)
             cfg.showsCursor = true
             img = try? await SCScreenshotManager.captureImage(contentFilter: filter, configuration: cfg)
         }
@@ -75,6 +190,8 @@ final class FrameCapture {
         req.recognitionLevel = fast ? .fast : .accurate
         req.usesLanguageCorrection = false
         req.recognitionLanguages = ["en-US"]
+        req.minimumTextHeight = 0  // don't skip small/dense text (e.g. terminal monospace)
+        if #available(macOS 13.0, *) { req.revision = VNRecognizeTextRequestRevision3 }
         try? VNImageRequestHandler(cgImage: cg, options: [:]).perform([req])
         let W = Double(cg.width), H = Double(cg.height)
         var out: [[String: Any]] = []
@@ -228,8 +345,8 @@ final class FrameCapture {
 
         var t = nowNs(); let mt = meta(); tm["meta"] = msSince(t)
         env["meta"] = mt
-        let scale = ((mt["screen"] as? [String: Any])?["scale"] as? CGFloat).map(Double.init) ?? 1.0
         t = nowNs(); let cg = captureDisplay(); tm["capture"] = msSince(t)
+        if cg != nil { flashCaptureIndicator() }  // subtle post-capture awareness flash
         // The JPEG ships as RAW BYTES in a sidecar file (frame.out.jpg), not
         // base64 in the JSON — base64 inflates the payload +33% and burns
         // encode/decode CPU. The transport length-prefixes the two. Written
@@ -239,7 +356,9 @@ final class FrameCapture {
             if noOCR {
                 env["ocr"] = []
             } else {
-                t = nowNs(); env["ocr"] = ocr(cg, scale: scale, fast: fast); tm["ocr"] = msSince(t)
+                t = nowNs(); let boxes = ocr(cg, scale: captureScale, fast: fast); tm["ocr"] = msSince(t)
+                env["ocr"] = boxes
+                showOcrOverlay(boxes)
             }
             t = nowNs()
             let jpg = thumbJPEG(cg, maxWidth: 1568) ?? Data()

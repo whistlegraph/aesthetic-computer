@@ -17,7 +17,11 @@ final class LanguageMapView: NSView {
         didSet { invalidateIntrinsicContentSize(); needsDisplay = true }
     }
     var selectedCode: String = "" { didSet { needsDisplay = true } }
-    /// Fires when the user clicks a cell.
+    /// Fires on press / slide-into a cell — speak that language's name only
+    /// (instant, no UI rebuild) so the map plays like a sample board.
+    var onPlay: ((Item) -> Void)?
+    /// Fires on release — commit the actual language switch (the heavier
+    /// rebuild) for whichever cell the cursor lifted over.
     var onPick: ((Item) -> Void)?
 
     /// Two columns; each row is this tall.
@@ -106,22 +110,30 @@ final class LanguageMapView: NSView {
     override func mouseExited(with event: NSEvent) {
         if hovered != nil { hovered = nil; needsDisplay = true }
     }
-    // Press-and-release like a key: the cell lights "played" while held,
-    // and the pick (switch + spoken name) commits on release over the same
-    // cell — so the down state reads as the moment of play.
+    // Sample-board feel: fire on mouse-DOWN (instant — the spoken name starts
+    // the moment you press, so holding hears the whole word), and re-fire as
+    // you DRAG across cells so the language names can be "played" like pads.
+    // Release just clears the lit state. Re-triggering is cheap — the host
+    // speaks immediately and skips the heavy rebuild when the code is unchanged.
     override func mouseDown(with event: NSEvent) {
-        pressed = index(at: convert(event.locationInWindow, from: nil))
+        let i = index(at: convert(event.locationInWindow, from: nil))
+        pressed = i
         needsDisplay = true
+        if let i = i { onPlay?(items[i]) }   // instant sound, no rebuild
     }
     override func mouseDragged(with event: NSEvent) {
         let i = index(at: convert(event.locationInWindow, from: nil))
-        if i != pressed { pressed = i; needsDisplay = true }
+        if i != pressed {
+            pressed = i
+            needsDisplay = true
+            if let i = i { onPlay?(items[i]) }   // slide to play the next name
+        }
     }
     override func mouseUp(with event: NSEvent) {
         let i = index(at: convert(event.locationInWindow, from: nil))
         pressed = nil
         needsDisplay = true
-        if let i = i { onPick?(items[i]) }
+        if let i = i { onPick?(items[i]) }   // commit the switch on release
     }
 
     override func draw(_ dirtyRect: NSRect) {

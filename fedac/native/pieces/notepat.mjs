@@ -55,7 +55,98 @@ let recording = false;     // true while holding REC
 let recPointerId = null;   // touch pointer currently holding REC button
 let recStartTime = 0;      // Date.now() when recording started
 const MAX_REC_SECS = 10;   // matches AUDIO_MAX_SAMPLE_SECS
-const SAMPLE_BASE_FREQ = 261.63; // C4 — base pitch for sample playback
+const SAMPLE_BASE_FREQ = 261.63; // C4 — fallback base when a sample isn't tonal
+
+// Estimate the fundamental frequency (Hz) of a recorded mono sample via
+// windowed autocorrelation. Sample playback resamples by `freq / base`, so
+// feeding the note the user *actually* recorded as `base` makes every key
+// sound at its true note frequency — a chromatic sampler — instead of
+// assuming the recording was C4. Returns null when the sample is too quiet
+// or untuned (a drum hit, noise) so callers fall back to SAMPLE_BASE_FREQ.
+function detectFundamental(data, rate, fMin = 50, fMax = 1500) {
+  if (!data || !rate || data.length < 2048) return null;
+  // Window around the loudest region so silent lead-in doesn't poison the
+  // estimate. Subsample the scan — we only need the rough peak location.
+  const N = Math.min(4096, data.length);
+  const scanStep = Math.max(1, Math.floor(data.length / 2048));
+  let peakIdx = 0, peakAmp = 0;
+  for (let i = 0; i < data.length; i += scanStep) {
+    const a = data[i] < 0 ? -data[i] : data[i];
+    if (a > peakAmp) { peakAmp = a; peakIdx = i; }
+  }
+  if (peakAmp < 0.01) return null; // effectively silent
+  let start = peakIdx - (N >> 1);
+  if (start < 0) start = 0;
+  if (start + N > data.length) start = data.length - N;
+  // De-mean + Hann window into a working buffer.
+  const buf = new Float32Array(N);
+  let mean = 0;
+  for (let i = 0; i < N; i++) mean += data[start + i];
+  mean /= N;
+  let energy0 = 0;
+  for (let i = 0; i < N; i++) {
+    const w = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (N - 1));
+    const v = (data[start + i] - mean) * w;
+    buf[i] = v;
+    energy0 += v * v;
+  }
+  if (energy0 <= 1e-9) return null;
+  const minLag = Math.max(2, Math.floor(rate / fMax));
+  const maxLag = Math.min(N - 1, Math.floor(rate / fMin));
+  if (maxLag <= minLag) return null;
+  // Normalized autocorrelation; take the first strong local maximum so we
+  // lock onto the fundamental rather than a louder higher harmonic.
+  const nac = new Float32Array(maxLag + 1);
+  for (let lag = minLag; lag <= maxLag; lag++) {
+    let corr = 0;
+    for (let i = 0; i < N - lag; i++) corr += buf[i] * buf[i + lag];
+    nac[lag] = corr / energy0;
+  }
+  let bestLag = -1, bestVal = 0;
+  for (let lag = minLag + 1; lag < maxLag; lag++) {
+    if (nac[lag] > nac[lag - 1] && nac[lag] >= nac[lag + 1]) {
+      if (nac[lag] > bestVal) { bestVal = nac[lag]; bestLag = lag; }
+      if (bestVal > 0.6) break; // confident enough — first solid peak wins
+    }
+  }
+  if (bestLag < 0 || bestVal < 0.3) return null; // not tonal enough to trust
+  // Parabolic interpolation for sub-sample lag precision.
+  const a = nac[bestLag - 1], b = nac[bestLag], c = nac[bestLag + 1];
+  const denom = a - 2 * b + c;
+  const shift = denom !== 0 ? (0.5 * (a - c)) / denom : 0;
+  const refinedLag = bestLag + shift;
+  const f0 = rate / refinedLag;
+  return f0 >= fMin && f0 <= fMax ? f0 : null;
+}
+
+// Clamp a sample's playback tone so the resample interval stays within ±1
+// octave of its base pitch. speed = tone/base in the engine, so this caps the
+// ratio at 0.5×–2× — a wrong f0 estimate can shift the timbre but never scream
+// or rumble off the keyboard.
+function clampSampleTone(targetFreq, base) {
+  const b = base > 0 ? base : SAMPLE_BASE_FREQ;
+  const ratio = Math.max(0.5, Math.min(2.0, targetFreq / b));
+  return b * ratio;
+}
+
+// Downsample a recorded buffer to a small peak envelope for cheap per-pad
+// waveform rendering (computed once at record time, not per frame).
+function sampleWaveform(data, bins = 20) {
+  if (!data || !data.length) return null;
+  const out = new Array(bins).fill(0);
+  const step = data.length / bins;
+  for (let i = 0; i < bins; i++) {
+    const start = Math.floor(i * step);
+    const end = Math.min(data.length, Math.floor((i + 1) * step));
+    let peak = 0;
+    for (let j = start; j < end; j++) {
+      const a = data[j] < 0 ? -data[j] : data[j];
+      if (a > peak) peak = a;
+    }
+    out[i] = peak;
+  }
+  return out;
+}
 
 // Per-key sample bank: End key arms, tone key records to that key only
 let sampleBank = {};       // key -> { data: Float32Array, len: number, rate: number }
@@ -245,7 +336,7 @@ function applyPitchShiftToActiveSounds(force = false) {
   for (const k of Object.keys(sounds)) {
     const s = sounds[k];
     if (s && s.synth && s.baseFreq) {
-      if (s.isSample) s.synth.update({ tone: s.baseFreq * factor, base: SAMPLE_BASE_FREQ });
+      if (s.isSample) { const sb = s.sampleBase || SAMPLE_BASE_FREQ; s.synth.update({ tone: clampSampleTone(s.baseFreq * factor, sb), base: sb }); }
       else s.synth.update({ tone: s.baseFreq * factor });
     }
   }
@@ -2348,7 +2439,7 @@ function stopSampleRecording(sound, reason = "stop") {
   return len;
 }
 
-function setWave(nextWave, sound) {
+function setWave(nextWave, sound, { silent = false } = {}) {
   if (!nextWave) return;
   // Picking a basic wave (sine/triangle/.../sample) reroutes OFF any GM
   // instrument — the GM program overrides `wave` when set, so clear it so
@@ -2365,8 +2456,9 @@ function setWave(nextWave, sound) {
   wave = nextWave;
   waveIndex = wavetypes.indexOf(nextWave);
   if (waveIndex < 0) waveIndex = 0;
-  // Announce wave type
-  sound?.speak?.(nextWave);
+  // Announce wave type (skipped when silent — e.g. Home jumps in and records
+  // immediately, so a spoken "sample" or blip would land in the take).
+  if (!silent) sound?.speak?.(nextWave);
 
   if (wave === "sample") {
     const mic = sound?.microphone || {};
@@ -2374,12 +2466,12 @@ function setWave(nextWave, sound) {
     // Open hot-mic so device stays ready — recording is instant after this.
     // Always call open(); C side is idempotent if already hot.
     sound?.microphone?.open?.();
-    playWaveSound(sound, wave);
+    if (!silent) playWaveSound(sound, wave);
     console.log(`[sample] wave-enter: loaded=${sampleLoaded} len=${mic.sampleLength || 0} rate=${mic.sampleRate || 0} connected=${!!mic.connected} hot=${!!mic.hot} device=${mic.device || "none"} err=${mic.lastError || ""}`);
   } else {
     // Close hot-mic when leaving sample mode to free the device
     if (prev === "sample") sound?.microphone?.close?.();
-    playWaveSound(sound, wave);
+    if (!silent) playWaveSound(sound, wave);
   }
   syncVoiceIndex(); // keep the global voice chooser in lockstep
 }
@@ -2869,18 +2961,28 @@ function act({ event: e, sound, wifi, system }) {
       }
       return;
     }
-    // Home key: hold to record GLOBAL sample
-    if (key === "home" && wave === "sample" && !recording && !perKeyRecording) {
+    // Home key: jump straight into sample mode (silently — recording starts
+    // on this same press, so NO click/speak that would land in the take),
+    // clear all custom per-key samples, and record a fresh GLOBAL sample
+    // while held.
+    if (key === "home" && !recording && !perKeyRecording) {
+      if (wave !== "sample") setWave("sample", sound, { silent: true });
+      sampleBank = {};            // clear custom per-key samples
+      lastLoadedSample = null;    // force reload on next play
       const ok = !!sound?.microphone?.rec?.();
       recording = ok;
       recPointerId = null;
       if (ok) recStartTime = Date.now();
-      console.log(`[mic] rec-home: ok=${ok}`);
+      console.log(`[mic] rec-home: ok=${ok} (cleared per-key bank)`);
       return;
     }
-    // End key: arm per-key recording mode
-    if (key === "end" && wave === "sample") {
+    // End key: jump into sample mode and arm per-key recording. A click is OK
+    // here — End is pressed BEFORE the note/record key, so it won't be
+    // captured (unlike Home, which records on its own press).
+    if (key === "end") {
+      if (wave !== "sample") setWave("sample", sound, { silent: true });
       endArmed = true;
+      sound?.synth?.({ type: "square", tone: 1760, duration: 0.012, volume: 0.4, attack: 0.0004, decay: 0.01 });
       console.log(`[sample-bank] armed for per-key recording`);
       return;
     }
@@ -3124,11 +3226,16 @@ function act({ event: e, sound, wifi, system }) {
           sound.sample.loadData(targetSample.data, targetSample.rate);
           lastLoadedSample = targetSample;
         }
+        const sampleBase = targetSample?.base || SAMPLE_BASE_FREQ;
+        // Clamp the resample ratio to ±1 octave (0.5×–2×). The engine plays
+        // at speed = tone/base, so a mis-detected base could otherwise scream
+        // or rumble; clamping the musical interval keeps every key sane.
+        const sampleTone = clampSampleTone(playFreq, sampleBase);
         const smp = sound.sample.play({
-          tone: playFreq, base: SAMPLE_BASE_FREQ, volume: vol, pan, loop: true,
+          tone: sampleTone, base: sampleBase, volume: vol, pan, loop: true,
         });
         if (smp) {
-          rememberSound(key, { synth: smp, note: letter, octave: noteOctave, baseFreq: freq, isSample: true, gridOffset: offset, baseVol }, system, velocity);
+          rememberSound(key, { synth: smp, note: letter, octave: noteOctave, baseFreq: freq, isSample: true, sampleBase, gridOffset: offset, baseVol }, system, velocity);
         } else {
           const synth = sound.synth({
             type: "sine", tone: playFreq, duration: Infinity,
@@ -3189,9 +3296,13 @@ function act({ event: e, sound, wifi, system }) {
       // Save global sample data for bank restore
       const data = sound.sample.getData?.();
       if (data && data.length > 0) {
-        globalSample = { data: new Float32Array(data), len: data.length, rate: sound.microphone?.sampleRate || 48000 };
+        const buf = new Float32Array(data);
+        const rate = sound.microphone?.sampleRate || 48000;
+        const base = detectFundamental(buf, rate) || SAMPLE_BASE_FREQ;
+        const waveform = sampleWaveform(buf);
+        globalSample = { data: buf, len: data.length, rate, base, waveform };
         lastLoadedSample = null;  // force reload on next key press
-        console.log(`[sample-bank] global sample saved (${data.length} samples)`);
+        console.log(`[sample-bank] global sample saved (${data.length} samples, base ${base.toFixed(1)}Hz)`);
       }
       return;
     }
@@ -3217,8 +3328,16 @@ function act({ event: e, sound, wifi, system }) {
             percussionSampleBank[recDrum] = { data: new Float32Array(data), len: data.length, rate };
             console.log(`[perc-bank] saved ${data.length} samples to drum '${recDrum}'`);
           } else {
-            sampleBank[key] = { data: new Float32Array(data), len: data.length, rate };
-            console.log(`[sample-bank] saved ${data.length} samples to key '${key}'`);
+            const buf = new Float32Array(data);
+            // Anchor a per-key sample to the pitch of the key it was recorded
+            // on: pressing that key plays it at 1.0× (its natural pitch),
+            // neighbours pitch relative to it — deterministic, no detection
+            // guesswork. The ±1-octave clamp at play bounds any octave shift.
+            const recOctave = octave + recOffset;
+            const base = noteToFreq(recLetter, recOctave) || SAMPLE_BASE_FREQ;
+            const waveform = sampleWaveform(buf);
+            sampleBank[key] = { data: buf, len: data.length, rate, base, waveform };
+            console.log(`[sample-bank] saved ${data.length} samples to key '${key}' (anchor ${base.toFixed(1)}Hz)`);
           }
           sampleLoaded = true;
           // Confirmation beep
@@ -7118,6 +7237,31 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
           }
           const fg = dark ? (sharp ? 120 : 190) : (sharp ? 100 : 50);
           ink(fg, fg, fg);
+        }
+
+        // Recording overlay: the pad being recorded glows pulsing red. Home
+        // records globally → every melodic pad reads red; per-key → just that
+        // pad. Drum pads are excluded (sampling is melodic).
+        if (!isKit && (recording || perKeyRecording === key)) {
+          const pulse = 110 + Math.floor(90 * Math.abs(Math.sin(frame * 0.25)));
+          ink(225, 30, 30, pulse);
+          box(x, y, btnW, btnH, true);
+          ink(255, 90, 90);
+          box(x, y, btnW, btnH, "outline");
+          ink(255, 255, 255); // white label reads on red
+        } else if (!isKit && wave === "sample" && key && sampleBank[key]?.waveform && btnH > 10) {
+          // Per-pad waveform: a key carrying a custom sample shows its
+          // recorded envelope (precomputed peaks — cheap, drawn once/frame).
+          const wf = sampleBank[key].waveform;
+          const midY = y + btnH / 2;
+          const stepX = btnW / wf.length;
+          const amp = btnH * 0.38;
+          ink(dark ? 130 : 70, dark ? 225 : 150, dark ? 255 : 210, 150);
+          for (let i = 0; i < wf.length; i++) {
+            const h = Math.max(1, Math.floor(wf[i] * amp));
+            box(Math.floor(x + i * stepX), Math.floor(midY - h), Math.max(1, Math.ceil(stepX)), h * 2, true);
+          }
+          ink(dark ? 200 : 50, dark ? 200 : 50, dark ? 210 : 60); // restore label ink
         }
 
         // Caps follow shift: lowercase by default, uppercase only while

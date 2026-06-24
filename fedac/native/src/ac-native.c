@@ -740,6 +740,13 @@ static int boot_title_colors_len = 0;
 // and falls back to the original "enjoy <city>!" rendering.
 static char boot_mood[256] = "";
 
+// Flash-time preset city — baked into config.json "city" by
+// `ac-inscribe --city` so a device greets from wherever it's being shipped
+// (e.g. "Ridgewood") before it has ever geolocated. read_cached_city() uses
+// this as the fallback when /mnt/last-city.txt (the live IP-lookup cache)
+// doesn't exist yet; once the device geolocates, that cache wins.
+static char preset_city[96] = "";
+
 // (Hardware device identity globals are defined further up — before the
 // compute_device_fingerprint() helper that needs them in file order.)
 
@@ -878,6 +885,10 @@ static void load_boot_visual_config(void) {
             parse_config_string(json, "\"mood\"", boot_mood, sizeof(boot_mood));
         }
         if (boot_mood[0]) ac_log("[ac-native] Boot mood: %s\n", boot_mood);
+
+        // Flash-time preset greeting city (used until the device geolocates).
+        parse_config_string(json, "\"city\"", preset_city, sizeof(preset_city));
+        if (preset_city[0]) ac_log("[ac-native] Preset city: %s\n", preset_city);
     }
 
     // Read wifi flag (default: enabled)
@@ -2283,8 +2294,10 @@ static int get_la_hour(void) {
 
 // Fill buf with the city name for the boot greeting. The geo piece writes
 // /mnt/last-city.txt after a successful IP lookup, so this reads whatever
-// was cached on a previous boot. Falls back to "Los Angeles" on first boot
-// or when the cache is missing/empty — matches the pre-cache greeting.
+// was cached on a previous boot. When that cache is missing/empty (first
+// boot, before any IP lookup) it falls back to the flash-time preset city
+// (config.json "city", baked by `ac-inscribe --city`) so a device greets
+// from wherever it's shipped, then to "Los Angeles" as a last resort.
 static void read_cached_city(char *buf, size_t len) {
     if (!buf || len == 0) return;
     buf[0] = 0;
@@ -2300,7 +2313,10 @@ static void read_cached_city(char *buf, size_t len) {
         fclose(f);
     }
     if (buf[0] == 0) {
-        strncpy(buf, "Los Angeles", len - 1);
+        // No live geolocation cache yet — fall back to the flash-time preset
+        // city (where the device was shipped), then to "Los Angeles".
+        const char *fallback = preset_city[0] ? preset_city : "Los Angeles";
+        strncpy(buf, fallback, len - 1);
         buf[len - 1] = 0;
     }
 }

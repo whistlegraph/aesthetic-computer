@@ -1797,15 +1797,22 @@ final class MenuBandSynth {
     /// Begin recording into the sample voice's buffer. Wakes the audio
     /// engine first if it was suspended for idle, since the input-node
     /// tap won't deliver frames against a paused graph.
-    func startSampleRecording() {
+    func startSampleRecording() { startSampleRecording(forKey: nil) }
+
+    /// Start recording. `forKey` non-nil commits into that key's per-key slot
+    /// (the ~+key gesture); nil records the global sample (the ` gesture).
+    func startSampleRecording(forKey midi: UInt8?) {
         guard started else { return }
-        NSLog("MenuBand SampleVoice: synth startSampleRecording (playbackEngineRunning=\(engine.isRunning))")
+        NSLog("MenuBand SampleVoice: synth startSampleRecording forKey=\(midi.map(String.init) ?? "global") (playbackEngineRunning=\(engine.isRunning))")
         _ = resumeAudioEngineIfNeeded()
         sampleRecordingActive = true
         sampleVoice.setOutputEnabled(false)
         sampleVoice.panic()
-        sampleVoice.startRecording()
+        sampleVoice.startRecording(forKey: midi)
     }
+
+    /// Clear all per-key custom samples (the ` "Home" gesture).
+    func clearPerKeySamples() { sampleVoice.clearPerKeySamples() }
 
     /// Stop recording. Returns true iff a usable buffer (≥100 ms) was
     /// captured; the caller flips the active backend to `.sample` only
@@ -2015,9 +2022,9 @@ final class MenuBandSynth {
         // Sample backend — same melodic-only routing semantics as
         // radio. Drums always continue down to the GM path.
         if usingSampleBackend && channel != 9 {
-            NSLog("MenuBand SampleVoice: routing noteOn to sample midi=\(midi) channel=\(channel)")
-            sampleVoice.noteOn(midi, velocity: velocity, channel: channel)
-            return
+            // Per-key/global sample plays it; if this key has no sample, fall
+            // through to the GM instrument (hybrid kit — instruments per key).
+            if sampleVoice.noteOn(midi, velocity: velocity, channel: channel) { return }
         }
         // Drums (channel 9) always route through MIDISynth/drums sampler
         // — drum kits are GM regardless of melodic backend choice.
@@ -2151,8 +2158,10 @@ final class MenuBandSynth {
             return
         }
         if usingSampleBackend && channel != 9 {
+            // Release the sample voice, then DON'T return — fall through to
+            // also send a GM note-off, so keys that fell back to GM (no sample)
+            // don't get stuck. Both are no-ops for notes they don't own.
             sampleVoice.noteOff(midi, channel: channel)
-            return
         }
         if channel == 9 {
             if midiSynthReady, let au = midiSynth?.audioUnit {

@@ -59,6 +59,24 @@ final class MenuBandSampleVoice {
     private var recordedBuffer: AVAudioPCMBuffer?
     private let bufferLock = NSLock()
 
+    /// Auto-detected fundamental pitch (Hz) of the current recording. Used
+    /// as the chromatic playback reference so each key sounds at its true
+    /// note frequency rather than assuming the sample was middle C. Falls
+    /// back to C4 when the capture isn't tonal enough to trust. Written
+    /// under `bufferLock` alongside `recordedBuffer`.
+    private var detectedFundamental: Double = 261.63
+
+    /// Per-key custom samples (hybrid kit). A key with an entry here plays its
+    /// own buffer anchored to the key it was recorded on (that key = natural
+    /// pitch, neighbours relative); keys with no per-key sample fall back to
+    /// the global recording, and the synth falls back to GM if neither exists.
+    /// All guarded by `bufferLock`.
+    private var perKeyBuffers: [UInt8: AVAudioPCMBuffer] = [:]
+    private var perKeyAnchorMidi: [UInt8: UInt8] = [:]
+    /// When set, the next stopRecording() commits into this key's slot instead
+    /// of the global buffer (driven by the ~+key gesture).
+    private var pendingPerKeyMidi: UInt8? = nil
+
     /// Active recording state. We tap the engine's input node into a
     /// scratch buffer; on `stopRecording` we trim to actual length and
     /// promote to `recordedBuffer`.
@@ -148,6 +166,10 @@ final class MenuBandSampleVoice {
         // `.pitch` (cents) moves.
         let timePitch = AVAudioUnitTimePitch()
         var midi: UInt8 = 60
+        // Note pitch in cents WITHOUT the live trackpad bend. Per-key samples
+        // anchor to their recorded key; the global sample is chromatic from
+        // the detected fundamental. setBend re-adds the bend on top of this.
+        var baseCents: Float = 0
         var releaseWork: DispatchWorkItem?
     }
 
@@ -477,6 +499,10 @@ final class MenuBandSampleVoice {
             return false
         }
         recording = false
+        // Capture + clear the per-key target up front so a discarded (too
+        // short) take can't leak it into the next record.
+        let perKeyTarget = pendingPerKeyMidi
+        pendingPerKeyMidi = nil
         scheduleHotMicStop()
         guard let scratch = recordScratch else {
             recordScratch = nil
@@ -502,16 +528,25 @@ final class MenuBandSampleVoice {
             return false
         }
         out.frameLength = AVAudioFrameCount(frames)
+        var f0: Double? = nil
         if let src = scratch.floatChannelData?[0],
            let dst = out.floatChannelData?[0] {
             memcpy(dst, src.advanced(by: startFrame), frames * MemoryLayout<Float>.size)
             let stats = shapeCapturedSample(dst, frames: frames)
-            NSLog("MenuBand SampleVoice: sample shaped peak \(stats.peakBefore) -> \(stats.peakAfter), rms \(stats.rmsBefore) -> \(stats.rmsAfter), gain=\(stats.gain)")
+            f0 = detectFundamental(dst, frames: frames, rate: sampleRate)
+            NSLog("MenuBand SampleVoice: sample shaped peak \(stats.peakBefore) -> \(stats.peakAfter), rms \(stats.rmsBefore) -> \(stats.rmsAfter), gain=\(stats.gain), f0=\(f0.map { String(format: "%.1fHz", $0) } ?? "untuned→C4")")
         }
         bufferLock.lock()
-        recordedBuffer = out
+        if let km = perKeyTarget {
+            // Per-key commit: anchor this sample to the key it was recorded on.
+            perKeyBuffers[km] = out
+            perKeyAnchorMidi[km] = km
+        } else {
+            recordedBuffer = out
+            detectedFundamental = f0 ?? 261.63
+        }
         bufferLock.unlock()
-        NSLog("MenuBand SampleVoice: recording captured \(frames) frames (\(Double(frames) / sampleRate) s), trimmed \(startFrame) leading frames")
+        NSLog("MenuBand SampleVoice: captured \(frames) frames (\(Double(frames) / sampleRate) s)\(perKeyTarget.map { " → per-key midi \($0)" } ?? " → global")")
         return true
     }
 
@@ -560,6 +595,74 @@ final class MenuBandSampleVoice {
         }
         let rmsAfter = sqrt(sumSqAfter / Float(frames))
         return (peakBefore, peakAfter, rmsBefore, rmsAfter, gain)
+    }
+
+    /// Estimate the fundamental frequency (Hz) of the shaped mono sample via
+    /// windowed autocorrelation, so chromatic playback can pitch from the
+    /// note actually recorded instead of a fixed C4. Mirrors the native
+    /// notepat detector. Returns nil when the capture is too quiet or
+    /// untuned (a drum hit, noise) to trust — callers fall back to C4.
+    private func detectFundamental(_ data: UnsafeMutablePointer<Float>, frames: Int,
+                                   rate: Double, fMin: Double = 50, fMax: Double = 1500) -> Double? {
+        guard frames >= 2048, rate > 0 else { return nil }
+        let n = min(4096, frames)
+        // Window around the loudest region so silent lead-in/out doesn't
+        // poison the estimate.
+        let scanStep = max(1, frames / 2048)
+        var peakIdx = 0
+        var peakAmp: Float = 0
+        var i = 0
+        while i < frames {
+            let a = abs(data[i])
+            if a > peakAmp { peakAmp = a; peakIdx = i }
+            i += scanStep
+        }
+        if peakAmp < 0.01 { return nil } // effectively silent
+        var start = peakIdx - (n / 2)
+        if start < 0 { start = 0 }
+        if start + n > frames { start = frames - n }
+        // De-mean + Hann window into a working buffer.
+        var buf = [Float](repeating: 0, count: n)
+        var mean: Float = 0
+        for j in 0..<n { mean += data[start + j] }
+        mean /= Float(n)
+        var energy0: Float = 0
+        for j in 0..<n {
+            let w = Float(0.5 - 0.5 * cos(2.0 * Double.pi * Double(j) / Double(n - 1)))
+            let v = (data[start + j] - mean) * w
+            buf[j] = v
+            energy0 += v * v
+        }
+        if energy0 <= 1e-9 { return nil }
+        let minLag = max(2, Int(rate / fMax))
+        let maxLag = min(n - 1, Int(rate / fMin))
+        if maxLag <= minLag { return nil }
+        // Normalized autocorrelation; take the first strong local maximum so
+        // we lock onto the fundamental, not a louder higher harmonic.
+        var nac = [Float](repeating: 0, count: maxLag + 1)
+        for lag in minLag...maxLag {
+            var corr: Float = 0
+            for j in 0..<(n - lag) { corr += buf[j] * buf[j + lag] }
+            nac[lag] = corr / energy0
+        }
+        var bestLag = -1
+        var bestVal: Float = 0
+        var lag = minLag + 1
+        while lag < maxLag {
+            if nac[lag] > nac[lag - 1] && nac[lag] >= nac[lag + 1] {
+                if nac[lag] > bestVal { bestVal = nac[lag]; bestLag = lag }
+                if bestVal > 0.6 { break } // confident enough — first solid peak
+            }
+            lag += 1
+        }
+        if bestLag < 0 || bestVal < 0.3 { return nil } // not tonal enough
+        // Parabolic interpolation for sub-sample lag precision.
+        let a = nac[bestLag - 1], b = nac[bestLag], c = nac[bestLag + 1]
+        let denom = a - 2 * b + c
+        let shift: Float = denom != 0 ? 0.5 * (a - c) / denom : 0
+        let refinedLag = Double(bestLag) + Double(shift)
+        let f0 = rate / refinedLag
+        return (f0 >= fMin && f0 <= fMax) ? f0 : nil
     }
 
     private func trimmedStartFrame(scratch: AVAudioPCMBuffer, frames: Int) -> Int {
@@ -842,12 +945,17 @@ final class MenuBandSampleVoice {
         return v
     }
 
-    /// Pitch shift in CENTS for `midi` relative to middle C (60). 60 → 0.
-    /// 100 cents per semitone. Drives `AVAudioUnitTimePitch.pitch`, which
-    /// shifts pitch without touching duration/speed.
+    /// Pitch shift in CENTS for `midi`, chromatic from the sample's actual
+    /// recorded fundamental: shift = 1200·log2(targetHz / f0). So each key
+    /// sounds at its true note frequency regardless of what pitch was hummed
+    /// into the mic. Falls back to C4 (261.63 Hz) when detection failed, which
+    /// reduces to the old `(midi-60)·100` behavior for a C4-pitched sample.
+    /// Drives `AVAudioUnitTimePitch.pitch` (shifts pitch, not duration/speed).
     @inline(__always)
     private func cents(forNote midi: UInt8) -> Float {
-        Float(Int(midi) - 60) * 100.0
+        let targetHz = 440.0 * pow(2.0, (Double(midi) - 69.0) / 12.0)
+        let base = detectedFundamental > 0 ? detectedFundamental : 261.63
+        return Float(1200.0 * log2(targetHz / base))
     }
 
     /// Combined note + trackpad-bend pitch in cents, clamped to the
@@ -898,25 +1006,57 @@ final class MenuBandSampleVoice {
         bendSemitones = amount * 12.0
         for (_, v) in voices {
             if v.node.isPlaying {
-                v.timePitch.pitch = pitchCents(forNote: v.midi)
+                v.timePitch.pitch = min(max(v.baseCents + bendSemitones * 100.0,
+                                            -Self.maxPitchCents), Self.maxPitchCents)
             }
         }
     }
 
-    func noteOn(_ midi: UInt8, velocity: UInt8 = 100, channel: UInt8 = 0) {
+    /// Arm the next recording to commit into a specific key's slot (the ~+key
+    /// gesture) rather than the global buffer. Pass nil for a global record.
+    func startRecording(forKey midi: UInt8?) {
+        pendingPerKeyMidi = midi
+        startRecording()
+    }
+
+    /// True if THIS key has a sample (per-key or global) that would sound.
+    func hasSample(forKey midi: UInt8) -> Bool {
+        bufferLock.lock(); defer { bufferLock.unlock() }
+        return perKeyBuffers[midi] != nil || recordedBuffer != nil
+    }
+
+    /// Clear every per-key custom sample (the ` "Home" gesture). The global
+    /// recording is left alone — backtick re-records it right after.
+    func clearPerKeySamples() {
         bufferLock.lock()
-        let buf = recordedBuffer
+        perKeyBuffers.removeAll()
+        perKeyAnchorMidi.removeAll()
         bufferLock.unlock()
-        guard let buf = buf else {
-            // No recording yet — silent noteOn. The synth shouldn't
-            // route to this backend in that state, but defend anyway.
-            NSLog("MenuBand SampleVoice: noteOn ignored — no recorded buffer")
-            return
-        }
+        NSLog("MenuBand SampleVoice: cleared all per-key samples")
+    }
+
+    /// Returns true if a sample played for this key, false if there's nothing
+    /// to play (no per-key sample AND no global recording) — in which case the
+    /// synth falls back to the GM instrument for this note (hybrid kit).
+    @discardableResult
+    func noteOn(_ midi: UInt8, velocity: UInt8 = 100, channel: UInt8 = 0) -> Bool {
+        bufferLock.lock()
+        let perKey = perKeyBuffers[midi]
+        let anchor = perKeyAnchorMidi[midi]
+        let global = recordedBuffer
+        bufferLock.unlock()
+        // Per-key sample wins; else the global recording; else GM fallback.
+        guard let buf = perKey ?? global else { return false }
         guard attached, engine != nil else {
             NSLog("MenuBand SampleVoice: noteOn ignored — voice not attached")
-            return
+            return false
         }
+        // Per-key samples are anchored to the key they were recorded on (that
+        // key plays at 0 cents); the global sample is chromatic from its
+        // detected fundamental.
+        let baseCents: Float = (perKey != nil)
+            ? Float(Int(midi) - Int(anchor ?? midi)) * 100.0
+            : cents(forNote: midi)
         // The controller rotates `nextMelodicChannel()` 0..3 on every
         // press, so the same midi can land on a fresh channel while
         // the previous channel's slot is still mid-release (~80ms
@@ -930,7 +1070,7 @@ final class MenuBandSampleVoice {
         let slot = nextSlot(channel: channel, midi: midi)
         guard let voice = ensureVoice(channel: channel, slot: slot) else {
             NSLog("MenuBand SampleVoice: noteOn ignored — failed to allocate voice")
-            return
+            return false
         }
 
         // Cancel any pending release-fade — we're retriggering the
@@ -939,12 +1079,12 @@ final class MenuBandSampleVoice {
         voice.releaseWork = nil
 
         voice.midi = midi
-        // Compose the pitch (cents) from the note AND the current
-        // trackpad pitch bend so dragging the cursor while a sample
-        // voice rings shifts pitch in real time — mirror of the
-        // MIDISynth pitch-bend path. `.rate` stays at its 1.0 default,
+        voice.baseCents = baseCents
+        // Compose pitch from the note's base cents AND the live trackpad bend
+        // so dragging the cursor shifts pitch in real time. `.rate` stays 1.0,
         // so duration/speed never changes with pitch.
-        voice.timePitch.pitch = pitchCents(forNote: midi)
+        voice.timePitch.pitch = min(max(baseCents + bendSemitones * 100.0,
+                                        -Self.maxPitchCents), Self.maxPitchCents)
         voice.node.volume = Float(velocity) / 127.0
 
         if voice.node.isPlaying {
@@ -959,6 +1099,7 @@ final class MenuBandSampleVoice {
         voice.node.scheduleBuffer(buf, at: nil,
                                   options: [.interrupts, .loops]) { /* no-op */ }
         voice.node.play()
+        return true
     }
 
     /// Immediately silence every Voice currently playing `midi`
@@ -1035,7 +1176,7 @@ final class MenuBandSampleVoice {
     /// True if a recording exists and is long enough to be playable.
     var hasRecording: Bool {
         bufferLock.lock(); defer { bufferLock.unlock() }
-        return recordedBuffer != nil
+        return recordedBuffer != nil || !perKeyBuffers.isEmpty
     }
 
     /// Show an NSAlert explaining how to enable microphone access for

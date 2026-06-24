@@ -455,8 +455,29 @@ cp "${INITRAMFS}" "${M1}/initramfs.cpio.gz"
 # (e.g. AC_BOOT_PIECE=babypat flash-mac.sh ...). Kernel resolves the
 # name to /pieces/<piece>.mjs at boot — see ac-native.c:3853.
 BOOT_PIECE="${AC_BOOT_PIECE:-notepat}"
-printf '{"handle":"%s","piece":"%s","sub":"%s","email":"%s","udpMidiBroadcast":true}\n' \
-    "${USER_HANDLE}" "${BOOT_PIECE}" "${USER_SUB}" "${USER_EMAIL}" | tee "${M1}/config.json" >/dev/null
+
+# Write a device config.json. Base identity fields come from the shell vars
+# (set from the inscription OR the legacy API path); the boot-personalization
+# fields (city / colors / mood) are pulled straight from the inscription's
+# usbConfig so `ac-inscribe --city/--mood` + handle-colors actually reach the
+# device — the old hardcoded printf silently dropped them.
+write_device_config() {  # $1=dest  $2=udp(1=include udpMidiBroadcast)
+    node -e '
+        const fs = require("fs");
+        const [dest, handle, piece, sub, email, udp, insc] = process.argv.slice(1);
+        const cfg = { handle, piece, sub, email };
+        if (udp === "1") cfg.udpMidiBroadcast = true;
+        try {
+            const c = (JSON.parse(fs.readFileSync(insc, "utf8")).usbConfig) || {};
+            if (c.city) cfg.city = c.city;
+            if (Array.isArray(c.colors) && c.colors.length) cfg.colors = c.colors;
+            if (c.mood) cfg.mood = c.mood;
+        } catch (e) { /* no inscription (anon/legacy) — base fields only */ }
+        fs.writeFileSync(dest, JSON.stringify(cfg) + "\n");
+    ' "$1" "${USER_HANDLE}" "${BOOT_PIECE}" "${USER_SUB}" "${USER_EMAIL}" "$2" "${INSCRIPTION_FILE}"
+}
+write_device_config "${M1}/config.json" 1
+log "  config.json: $(cat "${M1}/config.json")"
 
 # Build merged wifi_creds.json (presets + preserved + optional override)
 # once, reuse for both partitions.
@@ -510,8 +531,7 @@ linux /EFI/BOOT/KERNEL.EFI
 initrd /initramfs.cpio.gz
 options console=tty0 quiet loglevel=3 vt.global_cursor_default=0 init=/init nomodeset efi=noruntime
 EOF
-printf '{"handle":"%s","piece":"%s","sub":"%s","email":"%s"}\n' \
-    "${USER_HANDLE}" "${BOOT_PIECE}" "${USER_SUB}" "${USER_EMAIL}" | tee "${M2}/config.json" >/dev/null
+write_device_config "${M2}/config.json" 0
 [ -f "${WIFI_MERGED}" ] && cp "${WIFI_MERGED}" "${M2}/wifi_creds.json"
 
 # --- verify (sha256 round-trip on every kernel + initramfs copy) ---

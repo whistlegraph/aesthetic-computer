@@ -115,7 +115,7 @@ export function overlayClearExpr() {
 // the agent is observing. Pixel-accurate (browser viewport space, unlike
 // whole-screen Vision OCR). `ttl` ms auto-clears the scan (0 = persist).
 // Returns {text, targets} counts.
-export function scanExpr(ttl = 2600) {
+export function scanExpr(ttl = 7000) {
   return `(()=>{
 const NS="http://www.w3.org/2000/svg";
 let s=document.getElementById("__analysis_overlay");

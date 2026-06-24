@@ -14,6 +14,8 @@
 #   ac-inscribe --no-claude       # skip baking local Claude session
 #   ac-inscribe --inspect <path>  # print summary of an existing inscription
 #   ac-inscribe --for-handle <h>  # admin: inscribe for another user
+#   ac-inscribe --mood <text>     # override boot splash subtitle (else uses the handle's AC mood)
+#   ac-inscribe --city <city>     # preset first-boot greeting city until the device geolocates (e.g. "Ridgewood")
 #
 # Exit codes:
 #   0  inscription written and valid
@@ -49,6 +51,9 @@ INSPECT=""
 FOR_HANDLE=""
 MOOD_OVERRIDE=""
 MOOD_OVERRIDE_SET=0
+CITY_OVERRIDE=""
+CITY_OVERRIDE_SET=0
+ACI_CITY=""   # config "city"; only set via --city (no account fetch), so default empty under `set -u`
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -59,6 +64,7 @@ while [ $# -gt 0 ]; do
         --inspect)     INSPECT="$2"; shift ;;
         --for-handle)  FOR_HANDLE="${2#@}"; shift ;;
         --mood)        MOOD_OVERRIDE="$2"; MOOD_OVERRIDE_SET=1; shift ;;
+        --city)        CITY_OVERRIDE="$2"; CITY_OVERRIDE_SET=1; shift ;;
         --help|-h)
             sed -n '2,28p' "$0" | sed 's/^# *//'
             exit 0
@@ -157,14 +163,19 @@ if [ -n "${FOR_HANDLE}" ]; then
         ACI_MOOD="${MOOD_OVERRIDE}"
         aci_ok "mood override: ${ACI_C_BOLD}${ACI_MOOD:-(cleared)}${ACI_C_RESET}"
     fi
+    if [ "${CITY_OVERRIDE_SET}" -eq 1 ]; then
+        ACI_CITY="${CITY_OVERRIDE}"
+        aci_ok "city override: ${ACI_C_BOLD}${ACI_CITY:-(cleared)}${ACI_C_RESET}"
+    fi
 
     aci_step 3 4 "Assembling inscription bundle for @${ACI_HANDLE}"
     BUNDLE=$(aci_build_inscription_json) || aci_die "bundle assembly failed"
     BUNDLE_BYTES=$(printf '%s' "${BUNDLE}" | wc -c | tr -d ' ')
     aci_ok "version 1 envelope, ${BUNDLE_BYTES} bytes"
-    aci_ok "fields: handle, sub, email(empty), token(empty)$([ -n "${ACI_CLAUDE_TOKEN}" ] && printf ', claudeToken')$([ -n "${ACI_GITHUB_PAT}" ] && printf ', githubPat')$([ -n "${ACI_HANDLE_COLORS_JSON}" ] && printf ', colors')$([ -n "${ACI_MOOD}" ] && printf ', mood')"
+    aci_ok "fields: handle, sub, email(empty), token(empty)$([ -n "${ACI_CLAUDE_TOKEN}" ] && printf ', claudeToken')$([ -n "${ACI_GITHUB_PAT}" ] && printf ', githubPat')$([ -n "${ACI_HANDLE_COLORS_JSON}" ] && printf ', colors')$([ -n "${ACI_MOOD}" ] && printf ', mood')$([ -n "${ACI_CITY}" ] && printf ', city')"
     [ -n "${ACI_HANDLE_COLORS_JSON}" ] && aci_ok "handle-colors: ${ACI_C_BOLD}per-character palette baked${ACI_C_RESET}" || aci_info "handle-colors: none stored — boot uses theme color"
     [ -n "${ACI_MOOD}" ] && aci_ok "mood: ${ACI_C_BOLD}${ACI_MOOD}${ACI_C_RESET}" || aci_info "mood: none yet — boot subtitle uses default"
+    [ -n "${ACI_CITY}" ] && aci_ok "city: ${ACI_C_BOLD}${ACI_CITY}${ACI_C_RESET} (greeting until geolocated)" || aci_info "city: none — first-boot greeting uses default"
     aci_warn "access_token is empty — recipient runs ac-login on device once for tape uploads"
 
     if [ "${YES}" -eq 0 ] && [ -t 0 ]; then
@@ -255,13 +266,17 @@ if [ "${MOOD_OVERRIDE_SET}" -eq 1 ]; then
     ACI_MOOD="${MOOD_OVERRIDE}"
     aci_ok "mood override: ${ACI_C_BOLD}${ACI_MOOD:-(cleared)}${ACI_C_RESET}"
 fi
+if [ "${CITY_OVERRIDE_SET}" -eq 1 ]; then
+    ACI_CITY="${CITY_OVERRIDE}"
+    aci_ok "city override: ${ACI_C_BOLD}${ACI_CITY:-(cleared)}${ACI_C_RESET}"
+fi
 
 # Step 4 — assemble bundle
 aci_step 4 5 "Assembling inscription bundle"
 BUNDLE=$(aci_build_inscription_json) || aci_die "bundle assembly failed"
 BUNDLE_BYTES=$(printf '%s' "${BUNDLE}" | wc -c | tr -d ' ')
 aci_ok "version 1 envelope, ${BUNDLE_BYTES} bytes"
-aci_ok "fields: handle, sub, email, token$([ -n "${ACI_CLAUDE_TOKEN}" ] && printf ', claudeToken')$([ -n "${ACI_GITHUB_PAT}" ] && printf ', githubPat')$([ -n "${ACI_CLAUDE_CREDS}" ] && printf ', claudeCreds')$([ -n "${ACI_CLAUDE_STATE}" ] && printf ', claudeState')$([ -n "${ACI_HANDLE_COLORS_JSON}" ] && printf ', colors')$([ -n "${ACI_MOOD}" ] && printf ', mood')"
+aci_ok "fields: handle, sub, email, token$([ -n "${ACI_CLAUDE_TOKEN}" ] && printf ', claudeToken')$([ -n "${ACI_GITHUB_PAT}" ] && printf ', githubPat')$([ -n "${ACI_CLAUDE_CREDS}" ] && printf ', claudeCreds')$([ -n "${ACI_CLAUDE_STATE}" ] && printf ', claudeState')$([ -n "${ACI_HANDLE_COLORS_JSON}" ] && printf ', colors')$([ -n "${ACI_MOOD}" ] && printf ', mood')$([ -n "${ACI_CITY}" ] && printf ', city')"
 [ -n "${ACI_HANDLE_COLORS_JSON}" ] && aci_ok "handle-colors: ${ACI_C_BOLD}per-character palette baked${ACI_C_RESET}" || aci_info "handle-colors: none stored — boot uses theme color"
 [ -n "${ACI_MOOD}" ] && aci_ok "mood: ${ACI_C_BOLD}${ACI_MOOD}${ACI_C_RESET}" || aci_info "mood: none yet — boot subtitle uses default"
 
