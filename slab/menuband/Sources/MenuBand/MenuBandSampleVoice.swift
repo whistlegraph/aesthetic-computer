@@ -66,6 +66,17 @@ final class MenuBandSampleVoice {
     /// under `bufferLock` alongside `recordedBuffer`.
     private var detectedFundamental: Double = 261.63
 
+    /// Per-key custom samples (hybrid kit). A key with an entry here plays its
+    /// own buffer anchored to the key it was recorded on (that key = natural
+    /// pitch, neighbours relative); keys with no per-key sample fall back to
+    /// the global recording, and the synth falls back to GM if neither exists.
+    /// All guarded by `bufferLock`.
+    private var perKeyBuffers: [UInt8: AVAudioPCMBuffer] = [:]
+    private var perKeyAnchorMidi: [UInt8: UInt8] = [:]
+    /// When set, the next stopRecording() commits into this key's slot instead
+    /// of the global buffer (driven by the ~+key gesture).
+    private var pendingPerKeyMidi: UInt8? = nil
+
     /// Active recording state. We tap the engine's input node into a
     /// scratch buffer; on `stopRecording` we trim to actual length and
     /// promote to `recordedBuffer`.
@@ -155,6 +166,10 @@ final class MenuBandSampleVoice {
         // `.pitch` (cents) moves.
         let timePitch = AVAudioUnitTimePitch()
         var midi: UInt8 = 60
+        // Note pitch in cents WITHOUT the live trackpad bend. Per-key samples
+        // anchor to their recorded key; the global sample is chromatic from
+        // the detected fundamental. setBend re-adds the bend on top of this.
+        var baseCents: Float = 0
         var releaseWork: DispatchWorkItem?
     }
 
@@ -484,6 +499,10 @@ final class MenuBandSampleVoice {
             return false
         }
         recording = false
+        // Capture + clear the per-key target up front so a discarded (too
+        // short) take can't leak it into the next record.
+        let perKeyTarget = pendingPerKeyMidi
+        pendingPerKeyMidi = nil
         scheduleHotMicStop()
         guard let scratch = recordScratch else {
             recordScratch = nil
@@ -518,10 +537,16 @@ final class MenuBandSampleVoice {
             NSLog("MenuBand SampleVoice: sample shaped peak \(stats.peakBefore) -> \(stats.peakAfter), rms \(stats.rmsBefore) -> \(stats.rmsAfter), gain=\(stats.gain), f0=\(f0.map { String(format: "%.1fHz", $0) } ?? "untuned→C4")")
         }
         bufferLock.lock()
-        recordedBuffer = out
-        detectedFundamental = f0 ?? 261.63
+        if let km = perKeyTarget {
+            // Per-key commit: anchor this sample to the key it was recorded on.
+            perKeyBuffers[km] = out
+            perKeyAnchorMidi[km] = km
+        } else {
+            recordedBuffer = out
+            detectedFundamental = f0 ?? 261.63
+        }
         bufferLock.unlock()
-        NSLog("MenuBand SampleVoice: recording captured \(frames) frames (\(Double(frames) / sampleRate) s), trimmed \(startFrame) leading frames")
+        NSLog("MenuBand SampleVoice: captured \(frames) frames (\(Double(frames) / sampleRate) s)\(perKeyTarget.map { " → per-key midi \($0)" } ?? " → global")")
         return true
     }
 
@@ -981,25 +1006,57 @@ final class MenuBandSampleVoice {
         bendSemitones = amount * 12.0
         for (_, v) in voices {
             if v.node.isPlaying {
-                v.timePitch.pitch = pitchCents(forNote: v.midi)
+                v.timePitch.pitch = min(max(v.baseCents + bendSemitones * 100.0,
+                                            -Self.maxPitchCents), Self.maxPitchCents)
             }
         }
     }
 
-    func noteOn(_ midi: UInt8, velocity: UInt8 = 100, channel: UInt8 = 0) {
+    /// Arm the next recording to commit into a specific key's slot (the ~+key
+    /// gesture) rather than the global buffer. Pass nil for a global record.
+    func startRecording(forKey midi: UInt8?) {
+        pendingPerKeyMidi = midi
+        startRecording()
+    }
+
+    /// True if THIS key has a sample (per-key or global) that would sound.
+    func hasSample(forKey midi: UInt8) -> Bool {
+        bufferLock.lock(); defer { bufferLock.unlock() }
+        return perKeyBuffers[midi] != nil || recordedBuffer != nil
+    }
+
+    /// Clear every per-key custom sample (the ` "Home" gesture). The global
+    /// recording is left alone — backtick re-records it right after.
+    func clearPerKeySamples() {
         bufferLock.lock()
-        let buf = recordedBuffer
+        perKeyBuffers.removeAll()
+        perKeyAnchorMidi.removeAll()
         bufferLock.unlock()
-        guard let buf = buf else {
-            // No recording yet — silent noteOn. The synth shouldn't
-            // route to this backend in that state, but defend anyway.
-            NSLog("MenuBand SampleVoice: noteOn ignored — no recorded buffer")
-            return
-        }
+        NSLog("MenuBand SampleVoice: cleared all per-key samples")
+    }
+
+    /// Returns true if a sample played for this key, false if there's nothing
+    /// to play (no per-key sample AND no global recording) — in which case the
+    /// synth falls back to the GM instrument for this note (hybrid kit).
+    @discardableResult
+    func noteOn(_ midi: UInt8, velocity: UInt8 = 100, channel: UInt8 = 0) -> Bool {
+        bufferLock.lock()
+        let perKey = perKeyBuffers[midi]
+        let anchor = perKeyAnchorMidi[midi]
+        let global = recordedBuffer
+        bufferLock.unlock()
+        // Per-key sample wins; else the global recording; else GM fallback.
+        guard let buf = perKey ?? global else { return false }
         guard attached, engine != nil else {
             NSLog("MenuBand SampleVoice: noteOn ignored — voice not attached")
-            return
+            return false
         }
+        // Per-key samples are anchored to the key they were recorded on (that
+        // key plays at 0 cents); the global sample is chromatic from its
+        // detected fundamental.
+        let baseCents: Float = (perKey != nil)
+            ? Float(Int(midi) - Int(anchor ?? midi)) * 100.0
+            : cents(forNote: midi)
         // The controller rotates `nextMelodicChannel()` 0..3 on every
         // press, so the same midi can land on a fresh channel while
         // the previous channel's slot is still mid-release (~80ms
@@ -1013,7 +1070,7 @@ final class MenuBandSampleVoice {
         let slot = nextSlot(channel: channel, midi: midi)
         guard let voice = ensureVoice(channel: channel, slot: slot) else {
             NSLog("MenuBand SampleVoice: noteOn ignored — failed to allocate voice")
-            return
+            return false
         }
 
         // Cancel any pending release-fade — we're retriggering the
@@ -1022,12 +1079,12 @@ final class MenuBandSampleVoice {
         voice.releaseWork = nil
 
         voice.midi = midi
-        // Compose the pitch (cents) from the note AND the current
-        // trackpad pitch bend so dragging the cursor while a sample
-        // voice rings shifts pitch in real time — mirror of the
-        // MIDISynth pitch-bend path. `.rate` stays at its 1.0 default,
+        voice.baseCents = baseCents
+        // Compose pitch from the note's base cents AND the live trackpad bend
+        // so dragging the cursor shifts pitch in real time. `.rate` stays 1.0,
         // so duration/speed never changes with pitch.
-        voice.timePitch.pitch = pitchCents(forNote: midi)
+        voice.timePitch.pitch = min(max(baseCents + bendSemitones * 100.0,
+                                        -Self.maxPitchCents), Self.maxPitchCents)
         voice.node.volume = Float(velocity) / 127.0
 
         if voice.node.isPlaying {
@@ -1042,6 +1099,7 @@ final class MenuBandSampleVoice {
         voice.node.scheduleBuffer(buf, at: nil,
                                   options: [.interrupts, .loops]) { /* no-op */ }
         voice.node.play()
+        return true
     }
 
     /// Immediately silence every Voice currently playing `midi`
@@ -1118,7 +1176,7 @@ final class MenuBandSampleVoice {
     /// True if a recording exists and is long enough to be playable.
     var hasRecording: Bool {
         bufferLock.lock(); defer { bufferLock.unlock() }
-        return recordedBuffer != nil
+        return recordedBuffer != nil || !perKeyBuffers.isEmpty
     }
 
     /// Show an NSAlert explaining how to enable microphone access for

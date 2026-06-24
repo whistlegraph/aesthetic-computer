@@ -138,6 +138,12 @@ final class MenuBandController {
 
     private let midiModeKey = "notepat.midiMode"
     private let typeModeKey = "notepat.typeMode"
+
+    /// True while ~ (Shift+`) is held — the next note key records a per-key
+    /// sample into that key instead of playing it.
+    private var perKeySampleArmed = false
+    /// The MIDI note currently capturing a per-key sample (nil = none).
+    private var perKeySampleRecordingMidi: UInt8? = nil
     private let octaveShiftKey = "notepat.octaveShift"
     private let melodicProgramKey = "notepat.melodicProgram"
     private let keymapKey = "notepat.keymap"
@@ -1598,6 +1604,9 @@ final class MenuBandController {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             if isDown {
+                // "Home" gesture: clear all per-key custom samples, then
+                // record a fresh global sample while held.
+                self.synth.clearPerKeySamples()
                 self.synth.startSampleRecording()
                 // Nudge the AppDelegate so the menubar icon immediately
                 // picks up the red "REC" tint on the chip.
@@ -2674,7 +2683,39 @@ final class MenuBandController {
         // (TimePitch, cents = (midi−60)×100). Pressing any number key flips back to a
         // GM voice (`setMelodicProgram` exits sample mode internally).
         if keyCode == 50 {
+            // ~ (Shift+`) ARMS per-key recording while held — it does NOT
+            // record the global sample. Plain ` records the global sample
+            // (and clears per-key customs) — the "Home" gesture.
+            if lingerSide != .none {
+                perKeySampleArmed = isDown
+                if !isDown, let m = perKeySampleRecordingMidi {
+                    // ~ released mid per-key capture — finalize it.
+                    if synth.stopSampleRecording() { setSampleBackend(true) }
+                    perKeySampleRecordingMidi = nil
+                    _ = m
+                }
+                onInstrumentVisualChange?()
+                return true
+            }
             return handleSampleRecordKey(isDown: isDown, isRepeat: isRepeat, source: typeMode ? "type" : "local")
+        }
+
+        // ~ held + a note key = record a per-key sample into that key
+        // (anchored to its pitch), instead of playing the note.
+        if perKeySampleArmed,
+           let note = MenuBandLayout.midiNote(forKeyCode: keyCode,
+                                              octaveShift: octaveShift,
+                                              keymap: keymap) {
+            if isDown && !isRepeat {
+                perKeySampleRecordingMidi = note
+                synth.startSampleRecording(forKey: note)
+                onInstrumentVisualChange?()
+            } else if !isDown && perKeySampleRecordingMidi == note {
+                if synth.stopSampleRecording() { setSampleBackend(true) }
+                perKeySampleRecordingMidi = nil
+                onInstrumentVisualChange?()
+            }
+            return true
         }
 
         // Number-row digits 0–9 select a voice using the chooser
