@@ -29,6 +29,11 @@ final class FrameCapture {
     // Transient overlay windows we draw (capture flash, OCR boxes). We exclude
     // them from the screen capture by windowID so they never appear in a frame
     // — that's the "doesn't interfere" guarantee. (The badge etc. still show.)
+    // Capture at this multiple of the display's point size — 2x makes small,
+    // dense text (terminals) physically larger in the buffer, pushing it over
+    // Vision's recognition threshold. The OCR scale uses the same factor so
+    // box coords still map back to screen points.
+    private let captureScale: Double = 1.0
     private let overlayLock = NSLock()
     private var overlayWindowIDs = Set<Int>()
     private var ocrOverlayWindow: NSWindow?
@@ -169,8 +174,8 @@ final class FrameCapture {
             }
             let filter = SCContentFilter(display: display, excludingWindows: exclude)
             let cfg = SCStreamConfiguration()
-            cfg.width = display.width
-            cfg.height = display.height
+            cfg.width = Int(Double(display.width) * self.captureScale)
+            cfg.height = Int(Double(display.height) * self.captureScale)
             cfg.showsCursor = true
             img = try? await SCScreenshotManager.captureImage(contentFilter: filter, configuration: cfg)
         }
@@ -340,7 +345,6 @@ final class FrameCapture {
 
         var t = nowNs(); let mt = meta(); tm["meta"] = msSince(t)
         env["meta"] = mt
-        let scale = ((mt["screen"] as? [String: Any])?["scale"] as? CGFloat).map(Double.init) ?? 1.0
         t = nowNs(); let cg = captureDisplay(); tm["capture"] = msSince(t)
         if cg != nil { flashCaptureIndicator() }  // subtle post-capture awareness flash
         // The JPEG ships as RAW BYTES in a sidecar file (frame.out.jpg), not
@@ -352,7 +356,7 @@ final class FrameCapture {
             if noOCR {
                 env["ocr"] = []
             } else {
-                t = nowNs(); let boxes = ocr(cg, scale: scale, fast: fast); tm["ocr"] = msSince(t)
+                t = nowNs(); let boxes = ocr(cg, scale: captureScale, fast: fast); tm["ocr"] = msSince(t)
                 env["ocr"] = boxes
                 showOcrOverlay(boxes)
             }
