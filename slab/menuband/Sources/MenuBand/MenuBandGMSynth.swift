@@ -26,10 +26,17 @@ import QuartzCore
 final class MenuBandGMSynth {
     // MARK: Voice state (render thread owns the active pool)
 
-    /// One sounding GM note. `core` is the C synthesis state; the rest is
-    /// the Swift-owned amplitude envelope + bookkeeping for release.
+    /// One sounding GM note. The heavy C synthesis state (`GMVoice`, ~80 KB of
+    /// inlined delay/chorus/bore buffers) lives OUT of this struct in the
+    /// `cores` buffer below — keyed by the same slot index — so a `Voice` stays
+    /// tiny. Embedding `GMVoice` here made `render()` materialize an ~80 KB
+    /// stack temporary in unoptimized (Debug) builds when forming
+    /// `&voices[idx].core`, and its prologue stack-probe then overran the small
+    /// CoreAudio render-thread stack (EXC_BAD_ACCESS on the first callback).
+    /// Keeping the C state in a separately-allocated buffer makes the pointer
+    /// pure address arithmetic — no copy in any build — and removes the Swift
+    /// exclusivity hazard of pointing into the same array we also read.
     private struct Voice {
-        var core: GMVoice = GMVoice()
         var midi: UInt8 = 0
         var channel: UInt8 = 0
         var freq: Double = 440         // base note frequency (Hz)
@@ -65,6 +72,13 @@ final class MenuBandGMSynth {
     /// Fixed polyphony. Preallocated so the render thread never allocates.
     private let maxVoices = 24
     private var voices: [Voice]
+
+    /// Per-voice C synthesis state, slot-aligned with `voices`. Heap-allocated
+    /// once (never on the render thread) and addressed by `cores + slot`, so
+    /// the render thread forms its `GMVoice*` with no stack copy — see the
+    /// `Voice` note above. `gm_voice_init` memsets the whole struct on note-on,
+    /// so a slot's contents before its first note are irrelevant.
+    private let cores: UnsafeMutablePointer<GMVoice>
 
     /// The current melodic GM program (0-based). Set by the coordinator via
     /// `setProgram`; read on note-on to init the matching C voice. Plain
@@ -109,10 +123,17 @@ final class MenuBandGMSynth {
 
     init() {
         voices = [Voice](repeating: Voice(), count: maxVoices)
+        cores = UnsafeMutablePointer<GMVoice>.allocate(capacity: maxVoices)
+        cores.initialize(repeating: GMVoice(), count: maxVoices)
         pending.reserveCapacity(64)
         // Build the shared wavetable once, up front, so the first note-on
         // doesn't pay for it on the audio path. Idempotent.
         gm_synth_init()
+    }
+
+    deinit {
+        cores.deinitialize(count: maxVoices)
+        cores.deallocate()
     }
 
     /// Attach into the synth graph exactly like the percussion node, at the
@@ -228,19 +249,14 @@ final class MenuBandGMSynth {
             case let .noteOn(midi, channel, velocity, prog, seed):
                 let slot = allocateVoice()
                 let f = MenuBandGMSynth.freq(forMIDI: midi)
-                // Init the C voice IN PLACE in the pool. A local `var v = Voice()`
-                // would put ~80 KB (GMVoice inlines ks_buf/fx_delay/bore_buf/
-                // ss_chorus_buf) on the audio render thread's stack, plus another
-                // ~80 KB for the `voices[slot] = v` copy. render() then reserves
-                // that frame on every call, so its prologue stack probe
-                // (___chkstk_darwin) hits the guard page once the deep AudioUnit
-                // pull chain has eaten most of the IOThread stack — the
-                // EXC_BAD_ACCESS (code=2) crash. gm_voice_init memsets the whole
-                // struct, so initializing the slot directly is equivalent without
-                // the stack temporary.
-                let ok = withUnsafeMutablePointer(to: &voices[slot].core) { ptr in
-                    gm_voice_init(ptr, prog, f, sampleRate, seed)
-                }
+                // Init the C voice IN PLACE in the slot's `cores` entry. The
+                // ~80 KB GMVoice (inlined ks_buf/fx_delay/bore_buf/ss_chorus_buf)
+                // lives in a separately-allocated buffer, so `cores + slot` is a
+                // plain pointer — no stack temporary, even in unoptimized Debug
+                // builds (which is what blew the small render-thread stack when
+                // the state was embedded in the `voices` array). gm_voice_init
+                // memsets the whole struct.
+                let ok = gm_voice_init(cores + slot, prog, f, sampleRate, seed)
                 // -1 means unimplemented; the control thread already gated
                 // on gm_program_implemented, but stay safe and drop it.
                 if ok == 0 {
@@ -280,16 +296,12 @@ final class MenuBandGMSynth {
         let pitchCoeff = pitchGlideCoeff
 
         for idx in 0..<maxVoices where voices[idx].active {
-            // Hoist EVERY per-voice field into a local before opening the
-            // `&voices[idx].core` pointer below. `withUnsafeMutablePointer(to:
-            // &voices[idx].core)` begins an exclusive access to the `voices`
-            // array (the element is reached through the array subscript); any
-            // OTHER `voices[idx].…` access inside that closure is a second,
-            // overlapping access to the same array and Swift's runtime
-            // exclusivity check aborts the process (EXC_CRASH/SIGABRT in
-            // swift_beginAccess) — that is the crash on the first AC-OS-MIDI
-            // note. So inside the closure we touch only `ptr` + these locals,
-            // then write the mutated envelope state back afterwards.
+            // The C synthesis state lives in `cores`, not in `voices`, so the
+            // render pointer is plain address arithmetic with no stack copy and
+            // no overlap with our `voices` reads. Per-voice fields are still
+            // hoisted into locals so the hot inner loop avoids repeated array
+            // bounds checks; the mutated envelope state is written back after.
+            let ptr = cores + idx
             let baseFreq = voices[idx].freq
             let vGain = voices[idx].velocityGain
             let gainL = Double(voices[idx].gainL)
@@ -300,29 +312,27 @@ final class MenuBandGMSynth {
             var env = voices[idx].env
             var active = true
             var pitch = pitchStart
-            withUnsafeMutablePointer(to: &voices[idx].core) { ptr in
-                for i in 0..<frameCount {
-                    pitch += (pitchTarget - pitch) * pitchCoeff
-                    let f = baseFreq * pitch
-                    // Advance the outer AR envelope.
-                    if releasing {
-                        env -= releaseDec
-                        if env <= 0 { env = 0; active = false; break }
-                    } else if env < 1.0 {
-                        env += attackInc
-                        if env > 1.0 { env = 1.0 }
-                    }
-                    let s = gm_voice_render(ptr, sampleRate, env, f)
-                    // Belt-and-suspenders against a divergent C voice: a NaN/Inf
-                    // sample summed into the mix poisons the whole buffer and
-                    // takes down the downstream limiter/engine. The C core now
-                    // traps this at the source, but never trust a render-thread
-                    // value blindly — kill the voice and stop mixing it.
-                    if !s.isFinite { active = false; break }
-                    let amp = s * vGain * g
-                    left[i] += Float(amp * gainL)
-                    right[i] += Float(amp * gainR)
+            for i in 0..<frameCount {
+                pitch += (pitchTarget - pitch) * pitchCoeff
+                let f = baseFreq * pitch
+                // Advance the outer AR envelope.
+                if releasing {
+                    env -= releaseDec
+                    if env <= 0 { env = 0; active = false; break }
+                } else if env < 1.0 {
+                    env += attackInc
+                    if env > 1.0 { env = 1.0 }
                 }
+                let s = gm_voice_render(ptr, sampleRate, env, f)
+                // Belt-and-suspenders against a divergent C voice: a NaN/Inf
+                // sample summed into the mix poisons the whole buffer and
+                // takes down the downstream limiter/engine. The C core now
+                // traps this at the source, but never trust a render-thread
+                // value blindly — kill the voice and stop mixing it.
+                if !s.isFinite { active = false; break }
+                let amp = s * vGain * g
+                left[i] += Float(amp * gainL)
+                right[i] += Float(amp * gainR)
             }
             voices[idx].env = env
             voices[idx].active = active
