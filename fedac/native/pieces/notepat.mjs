@@ -55,7 +55,69 @@ let recording = false;     // true while holding REC
 let recPointerId = null;   // touch pointer currently holding REC button
 let recStartTime = 0;      // Date.now() when recording started
 const MAX_REC_SECS = 10;   // matches AUDIO_MAX_SAMPLE_SECS
-const SAMPLE_BASE_FREQ = 261.63; // C4 — base pitch for sample playback
+const SAMPLE_BASE_FREQ = 261.63; // C4 — fallback base when a sample isn't tonal
+
+// Estimate the fundamental frequency (Hz) of a recorded mono sample via
+// windowed autocorrelation. Sample playback resamples by `freq / base`, so
+// feeding the note the user *actually* recorded as `base` makes every key
+// sound at its true note frequency — a chromatic sampler — instead of
+// assuming the recording was C4. Returns null when the sample is too quiet
+// or untuned (a drum hit, noise) so callers fall back to SAMPLE_BASE_FREQ.
+function detectFundamental(data, rate, fMin = 50, fMax = 1500) {
+  if (!data || !rate || data.length < 2048) return null;
+  // Window around the loudest region so silent lead-in doesn't poison the
+  // estimate. Subsample the scan — we only need the rough peak location.
+  const N = Math.min(4096, data.length);
+  const scanStep = Math.max(1, Math.floor(data.length / 2048));
+  let peakIdx = 0, peakAmp = 0;
+  for (let i = 0; i < data.length; i += scanStep) {
+    const a = data[i] < 0 ? -data[i] : data[i];
+    if (a > peakAmp) { peakAmp = a; peakIdx = i; }
+  }
+  if (peakAmp < 0.01) return null; // effectively silent
+  let start = peakIdx - (N >> 1);
+  if (start < 0) start = 0;
+  if (start + N > data.length) start = data.length - N;
+  // De-mean + Hann window into a working buffer.
+  const buf = new Float32Array(N);
+  let mean = 0;
+  for (let i = 0; i < N; i++) mean += data[start + i];
+  mean /= N;
+  let energy0 = 0;
+  for (let i = 0; i < N; i++) {
+    const w = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (N - 1));
+    const v = (data[start + i] - mean) * w;
+    buf[i] = v;
+    energy0 += v * v;
+  }
+  if (energy0 <= 1e-9) return null;
+  const minLag = Math.max(2, Math.floor(rate / fMax));
+  const maxLag = Math.min(N - 1, Math.floor(rate / fMin));
+  if (maxLag <= minLag) return null;
+  // Normalized autocorrelation; take the first strong local maximum so we
+  // lock onto the fundamental rather than a louder higher harmonic.
+  const nac = new Float32Array(maxLag + 1);
+  for (let lag = minLag; lag <= maxLag; lag++) {
+    let corr = 0;
+    for (let i = 0; i < N - lag; i++) corr += buf[i] * buf[i + lag];
+    nac[lag] = corr / energy0;
+  }
+  let bestLag = -1, bestVal = 0;
+  for (let lag = minLag + 1; lag < maxLag; lag++) {
+    if (nac[lag] > nac[lag - 1] && nac[lag] >= nac[lag + 1]) {
+      if (nac[lag] > bestVal) { bestVal = nac[lag]; bestLag = lag; }
+      if (bestVal > 0.6) break; // confident enough — first solid peak wins
+    }
+  }
+  if (bestLag < 0 || bestVal < 0.3) return null; // not tonal enough to trust
+  // Parabolic interpolation for sub-sample lag precision.
+  const a = nac[bestLag - 1], b = nac[bestLag], c = nac[bestLag + 1];
+  const denom = a - 2 * b + c;
+  const shift = denom !== 0 ? (0.5 * (a - c)) / denom : 0;
+  const refinedLag = bestLag + shift;
+  const f0 = rate / refinedLag;
+  return f0 >= fMin && f0 <= fMax ? f0 : null;
+}
 
 // Per-key sample bank: End key arms, tone key records to that key only
 let sampleBank = {};       // key -> { data: Float32Array, len: number, rate: number }
@@ -245,7 +307,7 @@ function applyPitchShiftToActiveSounds(force = false) {
   for (const k of Object.keys(sounds)) {
     const s = sounds[k];
     if (s && s.synth && s.baseFreq) {
-      if (s.isSample) s.synth.update({ tone: s.baseFreq * factor, base: SAMPLE_BASE_FREQ });
+      if (s.isSample) s.synth.update({ tone: s.baseFreq * factor, base: s.sampleBase || SAMPLE_BASE_FREQ });
       else s.synth.update({ tone: s.baseFreq * factor });
     }
   }
@@ -3124,11 +3186,12 @@ function act({ event: e, sound, wifi, system }) {
           sound.sample.loadData(targetSample.data, targetSample.rate);
           lastLoadedSample = targetSample;
         }
+        const sampleBase = targetSample?.base || SAMPLE_BASE_FREQ;
         const smp = sound.sample.play({
-          tone: playFreq, base: SAMPLE_BASE_FREQ, volume: vol, pan, loop: true,
+          tone: playFreq, base: sampleBase, volume: vol, pan, loop: true,
         });
         if (smp) {
-          rememberSound(key, { synth: smp, note: letter, octave: noteOctave, baseFreq: freq, isSample: true, gridOffset: offset, baseVol }, system, velocity);
+          rememberSound(key, { synth: smp, note: letter, octave: noteOctave, baseFreq: freq, isSample: true, sampleBase, gridOffset: offset, baseVol }, system, velocity);
         } else {
           const synth = sound.synth({
             type: "sine", tone: playFreq, duration: Infinity,
@@ -3189,9 +3252,12 @@ function act({ event: e, sound, wifi, system }) {
       // Save global sample data for bank restore
       const data = sound.sample.getData?.();
       if (data && data.length > 0) {
-        globalSample = { data: new Float32Array(data), len: data.length, rate: sound.microphone?.sampleRate || 48000 };
+        const buf = new Float32Array(data);
+        const rate = sound.microphone?.sampleRate || 48000;
+        const base = detectFundamental(buf, rate) || SAMPLE_BASE_FREQ;
+        globalSample = { data: buf, len: data.length, rate, base };
         lastLoadedSample = null;  // force reload on next key press
-        console.log(`[sample-bank] global sample saved (${data.length} samples)`);
+        console.log(`[sample-bank] global sample saved (${data.length} samples, base ${base.toFixed(1)}Hz)`);
       }
       return;
     }
@@ -3217,8 +3283,10 @@ function act({ event: e, sound, wifi, system }) {
             percussionSampleBank[recDrum] = { data: new Float32Array(data), len: data.length, rate };
             console.log(`[perc-bank] saved ${data.length} samples to drum '${recDrum}'`);
           } else {
-            sampleBank[key] = { data: new Float32Array(data), len: data.length, rate };
-            console.log(`[sample-bank] saved ${data.length} samples to key '${key}'`);
+            const buf = new Float32Array(data);
+            const base = detectFundamental(buf, rate) || SAMPLE_BASE_FREQ;
+            sampleBank[key] = { data: buf, len: data.length, rate, base };
+            console.log(`[sample-bank] saved ${data.length} samples to key '${key}' (base ${base.toFixed(1)}Hz)`);
           }
           sampleLoaded = true;
           // Confirmation beep
