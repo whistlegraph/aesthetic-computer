@@ -770,10 +770,15 @@ final class MenuBandController {
         synth.setMelodicProgram(program)
     }
 
-    /// True when the given menubar display note is a right-hand drum key
-    /// (split armed and the note is in the upper half).
+    /// True when the given menubar display note is a latched drum key. Each
+    /// half is independent: the left half (`< lingerSplitMidi`) follows
+    /// `percussionLeft`, the right half follows `percussionRight` — the same
+    /// split the keyboard path uses (`percussionActive(forKeyCode:)`). The old
+    /// `percussionSplit && displayNote >= lingerSplitMidi` form only ever
+    /// matched the RIGHT half, so clicking left-octave menubar keys fell
+    /// through to melodic notes instead of firing the latched drum.
     func isPercussionDisplayNote(_ displayNote: UInt8) -> Bool {
-        percussionSplit && Int(displayNote) >= MenuBandLayout.lingerSplitMidi
+        Int(displayNote) < MenuBandLayout.lingerSplitMidi ? percussionLeft : percussionRight
     }
 
     /// Drum for a menubar display note (octave-invariant pitch class).
