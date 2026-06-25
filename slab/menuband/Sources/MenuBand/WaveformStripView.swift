@@ -75,6 +75,60 @@ final class WaveformStripView: NSView {
 
     deinit { timer?.invalidate() }
 
+    /// Seed the rolling history with a believable synthetic waveform so the
+    /// strip paints real-looking bars in the HEADLESS App Store capture
+    /// (`--render-popover`), where no audio engine is running and the live
+    /// `tick()` path never accumulates columns. Pure Core Graphics — the
+    /// strip's `draw(_:)` consumes `colMin`/`colMax` exactly as it would for
+    /// live audio.
+    ///
+    /// Reads as a scope mid-playback: the LEFT portion is a flat horizontal
+    /// line of silence (a centered baseline at ±~0), then the waveform "turns
+    /// on" and fills the rest with a noisy, randomish played signal centered on
+    /// that baseline — a sound that just started. Newest columns are drawn at
+    /// the center playhead, oldest off to the left, so the silence sits at the
+    /// far-left tail and the active audio leads up to the needle.
+    /// No-op at runtime; only the capture path calls it.
+    func seedSyntheticWaveform(columns: Int = 220) {
+        let n = max(8, min(Self.historyCap, columns))
+        colMin = []; colMax = []
+        colMin.reserveCapacity(n); colMax.reserveCapacity(n)
+        // i = 0 is oldest (far left); the last column sits at the center
+        // playhead. Keep the first ~40% flat (silence), then ramp the activity
+        // in so the audio reads as "just started playing."
+        let silenceFraction: Float = 0.4
+        // Deterministic value-noise so the capture is reproducible run-to-run
+        // (no RNG seeding needed) yet looks irregular like real samples.
+        func noise(_ x: Float) -> Float {
+            let s = sinf(x * 12.9898) * 43758.5453
+            return (s - s.rounded(.down)) * 2 - 1   // → [-1, 1)
+        }
+        for i in 0..<n {
+            let t = Float(i) / Float(n - 1)
+            if t < silenceFraction {
+                // Flat baseline: a dead-center line (tiny floor so the strip
+                // still ticks a 1-px silence bar rather than vanishing).
+                colMax.append(0.015)
+                colMin.append(-0.015)
+                continue
+            }
+            // Ease the amplitude up from the silence edge so the onset isn't a
+            // hard wall — a quick attack into a sustained, noisy signal.
+            let local = (t - silenceFraction) / (1 - silenceFraction)
+            let attack = min(1, local * 4)
+            let x = Float(i)
+            // Random-ish sample value: white-ish noise shaped by a low carrier
+            // so it has body instead of reading as pure static.
+            let body = sinf(x * 0.5) * 0.45
+            let grain = noise(x) * 0.55 + noise(x * 2.3) * 0.25
+            let top = (abs(body) * 0.5 + abs(grain)) * attack
+            let bot = (abs(noise(x * 1.7)) * 0.7 + abs(body) * 0.4) * attack
+            colMax.append(max(0.02, top))
+            colMin.append(min(-0.02, -bot))
+        }
+        needsDisplay = true
+    }
+
     private func tick() {
         let reversing = menuBand?.isRewinding ?? false
         if reversing {

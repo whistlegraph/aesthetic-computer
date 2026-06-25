@@ -199,7 +199,7 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         stack.orientation = .vertical
         stack.alignment = .centerX
         stack.spacing = 12
-        stack.edgeInsets = NSEdgeInsets(top: 18, left: 28, bottom: 24, right: 28)
+        stack.edgeInsets = NSEdgeInsets(top: 10, left: 28, bottom: 24, right: 28)
         stack.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(stack)
         NSLayoutConstraint.activate([
@@ -231,6 +231,11 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
                 self?.onPlayDrum?()
             }
             stack.addArrangedSubview(cards)
+            // Tighten the gap between the icon and the "Menu Band" title.
+            // The card view reserves vertical room for the hover fan-out
+            // (intrinsicContentSize), so the default stack spacing on top of
+            // that reads as too much dead space — pull the title in close.
+            stack.setCustomSpacing(2, after: cards)
             cardStack = cards
         }
 
@@ -748,7 +753,7 @@ final class CardStackView: NSView {
 
     /// Reserve room for the fanned-out back card so the deck stays
     /// centered in the panel and the peek isn't clipped by siblings.
-    override var intrinsicContentSize: NSSize { NSSize(width: 172, height: 144) }
+    override var intrinsicContentSize: NSSize { NSSize(width: 172, height: 122) }
 
     override var isFlipped: Bool { false }
 

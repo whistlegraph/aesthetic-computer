@@ -404,7 +404,10 @@ final class MenuBandPopoverViewController: NSViewController {
         titleRow.widthAnchor.constraint(equalTo: stack.widthAnchor,
                                          constant: -16).isActive = true
 
-        stack.addArrangedSubview(makeSeparator())
+        // (Top separator between the title row and the instrument cluster
+        // removed — the dark waveform strip already reads as the boundary,
+        // and the hairline divider just below the callout arrow looked
+        // unfinished in the App Store popover shot.)
 
         // [v1] Instrument cluster — folded in from the retired floating
         // window. Self-sizing (fixed internal width + a complete vertical

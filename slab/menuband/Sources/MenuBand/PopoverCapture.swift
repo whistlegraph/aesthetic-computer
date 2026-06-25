@@ -68,6 +68,18 @@ enum PopoverCLI {
         }
         v.layoutSubtreeIfNeeded()
 
+        // Seed the top mini-scope with a believable synthetic waveform — flat
+        // silence on the left, noisy played audio filling toward the center
+        // playhead. Headless, no audio engine runs, so the live capture loop
+        // never accumulates columns and the strip would otherwise paint as an
+        // empty dark bar. WaveformStripView is pure Core Graphics, so the
+        // seeded bars render fine under cacheDisplay.
+        func seedWaveformStrips(_ view: NSView) {
+            if let strip = view as? WaveformStripView { strip.seedSyntheticWaveform() }
+            view.subviews.forEach(seedWaveformStrips)
+        }
+        seedWaveformStrips(v)
+
         var size = v.fittingSize
         if size.width < 100 || size.height < 100 { size = NSSize(width: 360, height: 560) }
         v.frame = NSRect(origin: .zero, size: size)
