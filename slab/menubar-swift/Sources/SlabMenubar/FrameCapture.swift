@@ -80,7 +80,9 @@ final class FrameCapture {
                 win.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
                 let view = NSView(frame: NSRect(origin: .zero, size: screen.frame.size))
                 view.wantsLayer = true
-                view.layer?.backgroundColor = NSColor.white.cgColor
+                // System accent color so the whole-display pulse matches the
+                // machine's chosen tint rather than a flat white wash.
+                view.layer?.backgroundColor = NSColor.controlAccentColor.cgColor
                 win.contentView = view
                 win.alphaValue = 0.0
                 win.orderFrontRegardless()

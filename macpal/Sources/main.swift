@@ -49,6 +49,10 @@ if profile == "fuser" {
     let corner = (argValue("--corner") ?? "TL").uppercased()
     let repo = argValue("--repo") ?? NSString(string: "~/Developer/fuser").expandingTildeInPath
     let nameToEmoji = ["panda": "🐼", "chicken": "🐔", "neo": "🦋", "blueberry": "🫐"]
+    // --draggable frees the fuser badge to drag-and-snap between corners (the
+    // star already does). Without it the badge stays pinned to --corner. Opt-in
+    // per machine so the build minis can keep a fixed corner if they want one.
+    let draggable = argv.contains("--draggable")
     config = PalConfig(
         profile: "fuser",
         palName: name,
@@ -56,9 +60,9 @@ if profile == "fuser" {
         supportDir: fuserHome,
         noteSignalDir: noteDir,
         factoryCorner: corner,
-        fixedCorner: corner,
+        fixedCorner: draggable ? nil : corner,  // nil → reads/persists the saved corner
         marginX: 4, marginY: 4,      // hug the screen corner
-        draggable: false,
+        draggable: draggable,
         colorTogglable: false,
         registersLoginItem: false,
         showsAbout: false,
