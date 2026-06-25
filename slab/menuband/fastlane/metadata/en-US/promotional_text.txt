@@ -1,1 +1,1 @@
-Built-in macOS instruments in your menu bar. Tap, type, or send to your DAW. One virtual MIDI source, a built-in GM synth, and a free full version at prompt.ac/menuband.
+Built-in macOS instruments in your menu bar. Tap, type, or send to your DAW. One virtual MIDI source and a built-in GM synth.

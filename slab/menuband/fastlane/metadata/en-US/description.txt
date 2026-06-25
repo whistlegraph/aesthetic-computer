@@ -9,4 +9,4 @@ More to play with:
 • Drag in a MIDI file to play it back.
 • Bend pitch with a trackpad gesture.
 
-A political project: accessible music-making is as essential as time, network connectivity, and battery life. Menu Band is open source, with a free full version — including system-wide typing from any app — available as a direct download at prompt.ac/menuband.
+A political project: accessible music-making is as essential as time, network connectivity, and battery life. Menu Band is open source.

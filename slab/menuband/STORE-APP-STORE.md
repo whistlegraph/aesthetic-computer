@@ -181,8 +181,7 @@ cannot be verified by `swift build` or an unsigned binary:
 > Menu Band for the Mac App Store — the built-in macOS instruments in your menu
 > bar. Click the little piano to play, or type to play while Menu Band is
 > focused. Publishes a virtual MIDI source so any DAW can receive your notes,
-> with a built-in General MIDI synth when no DAW is running. (For system-wide
-> typing from any app, the full version is a free download at prompt.ac/menuband.)
+> with a built-in General MIDI synth when no DAW is running.
 
 ---
 
