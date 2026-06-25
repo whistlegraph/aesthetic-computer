@@ -868,6 +868,10 @@ final class MenuBandPopoverViewController: NSViewController {
             ]
         )
         Self.outlineFooterButton(quit, color: Self.quitOutlineColor)
+        // Quit holds the longest localized title ("Salir de Menu Band"), so it
+        // yields/truncates FIRST when the locked-width footer is cramped —
+        // keeping the shorter About + Keymap labels fully readable.
+        quit.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         // "Keymap" — plain (default-tint) button. Closes the popover and opens
         // the full-screen keymap view (large piano + QWERTY + Notepat/
         // Conventional toggle). Reuses the existing mini-visualizer-expand
@@ -948,11 +952,14 @@ final class MenuBandPopoverViewController: NSViewController {
         // height rather than guessing — keeps the popover snug whether
         // the instrument map is added/removed/resized.
         let fitting = stack.fittingSize
-        // Width tracks the actual fitting size — the instrument map's
-        // 224 px sets the floor, so the popover is as skinny as the
-        // contents allow.
-        preferredContentSize = NSSize(width: fitting.width,
-                                       height: fitting.height)
+        // Width is LOCKED to the instrument grid — a fixed pixel width that
+        // never changes with language. Using `fitting.width` let a longer
+        // localized footer label (e.g. "Salir de Menu Band") grow the whole
+        // popover when the language switched. The grid is the intended floor
+        // and is the widest required element, so its width equals the English
+        // fitting width; the footer buttons truncate within it instead.
+        let gridWidth = instrumentCluster?.fittingSize.width ?? fitting.width
+        preferredContentSize = NSSize(width: gridWidth, height: fitting.height)
         // Baseline for the chart-disclosure resize: everything except
         // the cluster. Captured here, pre-hosting, while fittingSize
         // is uncontaminated by the panel's fixed frame.
@@ -1653,6 +1660,13 @@ final class MenuBandPopoverViewController: NSViewController {
         button.layer?.cornerRadius = 6
         button.layer?.borderWidth = 1
         button.layer?.borderColor = color.cgColor
+        // Truncate a long localized title rather than letting the button's
+        // intrinsic width grow the footer row (and with it the whole popover).
+        // The popover width is locked to the instrument grid; footer labels
+        // must yield to it. Which button yields first is set by per-button
+        // compression resistance at the call site (Quit yields before About).
+        button.cell?.lineBreakMode = .byTruncatingTail
+        button.cell?.truncatesLastVisibleLine = true
     }
 
     /// Subtle brand hues for the three footer chips — AC violet, teal,
