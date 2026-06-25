@@ -819,6 +819,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Multipeer fleet: play a received part, and expose two local triggers
         // — `fleet.play` (conduct self + relay the peer's part over MC) and
         // `fleet.status` (speak the connection state, for testing).
+        //
+        // GATED OUT of the Mac App Store build for v1: MultipeerConnectivity
+        // advertising would trigger a Local Network permission prompt and add
+        // peer-to-peer review surface, and the sandboxed behavior isn't verified
+        // on a signed build yet. Never starting it leaves the MCSession/advertiser
+        // constructed but inert (no advertise, no prompt). Ship the fleet as a
+        // fast-follow once the signed-build Multipeer path + lazy prompt-on-use
+        // start are verified. (The direct-download build keeps the fleet live.)
+        #if !MAC_APP_STORE
         fleet.onMessage = { [weak self] msg in
             guard (msg["t"] as? String) == "play" else { return }
             var info: [String: String] = [:]
@@ -838,6 +847,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             name: NSNotification.Name("computer.aestheticcomputer.menuband.fleet.status"),
             object: nil
         )
+        #endif
 
         // Trackpad pitch-bend: while local capture is armed (the
         // user is playing notes via the keyboard), single-finger
