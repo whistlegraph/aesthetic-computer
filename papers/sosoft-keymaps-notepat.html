@@ -4,52 +4,60 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>notepat keymap</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  html,body{margin:0;background:#fff;}
-  #kb{max-width:980px;margin:0 auto;}
-  canvas{display:block;width:100%;height:auto;}
+  html,body{margin:0;background:#fff;font-family:Inter,Helvetica,Arial,sans-serif;}
+  /* Contained widget: rounded box with a blackish border around the sketch. */
+  #wrap{max-width:1000px;margin:20px auto;padding:18px;
+    border:2.5px solid #16161a;border-radius:22px;background:#fcfcfc;
+    box-shadow:0 2px 8px rgba(0,0,0,0.12);}
+  #kb{width:100%;}
+  /* Let the canvas be its natural (container-width) size — do NOT force
+     width:100%, which would scale a fixed buffer and block real reflow. */
+  #kb canvas{display:block;touch-action:none;}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/p5@1.9.4/lib/p5.min.js"></script>
 </head>
 <body>
-<div id="kb"></div>
+<div id="wrap"><div id="kb"></div></div>
+<script src="https://cdn.jsdelivr.net/npm/p5@1.9.4/lib/p5.min.js"></script>
 <script>
-// notepat keymap (canonical) — key → [noteName, octave, isSharp]
-// mirrors NOTE_TO_KEY in fedac/native/pieces/notepat.mjs + MenuBandMIDI.swift
+// notepat keymap — two octaves, no fringe keys. key → [noteName, octave, isSharp].
 const KEYMAP = {
-  z:["A#",3,1], x:["B",3,0], c:["C",4,0], v:["C#",4,1],
-  d:["D",4,0],  s:["D#",4,1], e:["E",4,0], f:["F",4,0],
-  w:["F#",4,1], g:["G",4,0],  r:["G#",4,1], a:["A",4,0],
-  q:["A#",4,1], b:["B",4,0],
-  h:["C",5,0],  t:["C#",5,1], i:["D",5,0], y:["D#",5,1],
-  j:["E",5,0],  k:["F",5,0],  u:["F#",5,1], l:["G",5,0],
-  o:["G#",5,1], m:["A",5,0],  p:["A#",5,1], n:["B",5,0],
-  ";":["C",6,0],"'":["C#",6,1],"]":["D",6,0]
+  c:["C",4,0], v:["C#",4,1], d:["D",4,0], s:["D#",4,1],
+  e:["E",4,0], f:["F",4,0],  w:["F#",4,1], g:["G",4,0],
+  r:["G#",4,1],a:["A",4,0],  q:["A#",4,1], b:["B",4,0],
+  h:["C",5,0], t:["C#",5,1], i:["D",5,0], y:["D#",5,1],
+  j:["E",5,0], k:["F",5,0],  u:["F#",5,1], l:["G",5,0],
+  o:["G#",5,1],m:["A",5,0],  p:["A#",5,1], n:["B",5,0]
 };
 const ROWS = [
-  { off:0.5, keys:["q","w","e","r","t","y","u","i","o","p","]"] },
-  { off:0.9, keys:["a","s","d","f","g","h","j","k","l",";","'"] },
-  { off:1.4, keys:["z","x","c","v","b","n","m"] },
+  { off:0.5, keys:["q","w","e","r","t","y","u","i","o","p"] },
+  { off:0.9, keys:["a","s","d","f","g","h","j","k","l"] },
+  { off:3.4, keys:["c","v","b","n","m"] },
 ];
 const SEMI = {C:0,"C#":1,D:2,"D#":3,E:4,F:5,"F#":6,G:7,"G#":8,A:9,"A#":10,B:11};
-const pcOf   = (k)=> SEMI[KEYMAP[k][0]];
 const midiOf = (k)=>{ const[n,o]=KEYMAP[k]; return (o+1)*12 + SEMI[n]; };
-const freqOf = (m)=> 440*Math.pow(2,(m-69)/12);
+const freqOf = (mm)=> 440*Math.pow(2,(mm-69)/12);
 const keyForMidi = {}; for(const k in KEYMAP) keyForMidi[midiOf(k)] = k;
 
-// notepat ROYGBIV palette — ported from NoteColors.swift /
-// lib/note-colors.mjs. Naturals carry the chromatic identity; sharps
-// are black (accidentals read as the gaps). Octave +1 = dayglo, -1 = muted.
+// notepat ROYGBIV palette (NoteColors.swift) — used only as accents.
 const BASE  ={c:[255,50,50], d:[255,160,0], e:[255,230,0], f:[50,200,50], g:[50,120,255], a:[130,50,200], b:[180,80,255]};
 const DAYGLO={c:[255,40,80], d:[255,180,0], e:[255,255,50], f:[50,255,100],g:[50,200,255], a:[180,50,255], b:[255,80,255]};
 const MUTED ={c:[139,26,26], d:[180,100,0], e:[180,150,0], f:[20,90,20],  g:[20,60,120],  a:[50,0,90],    b:[90,30,150]};
-const SHARP =[18,18,18];
+const SHARP =[24,24,24];
 function noteColor(key){ const [n,o,sharp]=KEYMAP[key]; if(sharp) return SHARP;
   const L=n.toLowerCase(); const d=o-4; const t=d>=1?DAYGLO:(d<=-1?MUTED:BASE); return t[L]; }
-function textOn(c){ const lum=(0.299*c[0]+0.587*c[1]+0.114*c[2])/255; return lum>0.55?[0,0,0]:[255,255,255]; }
 const lighten=(c,a)=> c.map(v=> Math.round(v+(255-v)*a));
+const mix=(a,b,t)=>[0,1,2].map(i=>Math.round(a[i]+(b[i]-a[i])*t));
+const rgbStr=(c)=>"rgb("+(c[0]|0)+","+(c[1]|0)+","+(c[2]|0)+")";
+// p5's textFont chokes on comma-separated family lists (falls back to serif),
+// so use a SINGLE token. Start with the generic sans-serif, then upgrade to
+// Inter (the article-copy font) once the webfont has actually loaded.
+let FONT = "sans-serif";
 
-// audio
+// audio — press-and-hold voices
 let actx=null; const voices={};
 function ensureAudio(){ if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)();
   if(actx.state==="suspended") actx.resume(); }
@@ -62,94 +70,138 @@ function noteOn(key){ if(!KEYMAP[key]||voices[key]) return; ensureAudio();
 function noteOff(key){ const v=voices[key]; if(!v) return; const t=actx.currentTime;
   v.g.gain.cancelScheduledValues(t); v.g.gain.setValueAtTime(v.g.gain.value,t);
   v.g.gain.exponentialRampToValueAtTime(0.0001,t+0.28); v.osc.stop(t+0.30); delete voices[key]; }
-function pluck(key){ if(!KEYMAP[key]) return; noteOn(key); setTimeout(()=>noteOff(key),420); }
 
 new p5((p)=>{
-  let W=900, U=64, GAP=6, held=new Set();
-  let caps=[], whites=[], blacks=[]; // piano keys
-  let pianoH=0, pianoW=0;
+  let W=900, U=64, GAP=6;
+  const held=new Set();   // keys currently sounding (pointer or keyboard)
+  let hover=null;         // key under the pointer (no sound) — hover highlight
+  let ptrKey=null, ptrDown=false;
+  let whites=[], blacks=[], caps=[], pianoH=0, cnv=null;
 
   function buildPiano(){
     whites=[]; blacks=[];
     const midis = Object.keys(keyForMidi).map(Number).sort((a,b)=>a-b);
     const lo=midis[0], hi=midis[midis.length-1];
     let wi=0;
-    for(let m=lo;m<=hi;m++){
-      const pc=m%12; const sharp=[1,3,6,8,10].includes(pc);
-      const key=keyForMidi[m];
-      if(!sharp){ whites.push({m,pc,key,wi}); wi++; }
-      else { blacks.push({m,pc,key,after:wi-1}); }
+    for(let mm=lo;mm<=hi;mm++){
+      const pc=mm%12; const sharp=[1,3,6,8,10].includes(pc); const key=keyForMidi[mm];
+      if(!sharp){ whites.push({mm,key,wi}); wi++; } else { blacks.push({mm,key,after:wi-1}); }
     }
     return whites.length;
   }
-
   function layout(){
     const maxUnits = Math.max(...ROWS.map(r=>r.off + r.keys.length));
     U = Math.floor((W-GAP)/(maxUnits+0.2));
     const cap=U-GAP;
     const nWhite=buildPiano();
     const whiteW=(W-GAP)/nWhite;
-    pianoW=W; pianoH=Math.round(U*1.9);
+    pianoH=Math.round(U*1.9);
     const blackW=whiteW*0.62, blackH=pianoH*0.6;
     whites.forEach(w=>{ w.x=GAP/2+w.wi*whiteW; w.w=whiteW-2; w.y=0; w.h=pianoH; });
     blacks.forEach(b=>{ b.x=GAP/2+(b.after+1)*whiteW-blackW/2; b.w=blackW; b.y=0; b.h=blackH; });
-
     caps=[];
     const top=pianoH+GAP*2.5;
     ROWS.forEach((row,ri)=>{ const y=top+ri*U;
-      row.keys.forEach((k,ci)=>{ const x=GAP+(row.off+ci)*U;
-        caps.push({key:k, x, y, w:cap, h:cap}); }); });
+      row.keys.forEach((k,ci)=>{ const x=GAP+(row.off+ci)*U; caps.push({key:k, x, y, w:cap, h:cap}); }); });
     return top + ROWS.length*U + GAP;
   }
+  function curW(){ const host=document.getElementById("kb");
+    const cw=(host&&host.clientWidth)||window.innerWidth||900; return Math.max(280, Math.min(960, cw)); }
+  function relayout(){ W=curW(); const H=layout(); p.resizeCanvas(W,H); }
 
   p.setup=()=>{ const host=document.getElementById("kb");
-    W=Math.min(960, host.clientWidth||900); const H=layout();
-    const c=p.createCanvas(W,H); c.parent(host);
-    p.textFont("-apple-system, Helvetica Neue, Arial, sans-serif");
-    p.textAlign(p.CENTER,p.CENTER); };
-  p.windowResized=()=>{ const host=document.getElementById("kb");
-    W=Math.min(960, host.clientWidth||900); const H=layout(); p.resizeCanvas(W,H); };
-
-  p.draw=()=>{ p.background(255);
-    const r=Math.max(5,U*0.12);
-
-    // ── piano (top): notepat-colored keys, qwerty letter on each ──
-    whites.forEach(w=>{ const on=held.has(w.key);
-      let col=noteColor(w.key); if(on) col=lighten(col,0.5);
-      p.stroke(150); p.strokeWeight(1); p.fill(col[0],col[1],col[2]);
-      p.rect(w.x,w.y,w.w,w.h,0,0,4,4);
-      const tc=textOn(col); p.noStroke(); p.fill(tc[0],tc[1],tc[2]);
-      p.textSize(Math.max(9,U*0.20)); p.textStyle(p.BOLD);
-      p.text(w.key.toUpperCase(), w.x+w.w/2, w.y+w.h-U*0.30); });
-    blacks.forEach(b=>{ const on=held.has(b.key);
-      let col=on?lighten(SHARP,0.55):SHARP;
-      p.noStroke(); p.fill(col[0],col[1],col[2]); p.rect(b.x,b.y,b.w,b.h,0,0,3,3);
-      p.fill(on?0:255, on?0:255, on?0:255); p.textSize(Math.max(8,U*0.16)); p.textStyle(p.BOLD);
-      p.text(b.key==="'"?"’":b.key.toUpperCase(), b.x+b.w/2, b.y+b.h-U*0.16); });
-
-    // ── qwerty caps (bottom): note names, notepat ROYGBIV ──
-    caps.forEach(c=>{ const [n]=KEYMAP[c.key]; const on=held.has(c.key);
-      let col=noteColor(c.key); if(on) col=lighten(col,0.45);
-      p.noStroke(); p.fill(0,0,0,26); p.rect(c.x+1.5,c.y+2.5,c.w,c.h,r);
-      p.stroke(0,0,0,40); p.strokeWeight(on?3:1); if(on){ p.stroke(40); }
-      p.fill(col[0],col[1],col[2]); p.rect(c.x,c.y,c.w,c.h,r); p.noStroke();
-      const tc=textOn(col); p.fill(tc[0],tc[1],tc[2]);
-      p.textStyle(p.BOLD); p.textSize(Math.max(13,U*0.34));
-      p.text(n, c.x+c.w/2, c.y+c.h/2); });
+    W=curW(); const H=layout();
+    cnv=p.createCanvas(W,H); cnv.parent(host);
+    p.textFont(FONT); p.textAlign(p.CENTER,p.CENTER);
+    // Responsive: reflow on window resize AND container resize (Framer
+    // breakpoints, embed iframe) — recompute the layout, don't just scale.
+    if(window.ResizeObserver){ let last=W;
+      new ResizeObserver(()=>{ if(Math.abs(curW()-last)>=1){ last=curW(); relayout(); } }).observe(host); }
+    attachPointer(cnv.elt);
+    if(document.fonts&&document.fonts.load) document.fonts.load("700 16px Inter").then((f)=>{ if(f&&f.length) FONT="Inter"; });
   };
+  p.windowResized=()=> relayout();
+
+  // ── pointer + touch: hover, press-and-hold, drag-rollover (glissando) ──
+  function evtPos(el,e){ const r=el.getBoundingClientRect();
+    return { x:(e.clientX-r.left)*(W/r.width), y:(e.clientY-r.top)*(p.height/r.height) }; }
+  function keyAt(x,y){ const h=hitCap(x,y)||hitPiano(x,y); return h?h.key:null; }
+  function attachPointer(el){
+    el.style.touchAction="none";
+    el.addEventListener("pointerdown",(e)=>{ e.preventDefault(); ensureAudio(); ptrDown=true;
+      try{ el.setPointerCapture(e.pointerId); }catch(_){}
+      const {x,y}=evtPos(el,e); const k=keyAt(x,y);
+      if(k){ ptrKey=k; held.add(k); noteOn(k); } });
+    el.addEventListener("pointermove",(e)=>{ const {x,y}=evtPos(el,e); const k=keyAt(x,y);
+      if(ptrDown){ if(k!==ptrKey){ if(ptrKey){ held.delete(ptrKey); noteOff(ptrKey); } ptrKey=k; if(k){ held.add(k); noteOn(k); } } }
+      else { hover=k; } });
+    const release=()=>{ ptrDown=false; if(ptrKey){ held.delete(ptrKey); noteOff(ptrKey); ptrKey=null; } };
+    el.addEventListener("pointerup",release);
+    el.addEventListener("pointercancel",release);
+    window.addEventListener("pointerup",()=>{ if(ptrDown) release(); });
+    el.addEventListener("pointerleave",()=>{ hover=null; });
+  }
 
   function hitCap(mx,my){ return caps.find(c=> mx>=c.x&&mx<=c.x+c.w&&my>=c.y&&my<=c.y+c.h); }
   function hitPiano(mx,my){
     const b=blacks.find(k=> mx>=k.x&&mx<=k.x+k.w&&my>=k.y&&my<=k.y+k.h); if(b) return b;
     return whites.find(k=> mx>=k.x&&mx<=k.x+k.w&&my>=k.y&&my<=k.y+k.h); }
-  function tap(mx,my){ const hit=hitCap(mx,my)||hitPiano(mx,my);
-    if(hit){ pluck(hit.key); held.add(hit.key); setTimeout(()=>held.delete(hit.key),150); return hit; } }
-  p.mousePressed=()=>{ tap(p.mouseX,p.mouseY); };
-  p.touchStarted=()=>{ if(tap(p.mouseX,p.mouseY)) return false; };
-  p.keyPressed=()=>{ const k=p.key.toLowerCase();
-    if(KEYMAP[k] && !held.has(k)){ held.add(k); noteOn(k); } };
-  p.keyReleased=()=>{ const k=p.key.toLowerCase();
+
+  // keyboard — press-and-hold
+  p.keyPressed=()=>{ const k=(p.key||"").toLowerCase();
+    if(KEYMAP[k] && !held.has(k)){ ensureAudio(); held.add(k); noteOn(k); } };
+  p.keyReleased=()=>{ const k=(p.key||"").toLowerCase();
     if(KEYMAP[k]){ held.delete(k); noteOff(k); } };
+
+  // ── render ──
+  function keycap(x,y,w,h,label,sharp,col,pressed,hov,LS){
+    const rr=Math.max(4,w*0.16), pad=Math.max(2.5,w*0.09), lip=Math.max(5,h*0.20);
+    p.noStroke(); p.fill(sharp?(pressed?54:34):(pressed?208:226)); p.rect(x,y,w,h,rr);
+    if(!sharp){ p.fill(col[0],col[1],col[2]); p.rect(x+pad, y+h-lip*0.92, w-pad*2, lip*0.55, lip*0.3); }
+    const sink = pressed? lip*0.45 : 0;
+    const ty = y+pad*0.7 + sink, th = h - pad*0.7 - lip - sink;
+    if(!sharp && pressed){ const t=lighten(col,0.84), s=lighten(col,0.4);
+      p.fill(t[0],t[1],t[2]); p.stroke(s[0],s[1],s[2]); p.strokeWeight(1.3); }
+    else { p.fill(sharp ? (pressed?30:(hov?34:18)) : (hov?255:253));
+      p.stroke(sharp?(pressed?80:48):(hov?120:200)); p.strokeWeight(hov&&!pressed?1.6:1); }
+    p.rect(x+pad, ty, w-pad*2, th, rr*0.78); p.noStroke();
+    p.fill(sharp?255:45); p.textFont(FONT); p.textSize(LS);
+    p.text(label, x+w/2, ty+th/2+0.5);
+  }
+
+  // Average the held keys' colors → a subtle whole-widget tint while playing.
+  function pressColor(){ let r=0,g=0,b=0,c=0;
+    held.forEach(k=>{ const col=noteColor(k); r+=col[0]; g+=col[1]; b+=col[2]; c++; });
+    return c? [r/c,g/c,b/c] : null; }
+
+  p.draw=()=>{
+    const pc=pressColor(), wrap=document.getElementById("wrap");
+    if(pc){ const bg=lighten(pc,0.9); p.background(bg[0],bg[1],bg[2]);
+      const wbg=rgbStr(lighten(pc,0.93)), bord=rgbStr(mix(pc,[22,22,26],0.5)), key=wbg+bord;
+      if(wrap&&wrap._tint!==key){ wrap.style.background=wbg; wrap.style.borderColor=bord; wrap._tint=key; } }
+    else { p.background(252);
+      if(wrap&&wrap._tint!=="def"){ wrap.style.background="#fcfcfc"; wrap.style.borderColor="#16161a"; wrap._tint="def"; } }
+    const LS = Math.max(10, Math.round(U*0.26));
+    p.textFont(FONT); p.textSize(LS);
+
+    // piano — traditional white/black keys, ROYGBIV accent bar at the foot
+    whites.forEach(w=>{ const on=held.has(w.key), hov=(hover===w.key); const col=noteColor(w.key);
+      if(on){ const t=lighten(col,0.84), s=lighten(col,0.4); p.fill(t[0],t[1],t[2]); p.stroke(s[0],s[1],s[2]); p.strokeWeight(1.2); }
+      else { p.fill(hov?247:252); p.stroke(hov?140:172); p.strokeWeight(1); }
+      p.rect(w.x,w.y,w.w,w.h,0,0,4,4);
+      const bh=Math.max(4,w.h*0.10);
+      p.noStroke(); p.fill(col[0],col[1],col[2]); p.rect(w.x+1.5,w.y+w.h-bh-1.5,w.w-3,bh,0,0,3,3);
+      p.fill(45); p.textSize(LS); p.text(w.key.toUpperCase(), w.x+w.w/2, w.y+w.h-bh-LS*0.85); });
+    blacks.forEach(b=>{ const on=held.has(b.key), hov=(hover===b.key);
+      const f=on?lighten(SHARP,0.5):(hov?lighten(SHARP,0.22):SHARP);
+      p.noStroke(); p.fill(f[0],f[1],f[2]); p.rect(b.x,b.y,b.w,b.h,0,0,3,3);
+      p.fill(255); p.textSize(LS); p.text(b.key==="'"?"’":b.key.toUpperCase(), b.x+b.w/2, b.y+b.h-LS*0.75); });
+
+    // qwerty keycaps — white caps show note name, black caps show key letter
+    caps.forEach(c=>{ const [n,o,sharp]=KEYMAP[c.key]; const on=held.has(c.key), hov=(hover===c.key);
+      const label = sharp ? c.key.toUpperCase() : n;
+      keycap(c.x,c.y,c.w,c.h, label, sharp, noteColor(c.key), on, hov, LS); });
+  };
 });
 </script>
 </body>
