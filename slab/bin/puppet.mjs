@@ -34,6 +34,7 @@
 //   puppet type <machine> <text...>   inject text into the frontmost app
 //     --tty=/dev/ttysNNN  target a Terminal tab (do script: appends + submits)
 //     --paste             multi-line-safe clipboard path (focuses the tab)
+//     --clear             wipe the input box first (Ctrl-U) — no stale append
 //     --enter             submit with a separate, delayed Return keystroke
 //   puppet keys <machine> <key>       send a key/chord (enter|escape|… or char)
 //     --mod=cmd,shift     modifiers for the keystroke
@@ -1120,16 +1121,18 @@ async function main() {
     case "term":
       console.log(termList(machineSpec(args[0])));
       return;
-    // puppet type <machine> <text...> [--tty=/dev/ttysNNN] [--paste] [--enter]
+    // puppet type <machine> <text...> [--tty=/dev/ttysNNN] [--paste] [--clear] [--enter]
     //   default: into the frontmost app. --tty targets a Terminal tab. Plain
     //   --tty uses `do script` (one-line, appends + submits); --paste is the
-    //   multi-line-safe clipboard path; --enter submits as a separate Return.
+    //   multi-line-safe clipboard path; --clear wipes the box first (Ctrl-U);
+    //   --enter submits as a separate Return. Clean replace: --clear --enter.
     case "type":
       console.log(
         typeText(machineSpec(args[0]), args.slice(1).join(" "), {
           tty: flags.tty,
           paste: !!flags.paste,
           enter: !!flags.enter,
+          clear: !!flags.clear,
         }),
       );
       return;

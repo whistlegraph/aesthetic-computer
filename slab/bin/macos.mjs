@@ -106,26 +106,10 @@ end timeout`,
   );
 }
 
-// Inject text into a Terminal tab (by tty) or the frontmost app.
-//   tty   — target this Terminal tab; omit to hit the frontmost app
-//   paste — clipboard + Cmd+V (multi-line safe, brings the tab frontmost)
-//   enter — send Return as a separate delayed keystroke (the submit)
-export function typeText(spec, text, { tty, paste, enter } = {}) {
-  // One-line poke into a tab without stealing focus: do script appends + submits.
-  if (tty && !paste) {
-    return osa(
-      spec,
-      `with timeout of 20 seconds
-  ${inTtyTab(tty, `do script ${aslit(text)} in t`)}
-end timeout`,
-    );
-  }
-
-  // Paste path (multi-line safe). Load the clipboard on the machine itself so
-  // the text never has to survive AppleScript escaping, then Cmd+V.
-  sh(spec, "pbcopy", { stdin: text });
-  const focus = tty
-    ? `tell application "Terminal"
+// AppleScript fragment: bring the Terminal tab with this tty frontmost so
+// System Events keystrokes land in it.
+function focusTtyTab(tty) {
+  return `tell application "Terminal"
     repeat with w in windows
       repeat with t in tabs of w
         try
@@ -137,8 +121,40 @@ end timeout`,
       end repeat
     end repeat
   end tell
-  delay 0.1`
+  delay 0.1`;
+}
+
+// Inject text into a Terminal tab (by tty) or the frontmost app.
+//   tty   — target this Terminal tab; omit to hit the frontmost app
+//   paste — clipboard + Cmd+V (multi-line safe; brings the tab frontmost)
+//   clear — wipe the input box first (Ctrl-U) so the text doesn't append to a
+//           stale buffer; forces the focus path even for single-line pokes
+//   enter — send Return as a separate delayed keystroke (the submit)
+export function typeText(spec, text, { tty, paste, enter, clear } = {}) {
+  // Fast path: one-line poke into a tab without stealing focus. `do script`
+  // appends + submits — only valid when we're not clearing or pasting.
+  if (tty && !paste && !clear) {
+    return osa(
+      spec,
+      `with timeout of 20 seconds
+  ${inTtyTab(tty, `do script ${aslit(text)} in t`)}
+end timeout`,
+    );
+  }
+
+  // Focus path. Paste loads the clipboard on the machine itself so the text
+  // never has to survive AppleScript escaping; otherwise we type it literally.
+  if (paste) sh(spec, "pbcopy", { stdin: text });
+  const focus = tty ? focusTtyTab(tty) : "";
+  // Ctrl-U clears the line in Claude/codex's input (and most line editors),
+  // so a fresh message replaces whatever was sitting in the box.
+  const wipe = clear
+    ? `tell application "System Events" to keystroke "u" using control down
+  delay 0.05`
     : "";
+  const emit = paste
+    ? `tell application "System Events" to keystroke "v" using command down`
+    : `tell application "System Events" to keystroke ${aslit(text)}`;
   const submit = enter
     ? `delay ${SUBMIT_DELAY_MS / 1000}
   tell application "System Events" to key code 36` // 36 = Return
@@ -147,7 +163,8 @@ end timeout`,
     spec,
     `with timeout of 30 seconds
   ${focus}
-  tell application "System Events" to keystroke "v" using command down
+  ${wipe}
+  ${emit}
   ${submit}
   return "ok"
 end timeout`,
