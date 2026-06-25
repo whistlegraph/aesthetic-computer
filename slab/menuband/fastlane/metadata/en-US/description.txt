@@ -10,3 +10,5 @@ More to play with:
 • Bend pitch with a trackpad gesture.
 
 A political project: accessible music-making is as essential as time, network connectivity, and battery life. Menu Band is open source.
+
+Performance programming support by Esteban Uribe.
