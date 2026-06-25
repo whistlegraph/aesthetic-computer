@@ -70,5 +70,13 @@ let package = Package(
             dependencies: ["MenuBand"],
             path: "Tests/MenuBandTests"
         ),
+        // Regression suite — invariants that have broken in a shipped build
+        // before (e.g. keyboard keys stopped firing notes, left-octave drums
+        // misrouted). Pure logic, runs on every build via `swift test`.
+        .testTarget(
+            name: "MenuBandRegressionSuite",
+            dependencies: ["MenuBand"],
+            path: "menu-band-regression-suite"
+        ),
     ]
 )
