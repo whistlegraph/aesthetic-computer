@@ -29,6 +29,16 @@
 //   puppet status                     daemon status (same JSON slab reads)
 //   puppet config                     print/create the config stub path
 //
+// OS automation (ssh + osascript; no daemon/CDP, works on browserless hosts):
+//   puppet term <machine>             list Terminal tabs (tty, busy, processes)
+//   puppet type <machine> <text...>   inject text into the frontmost app
+//     --tty=/dev/ttysNNN  target a Terminal tab (do script: appends + submits)
+//     --paste             multi-line-safe clipboard path (focuses the tab)
+//     --enter             submit with a separate, delayed Return keystroke
+//   puppet keys <machine> <key>       send a key/chord (enter|escape|… or char)
+//     --mod=cmd,shift     modifiers for the keystroke
+// Needs `ssh`/`local` on the machine's puppet.json spec (see `puppet config`).
+//
 // Target selection: most-recently-active http(s) page, like cdp.mjs. Override
 // per-call with --target=<url or id substring>.
 //
@@ -44,6 +54,7 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { logHit, overlayDrawExpr, overlayClearExpr, scanExpr } from "./analysis-layer.mjs";
+import { termList, typeText, sendKeys } from "./macos.mjs";
 
 const HOME = homedir();
 const CONFIG_PATH =
@@ -54,9 +65,10 @@ const STATUS_PATH = join(RUN_DIR, "status.json");
 
 const CONFIG_STUB = {
   _README:
-    "slab puppet config — UNTRACKED, never committed. Register machines " +
-    "whose Chrome runs with --remote-debugging-port (reachable from here, " +
-    "e.g. via an ssh -L tunnel since CDP binds loopback).",
+    "slab puppet config — UNTRACKED, never committed. Per machine: `cdpUrl` " +
+    "(+ optional `tunnelCmd`) for browser/CDP control; `ssh` (e.g. " +
+    '"jas@host -i ~/.ssh/id_ed25519") or `local: true` for OS automation ' +
+    "(term/type/keys). A machine may carry any subset.",
   machines: {},
 };
 
@@ -69,6 +81,17 @@ function loadConfig() {
   } catch {
     return null;
   }
+}
+
+// Resolve a machine's raw spec from config — for OS-automation commands
+// (term/type/keys) that talk over ssh/osascript and need no daemon or CDP
+// socket, just the `ssh`/`local` transport fields.
+function machineSpec(name) {
+  if (!name) throw new Error("machine name required");
+  const cfg = loadConfig();
+  const spec = cfg?.machines?.[name];
+  if (!spec) throw new Error(`unknown machine: ${name} (puppet config)`);
+  return spec;
 }
 
 function cmdConfig() {
@@ -1092,9 +1115,34 @@ async function main() {
     case "tail":
       await rpc({ cmd: "tail", machine: args[0], args: { target: flags.target } }, { stream: true });
       return;
+    // ── OS automation (ssh + osascript; no daemon/CDP needed) ──────────────
+    // puppet term <machine>  — list Terminal tabs: tty, busy, processes
+    case "term":
+      console.log(termList(machineSpec(args[0])));
+      return;
+    // puppet type <machine> <text...> [--tty=/dev/ttysNNN] [--paste] [--enter]
+    //   default: into the frontmost app. --tty targets a Terminal tab. Plain
+    //   --tty uses `do script` (one-line, appends + submits); --paste is the
+    //   multi-line-safe clipboard path; --enter submits as a separate Return.
+    case "type":
+      console.log(
+        typeText(machineSpec(args[0]), args.slice(1).join(" "), {
+          tty: flags.tty,
+          paste: !!flags.paste,
+          enter: !!flags.enter,
+        }),
+      );
+      return;
+    // puppet keys <machine> <key> [--mod=cmd,shift]  — send a key/chord to the
+    //   frontmost app (enter|escape|tab|up|... or a literal character)
+    case "keys":
+      console.log(
+        sendKeys(machineSpec(args[0]), args[1], (flags.mod || "").split(",").filter(Boolean)),
+      );
+      return;
     default:
       console.log(
-        "usage: puppet daemon|config|status|list|eval|evalall|batch|broadcast|fanout|nav|newtab|close|reload|shot|watch|unwatch|stroke|gesture|key|cursor|scan|analysis|tail (see header)",
+        "usage: puppet daemon|config|status|list|eval|evalall|batch|broadcast|fanout|nav|newtab|close|reload|shot|watch|unwatch|stroke|gesture|key|cursor|scan|analysis|tail|term|type|keys (see header)",
       );
   }
 }
