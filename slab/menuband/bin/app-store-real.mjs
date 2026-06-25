@@ -28,7 +28,7 @@ const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 // Lower resolution (1440x900 — a valid Mac App Store size) so the UI fills more
 // of the frame and reads larger than it did at 2880x1800.
 const W = 1440, H = 900;
-const GRAY = "#b8b8b8";          // solid neutral-gray desktop
+const GRAY = "#a8a8a8";          // solid neutral-gray desktop (slightly darker)
 const BAR_H = 44;
 const S = 1.6;                   // surface scale (popover ~730px tall, prominent)
 
@@ -43,9 +43,9 @@ const render = (args, out) => {
 };
 console.log("rendering real UI surfaces…");
 render(["--render-menubar", "--light"], "menubar.png");   // keys at rest, light theme
-render(["--render-popover", "--program", "0"], "popover.png");
-render(["--render-about"], "about.png");
-render(["--render-jam"], "jam.png");
+render(["--render-popover", "--lang", "en", "--program", "0"], "popover.png");
+render(["--render-about", "--lang", "en"], "about.png");
+render(["--render-jam", "--lang", "en"], "jam.png");
 
 // The ♪ status glyph at the strip's right end renders in the system accent
 // (green). For a clean light-mode bar, recolor it to INK. That right slice
@@ -81,16 +81,17 @@ const pngDims = (name) => {
 // the top-right status item like the live popover; `layered` cascades all
 // three surfaces (About + Looking-for-Players to the left, popover dropping
 // from the ♪ glyph) into one composed overview scene.
+// Single App Store shot: the three-panel aggregate overview (popover dropping
+// from the ♩M note, About + Looking-for-Players cascaded). The per-surface
+// renders below still run because the overview composites them; the cleanup
+// pass at the end deletes any other PNGs left in the upload dir.
 const SHOTS = [
-  { file: "00-overview",            layered: true },
-  { file: "01-menu-band",           screen: "popover", place: "drop" },
-  { file: "02-about",               screen: "about",   place: "center", chrome: true },
-  { file: "03-looking-for-players", screen: "jam",     place: "center", chrome: true },
+  { file: "00-overview", layered: true },
 ];
 
 const FILL = "#ffffff";          // solid light-theme backing behind the panels
 const INK = "#16161a";           // light-mode menu-bar ink (glyphs + clock)
-const STRIP_CENTER = 1076;       // px from left — the ♪ note glyph at the strip's right end (the real status item the popover drops from)
+const STRIP_CENTER = 1082;       // px from left — center of the ♩M note glyph (the real status item the popover drops from). Saturated piano keys end ≈x1089, Control Center starts ≈x1122; tuned visually so the callout tip lands on the note glyph's center.
 
 // A single composited window. `screen` names the rendered surface PNG;
 // `left`/`top`/`scale` place + size it (scale defaults to the global S);
@@ -153,36 +154,29 @@ const screenCSS = (s) => {
 // A smaller scale than the single-surface shots so all three fit the 1440×900
 // frame with margins, and the taller popover stays inside the bottom edge.
 const overviewCSS = () => {
-  const OS = 1.4;                               // overview surface scale
-  const dim = (n) => pngDims(n);
+  const OS = 1.3;                               // overview surface scale (fits 3 evenly)
   const sized = (n) => {
-    const d = dim(n), h = Math.round(d.h / RENDER_SCALE * OS);
+    const d = pngDims(n), h = Math.round(d.h / RENDER_SCALE * OS);
     return { h, w: Math.round(h * d.w / d.h) };
   };
   const pop = sized("popover"), about = sized("about"), jam = sized("jam");
 
-  // Popover: foreground, drops from the ♪ glyph (arrow on the strip center).
-  const popLeft = Math.round(STRIP_CENTER - pop.w / 2);
-  const popTop = BAR_H + 12;
-
-  // About: to the LEFT of the popover, vertically centered in the desktop so
-  // its taller frame balances against the menu-bar-anchored popover. A small
-  // gutter separates About's right edge from the popover's left edge.
-  const gutter = 44;
-  const aboutLeft = popLeft - gutter - about.w;
-  const aboutTop = Math.round((H - BAR_H - about.h) / 2) + BAR_H + 10;
-
-  // Looking-For-Players: tucked behind About's left edge, slightly higher, so
-  // the cascade reads as stacked windows without hiding About's content. The
-  // overlap is sized to keep ~60px of left margin inside the 1440 frame.
-  const jamOverlap = jam.w - (aboutLeft - 60);
-  const jamLeft = aboutLeft - jam.w + jamOverlap;   // == 60
-  const jamTop = aboutTop - 64;
+  // Looking-For-Players · About · popover, left → right, EVENLY distributed
+  // across the canvas: the four gaps (left margin, the two inter-window
+  // gutters, right margin) are all equal, so the rhythm reads as even even
+  // though the three windows differ in width. Each window is vertically
+  // centered in the desktop below the menu bar.
+  const gap = Math.round((W - (jam.w + about.w + pop.w)) / 4);
+  const jamLeft = gap;
+  const aboutLeft = jamLeft + jam.w + gap;
+  const popLeft = aboutLeft + about.w + gap;
+  const cy = (BAR_H + H) / 2;
+  const topFor = (hh) => Math.round(cy - hh / 2);
 
   return [
-    windowEl({ screen: "jam",     left: jamLeft,   top: jamTop,   scale: OS, chrome: true, z: 1 }),
-    windowEl({ screen: "about",   left: aboutLeft, top: aboutTop, scale: OS, chrome: true, z: 2 }),
-    windowEl({ screen: "popover", left: popLeft,   top: popTop,   scale: OS, chrome: false, z: 3, arrow: true }),
+    windowEl({ screen: "jam",     left: jamLeft,   top: topFor(jam.h),   scale: OS, chrome: true, z: 1 }),
+    windowEl({ screen: "about",   left: aboutLeft, top: topFor(about.h), scale: OS, chrome: true, z: 2 }),
+    windowEl({ screen: "popover", left: popLeft,   top: topFor(pop.h),   scale: OS, chrome: false, z: 3 }),
   ].join("\n");
 };
 

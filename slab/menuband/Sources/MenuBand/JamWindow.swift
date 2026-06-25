@@ -11,7 +11,7 @@ final class JamWindowController: NSWindowController, NSWindowDelegate {
 
     init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 320, height: 210),
+            contentRect: NSRect(x: 0, y: 0, width: 256, height: 210),
             styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -91,9 +91,9 @@ final class JamWindowController: NSWindowController, NSWindowDelegate {
             }
             stack.addArrangedSubview(bannerView)
             NSLayoutConstraint.activate([
-                bannerView.widthAnchor.constraint(equalToConstant: 264),
+                bannerView.widthAnchor.constraint(equalToConstant: 200),
                 // 3:2 source → keep the aspect for the banner crop.
-                bannerView.heightAnchor.constraint(equalToConstant: 176),
+                bannerView.heightAnchor.constraint(equalToConstant: 133),
             ])
             stack.setCustomSpacing(14, after: bannerView)
         }
@@ -149,7 +149,7 @@ final class JamWindowController: NSWindowController, NSWindowDelegate {
         if let cell = button.cell as? NSButtonCell { cell.imageScaling = .scaleNone }
         button.translatesAutoresizingMaskIntoConstraints = false
         button.toolTip = tooltip
-        button.widthAnchor.constraint(equalToConstant: 264).isActive = true
+        button.widthAnchor.constraint(equalToConstant: 200).isActive = true
         return button
     }
 

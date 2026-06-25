@@ -75,56 +75,84 @@ final class WaveformStripView: NSView {
 
     deinit { timer?.invalidate() }
 
-    /// Seed the rolling history with a believable synthetic waveform so the
-    /// strip paints real-looking bars in the HEADLESS App Store capture
-    /// (`--render-popover`), where no audio engine is running and the live
+    /// Seed the rolling history with a believable synthetic note so the strip
+    /// paints what it really would when a note plays, in the HEADLESS App Store
+    /// capture (`--render-popover`), where no audio engine runs and the live
     /// `tick()` path never accumulates columns. Pure Core Graphics — the
-    /// strip's `draw(_:)` consumes `colMin`/`colMax` exactly as it would for
-    /// live audio.
+    /// strip's `draw(_:)` consumes `colMin`/`colMax` exactly as for live audio.
     ///
-    /// Reads as a scope mid-playback: the LEFT portion is a flat horizontal
-    /// line of silence (a centered baseline at ±~0), then the waveform "turns
-    /// on" and fills the rest with a noisy, randomish played signal centered on
-    /// that baseline — a sound that just started. Newest columns are drawn at
-    /// the center playhead, oldest off to the left, so the silence sits at the
-    /// far-left tail and the active audio leads up to the needle.
-    /// No-op at runtime; only the capture path calls it.
+    /// MATCHES draw()'s geometry exactly. Live draw walks
+    /// `bar(n-1-i, x: cx - i*step)`: the NEWEST column (`n-1`) lands on the
+    /// bright center playhead, and older columns scroll LEFT (oldest at the far
+    /// left). Nothing is drawn RIGHT of the playhead — that's the not-yet-played
+    /// future, so the seed leaves it empty by virtue of stopping at `n-1`.
+    ///
+    /// Reading left→right is forward in time: far-left near-silence (before the
+    /// strike) → a sharp ATTACK transient → an exponentially DECAYING sustain
+    /// that trails up to the center playhead. So the column AT the needle is the
+    /// freshest, partly-decayed sustain — exactly the picture of "a note is
+    /// ringing out." Bars are chunky min/max pairs centered on the baseline,
+    /// like a real low-res scope. No-op at runtime; only the capture calls it.
     func seedSyntheticWaveform(columns: Int = 220) {
         let n = max(8, min(Self.historyCap, columns))
         colMin = []; colMax = []
         colMin.reserveCapacity(n); colMax.reserveCapacity(n)
-        // i = 0 is oldest (far left); the last column sits at the center
-        // playhead. Keep the first ~40% flat (silence), then ramp the activity
-        // in so the audio reads as "just started playing."
-        let silenceFraction: Float = 0.4
         // Deterministic value-noise so the capture is reproducible run-to-run
-        // (no RNG seeding needed) yet looks irregular like real samples.
+        // (no RNG seeding) yet looks irregular like real sampled audio.
         func noise(_ x: Float) -> Float {
             let s = sinf(x * 12.9898) * 43758.5453
             return (s - s.rounded(.down)) * 2 - 1   // → [-1, 1)
         }
+        // Only a window near the NEWEST end is ever on screen: draw() shows
+        // ~`(width/2)/barStep` columns left of the center playhead (≈20–26 for
+        // the popover strip). Place the strike INSIDE that visible window so the
+        // captured frame reads silence → attack → decay rather than just a flat
+        // decayed tail. ~22 columns back from the newest puts the onset a little
+        // left of center with the ring-out trailing to the playhead, and the
+        // pre-strike silence filling the visible far left.
+        let visibleCols: Float = 22
+        // Strike near the LEFT edge of the visible window so the whole ring-out
+        // fills the on-screen span: a little pre-strike silence at the far left,
+        // then a tall attack, then a gentle decay still carrying real amplitude
+        // all the way to the center playhead (a note actively ringing — not one
+        // that's already faded to the baseline before reaching the needle).
+        let onsetIdx = Float(n - 1) - visibleCols * 0.9    // ≈20 cols before newest
+        // Slow decay across the visible window so amplitude at the playhead is
+        // still a healthy fraction of the peak.
+        let decayCols = visibleCols * 1.4
         for i in 0..<n {
-            let t = Float(i) / Float(n - 1)
-            if t < silenceFraction {
-                // Flat baseline: a dead-center line (tiny floor so the strip
-                // still ticks a 1-px silence bar rather than vanishing).
-                colMax.append(0.015)
-                colMin.append(-0.015)
-                continue
+            let pos = Float(i)
+            let x = pos
+            // ADSR-ish envelope in note time. `since` = columns since the
+            // strike (negative = pre-strike silence, growing positive = ringing
+            // out toward the playhead).
+            let since = pos - onsetIdx
+            var env: Float
+            if since < 0 {
+                // Pre-strike: flat silence baseline at the far left.
+                env = 0
+            } else {
+                // Fast attack (≈2 columns) into a gentle exponential decay —
+                // the unmistakable shape of a plucked / struck instrument, with
+                // a sustain floor so the tail keeps body up to the playhead.
+                let attack = min(1, since / 2)
+                let decay = 0.45 + 0.55 * expf(-since / decayCols * 2.0)
+                env = attack * decay
             }
-            // Ease the amplitude up from the silence edge so the onset isn't a
-            // hard wall — a quick attack into a sustained, noisy signal.
-            let local = (t - silenceFraction) / (1 - silenceFraction)
-            let attack = min(1, local * 4)
-            let x = Float(i)
-            // Random-ish sample value: white-ish noise shaped by a low carrier
-            // so it has body instead of reading as pure static.
-            let body = sinf(x * 0.5) * 0.45
-            let grain = noise(x) * 0.55 + noise(x * 2.3) * 0.25
-            let top = (abs(body) * 0.5 + abs(grain)) * attack
-            let bot = (abs(noise(x * 1.7)) * 0.7 + abs(body) * 0.4) * attack
-            colMax.append(max(0.02, top))
-            colMin.append(min(-0.02, -bot))
+            // Sample value: a voiced carrier (gives the bars a periodic, musical
+            // body rather than pure hiss) plus a little grain for texture.
+            let carrier = sinf(x * 0.9) * 0.55 + sinf(x * 0.37) * 0.25
+            let grain = noise(x) * 0.22
+            let sample = (carrier + grain)            // ≈ [-1, 1]
+            // Chunky min/max column centered on the baseline. Slight asymmetry
+            // so top/bottom aren't a perfect mirror, like real audio.
+            let amp = env * 0.92
+            let top = abs(sample) * amp
+            let bot = abs(sample * 0.85 + grain * 0.5) * amp
+            // Tiny silence floor so even dead columns tick a 1-px baseline bar
+            // (matches draw()'s `max(1.5, …)` height floor visually).
+            colMax.append(max(0.012, top))
+            colMin.append(min(-0.012, -bot))
         }
         needsDisplay = true
     }
@@ -170,14 +198,25 @@ final class WaveformStripView: NSView {
 
         let mid = r.midY
         let cx = r.midX
-        let amp = r.height * 0.72   // bigger / less tiny
+        // Bars are mirrored around `mid`, so a full-scale (±1) sample must stay
+        // within HALF the strip height. Scale to ~0.9 of that half (1px inner
+        // margin top + bottom) so even peak audio never pokes past the recessed
+        // plate's frame. (Previously `r.height * 0.72` measured the FULL height,
+        // letting loud columns overflow above/below the strip.)
+        let halfInset = max(1, r.height / 2 - 1)
+        let amp = halfInset * 0.9
         let n = colMin.count
         let step = Self.barStep
 
         func bar(_ idx: Int, x: CGFloat, alpha: CGFloat) {
             guard x >= 1, x <= r.width - 1 else { return }
-            let top = mid - CGFloat(max(-1, min(1, colMax[idx]))) * amp
-            let bot = mid - CGFloat(max(-1, min(1, colMin[idx]))) * amp
+            var top = mid - CGFloat(max(-1, min(1, colMax[idx]))) * amp
+            var bot = mid - CGFloat(max(-1, min(1, colMin[idx]))) * amp
+            // Hard clamp to the strip's inner frame — belt-and-suspenders so no
+            // data path (live or seeded) can ever draw outside the plate.
+            let topLimit = r.maxY - 1, botLimit = r.minY + 1
+            top = max(botLimit, min(topLimit, top))
+            bot = max(botLimit, min(topLimit, bot))
             let h = max(1.5, abs(bot - top))   // floor so silence still ticks
             color.withAlphaComponent(alpha).setFill()
             NSBezierPath(rect: NSRect(x: x - Self.barWidth / 2, y: min(top, bot),

@@ -30,6 +30,7 @@ enum PopoverCLI {
         // Register YWFT Processing so the instrument title renders in the real
         // typeface (not the system fallback) — this path skips app launch.
         AppDelegate.registerBundledFonts()
+        if let lang = val("--lang") { Localization.current = lang }   // QA: render the popover localized
 
         // Load with the instrument chart EXPANDED so the shot shows the full
         // GM grid + QWERTY map, not just the collapsed readout. This writes to
@@ -130,7 +131,7 @@ enum JamCLI {
         }
         cv.layoutSubtreeIfNeeded()
         let fit = cv.fittingSize
-        win.setContentSize(NSSize(width: max(280, fit.width), height: max(200, fit.height)))
+        win.setContentSize(NSSize(width: max(240, fit.width), height: max(200, fit.height)))
         cv.layoutSubtreeIfNeeded()
         win.displayIfNeeded()
 
