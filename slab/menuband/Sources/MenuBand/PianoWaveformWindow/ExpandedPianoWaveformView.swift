@@ -265,6 +265,23 @@ final class ExpandedPianoWaveformView: NSView {
         modeStack.spacing = 8
         modeStack.translatesAutoresizingMaskIntoConstraints = false
         let modeSymbol = NSImage.SymbolConfiguration(pointSize: 12, weight: .regular)
+        // LLMs — opens the copy-paste guide that teaches an LLM (Claude, etc.)
+        // to drive Menu Band over its notification hooks: autoplay, the live
+        // engine, speech, and the peer-to-peer fleet. Sits left of the layout
+        // buttons (peer to Gamepad on the right). Momentary, not a toggle.
+        let llmButton = NSButton(title: "LLMs", target: self,
+                                 action: #selector(openLLMGuide(_:)))
+        llmButton.bezelStyle = .recessed
+        llmButton.setButtonType(.momentaryPushIn)
+        llmButton.controlSize = .regular
+        llmButton.imagePosition = .imageLeading
+        llmButton.imageHugsTitle = true
+        llmButton.image = NSImage(systemSymbolName: "sparkles",
+                                  accessibilityDescription: "LLMs")?
+            .withSymbolConfiguration(modeSymbol)
+        llmButton.toolTip = "Play Menu Band with an LLM — copy a guide for Claude"
+        llmButton.translatesAutoresizingMaskIntoConstraints = false
+        modeStack.addArrangedSubview(llmButton)
         let modeSpecs: [(label: String, image: NSImage?, tag: Int)] = [
             ("Notepat",
              NotepatFavicon.image
@@ -485,6 +502,10 @@ final class ExpandedPianoWaveformView: NSView {
     @objc private func toggleGamepadCluster(_ sender: NSButton) {
         // Button is pushOnPushOff; mirror its state onto the cluster.
         gamepadCluster?.isHidden = (sender.state != .on)
+    }
+
+    @objc private func openLLMGuide(_ sender: NSButton) {
+        LLMGuideWindowController.show()
     }
 
     @objc private func gamepadSchemeChanged(_ sender: NSPopUpButton) {
