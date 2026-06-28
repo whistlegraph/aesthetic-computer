@@ -153,7 +153,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var globalShiftMonitor: Any?
     private var localShiftMonitor: Any?
     /// Live chord-morph .flagsChanged monitors — while a note key is held,
-    /// pressing/releasing ⌃/⌘ re-voices it (single ↔ major/minor/sus) via
+    /// pressing/releasing ⌘/⌥ re-voices it (single ↔ major/minor/sus) via
     /// `menuBand.morphHeldKeys`. Rides the same global+local stream so it
     /// works in TYPE mode and quiet-focus alike.
     private var globalChordMorphMonitor: Any?
@@ -1784,11 +1784,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if initialDirty { updateIcon() }
     }
 
-    /// Live chord morph: while a note key is physically held, watch ⌃/⌥ and
+    /// Live chord morph: while a note key is physically held, watch ⌘/⌥ and
     /// re-voice the held key between a single note and a triad. The chord
-    /// scheme matches the keyDown path — ⌃ = major, ⌥ = minor, ⌃+⌥ = sus —
+    /// scheme matches the keyDown path — ⌘ = major, ⌥ = minor, ⌘+⌥ = sus —
     /// so a note that started plain and one that started chorded morph the
-    /// same way (⌘ is chord-inert; its shortcuts stay system shortcuts).
+    /// same way (⌃ is chord-inert; its shortcuts stay system shortcuts).
     /// Both a global monitor (TYPE mode / background apps) and a local one
     /// (quiet-focus, Menu Band frontmost) feed the same handler; the
     /// controller no-ops when nothing is held, so wiring both is harmless.
@@ -1796,11 +1796,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let handler: (NSEvent) -> Void = { [weak self] event in
             guard let self = self else { return }
             let flags = event.modifierFlags
-            let ctrl = flags.contains(.control)
+            let cmd = flags.contains(.command)
             let opt = flags.contains(.option)
-            self.menuBand.morphHeldKeys(chordModifier: ctrl || opt,
+            self.menuBand.morphHeldKeys(chordModifier: cmd || opt,
                                         chordMinor: opt,
-                                        chordSus: ctrl && opt)
+                                        chordSus: cmd && opt)
         }
         globalChordMorphMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: .flagsChanged
@@ -3315,13 +3315,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 contentSize: contentSize)
 
             // When the popover is key (quiet-focus + popover open), it — not
-            // the invisible capture panel — sees key-equivalents. Route ⌃/⌘+
+            // the invisible capture panel — sees key-equivalents. Route ⌘/⌥+
             // letter chords through the same local note path so they chord
-            // consistently and shadow Cut/Copy/etc. for mapped note keys.
+            // consistently and shadow Cut/Copy/etc. for mapped note keys
+            // (⌘ = major, ⌥ = minor, ⌘+⌥ = sus).
             panel.keyEquivalentHandler = { [weak self] event in
                 guard let self = self else { return false }
                 let flags = event.modifierFlags
-                guard flags.contains(.command) || flags.contains(.control) else { return false }
+                guard flags.contains(.command) || flags.contains(.control)
+                    || flags.contains(.option) else { return false }
                 return self.menuBand.handleLocalKey(
                     keyCode: event.keyCode, isDown: true,
                     isRepeat: event.isARepeat, flags: flags)

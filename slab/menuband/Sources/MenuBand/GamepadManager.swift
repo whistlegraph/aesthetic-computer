@@ -330,7 +330,7 @@ final class GamepadManager {
     }
 
     /// Chord-morph modifiers, mapped onto the same flags the keyboard uses:
-    /// `.control` = major, `.option` = minor, both = sus (see `playKeyEvent`).
+    /// `.command` = major, `.option` = minor, both = sus (see `playKeyEvent`).
     private func chordFlags(scheme: GamepadControlScheme,
                             gp: GCExtendedGamepad) -> NSEvent.ModifierFlags {
         var f: NSEvent.ModifierFlags = []
@@ -338,12 +338,12 @@ final class GamepadManager {
         case .minimal:
             break
         case .octaveFirst:
-            // Stick-clicks: R3 = major (⌃), L3 = minor (⌥), both = sus.
-            if gp.rightThumbstickButton?.isPressed == true { f.insert(.control) }
+            // Stick-clicks: R3 = major (⌘), L3 = minor (⌥), both = sus.
+            if gp.rightThumbstickButton?.isPressed == true { f.insert(.command) }
             if gp.leftThumbstickButton?.isPressed == true { f.insert(.option) }
         case .chordFirst:
-            // Shoulders: L1 = major (⌃), R1 = minor (⌥), both = sus.
-            if gp.leftShoulder.isPressed { f.insert(.control) }
+            // Shoulders: L1 = major (⌘), R1 = minor (⌥), both = sus.
+            if gp.leftShoulder.isPressed { f.insert(.command) }
             if gp.rightShoulder.isPressed { f.insert(.option) }
         }
         return f

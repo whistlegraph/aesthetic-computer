@@ -55,7 +55,7 @@ final class MenuBandPopoverPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 
-    /// Routes ⌃/⌘+letter chords to the note path WHEN the popover is the key
+    /// Routes ⌘/⌥+letter chords to the note path WHEN the popover is the key
     /// window (quiet-focus with the popover open). Mirrors `KeyCapturePanel`'s
     /// override so a simultaneous ⌘+letter chords consistently and shadows the
     /// matching system command — but we give focused controls (any text field)

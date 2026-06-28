@@ -142,13 +142,13 @@ final class LocalKeyCapture {
             self?.onTrackpadTouchActiveChanged?(active)
         }
         p.contentView = sensor
-        // Rob ⌃/⌥/⌘+letter combos from the system. The local keyDown monitor
+        // Rob ⌘/⌥/⌃+letter combos from the system. The local keyDown monitor
         // (above) doesn't reliably see modifier key-equivalents, and the
         // morph path only fires once a bare note is already held. This makes
-        // a SIMULTANEOUS ⌃+c (major) / ⌥+c (minor) chord consistent — and,
+        // a SIMULTANEOUS ⌘+c (major) / ⌥+c (minor) chord consistent — and,
         // for mapped note keys, deliberately shadows Cut/Copy/Paste/Undo/Save
         // while quiet-focus is armed (returns true → the system shortcut
-        // never fires; ⌘+note plays the plain note since ⌘ is chord-inert).
+        // never fires; ⌘+note plays the chord, ⌘ never reaches the menu).
         // Non-note combos (⌘-Tab, ⌘-Q) fall through to `super` and behave
         // normally.
         p.keyEquivalentHandler = { [weak self] event in
@@ -237,7 +237,7 @@ private final class KeyCapturePanel: NSPanel {
     // canBecomeMain stays default (false). We don't want to look like the
     // primary window — just receive keyboard events.
 
-    /// Routes ⌃/⌘+letter key-equivalents to the note path. Returns true to
+    /// Routes ⌘/⌥+letter key-equivalents to the note path. Returns true to
     /// consume (note key → chord, shadowing the system command); false lets
     /// the combo pass through unchanged. See `buildPanel`.
     var keyEquivalentHandler: ((NSEvent) -> Bool)?

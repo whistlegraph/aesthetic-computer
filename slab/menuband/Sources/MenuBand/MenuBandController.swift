@@ -61,7 +61,7 @@ final class MenuBandController {
     /// note that was started under shift.
     private var heldKeyLinger: [UInt16: Bool] = [:]
     /// Live chord-morph bookkeeping. While a note key is physically held,
-    /// pressing / releasing ⌃ / ⌘ re-voices that key between a single note
+    /// pressing / releasing ⌘ / ⌥ re-voices that key between a single note
     /// and a triad WITHOUT a fresh keystroke — the morph is driven by
     /// `.flagsChanged` (see `morphHeldKeys`), so it works the same in TYPE
     /// mode and quiet-focus. We capture the root pitch + octave shift + the
@@ -710,7 +710,7 @@ final class MenuBandController {
 
     /// Whether `keyCode` currently fires a drum: the half of the board it
     /// sits on is latched to percussion. Drum keys ignore the chord
-    /// modifiers — ⌃/⌥ + drum key plays the drum, not a triad — so the
+    /// modifiers — ⌘/⌥ + drum key plays the drum, not a triad — so the
     /// drum hand keeps working while the other hand holds chords.
     private func percussionActive(forKeyCode keyCode: UInt16) -> Bool {
         guard percussionLeft || percussionRight else { return false }
@@ -1999,8 +1999,8 @@ final class MenuBandController {
         heldLock.unlock()
     }
 
-    /// Modifier-derived chord shape: 0 = single (no ⌃/⌥), 1 = major (⌃),
-    /// 2 = minor (⌥), 3 = sus (⌃+⌥). ⌘ plays no chord role — it stays free
+    /// Modifier-derived chord shape: 0 = single (no ⌘/⌥), 1 = major (⌘),
+    /// 2 = minor (⌥), 3 = sus (⌘+⌥). ⌃ plays no chord role — it stays free
     /// for system shortcuts. Mirrors the keyDown chord scheme so a held note
     /// and a freshly-pressed chord agree on what each modifier means.
     private static func chordQuality(modifier: Bool, minor: Bool, sus: Bool) -> Int {
@@ -2009,10 +2009,10 @@ final class MenuBandController {
         return minor ? 2 : 1
     }
 
-    /// Re-voice every physically-held note key to match the current ⌃/⌥ state.
+    /// Re-voice every physically-held note key to match the current ⌘/⌥ state.
     /// Driven by the AppDelegate's `.flagsChanged` monitors: while you hold a
-    /// letter, tapping ⌃ blooms it into a major triad, adding ⌥ swings it to
-    /// sus, dropping ⌃ leaves minor, releasing both collapses back to the lone
+    /// letter, tapping ⌘ blooms it into a major triad, adding ⌥ swings it to
+    /// sus, dropping ⌘ leaves minor, releasing both collapses back to the lone
     /// note — all live, with the key still down. Idempotent per key (skips when
     /// the shape is unchanged) so the stream of flagsChanged events that a
     /// single modifier press emits doesn't machine-gun retriggers.
@@ -2462,9 +2462,9 @@ final class MenuBandController {
                                    capsOn: flags.contains(.maskAlphaShift))
         return playKeyEvent(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat,
                             hasModifier: hasMod, lingerSide: side,
-                            chordModifier: flags.contains(.maskControl) || flags.contains(.maskAlternate),
+                            chordModifier: flags.contains(.maskCommand) || flags.contains(.maskAlternate),
                             chordMinor: flags.contains(.maskAlternate),
-                            chordSus: flags.contains(.maskControl) && flags.contains(.maskAlternate))
+                            chordSus: flags.contains(.maskCommand) && flags.contains(.maskAlternate))
     }
 
     /// Sandbox-friendly key path: same note logic as the global tap, but
@@ -2474,14 +2474,15 @@ final class MenuBandController {
     /// keystroke isn't needed.
     @discardableResult
     func handleLocalKey(keyCode: UInt16, isDown: Bool, isRepeat: Bool, flags: NSEvent.ModifierFlags) -> Bool {
-        // ⌘ is DELIBERATELY not a passthrough modifier here. This
-        // path is only live while quiet-focus is armed, and the user
-        // armed it with right-⌘ — which they're often still holding
-        // when they start playing. Treating ⌘ as "shortcut" would
-        // turn right-⌘+f into Find instead of an F note. Control /
-        // Option are the chord modifiers (⌃ = major, ⌥ = minor) and
-        // only pass through on non-note keys.
-        let hasMod = flags.contains(.control) || flags.contains(.option)
+        // ⌘ / ⌥ are the chord modifiers here (⌘ = major, ⌥ = minor,
+        // ⌘+⌥ = sus). This path is only live while quiet-focus is
+        // armed, and the user often armed it with right-⌘ — which
+        // they're still holding when they start playing, so right-⌘+f
+        // intentionally blooms F into an F-major chord (the chord block
+        // in playKeyEvent consumes ⌘+note before the passthrough gate
+        // below, so ⌘+note never reaches the system as a shortcut).
+        // Modified NON-note keys (⌘-Tab, ⌃-arrow, …) still pass through.
+        let hasMod = flags.contains(.command) || flags.contains(.control) || flags.contains(.option)
         // Caps lock latches linger so the user can play hands-free
         // without holding shift; shift held still works as a momentary.
         // The shift side pans the lingering note (left → left, right →
@@ -2491,9 +2492,9 @@ final class MenuBandController {
                                    capsOn: flags.contains(.capsLock))
         return playKeyEvent(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat,
                             hasModifier: hasMod, lingerSide: side,
-                            chordModifier: flags.contains(.control) || flags.contains(.option),
+                            chordModifier: flags.contains(.command) || flags.contains(.option),
                             chordMinor: flags.contains(.option),
-                            chordSus: flags.contains(.control) && flags.contains(.option))
+                            chordSus: flags.contains(.command) && flags.contains(.option))
     }
 
     /// Shared note logic for both the global CGEventTap path and the
@@ -2504,32 +2505,32 @@ final class MenuBandController {
     /// voices) rather than cutting on release.
     @discardableResult
     private func playKeyEvent(keyCode: UInt16, isDown: Bool, isRepeat: Bool, hasModifier: Bool, lingerSide: LingerSide = .none, chordModifier: Bool = false, chordMinor: Bool = false, chordSus: Bool = false) -> Bool {
-        // Modifier-chord: holding ⌃/⌥ + a note key plays & HOLDS that key's
+        // Modifier-chord: holding ⌘/⌥ + a note key plays & HOLDS that key's
         // triad (the pressed note is the root), lingering on release just
-        // like Shift. ⌃ = major, ⌥ = minor, ⌃+⌥ = sus; ⌘ is inert (its
+        // like Shift. ⌘ = major, ⌥ = minor, ⌘+⌥ = sus; ⌃ is inert (its
         // shortcuts pass through untouched). Chords are global — no
         // left/right sidedness. The release is checked on EVERY key-up (not
-        // gated by the modifier still being held) so letting go of ⌃/⌥ first
+        // gated by the modifier still being held) so letting go of ⌘/⌥ first
         // can't strand a sounding chord.
         if !isDown {
-            // End of a physical hold: drop the morph intent so a future ⌃/⌘
+            // End of a physical hold: drop the morph intent so a future ⌘/⌥
             // tap can't resurrect this key. The root + any chord extensions
             // are released below by the normal single-note key-up path (the
             // root lives in `heldNotes`; `releaseMorphExt` clears the rest).
             clearMorphState(keyCode)
         }
         // Percussion-latched keys are chord-immune: when this key's half of
-        // the board is drums, ⌃/⌥ fall through so the drum block below fires
+        // the board is drums, ⌘/⌥ fall through so the drum block below fires
         // the drum instead of blooming a triad.
         if chordModifier, isDown, !percussionActive(forKeyCode: keyCode) {
             let shift = octaveShift
             if let root = MenuBandLayout.midiNote(forKeyCode: keyCode,
                                                   octaveShift: shift, keymap: keymap) {
                 // CONSUME the whole keystroke — including auto-repeat — so a
-                // held Ctrl/Option + note combo can never reach the focused
-                // app and fire (or repeat-fire) its shortcut or insert an
-                // Option-glyph (⌥a → å). Only the first down triggers the
-                // chord.
+                // held ⌘/Option + note combo can never reach the focused
+                // app and fire (or repeat-fire) its shortcut (⌘c → Copy,
+                // ⌘s → Save) or insert an Option-glyph (⌥a → å). Only the
+                // first down triggers the chord.
                 if !isRepeat {
                     // Root into `heldNotes` (so it stays put through morphs and
                     // the key-up releases it), then layer the chord extensions
@@ -2539,27 +2540,26 @@ final class MenuBandController {
                     let quality = chordSus ? 3 : (chordMinor ? 2 : 1)
                     setChordVoices(keyCode: keyCode, rootNote: root, shift: shift,
                                    quality: quality)
-                    // Anchor the morph so releasing/adding ⌃/⌘ while the key is
+                    // Anchor the morph so releasing/adding ⌘/⌥ while the key is
                     // still down re-voices between major/minor/sus/single.
                     setMorphState(keyCode, root: root, shift: shift,
                                   linger: lingerSide.isLingering, quality: quality)
                 }
                 return true
             }
-            // Not a note key — fall through so real Ctrl/Option shortcuts
-            // that don't collide with a note (Ctrl-arrow, ⌥-arrow, …) still
+            // Not a note key — fall through so real ⌘/Option shortcuts
+            // that don't collide with a note (⌘-Tab, ⌥-arrow, …) still
             // pass through to the system.
         }
 
-        // Modifier combos pass through so cmd-c, cmd-tab etc. work as usual —
+        // Modifier combos pass through so ⌃-c, ⌘-tab etc. work as usual —
         // but ONLY gate this on key-DOWN. A key-up must ALWAYS reach the
-        // release path below, even while Ctrl/Option is still held; otherwise
-        // letting go of a note with Ctrl down strands the sounding note/chord
-        // (the bug: Cmd released fine because Cmd isn't in `hasModifier`, but
-        // Ctrl bailed here and never sent the note-off).
+        // release path below, even while ⌘/Option is still held; otherwise
+        // letting go of a note with a chord modifier down strands the
+        // sounding note/chord (the note-off would never fire).
         // …except a chord modifier on a percussion-latched key, which must
         // reach the drum block below (the drum hand stays live while the
-        // other hand holds ⌃/⌥ chords on the melodic half).
+        // other hand holds ⌘/⌥ chords on the melodic half).
         if hasModifier && isDown
             && !(chordModifier && percussionActive(forKeyCode: keyCode)) { return false }
 
@@ -2879,8 +2879,8 @@ final class MenuBandController {
             .midiNote(forKeyCode: keyCode, octaveShift: shift, keymap: keymap)
             .map { UInt8(max(60, min(83, Int($0) - shift * 12))) }
         let percActiveForKey: Bool = {
-            // Chord modifiers (⌃/⌥) don't disqualify a drum key — drums are
-            // chord-immune. Other modifiers (⌘) still pass the key through.
+            // Chord modifiers (⌘/⌥) don't disqualify a drum key — drums are
+            // chord-immune. Other modifiers (⌃) still pass the key through.
             guard !hasModifier || chordModifier, let dn = percDisplayNote else { return false }
             return Int(dn) < MenuBandLayout.lingerSplitMidi ? percussionLeft : percussionRight
         }()
@@ -2954,7 +2954,7 @@ final class MenuBandController {
             heldKeyDisplayNote[keyCode] = displayNote
             heldKeyLinger[keyCode] = linger
             // Morph anchor: a plain note press starts as a single voice, but
-            // tapping ⌃/⌘ while it's still held blooms it into a chord live.
+            // tapping ⌘/⌥ while it's still held blooms it into a chord live.
             morphRoot[keyCode] = note
             morphShift[keyCode] = shift
             morphLinger[keyCode] = linger
@@ -3038,7 +3038,7 @@ final class MenuBandController {
             let displayNote = heldKeyDisplayNote.removeValue(forKey: keyCode)
             let wasLinger = heldKeyLinger.removeValue(forKey: keyCode) ?? false
             heldLock.unlock()
-            // Release any chord extensions stacked on this key (⌃/⌘ morph),
+            // Release any chord extensions stacked on this key (⌘/⌥ morph),
             // ringing them out with the same linger the root gets.
             releaseMorphExt(keyCode: keyCode, linger: wasLinger)
             guard let releasedNote = note else { return true }  // consume the up too
