@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>laklok · Laer Klokken</title>
+<meta name="description" content="Laer Klokken — a fast HTML chat client for the laklok.com community." />
+<meta name="theme-color" content="#b4643c" />
+<style>
+  /* 🎪 laklok HTML chat client — a fast, dependency-free reader/poster for the
+     `chat-clock` instance (Laer Klokken). Mirrors the terracotta theme + token
+     colors of disks/laklok.mjs, but renders in plain DOM so it loads instantly
+     instead of waiting on the AC runtime + worker boot. */
+  :root {
+    --bg:        #b4643c;   /* warm terracotta/rust (laklok background) */
+    --bg-deep:   #8f4e2e;   /* deeper rust for chrome wells */
+    --bg-soft:   #c2734a;   /* lifted panel */
+    --line:      rgba(220,150,100,.26);
+    --text:      #fffff0;   /* cream message text */
+    --handle:    #ffa078;   /* coral handles */
+    --hover:     #fff078;   /* golden yellow hover */
+    --log:       #64ffdc;   /* cyan system log */
+    --url:       #78dcff;   /* light blue links */
+    --prompt:    #c8ffb4;   /* soft green prompts */
+    --painting:  #ffc88c;   /* peachy paintings */
+    --kidlisp:   #ff8cc8;   /* pink kidlisp */
+    --clock:     #ffd24b;   /* gold clock refs */
+    --time:      #dcb496;   /* light brown timestamps */
+    --heart:     #ffdcf0;   /* light pink hearts */
+    --ok:        #64dc8c;   /* connected */
+    --warn:      #ffd278;   /* connecting */
+    --bad:       #ff8c78;   /* offline */
+    --font: "Berkeley Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 15px;
+    line-height: 1.45;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    -webkit-font-smoothing: none;
+  }
+
+  /* ── Header ─────────────────────────────────────────────────────────── */
+  header {
+    flex: 0 0 auto;
+    position: relative;
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, var(--bg-deep), var(--bg));
+    overflow: hidden;
+    user-select: none;
+  }
+  /* Barber-pole circus stripes behind the marquee. */
+  .stripes {
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(90deg,
+      #7a3c1a 0 14px, #964e22 14px 28px);
+    opacity: .5;
+    animation: slide 6s linear infinite;
+  }
+  @keyframes slide { from { background-position: 0 0; } to { background-position: 56px 0; } }
+  .header-row {
+    position: relative;
+    display: flex; align-items: center; gap: 12px;
+    padding: 9px 14px;
+  }
+  .wordmark { font-weight: 800; font-size: 22px; letter-spacing: -.5px; color: #5a2f1c;
+    text-shadow: 0 1px 0 rgba(255,230,200,.5); }
+  .wordmark sup { font-size: 11px; color: #c06030; font-weight: 700; top: -.7em; }
+  .marquee { flex: 1 1 auto; text-align: center; font-weight: 700; font-size: 18px;
+    letter-spacing: 1px; white-space: nowrap; overflow: hidden; }
+  .marquee b { display: inline-block; text-shadow: 1px 1px 0 #140a06;
+    animation: bounce 1.6s ease-in-out infinite; }
+  @keyframes bounce { 0%,100% { transform: translateY(2px); } 50% { transform: translateY(-2px); } }
+  .presence {
+    position: relative;
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 14px 7px; font-size: 12px; color: #ffe8d6;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn);
+    box-shadow: 0 0 6px currentColor; }
+  .dot.ok { background: var(--ok); color: var(--ok); }
+  .dot.bad { background: var(--bad); color: var(--bad); }
+  .presence .count b { color: #fff; }
+  .presence .status { margin-left: auto; opacity: .8; }
+
+  /* ── Message list ───────────────────────────────────────────────────── */
+  #log {
+    flex: 1 1 auto; overflow-y: auto; overflow-x: hidden;
+    padding: 10px 14px 4px;
+    scrollbar-color: #ffb464 transparent;
+  }
+  .loadmore { text-align: center; color: var(--time); font-size: 12px;
+    padding: 6px 0 10px; opacity: .7; }
+  .msg { padding: 2px 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px;
+    border-radius: 5px; }
+  .msg:hover { background: rgba(255,220,180,.07); }
+  .from { color: var(--handle); font-weight: 600; }
+  .from.me { color: #fff; }
+  .body { word-break: break-word; }
+  .time { color: var(--time); font-size: 11px; opacity: .8; margin-left: 2px; }
+  .heart { color: var(--heart); font-size: 12px; }
+  .sys .body { color: var(--log); }
+  .deleted .body { color: #b48c8c; font-style: italic; }
+
+  /* token colors */
+  .t-handle  { color: var(--handle); cursor: pointer; }
+  .t-url     { color: var(--url); text-decoration: none; }
+  .t-prompt  { color: var(--prompt); }
+  .t-painting{ color: var(--painting); }
+  .t-kidlisp { color: var(--kidlisp); }
+  .t-clock   { color: var(--clock); }
+  .t-handle:hover, .t-url:hover { color: var(--hover); }
+
+  /* ── Composer ───────────────────────────────────────────────────────── */
+  footer {
+    flex: 0 0 auto; border-top: 1px solid var(--line);
+    background: var(--bg-deep);
+    padding: 9px 12px calc(9px + env(safe-area-inset-bottom));
+    display: flex; gap: 9px; align-items: center;
+  }
+  #input {
+    flex: 1 1 auto; min-width: 0;
+    background: #6f3c23; color: var(--text);
+    border: 1px solid #b46e46; border-radius: 8px;
+    padding: 9px 11px; font-family: var(--font); font-size: 15px;
+    outline: none;
+  }
+  #input::placeholder { color: #d8a880; }
+  #input:focus { border-color: var(--clock); }
+  #send {
+    flex: 0 0 auto; background: #ff8c50; color: #2a1308;
+    border: 0; border-radius: 8px; padding: 9px 16px;
+    font-family: var(--font); font-weight: 700; font-size: 15px; cursor: pointer;
+  }
+  #send:disabled { background: #8a5a3c; color: #c9a085; cursor: not-allowed; }
+  .gate { font-size: 11px; color: #ffd9bf; padding: 0 14px 8px; text-align: center; }
+  .gate a { color: var(--clock); }
+  a { color: var(--url); }
+</style>
+</head>
+<body>
+  <header>
+    <div class="stripes"></div>
+    <div class="header-row">
+      <div class="wordmark">laklok<sup>.com</sup></div>
+      <div class="marquee" id="marquee"></div>
+    </div>
+    <div class="presence">
+      <span class="dot" id="dot"></span>
+      <span class="count"><b id="online">0</b> online · <b id="here">0</b> here</span>
+      <span class="status" id="status">connecting…</span>
+    </div>
+  </header>
+
+  <main id="log">
+    <div class="loadmore" id="loadmore">— laer klokken —</div>
+  </main>
+
+  <div class="gate" id="gate">
+    reading live. posting opens when you’re signed in at <a href="https://laklok.com" target="_blank" rel="noopener">laklok.com</a>.
+  </div>
+
+  <footer>
+    <input id="input" placeholder="say something to the clock…" autocomplete="off" maxlength="128" disabled />
+    <button id="send" disabled>send</button>
+  </footer>
+
+<script type="module">
+// ── laklok HTML chat client ────────────────────────────────────────────────
+// Connects to the live `chat-clock` instance (Laer Klokken). History via REST,
+// realtime via WebSocket — same wire protocol as the AC piece, no AC runtime.
+
+const REST = "https://aesthetic.computer/api/chat-messages?instance=clock";
+const WS_HOST = "chat-clock.aesthetic.computer";
+
+const $log = document.getElementById("log");
+const $loadmore = document.getElementById("loadmore");
+const $online = document.getElementById("online");
+const $here = document.getElementById("here");
+const $status = document.getElementById("status");
+const $dot = document.getElementById("dot");
+const $input = document.getElementById("input");
+const $send = document.getElementById("send");
+
+// 🎪 Circus marquee — each letter its own color + bounce phase.
+const CIRCUS = ["#ff5050","#ffd246","#78d2ff","#8cf096","#ff96dc","#b496ff"];
+document.getElementById("marquee").innerHTML = [..."Laer Klokken"]
+  .map((c, i) => c === " " ? " " :
+    `<b style="color:${CIRCUS[i % CIRCUS.length]};animation-delay:${(-i * .13).toFixed(2)}s">${c}</b>`)
+  .join("");
+
+// ── Handle tinting ──────────────────────────────────────────────────────────
+// v1: deterministic hue per handle (real per-character /api/handle-colors is a
+// follow-up). Keeps the social-graph color cue without an extra round-trip.
+function handleColor(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return `hsl(${h % 360} 75% 72%)`;
+}
+
+// ── Token parsing ─────────────────────────────────────────────────────────────
+// Mirrors lib/chat-highlighting.mjs: @handles, urls, 'prompts', #paintings,
+// $kidlisp, *clock. Order matters — longest/most-specific first.
+const TOKEN = /(@[a-z0-9][a-z0-9._]*|https?:\/\/[^\s]+|'[^']+'|#[a-z0-9]{3,}|\$[a-z0-9]+|\*[a-z0-9]+)/gi;
+function renderBody(text) {
+  const frag = document.createDocumentFragment();
+  let last = 0, m;
+  TOKEN.lastIndex = 0;
+  while ((m = TOKEN.exec(text))) {
+    if (m.index > last) frag.append(document.createTextNode(text.slice(last, m.index)));
+    const tok = m[0];
+    let el;
+    if (tok[0] === "@") {
+      el = span("t-handle", tok); el.style.color = handleColor(tok.slice(1).toLowerCase());
+      el.title = "open " + tok; el.onclick = () => open("https://aesthetic.computer/" + tok);
+    } else if (/^https?:/i.test(tok)) {
+      el = document.createElement("a"); el.className = "t-url"; el.textContent = tok;
+      el.href = tok; el.target = "_blank"; el.rel = "noopener nofollow";
+    } else if (tok[0] === "'") {
+      el = span("t-prompt", tok);
+    } else if (tok[0] === "#") {
+      el = span("t-painting", tok); el.title = "painting " + tok;
+    } else if (tok[0] === "$") {
+      el = span("t-kidlisp", tok); el.title = "kidlisp " + tok;
+      el.style.cursor = "pointer"; el.onclick = () => open("https://aesthetic.computer/" + tok);
+    } else if (tok[0] === "*") {
+      el = span("t-clock", tok);
+    }
+    frag.append(el);
+    last = m.index + tok.length;
+  }
+  if (last < text.length) frag.append(document.createTextNode(text.slice(last)));
+  return frag;
+}
+function span(cls, txt) { const s = document.createElement("span"); s.className = cls; s.textContent = txt; return s; }
+
+// ── Time ──────────────────────────────────────────────────────────────────────
+function ago(when) {
+  const t = new Date(when).getTime();
+  const s = Math.max(0, (Date.now() - t) / 1000);
+  if (s < 45) return "now";
+  if (s < 3600) return Math.round(s / 60) + "m";
+  if (s < 86400) return Math.round(s / 3600) + "h";
+  return Math.round(s / 86400) + "d";
+}
+
+// ── Rendering ──────────────────────────────────────────────────────────────────
+const seen = new Set();
+function nearBottom() { return $log.scrollHeight - $log.scrollTop - $log.clientHeight < 80; }
+
+function rowFor(msg) {
+  const row = document.createElement("div");
+  row.className = "msg" + (msg.deleted ? " deleted" : "");
+  row.dataset.id = msg.id || "";
+  const from = document.createElement("span");
+  from.className = "from"; from.textContent = msg.from || "anon";
+  if (msg.from && msg.from !== "anon") from.style.color = handleColor(msg.from.replace(/^@/, "").toLowerCase());
+  const body = document.createElement("span");
+  body.className = "body";
+  if (msg.deleted) body.textContent = "[deleted]";
+  else body.append(renderBody(msg.text || ""));
+  const time = document.createElement("span");
+  time.className = "time"; time.textContent = ago(msg.when);
+  time.title = new Date(msg.when).toLocaleString();
+  row.append(from, body, time);
+  if (msg.hearts > 0) { const h = span("heart", "♥" + msg.hearts); row.append(h); }
+  return row;
+}
+
+function appendMessage(msg, { prepend = false } = {}) {
+  if (msg.id && seen.has(msg.id)) return;
+  if (msg.id) seen.add(msg.id);
+  const stick = !prepend && nearBottom();
+  const row = rowFor(msg);
+  if (prepend) $loadmore.after(row);
+  else $log.append(row);
+  if (stick) $log.scrollTop = $log.scrollHeight;
+}
+
+// ── History (REST) ──────────────────────────────────────────────────────────────
+let oldestCursor = null, loadingMore = false, exhausted = false;
+async function loadHistory(before = null) {
+  if (loadingMore || exhausted) return;
+  loadingMore = true;
+  $loadmore.textContent = "loading…";
+  try {
+    const url = REST + "&limit=40" + (before ? "&before=" + encodeURIComponent(before) : "");
+    const r = await fetch(url);
+    const data = await r.json();
+    const msgs = data.messages || [];
+    if (before) {
+      const prevH = $log.scrollHeight, prevT = $log.scrollTop;
+      for (let i = msgs.length - 1; i >= 0; i--) appendMessage(msgs[i], { prepend: true });
+      $log.scrollTop = prevT + ($log.scrollHeight - prevH); // preserve scroll anchor
+    } else {
+      msgs.forEach((m) => appendMessage(m));
+      $log.scrollTop = $log.scrollHeight;
+    }
+    oldestCursor = data.nextBefore || oldestCursor;
+    if (!msgs.length || !data.nextBefore) { exhausted = true; $loadmore.textContent = "— laer klokken —"; }
+    else $loadmore.textContent = "↑ older";
+  } catch (e) {
+    $loadmore.textContent = "↻ retry (offline)";
+    console.warn("history failed", e);
+  }
+  loadingMore = false;
+}
+$loadmore.onclick = () => { if (!exhausted) loadHistory(oldestCursor); };
+$log.addEventListener("scroll", () => { if ($log.scrollTop < 60 && !exhausted) loadHistory(oldestCursor); });
+
+// ── Presence ──────────────────────────────────────────────────────────────────
+function setStatus(state, text) {
+  $dot.className = "dot" + (state === "ok" ? " ok" : state === "bad" ? " bad" : "");
+  $status.textContent = text;
+}
+function setPresence(online, here) {
+  if (Array.isArray(online)) $online.textContent = online.length;
+  else if (typeof online === "number") $online.textContent = online;
+  if (Array.isArray(here)) $here.textContent = here.length;
+}
+
+// ── Live WebSocket ──────────────────────────────────────────────────────────────
+// Defensive: `content` arrives as a JSON string for most types, already-object
+// for a few (e.g. presence). parse() copes with both.
+function parse(c) { if (typeof c !== "string") return c; try { return JSON.parse(c); } catch { return c; } }
+
+let ws, reconnect = 800;
+function connect() {
+  setStatus("warn", "connecting…");
+  try { ws = new WebSocket("wss://" + WS_HOST); }
+  catch { return scheduleReconnect(); }
+
+  ws.onopen = () => { reconnect = 800; setStatus("ok", "live"); };
+  ws.onclose = () => { setStatus("bad", "offline"); scheduleReconnect(); };
+  ws.onerror = () => { try { ws.close(); } catch {} };
+  ws.onmessage = (e) => {
+    let env; try { env = JSON.parse(e.data); } catch { return; }
+    const { type } = env; const content = parse(env.content);
+    if (type === "connected") {
+      setStatus("ok", "live");
+      setPresence(content.chatters ?? content.handles, content.here);
+      // The WS `connected` payload already carries recent history; REST seed
+      // covers the first paint, so only merge anything newer here.
+      (content.messages || []).forEach((m) => appendMessage(m));
+      $log.scrollTop = $log.scrollHeight;
+    } else if (type === "message") {
+      appendMessage(content);
+    } else if (type === "message:delete") {
+      const row = $log.querySelector(`.msg[data-id="${content.id}"]`);
+      if (row) { row.classList.add("deleted"); row.querySelector(".body").textContent = "[deleted]"; }
+    } else if (type === "message:hearts") {
+      const row = $log.querySelector(`.msg[data-id="${content.for}"]`);
+      if (row) { let h = row.querySelector(".heart"); if (!h) { h = span("heart", ""); row.append(h); } h.textContent = "♥" + content.count; }
+    } else if (type === "presence" || type === "online-handles") {
+      setPresence(content.online || content.handles, content.here);
+    } else if (type === "joined" || type === "left") {
+      setPresence(content.chatters ?? content.handles, content.here);
+    }
+  };
+}
+function scheduleReconnect() { setTimeout(connect, reconnect); reconnect = Math.min(reconnect * 2, 16000); }
+
+// ── Composer (posting requires an Auth0 token — wired, gated for v1) ───────────
+// The send path below is correct for the protocol; it activates once a token +
+// sub are available (follow-up: pull the AC session token / add a sign-in flow).
+const auth = { token: null, sub: null, handle: null };
+function post(text) {
+  if (!auth.token || !ws || ws.readyState !== 1) return;
+  ws.send(JSON.stringify({ type: "chat:message", content: { text, token: auth.token, sub: auth.sub, font: "font_1" } }));
+}
+$send.onclick = () => { const t = $input.value.trim(); if (t) { post(t); $input.value = ""; } };
+$input.addEventListener("keydown", (e) => { if (e.key === "Enter") $send.click(); });
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+loadHistory().then(connect);
+// keep relative timestamps fresh
+setInterval(() => { document.querySelectorAll(".msg").forEach((r) => {
+  const t = r.querySelector(".time"); if (t && t.title) t.textContent = ago(new Date(t.title).getTime()); }); }, 30000);
+</script>
+</body>
+</html>
