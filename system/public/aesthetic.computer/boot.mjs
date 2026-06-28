@@ -1666,6 +1666,16 @@ function receive(event) {
   } else if (event.data?.type === "clearSession" && window.acTOKEN) {
     window.location.reload();
     return;
+  } else if (event.data?.type === "load-piece") {
+    // An external HTML shell (prompt.ac) requests an in-place piece swap.
+    // Parse the slug exactly like URL / back-button navigation does, then drive
+    // the same worker load path (history-load → $commonApi.load) so there's no
+    // full iframe reload. `parse` is already imported for boot-time routing.
+    const slug = event.data.slug;
+    if (slug && window.acSEND) {
+      window.acSEND({ type: "history-load", content: parse(slug) });
+    }
+    return;
   } else if (event.data?.type === "kidlisp-reload") {
     // Live reload from kidlisp.com editor
     const code = event.data.code;

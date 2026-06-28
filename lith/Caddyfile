@@ -436,6 +436,21 @@
         file_server
     }
 
+    # --- prompt.ac (apex root only) → HTML prompt shell (its own product) ---
+    # Naked prompt.ac serves the fast HTML prompt that hosts the AC runtime in
+    # an iframe. Every other prompt.ac/<path> still 301s to aesthetic.computer
+    # (below), so deep links keep working. Evaluated before the redirect since
+    # it appears first in source order.
+    @promptac_root {
+        host prompt.ac
+        path /
+    }
+    handle @promptac_root {
+        root * /opt/ac/system/public/prompt.ac
+        rewrite * /index.html
+        file_server
+    }
+
     # --- prompt.ac → aesthetic.computer (everything else, 301) ---
     @promptac host prompt.ac
     handle @promptac {

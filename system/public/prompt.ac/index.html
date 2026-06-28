@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>prompt.ac</title>
+<meta name="description" content="prompt.ac — a fast HTML prompt for Aesthetic Computer." />
+<meta name="theme-color" content="#0a0a0c" />
+<link rel="icon" href="https://assets.aesthetic.computer/favicon.png" />
+<style>
+  /* prompt.ac — the HTML prompt shell. Native HTML command bar + chrome, with
+     the AC runtime hosted in an <iframe> below. The bar drives in-place piece
+     swaps via ACFrame (boot.mjs `load-piece`), so navigation is instant and the
+     chrome never reloads. This lets disks/prompt.mjs slim down — the rich
+     command UX lives out here in fast DOM. */
+  :root {
+    --bg: #0a0a0c; --bar: #131318; --edge: #26262e;
+    --text: #eaeaf0; --dim: #8a8a98; --accent: #ff8c50; --ok: #64dc8c; --warn: #ffd278; --bad: #ff8c78;
+    --font: "Berkeley Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; margin: 0; background: var(--bg); }
+  body { display: flex; flex-direction: column; font-family: var(--font); color: var(--text); overflow: hidden; }
+
+  /* ── Command bar ─────────────────────────────────────────────────────── */
+  .bar {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 9px;
+    padding: 9px 12px calc(9px + env(safe-area-inset-top)); padding-top: calc(9px + env(safe-area-inset-top));
+    background: var(--bar); border-bottom: 1px solid var(--edge);
+  }
+  .glyph { color: var(--accent); font-weight: 700; font-size: 16px; user-select: none; }
+  #cmd {
+    flex: 1 1 auto; min-width: 0;
+    background: transparent; border: 0; outline: none;
+    color: var(--text); font-family: var(--font); font-size: 16px; caret-color: var(--accent);
+  }
+  #cmd::placeholder { color: var(--dim); }
+  .wordmark { color: var(--dim); font-size: 12px; letter-spacing: .3px; user-select: none; white-space: nowrap; }
+  .wordmark b { color: var(--text); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); box-shadow: 0 0 6px currentColor; color: var(--warn); }
+  .dot.ok { background: var(--ok); color: var(--ok); } .dot.bad { background: var(--bad); color: var(--bad); }
+
+  /* ── Hosted runtime ──────────────────────────────────────────────────── */
+  .stage { flex: 1 1 auto; position: relative; background: #000; }
+  iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
+  .loading {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: var(--dim); font-size: 13px; letter-spacing: .5px; pointer-events: none;
+    transition: opacity .4s; background: var(--bg);
+  }
+  .loading.gone { opacity: 0; }
+
+  /* token colors (for the suggestion/echo line, shared class names with moat) */
+  .t-handle { color: #ffb0a0; } .t-kidlisp { color: #ff8cc8; } .t-clock { color: #ffd24b; }
+</style>
+</head>
+<body>
+  <div class="bar">
+    <span class="glyph">&gt;</span>
+    <input id="cmd" placeholder="type a piece — clock, paint, @handle, $code…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" />
+    <span class="wordmark"><b id="here">prompt</b> · prompt.ac</span>
+    <span class="dot" id="dot" title="runtime status"></span>
+  </div>
+  <div class="stage">
+    <iframe id="ac" title="Aesthetic Computer" allow="microphone; camera; midi; autoplay; clipboard-read; clipboard-write; fullscreen; xr-spatial-tracking"></iframe>
+    <div class="loading" id="loading">booting aesthetic computer…</div>
+  </div>
+
+<script type="module">
+import { ACFrame, pieceName } from "https://aesthetic.computer/html/lib/moat.mjs";
+
+const $cmd = document.getElementById("cmd");
+const $here = document.getElementById("here");
+const $dot = document.getElementById("dot");
+const $loading = document.getElementById("loading");
+const frame = new ACFrame(document.getElementById("ac"));
+
+// Deep-link support that doesn't fight Caddy: prompt.ac/#clock stays on the
+// shell (hash never reaches the server), while prompt.ac/clock 301s to AC.
+const initial = decodeURIComponent(location.hash.slice(1)) || "prompt";
+
+$dot.title = "booting…";
+frame.boot(initial);
+
+frame.onReady(() => {
+  $dot.className = "dot ok"; $dot.title = "live";
+  $loading.classList.add("gone");
+  $cmd.focus();
+});
+
+// Keep the bar + URL hash in sync with whatever the runtime is showing.
+frame.onPiece((slug) => {
+  const name = slug || "prompt";
+  $here.textContent = name;
+  document.title = name === "prompt" ? "prompt.ac" : name + " · prompt.ac";
+  const h = "#" + name;
+  if (location.hash !== h && name !== "prompt") history.replaceState(null, "", h);
+  else if (name === "prompt" && location.hash) history.replaceState(null, "", location.pathname);
+});
+
+// Command bar → in-place piece load.
+$cmd.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    const v = $cmd.value.trim();
+    if (!v) return;
+    pushHistory(v);
+    frame.load(v);
+    $cmd.value = "";
+    $cmd.blur(); // hand focus to the canvas so the piece is interactive
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault(); recall(-1);
+  } else if (e.key === "ArrowDown") {
+    e.preventDefault(); recall(1);
+  } else if (e.key === "Escape") {
+    $cmd.value = ""; $cmd.blur();
+  }
+});
+
+// Tiny local command history (up/down recall).
+const HKEY = "promptac:history";
+let hist = []; try { hist = JSON.parse(localStorage.getItem(HKEY) || "[]"); } catch {}
+let hi = hist.length;
+function pushHistory(v) {
+  if (hist[hist.length - 1] !== v) hist.push(v);
+  if (hist.length > 100) hist = hist.slice(-100);
+  hi = hist.length;
+  try { localStorage.setItem(HKEY, JSON.stringify(hist)); } catch {}
+}
+function recall(dir) {
+  if (!hist.length) return;
+  hi = Math.max(0, Math.min(hist.length, hi + dir));
+  $cmd.value = hist[hi] ?? "";
+  $cmd.setSelectionRange($cmd.value.length, $cmd.value.length);
+}
+
+// A press of "/" or just typing anywhere refocuses the command bar.
+window.addEventListener("keydown", (e) => {
+  if (document.activeElement === $cmd) return;
+  if (e.key === "/" || (e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey)) {
+    $cmd.focus();
+  }
+});
+
+// Fallback: if the runtime never signals ready (old build / slow boot), reveal
+// the canvas anyway after a beat so the shell is never stuck on the loader.
+setTimeout(() => { if (!frame.ready) { $loading.classList.add("gone"); $dot.className = "dot warn"; } }, 12000);
+</script>
+</body>
+</html>
