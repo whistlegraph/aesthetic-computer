@@ -452,7 +452,14 @@
     }
 
     # --- prompt.ac → aesthetic.computer (everything else, 301) ---
-    @promptac host prompt.ac
+    # `not path /` so the apex root falls through to @promptac_root above.
+    # Caddy compiles this host-only handle ahead of the path-/ root handle
+    # (route order is not strict source order), so without the exclusion this
+    # catch-all would swallow `/` before the shell handler is reached.
+    @promptac {
+        host prompt.ac
+        not path /
+    }
     handle @promptac {
         redir https://aesthetic.computer{uri} 301
     }
