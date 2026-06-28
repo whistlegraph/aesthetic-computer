@@ -110,23 +110,40 @@ mkdir -p "$HOME/.cache/jasellite"
 {
   printf 'cd %q\n' "$DIR"
   printf 'export SLAB_LAUNCH_ID=%q\n' "$LID"
+  printf 'export COLORTERM=truecolor\n'
   printf 'export CLAUDE_CODE_OAUTH_TOKEN=$(cat ~/.config/claude/oauth-token 2>/dev/null)\n'
 } > "$HOME/.cache/jasellite/env-$S"
 # --new-session-with-layout (NOT --layout): with --session, plain --layout means
 # "add a tab to an existing session" and errors when it doesn't exist yet.
-zellij --session "$S" --new-session-with-layout jasellite
+# Dedicated minimal config (no pane frames) + COLORTERM so zellij and claude
+# both emit/pass 24-bit color and the window stays chrome-free.
+export COLORTERM=truecolor
+zellij --config "$HOME/.config/zellij/jasellite-config.kdl" --session "$S" --new-session-with-layout jasellite
 HELPER
 chmod +x "$BIN/jasellite-session"
 
 ZJ_LAYOUTS="$HOME/.config/zellij/layouts"; mkdir -p "$ZJ_LAYOUTS"
 cat > "$ZJ_LAYOUTS/jasellite.kdl" <<'KDL'
 layout {
+    // A tab template of just `children` drops zellij's default tab + status
+    // bars, so the window is only claude — looks like a plain local session.
+    default_tab_template {
+        children
+    }
     pane {
         command "bash"
         args "-lc" "source \"$HOME/.cache/jasellite/env-$ZELLIJ_SESSION_NAME\" 2>/dev/null; exec claude"
     }
 }
 KDL
+
+# Minimal, theme-inheriting config for jasellite sessions only (passed via
+# --config, so it doesn't touch the box's main config.kdl used by other layouts):
+# no pane frames, no zellij theme override → claude renders in the user's own
+# Terminal palette. Combined with the no-bars layout, zellij is ~invisible.
+cat > "$HOME/.config/zellij/jasellite-config.kdl" <<'CFG'
+pane_frames false
+CFG
 
 echo "INSTALLED hooks:"; ls -1 "$HOOKS"
 echo "session helper + layout:"; ls -1 "$BIN/jasellite-session" "$ZJ_LAYOUTS/jasellite.kdl"
