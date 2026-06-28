@@ -1,0 +1,196 @@
+#!/usr/bin/env node
+// jasellite — open a new macOS Terminal window running `claude` on the
+// remote jasellite box, registered so the slab menubar tracks and colorizes
+// it exactly like a native local session.
+//
+// How the slab integration works without touching the Swift app: slab themes
+// a Terminal window by matching a marker file's `tty` to the window and
+// checking its `claude_pid` is alive locally. A remote claude launched here
+// runs *inside a local Terminal window*, so that window has a local tty and
+// the transport (mosh/ssh/et) has a local pid. We record those here; the
+// companion bridge (claude-remote-bridge.mjs) mirrors jasellite's session
+// markers down with the tty/pid rewritten to these local ones.
+//
+// Usage:
+//   jasellite                 open claude in the configured remote dir
+//   jasellite <remote-dir>    open claude cd'd into <remote-dir>
+//   jasellite --et|--ssh|--mosh   override transport for this launch
+//   jasellite -r <session>    resume a remote claude session by id
+//
+// Config (untracked): ~/.config/slab/remote-claude.json — see DEFAULTS below.
+
+import { execFileSync, spawn } from "node:child_process";
+import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import { homedir } from "node:os";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const HOME = homedir();
+const SLAB_STATE = join(HOME, ".local/share/slab/state");
+const LAUNCH_DIR = join(SLAB_STATE, "remote-launches");
+const CONFIG = join(HOME, ".config/slab/remote-claude.json");
+
+// Defaults are overridable per-key by ~/.config/slab/remote-claude.json.
+// `sshAlias` is the Host entry in ~/.ssh/config (works over the public IP or
+// the tailnet name). `etTarget` is user@host for Eternal Terminal.
+const DEFAULTS = {
+  name: "jasellite",
+  sshAlias: "jasellite",
+  etTarget: "jas@24.144.92.66",
+  transport: "mosh", // mosh | et | ssh — closest-to-resilient default
+  remoteDir: "~/aesthetic-computer",
+  terminalApp: "Terminal", // Terminal | iTerm2
+};
+
+function loadConfig() {
+  if (!existsSync(CONFIG)) return { ...DEFAULTS };
+  try {
+    return { ...DEFAULTS, ...JSON.parse(readFileSync(CONFIG, "utf8")) };
+  } catch (err) {
+    console.warn(`jasellite: ignoring bad config (${err.message})`);
+    return { ...DEFAULTS };
+  }
+}
+
+// Parse args: a bare arg is the remote dir; flags pick transport / resume.
+function parseArgs(argv) {
+  const out = { dir: null, transport: null, resume: null, dry: false };
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === "--mosh" || a === "--et" || a === "--ssh") out.transport = a.slice(2);
+    else if (a === "-r" || a === "--resume") out.resume = argv[++i];
+    else if (a === "--print" || a === "--dry") out.dry = true;
+    else if (!a.startsWith("-")) out.dir = a;
+  }
+  return out;
+}
+
+// Single-quote a string for safe embedding in a bash -lc command.
+const shq = (s) => `'${String(s).replace(/'/g, "'\\''")}'`;
+
+// Build the command the local Terminal window runs: a transport hop into
+// jasellite that exports the launch id (so the remote hooks can tag their
+// markers with it) and execs claude in the chosen dir.
+function buildCommand(cfg, transport, launchId, dir, resume) {
+  const claude = resume ? `claude -r ${shq(resume)}` : "claude";
+  // Expand a leading ~ on the remote — single-quoting it would make it literal.
+  let cdCmd;
+  if (dir === "~" || dir === "~/") cdCmd = `cd "$HOME"`;
+  else if (dir.startsWith("~/")) cdCmd = `cd "$HOME"/${shq(dir.slice(2))}`;
+  else cdCmd = `cd ${shq(dir)}`;
+  // Env wrapper runs in bash for reliable expansion; on claude exit we drop
+  // into fish (jas's shell on the box) so the window stays usable.
+  const remote =
+    `export CLAUDE_CODE_OAUTH_TOKEN=$(cat ~/.config/claude/oauth-token 2>/dev/null); ` +
+    `export SLAB_LAUNCH_ID=${shq(launchId)}; ` +
+    `${cdCmd} 2>/dev/null || cd "$HOME"; ` +
+    `${claude}; exec fish -l`;
+  const inner = `bash -lc ${shq(remote)}`;
+  if (transport === "mosh") return `mosh ${cfg.sshAlias} -- ${inner}`;
+  if (transport === "et") return `et ${cfg.etTarget} -c ${shq(inner)}`;
+  return `ssh -t ${cfg.sshAlias} ${shq(inner)}`; // ssh
+}
+
+// Open a new Terminal/iTerm2 window running `cmd`; return the window's tty
+// (e.g. "ttys004"). Terminal.app's `do script` returns the tab it spawned, so
+// we can read its tty directly — that's the handle the bridge themes by.
+function openWindow(app, cmd) {
+  const esc = (s) => s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  let script;
+  if (app === "iTerm2") {
+    // iTerm2 doesn't hand back a tty as cleanly; settle the session then read.
+    script = `tell application "iTerm2"
+  activate
+  set w to (create window with default profile)
+  tell current session of w to write text "${esc(cmd)}"
+  delay 0.4
+  set theTty to tty of current session of w
+end tell
+return theTty`;
+  } else {
+    script = `tell application "Terminal"
+  activate
+  set theTab to do script "${esc(cmd)}"
+  delay 0.3
+  set theTty to tty of theTab
+end tell
+return theTty`;
+  }
+  const out = execFileSync("/usr/bin/osascript", ["-e", script], {
+    encoding: "utf8",
+  }).trim();
+  return out.replace(/^\/dev\//, ""); // normalize "/dev/ttys004" -> "ttys004"
+}
+
+// Find the local transport process pid sitting on `tty` — that's the pid the
+// mirror marker uses for liveness, so closing the window marks it stale.
+function transportPid(tty) {
+  // The transport spawns a beat after the window's shell starts — retry until
+  // it shows up on the tty so the marker never records a 0 (unkillable) pid.
+  for (let attempt = 0; attempt < 10; attempt++) {
+    try {
+      const out = execFileSync(
+        "bash",
+        ["-lc", `ps -t ${tty} -o pid=,comm= 2>/dev/null`],
+        { encoding: "utf8" },
+      );
+      for (const line of out.split("\n")) {
+        const m = line.trim().match(/^(\d+)\s+(.+)$/);
+        if (m && /(mosh|ssh|\bet\b)/i.test(m[2])) return Number(m[1]);
+      }
+    } catch {}
+    try { execFileSync("bash", ["-lc", "sleep 0.3"]); } catch {}
+  }
+  return 0;
+}
+
+// Make sure the marker bridge daemon is running; start it detached if not.
+function ensureBridge() {
+  const pidFile = join(SLAB_STATE, "remote-bridge.pid");
+  try {
+    const rec = JSON.parse(readFileSync(pidFile, "utf8"));
+    if (rec?.pid) { process.kill(rec.pid, 0); return; } // already alive
+  } catch {}
+  const bridge = join(dirname(fileURLToPath(import.meta.url)), "claude-remote-bridge.mjs");
+  const child = spawn(process.execPath, [bridge], { detached: true, stdio: "ignore" });
+  child.unref();
+}
+
+function main() {
+  const cfg = loadConfig();
+  const args = parseArgs(process.argv.slice(2));
+  const transport = args.transport || cfg.transport;
+  const dir = args.dir || cfg.remoteDir;
+  const launchId = `jasellite-${Date.now().toString(36)}-${Math.floor(
+    Math.random() * 1e6,
+  ).toString(36)}`;
+
+  const cmd = buildCommand(cfg, transport, launchId, dir, args.resume);
+  if (args.dry) { console.log(cmd); return; }
+  const tty = openWindow(cfg.terminalApp, cmd);
+  if (!tty || tty.startsWith("tty-not")) {
+    console.error("jasellite: couldn't read the new window's tty");
+    process.exit(1);
+  }
+  const pid = transportPid(tty);
+
+  mkdirSync(LAUNCH_DIR, { recursive: true });
+  const record = {
+    launch_id: launchId,
+    host: cfg.name,
+    transport,
+    local_tty: tty,
+    local_pid: pid,
+    remote_dir: dir,
+    started: new Date().toISOString(),
+  };
+  writeFileSync(join(LAUNCH_DIR, launchId), JSON.stringify(record, null, 2));
+  ensureBridge();
+
+  console.log(
+    `jasellite: ${transport} → ${cfg.name} in ${dir}\n` +
+      `  window tty ${tty}  transport pid ${pid || "?"}  launch ${launchId}`,
+  );
+}
+
+main();
