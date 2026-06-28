@@ -92,6 +92,43 @@ else
   echo "$HOOKCFG" > "$SETTINGS"
 fi
 
+# --- zellij persistence: helper + layout so a dropped window reattaches ---
+BIN="$HOME/.local/bin"; mkdir -p "$BIN"
+cat > "$BIN/jasellite-session" <<'HELPER'
+#!/bin/bash
+# Attach to a named zellij session running claude, or create it. Keeps claude
+# alive on the box so a dropped/closed `jasellite` window reattaches to the
+# running session instead of starting fresh.
+set -u
+S="${1:?session name}"; DIR="${2:-$HOME}"; LID="${3:-$S}"
+if zellij list-sessions -s 2>/dev/null | grep -qx "$S"; then
+  zellij attach "$S"; exit
+fi
+mkdir -p "$HOME/.cache/jasellite"
+# Per-session env the layout's pane sources — bakes dir + launch id so the
+# running claude is correct even when zellij's reused server env is stale.
+{
+  printf 'cd %q\n' "$DIR"
+  printf 'export SLAB_LAUNCH_ID=%q\n' "$LID"
+  printf 'export CLAUDE_CODE_OAUTH_TOKEN=$(cat ~/.config/claude/oauth-token 2>/dev/null)\n'
+} > "$HOME/.cache/jasellite/env-$S"
+# --new-session-with-layout (NOT --layout): with --session, plain --layout means
+# "add a tab to an existing session" and errors when it doesn't exist yet.
+zellij --session "$S" --new-session-with-layout jasellite
+HELPER
+chmod +x "$BIN/jasellite-session"
+
+ZJ_LAYOUTS="$HOME/.config/zellij/layouts"; mkdir -p "$ZJ_LAYOUTS"
+cat > "$ZJ_LAYOUTS/jasellite.kdl" <<'KDL'
+layout {
+    pane {
+        command "bash"
+        args "-lc" "source \"$HOME/.cache/jasellite/env-$ZELLIJ_SESSION_NAME\" 2>/dev/null; exec claude"
+    }
+}
+KDL
+
 echo "INSTALLED hooks:"; ls -1 "$HOOKS"
+echo "session helper + layout:"; ls -1 "$BIN/jasellite-session" "$ZJ_LAYOUTS/jasellite.kdl"
 echo "settings.json hooks:"; jq -r '.hooks | keys[]' "$SETTINGS" 2>/dev/null
 echo "node check dump:"; node "$HOOKS/remote-dump.mjs" && echo " (dump OK)"

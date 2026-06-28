@@ -46,6 +46,21 @@ function loadConfig() {
 const alive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
 const readJson = (p, fb) => { try { return JSON.parse(readFileSync(p, "utf8")); } catch { return fb; } };
 
+// A live local pid on `tty` — the window's liveness proxy and the marker's
+// claude_pid. Prefer the transport client, else the innermost process; 0 means
+// the window is gone. Resolved fresh each tick so mosh's slow-to-appear client
+// (it bootstraps over ssh first) isn't a race the launcher has to win.
+function pidOnTty(tty) {
+  if (!tty) return 0;
+  try {
+    const out = execFileSync("bash", ["-lc", `ps -t ${tty} -o pid=,comm= 2>/dev/null`], { encoding: "utf8" });
+    const rows = out.split("\n").map((l) => l.trim().match(/^(\d+)\s+(.+)$/)).filter(Boolean);
+    if (!rows.length) return 0;
+    const client = rows.find((m) => /mosh-client|ssh|\bet\b/i.test(m[2]));
+    return Number((client || rows[rows.length - 1])[1]);
+  } catch { return 0; }
+}
+
 // Reuse one ssh connection across polls (kind to a flaky link, low latency).
 function sshArgs(cfg) {
   return [
@@ -80,10 +95,12 @@ function liveLaunches() {
   for (const id of entries) {
     const rec = readJson(join(LAUNCH_DIR, id), null);
     if (!rec) continue;
-    if (rec.local_pid && !alive(rec.local_pid)) {
+    const pid = pidOnTty(rec.local_tty); // liveness by tty, resolved live
+    if (!pid) {
       rmSync(join(LAUNCH_DIR, id), { force: true }); // window closed — retire it
       continue;
     }
+    rec.livePid = pid;
     map[rec.launch_id] = rec;
   }
   return map;
@@ -106,7 +123,7 @@ function tick(cfg) {
       subject: marker.subject,
       summary: marker.summary,
       tty: lr.local_tty,
-      claude_pid: lr.local_pid,
+      claude_pid: lr.livePid,
       updated: marker.updated,
       state: marker.state,
       remote_host: cfg.name,

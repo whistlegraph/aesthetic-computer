@@ -54,11 +54,11 @@ function loadConfig() {
 
 // Parse args: a bare arg is the remote dir; flags pick transport / resume.
 function parseArgs(argv) {
-  const out = { dir: null, transport: null, resume: null, dry: false };
+  const out = { dir: null, transport: null, session: null, dry: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--mosh" || a === "--et" || a === "--ssh") out.transport = a.slice(2);
-    else if (a === "-r" || a === "--resume") out.resume = argv[++i];
+    else if (a === "-s" || a === "--session") out.session = argv[++i];
     else if (a === "--print" || a === "--dry") out.dry = true;
     else if (!a.startsWith("-")) out.dir = a;
   }
@@ -68,23 +68,29 @@ function parseArgs(argv) {
 // Single-quote a string for safe embedding in a bash -lc command.
 const shq = (s) => `'${String(s).replace(/'/g, "'\\''")}'`;
 
+// A filesystem-safe session slug from a remote dir (its last path component).
+const slug = (s) =>
+  s.replace(/^~\/?/, "").replace(/\/+$/, "").split("/").pop()
+    .replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase() || "home";
+
 // Build the command the local Terminal window runs: a transport hop into
-// jasellite that exports the launch id (so the remote hooks can tag their
-// markers with it) and execs claude in the chosen dir.
-function buildCommand(cfg, transport, launchId, dir, resume) {
-  const claude = resume ? `claude -r ${shq(resume)}` : "claude";
+// jasellite that hands off to the box-side `jasellite-session` helper, which
+// attaches to (or creates) a named zellij session running claude. Keeping
+// claude inside zellij means a closed/dropped window reattaches to the live
+// session instead of starting fresh. The session name doubles as SLAB_LAUNCH_ID
+// (stable across reattach), so the bridge always maps it to the current window.
+function buildCommand(cfg, transport, sessionName, dir) {
   // Expand a leading ~ on the remote — single-quoting it would make it literal.
-  let cdCmd;
-  if (dir === "~" || dir === "~/") cdCmd = `cd "$HOME"`;
-  else if (dir.startsWith("~/")) cdCmd = `cd "$HOME"/${shq(dir.slice(2))}`;
-  else cdCmd = `cd ${shq(dir)}`;
-  // Env wrapper runs in bash for reliable expansion; on claude exit we drop
-  // into fish (jas's shell on the box) so the window stays usable.
+  let dirExpr;
+  if (dir === "~" || dir === "~/") dirExpr = `"$HOME"`;
+  else if (dir.startsWith("~/")) dirExpr = `"$HOME"/${shq(dir.slice(2))}`;
+  else dirExpr = shq(dir);
+  const helper = `"$HOME"/.local/bin/jasellite-session`;
+  // On detach/exit drop into fish (jas's shell) so the window stays usable.
   const remote =
-    `export CLAUDE_CODE_OAUTH_TOKEN=$(cat ~/.config/claude/oauth-token 2>/dev/null); ` +
-    `export SLAB_LAUNCH_ID=${shq(launchId)}; ` +
-    `${cdCmd} 2>/dev/null || cd "$HOME"; ` +
-    `${claude}; exec fish -l`;
+    `DIR=${dirExpr}; ` +
+    `${helper} ${shq(sessionName)} "$DIR" ${shq(sessionName)}; ` +
+    `exec fish -l`;
   const inner = `bash -lc ${shq(remote)}`;
   if (transport === "mosh") return `mosh ${cfg.sshAlias} -- ${inner}`;
   if (transport === "et") return `et ${cfg.etTarget} -c ${shq(inner)}`;
@@ -124,25 +130,6 @@ return theTty`;
 
 // Find the local transport process pid sitting on `tty` — that's the pid the
 // mirror marker uses for liveness, so closing the window marks it stale.
-function transportPid(tty) {
-  // The transport spawns a beat after the window's shell starts — retry until
-  // it shows up on the tty so the marker never records a 0 (unkillable) pid.
-  for (let attempt = 0; attempt < 10; attempt++) {
-    try {
-      const out = execFileSync(
-        "bash",
-        ["-lc", `ps -t ${tty} -o pid=,comm= 2>/dev/null`],
-        { encoding: "utf8" },
-      );
-      for (const line of out.split("\n")) {
-        const m = line.trim().match(/^(\d+)\s+(.+)$/);
-        if (m && /(mosh|ssh|\bet\b)/i.test(m[2])) return Number(m[1]);
-      }
-    } catch {}
-    try { execFileSync("bash", ["-lc", "sleep 0.3"]); } catch {}
-  }
-  return 0;
-}
 
 // Make sure the marker bridge daemon is running; start it detached if not.
 function ensureBridge() {
@@ -161,35 +148,37 @@ function main() {
   const args = parseArgs(process.argv.slice(2));
   const transport = args.transport || cfg.transport;
   const dir = args.dir || cfg.remoteDir;
-  const launchId = `jasellite-${Date.now().toString(36)}-${Math.floor(
-    Math.random() * 1e6,
-  ).toString(36)}`;
+  // Stable session name (default per dir) so re-running reattaches the same
+  // zellij session. It doubles as the launch id the bridge correlates on, and
+  // the launch record is rewritten each launch with the *current* window's
+  // tty/pid — so a reattach from a fresh window re-points the mirror correctly.
+  const sessionName = args.session || (args.dir ? `jasellite-${slug(args.dir)}` : "jasellite");
 
-  const cmd = buildCommand(cfg, transport, launchId, dir, args.resume);
+  const cmd = buildCommand(cfg, transport, sessionName, dir);
   if (args.dry) { console.log(cmd); return; }
   const tty = openWindow(cfg.terminalApp, cmd);
   if (!tty || tty.startsWith("tty-not")) {
     console.error("jasellite: couldn't read the new window's tty");
     process.exit(1);
   }
-  const pid = transportPid(tty);
-
   mkdirSync(LAUNCH_DIR, { recursive: true });
+  // Liveness + the marker's pid are resolved from local_tty by the bridge each
+  // tick (mosh's client is slow to appear, so a pid snapshot here is racy).
   const record = {
-    launch_id: launchId,
+    launch_id: sessionName,
+    session: sessionName,
     host: cfg.name,
     transport,
     local_tty: tty,
-    local_pid: pid,
     remote_dir: dir,
     started: new Date().toISOString(),
   };
-  writeFileSync(join(LAUNCH_DIR, launchId), JSON.stringify(record, null, 2));
+  writeFileSync(join(LAUNCH_DIR, sessionName), JSON.stringify(record, null, 2));
   ensureBridge();
 
   console.log(
-    `jasellite: ${transport} → ${cfg.name} in ${dir}\n` +
-      `  window tty ${tty}  transport pid ${pid || "?"}  launch ${launchId}`,
+    `jasellite: ${transport} → ${cfg.name} · session ${sessionName} · ${dir}\n` +
+      `  window tty ${tty}  (close & re-run to reattach)`,
   );
 }
 
