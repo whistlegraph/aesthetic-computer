@@ -326,6 +326,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// True only where the private MultitouchSupport tap is compiled in.
     #if !MAC_APP_STORE
     private let trackpadFxAvailable = true
+    /// Session CGEventTap that swallows Tab WHILE a bend is live, so the macOS
+    /// ⌘-Tab app switcher (owned by the Dock, above any normal key handler) and
+    /// plain focus traversal can't steal the gesture — Tab drives the
+    /// absolute-pad toggle instead. Needs Accessibility (same as TYPE mode);
+    /// when it can't install, the local-monitor plain-Tab path still toggles
+    /// (it just can't suppress ⌘-Tab). `pitchBendCursorPushed` is read from the
+    /// tap thread — a Bool set on main; a one-frame stale read is harmless.
+    private lazy var bendTabTap: KeyEventTap = KeyEventTap { [weak self] keyCode, isDown, isRepeat, _ in
+        guard let self = self, keyCode == 48 /* Tab */, isDown,
+              self.pitchBendCursorPushed else { return false }
+        if !isRepeat { DispatchQueue.main.async { self.toggleAbsoluteFxMode() } }
+        return true  // consume — don't let ⌘-Tab / focus traversal fire
+    }
     #else
     private let trackpadFxAvailable = false
     #endif
@@ -454,6 +467,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.handleTrackpadFrame(touches)
         }
         MultitouchTrackpad.shared.start()
+        // Try to install the Tab-suppression tap up front (retried per-bend in
+        // case Accessibility is granted after launch).
+        _ = bendTabTap.start()
         #endif
         // Apply forceLayout *before* statusItem creation so the initial
         // status-item length matches the pinned layout's imageSize.
@@ -970,12 +986,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // user sees the layout dynamically appear while typing.
         localCapture.onKey = { [weak self] keyCode, isDown, isRepeat, flags in
             guard let self = self else { return false }
-            // Tab toggles the absolute trackpad fx mode — but only mid-bend
-            // (the overlay is up) and only where the MultitouchSupport tap
-            // exists. Consume it so focus traversal doesn't fire; otherwise
-            // leave Tab alone for normal use.
+            // PLAIN Tab toggles the absolute trackpad fx mode — but only
+            // mid-bend (the overlay is up) and only where the MultitouchSupport
+            // tap exists. Modified Tab (⌘-Tab app switcher, ⌃-Tab, …) must pass
+            // straight through, so require no command/option/control here.
             if keyCode == 48 /* kVK_Tab */, self.trackpadFxAvailable,
-               self.pitchBendCursorPushed {
+               self.pitchBendCursorPushed,
+               !flags.contains(.command), !flags.contains(.option),
+               !flags.contains(.control) {
                 if isDown && !isRepeat { self.toggleAbsoluteFxMode() }
                 return true
             }
@@ -3717,6 +3735,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBand.setEcho(amount: echoAmount)
         pushStaffPitchShift()
         if !pitchBendCursorPushed {
+            #if !MAC_APP_STORE
+            // Ensure the Tab-suppression tap is live for this gesture (no-op if
+            // already running; retries here in case Accessibility was granted
+            // after launch).
+            _ = bendTabTap.start()
+            #endif
             // Hide the real system cursor and show the floating
             // overlay wheel — the overlay paints over every app, so
             // there's nothing for other apps' cursorUpdate handlers
