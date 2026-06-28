@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  :root{
+    --bg0:#1b1b1f; --bg1:#26262b;
+    --plateTop:#33333a; --plateBot:#1d1d22;
+    --cream:#fbf7e9; --creamBot:#e6dcc2;
+    --ink:#2c2418; --accent:#ff5b3a; --accent2:#ffd23a;
+    --muted:#9b9aa6; --line:rgba(255,255,255,.07);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{width:1080px;height:1350px;}
+  body{
+    background:
+      radial-gradient(120% 80% at 50% -10%, #2c2c34 0%, var(--bg0) 60%);
+    font-family:-apple-system,"SF Pro Display","Helvetica Neue",Arial,sans-serif;
+    color:#f3f1ea; padding:64px 60px 54px; position:relative; overflow:hidden;
+  }
+  .head{display:flex;align-items:flex-end;justify-content:space-between;
+    border-bottom:2px solid var(--line); padding-bottom:26px; margin-bottom:30px;}
+  .title{font-size:78px;font-weight:800;letter-spacing:-2px;line-height:.92;}
+  .title small{display:block;font-size:25px;font-weight:600;letter-spacing:3px;
+    color:var(--accent);text-transform:uppercase;margin-top:12px;}
+  .badge{font-size:20px;color:var(--muted);text-align:right;line-height:1.5;}
+  .badge b{color:#f3f1ea;font-weight:700;}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:22px 30px;}
+  .card{background:linear-gradient(180deg,var(--bg1),#1f1f24);
+    border:1px solid var(--line);border-radius:18px;padding:22px 24px;}
+  .card.wide{grid-column:1 / -1;}
+  .card h2{font-size:21px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;
+    color:var(--accent2);margin-bottom:16px;display:flex;align-items:center;gap:10px;}
+  .card h2 .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);}
+  .row{display:flex;align-items:center;gap:14px;margin:11px 0;font-size:23px;}
+  .row .desc{color:#dededa;flex:1;}
+  .row .desc i{color:var(--muted);font-style:normal;font-size:19px;}
+  .keys{display:flex;gap:6px;flex:0 0 auto;min-width:0;}
+
+  /* keycap */
+  .k{display:inline-flex;align-items:center;justify-content:center;
+    min-width:42px;height:42px;padding:0 11px;border-radius:9px;
+    background:linear-gradient(180deg,var(--cream),var(--creamBot));
+    color:var(--ink);font-weight:800;font-size:21px;
+    box-shadow:0 2px 0 #b7ad92, 0 3px 5px rgba(0,0,0,.45);
+    border:1px solid #ccbf9f;}
+  .k.dark{background:linear-gradient(180deg,#3a3a42,#15151a);color:#f1ede1;
+    border:1px solid #000;box-shadow:0 2px 0 #000,0 3px 5px rgba(0,0,0,.5);}
+  .k.accent{background:linear-gradient(180deg,#ff7a5c,var(--accent));color:#fff;
+    border:1px solid #c63a1f;box-shadow:0 2px 0 #b8330f,0 3px 6px rgba(255,91,58,.4);}
+  .k.wide{min-width:84px;font-size:17px;}
+  .plus{color:var(--muted);font-weight:700;font-size:20px;align-self:center;}
+
+  .foot{position:absolute;left:60px;right:60px;bottom:30px;display:flex;
+    justify-content:space-between;align-items:center;font-size:19px;color:var(--muted);
+    border-top:1px solid var(--line);padding-top:18px;}
+  .foot b{color:var(--accent);}
+</style>
+</head>
+<body>
+  <div class="head">
+    <div class="title">Menu Band<small>Keyboard Shortcuts</small></div>
+    <div class="badge"><b>aesthetic.computer</b><br>a musical menubar<br>for macOS</div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2><span class="dot"></span>Chords</h2>
+      <div class="row"><span class="keys"><span class="k">⌘</span><span class="plus">+</span><span class="k dark">note</span></span><span class="desc">Major triad</span></div>
+      <div class="row"><span class="keys"><span class="k">⌥</span><span class="plus">+</span><span class="k dark">note</span></span><span class="desc">Minor triad</span></div>
+      <div class="row"><span class="keys"><span class="k">⌘</span><span class="k">⌥</span><span class="plus">+</span><span class="k dark">note</span></span><span class="desc">Sus <i>· hold &amp; tap to morph</i></span></div>
+    </div>
+
+    <div class="card">
+      <h2><span class="dot"></span>Octave</h2>
+      <div class="row"><span class="keys"><span class="k">,</span><span class="k">.</span></span><span class="desc">Down / Up <i>· Notepat</i></span></div>
+      <div class="row"><span class="keys"><span class="k">z</span><span class="k">x</span></span><span class="desc">Down / Up <i>· Ableton</i></span></div>
+      <div class="row"><span class="keys"><span class="k wide">2-finger</span></span><span class="desc">Trackpad swipe <i>· steps octave</i></span></div>
+    </div>
+
+    <div class="card wide">
+      <h2><span class="dot"></span>Pitch Bend &amp; FX <span style="font-size:16px;color:var(--muted);font-weight:600;letter-spacing:0;text-transform:none;">— hold a note + trackpad</span></h2>
+      <div class="grid" style="gap:8px 30px;">
+        <div class="row"><span class="keys"><span class="k wide">trackpad</span></span><span class="desc">Up/down = bend · left/right = reverb/echo</span></div>
+        <div class="row"><span class="keys"><span class="k wide">⇧ Shift</span></span><span class="desc">Bend all voices <i>· grab ringing tails</i></span></div>
+        <div class="row"><span class="keys"><span class="k">⌥</span></span><span class="desc">Fine-tune the fx axis</span></div>
+        <div class="row"><span class="keys"><span class="k accent wide">Tab</span></span><span class="desc">Absolute trackpad pad <i>· 1:1 mirror</i></span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2><span class="dot"></span>Transport</h2>
+      <div class="row"><span class="keys"><span class="k wide">Space</span></span><span class="desc">Hold = reverse replay</span></div>
+      <div class="row"><span class="keys"><span class="k wide">Return</span></span><span class="desc">Latch / sustain notes</span></div>
+      <div class="row"><span class="keys"><span class="k wide">⌫</span></span><span class="desc">Pop latch <i>· ⇧⌫ clears all</i></span></div>
+      <div class="row"><span class="keys"><span class="k">`</span></span><span class="desc">Hold = record mic sample</span></div>
+    </div>
+
+    <div class="card">
+      <h2><span class="dot"></span>Voices</h2>
+      <div class="row"><span class="keys"><span class="k">←</span><span class="k">→</span></span><span class="desc">Step instrument</span></div>
+      <div class="row"><span class="keys"><span class="k">↑</span><span class="k">↓</span></span><span class="desc">Jump instrument row</span></div>
+      <div class="row"><span class="keys"><span class="k">0</span><span class="plus">–</span><span class="k">9</span></span><span class="desc">Pick GM voice by number</span></div>
+      <div class="row"><span class="keys"><span class="k">[</span><span class="k">]</span></span><span class="desc">Latch left/right to drums</span></div>
+    </div>
+
+    <div class="card wide">
+      <h2><span class="dot"></span>Focus &amp; Global <span style="font-size:16px;color:var(--muted);font-weight:600;letter-spacing:0;text-transform:none;">— work system-wide</span></h2>
+      <div class="grid" style="gap:8px 30px;">
+        <div class="row"><span class="keys"><span class="k">⌘</span><span class="k">⌘</span></span><span class="desc">Double-tap right ⌘ = arm focus</span></div>
+        <div class="row"><span class="keys"><span class="k wide">Esc</span></span><span class="desc">Release focus / exit bend</span></div>
+        <div class="row"><span class="keys"><span class="k">⌃</span><span class="k">⌥</span><span class="k">⌘</span><span class="k">P</span></span><span class="desc">TYPE mode</span></div>
+        <div class="row"><span class="keys"><span class="k">⌃</span><span class="k">⌥</span><span class="k">⌘</span><span class="k">L</span></span><span class="desc">Swap layout</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot"><span>Notepat &amp; Ableton layouts · QWERTY → piano</span><span><b>↓</b> a menubar instrument by aesthetic.computer</span></div>
+</body>
+</html>
