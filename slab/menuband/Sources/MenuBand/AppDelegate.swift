@@ -312,6 +312,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// note changes / legato — for as long as this is true; it only
     /// springs back once the last finger lifts.
     private var trackpadTouchActive = false
+    /// Absolute-position fx mode. Toggled with Tab MID-bend: instead of the
+    /// default relative-delta gesture, the finger's raw trackpad position maps
+    /// 1:1 onto the fx grid (grid geometry == trackpad geometry). Driven by the
+    /// private MultitouchSupport tap (see `MultitouchTrackpad`), so it only does
+    /// anything on the non-sandboxed direct-download build.
+    private var pitchBendAbsoluteMode = false
+    /// Latest set of fingers on the trackpad (normalized 0…1, origin
+    /// bottom-left) from the MultitouchSupport tap — drives the absolute fx
+    /// mapping and the touch dots painted on the overlay. Empty on the App
+    /// Store build (no tap).
+    private var mtTouches: [CGPoint] = []
+    /// True only where the private MultitouchSupport tap is compiled in.
+    #if !MAC_APP_STORE
+    private let trackpadFxAvailable = true
+    #else
+    private let trackpadFxAvailable = false
+    #endif
     /// Tracks the last lit-note count we observed in `onLitChanged`
     /// so we can detect the all-notes-released edge and trigger
     /// both the bend rubber-band and the cursor pop.
@@ -428,6 +445,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             reason: "Menu Band live instrument audio"
         )
         Self.registerBundledFonts()
+        #if !MAC_APP_STORE
+        // Global trackpad tap via private MultitouchSupport — the
+        // focus-independent input source for the absolute fx pad (NSTouch never
+        // reaches this non-activating menubar panel). Frames arrive on the main
+        // thread; route them through the bend/fx + overlay handler.
+        MultitouchTrackpad.shared.onFrame = { [weak self] touches in
+            self?.handleTrackpadFrame(touches)
+        }
+        MultitouchTrackpad.shared.start()
+        #endif
         // Apply forceLayout *before* statusItem creation so the initial
         // status-item length matches the pinned layout's imageSize.
         // Otherwise the icon flashes the default `.full` width until
@@ -943,6 +970,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // user sees the layout dynamically appear while typing.
         localCapture.onKey = { [weak self] keyCode, isDown, isRepeat, flags in
             guard let self = self else { return false }
+            // Tab toggles the absolute trackpad fx mode — but only mid-bend
+            // (the overlay is up) and only where the MultitouchSupport tap
+            // exists. Consume it so focus traversal doesn't fire; otherwise
+            // leave Tab alone for normal use.
+            if keyCode == 48 /* kVK_Tab */, self.trackpadFxAvailable,
+               self.pitchBendCursorPushed {
+                if isDown && !isRepeat { self.toggleAbsoluteFxMode() }
+                return true
+            }
             // Escape disarms capture explicitly. Useful when the user
             // wants to release focus without clicking another app. Also
             // the explicit exit for latched pitch-bend mode.
@@ -3525,6 +3561,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// window). Either source flipping the flag lets the trackpad
     /// pitch-bend gesture engage; whichever currently owns the key
     /// window's responder chain is the one delivering indirect touches.
+    /// Main-thread sink for every MultitouchSupport frame (direct-download
+    /// build only). Maintains the live touch set, drives the reliable
+    /// finger-down/up gate the dead NSTouch sensor never could, feeds the
+    /// absolute fx mapping when that mode is latched, and keeps the overlay's
+    /// touch dots fresh.
+    private func handleTrackpadFrame(_ touches: [CGPoint]) {
+        mtTouches = touches
+        let active = !touches.isEmpty
+        if active != trackpadTouchActive { setTrackpadTouchActive(active) }
+        if pitchBendAbsoluteMode, pitchBendCursorPushed, let p = touches.first {
+            applyAbsoluteFx(point: p)
+        }
+        if pitchBendCursorPushed { updatePitchBendOverlayImage() }
+    }
+
+    /// Map a finger's absolute trackpad position (0…1) straight onto the fx
+    /// grid: X = bipolar space/echo axis, Y = pitch-bend. The grid the user
+    /// sees now mirrors the trackpad they're touching, 1:1.
+    private func applyAbsoluteFx(point p: CGPoint) {
+        let fxMax: Float = Self.fxEchoEnabled ? 1 : 0
+        fxX = max(Float(-1), min(fxMax, Float(p.x - 0.5) * 2))
+        echoAmount = Self.fxEchoEnabled ? max(Float(0), fxX) : 0
+        spaceAmount = max(Float(0), -fxX)
+        cancelFxRelease()
+        bendGestureTarget = max(-Self.bendRange,
+                                min(Self.bendRange, Float(p.y - 0.5) * 2 * Self.bendRange))
+        startBendEase()
+        menuBand.setSpace(amount: spaceAmount)
+        menuBand.setEcho(amount: echoAmount)
+        pushStaffPitchShift()
+    }
+
+    /// Toggle the absolute trackpad fx mode (Tab, mid-bend). Snaps onto the
+    /// finger's current position when entering so there's no jump.
+    private func toggleAbsoluteFxMode() {
+        pitchBendAbsoluteMode.toggle()
+        if pitchBendAbsoluteMode, let p = mtTouches.first {
+            applyAbsoluteFx(point: p)
+        }
+        updatePitchBendOverlayImage()
+        debugLog("absolute fx mode = \(pitchBendAbsoluteMode)")
+    }
+
     func setTrackpadTouchActive(_ active: Bool) {
         trackpadTouchActive = active
         guard !active else { return }
@@ -3583,6 +3662,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // so engage the gesture even with no key held.
         guard menuBand.keyboardNotesHeld || shift || inReleaseGrace
                 || menuBand.isRewinding else { return }
+        // In absolute mode the finger's raw trackpad position drives the grid
+        // (see handleTrackpadFrame); ignore relative mouse deltas so the two
+        // sources don't fight over bend/fxX.
+        if pitchBendAbsoluteMode { return }
         let dy = Float(event.deltaY)
         let dx = Float(event.deltaX)
         guard dy != 0 || dx != 0 else { return }
@@ -3721,7 +3804,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // the puck reaches the grid edge exactly at the ±bendRange cap
         // (PitchBendCursor clamps the normalized value to ±1 internally).
         PitchBendCursor.image(forBend: bendAmount / Self.bendRange, echo: fxX,
-                              keyDown: menuBand.keyboardNotesHeld)
+                              keyDown: menuBand.keyboardNotesHeld,
+                              touches: mtTouches, absolute: pitchBendAbsoluteMode)
     }
 
     private func showPitchBendOverlay() {
@@ -3886,6 +3970,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Esc / focus-loss always fully exits, even if the lock flag was
         // somehow already cleared.
         pitchBendModeLatched = false
+        // Absolute fx mode is per-gesture; always revert to the default
+        // relative bend for the next session.
+        pitchBendAbsoluteMode = false
         guard pitchBendCursorLocked else {
             // Mode was latched but cursor not currently locked — still
             // make sure the overlay is gone and fx spring back.

@@ -22,8 +22,10 @@ enum PitchBendCursor {
         buildImage(bend: CGFloat(amount), echo: 0, keyDown: false)
     }
 
-    static func image(forBend bend: Float, echo: Float, keyDown: Bool = false) -> NSImage {
-        buildImage(bend: CGFloat(bend), echo: CGFloat(echo), keyDown: keyDown)
+    static func image(forBend bend: Float, echo: Float, keyDown: Bool = false,
+                      touches: [CGPoint] = [], absolute: Bool = false) -> NSImage {
+        buildImage(bend: CGFloat(bend), echo: CGFloat(echo), keyDown: keyDown,
+                   touches: touches, absolute: absolute)
     }
 
     static func cursor(forBend amount: Float) -> NSCursor {
@@ -34,7 +36,8 @@ enum PitchBendCursor {
         NSCursor(image: image(forBend: bend, echo: echo), hotSpot: hotSpot)
     }
 
-    private static func buildImage(bend: CGFloat, echo: CGFloat, keyDown: Bool) -> NSImage {
+    private static func buildImage(bend: CGFloat, echo: CGFloat, keyDown: Bool,
+                                   touches: [CGPoint] = [], absolute: Bool = false) -> NSImage {
         let bendC = max(-1, min(1, bend))
         // `echo` is the bipolar fx-X driver in [-1, +1]: positive
         // (right) is echo, negative (left) is space/reverb. We keep
@@ -51,17 +54,20 @@ enum PitchBendCursor {
         return NSImage(size: size, flipped: false) { rect in
             if #available(macOS 11.0, *) {
                 appearance.performAsCurrentDrawingAppearance {
-                    drawChart(in: rect, bend: bendC, echo: xC, isDark: isDark, keyDown: keyDown)
+                    drawChart(in: rect, bend: bendC, echo: xC, isDark: isDark,
+                              keyDown: keyDown, touches: touches, absolute: absolute)
                 }
             } else {
-                drawChart(in: rect, bend: bendC, echo: xC, isDark: isDark, keyDown: keyDown)
+                drawChart(in: rect, bend: bendC, echo: xC, isDark: isDark,
+                          keyDown: keyDown, touches: touches, absolute: absolute)
             }
             return true
         }
     }
 
     private static func drawChart(in rect: NSRect, bend: CGFloat, echo: CGFloat,
-                                  isDark: Bool, keyDown: Bool) {
+                                  isDark: Bool, keyDown: Bool,
+                                  touches: [CGPoint] = [], absolute: Bool = false) {
         // A Menu Band keycap plate, cleanly divided into four quadrants by a
         // single thin cross (no axis labels, no arrowheads, no end-caps). The
         // puck carries the live bend (Y) / echo (X) and lights up with the
@@ -138,11 +144,34 @@ enum PitchBendCursor {
         knob.lineWidth = keyDown ? 1.0 : 0.8
         knob.stroke()
 
-        // Keycap outline last so the whole pad is framed like a key.
-        let edge = isDark
-            ? NSColor.black.withAlphaComponent(0.85)
-            : NSColor(srgbRed: 0.34, green: 0.28, blue: 0.18, alpha: 0.85)
-        edge.setStroke(); body.lineWidth = 1.3; body.stroke()
+        // Live trackpad touches (private MultitouchSupport tap). Each finger's
+        // absolute normalized position is mapped straight into the chart, so
+        // the pad reads as a tiny mirror of the trackpad. In absolute mode the
+        // dots ARE the control (puck == primary finger); in the default mode
+        // they're an ambient read-out of where the hand is.
+        if !touches.isEmpty {
+            let dotR: CGFloat = absolute ? 4 : 3
+            for t in touches {
+                let px = chart.minX + max(0, min(1, CGFloat(t.x))) * chart.width
+                let py = chart.minY + max(0, min(1, CGFloat(t.y))) * chart.height
+                let dot = NSBezierPath(ovalIn: NSRect(x: px - dotR, y: py - dotR,
+                                                      width: dotR * 2, height: dotR * 2))
+                accent.withAlphaComponent(absolute ? 0.55 : 0.30).setFill()
+                dot.fill()
+                accent.withAlphaComponent(absolute ? 0.95 : 0.6).setStroke()
+                dot.lineWidth = 0.8
+                dot.stroke()
+            }
+        }
+
+        // Keycap outline last so the whole pad is framed like a key. In
+        // absolute mode the frame glows accent so the mode switch is obvious.
+        let edge = absolute
+            ? accent.withAlphaComponent(0.95)
+            : (isDark
+                ? NSColor.black.withAlphaComponent(0.85)
+                : NSColor(srgbRed: 0.34, green: 0.28, blue: 0.18, alpha: 0.85))
+        edge.setStroke(); body.lineWidth = absolute ? 2 : 1.3; body.stroke()
     }
 }
 
