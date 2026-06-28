@@ -1781,6 +1781,10 @@ async function halt($, text) {
     // 🔥 Jump to Oven dashboard
     jump(`https://oven.aesthetic.computer`);
     return true;
+  } else if (slug === "jasellite") {
+    // 🛰️ Jump to jasellite
+    jump(`https://jasellite.aesthetic.computer`);
+    return true;
   } else if (slug === "give") {
     // 🎁 Jump to Give page (opens in new window)
     // If user is logged in, prefill their email for easier Stripe checkout
