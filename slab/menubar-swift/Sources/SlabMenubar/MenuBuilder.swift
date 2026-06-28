@@ -386,7 +386,10 @@ enum MenuBuilder {
             case .blank:       dot = "·"   // tiny midpoint — fresh, nothing yet
             case .stale:       dot = "○"
             }
-            let tail = s.cwdLabel.isEmpty ? "" : "  ·  \(s.cwdLabel)"
+            // Remote sessions (mirrored from jasellite et al. by the bridge)
+            // wear a 🛰 + host badge so they read distinctly from local ones.
+            let remoteBadge = s.isRemote ? "  🛰 \(s.remoteHost)" : ""
+            let tail = (s.cwdLabel.isEmpty ? "" : "  ·  \(s.cwdLabel)") + remoteBadge
             // Blank sessions have no subject yet — substitute a placeholder
             // so the menu row reads as "· (new) · aesthetic-computer" instead
             // of the awkward "·   ·  aesthetic-computer".

@@ -57,6 +57,14 @@ struct ClaudeSession {
     /// live Workflow-tool agents (counted from the workflow journals). Drawn
     /// as one dot per subagent along this session's polygon edge.
     var subagentCount: Int = 0
+    /// Non-empty when this session actually lives on a remote box (e.g.
+    /// jasellite) and is only mirrored here by the remote-claude bridge,
+    /// which copies the marker's `remote_host`. Drives the 🛰 menu badge so a
+    /// remote session reads distinctly from a local one.
+    var remoteHost: String = ""
+
+    /// True for sessions running on another machine, surfaced via the bridge.
+    var isRemote: Bool { !remoteHost.isEmpty }
 
     var shortSubject: String {
         let trimmed = subject.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -264,7 +272,7 @@ enum ClaudeSessionReader {
         let parsedState: ClaudeSession.State =
             ((obj["state"] as? String) == "blank") ? .blank : .working
 
-        return ClaudeSession(
+        var session = ClaudeSession(
             sessionId: (obj["session_id"] as? String) ?? fallbackId,
             cwd: (obj["cwd"] as? String) ?? "",
             subject: (obj["subject"] as? String) ?? "(no subject)",
@@ -275,6 +283,8 @@ enum ClaudeSessionReader {
             state: parsedState,
             awaitingMessage: nil
         )
+        session.remoteHost = (obj["remote_host"] as? String) ?? ""
+        return session
     }
 
     private static func pidAlive(_ pid: Int) -> Bool {
