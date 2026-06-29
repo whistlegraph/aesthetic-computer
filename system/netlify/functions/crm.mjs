@@ -97,9 +97,6 @@ export async function handler(event) {
 
   const segs = segmentsFrom(event.path);
 
-  // Landing page.
-  if (segs.length === 0) return landing();
-
   // SPARQL is Stage 2.
   if (segs[0] === "sparql") {
     return respond(501, { message: "SPARQL endpoint not yet available (Stage 2)." });
@@ -111,6 +108,9 @@ export async function handler(event) {
   let database;
   try {
     database = await connect();
+
+    // Landing page — lists the opted-in people and their records.
+    if (segs.length === 0) return await landing(database);
 
     // Person: /@handle
     if (segs[0].startsWith("@")) {
@@ -134,14 +134,7 @@ export async function handler(event) {
       const consent = previewLicense(event) ? { handle, license: previewLicense(event) } : await consentFor(database, handle);
       if (!consent || !handle) return respond(404, { message: "Not found" });
 
-      // slug is "{sub}/{kind}/{ts}" (kind varies: chat, painting, …). Strip the
-      // leading user-sub segment so the public image URL keys off @handle, not
-      // the auth0 sub, and preserves the real storage subpath.
-      let mediaPath = String(p.slug || "");
-      if (p.user && mediaPath.startsWith(p.user + "/")) {
-        mediaPath = mediaPath.slice(p.user.length + 1);
-      }
-      const imageUrl = mediaPath ? `${WEB_BASE}/media/@${handle}/${mediaPath}.png` : undefined;
+      const imageUrl = paintingImageUrl(handle, p.slug, p.user);
       const doc = paintingToLinkedArt({ code: p.code, handle, when: p.when, imageUrl, license: consent.license });
       return finish(event, doc, `${WEB_BASE}/painting/${p.code}`);
     }
@@ -226,18 +219,84 @@ function voidDoc() {
   });
 }
 
-function landing() {
+// Public image URL for a painting. Slug is "{sub}/{kind}/{ts}" (kind varies:
+// chat, painting, …); strip the leading user-sub segment so the URL keys off
+// @handle, not the auth0 sub, and preserves the real storage subpath.
+function paintingImageUrl(handle, slug, sub) {
+  let mediaPath = String(slug || "");
+  if (sub && mediaPath.startsWith(sub + "/")) mediaPath = mediaPath.slice(sub.length + 1);
+  return mediaPath ? `${WEB_BASE}/media/@${handle}/${mediaPath}.png` : undefined;
+}
+
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
+// Landing page — the human front door. Lists the opted-in people and a sample
+// of their actual records, and points researchers at the standards + tooling
+// that can consume them. Modeled on at.aesthetic.computer's people+media feed.
+async function landing(database) {
+  const optedIn = await database.db
+    .collection("@handles")
+    .find({ "linkedData.enabled": true })
+    .limit(60)
+    .toArray();
+
+  // For each opted-in person, pull a few recent records to actually show.
+  const people = await Promise.all(
+    optedIn.map(async (h) => {
+      const sub = h._id;
+      const [paintings, mood, paintingCount] = await Promise.all([
+        database.db.collection("paintings").find({ user: sub, nuked: { $ne: true } }).sort({ when: -1 }).limit(4).toArray(),
+        database.db.collection("moods").findOne({ user: sub, deleted: { $ne: true } }, { sort: { when: -1 } }),
+        database.db.collection("paintings").countDocuments({ user: sub, nuked: { $ne: true } }),
+      ]);
+      return { handle: h.handle, license: h.linkedData.license, paintings, mood, paintingCount };
+    }),
+  );
+
+  const cards = people
+    .map((p) => {
+      const thumbs = p.paintings
+        .map((pt) => {
+          const img = paintingImageUrl(p.handle, pt.slug, pt.user);
+          return img
+            ? `<a href="${DATA_BASE}/painting/${esc(pt.code)}" title="painting ${esc(pt.code)} — Linked Art record"><img loading=lazy src="${esc(img)}" alt="painting ${esc(pt.code)}"></a>`
+            : "";
+        })
+        .join("");
+      const moodLine = p.mood?.mood
+        ? `<p class=mood>“${esc(p.mood.mood)}”${p.mood.atproto?.rkey ? ` <a class=muted href="${DATA_BASE}/mood/${esc(p.handle)}/${esc(p.mood.atproto.rkey)}">↗ record</a>` : ""}</p>`
+        : "";
+      return `<section class=person>
+<h3><a href="${DATA_BASE}/@${esc(p.handle)}">@${esc(p.handle)}</a>
+<span class=muted>· ${p.paintingCount} painting${p.paintingCount === 1 ? "" : "s"} · ${esc(p.license)}</span></h3>
+${moodLine}
+<div class=thumbs>${thumbs || '<span class=muted>no public paintings yet</span>'}</div>
+</section>`;
+    })
+    .join("");
+
+  const sample = people.find((p) => p.paintings[0])?.paintings[0];
+  const sampleUrl = sample ? `${DATA_BASE}/painting/${sample.code}` : `${DATA_BASE}/@${people[0]?.handle || "jeffrey"}`;
+
   const body = `<!doctype html><html lang=en><meta charset=utf-8>
 <meta name=viewport content="width=device-width, initial-scale=1">
 <title>data · Aesthetic Computer</title>
 <meta name=description content="Linked open data from Aesthetic Computer — paintings, pieces, moods, and people as Linked Art / CIDOC CRM, for cultural-heritage research.">
 <style>
 :root{color-scheme:light}
-body{font-family:monospace;font-size:14px;line-height:1.5;max-width:46em;margin:0 auto;padding:2em 1em;color:#111;background:#f5f5f5}
+body{font-family:monospace;font-size:14px;line-height:1.5;max-width:48em;margin:0 auto;padding:2em 1em;color:#111;background:#f5f5f5}
 a{color:#cd5c9b;text-decoration:none}a:hover{text-decoration:underline}
 h1{border-bottom:2px solid #cd5c9b;padding-bottom:.3em}
-code,pre{background:#eee;border-radius:4px}code{padding:.1em .3em}pre{padding:1em;overflow:auto}
-.muted{color:#666}
+h2{margin-top:2em}
+code,pre{background:#eee;border-radius:4px}code{padding:.1em .3em}pre{padding:1em;overflow:auto;white-space:pre-wrap}
+.muted{color:#666;font-weight:normal}
+.person{border-top:1px solid #ddd;padding:.6em 0}
+.person h3{margin:.2em 0;font-size:14px}
+.mood{margin:.2em 0;color:#333}
+.thumbs{display:flex;flex-wrap:wrap;gap:.4em;margin:.4em 0}
+.thumbs img{width:88px;height:88px;object-fit:cover;border:1px solid #ccc;background:#fff;image-rendering:pixelated}
 </style>
 <h1>data.aesthetic.computer</h1>
 <p>Aesthetic Computer publishes its community's opted-in works as
@@ -246,9 +305,13 @@ code,pre{background:#eee;border-radius:4px}code{padding:.1em .3em}pre{padding:1e
 world. This makes paintings, pieces, moods, and people here discoverable and
 citable by researchers (e.g. at the Getty) as linked open data.</p>
 
+<h2>People &amp; records</h2>
+<p class=muted>${people.length} ${people.length === 1 ? "person has" : "people have"} opted in. Each thumbnail links to its Linked Art record.</p>
+${cards || '<p class=muted>No one has opted in yet.</p>'}
+
 <h2>Entity identifiers</h2>
 <ul>
-<li><code>${DATA_BASE}/@{handle}</code> — a person <span class=muted>(E21)</span></li>
+<li><code>${DATA_BASE}/@{handle}</code> — a person <span class=muted>(CIDOC CRM E21)</span></li>
 <li><code>${DATA_BASE}/painting/{code}</code> — a digital painting <span class=muted>(E22)</span></li>
 <li><code>${DATA_BASE}/piece/{code}</code> — a KidLisp / JavaScript piece <span class=muted>(E73)</span></li>
 <li><code>${DATA_BASE}/mood/{handle}/{rkey}</code> — a mood <span class=muted>(E33)</span></li>
@@ -257,14 +320,27 @@ citable by researchers (e.g. at the Getty) as linked open data.</p>
 <code>?format=jsonld</code>) for the Linked Art representation; a browser gets a
 human-readable view that links back to the work on aesthetic.computer.</p>
 
-<h2>Consent &amp; rights</h2>
-<p>Only works whose author has opted in — with an explicit Creative Commons
-license — are published here. Everything else returns 404.</p>
+<h2>Find these records elsewhere</h2>
+<p>The same identifiers are designed to be consumed by standard cultural-heritage
+and linked-data tooling:</p>
+<ul>
+<li><b>Fetch the JSON-LD</b> directly:<br>
+<code>curl -H "Accept: application/ld+json" ${esc(sampleUrl)}</code></li>
+<li><b>Inspect / expand it</b> in the <a href="https://json-ld.org/playground/">JSON-LD Playground</a> or the <a href="https://linkeddata.uriburner.com/">URIBurner</a> linked-data browser (paste a record URL).</li>
+<li><b>Dataset description</b> for harvesters: <a href="${DATA_BASE}/.well-known/void">/.well-known/void</a> (<a href="https://www.w3.org/TR/void/">VoID</a>).</li>
+<li><b>Vocabularies used:</b> <a href="https://www.getty.edu/research/tools/vocabularies/aat/">Getty AAT</a> for classification, <a href="https://creativecommons.org/licenses/">Creative Commons</a> for rights.</li>
+<li><b>Also broadcast on the open social web</b> via <a href="https://at.aesthetic.computer">at.aesthetic.computer</a> (ATProto / Bluesky) — the same works, different protocol.</li>
+</ul>
 
 <h2>Coming soon</h2>
 <ul>
-<li><code>${DATA_BASE}/sparql</code> — SPARQL query endpoint (Stage 2)</li>
-<li><a href="${DATA_BASE}/.well-known/void">/.well-known/void</a> — dataset description</li>
-</ul>`;
+<li><code>${DATA_BASE}/sparql</code> — SPARQL query endpoint, e.g. <i>“all digital paintings by @jeffrey in 2026”</i> (Stage 2).</li>
+<li>IIIF image service over the painting CDN, for Getty-native image tooling (Stage 3).</li>
+</ul>
+
+<h2 id=optin>Consent &amp; rights</h2>
+<p>Only works whose author has opted in — with an explicit Creative Commons
+license — are published here. Everything else returns 404. Opt-in is currently
+by request; a self-serve toggle is planned.</p>`;
   return respond(200, body, { "Content-Type": "text/html; charset=utf-8" });
 }
