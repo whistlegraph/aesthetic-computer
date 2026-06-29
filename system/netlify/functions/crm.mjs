@@ -134,8 +134,14 @@ export async function handler(event) {
       const consent = previewLicense(event) ? { handle, license: previewLicense(event) } : await consentFor(database, handle);
       if (!consent || !handle) return respond(404, { message: "Not found" });
 
-      const slug = String(p.slug || "").split("/").pop();
-      const imageUrl = `${WEB_BASE}/media/@${handle}/painting/${slug}.png`;
+      // slug is "{sub}/{kind}/{ts}" (kind varies: chat, painting, …). Strip the
+      // leading user-sub segment so the public image URL keys off @handle, not
+      // the auth0 sub, and preserves the real storage subpath.
+      let mediaPath = String(p.slug || "");
+      if (p.user && mediaPath.startsWith(p.user + "/")) {
+        mediaPath = mediaPath.slice(p.user.length + 1);
+      }
+      const imageUrl = mediaPath ? `${WEB_BASE}/media/@${handle}/${mediaPath}.png` : undefined;
       const doc = paintingToLinkedArt({ code: p.code, handle, when: p.when, imageUrl, license: consent.license });
       return finish(event, doc, `${WEB_BASE}/painting/${p.code}`);
     }
