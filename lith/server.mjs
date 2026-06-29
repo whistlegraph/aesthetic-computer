@@ -179,6 +179,15 @@ app.use((req, _res, next) => {
     }
   }
 
+  // data.aesthetic.computer → crm function (Linked Open Data / CIDOC CRM).
+  // Every path under the subdomain routes to the `crm` handler, which dispatches
+  // by path internally (landing, /@handle, /painting, /piece, /mood, /sparql).
+  if (host === "data.aesthetic.computer" || host === "data.prompt.ac") {
+    if (!req.path.startsWith("/api/crm")) {
+      req.url = "/api/crm" + (req.url === "/" ? "" : req.url);
+    }
+  }
+
   next();
 });
 

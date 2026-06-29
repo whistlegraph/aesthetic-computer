@@ -7,7 +7,8 @@ The primary frontend origin is `209.38.133.33`.
 
 ## Frontend Records On lith
 
-- `aesthetic.computer` zone: `aesthetic.computer`, `api`, `bills`, `feed`, `give`, `keeps`, `l5`, `news`, `p5`, `pals`, `papers`, `processing`, `sitemap`, `www`
+- `aesthetic.computer` zone: `aesthetic.computer`, `api`, `bills`, `data`, `feed`, `give`, `keeps`, `l5`, `news`, `p5`, `pals`, `papers`, `processing`, `sitemap`, `www`
+  - `data` (A → 209.38.133.33, proxied) added 2026-06-29 — Linked Open Data / CIDOC CRM endpoint (`crm.mjs`); needs lith deploy to serve.
 - `false.work` zone: `builds.false.work`
 - `jas.life` zone: `jas.life`
 - `justanothersystem.org` zone: `justanothersystem.org`, `www`

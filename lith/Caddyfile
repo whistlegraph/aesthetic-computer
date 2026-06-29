@@ -165,6 +165,15 @@
         }
     }
 
+    # --- data.aesthetic.computer (Linked Open Data / CIDOC CRM) ---
+    # lith rewrites every path here to the `crm` function, which dispatches by
+    # path (landing, /@handle, /painting, /piece, /mood, /.well-known/void).
+    # Stage 2 adds: handle /sparql* { reverse_proxy localhost:7878 }  # Oxigraph
+    @data host data.aesthetic.computer
+    handle @data {
+        reverse_proxy localhost:8888
+    }
+
     # --- news.aesthetic.computer ---
     @news host news.aesthetic.computer
     handle @news {
