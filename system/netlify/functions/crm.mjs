@@ -219,13 +219,19 @@ function voidDoc() {
   });
 }
 
-// Public image URL for a painting. Slug is "{sub}/{kind}/{ts}" (kind varies:
-// chat, painting, …); strip the leading user-sub segment so the URL keys off
-// @handle, not the auth0 sub, and preserves the real storage subpath.
+// Public image URL for a painting. Two slug shapes exist:
+//   "{sub}/{kind}/{ts}" (kind varies: chat, painting, …) → strip the sub prefix
+//   "{ts}" (older bare-timestamp slugs)                   → live under painting/{ts}
+// Either way the URL keys off @handle, not the auth0 sub.
 function paintingImageUrl(handle, slug, sub) {
   let mediaPath = String(slug || "");
-  if (sub && mediaPath.startsWith(sub + "/")) mediaPath = mediaPath.slice(sub.length + 1);
-  return mediaPath ? `${WEB_BASE}/media/@${handle}/${mediaPath}.png` : undefined;
+  if (!mediaPath) return undefined;
+  if (sub && mediaPath.startsWith(sub + "/")) {
+    mediaPath = mediaPath.slice(sub.length + 1);
+  } else if (!mediaPath.includes("/")) {
+    mediaPath = "painting/" + mediaPath;
+  }
+  return `${WEB_BASE}/media/@${handle}/${mediaPath}.png`;
 }
 
 function esc(s) {
