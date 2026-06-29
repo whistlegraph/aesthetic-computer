@@ -50,6 +50,11 @@ test("painting → DigitalObject with Production, author, rights, image", () => 
   assert.equal(doc.digitally_shown_by[0].format, "image/png");
   // Every Getty AAT classification must resolve to a real AAT URI.
   for (const c of doc.classified_as) assert.match(c.id, /vocab\.getty\.edu\/aat\/\d+$/);
+  // Verified Getty AAT ids (vocab.getty.edu, 2026-06-29) — lock them in so a
+  // future careless edit can't silently reintroduce a wrong term.
+  const ids = doc.classified_as.map((c) => c.id);
+  assert.ok(ids.includes("http://vocab.getty.edu/aat/300033618"), "paintings (visual works)");
+  assert.ok(ids.includes("http://vocab.getty.edu/aat/300386810"), "digital art (visual works)");
 });
 
 test("piece → E73 with source LinguisticObject + checksum identifier", () => {

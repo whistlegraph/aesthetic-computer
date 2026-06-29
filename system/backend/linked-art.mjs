@@ -16,18 +16,17 @@ export const LA_CONTEXT = "https://linked.art/ns/v1/linked-art.json";
 export const DATA_BASE = "https://data.aesthetic.computer";
 export const WEB_BASE = "https://aesthetic.computer";
 
-// Getty AAT vocabulary terms. NOTE: these ids are pending a review by a
-// CRM-literate reviewer before going public (crm/SCORE.md §8, open decision 3).
+// Getty AAT vocabulary terms. Every id below was verified against the live
+// Getty SPARQL endpoint (https://vocab.getty.edu/sparql) on 2026-06-29; labels
+// are Getty's own preferred labels. (crm/SCORE.md §8, open decision 3 — closed.)
 const AAT = {
-  primaryName: ["300404670", "primary name"],
-  paintings: ["300033973", "paintings (visual works)"],
-  digitalImages: ["300312038", "digital images"],
-  software: ["300265727", "software"],
-  computerArt: ["300047090", "computer art"],
-  sourceCode: ["300028676", "source code"],
-  statements: ["300026032", "statements (document genres)"],
-  english: ["300388277", "English"],
-  checksum: ["300435704", "checksum"],
+  primaryName: ["300404670", "preferred terms"],
+  paintings: ["300033618", "paintings (visual works)"],
+  digitalArt: ["300386810", "digital art (visual works)"],
+  digitalImages: ["300215302", "digital images"],
+  software: ["300028566", "software"],
+  briefTexts: ["300418049", "brief texts"],
+  english: ["300388277", "English (language)"],
 };
 
 // Build a Getty AAT classification node.
@@ -109,7 +108,7 @@ export function personToLinkedArt({ handle, latestMood } = {}) {
     doc.subject_of.push({
       type: "LinguisticObject",
       _label: "latest mood",
-      classified_as: [aat("statements")],
+      classified_as: [aat("briefTexts")],
       content: latestMood.mood,
     });
   }
@@ -124,7 +123,7 @@ export function paintingToLinkedArt({ code, handle, when, imageUrl, license } = 
     id: `${DATA_BASE}/painting/${code}`,
     type: "DigitalObject",
     _label: `painting ${code} by @${clean}`,
-    classified_as: [aat("paintings"), aat("digitalImages")],
+    classified_as: [aat("paintings"), aat("digitalArt"), aat("digitalImages")],
     produced_by: madeBy("Production", handle, when),
     subject_to: rights(license),
     subject_of: [seeAlso(`${WEB_BASE}/painting/${code}`, "view on Aesthetic Computer")],
@@ -148,20 +147,19 @@ export function pieceToLinkedArt({ code, handle, when, source, hash, license } =
     id: `${DATA_BASE}/piece/${code}`,
     type: "DigitalObject",
     _label: `piece $${code} by @${clean}`,
-    classified_as: [aat("software"), aat("computerArt")],
+    classified_as: [aat("software"), aat("digitalArt")],
     created_by: madeBy("Creation", handle, when),
     subject_to: rights(license),
     subject_of: [seeAlso(`${WEB_BASE}/${code}`, "run on Aesthetic Computer")],
   };
   if (hash) {
-    doc.identified_by = [
-      { type: "Identifier", content: hash, classified_as: [aat("checksum")] },
-    ];
+    // No Getty AAT term for "checksum"; an unclassified Identifier with a
+    // descriptive label is the honest representation.
+    doc.identified_by = [{ type: "Identifier", content: hash, _label: "sha-256 checksum" }];
   }
   if (source) {
-    doc.carries = [
-      { type: "LinguisticObject", content: source, classified_as: [aat("sourceCode")] },
-    ];
+    // No Getty AAT term for "source code"; carry the program text unclassified.
+    doc.carries = [{ type: "LinguisticObject", content: source, _label: "source code" }];
   }
   return doc;
 }
@@ -174,7 +172,7 @@ export function moodToLinkedArt({ handle, rkey, mood, when, blueskyUri, license 
     id: `${DATA_BASE}/mood/${clean}/${rkey}`,
     type: "LinguisticObject",
     _label: `mood by @${clean}`,
-    classified_as: [aat("statements")],
+    classified_as: [aat("briefTexts")],
     content: mood,
     language: [aat("english")],
     created_by: madeBy("Creation", handle, when, false),

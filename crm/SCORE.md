@@ -303,14 +303,18 @@ Stage 2 adds the `localhost:7878` proxy. Same staging as below.
 **Resolved:**
 - **Domain** → `data.aesthetic.computer` (mirrors `data.getty.edu`). ✓
 - **Store** → Oxigraph on lith (`localhost:7878`). ✓
+- **AAT terms** → all verified against the live Getty SPARQL endpoint
+  (vocab.getty.edu) 2026-06-29. The first draft was almost entirely wrong
+  (`300265727` "software" was actually *wanted posters*); corrected ids are now
+  in `linked-art.mjs` and asserted in the test. No Getty term exists for "source
+  code" or "checksum" — those carry unclassified. ✓
 
 **Still open:**
-1. **v1 allowlist vs. self-serve** — curated `secrets.crm.handles` to start
-   (like Bluesky's `mirrorHandles`), open the `linkdata` command later.
+1. **v1 allowlist vs. self-serve** — curated opt-in to start (per-handle
+   `@handles.linkedData`, set by hand like now), open a `linkdata` prompt
+   command later for self-serve.
 2. **License menu** — which CC licenses to offer; default per entity type
-   (paintings CC BY, pieces CC0?).
-3. **AAT term review** — confirm the chosen Getty AAT ids with a CRM-literate
-   reviewer before going public.
+   (paintings CC BY, pieces CC0?). `@jeffrey` is currently all CC-BY-4.0.
 
 ---
 
