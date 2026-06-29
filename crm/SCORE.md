@@ -1,7 +1,13 @@
 # CRM — Linked Open Data for Aesthetic Computer
 
-**Status:** Stage 1 implemented (serializer + endpoint + landing, on `main`) ·
-**Owner:** @jeffrey · **Drafted:** 2026-06-28
+**Status:** ✅ Stage 1 LIVE at https://data.aesthetic.computer (deployed
+2026-06-29; `@jeffrey` opted in, CC-BY-4.0) · **Owner:** @jeffrey ·
+**Drafted:** 2026-06-28
+
+Live & verified: landing, `/@jeffrey` (Person), `/painting/f9i` (image URL
+resolves 200), `/mood/jeffrey/{rkey}`, `/.well-known/void`, content negotiation
+(JSON-LD vs. HTML), and the consent gate (`/@sat` → 404). Cloudflare `data` A
+record (→ 209.38.133.33, proxied) created via vault token.
 
 **Stage 1 ships in these files:**
 - `system/backend/linked-art.mjs` — pure Linked Art serializers (person/painting/piece/mood) + license registry.
