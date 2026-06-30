@@ -460,6 +460,11 @@ enum MenuBuilder {
         bright.toolTip = "Force the bright, sunlight-readable status palettes regardless of the macOS Auto dark/light schedule — for working outdoors"
         sub.addItem(bright)
 
+        let sigils = item("Prompt sigils", selector: #selector(AppDelegate.togglePromptSigils), target: target)
+        sigils.state = state.promptSigils ? .on : .off
+        sigils.toolTip = "Pin a per-prompt sigil — a little star hashed from the prompt text — to each session's terminal top-right, so prompts are distinguishable at a glance (shape per prompt; colour still follows status)"
+        sub.addItem(sigils)
+
         let preferIterm = item("Spawn in iTerm2", selector: #selector(AppDelegate.togglePreferIterm), target: target)
         preferIterm.state = state.preferIterm ? .on : .off
         preferIterm.toolTip = "Restore-threads and restart-all open sessions in iTerm2 instead of Terminal.app — the only terminal that shows the tiled, per-session topic wallpapers."

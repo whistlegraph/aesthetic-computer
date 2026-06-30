@@ -134,6 +134,7 @@ struct StateSnapshot {
     var autoTile: Bool = false
     var textSize: TextSize = .far
     var themeByStatus: Bool = false
+    var promptSigils: Bool = false
     var forceBright: Bool = false
     var preferIterm: Bool = false
     var tailnetPeers: [TailnetPeer] = []
@@ -202,6 +203,7 @@ struct StateSnapshot {
             s.textSize = .far
         }
         s.themeByStatus = FileManager.default.fileExists(atPath: Paths.themeByStatusFlag)
+        s.promptSigils = FileManager.default.fileExists(atPath: Paths.promptSigilsFlag)
         s.forceBright = FileManager.default.fileExists(atPath: Paths.forceBrightFlag)
         s.preferIterm = FileManager.default.fileExists(atPath: Paths.preferItermFlag)
         s.deskflow = readDeskflow()

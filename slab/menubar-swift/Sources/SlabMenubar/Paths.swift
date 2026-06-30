@@ -145,6 +145,14 @@ enum Paths {
     /// schedule — so the wall stays readable outdoors even after the system
     /// has flipped to Dark for the evening.
     static var forceBrightFlag: String { "\(slabHome)/state/force-bright" }
+
+    /// When this file exists, each live Claude session's terminal window wears
+    /// a per-prompt "sigil" badge (SigilRenderer) in its top-right corner — a
+    /// deterministic little star hashed from the prompt, so every prompt has a
+    /// glanceable shape-identity. Toggled from the menubar's "Prompt sigils"
+    /// item; sibling to theme-by-status (colour) but at the per-prompt grain
+    /// (shape).
+    static var promptSigilsFlag: String { "\(slabHome)/state/prompt-sigils" }
 }
 
 enum Tools {

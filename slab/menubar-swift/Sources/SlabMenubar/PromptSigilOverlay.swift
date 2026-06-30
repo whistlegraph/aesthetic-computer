@@ -1,0 +1,453 @@
+import AppKit
+import CoreGraphics
+import ApplicationServices
+
+/// One borderless, click-through badge window holding a session's per-prompt
+/// sigil, parked top-right under the title bar of its terminal window. The
+/// sigil image is still (shape + strata = which prompt); the badge spins it
+/// continuously via a CoreAnimation layer rotation whose speed and direction
+/// the controller sets from the session's STATUS — so motion is the status
+/// channel. The layer spin is GPU-driven (render-server side, CPU stays idle),
+/// so the only recurring cost is the controller's light reposition tick.
+///
+/// Compositing: the window sits at the *normal* level and is ordered directly
+/// above its specific terminal window (by CGWindowID), so when another window
+/// covers the terminal the sigil is correctly occluded too — it rides in the
+/// stack with the window it tracks rather than floating above everything.
+final class PromptSigilOverlay {
+    let sessionId: String
+    /// Bare tty name, e.g. `ttys003` — the join key the controller binds to a
+    /// CGWindowID.
+    let tty: String
+
+    /// Seed currently drawn; re-rendered only when the prompt changes — never
+    /// on a status change (status is motion).
+    var renderedSeed: UInt64 = 0
+    private var motion: (period: Double, clockwise: Bool)?
+    /// Last frame we set, so a stationary badge issues no redundant setFrame.
+    private var lastFrame: NSRect?
+
+    let size: CGFloat = 56
+    private let window: NSWindow
+    private let spin = CALayer()
+
+    init(sessionId: String, tty: String) {
+        self.sessionId = sessionId
+        self.tty = tty
+
+        let initial = NSRect(x: -2000, y: -2000, width: size, height: size)
+        window = NSWindow(contentRect: initial, styleMask: [.borderless],
+                          backing: .buffered, defer: false)
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.hasShadow = false
+        window.ignoresMouseEvents = true
+        // Normal level + per-window ordering = composites with the terminal
+        // stack (occluded when another window covers the terminal). Dropping
+        // canJoinAllSpaces keeps it on the terminal's Space.
+        window.level = .normal
+        window.collectionBehavior = [.fullScreenAuxiliary]
+
+        let view = NSView(frame: NSRect(origin: .zero, size: initial.size))
+        view.wantsLayer = true
+        spin.frame = CGRect(x: 0, y: 0, width: size, height: size)
+        spin.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        spin.position = CGPoint(x: size / 2, y: size / 2)
+        spin.contentsGravity = .resizeAspect
+        spin.contentsScale = 2
+        // Soft symmetric halo (offset zero so it doesn't sweep as the rock
+        // turns) — separates a same-coloured bed from the terminal behind it
+        // without any disc or outline.
+        spin.shadowColor = NSColor.black.cgColor
+        spin.shadowOpacity = 0.28
+        spin.shadowRadius = 2.5
+        spin.shadowOffset = .zero
+        view.layer?.addSublayer(spin)
+        window.contentView = view
+    }
+
+    func setImage(_ image: NSImage) { spin.contents = image }
+
+    /// Apply a status-driven spin. No-op when unchanged so the rotation never
+    /// stutters. On change we continue from the current presentation angle at
+    /// the new speed/direction, so a status flip reads as the rock smoothly
+    /// speeding up / reversing rather than snapping to zero.
+    func setMotion(period: Double, clockwise: Bool) {
+        if let m = motion, m.period == period, m.clockwise == clockwise { return }
+        motion = (period, clockwise)
+        let current = (spin.presentation()?.value(forKeyPath: "transform.rotation.z") as? CGFloat)
+            ?? (spin.value(forKeyPath: "transform.rotation.z") as? CGFloat) ?? 0
+        spin.setValue(current, forKeyPath: "transform.rotation.z")
+        let anim = CABasicAnimation(keyPath: "transform.rotation.z")
+        // rotation.z is positive counter-clockwise, so clockwise subtracts.
+        anim.fromValue = current
+        anim.toValue = current + (clockwise ? -2 * .pi : 2 * .pi)
+        anim.duration = period
+        anim.repeatCount = .infinity
+        anim.isRemovedOnCompletion = false
+        anim.timingFunction = CAMediaTimingFunction(name: .linear)
+        spin.add(anim, forKey: "spin")
+    }
+
+    /// This badge's CGWindowID (valid once it's been ordered on-screen), so the
+    /// controller can find it in the global stacking order.
+    var windowNumber: Int { window.windowNumber }
+
+    /// Move the badge to the top-right of its terminal window (`b` = on-screen
+    /// bounds {x,y,w,h}, top-left origin), dropped below the title bar. Pure
+    /// reposition — no z-order touched here, so a drag issues only cheap frame
+    /// moves and never blinks.
+    func place(bounds b: (CGFloat, CGFloat, CGFloat, CGFloat), screenHeight: CGFloat) {
+        let titleBar: CGFloat = 30, rightInset: CGFloat = 10
+        let originX = b.0 + b.2 - rightInset - size
+        let originY = screenHeight - (b.1 + titleBar + size)
+        let frame = NSRect(x: originX, y: originY, width: size, height: size)
+        if lastFrame != frame {
+            window.setFrame(frame, display: false)
+            lastFrame = frame
+        }
+    }
+
+    /// Order the badge directly above its terminal. Called only when the badge
+    /// has fallen behind its terminal (a focus-raise) or isn't on screen yet —
+    /// never on a stable tick — so there's no restack churn to flicker.
+    func raise(above windowNumber: Int) {
+        window.order(.above, relativeTo: windowNumber)
+    }
+
+    func hide() {
+        if window.isVisible { window.orderOut(nil) }
+    }
+    func close() { window.orderOut(nil) }
+}
+
+/// Owns the live badge set, the status→motion mapping, and a light reposition
+/// tick. Energy-conscious: bounds + z-order come from CGWindowList in-process
+/// (no fork); osascript runs only to (re)bind each tty to its CGWindowID, on
+/// membership change / when a binding goes missing / at a slow safety cadence
+/// — never per frame.
+final class PromptSigilOverlayController {
+    static let shared = PromptSigilOverlayController()
+    private init() {}
+
+    private var overlays: [String: PromptSigilOverlay] = [:]
+    private var timer: Timer?
+    /// tty (bare) → CGWindowID of its terminal window.
+    private var binding: [String: Int] = [:]
+    private var needsRebind = false
+    private var bindInFlight = false
+    private var lastBind = Date.distantPast
+    /// Adaptive cadence: idle slow (low energy), but ramp to display rate while
+    /// a tracked window is actually moving so badges snap tight to a drag, then
+    /// settle back once it stops.
+    private var motionDeadline = Date.distantPast
+    private var lastBoundsByNum: [Int: (CGFloat, CGFloat, CGFloat, CGFloat)] = [:]
+    private let idleInterval: TimeInterval = 0.2
+    private let activeInterval: TimeInterval = 1.0 / 60.0
+    private var observerInstalled = false
+    /// Live AX observers per terminal app pid (kept alive by this reference).
+    private var axObservers: [pid_t: AXObserver] = [:]
+
+    /// Non-capturing AX callback → reposition on main. Lexically inside the
+    /// class so it may reach the private singleton + `reposition()`; references
+    /// nothing local, so it converts cleanly to the C function pointer type.
+    private static let axCallback: AXObserverCallback = { _, _, _, _ in
+        DispatchQueue.main.async { PromptSigilOverlayController.shared.reposition() }
+    }
+
+    /// Re-raise behind-the-terminal badges the instant another app activates
+    /// (clicking from another app onto a terminal), rather than waiting for the
+    /// next poll tick — so a cross-app focus has no visible sink.
+    private func installActivationObserverIfNeeded() {
+        guard !observerInstalled else { return }
+        observerInstalled = true
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in self?.reposition() }
+    }
+
+    /// Attach an Accessibility focus observer to each running terminal app, so
+    /// a SAME-app window switch (terminal → terminal, the common tiled case)
+    /// fires kAXFocusedWindowChanged and re-raises the badge instantly instead
+    /// of waiting up to a poll tick. Needs AX trust (the same the tiler uses);
+    /// without it we silently fall back to the poll. Re-scanned each sync() so
+    /// a terminal app launched later gets observed too.
+    private func installAXFocusObservers() {
+        guard AXIsProcessTrusted() else { return }
+        for app in NSWorkspace.shared.runningApplications
+            where Self.terminalBundleIds.contains(app.bundleIdentifier ?? "") {
+            let pid = app.processIdentifier
+            guard axObservers[pid] == nil else { continue }
+            var observer: AXObserver?
+            guard AXObserverCreate(pid, Self.axCallback, &observer) == .success,
+                  let obs = observer else { continue }
+            let appEl = AXUIElementCreateApplication(pid)
+            AXObserverAddNotification(obs, appEl, kAXFocusedWindowChangedNotification as CFString, nil)
+            AXObserverAddNotification(obs, appEl, kAXMainWindowChangedNotification as CFString, nil)
+            AXObserverAddNotification(obs, appEl, kAXApplicationActivatedNotification as CFString, nil)
+            CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(obs), .defaultMode)
+            axObservers[pid] = obs
+        }
+    }
+
+    private static let terminalBundleIds = ["com.apple.Terminal", "com.googlecode.iterm2"]
+
+    private func motion(for state: ClaudeSession.State) -> (Double, Bool) {
+        switch state {
+        case .working:     return (10, true)
+        case .rendering:   return (7,  true)
+        case .awaiting:    return (13, false)
+        case .interrupted: return (26, false)
+        case .complete:    return (38, true)
+        case .blank:       return (80, true)
+        case .stale:       return (44, false)
+        }
+    }
+
+    /// Reconcile the badge set with the live sessions. Off when `enabled` is
+    /// false. Only sessions with a real local tty get a badge.
+    func sync(sessions: [ClaudeSession], enabled: Bool) {
+        guard enabled else { teardown(); return }
+        installActivationObserverIfNeeded()
+        installAXFocusObservers()
+
+        let live = sessions.filter { !$0.tty.isEmpty && $0.remoteHost.isEmpty }
+        let liveIds = Set(live.map { $0.sessionId })
+
+        var membershipChanged = false
+        for (sid, ov) in overlays where !liveIds.contains(sid) {
+            ov.close(); overlays.removeValue(forKey: sid); membershipChanged = true
+        }
+        for s in live {
+            let bare = (s.tty as NSString).lastPathComponent
+            let ov: PromptSigilOverlay
+            if let existing = overlays[s.sessionId], existing.tty == bare {
+                ov = existing
+            } else {
+                overlays[s.sessionId]?.close()
+                ov = PromptSigilOverlay(sessionId: s.sessionId, tty: bare)
+                overlays[s.sessionId] = ov
+                membershipChanged = true
+            }
+            // Seed from session id + prompt: the session id guarantees every
+            // window a distinct rock even when prompts collide (trivial "..",
+            // "yes", blank); the prompt makes the rock re-form as the session
+            // moves to a new prompt.
+            let seed = SigilRenderer.seed(for: s.sessionId + "\u{1}" + s.subject)
+            if ov.renderedSeed != seed {
+                ov.renderedSeed = seed
+                ov.setImage(SigilRenderer.image(seed: seed, size: ov.size))
+            }
+            let (period, cw) = motion(for: s.state)
+            ov.setMotion(period: period, clockwise: cw)
+        }
+
+        if membershipChanged { needsRebind = true }
+        startTimerIfNeeded()
+        reposition()
+    }
+
+    private func teardown() {
+        timer?.invalidate(); timer = nil
+        for (_, ov) in overlays { ov.close() }
+        overlays.removeAll()
+        binding.removeAll()
+        for (_, obs) in axObservers {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(obs), .defaultMode)
+        }
+        axObservers.removeAll()
+    }
+
+    private func startTimerIfNeeded() {
+        guard timer == nil, !overlays.isEmpty else { return }
+        scheduleTick(after: idleInterval)
+    }
+
+    /// Self-rescheduling tick: reposition, then re-arm at the display rate when
+    /// a tracked window moved recently (snappy drag-following) or at the idle
+    /// rate otherwise (low energy when nothing's moving).
+    private func scheduleTick(after interval: TimeInterval) {
+        timer?.invalidate()
+        let t = Timer(timeInterval: max(0, interval), repeats: false) { [weak self] _ in
+            self?.tick()
+        }
+        timer = t
+        RunLoop.main.add(t, forMode: .common)
+    }
+
+    private func tick() {
+        reposition()
+        guard !overlays.isEmpty else { timer = nil; return }
+        scheduleTick(after: Date() < motionDeadline ? activeInterval : idleInterval)
+    }
+
+    /// In-process snapshot of the on-screen window stack. Returns each
+    /// Terminal/iTerm2 window's bounds {x,y,w,h} AND a front-to-back index for
+    /// every normal window (ours included), so we can tell whether a badge is
+    /// already sitting directly in front of its terminal. No fork.
+    private func snapshotWindows()
+        -> (bounds: [Int: (CGFloat, CGFloat, CGFloat, CGFloat)], index: [Int: Int]) {
+        let pids = Set(NSWorkspace.shared.runningApplications
+            .filter { Self.terminalBundleIds.contains($0.bundleIdentifier ?? "") }
+            .map { $0.processIdentifier })
+        guard let infos = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]]
+        else { return ([:], [:]) }
+        var bounds: [Int: (CGFloat, CGFloat, CGFloat, CGFloat)] = [:]
+        var index: [Int: Int] = [:]
+        var i = 0
+        for info in infos {
+            guard let layer = info[kCGWindowLayer as String] as? Int, layer == 0,
+                  let num = info[kCGWindowNumber as String] as? Int
+            else { continue }
+            index[num] = i; i += 1   // front-to-back rank among normal windows
+            if let pid = info[kCGWindowOwnerPID as String] as? pid_t, pids.contains(pid),
+               let b = info[kCGWindowBounds as String] as? [String: CGFloat],
+               let x = b["X"], let y = b["Y"], let w = b["Width"], let h = b["Height"] {
+                bounds[num] = (x, y, w, h)
+            }
+        }
+        return (bounds, index)
+    }
+
+    /// Reposition every badge from the in-process window snapshot. Detects
+    /// window motion (to drive the adaptive cadence) and triggers a throttled
+    /// rebind when bindings go stale.
+    private func reposition() {
+        guard !overlays.isEmpty else { timer?.invalidate(); timer = nil; return }
+        let snap = snapshotWindows()
+        let screenH = NSScreen.main?.frame.height ?? 0
+        var seen: [Int: (CGFloat, CGFloat, CGFloat, CGFloat)] = [:]
+        for (_, ov) in overlays {
+            guard let num = binding[ov.tty], let b = snap.bounds[num] else { ov.hide(); continue }
+            ov.place(bounds: b, screenHeight: screenH)
+            // Raise ONLY when the badge has fallen behind its terminal (focus
+            // raised the terminal above it) or isn't on screen yet. When it's
+            // anywhere in front, leave the stack alone — no restack, no flicker.
+            let behind: Bool = {
+                guard let myIdx = snap.index[ov.windowNumber] else { return true }   // off-screen
+                guard let termIdx = snap.index[num] else { return false }
+                return myIdx > termIdx
+            }()
+            if behind { ov.raise(above: num) }
+            seen[num] = b
+            if let prev = lastBoundsByNum[num], prev != b {
+                // A tracked window moved/resized — hold display rate for a short
+                // tail so the whole drag tracks tightly.
+                motionDeadline = Date().addingTimeInterval(0.3)
+            }
+        }
+        lastBoundsByNum = seen
+        // Rebind ONLY on a membership change (one-shot) or the slow safety
+        // cadence — never per tick, so osascript stays capped at ~once / 5s.
+        if (needsRebind || Date().timeIntervalSince(lastBind) > 5), !bindInFlight {
+            rebind()
+        }
+    }
+
+    /// Establish tty → CGWindowID. osascript gives tty → window bounds (the
+    /// only API that knows a tab's tty); we then match those bounds to the
+    /// in-process CGWindowList snapshot to recover each window's CGWindowID.
+    /// Runs off-main (osascript blocks) and is the sole forking path — gated to
+    /// at most one in flight and a slow cadence.
+    private func rebind() {
+        bindInFlight = true
+        lastBind = Date()
+        needsRebind = false
+        let running = Set(NSWorkspace.shared.runningApplications.compactMap { $0.bundleIdentifier })
+        let wantTerminal = running.contains("com.apple.Terminal")
+        let wantIterm = running.contains("com.googlecode.iterm2")
+        guard wantTerminal || wantIterm else { bindInFlight = false; return }
+        let script = boundsScript(terminal: wantTerminal, iterm: wantIterm)
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let result = ShellRunner.run("/usr/bin/osascript", args: ["-e", script], timeout: 2)
+            var ttyBounds: [String: (CGFloat, CGFloat, CGFloat, CGFloat)] = [:]
+            for line in result.output.split(separator: "\n") {
+                let parts = line.split(separator: "|")
+                guard parts.count == 2 else { continue }
+                let dev = (parts[0].trimmingCharacters(in: .whitespaces) as NSString).lastPathComponent
+                let nums = parts[1].split(separator: ",").compactMap {
+                    Double($0.trimmingCharacters(in: .whitespaces)).map { CGFloat($0) }
+                }
+                guard nums.count == 4 else { continue }
+                // osascript bounds {l,t,r,b} → {x,y,w,h}.
+                ttyBounds[dev] = (nums[0], nums[1], nums[2] - nums[0], nums[3] - nums[1])
+            }
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                // Match against a fresh snapshot (windows may have moved during
+                // the osascript round-trip).
+                let wins = self.snapshotWindows().bounds
+                var newBinding: [String: Int] = [:]
+                for (tty, tb) in ttyBounds {
+                    if let hit = wins.first(where: { Self.boundsMatch($0.value, tb) }) {
+                        newBinding[tty] = hit.key
+                    }
+                }
+                self.binding = newBinding
+                self.bindInFlight = false
+                self.reposition()
+            }
+        }
+    }
+
+    /// Bounds match within a couple of points (osascript ints vs CGWindow
+    /// floats; the occasional 1px rounding).
+    private static func boundsMatch(
+        _ a: (CGFloat, CGFloat, CGFloat, CGFloat), _ b: (CGFloat, CGFloat, CGFloat, CGFloat)
+    ) -> Bool {
+        abs(a.0 - b.0) <= 2 && abs(a.1 - b.1) <= 2 && abs(a.2 - b.2) <= 2 && abs(a.3 - b.3) <= 2
+    }
+
+    /// AppleScript that emits `<dev-tty>|l,t,r,b` per tab/session for the
+    /// running terminals only (never launches a closed one).
+    private func boundsScript(terminal: Bool, iterm: Bool) -> String {
+        var s = "set out to \"\"\n"
+        if terminal {
+            s += """
+            tell application "Terminal"
+                repeat with w in windows
+                    try
+                        set b to bounds of w
+                        set bs to ((item 1 of b) as text) & "," & ((item 2 of b) as text) & "," & ((item 3 of b) as text) & "," & ((item 4 of b) as text)
+                        repeat with t in tabs of w
+                            try
+                                set out to out & (tty of t) & "|" & bs & linefeed
+                            end try
+                        end repeat
+                    end try
+                end repeat
+            end tell
+
+            """
+        }
+        if iterm {
+            s += """
+            tell application "iTerm2"
+                repeat with w in windows
+                    try
+                        set p to position of w
+                        set sz to size of w
+                        set lx to item 1 of p
+                        set ty to item 2 of p
+                        set rx to lx + (item 1 of sz)
+                        set by to ty + (item 2 of sz)
+                        set bs to (lx as text) & "," & (ty as text) & "," & (rx as text) & "," & (by as text)
+                        repeat with t in tabs of w
+                            repeat with ss in sessions of t
+                                try
+                                    set out to out & (tty of ss) & "|" & bs & linefeed
+                                end try
+                            end repeat
+                        end repeat
+                    end try
+                end repeat
+            end tell
+
+            """
+        }
+        s += "return out"
+        return s
+    }
+}

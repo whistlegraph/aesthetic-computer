@@ -292,6 +292,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 ImageGroupPreview.shared.consumeRequests()
                 self.applyTerminalDecor()
                 self.applyDesktopTint()
+                // Per-prompt sigil badges — one little hashed star pinned to
+                // each session's terminal top-right, so prompts are
+                // distinguishable at the per-window grain (theme-by-status
+                // colours the window; this shapes the prompt). Membership +
+                // re-render happen here; the controller's own timer keeps each
+                // badge glued to its window between refreshes.
+                PromptSigilOverlayController.shared.sync(
+                    sessions: self.state.claudeSessions,
+                    enabled: self.state.promptSigils)
             }
         }
     }
@@ -1206,6 +1215,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         lastDesktopTint = ""
         refresh()
         applyTerminalDecor()
+    }
+
+    /// Toggle the per-prompt sigil badges. When on, each live session's
+    /// terminal window wears a little hashed star (SigilRenderer) in its
+    /// top-right corner so prompts are glanceably distinct. Off tears every
+    /// badge down via the controller (the `enabled: false` branch of sync);
+    /// `refresh()` re-reads the flag and drives the controller on the next
+    /// tick, but we call sync directly here too so the toggle is instant.
+    @objc func togglePromptSigils() {
+        let path = Paths.promptSigilsFlag
+        let fm = FileManager.default
+        let nowOn: Bool
+        if fm.fileExists(atPath: path) {
+            try? fm.removeItem(atPath: path)
+            nowOn = false
+        } else {
+            let dir = (path as NSString).deletingLastPathComponent
+            try? fm.createDirectory(atPath: dir, withIntermediateDirectories: true)
+            fm.createFile(atPath: path, contents: nil)
+            nowOn = true
+        }
+        state.promptSigils = nowOn
+        PromptSigilOverlayController.shared.sync(
+            sessions: state.claudeSessions, enabled: nowOn)
+        refresh()
     }
 
     /// Toggle the "spawn in iTerm2" preference: when on, restore-threads /
