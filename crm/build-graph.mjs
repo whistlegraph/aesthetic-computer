@@ -145,7 +145,12 @@ async function main() {
   log(`✅ done in ${((Date.now() - t0) / 1000).toFixed(1)}s — ${triples} triples live`);
 }
 
-main().catch((e) => {
-  console.error("❌ build-graph failed:", e);
-  process.exit(1);
-});
+// Force exit on completion: the MongoDB driver keeps connection-pool handles
+// open, which would otherwise leave Node's event loop alive forever and hang the
+// oneshot systemd unit in "activating" (so the next rebuild can never start).
+main()
+  .then(() => process.exit(0))
+  .catch((e) => {
+    console.error("❌ build-graph failed:", e);
+    process.exit(1);
+  });
