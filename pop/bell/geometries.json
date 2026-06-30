@@ -1,0 +1,8 @@
+{
+  "_note": "Mirrors bell_geometry_preset()/build_profile() in c/bell.c — keep in sync. All lengths in metres. shape: 0 flaring bell, 1 straight tube, 2 hemispherical bowl. The meridian is sampled crown(top)->mouth(bottom); thickness tapers thicker toward the mouth/soundbow.",
+  "church":   { "rMouth": 0.50,   "height": 0.80, "rCrownFrac": 0.34, "hMouth": 0.045,  "hCrown": 0.014,  "flare": 1.7, "shape": 0, "about": "large flaring church/tower bell" },
+  "handbell": { "rMouth": 0.085,  "height": 0.13, "rCrownFrac": 0.30, "hMouth": 0.006,  "hCrown": 0.002,  "flare": 1.8, "shape": 0, "about": "small handbell, bright + quick" },
+  "tubular":  { "rMouth": 0.0159, "height": 1.40, "rCrownFrac": 1.0,  "hMouth": 0.0012, "hCrown": 0.0012, "flare": 1.0, "shape": 1, "about": "orchestral tubular bell (a tuned pipe)" },
+  "bowl":     { "rMouth": 0.11,   "height": 0.07, "rCrownFrac": 1.0,  "hMouth": 0.006,  "hCrown": 0.006,  "flare": 1.0, "shape": 2, "about": "singing bowl — long, pure, beating partials" },
+  "glass":    { "rMouth": 0.045,  "height": 0.12, "rCrownFrac": 0.55, "hMouth": 0.0018, "hCrown": 0.0014, "flare": 1.4, "shape": 0, "about": "thin glass — pair with the glass material" }
+}

@@ -1,0 +1,4 @@
+bell
+*.o
+*.tmp.wav
+*.modes.json

@@ -1,0 +1,10 @@
+{
+  "_note": "Mirrors bell_material_preset() in c/bell.c — keep in sync. E in Pa, rho in kg/m^3, nu dimensionless, loss = damping loss factor eta (sets decay; higher = faster). Pitch is set by E/rho/geometry; decay by loss.",
+  "bronze":   { "E": 1.05e11, "rho": 8800,  "nu": 0.33, "loss": 2.0e-4, "about": "bell bronze (78Cu/22Sn) — the classic" },
+  "brass":    { "E": 1.00e11, "rho": 8500,  "nu": 0.34, "loss": 3.0e-4, "about": "softer, shorter ring" },
+  "steel":    { "E": 2.00e11, "rho": 7850,  "nu": 0.30, "loss": 1.2e-4, "about": "bright, high pitch for size, long ring" },
+  "aluminum": { "E": 0.69e11, "rho": 2700,  "nu": 0.33, "loss": 8.0e-4, "about": "light, dull, fast decay" },
+  "silver":   { "E": 0.83e11, "rho": 10490, "nu": 0.37, "loss": 5.0e-4, "about": "dense, mellow" },
+  "glass":    { "E": 0.70e11, "rho": 2500,  "nu": 0.22, "loss": 6.0e-5, "about": "very long shimmering ring; low nu shifts inharmonicity" },
+  "gold":     { "E": 0.79e11, "rho": 19300, "nu": 0.42, "loss": 9.0e-4, "about": "extremely dense, low + short" }
+}
