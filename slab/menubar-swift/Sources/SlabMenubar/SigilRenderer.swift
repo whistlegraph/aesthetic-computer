@@ -53,7 +53,7 @@ enum SigilRenderer {
     /// `size` is the point size of the square badge, drawn @2x for crisp curves
     /// on retina; the blob's max radius stays under `size/2` so it never clips
     /// as the overlay spins it about its centre.
-    static func image(seed: UInt64, size: CGFloat = 56) -> NSImage {
+    static func image(seed: UInt64, dark: Bool, size: CGFloat = 56) -> NSImage {
         let scale: CGFloat = 2
         guard let rep = NSBitmapImageRep(
             bitmapDataPlanes: nil,
@@ -85,8 +85,12 @@ enum SigilRenderer {
         let lumps = rng.unit()                           // 0 smooth … 1 lumpy
         let rMin: CGFloat = 0.78 - 0.42 * lumps          // lumpier ⇒ deeper notches
         let dip = (rng.unit() - 0.5) * 2.2               // ±~63° bedding: flat … near-vertical
-        let satMood: CGFloat = 0.28 + 0.58 * rng.unit()  // shale-grey … vivid mineral
-        let briMood: CGFloat = 0.52 + 0.30 * rng.unit()
+        // Always vivid — never grey. And themed to the appearance: light-mode
+        // rocks ride bright, dark-mode rocks ride deep, so the wall of rocks
+        // matches the screen.
+        let satMood: CGFloat = 0.66 + 0.34 * rng.unit()  // saturated … fully saturated
+        let briMood: CGFloat = dark ? (0.34 + 0.24 * rng.unit())
+                                    : (0.66 + 0.26 * rng.unit())
 
         // ── Silhouette: hashed radii smoothed into an organic closed curve
         // (Catmull-Rom), then squished on one axis by `aspect` so the specimen
@@ -163,9 +167,11 @@ enum SigilRenderer {
         while y < yTop {
             let bed = bedHSB[bedIndex((y - yBot) / span)]
             let col: NSColor
-            if rng.unit() < 0.05 {
-                col = NSColor(deviceHue: veinHue, saturation: min(1, satMood + 0.30),
-                              brightness: min(1, briMood + 0.28), alpha: 1.0)
+            if rng.unit() < 0.09 {
+                // Neon spot striation: a high-chroma electric fleck (hue spun
+                // off the vein) — pure punch for at-a-glance identifiability.
+                col = NSColor(deviceHue: (veinHue + 0.5 * rng.unit()).truncatingRemainder(dividingBy: 1.0),
+                              saturation: 1.0, brightness: 1.0, alpha: 1.0)
             } else {
                 let jb = (rng.unit() - 0.5) * 0.20            // brightness grain
                 let jh = (rng.unit() - 0.5) * 0.015           // faint hue drift
@@ -176,6 +182,28 @@ enum SigilRenderer {
             // +0.5 overlap so adjacent striations leave no seam.
             fillBand(yLo: y, yHi: y + striation + 0.5, xL: xL, xR: xR, wave: wave, color: col)
             y += striation
+        }
+
+        // ── Gashes: a few cross-cutting fractures slashed across the rock —
+        // neon or quartz-white, at hashed angles/offsets. Two near-perpendicular
+        // gashes read as a cross-mark. Pure identity hardware (and they survive
+        // the spin, so they help tell rocks apart at a glance).
+        let gashes = rng.int(0, 3)
+        for _ in 0..<gashes {
+            let ang = rng.unit() * 2 * .pi
+            let off = (rng.unit() - 0.5) * outer * 1.3
+            let dx = cos(ang), dy = sin(ang)
+            let nx = -dy, ny = dx                          // perpendicular offset dir
+            let g = NSBezierPath()
+            g.move(to: NSPoint(x: cx + nx * off - dx * ext, y: cy + ny * off - dy * ext))
+            g.line(to: NSPoint(x: cx + nx * off + dx * ext, y: cy + ny * off + dy * ext))
+            g.lineWidth = 0.7 + 1.4 * rng.unit()
+            g.lineCapStyle = .round
+            let col = rng.unit() < 0.5
+                ? NSColor(deviceHue: rng.unit(), saturation: 1.0, brightness: 1.0, alpha: 0.95)   // neon
+                : NSColor(deviceWhite: dark ? 0.96 : 0.12, alpha: 0.9)                              // quartz / fault
+            col.setStroke()
+            g.stroke()
         }
 
         let img = NSImage(size: NSSize(width: size, height: size))

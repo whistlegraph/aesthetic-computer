@@ -26,12 +26,18 @@ final class PromptSigilOverlay {
     /// CGWindowID.
     let tty: String
 
-    /// Seed currently drawn; re-rendered only when the prompt changes — never
-    /// on a status change (status is motion).
+    /// Seed + appearance currently drawn; re-rendered when the prompt changes
+    /// or the system flips light/dark (rocks are themed) — never on a status
+    /// change (status is motion + halo colour).
     var renderedSeed: UInt64 = 0
+    var renderedDark: Bool?
     private var motion: (period: Double, clockwise: Bool)?
-    /// Last frame we set, so a stationary badge issues no redundant setFrame.
-    private var lastFrame: NSRect?
+    /// Spring-follow state: `target` is where the terminal wants the badge,
+    /// `current` is where it's drawn. `advance` eases current → target each
+    /// frame so the badge trails its window with a little inertia (reads as
+    /// playful physics rather than tracking lag).
+    private var targetOrigin: NSPoint?
+    private var currentOrigin: NSPoint?
 
     let size: CGFloat = 56
     private let window: NSWindow
@@ -61,14 +67,13 @@ final class PromptSigilOverlay {
         spin.position = CGPoint(x: size / 2, y: size / 2)
         spin.contentsGravity = .resizeAspect
         spin.contentsScale = 2
-        // Tight, status-coloured halo (offset zero so it doesn't sweep as the
-        // rock turns) — a crisp coloured rim that both separates the rock from
-        // the terminal behind it and carries the session's status colour. The
-        // colour is set per status by the controller; this is the default.
+        // Flat, hard-edged status-coloured drop shadow — NO blur (radius 0), a
+        // crisp offset silhouette in the session's status colour. Set per status
+        // by the controller; this is the default.
         spin.shadowColor = NSColor.systemGray.cgColor
-        spin.shadowOpacity = 0.95
-        spin.shadowRadius = 1.1
-        spin.shadowOffset = .zero
+        spin.shadowOpacity = 1.0
+        spin.shadowRadius = 0
+        spin.shadowOffset = CGSize(width: 2.5, height: -2.5)
         view.layer?.addSublayer(spin)
         window.contentView = view
     }
@@ -109,19 +114,46 @@ final class PromptSigilOverlay {
     /// controller can find it in the global stacking order.
     var windowNumber: Int { window.windowNumber }
 
-    /// Move the badge to the top-right of its terminal window (`b` = on-screen
-    /// bounds {x,y,w,h}, top-left origin), dropped below the title bar. Pure
-    /// reposition — no z-order touched here, so a drag issues only cheap frame
-    /// moves and never blinks.
+    /// Aim the badge at the top-right of its terminal window (`b` = on-screen
+    /// bounds {x,y,w,h}, top-left origin), dropped below the title bar. Sets the
+    /// spring TARGET only; `advance` does the actual easing. First placement
+    /// snaps (no spring from off-screen). No z-order touched here.
     func place(bounds b: (CGFloat, CGFloat, CGFloat, CGFloat), screenHeight: CGFloat) {
         let titleBar: CGFloat = 30, rightInset: CGFloat = 10
         let originX = b.0 + b.2 - rightInset - size
         let originY = screenHeight - (b.1 + titleBar + size)
-        let frame = NSRect(x: originX, y: originY, width: size, height: size)
-        if lastFrame != frame {
-            window.setFrame(frame, display: false)
-            lastFrame = frame
+        let t = NSPoint(x: originX, y: originY)
+        targetOrigin = t
+        if currentOrigin == nil {                 // first appearance: snap there
+            currentOrigin = t
+            window.setFrameOrigin(t)
         }
+    }
+
+    /// Ease the badge toward its target by a frame-rate-independent step.
+    /// Returns true while still settling (so the controller keeps the
+    /// animation loop warm), false once it's arrived. `tau` is the follow time
+    /// constant — smaller is snappier, larger is floatier.
+    @discardableResult
+    func advance(dt: CGFloat) -> Bool {
+        guard let target = targetOrigin else { return false }
+        guard var cur = currentOrigin else {
+            currentOrigin = target; window.setFrameOrigin(target); return false
+        }
+        let dx = target.x - cur.x, dy = target.y - cur.y
+        if abs(dx) < 0.4 && abs(dy) < 0.4 {
+            if cur != target { window.setFrameOrigin(target); currentOrigin = target }
+            return false
+        }
+        // Big time constant = very floaty, delayed follow — the rock drifts
+        // lazily after its window and coasts in.
+        let tau: CGFloat = 0.42
+        let alpha = 1 - exp(-dt / tau)
+        cur.x += dx * alpha
+        cur.y += dy * alpha
+        currentOrigin = cur
+        window.setFrameOrigin(cur)
+        return true
     }
 
     /// Order the badge directly above its terminal. Called only when the badge
@@ -160,6 +192,11 @@ final class PromptSigilOverlayController {
     private var lastBoundsByNum: [Int: (CGFloat, CGFloat, CGFloat, CGFloat)] = [:]
     private let idleInterval: TimeInterval = 0.2
     private let activeInterval: TimeInterval = 1.0 / 60.0
+    /// The cadence currently scheduled, so an AX/move event can promote the
+    /// loop from idle to display-rate immediately without restarting a timer
+    /// that's already fast (which would starve under a stream of events).
+    private var currentInterval: TimeInterval = 0.2
+    private var lastTick = Date.distantPast
     private var observerInstalled = false
     /// Live AX observers per terminal app pid (kept alive by this reference).
     private var axObservers: [pid_t: AXObserver] = [:]
@@ -201,6 +238,17 @@ final class PromptSigilOverlayController {
         let screenH = NSScreen.main?.frame.height ?? 0
         ov.place(bounds: (p.x, p.y, s.width, s.height), screenHeight: screenH)
         lastBoundsByNum[num] = (p.x, p.y, s.width, s.height)
+        promote()   // keep the spring loop warm so the badge eases to the new target
+    }
+
+    /// Promote the animation loop to display rate now (e.g. a drag started),
+    /// without restarting an already-fast timer — so a stream of AX move events
+    /// doesn't continually push the next fire out and starve the loop.
+    private func promote() {
+        motionDeadline = Date().addingTimeInterval(0.3)
+        if currentInterval > activeInterval + 1e-6 {
+            scheduleTick(after: activeInterval)
+        }
     }
 
     /// Read an AXValue geometry attribute (point or size) off an element.
@@ -291,6 +339,7 @@ final class PromptSigilOverlayController {
 
         let live = sessions.filter { !$0.tty.isEmpty && $0.remoteHost.isEmpty }
         let liveIds = Set(live.map { $0.sessionId })
+        let dark = AppDelegate.isDarkAppearance()
 
         var membershipChanged = false
         for (sid, ov) in overlays where !liveIds.contains(sid) {
@@ -312,9 +361,10 @@ final class PromptSigilOverlayController {
             // "yes", blank); the prompt makes the rock re-form as the session
             // moves to a new prompt.
             let seed = SigilRenderer.seed(for: s.sessionId + "\u{1}" + s.subject)
-            if ov.renderedSeed != seed {
+            if ov.renderedSeed != seed || ov.renderedDark != dark {
                 ov.renderedSeed = seed
-                ov.setImage(SigilRenderer.image(seed: seed, size: ov.size))
+                ov.renderedDark = dark
+                ov.setImage(SigilRenderer.image(seed: seed, dark: dark, size: ov.size))
             }
             let (period, cw) = motion(for: s.state)
             ov.setMotion(period: period, clockwise: cw)
@@ -346,6 +396,7 @@ final class PromptSigilOverlayController {
     /// a tracked window moved recently (snappy drag-following) or at the idle
     /// rate otherwise (low energy when nothing's moving).
     private func scheduleTick(after interval: TimeInterval) {
+        currentInterval = interval
         timer?.invalidate()
         let t = Timer(timeInterval: max(0, interval), repeats: false) { [weak self] _ in
             self?.tick()
@@ -355,9 +406,20 @@ final class PromptSigilOverlayController {
     }
 
     private func tick() {
-        reposition()
+        let now = Date()
+        // Clamp dt so a long idle gap (or first tick) doesn't teleport the
+        // spring — it should always ease, never jump.
+        let dt = CGFloat(min(0.1, max(0.001, now.timeIntervalSince(lastTick))))
+        lastTick = now
+
+        reposition()                       // refresh targets + z-order
         guard !overlays.isEmpty else { timer = nil; return }
-        scheduleTick(after: Date() < motionDeadline ? activeInterval : idleInterval)
+        var settling = false
+        for (_, ov) in overlays where ov.advance(dt: dt) { settling = true }
+        // Stay at display rate while a window moved recently OR a badge is still
+        // catching up to its target; otherwise drop to the idle poll.
+        let active = now < motionDeadline || settling
+        scheduleTick(after: active ? activeInterval : idleInterval)
     }
 
     /// In-process snapshot of the on-screen window stack. Returns each
