@@ -29,12 +29,24 @@ async function documentLoader(url) {
   throw new Error(`refusing to fetch remote document: ${url}`);
 }
 
-// One Linked Art doc → N-Triples string (default graph).
-export async function docToNTriples(doc) {
-  return jsonld.toRDF(doc, { format: "application/n-quads", documentLoader });
+// jsonld.toRDF restarts blank-node labels at _:b0 on every call. Concatenating
+// many docs' N-Triples into one document would then UNIFY every doc's _:b0
+// (Production events, time-spans, rights) into a single node — silently merging
+// authorship across works. So we make each doc's blank nodes globally unique by
+// prefixing them with a per-doc counter before concatenation.
+let docCounter = 0;
+
+function uniquifyBlankNodes(nt, id) {
+  return nt.replace(/_:(b\d+)/g, `_:d${id}$1`);
 }
 
-// Many docs → a single concatenated N-Triples dump.
+// One Linked Art doc → N-Triples string with blank nodes scoped to this doc.
+export async function docToNTriples(doc) {
+  const nt = await jsonld.toRDF(doc, { format: "application/n-quads", documentLoader });
+  return uniquifyBlankNodes(nt, docCounter++);
+}
+
+// Many docs → a single concatenated N-Triples dump (blank nodes stay distinct).
 export async function docsToNTriples(docs) {
   const chunks = [];
   for (const doc of docs) chunks.push(await docToNTriples(doc));
