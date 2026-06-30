@@ -132,34 +132,50 @@ enum SigilRenderer {
         let phase = rng.unit() * 2 * .pi
         func wave(_ x: CGFloat) -> CGFloat { amp * sin(freq * x + phase) }
 
-        // Band regime is bimodal: a few thick beds OR many fine laminations —
-        // two visibly different rock textures. Beds alternate light/dark for
-        // the stratified look; veins are rare and thin.
-        let layers = rng.unit() < 0.5 ? rng.int(4, 8) : rng.int(15, 28)
-        var beds: [(color: NSColor, weight: CGFloat)] = []
-        beds.reserveCapacity(layers)
-        for i in 0..<layers {
-            if rng.unit() < 0.12 {
-                let c = NSColor(deviceHue: veinHue,
-                                saturation: min(1, satMood + 0.30),
-                                brightness: min(1, briMood + 0.25), alpha: 1.0)
-                beds.append((c, 0.20 + 0.15 * rng.unit()))                    // vein
-            } else {
-                let dark = (i % 2 == 0)
-                let bri = max(0.18, min(1, briMood * (dark ? 0.66 : 1.06) + (rng.unit() - 0.5) * 0.12))
-                let sat = max(0.0, min(1, satMood + (rng.unit() - 0.5) * 0.18))
-                let c = NSColor(deviceHue: hue(rng.int(0, 2)),
-                                saturation: sat, brightness: bri, alpha: 1.0)
-                beds.append((c, 0.5 + 1.4 * rng.unit()))                      // bed
-            }
+        // ── A few major beds set large-scale colour regions; the rock is then
+        // filled with MANY fine striations whose colour follows the bed they
+        // land in but carry per-striation brightness grain — so it reads like
+        // real laminated rock (fine, firm layering) instead of flat bands.
+        let bedCount = rng.int(3, 6)
+        var bedHSB: [(h: CGFloat, s: CGFloat, b: CGFloat)] = []
+        var bedEdge: [CGFloat] = []           // cumulative top fraction per bed
+        let weights: [CGFloat] = (0..<bedCount).map { _ in 0.5 + rng.unit() }
+        let wsum = weights.reduce(0, +)
+        var acc: CGFloat = 0
+        for i in 0..<bedCount {
+            let darkBed = (i % 2 == 0)
+            let s = max(0, min(1, satMood + (rng.unit() - 0.5) * 0.16))
+            let b = max(0.16, min(1, briMood * (darkBed ? 0.68 : 1.06) + (rng.unit() - 0.5) * 0.10))
+            bedHSB.append((hue(rng.int(0, 2)), s, b))
+            acc += weights[i] / wsum
+            bedEdge.append(acc)
         }
-        let wsum = beds.reduce(0) { $0 + $1.weight }
+        func bedIndex(_ frac: CGFloat) -> Int {
+            for i in 0..<bedCount where frac <= bedEdge[i] { return i }
+            return bedCount - 1
+        }
 
+        // Fine striations: thin folded lines (~1px), brightness-jittered for
+        // grain, with the odd brighter mineral fleck.
+        let span = yTop - yBot
+        let striation = max(0.7, span * 0.012)
         var y = yBot
-        for bed in beds {
-            let h = (bed.weight / wsum) * (yTop - yBot)
-            fillBand(yLo: y, yHi: y + h, xL: xL, xR: xR, wave: wave, color: bed.color)
-            y += h
+        while y < yTop {
+            let bed = bedHSB[bedIndex((y - yBot) / span)]
+            let col: NSColor
+            if rng.unit() < 0.05 {
+                col = NSColor(deviceHue: veinHue, saturation: min(1, satMood + 0.30),
+                              brightness: min(1, briMood + 0.28), alpha: 1.0)
+            } else {
+                let jb = (rng.unit() - 0.5) * 0.20            // brightness grain
+                let jh = (rng.unit() - 0.5) * 0.015           // faint hue drift
+                col = NSColor(deviceHue: (bed.h + jh + 1).truncatingRemainder(dividingBy: 1.0),
+                              saturation: bed.s,
+                              brightness: max(0.10, min(1, bed.b + jb)), alpha: 1.0)
+            }
+            // +0.5 overlap so adjacent striations leave no seam.
+            fillBand(yLo: y, yHi: y + striation + 0.5, xL: xL, xR: xR, wave: wave, color: col)
+            y += striation
         }
 
         let img = NSImage(size: NSSize(width: size, height: size))

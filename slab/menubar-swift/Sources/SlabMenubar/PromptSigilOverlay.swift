@@ -2,6 +2,12 @@ import AppKit
 import CoreGraphics
 import ApplicationServices
 
+/// Private (but stable, widely-used by window managers) bridge from an AX
+/// window element to its CGWindowID — lets a kAXWindowMoved callback map the
+/// moved window back to the badge bound to it.
+@_silgen_name("_AXUIElementGetWindow")
+private func _AXUIElementGetWindow(_ element: AXUIElement, _ windowID: UnsafeMutablePointer<CGWindowID>) -> AXError
+
 /// One borderless, click-through badge window holding a session's per-prompt
 /// sigil, parked top-right under the title bar of its terminal window. The
 /// sigil image is still (shape + strata = which prompt); the badge spins it
@@ -55,18 +61,28 @@ final class PromptSigilOverlay {
         spin.position = CGPoint(x: size / 2, y: size / 2)
         spin.contentsGravity = .resizeAspect
         spin.contentsScale = 2
-        // Soft symmetric halo (offset zero so it doesn't sweep as the rock
-        // turns) — separates a same-coloured bed from the terminal behind it
-        // without any disc or outline.
-        spin.shadowColor = NSColor.black.cgColor
-        spin.shadowOpacity = 0.28
-        spin.shadowRadius = 2.5
+        // Tight, status-coloured halo (offset zero so it doesn't sweep as the
+        // rock turns) — a crisp coloured rim that both separates the rock from
+        // the terminal behind it and carries the session's status colour. The
+        // colour is set per status by the controller; this is the default.
+        spin.shadowColor = NSColor.systemGray.cgColor
+        spin.shadowOpacity = 0.95
+        spin.shadowRadius = 1.1
         spin.shadowOffset = .zero
         view.layer?.addSublayer(spin)
         window.contentView = view
     }
 
     func setImage(_ image: NSImage) { spin.contents = image }
+
+    /// Tint the crisp halo with the session's status colour. No-op when
+    /// unchanged so we don't churn the layer.
+    private var shadowColor: NSColor?
+    func setShadowColor(_ color: NSColor) {
+        guard shadowColor != color else { return }
+        shadowColor = color
+        spin.shadowColor = color.cgColor
+    }
 
     /// Apply a status-driven spin. No-op when unchanged so the rotation never
     /// stutters. On change we continue from the current presentation angle at
@@ -148,11 +164,57 @@ final class PromptSigilOverlayController {
     /// Live AX observers per terminal app pid (kept alive by this reference).
     private var axObservers: [pid_t: AXObserver] = [:]
 
-    /// Non-capturing AX callback → reposition on main. Lexically inside the
-    /// class so it may reach the private singleton + `reposition()`; references
-    /// nothing local, so it converts cleanly to the C function pointer type.
-    private static let axCallback: AXObserverCallback = { _, _, _, _ in
-        DispatchQueue.main.async { PromptSigilOverlayController.shared.reposition() }
+    /// Non-capturing AX callback → route on main. Lexically inside the class so
+    /// it may reach the private singleton; captures nothing local, so it
+    /// converts cleanly to the C function pointer type. A window move/resize
+    /// snaps that one badge from the moved window's live AX geometry; a focus
+    /// change re-raises behind badges.
+    private static let axCallback: AXObserverCallback = { _, element, notification, _ in
+        let note = notification as String
+        DispatchQueue.main.async {
+            PromptSigilOverlayController.shared.handleAX(note: note, window: element)
+        }
+    }
+
+    func handleAX(note: String, window: AXUIElement) {
+        if note == kAXWindowMovedNotification as String
+            || note == kAXWindowResizedNotification as String {
+            snapFromAX(window)
+        } else {
+            reposition()   // focus / activation → re-raise behind badges
+        }
+    }
+
+    /// Reposition the one badge bound to `window` directly from the window's
+    /// LIVE AX position/size — fires per drag-frame, so the badge moves on the
+    /// same frame as the window (no CGWindowList lag). z-order is left alone
+    /// (the window stays frontmost through a drag), so no restack/flicker.
+    private func snapFromAX(_ window: AXUIElement) {
+        var wid = CGWindowID(0)
+        guard _AXUIElementGetWindow(window, &wid) == .success, wid != 0 else { return }
+        let num = Int(wid)
+        guard let tty = binding.first(where: { $0.value == num })?.key,
+              let ov = overlays.values.first(where: { $0.tty == tty }),
+              let p = axValue(window, kAXPositionAttribute, .cgPoint) as? CGPoint,
+              let s = axValue(window, kAXSizeAttribute, .cgSize) as? CGSize
+        else { return }
+        let screenH = NSScreen.main?.frame.height ?? 0
+        ov.place(bounds: (p.x, p.y, s.width, s.height), screenHeight: screenH)
+        lastBoundsByNum[num] = (p.x, p.y, s.width, s.height)
+    }
+
+    /// Read an AXValue geometry attribute (point or size) off an element.
+    private func axValue(_ el: AXUIElement, _ attr: String, _ type: AXValueType) -> Any? {
+        var ref: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(el, attr as CFString, &ref) == .success,
+              let v = ref, CFGetTypeID(v) == AXValueGetTypeID() else { return nil }
+        if type == .cgPoint {
+            var p = CGPoint.zero
+            return AXValueGetValue(v as! AXValue, .cgPoint, &p) ? p : nil
+        } else {
+            var sz = CGSize.zero
+            return AXValueGetValue(v as! AXValue, .cgSize, &sz) ? sz : nil
+        }
     }
 
     /// Re-raise behind-the-terminal badges the instant another app activates
@@ -186,12 +248,27 @@ final class PromptSigilOverlayController {
             AXObserverAddNotification(obs, appEl, kAXFocusedWindowChangedNotification as CFString, nil)
             AXObserverAddNotification(obs, appEl, kAXMainWindowChangedNotification as CFString, nil)
             AXObserverAddNotification(obs, appEl, kAXApplicationActivatedNotification as CFString, nil)
+            // Window-level move/resize on the app element fire per drag-frame
+            // with the moved window passed back — this is what makes the badge
+            // snap to a drag instead of lagging the CGWindowList poll.
+            AXObserverAddNotification(obs, appEl, kAXWindowMovedNotification as CFString, nil)
+            AXObserverAddNotification(obs, appEl, kAXWindowResizedNotification as CFString, nil)
             CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(obs), .defaultMode)
             axObservers[pid] = obs
         }
     }
 
     private static let terminalBundleIds = ["com.apple.Terminal", "com.googlecode.iterm2"]
+
+    /// The session's status colour (the same per-status `cursor` accent the
+    /// menubar polygon + themed terminals use), for the badge's halo.
+    private func statusColor(for state: ClaudeSession.State) -> NSColor {
+        let dark = AppDelegate.isDarkAppearance()
+        let cur = AppDelegate.statusDecor(for: state, dark: dark).palette.cursor
+            ?? (32768, 32768, 32768)
+        return NSColor(deviceRed: CGFloat(cur.0) / 65535, green: CGFloat(cur.1) / 65535,
+                       blue: CGFloat(cur.2) / 65535, alpha: 1.0)
+    }
 
     private func motion(for state: ClaudeSession.State) -> (Double, Bool) {
         switch state {
@@ -241,6 +318,7 @@ final class PromptSigilOverlayController {
             }
             let (period, cw) = motion(for: s.state)
             ov.setMotion(period: period, clockwise: cw)
+            ov.setShadowColor(statusColor(for: s.state))
         }
 
         if membershipChanged { needsRebind = true }
