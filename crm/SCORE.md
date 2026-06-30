@@ -1,27 +1,26 @@
 # CRM — Linked Open Data for Aesthetic Computer
 
 **Status:** ✅ Stage 1 LIVE at https://data.aesthetic.computer (deployed
-2026-06-29; `@jeffrey` opted in, CC-BY-4.0) · **Owner:** @jeffrey ·
-**Drafted:** 2026-06-28
+2026-06-29; **open to all public handles**, In-Copyright by default; `@jeffrey`
+& `@fifi` upgraded to CC-BY-4.0) · **Owner:** @jeffrey · **Drafted:** 2026-06-28
 
-Live & verified: landing, `/@jeffrey` (Person), `/painting/f9i` (image URL
-resolves 200), `/mood/jeffrey/{rkey}`, `/.well-known/void`, content negotiation
-(JSON-LD vs. HTML), and the consent gate (`/@sat` → 404). Cloudflare `data` A
-record (→ 209.38.133.33, proxied) created via vault token.
+Live & verified: landing recent-records feed (all public contributors),
+`/@{handle}` (Person), `/painting/{code}` (image URLs resolve 200),
+`/mood/{handle}/{rkey}`, `/.well-known/void`, content negotiation (JSON-LD vs.
+HTML), and opt-out exclusion. Cloudflare `data` A record (→ 209.38.133.33,
+proxied) created via vault token.
 
 **Stage 1 ships in these files:**
-- `system/backend/linked-art.mjs` — pure Linked Art serializers (person/painting/piece/mood) + license registry.
-- `system/netlify/functions/crm.mjs` — endpoint: path routing, Stage-0 consent gate, content negotiation, landing, VoID, 501 SPARQL stub.
-- `system/tests/linked-art.test.mjs` — `node --test system/tests/linked-art.test.mjs` (6 passing).
+- `system/backend/linked-art.mjs` — pure Linked Art serializers + license/rights registry (CC + rightsstatements.org InC).
+- `system/netlify/functions/crm.mjs` — endpoint: path routing, `rightsFor` (open-by-default/In-Copyright, opt-out, CC upgrade), content negotiation, recent-records landing, VoID, 501 SPARQL stub.
+- `system/tests/linked-art.test.mjs` — `node --test system/tests/linked-art.test.mjs` (7 passing).
 - `lith/server.mjs` — host rewrite `data.aesthetic.computer/* → /api/crm/*`.
 - `lith/Caddyfile` — `@data` host block → lith.
 
-**To go live:** (1) create the Cloudflare `data` record in the `aesthetic.computer`
-zone → lith origin `209.38.133.33` (add to `lith/DNS.md`); (2) deploy lith
-(`fish lith/deploy.fish`); (3) opt a handle in:
-`db['@handles'].updateOne({handle:'sat'}, {$set:{linkedData:{enabled:true, license:'CC-BY-4.0', optInAt:new Date()}}})`.
-Until a handle opts in, every entity correctly 404s. In dev, `?preview=CC-BY-4.0`
-bypasses the gate to validate serialization without touching live data.
+**Rights controls** (set by hand in `@handles` until a self-serve toggle lands):
+- opt out: `{$set:{linkedData:{enabled:false}}}` → excluded entirely.
+- CC upgrade: `{$set:{linkedData:{enabled:true, license:'CC-BY-4.0', optInAt:new Date()}}}`.
+- default (no flag) → In Copyright. In dev, `?preview=CC-BY-4.0` forces a license for validation.
 
 Expose AC users' work as **dereferenceable linked data** so cultural-heritage
 researchers (Getty, museums, the American Art Collaborative) can discover,
@@ -211,22 +210,30 @@ Skip `deleted:true`.
 
 ---
 
-## 5. Consent & rights — **the gate (Stage 0, non-negotiable)**
+## 5. Rights — open records by default, In Copyright (the museum model)
 
-Getty pipelines *reject objects with no rights statement*, and broadcasting a
-user's full corpus to the permanent semantic web demands explicit, revocable
-consent. Mirror the Bluesky allowlist exactly:
+The work shown here is *already public* on aesthetic.computer; a linked-data
+record is a catalog entry describing it (authorship, date, type, image link) —
+exactly what museums publish for living artists' in-copyright work. So the model
+is **open by default**, not an opt-in allowlist:
 
-- Add `@handles.linkedData = { enabled: bool, license: "CC-BY-4.0" | "CC0-1.0" | ... , optInAt: Date }`
-  (or a `secrets.crm.handles` allowlist for a curated v1).
-- **Nothing without a license.** No flag → entity 404s for `ld+json` and is
-  absent from SPARQL.
-- Revocation removes triples from the store and flips `ld+json` to 410 Gone.
+- Every public handle's records are live, marked **In Copyright**
+  (`http://rightsstatements.org/vocab/InC/1.0/` — the Europeana/DPLA standard):
+  the record is open + citable, but copyright and the right to sell stay with
+  the artist. This is what Getty pipelines need (a rights statement) without us
+  granting reuse rights on anyone's behalf.
+- `@handles.linkedData = { enabled, license, optInAt }` is now an **upgrade /
+  opt-out** flag, not a gate:
+  - `enabled === false` → excluded entirely (opt-out).
+  - `license` is a CC key (`CC-BY-4.0`, `CC0-1.0`, …) → that open license.
+  - otherwise (default) → In Copyright.
+- Why not default to CC-BY: CC-BY grants *third parties* commercial reuse, which
+  would undercut artists' own ability to sell. In Copyright preserves it.
 - Privacy floor: never emit email, Auth0 `sub`, IP/boot telemetry, chat, or
   `verifications`. Only public handle + the four content types above.
 
-A `prompt`-driven command (`linkdata on cc-by` / `linkdata off`) is the natural
-user-facing toggle, parallel to how moods are posted.
+A `prompt`-driven command (`linkdata cc-by` / `linkdata off`) is the natural
+self-serve toggle later; for now it's set by hand in `@handles`.
 
 ---
 

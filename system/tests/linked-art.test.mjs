@@ -94,3 +94,9 @@ test("no license → no rights statement (gate is upstream, serializer stays hon
   const doc = paintingToLinkedArt({ code: "x", handle: "sat", when: new Date(), license: undefined });
   assert.deepEqual(doc.subject_to, []);
 });
+
+test("In Copyright default → rightsstatements.org InC statement", () => {
+  const doc = paintingToLinkedArt({ code: "x", handle: "sat", when: new Date(), license: "InC" });
+  assert.equal(doc.subject_to[0].classified_as[0].id, "http://rightsstatements.org/vocab/InC/1.0/");
+  assert.equal(doc.subject_to[0]._label, "In Copyright");
+});

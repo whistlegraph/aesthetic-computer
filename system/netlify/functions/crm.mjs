@@ -23,6 +23,8 @@ import { respond } from "../../backend/http.mjs";
 import { handleFor } from "../../backend/authorization.mjs";
 import {
   LICENSES,
+  RIGHTS_STATEMENTS,
+  DEFAULT_RIGHTS,
   isLicense,
   personToLinkedArt,
   paintingToLinkedArt,
@@ -45,15 +47,22 @@ function segmentsFrom(path) {
   return p.split("/").map(decodeURIComponent).filter(Boolean);
 }
 
-// Read the consent + license for a handle (without the leading @).
-async function consentFor(database, handle) {
+// Resolve the rights a handle's works are published under.
+//   • handle doesn't exist                 → null (nothing to show)
+//   • explicit opt-out (enabled === false) → null (excluded by the artist)
+//   • opted in with a CC license           → that license (open reuse)
+//   • any other public handle (default)    → "InC" In Copyright: the record is
+//     open and citable, but copyright + the right to sell stay with the artist.
+async function rightsFor(database, handle) {
   if (!handle) return null;
   const doc = await database.db
     .collection("@handles")
     .findOne({ handle: handle.replace(/^@/, "") });
-  const ld = doc?.linkedData;
-  if (!ld?.enabled || !isLicense(ld.license)) return null;
-  return { handle: doc.handle, license: ld.license };
+  if (!doc) return null;
+  const ld = doc.linkedData;
+  if (ld?.enabled === false) return null;
+  const license = isLicense(ld?.license) ? ld.license : DEFAULT_RIGHTS;
+  return { handle: doc.handle, license };
 }
 
 // In dev, ?preview=CC-BY-4.0 bypasses the gate so we can validate serialization
@@ -115,7 +124,7 @@ export async function handler(event) {
     // Person: /@handle
     if (segs[0].startsWith("@")) {
       const handle = segs[0].slice(1);
-      const consent = previewLicense(event) ? { handle, license: previewLicense(event) } : await consentFor(database, handle);
+      const consent = previewLicense(event) ? { handle, license: previewLicense(event) } : await rightsFor(database, handle);
       if (!consent) return respond(404, { message: "Not found" });
 
       const latestMood = await database.db
@@ -131,7 +140,7 @@ export async function handler(event) {
       const p = await database.db.collection("paintings").findOne({ code: segs[1] });
       if (!p || p.nuked) return respond(404, { message: "Not found" });
       const handle = await handleFor(p.user);
-      const consent = previewLicense(event) ? { handle, license: previewLicense(event) } : await consentFor(database, handle);
+      const consent = previewLicense(event) ? { handle, license: previewLicense(event) } : await rightsFor(database, handle);
       if (!consent || !handle) return respond(404, { message: "Not found" });
 
       const imageUrl = paintingImageUrl(handle, p.slug, p.user);
@@ -146,7 +155,7 @@ export async function handler(event) {
         (await database.db.collection("kidlisp").findOne({ code: segs[1] }));
       if (!piece || piece.user == null) return respond(404, { message: "Not found" });
       const handle = await handleFor(piece.user);
-      const consent = previewLicense(event) ? { handle, license: previewLicense(event) } : await consentFor(database, handle);
+      const consent = previewLicense(event) ? { handle, license: previewLicense(event) } : await rightsFor(database, handle);
       if (!consent || !handle) return respond(404, { message: "Not found" });
 
       const doc = pieceToLinkedArt({
@@ -164,7 +173,7 @@ export async function handler(event) {
     if (segs[0] === "mood" && segs[1] && segs[2]) {
       const handle = segs[1].replace(/^@/, "");
       const rkey = segs[2];
-      const consent = previewLicense(event) ? { handle, license: previewLicense(event) } : await consentFor(database, handle);
+      const consent = previewLicense(event) ? { handle, license: previewLicense(event) } : await rightsFor(database, handle);
       if (!consent) return respond(404, { message: "Not found" });
 
       const sub = await subForHandle(database, consent.handle);
@@ -204,16 +213,21 @@ function finish(event, doc, webUrl) {
 }
 
 function voidDoc() {
-  const licenses = Object.values(LICENSES).map(([id]) => id);
+  const rights = [
+    ...Object.values(RIGHTS_STATEMENTS).map(([id]) => id),
+    ...Object.values(LICENSES).map(([id]) => id),
+  ];
   return jsonld({
     "@context": { void: "http://rdfs.org/ns/void#", dcterms: "http://purl.org/dc/terms/" },
     "@id": `${DATA_BASE}/.well-known/void`,
     "@type": "void:Dataset",
     "dcterms:title": "Aesthetic Computer — Linked Open Data",
     "dcterms:description":
-      "Opted-in paintings, pieces, moods, and people from Aesthetic Computer, " +
-      "expressed as Linked Art (a JSON-LD profile of CIDOC CRM).",
-    "dcterms:license": licenses,
+      "Public paintings, pieces, moods, and people from Aesthetic Computer, " +
+      "expressed as Linked Art (a JSON-LD profile of CIDOC CRM). Records are " +
+      "open and citable; works are In Copyright unless an artist has chosen a " +
+      "Creative Commons license.",
+    "dcterms:rights": rights,
     "void:uriSpace": `${DATA_BASE}/`,
     "void:rootResource": DATA_BASE,
   });
@@ -238,28 +252,70 @@ function esc(s) {
   return String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 }
 
-// Landing page — the human front door. Lists the opted-in people and a sample
-// of their actual records, and points researchers at the standards + tooling
-// that can consume them. Modeled on at.aesthetic.computer's people+media feed.
+function rightsLabel(key) {
+  return key === DEFAULT_RIGHTS ? "in copyright" : key;
+}
+
+// Landing page — the human front door. Builds a recent-records feed across ALL
+// public contributors (opt-outs excluded), each labeled with its rights, and
+// points researchers at the standards + tooling that can consume the data.
+// Modeled on at.aesthetic.computer's people+media feed.
 async function landing(database) {
-  const optedIn = await database.db
-    .collection("@handles")
-    .find({ "linkedData.enabled": true })
-    .limit(60)
+  const db = database.db;
+
+  // Recent painting activity across all attributed (non-anonymous) users.
+  const recent = await db
+    .collection("paintings")
+    .find({ nuked: { $ne: true }, user: { $ne: null } })
+    .sort({ when: -1 })
+    .limit(300)
     .toArray();
 
-  // For each opted-in person, pull a few recent records to actually show.
-  const people = await Promise.all(
-    optedIn.map(async (h) => {
-      const sub = h._id;
-      const [paintings, mood, paintingCount] = await Promise.all([
-        database.db.collection("paintings").find({ user: sub, nuked: { $ne: true } }).sort({ when: -1 }).limit(4).toArray(),
-        database.db.collection("moods").findOne({ user: sub, deleted: { $ne: true } }, { sort: { when: -1 } }),
-        database.db.collection("paintings").countDocuments({ user: sub, nuked: { $ne: true } }),
-      ]);
-      return { handle: h.handle, license: h.linkedData.license, paintings, mood, paintingCount };
-    }),
-  );
+  // Distinct users in recency order, keeping up to 4 thumbnails each.
+  const order = [];
+  const bySub = new Map();
+  for (const pt of recent) {
+    if (!bySub.has(pt.user)) { bySub.set(pt.user, []); order.push(pt.user); }
+    const arr = bySub.get(pt.user);
+    if (arr.length < 4) arr.push(pt);
+  }
+
+  // Resolve handles + rights in one query; drop handleless + opted-out users.
+  const handleDocs = await db.collection("@handles").find({ _id: { $in: order } }).toArray();
+  const handleBySub = new Map(handleDocs.map((h) => [h._id, h]));
+  const shownSubs = order
+    .filter((sub) => {
+      const h = handleBySub.get(sub);
+      return h?.handle && h.linkedData?.enabled !== false; // exclude opt-outs
+    })
+    .slice(0, 24);
+
+  // Total painting counts + latest mood per shown user — one aggregation each.
+  const [countDocs, moodDocs] = await Promise.all([
+    db.collection("paintings").aggregate([
+      { $match: { user: { $in: shownSubs }, nuked: { $ne: true } } },
+      { $group: { _id: "$user", n: { $sum: 1 } } },
+    ]).toArray(),
+    db.collection("moods").aggregate([
+      { $match: { user: { $in: shownSubs }, deleted: { $ne: true } } },
+      { $sort: { when: -1 } },
+      { $group: { _id: "$user", mood: { $first: "$mood" }, rkey: { $first: "$atproto.rkey" } } },
+    ]).toArray(),
+  ]);
+  const countBySub = new Map(countDocs.map((c) => [c._id, c.n]));
+  const moodBySub = new Map(moodDocs.map((m) => [m._id, m]));
+
+  const people = shownSubs.map((sub) => {
+    const h = handleBySub.get(sub);
+    const license = isLicense(h.linkedData?.license) ? h.linkedData.license : DEFAULT_RIGHTS;
+    return {
+      handle: h.handle,
+      license,
+      paintings: bySub.get(sub) || [],
+      mood: moodBySub.get(sub),
+      paintingCount: countBySub.get(sub) || 0,
+    };
+  });
 
   const cards = people
     .map((p) => {
@@ -272,11 +328,11 @@ async function landing(database) {
         })
         .join("");
       const moodLine = p.mood?.mood
-        ? `<p class=mood>“${esc(p.mood.mood)}”${p.mood.atproto?.rkey ? ` <a class=muted href="${DATA_BASE}/mood/${esc(p.handle)}/${esc(p.mood.atproto.rkey)}">↗ record</a>` : ""}</p>`
+        ? `<p class=mood>“${esc(p.mood.mood)}”${p.mood.rkey ? ` <a class=muted href="${DATA_BASE}/mood/${esc(p.handle)}/${esc(p.mood.rkey)}">↗ record</a>` : ""}</p>`
         : "";
       return `<section class=person>
 <h3><a href="${DATA_BASE}/@${esc(p.handle)}">@${esc(p.handle)}</a>
-<span class=muted>· ${p.paintingCount} painting${p.paintingCount === 1 ? "" : "s"} · ${esc(p.license)}</span></h3>
+<span class=muted>· ${p.paintingCount} painting${p.paintingCount === 1 ? "" : "s"} · ${esc(rightsLabel(p.license))}</span></h3>
 ${moodLine}
 <div class=thumbs>${thumbs || '<span class=muted>no public paintings yet</span>'}</div>
 </section>`;
@@ -305,15 +361,15 @@ code,pre{background:#eee;border-radius:4px}code{padding:.1em .3em}pre{padding:1e
 .thumbs img{width:88px;height:88px;object-fit:cover;border:1px solid #ccc;background:#fff;image-rendering:pixelated}
 </style>
 <h1>data.aesthetic.computer</h1>
-<p>Aesthetic Computer publishes its community's opted-in works as
+<p>Aesthetic Computer publishes its community's public works as
 <a href="https://linked.art">Linked Art</a> — the JSON-LD profile of
 <a href="https://www.cidoc-crm.org">CIDOC CRM</a> used across the cultural-heritage
 world. This makes paintings, pieces, moods, and people here discoverable and
 citable by researchers (e.g. at the Getty) as linked open data.</p>
 
-<h2>People &amp; records</h2>
-<p class=muted>${people.length} ${people.length === 1 ? "person has" : "people have"} opted in. Each thumbnail links to its Linked Art record.</p>
-${cards || '<p class=muted>No one has opted in yet.</p>'}
+<h2>Recent records</h2>
+<p class=muted>${people.length} recent contributor${people.length === 1 ? "" : "s"}. Each record is open and citable; reuse rights stay with the artist (<i>in copyright</i>) unless a Creative Commons license is shown. Thumbnails link to each Linked Art record.</p>
+${cards || '<p class=muted>No public records yet.</p>'}
 
 <h2>Entity identifiers</h2>
 <ul>
@@ -334,7 +390,7 @@ and linked-data tooling:</p>
 <code>curl -H "Accept: application/ld+json" ${esc(sampleUrl)}</code></li>
 <li><b>Inspect / expand it</b> in the <a href="https://json-ld.org/playground/">JSON-LD Playground</a> or the <a href="https://linkeddata.uriburner.com/">URIBurner</a> linked-data browser (paste a record URL).</li>
 <li><b>Dataset description</b> for harvesters: <a href="${DATA_BASE}/.well-known/void">/.well-known/void</a> (<a href="https://www.w3.org/TR/void/">VoID</a>).</li>
-<li><b>Vocabularies used:</b> <a href="https://www.getty.edu/research/tools/vocabularies/aat/">Getty AAT</a> for classification, <a href="https://creativecommons.org/licenses/">Creative Commons</a> for rights.</li>
+<li><b>Vocabularies used:</b> <a href="https://www.getty.edu/research/tools/vocabularies/aat/">Getty AAT</a> for classification; <a href="https://rightsstatements.org/">rightsstatements.org</a> and <a href="https://creativecommons.org/licenses/">Creative Commons</a> for rights.</li>
 <li><b>Also broadcast on the open social web</b> via <a href="https://at.aesthetic.computer">at.aesthetic.computer</a> (ATProto / Bluesky) — the same works, different protocol.</li>
 </ul>
 
@@ -344,9 +400,14 @@ and linked-data tooling:</p>
 <li>IIIF image service over the painting CDN, for Getty-native image tooling (Stage 3).</li>
 </ul>
 
-<h2 id=optin>Consent &amp; rights</h2>
-<p>Only works whose author has opted in — with an explicit Creative Commons
-license — are published here. Everything else returns 404. Opt-in is currently
-by request; a self-serve toggle is planned.</p>`;
+<h2 id=optin>Rights &amp; opting out</h2>
+<p>These records describe work that is already public on aesthetic.computer —
+authorship, date, type, and a link to the image — much like a museum catalog
+entry. By default each is marked
+<a href="http://rightsstatements.org/vocab/InC/1.0/"><i>In Copyright</i></a>:
+the record is open and citable, but copyright and the right to sell stay
+entirely with the artist. Artists may opt in to an open
+<a href="https://creativecommons.org/licenses/">Creative Commons</a> license to
+allow reuse, or opt out to be excluded entirely — just ask.</p>`;
   return respond(200, body, { "Content-Type": "text/html; charset=utf-8" });
 }

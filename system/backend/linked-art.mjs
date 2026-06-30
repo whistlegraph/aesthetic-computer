@@ -44,13 +44,24 @@ export const LICENSES = {
   "CC-BY-NC-4.0": ["https://creativecommons.org/licenses/by-nc/4.0/", "CC BY-NC 4.0"],
 };
 
+// Standardized rights statements (rightsstatements.org) used by Europeana/DPLA.
+// "InC" is the default for works we describe but don't hold reuse rights to:
+// the record is open + citable, but copyright (and the right to sell) stays
+// entirely with the artist. CC keys above are an explicit opt-in upgrade.
+export const RIGHTS_STATEMENTS = {
+  InC: ["http://rightsstatements.org/vocab/InC/1.0/", "In Copyright"],
+};
+
+export const DEFAULT_RIGHTS = "InC";
+
 export function isLicense(key) {
   return Object.prototype.hasOwnProperty.call(LICENSES, key);
 }
 
-// E30 Right → a `subject_to` rights statement.
-function rights(license) {
-  const entry = LICENSES[license];
+// E30 Right → a `subject_to` rights statement. Accepts a CC license key or a
+// rightsstatements.org key (e.g. "InC").
+function rights(key) {
+  const entry = LICENSES[key] || RIGHTS_STATEMENTS[key];
   if (!entry) return [];
   const [id, label] = entry;
   return [{ type: "Right", _label: label, classified_as: [{ id, type: "Type", _label: label }] }];
