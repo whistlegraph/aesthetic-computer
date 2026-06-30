@@ -1,0 +1,10 @@
+[Unit]
+Description=Periodically rebuild the data.aesthetic.computer RDF graph
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=30min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

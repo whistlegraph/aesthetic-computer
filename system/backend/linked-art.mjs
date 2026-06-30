@@ -74,6 +74,21 @@ function timespan(when) {
   return { type: "TimeSpan", begin_of_the_begin: iso, end_of_the_end: iso };
 }
 
+// Public image URL for a painting. Two slug shapes exist:
+//   "{sub}/{kind}/{ts}" (kind varies: chat, painting, …) → strip the sub prefix
+//   "{ts}" (older bare-timestamp slugs)                   → live under painting/{ts}
+// Either way the URL keys off @handle, not the auth0 sub.
+export function paintingImageUrl(handle, slug, sub) {
+  let mediaPath = String(slug || "");
+  if (!mediaPath) return undefined;
+  if (sub && mediaPath.startsWith(sub + "/")) {
+    mediaPath = mediaPath.slice(sub.length + 1);
+  } else if (!mediaPath.includes("/")) {
+    mediaPath = "painting/" + mediaPath;
+  }
+  return `${WEB_BASE}/media/@${handle.replace(/^@/, "")}/${mediaPath}.png`;
+}
+
 // The author as an E21 Person reference (the hub every work points back to).
 function personRef(handle) {
   const clean = handle.replace(/^@/, "");

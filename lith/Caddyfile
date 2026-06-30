@@ -166,12 +166,21 @@
     }
 
     # --- data.aesthetic.computer (Linked Open Data / CIDOC CRM) ---
-    # lith rewrites every path here to the `crm` function, which dispatches by
-    # path (landing, /@handle, /painting, /piece, /mood, /.well-known/void).
-    # Stage 2 adds: handle /sparql* { reverse_proxy localhost:7878 }  # Oxigraph
+    # Most paths go to lith, which rewrites them to the `crm` function (landing,
+    # /@handle, /painting, /piece, /mood, /.well-known/void). /sparql is the one
+    # exception: it goes straight to the Oxigraph SPARQL store (Stage 2).
     @data host data.aesthetic.computer
     handle @data {
-        reverse_proxy localhost:8888
+        # Read-only SPARQL: rewrite to Oxigraph's /query endpoint. Its /update
+        # and /store write endpoints are NEVER proxied — writes happen only
+        # locally via the ETL (crm/build-graph.mjs).
+        handle /sparql* {
+            rewrite * /query
+            reverse_proxy localhost:7878
+        }
+        handle {
+            reverse_proxy localhost:8888
+        }
     }
 
     # --- news.aesthetic.computer ---

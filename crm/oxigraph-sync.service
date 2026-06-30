@@ -1,0 +1,11 @@
+[Unit]
+Description=Rebuild the data.aesthetic.computer RDF graph from MongoDB
+After=oxigraph.service
+Wants=oxigraph.service
+
+[Service]
+Type=oneshot
+# MONGODB_CONNECTION_STRING / MONGODB_NAME live in the lith service env.
+EnvironmentFile=/opt/ac/system/.env
+WorkingDirectory=/opt/ac
+ExecStart=/usr/bin/node crm/build-graph.mjs

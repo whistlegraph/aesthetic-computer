@@ -1,0 +1,15 @@
+[Unit]
+Description=Oxigraph SPARQL store (data.aesthetic.computer/sparql)
+After=network.target
+
+[Service]
+Type=simple
+# Bound to localhost: Caddy proxies only the read-only /sparql → /query path.
+# Writes (the ETL's Graph Store PUT) happen locally and are never exposed.
+ExecStart=/opt/oxigraph/oxigraph serve --location /opt/oxigraph/data --bind 127.0.0.1:7878
+Restart=on-failure
+RestartSec=3
+User=root
+
+[Install]
+WantedBy=multi-user.target

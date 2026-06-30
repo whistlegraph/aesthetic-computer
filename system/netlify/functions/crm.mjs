@@ -30,6 +30,7 @@ import {
   paintingToLinkedArt,
   pieceToLinkedArt,
   moodToLinkedArt,
+  paintingImageUrl,
   DATA_BASE,
   WEB_BASE,
 } from "../../backend/linked-art.mjs";
@@ -230,22 +231,8 @@ function voidDoc() {
     "dcterms:rights": rights,
     "void:uriSpace": `${DATA_BASE}/`,
     "void:rootResource": DATA_BASE,
+    "void:sparqlEndpoint": `${DATA_BASE}/sparql`,
   });
-}
-
-// Public image URL for a painting. Two slug shapes exist:
-//   "{sub}/{kind}/{ts}" (kind varies: chat, painting, …) → strip the sub prefix
-//   "{ts}" (older bare-timestamp slugs)                   → live under painting/{ts}
-// Either way the URL keys off @handle, not the auth0 sub.
-function paintingImageUrl(handle, slug, sub) {
-  let mediaPath = String(slug || "");
-  if (!mediaPath) return undefined;
-  if (sub && mediaPath.startsWith(sub + "/")) {
-    mediaPath = mediaPath.slice(sub.length + 1);
-  } else if (!mediaPath.includes("/")) {
-    mediaPath = "painting/" + mediaPath;
-  }
-  return `${WEB_BASE}/media/@${handle}/${mediaPath}.png`;
 }
 
 function esc(s) {
@@ -386,7 +373,13 @@ human-readable view that links back to the work on aesthetic.computer.</p>
 <p>The same identifiers are designed to be consumed by standard cultural-heritage
 and linked-data tooling:</p>
 <ul>
-<li><b>Fetch the JSON-LD</b> directly:<br>
+<li><b>Query everything with SPARQL</b> at <a href="${DATA_BASE}/sparql"><code>${DATA_BASE}/sparql</code></a> — e.g. every painting by @jeffrey:
+<pre>curl -s '${DATA_BASE}/sparql' --data-urlencode 'query=
+ PREFIX crm: &lt;http://www.cidoc-crm.org/cidoc-crm/&gt;
+ SELECT ?work WHERE {
+   ?work crm:P108i_was_produced_by/crm:P14_carried_out_by
+         &lt;${DATA_BASE}/@jeffrey&gt; }'</pre></li>
+<li><b>Fetch one record's JSON-LD</b> directly:<br>
 <code>curl -H "Accept: application/ld+json" ${esc(sampleUrl)}</code></li>
 <li><b>Inspect / expand it</b> in the <a href="https://json-ld.org/playground/">JSON-LD Playground</a> or the <a href="https://linkeddata.uriburner.com/">URIBurner</a> linked-data browser (paste a record URL).</li>
 <li><b>Dataset description</b> for harvesters: <a href="${DATA_BASE}/.well-known/void">/.well-known/void</a> (<a href="https://www.w3.org/TR/void/">VoID</a>).</li>
@@ -396,7 +389,6 @@ and linked-data tooling:</p>
 
 <h2>Coming soon</h2>
 <ul>
-<li><code>${DATA_BASE}/sparql</code> — SPARQL query endpoint, e.g. <i>“all digital paintings by @jeffrey in 2026”</i> (Stage 2).</li>
 <li>IIIF image service over the painting CDN, for Getty-native image tooling (Stage 3).</li>
 </ul>
 
