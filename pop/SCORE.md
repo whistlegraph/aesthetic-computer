@@ -10,6 +10,10 @@ The mill is not a label. It is a research lane. Every track here exists because 
 
 Pop tracks are one output of the AC research platter. They share source material with `papers/` — the same threads, the same readings, the same code — but render as audio. The platter feeds both. Some threads become papers, some become tracks, some become both.
 
+## Attribution
+
+AC pop tracks — and the essays written about them — are work of **@jeffrey / aesthetic.computer**. The DistroKid artist is `Aesthetic Dot Computer`; the byline on any pop-track essay is **@jeffrey** (matching `papers/cli.mjs`, which sets `AUTHOR_NAME = "@jeffrey"`). Do **not** byline AC pop tracks or AC papers as "Studio Zollo" — that studio name belongs only to @jeffrey's separate personal-art / non-AC attributions, never to AC work.
+
 ## Posture
 
 **bottom-up + compositional.** tracks here are composed from AC's own instruments — the notepat sample bank, sinebells, chord, beat — the same primitives the recap waltz bed already uses. no suno-style end-to-end song generation; that's product-in, top-down, and not compositional. AI vocal (ElevenLabs) is the one exception, since vocal is performance on top of the composition, not the compositional substrate.

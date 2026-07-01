@@ -1,18 +1,18 @@
 {
-  "_comment": "Figure + face bounding boxes per unique story beat, in panel-image coords (1024x1536, the portrait monarch-keeper set). Keyed by section NAME (preview-score.mjs looks up FORMS by SECTIONS[i].name; names repeat across the C/D/E/F passes, so ONE entry per unique name covers every pass). Single figure (the keeper) per beat -> one box under `jeffrey`. `face` drives the in/out face zoom + the warm sun-rim halo; `figure` drives the per-figure backlight. RE-EYEBALLED 2026-06-24 against the real generated masters (out/_fluttabap360-beat-<name>.png). intro keeper is tiny + far (mid-right, at the horizon line). fly/cover/progression are full-body lift poses (head high, arms overhead). butterfly/palofmine/slinky/ride/land/button are standing/striding full-body shots with the head in the upper third.",
+  "_comment": "Figure + face bounding boxes per unique story beat, in panel-image coords (1024x1536, the portrait monarch-keeper set). Keyed by section NAME (preview-score.mjs looks up FORMS by SECTIONS[i].name; names repeat across the C/D/E/F passes, so ONE entry per unique name covers every pass). Single figure (the keeper) per beat -> one box under `jeffrey`. `face` drives BOTH the in/out face zoom AND the warm sun-rim halo (drawTransmittedBacklight/drawLeadedContrast key off the FACE box, not the figure box); `figure` only feeds zoomTargetBox as a fallback. RE-MEASURED 2026-06-24 against the real generated masters (out/_fluttabap360-beat-<name>.png) over a 128px grid -- the previous boxes were all pinned to the UPPER-LEFT (sky) region, which is why the backlight/halo read as stuck in the top-left corner. The keeper is center / center-right in every beat except intro (where he is small + far at lower-right near the horizon). Coords are [x, y, w, h] from the top-left of the 1024x1536 panel.",
   "imgW": 1024,
   "imgH": 1536,
   "sections": {
-    "intro":      { "jeffrey": { "figure": [278, 295, 78, 130],  "face": [296, 298, 46, 52] } },
-    "butterfly":  { "jeffrey": { "figure": [90, 120, 280, 470],  "face": [150, 128, 100, 110] } },
-    "palofmine":  { "jeffrey": { "figure": [70, 80, 290, 490],   "face": [176, 88, 100, 108] } },
-    "mommywow":   { "jeffrey": { "figure": [120, 68, 200, 500],  "face": [164, 70, 98, 110] } },
-    "slinky":     { "jeffrey": { "figure": [120, 98, 230, 450],  "face": [184, 100, 92, 108] } },
-    "fly":        { "jeffrey": { "figure": [90, 128, 250, 392],  "face": [128, 128, 92, 108] } },
-    "ride":       { "jeffrey": { "figure": [120, 128, 210, 410], "face": [174, 130, 94, 108] } },
-    "cave":       { "jeffrey": { "figure": [115, 74, 200, 482],  "face": [164, 76, 96, 108] } },
-    "progression":{ "jeffrey": { "figure": [110, 128, 222, 418], "face": [164, 130, 94, 108] } },
-    "land":       { "jeffrey": { "figure": [115, 108, 218, 434], "face": [164, 110, 94, 108] } },
-    "button":     { "jeffrey": { "figure": [108, 98, 234, 464],  "face": [138, 98, 94, 108] } }
+    "intro":      { "jeffrey": { "figure": [745, 688, 105, 240], "face": [762, 690, 52, 58] } },
+    "butterfly":  { "jeffrey": { "figure": [320, 150, 360, 700], "face": [410, 150, 110, 120] } },
+    "palofmine":  { "jeffrey": { "figure": [340, 90, 360, 700],  "face": [420, 110, 104, 116] } },
+    "mommywow":   { "jeffrey": { "figure": [300, 90, 380, 700],  "face": [430, 110, 100, 118] } },
+    "slinky":     { "jeffrey": { "figure": [300, 120, 380, 700], "face": [432, 148, 100, 116] } },
+    "fly":        { "jeffrey": { "figure": [320, 150, 360, 640], "face": [400, 150, 110, 116] } },
+    "ride":       { "jeffrey": { "figure": [300, 150, 400, 660], "face": [432, 168, 100, 118] } },
+    "cave":       { "jeffrey": { "figure": [300, 110, 340, 720], "face": [428, 118, 100, 116] } },
+    "progression":{ "jeffrey": { "figure": [280, 120, 380, 700], "face": [408, 158, 104, 116] } },
+    "land":       { "jeffrey": { "figure": [300, 130, 380, 700], "face": [430, 150, 102, 118] } },
+    "button":     { "jeffrey": { "figure": [240, 100, 360, 700], "face": [340, 120, 100, 116] } }
   }
 }

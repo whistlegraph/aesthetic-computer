@@ -58,15 +58,33 @@ Open follow-ups (queued, not blockers):
 
 ---
 
-## fluttabap360 — READY (releasing 2026-06-24)
+## Fluttabap360 — RELEASED 2026-06-30 (DistroKid → Spotify)
 
 - **Lane:** `pop/marimba/` · the fat, fast, six-minute butterfly-park banger ·
-  **exactly 6:00.000** (185 bars, 4/4 @ 123.3 BPM, back-solved + hard-clamped
+  **exactly 6:00.000** (187 bars, 4/4 @ ~124.7 BPM, back-solved + hard-clamped
   to the boundary so a player reads "6:00", never "6:01") · a buttery,
   poppin' cousin of the flutterbap material (butterfly / pal-of-mine /
   mommy-wow / slinky / fly / land hooks) re-cast over four escalating passes.
-  Rendered ENTIRELY in JS via the shared marimba + perc synths. Part of the
-  *pixsies* body.
+  **C-CANONICAL:** the JS file (`bin/render-fluttabap360.mjs`) composes + bakes
+  the score; the **C engine** (`c/fluttabap360.c`) does ALL the DSP, mixdown,
+  reverb-scene automation, finalize + master. The JS audio path is deprecated
+  (kept for reference). Part of the *pixsies* body.
+- **Instrument roster (all synthesized / physically-modeled — no samples):**
+  **dynabell** (additive bells whose waveform morphs sine → triangle → square,
+  pitch-bendy, variable tail) · **fembell** (FEM shell-model bells from
+  `pop/bell` — singing-bowl / church / handbell accents) · **gong** (gnarly
+  long-blooming gongs — FEM steel/glass 24-mode spectrum + shimmer bloom +
+  crash, ~15 s wash) · **flute** (the AC Cook jet-waveguide from `gm_synth.c` —
+  ambient dawn tones, the hush melody, the fly soars: the "flutta") · **vortex**
+  shoopy turntable warbles · **boowoop** reverse-bell flourishes · squeak-rides ·
+  fat bass-perc + butter sub + thick sub-octave · snare drive in the climaxes.
+- **Substrate:** printed on the **`tape`** medium (`pop/lib/substrate.mjs` —
+  tube-glue compression + wow/flutter + saturation + hiss); a **`vinyl`** print
+  also exists (`--substrate vinyl`). The "substrate" is the reusable print-medium
+  abstraction (per-sample sat baked into the score + the ffmpeg master chain).
+- **Build (one command):** `pop/marimba/bin/render-c.fish` (bake → C album →
+  seamless loop) or `node pop/bin/pop.mjs render fluttabap360 --loop`. The
+  unified `pop` CLI (`pop/bin/pop.mjs`) drives every song via a `*.song.json`.
 - **Key-change journey:** modulates **C → D → E → (home C) → F** — Pass A in C,
   Pass B lifts to D, Pass C is the brightest in E, the late cave breakdown
   drops home to C for a breath, then a euphoric jump up to F for the final
@@ -81,9 +99,10 @@ Open follow-ups (queued, not blockers):
 - **Space:** a shared room-reverb SEND deepens the whole field (melodic + squeak
   + pad voices); kick + sub stay DRY so it's still fat and punchy.
 - **Artist:** Aesthetic Dot Computer
-- **Status:** READY — rendered + ballet cover embedded; mastered WAV in hand,
-  not yet submitted to DistroKid. Awaiting @jeffrey ear-check + the
-  distribution step.
+- **Status:** **RELEASED 2026-06-30** via DistroKid (single, album field
+  *pixsies*) — live on Spotify. Release packet (with legal-name metadata, kept
+  OUT of this public repo): `~/Documents/Shelf/Fluttabap360-DISTROKID/`
+  (MASTER.wav, cover-3000.jpg, CANVAS.mp4, release.json, README).
 - **Cover:** `pop/marimba/out/fluttabap360-cover.png` (1024², embedded in the
   mp3) — a colored-pencil + gouache drawing: the butterfly cosplayer (jeffrey
   identity refs) **dancing ballet** — relevé + low arabesque + port de bras —
@@ -99,21 +118,19 @@ Open follow-ups (queued, not blockers):
   (`--out <path>` to redirect; `--loop` for the seam-perfect loop). Re-embed
   the cover with `node pop/marimba/bin/gen-illy.mjs --embed-only --cover
   out/fluttabap360-cover.png --mp3 out/fluttabap360.mp3`.
-- **DistroKid submission fields (draft):**
-  - Track title: **fluttabap360**
-  - Artist: **Aesthetic Dot Computer**
-  - Release: single · release date **2026-06-24** · album field **pixsies**
-  - Genre: **Electronic** (primary) / **Pop** (secondary)
-  - Instrumental: **Yes** (no sung lyrics — the "vocal" is the melodic
-    kitten-squeak ride)
-  - Explicit: **No** · Language: Instrumental
-  - Songwriter / publishing: @jeffrey (legal name on the DistroKid form) ·
-    Studio Zollo
-  - ISRC: auto (DistroKid) · Cover: 3000² upscale of `fluttabap360-cover.png`
-- **TODO before submit:** durable master + cover to
-  `~/Documents/Shelf/fluttabap360-DISTROKID/` (MASTER.wav, cover-3000.jpg,
-  README with the fields above), publish assets to the AC CDN, optional
-  YouTube/visualizer cut.
+- **DistroKid metadata (as submitted):**
+  - Track title: **Fluttabap360** · Artist: **Aesthetic Dot Computer**
+  - Single · album field **pixsies** · Genre **Electronic** / **Pop**
+  - Instrumental: **Yes** · Explicit: **No**
+  - Songwriter: @jeffrey (legal name on the DistroKid form — not in this repo) ·
+    bylined @jeffrey / aesthetic.computer (never Studio Zollo)
+  - ISRC: auto (DistroKid) · Cover: 3000² of the ballet illy
+- **Spotify Canvas:** `pop/marimba/out/fluttabap360-photo-canvas.mp4` — a
+  seamless 9:16 loop of the cosplayer twirling, **photographic** (fal nano-banana
+  photo-illy off the real jeffrey portrait refs → fal Seedance image-to-video).
+  An illustrated montage Canvas (`fluttabap360-canvas.mp4`) is the alt.
+- **Motion assets:** `pop/marimba/out/motion/fluttabap360-{intro,fly,button,
+  photo-twirl}.mp4` (fal Seedance from the illys).
 
 ---
 

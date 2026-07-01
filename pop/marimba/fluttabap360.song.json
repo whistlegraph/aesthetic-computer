@@ -1,0 +1,15 @@
+{
+  "name": "fluttabap360",
+  "engine": "c",
+  "title": "Fluttabap360",
+  "score": "out/fluttabap360.score.txt",
+  "bake": "node bin/render-fluttabap360.mjs --bake {score} --no-open",
+  "build": "bash c/build.sh",
+  "render": "node c/run-c.mjs {score} --out out/fluttabap360.mp3 --wav",
+  "loop": "node c/run-c.mjs {score} --out out/fluttabap360-loop.mp3 --loop --wav",
+  "outputs": {
+    "album": "out/fluttabap360.mp3",
+    "loop": "out/fluttabap360-loop.mp3",
+    "wav": "out/fluttabap360.distrokid.wav"
+  }
+}

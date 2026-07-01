@@ -29,7 +29,8 @@
 //   node pop/marimba/bin/gen-sections.mjs        # → the 10 panels
 //   node pop/marimba/bin/preview-score.mjs       # → the mp4
 
-import { existsSync, readFileSync, mkdirSync } from "node:fs";
+import { existsSync, readFileSync, mkdirSync, copyFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
@@ -58,6 +59,11 @@ for (let i = 2; i < process.argv.length; i++) {
 
 const SLUG   = flags.slug  || "marimbaba";
 const TITLE  = flags.title || SLUG;
+// fluttabap360 is a dense 6-min track (1223 events vs marimbaba's 161): the
+// lane layout tuned for marimbaba overflows — blocks rotate off-frame and crop
+// at the edges. FLUTTA gates a tighter, flatter, squashed-in lane geometry so
+// the whole track stays on-screen. marimbaba keeps its original look.
+const FLUTTA = SLUG === "fluttabap360";
 const COVER  = flags.cover  || `${LANE}/out/${SLUG}-p-cover.png`;
 const AUDIO  = flags.audio  || `${LANE}/out/${SLUG}.mp3`;
 const STRUCT = flags.struct || `${LANE}/out/${SLUG}.struct.json`;
@@ -597,7 +603,7 @@ function sectionTcRgb(audioT) {
 
 // ── the verlet string ────────────────────────────────────────────────
 const PLAYHEAD_X = Math.round(W / 2);
-const PX_PER_SEC = 150;                      // lullaby scroll speed
+const PX_PER_SEC = FLUTTA ? 95 : 150;        // fluttabap: squash tighter so more of the dense track fits
 const _vs = makeVerletString(ctx, { W, H, playheadX: PLAYHEAD_X, duration: DURATION });
 
 // 5 lanes spread EVENLY across the canvas height (along the string)
@@ -611,7 +617,9 @@ LANES.forEach((L, i) => { laneCenterY[L.key] = LANE_TOP + i * LANE_H + LANE_H / 
 // Groove radius — note blocks curve about the canvas centre. The
 // chillwave/trancenwaltz ~85%·minDim gives the strong 3D-projection
 // arc the user likes (clear record-groove feel).
-const GROOVE_R = Math.round(Math.min(W, H) * 0.85);
+// fluttabap: a HUGE radius ≈ no groove rotation, so blocks stay flat on their
+// lanes instead of swinging off-frame as "partial rotations".
+const GROOVE_R = Math.round(Math.min(W, H) * (FLUTTA ? 8.0 : 0.85));
 
 // ── illustration distortion UNDER the bent string ───────────────────
 // Ported faithfully from chillwave's warpUnderString: snapshot the
@@ -995,7 +1003,7 @@ function sectionIndexAt(t) {
 //     actual mix peak in its tiny time window (mini-DAW per event).
 function needleXAt(y) { return _vs.needleXAt(y); }
 function drawLanes(audioT) {
-  const halfSpan = (W * 0.62) / PX_PER_SEC;
+  const halfSpan = (W * (FLUTTA ? 0.40 : 0.62)) / PX_PER_SEC;   // fluttabap: keep blocks inside the frame (no edge crop)
   const FLASH_WIN = 0.18;
   ctx.save();
   ctx.globalCompositeOperation = "screen";
@@ -1042,7 +1050,7 @@ function drawLanes(audioT) {
       const fullH = Math.min(Math.max(20, subH - 6), 30 + 86 * Math.min(1, ev.gain ?? 0.5));
       const cols = Math.max(2, Math.floor(ew / 9));
       const blockW = Math.max(3, ew / cols - 2);
-      const bend = (needleXAt(yC) - PLAYHEAD_X) * 0.5;
+      const bend = (needleXAt(yC) - PLAYHEAD_X) * (FLUTTA ? 0.15 : 0.5);   // fluttabap: gentler string-follow so lanes stay centred
       // Audio waveform sampling — per column, pull peak from the mix.
       const startSamp = Math.max(0, Math.floor(ev.t * audioSr));
       const endSamp = Math.min(audio.length - 1, Math.floor((ev.t + visDur) * audioSr));
@@ -1220,13 +1228,49 @@ mkdirSync(dirname(OUT), { recursive: true });
 // specific time. Lets layout tweaks be verified in seconds.
 const TEST_MODE = FRAMES_OVERRIDE !== null;
 const startFrame = Math.max(0, Math.floor(START_T * FPS));
-const endFrame = Math.min(FRAMES, startFrame + (FRAMES_OVERRIDE ?? FRAMES));
+// ffmpeg runs with -shortest against the mp3, so it finalizes at the
+// AUDIO length. If struct.totalSec exceeds the audio (e.g. the score
+// rounds up to 363s but the rendered mp3 is exactly 360s), the extra
+// tail frames would write into an already-finalized ffmpeg and trip an
+// EPIPE. Cap the pipe render at the audio's own frame count so video
+// and audio end together. (TEST_MODE writes PNGs, so leave it alone.)
+const AUDIO_FRAMES = Math.floor((audio.length / audioSr) * FPS);
+const PIPE_FRAMES = TEST_MODE ? FRAMES : Math.min(FRAMES, AUDIO_FRAMES);
+const endFrame = Math.min(PIPE_FRAMES, startFrame + (FRAMES_OVERRIDE ?? PIPE_FRAMES));
 
 let ff = null;
+// ffmpeg health flag — if the encoder dies mid-stream (e.g. its mp3
+// input is rewritten under it, or it -shortest-finalizes early) the
+// next ff.stdin.write would otherwise throw an UNCAUGHT EPIPE and
+// truncate the mp4 with a hard crash. We instead trap stdin/exit
+// errors, flip ffDead, and break the render loop cleanly below.
+let ffDead = null;   // null = healthy, else an Error explaining the death
+// Snapshot the mp3 to a private temp copy so ffmpeg's -i is immune to
+// the audio being re-baked under us by a sibling renderer. The visual
+// waveform is already decoded into memory above, so the snapshot only
+// guards ffmpeg's own muxing input. (Falls back to AUDIO if copy fails.)
+let AUDIO_FF = AUDIO;
+let audioSnap = null;
 if (!TEST_MODE) {
-  ff = spawnFFmpegEncode({ audioPath: AUDIO, w: W, h: H, fps: FPS, outPath: OUT });
-  ff.on("error", (e) => { console.error(`✗ ffmpeg spawn failed: ${e.message}`); process.exit(1); });
+  try {
+    audioSnap = resolve(tmpdir(), `marimba-audio-${SLUG}-${process.pid}.mp3`);
+    copyFileSync(AUDIO, audioSnap);
+    AUDIO_FF = audioSnap;
+  } catch (e) { console.error(`  (audio snapshot failed, using live mp3: ${e.message})`); }
 }
+if (!TEST_MODE) {
+  ff = spawnFFmpegEncode({ audioPath: AUDIO_FF, w: W, h: H, fps: FPS, outPath: OUT });
+  ff.on("error", (e) => { console.error(`✗ ffmpeg spawn failed: ${e.message}`); process.exit(1); });
+  // A premature ffmpeg exit (non-zero, before we end stdin) is fatal —
+  // record it so the loop stops instead of writing into a dead pipe.
+  ff.on("exit", (code, sig) => {
+    if (!ffDone && code !== 0) ffDead = new Error(`ffmpeg exited early (code ${code}${sig ? `, signal ${sig}` : ""})`);
+  });
+  // EPIPE on the stdin stream must never bubble up as an uncaught
+  // exception — swallow it here; the loop's ffDead check handles flow.
+  ff.stdin.on("error", (e) => { if (!ffDead) ffDead = e; });
+}
+let ffDone = false;  // set true once we deliberately end stdin
 
 progress.begin({ type: "video", label: `${SLUG} ${TEST_MODE ? "test" : "insta-story"} · ${endFrame - startFrame} frames` });
 console.log(`  rendering frames ${startFrame}..${endFrame - 1} (${endFrame - startFrame} frames)${TEST_MODE ? " → /tmp/marimba-test-*.png" : ""} …`);
@@ -1300,8 +1344,15 @@ for (let f = startFrame; f < endFrame; f++) {
     const fname = `/tmp/marimba-test-${f.toString().padStart(4, "0")}.png`;
     (await import("node:fs")).writeFileSync(fname, png);
   } else {
+    if (ffDead) break;   // encoder died — stop before writing into a dead pipe
     const buf = canvas.toBuffer("raw");
-    if (!ff.stdin.write(buf)) await new Promise((r) => ff.stdin.once("drain", r));
+    if (!ff.stdin.write(buf)) {
+      await new Promise((r) => {
+        const done = () => { ff.stdin.off("error", done); r(); };
+        ff.stdin.once("drain", done);
+        ff.stdin.once("error", done);   // EPIPE while draining → resolve, loop's ffDead check stops us
+      });
+    }
   }
 
   if (f % 30 === 0 || f === endFrame - 1) {
@@ -1311,9 +1362,17 @@ for (let f = startFrame; f < endFrame; f++) {
     process.stdout.write(`\r  frame ${done}/${total}  `);
   }
 }
-if (!TEST_MODE) ff.stdin.end();
+if (!TEST_MODE && ffDead) {
+  console.error(`\n✗ render aborted: ${ffDead.message}`);
+  try { ff.stdin.destroy(); } catch {}
+  try { ff.kill("SIGTERM"); } catch {}
+  if (audioSnap) try { rmSync(audioSnap, { force: true }); } catch {}
+  process.exit(1);
+}
+if (!TEST_MODE) { ffDone = true; ff.stdin.end(); }
 if (!TEST_MODE) await new Promise((res, rej) => {
   ff.on("close", (code) => code === 0 ? res() : rej(new Error(`ffmpeg exited ${code}`)));
 });
+if (audioSnap) try { rmSync(audioSnap, { force: true }); } catch {}
 progress.end();
 console.log(`\n✓ ${((Date.now() - t0) / 1000).toFixed(1)}s → ${OUT.replace(REPO + "/", "")}`);

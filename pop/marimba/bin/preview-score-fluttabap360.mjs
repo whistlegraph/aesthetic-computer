@@ -42,7 +42,7 @@ const passthrough = process.argv.slice(2);
 const args = [
   SCORE,
   "--slug", "fluttabap360",
-  "--title", "fluttabap360",
+  "--title", "Fluttabap360",
   ...passthrough,
 ];
 
