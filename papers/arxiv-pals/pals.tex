@@ -1,0 +1,408 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.85in, bottom=0.85in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}[
+  Extension=.otf,
+  UprightFont=lmroman10-regular,
+  BoldFont=lmroman10-bold,
+  ItalicFont=lmroman10-italic,
+  BoldItalicFont=lmroman10-bolditalic,
+]
+\setsansfont{Latin Modern Sans}[
+  Extension=.otf,
+  UprightFont=lmsans10-regular,
+  BoldFont=lmsans10-bold,
+  ItalicFont=lmsans10-oblique,
+  BoldItalicFont=lmsans10-boldoblique,
+]
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[
+  Extension=.otf,
+  UprightFont=lmmono10-regular,
+  ItalicFont=lmmono10-italic,
+  Scale=0.85,
+]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{fancyhdr}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{eso-pic}
+\usepackage{tikz}
+\usepackage{hyperref}
+\usepackage{xurl}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{palspink}{RGB}{205,92,155} % #cd5c9b — canonical purple-pals.svg fill
+
+% === PALS SIDE-STAMPS (mirrors bios.mjs side-stamp pattern + ac-paper-layout.sty) ===
+\AddToShipoutPictureBG{%
+  \begin{tikzpicture}[remember picture, overlay]
+    \pgfmathsetmacro{\palswiggle}{7*sin(\thepage * 67)}%
+    \node[opacity=0.10, anchor=center, rotate={90 + \palswiggle}]
+      at ([xshift=-1.0cm, yshift=-0.33\paperheight]current page.north west)
+      {\includegraphics[width=13cm]{palsmark}};
+    \node[opacity=0.10, anchor=center, rotate={-90 + \palswiggle}]
+      at ([xshift=1.0cm, yshift=-0.33\paperheight]current page.north east)
+      {\includegraphics[width=13cm]{palsmark}};
+  \end{tikzpicture}%
+}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,
+  pdftitle={The Pals Mark: A History of the Aesthetic.Computer Logo}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{The Pals Mark --- \ac{}}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.15em}
+\setlist[enumerate]{nosep, leftmargin=1.4em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\newcommand{\ac}{\textsc{Aesthetic}{\color{acpink}.}\textsc{Computer}}
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\pals}{\textsc{Pals}}
+% commit link: \commit{shorthash}{message} -> links the hash to GitHub
+\newcommand{\commit}[2]{\href{https://github.com/whistlegraph/aesthetic-computer/commit/#1}{\texttt{#1}}, \emph{``#2''}}
+% repo file link
+\newcommand{\repofile}[1]{\href{https://github.com/whistlegraph/aesthetic-computer/blob/main/#1}{\texttt{#1}}}
+
+% Cover language bar. The same paper is published in six languages; each
+% edition links to the others by canonical permalink. \klanghere marks the
+% current language; \klang links a sibling edition by its URL suffix.
+\newcommand{\klang}[2]{\href{https://papers.aesthetic.computer/pals-mark-26-arxiv#2.pdf}{\color{acgray}#1}}
+\newcommand{\klanghere}[1]{{\bfseries\color{acpink}#1}}
+\newcommand{\klangsep}{{\color{acgray!60}\,\textperiodcentered\,}}
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+{\acbold\fontsize{27pt}{31pt}\selectfont\color{acdark} The \pals{} Mark}\par
+\vspace{0.5em}
+\includegraphics[width=0.6\textwidth]{figures/cover}\par
+\vspace{0.4em}
+{\itshape\fontsize{14.5pt}{17pt}\selectfont\color{acpink} A History of the Aesthetic{\acdot}Computer Logo}\par
+\vspace{0.5em}
+{\small\color{acgray} \href{https://prompt.ac/@jeffrey}{@jeffrey} \,$\cdot$\, Aesthetic{\acdot}Computer \,$\cdot$\, logo by Niki Stebbins \,$\cdot$\, ORCID \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.45em}
+{\footnotesize\sffamily\klanghere{EN}\klangsep\klang{DA}{-da}\klangsep\klang{ES}{-es}\klangsep\klang{ZH}{-zh}\klangsep\klang{JA}{-ja}\klangsep\klang{RU}{-ru}}\par
+\vspace{0.55em}
+{\color{acpink}\rule{\textwidth}{1.2pt}}
+\vspace{0.5em}
+\end{center}
+
+\begin{quote}
+\small\noindent\textbf{Abstract.}
+The \pals{} are the logo of \ac{}: two hand-drawn figures holding hands with
+their arms raised. This paper tells how the mark was made --- commissioned
+from the artist Niki Stebbins and drawn, over the summer of 2023,
+\emph{inside} \ac{} using its own \texttt{wgr} whistlegraph tool --- and how
+it then became infrastructure: a rotating \texttt{pals.aesthetic.computer}
+``logo grabber'' that serves the mark's many poses across avatars, papers,
+native OS, and the web, each one a link back to the project.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{What \ac{} is}
+
+\ac{} is a mobile-first runtime and social network for creative computing
+--- a single URL bar that doubles as a musical-instrument-like interface,
+where memorizable commands summon interactive programs called
+``pieces.'' It supports both JavaScript (\texttt{.mjs}) and a homegrown
+Lisp dialect, \textbf{KidLisp} (118 built-ins). The whole system speaks to
+pieces through one core API (\texttt{disk.mjs}, $\sim$600\,KB).
+
+\textbf{When it went online.} The \texttt{aesthetic.computer} domain has
+been held since \textbf{2013-12-12}. The platform as it exists was
+conceived out of \emph{No Paint} (2020), development began in
+\textbf{2021}, and it has deployed continuously from the current
+repository since \textbf{December 2022} ($\sim$20{,}300 commits).
+
+\textbf{Platform statistics} (live, \today):
+\begin{itemize}
+  \item $\sim$400 built-in pieces in-repo (383 \texttt{.mjs} + 20
+        \texttt{.lisp}); 265 user-published works.
+  \item \textbf{17{,}538} KidLisp programs stored in production --- a
+        growing corpus of community-authored generative art.
+  \item ATProto / Bluesky federation; per-handle record collections
+        (paintings, moods, pieces, KidLisp) on the \texttt{at://} network.
+\end{itemize}
+
+\textbf{Who it serves, and who knows the mark.} \ac{}'s users are a
+community of creative coders, artists, and non-technical ``Pals'' who
+publish instantly under \texttt{@handle} pieces. The platform engages a
+broad readership across the art-and-technology field, and \ac{} works have
+entered institutional collections. The
+\pals{} mark itself rides every one of these surfaces: the boot screen,
+the papers, the social avatars, the native OS. Its conceptual lineage in
+the radical-computer-music community of \emph{Goodiepal \& Pals} (see the
+lineage section below) gives the name a recognized history in media art
+beyond \ac{}'s own audience.
+
+\section{What the mark depicts}
+
+The \pals{} logo is \textbf{two outlined human figures holding hands with
+their arms raised} --- like two friends walking or dancing together ---
+rendered in a loose, organic, hand-drawn line. The canonical static
+vector (\texttt{system/public/purple-pals.svg}) is pink/magenta,
+\texttt{\#cd5c9b}. It is \emph{not} ``a pair of eyes,'' an earlier
+misreading that has since been corrected in the paper stack.
+
+Crucially, the mark was made \emph{with} the platform, not merely
+\emph{for} it: Niki drew the logo explorations using \texttt{wgr}, the
+whistlegraph-renderer drawing piece that runs inside \ac{} itself. The
+logo is therefore both an identity and a demonstration of the tool.
+
+\section{How the mark was made}
+
+\subsection{A stamp, first}
+It starts in the summer of \textbf{2020} with a small gift. Niki Stebbins
+emails a drawing --- a little purple star --- and Jeffrey drops it into the
+game as a stamp under the handle \texttt{@niki} and asks for more. For the
+next two years the collaboration is a loose, ongoing \emph{drawing session}:
+stamps, a drawing game, whistlegraph doodles. By \textbf{2022} it is paid
+design work. None of it is the logo yet, but it is the soil the logo grows
+from --- a habit of two people drawing together inside the tool.
+
+\subsection{Reopening the design (June 2023)}
+The logo proper begins with dissatisfaction. In \textbf{June 2023} Niki
+writes that she is ``not 100\% satisfied with the logo I left you with,''
+and reopens it. She thinks out loud about color --- ``like purple or
+green\dots{} not blue, too many blue app logos'' --- and about form: should
+the mark be ``like a frame, a closed shape only,'' something you could work
+\emph{inside}? She sends a sketchbook page of candidates and picks a
+favorite --- ``I like the circled one the most'' --- then immediately
+worries it is ``pretty similar to are.na's logo,'' and keeps going. The key
+instruction she gives herself is a correction of proportion: push it ``so it
+looks less like stars and more like figures.'' A page of the studies gets a
+verdict of its own --- ``looks like starfish lol'' --- and to fix it she
+leaves the screen entirely, tying and photographing lengths of \textbf{rope}
+in a park to understand how two linked bodies actually fall.
+
+\subsection{Building the two figures (July--August 2023)}
+Through the summer the mark resolves into \emph{two} figures rather than one.
+Niki buys a used \textbf{Kodak EasyShare} digital camera specifically to
+photograph the logo, sizes a version to ``the exact size of the VS
+Marketplace logo,'' and asks whether Jeffrey wants ``more logo drawings in
+a.c for social media pfps and the app-store thing.'' The repository agrees
+with the messages: on \commit{5bcefc5a9}{better defaults in \texttt{wgr} for
+niki's logo efforts} the drawing tool itself is tuned for her, and by
+\commit{a0009f5d0}{add new vscode extension logo from niki} a shipped asset
+lands. Late August she reports the ``variations of the \textbf{two logos}''
+finished, describing the gesture precisely --- ``the right figure was
+pulling at the left one\dots{} the left figure's arm is higher.'' The mark is
+now the thing it still is: two people, arms up, one pulling the other along.
+On \textbf{2023-08-31} an Instagram profile picture is chosen.
+
+\subsection{Ice cream, and going live (September 2023)}
+The finish is the strangest and best part. To photograph the mark in the
+world, Niki draws it at full size on pavement and tries to shoot it with
+ice cream --- but the ballpark ice cream comes in cups, so she detours to a
+McDonald's for a cone and gets the shot. On \textbf{2023-09-09} she ``sent
+the logos to a.c email'' under the subject \emph{!c3 cr34m l0go\$} (body:
+``ice cream logos 8)''). That same week the mark stops being a picture and becomes
+infrastructure: \commit{0aba1a378}{add dynamic logo generator} lands, and
+Jeffrey reports back the one-line result --- ``\^{}\ will now return a random
+logo every time.'' The logo was drawn \emph{with} the platform (in the
+\texttt{wgr} whistlegraph tool) and then served \emph{by} it. It was never
+only a picture; it was always also a program.
+
+\section{The endpoint: \texttt{pals.aesthetic.computer}}
+
+The mark became infrastructure in September 2023, when \ac{} stood up a
+dedicated logo service and gave it a memorizable home.
+
+\begin{itemize}
+  \item \textbf{2023-09-05} --- \commit{0aba1a378}{add dynamic logo
+        generator}. The backend module \repofile{system/backend/logo.mjs}
+        is stamped \texttt{23.09.05.22.31}.
+  \item \textbf{2023-09-12} --- \commit{f1a4f272c}{logo -> pals.aesthetic}
+        --- the route is renamed to the \pals{} identity.
+  \item \textbf{2023-09-13} --- \commit{12e348035}{pals.aesthetic.computer
+        url fix} --- the endpoint is live and addressable at its own
+        subdomain.
+\end{itemize}
+
+\noindent So \href{https://pals.aesthetic.computer}{\texttt{pals.aesthetic.computer}}
+\textbf{went online on 2023-09-12--13}, three days after the dynamic
+generator landed.
+
+\subsection{How it works as a ``logo grabber''}
+
+The endpoint is a tiny rotating proxy, not a single fixed image. Each
+request returns a different \pals{} pose:
+
+\begin{enumerate}
+  \item \href{https://pals.aesthetic.computer}{\texttt{pals.aesthetic.computer}}
+        redirects (via \repofile{system/netlify.toml}) to
+        \href{https://aesthetic.computer/api/logo}{\texttt{aesthetic.computer/api/logo}}.
+  \item \repofile{system/backend/logo.mjs} holds a list of \pals{}
+        \emph{paintings} on the \texttt{pals-aesthetic-computer} CDN
+        bucket and returns a random one each call (avoiding an immediate
+        repeat).
+  \item The function content-negotiates: a browser gets a full-bleed HTML
+        page on a random purple, tappable to cycle to the next pose
+        (passing \texttt{?previousLogo=} so it never repeats); a
+        \texttt{curl}/\texttt{<img>}/server request gets the raw
+        \texttt{.png} directly. The same URL is thus both a viewer and a
+        hot-linkable asset.
+\end{enumerate}
+
+\subsection{The many poses of the \pals{}}
+
+The grabber's pose set is a gallery of \texttt{wgr} paintings from
+mid-2023 (the \texttt{painting-2023.7.29}--\texttt{2023.8.21} series).
+Because the logo is a \emph{collection of drawn poses} rather than one
+frozen glyph, the brand reads as alive: every page load, avatar refresh,
+or favicon fetch can show the two figures in a slightly different stance.
+The full set of twelve live poses is reproduced in Appendix~A.
+
+\section{Use across properties}
+
+Because any property can hot-link
+\href{https://pals.aesthetic.computer}{\texttt{pals.aesthetic.computer}}
+(or embed the static
+\repofile{system/public/purple-pals.svg}), a single mark threads the
+whole ecosystem, and every instance is a link back to the project:
+
+\begin{itemize}
+  \item \textbf{Social avatars \& Gravatar} --- the rotating endpoint
+        supplies a profile image that quietly changes pose, so the same
+        identity appears across services while always resolving to
+        \ac{}.
+  \item \textbf{Web \& marketing} --- favicons, docs headers, and
+        embedded \texttt{<img>} tags pull the live \pals{}; a tap cycles
+        poses, turning the logo itself into a small interactive teaser
+        for the platform.
+  \item \textbf{Papers} --- the \pals{} ride the margins of every \ac{}
+        working draft as semi-opaque, page-wiggling side-stamps (see this
+        page), and appear in print-edition colophons.
+  \item \textbf{Native OS \& desktop} --- the \pals{} serve as boot
+        branding (Plymouth splash) in AC Native OS and as the vector
+        tray icon in AC Electron and MenuBand --- accent-tinted, badge-able.
+  \item \textbf{Print (pending)} --- in May 2025 Jeffrey contacted Casey
+        Rubber Stamps to cut physical \pals{} stamps in three sizes;
+        the order stalled and was never completed.
+\end{itemize}
+
+\section{Why ``\pals{}''? The Goodiepal lineage}
+
+The name is not decoration; it is a structural claim, and its weight
+comes from outside \ac{}. As argued in the \ac{} paper
+\emph{Radical Computer Art: Goodiepalian Approaches in Aesthetic
+Computer} (\repofile{papers/arxiv-goodiepal/goodiepal.tex}) and the
+platform paper it cites, ``\pals{}'' descends from \textbf{Goodiepal \&
+Pals} --- the loose affinity group around the Danish-Faroese musician and
+Radical Computer Music theorist Goodiepal (Gaeoudji SYGNOK, b.~1974).
+
+The \pals{} model is a politics of organization: a group with no
+membership, no institutional backing, and no formal structure, held
+together by shared practice and mutual recognition rather than
+affiliation. Goodiepal taught History and Aesthetics of Electronic Music
+at the Royal Danish Academy of Music and left in 2008 after a conflict
+described as having ``the wrong type of friends,'' having declared
+``intellectual war against the stupidity in modern computer music and
+media art.'' Jeffrey toured with Goodiepal \& Pals across Europe in 2018,
+and the tools built for those performances are direct ancestors of
+\ac{}'s architecture.
+
+So the logo carries that media-arts political history into the brand. As
+the Goodiepal paper puts it, naming the logo ``\pals{}'' --- and titling
+the score \emph{Score for Aesthetic{\color{acpink}.}Computer \& Pals} --- ``is not
+branding; it is a structural claim: the platform belongs to its community
+of practitioners, not to its developer or its investors.'' Two figures
+holding hands, made \emph{inside} the tool, is the argument rendered as a
+mark: \ac{} is \emph{for} anyone who shows up --- for \pals{}.
+
+\section{Authorship}
+
+Jeffrey hired \textbf{Niki Stebbins} to design the \ac{} logo under his
+direction. Across 2022--2023 she developed the mark inside the platform's
+own \texttt{wgr} drawing tool, working through the sketchbook, rope, and
+ice-cream explorations documented above and delivering the two-figures
+device that ships as \texttt{purple-pals.svg}. The rotating
+\texttt{pals.aesthetic.computer} grabber went live on 2023-09-12--13; the
+canonical static vector first appears on 2024-01-31
+(\commit{bf29eadf8}{host purple-pals graphic for docs}); and from 2026-02
+the repository and papers explicitly center ``\pals{}'' as platform
+identity (\commit{48dd8923e}{rename score to ``Score for
+Aesthetic.Computer \& Pals''}). The mark is a commissioned work: authored
+by Niki, directed by Jeffrey, and owned by \ac{}.
+
+\vspace{0.6em}
+{\footnotesize\color{acgray}\noindent Sources: repository commit history;
+\repofile{system/backend/logo.mjs};
+\repofile{system/netlify/functions/logo.js};
+\repofile{system/netlify.toml};
+\repofile{papers/arxiv-goodiepal/goodiepal.tex};
+\repofile{system/public/purple-pals.svg}.\par}
+
+% ============================ APPENDICES ============================
+\onecolumn
+\appendix
+
+\noindent\emph{Note on dates.} Every visual asset below is captioned with
+the date it was made: \texttt{wgr} poses by the timestamp encoded in the
+painting slug; monorepo assets by their first-commit (git
+\texttt{--diff-filter=A}) date; live captures by the date they were
+photographed from production.
+
+\section*{Appendix A --- The many poses (live \texttt{pals.aesthetic.computer} set)}
+\addcontentsline{toc}{section}{Appendix A --- Poses}
+\noindent The twelve \texttt{wgr} paintings the logo grabber rotates
+through, pulled live from the \texttt{pals-aesthetic-computer} CDN. Same
+two-figure motif, each a different stance and color treatment.
+\vspace{1.2em}
+
+\input{appendix-a.tex}
+
+
+\newpage
+\section*{Appendix B --- The mark across the monorepo}
+\addcontentsline{toc}{section}{Appendix B --- Monorepo assets}
+\noindent The same \pals{} drawn once and re-skinned everywhere: the
+canonical vector and its descendants across the codebase --- editor
+extension, native-OS boot splash, desktop tray, pop covers, invoice stamp,
+and the keymaps colorway set. Each tile is captioned with its first-commit date.
+\vspace{1.2em}
+
+\input{appendix-c.tex}
+
+\newpage
+\section*{Appendix C --- Live placements (real UIs)}
+\addcontentsline{toc}{section}{Appendix C --- Live placements}
+\noindent The \pals{} photographed living in real production interfaces,
+each captioned with its source URL (links are live): the Visual Studio
+Marketplace listing (the \pals{} as the extension's product icon), the
+monorepo README on both GitHub and the canonical Tangled host, and the
+rotating \href{https://pals.aesthetic.computer}{\texttt{pals.aesthetic.computer}}
+endpoint (same URL, different poses on reload --- plus the raw
+\texttt{/api/logo.png} handed to \texttt{<img>} tags and avatars).
+\vspace{1.0em}
+
+\input{appendix-d.tex}
+
+
+\end{document}

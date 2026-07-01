@@ -93,7 +93,10 @@ async function genCover(paperDir, { force }) {
   }
 
   const subject = readFileSync(promptPath, "utf8").trim();
-  const fullPrompt = STYLE_PREFIX + subject;
+  // --raw: the prompt file is already a complete, self-contained prompt
+  // (e.g. the "jeffrey-with-a-prop" scene covers carry their own style
+  // preamble) — skip the emblem STYLE_PREFIX.
+  const fullPrompt = flags.raw ? subject : STYLE_PREFIX + subject;
 
   const t0 = Date.now();
   const apiKey = loadOpenAIKey();

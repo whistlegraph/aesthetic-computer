@@ -1,0 +1,42 @@
+% Hand-authored: the Pals living in real production UIs, each with a caption + live URL.
+
+\newcommand{\uishot}[3]{%
+  % #1 image  #2 caption  #3 url
+  \begin{center}
+  \fbox{\includegraphics[width=0.96\linewidth]{#1}}\\[0.4em]
+  {\footnotesize #2}\\[0.1em]
+  {\footnotesize\ttfamily\href{#3}{#3}}
+  \end{center}
+  \vspace{0.7em}
+}
+\newcommand{\uishottwo}[6]{%
+  % (#1 img #2 cap #3 url) (#4 img #5 cap #6 url)
+  \noindent
+  \begin{minipage}[t]{0.485\linewidth}\centering
+    \fbox{\includegraphics[width=0.97\linewidth]{#1}}\\[0.35em]
+    {\footnotesize #2}\\[0.1em]{\scriptsize\ttfamily\href{#3}{#3}}
+  \end{minipage}\hfill
+  \begin{minipage}[t]{0.485\linewidth}\centering
+    \fbox{\includegraphics[width=0.97\linewidth]{#4}}\\[0.35em]
+    {\footnotesize #5}\\[0.1em]{\scriptsize\ttfamily\href{#6}{#6}}
+  \end{minipage}
+  \vspace{0.9em}
+}
+
+\uishot{figures/live/ui-vscode-marketplace.png}{%
+  \textbf{Visual Studio Marketplace} --- the \pals{} as the product icon of
+  the official \ac{} VS~Code extension (1{,}201 installs).}{%
+  https://marketplace.visualstudio.com/items?itemName=aesthetic-computer.aesthetic-computer-code}
+
+\uishottwo
+  {figures/live/ui-github-readme.png}{\textbf{GitHub} --- the \pals{} atop the
+   monorepo README.}{https://github.com/whistlegraph/aesthetic-computer}
+  {figures/live/ui-tangled-readme.png}{\textbf{Tangled} (canonical git host)
+   --- the same README, same mark.}{https://tangled.org/aesthetic.computer/core}
+
+\uishot{figures/compare/pals-live-strip.png}{%
+  \textbf{\texttt{pals.aesthetic.computer}} in a live browser --- the same URL
+  reloaded shows different poses (the rotating ``logo grabber''); the raw
+  \texttt{/api/logo.png} is what \texttt{<img>} tags and avatars (Gravatar,
+  social) fetch across the web.}{%
+  https://pals.aesthetic.computer}
