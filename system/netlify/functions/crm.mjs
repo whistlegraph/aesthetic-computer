@@ -64,7 +64,7 @@ async function rightsFor(database, handle) {
   const ld = doc.linkedData;
   if (ld?.enabled === false) return null;
   const license = isLicense(ld?.license) ? ld.license : DEFAULT_RIGHTS;
-  return { handle: doc.handle, license };
+  return { handle: doc.handle, license, colors: doc.colors || [] };
 }
 
 // In dev, ?preview=CC-BY-4.0 bypasses the gate so we can validate serialization
@@ -89,17 +89,69 @@ function jsonld(doc) {
   return respond(200, doc, { "Content-Type": JSONLD });
 }
 
-// A minimal human view that points at both the JSON-LD and the apex page.
-function htmlView(doc, webUrl) {
-  const body = `<!doctype html><meta charset=utf-8><title>${doc._label}</title>
-<style>body{font-family:monospace;max-width:48em;margin:3em auto;padding:0 1em;color:#111}a{color:#cd5c9b}</style>
-<h1>${doc._label}</h1>
-<p>Linked Art (CIDOC CRM) identity on <b>data.aesthetic.computer</b>.</p>
+// Render a handle as its AC sigil: each glyph of "@handle" tinted by the
+// per-character colors stored in @handles.colors.
+function sigil(handle, colors) {
+  if (!handle) return "";
+  const clean = handle.replace(/^@/, "");
+  const glyphs = [...`@${clean}`]
+    .map((ch, i) => {
+      const c = colors?.[i];
+      const col = c ? `rgb(${c.r},${c.g},${c.b})` : "var(--accent)";
+      return `<span style="color:${col}">${esc(ch)}</span>`;
+    })
+    .join("");
+  return `<a class=sigil href="${DATA_BASE}/@${esc(clean)}">${glyphs}</a>`;
+}
+
+// A rich human view of a record — the handle sigil, the painting image, rights,
+// and links to the JSON-LD / IIIF / apex. Styled to match the landing (auto
+// light/dark). Machines still get JSON-LD via content negotiation.
+function htmlView(doc, webUrl, extras = {}) {
+  const { kind, handle, colors, imageUrl, code } = extras;
+  const rights = doc.subject_to?.[0];
+  const rightsHtml = rights
+    ? `<p class=muted>Rights: <a href="${esc(rights.classified_as?.[0]?.id)}">${esc(rights._label)}</a></p>`
+    : "";
+  const img = imageUrl
+    ? `<a href="${esc(imageUrl)}"><img class=hero loading=lazy src="${esc(imageUrl)}" alt="${esc(doc._label)}"></a>`
+    : "";
+  const quote = doc.type === "LinguisticObject" && doc.content ? `<blockquote>“${esc(doc.content)}”</blockquote>` : "";
+  const iiif =
+    kind === "painting"
+      ? `<li><a href="${DATA_BASE}/iiif/${esc(code)}/manifest">IIIF manifest</a> · <a href="https://projectmirador.org/embed/?iiif-content=${encodeURIComponent(`${DATA_BASE}/iiif/${code}/manifest`)}">open in Mirador ↗</a></li>`
+      : "";
+  const body = `<!doctype html><html lang=en><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<title>${esc(doc._label)} · data</title>
+<link rel="icon" href="https://aesthetic.computer/purple-pals.svg">
+<link rel="alternate" type="application/ld+json" href="${doc.id}?format=jsonld">
+<style>
+:root{--bg:#f4f4f6;--fg:#141414;--muted:#666;--accent:#cd5c9b;--card:#fff;--border:#d0d0d4;color-scheme:light dark}
+@media(prefers-color-scheme:dark){:root{--bg:#0c0c0f;--fg:#eaeaea;--muted:#8a8a90;--accent:#ef86c0;--card:#17171b;--border:#2c2c32}}
+*{box-sizing:border-box}
+body{font-family:monospace;font-size:14px;line-height:1.55;max-width:44em;margin:0 auto;padding:2.4em 1em 4em;color:var(--fg);background:var(--bg)}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+.corner{position:fixed;top:.55em;left:.7em;font-weight:bold;color:var(--accent)}
+.sigil{font-weight:bold;font-size:1.5em;letter-spacing:.03em}
+h1{font-size:1.05em;font-weight:normal;color:var(--muted);margin:.4em 0 .8em}
+img.hero{max-width:100%;border:1px solid var(--border);background:var(--card);image-rendering:pixelated;display:block;margin:1em 0;border-radius:4px}
+blockquote{border-left:3px solid var(--accent);margin:1em 0;padding:.3em 0 .3em 1em;font-size:1.2em}
+ul{padding-left:1.2em}
+footer{margin-top:2.5em;border-top:1px solid var(--border);padding-top:1em;color:var(--muted);display:flex;gap:1.2em;flex-wrap:wrap}
+</style>
+<a class=corner href="/">data</a>
+${handle ? `<div>${sigil(handle, colors)}</div>` : ""}
+<h1>${esc(doc._label)}</h1>
+${img}
+${quote}
+${rightsHtml}
 <ul>
-<li><a href="${doc.id}?format=jsonld">JSON-LD representation</a></li>
-<li><a href="${webUrl}">View on Aesthetic Computer →</a></li>
+<li><a href="${doc.id}?format=jsonld">Linked Art JSON-LD (CIDOC CRM)</a></li>
+${iiif}
+<li><a href="${webUrl}">View on Aesthetic Computer ↗</a></li>
 </ul>
-<pre>${JSON.stringify(doc, null, 2).replace(/</g, "&lt;")}</pre>`;
+<footer><a href="/">← data.aesthetic.computer</a><a href="https://aesthetic.computer">aesthetic.computer</a></footer>`;
   return respond(200, body, { "Content-Type": "text/html; charset=utf-8" });
 }
 
@@ -137,7 +189,9 @@ export async function handler(event) {
         .findOne({ user: await subForHandle(database, consent.handle), deleted: { $ne: true } }, { sort: { when: -1 } });
 
       const doc = personToLinkedArt({ handle: consent.handle, latestMood });
-      return finish(event, doc, `${WEB_BASE}/@${consent.handle}`);
+      return finish(event, doc, `${WEB_BASE}/@${consent.handle}`, {
+        kind: "person", handle: consent.handle, colors: consent.colors,
+      });
     }
 
     // Painting: /painting/{code}
@@ -145,7 +199,9 @@ export async function handler(event) {
       const pt = await loadPainting(database, segs[1], event);
       if (!pt) return respond(404, { message: "Not found" });
       const doc = paintingToLinkedArt({ code: pt.code, handle: pt.handle, when: pt.when, imageUrl: pt.imageUrl, license: pt.license });
-      return finish(event, doc, `${WEB_BASE}/painting/${pt.code}`);
+      return finish(event, doc, `${WEB_BASE}/painting/${pt.code}`, {
+        kind: "painting", handle: pt.handle, colors: pt.colors, imageUrl: pt.imageUrl, code: pt.code,
+      });
     }
 
     // IIIF surfaces: /iiif/{code}/manifest | /info.json | /full/max/0/default.png
@@ -187,7 +243,9 @@ export async function handler(event) {
         hash: piece.hash,
         license: consent.license,
       });
-      return finish(event, doc, `${WEB_BASE}/${piece.code}`);
+      return finish(event, doc, `${WEB_BASE}/${piece.code}`, {
+        kind: "piece", handle, colors: consent.colors, code: piece.code,
+      });
     }
 
     // Mood: /mood/{handle}/{rkey}
@@ -211,7 +269,9 @@ export async function handler(event) {
         blueskyUri: mood.bluesky?.uri,
         license: consent.license,
       });
-      return finish(event, doc, `${WEB_BASE}/moods~${consent.handle}~${rkey}`);
+      return finish(event, doc, `${WEB_BASE}/moods~${consent.handle}~${rkey}`, {
+        kind: "mood", handle: consent.handle, colors: consent.colors,
+      });
     }
 
     return respond(404, { message: "Not found" });
@@ -245,6 +305,7 @@ async function loadPainting(database, code, event) {
     handle,
     when: p.when,
     license: consent.license,
+    colors: consent.colors,
     imageUrl: paintingImageUrl(handle, p.slug, p.user),
   };
 }
@@ -282,8 +343,8 @@ async function sitemap(database) {
   return respond(200, body, { "Content-Type": "application/xml; charset=utf-8" });
 }
 
-function finish(event, doc, webUrl) {
-  return wantsHtml(event) ? htmlView(doc, webUrl) : jsonld(doc);
+function finish(event, doc, webUrl, extras = {}) {
+  return wantsHtml(event) ? htmlView(doc, webUrl, extras) : jsonld(doc);
 }
 
 function voidDoc() {
