@@ -152,7 +152,9 @@ enum Paths {
     /// glanceable shape-identity. Toggled from the menubar's "Prompt sigils"
     /// item; sibling to theme-by-status (colour) but at the per-prompt grain
     /// (shape).
-    static var promptSigilsFlag: String { "\(slabHome)/state/prompt-sigils" }
+    /// Prompt sigils are ON by default (they always run with slab); this marker
+    /// exists only when the user has explicitly turned them OFF from the menu.
+    static var promptSigilsDisabledFlag: String { "\(slabHome)/state/prompt-sigils-off" }
 }
 
 enum Tools {

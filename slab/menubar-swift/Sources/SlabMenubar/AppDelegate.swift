@@ -1224,17 +1224,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// `refresh()` re-reads the flag and drives the controller on the next
     /// tick, but we call sync directly here too so the toggle is instant.
     @objc func togglePromptSigils() {
-        let path = Paths.promptSigilsFlag
+        // On by default; the marker exists only when explicitly disabled.
+        let path = Paths.promptSigilsDisabledFlag
         let fm = FileManager.default
         let nowOn: Bool
         if fm.fileExists(atPath: path) {
-            try? fm.removeItem(atPath: path)
-            nowOn = false
+            try? fm.removeItem(atPath: path)   // remove disable → ON
+            nowOn = true
         } else {
             let dir = (path as NSString).deletingLastPathComponent
             try? fm.createDirectory(atPath: dir, withIntermediateDirectories: true)
-            fm.createFile(atPath: path, contents: nil)
-            nowOn = true
+            fm.createFile(atPath: path, contents: nil)   // create disable → OFF
+            nowOn = false
         }
         state.promptSigils = nowOn
         PromptSigilOverlayController.shared.sync(
