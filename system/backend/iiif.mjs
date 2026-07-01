@@ -15,11 +15,13 @@ import { DATA_BASE, WEB_BASE, LICENSES, RIGHTS_STATEMENTS } from "./linked-art.m
 const PRES_CONTEXT = "http://iiif.io/api/presentation/3/context.json";
 const IMAGE_CONTEXT = "http://iiif.io/api/image/3/context.json";
 
-// IIIF `rights` must be a single CC or rightsstatements.org URI — which is
-// exactly what our license/rights registry already holds.
+// IIIF `rights` must be a single CC or rightsstatements.org URI, and the spec
+// requires the http:// scheme for both (our Linked Art registry uses https for
+// Creative Commons, which is fine there but rejected by IIIF validators).
 function rightsUrl(key) {
   const entry = LICENSES[key] || RIGHTS_STATEMENTS[key];
-  return entry ? entry[0] : undefined;
+  if (!entry) return undefined;
+  return entry[0].replace(/^https:\/\/(creativecommons\.org|rightsstatements\.org)/, "http://$1");
 }
 
 // Read a PNG's pixel dimensions from its IHDR header (first 24 bytes), fetched
