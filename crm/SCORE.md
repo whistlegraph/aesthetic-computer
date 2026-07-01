@@ -344,4 +344,9 @@ Stage 2 adds the `localhost:7878` proxy. Same staging as below.
    deploy + external validation against linked.art tooling.
 3. ✅ **Stage 2** — Oxigraph on lith (`127.0.0.1:7878`) + `crm/build-graph.mjs`
    ETL + 30-min `oxigraph-sync.timer` + read-only `/sparql` + `void:sparqlEndpoint`.
-4. ⬜ **Stage 3** — IIIF + sitemap + docs with a worked Getty-style federated query.
+4. ✅ **Stage 3** — `iiif.mjs` IIIF Presentation v3 Manifest + Image Level-0
+   `info.json` per painting (dims from the PNG header; validates okay=0-errors on
+   the official IIIF validator) + `/sitemap.xml` (7721 URIs) + Getty-federated
+   query example. Landing redesigned (PALS beacon, "data" corner, auto light/dark,
+   auto-scroll slideshow, Access Points as the pitch, footer link-backs). `data`
+   routes from the AC prompt. All 2929 handles included (0 opt-outs).
