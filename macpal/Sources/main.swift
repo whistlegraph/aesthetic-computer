@@ -95,7 +95,12 @@ if profile == "fuser" {
         },
         singPath: { color in resource(base(color) + "-sing", "svg") }
     )
-    plugins = [AffirmationsPlugin(recipient: recipient, host: host, supportDir: starSupport)]
+    plugins = [
+        AffirmationsPlugin(recipient: recipient, host: host, supportDir: starSupport),
+        // Fía's own manifestations, fetched live and cycled one per hour in a
+        // bubble beside the star in mini mode.
+        ManifestationsPlugin(recipient: recipient, host: host, supportDir: starSupport),
+    ]
 }
 
 // 3D avatar opt-in, per machine: a fuser machine named <m> uses a SceneKit
@@ -158,6 +163,16 @@ if config.registersLoginItem { registerLoginItemOnce() }
 let pal = PalController(config: config)
 pal.plugins = plugins
 pal.build()
+
+// Display focus flash: fuser machines pulse a soft accent bloom around the
+// screen edge when the Deskflow cursor crosses onto them (and on same-machine
+// display hops). The minis' desktop-badge already does this; this brings the
+// same glow to the MacPal machines (neo, blueberry). Held alive for the app's
+// lifetime. Touch <supportDir>/noglow to disable per machine.
+var glow: GlowController?
+if config.profile == "fuser" {
+    glow = GlowController(home: config.supportDir)
+}
 
 if config.showsAbout, CommandLine.arguments.contains("--about") {
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { AboutWindow.show(config: config) }

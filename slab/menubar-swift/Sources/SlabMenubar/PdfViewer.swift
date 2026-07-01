@@ -10,6 +10,7 @@
 // watches the file and reloads on rewrite (xelatex loops feel live).
 import AppKit
 import PDFKit
+import CoreImage
 
 extension Paths {
     /// One absolute PDF path per line; consumed (deleted) each tick.
@@ -256,6 +257,55 @@ private final class DraggablePdfView: PDFView {
             }
         }
         window?.performDrag(with: event)
+    }
+
+    // ── DARK READER — a dark-mode PDF read. macOS Preview has no real PDF dark
+    // mode (only the system-wide Accessibility invert), so slab does its own: a
+    // Core-Animation layer filter that INVERTS the pages then HUE-ROTATES 180° —
+    // the exact `invert(1) hue-rotate(180deg)` trick the Dark Reader browser
+    // extension uses, so black-on-cream text becomes light-on-dark while colour
+    // photos (e.g. an essay's cover plate) stay roughly true instead of looking
+    // like a negative. Only the PDF pages are filtered; the glass backdrop is a
+    // sibling view, untouched.
+    //
+    // It FOLLOWS macOS system dark mode by default (so it flips live when the OS
+    // theme changes), and 'd' is a per-window manual override (nil = follow). ──
+    private var userOverride: Bool? = nil   // nil = follow the system appearance
+
+    override var acceptsFirstResponder: Bool { true }
+
+    override func keyDown(with event: NSEvent) {
+        if event.charactersIgnoringModifiers?.lowercased() == "d",
+           !event.modifierFlags.contains(.command) {
+            userOverride = !currentlyDark()   // flip relative to what's showing
+            applyDarkReader()
+            return
+        }
+        super.keyDown(with: event)
+    }
+
+    // NSView calls this whenever the effective appearance changes — i.e. when
+    // the user toggles macOS Light/Dark — and once when first shown.
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        applyDarkReader()
+    }
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        applyDarkReader()
+    }
+
+    private func systemIsDark() -> Bool {
+        effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+    }
+    private func currentlyDark() -> Bool { userOverride ?? systemIsDark() }
+
+    private func applyDarkReader() {
+        wantsLayer = true
+        guard let invert = CIFilter(name: "CIColorInvert"),
+              let hue = CIFilter(name: "CIHueAdjust") else { return }
+        hue.setValue(Float.pi, forKey: kCIInputAngleKey)   // 180° — Dark-Reader fidelity
+        layer?.filters = currentlyDark() ? [invert, hue] : nil
     }
 }
 
