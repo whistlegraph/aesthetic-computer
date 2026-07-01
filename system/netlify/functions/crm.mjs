@@ -34,6 +34,7 @@ import {
   DATA_BASE,
   WEB_BASE,
 } from "../../backend/linked-art.mjs";
+import { paintingManifest, imageInfo, pngDimensions } from "../../backend/iiif.mjs";
 
 const dev = process.env.CONTEXT === "dev" || process.env.NETLIFY_DEV === "true";
 const JSONLD = "application/ld+json";
@@ -122,6 +123,9 @@ export async function handler(event) {
     // Landing page — lists the opted-in people and their records.
     if (segs.length === 0) return await landing(database);
 
+    // Sitemap of every entity URI, for crawlers + harvesters.
+    if (segs[0] === "sitemap.xml") return await sitemap(database);
+
     // Person: /@handle
     if (segs[0].startsWith("@")) {
       const handle = segs[0].slice(1);
@@ -138,15 +142,31 @@ export async function handler(event) {
 
     // Painting: /painting/{code}
     if (segs[0] === "painting" && segs[1]) {
-      const p = await database.db.collection("paintings").findOne({ code: segs[1] });
-      if (!p || p.nuked) return respond(404, { message: "Not found" });
-      const handle = await handleFor(p.user);
-      const consent = previewLicense(event) ? { handle, license: previewLicense(event) } : await rightsFor(database, handle);
-      if (!consent || !handle) return respond(404, { message: "Not found" });
+      const pt = await loadPainting(database, segs[1], event);
+      if (!pt) return respond(404, { message: "Not found" });
+      const doc = paintingToLinkedArt({ code: pt.code, handle: pt.handle, when: pt.when, imageUrl: pt.imageUrl, license: pt.license });
+      return finish(event, doc, `${WEB_BASE}/painting/${pt.code}`);
+    }
 
-      const imageUrl = paintingImageUrl(handle, p.slug, p.user);
-      const doc = paintingToLinkedArt({ code: p.code, handle, when: p.when, imageUrl, license: consent.license });
-      return finish(event, doc, `${WEB_BASE}/painting/${p.code}`);
+    // IIIF surfaces: /iiif/{code}/manifest | /info.json | /full/max/0/default.png
+    if (segs[0] === "iiif" && segs[1]) {
+      const pt = await loadPainting(database, segs[1], event);
+      if (!pt) return respond(404, { message: "Not found" });
+
+      // The full-image request (IIIF Level 0) redirects to the CDN.
+      if (segs[2] === "full") {
+        return respond(302, "", { Location: pt.imageUrl, "Content-Type": "text/plain" });
+      }
+
+      const dims = (await pngDimensions(pt.imageUrl)) || { width: 2048, height: 2048 };
+      if (segs[2] === "info.json") {
+        return respond(200, imageInfo({ code: pt.code, ...dims }), { "Content-Type": JSONLD });
+      }
+      // Default (…/manifest or bare /iiif/{code}) → Presentation Manifest.
+      const manifest = paintingManifest({
+        code: pt.code, handle: pt.handle, when: pt.when, license: pt.license, ...dims,
+      });
+      return respond(200, manifest, { "Content-Type": JSONLD });
     }
 
     // Piece: /piece/{code}
@@ -209,6 +229,59 @@ async function subForHandle(database, handle) {
   return doc?._id;
 }
 
+// Load a painting + its owner's handle/rights/image URL, honoring the rights
+// gate. Returns null for missing, nuked, handleless, or opted-out. Shared by the
+// Linked Art record route and the IIIF surfaces.
+async function loadPainting(database, code, event) {
+  const p = await database.db.collection("paintings").findOne({ code });
+  if (!p || p.nuked) return null;
+  const handle = await handleFor(p.user);
+  const consent = previewLicense(event)
+    ? { handle, license: previewLicense(event) }
+    : await rightsFor(database, handle);
+  if (!consent || !handle) return null;
+  return {
+    code: p.code,
+    handle,
+    when: p.when,
+    license: consent.license,
+    imageUrl: paintingImageUrl(handle, p.slug, p.user),
+  };
+}
+
+// XML sitemap of every published entity URI (persons, paintings, pieces, moods),
+// so crawlers and cultural-heritage harvesters can discover the whole dataset.
+async function sitemap(database) {
+  const db = database.db;
+  const handles = await db.collection("@handles").find({}).toArray();
+  const bySub = new Map();
+  const urls = [];
+  for (const h of handles) {
+    if (!h.handle || h.linkedData?.enabled === false) continue;
+    bySub.set(h._id, h.handle);
+    urls.push(`${DATA_BASE}/@${h.handle}`);
+  }
+  const push = (u) => urls.push(u);
+  for await (const p of db.collection("paintings").find({ nuked: { $ne: true }, user: { $ne: null } }, { projection: { code: 1, user: 1 } })) {
+    if (bySub.has(p.user)) push(`${DATA_BASE}/painting/${p.code}`);
+  }
+  for await (const pc of db.collection("pieces").find({ user: { $ne: null } }, { projection: { code: 1, user: 1 } })) {
+    if (bySub.has(pc.user)) push(`${DATA_BASE}/piece/${pc.code}`);
+  }
+  for await (const m of db
+    .collection("moods")
+    .find({ deleted: { $ne: true }, "atproto.rkey": { $exists: true }, user: { $ne: null } }, { projection: { user: 1, atproto: 1 } })) {
+    const handle = bySub.get(m.user);
+    if (handle) push(`${DATA_BASE}/mood/${handle}/${m.atproto.rkey}`);
+  }
+  const body =
+    `<?xml version="1.0" encoding="UTF-8"?>\n` +
+    `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+    urls.map((u) => `  <url><loc>${u.replace(/&/g, "&amp;")}</loc></url>`).join("\n") +
+    `\n</urlset>\n`;
+  return respond(200, body, { "Content-Type": "application/xml; charset=utf-8" });
+}
+
 function finish(event, doc, webUrl) {
   return wantsHtml(event) ? htmlView(doc, webUrl) : jsonld(doc);
 }
@@ -237,10 +310,6 @@ function voidDoc() {
 
 function esc(s) {
   return String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-}
-
-function rightsLabel(key) {
-  return key === DEFAULT_RIGHTS ? "in copyright" : key;
 }
 
 // Landing page — the human front door. Builds a recent-records feed across ALL
@@ -304,93 +373,127 @@ async function landing(database) {
     };
   });
 
-  const cards = people
-    .map((p) => {
-      const thumbs = p.paintings
-        .map((pt) => {
-          const img = paintingImageUrl(p.handle, pt.slug, pt.user);
-          return img
-            ? `<a href="${DATA_BASE}/painting/${esc(pt.code)}" title="painting ${esc(pt.code)} — Linked Art record"><img loading=lazy src="${esc(img)}" alt="painting ${esc(pt.code)}"></a>`
-            : "";
-        })
-        .join("");
-      const moodLine = p.mood?.mood
-        ? `<p class=mood>“${esc(p.mood.mood)}”${p.mood.rkey ? ` <a class=muted href="${DATA_BASE}/mood/${esc(p.handle)}/${esc(p.mood.rkey)}">↗ record</a>` : ""}</p>`
-        : "";
-      return `<section class=person>
-<h3><a href="${DATA_BASE}/@${esc(p.handle)}">@${esc(p.handle)}</a>
-<span class=muted>· ${p.paintingCount} painting${p.paintingCount === 1 ? "" : "s"} · ${esc(rightsLabel(p.license))}</span></h3>
-${moodLine}
-<div class=thumbs>${thumbs || '<span class=muted>no public paintings yet</span>'}</div>
-</section>`;
-    })
+  // Big animated slideshow — every recent painting with a handled owner.
+  const slides = [];
+  for (const pt of recent) {
+    const h = handleBySub.get(pt.user);
+    if (!h?.handle || h.linkedData?.enabled === false) continue;
+    const img = paintingImageUrl(h.handle, pt.slug, pt.user);
+    if (!img) continue;
+    slides.push(
+      `<a href="${DATA_BASE}/painting/${esc(pt.code)}" title="painting ${esc(pt.code)} by @${esc(h.handle)}"><img loading=lazy src="${esc(img)}" alt=""></a>`,
+    );
+    if (slides.length >= 40) break;
+  }
+  const track = slides.join("");
+
+  // Compact people chips beneath the slideshow.
+  const chips = people
+    .map(
+      (p) =>
+        `<a class=chip href="${DATA_BASE}/@${esc(p.handle)}">@${esc(p.handle)}<span class=muted> ${p.paintingCount}</span></a>`,
+    )
     .join("");
 
-  const sample = people.find((p) => p.paintings[0])?.paintings[0];
-  const sampleUrl = sample ? `${DATA_BASE}/painting/${sample.code}` : `${DATA_BASE}/@${people[0]?.handle || "jeffrey"}`;
+  const totalPeople = await db
+    .collection("@handles")
+    .countDocuments({ handle: { $exists: true }, "linkedData.enabled": { $ne: false } });
+
+  const sample = slides.length ? recent.find((pt) => handleBySub.get(pt.user)?.handle) : null;
+  const sampleUrl = sample ? `${DATA_BASE}/painting/${sample.code}` : `${DATA_BASE}/@jeffrey`;
 
   const body = `<!doctype html><html lang=en><meta charset=utf-8>
 <meta name=viewport content="width=device-width, initial-scale=1">
 <title>data · Aesthetic Computer</title>
 <meta name=description content="Linked open data from Aesthetic Computer — paintings, pieces, moods, and people as Linked Art / CIDOC CRM, for cultural-heritage research.">
+<link rel="icon" href="https://aesthetic.computer/purple-pals.svg">
+<link rel="sitemap" href="${DATA_BASE}/sitemap.xml">
 <style>
-:root{color-scheme:light}
-body{font-family:monospace;font-size:14px;line-height:1.5;max-width:48em;margin:0 auto;padding:2em 1em;color:#111;background:#f5f5f5}
-a{color:#cd5c9b;text-decoration:none}a:hover{text-decoration:underline}
-h1{border-bottom:2px solid #cd5c9b;padding-bottom:.3em}
-h2{margin-top:2em}
-code,pre{background:#eee;border-radius:4px}code{padding:.1em .3em}pre{padding:1em;overflow:auto;white-space:pre-wrap}
-.muted{color:#666;font-weight:normal}
-.person{border-top:1px solid #ddd;padding:.6em 0}
-.person h3{margin:.2em 0;font-size:14px}
-.mood{margin:.2em 0;color:#333}
-.thumbs{display:flex;flex-wrap:wrap;gap:.4em;margin:.4em 0}
-.thumbs img{width:88px;height:88px;object-fit:cover;border:1px solid #ccc;background:#fff;image-rendering:pixelated}
+:root{--bg:#f4f4f6;--fg:#141414;--muted:#666;--accent:#cd5c9b;--card:#fff;--border:#d0d0d4;color-scheme:light dark}
+@media (prefers-color-scheme:dark){:root{--bg:#0c0c0f;--fg:#eaeaea;--muted:#8a8a90;--accent:#ef86c0;--card:#17171b;--border:#2c2c32}}
+*{box-sizing:border-box}
+body{font-family:monospace;font-size:14px;line-height:1.55;max-width:50em;margin:0 auto;padding:2.4em 1em 4em;color:var(--fg);background:var(--bg)}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+.corner{position:fixed;top:.55em;left:.7em;font-weight:bold;color:var(--accent);z-index:10}
+h1{font-size:1.5em;margin:.2em 0}
+h2{margin-top:2.2em;border-bottom:1px solid var(--border);padding-bottom:.2em}
+.muted{color:var(--muted);font-weight:normal}
+code,pre{background:var(--card);border:1px solid var(--border);border-radius:5px}
+code{padding:.1em .35em}pre{padding:1em;overflow:auto;white-space:pre-wrap}
+header{text-align:center;margin-bottom:1em}
+#pals-beacon{display:inline-flex}
+.pals-logo-container{position:relative;display:inline-block}
+.pals-logo,.pals-logo-pink{width:72px;height:auto;display:block}
+.pals-logo{filter:grayscale(100%) opacity(.3)}
+.pals-logo-pink{position:absolute;top:0;left:0;filter:hue-rotate(-30deg) saturate(1.5) brightness(1.2) drop-shadow(0 0 8px rgba(255,100,200,.8));animation:pulse 3s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.5}50%{opacity:.95}}
+.slideshow{overflow:hidden;margin:1.4em -50vw;padding:.4em 0;width:100vw;position:relative;left:50%;right:50%;margin-left:-50vw;margin-right:-50vw;-webkit-mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)}
+.track{display:flex;gap:.6em;width:max-content;animation:scroll 90s linear infinite}
+.slideshow:hover .track{animation-play-state:paused}
+.track img{height:190px;width:auto;border:1px solid var(--border);background:var(--card);image-rendering:pixelated;display:block}
+@keyframes scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){.track{animation:none}.pals-logo-pink{animation:none;opacity:.8}}
+.access{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:.7em;margin:1em 0}
+.access .card{border:1px solid var(--border);border-radius:9px;padding:.8em;background:var(--card)}
+.access .card b{color:var(--accent);font-size:1.05em}
+.chips{display:flex;flex-wrap:wrap;gap:.4em;margin:.6em 0}
+.chip{border:1px solid var(--border);border-radius:999px;padding:.15em .7em;background:var(--card);font-size:.92em}
+footer{margin-top:3em;border-top:1px solid var(--border);padding-top:1em;color:var(--muted);display:flex;gap:1.2em;flex-wrap:wrap}
 </style>
-<h1>data.aesthetic.computer</h1>
-<p>Aesthetic Computer publishes its community's public works as
+<a class=corner href="/">data</a>
+<header>
+  <a id="pals-beacon" href="https://aesthetic.computer" aria-label="aesthetic.computer">
+    <span class="pals-logo-container">
+      <img src="https://aesthetic.computer/purple-pals.svg" alt="" class="pals-logo">
+      <img src="https://aesthetic.computer/purple-pals.svg" alt="" class="pals-logo-pink">
+    </span>
+  </a>
+  <h1>data.aesthetic.computer</h1>
+  <div class="muted">Aesthetic Computer as linked open data</div>
+</header>
+
+<p>Every public painting, piece, mood, and person on
+<a href="https://aesthetic.computer">Aesthetic Computer</a> is published here as
 <a href="https://linked.art">Linked Art</a> — the JSON-LD profile of
-<a href="https://www.cidoc-crm.org">CIDOC CRM</a> used across the cultural-heritage
-world. This makes paintings, pieces, moods, and people here discoverable and
-citable by researchers (e.g. at the Getty) as linked open data.</p>
+<a href="https://www.cidoc-crm.org">CIDOC CRM</a> — so cultural-heritage
+researchers (e.g. at the <a href="https://www.getty.edu">Getty</a>) can
+discover, query, and cite it with standard tools.</p>
 
-<h2>Recent records</h2>
-<p class=muted>${people.length} recent contributor${people.length === 1 ? "" : "s"}. Each record is open and citable; reuse rights stay with the artist (<i>in copyright</i>) unless a Creative Commons license is shown. Thumbnails link to each Linked Art record.</p>
-${cards || '<p class=muted>No public records yet.</p>'}
+<div class=slideshow><div class=track>${track}${track}</div></div>
+<p class=muted style="text-align:center">${totalPeople.toLocaleString()} people · all works discoverable. Hover to pause; click any painting for its record.</p>
 
-<h2>Entity identifiers</h2>
-<ul>
-<li><code>${DATA_BASE}/@{handle}</code> — a person <span class=muted>(CIDOC CRM E21)</span></li>
-<li><code>${DATA_BASE}/painting/{code}</code> — a digital painting <span class=muted>(E22)</span></li>
-<li><code>${DATA_BASE}/piece/{code}</code> — a KidLisp / JavaScript piece <span class=muted>(E73)</span></li>
-<li><code>${DATA_BASE}/mood/{handle}/{rkey}</code> — a mood <span class=muted>(E33)</span></li>
-</ul>
-<p class=muted>Request <code>Accept: application/ld+json</code> (or append
-<code>?format=jsonld</code>) for the Linked Art representation; a browser gets a
-human-readable view that links back to the work on aesthetic.computer.</p>
+<h2>Access points</h2>
+<div class=access>
+<div class=card><b>SPARQL</b><br><a href="${DATA_BASE}/sparql">/sparql</a><br><span class=muted>query the whole CIDOC CRM graph</span></div>
+<div class=card><b>Linked Art</b><br><code>/painting/{code}</code><br><span class=muted>JSON-LD via <code>Accept: ld+json</code></span></div>
+<div class=card><b>IIIF</b><br><code>/iiif/{code}/manifest</code><br><span class=muted>Presentation v3 + Level-0 image</span></div>
+<div class=card><b>Sitemap</b><br><a href="${DATA_BASE}/sitemap.xml">/sitemap.xml</a><br><span class=muted>every entity URI</span></div>
+<div class=card><b>VoID</b><br><a href="${DATA_BASE}/.well-known/void">/.well-known/void</a><br><span class=muted>dataset description</span></div>
+<div class=card><b>Bluesky</b><br><a href="https://at.aesthetic.computer">at.aesthetic.computer</a><br><span class=muted>same works over ATProto</span></div>
+</div>
 
-<h2>Find these records elsewhere</h2>
-<p>The same identifiers are designed to be consumed by standard cultural-heritage
-and linked-data tooling:</p>
-<ul>
-<li><b>Query everything with SPARQL</b> at <a href="${DATA_BASE}/sparql"><code>${DATA_BASE}/sparql</code></a> — e.g. every painting by @jeffrey:
+<h2>Example queries</h2>
+<p>Every painting by @jeffrey:</p>
 <pre>curl -s '${DATA_BASE}/sparql' --data-urlencode 'query=
  PREFIX crm: &lt;http://www.cidoc-crm.org/cidoc-crm/&gt;
  SELECT ?work WHERE {
    ?work crm:P108i_was_produced_by/crm:P14_carried_out_by
-         &lt;${DATA_BASE}/@jeffrey&gt; }'</pre></li>
-<li><b>Fetch one record's JSON-LD</b> directly:<br>
-<code>curl -H "Accept: application/ld+json" ${esc(sampleUrl)}</code></li>
-<li><b>Inspect / expand it</b> in the <a href="https://json-ld.org/playground/">JSON-LD Playground</a> or the <a href="https://linkeddata.uriburner.com/">URIBurner</a> linked-data browser (paste a record URL).</li>
-<li><b>Dataset description</b> for harvesters: <a href="${DATA_BASE}/.well-known/void">/.well-known/void</a> (<a href="https://www.w3.org/TR/void/">VoID</a>).</li>
-<li><b>Vocabularies used:</b> <a href="https://www.getty.edu/research/tools/vocabularies/aat/">Getty AAT</a> for classification; <a href="https://rightsstatements.org/">rightsstatements.org</a> and <a href="https://creativecommons.org/licenses/">Creative Commons</a> for rights.</li>
-<li><b>Also broadcast on the open social web</b> via <a href="https://at.aesthetic.computer">at.aesthetic.computer</a> (ATProto / Bluesky) — the same works, different protocol.</li>
-</ul>
+         &lt;${DATA_BASE}/@jeffrey&gt; }'</pre>
+<p>Because classifications are shared <a href="https://www.getty.edu/research/tools/vocabularies/aat/">Getty AAT</a> URIs, our data <b>federates with the Getty's own</b> — e.g. enrich each type with the Getty's preferred label (run from a client that federates both endpoints):</p>
+<pre>PREFIX crm: &lt;http://www.cidoc-crm.org/cidoc-crm/&gt;
+PREFIX gvp: &lt;http://vocab.getty.edu/ontology#&gt;
+PREFIX xl:  &lt;http://www.w3.org/2008/05/skos-xl#&gt;
+SELECT DISTINCT ?type ?gettyLabel WHERE {
+  SERVICE &lt;${DATA_BASE}/sparql&gt; { ?work crm:P2_has_type ?type
+    FILTER(STRSTARTS(STR(?type),"http://vocab.getty.edu/aat/")) }
+  SERVICE &lt;https://vocab.getty.edu/sparql&gt; {
+    ?type gvp:prefLabelGVP/xl:literalForm ?gettyLabel . } }</pre>
+<p class=muted>Or fetch one record's JSON-LD directly:
+<code>curl -H "Accept: application/ld+json" ${esc(sampleUrl)}</code> — inspect it in the
+<a href="https://json-ld.org/playground/">JSON-LD Playground</a>.</p>
 
-<h2>Coming soon</h2>
-<ul>
-<li>IIIF image service over the painting CDN, for Getty-native image tooling (Stage 3).</li>
-</ul>
+<h2>People</h2>
+<div class=chips>${chips || '<span class=muted>none yet</span>'}</div>
 
 <h2 id=optin>Rights &amp; opting out</h2>
 <p>These records describe work that is already public on aesthetic.computer —
@@ -400,6 +503,14 @@ entry. By default each is marked
 the record is open and citable, but copyright and the right to sell stay
 entirely with the artist. Artists may opt in to an open
 <a href="https://creativecommons.org/licenses/">Creative Commons</a> license to
-allow reuse, or opt out to be excluded entirely — just ask.</p>`;
+allow reuse, or opt out to be excluded — just ask.</p>
+
+<footer>
+<a href="https://aesthetic.computer">aesthetic.computer</a>
+<a href="https://at.aesthetic.computer">at · bluesky</a>
+<a href="https://github.com/whistlegraph/aesthetic-computer">github</a>
+<a href="${DATA_BASE}/sitemap.xml">sitemap</a>
+<a href="${DATA_BASE}/.well-known/void">void</a>
+</footer>`;
   return respond(200, body, { "Content-Type": "text/html; charset=utf-8" });
 }

@@ -1777,6 +1777,10 @@ async function halt($, text) {
     // Jump to ATProto user pages landing
     jump(`https://at.aesthetic.computer`);
     return true;
+  } else if (slug === "data") {
+    // 🔗 Jump to the Linked Open Data / CIDOC CRM portal
+    jump(`https://data.aesthetic.computer`);
+    return true;
   } else if (slug === "oven") {
     // 🔥 Jump to Oven dashboard
     jump(`https://oven.aesthetic.computer`);
