@@ -39,6 +39,9 @@ import { paintingManifest, imageInfo, pngDimensions } from "../../backend/iiif.m
 const dev = process.env.CONTEXT === "dev" || process.env.NETLIFY_DEV === "true";
 const JSONLD = "application/ld+json";
 
+// The AC wordmark — "Aesthetic.Computer" with a pink dot (HTML; body use only).
+const AC = `Aesthetic<span class=dot>.</span>Computer`;
+
 // Strip the function prefix to get the entity path segments.
 // "/api/crm/painting/Abc123" → ["painting", "Abc123"]
 function segmentsFrom(path) {
@@ -133,6 +136,7 @@ function htmlView(doc, webUrl, extras = {}) {
 body{font-family:monospace;font-size:14px;line-height:1.55;max-width:44em;margin:0 auto;padding:2.4em 1em 4em;color:var(--fg);background:var(--bg)}
 a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .corner{position:fixed;top:.55em;left:.7em;font-weight:bold;color:var(--accent)}
+.dot{color:var(--accent)}
 .sigil{font-weight:bold;font-size:1.5em;letter-spacing:.03em}
 h1{font-size:1.05em;font-weight:normal;color:var(--muted);margin:.4em 0 .8em}
 img.hero{max-width:100%;border:1px solid var(--border);background:var(--card);image-rendering:pixelated;display:block;margin:1em 0;border-radius:4px}
@@ -140,7 +144,7 @@ blockquote{border-left:3px solid var(--accent);margin:1em 0;padding:.3em 0 .3em 
 ul{padding-left:1.2em}
 footer{margin-top:2.5em;border-top:1px solid var(--border);padding-top:1em;color:var(--muted);display:flex;gap:1.2em;flex-wrap:wrap}
 </style>
-<a class=corner href="/">data</a>
+<a class=corner href="https://aesthetic.computer" title="back to Aesthetic.Computer">data</a>
 ${handle ? `<div>${sigil(handle, colors)}</div>` : ""}
 <h1>${esc(doc._label)}</h1>
 ${img}
@@ -149,7 +153,7 @@ ${rightsHtml}
 <ul>
 <li><a href="${doc.id}?format=jsonld">Linked Art JSON-LD (CIDOC CRM)</a></li>
 ${iiif}
-<li><a href="${webUrl}">View on Aesthetic Computer ↗</a></li>
+<li><a href="${webUrl}">View on ${AC} ↗</a></li>
 </ul>
 <footer><a href="/">← data.aesthetic.computer</a><a href="https://aesthetic.computer">aesthetic.computer</a></footer>`;
   return respond(200, body, { "Content-Type": "text/html; charset=utf-8" });
@@ -476,6 +480,7 @@ async function landing(database) {
 body{font-family:monospace;font-size:14px;line-height:1.55;max-width:50em;margin:0 auto;padding:2.4em 1em 4em;color:var(--fg);background:var(--bg)}
 a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .corner{position:fixed;top:.55em;left:.7em;font-weight:bold;color:var(--accent);z-index:10}
+.dot{color:var(--accent)}
 h1{font-size:1.5em;margin:.2em 0}
 h2{margin-top:2.2em;border-bottom:1px solid var(--border);padding-bottom:.2em}
 .muted{color:var(--muted);font-weight:normal}
@@ -501,7 +506,7 @@ header{text-align:center;margin-bottom:1em}
 .chip{border:1px solid var(--border);border-radius:999px;padding:.15em .7em;background:var(--card);font-size:.92em}
 footer{margin-top:3em;border-top:1px solid var(--border);padding-top:1em;color:var(--muted);display:flex;gap:1.2em;flex-wrap:wrap}
 </style>
-<a class=corner href="/">data</a>
+<a class=corner href="https://aesthetic.computer" title="back to Aesthetic.Computer">data</a>
 <header>
   <a id="pals-beacon" href="https://aesthetic.computer" aria-label="aesthetic.computer">
     <span class="pals-logo-container">
@@ -510,11 +515,11 @@ footer{margin-top:3em;border-top:1px solid var(--border);padding-top:1em;color:v
     </span>
   </a>
   <h1>data.aesthetic.computer</h1>
-  <div class="muted">Aesthetic Computer as linked open data</div>
+  <div class="muted">${AC} as linked open data</div>
 </header>
 
 <p>Every public painting, piece, mood, and person on
-<a href="https://aesthetic.computer">Aesthetic Computer</a> is published here as
+<a href="https://aesthetic.computer">${AC}</a> is published here as
 <a href="https://linked.art">Linked Art</a> — the JSON-LD profile of
 <a href="https://www.cidoc-crm.org">CIDOC CRM</a> — so cultural-heritage
 researchers (e.g. at the <a href="https://www.getty.edu">Getty</a>) can
