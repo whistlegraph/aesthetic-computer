@@ -1,12 +1,39 @@
 import AppKit
 import CoreGraphics
 import ApplicationServices
+import SceneKit
 
 /// Private (but stable, widely-used by window managers) bridge from an AX
 /// window element to its CGWindowID — lets a kAXWindowMoved callback map the
 /// moved window back to the badge bound to it.
 @_silgen_name("_AXUIElementGetWindow")
 private func _AXUIElementGetWindow(_ element: AXUIElement, _ windowID: UnsafeMutablePointer<CGWindowID>) -> AXError
+
+/// The global sun that lights every stone, driven by the local clock: it rises
+/// in the east, arcs overhead at midday, sets in the west, and drops long
+/// shadows near dawn/dusk. Deliberately simple (a daylight arc from local time,
+/// no ephemeris) — enough for the light to feel like it belongs to the room's
+/// time of day. `hx` is horizontal position (+1 east/right … −1 west/left),
+/// `elevation` height (0 horizon … 1 overhead), `intensity` strength, and
+/// `drop` the flat shadow offset (screen points, away from the sun).
+enum Sun {
+    static func light(at date: Date) -> (hx: CGFloat, elevation: CGFloat, intensity: CGFloat, drop: CGSize) {
+        let c = Calendar.current.dateComponents([.hour, .minute], from: date)
+        let h = CGFloat(c.hour ?? 12) + CGFloat(c.minute ?? 0) / 60
+        let sunrise: CGFloat = 6.5, sunset: CGFloat = 19.5
+        let hx: CGFloat, e: CGFloat, intensity: CGFloat
+        if h < sunrise || h > sunset {
+            hx = 0; e = 0.12; intensity = 0.32          // night: dim, near-overhead
+        } else {
+            let t = (h - sunrise) / (sunset - sunrise)  // 0 dawn … 1 dusk
+            hx = cos(t * .pi)                            // +1 east → −1 west
+            e = sin(t * .pi)                             // 0 horizon … 1 noon
+            intensity = 0.55 + 0.45 * e
+        }
+        let len: CGFloat = 2 + (1 - e) * 4               // longer shadow when low
+        return (hx, e, intensity, CGSize(width: -hx * len, height: -len))
+    }
+}
 
 /// One borderless, click-through badge window holding a session's per-prompt
 /// sigil, parked top-right under the title bar of its terminal window. The
@@ -26,11 +53,10 @@ final class PromptSigilOverlay {
     /// CGWindowID.
     let tty: String
 
-    /// Seed + appearance currently drawn; re-rendered when the prompt changes
-    /// or the system flips light/dark (rocks are themed) — never on a status
-    /// change (status is motion + halo colour).
-    var renderedSeed: UInt64 = 0
-    var renderedDark: Bool?
+    /// Key of the sprite sheet currently installed (seed : dark : sun-minute),
+    /// so the controller re-renders the frames only when the rock or the sun
+    /// actually changes — never on a status change (status is motion + halo).
+    var frameKey: String = ""
     private var motion: (period: Double, clockwise: Bool)?
     /// Spring-follow state: `target` is where the terminal wants the badge,
     /// `current` is where it's drawn. `advance` eases current → target each
@@ -40,74 +66,132 @@ final class PromptSigilOverlay {
     private var currentOrigin: NSPoint?
 
     let size: CGFloat = 56
+    /// Padding around the rock inside the window so the offset drop shadow has
+    /// room and isn't clipped by the window edge.
+    private let pad: CGFloat = 9
+    /// Fixed global sun: where the highlight/shadow come from (screen-space,
+    /// shared by every stone). Down-right shadow ⇒ light from the upper-left.
+    private let shadowDrop = CGSize(width: 3, height: -3)
     private let window: NSWindow
-    private let spin = CALayer()
+    private let rockLayer = CALayer()        // plays the pre-rendered rotation frames
+    private let shadowLayer = CALayer()      // solid status colour, masked to the rock silhouette
+    private let shadowMask = CALayer()       // plays the same frames → the shadow's tumbling shape
+    private var boxCenter = CGPoint.zero
+    /// Two pre-rendered sprite sheets of one full turn: `rockFrames` is the
+    /// chunky low-res copy the rock plays; `shadowFrames` is the crisp high-res
+    /// silhouette the shadow plays.
+    private var rockFrames: [CGImage] = []
+    private var shadowFrames: [CGImage] = []
 
     init(sessionId: String, tty: String) {
         self.sessionId = sessionId
         self.tty = tty
 
-        let initial = NSRect(x: -2000, y: -2000, width: size, height: size)
+        let box = size + 2 * pad
+        let initial = NSRect(x: -2000, y: -2000, width: box, height: box)
         window = NSWindow(contentRect: initial, styleMask: [.borderless],
                           backing: .buffered, defer: false)
         window.isOpaque = false
         window.backgroundColor = .clear
         window.hasShadow = false
         window.ignoresMouseEvents = true
-        // Normal level + per-window ordering = composites with the terminal
-        // stack (occluded when another window covers the terminal). Dropping
-        // canJoinAllSpaces keeps it on the terminal's Space.
         window.level = .normal
         window.collectionBehavior = [.fullScreenAuxiliary]
 
-        let view = NSView(frame: NSRect(origin: .zero, size: initial.size))
-        view.wantsLayer = true
-        spin.frame = CGRect(x: 0, y: 0, width: size, height: size)
-        spin.anchorPoint = CGPoint(x: 0.5, y: 0.5)
-        spin.position = CGPoint(x: size / 2, y: size / 2)
-        spin.contentsGravity = .resizeAspect
-        spin.contentsScale = 2
-        // Flat, hard-edged status-coloured drop shadow — NO blur (radius 0), a
-        // crisp offset silhouette in the session's status colour. Set per status
-        // by the controller; this is the default.
-        spin.shadowColor = NSColor.systemGray.cgColor
-        spin.shadowOpacity = 1.0
-        spin.shadowRadius = 0
-        spin.shadowOffset = CGSize(width: 2.5, height: -2.5)
-        view.layer?.addSublayer(spin)
-        window.contentView = view
+        // Container: a flat status-colour drop-shadow disc as a backing
+        // sublayer, with the rock-frame layer on top — the disc peeks out on
+        // the sun-opposite side as a hard drop shadow.
+        let container = NSView(frame: NSRect(origin: .zero, size: initial.size))
+        container.wantsLayer = true
+        container.layer?.masksToBounds = false
+        boxCenter = CGPoint(x: box / 2, y: box / 2)
+
+        // Shadow: a solid status-colour block masked to the rock's silhouette
+        // (the same tumbling frames), offset by the sun. So it's the rock's
+        // actual shape turning — not a circle. Position offset applied in
+        // setLighting.
+        shadowLayer.frame = CGRect(x: pad, y: pad, width: size, height: size)
+        shadowLayer.position = boxCenter
+        shadowLayer.backgroundColor = NSColor.systemGray.cgColor
+        shadowLayer.opacity = 0.9
+        shadowMask.frame = CGRect(x: 0, y: 0, width: size, height: size)
+        shadowMask.contentsGravity = .resizeAspect
+        // Crisp silhouette: the shadow plays the high-res frames, smoothed.
+        shadowMask.magnificationFilter = .linear
+        shadowMask.minificationFilter = .linear
+        shadowMask.contentsScale = 2
+        shadowLayer.mask = shadowMask
+        container.layer?.addSublayer(shadowLayer)
+
+        rockLayer.frame = CGRect(x: pad, y: pad, width: size, height: size)
+        rockLayer.contentsGravity = .resizeAspect
+        // Low-res frames scaled up with nearest-neighbour → chunky low-poly
+        // pixels, and cheap.
+        rockLayer.magnificationFilter = .nearest
+        rockLayer.minificationFilter = .nearest
+        rockLayer.contentsScale = 1
+        container.layer?.addSublayer(rockLayer)
+
+        window.contentView = container
     }
 
-    func setImage(_ image: NSImage) { spin.contents = image }
+    /// Install freshly rendered sprite sheets (chunky rock + crisp shadow) and
+    /// (re)start playback.
+    func setFrames(rock: [CGImage], shadow: [CGImage]) {
+        rockFrames = rock
+        shadowFrames = shadow
+        rockLayer.contents = rock.first
+        shadowMask.contents = shadow.first
+        applyPlayback()
+    }
 
-    /// Tint the crisp halo with the session's status colour. No-op when
-    /// unchanged so we don't churn the layer.
+    /// Tint the flat drop-shadow disc with the session's status colour.
     private var shadowColor: NSColor?
     func setShadowColor(_ color: NSColor) {
         guard shadowColor != color else { return }
         shadowColor = color
-        spin.shadowColor = color.cgColor
+        shadowLayer.backgroundColor = color.cgColor
     }
 
-    /// Apply a status-driven spin. No-op when unchanged so the rotation never
-    /// stutters. On change we continue from the current presentation angle at
-    /// the new speed/direction, so a status flip reads as the rock smoothly
-    /// speeding up / reversing rather than snapping to zero.
+    /// The global sun's direction is baked into the frames (re-rendered by the
+    /// controller when it moves); here we only slide the flat shadow to the
+    /// sun-opposite `drop`.
+    private var appliedDrop: CGSize?
+    func setLighting(drop: CGSize) {
+        if appliedDrop != drop {
+            appliedDrop = drop
+            shadowLayer.position = CGPoint(x: boxCenter.x + drop.width,
+                                           y: boxCenter.y + drop.height)
+        }
+    }
+
+    /// Status-driven tumble. Cheap: a discrete keyframe animation cycling the
+    /// cached frames — direction picks the frame order, period sets the turn
+    /// time. Playback is server-side, so a slow tumble barely touches the CPU.
     func setMotion(period: Double, clockwise: Bool) {
         if let m = motion, m.period == period, m.clockwise == clockwise { return }
         motion = (period, clockwise)
-        let current = (spin.presentation()?.value(forKeyPath: "transform.rotation.z") as? CGFloat)
-            ?? (spin.value(forKeyPath: "transform.rotation.z") as? CGFloat) ?? 0
-        spin.setValue(current, forKeyPath: "transform.rotation.z")
-        let anim = CABasicAnimation(keyPath: "transform.rotation.z")
-        // rotation.z is positive counter-clockwise, so clockwise subtracts.
-        anim.fromValue = current
-        anim.toValue = current + (clockwise ? -2 * .pi : 2 * .pi)
-        anim.duration = period
-        anim.repeatCount = .infinity
-        anim.isRemovedOnCompletion = false
-        anim.timingFunction = CAMediaTimingFunction(name: .linear)
-        spin.add(anim, forKey: "spin")
+        applyPlayback()
+    }
+
+    private func applyPlayback() {
+        guard rockFrames.count > 1, let (period, cw) = motion else {
+            rockLayer.removeAnimation(forKey: "tumble")
+            shadowMask.removeAnimation(forKey: "tumble")
+            return
+        }
+        func tumble(_ vals: [CGImage]) -> CAKeyframeAnimation {
+            let a = CAKeyframeAnimation(keyPath: "contents")
+            a.values = cw ? vals : vals.reversed()
+            a.calculationMode = .discrete
+            a.duration = period
+            a.repeatCount = .infinity
+            a.isRemovedOnCompletion = false
+            return a
+        }
+        // Rock + shadow play their own sheets at the same timing → in sync.
+        rockLayer.add(tumble(rockFrames), forKey: "tumble")
+        shadowMask.add(tumble(shadowFrames), forKey: "tumble")
     }
 
     /// This badge's CGWindowID (valid once it's been ordered on-screen), so the
@@ -120,8 +204,10 @@ final class PromptSigilOverlay {
     /// snaps (no spring from off-screen). No z-order touched here.
     func place(bounds b: (CGFloat, CGFloat, CGFloat, CGFloat), screenHeight: CGFloat) {
         let titleBar: CGFloat = 30, rightInset: CGFloat = 10
-        let originX = b.0 + b.2 - rightInset - size
-        let originY = screenHeight - (b.1 + titleBar + size)
+        // Window is padded around the rock; shift origin by -pad so the rock
+        // itself (centred in the window) still lands at the top-right spot.
+        let originX = b.0 + b.2 - rightInset - size - pad
+        let originY = screenHeight - (b.1 + titleBar + size + pad)
         let t = NSPoint(x: originX, y: originY)
         targetOrigin = t
         if currentOrigin == nil {                 // first appearance: snap there
@@ -200,6 +286,14 @@ final class PromptSigilOverlayController {
     private var observerInstalled = false
     /// Live AX observers per terminal app pid (kept alive by this reference).
     private var axObservers: [pid_t: AXObserver] = [:]
+    /// Global-sun state, recomputed each wall-clock minute so the whole wall's
+    /// light tracks the time of day together.
+    private var sunMinute = -1
+    private var sun: (hx: CGFloat, elevation: CGFloat, intensity: CGFloat, drop: CGSize) =
+        (0.4, 0.7, 0.9, CGSize(width: -2.4, height: -2.4))
+    /// Serial queue for the offscreen 3D frame renders — one rock at a time so
+    /// a per-minute sun change never spins up 7 Metal renderers at once.
+    private let renderQueue = DispatchQueue(label: "computer.slab.sigil-frames", qos: .userInitiated)
 
     /// Non-capturing AX callback → route on main. Lexically inside the class so
     /// it may reach the private singleton; captures nothing local, so it
@@ -341,6 +435,16 @@ final class PromptSigilOverlayController {
         let liveIds = Set(live.map { $0.sessionId })
         let dark = AppDelegate.isDarkAppearance()
 
+        // Recompute the global sun every 5 minutes — the sun moves slowly, and
+        // each change re-renders every rock's sprite sheet, so we don't want to
+        // pay that every minute. The whole wall re-lights together.
+        let now = Date()
+        let bucket = Int(now.timeIntervalSince1970 / 300)
+        if bucket != sunMinute {
+            sunMinute = bucket
+            sun = Sun.light(at: now)
+        }
+
         var membershipChanged = false
         for (sid, ov) in overlays where !liveIds.contains(sid) {
             ov.close(); overlays.removeValue(forKey: sid); membershipChanged = true
@@ -361,14 +465,22 @@ final class PromptSigilOverlayController {
             // "yes", blank); the prompt makes the rock re-form as the session
             // moves to a new prompt.
             let seed = SigilRenderer.seed(for: s.sessionId + "\u{1}" + s.subject)
-            if ov.renderedSeed != seed || ov.renderedDark != dark {
-                ov.renderedSeed = seed
-                ov.renderedDark = dark
-                ov.setImage(SigilRenderer.image(seed: seed, dark: dark, size: ov.size))
+            // Re-render the sprite sheet only when the rock or the sun moved.
+            let key = "\(seed):\(dark):\(sunMinute)"
+            if ov.frameKey != key {
+                ov.frameKey = key
+                let (hx, e, inten) = (sun.hx, sun.elevation, sun.intensity)
+                renderQueue.async { [weak ov] in
+                    let hi = SigilRockFrames.render(
+                        seed: seed, dark: dark, sunHx: hx, sunElevation: e, sunIntensity: inten)
+                    let lo = hi.map { SigilRockFrames.downsample($0, to: 30) }
+                    DispatchQueue.main.async { ov?.setFrames(rock: lo, shadow: hi) }
+                }
             }
             let (period, cw) = motion(for: s.state)
             ov.setMotion(period: period, clockwise: cw)
             ov.setShadowColor(statusColor(for: s.state))
+            ov.setLighting(drop: sun.drop)
         }
 
         if membershipChanged { needsRebind = true }

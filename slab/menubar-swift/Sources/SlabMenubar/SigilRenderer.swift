@@ -212,6 +212,105 @@ enum SigilRenderer {
         return img
     }
 
+    /// A full-rect strata texture for wrapping onto the 3D rock mesh — same
+    /// hashed beds / neon spots / gashes as the flat sigil, but drawn edge to
+    /// edge with FLAT (un-dipped) horizontal bands so the left/right edges
+    /// match and the texture tiles seamlessly around the rock's longitude; the
+    /// bands then read as latitude strata layers on the sphere.
+    static func texture(seed: UInt64, dark: Bool, side: CGFloat = 128) -> NSImage {
+        guard let rep = NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: Int(side), pixelsHigh: Int(side),
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
+        ) else { return NSImage(size: NSSize(width: side, height: side)) }
+        rep.size = NSSize(width: side, height: side)
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+        defer { NSGraphicsContext.restoreGraphicsState() }
+
+        var rng = SplitMix64(seed)
+        let satMood: CGFloat = 0.70 + 0.30 * rng.unit()
+        let briMood: CGFloat = dark ? (0.34 + 0.24 * rng.unit()) : (0.66 + 0.26 * rng.unit())
+        let h0 = rng.unit()
+        // Wide hue fan → rocks span a real chunk of the wheel (more multi-hued,
+        // more tellable apart) rather than close monochrome bands.
+        let fan = 0.14 + 0.62 * rng.unit()
+        func hue(_ i: Int) -> CGFloat { (h0 + fan * CGFloat(i)).truncatingRemainder(dividingBy: 1) }
+        let veinHue = (h0 + 0.5).truncatingRemainder(dividingBy: 1)
+
+        // Fewer beds, one boosted to dominate → each rock has a clear dominant
+        // colour with a couple of supporting areas.
+        let bedCount = rng.int(2, 5)
+        var bedHSB: [(h: CGFloat, s: CGFloat, b: CGFloat)] = []
+        var bedEdge: [CGFloat] = []
+        var weights: [CGFloat] = (0..<bedCount).map { _ in 0.4 + 0.8 * rng.unit() }
+        weights[rng.int(0, bedCount - 1)] += 2.4
+        let wsum = weights.reduce(0, +)
+        var acc: CGFloat = 0
+        for i in 0..<bedCount {
+            let darkBed = (i % 2 == 0)
+            let s = max(0, min(1, satMood + (rng.unit() - 0.5) * 0.16))
+            let b = max(0.16, min(1, briMood * (darkBed ? 0.68 : 1.06) + (rng.unit() - 0.5) * 0.10))
+            bedHSB.append((hue(rng.int(0, 2)), s, b))
+            acc += weights[i] / wsum
+            bedEdge.append(acc)
+        }
+        func bedIndex(_ frac: CGFloat) -> Int {
+            for i in 0..<bedCount where frac <= bedEdge[i] { return i }
+            return bedCount - 1
+        }
+
+        let flat: (CGFloat) -> CGFloat = { _ in 0 }
+        // Thick bands → big bold areas of colour (not fine grain). A little
+        // brightness drift keeps each block from being dead-flat; neon streaks
+        // are rare so they punctuate rather than fleck.
+        let striation = max(2.0, side * 0.05)
+        var y: CGFloat = 0
+        while y < side {
+            let bed = bedHSB[bedIndex(y / side)]
+            let jb = (rng.unit() - 0.5) * 0.08
+            let col = NSColor(deviceHue: bed.h, saturation: bed.s,
+                              brightness: max(0.10, min(1, bed.b + jb)), alpha: 1)
+            fillBand(yLo: y, yHi: y + striation + 0.5, xL: 0, xR: side, wave: flat, color: col)
+            y += striation
+        }
+        _ = veinHue
+
+        // Spotting: scattered bright / neon speckles (mineral inclusions) over
+        // the big colour areas — lively, and strong per-rock identity.
+        let spots = rng.int(40, 110)
+        for _ in 0..<spots {
+            let sx = rng.unit() * side, sy = rng.unit() * side
+            let r = 0.6 + 1.8 * rng.unit()
+            let col = rng.unit() < 0.6
+                ? NSColor(deviceHue: rng.unit(), saturation: 1, brightness: 1, alpha: 0.9)
+                : NSColor(deviceWhite: dark ? 0.92 : 0.10, alpha: 0.8)
+            col.setFill()
+            NSBezierPath(ovalIn: NSRect(x: sx - r, y: sy - r, width: 2 * r, height: 2 * r)).fill()
+        }
+
+        let gashes = rng.int(0, 2)
+        for _ in 0..<gashes {
+            let gy = rng.unit() * side
+            let slope = (rng.unit() - 0.5) * 0.6
+            let g = NSBezierPath()
+            g.move(to: NSPoint(x: 0, y: gy))
+            g.line(to: NSPoint(x: side, y: gy + slope * side))
+            g.lineWidth = 1 + 2 * rng.unit()
+            g.lineCapStyle = .round
+            let col = rng.unit() < 0.5
+                ? NSColor(deviceHue: rng.unit(), saturation: 1, brightness: 1, alpha: 0.9)
+                : NSColor(deviceWhite: dark ? 0.96 : 0.12, alpha: 0.85)
+            col.setStroke()
+            g.stroke()
+        }
+
+        let img = NSImage(size: NSSize(width: side, height: side))
+        img.addRepresentation(rep)
+        img.isTemplate = false
+        return img
+    }
+
     /// Fill one stratum between two parallel folded boundaries (bottom `yLo`,
     /// top `yHi`), both riding `wave`, across `xL…xR`. Sampling the wave along
     /// the width turns each bed into a gently folded layer.
