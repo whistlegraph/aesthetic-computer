@@ -507,3 +507,10 @@ aesthetic.computer.js
 packjs-verify.png
 arena-native/build/
 wave-wizard/samples/
+
+# Per-neo SlabMenubar app bundles (build outputs, not source)
+*pplications/
+# Backup images
+*.bak.png
+# macOS Finder metadata
+.DS_Store

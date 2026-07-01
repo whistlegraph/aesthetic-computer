@@ -170,6 +170,7 @@
     "@vladmandic/face-api": "^1.7.15",
     "archiver": "^7.0.1",
     "dotenv": "^16.6.1",
+    "framer-api": "^0.1.16",
     "gbasm": "^0.0.21",
     "gif-encoder-2": "^1.0.5",
     "ink": "^6.5.1",
