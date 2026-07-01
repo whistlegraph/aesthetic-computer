@@ -287,15 +287,25 @@ Stage 2 adds the `localhost:7878` proxy. Same staging as below.
   store, no new process — just lith.**
 - Validate output against linked.art tooling + a JSON-LD playground.
 
-### Stage 2 — SPARQL endpoint
-- Stand up **[Oxigraph](https://github.com/oxigraph/oxigraph)** (Rust, single
-  binary — runs on **lith** at `localhost:7878`; the `@data` block already
-  proxies `/sparql` to it).
-- ETL worker feeds it from the **existing `_firehose` change stream** (30-day
-  TTL already in Mongo): on insert/update of an opted-in painting/piece/mood,
-  map → triples → `INSERT`/`DELETE` in the store. This is the literal analog of
-  the outbound Bluesky worker.
-- Publish a VoID dataset description at `data.aesthetic.computer/.well-known/void`.
+### Stage 2 — SPARQL endpoint ✅ LIVE
+- **[Oxigraph](https://github.com/oxigraph/oxigraph)** v0.5.9 (single Rust
+  binary at `/opt/oxigraph`) runs on **lith** bound to `127.0.0.1:7878` under
+  `oxigraph.service`; Caddy proxies only `data.aesthetic.computer/sparql → /query`
+  (read-only — `/update` + `/store` are never exposed; verified 404 publicly).
+- **ETL** (`crm/build-graph.mjs`): walks MongoDB → runs every entity through the
+  same serializers → expands to CIDOC CRM N-Triples via `rdf.mjs` (bundled
+  linked.art context, offline) → atomic Graph-Store PUT replacing the default
+  graph. `oxigraph-sync.timer` rebuilds every 30 min. Provisioned by
+  `crm/deploy-sparql.fish`. (A full rebuild is ~15 min for ~7.7k entities; a
+  `_firehose`-driven incremental update is a future optimization.)
+- **Verified live:** 163,994 triples; authorship exact vs. Mongo ground truth
+  (@jeffrey → 409 paintings = 409; distinct productions 2238 = handled-user
+  paintings 2238). Example query on the landing page + VoID `void:sparqlEndpoint`.
+- **Two bugs found + fixed during rollout:** (1) `jsonld.toRDF` restarts blank
+  labels at `_:b0` per call → concatenation merged every work's production/
+  time-span into one node → skolemize per doc; (2) the Mongo driver kept the
+  event loop alive so the oneshot never exited (hung `activating`, blocking the
+  timer) → `process.exit(0)` on success.
 
 ### Stage 3 — Discovery & images
 - Sitemap of entity URIs; `robots`/`llms.txt` note pointing crawlers to the LOD.
@@ -332,6 +342,6 @@ Stage 2 adds the `localhost:7878` proxy. Same staging as below.
 2. ✅ **Stage 1** — `@data` Caddy block + lith host rewrite + `crm.mjs` serving
    Linked Art + inline landing + VoID. *Pending:* Cloudflare `data` record +
    deploy + external validation against linked.art tooling.
-3. ⬜ **Stage 2** — Oxigraph on lith (`localhost:7878`) + `_firehose` ETL +
-   `/sparql` + flip the Caddy `/sparql*` handle to `:7878`.
+3. ✅ **Stage 2** — Oxigraph on lith (`127.0.0.1:7878`) + `crm/build-graph.mjs`
+   ETL + 30-min `oxigraph-sync.timer` + read-only `/sparql` + `void:sparqlEndpoint`.
 4. ⬜ **Stage 3** — IIIF + sitemap + docs with a worked Getty-style federated query.
