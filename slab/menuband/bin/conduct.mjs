@@ -66,7 +66,7 @@ function durationSec(voice, bpm) {
 
 function loadScore(nameOrPath) {
   let p = nameOrPath;
-  if (!p.includes("/") && !p.endsWith(".json")) p = join(SCORES_DIR, `${p}.mbscore.json`);
+  if (!p.includes("/") && !p.endsWith(".mbscore") && !p.endsWith(".json")) p = join(SCORES_DIR, `${p}.mbscore`);
   else p = resolve(p);
   if (!existsSync(p)) {
     console.error(`✗ no score at ${p}`);
@@ -79,13 +79,13 @@ function loadScore(nameOrPath) {
 
 function listScores() {
   if (!existsSync(SCORES_DIR)) return console.log("(no scores dir yet)");
-  const files = readdirSync(SCORES_DIR).filter((f) => f.endsWith(".mbscore.json"));
+  const files = readdirSync(SCORES_DIR).filter((f) => f.endsWith(".mbscore"));
   if (!files.length) return console.log("(no scores yet)");
   console.log("Saved Menu Band scores:\n");
   for (const f of files) {
     const s = JSON.parse(readFileSync(join(SCORES_DIR, f), "utf8"));
     const dur = Math.max(...s.voices.map((v) => durationSec(v, s.bpm || 120)));
-    const id = f.replace(/\.mbscore\.json$/, "");
+    const id = f.replace(/\.mbscore$/, "");
     console.log(`  ${id}`);
     console.log(`    ${s.title} — ${s.composer || "?"}`);
     console.log(`    composed for ${s.machines || s.voices.length} computers · ${s.bpm} bpm · ~${dur.toFixed(0)}s`);

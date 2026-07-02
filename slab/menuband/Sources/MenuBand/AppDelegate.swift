@@ -3071,6 +3071,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         playFromInfo(note.userInfo as? [String: String] ?? [:])
     }
 
+    /// Finder double-click / `open` of a `.mbscore` document lands here.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls where url.pathExtension.lowercased() == "mbscore" {
+            playScoreFile(url)
+        }
+    }
+
+    /// Play a `.mbscore` composition on THIS Menu Band — the machine you
+    /// double-clicked on becomes the host. Reads the JSON and fires every voice
+    /// at one shared start instant so the whole arrangement renders locally
+    /// (in sync, robot badge lit). No conductor, no ssh — just open the file.
+    func playScoreFile(_ url: URL) {
+        guard let data = try? Data(contentsOf: url),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let voices = obj["voices"] as? [[String: Any]] else {
+            NSLog("🎼 mbscore: could not read \(url.lastPathComponent)")
+            return
+        }
+        let bpm = obj["bpm"].map { "\($0)" } ?? "120"
+        let lead = (obj["lead"] as? Double) ?? 3.0
+        let epoch = String(format: "%.3f", Date().timeIntervalSince1970 + max(0.3, lead))
+        NSLog("🎼 mbscore host play: \(obj["title"] as? String ?? url.lastPathComponent) — \(voices.count) voice(s)")
+        for voice in voices {
+            var info: [String: String] = ["bpm": bpm, "startEpoch": epoch]
+            for (k, v) in voice where k != "name" { info[k] = "\(v)" }
+            playFromInfo(info)
+        }
+    }
+
     /// Light the chip's robot badge through `end` (Unix seconds). Called by
     /// synced `play`/`say` cues so the menubar shows "a machine is driving me"
     /// for the length of a fleet performance. Extends the window if a later
