@@ -372,6 +372,13 @@ enum KeyboardIconRenderer {
     /// reads as the metronome's "carrier" running, with the
     /// per-tick yellow flash riding on top.
     static var metronomeOn: Bool = false
+    /// True while a fleet/conductor performance is driving this Menu
+    /// Band — i.e. between the first synced cue and the end of the last
+    /// one. AppDelegate raises it when a `play`/`say` arrives carrying a
+    /// `startEpoch` and drops it when the performance's window elapses.
+    /// The chip paints a little robot head in its top-left corner while
+    /// set, signalling "a machine (not the keyboard) is playing me."
+    static var fleetDriving: Bool = false
     /// BPM + swing-start timestamp pushed by the popover's
     /// metronome on every restart. The chip's needle uses these
     /// to compute its swing phase from CACurrentMediaTime so the
@@ -1685,6 +1692,36 @@ enum KeyboardIconRenderer {
         }
     }
 
+    /// Little round-headed robot with two dot eyes, painted in the
+    /// chip's top-left corner while a fleet/conductor performance is
+    /// driving the app (`fleetDriving`). Same quiet visual weight as the
+    /// MIDI square — a "a machine, not the keyboard, is playing me" tell.
+    /// The head is a filled rounded square (reads round at this size) and
+    /// the eyes are cleared to transparent so they glow as eye-holes
+    /// against either a light or dark menu bar.
+    private static func drawChipFleetRobot(in corner: NSRect,
+                                            color: NSColor,
+                                            baseAlpha: CGFloat) {
+        let side = min(corner.width, corner.height)
+        let head = NSRect(x: corner.minX, y: corner.maxY - side,
+                          width: side, height: side).insetBy(dx: 0.3, dy: 0.3)
+        let radius = head.width * 0.34
+        color.withAlphaComponent(min(1, baseAlpha + 0.15)).setFill()
+        NSBezierPath(roundedRect: head, xRadius: radius, yRadius: radius).fill()
+        guard let ctx = NSGraphicsContext.current else { return }
+        ctx.saveGraphicsState()
+        ctx.compositingOperation = .destinationOut
+        NSColor.black.set()
+        let eyeR = head.width * 0.24
+        let eyeY = head.midY - eyeR / 2
+        let dx = head.width * 0.22
+        for cx in [head.midX - dx, head.midX + dx] {
+            NSBezierPath(ovalIn: NSRect(x: cx - eyeR / 2, y: eyeY,
+                                        width: eyeR, height: eyeR)).fill()
+        }
+        ctx.restoreGraphicsState()
+    }
+
     /// Tiny rotating needle inside the chip's visualizer slot —
     /// pivots from the bottom-center, swings ±25° at ~1 Hz, just
     /// like the popover's metronome trapezoid. Reads as "metronome
@@ -2541,6 +2578,15 @@ enum KeyboardIconRenderer {
                                    hovered: visualizerHovered,
                                    color: color, baseAlpha: alpha)
             }
+        }
+        // Fleet tell — a little robot head in the top-left corner while
+        // a conductor/fleet performance is driving this Menu Band.
+        if fleetDriving {
+            let robotSide: CGFloat = 6.5
+            let robotCorner = NSRect(x: iconBox.minX - 1.0,
+                                     y: iconBox.maxY - robotSide + 1.5,
+                                     width: robotSide, height: robotSide)
+            drawChipFleetRobot(in: robotCorner, color: color, baseAlpha: alpha)
         }
         // Linger / bell-ring flourish — a fermata mark (the music
         // notation for "let ring / hold this note") drawn above the

@@ -20,6 +20,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let speechSynth = AVSpeechSynthesizer()
     /// Peer-to-peer link to other Menu Bands (Bluetooth + peer Wi-Fi, no LAN).
     private let fleet = MenuBandFleet()
+    /// Wall-clock instant the current fleet/conductor performance ends. While
+    /// `now < fleetDriveUntil` the chip paints its robot badge. Refreshed by
+    /// every synced `play`/`say` cue; a one-shot timer clears the badge when
+    /// the window elapses.
+    private var fleetDriveUntil: TimeInterval = 0
+    private var fleetClearTimer: Timer?
     private let hoverResponder = HoverResponder()
     /// Bridges typing in the macOS Stickies app to Menu Band note
     /// playback when the focused sticky matches the trigger color.
@@ -3055,6 +3061,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         playFromInfo(note.userInfo as? [String: String] ?? [:])
     }
 
+    /// Light the chip's robot badge through `end` (Unix seconds). Called by
+    /// synced `play`/`say` cues so the menubar shows "a machine is driving me"
+    /// for the length of a fleet performance. Extends the window if a later
+    /// cue reaches further; a one-shot timer drops the badge when it lapses.
+    private func markFleetActive(until end: TimeInterval) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.fleetDriveUntil = max(self.fleetDriveUntil, end)
+            KeyboardIconRenderer.fleetDriving = true
+            self.updateIcon()
+            self.fleetClearTimer?.invalidate()
+            let delay = max(0.2, self.fleetDriveUntil - Date().timeIntervalSince1970)
+            self.fleetClearTimer = Timer.scheduledTimer(withTimeInterval: delay,
+                                                        repeats: false) { [weak self] _ in
+                guard let self = self else { return }
+                KeyboardIconRenderer.fleetDriving = false
+                self.updateIcon()
+            }
+        }
+    }
+
     /// Parse a play spec (from a distributed notification or a fleet message)
     /// and schedule it. Keys are documented on handlePlayNotification.
     func playFromInfo(_ info: [String: String]) {
@@ -3083,6 +3110,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if tracks.isEmpty {
             tracks.append(("67:1,72:1,76:1,79:1,81:2,79:1,76:1,74:1,76:1,79:1,76:1,72:3,r:1",
                            velocity))
+        }
+
+        // Fleet tell: a synced cue (carries startEpoch) means a conductor is
+        // driving us — light the robot badge through the end of the longest
+        // track so it stays lit for the whole part, then auto-clears.
+        if let epoch = Double(info["startEpoch"] ?? "") {
+            let maxBeats = tracks.map { track in
+                track.spec.split(separator: ",").reduce(0.0) { acc, tok in
+                    let p = tok.split(separator: ":")
+                    return acc + (p.count == 2 ? (Double(p[1]) ?? 0) : 0)
+                }
+            }.max() ?? 0
+            markFleetActive(until: epoch + maxBeats * beat + 0.5)
         }
 
         DispatchQueue.main.async { [weak self] in
@@ -3221,6 +3261,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         var leadIn = 0.0
         if let epoch = Double(info["startEpoch"] ?? "") {
             leadIn = max(0, epoch - Date().timeIntervalSince1970)
+            // Synced speech = a fleet performance (greeting / sign-off).
+            // Keep the robot badge lit through the utterance (~13 chars/sec).
+            markFleetActive(until: epoch + Double(text.count) / 13.0 + 0.7)
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + leadIn) { [weak self] in
             let u = AVSpeechUtterance(string: text)
