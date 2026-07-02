@@ -67,8 +67,7 @@
 			<string>Menu Band Score</string>
 			<key>UTTypeConformsTo</key>
 			<array>
-				<string>public.json</string>
-				<string>public.text</string>
+				<string>public.data</string>
 			</array>
 			<key>UTTypeTagSpecification</key>
 			<dict>
