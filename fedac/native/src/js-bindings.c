@@ -4094,18 +4094,20 @@ static JSValue js_scan_qr_stop(JSContext *ctx, JSValueConst this_val, int argc, 
     return JS_UNDEFINED;
 }
 
-// cameraBlit(x, y, w, h, mirror) — render camera display buffer to graph
-// framebuffer. Prefers the ARGB color frame (YUYV cameras) and falls back
-// to grayscale. mirror=1 flips horizontally for a selfie-style preview —
-// note the tape recorder captures the screen, so mirrored previews record
-// mirrored footage.
+// cameraBlit(x, y, w, h, mirror, flip) — render camera display buffer to
+// graph framebuffer. Prefers the ARGB color frame and falls back to
+// grayscale. mirror=1 flips horizontally (selfie preview); flip=1 rotates
+// 180° — for a bent-back screen used as a performer-facing monitor, and
+// for cameras that are physically upside down in that position. Both
+// affect the recorded tape too (the recorder captures the screen), which
+// is the point: footage matches what the videographer saw.
 static JSValue js_camera_blit(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
     if (!current_rt || !current_rt->graph) return JS_FALSE;
     ACCamera *cam = &current_rt->camera;
-    if (!cam->display || !cam->display_ready) return JS_FALSE;
+    if (!cam->display_ready && !cam->display_rgb_ready) return JS_FALSE;
 
-    int dx = 0, dy = 0, dw = 0, dh = 0, mirror = 0;
+    int dx = 0, dy = 0, dw = 0, dh = 0, mirror = 0, flip = 0;
     if (argc >= 4) {
         JS_ToInt32(ctx, &dx, argv[0]);
         JS_ToInt32(ctx, &dy, argv[1]);
@@ -4117,6 +4119,7 @@ static JSValue js_camera_blit(JSContext *ctx, JSValueConst this_val, int argc, J
         dh = current_rt->graph->fb->height;
     }
     if (argc >= 5) JS_ToInt32(ctx, &mirror, argv[4]);
+    if (argc >= 6) JS_ToInt32(ctx, &flip, argv[5]);
     if (dw <= 0 || dh <= 0) return JS_FALSE;
 
     // Lock and copy whichever display buffer is freshest to a local copy.
@@ -4143,17 +4146,21 @@ static JSValue js_camera_blit(JSContext *ctx, JSValueConst this_val, int argc, J
     pthread_mutex_unlock(&cam->display_mu);
     if (!color && !local_gray) return JS_FALSE;
 
-    // Blit to framebuffer with nearest-neighbor scaling
+    // Blit to framebuffer with nearest-neighbor scaling. flip rotates
+    // 180° (both axes); mirror flips horizontally on top of that.
     ACFramebuffer *fb = current_rt->graph->fb;
     for (int py = 0; py < dh; py++) {
         int fy = dy + py;
         if (fy < 0 || fy >= fb->height) continue;
-        int sy = py * ch / dh;
+        int syp = flip ? dh - 1 - py : py;
+        int sy = syp * ch / dh;
         if (sy >= ch) sy = ch - 1;
         for (int px = 0; px < dw; px++) {
             int fx = dx + px;
             if (fx < 0 || fx >= fb->width) continue;
-            int sx = (mirror ? dw - 1 - px : px) * cw / dw;
+            int sxp = flip ? dw - 1 - px : px;
+            if (mirror) sxp = dw - 1 - sxp;
+            int sx = sxp * cw / dw;
             if (sx >= cw) sx = cw - 1;
             if (color) {
                 fb->pixels[fy * fb->stride + fx] = local_rgb[sy * cw + sx];
@@ -4179,20 +4186,35 @@ static JSValue js_camera_blit(JSContext *ctx, JSValueConst this_val, int argc, J
 static void *cam_stream_thread_fn(void *arg) {
     ACRuntime *rt = (ACRuntime *)arg;
     ACCamera *cam = &rt->camera;
+    int announced_wait = 0;
 
-    if (camera_open(cam) < 0) {
-        ac_log("[camera] stream open failed: %s\n", cam->scan_error);
-        rt->cam_stream_active = 0;
-        rt->cam_stream_running = 0;
-        return NULL;
-    }
-
+    // Plug-and-play loop: keep rescanning until a camera appears, stream
+    // it until it's stopped or yanked, then rescan — so swapping USB cams
+    // between shots (or plugging one in after boot) just works.
     while (rt->cam_stream_active) {
-        camera_grab(cam); // EAGAIN just means no frame yet — keep pacing
-        usleep(33000);    // ~30fps
+        if (camera_open(cam) < 0) {
+            if (!announced_wait) {
+                ac_log("[camera] no camera yet — waiting for hotplug\n");
+                announced_wait = 1;
+            }
+            for (int i = 0; i < 10 && rt->cam_stream_active; i++)
+                usleep(100000); // rescan ~1s
+            continue;
+        }
+        announced_wait = 0;
+
+        while (rt->cam_stream_active) {
+            int r = camera_grab(cam);
+            if (r == -2) {
+                ac_log("[camera] device lost (%s) — rescanning\n", cam->scan_error);
+                break;
+            }
+            usleep(33000); // ~30fps
+        }
+
+        camera_close(cam);
     }
 
-    camera_close(cam);
     rt->cam_stream_running = 0;
     return NULL;
 }
@@ -4230,7 +4252,8 @@ static JSValue js_camera_stop(JSContext *ctx, JSValueConst this_val, int argc, J
 static JSValue js_camera_ready(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val; (void)argc; (void)argv;
     if (!current_rt) return JS_FALSE;
-    return JS_NewBool(ctx, current_rt->camera.display_ready ? 1 : 0);
+    return JS_NewBool(ctx, (current_rt->camera.display_ready ||
+                            current_rt->camera.display_rgb_ready) ? 1 : 0);
 }
 
 // system.cameraError() -> string ("" while healthy/opening)
@@ -7124,7 +7147,7 @@ static JSValue build_system_obj(JSContext *ctx) {
     // QR camera scanning — system.scanQR() / system.scanQRStop()
     JS_SetPropertyStr(ctx, sys, "scanQR", JS_NewCFunction(ctx, js_scan_qr, "scanQR", 0));
     JS_SetPropertyStr(ctx, sys, "scanQRStop", JS_NewCFunction(ctx, js_scan_qr_stop, "scanQRStop", 0));
-    JS_SetPropertyStr(ctx, sys, "cameraBlit", JS_NewCFunction(ctx, js_camera_blit, "cameraBlit", 5));
+    JS_SetPropertyStr(ctx, sys, "cameraBlit", JS_NewCFunction(ctx, js_camera_blit, "cameraBlit", 6));
 
     // Continuous camera streaming + tape control — the 'cap' piece
     JS_SetPropertyStr(ctx, sys, "cameraStart", JS_NewCFunction(ctx, js_camera_start, "cameraStart", 0));

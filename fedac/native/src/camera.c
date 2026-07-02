@@ -13,6 +13,11 @@
 #include <linux/videodev2.h>
 #include "../lib/quirc/lib/quirc.h"
 
+#ifdef HAVE_AVCODEC
+#include <libavcodec/avcodec.h>
+#include <libswscale/swscale.h>
+#endif
+
 extern void ac_log(const char *fmt, ...);
 
 // Preferred capture resolution (small = fast QR scan)
@@ -28,17 +33,44 @@ static int xioctl(int fd, int request, void *arg) {
 }
 
 int camera_open(ACCamera *cam) {
-    memset(cam, 0, sizeof(*cam));
+    // Reset per-session state WITHOUT memsetting the whole struct — the
+    // display mutex is initialized once and must survive plug-and-play
+    // open/close cycles (a memset would corrupt a locked mutex).
     cam->fd = -1;
+    cam->width = cam->height = 0;
+    cam->pixfmt = 0;
+    memset(cam->buffers, 0, sizeof(cam->buffers));
+    cam->buffer_count = 0;
+    cam->streaming = 0;
+    cam->gray = NULL;
+    cam->gray_ready = 0;
+    cam->display = NULL;
+    cam->display_rgb = NULL;
+    cam->display_ready = 0;
+    cam->display_rgb_ready = 0;
+    cam->scan_pending = 0;
+    cam->scan_done = 0;
+    cam->scan_result[0] = 0;
+    cam->scan_error[0] = 0;
+    cam->av_ctx = NULL;
+    cam->av_frame = NULL;
+    cam->av_pkt = NULL;
+    cam->sws = NULL;
+    if (!cam->display_mu_init) {
+        pthread_mutex_init(&cam->display_mu, NULL);
+        cam->display_mu_init = 1;
+    }
 
-    // Try /dev/video0 through /dev/video3
-    char devpath[32];
-    for (int i = 0; i < 4; i++) {
+    // Scan /dev/video0 through /dev/video9 and prefer the HIGHEST-numbered
+    // capture device: USB cams enumerate above the built-in webcam, so a
+    // freshly plugged camera wins ("switch out cams per shot").
+    char devpath[32], chosen[32] = {0};
+    for (int i = 0; i < 10; i++) {
         snprintf(devpath, sizeof(devpath), "/dev/video%d", i);
         int fd = open(devpath, O_RDWR | O_NONBLOCK);
         if (fd < 0) continue;
 
-        // Check it's a capture device
+        // Check it's a capture device (skips UVC metadata nodes)
         struct v4l2_capability cap;
         if (xioctl(fd, VIDIOC_QUERYCAP, &cap) < 0 ||
             !(cap.capabilities & V4L2_CAP_VIDEO_CAPTURE) ||
@@ -47,15 +79,16 @@ int camera_open(ACCamera *cam) {
             continue;
         }
 
+        if (cam->fd >= 0) close(cam->fd); // newer device supersedes
         cam->fd = fd;
-        ac_log("[camera] opened %s (%s)\n", devpath, cap.card);
-        break;
+        snprintf(chosen, sizeof(chosen), "%s", devpath);
     }
 
     if (cam->fd < 0) {
         snprintf(cam->scan_error, sizeof(cam->scan_error), "no camera found");
         return -1;
     }
+    ac_log("[camera] opened %s\n", chosen);
 
     // Set format: YUYV (most common for USB webcams), fallback to MJPEG
     struct v4l2_format fmt = {0};
@@ -148,9 +181,7 @@ int camera_open(ACCamera *cam) {
         return -1;
     }
 
-    pthread_mutex_init(&cam->display_mu, NULL);
-
-    // Color display buffer — only useful for YUYV (MJPEG stays grayscale-less)
+    // Color display buffer (filled from YUYV directly or decoded MJPEG)
     cam->display_rgb = malloc((size_t)cam->width * cam->height * sizeof(uint32_t));
     if (!cam->display_rgb) {
         snprintf(cam->scan_error, sizeof(cam->scan_error), "rgb alloc failed");
@@ -181,24 +212,113 @@ void camera_close(ACCamera *cam) {
         free(cam->gray);
         cam->gray = NULL;
     }
-    if (cam->display) {
+    if (cam->display || cam->display_rgb) {
         // Free the display buffers under the mutex so a concurrent
-        // cameraBlit on the main thread can't read freed memory.
+        // cameraBlit on the main thread can't read freed memory. The
+        // mutex itself is never destroyed — it survives reopen cycles.
         pthread_mutex_lock(&cam->display_mu);
         free(cam->display);
         cam->display = NULL;
-        if (cam->display_rgb) {
-            free(cam->display_rgb);
-            cam->display_rgb = NULL;
-        }
+        free(cam->display_rgb);
+        cam->display_rgb = NULL;
         cam->display_ready = 0;
         cam->display_rgb_ready = 0;
         pthread_mutex_unlock(&cam->display_mu);
-        pthread_mutex_destroy(&cam->display_mu);
     }
+#ifdef HAVE_AVCODEC
+    if (cam->av_ctx) {
+        AVCodecContext *ctx = (AVCodecContext *)cam->av_ctx;
+        avcodec_free_context(&ctx);
+        cam->av_ctx = NULL;
+    }
+    if (cam->av_frame) {
+        AVFrame *frame = (AVFrame *)cam->av_frame;
+        av_frame_free(&frame);
+        cam->av_frame = NULL;
+    }
+    if (cam->av_pkt) {
+        AVPacket *pkt = (AVPacket *)cam->av_pkt;
+        av_packet_free(&pkt);
+        cam->av_pkt = NULL;
+    }
+    if (cam->sws) {
+        sws_freeContext((struct SwsContext *)cam->sws);
+        cam->sws = NULL;
+    }
+#endif
     cam->gray_ready = 0;
     cam->display_ready = 0;
     cam->display_rgb_ready = 0;
+}
+
+// Decode one MJPEG frame (complete JPEG from V4L2) into the gray +
+// display buffers via libavcodec/libswscale. Lazily builds the decoder.
+// Returns 0 on success, -1 on decode failure (frame skipped).
+static int mjpeg_decode(ACCamera *cam, const uint8_t *data, int size) {
+#ifdef HAVE_AVCODEC
+    if (size <= 0) return -1;
+    if (!cam->av_ctx) {
+        const AVCodec *codec = avcodec_find_decoder(AV_CODEC_ID_MJPEG);
+        if (!codec) return -1;
+        AVCodecContext *ctx = avcodec_alloc_context3(codec);
+        if (!ctx) return -1;
+        if (avcodec_open2(ctx, codec, NULL) < 0) {
+            avcodec_free_context(&ctx);
+            return -1;
+        }
+        cam->av_ctx = ctx;
+        cam->av_frame = av_frame_alloc();
+        cam->av_pkt = av_packet_alloc();
+        if (!cam->av_frame || !cam->av_pkt) return -1;
+    }
+    AVCodecContext *ctx = (AVCodecContext *)cam->av_ctx;
+    AVFrame *frame = (AVFrame *)cam->av_frame;
+    AVPacket *pkt = (AVPacket *)cam->av_pkt;
+
+    if (av_new_packet(pkt, size) < 0) return -1;
+    memcpy(pkt->data, data, size);
+    int rc = avcodec_send_packet(ctx, pkt);
+    av_packet_unref(pkt);
+    if (rc < 0) return -1;
+    if (avcodec_receive_frame(ctx, frame) < 0) return -1;
+
+    if (!cam->sws) {
+        cam->sws = sws_getContext(frame->width, frame->height, frame->format,
+                                  cam->width, cam->height, AV_PIX_FMT_BGRA,
+                                  SWS_BILINEAR, NULL, NULL, NULL);
+        if (!cam->sws) return -1;
+    }
+
+    pthread_mutex_lock(&cam->display_mu);
+    if (cam->display_rgb) {
+        uint8_t *dst_data[4] = { (uint8_t *)cam->display_rgb, NULL, NULL, NULL };
+        int dst_stride[4] = { cam->width * 4, 0, 0, 0 };
+        sws_scale((struct SwsContext *)cam->sws,
+                  (const uint8_t *const *)frame->data, frame->linesize,
+                  0, frame->height, dst_data, dst_stride);
+        cam->display_rgb_ready = 1;
+        // Derive gray (for QR) + gray display from the decoded color
+        int pixels = cam->width * cam->height;
+        if (cam->gray) {
+            for (int i = 0; i < pixels; i++) {
+                uint32_t p = cam->display_rgb[i];
+                cam->gray[i] = (uint8_t)((((p >> 16) & 0xFF) * 77 +
+                                          ((p >> 8) & 0xFF) * 150 +
+                                          (p & 0xFF) * 29) >> 8);
+            }
+            cam->gray_ready = 1;
+        }
+        if (cam->display && cam->gray) {
+            memcpy(cam->display, cam->gray, pixels);
+            cam->display_ready = 1;
+        }
+    }
+    pthread_mutex_unlock(&cam->display_mu);
+    return 0;
+#else
+    (void)cam; (void)data; (void)size;
+    return -1;
+#endif
 }
 
 int camera_grab(ACCamera *cam) {
@@ -210,47 +330,55 @@ int camera_grab(ACCamera *cam) {
 
     if (xioctl(cam->fd, VIDIOC_DQBUF, &buf) < 0) {
         if (errno == EAGAIN) return -1; // no frame ready yet
+        // ENODEV/EIO etc. — device unplugged or wedged; caller should
+        // camera_close() and rescan (plug-and-play).
         snprintf(cam->scan_error, sizeof(cam->scan_error),
                  "dqbuf failed: %s", strerror(errno));
-        return -1;
+        return -2;
     }
 
-    // Convert YUYV to grayscale (Y channel = every other byte)
     uint8_t *src = cam->buffers[buf.index];
     int pixels = cam->width * cam->height;
-    for (int i = 0; i < pixels; i++) {
-        cam->gray[i] = src[i * 2]; // Y from YUYV
-    }
-    cam->gray_ready = 1;
 
-    // Copy to display buffers for main thread rendering. The color pass
-    // decodes full YUYV → ARGB32 (BT.601): each 4-byte group Y0 U Y1 V
-    // yields two pixels sharing chroma.
-    if (cam->display) {
-        pthread_mutex_lock(&cam->display_mu);
-        memcpy(cam->display, cam->gray, cam->width * cam->height);
-        cam->display_ready = 1;
-        if (cam->display_rgb && cam->pixfmt == V4L2_PIX_FMT_YUYV) {
-            uint32_t *dst = cam->display_rgb;
-            for (int i = 0; i < pixels; i += 2) {
-                int y0 = src[i * 2 + 0], u = src[i * 2 + 1];
-                int y1 = src[i * 2 + 2], v = src[i * 2 + 3];
-                int d = u - 128, e = v - 128;
-                for (int k = 0; k < 2; k++) {
-                    int c = (k ? y1 : y0) - 16;
-                    int r = (298 * c + 409 * e + 128) >> 8;
-                    int g = (298 * c - 100 * d - 208 * e + 128) >> 8;
-                    int b = (298 * c + 516 * d + 128) >> 8;
-                    if (r < 0) r = 0; else if (r > 255) r = 255;
-                    if (g < 0) g = 0; else if (g > 255) g = 255;
-                    if (b < 0) b = 0; else if (b > 255) b = 255;
-                    dst[i + k] = 0xFF000000u | ((uint32_t)r << 16) |
-                                 ((uint32_t)g << 8) | (uint32_t)b;
-                }
-            }
-            cam->display_rgb_ready = 1;
+    if (cam->pixfmt == V4L2_PIX_FMT_MJPEG) {
+        // MJPEG-only USB cams: decode the full JPEG (fills gray + color)
+        mjpeg_decode(cam, src, (int)buf.bytesused);
+    } else {
+        // YUYV: Y channel is every other byte
+        for (int i = 0; i < pixels; i++) {
+            cam->gray[i] = src[i * 2];
         }
-        pthread_mutex_unlock(&cam->display_mu);
+        cam->gray_ready = 1;
+
+        // Copy to display buffers for main thread rendering. The color
+        // pass decodes full YUYV → ARGB32 (BT.601): each 4-byte group
+        // Y0 U Y1 V yields two pixels sharing chroma.
+        if (cam->display) {
+            pthread_mutex_lock(&cam->display_mu);
+            memcpy(cam->display, cam->gray, pixels);
+            cam->display_ready = 1;
+            if (cam->display_rgb) {
+                uint32_t *dst = cam->display_rgb;
+                for (int i = 0; i < pixels; i += 2) {
+                    int y0 = src[i * 2 + 0], u = src[i * 2 + 1];
+                    int y1 = src[i * 2 + 2], v = src[i * 2 + 3];
+                    int d = u - 128, e = v - 128;
+                    for (int k = 0; k < 2; k++) {
+                        int c = (k ? y1 : y0) - 16;
+                        int r = (298 * c + 409 * e + 128) >> 8;
+                        int g = (298 * c - 100 * d - 208 * e + 128) >> 8;
+                        int b = (298 * c + 516 * d + 128) >> 8;
+                        if (r < 0) r = 0; else if (r > 255) r = 255;
+                        if (g < 0) g = 0; else if (g > 255) g = 255;
+                        if (b < 0) b = 0; else if (b > 255) b = 255;
+                        dst[i + k] = 0xFF000000u | ((uint32_t)r << 16) |
+                                     ((uint32_t)g << 8) | (uint32_t)b;
+                    }
+                }
+                cam->display_rgb_ready = 1;
+            }
+            pthread_mutex_unlock(&cam->display_mu);
+        }
     }
 
     // Re-queue the buffer

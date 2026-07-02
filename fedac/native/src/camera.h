@@ -24,11 +24,22 @@ typedef struct {
     pthread_mutex_t display_mu; // protects display buffers
     volatile int display_ready; // 1 = new display frame available
 
-    // Color display frame (ARGB32, width * height) — filled from YUYV when
-    // the camera negotiates that format; the 'cap' piece renders this.
+    // Color display frame (ARGB32, width * height) — filled from YUYV (or
+    // decoded MJPEG when ffmpeg is available); the 'cap' piece renders this.
     // Guarded by display_mu alongside the grayscale copy.
     uint32_t *display_rgb;
     volatile int display_rgb_ready;
+
+    // display_mu is initialized once and survives open/close cycles so a
+    // renderer holding the lock never races a plug-and-play reopen.
+    int display_mu_init;
+
+    // MJPEG decode state (libavcodec/libswscale, only under HAVE_AVCODEC).
+    // void* keeps ffmpeg headers out of this file.
+    void *av_ctx;               // AVCodecContext*
+    void *av_frame;             // AVFrame*
+    void *av_pkt;               // AVPacket*
+    void *sws;                  // SwsContext*
 
     // QR scan results
     volatile int scan_pending;  // 1 = scan requested
@@ -37,15 +48,17 @@ typedef struct {
     char scan_error[256];       // error message if open/capture fails
 } ACCamera;
 
-// Open the first available V4L2 camera (tries /dev/video0-3)
+// Open a V4L2 camera (scans /dev/video0-9, prefers the highest-numbered
+// capture device so a freshly plugged USB cam wins over the built-in).
 // Returns 0 on success, -1 on failure (check cam->scan_error)
 int camera_open(ACCamera *cam);
 
-// Close camera and free resources
+// Close camera and free resources (safe to reopen afterwards)
 void camera_close(ACCamera *cam);
 
-// Grab one frame and convert to grayscale
-// Returns 0 on success, -1 on failure
+// Grab one frame into the gray + display buffers.
+// Returns 0 on success, -1 if no frame is ready yet (EAGAIN),
+// -2 on a fatal device error (unplugged) — close and rescan.
 int camera_grab(ACCamera *cam);
 
 // Scan the current grayscale frame for QR codes using quirc
