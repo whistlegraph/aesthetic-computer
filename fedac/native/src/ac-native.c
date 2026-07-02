@@ -3483,6 +3483,77 @@ static void tape_upload_async(const char *tape_path) {
     system(cmd);
 }
 
+// Shared tape start/stop — called by the PrintScreen key handler below and
+// by the JS system.tapeStart()/tapeStop() bindings (js-bindings.c) that the
+// 'cap' camera piece uses for hold-to-record. The pointers are latched in
+// main() once the recorder exists. `quiet` skips the TTS announce + audible
+// cues so camera clips don't open with "tape rolling" baked into the song's
+// audio track.
+static ACRecorder *g_tape_recorder = NULL;
+static ACAudio *g_tape_audio = NULL;
+static ACTts *g_tape_tts = NULL;
+
+int ac_tape_start(int quiet) {
+    if (!g_tape_recorder) return -1;
+    if (recorder_is_recording(g_tape_recorder)) return 0;
+    mkdir("/mnt/tapes", 0755);
+    time_t now = time(NULL);
+    struct tm *tm = gmtime(&now);
+    // Milliseconds for slug uniqueness
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    int ms = (int)(ts.tv_nsec / 1000000);
+    char rec_path[256];
+    snprintf(rec_path, sizeof(rec_path),
+             "/mnt/tapes/%04d.%02d.%02d.%02d.%02d.%02d.%03d.mp4",
+             tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
+             tm->tm_hour, tm->tm_min, tm->tm_sec, ms);
+    if (recorder_start(g_tape_recorder, rec_path) != 0) return -1;
+    // Wire up audio tap
+    if (g_tape_audio) {
+        g_tape_audio->rec_userdata = g_tape_recorder;
+        g_tape_audio->rec_callback = rec_audio_tap;
+    }
+    // Latch the path + flag for the on-screen overlay
+    strncpy(g_tape_current_path, rec_path, sizeof(g_tape_current_path) - 1);
+    g_tape_current_path[sizeof(g_tape_current_path) - 1] = '\0';
+    g_tape_recording = 1;
+    g_tape_start_sec = time(NULL);
+    if (!quiet) {
+        if (g_tape_tts) tts_speak(g_tape_tts, "tape rolling");
+        if (g_tape_audio) {
+            audio_synth(g_tape_audio, WAVE_SINE, 660.0, 0.12, 0.2, 0.001, 0.10, 0.0);
+            audio_synth(g_tape_audio, WAVE_SINE, 880.0, 0.12, 0.15, 0.03, 0.09, 0.0);
+        }
+    }
+    return 0;
+}
+
+int ac_tape_stop(int quiet) {
+    if (!g_tape_recorder || !recorder_is_recording(g_tape_recorder)) return -1;
+    // Remove audio tap before finalizing the file
+    if (g_tape_audio) {
+        g_tape_audio->rec_callback = NULL;
+        g_tape_audio->rec_userdata = NULL;
+    }
+    // Snapshot the path before stop (recorder_stop may clear it)
+    char saved_tape_path[256] = {0};
+    strncpy(saved_tape_path, g_tape_current_path, sizeof(saved_tape_path) - 1);
+    recorder_stop(g_tape_recorder);
+    g_tape_recording = 0;
+    g_tape_current_path[0] = '\0';
+    if (!quiet) {
+        if (g_tape_tts) tts_speak(g_tape_tts, "tape stopped");
+        if (g_tape_audio) {
+            audio_synth(g_tape_audio, WAVE_SINE, 880.0, 0.12, 0.2, 0.001, 0.10, 0.0);
+            audio_synth(g_tape_audio, WAVE_SINE, 660.0, 0.12, 0.15, 0.03, 0.09, 0.0);
+        }
+    }
+    // Kick off background upload if we captured a path
+    if (saved_tape_path[0]) tape_upload_async(saved_tape_path);
+    return 0;
+}
+
 int main(int argc, char *argv[]) {
     struct timespec boot_start;
     clock_gettime(CLOCK_MONOTONIC, &boot_start);
@@ -4155,6 +4226,10 @@ int main(int argc, char *argv[]) {
                 ac_log("[ac-native] recorder ready (%dx%d)\n", screen->width, screen->height);
                 // Expose to JS via sound.tape.* bindings
                 if (rt) rt->recorder = recorder;
+                // Latch pointers for the shared ac_tape_start/stop helpers
+                g_tape_recorder = recorder;
+                g_tape_audio = audio;
+                g_tape_tts = tts;
             }
         }
 #endif
@@ -4533,56 +4608,9 @@ int main(int argc, char *argv[]) {
                               strcmp(input->events[i].key_name, "insert") == 0 ||
                               strcmp(input->events[i].key_name, "pause") == 0) && recorder) {
                         if (recorder_is_recording(recorder)) {
-                            // Stop: remove audio tap, finalize file
-                            if (audio) {
-                                audio->rec_callback = NULL;
-                                audio->rec_userdata = NULL;
-                            }
-                            // Snapshot the path before stop (recorder_stop may clear it)
-                            char saved_tape_path[256] = {0};
-                            strncpy(saved_tape_path, g_tape_current_path, sizeof(saved_tape_path) - 1);
-                            recorder_stop(recorder);
-                            // Clear the live overlay state
-                            g_tape_recording = 0;
-                            g_tape_current_path[0] = '\0';
-                            // TTS announce + audible cue (descending)
-                            if (tts) tts_speak(tts, "tape stopped");
-                            audio_synth(audio, WAVE_SINE, 880.0, 0.12, 0.2, 0.001, 0.10, 0.0);
-                            audio_synth(audio, WAVE_SINE, 660.0, 0.12, 0.15, 0.03, 0.09, 0.0);
-                            // Kick off background upload if we captured a path
-                            if (saved_tape_path[0]) {
-                                tape_upload_async(saved_tape_path);
-                            }
+                            ac_tape_stop(0);
                         } else {
-                            // Start: generate timestamped slug, wire up audio tap
-                            mkdir("/mnt/tapes", 0755);
-                            time_t now = time(NULL);
-                            struct tm *tm = gmtime(&now);
-                            // Milliseconds for slug uniqueness
-                            struct timespec ts;
-                            clock_gettime(CLOCK_REALTIME, &ts);
-                            int ms = (int)(ts.tv_nsec / 1000000);
-                            char rec_path[256];
-                            snprintf(rec_path, sizeof(rec_path),
-                                     "/mnt/tapes/%04d.%02d.%02d.%02d.%02d.%02d.%03d.mp4",
-                                     tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
-                                     tm->tm_hour, tm->tm_min, tm->tm_sec, ms);
-                            if (recorder_start(recorder, rec_path) == 0) {
-                                // Wire up audio tap
-                                if (audio) {
-                                    audio->rec_userdata = recorder;
-                                    audio->rec_callback = rec_audio_tap;
-                                }
-                                // Latch the path + flag for the on-screen overlay
-                                strncpy(g_tape_current_path, rec_path, sizeof(g_tape_current_path) - 1);
-                                g_tape_current_path[sizeof(g_tape_current_path) - 1] = '\0';
-                                g_tape_recording = 1;
-                                g_tape_start_sec = time(NULL);
-                                // TTS announce + audible cue (ascending)
-                                if (tts) tts_speak(tts, "tape rolling");
-                                audio_synth(audio, WAVE_SINE, 660.0, 0.12, 0.2, 0.001, 0.10, 0.0);
-                                audio_synth(audio, WAVE_SINE, 880.0, 0.12, 0.15, 0.03, 0.09, 0.0);
-                            }
+                            ac_tape_start(0);
                         }
                     }
                     else if (strcmp(input->events[i].key_name, "power") == 0 ||
@@ -4789,27 +4817,6 @@ int main(int argc, char *argv[]) {
             js_call_paint(rt);
 
             clock_gettime(CLOCK_MONOTONIC, &_pf_paint1);
-
-            // Tape recording overlay — red REC dot + elapsed timer in
-            // the top-left corner. Blinks slowly so it reads as "live"
-            // without being visually distracting.
-            if (g_tape_recording) {
-                long elapsed = (long)(time(NULL) - g_tape_start_sec);
-                int blink = ((main_frame / 30) & 1); // toggle ~every 0.5s
-                // Red dot
-                if (blink) {
-                    graph_ink(&graph, (ACColor){230, 40, 40, 240});
-                    graph_box(&graph, 6, 6, 8, 8, 1);
-                }
-                // "TAPE  0:23" label
-                char rec_label[32];
-                snprintf(rec_label, sizeof(rec_label), "TAPE  %ld:%02ld",
-                         elapsed / 60, elapsed % 60);
-                graph_ink(&graph, (ACColor){0, 0, 0, 180});
-                graph_box(&graph, 16, 4, (int)strlen(rec_label) * 6 + 4, 12, 1);
-                graph_ink(&graph, (ACColor){255, 220, 220, 255});
-                font_draw_matrix(&graph, rec_label, 18, 6, 1);
-            }
 
             // Crash overlay — red bar with error message when JS throws
             if (rt->crash_active) {
@@ -5101,6 +5108,28 @@ int main(int argc, char *argv[]) {
             // Submit frame to recorder (after cursor overlay, before display)
             if (recorder_is_recording(recorder))
                 recorder_submit_video(recorder, screen->pixels, screen->stride);
+
+            // Tape recording overlay — drawn AFTER the recorder submit so
+            // the live screen shows recording state but the MP4 stays clean
+            // (matters for 'cap' camera footage headed to an edit bay).
+            if (g_tape_recording) {
+                graph_page(&graph, screen);
+                long elapsed = (long)(time(NULL) - g_tape_start_sec);
+                int blink = ((main_frame / 30) & 1); // toggle ~every 0.5s
+                // Red dot
+                if (blink) {
+                    graph_ink(&graph, (ACColor){230, 40, 40, 240});
+                    graph_box(&graph, 6, 6, 8, 8, 1);
+                }
+                // "TAPE  0:23" label
+                char rec_label[32];
+                snprintf(rec_label, sizeof(rec_label), "TAPE  %ld:%02ld",
+                         elapsed / 60, elapsed % 60);
+                graph_ink(&graph, (ACColor){0, 0, 0, 180});
+                graph_box(&graph, 16, 4, (int)strlen(rec_label) * 6 + 4, 12, 1);
+                graph_ink(&graph, (ACColor){255, 220, 220, 255});
+                font_draw_matrix(&graph, rec_label, 18, 6, 1);
+            }
 
             // Draw recording indicator (red dot + duration)
             if (recorder_is_recording(recorder)) {

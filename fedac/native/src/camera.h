@@ -10,6 +10,7 @@ struct ACGraph;
 typedef struct {
     int fd;                     // V4L2 device fd (-1 = closed)
     int width, height;          // capture resolution
+    uint32_t pixfmt;            // negotiated V4L2 pixel format (YUYV or MJPEG)
     uint8_t *buffers[4];        // mmap'd V4L2 buffers
     int buffer_count;
     int streaming;              // 1 = V4L2 streaming active
@@ -20,8 +21,14 @@ typedef struct {
 
     // Display frame: mutex-protected copy for main thread rendering
     uint8_t *display;           // copy of gray for rendering (width * height)
-    pthread_mutex_t display_mu; // protects display buffer
+    pthread_mutex_t display_mu; // protects display buffers
     volatile int display_ready; // 1 = new display frame available
+
+    // Color display frame (ARGB32, width * height) — filled from YUYV when
+    // the camera negotiates that format; the 'cap' piece renders this.
+    // Guarded by display_mu alongside the grayscale copy.
+    uint32_t *display_rgb;
+    volatile int display_rgb_ready;
 
     // QR scan results
     volatile int scan_pending;  // 1 = scan requested

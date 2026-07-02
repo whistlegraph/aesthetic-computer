@@ -88,6 +88,13 @@ typedef struct {
     pthread_t qr_thread;
     volatile int qr_thread_running;
 
+    // Continuous camera streaming for the 'cap' piece (system.cameraStart).
+    // Shares rt->camera with QR scanning — the two modes are mutually
+    // exclusive; whichever starts first owns the device until stopped.
+    volatile int cam_stream_active;      // 1 = keep grabbing frames
+    pthread_t cam_stream_thread;
+    volatile int cam_stream_running;     // 1 while the thread is alive
+
     // Piece navigation (system.jump)
     volatile int jump_requested;          // 1 = JS called system.jump()
     char jump_target[128];               // piece name, e.g. "prompt" or "notepat"

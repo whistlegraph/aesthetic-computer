@@ -79,6 +79,7 @@ int camera_open(ACCamera *cam) {
 
     cam->width = fmt.fmt.pix.width;
     cam->height = fmt.fmt.pix.height;
+    cam->pixfmt = fmt.fmt.pix.pixelformat;
     ac_log("[camera] format: %dx%d pixfmt=0x%08x\n",
            cam->width, cam->height, fmt.fmt.pix.pixelformat);
 
@@ -146,8 +147,18 @@ int camera_open(ACCamera *cam) {
         camera_close(cam);
         return -1;
     }
+
     pthread_mutex_init(&cam->display_mu, NULL);
+
+    // Color display buffer — only useful for YUYV (MJPEG stays grayscale-less)
+    cam->display_rgb = malloc((size_t)cam->width * cam->height * sizeof(uint32_t));
+    if (!cam->display_rgb) {
+        snprintf(cam->scan_error, sizeof(cam->scan_error), "rgb alloc failed");
+        camera_close(cam);
+        return -1;
+    }
     cam->display_ready = 0;
+    cam->display_rgb_ready = 0;
 
     ac_log("[camera] ready: %dx%d, %d buffers\n",
            cam->width, cam->height, cam->buffer_count);
@@ -171,12 +182,23 @@ void camera_close(ACCamera *cam) {
         cam->gray = NULL;
     }
     if (cam->display) {
-        pthread_mutex_destroy(&cam->display_mu);
+        // Free the display buffers under the mutex so a concurrent
+        // cameraBlit on the main thread can't read freed memory.
+        pthread_mutex_lock(&cam->display_mu);
         free(cam->display);
         cam->display = NULL;
+        if (cam->display_rgb) {
+            free(cam->display_rgb);
+            cam->display_rgb = NULL;
+        }
+        cam->display_ready = 0;
+        cam->display_rgb_ready = 0;
+        pthread_mutex_unlock(&cam->display_mu);
+        pthread_mutex_destroy(&cam->display_mu);
     }
     cam->gray_ready = 0;
     cam->display_ready = 0;
+    cam->display_rgb_ready = 0;
 }
 
 int camera_grab(ACCamera *cam) {
@@ -201,11 +223,33 @@ int camera_grab(ACCamera *cam) {
     }
     cam->gray_ready = 1;
 
-    // Copy to display buffer for main thread rendering
+    // Copy to display buffers for main thread rendering. The color pass
+    // decodes full YUYV → ARGB32 (BT.601): each 4-byte group Y0 U Y1 V
+    // yields two pixels sharing chroma.
     if (cam->display) {
         pthread_mutex_lock(&cam->display_mu);
         memcpy(cam->display, cam->gray, cam->width * cam->height);
         cam->display_ready = 1;
+        if (cam->display_rgb && cam->pixfmt == V4L2_PIX_FMT_YUYV) {
+            uint32_t *dst = cam->display_rgb;
+            for (int i = 0; i < pixels; i += 2) {
+                int y0 = src[i * 2 + 0], u = src[i * 2 + 1];
+                int y1 = src[i * 2 + 2], v = src[i * 2 + 3];
+                int d = u - 128, e = v - 128;
+                for (int k = 0; k < 2; k++) {
+                    int c = (k ? y1 : y0) - 16;
+                    int r = (298 * c + 409 * e + 128) >> 8;
+                    int g = (298 * c - 100 * d - 208 * e + 128) >> 8;
+                    int b = (298 * c + 516 * d + 128) >> 8;
+                    if (r < 0) r = 0; else if (r > 255) r = 255;
+                    if (g < 0) g = 0; else if (g > 255) g = 255;
+                    if (b < 0) b = 0; else if (b > 255) b = 255;
+                    dst[i + k] = 0xFF000000u | ((uint32_t)r << 16) |
+                                 ((uint32_t)g << 8) | (uint32_t)b;
+                }
+            }
+            cam->display_rgb_ready = 1;
+        }
         pthread_mutex_unlock(&cam->display_mu);
     }
 

@@ -4094,14 +4094,18 @@ static JSValue js_scan_qr_stop(JSContext *ctx, JSValueConst this_val, int argc, 
     return JS_UNDEFINED;
 }
 
-// cameraBlit(x, y, w, h) — render camera display buffer to graph framebuffer
+// cameraBlit(x, y, w, h, mirror) — render camera display buffer to graph
+// framebuffer. Prefers the ARGB color frame (YUYV cameras) and falls back
+// to grayscale. mirror=1 flips horizontally for a selfie-style preview —
+// note the tape recorder captures the screen, so mirrored previews record
+// mirrored footage.
 static JSValue js_camera_blit(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
     if (!current_rt || !current_rt->graph) return JS_FALSE;
     ACCamera *cam = &current_rt->camera;
     if (!cam->display || !cam->display_ready) return JS_FALSE;
 
-    int dx = 0, dy = 0, dw = 0, dh = 0;
+    int dx = 0, dy = 0, dw = 0, dh = 0, mirror = 0;
     if (argc >= 4) {
         JS_ToInt32(ctx, &dx, argv[0]);
         JS_ToInt32(ctx, &dy, argv[1]);
@@ -4112,19 +4116,34 @@ static JSValue js_camera_blit(JSContext *ctx, JSValueConst this_val, int argc, J
         dw = current_rt->graph->fb->width;
         dh = current_rt->graph->fb->height;
     }
+    if (argc >= 5) JS_ToInt32(ctx, &mirror, argv[4]);
     if (dw <= 0 || dh <= 0) return JS_FALSE;
 
-    // Lock and copy the display buffer to a local copy
+    // Lock and copy whichever display buffer is freshest to a local copy.
+    // Pointer checks re-run under the lock — camera_close frees these
+    // buffers while holding display_mu.
     int cw = cam->width, ch = cam->height;
     int pixels = cw * ch;
-    uint8_t *local = malloc(pixels);
-    if (!local) return JS_FALSE;
+    int color = 0;
+    uint32_t *local_rgb = NULL;
+    uint8_t *local_gray = NULL;
 
     pthread_mutex_lock(&cam->display_mu);
-    memcpy(local, cam->display, pixels);
+    if (cam->display_rgb && cam->display_rgb_ready) {
+        local_rgb = malloc((size_t)pixels * sizeof(uint32_t));
+        if (local_rgb) {
+            memcpy(local_rgb, cam->display_rgb, (size_t)pixels * sizeof(uint32_t));
+            color = 1;
+        }
+    }
+    if (!color && cam->display && cam->display_ready) {
+        local_gray = malloc(pixels);
+        if (local_gray) memcpy(local_gray, cam->display, pixels);
+    }
     pthread_mutex_unlock(&cam->display_mu);
+    if (!color && !local_gray) return JS_FALSE;
 
-    // Blit grayscale to framebuffer with nearest-neighbor scaling
+    // Blit to framebuffer with nearest-neighbor scaling
     ACFramebuffer *fb = current_rt->graph->fb;
     for (int py = 0; py < dh; py++) {
         int fy = dy + py;
@@ -4134,15 +4153,114 @@ static JSValue js_camera_blit(JSContext *ctx, JSValueConst this_val, int argc, J
         for (int px = 0; px < dw; px++) {
             int fx = dx + px;
             if (fx < 0 || fx >= fb->width) continue;
-            int sx = px * cw / dw;
+            int sx = (mirror ? dw - 1 - px : px) * cw / dw;
             if (sx >= cw) sx = cw - 1;
-            uint8_t g = local[sy * cw + sx];
-            fb->pixels[fy * fb->stride + fx] = 0xFF000000u | ((uint32_t)g << 16) | ((uint32_t)g << 8) | g;
+            if (color) {
+                fb->pixels[fy * fb->stride + fx] = local_rgb[sy * cw + sx];
+            } else {
+                uint8_t g = local_gray[sy * cw + sx];
+                fb->pixels[fy * fb->stride + fx] = 0xFF000000u | ((uint32_t)g << 16) | ((uint32_t)g << 8) | g;
+            }
         }
     }
 
-    free(local);
+    free(local_rgb);
+    free(local_gray);
     return JS_TRUE;
+}
+
+// ---------------------------------------------------------------------------
+// Continuous camera streaming — system.cameraStart() / system.cameraStop()
+// Powers the 'cap' piece: opens the webcam and grabs frames (~30fps) into
+// the shared display buffers until stopped. Mutually exclusive with QR
+// scanning, which owns the same ACCamera.
+// ---------------------------------------------------------------------------
+
+static void *cam_stream_thread_fn(void *arg) {
+    ACRuntime *rt = (ACRuntime *)arg;
+    ACCamera *cam = &rt->camera;
+
+    if (camera_open(cam) < 0) {
+        ac_log("[camera] stream open failed: %s\n", cam->scan_error);
+        rt->cam_stream_active = 0;
+        rt->cam_stream_running = 0;
+        return NULL;
+    }
+
+    while (rt->cam_stream_active) {
+        camera_grab(cam); // EAGAIN just means no frame yet — keep pacing
+        usleep(33000);    // ~30fps
+    }
+
+    camera_close(cam);
+    rt->cam_stream_running = 0;
+    return NULL;
+}
+
+static JSValue js_camera_start(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv; (void)ctx;
+    if (!current_rt) return JS_FALSE;
+    // Already streaming, or QR scan owns the camera
+    if (current_rt->cam_stream_active || current_rt->cam_stream_running) return JS_TRUE;
+    if (current_rt->qr_scan_active) return JS_FALSE;
+
+    current_rt->camera.scan_error[0] = 0;
+    current_rt->cam_stream_active = 1;
+    current_rt->cam_stream_running = 1;
+    if (pthread_create(&current_rt->cam_stream_thread, NULL,
+                       cam_stream_thread_fn, current_rt) != 0) {
+        current_rt->cam_stream_active = 0;
+        current_rt->cam_stream_running = 0;
+        return JS_FALSE;
+    }
+    pthread_detach(current_rt->cam_stream_thread);
+    ac_log("[camera] stream started\n");
+    return JS_TRUE;
+}
+
+static JSValue js_camera_stop(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv; (void)ctx;
+    if (!current_rt) return JS_UNDEFINED;
+    current_rt->cam_stream_active = 0;
+    ac_log("[camera] stream stopped\n");
+    return JS_UNDEFINED;
+}
+
+// system.cameraReady() -> bool — true once a display frame has landed
+static JSValue js_camera_ready(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    if (!current_rt) return JS_FALSE;
+    return JS_NewBool(ctx, current_rt->camera.display_ready ? 1 : 0);
+}
+
+// system.cameraError() -> string ("" while healthy/opening)
+static JSValue js_camera_error(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    if (!current_rt) return JS_NewString(ctx, "");
+    // Only report once the stream thread has given up
+    if (current_rt->cam_stream_active || current_rt->cam_stream_running)
+        return JS_NewString(ctx, "");
+    return JS_NewString(ctx, current_rt->camera.scan_error);
+}
+
+// ---------------------------------------------------------------------------
+// Tape control — system.tapeStart() / system.tapeStop()
+// Thin wrappers over ac_tape_start/stop in ac-native.c (same code path as
+// the PrintScreen key toggle: MP4 to /mnt/tapes + background cloud upload).
+// Called quiet so recordings don't open with the "tape rolling" announce.
+// ---------------------------------------------------------------------------
+
+extern int ac_tape_start(int quiet);
+extern int ac_tape_stop(int quiet);
+
+static JSValue js_tape_start(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    return JS_NewBool(ctx, ac_tape_start(1) == 0);
+}
+
+static JSValue js_tape_stop(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    return JS_NewBool(ctx, ac_tape_stop(1) == 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -7006,7 +7124,15 @@ static JSValue build_system_obj(JSContext *ctx) {
     // QR camera scanning — system.scanQR() / system.scanQRStop()
     JS_SetPropertyStr(ctx, sys, "scanQR", JS_NewCFunction(ctx, js_scan_qr, "scanQR", 0));
     JS_SetPropertyStr(ctx, sys, "scanQRStop", JS_NewCFunction(ctx, js_scan_qr_stop, "scanQRStop", 0));
-    JS_SetPropertyStr(ctx, sys, "cameraBlit", JS_NewCFunction(ctx, js_camera_blit, "cameraBlit", 4));
+    JS_SetPropertyStr(ctx, sys, "cameraBlit", JS_NewCFunction(ctx, js_camera_blit, "cameraBlit", 5));
+
+    // Continuous camera streaming + tape control — the 'cap' piece
+    JS_SetPropertyStr(ctx, sys, "cameraStart", JS_NewCFunction(ctx, js_camera_start, "cameraStart", 0));
+    JS_SetPropertyStr(ctx, sys, "cameraStop", JS_NewCFunction(ctx, js_camera_stop, "cameraStop", 0));
+    JS_SetPropertyStr(ctx, sys, "cameraReady", JS_NewCFunction(ctx, js_camera_ready, "cameraReady", 0));
+    JS_SetPropertyStr(ctx, sys, "cameraError", JS_NewCFunction(ctx, js_camera_error, "cameraError", 0));
+    JS_SetPropertyStr(ctx, sys, "tapeStart", JS_NewCFunction(ctx, js_tape_start, "tapeStart", 0));
+    JS_SetPropertyStr(ctx, sys, "tapeStop", JS_NewCFunction(ctx, js_tape_stop, "tapeStop", 0));
     JS_SetPropertyStr(ctx, sys, "qrPending",
                       JS_NewBool(ctx, current_rt ? current_rt->qr_scan_active : 0));
     // Deliver QR result one-shot during sim phase

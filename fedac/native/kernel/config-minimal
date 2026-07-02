@@ -2605,7 +2605,17 @@ CONFIG_BCMA_POSSIBLE=y
 # CONFIG_MEDIA_CEC_SUPPORT is not set
 # end of CEC support
 
-# CONFIG_MEDIA_SUPPORT is not set
+# Media/V4L2 — built-in UVC webcam support for the 'cap' piece (camera.c).
+# ThinkPad integrated cameras are USB Video Class devices; olddefconfig
+# resolves the remaining V4L2 core dependencies from these seeds.
+CONFIG_MEDIA_SUPPORT=y
+CONFIG_MEDIA_SUPPORT_FILTER=y
+CONFIG_MEDIA_SUBDRV_AUTOSELECT=y
+CONFIG_MEDIA_CAMERA_SUPPORT=y
+CONFIG_MEDIA_USB_SUPPORT=y
+CONFIG_VIDEO_DEV=y
+CONFIG_USB_VIDEO_CLASS=y
+CONFIG_USB_VIDEO_CLASS_INPUT_EVDEV=y
 
 #
 # Graphics support
