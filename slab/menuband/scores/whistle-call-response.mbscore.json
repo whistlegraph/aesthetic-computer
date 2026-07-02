@@ -1,0 +1,22 @@
+{
+  "title": "Whistle Call & Response",
+  "composer": "Menu Band, 2026",
+  "machines": 2,
+  "bpm": 132,
+  "lead": 3.0,
+  "description": "Subtle, cute whistle back-and-forth: blueberry whistles a little C-major lick, neo answers with one, trading every half-bar so the tune clearly bounces between the two machines.",
+  "voices": [
+    {
+      "name": "caller",
+      "program": 78,
+      "velocity": 72,
+      "notes": "79:0.5,76:0.5,72:0.5,76:0.5,r:2,81:0.5,79:0.5,76:0.5,79:0.5,r:2,72:0.5,76:0.5,79:0.5,81:0.5,r:2,76:0.5,79:0.5,81:0.5,79:0.5,r:2,79:0.5,76:0.5,72:0.5,76:0.5,r:2,81:0.5,79:0.5,76:0.5,79:0.5,r:2,72:0.5,76:0.5,79:0.5,81:0.5,r:2,76:0.5,79:0.5,81:0.5,79:0.5,r:2"
+    },
+    {
+      "name": "answerer",
+      "program": 78,
+      "velocity": 72,
+      "notes": "r:2,74:0.5,72:0.5,74:0.5,72:0.5,r:2,76:0.5,74:0.5,72:0.5,71:0.5,r:2,79:0.5,76:0.5,72:0.5,72:0.5,r:2,74:0.5,72:0.5,71:0.5,72:0.5,r:2,74:0.5,72:0.5,74:0.5,72:0.5,r:2,76:0.5,74:0.5,72:0.5,71:0.5,r:2,79:0.5,76:0.5,72:0.5,72:0.5,r:2,74:0.5,72:0.5,71:0.5,72:0.5"
+    }
+  ]
+}

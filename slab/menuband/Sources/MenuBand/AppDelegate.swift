@@ -26,6 +26,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// the window elapses.
     private var fleetDriveUntil: TimeInterval = 0
     private var fleetClearTimer: Timer?
+    /// Per-note timing capture for the current synced part: (intended, actual)
+    /// Unix seconds for every onset. Compared across machines (join on
+    /// `intended`) it proves how tightly the fleet lands together.
+    private var fleetHits: [(intended: Double, actual: Double)] = []
+    /// High-priority sequencer queue that wakes on mach-time deadlines to fire
+    /// onsets, so audio timing is NOT stuck behind the main thread's UI
+    /// redraws. Percussion sounds directly here; only the lighting hops to main.
+    private let sequencerQueue = DispatchQueue(
+        label: "computer.aestheticcomputer.menuband.sequencer", qos: .userInteractive)
+
     private let hoverResponder = HoverResponder()
     /// Bridges typing in the macOS Stickies app to Menu Band note
     /// playback when the focused sticky matches the trigger color.
@@ -3115,7 +3125,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Fleet tell: a synced cue (carries startEpoch) means a conductor is
         // driving us — light the robot badge through the end of the longest
         // track so it stays lit for the whole part, then auto-clears.
-        if let epoch = Double(info["startEpoch"] ?? "") {
+        let syncEpoch = Double(info["startEpoch"] ?? "")
+        if let epoch = syncEpoch {
             let maxBeats = tracks.map { track in
                 track.spec.split(separator: ",").reduce(0.0) { acc, tok in
                     let p = tok.split(separator: ":")
@@ -3123,6 +3134,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }.max() ?? 0
             markFleetActive(until: epoch + maxBeats * beat + 0.5)
+            let recv = Date().timeIntervalSince1970
+            NSLog("⏱️ cue target=%.3f recv=%.3f lead=%.0fms bpm=%.0f tracks=%d",
+                  epoch, recv, (epoch - recv) * 1000, bpm, tracks.count)
         }
 
         DispatchQueue.main.async { [weak self] in
@@ -3132,6 +3146,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // a conducted part switching patch should read like a user picking
             // an instrument, not change silently under the hood.
             self.updateIcon()
+
+            // Wall-clock anchor: schedule every onset to an ABSOLUTE instant
+            // (a shared epoch), not a relative offset from now — no per-note
+            // drift, and both machines lock to the exact same targets. Convert
+            // each target epoch to a mach-time deadline (low leeway, high
+            // precision) via a single (wall, uptime) anchor captured now.
+            let downbeatEpoch = syncEpoch ?? (Date().timeIntervalSince1970 + leadIn)
+            if syncEpoch != nil { self.fleetHits.removeAll(keepingCapacity: true) }
+            let anchorWall = Date().timeIntervalSince1970
+            let anchorUp = DispatchTime.now()
+            func at(_ epoch: Double) -> DispatchTime {
+                let ns = (epoch - anchorWall) * 1_000_000_000
+                return DispatchTime(uptimeNanoseconds: anchorUp.uptimeNanoseconds &+ UInt64(max(0, ns)))
+            }
 
             // Drive this part like a person would, so the whole UI reacts.
             // Scan the tracks first: are there drums? what melodic register?
@@ -3154,11 +3182,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }.max() ?? 0
             let partEnd = leadIn + partBeats * beat + 0.3
 
-            // (1) Drum kit: enter drum mode through the REAL toggle so the
-            //     keyboard visibly flips to the kit (kick cue confirms it),
-            //     exactly like pressing the drum button — then restore after.
+            // (1) Drum kit: a drums-ONLY part enters drum mode through the REAL
+            //     toggle so the keyboard visibly flips to the kit (kick cue
+            //     confirms it), exactly like pressing the drum button — then
+            //     restores after. A melodic part with an incidental kick keeps
+            //     its keyboard; the kick still hits and lights its pad below.
             let priorSplit = self.menuBand.percussionSplit
-            if hasDrums && !priorSplit {
+            if hasDrums && melodicNotes.isEmpty && !priorSplit {
                 DispatchQueue.main.asyncAfter(deadline: .now() + max(0, leadIn - 0.2)) { [weak self] in
                     self?.menuBand.percussionSplit = true
                     self?.menuBand.playPercussionToggleCue(on: true)
@@ -3204,16 +3234,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         // corresponding pad, so the keyboard animates like a
                         // person is drumming (not a silent engine hit).
                         let litNote = AppDelegate.drumLightNote(for: sym)
-                        DispatchQueue.main.asyncAfter(deadline: .now() + onAt) { [weak self] in
+                        let onEpoch = downbeatEpoch + (onAt - leadIn)
+                        self.sequencerQueue.asyncAfter(deadline: at(onEpoch)) { [weak self] in
                             guard let self = self else { return }
+                            // Audio fires HERE, off the main thread — tight.
                             _ = self.menuBand.percussionNoteOn(drum, velocity: vel,
                                                                pan: 64, accent: false)
-                            self.menuBand.drumLitOn(litNote)
+                            let actual = Date().timeIntervalSince1970
+                            DispatchQueue.main.async {
+                                self.menuBand.drumLitOn(litNote)
+                                if syncEpoch != nil { self.fleetHits.append((onEpoch, actual)) }
+                            }
                         }
                         // Drums are one-shots — hold the pad light briefly.
-                        let offAt = onAt + min(dur, 0.12)
-                        DispatchQueue.main.asyncAfter(deadline: .now() + offAt) { [weak self] in
-                            self?.menuBand.drumLitOff(litNote)
+                        let offEpoch = onEpoch + min(dur, 0.12)
+                        self.sequencerQueue.asyncAfter(deadline: at(offEpoch)) { [weak self] in
+                            DispatchQueue.main.async { self?.menuBand.drumLitOff(litNote) }
                         }
                     } else if let midi = UInt8(sym) {
                         // Melodic note via the real tap path (lights keys + waveform).
@@ -3229,14 +3265,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         while disp < 60 { disp += 12 }
                         while disp > 83 { disp -= 12 }
                         let display = UInt8(disp)
-                        DispatchQueue.main.asyncAfter(deadline: .now() + onAt) { [weak self] in
-                            self?.menuBand.startTapNote(midi, velocity: vel, displayNote: display)
+                        let onEpoch = downbeatEpoch + (onAt - leadIn)
+                        let offEpoch = downbeatEpoch + (offAt - leadIn)
+                        // Melodic tap state is main-thread-only; wake precisely
+                        // on the sequencer, then hop to main to sound + light it
+                        // (main only ever holds one pending onset, not all of
+                        // them, so it isn't congested/coalesced like before).
+                        self.sequencerQueue.asyncAfter(deadline: at(onEpoch)) { [weak self] in
+                            DispatchQueue.main.async {
+                                guard let self = self else { return }
+                                self.menuBand.startTapNote(midi, velocity: vel, displayNote: display)
+                                if syncEpoch != nil { self.fleetHits.append((onEpoch, Date().timeIntervalSince1970)) }
+                            }
                         }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + offAt) { [weak self] in
-                            self?.menuBand.stopTapNote(midi)
+                        self.sequencerQueue.asyncAfter(deadline: at(offEpoch)) { [weak self] in
+                            DispatchQueue.main.async { self?.menuBand.stopTapNote(midi) }
                         }
                     }
                     t += dur
+                }
+            }
+
+            // Timing proof: after the part, log per-onset jitter (actual −
+            // intended, ms) and a summary. Both machines target identical
+            // `intended` epochs, so aligning their logs on `int=` shows the true
+            // cross-machine skew. Logged after playback so it never perturbs it.
+            if syncEpoch != nil {
+                DispatchQueue.main.asyncAfter(deadline: at(downbeatEpoch + partBeats * beat + 0.4)) { [weak self] in
+                    guard let self = self, !self.fleetHits.isEmpty else { return }
+                    let hits = self.fleetHits.sorted { $0.intended < $1.intended }
+                    let jit = hits.map { ($0.actual - $0.intended) * 1000 }
+                    let n = Double(jit.count)
+                    let mean = jit.reduce(0, +) / n
+                    let sd = (jit.map { ($0 - mean) * ($0 - mean) }.reduce(0, +) / n).squareRoot()
+                    let third = max(1, jit.count / 3)
+                    let head = jit.prefix(third).reduce(0, +) / Double(third)
+                    let tail = jit.suffix(third).reduce(0, +) / Double(third)
+                    NSLog("⏱️ part done: n=%d mean=%.1f sd=%.1f min=%.1f max=%.1f drift(head→tail)=%.1f→%.1fms",
+                          jit.count, mean, sd, jit.min() ?? 0, jit.max() ?? 0, head, tail)
+                    for h in hits {
+                        NSLog("⏱️ hit int=%.3f act=%.3f jit=%+.1fms", h.intended, h.actual, (h.actual - h.intended) * 1000)
+                    }
                 }
             }
         }
