@@ -1,4 +1,24 @@
-# trancenwaltzi — musical + mastering spec
+# cutezenwaltzi — musical + mastering spec
+
+> **RENAMED + REBORN 2026-07-02** (was **trancenwaltzi**, per @jeffrey:
+> "slow it down, make it cuter"). The cute cut is slower + steadier +
+> sung by cancelled noise:
+>
+> - bed — `node recap/bin/trance.mjs --mode chill --meter 3 --bpm 104
+>   --bars 128 --chill-hats low --master --out
+>   pop/dance/out/cutezenwaltzi-bed.mp3` (steady 104, no gas-pedal;
+>   3:42; today's chill defaults = **G major**, root G3)
+> - voice — the **nullabye carved-noise engine** as a voice: `node
+>   pop/dance/bin/cutezenwaltzi-nullvoice.mjs` re-voices the struct.json
+>   lead as a breathy Q-55 noise-whistle (+1 oct) + Q-70 sparkles on the
+>   bells (+2 oct), bakes a `nullnoise.c` score →
+>   `node pop/nullabye/c/run-c.mjs … --master lullaby`
+> - mix — stem at 0.35 under the bed, `amix normalize=0` + alimiter →
+>   `pop/dance/out/cutezenwaltzi.mp3`
+>
+> Everything below documents the **old trancenwaltzi render** (A minor,
+> gas-pedal tempo, 200 bars) — lineage + mastering reference. The TJ's
+> cover campaign + canvas were made for that cut.
 
 The chill sequel to **trancenwaltz**. Same `pop/dance/` engine, same
 deterministic seed, but rendered in `--mode chill`: a continuous

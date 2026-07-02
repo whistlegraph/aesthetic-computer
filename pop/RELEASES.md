@@ -745,8 +745,22 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
   via `pop/hellsine/bin/preview-score.mjs` (not yet built). (Spotify +
   Apple Music URLs now live — see Listen line above.)
 
-## trancenwaltzi — RENDER (not yet released)
+## cutezenwaltzi — WIP (né trancenwaltzi, renamed 2026-07-02)
 
+- **RENAME + NEW DIRECTION (2026-07-02, @jeffrey):** "slow it down, make
+  it cuter" → **cutezenwaltzi**. New cut: steady **104 BPM** (gas-pedal
+  accel dropped), **128 bars / 3:42**, today's chill defaults (**G major**,
+  root G3), `--chill-hats low`, `--master`; PLUS the **nullabye
+  carved-noise engine as a voice** — `pop/dance/bin/cutezenwaltzi-nullvoice.mjs`
+  re-voices the struct.json lead as a breathy Q-55 noise-whistle (+1 oct)
+  + Q-70 sparkles on the bells (+2 oct), baked through
+  `pop/nullabye/c/nullnoise.c` (`run-c.mjs --master lullaby`), mixed 0.35
+  under the bed. Draft: `pop/dance/out/cutezenwaltzi.mp3` (bed + voice
+  stem + score alongside). Spec: `pop/dance/cutezenwaltzi.md`. Awaiting
+  @jeffrey ear-check; voice level / register / Q are the tuning knobs.
+- Everything below is the **old trancenwaltzi render** (A minor,
+  gas-pedal 150→212, ~3:44) — kept as lineage; its TJ's cover + canvas
+  were made for that cut and may carry forward or get re-cut cuter.
 - **Lane:** `pop/dance/` · chill mix (`--mode chill --meter 3`), ~3:00,
   photographic **Trader Joe's** calm-shopping concept w/ pixie crew
 - **Status:** v17 square cut + v18 vertical IG-story cut rendering
