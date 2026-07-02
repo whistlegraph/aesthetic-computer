@@ -912,6 +912,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       
       // mediaRecorder?.stop();
       mediaRecorder?.pause(); // Single clips for now.
+      hdTapeStop(); // 🖼️📼 Finalize the hd recording (blob lands in onstop).
 
       // Store the tape data to IndexedDB for persistence across page refreshes
       const blob = new Blob(mediaRecorderChunks, {
@@ -1182,6 +1183,86 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // Created lazily on the first bitmap so pieces that never use it pay nothing.
   let hdCan = null;
   let hdCtx = null;
+
+  // 🖼️📼 HD tape — while a tape records over an hd piece, every incoming
+  // bitmap is mirrored into a 2d canvas whose captureStream feeds a second,
+  // live MediaRecorder (hardware encode → constant memory, no raw hi-res
+  // frames buffered). On export the finished blob replaces the low-res frame
+  // re-render wholesale. The blob is session-memory only, like recordedFrames.
+  let hdTapeRecorder = null;
+  let hdTapeChunks = [];
+  let hdTapeBlob = null;
+  let hdTapeAborted = false; // hd layer torn down mid-tape → classic export
+  let hdStreamCanvas = null;
+  let hdStreamCtx = null;
+
+  function hdTapeReset() {
+    hdTapeAborted = false;
+    hdTapeBlob = null;
+    hdTapeChunks = [];
+    try {
+      if (hdTapeRecorder && hdTapeRecorder.state !== "inactive") hdTapeRecorder.stop();
+    } catch (err) { /* already stopped */ }
+    hdTapeRecorder = null;
+    hdStreamCanvas = hdStreamCtx = null;
+  }
+
+  function hdTapeAbort() {
+    hdTapeAborted = true;
+    try {
+      if (hdTapeRecorder && hdTapeRecorder.state !== "inactive") hdTapeRecorder.stop();
+    } catch (err) { /* already stopped */ }
+    hdTapeRecorder = null;
+    hdStreamCanvas = hdStreamCtx = null;
+    hdTapeBlob = null;
+  }
+
+  function hdTapeStop() {
+    try {
+      if (hdTapeRecorder && hdTapeRecorder.state !== "inactive") hdTapeRecorder.stop();
+    } catch (err) { /* already stopped */ }
+  }
+
+  function hdTapeStart(w, h) {
+    hdStreamCanvas = document.createElement("canvas");
+    hdStreamCanvas.width = w;
+    hdStreamCanvas.height = h;
+    hdStreamCtx = hdStreamCanvas.getContext("2d");
+    try {
+      const stream = hdStreamCanvas.captureStream(60);
+      // Ride the same live audio the tape's audio recorder captures, so the
+      // hd recording is a complete, synced video on its own.
+      audioStreamDest?.stream?.getAudioTracks().forEach((t) => stream.addTrack(t));
+      const mime = [
+        "video/mp4;codecs=avc1.640028,mp4a.40.2",
+        "video/mp4",
+        "video/webm;codecs=vp9,opus",
+        "video/webm",
+      ].find((m) => MediaRecorder.isTypeSupported(m));
+      const bps = Math.min(24e6, Math.max(8e6, Math.round(w * h * 60 * 0.12)));
+      hdTapeChunks = [];
+      hdTapeRecorder = new MediaRecorder(stream, {
+        mimeType: mime,
+        videoBitsPerSecond: bps,
+      });
+      hdTapeRecorder.ondataavailable = (e) => {
+        if (e.data?.size) hdTapeChunks.push(e.data);
+      };
+      hdTapeRecorder.onstop = () => {
+        if (!hdTapeAborted && hdTapeChunks.length) {
+          hdTapeBlob = new Blob(hdTapeChunks, { type: hdTapeRecorder?.mimeType || mime });
+          console.log(`🖼️📼 HD tape encoded: ${(hdTapeBlob.size / 1048576).toFixed(1)}MB ${hdTapeBlob.type} ${w}x${h}`);
+        }
+        hdTapeChunks = [];
+      };
+      hdTapeRecorder.start(1000); // Gather in 1s chunks.
+      console.log(`🖼️📼 HD tape recorder armed: ${w}x${h} @ ${(bps / 1e6).toFixed(0)}Mbps ${mime}`);
+    } catch (err) {
+      console.warn("🖼️📼 HD tape recorder failed to start:", err);
+      hdTapeAbort();
+    }
+  }
+
   function updateHDLayer(hd) {
     if (!hd?.bitmap) return;
     if (!hdCan) {
@@ -1194,6 +1275,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       hdCan.style.pointerEvents = "none";
       hdCtx = hdCan.getContext("bitmaprenderer");
       wrapper.append(hdCan);
+    }
+    // 🖼️📼 Mirror the bitmap for the tape encoder BEFORE the display transfer
+    // consumes it (drawImage doesn't). Arms lazily on the tape's first hd
+    // frame, so the recording spans first-hd-frame → cut.
+    const taping =
+      mediaRecorder?.state === "recording" && mediaRecorderStartTime !== undefined;
+    if (taping && !hdTapeAborted) {
+      if (!hdStreamCanvas) hdTapeStart(hd.bitmap.width, hd.bitmap.height);
+      // Fixed encode size for the tape's lifetime — resizing a captured
+      // track mid-recording corrupts most encoders, so later reframes scale.
+      hdStreamCtx?.drawImage(hd.bitmap, 0, 0, hdStreamCanvas.width, hdStreamCanvas.height);
     }
     hdCtx.transferFromImageBitmap(hd.bitmap); // Sets intrinsic size to match.
     // Track the main canvas's CSS box so the layer overlays it exactly
@@ -9854,6 +9946,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // 🎬 Create animated MP4 from frame data (same pipeline as GIF)
     if (type === "create-animated-mp4") {
+      // 🖼️📼 HD tape fast path — a live-encoded hd recording of this tape
+      // already exists, so skip the low-res frame re-render entirely and
+      // export the hd blob directly (video+audio, encoded during recording).
+      if (hdTapeBlob && !hdTapeAborted) {
+        const extension = hdTapeBlob.type.includes("webm") ? "webm" : "mp4";
+        const filename = generateTapeFilename(extension);
+        send({ type: "recorder:transcode-progress", content: 1 });
+        receivedDownload({ filename, data: hdTapeBlob });
+        console.log(`🖼️📼 ✅ HD tape exported directly: ${(hdTapeBlob.size / 1048576).toFixed(1)}MB ${extension}`);
+        send({
+          type: "recorder:export-complete",
+          content: { type: "video", filename },
+        });
+        return;
+      }
       if (content.totalChunks && content.totalChunks > 1) {
         console.log(
           `🎞️ Receiving MP4 frames in chunks (1/${content.totalChunks}):`,
@@ -14052,6 +14159,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     recordedFrames.length = 0;
     recordedPieceChanges.length = 0; // Clear piece changes tracking
     startTapePlayback = undefined;
+    hdTapeReset(); // 🖼️📼 Fresh hd-tape state; arms itself on the first hd frame.
     console.log("🎬 Initialized recording state");
     
     // Clear any active underlay from previous playback
@@ -17326,8 +17434,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     // 🖼️ HD layer teardown — the worker dropped its hi-res surface (piece
-    // change), so hide ours and release the last bitmap.
+    // change), so hide ours and release the last bitmap. If an hd tape was
+    // mid-encode, the tape now spans mixed content — abandon the hd blob and
+    // let export fall back to the classic frame re-render.
     if (type === "hd:clear") {
+      if (hdTapeRecorder) hdTapeAbort();
       if (hdCan) {
         hdCan.style.display = "none";
         try {
@@ -18536,7 +18647,27 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               ? window.recordingStartTimestamp
               : Date.now()) + relativeTimestamp;
           let frameDataWithHUD;
-          if (webglCompositeActive && webglCompositeCanvas) {
+          const hdLayerLive =
+            hdStreamCanvas && hdCan && hdCan.style.display !== "none" && !hdTapeAborted;
+          if (hdLayerLive) {
+            // 🖼️📼 hd piece: the pixel canvas only holds a wash, so scrub
+            // frames come from a smooth downscale of the same hd mirror the
+            // tape encoder sees — memory stays at classic tape size.
+            const capCtx = ensureCaptureCompositeCanvas(
+              ctx.canvas.width,
+              ctx.canvas.height,
+            );
+            capCtx.imageSmoothingEnabled = true;
+            capCtx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            capCtx.drawImage(hdStreamCanvas, 0, 0, ctx.canvas.width, ctx.canvas.height);
+            capCtx.drawImage(overlayCan, 0, 0);
+            frameDataWithHUD = capCtx.getImageData(
+              0,
+              0,
+              ctx.canvas.width,
+              ctx.canvas.height,
+            );
+          } else if (webglCompositeActive && webglCompositeCanvas) {
             const capCtx = ensureCaptureCompositeCanvas(
               ctx.canvas.width,
               ctx.canvas.height,

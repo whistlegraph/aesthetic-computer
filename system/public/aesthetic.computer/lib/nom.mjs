@@ -1569,9 +1569,10 @@ function cellAt(px, py) {
 // 🎨 Paint ───────────────────────────────────────────────────────────────────
 // Either/or: an hd edition paints ONLY the hi-res Canvas2D layer (a worker
 // OffscreenCanvas managed by disk's `hd()` API); everyone else paints the
-// classic pixel buffer. disk's hd() hands back null in preview/icon mode and
-// while a tape is recording — those capture the pixel buffer, so the game
-// automatically drops to full pixel painting for exactly those frames.
+// classic pixel buffer. disk's hd() hands back null in preview/icon mode —
+// thumbnails capture the pixel buffer, so the game drops to full pixel
+// painting for exactly those frames. Tapes stay hd end-to-end: bios mirrors
+// each hd bitmap into a live MediaRecorder while recording.
 function paint(api) {
   setTheme(api.dark !== false); // 🌗 follow the system theme, live
   const layer = hiRes && api.hd ? api.hd() : null;

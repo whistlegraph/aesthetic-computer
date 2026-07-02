@@ -2306,10 +2306,11 @@ const HD_MAX_PIXELS = 4096 * 2304; // Backing-store ceiling (≈4K) for perf.
 
 function hd() {
   if (!screen || typeof OffscreenCanvas === "undefined") return null;
-  // Previews/icons and tapes capture the PIXEL buffer, so hand those modes
-  // back to the piece's low-res path by refusing the layer — an hd piece
-  // treats a null return as "paint the pixel buffer this frame instead".
-  if (PREVIEW_OR_ICON || $commonApi.rec.recording) return null;
+  // Previews/icons capture the PIXEL buffer, so hand that mode back to the
+  // piece's low-res path by refusing the layer — an hd piece treats a null
+  // return as "paint the pixel buffer this frame instead". Tapes stay hd:
+  // bios live-encodes the hd bitmaps into the recording (see bios hdTape*).
+  if (PREVIEW_OR_ICON) return null;
   const sub = currentDisplay?.subdivisions || 2;
   const dpr = currentDisplay?.pixelRatio || hdPixelRatio;
   // Native device pixels per logical screen pixel, capped so giant displays
