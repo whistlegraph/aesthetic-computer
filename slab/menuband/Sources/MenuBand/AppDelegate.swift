@@ -3128,6 +3128,65 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             self.menuBand.setMelodicProgram(program)
+            // Surface the instrument change on the menubar chip immediately —
+            // a conducted part switching patch should read like a user picking
+            // an instrument, not change silently under the hood.
+            self.updateIcon()
+
+            // Drive this part like a person would, so the whole UI reacts.
+            // Scan the tracks first: are there drums? what melodic register?
+            var melodicNotes: [Int] = []
+            var hasDrums = false
+            for track in tracks {
+                for token in track.spec.split(separator: ",") {
+                    let p = token.split(separator: ":")
+                    guard p.count == 2, p[0] != "r" else { continue }
+                    if AppDelegate.drum(for: p[0]) != nil { hasDrums = true }
+                    else if let m = Int(p[0]) { melodicNotes.append(m) }
+                }
+            }
+            // Longest track = when the part ends (used to restore UI state).
+            let partBeats = tracks.map { tr in
+                tr.spec.split(separator: ",").reduce(0.0) { a, tok in
+                    let q = tok.split(separator: ":")
+                    return a + (q.count == 2 ? (Double(q[1]) ?? 0) : 0)
+                }
+            }.max() ?? 0
+            let partEnd = leadIn + partBeats * beat + 0.3
+
+            // (1) Drum kit: enter drum mode through the REAL toggle so the
+            //     keyboard visibly flips to the kit (kick cue confirms it),
+            //     exactly like pressing the drum button — then restore after.
+            let priorSplit = self.menuBand.percussionSplit
+            if hasDrums && !priorSplit {
+                DispatchQueue.main.asyncAfter(deadline: .now() + max(0, leadIn - 0.2)) { [weak self] in
+                    self?.menuBand.percussionSplit = true
+                    self?.menuBand.playPercussionToggleCue(on: true)
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + partEnd) { [weak self] in
+                    if self?.menuBand.percussionSplit == true { self?.menuBand.percussionSplit = false }
+                }
+            }
+
+            // (2) Octave: shift the board so this part's register is in view and
+            //     the UI octave indicator MOVES, like a user tapping octave
+            //     up/down. One median-centered shift per part, restored after.
+            let priorOctave = self.menuBand.octaveShift
+            var octShift = 0
+            if !melodicNotes.isEmpty {
+                let sorted = melodicNotes.sorted()
+                let median = sorted[sorted.count / 2]
+                octShift = max(-4, min(4, Int((Double(median - 71) / 12.0).rounded())))
+                if octShift != priorOctave {
+                    let s = octShift
+                    DispatchQueue.main.asyncAfter(deadline: .now() + max(0, leadIn - 0.2)) { [weak self] in
+                        self?.menuBand.octaveShift = s
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + partEnd) { [weak self] in
+                        self?.menuBand.octaveShift = priorOctave
+                    }
+                }
+            }
 
             for track in tracks {
                 var t = leadIn  // wait for the shared start instant (or 0.2s)
@@ -3140,19 +3199,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     if sym == "r" { t += dur; continue }   // rest
                     let onAt = t
                     if let drum = AppDelegate.drum(for: sym) {
-                        // Percussion one-shot on menuband's native drum engine
-                        // (GM-independent; kick/snare/hat just hit and ring).
+                        // Percussion one-shot — route through the SAME visible
+                        // path a drum keypress uses: hit the kit AND light the
+                        // corresponding pad, so the keyboard animates like a
+                        // person is drumming (not a silent engine hit).
+                        let litNote = AppDelegate.drumLightNote(for: sym)
                         DispatchQueue.main.asyncAfter(deadline: .now() + onAt) { [weak self] in
-                            _ = self?.menuBand.percussionNoteOn(drum, velocity: vel,
-                                                                pan: 64, accent: false)
+                            guard let self = self else { return }
+                            _ = self.menuBand.percussionNoteOn(drum, velocity: vel,
+                                                               pan: 64, accent: false)
+                            self.menuBand.drumLitOn(litNote)
+                        }
+                        // Drums are one-shots — hold the pad light briefly.
+                        let offAt = onAt + min(dur, 0.12)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + offAt) { [weak self] in
+                            self?.menuBand.drumLitOff(litNote)
                         }
                     } else if let midi = UInt8(sym) {
                         // Melodic note via the real tap path (lights keys + waveform).
                         // Hold for most of the slot; a small gap keeps repeated
                         // notes articulated instead of slurring into one.
                         let offAt = t + dur * 0.9
+                        // Lit cell = the note as seen under the part's octave
+                        // shift, folded into the visible board (C4–B5). With the
+                        // octave indicator moved to match, the RIGHT key lights
+                        // in the RIGHT register — like a user who octave-shifted
+                        // then pressed the key. Audio still sounds the true pitch.
+                        var disp = Int(midi) - octShift * 12
+                        while disp < 60 { disp += 12 }
+                        while disp > 83 { disp -= 12 }
+                        let display = UInt8(disp)
                         DispatchQueue.main.asyncAfter(deadline: .now() + onAt) { [weak self] in
-                            self?.menuBand.startTapNote(midi, velocity: vel)
+                            self?.menuBand.startTapNote(midi, velocity: vel, displayNote: display)
                         }
                         DispatchQueue.main.asyncAfter(deadline: .now() + offAt) { [weak self] in
                             self?.menuBand.stopTapNote(midi)
@@ -3176,6 +3254,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case "rd": return .ride
         case "cr": return .crash
         default:   return nil
+        }
+    }
+
+    /// Which display-note (piano cell) each `play` drum lights while it fires,
+    /// so a conducted beat animates the keyboard like a real drum keypress.
+    /// Spread low→high across the visible board so a kit reads as motion:
+    /// kick/snare/clap sit low, hats and cymbals up top.
+    private static func drumLightNote(for sym: Substring) -> UInt8 {
+        switch sym {
+        case "k":  return 60   // kick  — low C
+        case "s":  return 64   // snare
+        case "c":  return 62   // clap
+        case "h":  return 76   // closed hat — up high
+        case "ho": return 78   // open hat
+        case "rd": return 80   // ride
+        case "cr": return 82   // crash
+        default:   return 67
         }
     }
 
