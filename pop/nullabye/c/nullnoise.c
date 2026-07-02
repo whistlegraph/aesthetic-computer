@@ -22,6 +22,13 @@
 //   sr / dur / detuneL / detuneR / seedL / seedR — globals
 //   normpeak / fadein / fadeout                   — finalize params
 //   ridewin <len> <count> then <count> target-dB lines — loudness ride
+//   group <seedL> <seedR> — start a new parallel noise pair
+//   noisetype pink|white|brown|velvet — noise material for the CURRENT
+//     group (default pink). Each type is roughly RMS-matched to pink so
+//     peakDb means the same thing across groups: brown = leaky-integrated
+//     white (dark — carve lows from it), white = raw LCG (crisp tops),
+//     velvet = sparse ±1 impulses on a 16-sample grid (smooth, hiss-free
+//     pads). A flat chain still nulls to bit-exact zero for every type.
 //   band <eventCount> then per-event lines:
 //     t0 freq freqEnd(0=none) peakDb q atk hold rel cut(-1=none)
 //   bands appear in chain order; events per band are time-sorted.
@@ -72,6 +79,57 @@ static inline double pink_next(Pink *p) {
     return out;
 }
 
+// ── noise generator: one of four materials per group ──────────────────
+// Scales chosen so each type's RMS lands near pink's (~0.15), so a
+// band's peakDb carves a similar loudness whatever it's carved from.
+enum { NT_PINK = 0, NT_WHITE, NT_BROWN, NT_VELVET };
+
+typedef struct {
+    int type;
+    Pink pink;      // pink (also the LCG for the other types)
+    double brown;   // leaky integrator state
+    int vPos;       // velvet: sample index within the current grid cell
+    int vAt;        // velvet: impulse offset within the cell
+    double vSign;   // velvet: impulse polarity
+} Gen;
+
+#define VELVET_CELL 16
+
+static inline double lcg_next(Gen *g) {
+    g->pink.s = g->pink.s * 1664525u + 1013904223u;
+    return ((double)g->pink.s / 4294967296.0) * 2.0 - 1.0;
+}
+
+static void gen_init(Gen *g, int type, uint32_t seed) {
+    memset(g, 0, sizeof *g);
+    g->type = type;
+    pink_init(&g->pink, seed);
+    g->vPos = VELVET_CELL; // force a fresh cell draw on first sample
+}
+
+static inline double gen_next(Gen *g) {
+    switch (g->type) {
+    case NT_WHITE:
+        return lcg_next(g) * 0.26;
+    case NT_BROWN:
+        g->brown = g->brown * 0.998 + lcg_next(g) * 0.02;
+        return g->brown;
+    case NT_VELVET: {
+        if (g->vPos >= VELVET_CELL) {
+            double r = lcg_next(g); // one draw: position + sign
+            g->vAt = (int)((r * 0.5 + 0.5) * VELVET_CELL) % VELVET_CELL;
+            g->vSign = (g->pink.s & 1u) ? 0.6 : -0.6;
+            g->vPos = 0;
+        }
+        double v = (g->vPos == g->vAt) ? g->vSign : 0.0;
+        g->vPos++;
+        return v;
+    }
+    default:
+        return pink_next(&g->pink);
+    }
+}
+
 // envelope in dB-space: linear attack / hold / release, optional cut fade
 static inline double env_of(const Event *e, double time) {
     double dt = time - e->t0;
@@ -108,6 +166,7 @@ int main(int argc, char **argv) {
     // first already boosts without the serial dB-addition blowup.
     enum { MAXG = 8 };
     uint32_t gseed[MAXG][2] = { { 0xBEEF, 0xC0FFEE } };
+    int gtype[MAXG] = { NT_PINK };
     int nGroups = 1, curGroup = 0;
     double normpeak = 0.88, fadein = 0.004, fadeout = 1.6;
     double rideLen = 0; int rideN = 0; double *rideTarget = NULL;
@@ -122,7 +181,17 @@ int main(int argc, char **argv) {
         else if (!strcmp(key, "group")) {
             if (nGroups >= MAXG) die("too many groups");
             if (fscanf(f, "%u %u", &gseed[nGroups][0], &gseed[nGroups][1]) != 2) die("bad group");
+            gtype[nGroups] = NT_PINK;
             curGroup = nGroups++;
+        }
+        else if (!strcmp(key, "noisetype")) {
+            char nt[16];
+            if (fscanf(f, "%15s", nt) != 1) die("bad noisetype");
+            if (!strcmp(nt, "pink")) gtype[curGroup] = NT_PINK;
+            else if (!strcmp(nt, "white")) gtype[curGroup] = NT_WHITE;
+            else if (!strcmp(nt, "brown")) gtype[curGroup] = NT_BROWN;
+            else if (!strcmp(nt, "velvet")) gtype[curGroup] = NT_VELVET;
+            else die("unknown noisetype");
         }
         else if (!strcmp(key, "normpeak")) { if (fscanf(f, "%lf", &normpeak) != 1) die("bad normpeak"); }
         else if (!strcmp(key, "fadein")) { if (fscanf(f, "%lf", &fadein) != 1) die("bad fadein"); }
@@ -168,8 +237,8 @@ int main(int argc, char **argv) {
     // ── render: per channel, per group: EQ'd copy minus the original;
     //    group residues sum in parallel ──────────────────────────────────
     for (int ch = 0; ch < 2; ch++) {
-        Pink pinks[MAXG];
-        for (int g = 0; g < nGroups; g++) pink_init(&pinks[g], gseed[g][ch]);
+        Gen gens[MAXG];
+        for (int g = 0; g < nGroups; g++) gen_init(&gens[g], gtype[g], gseed[g][ch]);
         for (int bi = 0; bi < nBands; bi++) { bands[bi].cursor = 0; bands[bi].z1 = 0; bands[bi].z2 = 0; }
 
         for (long blockStart = 0; blockStart < ns; blockStart += BLOCK) {
@@ -177,7 +246,7 @@ int main(int argc, char **argv) {
             double time = (double)blockStart / sr;
             memset(acc, 0, sizeof(float) * n);
             for (int g = 0; g < nGroups; g++) {
-            for (int i = 0; i < n; i++) wet[i] = dry[i] = (float)pink_next(&pinks[g]);
+            for (int i = 0; i < n; i++) wet[i] = dry[i] = (float)gen_next(&gens[g]);
 
             for (int bi = 0; bi < nBands; bi++) {
                 Band *b = &bands[bi];
