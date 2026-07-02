@@ -488,9 +488,11 @@ function fetchJson(url, { timeoutMs = 8000 } = {}) {
   });
 }
 
-// Resolve the active keeps contract, count its tokens on TzKT, and push the
-// number onto the tray icon as a top-right superscript. Best-effort: any
-// failure just leaves the previous count (or none) in place.
+// Resolve the active keeps contract, count its LIVE 1/1 tokens on TzKT, and push
+// the number onto the tray icon as a top-right superscript. Each keep is a unique
+// 1/1 KidLisp piece; burned pieces drop to totalSupply 0, so `totalSupply.gt=0`
+// counts only the active market tokens. Best-effort: any failure just leaves the
+// previous count (or none) in place.
 async function updateKeepsCount() {
   if (!trayRenderer) return;
   try {
@@ -499,7 +501,7 @@ async function updateKeepsCount() {
     if (!contract) return;
     const network = (cfg.network || 'mainnet').toLowerCase();
     const apiBase = network === 'mainnet' ? 'https://api.tzkt.io' : `https://api.${network}.tzkt.io`;
-    const count = await fetchJson(`${apiBase}/v1/tokens/count?contract=${encodeURIComponent(contract)}`);
+    const count = await fetchJson(`${apiBase}/v1/tokens/count?contract=${encodeURIComponent(contract)}&totalSupply.gt=0`);
     const n = Number(count);
     if (!Number.isFinite(n)) return;
     console.log('[keeps] kept count:', n, '(', contract, ')');
