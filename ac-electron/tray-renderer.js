@@ -50,6 +50,8 @@ const STATE_FILE = path.join(os.homedir(), '.ac-os', 'tray.json');
 const DEFAULTS = {
   show: false,        // show the badge?
   badge: 'USB',       // label text (Menuband-style)
+  logoScale: 0.86,    // pals logo height as a fraction of the 22px bar (smaller
+                      // than full so the number has room top-right)
   logoColor: PINK,    // pals line-art color; "accent" follows the system accent
   color: 'accent',    // badge text color
   bg: '#ffffff',      // bumper background (white/neutral); null/"none" = text only
@@ -68,9 +70,13 @@ const DEFAULTS = {
   // is a non-empty value and `showCount` is not false.
   showCount: true,    // master toggle for the superscript
   count: null,        // the number/text to ride top-right (null → hidden)
-  countColor: 'label',// glyph color (system label adapts light/dark)
-  countPt: 7,         // point size — matches Menuband's instrument number
+  countColor: 'logo', // glyph color; 'logo' matches the pals logo color,
+                      // 'label' follows the system label, or pass a hex/'accent'
+  countPt: 8,         // point size — Menuband's instrument number reads ~this
+                      // big because SF's system digits sit larger than SF Mono
   countYOffset: 0,    // nudge the superscript down (px @1x) from the top edge
+  countXOffset: -2,   // nudge the number horizontally (px @1x; negative = left)
+  countGap: 1,        // gap (px @1x) between the logo and the number column
   countHalo: false,   // draw a faint contrast halo for legibility over the art
 };
 
@@ -93,8 +99,14 @@ class TrayRenderer {
     if (!sharp) return null;
     const color = resolveColor(this.state.logoColor || PINK);
     if (this.master && this._masterColor === color) return this.master;
-    const svgPath = path.join(__dirname, 'build', 'icons', 'pals.svg');
-    if (!fs.existsSync(svgPath)) return null;
+    // Dev runs from source (build/icons/pals.svg); the packaged app ships the
+    // SVG as an extraResource at Resources/pals.svg (build/ is electron-builder's
+    // buildResources dir and is excluded from the asar), so try both.
+    const svgPath = [
+      path.join(__dirname, 'build', 'icons', 'pals.svg'),
+      path.join(process.resourcesPath || '', 'pals.svg'),
+    ].find((p) => p && fs.existsSync(p));
+    if (!svgPath) return null;
     const svg = fs.readFileSync(svgPath, 'utf8');
     const recolored = svg.replace(
       /fill="#[0-9a-fA-F]{3,8}"/g,
@@ -149,7 +161,7 @@ class TrayRenderer {
     if (!sharp || text == null || text === '') return null;
     fg = resolveColor(fg);
     const px = Math.max(1, Math.round(ptAt1x * scale));
-    const charW = px * 0.62;                        // monospace advance
+    const charW = px * 0.66;                        // advance for the system font
     const kern = (-0.4 * scale).toFixed(2);         // tighten like Menuband
     const padX = Math.max(1, Math.round(px * 0.18));
     const padY = Math.max(1, Math.round(px * 0.14));
@@ -163,7 +175,9 @@ class TrayRenderer {
     const svg =
       `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">` +
       `<text x="${W - padX}" y="${baseY}" text-anchor="end" ` +
-      `font-family="SFMono-Regular,Menlo,monospace" font-size="${px}" font-weight="800" ` +
+      // system-ui = macOS SF system font (matches Menuband's monospacedDigitSystemFont).
+      `font-family="system-ui,-apple-system,'Helvetica Neue',Helvetica,sans-serif" ` +
+      `font-size="${px}" font-weight="800" ` +
       `letter-spacing="${kern}" ${haloAttrs}fill="${fg}">${text}</text></svg>`;
     return sharp(Buffer.from(svg)).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   }
@@ -185,16 +199,33 @@ class TrayRenderer {
     for (const scale of [1, 2, 3]) {
       try {
         const H = 22 * scale;
-        const SHRINK = 0.94;
+        const SHRINK = s.logoScale || 0.94;
         const lh = Math.max(1, Math.round(22 * SHRINK * scale));
         const logo = await sharp(this.master)
           .resize({ height: lh, kernel: 'lanczos3' }).ensureAlpha().raw()
           .toBuffer({ resolveWithObject: true });
         const lw = logo.info.width;
 
-        // Icon WIDTH NEVER CHANGES — same width with or without the badge.
-        // The badge is superimposed ON the logo, centered.
-        const W = lw;
+        // Superscript count rides its OWN column to the right of the logo so it
+        // never overlaps the art. Render it first to size that column.
+        let cnt = null, cw = 0, ch = 0;
+        const countShown = s.showCount !== false && s.count != null && s.count !== '';
+        if (countShown) {
+          // 'logo' → the pals logo color so the number matches the figure.
+          const countColor = (!s.countColor || s.countColor === 'logo')
+            ? (s.logoColor || PINK) : s.countColor;
+          cnt = await this.renderCount(String(s.count), countColor, s.countPt, scale, s.countHalo);
+          if (cnt) { cw = cnt.info.width; ch = cnt.info.height; }
+        }
+        const gap = cnt ? Math.max(0, Math.round((s.countGap != null ? s.countGap : 2) * scale)) : 0;
+        const xOff = cnt ? Math.round((s.countXOffset || 0) * scale) : 0;
+        const cx = cnt ? lw + gap + xOff : 0;            // number's left edge (nudgeable)
+
+        // The logo box is fixed at `lw`; the badge superimposes ON it (centered).
+        // The count column (if any) extends the icon just far enough to hold the
+        // number at its nudged position — no dead space on the right, and the
+        // plain icon (no number) keeps its original width.
+        const W = cnt ? Math.max(lw, cx + cw) : lw;
         const canvas = Buffer.alloc(W * H * 4, 0);
         const put = (x, y, b, g, r, a) => {
           if (x < 0 || y < 0 || x >= W || y >= H || a <= 0) return;
@@ -218,7 +249,7 @@ class TrayRenderer {
           const badge = await this.renderBadge(s.badge, s.color, s.bg, s.outline, s.outlineWidth, s.pt, scale, labelOpacity);
           if (badge) {
             const bw = badge.info.width, bh = badge.info.height;
-            const bx = Math.round((W - bw) / 2);              // centered horizontally
+            const bx = Math.round((lw - bw) / 2);             // centered over the logo box
             const by = Math.round((H - bh) / 2) + (s.badgeYOffset || 0) * scale; // centered (nudgeable)
             const d = badge.data;
             for (let y = 0; y < bh; y++)
@@ -229,21 +260,16 @@ class TrayRenderer {
           }
         }
 
-        // Top-right superscript count (keeps kept). Rides the corner at full
-        // opacity — independent of the centered badge and its blink effect.
-        if (s.showCount !== false && s.count != null && s.count !== '') {
-          const cnt = await this.renderCount(String(s.count), s.countColor, s.countPt, scale, s.countHalo);
-          if (cnt) {
-            const cw = cnt.info.width, ch = cnt.info.height;
-            const cx = W - cw;                                  // right edge = logo right edge
-            const cy = Math.max(0, Math.round((s.countYOffset || 0) * scale)); // top-anchored (superscript)
-            const cd = cnt.data;
-            for (let y = 0; y < ch; y++)
-              for (let x = 0; x < cw; x++) {
-                const j = (y * cw + x) * 4, a = cd[j + 3];
-                if (a > 0) put(cx + x, cy + y, cd[j + 2], cd[j + 1], cd[j], a);
-              }
-          }
+        // Superscript count (keeps kept) in its reserved right column — beside
+        // the logo, top-anchored, full opacity (independent of the badge blink).
+        if (cnt) {
+          const cy = Math.max(0, Math.round((s.countYOffset || 0) * scale)); // top (superscript)
+          const cd = cnt.data;
+          for (let y = 0; y < ch; y++)
+            for (let x = 0; x < cw; x++) {
+              const j = (y * cw + x) * 4, a = cd[j + 3];
+              if (a > 0) put(cx + x, cy + y, cd[j + 2], cd[j + 1], cd[j], a);
+            }
         }
         out.addRepresentation({ scaleFactor: scale, width: W, height: H, buffer: canvas });
       } catch (e) { /* skip this scale */ }

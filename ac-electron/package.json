@@ -122,6 +122,7 @@
     },
     "files": [
       "main.js",
+      "tray-renderer.js",
       "preload.js",
       "webview-preload.js",
       "offscreen-manager.js",
@@ -190,8 +191,7 @@
   ],
   "devDependencies": {
     "electron": "^39.2.7",
-    "electron-builder": "^25.1.8",
-    "sharp": "^0.34.5"
+    "electron-builder": "^25.1.8"
   },
   "dependencies": {
     "@electron/rebuild": "^4.0.2",
@@ -200,6 +200,7 @@
     "@xterm/xterm": "^5.5.0",
     "electron-updater": "^6.3.9",
     "node-pty": "^1.1.0",
+    "sharp": "^0.34.5",
     "three": "^0.182.0"
   }
 }

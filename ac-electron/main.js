@@ -3247,13 +3247,15 @@ app.whenReady().then(async () => {
   // 'open-file' so we only need argv here.
   const acDropColdLaunchFile = process.argv.slice(1).find(acDropIsAudio);
 
-  // Create initial window(s)
-  // When launched silently at login, stay in menubar-daemon mode: no AC
-  // window, no dock icon. The user opens things explicitly from the tray.
+  // Create initial window(s).
+  // Default is menubar-daemon mode for EVERY launch — no AC window pops on its
+  // own. The user opens pieces explicitly from the tray (or by re-activating the
+  // app, which fires 'activate' below). We only auto-open a window for an
+  // explicit intent: a slab preview host, or a file opened onto the app.
   if (initialPreviewURL) {
     openPreviewWindow(initialPreviewURL);   // launched as a preview host (slab)
-  } else if (!launchedSilently || acDropColdLaunchFile) {
-    openAcPaneWindow({ piece: initialPiece });
+  } else if (acDropColdLaunchFile) {
+    openAcPaneWindow({ piece: initialPiece }); // opened with a file argument
   }
 
   if (acDropColdLaunchFile) {
