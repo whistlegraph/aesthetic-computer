@@ -95,6 +95,11 @@ const PAPER_MAP = {
     siteName: "radical-computer-art-26-arxiv",
     title: "Radical Computer Art",
   },
+  "arxiv-pals": {
+    base: "pals",
+    siteName: "pals-mark-26-arxiv",
+    title: "The Pals Mark",
+  },
   "arxiv-kidlisp": {
     base: "kidlisp",
     siteName: "kidlisp-26-arxiv",

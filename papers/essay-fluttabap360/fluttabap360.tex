@@ -1,0 +1,124 @@
+% !TEX program = xelatex
+\documentclass[11pt,letterpaper]{article}
+
+% === GEOMETRY === (narrow measure, PG-style)
+\usepackage[top=1in, bottom=1in, left=1.15in, right=1.15in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+
+\setmainfont{Latin Modern Roman}[
+  Extension=.otf,
+  UprightFont=lmroman10-regular,
+  BoldFont=lmroman10-bold,
+  ItalicFont=lmroman10-italic,
+  BoldItalicFont=lmroman10-bolditalic,
+]
+\setsansfont{Latin Modern Sans}[
+  Extension=.otf,
+  UprightFont=lmsans10-regular,
+  BoldFont=lmsans10-bold,
+  ItalicFont=lmsans10-oblique,
+  BoldItalicFont=lmsans10-boldoblique,
+]
+\setmonofont{Latin Modern Mono}[
+  Extension=.otf,
+  UprightFont=lmmono10-regular,
+  ItalicFont=lmmono10-italic,
+  Scale=0.85,
+]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{ragged2e}
+\usepackage{microtype}
+
+\usepackage{ac-paper-essay}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={Fluttabap360},
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acgray}\thepage}
+
+\newcommand{\ac}{Aesthetic\textcolor{acpink}{.}Computer}
+% \trk{slug}{Display} — every track title is tangle-linked to its canonical
+% audio on the AC CDN (assets.aesthetic.computer/pop/<slug>.mp3).
+\newcommand{\trk}[2]{\href{https://assets.aesthetic.computer/pop/#1.mp3}{\textit{#2}}}
+\newcommand{\fl}{\trk{fluttabap360}{fluttabap360}}
+
+\begin{document}
+
+\thispagestyle{empty}
+\vspace*{0.6in}
+
+\essaytitle{Fluttabap360}
+\begin{center}\includegraphics[width=0.62\textwidth]{figures/cover}\end{center}\par\vspace{0.35em}
+\essaydate{June 2026 \enspace$\cdot$\enspace an ekphrasis on a track in the \ac{} pop corpus}
+
+A man is dancing in a park, and he is not quite a butterfly. He wears his own clothes --- a pale-yellow short-sleeve button-down, blue jeans gone soft at the knee, real shoes --- and he has strapped paper-mache monarch wings to his back, two slim dowels along each bone, the orange-and-black panels cut by hand and beginning to tip open with the lift of his pose. A thin antenna headband arcs over his brown curls, two felt balls trembling on springs. He has risen onto the ball of one foot, the other leg swung back into a low arabesque, both arms curved overhead, chin lifted, weight floating up. Four or five real monarchs circle his hands like dance partners; one has come to rest on his outstretched fingertips. He is about thirty, wide awake, grinning. The drawing is colored pencil and gouache on warm cream paper, hatched and striped, lit by a clean late-morning sun raking in from the left --- no glow filter, no haze, a current of grace rather than a swarm.
+
+It is a good cover because it is exactly what the music sounds like: a grown person doing something light and slightly homemade with total sincerity, and finding that the world rises to dance with him. \fl{} is a six-minute pop instrument piece rendered entirely from synthesized sound --- no recordings, no samples, no generative-audio black box. It is, to date, the most architecturally ambitious entry in the \textit{pixsies} body of \ac{} pop tracks: a through-composed form that recapitulates a small set of memorable melodic blocks across four escalating passes while the whole tonal centre climbs a deliberate key journey (C $\to$ D $\to$ E $\to$ home C $\to$ F). The wings are handmade; the flight is real. What follows describes how the picture is built in sound, and situates it against the corpus's other tracks --- the \trk{marimbaba}{marimbaba} lullaby, the carved-noise \trk{hellsine}{hellsine} and \trk{nullabye}{nullabye} engines, and the strict-budget \trk{teknull}{teknull} techno --- to argue that \fl{} generalizes devices that, elsewhere in the corpus, appear only in isolation.
+
+\section{The Corpus and Its Constraint}
+
+Every \ac{} pop track shares one non-negotiable constraint: the sound is built, not captured. Each piece is a deterministic program whose output is reconstructable byte-for-byte from a single command; the ``instruments'' are hand-written DSP --- modal mallet banks, carved-noise resonators, sine subs, vocal-formant scratch synths --- rather than libraries of audio. This makes the corpus unusually legible: the score \textit{is} the source, and a track's compositional ideas can be read directly off its arrangement table.
+
+Within that constraint the tracks have explored narrow problems. \trk{marimbaba}{marimbaba} (1:24, F major, 3/4) is a single-mood lullaby for a modal marimba --- one key, one tempo, one gesture. The \trk{hellsine}{hellsine} and \trk{nullabye}{nullabye} families pursue carved (``cancelled'') noise: timbre-first studies where form is secondary to the resonator. \trk{teknull}{teknull} (2:00, A minor) is a discipline exercise --- a full techno arrangement squeezed into a 32-point equalizer budget. Each is a strong, small statement.
+
+\section{Blocks Over Escalating Passes}
+
+\fl{} takes the corpus's longest view. Its melodic material is transcribed into reusable \textit{blocks} --- \textit{butterfly}, \textit{pal-of-mine}, \textit{mommy-wow}, \textit{slinky}, \textit{fly}, \textit{land} --- each a self-contained hook. These blocks are then arranged over four escalating passes (A--D), with intensity rising pass to pass: busier kits, sixteenth ride-hats, four-on-the-floor lifts, broken by \textit{squeak-ride} episodes and two dub-style \textit{cave} breakdowns, and resolved through a chord \textit{progression}, a soft \textit{land}, and a buttoned finish.
+
+The result is genuinely through-composed rather than looped: a listener hears the same hooks return, but never in the same dress twice. The form is bookended by a slow, beatless water-drop dawn that emerges from silence over six seconds, and it is hard-clamped to exactly 360.000 seconds so a player reads ``6:00,'' not ``6:01'' --- a small obsession, but one consistent with the corpus's determinism.
+
+\section{The Key Journey}
+
+The track's organizing idea is harmonic motion. Where \trk{marimbaba}{marimbaba} sits in one key, \fl{} modulates upward across its passes: Pass A in C, Pass B lifting to D, Pass C brightest in E; Pass D pulls home to C for a breakdown breath before a final euphoric jump to F for the last chorus. Every modulation is announced by a held tonic-triad pad swell, and the final lift is reinforced dynamically --- roughly +2.4\,dB into the limiter --- so the key change is felt, not merely analyzed.
+
+This is not unprecedented in the corpus --- the \trk{nuellaby}{nuellaby} accumulation form moves C $\to$ E$\flat$ $\to$ F $\to$ C --- but \fl{} is the first to make modulation the \textit{primary} narrative device and to tie it to a recapitulating pop form. The graphic score renders this as a ``key ribbon'' above an intensity arc: structure made visible.
+
+\section{Padding the Room}
+
+\fl{} also marks a tonal turn for the corpus toward bedroom-pop intimacy. The mallet lead --- a softened xylophone off the shared modal engine --- sits over a ``butter'' sine sub; the squeak-ride scratch and scream synths are re-cast as a \textit{melodic} call-and-response that functions as the track's wordless voice. Crucially, the mix trades a large reverberant room for close texture: gentle tape saturation, a low warm hiss bed, and a continuous synthesized water-stream that is gated up in the quiet beats and tucked under the busy ones --- padding the space so it never feels vacuous --- under a warm, air-rolled-off master.
+
+\section{Comparison}
+
+\begin{center}
+\small
+\begin{tabular}{@{}lllll@{}}
+\toprule
+Track & Duration & Key & Form & Engine \\
+\midrule
+\trk{marimbaba}{marimbaba} & 1:24 & F major & single-mood lullaby & modal mallet (JS) \\
+\trk{teknull}{teknull} & 2:00 & A minor & techno, 32-EQ budget & carved-noise (C) \\
+\trk{nullabye}{nullabye}/\trk{nuellaby}{nuellaby} & {\raise.17ex\hbox{$\scriptstyle\sim$}}4:21 & C$\to$E$\flat$$\to$F$\to$C & accumulation & carved-noise (C) \\
+\href{https://assets.aesthetic.computer/pop/fluttabap360.mp3}{\textbf{fluttabap360}} & \textbf{6:00} & \textbf{C$\to$D$\to$E$\to$C$\to$F} & \textbf{4 passes, recap} & \textbf{modal+perc+ambience (JS)} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{What It Suggests}
+
+\fl{} is the corpus's attempt at a \textit{whole song} rather than a study: long-form, through-composed, harmonically mobile, and intimately mixed, yet still synthesized from first principles and reconstructable from one command. It gathers devices the other tracks isolate --- \trk{marimbaba}{marimbaba}'s modal warmth, \trk{nuellaby}{nuellaby}'s modulation, the scratch synths' voice --- into a single six-minute arc, and renders that arc legible in an accompanying graphic score. It suggests a direction for the corpus: not louder or stranger, but \textit{longer and more composed}.
+
+Which returns us to the cover. The dancer's wings will not bear his weight; they were never meant to. What lifts him is the dance itself, and the butterflies' willingness to treat him as one of their own. The track works the same way. Nothing in it is captured from the world --- every monarch is hand-cut DSP, every key change a held pad and a number in a score --- and yet, played from end to end, it rises. The wings are paper. The flight is real.
+
+\colophon{@jeffrey \enspace$\cdot$\enspace \href{https://prompt.ac/@jeffrey}{prompt.ac/@jeffrey} \enspace$\cdot$\enspace aesthetic.computer \enspace$\cdot$\enspace from the \textit{pixsies} pop corpus.}
+
+\end{document}

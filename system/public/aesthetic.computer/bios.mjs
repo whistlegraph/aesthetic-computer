@@ -1176,6 +1176,35 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   recordingUICan.style.display = "none";
   recordingUICan.dataset.type = "recording-ui"; // Mark for identification
 
+  // 🖼️ HD layer — native-resolution Canvas2D frames streamed from the piece
+  // worker as ImageBitmaps (see `hd()` in lib/disk.mjs). Sits above the
+  // pixel canvas but below glaze (z2), corner labels (z2), and ui (z6).
+  // Created lazily on the first bitmap so pieces that never use it pay nothing.
+  let hdCan = null;
+  let hdCtx = null;
+  function updateHDLayer(hd) {
+    if (!hd?.bitmap) return;
+    if (!hdCan) {
+      hdCan = document.createElement("canvas");
+      hdCan.dataset.type = "hd";
+      hdCan.style.position = "absolute";
+      hdCan.style.top = "0";
+      hdCan.style.left = "0";
+      hdCan.style.zIndex = "1";
+      hdCan.style.pointerEvents = "none";
+      hdCtx = hdCan.getContext("bitmaprenderer");
+      wrapper.append(hdCan);
+    }
+    hdCtx.transferFromImageBitmap(hd.bitmap); // Sets intrinsic size to match.
+    // Track the main canvas's CSS box so the layer overlays it exactly
+    // ("100%" in nogap mode, projected pixel sizes otherwise).
+    if (hdCan.style.width !== canvas.style.width)
+      hdCan.style.width = canvas.style.width;
+    if (hdCan.style.height !== canvas.style.height)
+      hdCan.style.height = canvas.style.height;
+    hdCan.style.display = "block";
+  }
+
   // Reusable canvas for dirtyBox updates
   let dirtyBoxCanvas = document.createElement("canvas");
   let dirtyBoxCtx = dirtyBoxCanvas.getContext("2d");
@@ -2026,6 +2055,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         innerWidth: window.innerWidth,
         innerHeight: window.innerHeight,
         subdivisions,
+        pixelRatio: window.devicePixelRatio, // For the worker's `hd()` layer.
         width,  // Include the new screen dimensions so the worker can update immediately
         height,
       },
@@ -3971,6 +4001,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       embeddedSource,
       noauth: window.acNOAUTH || false,
       bootId: window.acBOOT_ID || null,
+      pixelRatio: window.devicePixelRatio, // For the worker's `hd()` layer.
     },
   };
 
@@ -17294,6 +17325,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // 🖼️ HD layer teardown — the worker dropped its hi-res surface (piece
+    // change), so hide ours and release the last bitmap.
+    if (type === "hd:clear") {
+      if (hdCan) {
+        hdCan.style.display = "none";
+        try {
+          hdCtx.transferFromImageBitmap(null);
+        } catch (err) {
+          // Nothing to release.
+        }
+      }
+      return;
+    }
+
     // 🌟 Update & Render (Compositing)
     // IMPORTANT: Always release the frame pump latch for render/update.
     // If we return early (pixel mismatch) or throw during compositing, bios can stop
@@ -17316,6 +17361,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (content.TwoD) {
       TwoD?.pack(content.TwoD);
     }
+
+    // 🖼️ HD layer — composite this frame's native-resolution bitmap.
+    if (content.hd?.bitmap) updateHDLayer(content.hd);
 
     updateSynths(content.sound); // 🔈 Trigger any audio that was called upon.
 

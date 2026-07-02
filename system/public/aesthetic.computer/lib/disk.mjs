@@ -2288,6 +2288,55 @@ const imageCache = {
 
 let screen;
 let currentDisplay; // TODO: Remove this? 22.09.29.11.38
+
+// 🖼️ HD layer — an OffscreenCanvas 2D surface at native device resolution,
+// composited by bios above the pixel canvas (below glaze / corner labels /
+// ui). Pieces acquire it with `hd()` inside `paint`; disk owns the buffer:
+// it (re)allocates on resize, pre-scales the context so logical screen
+// coordinates stay valid, ships an ImageBitmap to bios after each painted
+// frame, and clears the bios layer when the piece changes. The HD layer is
+// NOT captured in tapes — pieces should keep painting the pixel buffer
+// underneath as the recorded / fallback view.
+let hdCanvas = null; // OffscreenCanvas backing store.
+let hdContext = null; // Its 2d context, pre-scaled to device resolution.
+let hdPainted = false; // A piece drew this frame → send a bitmap in `render`.
+let hdVisible = false; // bios's layer is currently showing one of our bitmaps.
+let hdPixelRatio = 1; // devicePixelRatio from init-from-bios (reframed updates it).
+const HD_MAX_PIXELS = 4096 * 2304; // Backing-store ceiling (≈4K) for perf.
+
+function hd() {
+  if (!screen || typeof OffscreenCanvas === "undefined") return null;
+  // Previews/icons and tapes capture the PIXEL buffer, so hand those modes
+  // back to the piece's low-res path by refusing the layer — an hd piece
+  // treats a null return as "paint the pixel buffer this frame instead".
+  if (PREVIEW_OR_ICON || $commonApi.rec.recording) return null;
+  const sub = currentDisplay?.subdivisions || 2;
+  const dpr = currentDisplay?.pixelRatio || hdPixelRatio;
+  // Native device pixels per logical screen pixel, capped so giant displays
+  // never allocate an unbounded backing store.
+  const maxScale = Math.sqrt(HD_MAX_PIXELS / (screen.width * screen.height));
+  const scale = Math.max(1, Math.min(sub * dpr, maxScale));
+  const w = Math.round(screen.width * scale);
+  const h = Math.round(screen.height * scale);
+  if (!hdCanvas || hdCanvas.width !== w || hdCanvas.height !== h) {
+    hdCanvas = new OffscreenCanvas(w, h);
+    hdContext = hdCanvas.getContext("2d");
+  }
+  hdContext.setTransform(scale, 0, 0, scale, 0, 0);
+  hdPainted = true;
+  return { ctx: hdContext, width: screen.width, height: screen.height, scale };
+}
+
+// Tear down between pieces: drop the buffer and hide bios's layer right away
+// (out-of-band, so the old piece's last frame never floats over the next).
+function hdUnload() {
+  if (!hdCanvas) return;
+  hdCanvas = hdContext = null;
+  hdPainted = false;
+  hdVisible = false;
+  send({ type: "hd:clear" });
+}
+
 let cursorCode;
 let pieceHistoryIndex = -1; // Gets incremented to 0 when first piece loads.
 let paintCount = 0n;
@@ -2841,6 +2890,7 @@ const persistentSpreadnobState = {
 const $commonApi = {
   lisp, //  A global reference to the `kidlisp` evalurator.
   undef: undefined, // A global api shorthand for undefined.
+  hd, // 🖼️ Native-resolution Canvas2D layer (see the hd() definition above).
   clock: {
     offset: function () {
       if (clockFetching) return;
@@ -9766,6 +9816,7 @@ async function load(
     keys(preloadPromises).forEach((key) => preloadPromises[key].reject(key));
     preloadPromises = {};
     noPaint = false;
+    hdUnload(); // 🖼️ Drop the previous piece's HD layer (hides it in bios).
 
     // 🎞️ Reset piece-level FPS control
     pieceFPS = null;
@@ -10204,6 +10255,7 @@ async function makeFrame({ data: { type, content } }) {
     debug = content.debug;
     setDebug(content.debug);
     ROOT_PIECE = content.rootPiece;
+    hdPixelRatio = content.pixelRatio || 1; // 🖼️ For the hd() layer's scale.
     if (content.bootId && typeof self !== "undefined") self.acBOOT_ID = content.bootId;
 
     // 📦 Kick off global version polling (skip preview/icon/pack/objkt where
@@ -11810,6 +11862,7 @@ async function makeFrame({ data: { type, content } }) {
       width: content.innerWidth,
       height: content.innerHeight,
       subdivisions: content.subdivisions,
+      pixelRatio: content.pixelRatio, // For the `hd()` native-resolution layer.
     };
     $commonApi.display = currentDisplay;
 
@@ -16583,6 +16636,21 @@ async function makeFrame({ data: { type, content } }) {
           transferredObjects.push(pixelsCopy.buffer);
         }
         $commonApi.recordingUI._clearPending();
+      }
+
+      // 🖼️ HD layer — ship this frame's native-resolution Canvas2D drawing
+      // as an ImageBitmap (transferred, so it never copies). The transfer
+      // leaves the OffscreenCanvas blank for the piece's next paint. When an
+      // hd piece paints a pixel-only frame (hd() gated off for a tape or
+      // preview), drop bios's layer so the pixel view shows through.
+      if (hdPainted && hdCanvas) {
+        sendData.hd = { bitmap: hdCanvas.transferToImageBitmap() };
+        transferredObjects.push(sendData.hd.bitmap);
+        hdPainted = false;
+        hdVisible = true;
+      } else if (hdVisible && painted === true) {
+        send({ type: "hd:clear" });
+        hdVisible = false;
       }
 
       // console.log("TO:", transferredObjects);

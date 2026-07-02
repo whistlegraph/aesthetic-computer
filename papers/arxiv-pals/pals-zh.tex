@@ -1,0 +1,286 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.85in, bottom=0.85in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\usepackage{xeCJK}
+\setCJKmainfont{Droid Sans Fallback}
+\setmainfont{Latin Modern Roman}[
+  Extension=.otf,
+  UprightFont=lmroman10-regular,
+  BoldFont=lmroman10-bold,
+  ItalicFont=lmroman10-italic,
+  BoldItalicFont=lmroman10-bolditalic,
+]
+% Droid Sans Fallback lacks em-dash / curly quotes / ellipsis; route these
+% punctuation marks to the Latin Modern main font (which has them) so CJK
+% prose renders no tofu.
+\xeCJKDeclareCharClass{Default}{`—,`“,`”,`‘,`’,`…}
+\setsansfont{Latin Modern Sans}[
+  Extension=.otf,
+  UprightFont=lmsans10-regular,
+  BoldFont=lmsans10-bold,
+  ItalicFont=lmsans10-oblique,
+  BoldItalicFont=lmsans10-boldoblique,
+]
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[
+  Extension=.otf,
+  UprightFont=lmmono10-regular,
+  ItalicFont=lmmono10-italic,
+  Scale=0.85,
+]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{fancyhdr}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{eso-pic}
+\usepackage{tikz}
+\usepackage{hyperref}
+\usepackage{xurl}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{palspink}{RGB}{205,92,155} % #cd5c9b — canonical purple-pals.svg fill
+
+% === PALS SIDE-STAMPS (mirrors bios.mjs side-stamp pattern + ac-paper-layout.sty) ===
+\AddToShipoutPictureBG{%
+  \begin{tikzpicture}[remember picture, overlay]
+    \pgfmathsetmacro{\palswiggle}{7*sin(\thepage * 67)}%
+    \node[opacity=0.10, anchor=center, rotate={90 + \palswiggle}]
+      at ([xshift=-1.0cm, yshift=-0.33\paperheight]current page.north west)
+      {\includegraphics[width=13cm]{palsmark}};
+    \node[opacity=0.10, anchor=center, rotate={-90 + \palswiggle}]
+      at ([xshift=1.0cm, yshift=-0.33\paperheight]current page.north east)
+      {\includegraphics[width=13cm]{palsmark}};
+  \end{tikzpicture}%
+}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,
+  pdftitle={The Pals Mark: A History of the Aesthetic.Computer Logo}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{The Pals Mark --- \ac{}}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.15em}
+\setlist[enumerate]{nosep, leftmargin=1.4em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\newcommand{\ac}{\textsc{Aesthetic}{\color{acpink}.}\textsc{Computer}}
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\pals}{\textsc{Pals}}
+% commit link: \commit{shorthash}{message} -> links the hash to GitHub
+\newcommand{\commit}[2]{\href{https://github.com/whistlegraph/aesthetic-computer/commit/#1}{\texttt{#1}}, \emph{``#2''}}
+% repo file link
+\newcommand{\repofile}[1]{\href{https://github.com/whistlegraph/aesthetic-computer/blob/main/#1}{\texttt{#1}}}
+
+% Cover language bar. The same paper is published in six languages; each
+% edition links to the others by canonical permalink. \klanghere marks the
+% current language; \klang links a sibling edition by its URL suffix.
+\newcommand{\klang}[2]{\href{https://papers.aesthetic.computer/pals-mark-26-arxiv#2.pdf}{\color{acgray}#1}}
+\newcommand{\klanghere}[1]{{\bfseries\color{acpink}#1}}
+\newcommand{\klangsep}{{\color{acgray!60}\,\textperiodcentered\,}}
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+{\acbold\fontsize{27pt}{31pt}\selectfont\color{acdark} The \pals{} Mark}\par
+\vspace{0.5em}
+\includegraphics[width=0.6\textwidth]{figures/cover}\par
+\vspace{0.4em}
+{\itshape\fontsize{14.5pt}{17pt}\selectfont\color{acpink} Aesthetic{\acdot}Computer 徽标的历史}\par
+\vspace{0.5em}
+{\small\color{acgray} \href{https://prompt.ac/@jeffrey}{@jeffrey} \,$\cdot$\, Aesthetic{\acdot}Computer \,$\cdot$\, 徽标由 Niki Stebbins 绘制 \,$\cdot$\, ORCID \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.45em}
+{\footnotesize\sffamily\klang{EN}{}\klangsep\klang{DA}{-da}\klangsep\klang{ES}{-es}\klangsep\klanghere{ZH}\klangsep\klang{JA}{-ja}\klangsep\klang{RU}{-ru}}\par
+\vspace{0.55em}
+{\color{acpink}\rule{\textwidth}{1.2pt}}
+\vspace{0.5em}
+\end{center}
+
+\begin{quote}
+\small\noindent\textbf{摘要。}
+\pals{} 是 \ac{} 的徽标：两个手绘的人形手拉着手、双臂高举。本文讲述这枚标记是如何做成的——它由艺术家 Niki Stebbins 受委托绘制，于 2023 年整个夏天\emph{在} \ac{} 内部、使用其自带的 \texttt{wgr} 手绘乐谱（whistlegraph）工具画成——以及它此后如何成为一套基础设施：一个循环轮播的 \texttt{pals.aesthetic.computer}“徽标抓取器”，把这枚标记的种种姿态遍布于头像、论文、原生操作系统与网络之上，而每一处都是回到本项目的一个链接。
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{\ac{} 是什么}
+
+\ac{} 是一个面向移动端优先的创意计算运行时与社交网络——一个既是网址栏、又兼作类乐器界面的单一 URL 栏，其中可记忆的命令唤起被称为“作品”（pieces）的交互式程序。它同时支持 JavaScript（\texttt{.mjs}）与一套自研的 Lisp 方言 \textbf{KidLisp}（118 个内建函数）。整个系统透过一个核心 API（\texttt{disk.mjs}，约 600\,KB）与作品对话。
+
+\textbf{它何时上线。}\texttt{aesthetic.computer} 域名自 \textbf{2013-12-12} 起便持有至今。当下这一形态的平台孕育自 \emph{No Paint}（2020），开发始于 \textbf{2021}，并自 \textbf{2022 年 12 月}起从现有代码仓库持续部署（约 20{,}300 次提交）。
+
+\textbf{平台数据}（实时，\today）：
+\begin{itemize}
+  \item 仓库内约 400 件内建作品（383 个 \texttt{.mjs} + 20 个
+        \texttt{.lisp}）；265 件用户发布的作品。
+  \item 生产环境中存储着 \textbf{17{,}538} 个 KidLisp 程序——一个由社区
+        创作、不断增长的生成艺术语料库。
+  \item ATProto / Bluesky 联邦；在 \texttt{at://} 网络上按 @handle 组织的
+        记录集合（画作、心情、作品、KidLisp）。
+\end{itemize}
+
+\textbf{它服务于谁，谁认得这枚标记。}\ac{} 的用户是一个由创意程序员、艺术家以及非技术型“Pals”组成的社区，他们在 \texttt{@handle} 作品下即刻发布。该平台在整个艺术与技术领域拥有广泛的读者群，\ac{} 的作品也已进入机构收藏。\pals{} 标记本身乘着上述每一个界面：开机画面、论文、社交头像、原生操作系统。它在 \emph{Goodiepal \& Pals} 这一激进计算机音乐社群中的概念谱系（见下文谱系一节），赋予这个名字一段超越 \ac{} 自身受众、在媒体艺术领域受到公认的历史。
+
+\section{这枚标记描绘了什么}
+
+\pals{} 徽标是\textbf{两个手拉手、双臂高举的轮廓人形}——像两个一起走路或跳舞的朋友——以松弛、有机、手绘的线条呈现。规范的静态矢量图（\texttt{system/public/purple-pals.svg}）为粉／品红色，\texttt{\#cd5c9b}。它\emph{不是}“一对眼睛”，那是早先的一种误读，此后已在论文序列中得到纠正。
+
+至关重要的是，这枚标记是\emph{用}平台而非仅仅\emph{为}平台做出来的：Niki 使用 \texttt{wgr}——那件在 \ac{} 自身内部运行的手绘乐谱渲染绘图作品——进行徽标探索。因此这枚徽标既是一种身份，也是这件工具的一次演示。
+
+\section{这枚标记是如何做成的}
+
+\subsection{最初是一枚印章}
+故事始于 \textbf{2020} 年夏天的一份小礼物。Niki Stebbins 发来一幅画——一颗小小的紫色星星——Jeffrey 便把它以 \texttt{@niki} 的名义作为印章放进游戏里，并请她再多画些。此后两年，这份合作是一场松散、持续的\emph{绘画会话}：印章、一个绘画游戏、手绘乐谱涂鸦。到 \textbf{2022} 年它成了有偿的设计工作。这些都还不是徽标，但它们是徽标生长其中的土壤——两个人在工具内部一起画画的习惯。
+
+\subsection{重启设计（2023 年 6 月）}
+徽标本身始于一份不满。\textbf{2023 年 6 月}，Niki 写道她“对留给你的那个徽标并不 100\% 满意”，于是重新开启了它。她围绕颜色出声思考——“比如紫色或绿色……不要蓝色，蓝色的应用徽标太多了”——也思考形态：这枚标记该不该“像一个框、一个只是闭合的形状”，是一种你可以\emph{在其内部}进行创作的东西？她发来一页写生簿上的候选草稿，选出一个最爱——“我最喜欢圈起来的那个”——随即又担心它“和 are.na 的徽标挺像”，并继续往下画。她给自己的关键指示是一次比例上的校正：把它推到“看起来不那么像星星、更像人形”。其中一页习作得到了它自己的判词——“看着像海星哈哈”——为了改正它，她干脆离开了屏幕，跑去公园里打结并拍摄几段\textbf{绳子}，以理解两个相连的身体实际是如何垂落的。
+
+\subsection{构建两个人形（2023 年 7 月至 8 月）}
+整个夏天，这枚标记从一个人形收敛为\emph{两个}人形。Niki 专门买了一台二手 \textbf{Kodak EasyShare} 数码相机来拍摄徽标，把一个版本调到“VS Marketplace 徽标的精确尺寸”，并询问 Jeffrey 是否想要“更多 a.c 里的徽标画作，用于社交媒体头像和应用商店那件事”。代码仓库与这些消息相互印证：在 \commit{5bcefc5a9}{better defaults in \texttt{wgr} for niki's logo efforts} 里，绘图工具本身为她做了调优；到 \commit{a0009f5d0}{add new vscode extension logo from niki}，一件已交付的资产落地。8 月下旬她报告说“\textbf{两个徽标}的各种变体”已完成，并精确描述了那个姿态——“右边的人形在拉着左边的……左边人形的手臂更高”。这枚标记如今成了它至今仍是的样子：两个人，双臂高举，一个拉着另一个前行。\textbf{2023-08-31}，一张 Instagram 头像被选定。
+
+\subsection{冰淇淋，与正式上线（2023 年 9 月）}
+收尾是最离奇、也最精彩的部分。为了在真实世界里拍摄这枚标记，Niki 把它按原尺寸画在人行道上，并试图用冰淇淋来拍摄——但球场的冰淇淋是杯装的，于是她绕道去了一家 McDonald's 买了个甜筒，拍到了那张照片。\textbf{2023-09-09} 她“把这些徽标发到了 a.c 邮箱”，主题为 \emph{!c3 cr34m l0go\$}（正文：“ice cream logos 8)”）。同一周，这枚标记不再是一张图片，而成为基础设施：\commit{0aba1a378}{add dynamic logo generator} 落地，Jeffrey 回报了那句一行的结果——“\^{}\ 现在每次都会返回一个随机徽标。”这枚徽标是\emph{用}平台画的（在 \texttt{wgr} 手绘乐谱工具里），随后又\emph{由}平台服务。它从来不只是一张图片；它一向也是一个程序。
+
+\section{端点：\texttt{pals.aesthetic.computer}}
+
+这枚标记于 2023 年 9 月成为基础设施，其时 \ac{} 架起了一个专用的徽标服务，并给了它一个可记忆的落脚点。
+
+\begin{itemize}
+  \item \textbf{2023-09-05} --- \commit{0aba1a378}{add dynamic logo
+        generator}。后端模块 \repofile{system/backend/logo.mjs}
+        打上了 \texttt{23.09.05.22.31} 的时间戳。
+  \item \textbf{2023-09-12} --- \commit{f1a4f272c}{logo -> pals.aesthetic}
+        ——该路由被更名为 \pals{} 身份。
+  \item \textbf{2023-09-13} --- \commit{12e348035}{pals.aesthetic.computer
+        url fix} ——该端点上线，可在其自有子域名下被访问。
+\end{itemize}
+
+\noindent 因此 \href{https://pals.aesthetic.computer}{\texttt{pals.aesthetic.computer}}
+\textbf{于 2023-09-12 至 13 上线}，即在动态生成器落地三天之后。
+
+\subsection{它作为“徽标抓取器”如何运作}
+
+该端点是一个微小的轮播代理，而非一张固定的单图。每次请求返回一个不同的 \pals{} 姿态：
+
+\begin{enumerate}
+  \item \href{https://pals.aesthetic.computer}{\texttt{pals.aesthetic.computer}}
+        （经由 \repofile{system/netlify.toml}）重定向到
+        \href{https://aesthetic.computer/api/logo}{\texttt{aesthetic.computer/api/logo}}。
+  \item \repofile{system/backend/logo.mjs} 保存着一份位于
+        \texttt{pals-aesthetic-computer} CDN 存储桶上的 \pals{}
+        \emph{画作}清单，每次调用返回其中随机一张（避免紧接着重复）。
+  \item 该函数进行内容协商：浏览器得到一张铺满整屏、背景为随机紫色的
+        HTML 页面，轻点即可切换到下一个姿态（传入
+        \texttt{?previousLogo=}，从而永不重复）；而
+        \texttt{curl}／\texttt{<img>}／服务器请求则直接得到原始的
+        \texttt{.png}。因此同一个 URL 既是查看器，又是可热链接的资产。
+\end{enumerate}
+
+\subsection{\pals{} 的诸多姿态}
+
+抓取器的姿态集是一批出自 2023 年年中的 \texttt{wgr} 画作画廊
+（\texttt{painting-2023.7.29}--\texttt{2023.8.21} 系列）。由于这枚徽标是一个\emph{手绘姿态的集合}而非一个冻结的字形，这个品牌读起来是活的：每一次页面加载、头像刷新或图标抓取，都可能让这两个人形呈现出略有不同的站姿。十二个实时姿态的完整集合复现于附录~A。
+
+\section{在各处产品中的使用}
+
+由于任何产品都可以热链接
+\href{https://pals.aesthetic.computer}{\texttt{pals.aesthetic.computer}}
+（或嵌入静态的
+\repofile{system/public/purple-pals.svg}），单一一枚标记贯穿了整个生态，而每一处实例都是回到本项目的一个链接：
+
+\begin{itemize}
+  \item \textbf{社交头像与 Gravatar} ——这个轮播端点提供一张会悄悄变换
+        姿态的头像，因此同一身份跨各种服务出现，却始终指向 \ac{}。
+  \item \textbf{网络与营销} ——网站图标、文档页眉与嵌入的 \texttt{<img>}
+        标签拉取实时的 \pals{}；轻点便切换姿态，让徽标本身变成平台的
+        一个小型交互预告。
+  \item \textbf{论文} ——\pals{} 以半透明、随页面摆动的侧边印章形式
+        乘着每一份 \ac{} 工作稿的页边（见本页），并出现在印刷版的
+        版权说明中。
+  \item \textbf{原生操作系统与桌面} ——\pals{} 在 AC Native OS 中充当
+        开机品牌标识（Plymouth 启动画面），并在 AC Electron 与
+        MenuBand 中充当矢量托盘图标——可着色、可加徽记。
+  \item \textbf{印刷（待定）} ——2025 年 5 月 Jeffrey 联系 Casey
+        Rubber Stamps，欲刻制三种尺寸的实体 \pals{} 印章；该订单搁浅，
+        从未完成。
+\end{itemize}
+
+\section{为何叫“\pals{}”？Goodiepal 谱系}
+
+这个名字不是装饰；它是一项结构性主张，而其分量来自 \ac{} 之外。正如 \ac{} 论文
+\emph{Radical Computer Art: Goodiepalian Approaches in Aesthetic
+Computer}（\repofile{papers/arxiv-goodiepal/goodiepal.tex}）及它所引用的平台论文所论证的，“\pals{}”承袭自 \textbf{Goodiepal \&
+Pals}——围绕丹麦—法罗群岛音乐家、激进计算机音乐理论家 Goodiepal（Gaeoudji SYGNOK，生于 1974 年）的那个松散的亲缘群体。
+
+\pals{} 模式是一种组织的政治学：一个没有成员资格、没有机构支持、没有正式结构的群体，其凝聚靠的是共同的实践与相互的认可，而非隶属关系。Goodiepal 曾在丹麦皇家音乐学院教授电子音乐史与美学，2008 年在一场被描述为“交了错误类型的朋友”的冲突之后离开，此前他曾宣布“向现代计算机音乐与媒体艺术中的愚蠢发动智识战争”。2018 年 Jeffrey 随 Goodiepal \& Pals 巡演欧洲各地，为那些演出所打造的工具正是 \ac{} 架构的直系先祖。
+
+因此这枚徽标把那段媒体艺术的政治史带进了品牌之中。正如那篇 Goodiepal 论文所言，把徽标命名为“\pals{}”——并把乐谱命名为 \emph{Score for Aesthetic{\color{acpink}.}Computer \& Pals}——“不是品牌营销；它是一项结构性主张：平台属于它的实践者社区，而非它的开发者或它的投资人。”两个手拉手、\emph{在}工具内部做成的人形，正是这一论证被呈现为一枚标记：\ac{} 是\emph{为}任何到场者而在的——为 \pals{}。
+
+\section{著作权归属}
+
+Jeffrey 聘请 \textbf{Niki Stebbins}，在他的指导下设计 \ac{} 徽标。2022 至 2023 年间，她在平台自带的 \texttt{wgr} 绘图工具内部推进这枚标记，走过上文所记录的写生簿、绳子与冰淇淋探索，并交付了作为 \texttt{purple-pals.svg} 出品的两人形装置。轮播的 \texttt{pals.aesthetic.computer} 抓取器于 2023-09-12 至 13 上线；规范的静态矢量图首次出现于 2024-01-31（\commit{bf29eadf8}{host purple-pals graphic for docs}）；而自 2026-02 起，代码仓库与论文明确地把“\pals{}”置于平台身份的中心（\commit{48dd8923e}{rename score to ``Score for
+Aesthetic.Computer \& Pals''}）。这枚标记是一件受委托的作品：由 Niki 创作，由 Jeffrey 指导，归 \ac{} 所有。
+
+\vspace{0.6em}
+{\footnotesize\color{acgray}\noindent 来源：代码仓库提交历史；
+\repofile{system/backend/logo.mjs}；
+\repofile{system/netlify/functions/logo.js}；
+\repofile{system/netlify.toml}；
+\repofile{papers/arxiv-goodiepal/goodiepal.tex}；
+\repofile{system/public/purple-pals.svg}。\par}
+
+% ============================ APPENDICES ============================
+\onecolumn
+\appendix
+
+\noindent\emph{关于日期的说明。}下文每一件视觉资产都标注了它做成的日期：\texttt{wgr} 姿态标注为画作 slug 中编码的时间戳；单一代码仓库（monorepo）资产标注为其首次提交（git
+\texttt{--diff-filter=A}）的日期；实时截图标注为它从生产环境被拍摄的日期。
+
+\section*{Appendix A --- The many poses (live \texttt{pals.aesthetic.computer} set)}
+\addcontentsline{toc}{section}{Appendix A --- Poses}
+\noindent 徽标抓取器循环轮播的十二张 \texttt{wgr} 画作，实时拉取自 \texttt{pals-aesthetic-computer} CDN。同样的两人形母题，各有不同的站姿与配色处理。
+\vspace{1.2em}
+
+\input{appendix-a.tex}
+
+
+\newpage
+\section*{Appendix B --- The mark across the monorepo}
+\addcontentsline{toc}{section}{Appendix B --- Monorepo assets}
+\noindent 同一枚 \pals{} 画一次、却在各处重新换肤：规范矢量图及其在整个代码库中的后裔——编辑器扩展、原生操作系统启动画面、桌面托盘、pop 封面、发票印章，以及 keymaps 配色集。每一块图块都标注了它的首次提交日期。
+\vspace{1.2em}
+
+\input{appendix-c.tex}
+
+\newpage
+\section*{Appendix C --- Live placements (real UIs)}
+\addcontentsline{toc}{section}{Appendix C --- Live placements}
+\noindent \pals{} 被拍摄活在真实的生产界面之中，每一处都标注了它的来源 URL（链接为实时有效）：Visual Studio Marketplace 的上架页面（\pals{} 作为该扩展的产品图标）、GitHub 与规范的 Tangled 主机上的单一代码仓库 README，以及轮播的 \href{https://pals.aesthetic.computer}{\texttt{pals.aesthetic.computer}} 端点（同一 URL，每次刷新呈现不同姿态——外加交给 \texttt{<img>} 标签与头像使用的原始 \texttt{/api/logo.png}）。
+\vspace{1.0em}
+
+\input{appendix-d.tex}
+
+
+\end{document}

@@ -1,0 +1,42 @@
+# PUBLIC (committed/published): pals.tex + pals-da/es/zh/ja/ru.tex (all redacted),
+# their PDFs, appendix-a/c/d.tex, and figures/{poses,assets,live}.
+# Everything below is PRIVATE and must NOT be committed or published.
+
+# Full private editions (phone number, iMessages, personal photos, Goose section)
+pals-full.tex
+pals-da-full.tex
+pals-es-full.tex
+pals-zh-full.tex
+pals-ja-full.tex
+pals-ru-full.tex
+pals-full.pdf
+
+# Superseded drafts
+pals-history.tex
+pals-public.tex
+pals-history.pdf
+
+# Private figures — Niki's personal photos, iMessage sketches, Goose evidence
+figures/icecream/
+figures/imessage/
+figures/goose/
+figures/icecream-grid.png
+figures/poses-grid.png
+# compare/ holds the Goose comparison plate + build intermediates (private);
+# only the endpoint strip used by the public paper stays trackable.
+figures/compare/*
+!figures/compare/pals-live-strip.png
+
+# Private appendix fragments (ice-cream photos, sketchbook)
+appendix-b.tex
+appendix-f.tex
+
+# The IP-assignment contract (separate legal doc)
+niki-assignment.tex
+niki-assignment.pdf
+
+# LaTeX build artifacts
+*.aux
+*.log
+*.out
+*.toc

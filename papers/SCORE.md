@@ -6,6 +6,10 @@ The papermill exists to make the thinking inside Aesthetic Computer visible and 
 
 The mill is not an academic obligation. It is a publishing infrastructure — a way to keep the research platter honest by forcing ideas through the pressure of writing them down for someone else. If a thread can survive being written as a paper, it was real. If it can survive being compressed to a card, it was essential.
 
+## Attribution
+
+All AC papers are bylined **@jeffrey** — this is enforced in `cli.mjs` (`AUTHOR_NAME = "@jeffrey"`, `AUTHOR_URI = "https://prompt.ac/@jeffrey"`). The only place a full legal name appears is the CV title. Do **not** byline AC papers (or AC pop essays) as "Studio Zollo"; that studio name is for @jeffrey's separate personal-art / non-AC attributions only. AC papers + AC pop = @jeffrey / aesthetic.computer.
+
 ## What This Is
 
 Papers are one output of a research platter — a living collection of materials, references, experiments, and threads that accumulate over time. The platter is always growing. Papers are what gets carved off and shaped into a form that can travel: to a conference, to a reader, to a card.
@@ -179,6 +183,7 @@ Sorted by most recently edited/added.
 | School for Poetic Computation: A Dossier (Structure, History, Programs, People, Money, Footprint, 2013–2026) | arXiv (LaTeX, dossier) | `arxiv-sfpc/sfpc.pdf` | `arxiv-sfpc/sfpc.tex` |
 | Rhizome.org: A Dossier (Genealogy, History, Programs, People, Money, Footprint, 1996–2026) | arXiv (LaTeX, dossier) | `arxiv-rhizome/rhizome.pdf` | `arxiv-rhizome/rhizome.tex` |
 | Keymaps as Social Software: Versioned Virtual Objects via Social Contract | arXiv (LaTeX) | `arxiv-keymaps/keymaps.pdf` | `arxiv-keymaps/keymaps.tex` |
+| The Pals Mark: A History of the Aesthetic Computer Logo | arXiv (LaTeX) | `arxiv-pals/pals.pdf` | `arxiv-pals/pals.tex` |
 | Where the Microseconds Go (SIGGRAPH Asia 2026 Tech Papers port) | acmtog (LaTeX, scaffold) | (build pending) | `siggraph-asia-2026-tech/latency-source.tex` |
 | Diagrams from Data: A Penrose Pipeline for AC Illustrations | arXiv (LaTeX) | `arxiv-penrose/penrose.pdf` | `arxiv-penrose/penrose.tex` |
 | Where the Microseconds Go: Input and Audio Latency in AC Native OS | arXiv (LaTeX, 6pp) | `arxiv-latency/latency.pdf` | `arxiv-latency/latency.tex` |
