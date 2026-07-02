@@ -1,0 +1,11 @@
+#!/bin/sh
+# wizard-wizard/bin/wizardwizard — build (cached) + launch the wizard of wizards.
+#
+# A 🧙 menu bar item listing every wizard (clip/date/glyph/juke/shot/wave);
+# click one to summon it. Single-instance: relaunching replaces the old guy.
+set -e
+HERE="$(cd "$(dirname "$0")" && pwd)"
+WIZ="$HERE/.."
+swift build -c release --package-path "$WIZ" 2>&1 | grep -v '^$' | tail -2 || true
+pkill -f '\.build/release/WizardWizard' 2>/dev/null || true
+exec "$WIZ/.build/release/WizardWizard"
