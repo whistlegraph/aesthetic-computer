@@ -11,3 +11,8 @@ campaigns/*/story/*.mp3
 campaigns/*/story/*.alignment.json
 campaigns/*/story/*.hash
 kidlisp-reels/out/
+
+# podcast — keep the pipeline (bin/, SCORE.md), skip rendered audio + say cache.
+# jingles regenerate from jingle.mjs; episodes + say cache are large/regen-able.
+podcast/out/
+podcast/assets/
