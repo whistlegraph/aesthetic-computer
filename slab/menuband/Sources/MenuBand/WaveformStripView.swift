@@ -12,6 +12,30 @@ import AppKit
 final class WaveformStripView: NSView {
     weak var menuBand: MenuBandController?
 
+    /// Optional tint for the live scope. `nil` → the system accent (the
+    /// popover default); the full-screen overlay feeds the active voice's
+    /// family color so the scope matches its per-voice framing. Rewind still
+    /// flips to orange regardless of this.
+    var tintColor: NSColor? {
+        didSet { needsDisplay = true }
+    }
+
+    /// When false the strip stops capturing and clears to a flat baseline —
+    /// used while the host panel is hidden or MIDI mode owns the output.
+    var isLive: Bool = true {
+        didSet {
+            guard isLive != oldValue, window != nil else { return }
+            if isLive { start() } else { freezeToBaseline() }
+        }
+    }
+
+    /// Draw the recessed black plate + frame. The popover wants it (the strip
+    /// IS the visual there); the full-screen overlay turns it off so the scope
+    /// paints straight onto the bezel/glass it's already embedded in.
+    var drawsPlate: Bool = true {
+        didSet { needsDisplay = true }
+    }
+
     /// Fired when the strip is clicked. The popover wires this to open the
     /// full keymap view — same action as the "Keymap" button — so the live
     /// scope doubles as a keymap affordance.
@@ -54,7 +78,7 @@ final class WaveformStripView: NSView {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        if window != nil { start() } else { stop() }
+        if window != nil, isLive { start() } else { stop() }
     }
 
     private func start() {
@@ -71,6 +95,15 @@ final class WaveformStripView: NSView {
     private func stop() {
         timer?.invalidate(); timer = nil
         menuBand?.setWaveformCaptureEnabled(false)
+    }
+
+    /// Stop capturing and clear the buffer so the scope shows a clean flat
+    /// baseline (used when `isLive` is switched off).
+    private func freezeToBaseline() {
+        stop()
+        colMin.removeAll(); colMax.removeAll()
+        scrubPos = 0
+        needsDisplay = true
     }
 
     deinit { timer?.invalidate() }
@@ -187,14 +220,18 @@ final class WaveformStripView: NSView {
         let r = bounds
         guard r.width > 6, r.height > 6 else { return }
         let reversing = menuBand?.isRewinding ?? false
-        let accent = NSColor.controlAccentColor
-        let color = reversing ? NSColor.systemOrange : accent
+        let base = tintColor ?? NSColor.controlAccentColor
+        let color = reversing ? NSColor.systemOrange : base
 
-        // Recessed screen.
-        let plate = NSBezierPath(roundedRect: r.insetBy(dx: 0.5, dy: 0.5),
-                                 xRadius: 4, yRadius: 4)
-        NSColor.black.withAlphaComponent(0.55).setFill(); plate.fill()
-        color.withAlphaComponent(0.55).setStroke(); plate.lineWidth = 1.0; plate.stroke()
+        // Recessed screen. Skipped when embedded in a host bezel that already
+        // supplies the framing (the full-screen overlay) so the scope paints
+        // straight onto that glass instead of stacking a second plate.
+        if drawsPlate {
+            let plate = NSBezierPath(roundedRect: r.insetBy(dx: 0.5, dy: 0.5),
+                                     xRadius: 4, yRadius: 4)
+            NSColor.black.withAlphaComponent(0.55).setFill(); plate.fill()
+            color.withAlphaComponent(0.55).setStroke(); plate.lineWidth = 1.0; plate.stroke()
+        }
 
         let mid = r.midY
         let cx = r.midX

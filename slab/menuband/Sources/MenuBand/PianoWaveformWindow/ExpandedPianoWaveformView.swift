@@ -22,7 +22,10 @@ final class ExpandedPianoWaveformView: NSView {
     private let modeStack = NSStackView()
     private var modeButtons: [NSButton] = []
     private let waveformSection = NSView()
-    private let waveformView = WaveformView()
+    /// Needle + rolling-buffer scope — the same live "playhead with chunky
+    /// min/max columns" the popover shows (`WaveformStripView`), swapped in for
+    /// the old Metal VU bars so the full-screen overlay reads like the popover.
+    private let waveformView = WaveformStripView()
     private let waveformBezel = NSView()
     private let waveformClipView = NSView()
     private let heldNotesStack = NSStackView()
@@ -59,13 +62,17 @@ final class ExpandedPianoWaveformView: NSView {
     /// see at a glance which physical keys play which notes. Driven
     /// at 2× scale so it's legible at the floating palette's size.
     private let qwertyView = QwertyLayoutView()
-    /// Gamepad config — pinned bottom-right of this full-screen keymap overlay
-    /// (moved here from the popover). Scheme picker + connected-controller name.
+    /// Gamepad config — presented in a small popover anchored to the "Gamepad"
+    /// button (rather than an inline corner cluster). Scheme picker + connected-
+    /// controller name.
     private let gamepadSchemePopUp = NSPopUpButton(frame: .zero, pullsDown: false)
     private let gamepadStatusLabel = NSTextField(labelWithString: "No controller connected")
-    /// The bottom-right gamepad config cluster — hidden until the "Gamepad"
-    /// toggle (next to Conventional) is switched on.
-    private var gamepadCluster: NSView?
+    /// The popover that hosts the gamepad config, shown from the Gamepad
+    /// toggle. Built lazily on first open.
+    private var gamepadPopover: NSPopover?
+    /// The Gamepad toggle button — held so the popover's delegate can reset its
+    /// pushOnPushOff state when the popover is dismissed by clicking away.
+    private weak var gamepadToggle: NSButton?
 
     private var outlineBorderColor: NSColor = .separatorColor.withAlphaComponent(0.55)
 
@@ -105,7 +112,13 @@ final class ExpandedPianoWaveformView: NSView {
 
         waveformView.menuBand = menuBand
         waveformView.translatesAutoresizingMaskIntoConstraints = false
-        waveformView.setSurfaceStyle(.glassEmbedded)
+        // Embedded in the bezel/glass below — the strip draws its scope
+        // straight onto that framing instead of stacking its own dark plate.
+        waveformView.drawsPlate = false
+        // Gate capture on presentation (matches the old VU bars) so the strip
+        // doesn't enable the audio tap while the panel exists but isn't shown;
+        // updateWaveformLiveState flips this true once the overlay is presented.
+        waveformView.isLive = false
         contentStack.orientation = .vertical
         contentStack.alignment = .centerX
         contentStack.distribution = .fill
@@ -321,6 +334,7 @@ final class ExpandedPianoWaveformView: NSView {
                                       accessibilityDescription: "Gamepad")?
             .withSymbolConfiguration(modeSymbol)
         gamepadToggle.translatesAutoresizingMaskIntoConstraints = false
+        self.gamepadToggle = gamepadToggle
         modeStack.addArrangedSubview(gamepadToggle)
         contentStack.addArrangedSubview(modeStack)
         for label in [focusHintLabel, octaveHintLabel, layoutHintLabel] {
@@ -441,7 +455,7 @@ final class ExpandedPianoWaveformView: NSView {
                 equalToConstant: QwertyLayoutView.intrinsicSize.height * 1.4
             ),
         ])
-        installGamepadCluster()
+        installGamepadConfig()
     }
 
     @available(*, unavailable)
@@ -449,14 +463,15 @@ final class ExpandedPianoWaveformView: NSView {
         nil
     }
 
-    // MARK: - Gamepad config (bottom-right corner)
+    // MARK: - Gamepad config (popover)
 
-    /// Build the gamepad scheme picker + controller-status cluster and pin it
-    /// to the overlay's bottom-right corner. Self-contained: it drives the live
-    /// mapping through the global `GamepadDefaults` + `.menuBandGamepadConfigChanged`
-    /// (the same contract the popover used), and keeps its status fresh off the
+    /// Build the gamepad scheme picker + controller-status cluster and stage it
+    /// inside a popover shown from the "Gamepad" button (rather than an inline
+    /// corner cluster). Self-contained: it drives the live mapping through the
+    /// global `GamepadDefaults` + `.menuBandGamepadConfigChanged` (the same
+    /// contract the popover used), and keeps its status fresh off the
     /// GameController connect/disconnect notifications.
-    private func installGamepadCluster() {
+    private func installGamepadConfig() {
         let title = NSTextField(labelWithString: "Gamepad")
         title.font = .systemFont(ofSize: 12, weight: .semibold)
         title.textColor = .labelColor
@@ -483,13 +498,28 @@ final class ExpandedPianoWaveformView: NSView {
         cluster.alignment = .centerY
         cluster.spacing = 10
         cluster.translatesAutoresizingMaskIntoConstraints = false
-        cluster.isHidden = true            // shown only when the Gamepad button is on
-        gamepadCluster = cluster
-        addSubview(cluster)
+
+        // Pad the cluster inside a content view that sizes the popover.
+        let content = NSView()
+        content.addSubview(cluster)
+        let pad: CGFloat = 14
         NSLayoutConstraint.activate([
-            cluster.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -(inset + 8)),
-            cluster.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -(inset + 8)),
+            cluster.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: pad),
+            cluster.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -pad),
+            cluster.topAnchor.constraint(equalTo: content.topAnchor, constant: pad),
+            cluster.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -pad),
         ])
+        content.layoutSubtreeIfNeeded()
+
+        let vc = NSViewController()
+        vc.view = content
+        vc.preferredContentSize = content.fittingSize
+
+        let popover = NSPopover()
+        popover.contentViewController = vc
+        popover.behavior = .transient      // dismiss on click-away
+        popover.delegate = self
+        gamepadPopover = popover
 
         let nc = NotificationCenter.default
         for name in [Notification.Name.GCControllerDidConnect,
@@ -500,8 +530,14 @@ final class ExpandedPianoWaveformView: NSView {
     }
 
     @objc private func toggleGamepadCluster(_ sender: NSButton) {
-        // Button is pushOnPushOff; mirror its state onto the cluster.
-        gamepadCluster?.isHidden = (sender.state != .on)
+        guard let popover = gamepadPopover else { return }
+        if popover.isShown {
+            popover.performClose(sender)   // popoverDidClose resets the toggle
+        } else {
+            refreshGamepadStatus()
+            popover.show(relativeTo: sender.bounds, of: sender, preferredEdge: .maxY)
+            sender.state = .on
+        }
     }
 
     @objc private func openLLMGuide(_ sender: NSButton) {
@@ -681,6 +717,14 @@ final class ExpandedPianoWaveformView: NSView {
         updateWaveformLiveState(isPresented: isPresented)
     }
 
+    /// Seed the scope with a synthetic note for headless captures
+    /// (`--render-keymap`), where no audio engine feeds the live strip.
+    /// Mirrors `PopoverCapture`'s seeding of the popover strip.
+    func seedWaveformForCapture() {
+        waveformView.isLive = false
+        waveformView.seedSyntheticWaveform()
+    }
+
     private func updateWaveformLiveState(isPresented: Bool) {
         let recording = menuBand?.sampleRecordingActive ?? false
         let midiMode = menuBand?.midiMode ?? false
@@ -700,7 +744,6 @@ final class ExpandedPianoWaveformView: NSView {
 
     private func applyAppearanceToVisualizer() {
         let isDark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-        waveformView.setLightMode(!isDark)
         if isDark {
             waveformSection.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.06).cgColor
             waveformBezel.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.04).cgColor
@@ -713,22 +756,19 @@ final class ExpandedPianoWaveformView: NSView {
     private func applyWaveformTint() {
         guard let menuBand else { return }
         if menuBand.sampleRecordingActive {
-            waveformView.setDotMatrix(nil)
-            waveformView.setBaseColor(.systemRed)
+            waveformView.tintColor = .systemRed
             waveformSection.layer?.borderColor = NSColor.systemRed
                 .withAlphaComponent(0.55).cgColor
             outlineBorderColor = NSColor.systemRed.withAlphaComponent(0.70)
         } else if menuBand.midiMode {
-            waveformView.setDotMatrix(MenuBandPopoverViewController.midiDotPattern)
-            waveformView.setBaseColor(.controlAccentColor)
+            waveformView.tintColor = .controlAccentColor
             waveformSection.layer?.borderColor = NSColor.controlAccentColor
                 .withAlphaComponent(0.24).cgColor
             outlineBorderColor = NSColor.controlAccentColor.withAlphaComponent(0.45)
         } else {
-            waveformView.setDotMatrix(nil)
             let safe = max(0, min(127, Int(menuBand.effectiveMelodicProgram)))
             let familyColor = InstrumentListView.colorForProgram(safe)
-            waveformView.setBaseColor(familyColor)
+            waveformView.tintColor = familyColor
             waveformSection.layer?.borderColor = familyColor
                 .withAlphaComponent(0.22).cgColor
             outlineBorderColor = familyColor.withAlphaComponent(0.45)
@@ -965,6 +1005,14 @@ final class ExpandedPianoWaveformView: NSView {
         alert.beginSheetModal(for: window)
     }
 
+}
+
+extension ExpandedPianoWaveformView: NSPopoverDelegate {
+    /// Reset the pushOnPushOff Gamepad toggle when the popover is dismissed
+    /// (including click-away), so the button reflects the popover's real state.
+    func popoverDidClose(_ notification: Notification) {
+        gamepadToggle?.state = .off
+    }
 }
 
 @available(macOS 26.0, *)

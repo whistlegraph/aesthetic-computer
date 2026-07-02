@@ -33,6 +33,9 @@ enum KeymapCLI {
         if size.width < 100 || size.height < 100 { size = NSSize(width: 560, height: 420) }
         view.frame = NSRect(origin: .zero, size: size)
         view.layoutSubtreeIfNeeded()
+        // No audio engine runs headless, so paint a believable synthetic note
+        // into the needle+buffer scope (same trick PopoverCapture uses).
+        view.seedWaveformForCapture()
         view.displayIfNeeded()
 
         let bounds = view.bounds
