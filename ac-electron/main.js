@@ -317,8 +317,15 @@ let trayIconState = 'normal'; // 'normal', 'update', 'blink'
 let originalTrayIcon = null;
 let updateTrayIcon = null;
 let trayRenderer = null; // animatable, live-editable pals+badge tray renderer
+let keepsCount = null;   // live KidLisp keeps count (tray superscript + menu)
 const UPDATE_CHECK_INTERVAL = 60 * 60 * 1000; // Check every hour
 const SILO_RELEASE_URL = 'https://silo.aesthetic.computer/desktop/latest';
+
+// KidLisp keeps count — surfaced as a top-right superscript on the pals tray
+// icon (Menuband instrument-number style). The active contract is resolved
+// from keeps-config (Mongo-backed), then counted via TzKT.
+const KEEPS_CONFIG_URL = 'https://aesthetic.computer/api/keeps-config?network=mainnet';
+const KEEPS_COUNT_INTERVAL = 10 * 60 * 1000; // refresh every 10 minutes
 
 try {
   autoUpdater = require('electron-updater').autoUpdater;
@@ -462,6 +469,56 @@ function isNewerVersion(latest, current) {
   return false;
 }
 
+// Minimal JSON GET over Electron's net stack (respects system proxy/DNS).
+function fetchJson(url, { timeoutMs = 8000 } = {}) {
+  return new Promise((resolve, reject) => {
+    const request = net.request(url);
+    request.setHeader('User-Agent', 'Aesthetic-Computer-Electron');
+    let body = '';
+    const timer = setTimeout(() => { try { request.abort(); } catch (_) {} reject(new Error('timeout')); }, timeoutMs);
+    request.on('response', (response) => {
+      response.on('data', (chunk) => { body += chunk.toString(); });
+      response.on('end', () => {
+        clearTimeout(timer);
+        try { resolve(JSON.parse(body)); } catch (e) { reject(e); }
+      });
+    });
+    request.on('error', (err) => { clearTimeout(timer); reject(err); });
+    request.end();
+  });
+}
+
+// Resolve the active keeps contract, count its tokens on TzKT, and push the
+// number onto the tray icon as a top-right superscript. Best-effort: any
+// failure just leaves the previous count (or none) in place.
+async function updateKeepsCount() {
+  if (!trayRenderer) return;
+  try {
+    const cfg = await fetchJson(KEEPS_CONFIG_URL);
+    const contract = cfg && cfg.contractAddress;
+    if (!contract) return;
+    const network = (cfg.network || 'mainnet').toLowerCase();
+    const apiBase = network === 'mainnet' ? 'https://api.tzkt.io' : `https://api.${network}.tzkt.io`;
+    const count = await fetchJson(`${apiBase}/v1/tokens/count?contract=${encodeURIComponent(contract)}`);
+    const n = Number(count);
+    if (!Number.isFinite(n)) return;
+    console.log('[keeps] kept count:', n, '(', contract, ')');
+    trayRenderer.setState({ count: n });
+    if (n !== keepsCount) {         // refresh the context-menu label on change
+      keepsCount = n;
+      try { rebuildTrayMenu(); } catch (_) {}
+    }
+  } catch (e) {
+    console.warn('[keeps] count update failed:', e.message);
+  }
+}
+
+// Start polling the keeps count (initial fetch shortly after boot, then hourly-ish).
+function startKeepsCountPolling() {
+  setTimeout(updateKeepsCount, 12000);
+  setInterval(updateKeepsCount, KEEPS_COUNT_INTERVAL);
+}
+
 // Start blinking tray icon
 function startTrayBlink() {
   if (trayBlinkInterval || !tray) return;
@@ -504,7 +561,10 @@ function stopTrayBlink() {
     trayBlinkInterval = null;
   }
   if (tray && originalTrayIcon) {
-    tray.setImage(originalTrayIcon);
+    // Prefer the live renderer's composited icon (pals + keeps count) over
+    // the plain fallback, so the superscript survives an update-blink cycle.
+    if (trayRenderer) trayRenderer.refresh();
+    else tray.setImage(originalTrayIcon);
     updateTrayTitle();
   }
 }
@@ -1282,7 +1342,11 @@ async function createSystemTray() {
             if (fresh && !fresh.isEmpty()) {
               originalTrayIcon = fresh;
               updateTrayIcon = createUpdateIcon(fresh);
-              if (tray && trayIconState === 'normal') tray.setImage(fresh);
+              // The live renderer owns the visible icon (pals + count
+              // superscript) and re-tints itself on accent change; only set
+              // the plain icon directly when no renderer is active, so the
+              // keeps count isn't momentarily wiped.
+              if (tray && trayIconState === 'normal' && !trayRenderer) tray.setImage(fresh);
             }
           })
           .catch(() => {});
@@ -1357,6 +1421,16 @@ function rebuildTrayMenu() {
   menuItems.push({ label: 'dannom — dansk', click: () => navigateToPiece('dannom') });
   menuItems.push({ label: 'rusnom — русский', click: () => navigateToPiece('rusnom') });
   menuItems.push({ label: 'notenom — music', click: () => navigateToPiece('notenom') });
+
+  menuItems.push({ type: 'separator' });
+
+  // 🔮 KidLisp Keeps — live kept count (matches the tray superscript) plus a
+  // link out to kidlisp.com. Count comes from the same poller that feeds the
+  // tray icon; shows a neutral label until the first fetch lands.
+  menuItems.push({
+    label: keepsCount != null ? `🔮 ${keepsCount} keeps kept` : '🔮 KidLisp Keeps',
+    click: () => shell.openExternal('https://kidlisp.com'),
+  });
 
   menuItems.push({ type: 'separator' });
 
@@ -3138,7 +3212,10 @@ app.whenReady().then(async () => {
   
   // Start GitHub update checks (works in dev and production)
   startSiloUpdateChecks();
-  
+
+  // Start polling the KidLisp keeps count for the tray superscript.
+  startKeepsCountPolling();
+
   // Check for updates on startup (production builds only)
   if (autoUpdater && !startInDevMode && app.isPackaged) {
     setTimeout(() => {

@@ -60,6 +60,18 @@ const DEFAULTS = {
   effect: 'blink',    // 'none' | 'pulse' | 'blink'(binary on/off)
   periodMs: 1500,     // full animation cycle (ms) — blink = on for half
   fps: 8,             // animation tick rate
+
+  // ── Top-right superscript count (independent of the centered badge). ──
+  // Rides the top-right corner of the logo like the Menuband instrument
+  // number: bare glyph (no pill), monospaced-digit heavy at 7pt, tight kern.
+  // Used to surface the live KidLisp keeps count. Shown whenever `count`
+  // is a non-empty value and `showCount` is not false.
+  showCount: true,    // master toggle for the superscript
+  count: null,        // the number/text to ride top-right (null → hidden)
+  countColor: 'label',// glyph color (system label adapts light/dark)
+  countPt: 7,         // point size — matches Menuband's instrument number
+  countYOffset: 0,    // nudge the superscript down (px @1x) from the top edge
+  countHalo: false,   // draw a faint contrast halo for legibility over the art
 };
 
 class TrayRenderer {
@@ -129,6 +141,33 @@ class TrayRenderer {
     return sharp(Buffer.from(svg)).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   }
 
+  // Rasterize the top-right superscript count to a tight raw RGBA buffer.
+  // Mirrors Menuband's instrument-number style (KeyboardIconRenderer.swift):
+  // monospaced digits, heavy weight, 7pt, −0.4 kern, no background. Optional
+  // faint halo (paint-order stroke) keeps digits legible over the line-art.
+  async renderCount(text, fg, ptAt1x, scale, halo) {
+    if (!sharp || text == null || text === '') return null;
+    fg = resolveColor(fg);
+    const px = Math.max(1, Math.round(ptAt1x * scale));
+    const charW = px * 0.62;                        // monospace advance
+    const kern = (-0.4 * scale).toFixed(2);         // tighten like Menuband
+    const padX = Math.max(1, Math.round(px * 0.18));
+    const padY = Math.max(1, Math.round(px * 0.14));
+    const tw = Math.max(1, Math.round(charW * String(text).length));
+    const W = tw + padX * 2, H = px + padY * 2;
+    const baseY = Math.round(padY + px * 0.82);     // text baseline
+    const haloAttrs = halo
+      ? `paint-order="stroke" stroke="${resolveColor('accent-text')}" ` +
+        `stroke-width="${Math.max(1, Math.round(px * 0.16))}" stroke-opacity="0.6" stroke-linejoin="round" `
+      : ``;
+    const svg =
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">` +
+      `<text x="${W - padX}" y="${baseY}" text-anchor="end" ` +
+      `font-family="SFMono-Regular,Menlo,monospace" font-size="${px}" font-weight="800" ` +
+      `letter-spacing="${kern}" ${haloAttrs}fill="${fg}">${text}</text></svg>`;
+    return sharp(Buffer.from(svg)).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  }
+
   // ── PURE render: current state + phase -> nativeImage (multi-scale). ──
   async render() {
     if (!(await this.buildMaster())) return null;   // rebuilds if logo color changed
@@ -186,6 +225,23 @@ class TrayRenderer {
               for (let x = 0; x < bw; x++) {
                 const j = (y * bw + x) * 4, a = d[j + 3];
                 if (a > 0) put(bx + x, by + y, d[j + 2], d[j + 1], d[j], a);
+              }
+          }
+        }
+
+        // Top-right superscript count (keeps kept). Rides the corner at full
+        // opacity — independent of the centered badge and its blink effect.
+        if (s.showCount !== false && s.count != null && s.count !== '') {
+          const cnt = await this.renderCount(String(s.count), s.countColor, s.countPt, scale, s.countHalo);
+          if (cnt) {
+            const cw = cnt.info.width, ch = cnt.info.height;
+            const cx = W - cw;                                  // right edge = logo right edge
+            const cy = Math.max(0, Math.round((s.countYOffset || 0) * scale)); // top-anchored (superscript)
+            const cd = cnt.data;
+            for (let y = 0; y < ch; y++)
+              for (let x = 0; x < cw; x++) {
+                const j = (y * cw + x) * 4, a = cd[j + 3];
+                if (a > 0) put(cx + x, cy + y, cd[j + 2], cd[j + 1], cd[j], a);
               }
           }
         }
