@@ -1,173 +1,96 @@
-# 🔮 Tezos Wallet Rolodex
+# 🔮 Tezos Wallet & Contract Rolodex
 
 > Aesthetic Computer wallet credentials & contract registry.
-> **Last updated**: December 26, 2025
+> **Last updated**: July 1, 2026
+>
+> **Source of truth:** `tezos/contracts.json` (schema-validated). This README is the
+> human-readable view — when the two disagree, `contracts.json` wins. Secret keys live in
+> the vault (`aesthetic-computer-vault/wallets/wallets.json.gpg`), never in this repo.
 
 ---
 
 ## 📇 Wallet Directory
 
-| Wallet | Address | Domain | Role | Network |
-|--------|---------|--------|------|---------|
-| **aesthetic** | `tz1gkf8EexComFBJvjtT1zdsisdah791KwBE` | aesthetic.tez | Personal identity, **Ghostnet contract admin** | Mainnet + Ghostnet |
-| **kidlisp** | `tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC` | keeps.tez | Production NFT minting, **Mainnet contract admin** | Mainnet |
-| **staging** | `tz1dfoQDuxjwSgxdqJnisyKUxDHweade4Gzt` | — | Mainnet testing | Mainnet |
+| Wallet | Address | Domain(s) | Role |
+|--------|---------|-----------|------|
+| **aesthetic** | `tz1gkf8EexComFBJvjtT1zdsisdah791KwBE` | aesthetic.tez, jas.tez | Primary identity + **keeps sales receiver** |
+| **kidlisp** | `tz1fEjGQrEE2LXNKqcpTYAJV16pbbFpLeNyd` | keeps.tez, kidlisp.tez | **Production minter** (calls `keep()` on mainnet) |
+| **keeps (admin/treasury)** | `tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC` | — | Contract **admin** + **treasury** (royalty + `withdraw_fees` receiver) |
+| **staging** | `tz1dfoQDuxjwSgxdqJnisyKUxDHweade4Gzt` | — | Mainnet staging / migration housekeeping |
+
+> ⚠️ The minter wallet (`tz1fEjGQ…`) needs XTZ to mint. Keep it funded before any mint run.
 
 ---
 
-## 📜 Deployed Contracts
+## 📜 Active Contracts
 
-### Ghostnet (Testnet)
+### Mainnet (Production) — **v11**
 
-| Contract | Address | Admin | Status |
-|----------|---------|-------|--------|
-| **Keeps FA2 v2** | `KT1NeytR5BHDfGBjG9ZuLkPd7nmufmH1icVc` | `aesthetic` | ✅ Active (empty - all tokens burned) |
+| Field | Value |
+|-------|-------|
+| **Keeps FA2 v11** | `KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB` |
+| Source | `keeps_fa2_v11.py` |
+| Deployed | 2026-03-09 by `tz1Lc2Dz…` |
+| Keep fee | 2.5 XTZ |
+| Royalties | 9% artist (900 bps) + 1% platform (100 bps) |
+| Treasury | `tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC` |
+| Status | ✅ **Active** |
 
-- Explorer: https://ghostnet.tzkt.io/KT1NeytR5BHDfGBjG9ZuLkPd7nmufmH1icVc
-- Objkt: https://ghostnet.objkt.com/collection/KT1NeytR5BHDfGBjG9ZuLkPd7nmufmH1icVc
-- Next Token ID: 9
-- Keep Fee: 0 XTZ (free)
+- Explorer: https://tzkt.io/KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB
+- Objkt: https://objkt.com/collection/KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB
+- Launched 2026-03-09; ongoing activity logged in `tezos/KEEPS-MARKET-TIMELINE.md`.
 
-### Mainnet (Production)
+### Ghostnet (Testnet) — **v3**
 
-| Contract | Address | Admin | Status |
-|----------|---------|-------|--------|
-| **Keeps FA2 v2** | `KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM` | `kidlisp` | ✅ Active |
+| Field | Value |
+|-------|-------|
+| **Keeps FA2 v3** | `KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K` |
+| Status | 🧪 Testing (user-callable `keep()` entrypoint) |
 
-- Explorer: https://tzkt.io/KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM
-- Objkt: https://objkt.com/collection/KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM
+- Explorer: https://ghostnet.tzkt.io/KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K
 
----
+### Deprecated
 
-## 👛 Wallet Details
-
-### 1. aesthetic (Personal / Admin)
-
-```
-Address:  tz1gkf8EexComFBJvjtT1zdsisdah791KwBE
-Domain:   aesthetic.tez
-Keys in:  kidlisp/.env (AESTHETIC_ADDRESS, AESTHETIC_KEY)
-```
-
-**Roles:**
-- ✅ Ghostnet Keeps contract administrator
-- ✅ Can mint, burn, lock, redact tokens (Ghostnet)
-- ✅ Can set fees and withdraw (Ghostnet)
-- 🔜 Personal NFT collection holder (Mainnet)
-
-**CLI Usage:**
-```bash
-node keeps.mjs status --wallet=aesthetic
-node keeps.mjs mint $piece --wallet=aesthetic
-```
-
----
-
-### 2. kidlisp (Production)
-
-```
-Address:  tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC
-Domain:   keeps.tez
-Keys in:  kidlisp/.env (KIDLISP_ADDRESS, KIDLISP_KEY)
-```
-
-**Roles:**
-- ✅ Mainnet Keeps contract administrator
-- ✅ Production NFT minting service
-- Default wallet for `keeps.mjs` commands
-
-**CLI Usage:**
-```bash
-node keeps.mjs status              # Uses kidlisp by default
-node keeps.mjs mint $piece
-```
-
----
-
-### 3. staging (Testing)
-
-```
-Address:  tz1dfoQDuxjwSgxdqJnisyKUxDHweade4Gzt
-Domain:   —
-Keys in:  staging/.env (STAGING_ADDRESS, STAGING_KEY)
-```
-
-**Roles:**
-- 🧪 Mainnet contract testing before production
-- 💸 Throwaway wallet (don't hold significant funds)
-
-**CLI Usage:**
-```bash
-node keeps.mjs deploy mainnet --wallet=staging
-```
-
----
-
-## 📁 File Structure
-
-```
-tezos/
-├── README.md                    # This rolodex
-├── aesthetic/
-│   └── .env                     # Legacy (keys now in kidlisp/.env)
-├── kidlisp/
-│   └── .env                     # Main credentials file
-│       ├── KIDLISP_ADDRESS      # Production wallet
-│       ├── KIDLISP_KEY          # Production secret key
-│       ├── AESTHETIC_ADDRESS    # Admin wallet  
-│       ├── AESTHETIC_KEY        # Admin secret key
-│       └── ...                  # RPC endpoints, etc.
-└── staging/
-    └── .env                     # Staging wallet credentials
-        ├── STAGING_ADDRESS
-        └── STAGING_KEY
-```
-
----
-
-## 🚀 Deployment Roadmap
-
-```
-[✅] 1. Ghostnet Development
-     └── Contract: KT1NeytR5BHDfGBjG9ZuLkPd7nmufmH1icVc
-     └── Admin: aesthetic wallet
-     └── Status: Active, tested, all test tokens burned
-
-[✅] 2. Mainnet Production
-     └── Contract: KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM
-     └── Admin: kidlisp wallet (keeps.tez)
-     └── Status: Active
-```
+| Network | Version | Address | Notes |
+|---------|---------|---------|-------|
+| Mainnet | v6 | `KT1J15kADMuRWh9kJZzosBeRBYPjYr7RvhoN` | First mainnet deploy (1 mint); superseded by v11 |
+| Mainnet | v4 (staging) | `KT1ER1GyoeRNhkv6E57yKbBbEKi5ynKbaH3W` | Deprecated staging origination |
+| Mainnet | v2 | `KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM` | Early admin-only-mint contract; wrong first-minter attribution |
+| Ghostnet | v1 | `KT1Ah5m2kzU3GfN42hh57mVJ63kNi95XKBdM` | Metadata encoding issues |
+| Ghostnet | v2 | `KT1KRQAkCrgbYPAxzxaFbGm1FaUJdqBACxu9` | 189 test tokens; admin-only mint |
 
 ---
 
 ## 🔧 Quick Commands
 
 ```bash
-# Check all wallet balances
-curl -s "https://api.tzkt.io/v1/accounts/tz1gkf8EexComFBJvjtT1zdsisdah791KwBE/balance"    # aesthetic
-curl -s "https://api.tzkt.io/v1/accounts/tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC/balance"    # kidlisp  
-curl -s "https://api.tzkt.io/v1/accounts/tz1TtAufdTNEP8uqAwswAmZHAZp38QEo8hFo/balance"    # staging
+# Active contract (from the registry)
+jq -r '.activeContracts.mainnet.keeps' tezos/contracts.json   # -> KT1Q1irs...YwBB
 
-# Ghostnet balances
-curl -s "https://api.ghostnet.tzkt.io/v1/accounts/tz1gkf8EexComFBJvjtT1zdsisdah791KwBE/balance"
-curl -s "https://api.ghostnet.tzkt.io/v1/accounts/tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC/balance"
+# Wallet balances (mutez → divide by 1e6)
+curl -s "https://api.tzkt.io/v1/accounts/tz1gkf8EexComFBJvjtT1zdsisdah791KwBE/balance"  # aesthetic
+curl -s "https://api.tzkt.io/v1/accounts/tz1fEjGQrEE2LXNKqcpTYAJV16pbbFpLeNyd/balance"  # kidlisp minter
+curl -s "https://api.tzkt.io/v1/accounts/tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC/balance"  # admin/treasury
 
-# keeps.mjs commands
-cd /workspaces/aesthetic-computer/tezos
-node keeps.mjs status --wallet=aesthetic    # Ghostnet contract status
-node keeps.mjs balance --wallet=aesthetic   # Wallet balance
-node keeps.mjs fee                          # Current keep fee
+# Contract fees waiting to withdraw
+curl -s "https://api.tzkt.io/v1/contracts/KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB" | jq '.balance/1e6'
+
+# keeps.mjs
+node tezos/keeps.mjs status                 # contract status
+node tezos/keeps.mjs balance --wallet=kidlisp
+node tezos/keeps.mjs fee
 ```
+
+For a full live market snapshot (floor, volume, owners, sales, mints today), see the
+**Keeps Market Stats** flow in the repo root `SCORE.md`.
 
 ---
 
 ## 🔐 Security Notes
 
-- ⚠️ This is a **PRIVATE** repository — never commit to public repos
-- 🔑 Different wallets for different purposes (separation of concerns)
-- 💾 Keys stored in `.env` files, loaded by `keeps.mjs` via `loadCredentials()`
-- 🛡️ `aesthetic` wallet is admin — protect this key carefully
+- 🔑 Secret keys live only in `aesthetic-computer-vault/wallets/wallets.json.gpg` — never commit keys.
+- 🛡️ `keeps` (`tz1Lc2Dz…`) is the contract admin — protect this key carefully.
+- 🧱 Separation of concerns: minter mints, treasury holds fees/royalties, aesthetic receives sales.
 
 ---
 
@@ -177,7 +100,6 @@ node keeps.mjs fee                          # Current keep fee
 |----------|-----|
 | TzKT Explorer | https://tzkt.io |
 | Ghostnet Explorer | https://ghostnet.tzkt.io |
-| Tezos Domains | https://tezos.domains |
-| Ghostnet Faucet | https://faucet.ghostnet.teztnets.com |
-| Objkt (Ghostnet) | https://ghostnet.objkt.com |
 | Objkt (Mainnet) | https://objkt.com |
+| Tezos Domains | https://tezos.domains |
+| Keeps shop | https://buy.kidlisp.com |
