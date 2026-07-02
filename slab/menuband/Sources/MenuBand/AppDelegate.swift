@@ -30,11 +30,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Unix seconds for every onset. Compared across machines (join on
     /// `intended`) it proves how tightly the fleet lands together.
     private var fleetHits: [(intended: Double, actual: Double)] = []
-    /// High-priority sequencer queue that wakes on mach-time deadlines to fire
-    /// onsets, so audio timing is NOT stuck behind the main thread's UI
-    /// redraws. Percussion sounds directly here; only the lighting hops to main.
-    private let sequencerQueue = DispatchQueue(
-        label: "computer.aestheticcomputer.menuband.sequencer", qos: .userInteractive)
+    /// Bumped by a stop to cancel every still-pending onset: each scheduled
+    /// closure captures the generation and no-ops if it no longer matches.
+    private var playGeneration = 0
+    /// Current score for the popover transport (title + window), if any.
+    private var currentScoreTitle: String?
+    private var currentScoreStart = 0.0
+    private var currentScoreEnd = 0.0
 
     private let hoverResponder = HoverResponder()
     /// Bridges typing in the macOS Stickies app to Menu Band note
@@ -852,6 +854,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil
         )
 
+        // Stop: cease the current score everywhere. Posting this (Stop button,
+        // hotkey, or `conduct.mjs stop`) cancels pending onsets + silences, and
+        // relays over the fleet so any machine can halt the whole performance.
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(handleStopNotification(_:)),
+            name: NSNotification.Name("computer.aestheticcomputer.menuband.stop"),
+            object: nil
+        )
+
         // Live engine: a conductible drone/arp/drum loop that runs
         // indefinitely and morphs on command (see MenuBandEngine). Four
         // verbs — start / chord / pattern / stop — let the fleet evolve a
@@ -888,10 +900,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // start are verified. (The direct-download build keeps the fleet live.)
         #if !MAC_APP_STORE
         fleet.onMessage = { [weak self] msg in
-            guard (msg["t"] as? String) == "play" else { return }
-            var info: [String: String] = [:]
-            for (k, v) in msg { if let s = v as? String { info[k] = s } }
-            self?.playFromInfo(info)
+            switch msg["t"] as? String {
+            case "play":
+                var info: [String: String] = [:]
+                for (k, v) in msg { if let s = v as? String { info[k] = s } }
+                self?.playFromInfo(info)
+            case "stop":
+                self?.stopScore(broadcast: false)   // don't echo — avoid a relay loop
+            default:
+                break
+            }
         }
         fleet.start()
         DistributedNotificationCenter.default().addObserver(
@@ -3071,6 +3089,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         playFromInfo(note.userInfo as? [String: String] ?? [:])
     }
 
+    @objc private func handleStopNotification(_ note: Notification) {
+        stopScore(broadcast: true)
+    }
+
+    /// Cease the current score: cancel every pending onset, silence all voices,
+    /// and clear the transport + robot badge. `broadcast` relays the stop over
+    /// the fleet so a Stop on ANY machine halts the whole performance.
+    func stopScore(broadcast: Bool) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.playGeneration += 1            // pending onsets become no-ops
+            self.menuBand.panic()               // silence anything ringing
+            if self.menuBand.percussionSplit { self.menuBand.percussionSplit = false }
+            self.menuBand.octaveShift = 0
+            self.currentScoreTitle = nil
+            self.currentScoreEnd = 0
+            self.fleetDriveUntil = 0
+            self.fleetClearTimer?.invalidate()
+            KeyboardIconRenderer.fleetDriving = false
+            self.updateIcon()
+            if broadcast { self.fleet.send(["t": "stop"]) }
+        }
+    }
+
     /// Finder double-click / `open` of a `.mbscore` document lands here.
     func application(_ application: NSApplication, open urls: [URL]) {
         for url in urls where url.pathExtension.lowercased() == "mbscore" {
@@ -3093,8 +3135,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let lead = (obj["lead"] as? Double) ?? 3.0
         let epoch = String(format: "%.3f", Date().timeIntervalSince1970 + max(0.3, lead))
         NSLog("🎼 mbscore host play: \(obj["title"] as? String ?? url.lastPathComponent) — \(voices.count) voice(s)")
+        let title = obj["title"] as? String
         for voice in voices {
             var info: [String: String] = ["bpm": bpm, "startEpoch": epoch]
+            if let title { info["title"] = title }
             for (k, v) in voice where k != "name" { info[k] = "\(v)" }
             playFromInfo(info)
         }
@@ -3170,6 +3214,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+            let gen = self.playGeneration   // stop bumps this to cancel onsets
             self.menuBand.setMelodicProgram(program)
             // Surface the instrument change on the menubar chip immediately —
             // a conducted part switching patch should read like a user picking
@@ -3210,6 +3255,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }.max() ?? 0
             let partEnd = leadIn + partBeats * beat + 0.3
+            // Remember the score for the popover transport (title + window).
+            if syncEpoch != nil {
+                self.currentScoreTitle = info["title"] ?? self.currentScoreTitle
+                self.currentScoreStart = downbeatEpoch
+                self.currentScoreEnd = max(self.currentScoreEnd, downbeatEpoch + partBeats * beat + 0.4)
+            }
 
             // (1) Drum kit: a drums-ONLY part enters drum mode through the REAL
             //     toggle so the keyboard visibly flips to the kit (kick cue
@@ -3264,21 +3315,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         // person is drumming (not a silent engine hit).
                         let litNote = AppDelegate.drumLightNote(for: sym)
                         let onEpoch = downbeatEpoch + (onAt - leadIn)
-                        self.sequencerQueue.asyncAfter(deadline: at(onEpoch)) { [weak self] in
-                            guard let self = self else { return }
-                            // Audio fires HERE, off the main thread — tight.
+                        DispatchQueue.main.asyncAfter(deadline: at(onEpoch)) { [weak self] in
+                            guard let self = self, self.playGeneration == gen else { return }
                             _ = self.menuBand.percussionNoteOn(drum, velocity: vel,
                                                                pan: 64, accent: false)
-                            let actual = Date().timeIntervalSince1970
-                            DispatchQueue.main.async {
-                                self.menuBand.drumLitOn(litNote)
-                                if syncEpoch != nil { self.fleetHits.append((onEpoch, actual)) }
-                            }
+                            self.menuBand.drumLitOn(litNote)
+                            if syncEpoch != nil { self.fleetHits.append((onEpoch, Date().timeIntervalSince1970)) }
                         }
                         // Drums are one-shots — hold the pad light briefly.
                         let offEpoch = onEpoch + min(dur, 0.12)
-                        self.sequencerQueue.asyncAfter(deadline: at(offEpoch)) { [weak self] in
-                            DispatchQueue.main.async { self?.menuBand.drumLitOff(litNote) }
+                        DispatchQueue.main.asyncAfter(deadline: at(offEpoch)) { [weak self] in
+                            self?.menuBand.drumLitOff(litNote)
                         }
                     } else if let midi = UInt8(sym) {
                         // Melodic note via the real tap path (lights keys + waveform).
@@ -3296,19 +3343,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         let display = UInt8(disp)
                         let onEpoch = downbeatEpoch + (onAt - leadIn)
                         let offEpoch = downbeatEpoch + (offAt - leadIn)
-                        // Melodic tap state is main-thread-only; wake precisely
-                        // on the sequencer, then hop to main to sound + light it
-                        // (main only ever holds one pending onset, not all of
-                        // them, so it isn't congested/coalesced like before).
-                        self.sequencerQueue.asyncAfter(deadline: at(onEpoch)) { [weak self] in
-                            DispatchQueue.main.async {
-                                guard let self = self else { return }
-                                self.menuBand.startTapNote(midi, velocity: vel, displayNote: display)
-                                if syncEpoch != nil { self.fleetHits.append((onEpoch, Date().timeIntervalSince1970)) }
-                            }
+                        DispatchQueue.main.asyncAfter(deadline: at(onEpoch)) { [weak self] in
+                            guard let self = self, self.playGeneration == gen else { return }
+                            self.menuBand.startTapNote(midi, velocity: vel, displayNote: display)
+                            if syncEpoch != nil { self.fleetHits.append((onEpoch, Date().timeIntervalSince1970)) }
                         }
-                        self.sequencerQueue.asyncAfter(deadline: at(offEpoch)) { [weak self] in
-                            DispatchQueue.main.async { self?.menuBand.stopTapNote(midi) }
+                        DispatchQueue.main.asyncAfter(deadline: at(offEpoch)) { [weak self] in
+                            self?.menuBand.stopTapNote(midi)
                         }
                     }
                     t += dur

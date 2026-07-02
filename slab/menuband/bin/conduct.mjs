@@ -24,6 +24,7 @@ import { spawn, spawnSync } from "node:child_process";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SCORES_DIR = resolve(HERE, "..", "scores");
 const HOOK = "computer.aestheticcomputer.menuband.play";
+const STOP_HOOK = "computer.aestheticcomputer.menuband.stop";
 
 // The poster (mirrors slab/menuband LLM guide): reads MB_NAME + MB_KV env and
 // posts one DistributedNotification. Deployed + compiled on demand per host.
@@ -113,12 +114,14 @@ function ensurePoster(host) {
   return ok;
 }
 
-function kvFor(voice, bpm, epoch) {
+function kvFor(voice, bpm, epoch, title) {
   const kv = [`bpm=${bpm}`];
   for (const [k, val] of Object.entries(voice)) {
     if (k === "name") continue;
     kv.push(`${k}=${val}`);
   }
+  // Title rides along so each machine's popover can name the score in progress.
+  if (title) kv.push(`title=${String(title).replace(/[;'=]/g, " ").trim()}`);
   kv.push(`startEpoch=${epoch}`);
   return kv.join(";");
 }
@@ -140,7 +143,7 @@ function post(host, hook, kv) {
   });
 }
 
-const firePlay = (host, voice, bpm, epoch) => post(host, HOOK, kvFor(voice, bpm, epoch));
+const firePlay = (host, voice, bpm, epoch, title) => post(host, HOOK, kvFor(voice, bpm, epoch, title));
 const fireSay = (host, text, voiceName, epoch) =>
   post(host, SAY, `text=${text};voice=${voiceName};startEpoch=${epoch}`);
 
@@ -149,6 +152,17 @@ const argv = process.argv.slice(2);
 if (!argv.length || argv[0] === "--list" || argv[0] === "list") {
   listScores();
   process.exit(0);
+}
+
+// `conduct.mjs stop <host…>` — cease the current score on every host. The
+// reliable, always-works fleet-wide stop (each machine also relays over MC).
+if (argv[0] === "stop") {
+  const hosts = argv.slice(1).filter((a) => !a.startsWith("--"));
+  if (!hosts.length) { console.log("usage: node bin/conduct.mjs stop <host1> [host2 …]"); process.exit(1); }
+  console.log(`\n■ stop — ceasing on ${hosts.map(shortName).join(", ")}…`);
+  const oks = await Promise.all(hosts.map((h) => post(h, STOP_HOOK, "")));
+  console.log(oks.every(Boolean) ? "  ✓ stopped\n" : "  ⚠ some hosts unreachable\n");
+  process.exit(oks.every(Boolean) ? 0 : 1);
 }
 
 const { score } = loadScore(argv[0]);
@@ -221,7 +235,7 @@ async function run() {
 
   console.log(`\n  downbeat at epoch ${downbeat.toFixed(3)} (in ${(downbeat - Date.now() / 1000).toFixed(1)}s)…`);
   for (let i = 0; i < roster.length; i++)
-    sends.push({ host: roster[i], kind: "music", ok: ready[i] ? await firePlay(roster[i], score.voices[i], score.bpm, downbeat.toFixed(3)) : false });
+    sends.push({ host: roster[i], kind: "music", ok: ready[i] ? await firePlay(roster[i], score.voices[i], score.bpm, downbeat.toFixed(3), score.title) : false });
 
   if (talk) {
     for (let i = 0; i < roster.length; i++)

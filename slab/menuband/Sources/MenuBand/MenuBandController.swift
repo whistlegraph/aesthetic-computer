@@ -3120,6 +3120,14 @@ final class MenuBandController {
         if Thread.isMainThread { extinguish() } else { DispatchQueue.main.async(execute: extinguish) }
     }
 
+    /// Hard stop for the fleet Stop: release every held note and silence all
+    /// sounding voices — melodic and percussion.
+    func panic() {
+        releaseAllHeldNotes()
+        synth.percussion.silence()
+        synth.panic()
+    }
+
     func releaseAllHeldNotes() {
         heldLock.lock()
         let noteSnapshot = heldNotes
