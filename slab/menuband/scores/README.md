@@ -1,8 +1,15 @@
 # Menu Band fleet scores
 
 A **score** is a saved, re-runnable composition for *N* computers. Each
-`*.mbscore.json` declares how many machines it is composed for and one **voice**
-per machine. The conductor (`../bin/conduct.mjs`) assigns each voice to a host
+`*.mbscore` file (JSON inside) declares how many machines it is composed for and
+one **voice** per machine.
+
+## Double-click to play (host = this machine)
+
+`.mbscore` is a registered Menu Band document type. **Double-click one in Finder**
+(or `open foo.mbscore`) and the Menu Band on *that* machine becomes the host and
+plays the whole composition locally — all voices layered at one shared start,
+robot badge lit. No conductor, no ssh. This is the portable, shareable form. The conductor (`../bin/conduct.mjs`) assigns each voice to a host
 and fires them all at one shared `startEpoch`, so the machines lock to the same
 downbeat — NTP-synced wall clocks, no LAN or Multipeer required (it posts a
 `…menuband.play` DistributedNotification directly on each host, locally or over
