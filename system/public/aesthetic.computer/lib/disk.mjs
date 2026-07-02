@@ -2288,6 +2288,48 @@ const imageCache = {
 
 let screen;
 let currentDisplay; // TODO: Remove this? 22.09.29.11.38
+
+// 🖼️ HD layer — an OffscreenCanvas 2D surface at native device resolution,
+// composited by bios above the pixel canvas (below glaze / corner labels /
+// ui). Pieces acquire it with `hd()` inside `paint`; disk owns the buffer:
+// it (re)allocates on resize, pre-scales the context so logical screen
+// coordinates stay valid, ships an ImageBitmap to bios after each painted
+// frame, and clears the bios layer when the piece changes. The HD layer is
+// NOT captured in tapes — pieces should keep painting the pixel buffer
+// underneath as the recorded / fallback view.
+let hdCanvas = null; // OffscreenCanvas backing store.
+let hdContext = null; // Its 2d context, pre-scaled to device resolution.
+let hdPainted = false; // A piece drew this frame → send a bitmap in `render`.
+const HD_MAX_PIXELS = 4096 * 2304; // Backing-store ceiling (≈4K) for perf.
+
+function hd() {
+  if (!screen || typeof OffscreenCanvas === "undefined") return null;
+  const sub = currentDisplay?.subdivisions || 2;
+  const dpr = currentDisplay?.pixelRatio || 1;
+  // Native device pixels per logical screen pixel, capped so giant displays
+  // never allocate an unbounded backing store.
+  const maxScale = Math.sqrt(HD_MAX_PIXELS / (screen.width * screen.height));
+  const scale = Math.max(1, Math.min(sub * dpr, maxScale));
+  const w = Math.round(screen.width * scale);
+  const h = Math.round(screen.height * scale);
+  if (!hdCanvas || hdCanvas.width !== w || hdCanvas.height !== h) {
+    hdCanvas = new OffscreenCanvas(w, h);
+    hdContext = hdCanvas.getContext("2d");
+  }
+  hdContext.setTransform(scale, 0, 0, scale, 0, 0);
+  hdPainted = true;
+  return { ctx: hdContext, width: screen.width, height: screen.height, scale };
+}
+
+// Tear down between pieces: drop the buffer and hide bios's layer right away
+// (out-of-band, so the old piece's last frame never floats over the next).
+function hdUnload() {
+  if (!hdCanvas) return;
+  hdCanvas = hdContext = null;
+  hdPainted = false;
+  send({ type: "hd:clear" });
+}
+
 let cursorCode;
 let pieceHistoryIndex = -1; // Gets incremented to 0 when first piece loads.
 let paintCount = 0n;
@@ -2841,6 +2883,7 @@ const persistentSpreadnobState = {
 const $commonApi = {
   lisp, //  A global reference to the `kidlisp` evalurator.
   undef: undefined, // A global api shorthand for undefined.
+  hd, // 🖼️ Native-resolution Canvas2D layer (see the hd() definition above).
   clock: {
     offset: function () {
       if (clockFetching) return;
@@ -9766,6 +9809,7 @@ async function load(
     keys(preloadPromises).forEach((key) => preloadPromises[key].reject(key));
     preloadPromises = {};
     noPaint = false;
+    hdUnload(); // 🖼️ Drop the previous piece's HD layer (hides it in bios).
 
     // 🎞️ Reset piece-level FPS control
     pieceFPS = null;
@@ -11810,6 +11854,7 @@ async function makeFrame({ data: { type, content } }) {
       width: content.innerWidth,
       height: content.innerHeight,
       subdivisions: content.subdivisions,
+      pixelRatio: content.pixelRatio, // For the `hd()` native-resolution layer.
     };
     $commonApi.display = currentDisplay;
 
@@ -16583,6 +16628,15 @@ async function makeFrame({ data: { type, content } }) {
           transferredObjects.push(pixelsCopy.buffer);
         }
         $commonApi.recordingUI._clearPending();
+      }
+
+      // 🖼️ HD layer — ship this frame's native-resolution Canvas2D drawing
+      // as an ImageBitmap (transferred, so it never copies). The transfer
+      // leaves the OffscreenCanvas blank for the piece's next paint.
+      if (hdPainted && hdCanvas) {
+        sendData.hd = { bitmap: hdCanvas.transferToImageBitmap() };
+        transferredObjects.push(sendData.hd.bitmap);
+        hdPainted = false;
       }
 
       // console.log("TO:", transferredObjects);

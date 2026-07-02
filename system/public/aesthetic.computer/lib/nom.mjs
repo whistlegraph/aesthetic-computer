@@ -34,6 +34,7 @@ const START_LIVES = 3;
 // 🌐 Game state
 let mode = "number"; // "number" | "word" | "note"
 let lang = "en"; // word language: "en" engnom | "es" mexinom | "da" dannom | "ru" rusnom | "cat" catnom
+let hiRes = false; // 🖼️ render via the hd() native-resolution Canvas2D layer (opt-in per edition)
 let noteScale = []; // current board's scale (note mode), played on board start
 let state = "title"; // title | play | clear | over | win
 let grid = []; // [{ value, correct, eaten, flash }]
@@ -115,7 +116,7 @@ let pendingStart = false; // announce the rule + play the start chime once audio
 // between games (mirrors world_boot / nopaint_boot). Keep in sync with the
 // declarations at the top of the file.
 function reset() {
-  mode = "number"; lang = "en"; noteScale = [];
+  mode = "number"; lang = "en"; hiRes = false; noteScale = [];
   state = "title"; grid = []; ruleLabel = ""; ruleSpeech = "";
   muncher = { col: 2, row: 2 }; muncherVis = { col: 2, row: 2 };
   hover = null; swipedGesture = false; drag = null;
@@ -140,6 +141,7 @@ function boot({ params, hud, clock, num: { randInt } }) {
   const m = resolveMode(params);
   mode = m.mode;
   lang = m.lang;
+  hiRes = params?.includes?.("hd") === true; // "hd" param → hi-res Canvas2D paint
   hud?.label?.(""); // hide the top-left corner label
   resetGame({ randInt });
   newRound({ randInt });
@@ -1500,7 +1502,87 @@ function cellAt(px, py) {
 }
 
 // 🎨 Paint ───────────────────────────────────────────────────────────────────
-function paint({ wipe, ink, screen, write, box, line, text }) {
+// Routes to the hi-res Canvas2D layer (a worker OffscreenCanvas managed by
+// disk's `hd()` API) when this edition opted in and the runtime provides it.
+// The pixel buffer is still painted underneath either way: it's what tapes,
+// previews, and freeze-frames capture, and it's the fallback if hd() is
+// unavailable — the opaque hi-res layer simply covers it on screen.
+function paint(api) {
+  paintGame(api);
+  if (hiRes && api.hd) {
+    const layer = api.hd();
+    if (layer) paintGame(hdApi(layer));
+  }
+}
+
+// 🖼️ Canvas2D adapter — mirrors the exact slice of the AC paint API this
+// engine uses (wipe / ink().box/.line/.write + bare box/line after ink) on
+// the hd layer's pre-scaled 2d context, so paintGame runs unchanged at
+// native device resolution. Text renders as vector glyphs at the same fixed
+// per-glyph advances as FONT_METRICS, so every width/centering measurement
+// in the game's layout math stays identical to the pixel path.
+function hdApi({ ctx, width, height }) {
+  let r = 255, g = 255, b = 255, a = 1; // current ink
+  const css = () => `rgba(${r},${g},${b},${a})`;
+  const setColor = (args) => {
+    if (args.length >= 3) {
+      r = args[0]; g = args[1]; b = args[2];
+      a = (args[3] ?? 255) / 255;
+    } else {
+      r = g = b = args[0] ?? 255;
+      a = (args[1] ?? 255) / 255;
+    }
+  };
+  const box = (x, y, w, h, mode2) => {
+    if (mode2 === "outline") {
+      ctx.strokeStyle = css();
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+    } else {
+      ctx.fillStyle = css();
+      ctx.fillRect(x, y, w, h);
+    }
+  };
+  const line = (x1, y1, x2, y2) => {
+    ctx.strokeStyle = css();
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x1 + 0.5, y1 + 0.5);
+    ctx.lineTo(x2 + 0.5, y2 + 0.5);
+    ctx.stroke();
+  };
+  const write = (txt, pos = {}, _bg, _bounds, _wrap, font) => {
+    const { adv, h } = fontMetrics(font);
+    const size = pos.size || 1;
+    const str = String(txt);
+    let x = pos.x ?? 0;
+    if (pos.center === "x") x = (width - str.length * adv * size) / 2;
+    const y = pos.y ?? 0;
+    // Optical match to the bitmap fonts: glyphs sized to sit inside the same
+    // nominal adv×h cell, each centered on its fixed advance (monospace grid).
+    ctx.fillStyle = css();
+    ctx.font = `${font === "unifont" ? 500 : 700} ${h * size * (font === "unifont" ? 0.72 : 0.8)}px ui-monospace, Menlo, Consolas, monospace`;
+    ctx.textBaseline = "middle";
+    const cy = y + (h * size) / 2;
+    for (let i = 0; i < str.length; i += 1) {
+      const chw = ctx.measureText(str[i]).width;
+      ctx.fillText(str[i], x + i * adv * size + (adv * size - chw) / 2, cy);
+    }
+  };
+  const chain = { box, line, write };
+  const ink = (...args) => {
+    setColor(args);
+    return chain;
+  };
+  const wipe = (...args) => {
+    setColor(args);
+    ctx.fillStyle = css();
+    ctx.fillRect(0, 0, width, height);
+  };
+  return { wipe, ink, box, line, write, screen: { width, height } };
+}
+
+function paintGame({ wipe, ink, screen, write, box, line, text }) {
   computeLayout(screen);
   wipe(8, 10, 26);
   paintBackground({ ink, box, screen });
