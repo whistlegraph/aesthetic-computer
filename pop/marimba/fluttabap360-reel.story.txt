@@ -1,0 +1,171 @@
+fluttabap360 — THE METAMORPHOSIS REEL (30s · 1080×1920 vertical IG reel)
+
+THE STORY — "the metamorphosis"
+===============================
+
+the keeper's ORIGIN MYTH, told in thirty seconds. same near-future
+AESTHETIC COMPUTER nature-park as the visualizer story ("the monarch
+keeper", fluttabap360.story.txt), same character (the butterfly
+cosplayer — jeffrey identity-ref, about 30, soft brown curly hair,
+pale-yellow short-sleeve button-down, hand-made monarch paper-mache
+wings on wooden dowels, antenna headband), same hand-drawn
+colored-pencil + gouache on warm cream paper, diegetic light only.
+
+but this is the tale of where the keeper CAME FROM: he hatches from a
+paper-mache chrysalis on a park oak, learns his body, learns the dance,
+plays a marimba of laptop computers (the aesthetic computers — the ONLY
+screens this world will ever allow, and only in that one beat), packs
+them away, gives his body back to the monarchs, hardens mid-air into a
+little robot drone, and sails out of the park into outer space. the
+park's data-monarch lifecycle, whole, in one breath.
+
+medium law carries over from the visualizer story verbatim — NOT a
+photograph, NOT cinematic, NO glow filters, NO neon, no text, no
+wordmarks; the keeper never looks at the camera — WITH TWO SANCTIONED
+EXCEPTIONS, one per beat:
+  · laptops beat — laptop computers exist, screens glow-LESS and lit
+    like paper, each showing the NOTEPAT tile interface reproduced
+    faithfully from the real screenshot (the keymaps-paper illy ref,
+    marketing/campaigns/keymaps-cover/refs/ac-native-notepat.png):
+    twin 4×3 candy-color tile banks + outer slider strips + waveform
+  · drone + space beats — the monarch may be a hand-drawn brushed-metal
+    robot; space is heavy indigo pencil with stars as bare cream paper
+
+
+THE CUT — 13 SHOTS (46.2s PHRASE LOOP · wides + amaythingra inserts)
+====================================================================
+the wide story beats are intercut with INSERTS in the amaythingra shot
+grammar — extreme close-ups that fill the frame and first-person POVs
+(POV-integrity block so no second jeffrey appears) — plus ONE
+start-frame→end-frame MORPH (growdance) fusing the too-similar stand-up
+and spin shots into a single continuous pirouette. motion grammar
+throughout: the camera is ALIVE (orbits, spins, dynamic tilt + shift),
+objects spin on their own axes, and light REFRACTS across every
+wet/glossy surface (goo, dew, metal, screen sheen) as painted glints.
+
+  1. cocoon     WIDE  2.5   chrysalis slowly rotating, gold dots glinting
+  2. crack      ECU   2.5   seam tearing; dew-drop lenses the inner light
+  3. hatch      WIDE  2.7   the GOOEY crawl-out, strands snapping
+  4. hatchpov   POV   3.0   his own new hands on the bark, park below
+  5. growdance  MORPH 4.4   stand-up rolls into a full pirouette (grow→dance)
+  6. laptops    WIDE  2.5   five different-colored laptops, finger-marimba
+  7. mallets    ECU   2.75  fingertips bounce off colored keymap keys
+  8. laptopspov POV   2.75  down his own arms at five notepat screens
+  9. molt       WIDE  5.4   the spinning fragment-cyclone (FLY lift here)
+ 10. wing       ECU   4.5   camera orbits the hardening, refracting wing
+ 11. drone      WIDE  5.5   corkscrew climb over the wheeling park
+ 12. spacepov   POV   3.5   slow barrel-roll, Earth arcing between wings
+ 13. space      WIDE  4.2   the spinning drift up — composed to LOOP
+
+AUDIO — one complete musical phrase, 34.7→80.9s (46.2s):
+mommywow hush (7.7s) under cocoon/crack/hatch · slinky marimba climb
+(15.4s) under hatchpov→laptopspov · FLY lift (15.4s) landing exactly on
+the molt at +23.1s, carrying wing + drone · ride outro (7.7s) under
+spacepov/space, ending ON the pass boundary so the reel loops back into
+the hush. tiny anti-click fades only (0.4s in / 0.8s out).
+
+LAPTOP LAW addendum (2026-07-02): notepat screens RIGHT-SIDE UP (the
+keymaps-cover ref is deliberately upside down — use out/notepat-upright.png);
+five clamshells in five different candy colors; keyboards wear the
+colored keymap keycaps (papers/arxiv-keymaps/notepat-keymap.png ref);
+BARE FINGERS strike like marimba mallets — no actual mallets.
+
+
+EIGHT WIDE STORY BEATS (the establishing masters)
+===================================================================
+
+1. cocoon (0.0–4.0) — THE CRACK
+   dawn over the lawn. a HUMAN-SIZED paper-mache chrysalis — jade-green
+   gouache with a hand-drawn crown of gold dots, seams visibly hand-cut
+   — hangs from a thick oak branch. it CRACKS: one bright seam splitting
+   down the side, a sliver of pale-yellow (his shirt!) showing through.
+   two monarchs wait on the branch like midwives. faint hand-ruled
+   ground-grid in the lawn below. the world holding its breath.
+
+2. hatch (4.0–8.0) — CRAWLING OUT
+   the keeper crawls out along the branch — crumpled, brand-new, curls
+   matted, antenna headband bent askew, the paper-mache wings damp and
+   folded flat against his back. he grips the bark, head down, blinking
+   at his first morning. delighted-confused. the split chrysalis husk
+   swings gently behind him.
+
+3. grow (8.0–11.5) — THE UNFURL
+   down on the lawn he UNFURLS: rising from a crouch to full height in
+   one long stretch, arms spreading wide, the wings drying and creaking
+   open to full span, antenna springs popping upright, felt balls
+   bobbing. monarchs circle in to inspect the new one.
+
+4. dance (11.5–15.0) — FIRST STEPS
+   first steps go straight into the ballet: relevé, the low arabesque,
+   the soft port de bras — the cover pose, learned in one go, like it
+   was folded into him all along. lit up with the joy of it, monarchs
+   falling in beside him on their arcs.
+
+5. laptops (15.0–20.0) — THE LAPTOP MARIMBA (the gag, longest beat)
+   he kneels behind FIVE laptop computers laid in a gentle arc on the
+   lawn like the bars of a marimba, a slim wooden mallet in each hand,
+   PLAYING the keyboards — one mallet mid-bounce off a spacebar. each
+   screen shows the NOTEPAT tile interface (glow-less, hand-hatched,
+   a different chord pressed on each machine), monarchs perched along
+   the screen-tops watching the recital. the aesthetic computers,
+   played the only way the park knows how.
+
+6. molt (20.0–24.0) — THE BODY GOES BACK
+   the laptops packed in a neat little stack on the grass beside him.
+   he stands facing away, arms rising into one last port de bras — and
+   the transformation takes: his outline dissolving into a swirl of
+   orange-and-black, a single LARGE monarch lifting off from where he
+   stood, the pale-yellow button-down settling soft and empty on the
+   lawn. the wings claim him. (the FLY lift in the music lands HERE.)
+
+7. drone (24.0–27.0) — THE HARDENING
+   climbing over the park, mid-air: the monarch's painted-paper wings
+   harden panel-by-panel into thin brushed-metal plates — tiny rivet
+   dots, a small lens-eye glinting — a monarch-shaped robot drone,
+   still orange + black, its dotted signal-arc trailing crisper now.
+   the park and its ground-grid shrinking below.
+
+8. space (27.0–30.0) — OUTER SPACE
+   deep indigo pencil laid down heavy; stars picked out as bare cream
+   paper. the drone-monarch drifts up-frame among the stars, Earth a
+   small blue-green marble below, sunlight raking the metal wings
+   orange. the park's ground-grid has become the faint curve of
+   orbit-lines. a held last breath — the keeper is everywhere now.
+
+
+PER-BEAT CHROME TINT (climbing warm, then off the planet)
+=========================================================
+cocoon    cool pale dawn-jade         (the crack)
+hatch     warming oat                 (crawling out)
+grow      warm cream                  (the unfurl)
+dance     sap-green + amber           (first steps)
+laptops   bright amber (BRIGHTEST)    (the laptop marimba)
+molt      gold turning rose           (the body goes back)
+drone     steel-blue + orange         (the hardening)
+space     deep indigo (DARK)          (outer space, starlit)
+
+
+AUDIO — the 30s window
+======================
+fluttabap360.mp3 · 42.4s → 72.4s: the third slinky pass (marimba riffs
+under hatch/grow/dance/laptops) climbing into the big FLY lift at
++15.4s — so the lift lands exactly on the molt transformation, and the
+fly soar carries drone + space out of the atmosphere. 1.2s fade-in,
+3s fade-out.
+
+
+NOTES FOR @JEFFREY
+==================
+- your dictated arc, verbatim: cocoon breaks on a branch → crawl out →
+  grow → dance → take out laptops and PLAY them → pack away → body
+  becomes a butterfly → flies away, becomes a robot drone → outer space.
+- improvements folded in: the chrysalis is paper-mache jade + gold-dot
+  crown (hand-made like the wings, so the hatch is self-consistent);
+  the empty button-down left on the lawn sells the molt; marimba
+  MALLETS make the laptop beat read as playing, not typing; the fly
+  lift is timed to the transformation.
+- face-safety for Seedance: every human beat is staged from behind /
+  three-quarter-behind / head-down (fal rejects face-forward likeness).
+- pipeline: gen-sections-fluttabap360-reel.mjs (8 panels) →
+  gen-motion-fluttabap360-reel.mjs (8 shots, then --assemble) →
+  chrome-reel-fluttabap360.mjs (pals stamps + climbing title, no bar).
