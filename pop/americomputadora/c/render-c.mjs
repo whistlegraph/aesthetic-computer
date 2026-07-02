@@ -52,8 +52,8 @@ if (existsSync(acdsp)) {
     rawWav, mastered, "--chain",
     "eq:rumble " +
     "1176:ratio=4:in=-10:out=+10:iron=1:attack=4:release=5 " +
-    "eq:tilt-warm=+1.5 eq:warmth=+1 eq:presence=+1.5 eq:air=+1 " +
-    "eq:lp:f=16000:q=0.7",
+    "eq:tilt-warm=+0.5 eq:presence=+2.5 eq:air=+2 " +
+    "eq:lp:f=18000:q=0.7",
     "--bits", "24",
   ]);
 } else {
@@ -65,7 +65,28 @@ const src = existsSync(mastered) ? mastered : rawWav;
 // even present level end to end. We render TWO deliverables from the same
 // loudnorm pass — a 320 kbps CBR mp3, and a 16-bit/44.1 kHz WAV (the format
 // DistroKid prefers for upload).
-const LOUDNORM = "loudnorm=I=-11:TP=-1.0:LRA=11";
+// Static gain + brickwall limiter, NOT loudnorm. Single-pass loudnorm is a
+// dynamic normalizer — it audibly ducked and recovered right after the loud
+// first-hook drop (the "volume bump" around 0:27). Instead: measure the
+// integrated loudness once, apply the one static gain that lands -11 LUFS,
+// and let a fast transparent limiter catch the true peaks at ~-1 dB. The
+// mix's own dynamics survive; only the tallest kick transients kiss the wall.
+console.log("# loudness (measure pass)");
+const meas = spawnSync("ffmpeg", [
+  "-hide_banner", "-y", "-nostats",
+  "-i", src,
+  "-af", "loudnorm=I=-11:TP=-1.0:LRA=11:print_format=json",
+  "-f", "null", "-",
+], { encoding: "utf8" });
+const mjson = JSON.parse((meas.stderr.match(/\{[\s\S]*\}/) ?? ["{}"])[0]);
+const gainDb = (-11 - parseFloat(mjson.input_i)).toFixed(2);
+// limit at 4x oversampling so the ceiling holds for TRUE (inter-sample)
+// peaks, not just sample peaks — flat-topped limiting at 1x overshot
+// ~2.5 dB after reconstruction. -2 dB ceiling leaves margin for the final
+// downsample + mp3 encode, landing true peak under -1.
+const LOUDNORM = `volume=${gainDb}dB,aresample=192000,` +
+  `alimiter=attack=1:release=60:limit=0.794:level=false`;
+console.log(`  measured I=${mjson.input_i} TP=${mjson.input_tp} → static gain ${gainDb} dB + 4x-oversampled limiter -2 dB`);
 const META = [
   "-metadata", "title=americomputadora",
   "-metadata", "artist=jeffrey",

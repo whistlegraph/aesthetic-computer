@@ -46,10 +46,24 @@ static inline double midi_hz(double m) { return 440.0 * pow(2.0, (m - 69.0) / 12
 
 // ── buffers ─────────────────────────────────────────────────────────────
 static long N;
-static float *drm, *kik, *snr, *bel, *sqr, *sb, *toy, *arp, *pds, *cho, *voc;
+static float *drm, *kik, *snr, *bel, *sqr, *sb, *toy, *arp, *pds, *cho, *voc, *org;
 
 static inline void addb(float *buf, long i, double v) {
     if (i >= 0 && i < N) buf[i] += (float)v;
+}
+
+// ── crisp: one-pole highpass (clears mud below hp_fc) + first-order
+// presence lift (pres_amt above pres_fc) applied in place to a whole bus.
+static void crisp(float *b, long n, double hp_fc, double pres_fc, double pres_amt) {
+    double kh = 1.0 - exp(-TAU * hp_fc / SR), lo = 0;
+    double kp = 1.0 - exp(-TAU * pres_fc / SR), mid = 0;
+    for (long i = 0; i < n; i++) {
+        double x = b[i];
+        lo += kh * (x - lo);
+        double h = x - lo;          // highpassed
+        mid += kp * (h - mid);
+        b[i] = (float)(h + pres_amt * (h - mid)); // + top-band lift
+    }
 }
 
 // ── wav io ──────────────────────────────────────────────────────────────
@@ -347,6 +361,34 @@ static void choir(float *buf, double t, int root, int third, int fifth, double g
     }
 }
 
+// church organ — additive drawbar chord: fundamental an octave under the
+// root plus octave/quint/super-octave partials, slow swell, a gentle
+// tremulant. shares the reverb send so it sits in the stone room.
+static void organ(float *buf, double t, int root, int third, int fifth, double dur, double g) {
+    int tones[4] = {root - 12, root, third, fifth};
+    static const double DRAW[5] = {1.0, 0.55, 0.38, 0.45, 0.20}; // 8' 4' 2 2/3' 2' 1'
+    static const double MULT[5] = {1.0, 2.0, 3.0, 4.0, 8.0};
+    int n = (int)(dur * SR); long s0 = (long)(t * SR);
+    int att = (int)(0.22 * SR), rel = (int)(0.35 * SR);
+    for (int m = 0; m < 4; m++) {
+        double f0 = midi_hz(tones[m]);
+        for (int h = 0; h < 5; h++) {
+            double f = f0 * MULT[h];
+            if (f > 11000) continue;
+            double ph = rng() * TAU;
+            for (int i = 0; i < n; i++) {
+                double tt = (double)i / SR;
+                double trem = 1.0 + 0.035 * sin(TAU * 5.6 * tt + m * 1.7);
+                ph += TAU * f / SR;
+                double env = 1;
+                if (i < att) env = (double)i / att;
+                else if (i > n - rel) env = fmax(0, (double)(n - i) / rel);
+                addb(buf, s0 + i, sin(ph) * DRAW[h] * trem * env * g * 0.30);
+            }
+        }
+    }
+}
+
 static void pad(float *buf, double t, const int *midis, int nm, double dur, double g) {
     int n = (int)(dur * SR); long s0 = (long)(t * SR);
     int att = (int)(0.06 * SR), rel = (int)(0.12 * SR);
@@ -471,6 +513,7 @@ int main(int argc, char **argv) {
     drm = calloc(N, 4); kik = calloc(N, 4); snr = calloc(N, 4); bel = calloc(N, 4);
     sqr = calloc(N, 4); sb  = calloc(N, 4); toy = calloc(N, 4);
     arp = calloc(N, 4); pds = calloc(N, 4); cho = calloc(N, 4); voc = calloc(N, 4);
+    org = calloc(N, 4);
 
     int total_hook_reps = 0;
     for (int s = 0; s < N_SECS; s++)
@@ -495,6 +538,14 @@ int main(int argc, char **argv) {
                 // the opener: those are bone-dry, just the vocal, no pads.
                 if (!(!strcmp(sec->section, "intro") && b < 3))
                     choir(cho, bt, root, third, fifth, 0.022);
+
+                // church organ chords — the opener rests on them (fuller while
+                // the room is empty, easing back as the toy piano enters), and
+                // they return to hold up the bridge breakdown.
+                if (!strcmp(sec->section, "intro"))
+                    organ(org, bt, root, third, fifth, BAR * 1.02, b < 6 ? 0.085 : 0.06);
+                else if (!strcmp(sec->section, "bridge"))
+                    organ(org, bt, root, third, fifth, BAR * 1.02, 0.07);
 
                 if (strcmp(sec->feel, "claps-only") && strcmp(sec->feel, "fade")) {
                     double sg = (!strcmp(sec->feel, "thin") || !strcmp(sec->feel, "sparse")) ? 0.22 : 0.35;
@@ -565,10 +616,13 @@ int main(int argc, char **argv) {
                                 // notes, the waver settling to a gentle musical
                                 // vibrato — blooming into the drop.
                                 // both voices in unison: jeffrey (0) + computer (1)
+                                // the voice sneaks in: the opener starts at ~25%
+                                // and swells to full carry over the first 4 words.
+                                double introRamp = fmin(1.0, 0.25 + 0.75 * (double)intro_beat / (4.0 * N_SYL));
                                 for (int vx = 0; vx < 2; vx++) {
                                     Clip *sc = get_syl(vx, si, ti);
                                     if (!sc) continue;
-                                    double g = (vx == 0 ? 0.60 : 0.07) * lineG; // jeffrey carries it; computer way back in the background
+                                    double g = (vx == 0 ? 0.60 : 0.07) * lineG * introRamp; // jeffrey carries it; computer way back in the background
                                     if (vx == 0 && intro_beat < N_SYL) {
                                         // word 1 — whistley swoop
                                         double slide = (intro_beat & 1) ? 0.20 : -0.16;
@@ -905,6 +959,16 @@ int main(int argc, char **argv) {
         return 0;
     }
 
+    // ── crisp pass (post-stem so analyze.mjs sees the raw stitch) ──────
+    // the voice loses its rumble and gets a presence lift; the beds (choir,
+    // pads) and toy piano shed low mud so the mix stops feeling bassy —
+    // kick + sub keep their full weight untouched.
+    crisp(voc, N, 160, 3500, 0.35);
+    crisp(cho, N, 220, 5000, 0.10);
+    crisp(pds, N, 180, 5000, 0.10);
+    crisp(toy, N, 150, 4000, 0.20);
+    crisp(org, N, 90, 4500, 0.10); // organ keeps its 8' warmth, just no rumble
+
     // ── reverb send → schroeder ───────────────────────────────────────
     // the main vocal starts DRY — its reverb send fades in across the first
     // ~75s, so the opener and the drop punch dry and the space only opens up
@@ -918,7 +982,8 @@ int main(int argc, char **argv) {
     for (long i = 0; i < N; i++) {
         double vfade = i < rvStart ? 0.0 : fmin(1.0, (i - rvStart) / rvLen);
         send[i] = (float)(voc[i] * 0.85 * vfade)
-                + snr[i] * 0.65f + bel[i] * 0.55f + sqr[i] * 0.5f + arp[i] * 0.3f;
+                + snr[i] * 0.65f + bel[i] * 0.55f + sqr[i] * 0.5f + arp[i] * 0.3f
+                + org[i] * 0.55f;
     }
     float *room = calloc(N, 4);
     {
@@ -992,7 +1057,7 @@ int main(int argc, char **argv) {
             // lead vocal carves its own space (flow).
             double vd = vSide[i];
             double drums = (drm[i] + kik[i] + snr[i]) * 0.96 * (1.0 - 0.16 * vd);
-            double melodic = (bel[i] + sqr[i] + toy[i] + arp[i] + pds[i] + cho[i]) * 0.86 * dk * (1.0 - 0.45 * vd);
+            double melodic = (bel[i] + sqr[i] + toy[i] + arp[i] + pds[i] + cho[i] + org[i]) * 0.86 * dk * (1.0 - 0.45 * vd);
             double subb = sb[i] * (0.55 + 0.45 * dk);
             double tail = (echo[i] - voc[i]) * 0.28;
             double vocal = voc[i] * (0.78 + 0.22 * dk) + tail * dk;

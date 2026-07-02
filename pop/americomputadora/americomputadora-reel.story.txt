@@ -1,0 +1,75 @@
+americomputadora — THE ESCAPE REEL (30s · 1080×1920 vertical IG reel)
+
+THE STORY — "held down / breaking free"
+=======================================
+
+the cover's origin myth in thirty seconds. a giant three-headed singing
+robot — cute, chibi, candy-color polychrome panels, roped butterfly
+wings — is found by the tiny winged pixsies of the world, feared, lashed
+down gulliver-style, and sings its way free. fear becomes love; the
+crowd that held the ropes ends up riding its shoulders singing along.
+
+MEDIUM LAW (every shot)
+=======================
+a photograph of a colored-pencil drawing on cream paper — confident
+hatching and striping for tone, BOLD SATURATED color pushed rich and
+deep, optically mixed, tapered pencil edges, visible paper grain.
+threaded THROUGH the pencil strokes: glowing DIGITAL FIBERS — hair-thin
+luminous strands like fiber-optic filament in electric cyan, magenta,
+and warm white, woven in and out of the hatching, carrying little
+traveling pulses of light. the pigment seems lit from within — wax and
+light fused, phosphor-glow colors that keep the tooth of pencil,
+iridescent where fibers cross. a surface never seen before.
+NO text, NO logos, NO wordmarks, NO letters anywhere.
+
+THE CAST (every shot it appears in)
+===================================
+· THE ROBOT — giant, three-headed, very cute: chibi proportions, big
+  glossy eyes, soft rounded polychrome panels (grass green, hot pink,
+  sky blue, marigold, cream), hand-painted folk-art toy, thick dark
+  doodle linework on the seams, a palm-sized penned butterfly doodle on
+  one shoulder (rectangular smiling body, two big rounded wings, BOTH
+  wings), giant butterfly wings on its back. antenna bobbles.
+· ITS THREE HEADS — mine facing forward (from the reference photos),
+  singing; the singer's head ONLY ever in profile thrown skyward, big
+  joyful curly-hair silhouette, face never toward camera; the cartoon
+  explorer's head ONLY ever turned three-quarters away, round dark bob
+  reading in silhouette, face mostly hidden.
+· THE PIXSIES — tiny winged folk of the world: boys and girls, kids and
+  grey-haired elders, every skin tone, rounded human ears, NO pointed
+  ears. varied, never clones.
+· MUSIC NOTES — loose hand-drawn eighth notes and beamed pairs in
+  saturated pencil, streaming from singing mouths.
+
+THE CUT — 6 WIDE BEATS (30.0s · vertical 1080×1920)
+====================================================
+1. found  (0-5)   night field. the robot lies dormant in tall grass,
+                  curled like a sleeping toy, chest glowing faintly
+                  through the panel seams. a handful of pixsies hover
+                  close with little lanterns, wide-eyed, discovering it.
+2. sing   (5-10)  the three heads wake and begin to SING — eyes opening,
+                  first bright notes rising off their mouths into the
+                  dark. the nearest pixsies startle backward mid-air.
+3. ropes  (10-15) the frightened pixsie crowd swarms in with ropes and
+                  stakes, lashing the robot down, roping the wings flat.
+                  it keeps singing through the lashing, not angry.
+4. strain (15-20) THE COVER FRAME — half-risen against dozens of taut
+                  staked ropes, chest blazing red white and blue light
+                  through the lashings, notes tangling in the lines,
+                  pixsies hauling and dangling.
+5. snap   (20-25) the ropes SNAP — lines whipping loose, stakes popping
+                  from the soil, pixsies tumbling and catching air on
+                  their own wings, the robot rising to full height,
+                  butterfly wings spreading wide, notes everywhere.
+6. free   (25-30) airborne over the field — the robot flying, pixsies
+                  riding its shoulders and arms SINGING ALONG, the sky
+                  full of notes and fireworks. nobody holds the ropes.
+                  fear became the chorus.
+
+AUDIO window: TBD at motion time (candidate: 0:14→0:44 — the intro lift
+through the first hook drop, the "america" hit landing on beat 4/snap).
+
+PIPELINE: gen-sections (gen-promo per beat, 1024×1536, jeffrey +
+whitney + dora refs auto-attached) → Seedance motion via the pop fal
+harness (cuts not morphs) → chrome-reel assembly. panels live in
+cover-android/reel/.

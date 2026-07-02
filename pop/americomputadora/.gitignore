@@ -16,3 +16,7 @@ hooks.json
 hooks.html
 # demucs vocal stems + proxy windows for marathon sources (bin/clean.mjs)
 .cache/
+# cover-android generations are heavy derived media and the refs carry
+# copyright weight; prompts + reel shot scripts are the source of truth.
+cover-android/gens/
+cover-android/refs/
