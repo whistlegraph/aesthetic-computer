@@ -204,6 +204,24 @@ execFileSync("ffmpeg", [
 rmSync(build, { recursive: true, force: true });
 console.log(`  cover: ${coverFull}`);
 const total = dur(outMp3);
+
+// Episode metadata sidecar → drives the RSS feed / index.json. Preserve the
+// original pubDate across re-runs so the feed order stays stable.
+const sidecarPath = resolve(ROOT, "out", `${script.slug}.json`);
+let pubDate = new Date().toUTCString();
+if (existsSync(sidecarPath)) {
+  try { const prev = JSON.parse(readFileSync(sidecarPath, "utf8")); if (prev.pubDate) pubDate = prev.pubDate; } catch { /* ignore */ }
+}
+writeFileSync(sidecarPath, JSON.stringify({
+  slug: script.slug, title: script.title, author: speaker, date: script.date,
+  description: script.paragraphs[0], lengthText,
+  durationSec: Math.round(total), bytes: readFileSync(outMp3).length,
+  wordCount: script.wordCount,
+  audio: `${script.slug}.mp3`, cover: `${script.slug}-cover.png`,
+  source: positional[0], pubDate,
+}, null, 2) + "\n");
+console.log(`  meta:  ${sidecarPath}`);
+
 console.log(`\n✓ ${outMp3}`);
 console.log(`  ${Math.floor(total / 60)}m ${String(Math.round(total % 60)).padStart(2, "0")}s · ${(readFileSync(outMp3).length / 1024 / 1024).toFixed(1)} MB\n`);
 

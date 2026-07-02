@@ -31,21 +31,40 @@ content-hash cached (`out/cache/`), so re-runs are free.
    `{ title, author, date, paragraphs[], wordCount }`.
 2. **`jingle.mjs`** — synthesizes `intro.wav` / `outro.wav`: a short pentatonic
    bell motif (ascending in, resolving out). Deterministic, $0, no samples.
-3. **`produce.mjs`** — the orchestrator. Narrates intro + each paragraph + outro
+3. **`cover.mjs`** — square cover art per episode via xelatex (same fonts as the
+   essays): the pink drop-shadow YWFT title + AC color bar. Embedded into the mp3
+   as ID3 album art and kept as `out/<slug>-cover.png`.
+4. **`produce.mjs`** — the orchestrator. Narrates intro + each paragraph + outro
    via `/api/say`, measures the real body duration with ffprobe to fill in the
-   announced length, then assembles jingle + VO + paragraph breaths with ffmpeg
-   (loudnorm → mp3, ID3 tagged). Output: `out/<slug>.mp3`.
+   announced length, assembles jingle + VO + paragraph breaths with ffmpeg
+   (loudnorm → mp3), embeds the cover, and writes a metadata sidecar
+   `out/<slug>.json`. Output: `out/<slug>.mp3`.
+5. **`feed.mjs`** — aggregates the sidecars into `out/index.json` (catalog) +
+   `out/feed.xml` (RSS 2.0 + iTunes), and renders the series cover `out/cover.png`.
+6. **`publish.mjs`** — stages the public set into `publish/` and syncs it to the
+   CDN. **Dry by default** (prints the command); `--push` actually uploads.
+
+## Feed / hosting
+
+Episodes + feed live on DO Spaces (`assets-aesthetic-computer`), served at
+**`https://assets.aesthetic.computer/podcast/`** — same bucket as `/pop`. The
+subscribable feed is `https://assets.aesthetic.computer/podcast/feed.xml`.
+Publishing is a deliberate per-run choice (`publish.mjs --push`), never automatic —
+a reading only goes public when you say so.
 
 ## Usage
 
 ```bash
 cd marketing/podcast
-node bin/produce.mjs ../../papers/essay-named-markets/named-markets.tex
-node bin/produce.mjs ../../opinion/lotus-notes.md --open
+node bin/produce.mjs ../../papers/essay-named-markets/named-markets.tex --open
+node bin/feed.mjs                 # build index.json + feed.xml + series cover
+node bin/publish.mjs              # dry run: stage publish/ + print the sync cmd
+node bin/publish.mjs --push       # actually upload → feed goes live
 ```
 
 Flags: `--open` (slab-afplay the result), `--force` (bypass say cache),
-`--stability 0.55 --similarity 0.8 --speed 0.98` (voice tuning).
+`--stability 0.55 --similarity 0.8 --speed 0.98` (voice tuning),
+`--base <url>` on `feed.mjs` (override the asset host).
 
 ## Reused from /pop
 

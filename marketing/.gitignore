@@ -16,3 +16,4 @@ kidlisp-reels/out/
 # jingles regenerate from jingle.mjs; episodes + say cache are large/regen-able.
 podcast/out/
 podcast/assets/
+podcast/publish/
