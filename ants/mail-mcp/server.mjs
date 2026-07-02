@@ -147,16 +147,31 @@ async function run(cmd, args, { input, timeout = 30_000 } = {}) {
     // execFile doesn't pipe input to stdin; use spawn instead.
     return new Promise((resolve, reject) => {
       const child = spawnCb(cmd, args, { timeout });
-      let stdout = "", stderr = "";
+      let stdout = "", stderr = "", settled = false;
+      const finish = (fn) => (arg) => { if (settled) return; settled = true; fn(arg); };
+      const ok = finish(resolve);
+      const fail = finish(reject);
       child.stdout.on("data", (d) => (stdout += d));
       child.stderr.on("data", (d) => (stderr += d));
       child.on("close", (code) => {
-        if (code !== 0) return reject(new Error(`${cmd} exited ${code}: ${stderr.trim()}`));
-        resolve({ stdout: stdout.trim(), stderr: stderr.trim() });
+        if (code !== 0) return fail(new Error(`${cmd} exited ${code}: ${stderr.trim()}`));
+        ok({ stdout: stdout.trim(), stderr: stderr.trim() });
       });
-      child.on("error", reject);
-      child.stdin.write(input);
-      child.stdin.end();
+      child.on("error", fail);
+      // Guard the pipe: if the child exits early (bad message, auth failure,
+      // oversized attachment), writing to its stdin emits EPIPE. Without this
+      // handler that error is thrown unhandled and crashes the whole process —
+      // taking the MCP stdio connection down mid-request. Swallow EPIPE and let
+      // the 'close' handler above report the real exit code/stderr instead.
+      child.stdin.on("error", (err) => {
+        if (err && err.code === "EPIPE") return;
+        fail(err);
+      });
+      try {
+        child.stdin.end(input);
+      } catch (err) {
+        fail(err);
+      }
     });
   }
   const opts = { timeout, maxBuffer: 10 * 1024 * 1024 };
@@ -417,6 +432,8 @@ server.tool(
             : ext === "png" ? "image/png"
             : ext === "jpg" || ext === "jpeg" ? "image/jpeg"
             : ext === "html" ? "text/html"
+            : ext === "ai" ? "application/illustrator"
+            : ext === "svg" ? "image/svg+xml"
             : ext === "xlsx" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             : "application/octet-stream";
           parts.push(
@@ -439,7 +456,11 @@ server.tool(
         message = [...headers, "", styled.body].join("\r\n");
       }
 
-      const { stdout, stderr } = await run(MSMTP, ["-a", account, "-t"], { input: message });
+      // Larger attachments can take well over the default 30s to upload to the
+      // SMTP relay; scale the timeout with message size (base64-inflated) so big
+      // files don't get SIGTERM'd mid-transfer (which surfaces as "exited null").
+      const sendTimeout = Math.max(30_000, 30_000 + Math.ceil(message.length / (1024 * 1024)) * 15_000);
+      const { stdout, stderr } = await run(MSMTP, ["-a", account, "-t"], { input: message, timeout: sendTimeout });
       return {
         content: [
           {
