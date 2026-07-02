@@ -404,6 +404,14 @@ When adding `before` pagination, update the TODO at the top of [`chat-messages.m
 
 Use this flow for live Keeps market checks (`jas.tez`, `keeps.tez`, contract-level stats).
 
+**Actual sales (price + piece + buyer):** `node tezos/keeps-sales.mjs` (`--limit=N`,
+`--json`, `--network=ghostnet`). Keeps sell through an objkt-style marketplace
+(`ask` → `fulfill_ask`) at `KT1SwbTqhSKF6Pdokiu1K4Fpi17ahPPzmt1X`, which **objkt.com's
+own GraphQL does not index** — so the `listing_sale`/`offer_sale` queries below return
+0. The script reads sales straight from TzKT (a sale = a keeps `transfer` whose sender
+is the marketplace; price = the buyer's `fulfill_ask` amount). Prefer it over the objkt
+sales query for "what sold / latest sale."
+
 ```bash
 # 1) Resolve domains + active Keeps contract
 curl -sS "https://api.tzkt.io/v1/domains?name=jas.tez" | jq '.[0] | {name,address,owner,reverse}'

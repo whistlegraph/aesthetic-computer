@@ -79,6 +79,10 @@ curl -s "https://api.tzkt.io/v1/contracts/KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB" 
 node tezos/keeps.mjs status                 # contract status
 node tezos/keeps.mjs balance --wallet=kidlisp
 node tezos/keeps.mjs fee
+
+# actual sales — price + piece + buyer (reads the ask/fulfill_ask marketplace,
+# which objkt.com's own indexer does NOT surface)
+node tezos/keeps-sales.mjs --limit=20       # --json, --network=ghostnet
 ```
 
 For a full live market snapshot (floor, volume, owners, sales, mints today), see the
