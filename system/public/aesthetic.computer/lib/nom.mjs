@@ -1567,17 +1567,21 @@ function cellAt(px, py) {
 }
 
 // 🎨 Paint ───────────────────────────────────────────────────────────────────
-// Routes to the hi-res Canvas2D layer (a worker OffscreenCanvas managed by
-// disk's `hd()` API) when this edition opted in and the runtime provides it.
-// The pixel buffer is still painted underneath either way: it's what tapes,
-// previews, and freeze-frames capture, and it's the fallback if hd() is
-// unavailable — the opaque hi-res layer simply covers it on screen.
+// Either/or: an hd edition paints ONLY the hi-res Canvas2D layer (a worker
+// OffscreenCanvas managed by disk's `hd()` API); everyone else paints the
+// classic pixel buffer. disk's hd() hands back null in preview/icon mode and
+// while a tape is recording — those capture the pixel buffer, so the game
+// automatically drops to full pixel painting for exactly those frames.
 function paint(api) {
   setTheme(api.dark !== false); // 🌗 follow the system theme, live
-  paintGame(api);
-  if (hiRes && api.hd) {
-    const layer = api.hd();
-    if (layer) paintGame(hdApi(layer));
+  const layer = hiRes && api.hd ? api.hd() : null;
+  if (layer) {
+    // Keep the (hidden) pixel buffer a clean theme wash — freeze-frames and
+    // piece transitions sample it, and a flat color beats stale art there.
+    api.wipe(...T.bg);
+    paintGame(hdApi(layer));
+  } else {
+    paintGame(api);
   }
 }
 
