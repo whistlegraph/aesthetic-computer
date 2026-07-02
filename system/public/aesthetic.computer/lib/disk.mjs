@@ -2300,12 +2300,13 @@ let currentDisplay; // TODO: Remove this? 22.09.29.11.38
 let hdCanvas = null; // OffscreenCanvas backing store.
 let hdContext = null; // Its 2d context, pre-scaled to device resolution.
 let hdPainted = false; // A piece drew this frame → send a bitmap in `render`.
+let hdPixelRatio = 1; // devicePixelRatio from init-from-bios (reframed updates it).
 const HD_MAX_PIXELS = 4096 * 2304; // Backing-store ceiling (≈4K) for perf.
 
 function hd() {
   if (!screen || typeof OffscreenCanvas === "undefined") return null;
   const sub = currentDisplay?.subdivisions || 2;
-  const dpr = currentDisplay?.pixelRatio || 1;
+  const dpr = currentDisplay?.pixelRatio || hdPixelRatio;
   // Native device pixels per logical screen pixel, capped so giant displays
   // never allocate an unbounded backing store.
   const maxScale = Math.sqrt(HD_MAX_PIXELS / (screen.width * screen.height));
@@ -10248,6 +10249,7 @@ async function makeFrame({ data: { type, content } }) {
     debug = content.debug;
     setDebug(content.debug);
     ROOT_PIECE = content.rootPiece;
+    hdPixelRatio = content.pixelRatio || 1; // 🖼️ For the hd() layer's scale.
     if (content.bootId && typeof self !== "undefined") self.acBOOT_ID = content.bootId;
 
     // 📦 Kick off global version polling (skip preview/icon/pack/objkt where

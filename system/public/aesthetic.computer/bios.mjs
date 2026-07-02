@@ -4001,6 +4001,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       embeddedSource,
       noauth: window.acNOAUTH || false,
       bootId: window.acBOOT_ID || null,
+      pixelRatio: window.devicePixelRatio, // For the worker's `hd()` layer.
     },
   };
 
@@ -17360,6 +17361,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (content.TwoD) {
       TwoD?.pack(content.TwoD);
     }
+
+    // 🖼️ HD layer — composite this frame's native-resolution bitmap.
+    if (content.hd?.bitmap) updateHDLayer(content.hd);
 
     updateSynths(content.sound); // 🔈 Trigger any audio that was called upon.
 
