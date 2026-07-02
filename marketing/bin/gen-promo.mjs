@@ -116,7 +116,7 @@ const t0 = Date.now();
 // retry almost always succeeds. We also raise the per-request timeout
 // to 10 minutes so the underlying fetch doesn't bail prematurely on
 // the long server-side render.
-async function callOpenAIWithRetry(maxAttempts = 4) {
+async function callOpenAIWithRetry(maxAttempts = 6) {
   let lastErr = null;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const ac = new AbortController();
@@ -158,8 +158,10 @@ async function callOpenAIWithRetry(maxAttempts = 4) {
     } catch (e) {
       clearTimeout(timer);
       lastErr = e;
-      const cause = e?.cause?.code || e?.code || e?.name;
-      const transient = ["ETIMEDOUT", "EPIPE", "ECONNRESET", "ECONNREFUSED", "UND_ERR_SOCKET", "AbortError"].includes(cause);
+      // DOMException.code is a legacy NUMBER (AbortError = 20) — only trust
+      // string codes, otherwise fall through to the error name.
+      const cause = e?.cause?.code || (typeof e?.code === "string" ? e.code : null) || e?.name;
+      const transient = ["ETIMEDOUT", "EPIPE", "ECONNRESET", "ECONNREFUSED", "ENOTFOUND", "UND_ERR_SOCKET", "UND_ERR_CONNECT_TIMEOUT", "AbortError"].includes(cause);
       if (attempt < maxAttempts && transient) {
         const backoff = Math.min(60, 3 * Math.pow(2, attempt - 1));
         console.error(`  ⚠ attempt ${attempt} failed (${cause}); retrying in ${backoff}s…`);
