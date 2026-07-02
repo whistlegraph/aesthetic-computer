@@ -1,0 +1,88 @@
+A photograph of a colored-pencil and gouache drawing on pure white
+paper, WIDE LANDSCAPE. Confident hatching and striping build tone.
+Tapered pencil edges. Optical mixing in patterned surfaces. Visible
+paper grain. Print-work sensibility. Diegetic light only — never
+overlay glow. Candid iphone-snapshot tone — NOT cinematic, NOT an
+advertisement hero pose. The drawing dissolves softly to pure white
+paper at the LEFT and RIGHT edges with no hard frame, no border, no
+caption, no wordmark, no readable lettering anywhere on the page.
+
+CRUCIAL COMPOSITION: a wide, horizontal composition that spans the full
+width of the frame edge to edge, with the kneeling figure and the little
+audience laid out LEFT-TO-RIGHT across the page. keep the whole group
+low in the frame with only a slim margin of white at the very top and
+very bottom — nothing important near the top or bottom edge (it must
+survive a wide 16:9 crop). everything sits low and wide, not stacked
+vertically; the kneeling man is not tall in the frame.
+
+the scene, drawn from BEHIND and slightly above the performer: a tiny
+intimate house-show. one man KNEELS on the floor — up on his knees,
+sitting back lightly on his heels — in white space, no stage, no riser,
+no room beyond a soft hatched shadow beneath him — PRESENTING his little
+instrument to a small circle of friends seated on the floor in front of
+him. we are behind and slightly above him: we see his BACK and his
+kneeling legs folded neatly under him, the soles of his shoes tucked
+flat beneath his seat — no feet lifted in the air, nothing contorted.
+medium-length brown hair, a plain solid button-down shirt, shoulders
+bouncing. his face is turned away from us, toward his little audience.
+
+PRESENTATIONAL POSE, get this exact: he HOLDS the tiny laptop balanced
+flat on ONE open, upturned PALM — lifted and held OUT toward his
+audience like an offering or a waiter's tray — while his OTHER hand
+reaches over and TYPES on it, a finger on the keys. a warm show-and-tell
+gesture: he is presenting the keymap to the room.
+
+his instrument, balanced on his upturned palm: the exact small black
+Lenovo ThinkPad Yoga 11e, the convertible whose lid rotates a full 360
+degrees through the watchband hinge — a tiny toylike 11-inch machine,
+never a wide slab. he holds it tilted UP-AND-FORWARD so the glowing
+screen shows toward the room AND, from our raised vantage behind him, is
+VISIBLE to us and reads RIGHT-SIDE UP. the screen shows the EXACT
+notepat interface from the PROVIDED notepat screenshot reference: a neat
+grid of small candy-colored chromatic note tiles (the real notepat
+keymap UI), CORRECTLY ORIENTED — right-side up, never upside down, never
+mirrored, not an invented pattern.
+
+the audience: a small circle of SIX friends, each a DISTINCT, SPECIFIC
+character — a genuinely mixed cast, every one a different person, spread
+WIDE across the frame, all seated on the floor facing him (and us):
+- a Black woman in her 30s with box braids and a mustard cardigan, chin
+  resting on her hand, softly smiling;
+- an older East Asian man, 60s, close silver hair and round glasses,
+  nodding along, hands on his knees;
+- a young South Asian woman, 20s, long dark hair and a denim jacket,
+  knees hugged to her chest, leaning in;
+- a heavyset white man, 40s, ginger beard and a striped tee, sitting
+  back on his palms, grinning;
+- a Latina woman, 50s, curly hair and a leaf-green shawl, mid-laugh;
+- a slim Middle Eastern guy, 20s, buzzcut and a plain hoodie, just
+  watching, absorbed.
+peers at the same eye level, close and casual, NOT an arena crowd, NOT
+looking down at him — everyone is on the floor together. loosely drawn,
+simpler and fainter than the performer, but each clearly a different
+individual.
+
+the music: pencil-drawn musical note glyphs — quarter notes, eighth
+notes, beamed pairs, one sharp sign — pour from the laptop and from him
+and swirl LOW and WIDE through the air between him and the audience;
+near notes larger and darker, far notes small and faint, dissolving
+into the white paper before the left/right edges. simple hand-drawn
+glyphs in dark pencil with hints of candy color, never a printed
+music-font look.
+
+palette: white paper as the ground; matte black laptop as the dark
+mass; the candy-colored tile grid on the screen as the brightest
+passage; muted earth tone on the shirt; warm brown hair; dark pencil
+note glyphs. hand-drawn, hatched, print-comic restraint.
+
+avoid: a stage, riser, spotlight, or microphone; the man standing or
+sitting cross-legged — he is KNEELING, low and presenting; the laptop
+resting on the floor — he HOLDS it up on one palm; showing his face (we
+are behind him); photoreal rendering; cinematic glow; any css-overlay
+light; motion blur of any kind; soft-focus haze — crisp confident pencil
+throughout; the chartreuse green laptop — this is the small black
+ThinkPad; any readable institutional lettering; tank tops or invented
+garments; a large crowd; a tall stacked vertical composition; the
+kneeling man drawn too tall in the frame; important content near the top
+or bottom edge; feet lifted in the air; an invented screen pattern
+instead of the provided notepat UI.
