@@ -37,6 +37,10 @@ alias mongodb-compass 'mongodb-compass --enable-features=UseOzonePlatform,Waylan
 # reload fish config
 alias reload 'source ~/.config/fish/config.fish'
 
+# claude shorthands
+alias c 'claude'
+alias cr 'claude -r'
+
 # xdg-open wrapper for dev container (opens URLs on Windows host)
 function xdg-open
     "$BROWSER" $argv

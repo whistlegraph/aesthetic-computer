@@ -15,6 +15,10 @@ starship init fish | source
 # reload fish config
 alias reload 'source ~/.config/fish/config.fish'
 
+# claude shorthands
+alias c 'claude'
+alias cr 'claude -r'
+
 # alias ac-ssl '~/Desktop/code/aesthetic-computer/ssl-dev/ssl-install.fish'
 # The above script on macos is copied to ~/bin/ac-ssl and added to sudoers.
 
