@@ -824,7 +824,10 @@ if [ ! -f "$LINUX_DIR/Makefile" ]; then
     else
         log "  Downloading Linux $KVER..."
         cd "$KBUILD_ROOT"
-        curl -sL "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-${KVER}.tar.xz" | tar xJ
+        # cdn.kernel.org purges EOL series (and has outages); fall back to a
+        # git.kernel.org tag snapshot, which exists for every release forever.
+        curl -fsL "https://cdn.kernel.org/pub/linux/kernel/v${KMAJOR}.x/linux-${KVER}.tar.xz" | tar xJ \
+            || curl -fsL "https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/snapshot/linux-${KVER}.tar.gz" | tar xz
     fi
     echo "$KVER" > "$SENTINEL"
 fi

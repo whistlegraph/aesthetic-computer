@@ -47,11 +47,19 @@ RUN mkdir -p /cache \
     && rm /tmp/ql.lisp
 
 # ── Pre-download QuickJS + Linux kernel source ──
+# The kernel pre-download is a warm-start optimization: docker-build.sh
+# prefers the persistent /kernel-build volume and only reads /cache when
+# that volume is empty. cdn.kernel.org purges EOL series (6.19.9 vanished)
+# and has outages, so try it with -f (no HTML piped into xz), fall back to
+# a git.kernel.org tag snapshot, and continue image-building either way —
+# docker-build.sh downloads loudly at runtime if the source is truly absent.
 RUN mkdir -p /cache && cd /cache \
-    && curl -sL https://bellard.org/quickjs/quickjs-2024-01-13.tar.xz | tar xJ \
+    && curl -fsL https://bellard.org/quickjs/quickjs-2024-01-13.tar.xz | tar xJ \
     && ln -sf quickjs-2024-01-13 quickjs \
-    && curl -sL https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.19.9.tar.xz | tar xJ \
-    && echo "=== Cached: QuickJS + Linux 6.19.9 ==="
+    && { curl -fsL https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.19.9.tar.xz | tar xJ \
+         || curl -fsL https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/snapshot/linux-6.19.9.tar.gz | tar xz \
+         || echo "=== WARN: kernel pre-download skipped (mirrors down) ==="; } \
+    && echo "=== Cached: QuickJS (+ Linux 6.19.9 if mirrors were up) ==="
 
 # ── ChromeOS-flavored ALSA UCM (Use Case Manager) configs ──
 # Upstream alsa-ucm-conf has no entry for sof-rt5682 (Chromebook JSL boards).
