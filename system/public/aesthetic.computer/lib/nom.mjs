@@ -190,16 +190,19 @@ const DIGIT_COLORS = [
   [200, 140, 255], // 8 violet
   [255, 140, 210], // 9 pink
 ];
-function charColor(ch) {
+function charHue(ch) {
   if (ch >= "0" && ch <= "9") return DIGIT_COLORS[ch.charCodeAt(0) - 48];
   if (ch >= "a" && ch <= "z")
     return DIGIT_COLORS[(ch.charCodeAt(0) - 97) % DIGIT_COLORS.length];
-  return [230, 230, 245];
+  return null; // theme's plain text color
 }
-// Darkened tint for a cell's background, keyed to its last character.
+function charColor(ch) {
+  const c = charHue(ch);
+  return c ? themedText(c) : T.plainText;
+}
+// Theme-aware tint for a cell's background, keyed to its last character.
 function tileColor(str) {
-  const c = charColor(str[str.length - 1] || "0");
-  return [round(c[0] * 0.24) + 6, round(c[1] * 0.24) + 6, round(c[2] * 0.24) + 6];
+  return tileTint(charHue(str[str.length - 1] || "0") || [140, 150, 180]);
 }
 
 // Color-name words → their actual color (EN + ES), so COLORS/COLORES squares
@@ -228,6 +231,69 @@ const COLOR_WORDS = {
 };
 function luma(c) {
   return 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2];
+}
+
+// 🌗 Theme — auto light/dark, following the system setting. paint() re-reads
+// `api.dark` every frame, so flipping the OS theme restyles the live board.
+// T holds every structural color; the rainbow hue tables (digits, notes,
+// color-words) stay fixed and run through themedText / tileTint instead.
+let dark = true;
+let T = null;
+
+function setTheme(isDark) {
+  if (T && dark === isDark) return;
+  dark = isDark;
+  T = dark ? {
+    bg: [8, 10, 26],
+    trackBg: [20, 24, 44],
+    timeHi: [120, 220, 120], timeMid: [240, 210, 90], timeLow: [240, 80, 80],
+    timerPanic: [255, 60, 60], timerPanicAlt: [255, 235, 120],
+    ruleLabel: [255, 230, 120],
+    eaten: [15, 17, 34],
+    failedBg: [44, 22, 24],
+    missedBg: [72, 74, 82], missedText: [228, 230, 238], missedOutline: [210, 214, 222],
+    outline: [60, 70, 120], knownOutline: [150, 245, 170],
+    hoverFill: [255, 255, 255, 28], hoverOutline: [235, 242, 255],
+    wrapHint: [110, 215, 255, 110],
+    beckon: [170, 255, 195],
+    leftLabel: [140, 165, 195], leftWarn: [245, 130, 130], leftOk: [150, 210, 175],
+    swipeNeutral: [255, 255, 255],
+    introName: [255, 230, 120], introSub: [150, 220, 255],
+    overlaySub: [210, 220, 255],
+    plainText: [230, 230, 245],
+  } : {
+    bg: [236, 240, 247],
+    trackBg: [213, 219, 231],
+    timeHi: [40, 150, 70], timeMid: [190, 148, 16], timeLow: [198, 50, 50],
+    timerPanic: [205, 32, 32], timerPanicAlt: [170, 130, 12],
+    ruleLabel: [158, 116, 8],
+    eaten: [224, 229, 238],
+    failedBg: [240, 219, 219],
+    missedBg: [203, 207, 216], missedText: [56, 60, 70], missedOutline: [128, 134, 148],
+    outline: [175, 185, 207], knownOutline: [26, 138, 66],
+    hoverFill: [20, 30, 50, 24], hoverOutline: [50, 70, 100],
+    wrapHint: [24, 104, 164, 150],
+    beckon: [20, 150, 80],
+    leftLabel: [96, 110, 134], leftWarn: [198, 54, 54], leftOk: [34, 124, 86],
+    swipeNeutral: [50, 62, 86],
+    introName: [150, 108, 6], introSub: [24, 98, 156],
+    overlaySub: [64, 74, 110],
+    plainText: [42, 46, 58],
+  };
+}
+setTheme(true);
+
+// Text hue adapted to the theme — the rainbow is tuned for the dark board;
+// on paper each hue drops to ~58% so it keeps contrast on pastel tiles.
+function themedText(c) {
+  return dark ? c : [round(c[0] * 0.58), round(c[1] * 0.58), round(c[2] * 0.58)];
+}
+
+// Tile-background tint from a hue — deep tints on dark, pastels on light.
+function tileTint(c) {
+  return dark
+    ? [round(c[0] * 0.24) + 6, round(c[1] * 0.24) + 6, round(c[2] * 0.24) + 6]
+    : [255 - round((255 - c[0]) * 0.22), 255 - round((255 - c[1]) * 0.22), 255 - round((255 - c[2]) * 0.22)];
 }
 
 // 🔤 Text fitting ─────────────────────────────────────────────────────────────
@@ -287,11 +353,10 @@ const NOTE_COLORS = {
   "G#": [150, 150, 255], A: [195, 130, 255], "A#": [235, 120, 220], B: [255, 120, 170],
 };
 function noteColor(letter) {
-  return NOTE_COLORS[letter] || [220, 220, 235];
+  return themedText(NOTE_COLORS[letter] || [220, 220, 235]);
 }
 function noteTile(letter) {
-  const c = noteColor(letter);
-  return [round(c[0] * 0.22) + 6, round(c[1] * 0.22) + 6, round(c[2] * 0.22) + 6];
+  return tileTint(NOTE_COLORS[letter] || [220, 220, 235]);
 }
 function noteLabel(letter, oct) {
   return letter + oct; // e.g. "C4", "F#5"
@@ -1508,6 +1573,7 @@ function cellAt(px, py) {
 // previews, and freeze-frames capture, and it's the fallback if hd() is
 // unavailable — the opaque hi-res layer simply covers it on screen.
 function paint(api) {
+  setTheme(api.dark !== false); // 🌗 follow the system theme, live
   paintGame(api);
   if (hiRes && api.hd) {
     const layer = api.hd();
@@ -1584,7 +1650,7 @@ function hdApi({ ctx, width, height }) {
 
 function paintGame({ wipe, ink, screen, write, box, line, text }) {
   computeLayout(screen);
-  wipe(8, 10, 26);
+  wipe(...T.bg);
   paintBackground({ ink, box, screen });
 
   applyCamera(screen); // dynamic camera → updates layout in place
@@ -1598,12 +1664,12 @@ function paintGame({ wipe, ink, screen, write, box, line, text }) {
   if (lowTime && blink) ink(150, 0, 0, 115).box(0, 0, screen.width, screen.height);
 
   // ⏳ Beat timeline bar across the very top.
-  const tcol = tf > 0.5 ? [120, 220, 120] : tf > 0.25 ? [240, 210, 90] : [240, 80, 80];
-  ink(20, 24, 44).box(0, 0, screen.width, 3 + (beatPulse > 4 ? 1 : 0));
+  const tcol = tf > 0.5 ? T.timeHi : tf > 0.25 ? T.timeMid : T.timeLow;
+  ink(...T.trackBg).box(0, 0, screen.width, 3 + (beatPulse > 4 ? 1 : 0));
   ink(...tcol).box(0, 0, round(screen.width * tf), 3 + (beatPulse > 4 ? 1 : 0));
 
   // ⏳ Big timer (beats left), top-left — blinks near zero.
-  const timeCol = lowTime ? (blink ? [255, 60, 60] : [255, 235, 120]) : tcol;
+  const timeCol = lowTime ? (blink ? T.timerPanic : T.timerPanicAlt) : tcol;
   bigNum(ink, `${beatsLeft}`, 8, 8, 4, timeCol);
 
   // Rule title, top-right (no levels, no score). Word editions render it in
@@ -1612,7 +1678,7 @@ function paintGame({ wipe, ink, screen, write, box, line, text }) {
   const labelFont = cellFont();
   const { adv: lAdv } = fontMetrics(labelFont);
   const ruleX = max(4, screen.width - 8 - ruleLabel.length * lAdv * 2);
-  ink(255, 230, 120).write(
+  ink(...T.ruleLabel).write(
     ruleLabel,
     { x: ruleX, y: 9, size: 2 },
     undefined, undefined, false, labelFont || undefined,
@@ -1636,10 +1702,10 @@ function paintGame({ wipe, ink, screen, write, box, line, text }) {
       // Tile background.
       let bg;
       if (cd.flash > 0) bg = cd.correct ? [40, 150, 70] : [160, 45, 45];
-      else if (cd.eaten) bg = [15, 17, 34];
-      else if (cd.failed) bg = [44, 22, 24];
+      else if (cd.eaten) bg = T.eaten;
+      else if (cd.failed) bg = T.failedBg;
       else if (cd.known) bg = [40, 168, 80]; // confirmed-correct → whole square green
-      else if (missed) bg = [72, 74, 82]; // revealed missed answer = gray
+      else if (missed) bg = T.missedBg; // revealed missed answer = gray
       else if (mode === "note") bg = noteTile(cd.letter); // pitch-class tint
       else if (colorWord) bg = colorWord; // color squares ARE that color
       else bg = tileColor(txt);
@@ -1647,15 +1713,15 @@ function paintGame({ wipe, ink, screen, write, box, line, text }) {
 
       // Outline.
       if (cd.known && !cd.eaten)
-        ink(150, 245, 170).box(cx + 1, cy + 1, cell - 2, cell - 2, "outline");
+        ink(...T.knownOutline).box(cx + 1, cy + 1, cell - 2, cell - 2, "outline");
       else if (missed)
-        ink(210, 214, 222).box(cx + 1, cy + 1, cell - 2, cell - 2, "outline");
-      else ink(60, 70, 120).box(cx + 1, cy + 1, cell - 2, cell - 2, "outline");
+        ink(...T.missedOutline).box(cx + 1, cy + 1, cell - 2, cell - 2, "outline");
+      else ink(...T.outline).box(cx + 1, cy + 1, cell - 2, cell - 2, "outline");
 
       // 🖱️ Hover highlight.
       if (hover && hover.col === c && hover.row === r && !cd.eaten && state === "play") {
-        ink(255, 255, 255, 28).box(cx + 1, cy + 1, cell - 2, cell - 2);
-        ink(235, 242, 255).box(cx + 1, cy + 1, cell - 2, cell - 2, "outline");
+        ink(...T.hoverFill).box(cx + 1, cy + 1, cell - 2, cell - 2);
+        ink(...T.hoverOutline).box(cx + 1, cy + 1, cell - 2, cell - 2, "outline");
       }
     }
   }
@@ -1680,7 +1746,7 @@ function paintGame({ wipe, ink, screen, write, box, line, text }) {
       let col;
       if (cd.failed) col = [120, 95, 100];
       else if (cd.known) col = [10, 40, 18]; // dark on the green known square
-      else if (missed) col = [228, 230, 238];
+      else if (missed) col = T.missedText;
       else if (mode === "note") col = noteColor(cd.letter); // note's keyboard hue
       else if (colorWord) col = luma(colorWord) > 140 ? [25, 25, 30] : [245, 245, 255];
       else col = charColor(txt[0]);
@@ -1703,9 +1769,10 @@ function paintGame({ wipe, ink, screen, write, box, line, text }) {
     if (!cd || cd.eaten) return;
     const t = String(cd.value);
     const font = cellFont();
-    const gc = mode === "note" ? noteColor(cd.letter) : COLOR_WORDS[t] || charColor(t[0]);
+    const cw = COLOR_WORDS[t];
+    const gc = mode === "note" ? noteColor(cd.letter) : cw ? themedText(cw) : charColor(t[0]);
     drawCellText(ink, t, gx, gy, cell, font, gc, 95);
-    ink(110, 215, 255, 110).box(gx + 2, gy + 2, cell - 4, cell - 4, "outline");
+    ink(...T.wrapHint).box(gx + 2, gy + 2, cell - 4, cell - 4, "outline");
   };
   const mc = muncher.col,
     mr = muncher.row;
@@ -1725,8 +1792,8 @@ function paintGame({ wipe, ink, screen, write, box, line, text }) {
       if (cd && cd.known && !cd.eaten && !cd.failed) {
         const ncx = x + nc * cell,
           ncy = y + nr * cell;
-        ink(170, 255, 195, pul).box(ncx + 1, ncy + 1, cell - 2, cell - 2, "outline");
-        ink(170, 255, 195, pul).box(ncx + 2, ncy + 2, cell - 4, cell - 4, "outline");
+        ink(T.beckon[0], T.beckon[1], T.beckon[2], pul).box(ncx + 1, ncy + 1, cell - 2, cell - 2, "outline");
+        ink(T.beckon[0], T.beckon[1], T.beckon[2], pul).box(ncx + 2, ncy + 2, cell - 4, cell - 4, "outline");
       }
     }
   }
@@ -1793,8 +1860,8 @@ function paintGame({ wipe, ink, screen, write, box, line, text }) {
   const lsz = 4;
   const leftW = leftN.length * 6 * lsz;
   const leftX = screen.width - 8 - leftW;
-  bigNum(ink, leftN, leftX, screen.height - 8 * lsz - 4, lsz, remaining <= 3 ? [245, 130, 130] : [150, 210, 175]);
-  ink(140, 165, 195).write("LEFT", { x: max(4, leftX - 28), y: screen.height - 14 });
+  bigNum(ink, leftN, leftX, screen.height - 8 * lsz - 4, lsz, remaining <= 3 ? T.leftWarn : T.leftOk);
+  ink(...T.leftLabel).write("LEFT", { x: max(4, leftX - 28), y: screen.height - 14 });
 
   // 🍽️ Collected answers — stack down the left, measured to fit the margin.
   // Word boards run near edge-to-edge, so on narrow screens there's no gutter
@@ -1831,7 +1898,7 @@ function paintGame({ wipe, ink, screen, write, box, line, text }) {
     const adx = abs(dx),
       ady = abs(dy);
     const past = max(adx, ady) >= SWIPE_MIN;
-    const c = past ? [120, 255, 160] : [255, 255, 255];
+    const c = past ? (dark ? [120, 255, 160] : [26, 150, 80]) : T.swipeNeutral;
     // Deadzone square (Chebyshev threshold) centered on the touch start.
     ink(c[0], c[1], c[2], 70).box(drag.sx - SWIPE_MIN, drag.sy - SWIPE_MIN, SWIPE_MIN * 2, SWIPE_MIN * 2, "outline");
     ink(c[0], c[1], c[2], 200).line(drag.sx, drag.sy, drag.x, drag.y); // vector to finger
@@ -1881,9 +1948,10 @@ function paintBackground({ ink, box, screen }) {
   const pulse = beatPulse > 0 ? 6 : 0;
   for (let gy = -sp; gy < screen.height + sp; gy += sp) {
     for (let gx = -sp; gx < screen.width + sp; gx += sp) {
-      // Faint, just barely above the (8,10,26) background.
+      // Faint, just barely off the background — brighter on dark, dimmer on light.
       const b = 4 + pulse + 3 * sin((gx + gy) * 0.05 + frames * 0.035);
-      ink(14 + round(b * 0.4), 16 + round(b * 0.5), 32 + round(b)); // dim blue-violet
+      if (dark) ink(14 + round(b * 0.4), 16 + round(b * 0.5), 32 + round(b)); // dim blue-violet
+      else ink(225 - round(b * 1.2), 229 - round(b * 1.1), 240 - round(b * 0.6)); // soft graphite-blue
       box(gx + dx, gy + dy, 2, 2);
     }
   }
@@ -2088,18 +2156,18 @@ function paintIntro({ ink, screen, write }) {
   const fade = introTimer > 44 ? 1 : introTimer / 44; // ease out over the last ~0.7s
   const A = (v) => max(0, round(v * fade));
   // Dim the board so the title reads, but let it show through (board already up).
-  ink(8, 10, 26, A(165)).box(0, 0, screen.width, screen.height);
+  ink(T.bg[0], T.bg[1], T.bg[2], A(dark ? 165 : 190)).box(0, 0, screen.width, screen.height);
 
   const cy = round(screen.height / 2);
   // Responsive game name (ASCII, default 6px font): fit ~78% of the width.
   const name = gameName();
   const nameSize = max(1, min(4, floor((screen.width * 0.78) / max(1, name.length * 6))));
   const nameH = nameSize * 10;
-  ink(255, 230, 120, A(255)).write(name, { center: "x", y: cy - nameH, size: nameSize });
+  ink(T.introName[0], T.introName[1], T.introName[2], A(255)).write(name, { center: "x", y: cy - nameH, size: nameSize });
 
   // Native edition subtitle in unifont (accents + Cyrillic render correctly).
   const sub = editionText();
-  ink(150, 220, 255, A(255)).write(
+  ink(T.introSub[0], T.introSub[1], T.introSub[2], A(255)).write(
     sub,
     { center: "x", y: cy + max(6, nameSize * 3) },
     undefined, undefined, false, "unifont",
@@ -2119,7 +2187,7 @@ function overlay({ ink, screen, write }, title, sub) {
   ink(...bg).box(tx - 10, ty - 6, tw + 20, 8 * ts + 12);
   ink(0, 0, 0, 150).box(tx - 10, ty - 6, tw + 20, 8 * ts + 12, "outline");
   ink(255, 248, 230).write(title, { x: tx, y: ty, size: ts });
-  ink(210, 220, 255).write(sub, { center: "x", y: screen.height / 2 + 26 });
+  ink(...T.overlaySub).write(sub, { center: "x", y: screen.height / 2 + 26 });
 }
 
 // 📰 Meta — built from explicit params so the title is correct at load time,
