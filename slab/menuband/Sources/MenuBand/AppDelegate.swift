@@ -33,10 +33,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Bumped by a stop to cancel every still-pending onset: each scheduled
     /// closure captures the generation and no-ops if it no longer matches.
     private var playGeneration = 0
-    /// Current score for the popover transport (title + window), if any.
-    private var currentScoreTitle: String?
-    private var currentScoreStart = 0.0
-    private var currentScoreEnd = 0.0
 
     private let hoverResponder = HoverResponder()
     /// Bridges typing in the macOS Stickies app to Menu Band note
@@ -3103,8 +3099,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.menuBand.panic()               // silence anything ringing
             if self.menuBand.percussionSplit { self.menuBand.percussionSplit = false }
             self.menuBand.octaveShift = 0
-            self.currentScoreTitle = nil
-            self.currentScoreEnd = 0
+            KeyboardIconRenderer.scoreTitle = nil
+            KeyboardIconRenderer.scoreStart = 0
+            KeyboardIconRenderer.scoreEnd = 0
             self.fleetDriveUntil = 0
             self.fleetClearTimer?.invalidate()
             KeyboardIconRenderer.fleetDriving = false
@@ -3257,36 +3254,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let partEnd = leadIn + partBeats * beat + 0.3
             // Remember the score for the popover transport (title + window).
             if syncEpoch != nil {
-                self.currentScoreTitle = info["title"] ?? self.currentScoreTitle
-                self.currentScoreStart = downbeatEpoch
-                self.currentScoreEnd = max(self.currentScoreEnd, downbeatEpoch + partBeats * beat + 0.4)
+                if let t = info["title"] { KeyboardIconRenderer.scoreTitle = t }
+                KeyboardIconRenderer.scoreStart = downbeatEpoch
+                KeyboardIconRenderer.scoreEnd = max(KeyboardIconRenderer.scoreEnd, downbeatEpoch + partBeats * beat + 0.4)
             }
 
-            // (1) Drum kit: a drums-ONLY part enters drum mode through the REAL
-            //     toggle so the keyboard visibly flips to the kit (kick cue
-            //     confirms it), exactly like pressing the drum button — then
-            //     restores after. A melodic part with an incidental kick keeps
-            //     its keyboard; the kick still hits and lights its pad below.
-            let priorSplit = self.menuBand.percussionSplit
-            if hasDrums && melodicNotes.isEmpty && !priorSplit {
+            // (1) Drum mode: ANY part with drums enters percussion mode through
+            //     the REAL toggle so the keyboard visibly arms the kit — exactly
+            //     like pressing [ / ]. A drums-ONLY part arms the whole board; a
+            //     part with melody too arms just the RIGHT octave (upper half =
+            //     drums, lower half stays melodic) — the "drum overlay on one
+            //     octave" a player would set up. Restored when the part ends.
+            let hasMelody = !melodicNotes.isEmpty
+            let priorLeft = self.menuBand.percussionLeft
+            let priorRight = self.menuBand.percussionRight
+            if hasDrums {
                 DispatchQueue.main.asyncAfter(deadline: .now() + max(0, leadIn - 0.2)) { [weak self] in
-                    self?.menuBand.percussionSplit = true
-                    self?.menuBand.playPercussionToggleCue(on: true)
+                    guard let self = self else { return }
+                    if hasMelody { self.menuBand.percussionRight = true }   // upper octave = drums
+                    else { self.menuBand.percussionSplit = true }           // whole board = drums
+                    self.menuBand.playPercussionToggleCue(on: true, pan: hasMelody ? 96 : 64)
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + partEnd) { [weak self] in
-                    if self?.menuBand.percussionSplit == true { self?.menuBand.percussionSplit = false }
+                    guard let self = self else { return }
+                    self.menuBand.percussionLeft = priorLeft
+                    self.menuBand.percussionRight = priorRight
                 }
             }
 
             // (2) Octave: shift the board so this part's register is in view and
-            //     the UI octave indicator MOVES, like a user tapping octave
-            //     up/down. One median-centered shift per part, restored after.
+            //     the UI octave indicator MOVES, like a user tapping octave up/
+            //     down. When drums own the upper octave, center the melody on the
+            //     LOWER octave so the two halves don't collide.
             let priorOctave = self.menuBand.octaveShift
+            let melCenter = hasDrums ? 65 : 71
             var octShift = 0
-            if !melodicNotes.isEmpty {
+            if hasMelody {
                 let sorted = melodicNotes.sorted()
                 let median = sorted[sorted.count / 2]
-                octShift = max(-4, min(4, Int((Double(median - 71) / 12.0).rounded())))
+                octShift = max(-4, min(4, Int((Double(median - melCenter) / 12.0).rounded())))
                 if octShift != priorOctave {
                     let s = octShift
                     DispatchQueue.main.asyncAfter(deadline: .now() + max(0, leadIn - 0.2)) { [weak self] in
@@ -3337,9 +3343,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         // octave indicator moved to match, the RIGHT key lights
                         // in the RIGHT register — like a user who octave-shifted
                         // then pressed the key. Audio still sounds the true pitch.
+                        // When drums own the upper octave, keep melody in the
+                        // lower half (60–71); otherwise the full board (60–83).
+                        let melHi = hasDrums ? 71 : 83
                         var disp = Int(midi) - octShift * 12
                         while disp < 60 { disp += 12 }
-                        while disp > 83 { disp -= 12 }
+                        while disp > melHi { disp -= 12 }
                         let display = UInt8(disp)
                         let onEpoch = downbeatEpoch + (onAt - leadIn)
                         let offEpoch = downbeatEpoch + (offAt - leadIn)
@@ -3400,16 +3409,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// so a conducted beat animates the keyboard like a real drum keypress.
     /// Spread low→high across the visible board so a kit reads as motion:
     /// kick/snare/clap sit low, hats and cymbals up top.
+    /// Drums light the UPPER octave (≥ lingerSplitMidi = 72) — the half armed
+    /// for percussion — so a conducted beat animates the drum pads exactly where
+    /// a player's armed keys would be, leaving the lower octave for melody.
     private static func drumLightNote(for sym: Substring) -> UInt8 {
         switch sym {
-        case "k":  return 60   // kick  — low C
-        case "s":  return 64   // snare
-        case "c":  return 62   // clap
-        case "h":  return 76   // closed hat — up high
-        case "ho": return 78   // open hat
-        case "rd": return 80   // ride
-        case "cr": return 82   // crash
-        default:   return 67
+        case "k":  return 72   // kick  — low of the drum octave
+        case "s":  return 74   // snare
+        case "c":  return 73   // clap
+        case "h":  return 78   // closed hat
+        case "ho": return 80   // open hat
+        case "rd": return 82   // ride
+        case "cr": return 83   // crash
+        default:   return 76
         }
     }
 

@@ -171,6 +171,17 @@ final class MenuBandPopoverViewController: NSViewController {
     /// window when the user opens it.
     private var latestRemoteVersion: UpdateChecker.VersionInfo?
 
+    // MARK: - Score transport (Stop button + progress)
+    // While a fleet/conductor score performs, the popover covers itself with a
+    // big STOP button + the score title + a progress bar. STOP posts
+    // `menuband.stop`, which the app cancels + relays across the fleet — so any
+    // machine can cease the whole performance. Driven by a light timer while
+    // the popover is on screen; the state lives on KeyboardIconRenderer.
+    private var transportOverlay: NSView?
+    private var transportTitle: NSTextField?
+    private var transportProgress: NSProgressIndicator?
+    private var transportTimer: Timer?
+
     /// Layered substrate for the held-notes pills + chord cards. The
     /// MTL waveform that used to live inside this bezel has been
     /// retired; the housing stays for visual continuity (rounded
@@ -971,9 +982,106 @@ final class MenuBandPopoverViewController: NSViewController {
     // screen. The CVDisplayLink would otherwise keep firing 60 (or 120)
     // times a second while the popover is hidden, redrawing into a layer
     // no one can see. Patch contributed by Esteban Uribe.
+    override func viewWillDisappear() {
+        super.viewWillDisappear()
+        transportTimer?.invalidate()
+        transportTimer = nil
+    }
+
+    /// Build the STOP overlay once, pinned to fill the popover, hidden at rest.
+    private func installTransportOverlayIfNeeded() {
+        guard transportOverlay == nil, isViewLoaded else { return }
+        let overlay = NSView()
+        overlay.wantsLayer = true
+        overlay.layer?.backgroundColor = NSColor(srgbRed: 0.06, green: 0.06, blue: 0.08, alpha: 0.97).cgColor
+        overlay.translatesAutoresizingMaskIntoConstraints = false
+        overlay.isHidden = true
+        view.addSubview(overlay)
+        NSLayoutConstraint.activate([
+            overlay.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            overlay.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            overlay.topAnchor.constraint(equalTo: view.topAnchor),
+            overlay.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+
+        let nowPlaying = NSTextField(labelWithString: "NOW PLAYING")
+        nowPlaying.font = .monospacedSystemFont(ofSize: 10, weight: .semibold)
+        nowPlaying.textColor = NSColor(white: 1, alpha: 0.4)
+        nowPlaying.alignment = .center
+
+        let title = NSTextField(labelWithString: "")
+        title.font = .systemFont(ofSize: 17, weight: .bold)
+        title.textColor = .white
+        title.alignment = .center
+        title.lineBreakMode = .byTruncatingTail
+        title.maximumNumberOfLines = 2
+
+        let progress = NSProgressIndicator()
+        progress.isIndeterminate = false
+        progress.style = .bar
+        progress.minValue = 0
+        progress.maxValue = 1
+        progress.controlSize = .small
+
+        let stop = NSButton(title: "◼  STOP", target: self, action: #selector(transportStopPressed))
+        stop.bezelStyle = .rounded
+        stop.controlSize = .large
+        stop.font = .systemFont(ofSize: 16, weight: .heavy)
+        stop.contentTintColor = NSColor.systemRed
+        stop.keyEquivalent = "\u{1b}" // Esc also stops while the popover is open
+
+        let stack = NSStackView(views: [nowPlaying, title, progress, stop])
+        stack.orientation = .vertical
+        stack.alignment = .centerX
+        stack.spacing = 12
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        overlay.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.centerXAnchor.constraint(equalTo: overlay.centerXAnchor),
+            stack.centerYAnchor.constraint(equalTo: overlay.centerYAnchor),
+            stack.leadingAnchor.constraint(greaterThanOrEqualTo: overlay.leadingAnchor, constant: 24),
+            stack.trailingAnchor.constraint(lessThanOrEqualTo: overlay.trailingAnchor, constant: -24),
+            progress.widthAnchor.constraint(equalTo: stack.widthAnchor),
+        ])
+        transportOverlay = overlay
+        transportTitle = title
+        transportProgress = progress
+    }
+
+    @objc private func transportStopPressed() {
+        DistributedNotificationCenter.default().postNotificationName(
+            NSNotification.Name("computer.aestheticcomputer.menuband.stop"),
+            object: nil, userInfo: nil, deliverImmediately: true)
+        transportOverlay?.isHidden = true
+    }
+
+    /// Show/hide + update the transport based on the shared score state.
+    private func updateTransport() {
+        installTransportOverlayIfNeeded()
+        guard let overlay = transportOverlay else { return }
+        let now = Date().timeIntervalSince1970
+        if let title = KeyboardIconRenderer.scoreTitle, now < KeyboardIconRenderer.scoreEnd {
+            let start = KeyboardIconRenderer.scoreStart, end = KeyboardIconRenderer.scoreEnd
+            transportTitle?.stringValue = title
+            let span = max(0.001, end - start)
+            transportProgress?.doubleValue = min(1, max(0, (now - start) / span))
+            if overlay.isHidden { overlay.isHidden = false }
+            overlay.layer?.zPosition = 100
+            view.addSubview(overlay) // bring to front
+        } else if !overlay.isHidden {
+            overlay.isHidden = true
+        }
+    }
+
     override func viewDidAppear() {
         super.viewDidAppear()
         guard isViewLoaded, let menuBand = self.menuBand else { return }
+        // Drive the STOP transport while the popover is on screen.
+        updateTransport()
+        transportTimer?.invalidate()
+        transportTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
+            self?.updateTransport()
+        }
         syncFromController()
         applyVisualizerForMidiMode(menuBand.midiMode)
         // Voice-grid focus moved out of the popover with the chooser

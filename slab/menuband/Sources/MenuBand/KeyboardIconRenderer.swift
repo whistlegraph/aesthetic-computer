@@ -379,6 +379,11 @@ enum KeyboardIconRenderer {
     /// The chip paints a little robot head in its top-left corner while
     /// set, signalling "a machine (not the keyboard) is playing me."
     static var fleetDriving: Bool = false
+    /// The score currently performing (for the popover transport) and its
+    /// start/end wall-clock window for the progress bar. Nil title = idle.
+    static var scoreTitle: String? = nil
+    static var scoreStart: TimeInterval = 0
+    static var scoreEnd: TimeInterval = 0
     /// BPM + swing-start timestamp pushed by the popover's
     /// metronome on every restart. The chip's needle uses these
     /// to compute its swing phase from CACurrentMediaTime so the
