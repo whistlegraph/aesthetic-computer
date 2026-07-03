@@ -135,7 +135,13 @@ Voice posture: jeffrey-pvc as **rapped lead** (not sung, not one-shot) — narro
 
 See [`booch/README.md`](booch/README.md) for the format spec and [`booch/STUDY.md`](booch/STUDY.md) for the genre study + the blend law. Status: scaffolded 2026-05-24; first track `visualize-my-booch` lyrics + .np score drafted, render/sing pipeline pending.
 
-### 9. (open)
+### 9. novelizer (`novelizer/`)
+
+The **novel-voice research lane** (research lane like `voice/` and `dsp/`, not a track lane). Its project: research synthesis techniques the AC stable doesn't have — scanned synthesis, pulsar trains, feedback-FM chaos, banded-waveguide friction, VOSIM, two-mass creature voices — and prove each as a portable **C99 voice** (libm only, AC house style) rendered against a fixed battery of test melodies, then scored for novelty / musicality / entertainability. Keepers graduate into track lanes, `dance/synths/`-style JS ports, gm_synth, or AC Native.
+
+See [`novelizer/README.md`](novelizer/README.md) for the harness contract and batch workflow, [`novelizer/REPORT.md`](novelizer/REPORT.md) for verdicts. Status: batch 1 landed 2026-07-02 — six voices (scanner, pulsar, frictus, twomass, chaosfm, vosim), all judged keepers.
+
+### 10. (open)
 
 More lanes will land here as they prove themselves. Candidates: kidlisp-as-instrument tracks, AC-native ensemble cuts, voice-memo-grade demo lane. None of them have earned a swimlane yet — they need a real track first.
 
