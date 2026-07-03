@@ -935,6 +935,22 @@ function createMenu() {
         isMac ? { role: 'close' } : { role: 'quit' }
       ]
     },
+    // Edit menu — macOS only delivers Cmd+C/V/X/A to the page when these
+    // role items exist in the app menu; without them paste is dead app-wide.
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        ...(isMac ? [{ role: 'pasteAndMatchStyle' }] : []),
+        { role: 'delete' },
+        { role: 'selectAll' }
+      ]
+    },
     // Go menu (navigation)
     {
       label: 'Go',

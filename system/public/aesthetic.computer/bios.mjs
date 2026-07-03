@@ -11933,13 +11933,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // event listener on the document.
     // 📓 Re-adding the same label updates the hitbox in place. This matters
     //    for pieces whose layout reflows on resize — the hitbox needs to
-    //    track the latest button box. The `state` down/up flag is local to
-    //    each handler closure and resets on re-add, which is fine so long
-    //    as layout updates don't happen mid-tap.
+    //    track the latest button box. Pieces that repaint every frame
+    //    (laklok's marquee, blinking cursors) re-publish their buttons every
+    //    frame, replacing this handler mid-tap — so the down/up state is
+    //    carried over from the handler being replaced, otherwise pointerup
+    //    never sees the pointerdown and the button can't fire.
     if (type === "button:hitbox:add") {
-      let state = "up";
       // Event handler for each button press.
-      hitboxes[content.label] = async (e) => {
+      const handler = async (e) => {
         const frame = canvas.getBoundingClientRect();
         const xscale = projectedWidth / canvas.width;
         const yscale = projectedHeight / canvas.height;
@@ -11963,7 +11964,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         const hit = hitbox.contains({ x: e.x, y: e.y });
 
-        if (e.type === "pointerup" && state === "down" && hit) {
+        if (e.type === "pointerup" && handler.state === "down" && hit) {
           // This is pretty specific to the "copy" clipboard
           // stuff for now. 23.06.16.15.03
           // console.log("🔘 Button tap label:", content.label);
@@ -12087,13 +12088,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
           }
 
-          state = "up";
+          handler.state = "up";
         } else if (e.type === "pointerdown" && hit) {
-          state = "down";
+          handler.state = "down";
         } else if (e.type === "pointerup" && !hit) {
-          state = "up";
+          handler.state = "up";
         }
       };
+      handler.state = hitboxes[content.label]?.state || "up";
+      hitboxes[content.label] = handler;
 
       return;
     }
