@@ -54,3 +54,8 @@ boombaboom/snapped/
 boombaboom/illy/frame-*.jpg
 boombaboom/sources/*.wav
 !boombaboom/sources/boombaboom-raw.wav
+
+# emotribtranse — compiled binary + render outputs (sources .c/.sh ARE tracked)
+emotribtranse/c/emotribtranse
+emotribtranse/c/out/
+emotribtranse/out/
