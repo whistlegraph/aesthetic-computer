@@ -8,11 +8,13 @@
 // syncing in an editor — hold space for each shot, end up with a pile of
 // pre-synced takes on prompt.ac.
 //
-// USB cams are plug-and-play: the stream thread rescans until a camera
-// appears, survives unplugs, and prefers the newest-plugged device — so
-// you can switch out cams per shot. F flips the picture 180° for
-// bent-back "monitor mode" (the performers see themselves right-side-up
-// and the footage matches, since the tape records the screen).
+// Cameras: the built-in webcam works out of the box, and USB cams are
+// plug-and-play — the stream thread polls /dev/videoN every second, so a
+// freshly plugged cam auto-takes the stream and unplugs survive. TAB
+// cycles through everything connected (built-in included) for switching
+// out cams per shot. F flips the picture 180° for bent-back "monitor
+// mode" (the performers see themselves right-side-up and the footage
+// matches, since the tape records the screen).
 //
 // While recording the piece paints ONLY the camera frame: the runtime
 // submits the framebuffer to the recorder right after paint, so any UI
@@ -60,7 +62,7 @@ function paint({ wipe, ink, screen, system, sound }) {
     wipe(0, 0, 0);
     const dots = ".".repeat(1 + (Math.floor(bootFrame / 20) % 3));
     ink(180, 180, 180).write("looking for a camera" + dots, { x: 8, y: 12 });
-    ink(130, 130, 130).write("plug in a USB cam and it appears here", {
+    ink(130, 130, 130).write("built-in or USB — it appears here", {
       x: 8,
       y: 24,
     });
@@ -90,6 +92,13 @@ function paint({ wipe, ink, screen, system, sound }) {
     x: 6,
     y: screen.height - 12,
   });
+  const cams = system?.cameraCount?.() || 0;
+  if (cams > 1) {
+    ink(130, 130, 130).write(`TAB switches cameras (${cams} found)`, {
+      x: 6,
+      y: screen.height - 42,
+    });
+  }
   if (flipped) {
     ink(120, 220, 255).write("flipped", { x: 34, y: 6 });
   }
@@ -120,6 +129,8 @@ function act({ event: e, system }) {
   if (e.is("lift")) stopClip(system);
   // F rotates the view 180° — bent-back screen becomes a performer monitor.
   if (e.is("keyboard:down:f") && !e.repeat) flipped = !flipped;
+  // TAB cycles through connected cameras (built-in + USB).
+  if (e.is("keyboard:down:tab") && !e.repeat) system?.cameraSwitch?.();
 }
 
 function leave() {

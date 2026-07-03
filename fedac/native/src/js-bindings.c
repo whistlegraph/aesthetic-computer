@@ -4187,34 +4187,97 @@ static void *cam_stream_thread_fn(void *arg) {
     ACRuntime *rt = (ACRuntime *)arg;
     ACCamera *cam = &rt->camera;
     int announced_wait = 0;
+    char devices[10][16];
+    char prev[10][16];
+    int prev_count = -1; // -1 = first poll (skip the auto-switch compare)
+    char open_path[16] = {0};
 
-    // Plug-and-play loop: keep rescanning until a camera appears, stream
-    // it until it's stopped or yanked, then rescan — so swapping USB cams
-    // between shots (or plugging one in after boot) just works.
+    // Plug-and-play loop: re-enumerate /dev/videoN roughly once a second
+    // between grab bursts. Built-in and USB cams both count; a freshly
+    // plugged USB cam auto-takes the stream ("switch out cams per shot"),
+    // and cam_switch_req (Tab in cap) cycles through everything present.
     while (rt->cam_stream_active) {
-        if (camera_open(cam) < 0) {
+        int count = camera_list(devices, 10);
+        rt->cam_device_count = count;
+
+        if (count == 0) {
+            if (open_path[0]) {
+                camera_close(cam);
+                open_path[0] = 0;
+            }
             if (!announced_wait) {
                 ac_log("[camera] no camera yet — waiting for hotplug\n");
                 announced_wait = 1;
             }
+            prev_count = 0;
             for (int i = 0; i < 10 && rt->cam_stream_active; i++)
                 usleep(100000); // rescan ~1s
             continue;
         }
         announced_wait = 0;
 
-        while (rt->cam_stream_active) {
+        // Target: keep the open device if it's still present, else the
+        // highest-numbered one (USB enumerates above the built-in).
+        int cur_idx = -1;
+        for (int i = 0; i < count; i++)
+            if (open_path[0] && strcmp(devices[i], open_path) == 0) cur_idx = i;
+        char target[16];
+        snprintf(target, sizeof(target), "%s",
+                 cur_idx >= 0 ? open_path : devices[count - 1]);
+
+        // A device that wasn't in the previous poll was just plugged in —
+        // hand it the stream.
+        if (prev_count >= 0) {
+            for (int i = 0; i < count; i++) {
+                int seen = 0;
+                for (int j = 0; j < prev_count; j++)
+                    if (strcmp(devices[i], prev[j]) == 0) { seen = 1; break; }
+                if (!seen) {
+                    ac_log("[camera] %s plugged in — switching\n", devices[i]);
+                    snprintf(target, sizeof(target), "%s", devices[i]);
+                }
+            }
+        }
+        memcpy(prev, devices, sizeof(prev));
+        prev_count = count;
+
+        // Tab: cycle to the next camera in enumeration order.
+        if (rt->cam_switch_req) {
+            rt->cam_switch_req = 0;
+            if (cur_idx >= 0 && count > 1) {
+                snprintf(target, sizeof(target), "%s",
+                         devices[(cur_idx + 1) % count]);
+                ac_log("[camera] switch → %s\n", target);
+            }
+        }
+
+        if (!open_path[0] || strcmp(target, open_path) != 0) {
+            if (open_path[0]) camera_close(cam);
+            if (camera_open_path(cam, target) < 0) {
+                ac_log("[camera] open %s failed (%s)\n", target, cam->scan_error);
+                open_path[0] = 0;
+                for (int i = 0; i < 5 && rt->cam_stream_active; i++)
+                    usleep(100000);
+                continue;
+            }
+            snprintf(open_path, sizeof(open_path), "%s", target);
+        }
+
+        // Grab ~1s of frames, then loop back to re-poll (hotplug + Tab).
+        for (int f = 0; f < 30 && rt->cam_stream_active && !rt->cam_switch_req; f++) {
             int r = camera_grab(cam);
             if (r == -2) {
                 ac_log("[camera] device lost (%s) — rescanning\n", cam->scan_error);
+                camera_close(cam);
+                open_path[0] = 0;
                 break;
             }
             usleep(33000); // ~30fps
         }
-
-        camera_close(cam);
     }
 
+    if (open_path[0]) camera_close(cam);
+    rt->cam_device_count = 0;
     rt->cam_stream_running = 0;
     return NULL;
 }
@@ -4227,6 +4290,8 @@ static JSValue js_camera_start(JSContext *ctx, JSValueConst this_val, int argc, 
     if (current_rt->qr_scan_active) return JS_FALSE;
 
     current_rt->camera.scan_error[0] = 0;
+    current_rt->cam_switch_req = 0;
+    current_rt->cam_device_count = 0;
     current_rt->cam_stream_active = 1;
     current_rt->cam_stream_running = 1;
     if (pthread_create(&current_rt->cam_stream_thread, NULL,
@@ -4264,6 +4329,21 @@ static JSValue js_camera_error(JSContext *ctx, JSValueConst this_val, int argc, 
     if (current_rt->cam_stream_active || current_rt->cam_stream_running)
         return JS_NewString(ctx, "");
     return JS_NewString(ctx, current_rt->camera.scan_error);
+}
+
+// system.cameraSwitch() — cycle to the next available camera (Tab in cap).
+// The stream thread consumes the request on its next poll.
+static JSValue js_camera_switch(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv; (void)ctx;
+    if (!current_rt || !current_rt->cam_stream_active) return JS_FALSE;
+    current_rt->cam_switch_req = 1;
+    return JS_TRUE;
+}
+
+// system.cameraCount() -> number of capture devices from the last poll
+static JSValue js_camera_count(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    return JS_NewInt32(ctx, current_rt ? current_rt->cam_device_count : 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -7154,6 +7234,8 @@ static JSValue build_system_obj(JSContext *ctx) {
     JS_SetPropertyStr(ctx, sys, "cameraStop", JS_NewCFunction(ctx, js_camera_stop, "cameraStop", 0));
     JS_SetPropertyStr(ctx, sys, "cameraReady", JS_NewCFunction(ctx, js_camera_ready, "cameraReady", 0));
     JS_SetPropertyStr(ctx, sys, "cameraError", JS_NewCFunction(ctx, js_camera_error, "cameraError", 0));
+    JS_SetPropertyStr(ctx, sys, "cameraSwitch", JS_NewCFunction(ctx, js_camera_switch, "cameraSwitch", 0));
+    JS_SetPropertyStr(ctx, sys, "cameraCount", JS_NewCFunction(ctx, js_camera_count, "cameraCount", 0));
     JS_SetPropertyStr(ctx, sys, "tapeStart", JS_NewCFunction(ctx, js_tape_start, "tapeStart", 0));
     JS_SetPropertyStr(ctx, sys, "tapeStop", JS_NewCFunction(ctx, js_tape_stop, "tapeStop", 0));
     JS_SetPropertyStr(ctx, sys, "qrPending",

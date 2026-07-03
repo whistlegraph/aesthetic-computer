@@ -94,6 +94,8 @@ typedef struct {
     volatile int cam_stream_active;      // 1 = keep grabbing frames
     pthread_t cam_stream_thread;
     volatile int cam_stream_running;     // 1 while the thread is alive
+    volatile int cam_switch_req;         // 1 = cycle to the next camera (Tab)
+    volatile int cam_device_count;       // capture devices seen by last poll
 
     // Piece navigation (system.jump)
     volatile int jump_requested;          // 1 = JS called system.jump()

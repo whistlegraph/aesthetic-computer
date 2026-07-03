@@ -48,8 +48,18 @@ typedef struct {
     char scan_error[256];       // error message if open/capture fails
 } ACCamera;
 
-// Open a V4L2 camera (scans /dev/video0-9, prefers the highest-numbered
-// capture device so a freshly plugged USB cam wins over the built-in).
+// Enumerate capture-capable V4L2 devices (/dev/video0-9, skipping UVC
+// metadata nodes). Fills paths[] in device order (built-in first, USB cams
+// after — they enumerate above it). Returns the count.
+int camera_list(char paths[][16], int max);
+
+// Open a specific V4L2 device by path ("/dev/video0", ...).
+// Returns 0 on success, -1 on failure (check cam->scan_error)
+int camera_open_path(ACCamera *cam, const char *devpath);
+
+// Open the default V4L2 camera: the highest-numbered capture device, so a
+// freshly plugged USB cam wins over the built-in. (QR scan uses this; the
+// cap stream thread enumerates with camera_list and picks its own.)
 // Returns 0 on success, -1 on failure (check cam->scan_error)
 int camera_open(ACCamera *cam);
 

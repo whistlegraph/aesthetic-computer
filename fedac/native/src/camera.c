@@ -32,7 +32,25 @@ static int xioctl(int fd, int request, void *arg) {
     return r;
 }
 
-int camera_open(ACCamera *cam) {
+int camera_list(char paths[][16], int max) {
+    char devpath[16];
+    int count = 0;
+    for (int i = 0; i < 10 && count < max; i++) {
+        snprintf(devpath, sizeof(devpath), "/dev/video%d", i);
+        int fd = open(devpath, O_RDWR | O_NONBLOCK);
+        if (fd < 0) continue;
+        // Capture + streaming caps only (skips UVC metadata nodes)
+        struct v4l2_capability cap;
+        int ok = xioctl(fd, VIDIOC_QUERYCAP, &cap) >= 0 &&
+                 (cap.capabilities & V4L2_CAP_VIDEO_CAPTURE) &&
+                 (cap.capabilities & V4L2_CAP_STREAMING);
+        close(fd);
+        if (ok) snprintf(paths[count++], 16, "%s", devpath);
+    }
+    return count;
+}
+
+int camera_open_path(ACCamera *cam, const char *devpath) {
     // Reset per-session state WITHOUT memsetting the whole struct — the
     // display mutex is initialized once and must survive plug-and-play
     // open/close cycles (a memset would corrupt a locked mutex).
@@ -61,34 +79,23 @@ int camera_open(ACCamera *cam) {
         cam->display_mu_init = 1;
     }
 
-    // Scan /dev/video0 through /dev/video9 and prefer the HIGHEST-numbered
-    // capture device: USB cams enumerate above the built-in webcam, so a
-    // freshly plugged camera wins ("switch out cams per shot").
-    char devpath[32], chosen[32] = {0};
-    for (int i = 0; i < 10; i++) {
-        snprintf(devpath, sizeof(devpath), "/dev/video%d", i);
-        int fd = open(devpath, O_RDWR | O_NONBLOCK);
-        if (fd < 0) continue;
-
-        // Check it's a capture device (skips UVC metadata nodes)
-        struct v4l2_capability cap;
-        if (xioctl(fd, VIDIOC_QUERYCAP, &cap) < 0 ||
-            !(cap.capabilities & V4L2_CAP_VIDEO_CAPTURE) ||
-            !(cap.capabilities & V4L2_CAP_STREAMING)) {
-            close(fd);
-            continue;
-        }
-
-        if (cam->fd >= 0) close(cam->fd); // newer device supersedes
-        cam->fd = fd;
-        snprintf(chosen, sizeof(chosen), "%s", devpath);
-    }
-
+    cam->fd = open(devpath, O_RDWR | O_NONBLOCK);
     if (cam->fd < 0) {
-        snprintf(cam->scan_error, sizeof(cam->scan_error), "no camera found");
+        snprintf(cam->scan_error, sizeof(cam->scan_error),
+                 "can't open %s", devpath);
         return -1;
     }
-    ac_log("[camera] opened %s\n", chosen);
+    struct v4l2_capability caps;
+    if (xioctl(cam->fd, VIDIOC_QUERYCAP, &caps) < 0 ||
+        !(caps.capabilities & V4L2_CAP_VIDEO_CAPTURE) ||
+        !(caps.capabilities & V4L2_CAP_STREAMING)) {
+        snprintf(cam->scan_error, sizeof(cam->scan_error),
+                 "%s is not a capture device", devpath);
+        close(cam->fd);
+        cam->fd = -1;
+        return -1;
+    }
+    ac_log("[camera] opened %s\n", devpath);
 
     // Set format: YUYV (most common for USB webcams), fallback to MJPEG
     struct v4l2_format fmt = {0};
@@ -194,6 +201,19 @@ int camera_open(ACCamera *cam) {
     ac_log("[camera] ready: %dx%d, %d buffers\n",
            cam->width, cam->height, cam->buffer_count);
     return 0;
+}
+
+int camera_open(ACCamera *cam) {
+    // Highest-numbered device: USB cams enumerate above the built-in
+    // webcam, so a freshly plugged camera wins ("switch out cams per shot").
+    char paths[10][16];
+    int count = camera_list(paths, 10);
+    if (count == 0) {
+        cam->fd = -1;
+        snprintf(cam->scan_error, sizeof(cam->scan_error), "no camera found");
+        return -1;
+    }
+    return camera_open_path(cam, paths[count - 1]);
 }
 
 void camera_close(ACCamera *cam) {
