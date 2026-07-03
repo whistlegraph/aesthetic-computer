@@ -1797,15 +1797,18 @@ final class MenuBandSynth {
     /// Begin recording into the sample voice's buffer. Wakes the audio
     /// engine first if it was suspended for idle, since the input-node
     /// tap won't deliver frames against a paused graph.
-    func startSampleRecording() { startSampleRecording(forKey: nil) }
+    func startSampleRecording(chromatic: Bool = false) { startSampleRecording(forKey: nil, chromatic: chromatic) }
 
     /// Start recording. `forKey` non-nil commits into that key's per-key slot
     /// (the ~+key gesture); nil records the global sample (the ` gesture).
-    func startSampleRecording(forKey midi: UInt8?) {
+    /// `chromatic` picks the global-sample playback mode: false = normal
+    /// (C4 = raw), true = chromatic (pitch-corrected via detected fundamental).
+    func startSampleRecording(forKey midi: UInt8?, chromatic: Bool = false) {
         guard started else { return }
-        NSLog("MenuBand SampleVoice: synth startSampleRecording forKey=\(midi.map(String.init) ?? "global") (playbackEngineRunning=\(engine.isRunning))")
+        NSLog("MenuBand SampleVoice: synth startSampleRecording forKey=\(midi.map(String.init) ?? "global") chromatic=\(chromatic) (playbackEngineRunning=\(engine.isRunning))")
         _ = resumeAudioEngineIfNeeded()
         sampleRecordingActive = true
+        sampleVoice.chromaticSample = chromatic
         sampleVoice.setOutputEnabled(false)
         sampleVoice.panic()
         sampleVoice.startRecording(forKey: midi)

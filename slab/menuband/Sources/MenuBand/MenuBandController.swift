@@ -1603,16 +1603,17 @@ final class MenuBandController {
         onChange?()
     }
 
-    private func handleSampleRecordKey(isDown: Bool, isRepeat: Bool, source: String) -> Bool {
+    private func handleSampleRecordKey(isDown: Bool, isRepeat: Bool, chromatic: Bool = false, source: String) -> Bool {
         if isDown && isRepeat { return true }
-        NSLog("MenuBand SampleVoice: backtick \(isDown ? "down" : "up") received via \(source)")
+        NSLog("MenuBand SampleVoice: backtick \(isDown ? "down" : "up") chromatic=\(chromatic) via \(source)")
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             if isDown {
                 // "Home" gesture: clear all per-key custom samples, then
-                // record a fresh global sample while held.
+                // record a fresh global sample while held. ⌃ picks chromatic
+                // (pitch-corrected) vs the default normal (C4 = raw) mode.
                 self.synth.clearPerKeySamples()
-                self.synth.startSampleRecording()
+                self.synth.startSampleRecording(chromatic: chromatic)
                 // Nudge the AppDelegate so the menubar icon immediately
                 // picks up the red "REC" tint on the chip.
                 self.onInstrumentVisualChange?()
@@ -2464,7 +2465,8 @@ final class MenuBandController {
                             hasModifier: hasMod, lingerSide: side,
                             chordModifier: flags.contains(.maskCommand) || flags.contains(.maskAlternate),
                             chordMinor: flags.contains(.maskAlternate),
-                            chordSus: flags.contains(.maskCommand) && flags.contains(.maskAlternate))
+                            chordSus: flags.contains(.maskCommand) && flags.contains(.maskAlternate),
+                            control: flags.contains(.maskControl))
     }
 
     /// Sandbox-friendly key path: same note logic as the global tap, but
@@ -2494,7 +2496,8 @@ final class MenuBandController {
                             hasModifier: hasMod, lingerSide: side,
                             chordModifier: flags.contains(.command) || flags.contains(.option),
                             chordMinor: flags.contains(.option),
-                            chordSus: flags.contains(.command) && flags.contains(.option))
+                            chordSus: flags.contains(.command) && flags.contains(.option),
+                            control: flags.contains(.control))
     }
 
     /// Shared note logic for both the global CGEventTap path and the
@@ -2504,7 +2507,7 @@ final class MenuBandController {
     /// past key-up so it rings on its release envelope (sustained
     /// voices) rather than cutting on release.
     @discardableResult
-    private func playKeyEvent(keyCode: UInt16, isDown: Bool, isRepeat: Bool, hasModifier: Bool, lingerSide: LingerSide = .none, chordModifier: Bool = false, chordMinor: Bool = false, chordSus: Bool = false) -> Bool {
+    private func playKeyEvent(keyCode: UInt16, isDown: Bool, isRepeat: Bool, hasModifier: Bool, lingerSide: LingerSide = .none, chordModifier: Bool = false, chordMinor: Bool = false, chordSus: Bool = false, control: Bool = false) -> Bool {
         // Modifier-chord: holding ⌘/⌥ + a note key plays & HOLDS that key's
         // triad (the pressed note is the root), lingering on release just
         // like Shift. ⌘ = major, ⌥ = minor, ⌘+⌥ = sus; ⌃ is inert (its
@@ -2702,7 +2705,11 @@ final class MenuBandController {
                 onInstrumentVisualChange?()
                 return true
             }
-            return handleSampleRecordKey(isDown: isDown, isRepeat: isRepeat, source: typeMode ? "type" : "local")
+            // Plain ` = normal global sample (C4 = raw); ⌃+` = chromatic
+            // (pitch-corrected) global sample. Two modes of the Sample voice.
+            return handleSampleRecordKey(isDown: isDown, isRepeat: isRepeat,
+                                         chromatic: control,
+                                         source: typeMode ? "type" : "local")
         }
 
         // ~ held + a note key = record a per-key sample into that key
