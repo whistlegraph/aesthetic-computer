@@ -1,0 +1,40 @@
+# XcodeGen spec for the Menu Band QuickLook preview extension.
+# A tiny agent container app that hosts a QLPreviewingController extension, so
+# ⌘-Space on a .mbscore renders a piano-roll graphic score instead of raw JSON.
+# Build: xcodegen generate && xcodebuild -scheme MenuBandQuickLook -configuration Release build
+name: MenuBandQuickLook
+options:
+  bundleIdPrefix: computer.aestheticcomputer.menuband.quicklook
+  deploymentTarget:
+    macOS: "12.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+    DEVELOPMENT_TEAM: ""
+targets:
+  MenuBandQuickLook:
+    type: application
+    platform: macOS
+    sources: [App]
+    settings:
+      base:
+        PRODUCT_NAME: MenuBandQuickLook
+        PRODUCT_BUNDLE_IDENTIFIER: computer.aestheticcomputer.menuband.quicklook
+        INFOPLIST_FILE: App/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+    dependencies:
+      - target: ScorePreview
+        embed: true
+  ScorePreview:
+    type: app-extension
+    platform: macOS
+    sources: [Preview]
+    settings:
+      base:
+        PRODUCT_NAME: ScorePreview
+        PRODUCT_BUNDLE_IDENTIFIER: computer.aestheticcomputer.menuband.quicklook.ScorePreview
+        INFOPLIST_FILE: Preview/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
