@@ -951,10 +951,18 @@ final class MenuBandSampleVoice {
     /// into the mic. Falls back to C4 (261.63 Hz) when detection failed, which
     /// reduces to the old `(midi-60)·100` behavior for a C4-pitched sample.
     /// Drives `AVAudioUnitTimePitch.pitch` (shifts pitch, not duration/speed).
+    /// Global-sample playback mode. false (default) = NORMAL/legacy: C4 plays
+    /// the raw recording (base = C4), keys step chromatically from C4 — no pitch
+    /// detection/forcing. true = CHROMATIC: pitch-correct to each key's true
+    /// note via the detected fundamental. Set at record time.
+    var chromaticSample = false
+
     @inline(__always)
     private func cents(forNote midi: UInt8) -> Float {
         let targetHz = 440.0 * pow(2.0, (Double(midi) - 69.0) / 12.0)
-        let base = detectedFundamental > 0 ? detectedFundamental : 261.63
+        // NORMAL mode anchors the raw sample at C4 (no fundamental forcing);
+        // CHROMATIC mode pitch-corrects using the detected fundamental.
+        let base = (chromaticSample && detectedFundamental > 0) ? detectedFundamental : 261.63
         return Float(1200.0 * log2(targetHz / base))
     }
 
