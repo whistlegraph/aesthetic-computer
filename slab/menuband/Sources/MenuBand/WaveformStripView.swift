@@ -60,7 +60,7 @@ final class WaveformStripView: NSView {
     /// frozen buffer back through the center line.
     private var colMin: [Float] = []
     private var colMax: [Float] = []
-    private static let historyCap = 400    // ~13 s ceiling at 30 fps (≥ rewind ring)
+    private static let historyCap = 2800   // ≥ 90 s at 30 fps so the reverse scrub covers the whole window
     /// Bar geometry — chunky + bold, low-res on purpose.
     private static let barStep: CGFloat = 5   // px between bars
     private static let barWidth: CGFloat = 3

@@ -30,8 +30,9 @@ final class MenuBandRewindVoice {
     /// How far back the ring physically remembers — a rolling 60 s tape
     /// loop (continuously overwritten). Plenty of headroom beyond the
     /// reverse window so longer windows can reach deep into recent play.
-    /// (~23 MB at 96 kHz mono float — fine.)
-    private let bufferSeconds: Double = 60.0
+    /// (~37 MB at 96 kHz mono float — fine.) Ring must exceed the reverse
+    /// window (`captureSeconds`) with headroom.
+    private let bufferSeconds: Double = 96.0
     /// Fixed reverse window: each Space press reverses the most-recent
     /// `captureSeconds` of the ring. Because capture FREEZES while in reverse
     /// mode (see `recording`) and only resumes when a real note is next
@@ -39,7 +40,7 @@ final class MenuBandRewindVoice {
     /// start point — notepat's stutter gesture. A longer window so a press
     /// reaches further back into the recent phrase (the ring holds 60 s, so
     /// there's ample headroom).
-    let captureSeconds: Double = 4.0
+    let captureSeconds: Double = 90.0
     /// Generation token for the in-flight reverse one-shot. Bumped on every
     /// `playReverse` and `release` so a deferred release-fade can tell whether
     /// it still owns the player (a fresh press between the fade and its stop
