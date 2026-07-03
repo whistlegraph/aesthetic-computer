@@ -39,11 +39,18 @@ int camera_list(char paths[][16], int max) {
         snprintf(devpath, sizeof(devpath), "/dev/video%d", i);
         int fd = open(devpath, O_RDWR | O_NONBLOCK);
         if (fd < 0) continue;
-        // Capture + streaming caps only (skips UVC metadata nodes)
+        // Capture + streaming caps only. Must use device_caps when the
+        // driver sets V4L2_CAP_DEVICE_CAPS: `capabilities` describes the
+        // whole physical device, so a UVC *metadata* node also advertises
+        // VIDEO_CAPTURE there and would sneak into the list (then fail
+        // S_FMT forever — "no cameras found" on a working webcam).
         struct v4l2_capability cap;
-        int ok = xioctl(fd, VIDIOC_QUERYCAP, &cap) >= 0 &&
-                 (cap.capabilities & V4L2_CAP_VIDEO_CAPTURE) &&
-                 (cap.capabilities & V4L2_CAP_STREAMING);
+        int ok = xioctl(fd, VIDIOC_QUERYCAP, &cap) >= 0;
+        if (ok) {
+            uint32_t c = (cap.capabilities & V4L2_CAP_DEVICE_CAPS)
+                             ? cap.device_caps : cap.capabilities;
+            ok = (c & V4L2_CAP_VIDEO_CAPTURE) && (c & V4L2_CAP_STREAMING);
+        }
         close(fd);
         if (ok) snprintf(paths[count++], 16, "%s", devpath);
     }
@@ -86,9 +93,11 @@ int camera_open_path(ACCamera *cam, const char *devpath) {
         return -1;
     }
     struct v4l2_capability caps;
-    if (xioctl(cam->fd, VIDIOC_QUERYCAP, &caps) < 0 ||
-        !(caps.capabilities & V4L2_CAP_VIDEO_CAPTURE) ||
-        !(caps.capabilities & V4L2_CAP_STREAMING)) {
+    uint32_t ecaps = 0;
+    if (xioctl(cam->fd, VIDIOC_QUERYCAP, &caps) >= 0)
+        ecaps = (caps.capabilities & V4L2_CAP_DEVICE_CAPS)
+                    ? caps.device_caps : caps.capabilities;
+    if (!(ecaps & V4L2_CAP_VIDEO_CAPTURE) || !(ecaps & V4L2_CAP_STREAMING)) {
         snprintf(cam->scan_error, sizeof(cam->scan_error),
                  "%s is not a capture device", devpath);
         close(cam->fd);
