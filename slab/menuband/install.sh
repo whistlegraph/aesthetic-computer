@@ -224,12 +224,16 @@ if [[ -d "${QL_DIR}" ]] && command -v xcodegen >/dev/null 2>&1 && xcodebuild -ve
          && xcodebuild -project MenuBandQuickLook.xcodeproj -scheme MenuBandQuickLook \
               -configuration Release -derivedDataPath .build build \
               CODE_SIGNING_ALLOWED=NO >/dev/null 2>&1 ); then
-        QL_APPEX="${QL_DIR}/.build/Build/Products/Release/MenuBandQuickLook.app/Contents/PlugIns/ScorePreview.appex"
-        if [[ -d "${QL_APPEX}" ]]; then
+        QL_PLUGINS="${QL_DIR}/.build/Build/Products/Release/MenuBandQuickLook.app/Contents/PlugIns"
+        if [[ -d "${QL_PLUGINS}/ScorePreview.appex" ]]; then
             mkdir -p "${APP_DIR}/Contents/PlugIns"
-            rm -rf "${APP_DIR}/Contents/PlugIns/ScorePreview.appex"
-            cp -R "${QL_APPEX}" "${APP_DIR}/Contents/PlugIns/"
-            ok "embedded ScorePreview.appex"
+            for ax in ScorePreview.appex ScoreThumbnail.appex; do
+                if [[ -d "${QL_PLUGINS}/${ax}" ]]; then
+                    rm -rf "${APP_DIR}/Contents/PlugIns/${ax}"
+                    cp -R "${QL_PLUGINS}/${ax}" "${APP_DIR}/Contents/PlugIns/"
+                    ok "embedded ${ax}"
+                fi
+            done
         else
             warn "QuickLook build produced no appex — skipping"
         fi
@@ -287,19 +291,21 @@ if ! codesign --force --sign "${SIGN_ID}" \
     warn "launcher sign failed"
     exit 1
 fi
-# Sign the embedded QuickLook extension (if present) BEFORE the outer bundle,
-# with its own identifier + hardened runtime, so the outer seal covers a stable
-# nested signature (same inner-to-outer rule as the launcher above).
-QL_APPEX_DEST="${APP_DIR}/Contents/PlugIns/ScorePreview.appex"
-if [[ -d "${QL_APPEX_DEST}" ]]; then
-    if ! codesign --force --sign "${SIGN_ID}" \
-        --identifier computer.aestheticcomputer.menuband.quicklook.ScorePreview \
-        --options runtime \
-        --timestamp \
-        "${QL_APPEX_DEST}" 2>&1; then
-        warn "QuickLook appex sign failed"
+# Sign the embedded QuickLook extensions (if present) BEFORE the outer bundle,
+# each with its own identifier + hardened runtime, so the outer seal covers a
+# stable nested signature (same inner-to-outer rule as the launcher above).
+for qlax in ScorePreview ScoreThumbnail; do
+    QL_AX="${APP_DIR}/Contents/PlugIns/${qlax}.appex"
+    if [[ -d "${QL_AX}" ]]; then
+        if ! codesign --force --sign "${SIGN_ID}" \
+            --identifier "computer.aestheticcomputer.menuband.quicklook.${qlax}" \
+            --options runtime \
+            --timestamp \
+            "${QL_AX}" 2>&1; then
+            warn "QuickLook ${qlax} sign failed"
+        fi
     fi
-fi
+done
 if ! codesign --force --sign "${SIGN_ID}" \
     --identifier computer.aestheticcomputer.menuband \
     --options runtime \
