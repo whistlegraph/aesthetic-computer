@@ -88,10 +88,23 @@ function paint({ wipe, ink, screen, system, sound }) {
     x: 6,
     y: screen.height - 22,
   });
-  ink(130, 130, 130).write("play your song first — clips carry its audio", {
-    x: 6,
-    y: screen.height - 12,
-  });
+  // Song sync: a deck loaded in dj keeps playing here, its audio lands in
+  // every clip, and each MP4 gets songStart/songEnd timecode metadata.
+  const d = sound?.deck?.decks?.[0];
+  if (d?.loaded) {
+    const fmt = (s) =>
+      `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+    const title = (d.title || "?").replace(/\.[^.]+$/, "");
+    ink(255, 200, 120).write(
+      `${title} ${fmt(d.position || 0)}/${fmt(d.duration || 0)} — clips sync to this track`,
+      { x: 6, y: screen.height - 12 },
+    );
+  } else {
+    ink(130, 130, 130).write("play your song in dj first — clips carry its audio", {
+      x: 6,
+      y: screen.height - 12,
+    });
+  }
   const cams = system?.cameraCount?.() || 0;
   if (cams > 1) {
     ink(130, 130, 130).write(`TAB switches cameras (${cams} found)`, {

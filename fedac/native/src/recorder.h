@@ -27,6 +27,19 @@ void recorder_submit_video(ACRecorder *rec, const uint32_t *pixels, int stride);
 // Non-blocking: copies into ring buffer for the encoder thread.
 void recorder_submit_audio(ACRecorder *rec, const int16_t *pcm, int frames);
 
+// Attach song timecode to the upcoming recording (call before
+// recorder_start; cleared automatically at stop). The song identity +
+// start offset land in the moov metadata (title/artist/comment), and a
+// JSON `skip` box is appended after the trailer carrying songStart /
+// songEnd / speed — editors ignore it, tools can read it to resync
+// clips onto the track's timeline for music videos.
+void recorder_set_song(ACRecorder *rec, const char *title, const char *artist,
+                       const char *path, double position, double duration,
+                       double speed);
+
+// Final song position at the moment of the cut (call before recorder_stop).
+void recorder_set_song_end(ACRecorder *rec, double position);
+
 // Stop recording: flush encoder, finalize MP4, join thread.
 // Blocks until the file is fully written.
 void recorder_stop(ACRecorder *rec);
@@ -48,6 +61,8 @@ static inline ACRecorder *recorder_create(int w, int h, int fps, unsigned int ar
 static inline int recorder_start(ACRecorder *r, const char *p) { (void)r; (void)p; return -1; }
 static inline void recorder_submit_video(ACRecorder *r, const uint32_t *px, int s) { (void)r; (void)px; (void)s; }
 static inline void recorder_submit_audio(ACRecorder *r, const int16_t *pcm, int f) { (void)r; (void)pcm; (void)f; }
+static inline void recorder_set_song(ACRecorder *r, const char *t, const char *a, const char *p, double pos, double dur, double sp) { (void)r; (void)t; (void)a; (void)p; (void)pos; (void)dur; (void)sp; }
+static inline void recorder_set_song_end(ACRecorder *r, double pos) { (void)r; (void)pos; }
 static inline void recorder_stop(ACRecorder *r) { (void)r; }
 static inline int recorder_is_recording(ACRecorder *r) { (void)r; return 0; }
 static inline double recorder_elapsed(ACRecorder *r) { (void)r; return 0.0; }

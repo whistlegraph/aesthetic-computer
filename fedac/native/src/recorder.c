@@ -73,6 +73,17 @@ struct ACRecorder {
     // Audio resampler output buffer
     int16_t *audio_resample_buf;
     int audio_resample_buf_size;
+
+    // Song timecode metadata for cap music-video clips. Set before start,
+    // end position updated at the cut, cleared when the file finalizes.
+    int song_set;
+    char song_title[256];
+    char song_artist[256];
+    char song_path[512];
+    double song_start;
+    double song_end;
+    double song_duration;
+    double song_speed;
 };
 
 // ── Forward declarations ──
@@ -83,7 +94,43 @@ static void encode_video_frame(ACRecorder *rec, const uint32_t *pixels, int stri
 static void encode_audio_chunk(ACRecorder *rec);
 static void flush_encoders(ACRecorder *rec);
 
+// Minimal JSON string escape: ", \ and control chars. Truncates to dstsz.
+static void json_escape(char *dst, size_t dstsz, const char *src) {
+    size_t o = 0;
+    for (const char *s = src; *s && o + 2 < dstsz; s++) {
+        unsigned char c = (unsigned char)*s;
+        if (c == '"' || c == '\\') {
+            dst[o++] = '\\';
+            dst[o++] = c;
+        } else if (c < 0x20) {
+            dst[o++] = ' ';
+        } else {
+            dst[o++] = c;
+        }
+    }
+    dst[o] = 0;
+}
+
 // ── Public API ──
+
+void recorder_set_song(ACRecorder *rec, const char *title, const char *artist,
+                       const char *path, double position, double duration,
+                       double speed) {
+    if (!rec || rec->recording) return;
+    snprintf(rec->song_title, sizeof(rec->song_title), "%s", title ? title : "");
+    snprintf(rec->song_artist, sizeof(rec->song_artist), "%s", artist ? artist : "");
+    snprintf(rec->song_path, sizeof(rec->song_path), "%s", path ? path : "");
+    rec->song_start = position;
+    rec->song_end = position; // until the cut updates it
+    rec->song_duration = duration;
+    rec->song_speed = speed;
+    rec->song_set = 1;
+}
+
+void recorder_set_song_end(ACRecorder *rec, double position) {
+    if (!rec || !rec->song_set) return;
+    rec->song_end = position;
+}
 
 ACRecorder *recorder_create(int width, int height, int fps, unsigned int audio_rate) {
     ACRecorder *rec = calloc(1, sizeof(ACRecorder));
@@ -155,6 +202,21 @@ int recorder_start(ACRecorder *rec, const char *path) {
             rec->fmt_ctx = NULL;
             return -1;
         }
+    }
+
+    // Song identity + start timecode into the moov metadata (must land
+    // before write_header; the precise start/end pair also goes into the
+    // trailing JSON box at stop, since the end isn't known yet).
+    if (rec->song_set) {
+        if (rec->song_title[0])
+            av_dict_set(&rec->fmt_ctx->metadata, "title", rec->song_title, 0);
+        if (rec->song_artist[0])
+            av_dict_set(&rec->fmt_ctx->metadata, "artist", rec->song_artist, 0);
+        char cmt[512];
+        snprintf(cmt, sizeof(cmt),
+                 "ac cap clip | song \"%s\" from %.3fs | see trailing skip-box JSON for songStart/songEnd",
+                 rec->song_title, rec->song_start);
+        av_dict_set(&rec->fmt_ctx->metadata, "comment", cmt, 0);
     }
 
     // Set fragmented MP4 options (crash-safe)
@@ -253,9 +315,31 @@ void recorder_stop(ACRecorder *rec) {
     // Finalize MP4
     if (rec->fmt_ctx) {
         av_write_trailer(rec->fmt_ctx);
+        // Append the song timecode as a top-level `skip` box after the
+        // trailer: spec-compliant players ignore it, and tools can read
+        // songStart/songEnd (seconds into the track at record/cut) to
+        // resync clips onto the song's timeline in an editor.
+        if (rec->song_set && rec->fmt_ctx->pb) {
+            char et[520], ea[520], ep[1040], json[2200];
+            json_escape(et, sizeof(et), rec->song_title);
+            json_escape(ea, sizeof(ea), rec->song_artist);
+            json_escape(ep, sizeof(ep), rec->song_path);
+            int n = snprintf(json, sizeof(json),
+                "{\"ac\":\"cap\",\"song\":{\"title\":\"%s\",\"artist\":\"%s\",\"path\":\"%s\","
+                "\"duration\":%.3f},\"songStart\":%.3f,\"songEnd\":%.3f,\"speed\":%.3f}",
+                et, ea, ep, rec->song_duration,
+                rec->song_start, rec->song_end, rec->song_speed);
+            if (n > 0 && n < (int)sizeof(json)) {
+                avio_wb32(rec->fmt_ctx->pb, 8 + (uint32_t)n);
+                avio_write(rec->fmt_ctx->pb, (const unsigned char *)"skip", 4);
+                avio_write(rec->fmt_ctx->pb, (const unsigned char *)json, n);
+                ac_log("[recorder] song timecode box: %s\n", json);
+            }
+        }
         if (!(rec->fmt_ctx->oformat->flags & AVFMT_NOFILE))
             avio_closep(&rec->fmt_ctx->pb);
     }
+    rec->song_set = 0;
 
     // Free encoder resources
     if (rec->sws) { sws_freeContext(rec->sws); rec->sws = NULL; }

@@ -3493,6 +3493,21 @@ static ACRecorder *g_tape_recorder = NULL;
 static ACAudio *g_tape_audio = NULL;
 static ACTts *g_tape_tts = NULL;
 
+#ifdef HAVE_AVCODEC
+// First loaded DJ deck (decks persist across piece switches, so a song
+// started in `dj` keeps playing inside `cap`). Its live position feeds the
+// song timecode metadata baked into each clip for editor resync.
+static ACDeckDecoder *tape_active_deck(void) {
+    if (!g_tape_audio) return NULL;
+    for (int d = 0; d < AUDIO_MAX_DECKS; d++) {
+        ACDeck *dk = &g_tape_audio->decks[d];
+        if (dk->active && dk->decoder && dk->decoder->loaded)
+            return dk->decoder;
+    }
+    return NULL;
+}
+#endif
+
 int ac_tape_start(int quiet) {
     if (!g_tape_recorder) return -1;
     if (recorder_is_recording(g_tape_recorder)) return 0;
@@ -3508,6 +3523,17 @@ int ac_tape_start(int quiet) {
              "/mnt/tapes/%04d.%02d.%02d.%02d.%02d.%02d.%03d.mp4",
              tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
              tm->tm_hour, tm->tm_min, tm->tm_sec, ms);
+#ifdef HAVE_AVCODEC
+    // Song timecode: if a deck is loaded, stamp the clip with the track +
+    // where in it recording began (songEnd follows at the cut).
+    {
+        ACDeckDecoder *deck = tape_active_deck();
+        if (deck)
+            recorder_set_song(g_tape_recorder, deck->title, deck->artist,
+                              deck->path, deck->position, deck->duration,
+                              deck->speed);
+    }
+#endif
     if (recorder_start(g_tape_recorder, rec_path) != 0) return -1;
     // Wire up audio tap
     if (g_tape_audio) {
@@ -3539,6 +3565,13 @@ int ac_tape_stop(int quiet) {
     // Snapshot the path before stop (recorder_stop may clear it)
     char saved_tape_path[256] = {0};
     strncpy(saved_tape_path, g_tape_current_path, sizeof(saved_tape_path) - 1);
+#ifdef HAVE_AVCODEC
+    // Song position at the cut — completes the songStart/songEnd pair.
+    {
+        ACDeckDecoder *deck = tape_active_deck();
+        if (deck) recorder_set_song_end(g_tape_recorder, deck->position);
+    }
+#endif
     recorder_stop(g_tape_recorder);
     g_tape_recording = 0;
     g_tape_current_path[0] = '\0';
