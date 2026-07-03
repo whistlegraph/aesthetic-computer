@@ -634,6 +634,18 @@ final class MenuBandSampleVoice {
             peakAfter = max(peakAfter, abs(s))
             sumSqAfter += s * s
         }
+        // Short cosine fade-in over the first ~15 ms. The record-key click sits
+        // right at the buffer start, so ramping up from silence smoothly
+        // swallows whatever transient survived the front-skip/trim, while the
+        // sample's body is untouched. Bonus: since the buffer loops, every loop
+        // now restarts from zero — no click at the loop boundary either.
+        let fadeFrames = min(frames, Int(sampleRate * 0.015))
+        if fadeFrames > 1 {
+            for i in 0..<fadeFrames {
+                let t = Float(i) / Float(fadeFrames)
+                data[i] *= 0.5 - 0.5 * cosf(Float.pi * t)   // 0 → 1
+            }
+        }
         let rmsAfter = sqrt(sumSqAfter / Float(frames))
         return (peakBefore, peakAfter, rmsBefore, rmsAfter, gain)
     }
