@@ -250,10 +250,11 @@ if (flags.nobed) {
     "-c:a", "libmp3lame", "-b:a", "256k", audioTmp,
   ], { stdio: "ignore" });
 } else {
-  console.log("Scoring bed…");
+  const kit = flags.kit || "felt";
+  console.log(`Scoring bed… (kit: ${kit})`);
   const bedGain = flags.bedgain !== undefined ? Number(flags.bedgain) : 0.22;
   const bedWav = resolve(build, "bed.wav");
-  renderBed(dur(voiceWav) + 1.0, bedWav);
+  renderBed(dur(voiceWav) + 1.0, bedWav, { kit });
   // Voice chain (sharper + upfront): high-pass rumble, presence + air EQ,
   // gentle compression for a consistent forward level.
   const vox = "highpass=f=85," +

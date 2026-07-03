@@ -60,6 +60,24 @@ const sidecars = readdirSync(OUT)
 
 sidecars.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate)); // newest first
 
+// Local slug → hosted basename on the CDN (matches the papers siteName so the
+// same mp3 backs both the papers "podcast" link and this feed).
+const HOSTED = {
+  "may-26": "aesthetic-may-26-essay",
+  "june-26": "aesthetic-june-26-essay",
+};
+const host = (e) => HOSTED[e.slug] || e.slug;
+
+// HOSTED is also the PUBLISH ALLOWLIST — only episodes listed here go in the
+// public feed. This keeps local-only / confidential readings (e.g. the
+// REGARDE-adjacent "named-markets") out of the feed no matter what's in out/.
+for (let i = sidecars.length - 1; i >= 0; i--) {
+  if (!HOSTED[sidecars[i].slug]) {
+    console.log(`  · excluding ${sidecars[i].slug} (not in publish allowlist)`);
+    sidecars.splice(i, 1);
+  }
+}
+
 if (!sidecars.length) {
   console.error("✗ no episodes found in out/ — run produce.mjs first.");
   process.exit(1);
@@ -90,8 +108,8 @@ const index = {
     durationSec: e.durationSec,
     bytes: e.bytes,
     words: e.wordCount,
-    audio: `${BASE}/${e.audio}`,
-    cover: `${BASE}/${e.cover}`,
+    audio: `${BASE}/${host(e)}.mp3`,
+    cover: `${BASE}/${host(e)}-cover.png`,
     description: e.description,
     pubDate: e.pubDate,
   })),
@@ -101,16 +119,16 @@ writeFileSync(resolve(OUT, "index.json"), JSON.stringify(index, null, 2) + "\n")
 // ── feed.xml (RSS 2.0 + iTunes) ────────────────────────────────────────
 const items = sidecars.map((e) => `    <item>
       <title>${xml(e.title)}</title>
-      <link>${xml(CHANNEL.link)}/readings/${xml(e.slug)}</link>
+      <link>${xml(`https://papers.aesthetic.computer/${host(e)}.pdf`)}</link>
       <guid isPermaLink="false">ac-reading-${xml(e.slug)}</guid>
       <pubDate>${xml(e.pubDate)}</pubDate>
       <description>${xml(e.description)}</description>
       <itunes:summary>${xml(e.description)}</itunes:summary>
       <itunes:author>${xml(CHANNEL.author)}</itunes:author>
       <itunes:duration>${hms(e.durationSec)}</itunes:duration>
-      <itunes:image href="${xml(`${BASE}/${e.cover}`)}"/>
+      <itunes:image href="${xml(`${BASE}/${host(e)}-cover.png`)}"/>
       <itunes:explicit>false</itunes:explicit>
-      <enclosure url="${xml(`${BASE}/${e.audio}`)}" length="${e.bytes}" type="audio/mpeg"/>
+      <enclosure url="${xml(`${BASE}/${host(e)}.mp3`)}" length="${e.bytes}" type="audio/mpeg"/>
     </item>`).join("\n");
 
 const feed = `<?xml version="1.0" encoding="UTF-8"?>
