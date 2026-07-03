@@ -27,7 +27,7 @@ const CSRC = resolve(HERE, "..", "bell", "c", "bell.c");
 const BUILD = resolve(HERE, "..", "bell", "c", "build.sh");
 
 export const BELL_MATERIALS = [
-  "bronze", "brass", "steel", "aluminum", "silver", "glass", "gold",
+  "bronze", "brass", "steel", "aluminum", "silver", "glass", "gold", "stone",
 ];
 export const BELL_GEOMETRIES = ["church", "handbell", "tubular", "bowl", "glass"];
 export const BELL_SR = 48_000;

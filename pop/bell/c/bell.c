@@ -329,6 +329,7 @@ int bell_material_preset(BellMaterial *mat, const char *name) {
       {"silver", 83e9, 10490.0, 0.37, 5.0e-4},
       {"glass", 70e9, 2500.0, 0.22, 6.0e-5}, // long shimmering ring
       {"gold", 79e9, 19300.0, 0.42, 9.0e-4},
+      {"stone", 60e9, 2750.0, 0.25, 1.2e-3}, // granite lithophone — short, clinking ring
   };
   int N = (int)(sizeof(tbl) / sizeof(tbl[0]));
   for (int i = 0; i < N; i++) {
