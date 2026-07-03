@@ -212,6 +212,34 @@ if [[ -d "${PKG_BUNDLE_SRC}" ]]; then
     cp -R "${PKG_BUNDLE_SRC}/." "${APP_RES}/"
 fi
 
+# --- QuickLook preview extension (optional; needs Xcode + xcodegen) ---
+# Build ScorePreview.appex and embed it under Contents/PlugIns so ⌘-Space
+# renders the animated graphic score. Signed below (inner-to-outer) and thus
+# covered by the notarized outer seal. Skipped gracefully on CLT-only machines.
+QL_DIR="${SCRIPT_DIR}/quicklook"
+if [[ -d "${QL_DIR}" ]] && command -v xcodegen >/dev/null 2>&1 && xcodebuild -version >/dev/null 2>&1; then
+    say "building QuickLook extension"
+    if ( cd "${QL_DIR}" \
+         && xcodegen generate >/dev/null 2>&1 \
+         && xcodebuild -project MenuBandQuickLook.xcodeproj -scheme MenuBandQuickLook \
+              -configuration Release -derivedDataPath .build build \
+              CODE_SIGNING_ALLOWED=NO >/dev/null 2>&1 ); then
+        QL_APPEX="${QL_DIR}/.build/Build/Products/Release/MenuBandQuickLook.app/Contents/PlugIns/ScorePreview.appex"
+        if [[ -d "${QL_APPEX}" ]]; then
+            mkdir -p "${APP_DIR}/Contents/PlugIns"
+            rm -rf "${APP_DIR}/Contents/PlugIns/ScorePreview.appex"
+            cp -R "${QL_APPEX}" "${APP_DIR}/Contents/PlugIns/"
+            ok "embedded ScorePreview.appex"
+        else
+            warn "QuickLook build produced no appex — skipping"
+        fi
+    else
+        warn "QuickLook extension build failed — skipping (app still installs)"
+    fi
+else
+    say "skipping QuickLook extension (needs Xcode + xcodegen)"
+fi
+
 # Sign with the best available identity.
 SIGN_ID="$(discover_identity)"
 if [[ -z "${SIGN_ID}" ]]; then
@@ -258,6 +286,19 @@ if ! codesign --force --sign "${SIGN_ID}" \
     "${APP_LAUNCHER_BIN}" 2>&1; then
     warn "launcher sign failed"
     exit 1
+fi
+# Sign the embedded QuickLook extension (if present) BEFORE the outer bundle,
+# with its own identifier + hardened runtime, so the outer seal covers a stable
+# nested signature (same inner-to-outer rule as the launcher above).
+QL_APPEX_DEST="${APP_DIR}/Contents/PlugIns/ScorePreview.appex"
+if [[ -d "${QL_APPEX_DEST}" ]]; then
+    if ! codesign --force --sign "${SIGN_ID}" \
+        --identifier computer.aestheticcomputer.menuband.quicklook.ScorePreview \
+        --options runtime \
+        --timestamp \
+        "${QL_APPEX_DEST}" 2>&1; then
+        warn "QuickLook appex sign failed"
+    fi
 fi
 if ! codesign --force --sign "${SIGN_ID}" \
     --identifier computer.aestheticcomputer.menuband \
