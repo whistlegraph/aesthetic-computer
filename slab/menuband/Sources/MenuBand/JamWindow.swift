@@ -122,34 +122,39 @@ final class JamWindowController: NSWindowController, NSWindowDelegate {
         para.lineBreakMode = .byWordWrapping
         let nela = clubLink(L("popover.about.nela"),
                             action: #selector(openNELA),
-                            tooltip: "https://nelacomputer.club", para: para)
+                            tooltip: "https://nelacomputer.club", para: para,
+                            color: NSColor(red: 0.36, green: 0.80, blue: 0.92, alpha: 1))  // cyan
         stack.addArrangedSubview(nela)
-        stack.setCustomSpacing(4, after: nela)
+        stack.setCustomSpacing(12, after: nela)
         stack.addArrangedSubview(clubLink(L("popover.about.startaclub"),
                                           action: #selector(openStartAClub),
                                           tooltip: "https://startacomputer.club",
-                                          para: para))
+                                          para: para,
+                                          color: NSColor(red: 1.0, green: 0.56, blue: 0.42, alpha: 1)))  // coral
     }
 
     private func clubLink(_ text: String, action: Selector,
-                          tooltip: String, para: NSParagraphStyle) -> NSButton {
+                          tooltip: String, para: NSParagraphStyle,
+                          color: NSColor) -> NSButton {
         let button = NSButton(title: "", target: self, action: action)
         button.attributedTitle = NSAttributedString(
             string: text,
             attributes: [
                 .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .regular),
-                .foregroundColor: NSColor.secondaryLabelColor,
+                .foregroundColor: color,
                 .underlineStyle: NSUnderlineStyle.single.rawValue,
+                .underlineColor: color.withAlphaComponent(0.6),
                 .paragraphStyle: para,
             ])
         button.bezelStyle = .regularSquare
         button.isBordered = false
-        button.cell?.wraps = true
-        button.cell?.lineBreakMode = .byWordWrapping
+        // Single line, sized to the text — a fixed 200pt width was wrapping
+        // longer links onto two lines (looked broken).
+        button.cell?.wraps = false
+        button.cell?.lineBreakMode = .byClipping
         if let cell = button.cell as? NSButtonCell { cell.imageScaling = .scaleNone }
         button.translatesAutoresizingMaskIntoConstraints = false
         button.toolTip = tooltip
-        button.widthAnchor.constraint(equalToConstant: 200).isActive = true
         return button
     }
 

@@ -1764,10 +1764,17 @@ final class MenuBandPopoverViewController: NSViewController {
     /// the original neutral gray for any other caller.
     static func outlineFooterButton(_ button: NSButton,
                                     color: NSColor = NSColor(white: 0.5, alpha: 0.55)) {
-        button.wantsLayer = true
-        button.layer?.cornerRadius = 6
-        button.layer?.borderWidth = 1
-        button.layer?.borderColor = color.cgColor
+        // SOLID brand-colored bezel + white title — the old outline-only style
+        // was hard to read. Slightly darken the hue so white text always has
+        // strong contrast against the fill.
+        let solid = (color.withAlphaComponent(1.0).blended(withFraction: 0.16, of: .black)) ?? color
+        button.bezelColor = solid
+        button.contentTintColor = .white
+        if let attr = button.attributedTitle.mutableCopy() as? NSMutableAttributedString, attr.length > 0 {
+            attr.addAttribute(.foregroundColor, value: NSColor.white,
+                              range: NSRange(location: 0, length: attr.length))
+            button.attributedTitle = attr
+        }
         // Truncate a long localized title rather than letting the button's
         // intrinsic width grow the footer row (and with it the whole popover).
         // The popover width is locked to the instrument grid; footer labels

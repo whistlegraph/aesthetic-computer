@@ -356,6 +356,12 @@ final class QwertyLayoutView: NSView {
         } else if mapped {
             NSColor(white: 0.92, alpha: 1.0).setFill()
             path.fill()
+        } else if !isOctaveKey {
+            // Ghost the inactive keys — a faint body (instead of a bare
+            // outline) so the mapped white/black caps stand out and the whole
+            // thing reads as a piano keyboard.
+            NSColor.labelColor.withAlphaComponent(0.05).setFill()
+            path.fill()
         }
         let stroke: NSColor
         if lit {
@@ -365,7 +371,8 @@ final class QwertyLayoutView: NSView {
         } else if isDead {
             stroke = NSColor.labelColor.withAlphaComponent(0.18)
         } else {
-            stroke = NSColor.labelColor.withAlphaComponent(mapped ? 0.45 : 0.30)
+            // Ghost inactive keys: much fainter outline so mapped caps lead.
+            stroke = NSColor.labelColor.withAlphaComponent(mapped ? 0.45 : 0.13)
         }
         stroke.setStroke()
         path.lineWidth = 0.7
@@ -387,7 +394,9 @@ final class QwertyLayoutView: NSView {
         } else if mapped {
             textColor = NSColor(white: 0.10, alpha: 1.0)
         } else {
-            textColor = NSColor.labelColor.withAlphaComponent(0.55)
+            // Ghosted glyph on inactive keys so they recede behind the
+            // mapped piano caps.
+            textColor = NSColor.labelColor.withAlphaComponent(0.22)
         }
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: scaledLabelFontSize, weight: .heavy),

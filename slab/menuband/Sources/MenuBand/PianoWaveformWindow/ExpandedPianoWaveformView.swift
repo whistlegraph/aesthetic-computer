@@ -359,7 +359,7 @@ final class ExpandedPianoWaveformView: NSView {
 
         let keyboardSize = self.keyboardSize()
         let widthConstraint = widthAnchor.constraint(
-            equalToConstant: max(keyboardSize.width + inset * 2, Self.expandedPanelWidth)
+            equalToConstant: stableKeyboardWidth()
         )
         self.widthConstraint = widthConstraint
         let waveformHeightConstraint = waveformView.heightAnchor.constraint(
@@ -668,7 +668,7 @@ final class ExpandedPianoWaveformView: NSView {
         updateHapticsControl()
         updateModeToggle()
         let keyboardSize = keyboardSize()
-        widthConstraint?.constant = max(keyboardSize.width + inset * 2, Self.expandedPanelWidth)
+        widthConstraint?.constant = stableKeyboardWidth()
         waveformHeightConstraint?.constant = waveformHeight(for: keyboardSize)
         pianoView.refreshLayout()
         layoutSubtreeIfNeeded()
@@ -795,6 +795,21 @@ final class ExpandedPianoWaveformView: NSView {
             let piano = KeyboardIconRenderer.pianoImageSize(layout: .tightActiveRange)
             return NSSize(width: piano.width * pianoScale, height: piano.height * pianoScale)
         }
+    }
+
+    /// A STABLE panel width so switching layouts (Notepat / Conventional /
+    /// Gamepad) never makes the overlay jump horizontally. Takes the widest
+    /// keyboard across keymaps and never shrinks below what's already shown —
+    /// narrower layouts simply re-center within the fixed width.
+    private func stableKeyboardWidth() -> CGFloat {
+        var widest: CGFloat = 0
+        for km in [Keymap.notepat, .ableton] {
+            let w = KeyboardIconRenderer.withPianoWaveformKeyboard(keymap: km) {
+                KeyboardIconRenderer.pianoImageSize(layout: .tightActiveRange).width * pianoScale
+            }
+            widest = max(widest, w)
+        }
+        return max(widest + inset * 2, Self.expandedPanelWidth, widthConstraint?.constant ?? 0)
     }
 
     private func waveformHeight(for keyboard: NSSize) -> CGFloat {

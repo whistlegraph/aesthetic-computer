@@ -191,9 +191,19 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
 
     private func buildContent() {
         guard let window = window else { return }
-        let content = NSView()
-        content.translatesAutoresizingMaskIntoConstraints = false
-        window.contentView = content
+        // REUSE the existing content view on a rebuild (language switch) rather
+        // than replacing window.contentView — replacing it re-composites the
+        // window's liquid-glass panel and causes a visible flash. Clearing and
+        // refilling the same view swaps the strings without touching the chrome.
+        let content: NSView
+        if let existing = window.contentView {
+            existing.subviews.forEach { $0.removeFromSuperview() }
+            content = existing
+        } else {
+            content = NSView()
+            content.translatesAutoresizingMaskIntoConstraints = false
+            window.contentView = content
+        }
 
         let stack = NSStackView()
         stack.orientation = .vertical
@@ -465,11 +475,10 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         // never blocks the press / the audio. The string swap applies a beat
         // after the sound, keeping the tap feeling instant.
         DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            if let content = self.window?.contentView {
-                for sub in content.subviews { sub.removeFromSuperview() }
-            }
-            self.buildContent()
+            // buildContent() now reuses + refills the existing content view
+            // (no window.contentView swap), so the language change swaps strings
+            // without the liquid-glass panel flashing.
+            self?.buildContent()
         }
     }
 
