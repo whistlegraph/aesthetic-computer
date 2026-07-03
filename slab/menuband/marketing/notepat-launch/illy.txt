@@ -1,0 +1,37 @@
+A warm, hand-drawn illustration for a music-app launch — painterly and poster-like,
+not a photo. Redraw the laptop from the reference image: an overhead, top-down view of
+an open small laptop, keyboard and trackpad filling the frame, lid hinge at the top.
+
+Keep the reference's exact two-tone colorway — the body/case color and the glowing
+keycap treatment. But highlight EXACTLY these eleven keys and no others — they are the
+notepat instrument's playable note keys:
+  • top letter row:  Q, W, R, T, Y, U, O, P
+  • home row:        S
+  • bottom row:      Z, V
+Every other key stays a plain, quiet, unlit key. In particular these must NOT glow:
+the E and I keys on the top row, the A D F G H J K L keys on the home row, the
+X C B N M keys on the bottom row, the apostrophe/quote ' key, and every number,
+symbol, and punctuation key. Only those eleven specific keycaps are lit.
+
+Color the keyboard like a PIANO, tinted to this colorway — this is the classical-music
+connection. The natural (un-highlighted) keys are the WHITE keys: pale and near-white,
+only faintly tinted with the colorway, and clearly LIGHTER than the body/case. The eleven
+note keys (Q W R T Y U O P S Z V) are the BLACK keys: painted in the colorway's saturated,
+deeper, richer contrasting accent hue exactly as in the reference image (the citrus/green
+machine has BLUE note keys; the indigo/lavender machine has GREEN note keys) — a darker,
+distinct tone that sets them clearly apart from the pale white naturals, just as a piano's
+black keys stand out from its whites. Give these accent note keys a soft, gentle glow in
+their own color so they still read as the playable, lit instrument keys.
+
+Every key stays legible: EVERY keycap on the whole keyboard clearly shows its own legend
+(the letters A–Z, the number row, the symbols, the esc / tab / shift / command / option
+labels, and the function-row F1–F12 icons). Do not leave any keycap blank; render every
+glyph crisply on the white and accent keys alike.
+
+Render it as an illustration on a soft off-white paper ground: confident inked outlines,
+gentle gouache-like shading, a little hand-drawn texture and grain, subtle drop shadow so
+the laptop feels like an object resting on the page. Friendly, tactile, instrument-like —
+the keyboard should read as something you play, not just type on. A few small musical
+grace notes are welcome (faint note sparkles rising off the lit keys) but keep it clean,
+uncluttered, and elegant with generous negative space around the machine for a headline.
+No text, no logos, no UI, no hands. Just the illustrated instrument-laptop.
