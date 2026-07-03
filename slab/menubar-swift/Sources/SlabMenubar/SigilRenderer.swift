@@ -28,6 +28,25 @@ enum SigilRenderer {
         return h == 0 ? 0x9e37_79b9_7f4a_7c15 : h
     }
 
+    /// The rock's pet name: 3–6 pronounceable characters, deterministic from
+    /// the same seed as the shape — so the name IS the rock, stable across
+    /// restarts and re-renders. Alternating consonant/vowel starting on a
+    /// consonant (CVC … CVCVCV), which lands on sayable pebble-names like
+    /// "gop", "miva", "tazok".
+    static func name(seed: UInt64) -> String {
+        // Salted so the name draws don't mirror the shape's first draws.
+        var rng = SplitMix64(seed ^ 0x5e5a_11ed_000b_b1e5)
+        let consonants = Array("bdfgklmnprstvz")
+        let vowels = Array("aeiou")
+        let len = rng.int(3, 6)
+        var out = ""
+        for i in 0..<len {
+            let set = i % 2 == 0 ? consonants : vowels
+            out.append(set[rng.int(0, set.count - 1)])
+        }
+        return out
+    }
+
     /// SplitMix64 — a tiny, well-distributed PRNG. Seeding it from the
     /// prompt's FNV hash turns that single hash into the stream of independent
     /// draws the shape + palette want, all deterministically.

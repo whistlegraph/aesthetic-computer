@@ -259,6 +259,11 @@ cp "${INFO_PLIST}" "${APP_DIR}/Contents/Info.plist"
 if [[ -f "${SCRIPT_DIR}/AppIcon.icns" ]]; then
     cp "${SCRIPT_DIR}/AppIcon.icns" "${APP_DIR}/Contents/Resources/AppIcon.icns"
 fi
+# Bundled fonts (YWFT Processing for the PromptRock name labels) — loaded
+# at runtime from Contents/Resources by URL.
+if compgen -G "${SCRIPT_DIR}/Resources/*.ttf" >/dev/null; then
+    cp "${SCRIPT_DIR}/Resources/"*.ttf "${APP_DIR}/Contents/Resources/"
+fi
 
 # Sign the bundle. Prefer a stable self-signed certificate so the TCC
 # Accessibility grant survives rebuilds (ad-hoc embeds the cdhash in the

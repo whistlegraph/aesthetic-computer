@@ -17,10 +17,17 @@ enum SigilRockFrames {
     /// Render `frameCount` rotation frames for `seed`, themed to `dark` and lit
     /// by the given sun. Runs offscreen (safe off the main thread); returns
     /// transparent-background CGImages ready for a CALayer.
+    ///
+    /// 108 frames per turn (~3.3° a step): the tumble reads as continuous 3D
+    /// rotation while the chunky look still comes from the nearest-neighbour
+    /// 30px downsample — pixels re-form smoothly on a screen-fixed grid
+    /// rather than the sprite rotating as a zoomed bitmap. Playback stays
+    /// cheap: these are cached sprites the render server cycles, so the cost
+    /// is one offscreen render pass per sun move, not per displayed frame.
     static func render(
         seed: UInt64, dark: Bool,
         sunHx: CGFloat, sunElevation: CGFloat, sunIntensity: CGFloat,
-        frameCount: Int = 54, px: CGFloat = 96
+        frameCount: Int = 108, px: CGFloat = 96
     ) -> [CGImage] {
         guard let device = device else { return [] }
         let renderer = SCNRenderer(device: device, options: nil)
