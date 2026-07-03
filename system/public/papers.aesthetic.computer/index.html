@@ -110,13 +110,20 @@
             font-size: 12px;
             user-select: none;
             border-radius: 4px;
-            transition: background 0.15s;
+            border: 1px solid var(--box-border);
+            background: var(--bg);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.22);
+            transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
             margin-left: auto;
         }
-        .lang-selector:hover { background: var(--box-bg); }
+        .lang-selector:hover {
+            background: var(--box-bg);
+            border-color: var(--pink);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.28);
+        }
         .lang-selector .lang-flag { font-size: 14px; }
-        .lang-selector .lang-text { font-size: 12px; color: var(--dim); font-weight: 500; }
-        .lang-selector .lang-arrow { font-size: 8px; color: var(--dim); opacity: 0.6; margin-left: 2px; }
+        .lang-selector .lang-text { font-size: 12px; color: var(--text); font-weight: 600; }
+        .lang-selector .lang-arrow { font-size: 8px; color: var(--text); opacity: 0.75; margin-left: 2px; }
 
         .lang-dropdown {
             position: absolute;
@@ -124,7 +131,7 @@
             background: var(--bg);
             border: 1px solid var(--box-border);
             border-radius: 4px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.35);
             z-index: 100;
             min-width: 110px;
             margin-top: 2px;
@@ -191,7 +198,7 @@
             font-family: 'Times New Roman', Times, Georgia, serif;
             font-size: 1.02em;
             line-height: 1.6;
-            margin: 0.2em 0 1.1em;
+            margin: 0.2em 0 0.8em;
             max-width: 70ch;
         }
         .intro a { color: var(--purple); text-decoration: none; }
@@ -325,7 +332,11 @@
         }
         .p .thumb img {
             width: 100%;
+            /* Crop into the illustration — top half of the figure */
+            aspect-ratio: 1 / 0.62;
             height: auto;
+            object-fit: cover;
+            object-position: 50% 12%;
             display: block;
         }
         .p:hover .thumb {
@@ -413,8 +424,8 @@
         .dossiers-list { display: contents; }
 
         /* === Category sections === */
-        .cat { margin-top: 2.2em; }
-        .cat:first-of-type { margin-top: 0.8em; }
+        .cat { margin-top: 1.2em; }
+        .cat:first-of-type { margin-top: 0.5em; }
         .cat-head {
             display: flex;
             align-items: baseline;
@@ -422,7 +433,6 @@
             font-size: 1.05em;
             font-weight: 600;
             color: var(--text);
-            text-transform: lowercase;
             letter-spacing: 0.04em;
             border-top: 1px solid var(--sep);
             padding-top: 1em;
@@ -441,7 +451,6 @@
         .cat.collapsed .cat-chevron { transform: rotate(-90deg); }
         .cat.collapsed .cat-list,
         .cat.collapsed .cat-sub { display: none; }
-        .cat.collapsed .cat-head { color: var(--dim); }
         .cat-head .cat-semi { color: var(--pink); margin-left: -0.28em; }
         .cat-head .cat-count {
             margin-left: 0.25em;
@@ -666,8 +675,8 @@
             padding: 0;
             overflow: hidden;
             aspect-ratio: 1536 / 1024;
-            max-height: 78vh;
-            min-height: 280px;
+            max-height: 34vh;
+            min-height: 160px;
             /* Purple letterbox the colored-pencil images soft-fade into. */
             background-color: var(--purple);
         }
@@ -753,7 +762,7 @@
         /* === MOBILE (<600px) === */
         @media (max-width: 599px) {
             body { padding: 0.6em 0.9em; }
-            .hero { margin-top: -0.6em; margin-bottom: 1em; max-height: 220px; }
+            .hero { margin-top: -0.6em; margin-bottom: 0.7em; max-height: 140px; }
             .top-bar .logo { font-size: 13px; white-space: nowrap; }
             .lang-selector .lang-text { display: none; }
             .p .title { font-size: 0.98em; }
@@ -768,7 +777,7 @@
                 padding: 2em 3em;
                 font-size: 16px;
             }
-            .hero { margin-top: -2em; margin-bottom: 1.6em; max-height: 380px; }
+            .hero { margin-top: -2em; margin-bottom: 1em; max-height: 240px; }
             .p .title { font-size: 1.15em; }
             .p .detail { font-size: 0.82em; }
             .p { padding: 0.45em 0.6em; }
@@ -782,7 +791,7 @@
                 padding: 2.5em 4em;
                 font-size: 17px;
             }
-            .hero { margin-top: -2.5em; margin-bottom: 2em; max-height: 460px; }
+            .hero { margin-top: -2.5em; margin-bottom: 1.2em; max-height: 280px; }
             .p .title { font-size: 1.22em; }
             .p .detail { font-size: 0.85em; }
             .pals { width: 64px; }
@@ -849,7 +858,7 @@
     </header>
 
     <div class="intro">
-        <p>Papers publishes working research on the <a href="https://aesthetic.computer" class="ac-link"><span class="logo-ac">Aesthetic<span class="logo-dot">.</span>Computer</span></a> project by <a href="https://prompt.ac/@jeffrey">@jeffrey</a> — typeset in LaTeX and compiled from the <a href="/platter">research platter</a>. Cards are 4&times;6 inch mobile versions. Translated into Danish, Spanish, Chinese, Japanese, and Russian.</p>
+        <p>Papers publishes working research on the <a href="https://aesthetic.computer" class="ac-link"><span class="logo-ac">Aesthetic<span class="logo-dot">.</span>Computer</span></a> project authored by <a href="https://prompt.ac/@jeffrey">@jeffrey</a>.</p>
     </div>
 
     <!-- ===== ACTIVE PROPOSALS (live public previews, sorted by closest deadline) ===== -->
@@ -870,9 +879,9 @@
     <div class="papers-list">
     <!-- papers-start -->
 
-    <section class="cat" data-cat="platform">
-        <div class="cat-head" role="button" tabindex="0" aria-expanded="true"><span class="cat-chevron" aria-hidden="true">▾</span><span class="cat-name">platform &amp; language</span><span class="cat-semi">;</span><span class="cat-count">14</span></div>
-        <div class="cat-sub">the runtime, the language, and the surfaces you actually touch.</div>
+    <section class="cat collapsed" data-cat="platform">
+        <div class="cat-head" role="button" tabindex="0" aria-expanded="false"><span class="cat-chevron" aria-hidden="true">▾</span><span class="cat-name">Platform &amp; Language</span><span class="cat-count">14</span></div>
+        <div class="cat-sub">The runtime, the language, and the surfaces you actually touch.</div>
         <div class="cat-list">
 
     <div class="p" data-paper-id="keymaps" data-created="2026-05-02" data-updated="2026-06-13T23:44:42.265Z">
@@ -1003,9 +1012,9 @@
         </div>
     </section>
 
-    <section class="cat" data-cat="essays">
-        <div class="cat-head" role="button" tabindex="0" aria-expanded="true"><span class="cat-chevron" aria-hidden="true">▾</span><span class="cat-name">essays &amp; criticism</span><span class="cat-semi">;</span><span class="cat-count">16</span></div>
-        <div class="cat-sub">arguments about creative computing — its lineage, its players, and its discontents.</div>
+    <section class="cat collapsed" data-cat="essays">
+        <div class="cat-head" role="button" tabindex="0" aria-expanded="false"><span class="cat-chevron" aria-hidden="true">▾</span><span class="cat-name">Essays &amp; Criticism</span><span class="cat-count">16</span></div>
+        <div class="cat-sub">Arguments about creative computing — its lineage, its players, and its discontents.</div>
         <div class="cat-list">
 
     <div class="p" data-paper-id="plork" data-created="2026-03-21" data-updated="2026-07-03T07:57:35.155Z">
@@ -1154,9 +1163,9 @@
         </div>
     </section>
 
-    <section class="cat" data-cat="audits">
-        <div class="cat-head" role="button" tabindex="0" aria-expanded="true"><span class="cat-chevron" aria-hidden="true">▾</span><span class="cat-name">audits &amp; field studies</span><span class="cat-semi">;</span><span class="cat-count">5</span></div>
-        <div class="cat-sub">data turned back on the project itself — who uses it, what it cites, where it came from.</div>
+    <section class="cat collapsed" data-cat="audits">
+        <div class="cat-head" role="button" tabindex="0" aria-expanded="false"><span class="cat-chevron" aria-hidden="true">▾</span><span class="cat-name">Audits &amp; Field Studies</span><span class="cat-count">5</span></div>
+        <div class="cat-sub">Data turned back on the project itself — who uses it, what it cites, where it came from.</div>
         <div class="cat-list">
 
     <div class="p" data-paper-id="archaeology" data-created="2026-03-21" data-updated="2026-07-03T07:57:35.155Z">
@@ -1206,9 +1215,9 @@
         </div>
     </section>
 
-    <section class="cat" data-cat="dossiers">
-        <div class="cat-head" role="button" tabindex="0" aria-expanded="true"><span class="cat-chevron" aria-hidden="true">▾</span><span class="cat-name">dossiers</span><span class="cat-semi">;</span><span class="cat-count">18</span></div>
-        <div class="cat-sub">what's publicly recoverable about art-and-tech institutions and their largest funders — fact-surfacing, not argument.</div>
+    <section class="cat collapsed" data-cat="dossiers">
+        <div class="cat-head" role="button" tabindex="0" aria-expanded="false"><span class="cat-chevron" aria-hidden="true">▾</span><span class="cat-name">Dossiers</span><span class="cat-count">18</span></div>
+        <div class="cat-sub">What's publicly recoverable about art-and-tech institutions and their largest funders — fact-surfacing, not argument.</div>
         <div class="cat-list" data-nosort>
 
     <div class="p" data-paper-id="rhizome" data-created="2026-05-02" data-updated="2026-07-03T07:57:35.155Z">
@@ -1375,9 +1384,9 @@
         </div>
     </section>
 
-    <section class="cat" data-cat="software">
-        <div class="cat-head" role="button" tabindex="0" aria-expanded="true"><span class="cat-chevron" aria-hidden="true">▾</span><span class="cat-name">software papers</span><span class="cat-semi">;</span><span class="cat-count">3</span></div>
-        <div class="cat-sub">conventional software-paper summaries, for archival and citation.</div>
+    <section class="cat collapsed" data-cat="software">
+        <div class="cat-head" role="button" tabindex="0" aria-expanded="false"><span class="cat-chevron" aria-hidden="true">▾</span><span class="cat-name">Software Papers</span><span class="cat-count">3</span></div>
+        <div class="cat-sub">Conventional software-paper summaries, for archival and citation.</div>
         <div class="cat-list">
 
     <div class="p" data-paper-id="joss-ac">
@@ -1409,9 +1418,9 @@
         </div>
     </section>
 
-    <section class="cat cat--archive" data-cat="archive">
-        <div class="cat-head" role="button" tabindex="0" aria-expanded="true"><span class="cat-chevron" aria-hidden="true">▾</span><span class="cat-name">archive</span><span class="cat-semi">;</span><span class="cat-count">1</span></div>
-        <div class="cat-sub">deprecated — kept for the record, no longer actively maintained.</div>
+    <section class="cat cat--archive collapsed" data-cat="archive">
+        <div class="cat-head" role="button" tabindex="0" aria-expanded="false"><span class="cat-chevron" aria-hidden="true">▾</span><span class="cat-name">Archive</span><span class="cat-count">1</span></div>
+        <div class="cat-sub">Deprecated — kept for the record, no longer actively maintained.</div>
         <div class="cat-list" data-nosort>
 
     <div class="p" data-paper-id="calarts" data-deprecated="1" data-created="2026-03-21" data-updated="2026-07-03T07:57:35.155Z">
@@ -1905,28 +1914,29 @@
             });
         });
 
-        // Collapsible categories — click (or Enter/Space) a header to fold a
-        // section; the open/closed state per category persists in localStorage.
+        // Collapsible categories — every section starts folded; clicking (or
+        // Enter/Space on) a header opens it, and the set of OPEN categories
+        // persists in localStorage.
         (function initCollapse() {
-            const KEY = 'papers-collapsed-cats';
-            let collapsed;
-            try { collapsed = new Set(JSON.parse(localStorage.getItem(KEY) || '[]')); }
-            catch { collapsed = new Set(); }
+            const KEY = 'papers-open-cats';
+            let open;
+            try { open = new Set(JSON.parse(localStorage.getItem(KEY) || '[]')); }
+            catch { open = new Set(); }
             const save = () => {
-                try { localStorage.setItem(KEY, JSON.stringify([...collapsed])); } catch {}
+                try { localStorage.setItem(KEY, JSON.stringify([...open])); } catch {}
             };
             document.querySelectorAll('.cat').forEach(cat => {
                 const key = cat.dataset.cat;
                 const head = cat.querySelector('.cat-head');
                 if (!head) return;
-                if (collapsed.has(key)) {
-                    cat.classList.add('collapsed');
-                    head.setAttribute('aria-expanded', 'false');
+                if (open.has(key)) {
+                    cat.classList.remove('collapsed');
+                    head.setAttribute('aria-expanded', 'true');
                 }
                 const toggle = () => {
                     const nowClosed = cat.classList.toggle('collapsed');
                     head.setAttribute('aria-expanded', String(!nowClosed));
-                    if (nowClosed) collapsed.add(key); else collapsed.delete(key);
+                    if (nowClosed) open.delete(key); else open.add(key);
                     save();
                 };
                 head.addEventListener('click', toggle);

@@ -384,8 +384,8 @@ const dossierRank = (dir) => {
 const CATEGORIES = [
   {
     key: "platform",
-    title: "platform &amp; language",
-    sub: "the runtime, the language, and the surfaces you actually touch.",
+    title: "Platform &amp; Language",
+    sub: "The runtime, the language, and the surfaces you actually touch.",
     dirs: [
       "arxiv-ac",
       "arxiv-kidlisp",
@@ -405,8 +405,8 @@ const CATEGORIES = [
   },
   {
     key: "essays",
-    title: "essays &amp; criticism",
-    sub: "arguments about creative computing — its lineage, its players, and its discontents.",
+    title: "Essays &amp; Criticism",
+    sub: "Arguments about creative computing — its lineage, its players, and its discontents.",
     dirs: [
       "arxiv-plork",
       "arxiv-sustainability",
@@ -427,8 +427,8 @@ const CATEGORIES = [
   },
   {
     key: "audits",
-    title: "audits &amp; field studies",
-    sub: "data turned back on the project itself — who uses it, what it cites, where it came from.",
+    title: "Audits &amp; Field Studies",
+    sub: "Data turned back on the project itself — who uses it, what it cites, where it came from.",
     dirs: [
       "arxiv-archaeology",
       "arxiv-hand-and-loop",
@@ -439,15 +439,15 @@ const CATEGORIES = [
   },
   {
     key: "dossiers",
-    title: "dossiers",
-    sub: "what's publicly recoverable about art-and-tech institutions and their largest funders — fact-surfacing, not argument.",
+    title: "Dossiers",
+    sub: "What's publicly recoverable about art-and-tech institutions and their largest funders — fact-surfacing, not argument.",
     nosort: true,
     dirs: [...DOSSIER_DIRS, "arxiv-ucla-arts"],
   },
   {
     key: "software",
-    title: "software papers",
-    sub: "conventional software-paper summaries, for archival and citation.",
+    title: "Software Papers",
+    sub: "Conventional software-paper summaries, for archival and citation.",
     dirs: [], // populated from the `extras` array (JOSS / ELS)
   },
 ];
@@ -1290,11 +1290,11 @@ function updateIndex(entries) {
   // of cards; `nosort`/extra modifiers control the client-side sort.
   function renderSection({ key, title, sub, nosort }, cardsHtml, count, archive = false) {
     if (!cardsHtml) return "";
-    const cls = `cat${archive ? " cat--archive" : ""}`;
+    const cls = `cat${archive ? " cat--archive" : ""} collapsed`;
     const nosortAttr = nosort || archive ? " data-nosort" : "";
     return `
     <section class="${cls}" data-cat="${key}">
-        <div class="cat-head" role="button" tabindex="0" aria-expanded="true"><span class="cat-chevron" aria-hidden="true">▾</span><span class="cat-name">${title}</span><span class="cat-semi">;</span><span class="cat-count">${count}</span></div>
+        <div class="cat-head" role="button" tabindex="0" aria-expanded="false"><span class="cat-chevron" aria-hidden="true">▾</span><span class="cat-name">${title}</span><span class="cat-count">${count}</span></div>
         <div class="cat-sub">${sub}</div>
         <div class="cat-list"${nosortAttr}>
 ${cardsHtml}        </div>
@@ -1341,8 +1341,8 @@ ${cardsHtml}        </div>
     papersHtml += renderSection(
       {
         key: "archive",
-        title: "archive",
-        sub: "deprecated — kept for the record, no longer actively maintained.",
+        title: "Archive",
+        sub: "Deprecated — kept for the record, no longer actively maintained.",
       },
       archived.map(renderPaper).join(""),
       archived.length,

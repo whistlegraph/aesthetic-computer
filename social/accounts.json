@@ -20,7 +20,7 @@
       "role": "primary-growth-target",
       "goal": "Grow in tandem with IG; feed cross-traffic to IG",
       "snapshots": [
-        { "date": null, "followers": null, "following": null, "posts": null, "notes": "TODO: fill in current numbers" }
+        { "date": "2026-07-03", "followers": 391, "following": null, "posts": 3, "likes": 133, "notes": "Public web scrape (profile HTML)" }
       ]
     },
     {
@@ -42,7 +42,7 @@
       "role": "established-funnel-source",
       "goal": "Maintain; occasional funnel to primary",
       "snapshots": [
-        { "date": null, "followers": null, "following": null, "posts": null, "notes": "TODO: fill in current numbers" }
+        { "date": "2026-07-03", "followers": 2600000, "following": null, "posts": 950, "likes": 99000000, "notes": "Public web scrape (profile HTML); TikTok-rounded figures" }
       ]
     }
   ]
