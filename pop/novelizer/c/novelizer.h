@@ -106,6 +106,20 @@ static NvNote nv_mel_drone[] = {
   NV_N(45, 8.5, 8.0, 0.80),
 };
 
+/* beat — two bars of 16ths at 104bpm (0.144s step), C1 fundamental,
+   boom-bap accent map; the percussion battery: velocity dynamics,
+   retrigger behavior, and tail bleed between hits                     */
+static NvNote nv_mel_beat[] = {
+  NV_N(24, 0.000, 0.10, 1.00), NV_N(24, 0.433, 0.10, 0.55),
+  NV_N(24, 0.866, 0.10, 0.80), NV_N(24, 1.154, 0.10, 0.95),
+  NV_N(24, 1.443, 0.10, 0.50), NV_N(24, 1.732, 0.10, 0.85),
+  NV_N(24, 2.021, 0.10, 0.60), NV_N(24, 2.165, 0.10, 0.40),
+  NV_N(24, 2.309, 0.10, 1.00), NV_N(24, 2.742, 0.10, 0.55),
+  NV_N(24, 3.175, 0.10, 0.80), NV_N(24, 3.463, 0.10, 0.95),
+  NV_N(24, 3.752, 0.10, 0.50), NV_N(24, 3.896, 0.10, 0.70),
+  NV_N(24, 4.041, 0.10, 0.85), NV_N(24, 4.185, 0.10, 0.60),
+};
+
 /* chromatic — one octave up from C4, tuning sanity                    */
 static NvNote nv_mel_chromatic[] = {
   NV_N(60, 0.0, 0.28, 0.75), NV_N(61, 0.3, 0.28, 0.75),
@@ -122,6 +136,7 @@ static NvMelody nv_melodies[] = {
   { "lyrical",   nv_mel_lyrical,   (int)(sizeof nv_mel_lyrical   / sizeof(NvNote)), 0 },
   { "stab",      nv_mel_stab,      (int)(sizeof nv_mel_stab      / sizeof(NvNote)), 0 },
   { "drone",     nv_mel_drone,     (int)(sizeof nv_mel_drone     / sizeof(NvNote)), 0 },
+  { "beat",      nv_mel_beat,      (int)(sizeof nv_mel_beat      / sizeof(NvNote)), 0 },
   { "chromatic", nv_mel_chromatic, (int)(sizeof nv_mel_chromatic / sizeof(NvNote)), 0 },
 };
 enum { NV_MELODY_COUNT = (int)(sizeof nv_melodies / sizeof(NvMelody)) };

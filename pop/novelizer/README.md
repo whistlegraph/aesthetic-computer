@@ -63,6 +63,7 @@ fairly. Melodies exercise different musical demands:
 | `lyrical`   | sustain, expressivity, phrase shape      |
 | `stab`      | transients, fast staccato articulation   |
 | `drone`     | long-note evolution, internal motion     |
+| `beat`      | percussion: accents, retriggers, bleed   |
 | `chromatic` | tuning sanity, semitone resolution       |
 
 ## Workflow (per batch)

@@ -1,4 +1,44 @@
-# novelizer — batch 1 report
+# novelizer — batch reports
+
+# batch 2 — percussion (kicks + snares)
+
+**Rendered + judged**: 2026-07-02 · 6 builders + 6 adversarial judges
+(12 agents, ~628k subagent tokens). New harness melody: `beat` — a 2-bar
+104 BPM 16th accent map at C1, the percussion battery. **All six kept**
+(threshold: novelty ≥ 6, punch ≥ 6, mixability ≥ 5).
+
+| voice        | role  | technique (citation)                                    | N | P | M |
+|--------------|-------|---------------------------------------------------------|---|---|---|
+| memkick      | kick  | tension-modulated Bessel membrane (Fletcher & Rossing; Bilbao) | 7 | 9 | 8 |
+| cavikick     | kick  | Helmholtz port + Ingard–Ising orifice loss (Thiele/Small) | 8 | 7 | 8 |
+| implokick    | kick  | chaotic-collapse feedback FM (Tomisawa; chaosfm lineage) | 7 | 8 | 8 |
+| wiresnare    | snare | membrane + wire contact collisions (Rossing; Bilbao)    | 8 | 8 | 8 |
+| cracklesnare | snare | logistic-map spike train (May 1976; Shaw's faucet)      | 8 | 8 | 7 |
+| gransnare    | snare | stochastic pulsaret cloud (Roads; pulsar lineage)       | 7 | 7 | 7 |
+
+N novelty · P punch · M mixability. Standouts: **memkick**'s pitch drop is
+emergent (glide depth/speed/spectrum/decay co-vary with strike force through
+one energy variable — accents dive, ghosts barely bend); **cavikick** is the
+air side of a drum, not the head (fixed Helmholtz pitch, velocity-squared
+port loss = physical compression, flow-gated chuff); **wiresnare**'s and
+**cracklesnare**'s tails granulate/sputter instead of hissing (collision
+process / chaotic orbit, not filtered noise); **gransnare**'s body is a
+statistical condensation of phase-locked grains.
+
+Judges' improvement threads: memkick low-vel T60 cap + small-speaker
+translation (write kick lines at C2+), cavikick knock presence, implokick
+optional HF tilt, wiresnare persistent wire bank for true rolls,
+cracklesnare top-end air + body register floor, gransnare fold floor
+~160-180 Hz.
+
+**First deployment**: `pop/novelette/` — memkick (downbeats) + cavikick
+(shuffle ghosts) + gransnare (backbeat) + cracklesnare in a STRETCHED
+adaptation (note length scales every time constant → multi-second chaos
+washes at the section doors).
+
+---
+
+# batch 1 report
 
 **Rendered + judged**: 2026-07-02 · 6 builder agents + 6 adversarial judges
 (12 agents, ~617k subagent tokens) · harness `c/novelizer.h`, features via
