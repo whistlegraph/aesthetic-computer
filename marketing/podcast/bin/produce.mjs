@@ -20,7 +20,7 @@ import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { execFileSync, spawnSync } from "node:child_process";
 import { essayToScript } from "./essay-to-script.mjs";
-import { renderJingles } from "./jingle.mjs";
+import { renderJingles, renderBed, BED_BPM } from "./jingle.mjs";
 import { renderCover } from "./cover.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -73,25 +73,42 @@ async function say(text, label) {
     return out;
   }
   process.stdout.write(`  → ${label} (${text.length} chars) …`);
-  const res = await fetch(SAY_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    redirect: "follow",
-  });
-  if (!res.ok) {
-    process.stdout.write(" ✗\n");
-    throw new Error(`/api/say ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  // Retry transient network / 5xx failures (the essay is many small calls;
+  // one dropped connection shouldn't sink the whole run).
+  const ATTEMPTS = 4;
+  let lastErr;
+  for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+    try {
+      const res = await fetch(SAY_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        redirect: "follow",
+      });
+      if (!res.ok) {
+        if (res.status >= 500 && attempt < ATTEMPTS) throw new Error(`HTTP ${res.status}`);
+        process.stdout.write(" ✗\n");
+        throw new Error(`/api/say ${res.status}: ${(await res.text()).slice(0, 200)}`);
+      }
+      const ct = res.headers.get("content-type") || "";
+      if (!ct.includes("audio") && !ct.includes("octet-stream")) {
+        const j = await res.json().catch(() => null);
+        if (j && j.audio) writeFileSync(out, Buffer.from(j.audio, "base64"));
+        else throw new Error(`unexpected /api/say content-type: ${ct}`);
+      } else {
+        writeFileSync(out, Buffer.from(await res.arrayBuffer()));
+      }
+      lastErr = null;
+      break;
+    } catch (e) {
+      lastErr = e;
+      if (attempt < ATTEMPTS) {
+        process.stdout.write(` retry${attempt}`);
+        await new Promise((r) => setTimeout(r, 800 * attempt));
+      }
+    }
   }
-  const ct = res.headers.get("content-type") || "";
-  if (!ct.includes("audio") && !ct.includes("octet-stream")) {
-    // Some deployments return JSON {audio: base64}; handle both.
-    const j = await res.json().catch(() => null);
-    if (j && j.audio) { writeFileSync(out, Buffer.from(j.audio, "base64")); }
-    else throw new Error(`unexpected /api/say content-type: ${ct}`);
-  } else {
-    writeFileSync(out, Buffer.from(await res.arrayBuffer()));
-  }
+  if (lastErr) { process.stdout.write(" ✗\n"); throw lastErr; }
   process.stdout.write(" ✓\n");
   return out;
 }
@@ -120,18 +137,59 @@ const script = essayToScript(essayPath);
 const speaker = script.author.replace(/^@/, "");
 console.log(`\n▸ ${script.title} — ${script.paragraphs.length} paragraphs · ${script.wordCount} words · voice ${VOICE.provider}/${VOICE.voice}\n`);
 
-// 1. Narrate the body, paragraph by paragraph.
-console.log("Narrating body…");
-const paraFiles = [];
-for (let i = 0; i < script.paragraphs.length; i++) {
-  paraFiles.push(await say(script.paragraphs[i], `¶${i + 1}/${script.paragraphs.length}`));
+// ── beat grid (shared with the bed) ────────────────────────────────────
+const BEAT = 60 / BED_BPM;      // seconds per beat
+const BAR = BEAT * 4;
+const BEAT_ALIGN = !flags.nobeatalign && !flags.nobed;
+// Snap a time up to the next grid line, after a minimum advance.
+const snapUp = (t, grid, minAdvance) => Math.ceil((t + minAdvance) / grid - 1e-6) * grid;
+
+// Split a paragraph into sentences (the utterances we place on the grid).
+function sentences(p) {
+  const parts = p.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean);
+  const out = [];
+  for (const s of parts) {
+    if (out.length && s.length < 22) out[out.length - 1] += " " + s; // glue tiny fragments
+    else out.push(s);
+  }
+  return out;
 }
 
-// 2. Measure the real reading length (body VO + inter-paragraph breaths).
-const PARA_GAP = 0.55;
-const bodySec = paraFiles.reduce((s, f) => s + dur(f), 0) + PARA_GAP * (paraFiles.length - 1);
+// 1. Narrate the body, one sentence at a time (each an utterance to place).
+console.log("Narrating body…");
+const units = []; // { text, mp3, dur, paraEnd }
+for (let pi = 0; pi < script.paragraphs.length; pi++) {
+  const ss = sentences(script.paragraphs[pi]);
+  for (let si = 0; si < ss.length; si++) {
+    const mp3 = await say(ss[si], `¶${pi + 1}.${si + 1}`);
+    units.push({ text: ss[si], mp3, dur: dur(mp3), paraEnd: si === ss.length - 1 });
+  }
+}
+
+// 2. Arrange the body on the beat grid: each sentence onset snaps to a beat
+// (paragraph breaks snap to the bar for a longer rest). Gaps flex; words don't.
+// bodyStart is treated as an on-grid origin (0) here; the assembler places the
+// body on a real bar boundary so absolute onsets land on beats.
+const gapsBefore = [0]; // silence before unit i (index 0 = none)
+{
+  let t = units[0].dur;
+  for (let i = 1; i < units.length; i++) {
+    const prev = units[i - 1];
+    let g;
+    if (BEAT_ALIGN) {
+      const grid = prev.paraEnd ? BAR : BEAT;
+      const minBreath = prev.paraEnd ? 0.5 : 0.26;
+      g = snapUp(t, grid, minBreath) - t;
+    } else {
+      g = prev.paraEnd ? 0.7 : 0.4;
+    }
+    gapsBefore.push(g);
+    t += g + units[i].dur;
+  }
+}
+const bodySec = units.reduce((s, u) => s + u.dur, 0) + gapsBefore.reduce((a, b) => a + b, 0);
 const lengthText = fmtLength(bodySec);
-console.log(`\nBody runs ${bodySec.toFixed(1)}s → announcing "${lengthText}".\n`);
+console.log(`\n${units.length} utterances · body ${bodySec.toFixed(1)}s${BEAT_ALIGN ? ` · beat-aligned @ ${BED_BPM}bpm` : ""} → announcing "${lengthText}".\n`);
 
 // 3. Intro + outro voice-over (liturgical framing), with the measured length.
 const introText = `A reading of the essay: ${script.title}, by ${speaker}. Approximately ${lengthText}.`;
@@ -151,18 +209,20 @@ mkdirSync(build, { recursive: true });
 
 const seq = [];
 let n = 0;
-const add = (src) => { const d = resolve(build, `seg_${String(n++).padStart(3, "0")}.wav`); toWav(src, d); seq.push(d); };
-const gap = (s) => { const d = resolve(build, `seg_${String(n++).padStart(3, "0")}.wav`); silence(d, s); seq.push(d); };
+let clock = 0; // absolute seconds, so we can land the body on the bed's grid
+const add = (src) => { const d = resolve(build, `seg_${String(n++).padStart(3, "0")}.wav`); toWav(src, d); seq.push(d); clock += dur(d); };
+const gap = (s) => { if (s <= 0) return; const d = resolve(build, `seg_${String(n++).padStart(3, "0")}.wav`); silence(d, s); seq.push(d); clock += s; };
 
 add(introJingle);
 gap(0.35);
 add(introVo);
-gap(0.8);
-for (let i = 0; i < paraFiles.length; i++) {
-  add(paraFiles[i]);
-  if (i < paraFiles.length - 1) gap(PARA_GAP);
+// Push the body to the next bar boundary so every sentence onset lands on a beat.
+gap((BEAT_ALIGN ? snapUp(clock, BAR, 0.6) : clock + 0.8) - clock);
+for (let i = 0; i < units.length; i++) {
+  gap(gapsBefore[i]); // gapsBefore[0] = 0
+  add(units[i].mp3);
 }
-gap(0.8);
+gap((BEAT_ALIGN ? snapUp(clock, BAR, 0.5) : clock + 0.8) - clock);
 add(outroVo);
 gap(0.3);
 add(outroJingle);
@@ -173,14 +233,48 @@ writeFileSync(listFile, seq.map((f) => `file '${f.replace(/'/g, "'\\''")}'`).joi
 const outMp3 = resolve(ROOT, "out", `${script.slug}.mp3`);
 mkdirSync(dirname(outMp3), { recursive: true });
 
-// 5a. Mix down the audio (loudnorm → mp3) to a temp file.
-const audioTmp = resolve(build, "audio.mp3");
+// 5a. Concat the voice track (no normalization yet).
+const voiceWav = resolve(build, "voice.wav");
 execFileSync("ffmpeg", [
   "-y", "-f", "concat", "-safe", "0", "-i", listFile,
-  "-af", "loudnorm=I=-16:TP=-1.5:LRA=11",
-  "-c:a", "libmp3lame", "-b:a", "256k",
-  audioTmp,
+  "-ar", "44100", "-ac", "2", "-c:a", "pcm_s16le", voiceWav,
 ], { stdio: "ignore" });
+
+// 5b. Score a lo-fi bed (melody + rhythm) under the whole reading,
+// sidechain-ducked by the voice so speech stays clear. --nobed to skip;
+// --bedgain N to tune (default 0.35).
+const audioTmp = resolve(build, "audio.mp3");
+if (flags.nobed) {
+  execFileSync("ffmpeg", [
+    "-y", "-i", voiceWav, "-af", "loudnorm=I=-16:TP=-1.5:LRA=11",
+    "-c:a", "libmp3lame", "-b:a", "256k", audioTmp,
+  ], { stdio: "ignore" });
+} else {
+  console.log("Scoring bed…");
+  const bedGain = flags.bedgain !== undefined ? Number(flags.bedgain) : 0.22;
+  const bedWav = resolve(build, "bed.wav");
+  renderBed(dur(voiceWav) + 1.0, bedWav);
+  // Voice chain (sharper + upfront): high-pass rumble, presence + air EQ,
+  // gentle compression for a consistent forward level.
+  const vox = "highpass=f=85," +
+    "equalizer=f=3200:t=q:w=1.4:g=3.5," +
+    "equalizer=f=7000:t=q:w=1.6:g=2.5," +
+    "acompressor=threshold=-18dB:ratio=3:attack=6:release=180:makeup=2";
+  // Bed chain: quiet, with a slow phaser sweep for movement, then ducked hard
+  // under the voice so speech always sits on top.
+  const bedfx = `volume=${bedGain},aphaser=type=t:speed=0.25:decay=0.4`;
+  execFileSync("ffmpeg", [
+    "-y", "-i", voiceWav, "-i", bedWav,
+    "-filter_complex",
+      `[0:a]${vox}[vox];` +
+      `[1:a]${bedfx}[bedfx];` +
+      `[bedfx][vox]sidechaincompress=threshold=0.015:ratio=8:attack=5:release=340[bd];` +
+      `[vox][bd]amix=inputs=2:duration=first:normalize=0[m];` +
+      `[m]loudnorm=I=-16:TP=-1.5:LRA=11[out]`,
+    "-map", "[out]",
+    "-c:a", "libmp3lame", "-b:a", "256k", audioTmp,
+  ], { stdio: "ignore" });
+}
 
 // 5b. Cover art (square, on-brand) → embed as ID3 album art + keep the file.
 console.log("Rendering cover…");
