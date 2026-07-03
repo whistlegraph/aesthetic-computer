@@ -54,9 +54,10 @@ const DUR = BARS * BAR + 5.5; // room for the last toll to settle
 let _s = 0xa7757e77;
 const rnd = () => ((_s = (_s * 1664525 + 1013904223) >>> 0) / 4294967296);
 
-// e minor pentatonic — the bell runs live here
-const DROP_NOTES = ["E5", "G5", "A5", "B5", "D6", "E6"];
-const CHIME_NOTES = ["E6", "G6", "A6", "B6", "D7"];
+// e minor pentatonic — the bell runs live here. One octave down from
+// the first cuts: E5–E6 read piercing-tangy on laptop speakers
+const DROP_NOTES = ["E4", "G4", "A4", "B4", "D5", "E5"];
+const CHIME_NOTES = ["E5", "G5", "A5", "B5", "D6"];
 const BLOOP_HZ = [164.81, 196.0, 220.0, 246.94, 293.66]; // e3 pentatonic
 // sub roots: e1 g1 a1 d2 under each 2-bar phrase
 const ROOTS = [41.203, 48.999, 55.0, 73.416];
@@ -284,6 +285,34 @@ const mix = new Float32Array(raw.buffer, raw.byteOffset, raw.length / 4);
 const kraw = readFileSync(kickPath);
 const kickBus = new Float32Array(kraw.buffer, kraw.byteOffset, kraw.length / 4);
 const ns = mix.length / 2;
+const smooth = (p) => p * p * (3 - 2 * p);
+
+// ── crunch: the water hardens sonically too — a tanh waveshaper whose
+//    blend ramps in across drops C→E, eases off for the coda and mist.
+//    It runs HERE, on the engine bus and the kick only, BEFORE the
+//    bells and vocals layer in — distorted sines and kicks get teeth,
+//    the bells stay pure (crunched bells read tangy on small speakers) ─
+{
+  const DRIVE = 2.4;
+  const norm = Math.tanh(DRIVE);
+  const blendAt = (t) => {
+    if (t < bar(24)) return 0;
+    if (t < bar(64)) return 0.85 * smooth((t - bar(24)) / (bar(64) - bar(24)));
+    if (t < bar(76)) return 0.85;
+    if (t < bar(80)) return 0.85 - 0.6 * smooth((t - bar(76)) / (4 * BAR));
+    return 0.15;
+  };
+  for (let f = 0; f < ns; f++) {
+    const m = blendAt(f / SR);
+    if (m <= 0) continue;
+    for (let ch = 0; ch < 2; ch++) {
+      const x = mix[2 * f + ch];
+      mix[2 * f + ch] = x * (1 - m) + (Math.tanh(x * DRIVE) / norm) * m;
+      const k = kickBus[2 * f + ch];
+      kickBus[2 * f + ch] = k * (1 - m) + (Math.tanh(k * DRIVE) / norm) * m;
+    }
+  }
+}
 
 const bank = new Map();
 const bellFor = ({ note, material, geometry, dur }) => {
@@ -316,9 +345,11 @@ for (const s of bells) {
   const gl = Math.cos(a) * s.gain * s.vel;
   const gr = Math.sin(a) * s.gain * s.vel;
   const n = Math.min(L.length, ns - at);
+  const fade = Math.min(Math.floor(0.08 * SR), Math.floor(n * 0.2)); // choked strikes land soft, never click
   for (let i = 0; i < n; i++) {
-    mix[2 * (at + i)] += L[i] * gl;
-    mix[2 * (at + i) + 1] += R[i] * gr;
+    const env = i > n - fade ? (n - i) / fade : 1;
+    mix[2 * (at + i)] += L[i] * gl * env;
+    mix[2 * (at + i) + 1] += R[i] * gr * env;
   }
 }
 
@@ -326,7 +357,6 @@ for (const s of bells) {
 //    a slice of the track itself. Position follows smoothstep gestures
 //    (zero velocity at the turnarounds, like a real wrist), a
 //    transformer gate chops, and the mix ducks under the hand ──────────
-const smooth = (p) => p * p * (3 - 2 * p);
 function scratchAt(tOut, srcT, srcDur, gestures, gainDb) {
   const src0 = Math.floor(srcT * SR);
   const srcN = Math.floor(srcDur * SR);
@@ -380,31 +410,56 @@ scratchAt(bar(84.5), bar(64), 2 * BEAT, [
   { dur: BEAT * 1.5, from: 0, to: 0.4, gate: 0.45 }, { dur: BEAT, from: 0.4, to: 0.1, gate: 0.35 },
 ], -11);
 
-// ── the kick returns: layered back on top, untouched by every hand ────
-for (let i = 0; i < mix.length; i++) mix[i] += kickBus[i];
-
-// ── crunch: the water hardens sonically too — a tanh waveshaper whose
-//    blend ramps in across drops C→E, eases off for the coda and mist.
-//    Distorted sines grow harmonics; the material morph gets teeth ─────
-{
-  const DRIVE = 2.4;
-  const norm = Math.tanh(DRIVE);
-  const blendAt = (t) => {
-    if (t < bar(24)) return 0;
-    if (t < bar(64)) return 0.85 * smooth((t - bar(24)) / (bar(64) - bar(24)));
-    if (t < bar(76)) return 0.85;
-    if (t < bar(80)) return 0.85 - 0.6 * smooth((t - bar(76)) / (4 * BAR));
-    return 0.15;
-  };
-  for (let f = 0; f < ns; f++) {
-    const m = blendAt(f / SR);
-    if (m <= 0) continue;
-    for (let ch = 0; ch < 2; ch++) {
-      const x = mix[2 * f + ch];
-      mix[2 * f + ch] = x * (1 - m) + (Math.tanh(x * DRIVE) / norm) * m;
+// ── vocals: jeffrey-pvc drops (pop/bin/say.mjs → assets/). Mixed after
+//    the scratches so the hand never chews them, before crunch + warp so
+//    they harden and accelerate with the record. `rate` re-pitches
+//    (1 = as recorded); `warp` sends one underwater ────────────────────
+function loadVocal(file) {
+  const p = spawnSync("ffmpeg", ["-hide_banner", "-loglevel", "error",
+    "-i", resolve(HERE, "../assets", file),
+    "-f", "f32le", "-ar", String(SR), "-ac", "2", "-"],
+    { maxBuffer: 64 * 1024 * 1024 });
+  if (p.status !== 0) { console.error(`✗ vocal decode failed: ${file}`); process.exit(1); }
+  const b = p.stdout; // copy into an aligned buffer — stdout offset isn't guaranteed %4
+  return new Float32Array(b.buffer.slice(b.byteOffset, b.byteOffset + b.length - (b.length % 4)));
+}
+const VOCALS = [
+  { t: bar(0), file: "wattajetta.mp3", db: -8, rate: 1 },              // title drop over the steam
+  { t: bar(15) - 0.15, file: "wayer.mp3", db: -6, rate: 1 },           // riding super scratch 1
+  { t: bar(47) - 0.15, file: "wayer.mp3", db: -6, rate: 0.94 },        // into steel, a shade deeper
+  { t: bar(63.5), file: "wayer.mp3", db: -8, rate: 0.8,
+    warp: { depth: 0.05, hz: 0.9 } },                                  // underwater, into stone
+  { t: bar(76) + 2 * BEAT, file: "wattajetta.mp3", db: -12, rate: 0.9 }, // coda echo under the church bell
+];
+const vocalCache = new Map();
+for (const v of VOCALS) {
+  if (!vocalCache.has(v.file)) vocalCache.set(v.file, loadVocal(v.file));
+  let buf = vocalCache.get(v.file);
+  if (v.rate !== 1 || v.warp) {
+    const out = new Float32Array(Math.floor(buf.length / v.rate / 2) * 2);
+    let pos = 0;
+    for (let f = 0; f * 2 + 3 < out.length; f++) {
+      const wob = v.warp ? 1 + v.warp.depth * Math.sin(TAU * v.warp.hz * (f / SR)) : 1;
+      const j = Math.floor(pos) * 2;
+      if (j + 3 >= buf.length) break;
+      const fr = pos - Math.floor(pos);
+      out[2 * f] = buf[j] * (1 - fr) + buf[j + 2] * fr;
+      out[2 * f + 1] = buf[j + 1] * (1 - fr) + buf[j + 3] * fr;
+      pos += v.rate * wob;
     }
+    buf = out;
+  }
+  const g = Math.pow(10, v.db / 20);
+  const at = Math.floor(v.t * SR);
+  const n = Math.min(buf.length / 2, ns - at);
+  for (let i = 0; i < n; i++) {
+    mix[2 * (at + i)] += buf[2 * i] * g;
+    mix[2 * (at + i) + 1] += buf[2 * i + 1] * g;
   }
 }
+
+// ── the kick returns: layered back on top, untouched by every hand ────
+for (let i = 0; i < mix.length; i++) mix[i] += kickBus[i];
 
 // ── warping: the whole record is wet — a global variable-rate pass.
 //    The platter drags mid-breath (a hand on the vinyl), the tempo
@@ -455,8 +510,7 @@ writeFileSync(mixedPath, Buffer.from(mix.buffer, mix.byteOffset, mix.length * 4)
 const MASTER = [
   "highpass=f=24",
   "acompressor=threshold=-19dB:ratio=2.8:attack=10:release=150:makeup=2.2:knee=6",
-  "equalizer=f=50:t=q:w=1.2:g=2.5", // the boom under the kick
-  "treble=g=1.2:f=8500",
+  "equalizer=f=50:t=q:w=1.2:g=2.5", // the boom under the kick — no treble boost; laptop speakers read it as tang
   "alimiter=limit=0.96:attack=4:release=70",
   // the accelerando consumes source faster than the clock — trim the
   // dead air it leaves at the tail
