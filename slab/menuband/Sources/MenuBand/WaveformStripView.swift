@@ -199,7 +199,12 @@ final class WaveformStripView: NSView {
             // sweeps 0 → windowCols as progress goes 0 → 1.
             let windowCols = Double((menuBand?.rewindWindowSeconds ?? 1.5)) * 30.0
             let progress = menuBand?.rewindProgress() ?? 0
-            scrubPos = CGFloat(progress * windowCols)
+            let target = CGFloat(progress * windowCols)
+            // The player's progress is polled at 30 fps and can land unevenly,
+            // which made the scrub jump/skip on the x axis. Ease toward the
+            // audio-derived target (snap on the first reverse frame) so the
+            // playhead glides smoothly while staying locked to the audio.
+            scrubPos = wasReversing ? scrubPos + (target - scrubPos) * 0.4 : target
         } else {
             // Live: reduce this frame to one min/max column, push it (it's
             // drawn at the center and the older columns drift left).
@@ -220,17 +225,25 @@ final class WaveformStripView: NSView {
         let r = bounds
         guard r.width > 6, r.height > 6 else { return }
         let reversing = menuBand?.isRewinding ?? false
-        let base = tintColor ?? NSColor.controlAccentColor
-        let color = reversing ? NSColor.systemOrange : base
+        let accent = NSColor.controlAccentColor
+        let base = tintColor ?? accent
+        let color = reversing ? NSColor.systemOrange : base   // the signal bars
+        // The frame (outline) + needle read as the accent color regardless of
+        // the bar signal color, so the scope always has a consistent accent
+        // frame even while the bars flip orange during reverse.
+        let isDark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
 
-        // Recessed screen. Skipped when embedded in a host bezel that already
-        // supplies the framing (the full-screen overlay) so the scope paints
-        // straight onto that glass instead of stacking a second plate.
+        // Recessed screen — appearance-aware so light mode gets a light plate
+        // instead of the hardcoded near-black (which only read in dark mode).
+        // Skipped when embedded in a host bezel that already supplies the
+        // framing (the full-screen overlay).
         if drawsPlate {
             let plate = NSBezierPath(roundedRect: r.insetBy(dx: 0.5, dy: 0.5),
                                      xRadius: 4, yRadius: 4)
-            NSColor.black.withAlphaComponent(0.55).setFill(); plate.fill()
-            color.withAlphaComponent(0.55).setStroke(); plate.lineWidth = 1.0; plate.stroke()
+            (isDark ? NSColor.black.withAlphaComponent(0.55)
+                    : NSColor(white: 0.90, alpha: 0.85)).setFill()
+            plate.fill()
+            accent.withAlphaComponent(0.55).setStroke(); plate.lineWidth = 1.0; plate.stroke()
         }
 
         let mid = r.midY
@@ -284,9 +297,9 @@ final class WaveformStripView: NSView {
             }
         }
 
-        // Center playhead bar — bright, full height.
+        // Center playhead needle — the accent color, full height.
         let needle = NSBezierPath(rect: NSRect(x: cx - 1, y: 2,
                                                width: 2, height: r.height - 4))
-        color.withAlphaComponent(1.0).setFill(); needle.fill()
+        accent.withAlphaComponent(1.0).setFill(); needle.fill()
     }
 }
