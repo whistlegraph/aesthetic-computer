@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  15 MAY 2026 18:31
+This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  18 JUN 2026 22:17
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1799,6 +1799,8 @@ Package microtype Info: Character `\guilsinglleft ' is missing
 Package microtype Info: Character `\guilsinglright ' is missing
 (microtype)             in font `\TU/ywft-processing-bold(0)/m/n/22'.
 (microtype)             Ignoring protrusion settings for this character.
+File: figures/cover.png Graphic file (type bmp)
+<figures/cover.png>
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `ywft-processing-light' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
@@ -1864,7 +1866,7 @@ Package microtype Info: Character `\guilsinglright ' is missing
 (microtype)             in font `\TU/ywft-processing-light(0)/m/n/11'.
 (microtype)             Ignoring protrusion settings for this character.
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
-(Font)              scaled to size 7.65005pt on input line 119.
+(Font)              scaled to size 7.65005pt on input line 121.
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `LatinModernMono' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
@@ -1874,17 +1876,17 @@ Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 9.00096pt on input line 119.
+(Font)              scaled to size 9.00096pt on input line 121.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 6.00064pt on input line 119.
+(Font)              scaled to size 6.00064pt on input line 121.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 5.00053pt on input line 119.
+(Font)              scaled to size 5.00053pt on input line 121.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 8.99904pt on input line 119.
+(Font)              scaled to size 8.99904pt on input line 121.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 5.99936pt on input line 119.
+(Font)              scaled to size 5.99936pt on input line 121.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 4.99947pt on input line 119.
+(Font)              scaled to size 4.99947pt on input line 121.
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
@@ -1927,33 +1929,12 @@ Package microtype Info: Character `\guilsinglright ' is missing
 
 
 ]
-Underfull \hbox (badness 2735) in paragraph at lines 145--146
-\TU/LatinModernRoman(0)/m/n/10 (creativity-medium-invention), and the postwar a
-rt
- []
-
-
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
-
-LaTeX Font Warning: Font shape `TU/LatinModernRoman(0)/m/sc' undefined
-(Font)              using `TU/LatinModernRoman(0)/m/n' instead on input line 16
-9.
-
-LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
-(Font)              scaled to size 8.50006pt on input line 169.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 10.00107pt on input line 169.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 7.00075pt on input line 169.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 9.99893pt on input line 169.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 6.99925pt on input line 169.
-
-Underfull \hbox (badness 2790) in paragraph at lines 171--172
-\TU/LatinModernRoman(0)/m/n/10 the same infrastructure as the software: a CLI
+Underfull \hbox (badness 2735) in paragraph at lines 147--148
+\TU/LatinModernRoman(0)/m/n/10 (creativity-medium-invention), and the postwar a
+rt
  []
 
 
@@ -1962,18 +1943,41 @@ Underfull \vbox (badness 10000) has occurred while \output is active []
 File: ../../papers/arxiv-ac/figures/pals.pdf Graphic file (type pdf)
 <use ../../papers/arxiv-ac/figures/pals.pdf>
  [2]
-Underfull \hbox (badness 1122) in paragraph at lines 199--200
-[]\TU/LatinModernRoman(0)/m/sc/10 The academic paper pretends to be a window—
+
+LaTeX Font Warning: Font shape `TU/LatinModernRoman(0)/m/sc' undefined
+(Font)              using `TU/LatinModernRoman(0)/m/n' instead on input line 17
+1.
+
+LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
+(Font)              scaled to size 8.50006pt on input line 171.
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
+(Font)              scaled to size 10.00107pt on input line 171.
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
+(Font)              scaled to size 7.00075pt on input line 171.
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
+(Font)              scaled to size 9.99893pt on input line 171.
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
+(Font)              scaled to size 6.99925pt on input line 171.
+
+Underfull \hbox (badness 2790) in paragraph at lines 173--174
+\TU/LatinModernRoman(0)/m/n/10 the same infrastructure as the software: a CLI
  []
 
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
-(./calarts.bbl
+Underfull \hbox (badness 1122) in paragraph at lines 201--202
+[]\TU/LatinModernRoman(0)/m/sc/10 The academic paper pretends to be a window—
+ []
+
+
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
 File: ../../papers/arxiv-ac/figures/pals.pdf Graphic file (type pdf)
 <use ../../papers/arxiv-ac/figures/pals.pdf>
- [3])
+ [3]
+(./calarts.bbl)
 File: ../../papers/arxiv-ac/figures/pals.pdf Graphic file (type pdf)
 <use ../../papers/arxiv-ac/figures/pals.pdf>
  [4
@@ -1991,12 +1995,12 @@ Package rerunfilecheck Info: File `calarts.out' has not changed.
 (rerunfilecheck)             Checksum: E23C943FFF2157743D6F332E2AE6FE62;2110.
  ) 
 Here is how much of TeX's memory you used:
- 29674 strings out of 469709
- 583020 string characters out of 5466024
- 1161259 words of memory out of 5000000
- 57844 multiletter control sequences out of 15000+600000
+ 29695 strings out of 469709
+ 583443 string characters out of 5466024
+ 1157259 words of memory out of 5000000
+ 57862 multiletter control sequences out of 15000+600000
  630284 words of font info for 101 fonts, out of 8000000 for 9000
  319 hyphenation exceptions out of 8191
- 88i,12n,107p,1051b,795s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 88i,12n,107p,1051b,668s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
 Output written on calarts.pdf (4 pages).

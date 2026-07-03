@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  15 MAY 2026 18:31
+This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  18 JUN 2026 22:17
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1655,6 +1655,8 @@ Package microtype Info: Character `\guilsinglleft ' is missing
 Package microtype Info: Character `\guilsinglright ' is missing
 (microtype)             in font `\TU/ywft-processing-bold(0)/m/n/24'.
 (microtype)             Ignoring protrusion settings for this character.
+File: figures/cover.png Graphic file (type bmp)
+<figures/cover.png>
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `ywft-processing-light' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
@@ -1750,7 +1752,7 @@ Package microtype Info: Character `\guilsinglright ' is missing
 (microtype)             in font `\TU/ywft-processing-light(0)/m/n/9'.
 (microtype)             Ignoring protrusion settings for this character.
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
-(Font)              scaled to size 7.65005pt on input line 127.
+(Font)              scaled to size 7.65005pt on input line 129.
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `LatinModernMono' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
@@ -1760,27 +1762,28 @@ Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 9.00096pt on input line 127.
+(Font)              scaled to size 9.00096pt on input line 129.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 6.00064pt on input line 127.
+(Font)              scaled to size 6.00064pt on input line 129.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 5.00053pt on input line 127.
+(Font)              scaled to size 5.00053pt on input line 129.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 8.99904pt on input line 127.
+(Font)              scaled to size 8.99904pt on input line 129.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 5.99936pt on input line 127.
+(Font)              scaled to size 5.99936pt on input line 129.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 4.99947pt on input line 127.
+(Font)              scaled to size 4.99947pt on input line 129.
 
 LaTeX Font Warning: Font shape `TU/LatinModernRoman(0)/m/sc' undefined
 (Font)              using `TU/LatinModernRoman(0)/m/n' instead on input line 12
-7.
+9.
+
+
+LaTeX Warning: Optional argument of \twocolumn too tall on page 1.
 
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
-LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
-(Font)              scaled to size 8.50006pt on input line 146.
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
@@ -1788,60 +1791,68 @@ Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
 ]
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 10.00107pt on input line 155.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 7.00075pt on input line 155.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 9.99893pt on input line 155.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 6.99925pt on input line 155.
+LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
+(Font)              scaled to size 8.50006pt on input line 148.
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
+(Font)              scaled to size 10.00107pt on input line 157.
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
+(Font)              scaled to size 7.00075pt on input line 157.
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
+(Font)              scaled to size 9.99893pt on input line 157.
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
+(Font)              scaled to size 6.99925pt on input line 157.
 
 
 LaTeX Font Warning: Font shape `TU/LatinModernMono(0)/b/n' undefined
-(Font)              using `TU/LatinModernMono(0)/m/n' instead on input line 182
+(Font)              using `TU/LatinModernMono(0)/m/n' instead on input line 184
 .
 
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/b/n' will be
-(Font)              scaled to size 7.65005pt on input line 182.
+(Font)              scaled to size 7.65005pt on input line 184.
 
-Overfull \hbox (37.93834pt too wide) in paragraph at lines 202--218
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
+(Font)              scaled to size 72.55504pt on input line 191.
+ [2]
+Overfull \hbox (37.93834pt too wide) in paragraph at lines 204--220
  [][] 
  []
 
-LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
-(Font)              scaled to size 72.55504pt on input line 239.
-[2]
+
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
-Overfull \hbox (37.81805pt too wide) in paragraph at lines 285--296
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [3]
+Overfull \hbox (37.81805pt too wide) in paragraph at lines 287--298
  [][] 
  []
 
-[3]
-Underfull \hbox (badness 5345) in paragraph at lines 313--314
+
+Underfull \hbox (badness 5345) in paragraph at lines 315--316
 []\TU/LatinModernRoman(0)/m/sc/10 Un desafío crítico para cualquier proyecto de
 
  []
 
 
-Underfull \hbox (badness 3482) in paragraph at lines 313--314
+Underfull \hbox (badness 3482) in paragraph at lines 315--316
 \TU/LatinModernRoman(0)/m/sc/10 despliegues de OLPC lucharon con las actualiza-
 
  []
 
 
-Overfull \hbox (5.42401pt too wide) in paragraph at lines 318--319
+Overfull \hbox (5.42401pt too wide) in paragraph at lines 320--321
 []\TU/LatinModernRoman(0)/m/sc/10 Al conectarse a WiFi, el SO verifica \TU/Lati
 nModernMono(0)/m/n/10 /api/native/version 
  []
 
 
-Overfull \hbox (8.8129pt too wide) in paragraph at lines 325--326
+Overfull \hbox (8.8129pt too wide) in paragraph at lines 327--328
 []\TU/LatinModernRoman(0)/m/sc/10 El archivo \TU/LatinModernMono(0)/m/n/10 conf
 ig.json \TU/LatinModernRoman(0)/m/sc/10 se preserva entre actualizaciones—
  []
@@ -1849,8 +1860,8 @@ ig.json \TU/LatinModernRoman(0)/m/sc/10 se preserva entre actualizaciones—
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
-
-Underfull \hbox (badness 2310) in paragraph at lines 340--341
+ [4]
+Underfull \hbox (badness 2310) in paragraph at lines 342--343
 \TU/LatinModernRoman(0)/m/sc/10 herramientas que expanden la autonomía personal
 
  []
@@ -1858,26 +1869,26 @@ Underfull \hbox (badness 2310) in paragraph at lines 340--341
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
- [4]
-Underfull \vbox (badness 10000) has occurred while \output is active []
 
-
-Underfull \hbox (badness 1173) in paragraph at lines 377--378
+Underfull \hbox (badness 1173) in paragraph at lines 379--380
 \TU/LatinModernRoman(0)/m/sc/10 pleta de computación creativa puede entregarse 
 en
  []
 
+
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [5]
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/it' will be
-(Font)              scaled to size 8.50006pt on input line 384.
-(./os-es.bbl [5]
+(Font)              scaled to size 8.50006pt on input line 386.
+
+(./os-es.bbl
 Underfull \hbox (badness 4084) in paragraph at lines 74--80
 []\TU/LatinModernRoman(0)/m/sc/10 Mitchel Resnick, John Maloney, Andrés Monroy-
 
  []
 
-) [6
-
-] (./os-es.aux)
+) [6] (./os-es.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2026-01-19>
@@ -1886,19 +1897,16 @@ L3 programming layer <2026-01-19>
 
 LaTeX Font Warning: Some font shapes were not available, defaults substituted.
 
-
-LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
-
 Package rerunfilecheck Info: File `os-es.out' has not changed.
 (rerunfilecheck)             Checksum: 949EEC84F4DF38591E3D5CDBDBD3D41F;4374.
  ) 
 Here is how much of TeX's memory you used:
- 21076 strings out of 469709
- 386307 string characters out of 5466024
- 1052974 words of memory out of 5000000
- 49436 multiletter control sequences out of 15000+600000
+ 21097 strings out of 469709
+ 386730 string characters out of 5466024
+ 1023974 words of memory out of 5000000
+ 49454 multiletter control sequences out of 15000+600000
  630300 words of font info for 103 fonts, out of 8000000 for 9000
  319 hyphenation exceptions out of 8191
- 86i,12n,107p,1503b,1170s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 86i,13n,107p,1503b,1878s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
 Output written on os-es.pdf (6 pages).

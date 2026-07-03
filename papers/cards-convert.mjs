@@ -235,8 +235,8 @@ function generateCardsTeX(dir, info, parsed) {
   // the pals wordmark. Covers are always .png (gpt-image platter output).
   const hasCover = existsSync(join(PAPERS_DIR, dir, "figures", "cover.png"));
   const titleLead = hasCover
-    ? `\\href{https://papers.aesthetic.computer}{\\includegraphics[width=0.62\\textwidth]{figures/cover}}\\par\\vspace{0.4em}`
-    : `\\href{https://papers.aesthetic.computer}{\\includegraphics[height=9em]{pals}}\\par\\vspace{0.1em}`;
+    ? `\\href{https://papers.aesthetic.computer}{\\includegraphics[width=0.72\\textwidth]{figures/cover}}\\par\\vspace{0.25em}`
+    : `\\href{https://papers.aesthetic.computer}{\\includegraphics[height=11em]{pals}}\\par\\vspace{0.1em}`;
 
   const cjkBlock = parsed.hasCJK
     ? `\\usepackage{xeCJK}\n\\setCJKmainfont{${parsed.cjkFont}}`
@@ -343,16 +343,16 @@ ${extraCmds}
 % TITLE CARD
 % ============================================================
 \\thispagestyle{empty}
-\\vspace*{0.3em}
+\\vspace*{0.05em}
 \\begin{center}
 ${titleLead}
 {\\acbold\\fontsize{18pt}{22pt}\\selectfont\\color{acdark} ${title}}\\par
 \\vspace{0.1em}
-${subtitle ? `{\\fontsize{9pt}{11pt}\\selectfont\\color{acpink} ${subtitle}}\\par\n\\vspace{0.4em}` : "\\vspace{0.3em}"}
+${subtitle ? `{\\fontsize{9pt}{11pt}\\selectfont\\color{acpink} ${subtitle}}\\par\n\\vspace{0.2em}` : "\\vspace{0.2em}"}
 {\\scriptsize\\color{acgray}\\href{https://prompt.ac/@jeffrey}{\\color{cyan!70!blue}\\textbf{@jeffrey}}\\,\\textperiodcentered\\,Aesthetic{\\acdot}Computer\\,\\textperiodcentered\\,ORCID~\\href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\\par
-\\vspace{0.4em}
+\\vspace{0.2em}
 \\rule{0.5\\textwidth}{0.5pt}\\par
-\\vspace{0.15em}
+\\vspace{0.12em}
 \\ifacdraft\\colorbox{yellow!60}{\\small\\color{red!80!black}\\textbf{\\textit{working draft --- not for citation}}}\\par
 \\vspace{0.1em}\\fi
 ${translationLinks ? `{\\small\\sffamily ${translationLinks}}\\par

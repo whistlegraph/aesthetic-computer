@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  15 MAY 2026 18:31
+This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  18 JUN 2026 22:17
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1657,6 +1657,8 @@ Package microtype Info: Character `\guilsinglleft ' is missing
 Package microtype Info: Character `\guilsinglright ' is missing
 (microtype)             in font `\TU/ywft-processing-bold(0)/m/n/24'.
 (microtype)             Ignoring protrusion settings for this character.
+File: figures/cover.png Graphic file (type bmp)
+<figures/cover.png>
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `ywft-processing-light' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
@@ -1752,7 +1754,7 @@ Package microtype Info: Character `\guilsinglright ' is missing
 (microtype)             in font `\TU/ywft-processing-light(0)/m/n/9'.
 (microtype)             Ignoring protrusion settings for this character.
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
-(Font)              scaled to size 7.65005pt on input line 214.
+(Font)              scaled to size 7.65005pt on input line 216.
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `LatinModernMono' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
@@ -1762,38 +1764,48 @@ Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 9.00096pt on input line 214.
+(Font)              scaled to size 9.00096pt on input line 216.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 6.00064pt on input line 214.
+(Font)              scaled to size 6.00064pt on input line 216.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 5.00053pt on input line 214.
+(Font)              scaled to size 5.00053pt on input line 216.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 8.99904pt on input line 214.
+(Font)              scaled to size 8.99904pt on input line 216.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 5.99936pt on input line 214.
+(Font)              scaled to size 5.99936pt on input line 216.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 4.99947pt on input line 214.
+(Font)              scaled to size 4.99947pt on input line 216.
 
 LaTeX Font Warning: Font shape `TU/LatinModernRoman(0)/m/sc' undefined
 (Font)              using `TU/LatinModernRoman(0)/m/n' instead on input line 21
-4.
+6.
 
 
-Underfull \vbox (badness 10000) has occurred while \output is active []
+LaTeX Warning: Optional argument of \twocolumn too tall on page 1.
 
 
-Underfull \vbox (badness 10000) has occurred while \output is active []
+Overfull \vbox (30.0pt too high) has occurred while \output is active []
+
+
+
+LaTeX Warning: Text page 1 contains only floats.
+
+
+Overfull \vbox (30.0pt too high) has occurred while \output is active []
+
+
+Overfull \vbox (16.0pt too high) has occurred while \output is active []
 
  [1
 
 
 ]
-Underfull \hbox (badness 2351) in paragraph at lines 228--229
+Underfull \hbox (badness 2351) in paragraph at lines 230--231
 []\TU/LatinModernRoman(0)/m/n/10 El movimiento de orquestas de laptops alcanzó
  []
 
 
-Underfull \hbox (badness 1629) in paragraph at lines 228--229
+Underfull \hbox (badness 1629) in paragraph at lines 230--231
 \TU/LatinModernRoman(0)/m/n/10 un máximo de aproximadamente 500–1.000 partici-
  []
 
@@ -1801,59 +1813,62 @@ Underfull \hbox (badness 1629) in paragraph at lines 228--229
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
-Overfull \hbox (57.58507pt too wide) in paragraph at lines 269--280
- [][] 
- []
-
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 10.00107pt on input line 280.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 7.00075pt on input line 280.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 9.99893pt on input line 280.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 6.99925pt on input line 280.
-
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
  [2]
-Underfull \vbox (badness 10000) has occurred while \output is active []
+Overfull \hbox (57.58507pt too wide) in paragraph at lines 271--282
+ [][] 
+ []
 
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
+(Font)              scaled to size 10.00107pt on input line 282.
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
+(Font)              scaled to size 7.00075pt on input line 282.
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
+(Font)              scaled to size 9.99893pt on input line 282.
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
+(Font)              scaled to size 6.99925pt on input line 282.
 
-Underfull \hbox (badness 1681) in paragraph at lines 309--310
+Underfull \hbox (badness 1681) in paragraph at lines 311--312
 []\TU/LatinModernRoman(0)/m/sc/10 (Nota: AC Native OS actualmente se dirige a
  []
 
-[3]
-Overfull \hbox (30.97502pt too wide) in paragraph at lines 363--378
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
+
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [3]
+Overfull \hbox (30.97502pt too wide) in paragraph at lines 365--380
  [][] 
  []
 
 
-Underfull \hbox (badness 1616) in paragraph at lines 382--383
+Underfull \hbox (badness 1616) in paragraph at lines 384--385
 []\TU/LatinModernRoman(0)/m/sc/10 La laptop excedente no es una estación PLOrk
  []
 
 
-Underfull \hbox (badness 6808) in paragraph at lines 382--383
+Underfull \hbox (badness 6808) in paragraph at lines 384--385
 \TU/LatinModernRoman(0)/m/sc/10 autónomo, portátil, alimentado por batería, de
  []
 
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
-(Font)              scaled to size 8.50006pt on input line 392.
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
- [4]
+(Font)              scaled to size 8.50006pt on input line 394.
+[4]
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
-Underfull \hbox (badness 1248) in paragraph at lines 431--432
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [5]
+Underfull \hbox (badness 1248) in paragraph at lines 433--434
 []\TU/LatinModernRoman(0)/m/sc/10 La laptop excedente no es una computadora de
  []
 
 
-Underfull \hbox (badness 1019) in paragraph at lines 440--441
+Underfull \hbox (badness 1019) in paragraph at lines 442--443
 \TU/LatinModernRoman(0)/m/sc/10 años, asumiendo matrícula completa cada semestr
 e,
  []
@@ -1861,28 +1876,25 @@ e,
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
- [5]
-Overfull \hbox (11.42706pt too wide) in paragraph at lines 490--490
+ [6]
+Overfull \hbox (11.42706pt too wide) in paragraph at lines 492--492
 |[]\TU/LatinModernRoman(0)/b/n/9 Programas escolares sin presupuesto de equipam
 iento| 
  []
 
 
-Underfull \hbox (badness 4505) in paragraph at lines 492--493
+Underfull \hbox (badness 4505) in paragraph at lines 494--495
 []\TU/LatinModernRoman(0)/m/sc/10 Un distrito escolar que retira Chromebooks o
  []
 
 
-Underfull \hbox (badness 3219) in paragraph at lines 494--495
+Underfull \hbox (badness 3219) in paragraph at lines 496--497
 []\TU/LatinModernRoman(0)/m/sc/10 Para escuelas que ya descartaron su hardware:
 
  []
 
 
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
- [6]
-Underfull \hbox (badness 1320) in paragraph at lines 510--511
+Underfull \hbox (badness 1320) in paragraph at lines 512--513
 []\TU/LatinModernRoman(0)/m/sc/10 Ninguno de estos contextos podría soportar un
 a
  []
@@ -1891,27 +1903,30 @@ a
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
-Overfull \hbox (8.10461pt too wide) in paragraph at lines 548--548
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [7]
+Overfull \hbox (8.10461pt too wide) in paragraph at lines 550--550
 |[]\TU/LatinModernRoman(0)/b/n/10 MÚSICA, ACCESO Y ECONOMíA POLíTICA| 
  []
 
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
- [7]
-Underfull \hbox (badness 3088) in paragraph at lines 572--573
+
+Underfull \hbox (badness 3088) in paragraph at lines 574--575
 \TU/LatinModernRoman(0)/m/sc/10 cessing [[][]Reas and Fry[][], [][]2007[][]] y 
 Scratch [[][]Resnick
  []
 
 
-Underfull \hbox (badness 1248) in paragraph at lines 572--573
+Underfull \hbox (badness 1248) in paragraph at lines 574--575
 \TU/LatinModernRoman(0)/m/sc/10 creativa pero asumen un SO de propósito general
 .
  []
 
 
-Underfull \hbox (badness 1337) in paragraph at lines 572--573
+Underfull \hbox (badness 1337) in paragraph at lines 574--575
 \TU/LatinModernRoman(0)/m/sc/10 Aesthetic.Computer [[][]@jeffrey[][], [][]2026a
 [][]] proporciona la
  []
@@ -1919,125 +1934,122 @@ Underfull \hbox (badness 1337) in paragraph at lines 572--573
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
-
-Underfull \hbox (badness 10000) in paragraph at lines 602--602
+ [8]
+Underfull \hbox (badness 10000) in paragraph at lines 604--604
 \TU/LatinModernRoman(0)/m/n/9 a propósito
  []
 
 
-Underfull \hbox (badness 1496) in paragraph at lines 602--602
+Underfull \hbox (badness 1496) in paragraph at lines 604--604
 []|\TU/LatinModernRoman(0)/m/n/9 Laptops exce-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 602--602
+Underfull \hbox (badness 10000) in paragraph at lines 604--604
 \TU/LatinModernRoman(0)/m/n/9 dentes ($50),
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 602--602
+Underfull \hbox (badness 10000) in paragraph at lines 604--604
 []|\TU/LatinModernRoman(0)/m/n/9 Desconocido
  []
 
 
-Underfull \hbox (badness 1199) in paragraph at lines 602--602
+Underfull \hbox (badness 1199) in paragraph at lines 604--604
 []|\TU/LatinModernRoman(0)/m/n/9 Laptop están-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 602--602
+Underfull \hbox (badness 10000) in paragraph at lines 604--604
 []|\TU/LatinModernRoman(0)/m/n/9 Piezas propi-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 602--602
+Underfull \hbox (badness 10000) in paragraph at lines 604--604
 []|\TU/LatinModernRoman(0)/m/n/9 Hardware
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 602--602
+Underfull \hbox (badness 10000) in paragraph at lines 604--604
 \TU/LatinModernRoman(0)/m/n/9 estándar,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 602--602
+Underfull \hbox (badness 10000) in paragraph at lines 604--604
 \TU/LatinModernRoman(0)/m/n/9 reparable
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 602--602
+Underfull \hbox (badness 10000) in paragraph at lines 604--604
 []|\TU/LatinModernRoman(0)/m/n/9 Sugar OS
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 602--602
+Underfull \hbox (badness 10000) in paragraph at lines 604--604
 []|\TU/LatinModernRoman(0)/m/n/9 AC OS (a
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 602--602
+Underfull \hbox (badness 10000) in paragraph at lines 604--604
 \TU/LatinModernRoman(0)/m/n/9 propósito
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 602--602
+Underfull \hbox (badness 10000) in paragraph at lines 604--604
 \TU/LatinModernRoman(0)/m/n/9 pero auto-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 602--602
+Underfull \hbox (badness 10000) in paragraph at lines 604--604
 []|\TU/LatinModernRoman(0)/m/n/9 Coordinación
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 602--602
+Underfull \hbox (badness 10000) in paragraph at lines 604--604
 []|\TU/LatinModernRoman(0)/m/n/9 Una persona
  []
 
 
-Underfull \hbox (badness 5091) in paragraph at lines 602--602
+Underfull \hbox (badness 5091) in paragraph at lines 604--604
 \TU/LatinModernRoman(0)/m/n/9 con unidades
  []
 
 
-Underfull \hbox (badness 1048) in paragraph at lines 602--602
+Underfull \hbox (badness 1048) in paragraph at lines 604--604
 []|\TU/LatinModernRoman(0)/m/n/9 $188 + logís-
  []
 
 
-Underfull \hbox (badness 1642) in paragraph at lines 602--602
+Underfull \hbox (badness 1642) in paragraph at lines 604--604
 []|\TU/LatinModernRoman(0)/m/n/9 $50 hardware
  []
 
 
-Underfull \hbox (badness 7451) in paragraph at lines 602--602
+Underfull \hbox (badness 7451) in paragraph at lines 604--604
 []|\TU/LatinModernRoman(0)/m/n/9 3M unidades
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 602--602
+Underfull \hbox (badness 10000) in paragraph at lines 604--604
 []|\TU/LatinModernRoman(0)/m/n/9 240M
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 602--602
+Underfull \hbox (badness 10000) in paragraph at lines 604--604
 \TU/LatinModernRoman(0)/m/n/9 máquinas
  []
 
 
-Underfull \vbox (badness 4144) has occurred while \output is active []
-
- [8]
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
-
-Overfull \hbox (2.11504pt too wide) in paragraph at lines 647--648
+ [9]
+Overfull \hbox (2.11504pt too wide) in paragraph at lines 649--650
 []\TU/LatinModernRoman(0)/m/sc/10 La pedagogía de PLOrk [[][]Trueman[][], [][]2
 007[][]]—combinando
  []
 
 
-Underfull \hbox (badness 1231) in paragraph at lines 651--652
+Underfull \hbox (badness 1231) in paragraph at lines 653--654
 []\TU/LatinModernRoman(0)/m/sc/10 La conectividad de ensamble peer-to-peer sin 
 in-
  []
@@ -2045,9 +2057,8 @@ in-
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
- [9]
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/it' will be
-(Font)              scaled to size 8.50006pt on input line 673.
+(Font)              scaled to size 8.50006pt on input line 675.
 
 (./plork-es.bbl [10]
 Underfull \hbox (badness 4084) in paragraph at lines 121--127
@@ -2067,9 +2078,7 @@ Underfull \hbox (badness 1092) in paragraph at lines 147--151
 
  []
 
-) [11
-
-] (./plork-es.aux)
+) [11] (./plork-es.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2026-01-19>
@@ -2078,19 +2087,16 @@ L3 programming layer <2026-01-19>
 
 LaTeX Font Warning: Some font shapes were not available, defaults substituted.
 
-
-LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
-
 Package rerunfilecheck Info: File `plork-es.out' has not changed.
 (rerunfilecheck)             Checksum: 681D4560A2E0550A08309581C9E6F464;9100.
  ) 
 Here is how much of TeX's memory you used:
- 21061 strings out of 469709
- 386783 string characters out of 5466024
- 1005992 words of memory out of 5000000
- 49422 multiletter control sequences out of 15000+600000
+ 21082 strings out of 469709
+ 387206 string characters out of 5466024
+ 1003992 words of memory out of 5000000
+ 49440 multiletter control sequences out of 15000+600000
  630284 words of font info for 101 fonts, out of 8000000 for 9000
  319 hyphenation exceptions out of 8191
- 86i,12n,107p,2215b,676s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 86i,12n,107p,2215b,674s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
 Output written on plork-es.pdf (11 pages).

@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  15 MAY 2026 18:31
+This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  18 JUN 2026 22:17
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1545,6 +1545,8 @@ Package microtype Info: Character `\guilsinglleft ' is missing
 Package microtype Info: Character `\guilsinglright ' is missing
 (microtype)             in font `\TU/ywft-processing-bold(0)/m/n/22'.
 (microtype)             Ignoring protrusion settings for this character.
+File: figures/cover.png Graphic file (type bmp)
+<figures/cover.png>
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `ywft-processing-light' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
@@ -1610,7 +1612,7 @@ Package microtype Info: Character `\guilsinglright ' is missing
 (microtype)             in font `\TU/ywft-processing-light(0)/m/n/11'.
 (microtype)             Ignoring protrusion settings for this character.
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
-(Font)              scaled to size 7.65005pt on input line 103.
+(Font)              scaled to size 7.65005pt on input line 105.
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `LatinModernMono' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
@@ -1620,51 +1622,62 @@ Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 9.00096pt on input line 103.
+(Font)              scaled to size 9.00096pt on input line 105.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 6.00064pt on input line 103.
+(Font)              scaled to size 6.00064pt on input line 105.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 5.00053pt on input line 103.
+(Font)              scaled to size 5.00053pt on input line 105.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 8.99904pt on input line 103.
+(Font)              scaled to size 8.99904pt on input line 105.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 5.99936pt on input line 103.
+(Font)              scaled to size 5.99936pt on input line 105.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 4.99947pt on input line 103.
+(Font)              scaled to size 4.99947pt on input line 105.
 
 LaTeX Font Warning: Font shape `TU/LatinModernRoman(0)/m/sc' undefined
 (Font)              using `TU/LatinModernRoman(0)/m/n' instead on input line 10
-3.
+5.
 
 
-Underfull \vbox (badness 10000) has occurred while \output is active []
+LaTeX Warning: Optional argument of \twocolumn too tall on page 1.
 
 
-Underfull \hbox (badness 1552) in paragraph at lines 111--112
+Overfull \vbox (22.83891pt too high) has occurred while \output is active []
+
+
+
+LaTeX Warning: Text page 1 contains only floats.
+
+
+Overfull \vbox (22.83891pt too high) has occurred while \output is active []
+
+
+Overfull \vbox (8.83891pt too high) has occurred while \output is active []
+
+
+[1
+
+
+]
+Underfull \hbox (badness 1552) in paragraph at lines 113--114
 \TU/LatinModernRoman(0)/m/sc/10 for-stavelse-korrespondance, partituret der lær
 er sig
  []
 
 
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
- [1
-
-
-]
-Underfull \hbox (badness 1107) in paragraph at lines 113--114
+Underfull \hbox (badness 1107) in paragraph at lines 115--116
 []\TU/LatinModernRoman(0)/m/sc/10 Det følgende er hverken en gennemgang af plat
 -
  []
 
 
-Underfull \hbox (badness 1762) in paragraph at lines 113--114
+Underfull \hbox (badness 1762) in paragraph at lines 115--116
 \TU/LatinModernRoman(0)/m/sc/10 formhegemoni (den diagnose er velkendt; §2 kom-
 
  []
 
 
-Underfull \hbox (badness 2600) in paragraph at lines 117--118
+Underfull \hbox (badness 2600) in paragraph at lines 119--120
 \TU/LatinModernRoman(0)/m/sc/10 følgere, engagementsrate, postfrekvens—blevet s
 ted-
  []
@@ -1673,7 +1686,7 @@ ted-
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
-Underfull \hbox (badness 1968) in paragraph at lines 121--122
+Underfull \hbox (badness 1968) in paragraph at lines 123--124
 \TU/LatinModernRoman(0)/m/sc/10 tali[][], [][]1985[][]] argumenterer han for, a
 t koncertsalens
  []
@@ -1683,107 +1696,106 @@ Underfull \vbox (badness 10000) has occurred while \output is active []
 
  [2]
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 10.00107pt on input line 131.
+(Font)              scaled to size 10.00107pt on input line 133.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 7.00075pt on input line 131.
+(Font)              scaled to size 7.00075pt on input line 133.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 9.99893pt on input line 131.
+(Font)              scaled to size 9.99893pt on input line 133.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 6.99925pt on input line 131.
+(Font)              scaled to size 6.99925pt on input line 133.
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
-
-
-Underfull \hbox (badness 1132) in paragraph at lines 147--148
-\TU/LatinModernRoman(0)/m/sc/10 laggets niveau, ikke på budskabets. Næste afsni
-t
- []
 
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
  [3]
-Underfull \hbox (badness 10000) in paragraph at lines 159--160
+Underfull \hbox (badness 1132) in paragraph at lines 149--150
+\TU/LatinModernRoman(0)/m/sc/10 laggets niveau, ikke på budskabets. Næste afsni
+t
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 161--162
 []\TU/LatinModernRoman(0)/m/sc/10 Enheden for kulturel produktion på Aes-
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 171--172
-[]\TU/LatinModernRoman(0)/m/sc/10 Aesthetic.Computer leveres som et bare-metal-
-
- []
-
-
-Underfull \hbox (badness 3199) in paragraph at lines 171--172
-\TU/LatinModernRoman(0)/m/sc/10 Med omkring 240 millioner Windows 10-maskiner
  []
 
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
-Underfull \hbox (badness 2753) in paragraph at lines 175--176
+Underfull \hbox (badness 10000) in paragraph at lines 173--174
+[]\TU/LatinModernRoman(0)/m/sc/10 Aesthetic.Computer leveres som et bare-metal-
+
+ []
+
+
+Underfull \hbox (badness 3199) in paragraph at lines 173--174
+\TU/LatinModernRoman(0)/m/sc/10 Med omkring 240 millioner Windows 10-maskiner
+ []
+
+
+Underfull \hbox (badness 2753) in paragraph at lines 177--178
 \TU/LatinModernRoman(0)/m/sc/10 menteret i dybden af Goodiepal-artiklen [[][]@j
 effrey[][],
  []
 
 
-Underfull \hbox (badness 7433) in paragraph at lines 179--180
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [4]
+Underfull \hbox (badness 7433) in paragraph at lines 181--182
 \TU/LatinModernRoman(0)/m/sc/10 nealogi gennem 94 forgængerprojekter fra 2007–
  []
 
 
-Underfull \hbox (badness 1043) in paragraph at lines 179--180
+Underfull \hbox (badness 1043) in paragraph at lines 181--182
 \TU/LatinModernRoman(0)/m/sc/10 2020 [[][]@jeffrey[][], [][]2026b[][]]—tegnevær
 ktøjer, performance-
  []
 
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 8.00085pt on input line 183.
+(Font)              scaled to size 8.00085pt on input line 185.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 7.99915pt on input line 183.
-[4]
-Underfull \hbox (badness 1910) in paragraph at lines 185--186
+(Font)              scaled to size 7.99915pt on input line 185.
+
+Underfull \hbox (badness 1910) in paragraph at lines 187--188
 \TU/LatinModernRoman(0)/m/sc/10 som standard-platformkritiklitteraturen ikke st
 iller—
  []
 
 
-Underfull \hbox (badness 1354) in paragraph at lines 187--188
+Underfull \hbox (badness 1354) in paragraph at lines 189--190
 \TU/LatinModernRoman(0)/m/sc/10 likum og mere end noget sammenligneligt kreativ
 t
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 191--191
+Underfull \hbox (badness 10000) in paragraph at lines 193--193
 |[]\TU/LatinModernRoman(0)/b/n/10 FINANSIERING AF MASKINEN OG
  []
 
 
-Underfull \hbox (badness 2564) in paragraph at lines 193--194
+Underfull \hbox (badness 2564) in paragraph at lines 195--196
 \TU/LatinModernRoman(0)/m/sc/10 sonligt offer, crowdfunding i fællesskabet, uve
 ntet
- []
-
-
-Underfull \hbox (badness 1184) in paragraph at lines 205--206
-[]\TU/LatinModernRoman(0)/m/sc/10 Kompositions-æra-sprog: kode læst, som den er
-
  []
 
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
  [5]
-LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/it' will be
-(Font)              scaled to size 8.50006pt on input line 217.
+Underfull \hbox (badness 1184) in paragraph at lines 207--208
+[]\TU/LatinModernRoman(0)/m/sc/10 Kompositions-æra-sprog: kode læst, som den er
 
+ []
+
+LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/it' will be
+(Font)              scaled to size 8.50006pt on input line 219.
 (./complex-da.bbl
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
 (Font)              scaled to size 8.50006pt on input line 66.
- [6]) [7
-
-] (./complex-da.aux)
+ [6]) [7] (./complex-da.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2026-01-19>
@@ -1796,12 +1808,12 @@ Package rerunfilecheck Info: File `complex-da.out' has not changed.
 (rerunfilecheck)             Checksum: 7F6885CEB7681CAACEE3E1A4926A6EFF;2911.
  ) 
 Here is how much of TeX's memory you used:
- 19745 strings out of 469709
- 367447 string characters out of 5466024
- 973322 words of memory out of 5000000
- 48115 multiletter control sequences out of 15000+600000
+ 19766 strings out of 469709
+ 367870 string characters out of 5466024
+ 971322 words of memory out of 5000000
+ 48133 multiletter control sequences out of 15000+600000
  630852 words of font info for 107 fonts, out of 8000000 for 9000
  319 hyphenation exceptions out of 8191
- 86i,13n,107p,2015b,666s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 86i,13n,107p,2015b,664s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
 Output written on complex-da.pdf (7 pages).

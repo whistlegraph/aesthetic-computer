@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  15 MAY 2026 18:31
+This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  18 JUN 2026 22:17
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1544,8 +1544,10 @@ Package microtype Info: Character `\guilsinglleft ' is missing
 Package microtype Info: Character `\guilsinglright ' is missing
 (microtype)             in font `\TU/ywft-processing-bold(0)/m/n/17.28'.
 (microtype)             Ignoring protrusion settings for this character.
+File: figures/cover.png Graphic file (type bmp)
+<figures/cover.png>
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
-(Font)              scaled to size 7.65005pt on input line 150.
+(Font)              scaled to size 7.65005pt on input line 152.
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `LatinModernMono' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
@@ -1555,25 +1557,25 @@ Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 9.00096pt on input line 150.
+(Font)              scaled to size 9.00096pt on input line 152.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 6.00064pt on input line 150.
+(Font)              scaled to size 6.00064pt on input line 152.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 5.00053pt on input line 150.
+(Font)              scaled to size 5.00053pt on input line 152.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 8.99904pt on input line 150.
+(Font)              scaled to size 8.99904pt on input line 152.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 5.99936pt on input line 150.
+(Font)              scaled to size 5.99936pt on input line 152.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 4.99947pt on input line 150.
+(Font)              scaled to size 4.99947pt on input line 152.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 10.00107pt on input line 150.
+(Font)              scaled to size 10.00107pt on input line 152.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 7.00075pt on input line 150.
+(Font)              scaled to size 7.00075pt on input line 152.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 9.99893pt on input line 150.
+(Font)              scaled to size 9.99893pt on input line 152.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 6.99925pt on input line 150.
+(Font)              scaled to size 6.99925pt on input line 152.
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
@@ -1584,16 +1586,15 @@ Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
 ]
-LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
-(Font)              scaled to size 8.50006pt on input line 205.
+Underfull \vbox (badness 10000) has occurred while \output is active []
 
-Underfull \hbox (badness 1377) in paragraph at lines 205--206
+LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
+(Font)              scaled to size 8.50006pt on input line 207.
+
+Underfull \hbox (badness 1377) in paragraph at lines 207--208
 []\TU/LatinModernRoman(0)/m/n/10 The ant philosophy (in \TU/LatinModernMono(0)/
 m/n/10 ants/mindset-and-rules.md\TU/LatinModernRoman(0)/m/n/10 )
  []
-
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
@@ -1602,7 +1603,10 @@ Underfull \vbox (badness 10000) has occurred while \output is active []
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
-(./score-analysis.bbl [3]) [4
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [3]
+(./score-analysis.bbl) [4
 
 ] (./score-analysis.aux)
  ***********
@@ -1613,12 +1617,12 @@ Package rerunfilecheck Info: File `score-analysis.out' has not changed.
 (rerunfilecheck)             Checksum: AB3E818418E1873B8D9EF52B4B0688BC;2154.
  ) 
 Here is how much of TeX's memory you used:
- 19609 strings out of 469709
- 363374 string characters out of 5466024
- 976873 words of memory out of 5000000
- 47989 multiletter control sequences out of 15000+600000
+ 19630 strings out of 469709
+ 363797 string characters out of 5466024
+ 967873 words of memory out of 5000000
+ 48007 multiletter control sequences out of 15000+600000
  630260 words of font info for 98 fonts, out of 8000000 for 9000
  319 hyphenation exceptions out of 8191
- 86i,12n,107p,1011b,662s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 86i,13n,107p,1011b,674s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
 Output written on score-analysis.pdf (4 pages).

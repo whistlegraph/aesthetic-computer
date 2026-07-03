@@ -1,0 +1,127 @@
+% !TEX program = xelatex
+\documentclass[11pt,letterpaper]{article}
+
+% === GEOMETRY === (narrow measure, PG-style)
+\usepackage[top=1in, bottom=1in, left=1.15in, right=1.15in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+
+\setmainfont{Latin Modern Roman}[
+  Extension=.otf,
+  UprightFont=lmroman10-regular,
+  BoldFont=lmroman10-bold,
+  ItalicFont=lmroman10-italic,
+  BoldItalicFont=lmroman10-bolditalic,
+]
+\setsansfont{Latin Modern Sans}[
+  Extension=.otf,
+  UprightFont=lmsans10-regular,
+  BoldFont=lmsans10-bold,
+  ItalicFont=lmsans10-oblique,
+  BoldItalicFont=lmsans10-boldoblique,
+]
+\setmonofont{Latin Modern Mono}[
+  Extension=.otf,
+  UprightFont=lmmono10-regular,
+  ItalicFont=lmmono10-italic,
+  Scale=0.85,
+]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{ragged2e}
+\usepackage{microtype}
+
+\usepackage{ac-paper-essay}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={The Market on Your Name},
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acgray}\thepage}
+
+\newcommand{\ac}{Aesthetic\textcolor{acpink}{.}Computer}
+
+% Local override: wrap/center long titles (sty default is a fixed-size,
+% non-wrapping node that overflows the measure on long titles).
+\renewcommand{\essaytitle}[1]{%
+  \begin{center}%
+    \begin{tikzpicture}
+      \node[acdark, opacity=0.25, align=center, text width=\linewidth,
+            font=\aclight\fontsize{38pt}{44pt}\selectfont,
+            inner sep=0pt] at (2pt, -2pt) {#1};
+      \node[acpink, align=center, text width=\linewidth,
+            font=\aclight\fontsize{38pt}{44pt}\selectfont,
+            inner sep=0pt] at (0, 0) {#1};
+    \end{tikzpicture}%
+  \end{center}%
+  \vspace{0.6em}%
+}
+
+\begin{document}
+
+\thispagestyle{empty}
+\vspace*{-0.5in}
+
+\essaytitle{The Market\\on Your Name}
+\essaydate{July 2026}
+
+There is a genre of technology story that only makes sense in reverse. You start with the product everyone is using and follow the wire backward until it terminates in a government program that was supposed to have been killed. Facebook runs back to a Pentagon effort called LifeLog, shut down the same week the site went live. Palantir runs back to Total Information Awareness, the mass-surveillance program Congress defunded in 2003, privatized almost intact. This week a long investigation added a third wire to the bundle.\footnote{\textit{The Secret History of Polymarket, Part 1.} Unlimited Hangout, June 2026. \url{https://unlimitedhangout.com/2026/06/investigative-series/the-secret-history-of-polymarket-part-1/} The claims about the DARPA lineage and the privatization pattern are the article's; I am reading them, not verifying them.} It argues that Polymarket, the crypto prediction market that made a twenty-something the world's youngest self-made billionaire, is the same idea as the Policy Analysis Market --- the DARPA program branded the ``terrorism futures market,'' condemned by the Senate, and dead within a week in July 2003.
+
+I do not know if every link in that chain holds. Investigations like this tend to be right about the shape and loose about the joints. But the shape is what matters here, because I have spent a decade building a system whose entire philosophy is aimed at the hole this story is describing, and I want to write down why the two things are the same problem.
+
+\section{The Program That Came Back}
+
+The Policy Analysis Market was a market on named-person outcomes. Its architects --- among them the economist Robin Hanson, who would later coin \textit{futarchy}, the idea that we should govern by prediction market rather than by vote --- wanted to price the fates of specific leaders in specific countries: coups, assassinations, instability. The premise was that traders with money at stake process information more honestly than pollsters or pundits, so the market would forecast better than the analysts. The premise is not stupid. That is the uncomfortable part. Markets really do aggregate dispersed information. The objection that killed the program was not that it would fail. It was that a federal exchange taking bets on whether a named human being would be murdered was obscene.
+
+Twenty-three years later the mechanism is a consumer app with mainstream-media partnerships, and the obscenity has been sanded down to entertainment. The markets are no longer about foreign heads of state. They are about whoever is nameable: an athlete's knee, a celebrity's relationship, a defendant's outcome, a person's next move. The same design that a legislature found intolerable when the subject was a foreign leader is now routine when the subject is a stranger who has a name and a search-engine footprint.
+
+Here is the thing the article circles but --- being about finance and intelligence --- never quite says in these words. In every one of these markets, there is exactly one party who is never at the table: the person the market is about. The trader is present. The exchange is present. The oracle that settles the bet is present. The subject is a data point. Nobody asked her. She is, structurally, the last to know.
+
+\section{The Oracle Problem}
+
+Every prediction market has to answer one question to exist: when the event resolves, who says what happened? This is the oracle. Regulated exchanges use a legal settlement process. Polymarket uses a crowd-sourced dispute layer with crypto bonds. Sports markets buy official league data feeds. The oracle is the ground truth, and the whole edifice of ``markets forecast honestly'' rests on it being clean.
+
+The investigation's real payload is that the oracle is not clean. It documents insider trading, ``shockingly well-timed bets,'' and --- most elegantly --- media partnerships that let a market's own backers move the price by moving the narrative that the market is supposedly reading. When you can both bet on an outcome and manufacture the coverage that determines the outcome, the market is no longer aggregating information. It is laundering influence into the shape of a forecast.
+
+Now notice what happens when the event being priced is not ``will it rain'' but ``what will this person do.'' There is no league feed for a human being's behavior. There is no external oracle for a life. The only entity on earth with authoritative knowledge of what a named person will consent to, disclose, or become is that person. Which means that in the one domain where these markets are metastasizing fastest --- named-person outcomes --- the honest oracle and the absent party are the same body. The person nobody asked is the only source that could resolve the bet without fraud.
+
+That is not a regulatory footnote. That is the center of the problem wearing a disguise.
+
+\section{What a Decade of \ac{} Taught Me}
+
+I did not come to this through finance. I came to it through building \ac{}, which is a small operating system and social network for making things, and which has quietly become an argument about who a record belongs to. It runs its own personal-data server on the AT Protocol. Identity is a decentralized identifier the user holds. Records are typed and signed. When something is made or said or agreed to inside the system, the artifact of that act is portable and it is the subject's, not the platform's. I built it that way for aesthetic reasons before I could have told you the political ones: I wanted a person's work to survive the company that hosted it.
+
+The prediction-market story is what that instinct looks like when you turn it around and point it at the adversarial case. A signed, typed, subject-held record is not just a nice way to own your paintings. It is the missing oracle. It is the surface at which the person the operation is about gets to say yes, no, or yes-with-limits, and have that answer be a durable, verifiable thing rather than a checkbox on someone else's server that a terms-of-service update can silently re-read.
+
+The market does not need my permission to run. It needs my name. And the whole architecture of the last decade of computing has been arranged so that using your name and asking your name are different operations, and only the first one is ever wired up. Authorization systems point \textit{at} you: you are a parameter on somebody else's policy. What almost nobody built is the inversion --- the person as the primary key, the venue routing \textit{to} the subject, the operation gated on a consent the subject actually issued.
+
+\section{The Gate}
+
+I think the correction is boring, which is why it has not been built. It is not an app or a movement. It is a gate: a default-deny checkpoint that every operation on a named person has to pass through, producing either a signed receipt or a published refusal, and an audit log either way. The subject decides. The record is theirs. A refusal is the system working, not a failure of the funnel.
+
+Prediction markets are the loud instance because money makes them loud. But they are one of four faces of the same missing step, and the others are quieter and worse. A model verifies a fact about you and reprices your life before you have told your family. A model clones your voice and ships it before you hear it speak. A model takes one photo and pulls your name, your home, and your relatives back out. Four operations, one absence: nobody asked. The Polymarket investigation is valuable precisely because it is the case where the absence is expensive enough that journalists finally followed the wire.
+
+\acbreak
+
+The essays about programs that came back all end the same way, with a shrug about how nothing is ever really killed. I want to end somewhere else. These systems are not inevitable and they are not clever. They are just early. They were built in the years when using a person's name was cheap and asking was expensive, and they encoded that ratio into their foundations. The ratio is changing. The statutes are landing, the tooling to sign and route consent exists, and the only thing between the present and a world where the named person is the key rather than the parameter is that someone has to build the gate and make it dull enough to route everything through.
+
+That is the bet I am making with the strange, decade-long project I keep calling a place to make art. The art was always the cover story for a simpler claim, which is the oldest one there is, and which the market on your name is built to ignore: nothing about you, without you.
+
+\colophon{ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913} \enspace$\cdot$\enspace aesthetic.computer \enspace$\cdot$\enspace In response to a reader's link.}
+
+\end{document}

@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  15 MAY 2026 18:31
+This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  18 JUN 2026 22:17
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1546,6 +1546,8 @@ Package microtype Info: Character `\guilsinglleft ' is missing
 Package microtype Info: Character `\guilsinglright ' is missing
 (microtype)             in font `\TU/ywft-processing-bold(0)/m/n/22'.
 (microtype)             Ignoring protrusion settings for this character.
+File: figures/cover.png Graphic file (type bmp)
+<figures/cover.png>
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `ywft-processing-light' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
@@ -1611,7 +1613,7 @@ Package microtype Info: Character `\guilsinglright ' is missing
 (microtype)             in font `\TU/ywft-processing-light(0)/m/n/11'.
 (microtype)             Ignoring protrusion settings for this character.
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
-(Font)              scaled to size 7.65005pt on input line 121.
+(Font)              scaled to size 7.65005pt on input line 123.
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `LatinModernMono' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
@@ -1621,29 +1623,37 @@ Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 9.00096pt on input line 121.
+(Font)              scaled to size 9.00096pt on input line 123.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 6.00064pt on input line 121.
+(Font)              scaled to size 6.00064pt on input line 123.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 5.00053pt on input line 121.
+(Font)              scaled to size 5.00053pt on input line 123.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 8.99904pt on input line 121.
+(Font)              scaled to size 8.99904pt on input line 123.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 5.99936pt on input line 121.
+(Font)              scaled to size 5.99936pt on input line 123.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 4.99947pt on input line 121.
+(Font)              scaled to size 4.99947pt on input line 123.
 
 LaTeX Font Warning: Font shape `TU/LatinModernRoman(0)/m/sc' undefined
 (Font)              using `TU/LatinModernRoman(0)/m/n' instead on input line 12
-1.
+3.
 
 
-Underfull \vbox (badness 10000) has occurred while \output is active []
+LaTeX Warning: Optional argument of \twocolumn too tall on page 1.
 
 
-Underfull \vbox (badness 10000) has occurred while \output is active []
+Overfull \vbox (2.59392pt too high) has occurred while \output is active []
 
- [1
+
+
+LaTeX Warning: Text page 1 contains only floats.
+
+
+Overfull \vbox (2.59392pt too high) has occurred while \output is active []
+
+
+[1
 
 
 ]
@@ -1654,13 +1664,13 @@ Underfull \vbox (badness 10000) has occurred while \output is active []
 
  [2]
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 10.00107pt on input line 149.
+(Font)              scaled to size 10.00107pt on input line 151.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 7.00075pt on input line 149.
+(Font)              scaled to size 7.00075pt on input line 151.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 9.99893pt on input line 149.
+(Font)              scaled to size 9.99893pt on input line 151.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 6.99925pt on input line 149.
+(Font)              scaled to size 6.99925pt on input line 151.
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
@@ -1668,7 +1678,7 @@ Underfull \vbox (badness 10000) has occurred while \output is active []
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
  [3]
-Overfull \hbox (1.58505pt too wide) in paragraph at lines 177--178
+Overfull \hbox (1.58505pt too wide) in paragraph at lines 179--180
 []\TU/LatinModernRoman(0)/m/sc/10 The unit of cultural production on Aesthetic.
 Computer
  []
@@ -1677,25 +1687,29 @@ Computer
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
-Underfull \hbox (badness 2591) in paragraph at lines 197--198
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [4]
+Underfull \hbox (badness 2591) in paragraph at lines 199--200
 \TU/LatinModernRoman(0)/m/sc/10 2007–2020 [[][]@jeffrey[][], [][]2026b[][]]—dra
 wing tools, perfor-
  []
 
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 8.00085pt on input line 201.
+(Font)              scaled to size 8.00085pt on input line 203.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 7.99915pt on input line 201.
-[4]
+(Font)              scaled to size 7.99915pt on input line 203.
+
+Underfull \vbox (badness 1635) has occurred while \output is active []
+
+
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
-
-(./complex.bbl [5]
+ [5]
+(./complex.bbl
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
 (Font)              scaled to size 8.50006pt on input line 66.
- [6]) [7
-
-] (./complex.aux)
+ [6]) [7] (./complex.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2026-01-19>
@@ -1708,12 +1722,12 @@ Package rerunfilecheck Info: File `complex.out' has not changed.
 (rerunfilecheck)             Checksum: 692C58CE966EC913D0ED94AD2973AD41;3018.
  ) 
 Here is how much of TeX's memory you used:
- 19745 strings out of 469709
- 367288 string characters out of 5466024
- 974552 words of memory out of 5000000
- 48116 multiletter control sequences out of 15000+600000
+ 19766 strings out of 469709
+ 367711 string characters out of 5466024
+ 972552 words of memory out of 5000000
+ 48134 multiletter control sequences out of 15000+600000
  630844 words of font info for 106 fonts, out of 8000000 for 9000
  319 hyphenation exceptions out of 8191
- 86i,13n,107p,1871b,670s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 86i,12n,107p,1871b,668s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
 Output written on complex.pdf (7 pages).

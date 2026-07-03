@@ -1,0 +1,125 @@
+% !TEX program = xelatex
+\documentclass[11pt,letterpaper]{article}
+
+% === GEOMETRY === (narrow measure, PG-style)
+\usepackage[top=1in, bottom=1in, left=1.15in, right=1.15in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+
+\setmainfont{Latin Modern Roman}[
+  Extension=.otf,
+  UprightFont=lmroman10-regular,
+  BoldFont=lmroman10-bold,
+  ItalicFont=lmroman10-italic,
+  BoldItalicFont=lmroman10-bolditalic,
+]
+\setsansfont{Latin Modern Sans}[
+  Extension=.otf,
+  UprightFont=lmsans10-regular,
+  BoldFont=lmsans10-bold,
+  ItalicFont=lmsans10-oblique,
+  BoldItalicFont=lmsans10-boldoblique,
+]
+\setmonofont{Latin Modern Mono}[
+  Extension=.otf,
+  UprightFont=lmmono10-regular,
+  ItalicFont=lmmono10-italic,
+  Scale=0.85,
+]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{ragged2e}
+\usepackage{microtype}
+
+\usepackage{ac-paper-essay}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={Aesthetic June '26},
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acgray}\thepage}
+
+\newcommand{\ac}{Aesthetic\textcolor{acpink}{.}Computer}
+\newcommand{\np}{notepat}
+
+% Local override: wrap/center long titles + start higher on the page.
+\renewcommand{\essaytitle}[1]{%
+  \begin{center}%
+    \begin{tikzpicture}
+      \node[acdark, opacity=0.25, align=center, text width=\linewidth,
+            font=\aclight\fontsize{40pt}{46pt}\selectfont, inner sep=0pt] at (2pt,-2pt) {#1};
+      \node[acpink, align=center, text width=\linewidth,
+            font=\aclight\fontsize{40pt}{46pt}\selectfont, inner sep=0pt] at (0,0) {#1};
+    \end{tikzpicture}%
+  \end{center}%
+  \vspace{0.6em}%
+}
+
+\begin{document}
+
+\thispagestyle{empty}
+\vspace*{-0.5in}
+
+\essaytitle{Aesthetic June '26}
+\essaydate{June 2026}
+
+A month ago I wrote an essay in the conditional. It was called \textit{Aesthetic May '26}, and every sentence in it hedged --- the project \textit{may} do this, \textit{may} become that.\footnote{\textit{Aesthetic May '26}, the companion to this one. It listed what the project might do and called the list a cloud. I meant the hedging as honesty: in May I genuinely did not know which way the work would break.} I called the list of maybes a cloud and meant it as a confession. Then June happened, and I want to tell you how.
+
+The first thing I noticed was a word. Four hundred and fifty-seven times that month I typed \texttt{commit} into a terminal, and somewhere in the middle of it the pun stopped being a pun. A commit is a change written down and signed. A commitment is the promise underneath the word, the one you cannot take back. June belongs to Juno --- marriage, oath --- and it carries the longest day of the year and the slow turn that comes after. It turned out to be the month I stopped hedging.
+
+\section{The Songs Caught Up}
+
+What I'd worried about in May was that I was building the music machinery faster than I was making music. The synths and the vocal pipelines and the visualizers kept arriving; the actual songs lagged behind the tools that made them. In June the songs caught up, and they did it while I wasn't watching for the lesson in it.
+
+One of them started as something to fall asleep to. I had made a slow, formless drone for the end of the night, and over a single week in June it kept growing --- a bassline, then a rule that no chord could repeat from one bar to the next, then a Bach-shaped logic underneath all of it --- until it was a ten-minute piece with almost nothing left of the lullaby. It went through three names in as many days, each a worse pun than the last, and shipped as \textit{momabobasheep}: a museum and a bubble tea and a felted animal, folded into one word. Another track got its first real motion cut, video generated and running underneath the score instead of the old slow pans over stills. A third went out through the distributor on the last day of the month, which is its own small ceremony --- a song leaves your machine and becomes a row in a catalog you no longer control.
+
+I don't have a moral for it. I got better at finishing, mostly by finishing.
+
+\section{The Whistle Was Sharp}
+
+Underneath the songs I was rebuilding how the instrument makes its sound. The old way stacked sine waves into shapes. The new way tries to model the body instead --- what the wood does when a bow drags across it, what happens in the column of air inside a reed. It is slow and physical and goes one instrument at a time.
+
+Somewhere in that work I found a bug I still think about. The whistle had been playing a perfect fifth sharp. Not a little off --- a whole clean interval wrong, and it had been that way long enough that nobody, me included, had ever heard it as wrong. Fixing it didn't feel like fixing code. It felt like tuning an instrument that had been confidently out of tune since the day it was built.
+
+That same month the little menu-bar synth left the browser and went into the App Store, which is a different kind of shipping than a git push --- a review queue, a version string, a price on it. Real-time audio does not forgive you. A dropped frame of sound is heard the instant it drops, and a good part of June was just the unglamorous work of making sure it wasn't.
+
+\section{The Ring of Wizards}
+
+The strangest thing that happened all month happened quietly. Small applications started appearing around the operating system, one at a time --- a thing to hold a calendar, a thing to audition generated video, a thing to draw letterforms, a little animated character that lives in the corner of the screen. For a while they were just a pile of separate programs that happened to share an author.
+
+Then one afternoon they learned to share a sign-in. One token, kept in one file, and suddenly every one of them knew the same person was there. I had been saying for years that a person's records should belong to the person and travel with them; in June that stopped being a line in a paper and quietly became the plumbing that let five small apps trust the same key. I didn't plan the ring of them. I looked up and it was there.
+
+\section{A Room That Wasn't Mine}
+
+The chat got better all month in ways too small to announce. Video from the camera roll became something you could play inside a message. Paintings loaded in place. The broken cases started failing gently instead of thrashing themselves. Nobody writes home about work like that; it is just the difference between a thing people try and a thing people stay in.
+
+And then a room appeared that I hadn't made. There is a Danish piece called \textit{laer-klokken} --- ``learn the clock'' --- a small thing for teaching children to tell time, and it turns out real Danish schools use it. It has always run on its own instance of the chat, walled off from the main one, wired into a radio-and-teaching world that has nothing to do with me and never asked to. In June it got its own front door: \texttt{laklok.com}, a fast little site with a marquee across the top and a QR code in the corner, where the photos come in as paintings. That same month, a computer club across town in northeast Los Angeles got a donation page standing on the same infrastructure.
+
+This is the part of June I keep coming back to. For a long time I thought the point was to get people to use the thing I had made. What actually felt like arriving was watching people use it to make the thing \textit{they} meant --- in a language I don't speak, for a room I will never sit in.
+
+\section{The Turn}
+
+June holds the solstice, the day the light stops lengthening and begins, too slowly to feel, to come back. It is the hinge of the year, and it is the right shape for the month.
+
+I should be honest that telling it this way flatters it. Most of those four hundred and fifty-seven commits were small. Some of the maybes from May stayed exactly as uncertain as they'd been --- the classroom the operating system still hasn't met, the album it still might become, the residency, the letters no one has answered. Committing a thing is not finishing it. It is only the moment the promise stops being one you can quietly walk back.
+
+But for something one person makes, that moment is most of the game, because the real danger was never failing. It was that everything would stay possible and nothing would get chosen. \textit{May} is a lovely word and a dangerous way to live. June was the month I stopped saying it. The light has turned now, and the rest of the year is the long walk back down, carrying whatever got built at the top.
+
+\colophon{ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913} \enspace$\cdot$\enspace aesthetic.computer \enspace$\cdot$\enspace Companion to \textit{Aesthetic May '26}.}
+
+\end{document}

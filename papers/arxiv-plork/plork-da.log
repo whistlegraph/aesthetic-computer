@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  15 MAY 2026 18:31
+This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  18 JUN 2026 22:17
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1657,6 +1657,8 @@ Package microtype Info: Character `\guilsinglleft ' is missing
 Package microtype Info: Character `\guilsinglright ' is missing
 (microtype)             in font `\TU/ywft-processing-bold(0)/m/n/24'.
 (microtype)             Ignoring protrusion settings for this character.
+File: figures/cover.png Graphic file (type bmp)
+<figures/cover.png>
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `ywft-processing-light' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
@@ -1752,7 +1754,7 @@ Package microtype Info: Character `\guilsinglright ' is missing
 (microtype)             in font `\TU/ywft-processing-light(0)/m/n/9'.
 (microtype)             Ignoring protrusion settings for this character.
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
-(Font)              scaled to size 7.65005pt on input line 214.
+(Font)              scaled to size 7.65005pt on input line 216.
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `LatinModernMono' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
@@ -1762,149 +1764,206 @@ Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 9.00096pt on input line 214.
+(Font)              scaled to size 9.00096pt on input line 216.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 6.00064pt on input line 214.
+(Font)              scaled to size 6.00064pt on input line 216.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 5.00053pt on input line 214.
+(Font)              scaled to size 5.00053pt on input line 216.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 8.99904pt on input line 214.
+(Font)              scaled to size 8.99904pt on input line 216.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 5.99936pt on input line 214.
+(Font)              scaled to size 5.99936pt on input line 216.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 4.99947pt on input line 214.
+(Font)              scaled to size 4.99947pt on input line 216.
 
 LaTeX Font Warning: Font shape `TU/LatinModernRoman(0)/m/sc' undefined
 (Font)              using `TU/LatinModernRoman(0)/m/n' instead on input line 21
-4.
+6.
 
 
-Underfull \hbox (badness 1210) in paragraph at lines 222--223
-\TU/LatinModernRoman(0)/m/n/10 en række controllere—MIDI-keyboards, grafiktable
-ts,
- []
+LaTeX Warning: Optional argument of \twocolumn too tall on page 1.
 
 
-Underfull \hbox (badness 1331) in paragraph at lines 222--223
-\TU/LatinModernRoman(0)/m/n/10 Max/MSP (licenseret) og specialfremstillet netvæ
-rk-
- []
+Overfull \vbox (30.0pt too high) has occurred while \output is active []
 
 
-Underfull \vbox (badness 10000) has occurred while \output is active []
+
+LaTeX Warning: Text page 1 contains only floats.
 
 
-Underfull \vbox (badness 10000) has occurred while \output is active []
+Overfull \vbox (30.0pt too high) has occurred while \output is active []
+
+
+Overfull \vbox (16.0pt too high) has occurred while \output is active []
 
  [1
 
 
 ]
-Underfull \hbox (badness 2197) in paragraph at lines 230--231
+Underfull \hbox (badness 1210) in paragraph at lines 224--225
+\TU/LatinModernRoman(0)/m/n/10 en række controllere—MIDI-keyboards, grafiktable
+ts,
+ []
+
+
+Underfull \hbox (badness 1331) in paragraph at lines 224--225
+\TU/LatinModernRoman(0)/m/n/10 Max/MSP (licenseret) og specialfremstillet netvæ
+rk-
+ []
+
+
+Underfull \hbox (badness 2197) in paragraph at lines 232--233
 \TU/LatinModernRoman(0)/m/sc/10 faktor aldrig var kunstnerisk—PLOrk afgjorde de
 t
- []
-
-
-Overfull \hbox (6.61505pt too wide) in paragraph at lines 245--246
-[]\TU/LatinModernRoman(0)/m/sc/10 Ivica Ico Bukvic på Virginia Tech erkendte ad
-gangsprob-
- []
-
-
-Underfull \hbox (badness 2035) in paragraph at lines 245--246
-\TU/LatinModernRoman(0)/m/sc/10 top Orchestra, som en eksplicit omkostningsredu
-k-
- []
-
-
-Underfull \hbox (badness 1867) in paragraph at lines 247--248
-\TU/LatinModernRoman(0)/m/sc/10 filosofisk i overensstemmelse med adgangsmissio
-nen.
- []
-
-
-Underfull \hbox (badness 1838) in paragraph at lines 247--248
-\TU/LatinModernRoman(0)/m/sc/10 Men $750/plads kræver stadig institutionel ansk
-af-
  []
 
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
-Underfull \hbox (badness 1789) in paragraph at lines 254--255
+Overfull \hbox (6.61505pt too wide) in paragraph at lines 247--248
+[]\TU/LatinModernRoman(0)/m/sc/10 Ivica Ico Bukvic på Virginia Tech erkendte ad
+gangsprob-
+ []
+
+
+Underfull \hbox (badness 2035) in paragraph at lines 247--248
+\TU/LatinModernRoman(0)/m/sc/10 top Orchestra, som en eksplicit omkostningsredu
+k-
+ []
+
+
+Underfull \hbox (badness 1867) in paragraph at lines 249--250
+\TU/LatinModernRoman(0)/m/sc/10 filosofisk i overensstemmelse med adgangsmissio
+nen.
+ []
+
+
+Underfull \hbox (badness 1838) in paragraph at lines 249--250
+\TU/LatinModernRoman(0)/m/sc/10 Men $750/plads kræver stadig institutionel ansk
+af-
+ []
+
+
+Underfull \hbox (badness 1789) in paragraph at lines 256--257
 []\TU/LatinModernRoman(0)/b/n/10 Indskrivningskrav\TU/LatinModernRoman(0)/m/sc/
 10 : kun indskrevne studerende
  []
 
 
-Underfull \hbox (badness 7486) in paragraph at lines 256--257
+Underfull \hbox (badness 7486) in paragraph at lines 258--259
 []\TU/LatinModernRoman(0)/b/n/10 Lokaleafhængigt\TU/LatinModernRoman(0)/m/sc/10
  : dedikerede øvelokaler med
  []
 
 
-Overfull \hbox (42.8581pt too wide) in paragraph at lines 269--280
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [2]
+Overfull \hbox (42.8581pt too wide) in paragraph at lines 271--282
  [][] 
  []
 
 
-Underfull \hbox (badness 4765) in paragraph at lines 280--280
+Underfull \hbox (badness 4765) in paragraph at lines 282--282
 []\TU/LatinModernRoman(0)/m/sc/10 Table 1: []Prissammenligning på tværs af lapt
 o-
  []
 
 
-Underfull \hbox (badness 1406) in paragraph at lines 293--294
+Underfull \hbox (badness 1406) in paragraph at lines 295--296
 \TU/LatinModernRoman(0)/m/sc/10 240 millioner pc’er på verdensplan—maskiner, hv
 is
  []
 
-[2]
-Underfull \hbox (badness 3088) in paragraph at lines 295--296
+
+Underfull \hbox (badness 3088) in paragraph at lines 297--298
 \TU/LatinModernRoman(0)/m/sc/10 oven på de eksisterende overskudsstrømme: virk-
 
  []
 
 
-Underfull \hbox (badness 1102) in paragraph at lines 295--296
+Underfull \hbox (badness 1102) in paragraph at lines 297--298
 \TU/LatinModernRoman(0)/m/sc/10 skole-Chromebook-cirkulation [[][]Gutterman[][]
 , [][]2023[][]], de-
  []
 
 
-Underfull \hbox (badness 3229) in paragraph at lines 305--306
+Underfull \hbox (badness 3229) in paragraph at lines 307--308
 \TU/LatinModernRoman(0)/m/sc/10 rapport [[][]Gutterman[][], [][]2023[][]] dokum
 enterer, hvordan
  []
 
 
-Underfull \hbox (badness 1688) in paragraph at lines 305--306
+Underfull \hbox (badness 1688) in paragraph at lines 307--308
 \TU/LatinModernRoman(0)/m/sc/10 Update Expiration (AUE)-politik gør Chromebooks
 
  []
 
 
-Underfull \hbox (badness 1371) in paragraph at lines 309--310
+Underfull \hbox (badness 1371) in paragraph at lines 311--312
 []\TU/LatinModernRoman(0)/m/sc/10 (Bemærk: AC Native OS målretter i øjeblikket
  []
 
 
-Underfull \hbox (badness 5862) in paragraph at lines 309--310
+Underfull \hbox (badness 5862) in paragraph at lines 311--312
 \TU/LatinModernRoman(0)/m/sc/10 x86_64 UEFI-maskiner. De fleste uddannelses-
  []
 
 
-Underfull \hbox (badness 1661) in paragraph at lines 309--310
+Underfull \hbox (badness 1661) in paragraph at lines 311--312
 \TU/LatinModernRoman(0)/m/sc/10 er et primært udviklinigmål—se afsnit [][]13[][
 ]. Intel-
  []
 
 
-Underfull \hbox (badness 1102) in paragraph at lines 313--314
+Underfull \hbox (badness 1102) in paragraph at lines 315--316
 []\TU/LatinModernRoman(0)/m/sc/10 Aktuelle (marts 2026) priser på overskudslapt
 ops
+ []
+
+[3]
+Underfull \hbox (badness 1102) in paragraph at lines 344--345
+[]\TU/LatinModernRoman(0)/m/sc/10 Hvor PLOrk krævede at samle et instrument af
+ []
+
+
+Underfull \hbox (badness 1577) in paragraph at lines 348--349
+[]\TU/LatinModernRoman(0)/m/sc/10 AC Native OS er en enkelt 89MB UEFI-binær
+ []
+
+
+Underfull \hbox (badness 4096) in paragraph at lines 348--349
+\TU/LatinModernRoman(0)/m/sc/10 indeholdende en Linux-kerne, et LZ4-komprimeret
+
+ []
+
+
+Underfull \hbox (badness 1163) in paragraph at lines 348--349
+\TU/LatinModernRoman(0)/m/sc/10 initramfs og en 11.943-linjers C-runtime, der k
+ører
+ []
+
+
+Underfull \hbox (badness 4846) in paragraph at lines 348--349
+\TU/LatinModernRoman(0)/m/sc/10 intet skrivebordsmiljø, ingen pakkehåndtering, 
+in-
+ []
+
+
+Underfull \hbox (badness 5064) in paragraph at lines 348--349
+\TU/LatinModernRoman(0)/m/sc/10 gen shell. Runtimen håndterer direkte display
+ []
+
+
+Underfull \hbox (badness 3849) in paragraph at lines 350--351
+[]\TU/LatinModernRoman(0)/m/sc/10 Opstartstid: \TU/LatinModernRoman(0)/b/n/10 7
+,3 sekunder \TU/LatinModernRoman(0)/m/sc/10 fra tænd-knap til
+ []
+
+
+Overfull \hbox (3.85806pt too wide) in paragraph at lines 365--380
+ [][] 
  []
 
 
@@ -1914,59 +1973,15 @@ LaTeX Warning: `h' float specifier changed to `ht'.
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
-Underfull \hbox (badness 1102) in paragraph at lines 342--343
-[]\TU/LatinModernRoman(0)/m/sc/10 Hvor PLOrk krævede at samle et instrument af
- []
-
-
-Underfull \hbox (badness 1577) in paragraph at lines 346--347
-[]\TU/LatinModernRoman(0)/m/sc/10 AC Native OS er en enkelt 89MB UEFI-binær
- []
-
-
-Underfull \hbox (badness 4096) in paragraph at lines 346--347
-\TU/LatinModernRoman(0)/m/sc/10 indeholdende en Linux-kerne, et LZ4-komprimeret
-
- []
-
-
-Underfull \hbox (badness 1163) in paragraph at lines 346--347
-\TU/LatinModernRoman(0)/m/sc/10 initramfs og en 11.943-linjers C-runtime, der k
-ører
- []
-
-
-Underfull \hbox (badness 4846) in paragraph at lines 346--347
-\TU/LatinModernRoman(0)/m/sc/10 intet skrivebordsmiljø, ingen pakkehåndtering, 
-in-
- []
-
-
-Underfull \hbox (badness 5064) in paragraph at lines 346--347
-\TU/LatinModernRoman(0)/m/sc/10 gen shell. Runtimen håndterer direkte display
- []
-
-
-Underfull \hbox (badness 3849) in paragraph at lines 348--349
-[]\TU/LatinModernRoman(0)/m/sc/10 Opstartstid: \TU/LatinModernRoman(0)/b/n/10 7
-,3 sekunder \TU/LatinModernRoman(0)/m/sc/10 fra tænd-knap til
- []
-
-[3]
-Overfull \hbox (3.85806pt too wide) in paragraph at lines 363--378
- [][] 
- []
-
-
-Underfull \hbox (badness 2689) in paragraph at lines 388--389
+Underfull \hbox (badness 2689) in paragraph at lines 390--391
 []\TU/LatinModernRoman(0)/m/sc/10 PLOrks netværk krævede specialinfrastruktur o
 g
  []
 
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
-(Font)              scaled to size 8.50006pt on input line 392.
+(Font)              scaled to size 8.50006pt on input line 394.
 
-Underfull \hbox (badness 2119) in paragraph at lines 398--398
+Underfull \hbox (badness 2119) in paragraph at lines 400--400
 |[]\TU/LatinModernRoman(0)/b/n/10 LANDSKABET FOR DEDIKEREDE EN-
  []
 
@@ -1974,13 +1989,16 @@ Underfull \hbox (badness 2119) in paragraph at lines 398--398
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
  [4]
-Underfull \hbox (badness 1168) in paragraph at lines 417--418
+Underfull \hbox (badness 1168) in paragraph at lines 419--420
 []\TU/LatinModernRoman(0)/m/sc/10 Hvor Steam Deck kræver specialbygget hardware
 
  []
 
 
-Underfull \hbox (badness 1852) in paragraph at lines 429--430
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+
+Underfull \hbox (badness 1852) in paragraph at lines 431--432
 []\TU/LatinModernRoman(0)/m/sc/10 Forbrugerelektronikmarkedet har allerede besv
 aret
  []
@@ -1988,258 +2006,258 @@ aret
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
-
-Underfull \hbox (badness 1087) in paragraph at lines 465--465
+ [5]
+Underfull \hbox (badness 1087) in paragraph at lines 467--467
 []\TU/LatinModernRoman(0)/m/sc/10 Table 4: []Skaleringsomkostninger. PLOrk-mode
 llen
  []
 
 
-Underfull \hbox (badness 2334) in paragraph at lines 465--465
+Underfull \hbox (badness 2334) in paragraph at lines 467--467
 \TU/LatinModernRoman(0)/m/sc/10 af fremstillings- og pladsbegrænsninger. AC OS-
 
  []
 
 
-Underfull \hbox (badness 2111) in paragraph at lines 465--465
+Underfull \hbox (badness 2111) in paragraph at lines 467--467
 \TU/LatinModernRoman(0)/m/sc/10 modellen skalerer lineært med hardwareomkostnin
 g
  []
 
-[5]
-Overfull \hbox (19.36461pt too wide) in paragraph at lines 481--481
+
+Overfull \hbox (19.36461pt too wide) in paragraph at lines 483--483
 |[]\TU/LatinModernRoman(0)/b/n/10 PLORK PLANETEN: ET KONKRET FORSLAG| 
  []
 
 
-Underfull \hbox (badness 3514) in paragraph at lines 488--489
+Underfull \hbox (badness 3514) in paragraph at lines 490--491
 []\TU/LatinModernRoman(0)/m/sc/10 Dette er ikke spekulativt. Det er en ligetil
  []
 
 
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-
-Overfull \hbox (4.565pt too wide) in paragraph at lines 507--508
+Overfull \hbox (4.565pt too wide) in paragraph at lines 509--510
 []\TU/LatinModernRoman(0)/m/sc/10 Landlige og fjerntliggende samfund (OTA-opdat
 eringer
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 519--520
-[]\TU/LatinModernRoman(0)/m/sc/10 Grænseoverskridende telematiske orkesterbegiv
-en-
- []
-
-
-Underfull \hbox (badness 1418) in paragraph at lines 520--521
-[]\TU/LatinModernRoman(0)/m/sc/10 Asynkrone “stafet”-kompositioner, der videreg
-ives
- []
-
-
-Underfull \hbox (badness 1418) in paragraph at lines 535--536
-[]\TU/LatinModernRoman(0)/b/n/10 Komposition\TU/LatinModernRoman(0)/m/sc/10 : P
-LOrk genererede et nyt reper-
- []
-
-
-Underfull \hbox (badness 7379) in paragraph at lines 536--537
-\TU/LatinModernRoman(0)/m/sc/10 performance, komposition, instrumentdesign og
  []
 
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
  [6]
-Overfull \hbox (5.74463pt too wide) in paragraph at lines 548--548
-|[]\TU/LatinModernRoman(0)/b/n/10 MUSIK, ADGANG OG POLITISK øKONOMI| 
+Underfull \hbox (badness 10000) in paragraph at lines 521--522
+[]\TU/LatinModernRoman(0)/m/sc/10 Grænseoverskridende telematiske orkesterbegiv
+en-
  []
 
 
-Overfull \hbox (9.20905pt too wide) in paragraph at lines 553--554
-[]\TU/LatinModernRoman(0)/m/sc/10 Laptoporkestret er, i Attalis ramme, et kompo
-sitionsæra-
+Underfull \hbox (badness 1418) in paragraph at lines 522--523
+[]\TU/LatinModernRoman(0)/m/sc/10 Asynkrone “stafet”-kompositioner, der videreg
+ives
+ []
+
+
+Underfull \hbox (badness 1418) in paragraph at lines 537--538
+[]\TU/LatinModernRoman(0)/b/n/10 Komposition\TU/LatinModernRoman(0)/m/sc/10 : P
+LOrk genererede et nyt reper-
+ []
+
+
+Underfull \hbox (badness 7379) in paragraph at lines 538--539
+\TU/LatinModernRoman(0)/m/sc/10 performance, komposition, instrumentdesign og
  []
 
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
-Underfull \hbox (badness 3354) in paragraph at lines 566--567
+Overfull \hbox (5.74463pt too wide) in paragraph at lines 550--550
+|[]\TU/LatinModernRoman(0)/b/n/10 MUSIK, ADGANG OG POLITISK øKONOMI| 
+ []
+
+
+Overfull \hbox (9.20905pt too wide) in paragraph at lines 555--556
+[]\TU/LatinModernRoman(0)/m/sc/10 Laptoporkestret er, i Attalis ramme, et kompo
+sitionsæra-
+ []
+
+
+Underfull \hbox (badness 3354) in paragraph at lines 568--569
 \TU/LatinModernRoman(0)/m/sc/10 erede Linux-levedygtighed og omkostningsredukti
 on.
- []
-
-
-Underfull \hbox (badness 1210) in paragraph at lines 570--571
-[][]\TU/LatinModernRoman(0)/m/sc/10 Kraemer et al.[][], [][]2009[][]] demonstre
-rede både ambitio-
- []
-
-
-Underfull \hbox (badness 1067) in paragraph at lines 570--571
-\TU/LatinModernRoman(0)/m/sc/10 berry Pi [[][]Raspberry Pi Foundation[][], [][]
-2012[][]] sænkede
  []
 
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
  [7]
-Overfull \hbox (17.81593pt too wide) in paragraph at lines 583--584
+Underfull \hbox (badness 1210) in paragraph at lines 572--573
+[][]\TU/LatinModernRoman(0)/m/sc/10 Kraemer et al.[][], [][]2009[][]] demonstre
+rede både ambitio-
+ []
+
+
+Underfull \hbox (badness 1067) in paragraph at lines 572--573
+\TU/LatinModernRoman(0)/m/sc/10 berry Pi [[][]Raspberry Pi Foundation[][], [][]
+2012[][]] sænkede
+ []
+
+
+Overfull \hbox (17.81593pt too wide) in paragraph at lines 585--586
 []\TU/LatinModernRoman(0)/m/sc/10 OLPC fejlede af grunde, der nu er veldokument
 erede [[][]Krae-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 602--602
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 604--604
 []|\TU/LatinModernRoman(0)/m/n/9 Specialbygget
  []
 
 
-Overfull \hbox (5.63402pt too wide) in paragraph at lines 602--602
+Overfull \hbox (5.63402pt too wide) in paragraph at lines 604--604
 []|\TU/LatinModernRoman(0)/m/n/9 Overskudslaptops
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 602--602
+Underfull \hbox (badness 10000) in paragraph at lines 604--604
 \TU/LatinModernRoman(0)/m/n/9 ($50), allerede
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 602--602
+Underfull \hbox (badness 10000) in paragraph at lines 604--604
 []|\TU/LatinModernRoman(0)/m/n/9 Ukendt for
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 602--602
+Underfull \hbox (badness 10000) in paragraph at lines 604--604
 []|\TU/LatinModernRoman(0)/m/n/9 Standardlaptop,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 602--602
+Underfull \hbox (badness 10000) in paragraph at lines 604--604
 []|\TU/LatinModernRoman(0)/m/n/9 Proprietære
  []
 
 
-Overfull \hbox (9.80101pt too wide) in paragraph at lines 602--602
+Overfull \hbox (9.80101pt too wide) in paragraph at lines 604--604
 []|\TU/LatinModernRoman(0)/m/n/9 Standardhardware,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 602--602
+Underfull \hbox (badness 10000) in paragraph at lines 604--604
 \TU/LatinModernRoman(0)/m/n/9 lokalt servicer-
  []
 
 
-Underfull \hbox (badness 3449) in paragraph at lines 602--602
+Underfull \hbox (badness 3449) in paragraph at lines 604--604
 []|\TU/LatinModernRoman(0)/m/n/9 Sugar OS (ny,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 602--602
+Underfull \hbox (badness 10000) in paragraph at lines 604--604
 \TU/LatinModernRoman(0)/m/n/9 intet økosys-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 602--602
+Underfull \hbox (badness 10000) in paragraph at lines 604--604
 []|\TU/LatinModernRoman(0)/m/n/9 AC OS (spe-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 602--602
+Underfull \hbox (badness 10000) in paragraph at lines 604--604
 \TU/LatinModernRoman(0)/m/n/9 cialbygget
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 602--602
+Underfull \hbox (badness 10000) in paragraph at lines 604--604
 \TU/LatinModernRoman(0)/m/n/9 men selvop-
  []
 
 
-Overfull \hbox (62.28902pt too wide) in paragraph at lines 602--602
+Overfull \hbox (62.28902pt too wide) in paragraph at lines 604--604
 []|\TU/LatinModernRoman(0)/m/n/9 Regeringsministeriekoordinering| 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 602--602
+Underfull \hbox (badness 10000) in paragraph at lines 604--604
 []|\TU/LatinModernRoman(0)/m/n/9 240M mask-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 602--602
+Underfull \hbox (badness 10000) in paragraph at lines 604--604
 \TU/LatinModernRoman(0)/m/n/9 iner eksisterer
  []
 
 
-Underfull \hbox (badness 5316) in paragraph at lines 616--617
+Underfull \hbox (badness 5316) in paragraph at lines 618--619
 []\TU/LatinModernRoman(0)/b/n/10 Lydkvalitet. \TU/LatinModernRoman(0)/m/sc/10 I
 ndbyggede laptop-højttalere er
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 618--619
+Underfull \hbox (badness 10000) in paragraph at lines 620--621
 \TU/LatinModernRoman(0)/m/sc/10 uddannelses-Chromebooks bruger ARM-processorer
  []
 
-
-Underfull \hbox (badness 2452) in paragraph at lines 620--621
+[8]
+Underfull \hbox (badness 2452) in paragraph at lines 622--623
 \TU/LatinModernRoman(0)/m/sc/10 ingen systematisk evaluering af musikalsk kvali
 tet,
  []
 
 
-Underfull \hbox (badness 3635) in paragraph at lines 620--621
+Underfull \hbox (badness 3635) in paragraph at lines 622--623
 \TU/LatinModernRoman(0)/m/sc/10 læringsresultater eller ensemblekoordinering. P
 ås-
  []
 
 
-Underfull \hbox (badness 2894) in paragraph at lines 620--621
+Underfull \hbox (badness 2894) in paragraph at lines 622--623
 \TU/LatinModernRoman(0)/m/sc/10 der sammenligner musikalske resultater mellem e
 t
  []
 
 
-Underfull \hbox (badness 1303) in paragraph at lines 622--623
+Underfull \hbox (badness 1303) in paragraph at lines 624--625
 \TU/LatinModernRoman(0)/m/sc/10 forfattet af én person. Bus-faktoren er én. En
  []
 
 
-Underfull \hbox (badness 2856) in paragraph at lines 622--623
+Underfull \hbox (badness 2856) in paragraph at lines 624--625
 \TU/LatinModernRoman(0)/m/sc/10 vedligeholder. Systemet må dokumenteres, kode-
  []
 
 
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
- [8]
-Underfull \hbox (badness 1158) in paragraph at lines 639--640
+Underfull \hbox (badness 1158) in paragraph at lines 641--642
 \TU/LatinModernRoman(0)/m/sc/10 tempanel. Ensembleanvendelsen kræver sequencere
 ,
  []
 
 
-Underfull \hbox (badness 3930) in paragraph at lines 639--640
+Underfull \hbox (badness 3930) in paragraph at lines 641--642
 \TU/LatinModernRoman(0)/m/sc/10 mønstereditorer, looping-værktøjer og kollabora
 tive
  []
 
 
-Overfull \hbox (4.43703pt too wide) in paragraph at lines 639--640
+Overfull \hbox (4.43703pt too wide) in paragraph at lines 641--642
 \TU/LatinModernRoman(0)/m/sc/10 kompositionsgrænseflader—alt som pieces, hot-sw
 appable
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 647--648
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 649--650
 \TU/LatinModernRoman(0)/m/sc/10 forskning—bør tilpasses nulinfrastruktur-kontek
 ster.
  []
 
 
-Underfull \hbox (badness 1237) in paragraph at lines 657--658
+Underfull \hbox (badness 1237) in paragraph at lines 659--660
 []\TU/LatinModernRoman(0)/m/sc/10 I 2005 spurgte Dan Trueman “Hvorfor et lapto-
 
  []
@@ -2247,18 +2265,19 @@ Underfull \hbox (badness 1237) in paragraph at lines 657--658
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
+ [9]
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/it' will be
-(Font)              scaled to size 8.50006pt on input line 673.
+(Font)              scaled to size 8.50006pt on input line 675.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 10.00107pt on input line 673.
+(Font)              scaled to size 10.00107pt on input line 675.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 7.00075pt on input line 673.
+(Font)              scaled to size 7.00075pt on input line 675.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 9.99893pt on input line 673.
+(Font)              scaled to size 9.99893pt on input line 675.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 6.99925pt on input line 673.
+(Font)              scaled to size 6.99925pt on input line 675.
 
-(./plork-da.bbl [9]
+(./plork-da.bbl
 Underfull \hbox (badness 4084) in paragraph at lines 121--127
 []\TU/LatinModernRoman(0)/m/sc/10 Mitchel Resnick, John Maloney, Andrés Monroy-
 
@@ -2276,7 +2295,9 @@ Underfull \hbox (badness 1092) in paragraph at lines 147--151
 
  []
 
-) [10] (./plork-da.aux)
+[10]) [11
+
+] (./plork-da.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2026-01-19>
@@ -2289,12 +2310,12 @@ Package rerunfilecheck Info: File `plork-da.out' has not changed.
 (rerunfilecheck)             Checksum: 6B0AE9EA57AD9BB83B84E6FA347AB290;8011.
  ) 
 Here is how much of TeX's memory you used:
- 21061 strings out of 469709
- 386783 string characters out of 5466024
- 1001695 words of memory out of 5000000
- 49422 multiletter control sequences out of 15000+600000
+ 21082 strings out of 469709
+ 387206 string characters out of 5466024
+ 1003695 words of memory out of 5000000
+ 49440 multiletter control sequences out of 15000+600000
  630284 words of font info for 101 fonts, out of 8000000 for 9000
  319 hyphenation exceptions out of 8191
- 86i,12n,107p,2054b,676s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 86i,12n,107p,2054b,674s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
-Output written on plork-da.pdf (10 pages).
+Output written on plork-da.pdf (11 pages).

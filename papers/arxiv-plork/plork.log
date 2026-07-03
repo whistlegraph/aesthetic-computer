@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  15 MAY 2026 18:31
+This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  18 JUN 2026 22:17
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1616,6 +1616,8 @@ Package microtype Info: Character `\guilsinglleft ' is missing
 Package microtype Info: Character `\guilsinglright ' is missing
 (microtype)             in font `\TU/ywft-processing-bold(0)/m/n/24'.
 (microtype)             Ignoring protrusion settings for this character.
+File: figures/cover.png Graphic file (type bmp)
+<figures/cover.png>
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `ywft-processing-light' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
@@ -1711,7 +1713,7 @@ Package microtype Info: Character `\guilsinglright ' is missing
 (microtype)             in font `\TU/ywft-processing-light(0)/m/n/9'.
 (microtype)             Ignoring protrusion settings for this character.
 LaTeX Font Info:    Font shape `TU/lmmono10(0)/m/n' will be
-(Font)              scaled to size 7.65005pt on input line 223.
+(Font)              scaled to size 7.65005pt on input line 225.
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `lmmono10' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
@@ -1721,22 +1723,43 @@ Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 9.00096pt on input line 223.
+(Font)              scaled to size 9.00096pt on input line 225.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 6.00064pt on input line 223.
+(Font)              scaled to size 6.00064pt on input line 225.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 5.00053pt on input line 223.
+(Font)              scaled to size 5.00053pt on input line 225.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 8.99904pt on input line 223.
+(Font)              scaled to size 8.99904pt on input line 225.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 5.99936pt on input line 223.
+(Font)              scaled to size 5.99936pt on input line 225.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 4.99947pt on input line 223.
+(Font)              scaled to size 4.99947pt on input line 225.
 
 
 LaTeX Font Warning: Font shape `TU/lmroman10(0)/m/sc' undefined
-(Font)              using `TU/lmroman10(0)/m/n' instead on input line 223.
+(Font)              using `TU/lmroman10(0)/m/n' instead on input line 225.
 
+
+LaTeX Warning: Optional argument of \twocolumn too tall on page 1.
+
+
+Overfull \vbox (20.47325pt too high) has occurred while \output is active []
+
+
+
+LaTeX Warning: Text page 1 contains only floats.
+
+
+Overfull \vbox (20.47325pt too high) has occurred while \output is active []
+
+
+Overfull \vbox (6.47325pt too high) has occurred while \output is active []
+
+
+[1
+
+
+]
 File: figures/hardware-yoga.jpg Graphic file (type bmp)
 <figures/hardware-yoga.jpg>
 
@@ -1745,60 +1768,48 @@ Underfull \vbox (badness 10000) has occurred while \output is active []
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
- [1
-
-
-]
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
  [2]
-Overfull \hbox (16.60806pt too wide) in paragraph at lines 287--298
+Overfull \hbox (16.60806pt too wide) in paragraph at lines 289--300
  [][] 
  []
 
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 10.00107pt on input line 298.
+(Font)              scaled to size 10.00107pt on input line 300.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 7.00075pt on input line 298.
+(Font)              scaled to size 7.00075pt on input line 300.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 9.99893pt on input line 298.
+(Font)              scaled to size 9.99893pt on input line 300.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 6.99925pt on input line 298.
-
-Underfull \hbox (badness 1859) in paragraph at lines 323--324
-[]\TU/lmroman10(0)/m/sc/10 The U.S. PIRG Education Fund’s “Chromebook
- []
-
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
- [3]
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-File: figures/kidlisp-featured.png Graphic file (type bmp)
-<figures/kidlisp-featured.png>
-
-Underfull \hbox (badness 3009) in paragraph at lines 379--379
-[]\TU/lmroman10(0)/m/sc/10 Figure 2: []\TU/lmroman10(0)/b/n/10 A live piece on 
-the instrument.
- []
-
-LaTeX Font Info:    Font shape `TU/lmmono10(0)/m/n' will be
-(Font)              scaled to size 8.50006pt on input line 386.
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
- [4]
+(Font)              scaled to size 6.99925pt on input line 300.
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
- [5]
+
+Underfull \vbox (badness 1184) has occurred while \output is active []
+
+ [3]
+Underfull \hbox (badness 1859) in paragraph at lines 325--326
+[]\TU/lmroman10(0)/m/sc/10 The U.S. PIRG Education Fund’s “Chromebook
+ []
+
+
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [4]
+File: figures/kidlisp-featured.png Graphic file (type bmp)
+<figures/kidlisp-featured.png>
+
+Underfull \hbox (badness 3009) in paragraph at lines 381--381
+[]\TU/lmroman10(0)/m/sc/10 Figure 2: []\TU/lmroman10(0)/b/n/10 A live piece on 
+the instrument.
+ []
+
+LaTeX Font Info:    Font shape `TU/lmmono10(0)/m/n' will be
+(Font)              scaled to size 8.50006pt on input line 388.
+[5]
 File: figures/card-berz.png Graphic file (type bmp)
 <figures/card-berz.png>
 File: figures/card-24m.png Graphic file (type bmp)
@@ -1810,27 +1821,27 @@ File: figures/card-kl1.png Graphic file (type bmp)
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
-
+ [6]
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
- [6]
-Underfull \hbox (badness 1831) in paragraph at lines 499--500
+
+Underfull \hbox (badness 1831) in paragraph at lines 501--502
 []\TU/lmroman10(0)/m/sc/10 In June 2017 Luckey co-founded Anduril Indus-
  []
 
 
-Underfull \hbox (badness 2181) in paragraph at lines 501--502
+Underfull \hbox (badness 2181) in paragraph at lines 503--504
 \TU/lmroman10(0)/m/sc/10 purpose-built operating system on commodity-class
  []
 
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
-
+ [7]
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
- [7]
-Underfull \hbox (badness 2762) in paragraph at lines 619--619
+
+Underfull \hbox (badness 2762) in paragraph at lines 621--621
 |[]\TU/lmroman10(0)/b/n/10 PLORK THE PLANET: A CONCRETE
  []
 
@@ -1838,58 +1849,63 @@ Underfull \hbox (badness 2762) in paragraph at lines 619--619
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
  [8]
-Underfull \hbox (badness 2452) in paragraph at lines 673--674
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [9]
+Underfull \hbox (badness 2452) in paragraph at lines 675--676
 []\TU/lmroman10(0)/b/n/10 Composition\TU/lmroman10(0)/m/sc/10 : PLOrk generated
  a new reper-
  []
 
 
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-
-Underfull \hbox (badness 1292) in paragraph at lines 680--681
+Underfull \hbox (badness 1292) in paragraph at lines 682--683
 \TU/lmroman10(0)/m/sc/10 dependence on institutional infrastructure remained.
  []
 
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
- [9]
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-
-Overfull \hbox (27.10393pt too wide) in paragraph at lines 721--722
-[]\TU/lmroman10(0)/m/sc/10 OLPC failed for reasons that are now well-documented
- [[][]Krae-
- []
-
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
  [10]
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 8.00085pt on input line 728.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 7.99915pt on input line 728.
+Overfull \hbox (27.10393pt too wide) in paragraph at lines 723--724
+[]\TU/lmroman10(0)/m/sc/10 OLPC failed for reasons that are now well-documented
+ [[][]Krae-
+ []
 
-Underfull \hbox (badness 10000) in paragraph at lines 733--734
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
+(Font)              scaled to size 8.00085pt on input line 730.
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
+(Font)              scaled to size 7.99915pt on input line 730.
+
+Underfull \hbox (badness 10000) in paragraph at lines 735--736
 []|\TU/lmroman10(0)/m/n/8 Standard laptop, al-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 734--735
+Underfull \hbox (badness 10000) in paragraph at lines 736--737
 []|\TU/lmroman10(0)/m/n/8 Commodity hardware,
  []
 
 
-Underfull \hbox (badness 2818) in paragraph at lines 735--735
+Underfull \hbox (badness 2818) in paragraph at lines 737--737
 []|\TU/lmroman10(0)/m/n/8 Sugar OS (no ecosys-
  []
 
 
-Overfull \hbox (16.48764pt too wide) in paragraph at lines 728--741
+Overfull \hbox (16.48764pt too wide) in paragraph at lines 730--743
  [][] 
  []
+
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
+
+Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
@@ -1898,7 +1914,10 @@ Underfull \vbox (badness 10000) has occurred while \output is active []
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
-(./plork.bbl [12]
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [12]
+(./plork.bbl [13]
 Underfull \hbox (badness 4084) in paragraph at lines 164--170
 []\TU/lmroman10(0)/m/sc/10 Mitchel Resnick, John Maloney, Andrés Monroy-
  []
@@ -1913,9 +1932,7 @@ Underfull \hbox (badness 1092) in paragraph at lines 199--203
 []\TU/lmroman10(0)/m/sc/10 Dan Trueman, Perry Cook, Scott Smallwood, and
  []
 
-[13]) [14
-
-] (./plork.aux)
+) [14] (./plork.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2026-01-19>
@@ -1928,10 +1945,10 @@ Package rerunfilecheck Info: File `plork.out' has not changed.
 (rerunfilecheck)             Checksum: E1085827665BF5C1A976EB584757641D;8713.
  ) 
 Here is how much of TeX's memory you used:
- 31404 strings out of 469709
- 611312 string characters out of 5466024
- 1200276 words of memory out of 5000000
- 59558 multiletter control sequences out of 15000+600000
+ 31423 strings out of 469709
+ 611723 string characters out of 5466024
+ 1200277 words of memory out of 5000000
+ 59576 multiletter control sequences out of 15000+600000
  630868 words of font info for 109 fonts, out of 8000000 for 9000
  319 hyphenation exceptions out of 8191
  88i,13n,107p,1002b,1072s stack positions out of 10000i,1000n,20000p,200000b,200000s

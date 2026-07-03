@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  15 MAY 2026 18:31
+This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  18 JUN 2026 22:17
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1972,6 +1972,8 @@ l.57 ...tsize{18pt}{22pt}\selectfont\color{acdark}
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
+File: figures/cover.png Graphic file (type bmp)
+<figures/cover.png>
 
 ! Package xcolor Error: Undefined color `acpink'.
 
@@ -1979,7 +1981,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.59 ...tsize{10pt}{12pt}\selectfont\color{acpink}
+l.61 ...tsize{10pt}{12pt}\selectfont\color{acpink}
                                                    Every Chromebook Is a Gat...
 
 Try typing  <return>  to proceed.
@@ -1992,7 +1994,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.62 {\small\color{acgray}
+l.64 {\small\color{acgray}
                            Aesthetic.Computer}\par
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -2004,7 +2006,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.63 {\small\color{acgray}
+l.65 {\small\color{acgray}
                            ORCID: \href{https://orcid.org/0009-0007-4460-491...
 
 Try typing  <return>  to proceed.
@@ -2017,7 +2019,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.63 .../0009-0007-4460-4913}{0009-0007-4460-4913}
+l.65 .../0009-0007-4460-4913}{0009-0007-4460-4913}
                                                   }\par
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -2029,7 +2031,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.67 {\small\color{acpink!40}
+l.69 {\small\color{acpink!40}
                              \textit{working draft --- not for citation}}\par
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -2041,7 +2043,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.69 {\footnotesize\color{acgray}
+l.71 {\footnotesize\color{acgray}
                                   March 2026}\par
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -2056,7 +2058,7 @@ See the pgfkeys package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.72 \clearpage
+l.74 \clearpage
                
 (That was another \errmessage.)
 
@@ -2072,7 +2074,7 @@ See the pgfkeys package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.72 \clearpage
+l.74 \clearpage
                
 (That was another \errmessage.)
 
@@ -2149,7 +2151,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.72 \clearpage
+l.74 \clearpage
                
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -2159,7 +2161,7 @@ If that doesn't work, type  X <return>  to quit.
 ]
 
 LaTeX Font Warning: Font shape `TU/LatinModernRoman(0)/m/sc' undefined
-(Font)              using `TU/LatinModernRoman(0)/m/n' instead on input line 82
+(Font)              using `TU/LatinModernRoman(0)/m/n' instead on input line 84
 .
 
 
@@ -2169,7 +2171,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.82 ...We present \acos{}~\citep{scudder2026acos}
+l.84 ...We present \acos{}~\citep{scudder2026acos}
                                                    as one concrete implement...
 
 Try typing  <return>  to proceed.
@@ -2182,7 +2184,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.82 ...We present \acos{}~\citep{scudder2026acos}
+l.84 ...We present \acos{}~\citep{scudder2026acos}
                                                    as one concrete implement...
 
 Try typing  <return>  to proceed.
@@ -2195,7 +2197,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.91 ...0 million units~\citep{google2024chromeos}
+l.93 ...0 million units~\citep{google2024chromeos}
                                                   . An entire generation of ...
 
 Try typing  <return>  to proceed.
@@ -2208,7 +2210,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.91 ...0 million units~\citep{google2024chromeos}
+l.93 ...0 million units~\citep{google2024chromeos}
                                                   . An entire generation of ...
 
 Try typing  <return>  to proceed.
@@ -2221,7 +2223,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.93 ...o adulthood~\citep{zuboff2019surveillance}
+l.95 ...o adulthood~\citep{zuboff2019surveillance}
                                                   .
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -2233,7 +2235,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.93 ...o adulthood~\citep{zuboff2019surveillance}
+l.95 ...o adulthood~\citep{zuboff2019surveillance}
                                                   .
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -2245,7 +2247,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.95 ...e message~\citep{mcluhan1964understanding}
+l.97 ...e message~\citep{mcluhan1964understanding}
                                                   : the Chromebook teaches t...
 
 Try typing  <return>  to proceed.
@@ -2258,7 +2260,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.95 ...e message~\citep{mcluhan1964understanding}
+l.97 ...e message~\citep{mcluhan1964understanding}
                                                   : the Chromebook teaches t...
 
 Try typing  <return>  to proceed.
@@ -2271,7 +2273,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.121 ...' of education~\citep{freire1970pedagogy}
+l.123 ...' of education~\citep{freire1970pedagogy}
                                                   : knowledge deposited into...
 
 Try typing  <return>  to proceed.
@@ -2284,7 +2286,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.121 ...' of education~\citep{freire1970pedagogy}
+l.123 ...' of education~\citep{freire1970pedagogy}
                                                   : knowledge deposited into...
 
 Try typing  <return>  to proceed.
@@ -2297,7 +2299,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.122 
+l.124 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -2312,7 +2314,7 @@ See the pgfkeys package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.122 
+l.124 
       
 (That was another \errmessage.)
 
@@ -2328,7 +2330,7 @@ See the pgfkeys package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.122 
+l.124 
       
 (That was another \errmessage.)
 
@@ -2341,7 +2343,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.122 
+l.124 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -2356,7 +2358,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.127 ...y replacements~\citep{pirg2023chromebook}
+l.129 ...y replacements~\citep{pirg2023chromebook}
                                                   . These are machines with ...
 
 Try typing  <return>  to proceed.
@@ -2369,7 +2371,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.127 ...y replacements~\citep{pirg2023chromebook}
+l.129 ...y replacements~\citep{pirg2023chromebook}
                                                   . These are machines with ...
 
 Try typing  <return>  to proceed.
@@ -2382,7 +2384,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.138 ...boff2019surveillance, doctorow2020attack}
+l.140 ...boff2019surveillance, doctorow2020attack}
                                                   . A student who grows up i...
 
 Try typing  <return>  to proceed.
@@ -2395,7 +2397,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.138 ...boff2019surveillance, doctorow2020attack}
+l.140 ...boff2019surveillance, doctorow2020attack}
                                                   . A student who grows up i...
 
 Try typing  <return>  to proceed.
@@ -2408,7 +2410,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.138 ...boff2019surveillance, doctorow2020attack}
+l.140 ...boff2019surveillance, doctorow2020attack}
                                                   . A student who grows up i...
 
 Try typing  <return>  to proceed.
@@ -2421,7 +2423,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.138 ...boff2019surveillance, doctorow2020attack}
+l.140 ...boff2019surveillance, doctorow2020attack}
                                                   . A student who grows up i...
 
 Try typing  <return>  to proceed.
@@ -2434,7 +2436,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.158 ... parental consent~\citep{google2019coppa}
+l.160 ... parental consent~\citep{google2019coppa}
                                                   . In 2020, New Mexico Atto...
 
 Try typing  <return>  to proceed.
@@ -2447,7 +2449,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.158 ... parental consent~\citep{google2019coppa}
+l.160 ... parental consent~\citep{google2019coppa}
                                                   . In 2020, New Mexico Atto...
 
 Try typing  <return>  to proceed.
@@ -2460,7 +2462,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.158 ...ks in schools~\citep{newmexico2020google}
+l.160 ...ks in schools~\citep{newmexico2020google}
                                                   . The EFF filed an FTC com...
 
 Try typing  <return>  to proceed.
@@ -2473,7 +2475,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.158 ...ks in schools~\citep{newmexico2020google}
+l.160 ...ks in schools~\citep{newmexico2020google}
                                                   . The EFF filed an FTC com...
 
 Try typing  <return>  to proceed.
@@ -2486,7 +2488,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.158 ...ugh Chromebooks~\citep{eff2015chromebook}
+l.160 ...ugh Chromebooks~\citep{eff2015chromebook}
                                                   . In 2024, a coalition of ...
 
 Try typing  <return>  to proceed.
@@ -2499,7 +2501,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.158 ...ugh Chromebooks~\citep{eff2015chromebook}
+l.160 ...ugh Chromebooks~\citep{eff2015chromebook}
                                                   . In 2024, a coalition of ...
 
 Try typing  <return>  to proceed.
@@ -2512,7 +2514,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.158 ...nt surveillance~\citep{eff2024monitoring}
+l.160 ...nt surveillance~\citep{eff2024monitoring}
                                                   . Class actions alleging b...
 
 Try typing  <return>  to proceed.
@@ -2525,7 +2527,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.158 ...nt surveillance~\citep{eff2024monitoring}
+l.160 ...nt surveillance~\citep{eff2024monitoring}
                                                   . Class actions alleging b...
 
 Try typing  <return>  to proceed.
@@ -2538,7 +2540,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.164 ...and LGBTQ youth~\citep{eff2024monitoring}
+l.166 ...and LGBTQ youth~\citep{eff2024monitoring}
                                                   . Of 152 ed-tech services ...
 
 Try typing  <return>  to proceed.
@@ -2551,7 +2553,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.164 ...and LGBTQ youth~\citep{eff2024monitoring}
+l.166 ...and LGBTQ youth~\citep{eff2024monitoring}
                                                   . Of 152 ed-tech services ...
 
 Try typing  <return>  to proceed.
@@ -2564,7 +2566,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.165 
+l.167 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -2579,7 +2581,7 @@ See the pgfkeys package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.165 
+l.167 
       
 (That was another \errmessage.)
 
@@ -2595,7 +2597,7 @@ See the pgfkeys package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.165 
+l.167 
       
 (That was another \errmessage.)
 
@@ -2608,7 +2610,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.165 
+l.167 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -2621,7 +2623,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.166 ...have politics~\citep{winner1980artifacts}
+l.168 ...have politics~\citep{winner1980artifacts}
                                                   . The Chromebook's politic...
 
 Try typing  <return>  to proceed.
@@ -2634,14 +2636,14 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.166 ...have politics~\citep{winner1980artifacts}
+l.168 ...have politics~\citep{winner1980artifacts}
                                                   . The Chromebook's politic...
 
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
 
-Underfull \hbox (badness 5231) in paragraph at lines 166--167
+Underfull \hbox (badness 5231) in paragraph at lines 168--169
 []\TU/LatinModernRoman(0)/m/n/10.95 Winner argued that artifacts have poli-
  []
 
@@ -2652,7 +2654,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.199 ...boxed browsers~\citep{denny2024computing}
+l.201 ...boxed browsers~\citep{denny2024computing}
                                                   . Krishnamurthi (Brown Uni...
 
 Try typing  <return>  to proceed.
@@ -2665,7 +2667,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.199 ...boxed browsers~\citep{denny2024computing}
+l.201 ...boxed browsers~\citep{denny2024computing}
                                                   . Krishnamurthi (Brown Uni...
 
 Try typing  <return>  to proceed.
@@ -2678,7 +2680,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.199 ...rtant, not less~\citep{prather2024robots}
+l.201 ...rtant, not less~\citep{prather2024robots}
                                                   : students need to run, de...
 
 Try typing  <return>  to proceed.
@@ -2691,7 +2693,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.199 ...rtant, not less~\citep{prather2024robots}
+l.201 ...rtant, not less~\citep{prather2024robots}
                                                   : students need to run, de...
 
 Try typing  <return>  to proceed.
@@ -2704,7 +2706,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.212 
+l.214 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -2719,7 +2721,7 @@ See the pgfkeys package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.212 
+l.214 
       
 (That was another \errmessage.)
 
@@ -2735,7 +2737,7 @@ See the pgfkeys package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.212 
+l.214 
       
 (That was another \errmessage.)
 
@@ -2748,7 +2750,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.212 
+l.214 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -2761,7 +2763,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.215 ...erstood this~\citep{papert1980mindstorms}
+l.217 ...erstood this~\citep{papert1980mindstorms}
                                                   : Logo was not about teach...
 
 Try typing  <return>  to proceed.
@@ -2774,14 +2776,14 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.215 ...erstood this~\citep{papert1980mindstorms}
+l.217 ...erstood this~\citep{papert1980mindstorms}
                                                   : Logo was not about teach...
 
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 225--225
+Underfull \hbox (badness 10000) in paragraph at lines 227--227
 |[]\TU/LatinModernRoman(0)/b/n/10.95 WHAT EVERY STUDENT DE-
  []
 
@@ -2792,7 +2794,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.259 ...school computers~\citep{kite2024gnulinux}
+l.261 ...school computers~\citep{kite2024gnulinux}
                                                   . The distribution include...
 
 Try typing  <return>  to proceed.
@@ -2805,7 +2807,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.259 ...school computers~\citep{kite2024gnulinux}
+l.261 ...school computers~\citep{kite2024gnulinux}
                                                   . The distribution include...
 
 Try typing  <return>  to proceed.
@@ -2818,7 +2820,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.265 ...cted to follow~\citep{schleswig2025linux}
+l.267 ...cted to follow~\citep{schleswig2025linux}
                                                   . Replacements include Lib...
 
 Try typing  <return>  to proceed.
@@ -2831,7 +2833,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.265 ...cted to follow~\citep{schleswig2025linux}
+l.267 ...cted to follow~\citep{schleswig2025linux}
                                                   . Replacements include Lib...
 
 Try typing  <return>  to proceed.
@@ -2844,7 +2846,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.266 
+l.268 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -2859,7 +2861,7 @@ See the pgfkeys package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.266 
+l.268 
       
 (That was another \errmessage.)
 
@@ -2875,7 +2877,7 @@ See the pgfkeys package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.266 
+l.268 
       
 (That was another \errmessage.)
 
@@ -2888,7 +2890,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.266 
+l.268 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -2901,7 +2903,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.269 ...soft and Google~\citep{france2023digital}
+l.271 ...soft and Google~\citep{france2023digital}
                                                   . The national platform \t...
 
 Try typing  <return>  to proceed.
@@ -2914,14 +2916,14 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.269 ...soft and Google~\citep{france2023digital}
+l.271 ...soft and Google~\citep{france2023digital}
                                                   . The national platform \t...
 
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
-(Font)              scaled to size 9.63605pt on input line 269.
+(Font)              scaled to size 9.63605pt on input line 271.
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `LatinModernMono' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
@@ -2933,7 +2935,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.273 ...n grades 9--12~\citep{pennmanor2024linux}
+l.275 ...n grades 9--12~\citep{pennmanor2024linux}
                                                   . The program includes a s...
 
 Try typing  <return>  to proceed.
@@ -2946,7 +2948,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.273 ...n grades 9--12~\citep{pennmanor2024linux}
+l.275 ...n grades 9--12~\citep{pennmanor2024linux}
                                                   . The program includes a s...
 
 Try typing  <return>  to proceed.
@@ -2959,7 +2961,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.277 ...al signatories~\citep{fsfe2024publiccode}
+l.279 ...al signatories~\citep{fsfe2024publiccode}
                                                   . UNESCO's 2024 Dubai Decl...
 
 Try typing  <return>  to proceed.
@@ -2972,7 +2974,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.277 ...al signatories~\citep{fsfe2024publiccode}
+l.279 ...al signatories~\citep{fsfe2024publiccode}
                                                   . UNESCO's 2024 Dubai Decl...
 
 Try typing  <return>  to proceed.
@@ -2985,7 +2987,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.277 ...erging technologies~\citep{unesco2024oer}
+l.279 ...erging technologies~\citep{unesco2024oer}
                                                   . The Global Digital Compa...
 
 Try typing  <return>  to proceed.
@@ -2998,7 +3000,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.277 ...erging technologies~\citep{unesco2024oer}
+l.279 ...erging technologies~\citep{unesco2024oer}
                                                   . The Global Digital Compa...
 
 Try typing  <return>  to proceed.
@@ -3011,7 +3013,7 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.291 \begin{table}[H]
+l.293 \begin{table}[H]
                       
 Option `H' ignored and `p' used.
 
@@ -3020,19 +3022,19 @@ Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 10.00107pt on input line 294.
+(Font)              scaled to size 10.00107pt on input line 296.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 7.00075pt on input line 294.
+(Font)              scaled to size 7.00075pt on input line 296.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 5.00053pt on input line 294.
+(Font)              scaled to size 5.00053pt on input line 296.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 9.99893pt on input line 294.
+(Font)              scaled to size 9.99893pt on input line 296.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 6.99925pt on input line 294.
+(Font)              scaled to size 6.99925pt on input line 296.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 4.99947pt on input line 294.
+(Font)              scaled to size 4.99947pt on input line 296.
 
-Overfull \hbox (66.91666pt too wide) in paragraph at lines 294--307
+Overfull \hbox (66.91666pt too wide) in paragraph at lines 296--309
  [][] 
  []
 
@@ -3045,17 +3047,17 @@ Package multicol Warning: Floats and marginpars not allowed inside `multicols'
 environment!.
 
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 10.95116pt on input line 321.
+(Font)              scaled to size 10.95116pt on input line 323.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 7.6658pt on input line 321.
+(Font)              scaled to size 7.6658pt on input line 323.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 5.47559pt on input line 321.
+(Font)              scaled to size 5.47559pt on input line 323.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 10.94882pt on input line 321.
+(Font)              scaled to size 10.94882pt on input line 323.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 7.66417pt on input line 321.
+(Font)              scaled to size 7.66417pt on input line 323.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 5.47441pt on input line 321.
+(Font)              scaled to size 5.47441pt on input line 323.
 
 ! Package xcolor Error: Undefined color `acpurple'.
 
@@ -3063,7 +3065,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.321 ...aptop~\citep{circularcomputing2023carbon}
+l.323 ...aptop~\citep{circularcomputing2023carbon}
                                                   . The UN Global E-waste Mo...
 
 Try typing  <return>  to proceed.
@@ -3076,7 +3078,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.321 ...aptop~\citep{circularcomputing2023carbon}
+l.323 ...aptop~\citep{circularcomputing2023carbon}
                                                   . The UN Global E-waste Mo...
 
 Try typing  <return>  to proceed.
@@ -3089,7 +3091,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.321 ...\% properly recycled~\citep{un2024ewaste}
+l.323 ...\% properly recycled~\citep{un2024ewaste}
                                                   .
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -3101,7 +3103,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.321 ...\% properly recycled~\citep{un2024ewaste}
+l.323 ...\% properly recycled~\citep{un2024ewaste}
                                                   .
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -3113,7 +3115,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.323 ...pair information~\citep{oregon2024repair}
+l.325 ...pair information~\citep{oregon2024repair}
                                                   ; New Hampshire's HB1701 e...
 
 Try typing  <return>  to proceed.
@@ -3126,7 +3128,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.323 ...pair information~\citep{oregon2024repair}
+l.325 ...pair information~\citep{oregon2024repair}
                                                   ; New Hampshire's HB1701 e...
 
 Try typing  <return>  to proceed.
@@ -3139,7 +3141,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.323 ...ed laptops~\citep{newhampshire2024repair}
+l.325 ...ed laptops~\citep{newhampshire2024repair}
                                                   . But legislation cannot f...
 
 Try typing  <return>  to proceed.
@@ -3152,7 +3154,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.323 ...ed laptops~\citep{newhampshire2024repair}
+l.325 ...ed laptops~\citep{newhampshire2024repair}
                                                   . But legislation cannot f...
 
 Try typing  <return>  to proceed.
@@ -3165,7 +3167,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.324 
+l.326 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -3180,7 +3182,7 @@ See the pgfkeys package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.324 
+l.326 
       
 (That was another \errmessage.)
 
@@ -3196,7 +3198,7 @@ See the pgfkeys package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.324 
+l.326 
       
 (That was another \errmessage.)
 
@@ -3209,7 +3211,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.324 
+l.326 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -3222,7 +3224,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.345 ...isioning. \acos{}~\citep{scudder2026acos}
+l.347 ...isioning. \acos{}~\citep{scudder2026acos}
                                                    demonstrates that an enti...
 
 Try typing  <return>  to proceed.
@@ -3235,7 +3237,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.345 ...isioning. \acos{}~\citep{scudder2026acos}
+l.347 ...isioning. \acos{}~\citep{scudder2026acos}
                                                    demonstrates that an enti...
 
 Try typing  <return>  to proceed.
@@ -3248,7 +3250,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.345 ...book districts~\citep{pennmanor2024linux}
+l.347 ...book districts~\citep{pennmanor2024linux}
                                                   . The ``management problem...
 
 Try typing  <return>  to proceed.
@@ -3261,7 +3263,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.345 ...book districts~\citep{pennmanor2024linux}
+l.347 ...book districts~\citep{pennmanor2024linux}
                                                   . The ``management problem...
 
 Try typing  <return>  to proceed.
@@ -3274,7 +3276,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.368 ...te a piece on \ac{}~\citep{scudder2026ac}
+l.370 ...te a piece on \ac{}~\citep{scudder2026ac}
                                                    that anyone in the world ...
 
 Try typing  <return>  to proceed.
@@ -3287,7 +3289,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.368 ...te a piece on \ac{}~\citep{scudder2026ac}
+l.370 ...te a piece on \ac{}~\citep{scudder2026ac}
                                                    that anyone in the world ...
 
 Try typing  <return>  to proceed.
@@ -3300,7 +3302,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.371 ...y where they are~\citep{khan2024bravenew}
+l.373 ...y where they are~\citep{khan2024bravenew}
                                                   . But this tutor can only ...
 
 Try typing  <return>  to proceed.
@@ -3313,7 +3315,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.371 ...y where they are~\citep{khan2024bravenew}
+l.373 ...y where they are~\citep{khan2024bravenew}
                                                   . But this tutor can only ...
 
 Try typing  <return>  to proceed.
@@ -3326,7 +3328,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.372 
+l.374 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -3341,7 +3343,7 @@ See the pgfkeys package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.372 
+l.374 
       
 (That was another \errmessage.)
 
@@ -3357,7 +3359,7 @@ See the pgfkeys package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.372 
+l.374 
       
 (That was another \errmessage.)
 
@@ -3370,7 +3372,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.372 
+l.374 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -3383,7 +3385,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.418 ...ote in 1974~\citep{nelson1974computerlib}
+l.420 ...ote in 1974~\citep{nelson1974computerlib}
                                                   : ``You can and must under...
 
 Try typing  <return>  to proceed.
@@ -3396,7 +3398,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.418 ...ote in 1974~\citep{nelson1974computerlib}
+l.420 ...ote in 1974~\citep{nelson1974computerlib}
                                                   : ``You can and must under...
 
 Try typing  <return>  to proceed.
@@ -3409,7 +3411,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.431 
+l.433 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -3424,7 +3426,7 @@ See the pgfkeys package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.431 
+l.433 
       
 (That was another \errmessage.)
 
@@ -3440,7 +3442,7 @@ See the pgfkeys package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.431 
+l.433 
       
 (That was another \errmessage.)
 
@@ -3453,7 +3455,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.431 
+l.433 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -3466,7 +3468,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.432 ...ialized expertise~\citep{illich1973tools}
+l.434 ...ialized expertise~\citep{illich1973tools}
                                                   . Papert wrote that comput...
 
 Try typing  <return>  to proceed.
@@ -3479,7 +3481,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.432 ...ialized expertise~\citep{illich1973tools}
+l.434 ...ialized expertise~\citep{illich1973tools}
                                                   . Papert wrote that comput...
 
 Try typing  <return>  to proceed.
@@ -3492,7 +3494,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.432 ...out thinking~\citep{papert1980mindstorms}
+l.434 ...out thinking~\citep{papert1980mindstorms}
                                                   . Stallman wrote that user...
 
 Try typing  <return>  to proceed.
@@ -3505,7 +3507,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.432 ...out thinking~\citep{papert1980mindstorms}
+l.434 ...out thinking~\citep{papert1980mindstorms}
                                                   . Stallman wrote that user...
 
 Try typing  <return>  to proceed.
@@ -3518,7 +3520,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.432 ...oftware they run~\citep{stallman2002free}
+l.434 ...oftware they run~\citep{stallman2002free}
                                                   . Postman warned that tech...
 
 Try typing  <return>  to proceed.
@@ -3531,7 +3533,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.432 ...oftware they run~\citep{stallman2002free}
+l.434 ...oftware they run~\citep{stallman2002free}
                                                   . Postman warned that tech...
 
 Try typing  <return>  to proceed.
@@ -3544,7 +3546,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.432 ...ogy, not the child~\citep{postman1995end}
+l.434 ...ogy, not the child~\citep{postman1995end}
                                                   . These are not fringe pos...
 
 Try typing  <return>  to proceed.
@@ -3557,7 +3559,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.432 ...ogy, not the child~\citep{postman1995end}
+l.434 ...ogy, not the child~\citep{postman1995end}
                                                   . These are not fringe pos...
 
 Try typing  <return>  to proceed.
@@ -3570,7 +3572,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.439 ...0009-0007-4460-4913}{0009-0007-4460-4913}
+l.441 ...0009-0007-4460-4913}{0009-0007-4460-4913}
                                                   
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -3737,7 +3739,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.450 \end{document}
+l.452 \end{document}
                     
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -3752,7 +3754,7 @@ See the pgfkeys package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.450 \end{document}
+l.452 \end{document}
                     
 (That was another \errmessage.)
 
@@ -3768,7 +3770,7 @@ See the pgfkeys package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.450 \end{document}
+l.452 \end{document}
                     
 (That was another \errmessage.)
 
@@ -3781,7 +3783,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.450 \end{document}
+l.452 \end{document}
                     
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -3799,10 +3801,10 @@ Package rerunfilecheck Info: File `open-schools.out' has not changed.
 (rerunfilecheck)             Checksum: 1D7AA3B12B232941C31667B8B20733A7;6143.
  ) 
 Here is how much of TeX's memory you used:
- 30047 strings out of 469709
- 591320 string characters out of 5466024
+ 30068 strings out of 469709
+ 591743 string characters out of 5466024
  1170059 words of memory out of 5000000
- 58211 multiletter control sequences out of 15000+600000
+ 58229 multiletter control sequences out of 15000+600000
  630814 words of font info for 102 fonts, out of 8000000 for 9000
  319 hyphenation exceptions out of 8191
  103i,12n,108p,1333b,1039s stack positions out of 10000i,1000n,20000p,200000b,200000s

@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  15 MAY 2026 18:31
+This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  18 JUN 2026 22:17
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -795,28 +795,6 @@ Package fontspec Info:
 ight.ttf]/OT:script=latn;language=dflt;"
 
 
-
-! Package fontspec Error: 
-(fontspec)                The font "Droid Sans Fallback" cannot be found;
-(fontspec)                this may be but usually is not a fontspec bug.
-(fontspec)                Either there is a typo in the font name/file, the
-(fontspec)                font is not installed (correctly), or there is a
-(fontspec)                bug in the underlying font loading engine
-(fontspec)                (XeTeX/luaotfload).
-
-For immediate help type H <return>.
- ...                                              
-                                                  
-l.47 
-     
-
-A font might not be found for many reasons.
- Check the spelling, where the font is installed etc. etc.
-
- When in doubt, ask someone for help!
-
-
-
 Package fontspec Info: 
 (fontspec)             Could not resolve font "Droid Sans Fallback/BI" (it
 (fontspec)             probably doesn't exist).
@@ -832,48 +810,6 @@ Package fontspec Info:
 (fontspec)             probably doesn't exist).
 
 
-! Package fontspec Error: 
-(fontspec)                The font "Droid Sans Fallback" cannot be found;
-(fontspec)                this may be but usually is not a fontspec bug.
-(fontspec)                Either there is a typo in the font name/file, the
-(fontspec)                font is not installed (correctly), or there is a
-(fontspec)                bug in the underlying font loading engine
-(fontspec)                (XeTeX/luaotfload).
-
-For immediate help type H <return>.
- ...                                              
-                                                  
-l.47 
-     
-
-A font might not be found for many reasons.
- Check the spelling, where the font is installed etc. etc.
-
- When in doubt, ask someone for help!
-
-
-
-! Package fontspec Error: 
-(fontspec)                The font "Droid Sans Fallback" cannot be found;
-(fontspec)                this may be but usually is not a fontspec bug.
-(fontspec)                Either there is a typo in the font name/file, the
-(fontspec)                font is not installed (correctly), or there is a
-(fontspec)                bug in the underlying font loading engine
-(fontspec)                (XeTeX/luaotfload).
-
-For immediate help type H <return>.
- ...                                              
-                                                  
-l.47 
-     
-
-A font might not be found for many reasons.
- Check the spelling, where the font is installed etc. etc.
-
- When in doubt, ask someone for help!
-
-
-
 Package fontspec Info: 
 (fontspec)             Font family 'DroidSansFallback(0)' created for font
 (fontspec)             'Droid Sans Fallback' with options [].
@@ -882,9 +818,8 @@ Package fontspec Info:
 (fontspec)             series/shapes:
 (fontspec)              
 (fontspec)             - 'normal' (m/n) with NFSS spec.: <->"Droid Sans
-(fontspec)             Fallback"
-(fontspec)             - 'small caps'  (m/sc) with NFSS spec.: <->"Droid Sans
-(fontspec)             Fallback"
+(fontspec)             Fallback/OT:script=latn;language=dflt;"
+
 
 (/usr/local/texlive/2026basic/texmf-dist/tex/latex/xcolor/xcolor.sty
 Package: xcolor 2024/09/29 v3.02 LaTeX color extensions (UK)
@@ -1423,8 +1358,8 @@ Package uniquecounter Info: New unique counter `rerunfilecheck' on input line 2
 )
 \Hy@SectionHShift=\skip90
 )
-Package hyperref Info: Option `colorlinks' set `true' on input line 270.
-Package hyperref Info: Option `breaklinks' set `true' on input line 270.
+Package hyperref Info: Option `colorlinks' set `true' on input line 275.
+Package hyperref Info: Option `breaklinks' set `true' on input line 275.
 
 (/usr/local/texlive/2026basic/texmf-dist/tex/latex/titlesec/titletoc.sty
 Package: titletoc 2025/01/04 v2.17 TOC entries
@@ -2038,6 +1973,8 @@ Package microtype Info: Character `\guilsinglleft ' is missing
 Package microtype Info: Character `\guilsinglright ' is missing
 (microtype)             in font `\TU/ywft-processing-bold(0)/m/n/20'.
 (microtype)             Ignoring protrusion settings for this character.
+File: figures/cover.png Graphic file (type bmp)
+<figures/cover.png>
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `ywft-processing-light' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
@@ -2102,8 +2039,11 @@ Package microtype Info: Character `\guilsinglleft ' is missing
 Package microtype Info: Character `\guilsinglright ' is missing
 (microtype)             in font `\TU/ywft-processing-light(0)/m/n/10'.
 (microtype)             Ignoring protrusion settings for this character.
+[1
+
+]
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
-(Font)              scaled to size 8.80005pt on input line 72.
+(Font)              scaled to size 8.80005pt on input line 74.
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `LatinModernMono' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
@@ -2113,20 +2053,48 @@ Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 10.00107pt on input line 72.
+(Font)              scaled to size 10.00107pt on input line 74.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 7.00075pt on input line 72.
+(Font)              scaled to size 7.00075pt on input line 74.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 5.00053pt on input line 72.
+(Font)              scaled to size 5.00053pt on input line 74.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 9.99893pt on input line 72.
+(Font)              scaled to size 9.99893pt on input line 74.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 6.99925pt on input line 72.
+(Font)              scaled to size 6.99925pt on input line 74.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 4.99947pt on input line 72.
-[1
-
-]
+(Font)              scaled to size 4.99947pt on input line 74.
+Package microtype Info: Character `\textendash ' is missing
+(microtype)             in font `\TU/ywft-processing-light(0)/m/n/18.49411'.
+(microtype)             Ignoring protrusion settings for this character.
+Package microtype Info: Character `\textemdash ' is missing
+(microtype)             in font `\TU/ywft-processing-light(0)/m/n/18.49411'.
+(microtype)             Ignoring protrusion settings for this character.
+Package microtype Info: Character `\textquoteleft ' is missing
+(microtype)             in font `\TU/ywft-processing-light(0)/m/n/18.49411'.
+(microtype)             Ignoring protrusion settings for this character.
+Package microtype Info: Character `\textquoteright ' is missing
+(microtype)             in font `\TU/ywft-processing-light(0)/m/n/18.49411'.
+(microtype)             Ignoring protrusion settings for this character.
+Package microtype Info: Character `\textquotedblleft ' is missing
+(microtype)             in font `\TU/ywft-processing-light(0)/m/n/18.49411'.
+(microtype)             Ignoring protrusion settings for this character.
+Package microtype Info: Character `\textquotedblright ' is missing
+(microtype)             in font `\TU/ywft-processing-light(0)/m/n/18.49411'.
+(microtype)             Ignoring protrusion settings for this character.
+Package microtype Info: Character `\quotesinglbase ' is missing
+(microtype)             in font `\TU/ywft-processing-light(0)/m/n/18.49411'.
+(microtype)             Ignoring protrusion settings for this character.
+Package microtype Info: Character `\quotedblbase ' is missing
+(microtype)             in font `\TU/ywft-processing-light(0)/m/n/18.49411'.
+(microtype)             Ignoring protrusion settings for this character.
+Package microtype Info: Character `\guilsinglleft ' is missing
+(microtype)             in font `\TU/ywft-processing-light(0)/m/n/18.49411'.
+(microtype)             Ignoring protrusion settings for this character.
+Package microtype Info: Character `\guilsinglright ' is missing
+(microtype)             in font `\TU/ywft-processing-light(0)/m/n/18.49411'.
+(microtype)             Ignoring protrusion settings for this character.
+ [2] [3]
 Package microtype Info: Character `\textendash ' is missing
 (microtype)             in font `\TU/ywft-processing-bold(0)/m/n/12'.
 (microtype)             Ignoring protrusion settings for this character.
@@ -2160,178 +2128,148 @@ Package microtype Info: Character `\guilsinglright ' is missing
 
 
 LaTeX Font Warning: Font shape `TU/LatinModernRoman(0)/m/sc' undefined
-(Font)              using `TU/LatinModernRoman(0)/m/n' instead on input line 93
+(Font)              using `TU/LatinModernRoman(0)/m/n' instead on input line 95
 .
 
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
-(Font)              scaled to size 9.63605pt on input line 93.
+(Font)              scaled to size 9.63605pt on input line 95.
 
-Underfull \hbox (badness 1742) in paragraph at lines 97--98
+Underfull \hbox (badness 1742) in paragraph at lines 99--100
 \TU/LatinModernRoman(0)/m/n/10.95 izamos por qué las restricciones estruc-
  []
 
 
-Underfull \hbox (badness 1946) in paragraph at lines 97--98
+Underfull \hbox (badness 1946) in paragraph at lines 99--100
 \TU/LatinModernRoman(0)/m/n/10.95 ean con las interfaces de teclado-como-
- []
-
-Package microtype Info: Character `\textendash ' is missing
-(microtype)             in font `\TU/ywft-processing-light(0)/m/n/18.49411'.
-(microtype)             Ignoring protrusion settings for this character.
-Package microtype Info: Character `\textemdash ' is missing
-(microtype)             in font `\TU/ywft-processing-light(0)/m/n/18.49411'.
-(microtype)             Ignoring protrusion settings for this character.
-Package microtype Info: Character `\textquoteleft ' is missing
-(microtype)             in font `\TU/ywft-processing-light(0)/m/n/18.49411'.
-(microtype)             Ignoring protrusion settings for this character.
-Package microtype Info: Character `\textquoteright ' is missing
-(microtype)             in font `\TU/ywft-processing-light(0)/m/n/18.49411'.
-(microtype)             Ignoring protrusion settings for this character.
-Package microtype Info: Character `\textquotedblleft ' is missing
-(microtype)             in font `\TU/ywft-processing-light(0)/m/n/18.49411'.
-(microtype)             Ignoring protrusion settings for this character.
-Package microtype Info: Character `\textquotedblright ' is missing
-(microtype)             in font `\TU/ywft-processing-light(0)/m/n/18.49411'.
-(microtype)             Ignoring protrusion settings for this character.
-Package microtype Info: Character `\quotesinglbase ' is missing
-(microtype)             in font `\TU/ywft-processing-light(0)/m/n/18.49411'.
-(microtype)             Ignoring protrusion settings for this character.
-Package microtype Info: Character `\quotedblbase ' is missing
-(microtype)             in font `\TU/ywft-processing-light(0)/m/n/18.49411'.
-(microtype)             Ignoring protrusion settings for this character.
-Package microtype Info: Character `\guilsinglleft ' is missing
-(microtype)             in font `\TU/ywft-processing-light(0)/m/n/18.49411'.
-(microtype)             Ignoring protrusion settings for this character.
-Package microtype Info: Character `\guilsinglright ' is missing
-(microtype)             in font `\TU/ywft-processing-light(0)/m/n/18.49411'.
-(microtype)             Ignoring protrusion settings for this character.
-[2
-
-] [3]
-Underfull \hbox (badness 1715) in paragraph at lines 117--118
-\TU/LatinModernRoman(0)/m/sc/10.95 favorecen escalas de 5 notas [Kodály,
  []
 
 [4
 
 ] [5]
-Underfull \hbox (badness 10000) in paragraph at lines 128--129
-[]\TU/LatinModernRoman(0)/m/sc/10.95 notepat.com es un sintetizador cromático
- []
-
-
-Underfull \hbox (badness 2951) in paragraph at lines 128--129
-\TU/LatinModernRoman(0)/m/sc/10.95 basado en navegador construido como una
- []
-
-
-Underfull \hbox (badness 4378) in paragraph at lines 134--135
-\TU/LatinModernRoman(0)/m/sc/10.95 bloquear las notas incorrectas, resaltar la
+Underfull \hbox (badness 1715) in paragraph at lines 119--120
+\TU/LatinModernRoman(0)/m/sc/10.95 favorecen escalas de 5 notas [Kodály,
  []
 
 [6
 
+] [7]
+Underfull \hbox (badness 10000) in paragraph at lines 130--131
+[]\TU/LatinModernRoman(0)/m/sc/10.95 notepat.com es un sintetizador cromático
+ []
+
+
+Underfull \hbox (badness 2951) in paragraph at lines 130--131
+\TU/LatinModernRoman(0)/m/sc/10.95 basado en navegador construido como una
+ []
+
+
+Underfull \hbox (badness 4378) in paragraph at lines 136--137
+\TU/LatinModernRoman(0)/m/sc/10.95 bloquear las notas incorrectas, resaltar la
+ []
+
+[8
+
 ]
-Underfull \hbox (badness 1735) in paragraph at lines 151--152
+Underfull \hbox (badness 1735) in paragraph at lines 153--154
 []\TU/LatinModernRoman(0)/b/n/10.95 Legible por humanos\TU/LatinModernRoman(0)/
 m/sc/10.95 : Un músico
  []
 
 
-Underfull \hbox (badness 5316) in paragraph at lines 152--153
+Underfull \hbox (badness 5316) in paragraph at lines 154--155
 []\TU/LatinModernRoman(0)/b/n/10.95 Seguro para URL\TU/LatinModernRoman(0)/m/sc
 /10.95 : Las canciones
  []
 
-[7
+[9
 
-] [8]
+] [10]
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 10.95116pt on input line 165.
+(Font)              scaled to size 10.95116pt on input line 167.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 7.6658pt on input line 165.
+(Font)              scaled to size 7.6658pt on input line 167.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 5.47559pt on input line 165.
+(Font)              scaled to size 5.47559pt on input line 167.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 10.94882pt on input line 165.
+(Font)              scaled to size 10.94882pt on input line 167.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 7.66417pt on input line 165.
+(Font)              scaled to size 7.66417pt on input line 167.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 5.47441pt on input line 165.
+(Font)              scaled to size 5.47441pt on input line 167.
 
-Underfull \hbox (badness 2626) in paragraph at lines 165--166
+Underfull \hbox (badness 2626) in paragraph at lines 167--168
 []\TU/LatinModernRoman(0)/m/sc/10.95 Examinamos colecciones de canciones popu-
  []
 
 
-Overfull \hbox (123.78616pt too wide) in alignment at lines 180--180
+Overfull \hbox (123.78616pt too wide) in alignment at lines 182--182
 [][][] 
  []
 
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 12.00128pt on input line 184.
+(Font)              scaled to size 12.00128pt on input line 186.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 11.99872pt on input line 184.
+(Font)              scaled to size 11.99872pt on input line 186.
 
-Overfull \hbox (122.59262pt too wide) in alignment at lines 195--195
+Overfull \hbox (122.59262pt too wide) in alignment at lines 197--197
 [][][] 
- []
-
-[9
-
-]
-Overfull \hbox (122.59262pt too wide) in alignment at lines 210--210
-[][][] 
- []
-
-[10]
-Overfull \hbox (91.68195pt too wide) in alignment at lines 228--228
-[][] 
  []
 
 [11
 
-] [12]
+]
+Overfull \hbox (122.59262pt too wide) in alignment at lines 212--212
+[][][] 
+ []
 
-LaTeX Font Warning: Font shape `TU/ywft-processing-bold(0)/m/sc' undefined
-(Font)              using `TU/ywft-processing-bold(0)/m/n' instead on input lin
-e 243.
+[12]
+Overfull \hbox (91.68195pt too wide) in alignment at lines 230--230
+[][] 
+ []
 
 [13
 
-] [14] [15
+] [14]
+
+LaTeX Font Warning: Font shape `TU/ywft-processing-bold(0)/m/sc' undefined
+(Font)              using `TU/ywft-processing-bold(0)/m/n' instead on input lin
+e 245.
+
+[15
+
+] [16] [17
 
 ]
-Underfull \hbox (badness 1132) in paragraph at lines 267--268
+Underfull \hbox (badness 1132) in paragraph at lines 269--270
 []\TU/LatinModernRoman(0)/m/sc/10.95 Un sistema de recuperación de informa-
  []
 
 
-Underfull \hbox (badness 1308) in paragraph at lines 267--268
+Underfull \hbox (badness 1308) in paragraph at lines 269--270
 \TU/LatinModernRoman(0)/m/sc/10.95 and O’Shea, 2009]. Tunepal encuentra
  []
 
-[16]
-Underfull \hbox (badness 2359) in paragraph at lines 273--273
+[18]
+Underfull \hbox (badness 2359) in paragraph at lines 275--275
 |[]\TU/ywft-processing-bold(0)/m/n/12 El Instrumento Folk sobre Hardware
  []
 
-[17
+[19
 
 ]
-Underfull \hbox (badness 1509) in paragraph at lines 290--291
+Underfull \hbox (badness 1509) in paragraph at lines 292--293
 []\TU/LatinModernRoman(0)/b/n/10.95 Dificultad adaptativa\TU/LatinModernRoman(0
 )/m/sc/10.95 : Expandir el
  []
 
 
-Underfull \hbox (badness 3281) in paragraph at lines 292--293
+Underfull \hbox (badness 3281) in paragraph at lines 294--295
 \TU/LatinModernRoman(0)/m/sc/10.95 jarla con la URL de codificación y
  []
 
-[18
+[20
 
-] [19] (./folk-songs-es.bbl [20
+] [21] (./folk-songs-es.bbl [22
 
 ]
 Underfull \hbox (badness 10000) in paragraph at lines 16--22
@@ -2355,15 +2293,15 @@ Overfull \hbox (26.53577pt too wide) in paragraph at lines 16--22
 ][][][][][][][][][][][][][]$[][]\TU/LatinModernRoman(0)/m/sc/10.95 ,
  []
 
-[21
+[23
 
-] [22]
+] [24]
 Underfull \hbox (badness 10000) in paragraph at lines 86--91
 [][]$[][][][][] [] [] [] [][][][][][][][][][][] [] [][][] [] [][][][] [] [][][]
  [] [][][][][][][][] []
  []
 
-) [23] (./folk-songs-es.aux)
+) [25] (./folk-songs-es.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2026-01-19>
@@ -2376,12 +2314,12 @@ Package rerunfilecheck Info: File `folk-songs-es.out' has not changed.
 (rerunfilecheck)             Checksum: 4967E59C53B1C20F4878BF3406640F4E;1652.
  ) 
 Here is how much of TeX's memory you used:
- 35740 strings out of 469709
- 724861 string characters out of 5466024
- 1312290 words of memory out of 5000000
- 63817 multiletter control sequences out of 15000+600000
- 632501 words of font info for 118 fonts, out of 8000000 for 9000
+ 35771 strings out of 469709
+ 725604 string characters out of 5466024
+ 1312384 words of memory out of 5000000
+ 63841 multiletter control sequences out of 15000+600000
+ 632533 words of font info for 122 fonts, out of 8000000 for 9000
  319 hyphenation exceptions out of 8191
- 117i,11n,122p,1010b,1062s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 117i,12n,122p,1010b,1062s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
-Output written on folk-songs-es.pdf (23 pages).
+Output written on folk-songs-es.pdf (25 pages).

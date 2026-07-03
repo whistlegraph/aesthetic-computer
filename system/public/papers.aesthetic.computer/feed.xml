@@ -5,7 +5,7 @@
   <link rel="alternate" type="text/html" href="https://papers.aesthetic.computer/"/>
   <link rel="self" type="application/atom+xml" href="https://papers.aesthetic.computer/feed.xml"/>
   <id>https://papers.aesthetic.computer/</id>
-  <updated>2026-07-01T18:00:14.312Z</updated>
+  <updated>2026-07-03T07:59:59.707Z</updated>
   <author>
     <name>@jeffrey</name>
     <uri>https://prompt.ac/@jeffrey</uri>
@@ -13,30 +13,517 @@
   <icon>https://papers.aesthetic.computer/papers-og.jpg</icon>
   <rights>CC BY 4.0 unless noted otherwise.</rights>
   <entry>
-    <title>Jeffrey Alan Scudder — CV</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/jeffrey-alan-scudder-cv.pdf"/>
-    <id>https://papers.aesthetic.computer/jeffrey-alan-scudder-cv.pdf</id>
-    <updated>2026-07-01T18:00:14.312Z</updated>
+    <title>Aesthetic June &apos;26</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-june-26-essay.pdf"/>
+    <id>https://papers.aesthetic.computer/aesthetic-june-26-essay.pdf</id>
+    <updated>2026-07-03T07:59:59.707Z</updated>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
+    <summary type="text">Essay · ~3pp · podcast — Aesthetic June &apos;26 is the storytelling companion to May. Where May was the modal mood, June is the answer, delivered as four hundred and fifty-seven commits --- the word carrying both its meanings, version control and Juno&apos;s oath. Told as scenes: the songs that caught up, the whistle found a perfect fifth sharp, the ring of native wizards learning one sign-in, and a Danish learn-the-clock community getting its own front door on the chat. Also available as a spoken reading in @jeffrey&apos;s voice.</summary>
+  </entry>
+  <entry>
+    <title>Aesthetic Computer &apos;26</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-computer-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/aesthetic-computer-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-03-21T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">A Mobile-First Runtime for Creative Computing · arXiv 5pp — Aesthetic Computer is presented as a mobile-first creative computing runtime where the interface, publishing flow, and community feedback loop are part of the medium. The paper argues that small pieces can make software feel more social, more portable, and easier to share.</summary>
+  </entry>
+  <entry>
+    <title>KidLisp &apos;26</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/kidlisp-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/kidlisp-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-03-21T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">A Minimal Lisp for Generative Art on a Social Platform · arXiv 6pp — KidLisp is the platform&apos;s tiny Lisp for building visual and musical pieces in the browser. The paper shows how a minimal language can stay approachable while still supporting generative art and composition.</summary>
+  </entry>
+  <entry>
+    <title>PLOrk&apos;ing the Planet</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/plorking-the-planet-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/plorking-the-planet-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-03-21T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Laptop Orchestras, PLOrk Heritage, and Aesthetic Computer · arXiv — This paper connects Aesthetic Computer to laptop orchestras and the collaborative traditions of PLOrk. It treats the browser as a place for ensemble practice, not just solo desktop programming.</summary>
+  </entry>
+  <entry>
+    <title>AC Native OS</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/ac-native-os-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/ac-native-os-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-03-21T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">A Bare-Metal Creative Computing Operating System · arXiv 5pp — AC Native OS describes a bare-metal runtime for creative computing. It focuses on boot-time simplicity and the idea that the operating system itself can be a programmable art surface.</summary>
+  </entry>
+  <entry>
+    <title>From setup() to boot()</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/piece-api-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/piece-api-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-03-21T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Processing at the Core of the Piece API · arXiv 7pp — The Piece API rethinks creative software around composable pieces instead of monolithic apps. It uses Processing&apos;s lineage to connect setup(), boot(), and the act of publishing.</summary>
+  </entry>
+  <entry>
+    <title>Who Pays for Creative Tools?</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/who-pays-for-creative-tools-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/who-pays-for-creative-tools-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-03-27T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Funding, Burnout, and Survival in Open-Source Creative Computing · arXiv 5pp — A short look at who supports open-source creative tools and what that labor costs. The paper connects funding, burnout, and long-term maintenance to the life of artistic software.</summary>
+  </entry>
+  <entry>
+    <title>Pieces Not Programs</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/pieces-not-programs-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/pieces-not-programs-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-03-21T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">The Piece as a Unit of Creative Cognition · arXiv 4pp — A piece is treated here as the basic unit of creative cognition in AC. The paper argues that smaller, shareable pieces encourage composition, remix, and publication.</summary>
+  </entry>
+  <entry>
+    <title>notepat.com</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/notepat-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/notepat-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-03-21T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">From Keyboard Toy to System Front Door · arXiv 5pp — notepat.com is framed as a keyboard-first front door to the system. The paper follows the toy-like input surface as it grows into a fuller creative interface.</summary>
+  </entry>
+  <entry>
+    <title>Whistlegraph</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/whistlegraph-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/whistlegraph-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-03-21T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Drawing, Singing, and the Graphic Score as Viral Form · arXiv 4pp — Whistlegraph explores drawing, singing, and score-making as forms that can spread like software. The paper links graphic notation to performance, remix, and browser-native sharing.</summary>
+  </entry>
+  <entry>
+    <title>Sucking on the Complex</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/sucking-on-the-complex-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/sucking-on-the-complex-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-03-21T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Platform Hegemony, Critique-as-Content, and Anti-Environments · arXiv 5pp — Sucking on the Complex critiques platform hegemony and the way critique becomes content. It looks for anti-environments that stay messy, resistant, and alive.</summary>
+  </entry>
+  <entry>
+    <title>Vestigial Features</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/dead-ends-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/dead-ends-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-03-21T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Dormant Paths, Evolutionary Branches, and Abandoned Approaches · arXiv 4pp — The paper catalogs dormant branches, abandoned experiments, and paths that never became default. It treats dead ends as useful history rather than failure.</summary>
+  </entry>
+  <entry>
+    <title>Playable Folk Songs</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/folk-songs-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/folk-songs-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-03-21T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Oral Tradition Meets the Browser Keyboard · arXiv — Playable Folk Songs brings oral tradition into the browser keyboard. The paper asks how simple interaction can carry collective memory and repetition.</summary>
+  </entry>
+  <entry>
+    <title>Repository Archaeology</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/repo-archaeology-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/repo-archaeology-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-03-21T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Tracing the Evolution of AC Through Its Git History · arXiv 3pp · interactive timeline — Repository Archaeology traces the project through its git history. The paper shows how version control can become a narrative medium for design evolution.</summary>
+  </entry>
+  <entry>
+    <title>Network Audit</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/network-audit-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/network-audit-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-03-21T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Who Uses Aesthetic Computer and What Do They Make? · arXiv 4pp — Network Audit asks who uses Aesthetic Computer and what they make with it. The paper turns usage patterns into a portrait of a community in motion.</summary>
+  </entry>
+  <entry>
+    <title>KidLisp Language Reference</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/kidlisp-reference-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/kidlisp-reference-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-03-21T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">118 Built-ins in 12 Categories · arXiv 4pp — The KidLisp reference compresses the language into a usable field guide. It groups 118 built-ins into 12 categories for quick browsing and recall.</summary>
+  </entry>
+  <entry>
+    <title>Citation Diversity Audit</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/citation-diversity-audit-26.pdf"/>
+    <id>https://papers.aesthetic.computer/citation-diversity-audit-26.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-03-21T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Diversity and Inclusion in AC Paper Citations · 4pp — Citation Diversity Audit looks at who gets cited in the papers and where the archive is thin. The paper uses citation patterns as a proxy for inclusion and intellectual range.</summary>
+  </entry>
+  <entry>
+    <title>Get Closed Source Out of Schools</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/open-schools-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/open-schools-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-03-20T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Get Closed Source Out of Schools makes the case that creative computing should be teachable, inspectable, and modifiable. The paper argues for open tools as infrastructure for learning.</summary>
+  </entry>
+  <entry>
+    <title>Five Years from Now</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/five-years-from-now-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/five-years-from-now-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-03-20T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Five Years from Now is a projection paper about where the project could go if current habits continue. It uses the near future to test the consequences of today&apos;s decisions.</summary>
+  </entry>
+  <entry>
+    <title>Aesthetic May &apos;26</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-may-26-essay.pdf"/>
+    <id>https://papers.aesthetic.computer/aesthetic-may-26-essay.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-05-25T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Essay · ~5pp — Aesthetic May &apos;26 is a magazine-style essay companion to Five Years from Now. May is both the month and the modal verb of possibility; the essay reads the present as a field of branching maybes rather than a line of probabilities --- where the music lane may go, what jeffrey may do, what may not happen this year, and the weather acting on all of it. First entry in the essay-* lane.</summary>
+  </entry>
+  <entry>
+    <title>CalArts, Callouts, and Papers</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/calarts-callouts-papers-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/calarts-callouts-papers-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-03-21T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">CalArts, Callouts, and Papers turns a local institutional context into a study of friction, attention, and production. The paper leans into psycho style to show how academic labor is staged and performed.</summary>
+  </entry>
+  <entry>
+    <title>Handle Identity on the AT Protocol</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/handle-identity-atproto-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/handle-identity-atproto-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-03-27T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Handle Identity on the AT Protocol treats naming as a social and technical problem. The paper explores how handles, identity, and publishing can be tied together without losing portability.</summary>
+  </entry>
+  <entry>
+    <title>Two Departments, One Building</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/ucla-arts-funding-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/ucla-arts-funding-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-03-27T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Two Departments, One Building examines how funding and infrastructure shape creative work in shared spaces. The paper looks at administrative boundaries as part of the artistic system.</summary>
+  </entry>
+  <entry>
+    <title>The Potter and the Prompt</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/potter-and-prompt-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/potter-and-prompt-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-04-05T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">John Holden&apos;s Proto-Cognitive Music Theory and Aesthetic Computer · arXiv 7pp — The Potter and the Prompt argues that AC independently converges on the core principles of John Holden&apos;s 1770 proto-cognitive music theory. It proposes AC as a computational laboratory for advancing Holden&apos;s unfinished program on grouping, attention, and the module.</summary>
   </entry>
   <entry>
     <title>The Pals Mark</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/pals-mark-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/pals-mark-26-arxiv.pdf</id>
-    <updated>2026-07-01T18:00:13.533Z</updated>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-07-03T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
+  </entry>
+  <entry>
+    <title>KidLisp Cards</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/kidlisp-cards-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/kidlisp-cards-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-03-21T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">KidLisp Cards condenses the language into a pocketable card format. It is meant to make the language easier to browse, teach, and carry.</summary>
+  </entry>
+  <entry>
+    <title>Reading the Score</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/reading-the-score-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/reading-the-score-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-03-21T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Reading the Score looks at the graphic score as an interface for interpretation and collaboration. The paper treats notation as a computational and social object.</summary>
+  </entry>
+  <entry>
+    <title>The URL Tradition</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/url-tradition-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/url-tradition-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-04-27T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Addressable Creative Computing from Lovelace&apos;s Footnotes to Aesthetic Computer · arXiv — The URL Tradition traces address-thinking from Lovelace&apos;s footnotes, Bush&apos;s trails, Xanadu, and the Negro Motorist Green Book through net.art, single-serving sites, the tilde, Glitch, and Aesthetic Computer&apos;s prompt-as-address-bar. It argues the URL is not a feature but a medium property that reshapes authorship, distribution, pedagogy, performance, and political claim.</summary>
+  </entry>
+  <entry>
+    <title>Where the Microseconds Go</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/where-the-microseconds-go-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/where-the-microseconds-go-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-04-26T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+  </entry>
+  <entry>
+    <title>Diagrams from Data</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/diagrams-from-data-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/diagrams-from-data-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-04-28T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+  </entry>
+  <entry>
+    <title>The nom Games</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/nom-games-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/nom-games-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-06-08T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Muncher Arcade for Aesthetic Computer · arXiv — The nom games rebuild MECC&apos;s Word and Number Munchers as Aesthetic Computer pieces --- numbnom, engnom, mexinom, and notenom. The paper shows how one shared engine and a reusable virtual synth controller turn each new subject or language into a content table rather than a new game, with the answer key in notenom doubling as a playable instrument.</summary>
   </entry>
   <entry>
     <title>AesthetiCal: A URL-Addressable Calendar</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/cal-aesthetical-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/cal-aesthetical-26-arxiv.pdf</id>
-    <updated>2026-06-15T00:00:00.000Z</updated>
+    <updated>2026-07-03T07:57:35.155Z</updated>
     <published>2026-06-15T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
     <summary type="text">A URL-Addressable Calendar for Aesthetic Computer · arXiv 6pp — AesthetiCal adds time to Aesthetic Computer as a piece, not a second app: month/week/day views and a DateWizard share a per-handle synced store, addressable by permahandle and interchangeable as standard iCalendar. The paper describes the shipped v1 and sketches the next phase — bookable shows, invites, and the Aestheticks ticketing tie-in.</summary>
+  </entry>
+  <entry>
+    <title>Jeffrey Alan Scudder — CV</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/jeffrey-alan-scudder-cv.pdf"/>
+    <id>https://papers.aesthetic.computer/jeffrey-alan-scudder-cv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-07-03T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+  </entry>
+  <entry>
+    <title>Rhizome.org — A Dossier</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/rhizome-dossier-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/rhizome-dossier-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-05-02T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">501(c)(3) digital-arts recipient · IRS 990 pipeline · arXiv — What is publicly recoverable about Rhizome.org: governance, finances, and named grants reconstructed from IRS 990 filings and masthead snapshots. The dossier records the documentary record and stops where the facts run out.</summary>
+  </entry>
+  <entry>
+    <title>School for Poetic Computation — A Dossier</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/sfpc-dossier-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/sfpc-dossier-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-05-02T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">School for Poetic Computation · LLC, public finance repo · arXiv — What is publicly recoverable about the School for Poetic Computation: an LLC that publishes its own finances to a public GitHub repository, read alongside programs and people. Fact-surfacing, not argument.</summary>
+  </entry>
+  <entry>
+    <title>Eyebeam — A Dossier</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/eyebeam-dossier-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/eyebeam-dossier-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-05-02T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">501(c)(3) art-and-technology recipient · IRS 990 pipeline · arXiv — What is publicly recoverable about Eyebeam: financials, governance, residencies, and named grants pulled from IRS 990 XML. The dossier surfaces the record without interpreting it.</summary>
+  </entry>
+  <entry>
+    <title>Recurse Center — A Dossier</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/recurse-dossier-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/recurse-dossier-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-05-02T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Recurse Center · for-profit, recruiting-funded model · arXiv — What is publicly recoverable about the Recurse Center: a for-profit programmers&apos; retreat funded by a recruiting model, read through founder interviews and public statements. Fact-surfacing, not argument.</summary>
+  </entry>
+  <entry>
+    <title>Internet Archive — A Dossier</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/internet-archive-dossier-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/internet-archive-dossier-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-05-02T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">501(c)(3) recipient · IRS 990 + litigation track · arXiv — What is publicly recoverable about the Internet Archive: finances and governance from IRS 990 filings, plus a litigation track from public court records. The dossier records both and stops at the facts.</summary>
+  </entry>
+  <entry>
+    <title>Mellon Foundation — A Dossier</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/mellon-dossier-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/mellon-dossier-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-05-02T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">The funder flip · 990-PF + grants database · arXiv — The funder side: what is publicly recoverable about the Mellon Foundation from its 990-PF and grants database — the Form 990-PF that paid for nontrivial chunks of the other dossiers. Fact-surfacing, not argument.</summary>
+  </entry>
+  <entry>
+    <title>Pioneer Works — A Dossier</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/pioneer-works-dossier-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/pioneer-works-dossier-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-05-02T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">501(c)(3) recipient · founder-as-funder · arXiv — What is publicly recoverable about Pioneer Works: finances, governance, and a founder-as-funder structure reconstructed from IRS 990 filings and public record. The dossier surfaces the record without interpreting it.</summary>
+  </entry>
+  <entry>
+    <title>A Fraserin&apos; Art + Tech</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/fraserin-essay-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/fraserin-essay-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-05-18T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+  </entry>
+  <entry>
+    <title>Comp Strats</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/comp-strats-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/comp-strats-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-05-03T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+  </entry>
+  <entry>
+    <title>MicroVision — A Dossier</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/microvision-dossier-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/microvision-dossier-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-05-04T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">The public-company flip · SEC EDGAR + 11-year archive · arXiv — The public-company side: what is publicly recoverable about MicroVision (NASDAQ: MVIS) from SEC EDGAR and an eleven-year family archive of filings. Fact-surfacing, not argument.</summary>
+  </entry>
+  <entry>
+    <title>What&apos;s New CalArts!? — A Dossier</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/whats-new-calarts-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/whats-new-calarts-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-05-18T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">CalArts · a dossier in news format · arXiv — What&apos;s New CalArts!? surfaces what is publicly recoverable about CalArts in a news-format dossier: programs, finances, and governance from public documents. The dossier records the record and stops at the facts.</summary>
+  </entry>
+  <entry>
+    <title>NEW INC — A Dossier</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/new-inc-dossier-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/new-inc-dossier-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-05-18T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Embedded in the New Museum&apos;s 990 · arXiv — What is publicly recoverable about NEW INC, the New Museum&apos;s incubator: finances and governance read out of the parent museum&apos;s IRS 990, where the program is embedded rather than separately filed. Fact-surfacing, not argument.</summary>
+  </entry>
+  <entry>
+    <title>Studio Museum in Harlem — A Dossier</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/studio-museum-dossier-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/studio-museum-dossier-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-05-18T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">501(c)(3) recipient · capital campaign · arXiv — What is publicly recoverable about the Studio Museum in Harlem: finances, governance, and a capital campaign reconstructed from IRS 990 filings and public documents. The dossier records the documentary record.</summary>
+  </entry>
+  <entry>
+    <title>HathiTrust — A Dossier</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/hathitrust-dossier-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/hathitrust-dossier-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-05-18T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">UMich library service · no separate 990 · arXiv — What is publicly recoverable about HathiTrust: a University of Michigan library service with no separate IRS 990, surfaced instead through host-institution disclosures and public reports. Fact-surfacing, not argument.</summary>
+  </entry>
+  <entry>
+    <title>The Kitchen — A Dossier</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/the-kitchen-dossier-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/the-kitchen-dossier-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-05-18T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">501(c)(3) recipient · a 50-plus-year arc · arXiv — What is publicly recoverable about The Kitchen: a half-century of finances and governance reconstructed from IRS 990 filings and public record across the organization&apos;s long arc. The dossier stops where the facts run out.</summary>
+  </entry>
+  <entry>
+    <title>Machine Project — A Dossier</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/machine-project-dossier-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/machine-project-dossier-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-05-18T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">501(c)(3) recipient (until 2018) · Echo Park · arXiv — What is publicly recoverable about Machine Project: the Echo Park space&apos;s finances and governance from IRS 990 filings through its 2018 wind-down. Fact-surfacing, not argument.</summary>
+  </entry>
+  <entry>
+    <title>Heavy Manners Library — A Dossier</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/heavy-manners-library-dossier-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/heavy-manners-library-dossier-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-05-18T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Small space · status undisclosed · arXiv — What is publicly recoverable about Heavy Manners Library: a small space whose legal status is undisclosed, surfaced through what little public record exists. The dossier records the gaps as part of the record.</summary>
+  </entry>
+  <entry>
+    <title>Creative Time — A Dossier</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/creative-time-dossier-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/creative-time-dossier-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-05-18T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">501(c)(3) public-art commissioner · IRS 990 pipeline · arXiv — What is publicly recoverable about Creative Time, the New York public-art nonprofit (1974–): structure, programs, people, and money from the IRS 990 series and its program archive. Scaffold revision — figures pending the data pass; fact-surfacing, not argument.</summary>
+  </entry>
+  <entry>
+    <title>Creative Capital — A Dossier</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/creative-capital-dossier-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/creative-capital-dossier-26-arxiv.pdf</id>
+    <updated>2026-07-03T07:57:35.155Z</updated>
+    <published>2026-05-18T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">501(c)(3) artist-grant funder · 990 + grantee record · arXiv — What is publicly recoverable about Creative Capital, the New York nonprofit (1999–) that regrants to individual artists: structure, the award, people, and money from the IRS 990 series and the public grantee record. Scaffold revision — figures pending; fact-surfacing, not argument.</summary>
   </entry>
   <entry>
     <title>Keymaps as Social Software</title>
@@ -58,56 +545,6 @@
     <summary type="text">Three Eras of My Own Code: Hand-Written, GPT-Grafted, Agentic · arXiv 4pp — The Hand and the Loop reads AC&apos;s git history across three eras — hand-written, GPT-grafted, and fully agentic — and asks honestly whether the codebase is better off. It weighs 5x velocity and five new subsystems against the loss of instrument-like minimalism, and argues for keeping the loop in the leaves while a human hand carves the foundational libraries.</summary>
   </entry>
   <entry>
-    <title>The nom Games</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/nom-games-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/nom-games-26-arxiv.pdf</id>
-    <updated>2026-06-08T00:00:00.000Z</updated>
-    <published>2026-06-08T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Muncher Arcade for Aesthetic Computer · arXiv — The nom games rebuild MECC&apos;s Word and Number Munchers as Aesthetic Computer pieces --- numbnom, engnom, mexinom, and notenom. The paper shows how one shared engine and a reusable virtual synth controller turn each new subject or language into a content table rather than a new game, with the answer key in notenom doubling as a playable instrument.</summary>
-  </entry>
-  <entry>
-    <title>Aesthetic May &apos;26</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-may-26-essay.pdf"/>
-    <id>https://papers.aesthetic.computer/aesthetic-may-26-essay.pdf</id>
-    <updated>2026-05-25T00:00:00.000Z</updated>
-    <published>2026-05-25T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Essay · ~5pp — Aesthetic May &apos;26 is a magazine-style essay companion to Five Years from Now. May is both the month and the modal verb of possibility; the essay reads the present as a field of branching maybes rather than a line of probabilities --- where the music lane may go, what jeffrey may do, what may not happen this year, and the weather acting on all of it. First entry in the essay-* lane.</summary>
-  </entry>
-  <entry>
-    <title>Creative Time — A Dossier</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/creative-time-dossier-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/creative-time-dossier-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:34:03.454Z</updated>
-    <published>2026-05-18T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">501(c)(3) public-art commissioner · IRS 990 pipeline · arXiv — What is publicly recoverable about Creative Time, the New York public-art nonprofit (1974–): structure, programs, people, and money from the IRS 990 series and its program archive. Scaffold revision — figures pending the data pass; fact-surfacing, not argument.</summary>
-  </entry>
-  <entry>
-    <title>Creative Capital — A Dossier</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/creative-capital-dossier-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/creative-capital-dossier-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:34:03.454Z</updated>
-    <published>2026-05-18T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">501(c)(3) artist-grant funder · 990 + grantee record · arXiv — What is publicly recoverable about Creative Capital, the New York nonprofit (1999–) that regrants to individual artists: structure, the award, people, and money from the IRS 990 series and the public grantee record. Scaffold revision — figures pending; fact-surfacing, not argument.</summary>
-  </entry>
-  <entry>
-    <title>PLOrk&apos;ing the Planet</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/plorking-the-planet-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/plorking-the-planet-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:16:55.495Z</updated>
-    <published>2026-03-21T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Laptop Orchestras, PLOrk Heritage, and Aesthetic Computer · arXiv — This paper connects Aesthetic Computer to laptop orchestras and the collaborative traditions of PLOrk. It treats the browser as a place for ensemble practice, not just solo desktop programming.</summary>
-  </entry>
-  <entry>
     <title>Radical Computer Art</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/radical-computer-art-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/radical-computer-art-26-arxiv.pdf</id>
@@ -116,422 +553,6 @@
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
     <summary type="text">Goodiepalian Approaches in Aesthetic Computer · arXiv 5pp — This paper treats Goodiepalian practice as a model for radical computer art. It emphasizes play, notation, and the social life of systems over polished product design.</summary>
-  </entry>
-  <entry>
-    <title>Sucking on the Complex</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/sucking-on-the-complex-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/sucking-on-the-complex-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:16:55.495Z</updated>
-    <published>2026-03-21T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Platform Hegemony, Critique-as-Content, and Anti-Environments · arXiv 5pp — Sucking on the Complex critiques platform hegemony and the way critique becomes content. It looks for anti-environments that stay messy, resistant, and alive.</summary>
-  </entry>
-  <entry>
-    <title>Playable Folk Songs</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/folk-songs-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/folk-songs-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:16:55.495Z</updated>
-    <published>2026-03-21T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Oral Tradition Meets the Browser Keyboard · arXiv — Playable Folk Songs brings oral tradition into the browser keyboard. The paper asks how simple interaction can carry collective memory and repetition.</summary>
-  </entry>
-  <entry>
-    <title>Get Closed Source Out of Schools</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/open-schools-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/open-schools-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:16:55.495Z</updated>
-    <published>2026-03-20T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Get Closed Source Out of Schools makes the case that creative computing should be teachable, inspectable, and modifiable. The paper argues for open tools as infrastructure for learning.</summary>
-  </entry>
-  <entry>
-    <title>Five Years from Now</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/five-years-from-now-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/five-years-from-now-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:16:55.495Z</updated>
-    <published>2026-03-20T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Five Years from Now is a projection paper about where the project could go if current habits continue. It uses the near future to test the consequences of today&apos;s decisions.</summary>
-  </entry>
-  <entry>
-    <title>CalArts, Callouts, and Papers</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/calarts-callouts-papers-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/calarts-callouts-papers-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:16:55.495Z</updated>
-    <published>2026-03-21T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">CalArts, Callouts, and Papers turns a local institutional context into a study of friction, attention, and production. The paper leans into psycho style to show how academic labor is staged and performed.</summary>
-  </entry>
-  <entry>
-    <title>Handle Identity on the AT Protocol</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/handle-identity-atproto-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/handle-identity-atproto-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:16:55.495Z</updated>
-    <published>2026-03-27T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Handle Identity on the AT Protocol treats naming as a social and technical problem. The paper explores how handles, identity, and publishing can be tied together without losing portability.</summary>
-  </entry>
-  <entry>
-    <title>Two Departments, One Building</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/ucla-arts-funding-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/ucla-arts-funding-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:16:55.495Z</updated>
-    <published>2026-03-27T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Two Departments, One Building examines how funding and infrastructure shape creative work in shared spaces. The paper looks at administrative boundaries as part of the artistic system.</summary>
-  </entry>
-  <entry>
-    <title>The Potter and the Prompt</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/potter-and-prompt-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/potter-and-prompt-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:16:55.495Z</updated>
-    <published>2026-04-05T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">John Holden&apos;s Proto-Cognitive Music Theory and Aesthetic Computer · arXiv 7pp — The Potter and the Prompt argues that AC independently converges on the core principles of John Holden&apos;s 1770 proto-cognitive music theory. It proposes AC as a computational laboratory for advancing Holden&apos;s unfinished program on grouping, attention, and the module.</summary>
-  </entry>
-  <entry>
-    <title>KidLisp Cards</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/kidlisp-cards-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/kidlisp-cards-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:16:55.495Z</updated>
-    <published>2026-03-21T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">KidLisp Cards condenses the language into a pocketable card format. It is meant to make the language easier to browse, teach, and carry.</summary>
-  </entry>
-  <entry>
-    <title>Reading the Score</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/reading-the-score-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/reading-the-score-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:16:55.495Z</updated>
-    <published>2026-03-21T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Reading the Score looks at the graphic score as an interface for interpretation and collaboration. The paper treats notation as a computational and social object.</summary>
-  </entry>
-  <entry>
-    <title>The URL Tradition</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/url-tradition-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/url-tradition-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:16:55.495Z</updated>
-    <published>2026-04-27T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Addressable Creative Computing from Lovelace&apos;s Footnotes to Aesthetic Computer · arXiv — The URL Tradition traces address-thinking from Lovelace&apos;s footnotes, Bush&apos;s trails, Xanadu, and the Negro Motorist Green Book through net.art, single-serving sites, the tilde, Glitch, and Aesthetic Computer&apos;s prompt-as-address-bar. It argues the URL is not a feature but a medium property that reshapes authorship, distribution, pedagogy, performance, and political claim.</summary>
-  </entry>
-  <entry>
-    <title>Where the Microseconds Go</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/where-the-microseconds-go-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/where-the-microseconds-go-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:16:55.495Z</updated>
-    <published>2026-04-26T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-  </entry>
-  <entry>
-    <title>Diagrams from Data</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/diagrams-from-data-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/diagrams-from-data-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:16:55.495Z</updated>
-    <published>2026-04-28T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-  </entry>
-  <entry>
-    <title>Rhizome.org — A Dossier</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/rhizome-dossier-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/rhizome-dossier-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:16:55.495Z</updated>
-    <published>2026-05-02T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">501(c)(3) digital-arts recipient · IRS 990 pipeline · arXiv — What is publicly recoverable about Rhizome.org: governance, finances, and named grants reconstructed from IRS 990 filings and masthead snapshots. The dossier records the documentary record and stops where the facts run out.</summary>
-  </entry>
-  <entry>
-    <title>School for Poetic Computation — A Dossier</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/sfpc-dossier-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/sfpc-dossier-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:16:55.495Z</updated>
-    <published>2026-05-02T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">School for Poetic Computation · LLC, public finance repo · arXiv — What is publicly recoverable about the School for Poetic Computation: an LLC that publishes its own finances to a public GitHub repository, read alongside programs and people. Fact-surfacing, not argument.</summary>
-  </entry>
-  <entry>
-    <title>Eyebeam — A Dossier</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/eyebeam-dossier-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/eyebeam-dossier-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:16:55.495Z</updated>
-    <published>2026-05-02T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">501(c)(3) art-and-technology recipient · IRS 990 pipeline · arXiv — What is publicly recoverable about Eyebeam: financials, governance, residencies, and named grants pulled from IRS 990 XML. The dossier surfaces the record without interpreting it.</summary>
-  </entry>
-  <entry>
-    <title>Internet Archive — A Dossier</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/internet-archive-dossier-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/internet-archive-dossier-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:16:55.495Z</updated>
-    <published>2026-05-02T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">501(c)(3) recipient · IRS 990 + litigation track · arXiv — What is publicly recoverable about the Internet Archive: finances and governance from IRS 990 filings, plus a litigation track from public court records. The dossier records both and stops at the facts.</summary>
-  </entry>
-  <entry>
-    <title>Mellon Foundation — A Dossier</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/mellon-dossier-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/mellon-dossier-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:16:55.495Z</updated>
-    <published>2026-05-02T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">The funder flip · 990-PF + grants database · arXiv — The funder side: what is publicly recoverable about the Mellon Foundation from its 990-PF and grants database — the Form 990-PF that paid for nontrivial chunks of the other dossiers. Fact-surfacing, not argument.</summary>
-  </entry>
-  <entry>
-    <title>Pioneer Works — A Dossier</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/pioneer-works-dossier-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/pioneer-works-dossier-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:16:55.495Z</updated>
-    <published>2026-05-02T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">501(c)(3) recipient · founder-as-funder · arXiv — What is publicly recoverable about Pioneer Works: finances, governance, and a founder-as-funder structure reconstructed from IRS 990 filings and public record. The dossier surfaces the record without interpreting it.</summary>
-  </entry>
-  <entry>
-    <title>A Fraserin&apos; Art + Tech</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/fraserin-essay-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/fraserin-essay-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:16:55.495Z</updated>
-    <published>2026-05-18T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-  </entry>
-  <entry>
-    <title>Comp Strats</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/comp-strats-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/comp-strats-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:16:55.495Z</updated>
-    <published>2026-05-03T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-  </entry>
-  <entry>
-    <title>MicroVision — A Dossier</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/microvision-dossier-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/microvision-dossier-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:16:55.495Z</updated>
-    <published>2026-05-04T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">The public-company flip · SEC EDGAR + 11-year archive · arXiv — The public-company side: what is publicly recoverable about MicroVision (NASDAQ: MVIS) from SEC EDGAR and an eleven-year family archive of filings. Fact-surfacing, not argument.</summary>
-  </entry>
-  <entry>
-    <title>What&apos;s New CalArts!? — A Dossier</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/whats-new-calarts-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/whats-new-calarts-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:16:55.495Z</updated>
-    <published>2026-05-18T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">CalArts · a dossier in news format · arXiv — What&apos;s New CalArts!? surfaces what is publicly recoverable about CalArts in a news-format dossier: programs, finances, and governance from public documents. The dossier records the record and stops at the facts.</summary>
-  </entry>
-  <entry>
-    <title>NEW INC — A Dossier</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/new-inc-dossier-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/new-inc-dossier-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:16:55.495Z</updated>
-    <published>2026-05-18T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Embedded in the New Museum&apos;s 990 · arXiv — What is publicly recoverable about NEW INC, the New Museum&apos;s incubator: finances and governance read out of the parent museum&apos;s IRS 990, where the program is embedded rather than separately filed. Fact-surfacing, not argument.</summary>
-  </entry>
-  <entry>
-    <title>Studio Museum in Harlem — A Dossier</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/studio-museum-dossier-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/studio-museum-dossier-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:16:55.495Z</updated>
-    <published>2026-05-18T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">501(c)(3) recipient · capital campaign · arXiv — What is publicly recoverable about the Studio Museum in Harlem: finances, governance, and a capital campaign reconstructed from IRS 990 filings and public documents. The dossier records the documentary record.</summary>
-  </entry>
-  <entry>
-    <title>HathiTrust — A Dossier</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/hathitrust-dossier-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/hathitrust-dossier-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:16:55.495Z</updated>
-    <published>2026-05-18T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">UMich library service · no separate 990 · arXiv — What is publicly recoverable about HathiTrust: a University of Michigan library service with no separate IRS 990, surfaced instead through host-institution disclosures and public reports. Fact-surfacing, not argument.</summary>
-  </entry>
-  <entry>
-    <title>The Kitchen — A Dossier</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/the-kitchen-dossier-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/the-kitchen-dossier-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:16:55.495Z</updated>
-    <published>2026-05-18T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">501(c)(3) recipient · a 50-plus-year arc · arXiv — What is publicly recoverable about The Kitchen: a half-century of finances and governance reconstructed from IRS 990 filings and public record across the organization&apos;s long arc. The dossier stops where the facts run out.</summary>
-  </entry>
-  <entry>
-    <title>Machine Project — A Dossier</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/machine-project-dossier-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/machine-project-dossier-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:16:55.495Z</updated>
-    <published>2026-05-18T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">501(c)(3) recipient (until 2018) · Echo Park · arXiv — What is publicly recoverable about Machine Project: the Echo Park space&apos;s finances and governance from IRS 990 filings through its 2018 wind-down. Fact-surfacing, not argument.</summary>
-  </entry>
-  <entry>
-    <title>Heavy Manners Library — A Dossier</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/heavy-manners-library-dossier-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/heavy-manners-library-dossier-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:16:55.495Z</updated>
-    <published>2026-05-18T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Small space · status undisclosed · arXiv — What is publicly recoverable about Heavy Manners Library: a small space whose legal status is undisclosed, surfaced through what little public record exists. The dossier records the gaps as part of the record.</summary>
-  </entry>
-  <entry>
-    <title>Whistlegraph</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/whistlegraph-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/whistlegraph-26-arxiv.pdf</id>
-    <updated>2026-05-14T22:33:52.895Z</updated>
-    <published>2026-03-21T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Drawing, Singing, and the Graphic Score as Viral Form · arXiv 4pp — Whistlegraph explores drawing, singing, and score-making as forms that can spread like software. The paper links graphic notation to performance, remix, and browser-native sharing.</summary>
-  </entry>
-  <entry>
-    <title>Aesthetic Computer &apos;26</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-computer-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/aesthetic-computer-26-arxiv.pdf</id>
-    <updated>2026-05-14T22:27:38.274Z</updated>
-    <published>2026-03-21T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">A Mobile-First Runtime for Creative Computing · arXiv 5pp — Aesthetic Computer is presented as a mobile-first creative computing runtime where the interface, publishing flow, and community feedback loop are part of the medium. The paper argues that small pieces can make software feel more social, more portable, and easier to share.</summary>
-  </entry>
-  <entry>
-    <title>KidLisp &apos;26</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/kidlisp-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/kidlisp-26-arxiv.pdf</id>
-    <updated>2026-05-14T22:27:38.274Z</updated>
-    <published>2026-03-21T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">A Minimal Lisp for Generative Art on a Social Platform · arXiv 6pp — KidLisp is the platform&apos;s tiny Lisp for building visual and musical pieces in the browser. The paper shows how a minimal language can stay approachable while still supporting generative art and composition.</summary>
-  </entry>
-  <entry>
-    <title>AC Native OS</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/ac-native-os-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/ac-native-os-26-arxiv.pdf</id>
-    <updated>2026-05-14T22:27:38.274Z</updated>
-    <published>2026-03-21T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">A Bare-Metal Creative Computing Operating System · arXiv 5pp — AC Native OS describes a bare-metal runtime for creative computing. It focuses on boot-time simplicity and the idea that the operating system itself can be a programmable art surface.</summary>
-  </entry>
-  <entry>
-    <title>From setup() to boot()</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/piece-api-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/piece-api-26-arxiv.pdf</id>
-    <updated>2026-05-14T22:27:38.274Z</updated>
-    <published>2026-03-21T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Processing at the Core of the Piece API · arXiv 7pp — The Piece API rethinks creative software around composable pieces instead of monolithic apps. It uses Processing&apos;s lineage to connect setup(), boot(), and the act of publishing.</summary>
-  </entry>
-  <entry>
-    <title>Who Pays for Creative Tools?</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/who-pays-for-creative-tools-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/who-pays-for-creative-tools-26-arxiv.pdf</id>
-    <updated>2026-05-14T22:27:38.274Z</updated>
-    <published>2026-03-27T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Funding, Burnout, and Survival in Open-Source Creative Computing · arXiv 5pp — A short look at who supports open-source creative tools and what that labor costs. The paper connects funding, burnout, and long-term maintenance to the life of artistic software.</summary>
-  </entry>
-  <entry>
-    <title>Pieces Not Programs</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/pieces-not-programs-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/pieces-not-programs-26-arxiv.pdf</id>
-    <updated>2026-05-14T22:27:38.274Z</updated>
-    <published>2026-03-21T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">The Piece as a Unit of Creative Cognition · arXiv 4pp — A piece is treated here as the basic unit of creative cognition in AC. The paper argues that smaller, shareable pieces encourage composition, remix, and publication.</summary>
-  </entry>
-  <entry>
-    <title>notepat.com</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/notepat-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/notepat-26-arxiv.pdf</id>
-    <updated>2026-05-14T22:27:38.274Z</updated>
-    <published>2026-03-21T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">From Keyboard Toy to System Front Door · arXiv 5pp — notepat.com is framed as a keyboard-first front door to the system. The paper follows the toy-like input surface as it grows into a fuller creative interface.</summary>
-  </entry>
-  <entry>
-    <title>Vestigial Features</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/dead-ends-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/dead-ends-26-arxiv.pdf</id>
-    <updated>2026-05-14T22:27:38.274Z</updated>
-    <published>2026-03-21T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Dormant Paths, Evolutionary Branches, and Abandoned Approaches · arXiv 4pp — The paper catalogs dormant branches, abandoned experiments, and paths that never became default. It treats dead ends as useful history rather than failure.</summary>
-  </entry>
-  <entry>
-    <title>Repository Archaeology</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/repo-archaeology-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/repo-archaeology-26-arxiv.pdf</id>
-    <updated>2026-05-14T22:27:38.274Z</updated>
-    <published>2026-03-21T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Tracing the Evolution of AC Through Its Git History · arXiv 3pp · interactive timeline — Repository Archaeology traces the project through its git history. The paper shows how version control can become a narrative medium for design evolution.</summary>
-  </entry>
-  <entry>
-    <title>Network Audit</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/network-audit-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/network-audit-26-arxiv.pdf</id>
-    <updated>2026-05-14T22:27:38.274Z</updated>
-    <published>2026-03-21T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Who Uses Aesthetic Computer and What Do They Make? · arXiv 4pp — Network Audit asks who uses Aesthetic Computer and what they make with it. The paper turns usage patterns into a portrait of a community in motion.</summary>
-  </entry>
-  <entry>
-    <title>KidLisp Language Reference</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/kidlisp-reference-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/kidlisp-reference-26-arxiv.pdf</id>
-    <updated>2026-05-14T22:27:38.274Z</updated>
-    <published>2026-03-21T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">118 Built-ins in 12 Categories · arXiv 4pp — The KidLisp reference compresses the language into a usable field guide. It groups 118 built-ins into 12 categories for quick browsing and recall.</summary>
-  </entry>
-  <entry>
-    <title>Citation Diversity Audit</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/citation-diversity-audit-26.pdf"/>
-    <id>https://papers.aesthetic.computer/citation-diversity-audit-26.pdf</id>
-    <updated>2026-05-14T22:27:38.274Z</updated>
-    <published>2026-03-21T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Diversity and Inclusion in AC Paper Citations · 4pp — Citation Diversity Audit looks at who gets cited in the papers and where the archive is thin. The paper uses citation patterns as a proxy for inclusion and intellectual range.</summary>
   </entry>
   <entry>
     <title>Aesthetic Computer &apos;26</title>
@@ -559,15 +580,5 @@
     <category term="ELS"/>
     <author><name>@jeffrey</name></author>
     <summary type="text">A Minimal Lisp for Generative Art with Social Composition · ELS ACM SIGS 4pp — An ELS conference version of KidLisp that emphasizes social composition. It positions the language as a shared practice rather than a solo scripting environment.</summary>
-  </entry>
-  <entry>
-    <title>Recurse Center — A Dossier</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/recurse-dossier-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/recurse-dossier-26-arxiv.pdf</id>
-    <updated>2026-05-02T21:30:40.904Z</updated>
-    <published>2026-05-02T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Recurse Center · for-profit, recruiting-funded model · arXiv — What is publicly recoverable about the Recurse Center: a for-profit programmers&apos; retreat funded by a recruiting model, read through founder interviews and public statements. Fact-surfacing, not argument.</summary>
   </entry>
 </feed>

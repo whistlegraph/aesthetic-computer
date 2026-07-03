@@ -1,8 +1,8 @@
 {
   "arxiv-cal": {
     "created": "2026-06-15",
-    "revisions": 0,
-    "updated": "2026-06-15T00:00:00.000Z"
+    "revisions": 1,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-hand-and-loop": {
     "created": "2026-06-08",
@@ -11,78 +11,78 @@
   },
   "arxiv-nom": {
     "created": "2026-06-08",
-    "revisions": 0,
-    "updated": "2026-06-08T00:00:00.000Z"
+    "revisions": 1,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "essay-may-26": {
     "created": "2026-05-25",
-    "revisions": 0,
-    "updated": "2026-05-25T00:00:00.000Z"
+    "revisions": 1,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-microvision": {
     "created": "2026-05-04",
-    "revisions": 2,
-    "updated": "2026-05-18T13:16:55.495Z"
+    "revisions": 3,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-ac": {
     "created": "2026-03-21",
-    "revisions": 4,
-    "updated": "2026-05-14T22:27:38.274Z"
+    "revisions": 5,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-rhizome": {
     "created": "2026-05-02",
-    "revisions": 3,
-    "updated": "2026-05-18T13:16:55.495Z"
+    "revisions": 4,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-sfpc": {
     "created": "2026-05-02",
-    "revisions": 3,
-    "updated": "2026-05-18T13:16:55.495Z"
+    "revisions": 4,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-eyebeam": {
     "created": "2026-05-02",
-    "revisions": 3,
-    "updated": "2026-05-18T13:16:55.495Z"
+    "revisions": 4,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-recurse": {
     "created": "2026-05-02",
-    "revisions": 2,
-    "updated": "2026-05-02T21:30:40.904Z"
+    "revisions": 3,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-internet-archive": {
     "created": "2026-05-02",
-    "revisions": 3,
-    "updated": "2026-05-18T13:16:55.495Z"
+    "revisions": 4,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-mellon": {
     "created": "2026-05-02",
-    "revisions": 3,
-    "updated": "2026-05-18T13:16:55.495Z"
+    "revisions": 4,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-pioneer-works": {
     "created": "2026-05-02",
-    "revisions": 3,
-    "updated": "2026-05-18T13:16:55.495Z"
+    "revisions": 4,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-api": {
     "created": "2026-03-21",
-    "revisions": 4,
-    "updated": "2026-05-14T22:27:38.274Z"
+    "revisions": 5,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-archaeology": {
     "created": "2026-03-21",
-    "revisions": 4,
-    "updated": "2026-05-14T22:27:38.274Z"
+    "revisions": 5,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-dead-ends": {
     "created": "2026-03-21",
-    "revisions": 4,
-    "updated": "2026-05-14T22:27:38.274Z"
+    "revisions": 5,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-diversity": {
     "created": "2026-03-21",
-    "revisions": 4,
-    "updated": "2026-05-14T22:27:38.274Z"
+    "revisions": 5,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-goodiepal": {
     "created": "2026-03-21",
@@ -91,113 +91,113 @@
   },
   "arxiv-kidlisp": {
     "created": "2026-03-21",
-    "revisions": 4,
-    "updated": "2026-05-14T22:27:38.274Z"
+    "revisions": 5,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-kidlisp-reference": {
     "created": "2026-03-21",
-    "revisions": 4,
-    "updated": "2026-05-14T22:27:38.274Z"
+    "revisions": 5,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-network-audit": {
     "created": "2026-03-21",
-    "revisions": 4,
-    "updated": "2026-05-14T22:27:38.274Z"
+    "revisions": 5,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-notepat": {
     "created": "2026-03-21",
-    "revisions": 4,
-    "updated": "2026-05-14T22:27:38.274Z"
+    "revisions": 5,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-os": {
     "created": "2026-03-21",
-    "revisions": 4,
-    "updated": "2026-05-14T22:27:38.274Z"
+    "revisions": 5,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-pieces": {
     "created": "2026-03-21",
-    "revisions": 4,
-    "updated": "2026-05-14T22:27:38.274Z"
+    "revisions": 5,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-whistlegraph": {
     "created": "2026-03-21",
-    "revisions": 5647,
-    "updated": "2026-05-14T22:33:52.895Z"
+    "revisions": 5648,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-plork": {
     "created": "2026-03-21",
-    "revisions": 4,
-    "updated": "2026-05-18T13:16:55.495Z"
+    "revisions": 5,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-folk-songs": {
     "created": "2026-03-21",
-    "revisions": 5,
-    "updated": "2026-05-18T13:16:55.495Z"
+    "revisions": 6,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-complex": {
     "created": "2026-03-21",
-    "revisions": 5,
-    "updated": "2026-05-18T13:16:55.495Z"
+    "revisions": 6,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-kidlisp-cards": {
     "created": "2026-03-21",
-    "revisions": 5,
-    "updated": "2026-05-18T13:16:55.495Z"
+    "revisions": 6,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-score-analysis": {
     "created": "2026-03-21",
-    "revisions": 5,
-    "updated": "2026-05-18T13:16:55.495Z"
+    "revisions": 6,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-calarts": {
     "created": "2026-03-21",
-    "revisions": 5,
-    "updated": "2026-05-18T13:16:55.495Z"
+    "revisions": 6,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-futures": {
     "created": "2026-03-20",
-    "revisions": 5,
-    "updated": "2026-05-18T13:16:55.495Z"
+    "revisions": 6,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-sustainability": {
     "created": "2026-03-27",
-    "revisions": 3,
-    "updated": "2026-05-14T22:27:38.274Z"
+    "revisions": 4,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-identity": {
     "created": "2026-03-27",
-    "revisions": 4,
-    "updated": "2026-05-18T13:16:55.495Z"
+    "revisions": 5,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-ucla-arts": {
     "created": "2026-03-27",
-    "revisions": 4,
-    "updated": "2026-05-18T13:16:55.495Z"
+    "revisions": 5,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-open-schools": {
     "created": "2026-03-20",
-    "revisions": 5,
-    "updated": "2026-05-18T13:16:55.495Z"
+    "revisions": 6,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-holden": {
     "created": "2026-04-05",
-    "revisions": 4,
-    "updated": "2026-05-18T13:16:55.495Z"
+    "revisions": 5,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-latency": {
     "created": "2026-04-26",
-    "revisions": 7,
-    "updated": "2026-05-18T13:16:55.495Z"
+    "revisions": 8,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-url-tradition": {
     "created": "2026-04-27",
-    "revisions": 3,
-    "updated": "2026-05-18T13:16:55.495Z"
+    "revisions": 4,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-penrose": {
     "created": "2026-04-28",
-    "revisions": 3,
-    "updated": "2026-05-18T13:16:55.495Z"
+    "revisions": 4,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-keymaps": {
     "created": "2026-05-02",
@@ -206,57 +206,67 @@
   },
   "arxiv-comp-strats": {
     "created": "2026-05-03",
-    "revisions": 2,
-    "updated": "2026-05-18T13:16:55.495Z"
+    "revisions": 3,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-fraserin": {
     "created": "2026-05-18",
-    "revisions": 1,
-    "updated": "2026-05-18T13:16:55.495Z"
+    "revisions": 2,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-calarts-news": {
     "created": "2026-05-18",
-    "revisions": 1,
-    "updated": "2026-05-18T13:16:55.495Z"
+    "revisions": 2,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-new-inc": {
     "created": "2026-05-18",
-    "revisions": 1,
-    "updated": "2026-05-18T13:16:55.495Z"
+    "revisions": 2,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-studio-museum": {
     "created": "2026-05-18",
-    "revisions": 1,
-    "updated": "2026-05-18T13:16:55.495Z"
+    "revisions": 2,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-hathitrust": {
     "created": "2026-05-18",
-    "revisions": 1,
-    "updated": "2026-05-18T13:16:55.495Z"
+    "revisions": 2,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-the-kitchen": {
     "created": "2026-05-18",
-    "revisions": 1,
-    "updated": "2026-05-18T13:16:55.495Z"
+    "revisions": 2,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-machine-project": {
     "created": "2026-05-18",
-    "revisions": 1,
-    "updated": "2026-05-18T13:16:55.495Z"
+    "revisions": 2,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-heavy-manners-library": {
     "created": "2026-05-18",
-    "revisions": 1,
-    "updated": "2026-05-18T13:16:55.495Z"
+    "revisions": 2,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-creative-time": {
     "created": "2026-05-18",
-    "revisions": 1,
-    "updated": "2026-05-18T13:34:03.454Z"
+    "revisions": 2,
+    "updated": "2026-07-03T07:57:35.155Z"
   },
   "arxiv-creative-capital": {
     "created": "2026-05-18",
+    "revisions": 2,
+    "updated": "2026-07-03T07:57:35.155Z"
+  },
+  "arxiv-pals": {
+    "created": "2026-07-03",
     "revisions": 1,
-    "updated": "2026-05-18T13:34:03.454Z"
+    "updated": "2026-07-03T07:57:35.155Z"
+  },
+  "cv": {
+    "created": "2026-07-03",
+    "revisions": 1,
+    "updated": "2026-07-03T07:57:35.155Z"
   }
 }

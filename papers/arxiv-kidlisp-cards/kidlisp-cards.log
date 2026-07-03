@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  15 MAY 2026 18:31
+This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  18 JUN 2026 22:17
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1261,12 +1261,14 @@ Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `ComicRelief-Bold' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
+File: figures/cover.png Graphic file (type bmp)
+<figures/cover.png>
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `ComicRelief-Regular' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
-(Font)              scaled to size 7.65005pt on input line 243.
+(Font)              scaled to size 7.65005pt on input line 245.
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `LatinModernMono' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
@@ -1276,36 +1278,28 @@ Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 9.00096pt on input line 243.
+(Font)              scaled to size 9.00096pt on input line 245.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 6.00064pt on input line 243.
+(Font)              scaled to size 6.00064pt on input line 245.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 5.00053pt on input line 243.
+(Font)              scaled to size 5.00053pt on input line 245.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 8.99904pt on input line 243.
+(Font)              scaled to size 8.99904pt on input line 245.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 5.99936pt on input line 243.
+(Font)              scaled to size 5.99936pt on input line 245.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 4.99947pt on input line 243.
+(Font)              scaled to size 4.99947pt on input line 245.
 
 
 LaTeX Font Warning: Font shape `TU/LatinModernRoman(0)/m/sc' undefined
 (Font)              using `TU/LatinModernRoman(0)/m/n' instead on input line 24
-3.
+5.
 
-LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
-(Font)              scaled to size 8.50006pt on input line 251.
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 10.00107pt on input line 266.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 7.00075pt on input line 266.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 9.99893pt on input line 266.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 6.99925pt on input line 266.
+LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
+(Font)              scaled to size 8.50006pt on input line 253.
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
@@ -1313,6 +1307,17 @@ Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
 ]
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
+(Font)              scaled to size 10.00107pt on input line 268.
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
+(Font)              scaled to size 7.00075pt on input line 268.
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
+(Font)              scaled to size 9.99893pt on input line 268.
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
+(Font)              scaled to size 6.99925pt on input line 268.
+
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
 File: figures/card-starburst.png Graphic file (type bmp)
 <figures/card-starburst.png>
 File: figures/card-moire.png Graphic file (type bmp)
@@ -1321,14 +1326,15 @@ File: figures/card-moire.png Graphic file (type bmp)
 (/usr/local/texlive/2026basic/texmf-dist/tex/latex/listings/lstlang1.sty
 File: lstlang1.sty 2025/11/14 1.11b listings language file
 )
+[2]
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
-(Font)              scaled to size 6.80005pt on input line 321.
+(Font)              scaled to size 6.80005pt on input line 323.
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `cmtt' (encoding: OT1).
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
 
-Underfull \hbox (badness 6493) in paragraph at lines 334--335
+Underfull \hbox (badness 6493) in paragraph at lines 336--337
 []\TU/LatinModernRoman(0)/m/sc/10 The existence of two independent interpreters
 
  []
@@ -1340,17 +1346,16 @@ File: figures/card-crosshatch.png Graphic file (type bmp)
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
- [2]
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/it' will be
-(Font)              scaled to size 7.65005pt on input line 357.
+(Font)              scaled to size 7.65005pt on input line 359.
 
 
 LaTeX Font Warning: Font shape `TU/LatinModernMono(0)/b/n' undefined
-(Font)              using `TU/LatinModernMono(0)/m/n' instead on input line 358
+(Font)              using `TU/LatinModernMono(0)/m/n' instead on input line 360
 .
 
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/b/n' will be
-(Font)              scaled to size 7.65005pt on input line 359.
+(Font)              scaled to size 7.65005pt on input line 361.
 File: figures/card-ripple.png Graphic file (type bmp)
 <figures/card-ripple.png>
 File: figures/card-mondrian.png Graphic file (type bmp)
@@ -1358,6 +1363,7 @@ File: figures/card-mondrian.png Graphic file (type bmp)
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
+ [3]
 File: figures/card-lissajous.png Graphic file (type bmp)
 <figures/card-lissajous.png>
 File: figures/card-sierpinski.png Graphic file (type bmp)
@@ -1366,9 +1372,6 @@ File: figures/card-star.png Graphic file (type bmp)
 <figures/card-star.png>
 File: figures/card-tree.png Graphic file (type bmp)
 <figures/card-tree.png>
-LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
-(Font)              scaled to size 72.55504pt on input line 418.
- [3]
 File: figures/card-horizon.png Graphic file (type bmp)
 <figures/card-horizon.png>
 File: figures/card-pip.png Graphic file (type bmp)
@@ -1383,6 +1386,8 @@ File: figures/card-spiral.png Graphic file (type bmp)
 <figures/card-spiral.png>
 File: figures/layout-comparison.png Graphic file (type bmp)
 <figures/layout-comparison.png>
+
+[4]
 File: figures/layout-affordances.png Graphic file (type bmp)
 <figures/layout-affordances.png>
 
@@ -1392,7 +1397,10 @@ LaTeX Warning: `h' float specifier changed to `ht'.
 File: figures/layout-decks.png Graphic file (type bmp)
 <figures/layout-decks.png>
 
-Underfull \hbox (badness 1286) in paragraph at lines 502--503
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+
+Underfull \hbox (badness 1286) in paragraph at lines 504--505
 \TU/LatinModernRoman(0)/m/sc/10 corpus—16,000+ programs created by 59 authors—
  []
 
@@ -1405,16 +1413,13 @@ File: figures/user-card-cow.png Graphic file (type bmp)
 File: figures/user-card-r2f.png Graphic file (type bmp)
 <figures/user-card-r2f.png>
 
-Underfull \hbox (badness 1286) in paragraph at lines 522--523
+Underfull \hbox (badness 1286) in paragraph at lines 524--525
 []\TU/LatinModernRoman(0)/b/n/10 Animation. \TU/LatinModernRoman(0)/m/sc/10 Pro
 grams re-evaluate every frame.
  []
 
-[4]
-Underfull \vbox (badness 10000) has occurred while \output is active []
 
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
+Underfull \vbox (badness 6825) has occurred while \output is active []
 
  [5]
 Underfull \vbox (badness 10000) has occurred while \output is active []
@@ -1423,13 +1428,21 @@ Underfull \vbox (badness 10000) has occurred while \output is active []
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
  [6]
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [7]
 (./kidlisp-cards.bbl
 
 Package natbib Warning: Empty `thebibliography' environment on input line 8.
 
-) [7
+)
+Underfull \vbox (badness 10000) has occurred while \output is active []
 
-] [8] (./kidlisp-cards.aux)
+ [8]
+(./kidlisp-cards.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2026-01-19>
@@ -1442,12 +1455,12 @@ Package rerunfilecheck Info: File `kidlisp-cards.out' has not changed.
 (rerunfilecheck)             Checksum: 1455075BBC19B6271512FDDBE9AC5E60;4874.
  ) 
 Here is how much of TeX's memory you used:
- 21452 strings out of 469709
- 394599 string characters out of 5466024
- 1221788 words of memory out of 5000000
- 49775 multiletter control sequences out of 15000+600000
- 630516 words of font info for 110 fonts, out of 8000000 for 9000
+ 21468 strings out of 469709
+ 394881 string characters out of 5466024
+ 1250665 words of memory out of 5000000
+ 49791 multiletter control sequences out of 15000+600000
+ 630508 words of font info for 109 fonts, out of 8000000 for 9000
  319 hyphenation exceptions out of 8191
- 86i,13n,107p,1010b,1450s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 86i,12n,107p,1010b,1450s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
 Output written on kidlisp-cards.pdf (8 pages).

@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  15 MAY 2026 18:31
+This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  18 JUN 2026 22:17
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1583,6 +1583,8 @@ Package microtype Info: Character `\guilsinglleft ' is missing
 Package microtype Info: Character `\guilsinglright ' is missing
 (microtype)             in font `\TU/ywft-processing-bold(0)/m/n/22'.
 (microtype)             Ignoring protrusion settings for this character.
+File: figures/cover.png Graphic file (type bmp)
+<figures/cover.png>
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `ywft-processing-light' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
@@ -1648,7 +1650,7 @@ Package microtype Info: Character `\guilsinglright ' is missing
 (microtype)             in font `\TU/ywft-processing-light(0)/m/n/11'.
 (microtype)             Ignoring protrusion settings for this character.
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
-(Font)              scaled to size 7.65005pt on input line 141.
+(Font)              scaled to size 7.65005pt on input line 143.
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `LatinModernMono' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
@@ -1658,111 +1660,118 @@ Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 9.00096pt on input line 141.
+(Font)              scaled to size 9.00096pt on input line 143.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 6.00064pt on input line 141.
+(Font)              scaled to size 6.00064pt on input line 143.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 5.00053pt on input line 141.
+(Font)              scaled to size 5.00053pt on input line 143.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 8.99904pt on input line 141.
+(Font)              scaled to size 8.99904pt on input line 143.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 5.99936pt on input line 141.
+(Font)              scaled to size 5.99936pt on input line 143.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 4.99947pt on input line 141.
+(Font)              scaled to size 4.99947pt on input line 143.
 
 LaTeX Font Warning: Font shape `TU/LatinModernRoman(0)/m/sc' undefined
 (Font)              using `TU/LatinModernRoman(0)/m/n' instead on input line 14
-1.
+3.
 
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
-Underfull \hbox (badness 1371) in paragraph at lines 164--165
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [1
+
+
+]
+Underfull \hbox (badness 1371) in paragraph at lines 166--167
 []\TU/LatinModernRoman(0)/m/sc/10 This “training wheels” approach—blocking wron
 g
  []
 
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
-(Font)              scaled to size 8.50006pt on input line 168.
-[1
+(Font)              scaled to size 8.50006pt on input line 170.
 
-
-]
-Overfull \hbox (21.38028pt too wide) in paragraph at lines 216--217
+Overfull \hbox (21.38028pt too wide) in paragraph at lines 218--219
 \TU/LatinModernRoman(0)/m/sc/10 “Twinkle Twinkle” are addressable as \TU/LatinM
 odernMono(0)/m/n/10 notepat.com?song=C:Twin-
  []
 
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 10.00107pt on input line 220.
+(Font)              scaled to size 10.00107pt on input line 222.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 7.00075pt on input line 220.
+(Font)              scaled to size 7.00075pt on input line 222.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 9.99893pt on input line 220.
+(Font)              scaled to size 9.99893pt on input line 222.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 6.99925pt on input line 220.
+(Font)              scaled to size 6.99925pt on input line 222.
 
-Overfull \hbox (10.0pt too wide) in paragraph at lines 241--242
+Overfull \hbox (10.0pt too wide) in paragraph at lines 243--244
+[][] 
+ []
+
+[2]
+
+Package hyperref Warning: Token not allowed in a PDF string (Unicode):
+(hyperref)                removing `math shift' on input line 245.
+
+
+Package hyperref Warning: Token not allowed in a PDF string (Unicode):
+(hyperref)                removing `math shift' on input line 245.
+
+
+Overfull \hbox (10.0pt too wide) in paragraph at lines 257--258
 [][] 
  []
 
 
-Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `math shift' on input line 243.
-
-
-Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `math shift' on input line 243.
-
-
-Overfull \hbox (10.0pt too wide) in paragraph at lines 255--256
-[][] 
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 269--269
+Underfull \hbox (badness 10000) in paragraph at lines 271--271
 []|\TU/LatinModernRoman(0)/m/sc/10 Scarborough
  []
 
 
-Overfull \hbox (10.0pt too wide) in paragraph at lines 269--270
+Overfull \hbox (10.0pt too wide) in paragraph at lines 271--272
 [][] 
  []
 
 
-Underfull \hbox (badness 4353) in paragraph at lines 282--282
+Underfull \hbox (badness 4353) in paragraph at lines 284--284
 []|\TU/LatinModernRoman(0)/m/sc/10 merge decisions, adop-
  []
 
 
-Overfull \hbox (10.0pt too wide) in paragraph at lines 282--284
+Overfull \hbox (10.0pt too wide) in paragraph at lines 284--286
 [][]
  []
 
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
- [2]
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
  [3]
-Underfull \hbox (badness 1303) in paragraph at lines 332--333
+Underfull \hbox (badness 1303) in paragraph at lines 334--335
 []\TU/LatinModernRoman(0)/b/n/10 Cross-cultural collections\TU/LatinModernRoman
 (0)/m/sc/10 : Encoding melodies
  []
 
-(./folk-songs.bbl
+
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+
+(./folk-songs.bbl [4]
 Underfull \hbox (badness 4132) in paragraph at lines 78--82
 []\TU/LatinModernRoman(0)/m/sc/10 Carl Orff.  \TU/LatinModernRoman(0)/m/it/10 T
 he Schulwerk\TU/LatinModernRoman(0)/m/sc/10 , volume 3 of \TU/LatinModernRoman(
 0)/m/it/10 Carl
  []
 
-) [4] (./folk-songs.aux)
+) [5
+
+] (./folk-songs.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2026-01-19>
@@ -1775,12 +1784,12 @@ Package rerunfilecheck Info: File `folk-songs.out' has not changed.
 (rerunfilecheck)             Checksum: 657A0E503F85D5FD25C59D013239A04D;2980.
  ) 
 Here is how much of TeX's memory you used:
- 20843 strings out of 469709
- 382450 string characters out of 5466024
- 1106422 words of memory out of 5000000
- 49209 multiletter control sequences out of 15000+600000
+ 20864 strings out of 469709
+ 382873 string characters out of 5466024
+ 1135422 words of memory out of 5000000
+ 49227 multiletter control sequences out of 15000+600000
  630268 words of font info for 99 fonts, out of 8000000 for 9000
  319 hyphenation exceptions out of 8191
  86i,12n,107p,1007b,1017s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
-Output written on folk-songs.pdf (4 pages).
+Output written on folk-songs.pdf (5 pages).

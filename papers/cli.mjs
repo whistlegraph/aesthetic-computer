@@ -40,6 +40,14 @@ const THUMBS_DIR = join(SITE_DIR, "thumbs");
 const BUILDLOG = join(PAPERS_DIR, "BUILDLOG.md");
 const METADATA_PATH = join(PAPERS_DIR, "metadata.json");
 const LANGS = ["en", "da", "es", "zh", "ja", "ru"];
+
+// Papers that have a spoken-word reading (podcast) on the asset CDN at
+// assets.aesthetic.computer/podcast/{siteName}.mp3. Add a siteName here when
+// an episode is produced + uploaded (marketing/podcast lane).
+const PODCASTS = new Set([
+  "aesthetic-may-26-essay",
+  "aesthetic-june-26-essay",
+]);
 const LANG_NAMES = { en: "English", da: "Danish", es: "Spanish", zh: "Chinese", ja: "Japanese", ru: "Russian" };
 
 function loadMetadata() {
@@ -190,6 +198,12 @@ const PAPER_MAP = {
     base: "may-26",
     siteName: "aesthetic-may-26-essay",
     title: "Aesthetic May '26",
+    format: "essay",
+  },
+  "essay-june-26": {
+    base: "june-26",
+    siteName: "aesthetic-june-26-essay",
+    title: "Aesthetic June '26",
     format: "essay",
   },
   "arxiv-identity": {
@@ -408,6 +422,7 @@ const CATEGORIES = [
       "arxiv-comp-strats",
       "arxiv-nom",
       "essay-may-26",
+      "essay-june-26",
     ],
   },
   {
@@ -883,6 +898,7 @@ function updateIndex(entries) {
     "open-schools-26-arxiv": 18,
     "five-years-from-now-26-arxiv": 19,
     "aesthetic-may-26-essay": 19.5,
+    "aesthetic-june-26-essay": 19.6,
     "calarts-callouts-papers-26-arxiv": 20,
     "handle-identity-atproto-26-arxiv": 21,
     "ucla-arts-funding-26-arxiv": 22,
@@ -1061,6 +1077,11 @@ function updateIndex(entries) {
       abstract:
         "Aesthetic May '26 is a magazine-style essay companion to Five Years from Now. May is both the month and the modal verb of possibility; the essay reads the present as a field of branching maybes rather than a line of probabilities --- where the music lane may go, what jeffrey may do, what may not happen this year, and the weather acting on all of it. First entry in the essay-* lane.",
     },
+    "aesthetic-june-26-essay": {
+      detail: "Essay &middot; ~3pp &middot; podcast",
+      abstract:
+        "Aesthetic June '26 is the storytelling companion to May. Where May was the modal mood, June is the answer, delivered as four hundred and fifty-seven commits --- the word carrying both its meanings, version control and Juno's oath. Told as scenes: the songs that caught up, the whistle found a perfect fifth sharp, the ring of native wizards learning one sign-in, and a Danish learn-the-clock community getting its own front door on the chat. Also available as a spoken reading in @jeffrey's voice.",
+    },
     "calarts-callouts-papers-26-arxiv": {
       detail: "",
       abstract:
@@ -1223,7 +1244,13 @@ function updateIndex(entries) {
       .filter((l) => existsSync(join(SITE_DIR, `${p.siteName}-${l}.pdf`)))
       .map((l) => `<a class="tl tl-lang" href="/${p.siteName}-${l}.pdf" title="${LANG_NAMES[l]}">${l.toUpperCase()}</a>`)
       .join("");
-    const thumbLinks = cardsTl || langTl ? `<div class="thumb-links">${cardsTl}${langTl}</div>` : "";
+    // Podcast format — a spoken reading in @jeffrey's voice. Audio is hosted
+    // on the asset CDN (like pop), not in git; PODCASTS lists which papers
+    // have an episode at assets.aesthetic.computer/podcast/{siteName}.mp3.
+    const podcastTl = PODCASTS.has(p.siteName)
+      ? `<a class="tl tl-podcast" href="https://assets.aesthetic.computer/podcast/${p.siteName}.mp3" title="Listen — a reading in @jeffrey's voice">podcast</a>`
+      : "";
+    const thumbLinks = cardsTl || podcastTl || langTl ? `<div class="thumb-links">${cardsTl}${podcastTl}${langTl}</div>` : "";
     const thumbCol = thumbHtml || thumbLinks
       ? `<div class="thumb-col">${thumbHtml}${thumbLinks}</div>`
       : "";
