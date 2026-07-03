@@ -50,7 +50,9 @@ final class MenuBandSampleVoice {
     /// buffer can hold.
     private let initialScratchFrames: Int
     private let trimThreshold: Float = 0.012
-    private let trimPrerollFrames = Int(44_100 * 0.012)
+    // Keep a longer pre-roll before the detected onset so the sample's attack
+    // isn't clipped (the trim was a touch eager — it started right on the onset).
+    private let trimPrerollFrames = Int(44_100 * 0.026)
 
     /// The currently-stored recording. nil until a successful capture.
     /// Reads from the audio thread (player schedules) are safe because
@@ -96,7 +98,7 @@ final class MenuBandSampleVoice {
     /// without eating into actual performance. `trimmedStartFrame`
     /// runs AFTER this and additionally rejects any leading
     /// transient burst that survives the fixed window.
-    private let recordKeyClickSkipFrames: Int = Int(44_100 * 0.035)
+    private let recordKeyClickSkipFrames: Int = Int(44_100 * 0.022)
     /// Decremented on each ingestInput block until zero. Set fresh
     /// at every `startRecording` call.
     private var framesRemainingToSkip: Int = 0
