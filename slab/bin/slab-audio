@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# slab-audio <file.wav> [more.mp3 …] — open audio files as slab's tiled
+# jukebox wall. Appends "path\tsession_id" lines to
+# $SLAB_HOME/state/open-audio; the menubar's 2 s tick consumes the file and
+# raises one chromeless glass panel per file (cover art when embedded,
+# title/artist/album metadata, decoded waveform + playhead). Exactly one
+# tile plays at a time, starting with the first, auto-advancing at the end
+# of each file; click a tile to jump the queue, space pauses, ←/→ step,
+# Esc dismisses a tile. A new invocation REPLACES the previous wall
+# (slab-images semantics). See
+# slab/menubar-swift/Sources/SlabMenubar/AudioGroupPreview.swift.
+#
+# slab-afplay stays the headless blocking player for hooks and dings —
+# this is the *preview* instrument.
+set -euo pipefail
+
+SLAB_HOME="${SLAB_HOME:-$HOME/.local/share/slab}"
+REQUEST="$SLAB_HOME/state/open-audio"
+
+if [ $# -eq 0 ]; then
+    echo "usage: slab-audio <file.wav> [more.mp3 …]" >&2
+    exit 1
+fi
+
+mkdir -p "$SLAB_HOME/state"
+
+# Which Claude session asked? Walk up the process tree to the claude pid
+# (same loop as slab-video) and match it against the live active-prompts
+# markers — each tile then wears that session's sticky emoji. Empty when
+# not launched from a Claude session.
+session_id=""
+claude_pid=$$
+for _ in 1 2 3 4 5 6 7 8; do
+    parent=$(ps -o ppid= -p "$claude_pid" 2>/dev/null | tr -d ' ')
+    [ -z "$parent" ] || [ "$parent" = "1" ] && break
+    comm=$(ps -o comm= -p "$parent" 2>/dev/null | tr -d ' ')
+    claude_pid=$parent
+    case "$comm" in *claude*) break ;; esac
+done
+if command -v jq >/dev/null 2>&1; then
+    for marker in "$SLAB_HOME"/state/active-prompts/*; do
+        [ -f "$marker" ] || continue
+        if [ "$(jq -r '.claude_pid // 0' "$marker" 2>/dev/null)" = "$claude_pid" ]; then
+            session_id=$(jq -r '.session_id // ""' "$marker" 2>/dev/null)
+            break
+        fi
+    done
+fi
+
+for f in "$@"; do
+    if [ ! -f "$f" ]; then
+        echo "slab-audio: no such file: $f" >&2
+        exit 1
+    fi
+    # realpath isn't guaranteed on stock macOS bash paths — resolve by hand.
+    abs="$(cd "$(dirname "$f")" && pwd)/$(basename "$f")"
+    printf '%s\t%s\n' "$abs" "$session_id" >> "$REQUEST"
+done

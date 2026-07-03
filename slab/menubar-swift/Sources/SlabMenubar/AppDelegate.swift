@@ -290,6 +290,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 // wall of chromeless glass panels — Preview-free review. See
                 // ImageGroupPreview.swift / `slab-images`.
                 ImageGroupPreview.shared.consumeRequests()
+                // Groups of audio files open as a tiled jukebox wall — cover
+                // art + metadata + waveform, one tile playing at a time. See
+                // AudioGroupPreview.swift / `slab-audio`.
+                AudioGroupPreview.shared.consumeRequests(emojiFor: emojiFor)
                 self.applyTerminalDecor()
                 self.applyDesktopTint()
                 // Per-prompt sigil badges — one little hashed star pinned to

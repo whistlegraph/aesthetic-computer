@@ -58,6 +58,7 @@ enum MenuBuilder {
         appendOvertime(to: menu, target: target)
         menu.addItem(buildPdf(target: target))
         menu.addItem(buildVideo(target: target))
+        menu.addItem(buildAudio(target: target))
         if state.deskflow.configured {
             menu.addItem(buildDeskflow(state: state, target: target))
         }
@@ -670,6 +671,33 @@ enum MenuBuilder {
             }
             sub.addItem(.separator())
             sub.addItem(item("Close all", selector: #selector(AppDelegate.closeAllVideos), target: target))
+        }
+        parent.submenu = sub
+        return parent
+    }
+
+    /// Audio wall submenu — slab's tiled jukebox (AudioGroupPreview.swift),
+    /// so rendered audio previews without QuickTime/Music. Same shape as
+    /// buildVideo; one wall at a time, so rows list the current group.
+    private static func buildAudio(target: AppDelegate) -> NSMenuItem {
+        let open = AudioGroupPreview.shared.openPaths
+        let parent = NSMenuItem(
+            title: open.isEmpty ? "Audio wall" : "Audio wall: \(open.count)",
+            action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        sub.autoenablesItems = false
+        sub.addItem(item("Open audio…", selector: #selector(AppDelegate.openAudioFromPanel), target: target))
+        if !open.isEmpty {
+            sub.addItem(.separator())
+            for path in open {
+                let row = item((path as NSString).lastPathComponent,
+                               selector: #selector(AppDelegate.focusAudio(_:)), target: target)
+                row.representedObject = path
+                row.toolTip = path
+                sub.addItem(row)
+            }
+            sub.addItem(.separator())
+            sub.addItem(item("Close all", selector: #selector(AppDelegate.closeAllAudio), target: target))
         }
         parent.submenu = sub
         return parent
