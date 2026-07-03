@@ -53,6 +53,15 @@ final class WeekView: NSView {
     private let legendH: CGFloat = 26
     private let gutterW: CGFloat = 44
 
+    // KidLisp Friday — @jeffrey's standing weekly ritual (keep/drop new pieces +
+    // push KidLisp infra/story/platform). Marked on every Friday column in the
+    // pals pink (#cd5c9b), regardless of sign-in state.
+    private static let kidLispPink =
+        NSColor(calibratedRed: 0.804, green: 0.361, blue: 0.608, alpha: 1)
+    private func isKidLispFriday(_ date: Date) -> Bool {
+        Calendar.current.component(.weekday, from: date) == 6   // 1=Sun … 6=Fri
+    }
+
     // Hit-test boxes recomputed each draw.
     private struct HitBox { var rect: NSRect; var event: LaidEvent }
     private var hitBoxes: [HitBox] = []
@@ -135,6 +144,14 @@ final class WeekView: NSView {
         // column's actual date rather than assuming column 0 is Sunday.
         let dayNames = ["", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
+        // KidLisp Friday — a soft pink wash down every Friday column so the
+        // ritual is always visible on the calendar (drawn under the grid lines).
+        for d in 0..<dayCount where isKidLispFriday(dayDate(d)) {
+            WeekView.kidLispPink.withAlphaComponent(0.09).setFill()
+            NSRect(x: grid.minX + CGFloat(d) * colW, y: 0,
+                   width: colW, height: bounds.height - legendH).fill()
+        }
+
         // Today's column highlight — washed in today's own day color.
         if today >= 0 {
             DayPalette.color(for: dayDate(today)).withAlphaComponent(0.10).setFill()
@@ -191,16 +208,30 @@ final class WeekView: NSView {
             shadow.shadowColor = NSColor.white.withAlphaComponent(0.6)
             shadow.shadowBlurRadius = 1.5
             shadow.shadowOffset = NSSize(width: 0, height: -0.5)
+            let isFriday = isKidLispFriday(date)
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: dayCount == 1 ? 15 : 13,
                                          weight: isToday ? .heavy : .bold),
-                .foregroundColor: NSColor.labelColor,
+                .foregroundColor: isFriday ? WeekView.kidLispPink : NSColor.labelColor,
                 .paragraphStyle: style,
                 .shadow: shadow,
             ]
             (header as NSString).draw(
                 in: NSRect(x: grid.minX + CGFloat(d) * colW, y: 9, width: colW, height: 20),
                 withAttributes: attrs)
+
+            // KidLisp Friday sublabel, tucked under the "Fri N" header.
+            if isFriday {
+                let subAttrs: [NSAttributedString.Key: Any] = [
+                    .font: NSFont.systemFont(ofSize: 8, weight: .heavy),
+                    .foregroundColor: WeekView.kidLispPink,
+                    .paragraphStyle: style,
+                    .shadow: shadow,
+                ]
+                ("🔮 kidlisp" as NSString).draw(
+                    in: NSRect(x: grid.minX + CGFloat(d) * colW, y: 25, width: colW, height: 12),
+                    withAttributes: subAttrs)
+            }
         }
     }
 

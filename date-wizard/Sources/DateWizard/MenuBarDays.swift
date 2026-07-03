@@ -32,6 +32,8 @@ final class MenuBarDays {
     private var focusedIndex: Int?        // the day showing in the wizard
     private var midnightTimer: Timer?
     private var barThickness: CGFloat = 22
+    // The daemon's roster of sibling wizards it can summon (Date is built in).
+    private let roster = WizardRoster()
 
     // ── lifecycle ─────────────────────────────────────────────────────
     func install() {
@@ -43,7 +45,7 @@ final class MenuBarDays {
             button.target = self
             button.action = #selector(clicked(_:))
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
-            button.toolTip = "DateWizard"
+            button.toolTip = "Wizard — calendar + summon (right-click)"
 
             // Hover tracking — lights the dot under the cursor.
             hover.onMove = { [weak self] ev in self?.handleHover(ev) }
@@ -64,39 +66,25 @@ final class MenuBarDays {
         if idx != focusedIndex { focusedIndex = idx; refresh() }
     }
 
-    /// Repaint the strip for the current day / focus / hover.
+    /// Paint the menu-bar face: the hand-pixeled wizard guy. This daemon is the
+    /// "wizard of wizards" now (the date is built in), so it wears the wizard,
+    /// not the day strip.
     func refresh() {
         guard let button = statusItem?.button else { return }
-        let w = DayStrip.contentWidth(forHeight: barThickness)
-        let img = NSImage(size: NSSize(width: w, height: barThickness))
-        img.lockFocus()
-        DayStrip.draw(in: NSRect(x: 0, y: 0, width: w, height: barThickness),
-                      selected: focusedIndex,
-                      today: DayPalette.index(for: Date()),
-                      hovered: hoveredIndex)
-        img.unlockFocus()
-        img.isTemplate = false            // keep our colors; don't tint as a template
+        let img = wizardGuy(scale: 1)
+        img.isTemplate = false            // keep his colors; don't tint as a template
         button.image = img
     }
 
     // ── input ─────────────────────────────────────────────────────────
     @objc private func clicked(_ sender: NSStatusBarButton) {
+        // Right-click → the full daemon menu (calendar controls + summon roster).
+        // Left-click → straight into the calendar (the thing you reach for most).
         if NSApp.currentEvent?.type == .rightMouseUp {
             showMenu(from: sender)
-            return
+        } else {
+            onOpen?()
         }
-        // Left-click: open the day under the cursor — like tapping a single
-        // note key in Menu Band. The dot maps to that weekday in the current
-        // (Sun→Sat) week.
-        if let event = NSApp.currentEvent {
-            let local = sender.convert(event.locationInWindow, from: nil)
-            let idx = DayStrip.index(atX: local.x, in: sender.bounds)
-            let weekStart = WeekView.startOfWeek(for: Date())
-            let date = Calendar.current.date(byAdding: .day, value: idx, to: weekStart) ?? Date()
-            onSelectDay?(date)
-            return
-        }
-        onOpen?()
     }
 
     private func handleHover(_ event: NSEvent) {
@@ -112,16 +100,39 @@ final class MenuBarDays {
 
     private func showMenu(from button: NSStatusBarButton) {
         let menu = NSMenu()
-        let open = NSMenuItem(title: "Open DateWizard", action: #selector(menuOpen), keyEquivalent: "")
+
+        // ── The date, built in ──
+        let open = NSMenuItem(title: "Open Calendar", action: #selector(menuOpen), keyEquivalent: "")
         open.target = self
+        open.image = wizardGuy(scale: 1)
         menu.addItem(open)
         let today = NSMenuItem(title: "Go to Today", action: #selector(menuToday), keyEquivalent: "")
         today.target = self
         menu.addItem(today)
+
+        // ── Summon a sibling wizard ──
         menu.addItem(.separator())
-        let quit = NSMenuItem(title: "Quit DateWizard", action: #selector(menuQuit), keyEquivalent: "q")
+        let heading = NSMenuItem(title: "Summon", action: nil, keyEquivalent: "")
+        heading.isEnabled = false
+        menu.addItem(heading)
+        for (i, w) in siblingWizards.enumerated() {
+            let item = NSMenuItem(title: w.exe, action: #selector(WizardRoster.summon(_:)), keyEquivalent: "")
+            item.target = roster
+            item.tag = i
+            item.toolTip = w.blurb
+            item.image = roster.mascotImage(w, side: 18)
+            menu.addItem(item)
+        }
+
+        // ── About / quit ──
+        menu.addItem(.separator())
+        let about = NSMenuItem(title: "About Our Wizards…", action: #selector(WizardRoster.showAbout), keyEquivalent: "")
+        about.target = roster
+        menu.addItem(about)
+        let quit = NSMenuItem(title: "Quit Wizard", action: #selector(menuQuit), keyEquivalent: "q")
         quit.target = self
         menu.addItem(quit)
+
         menu.popUp(positioning: nil,
                    at: NSPoint(x: 0, y: button.bounds.height + 4),
                    in: button)
