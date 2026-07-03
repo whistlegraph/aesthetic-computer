@@ -296,13 +296,13 @@ final class ExpandedPianoWaveformView: NSView {
         llmButton.translatesAutoresizingMaskIntoConstraints = false
         modeStack.addArrangedSubview(llmButton)
         let modeSpecs: [(label: String, image: NSImage?, tag: Int)] = [
-            ("Notepat",
+            ("Default",
              NotepatFavicon.image
-                ?? NSImage(systemSymbolName: "keyboard", accessibilityDescription: "Notepat")?
+                ?? NSImage(systemSymbolName: "keyboard", accessibilityDescription: "Default")?
                     .withSymbolConfiguration(modeSymbol),
              0),
-            ("Conventional",
-             NSImage(systemSymbolName: "pianokeys", accessibilityDescription: "Conventional")?
+            ("AWSED",
+             NSImage(systemSymbolName: "pianokeys", accessibilityDescription: "AWSED")?
                 .withSymbolConfiguration(modeSymbol),
              1),
         ]
@@ -336,6 +336,16 @@ final class ExpandedPianoWaveformView: NSView {
         gamepadToggle.translatesAutoresizingMaskIntoConstraints = false
         self.gamepadToggle = gamepadToggle
         modeStack.addArrangedSubview(gamepadToggle)
+        // "?" — why these layouts? Opens the keymaps paper (bundled PDF in
+        // Preview, or the hosted URL). Momentary, sits at the right of the row.
+        let whyButton = NSButton(title: "?", target: self,
+                                 action: #selector(openKeymapsPaper(_:)))
+        whyButton.bezelStyle = .recessed
+        whyButton.setButtonType(.momentaryPushIn)
+        whyButton.controlSize = .regular
+        whyButton.toolTip = "Why this layout? — open the keymaps paper"
+        whyButton.translatesAutoresizingMaskIntoConstraints = false
+        modeStack.addArrangedSubview(whyButton)
         contentStack.addArrangedSubview(modeStack)
         for label in [focusHintLabel, octaveHintLabel, layoutHintLabel] {
             label.font = NSFont.systemFont(ofSize: 10, weight: .bold)
@@ -542,6 +552,19 @@ final class ExpandedPianoWaveformView: NSView {
 
     @objc private func openLLMGuide(_ sender: NSButton) {
         LLMGuideWindowController.show()
+    }
+
+    /// "Why this layout?" — opens the keymaps paper: the bundled PDF (in
+    /// Preview, offline) if present, else the canonical hosted URL in the
+    /// browser.
+    @objc private func openKeymapsPaper(_ sender: NSButton) {
+        if let url = Bundle.appResources.url(
+            forResource: "keymaps-social-software-26-arxiv", withExtension: "pdf") {
+            NSWorkspace.shared.open(url)
+        } else if let url = URL(
+            string: "https://papers.aesthetic.computer/keymaps-social-software-26-arxiv.pdf") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     @objc private func gamepadSchemeChanged(_ sender: NSPopUpButton) {

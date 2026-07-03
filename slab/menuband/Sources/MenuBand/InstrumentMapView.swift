@@ -302,17 +302,17 @@ final class InstrumentListView: NSView {
                 cap.lineWidth = 1.4
                 cap.stroke()
             } else {
-                accent.withAlphaComponent(0.10).setFill()
+                accent.withAlphaComponent(0.30).setFill()
                 cap.fill()
-                accent.withAlphaComponent(0.55).setStroke()
-                cap.lineWidth = 0.8
+                accent.withAlphaComponent(0.85).setStroke()
+                cap.lineWidth = 1.0
                 cap.stroke()
             }
             let labelText = "0  MIDI OUT"
             let labelColor: NSColor = midiModeActive ? .white : .labelColor
             let labelAttrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: 10.5, weight: .semibold),
-                .foregroundColor: labelColor.withAlphaComponent(midiModeActive ? 1.0 : 0.85),
+                .foregroundColor: labelColor,
                 .kern: 0.4,
             ]
             let str = NSAttributedString(string: labelText, attributes: labelAttrs)
@@ -332,13 +332,13 @@ final class InstrumentListView: NSView {
                 tint.withAlphaComponent(0.85).setFill(); cap.fill()
                 tint.setStroke(); cap.lineWidth = 1.4; cap.stroke()
             } else {
-                tint.withAlphaComponent(0.10).setFill(); cap.fill()
-                tint.withAlphaComponent(0.55).setStroke(); cap.lineWidth = 0.8; cap.stroke()
+                tint.withAlphaComponent(0.30).setFill(); cap.fill()
+                tint.withAlphaComponent(0.85).setStroke(); cap.lineWidth = 1.0; cap.stroke()
             }
             let labelColor: NSColor = sampleBackendActive ? .white : .labelColor
             let str = NSAttributedString(string: "SAMPLE", attributes: [
                 .font: NSFont.systemFont(ofSize: 10.5, weight: .semibold),
-                .foregroundColor: labelColor.withAlphaComponent(sampleBackendActive ? 1.0 : 0.85),
+                .foregroundColor: labelColor,
                 .kern: 0.4,
             ])
             let size = str.size()
@@ -361,8 +361,8 @@ final class InstrumentListView: NSView {
                 teal.withAlphaComponent(0.85).setFill(); cap.fill()
                 teal.setStroke(); cap.lineWidth = 1.4; cap.stroke()
             } else {
-                teal.withAlphaComponent(0.10).setFill(); cap.fill()
-                teal.withAlphaComponent(0.55).setStroke(); cap.lineWidth = 0.8; cap.stroke()
+                teal.withAlphaComponent(0.30).setFill(); cap.fill()
+                teal.withAlphaComponent(0.85).setStroke(); cap.lineWidth = 1.0; cap.stroke()
             }
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: 9, weight: .semibold),
