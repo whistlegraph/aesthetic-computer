@@ -7,6 +7,7 @@
     "platform": "devcontainer up --workspace-folder .; devcontainer exec --workspace-folder . fish -c 'aesthetic'",
     "test": "node run-tests.mjs",
     "doctor": "node toolchain/doctor.mjs",
+    "domain": "node toolchain/domains/domain.mjs",
     "test:keeps:v5": "jasmine spec/keeps-v5-production-spec.js",
     "test:keeps:v4:network": "RUN_KEEPS_NETWORK_TESTS=true jasmine spec/keeps-v4-readonly-spec.js spec/keeps-v4-security-spec.js",
     "test:keeps:network": "RUN_KEEPS_NETWORK_TESTS=true jasmine spec/keeps-v4-readonly-spec.js spec/keeps-v4-security-spec.js",
