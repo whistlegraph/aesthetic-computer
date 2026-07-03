@@ -162,7 +162,10 @@ final class AudioGroupPreview: NSObject, AVAudioPlayerDelegate {
         }
     }
 
-    /// Same grid as ImageGroupPreview: cols = ceil(sqrt n), top-to-bottom rows.
+    /// Same grid as ImageGroupPreview (cols = ceil(sqrt n), top-to-bottom
+    /// rows) but with a CAPPED cell: audio tiles are dashboards, not
+    /// canvases, so a lone file opens as a card instead of swallowing the
+    /// whole screen. Small walls center; big walls fill as before.
     private func layoutGrid() {
         let n = controllers.count
         guard n > 0 else { return }
@@ -171,13 +174,18 @@ final class AudioGroupPreview: NSObject, AVAudioPlayerDelegate {
         let cols = Int(ceil(Double(n).squareRoot()))
         let rows = Int(ceil(Double(n) / Double(cols)))
         let gap: CGFloat = 16
-        let cellW = (screen.width - gap * CGFloat(cols + 1)) / CGFloat(cols)
-        let cellH = (screen.height - gap * CGFloat(rows + 1)) / CGFloat(rows)
+        let maxW: CGFloat = 560, maxH: CGFloat = 340
+        let cellW = min((screen.width - gap * CGFloat(cols + 1)) / CGFloat(cols), maxW)
+        let cellH = min((screen.height - gap * CGFloat(rows + 1)) / CGFloat(rows), maxH)
+        let gridW = CGFloat(cols) * cellW + gap * CGFloat(cols - 1)
+        let gridH = CGFloat(rows) * cellH + gap * CGFloat(rows - 1)
+        let ox = screen.minX + (screen.width - gridW) / 2
+        let oyTop = screen.maxY - (screen.height - gridH) / 2
         for (i, c) in controllers.enumerated() {
             let col = i % cols
             let row = i / cols
-            let x = screen.minX + gap + CGFloat(col) * (cellW + gap)
-            let yTop = screen.maxY - gap - CGFloat(row) * (cellH + gap)
+            let x = ox + CGFloat(col) * (cellW + gap)
+            let yTop = oyTop - CGFloat(row) * (cellH + gap)
             c.fit(in: NSRect(x: x, y: yTop - cellH, width: cellW, height: cellH))
         }
     }
@@ -476,26 +484,29 @@ private final class WaveformView: NSView {
     }
 
     /// Chunked AVAudioFile read → per-bin absolute peaks, normalized to 1.
+    /// The read buffer MUST use the file's own processingFormat — read(into:)
+    /// throws on any channel-count mismatch, so a mono buffer against a stereo
+    /// file decodes zero frames and the strip renders as a flat line.
     static func decodePeaks(path: String, bins: Int) -> [CGFloat] {
         guard let file = try? AVAudioFile(forReading: URL(fileURLWithPath: path)),
-              file.length > 0,
-              let fmt = AVAudioFormat(commonFormat: .pcmFormatFloat32,
-                                      sampleRate: file.processingFormat.sampleRate,
-                                      channels: 1, interleaved: false)
+              file.length > 0
         else { return [] }
+        let fmt = file.processingFormat // float32 deinterleaved, N channels
         let total = Int(file.length)
         let perBin = max(total / bins, 1)
         var out = [CGFloat](repeating: 0, count: bins)
         let chunk: AVAudioFrameCount = 65536
         guard let buf = AVAudioPCMBuffer(pcmFormat: fmt, frameCapacity: chunk) else { return [] }
+        let channels = Int(fmt.channelCount)
         var frame = 0
         while frame < total {
             buf.frameLength = 0
             guard (try? file.read(into: buf, frameCount: chunk)) != nil, buf.frameLength > 0,
-                  let data = buf.floatChannelData?[0] else { break }
+                  let data = buf.floatChannelData else { break }
             for i in 0..<Int(buf.frameLength) {
                 let bin = min((frame + i) / perBin, bins - 1)
-                let v = CGFloat(abs(data[i]))
+                var v: CGFloat = 0
+                for ch in 0..<channels { v = max(v, CGFloat(abs(data[ch][i]))) }
                 if v > out[bin] { out[bin] = v }
             }
             frame += Int(buf.frameLength)
