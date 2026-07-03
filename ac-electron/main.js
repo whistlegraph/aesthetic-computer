@@ -1179,7 +1179,6 @@ function broadcastCredentialsChanged() {
 // ========== System Tray ==========
 let tray = null;
 let notepatTray = null;
-let calendarTray = null;
 let trayContextMenu = null; // Stored so macOS left-click can pop it explicitly.
 
 // Parse the macOS/Windows accent color into {r,g,b}. Returns null when the
@@ -1546,52 +1545,6 @@ function createNotepatTray() {
     { label: 'Quit', accelerator: process.platform === 'darwin' ? 'Cmd+Q' : 'Alt+F4', click: () => app.quit() },
   ]);
   notepatTray.setContextMenu(menu);
-}
-
-function createCalendarTray() {
-  if (calendarTray) return;
-
-  let iconPath;
-  if (process.platform === 'darwin') {
-    iconPath = app.isPackaged
-      ? path.join(process.resourcesPath, 'calendarTrayTemplate.png')
-      : path.join(__dirname, 'build', 'icons', 'calendarTrayTemplate.png');
-  } else {
-    iconPath = app.isPackaged
-      ? path.join(process.resourcesPath, 'calendarTrayTemplate.png')
-      : path.join(__dirname, 'build', 'icons', 'calendarTrayTemplate.png');
-  }
-
-  const icon = nativeImage.createFromPath(iconPath);
-  if (icon.isEmpty()) {
-    console.warn('[calendar-tray] Icon empty at', iconPath);
-    return;
-  }
-  if (process.platform === 'darwin') icon.setTemplateImage(true);
-
-  calendarTray = new Tray(icon);
-  calendarTray.setToolTip('Calendar');
-
-  const open = () => navigateToPiece('cal');
-
-  const menu = Menu.buildFromTemplate([
-    { label: 'Calendar', click: () => navigateToPiece('cal') },
-    { label: 'Add Appointment', click: () => navigateToPiece('cal:add') }, // DateWizard add-flow (piece handles :add)
-    { type: 'separator' },
-    { label: 'Day', click: () => navigateToPiece('cal:day') },
-    { label: 'Week', click: () => navigateToPiece('cal:week') },
-    { label: 'Month', click: () => navigateToPiece('cal:month') },
-  ]);
-
-  if (process.platform === 'darwin') {
-    // macOS: pop the menu manually so a plain left-click reliably opens it,
-    // matching the pals tray. Left-click still opens the calendar directly.
-    calendarTray.on('click', open);
-    calendarTray.on('right-click', () => calendarTray.popUpContextMenu(menu));
-  } else {
-    calendarTray.on('click', open);
-    calendarTray.setContextMenu(menu);
-  }
 }
 
 // ========== End System Tray ==========
@@ -3222,7 +3175,7 @@ app.whenReady().then(async () => {
 
   createMenu();
   createSystemTray();
-  createCalendarTray();
+  // Calendar tray removed — DateWizard (Swift) owns the menu-bar calendar now.
   // createNotepatTray();  // disabled — single pals systray icon only
   
   // Start FF1 Bridge server for kidlisp.com integration
