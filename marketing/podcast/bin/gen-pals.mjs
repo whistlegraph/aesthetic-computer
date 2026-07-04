@@ -73,7 +73,23 @@ const AVATARS = [
   { slug: "av-balloon",       prompt: `A small glossy inflatable balloon ${MARK} in candy red, centered with airy margin. Clean pale-blue background, high contrast, fun and bouncy. ${AV}` },
 ];
 
-const TRAYS = { materials: THEMES, avatars: AVATARS };
+// ── colorfield tray: small centered pals floating in WIDE expansive fields of
+// color — big smooth saturated gradient washes filling the whole frame. ─────
+const CF = "A SMALL pals mark centered, floating with lots of open space around it. Square, single coherent object, circle-safe. Original artwork — no real brand names, no wordmarks, no other logos, no lettering or text anywhere. No motion blur; crisp and sharp.";
+const COLORFIELD = [
+  { slug: "cf-sunset",   prompt: `A small iridescent glass ${MARK} centered in a WIDE expansive field of color: a smooth full-bleed sunset gradient washing from warm orange through coral into deep pink, filling the entire frame, saturated and glowing, dreamy. ${CF}` },
+  { slug: "cf-teal",     prompt: `A small liquid chrome ${MARK} centered in a WIDE expansive teal-to-royal-purple gradient field filling the whole square, rich and saturated, cool and immersive. ${CF}` },
+  { slug: "cf-electric", prompt: `A small hot-pink neon ${MARK} centered in a WIDE expansive magenta-to-electric-blue color field filling the frame edge to edge, vivid and glowing, nightlife. ${CF}` },
+  { slug: "cf-citrus",   prompt: `A small glossy jelly ${MARK} centered in a WIDE lime-green-to-golden-yellow gradient field filling the whole square, juicy, bright, high-saturation. ${CF}` },
+  { slug: "cf-spectrum", prompt: `A small holographic foil ${MARK} centered in a WIDE full-spectrum iridescent color field — soft rainbow washing across the entire frame, shimmery and expansive. ${CF}` },
+  { slug: "cf-coral",    prompt: `A small matte clay ${MARK} centered in a WIDE coral-to-lavender pastel gradient field filling the frame, soft, airy, expansive. ${CF}` },
+  { slug: "cf-violet",   prompt: `A small faceted crystal ${MARK} centered in a WIDE deep-blue-to-violet gradient field filling the square, rich, moody, gemmy glow. ${CF}` },
+  { slug: "cf-aqua",     prompt: `A small glossy ceramic ${MARK} centered in a WIDE emerald-green-to-cyan gradient field filling the whole frame, fresh, saturated, immersive. ${CF}` },
+  { slug: "cf-peach",    prompt: `A small felted wool ${MARK} centered in a WIDE peach-to-rose gradient field filling the square, warm, soft, expansive pastel wash. ${CF}` },
+  { slug: "cf-ember",    prompt: `A small brushed-metal ${MARK} centered in a WIDE golden-amber-to-crimson gradient field filling the frame, warm, luxe, glowing ember wash. ${CF}` },
+];
+
+const TRAYS = { materials: THEMES, avatars: AVATARS, colorfield: COLORFIELD };
 
 async function gen(theme) {
   const out = resolve(OUT, `${theme.slug}.png`);
