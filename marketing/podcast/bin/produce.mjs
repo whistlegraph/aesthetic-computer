@@ -22,6 +22,8 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { essayToScript } from "./essay-to-script.mjs";
 import { renderJingles, renderBed, BED_BPM } from "./jingle.mjs";
 import { renderCover } from "./cover.mjs";
+import { master } from "./master.mjs";
+import { EPISODE_SUBSTRATE, DEFAULT_SUBSTRATE } from "../lib/substrates.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
@@ -210,7 +212,19 @@ mkdirSync(build, { recursive: true });
 const seq = [];
 let n = 0;
 let clock = 0; // absolute seconds, so we can land the body on the bed's grid
-const add = (src) => { const d = resolve(build, `seg_${String(n++).padStart(3, "0")}.wav`); toWav(src, d); seq.push(d); clock += dur(d); };
+// Each spoken/jingle segment gets a tiny fade in/out so it meets the silence
+// gaps at zero — kills the concat-seam clicks/pops (esp. into the outro).
+const add = (src) => {
+  const raw = resolve(build, `raw_${String(n).padStart(3, "0")}.wav`);
+  toWav(src, raw);
+  const dd = dur(raw);
+  const d = resolve(build, `seg_${String(n++).padStart(3, "0")}.wav`);
+  const fo = Math.max(0, dd - 0.010).toFixed(3);
+  execFileSync("ffmpeg", ["-y", "-i", raw,
+    "-af", `afade=t=in:st=0:d=0.006,afade=t=out:st=${fo}:d=0.010`,
+    "-ar", "44100", "-ac", "2", "-c:a", "pcm_s16le", d], { stdio: "ignore" });
+  seq.push(d); clock += dd;
+};
 const gap = (s) => { if (s <= 0) return; const d = resolve(build, `seg_${String(n++).padStart(3, "0")}.wav`); silence(d, s); seq.push(d); clock += s; };
 
 add(introJingle);
@@ -250,48 +264,67 @@ writeFileSync(listFile, seq.map((f) => `file '${f.replace(/'/g, "'\\''")}'`).joi
 const outMp3 = resolve(ROOT, "out", `${script.slug}.mp3`);
 mkdirSync(dirname(outMp3), { recursive: true });
 
-// 5a. Concat the voice track (no normalization yet).
-const voiceWav = resolve(build, "voice.wav");
+// 5a. Concat the voice track, then VOICE-MASTER it (its own broadcast pass):
+// declick the seams, de-ess, dynamic-EQ de-harsh, presence/air, level every
+// line to a consistent loudness (speechnorm), and glue. --novoicemaster skips.
+const voiceRaw = resolve(build, "voice-raw.wav");
 execFileSync("ffmpeg", [
   "-y", "-f", "concat", "-safe", "0", "-i", listFile,
-  "-ar", "44100", "-ac", "2", "-c:a", "pcm_s16le", voiceWav,
+  "-ar", "44100", "-ac", "2", "-c:a", "pcm_s16le", voiceRaw,
 ], { stdio: "ignore" });
+
+const voiceWav = resolve(build, "voice.wav");
+if (flags.novoicemaster) {
+  execFileSync("ffmpeg", ["-y", "-i", voiceRaw, "-c:a", "pcm_s16le", voiceWav], { stdio: "ignore" });
+} else {
+  console.log("Voice-mastering…");
+  const vmaster = [
+    "adeclick",                       // repair any residual seam clicks
+    "highpass=f=85",
+    "deesser=i=0.35",                 // tame sibilance
+    "adynamicequalizer=dfrequency=6500:dqfactor=2.0:tfrequency=6500:tqfactor=2.0:threshold=0.05:ratio=3:attack=5:release=90:mode=cutabove",
+    "equalizer=f=3000:t=q:w=1.4:g=3.0",   // presence
+    "equalizer=f=9500:t=q:w=1.2:g=1.6",   // air
+    "speechnorm=e=6.25:r=0.0003:l=1",     // even line-to-line loudness
+    "acompressor=threshold=-18dB:ratio=3:attack=6:release=180:makeup=1.5",
+  ].join(",");
+  execFileSync("ffmpeg", ["-y", "-i", voiceRaw, "-af", vmaster, "-ac", "2", "-c:a", "pcm_s16le", voiceWav], { stdio: "ignore" });
+}
 
 // 5b. Score a lo-fi bed (melody + rhythm) under the whole reading,
 // sidechain-ducked by the voice so speech stays clear. --nobed to skip;
 // --bedgain N to tune (default 0.35).
+const premaster = resolve(build, "premaster.wav");
 const audioTmp = resolve(build, "audio.mp3");
 if (flags.nobed) {
-  execFileSync("ffmpeg", [
-    "-y", "-i", voiceWav, "-af", "loudnorm=I=-16:TP=-1.5:LRA=11",
-    "-c:a", "libmp3lame", "-b:a", "256k", audioTmp,
-  ], { stdio: "ignore" });
+  execFileSync("ffmpeg", ["-y", "-i", voiceWav, "-ac", "2", "-c:a", "pcm_s16le", premaster], { stdio: "ignore" });
 } else {
   const kit = flags.kit || "felt";
   console.log(`Scoring bed… (kit: ${kit})`);
-  const bedGain = flags.bedgain !== undefined ? Number(flags.bedgain) : 0.30;
+  const bedGain = flags.bedgain !== undefined ? Number(flags.bedgain) : 0.42;
   const bedWav = resolve(build, "bed.wav");
   renderBed(dur(voiceWav) + 1.0, bedWav, { kit });
-  // Voice chain (sharper + upfront): high-pass rumble, presence + air EQ,
-  // gentle compression for a consistent forward level.
-  const vox = "highpass=f=85," +
-    "equalizer=f=3200:t=q:w=1.4:g=3.5," +
-    "equalizer=f=7000:t=q:w=1.6:g=2.5," +
-    "acompressor=threshold=-18dB:ratio=3:attack=6:release=180:makeup=2";
-  // Bed chain: quiet, with a slow phaser sweep for movement, then ducked hard
-  // under the voice so speech always sits on top.
+  // The voice is already voice-mastered, so the mix just ducks a quiet, phaser-
+  // swept bed hard under it — speech always sits on top.
   const bedfx = `volume=${bedGain},aphaser=type=t:speed=0.25:decay=0.4`;
   execFileSync("ffmpeg", [
     "-y", "-i", voiceWav, "-i", bedWav,
     "-filter_complex",
-      `[0:a]${vox}[vox];` +
       `[1:a]${bedfx}[bedfx];` +
-      `[bedfx][vox]sidechaincompress=threshold=0.015:ratio=8:attack=5:release=340[bd];` +
-      `[vox][bd]amix=inputs=2:duration=first:normalize=0[m];` +
-      `[m]loudnorm=I=-16:TP=-1.5:LRA=11[out]`,
-    "-map", "[out]",
-    "-c:a", "libmp3lame", "-b:a", "256k", audioTmp,
+      `[bedfx][0:a]sidechaincompress=threshold=0.02:ratio=6:attack=6:release=380[bd];` +
+      `[0:a][bd]amix=inputs=2:duration=first:normalize=0[out]`,
+    "-map", "[out]", "-ac", "2", "-c:a", "pcm_s16le", premaster,
   ], { stdio: "ignore" });
+}
+
+// 5c. Master — the same chain every episode (2-pass loudnorm → -16 LUFS +
+// true-peak limit). --nomaster to skip (just encode the pre-master).
+const substrate = flags.substrate || EPISODE_SUBSTRATE[script.slug] || DEFAULT_SUBSTRATE;
+if (flags.nomaster) {
+  execFileSync("ffmpeg", ["-y", "-i", premaster, "-c:a", "libmp3lame", "-b:a", "256k", audioTmp], { stdio: "ignore" });
+} else {
+  console.log(`Mastering… (substrate: ${substrate})`);
+  master(premaster, audioTmp, substrate);
 }
 
 // 5b. Cover art (square, on-brand) → embed as ID3 album art + keep the file.

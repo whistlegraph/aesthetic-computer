@@ -81,6 +81,27 @@ if (positional[0] === "publish") {
   process.exit(0);
 }
 
+// ── replace the audio of an already-published episode ──────────────────
+// Re-push out/<slug>.mp3 to the live episode (same URL/GUID). Note: already-
+// downloaded copies keep the old file; new plays get the update.
+if (positional[0] === "replace") {
+  const s = positional[1];
+  const rp = resolve(OUT, `${s}.buzzsprout.json`);
+  if (!existsSync(rp)) { console.error(`✗ no receipt ${rp} — upload it first`); process.exit(1); }
+  const id = JSON.parse(readFileSync(rp, "utf8")).id;
+  const audio = resolve(OUT, `${s}.mp3`);
+  if (!existsSync(audio)) { console.error(`✗ missing ${audio}`); process.exit(1); }
+  const fd = new FormData();
+  fd.append("audio_file", new Blob([readFileSync(audio)], { type: "audio/mpeg" }), basename(audio));
+  console.log(`▸ replacing audio on episode ${id} (${(readFileSync(audio).length / 1e6).toFixed(1)} MB)…`);
+  const res = await fetch(`${API}/episodes/${id}.json`, { method: "PUT", headers: auth, body: fd });
+  if (!res.ok) { console.error(`✗ replace ${res.status}: ${(await res.text()).slice(0, 300)}`); process.exit(1); }
+  const ep = await res.json();
+  writeFileSync(rp, JSON.stringify(ep, null, 2) + "\n");
+  console.log(`✓ ${s} audio replaced (same episode; new plays get the update)`);
+  process.exit(0);
+}
+
 // ── publish an episode ─────────────────────────────────────────────────
 const slug = positional[0];
 if (!slug) { console.error("usage: buzzsprout.mjs <slug> [--private] | publish <slug> | list"); process.exit(1); }

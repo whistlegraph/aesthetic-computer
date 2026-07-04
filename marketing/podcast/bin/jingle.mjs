@@ -97,15 +97,31 @@ function normalize(L, R, peak = 0.9) {
 const N = { C4: 261.63, D4: 293.66, E4: 329.63, G4: 392.0, A4: 440.0,
            C5: 523.25, D5: 587.33, E5: 659.25, G5: 783.99, A5: 880.0, C6: 1046.5 };
 
+// A soft, mostly-sine chime — warm and gentle (just a touch of 2nd harmonic),
+// with a slow attack and long decay. Sits under the voice, not over it.
+function addSine(L, R, f, at, dur, gain, pan = 0) {
+  const start = Math.floor(at * SR), n = Math.floor(dur * SR);
+  const gl = gain * (1 - Math.max(0, pan));
+  const gr = gain * (1 + Math.min(0, pan));
+  for (let i = 0; i < n; i++) {
+    const t = i / SR;
+    const env = Math.exp(-t * 2.3) * (1 - Math.exp(-t * 70)); // soft attack, gentle decay
+    const s = (Math.sin(2 * Math.PI * f * t) + 0.1 * Math.sin(2 * Math.PI * 2 * f * t)) * env;
+    const idx = start + i;
+    if (idx < L.length) { L[idx] += s * gl; R[idx] += s * gr; }
+  }
+}
+
 function renderIntro() {
   const dur = 3.4;
   const L = new Float32Array(Math.floor(dur * SR));
   const R = new Float32Array(L.length);
-  addPad(L, R, N.C4 / 2, 0.0, dur, 0.10);          // low warmth
-  const motif = [N.C5, N.E5, N.G5, N.A5, N.C6];    // ascending open bell
-  motif.forEach((f, i) => addBell(L, R, f, 0.02 + i * 0.19, 2.2, 0.9, (i % 2 ? 0.3 : -0.3)));
-  addBell(L, R, N.G5, 1.15, 2.0, 0.4, 0.0);        // sympathetic fifth
-  normalize(L, R, 0.92);
+  addPad(L, R, N.C4 / 2, 0.0, dur, 0.09);            // low warmth
+  addPad(L, R, N.G4 / 2, 0.0, dur, 0.05);            // soft fifth
+  const motif = [N.C4, N.E4, N.G4, N.C5];            // gentle ascending sine chime
+  motif.forEach((f, i) => addSine(L, R, f, 0.05 + i * 0.24, 2.0, 0.7, (i % 2 ? 0.25 : -0.25)));
+  addSine(L, R, N.E5, 1.0, 1.7, 0.28, 0.0);          // faint sparkle
+  normalize(L, R, 0.5);                              // mixed low — near voice level
   return encodeWav(L, R);
 }
 
@@ -113,14 +129,12 @@ function renderOutro() {
   const dur = 3.2;
   const L = new Float32Array(Math.floor(dur * SR));
   const R = new Float32Array(L.length);
-  addPad(L, R, N.C4 / 2, 0.0, dur, 0.11);
-  const motif = [N.C6, N.G5, N.E5, N.C5];          // resolving descent
-  motif.forEach((f, i) => addBell(L, R, f, 0.02 + i * 0.2, 2.2, 0.85, (i % 2 ? -0.3 : 0.3)));
-  // final grounded chord
-  addBell(L, R, N.C4, 0.9, 2.3, 0.55, 0);
-  addBell(L, R, N.G4, 0.92, 2.3, 0.4, 0.2);
-  addBell(L, R, N.C5, 0.94, 2.3, 0.4, -0.2);
-  normalize(L, R, 0.92);
+  addPad(L, R, N.C4 / 2, 0.0, dur, 0.10);
+  const motif = [N.C5, N.G4, N.E4, N.C4];            // resolving descent
+  motif.forEach((f, i) => addSine(L, R, f, 0.05 + i * 0.26, 2.0, 0.65, (i % 2 ? -0.25 : 0.25)));
+  addSine(L, R, N.C4, 0.95, 2.4, 0.5, 0);            // grounded sine chord
+  addSine(L, R, N.G4, 0.97, 2.4, 0.28, 0.2);
+  normalize(L, R, 0.5);
   return encodeWav(L, R);
 }
 
@@ -230,9 +244,9 @@ export function renderBed(durationSec, outPath, opts = {}) {
   for (let t = 0; t < dur; t += bar * 2) {
     const [r, th, fi] = prog[ci++ % prog.length];
     const d = Math.min(bar * 2 + 0.7, dur - t + 0.7);
-    addPad(L, R, r, t, d, 0.055);
-    addPad(L, R, th, t, d, 0.035);
-    addPad(L, R, fi, t, d, 0.042);
+    addPad(L, R, r, t, d, 0.17);    // chords — the harmonic bed, well up
+    addPad(L, R, th, t, d, 0.12);
+    addPad(L, R, fi, t, d, 0.145);
   }
 
   // Rhythm — swappable drum kit (default "felt" = the current sound).

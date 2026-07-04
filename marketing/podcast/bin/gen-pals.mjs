@@ -57,6 +57,24 @@ const THEMES = [
   { slug: "wood", prompt: `A hand-carved warm walnut wood sculpture of ${MARK} with visible grain and soft rounded edges, tinted faintly rosy, on a honey-toned background under soft directional light. Warm, crafted, organic. ${RULES}` },
 ];
 
+// ── avatars tray: SMALLER, circle-safe pals for IG/Spotify/round crops —
+// varied focal size, colorway, material, contrast, and vibe. ─────────────
+const AV = "Square composition on a clean flat background. Original artwork — no real brand names, no wordmarks, no other logos, no lettering or text anywhere. No motion blur; crisp and sharp.";
+const AVATARS = [
+  { slug: "av-glass-pastel",  prompt: `A SMALL iridescent hand-blown glass ${MARK}, sitting compact in the exact center with a lot of soft empty margin all around it (fits easily inside a circle crop). Pale pastel pink-lilac background, soft studio light, low contrast, dreamy and calm. ${AV}` },
+  { slug: "av-neon-punch",    prompt: `A small glowing hot-magenta neon-tube ${MARK}, centered with generous black margin around it. Deep pure-black background, very high contrast, punchy and electric, bold nightlife vibe. ${AV}` },
+  { slug: "av-chrome-cool",   prompt: `A small mirror-polished liquid chrome ${MARK}, centered with wide margin. Cool blue-to-silver gradient background, high contrast, sleek Y2K futuristic. ${AV}` },
+  { slug: "av-felt-cozy",     prompt: `A small needle-felted wool ${MARK} in warm rose-pink, centered with lots of cream margin. Soft cream felt background, low contrast, cozy and tactile. ${AV}` },
+  { slug: "av-holo-foil",     prompt: `A small holographic iridescent foil ${MARK}, centered with clean margin. Soft silver-white background with rainbow sheen, high contrast, shiny and modern. ${AV}` },
+  { slug: "av-jelly-candy",   prompt: `A small glossy translucent candy-jelly ${MARK} in bright cherry-pink, centered with airy margin. Soft mint background, medium-high contrast, playful and juicy. ${AV}` },
+  { slug: "av-clay-terra",    prompt: `A small matte terracotta clay ${MARK}, centered with warm margin. Soft sand background, low contrast, earthy and handmade. ${AV}` },
+  { slug: "av-amethyst",      prompt: `A medium faceted amethyst crystal ${MARK}, centered with clean margin. Deep violet background with soft purple bloom, high contrast, gemmy and rich. ${AV}` },
+  { slug: "av-gold-lux",      prompt: `A small brushed 3D gold ${MARK}, centered with wide margin. Pure black background, high contrast, luxe and minimal. ${AV}` },
+  { slug: "av-balloon",       prompt: `A small glossy inflatable balloon ${MARK} in candy red, centered with airy margin. Clean pale-blue background, high contrast, fun and bouncy. ${AV}` },
+];
+
+const TRAYS = { materials: THEMES, avatars: AVATARS };
+
 async function gen(theme) {
   const out = resolve(OUT, `${theme.slug}.png`);
   if (existsSync(out) && !FORCE) { console.log(`  · ${theme.slug} cached`); return out; }
@@ -86,22 +104,20 @@ async function gen(theme) {
   }
 }
 
-const list = THEMES.filter((t) => !ONLY || ONLY.has(t.slug));
-console.log(`\nGenerating ${list.length} themed pals (${SIZE}) from ${REF.split("/").slice(-2).join("/")}:\n`);
+const tray = flag("tray") || "materials";
+const themes = TRAYS[tray] || THEMES;
+const list = themes.filter((t) => !ONLY || ONLY.has(t.slug));
+console.log(`\nGenerating ${list.length} pals · tray "${tray}" (${SIZE}) from ${REF.split("/").slice(-2).join("/")}:\n`);
 const made = [];
 for (const t of list) { const f = await gen(t); if (f) made.push({ slug: t.slug, file: f }); }
 
-// contact sheet for picking
+// contact sheet for picking (untitled tiles — magick font annotation is flaky here)
 if (made.length) {
-  const tiles = made.map((m) => m.file);
-  const labeled = made.map((m) => {
-    const lab = resolve(OUT, `.lab-${m.slug}.png`);
-    execFileSync("magick", [m.file, "-resize", "512x512", "-gravity", "south",
-      "-background", "#000000A0", "-splice", "0x44", "-annotate", "+0+10", m.slug, lab]);
-    return lab;
-  });
-  const contact = resolve(OUT, "contact.png");
-  execFileSync("magick", ["montage", ...labeled, "-tile", "4x2", "-geometry", "+8+8", "-background", "#111", contact]);
+  const tiles = made.map((m) => { const t = resolve(OUT, `.t-${m.slug}.png`); execFileSync("magick", [m.file, "-resize", "440x440", t]); return t; });
+  const cols = made.length > 8 ? 5 : 4;
+  const contact = resolve(OUT, `contact-${tray}.png`);
+  execFileSync("magick", ["montage", ...tiles, "-tile", `${cols}x`, "-geometry", "+8+8", "-background", "#111", contact]);
+  execFileSync("rm", ["-f", ...tiles]);
   console.log(`\n✓ ${made.length} generated → out/pals/`);
   console.log(`  contact sheet · ${contact}`);
 }
