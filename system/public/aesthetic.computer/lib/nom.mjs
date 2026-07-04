@@ -40,6 +40,9 @@ let state = "title"; // title | play | clear | over | win
 let grid = []; // [{ value, correct, eaten, flash }]
 let ruleLabel = ""; // short on-screen token (e.g. "X3")
 let ruleSpeech = ""; // spoken phrase (e.g. "multiples of 3")
+let caption = ""; // 💬 last spoken text — always shown along the bottom
+let captionFrame = 0; // frame the caption was set (for a quick fade-in)
+const warmed = new Set(); // utterances already sent to the TTS cache this session
 let muncher = { col: 2, row: 2 }; // logical grid position
 let muncherVis = { col: 2, row: 2 }; // smoothed display position (slides)
 let hover = null; // { col, row } cell under the mouse, for hover highlight
@@ -117,7 +120,7 @@ let pendingStart = false; // announce the rule + play the start chime once audio
 // declarations at the top of the file.
 function reset() {
   mode = "number"; lang = "en"; hiRes = false; noteScale = [];
-  state = "title"; grid = []; ruleLabel = ""; ruleSpeech = "";
+  state = "title"; grid = []; ruleLabel = ""; ruleSpeech = ""; caption = "";
   muncher = { col: 2, row: 2 }; muncherVis = { col: 2, row: 2 };
   hover = null; swipedGesture = false; drag = null;
   troggles = []; lives = START_LIVES; level = 1; remaining = 0;
@@ -249,6 +252,7 @@ function setTheme(isDark) {
     timeHi: [120, 220, 120], timeMid: [240, 210, 90], timeLow: [240, 80, 80],
     timerPanic: [255, 60, 60], timerPanicAlt: [255, 235, 120],
     ruleLabel: [255, 230, 120],
+    captionText: [245, 248, 255], captionBg: [0, 0, 0, 160],
     eaten: [15, 17, 34],
     failedBg: [44, 22, 24],
     missedBg: [72, 74, 82], missedText: [228, 230, 238], missedOutline: [210, 214, 222],
@@ -267,6 +271,7 @@ function setTheme(isDark) {
     timeHi: [40, 150, 70], timeMid: [190, 148, 16], timeLow: [198, 50, 50],
     timerPanic: [205, 32, 32], timerPanicAlt: [170, 130, 12],
     ruleLabel: [158, 116, 8],
+    captionText: [28, 32, 44], captionBg: [255, 255, 255, 180],
     eaten: [224, 229, 238],
     failedBg: [240, 219, 219],
     missedBg: [203, 207, 216], missedText: [56, 60, 70], missedOutline: [128, 134, 148],
@@ -1192,10 +1197,37 @@ function moveBlip() {
   note({ type: "sine", tone: 340, duration: 0.02, volume: 0.16 });
 }
 
-// 🗣️ Speak a phrase with the OpenAI voice (auto-cached on the AC CDN).
+// 🗣️ Speak a phrase in Jeffrey's ElevenLabs voice (auto-cached on the AC CDN)
+// and surface it as the on-screen caption. The caption is set synchronously, so
+// the word shows the instant it's spoken — before the audio finishes loading.
 function say(text) {
   if (!text) return;
-  speakFn?.(text, "male:0", "cloud", { volume: 1, provider: "openai" });
+  caption = text;
+  captionFrame = frames;
+  warmed.add(text); // it's about to be fetched; don't also prewarm it
+  speakFn?.(text, "jeffrey", "cloud", { volume: 1, provider: "jeffrey" });
+}
+
+// 🔥 Warm the TTS cache for a phrase without playing it (preloadOnly), so the
+// first munch that speaks it plays instantly. Deduped per session.
+function warm(text) {
+  if (!text || warmed.has(text)) return;
+  warmed.add(text);
+  speakFn?.(text, "jeffrey", "cloud", { provider: "jeffrey", preloadOnly: true });
+}
+
+// 🔥 Pre-warm every distinct utterance the current board can speak (each cell's
+// meaning in a translation edition), so munches voice back with no lag.
+function prewarmBoard() {
+  if (mode !== "word" || lang === "en") return; // only translation editions speak per-munch
+  const table = lang === "da" ? TRANSLATE_DA : lang === "ru" ? TRANSLATE_RU : lang === "cat" ? TRANSLATE_CAT : TRANSLATE;
+  const seen = new Set();
+  for (const cd of grid) {
+    const t = table[cd.value] || String(cd.value);
+    if (seen.has(t)) continue;
+    seen.add(t);
+    warm(t);
+  }
 }
 
 // Stop the sustained held-munch chord.
@@ -1366,6 +1398,7 @@ function announceBoard() {
   if (mode === "note") playScale();
   else startChirp();
   say(ruleSpeech);
+  prewarmBoard(); // warm the board's munch utterances so they voice back instantly
 }
 
 // 🎪 Act ─────────────────────────────────────────────────────────────────────
@@ -1580,10 +1613,37 @@ function paint(api) {
     // Keep the (hidden) pixel buffer a clean theme wash — freeze-frames and
     // piece transitions sample it, and a flat color beats stale art there.
     api.wipe(...T.bg);
-    paintGame(hdApi(layer));
+    const a = hdApi(layer);
+    paintGame(a);
+    paintCaption(a);
   } else {
     paintGame(api);
+    paintCaption(api);
   }
+}
+
+// 💬 Always-on caption: the last spoken text, centered along the bottom over a
+// translucent strip so it stays legible on any board. Uses the cell font so
+// Cyrillic / accented meanings (rusnom, mexinom) render real glyphs.
+function paintCaption({ ink, write, box, screen }) {
+  if (!caption || state === "title") return;
+  const font = cellFont();
+  const { adv, h } = fontMetrics(font);
+  // Scale with the render resolution (hd draws at native pixels), then shrink
+  // to fit long meanings ("aesthetic computer pieces") within the screen.
+  const maxW = screen.width - 8;
+  let size = max(1, round(screen.height / 240));
+  while (size > 1 && caption.length * adv * size > maxW) size -= 1;
+  const w = caption.length * adv * size;
+  const x = max(2, round((screen.width - w) / 2));
+  const gh = h * size;
+  const y = screen.height - gh - round(gh * 0.4) - 2;
+  const fade = min(1, (frames - captionFrame) / 6); // quick ease-in on change
+  const [br, bg, bb, ba = 255] = T.captionBg;
+  ink(br, bg, bb, round(ba * fade)).box(0, y - 3, screen.width, gh + 7);
+  ink(...T.captionText).write(
+    caption, { x, y, size }, undefined, undefined, false, font || undefined,
+  );
 }
 
 // 🖼️ Canvas2D adapter — mirrors the exact slice of the AC paint API this
