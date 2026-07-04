@@ -264,38 +264,60 @@ ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "systemctl restart lith"
 # Purge the Cloudflare cache so new code is served immediately. Runtime .mjs
 # (kidlisp, disk, graph, …) are STATIC sub-imports without the ?v= cache-bust
 # boot.mjs puts on top-level modules, so the edge would otherwise serve stale
-# code until the TTL. Token comes from the env or the vault service env; if
+# code until the TTL. Creds come from the process env or a vault env file; if
 # absent we skip (the short Caddy TTL still bounds staleness).
-function get_cf_token
-    if set -q CLOUDFLARE_API_TOKEN
-        echo $CLOUDFLARE_API_TOKEN
-        return 0
-    end
-    for token_file in $SERVICE_ENV \
-        "$VAULT_DIR/help/deploy.env" "$VAULT_DIR/oven/deploy.env" "$VAULT_DIR/at/deploy.env"
-        test -f $token_file; or continue
-        set line (rg -m1 '^CLOUDFLARE_API_TOKEN=' $token_file)
+#
+# Auth priority: the Global API Key (email + key) is preferred because the
+# scoped CLOUDFLARE_API_TOKEN has gone stale in several env files; Bearer token
+# is the fallback when that's all we have.
+set -l CF_ENV_FILES $SERVICE_ENV \
+    "$VAULT_DIR/.devcontainer/envs/devcontainer.env" \
+    "$VAULT_DIR/oven/deploy.env" "$VAULT_DIR/nanos/conductor.env" \
+    "$VAULT_DIR/help/deploy.env" "$VAULT_DIR/at/deploy.env"
+
+# Read the first value found for each key across the candidate env files
+# (an already-exported process env var wins).
+function cf_lookup --argument-names key
+    for f in $cf_env_files_g
+        test -f $f; or continue
+        set -l line (rg -m1 "^(export )?$key=" $f)
         if test -n "$line"
-            string replace -r '^CLOUDFLARE_API_TOKEN=' '' -- $line
+            string replace -r "^(export )?$key=" '' -- $line | string trim --chars '"\''
             return 0
         end
     end
     return 1
 end
+set -g cf_env_files_g $CF_ENV_FILES
+
+set -l CF_EMAIL $CLOUDFLARE_EMAIL
+set -l CF_KEY $CLOUDFLARE_API_KEY
+set -l CF_TOKEN $CLOUDFLARE_API_TOKEN
+test -z "$CF_EMAIL"; and set CF_EMAIL (cf_lookup CLOUDFLARE_EMAIL)
+test -z "$CF_KEY"; and set CF_KEY (cf_lookup CLOUDFLARE_API_KEY)
+test -z "$CF_TOKEN"; and set CF_TOKEN (cf_lookup CLOUDFLARE_API_TOKEN)
+set -e cf_env_files_g
+
+# Build curl auth args: Global API Key first, else Bearer token.
+set -l CF_AUTH
+if test -n "$CF_EMAIL"; and test -n "$CF_KEY"
+    set CF_AUTH -H "X-Auth-Email: $CF_EMAIL" -H "X-Auth-Key: $CF_KEY"
+else if test -n "$CF_TOKEN"
+    set CF_AUTH -H "Authorization: Bearer $CF_TOKEN"
+end
 
 echo -e "$GREEN-> Purging Cloudflare cache...$NC"
-set CF_TOKEN (get_cf_token)
-if test -z "$CF_TOKEN"
-    echo -e "$YELLOW   No CLOUDFLARE_API_TOKEN found — skipping purge (Caddy short TTL still applies).$NC"
+if test -z "$CF_AUTH"
+    echo -e "$YELLOW   No Cloudflare credentials found — skipping purge (Caddy short TTL still applies).$NC"
 else
     set CF_ZONE (curl -s -X GET "https://api.cloudflare.com/client/v4/zones?name=aesthetic.computer" \
-        -H "Authorization: Bearer $CF_TOKEN" -H "content-type: application/json" \
+        $CF_AUTH -H "content-type: application/json" \
         | python3 -c "import json,sys; r=json.load(sys.stdin).get('result') or []; print(r[0]['id'] if r else '')" 2>/dev/null)
     if test -z "$CF_ZONE"
         echo -e "$YELLOW   Could not resolve zone id — skipping purge.$NC"
     else
         set CF_RESULT (curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE/purge_cache" \
-            -H "Authorization: Bearer $CF_TOKEN" -H "content-type: application/json" \
+            $CF_AUTH -H "content-type: application/json" \
             --data '{"purge_everything":true}' \
             | python3 -c "import json,sys; d=json.load(sys.stdin); print('ok' if d.get('success') else 'failed: '+str(d.get('errors')))" 2>/dev/null)
         echo -e "$GREEN   purge: $CF_RESULT$NC"
