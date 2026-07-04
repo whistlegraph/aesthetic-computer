@@ -408,6 +408,46 @@ const NOTE_ROUNDS = [
     test: (l, o) => o <= 3,
     scale: ["C3", "E3", "G3", "C4"],
   },
+  {
+    label: "D MAJOR", say: "d major",
+    test: (l) => ["D", "E", "F#", "G", "A", "B", "C#"].includes(l),
+    scale: ["D4", "E4", "F#4", "G4", "A4", "B4", "C#5", "D5"],
+  },
+  {
+    label: "E MINOR", say: "e minor",
+    test: (l) => ["E", "F#", "G", "A", "B", "C", "D"].includes(l),
+    scale: ["E4", "F#4", "G4", "A4", "B4", "C5", "D5", "E5"],
+  },
+  {
+    label: "A MAJOR", say: "a major",
+    test: (l) => ["A", "B", "C#", "D", "E", "F#", "G#"].includes(l),
+    scale: ["A3", "B3", "C#4", "D4", "E4", "F#4", "G#4", "A4"],
+  },
+  {
+    label: "G CHORD", say: "g chord",
+    test: (l) => ["G", "B", "D"].includes(l),
+    scale: ["G4", "B4", "D5", "G5"],
+  },
+  {
+    label: "F CHORD", say: "f chord",
+    test: (l) => ["F", "A", "C"].includes(l),
+    scale: ["F4", "A4", "C5", "F5"],
+  },
+  {
+    label: "AM CHORD", say: "a minor chord",
+    test: (l) => ["A", "C", "E"].includes(l),
+    scale: ["A3", "C4", "E4", "A4"],
+  },
+  {
+    label: "D CHORD", say: "d chord",
+    test: (l) => ["D", "F#", "A"].includes(l),
+    scale: ["D4", "F#4", "A4", "D5"],
+  },
+  {
+    label: "NATURALS", say: "natural notes",
+    test: (l) => !l.includes("#"),
+    scale: ["C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5"],
+  },
 ];
 
 // Spanish → English (spoken on each munch in mexinom).
@@ -427,6 +467,29 @@ const TRANSLATE = {
   casa: "house", jugo: "juice", flor: "flower", mar: "sea", pie: "foot", ojo: "eye", mano: "hand",
   dedo: "finger", luz: "light", rio: "river", sal: "salt", lapiz: "pencil", bota: "boot",
   clavo: "nail", papel: "paper", caja: "box",
+  nopal: "cactus", pozole: "hominy stew", birria: "birria stew", carne: "meat",
+  pollo: "chicken", arroz: "rice", tortilla: "tortilla",
+  leon: "lion", tigre: "tiger", vaca: "cow", rana: "frog", pez: "fish",
+  aguila: "eagle", conejo: "rabbit",
+  amarillo: "yellow", naranja: "orange", violeta: "violet", plata: "silver",
+  turquesa: "turquoise", celeste: "sky blue", lila: "lilac", vino: "maroon",
+  fresa: "strawberry", limon: "lemon", platano: "banana", sandia: "watermelon",
+  durazno: "peach", ciruela: "plum", pina: "pineapple", manzana: "apple",
+  confeti: "confetti", banda: "band", mariachi: "mariachi", cohete: "firework",
+  premio: "prize", fiesta: "party", corona: "crown", canto: "singing", amigo: "friend",
+  boca: "mouth", nariz: "nose", oreja: "ear", cabeza: "head", pelo: "hair",
+  cara: "face", brazo: "arm", pierna: "leg", diente: "tooth", lengua: "tongue",
+  cuello: "neck", rodilla: "knee", codo: "elbow", corazon: "heart",
+  cama: "bed", puerta: "door", ventana: "window", plato: "plate", cuchara: "spoon",
+  tenedor: "fork", cuchillo: "knife", olla: "pot", sarten: "pan", escoba: "broom",
+  toalla: "towel", jabon: "soap", llave: "key", lampara: "lamp", espejo: "mirror", cobija: "blanket",
+  luna: "moon", estrella: "star", nube: "cloud", lluvia: "rain", viento: "wind",
+  montana: "mountain", arbol: "tree", hoja: "leaf", roca: "rock", arena: "sand",
+  lago: "lake", cielo: "sky", nieve: "snow", tierra: "earth",
+  mama: "mom", papa: "dad", hijo: "son", hija: "daughter", hermano: "brother",
+  hermana: "sister", abuelo: "grandfather", abuela: "grandmother", tio: "uncle",
+  tia: "aunt", primo: "cousin", prima: "cousin", nieto: "grandson", nieta: "granddaughter",
+  esposo: "husband", esposa: "wife", bebe: "baby", sobrino: "nephew",
 };
 
 // 🇩🇰 Danish → English (spoken on each munch in dannom). Real Danish spelling
@@ -444,6 +507,26 @@ const TRANSLATE_DA = {
   ild: "fire", ven: "friend", kaffe: "coffee", hus: "house", sten: "stone",
   tog: "train", stol: "chair", bord: "table", ur: "clock", glas: "glass",
   sko: "shoe", "dør": "door", vej: "road", regn: "rain", vind: "wind",
+  mel: "flour", "mælk": "milk", sild: "herring", "kød": "meat", honning: "honey",
+  ged: "goat", "høne": "hen", fugl: "bird", "ørn": "eagle",
+  lilla: "purple", pink: "pink", orange: "orange", turkis: "turquoise",
+  guld: "gold", "sølv": "silver", beige: "beige", "lyserød": "light pink",
+  "jordbær": "strawberry", "hindbær": "raspberry", "kirsebær": "cherry",
+  appelsin: "orange", ananas: "pineapple", "blåbær": "blueberry", abrikos: "apricot",
+  pude: "pillow", kakao: "cocoa", pejs: "fireplace", "bål": "bonfire",
+  sok: "sock", hue: "beanie", kram: "hug", smil: "smile",
+  "hånd": "hand", fod: "foot", "øje": "eye", "øre": "ear", "næse": "nose",
+  mund: "mouth", arm: "arm", ben: "leg", "hår": "hair", hoved: "head",
+  finger: "finger", "tå": "toe", hals: "neck", "knæ": "knee", tand: "tooth", ryg: "back",
+  seng: "bed", lampe: "lamp", gulv: "floor", "væg": "wall", spejl: "mirror",
+  skab: "cupboard", kop: "cup", kniv: "knife", ske: "spoon", gryde: "pot",
+  gaffel: "fork", kande: "jug", vindue: "window",
+  sol: "sun", "måne": "moon", "sø": "lake", hav: "sea", skov: "forest",
+  "træ": "tree", blad: "leaf", flod: "river", bjerg: "mountain", himmel: "sky",
+  sky: "cloud", stjerne: "star", strand: "beach", mark: "field", "græs": "grass", blomst: "flower",
+  bluse: "blouse", bukser: "pants", "trøje": "sweater", kjole: "dress", hat: "hat",
+  frakke: "coat", jakke: "jacket", vest: "vest", slips: "tie", "bælte": "belt",
+  "støvle": "boot", skjorte: "shirt", handske: "glove",
 };
 
 // 🇷🇺 Russian → English (spoken on each munch in rusnom). Cyrillic — the board
@@ -462,6 +545,24 @@ const TRANSLATE_RU = {
   "стол": "table", "стул": "chair", "книга": "book", "окно": "window", "дверь": "door",
   "ключ": "key", "часы": "clock", "лампа": "lamp", "пол": "floor", "стена": "wall",
   "дом": "house", "лес": "forest", "сад": "garden",
+  "молоко": "milk", "борщ": "borscht", "блин": "pancake", "пирог": "pie", "мёд": "honey",
+  "лев": "lion", "тигр": "tiger", "слон": "elephant", "олень": "deer",
+  "оранжевый": "orange", "фиолетовый": "purple", "коричневый": "brown", "голубой": "light blue",
+  "золотой": "gold", "серебряный": "silver", "бежевый": "beige", "бирюзовый": "turquoise",
+  "апельсин": "orange", "мандарин": "tangerine", "ананас": "pineapple", "вишня": "cherry",
+  "клубника": "strawberry", "малина": "raspberry", "абрикос": "apricot",
+  "облако": "cloud", "трава": "grass", "цветок": "flower", "дерево": "tree", "озеро": "lake",
+  "голова": "head", "рука": "hand", "нога": "leg", "глаз": "eye", "нос": "nose", "рот": "mouth",
+  "ухо": "ear", "зуб": "tooth", "волосы": "hair", "палец": "finger", "живот": "belly",
+  "спина": "back", "шея": "neck", "губа": "lip", "плечо": "shoulder", "колено": "knee",
+  "кровать": "bed", "шкаф": "wardrobe", "диван": "sofa", "зеркало": "mirror", "ковёр": "carpet",
+  "полка": "shelf", "чашка": "cup", "тарелка": "plate",
+  "рубашка": "shirt", "футболка": "t-shirt", "платье": "dress", "юбка": "skirt", "шапка": "cap",
+  "шарф": "scarf", "куртка": "jacket", "пальто": "coat", "свитер": "sweater", "пояс": "belt",
+  "галстук": "tie", "носок": "sock", "перчатка": "glove", "кофта": "cardigan", "шляпа": "hat", "майка": "tank top",
+  "мама": "mom", "папа": "dad", "брат": "brother", "сестра": "sister", "сын": "son", "дочь": "daughter",
+  "бабушка": "grandmother", "дедушка": "grandfather", "дядя": "uncle", "тётя": "aunt",
+  "внук": "grandson", "внучка": "granddaughter", "муж": "husband", "жена": "wife", "мать": "mother", "отец": "father",
 };
 
 // 😼 Catnom glossary — spoken on each munch (slang → plain meaning, code →
@@ -487,6 +588,41 @@ const TRANSLATE_CAT = {
   link: "tap to go there", post: "share it online", ping: "a quick hello",
   spam: "junk messages", lag: "a slow connection", dm: "a direct message",
   emoji: "a tiny picture", blog: "an online journal",
+  // slang
+  lit: "exciting", flex: "show off", bop: "a great song", salty: "bitter or upset",
+  // code
+  hash: "a scrambled id", cache: "a fast stash", debug: "hunt for bugs", class: "a code blueprint",
+  // aesthetic computer pieces
+  clock: "shows the time", line: "draw a line", oval: "draw an oval",
+  brush: "paint with a brush", spray: "spray paint",
+  // vibes
+  lofi: "soft lo-fi sound", zen: "calm and clear", mellow: "relaxed and gentle",
+  serene: "calm and peaceful",
+  // keys
+  esc: "cancel or exit", ctrl: "control key", alt: "the alt key",
+  cmd: "the command key", opt: "the option key", fn: "function key",
+  // internet
+  url: "a web address", feed: "a stream of posts", like: "a tap of approval",
+  wiki: "an editable site", cloud: "storage online",
+  // snacks
+  pretzel: "a knotted salty snack", nachos: "chips with cheese",
+  fudge: "soft chocolate candy", jerky: "dried meat snack",
+  // space
+  comet: "an icy space ball", orbit: "a path around", galaxy: "a sea of stars",
+  nebula: "a space gas cloud", meteor: "a shooting star", cosmos: "all of space",
+  void: "empty dark space",
+  // music
+  tempo: "the speed of music", chord: "notes played together", verse: "a song section",
+  chorus: "the repeated part", remix: "a reworked song", riff: "a catchy phrase",
+  pitch: "how high or low", rhythm: "the timing pattern", snare: "a sharp drum",
+  synth: "an electronic sound", scale: "a ladder of notes", bass: "the low sound",
+  // emotions
+  joy: "great happiness", fear: "feeling afraid", brave: "full of courage",
+  proud: "happy with yourself",
+  // tools
+  wrench: "turns nuts and bolts", pliers: "grips and bends", chisel: "carves wood or stone",
+  clamp: "holds things tight", level: "checks if flat", sander: "smooths surfaces",
+  file: "smooths rough edges", bolt: "a metal fastener",
 };
 
 function shuffle(arr, rnd) {
@@ -501,33 +637,63 @@ function shuffle(arr, rnd) {
 const WORD_ROUNDS = [
   {
     label: "ANIMALS", say: "animals",
-    correct: ["cat", "dog", "fox", "owl", "bee", "cow", "ant", "ram", "hen", "elk", "pig", "bat"],
-    wrong: ["cup", "rug", "jar", "fan", "pen", "map", "key", "box", "hat", "mug", "net", "log"],
+    correct: ["cat", "dog", "fox", "owl", "bee", "cow", "ant", "ram", "hen", "elk", "pig", "bat", "rat", "hog", "ape", "doe", "goat", "wolf", "frog", "crab"],
+    wrong: ["cup", "rug", "jar", "fan", "pen", "map", "key", "box", "hat", "mug", "net", "log", "cap", "tin"],
   },
   {
     label: "COLORS", say: "colors",
-    correct: ["red", "tan", "pink", "blue", "gold", "lime", "teal", "gray", "rose", "navy", "cyan"],
-    wrong: ["run", "leg", "sky", "ice", "oak", "bug", "dot", "sun", "egg", "tin", "pod"],
+    correct: ["red", "tan", "pink", "blue", "gold", "lime", "teal", "gray", "rose", "navy", "cyan", "green", "brown", "black", "white", "olive", "coral", "mint", "beige", "amber"],
+    wrong: ["leg", "oak", "bug", "dot", "sun", "egg", "tin", "pod", "cup", "jar", "box", "fan", "rug", "log"],
   },
   {
     label: "FRUITS", say: "fruits",
-    correct: ["plum", "lime", "pear", "fig", "kiwi", "date", "lemon", "apple", "grape", "melon"],
-    wrong: ["desk", "sock", "lamp", "fork", "coin", "boot", "rope", "drum", "vase", "nail"],
+    correct: ["plum", "lime", "pear", "fig", "kiwi", "date", "lemon", "apple", "grape", "melon", "peach", "mango", "berry", "cherry", "banana", "orange", "guava", "papaya", "lychee", "apricot"],
+    wrong: ["desk", "sock", "lamp", "fork", "coin", "boot", "rope", "drum", "vase", "nail", "brick", "spoon", "chair", "clock"],
   },
   {
     label: "RHYMES", say: "words that rhyme with cat",
-    correct: ["cat", "hat", "bat", "rat", "mat", "sat", "fat", "vat", "pat", "flat", "chat"],
-    wrong: ["cot", "hit", "bet", "rot", "mug", "sit", "fan", "van", "pen", "top", "cup"],
+    correct: ["cat", "hat", "bat", "rat", "mat", "sat", "fat", "vat", "pat", "flat", "chat", "gnat", "spat", "brat", "scat", "slat", "that", "splat", "drat", "prat"],
+    wrong: ["cot", "hit", "bet", "rot", "mug", "sit", "fan", "van", "pen", "top", "cup", "dog", "sun", "box"],
   },
   {
     label: "S-WORDS", say: "words starting with s",
-    correct: ["sun", "sky", "sea", "sip", "sad", "sob", "saw", "sit", "sum", "ski", "spy"],
-    wrong: ["fun", "dry", "tea", "tip", "mad", "job", "jaw", "fit", "gum", "fly", "cry"],
+    correct: ["sun", "sky", "sea", "sip", "sad", "sob", "saw", "sit", "sum", "ski", "spy", "six", "sew", "set", "say", "son", "sir", "sap", "soy", "sag"],
+    wrong: ["fun", "dry", "tea", "tip", "mad", "job", "jaw", "fit", "gum", "fly", "cry", "hop", "run", "bed"],
   },
   {
     label: "DOUBLES", say: "words with double letters",
-    correct: ["bee", "see", "moo", "egg", "add", "odd", "ebb", "too", "zoo", "off", "ill", "boo"],
-    wrong: ["bet", "set", "mob", "ego", "ace", "old", "elf", "tot", "zip", "oaf", "ink", "bow"],
+    correct: ["bee", "see", "moo", "egg", "add", "odd", "ebb", "too", "zoo", "off", "ill", "boo", "all", "inn", "tree", "free", "book", "food", "deep", "feet"],
+    wrong: ["bet", "set", "mob", "ego", "ace", "old", "elf", "tot", "zip", "oaf", "ink", "bow", "cat", "fan"],
+  },
+  {
+    label: "BODY", say: "body parts",
+    correct: ["arm", "leg", "ear", "eye", "toe", "hip", "jaw", "rib", "lip", "gum", "shin", "knee", "hand", "foot", "nose", "chin", "neck", "back", "head", "heel"],
+    wrong: ["cup", "jar", "fan", "pen", "map", "box", "rug", "mug", "net", "log", "lamp", "sock", "fork", "coin"],
+  },
+  {
+    label: "HOME", say: "household objects",
+    correct: ["cup", "jar", "fan", "pen", "map", "box", "rug", "mug", "net", "lamp", "sock", "fork", "bowl", "dish", "sofa", "desk", "chair", "clock", "broom", "towel"],
+    wrong: ["cat", "dog", "fox", "arm", "leg", "ear", "eye", "toe", "cow", "bee", "pig", "owl", "ram", "hen"],
+  },
+  {
+    label: "FOOD", say: "food",
+    correct: ["bread", "rice", "egg", "soup", "cake", "meat", "milk", "bean", "corn", "fish", "ham", "jam", "taco", "pie", "stew", "toast", "honey", "pasta", "salad", "cheese"],
+    wrong: ["desk", "lamp", "sock", "fork", "coin", "boot", "rope", "drum", "vase", "nail", "brick", "clock", "chair", "spoon"],
+  },
+  {
+    label: "WEATHER", say: "weather",
+    correct: ["rain", "snow", "wind", "fog", "sun", "cloud", "storm", "ice", "hail", "frost", "mist", "sleet", "gale", "dew", "heat", "cold", "sunny", "windy", "cloudy", "rainy"],
+    wrong: ["desk", "sock", "fork", "coin", "boot", "rope", "drum", "vase", "nail", "brick", "clock", "chair", "spoon", "lamp"],
+  },
+  {
+    label: "VERBS", say: "action words",
+    correct: ["run", "jump", "hop", "sit", "eat", "sip", "nap", "dig", "hug", "kick", "walk", "swim", "jog", "spin", "clap", "sing", "read", "cook", "wave", "throw"],
+    wrong: ["cup", "jar", "fan", "desk", "lamp", "sock", "rock", "coin", "tree", "book", "door", "wall", "roof", "chair"],
+  },
+  {
+    label: "SPACE", say: "outer space",
+    correct: ["star", "moon", "sun", "mars", "comet", "orbit", "space", "alien", "rocket", "planet", "galaxy", "venus", "saturn", "pluto", "meteor", "cosmos", "nebula", "lunar", "solar", "crater"],
+    wrong: ["cup", "jar", "fan", "pen", "desk", "lamp", "sock", "fork", "coin", "boot", "chair", "clock", "spoon", "broom"],
   },
 ];
 
@@ -537,28 +703,48 @@ const WORD_ROUNDS = [
 const ES_WORD_ROUNDS = [
   {
     label: "COMIDA", say: "comida mexicana",
-    correct: ["taco", "mole", "elote", "chile", "salsa", "queso", "tamal", "atole", "sopa", "pan", "frijol"],
-    wrong: ["mesa", "silla", "reloj", "libro", "tren", "gorra", "clave", "vaso", "foco", "muro", "red"],
+    correct: ["taco", "mole", "elote", "chile", "salsa", "queso", "tamal", "atole", "sopa", "pan", "frijol", "nopal", "pozole", "birria", "carne", "pollo", "arroz", "tortilla"],
+    wrong: ["mesa", "silla", "reloj", "libro", "tren", "gorra", "clave", "vaso", "foco", "muro", "red", "taza"],
   },
   {
     label: "ANIMALES", say: "animales",
-    correct: ["gato", "perro", "burro", "coyote", "puma", "lobo", "gallo", "toro", "mono", "oso", "pato"],
-    wrong: ["mesa", "taza", "sol", "casa", "jugo", "reloj", "silla", "vaso", "tren", "flor", "muro"],
+    correct: ["gato", "perro", "burro", "coyote", "puma", "lobo", "gallo", "toro", "mono", "oso", "pato", "leon", "tigre", "vaca", "rana", "pez", "aguila", "conejo"],
+    wrong: ["mesa", "taza", "sol", "casa", "jugo", "reloj", "silla", "vaso", "tren", "flor", "muro", "foco"],
   },
   {
     label: "COLORES", say: "colores",
-    correct: ["rojo", "azul", "gris", "rosa", "verde", "negro", "blanco", "oro", "cafe", "morado"],
-    wrong: ["pato", "mesa", "mar", "pie", "ojo", "mano", "dedo", "casa", "luz", "rio", "sal"],
+    correct: ["rojo", "azul", "gris", "rosa", "verde", "negro", "blanco", "oro", "cafe", "morado", "amarillo", "naranja", "violeta", "plata", "turquesa", "celeste", "lila", "vino"],
+    wrong: ["pato", "mesa", "mar", "pie", "ojo", "mano", "dedo", "casa", "luz", "rio", "sal", "vaso"],
   },
   {
     label: "FRUTAS", say: "frutas",
-    correct: ["mango", "guayaba", "lima", "melon", "papaya", "mora", "higo", "coco", "pera", "uva"],
-    wrong: ["mesa", "sol", "tren", "lapiz", "bota", "vaso", "gorra", "clavo", "silla", "foco", "red"],
+    correct: ["mango", "guayaba", "lima", "melon", "papaya", "mora", "higo", "coco", "pera", "uva", "fresa", "limon", "platano", "sandia", "durazno", "ciruela", "pina", "manzana"],
+    wrong: ["mesa", "sol", "tren", "lapiz", "bota", "vaso", "gorra", "clavo", "silla", "foco", "red", "reloj"],
   },
   {
     label: "FIESTA", say: "cosas de fiesta",
-    correct: ["pinata", "globo", "dulce", "musica", "baile", "feria", "vela", "regalo", "fuego"],
-    wrong: ["mesa", "tren", "reloj", "muro", "foco", "clavo", "papel", "caja", "vaso", "red"],
+    correct: ["pinata", "globo", "dulce", "musica", "baile", "feria", "vela", "regalo", "fuego", "confeti", "banda", "mariachi", "cohete", "premio", "fiesta", "corona", "canto", "amigo"],
+    wrong: ["mesa", "tren", "reloj", "muro", "foco", "clavo", "papel", "caja", "vaso", "red", "silla", "libro"],
+  },
+  {
+    label: "CUERPO", say: "partes del cuerpo",
+    correct: ["ojo", "mano", "pie", "dedo", "boca", "nariz", "oreja", "cabeza", "pelo", "cara", "brazo", "pierna", "diente", "lengua", "cuello", "rodilla", "codo", "corazon"],
+    wrong: ["mesa", "silla", "reloj", "libro", "tren", "taza", "vaso", "foco", "clavo", "papel", "caja", "gorra"],
+  },
+  {
+    label: "CASA", say: "cosas de la casa",
+    correct: ["mesa", "silla", "cama", "puerta", "ventana", "plato", "cuchara", "tenedor", "cuchillo", "olla", "sarten", "escoba", "toalla", "jabon", "llave", "lampara", "espejo", "cobija"],
+    wrong: ["gato", "perro", "taco", "mango", "sol", "mar", "flor", "rio", "toro", "pato", "oso", "luz"],
+  },
+  {
+    label: "NATURALEZA", say: "cosas de la naturaleza",
+    correct: ["sol", "mar", "flor", "rio", "luna", "estrella", "nube", "lluvia", "viento", "montana", "arbol", "hoja", "roca", "arena", "lago", "cielo", "nieve", "tierra"],
+    wrong: ["mesa", "silla", "reloj", "libro", "tren", "taza", "vaso", "foco", "gorra", "clavo", "papel", "caja"],
+  },
+  {
+    label: "FAMILIA", say: "la familia",
+    correct: ["mama", "papa", "hijo", "hija", "hermano", "hermana", "abuelo", "abuela", "tio", "tia", "primo", "prima", "nieto", "nieta", "esposo", "esposa", "bebe", "sobrino"],
+    wrong: ["mesa", "silla", "taco", "mango", "sol", "gato", "perro", "flor", "vaso", "reloj", "libro", "tren"],
   },
 ];
 
@@ -568,28 +754,48 @@ const ES_WORD_ROUNDS = [
 const DA_WORD_ROUNDS = [
   {
     label: "MAD", say: "danish food",
-    correct: ["brød", "ost", "pølse", "kage", "suppe", "smør", "fisk", "salt", "sukker", "grød", "æg"],
-    wrong: ["bord", "stol", "ur", "bog", "tog", "sko", "glas", "sten", "vej", "dør"],
+    correct: ["brød", "ost", "pølse", "kage", "suppe", "smør", "fisk", "salt", "sukker", "grød", "æg", "mel", "mælk", "sild", "kød", "honning"],
+    wrong: ["bord", "stol", "ur", "bog", "tog", "sko", "glas", "sten", "vej", "dør", "hus"],
   },
   {
     label: "DYR", say: "danish animals",
-    correct: ["kat", "hund", "ko", "gris", "hest", "and", "ravn", "ulv", "bjørn", "ræv", "mus", "får"],
-    wrong: ["hus", "tæppe", "ur", "bog", "tog", "stol", "glas", "sten", "vej", "dør"],
+    correct: ["kat", "hund", "ko", "gris", "hest", "and", "ravn", "ulv", "bjørn", "ræv", "mus", "får", "ged", "høne", "fugl", "ørn"],
+    wrong: ["hus", "tæppe", "ur", "bog", "tog", "stol", "glas", "sten", "vej", "dør", "bord"],
   },
   {
     label: "FARVER", say: "danish colors",
-    correct: ["rød", "blå", "grøn", "gul", "sort", "hvid", "grå", "brun"],
-    wrong: ["kat", "bord", "regn", "vind", "hus", "sten", "sko", "glas", "vej", "ur"],
+    correct: ["rød", "blå", "grøn", "gul", "sort", "hvid", "grå", "brun", "lilla", "pink", "orange", "turkis", "guld", "sølv", "beige", "lyserød"],
+    wrong: ["kat", "bord", "regn", "vind", "hus", "sten", "sko", "glas", "vej", "ur", "tog"],
   },
   {
     label: "FRUGT", say: "danish fruit",
-    correct: ["æble", "pære", "blomme", "banan", "drue", "fersken", "citron", "melon", "bær"],
-    wrong: ["bord", "stol", "ur", "bog", "tog", "sko", "glas", "sten", "vej", "dør"],
+    correct: ["æble", "pære", "blomme", "banan", "drue", "fersken", "citron", "melon", "bær", "jordbær", "hindbær", "kirsebær", "appelsin", "ananas", "blåbær", "abrikos"],
+    wrong: ["bord", "stol", "ur", "bog", "tog", "sko", "glas", "sten", "vej", "dør", "hus"],
   },
   {
     label: "HYGGE", say: "cozy danish things",
-    correct: ["lys", "te", "bog", "sofa", "tæppe", "ild", "ven", "kaffe"],
-    wrong: ["regn", "vind", "sten", "tog", "ur", "glas", "sko", "dør", "vej", "hus"],
+    correct: ["lys", "te", "bog", "sofa", "tæppe", "ild", "ven", "kaffe", "pude", "kakao", "pejs", "bål", "sok", "hue", "kram", "smil"],
+    wrong: ["regn", "vind", "sten", "tog", "ur", "glas", "sko", "dør", "vej", "hus", "bord"],
+  },
+  {
+    label: "KROP", say: "danish body parts",
+    correct: ["hånd", "fod", "øje", "øre", "næse", "mund", "arm", "ben", "hår", "hoved", "finger", "tå", "hals", "knæ", "tand", "ryg"],
+    wrong: ["bord", "stol", "ur", "bog", "tog", "sko", "glas", "sten", "vej", "dør", "hus"],
+  },
+  {
+    label: "HUS", say: "danish household objects",
+    correct: ["stol", "bord", "seng", "lampe", "dør", "gulv", "væg", "spejl", "skab", "kop", "kniv", "ske", "gryde", "gaffel", "kande", "vindue"],
+    wrong: ["kat", "hund", "fisk", "regn", "vind", "sten", "vej", "bær", "drue", "gris", "ræv"],
+  },
+  {
+    label: "NATUR", say: "danish nature",
+    correct: ["sol", "måne", "sø", "hav", "skov", "træ", "blad", "flod", "bjerg", "himmel", "sky", "stjerne", "strand", "mark", "græs", "blomst"],
+    wrong: ["bord", "stol", "ur", "bog", "tog", "sko", "glas", "dør", "hus", "kop", "seng"],
+  },
+  {
+    label: "TØJ", say: "danish clothing",
+    correct: ["sko", "bluse", "bukser", "trøje", "kjole", "hat", "hue", "sok", "frakke", "jakke", "vest", "slips", "bælte", "støvle", "skjorte", "handske"],
+    wrong: ["brød", "ost", "kat", "hund", "fisk", "sten", "træ", "sol", "hav", "regn", "vind"],
   },
 ];
 
@@ -599,28 +805,48 @@ const DA_WORD_ROUNDS = [
 const RU_WORD_ROUNDS = [
   {
     label: "ЕДА", say: "russian food",
-    correct: ["хлеб", "сыр", "суп", "мясо", "рыба", "сахар", "соль", "каша", "яйцо", "масло", "торт"],
-    wrong: ["стол", "стул", "книга", "окно", "дверь", "ключ", "часы", "лампа", "пол", "стена"],
+    correct: ["хлеб", "сыр", "суп", "мясо", "рыба", "сахар", "соль", "каша", "яйцо", "масло", "торт", "молоко", "борщ", "блин", "пирог", "мёд"],
+    wrong: ["стол", "стул", "книга", "окно", "дверь", "ключ", "часы", "лампа", "пол", "стена", "дом"],
   },
   {
     label: "ЖИВОТНЫЕ", say: "russian animals",
-    correct: ["кот", "собака", "корова", "конь", "волк", "лиса", "медведь", "заяц", "мышь", "коза", "бык", "овца"],
-    wrong: ["стол", "окно", "книга", "дверь", "ключ", "часы", "дом", "лампа", "пол", "стена"],
+    correct: ["кот", "собака", "корова", "конь", "волк", "лиса", "медведь", "заяц", "мышь", "коза", "бык", "овца", "лев", "тигр", "слон", "олень"],
+    wrong: ["стол", "окно", "книга", "дверь", "ключ", "часы", "дом", "лампа", "пол", "стена", "стул"],
   },
   {
     label: "ЦВЕТА", say: "russian colors",
-    correct: ["красный", "синий", "зелёный", "жёлтый", "чёрный", "белый", "серый", "розовый"],
-    wrong: ["кот", "стол", "окно", "дом", "ключ", "часы", "мышь", "рыба", "лес", "сад"],
+    correct: ["красный", "синий", "зелёный", "жёлтый", "чёрный", "белый", "серый", "розовый", "оранжевый", "фиолетовый", "коричневый", "голубой", "золотой", "серебряный", "бежевый", "бирюзовый"],
+    wrong: ["кот", "стол", "окно", "дом", "ключ", "часы", "мышь", "рыба", "лес", "сад", "книга"],
   },
   {
     label: "ФРУКТЫ", say: "russian fruit",
-    correct: ["яблоко", "груша", "слива", "банан", "виноград", "лимон", "персик", "дыня", "ягода"],
-    wrong: ["стол", "стул", "книга", "окно", "дверь", "ключ", "часы", "дом", "пол", "стена"],
+    correct: ["яблоко", "груша", "слива", "банан", "виноград", "лимон", "персик", "дыня", "ягода", "апельсин", "мандарин", "ананас", "вишня", "клубника", "малина", "абрикос"],
+    wrong: ["стол", "стул", "книга", "окно", "дверь", "ключ", "часы", "дом", "пол", "стена", "лампа"],
   },
   {
     label: "ПРИРОДА", say: "russian nature",
-    correct: ["солнце", "луна", "река", "море", "лес", "гора", "небо", "дождь", "снег", "ветер", "звезда"],
-    wrong: ["стол", "книга", "окно", "ключ", "часы", "дом", "лампа", "пол", "стена", "дверь"],
+    correct: ["солнце", "луна", "река", "море", "лес", "гора", "небо", "дождь", "снег", "ветер", "звезда", "облако", "трава", "цветок", "дерево", "озеро"],
+    wrong: ["стол", "книга", "окно", "ключ", "часы", "дом", "лампа", "пол", "стена", "дверь", "стул"],
+  },
+  {
+    label: "ТЕЛО", say: "russian body parts",
+    correct: ["голова", "рука", "нога", "глаз", "нос", "рот", "ухо", "зуб", "волосы", "палец", "живот", "спина", "шея", "губа", "плечо", "колено"],
+    wrong: ["стол", "стул", "окно", "дверь", "ключ", "часы", "лампа", "дом", "книга", "пол", "стена"],
+  },
+  {
+    label: "ДОМ", say: "russian household things",
+    correct: ["стол", "стул", "книга", "окно", "дверь", "ключ", "часы", "лампа", "кровать", "шкаф", "диван", "зеркало", "ковёр", "полка", "чашка", "тарелка"],
+    wrong: ["кот", "собака", "рыба", "солнце", "луна", "река", "лес", "гора", "снег", "дождь", "хлеб"],
+  },
+  {
+    label: "ОДЕЖДА", say: "russian clothing",
+    correct: ["рубашка", "футболка", "платье", "юбка", "шапка", "шарф", "куртка", "пальто", "свитер", "пояс", "галстук", "носок", "перчатка", "кофта", "шляпа", "майка"],
+    wrong: ["хлеб", "сыр", "кот", "собака", "рыба", "солнце", "река", "лес", "снег", "стол", "окно"],
+  },
+  {
+    label: "СЕМЬЯ", say: "russian family",
+    correct: ["мама", "папа", "брат", "сестра", "сын", "дочь", "бабушка", "дедушка", "дядя", "тётя", "внук", "внучка", "муж", "жена", "мать", "отец"],
+    wrong: ["стол", "окно", "ключ", "часы", "лампа", "солнце", "река", "лес", "хлеб", "кот", "дом"],
   },
 ];
 
@@ -630,33 +856,58 @@ const RU_WORD_ROUNDS = [
 const CAT_WORD_ROUNDS = [
   {
     label: "SLANG", say: "slang words",
-    correct: ["rizz", "sus", "cap", "goat", "mid", "drip", "slay", "bet", "yeet", "vibe", "fam", "bussin"],
-    wrong: ["desk", "lamp", "fork", "sock", "rug", "mop", "jar", "pail", "hose", "rake", "crate"],
+    correct: ["rizz", "sus", "cap", "goat", "mid", "drip", "slay", "bet", "yeet", "vibe", "fam", "bussin", "lit", "flex", "bop", "salty"],
+    wrong: ["desk", "lamp", "fork", "sock", "rug", "mop", "jar", "pail", "hose", "rake", "crate", "broom"],
   },
   {
     label: "CODE", say: "coding words",
-    correct: ["bug", "loop", "git", "byte", "bool", "null", "array", "stack", "repo", "pixel", "code", "crash"],
-    wrong: ["soup", "sand", "lake", "goose", "pony", "barn", "kite", "plum", "wool", "fog", "hay"],
+    correct: ["bug", "loop", "git", "byte", "bool", "null", "array", "stack", "repo", "pixel", "code", "crash", "hash", "cache", "debug", "class"],
+    wrong: ["soup", "sand", "lake", "goose", "pony", "barn", "kite", "plum", "wool", "fog", "hay", "moss"],
   },
   {
     label: "PIECES", say: "aesthetic computer pieces",
-    correct: ["prompt", "paint", "chat", "notepat", "wand", "tone", "camera", "smear", "bleep", "wipe", "melody"],
-    wrong: ["sofa", "ladder", "pickle", "anchor", "mitten", "faucet", "wallet", "helmet", "sponge", "teapot"],
+    correct: ["prompt", "paint", "chat", "notepat", "wand", "tone", "camera", "smear", "bleep", "wipe", "melody", "clock", "line", "oval", "brush", "spray"],
+    wrong: ["sofa", "ladder", "pickle", "anchor", "mitten", "faucet", "wallet", "helmet", "sponge", "teapot", "kettle", "basket"],
   },
   {
     label: "VIBES", say: "chill vibes",
-    correct: ["chill", "cozy", "calm", "lofi", "zen", "mellow", "soft", "comfy", "peace", "dream"],
-    wrong: ["loud", "rush", "panic", "gloom", "harsh", "fuss", "riot", "blare", "jolt", "grind"],
+    correct: ["chill", "cozy", "calm", "lofi", "zen", "mellow", "soft", "comfy", "peace", "dream", "warm", "quiet", "breezy", "snug", "serene", "gentle"],
+    wrong: ["loud", "rush", "panic", "gloom", "harsh", "fuss", "riot", "blare", "jolt", "grind", "chaos", "stress"],
   },
   {
     label: "KEYS", say: "keyboard keys",
-    correct: ["esc", "tab", "shift", "enter", "space", "ctrl", "alt", "caps", "home", "end", "del"],
-    wrong: ["door", "knob", "bell", "gate", "couch", "vent", "sill", "twig", "pond", "moss"],
+    correct: ["esc", "tab", "shift", "enter", "space", "ctrl", "alt", "caps", "home", "end", "del", "fn", "cmd", "opt", "win", "pgup"],
+    wrong: ["door", "knob", "bell", "gate", "couch", "vent", "sill", "twig", "pond", "moss", "fern", "brook"],
   },
   {
     label: "ONLINE", say: "internet words",
-    correct: ["wifi", "meme", "app", "link", "post", "blog", "ping", "spam", "lag", "dm", "emoji"],
-    wrong: ["cave", "quilt", "anvil", "plow", "broom", "candle", "stump", "wagon", "shovel", "brick"],
+    correct: ["wifi", "meme", "app", "link", "post", "blog", "ping", "spam", "lag", "dm", "emoji", "url", "feed", "like", "wiki", "cloud"],
+    wrong: ["cave", "quilt", "anvil", "plow", "broom", "candle", "stump", "wagon", "shovel", "brick", "saddle", "barrel"],
+  },
+  {
+    label: "SNACKS", say: "snacks",
+    correct: ["chips", "candy", "cookie", "donut", "popcorn", "pretzel", "gummy", "nachos", "cracker", "muffin", "fudge", "jerky", "waffle", "taco", "pizza", "fries"],
+    wrong: ["brick", "spoon", "towel", "pencil", "ladder", "hammer", "saddle", "bucket", "candle", "pillow", "magnet", "zipper"],
+  },
+  {
+    label: "SPACE", say: "outer space",
+    correct: ["moon", "star", "mars", "comet", "planet", "orbit", "galaxy", "meteor", "nebula", "sun", "venus", "saturn", "rocket", "cosmos", "pluto", "void"],
+    wrong: ["chair", "spoon", "towel", "fence", "kettle", "jacket", "pillow", "ladder", "mailbox", "sandal", "blender", "wallet"],
+  },
+  {
+    label: "MUSIC", say: "music words",
+    correct: ["beat", "tempo", "chord", "note", "drum", "bass", "tune", "verse", "chorus", "remix", "riff", "pitch", "rhythm", "snare", "synth", "scale"],
+    wrong: ["spoon", "towel", "fence", "kettle", "jacket", "pillow", "ladder", "wallet", "sandal", "mailbox", "pebble", "blender"],
+  },
+  {
+    label: "EMOTIONS", say: "feelings",
+    correct: ["happy", "sad", "angry", "scared", "calm", "proud", "shy", "bored", "joy", "fear", "mad", "glad", "upset", "brave", "tired", "worry"],
+    wrong: ["spoon", "fork", "towel", "brick", "ladder", "kettle", "pillow", "wallet", "sandal", "magnet", "bucket", "pebble"],
+  },
+  {
+    label: "TOOLS", say: "tools",
+    correct: ["hammer", "wrench", "drill", "saw", "pliers", "screw", "nail", "ruler", "chisel", "clamp", "level", "tape", "sander", "wire", "bolt", "file"],
+    wrong: ["apple", "pillow", "jacket", "cookie", "kitten", "bubble", "cloud", "meadow", "blanket", "muffin", "sandal", "teapot"],
   },
 ];
 
@@ -802,7 +1053,7 @@ function newRound({ randInt }) {
   // Note mode runs a peppier groove (BPM 92) with a slightly tighter budget.
   // Ticks ride the global wall-clock beat grid; resync the local index so the
   // fresh board doesn't immediately burn a beat at start.
-  beatsMax = mode === "note" ? max(24, 44 - level) : max(28, 52 - level);
+  beatsMax = mode === "note" ? max(20, 44 - level) : max(24, 52 - level);
   beatsLeft = beatsMax;
   beatPhase = 0;
   beatMs = (60 / (mode === "note" ? 92 : BPM)) * 1000;
@@ -819,7 +1070,9 @@ function newRound({ randInt }) {
 }
 
 function spawnTroggles(rnd) {
-  const count = min(3, floor(level / 2)); // 0 at L1, 1 at L2-3, ...
+  // 0 at L1, 1 at L2-3, 2 at L4-5, 3 at L6-7, 4 at L8-9, 5 at L10+ — the danger
+  // keeps climbing well past the old 3-troggle plateau.
+  const count = min(5, floor(level / 2));
   const list = [];
   for (let i = 0; i < count; i += 1) {
     const horizontal = rnd(2) === 0;
@@ -947,8 +1200,9 @@ function sim({ gizmo, seconds, sound, clock, num: { randInt } }) {
   }
   if (beatsLeft <= 3) cam.shake = max(cam.shake, 2.4); // panic shake
 
-  // Troggles step on a steady beat (speeds up with level).
-  troggleClock ||= new gizmo.Hourglass(seconds(max(0.28, 0.7 - level * 0.04)), {
+  // Troggles step on a steady beat (speeds up with level) — keeps accelerating
+  // to ~L14 instead of flattening out at L10.
+  troggleClock ||= new gizmo.Hourglass(seconds(max(0.22, 0.72 - level * 0.035)), {
     flipped: () => {
       troggles.forEach((t) => {
         let nc = t.col + t.dir.x;
