@@ -64,9 +64,26 @@ if (positional[0] === "list") {
   process.exit(0);
 }
 
+// ── make an already-uploaded episode public ────────────────────────────
+if (positional[0] === "publish") {
+  const s = positional[1];
+  const rp = resolve(OUT, `${s}.buzzsprout.json`);
+  if (!existsSync(rp)) { console.error(`✗ no receipt ${rp} — upload it first`); process.exit(1); }
+  const id = JSON.parse(readFileSync(rp, "utf8")).id;
+  const fd = new FormData();
+  fd.append("private", "false");
+  fd.append("published_at", new Date().toISOString());
+  const res = await fetch(`${API}/episodes/${id}.json`, { method: "PUT", headers: auth, body: fd });
+  if (!res.ok) { console.error(`✗ publish ${res.status}: ${(await res.text()).slice(0, 300)}`); process.exit(1); }
+  const ep = await res.json();
+  writeFileSync(rp, JSON.stringify(ep, null, 2) + "\n");
+  console.log(`✓ ${s} is now public · episode #${ep.episode_number ?? ep.id}`);
+  process.exit(0);
+}
+
 // ── publish an episode ─────────────────────────────────────────────────
 const slug = positional[0];
-if (!slug) { console.error("usage: buzzsprout.mjs <slug> [--private] | list"); process.exit(1); }
+if (!slug) { console.error("usage: buzzsprout.mjs <slug> [--private] | publish <slug> | list"); process.exit(1); }
 
 const mp3 = resolve(OUT, `${slug}.mp3`);
 const metaPath = resolve(OUT, `${slug}.json`);
@@ -87,7 +104,10 @@ const fd = new FormData();
 fd.append("title", title);
 fd.append("description", description);
 fd.append("artist", "@jeffrey");
+// Buzzsprout keeps an episode private until it has a published_at. Default to
+// publishing now (public); --private stages it for review instead.
 if (flags.has("--private")) fd.append("private", "true");
+else fd.append("published_at", new Date().toISOString());
 fd.append("audio_file", new Blob([readFileSync(mp3)], { type: "audio/mpeg" }), basename(mp3));
 
 console.log(`▸ publishing "${title}" to Buzzsprout (${(readFileSync(mp3).length / 1e6).toFixed(1)} MB)…`);
