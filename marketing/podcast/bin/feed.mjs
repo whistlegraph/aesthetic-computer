@@ -28,16 +28,17 @@ const BASE = (baseFlag >= 0 ? argv[baseFlag + 1] : null)
   || "https://assets.aesthetic.computer/podcast";
 
 const CHANNEL = {
-  title: "Aesthetic Computer — Readings",
+  title: "Aesthetic Dot Computer",
   link: "https://aesthetic.computer",
   language: "en-us",
   author: "@jeffrey",
   ownerName: "Jeffrey Scudder",
   ownerEmail: "mail@aesthetic.computer",
   description:
-    "Readings of essays from Aesthetic Computer, in @jeffrey's voice. Each " +
-    "episode is a single essay, read start to finish like a lesson — a little " +
-    "bell to open, the length announced, and a fixed closing.",
+    "Essays from Aesthetic Computer, read aloud in @jeffrey's voice — a " +
+    "mobile-first runtime and social network for creative computing. One essay " +
+    "per episode, start to finish: a little bell to open, the length announced, " +
+    "and a fixed closing. papers.aesthetic.computer",
 };
 
 const xml = (s) => String(s)
