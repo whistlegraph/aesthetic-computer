@@ -218,14 +218,31 @@ gap(0.35);
 add(introVo);
 // Push the body to the next bar boundary so every sentence onset lands on a beat.
 gap((BEAT_ALIGN ? snapUp(clock, BAR, 0.6) : clock + 0.8) - clock);
+// Capture each sentence's absolute [start,end] as it lands → drives subtitles.
+const cues = [];
 for (let i = 0; i < units.length; i++) {
   gap(gapsBefore[i]); // gapsBefore[0] = 0
+  const startSec = clock;
   add(units[i].mp3);
+  cues.push({ start: startSec, end: clock, text: units[i].text });
 }
 gap((BEAT_ALIGN ? snapUp(clock, BAR, 0.5) : clock + 0.8) - clock);
 add(outroVo);
 gap(0.3);
 add(outroJingle);
+
+// Write an SRT of the reading (sentence-level, exact from the timeline).
+const srtTime = (s) => {
+  const ms = Math.max(0, Math.round(s * 1000));
+  const h = String(Math.floor(ms / 3600000)).padStart(2, "0");
+  const m = String(Math.floor((ms % 3600000) / 60000)).padStart(2, "0");
+  const sec = String(Math.floor((ms % 60000) / 1000)).padStart(2, "0");
+  const mil = String(ms % 1000).padStart(3, "0");
+  return `${h}:${m}:${sec},${mil}`;
+};
+const srt = cues.map((c, i) =>
+  `${i + 1}\n${srtTime(c.start)} --> ${srtTime(c.end)}\n${c.text}\n`).join("\n");
+writeFileSync(resolve(ROOT, "out", `${script.slug}.srt`), srt);
 
 const listFile = resolve(build, "concat.txt");
 writeFileSync(listFile, seq.map((f) => `file '${f.replace(/'/g, "'\\''")}'`).join("\n") + "\n");
@@ -252,7 +269,7 @@ if (flags.nobed) {
 } else {
   const kit = flags.kit || "felt";
   console.log(`Scoring bed… (kit: ${kit})`);
-  const bedGain = flags.bedgain !== undefined ? Number(flags.bedgain) : 0.22;
+  const bedGain = flags.bedgain !== undefined ? Number(flags.bedgain) : 0.30;
   const bedWav = resolve(build, "bed.wav");
   renderBed(dur(voiceWav) + 1.0, bedWav, { kit });
   // Voice chain (sharper + upfront): high-pass rumble, presence + air EQ,

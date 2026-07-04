@@ -203,9 +203,9 @@ function drums(L, R, dur, rnd, beat, kit) {
         break;
       case "felt": // default lo-fi: kick on 1 & 3, shaker on eighths
       default:
-        if (ib === 0 || ib === 2) addKick(L, R, t, 0.5);
-        addNoise(L, R, t, 0.05, rnd, { dur: 0.05, dec: 90 });
-        addNoise(L, R, t + half, 0.085, rnd, { dur: 0.05, dec: 90 });
+        if (ib === 0 || ib === 2) addKick(L, R, t, 0.64);
+        addNoise(L, R, t, 0.07, rnd, { dur: 0.05, dec: 90 });
+        addNoise(L, R, t + half, 0.11, rnd, { dur: 0.05, dec: 90 });
         break;
     }
   }
