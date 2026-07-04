@@ -29,6 +29,50 @@ Open follow-ups (queued, not blockers):
 
 ---
 
+## americomputadora — RELEASED 2026-07-04 (DistroKid → Spotify, the 4th-of-July cut)
+
+- **Lane:** `pop/americomputadora/` · bubblegum-bachiamatrixian · D major · 112 BPM ·
+  2:29 · the three-syllable hook (america / computer / dora) with jeffrey's
+  ElevenLabs chant threaded through as choir, ornament, zoom-by, and departure.
+- **Engine:** `c/americomputadora.c` (C, stereo) — July-4th session rebuilt the
+  whole back end: TRUE STEREO mixdown (constant-power bus pans, mono-safe bed
+  wideners, dual decorrelated Schroeder rooms), printed on the **tape substrate**
+  (`pop/lib/substrate.mjs` sat print + master chain) with the print LIFTING to
+  hi-fi for 8 bars at the drop. Spatial story: near-mono choral cloud →
+  condenses to a solo point → detonates wide at the drop → corridor bridge →
+  accelerando outro (last 30 s speed up continuously — train leaving the
+  station — while folding back toward mono).
+- **Vocals:** hook samples +2 st; america↔computer vowels BRIDGED (0.65 s blend,
+  0.30 s pre-roll, computer at 1.35× holding 0.45 under dora) so the junction
+  reads "americawwwwmputer"; intro = ghost-bed choral→solo arc (5 detuned
+  duplicate jeffreys thinning to one wild surging solo); sung two-note ornaments
+  litter the first 90 s; skip-a-boo zoom-bys thread 4 sections (0:38 / verse 2 /
+  crunch zone / pre-finale, more stretched each return); outro jeffreys return
+  octaves up, sine-flanging, rocking L↔R. "aesthetic dot computer" stamp
+  freshly synthesized via /api/say (jeffrey-pvc), glitch chops + telephone-EQ
+  bloom, drums blacked out for the bar before the finale shock rifle.
+- **Percussion:** classic kit pitched down (kick 110, serious 150, snare 165 Hz)
+  + crunch hats that EVOLVE (pitch/attack/drive ride song position, 16ths +
+  open hats in hot hooks); novelizer voices (memkick/cavikick/gransnare) ported
+  and kept behind `--novel-drums`; spacey one-bar drum break at 1:24; ~1:45
+  crunch zone = bitcrush + stereo-throb flange + the track SCRATCHING ITSELF
+  (moving-tap scrub of the mix's own history) + sampled scratch cluster.
+- **FEM bells:** `pop/bell` stone bells toll "o say can you see" across the
+  bridge, echo two bars later (anthem echoes, ≤E5 per the bell law).
+- **Cover:** `cover-android/gens/v9-crayon-patriot.png` — soft waxy crayon
+  three-headed robot (jeffrey/singer/explorer) in red-white-blue star panels,
+  PALS patch left breast + whistlegraph butterfly right, sailor-pixies tugging.
+  Chosen over v7 pencil and v10 Soutine oil-goop (both kept in gens/).
+- **Canvas:** `americomputadora-canvas.mp4` — 8 s 9:16 Seedance loop of v9
+  (pixies tug, heads sway out of phase, fireworks re-bloom).
+- **Master:** −9.0 LUFS · −1.8 dBTP · stereo 16-bit/44.1k · ID3 album `pixsies`.
+- **Bundle:** `~/Documents/Shelf/americomputadora/` (master wav, tagged mp3,
+  3000×3000 cover, canvas mp4). Uploaded to DistroKid and LIVE same day,
+  2026-07-04. Remaining: attach the Canvas in Spotify for Artists + paste the
+  Spotify link here once it surfaces in search/S4A.
+
+---
+
 ## boombaboom — WIP
 
 - **Lane:** `pop/boombaboom/` · sine-techno · D minor · ~3:19 (accelerando) ·

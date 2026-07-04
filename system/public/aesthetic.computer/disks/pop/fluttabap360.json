@@ -1,0 +1,185 @@
+{
+  "slug": "fluttabap360",
+  "title": "fluttabap360",
+  "artist": "Aesthetic Dot Computer",
+  "album": "pixsies",
+  "bpm": 124.7,
+  "key": "C major",
+  "meter": "4/4",
+  "duration": 360,
+  "audio": "/assets/pop/fluttabap360.mp3",
+  "cover": "/assets/pop/fluttabap360.jpg",
+  "sections": [
+    {
+      "name": "intro",
+      "t": 0,
+      "illy": "/assets/pop/fluttabap360/sec-0.jpg"
+    },
+    {
+      "name": "butterfly",
+      "t": 19.2513,
+      "illy": "/assets/pop/fluttabap360/sec-1.jpg"
+    },
+    {
+      "name": "palofmine",
+      "t": 26.9519,
+      "illy": "/assets/pop/fluttabap360/sec-2.jpg"
+    },
+    {
+      "name": "mommywow",
+      "t": 34.6524,
+      "illy": "/assets/pop/fluttabap360/sec-3.jpg"
+    },
+    {
+      "name": "slinky",
+      "t": 42.3529,
+      "illy": "/assets/pop/fluttabap360/sec-4.jpg"
+    },
+    {
+      "name": "fly",
+      "t": 57.754,
+      "illy": "/assets/pop/fluttabap360/sec-5.jpg"
+    },
+    {
+      "name": "ride",
+      "t": 73.1551,
+      "illy": "/assets/pop/fluttabap360/sec-6.jpg"
+    },
+    {
+      "name": "butterfly",
+      "t": 80.8556,
+      "illy": "/assets/pop/fluttabap360/sec-7.jpg"
+    },
+    {
+      "name": "palofmine",
+      "t": 88.5562,
+      "illy": "/assets/pop/fluttabap360/sec-8.jpg"
+    },
+    {
+      "name": "mommywow",
+      "t": 96.2567,
+      "illy": "/assets/pop/fluttabap360/sec-9.jpg"
+    },
+    {
+      "name": "slinky",
+      "t": 103.9572,
+      "illy": "/assets/pop/fluttabap360/sec-10.jpg"
+    },
+    {
+      "name": "fly",
+      "t": 119.3583,
+      "illy": "/assets/pop/fluttabap360/sec-11.jpg"
+    },
+    {
+      "name": "ride",
+      "t": 134.7594,
+      "illy": "/assets/pop/fluttabap360/sec-12.jpg"
+    },
+    {
+      "name": "cave",
+      "t": 142.4599,
+      "illy": "/assets/pop/fluttabap360/sec-13.jpg"
+    },
+    {
+      "name": "butterfly",
+      "t": 157.861,
+      "illy": "/assets/pop/fluttabap360/sec-14.jpg"
+    },
+    {
+      "name": "palofmine",
+      "t": 165.5615,
+      "illy": "/assets/pop/fluttabap360/sec-15.jpg"
+    },
+    {
+      "name": "mommywow",
+      "t": 173.262,
+      "illy": "/assets/pop/fluttabap360/sec-16.jpg"
+    },
+    {
+      "name": "slinky",
+      "t": 180.9626,
+      "illy": "/assets/pop/fluttabap360/sec-17.jpg"
+    },
+    {
+      "name": "fly",
+      "t": 196.3636,
+      "illy": "/assets/pop/fluttabap360/sec-18.jpg"
+    },
+    {
+      "name": "ride",
+      "t": 211.7647,
+      "illy": "/assets/pop/fluttabap360/sec-19.jpg"
+    },
+    {
+      "name": "butterfly",
+      "t": 219.4652,
+      "illy": "/assets/pop/fluttabap360/sec-20.jpg"
+    },
+    {
+      "name": "palofmine",
+      "t": 227.1658,
+      "illy": "/assets/pop/fluttabap360/sec-21.jpg"
+    },
+    {
+      "name": "slinky",
+      "t": 234.8663,
+      "illy": "/assets/pop/fluttabap360/sec-22.jpg"
+    },
+    {
+      "name": "fly",
+      "t": 250.2674,
+      "illy": "/assets/pop/fluttabap360/sec-23.jpg"
+    },
+    {
+      "name": "ride",
+      "t": 265.6684,
+      "illy": "/assets/pop/fluttabap360/sec-24.jpg"
+    },
+    {
+      "name": "cave",
+      "t": 273.369,
+      "illy": "/assets/pop/fluttabap360/sec-25.jpg"
+    },
+    {
+      "name": "butterfly",
+      "t": 288.7701,
+      "illy": "/assets/pop/fluttabap360/sec-26.jpg"
+    },
+    {
+      "name": "palofmine",
+      "t": 296.4706,
+      "illy": "/assets/pop/fluttabap360/sec-27.jpg"
+    },
+    {
+      "name": "mommywow",
+      "t": 304.1711,
+      "illy": "/assets/pop/fluttabap360/sec-28.jpg"
+    },
+    {
+      "name": "slinky",
+      "t": 311.8717,
+      "illy": "/assets/pop/fluttabap360/sec-29.jpg"
+    },
+    {
+      "name": "fly",
+      "t": 327.2727,
+      "illy": "/assets/pop/fluttabap360/sec-30.jpg"
+    },
+    {
+      "name": "progression",
+      "t": 342.6738,
+      "illy": "/assets/pop/fluttabap360/sec-31.jpg"
+    },
+    {
+      "name": "land",
+      "t": 350.3743,
+      "illy": "/assets/pop/fluttabap360/sec-32.jpg"
+    },
+    {
+      "name": "button",
+      "t": 358.0749,
+      "illy": "/assets/pop/fluttabap360/sec-33.jpg"
+    }
+  ],
+  "credits": "the fat six-minute butterfly-park banger for the pixsies body. all instruments synthesized + physically modeled: aesthetic dot computer."
+}

@@ -519,11 +519,33 @@ return server;
 const httpFlag = process.argv.indexOf("--http");
 if (httpFlag !== -1) {
   const port = Number(process.argv[httpFlag + 1]) || 7765;
+  // Remote mode (jasellite): AC_MAIL_HTTP_HOST binds beyond loopback —
+  // point it at the tailscale IP so the daemon is tailnet-only, never
+  // the public interface. AC_MAIL_TOKEN adds bearer auth on top.
+  const host = process.env.AC_MAIL_HTTP_HOST || "127.0.0.1";
+  const token = process.env.AC_MAIL_TOKEN || "";
   const { StreamableHTTPServerTransport } = await import(
     "@modelcontextprotocol/sdk/server/streamableHttp.js"
   );
+  const { timingSafeEqual } = await import("node:crypto");
   const { createServer } = await import("node:http");
+  const authorized = (req) => {
+    if (!token) return true;
+    const header = req.headers.authorization || "";
+    const given = Buffer.from(header.replace(/^Bearer\s+/i, ""));
+    const want = Buffer.from(token);
+    return given.length === want.length && timingSafeEqual(given, want);
+  };
   createServer(async (req, res) => {
+    if (!authorized(req)) {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({
+        jsonrpc: "2.0",
+        error: { code: -32000, message: "unauthorized" },
+        id: null,
+      }));
+      return;
+    }
     if (req.method !== "POST") {
       res.writeHead(405, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
@@ -557,8 +579,11 @@ if (httpFlag !== -1) {
         }));
       }
     }
-  }).listen(port, "127.0.0.1", () => {
-    console.error(`📬 mail-mcp shared daemon on http://127.0.0.1:${port}`);
+  }).listen(port, host, () => {
+    console.error(
+      `📬 mail-mcp shared daemon on http://${host}:${port}` +
+        (token ? " (bearer auth)" : ""),
+    );
   });
 } else {
   await buildServer().connect(new StdioServerTransport());

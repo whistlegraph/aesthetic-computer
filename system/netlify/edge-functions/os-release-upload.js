@@ -138,7 +138,11 @@ export default async (request) => {
     try {
       const connStr = Deno.env.get("MONGODB_CONNECTION_STRING");
       if (!connStr) return null;
-      const { MongoClient } = await import("npm:mongodb@7");
+      // Non-literal specifier: Deno resolves `npm:` at runtime, but netlify
+      // dev's esbuild bundler chokes on it statically and crash-loops the
+      // whole local server.
+      const mongoSpec = "npm:mongodb@7";
+      const { MongoClient } = await import(mongoSpec);
       const client = new MongoClient(connStr);
       await client.connect();
       const dbName = Deno.env.get("MONGODB_NAME") || "aesthetic";

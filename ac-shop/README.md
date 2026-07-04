@@ -38,11 +38,14 @@ The buy button text is customized based on `product.type` in `snippets/buy-butto
 | Book | "Buy this book" |
 | Bike | "Buy this bike" |
 | Shirt | "Buy this shirt" |
+| Hoodie | "Buy this hoodie" |
 | (record URL) | "Buy this record" |
 | (@jeffrey URL) | "Book @jeffrey now" |
 | Default | "Buy this artwork" |
 
-**Note:** Bikes and shirts also match by handle pattern (`bikes_*`, `shirts_*`) as fallback.
+**Note:** Bikes, shirts, and hoodies also match by handle pattern (`bikes_*`, `shirts_*`, `hoodies_*`) as fallback.
+
+**Inventory gotcha:** stock created via the API lands at the first location ("18 N Main St"), which does NOT fulfill online orders — the storefront shows SOLD even with stock. Physical goods must be stocked at "Los Angeles (Fia's House)" (location `77221265589`): connect + set the inventory level there, disconnect from Main St.
 
 ### Product Management CLI
 

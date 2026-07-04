@@ -18,10 +18,11 @@ function paint($) { return pop.paint($); }
 function sim($) { return pop.sim($); }
 function act($) { return pop.act($); }
 function leave($) { return pop.leave($); }
+function receive($) { return pop.receive($); } // stream:* events from bios
 function meta() {
   return manifest
     ? pop.meta(manifest)
     : { title: "trancepenta — Aesthetic Dot Computer", desc: "5/4 chill-trance." };
 }
 
-export { boot, paint, sim, act, leave, meta };
+export { boot, paint, sim, act, receive, leave, meta };

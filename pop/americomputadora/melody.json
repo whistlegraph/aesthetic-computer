@@ -1,5 +1,5 @@
 {
-  "_comment": "americomputadora \u2014 hook melody. D major, 112 BPM. The three vocal samples (whole-word clips, not per-syllable) get autotuned to these target MIDI notes at render time. The hook phrase spans TWO bars (8 beats) so the words can actually speak \u2014 'americaaaaa cawwwmputer dora!': america sings a full bar (4 beats) BEFORE computer enters, computer 2 beats, dora 2 beats as the exclamation point with ring-out.",
+  "_comment": "americomputadora — hook melody. D major, 112 BPM. The three vocal samples (whole-word clips, not per-syllable) get autotuned to these target MIDI notes at render time. The hook phrase spans TWO bars (8 beats) so the words can actually speak — 'americaaaaa cawwwmputer dora!': america sings a full bar (4 beats) BEFORE computer enters, computer 2 beats, dora 2 beats as the exclamation point with ring-out.",
   "bpm": 112,
   "key": "D",
   "mode": "major",
@@ -24,7 +24,7 @@
       2,
       2
     ],
-    "_variant_note": "ballad melody set (2026-06-09) \u2014 variants rotate per hook rep; ordered so the gentle contours open the song and the climax contour arrives as the percussion ramp peaks. bach contours kept from the bachiamatrixian pass.",
+    "_variant_note": "ballad melody set (2026-06-09) — variants rotate per hook rep; ordered so the gentle contours open the song and the climax contour arrives as the percussion ramp peaks. bach contours kept from the bachiamatrixian pass.",
     "variants": [
       {
         "label": "rise-rest",
@@ -33,7 +33,7 @@
           69,
           66
         ],
-        "tone": "ballad opener \u2014 D4\u2192A4, resting on the third"
+        "tone": "ballad opener — D4→A4, resting on the third"
       },
       {
         "label": "step-home",
@@ -42,7 +42,7 @@
           69,
           62
         ],
-        "tone": "E4\u2192A4\u2192D4 \u2014 supertonic pull home"
+        "tone": "E4→A4→D4 — supertonic pull home"
       },
       {
         "label": "lift",
@@ -51,7 +51,7 @@
           71,
           69
         ],
-        "tone": "F#4\u2192B4\u2192A4 \u2014 the lift"
+        "tone": "F#4→B4→A4 — the lift"
       },
       {
         "label": "bach-circle",
@@ -60,7 +60,7 @@
           69,
           66
         ],
-        "tone": "bachiamatrixian \u2014 B4\u2192A4\u2192F#4, lament step-down onto the third"
+        "tone": "bachiamatrixian — B4→A4→F#4, lament step-down onto the third"
       },
       {
         "label": "bach-arc",
@@ -69,7 +69,7 @@
           69,
           74
         ],
-        "tone": "bachiamatrixian \u2014 F#4\u2192A4\u2192D5, rising tonic arpeggio, fanfare resolution"
+        "tone": "bachiamatrixian — F#4→A4→D5, rising tonic arpeggio, fanfare resolution"
       },
       {
         "label": "bach-fall",
@@ -78,7 +78,7 @@
           71,
           62
         ],
-        "tone": "bachiamatrixian \u2014 D5\u2192B4\u2192D4, falling sixth through the vi, lands tonic"
+        "tone": "bachiamatrixian — D5→B4→D4, falling sixth through the vi, lands tonic"
       },
       {
         "label": "climax",
@@ -87,7 +87,7 @@
           74,
           71
         ],
-        "tone": "A4\u2192D5\u2192B4 \u2014 top of the ramp"
+        "tone": "A4→D5→B4 — top of the ramp"
       }
     ]
   },
@@ -114,7 +114,7 @@
         "quality": "maj"
       }
     ],
-    "_progression_note": "I \u2014 V \u2014 vi \u2014 IV. canonical bubblegum loop (Sugar Sugar / Baby One More Time pre-chorus / countless others). 8 bars total, repeats."
+    "_progression_note": "I — V — vi — IV. canonical bubblegum loop (Sugar Sugar / Baby One More Time pre-chorus / countless others). 8 bars total, repeats."
   },
   "structure": [
     {

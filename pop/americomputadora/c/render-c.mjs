@@ -9,10 +9,10 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { masterChain } from "../../lib/substrate.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = dirname(HERE);
-const POP = dirname(ROOT);
 
 const argv = process.argv.slice(2);
 const flags = {};
@@ -40,25 +40,18 @@ const rawWav = join(HERE, "out", "c-raw.wav");
 run("render (C engine)", join(HERE, "americomputadora"),
     ["--out", rawWav, "--vocals", HERE + "/"]);
 
-// master through acdsp — the C 1176 + EQ chain, not ffmpeg loudnorm.
+// master through the pop SUBSTRATE (tape) — the mix is already sat-printed
+// in the C engine (drive/bias/hiss); this is the medium's mixdown chain:
+// EQ tilt + air, wow/flutter, two-stage tube-glue compression. Single
+// source: pop/lib/substrate.mjs.
+const SUBSTRATE = "tape";
 const mastered = join(HERE, "out", "c-mastered.wav");
-const acdsp = join(POP, "dsp", "c", "acdsp");
-if (existsSync(acdsp)) {
-  // "baked to vinyl" finishing chain: subsonic trim, the 1176 glue driven
-  // into transformer-iron saturation for analog warmth, a warm low-shelf
-  // tilt + body, a crisp presence/air lift, then a gentle ~16 kHz rolloff —
-  // the high ceiling of a cut lacquer, no brittle digital top.
-  run("master (acdsp vinyl chain)", acdsp, [
-    rawWav, mastered, "--chain",
-    "eq:rumble " +
-    "1176:ratio=4:in=-10:out=+10:iron=1:attack=4:release=5 " +
-    "eq:tilt-warm=+0.5 eq:presence=+2.5 eq:air=+2 " +
-    "eq:lp:f=18000:q=0.7",
-    "--bits", "24",
-  ]);
-} else {
-  console.warn("! acdsp not built (pop/dsp/c) — skipping mastering stage");
-}
+run(`master (substrate: ${SUBSTRATE})`, "ffmpeg", [
+  "-hide_banner", "-y", "-loglevel", "error",
+  "-i", rawWav,
+  "-af", masterChain(SUBSTRATE),
+  "-c:a", "pcm_s24le", mastered,
+]);
 
 const src = existsSync(mastered) ? mastered : rawWav;
 // DistroKid-ready master: EBU R128 normalization to -11 LUFS / -1 dBTP, one
@@ -75,16 +68,18 @@ console.log("# loudness (measure pass)");
 const meas = spawnSync("ffmpeg", [
   "-hide_banner", "-y", "-nostats",
   "-i", src,
-  "-af", "loudnorm=I=-11:TP=-1.0:LRA=11:print_format=json",
+  "-af", "loudnorm=I=-9:TP=-1.0:LRA=11:print_format=json",
   "-f", "null", "-",
 ], { encoding: "utf8" });
 const mjson = JSON.parse((meas.stderr.match(/\{[\s\S]*\}/) ?? ["{}"])[0]);
-const gainDb = (-11 - parseFloat(mjson.input_i)).toFixed(2);
+const gainDb = (-9 - parseFloat(mjson.input_i)).toFixed(2);
 // limit at 4x oversampling so the ceiling holds for TRUE (inter-sample)
 // peaks, not just sample peaks — flat-topped limiting at 1x overshot
 // ~2.5 dB after reconstruction. -2 dB ceiling leaves margin for the final
 // downsample + mp3 encode, landing true peak under -1.
-const LOUDNORM = `volume=${gainDb}dB,aresample=192000,` +
+// 0.4s head pad — the song starts on a vocal at t=0; without a breath of
+// silence the first syllable reads as cut off on players that eat the head.
+const LOUDNORM = `adelay=400|400,volume=${gainDb}dB,aresample=192000,` +
   `alimiter=attack=1:release=60:limit=0.794:level=false`;
 console.log(`  measured I=${mjson.input_i} TP=${mjson.input_tp} → static gain ${gainDb} dB + 4x-oversampled limiter -2 dB`);
 const META = [

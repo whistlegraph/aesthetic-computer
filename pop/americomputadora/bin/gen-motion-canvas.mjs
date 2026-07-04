@@ -30,7 +30,15 @@ const only = argv.includes("--only") ? argv[argv.indexOf("--only") + 1].split(",
 // pulses of light. never a photograph, never lens flare, no motion blur.
 const MEDIUM = `The image is a colored-pencil drawing on cream paper with glowing fiber-optic threads woven through the hatching — as it moves, the pencil tooth and paper grain stay fixed like a living illustration; the hair-thin cyan, magenta and warm-white fibers carry slow traveling pulses of light along their length. Never a photograph, never cinematic, no lens flares, no motion blur — painted light only. Gentle, loopable motion: the last moments drift back toward the first frame.`;
 
+// crayon shots hold a different medium: waxy crayon on cream paper.
+const MEDIUM_CRAYON = `The image is a soft waxy crayon drawing on warm cream paper — as it moves, the crayon grain and paper tooth stay perfectly fixed like a living children's-book illustration; outlines stay wobbly and hand-drawn. Never a photograph, never 3d, never cinematic, no lens flares, no motion blur. Gentle, loopable motion: the last moments drift back toward the first frame.`;
+
 const SHOTS = {
+  patriot: {
+    image: `${GENS}/v9-crayon-patriot.png`,
+    medium: MEDIUM_CRAYON,
+    motion: `The tiny sailor-hatted pixies lean back and tug their ropes in a slow shared rhythm — lines pulling taut, then easing slack. The three-headed robot sways very gently with each tug, its heads drifting slightly out of phase: the curly-haired head lifts singing skyward, the dark-bob head turns a touch further away, the center face blinks once, slowly, calm. The two chest badges stay put. The little crayon fireworks in the upper corners bloom, sparkle, fade, and re-bloom. A quiet peekaboo charm — playful, tender, nothing startles. The sway settles back to the opening pose so the loop closes seamlessly.`,
+  },
   found: {
     image: `${GENS}/reel-shot-1-found.png`,
     motion: `Night hush: the giant sleeping robot breathes almost imperceptibly, its chest glow swelling and dimming slowly under the panel seams like a heartbeat. The tiny winged pixsies hover in place on soft wing-flutters, their lanterns swaying and flickering warm light across the grass. Grass blades sway gently; a few luminous fiber pulses travel through the meadow weave. The camera drifts forward very slowly. Nothing startles — a lullaby loop.`,
@@ -49,7 +57,7 @@ for (const [name, s] of Object.entries(SHOTS)) {
   console.log(`▸ seedance canvas shot: ${name} (8s · 9:16 · silent)`);
   const r = await generateShot({
     image: s.image,
-    prompt: `${s.motion}\n\n${MEDIUM}`,
+    prompt: `${s.motion}\n\n${s.medium ?? MEDIUM}`,
     duration: "8", ratio: "9:16", resolution: "720p",
     tier: "fast", audio: false,
     outPath: raw, label: `canvas-${name}`,

@@ -201,7 +201,8 @@ function getSafeUrlParts() {
     if (sandboxed) {
       return {
         protocol: "https:",
-        hostname: "aesthetic.computer"
+        hostname: "aesthetic.computer",
+        host: "aesthetic.computer"
       };
     } else {
       // Try to get location info from various contexts
@@ -217,13 +218,17 @@ function getSafeUrlParts() {
       if (loc) {
         return {
           protocol: loc.protocol,
-          hostname: loc.hostname || loc.host
+          hostname: loc.hostname || loc.host,
+          // `host` keeps the port (localhost:8888) — hostname drops it,
+          // which breaks root-relative preloads on port-carrying dev hosts.
+          host: loc.host || loc.hostname
         };
       } else {
         // Fallback if no location available
         return {
           protocol: "https:",
-          hostname: "aesthetic.computer"
+          hostname: "aesthetic.computer",
+          host: "aesthetic.computer"
         };
       }
     }
@@ -231,7 +236,8 @@ function getSafeUrlParts() {
     // Fallback to defaults if there's any error
     return {
       protocol: "https:",
-      hostname: "aesthetic.computer"
+      hostname: "aesthetic.computer",
+      host: "aesthetic.computer"
     };
   }
 }
@@ -8986,7 +8992,7 @@ async function load(
         }
       } catch {
         // Handle sandboxed environments for path construction
-        const { protocol, hostname } = getSafeUrlParts();
+        const { protocol, hostname, host } = getSafeUrlParts();
         const originalPath = path;
 
         // Apply the same origin-aware logic as in module loading
@@ -9000,7 +9006,7 @@ async function load(
             path = path.substring('aesthetic.computer/'.length);
           }
         } else {
-          baseUrl = `${protocol}//${hostname}`;
+          baseUrl = `${protocol}//${host || hostname}`;
         }
 
         path = `${baseUrl}/${path}`;
