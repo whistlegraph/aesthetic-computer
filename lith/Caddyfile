@@ -660,19 +660,27 @@
     }
 
     # --- menuband.app (Menu Band — Mac App Store landing + privacy page) ---
-    # Rooted at the full public tree because the landing page uses absolute
-    # asset paths (/menuband/icon.png, /aesthetic.computer/cursors/…). The apex
-    # and /privacy.html rewrite to the /menuband/ files; every other path
-    # (including those absolute assets) resolves straight from system/public.
+    # The landing page uses absolute asset paths (/menuband/icon.png,
+    # /aesthetic.computer/cursors/…), so those two prefixes are served from the
+    # full public tree; everything else (apex → index.html, /privacy → privacy)
+    # is served from the scoped menuband bundle. Each branch is wrapped in its
+    # own handle{} — mixing bare try_files/file_server with nested handles gets
+    # reordered by Caddy and breaks the reload (see the l5/kidlisp blocks).
     @menubandapp host menuband.app
     handle @menubandapp {
-        root * /opt/ac/system/public
-        @mbindex path /
-        handle @mbindex { rewrite * /menuband/index.html }
-        @mbprivacy path /privacy /privacy.html
-        handle @mbprivacy { rewrite * /menuband/privacy.html }
-        try_files {path} {path}.html
-        file_server
+        handle /menuband/* {
+            root * /opt/ac/system/public
+            file_server
+        }
+        handle /aesthetic.computer/* {
+            root * /opt/ac/system/public
+            file_server
+        }
+        handle {
+            root * /opt/ac/system/public/menuband
+            try_files {path} {path}.html /index.html
+            file_server
+        }
     }
     @wwwmenubandapp host www.menuband.app
     handle @wwwmenubandapp {
