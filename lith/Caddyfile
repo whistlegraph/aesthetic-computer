@@ -449,8 +449,12 @@
         path /menuband /menuband/*
     }
     handle @promptac_menuband {
-        uri strip_prefix /menuband
-        redir https://menuband.app{uri} 301
+        # route{} preserves written order so strip_prefix runs before redir
+        # captures {uri} — otherwise the target keeps the /menuband prefix.
+        route {
+            uri strip_prefix /menuband
+            redir https://menuband.app{uri} 301
+        }
     }
 
     # --- prompt.ac (apex root only) → HTML prompt shell (its own product) ---
