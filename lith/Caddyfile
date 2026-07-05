@@ -656,6 +656,20 @@
         redir https://false.work{uri} 301
     }
 
+    # --- menuband.app (Menu Band — Mac App Store landing + privacy page) ---
+    # Serves the static landing bundle (system/public/menuband/): index.html,
+    # privacy.html (the App Store privacy-policy URL), icon.png, manifest.json.
+    @menubandapp host menuband.app
+    handle @menubandapp {
+        root * /opt/ac/system/public/menuband
+        try_files {path} {path}.html /index.html
+        file_server
+    }
+    @wwwmenubandapp host www.menuband.app
+    handle @wwwmenubandapp {
+        redir https://menuband.app{uri} 301
+    }
+
     # --- Fallback for any unmatched host ---
     handle {
         reverse_proxy localhost:8888

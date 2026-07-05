@@ -77,11 +77,8 @@ export const getNs = (domain) => call(`/domain/getNs/${domain}`);
 export const register = (domain, costInCents) =>
   call(`/domain/create/${domain}`, { cost: costInCents, agreeToTerms: "yes" });
 
-// Repoint nameservers (e.g. to Cloudflare's pair). Porkbun wants ns1, ns2, …
-export function updateNs(domain, nameservers) {
-  const body = {};
-  nameservers.forEach((ns, i) => (body["ns" + (i + 1)] = ns));
-  return call(`/domain/updateNs/${domain}`, body);
-}
+// Repoint nameservers (e.g. to Cloudflare's pair). Porkbun wants an `ns` array.
+export const updateNs = (domain, nameservers) =>
+  call(`/domain/updateNs/${domain}`, { ns: nameservers });
 
 export const dnsCreate = (domain, record) => call(`/dns/create/${domain}`, record);
