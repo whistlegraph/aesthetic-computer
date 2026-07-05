@@ -1773,6 +1773,10 @@ async function halt($, text) {
     if (openExternalFromIframe(toAbsoluteSiteUrl("/shop~" + slug))) return true;
     jump("/shop~" + slug);
     return true;
+  } else if (slug === "pod" || slug === "podcast") {
+    // 🎙️ Jump to the podcast (Aesthetic Dot Computer on Buzzsprout)
+    jump(`https://pod.prompt.ac`);
+    return true;
   } else if (slug === "at") {
     // Jump to ATProto user pages landing
     jump(`https://at.aesthetic.computer`);

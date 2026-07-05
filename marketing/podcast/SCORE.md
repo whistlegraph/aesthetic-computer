@@ -46,11 +46,17 @@ content-hash cached (`out/cache/`), so re-runs are free.
 
 ## Feed / hosting
 
-Episodes + feed live on DO Spaces (`assets-aesthetic-computer`), served at
-**`https://assets.aesthetic.computer/podcast/`** — same bucket as `/pop`. The
-subscribable feed is `https://assets.aesthetic.computer/podcast/feed.xml`.
-Publishing is a deliberate per-run choice (`publish.mjs --push`), never automatic —
-a reading only goes public when you say so.
+**Canonical podcast URL: `https://pod.prompt.ac`** — Buzzsprout custom domain
+(CNAME `pod.prompt.ac → app.buzzsprout.com`, DNS-only, in the prompt.ac
+Cloudflare zone). `https://podcast.aesthetic.computer` 301-redirects there
+(proxied CNAME + redirect rule in the aesthetic.computer zone). The
+subscribable RSS is Buzzsprout's: `https://feeds.buzzsprout.com/2628235.rss`.
+
+Legacy self-hosted feed (pre-Buzzsprout): DO Spaces
+(`assets-aesthetic-computer`) at `https://assets.aesthetic.computer/podcast/`,
+feed at `/podcast/feed.xml`, pushed with `publish.mjs --push`. **Retired as a
+subscription target** — it was never submitted to directories and shouldn't
+be; Buzzsprout is the distribution path.
 
 ## Usage
 

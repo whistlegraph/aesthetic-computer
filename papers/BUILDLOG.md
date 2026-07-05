@@ -60276,3 +60276,69 @@ Built:
 - Keymaps as Social Software [cards] → keymaps-social-software-26-arxiv-cards.pdf
 - notepat.com [ja] → notepat-26-arxiv-ja.pdf
 - Playable Folk Songs [ja] → folk-songs-26-arxiv-ja.pdf
+
+## 2026-07-05 22:47
+
+Built:
+- Aesthetic Computer '26 [cards] → aesthetic-computer-26-arxiv-cards.pdf
+- From setup() to boot() [cards] → piece-api-26-arxiv-cards.pdf
+- Repository Archaeology [ja] → repo-archaeology-26-arxiv-ja.pdf
+- Repository Archaeology [cards] → repo-archaeology-26-arxiv-cards.pdf
+- Vestigial Features [cards] → dead-ends-26-arxiv-cards.pdf
+- Citation Diversity Audit [ja] → citation-diversity-audit-26-ja.pdf
+- Citation Diversity Audit [cards] → citation-diversity-audit-26-cards.pdf
+- Radical Computer Art [cards] → radical-computer-art-26-arxiv-cards.pdf
+- KidLisp '26 [cards] → kidlisp-26-arxiv-cards.pdf
+- KidLisp Language Reference [cards] → kidlisp-reference-26-arxiv-cards.pdf
+- Keymaps as Social Software [cards] → keymaps-social-software-26-arxiv-cards.pdf
+- Network Audit [cards] → network-audit-26-arxiv-cards.pdf
+- notepat.com [ja] → notepat-26-arxiv-ja.pdf
+- notepat.com [cards] → notepat-26-arxiv-cards.pdf
+- AC Native OS [cards] → ac-native-os-26-arxiv-cards.pdf
+- Pieces Not Programs [cards] → pieces-not-programs-26-arxiv-cards.pdf
+- Who Pays for Creative Tools? [cards] → who-pays-for-creative-tools-26-arxiv-cards.pdf
+- Whistlegraph [cards] → whistlegraph-26-arxiv-cards.pdf
+- PLOrk'ing the Planet [cards] → plorking-the-planet-26-arxiv-cards.pdf
+- Playable Folk Songs [ja] → folk-songs-26-arxiv-ja.pdf
+- Playable Folk Songs [cards] → folk-songs-26-arxiv-cards.pdf
+- Sucking on the Complex [cards] → sucking-on-the-complex-26-arxiv-cards.pdf
+- KidLisp Cards [cards] → kidlisp-cards-26-arxiv-cards.pdf
+- Reading the Score [cards] → reading-the-score-26-arxiv-cards.pdf
+- CalArts, Callouts, and Papers [cards] → calarts-callouts-papers-26-arxiv-cards.pdf
+- Get Closed Source Out of Schools [cards] → open-schools-26-arxiv-cards.pdf
+- Five Years from Now [cards] → five-years-from-now-26-arxiv-cards.pdf
+- Handle Identity on the AT Protocol [cards] → handle-identity-atproto-26-arxiv-cards.pdf
+- Two Departments, One Building [cards] → ucla-arts-funding-26-arxiv-cards.pdf
+- The Potter and the Prompt [cards] → potter-and-prompt-26-arxiv-cards.pdf
+- The URL Tradition [cards] → url-tradition-26-arxiv-cards.pdf
+- Where the Microseconds Go [cards] → where-the-microseconds-go-26-arxiv-cards.pdf
+- Rhizome.org — A Dossier [cards] → rhizome-dossier-26-arxiv-cards.pdf
+- School for Poetic Computation — A Dossier [cards] → sfpc-dossier-26-arxiv-cards.pdf
+- Eyebeam — A Dossier [cards] → eyebeam-dossier-26-arxiv-cards.pdf
+- Recurse Center — A Dossier [cards] → recurse-dossier-26-arxiv-cards.pdf
+- Internet Archive — A Dossier [cards] → internet-archive-dossier-26-arxiv-cards.pdf
+- Mellon Foundation — A Dossier [cards] → mellon-dossier-26-arxiv-cards.pdf
+- Pioneer Works — A Dossier [cards] → pioneer-works-dossier-26-arxiv-cards.pdf
+- A Fraserin' Art + Tech [cards] → fraserin-essay-26-arxiv-cards.pdf
+- Comp Strats [cards] → comp-strats-26-arxiv-cards.pdf
+- MicroVision — A Dossier [cards] → microvision-dossier-26-arxiv-cards.pdf
+- What's New CalArts!? — A Dossier [cards] → whats-new-calarts-26-arxiv-cards.pdf
+- NEW INC — A Dossier [cards] → new-inc-dossier-26-arxiv-cards.pdf
+- Studio Museum in Harlem — A Dossier [cards] → studio-museum-dossier-26-arxiv-cards.pdf
+- HathiTrust — A Dossier [cards] → hathitrust-dossier-26-arxiv-cards.pdf
+- The Kitchen — A Dossier [cards] → the-kitchen-dossier-26-arxiv-cards.pdf
+- Machine Project — A Dossier [cards] → machine-project-dossier-26-arxiv-cards.pdf
+- Heavy Manners Library — A Dossier [cards] → heavy-manners-library-dossier-26-arxiv-cards.pdf
+- Creative Time — A Dossier [cards] → creative-time-dossier-26-arxiv-cards.pdf
+- Creative Capital — A Dossier [cards] → creative-capital-dossier-26-arxiv-cards.pdf
+
+## 2026-07-05 22:50
+
+Built:
+- Repository Archaeology [ja] → repo-archaeology-26-arxiv-ja.pdf
+- Citation Diversity Audit [ja] → citation-diversity-audit-26-ja.pdf
+- Keymaps as Social Software [cards] → keymaps-social-software-26-arxiv-cards.pdf
+- notepat.com [ja] → notepat-26-arxiv-ja.pdf
+- Playable Folk Songs [ja] → folk-songs-26-arxiv-ja.pdf
+- Sucking on the Complex [cards] → sucking-on-the-complex-26-arxiv-cards.pdf
+- Aesthetic July 4 '26 [en] → aesthetic-july-4-26-essay.pdf

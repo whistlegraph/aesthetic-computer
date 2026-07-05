@@ -5,7 +5,7 @@
   <link rel="alternate" type="text/html" href="https://papers.aesthetic.computer/"/>
   <link rel="self" type="application/atom+xml" href="https://papers.aesthetic.computer/feed.xml"/>
   <id>https://papers.aesthetic.computer/</id>
-  <updated>2026-07-03T07:59:59.707Z</updated>
+  <updated>2026-07-05T22:49:43.040Z</updated>
   <author>
     <name>@jeffrey</name>
     <uri>https://prompt.ac/@jeffrey</uri>
@@ -13,10 +13,20 @@
   <icon>https://papers.aesthetic.computer/papers-og.jpg</icon>
   <rights>CC BY 4.0 unless noted otherwise.</rights>
   <entry>
+    <title>Aesthetic July 4 &apos;26</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-july-4-26-essay.pdf"/>
+    <id>https://papers.aesthetic.computer/aesthetic-july-4-26-essay.pdf</id>
+    <updated>2026-07-05T22:49:43.040Z</updated>
+    <published>2026-07-05T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Essay · ~4pp · Independence Day special — An Independence Day special between the June and July essays, written on the Declaration&apos;s 250th anniversary. Independence is a hanging word --- in + dependere, not to hang from --- and the essay follows it in the abstract: declarations versus definitions in C and in Philadelphia, the personal computer as an independence movement the cloud quietly reversed, artists who built their own rooms (a library in a church, folk songs as open-source software, an artwork designed to scan badly), and an honest ledger of which way one small platform hangs --- a podcast hung from a host, Menuband submitted to App Store review on the holiday weekend itself, and the CNAME record as infrastructure&apos;s most truthful sentence.</summary>
+  </entry>
+  <entry>
     <title>Aesthetic June &apos;26</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-june-26-essay.pdf"/>
     <id>https://papers.aesthetic.computer/aesthetic-june-26-essay.pdf</id>
-    <updated>2026-07-03T07:59:59.707Z</updated>
+    <updated>2026-07-05T22:49:42.703Z</updated>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
     <summary type="text">Essay · ~3pp · podcast — Aesthetic June &apos;26 is the storytelling companion to May. Where May was the modal mood, June is the answer, delivered as four hundred and fifty-seven commits --- the word carrying both its meanings, version control and Juno&apos;s oath. Told as scenes: the songs that caught up, the whistle found a perfect fifth sharp, the ring of native wizards learning one sign-in, and a Danish learn-the-clock community getting its own front door on the chat. Also available as a spoken reading in @jeffrey&apos;s voice.</summary>

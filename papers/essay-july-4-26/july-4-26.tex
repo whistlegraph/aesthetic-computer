@@ -1,0 +1,128 @@
+% !TEX program = xelatex
+\documentclass[11pt,letterpaper]{article}
+
+% === GEOMETRY === (narrow measure, PG-style)
+\usepackage[top=1in, bottom=1in, left=1.15in, right=1.15in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+
+\setmainfont{Latin Modern Roman}[
+  Extension=.otf,
+  UprightFont=lmroman10-regular,
+  BoldFont=lmroman10-bold,
+  ItalicFont=lmroman10-italic,
+  BoldItalicFont=lmroman10-bolditalic,
+]
+\setsansfont{Latin Modern Sans}[
+  Extension=.otf,
+  UprightFont=lmsans10-regular,
+  BoldFont=lmsans10-bold,
+  ItalicFont=lmsans10-oblique,
+  BoldItalicFont=lmsans10-boldoblique,
+]
+\setmonofont{Latin Modern Mono}[
+  Extension=.otf,
+  UprightFont=lmmono10-regular,
+  ItalicFont=lmmono10-italic,
+  Scale=0.85,
+]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{ragged2e}
+\usepackage{microtype}
+
+\usepackage{ac-paper-essay}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={Aesthetic July 4 '26},
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acgray}\thepage}
+
+\newcommand{\ac}{Aesthetic\textcolor{acpink}{.}Computer}
+
+% Local override: wrap/center long titles + start higher on the page.
+\renewcommand{\essaytitle}[1]{%
+  \begin{center}%
+    \begin{tikzpicture}
+      \node[acdark, opacity=0.25, align=center, text width=\linewidth,
+            font=\aclight\fontsize{40pt}{46pt}\selectfont, inner sep=0pt] at (2pt,-2pt) {#1};
+      \node[acpink, align=center, text width=\linewidth,
+            font=\aclight\fontsize{40pt}{46pt}\selectfont, inner sep=0pt] at (0,0) {#1};
+    \end{tikzpicture}%
+  \end{center}%
+  \vspace{0.6em}%
+}
+
+\begin{document}
+
+\thispagestyle{empty}
+\vspace*{-0.5in}
+
+\essaytitle{Aesthetic July 4 '26}
+\essaydate{Independence Day, 2026}
+
+Independence is a hanging word. Underneath it is the Latin \textit{dependere}, to hang from --- the same root that gives us the pendant hanging from a neck, the pendulum hanging from its pivot, and everything pending, which hangs over you until it is decided. To be dependent is to hang from something. To be independent is, literally, not to hang. Two months ago I wrote an essay built on \textit{may}, the softest verb in English, and a month after that one built on \textit{commit}, the word that stops being a pun when you type it four hundred times.\footnote{\textit{Aesthetic May '26} and \textit{Aesthetic June '26}, the first two essays in this series. May hedged; June promised. This one hangs, or tries not to.} The calendar has handed me a third word, and a loud anniversary to say it on: the Declaration turns two hundred and fifty this year. So this is a special --- not the July essay, which will come when July is over and can be told honestly, but a day trip into one word, taken from the middle of the month it belongs to.
+
+Yesterday I shipped a song called \textit{americomputadora}. The word is a seam --- \textit{America} welded to \textit{computadora}, the Spanish word for computer, which is feminine, so the title quietly declares the American computer to be a she. It went out through a distributor on the Fourth of July, which means my little declaration spent the holiday hanging from someone else's catalog. That contradiction is the whole essay. I might as well begin.
+
+\section{Declared, Not Yet Defined}
+
+The Declaration of Independence is the most famous example of a speech act --- a sentence that does not describe the world but changes it. The colonies did not discover they were independent; they \textit{declared} it, out loud, in writing, and then spent seven years of war making the sentence true. John Adams saw the shape of the anniversary before the ink was dry, writing to Abigail that the day ought to be celebrated ``with Shews, Games, Sports, Guns, Bells, Bonfires and Illuminations from one End of this Continent to the other from this Time forward forever more.'' He got his wish, and one more coincidence besides: fifty years to the day after the signing, on July 4th, 1826, Adams and Jefferson both died, a few hours apart. That was two hundred years ago yesterday.
+
+Programmers declare things too, and the grammar is instructive. In the old languages, C among them, a \textit{declaration} and a \textit{definition} are different acts. A declaration brings a name into existence --- it tells the compiler \textit{this thing is real, expect it} --- but it does not say what the thing is. The definition, the actual body, can live somewhere else entirely, and the program will not link until it exists. You can declare a function and never define it, and everything compiles beautifully right up until the moment something tries to call it.
+
+A country can be in that state. So can a person, and so can a software project. Declared, not yet defined. The declaration is one sentence and one afternoon; the definition is the rest of your life, supplied in small pieces, at link time, when something finally calls you.
+
+\section{The Personal Computer Was a Declaration}
+
+The machine I am typing this on descends from an independence movement. Before the personal computer there was the mainframe, and you did not own a computer any more than you owned the moon --- you rented moments of its attention, in timeshared slices, from an institution that billed you for the privilege. \textit{Personal} computer was a radical adjective. It meant: this one hangs from nothing. It boots for you, alone, on your desk, whether or not anyone renews your account.
+
+Then the industry spent thirty years quietly reversing the revolution. The cloud is timesharing with better fonts. The software you use hangs from a subscription; the subscription hangs from a server; the server hangs from a company whose obligations to you fit on one page of terms that can change. Last October the reversal produced a number worth staring at: when Windows 10 reached its end of life, on the order of two hundred and forty million working laptops became ``obsolete'' overnight.\footnote{The count and its consequences are worked through in \textit{PLOrking the Planet}, one of the papers on the platter at papers.aesthetic.computer. The machines run fine. The dependency expired.} Nothing happened to those machines. No capacitor blew. A dependency was withdrawn, and a quarter of a billion computers fell --- because they were hanging.
+
+Some of my favorite work this year has been catching a few as they fall. A fifty-dollar surplus ThinkPad, an operating system small enough to memorize the size of --- eighty-nine megabytes --- booting in about seven seconds into a prompt that makes art. Ivan Illich had a word for tools like that: \textit{convivial}, tools a person can use without asking an institution's permission.\footnote{Illich, \textit{Tools for Conviviality}, 1973 --- by way of the same paper. The laptop orchestra it studies stayed at Princeton because it was expensive, and expensive things for small numbers of people are what universities are for.} Conviviality is just independence wearing friendlier clothes.
+
+\section{Artists Keep Building Their Own Rooms}
+
+None of this is new, and the lineage matters to me more than the technology. Media art has always had a wing of people who, on discovering that their work hangs from someone else's platform, respond by building the room themselves.
+
+The Internet Archive is the monumental case: a library that answered the question of institutional dependence by buying a former church in San Francisco, filling it with its own petabytes, and keeping a mirror of itself at the Bibliotheca Alexandrina in Egypt --- a library of Alexandria holding the backup copy of the web, which is the kind of sentence history writes when it is showing off. Folk music is the ancient case: songs with no author and no platform, maintained by whoever sings them, forked by whoever misremembers a verse --- humanity's oldest open-source software, and proof that culture can survive centuries with no infrastructure except people.\footnote{\textit{Playable Folk Songs}, also on the platter. The paper traces a line from oral transmission through the ESAC database of 1982, which encoded eight thousand folk melodies as text, to melodies that today travel as URLs.} And there is the eccentric case I keep returning to: the Danish composer Goodiepal, who left the Royal Danish Academy of Music in 2008 --- over, in his own account, ``having the wrong type of friends'' --- and who printed his treatise on gray cardboard in clashing typefaces specifically so it would degrade when scanned. An artwork designed to be \textit{worse when digitized} is a declaration of independence from the scanner. You cannot capture what refuses to hold still for capture.
+
+There is a paper on the platter that names the five ways small art practices die: capture, dilution, anthologization, infrastructure rot, quiet abandonment.\footnote{\textit{Comp Strats}, the platter's theory-of-practice paper. Its answer is a set of refusals held as constitutive: no closed source in schools, no analytics, no anonymized labor.} Four of the five are diseases of dependence. Infrastructure rot is the purest one --- the work was fine, but the floor it stood on belonged to someone else, and the someone else left.
+
+\section{My Own Ledger}
+
+I want to be honest about where my own project actually stands on the fourth of July, because the ledger is mixed and the mix is the point.
+
+Aesthetic Computer was born hanging. The first thirty-eight commits, in the autumn of 2021, are a remix on Glitch --- someone else's editor, someone else's servers, someone else's kindness.\footnote{\textit{Repository Archaeology} dug this up: four successive repositories, eleven thousand commits, and before them ninety-four predecessor projects reaching back to 2007. Every independence has an embarrassing baby picture.} Five years later, the production server is a small machine I rent by the month and administer myself; the code pulls from a git knot at my own domain; identity is migrating onto a protocol where a handle is a domain you control rather than a row in a landlord's table; the operating system burns onto USB sticks and boots on cast-off hardware with no cloud in sight. Every one of those moves was a renegotiation of a hang. None of them removed it. The rented server hangs from a hosting company, the domain from a registrar, the protocol from its own small federation. Pull one thread at the bottom and you find, eventually, everyone.
+
+And this very week, the week of the anniversary, I did the opposite of all that on purpose --- twice. I moved my podcast onto a hosting platform, because it does the one thing I cannot do from a rented box, which is stand in the doorway of every directory at once. The first thing the platform did was list the show twice on Spotify --- a clerical mitosis I cannot fix myself, because the listing hangs from the host and the host hangs from the directory. I had to write a support email, which is the modern form of petitioning the crown. The same afternoon I pointed a subdomain at the platform, and the DNS record that does this is called a CNAME --- a \textit{canonical name} record, a line in a zone file whose entire meaning is: \textit{this name of mine is really that name of theirs.} There is no more honest sentence in infrastructure. Every CNAME is a small confession about which way you hang.
+
+Then, on the holiday weekend itself, the second one: I finished the paperwork and submitted Menuband --- the little menu-bar synthesizer, the one whose whistle spent years confidently a fifth sharp --- to the App Store for review. This is a landmark for a one-person shop and I want it commemorated here, in the independence essay of all places, precisely because of what a submission \textit{is}. There is no more explicit act of dependence in modern software: you place your instrument in a queue at the most powerful gatekeeper on earth and wait for a stranger in Cupertino to decide whether it may exist. I did it gladly, on Independence Day weekend, with the fireworks still going --- because the door it opens is every Mac in the world, and because independence was never the refusal of doors. It is remembering that you built the thing behind the door, that the source stays yours, and that if the crown says no, the synth still plays.
+
+\section{The Way You Hang}
+
+So I do not believe in independence, exactly --- not the zero-dependency kind, which exists nowhere and never has. The signers themselves ended the Declaration by pledging their lives and fortunes \textit{to each other}, which is to say the document declares independence from one thing by declaring dependence on the people in the room. And the fireworks Adams called for were Chinese --- gunpowder, an imported technology, lighting the sky over an independence celebration from the very first one. Nobody celebrates alone with materials they made themselves. It has never happened.
+
+What I believe in is knowing exactly which way you hang, and keeping the ability to re-hang. That is the real property the personal computer promised and the cloud took back: not self-sufficiency but \textit{portability} --- data that moves when you move, names you can point somewhere else, a floor that can be rebuilt under the work before the old floor rots. The healthy version of independence is a well-kept ledger of dependencies, each one chosen, each one revocable at a cost you have already priced.
+
+May asked permission. June made promises. The fourth of July declares --- and a declaration, remember, is not a definition. It just brings the name into existence and warns the world to expect the body. Two hundred and fifty years in, the country that invented my holiday is still supplying its definition in small pieces, at link time, whenever something calls it. So is the software. So am I. The song shipped, the sky got its illuminations, and this morning the little laptop on my desk booted in seven seconds, hanging from nothing but the wall.
+
+\colophon{ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913} \enspace$\cdot$\enspace aesthetic.computer \enspace$\cdot$\enspace An Independence Day special, between \textit{Aesthetic June '26} and the July essay to come.}
+
+\end{document}

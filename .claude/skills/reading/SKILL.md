@@ -47,6 +47,8 @@ episode. Tooling lives in `marketing/podcast/bin/`. Voice is jeffrey-pvc via
    node bin/buzzsprout.mjs <slug>        # publish; --private to stage; list to audit
    ```
    One API call = live everywhere. Writes `out/<slug>.buzzsprout.json`.
+   Canonical show URL: `https://pod.prompt.ac` (Buzzsprout custom domain;
+   `podcast.aesthetic.computer` 301s there). RSS: `https://feeds.buzzsprout.com/2628235.rss`.
 
 4. **Wire the papers listing.** Host the mp3 + regen the papers index so the
    essay shows a `podcast` link (mirrors `cards`):
@@ -65,8 +67,9 @@ If not using Buzzsprout, host on the asset CDN and self-serve the feed:
 node bin/feed.mjs        # regen out/feed.xml + index.json (HOSTED allowlist)
 # upload feed.xml + index.json to the podcast/ prefix; flush the CDN
 ```
-Feed URL: `https://assets.aesthetic.computer/podcast/feed.xml` — submit once to
-Spotify + Apple. New episodes then auto-appear on feed regen (no manual upload).
+Feed URL: `https://assets.aesthetic.computer/podcast/feed.xml`. Do NOT submit
+this feed to Spotify/Apple — Buzzsprout is the distribution path; submitting
+both feeds creates duplicate show listings in directories.
 
 ## Notes
 

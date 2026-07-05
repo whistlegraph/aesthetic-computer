@@ -66,6 +66,7 @@ sidecars.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate)); // newest fi
 const HOSTED = {
   "may-26": "aesthetic-may-26-essay",
   "june-26": "aesthetic-june-26-essay",
+  "july-4-26": "aesthetic-july-4-26-essay",
 };
 const host = (e) => HOSTED[e.slug] || e.slug;
 
