@@ -241,6 +241,22 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* Mac App Store status — same monospace caption family as `.aux`, with
+     the date picked out in the head color. A temporary line: swap it for
+     the App Store badge/link once Apple approves. */
+  p.appstore-note {
+    margin: 8px auto 0;
+    font-family: "Berkeley Mono Variable", "SF Mono", Menlo, monospace;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: var(--ink-soft);
+    text-align: center;
+  }
+  p.appstore-note .when {
+    color: var(--ink-head);
+    font-weight: 700;
+  }
+
   .aqua {
     display: inline-flex;
     align-items: center;
@@ -667,6 +683,7 @@
       </a>
     </div>
     <p id="downloads-counter" class="downloads" aria-live="polite" hidden></p>
+    <p class="appstore-note">🍏 Submitted to the Mac App Store for review <span class="when">July 5, 2026</span></p>
     <p class="aux"><a href="https://tangled.org/@aesthetic.computer/core/tree/main/slab/menuband" data-i18n="viewSource">view source</a> · <span data-i18n="by">by</span> <a href="https://aesthetic.computer">aesthetic.computer</a></p>
   </div>
 

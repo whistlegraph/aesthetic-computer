@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!-- Mac App Store variant: sandboxed thumbnail extension under the MAS bundle id. -->
 <plist version="1.0">
 <dict>
+	<key>CFBundleDisplayName</key>
+	<string>Menu Band Score Thumbnail</string>
 	<key>CFBundleExecutable</key>
 	<string>ScoreThumbnail</string>
 	<key>CFBundleIdentifier</key>
@@ -17,10 +18,6 @@
 	<string>153</string>
 	<key>NSExtension</key>
 	<dict>
-		<key>NSExtensionPointIdentifier</key>
-		<string>com.apple.quicklook.thumbnail</string>
-		<key>NSExtensionPrincipalClass</key>
-		<string>ScoreThumbnail.ThumbnailProvider</string>
 		<key>NSExtensionAttributes</key>
 		<dict>
 			<key>QLSupportedContentTypes</key>
@@ -30,6 +27,10 @@
 			<key>QLThumbnailMinimumDimension</key>
 			<integer>0</integer>
 		</dict>
+		<key>NSExtensionPointIdentifier</key>
+		<string>com.apple.quicklook.thumbnail</string>
+		<key>NSExtensionPrincipalClass</key>
+		<string>ScoreThumbnail.ThumbnailProvider</string>
 	</dict>
 </dict>
 </plist>

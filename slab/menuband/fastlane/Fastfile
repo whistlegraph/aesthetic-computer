@@ -78,6 +78,17 @@ platform :mac do
     )
   end
 
+  # 3b. Publish the App Privacy nutrition label ("Data Not Collected").
+  #     The public ASC API has no appDataUsages endpoint; this action drives
+  #     Apple's private dataUsages routes with the same API key.
+  lane :privacy do
+    upload_app_privacy_details(
+      api_key: asc_key,
+      app_identifier: BUNDLE,
+      json_path: "./fastlane/app_privacy_details.json",
+    )
+  end
+
   # 4. Submit for review (build must be processed + price/agreements set).
   lane :ship do
     deliver(

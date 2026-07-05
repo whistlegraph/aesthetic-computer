@@ -35,7 +35,7 @@ err()  { printf "%s✗ %s%s\n" "$RED" "$1" "$RESET"; }
 # Resources every shipped bundle MUST contain. Grow this list when new
 # Bundle.module.url(forResource:) call sites land.
 REQUIRED_RESOURCES=(
-    "WaveformShaders.metal"
+    "WaveformShaders.metalsource"
     "keymaps-social-software-26-arxiv.pdf"
     "sheet.html"
     "verovio-toolkit-wasm.js"

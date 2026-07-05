@@ -37,14 +37,14 @@ let package = Package(
             ],
             resources: [
                 .process("Resources"),
-                // SwiftPM doesn't auto-compile .metal files in
-                // executable targets — declaring it as a processed
-                // resource makes SwiftPM emit a default.metallib into
-                // the module bundle, which `device.makeDefaultLibrary(
-                // bundle: .module)` then finds at runtime. Without
-                // this the visualizer renders solid black: the Metal
-                // pipeline fails with "no default library was found".
-                .process("WaveformShaders.metal"),
+                // Shipped as SOURCE under a neutral extension —
+                // WaveformView compiles it at runtime via
+                // makeLibrary(source:). A `.metal` extension would make
+                // Xcode's resources phase auto-compile it (requiring the
+                // multi-GB Metal Toolchain download on Xcode 26, which is
+                // exactly what wedged the MAS archive); `.metalsource` is
+                // copied verbatim by both SwiftPM and Xcode.
+                .process("WaveformShaders.metalsource"),
             ],
             linkerSettings: [
                 .linkedFramework("IOKit"),

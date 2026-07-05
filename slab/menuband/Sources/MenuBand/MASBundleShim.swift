@@ -7,7 +7,7 @@ import Foundation
 // main bundle instead of a nested `MenuBand_MenuBand.bundle`. This shim
 // supplies `Bundle.module` for that target so the six existing
 // `Bundle.module.url(...)` lookups (fonts, sheet.html, the keymaps PDF, the
-// WaveformShaders.metal source) keep working unchanged.
+// WaveformShaders.metalsource shader source) keep working unchanged.
 //
 // Guarded on XCODE_APP_TARGET — a flag set ONLY by project.yml's Xcode
 // target — NOT on MAC_APP_STORE. That distinction matters: the

@@ -46,6 +46,7 @@ render(["--render-menubar", "--light"], "menubar.png");   // keys at rest, light
 render(["--render-popover", "--lang", "en", "--program", "0"], "popover.png");
 render(["--render-about", "--lang", "en"], "about.png");
 render(["--render-jam", "--lang", "en"], "jam.png");
+render(["--render-keymap", "--lang", "en", "--program", "0"], "keymap.png");  // fullscreen expanded view
 
 // The ♪ status glyph at the strip's right end renders in the system accent
 // (green). For a clean light-mode bar, recolor it to INK. That right slice
@@ -87,6 +88,7 @@ const pngDims = (name) => {
 // pass at the end deletes any other PNGs left in the upload dir.
 const SHOTS = [
   { file: "00-overview", layered: true },
+  { file: "01-keymap", screen: "keymap", place: "fill" },  // fullscreen expanded view
 ];
 
 const FILL = "#ffffff";          // solid light-theme backing behind the panels
@@ -141,6 +143,19 @@ const screenCSS = (s) => {
     return windowEl({ screen: s.screen, left: Math.round(STRIP_CENTER - w / 2),
                       top: BAR_H + 12, chrome: s.chrome, arrow: true });
   }
+  // `fill`: scale the surface to fill most of the desktop below the bar —
+  // used for the fullscreen expanded (keymap) view, which covers the screen
+  // in the live app. No traffic lights (it's a borderless overlay).
+  if (s.place === "fill") {
+    const dims2 = pngDims(s.screen);
+    const fh = Math.round((H - BAR_H) * 0.94);
+    const fscale = (fh / (dims2.h / RENDER_SCALE));
+    const fw = Math.round(fh * dims2.w / dims2.h);
+    return windowEl({ screen: s.screen, scale: fscale,
+                      left: Math.round((W - fw) / 2),
+                      top: BAR_H + Math.round((H - BAR_H - fh) / 2),
+                      chrome: false });
+  }
   return windowEl({ screen: s.screen,
                     left: Math.round((W - w) / 2),
                     top: BAR_H + Math.round((H - BAR_H - h) / 2),
@@ -161,22 +176,22 @@ const overviewCSS = () => {
   };
   const pop = sized("popover"), about = sized("about"), jam = sized("jam");
 
-  // Looking-For-Players · About · popover, left → right, EVENLY distributed
-  // across the canvas: the four gaps (left margin, the two inter-window
-  // gutters, right margin) are all equal, so the rhythm reads as even even
-  // though the three windows differ in width. Each window is vertically
-  // centered in the desktop below the menu bar.
-  const gap = Math.round((W - (jam.w + about.w + pop.w)) / 4);
+  // The popover DROPS from the ♪ status item like the real NSPopover — its
+  // callout arrow lands on the note glyph, top tucked right under the bar.
+  // About + Looking-For-Players cascade in the desktop space to its left,
+  // vertically centered, with the three gaps (left margin, inter-window
+  // gutter, gutter to the popover) equal so the rhythm reads as even.
+  const popLeft = Math.round(STRIP_CENTER - pop.w / 2);
+  const gap = Math.round((popLeft - (jam.w + about.w)) / 3);
   const jamLeft = gap;
   const aboutLeft = jamLeft + jam.w + gap;
-  const popLeft = aboutLeft + about.w + gap;
   const cy = (BAR_H + H) / 2;
   const topFor = (hh) => Math.round(cy - hh / 2);
 
   return [
     windowEl({ screen: "jam",     left: jamLeft,   top: topFor(jam.h),   scale: OS, chrome: true, z: 1 }),
     windowEl({ screen: "about",   left: aboutLeft, top: topFor(about.h), scale: OS, chrome: true, z: 2 }),
-    windowEl({ screen: "popover", left: popLeft,   top: topFor(pop.h),   scale: OS, chrome: false, z: 3 }),
+    windowEl({ screen: "popover", left: popLeft,   top: BAR_H + 12,      scale: OS, chrome: false, z: 3, arrow: true }),
   ].join("\n");
 };
 

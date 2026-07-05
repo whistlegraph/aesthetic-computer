@@ -47,6 +47,14 @@ For _fastlane_ installation instructions, see [Installing _fastlane_](https://do
 
 
 
+### mac privacy
+
+```sh
+[bundle exec] fastlane mac privacy
+```
+
+
+
 ### mac ship
 
 ```sh

@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!-- Mac App Store variant: sandboxed QuickLook preview extension, bundled in
-     the MAS Menu Band app (bundle id computer.aesthetic.menuband). -->
 <plist version="1.0">
 <dict>
+	<key>CFBundleDisplayName</key>
+	<string>Menu Band Score Preview</string>
 	<key>CFBundleExecutable</key>
 	<string>ScorePreview</string>
 	<key>CFBundleIdentifier</key>
@@ -18,10 +18,6 @@
 	<string>153</string>
 	<key>NSExtension</key>
 	<dict>
-		<key>NSExtensionPointIdentifier</key>
-		<string>com.apple.quicklook.preview</string>
-		<key>NSExtensionPrincipalClass</key>
-		<string>ScorePreview.PreviewViewController</string>
 		<key>NSExtensionAttributes</key>
 		<dict>
 			<key>QLSupportedContentTypes</key>
@@ -31,6 +27,10 @@
 			<key>QLSupportsSearchableItems</key>
 			<false/>
 		</dict>
+		<key>NSExtensionPointIdentifier</key>
+		<string>com.apple.quicklook.preview</string>
+		<key>NSExtensionPrincipalClass</key>
+		<string>ScorePreview.PreviewViewController</string>
 	</dict>
 </dict>
 </plist>

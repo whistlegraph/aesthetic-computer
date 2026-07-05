@@ -49,7 +49,7 @@ targets:
         excludes:
           - "KidLisp/README.md"
           - "Resources/**"
-          - "WaveformShaders.metal"
+          - "WaveformShaders.metalsource"
 
       # Resource files → Copy Bundle Resources (flattened). verovio/sheet.html
       # + verovio-toolkit-wasm.js flatten into the same Resources root, so the
@@ -57,11 +57,13 @@ targets:
       - path: Sources/MenuBand/Resources
         buildPhase: resources
 
-      # WaveformShaders.metal ships as a RAW resource (not a compile source):
-      # WaveformView compiles it at runtime via makeLibrary(source:). Adding it
-      # to Compile Sources instead would produce a default.metallib and strip
-      # the raw file, breaking that primary path.
-      - path: Sources/MenuBand/WaveformShaders.metal
+      # The Metal shader ships as RAW SOURCE under a neutral extension:
+      # WaveformView compiles it at runtime via makeLibrary(source:). A
+      # `.metal` extension would trip Xcode's resources-phase auto-compile,
+      # which needs the multi-GB Metal Toolchain component (its MobileAsset
+      # install wedged repeatedly on 2026-07-05 and blocked the MAS archive);
+      # `.metalsource` is copied verbatim, so no build-time Metal at all.
+      - path: Sources/MenuBand/WaveformShaders.metalsource
         buildPhase: resources
 
       # App icon. Info.plist already declares CFBundleIconFile = AppIcon, so

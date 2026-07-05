@@ -254,7 +254,7 @@ final class WaveformView: MTKView {
             // animation. Without this the visualizer ships solid black:
             // makeDefaultLibrary throws "no default library was found".
             let library: MTLLibrary
-            if let url = Bundle.appResources.url(forResource: "WaveformShaders", withExtension: "metal"),
+            if let url = Bundle.appResources.url(forResource: "WaveformShaders", withExtension: "metalsource"),
                let source = try? String(contentsOf: url, encoding: .utf8) {
                 library = try device.makeLibrary(source: source, options: nil)
             } else {

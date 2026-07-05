@@ -200,7 +200,7 @@ final class PianoKeyboardView: NSView {
     }
 
     private func updateHover(with event: NSEvent) {
-        guard let point = rendererPoint(from: event) else {
+        guard let point = rendererPoint(from: event, strictY: true) else {
             if hoveredNote != nil {
                 hoveredNote = nil
                 needsDisplay = true
@@ -220,7 +220,11 @@ final class PianoKeyboardView: NSView {
         }
     }
 
-    private func rendererPoint(from event: NSEvent) -> NSPoint? {
+    // `strictY` confines the point to the keys' true vertical extent — used by
+    // hover, so keys only light while the cursor is actually over them. Drags
+    // and taps keep the generous ±piano-height slack (fat-finger tolerance for
+    // holding a note while sliding off the keys).
+    private func rendererPoint(from event: NSEvent, strictY: Bool = false) -> NSPoint? {
         let local = convert(event.locationInWindow, from: nil)
         let target = pianoTargetRect()
         let point = NSPoint(
@@ -230,10 +234,12 @@ final class PianoKeyboardView: NSView {
         let piano = KeyboardIconRenderer.withPianoWaveformKeyboard(keymap: menuBand?.keymap) {
             KeyboardIconRenderer.pianoImageSize(layout: Self.rendererLayout)
         }
+        let yMin: CGFloat = strictY ? 0 : -piano.height
+        let yMax: CGFloat = strictY ? piano.height : piano.height * 2
         guard point.x >= -KeyboardIconRenderer.whiteW,
               point.x <= piano.width + KeyboardIconRenderer.whiteW,
-              point.y >= -piano.height,
-              point.y <= piano.height * 2 else { return nil }
+              point.y >= yMin,
+              point.y <= yMax else { return nil }
         return point
     }
 
