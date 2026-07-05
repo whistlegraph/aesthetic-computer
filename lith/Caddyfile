@@ -439,19 +439,18 @@
         redir https://aesthetic.computer{uri} 301
     }
 
-    # --- prompt.ac/menuband: serve from origin (no redirect) ---
-    # The host+path matcher is more specific than the host-only @promptac
-    # below, so Caddy evaluates this first. Earlier nested-handle attempt
-    # silently fell through to the redirect; named top-level matchers are
-    # the reliable shape.
+    # --- prompt.ac/menuband → menuband.app (Menu Band's own domain) ---
+    # Menu Band now lives at menuband.app; this legacy path keeps working by
+    # forwarding into it (subpath preserved: /menuband/privacy.html →
+    # menuband.app/privacy.html). More specific than the host-only @promptac
+    # below, so Caddy evaluates it first.
     @promptac_menuband {
         host prompt.ac
         path /menuband /menuband/*
     }
     handle @promptac_menuband {
-        root * /opt/ac/system/public
-        try_files {path} {path}/index.html
-        file_server
+        uri strip_prefix /menuband
+        redir https://menuband.app{uri} 301
     }
 
     # --- prompt.ac (apex root only) → HTML prompt shell (its own product) ---
