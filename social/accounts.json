@@ -35,6 +35,102 @@
       ]
     },
     {
+      "id": "aesthetic-computer-youtube",
+      "handle": "Aesthetic Dot Computer",
+      "platform": "youtube",
+      "url": "https://www.youtube.com/channel/UCnCkxAsgrBqEXk8XiHl0JGg",
+      "role": "primary-growth-target",
+      "goal": "Music visualizers + readings; grow alongside IG/TikTok",
+      "access": "full API — toolchain/youtube/yt.mjs (default token)",
+      "snapshots": [
+        { "date": "2026-07-05", "followers": 4, "posts": 13, "views": 70, "notes": "Data API v3; 13 uploads incl. private/unlisted, top video Trancenwaltz 28 views" }
+      ]
+    },
+    {
+      "id": "whistlegraph-youtube",
+      "handle": "whistlegraph",
+      "platform": "youtube",
+      "url": "https://www.youtube.com/channel/UCZ_5AuCebRbm9t9_Y7SrckQ",
+      "role": "established-funnel-source",
+      "goal": "Maintain; funnel to primary",
+      "access": "full API — yt.mjs --as whistlegraph (authorized 2026-07-05)",
+      "snapshots": [
+        { "date": "2026-07-05", "followers": 5340, "posts": 210, "views": 2116520, "notes": "Data API v3; 210 uploads incl. non-public, top video 'mommy wow WHISTLING GRAPHIX' 245k views" }
+      ]
+    },
+    {
+      "id": "aesthetic-computer-bluesky",
+      "handle": "@aesthetic.computer",
+      "platform": "bluesky",
+      "url": "https://bsky.app/profile/aesthetic.computer",
+      "role": "changelog-and-paintings-feed",
+      "goal": "Keep alive via at/ scripts; low-effort mirror",
+      "access": "full API — at/*.mjs (app password in vault/at/.env)",
+      "snapshots": [
+        { "date": "2026-07-05", "followers": 81, "following": 16, "posts": 46, "notes": "public.api.bsky.app getProfile" }
+      ]
+    },
+    {
+      "id": "ac-readings-podcast",
+      "handle": "AC Readings",
+      "platform": "podcast",
+      "url": "https://pod.prompt.ac",
+      "role": "essay-audio-distribution",
+      "goal": "Monthly essay readings; fans out to Spotify/Apple/YouTube via Buzzsprout",
+      "access": "Buzzsprout API (id 2628235) via reading skill",
+      "snapshots": [
+        { "date": null, "followers": null, "notes": "TODO: pull Buzzsprout download stats" }
+      ]
+    },
+    {
+      "id": "promptdotac-x",
+      "handle": "@promptDOTac",
+      "platform": "x",
+      "url": "https://x.com/promptDOTac",
+      "role": "dormant-brand-outlet",
+      "goal": "Revive via x.mjs mirror of Bluesky cadence",
+      "access": "none — no developer app yet",
+      "snapshots": [
+        { "date": null, "followers": null, "posts": null, "notes": "TODO: fill in current numbers" }
+      ]
+    },
+    {
+      "id": "whistlegraph-x",
+      "handle": "@whistlegraph",
+      "platform": "x",
+      "url": "https://x.com/whistlegraph",
+      "role": "dormant-funnel-source",
+      "goal": "Maintain; occasional funnel to primary",
+      "access": "none — no developer app yet",
+      "snapshots": [
+        { "date": null, "followers": null, "posts": null, "notes": "TODO: fill in current numbers" }
+      ]
+    },
+    {
+      "id": "aesthetic-dot-computer-spotify",
+      "handle": "Aesthetic Dot Computer",
+      "platform": "spotify-artist",
+      "url": "https://open.spotify.com",
+      "role": "music-distribution",
+      "goal": "Claim Spotify for Artists (blocked on first IG post — pop/spotify-for-artists-claim-reply.md)",
+      "access": "distribution via DistroKid (Playwright semi-auto); no S4A yet",
+      "snapshots": [
+        { "date": null, "followers": null, "notes": "TODO: monthly listeners once S4A claim lands" }
+      ]
+    },
+    {
+      "id": "arena",
+      "handle": "(jeffrey)",
+      "platform": "are.na",
+      "url": "https://www.are.na",
+      "role": "curation-research-surface",
+      "goal": "Vault ARENA_TOKEN; generalize gigs/are-na-annual-vol-8 scripts",
+      "access": "API proven via gig scripts; token not vaulted",
+      "snapshots": [
+        { "date": null, "followers": null, "notes": "TODO: profile URL + current numbers" }
+      ]
+    },
+    {
       "id": "whistlegraph-tiktok",
       "handle": "@whistlegraph",
       "platform": "tiktok",

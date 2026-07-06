@@ -8,18 +8,39 @@ Sibling docs: `pop/SCORE.md` (music mill), `recap/SCORE.md` (narrated video), `m
 
 ---
 
-## The 4 accounts
+## The accounts
 
 Tracked in `accounts.json` (append a snapshot when you log fresh numbers).
+Two brands, one funnel: **@whistlegraph** (established audience) feeds **@aesthetic.computer** (growth target).
 
-| Handle | Platform | Role | Goal |
+| Handle | Platform | Role | API access today |
 |---|---|---|---|
-| **@aesthetic.computer** | Instagram | **primary growth target** | **1,000 followers → unlocks Trial Reels** |
-| **@aesthetic.computer** | TikTok | primary growth target | grow in tandem; feed cross-traffic to IG |
-| @whistlegraph | Instagram | established funnel source | maintain; occasional "made with aesthetic.computer" funnel |
-| @whistlegraph | TikTok | established funnel source | maintain; funnel to primary |
+| **@aesthetic.computer** | Instagram | **primary growth target** (1k → Trial Reels) | ⚠️ unofficial (silo private-api / session cookies) — no publish |
+| **@aesthetic.computer** | TikTok | primary growth target (391 fo · 2026-07-03) | ⚠️ OAuth app exists (silo); posting still manual |
+| **Aesthetic Dot Computer** | YouTube | primary growth target (4 subs · 70 views) | ✅ **full** — `yt.mjs` (upload/edit/thumb/delete) |
+| **@aesthetic.computer** | Bluesky | changelog + paintings feed (81 fo) | ✅ **full** — `at/*.mjs` app password |
+| **AC Readings** | Podcast (pod.prompt.ac) | essay audio → Spotify/Apple/YT | ✅ publish via Buzzsprout API (`reading` skill) |
+| @whistlegraph | Instagram | established funnel source | ⚠️ archive/read tooling only (instaloader/instagrapi) |
+| @whistlegraph | TikTok | established funnel source (2.6M fo · 99M likes) | ⚠️ download/analyze only (`toolchain/whistlegraph/`) |
+| @whistlegraph | YouTube | established funnel source (5.3k subs · 2.1M views) | ✅ **full** — `yt.mjs --as whistlegraph` (2026-07-05) |
+| @promptDOTac | X | dormant AC-brand outlet | ❌ none — no developer app |
+| @whistlegraph | X ([x.com/whistlegraph](https://x.com/whistlegraph)) | dormant funnel | ❌ none |
+| Aesthetic Dot Computer | Spotify (artist) | music distribution (via DistroKid) | ⚠️ **S4A claim BLOCKED on an IG post** — see `pop/spotify-for-artists-claim-reply.md` |
+| (jeffrey) | Are.na | curation / research surface | ⚠️ API proven (`gigs/are-na-annual-vol-8/*.mjs`, `ARENA_TOKEN`) — token not vaulted |
+| papers / essays | prompt.ac (self-hosted) | long-form home base | ✅ fully owned — `papers/` → oven → lith; no gatekeeper |
 
-**Current stats: TODO** — numbers not yet filled into `accounts.json`. Pull them and snapshot.
+**Legend:** ✅ scripted publish from this repo · ⚠️ partial/unofficial · ❌ nothing yet.
+
+### API access build-out (next moves, in value order)
+
+1. **Instagram official publishing — the keystone.** Today we have read-only unofficial access (silo `instagram-private-api`, instaloader archives; see `reports/instagram-api-migration-2026-03-29.md`). Build the official path via the **Instagram API with Instagram Login** (no Facebook Page needed since the 2024 API): both accounts must be Professional; create a Meta app at developers.facebook.com, add the Instagram product, connect our own accounts as testers — **own-account publishing works in dev mode without app review**. Then an `ig.mjs` CLI in `toolchain/` mirroring `yt.mjs` (`--as whistlegraph`). Triple payoff: (a) scripted reels toward the 1k Trial-Reels gate, (b) same for @whistlegraph funnel posts, (c) **the first trancenwaltz IG post unblocks the Spotify for Artists claim** (draft reply waiting in `pop/spotify-for-artists-claim-reply.md`).
+2. **X developer app** — nothing exists. Free tier (~500 writes/mo) covers a mirror cadence for @promptDOTac + @whistlegraph; a small `x.mjs` CLI posts the same short-form drops as Bluesky. Needs jeffrey to create the app at developer.x.com under whichever account owns the brand.
+3. **TikTok Content Posting API audit** — silo holds the OAuth app (key/secret, callback `silo.aesthetic.computer/api/tiktok/callback`, sessions in Mongo `tiktok-sessions`). Unaudited = private/draft posting only; apply for the audit to get scripted publish where the 2.6M audience is.
+4. **Are.na token → vault** — scripts already speak the API; store `ARENA_TOKEN` at `vault/arena/.env` and lift the gig scripts into a small generic CLI when needed.
+5. **Buzzsprout stats pull** — wire download numbers into `accounts.json` snapshots (podcast id 2628235; publish already works via the `reading` skill).
+6. **YouTube quota bump** — both channels share ~6 uploads/day; request more if cadence grows.
+
+Done: ~~YouTube whistlegraph~~ (2026-07-05, `--as whistlegraph`) · Bluesky (full) · Buzzsprout publish · papers (self-owned).
 
 ---
 
@@ -86,7 +107,7 @@ Creds: `vault/silo/.env` (TIKTOK_CLIENT_KEY/SECRET/REDIRECT_URI). Skill: `whistl
 ### YouTube
 | Path | What it does |
 |---|---|
-| `toolchain/youtube/yt.mjs` | Zero-dep Data API v3 upload CLI (OAuth, resumable, metadata/thumbnail/playlist) |
+| `toolchain/youtube/yt.mjs` | Zero-dep Data API v3 upload CLI (OAuth, resumable, metadata/thumbnail/playlist); `--as whistlegraph` drives the whistlegraph channel |
 | `pop/bin/sample-from-youtube.mjs` | Fetch audio samples from YouTube |
 
 Creds: `vault/youtube/client.json` + `token.json`. Receipt: `<video>.youtube.json`.
@@ -115,6 +136,7 @@ Creds: persistent Chrome profile `~/.distrokid-profile`. Status: `pop/RELEASES.m
 | Path | What it does |
 |---|---|
 | `marketing/bin/gen-promo.mjs` | gpt-image-2 campaign image gen |
+| `marketing/kidlisp-reels/` | KidLisp $code → 9:16 pals side-stamp reel (clean capture + resample) |
 | `marketing/bin/capture-ac-native.mjs` | Puppeteer screenshots of AC native (real refs) |
 | `marketing/bin/{title-card,compose-widescreen,storyboard-widescreen,opener-anim}.mjs` | Video composition pieces |
 | `marketing/lib/jeffrey-refs.mjs` | Shared SHOOT+SELFIE identity refs |
@@ -124,6 +146,21 @@ Creds: persistent Chrome profile `~/.distrokid-profile`. Status: `pop/RELEASES.m
 | `clip-wizard/` · `shot-wizard/` · `wave-wizard/` | macOS GUI clip/shot/wave tools |
 
 Docs: `marketing/README.md`, `recap/SCORE.md`, `pop/SCORE.md`. Motion notes: `pop_motion_pipeline` memory.
+
+---
+
+## Output pipelines → surfaces
+
+Which content mill feeds which account. Plan campaigns by picking a row and a cadence.
+
+| Pipeline | Produces | Lands on |
+|---|---|---|
+| `pop/` (music mill) | tracks + 1920×1080 visualizers + 9:16 cuts | DistroKid → streaming; YT (AC channel); IG/TikTok reels |
+| `marketing/kidlisp-reels/` | 9:16 KidLisp process reels | IG + TikTok (@aesthetic.computer) — the Trial-Reels at-bats |
+| `recap/` | narrated 1080×1920 verticals | IG/TikTok |
+| `papers/` essays → `reading` skill | audio readings + caption video | Buzzsprout → Spotify/Apple/YT |
+| `at/` scripts | changelog threads, painting shares | Bluesky |
+| whistlegraph archive (`portraits/jeffrey/bin/`) | back-catalog of 950+ TikToks / 193 YT videos | re-cut fodder for funnel posts ("made with aesthetic.computer") |
 
 ---
 
