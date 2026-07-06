@@ -50,6 +50,19 @@ func wizardGuy(scale s: CGFloat) -> NSImage {
     }
 }
 
+// The menu-bar face: a plain black magic wand. It's a *template* image, so macOS
+// tints it to match the bar (black on light, white on dark) exactly like Menu
+// Band's note glyph — unlike the multicolored wizardGuy, which stays a costume
+// for the About window and the summon roster. SF Symbol so it stays crisp at any
+// bar thickness; wizardGuy is the fallback if the symbol is ever missing.
+func wandGlyph(pointSize: CGFloat = 15) -> NSImage {
+    let cfg = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .regular)
+    let img = NSImage(systemSymbolName: "wand.and.stars", accessibilityDescription: "Wizard")?
+        .withSymbolConfiguration(cfg) ?? wizardGuy(scale: 1)
+    img.isTemplate = true
+    return img
+}
+
 struct WizardEntry {
     let dir: String     // package dir under the repo root
     let exe: String     // executable / target name

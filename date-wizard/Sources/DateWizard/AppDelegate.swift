@@ -8,14 +8,25 @@ final class DateWizardAppDelegate: NSObject, NSApplicationDelegate {
         DockIcon.install(prefix: "datewizard")
         let controller = WizardController()
         wizard = controller
-        controller.showWindow(nil)
-        NSApp.activate(ignoringOtherApps: true)
 
-        // Always-on menu bar strip: seven ROYGBIV day circles (S M T W T F S),
-        // today's lit. Click opens the wizard; the app stays resident so the
-        // strip is always there even when the window is closed.
+        // --background (startup/LaunchAgent): come up as a menu-bar-only daemon —
+        // just the wand icon, no window, no dock, no focus steal. The calendar
+        // opens on demand when the icon is clicked (which promotes us to .regular
+        // so the window focuses properly). Without the flag, open straight in.
+        let background = CommandLine.arguments.contains("--background")
+        if background {
+            NSApp.setActivationPolicy(.accessory)
+        } else {
+            controller.showWindow(nil)
+            NSApp.activate(ignoringOtherApps: true)
+        }
+
+        // Always-on menu bar: a black magic-wand template icon. Click opens the
+        // wizard; the app stays resident so the icon is always there even when
+        // the window is closed.
         let menu = MenuBarDays()
         menu.onOpen = { [weak controller] in
+            NSApp.setActivationPolicy(.regular)
             controller?.showWindow(nil)
             NSApp.activate(ignoringOtherApps: true)
         }

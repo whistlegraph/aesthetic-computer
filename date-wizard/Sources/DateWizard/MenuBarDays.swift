@@ -66,14 +66,13 @@ final class MenuBarDays {
         if idx != focusedIndex { focusedIndex = idx; refresh() }
     }
 
-    /// Paint the menu-bar face: the hand-pixeled wizard guy. This daemon is the
-    /// "wizard of wizards" now (the date is built in), so it wears the wizard,
-    /// not the day strip.
+    /// Paint the menu-bar face: a plain black magic wand (template image, so it
+    /// tints to the bar like Menu Band's note glyph). This daemon is the "wizard
+    /// of wizards" now (the date is built in) — the costumed wizardGuy lives on
+    /// only inside the menu/About, where color reads fine.
     func refresh() {
         guard let button = statusItem?.button else { return }
-        let img = wizardGuy(scale: 1)
-        img.isTemplate = false            // keep his colors; don't tint as a template
-        button.image = img
+        button.image = wandGlyph()
     }
 
     // ── input ─────────────────────────────────────────────────────────
