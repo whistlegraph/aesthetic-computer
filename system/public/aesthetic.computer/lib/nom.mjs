@@ -312,7 +312,12 @@ const FONT_METRICS = {
   MatrixChunky8: { adv: 5, h: 8 }, // proportional (kept for reference)
   _default: { adv: 6, h: 10 }, // font_1 (monospace)
 };
-const fontMetrics = (font) => FONT_METRICS[font] || FONT_METRICS._default;
+// hd rasterizes unifont ~14% narrower than its bitmap advance, so the fixed
+// grid reads gappy there. Tighter tracking → words fit bigger and closer
+// (size / space / legibility). The pixel path keeps the true bitmap grid.
+const FONT_METRICS_TIGHT = { unifont: { adv: 7, h: 16 } };
+const fontMetrics = (font) =>
+  (hiRes && FONT_METRICS_TIGHT[font]) || FONT_METRICS[font] || FONT_METRICS._default;
 
 function cellFont() {
   return mode === "word" ? "unifont" : null; // null → default font_1
@@ -320,18 +325,25 @@ function cellFont() {
 
 // Fit a label inside a cell at the LARGEST integer scale the cell allows —
 // readability first, on every display. Words are still sacred: always the
-// whole word on ONE line, never split / hyphenated; on a very tight screen
-// that means scale 1 (bleeding over the tile seam rather than wrapping).
-// All from a fixed nominal advance → stable, no async jitter.
+// whole word on ONE line, never split / hyphenated. A word that would
+// overflow even at scale 1 refits on the tile's DIAGONAL instead — 45° buys
+// √2 more run — and drops to fractional scale when even that is tight (the
+// hd layer rasterizes any px size; long dannom words live here).
 const CELL_TEXT_MAX = 6; // sanity cap on cell label scale
-const fitScratch = { lines: [""], size: 1, lineH: 10, width: 0, height: 0, font: null };
+const fitScratch = { lines: [""], size: 1, lineH: 10, width: 0, height: 0, font: null, rot: 0 };
 function fitText(str, cell, font) {
   const { adv, h } = fontMetrics(font);
   const inner = max(8, cell - CELL_MARGIN * 2);
-  const size = max(
-    1,
-    min(CELL_TEXT_MAX, floor(min(inner / (str.length * adv), inner / h))),
-  );
+  const across = inner / (str.length * adv); // scale that fits horizontally
+  let size, rot = 0;
+  if (across >= 1) {
+    size = max(1, min(CELL_TEXT_MAX, floor(min(across, inner / h))));
+  } else {
+    // A w×h label rotated 45° spans (w+h)/√2 — solve that for scale.
+    rot = -45; // up-slope: reads bottom-left → top-right
+    size = min(CELL_TEXT_MAX, (inner * Math.SQRT2) / (str.length * adv + h));
+    if (size >= 1) size = floor(size);
+  }
   // One shared scratch object — callers consume it synchronously, so this
   // avoids ~30 small allocations per frame.
   fitScratch.lines[0] = str;
@@ -340,21 +352,28 @@ function fitText(str, cell, font) {
   fitScratch.width = str.length * adv * size;
   fitScratch.height = h * size;
   fitScratch.font = font;
+  fitScratch.rot = rot;
   return fitScratch;
 }
 
 // Draw a (possibly two-line) cell label, centered in the cell with an optional
 // jitter offset + alpha. Shared by the live board and the wrap-preview ghosts.
+// The pixel path (previews/icons) can't rotate or fractional-scale bitmap
+// glyphs, so a diagonal fit falls back to the old scale-1 seam bleed there.
 function drawCellText(ink, txt, cx, cy, cell, font, col, alpha = 255, jx = 0, jy = 0) {
   const fit = fitText(txt, cell, font);
   const { adv } = fontMetrics(font);
-  const baseY = cy + (cell - fit.height) / 2 + jy;
+  const paint = alpha >= 255 ? ink(...col) : ink(col[0], col[1], col[2], alpha);
+  const rot = paint.hd ? fit.rot : 0;
+  const size = paint.hd ? fit.size : max(1, floor(fit.size));
+  const lineH = (fit.lineH / fit.size) * size;
+  const baseY = cy + (cell - lineH * fit.lines.length) / 2 + jy;
   fit.lines.forEach((ln, i) => {
-    const lw = ln.length * adv * fit.size;
+    const lw = ln.length * adv * size;
     const lx = cx + (cell - lw) / 2 + jx;
-    const ly = baseY + i * fit.lineH;
-    const paint = alpha >= 255 ? ink(...col) : ink(col[0], col[1], col[2], alpha);
-    paint.write(ln, { x: lx, y: ly, size: fit.size }, undefined, undefined, false, font || undefined);
+    const ly = baseY + i * lineH;
+    const pos = rot ? { x: lx, y: ly, size, rot } : { x: lx, y: ly, size };
+    paint.write(ln, pos, undefined, undefined, false, font || undefined);
   });
 }
 
@@ -1939,8 +1958,11 @@ function paint(api) {
 // 💬 Always-on caption: the last spoken text, centered along the bottom over a
 // translucent strip so it stays legible on any board. Uses the cell font so
 // Cyrillic / accented meanings (rusnom, mexinom) render real glyphs.
-function paintCaption({ ink, write, box, screen }) {
-  if (!caption || state === "title") return;
+// Caption band geometry — instructional content always sits ABOVE the board,
+// never below, so the strip hugs the board's top edge. Shared with the
+// transient message banner so the two stack instead of colliding.
+function captionBand(screen) {
+  if (!caption || state === "title") return null;
   const font = cellFont();
   const { adv, h } = fontMetrics(font);
   // Scale with the render resolution (hd draws at native pixels), then shrink
@@ -1948,10 +1970,17 @@ function paintCaption({ ink, write, box, screen }) {
   const maxW = screen.width - 8;
   let size = captionSize(screen);
   while (size > 1 && caption.length * adv * size > maxW) size -= 1;
+  const gh = h * size;
+  const y = max(4, layout.y - gh - round(gh * 0.4) - 4);
+  return { font, adv, size, gh, y };
+}
+
+function paintCaption({ ink, write, box, screen }) {
+  const band = captionBand(screen);
+  if (!band) return;
+  const { font, adv, size, gh, y } = band;
   const w = caption.length * adv * size;
   const x = max(2, round((screen.width - w) / 2));
-  const gh = h * size;
-  const y = screen.height - gh - round(gh * 0.4) - 2;
   const fade = min(1, (frames - captionFrame) / 6); // quick ease-in on change
   const [br, bg, bb, ba = 255] = T.captionBg;
   ink(br, bg, bb, round(ba * fade)).box(0, y - 3, screen.width, gh + 7);
@@ -2095,10 +2124,20 @@ function hdApi(layer) {
       sprites.set(key, spr);
     }
     if (a < 1) ctx.globalAlpha = a;
-    ctx.drawImage(spr.c, x - spr.pad, y - spr.pad, spr.w, spr.h);
+    if (pos.rot) {
+      // Spin around the label's own center (diagonal cell fits — see fitText).
+      const w2 = str.length * adv * size, h2 = h * size;
+      ctx.save();
+      ctx.translate(x + w2 / 2, y + h2 / 2);
+      ctx.rotate((pos.rot * Math.PI) / 180);
+      ctx.drawImage(spr.c, -w2 / 2 - spr.pad, -h2 / 2 - spr.pad, spr.w, spr.h);
+      ctx.restore();
+    } else {
+      ctx.drawImage(spr.c, x - spr.pad, y - spr.pad, spr.w, spr.h);
+    }
     if (a < 1) ctx.globalAlpha = 1;
   };
-  const chain = { box, line, write };
+  const chain = { box, line, write, hd: true };
   const ink = (...args) => {
     setColor(args);
     return chain;
@@ -2365,13 +2404,16 @@ function paintGame({ wipe, ink, screen, write, box, line, text }) {
     ink(255, 220, 90, round(pul * 0.6)).box(tx + 3, ty + 3, cell - 6, cell - 6, "outline");
   }
 
-  // 📣 Transient message banner — large, with a colored background.
+  // 📣 Transient message banner — large, with a colored background. Stacks
+  // above the caption band when one is showing (all instruction above the
+  // board, none below).
   if (message) {
     let ms = 1 + hudScale;
     while (ms > 1 && message.length * 6 * ms + 10 > screen.width) ms -= 1;
     const mw = message.length * 6 * ms;
     const mx = max(4, round(screen.width / 2 - mw / 2));
-    const myy = max(4, layout.y - 8 * ms - 6); // just above the board
+    const band = captionBand(screen);
+    const myy = max(4, (band ? band.y : layout.y) - 8 * ms - 6);
     let mbg, mfg;
     if (/OUCH|TIME|OVER/.test(message)) (mbg = [205, 45, 45]), (mfg = [255, 240, 240]);
     else if (/CLEAR/.test(message)) (mbg = [45, 175, 85]), (mfg = [12, 30, 14]);
