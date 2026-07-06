@@ -439,6 +439,14 @@
         redir https://aesthetic.computer{uri} 301
     }
 
+    # --- www.prompt.ac redirect ---
+    # (needs a proxied `www` A record in the prompt.ac zone — without it the
+    # `*.prompt.ac → 100::` Worker wildcard swallows www and 522s.)
+    @wwwpromptac host www.prompt.ac
+    handle @wwwpromptac {
+        redir https://prompt.ac{uri} 301
+    }
+
     # --- prompt.ac/menuband → menuband.app (Menu Band's own domain) ---
     # Menu Band now lives at menuband.app; this legacy path keeps working by
     # forwarding into it (subpath preserved: /menuband/privacy.html →

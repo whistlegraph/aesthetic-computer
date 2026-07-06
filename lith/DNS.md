@@ -15,6 +15,7 @@ The primary frontend origin is `209.38.133.33`.
 - `kidlisp.com` zone: `kidlisp.com`, `www`, `buy`, `calm`, `device`, `keep`, `keeps`, `learn`, `pj`, `top`
 - `notepat.com` zone: `notepat.com`, `www`
 - `prompt.ac` zone: `prompt.ac`, `api`, `l5`, `p5`, `papers`, `processing`, `sitemap`
+  - `www` MISSING as of 2026-07-06 — falls into the `*.prompt.ac → 100::` Worker wildcard and 522s. Fix: add `www` A → 209.38.133.33 (proxied); Caddyfile already has the www→apex redirect.
 - `quiltnet.org` zone: `quiltnet.org`, `www`
 - `sotce.net` zone: `sotce.net`, `www`
 
