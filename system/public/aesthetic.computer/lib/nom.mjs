@@ -144,7 +144,7 @@ function boot({ params, hud, clock, num: { randInt } }) {
   const m = resolveMode(params);
   mode = m.mode;
   lang = m.lang;
-  hiRes = params?.includes?.("hd") === true; // "hd" param → hi-res Canvas2D paint
+  hiRes = params?.includes?.("sd") !== true; // hi-res Canvas2D paint by default; "sd" opts out
   hud?.label?.(""); // hide the top-left corner label
   resetGame({ randInt });
   newRound({ randInt });
@@ -1058,15 +1058,19 @@ function spawnTroggles(rnd) {
   const count = min(5, floor(level / 2));
   const list = [];
   for (let i = 0; i < count; i += 1) {
-    const horizontal = rnd(2) === 0;
-    list.push({
-      col: horizontal ? (rnd(2) ? 0 : COLS - 1) : rnd(COLS),
-      row: horizontal ? rnd(ROWS) : rnd(2) ? 0 : ROWS - 1,
-      dir: horizontal
+    // Edge spawn, resampled until it lands ≥3 tiles (Manhattan) from the
+    // muncher's fresh start — mid-edge cells sit only 2 away in his own
+    // row/column and marched in for an unavoidable hit as spawn grace expired.
+    let col, row, dir;
+    do {
+      const horizontal = rnd(2) === 0;
+      col = horizontal ? (rnd(2) ? 0 : COLS - 1) : rnd(COLS);
+      row = horizontal ? rnd(ROWS) : rnd(2) ? 0 : ROWS - 1;
+      dir = horizontal
         ? { x: rnd(2) ? 1 : -1, y: 0 }
-        : { x: 0, y: rnd(2) ? 1 : -1 },
-      hue: [255, 90 + rnd(120), 60][i % 3],
-    });
+        : { x: 0, y: rnd(2) ? 1 : -1 };
+    } while (abs(col - muncher.col) + abs(row - muncher.row) < 3);
+    list.push({ col, row, dir, hue: [255, 90 + rnd(120), 60][i % 3] });
   }
   return list;
 }

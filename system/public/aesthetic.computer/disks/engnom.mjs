@@ -1,13 +1,13 @@
 // Engnom, 2026.06.07
 // The English/word edition of nom (shared lib/nom.mjs) — same game, word categories instead of
 // numbers (animals, colors, rhymes, …). Reuses lib/nom.mjs wholesale and just
-// forces word mode at boot. First test bed for the "hd" param: paint runs on
-// disk's hd() native-resolution Canvas2D layer (worker OffscreenCanvas).
+// forces word mode at boot. (Was the first test bed for hi-res paint — the
+// hd() native-resolution Canvas2D layer is now the engine default.)
 
 import { boot as nomBoot, sim, paint, act, makeMeta } from "../lib/nom.mjs";
 
 function boot(api) {
-  nomBoot({ ...api, params: ["words", "hd"] });
+  nomBoot({ ...api, params: ["words"] });
 }
 
 // Fixed identity (computed from params, not engine state) so the title is right
