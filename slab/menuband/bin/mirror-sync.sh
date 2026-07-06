@@ -143,21 +143,15 @@ if [[ -n "${LAST_MIRROR_COMMIT}" ]]; then
 fi
 
 # Replace the mirror's working tree with the current snapshot of
-# slab/menuband/, preserving the .git directory. `find -delete` in
-# two passes (files first, then empty dirs) handles deeply nested
-# layouts without rmdir errors.
-say "snapshotting ${PREFIX} → mirror tree"
+# slab/menuband/, preserving the .git directory.
+say "snapshotting ${PREFIX} → mirror tree (tracked files only)"
 find "${WORK}" -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
-# `cp -R prefix/.` copies *contents* of prefix into WORK without
-# nesting prefix as a subdir. The trailing `/.` is critical.
-cp -R "${REPO_ROOT}/${PREFIX}/." "${WORK}/"
-
-# Strip build artifacts, vendor caches, and signed/notarized
-# release DMGs that have no business in source. The mirror is
-# code only; release binaries live on assets.aesthetic.computer
-# and the GitHub Releases page.
-rm -rf "${WORK}/.build"
-rm -f "${WORK}"/Menu-Band-*.dmg "${WORK}"/Menu-Band-*.zip
+# Export only git-TRACKED files at HEAD for the prefix via `git archive`
+# (NOT `cp -R prefix/.`, which grabs untracked/ignored junk). This structurally
+# excludes build artifacts — .build, .build-mas (Xcode MAS intermediates),
+# release DMGs/zips — so they can never leak into the public mirror. The working
+# tree under PREFIX is verified clean above, so HEAD's tree == what's on disk.
+git archive "HEAD:${PREFIX}" | tar -x -C "${WORK}"
 find "${WORK}" -name '.DS_Store' -delete
 
 # Drop in / refresh the README so contributors see the mirror
