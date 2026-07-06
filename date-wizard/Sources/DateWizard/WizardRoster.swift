@@ -50,27 +50,24 @@ func wizardGuy(scale s: CGFloat) -> NSImage {
     }
 }
 
-// The pals pink (#cd5c9b) — the same hue KidLisp Friday and the AC "pals" icon
-// wear. Used for the countdown badge so DateWizard reads as one family with
-// Menu Band's number badge.
-let palsPink = NSColor(calibratedRed: 0.804, green: 0.361, blue: 0.608, alpha: 1)
-
 // The menu-bar face: a plain black magic wand. It's a *template* image, so macOS
 // tints it to match the bar (black on light, white on dark) exactly like Menu
 // Band's note glyph — unlike the multicolored wizardGuy, which stays a costume
 // for the About window and the summon roster. SF Symbol so it stays crisp at any
 // bar thickness; wizardGuy is the fallback if the symbol is ever missing.
 //
-// With a `badge` string (e.g. "2h", "45m", "3d") the wand carries a compact pals-
-// pink pill on its top-left corner — the countdown to the next appointment, in
-// the spirit of Menu Band's voice-number badge. A colored badge can't ride a
-// template image (macOS recolors those wholesale), so in that case we return a
-// *non-template* image: the wand is tinted to `dark ? white : black` ourselves,
-// then the pink pill is drawn on top.
+// With a `badge` string (e.g. "2h", "45m", "3d") the wand carries the countdown
+// to the next appointment as plain text sitting to the LEFT of the glyph — no
+// pill, no outline, and it never overlaps the wand. The text is tinted to
+// today's ROYGBIV day color (DayPalette) so the whole app reads as one
+// instrument. A colored badge can't ride a template image (macOS recolors those
+// wholesale), so in that case we return a *non-template* image and tint the wand
+// (dark ? white : black) ourselves.
+//
 // `dot` is the middle rung of the menu-bar-fit ladder: when the bar is a little
-// crowded we drop the countdown text but keep a small pink presence dot so you
-// still see "there's something coming up" without the wider pill. `badge` (full
-// text) wins over `dot` when both are supplied; neither → the plain template wand.
+// crowded we drop the countdown text but keep a small day-colored presence dot
+// (left of the wand) so you still see "there's something coming up." `badge`
+// wins over `dot` when both are supplied; neither → the plain template wand.
 func wandGlyph(pointSize: CGFloat = 15, badge: String? = nil, dot: Bool = false,
                dark: Bool = false) -> NSImage {
     let cfg = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .regular)
@@ -84,42 +81,38 @@ func wandGlyph(pointSize: CGFloat = 15, badge: String? = nil, dot: Bool = false,
     }
 
     let tinted = tintedImage(symbol, color: dark ? .white : .black)
+    let accent = DayPalette.color(for: Date())   // today's ROYGBIV hue
+    let gap: CGFloat = 2                          // clear space between badge and wand
 
-    // Presence-dot rung: a small pink corner dot, no text pill.
+    // Presence-dot rung: a small day-colored dot, left of the wand (no overlap).
     if !hasBadge {
         let dotD: CGFloat = 6
-        let size = NSSize(width: tinted.size.width + dotD * 0.7,
+        let size = NSSize(width: dotD + gap + tinted.size.width,
                           height: max(tinted.size.height, dotD))
         let out = NSImage(size: size)
         out.lockFocus()
-        tinted.draw(at: NSPoint(x: dotD * 0.7, y: 0), from: .zero, operation: .sourceOver, fraction: 1)
-        palsPink.setFill()
-        NSBezierPath(ovalIn: NSRect(x: 0, y: size.height - dotD, width: dotD, height: dotD)).fill()
+        accent.setFill()
+        NSBezierPath(ovalIn: NSRect(x: 0, y: (size.height - dotD) / 2, width: dotD, height: dotD)).fill()
+        tinted.draw(at: NSPoint(x: dotD + gap, y: (size.height - tinted.size.height) / 2),
+                    from: .zero, operation: .sourceOver, fraction: 1)
         out.unlockFocus()
         out.isTemplate = false
         return out
     }
     let badge = badge!
 
-    let font = NSFont.systemFont(ofSize: 8.5, weight: .bold)
-    let textAttrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: NSColor.white]
+    // Countdown rung: plain day-colored text, left of the wand, no pill/outline.
+    let font = NSFont.systemFont(ofSize: 9.5, weight: .bold)
+    let textAttrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: accent]
     let textSize = (badge as NSString).size(withAttributes: textAttrs)
-    let pillH: CGFloat = 12
-    let pillW = max(pillH, textSize.width + 7)
-
-    // Shift the wand right so the corner badge has room without clipping.
-    let shiftX = pillW * 0.55
-    let size = NSSize(width: tinted.size.width + shiftX, height: max(tinted.size.height, pillH))
+    let size = NSSize(width: textSize.width + gap + tinted.size.width,
+                      height: max(tinted.size.height, textSize.height))
     let out = NSImage(size: size)
     out.lockFocus()
-    tinted.draw(at: NSPoint(x: shiftX, y: 0), from: .zero, operation: .sourceOver, fraction: 1)
-    // Pink pill in the top-left (y-up coordinates: top = high y).
-    let pill = NSRect(x: 0, y: size.height - pillH, width: pillW, height: pillH)
-    palsPink.setFill()
-    NSBezierPath(roundedRect: pill, xRadius: pillH / 2, yRadius: pillH / 2).fill()
-    (badge as NSString).draw(
-        at: NSPoint(x: pill.midX - textSize.width / 2, y: pill.midY - textSize.height / 2),
-        withAttributes: textAttrs)
+    (badge as NSString).draw(at: NSPoint(x: 0, y: (size.height - textSize.height) / 2),
+                             withAttributes: textAttrs)
+    tinted.draw(at: NSPoint(x: textSize.width + gap, y: (size.height - tinted.size.height) / 2),
+                from: .zero, operation: .sourceOver, fraction: 1)
     out.unlockFocus()
     out.isTemplate = false
     return out

@@ -148,8 +148,8 @@ final class MenuBarDays {
 
     private func fitRungs(hasNext: Bool) -> [MenuBarFit.Rung] {
         hasNext
-            ? [.init(name: "bare", width: 24), .init(name: "dot", width: 30),
-               .init(name: "badge", width: 58)]
+            ? [.init(name: "bare", width: 24), .init(name: "dot", width: 32),
+               .init(name: "badge", width: 46)]
             : [.init(name: "bare", width: 24)]
     }
 
