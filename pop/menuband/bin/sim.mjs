@@ -64,12 +64,32 @@ const AC_PURPLE = "rgb(167,139,250)";
 
 // Real scannable QR to the landing page (qrencode → PNG → loaded once).
 const QR_PNG = `${OUT}/qr-menuband.png`;
-spawnSync("qrencode", ["-o", QR_PNG, "-s", "16", "-m", "1", "-l", "H", "https://prompt.ac/menuband"]);
+spawnSync("qrencode", ["-o", QR_PNG, "-s", "16", "-m", "1", "-l", "H", "https://menuband.app"]);
 const qrImg = existsSync(QR_PNG) ? await loadImage(QR_PNG) : null;
 
 const canvas = createCanvas(W, H);
 const ctx = canvas.getContext("2d");
 const rgb = (a, al = 1) => `rgba(${a[0]},${a[1]},${a[2]},${al})`;
+
+// Real macOS menu-bar glyphs — the same SF Symbol captures the App Store
+// screenshot pipeline composites (slab/menuband/bin/menubar-assets), tinted
+// white here for the reel's dark translucent bar. Real symbols at their true
+// aspect ratios, not hand-drawn approximations.
+const GLYPHS = resolve(HERE, "../../../slab/menuband/bin/menubar-assets");
+async function loadTinted(file, color = "rgba(255,255,255,0.95)") {
+  const p = `${GLYPHS}/${file}`;
+  if (!existsSync(p)) return null;
+  const img = await loadImage(p);
+  const c = createCanvas(img.width, img.height), x = c.getContext("2d");
+  x.drawImage(img, 0, 0);
+  x.globalCompositeOperation = "source-in";
+  x.fillStyle = color; x.fillRect(0, 0, img.width, img.height);
+  return c;
+}
+const sfApple = await loadTinted("sf-apple.png");
+const sfControl = await loadTinted("sf-control.png");
+const sfWifi = await loadTinted("sf-wifi.png");
+const sfBattery = await loadTinted("sf-battery.png");
 
 function roundRect(x, y, w, h, r) {
   const rr = Math.min(r, w / 2, h / 2);
@@ -193,23 +213,35 @@ function drawMenubar(t) {
   ctx.fillStyle = "rgba(24,20,34,0.72)";
   ctx.fillRect(0, 0, W, MBAR_H);
   const cy = MBAR_H / 2;
-  // Apple logo
-  ctx.save();
-  ctx.fillStyle = "rgba(255,255,255,0.95)";
-  ctx.beginPath(); ctx.arc(34, cy, 11, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = "rgba(24,20,34,0.96)";
-  ctx.beginPath(); ctx.arc(40, cy - 4, 6.5, 0, Math.PI * 2); ctx.fill();
-  ctx.restore();
+  // Real  logo (SF apple.logo capture), true aspect.
+  if (sfApple) {
+    const ah = 24, aw2 = ah * sfApple.width / sfApple.height;
+    ctx.drawImage(sfApple, 26, cy - ah / 2 - 1, aw2, ah);
+  }
   ctx.fillStyle = "rgba(255,255,255,0.96)"; ctx.textBaseline = "middle"; ctx.font = "700 22px MBSans";
-  ctx.fillText("Menu Band", 56, cy + 1);
-  // clock (right edge)
+  ctx.fillText("Menu Band", 66, cy + 1);
+  // Right cluster, right → left, true macOS order:
+  // clock · battery · Wi-Fi · Control Center · the REAL piano strip.
   ctx.textAlign = "right"; ctx.font = "500 21px MBSans"; ctx.fillStyle = "rgba(255,255,255,0.92)";
-  ctx.fillText("9:41", W - 22, cy + 1); ctx.textAlign = "left";
-  // the REAL captured menubar piano item, sitting left of the clock
+  ctx.fillText("9:41", W - 22, cy + 1);
+  const clockW = ctx.measureText("9:41").width;
+  ctx.textAlign = "left";
+  let rx = W - 22 - clockW - 20;
+  for (const g of [sfBattery, sfWifi, sfControl]) {
+    if (!g) continue;
+    const gh = 19, gw = gh * g.width / g.height;
+    ctx.drawImage(g, rx - gw, cy - gh / 2, gw, gh);
+    rx -= gw + 18;
+  }
+  // The REAL captured menubar piano item, keys lighting with the waltz.
+  // Height-fit, but never overlapping the app title on the left — shrink to
+  // the available run between the title and the system glyphs if needed.
   const img = menubarCache.get(barKey(barNotesAt(t))) || menubarIdle;
   if (img) {
-    const ih = MBAR_H - 12, iw = ih * img.width / img.height;
-    ctx.drawImage(img, W - 96 - iw, (MBAR_H - ih) / 2, iw, ih);
+    let ih = MBAR_H - 12, iw = ih * img.width / img.height;
+    const avail = rx - 4 - 210;             // 210 ≈ right edge of "Menu Band"
+    if (iw > avail) { iw = avail; ih = iw * img.height / img.width; }
+    ctx.drawImage(img, rx - iw - 4, (MBAR_H - ih) / 2, iw, ih);
   }
 }
 
@@ -352,11 +384,31 @@ async function prerenderAbout() {
   }
 }
 
+// The REAL fullscreen keymap view (big piano + raster scope + QWERTY map),
+// captured per instrument program so the family tint cycles — piano, guitar,
+// violin, trumpet, flute — the same way the About pass cycles languages.
+const KEYMAP_PROGRAMS = [0, 24, 40, 56, 73];
+const keymapImgs = [];
+async function prerenderKeymap() {
+  if (!existsSync(MENUBAR_BIN)) return;
+  console.log(`▸ capturing ${KEYMAP_PROGRAMS.length} real keymap views via MenuBand --render-keymap …`);
+  for (const prog of KEYMAP_PROGRAMS) {
+    const png = `${ABOUT_CACHE}/keymap-${prog}.png`;
+    if (!existsSync(png)) {
+      const r = spawnSync(MENUBAR_BIN, ["--render-keymap", "--lang", "en", "--program", String(prog), "--scale", "3", "--out", png],
+        { stdio: ["ignore", "ignore", "pipe"] });
+      if (r.status !== 0) console.error(`  ✗ keymap ${prog}: ${r.stderr?.toString().slice(-160)}`);
+    }
+    if (existsSync(png)) keymapImgs.push(await loadImage(png));
+  }
+}
+
 // ── scene timeline: the MENU front-and-center (first half) → the real ABOUT
 // window dropping in from the middle → end card with the QR. ────────────────
 const SCENES = [
-  { name: "menu", from: 0.00, to: 0.50, tint: [97, 158, 255] },
-  { name: "about", from: 0.50, to: 0.90, tint: [167, 139, 250] },
+  { name: "menu", from: 0.00, to: 0.42, tint: [97, 158, 255] },
+  { name: "about", from: 0.42, to: 0.66, tint: [167, 139, 250] },
+  { name: "keymap", from: 0.66, to: 0.90, tint: [163, 230, 53] },
   { name: "end", from: 0.90, to: 1.00, tint: [255, 77, 107] },
 ].map((s) => ({ ...s, from: s.from * TOTAL, to: s.to * TOTAL }));
 const sceneAt = (t) => SCENES.find((s) => t >= s.from && t < s.to) ?? SCENES.at(-1);
@@ -372,8 +424,10 @@ function drawBigMenu(t, alpha) {
   roundRect(px, py, plateW, plateH, 30); ctx.fillStyle = "rgba(22,18,32,0.94)"; ctx.fill();
   ctx.shadowColor = "transparent";
   const cy = py + 40;
-  ctx.fillStyle = "rgba(255,255,255,0.95)"; ctx.beginPath(); ctx.arc(px + 40, cy, 13, 0, 7); ctx.fill();
-  ctx.fillStyle = "rgba(22,18,32,0.95)"; ctx.beginPath(); ctx.arc(px + 47, cy - 4, 7.5, 0, 7); ctx.fill();
+  if (sfApple) {
+    const ah = 30, aw2 = ah * sfApple.width / sfApple.height;
+    ctx.drawImage(sfApple, px + 30, cy - ah / 2, aw2, ah);
+  }
   text("Menu Band", px + 138, cy, 30, "rgba(255,255,255,0.96)", 700, "left", false);
   text("9:41", px + plateW - 34, cy, 28, "rgba(255,255,255,0.9)", 500, "right", false);
   if (img) {
@@ -381,11 +435,8 @@ function drawBigMenu(t, alpha) {
     ctx.drawImage(img, px + 48, py + plateH - ih - 26, iw, ih);
   }
   ctx.restore();
-  ctx.save(); ctx.globalAlpha = alpha;
-  text("your menu bar", W / 2, py - 96, 58, "white", 800);
-  text("is a synthesizer", W / 2, py - 36, 58, "white", 800);
-  text("type · click · send MIDI", W / 2, py + plateH + 64, 32, AC_PURPLE, 700);
-  ctx.restore();
+  // (No headline / subheader here — the burned VO captions carry the words;
+  // the plate plays alone, front and center.)
 }
 
 // The real captured About window, framed as a macOS window (titlebar + lights).
@@ -410,6 +461,25 @@ function drawAbout(img, alpha, yOff) {
   return { ax, ay, aw, ah };
 }
 
+// The real fullscreen keymap view, width-fit (it's wider than tall) and
+// framed like the About window — but borderless, since it's a fullscreen
+// overlay in the app. Slides up from below as it enters.
+function drawKeymap(img, alpha, yOff) {
+  if (!img) return;
+  const aw = W * 0.94;
+  const ah = aw * img.height / img.width;
+  const ax = (W - aw) / 2, ay = (H - ah) / 2 + yOff;
+  ctx.save(); ctx.globalAlpha = alpha;
+  ctx.shadowColor = "rgba(0,0,0,0.45)"; ctx.shadowBlur = 60; ctx.shadowOffsetY = 24;
+  roundRect(ax, ay, aw, ah, 26); ctx.fillStyle = "white"; ctx.fill();
+  ctx.shadowColor = "transparent";
+  ctx.save(); roundRect(ax, ay, aw, ah, 26); ctx.clip();
+  ctx.drawImage(img, ax, ay, aw, ah);
+  ctx.restore();
+  ctx.restore();
+  return { ax, ay, aw, ah };
+}
+
 function drawFrame(t) {
   drawDesktop();
   const sc = sceneAt(t);
@@ -417,15 +487,28 @@ function drawFrame(t) {
   const dt = 1 / FPS;
 
   if (sc.name === "menu") {
-    // first half — the menu, front and center, playing the melody.
+    // first act — the menu, front and center, playing the melody.
     drawBigMenu(t, 1);
     for (const n of onsetsBetween(t - dt, t)) {
       const idx = ((n.midi % 12) + 12) % 12 % 5;
       spawnNote(W / 2 + Math.sin(n.t * 9) * 220, H / 2 - 110, KEY_COLORS[idx]);
     }
+  } else if (sc.name === "keymap" && keymapImgs.length) {
+    onsetsBetween(t - dt, t);
+    // third act — the REAL fullscreen keymap (raster scope + big piano +
+    // QWERTY map), instrument family colors cycling.
+    const idx = Math.min(keymapImgs.length - 1, Math.floor(local * keymapImgs.length));
+    const e = easeOut(Math.min(1, local * 6));      // quick rise-in
+    const rc = drawKeymap(keymapImgs[idx], e, (H * 0.5) * (1 - e));
+    if (rc) {
+      ctx.save(); ctx.globalAlpha = e;
+      text("and it goes fullscreen", W / 2, rc.ay - 64, 52, "white", 800);
+      text("keymap · gamepad · mic sampler", W / 2, rc.ay + rc.ah + 64, 32, AC_PURPLE, 700);
+      ctx.restore();
+    }
   } else {
     onsetsBetween(t - dt, t);   // keep the onset cursor advancing
-    // second half — the REAL About window, language cycling, dropping in.
+    // second act — the REAL About window, language cycling, dropping in.
     let img, alpha = 1, yOff = 0;
     if (sc.name === "about") {
       const idx = Math.min(aboutImgs.length - 1, Math.floor(local * aboutImgs.length));
@@ -440,13 +523,28 @@ function drawFrame(t) {
       const e = easeOut(local * 1.8);
       ctx.save(); ctx.globalAlpha = e;
       drawQR(W / 2 - 120, rc.ay + rc.ah - 280, 240);
-      text("prompt.ac/menuband", W / 2, rc.ay + rc.ah + 44, 32, "white", 800);
+      text("menuband.app", W / 2, rc.ay + rc.ah + 44, 38, "white", 800);
+      text("on the Mac App Store", W / 2, rc.ay + rc.ah + 96, 30, AC_PURPLE, 700);
       ctx.restore();
     }
   }
 
   // the real macOS menu bar stays pinned at the very top for context.
   drawMenubar(t);
+
+  // Persistent QR to menuband.app, top-left under the bar — scannable the
+  // whole reel, not just at the end card. Fades in over the first beat.
+  if (qrImg) {
+    const qa = easeOut(Math.min(1, t / 1.2));
+    const plate = 178, qs = 150, qx = 24, qy = MBAR_H + 20;
+    ctx.save(); ctx.globalAlpha = qa;
+    ctx.shadowColor = "rgba(0,0,0,0.35)"; ctx.shadowBlur = 24; ctx.shadowOffsetY = 8;
+    roundRect(qx, qy, plate, plate, 20); ctx.fillStyle = "white"; ctx.fill();
+    ctx.shadowColor = "transparent";
+    ctx.drawImage(qrImg, qx + (plate - qs) / 2, qy + (plate - qs) / 2, qs, qs);
+    text("menuband.app", qx + plate / 2, qy + plate + 26, 20, "white", 700);
+    ctx.restore();
+  }
   stepAndDrawParticles(dt);
 
   // gentle global vignette
@@ -458,6 +556,7 @@ function drawFrame(t) {
 // ── render → ffmpeg (muxed with the waltz) ─────────────────────────────────
 await prerenderMenubars();
 await prerenderAbout();
+await prerenderKeymap();
 console.log(`▸ menuband sim · ${FRAMES} frames · ${TOTAL.toFixed(1)}s · ${W}x${H}@${FPS} · ${leadNotes.length} lead notes`);
 const enc = spawnFFmpegEncode({ audioPath: AUDIO, w: W, h: H, fps: FPS, outPath: BASE, crf: 18 });
 const t0 = Date.now();

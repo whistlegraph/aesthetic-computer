@@ -40,17 +40,15 @@ const STABILITY = 0.55; // >= 0.5 keeps jeffrey's identity (per project memory)
 // not ad-copy. 1-open is a breath (no line). Each line is short enough to
 // land inside its section at a natural pace.
 //
-//   1-open  0.0–1.7   (1.7s) → silence; let the window drop in
-//   2-play  1.7–17.9  (16.2s) the hero; room for two sentences
-//   3-flip  17.9–24.1 (6.2s)  one short line
-//   4-langs 24.1–30.3 (6.2s)  one short line
-//   5-end   30.3–34.4 (4.1s)  the sign-off
+//   1-menu   1.2–14.4 (13.2s) the hero; room for two sentences
+//   2-about  14.4–22.7 (8.3s) one short line
+//   3-keymap 22.7–31.0 (8.3s) one short line
+//   4-end    31.0–34.4 (3.4s) the sign-off
 const SCRIPT = {
-  "1-open": null,
-  "2-play": "your menu bar is a synthesizer. type, click, or send midi — it's always right there, ready to play.",
-  "3-flip": "it's free, and it's a tiny little download.",
-  "4-langs": "it even speaks your language.",
-  "5-end": "menu band. prompt dot a c, slash menuband.",
+  "1-menu": "your menu bar is a synthesizer. type, click, or send midi — it's always right there, ready to play.",
+  "2-about": "it's a tiny download, and it speaks your language.",
+  "3-keymap": "it goes fullscreen too — a whole keymap, a gamepad mode, and a mic sampler.",
+  "4-end": "menu band. now on the mac app store.",
 };
 
 async function ffprobeDuration(file) {

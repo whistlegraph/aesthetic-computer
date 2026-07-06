@@ -1,63 +1,44 @@
 {
-  "fps" : 30,
-  "shots" : [
+  "fps": 30,
+  "shots": [
     {
-      "card" : "out/stills/section-open.png",
-      "prompt" : "macOS menubar = a live ROYGBIV piano (C4..B5) lighting per note; the Menu Band About window drops in from the bar right away (no blank intro).",
-      "lane" : "CAP",
-      "t0" : 0,
-      "vo" : "the menu bar piano lights up; the About window drops in immediately",
-      "id" : "1-open",
-      "t1" : 1.7,
-      "clip" : "out/clips/section-open.mp4",
-      "status" : "done"
+      "id": "1-menu",
+      "lane": "CAP",
+      "t0": 1.2,
+      "t1": 14.4,
+      "vo": "hero — the menu bar plate plays the waltz",
+      "prompt": "The floating menu-bar plate, front and center: the REAL captured piano strip playing the glockenspiel waltz, note-particles puffing up. 'your menu bar is a synthesizer · type · click · send MIDI'.",
+      "status": "done"
     },
     {
-      "card" : "out/stills/section-play.png",
-      "prompt" : "Hero: the menubar piano + the big About-icon keyboard both light to the glockenspiel waltz; note-particles puff up. 'your menu bar is a synthesizer · type · click · send MIDI'.",
-      "lane" : "CAP",
-      "t0" : 1.7,
-      "vo" : "hero — the keyboard plays the waltz",
-      "id" : "2-play",
-      "t1" : 17.9,
-      "clip" : "out/clips/section-play.mp4",
-      "status" : "done"
+      "id": "2-about",
+      "lane": "CAP",
+      "t0": 14.4,
+      "t1": 22.7,
+      "vo": "About window drops in, languages cycle",
+      "prompt": "The real About window drops in from the middle and cycles six localizations (EN ES 中文 日本 RU DA).",
+      "status": "done"
     },
     {
-      "card" : "out/stills/section-flip.png",
-      "prompt" : "The About icon card flips between the keyboard icon and the QR; menubar keeps playing. 'prompt.ac/menuband'.",
-      "lane" : "CAP",
-      "t0" : 17.9,
-      "vo" : "card flip — icon ⇄ QR",
-      "id" : "3-flip",
-      "t1" : 24.1,
-      "clip" : "out/clips/section-flip.mp4",
-      "status" : "done"
+      "id": "3-keymap",
+      "lane": "CAP",
+      "t0": 22.7,
+      "t1": 31.0,
+      "vo": "the fullscreen keymap — raster scope + big piano + QWERTY map",
+      "prompt": "The REAL fullscreen keymap view slides up: lit raster scope, big piano, QWERTY map, instrument family colors cycling piano→guitar→violin→trumpet→flute. 'and it goes fullscreen'.",
+      "status": "done"
     },
     {
-      "card" : "out/stills/section-langs.png",
-      "prompt" : "The language chiclet grid cycles through localizations (EN ES FR DE 日本 中文 …), one highlighted at a time.",
-      "lane" : "CAP",
-      "t0" : 24.1,
-      "vo" : "speaks your language",
-      "id" : "4-langs",
-      "t1" : 30.3,
-      "clip" : "out/clips/section-langs.mp4",
-      "status" : "done"
-    },
-    {
-      "card" : "out/stills/section-end.png",
-      "prompt" : "End card: Menu Band wordmark + icon + 'free · macOS 11+ · universal' + the REAL scannable QR to prompt.ac/menuband.",
-      "lane" : "CAP",
-      "t0" : 30.3,
-      "vo" : "end card — scan to get it",
-      "id" : "5-end",
-      "t1" : 34.4,
-      "clip" : "out/clips/section-end.mp4",
-      "status" : "done"
+      "id": "4-end",
+      "lane": "CAP",
+      "t0": 31.0,
+      "t1": 34.4,
+      "vo": "end card — QR to menuband.app, on the Mac App Store",
+      "prompt": "End card: About window + the REAL scannable QR to menuband.app, 'on the Mac App Store'.",
+      "status": "done"
     }
   ],
-  "width" : 1080,
-  "height" : 1920,
-  "title" : "Menu Band — promo reel sections"
+  "width": 1080,
+  "height": 1920,
+  "title": "Menu Band — launch promo reel sections"
 }

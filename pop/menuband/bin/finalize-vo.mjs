@@ -87,7 +87,7 @@ function drawCaption(t) {
   ctx.font = "700 52px MBCap";
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
-  const y = H - 250;            // lower third, clear of the Reels UI furniture
+  const y = H - 520;            // raised toward center (clear of Reels UI + more presence)
   // hard black outline (LACMA look: BorderStyle outline + shadow)
   ctx.lineJoin = "round";
   ctx.strokeStyle = "rgba(0,0,0,0.92)";
