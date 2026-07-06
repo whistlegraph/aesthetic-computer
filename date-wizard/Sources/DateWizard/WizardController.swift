@@ -39,7 +39,7 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
 
     // Broadcast the start of the next upcoming appointment (nil = none ahead) so
     // the menu bar can paint a countdown badge on the wand. Wired by AppDelegate.
-    var onNextEventChanged: ((Date?) -> Void)?
+    var onNextEventChanged: ((Date?, String?) -> Void)?
 
     // ── UI ───────────────────────────────────────────────────────────
     private var backdrop: BackdropView!
@@ -496,7 +496,7 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         // Next appointment = soonest timed event that hasn't started yet. Skip
         // all-day items so the badge always counts down to a real clock time.
         let next = upcoming.first { !$0.allDay && $0.start > now }
-        onNextEventChanged?(next?.start)
+        onNextEventChanged?(next?.start, next?.title)
     }
 
     private func loadDayGrid() {

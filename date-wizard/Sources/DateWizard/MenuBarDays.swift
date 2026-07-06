@@ -31,6 +31,7 @@ final class MenuBarDays {
     private var hoveredIndex: Int?
     private var focusedIndex: Int?        // the day showing in the wizard
     private var nextEventDate: Date?      // start of the next appointment (badge)
+    private var nextEventTitle: String?   // name of that appointment (tooltip)
     private var countdownTimer: Timer?    // ticks the badge text down
     private var midnightTimer: Timer?
     // Menu-bar-fit rung: 2 = full countdown pill, 1 = presence dot, 0 = bare
@@ -93,29 +94,31 @@ final class MenuBarDays {
     /// The start of the next appointment (nil = nothing ahead). Drives the
     /// countdown badge on the wand. Called by the wizard whenever it reloads
     /// the upcoming set.
-    func setNextEvent(_ date: Date?) {
+    func setNextEvent(_ date: Date?, title: String? = nil) {
         let had = (nextEventDate != nil)
+        nextEventTitle = title
         if date != nextEventDate { nextEventDate = date; refresh() }
+        else { button?.toolTip = nextEventToolTip() }   // same time, refreshed name
         // When an event appears/disappears, reshape the fit ladder so the broker
         // knows whether there's a badge to trade for space.
         if (date != nil) != had { fit?.updateRungs(fitRungs(hasNext: date != nil)) }
     }
 
-    /// Compact time-until-next-appointment: "3d", "5h", "12m", or "now".
+    /// Live H:MM:SS countdown to the next appointment ("now" at zero). Far-off
+    /// events (100h+) collapse to whole days, where ticking seconds are noise.
     private func countdownText() -> String? {
         guard let d = nextEventDate else { return nil }
-        let secs = d.timeIntervalSinceNow
-        if secs < 60 { return "now" }
-        if secs < 3600 { return "\(Int(secs / 60))m" }
-        if secs < 86400 { return "\(Int(secs / 3600))h" }
-        return "\(Int(secs / 86400))d"
+        let secs = Int(d.timeIntervalSinceNow)
+        if secs <= 0 { return "now" }
+        if secs >= 100 * 3600 { return "\(secs / 86400)d" }
+        return String(format: "%d:%02d:%02d", secs / 3600, (secs % 3600) / 60, secs % 60)
     }
 
-    // Re-render the badge as the countdown ticks. 30s keeps the minute readout
-    // within half a minute of accurate without burning cycles.
+    // Re-render the badge every second so the H:MM:SS readout ticks live. It's a
+    // tiny image redraw, and the wand sheds the badge under menu-bar pressure.
     private func scheduleCountdownTick() {
         countdownTimer?.invalidate()
-        let timer = Timer(timeInterval: 30, repeats: true) { [weak self] _ in self?.refresh() }
+        let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in self?.refresh() }
         RunLoop.main.add(timer, forMode: .common)
         countdownTimer = timer
     }
@@ -170,7 +173,8 @@ final class MenuBarDays {
         if cal.isDateInToday(d) { dayWord = "" }
         else if cal.isDateInTomorrow(d) { dayWord = "tomorrow " }
         else { let df = DateFormatter(); df.dateFormat = "EEE "; dayWord = df.string(from: d) }
-        return "Next: \(dayWord)\(fmt.string(from: d)) · \(base)"
+        let name = (nextEventTitle?.isEmpty == false) ? nextEventTitle! : "appointment"
+        return "\(name) — \(dayWord)\(fmt.string(from: d))\n\(base)"
     }
 
     // ── input ─────────────────────────────────────────────────────────

@@ -57,10 +57,11 @@ func wizardGuy(scale s: CGFloat) -> NSImage {
 // bar thickness; wizardGuy is the fallback if the symbol is ever missing.
 //
 // With a `badge` string (e.g. "2h", "45m", "3d") the wand carries the countdown
-// to the next appointment as plain text sitting to the LEFT of the glyph — no
-// pill, no outline, and it never overlaps the wand. The text is tinted to
-// today's ROYGBIV day color (DayPalette) so the whole app reads as one
-// instrument. A colored badge can't ride a template image (macOS recolors those
+// to the next appointment as small H:MM:SS text sitting to the LEFT of the glyph,
+// raised toward the wand's tip — no pill, no outline, and it never overlaps the
+// wand. The text is tinted to THIS MACHINE's system accent color
+// (NSColor.controlAccentColor) so each box's wand reads as its own. A colored
+// badge can't ride a template image (macOS recolors those
 // wholesale), so in that case we return a *non-template* image and tint the wand
 // (dark ? white : black) ourselves.
 //
@@ -81,7 +82,7 @@ func wandGlyph(pointSize: CGFloat = 15, badge: String? = nil, dot: Bool = false,
     }
 
     let tinted = tintedImage(symbol, color: dark ? .white : .black)
-    let accent = DayPalette.color(for: Date())   // today's ROYGBIV hue
+    let accent = NSColor.controlAccentColor       // this machine's system accent
     let gap: CGFloat = 2                          // clear space between badge and wand
 
     // Presence-dot rung: a small day-colored dot, left of the wand (no overlap).
@@ -101,15 +102,16 @@ func wandGlyph(pointSize: CGFloat = 15, badge: String? = nil, dot: Bool = false,
     }
     let badge = badge!
 
-    // Countdown rung: plain day-colored text, left of the wand, no pill/outline.
-    let font = NSFont.systemFont(ofSize: 9.5, weight: .bold)
+    // Countdown rung: small accent-colored text, left of the wand and raised to
+    // its tip (top-aligned), no pill/outline.
+    let font = NSFont.systemFont(ofSize: 7.5, weight: .bold)
     let textAttrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: accent]
     let textSize = (badge as NSString).size(withAttributes: textAttrs)
     let size = NSSize(width: textSize.width + gap + tinted.size.width,
                       height: max(tinted.size.height, textSize.height))
     let out = NSImage(size: size)
     out.lockFocus()
-    (badge as NSString).draw(at: NSPoint(x: 0, y: (size.height - textSize.height) / 2),
+    (badge as NSString).draw(at: NSPoint(x: 0, y: size.height - textSize.height),
                              withAttributes: textAttrs)
     tinted.draw(at: NSPoint(x: textSize.width + gap, y: (size.height - tinted.size.height) / 2),
                 from: .zero, operation: .sourceOver, fraction: 1)
