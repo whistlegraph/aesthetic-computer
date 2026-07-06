@@ -1861,15 +1861,17 @@ final class MenuBandController {
     /// Drums always skip the synth.noteOff (existing convention) so
     /// the kit sample plays through.
     /// Semitone intervals (ABOVE the root, root excluded) for a chord quality.
-    /// 0 = single (no extensions), 1 = major, 2 = minor, 3 = sus, 4 = aug.
-    /// The 5th (7) is shared by major/minor/sus on purpose — see
-    /// `setChordVoices`; augmented is the one that raises it (8).
+    /// 0 = single (no extensions), 1 = major, 2 = minor, 3 = sus2, 4 = aug,
+    /// 5 = dim, 6 = sus4. The 5th (7) is shared by major/minor/sus on
+    /// purpose — see `setChordVoices`; aug raises it (8), dim lowers it (6).
     private static func chordIntervals(quality: Int) -> [Int] {
         switch quality {
         case 1: return [4, 7]   // major third + fifth
         case 2: return [3, 7]   // minor third + fifth
         case 3: return [2, 7]   // sus2 (second) + fifth
         case 4: return [4, 8]   // augmented: major third + raised fifth
+        case 5: return [3, 6]   // diminished: minor third + lowered fifth
+        case 6: return [5, 7]   // sus4 (fourth) + fifth
         default: return []      // single note: root only
         }
     }
@@ -2003,21 +2005,24 @@ final class MenuBandController {
     }
 
     /// Modifier-derived chord shape: 0 = single (no modifier), 1 = major (⌘),
-    /// 2 = minor (⌥), 3 = sus (⌘+⌥), 4 = augmented (⌃ — minor's opposite:
-    /// the fifth pushed UP a semitone instead of the third pulled down).
-    /// Mirrors the keyDown chord scheme so a held note and a freshly-pressed
-    /// chord agree on what each modifier means.
+    /// 2 = minor (⌥), 3 = sus2 (⌘⌥), 4 = augmented (⌃), 5 = diminished (⌥⌃),
+    /// 6 = sus4 (⌘⌥⌃). The grammar: ⌃ alters the shape you're holding —
+    /// major's fifth goes UP (aug), minor's fifth goes DOWN (dim), sus2's
+    /// second lifts to a fourth (sus4). One finger per classic triad family,
+    /// one combo each for the rest. Mirrors the keyDown chord scheme so a
+    /// held note and a freshly-pressed chord agree on what each modifier means.
     private static func chordQuality(modifier: Bool, minor: Bool, sus: Bool, aug: Bool = false) -> Int {
         guard modifier else { return 0 }
-        if sus { return 3 }
-        if aug { return 4 }
+        if sus { return aug ? 6 : 3 }
+        if aug { return minor ? 5 : 4 }
         return minor ? 2 : 1
     }
 
     /// Re-voice every physically-held note key to match the current ⌘/⌥/⌃
     /// state. Driven by the AppDelegate's `.flagsChanged` monitors: while you
     /// hold a letter, tapping ⌘ blooms it into a major triad, adding ⌥ swings
-    /// it to sus, dropping ⌘ leaves minor, ⌃ raises the fifth (augmented),
+    /// it to sus2 (⌃ on top lifts that to sus4), dropping ⌘ leaves minor,
+    /// ⌃ alone raises the fifth (aug), ⌥⌃ lowers it instead (dim),
     /// releasing everything collapses back to the lone note — all live, with
     /// the key still down. Idempotent per key (skips when the shape is
     /// unchanged) so the stream of flagsChanged events that a single modifier
@@ -2548,7 +2553,8 @@ final class MenuBandController {
                     // on top — the exact structure a held note morphs into.
                     playSingleVoice(keyCode: keyCode, note: root, shift: shift,
                                     linger: lingerSide.isLingering)
-                    let quality = chordSus ? 3 : (chordAug ? 4 : (chordMinor ? 2 : 1))
+                    let quality = Self.chordQuality(modifier: true, minor: chordMinor,
+                                                    sus: chordSus, aug: chordAug)
                     setChordVoices(keyCode: keyCode, rootNote: root, shift: shift,
                                    quality: quality)
                     // Anchor the morph so releasing/adding ⌘/⌥ while the key is
