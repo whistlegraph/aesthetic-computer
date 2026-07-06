@@ -47,7 +47,6 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "../..");
 const VAULT = resolve(REPO, "aesthetic-computer-vault/youtube");
 const CLIENT_PATH = process.env.YT_CLIENT_JSON || resolve(VAULT, "client.json");
-const TOKEN_PATH = process.env.YT_TOKEN_JSON || resolve(VAULT, "token.json");
 
 const SCOPES = [
   "https://www.googleapis.com/auth/youtube.upload",
@@ -74,6 +73,17 @@ for (let i = 0; i < argv.length; i++) {
 
 function die(msg) { console.error(`✗ ${msg}`); process.exit(1); }
 
+// ── channel identity ─────────────────────────────────────────────────
+// One OAuth client, one refresh token per channel. The default token
+// (token.json) is the Aesthetic Dot Computer channel; `--as whistlegraph`
+// (or YT_CHANNEL=whistlegraph) switches every command to
+// whistlegraph-token.json in the vault. Run `auth --as whistlegraph`
+// once, picking the whistlegraph identity in Google's chooser.
+if (flags.as === true) die(`--as needs a channel name, e.g. --as whistlegraph`);
+const CHANNEL_AS = flags.as || process.env.YT_CHANNEL || null;
+const TOKEN_PATH = process.env.YT_TOKEN_JSON ||
+  resolve(VAULT, CHANNEL_AS ? `${CHANNEL_AS}-token.json` : "token.json");
+
 // ── client secret ────────────────────────────────────────────────────
 function loadClient() {
   if (!existsSync(CLIENT_PATH)) {
@@ -88,7 +98,7 @@ function loadClient() {
 }
 
 function loadToken() {
-  if (!existsSync(TOKEN_PATH)) die(`No saved token. Run: node toolchain/youtube/yt.mjs auth`);
+  if (!existsSync(TOKEN_PATH)) die(`No saved token. Run: node toolchain/youtube/yt.mjs auth${CHANNEL_AS ? ` --as ${CHANNEL_AS}` : ""}`);
   return JSON.parse(readFileSync(TOKEN_PATH, "utf8"));
 }
 
@@ -159,6 +169,7 @@ async function doAuth() {
       });
       server._redirect = redirect;
       console.log(`\n▸ Opening browser — sign in as mail@aesthetic.computer and approve.`);
+      if (CHANNEL_AS) console.log(`  In Google's account chooser, pick the "${CHANNEL_AS}" channel identity.`);
       console.log(`  If it doesn't open, paste this URL:\n\n  ${authUrl}\n`);
       openBrowser(authUrl);
     });
@@ -451,6 +462,8 @@ if (!cmd || !COMMANDS[cmd]) {
   console.log(`  auth                 one-time OAuth consent (browser)`);
   console.log(`  whoami               print the authorized channel`);
   console.log(`  upload <video> ...   resumable upload (see file header for flags)`);
+  console.log(`\nAll commands take --as <channel> (e.g. --as whistlegraph) to use`);
+  console.log(`that channel's token (<channel>-token.json in the vault).`);
   process.exit(cmd ? 1 : 0);
 }
 

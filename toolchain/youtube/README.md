@@ -59,6 +59,25 @@ Every upload drops a `<video>.youtube.json` receipt next to the file
 with the resulting `videoId`, watch URL, and the metadata that was
 sent.
 
+## Other channels (whistlegraph)
+
+Every command takes `--as <channel>`, which swaps in
+`aesthetic-computer-vault/youtube/<channel>-token.json`. The OAuth
+client is shared; each channel just needs its own one-time consent:
+
+```bash
+node toolchain/youtube/yt.mjs auth --as whistlegraph
+node toolchain/youtube/yt.mjs whoami --as whistlegraph
+node toolchain/youtube/yt.mjs upload video.mp4 --as whistlegraph --title "..."
+```
+
+During consent, Google's account chooser lists the channel identities —
+pick **whistlegraph**. If the whistlegraph channel lives under a
+*different* Google account (not a brand channel of
+mail@aesthetic.computer), first add that account as a test user on the
+OAuth consent screen (GCP project `aesthetic-computer` → APIs &
+Services → OAuth consent screen), then sign in as it.
+
 ## Notes
 
 - **Private-first.** The default privacy is `private` — uploads land
