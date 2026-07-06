@@ -284,6 +284,51 @@ final class PromptSigilOverlay {
         shadowLayer.opacity = h ? 0.72 : 0.9
     }
 
+    /// "Someone is reading this prompt right now." Layered ON TOP of the
+    /// status motion (which stays the baseline): the stone blinks (opacity
+    /// pulse), rattles (a tight position shake), and tumbles much faster —
+    /// a visceral tell that a peer or agent just resolved this handle. The
+    /// sigil identity itself never changes; only motion + opacity react. The
+    /// controller flips this off when the observe window decays, restoring the
+    /// status (or hover) motion.
+    private var observed = false
+    /// Returns true when the observed state actually flipped (so the controller
+    /// can log the reaction exactly once per poke burst).
+    @discardableResult
+    func setObserved(_ active: Bool) -> Bool {
+        guard observed != active else { return false }
+        observed = active
+        if active {
+            let blink = CABasicAnimation(keyPath: "opacity")
+            blink.fromValue = 1.0; blink.toValue = 0.3
+            blink.duration = 0.22; blink.autoreverses = true
+            blink.repeatCount = .infinity; blink.isRemovedOnCompletion = false
+            rockLayer.add(blink, forKey: "observedBlink")
+            nameLayer.add(blink, forKey: "observedBlink")
+
+            let c = rockLayer.position
+            let shake = CAKeyframeAnimation(keyPath: "position")
+            shake.values = [c, CGPoint(x: c.x - 2.4, y: c.y + 1.4),
+                            CGPoint(x: c.x + 2.2, y: c.y - 1.2),
+                            CGPoint(x: c.x - 1.6, y: c.y - 1.8), c].map { NSValue(point: $0) }
+            shake.duration = 0.13; shake.repeatCount = .infinity
+            shake.isRemovedOnCompletion = false
+            rockLayer.add(shake, forKey: "observedShake")
+
+            retime(rockLayer, speed: 3.2)
+            retime(shadowMask, speed: 3.2)
+        } else {
+            rockLayer.removeAnimation(forKey: "observedBlink")
+            nameLayer.removeAnimation(forKey: "observedBlink")
+            rockLayer.removeAnimation(forKey: "observedShake")
+            rockLayer.opacity = 1.0
+            nameLayer.opacity = 1.0
+            retime(rockLayer, speed: hovered ? 2.6 : 1.0)
+            retime(shadowMask, speed: hovered ? 2.6 : 1.0)
+        }
+        return true
+    }
+
     /// Rebuild the name as MacPal-style bubble letters: one RockCharLayer per
     /// character in Comic Sans — white fill, dark outline, a hard offset
     /// shadow in the session's status colour — each with a deterministic
@@ -822,6 +867,7 @@ final class PromptSigilOverlayController {
         installActivationObserverIfNeeded()
         installAXFocusObservers()
         installMouseMonitorsIfNeeded()
+        installObservedObserverIfNeeded()
 
         let live = sessions.filter { !$0.tty.isEmpty && $0.remoteHost.isEmpty }
         let liveIds = Set(live.map { $0.sessionId })
@@ -906,6 +952,17 @@ final class PromptSigilOverlayController {
         return summary + "\n" + subject
     }
 
+    /// Wake the reposition loop the instant a poke lands so the rock reacts
+    /// now, not at the next lazy idle tick. Installed once.
+    private var observedObserverInstalled = false
+    private func installObservedObserverIfNeeded() {
+        guard !observedObserverInstalled else { return }
+        observedObserverInstalled = true
+        NotificationCenter.default.addObserver(
+            forName: LedgerStore.observedNote, object: nil, queue: .main
+        ) { [weak self] _ in self?.scheduleTick(after: 0) }
+    }
+
     private func teardown() {
         timer?.invalidate(); timer = nil
         for (_, ov) in overlays { ov.close() }
@@ -946,10 +1003,21 @@ final class PromptSigilOverlayController {
         reposition()                       // refresh targets + z-order
         guard !overlays.isEmpty else { timer = nil; return }
         var settling = false
-        for (_, ov) in overlays where ov.advance(dt: dt) { settling = true }
-        // Stay at display rate while a window moved recently OR a badge is still
-        // catching up to its target; otherwise drop to the idle poll.
-        let active = now < motionDeadline || settling
+        var anyObserved = false
+        for (sid, ov) in overlays {
+            if ov.advance(dt: dt) { settling = true }
+            // "Being read" reaction — on while the poke window is live, off once
+            // it decays. Cheap dict lookup; the blink/shake/spin run server-side.
+            if let obs = LedgerStore.shared.observation(for: sid) {
+                if ov.setObserved(true) { NSLog("🪨 [ledger] \(ov.name) reacting — read by \(obs.by)") }
+                anyObserved = true
+            } else {
+                ov.setObserved(false)
+            }
+        }
+        // Stay at display rate while a window moved recently, a badge is still
+        // catching up, or a rock is reacting to being observed.
+        let active = now < motionDeadline || settling || anyObserved
         scheduleTick(after: active ? activeInterval : idleInterval)
     }
 

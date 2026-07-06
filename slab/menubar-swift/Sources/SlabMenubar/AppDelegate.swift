@@ -163,12 +163,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // watcher — never touches ScreenCaptureKit until a frame is actually
         // requested, so no Screen Recording prompt at launch (lazy grant).
         FrameCapture.shared.start()
+
+        // Advertised ledger: serve this machine's handles over the tailnet and
+        // cache peers' ledgers, so `host:name` references resolve O(1) without
+        // an SSH crawl. Overlay stays local — this is a data channel only.
+        LedgerStore.shared.start()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         tileHotkey?.unregister()
         appearanceHotkey?.unregister()
         passphraseServer.stop()
+        LedgerStore.shared.stop()
         NSWorkspace.shared.notificationCenter.removeObserver(self)
     }
 
@@ -200,6 +206,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // serialized by the `gathering` guard) so decor + menu read one
             // consistent mark.
             snapshot.claudeSessions = TitleEmoji.assign(snapshot.claudeSessions)
+            // Publish this machine's ledger + refresh the peer cache (throttled
+            // inside; peer GETs are async URLSession — never block this queue).
+            LedgerStore.shared.tick(sessions: snapshot.claudeSessions,
+                                    peers: snapshot.tailnetPeers)
             // RENDERING overlay — a session whose turn is done but whose
             // launched render (a ~/.ac-pop-renders heartbeat tagged with its
             // sessionId) is still running shows pink `rendering` instead of

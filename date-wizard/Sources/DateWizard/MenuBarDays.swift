@@ -45,7 +45,15 @@ final class MenuBarDays {
     // ── lifecycle ─────────────────────────────────────────────────────
     func install() {
         barThickness = NSStatusBar.system.thickness
+        // Pin the wand LEFT of Menu Band. NSStatusItem has no absolute-ordering
+        // API; its autosaveName + "Preferred Position" default is the lever macOS
+        // honors (higher = further left). Seed once; a user ⌘-drag persists over it.
+        let posKey = "NSStatusItem Preferred Position datewizard"
+        if UserDefaults.standard.object(forKey: posKey) == nil {
+            UserDefaults.standard.set(24, forKey: posKey)
+        }
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        statusItem.autosaveName = "datewizard"
         if let button = statusItem.button {
             self.button = button
             button.imagePosition = .imageOnly
@@ -131,13 +139,13 @@ final class MenuBarDays {
     // ── menu-bar-fit negotiation ──────────────────────────────────────
     // The wand's ladder: bare → presence-dot → full countdown pill. With no
     // upcoming event the ladder collapses to just the bare wand so the broker's
-    // width model stays honest (nothing to shed). Low priority (20): the badge
-    // is glanceable-but-redundant with the calendar, so DateWizard sheds it
-    // before Menu Band gives up piano keys.
+    // width model stays honest (nothing to shed). High priority (40): the wand's
+    // countdown is the thing to defend, so Menu Band gives up piano keys before
+    // DateWizard sheds the badge.
     private func startFitNegotiation() {
         guard let statusItem, fit == nil else { return }
         let has = (nextEventDate != nil)
-        fit = MenuBarFit(slug: "datewizard", priority: 20,
+        fit = MenuBarFit(slug: "datewizard", priority: 40,
                          rungs: fitRungs(hasNext: has), statusItem: statusItem,
                          startAt: has ? 2 : 0) { [weak self] _, idx in
             self?.fitRung = idx

@@ -26,5 +26,13 @@
     <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <!-- The advertised ledger fetches peers over plain HTTP on the tailnet
+         (100.x). The tailnet is the auth perimeter; allow cleartext so ATS
+         doesn't block peer sync. All external calls (OAuth) stay HTTPS. -->
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsArbitraryLoads</key>
+        <true/>
+    </dict>
 </dict>
 </plist>
