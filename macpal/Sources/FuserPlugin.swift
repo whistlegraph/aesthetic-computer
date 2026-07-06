@@ -7,6 +7,8 @@
 // a recompile:
 //   <home>/gitstatus        "<ahead> <behind>" (badge-git-sync.sh) or "local"
 //   <home>/tasks            Asana task lines    (badge-asana-sync.sh on neo)
+//   <home>/mission          the day's mission — one gold headline line
+//                           (the machine's Asana task tagged "mission")
 //   <home>/overtime         flag file; presence = OVERTIME on
 //   <home>/overtime-status  work-queue lines while in OVERTIME
 //   <home>/pane.log         the log the terminal pane tails (optional)
@@ -334,13 +336,16 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     private var statusFile: String { home + "/gitstatus" }
     private var paneLog: String { home + "/pane.log" }
     private var tasksFile: String { home + "/tasks" }
+    private var missionFile: String { home + "/mission" }
     private var overtimeFlag: String { home + "/overtime" }
     private var overtimeStatusFile: String { home + "/overtime-status" }
 
     let statusField = MarqueeField()
+    let missionField = MarqueeField()
     let tasksField = NSTextField(labelWithString: "")
     let overtimeChip = NSTextField(labelWithString: "")
     let overtimeField = NSTextField(labelWithString: "")
+    var missionText = ""
     var taskLines: [String] = []
     var overtimeOn = false
     var overtimeLines: [String] = []
@@ -430,6 +435,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         overtimeChip.shadow = chipShadow
 
         controller.content.addSubview(statusField)
+        controller.content.addSubview(missionField)
         controller.content.addSubview(tasksField)
         controller.content.addSubview(overtimeChip)
         controller.content.addSubview(overtimeField)
@@ -483,16 +489,19 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         if minimal { return 0 }
         let off = (hasPane && curPaneH > 0) ? curPaneH + 8 : 0
         let tasksH: CGFloat = taskLines.isEmpty ? 0 : CGFloat(taskLines.count) * 13 + 3
+        let missionH: CGFloat = missionText.isEmpty ? 0 : 18
         let chipH: CGFloat = overtimeOn ? 36 : 0
         let queueH: CGFloat = (overtimeOn && !overtimeLines.isEmpty)
             ? CGFloat(overtimeLines.count) * 16 + 3 : 0
         let overtimeH: CGFloat = overtimeOn ? chipH + (queueH > 0 ? queueH + 4 : 0) : 0
-        return off + (tasksH > 0 ? tasksH + 5 : 0) + 18 + (overtimeH > 0 ? 4 : 0) + overtimeH + 14
+        return off + (tasksH > 0 ? tasksH + 5 : 0) + 18 + (missionH > 0 ? missionH + 4 : 0)
+            + (overtimeH > 0 ? 4 : 0) + overtimeH + 14
     }
 
     func layoutRows(in controller: PalController, originY: CGFloat) {
         if minimal {
-            statusField.isHidden = true; tasksField.isHidden = true
+            statusField.isHidden = true; missionField.isHidden = true
+            tasksField.isHidden = true
             overtimeField.isHidden = true; overtimeChip.isHidden = true
             paneContainer?.isHidden = true
             return
@@ -501,15 +510,19 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         let W = controller.fullWidth
         let off = (hasPane && curPaneH > 0) ? curPaneH + 8 : 0
         let tasksH: CGFloat = taskLines.isEmpty ? 0 : CGFloat(taskLines.count) * 13 + 3
+        let missionH: CGFloat = missionText.isEmpty ? 0 : 18
         let chipH: CGFloat = overtimeOn ? 36 : 0
         let queueH: CGFloat = (overtimeOn && !overtimeLines.isEmpty)
             ? CGFloat(overtimeLines.count) * 16 + 3 : 0
         let overtimeH: CGFloat = overtimeOn ? chipH + (queueH > 0 ? queueH + 4 : 0) : 0
         let statusY = base + off + (tasksH > 0 ? tasksH + 5 : 0)
-        let overtimeY = statusY + 22 + (overtimeH > 0 ? 4 : 0)
+        let missionY = statusY + 22 + (missionH > 0 ? 4 : 0)
+        let overtimeY = missionY + missionH + (overtimeH > 0 ? 4 : 0)
 
         statusField.isHidden = false
         statusField.frame = NSRect(x: 0, y: statusY, width: W, height: 22)
+        missionField.isHidden = missionH <= 0
+        missionField.frame = NSRect(x: 0, y: missionY, width: W, height: missionH)
         overtimeField.isHidden = queueH <= 0
         overtimeField.frame = NSRect(x: 6, y: overtimeY, width: W - 12, height: queueH)
         overtimeChip.isHidden = chipH <= 0
@@ -529,13 +542,15 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
 
     func setCollapsed(_ collapsed: Bool) {
         if minimal {
-            statusField.isHidden = true; tasksField.isHidden = true
+            statusField.isHidden = true; missionField.isHidden = true
+            tasksField.isHidden = true
             overtimeField.isHidden = true; overtimeChip.isHidden = true
             paneContainer?.isHidden = true
             return
         }
         let hide = collapsed
         statusField.isHidden = hide
+        missionField.isHidden = hide || missionText.isEmpty
         tasksField.isHidden = hide || taskLines.isEmpty
         overtimeField.isHidden = hide || !overtimeOn || overtimeLines.isEmpty
         overtimeChip.isHidden = hide || !overtimeOn
@@ -658,6 +673,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
             let dirty = doGit ? !self.git(["status", "--porcelain"]).isEmpty : self.lastDirty
             let syncRaw = (try? String(contentsOfFile: self.statusFile, encoding: .utf8)) ?? ""
             let rawTasks = (try? String(contentsOfFile: self.tasksFile, encoding: .utf8)) ?? ""
+            let rawMission = (try? String(contentsOfFile: self.missionFile, encoding: .utf8)) ?? ""
             let otOn = FileManager.default.fileExists(atPath: self.overtimeFlag)
             let otRaw = otOn
                 ? ((try? String(contentsOfFile: self.overtimeStatusFile, encoding: .utf8)) ?? "")
@@ -667,6 +683,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
                 self.lastBranch = branch; self.lastDirty = dirty
                 self.applyStatus(branch: branch, dirty: dirty,
                                  syncRaw: syncRaw, rawTasks: rawTasks,
+                                 rawMission: rawMission,
                                  otOn: otOn, otRaw: otRaw)
             }
         }
@@ -675,7 +692,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     private var lastDirty = false
 
     func applyStatus(branch: String, dirty: Bool, syncRaw: String, rawTasks: String,
-                     otOn: Bool, otRaw: String) {
+                     rawMission: String, otOn: Bool, otRaw: String) {
         guard let c = c else { return }
         var sync: String
         let t = syncRaw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -721,6 +738,23 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
                 string: lines.joined(separator: "\n"),
                 attributes: [.font: monoFont(9), .foregroundColor: NSColor.white,
                              .paragraphStyle: para])
+            if !c.collapsed { c.layout() }
+        }
+
+        // The day's mission: first non-empty line of <home>/mission, gold and
+        // marquee-safe so a long task name scrolls instead of truncating.
+        let mission = rawMission.split(separator: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .first(where: { !$0.isEmpty }) ?? ""
+        if mission != missionText {
+            missionText = mission
+            let gold = hexColor(0xffd66b)
+            let m = NSMutableAttributedString()
+            m.append(NSAttributedString(string: "★ ", attributes: [
+                .font: monoFont(11), .foregroundColor: gold]))
+            m.append(NSAttributedString(string: mission, attributes: [
+                .font: monoFont(12), .foregroundColor: gold]))
+            missionField.setText(m)
             if !c.collapsed { c.layout() }
         }
 

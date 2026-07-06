@@ -177,6 +177,7 @@ async function status(machine) {
       overdue: t.due_on ? t.due_on < today : false,
       today: t.due_on === today,
       machines: machinesOf(cfg, t),
+      tags: (t.tags || []).map((g) => (g.name || "").toLowerCase()),
     };
     const projects = (t.projects && t.projects.length && t.projects) || [
       { name: "Inbox" },
