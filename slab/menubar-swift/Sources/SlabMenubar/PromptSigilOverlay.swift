@@ -292,8 +292,11 @@ final class PromptSigilOverlay {
     /// controller flips this off when the observe window decays, restoring the
     /// status (or hover) motion.
     private var observed = false
-    func setObserved(_ active: Bool) {
-        guard observed != active else { return }
+    /// Returns true when the observed state actually flipped (so the controller
+    /// can log the reaction exactly once per poke burst).
+    @discardableResult
+    func setObserved(_ active: Bool) -> Bool {
+        guard observed != active else { return false }
         observed = active
         if active {
             let blink = CABasicAnimation(keyPath: "opacity")
@@ -323,6 +326,7 @@ final class PromptSigilOverlay {
             retime(rockLayer, speed: hovered ? 2.6 : 1.0)
             retime(shadowMask, speed: hovered ? 2.6 : 1.0)
         }
+        return true
     }
 
     /// Rebuild the name as MacPal-style bubble letters: one RockCharLayer per
@@ -1004,9 +1008,12 @@ final class PromptSigilOverlayController {
             if ov.advance(dt: dt) { settling = true }
             // "Being read" reaction — on while the poke window is live, off once
             // it decays. Cheap dict lookup; the blink/shake/spin run server-side.
-            let obs = LedgerStore.shared.observation(for: sid) != nil
-            ov.setObserved(obs)
-            if obs { anyObserved = true }
+            if let obs = LedgerStore.shared.observation(for: sid) {
+                if ov.setObserved(true) { NSLog("🪨 [ledger] \(ov.name) reacting — read by \(obs.by)") }
+                anyObserved = true
+            } else {
+                ov.setObserved(false)
+            }
         }
         // Stay at display rate while a window moved recently, a badge is still
         // catching up, or a rock is reacting to being observed.

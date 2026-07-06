@@ -271,16 +271,18 @@ final class LedgerStore {
             req.timeoutInterval = 2
             URLSession.shared.dataTask(with: req) { data, resp, _ in
                 guard let data, let http = resp as? HTTPURLResponse, http.statusCode == 200,
-                      (try? JSONDecoder().decode(Ledger.self, from: data)) != nil
+                      let ledger = try? JSONDecoder().decode(Ledger.self, from: data)
                 else { return }
-                // Re-wrap with fetch provenance, then persist the peer cache.
+                // Re-wrap with fetch provenance, then persist the peer cache —
+                // named by the ledger's own host so the file reads as peers/neo.json.
                 var obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
                 obj["fetchedAt"] = Date().timeIntervalSince1970 * 1000
                 obj["fetchedFrom"] = peer.ip
                 guard let out = try? JSONSerialization.data(withJSONObject: obj,
                                                             options: [.prettyPrinted, .sortedKeys])
                 else { return }
-                let safe = peer.hostname.replacingOccurrences(of: "/", with: "_")
+                let host = ledger.host.isEmpty ? peer.hostname : ledger.host
+                let safe = host.replacingOccurrences(of: "/", with: "_")
                 let path = "\(LedgerStore.peersDir)/\(safe).json"
                 try? out.write(to: URL(fileURLWithPath: path), options: [.atomic])
             }.resume()
@@ -304,15 +306,20 @@ final class LedgerStore {
     /// --json` → Self. Matches the naming peers advertise, so host keys line up
     /// fleet-wide (neo, blueberry, …).
     static func selfIdentity() -> (host: String, ip: String) {
-        guard let ts = Tools.resolve("tailscale"),
-              let out = ShellRunner.output(ts, args: ["status", "--json"], timeout: 2),
-              let data = out.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let me = json["Self"] as? [String: Any]
-        else { return ("", "") }
-        let host = (me["HostName"] as? String) ?? ""
-        let ips = (me["TailscaleIPs"] as? [String]) ?? []
-        let ip = ips.first { $0.contains(".") } ?? ""
+        // Host is the SHORT OS hostname (neo, blueberry) — the name the fleet
+        // references, not tailscale's device label ("Jeffrey's MacBook Neo").
+        // IP is this machine's tailscale v4, for binding + advertising.
+        let raw = ProcessInfo.processInfo.hostName
+        let host = raw.split(separator: ".").first.map { $0.lowercased() } ?? raw.lowercased()
+        var ip = ""
+        if let ts = Tools.resolve("tailscale"),
+           let out = ShellRunner.output(ts, args: ["status", "--json"], timeout: 2),
+           let data = out.data(using: .utf8),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let me = json["Self"] as? [String: Any] {
+            let ips = (me["TailscaleIPs"] as? [String]) ?? []
+            ip = ips.first { $0.contains(".") } ?? ""
+        }
         return (host, ip)
     }
 }
