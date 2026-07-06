@@ -6,11 +6,15 @@
 //   • a "Connect a Google calendar" action.
 import AppKit
 
-final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDelegate {
+final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDelegate, AgendaViewDelegate {
 
     // ── state ────────────────────────────────────────────────────────
     private var api: CalAPI
     private let auth = Auth()
+
+    // How far forward the "no day selected" agenda + the menu-bar countdown
+    // badge look. A rolling window from the start of today.
+    static let upcomingDays = 14
     // Live watch on the shared ~/.ac-token (suite-wide broadcast). Active for
     // the whole app lifetime so a sign-in/out in any AC app updates us live.
     private var sessionWatch: UUID?
@@ -21,9 +25,21 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
     private var aestheticalEvents: [CalEvent] = []
     private var feedEvents: [FeedEvent] = []
 
+    // The rolling upcoming set (both sources, merged) that feeds the agenda list
+    // and the menu-bar countdown badge. Independent of the focused day/week.
+    private var upcomingAesthetical: [CalEvent] = []
+    private var upcomingFeed: [FeedEvent] = []
+    // Periodic reload so the badge + agenda stay honest even when the window is
+    // closed / we're parked in day mode.
+    private var upcomingTimer: Timer?
+
     // Broadcast the focused day (nil in week mode) so the menu bar strip can
     // light the same dot. Wired by the AppDelegate.
     var onFocusedDayChanged: ((Date?) -> Void)?
+
+    // Broadcast the start of the next upcoming appointment (nil = none ahead) so
+    // the menu bar can paint a countdown badge on the wand. Wired by AppDelegate.
+    var onNextEventChanged: ((Date?) -> Void)?
 
     // ── UI ───────────────────────────────────────────────────────────
     private var backdrop: BackdropView!
@@ -33,9 +49,16 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
     // In-window twin of the menu bar strip: seven ROYGBIV day dots.
     private var dayDots: DayDotsView!
     private var weekView: WeekView!
+    // The ordered "no day selected" agenda list (rolling upcoming events),
+    // shown in place of the grid whenever we're not focused on a single day.
+    private var agendaScroll: NSScrollView!
+    private var agendaView: AgendaView!
     private var titleLabel: NSTextField!
     private var statusLabel: NSTextField!
     private var addButton: NSButton!          // "+ Event" — the only toolbar button.
+    // "‹ Upcoming" — jumps back from a single day to the agenda list. Hidden
+    // while the agenda is already showing.
+    private var upcomingButton: NSButton!
     // Vestigial: there's no mode-toggle button in the window anymore (mode is
     // driven by launch flags / CLI). Live code still harmlessly sets its title.
     private var modeButton: NSButton!
@@ -102,6 +125,20 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         } else {
             showAuthScreen()
         }
+        startUpcomingTimer()
+    }
+
+    // Reload the rolling upcoming set every few minutes so the agenda and the
+    // menu-bar countdown badge stay current even when the window is closed.
+    // (MenuBarDays owns the per-minute countdown tick; this refreshes the data
+    // behind it — new/changed events, and the roll to the next appointment.)
+    private func startUpcomingTimer() {
+        guard upcomingTimer == nil else { return }
+        let timer = Timer(timeInterval: 300, repeats: true) { [weak self] _ in
+            self?.loadUpcoming()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        upcomingTimer = timer
     }
 
     // Reacts to a change in the shared ~/.ac-token (broadcast).
@@ -162,15 +199,44 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         addButton.frame = NSRect(x: 840 - pad - 78, y: 560 - topH + 6, width: 78, height: 26)
         cv.addSubview(addButton)
 
-        // Week view (fills the middle).
-        weekView = WeekView(frame: NSRect(x: pad, y: pad + 22,
-                                          width: 840 - pad * 2,
-                                          height: 560 - topH - pad * 2 - 22))
+        // "‹ Upcoming" — return to the agenda list from a single-day view. Sits
+        // just left of + Event; hidden while the agenda is already showing.
+        upcomingButton = NSButton(title: "‹ Upcoming", target: self, action: #selector(showUpcomingAction))
+        upcomingButton.bezelStyle = .rounded
+        upcomingButton.font = .systemFont(ofSize: 12)
+        upcomingButton.autoresizingMask = [.minXMargin, .minYMargin]
+        upcomingButton.frame = NSRect(x: 840 - pad - 78 - 8 - 96, y: 560 - topH + 6, width: 96, height: 26)
+        upcomingButton.isHidden = true
+        cv.addSubview(upcomingButton)
+
+        let bodyRect = NSRect(x: pad, y: pad + 22,
+                              width: 840 - pad * 2,
+                              height: 560 - topH - pad * 2 - 22)
+
+        // Week/day grid (used for the single-day view).
+        weekView = WeekView(frame: bodyRect)
         weekView.autoresizingMask = [.width, .height]
         weekView.weekStart = weekStart
         weekView.dayCount = dayCount
         weekView.delegate = self
+        weekView.isHidden = (dayCount != 1)
         cv.addSubview(weekView)
+
+        // Agenda list (the "no day selected" face), in a scroll view over the
+        // same body rect. Transparent so the living backdrop shows through.
+        agendaScroll = NSScrollView(frame: bodyRect)
+        agendaScroll.autoresizingMask = [.width, .height]
+        agendaScroll.drawsBackground = false
+        agendaScroll.hasVerticalScroller = true
+        agendaScroll.hasHorizontalScroller = false
+        agendaScroll.autohidesScrollers = true
+        agendaScroll.verticalScrollElasticity = .allowed
+        agendaView = AgendaView(frame: NSRect(x: 0, y: 0,
+                                              width: bodyRect.width, height: bodyRect.height))
+        agendaView.delegate = self
+        agendaScroll.documentView = agendaView
+        agendaScroll.isHidden = (dayCount == 1)
+        cv.addSubview(agendaScroll)
 
         // Status line (bottom).
         statusLabel = NSTextField(labelWithString: "")
@@ -204,6 +270,11 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         dayDots?.selectedIndex = dayMode ? DayPalette.index(for: weekStart) : nil
 
         titleLabel?.textColor = dayMode ? dayColor : .labelColor
+
+        // Grid for a single day, agenda list for "no day selected".
+        weekView?.isHidden = !dayMode
+        agendaScroll?.isHidden = dayMode
+        upcomingButton?.isHidden = !dayMode
 
         onFocusedDayChanged?(dayMode ? weekStart : nil)
     }
@@ -239,11 +310,8 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
             }
             return "\(word)\(fmt.string(from: weekStart))"
         }
-        let end = cal.date(byAdding: .day, value: 6, to: weekStart) ?? weekStart
-        let fmt = DateFormatter()
-        fmt.dateFormat = "MMM d"
-        let yfmt = DateFormatter(); yfmt.dateFormat = "yyyy"
-        return "\(fmt.string(from: weekStart)) – \(fmt.string(from: end)), \(yfmt.string(from: end))"
+        // No day selected → the rolling agenda.
+        return "Upcoming"
     }
 
     // Show the window and jump to today (menu bar "Go to Today").
@@ -272,6 +340,19 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         weekStart = (dayCount == 1)
             ? Calendar.current.startOfDay(for: Date())
             : WeekView.startOfWeek(for: Date())
+        weekView.weekStart = weekStart
+        titleLabel.stringValue = weekRangeTitle()
+        updateDayTheme()
+        refresh()
+    }
+
+    // Leave a single-day view and return to the rolling agenda ("no day
+    // selected"). Backs the "‹ Upcoming" toolbar button.
+    @objc private func showUpcomingAction() {
+        dayCount = 7
+        weekStart = WeekView.startOfWeek(for: Date())
+        modeButton?.title = "Day"
+        weekView.dayCount = dayCount
         weekView.weekStart = weekStart
         titleLabel.stringValue = weekRangeTitle()
         updateDayTheme()
@@ -337,7 +418,88 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
     }
 
     // ── data load ────────────────────────────────────────────────────
+    // Two loads, kept separate:
+    //   • loadUpcoming() — the rolling agenda + the menu-bar countdown badge.
+    //     Runs on every refresh (and a background timer) so the badge stays
+    //     honest even when the window is closed or parked in day mode.
+    //   • loadDayGrid()  — the hour grid for the focused single day. Only when
+    //     a day is actually selected.
     func refresh() {
+        guard let token = auth.currentToken() else { showAuthScreen(); return }
+        api.setToken(token)
+        loadUpcoming()
+        if dayCount == 1 { loadDayGrid() }
+    }
+
+    // Rolling window [start of today, +upcomingDays). Feeds the agenda list and
+    // the next-appointment badge; independent of the focused day/week.
+    private func loadUpcoming() {
+        guard let token = auth.currentToken() else { return }
+        api.setToken(token)
+        let cal = Calendar.current
+        let from = cal.startOfDay(for: Date())
+        let to = cal.date(byAdding: .day, value: Self.upcomingDays, to: from) ?? from
+
+        api.fetchEvents(from: from, to: to) { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .success(let events):
+                self.upcomingAesthetical = events
+                self.rebuildUpcoming()
+            case .failure(let err):
+                if case .unauthorized = err { self.handleUnauthorized() }
+            }
+        }
+        api.fetchFeedEvents(from: from, to: to) { [weak self] result in
+            guard let self else { return }
+            if case .success(let events) = result {
+                self.upcomingFeed = events
+                self.rebuildUpcoming()
+            }
+            // Feed errors are non-fatal — keep the aesthetical agenda.
+        }
+    }
+
+    // Merge + filter + sort the upcoming sources into the agenda list, and
+    // publish the next appointment's start for the menu-bar countdown badge.
+    private func rebuildUpcoming() {
+        let now = Date()
+        var laid: [LaidEvent] = []
+        for e in upcomingAesthetical {
+            guard let s = Self.parseISO(e.start), let en = Self.parseISO(e.end) else { continue }
+            laid.append(LaidEvent(
+                kind: .aesthetical, uid: e.uid, title: e.title,
+                start: s, end: en, allDay: e.allDay ?? false,
+                note: e.note ?? "", visibility: e.visibility ?? "private",
+                sourceLabel: nil, color: nil))
+        }
+        for e in upcomingFeed {
+            guard let s = Self.parseISO(e.start) else { continue }
+            let en = e.end.flatMap(Self.parseISO) ?? s.addingTimeInterval(1800)
+            laid.append(LaidEvent(
+                kind: .feed, uid: e.uid, title: e.title,
+                start: s, end: en, allDay: e.allDay ?? false,
+                note: e.note ?? "", visibility: "private",
+                sourceLabel: e.label, color: Self.color(from: e.color)))
+        }
+        // Keep still-relevant events (ongoing or ahead), ordered by start.
+        let upcoming = laid.filter { $0.end >= now }.sorted { $0.start < $1.start }
+        agendaView?.events = upcoming
+
+        if dayCount != 1 {
+            let count = upcoming.count
+            statusLabel.stringValue = count == 0
+                ? "Nothing coming up in the next \(Self.upcomingDays) days."
+                : "\(count) upcoming event\(count == 1 ? "" : "s") · next \(Self.upcomingDays) days"
+        }
+
+        // Next appointment = soonest timed event that hasn't started yet. Skip
+        // all-day items so the badge always counts down to a real clock time.
+        let next = upcoming.first { !$0.allDay && $0.start > now }
+        onNextEventChanged?(next?.start)
+    }
+
+    private func loadDayGrid() {
         guard let token = auth.currentToken() else { showAuthScreen(); return }
         api.setToken(token)
         let (from, to) = weekBounds()
@@ -681,6 +843,18 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         alert.addButton(withTitle: "OK")
         if let window { alert.beginSheetModal(for: window) { _ in } }
         else { alert.runModal() }
+    }
+
+    // ── AgendaViewDelegate ───────────────────────────────────────────
+    // Same routing as the grid: aesthetical → editor, feed → read-only details.
+    func agendaView(_ view: AgendaView, didSelectEditable event: LaidEvent) {
+        presentEditor(uid: event.uid, title: event.title,
+                      start: event.start, end: event.end,
+                      note: event.note, visibility: event.visibility)
+    }
+
+    func agendaView(_ view: AgendaView, didSelectReadOnly event: LaidEvent) {
+        weekView(weekView, didSelectReadOnly: event)
     }
 
     func weekView(_ view: WeekView, didRequestNewEventAt day: Date, hour: Int) {

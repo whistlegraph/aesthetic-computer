@@ -37,6 +37,8 @@ final class DateWizardAppDelegate: NSObject, NSApplicationDelegate {
 
         // Keep the menu bar strip's lit dot in sync with the wizard's focus.
         controller.onFocusedDayChanged = { [weak menu] date in menu?.setFocusedDay(date) }
+        // Feed the next appointment to the wand's countdown badge.
+        controller.onNextEventChanged = { [weak menu] date in menu?.setNextEvent(date) }
 
         // Launch flags: open straight into a single-day view. Applied BEFORE
         // start() so the initial load fetches the day (not the week first).
