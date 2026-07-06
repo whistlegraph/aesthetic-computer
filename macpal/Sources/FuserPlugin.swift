@@ -485,15 +485,16 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         overtimeChip.shadow = chipShadow
 
         // Mission block fields — hidden until a fresh mission.json shows up.
-        // The title gets the badge's accent shadow (styleField) but reads
-        // left-aligned like a todo list, not centered like the name.
-        controller.styleField(missionTitleField)
-        controller.styleField(missionAgentField)
+        // Light text over a sharp dark drop shadow (no stroke outline) — the
+        // outlined treatment smeared on light wallpapers; this stays legible
+        // (and OCR-able) on light and dark alike.
         for f in [missionTitleField, missionAgentField] {
+            f.isBordered = false; f.drawsBackground = false
             f.alignment = .left
             f.maximumNumberOfLines = 0
             f.cell?.wraps = true
             f.cell?.lineBreakMode = .byWordWrapping
+            f.shadow = Self.missionShadow()
             f.isHidden = true
             controller.content.addSubview(f)
         }
@@ -550,6 +551,17 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     // Bake the attributed strings for the current mission — one field per
     // item so the active row can breathe on its own. Layout measures and
     // places everything, so a width change just re-wraps.
+
+    // Sharp dark drop shadow — the whole block's readability rides on this,
+    // so it's one shared recipe, not per-field tweaks.
+    static func missionShadow() -> NSShadow {
+        let sh = NSShadow()
+        sh.shadowColor = NSColor.black
+        sh.shadowBlurRadius = 0
+        sh.shadowOffset = NSSize(width: 2, height: -2)
+        return sh
+    }
+
     func rebuildMissionFields() {
         missionItemFields.forEach { $0.removeFromSuperview() }
         missionItemFields = []
@@ -565,17 +577,13 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
             string: titleText, attributes: [
                 .font: playfulFont(15, bold: true),
                 .foregroundColor: NSColor.white,
-                .strokeColor: NSColor(white: 0.08, alpha: 1),
-                .strokeWidth: -3.0,
                 .paragraphStyle: para,
             ])
         missionAgentField.attributedStringValue = m.agent.isEmpty
             ? NSAttributedString()
             : NSAttributedString(string: "⇢ " + m.agent, attributes: [
-                .font: monoFont(10),
-                .foregroundColor: NSColor.white.withAlphaComponent(0.72),
-                .strokeColor: NSColor(white: 0.08, alpha: 1),
-                .strokeWidth: -1.5,
+                .font: monoFont(11),
+                .foregroundColor: NSColor.white.withAlphaComponent(0.85),
                 .paragraphStyle: para,
             ])
         for item in m.items {
@@ -585,12 +593,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
             f.cell?.wraps = true
             f.cell?.lineBreakMode = .byWordWrapping
             f.wantsLayer = true
-            // Every row wears the badge's accent drop shadow — over a busy
-            // wallpaper the dark stroke + shadow is what keeps it readable.
-            let rowShadow = NSShadow()
-            rowShadow.shadowColor = accent; rowShadow.shadowBlurRadius = 0
-            rowShadow.shadowOffset = NSSize(width: 2, height: 2)
-            f.shadow = rowShadow
+            f.shadow = Self.missionShadow()
             let ip = NSMutableParagraphStyle()
             ip.alignment = .left; ip.lineBreakMode = .byWordWrapping
             ip.headIndent = 19   // wrapped lines tuck under the text, past the square
@@ -599,23 +602,21 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
             let mark: String, markColor: NSColor, textColor: NSColor
             switch item.status {
             case "done":
-                mark = "■"; markColor = hexColor(0x7ee787).withAlphaComponent(0.8)
-                textColor = NSColor.white.withAlphaComponent(0.45)   // done = dimmed
+                mark = "■"; markColor = hexColor(0x7ee787)
+                textColor = NSColor.white.withAlphaComponent(0.6)   // done = dimmed
             case "in_progress":
                 mark = "▣"; markColor = hexColor(0xffd66b)
                 textColor = NSColor.white
             default:
-                mark = "□"; markColor = NSColor.white.withAlphaComponent(0.55)
-                textColor = NSColor.white.withAlphaComponent(0.85)
+                mark = "□"; markColor = NSColor.white.withAlphaComponent(0.75)
+                textColor = NSColor.white.withAlphaComponent(0.95)
             }
             let a = NSMutableAttributedString()
             a.append(NSAttributedString(string: mark + " ", attributes: [
-                .font: NSFont.systemFont(ofSize: 12, weight: .bold),
+                .font: NSFont.systemFont(ofSize: 13, weight: .bold),
                 .foregroundColor: markColor, .paragraphStyle: ip]))
             a.append(NSAttributedString(string: item.text, attributes: [
-                .font: monoFont(12), .foregroundColor: textColor,
-                .strokeColor: NSColor(white: 0.08, alpha: 1),
-                .strokeWidth: -1.8,
+                .font: monoFont(13), .foregroundColor: textColor,
                 .paragraphStyle: ip]))
             f.attributedStringValue = a
             if item.status == "in_progress" {
