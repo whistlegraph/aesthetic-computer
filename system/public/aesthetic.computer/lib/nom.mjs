@@ -10,8 +10,8 @@ import { Synth } from "./synth.mjs"; // shared virtual synth + perc kit
   Controls:
     Arrows / WASD   — move the Muncher
     Space / Enter   — munch the current square
-    Swipe (mobile)  — move one square in the swipe direction
-    Tap (mobile)    — munch the current square
+    Tap a square    — walk there and munch it on arrival
+    Tap own square  — munch it right now
 
   Modes (pass after a colon):
     munchers          → numbers
@@ -29,7 +29,6 @@ import { Synth } from "./synth.mjs"; // shared virtual synth + perc kit
 
 const COLS = 5;
 const ROWS = 5;
-const START_LIVES = 3;
 
 // 🌐 Game state
 let mode = "number"; // "number" | "word" | "note"
@@ -46,17 +45,16 @@ const warmed = new Set(); // utterances already sent to the TTS cache this sessi
 let muncher = { col: 2, row: 2 }; // logical grid position
 let muncherVis = { col: 2, row: 2 }; // smoothed display position (slides)
 let hover = null; // { col, row } cell under the mouse, for hover highlight
-let swipedGesture = false; // 👆 set on swipe:<dir>, suppresses the lift-tap munch
-let drag = null; // 👆 { sx, sy, x, y } live gesture, drawn as the swipe overlay
-const SWIPE_MIN = 24; // px to register a swipe — MUST match #detectSwipe in lib/pen.mjs
+let swallowTap = false; // 👆 set when a tap was consumed (e.g. advancing an overlay)
+let walkTarget = null; // 👆 tap-to-move destination cell — sim walks the muncher there
+let walkTick = 0; // frames until the walker's next step
+const WALK_STEP_FRAMES = 7; // tap-to-move cadence (~115ms per square)
 let troggles = [];
-let lives = START_LIVES;
 let level = 1; // internal progression counter (board #) — never displayed
 let remaining = 0; // correct cells left to eat
 let foundValues = []; // distinct correct values eaten (shown in a bottom row)
-let lifeFlyers = []; // lost-life mini-monsters animating bottom-left → board center
 let boardCorrectTotal = 1; // correct cells the board started with (fatness gauge)
-let invuln = 0; // frames of post-hit immunity
+let invuln = 0; // frames of board-start immunity (troggle spawn grace)
 let mouth = 0; // muncher mouth animation phase
 let troggleClock = null;
 let message = ""; // transient feedback line
@@ -122,9 +120,11 @@ function reset() {
   mode = "number"; lang = "en"; hiRes = false; noteScale = [];
   state = "title"; grid = []; ruleLabel = ""; ruleSpeech = ""; caption = "";
   muncher = { col: 2, row: 2 }; muncherVis = { col: 2, row: 2 };
-  hover = null; swipedGesture = false; drag = null;
-  troggles = []; lives = START_LIVES; level = 1; remaining = 0;
-  foundValues = []; lifeFlyers = []; boardCorrectTotal = 1;
+  hover = null; swallowTap = false; walkTarget = null; walkTick = 0;
+  sprites.clear(); // drop last session's hd label sprites (fonts/theme may differ)
+  pixelWashDark = null; // the hidden pixel buffer may hold another piece's art
+  troggles = []; level = 1; remaining = 0;
+  foundValues = []; boardCorrectTotal = 1;
   invuln = 0; mouth = 0; troggleClock = null; message = ""; messageTimer = 0;
   snd = null; synth = null; speakFn = null; frames = 0;
   facing = { x: 1, y: 0 }; chompPhase = 0; combo = 0; melody = [];
@@ -261,7 +261,6 @@ function setTheme(isDark) {
     wrapHint: [110, 215, 255, 110],
     beckon: [170, 255, 195],
     leftLabel: [140, 165, 195], leftWarn: [245, 130, 130], leftOk: [150, 210, 175],
-    swipeNeutral: [255, 255, 255],
     introName: [255, 230, 120], introSub: [150, 220, 255],
     overlaySub: [210, 220, 255],
     plainText: [230, 230, 245],
@@ -280,7 +279,6 @@ function setTheme(isDark) {
     wrapHint: [24, 104, 164, 150],
     beckon: [20, 150, 80],
     leftLabel: [96, 110, 134], leftWarn: [198, 54, 54], leftOk: [34, 124, 86],
-    swipeNeutral: [50, 62, 86],
     introName: [150, 108, 6], introSub: [24, 98, 156],
     overlaySub: [64, 74, 110],
     plainText: [42, 46, 58],
@@ -320,18 +318,29 @@ function cellFont() {
   return mode === "word" ? "unifont" : null; // null → default font_1
 }
 
-// Fit a label inside a cell. Words are sacred: word mode always renders the
-// whole word on ONE line at scale 1 — never split / hyphenated, never scaled —
-// and computeLayout gives word boards the biggest cells the screen allows so
-// the longest word fits. Numbers/notes (short strings) still bump to size 2
-// when roomy. All from a fixed nominal advance → stable, no async jitter.
+// Fit a label inside a cell at the LARGEST integer scale the cell allows —
+// readability first, on every display. Words are still sacred: always the
+// whole word on ONE line, never split / hyphenated; on a very tight screen
+// that means scale 1 (bleeding over the tile seam rather than wrapping).
+// All from a fixed nominal advance → stable, no async jitter.
+const CELL_TEXT_MAX = 6; // sanity cap on cell label scale
+const fitScratch = { lines: [""], size: 1, lineH: 10, width: 0, height: 0, font: null };
 function fitText(str, cell, font) {
   const { adv, h } = fontMetrics(font);
-  if (mode === "word")
-    return { lines: [str], size: 1, lineH: h, width: str.length * adv, height: h, font };
   const inner = max(8, cell - CELL_MARGIN * 2);
-  const size = str.length * adv * 2 <= inner && h * 2 <= inner ? 2 : 1;
-  return { lines: [str], size, lineH: h * size, width: str.length * adv * size, height: h * size, font };
+  const size = max(
+    1,
+    min(CELL_TEXT_MAX, floor(min(inner / (str.length * adv), inner / h))),
+  );
+  // One shared scratch object — callers consume it synchronously, so this
+  // avoids ~30 small allocations per frame.
+  fitScratch.lines[0] = str;
+  fitScratch.size = size;
+  fitScratch.lineH = h * size;
+  fitScratch.width = str.length * adv * size;
+  fitScratch.height = h * size;
+  fitScratch.font = font;
+  return fitScratch;
 }
 
 // Draw a (possibly two-line) cell label, centered in the cell with an optional
@@ -927,33 +936,23 @@ function newRound({ randInt }) {
     ruleSpeech = noteRound.say;
     noteScale = noteRound.scale;
     const octs = [3, 4, 5]; // tight pool so HIGH/LOW rules have room to differ
-    const makeGood = () => {
-      for (let tries = 0; tries < 80; tries += 1) {
-        const l = LETTERS[rnd(LETTERS.length)];
-        const o = octs[rnd(octs.length)];
-        if (test(l, o)) return { letter: l, oct: o };
-      }
-      const m = noteRound.scale[rnd(noteRound.scale.length)].match(/^([A-G]#?)(\d)$/);
-      return { letter: m[1], oct: parseInt(m[2], 10) };
-    };
-    const makeBad = () => {
-      for (let tries = 0; tries < 80; tries += 1) {
-        const l = LETTERS[rnd(LETTERS.length)];
-        const o = octs[rnd(octs.length)];
-        if (!test(l, o)) return { letter: l, oct: o };
-      }
-      return { letter: "C", oct: 4 };
-    };
-    for (let i = 0; i < nCorrect; i += 1) {
-      const g = makeGood();
+    // 🚫 No repeats: enumerate every letter×octave combo, partition by the
+    // rule, shuffle, and deal — each note appears at most once per board.
+    const goodPool = [], badPool = [];
+    for (const l of LETTERS)
+      for (const o of octs) (test(l, o) ? goodPool : badPool).push({ letter: l, oct: o });
+    shuffle(goodPool, rnd);
+    shuffle(badPool, rnd);
+    let nc = min(nCorrect, goodPool.length);
+    nc = max(nc, min(goodPool.length, total - badPool.length));
+    for (let i = 0; i < nc; i += 1) {
+      const g = goodPool[i];
       cells.push({ value: noteLabel(g.letter, g.oct), letter: g.letter, oct: g.oct, correct: true });
     }
-    for (let i = 0; i < total - nCorrect; i += 1) {
-      const b = makeBad();
+    for (let i = 0; i < total - nc; i += 1) {
+      const b = badPool[i % badPool.length];
       cells.push({ value: noteLabel(b.letter, b.oct), letter: b.letter, oct: b.oct, correct: false });
     }
-    // Re-verify against the live rule (covers the fallback paths).
-    cells.forEach((c) => (c.correct = test(c.letter, c.oct)));
   } else if (mode === "word") {
     const rounds = lang === "es" ? ES_WORD_ROUNDS : lang === "da" ? DA_WORD_ROUNDS : lang === "ru" ? RU_WORD_ROUNDS : lang === "cat" ? CAT_WORD_ROUNDS : WORD_ROUNDS;
     const round = rounds[rnd(rounds.length)];
@@ -961,79 +960,61 @@ function newRound({ randInt }) {
     ruleSpeech = round.say;
     const goods = shuffle([...round.correct], rnd);
     const bads = shuffle([...round.wrong], rnd);
-    for (let i = 0; i < nCorrect; i += 1)
-      cells.push({ value: goods[i % goods.length], correct: true });
-    for (let i = 0; i < total - nCorrect; i += 1)
+    // 🚫 No repeats: answers never duplicate (capped to the pool), and when
+    // the decoy pool is smaller than the leftover space the board carries
+    // more answers instead of cycling decoys — 25 distinct words.
+    let nc = min(nCorrect, goods.length);
+    nc = min(goods.length, max(nc, total - bads.length));
+    for (let i = 0; i < nc; i += 1)
+      cells.push({ value: goods[i], correct: true });
+    for (let i = 0; i < total - nc; i += 1)
       cells.push({ value: bads[i % bads.length], correct: false });
   } else {
-    // Pick a numeric rule + a per-board number range: some boards stay tiny
-    // (0–9), others go bigger (up to 40/60/80).
-    const small = rnd(2) === 0;
-    const maxVal = small ? 9 : [40, 60, 80][rnd(3)];
-    const ri = (lo, hi) => lo + rnd(hi - lo + 1); // inclusive lo..hi
+    // Pick a numeric rule + a per-board range. Ranges start at 40 so a 5×5
+    // board can always be dealt from DISTINCT values (see the deal below).
+    const maxVal = [40, 60, 80][rnd(3)];
     const rules = ["multiples", "factors", "primes", "even", "odd"];
     const pick = rules[rnd(rules.length)];
-    let test, label, speech, makeGood, makeBad;
+    let test, label, speech;
 
     if (pick === "multiples") {
-      const n = 2 + rnd(small ? 3 : 8); // small: 2..4, big: 2..9
+      const n = 2 + rnd(8); // 2..9
       label = "X" + n; // "multiples of n", e.g. X3
       speech = `multiples of ${n}`;
       test = (v) => v % n === 0;
-      makeGood = () => (1 + rnd(floor(maxVal / n))) * n;
-      makeBad = () => {
-        let v;
-        do v = ri(1, maxVal); while (v % n === 0);
-        return v;
-      };
     } else if (pick === "factors") {
-      const targets = small ? [6, 8, 9] : [12, 16, 18, 20, 24, 36, 48];
+      const targets = [12, 16, 18, 20, 24, 36, 48];
       const n = targets[rnd(targets.length)];
-      const divs = [];
-      for (let i = 1; i <= n; i += 1) if (n % i === 0) divs.push(i);
       label = "F" + n; // "factors of n", e.g. F24
       speech = `factors of ${n}`;
       test = (v) => n % v === 0;
-      makeGood = () => divs[rnd(divs.length)];
-      makeBad = () => {
-        let v;
-        do v = ri(2, n); while (n % v === 0);
-        return v;
-      };
     } else if (pick === "primes") {
-      const primes = [];
-      for (let i = 2; i <= maxVal; i += 1) if (isPrime(i)) primes.push(i);
       label = "PRIMES";
       speech = "prime numbers";
       test = (v) => isPrime(v);
-      makeGood = () => primes[rnd(primes.length)];
-      makeBad = () => {
-        let v;
-        do v = ri(4, maxVal); while (isPrime(v));
-        return v;
-      };
     } else if (pick === "even") {
       label = "EVENS";
       speech = "even numbers";
       test = (v) => v % 2 === 0;
-      makeGood = () => ri(0, floor(maxVal / 2)) * 2;
-      makeBad = () => ri(0, floor((maxVal - 1) / 2)) * 2 + 1;
     } else {
       label = "ODDS";
       speech = "odd numbers";
       test = (v) => v % 2 === 1;
-      makeGood = () => ri(0, floor((maxVal - 1) / 2)) * 2 + 1;
-      makeBad = () => ri(0, floor(maxVal / 2)) * 2;
     }
 
     ruleLabel = label;
     ruleSpeech = speech;
-    for (let i = 0; i < nCorrect; i += 1)
-      cells.push({ value: makeGood(), correct: true });
-    for (let i = 0; i < total - nCorrect; i += 1)
-      cells.push({ value: makeBad(), correct: false });
-    // Double-check correctness against the live test (covers any edge cases).
-    cells.forEach((c) => (c.correct = test(c.value)));
+    // 🚫 No repeats: partition 1..maxVal by the rule, shuffle, and deal —
+    // every answer and every decoy appears at most once per board. If the
+    // decoy pool runs short the board carries more answers instead.
+    const goodPool = [], badPool = [];
+    for (let v = 1; v <= maxVal; v += 1) (test(v) ? goodPool : badPool).push(v);
+    shuffle(goodPool, rnd);
+    shuffle(badPool, rnd);
+    let nc = min(nCorrect, goodPool.length);
+    nc = max(nc, min(goodPool.length, total - badPool.length));
+    for (let i = 0; i < nc; i += 1) cells.push({ value: goodPool[i], correct: true });
+    for (let i = 0; i < total - nc; i += 1) cells.push({ value: badPool[i], correct: false });
   }
 
   shuffle(cells, rnd);
@@ -1067,6 +1048,8 @@ function newRound({ randInt }) {
   flashGold = 0;
   confetti = [];
   chompPhase = 0;
+  walkTarget = null;
+  walkTick = 0;
 }
 
 function spawnTroggles(rnd) {
@@ -1144,35 +1127,26 @@ function sim({ gizmo, seconds, sound, clock, num: { randInt } }) {
   if (flashGreen > 0) flashGreen -= 1;
   if (beatPulse > 0) beatPulse -= 1;
 
-  // 💔 Life-flyers — lost lives sail from the bottom-left into the board.
-  if (lifeFlyers.length) {
-    lifeFlyers.forEach((f) => (f.t += 0.045));
-    lifeFlyers = lifeFlyers.filter((f) => f.t < 1);
-  }
-
-  // ✨ Confetti physics (level-clear).
+  // ✨ Confetti physics (level-clear) — compacted in place, no per-frame array.
   if (confetti.length) {
-    confetti.forEach((p) => {
+    let live = 0;
+    for (const p of confetti) {
       p.x += p.vx;
       p.y += p.vy;
       p.vy += 0.12;
-    });
-    confetti = confetti.filter((p) => p.y < screenH + 40);
+      if (p.y < screenH + 40) confetti[live++] = p;
+    }
+    confetti.length = live;
   }
 
-  // 💀 Death animation timeline (world frozen while it plays out).
+  // 💀 Death animation timeline (world frozen while it plays out) — sudden
+  // death, so the fall always lands on the game-over screen.
   if (deathPhase > 0) {
     deathPhase -= 1;
-    if (deathPhase === 0) {
-      if (pendingOver) {
-        pendingOver = false;
-        state = "over";
-        jingleOver();
-      } else {
-        muncher = { col: 2, row: 2 };
-        muncherVis = { col: 2, row: 2 };
-        invuln = 80;
-      }
+    if (deathPhase === 0 && pendingOver) {
+      pendingOver = false;
+      state = "over";
+      jingleOver();
     }
     return;
   }
@@ -1199,6 +1173,24 @@ function sim({ gizmo, seconds, sound, clock, num: { randInt } }) {
     if (beatsLeft <= 0) timeUp();
   }
   if (beatsLeft <= 3) cam.shake = max(cam.shake, 2.4); // panic shake
+
+  // 👣 Tap-to-move walker — step toward the tapped square on a steady cadence,
+  // munching on arrival so one tap does the whole trip.
+  if (walkTarget) {
+    if (walkTick > 0) {
+      walkTick -= 1;
+    } else {
+      stepToward(walkTarget);
+      walkTick = WALK_STEP_FRAMES;
+    }
+    if (
+      deathPhase === 0 && walkTarget &&
+      walkTarget.col === muncher.col && walkTarget.row === muncher.row
+    ) {
+      walkTarget = null;
+      munch();
+    }
+  }
 
   // Troggles step on a steady beat (speeds up with level) — keeps accelerating
   // to ~L14 instead of flattening out at L10.
@@ -1232,20 +1224,18 @@ function checkTroggleHit() {
   }
 }
 
+// ☠️ Sudden death — any hit, wrong munch, or time-out ends the game outright.
 function loseLife() {
-  // Launch the lost life as a mini-monster flying into the board (from its
-  // bottom-left slot toward the board center).
-  lifeFlyers.push({ slot: lives - 1, t: 0 });
-  lives -= 1;
   combo = 0;
+  walkTarget = null; // a hit stops the tap-to-move walk
   killChord();
   deathPos = { col: muncher.col, row: muncher.row };
-  deathPhase = 54; // play the death animation, then respawn / game over
+  deathPhase = 54; // play the death animation, then game over
   cam.shake = 11; // hard jolt
   flashRed = 18; // red flash
   sadDeath();
-  flash(lives <= 0 ? "GAME OVER" : "OUCH!");
-  if (lives <= 0) pendingOver = true; // over fires when the animation ends
+  flash("GAME OVER");
+  pendingOver = true; // over fires when the animation ends
 }
 
 function flash(msg) {
@@ -1253,12 +1243,10 @@ function flash(msg) {
   messageTimer = 90;
 }
 
-// ⏳ Ran out of beats on this board.
+// ⏳ Ran out of beats on this board — sudden death.
 function timeUp() {
-  flash("TIME!");
   loseLife();
-  beatsLeft = beatsMax; // fresh beats on respawn (if any lives remain)
-  lastBeatIndex = beatIndex; // realign to the global grid, no instant re-tick
+  flash("TIME!"); // show the reason; the overlay says GAME OVER after the fall
 }
 
 // 🥁 Metronome tick — real notepat perc kit: kick on the global downbeat (every
@@ -1283,6 +1271,44 @@ function tick(remainingBeats) {
     note({ type: "sine", tone: 92, duration: 0.09, volume: 0.22 });
   } else {
     note({ type: "square", tone: 1100, duration: 0.015, volume: 0.09 });
+  }
+  groove(downbeat);
+}
+
+// 🎶 Background groove — a tiny band riding the shared wall-clock beat grid:
+// a walking triangle bass under the kick/hat pattern, a soft snare backbeat,
+// and a sparkle arpeggio on each bar turn. Chords cycle i–VI–III–VII
+// (Am F C G), one chord per 4 global beats, so every board everywhere is
+// grooving in the same key at the same moment — like the synced metronomes.
+// Note mode sits this out (its boards make their own music from the scale).
+const GROOVE_ROOTS = [110, 87.31, 65.41, 98]; // A2 F2 C2 G2
+const GROOVE_TRIADS = [
+  [220, 261.63, 329.63], // Am — A3 C4 E4
+  [174.61, 220, 261.63], // F — F3 A3 C4
+  [130.81, 164.81, 196], // C — C3 E3 G3
+  [196, 246.94, 293.66], // G — G3 B3 D4
+];
+function groove(downbeat) {
+  if (mode === "note" || state !== "play") return;
+  const bar = floor(beatIndex / 4) % GROOVE_ROOTS.length;
+  const root = GROOVE_ROOTS[bar];
+  const beatInBar = ((beatIndex % 4) + 4) % 4;
+  // Bass walk: root on the one, up an octave between, the fifth on the three.
+  const bass = beatInBar === 0 ? root : beatInBar === 2 ? root * 1.5 : root * 2;
+  note({ type: "triangle", tone: bass, duration: 0.22, volume: 0.17, attack: 0.008 });
+  if (beatInBar === 2 && synth) synth.snare({ volume: 0.16 }); // soft backbeat
+  // Sparkle arp turning the bar — sits out in panic time (warn beeps own it).
+  if (beatInBar === 3 && beatsLeft > 6) {
+    const tri = GROOVE_TRIADS[bar];
+    const half = round((beatMs / 1000) * FPS * 0.5);
+    playMelody(
+      [
+        { tone: tri[1] * 2, type: "sine", dur: 0.09, vol: 0.1, t: 0 },
+        { tone: tri[2] * 2, type: "sine", dur: 0.09, vol: 0.09, t: round(half / 2) },
+        { tone: tri[0] * 4, type: "sine", dur: 0.12, vol: 0.08, t: half },
+      ],
+      0,
+    );
   }
 }
 
@@ -1628,7 +1654,7 @@ function spawnConfetti() {
       y: layout.y + 4,
       vx: (((i * 31) % 7) - 3) * 0.7,
       vy: -2.4 - ((i * 17) % 5) * 0.5,
-      s: 2 + (i % 3),
+      s: (2 + (i % 3)) * max(1, Math.ceil(hudScale / 2)), // bigger bits on big displays
       c: cols[i % cols.length],
     });
   }
@@ -1697,7 +1723,7 @@ function act({ event: e, sound, speak, cursor, num: { randInt } }) {
       advance();
       // This tap *started* the board — swallow its release so the trailing
       // lift doesn't immediately munch the center square.
-      swipedGesture = true;
+      swallowTap = true;
     }
     return;
   }
@@ -1711,37 +1737,38 @@ function act({ event: e, sound, speak, cursor, num: { randInt } }) {
   )
     killChord();
 
-  // 📱 Tap anywhere to munch; a swipe (fired just before this lift) suppresses
-  // the tap. Always consume the flag here — even mid-death — so it can never
-  // leak into the next gesture.
+  // 👆 Tap to move / munch: tapping the muncher's own square (or off-board)
+  // munches in place; tapping any other square sends the muncher walking there
+  // — sim steps it across the grid and it munches on arrival, so one tap does
+  // the whole trip. Always consume the swallow flag here — even mid-death —
+  // so it can never leak into the next gesture.
   if (e.is("lift")) {
-    const wasSwipe = swipedGesture;
-    swipedGesture = false;
-    drag = null; // clear the swipe overlay
-    if (!wasSwipe && deathPhase === 0) munch();
+    const consumed = swallowTap;
+    swallowTap = false;
+    if (!consumed && deathPhase === 0) {
+      const t = cellAt(e.x, e.y);
+      if (!t || (t.col === muncher.col && t.row === muncher.row)) {
+        walkTarget = null;
+        munch();
+      } else {
+        walkTarget = { col: t.col, row: t.row };
+        walkTick = 0; // first step lands immediately
+        note({ type: "sine", tone: 500, duration: 0.03, volume: 0.14 }); // pick blip
+      }
+    }
   }
-
-  // 👆 Track the live gesture so paint can visualize the swipe threshold.
-  if (e.is("touch")) drag = { sx: e.x, sy: e.y, x: e.x, y: e.y };
-  if (e.is("draw") && drag) { drag.x = e.x; drag.y = e.y; }
 
   // 🖱️ Hover highlight — track the cell under the pointer.
   if (e.is("move") || e.is("draw")) hover = cellAt(e.x, e.y);
 
   if (deathPhase > 0) return; // ignore other input mid-death
 
-  // Movement — arrows + WASD + vim (hjkl).
-  if (e.is("keyboard:down:arrowleft") || e.is("keyboard:down:a") || e.is("keyboard:down:h")) move(-1, 0);
-  if (e.is("keyboard:down:arrowright") || e.is("keyboard:down:d") || e.is("keyboard:down:l")) move(1, 0);
-  if (e.is("keyboard:down:arrowup") || e.is("keyboard:down:w") || e.is("keyboard:down:k")) move(0, -1);
-  if (e.is("keyboard:down:arrowdown") || e.is("keyboard:down:s") || e.is("keyboard:down:j")) move(0, 1);
-
-  // 📱 Swipe to move one square in that direction (flag it so the gesture's
-  // closing tap doesn't also munch — see the lift handler below).
-  if (e.is("swipe:left")) { move(-1, 0); swipedGesture = true; }
-  if (e.is("swipe:right")) { move(1, 0); swipedGesture = true; }
-  if (e.is("swipe:up")) { move(0, -1); swipedGesture = true; }
-  if (e.is("swipe:down")) { move(0, 1); swipedGesture = true; }
+  // Movement — arrows + WASD + vim (hjkl). Manual steering cancels the walker.
+  const step = (dx, dy) => { walkTarget = null; move(dx, dy); };
+  if (e.is("keyboard:down:arrowleft") || e.is("keyboard:down:a") || e.is("keyboard:down:h")) step(-1, 0);
+  if (e.is("keyboard:down:arrowright") || e.is("keyboard:down:d") || e.is("keyboard:down:l")) step(1, 0);
+  if (e.is("keyboard:down:arrowup") || e.is("keyboard:down:w") || e.is("keyboard:down:k")) step(0, -1);
+  if (e.is("keyboard:down:arrowdown") || e.is("keyboard:down:s") || e.is("keyboard:down:j")) step(0, 1);
 
   // Munch (space + enter behave identically) — smart-chain to the nearest
   // green, and sustain a pentatonic chord while held (durational, musical).
@@ -1750,6 +1777,7 @@ function act({ event: e, sound, speak, cursor, num: { randInt } }) {
     e.is("keyboard:down:enter") ||
     e.is("keyboard:down:return")
   ) {
+    walkTarget = null; // keyboard munch takes over from the walker
     smartMunch();
     if (!heldChord && synth) {
       if (mode === "note") {
@@ -1777,9 +1805,7 @@ function act({ event: e, sound, speak, cursor, num: { randInt } }) {
 }
 
 function resetGame({ randInt }) {
-  lives = START_LIVES;
   level = 1;
-  lifeFlyers = [];
   troggleClock = null;
   message = "";
   messageTimer = 0;
@@ -1788,14 +1814,38 @@ function resetGame({ randInt }) {
 // 📐 Layout helpers (recomputed each paint from current screen) ───────────────
 let layout = { x: 0, y: 0, cell: 32, top: 40 };
 
+// 🔍 Readability-first chrome: every HUD element (timer, counters, banners,
+// caption) scales with the display instead of sitting at fixed pixel sizes.
+// hudScale 1 fits phones; large desktop windows climb toward 5.
+let hudScale = 1;
+let timerSize = 4; // big beat-timer glyph scale (drives the header height)
+
+// The caption strip's nominal size + reserved band height (pre-shrink), so
+// the lives row and LEFT counter can sit above it instead of underneath.
+function captionSize(screen) {
+  return max(1, round(screen.height / 240), hudScale + 1);
+}
+function captionBandH(screen) {
+  const { h } = fontMetrics(cellFont());
+  const gh = h * captionSize(screen);
+  return gh + round(gh * 0.4) + 5;
+}
+
 function computeLayout(screen) {
   screenH = screen.height;
-  // Word boards go near edge-to-edge: whole words render on one line at
-  // scale 1 (never split — see fitText), so cells get every pixel the screen
-  // has. Number/note boards keep the roomier framing.
-  const sideMargin = mode === "word" ? 4 : max(14, floor(screen.width * 0.06));
-  const top = 54; // header band (rule title + stats)
-  const bottomPad = 30; // HUD band (lives)
+  // 🔍 HUD scale from the display's short side — chrome text grows with the
+  // window instead of sitting at fixed pixel sizes (see hudScale above).
+  hudScale = max(1, min(5, floor(min(screen.width, screen.height) / 200)));
+  timerSize = 3 + hudScale;
+  // 📱 Phone-width screens trade chrome for board: slimmer margins so cells
+  // get as big as possible under a thumb.
+  const compact = screen.width < 460;
+  // Word boards go near edge-to-edge: whole words render on one line
+  // (never split — see fitText), so cells get every pixel the screen has.
+  // Number/note boards keep the roomier framing.
+  const sideMargin = mode === "word" ? 4 : compact ? 8 : max(14, floor(screen.width * 0.06));
+  const top = 14 + 10 * timerSize; // header band sized to the big beat timer
+  const bottomPad = 12 + captionBandH(screen); // HUD band above the caption strip
   const availW = screen.width - sideMargin * 2;
   const availH = screen.height - top - bottomPad;
   // Resting fit inside the margined area …
@@ -1809,14 +1859,13 @@ function computeLayout(screen) {
   const cell = max(18, floor(mode === "word" ? restFit : min(restFit, zoomFit)));
   const gw = cell * COLS;
   const gh = cell * ROWS;
-  layout = {
-    cell,
-    baseCell: cell,
-    x: floor((screen.width - gw) / 2),
-    y: top + floor((availH - gh) / 2),
-    top,
-    bottomPad,
-  };
+  // Mutated in place — one long-lived object, no per-frame allocation.
+  layout.cell = cell;
+  layout.baseCell = cell;
+  layout.x = floor((screen.width - gw) / 2);
+  layout.y = top + floor((availH - gh) / 2);
+  layout.top = top;
+  layout.bottomPad = bottomPad;
 }
 
 // 🎥 Fold the dynamic camera (zoom about board center + lean + shake) into the
@@ -1860,17 +1909,24 @@ function cellAt(px, py) {
 // thumbnails capture the pixel buffer, so the game drops to full pixel
 // painting for exactly those frames. Tapes stay hd end-to-end: bios mirrors
 // each hd bitmap into a live MediaRecorder while recording.
+let pixelWashDark = null; // theme of the last hidden-pixel-buffer wash
 function paint(api) {
   setTheme(api.dark !== false); // 🌗 follow the system theme, live
   const layer = hiRes && api.hd ? api.hd() : null;
   if (layer) {
     // Keep the (hidden) pixel buffer a clean theme wash — freeze-frames and
     // piece transitions sample it, and a flat color beats stale art there.
-    api.wipe(...T.bg);
+    // The buffer persists between frames, so one wash per theme is enough;
+    // skipping the rest saves a full-buffer clone + upload every frame.
+    if (pixelWashDark !== dark) {
+      api.wipe(...T.bg);
+      pixelWashDark = dark;
+    }
     const a = hdApi(layer);
     paintGame(a);
     paintCaption(a);
   } else {
+    pixelWashDark = null; // pixel path owns the buffer again — wash on re-entry
     paintGame(api);
     paintCaption(api);
   }
@@ -1886,7 +1942,7 @@ function paintCaption({ ink, write, box, screen }) {
   // Scale with the render resolution (hd draws at native pixels), then shrink
   // to fit long meanings ("aesthetic computer pieces") within the screen.
   const maxW = screen.width - 8;
-  let size = max(1, round(screen.height / 240));
+  let size = captionSize(screen);
   while (size > 1 && caption.length * adv * size > maxW) size -= 1;
   const w = caption.length * adv * size;
   const x = max(2, round((screen.width - w) / 2));
@@ -1906,9 +1962,82 @@ function paintCaption({ ink, write, box, screen }) {
 // native device resolution. Text renders as vector glyphs at the same fixed
 // per-glyph advances as FONT_METRICS, so every width/centering measurement
 // in the game's layout math stays identical to the pixel path.
-function hdApi({ ctx, width, height }) {
+//
+// Built once per (ctx, size) and reused every frame. Three caches keep the
+// per-frame Canvas2D cost near zero:
+//   color memo — rgba() strings rebuilt only when the ink actually changes,
+//                and fill/stroke styles set only when they differ
+//   glyphW     — per font+char advance measured ONCE (measureText is one of
+//                the slowest 2d calls; advances scale linearly with size)
+//   sprites    — whole rendered labels cached as OffscreenCanvases and drawn
+//                back as a single drawImage (a board speaks a small
+//                vocabulary, so per-frame text rasterization drops to zero)
+let hdCached = null; // { ctx, width, height, api }
+const glyphW = new Map(); // "font|char" → advance at 100px
+const sprites = new Map(); // "font|size|r,g,b|text" → { c, w, h, pad }
+const SPRITE_CAP = 480; // hard bound; cleared wholesale when exceeded
+
+// Font styling for the hd layer — unifont stays a neutral monospace (it
+// carries Cyrillic/accents for the word editions); everything else (numbers,
+// HUD, titles) gets a rounded, chunky face for arcade character. Layout
+// metrics stay FONT_METRICS regardless, so both paths measure identically.
+function hdFont(font, px) {
+  return font === "unifont"
+    ? `500 ${px * 0.72}px ui-monospace, Menlo, Consolas, monospace`
+    : `800 ${px * 0.8}px "Arial Rounded MT Bold", ui-rounded, "SF Pro Rounded", ui-monospace, Menlo, monospace`;
+}
+
+// Per-glyph advance from the cache, measuring on first sight only.
+function glyphWidth(sctx, font, ch, px) {
+  const key = `${font || "_"}|${ch}`;
+  let w = glyphW.get(key);
+  if (w === undefined) {
+    sctx.font = hdFont(font, 100);
+    w = sctx.measureText(ch).width;
+    glyphW.set(key, w);
+  }
+  return (w * px) / 100;
+}
+
+// Rasterize a label once at device resolution: glyphs centered on the same
+// fixed advances as the bitmap fonts, with padding so wide glyphs and
+// descenders never clip at the sprite edge.
+function makeSprite(str, font, size, scale, rgb) {
+  const { adv, h } = fontMetrics(font);
+  const px = h * size;
+  const w = str.length * adv * size;
+  const pad = Math.ceil(px * 0.3);
+  const c = new OffscreenCanvas(
+    max(1, Math.ceil((w + pad * 2) * scale)),
+    max(1, Math.ceil((px + pad * 2) * scale)),
+  );
+  const sctx = c.getContext("2d");
+  sctx.setTransform(scale, 0, 0, scale, 0, 0);
+  sctx.textBaseline = "middle";
+  // Measure first (glyphWidth may swap the font), then set the render font.
+  const widths = [];
+  for (let i = 0; i < str.length; i += 1)
+    widths.push(glyphWidth(sctx, font, str[i], px));
+  sctx.font = hdFont(font, px);
+  sctx.fillStyle = rgb;
+  const cy = pad + px / 2;
+  for (let i = 0; i < str.length; i += 1)
+    sctx.fillText(str[i], pad + i * adv * size + (adv * size - widths[i]) / 2, cy);
+  return { c, w: w + pad * 2, h: px + pad * 2, pad };
+}
+
+function hdApi(layer) {
+  if (
+    hdCached && hdCached.ctx === layer.ctx &&
+    hdCached.width === layer.width && hdCached.height === layer.height
+  )
+    return hdCached.api;
+  const { ctx, width, height, scale } = layer;
   let r = 255, g = 255, b = 255, a = 1; // current ink
-  const css = () => `rgba(${r},${g},${b},${a})`;
+  let cr = -1, cg = -1, cb = -1, ca = -1; // memoized color components
+  let cssStr = "rgba(255,255,255,1)";
+  let lastFill = null, lastStroke = null;
+  ctx.lineWidth = 1;
   const setColor = (args) => {
     if (args.length >= 3) {
       r = args[0]; g = args[1]; b = args[2];
@@ -1917,42 +2046,53 @@ function hdApi({ ctx, width, height }) {
       r = g = b = args[0] ?? 255;
       a = (args[1] ?? 255) / 255;
     }
+    if (r !== cr || g !== cg || b !== cb || a !== ca) {
+      cssStr = `rgba(${r},${g},${b},${a})`;
+      cr = r; cg = g; cb = b; ca = a;
+    }
+  };
+  const fill = () => {
+    if (lastFill !== cssStr) ctx.fillStyle = lastFill = cssStr;
+  };
+  const stroke = () => {
+    if (lastStroke !== cssStr) ctx.strokeStyle = lastStroke = cssStr;
   };
   const box = (x, y, w, h, mode2) => {
     if (mode2 === "outline") {
-      ctx.strokeStyle = css();
-      ctx.lineWidth = 1;
+      stroke();
       ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
     } else {
-      ctx.fillStyle = css();
+      fill();
       ctx.fillRect(x, y, w, h);
     }
   };
   const line = (x1, y1, x2, y2) => {
-    ctx.strokeStyle = css();
-    ctx.lineWidth = 1;
+    stroke();
     ctx.beginPath();
     ctx.moveTo(x1 + 0.5, y1 + 0.5);
     ctx.lineTo(x2 + 0.5, y2 + 0.5);
     ctx.stroke();
   };
   const write = (txt, pos = {}, _bg, _bounds, _wrap, font) => {
+    const str = String(txt);
+    if (!str) return;
     const { adv, h } = fontMetrics(font);
     const size = pos.size || 1;
-    const str = String(txt);
     let x = pos.x ?? 0;
     if (pos.center === "x") x = (width - str.length * adv * size) / 2;
     const y = pos.y ?? 0;
-    // Optical match to the bitmap fonts: glyphs sized to sit inside the same
-    // nominal adv×h cell, each centered on its fixed advance (monospace grid).
-    ctx.fillStyle = css();
-    ctx.font = `${font === "unifont" ? 500 : 700} ${h * size * (font === "unifont" ? 0.72 : 0.8)}px ui-monospace, Menlo, Consolas, monospace`;
-    ctx.textBaseline = "middle";
-    const cy = y + (h * size) / 2;
-    for (let i = 0; i < str.length; i += 1) {
-      const chw = ctx.measureText(str[i]).width;
-      ctx.fillText(str[i], x + i * adv * size + (adv * size - chw) / 2, cy);
+    // Alpha rides globalAlpha at draw time so ghosted text (wrap previews,
+    // fades) shares the opaque sprite instead of forking the cache.
+    const key = `${font || "_"}|${size}|${scale}|${r},${g},${b}|${str}`;
+    let spr = sprites.get(key);
+    if (spr === undefined) {
+      if (sprites.size >= SPRITE_CAP) sprites.clear();
+      spr = makeSprite(str, font, size, scale, `rgb(${r},${g},${b})`);
+      sprites.set(key, spr);
     }
+    if (a < 1) ctx.globalAlpha = a;
+    ctx.drawImage(spr.c, x - spr.pad, y - spr.pad, spr.w, spr.h);
+    if (a < 1) ctx.globalAlpha = 1;
   };
   const chain = { box, line, write };
   const ink = (...args) => {
@@ -1961,10 +2101,12 @@ function hdApi({ ctx, width, height }) {
   };
   const wipe = (...args) => {
     setColor(args);
-    ctx.fillStyle = css();
+    fill();
     ctx.fillRect(0, 0, width, height);
   };
-  return { wipe, ink, box, line, write, screen: { width, height } };
+  const api = { wipe, ink, box, line, write, screen: { width, height } };
+  hdCached = { ctx, width: layer.width, height: layer.height, api };
+  return api;
 }
 
 function paintGame({ wipe, ink, screen, write, box, line, text }) {
@@ -1982,24 +2124,30 @@ function paintGame({ wipe, ink, screen, write, box, line, text }) {
   // 😱 Whole-screen red blink when about to die.
   if (lowTime && blink) ink(150, 0, 0, 115).box(0, 0, screen.width, screen.height);
 
-  // ⏳ Beat timeline bar across the very top.
+  // ⏳ Beat timeline bar across the very top (height rides the HUD scale).
   const tcol = tf > 0.5 ? T.timeHi : tf > 0.25 ? T.timeMid : T.timeLow;
-  ink(...T.trackBg).box(0, 0, screen.width, 3 + (beatPulse > 4 ? 1 : 0));
-  ink(...tcol).box(0, 0, round(screen.width * tf), 3 + (beatPulse > 4 ? 1 : 0));
+  const barH = 2 + hudScale + (beatPulse > 4 ? 1 : 0);
+  ink(...T.trackBg).box(0, 0, screen.width, barH);
+  ink(...tcol).box(0, 0, round(screen.width * tf), barH);
 
   // ⏳ Big timer (beats left), top-left — blinks near zero.
   const timeCol = lowTime ? (blink ? T.timerPanic : T.timerPanicAlt) : tcol;
-  bigNum(ink, `${beatsLeft}`, 8, 8, 4, timeCol);
+  bigNum(ink, `${beatsLeft}`, 8, 8, timerSize, timeCol);
 
   // Rule title, top-right (no levels, no score). Word editions render it in
-  // MatrixChunky8 so Cyrillic / accented category labels (ЕДА, ФРУКТЫ, …) show
-  // real glyphs instead of the default font's "???".
+  // unifont so Cyrillic / accented category labels (ЕДА, ФРУКТЫ, …) show real
+  // glyphs. Sized to the room left of the big timer so the two never collide
+  // on narrow phone screens.
   const labelFont = cellFont();
-  const { adv: lAdv } = fontMetrics(labelFont);
-  const ruleX = max(4, screen.width - 8 - ruleLabel.length * lAdv * 2);
+  const { adv: lAdv, h: lH } = fontMetrics(labelFont);
+  const timerEnd = 8 + `${beatsLeft}`.length * 6 * timerSize + 12; // timer's right edge
+  let ruleSize = 1 + hudScale;
+  while (ruleSize > 1 && timerEnd + ruleLabel.length * lAdv * ruleSize + 8 > screen.width)
+    ruleSize -= 1;
+  const ruleX = max(timerEnd, screen.width - 8 - ruleLabel.length * lAdv * ruleSize);
   ink(...T.ruleLabel).write(
     ruleLabel,
-    { x: ruleX, y: 9, size: 2 },
+    { x: ruleX, y: max(6, round((layout.top - lH * ruleSize) / 2)), size: ruleSize },
     undefined, undefined, false, labelFont || undefined,
   );
 
@@ -2138,64 +2286,59 @@ function paintGame({ wipe, ink, screen, write, box, line, text }) {
   // ✨ Confetti (level-clear).
   confetti.forEach((p) => ink(p.c[0], p.c[1], p.c[2]).box(p.x, p.y, p.s, p.s));
 
-  // 🎶 Beat ambience — faint blue/cyan/purple pulse each beat (winning vibes).
+  // 🎶 / 🔴 / 🟡 / 🟢 Full-screen washes — the beat vibe pulse plus the
+  // death/clear/board-start flashes, folded into ONE src-over-composited fill
+  // so a busy frame pays a single screen of overdraw instead of four.
+  let wr = 0, wg = 0, wb = 0, wa = 0;
+  const addWash = (rr, gg, bb, aa) => {
+    const af = aa / 255;
+    const na = af + wa * (1 - af);
+    if (na <= 0) return;
+    wr = (rr * af + wr * wa * (1 - af)) / na;
+    wg = (gg * af + wg * wa * (1 - af)) / na;
+    wb = (bb * af + wb * wa * (1 - af)) / na;
+    wa = na;
+  };
   if (beatPulse > 0 && state === "play") {
     const vibe = [[80, 120, 255], [80, 220, 230], [170, 110, 240]][(beatsMax - beatsLeft) % 3];
-    ink(vibe[0], vibe[1], vibe[2], beatPulse * 4).box(0, 0, screen.width, screen.height);
+    addWash(vibe[0], vibe[1], vibe[2], beatPulse * 4);
   }
+  if (flashRed > 0) addWash(210, 25, 25, min(190, flashRed * 11));
+  if (flashGold > 0) addWash(255, 215, 90, min(150, flashGold * 11));
+  if (flashGreen > 0) addWash(60, 220, 110, min(150, flashGreen * 11));
+  if (wa > 0)
+    ink(round(wr), round(wg), round(wb), round(wa * 255)).box(0, 0, screen.width, screen.height);
 
-  // 🔴 / 🟡 / 🟢 Full-screen flashes (death / clear / board-start).
-  if (flashRed > 0)
-    ink(210, 25, 25, min(190, flashRed * 11)).box(0, 0, screen.width, screen.height);
-  if (flashGold > 0)
-    ink(255, 215, 90, min(150, flashGold * 11)).box(0, 0, screen.width, screen.height);
-  if (flashGreen > 0)
-    ink(60, 220, 110, min(150, flashGreen * 11)).box(0, 0, screen.width, screen.height);
-
-  // 💚 Lives — little monsters bottom-left, all peering at the main muncher.
-  const mcx = x + muncherVis.col * cell + cell / 2;
-  const mcy = y + muncherVis.row * cell + cell / 2;
-  const lifeSz = 13,
-    lifeGap = 17,
-    lifeY = screen.height - lifeSz - 6;
-  for (let i = 0; i < lives; i += 1)
-    drawMiniMonster({ ink, box }, 6 + i * lifeGap, lifeY, lifeSz, mcx, mcy, healthColor(lives));
-
-  // 💔 Lost-life flyers sailing into the board center (life being used up).
-  const bcx = x + (cell * COLS) / 2,
-    bcy = y + (cell * ROWS) / 2;
-  lifeFlyers.forEach((f) => {
-    const sx = 6 + f.slot * lifeGap + lifeSz / 2;
-    const sy = lifeY + lifeSz / 2;
-    const e = f.t * f.t; // accelerate toward the muncher
-    const fx = sx + (bcx - sx) * e;
-    const fy = sy + (bcy - sy) * e;
-    const sz = max(4, lifeSz * (1 - 0.6 * f.t));
-    drawMiniMonster({ ink, box }, fx - sz / 2, fy - sz / 2, sz, bcx, bcy, [235, 95, 95]);
-  });
-
-  // 🔢 Items-left, bottom-right, big.
+  // 🔢 Items-left, bottom-right, big — riding just above the caption strip.
+  const hudBottom = screen.height - captionBandH(screen);
   const leftN = `${remaining}`;
-  const lsz = 4;
+  const lsz = timerSize;
   const leftW = leftN.length * 6 * lsz;
   const leftX = screen.width - 8 - leftW;
-  bigNum(ink, leftN, leftX, screen.height - 8 * lsz - 4, lsz, remaining <= 3 ? T.leftWarn : T.leftOk);
-  ink(...T.leftLabel).write("LEFT", { x: max(4, leftX - 28), y: screen.height - 14 });
+  bigNum(ink, leftN, leftX, hudBottom - 8 * lsz - 4, lsz, remaining <= 3 ? T.leftWarn : T.leftOk);
+  const lls = max(1, hudScale);
+  ink(...T.leftLabel).write("LEFT", {
+    x: max(4, leftX - ("LEFT".length * 6 * lls + 8)),
+    y: hudBottom - 8 * lls - 8,
+    size: lls,
+  });
 
   // 🍽️ Collected answers — stack down the left, measured to fit the margin.
   // Word boards run near edge-to-edge, so on narrow screens there's no gutter
   // at all — skip the list rather than stack it over the board.
-  let fcy = layout.top + 52; // below the big timer
+  let fcy = layout.top + 6; // below the header band
   const leftRoom = layout.x - 6;
+  const chipMin = 18; // slimmest gutter that still fits a size-1 chip
   const font = cellFont();
   const { adv: fAdv, h: fH } = fontMetrics(font);
   for (const v of foundValues) {
-    if (leftRoom < 28) break;
-    if (fcy > lifeY - 16) break;
-    // Largest size whose nominal width fits the left gutter (stable, no
-    // async) — words stay at scale 1, like the board (see fitText).
-    const size = mode !== "word" && v.length * fAdv * 2 + 4 <= leftRoom ? 2 : 1;
+    if (leftRoom < chipMin) break;
+    // Largest size whose nominal width fits the left gutter (stable, no async).
+    let size = 1;
+    for (let s = hudScale + 1; s >= 2; s -= 1)
+      if (v.length * fAdv * s + 4 <= leftRoom) { size = s; break; }
     const fit = { size, width: v.length * fAdv * size, height: fH * size };
+    if (fcy + fit.height > hudBottom - 10) break;
     const w = fit.width + 4;
     const ltr = mode === "note" ? v.slice(0, -1) : null; // "C4" → "C", "F#5" → "F#"
     const cw = mode === "note" ? null : COLOR_WORDS[v];
@@ -2208,33 +2351,23 @@ function paintGame({ wipe, ink, screen, write, box, line, text }) {
     fcy += fit.height + 4;
   }
 
-  // 👆 Swipe overlay (mobile) — visualizes the SWIPE_MIN deadzone so the gesture
-  // is legible: a square that flips to green once the dominant axis clears the
-  // threshold, with a line to your finger + the resolved direction.
-  if (drag && state === "play" && deathPhase === 0) {
-    const dx = drag.x - drag.sx,
-      dy = drag.y - drag.sy;
-    const adx = abs(dx),
-      ady = abs(dy);
-    const past = max(adx, ady) >= SWIPE_MIN;
-    const c = past ? (dark ? [120, 255, 160] : [26, 150, 80]) : T.swipeNeutral;
-    // Deadzone square (Chebyshev threshold) centered on the touch start.
-    ink(c[0], c[1], c[2], 70).box(drag.sx - SWIPE_MIN, drag.sy - SWIPE_MIN, SWIPE_MIN * 2, SWIPE_MIN * 2, "outline");
-    ink(c[0], c[1], c[2], 200).line(drag.sx, drag.sy, drag.x, drag.y); // vector to finger
-    ink(120, 220, 255).box(drag.sx - 1, drag.sy - 1, 3, 3); // origin dot
-    ink(255, 230, 60).box(drag.x - 2, drag.y - 2, 4, 4); // finger dot
-    if (past) {
-      const dir = adx >= ady ? (dx < 0 ? "LEFT" : "RIGHT") : dy < 0 ? "UP" : "DOWN";
-      ink(...c).write(dir, { x: round(drag.sx - dir.length * 3), y: drag.sy - SWIPE_MIN - 11 });
-    }
+  // 👆 Tap-to-move target — a pulsing golden ring on the destination square
+  // so the walk-in-progress is always legible.
+  if (walkTarget && state === "play" && deathPhase === 0) {
+    const pul = round(120 + 100 * (0.5 + 0.5 * sin(frames * 0.4)));
+    const tx = x + walkTarget.col * cell,
+      ty = y + walkTarget.row * cell;
+    ink(255, 220, 90, pul).box(tx + 1, ty + 1, cell - 2, cell - 2, "outline");
+    ink(255, 220, 90, round(pul * 0.6)).box(tx + 3, ty + 3, cell - 6, cell - 6, "outline");
   }
 
   // 📣 Transient message banner — large, with a colored background.
   if (message) {
-    const ms = 2;
+    let ms = 1 + hudScale;
+    while (ms > 1 && message.length * 6 * ms + 10 > screen.width) ms -= 1;
     const mw = message.length * 6 * ms;
     const mx = max(4, round(screen.width / 2 - mw / 2));
-    const myy = layout.y - 8 * ms - 6; // just above the board
+    const myy = max(4, layout.y - 8 * ms - 6); // just above the board
     let mbg, mfg;
     if (/OUCH|TIME|OVER/.test(message)) (mbg = [205, 45, 45]), (mfg = [255, 240, 240]);
     else if (/CLEAR/.test(message)) (mbg = [45, 175, 85]), (mfg = [12, 30, 14]);
@@ -2261,7 +2394,9 @@ function paintGame({ wipe, ink, screen, write, box, line, text }) {
 // 🌌 Subtle animated backdrop — a slowly drifting dot grid that brightens on
 // each beat. Sits behind everything, low-contrast so it never distracts.
 function paintBackground({ ink, box, screen }) {
-  const sp = 40; // wide spacing → sparse
+  // Spacing scales with the viewport so the dot count stays bounded (~15×15
+  // worst case) on big desktop windows instead of growing with screen area.
+  const sp = max(40, Math.ceil(screen.width / 15), Math.ceil(screen.height / 15));
   const dx = (frames * 0.18) % sp;
   const dy = (frames * 0.11) % sp;
   const pulse = beatPulse > 0 ? 6 : 0;
@@ -2281,43 +2416,6 @@ function paintBackground({ ink, box, screen }) {
 function bigNum(ink, txt, x, y, sz, col) {
   ink(...col).write(txt, { x, y, size: sz });
   return x + txt.length * 6 * sz;
-}
-
-// Body color by remaining lives — visibly healthy → sickly.
-function healthColor(n) {
-  if (n >= 3) return [125, 235, 130]; // vibrant green
-  if (n === 2) return [205, 220, 95]; // yellow-green
-  return [235, 150, 70]; // sickly orange
-}
-
-// A tiny anthropomorphic monster (used for the lives icons + lost-life flyers),
-// with eyes that point toward a target (the main muncher).
-function drawMiniMonster({ ink, box }, x, y, s, lookX, lookY, color) {
-  const legH = max(1, floor(s * 0.18));
-  const bodyH = s - legH;
-  ink(round(color[0] * 0.7), round(color[1] * 0.7), round(color[2] * 0.7));
-  box(x + s * 0.14, y + bodyH, max(1, floor(s * 0.24)), legH);
-  box(x + s * 0.6, y + bodyH, max(1, floor(s * 0.24)), legH);
-  ink(...color).box(x, y, s, bodyH);
-  // eyes glance toward (lookX, lookY)
-  const cxp = x + s / 2,
-    cyp = y + bodyH / 2;
-  let dx = lookX - cxp,
-    dy = lookY - cyp;
-  const d = Math.hypot(dx, dy) || 1;
-  dx /= d;
-  dy /= d;
-  const eo = max(2, floor(s * 0.3));
-  const eyy = y + s * 0.22;
-  const eyL = x + s * 0.14,
-    eyR = x + s * 0.54;
-  ink(255).box(eyL, eyy, eo, eo);
-  ink(255).box(eyR, eyy, eo, eo);
-  const pup = max(1, floor(eo * 0.5));
-  const gx = round((dx * (eo - pup)) / 2),
-    gy = round((dy * (eo - pup)) / 2);
-  ink(20, 30, 20).box(eyL + (eo - pup) / 2 + gx, eyy + (eo - pup) / 2 + gy, pup, pup);
-  ink(20, 30, 20).box(eyR + (eo - pup) / 2 + gx, eyy + (eo - pup) / 2 + gy, pup, pup);
 }
 
 function paintMuncher({ ink, box }, cx, cy, cell, dance = false) {
@@ -2344,9 +2442,8 @@ function paintMuncher({ ink, box }, cx, cy, cell, dance = false) {
   box(x + s * 0.12, footY - (bob ? 1 : 0), legW, legH);
   box(x + s * 0.62, footY - (bob ? 0 : 1), legW, legH);
 
-  // 🟩 Body — one flat color.
-  // Body color reflects remaining lives (healthy → sickly); brightens if dying.
-  const hc = healthColor(lives);
+  // 🟩 Body — one flat healthy green; brightens if time is running out.
+  const hc = [125, 235, 130];
   ink(...(dying ? [min(255, hc[0] + 30), min(255, hc[1] + 20), hc[2]] : hc)).box(x, y, s, bodyH);
 
   // 👀 Eyes — two squares; pupil glances toward the last move direction.
@@ -2478,17 +2575,19 @@ function paintIntro({ ink, screen, write }) {
   ink(T.bg[0], T.bg[1], T.bg[2], A(dark ? 165 : 190)).box(0, 0, screen.width, screen.height);
 
   const cy = round(screen.height / 2);
-  // Responsive game name (ASCII, default 6px font): fit ~78% of the width.
+  // Responsive game name (ASCII, default 6px font): fit ~78% of the width,
+  // scaled up with the display (HUD scale) for readability.
   const name = gameName();
-  const nameSize = max(1, min(4, floor((screen.width * 0.78) / max(1, name.length * 6))));
+  const nameSize = max(1, min(2 + hudScale * 2, floor((screen.width * 0.78) / max(1, name.length * 6))));
   const nameH = nameSize * 10;
   ink(T.introName[0], T.introName[1], T.introName[2], A(255)).write(name, { center: "x", y: cy - nameH, size: nameSize });
 
   // Native edition subtitle in unifont (accents + Cyrillic render correctly).
   const sub = editionText();
+  const subSize = max(1, min(hudScale + 1, floor((screen.width * 0.8) / max(1, sub.length * 8))));
   ink(T.introSub[0], T.introSub[1], T.introSub[2], A(255)).write(
     sub,
-    { center: "x", y: cy + max(6, nameSize * 3) },
+    { center: "x", y: cy + max(6, nameSize * 3), size: subSize },
     undefined, undefined, false, "unifont",
   );
 }
@@ -2499,14 +2598,15 @@ function overlay({ ink, screen, write }, title, sub) {
   // Big title on a colored banner — red for game over, green for clear.
   const over = /OVER/.test(title);
   const bg = over ? [195, 45, 45] : [45, 175, 85];
-  const ts = 3;
+  const ts = max(2, min(2 + hudScale, floor((screen.width * 0.85) / (title.length * 6))));
   const tw = title.length * 6 * ts;
   const tx = max(4, round(screen.width / 2 - tw / 2));
-  const ty = round(screen.height / 2 - 28);
+  const ty = round(screen.height / 2 - 8 * ts - 4);
   ink(...bg).box(tx - 10, ty - 6, tw + 20, 8 * ts + 12);
   ink(0, 0, 0, 150).box(tx - 10, ty - 6, tw + 20, 8 * ts + 12, "outline");
   ink(255, 248, 230).write(title, { x: tx, y: ty, size: ts });
-  ink(...T.overlaySub).write(sub, { center: "x", y: screen.height / 2 + 26 });
+  const ss = max(1, round(ts / 2));
+  ink(...T.overlaySub).write(sub, { center: "x", y: round(screen.height / 2 + 8 * ts), size: ss });
 }
 
 // 📰 Meta — built from explicit params so the title is correct at load time,
