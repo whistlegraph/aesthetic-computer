@@ -7,8 +7,12 @@
 // a recompile:
 //   <home>/gitstatus        "<ahead> <behind>" (badge-git-sync.sh) or "local"
 //   <home>/tasks            Asana task lines    (badge-asana-sync.sh on neo)
-//   <home>/mission          the day's mission — one gold headline line
-//                           (the machine's Asana task tagged "mission")
+//   <home>/mission.json     the machine's mission — emoji + title, agent
+//                           attribution, ✓/▸/○ todo items. Written live by
+//                           whichever agent is working the machine, or
+//                           seeded from the Asana task tagged "mission"
+//                           (badge-asana-sync.sh, which never overwrites a
+//                           fresh agent-authored mission). Stale >24h hides.
 //   <home>/overtime         flag file; presence = OVERTIME on
 //   <home>/overtime-status  work-queue lines while in OVERTIME
 //   <home>/pane.log         the log the terminal pane tails (optional)
@@ -30,6 +34,48 @@ func monoFont(_ pt: CGFloat) -> NSFont {
 // Visual-only overlay — never intercepts the pane's clicks/scroll/selection.
 final class GhostView: NSView {
     override func hitTest(_ p: NSPoint) -> NSView? { nil }
+}
+
+// ── mission todo list ─────────────────────────────────────────────────────
+// Same file-driven contract as everything else on the badge: a plain JSON
+// file an agent rewrites whole, polled on the existing refresh cadence.
+// Tolerant read — a missing, malformed, or stale file simply means "no
+// mission" and the block hides. (Ported from the panda desktop-badge
+// implementation so both badge generations speak the same mission.json.)
+struct MissionItem: Equatable {
+    let text: String
+    let status: String   // "done" | "in_progress" | "pending"
+}
+struct Mission: Equatable {
+    let title: String
+    let agent: String
+    let emoji: String
+    let items: [MissionItem]
+}
+
+func loadMission(_ path: String) -> Mission? {
+    guard let data = FileManager.default.contents(atPath: path),
+          let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+          let title = obj["mission"] as? String, !title.isEmpty
+    else { return nil }
+    // updatedAt is the heartbeat: absent, unparsable, or older than 24h means
+    // the mission is over (or its author crashed) — either way, hide it.
+    guard let ts = obj["updatedAt"] as? String else { return nil }
+    let iso = ISO8601DateFormatter()
+    var date = iso.date(from: ts)
+    if date == nil {
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        date = iso.date(from: ts)
+    }
+    guard let d = date, Date().timeIntervalSince(d) < 24 * 3600 else { return nil }
+    let items = ((obj["items"] as? [[String: Any]]) ?? []).compactMap { it -> MissionItem? in
+        guard let t = it["text"] as? String, !t.isEmpty else { return nil }
+        return MissionItem(text: t, status: (it["status"] as? String) ?? "pending")
+    }
+    return Mission(title: title,
+                   agent: (obj["agent"] as? String) ?? "",
+                   emoji: (obj["emoji"] as? String) ?? "",
+                   items: items)
 }
 
 // ── marquee status field ──────────────────────────────────────────────────
@@ -336,16 +382,20 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     private var statusFile: String { home + "/gitstatus" }
     private var paneLog: String { home + "/pane.log" }
     private var tasksFile: String { home + "/tasks" }
-    private var missionFile: String { home + "/mission" }
+    private var missionFile: String { home + "/mission.json" }
     private var overtimeFlag: String { home + "/overtime" }
     private var overtimeStatusFile: String { home + "/overtime-status" }
 
     let statusField = MarqueeField()
-    let missionField = MarqueeField()
     let tasksField = NSTextField(labelWithString: "")
     let overtimeChip = NSTextField(labelWithString: "")
     let overtimeField = NSTextField(labelWithString: "")
-    var missionText = ""
+    // Mission block: title + agent attribution + one field per todo item.
+    // Fields are (re)built on data change; layout measures + places them.
+    var mission: Mission?
+    let missionTitleField = NSTextField(labelWithString: "")
+    let missionAgentField = NSTextField(labelWithString: "")
+    var missionItemFields: [NSTextField] = []
     var taskLines: [String] = []
     var overtimeOn = false
     var overtimeLines: [String] = []
@@ -434,8 +484,21 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         chipShadow.shadowOffset = NSSize(width: 2, height: -2)
         overtimeChip.shadow = chipShadow
 
+        // Mission block fields — hidden until a fresh mission.json shows up.
+        // The title gets the badge's accent shadow (styleField) but reads
+        // left-aligned like a todo list, not centered like the name.
+        controller.styleField(missionTitleField)
+        controller.styleField(missionAgentField)
+        for f in [missionTitleField, missionAgentField] {
+            f.alignment = .left
+            f.maximumNumberOfLines = 0
+            f.cell?.wraps = true
+            f.cell?.lineBreakMode = .byWordWrapping
+            f.isHidden = true
+            controller.content.addSubview(f)
+        }
+
         controller.content.addSubview(statusField)
-        controller.content.addSubview(missionField)
         controller.content.addSubview(tasksField)
         controller.content.addSubview(overtimeChip)
         controller.content.addSubview(overtimeField)
@@ -483,46 +546,182 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         }
     }
 
+    // ── mission block ─────────────────────────────────────────────────────
+    // Bake the attributed strings for the current mission — one field per
+    // item so the active row can breathe on its own. Layout measures and
+    // places everything, so a width change just re-wraps.
+    func rebuildMissionFields() {
+        missionItemFields.forEach { $0.removeFromSuperview() }
+        missionItemFields = []
+        guard let m = mission, let c = c else {
+            missionTitleField.isHidden = true
+            missionAgentField.isHidden = true
+            return
+        }
+        let para = NSMutableParagraphStyle()
+        para.alignment = .left; para.lineBreakMode = .byWordWrapping
+        let titleText = (m.emoji.isEmpty ? "" : m.emoji + " ") + m.title
+        missionTitleField.attributedStringValue = NSAttributedString(
+            string: titleText, attributes: [
+                .font: playfulFont(15, bold: true),
+                .foregroundColor: NSColor.white,
+                .strokeColor: NSColor(white: 0.08, alpha: 1),
+                .strokeWidth: -3.0,
+                .paragraphStyle: para,
+            ])
+        missionAgentField.attributedStringValue = m.agent.isEmpty
+            ? NSAttributedString()
+            : NSAttributedString(string: "⇢ " + m.agent, attributes: [
+                .font: monoFont(10),
+                .foregroundColor: NSColor.white.withAlphaComponent(0.72),
+                .strokeColor: NSColor(white: 0.08, alpha: 1),
+                .strokeWidth: -1.5,
+                .paragraphStyle: para,
+            ])
+        for item in m.items {
+            let f = NSTextField(labelWithString: "")
+            f.alignment = .left
+            f.maximumNumberOfLines = 0
+            f.cell?.wraps = true
+            f.cell?.lineBreakMode = .byWordWrapping
+            f.wantsLayer = true
+            // Every row wears the badge's accent drop shadow — over a busy
+            // wallpaper the dark stroke + shadow is what keeps it readable.
+            let rowShadow = NSShadow()
+            rowShadow.shadowColor = accent; rowShadow.shadowBlurRadius = 0
+            rowShadow.shadowOffset = NSSize(width: 2, height: 2)
+            f.shadow = rowShadow
+            let ip = NSMutableParagraphStyle()
+            ip.alignment = .left; ip.lineBreakMode = .byWordWrapping
+            ip.headIndent = 19   // wrapped lines tuck under the text, past the square
+            // Square checkboxes on the left: filled = done, half = active,
+            // empty = pending.
+            let mark: String, markColor: NSColor, textColor: NSColor
+            switch item.status {
+            case "done":
+                mark = "■"; markColor = hexColor(0x7ee787).withAlphaComponent(0.8)
+                textColor = NSColor.white.withAlphaComponent(0.45)   // done = dimmed
+            case "in_progress":
+                mark = "▣"; markColor = hexColor(0xffd66b)
+                textColor = NSColor.white
+            default:
+                mark = "□"; markColor = NSColor.white.withAlphaComponent(0.55)
+                textColor = NSColor.white.withAlphaComponent(0.85)
+            }
+            let a = NSMutableAttributedString()
+            a.append(NSAttributedString(string: mark + " ", attributes: [
+                .font: NSFont.systemFont(ofSize: 12, weight: .bold),
+                .foregroundColor: markColor, .paragraphStyle: ip]))
+            a.append(NSAttributedString(string: item.text, attributes: [
+                .font: monoFont(12), .foregroundColor: textColor,
+                .strokeColor: NSColor(white: 0.08, alpha: 1),
+                .strokeWidth: -1.8,
+                .paragraphStyle: ip]))
+            f.attributedStringValue = a
+            if item.status == "in_progress" {
+                // Subtle breathing on the active row — opacity only, so it's
+                // a single composited property, dirt cheap.
+                let pulse = CAKeyframeAnimation(keyPath: "opacity")
+                pulse.values = [1, 0.55, 1]; pulse.keyTimes = [0, 0.5, 1]
+                pulse.duration = 1.6; pulse.repeatCount = .infinity
+                f.layer?.add(pulse, forKey: "missionPulse")
+            }
+            c.content.addSubview(f)
+            missionItemFields.append(f)
+        }
+    }
+
+    // Wrapped height of a field's attributed string at a given width.
+    func fieldHeight(_ f: NSTextField, width: CGFloat) -> CGFloat {
+        guard f.attributedStringValue.length > 0 else { return 0 }
+        let r = f.attributedStringValue.boundingRect(
+            with: NSSize(width: width, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading])
+        return ceil(r.height) + 2
+    }
+
+    // Measured height of the whole mission block at the badge width.
+    private func missionMetrics(width: CGFloat)
+        -> (title: CGFloat, agent: CGFloat, items: [CGFloat], total: CGFloat) {
+        guard mission != nil else { return (0, 0, [], 0) }
+        let t = fieldHeight(missionTitleField, width: width)
+        let a = fieldHeight(missionAgentField, width: width)
+        let its = missionItemFields.map { fieldHeight($0, width: width) }
+        let total = t + (a > 0 ? a + 1 : 0)
+            + its.reduce(0, +) + CGFloat(max(0, its.count - 1)) * 3
+            + (its.isEmpty ? 0 : 5)
+        return (t, a, its, total)
+    }
+
     // Reserved height from the y=12 baseline up to where the name sits — the
     // exact bottom-up stack the original badge computed.
     func stackHeight(in controller: PalController) -> CGFloat {
         if minimal { return 0 }
-        let off = (hasPane && curPaneH > 0) ? curPaneH + 8 : 0
+        // Mission mode stands the terminal pane down: its height leaves the
+        // stack, so the todo list owns the badge's lower half until the
+        // mission goes stale or is cleared.
+        let off = (hasPane && curPaneH > 0 && mission == nil) ? curPaneH + 8 : 0
+        let missionH = missionMetrics(width: controller.fullWidth - 14).total
         let tasksH: CGFloat = taskLines.isEmpty ? 0 : CGFloat(taskLines.count) * 13 + 3
-        let missionH: CGFloat = missionText.isEmpty ? 0 : 18
         let chipH: CGFloat = overtimeOn ? 36 : 0
         let queueH: CGFloat = (overtimeOn && !overtimeLines.isEmpty)
             ? CGFloat(overtimeLines.count) * 16 + 3 : 0
         let overtimeH: CGFloat = overtimeOn ? chipH + (queueH > 0 ? queueH + 4 : 0) : 0
-        return off + (tasksH > 0 ? tasksH + 5 : 0) + 18 + (missionH > 0 ? missionH + 4 : 0)
-            + (overtimeH > 0 ? 4 : 0) + overtimeH + 14
+        return off + (missionH > 0 ? missionH + 6 : 0) + (tasksH > 0 ? tasksH + 5 : 0)
+            + 18 + (overtimeH > 0 ? 4 : 0) + overtimeH + 14
     }
 
     func layoutRows(in controller: PalController, originY: CGFloat) {
         if minimal {
-            statusField.isHidden = true; missionField.isHidden = true
-            tasksField.isHidden = true
+            statusField.isHidden = true; tasksField.isHidden = true
+            missionTitleField.isHidden = true; missionAgentField.isHidden = true
+            missionItemFields.forEach { $0.isHidden = true }
             overtimeField.isHidden = true; overtimeChip.isHidden = true
             paneContainer?.isHidden = true
             return
         }
         let base = originY                     // 12 in practice (single plugin)
         let W = controller.fullWidth
-        let off = (hasPane && curPaneH > 0) ? curPaneH + 8 : 0
+        let off = (hasPane && curPaneH > 0 && mission == nil) ? curPaneH + 8 : 0
+        let missionW = W - 14
+        let mm = missionMetrics(width: missionW)
+        let missionH = mm.total
         let tasksH: CGFloat = taskLines.isEmpty ? 0 : CGFloat(taskLines.count) * 13 + 3
-        let missionH: CGFloat = missionText.isEmpty ? 0 : 18
         let chipH: CGFloat = overtimeOn ? 36 : 0
         let queueH: CGFloat = (overtimeOn && !overtimeLines.isEmpty)
             ? CGFloat(overtimeLines.count) * 16 + 3 : 0
         let overtimeH: CGFloat = overtimeOn ? chipH + (queueH > 0 ? queueH + 4 : 0) : 0
-        let statusY = base + off + (tasksH > 0 ? tasksH + 5 : 0)
-        let missionY = statusY + 22 + (missionH > 0 ? 4 : 0)
-        let overtimeY = missionY + missionH + (overtimeH > 0 ? 4 : 0)
+        // Stack, bottom-up: mission (in the pane's slot) · tasks · git
+        // status · overtime queue · sticker. The mission block rides at the
+        // bottom so the badge just grows down its screen edge.
+        let missionY = base + off
+        let tasksY = missionY + (missionH > 0 ? missionH + 6 : 0)
+        let statusY = tasksY + (tasksH > 0 ? tasksH + 5 : 0)
+        let overtimeY = statusY + 22 + (overtimeH > 0 ? 4 : 0)
 
         statusField.isHidden = false
         statusField.frame = NSRect(x: 0, y: statusY, width: W, height: 22)
-        missionField.isHidden = missionH <= 0
-        missionField.frame = NSRect(x: 0, y: missionY, width: W, height: missionH)
+
+        // Mission block: title, agent line, then items, top-down within its
+        // slot. Display-only — clicks pass through.
+        let missionVisible = mission != nil && missionH > 0
+        missionTitleField.isHidden = !missionVisible
+        missionAgentField.isHidden = !(missionVisible && mm.agent > 0)
+        missionItemFields.forEach { $0.isHidden = !missionVisible }
+        if missionVisible {
+            var my = missionY + missionH - mm.title
+            missionTitleField.frame = NSRect(x: 7, y: my, width: missionW, height: mm.title)
+            if mm.agent > 0 {
+                my -= mm.agent + 1
+                missionAgentField.frame = NSRect(x: 7, y: my, width: missionW, height: mm.agent)
+            }
+            my -= 5
+            for (i, f) in missionItemFields.enumerated() {
+                my -= mm.items[i]
+                f.frame = NSRect(x: 7, y: my, width: missionW, height: mm.items[i])
+                my -= 3   // breathing room between rows
+            }
+        }
         overtimeField.isHidden = queueH <= 0
         overtimeField.frame = NSRect(x: 6, y: overtimeY, width: W - 12, height: queueH)
         overtimeChip.isHidden = chipH <= 0
@@ -531,10 +730,10 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
                                     y: overtimeY + queueH + (queueH > 0 ? 4 : 0),
                                     width: chipW, height: chipH)
         tasksField.isHidden = tasksH <= 0
-        tasksField.frame = NSRect(x: 6, y: base + off, width: W - 12, height: tasksH)
+        tasksField.frame = NSRect(x: 6, y: tasksY, width: W - 12, height: tasksH)
 
         if let c = paneContainer {
-            c.isHidden = curPaneH <= 0
+            c.isHidden = curPaneH <= 0 || mission != nil
             c.frame = NSRect(x: pad, y: base - 4, width: paneW, height: curPaneH)
             if !c.isHidden { controller.content.liveRects.append(c.frame) }
         }
@@ -542,15 +741,19 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
 
     func setCollapsed(_ collapsed: Bool) {
         if minimal {
-            statusField.isHidden = true; missionField.isHidden = true
-            tasksField.isHidden = true
+            statusField.isHidden = true; tasksField.isHidden = true
+            missionTitleField.isHidden = true; missionAgentField.isHidden = true
+            missionItemFields.forEach { $0.isHidden = true }
             overtimeField.isHidden = true; overtimeChip.isHidden = true
             paneContainer?.isHidden = true
             return
         }
         let hide = collapsed
         statusField.isHidden = hide
-        missionField.isHidden = hide || missionText.isEmpty
+        missionTitleField.isHidden = hide || mission == nil
+        missionAgentField.isHidden = hide || mission == nil
+            || missionAgentField.attributedStringValue.length == 0
+        missionItemFields.forEach { $0.isHidden = hide || mission == nil }
         tasksField.isHidden = hide || taskLines.isEmpty
         overtimeField.isHidden = hide || !overtimeOn || overtimeLines.isEmpty
         overtimeChip.isHidden = hide || !overtimeOn
@@ -657,7 +860,9 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         let newH = measurePaneH()
         if abs(newH - curPaneH) > 0.5 { curPaneH = newH; if !c.collapsed { c.layout() } }
         tv.scrollRangeToVisible(NSRange(location: (tv.string as NSString).length, length: 0))
-        if newOutput && !c.collapsed { c.nameLabel.bounce(); flashPane() }
+        // No bounce/flash while a mission owns the badge — the pane is hidden
+        // then, and the name jumping for invisible output reads as a glitch.
+        if newOutput && !c.collapsed && mission == nil { c.nameLabel.bounce(); flashPane() }
     }
 
     // git runs off-main: a slow/hung git must never stall the window.
@@ -673,7 +878,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
             let dirty = doGit ? !self.git(["status", "--porcelain"]).isEmpty : self.lastDirty
             let syncRaw = (try? String(contentsOfFile: self.statusFile, encoding: .utf8)) ?? ""
             let rawTasks = (try? String(contentsOfFile: self.tasksFile, encoding: .utf8)) ?? ""
-            let rawMission = (try? String(contentsOfFile: self.missionFile, encoding: .utf8)) ?? ""
+            let missionNow = loadMission(self.missionFile)   // tolerant: nil hides the block
             let otOn = FileManager.default.fileExists(atPath: self.overtimeFlag)
             let otRaw = otOn
                 ? ((try? String(contentsOfFile: self.overtimeStatusFile, encoding: .utf8)) ?? "")
@@ -683,7 +888,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
                 self.lastBranch = branch; self.lastDirty = dirty
                 self.applyStatus(branch: branch, dirty: dirty,
                                  syncRaw: syncRaw, rawTasks: rawTasks,
-                                 rawMission: rawMission,
+                                 mission: missionNow,
                                  otOn: otOn, otRaw: otRaw)
             }
         }
@@ -692,7 +897,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     private var lastDirty = false
 
     func applyStatus(branch: String, dirty: Bool, syncRaw: String, rawTasks: String,
-                     rawMission: String, otOn: Bool, otRaw: String) {
+                     mission missionNow: Mission?, otOn: Bool, otRaw: String) {
         guard let c = c else { return }
         var sync: String
         let t = syncRaw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -741,20 +946,9 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
             if !c.collapsed { c.layout() }
         }
 
-        // The day's mission: first non-empty line of <home>/mission, gold and
-        // marquee-safe so a long task name scrolls instead of truncating.
-        let mission = rawMission.split(separator: "\n")
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .first(where: { !$0.isEmpty }) ?? ""
-        if mission != missionText {
-            missionText = mission
-            let gold = hexColor(0xffd66b)
-            let m = NSMutableAttributedString()
-            m.append(NSAttributedString(string: "★ ", attributes: [
-                .font: monoFont(11), .foregroundColor: gold]))
-            m.append(NSAttributedString(string: mission, attributes: [
-                .font: monoFont(12), .foregroundColor: gold]))
-            missionField.setText(m)
+        if missionNow != mission {
+            mission = missionNow
+            rebuildMissionFields()
             if !c.collapsed { c.layout() }
         }
 
