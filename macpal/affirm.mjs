@@ -9,6 +9,11 @@
 //   node macpal/affirm.mjs "testing" --local            # → https://localhost:8888
 //   node macpal/affirm.mjs --clear --to fia              # blank the caption
 //
+// Playlists rotate server-side (survives this machine sleeping) — each quoted
+// argument is one message, cycling every --every seconds (default 120):
+//
+//   node macpal/affirm.mjs --playlist "it's good to be calm!" "i love you!" --every 60
+//
 // Auth: reads ~/.ac-token (run `node tezos/ac-login.mjs` once to create it).
 
 import fs from "node:fs";
@@ -24,13 +29,20 @@ const has = (name) => args.includes(name);
 
 const to = flag("--to") || "fia";
 const local = has("--local");
+const playlist = has("--playlist");
+const every = Number(flag("--every")) || 120;
 const host = flag("--host") || (local ? "https://localhost:8888" : "https://aesthetic.computer");
-// The message is every non-flag argument joined (so quotes are optional-ish).
-const text = has("--clear")
-  ? ""
-  : args.filter((a, i) => !a.startsWith("--") && args[i - 1] !== "--to" && args[i - 1] !== "--host").join(" ");
+const valueFlags = ["--to", "--host", "--every"];
+const words = args.filter((a, i) => !a.startsWith("--") && !valueFlags.includes(args[i - 1]));
+// One message is every non-flag argument joined (so quotes are optional-ish);
+// a --playlist keeps each quoted argument as its own message.
+const text = has("--clear") ? "" : words.join(" ");
 
-if (!has("--clear") && !text) {
+if (playlist && words.length < 2) {
+  console.error('usage: node macpal/affirm.mjs --playlist "msg a" "msg b" [...] [--every 120] [--to fia]');
+  process.exit(1);
+}
+if (!playlist && !has("--clear") && !text) {
   console.error('usage: node macpal/affirm.mjs "your message" [--to fia] [--local] [--clear]');
   process.exit(1);
 }
@@ -54,7 +66,7 @@ if (local) process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 const res = await fetch(`${host}/api/macpal-status`, {
   method: "POST",
   headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-  body: JSON.stringify({ to, text }),
+  body: JSON.stringify(playlist ? { to, playlist: words, every } : { to, text }),
 });
 
 const out = await res.json().catch(() => ({}));
@@ -63,4 +75,8 @@ if (!res.ok) {
   if (res.status === 401) console.error("  token expired? re-run: node tezos/ac-login.mjs");
   process.exit(1);
 }
-console.log(`✓ ${to} ← "${out.text}"  (seq ${out.seq})`);
+if (out.playlist) {
+  console.log(`✓ ${to} ← playlist [${out.playlist.map((m) => `"${m}"`).join(" → ")}] every ${out.every}s  (seq ${out.seq})`);
+} else {
+  console.log(`✓ ${to} ← "${out.text}"  (seq ${out.seq})`);
+}

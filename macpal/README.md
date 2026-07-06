@@ -89,6 +89,19 @@ node macpal/affirm.mjs "testing" --local         # → https://localhost:8888
 node macpal/affirm.mjs --clear                   # blank the caption
 ```
 
+A **playlist** rotates through several messages server-side — the GET computes
+the current entry from elapsed time, so it keeps turning with every machine
+asleep (min 30s, the star polls every ~45s):
+
+```bash
+node macpal/affirm.mjs --playlist "it's good to be calm!" "i love you!" --every 60
+node macpal/affirm.mjs "one message"             # a plain push replaces the playlist
+```
+
+(`affirm-loop.mjs` is the client-side ancestor of the same trick — it pushes
+singles on a timer from your machine and dies when it sleeps; prefer
+`--playlist`.)
+
 Auth uses `~/.ac-token` (run `node tezos/ac-login.mjs` once). The endpoint is
 `system/netlify/functions/macpal-status.mjs` (Redis-backed, served by lith).
 
