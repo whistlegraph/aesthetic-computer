@@ -26,6 +26,13 @@
       "args": [
         "slab/bin/frame-mcp.mjs"
       ]
+    },
+    "puppet": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "slab/bin/puppet-mcp.mjs"
+      ]
     }
   }
 }
