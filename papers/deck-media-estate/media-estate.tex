@@ -1,0 +1,323 @@
+% !TEX program = xelatex
+% media-estate.tex — overview deck: the AC × whistlegraph media estate.
+% First deck in the papers "decks" lane: 16:9 landscape, one page per slide.
+\documentclass[12pt]{article}
+
+% === GEOMETRY === (16:9, screen-first)
+\usepackage[paperwidth=338.667mm, paperheight=190.5mm,
+            left=20mm, right=20mm, top=14mm, bottom=12mm]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+
+\setmainfont{Latin Modern Roman}[
+  Extension=.otf,
+  UprightFont=lmroman10-regular,
+  BoldFont=lmroman10-bold,
+  ItalicFont=lmroman10-italic,
+  BoldItalicFont=lmroman10-bolditalic,
+]
+\setmonofont{Latin Modern Mono}[
+  Extension=.otf,
+  UprightFont=lmmono10-regular,
+  ItalicFont=lmmono10-italic,
+  Scale=0.85,
+]
+
+% Display face — title text only (punctuation glyphs unreliable).
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+
+% === COLORS ===
+\usepackage{xcolor}
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{40,36,48}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{acred}{RGB}{200,50,75}
+\definecolor{acgreen}{RGB}{40,140,70}
+\definecolor{acamber}{RGB}{200,120,20}
+\definecolor{acbg}{RGB}{250,250,250}
+
+% === PACKAGES ===
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{hyperref}
+\hypersetup{
+  colorlinks=true,
+  urlcolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={The Media Estate},
+}
+
+\pagestyle{empty}
+\pagecolor{acbg}
+\color{acdark}
+\setlength{\parindent}{0pt}
+\renewcommand{\arraystretch}{1.45}
+
+% Status words for the access matrices.
+\newcommand{\okfull}{{\color{acgreen}\textbf{full}}}
+\newcommand{\okpart}{{\color{acamber}\textbf{partial}}}
+\newcommand{\oknone}{{\color{acred}\textbf{none}}}
+\newcommand{\rb}{{\color{acred}\textbullet}\hspace{0.6em}}
+
+\newcommand{\ac}{Aesthetic\textcolor{acpink}{.}Computer}
+
+% One slide = one page. #1 section label, #2 title (YWFT-safe words only).
+\newenvironment{slide}[2]{%
+  \clearpage
+  {\footnotesize\color{acgray}\MakeUppercase{#1}\hfill}%
+  {\footnotesize\color{acgray}\ac{} \textperiodcentered{} @jeffrey}\par
+  \vspace{0.1em}
+  {\acbold\fontsize{31pt}{35pt}\selectfont\color{acdark}#2\par}
+  \vspace{0.9em}
+  \large
+}{%
+  \vfill
+  {\hfill\footnotesize\color{acgray}\thepage}%
+}
+
+\begin{document}
+
+% ── 1 · title ────────────────────────────────────────────────────────
+\vspace*{\fill}
+\begin{center}
+  {\acbold\fontsize{58pt}{62pt}\selectfont\color{acdark}the media estate\par}
+  \vspace{1.2em}
+  {\fontsize{19pt}{24pt}\selectfont\itshape\color{acpink}
+    one funnel, nine surfaces --- whistlegraph \textrightarrow{} \ac\par}
+  \vspace{2.2em}
+  {\large\color{acgray} @jeffrey \textperiodcentered{} July 2026 \textperiodcentered{} planning hub: \texttt{/social} in the monorepo\par}
+\end{center}
+\vspace*{\fill}
+{\hfill\footnotesize\color{acgray}\thepage}
+
+% ── 2 · the shape ────────────────────────────────────────────────────
+\begin{slide}{the shape}{two brands, one funnel}
+\textbf{@whistlegraph} is the established audience; \textbf{@aesthetic.computer} is the growth target.
+The funnel runs one way --- ``made with aesthetic.computer'' posts, never an audience merge.
+
+\vspace{1.2em}
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+ & \textbf{whistlegraph} & \textbf{aesthetic.computer} \\
+\midrule
+TikTok & 2.6M followers \textperiodcentered{} 99M likes & 391 followers \\
+YouTube & 5{,}340 subs \textperiodcentered{} 2.1M views & 4 subs \textperiodcentered{} 70 views \\
+Instagram & (established; count TODO) & under 1k --- \textit{the gate that matters} \\
+Posting since & dormant since \textasciitilde 2023 & just beginning \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{1.2em}
+\rb The audience already exists --- the whistlegraph archive still moves \textbf{\textasciitilde 48{,}000 video views per day} with zero new posts.\\
+\rb The problem is not reach. It is that \textbf{the pipe between the brands is not connected}, and most surfaces cannot be posted to by script yet.
+\end{slide}
+
+% ── 3 · the accounts ─────────────────────────────────────────────────
+\begin{slide}{inventory}{twelve accounts, nine surfaces}
+Tracked in \texttt{social/accounts.json}; strategy and tooling index in \texttt{social/SCORE.md}.
+
+\vspace{0.8em}
+\begin{center}
+\normalsize
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Account} & \textbf{Surface} & \textbf{Role} & \textbf{Standing} \\
+\midrule
+@aesthetic.computer & Instagram & \textbf{primary growth target} & under 1k \\
+@aesthetic.computer & TikTok & primary growth target & 391 followers \\
+Aesthetic Dot Computer & YouTube & music + readings archive & 4 subs \\
+@aesthetic.computer & Bluesky & changelog + paintings feed & 81 followers \\
+AC Readings & Podcast & essays \textrightarrow{} Spotify/Apple/YT & stats TODO \\
+@promptDOTac & X & dormant brand outlet & revive by mirror \\
+Aesthetic Dot Computer & Spotify artist & distribution via DistroKid & claim blocked \\
+@whistlegraph & TikTok & \textbf{funnel source} & 2.6M followers \\
+@whistlegraph & YouTube & funnel source & 5.3k subs \\
+@whistlegraph & Instagram & funnel source & count TODO \\
+@whistlegraph & X & dormant funnel & count TODO \\
+(jeffrey) & Are.na & curation surface & token not vaulted \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{slide}
+
+% ── 4 · what the archive says ────────────────────────────────────────
+\begin{slide}{evidence}{what the archive says}
+Top whistlegraph YouTube videos (of 210 uploads, 2.1M total views, pulled 2026-07-05):
+
+\vspace{0.8em}
+\begin{center}
+\begin{tabular}{@{}rll@{}}
+\toprule
+\textbf{Views} & \textbf{Video} & \textbf{Era} \\
+\midrule
+245k & mommy wow WHISTLING GRAPHIX & 2021 lo-fi chalk originals \\
+213k & zigzag x circle, i love mommy wow & 2021 lo-fi chalk originals \\
+108k & The Longest Whistlegraph Ever & 2022 relatable-caption era \\
+83k  & seasons changing & 2022 relatable-caption era \\
+65k  & hey, are you from LA? & 2022 relatable-caption era \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{1em}
+\rb The \textbf{lo-fi, process-visible originals} massively outperform --- the audience came for watching a form being made, not for polish.\\
+\rb Nothing posted since 2023, and the numbers held. \textbf{Dormant is not dead.}\\
+\rb This is the exact premise \ac{} content should lead with: \textit{the making, not the made.}
+\end{slide}
+
+% ── 5 · access today ─────────────────────────────────────────────────
+\begin{slide}{audit}{access today}
+Can we post to it by script, from the monorepo, right now?
+
+\vspace{0.8em}
+\begin{center}
+\normalsize
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Surface} & \textbf{Access} & \textbf{Via} & \textbf{Gap} \\
+\midrule
+YouTube (both channels) & \okfull & \texttt{toolchain/youtube/yt.mjs} & quota: 6 uploads/day \\
+Bluesky & \okfull & \texttt{at/} scripts, app password & --- \\
+Podcast (Buzzsprout) & \okfull & \texttt{reading} skill & stats pull \\
+Papers / essays & \okfull & self-hosted, no gatekeeper & --- \\
+Instagram (both) & \okpart & read-only unofficial sessions & \textbf{no publish at all} \\
+TikTok (both) & \okpart & OAuth app in silo; ingest only & unaudited: no publish \\
+Spotify (music) & \okpart & DistroKid semi-automated & artist claim blocked \\
+Are.na & \okpart & proven gig scripts & token not vaulted \\
+X (both) & \oknone & --- & no developer app \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{0.9em}
+The scripted surfaces are the quiet ones; \textbf{the loud surfaces are all manual}. That asymmetry is the whole build-out.
+\end{slide}
+
+% ── 6 · the keystone ─────────────────────────────────────────────────
+\begin{slide}{the keystone}{instagram pays three ways}
+One build-out --- official publishing via the Instagram API with Instagram Login
+(no Facebook Page; own accounts publish in dev mode, no app review) --- unlocks three
+separate outcomes:
+
+\vspace{1.1em}
+\begin{enumerate}[leftmargin=2.2em, itemsep=0.7em]
+  \item \textbf{The 1k gate.} Scripted reels at cadence are the only realistic path to
+        1{,}000 followers on @aesthetic.computer --- which unlocks \textbf{Trial Reels}
+        (test on non-followers, promote winners). A hard gate, not a soft one.
+  \item \textbf{The funnel.} Same tooling posts ``made with aesthetic.computer''
+        re-cuts to @whistlegraph --- the 2.6M-audience bridge, finally scriptable.
+  \item \textbf{The Spotify claim.} The Spotify for Artists verification has been
+        \textbf{blocked since May} on one thing: a trancenwaltz post live on the
+        @aesthetic.computer grid. First API-published post un-blocks the waiting
+        draft reply (\texttt{pop/spotify-for-artists-claim-reply.md}).
+\end{enumerate}
+
+\vspace{1.1em}
+Detail that shapes the tooling: IG publish takes a \textbf{public video URL}, not a file
+upload --- our DO Spaces CDN feeds it, so the CLI pushes to Spaces first.
+\end{slide}
+
+% ── 7 · where content lands ──────────────────────────────────────────
+\begin{slide}{supply}{the mills already run}
+Every surface has a content mill behind it in the monorepo --- production is not the bottleneck.
+
+\vspace{0.8em}
+\begin{center}
+\normalsize
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Pipeline} & \textbf{Produces} & \textbf{Lands on} \\
+\midrule
+\texttt{pop/} music mill & tracks + visualizers + 9:16 cuts & DistroKid, YouTube, reels \\
+\texttt{marketing/kidlisp-reels/} & KidLisp process reels, 9:16 & IG + TikTok at-bats \\
+\texttt{recap/} & narrated vertical video & IG + TikTok \\
+\texttt{papers/} \textrightarrow{} readings & essays + spoken audio & site, Buzzsprout, Spotify, Apple \\
+\texttt{at/} scripts & changelog threads, paintings & Bluesky (X mirror next) \\
+whistlegraph archive & 950+ TikToks, 193 videos & re-cut fodder for funnel posts \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{0.9em}
+\rb One edit, many surfaces: the same 9:16 short goes to IG Reels and TikTok every time.\\
+\rb The archive is a \textbf{library, not a museum} --- top performers become funnel re-cuts.
+\end{slide}
+
+% ── 8 · the plan ─────────────────────────────────────────────────────
+\begin{slide}{build-out}{api access, in value order}
+\begin{enumerate}[leftmargin=2.2em, itemsep=0.55em]
+  \item \textbf{Instagram official publishing} --- Meta app + Instagram Login; then
+        \texttt{ig.mjs} in the toolchain, same shape as \texttt{yt.mjs}. \textit{The keystone.}
+  \item \textbf{X developer app} --- free tier covers a mirror cadence;
+        \texttt{x.mjs} posts the same short drops as Bluesky.
+  \item \textbf{TikTok Content Posting audit} --- the OAuth app already exists in silo;
+        an approved audit makes the 2.6M-follower account scriptable.
+  \item \textbf{Are.na token to the vault} --- scripts already speak the API.
+  \item \textbf{Buzzsprout stats} --- wire downloads into \texttt{accounts.json} snapshots.
+  \item \textbf{YouTube quota bump} --- when cadence outgrows six uploads a day.
+\end{enumerate}
+
+\vspace{1em}
+Done already: YouTube both channels (2026-07-05) \textperiodcentered{} Bluesky \textperiodcentered{}
+Buzzsprout publish \textperiodcentered{} papers.
+
+\vspace{0.6em}
+Every unlock lands as a CLI in the same idiom --- vault-held tokens,
+\texttt{--as <channel>} identity switching, private-first defaults.
+\end{slide}
+
+% ── 9 · the strategy ─────────────────────────────────────────────────
+\begin{slide}{doctrine}{lead with the making}
+\textbf{Positioning.} \ac{} is the hand-built-instrument brand: \textit{``I made the tool
+that made this.''} Visible authorship --- KidLisp coming together, a synth answering live ---
+inoculates against the AI-slop read. The archive evidence (slide 4) says this is also
+simply what the audience rewards.
+
+\vspace{0.9em}
+\textbf{Cadence.} 4--7 process-over-product shorts a week; below 1k a flop costs nothing ---
+every reel is an at-bat. One repeatable series people can anticipate.
+
+\vspace{0.9em}
+\textbf{Funnel discipline.} @whistlegraph stays its own voice; it tags, it never merges.
+Music ships as Aesthetic Dot Computer; papers and readings ship as @jeffrey.
+
+\vspace{0.9em}
+\textbf{Never:} follow/unfollow churn, engagement pods, bought followers --- they poison
+the non-follower targeting that Trial Reels and the algorithm both depend on.
+\end{slide}
+
+% ── 10 · next ────────────────────────────────────────────────────────
+\begin{slide}{next}{four portal sessions}
+Each unlock needs one short human session at a developer portal --- everything after is scripted:
+
+\vspace{0.9em}
+\begin{enumerate}[leftmargin=2.2em, itemsep=0.55em]
+  \item \textbf{Meta app} (developers.facebook.com) --- connect both IG professional
+        accounts, hand back app id, secret, and two long-lived tokens. \textit{\textasciitilde 15 min.}
+  \item \textbf{X developer account} (developer.x.com) --- create the app under the
+        brand owner. \textit{\textasciitilde 10 min.}
+  \item \textbf{TikTok audit application} --- submit the Content Posting API review
+        on the existing silo app. \textit{\textasciitilde 15 min + wait.}
+  \item \textbf{Are.na token} --- generate once, vault it. \textit{\textasciitilde 2 min.}
+\end{enumerate}
+
+\vspace{1.1em}
+Planning hub: \texttt{social/SCORE.md} + \texttt{social/accounts.json} ---
+append a dated snapshot whenever fresh numbers are pulled; every new tool gets a row
+in the index so \texttt{/social} stays the single front door.
+
+\vspace{0.9em}
+{\color{acgray}\small This deck: \texttt{papers/deck-media-estate/} --- the first entry
+in the papers decks lane.}
+\end{slide}
+
+\end{document}

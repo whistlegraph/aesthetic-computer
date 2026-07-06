@@ -213,6 +213,12 @@ const PAPER_MAP = {
     title: "Aesthetic July 4 '26",
     format: "essay",
   },
+  "deck-media-estate": {
+    base: "media-estate",
+    siteName: "media-estate-26-deck",
+    title: "The Media Estate",
+    format: "deck",
+  },
   "arxiv-identity": {
     base: "identity",
     siteName: "handle-identity-atproto-26-arxiv",
@@ -444,6 +450,12 @@ const CATEGORIES = [
       "arxiv-diversity",
       "arxiv-open-schools",
     ],
+  },
+  {
+    key: "decks",
+    title: "Decks",
+    sub: "Slide overviews — the papers register at presentation altitude, one page per slide.",
+    dirs: ["deck-media-estate"],
   },
   {
     key: "dossiers",
@@ -971,6 +983,11 @@ function updateIndex(entries) {
 
   // Paper detail descriptions and short previews, keyed by siteName.
   const PAPER_COPY = {
+    "media-estate-26-deck": {
+      detail: "One Funnel, Nine Surfaces &middot; 16:9 deck 10pp",
+      abstract:
+        "An overview deck of the Aesthetic Computer and whistlegraph media estate: twelve accounts across nine surfaces, which can be posted to by script today, and the build-out plan. The whistlegraph archive still moves tens of thousands of views a day; the deck argues the work is connecting that audience to the new instrument, starting with Instagram.",
+    },
     "aesthetic-computer-26-arxiv": {
       detail: "A Mobile-First Runtime for Creative Computing &middot; arXiv 5pp",
       abstract:
