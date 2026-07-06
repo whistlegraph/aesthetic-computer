@@ -1868,11 +1868,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if initialDirty { updateIcon() }
     }
 
-    /// Live chord morph: while a note key is physically held, watch ⌘/⌥ and
-    /// re-voice the held key between a single note and a triad. The chord
-    /// scheme matches the keyDown path — ⌘ = major, ⌥ = minor, ⌘+⌥ = sus —
-    /// so a note that started plain and one that started chorded morph the
-    /// same way (⌃ is chord-inert; its shortcuts stay system shortcuts).
+    /// Live chord morph: while a note key is physically held, watch ⌘/⌥/⌃
+    /// and re-voice the held key between a single note and a triad. The chord
+    /// scheme matches the keyDown path — ⌘ = major, ⌥ = minor, ⌘+⌥ = sus,
+    /// ⌃ = augmented (the raised-fifth opposite of minor) — so a note that
+    /// started plain and one that started chorded morph the same way.
     /// Both a global monitor (TYPE mode / background apps) and a local one
     /// (quiet-focus, Menu Band frontmost) feed the same handler; the
     /// controller no-ops when nothing is held, so wiring both is harmless.
@@ -1882,9 +1882,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let flags = event.modifierFlags
             let cmd = flags.contains(.command)
             let opt = flags.contains(.option)
-            self.menuBand.morphHeldKeys(chordModifier: cmd || opt,
+            let ctl = flags.contains(.control)
+            self.menuBand.morphHeldKeys(chordModifier: cmd || opt || ctl,
                                         chordMinor: opt,
-                                        chordSus: cmd && opt)
+                                        chordSus: cmd && opt,
+                                        chordAug: ctl)
         }
         globalChordMorphMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: .flagsChanged
