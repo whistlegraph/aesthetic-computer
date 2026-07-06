@@ -287,6 +287,19 @@ if [[ -e "${LEGACY_BIN}" ]]; then
     warn "removed legacy binary at ${LEGACY_BIN} — you may want to clear its old Accessibility entry in System Settings"
 fi
 
+# slab-ledger shim: a scriptable resolver on PATH so an agent can turn a
+# `host:name` reference into JSON (and poke the owner's rock) without knowing
+# the bundle path. Just execs the menubar binary's `ledger` subcommand.
+LEDGER_SHIM="${REPO_HOME}/.local/bin/slab-ledger"
+mkdir -p "$(dirname "${LEDGER_SHIM}")"
+cat > "${LEDGER_SHIM}" <<EOF
+#!/bin/sh
+# Resolve fleet handles from the kept ledger cache. e.g. slab-ledger resolve neo:geb
+exec "${APP_BIN}" ledger "\$@"
+EOF
+chmod +x "${LEDGER_SHIM}"
+ok "installed resolver shim → ${LEDGER_SHIM}"
+
 say "writing launchd plist → ${PLIST_PATH}"
 mkdir -p "${LAUNCH_AGENTS}"
 sed "s|@HOME@|${REPO_HOME}|g" "${PLIST_TMPL}" > "${PLIST_PATH}"
