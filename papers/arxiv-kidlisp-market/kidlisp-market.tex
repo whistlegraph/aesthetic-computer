@@ -1,0 +1,320 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{lmroman10-regular.otf}[
+  BoldFont=lmroman10-bold.otf,
+  ItalicFont=lmroman10-italic.otf,
+  BoldItalicFont=lmroman10-bolditalic.otf,
+]
+\setsansfont{lmsans10-regular.otf}[
+  BoldFont=lmsans10-bold.otf,
+  ItalicFont=lmsans10-oblique.otf,
+  BoldItalicFont=lmsans10-boldoblique.otf,
+]
+\setmonofont{lmmono10-regular.otf}[Scale=0.85,
+  BoldFont=lmmonolt10-bold.otf,
+  ItalicFont=lmmono10-italic.otf,
+]
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{graphicx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{acblue}{RGB}{60,110,190}
+\definecolor{acgreen}{RGB}{70,150,110}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!16,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={Where Should KidLisp Live?},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{draftcolor}\textit{Working Draft --- not financial advice}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.4em, itemsep=0.1em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+\newcommand{\tzsym}{\text{\textipa{ê}}}
+\renewcommand{\tzsym}{\ensuremath{\tau}}
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+{\acbold\fontsize{27pt}{31pt}\selectfont\color{acdark} Where Should KidLisp Live?}\par
+\vspace{0.35em}
+{\aclight\fontsize{11.5pt}{14pt}\selectfont\color{acpink} A 2026 Market \& Ideology Analysis of Autonomous Generative-Art Minting Across Tezos and Base}\par
+\vspace{0.6em}
+{\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.5em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.4em}
+\end{center}
+
+\begin{center}
+{\small\color{draftcolor}\textbf{[ working draft --- prepared 2026-07-03 --- not financial advice ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Abstract.}
+This paper asks a blunt question posed by the maker of \ac{}: \emph{can one earn daily money by autonomously ``mining'' generative KidLisp art the way one mines a proof-of-work coin?} The short answer is no --- not because the technology is hard (it is nearly built) but because minting art and mining a commodity are economically opposite acts. Mining produces fungible units whose value is independent of demand for any particular unit; minting produces unique objects that earn only when a specific human wants that specific object. A bot creates supply, never demand. We establish this distinction, then survey where autonomous generative editions could plausibly live in 2026: the \emph{Tezos} art ecosystem (quiet, curation-driven, already wired into \ac{}'s existing ``keep'' pipeline) and the \emph{Base/Zora + Farcaster} ecosystem (louder, financialized, distribution-rich, lottery-shaped). Because a chain is a culture and not merely a fee schedule, we give an explicit \emph{ideological} argument for each chain --- what worldview one adopts by minting there --- alongside the economics. We close with a concrete, honest recommendation: build the autonomous ``KidLispMasks'' clock, but as \emph{curated provenance infrastructure with an occasional attention-spike}, not as a daily wage; keep Tezos canonical for its values-alignment and existing plumbing, and use Base as a distribution mirror for reach. Real daily income remains where it already is for this practice: commissions, grants, and selling the instrument --- not the faucet.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{The Question, Stated Honestly}
+
+The maker's stated goal is exact: \emph{``all I want to do is make daily money from KidLisp auto-mining.''} The phrase carries an intuition worth taking seriously and then correcting, because the correction is the whole analysis.
+
+The intuition is borrowed from a working system. On a separate machine, an \textsc{rtx}~3070 mines \textsc{btx}, a post-quantum proof-of-work coin, around the clock. That arrangement earns (in principle) because \textsc{btx} is a \emph{fungible commodity}: every coin is interchangeable, and the value of the coins the miner accumulates does not depend on anyone wanting \emph{those particular coins}. More hashing yields more identical units; if a market ever prices the unit, the pile is worth pile-times-price. Supply is the lever.
+
+Generative art inverts every term. A KidLisp piece is a \emph{unique object}. Its value is entirely a function of whether some human wants \emph{that object} --- this face, this animation, this hour's output. Producing more of them faster does not manufacture buyers; it manufactures inventory. A painter does not grow richer by painting faster into an empty gallery. An autonomous minter that emits one edition per hour is a supply machine pointed at a demand problem it cannot touch.
+
+\begin{quote}
+\small\itshape
+The bot creates supply. It cannot create demand. Every economic conclusion in this paper descends from that single asymmetry.
+\end{quote}
+
+This is not a KidLisp deficiency; it is true of all autonomous art minting, and it is why the market research below finds that an uncurated ``firehose'' of $\sim$720 editions per month sells approximately nothing regardless of chain. The remainder of the paper is therefore not ``which chain lets me mint fastest'' (both let you mint hourly for pennies) but ``where, if anywhere, does autonomously-produced generative art actually meet demand, and what does choosing that venue commit me to.''
+
+\section{What Already Exists Inside \ac{}}
+
+A pleasant surprise frames the build question: almost the entire minting pipeline is already in production inside \ac{}, on Tezos.
+
+\begin{itemize}
+  \item \textbf{``Keep'' already means ``mint.''} In \ac{}, keeping a KidLisp \texttt{\$code} preserves it as a one-of-one Tezos \textsc{fa2} \textsc{nft} --- a real on-chain mint plus an \textsc{ipfs} pin (Pinata), not a database flag. Uniqueness is enforced on-chain by a content-hash big-map: each \texttt{\$code} can be kept exactly once. The mainnet contract is live.
+  \item \textbf{Code $\rightarrow$ \texttt{\$code} is an \textsc{http} call.} \texttt{POST /api/store-kidlisp} with a source body returns a short shareable code, and the authenticated caller \emph{becomes the owner} --- which auto-satisfies the mint's ownership gate. A bot that posts with its own token owns what it generates.
+  \item \textbf{Headless render is solved.} The ``oven'' service renders KidLisp to an animated WebP and an interactive \textsc{html} bundle via Puppeteer, pinned to \textsc{ipfs}. That media is \emph{chain-agnostic}: the hard part (turning code into a moving picture) does not care where the token lives.
+  \item \textbf{Listing works.} A single \textsc{cli} call posts an objkt marketplace ``ask.''
+  \item \textbf{A scheduler pattern exists.} The \texttt{ants} colony loop already ``wakes every $N$ minutes and does one small thing,'' delegating language-model calls to a provider-abstracted brain --- effectively a KidLispKlok skeleton.
+\end{itemize}
+
+The consequence: the \emph{only} genuinely new component is the autonomous \emph{generator} --- the part that decides which KidLisp to write each hour and verifies it is new, animated, working, and (per the maker's concept) recognizably a face. Everything downstream of ``here is the source'' already runs. This materially lowers the cost of experimenting on Tezos and raises the bar that any alternative chain must clear to justify a second pipeline.
+
+\section{The Tezos Market in 2026}
+
+\textbf{Platforms.} objkt.com remains the dominant Tezos art marketplace and aggregator; fx(hash) is the generative-native venue but has pivoted multichain (Ethereum + a \$\textsc{fxh} token on Base, launched 2~July~2025); Teia is a small community-run commons; Versum is effectively dead. objktLabs continues to invest in generative tooling (\emph{drop.art}, the fully on-chain \emph{bootloader}).
+
+\textbf{The market is quiet and shrinking.} Per Messari's \emph{State of Tezos} Q3/Q4 2025, objkt weekly active addresses fell from $\sim$1{,}544 to $\sim$1{,}170 --- a 25\% quarter-over-quarter decline. Point-in-time daily marketplace volumes across objkt, fx(hash), and Teia sit in the low \emph{thousands} of dollars, not millions. This is a collector-culture niche, not a liquid market.
+
+\textbf{Costs are trivial.} Minting stores only an \textsc{ipfs} \textsc{uri} on-chain; storage burn ($\sim$0.25~\tzsym/\textsc{kb}) plus fees run roughly \$0.05--0.20 per mint-and-list. A 720/month cadence costs on the order of \$20--140/month in fees. Gas is not the constraint; demand is.
+
+\textbf{Honest revenue.} For a small or unknown artist, autonomous editions on Tezos realistically sell near zero. Unknown-artist editions commonly list at 0.5--5~\tzsym{} ($\sim$\$0.25--5) and frequently sell zero copies. An unfiltered hourly stream is the \emph{worst-case} profile for this audience: no scarcity narrative, no artist--collector relationship, high dilution, and it reads as spam. What sells on Tezos is curated or known-artist drops, event-driven work, and collect-culture editions among mutual followers --- all relationship- and curation-driven, none of it discovery-driven.
+
+\section{The Base / Zora / Farcaster Market in 2026}
+
+Two structural facts reshape the calculus on Base.
+
+\textbf{Zora is now primarily a \emph{coins} platform.} Since mid-2025, ``every post is a coin'': a post can deploy a fixed-supply (1B) \textsc{erc}-20 with an auto-created Uniswap pool. The \textsc{erc}-1155 \textsc{nft} path still exists and is fully supported, but it is no longer the default surface.
+
+\textbf{Neynar now operates Farcaster.} In January~2026 Neynar acquired the Farcaster protocol, app, and Clanker ($\sim$\$1B). ``Farcaster distribution'' in 2026 effectively means ``the Neynar \textsc{api}'' --- a managed signer plus \texttt{publishCast} for programmatic posting, and Mini Apps (Frames v2) for in-feed interactivity.
+
+\subsection{Two artifacts: edition vs.\ coin}
+
+\begin{itemize}
+  \item \textbf{1155 edition} --- a discrete collectible. Collector pays a flat mint fee (currently 0.000111~\textsc{eth}); creator earns a fixed reward per mint (order of \$0.5). Provenance-clean; maps naturally to ``24 discrete artifacts a day.''
+  \item \textbf{Content coin} --- a tradable \textsc{erc}-20 position on a bonding curve. Creator earns $\sim$0.5\% of \emph{all trade volume}, ongoing, plus a further $\sim$0.2\% if they set themselves as \texttt{platformReferrer}. Upside is attention/speculation; most coins trend to zero.
+\end{itemize}
+
+\textbf{Programmatic minting is easy.} Both paths are viem-based \textsc{sdk}s (\texttt{@zoralabs/coins-sdk}, \texttt{@zoralabs/protocol-sdk}). You need an \textsc{evm} wallet, a Base \textsc{rpc}, a little Base \textsc{eth} for gas (well under \$0.05/tx), and an \textsc{ipfs} metadata \textsc{uri} --- which the oven already produces. Creator mints are effectively free (collectors pay).
+
+\textbf{The distribution unlock.} Casting a Zora mint/coin \textsc{url} renders a native, collectible card inside Base App and Farcaster clients. This is the discovery layer Tezos lacks: the work becomes mintable \emph{where the audience already scrolls}.
+
+\subsection{The honest numbers}
+
+The canonical precedent is \emph{zxbt} (by dev0xx): an autonomous \textsc{ai} artist minting daily on Zora/Base. Day one: +11{,}000\%, 660+ holders, \$3M volume, a $\sim$\$5M peak market cap that retraced to $\sim$\$2.6M within 24 hours. Read it correctly: \emph{a novelty spike driven by attention and speculation, then fade.} The earnings were trade-fee volume during the spike, not durable collecting.
+
+The median is sobering. Zora paid $\sim$\$27M in creator rewards across $\sim$1.3M coins and $\sim$179k creators in H1~2025 --- an \emph{average} of $\sim$\$151 per creator for the half-year, with the median far lower (most coins get a few trades and die). One documented hands-on experiment netted $\sim$\$17 in ten days. A realistic 2026 outcome for an autonomous hourly mint with no large following is \textbf{tens of dollars per month}, dominated by whichever one or two pieces occasionally catch a wave.
+
+\section{Chain Ideologies: What You Adopt by Minting There}
+
+A chain is not a neutral pipe. Choosing where KidLisp mints is choosing a worldview, an aesthetic community, and a theory of what art on a network is \emph{for}. Below, each chain is steel-manned --- argued as its believers argue it --- because values-alignment, not fee schedules, is the decision that will still matter in five years.
+
+\subsection{Tezos: the artist's republic}
+
+Tezos presents itself as a \emph{polite, self-amending, formally-correct} chain, and its art culture inherited that temperament.
+
+\begin{itemize}
+  \item \textbf{Governance as self-amendment.} Tezos upgrades itself through on-chain voting rather than contentious hard forks. Ideologically: a polity that changes its own constitution by ballot, not schism. No faction walks off with a fork. Continuity and legitimacy over rupture.
+  \item \textbf{Correctness as a value.} Michelson and formal-verification tooling encode a belief that contracts should be \emph{provably} what they claim. The culture prizes getting it right over shipping fast --- an engineering ethic with an obvious affinity to a small, careful, hand-made software practice.
+  \item \textbf{Proof-of-Stake since genesis; the clean ethic.} Tezos was low-energy from day one, and the ``CleanNFT'' movement of 2021 made it the refuge for artists who refused proof-of-work's carbon cost. To mint on Tezos is to make an environmental and ethical statement legible to a community that cares about it.
+  \item \textbf{Art-first, anti-speculation, commons-minded.} The hicetnunc$\rightarrow$Teia lineage is explicitly a \emph{commons}: cheap editions, mutual collecting, artist solidarity, suspicion of financialization. Value is cultural before it is monetary. Curation and relationship are the coin of the realm.
+\end{itemize}
+
+\noindent\textbf{What you adopt:} patience, craft, sustainability, resistance to capture, a small and genuine audience that collects out of care. \textbf{What you renounce:} reach, liquidity, and the possibility of a speculative windfall. For a practice whose own writing valorizes refusal, slowness, and defense against dilution, Tezos is the \emph{native ideological home}. It will not make you daily money.
+
+\subsection{Ethereum \& Base: the pragmatic frontier}
+
+Base is an Ethereum Layer-2 built by Coinbase; its ideology is a two-layer stack --- Ethereum's principles underneath, Coinbase's pragmatism on top.
+
+\begin{itemize}
+  \item \textbf{Ethereum's credo: the world computer.} Credible neutrality, maximal decentralization and security, and ``money legos'' --- composable financial primitives anyone can build on without permission. Culture and money share one settlement layer.
+  \item \textbf{Base's credo: bring the next million onchain.} Where Ethereum purists optimize for decentralization, Base optimizes for \emph{reach}: cheap, fast, mainstream, consumer-social. It is candidly corporate-backed and (today) runs a centralized sequencer --- a deliberate trade of purity for usability and scale.
+  \item \textbf{Financialization as a feature.} Zora's ``every post is a coin'' treats culture as an asset class by default: attention becomes a bonding curve, a follow becomes a trade. To its believers this is \emph{empowerment} --- creators capture the upside of their virality directly, continuously, permissionlessly. To skeptics it is a casino wearing an art gallery's clothes.
+  \item \textbf{Farcaster's credo: sufficiently-decentralized social.} A protocol, not a platform; portable identity and social graph; distribution that no single app controls. This is the piece Tezos structurally lacks --- an audience layer where a mint is born already discoverable.
+\end{itemize}
+
+\noindent\textbf{What you adopt:} reach, liquidity, real-time distribution, and a shot at asymmetric upside --- inside a culture that is fast, financialized, attention-driven, and comfortable calling art a coin. \textbf{What you renounce:} the clean/anti-speculation ethic, decentralization purism, and the slow-collector relationship. Base is where autonomous minting can \emph{occasionally} earn, precisely because it has fused art with a speculation-and-distribution machine.
+
+\subsection{Solana and the finance-maximalist critique}
+
+Worth naming as the honest antagonist. Solana's leadership publicly dismissed autonomous art-coins as pure speculation ``with no claim on cash flows.'' The critique cuts both ways: it is a warning that a KidLispMasks \emph{coin} is a momentum instrument, not a durable asset --- and a reminder that the ideologies above are contested, not settled. Throughput-and-finance maximalism is its own worldview, and it regards the Zora model as fin-tainment.
+
+\subsection{The tension for this practice}
+
+The two homes pull opposite ways, and the pull is \emph{ideological before it is financial}. Tezos aligns with the maker's own stated aesthetics --- refusal, care, sustainability, defense against capture --- and happens to be where the plumbing already runs. Base aligns with the stated \emph{goal} --- money, reach, daily dollars --- and happens to demand a second pipeline and a tolerance for the casino. The decision is really: \emph{do you want KidLisp to be a citizen of the artist's republic, or a trader on the pragmatic frontier?} The recommendation below refuses to pretend this is only an engineering choice.
+
+\section{The Autonomous-Artist Genre: What Actually Earned}
+
+Every autonomous or high-frequency generative project that made real money did so through \emph{curation, scarcity, and narrative} --- never raw volume.
+
+\begin{itemize}
+  \item \textbf{Botto} (2021--present): $>$\$6M in sales, shown at Art Basel Hong Kong 2026. But a 5{,}000-person \textsc{dao} curates $\sim$70k images/week down to \emph{one} weekly auction piece. The money is in curation + scarcity + brand --- the opposite of a firehose.
+  \item \textbf{Alexis Andr\'e, ``Gift of Time''} (Art Blocks, $\sim$2021--22): a real-time generative \emph{clock}, 720 outputs, but a \emph{finite, bounded, curated} collection with a tight concept. Top piece $\sim$23~\textsc{eth}. The closest aesthetic precedent to the KidLispKlok idea --- and it worked because it was finite and framed.
+  \item \textbf{zxbt} (Zora, 2026): the pure-automation case. A spike, then fade. Earnings from speculation, not collecting.
+\end{itemize}
+
+The lesson is uniform: \emph{the bot is the easy 10\%; distribution, narrative, and curation are the 90\% that decides whether anything sells.} A finite, conceptually-framed series (``the KidLisp Clock: the machine's daily dreaming, in faces'') has the Botto/Andr\'e upside profile; an infinite tap has the spam profile.
+
+\section{Recommendation: Where To Go}
+
+\textbf{Build it --- but not the firehose, and not as a wage.} Three commitments:
+
+\begin{enumerate}
+  \item \textbf{Curate, do not flood.} Generate \emph{many} candidate faces per hour; keep only the best one. The quality gate becomes a \emph{taste} gate (new $\cdot$ has \texttt{\$code} $\cdot$ animated $\cdot$ works $\cdot$ reads-as-a-face), not merely a does-it-compile gate. Frame the series as finite and conceptual, not as an endless mint.
+  \item \textbf{Tezos canonical; Base as distribution mirror.} Keep the source-of-truth artifact where your plumbing, provenance, and values already live: the Tezos ``keep.'' Bolt Base on as a \emph{write-only} distribution layer --- mint the same \textsc{ipfs} bundle as a Zora 1155 edition, cast it via Neynar into Farcaster, and set yourself as \texttt{mintReferral}/\texttt{platformReferrer} everywhere to capture every fee stream. This reuses the chain-agnostic oven output and your existing dual-write muscle memory. Reserve \emph{coin} launches for selectively ``coining'' standout pieces --- that is where the attention and the real fee dollars are, and per-hour coining is the value-destroying path.
+  \item \textbf{Model it correctly.} This is \emph{provenance-and-brand infrastructure that occasionally spikes}, not daily income. Expect fees and storage of \$20--140/month and revenue of tens of dollars/month, lumpy and attention-driven. If a piece catches a Farcaster wave, the coin trade-fee stream is the upside --- treat it as a lottery ticket the machine prints for free, not a salary.
+\end{enumerate}
+
+\textbf{On the original goal.} Reliable \emph{daily} money does not come from autonomous minting on any chain --- the median creator makes lunch money, and the exceptions are viral lottery outcomes. For this practice, durable income remains where it already is: \emph{commissions, grants, and selling the instrument} (KidLisp and \ac{} as tools, teaching, and bespoke work). The KidLispMasks clock is worth building for what it \emph{is} --- a self-operating body of work, a distinct collectible identity, a daily act of machine-made delight, and a standing distribution surface that can occasionally pay --- not for a daily-wage fantasy it structurally cannot fulfill.
+
+\begin{quote}
+\small\itshape
+Mine \textsc{btx} for the commodity bet. Mint KidLisp for the culture, the corpus, and the occasional spike. Earn your rent from commissions and grants. Three different machines; do not ask any one of them to be the others.
+\end{quote}
+
+\section{Appendix: Cost \& Revenue at a Glance}
+
+\begin{center}
+\small
+\begin{tabularx}{\columnwidth}{@{}lXX@{}}
+\toprule
+ & \textbf{Tezos (keep)} & \textbf{Base/Zora} \\
+\midrule
+Mint cost & \$0.05--0.20/piece & $<$\$0.05 gas; collector pays \\
+Monthly (720) & \$20--140 fees & $\sim$gas only \\
+Creator income & sale price (rare) & \$0.5/mint; 0.5\% coin vol.\ \\
+Distribution & none (curation) & Farcaster in-feed \\
+Realistic /mo & $\sim$\$0 & tens of \$, lumpy \\
+Provenance fit & strong (1/1) & 1155 fine; coin weak \\
+Values & clean, slow, art-first & fast, financialized, reach \\
+Already built? & yes (in \ac{}) & net-new pipeline \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\vspace{0.4em}
+\section*{Sources}
+\small
+\noindent Market and mechanics compiled 2026-07-03 from primary and secondary sources:
+
+\begin{itemize}\footnotesize
+  \item Zora Coins SDK, rewards, referral rewards, Protocol (1155) SDK, Timed Sale Strategy --- \url{https://docs.zora.co}
+  \item Neynar acquires Farcaster --- \url{https://neynar.com/blog/neynar-is-acquiring-farcaster}; \url{https://www.theblock.co/post/386549}
+  \item Farcaster Mini Apps spec --- \url{https://miniapps.farcaster.xyz/docs/specification}; Neynar docs --- \url{https://docs.neynar.com}
+  \item Autonomous AI artist on Zora (zxbt) --- \url{https://thedefiant.io/news/nfts-and-web3/autonomous-ai-artist-coin-on-zora-briefly-surges-11-000-on-first-day}
+  \item Messari, State of Tezos Q3/Q4 2025 --- \url{https://messari.io/report/state-of-tezos-q3-2025}; \url{https://messari.io/report/state-of-tezos-q4-2025}
+  \item Tezos dapp volumes --- \url{https://tzkt.io/dapps}; objkt protocol/API --- \url{https://docs.objkt.com}
+  \item fx(hash) multichain / \$FXH on Base --- \url{https://nftnow.com/news/exclusive-fxhash-2-0-debuts-ethereum-integration-and-on-chain-minting/}; \url{https://docs.fxhash.xyz/fxh-token}
+  \item Tezos minting via Taquito + \textsc{ipfs} --- \url{https://docs.tezos.com/tutorials/create-nfts/}; fees/storage --- \url{https://tezos.com/minting/}
+  \item Botto --- \url{https://botto.com/}; \url{https://www.cnbc.com/2024/12/23/botto-the-ai-machine-artist-making-millions-of-dollars.html}
+  \item objkt bootloader (on-chain generative) --- \url{https://github.com/objkt-com/bootloader-monorepo}; \url{https://bootloader.art/}
+\end{itemize}
+
+\vspace{0.5em}
+\noindent{\footnotesize\color{acgray} Internal \ac{} plumbing (keep/mint/oven/objkt paths) verified against the live codebase, 2026-07-03. Figures are order-of-magnitude; verify live 1155 timed-sale fee splits before wiring payout math.}
+
+\end{document}

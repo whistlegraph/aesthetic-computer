@@ -1,28 +1,37 @@
 A warm, hand-drawn illustration for a music-app launch — painterly and poster-like, not a
-photo. Same medium throughout: soft off-white paper ground, confident inked outlines,
-gentle gouache-like shading, a little hand-drawn texture and grain, subtle drop shadows.
+photo. Soft off-white paper ground, confident inked outlines, gentle gouache-like shading,
+a little hand-drawn texture and grain, subtle drop shadows.
 
-Scene: a young man — the person in the portrait reference, with his shoulder-length
-light-brown hair, kind face, gentle happy half-smile, a striped button-up shirt — seen
-from a three-quarter angle slightly ABOVE and in front, leaning in over a desk with a
-joyful, absorbed, performing expression, like a pianist mid-phrase. He is playing TWO
-small laptops at ONCE, set side by side on the desk and angled toward each other like a
-twin-keyboard / dual-piano rig.
+Scene: the young man from the portrait reference — shoulder-length light-brown hair, kind
+face, gentle happy half-smile, a striped button-up shirt — seen from a three-quarter angle
+slightly ABOVE and in front, leaning in over a wooden desk with a joyful, absorbed,
+performing expression, like a pianist mid-phrase. He is playing TWO small laptops at ONCE,
+set side by side and angled toward each other like a twin-keyboard / dual-piano rig.
+
+CRITICAL — get the laptop geometry right, using the laptop reference images:
+• Each machine is a real, thin modern aluminum-unibody laptop (MacBook-Air-like), with a
+  clean wedge base and a single thin flat display lid. Draw the lids well-formed and
+  believable: each lid stands OPEN and UPRIGHT behind its keyboard at a natural ~100–110°
+  angle, a slim rectangular screen — not warped, melted, curled, or doubled.
+• Both keyboards sit flat on the desk facing up toward the viewer, drawn in ONE honest,
+  consistent perspective that matches the desk and the viewing angle. The two keyboards are
+  parallel to each other and to the desk edge — do NOT rotate, skew, fan, or tilt them
+  independently. Straight, even rows of square keycaps in correct foreshortening.
+• Match the reference machines' proportions and the flat keyboard layout exactly.
 
 The LEFT laptop is the pale-green (citrus) colorway; the RIGHT laptop is the lavender
-(indigo) colorway — match the two reference machines exactly. On BOTH keyboards render the
-piano treatment: pale near-white "white" natural keys, and the instrument's note keys as
-the deeper accent "black" keys (the green machine's note keys are BLUE, the lavender
-machine's note keys are GREEN), softly glowing. The lit note keys are Q W R T Y U O P on
-the top row, S on the home row, and Z and V on the bottom row — the same on both machines.
-Keep every keycap legible with its own letter/legend.
+(indigo) colorway. On BOTH keyboards render the piano treatment: pale near-white "white"
+natural keys, and the note keys as the deeper accent "black" keys (the green machine's note
+keys are BLUE, the lavender machine's note keys are GREEN), softly glowing. The lit note
+keys are Q W R T Y U O P on the top row, S on the home row, and Z and V on the bottom row —
+identical on both machines. Every keycap legible with its own letter.
 
-His TWO hands are down ON the keyboards — his left hand playing the green laptop's keys,
-his right hand playing the lavender laptop's keys, fingers curved on the caps like a
-musician playing two instruments together. Hands drawn cleanly and correctly (five fingers
-each, natural playing posture).
+His TWO hands are down ON the keyboards — left hand playing the green laptop, right hand
+playing the lavender laptop, fingers curved on the caps like a musician. Hands drawn
+cleanly and anatomically correct (five fingers each, natural playing posture).
 
-Musical grace notes and faint sparkles rise from both glowing keyboards. Joyful, tactile,
-instrument-performance energy — he is clearly PLAYING these machines like a musician, not
-typing. Keep the composition clean and elegant with generous negative space above him for
-a headline. No text, no logos, no on-screen UI on the open lids.
+Musical grace notes and faint sparkles rise from both glowing keyboards — blue notes on the
+left, green on the right. Joyful, tactile, instrument-performance energy: he is clearly
+PLAYING these machines like a musician, not typing. Clean, elegant composition with
+generous negative space above him for a headline. No text, no logos, no photo wallpaper on
+the open screens — leave the lids' screens a soft plain glow.

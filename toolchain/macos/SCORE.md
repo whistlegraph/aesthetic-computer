@@ -1,14 +1,18 @@
 # toolchain/macos — SCORE
 
-Conventions for working on @jeffrey's macOS host (the MacBook Neo).
+Conventions for working on @jeffrey's macOS hosts — the fleet (neo,
+blueberry, panda, chicken). All run the same user `jas`, so the
+`/Users/jas/...` paths below are identical on every machine. Machine
+specifics (e.g. neo's drive size) are called out inline.
 
 ---
 
 ## The Desktop convention
 
-**The macbook neo `~/Desktop/` should ONLY contain the `Shelf`
+**On every fleet Mac, `~/Desktop/` should ONLY contain the `Shelf`
 alias** (plus macOS system dotfiles like `.DS_Store` / `.localized`).
-Everything else is media cruft and needs to be relocated.
+Everything else is media cruft and needs to be relocated. (Adopted on
+neo first, then blueberry 2026-07-03; same convention fleet-wide.)
 
 ### Why
 
@@ -84,8 +88,10 @@ sees the real bytes — works fine, unlike the manually-quoted path).
 
 ## Reclaiming disk space
 
-The Neo is a 228 GB drive and lives between 85–99% full. When it
-gets tight, scan in this order — biggest wins first, safest first.
+Drive pressure varies by machine (neo is a 228 GB drive that lives
+between 85–99% full; blueberry is a 460 GB drive, ~60% as of
+2026-07-03). When any of them gets tight, scan in this order — biggest
+wins first, safest first.
 
 ### Audit pass
 

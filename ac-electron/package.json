@@ -47,6 +47,10 @@
     },
     "extraResources": [
       {
+        "from": "../tezos/ac-login.mjs",
+        "to": "ac-login.mjs"
+      },
+      {
         "from": "build/icons/pals.svg",
         "to": "pals.svg"
       },

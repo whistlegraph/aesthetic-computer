@@ -514,3 +514,6 @@ wave-wizard/samples/
 *.bak.png
 # macOS Finder metadata
 .DS_Store
+
+# Mac App Store build output
+slab/menuband/.build-mas/

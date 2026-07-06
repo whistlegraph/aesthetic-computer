@@ -40,9 +40,12 @@ const apiKey = loadOpenAIKey();
 const prompt = readFileSync(PROMPT_PATH, "utf8").trim();
 const size = "1024x1536"; // portrait hero — headline room above
 
-// Refs: Jeffrey (likeness) + both colorway machines (bodies + piano keys).
+// Refs: Jeffrey (likeness) + a full open-laptop shot (correct lid/body/
+// perspective) + both flat colorway keyboards (bodies + piano-key layout).
+// More real input imagery → less invented, warped geometry.
 const REFS = [
-  `${REPO}/papers/figures/refs/jeffrey-01-2k.jpg`,
+  `${HERE}/refs/jeffrey-face.jpg`,
+  `${HERE}/refs/neo-open-display.jpg`,
   `${HERE}/refs/neo-twotone-citrus-blue.jpg`,
   `${HERE}/refs/neo-twotone-indigo-green.jpg`,
 ].filter((p) => {

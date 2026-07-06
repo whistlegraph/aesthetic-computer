@@ -1,0 +1,211 @@
+% !TEX program = xelatex
+\documentclass[9pt]{article}
+\usepackage[paperwidth=4in,paperheight=6in,top=0.32in,bottom=0.35in,left=0.32in,right=0.32in]{geometry}
+\usepackage{fontspec}
+\setmainfont{lmroman10-regular.otf}[BoldFont=lmroman10-bold.otf,ItalicFont=lmroman10-italic.otf]
+\setmonofont{lmmono10-regular.otf}[Scale=0.85]
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\usepackage{xcolor}
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\usepackage{graphicx}
+\graphicspath{{figures/}}
+\usepackage{qrcode}
+\usepackage{listings}
+\lstset{basicstyle=\ttfamily\tiny\color{acdark},breaklines=true,breakatwhitespace=false,columns=fullflexible,keepspaces=true,frame=none,aboveskip=2pt,belowskip=0pt,xleftmargin=0pt}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,urlcolor=acpurple,pdftitle={kidlispkids cards},pdfauthor={@jeffrey}}
+\pagestyle{empty}
+\newcommand{\acrule}{\textcolor{acpink}{\rule{\textwidth}{1pt}}}
+\begin{document}
+\centering
+
+\vspace*{0.7in}
+{\acbold\fontsize{30pt}{34pt}\selectfont\color{acdark} kidlispkids}\par
+\vspace{0.3em}{\aclight\fontsize{12pt}{15pt}\selectfont\color{acpink} a turtle-graphics litter}\par
+\vspace{1.3em}\acrule\par\vspace{0.8em}
+{\fontsize{11pt}{15pt}\selectfont 10 living KidLisp pieces\\ scan a card or visit \texttt{aesthetic.computer/\$code}}\par
+\vspace{1.2em}\qrcode[height=1in]{https://aesthetic.computer}\par
+\vspace{0.4em}{\color{acgray}\footnotesize aesthetic.computer}\par
+\vspace{1.1em}{\color{acgray}\small authored by \href{https://prompt.ac/@jeffrey}{@jeffrey} \textbullet\ 2026-07-05}\par
+\vfill{\color{acgray}\footnotesize one card per kid \textrightarrow{} scan to run it live}\par
+\clearpage
+
+\vspace*{0.02in}\noindent
+\begin{minipage}[c]{0.66\textwidth}\raggedright
+{\acbold\fontsize{20pt}{22pt}\selectfont\color{acdark} Spiky Kid}\par
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acpink} kidlispkids \textperiodcentered\ face}\par
+\vspace{2pt}{\ttfamily\small\color{acpurple} aesthetic.computer/\$c87}
+\end{minipage}\hfill\begin{minipage}[c]{0.3\textwidth}\raggedleft
+\qrcode[height=0.82in]{https://aesthetic.computer/\$c87}\\[1pt]{\color{acgray}\fontsize{6pt}{7pt}\selectfont scan to run}
+\end{minipage}\par\vspace{5pt}
+\fbox{\includegraphics[width=0.74\textwidth]{c87.png}}\par\vspace{4pt}
+\begin{flushleft}\begin{lstlisting}
+(wipe (2s... lavender thistle plum))
+(ink navajowhite)(circle w/2 h/2 (min w h)*0.3)
+(ink saddlebrown)(up)(goto (- w/2 (min w h)*0.22) (- h/2 (min w h)*0.13))(down)
+(face (+ 290 (* 12 (sin))))(crawl (min w h)*0.2)(face 65)(crawl (min w h)*0.16)
+(face (+ 284 (* 12 (sin))))(crawl (min w h)*0.2)(face 65)(crawl (min w h)*0.16)
+(face (+ 290 (* 12 (sin))))(crawl (min w h)*0.2)(face 65)(crawl (min w h)*0.16)
+(ink black)(circle (- w/2 (min w h)*0.12) (- h/2 (min w h)*0.02) (min w h)*0.045)(circle (+ w/2 (min w h)*0.12) (- h/2 (min w h)*0.02) (min w h)*0.045)
+(ink crimson)(up)(goto (- w/2 (min w h)*0.14) (+ h/2 (min w h)*0.12))(down)(goto w/2 (+ h/2 (min w h)*0.2 (* (min w h)*0.05 (sin))))(goto (+ w/2 (min w h)*0.14) (+ h/2 (min w h)*0.12))
+\end{lstlisting}\end{flushleft}\clearpage
+\vspace*{0.02in}\noindent
+\begin{minipage}[c]{0.66\textwidth}\raggedright
+{\acbold\fontsize{20pt}{22pt}\selectfont\color{acdark} Cat Kid}\par
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acpink} kidlispkids \textperiodcentered\ face}\par
+\vspace{2pt}{\ttfamily\small\color{acpurple} aesthetic.computer/\$ck2}
+\end{minipage}\hfill\begin{minipage}[c]{0.3\textwidth}\raggedleft
+\qrcode[height=0.82in]{https://aesthetic.computer/\$ck2}\\[1pt]{\color{acgray}\fontsize{6pt}{7pt}\selectfont scan to run}
+\end{minipage}\par\vspace{5pt}
+\fbox{\includegraphics[width=0.74\textwidth]{ck2.png}}\par\vspace{4pt}
+\begin{flushleft}\begin{lstlisting}
+(wipe (2s... midnightblue navy indigo))
+(ink gold)(circle w/2 h/2 (min w h)*0.32)
+(ink black)(circle (- w/2 (min w h)*0.11) (- h/2 (min w h)*0.06) (min w h)*0.038)(circle (+ w/2 (min w h)*0.11) (- h/2 (min w h)*0.06) (min w h)*0.038)
+(ink white)(up)(goto (- w/2 (min w h)*0.28) (+ h/2 (min w h)*0.09 (* (min w h)*0.03 (sin))))(down)(goto (- w/2 (min w h)*0.04) (+ h/2 (min w h)*0.02))(goto (- w/2 (min w h)*0.28) (- h/2 (min w h)*0.02 (* (min w h)*0.03 (sin))))
+(ink white)(up)(goto (+ w/2 (min w h)*0.28) (+ h/2 (min w h)*0.09 (* (min w h)*0.03 (sin))))(down)(goto (+ w/2 (min w h)*0.04) (+ h/2 (min w h)*0.02))(goto (+ w/2 (min w h)*0.28) (- h/2 (min w h)*0.02 (* (min w h)*0.03 (sin))))
+(ink coral)(circle w/2 (+ h/2 (min w h)*0.03) (min w h)*0.03)
+(ink deeppink)(up)(goto (- w/2 (min w h)*0.1) (+ h/2 (min w h)*0.12))(down)(goto (- w/2 (min w h)*0.04) (+ h/2 (min w h)*0.17 (* (min w h)*0.03 (sin))))(goto (+ w/2 (min w h)*0.04) (+ h/2 (min w h)*0.17 (* (min w h)*0.03 (sin))))(goto (+ w/2 (min w h)*0.1) (+ h/2 (min w h)*0.12))
+\end{lstlisting}\end{flushleft}\clearpage
+\vspace*{0.02in}\noindent
+\begin{minipage}[c]{0.66\textwidth}\raggedright
+{\acbold\fontsize{20pt}{22pt}\selectfont\color{acdark} Wiggle Bug}\par
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acpink} kidlispkids \textperiodcentered\ critter}\par
+\vspace{2pt}{\ttfamily\small\color{acpurple} aesthetic.computer/\$aku}
+\end{minipage}\hfill\begin{minipage}[c]{0.3\textwidth}\raggedleft
+\qrcode[height=0.82in]{https://aesthetic.computer/\$aku}\\[1pt]{\color{acgray}\fontsize{6pt}{7pt}\selectfont scan to run}
+\end{minipage}\par\vspace{5pt}
+\fbox{\includegraphics[width=0.74\textwidth]{aku.png}}\par\vspace{4pt}
+\begin{flushleft}\begin{lstlisting}
+(wipe (4s... teal darkslategray))
+(ink (2s... orange gold))(circle w/2 h/2 (min w h)*0.15)
+(up)(goto w/2 h/2)(down)(face 250)(left (* 30 (sin)))(crawl (min w h)*0.3)
+(up)(goto w/2 h/2)(down)(face 290)(right (* 30 (sin)))(crawl (min w h)*0.3)
+(up)(goto (- w/2 (min w h)*0.1) h/2)(down)(face 175)(left (* 25 (sin)))(crawl (min w h)*0.15)
+(up)(goto (+ w/2 (min w h)*0.1) h/2)(down)(face 5)(right (* 25 (sin)))(crawl (min w h)*0.15)
+(ink white)(circle (- w/2 (min w h)*0.06) (- h/2 (min w h)*0.03) (min w h)*0.03)(circle (+ w/2 (min w h)*0.06) (- h/2 (min w h)*0.03) (min w h)*0.03)
+(ink black)(circle (- w/2 (min w h)*0.06) (- h/2 (min w h)*0.03) (min w h)*0.013)(circle (+ w/2 (min w h)*0.06) (- h/2 (min w h)*0.03) (min w h)*0.013)
+\end{lstlisting}\end{flushleft}\clearpage
+\vspace*{0.02in}\noindent
+\begin{minipage}[c]{0.66\textwidth}\raggedright
+{\acbold\fontsize{20pt}{22pt}\selectfont\color{acdark} Swim Fish}\par
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acpink} kidlispkids \textperiodcentered\ critter}\par
+\vspace{2pt}{\ttfamily\small\color{acpurple} aesthetic.computer/\$fdg}
+\end{minipage}\hfill\begin{minipage}[c]{0.3\textwidth}\raggedleft
+\qrcode[height=0.82in]{https://aesthetic.computer/\$fdg}\\[1pt]{\color{acgray}\fontsize{6pt}{7pt}\selectfont scan to run}
+\end{minipage}\par\vspace{5pt}
+\fbox{\includegraphics[width=0.74\textwidth]{fdg.png}}\par\vspace{4pt}
+\begin{flushleft}\begin{lstlisting}
+(wipe (5s... midnightblue navy))
+(ink (3s... aqua deepskyblue))(circle (+ w/2 (* (min w h)*0.06 (sin))) h/2 (min w h)*0.13)
+(up)(goto (+ w/2 (min w h)*0.09) h/2)(down)(face 30)(right (* 35 (sin)))(crawl (min w h)*0.16)
+(up)(goto (+ w/2 (min w h)*0.09) h/2)(down)(face 330)(left (* 35 (sin)))(crawl (min w h)*0.16)
+(ink hotpink)(up)(goto (+ w/2 (* (min w h)*0.06 (sin))) (- h/2 (min w h)*0.1))(down)(face 90)(right (* 20 (sin)))(crawl (min w h)*0.08)
+(ink white)(circle (- (+ w/2 (* (min w h)*0.06 (sin))) (min w h)*0.06) (- h/2 (min w h)*0.02) (min w h)*0.028)
+(ink black)(circle (- (+ w/2 (* (min w h)*0.06 (sin))) (min w h)*0.06) (- h/2 (min w h)*0.02) (min w h)*0.012)
+\end{lstlisting}\end{flushleft}\clearpage
+\vspace*{0.02in}\noindent
+\begin{minipage}[c]{0.66\textwidth}\raggedright
+{\acbold\fontsize{20pt}{22pt}\selectfont\color{acdark} Lissajous Loom}\par
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acpink} kidlispkids \textperiodcentered\ line-art}\par
+\vspace{2pt}{\ttfamily\small\color{acpurple} aesthetic.computer/\$wdr}
+\end{minipage}\hfill\begin{minipage}[c]{0.3\textwidth}\raggedleft
+\qrcode[height=0.82in]{https://aesthetic.computer/\$wdr}\\[1pt]{\color{acgray}\fontsize{6pt}{7pt}\selectfont scan to run}
+\end{minipage}\par\vspace{5pt}
+\fbox{\includegraphics[width=0.74\textwidth]{wdr.png}}\par\vspace{4pt}
+\begin{flushleft}\begin{lstlisting}
+(wipe black)
+(down)
+(repeat 120 i
+  (ink (+ 128 (* 127 (sin (* i 0.2)))) (+ 128 (* 127 (sin (+ 2 (* i 0.33))))) (+ 128 (* 127 (cos (* i 0.15)))))
+  (goto (+ w/2 (* (min w h)*0.44 (sin (+ (* i 0.34) (* frame 0.04)))))
+        (+ h/2 (* (min w h)*0.44 (cos (+ (* i 0.21) (* frame 0.03)))))))
+\end{lstlisting}\end{flushleft}\clearpage
+\vspace*{0.02in}\noindent
+\begin{minipage}[c]{0.66\textwidth}\raggedright
+{\acbold\fontsize{20pt}{22pt}\selectfont\color{acdark} Petal Spin}\par
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acpink} kidlispkids \textperiodcentered\ line-art}\par
+\vspace{2pt}{\ttfamily\small\color{acpurple} aesthetic.computer/\$y8k}
+\end{minipage}\hfill\begin{minipage}[c]{0.3\textwidth}\raggedleft
+\qrcode[height=0.82in]{https://aesthetic.computer/\$y8k}\\[1pt]{\color{acgray}\fontsize{6pt}{7pt}\selectfont scan to run}
+\end{minipage}\par\vspace{5pt}
+\fbox{\includegraphics[width=0.74\textwidth]{y8k.png}}\par\vspace{4pt}
+\begin{flushleft}\begin{lstlisting}
+(wipe indigo)
+(down)
+(repeat 220 i
+  (ink (+ 128 (* 127 (sin (* i 0.11)))) 90 (+ 128 (* 127 (cos (* i 0.07)))))
+  (goto (+ w/2 (* (min w h)*0.42 (sin (* i 0.16)) (cos (+ (* i 0.09) (* frame 0.04)))))
+        (+ h/2 (* (min w h)*0.42 (sin (* i 0.16)) (sin (+ (* i 0.09) (* frame 0.04)))))))
+\end{lstlisting}\end{flushleft}\clearpage
+\vspace*{0.02in}\noindent
+\begin{minipage}[c]{0.66\textwidth}\raggedright
+{\acbold\fontsize{20pt}{22pt}\selectfont\color{acdark} Star Rosette}\par
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acpink} kidlispkids \textperiodcentered\ star}\par
+\vspace{2pt}{\ttfamily\small\color{acpurple} aesthetic.computer/\$zz4}
+\end{minipage}\hfill\begin{minipage}[c]{0.3\textwidth}\raggedleft
+\qrcode[height=0.82in]{https://aesthetic.computer/\$zz4}\\[1pt]{\color{acgray}\fontsize{6pt}{7pt}\selectfont scan to run}
+\end{minipage}\par\vspace{5pt}
+\fbox{\includegraphics[width=0.74\textwidth]{zz4.png}}\par\vspace{4pt}
+\begin{flushleft}\begin{lstlisting}
+(wipe black)
+(up)(goto w/2 h/2)(down)(face 270)
+(ink (0.2s red orange yellow lime aqua blue violet))
+(repeat 12 (repeat 5 (crawl (min w h)*0.3) (right 144)) (right 30))
+(spin 1)
+\end{lstlisting}\end{flushleft}\clearpage
+\vspace*{0.02in}\noindent
+\begin{minipage}[c]{0.66\textwidth}\raggedright
+{\acbold\fontsize{20pt}{22pt}\selectfont\color{acdark} Hexagon Spirograph}\par
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acpink} kidlispkids \textperiodcentered\ star}\par
+\vspace{2pt}{\ttfamily\small\color{acpurple} aesthetic.computer/\$ong}
+\end{minipage}\hfill\begin{minipage}[c]{0.3\textwidth}\raggedleft
+\qrcode[height=0.82in]{https://aesthetic.computer/\$ong}\\[1pt]{\color{acgray}\fontsize{6pt}{7pt}\selectfont scan to run}
+\end{minipage}\par\vspace{5pt}
+\fbox{\includegraphics[width=0.74\textwidth]{ong.png}}\par\vspace{4pt}
+\begin{flushleft}\begin{lstlisting}
+(wipe navy)
+(up)(goto w/2 h/2)(down)(face 0)
+(ink (0.15s aqua magenta gold white))
+(repeat 18 (repeat 6 (crawl (min w h)*0.2) (right 60)) (right 20))
+(spin 1)
+\end{lstlisting}\end{flushleft}\clearpage
+\vspace*{0.02in}\noindent
+\begin{minipage}[c]{0.66\textwidth}\raggedright
+{\acbold\fontsize{20pt}{22pt}\selectfont\color{acdark} Rainbow Spiral-Sun}\par
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acpink} kidlispkids \textperiodcentered\ spiral}\par
+\vspace{2pt}{\ttfamily\small\color{acpurple} aesthetic.computer/\$oui}
+\end{minipage}\hfill\begin{minipage}[c]{0.3\textwidth}\raggedleft
+\qrcode[height=0.82in]{https://aesthetic.computer/\$oui}\\[1pt]{\color{acgray}\fontsize{6pt}{7pt}\selectfont scan to run}
+\end{minipage}\par\vspace{5pt}
+\fbox{\includegraphics[width=0.74\textwidth]{oui.png}}\par\vspace{4pt}
+\begin{flushleft}\begin{lstlisting}
+(once (wipe black))
+(up)(goto w/2 h/2)(down)
+(ink (0.1s... red orange yellow lime cyan blue violet))
+(crawl (min w h)*0.44)
+(right 11)
+(spin 0.3)
+\end{lstlisting}\end{flushleft}\clearpage
+\vspace*{0.02in}\noindent
+\begin{minipage}[c]{0.66\textwidth}\raggedright
+{\acbold\fontsize{20pt}{22pt}\selectfont\color{acdark} Breathing Rosette}\par
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acpink} kidlispkids \textperiodcentered\ spiral}\par
+\vspace{2pt}{\ttfamily\small\color{acpurple} aesthetic.computer/\$4a8}
+\end{minipage}\hfill\begin{minipage}[c]{0.3\textwidth}\raggedleft
+\qrcode[height=0.82in]{https://aesthetic.computer/\$4a8}\\[1pt]{\color{acgray}\fontsize{6pt}{7pt}\selectfont scan to run}
+\end{minipage}\par\vspace{5pt}
+\fbox{\includegraphics[width=0.74\textwidth]{4a8.png}}\par\vspace{4pt}
+\begin{flushleft}\begin{lstlisting}
+(once (wipe navy))
+(up)(goto w/2 h/2)(down)
+(ink (0.12s... gold orange deeppink violet aqua))
+(crawl (* (min w h) 0.15 (+ 2 (sin))))
+(right 7)
+(spin -0.4)
+\end{lstlisting}\end{flushleft}\clearpage
+\end{document}

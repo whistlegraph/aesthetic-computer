@@ -1115,7 +1115,13 @@ function launchNativeNotepat() {
 // sign out (CLI clears it), so every AC tool reads the same session.
 const os = require('os');
 const AC_TOKEN_PATH = path.join(os.homedir(), '.ac-token');
-const acLoginPath = path.join(__dirname, '..', 'tezos', 'ac-login.mjs');
+// Dev: run the CLI straight from the repo (../tezos). Packaged: it's bundled
+// into Resources via extraResources (see package.json build.extraResources),
+// because __dirname points inside app.asar where ../tezos doesn't exist —
+// which is why installed builds showed "AC sign-in unavailable".
+const acLoginPath = app.isPackaged
+  ? path.join(process.resourcesPath, 'ac-login.mjs')
+  : path.join(__dirname, '..', 'tezos', 'ac-login.mjs');
 
 // Read the shared AC session and derive a sign-in status + identity hint.
 // Returns { state: 'signed-in' | 'expired' | 'signed-out', who, expiresAt }.
