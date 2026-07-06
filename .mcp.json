@@ -19,6 +19,13 @@
       "env": {
         "AC_EMAIL_STYLE_GUIDE": "/Users/jas/aesthetic-computer/toolchain/email/style-guide.md"
       }
+    },
+    "frame": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "slab/bin/frame-mcp.mjs"
+      ]
     }
   }
 }
