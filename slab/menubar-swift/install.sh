@@ -242,13 +242,12 @@ ok "built: ${BUILT}"
 provision_iterm2_profiles
 provision_terminal_close_warning
 
-say "unloading any existing menubar launch agent"
-if launchctl list | grep -q computer.slab.menubar; then
-    launchctl unload "${PLIST_PATH}" 2>/dev/null || true
-    ok "unloaded computer.slab.menubar"
-else
-    warn "no running menubar to unload — skipping"
-fi
+# No unload here. A launchctl unload/load cycle re-registers the background item
+# and re-fires macOS's "App Background Activity — can run in the background"
+# notification on every install. We overwrite the bundle in place and restart via
+# `launchctl kickstart -k` below, which relaunches the new binary WITHOUT
+# re-registering. (The transient signing-helper job above is a separate throwaway.)
+say "leaving menubar agent registered (in-place restart later — no macOS nag)"
 
 say "installing app bundle → ${APP_DIR}"
 mkdir -p "${APP_BIN_DIR}"
@@ -305,8 +304,13 @@ mkdir -p "${LAUNCH_AGENTS}"
 sed "s|@HOME@|${REPO_HOME}|g" "${PLIST_TMPL}" > "${PLIST_PATH}"
 ok "plist written"
 
-say "loading launch agent"
-launchctl load "${PLIST_PATH}"
+say "(re)starting launch agent in place (kickstart, not load — avoids the macOS background nag)"
+_uid="$(id -u)"
+if launchctl print "gui/${_uid}/computer.slab.menubar" >/dev/null 2>&1; then
+    launchctl kickstart -k "gui/${_uid}/computer.slab.menubar"     # restart in place, no re-register
+else
+    launchctl bootstrap "gui/${_uid}" "${PLIST_PATH}" 2>/dev/null || launchctl load "${PLIST_PATH}"
+fi
 sleep 1
 if launchctl list | grep -q computer.slab.menubar; then
     ok "computer.slab.menubar is running"

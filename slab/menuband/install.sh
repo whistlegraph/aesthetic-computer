@@ -158,17 +158,13 @@ BUILT_LAUNCHER="${SCRIPT_DIR}/.build/universal/MenuBandLauncher"
 lipo -create -output "${BUILT_LAUNCHER}" "${ARM_LAUNCHER}" "${X86_LAUNCHER}"
 ok "built universal launcher: ${BUILT_LAUNCHER}"
 
-say "unloading any existing MenuBand launch agents"
-if launchctl list | grep -q computer.aestheticcomputer.menubandlauncher; then
-    launchctl unload "${LAUNCHER_PLIST_PATH}" 2>/dev/null || true
-    ok "unloaded computer.aestheticcomputer.menubandlauncher"
-fi
-if launchctl list | grep -q computer.aestheticcomputer.menuband; then
-    launchctl unload "${PLIST_PATH}" 2>/dev/null || true
-    ok "unloaded computer.aestheticcomputer.menuband"
-else
-    warn "no running MenuBand to unload — skipping"
-fi
+# NOTE: we deliberately do NOT unload the launch agents here. A launchctl
+# unload/load (or bootout/bootstrap) cycle re-registers the background item,
+# which makes macOS re-fire the "App Background Activity — can run in the
+# background" notification on every install. We overwrite the bundle in place and
+# restart via `launchctl kickstart -k` at the end, which relaunches from the new
+# bundle WITHOUT re-registering. (First-ever install still bootstraps once.)
+say "leaving launch agents registered (in-place restart later — no macOS nag)"
 
 say "installing app bundle → ${APP_DIR}"
 mkdir -p "${APP_BIN_DIR}" "${APP_RES}"
@@ -340,9 +336,17 @@ sed "s|@HOME@|${REPO_HOME}|g" "${PLIST_TMPL}" > "${PLIST_PATH}"
 sed "s|@HOME@|${REPO_HOME}|g" "${LAUNCHER_PLIST_TMPL}" > "${LAUNCHER_PLIST_PATH}"
 ok "plists written"
 
-say "loading launch agents"
-launchctl load "${PLIST_PATH}"
-launchctl load "${LAUNCHER_PLIST_PATH}"
+say "(re)starting launch agents in place (kickstart, not load — avoids the macOS background nag)"
+_uid="$(id -u)"
+for _svc in "computer.aestheticcomputer.menuband|${PLIST_PATH}" \
+            "computer.aestheticcomputer.menubandlauncher|${LAUNCHER_PLIST_PATH}"; do
+    _label="${_svc%%|*}"; _plist="${_svc#*|}"
+    if launchctl print "gui/${_uid}/${_label}" >/dev/null 2>&1; then
+        launchctl kickstart -k "gui/${_uid}/${_label}"       # restart in place, no re-register
+    else
+        launchctl bootstrap "gui/${_uid}" "${_plist}" 2>/dev/null || launchctl load "${_plist}"
+    fi
+done
 sleep 1
 if launchctl list | grep -q computer.aestheticcomputer.menuband; then
     ok "computer.aestheticcomputer.menuband is running"
