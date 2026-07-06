@@ -698,7 +698,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             KeyboardIconRenderer.iconScale =
                 max(1.0, min(1.6, (barThickness - 0.5) / baseIconH))
         }
+        // Keep Menu Band to the RIGHT of the wand: lower preferred position than
+        // datewizard's (higher = further left). Seed once; a ⌘-drag persists over it.
+        let mbPosKey = "NSStatusItem Preferred Position menuband"
+        if UserDefaults.standard.object(forKey: mbPosKey) == nil {
+            UserDefaults.standard.set(8, forKey: mbPosKey)
+        }
         statusItem = NSStatusBar.system.statusItem(withLength: KeyboardIconRenderer.imageSize.width)
+        statusItem.autosaveName = "menuband"
         debugLog("statusItem created, button=\(statusItem.button != nil) length=\(statusItem.length)")
         if let button = statusItem.button {
             let cell = NoHighlightStatusBarCell()
@@ -1995,7 +2002,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fitLayouts = layouts
 
         let startIdx = layouts.firstIndex(of: saved) ?? layouts.count - 1
-        fit = MenuBarFit(slug: "menuband", priority: 40, rungs: rungs,
+        // priority 20 (below datewizard's 40): Menu Band yields piano keys before
+        // the wand sheds its countdown badge.
+        fit = MenuBarFit(slug: "menuband", priority: 20, rungs: rungs,
                          statusItem: statusItem, startAt: startIdx) { [weak self] _, idx in
             guard let self, idx >= 0, idx < self.fitLayouts.count else { return }
             KeyboardIconRenderer.displayLayout = self.fitLayouts[idx]
