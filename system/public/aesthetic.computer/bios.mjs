@@ -12166,8 +12166,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // 🎯 Set cursor style from piece
     if (type === "cursor:set") {
-      const cursorStyle = content?.style || "auto";
-      document.body.style.cursor = cursorStyle;
+      const code = content?.style || "auto";
+      // 🐭 Translate AC cursor CODES → valid CSS. "native" / "precise" / "tiny"
+      // / "dot" aren't CSS cursor keywords, so writing them verbatim is a silent
+      // no-op — the browser rejects the value and leaves whatever inline cursor
+      // was there stuck. That's the "no cursor in the prompt" bug: an earlier
+      // piece sets a valid `cursor: none`, then the prompt asks for "native",
+      // the invalid write is dropped, and the stale "none" keeps the OS cursor
+      // hidden. pen.render() owns the on-canvas reticles + the native-cursor
+      // class; here we only drive the OS cursor. Valid CSS values (none,
+      // crosshair, …) pass straight through.
+      const CURSOR_CSS = { native: "auto", precise: "", tiny: "none", dot: "none" };
+      document.body.style.cursor = code in CURSOR_CSS ? CURSOR_CSS[code] : code;
       return;
     }
 
