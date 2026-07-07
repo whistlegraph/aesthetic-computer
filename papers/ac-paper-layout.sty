@@ -117,4 +117,45 @@
 \newcommand{\ac}{\textsc{Aesthetic Computer}}
 \newcommand{\acdot}{{\color{acpink}.}}
 
+% === BREAKABLE CODE (\code) ===
+% \code{...} sets its argument in \ttfamily and lets long identifiers, paths,
+% env-var names, op:// refs, and tokens WRAP instead of overflowing the measure
+% (in body text and inside tabularx/p{} cells alike) — so nothing breaks the
+% columnar arrangement. It breaks after the separators _ / . : - @ (preferred,
+% zero cost) and, only when a separator break would still overflow, between any
+% two characters (last resort, high penalty) so even a separator-less blob
+% wraps. The argument is re-tokenized wholesale (\scantokens) under active
+% separators rather than scanned token-by-token, so \char-based content
+% survives, e.g. \code{\char`\~/.hermes/config.yaml} keeps its ~, and \#, \$
+% escapes render as usual. Gate any paper with tools/check-columns.mjs.
+\newcommand{\codebreak}{\discretionary{}{}{}}   % zero-cost break at separators
+\newcommand{\codesoftbreak}{\penalty9999\relax} % last-resort break in long runs
+\begingroup
+  \catcode`\_=12 \catcode`\/=12 \catcode`\.=12
+  \catcode`\:=12 \catcode`\-=12 \catcode`\@=12
+  \gdef\codeUS{_}\gdef\codeSL{/}\gdef\codeDT{.}%
+  \gdef\codeCL{:}\gdef\codeDS{-}\gdef\codeAT{@}%
+\endgroup
+\begingroup
+  \catcode`\_=\active \catcode`\/=\active \catcode`\.=\active
+  \catcode`\:=\active \catcode`\-=\active \catcode`\@=\active
+  \gdef\codeActivate{%
+    \def_{\codeUS\codebreak}\def/{\codeSL\codebreak}\def.{\codeDT\codebreak}%
+    \def:{\codeCL\codebreak}\def-{\codeDS\codebreak}\def@{\codeAT\codebreak}%
+    \def\_{\codeUS\codebreak}}% underscores usually arrive as the \_ macro
+\endgroup
+\newcommand{\code}[1]{%
+  \begingroup
+    \ttfamily
+    \catcode`\_=\active \catcode`\/=\active \catcode`\.=\active
+    \catcode`\:=\active \catcode`\-=\active \catcode`\@=\active
+    \codeActivate
+    \ifdefined\XeTeXinterchartokenstate
+      \XeTeXinterchartokenstate=1
+      \XeTeXinterchartoks 0 0 = {\codesoftbreak}%
+    \fi
+    \endlinechar=-1 \everyeof{}%
+    \scantokens{#1}%
+  \endgroup}
+
 \endinput
