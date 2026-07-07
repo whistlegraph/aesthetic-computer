@@ -74,8 +74,17 @@ if profile == "fuser" {
     )
     plugins = [FuserPlugin(home: fuserHome, repo: repo, minimal: argv.contains("--minimal"))]
 } else {
-    // The star, for Fía. Glyph art ships in the .app's Resources (gold/silver).
+    // The star, for Fía. Glyph art ships in the .app's Resources (gold/silver),
+    // but poses pushed over the wire (ArtPlugin → ~/…/MacPal/art) win when
+    // present, so @jeffrey can restyle the star live. Clearing the wire art
+    // (art.mjs --clear) empties that dir and the bundle poses resume.
     func base(_ color: String) -> String { color == "silver" ? "star-silver" : "star-glyph" }
+    let artDir = starSupport + "/art"
+    func wireIdlePoses() -> [String]? {
+        guard let files = try? FileManager.default.contentsOfDirectory(atPath: artDir) else { return nil }
+        let idle = files.filter { $0.hasSuffix(".svg") && $0 != "sing.svg" }.sorted()
+        return idle.isEmpty ? nil : idle.map { artDir + "/" + $0 }
+    }
     config = PalConfig(
         profile: "star",
         palName: "star",
@@ -91,12 +100,20 @@ if profile == "fuser" {
         showsAbout: true,
         aboutDedication: "This MacPal was made for Fía and is maintained by @jeffrey",
         posePaths: { color in
-            [base(color), base(color) + "-2", base(color) + "-3"].compactMap { resource($0, "svg") }
+            if let wire = wireIdlePoses() { return wire }
+            return [base(color), base(color) + "-2", base(color) + "-3"].compactMap { resource($0, "svg") }
         },
-        singPath: { color in resource(base(color) + "-sing", "svg") }
+        singPath: { color in
+            let p = artDir + "/sing.svg"
+            if FileManager.default.fileExists(atPath: p) { return p }
+            return resource(base(color) + "-sing", "svg")
+        }
     )
     plugins = [
         AffirmationsPlugin(recipient: recipient, host: host, supportDir: starSupport),
+        // Live glyph art over the wire — downloads pushed poses, hot-swaps them,
+        // and reports what it renders back for the device round-trip.
+        ArtPlugin(recipient: recipient, host: host, supportDir: starSupport),
         // Fía's own manifestations, fetched live and cycled one per hour in a
         // bubble beside the star in mini mode.
         ManifestationsPlugin(recipient: recipient, host: host, supportDir: starSupport),

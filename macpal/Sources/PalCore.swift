@@ -494,18 +494,38 @@ final class PalController: NSObject {
         starColor = c
         try? c.write(toFile: config.colorFile, atomically: true, encoding: .utf8)
         loadGlyphs()
+        applyGlyphSwap()
+        let snd = NSSound(named: "Tink"); snd?.volume = 0.4; snd?.play()
+    }
+
+    // Swap the visible pose to the current glyph with a little squash — shared
+    // by the color toggle and the live art hot-swap (ArtPlugin).
+    private func applyGlyphSwap() {
         glyphState = min(glyphState, max(0, glyphImages.count - 1))
         if let iv = glyphView as? NSImageView, !glyphImages.isEmpty {
             iv.image = glyphImages[glyphState]
-            if let l = iv.layer {   // a little squash sells the change
+            if let l = iv.layer {
                 let s = CAKeyframeAnimation(keyPath: "transform.scale")
                 s.values = [0, 0.08, 0]; s.keyTimes = [0, 0.45, 1]
                 s.duration = 0.3; s.isAdditive = true
-                l.add(s, forKey: "colorPop")
+                l.add(s, forKey: "glyphPop")
             }
         }
         nameLabel.bounce()
-        let snd = NSSound(named: "Tink"); snd?.volume = 0.4; snd?.play()
+    }
+
+    // New glyph art arrived over the wire → re-read the SVGs from disk and
+    // hot-swap the visible pose live, no relaunch. (ArtPlugin calls this.)
+    func reloadArt() {
+        loadGlyphs()
+        applyGlyphSwap()
+        let snd = NSSound(named: "Pop"); snd?.volume = 0.3; snd?.play()
+    }
+
+    // The pose files the star is drawing from right now (idle poses, then sing).
+    // ArtPlugin reports these back so the device round-trip reflects the screen.
+    func currentArtPaths() -> [String] {
+        config.posePaths(starColor) + (config.singPath(starColor).map { [$0] } ?? [])
     }
 
     // ── right-click menu ──────────────────────────────────────────────────
