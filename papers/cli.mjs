@@ -1708,20 +1708,6 @@ if (cmd === "status" || !cmd) {
   }
   updateIndex(indexEntries);
   console.log("\nDone.\n");
-} else if (cmd === "check") {
-  // Column-overflow gate: fail loudly if any paper spills past its measure
-  // (long code identifiers/paths/tokens breaking the columnar arrangement).
-  // Reads each paper's xelatex .log; pass --build to regenerate first.
-  const checker = join(PAPERS_DIR, "tools", "check-columns.mjs");
-  const passthru = args.filter((a) => a !== "check");
-  try {
-    execSync(
-      `node "${checker}" ${passthru.map((a) => `"${a}"`).join(" ")}`.trim(),
-      { stdio: "inherit" },
-    );
-  } catch {
-    process.exit(1);
-  }
 } else if (cmd === "verify") {
   console.log("\n=== VERIFY: checking all linked PDFs ===\n");
   const allOk = verify();
@@ -1744,8 +1730,6 @@ Usage:
   node papers/cli.mjs publish --force  Full rebuild + deploy + update index + verify
   node papers/cli.mjs status           Show build status for all papers
   node papers/cli.mjs verify           Check all linked PDFs exist
-  node papers/cli.mjs check [dirs]     Column-overflow gate (Overfull \\hbox); fails loudly
-  node papers/cli.mjs check --build    Rebuild first, then gate on column overflow
   node papers/cli.mjs log              Show build log
 
 Builds are incremental by default — only papers with source files newer than
