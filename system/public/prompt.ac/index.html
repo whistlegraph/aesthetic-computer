@@ -50,6 +50,22 @@
   }
   .loading.gone { opacity: 0; }
 
+  /* ── DOM corner overlay — the crisp return-to-prompt chip that replaces the
+     runtime's composited corner label while in shellhtml mode. ───────────── */
+  .corner {
+    position: absolute; top: 8px; left: 8px; z-index: 2;
+    display: none; align-items: center; gap: 6px;
+    padding: 4px 9px; cursor: pointer; user-select: none;
+    background: color-mix(in srgb, var(--bar) 82%, transparent);
+    border: 1px solid var(--edge); border-radius: 6px;
+    color: var(--text); font-family: var(--font); font-size: 13px;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    text-shadow: 0 1px 2px rgba(0,0,0,.6);
+  }
+  .corner.on { display: flex; }
+  .corner:hover { border-color: var(--accent); }
+  .corner .back { color: var(--accent); font-weight: 700; }
+
   /* token colors (for the suggestion/echo line, shared class names with moat) */
   .t-handle { color: #ffb0a0; } .t-kidlisp { color: #ff8cc8; } .t-clock { color: #ffd24b; }
 </style>
@@ -63,6 +79,7 @@
   </div>
   <div class="stage">
     <iframe id="ac" title="Aesthetic Computer" allow="microphone; camera; midi; autoplay; clipboard-read; clipboard-write; fullscreen; xr-spatial-tracking"></iframe>
+    <div class="corner" id="corner" title="back to prompt"><span class="back">&lsaquo;</span><span id="cornerName"></span></div>
     <div class="loading" id="loading">booting aesthetic computer…</div>
   </div>
 
@@ -73,6 +90,8 @@ const $cmd = document.getElementById("cmd");
 const $here = document.getElementById("here");
 const $dot = document.getElementById("dot");
 const $loading = document.getElementById("loading");
+const $corner = document.getElementById("corner");
+const $cornerName = document.getElementById("cornerName");
 const frame = new ACFrame(document.getElementById("ac"));
 
 // Deep-link support that doesn't fight Caddy: prompt.ac/#clock stays on the
@@ -80,7 +99,9 @@ const frame = new ACFrame(document.getElementById("ac"));
 const initial = decodeURIComponent(location.hash.slice(1)) || "prompt";
 
 $dot.title = "booting…";
-frame.boot(initial);
+// shellhtml: the runtime's composited prompt + corner label stand down — this
+// page's DOM bar and corner chip are that chrome, at native resolution.
+frame.boot(initial, "nogap=true&nolabel=true&shellhtml=true");
 
 frame.onReady(() => {
   $dot.className = "dot ok"; $dot.title = "live";
@@ -88,14 +109,23 @@ frame.onReady(() => {
   $cmd.focus();
 });
 
-// Keep the bar + URL hash in sync with whatever the runtime is showing.
+// Keep the bar + URL hash + corner chip in sync with the runtime.
 frame.onPiece((slug) => {
   const name = slug || "prompt";
   $here.textContent = name;
   document.title = name === "prompt" ? "prompt.ac" : name + " · prompt.ac";
+  const onPiece = name !== "prompt";
+  $corner.classList.toggle("on", onPiece); // chip only overlays pieces
+  $cornerName.textContent = name;
   const h = "#" + name;
-  if (location.hash !== h && name !== "prompt") history.replaceState(null, "", h);
-  else if (name === "prompt" && location.hash) history.replaceState(null, "", location.pathname);
+  if (location.hash !== h && onPiece) history.replaceState(null, "", h);
+  else if (!onPiece && location.hash) history.replaceState(null, "", location.pathname);
+});
+
+// Corner chip → back to the prompt (the DOM twin of the composited label).
+$corner.addEventListener("click", () => {
+  frame.load("prompt");
+  $cmd.focus();
 });
 
 // Command bar → in-place piece load.

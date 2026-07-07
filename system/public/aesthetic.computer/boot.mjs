@@ -528,7 +528,7 @@ if (window.max?.outlet) {
 // List of legitimate query parameters that should be preserved
 const LEGITIMATE_PARAMS = [
   'icon', 'preview', 'signup', 'supportSignUp', 'success', 'code', 
-  'supportForgotPassword', 'message', 'vscode', 'nogap', 'nolabel', 
+  'supportForgotPassword', 'message', 'vscode', 'nogap', 'nolabel', 'shellhtml',
   'density', 'zoom', 'duration', 'session-aesthetic', 'session-sotce', 'notice', 'tv', 'highlight',
   'noauth', 'nocache', 'daw', 'width', 'height', 'desktop', 'device', 'perf', 'auto-scale', 'solo',
   'crossfade', 'maxfps'
@@ -1109,6 +1109,10 @@ const nogap = params.has("nogap") || params.has("desktop") || location.search.in
 // Check for nolabel parameter (no localStorage persistence)
 const nolabel = params.has("nolabel") || params.has("desktop") || location.search.includes("nolabel");
 
+// 🐚 shellhtml — an HTML shell (prompt.ac) hosts the runtime and owns the
+// prompt/corner chrome in DOM; the composited equivalents stand down.
+const shellhtml = params.has("shellhtml") || location.search.includes("shellhtml");
+
 // Check for desktop mode (Electron app) - combines nogap + nolabel
 const desktop = params.has("desktop") || location.search.includes("desktop");
 
@@ -1237,7 +1241,7 @@ if (window.acVSCODE) {
 
 // Pass the parameters directly without stripping them
 bootLog(`booting: ${parsed?.text || 'prompt'}`);
-boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom, duration, tv, highlight, desktop, device, perf, autoScale, solo, maxfps, spoofaudio }, debug);
+boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, shellhtml, density, zoom, duration, tv, highlight, desktop, device, perf, autoScale, solo, maxfps, spoofaudio }, debug);
 
 // Start processing any early kidlisp messages that arrived before boot completed
 processEarlyKidlispQueue();

@@ -816,6 +816,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   preservedParams = {};
   if (resolution.gap === 0) preservedParams.nogap = "true"; // gap: 0 means nogap was true
   if (resolution.nolabel === true) preservedParams.nolabel = "true";
+  if (resolution.shellhtml === true) preservedParams.shellhtml = "true";
   if (resolution.tv === true) preservedParams.tv = "true";
   if (resolution.device === true) preservedParams.device = "true";
   if (resolution.solo === true) preservedParams.solo = "true";
@@ -13865,6 +13866,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
       if (preservedParams.nolabel) {
         currentUrl.searchParams.set("nolabel", preservedParams.nolabel);
+      }
+      if (preservedParams.shellhtml) {
+        currentUrl.searchParams.set("shellhtml", preservedParams.shellhtml);
       }
       if (preservedParams.duration) {
         currentUrl.searchParams.set("duration", preservedParams.duration);

@@ -970,6 +970,10 @@ function fillExpandedWithFadePixels(screen, width, height, oldWidth, oldHeight, 
 }
 
 const projectionMode = location.search.indexOf("nolabel") > -1; // Skip loading noise.
+// 🐚 shellhtml mode — the runtime is hosted by an HTML shell (prompt.ac) that
+// owns the prompt + return-to-prompt chrome in crisp DOM above the pixel
+// buffer. The composited typable prompt and corner label stand down here.
+const shellHTMLMode = location.search.indexOf("shellhtml") > -1;
 
 import { setDebug } from "../disks/common/debug.mjs";
 import { customAlphabet } from "../dep/nanoid/nanoid.js";
@@ -3675,6 +3679,9 @@ const $commonApi = {
     data: {},
   },
   system: {
+    // 🐚 True when an HTML shell (prompt.ac) hosts the runtime and owns the
+    // prompt / corner chrome in DOM — pieces skip their own low-res chrome.
+    shellhtml: shellHTMLMode,
     // prompt: { input: undefined }, Gets set in `prompt_boot`.
     // 🎵 ac-electron drag-drop: set when a file is dropped onto the app
     // (Dock icon or running window). Pieces (notably `play`) read this on
@@ -9662,7 +9669,7 @@ async function load(
 
       sim = ($) => {
         module.sim?.($);
-        prompt.prompt_sim($);
+        if (!shellHTMLMode) prompt.prompt_sim($);
       };
 
       paint = ($) => {
@@ -9675,7 +9682,9 @@ async function load(
           noPaint = true;
         }
 
-        const promptPainted = prompt.prompt_paint($);
+        // shellhtml: the host page's DOM bar IS the prompt — never composite
+        // the low-res typable input over the buffer.
+        const promptPainted = shellHTMLMode ? false : prompt.prompt_paint($);
         return noPaint || promptPainted;
       };
 
@@ -9683,7 +9692,7 @@ async function load(
 
       act = ($) => {
         module.act?.($);
-        prompt.prompt_act($);
+        if (!shellHTMLMode) prompt.prompt_act($); // shell DOM owns typing
       };
 
       leave = ($) => {
@@ -9884,6 +9893,7 @@ async function load(
     const searchParams = new URLSearchParams(parsed.search);
     if (searchParams.has("nolabel")) hideLabel = true;
   }
+  if (shellHTMLMode) hideLabel = true; // the shell's DOM corner overlay replaces it
 
     currentColon = colon;
     currentParams = params;
