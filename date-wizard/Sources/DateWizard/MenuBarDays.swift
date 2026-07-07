@@ -104,14 +104,18 @@ final class MenuBarDays {
         if (date != nil) != had { fit?.updateRungs(fitRungs(hasNext: date != nil)) }
     }
 
-    /// Live H:MM:SS countdown to the next appointment ("now" at zero). Far-off
-    /// events (100h+) collapse to whole days, where ticking seconds are noise.
+    /// Short, unit-labeled countdown to the next appointment: the two most
+    /// significant non-zero units ("2d3h", "20h41m", "5m30s", "45s"), "now" at
+    /// zero. Seconds tick live once the event is under an hour away.
     private func countdownText() -> String? {
         guard let d = nextEventDate else { return nil }
         let secs = Int(d.timeIntervalSinceNow)
         if secs <= 0 { return "now" }
-        if secs >= 100 * 3600 { return "\(secs / 86400)d" }
-        return String(format: "%d:%02d:%02d", secs / 3600, (secs % 3600) / 60, secs % 60)
+        let days = secs / 86400, h = (secs % 86400) / 3600, m = (secs % 3600) / 60, s = secs % 60
+        if days > 0 { return "\(days)d\(h)h" }
+        if h > 0 { return "\(h)h\(m)m" }
+        if m > 0 { return "\(m)m\(s)s" }
+        return "\(s)s"
     }
 
     // Re-render the badge every second so the H:MM:SS readout ticks live. It's a

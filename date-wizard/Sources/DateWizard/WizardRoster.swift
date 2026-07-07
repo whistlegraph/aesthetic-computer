@@ -102,19 +102,21 @@ func wandGlyph(pointSize: CGFloat = 15, badge: String? = nil, dot: Bool = false,
     }
     let badge = badge!
 
-    // Countdown rung: small accent-colored text, left of the wand and raised to
-    // its tip (top-aligned), no pill/outline.
+    // Countdown rung: small white text to the RIGHT of the wand, raised toward
+    // its tip (top-aligned), no pill/outline. (Plain white/black — not accent —
+    // reads cleaner at this size; the accent stays on the presence dot.)
     let font = NSFont.systemFont(ofSize: 7.5, weight: .bold)
-    let textAttrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: accent]
+    let textColor = dark ? NSColor.white : NSColor.black
+    let textAttrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: textColor]
     let textSize = (badge as NSString).size(withAttributes: textAttrs)
-    let size = NSSize(width: textSize.width + gap + tinted.size.width,
+    let size = NSSize(width: tinted.size.width + gap + textSize.width,
                       height: max(tinted.size.height, textSize.height))
     let out = NSImage(size: size)
     out.lockFocus()
-    (badge as NSString).draw(at: NSPoint(x: 0, y: size.height - textSize.height),
-                             withAttributes: textAttrs)
-    tinted.draw(at: NSPoint(x: textSize.width + gap, y: (size.height - tinted.size.height) / 2),
+    tinted.draw(at: NSPoint(x: 0, y: (size.height - tinted.size.height) / 2),
                 from: .zero, operation: .sourceOver, fraction: 1)
+    (badge as NSString).draw(at: NSPoint(x: tinted.size.width + gap, y: size.height - textSize.height),
+                             withAttributes: textAttrs)
     out.unlockFocus()
     out.isTemplate = false
     return out
