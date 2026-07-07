@@ -60,6 +60,12 @@ if (!existsSync(CHROME)) {
 // are almost always hung from a prior call and hold a /tmp/chrome-* dir.
 reapStaleHeadless();
 
+// Clear a pre-existing output file BEFORE launching: the success poller
+// below watches for a stable non-zero file size, and a stale file from a
+// prior run reads as instantly-stable — Chrome gets killed before it ever
+// renders and the old image is silently returned as if fresh.
+try { rmSync(outPath, { force: true }); } catch {}
+
 const profile = mkdtempSync(join(tmpdir(), "chrome-shot-"));
 const chromeArgs = [
   "--headless=new",
