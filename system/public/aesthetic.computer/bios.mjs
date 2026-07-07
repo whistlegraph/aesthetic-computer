@@ -13547,6 +13547,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "keyboard:open") {
+      // 🐚 shellhtml: at the prompt the host page's DOM bar is the text
+      // surface — never summon the soft keyboard over the buffer there.
+      if (preservedParams?.shellhtml && currentPiece?.endsWith("/prompt")) {
+        console.log("⌨️🐚 [bios keyboard:open handler] shellhtml prompt — host bar owns typing, skipping");
+        return;
+      }
       console.log("⌨️🟢 [bios keyboard:open handler] calling keyboard.input.focus()");
       if (keyboardFocusLock) return;
       keyboardFocusLock = false;

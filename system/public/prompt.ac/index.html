@@ -163,6 +163,15 @@ function recall(dir) {
   $cmd.setSelectionRange($cmd.value.length, $cmd.value.length);
 }
 
+// While on the prompt, the bar owns typing — if the iframe steals focus
+// (a canvas click), hand it straight back so keystrokes never vanish into
+// the runtime. Pieces keep iframe focus; this only guards the prompt.
+window.addEventListener("blur", () => {
+  if ($here.textContent === "prompt" && document.activeElement === document.getElementById("ac")) {
+    setTimeout(() => $cmd.focus(), 0);
+  }
+});
+
 // A press of "/" or just typing anywhere refocuses the command bar.
 window.addEventListener("keydown", (e) => {
   if (document.activeElement === $cmd) return;

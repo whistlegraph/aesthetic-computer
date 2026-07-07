@@ -130,7 +130,40 @@
 % === CUSTOM COMMANDS ===
 \newcommand{\ac}{Aesthetic Computer}
 \newcommand{\acos}{AC~Native~OS}
-\newcommand{\code}[1]{\texttt{#1}}
+% \code sets its argument in \ttfamily and lets long identifiers/paths/refs
+% wrap instead of overflowing the column: it breaks after _ / . : - @ (zero
+% cost) and, only when forced, between any two chars (last resort), so nothing
+% breaks the columnar arrangement. \char / \# / \$ escapes survive because the
+% argument is re-tokenized (\scantokens) under active separators.
+\newcommand{\codebreak}{\discretionary{}{}{}}
+\newcommand{\codesoftbreak}{\penalty9999\relax}
+\begingroup
+  \catcode`\_=12 \catcode`\/=12 \catcode`\.=12
+  \catcode`\:=12 \catcode`\-=12 \catcode`\@=12
+  \gdef\codeUS{_}\gdef\codeSL{/}\gdef\codeDT{.}%
+  \gdef\codeCL{:}\gdef\codeDS{-}\gdef\codeAT{@}%
+\endgroup
+\begingroup
+  \catcode`\_=\active \catcode`\/=\active \catcode`\.=\active
+  \catcode`\:=\active \catcode`\-=\active \catcode`\@=\active
+  \gdef\codeActivate{%
+    \def_{\codeUS\codebreak}\def/{\codeSL\codebreak}\def.{\codeDT\codebreak}%
+    \def:{\codeCL\codebreak}\def-{\codeDS\codebreak}\def@{\codeAT\codebreak}%
+    \def\_{\codeUS\codebreak}}%
+\endgroup
+\newcommand{\code}[1]{%
+  \begingroup
+    \ttfamily
+    \catcode`\_=\active \catcode`\/=\active \catcode`\.=\active
+    \catcode`\:=\active \catcode`\-=\active \catcode`\@=\active
+    \codeActivate
+    \ifdefined\XeTeXinterchartokenstate
+      \XeTeXinterchartokenstate=1
+      \XeTeXinterchartoks 0 0 = {\codesoftbreak}%
+    \fi
+    \endlinechar=-1 \everyeof{}%
+    \scantokens{#1}%
+  \endgroup}
 
 \begin{document}
 
