@@ -18,6 +18,7 @@
 //   --budget MS       --virtual-time-budget (default 8000)
 //   --wait MS         hard timeout on Chrome itself (default 30000)
 //   --full-page       capture full page height (Chrome's built-in flag)
+//   --transparent     transparent page background (true alpha in the PNG)
 //   --keep-profile    keep the user-data-dir after exit (debugging)
 //
 // Exit codes: 0 = screenshot written, 1 = Chrome failed, 2 = timed out.
@@ -29,7 +30,7 @@ import { join } from "node:path";
 
 const args = process.argv.slice(2);
 const positionals = [];
-const opts = { size: "1440x900", budget: 8000, wait: 30000, fullPage: false, keepProfile: false };
+const opts = { size: "1440x900", budget: 8000, wait: 30000, fullPage: false, keepProfile: false, transparent: false };
 
 for (let i = 0; i < args.length; i++) {
   const a = args[i];
@@ -37,6 +38,7 @@ for (let i = 0; i < args.length; i++) {
   else if (a === "--budget") opts.budget = Number(args[++i]);
   else if (a === "--wait") opts.wait = Number(args[++i]);
   else if (a === "--full-page") opts.fullPage = true;
+  else if (a === "--transparent") opts.transparent = true;
   else if (a === "--keep-profile") opts.keepProfile = true;
   else if (a === "-h" || a === "--help") {
     console.log("usage: chrome-shot.mjs <url> <out.png> [--size WxH] [--budget MS] [--wait MS] [--full-page] [--keep-profile]");
@@ -77,6 +79,7 @@ const chromeArgs = [
   `--screenshot=${outPath}`,
 ];
 if (opts.fullPage) chromeArgs.push("--full-page");
+if (opts.transparent) chromeArgs.push("--default-background-color=00000000");
 chromeArgs.push(url);
 
 const child = spawn(CHROME, chromeArgs, { stdio: ["ignore", "ignore", "inherit"] });
