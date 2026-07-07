@@ -1842,10 +1842,14 @@ let layout = { x: 0, y: 0, cell: 32, top: 40 };
 // hudScale 1 fits phones; large desktop windows climb toward 5.
 let hudScale = 1;
 let timerSize = 4; // big beat-timer glyph scale (drives the header height)
+let capSize = null; // computeLayout pins the caption scale on short windows (else null)
 
 // The caption strip's nominal size + reserved band height (pre-shrink), so
 // the lives row and LEFT counter can sit above it instead of underneath.
 function captionSize(screen) {
+  // computeLayout pins capSize on short windows so the caption band shrinks in
+  // lock-step with the space it reserves (see the short-window guard below).
+  if (capSize != null) return capSize;
   return max(1, round(screen.height / 240), hudScale + 1);
 }
 function captionBandH(screen) {
@@ -1856,6 +1860,7 @@ function captionBandH(screen) {
 
 function computeLayout(screen) {
   screenH = screen.height;
+  capSize = null; // recomputed below; a short window may pin it
   // 🔍 HUD scale from the display's short side — chrome text grows with the
   // window instead of sitting at fixed pixel sizes (see hudScale above).
   hudScale = max(1, min(5, floor(min(screen.width, screen.height) / 200)));
@@ -1867,10 +1872,28 @@ function computeLayout(screen) {
   // (never split — see fitText), so cells get every pixel the screen has.
   // Number/note boards keep the roomier framing.
   const sideMargin = mode === "word" ? 4 : compact ? 8 : max(14, floor(screen.width * 0.06));
-  const top = 14 + 10 * timerSize; // header band sized to the big beat timer
-  const bottomPad = 12 + captionBandH(screen); // HUD band above the caption strip
+  let top = 14 + 10 * timerSize; // header band sized to the big beat timer
+  let bottomPad = 12 + captionBandH(screen); // HUD band above the caption strip
+  // 🩳 Short-window guard: on a low viewport the header + footer bands would
+  // crowd the 5×5 board off the screen (board overlapping the timer / counter /
+  // caption). If they'd leave the board less than ~45% of the height, shrink the
+  // timer AND caption glyphs themselves — not just their reserved bands — until
+  // the board gets its share. Everything the HUD draws is sized from timerSize /
+  // captionSize, so the reservation and the render stay in lock-step.
+  const hudBudget = round(screen.height * 0.55);
+  while (top + bottomPad > hudBudget && (timerSize > 1 || captionSize(screen) > 1)) {
+    if (timerSize > 1) timerSize -= 1;
+    const cs = captionSize(screen);
+    if (cs > 1) capSize = cs - 1;
+    top = 14 + 10 * timerSize;
+    bottomPad = 12 + captionBandH(screen);
+  }
   const availW = screen.width - sideMargin * 2;
   const availH = screen.height - top - bottomPad;
+  // Smallest cell that still fits BETWEEN the bands (and the side margins), so a
+  // squat window shrinks the board to fit instead of overflowing the HUD. Only
+  // bites on tight screens — roomy windows keep the resting 18px minimum below.
+  const minCell = max(6, min(18, floor(availH / ROWS), floor(availW / COLS)));
   // Resting fit inside the margined area …
   const restFit = min(availW / COLS, availH / ROWS);
   // … but never so large that the camera's max zoom punch overflows the full
@@ -1879,7 +1902,7 @@ function computeLayout(screen) {
   // Word mode skips that reservation (cells need the width for whole words);
   // applyCamera just centers the board during the brief zoom punches instead.
   const zoomFit = min(screen.width / COLS, availH / ROWS) / MAX_ZOOM;
-  const cell = max(18, floor(mode === "word" ? restFit : min(restFit, zoomFit)));
+  const cell = max(minCell, floor(mode === "word" ? restFit : min(restFit, zoomFit)));
   const gw = cell * COLS;
   const gh = cell * ROWS;
   // Mutated in place — one long-lived object, no per-frame allocation.
