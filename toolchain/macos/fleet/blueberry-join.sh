@@ -1,7 +1,7 @@
 #!/bin/bash
 # One-shot: add fleet SSH keys + configure Stats to match the neo/chicken/panda fleet.
 set -e
-echo "== 1/4 fleet SSH keys =="
+echo "== 1/5 fleet SSH keys =="
 mkdir -p ~/.ssh; touch ~/.ssh/authorized_keys; chmod 700 ~/.ssh; chmod 600 ~/.ssh/authorized_keys
 cat > /tmp/fleet-keys.pub <<'KEYS'
 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIM5Dbs/qJ3ut0TTkK37F260rP6wjOaTNfEbweDTjgmHv jas@aesthetic -> aesthetics-macbook-pro (via tailscale)
@@ -19,7 +19,7 @@ done < /tmp/fleet-keys.pub
 rm -f /tmp/fleet-keys.pub
 echo "authorized_keys: $before -> $(grep -c . ~/.ssh/authorized_keys) keys"
 
-echo "== 2/4 Stats config =="
+echo "== 2/5 Stats config =="
 if [ ! -d /Applications/Stats.app ]; then
   echo "Stats not installed; installing via brew..."; brew install --cask stats || { echo "install Stats manually from https://github.com/exelban/stats"; exit 1; }
 fi
@@ -36,12 +36,20 @@ for k,v in p.items():
 print("imported",len(p),"Stats keys")
 PY
 
-echo "== 3/4 login item =="
+echo "== 3/5 login item =="
 osascript -e 'tell application "System Events" to delete (every login item whose name is "Stats")' >/dev/null 2>&1 || true
 osascript -e 'tell application "System Events" to make login item at end with properties {path:"/Applications/Stats.app", hidden:true}' >/dev/null 2>&1 || true
 echo "login items: $(osascript -e 'tell application "System Events" to get the name of every login item')"
 
-echo "== 4/4 launch =="
+echo "== 4/5 launch =="
 open -a Stats; sleep 2
 pgrep -x Stats >/dev/null && echo "Stats RUNNING ✅" || echo "Stats did not launch"
-echo "DONE — blueberry has joined the SSH mesh and Stats matches the fleet."
+
+echo "== 5/5 cursor color (blue) =="
+# blueberry's signature: a blue pointer. Shows on next login / lock-unlock (⌃⌘Q),
+# since SIP blocks hot-reloading universalaccessd from the CLI.
+defaults write com.apple.universalaccess cursorFill -dict alpha 1 red 0 green 0 blue 1
+defaults write com.apple.universalaccess cursorOutline -dict alpha 1 red 1 green 1 blue 1
+echo "cursorFill set to blue (applies on next login / lock-unlock)"
+
+echo "DONE — blueberry has joined the SSH mesh, Stats matches the fleet, cursor is blue."

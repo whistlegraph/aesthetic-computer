@@ -22,6 +22,24 @@ Login-at-startup uses a classic LaunchServices login item, because Stats 3.x's
 "Start at login" toggle is SMAppService-backed and not reliably settable from the
 CLI. Both mechanisms launch the same single-instance app, so there's no conflict.
 
+## Cursor color
+
+`cursor-color.sh` sets the macOS **pointer fill color** per Mac so each machine is
+identifiable by its cursor: **neo = green, blueberry = blue** (others fall through to
+the default black pointer). Colors live in `com.apple.universalaccess`
+(`cursorFill` / `cursorOutline`) — the same keys the system Pointer settings write.
+
+```bash
+bash cursor-color.sh all              # neo chicken panda (per-host mapping)
+bash cursor-color.sh blueberry        # blueberry -> blue
+bash cursor-color.sh chicken purple   # one-off override to a named color
+```
+
+`universalaccessd` is SIP-protected and can't be hot-reloaded from the CLI, so the
+new color appears on the **next login or lock/unlock (⌃⌘Q)**, when accessibility
+prefs get re-read. Blueberry's blue is also baked into `blueberry-join.sh` (step 5/5)
+so a fresh rejoin restores it.
+
 ## SSH mesh
 
 `fleet-keys.pub` holds every fleet Mac's public identity key
