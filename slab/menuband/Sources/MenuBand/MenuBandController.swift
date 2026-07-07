@@ -985,9 +985,9 @@ final class MenuBandController {
         }
     }
 
-    /// Spacebar released — stop reverse playback. Capture stays frozen until
-    /// the next note (notepat's trick), so repeated presses re-reverse the
-    /// same window from the same start.
+    /// Spacebar released — stop reverse playback, banking the playhead so
+    /// the next press resumes from the same reverse point (deeper into the
+    /// tape). Playing a note resets that cursor to the live head.
     func rewindRelease() {
         isRewinding = false
         DispatchQueue.main.async { [weak self] in
@@ -2606,9 +2606,10 @@ final class MenuBandController {
         // note or a literal space character. Trigger on the first key-down
         // (ignore auto-repeat); consume key-up too so it stays swallowed.
         if keyCode == 49 /* kVK_Space */ {
-            // Hold-to-reverse (notepat model): press starts reverse playback
-            // of the audio since the last press; release stops it and resumes
-            // live capture so the next press reverses whatever you play next.
+            // Hold-to-reverse with a persistent cursor: the first press
+            // rewinds from "now"; release banks the playhead; the next press
+            // RESUMES from that same reverse point. Playing a note re-anchors
+            // the cursor at the live head (see MenuBandRewindVoice).
             if isDown {
                 if !isRepeat { rewind() }
             } else {

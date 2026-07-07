@@ -19,13 +19,19 @@ import AVFoundation
 ///     downstream of all the trackpad FX (echo/reverb/proximity) so the
 ///     already-effected captured audio is played DRY and never double-
 ///     processed.
-///   • But `mainMixerNode` is where the recording tap lives, so the reversed
-///     audio we play there WOULD get recaptured into the ring and stack a
-///     reverse-of-a-reverse echo. To prevent that we GATE RECORDING OFF
-///     (`recording = false`) for the duration of reverse playback — exactly
-///     what notepat does via `setCapturePaused(true)` / `output_history_paused`.
-///     The ring contents are untouched while paused, so a fresh press still
-///     replays from the snapshot that existed before playback started.
+///   • The capture tap lives on the limiter (pre-mainMixer) while the
+///     reverse player joins AT `mainMixerNode` — downstream of the tap — so
+///     reverse playback can never re-enter the ring (no reverse-of-a-reverse
+///     stacking) and the tape keeps rolling even while reversing.
+///
+/// Press/resume semantics (the REVERSE CURSOR): the first Space press of a
+/// session anchors "now"; releasing banks how far the playhead got; the next
+/// press RESUMES from that same reverse point, deeper into the tape — it
+/// does not restart at the top and it does not re-add time (the window is
+/// fixed at the first press's anchor). As soon as a real note sounds
+/// (`MenuBandSynth.noteOn` → `resetReverseAnchor`) the session drops and the
+/// reverse clock rejoins the live record head, so the next press reverses
+/// from the new "now" — which includes the notes just played.
 final class MenuBandRewindVoice {
     /// How far back the ring physically remembers — a rolling 60 s tape
     /// loop (continuously overwritten). Plenty of headroom beyond the
@@ -33,13 +39,10 @@ final class MenuBandRewindVoice {
     /// (~37 MB at 96 kHz mono float — fine.) Ring must exceed the reverse
     /// window (`captureSeconds`) with headroom.
     private let bufferSeconds: Double = 96.0
-    /// Fixed reverse window: each Space press reverses the most-recent
-    /// `captureSeconds` of the ring. Because capture FREEZES while in reverse
-    /// mode (see `recording`) and only resumes when a real note is next
-    /// played, repeated presses re-reverse the SAME window from the same
-    /// start point — notepat's stutter gesture. A longer window so a press
-    /// reaches further back into the recent phrase (the ring holds 60 s, so
-    /// there's ample headroom).
+    /// Reverse window: a session (first press → next real note) can rewind
+    /// at most this far behind its anchor. Presses within a session RESUME
+    /// from where the last one stopped (see `sessionAnchor`/`consumedFrames`)
+    /// — they never re-add time. A new note re-anchors at the live head.
     let captureSeconds: Double = 90.0
     /// Generation token for the in-flight reverse one-shot. Bumped on every
     /// `playReverse` and `release` so a deferred release-fade can tell whether
@@ -91,6 +94,27 @@ final class MenuBandRewindVoice {
     private var framesWritten: Int = 0
     private var ringSampleRate: Double = 0
     private let ringLock = NSLock()
+
+    // MARK: Reverse session (persistent cursor across presses)
+
+    /// Absolute frame count (`framesWritten`) at the FIRST press of the
+    /// current reverse session — the fixed "now" edge the whole session
+    /// rewinds from. nil = no session; the next press anchors one at the
+    /// live head. Guarded by `ringLock` (reset can arrive from any thread
+    /// via `resetReverseAnchor`).
+    private var sessionAnchor: Int? = nil
+    /// Frames already reverse-played this session, banked on release (and
+    /// folded in by `settleInFlightLocked`). Each press resumes
+    /// `consumedFrames` behind the anchor — the same reverse point the last
+    /// press stopped at — never the top of the window again.
+    private var consumedFrames = 0
+    /// The session's fixed window length in frames (`captureSeconds` at the
+    /// anchor's sample rate). Presses never re-add time: once a session has
+    /// consumed this much tape, further presses are silent until a note
+    /// resets the anchor.
+    private var sessionWantFrames = 0
+    /// Frame length of the in-flight one-shot, for the settle accounting.
+    private var lastClipFrames = 0
 
     /// Sample rate the player is currently connected at — re-wired to the
     /// ring's capture rate before playback so the reverse plays at the SAME
@@ -225,17 +249,37 @@ final class MenuBandRewindVoice {
         // How many valid frames exist: the whole ring once it has wrapped,
         // otherwise only what's been written so far.
         let valid = Swift.min(framesWritten, cap)
-        // Fixed window: the most-recent `captureSeconds`. Because capture is
-        // frozen across the whole reverse session (until a note is next
-        // played), the ring head doesn't move, so every press reverses the
-        // SAME window from the same start point.
-        let want = Int(captureSeconds * rate)
-        let count = Swift.min(valid, Swift.min(want, cap))
+        let total = framesWritten
+        let oldest = total - valid
+        // Fold any still-in-flight press into the cursor first, so a press
+        // that arrives without an intervening release can't lose position.
+        settleInFlightLocked()
+        // Session cursor: the first press anchors "now"; every later press
+        // resumes from the same reverse point the last one stopped at
+        // (anchor − consumed). Re-anchor only when there is no session (a
+        // note reset it — see `resetReverseAnchor`), the ring was
+        // reallocated under us (anchor > total), or the tape behind the
+        // cursor has been fully overwritten.
+        let sessionValid = sessionAnchor.map {
+            $0 <= total && $0 - consumedFrames > oldest + 256
+        } ?? false
+        if !sessionValid {
+            sessionAnchor = total
+            consumedFrames = 0
+            sessionWantFrames = Int(captureSeconds * rate)
+        }
+        let cursorAbs = (sessionAnchor ?? total) - consumedFrames
+        // What's left to reverse: bounded by the session window (no re-added
+        // time — the window is fixed at the first press) and by how much
+        // tape behind the cursor still survives in the ring.
+        let count = Swift.min(sessionWantFrames - consumedFrames, cursorAbs - oldest)
         guard count >= 256 else { ringLock.unlock(); return false }
-        // Walk backward from the write head, emitting samples in REVERSE
+        // Walk backward from the CURSOR (not the live head — the head keeps
+        // advancing while the session idles), emitting samples in REVERSE
         // order directly (newest-first → the clip plays time-backwards).
         var reversed = [Float](repeating: 0, count: count)
-        var readIdx = writeIdx - 1
+        let behindHead = total - cursorAbs      // 0…cap frames behind writeIdx
+        var readIdx = (writeIdx - 1 - behindHead) % cap
         if readIdx < 0 { readIdx += cap }
         for i in 0..<count {
             reversed[i] = ring[readIdx]
@@ -296,32 +340,65 @@ final class MenuBandRewindVoice {
         // left the mixer ramped down).
         playGeneration &+= 1
         mixer.outputVolume = 1.0
-        // One-shot reverse (notepat's loop:false): plays the captured window
-        // backward once and falls into silence. Press again to re-reverse.
+        // One-shot reverse (notepat's loop:false): plays what remains of the
+        // session window backward once and falls into silence. Press again
+        // to resume from wherever this playback stops.
         player.scheduleBuffer(clip, at: nil, options: [], completionHandler: nil)
         if !player.isPlaying { player.play() }
+        lastClipFrames = count
         clipDuration = Double(count) / rate
         playStart = CACurrentMediaTime()
         return true
     }
 
-    /// Progress (0…1) through the current one-shot reverse, from wall-clock
-    /// elapsed vs the clip duration (the clip plays at real time). Drives the
-    /// strip's playhead so the visual is exactly aligned with the audio.
-    /// Returns nil when nothing is reverse-playing.
-    func reverseProgress() -> Double? {
-        guard clipDuration > 0 else { return nil }
-        let p = (CACurrentMediaTime() - playStart) / clipDuration
-        guard p >= 0 else { return nil }
-        return Swift.min(1, p)
+    /// Fold the elapsed portion of the in-flight one-shot into the session
+    /// cursor (`consumedFrames`). Rate-free — fraction of the clip's
+    /// duration × its frame length — so a device-rate change between press
+    /// and release can't mis-count. Call with `ringLock` held: it mutates
+    /// session state `playReverse` reads under the same lock.
+    private func settleInFlightLocked() {
+        guard clipDuration > 0, playStart > 0, lastClipFrames > 0 else { return }
+        let fraction = Swift.min(1.0, Swift.max(0.0, (CACurrentMediaTime() - playStart) / clipDuration))
+        consumedFrames += Int(fraction * Double(lastClipFrames))
+        clipDuration = 0
+        playStart = 0
+        lastClipFrames = 0
     }
 
-    /// Space released — stop the reverse voice. Capture stays FROZEN (it only
-    /// resumes on the next note) so repeated presses re-reverse the same
-    /// window. A bare `player.stop()` mid-clip cuts a non-zero sample to
-    /// silence and clicks, so ramp the mixer down first (AVAudioMixerNode
-    /// smooths volume changes), then stop a beat later and restore level.
+    /// A fresh note sounded — the reverse clock rejoins the record head.
+    /// Drops the session so the next Space press anchors at the live "now"
+    /// (which includes the note that just played) instead of resuming the
+    /// old cursor. Called from `MenuBandSynth.noteOn` (any thread).
+    func resetReverseAnchor() {
+        ringLock.lock()
+        sessionAnchor = nil
+        consumedFrames = 0
+        ringLock.unlock()
+    }
+
+    /// Progress (0…1) through the SESSION's reverse window — what earlier
+    /// presses already consumed plus the in-flight clip's wall-clock elapsed
+    /// — so the strip's playhead resumes where the last press left it
+    /// instead of snapping back to the top of the window. Returns nil when
+    /// nothing is reverse-playing.
+    func reverseProgress() -> Double? {
+        guard clipDuration > 0, sessionWantFrames > 0 else { return nil }
+        let p = (CACurrentMediaTime() - playStart) / clipDuration
+        guard p >= 0 else { return nil }
+        let frames = Double(consumedFrames) + Swift.min(1, p) * Double(lastClipFrames)
+        return Swift.min(1, frames / Double(sessionWantFrames))
+    }
+
+    /// Space released — bank the playhead position into the session cursor
+    /// (so the NEXT press resumes from this exact reverse point — the whole
+    /// feature) and stop the reverse voice. A bare `player.stop()` mid-clip
+    /// cuts a non-zero sample to silence and clicks, so ramp the mixer down
+    /// first (AVAudioMixerNode smooths volume changes), then stop a beat
+    /// later and restore level.
     func release() {
+        ringLock.lock()
+        settleInFlightLocked()
+        ringLock.unlock()
         guard player.isPlaying else { return }
         playGeneration &+= 1
         let gen = playGeneration

@@ -306,11 +306,20 @@ final class WaveformStripView: NSView {
             return back < Int(scrubOffset.rounded())
         }
 
+        // Perceptual amplitude lift: master output rarely peaks past ~0.3
+        // after the limiter, so a LINEAR map lit barely one cell ("mostly
+        // flat"). Modest gain + square-root loudness curve fills the raster
+        // the way a hardware VFD meter would, and still saturates cleanly at
+        // true full scale.
+        func lift(_ v: Float) -> CGFloat {
+            CGFloat(sqrtf(Swift.min(1, Swift.max(0, v) * 2.2)))
+        }
+
         // Lit cells, column by column — center baseline outward. The column
         // under the write cursor (live) / playhead (reversing) burns brighter.
         for c in 0..<cols where written[c] {
-            let up = min(halfRows, Int((CGFloat(min(1, gridMax[c])) * CGFloat(halfRows)).rounded()))
-            let down = min(halfRows, Int((CGFloat(min(1, -gridMin[c])) * CGFloat(halfRows)).rounded()))
+            let up = min(halfRows, Int((lift(gridMax[c]) * CGFloat(halfRows)).rounded()))
+            let down = min(halfRows, Int((lift(-gridMin[c]) * CGFloat(halfRows)).rounded()))
             let isHead = reversing ? c == playheadCol : c == (cursor - 1 + cols) % cols
             let base = reversing && (isHead || consumed(c)) ? NSColor.systemOrange : tint
             let alpha: CGFloat = isHead ? 1.0 : (consumed(c) ? 0.30 : 0.85)

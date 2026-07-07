@@ -874,17 +874,19 @@ final class MenuBandSynth {
         speechVoice.say(text, languageCode: languageCode)
     }
 
-    /// Spacebar reverse-replay: snapshot the most-recent few seconds of
-    /// master output and play it backwards once. Returns false if there
+    /// Spacebar reverse-replay: play the master-output tape backwards from
+    /// the session's reverse cursor (first press anchors "now"; later
+    /// presses resume where the last one stopped). Returns false if there
     /// wasn't enough captured audio to rewind (caller can cue a fallback).
     @discardableResult
     func playReverse() -> Bool {
         return rewindVoice.playReverse()
     }
 
-    /// Spacebar released — stop the reverse voice. Capture stays frozen
-    /// until the next note (see `resumeRewindCapture`) so repeated presses
-    /// re-reverse the same window.
+    /// Spacebar released — bank the reverse playhead into the session
+    /// cursor and stop the voice; the next press resumes from that same
+    /// reverse point. Playing a note resets the cursor to the live head
+    /// (see the `resetReverseAnchor` call in `noteOn`).
     func releaseReverse() {
         rewindVoice.release()
     }
@@ -2004,6 +2006,10 @@ final class MenuBandSynth {
     func noteOn(_ midi: UInt8, velocity: UInt8 = 100, channel: UInt8 = 0) {
         guard started else { return }
         guard resumeAudioEngineIfNeeded() else { return }
+        // A fresh note re-syncs the spacebar reverse clock with the record
+        // head: the next Space press rewinds from the new "now" (including
+        // this note) instead of resuming the previous session's cursor.
+        rewindVoice.resetReverseAnchor()
         // Self-heal after a device switch: reload the soundbank before the
         // first note so it can't sound as the default sine.
         reassertMIDISynthBankIfDirty()
