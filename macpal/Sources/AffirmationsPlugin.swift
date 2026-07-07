@@ -1,9 +1,10 @@
 // AffirmationsPlugin — a little caption beneath Fía's star that @jeffrey can
 // change remotely. The star polls an aesthetic.computer endpoint
-//   GET /api/macpal-status?to=<recipient>  →  { to, text, seq }
+//   GET /api/macpal-status?to=<recipient>  →  { to, text, seq, sound?, volume? }
 // every ~45s; when the `seq` bumps, the new affirmation slides in, the name
-// hops, and a soft chime plays. The last affirmation is cached to disk so she
-// still sees it offline / on the next launch.
+// hops, and a chime plays — Glass by default, or whichever named system sound
+// (and volume) the payload carries. The last affirmation is cached to disk so
+// she still sees it offline / on the next launch.
 //
 // @jeffrey pushes one with: node macpal/affirm.mjs "proud of you 💛" --to fia
 //
@@ -86,12 +87,16 @@ final class AffirmationsPlugin: NSObject, PalPlugin, WidthHinting {
                   let newSeq = (obj["seq"] as? Int) ?? (obj["seq"] as? NSNumber)?.intValue
             else { return }
             let newText = (obj["text"] as? String) ?? ""
+            let newSound = obj["sound"] as? String
+            let newVolume = (obj["volume"] as? Double) ?? (obj["volume"] as? NSNumber)?.doubleValue
             guard newSeq != self.seq else { return }
-            DispatchQueue.main.async { self.apply(seq: newSeq, text: newText) }
+            DispatchQueue.main.async {
+                self.apply(seq: newSeq, text: newText, sound: newSound, volume: newVolume)
+            }
         }.resume()
     }
 
-    private func apply(seq newSeq: Int, text newText: String) {
+    private func apply(seq newSeq: Int, text newText: String, sound: String? = nil, volume: Double? = nil) {
         let firstFill = seq < 0
         seq = newSeq
         text = newText
@@ -99,9 +104,13 @@ final class AffirmationsPlugin: NSObject, PalPlugin, WidthHinting {
         renderCaption()
         c?.layout()
         // Celebrate a genuinely new message (not the silent seed on launch).
+        // The chime is server-programmable; an unknown name falls back to Glass.
         if !firstFill, !text.isEmpty {
             c?.nameLabel.bounce()
-            let snd = NSSound(named: "Glass"); snd?.volume = 0.35; snd?.play()
+            let named = sound.flatMap { $0.isEmpty ? nil : $0 } ?? "Glass"
+            let snd = NSSound(named: named) ?? NSSound(named: "Glass")
+            snd?.volume = Float(min(1, max(0, volume ?? 0.35)))
+            snd?.play()
         }
     }
 
