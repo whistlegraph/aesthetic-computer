@@ -987,6 +987,12 @@ function createMenu() {
         {
           label: 'Whistlegraph',
           click: () => navigateTo('whistlegraph')
+        },
+        { type: 'separator' },
+        {
+          label: 'prompt.ac',
+          accelerator: 'CmdOrCtrl+Shift+P',
+          click: () => openPromptAcWindow()
         }
       ]
     },
@@ -1808,6 +1814,35 @@ function openNotepatOverlayWindow() {
   });
 
   return notepatOverlayWindow;
+}
+
+// Open prompt.ac window — the shellhtml experience: DOM bar + corner chip
+// chrome over the low-res buffer, hosted at its own domain.
+function openPromptAcWindow() {
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+  const win = new BrowserWindow({
+    width: Math.min(1200, width * 0.8),
+    height: Math.min(800, height * 0.8),
+    title: 'prompt.ac',
+    backgroundColor: '#0a0a0c', // matches the shell's --bg
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+
+  // The query string sidesteps Chromium's forever-cached 301 from the era
+  // when prompt.ac redirected everything to aesthetic.computer (the profile
+  // still holds it; a bare load would skip the shell entirely).
+  win.loadURL('https://prompt.ac/?electron=1');
+
+  const windowId = windowIdCounter++;
+  windows.set(windowId, { window: win, mode: 'promptac' });
+  win.on('closed', () => {
+    windows.delete(windowId);
+  });
+
+  return win;
 }
 
 // Open KidLisp window (kidlisp.com)
