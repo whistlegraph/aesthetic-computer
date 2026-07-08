@@ -113,6 +113,8 @@
   #index.off{display:none}
   #detail .score{width:300px; max-width:64vw; height:auto; border:1px solid var(--ink); background:#fff; float:left; margin:4px 16px 10px 0}
   #detail video{width:300px; max-width:64vw; aspect-ratio:1824/2280; height:auto; border:1px solid var(--ink); background:#000; display:block; clear:both; margin-top:6px}
+  #detail video.canon{width:360px; max-width:74vw; aspect-ratio:900/1080; background:var(--paper)}
+  #detail .lbl{font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--margin); margin:0 0 7px}
   #detail .back{font-size:13px}
   .clear{clear:both}
 </style>
@@ -185,6 +187,12 @@
     <h1 class="mark" id="dTitle" style="font-size:clamp(30px,9vw,54px)"></h1>
     <div class="est" id="dBy"></div>
     <div class="note" style="margin-top:12px">code <code id="dCode"></code> &nbsp; — &nbsp; type it at <a href="https://aesthetic.computer">aesthetic.computer</a>, or <a id="dPerform" href="#">perform it in the card player →</a></div>
+    <div id="dCanonWrap" style="display:none">
+      <hr>
+      <p class="lbl">the score, drawn — every stroke lands on its sung syllable</p>
+      <video id="dCanon" class="canon" controls playsinline preload="metadata" loop></video>
+      <p class="dim" style="font-size:11.5px">derived from the score's own frames + the sung take. <a href="/imab">how →</a></p>
+    </div>
     <hr>
     <img class="score" id="dScore" alt="">
     <p class="dim" style="font-size:12.5px">the graphic score. trace the lines; sing the words.</p>
@@ -200,7 +208,7 @@
 const CDN="https://assets.aesthetic.computer/whistlegraph";
 // code → {slug,title,by,year,color}. Codes mirror wg.mjs; colors are each song's own hue.
 const WGS=[
-  {code:"imab",slug:"butterfly-cosplayer",   title:"Butterfly Cosplayer",    by:"Jeffrey Alan Scudder", year:2019, c:"#ff9600"},
+  {code:"imab",slug:"butterfly-cosplayer",   title:"Butterfly Cosplayer",    by:"Jeffrey Alan Scudder", year:2019, c:"#ff9600", canonical:"/canonical/imab.mp4"},
   {code:"l8ly",slug:"lately-when-i-fly",      title:"Lately When I Fly",      by:"Jeffrey Alan Scudder", year:2020, c:"#7a1fe6"},
   {code:"grow",slug:"time-to-grow",           title:"Time To Grow",           by:"Alex Freundlich",      year:2020, c:"#ff8fbf"},
   {code:"idni",slug:"i-dont-need-an-iphone",  title:"I Don't Need an iPhone", by:"Whistlegraph",         year:2020, c:"#e60e0e"},
@@ -228,7 +236,8 @@ for(const w of WGS){
 
 const idx=document.getElementById("index"), det=document.getElementById("detail");
 const D={t:document.getElementById("dTitle"),by:document.getElementById("dBy"),code:document.getElementById("dCode"),
-  score:document.getElementById("dScore"),video:document.getElementById("dVideo"),perform:document.getElementById("dPerform")};
+  score:document.getElementById("dScore"),video:document.getElementById("dVideo"),perform:document.getElementById("dPerform"),
+  canon:document.getElementById("dCanon"),canonWrap:document.getElementById("dCanonWrap")};
 
 function showDetail(code){
   const w=BY[code]; if(!w) return showIndex();
