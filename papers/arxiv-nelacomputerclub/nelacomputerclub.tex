@@ -1,0 +1,297 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}[
+  Extension=.otf,
+  UprightFont=lmroman10-regular,
+  BoldFont=lmroman10-bold,
+  ItalicFont=lmroman10-italic,
+  BoldItalicFont=lmroman10-bolditalic,
+]
+\setsansfont{Latin Modern Sans}[
+  Extension=.otf,
+  UprightFont=lmsans10-regular,
+  BoldFont=lmsans10-bold,
+  ItalicFont=lmsans10-oblique,
+  BoldItalicFont=lmsans10-boldoblique,
+]
+\setmonofont{Latin Modern Mono}[
+  Extension=.otf,
+  UprightFont=lmmono10-regular,
+  ItalicFont=lmmono10-italic,
+  Scale=0.85,
+]
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{acgreen}{RGB}{40,150,90}
+\definecolor{draftcolor}{RGB}{180,72,135}
+\definecolor{codebg}{RGB}{244,241,247}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=FIELD REPORT,
+  fontsize=2.6cm,
+  color=draftcolor!16,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={nela computer club: Field Report on a Signal-Authenticated Raspberry Pi Commune},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{draftcolor}\textit{Field report --- a friend's shell box, explored with permission}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === LISTS / SPACING ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.4em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\newcommand{\code}[1]{{\ttfamily\small\colorbox{codebg}{#1}}}
+\newcommand{\fp}[1]{{\ttfamily\small\color{acdark}#1}}
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+{\acbold\fontsize{23pt}{27pt}\selectfont\color{acdark} nela computer club{\color{acpink}.}}\par
+\vspace{0.35em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Field Report on a Signal-Authenticated Raspberry Pi Commune}\par
+\vspace{0.6em}
+{\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acpurple} \url{https://jump.nelacomputer.club}}\par
+\vspace{0.5em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.4em}
+\end{center}
+
+\begin{center}
+{\small\color{draftcolor}\textbf{[ field notes --- explored with the member's own access ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Abstract.} An invitation arrived over Signal: a shell
+account on the \emph{Northeast Los Angeles Computer Club}. This report documents
+what the machine turns out to be --- a Raspberry~Pi~4 behind a home NAT,
+published to the internet through a reverse tunnel, and gated by a bespoke SSH
+gateway that authenticates members by Signal push instead of passwords. We map
+its hardware, its two-hop login path, its self-hosted services, and its small
+roster of inhabitants; and we record how tap-free access was wired into the
+author's own machine fleet.
+\end{quote}
+\vspace{0.3em}
+}]
+
+\section{An invitation over Signal}
+
+The door was a username. Point \code{ssh} at \fp{jump.nelacomputer.club},
+and instead of a password prompt the banner reads:
+
+\begin{quote}\ttfamily\small
+* nela computer club *\\
+Log in with Signal.\\
+(...) Signal username:
+\end{quote}
+
+Type the handle, and a moment later a push notification lands on your phone:
+\emph{approve this login?} Approve it, and the terminal answers
+``\texttt{Signed in as "jeffrey".}'' No key exchanged in advance, no shared
+secret typed --- identity is proven out-of-band, by the same app that carried
+the invitation. What follows is a survey of the box on the other side of that
+door, conducted with the author's own member account.
+
+\section{The machine}
+
+Underneath the theatrics is a \textbf{Raspberry Pi 4}. \code{uname -a} reports
+the Raspberry~Pi Foundation kernel \fp{6.12.25+rpt-rpi-v8} on \fp{aarch64};
+the OS is \textbf{Debian~12 (bookworm)}; the hostname is, fittingly,
+\fp{computerclub}.
+
+\begin{center}
+\small
+\begin{tabularx}{\columnwidth}{@{}lX@{}}
+\toprule
+\textbf{Field} & \textbf{Value} \\
+\midrule
+Board      & Raspberry Pi 4 (ARM Cortex, 4 cores) \\
+Kernel     & 6.12.25+rpt-rpi-v8 (aarch64) \\
+OS         & Debian GNU/Linux 12 (bookworm) \\
+Memory     & $\approx$907\,MB RAM, 512\,MB swap \\
+Storage    & 29\,GB SD card (\fp{/dev/mmcblk0p2}), 33\% used \\
+Uptime     & short --- rebooted the morning of the visit \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+It is, in other words, a thirty-five-dollar single-board computer on somebody's
+shelf --- and it is answering the public internet.
+
+\section{Two hops: the gateway}
+
+The trick to that last sentence hides in the environment. Inside the session,
+\fp{SSH\_CONNECTION} reads \fp{127.0.0.1 ... 127.0.0.1 2022}. The shell you
+land in did \emph{not} come from the sshd on port~22. Two custom binaries in
+\fp{/usr/local/bin} explain the topology:
+
+\begin{itemize}
+\item \fp{jump-gateway} --- a $\sim$9.6\,MB service that fronts port~22, runs
+the ``Log in with Signal'' exchange, stamps the member's Signal UUID into the
+environment as \fp{SIGNAL\_SUBJECT}, and proxies the approved session to the
+real sshd listening on \fp{127.0.0.1:2022}.
+\item \fp{rathole} --- a fast reverse-proxy / NAT-traversal tunnel. The public
+name \fp{jump.nelacomputer.club} resolves to a DigitalOcean address
+(\fp{206.189.211.92}); \fp{rathole} stitches that relay back to the Pi living
+behind a home router. The relay has the public IP; the Pi has the shell.
+\end{itemize}
+
+So a login is really two hops: \emph{you $\rightarrow$ DO relay
+(rathole) $\rightarrow$ Pi gateway $\rightarrow$ internal sshd}. The Signal
+approval is enforced as a PAM step in that inner sshd, which is configured
+\fp{PasswordAuthentication no}, \fp{PubkeyAuthentication yes}. That last
+detail is the whole reason tap-free access is possible (\S6): a valid public key
+satisfies authentication before the Signal PAM prompt ever runs.
+
+\section{What it hosts}
+
+For a machine this small, the club runs real infrastructure:
+
+\begin{itemize}
+\item \textbf{A self-hosted git forge.} \fp{/usr/local/bin/forgejo} (a
+$\sim$104\,MB Forgejo/Gitea binary, owned by \fp{max}), alongside a
+\fp{/srv/gitlab} tree and a dedicated \fp{git} system user. The club keeps
+its own code, not GitHub's.
+\item \textbf{Physical computing.} \fp{/opt/pigpio} --- the Pi GPIO daemon.
+The board is wired to hardware, not just serving bytes.
+\item The usual Debian furniture otherwise; members get \fp{/bin/bash} and no
+\fp{sudo}.
+\end{itemize}
+
+\section{The inhabitants}
+
+\fp{/etc/passwd} tells a small social history. Three ``legacy'' accounts in the
+1000-range predate the Signal system (no \fp{signal=} tag in their GECOS
+field); a newer 3000-range cohort each carry a Signal UUID, minted by the
+gateway when they joined.
+
+\begin{center}
+\small
+\begin{tabularx}{\columnwidth}{@{}llX@{}}
+\toprule
+\textbf{User} & \textbf{uid} & \textbf{Note} \\
+\midrule
+max       & 1000 & founder / admin; logs in from the club LAN (\fp{10.10.10.12}); owns \fp{forgejo} \\
+stalgiag  & 1001 & legacy member \\
+mikey     & 1002 & legacy member \\
+git       & 105  & Forgejo service account \\
+max2      & 3000 & Signal-era \\
+jeffrey   & 3001 & Signal-era (this author) \\
+kevin     & 3002 & Signal-era \\
+oioi      & 3003 & Signal-era \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+A commune of eight, give or take, sharing one Raspberry Pi over an encrypted
+messenger. The login records show \fp{max} tending it throughout the day from
+inside the house; the rest arrive from the wider internet through the tunnel.
+
+\section{Wiring fleet access}
+
+To reach the account from any machine in the author's fleet without a phone tap
+each time, three public keys were appended --- with the member's explicit
+go-ahead --- to \fp{/home/jeffrey/.ssh/authorized\_keys}: the shared
+Aesthetic Computer vault key plus the per-machine ED25519 keys for the \emph{neo}
+and \emph{blueberry} hosts. Because the inner sshd honours pubkey auth ahead of
+the Signal PAM step, this yields an instant login:
+
+\begin{quote}\ttfamily\small
+Host club\\
+\hspace*{1em}HostName jump.nelacomputer.club\\
+\hspace*{1em}User jeffrey\\
+\hspace*{1em}IdentityFile \textasciitilde/.ssh/id\_ed25519\\
+\hspace*{1em}IdentitiesOnly yes
+\end{quote}
+
+\code{ssh club} now lands a shell on the Pi in one step from either machine. The
+alias and a full operator's note live in the private vault under
+\fp{nela-computer-club/}. First contact from a \emph{new} machine still uses
+the Signal flow (username \fp{whistlegraph.89}, approve on phone); the keys are
+strictly a convenience layer over an auth model the club owns.
+
+\section{A note on manners}
+
+This is somebody else's computer --- \fp{max}'s, specifically, and the club's
+collectively. The exploration here used only the author's own granted account and
+read-only commands; the one change made (the three convenience keys) is reversible
+by deleting them from the \fp{authorized\_keys} file, and should be removed on
+request if the club prefers Signal-only entry. The charm of the place is exactly
+that it is small, personal, and hand-built: a Pi on a shelf in Northeast LA,
+answering the whole internet, one Signal approval at a time.
+
+\vspace{1em}
+\begin{center}
+{\footnotesize\color{acgray}
+Explored 2026-07-07 $\cdot$ host key SHA256:VRig\ldots Y6eo\\
+Aesthetic.Computer field notes}
+\end{center}
+
+\end{document}
