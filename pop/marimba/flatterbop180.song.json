@@ -1,0 +1,15 @@
+{
+  "name": "flatterbop180",
+  "engine": "c",
+  "title": "Flatterbop180",
+  "score": "out/flatterbop180.score.txt",
+  "bake": "node bin/render-flatterbop180.mjs --bake {score} --no-open",
+  "build": "bash c/build.sh",
+  "render": "node c/run-c.mjs {score} --engine flatterbop180 --out out/flatterbop180.mp3 --wav",
+  "loop": "node c/run-c.mjs {score} --engine flatterbop180 --out out/flatterbop180-loop.mp3 --loop --wav",
+  "outputs": {
+    "album": "out/flatterbop180.mp3",
+    "loop": "out/flatterbop180-loop.mp3",
+    "wav": "out/flatterbop180.distrokid.wav"
+  }
+}

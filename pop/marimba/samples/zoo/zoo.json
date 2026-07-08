@@ -1,0 +1,62 @@
+{
+  "monkey": {
+    "id": 729294,
+    "name": "Dinosaur monkey sound",
+    "username": "Mastersoundboy2005",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 3.6,
+    "rating": 5,
+    "source_url": "https://freesound.org/people/Mastersoundboy2005/sounds/729294/",
+    "wav": "/Users/jas/aesthetic-computer/pop/marimba/samples/zoo/monkey.wav"
+  },
+  "parrot": {
+    "id": 759965,
+    "name": "Parrots - Goffin's Cockatoo, Squawk",
+    "username": "TheKingOfGeeks360",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 0.696599,
+    "rating": 5,
+    "source_url": "https://freesound.org/people/TheKingOfGeeks360/sounds/759965/",
+    "wav": "/Users/jas/aesthetic-computer/pop/marimba/samples/zoo/parrot.wav"
+  },
+  "elephant": {
+    "id": 350419,
+    "name": "Rhinoceros Trumpet Sudden",
+    "username": "bevibeldesign",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 2.77479,
+    "rating": 4.8,
+    "source_url": "https://freesound.org/people/bevibeldesign/sounds/350419/",
+    "wav": "/Users/jas/aesthetic-computer/pop/marimba/samples/zoo/elephant.wav"
+  },
+  "sealion": {
+    "id": 680733,
+    "name": "Sea Lion 1.wav",
+    "username": "nifvimp",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 0.716916,
+    "rating": 5,
+    "source_url": "https://freesound.org/people/nifvimp/sounds/680733/",
+    "wav": "/Users/jas/aesthetic-computer/pop/marimba/samples/zoo/sealion.wav"
+  },
+  "lion": {
+    "id": 675443,
+    "name": "S01-09_Short lion roars.wav",
+    "username": "craigsmith",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 2.94394,
+    "rating": 5,
+    "source_url": "https://freesound.org/people/craigsmith/sounds/675443/",
+    "wav": "/Users/jas/aesthetic-computer/pop/marimba/samples/zoo/lion.wav"
+  },
+  "hyena": {
+    "id": 680844,
+    "name": "HyenaLaugh1.wav",
+    "username": "sounagix",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "duration": 2.39231,
+    "rating": 5,
+    "source_url": "https://freesound.org/people/sounagix/sounds/680844/",
+    "wav": "/Users/jas/aesthetic-computer/pop/marimba/samples/zoo/hyena.wav"
+  }
+}

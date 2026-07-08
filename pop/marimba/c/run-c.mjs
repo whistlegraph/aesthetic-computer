@@ -15,12 +15,16 @@ import { fileURLToPath } from "node:url";
 import { masterChain } from "../../lib/substrate.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const ENGINE = resolve(HERE, "fluttabap360");
 const SR = 48_000;
 
 const args = process.argv.slice(2);
-const score = args.find((a) => !a.startsWith("--"));
+const _flagVals = new Set();   // values consumed by --flags (so the score path find skips them)
+for (let i = 0; i < args.length; i++) if (args[i].startsWith("--") && i + 1 < args.length && !args[i + 1].startsWith("--")) _flagVals.add(i + 1);
+const score = args.find((a, i) => !a.startsWith("--") && !_flagVals.has(i));
 const _argi = (k) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : null; };
+// which engine renders this score: --engine flatterbop180 (default fluttabap360)
+const ENGINE_NAME = _argi("--engine") || "fluttabap360";
+const ENGINE = resolve(HERE, ENGINE_NAME);
 const outMp3 = _argi("--out");
 const rawOnly = _argi("--raw");
 const wantWav = args.includes("--wav");
@@ -30,9 +34,9 @@ if (!score || (!outMp3 && !rawOnly)) {
 }
 
 // build the engine if missing or stale
-const cSrc = resolve(HERE, "fluttabap360.c");
+const cSrc = resolve(HERE, `${ENGINE_NAME}.c`);
 if (!existsSync(ENGINE) || statSync(cSrc).mtimeMs > statSync(ENGINE).mtimeMs) {
-  console.log("[run-c] building fluttabap360…");
+  console.log(`[run-c] building ${ENGINE_NAME}…`);
   const b = spawnSync("bash", [resolve(HERE, "build.sh")], { stdio: "inherit" });
   if (b.status !== 0) process.exit(1);
 }
@@ -45,7 +49,7 @@ const engineArgs = [score, "--raw", rawPath];
 if (soloArg) engineArgs.push("--solo", soloArg);
 if (loopMode) engineArgs.push("--loop");
 const r = spawnSync(ENGINE, engineArgs, { stdio: "inherit" });
-if (r.status !== 0) { console.error("✗ fluttabap360 engine failed"); process.exit(1); }
+if (r.status !== 0) { console.error(`✗ ${ENGINE_NAME} engine failed`); process.exit(1); }
 if (rawOnly) process.exit(0);
 
 // MASTER chain comes from the SUBSTRATE the score was printed on. The baker
