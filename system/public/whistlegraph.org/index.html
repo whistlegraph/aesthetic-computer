@@ -247,6 +247,8 @@ function showDetail(code){
   D.score.src=`${CDN}/${w.slug}/${w.slug}-score.png`; D.score.alt=`graphic score for ${w.title}`;
   D.video.poster=`${CDN}/${w.slug}/${w.slug}.webp`;
   D.video.src=`${CDN}/${w.slug}/${w.slug}-web.mp4`;
+  if(w.canonical){D.canon.src=w.canonical;D.canonWrap.style.display="";}
+  else{D.canonWrap.style.display="none";D.canon.removeAttribute("src");}
   D.perform.href=`https://aesthetic.computer/wg~${w.code}`;
   det.classList.add("on"); idx.classList.add("off");
   document.title=`${w.title} — whistlegraph`; scrollTo(0,0);
@@ -254,6 +256,7 @@ function showDetail(code){
 function showIndex(){
   det.classList.remove("on"); idx.classList.remove("off");
   D.video.pause(); D.video.removeAttribute("src"); D.video.load();
+  D.canon.pause();
   document.title="whistlegraph — a drawing you sing";
 }
 function go(code){ history.pushState({code},"",`/${code}`); showDetail(code); }
