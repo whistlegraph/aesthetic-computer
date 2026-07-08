@@ -116,6 +116,7 @@
   td.th{width:56px} td.th img{width:52px; height:65px; object-fit:cover; border:1px solid var(--ink); display:block; background:#fff}
   td.cd{white-space:nowrap}
   .sw{display:inline-block; width:.72em; height:.72em; margin-right:6px; border:1px solid rgba(0,0,0,.45); background:var(--c); vertical-align:baseline}
+  td.th .sw.noglyph{width:42px; height:52px; margin:0; border:1px solid var(--ink)} /* audio-only: no frame */
   td.cd a{font-weight:normal}
   td.ti a{color:var(--ink)}
   td.ti .by{display:block; color:var(--dim); font-size:12px}
@@ -186,7 +187,7 @@
 
     <hr>
     <h2>Index</h2>
-    <p class="dim" style="font-size:12.5px;margin-top:-2px">Every known whistlegraph, oldest first as they're recovered — the archive is still being combed. Tap a code.</p>
+    <p class="dim" style="font-size:12.5px;margin-top:-2px"><span id="idxCount">…</span> whistlegraphs recovered so far — the ten first, then the rest of the archive, most-sung first. Still being combed. Tap a code.</p>
     <div class="wrap">
       <table class="idx" id="idx"><tbody></tbody></table>
     </div>
@@ -240,17 +241,24 @@
     <p class="back"><a href="/" id="backlink">← Back to the index</a></p>
     <h1 class="mark" id="dTitle" style="font-size:clamp(30px,9vw,54px)"></h1>
     <div class="est" id="dBy"></div>
-    <div class="note" style="margin-top:12px">Code <code id="dCode"></code> &nbsp; — &nbsp; type it at <a href="https://aesthetic.computer">aesthetic.computer</a>, or <a id="dPerform" href="#">perform it in the card player →</a></div>
+    <div class="note" style="margin-top:12px">
+      <span id="dPerformNote">Code <code id="dCode"></code> &nbsp; — &nbsp; type it at <a href="https://aesthetic.computer">aesthetic.computer</a>, or <a id="dPerform" href="#">perform it in the card player →</a></span>
+      <span id="dArchiveNote" style="display:none">Code <code id="dCode2"></code> &nbsp; — &nbsp; <span id="dStats"></span> &nbsp;·&nbsp; recovered from the <a href="https://www.tiktok.com/@whistlegraph">TikTok archive</a>.</span>
+    </div>
     <div id="dCanonWrap" style="display:none">
       <hr>
       <p class="lbl">The score, drawn — every stroke lands on its sung syllable</p>
       <video id="dCanon" class="canon" controls playsinline preload="metadata" loop></video>
       <p class="dim" style="font-size:11.5px">Derived from the score's own frames + the sung take. <a href="/imab">How →</a></p>
     </div>
-    <hr>
-    <img class="score" id="dScore" alt="">
-    <p class="dim" style="font-size:12.5px">The graphic score. Trace the lines; sing the words.</p>
+    <div id="dScoreWrap">
+      <hr>
+      <img class="score" id="dScore" alt="">
+      <p class="dim" style="font-size:12.5px">The graphic score. Trace the lines; sing the words.</p>
+    </div>
+    <hr id="dVideoRule" style="display:none">
     <video id="dVideo" controls playsinline preload="metadata" crossorigin="anonymous"></video>
+    <p class="dim" id="dGlyphCap" style="font-size:12.5px;display:none">The finished glyph — the last frame of the sung take.</p>
     <div class="clear"></div>
     <hr class="thick">
     <p class="back"><a href="/">← Back to the index</a></p>
@@ -259,51 +267,75 @@
 </div>
 
 <script>
-const CDN="https://assets.aesthetic.computer/whistlegraph";
-// code → {slug,title,by,year,color}. Codes mirror wg.mjs; colors are each song's own hue.
-const WGS=[
-  {code:"imab",slug:"butterfly-cosplayer",   title:"Butterfly Cosplayer",    by:"Jeffrey Alan Scudder", year:2019, c:"#ff9600", canonical:"/canonical/imab.mp4"},
-  {code:"l8ly",slug:"lately-when-i-fly",      title:"Lately When I Fly",      by:"Jeffrey Alan Scudder", year:2020, c:"#7a1fe6"},
-  {code:"grow",slug:"time-to-grow",           title:"Time To Grow",           by:"Alex Freundlich",      year:2020, c:"#ff8fbf"},
-  {code:"idni",slug:"i-dont-need-an-iphone",  title:"I Don't Need an iPhone", by:"Whistlegraph",         year:2020, c:"#e60e0e"},
-  {code:"ppl", slug:"people-pleaser",         title:"People Pleaser",         by:"Jeffrey Alan Scudder", year:2021, c:"#be50dc"},
-  {code:"wiyh",slug:"whats-inside-your-heart",title:"What's Inside Your Heart?",by:"Whistlegraph",       year:2021, c:"#0000f5"},
-  {code:"lonr",slug:"loner",                  title:"Loner",                  by:"Camille Klein",        year:2021, c:"#ff8282"},
-  {code:"sdog",slug:"slinky-dog",             title:"Slinky Dog",             by:"Alex Freundlich",      year:2021, c:"#101014"},
-  {code:"w0w", slug:"mommy-wow",              title:"Mommy Wow",              by:"Whistlegraph",         year:2021, c:"#ffc800"},
-  {code:"puzz",slug:"puzzle",                 title:"Puzzle",                 by:"Camille Klein",        year:2021, c:"#30c8fc"},
-];
-const BY=Object.fromEntries(WGS.map(w=>[w.code,w]));
+const CDN="https://assets.aesthetic.computer/whistlegraph"; // curated slug assets
+const IDX=CDN+"/index"; // recovered graphs: /index/<code>.{jpg,mp4}
+const fmtViews=v=>v>=1e6?`${(v/1e6).toFixed(1)}M`:v>=1e3?`${Math.round(v/1e3)}K`:`${v}`;
 
-// Build the table.
-const tb=document.querySelector("#idx tbody");
-for(const w of WGS){
-  const tr=document.createElement("tr"); tr.className="row";
-  tr.innerHTML=
-    `<td class="th"><a href="/${w.code}"><img loading="lazy" alt="Final glyph of ${w.title}" src="/glyphs/${w.code}.jpg"></a></td>`+
+const idx=document.getElementById("index"), det=document.getElementById("detail");
+const D={t:document.getElementById("dTitle"),by:document.getElementById("dBy"),code:document.getElementById("dCode"),
+  code2:document.getElementById("dCode2"),stats:document.getElementById("dStats"),
+  score:document.getElementById("dScore"),scoreWrap:document.getElementById("dScoreWrap"),
+  video:document.getElementById("dVideo"),videoRule:document.getElementById("dVideoRule"),
+  glyphCap:document.getElementById("dGlyphCap"),perform:document.getElementById("dPerform"),
+  performNote:document.getElementById("dPerformNote"),archiveNote:document.getElementById("dArchiveNote"),
+  canon:document.getElementById("dCanon"),canonWrap:document.getElementById("dCanonWrap")};
+
+let BY={}; // code → graph, filled once graphs.json loads.
+
+function rowHTML(w){
+  const thumb=w.noGlyph
+    ? `<span class="sw noglyph" style="--c:${w.c}"></span>`
+    : `<img loading="lazy" alt="Final glyph of ${w.title}" src="${IDX}/${w.code}.jpg">`;
+  return `<td class="th"><a href="/${w.code}">${thumb}</a></td>`+
     `<td class="cd"><span class="sw" style="--c:${w.c}"></span>[<a href="/${w.code}">${w.code}</a>]</td>`+
-    `<td class="ti"><a href="/${w.code}">${w.title}</a><span class="by">${w.by}</span></td>`+
+    `<td class="ti"><a href="/${w.code}">${w.title}</a><span class="by">${w.by}${w.perf>1?` · ${w.perf} takes`:""}</span></td>`+
     `<td class="yr">${w.year}</td>`;
+}
+function addRow(tb,w){
+  const tr=document.createElement("tr"); tr.className="row";
+  tr.innerHTML=rowHTML(w);
   tr.querySelectorAll("a").forEach(a=>a.addEventListener("click",e=>{e.preventDefault();go(w.code)}));
   tb.appendChild(tr);
 }
 
-const idx=document.getElementById("index"), det=document.getElementById("detail");
-const D={t:document.getElementById("dTitle"),by:document.getElementById("dBy"),code:document.getElementById("dCode"),
-  score:document.getElementById("dScore"),video:document.getElementById("dVideo"),perform:document.getElementById("dPerform"),
-  canon:document.getElementById("dCanon"),canonWrap:document.getElementById("dCanonWrap")};
+fetch("/graphs.json").then(r=>r.json()).then(data=>{
+  BY=Object.fromEntries(data.graphs.map(w=>[w.code,w]));
+  const tb=document.querySelector("#idx tbody");
+  data.graphs.forEach((w,i)=>{
+    if(i===data.curated){ // divider before the recovered archive
+      const tr=document.createElement("tr");
+      tr.innerHTML=`<td colspan="4" style="padding:12px 8px 6px;color:var(--margin);font-size:12.5px;border-bottom:1px solid var(--margin)">— and ${data.graphs.length-data.curated} more, recovered from the archive, most-sung first —</td>`;
+      tb.appendChild(tr);
+    }
+    addRow(tb,w);
+  });
+  document.getElementById("idxCount").textContent=data.graphs.length;
+  // Resolve any deep-link now that data exists.
+  const c=location.pathname.replace(/\//g,""); if(BY[c])showDetail(c);
+});
 
 function showDetail(code){
   const w=BY[code]; if(!w) return showIndex();
   D.t.textContent=w.title;
   D.by.innerHTML=`Composed by ${w.by} &nbsp;<b>·</b>&nbsp; ${w.year}`;
-  D.code.textContent=w.code;
-  D.score.src=`${CDN}/${w.slug}/${w.slug}-score.png`; D.score.alt=`Graphic score for ${w.title}`;
-  D.video.poster=`${CDN}/${w.slug}/${w.slug}.webp`;
-  D.video.src=`${CDN}/${w.slug}/${w.slug}-web.mp4`;
-  if(w.canonical){D.canon.src=w.canonical;D.canonWrap.style.display="";}
-  else{D.canonWrap.style.display="none";D.canon.removeAttribute("src");}
-  D.perform.href=`https://aesthetic.computer/wg~${w.code}`;
+  D.code.textContent=w.code; D.code2.textContent=w.code;
+  if(w.slug){ // curated — score sheet + card-player + (maybe) drawn canonical
+    D.performNote.style.display=""; D.archiveNote.style.display="none";
+    D.perform.href=`https://aesthetic.computer/wg~${w.code}`;
+    D.scoreWrap.style.display=""; D.videoRule.style.display="none"; D.glyphCap.style.display="none";
+    D.score.src=`${CDN}/${w.slug}/${w.slug}-score.png`; D.score.alt=`Graphic score for ${w.title}`;
+    D.video.poster=`${CDN}/${w.slug}/${w.slug}.webp`;
+    D.video.src=`${CDN}/${w.slug}/${w.slug}-web.mp4`;
+    if(w.canonical){D.canon.src="/canonical/imab.mp4";D.canonWrap.style.display="";}
+    else{D.canonWrap.style.display="none";D.canon.removeAttribute("src");}
+  }else{ // recovered — glyph poster + the sung take, no score sheet
+    D.performNote.style.display="none"; D.archiveNote.style.display="";
+    D.stats.textContent=`${fmtViews(w.views)} views`+(w.perf>1?` across ${w.perf} takes`:"");
+    D.scoreWrap.style.display="none"; D.canonWrap.style.display="none"; D.canon.removeAttribute("src");
+    D.videoRule.style.display=""; D.glyphCap.style.display=w.noGlyph?"none":"";
+    D.video.poster=w.noGlyph?"":`${IDX}/${w.code}.jpg`;
+    D.video.src=`${IDX}/${w.code}.mp4`;
+  }
   det.classList.add("on"); idx.classList.add("off");
   document.title=`${w.title} — Whistlegraph`; scrollTo(0,0);
 }
@@ -318,9 +350,6 @@ function home(e){e.preventDefault();history.pushState({},"","/");showIndex();}
 document.getElementById("backlink").addEventListener("click",home);
 document.getElementById("homelogo").addEventListener("click",home);
 addEventListener("popstate",()=>{const c=location.pathname.replace(/\//g,"");BY[c]?showDetail(c):showIndex();});
-
-// Deep-link on load: /imab shows that whistlegraph.
-(function(){const c=location.pathname.replace(/\//g,"");if(BY[c])showDetail(c);})();
 </script>
 </body>
 </html>
