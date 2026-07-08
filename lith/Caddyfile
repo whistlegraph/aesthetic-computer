@@ -687,6 +687,14 @@
     # reordered by Caddy and breaks the reload (see the l5/kidlisp blocks).
     @menubandapp host menuband.app
     handle @menubandapp {
+        # Backend API — the landing page fetches /api/version (recent-changes
+        # feed + live-reload) and /api/menuband-downloads (counter). Without
+        # this, those fall through to the catch-all and get index.html instead
+        # of JSON, so "Recent changes" never populates. Kept terminal (own
+        # handle{}) and ahead of the static catch-all.
+        handle /api/* {
+            reverse_proxy localhost:8888
+        }
         handle /menuband/* {
             root * /opt/ac/system/public
             file_server
