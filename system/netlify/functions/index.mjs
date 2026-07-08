@@ -2169,6 +2169,24 @@ async function fun(event, context) {
           if (params.has("nogap") || location.search.includes("nogap")) {
             document.body.classList.add("nogap");
           }
+          // 🍽️ Menu Band: never let a cached service worker pin the embedded
+          // site to an old build. A SW registered by a previous launch keeps
+          // serving stale modules, so recent site changes never appear inside
+          // the menubar webview. Unregister any SW and drop its caches here —
+          // this inline script runs before the deferred boot.mjs, which also
+          // skips SW registration in this mode (see boot.mjs).
+          if (params.get("menuband") === "true" || (window.acElectron && window.acElectron.isMenuBand)) {
+            if ("serviceWorker" in navigator && navigator.serviceWorker.getRegistrations) {
+              navigator.serviceWorker.getRegistrations().then(function (rs) {
+                rs.forEach(function (r) { r.unregister(); });
+              }).catch(function () {});
+            }
+            if (window.caches && caches.keys) {
+              caches.keys().then(function (ks) {
+                ks.forEach(function (k) { caches.delete(k); });
+              }).catch(function () {});
+            }
+          }
         </script>
       </body>
     </html>

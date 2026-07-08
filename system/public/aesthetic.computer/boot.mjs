@@ -34,8 +34,14 @@ if (!window.acPACK_MODE) {
 }
 
 // �🔧 Register Service Worker for module caching (production + dev)
-// Skip in PACK mode (NFT bundles) and sandboxed iframes
-if ('serviceWorker' in navigator && !window.acPACK_MODE && window === window.top) {
+// Skip in PACK mode (NFT bundles), sandboxed iframes, and the Menu Band
+// webview — Menu Band wants the live site to always reflect recent changes,
+// so it runs cache-free (the SW's module cache would pin it to an old build;
+// the HTML template also unregisters any lingering SW in this mode).
+const acIsMenuBand =
+  new URLSearchParams(location.search).get('menuband') === 'true' ||
+  (window.acElectron && window.acElectron.isMenuBand === true);
+if ('serviceWorker' in navigator && !window.acPACK_MODE && window === window.top && !acIsMenuBand) {
   navigator.serviceWorker.register('/sw.js', { scope: '/' })
     .then((registration) => {
       // Check for updates periodically (every 5 minutes)
