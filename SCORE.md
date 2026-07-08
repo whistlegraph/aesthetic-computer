@@ -305,7 +305,7 @@ ac-restart            # Restart AC services only
 - `npm run url` — Get local tunnel URL
 
 **Notation:**
-- compush — commit, push
+- compush — commit, push; and when the commit touches live-served paths (`system/public/**`, `system/netlify/functions/**`), run `fish lith/deploy.fish` too, without being asked — push alone doesn't reach production
 
 ### Piece-Log Debugging (client-side errors)
 

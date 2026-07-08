@@ -84,7 +84,7 @@ Local-only commands (rarely needed): `ac-os build` (binary → initramfs → ker
 
 ### Notation
 
-- **compush** - commit & push
+- **compush** - commit & push. If the commit touches live-served paths (`system/public/**`, `system/netlify/functions/**`), follow with `fish lith/deploy.fish` unprompted — pushing alone doesn't put it in production.
 - **sticky the X** - on a macOS host, run `node toolchain/macos/sticky.mjs` on X — translucent, larger-text Stickies note sized to fit and centered. See `toolchain/macos/README.md`.
 
 ## Architecture
