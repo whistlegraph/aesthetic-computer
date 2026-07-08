@@ -51,12 +51,15 @@
   a:hover{background:var(--hi); text-decoration:none}
 
   header{padding:8px 0 4px}
+  /* the real hand-lettered whistlegraph wordmark */
+  .logo{display:block; width:100%; max-width:520px; height:auto; margin:2px 0 0 -3px}
+  .logo.mini{max-width:230px; margin-bottom:6px}
   h1.mark{
     font-family:'YWFTProcessing',"Arial Black",system-ui,sans-serif;
-    font-weight:normal; font-size:clamp(40px,12vw,76px); line-height:.9;
+    font-weight:normal; font-size:clamp(30px,8vw,52px); line-height:.95;
     letter-spacing:-.01em; color:var(--ink);
   }
-  h1.mark b{color:var(--margin); font-weight:normal} /* the pink dot */
+  h1.mark b{color:var(--margin); font-weight:normal}
   .est{color:var(--dim); font-size:12px; margin-top:6px; letter-spacing:.04em}
   .est b{color:var(--margin); font-weight:normal}
 
@@ -84,7 +87,7 @@
   .wrap{overflow-x:auto}
   table.idx{border-collapse:collapse; width:100%; font-size:14px}
   table.idx td{padding:7px 8px; border-bottom:1px dotted rgba(40,30,90,.4); vertical-align:top}
-  td.th{width:46px} td.th img{width:44px; height:44px; object-fit:cover; border:1px solid var(--ink); display:block; background:#fff}
+  td.th{width:46px} td.th img{width:42px; height:53px; object-fit:contain; border:1px solid var(--ink); display:block; background:#fff}
   td.cd{white-space:nowrap}
   .sw{display:inline-block; width:.72em; height:.72em; margin-right:6px; border:1px solid rgba(0,0,0,.45); background:var(--c); vertical-align:baseline}
   td.cd a{font-weight:normal}
@@ -108,8 +111,8 @@
   #detail{display:none}
   #detail.on{display:block}
   #index.off{display:none}
-  #detail .score{max-width:min(340px,100%); border:1px solid var(--ink); background:#fff; float:left; margin:4px 16px 10px 0}
-  #detail video{width:100%; max-width:420px; border:1px solid var(--ink); background:#000; display:block; clear:both; margin-top:6px}
+  #detail .score{width:300px; max-width:64vw; height:auto; border:1px solid var(--ink); background:#fff; float:left; margin:4px 16px 10px 0}
+  #detail video{width:300px; max-width:64vw; aspect-ratio:1824/2280; height:auto; border:1px solid var(--ink); background:#000; display:block; clear:both; margin-top:6px}
   #detail .back{font-size:13px}
   .clear{clear:both}
 </style>
@@ -120,8 +123,8 @@
   <!-- ══════════ INDEX ══════════ -->
   <div id="index">
     <header>
-      <h1 class="mark">whistlegraph<b>.</b></h1>
-      <div class="est">a drawing you sing &nbsp;<b>·</b>&nbsp; est. 2019 &nbsp;<b>·</b>&nbsp; an <a href="https://aesthetic.computer">aesthetic.computer</a> joint</div>
+      <img class="logo" src="/whistlegraph-logo.png" alt="whistlegraph" width="1517" height="266">
+      <div class="est">a drawing you sing &nbsp;<b>·</b>&nbsp; est. 2019</div>
     </header>
 
     <hr class="thick">
@@ -177,6 +180,7 @@
 
   <!-- ══════════ DETAIL ══════════ -->
   <div id="detail">
+    <a href="/" id="homelogo"><img class="logo mini" src="/whistlegraph-logo.png" alt="whistlegraph" width="1517" height="266"></a>
     <p class="back"><a href="/" id="backlink">← back to the index</a></p>
     <h1 class="mark" id="dTitle" style="font-size:clamp(30px,9vw,54px)"></h1>
     <div class="est" id="dBy"></div>
@@ -184,7 +188,7 @@
     <hr>
     <img class="score" id="dScore" alt="">
     <p class="dim" style="font-size:12.5px">the graphic score. trace the lines; sing the words.</p>
-    <video id="dVideo" controls playsinline preload="none" crossorigin="anonymous"></video>
+    <video id="dVideo" controls playsinline preload="metadata" crossorigin="anonymous"></video>
     <div class="clear"></div>
     <hr class="thick">
     <p class="back"><a href="/">← back to the index</a></p>
@@ -232,6 +236,7 @@ function showDetail(code){
   D.by.innerHTML=`composed by ${w.by} &nbsp;<b>·</b>&nbsp; ${w.year}`;
   D.code.textContent=w.code;
   D.score.src=`${CDN}/${w.slug}/${w.slug}-score.png`; D.score.alt=`graphic score for ${w.title}`;
+  D.video.poster=`${CDN}/${w.slug}/${w.slug}.webp`;
   D.video.src=`${CDN}/${w.slug}/${w.slug}-web.mp4`;
   D.perform.href=`https://aesthetic.computer/wg~${w.code}`;
   det.classList.add("on"); idx.classList.add("off");
@@ -243,7 +248,9 @@ function showIndex(){
   document.title="whistlegraph — a drawing you sing";
 }
 function go(code){ history.pushState({code},"",`/${code}`); showDetail(code); }
-document.getElementById("backlink").addEventListener("click",e=>{e.preventDefault();history.pushState({},"","/");showIndex();});
+function home(e){e.preventDefault();history.pushState({},"","/");showIndex();}
+document.getElementById("backlink").addEventListener("click",home);
+document.getElementById("homelogo").addEventListener("click",home);
 addEventListener("popstate",()=>{const c=location.pathname.replace(/\//g,"");BY[c]?showDetail(c):showIndex();});
 
 // Deep-link on load: /imab shows that whistlegraph.
