@@ -33,17 +33,17 @@ const KNOWN = [
   ["I Don't Need an iPhone", "dont need an iphone"],
   ["People Pleaser", "people pleaser"],
   ["What's Inside Your Heart?", "inside your heart"],
-  ["Loner", "im a loner"],
+  ["Loner", "curled up in myself"],
   ["Slinky Dog", "slinky dog"],
-  ["Mommy Wow", "mommy wow"],
-  ["Puzzle", "piece of the puzzle"],
+  ["Mommy Wow", "xmy circle"],
+  ["Puzzle", "look at all my special edges"],
   ["Triangles", "angle deep inside"],
   ["Hey There, Apple", "hey there apple"],
   ["Cheerleader", "cheerleader"],
-  ["Sad Mushroom", "sad mushroom"],
-  ["Scared of Stairs", "scared of stairs"],
+  ["Sad Mushroom", "keep me in this dark place"],
+  ["Scared of Stairs", "come down the stairs"],
   ["Frog Tiara", "frog tiara"],
-  ["Sad Fire", "sad fire"],
+  ["Sad Fire", "chilly but i keep burning"],
   ["I'm a Ghost", "im a ghost"],
   ["Bandaged Heart", "bandaged heart"],
   ["Five Ghosts", "five ghosts"],
@@ -105,13 +105,35 @@ for (const clip of sung.sort((a, b) => (b.views ?? 0) - (a.views ?? 0))) {
   else clusters.push({ members: [clip] });
 }
 
-// Label clusters.
+// Label each cluster: a KNOWN phrase in any member's lyrics claims the title.
 for (const cluster of clusters) {
   const allText = cluster.members.map((m) => m.lyr).join(" ");
   const known = KNOWN.find(([, phrase]) => allText.includes(phrase));
-  const top = cluster.members[0]; // most-viewed (sort order above)
-  cluster.title = known ? known[0] : `? ${top.lyr.split(" ").slice(0, 6).join(" ")}`;
-  cluster.known = Boolean(known);
+  cluster.knownTitle = known ? known[0] : null;
+}
+
+// Merge clusters that resolved to the same known title — greedy shingle
+// clustering can split one song across a few takes whose wording drifts
+// (the studio version vs a beatboxed intro); the title is ground truth.
+const merged = [];
+const byTitle = new Map();
+for (const cluster of clusters) {
+  if (cluster.knownTitle) {
+    const home = byTitle.get(cluster.knownTitle);
+    if (home) {
+      home.members.push(...cluster.members);
+      continue;
+    }
+    byTitle.set(cluster.knownTitle, cluster);
+  }
+  merged.push(cluster);
+}
+
+// Finalize each surviving cluster.
+for (const cluster of merged) {
+  const top = cluster.members.sort((a, b) => (b.views ?? 0) - (a.views ?? 0))[0];
+  cluster.title = cluster.knownTitle ?? `? ${top.lyr.split(" ").slice(0, 6).join(" ")}`;
+  cluster.known = Boolean(cluster.knownTitle);
   cluster.performances = cluster.members.length;
   cluster.views = cluster.members.reduce((sum, m) => sum + (m.views ?? 0), 0);
   cluster.span = [
@@ -119,7 +141,7 @@ for (const cluster of clusters) {
     cluster.members.reduce((a, m) => (m.date > a ? m.date : a), "0000"),
   ];
 }
-clusters.sort((a, b) => b.performances - a.performances || b.views - a.views);
+const clustersFinal = merged.sort((a, b) => b.performances - a.performances || b.views - a.views);
 
 writeFileSync(
   OUT,
@@ -129,7 +151,7 @@ writeFileSync(
       transcribed: clips.length,
       sung: sung.length,
       wordless: wordless.length,
-      songs: clusters.map((c) => ({
+      songs: clustersFinal.map((c) => ({
         title: c.title,
         known: c.known,
         performances: c.performances,
@@ -149,9 +171,9 @@ const min = (() => {
   return i >= 0 ? Number(process.argv[i + 1]) : 1;
 })();
 console.log(
-  `${clips.length} transcribed → ${sung.length} sung / ${wordless.length} wordless → ${clusters.length} songs\n`,
+  `${clips.length} transcribed → ${sung.length} sung / ${wordless.length} wordless → ${clustersFinal.length} songs\n`,
 );
-for (const c of clusters.filter((c) => c.performances >= min)) {
+for (const c of clustersFinal.filter((c) => c.performances >= min)) {
   const views = c.views >= 1e6 ? `${(c.views / 1e6).toFixed(1)}M` : `${Math.round(c.views / 1e3)}K`;
   console.log(
     `${String(c.performances).padStart(3)}× ${views.padStart(7)}  ${c.span[0]}→${c.span[1]}  ${c.title}`,
