@@ -8,3 +8,4 @@
 # per-id transcripts live in TRANSCRIPTS.json; audio cache is heavy
 transcripts/
 video/
+glyphs/
