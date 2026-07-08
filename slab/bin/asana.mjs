@@ -15,6 +15,8 @@
 //   asana status [--machine <name>]   JSON summary to stdout (default)
 //   asana task <gid>                  full detail for one task (incl. notes)
 //   asana comment <gid> <text…>       post a comment (story) on a task
+//   asana complete <gid>              mark a task complete (alias: done)
+//   asana reopen <gid>                un-complete a task
 //   asana config                      print/create the config stub path
 //   asana open                        open Asana "My Tasks" in the browser
 //   asana workspaces                  list the account's workspaces (gid + name)
@@ -244,6 +246,24 @@ async function comment(gid, text) {
   return { ok: true, gid, story: story.gid };
 }
 
+// Mark a task complete (or reopen it with `false`). PUT /tasks/<gid> with the
+// `completed` field — the one write the day-to-day flow needs beyond comments.
+async function setCompleted(gid, completed) {
+  const cfg = loadConfig();
+  if (!cfg) return { configured: false };
+  const task = await api(cfg, `/tasks/${gid}`, {
+    method: "PUT",
+    body: { completed },
+  });
+  return {
+    ok: true,
+    gid,
+    name: task.name,
+    completed: task.completed,
+    completed_at: task.completed_at || null,
+  };
+}
+
 // ─── workspaces ──────────────────────────────────────────────────────────────
 
 async function workspaces() {
@@ -294,6 +314,12 @@ try {
   } else if (cmd === "comment") {
     if (!pos[1] || !pos[2]) throw new Error("usage: asana comment <gid> <text…>");
     console.log(JSON.stringify(await comment(pos[1], pos.slice(2).join(" "))));
+  } else if (cmd === "complete" || cmd === "done" || cmd === "reopen") {
+    if (!pos[1]) throw new Error(`usage: asana ${cmd} <gid>`);
+    // `reopen` un-completes; `complete`/`done` complete unless a literal
+    // `false` is passed as the second arg.
+    const completed = cmd === "reopen" ? false : pos[2] !== "false";
+    console.log(JSON.stringify(await setCompleted(pos[1], completed)));
   } else {
     console.log(JSON.stringify(await status(flags.machine)));
   }
