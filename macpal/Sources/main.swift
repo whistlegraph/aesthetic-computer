@@ -6,7 +6,8 @@
 //       --corner TL [--repo ~/Developer/fuser]
 //                                          → the fuser machine badge
 //
-// Optional: --to <recipient> (affirmations key, default "fia"),
+// Optional: --to <recipient> (status/affirmations channel — default "fia" for
+//           the star, the machine's --name for fuser badges),
 //           --host <base url> (affirmations endpoint, default aesthetic.computer),
 //           --about (open the About panel on launch, for QA).
 //
@@ -65,14 +66,38 @@ if profile == "fuser" {
         draggable: draggable,
         colorTogglable: false,
         registersLoginItem: false,
-        showsAbout: false,
-        aboutDedication: nil,
+        showsAbout: true,
+        aboutDedication: "This MacPal looks after \(name) and is maintained by @jeffrey",
+        // Poses pushed over the wire (ArtPlugin → <home>/art) win when present,
+        // so a machine badge can be restyled live just like Fía's star:
+        //   node macpal/art.mjs face.svg --to neo
         posePaths: { _ in
-            [fuserHome + "/glyph.svg", fuserHome + "/glyph-2.svg", fuserHome + "/glyph-3.svg"]
+            let artDir = fuserHome + "/art"
+            if let files = try? FileManager.default.contentsOfDirectory(atPath: artDir) {
+                let idle = files.filter { $0.hasSuffix(".svg") && $0 != "sing.svg" }.sorted()
+                if !idle.isEmpty { return idle.map { artDir + "/" + $0 } }
+            }
+            return [fuserHome + "/glyph.svg", fuserHome + "/glyph-2.svg", fuserHome + "/glyph-3.svg"]
         },
-        singPath: { _ in fuserHome + "/glyph-sing.svg" }
+        singPath: { _ in
+            let wired = fuserHome + "/art/sing.svg"
+            if FileManager.default.fileExists(atPath: wired) { return wired }
+            return fuserHome + "/glyph-sing.svg"
+        }
     )
-    plugins = [FuserPlugin(home: fuserHome, repo: repo, minimal: argv.contains("--minimal"))]
+    plugins = [
+        FuserPlugin(home: fuserHome, repo: repo, minimal: argv.contains("--minimal")),
+        // Remote status line — the same wire as the star's affirmations, but
+        // each machine polls its own channel (default: its name), so
+        //   node macpal/affirm.mjs "baking the kernel" --to neo
+        // captions the neo badge without touching blueberry's.
+        AffirmationsPlugin(recipient: argValue("--to") ?? name.lowercased(),
+                           host: host, supportDir: fuserHome),
+        // Glyph art over the wire + device round-trip, same channel:
+        //   node macpal/art.mjs --get --from device --to neo
+        ArtPlugin(recipient: argValue("--to") ?? name.lowercased(),
+                  host: host, supportDir: fuserHome),
+    ]
 } else {
     // The star, for Fía. Glyph art ships in the .app's Resources (gold/silver),
     // but poses pushed over the wire (ArtPlugin → ~/…/MacPal/art) win when
@@ -120,24 +145,20 @@ if profile == "fuser" {
     ]
 }
 
-// 3D avatar opt-in, per machine: a fuser machine named <m> uses a SceneKit
-// avatar when <m>-3d/<m>.usdc has been staged (installer packs it). Explicit
-// --model3d forces it. So blueberry + neo (+ any future rigged machine) light
-// up automatically once their model lands; others stay on the flat glyph.
-if profile == "fuser" {
+// Every pal — star and machine badge alike — carries the OTA self-updater,
+// so new builds ship from `node macpal/release.mjs` instead of over iMessage.
+plugins.append(UpdatePlugin())
+
+// 3D avatars are deprecated for now — the per-machine auto-detect
+// (<m>-3d/<m>.usdc) and the right-click 3D ⇄ 2D toggle are parked; every pal
+// renders its flat SVG glyph. An explicit --model3d still works for dev QA.
+if profile == "fuser", want3D {
     let m = (argValue("--name") ?? "").lowercased()
-    let modelPath = model3DArg ?? (fuserHome + "/\(m)-3d/\(m).usdc")
-    if want3D || FileManager.default.fileExists(atPath: modelPath) {
-        config.model3D = true
-        config.model3DPath = modelPath
-        config.avatarTogglable = true   // right-click → 3D ⇄ 2D
-        // 2D keeps the flat SVG glyph poses (set by the fuser config above) so
-        // the toggle flips between the SceneKit pal and the animated glyph —
-        // only fall back to the model's static thumbnail if no SVGs are staged.
-        if !FileManager.default.fileExists(atPath: fuserHome + "/glyph.svg") {
-            config.posePaths = { _ in [fuserHome + "/\(m)-3d/\(m)-thumb.png"] }
-            config.singPath = { _ in nil }
-        }
+    config.model3D = true
+    config.model3DPath = model3DArg ?? (fuserHome + "/\(m)-3d/\(m).usdc")
+    if !FileManager.default.fileExists(atPath: fuserHome + "/glyph.svg") {
+        config.posePaths = { _ in [fuserHome + "/\(m)-3d/\(m)-thumb.png"] }
+        config.singPath = { _ in nil }
     }
 }
 

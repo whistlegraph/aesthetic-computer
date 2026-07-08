@@ -766,25 +766,10 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         if hasPane { refreshPane() }
     }
 
-    func menuItems(for controller: PalController) -> [NSMenuItem] {
-        let item = NSMenuItem(title: "Overtime", action: #selector(toggleOvertime), keyEquivalent: "")
-        item.target = self
-        item.state = FileManager.default.fileExists(atPath: overtimeFlag) ? .on : .off
-
-        // Repo ▸ — which repository this pal reads git status from. Checkmark
-        // marks the active one; picking another switches it live + persists.
-        let repoItem = NSMenuItem(title: "Repo", action: nil, keyEquivalent: "")
-        let sub = NSMenu()
-        for choice in repoChoices {
-            let mi = NSMenuItem(title: choice.label, action: #selector(pickRepo(_:)), keyEquivalent: "")
-            mi.target = self
-            mi.representedObject = choice.label
-            mi.state = (choice.label == repoLabel) ? .on : .off
-            sub.addItem(mi)
-        }
-        repoItem.submenu = sub
-        return [item, repoItem]
-    }
+    // Deprecated for now: the Overtime toggle and Repo ▸ selector are parked so
+    // the context menu stays just "About MacPal" + "Quit". The machinery below
+    // (toggleOvertime, pickRepo, the flag files) still works if re-added here.
+    func menuItems(for controller: PalController) -> [NSMenuItem] { [] }
 
     /// Switch the tracked repo from the right-click menu: persist the choice,
     /// repoint git, and force a fresh read so the badge updates immediately.
