@@ -39,13 +39,15 @@ import * as progress from "../../lib/render-progress.mjs";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const LANE = resolve(HERE, "..");
 const REPO = resolve(LANE, "..", "..");
-const MOTION = `${LANE}/out/motion`;
+const _af = (k, d) => { const i = process.argv.indexOf(k); return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : d; };
+// --motion-dir/--slug let variant cuts (the bunny lane) reuse this pass
+// against their own base without touching the original's files.
+const MOTION = _af("--motion-dir", `${LANE}/out/motion`);
 const BASE = `${MOTION}/base-reel.mp4`;
 const META = JSON.parse(readFileSync(`${MOTION}/meta-reel.json`, "utf8"));
-const _af = (k, d) => { const i = process.argv.indexOf(k); return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : d; };
 const VARIANT = _af("--variant", "story");
 if (!["story", "reel"].includes(VARIANT)) { console.error(`✗ unknown variant ${VARIANT}`); process.exit(1); }
-const OUT = `${LANE}/out/momabobasheep-${VARIANT}.mp4`;
+const OUT = `${LANE}/out/${_af("--slug", "momabobasheep")}-${VARIANT}.mp4`;
 const assetsDir = `${MOTION}/chrome-assets`;
 mkdirSync(assetsDir, { recursive: true });
 

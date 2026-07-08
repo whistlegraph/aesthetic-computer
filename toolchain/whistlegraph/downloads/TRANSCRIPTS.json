@@ -1,0 +1,78 @@
+{
+ "count": 4,
+ "transcribed": "2026-07-08T16:40:13.482Z",
+ "videos": [
+  {
+   "id": "6747917653291175174",
+   "url": "https://www.tiktok.com/@whistlegraph/video/6747917653291175174",
+   "date": "2019-10-15",
+   "desc": "#drawing #whistle #addamsfamily #doodle",
+   "views": 7837,
+   "duration": 21,
+   "lang": "en",
+   "text": "",
+   "segments": []
+  },
+  {
+   "id": "6751915558461033734",
+   "url": "https://www.tiktok.com/@whistlegraph/video/6751915558461033734",
+   "date": "2019-10-26",
+   "desc": "Can you? #drawing #doodle #art #selfportraitcheck",
+   "views": 527700,
+   "duration": 15,
+   "lang": "en",
+   "text": "I can draw a self-portrait using the letters of my name check.",
+   "segments": [
+    {
+     "from": 0,
+     "to": 7000,
+     "text": "I can draw a self-portrait using the letters of my name check."
+    }
+   ]
+  },
+  {
+   "id": "6759038366072769798",
+   "url": "https://www.tiktok.com/@whistlegraph/video/6759038366072769798",
+   "date": "2019-11-14",
+   "desc": "🌹 This is my Rose Cave. #doodle #whistle #rose #rosecave #art made w/ @fleelsz",
+   "views": 169700,
+   "duration": 15,
+   "lang": "en",
+   "text": "(upbeat music)",
+   "segments": [
+    {
+     "from": 0,
+     "to": 2580,
+     "text": "(upbeat music)"
+    }
+   ]
+  },
+  {
+   "id": "6889170390904589574",
+   "url": "https://www.tiktok.com/@whistlegraph/video/6889170390904589574",
+   "date": "2020-10-29",
+   "desc": "A rather spooky and morose rendition of \"Hey There, Apple\" by myself, @hippiethoughts, and Camille! #drawing #painting #diy #art #aesthetic #morose",
+   "views": 13900000,
+   "duration": 22,
+   "lang": "en",
+   "text": "a one, a two, a one, two, three, and hey there Apple, are you okay? Did you fall from the tree yesterday?",
+   "segments": [
+    {
+     "from": 0,
+     "to": 6760,
+     "text": "a one, a two, a one, two, three, and hey there"
+    },
+    {
+     "from": 6760,
+     "to": 13780,
+     "text": "Apple, are you okay?"
+    },
+    {
+     "from": 13780,
+     "to": 22360,
+     "text": "Did you fall from the tree yesterday?"
+    }
+   ]
+  }
+ ]
+}
