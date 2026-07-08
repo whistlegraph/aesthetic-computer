@@ -122,9 +122,16 @@
     # --- nela.aesthetic.computer (NELA Computer Club donate page) ---
     @nela host nela.aesthetic.computer
     handle @nela {
-        root * /opt/ac/system/public/nela.aesthetic.computer
-        try_files {path} {path}.html /index.html
-        file_server
+        handle /api/* {
+            reverse_proxy localhost:8888
+        }
+        # Static fallback wrapped in `handle {}` — bare try_files reorders
+        # ahead of `handle` and eats /api/* (see the give block above).
+        handle {
+            root * /opt/ac/system/public/nela.aesthetic.computer
+            try_files {path} {path}.html /index.html
+            file_server
+        }
     }
 
     # --- give.aesthetic.computer ---

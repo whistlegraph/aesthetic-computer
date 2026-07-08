@@ -209,8 +209,19 @@
 ▌   ▚▌   ▚▂▂▞   ▚▂▂▞</pre>
     </header>
 
-    <h2>Support NCC<span class="cursor">&nbsp;</span></h2>
+    <h2 id="hello">Support NCC<span class="cursor">&nbsp;</span></h2>
     <pre>▒▒▒▒▒▒▒▒▒▒▒▒</pre>
+
+    <!-- Signal sign-in: the club jump box (jump.nelacomputer.club) is an
+         OpenID Connect issuer keyed to Signal accounts. Signing in just
+         greets you by your Signal username — nothing here is gated. -->
+    <div class="box" id="signalBox">
+        <p id="signalOutView">Already on the club jump box?
+            <a class="give" id="signalBtn" href="#">sign in with signal</a></p>
+        <p id="signalInView" hidden>Signed in as
+            <strong>@<span id="signalName"></span></strong> via Signal.
+            <a href="#" id="signalOff">sign out</a></p>
+    </div>
 
     <p>NCC is something we keep going together. Members chip in monthly to
     keep the room. No one is turned away for lack of funds.</p>
@@ -300,6 +311,98 @@
 
     // One-time: open donate flow, no preset interval.
     document.getElementById("onceBtn").href = ocDonate({ monthly: false });
+
+    // ── Signal sign-in ──────────────────────────────────────────────
+    // OpenID Connect against the club jump box. The authorization code
+    // comes back to this page (the registered redirect URI is the bare
+    // origin) and /api/nela-signin trades it for the profile server-side,
+    // where the client secret lives. We keep only the greeting bits.
+    const SIGNAL = {
+        issuer: "https://jump.nelacomputer.club",
+        clientId: "5653d749cfe76abf",
+        store: "ncc-signal", // localStorage key: { username, uid, at }
+    };
+
+    const hello = document.getElementById("hello");
+    const outView = document.getElementById("signalOutView");
+    const inView = document.getElementById("signalInView");
+    const nameEl = document.getElementById("signalName");
+
+    function whoami() {
+        try { return JSON.parse(localStorage.getItem(SIGNAL.store)); }
+        catch { return null; }
+    }
+
+    function renderSignal() {
+        const me = whoami();
+        outView.hidden = !!me;
+        inView.hidden = !me;
+        if (me) {
+            nameEl.textContent = me.username;
+            hello.innerHTML =
+                'Hi, ' + me.username.replace(/[<>&]/g, "") +
+                '!<span class="cursor">&nbsp;</span>';
+        } else {
+            hello.innerHTML = 'Support NCC<span class="cursor">&nbsp;</span>';
+        }
+    }
+
+    document.getElementById("signalBtn").addEventListener("click", (e) => {
+        e.preventDefault();
+        const state = crypto.randomUUID();
+        sessionStorage.setItem("ncc-signal-state", state);
+        const p = new URLSearchParams({
+            response_type: "code",
+            client_id: SIGNAL.clientId,
+            redirect_uri: location.origin,
+            state,
+        });
+        location.href = SIGNAL.issuer + "/oauth/authorize?" + p;
+    });
+
+    document.getElementById("signalOff").addEventListener("click", (e) => {
+        e.preventDefault();
+        localStorage.removeItem(SIGNAL.store);
+        renderSignal();
+    });
+
+    // Finish the round-trip: ?code=... lands back here after authorize.
+    async function completeSignal() {
+        const params = new URLSearchParams(location.search);
+        const code = params.get("code");
+        if (code) {
+            const state = sessionStorage.getItem("ncc-signal-state");
+            sessionStorage.removeItem("ncc-signal-state");
+            if (params.get("state") === state) {
+                try {
+                    const res = await fetch("/api/nela-signin", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ code }),
+                    });
+                    if (res.ok) {
+                        const { username, uid } = await res.json();
+                        if (username) {
+                            localStorage.setItem(SIGNAL.store,
+                                JSON.stringify({ username, uid, at: Date.now() }));
+                        }
+                        console.log("🚪 signed in via signal:", username);
+                    } else {
+                        console.log("🚪 signal sign-in failed:", res.status);
+                    }
+                } catch (err) {
+                    console.log("🚪 signal sign-in error:", err);
+                }
+            } else {
+                console.log("🚪 signal sign-in: state mismatch, ignoring code");
+            }
+        }
+        if (code || params.get("error")) {
+            history.replaceState(null, "", location.pathname); // tidy the URL
+        }
+        renderSignal();
+    }
+    completeSignal();
 </script>
 </body>
 </html>
