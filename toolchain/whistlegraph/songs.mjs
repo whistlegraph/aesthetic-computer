@@ -48,6 +48,17 @@ const KNOWN = [
   ["Bandaged Heart", "bandaged heart"],
   ["Five Ghosts", "five ghosts"],
   ["Bunny in a Bowl", "bunny in a bowl"],
+  ["Flower Eater", "looked for so long for the one"],
+  ["It's Too Hot, No It's Not", "its too hot no its not"],
+  ["Empty Soda Cup", "empty soda cup"],
+  ["Crawling in the Corner", "crawling in the corner"],
+  ["Distant Hills", "distant hills"],
+  ["Giant's Building", "giants building"],
+  ["Sprout in the Grass", "sprout in the grass"],
+  ["My Neighbor is My Best Friend", "neighbor is my best friend"],
+  ["Battle Between Smiley Faces", "battle between smiley"],
+  ["Dog Bite", "bit a hole right in your hand"],
+  ["Some of the Time", "some of the time im feeling"],
 ];
 
 const norm = (s) =>

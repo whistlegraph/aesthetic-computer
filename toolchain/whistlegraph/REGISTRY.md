@@ -73,6 +73,7 @@ Highest-value first by reach:
 
 | Title | Date | TikTok id | Views |
 |-------|------|-----------|-------|
+| Flower Eater (first lyric "Looked for so long for the one that I love"; audio + Goodiepal session in Dropbox, dated 2021-04-07. NOT the 2019-11-15 clip 6759484642547518726 — that's an earlier role-painting game with the same name) | 2021-04-09 | 6949031877718117638 | — |
 | Triangles (chalk overdub; score in Dropbox) | 2021-11-28 | 7035561380962929966 | 23.2M |
 | Hey There, Apple (score in Dropbox) | 2020-10-29 | 6889170390904589574 | 13.9M |
 | Cheerleader | 2020-11-09 | 6893192988348927237 | 3M |
@@ -106,8 +107,8 @@ In My Mind · Triangles.
 
 Song folders in `TikTok/2020 Out of App TikToks/` (♪ = final audio also in
 `Final Audios and Drafts/`): Bound By A Signal ♪ (incl. vocoder mix) ·
-Creatures in Windows · Distant Hills ♪ · Flower Eater / Fallen Flower ♪
-(+ Goodiepal session) · Foot of the Grave · I AM ALIEN · I Don't Know What to
+Creatures in Windows · Distant Hills ♪ · Fallen Flower ♪ · Foot of the
+Grave · I AM ALIEN · I Don't Know What to
 Draw · I Miss My Girlfriend · I Was Tripped · Little Curl ♪ · Little Lost
 Kitty ("Lost Forest Cat") ♪ · Little Rock · Pen Whip Army · Rule Breaker ·
 Shallow Secrets ♪ · Some of the Time · Sometimes Friendships End · Spooky
