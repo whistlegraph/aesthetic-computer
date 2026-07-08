@@ -5,3 +5,6 @@
 # keep the small analysis + index
 !*.analysis.json
 !INDEX.json
+# per-id transcripts live in TRANSCRIPTS.json; audio cache is heavy
+transcripts/
+video/
