@@ -3,13 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>whistlegraph — a drawing you sing</title>
+<title>Whistlegraph — a drawing you sing</title>
 <meta name="description" content="A whistlegraph is a drawing you sing. Every line is a syllable. The finished picture is a score — it teaches you how to play it. An index of the artform.">
-<meta property="og:title" content="whistlegraph">
-<meta property="og:description" content="a drawing you sing. every line is a syllable. the score teaches you how to play it.">
+<meta property="og:title" content="Whistlegraph">
+<meta property="og:description" content="A drawing you sing. Every line is a syllable. The score teaches you how to play it.">
 <meta property="og:image" content="https://assets.aesthetic.computer/whistlegraph/butterfly-cosplayer/butterfly-cosplayer.webp">
 <meta name="theme-color" content="#fcf7c5">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦋</text></svg>">
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <style>
   @font-face{
     font-family:'YWFTProcessing';
@@ -51,9 +52,34 @@
   a:hover{background:var(--hi); text-decoration:none}
 
   header{padding:8px 0 4px}
-  /* the real hand-lettered whistlegraph wordmark */
-  .logo{display:block; width:100%; max-width:520px; height:auto; margin:2px 0 0 -3px}
+  /* the real hand-lettered whistlegraph wordmark — cut into 12 letters */
+  .logo{display:block; position:relative; width:100%; max-width:520px; aspect-ratio:1517/266; margin:2px 0 0 -3px}
   .logo.mini{max-width:230px; margin-bottom:6px}
+  .logo img{position:absolute; height:auto; display:block}
+  @media (prefers-reduced-motion: no-preference){
+    .logo img{
+      animation:wg-bob var(--d,4.4s) ease-in-out var(--p,0s) infinite alternate;
+      transition:scale .3s ease;
+    }
+    @keyframes wg-bob{
+      from{transform:translateY(.8%) rotate(-1deg)}
+      to{transform:translateY(-1.6%) rotate(1.1deg)}
+    }
+    .logo img:nth-child(1) {--d:4.6s; --p:-0.0s}
+    .logo img:nth-child(2) {--d:3.8s; --p:-2.1s}
+    .logo img:nth-child(3) {--d:5.4s; --p:-0.9s}
+    .logo img:nth-child(4) {--d:3.3s; --p:-1.5s}
+    .logo img:nth-child(5) {--d:4.9s; --p:-3.4s}
+    .logo img:nth-child(6) {--d:3.6s; --p:-0.5s}
+    .logo img:nth-child(7) {--d:5.8s; --p:-2.8s}
+    .logo img:nth-child(8) {--d:3.2s; --p:-1.1s}
+    .logo img:nth-child(9) {--d:4.3s; --p:-3.9s}
+    .logo img:nth-child(10){--d:5.1s; --p:-0.3s}
+    .logo img:nth-child(11){--d:3.5s; --p:-2.4s}
+    .logo img:nth-child(12){--d:4.7s; --p:-1.8s}
+    .logo:hover img{scale:1.04}   /* the word perks up */
+    .logo img:hover{scale:1.14}   /* the letter under the finger, a bit more */
+  }
   h1.mark{
     font-family:'YWFTProcessing',"Arial Black",system-ui,sans-serif;
     font-weight:normal; font-size:clamp(30px,8vw,52px); line-height:.95;
@@ -72,7 +98,7 @@
   .dim{color:var(--dim)}
   h2{
     font-family:'YWFTProcessing',"Arial Black",system-ui,sans-serif; font-weight:normal;
-    font-size:20px; letter-spacing:.02em; margin:4px 0 10px; text-transform:lowercase;
+    font-size:20px; letter-spacing:.02em; margin:4px 0 10px;
   }
   h2::before{content:"› "; color:var(--margin)}
 
@@ -87,7 +113,7 @@
   .wrap{overflow-x:auto}
   table.idx{border-collapse:collapse; width:100%; font-size:14px}
   table.idx td{padding:7px 8px; border-bottom:1px dotted rgba(40,30,90,.4); vertical-align:top}
-  td.th{width:46px} td.th img{width:42px; height:53px; object-fit:contain; border:1px solid var(--ink); display:block; background:#fff}
+  td.th{width:56px} td.th img{width:52px; height:65px; object-fit:cover; border:1px solid var(--ink); display:block; background:#fff}
   td.cd{white-space:nowrap}
   .sw{display:inline-block; width:.72em; height:.72em; margin-right:6px; border:1px solid rgba(0,0,0,.45); background:var(--c); vertical-align:baseline}
   td.cd a{font-weight:normal}
@@ -125,81 +151,109 @@
   <!-- ══════════ INDEX ══════════ -->
   <div id="index">
     <header>
-      <img class="logo" src="/whistlegraph-logo.png" alt="whistlegraph" width="1517" height="266">
-      <div class="est">a drawing you sing &nbsp;<b>·</b>&nbsp; est. 2019</div>
+      <div class="logo" role="img" aria-label="Whistlegraph">
+        <img src="/letters/00-w.png" alt="" width="164" height="180" style="left:0.066%;top:0.376%;width:10.811%">
+        <img src="/letters/01-h.png" alt="" width="125" height="174" style="left:11.668%;top:21.053%;width:8.240%">
+        <img src="/letters/02-i.png" alt="" width="36" height="158" style="left:22.281%;top:7.895%;width:2.373%">
+        <img src="/letters/03-s.png" alt="" width="107" height="168" style="left:25.906%;top:20.301%;width:7.053%">
+        <img src="/letters/04-t.png" alt="" width="141" height="149" style="left:32.696%;top:6.767%;width:9.295%">
+        <img src="/letters/05-l.png" alt="" width="111" height="168" style="left:41.002%;top:17.293%;width:7.317%">
+        <img src="/letters/06-e.png" alt="" width="126" height="150" style="left:48.583%;top:13.534%;width:8.306%">
+        <img src="/letters/07-g.png" alt="" width="122" height="171" style="left:57.350%;top:31.955%;width:8.042%">
+        <img src="/letters/08-r.png" alt="" width="115" height="150" style="left:66.513%;top:22.180%;width:7.581%">
+        <img src="/letters/09-a.png" alt="" width="128" height="165" style="left:74.555%;top:37.970%;width:8.438%">
+        <img src="/letters/10-p.png" alt="" width="106" height="173" style="left:83.059%;top:16.917%;width:6.987%">
+        <img src="/letters/11-h.png" alt="" width="136" height="178" style="left:91.035%;top:32.707%;width:8.965%">
+      </div>
+      <div class="est">A drawing you sing &nbsp;<b>·</b>&nbsp; Est. 2019</div>
     </header>
 
     <hr class="thick">
 
     <blockquote>
-      a whistlegraph is a drawing you sing. every line is a syllable. you draw it
+      A whistlegraph is a drawing you sing. Every line is a syllable. You draw it
       while you sing it, and the finished picture is a <em>score</em> — it teaches you
-      how to play it. i started making them in 2019; the trio drew millions of them
-      onto tiktok. this is the index.
+      how to play it. I started making them in 2019; the trio drew millions of them
+      onto TikTok. This is the index.
     </blockquote>
 
     <div class="note">
-      <b>every whistlegraph has a code.</b><br>
-      type <code>imab</code> at <a href="https://aesthetic.computer">aesthetic.computer</a>
+      <b>Every whistlegraph has a code.</b><br>
+      Type <code>imab</code> at <a href="https://aesthetic.computer">aesthetic.computer</a>
       to perform it — or open <a href="/imab">whistlegraph.org/imab</a>.
-      four little letters, one whole song.
+      Four little letters, one whole song.
     </div>
 
     <hr>
-    <h2>the ten</h2>
-    <p class="dim" style="font-size:12.5px;margin-top:-2px">the graphic scores from <em>ten whistlegraphs</em>, feral file, 2022. tap a code.</p>
+    <h2>Index</h2>
+    <p class="dim" style="font-size:12.5px;margin-top:-2px">Every known whistlegraph, oldest first as they're recovered — the archive is still being combed. Tap a code.</p>
     <div class="wrap">
       <table class="idx" id="idx"><tbody></tbody></table>
     </div>
 
     <hr>
-    <h2>a rough spine</h2>
+    <h2>A rough spine</h2>
     <div class="rail">
-      <div><b>2019</b> the form is invented. &ldquo;i'm a butterfly&rdquo; — four strokes, four sung lines.</div>
-      <div><b>2020</b> the trio forms in a cabin in ashland. tiktok tutorials: a hand draws while a voice sings.</div>
-      <div><b>2021</b> rhizome commissions <em>the longest whistlegraph ever (so far)</em>.</div>
-      <div><b>2022</b> <em>ten whistlegraphs</em> at feral file. the new museum. taipei dangdai.</div>
-      <div><b>2023</b> the zine (sex magazine, 750 copies). the trio parts. the form continues, solo.</div>
-      <div><b>now </b> whistlegraph.org — past, present, and future of the artform, in one place.</div>
+      <div><b>2019</b> The form is invented. &ldquo;I'm a butterfly&rdquo; — four strokes, four sung lines.</div>
+      <div><b>2020</b> The trio forms in a cabin in Ashland. TikTok tutorials: a hand draws while a voice sings.</div>
+      <div><b>2021</b> Rhizome commissions <em>The Longest Whistlegraph Ever (So Far)</em>.</div>
+      <div><b>2022</b> <em>Ten Whistlegraphs</em> at Feral File. The New Museum. Taipei Dangdai.</div>
+      <div><b>2023</b> The zine (Sex Magazine, 750 copies). The trio parts. The form continues, solo.</div>
+      <div><b>Now </b> whistlegraph.org — past, present, and future of the artform, in one place.</div>
     </div>
 
     <hr>
-    <h2>elsewhere</h2>
+    <h2>Elsewhere</h2>
     <ul class="plain">
-      <li><a href="https://www.tiktok.com/@whistlegraph">tiktok</a> — where it grew (2.6M, no ads)</li>
-      <li><a href="https://aesthetic.computer/whistlegraph">record your own</a> — the recorder, on aesthetic.computer</li>
-      <li><a href="https://feralfile.com/artists/Whistlegraph">feral file</a> · <a href="https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/">rhizome</a> · <a href="https://www.are.na/aesthetic-computer/self-teaching-scores">are.na</a></li>
-      <li><a href="https://shop.whistlegraph.com">the zine + shop</a> · <a href="https://distrokid.com/hyperfollow/whistlegraph/music-2-whistlegraph-2">music 2 whistlegraph 2</a></li>
+      <li><a href="https://www.tiktok.com/@whistlegraph">TikTok</a> — where it grew (2.6M, no ads)</li>
+      <li><a href="https://aesthetic.computer/whistlegraph">Record your own</a> — the recorder, on aesthetic.computer</li>
+      <li><a href="https://feralfile.com/artists/Whistlegraph">Feral File</a> · <a href="https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/">Rhizome</a> · <a href="https://www.are.na/aesthetic-computer/self-teaching-scores">Are.na</a></li>
+      <li><a href="https://shop.whistlegraph.com">The zine + shop</a> · <a href="https://distrokid.com/hyperfollow/whistlegraph/music-2-whistlegraph-2">Music 2 Whistlegraph 2</a></li>
     </ul>
 
     <hr class="thick">
     <footer>
-      last whistlegraphed 2026.07.07 &nbsp;·&nbsp; the score teaches you how to play it<br>
-      media from the <a href="https://aesthetic.computer">aesthetic.computer</a> archive.
-      <span class="badge">best drawn slowly · sung quietly 🦋</span>
+      Last whistlegraphed 2026.07.07 &nbsp;·&nbsp; The score teaches you how to play it.<br>
+      Media from the <a href="https://aesthetic.computer">aesthetic.computer</a> archive.
+      <span class="badge">Best drawn slowly · Sung quietly 🦋</span>
     </footer>
   </div>
 
   <!-- ══════════ DETAIL ══════════ -->
   <div id="detail">
-    <a href="/" id="homelogo"><img class="logo mini" src="/whistlegraph-logo.png" alt="whistlegraph" width="1517" height="266"></a>
-    <p class="back"><a href="/" id="backlink">← back to the index</a></p>
+    <a href="/" id="homelogo" style="display:block;background:none">
+      <div class="logo mini" role="img" aria-label="Whistlegraph">
+        <img src="/letters/00-w.png" alt="" width="164" height="180" style="left:0.066%;top:0.376%;width:10.811%">
+        <img src="/letters/01-h.png" alt="" width="125" height="174" style="left:11.668%;top:21.053%;width:8.240%">
+        <img src="/letters/02-i.png" alt="" width="36" height="158" style="left:22.281%;top:7.895%;width:2.373%">
+        <img src="/letters/03-s.png" alt="" width="107" height="168" style="left:25.906%;top:20.301%;width:7.053%">
+        <img src="/letters/04-t.png" alt="" width="141" height="149" style="left:32.696%;top:6.767%;width:9.295%">
+        <img src="/letters/05-l.png" alt="" width="111" height="168" style="left:41.002%;top:17.293%;width:7.317%">
+        <img src="/letters/06-e.png" alt="" width="126" height="150" style="left:48.583%;top:13.534%;width:8.306%">
+        <img src="/letters/07-g.png" alt="" width="122" height="171" style="left:57.350%;top:31.955%;width:8.042%">
+        <img src="/letters/08-r.png" alt="" width="115" height="150" style="left:66.513%;top:22.180%;width:7.581%">
+        <img src="/letters/09-a.png" alt="" width="128" height="165" style="left:74.555%;top:37.970%;width:8.438%">
+        <img src="/letters/10-p.png" alt="" width="106" height="173" style="left:83.059%;top:16.917%;width:6.987%">
+        <img src="/letters/11-h.png" alt="" width="136" height="178" style="left:91.035%;top:32.707%;width:8.965%">
+      </div>
+    </a>
+    <p class="back"><a href="/" id="backlink">← Back to the index</a></p>
     <h1 class="mark" id="dTitle" style="font-size:clamp(30px,9vw,54px)"></h1>
     <div class="est" id="dBy"></div>
-    <div class="note" style="margin-top:12px">code <code id="dCode"></code> &nbsp; — &nbsp; type it at <a href="https://aesthetic.computer">aesthetic.computer</a>, or <a id="dPerform" href="#">perform it in the card player →</a></div>
+    <div class="note" style="margin-top:12px">Code <code id="dCode"></code> &nbsp; — &nbsp; type it at <a href="https://aesthetic.computer">aesthetic.computer</a>, or <a id="dPerform" href="#">perform it in the card player →</a></div>
     <div id="dCanonWrap" style="display:none">
       <hr>
-      <p class="lbl">the score, drawn — every stroke lands on its sung syllable</p>
+      <p class="lbl">The score, drawn — every stroke lands on its sung syllable</p>
       <video id="dCanon" class="canon" controls playsinline preload="metadata" loop></video>
-      <p class="dim" style="font-size:11.5px">derived from the score's own frames + the sung take. <a href="/imab">how →</a></p>
+      <p class="dim" style="font-size:11.5px">Derived from the score's own frames + the sung take. <a href="/imab">How →</a></p>
     </div>
     <hr>
     <img class="score" id="dScore" alt="">
-    <p class="dim" style="font-size:12.5px">the graphic score. trace the lines; sing the words.</p>
+    <p class="dim" style="font-size:12.5px">The graphic score. Trace the lines; sing the words.</p>
     <video id="dVideo" controls playsinline preload="metadata" crossorigin="anonymous"></video>
     <div class="clear"></div>
     <hr class="thick">
-    <p class="back"><a href="/">← back to the index</a></p>
+    <p class="back"><a href="/">← Back to the index</a></p>
   </div>
 
 </div>
@@ -226,7 +280,7 @@ const tb=document.querySelector("#idx tbody");
 for(const w of WGS){
   const tr=document.createElement("tr"); tr.className="row";
   tr.innerHTML=
-    `<td class="th"><a href="/${w.code}"><img loading="lazy" alt="score for ${w.title}" src="${CDN}/${w.slug}/${w.slug}-score.png"></a></td>`+
+    `<td class="th"><a href="/${w.code}"><img loading="lazy" alt="Final glyph of ${w.title}" src="/glyphs/${w.code}.jpg"></a></td>`+
     `<td class="cd"><span class="sw" style="--c:${w.c}"></span>[<a href="/${w.code}">${w.code}</a>]</td>`+
     `<td class="ti"><a href="/${w.code}">${w.title}</a><span class="by">${w.by}</span></td>`+
     `<td class="yr">${w.year}</td>`;
@@ -242,22 +296,22 @@ const D={t:document.getElementById("dTitle"),by:document.getElementById("dBy"),c
 function showDetail(code){
   const w=BY[code]; if(!w) return showIndex();
   D.t.textContent=w.title;
-  D.by.innerHTML=`composed by ${w.by} &nbsp;<b>·</b>&nbsp; ${w.year}`;
+  D.by.innerHTML=`Composed by ${w.by} &nbsp;<b>·</b>&nbsp; ${w.year}`;
   D.code.textContent=w.code;
-  D.score.src=`${CDN}/${w.slug}/${w.slug}-score.png`; D.score.alt=`graphic score for ${w.title}`;
+  D.score.src=`${CDN}/${w.slug}/${w.slug}-score.png`; D.score.alt=`Graphic score for ${w.title}`;
   D.video.poster=`${CDN}/${w.slug}/${w.slug}.webp`;
   D.video.src=`${CDN}/${w.slug}/${w.slug}-web.mp4`;
   if(w.canonical){D.canon.src=w.canonical;D.canonWrap.style.display="";}
   else{D.canonWrap.style.display="none";D.canon.removeAttribute("src");}
   D.perform.href=`https://aesthetic.computer/wg~${w.code}`;
   det.classList.add("on"); idx.classList.add("off");
-  document.title=`${w.title} — whistlegraph`; scrollTo(0,0);
+  document.title=`${w.title} — Whistlegraph`; scrollTo(0,0);
 }
 function showIndex(){
   det.classList.remove("on"); idx.classList.remove("off");
   D.video.pause(); D.video.removeAttribute("src"); D.video.load();
   D.canon.pause();
-  document.title="whistlegraph — a drawing you sing";
+  document.title="Whistlegraph — a drawing you sing";
 }
 function go(code){ history.pushState({code},"",`/${code}`); showDetail(code); }
 function home(e){e.preventDefault();history.pushState({},"","/");showIndex();}
