@@ -2172,20 +2172,38 @@ async function fun(event, context) {
           // 🍽️ Menu Band: never let a cached service worker pin the embedded
           // site to an old build. A SW registered by a previous launch keeps
           // serving stale modules, so recent site changes never appear inside
-          // the menubar webview. Unregister any SW and drop its caches here —
-          // this inline script runs before the deferred boot.mjs, which also
-          // skips SW registration in this mode (see boot.mjs).
+          // the menubar webview. This inline script runs before the deferred
+          // boot.mjs (which also skips SW registration in this mode). Because
+          // the old SW still *controls this very page load*, the modules it
+          // just served are stale — so once we've removed it, reload ONCE so
+          // the now-uncontrolled page pulls everything fresh. One-shot: after
+          // the reload there's no SW to remove, so it can't loop.
           if (params.get("menuband") === "true" || (window.acElectron && window.acElectron.isMenuBand)) {
-            if ("serviceWorker" in navigator && navigator.serviceWorker.getRegistrations) {
-              navigator.serviceWorker.getRegistrations().then(function (rs) {
-                rs.forEach(function (r) { r.unregister(); });
-              }).catch(function () {});
-            }
-            if (window.caches && caches.keys) {
-              caches.keys().then(function (ks) {
-                ks.forEach(function (k) { caches.delete(k); });
-              }).catch(function () {});
-            }
+            (async function () {
+              var removed = false;
+              try {
+                if ("serviceWorker" in navigator && navigator.serviceWorker.getRegistrations) {
+                  var rs = await navigator.serviceWorker.getRegistrations();
+                  if (rs.length) {
+                    removed = true;
+                    await Promise.all(rs.map(function (r) { return r.unregister(); }));
+                  }
+                }
+              } catch (e) {}
+              try {
+                if (window.caches && caches.keys) {
+                  var ks = await caches.keys();
+                  if (ks.length) {
+                    removed = true;
+                    await Promise.all(ks.map(function (k) { return caches.delete(k); }));
+                  }
+                }
+              } catch (e) {}
+              if (removed && !sessionStorage.getItem("acMenubandFresh")) {
+                sessionStorage.setItem("acMenubandFresh", "1");
+                location.reload();
+              }
+            })();
           }
         </script>
       </body>
