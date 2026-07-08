@@ -3,310 +3,251 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Whistlegraph — the self-teaching score</title>
-<meta name="description" content="A drawing form invented in 2019 where every line is a sung syllable. You draw it while you sing it. The finished drawing is a score that teaches you how to play it.">
-<meta property="og:title" content="Whistlegraph">
-<meta property="og:description" content="Every line is a sung syllable. The score teaches you how to play it.">
+<title>whistlegraph — a drawing you sing</title>
+<meta name="description" content="A whistlegraph is a drawing you sing. Every line is a syllable. The finished picture is a score — it teaches you how to play it. An index of the artform.">
+<meta property="og:title" content="whistlegraph">
+<meta property="og:description" content="a drawing you sing. every line is a syllable. the score teaches you how to play it.">
 <meta property="og:image" content="https://assets.aesthetic.computer/whistlegraph/butterfly-cosplayer/butterfly-cosplayer.webp">
-<meta name="theme-color" content="#0a0a0f">
+<meta name="theme-color" content="#fcf7c5">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦋</text></svg>">
 <style>
-  :root{
-    --bg:#0a0a0f; --bg2:#12121b; --ink:#f4f1ea; --dim:#9a97a8;
-    --line:#26232f; --accent:#ffab3d; --accent2:#7a50b4; --card:#15141d;
-    --maxw:1180px;
+  @font-face{
+    font-family:'YWFTProcessing';
+    src:url('https://aesthetic.computer/type/webfonts/ywft-processing-bold.woff2') format('woff2');
+    font-weight:normal; font-style:normal; font-display:swap;
   }
-  *{box-sizing:border-box}
+  :root{
+    --paper:#fcf7c5;      /* legal-pad yellow (AC prompt light bg) */
+    --ink:#281e5a;        /* dark purple-blue (AC prompt light text) */
+    --dim:#6a638c;
+    --rule:rgba(255,180,60,.35);  /* amber ruled line */
+    --margin:#b44887;     /* acpink — the "." color, legal-pad margin */
+    --link:#1a56d6;       /* blue */
+    --seen:#7850b4;       /* acpurple, visited */
+    --hi:#fff3a0;         /* highlighter */
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
   html{-webkit-text-size-adjust:100%}
   body{
-    margin:0; background:
-      radial-gradient(1200px 700px at 78% -8%, rgba(122,80,180,.22), transparent 60%),
-      radial-gradient(900px 620px at 8% 4%, rgba(255,171,61,.12), transparent 55%),
-      var(--bg);
+    background:var(--paper);
     color:var(--ink);
-    font:16px/1.55 ui-rounded,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    letter-spacing:.01em; -webkit-font-smoothing:antialiased;
-    overflow-x:hidden;
+    font:15px/1.65 ui-monospace,"Berkeley Mono Variable",Menlo,"DejaVu Sans Mono",monospace;
+    -webkit-font-smoothing:antialiased;
   }
-  a{color:var(--accent); text-decoration:none}
-  a:hover{text-decoration:underline}
-  .wrap{max-width:var(--maxw); margin:0 auto; padding:0 22px}
+  /* the pad: narrow column, amber horizontal rules, pink margin line */
+  .pad{
+    max-width:680px; margin:0 auto; min-height:100vh;
+    padding:26px 22px 60px 46px; position:relative;
+    background:
+      repeating-linear-gradient(var(--paper), var(--paper) 26px, var(--rule) 26px, var(--rule) 27px);
+    border-left:2px solid var(--margin); border-right:1px solid rgba(0,0,0,.08);
+  }
+  .pad::before{ /* the pink margin ruled line */
+    content:""; position:absolute; top:0; bottom:0; left:34px; width:1px;
+    background:rgba(180,72,135,.35);
+  }
+  a{color:var(--link); text-decoration:underline; text-underline-offset:2px}
+  a:visited{color:var(--seen)}
+  a:hover{background:var(--hi); text-decoration:none}
 
-  /* ── Masthead ── */
-  header{padding:clamp(56px,11vw,120px) 0 clamp(30px,6vw,58px)}
-  .mark{
-    font-weight:800; letter-spacing:-.02em; line-height:.92;
-    font-size:clamp(42px,10.5vw,104px); margin:0;
-    background:linear-gradient(96deg,#fff 4%,var(--accent) 46%,var(--accent2) 96%);
-    -webkit-background-clip:text; background-clip:text; color:transparent;
-    text-wrap:balance;
+  header{padding:8px 0 4px}
+  h1.mark{
+    font-family:'YWFTProcessing',"Arial Black",system-ui,sans-serif;
+    font-weight:normal; font-size:clamp(40px,12vw,76px); line-height:.9;
+    letter-spacing:-.01em; color:var(--ink);
   }
-  .tag{max-width:640px; margin:22px 0 0; font-size:clamp(16px,2.4vw,21px); color:var(--ink)}
-  .tag b{color:var(--accent); font-weight:600}
-  .sub{margin:14px 0 0; color:var(--dim); max-width:600px; font-size:15px}
-  .codehint{
-    margin-top:26px; display:inline-flex; gap:10px; align-items:center; flex-wrap:wrap;
-    padding:11px 15px; border:1px solid var(--line); border-radius:13px;
-    background:rgba(255,255,255,.02); font-size:14px; color:var(--dim);
-  }
-  .codehint code{
-    font-family:ui-monospace,"SF Mono",Menlo,monospace; color:var(--accent);
-    background:rgba(255,171,61,.1); padding:2px 8px; border-radius:7px; font-size:13px;
-  }
+  h1.mark b{color:var(--margin); font-weight:normal} /* the pink dot */
+  .est{color:var(--dim); font-size:12px; margin-top:6px; letter-spacing:.04em}
+  .est b{color:var(--margin); font-weight:normal}
 
-  /* ── Gallery ── */
-  .grid{
-    display:grid; gap:20px; padding-bottom:20px;
-    grid-template-columns:repeat(auto-fill,minmax(230px,1fr));
-  }
-  .card{
-    position:relative; cursor:pointer; border:1px solid var(--line); border-radius:16px;
-    overflow:hidden; background:var(--card); text-align:left;
-    transition:transform .22s ease, border-color .22s ease, box-shadow .22s ease;
-    -webkit-tap-highlight-color:transparent;
-  }
-  .card:hover,.card:focus-visible{
-    transform:translateY(-4px); border-color:rgba(255,171,61,.5);
-    box-shadow:0 14px 40px -14px rgba(122,80,180,.6); outline:none;
-  }
-  .card .score{
-    display:block; width:100%; aspect-ratio:1/1; object-fit:cover;
-    background:#fbfaf6 center/cover no-repeat; border-bottom:1px solid var(--line);
-  }
-  .card .meta{padding:13px 14px 15px}
-  .card .code{
-    position:absolute; top:11px; left:11px;
-    font-family:ui-monospace,"SF Mono",Menlo,monospace; font-size:12px; font-weight:600;
-    color:#0a0a0f; background:var(--accent); padding:3px 9px; border-radius:20px;
-    box-shadow:0 2px 8px rgba(0,0,0,.35);
-  }
-  .card h3{margin:0; font-size:16px; font-weight:650; letter-spacing:-.01em}
-  .card p{margin:3px 0 0; font-size:12.5px; color:var(--dim)}
+  hr{border:0; border-top:1px solid rgba(40,30,90,.35); margin:16px 0}
+  hr.thick{border-top:2px solid var(--margin)}
 
-  /* ── Lightbox ── */
-  .lb{
-    position:fixed; inset:0; z-index:50; display:none; place-items:center;
-    padding:24px; background:rgba(6,6,10,.86); backdrop-filter:blur(9px);
+  blockquote{margin:10px 0; font-size:15.5px}
+  blockquote em{font-style:italic; color:var(--margin)}
+  p{margin:9px 0}
+  .dim{color:var(--dim)}
+  h2{
+    font-family:'YWFTProcessing',"Arial Black",system-ui,sans-serif; font-weight:normal;
+    font-size:20px; letter-spacing:.02em; margin:4px 0 10px; text-transform:lowercase;
   }
-  .lb.open{display:grid}
-  .lb-inner{
-    width:min(940px,100%); max-height:92vh; overflow:auto; border:1px solid var(--line);
-    border-radius:20px; background:linear-gradient(180deg,var(--bg2),var(--bg));
-    padding:clamp(16px,3vw,26px);
+  h2::before{content:"› "; color:var(--margin)}
+
+  /* the codes note — a bordered wiki box */
+  .note{
+    border:1px solid var(--ink); background:rgba(255,255,255,.35);
+    padding:11px 13px; margin:12px 0; font-size:13.5px; line-height:1.7;
   }
-  .lb-head{display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:16px}
-  .lb-head h2{margin:0; font-size:clamp(21px,4vw,30px); letter-spacing:-.02em}
-  .lb-head p{margin:4px 0 0; color:var(--dim); font-size:14px}
-  .lb-head .lbcode{color:var(--accent); font-family:ui-monospace,Menlo,monospace}
-  .close{
-    flex:0 0 auto; width:38px; height:38px; border-radius:11px; cursor:pointer;
-    border:1px solid var(--line); background:transparent; color:var(--ink); font-size:19px;
-  }
-  .close:hover{border-color:var(--accent); color:var(--accent)}
-  .lb-media{display:grid; gap:16px; grid-template-columns:1fr 1fr}
-  @media(max-width:640px){.lb-media{grid-template-columns:1fr}}
-  .lb-media img,.lb-media video{width:100%; border-radius:12px; display:block; background:#fbfaf6}
-  .lb-media .lbl{font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--dim); margin:0 0 7px}
-  .perform{
-    display:inline-flex; align-items:center; gap:8px; margin-top:18px;
-    padding:11px 18px; border-radius:12px; font-weight:600; font-size:15px;
-    color:#0a0a0f; background:linear-gradient(96deg,var(--accent),#ffcf7a);
-  }
-  .perform:hover{text-decoration:none; filter:brightness(1.06)}
+  code,.kbd{font-family:inherit; background:var(--ink); color:var(--paper); padding:1px 6px; border-radius:2px}
 
-  /* ── Sections ── */
-  section{padding:clamp(40px,7vw,74px) 0; border-top:1px solid var(--line)}
-  h2.sec{font-size:clamp(22px,4vw,30px); margin:0 0 26px; letter-spacing:-.02em}
-  .about{display:grid; gap:40px; grid-template-columns:1.3fr 1fr}
-  @media(max-width:760px){.about{grid-template-columns:1fr}}
-  .about p{color:var(--ink); max-width:60ch}
-  .about .dim{color:var(--dim)}
-  .layers{list-style:none; margin:0; padding:0; display:grid; gap:14px}
-  .layers li{padding:15px 17px; border:1px solid var(--line); border-radius:13px; background:rgba(255,255,255,.02)}
-  .layers b{color:var(--accent)}
-  .layers span{color:var(--dim); font-size:14px}
+  /* the index table — dense, Web 1.0 */
+  .wrap{overflow-x:auto}
+  table.idx{border-collapse:collapse; width:100%; font-size:14px}
+  table.idx td{padding:7px 8px; border-bottom:1px dotted rgba(40,30,90,.4); vertical-align:top}
+  td.th{width:46px} td.th img{width:44px; height:44px; object-fit:cover; border:1px solid var(--ink); display:block; background:#fff}
+  td.cd{white-space:nowrap}
+  .sw{display:inline-block; width:.72em; height:.72em; margin-right:6px; border:1px solid rgba(0,0,0,.45); background:var(--c); vertical-align:baseline}
+  td.cd a{font-weight:normal}
+  td.ti a{color:var(--ink)}
+  td.ti .by{display:block; color:var(--dim); font-size:12px}
+  td.yr{color:var(--dim); text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums}
+  tr.row:hover td{background:rgba(255,243,160,.5)}
 
-  .rail{display:grid; gap:0}
-  .rail .row{display:grid; grid-template-columns:96px 1fr; gap:18px; padding:15px 0; border-bottom:1px solid var(--line)}
-  .rail .row:last-child{border-bottom:0}
-  .rail .yr{color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums}
-  .rail .ev{color:var(--ink)} .rail .ev small{display:block; color:var(--dim); margin-top:2px}
+  ul.plain{list-style:none} ul.plain li{padding:3px 0}
+  ul.plain li::before{content:"– "; color:var(--margin)}
 
-  .links{display:flex; flex-wrap:wrap; gap:10px}
-  .links a{
-    padding:9px 15px; border:1px solid var(--line); border-radius:11px; color:var(--ink);
-    font-size:14px; background:rgba(255,255,255,.02); transition:border-color .2s,color .2s;
-  }
-  .links a:hover{border-color:var(--accent); color:var(--accent); text-decoration:none}
+  .rail{margin:6px 0}
+  .rail div{padding:3px 0}
+  .rail b{color:var(--margin); font-weight:normal; margin-right:8px}
 
-  footer{padding:44px 0 70px; color:var(--dim); font-size:13.5px; border-top:1px solid var(--line)}
-  footer a{color:var(--dim); text-decoration:underline}
-  .built{margin-top:10px; font-size:12.5px}
+  footer{margin-top:22px; color:var(--dim); font-size:12px; line-height:1.8}
+  footer a{color:var(--dim)}
+  .badge{border:1px solid var(--dim); padding:1px 6px; display:inline-block; margin-top:6px}
 
-  @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+  /* detail "page" */
+  #detail{display:none}
+  #detail.on{display:block}
+  #index.off{display:none}
+  #detail .score{max-width:min(340px,100%); border:1px solid var(--ink); background:#fff; float:left; margin:4px 16px 10px 0}
+  #detail video{width:100%; max-width:420px; border:1px solid var(--ink); background:#000; display:block; clear:both; margin-top:6px}
+  #detail .back{font-size:13px}
+  .clear{clear:both}
 </style>
 </head>
 <body>
+<div class="pad">
 
-<div class="wrap">
-  <header>
-    <h1 class="mark">Whistlegraph</h1>
-    <p class="tag">A drawing form where <b>every line is a sung syllable</b>. You draw it while you sing it. The finished drawing is a score — and the score teaches you how to play it.</p>
-    <p class="sub">Invented by Jeffrey Alan Scudder in 2019. Developed as a trio with Alex Freundlich &amp; Camille Klein through the pandemic. Grown to 2.6&nbsp;million on TikTok. Shown at the New Museum, Feral&nbsp;File, KADIST, and SMK. It continues on Aesthetic&nbsp;Computer.</p>
-    <div class="codehint">
-      <span>Every whistlegraph has a code —</span>
-      <span>type <code>imab</code> at <a href="https://aesthetic.computer">aesthetic.computer</a>, or open <code>whistlegraph.org/imab</code></span>
+  <!-- ══════════ INDEX ══════════ -->
+  <div id="index">
+    <header>
+      <h1 class="mark">whistlegraph<b>.</b></h1>
+      <div class="est">a drawing you sing &nbsp;<b>·</b>&nbsp; est. 2019 &nbsp;<b>·</b>&nbsp; an <a href="https://aesthetic.computer">aesthetic.computer</a> joint</div>
+    </header>
+
+    <hr class="thick">
+
+    <blockquote>
+      a whistlegraph is a drawing you sing. every line is a syllable. you draw it
+      while you sing it, and the finished picture is a <em>score</em> — it teaches you
+      how to play it. i started making them in 2019; the trio drew millions of them
+      onto tiktok. this is the index.
+    </blockquote>
+
+    <div class="note">
+      <b>every whistlegraph has a code.</b><br>
+      type <code>imab</code> at <a href="https://aesthetic.computer">aesthetic.computer</a>
+      to perform it — or open <a href="/imab">whistlegraph.org/imab</a>.
+      four little letters, one whole song.
     </div>
-  </header>
 
-  <main class="grid" id="grid" aria-label="The ten whistlegraphs"></main>
-</div>
-
-<section>
-  <div class="wrap about">
-    <div>
-      <h2 class="sec">The form</h2>
-      <p>A whistlegraph is a memorizable hybrid of drawing, singing, and poetry in which every mark corresponds to a sung syllable — producing a graphic score that is simultaneously artwork, song, and instruction manual for its own reproduction.</p>
-      <p class="dim">Unlike the graphic scores of Cage or Cardew, a whistlegraph requires no interpretation. The relationship between mark and sound is one-to-one, fixed during the original performance and preserved in the drawing. The score is not a prompt for improvisation; it is a set of precise instructions disguised as a picture.</p>
+    <hr>
+    <h2>the ten</h2>
+    <p class="dim" style="font-size:12.5px;margin-top:-2px">the graphic scores from <em>ten whistlegraphs</em>, feral file, 2022. tap a code.</p>
+    <div class="wrap">
+      <table class="idx" id="idx"><tbody></tbody></table>
     </div>
-    <ul class="layers" aria-label="Three simultaneous layers">
-      <li><b>Visual</b> — a drawing made in real time. Each stroke is deliberate.<br><span>pen on paper · chalk on blackboard</span></li>
-      <li><b>Musical</b> — a sung melody. Each note aligns with a stroke.<br><span>simple enough to memorize in one viewing</span></li>
-      <li><b>Textual</b> — lyrics that work as poetry. Short enough to remember.<br><span>describe · narrate · instruct</span></li>
-    </ul>
-  </div>
-</section>
 
-<section>
-  <div class="wrap">
-    <h2 class="sec">A rough spine</h2>
+    <hr>
+    <h2>a rough spine</h2>
     <div class="rail">
-      <div class="row"><div class="yr">2019</div><div class="ev">The form is invented. First whistlegraphs.<small>&ldquo;I'm a Butterfly&rdquo; — four strokes, four sung lines.</small></div></div>
-      <div class="row"><div class="yr">2020</div><div class="ev">The trio forms in a cabin in Ashland, Oregon.<small>TikTok tutorials: a hand draws while a voice sings.</small></div></div>
-      <div class="row"><div class="yr">2021</div><div class="ev">Rhizome commissions <em>The Longest Whistlegraph Ever (so far)</em>.</div></div>
-      <div class="row"><div class="yr">2022</div><div class="ev"><em>Ten Whistlegraphs</em> at Feral File. New Museum debut. Taipei Dangdai.</div></div>
-      <div class="row"><div class="yr">2023</div><div class="ev">The Whistlegraph Zine (Sex Magazine, 750 copies). The trio separates.<small>The form continues, solo, under Aesthetic Computer.</small></div></div>
-      <div class="row"><div class="yr">now</div><div class="ev">whistlegraph.org — the index of the artform's past, present, and future.</div></div>
+      <div><b>2019</b> the form is invented. &ldquo;i'm a butterfly&rdquo; — four strokes, four sung lines.</div>
+      <div><b>2020</b> the trio forms in a cabin in ashland. tiktok tutorials: a hand draws while a voice sings.</div>
+      <div><b>2021</b> rhizome commissions <em>the longest whistlegraph ever (so far)</em>.</div>
+      <div><b>2022</b> <em>ten whistlegraphs</em> at feral file. the new museum. taipei dangdai.</div>
+      <div><b>2023</b> the zine (sex magazine, 750 copies). the trio parts. the form continues, solo.</div>
+      <div><b>now </b> whistlegraph.org — past, present, and future of the artform, in one place.</div>
     </div>
-  </div>
-</section>
 
-<section>
-  <div class="wrap">
-    <h2 class="sec">Elsewhere</h2>
-    <div class="links">
-      <a href="https://www.tiktok.com/@whistlegraph">TikTok</a>
-      <a href="https://www.instagram.com/whistlegraph/">Instagram</a>
-      <a href="https://www.youtube.com/channel/UCZ_5AuCebRbm9t9_Y7SrckQ">YouTube</a>
-      <a href="https://aesthetic.computer/whistlegraph">Record your own</a>
-      <a href="https://feralfile.com/artists/Whistlegraph">Feral File</a>
-      <a href="https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/">Rhizome</a>
-      <a href="https://www.are.na/aesthetic-computer/self-teaching-scores">Are.na</a>
-      <a href="https://shop.whistlegraph.com">Shop / Zine</a>
-      <a href="https://distrokid.com/hyperfollow/whistlegraph/music-2-whistlegraph-2">Music 2 Whistlegraph 2</a>
-    </div>
-  </div>
-</section>
+    <hr>
+    <h2>elsewhere</h2>
+    <ul class="plain">
+      <li><a href="https://www.tiktok.com/@whistlegraph">tiktok</a> — where it grew (2.6M, no ads)</li>
+      <li><a href="https://aesthetic.computer/whistlegraph">record your own</a> — the recorder, on aesthetic.computer</li>
+      <li><a href="https://feralfile.com/artists/Whistlegraph">feral file</a> · <a href="https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/">rhizome</a> · <a href="https://www.are.na/aesthetic-computer/self-teaching-scores">are.na</a></li>
+      <li><a href="https://shop.whistlegraph.com">the zine + shop</a> · <a href="https://distrokid.com/hyperfollow/whistlegraph/music-2-whistlegraph-2">music 2 whistlegraph 2</a></li>
+    </ul>
 
-<footer class="wrap">
-  <div>Whistlegraph — a self-teaching score. The score teaches you how to play it.</div>
-  <div class="built">An index of the artform, hosted on <a href="https://aesthetic.computer">Aesthetic Computer</a>. Media served from the archive CDN.</div>
-</footer>
-
-<!-- Lightbox -->
-<div class="lb" id="lb" role="dialog" aria-modal="true" aria-labelledby="lbTitle">
-  <div class="lb-inner">
-    <div class="lb-head">
-      <div>
-        <h2 id="lbTitle"></h2>
-        <p id="lbBy"></p>
-        <p>code · <span class="lbcode" id="lbCode"></span></p>
-      </div>
-      <button class="close" id="lbClose" aria-label="Close">✕</button>
-    </div>
-    <div class="lb-media">
-      <div>
-        <p class="lbl">Score</p>
-        <img id="lbScore" alt="" loading="lazy">
-      </div>
-      <div>
-        <p class="lbl">Performance</p>
-        <video id="lbVideo" controls playsinline preload="none" crossorigin="anonymous"></video>
-      </div>
-    </div>
-    <a class="perform" id="lbPerform" href="#">▶ Perform this whistlegraph</a>
+    <hr class="thick">
+    <footer>
+      last whistlegraphed 2026.07.07 &nbsp;·&nbsp; the score teaches you how to play it<br>
+      media from the <a href="https://aesthetic.computer">aesthetic.computer</a> archive.
+      <span class="badge">best drawn slowly · sung quietly 🦋</span>
+    </footer>
   </div>
+
+  <!-- ══════════ DETAIL ══════════ -->
+  <div id="detail">
+    <p class="back"><a href="/" id="backlink">← back to the index</a></p>
+    <h1 class="mark" id="dTitle" style="font-size:clamp(30px,9vw,54px)"></h1>
+    <div class="est" id="dBy"></div>
+    <div class="note" style="margin-top:12px">code <code id="dCode"></code> &nbsp; — &nbsp; type it at <a href="https://aesthetic.computer">aesthetic.computer</a>, or <a id="dPerform" href="#">perform it in the card player →</a></div>
+    <hr>
+    <img class="score" id="dScore" alt="">
+    <p class="dim" style="font-size:12.5px">the graphic score. trace the lines; sing the words.</p>
+    <video id="dVideo" controls playsinline preload="none" crossorigin="anonymous"></video>
+    <div class="clear"></div>
+    <hr class="thick">
+    <p class="back"><a href="/">← back to the index</a></p>
+  </div>
+
 </div>
 
 <script>
-const CDN = "https://assets.aesthetic.computer/whistlegraph";
-// code → { slug, title, byline }.  Codes mirror the wg.mjs shortcut map.
-const WGS = [
-  {code:"imab", slug:"butterfly-cosplayer",  title:"Butterfly Cosplayer",   by:"Jeffrey Alan Scudder · Dec 29, 2019"},
-  {code:"l8ly", slug:"lately-when-i-fly",     title:"Lately When I Fly",     by:"Jeffrey Alan Scudder · Feb 1, 2020"},
-  {code:"grow", slug:"time-to-grow",          title:"Time To Grow",          by:"Alex Freundlich · Mar 4, 2020"},
-  {code:"idni", slug:"i-dont-need-an-iphone", title:"I Don't Need an iPhone",by:"Whistlegraph · Dec 9, 2020"},
-  {code:"ppl",  slug:"people-pleaser",        title:"People Pleaser",        by:"Jeffrey Alan Scudder · Jan 14, 2021"},
-  {code:"wiyh", slug:"whats-inside-your-heart",title:"What's Inside Your Heart?",by:"Whistlegraph · Feb 6, 2021"},
-  {code:"lonr", slug:"loner",                 title:"Loner",                 by:"Camille Klein · Apr 10, 2021"},
-  {code:"sdog", slug:"slinky-dog",            title:"Slinky Dog",            by:"Alex Freundlich · May 13, 2021"},
-  {code:"w0w",  slug:"mommy-wow",             title:"Mommy Wow",             by:"Whistlegraph · Jul 27, 2021"},
-  {code:"puzz", slug:"puzzle",                title:"Puzzle",                by:"Camille Klein · Oct 11, 2021"},
+const CDN="https://assets.aesthetic.computer/whistlegraph";
+// code → {slug,title,by,year,color}. Codes mirror wg.mjs; colors are each song's own hue.
+const WGS=[
+  {code:"imab",slug:"butterfly-cosplayer",   title:"Butterfly Cosplayer",    by:"Jeffrey Alan Scudder", year:2019, c:"#ff9600"},
+  {code:"l8ly",slug:"lately-when-i-fly",      title:"Lately When I Fly",      by:"Jeffrey Alan Scudder", year:2020, c:"#7a1fe6"},
+  {code:"grow",slug:"time-to-grow",           title:"Time To Grow",           by:"Alex Freundlich",      year:2020, c:"#ff8fbf"},
+  {code:"idni",slug:"i-dont-need-an-iphone",  title:"I Don't Need an iPhone", by:"Whistlegraph",         year:2020, c:"#e60e0e"},
+  {code:"ppl", slug:"people-pleaser",         title:"People Pleaser",         by:"Jeffrey Alan Scudder", year:2021, c:"#be50dc"},
+  {code:"wiyh",slug:"whats-inside-your-heart",title:"What's Inside Your Heart?",by:"Whistlegraph",       year:2021, c:"#0000f5"},
+  {code:"lonr",slug:"loner",                  title:"Loner",                  by:"Camille Klein",        year:2021, c:"#ff8282"},
+  {code:"sdog",slug:"slinky-dog",             title:"Slinky Dog",             by:"Alex Freundlich",      year:2021, c:"#101014"},
+  {code:"w0w", slug:"mommy-wow",              title:"Mommy Wow",              by:"Whistlegraph",         year:2021, c:"#ffc800"},
+  {code:"puzz",slug:"puzzle",                 title:"Puzzle",                 by:"Camille Klein",        year:2021, c:"#30c8fc"},
 ];
-const BY_CODE = Object.fromEntries(WGS.map(w => [w.code, w]));
+const BY=Object.fromEntries(WGS.map(w=>[w.code,w]));
 
-// Build the gallery.
-const grid = document.getElementById("grid");
-for (const w of WGS){
-  const a = document.createElement("button");
-  a.className = "card"; a.type = "button";
-  a.setAttribute("aria-label", `${w.title} — code ${w.code}`);
-  a.innerHTML =
-    `<span class="code">${w.code}</span>`+
-    `<img class="score" loading="lazy" alt="Graphic score for ${w.title}" `+
-      `src="${CDN}/${w.slug}/${w.slug}-score.png">`+
-    `<div class="meta"><h3>${w.title}</h3><p>${w.by}</p></div>`;
-  a.addEventListener("click", () => open(w.code, true));
-  grid.appendChild(a);
+// Build the table.
+const tb=document.querySelector("#idx tbody");
+for(const w of WGS){
+  const tr=document.createElement("tr"); tr.className="row";
+  tr.innerHTML=
+    `<td class="th"><a href="/${w.code}"><img loading="lazy" alt="score for ${w.title}" src="${CDN}/${w.slug}/${w.slug}-score.png"></a></td>`+
+    `<td class="cd"><span class="sw" style="--c:${w.c}"></span>[<a href="/${w.code}">${w.code}</a>]</td>`+
+    `<td class="ti"><a href="/${w.code}">${w.title}</a><span class="by">${w.by}</span></td>`+
+    `<td class="yr">${w.year}</td>`;
+  tr.querySelectorAll("a").forEach(a=>a.addEventListener("click",e=>{e.preventDefault();go(w.code)}));
+  tb.appendChild(tr);
 }
 
-// Lightbox.
-const lb = document.getElementById("lb");
-const els = {
-  title:document.getElementById("lbTitle"), by:document.getElementById("lbBy"),
-  code:document.getElementById("lbCode"), score:document.getElementById("lbScore"),
-  video:document.getElementById("lbVideo"), perform:document.getElementById("lbPerform"),
-};
-function open(code, pushURL){
-  const w = BY_CODE[code]; if (!w) return;
-  els.title.textContent = w.title;
-  els.by.textContent = w.by;
-  els.code.textContent = w.code;
-  els.score.src = `${CDN}/${w.slug}/${w.slug}-score.png`;
-  els.score.alt = `Graphic score for ${w.title}`;
-  els.video.src = `${CDN}/${w.slug}/${w.slug}-web.mp4`;
-  els.perform.href = `https://aesthetic.computer/wg~${w.code}`;
-  lb.classList.add("open");
-  if (pushURL) history.pushState({code}, "", `/${code}`);
-}
-function close(pushURL){
-  lb.classList.remove("open");
-  els.video.pause(); els.video.removeAttribute("src"); els.video.load();
-  if (pushURL) history.pushState({}, "", "/");
-}
-document.getElementById("lbClose").addEventListener("click", () => close(true));
-lb.addEventListener("click", e => { if (e.target === lb) close(true); });
-document.addEventListener("keydown", e => { if (e.key === "Escape" && lb.classList.contains("open")) close(true); });
-window.addEventListener("popstate", () => {
-  const code = location.pathname.replace(/\//g,"");
-  if (BY_CODE[code]) open(code, false); else close(false);
-});
+const idx=document.getElementById("index"), det=document.getElementById("detail");
+const D={t:document.getElementById("dTitle"),by:document.getElementById("dBy"),code:document.getElementById("dCode"),
+  score:document.getElementById("dScore"),video:document.getElementById("dVideo"),perform:document.getElementById("dPerform")};
 
-// Deep-link: /imab opens that whistlegraph on load.
-(function(){
-  const code = location.pathname.replace(/\//g,"");
-  if (BY_CODE[code]) open(code, false);
-})();
+function showDetail(code){
+  const w=BY[code]; if(!w) return showIndex();
+  D.t.textContent=w.title;
+  D.by.innerHTML=`composed by ${w.by} &nbsp;<b>·</b>&nbsp; ${w.year}`;
+  D.code.textContent=w.code;
+  D.score.src=`${CDN}/${w.slug}/${w.slug}-score.png`; D.score.alt=`graphic score for ${w.title}`;
+  D.video.src=`${CDN}/${w.slug}/${w.slug}-web.mp4`;
+  D.perform.href=`https://aesthetic.computer/wg~${w.code}`;
+  det.classList.add("on"); idx.classList.add("off");
+  document.title=`${w.title} — whistlegraph`; scrollTo(0,0);
+}
+function showIndex(){
+  det.classList.remove("on"); idx.classList.remove("off");
+  D.video.pause(); D.video.removeAttribute("src"); D.video.load();
+  document.title="whistlegraph — a drawing you sing";
+}
+function go(code){ history.pushState({code},"",`/${code}`); showDetail(code); }
+document.getElementById("backlink").addEventListener("click",e=>{e.preventDefault();history.pushState({},"","/");showIndex();});
+addEventListener("popstate",()=>{const c=location.pathname.replace(/\//g,"");BY[c]?showDetail(c):showIndex();});
+
+// Deep-link on load: /imab shows that whistlegraph.
+(function(){const c=location.pathname.replace(/\//g,"");if(BY[c])showDetail(c);})();
 </script>
 </body>
 </html>
