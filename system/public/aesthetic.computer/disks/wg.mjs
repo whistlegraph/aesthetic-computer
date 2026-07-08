@@ -45,21 +45,11 @@
 #endregion */
 
 import { anyKey } from "../lib/help.mjs";
+import { whistlegraphs as shortcuts } from "./whistlegraphs.mjs";
 
 // #region 🧮 data
-const shortcuts = {
-  imab: "butterfly-cosplayer",
-  grow: "time-to-grow",
-  idni: "i-dont-need-an-iphone",
-  l8ly: "lately-when-i-fly",
-  lonr: "loner",
-  w0w: "mommy-wow",
-  ppl: "people-pleaser",
-  sdog: "slinky-dog",
-  puzz: "puzzle",
-  wiyh: "whats-inside-your-heart",
-  m2w2: "music-2-whistlegraph-2",
-};
+// `shortcuts` (code → piece) is imported from whistlegraphs.mjs — the shared
+// index also used by prompt.mjs and whistlegraph.org.
 
 const butterflyCosplayer = {
   title: "Butterfly Cosplayer",

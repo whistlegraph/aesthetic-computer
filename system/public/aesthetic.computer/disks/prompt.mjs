@@ -86,6 +86,7 @@ import { nopaint_adjust } from "../systems/nopaint.mjs";
 import { parse } from "../lib/parse.mjs";
 import { signed as shop } from "../lib/shop.mjs";
 import { ordfish } from "./ordfish.mjs";
+import { whistlegraphs } from "./whistlegraphs.mjs";
 import { createHandleAutocomplete } from "../lib/autocomplete.mjs";
 import {
   isPromptInKidlispMode,
@@ -4412,6 +4413,12 @@ async function halt($, text) {
     return true;
   } else if (ordfish[text] || text.split(" ") === "of") {
     jump(`ordfish~${text}`);
+    return true;
+  } else if (whistlegraphs[text]) {
+    // Whistlegraph index codes (imab → butterfly-cosplayer, etc.). Opens the
+    // `wg` card player for that piece. Must sit above the bare-code kidlisp
+    // fallback below, or `imab` gets swallowed as a `$imab` cache lookup.
+    jump(`wg~${text}`);
     return true;
   } else if (text.startsWith("hiccup")) {
     // Disconnect from socket server, chat, and udp in 5 seconds...

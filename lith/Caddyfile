@@ -165,6 +165,17 @@
         }
     }
 
+    # --- whistlegraph.org (the index of the artform) ---
+    # Static gallery of the ten canonical whistlegraphs; /<code> (e.g. /imab)
+    # falls back to index.html, whose client router deep-links that piece.
+    # Codes mirror the wg.mjs shortcut map; media is served from the assets CDN.
+    @whistlegraph host whistlegraph.org www.whistlegraph.org
+    handle @whistlegraph {
+        root * /opt/ac/system/public/whistlegraph.org
+        try_files {path} {path}.html /index.html
+        file_server
+    }
+
     # --- data.aesthetic.computer (Linked Open Data / CIDOC CRM) ---
     # Most paths go to lith, which rewrites them to the `crm` function (landing,
     # /@handle, /painting, /piece, /mood, /.well-known/void). /sparql is the one
