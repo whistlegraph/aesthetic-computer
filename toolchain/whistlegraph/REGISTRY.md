@@ -6,6 +6,15 @@ face is [whistlegraph.org](https://whistlegraph.org)
 (`system/public/whistlegraph.org/index.html`, the `WGS` table); this registry
 is the back room where candidates wait for codes, glyphs, and pages.
 
+**The code table** — `downloads/CODES.json` is the master: every one of the
+424 clustered songs has a unique short code (like `imab`), a title, a kind
+(`graph` = a performed whistlegraph · `talk` = tutorial/promo/commentary ·
+`other` = wordless), performance count, combined views, date span, and the id
+of its most-viewed clip (whose final frame is the glyph). 277 are graphs. The
+ten site codes are reserved. Rebuild after re-clustering: naming is an
+LLM pass over `downloads/NAMING.json` (batched to subagents) → merged by
+`codes.mjs`. Titles/kinds are first-pass and meant to be corrected in place.
+
 **Data sources**
 
 - `downloads/CATALOG.json` — full @whistlegraph TikTok metadata: **963 videos**
