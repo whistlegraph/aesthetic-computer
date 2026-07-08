@@ -367,7 +367,7 @@ const peoplePleaser = {
   },
 };
 const whatsInsideYourHeart = {
-  title: "What's Inside Your Heat?",
+  title: "What's Inside Your Heart?",
   byline: "Composed by Whistlegraph ⋅ February 6, 2021",
   glow: "rgba(0, 0, 245, 1)",
   fuzz: 5n,
