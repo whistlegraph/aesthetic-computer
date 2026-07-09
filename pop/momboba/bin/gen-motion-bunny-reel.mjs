@@ -90,7 +90,7 @@ const SHOTS = {
   },
   "waterlily-awe": {
     motion:
-`The felt bunny stands tiny and still before the monumental felted water-lily tapestry, head tilting slowly further back in awe, both long ears rising to their tallest perk of the whole story — one last burst of wonder before sleep. The boba is nearly finished — only a last inch of milk tea, a few wool pearls left — and hangs low at his side but stays SECURELY gripped in his curled paw for the entire shot; it never slips, never floats, never leaves his paw. The camera rises slowly up the vast wall of wool blues and greens, keeping the small bunny and his cup anchored at the bottom of the frame throughout. Reverent, dim, hushed.`,
+`The felt bunny stands tiny and still before the monumental felted water-lily tapestry, tilting his head slowly back in awe, both long ears rising to their tallest perk of the whole story — one last burst of wonder before sleep. The boba is nearly finished — only a last inch of milk tea, a few wool pearls left — and hangs low at his side but stays SECURELY gripped in his curled paw for the entire shot; it never slips, never floats, never leaves his paw. CAMERA: hold nearly still and drift IN toward the tapestry by a hair — a slow, gentle push-in. The camera does NOT travel upward. Framing stays locked on the SAME single water-lily tapestry the whole time — there is exactly ONE painting on the wall, filling it edge to edge; NEVER reveal, stack, or duplicate a second painting above or below it, no repeated frames or seams. Reverent, dim, hushed.`,
   },
   "heavy-eyes": {
     motion:

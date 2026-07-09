@@ -34,11 +34,15 @@ import * as progress from "../../lib/render-progress.mjs";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const LANE = resolve(HERE, "..");
 const REPO = resolve(LANE, "..", "..");
-const MOTION = `${LANE}/out/motion`;
-const BASE = `${MOTION}/base-fluttabap360-reel.mp4`;
-const META = JSON.parse(readFileSync(`${MOTION}/meta-fluttabap360-reel.json`, "utf8"));
-const OUT = `${LANE}/out/fluttabap360-reel.mp4`;
-const assetsDir = `${MOTION}/chrome-assets-fluttabap360-reel`;
+const _af = (k, d) => { const i = process.argv.indexOf(k); return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : d; };
+// --motion-dir/--slug let variant cuts (the bunny lane) reuse this pass
+// against their own base/meta/output without touching the jeffrey files.
+const SLUG = _af("--slug", "fluttabap360-reel");
+const MOTION = _af("--motion-dir", `${LANE}/out/motion`);
+const BASE = `${MOTION}/base-${SLUG}.mp4`;
+const META = JSON.parse(readFileSync(`${MOTION}/meta-${SLUG}.json`, "utf8"));
+const OUT = `${LANE}/out/${SLUG}.mp4`;
+const assetsDir = `${MOTION}/chrome-assets-${SLUG}`;
 mkdirSync(assetsDir, { recursive: true });
 
 const W = 1080, H = 1920, FPS = 30;
