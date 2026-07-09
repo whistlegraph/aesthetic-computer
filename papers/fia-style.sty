@@ -1,0 +1,110 @@
+% fia-style.sty — Studio Fía Benitez house style
+% Usage: \usepackage{fia-style} in a Studio Fía Benitez document.
+%
+% Identity: plain white-on-black, after fiabenitez.com. Minimal chrome, a
+% clean Helvetica-grotesque (TeX Gyre Heros), monospace for anything
+% actionable (emails, URLs). Everything is monochrome except a single muted
+% link accent so clickable things read as clickable in print PDFs.
+%
+% Provides the studio wordmark, page furniture, a field/label grammar, status
+% pills, and actionable email/link macros. Documents still set their own
+% geometry and \hypersetup{pdftitle=...}. Requires xelatex (fontspec).
+%
+% Design grammar:
+%   - Pure black page, white body, mid-gray for secondary text
+%   - TeX Gyre Heros throughout; TeX Gyre Cursor (mono) for emails + URLs
+%   - Kicker line (uppercase gray) + hairline rule at the top of each page
+%   - \fld{LABEL}{body}: gray uppercase label over white body — the workhorse
+%   - Status pills: PUBLIC DOMAIN (outlined) / IN COPYRIGHT (inverted, filled
+%     white — the item that needs action pops) / REFERENCE (gray outline)
+%   - \email / \weblink: clickable, mono, muted-accent — the actionable layer
+
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{fia-style}[2026/07/08 Studio Fia Benitez house style]
+
+\RequirePackage{fontspec}
+\RequirePackage[table]{xcolor}
+\RequirePackage{graphicx}
+
+% === COLORS ===
+\definecolor{fiablack}{RGB}{0,0,0}
+\definecolor{fiawhite}{RGB}{255,255,255}
+\definecolor{fiagray}{RGB}{154,154,154}
+\definecolor{fiadim}{RGB}{110,110,110}
+\definecolor{fiarule}{RGB}{70,70,70}
+\definecolor{fialink}{RGB}{150,172,184}   % single muted accent — clickable cue
+
+% === FONTS === (TeX Gyre Heros = Helvetica clone; portable across TeX Live)
+\setmainfont{TeX Gyre Heros}[
+  UprightFont   = texgyreheros-regular.otf,
+  BoldFont      = texgyreheros-bold.otf,
+  ItalicFont    = texgyreheros-italic.otf,
+  BoldItalicFont= texgyreheros-bolditalic.otf,
+]
+\setmonofont{TeX Gyre Cursor}[
+  UprightFont = texgyrecursor-regular.otf,
+  BoldFont    = texgyrecursor-bold.otf,
+  ItalicFont  = texgyrecursor-italic.otf,
+  Scale       = 0.90,
+]
+
+% === PAGE ===
+\pagecolor{fiablack}
+\color{fiawhite}
+\setlength{\parindent}{0pt}
+
+\RequirePackage[colorlinks=true, urlcolor=fialink, linkcolor=fialink,
+  citecolor=fialink]{hyperref}
+
+\RequirePackage{enumitem}
+\setlist[itemize]{leftmargin=1.1em, itemsep=0.15em, topsep=0.15em, parsep=0pt}
+
+% Table rules must be visible on black
+\arrayrulecolor{fiarule}
+
+% === WORDMARK ===
+\newcommand{\studioname}{\textbf{STUDIO F\'IA BENITEZ}}
+
+% === PAGE FURNITURE ===
+% \fiakicker{left label}  — uppercase gray kicker + hairline, studio wordmark right
+\newcommand{\fiakicker}[1]{%
+  {\footnotesize\color{fiagray}\MakeUppercase{#1}\hfill\color{fiagray}\studioname}\par
+  \vspace{0.28em}{\color{fiarule}\rule{\linewidth}{0.6pt}}\par}
+
+% \fiakickerpill{left label}{pill} — kicker with a status pill on the right
+\newcommand{\fiakickerpill}[2]{%
+  {\footnotesize\color{fiagray}\MakeUppercase{#1}\hfill #2}\par
+  \vspace{0.28em}{\color{fiarule}\rule{\linewidth}{0.6pt}}\par}
+
+% \fiatitle{title}{subtitle}
+\newcommand{\fiatitle}[2]{%
+  \vspace{0.6em}{\bfseries\fontsize{26pt}{29pt}\selectfont\color{fiawhite} #1}\par
+  \vspace{0.25em}{\large\itshape\color{fiagray} #2}\par}
+
+% === FIELD GRAMMAR ===
+% \fld{LABEL}{body} — gray uppercase label over white body
+\newcommand{\fld}[2]{%
+  \par\vspace{0.44em}%
+  {\footnotesize\bfseries\color{fiagray}\MakeUppercase{#1}}\par
+  \vspace{0.10em}{\small\color{fiawhite} #2}\par}
+
+% === STATUS PILLS === (monochrome; IN COPYRIGHT is inverted so it pops)
+\newcommand{\pillPD}{\fcolorbox{fiawhite}{fiablack}{\footnotesize\bfseries\textcolor{fiawhite}{\,PUBLIC DOMAIN\,}}}
+\newcommand{\pillCR}{\colorbox{fiawhite}{\footnotesize\bfseries\textcolor{fiablack}{\,ACTION\,\textbullet\,IN COPYRIGHT\,}}}
+\newcommand{\pillREF}{\fcolorbox{fiagray}{fiablack}{\footnotesize\bfseries\textcolor{fiagray}{\,REFERENCE\,}}}
+
+% === ACTIONABLE LAYER ===
+% \email{addr}         clickable mailto, mono
+% \weblink{url}{label} clickable external link, labeled
+% \tel{number}         plain phone (not linked)
+\newcommand{\email}[1]{\href{mailto:#1}{\texttt{#1}}}
+\newcommand{\weblink}[2]{\href{#1}{#2}}
+\newcommand{\tel}[1]{{\small\color{fiagray}#1}}
+
+% A left-ticked section marker for the CONTACT block etc.
+\newcommand{\fiatick}[1]{{\footnotesize\bfseries\color{fiawhite}\rule[-1.5pt]{2.4pt}{11pt}\hspace{0.5em}\MakeUppercase{#1}}}
+
+% Bottom hairline + note
+\newcommand{\fiafootrule}{\par\vspace{0.7em}{\color{fiarule}\rule{\linewidth}{0.6pt}}\par\vspace{0.35em}}
+
+\endinput
