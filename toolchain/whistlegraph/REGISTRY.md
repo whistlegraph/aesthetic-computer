@@ -15,6 +15,19 @@ ten site codes are reserved. Rebuild after re-clustering: naming is an
 LLM pass over `downloads/NAMING.json` (batched to subagents) → merged by
 `codes.mjs`. Titles/kinds are first-pass and meant to be corrected in place.
 
+**Aggregate reach** — `node aggregate-views.mjs` totals verified views across
+platforms (`downloads/YOUTUBE.json` + CATALOG). Confirmed so far: **1.72B**
+= TikTok @whistlegraph 1.47B · our YouTube channel 2.1M · 2 confirmed YouTube
+reposts 253.5M. The reposts dwarf our own channel — one unauthorized Butterfly
+Short (Viral Queens, `xslk5WclnRw`) alone is **252M**. Pull with
+`youtube-views.mjs` (`--channel` · `--ids a,b` to confirm reposts · `--search`
+→ candidates). **Caveat:** YouTube search is too noisy to auto-count —
+"whistlegraph butterfly" collides with the Smile.dk "Butterfly" eurodance song
+(124M), Die Antwoord, and butterfly memes, so search hits land in
+`YOUTUBE-CANDIDATES.json` (gitignored) for human confirmation, never counted
+automatically. Instagram reels are still TODO (no easy discovery API; likely a
+supply-URLs-then-pull-stats flow like `--ids`).
+
 **Data sources**
 
 - `downloads/CATALOG.json` — full @whistlegraph TikTok metadata: **963 videos**

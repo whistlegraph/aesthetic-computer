@@ -11,3 +11,7 @@ video/
 glyphs/
 # intermediate naming work-list (regenerated from SONGS.json)
 NAMING.json
+# noisy YouTube search review queue (regenerated; mostly not-ours)
+YOUTUBE-CANDIDATES.json
+# upload staging (rebuilt from glyphs/ + video/)
+site/
