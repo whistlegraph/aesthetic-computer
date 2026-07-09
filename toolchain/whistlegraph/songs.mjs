@@ -35,9 +35,10 @@ const KNOWN = [
   ["What's Inside Your Heart?", "inside your heart"],
   ["Loner", "curled up in myself"],
   ["Slinky Dog", "slinky dog"],
-  ["Mommy Wow", "xmy circle"],
+  ["Mommy Wow", "love mommy wow"], // covers "x-my circle"/"here's my circle" variants
   ["Puzzle", "look at all my special edges"],
   ["Triangles", "angle deep inside"],
+  ["Triangles", "bang go deep"], // the chalk-overdub take (whisper heard "BOO! DEEP!")
   ["Hey There, Apple", "hey there apple"],
   ["Cheerleader", "cheerleader"],
   ["Sad Mushroom", "keep me in this dark place"],

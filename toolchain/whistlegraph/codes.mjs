@@ -37,6 +37,19 @@ const RESERVED = {
 
 const songs = JSON.parse(readFileSync(join(DOWNLOADS, "SONGS.json"), "utf8")).songs;
 
+// Code stickiness: a code, once assigned, is a permanent identifier — its
+// bucket assets (/whistlegraph/index/<code>.{jpg,mp4}) live under that name.
+// Re-clustering must not churn codes. We remember each prior code by the
+// top-clip id it was minted from; a new cluster containing that clip
+// inherits the code. When two old clusters merge, the survivor keeps the
+// code of whichever old cluster had more views (or the reserved one).
+const prior = existsSync(join(DOWNLOADS, "CODES.json"))
+  ? JSON.parse(readFileSync(join(DOWNLOADS, "CODES.json"), "utf8")).songs
+  : [];
+const priorByGlyph = new Map(
+  prior.map((p) => [p.glyph, { code: p.code, title: p.title, kind: p.kind, views: p.views }]),
+);
+
 // Gather the batch outputs, keyed by cluster index.
 const named = new Map();
 for (let b = 0; b < 32; b += 1) {
@@ -92,14 +105,27 @@ const unique = (want) => {
 };
 
 const out = rows.map(({ cluster, name }) => {
-  const title = RESERVED[cluster.title] ? cluster.title : name?.title || cluster.title;
-  const want = RESERVED[cluster.title] || cleanCode(name?.code || title.replace(/\s+/g, ""));
-  const code = unique(want);
   const top = [...cluster.clips].sort((a, b) => (b.views || 0) - (a.views || 0))[0];
+  // Inherit code+title+kind from a prior run, keyed by clip id (stable
+  // across re-clustering; the naming batch's index join is not). When a
+  // cluster merges several prior ones, the reserved / highest-views prior
+  // wins — so e.g. Triangles absorbs its chalk-take rather than the reverse.
+  const inherited = cluster.clips
+    .map((c) => priorByGlyph.get(c.id))
+    .filter(Boolean)
+    .sort((a, b) => (RESERVED[cluster.title] === b.code) - (RESERVED[cluster.title] === a.code) || b.views - a.views)[0];
+  // Known (seed-matched) titles are ground truth and override a stale prior.
+  const title = cluster.known ? cluster.title : inherited?.title || name?.title || cluster.title;
+  const kind = inherited?.kind || name?.kind || "graph";
+  const want =
+    RESERVED[cluster.title] ||
+    inherited?.code ||
+    cleanCode(name?.code || title.replace(/\s+/g, ""));
+  const code = unique(want);
   return {
     code,
     title,
-    kind: name?.kind || (cluster.known ? "graph" : "graph"),
+    kind,
     known: cluster.known,
     performances: cluster.performances,
     views: cluster.views,

@@ -1,5 +1,5 @@
 {
- "clustered": "2026-07-08T19:25:11.626Z",
+ "clustered": "2026-07-09T00:47:16.657Z",
  "transcribed": 963,
  "sung": 845,
  "wordless": 118,
@@ -929,6 +929,90 @@
    ]
   },
   {
+   "title": "Mommy Wow",
+   "known": true,
+   "performances": 12,
+   "views": 30639300,
+   "span": [
+    "2021-07-28",
+    "2022-06-09"
+   ],
+   "clips": [
+    {
+     "id": "6990264500985302277",
+     "date": "2021-07-29",
+     "views": 8200000,
+     "text": "Here's my zig-zag. X-My Circle! Pew! Pew! I love mommy! Wow!"
+    },
+    {
+     "id": "7005122213166730502",
+     "date": "2021-09-07",
+     "views": 6400000,
+     "text": "♪ Here's my zigzag, X my circle ♪ ♪ I love mommy, wow ♪"
+    },
+    {
+     "id": "6990652474872892678",
+     "date": "2021-07-30",
+     "views": 5100000,
+     "text": "(thumping) - Here's my zigzag. - X-my circle. - Pow! - I love mommy. - Wow!"
+    },
+    {
+     "id": "6989804321688849670",
+     "date": "2021-07-28",
+     "views": 4100000,
+     "text": "One two ready. Here's my zig zag. X my circle. I love mommy. Wow"
+    },
+    {
+     "id": "6992633520158035206",
+     "date": "2021-08-04",
+     "views": 3300000,
+     "text": "Here's my zigzag, X-my circle! I love mommy! Wow!"
+    },
+    {
+     "id": "7107035237959355694",
+     "date": "2022-06-09",
+     "views": 1900000,
+     "text": "Here's my zig-zag, x-my-circle! [coughs] I love mommy! Wow!"
+    },
+    {
+     "id": "7006236290706459910",
+     "date": "2021-09-10",
+     "views": 600100,
+     "text": "♪ Here's my zigzag, that's my circle ♪ ♪ I love mommy ♪ - Wow!"
+    },
+    {
+     "id": "7091512365077908779",
+     "date": "2022-04-28",
+     "views": 314900,
+     "text": "Here's my zig-zag, here's my circle, peace! - I love mommy! - Wow!"
+    },
+    {
+     "id": "7087795856333622570",
+     "date": "2022-04-18",
+     "views": 312800,
+     "text": "(spits) Here's my zigzag! Here's my circle! (spits) I love mommy! Wow!"
+    },
+    {
+     "id": "7089571901344845102",
+     "date": "2022-04-22",
+     "views": 233300,
+     "text": "(thumping) Here's my zigzag, here's my circle. (grunting) - I love mommy, wow! - Wow!"
+    },
+    {
+     "id": "6997906004490931462",
+     "date": "2021-08-18",
+     "views": 91800,
+     "text": "Here's my zigzag, X-my circle. Choo, choo. I love mommy. Wow. [crying]"
+    },
+    {
+     "id": "7004901469426142469",
+     "date": "2021-09-06",
+     "views": 86400,
+     "text": "Here's my zig zag, here's my circle, I love mommy wow"
+    }
+   ]
+  },
+  {
    "title": "Sad Fire",
    "known": true,
    "performances": 12,
@@ -1321,72 +1405,6 @@
      "date": "2023-05-23",
      "views": 70500,
      "text": "I've got a certain personality, so I moved down to L.A. The sun shines even when it's dark, you bet the ocean. What's it gonna take to become a star?"
-    }
-   ]
-  },
-  {
-   "title": "Mommy Wow",
-   "known": true,
-   "performances": 9,
-   "views": 19824400,
-   "span": [
-    "2021-07-29",
-    "2022-06-09"
-   ],
-   "clips": [
-    {
-     "id": "6990264500985302277",
-     "date": "2021-07-29",
-     "views": 8200000,
-     "text": "Here's my zig-zag. X-My Circle! Pew! Pew! I love mommy! Wow!"
-    },
-    {
-     "id": "6990652474872892678",
-     "date": "2021-07-30",
-     "views": 5100000,
-     "text": "(thumping) - Here's my zigzag. - X-my circle. - Pow! - I love mommy. - Wow!"
-    },
-    {
-     "id": "6992633520158035206",
-     "date": "2021-08-04",
-     "views": 3300000,
-     "text": "Here's my zigzag, X-my circle! I love mommy! Wow!"
-    },
-    {
-     "id": "7107035237959355694",
-     "date": "2022-06-09",
-     "views": 1900000,
-     "text": "Here's my zig-zag, x-my-circle! [coughs] I love mommy! Wow!"
-    },
-    {
-     "id": "7006236290706459910",
-     "date": "2021-09-10",
-     "views": 600100,
-     "text": "♪ Here's my zigzag, that's my circle ♪ ♪ I love mommy ♪ - Wow!"
-    },
-    {
-     "id": "7087795856333622570",
-     "date": "2022-04-18",
-     "views": 312800,
-     "text": "(spits) Here's my zigzag! Here's my circle! (spits) I love mommy! Wow!"
-    },
-    {
-     "id": "7089571901344845102",
-     "date": "2022-04-22",
-     "views": 233300,
-     "text": "(thumping) Here's my zigzag, here's my circle. (grunting) - I love mommy, wow! - Wow!"
-    },
-    {
-     "id": "6997906004490931462",
-     "date": "2021-08-18",
-     "views": 91800,
-     "text": "Here's my zigzag, X-my circle. Choo, choo. I love mommy. Wow. [crying]"
-    },
-    {
-     "id": "7004901469426142469",
-     "date": "2021-09-06",
-     "views": 86400,
-     "text": "Here's my zig zag, here's my circle, I love mommy wow"
     }
    ]
   },
@@ -1901,6 +1919,54 @@
    ]
   },
   {
+   "title": "Triangles",
+   "known": true,
+   "performances": 6,
+   "views": 139754400,
+   "span": [
+    "2021-01-12",
+    "2021-12-14"
+   ],
+   "clips": [
+    {
+     "id": "7025102707417435398",
+     "date": "2021-10-31",
+     "views": 77800000,
+     "text": "Triangles deep inside of my mind. Triangles."
+    },
+    {
+     "id": "7035561380962929966",
+     "date": "2021-11-28",
+     "views": 23200000,
+     "text": "BOO! BOO! KID! BOO! DEEP! BOO! TRY! BANG! GO! DEEP! DEEP! DEEP! IN! SIDE! OF! MY! MY MIND! DEEP! DEEP! DEEP! TRY! BANG! BOO!"
+    },
+    {
+     "id": "7041346579743362351",
+     "date": "2021-12-14",
+     "views": 19100000,
+     "text": "Triangles deep inside of my mind Triangles"
+    },
+    {
+     "id": "7026056921480285445",
+     "date": "2021-11-02",
+     "views": 18600000,
+     "text": "Try Ingles deep inside of my mind"
+    },
+    {
+     "id": "6917068672611732742",
+     "date": "2021-01-13",
+     "views": 641800,
+     "text": "Try ankle deep inside of my mind. Try ankle."
+    },
+    {
+     "id": "6917018176941346054",
+     "date": "2021-01-12",
+     "views": 412600,
+     "text": "♪ Try angle deep inside of my mind ♪ ♪ Try angle ♪"
+    }
+   ]
+  },
+  {
    "title": "It's Too Hot, No It's Not",
    "known": true,
    "performances": 6,
@@ -2137,48 +2203,6 @@
      "date": "2022-12-14",
      "views": 13200,
      "text": "hello my friend do you need me do you see me feeling low again that's a chemical reaction in my head trust it really no one is around to tell about all of this and i wake up in the morning messages on red it's a currency of care today so please open them and simply call me when you're free to say"
-    }
-   ]
-  },
-  {
-   "title": "Triangles",
-   "known": true,
-   "performances": 5,
-   "views": 116554400,
-   "span": [
-    "2021-01-12",
-    "2021-12-14"
-   ],
-   "clips": [
-    {
-     "id": "7025102707417435398",
-     "date": "2021-10-31",
-     "views": 77800000,
-     "text": "Triangles deep inside of my mind. Triangles."
-    },
-    {
-     "id": "7041346579743362351",
-     "date": "2021-12-14",
-     "views": 19100000,
-     "text": "Triangles deep inside of my mind Triangles"
-    },
-    {
-     "id": "7026056921480285445",
-     "date": "2021-11-02",
-     "views": 18600000,
-     "text": "Try Ingles deep inside of my mind"
-    },
-    {
-     "id": "6917068672611732742",
-     "date": "2021-01-13",
-     "views": 641800,
-     "text": "Try ankle deep inside of my mind. Try ankle."
-    },
-    {
-     "id": "6917018176941346054",
-     "date": "2021-01-12",
-     "views": 412600,
-     "text": "♪ Try angle deep inside of my mind ♪ ♪ Try angle ♪"
     }
    ]
   },
@@ -3539,30 +3563,6 @@
    ]
   },
   {
-   "title": "? heres my zigzag x my circle",
-   "known": false,
-   "performances": 2,
-   "views": 10500000,
-   "span": [
-    "2021-07-28",
-    "2021-09-07"
-   ],
-   "clips": [
-    {
-     "id": "7005122213166730502",
-     "date": "2021-09-07",
-     "views": 6400000,
-     "text": "♪ Here's my zigzag, X my circle ♪ ♪ I love mommy, wow ♪"
-    },
-    {
-     "id": "6989804321688849670",
-     "date": "2021-07-28",
-     "views": 4100000,
-     "text": "One two ready. Here's my zig zag. X my circle. I love mommy. Wow"
-    }
-   ]
-  },
-  {
    "title": "? i want to fight ill go",
    "known": false,
    "performances": 2,
@@ -4507,24 +4507,6 @@
      "date": "2023-02-12",
      "views": 24800000,
      "text": "One, two, ready? Hey there. Boo-boo. Are you OK? Did you fall from the tree yesterday?"
-    }
-   ]
-  },
-  {
-   "title": "? boo boo kid boo deep boo",
-   "known": false,
-   "performances": 1,
-   "views": 23200000,
-   "span": [
-    "2021-11-28",
-    "2021-11-28"
-   ],
-   "clips": [
-    {
-     "id": "7035561380962929966",
-     "date": "2021-11-28",
-     "views": 23200000,
-     "text": "BOO! BOO! KID! BOO! DEEP! BOO! TRY! BANG! GO! DEEP! DEEP! DEEP! IN! SIDE! OF! MY! MY MIND! DEEP! DEEP! DEEP! TRY! BANG! BOO!"
     }
    ]
   },
@@ -6037,24 +6019,6 @@
      "date": "2021-07-30",
      "views": 336700,
      "text": "okay check this out what is that no paint what's no paint well if you like what you see you can press paint oh you don't press now oh i don't want that oh you can also match things oh you can move the triangle around it's damn oh you can move a lot of things around actually"
-    }
-   ]
-  },
-  {
-   "title": "? heres my zigzag heres my circle",
-   "known": false,
-   "performances": 1,
-   "views": 314900,
-   "span": [
-    "2022-04-28",
-    "2022-04-28"
-   ],
-   "clips": [
-    {
-     "id": "7091512365077908779",
-     "date": "2022-04-28",
-     "views": 314900,
-     "text": "Here's my zig-zag, here's my circle, peace! - I love mommy! - Wow!"
     }
    ]
   },
