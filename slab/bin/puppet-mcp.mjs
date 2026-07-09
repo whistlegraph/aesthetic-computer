@@ -18,7 +18,7 @@ import { existsSync, readFileSync } from "node:fs";
 import net from "node:net";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import * as readline from "node:readline";
+import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
 import { termList, typeText, sendKeys } from "./macos.mjs";
 
 const HOME = homedir();
@@ -190,14 +190,10 @@ async function handleMessage(message) {
   }
 }
 
-const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: false });
-rl.on("line", async (line) => {
-  if (!line.trim()) return;
-  try {
-    const response = await handleMessage(JSON.parse(line));
-    if (response) console.log(JSON.stringify(response));
-  } catch (e) {
-    console.error(JSON.stringify({ jsonrpc: "2.0", id: null, error: { code: -32700, message: `Parse error: ${e.message}` } }));
-  }
-});
-console.error("🎭 puppet-mcp server started (act: nav/reload/stroke/gesture/key/cursor/type/keys + eval/shot/list/term)");
+// stdio by default (Claude spawns one process per session), or `--http [port]`
+// for one resident daemon every session shares — installed by
+// toolchain/mcp/install-daemons.sh. handleMessage is stateless per call, and
+// the real state lives in the puppet daemon behind the unix socket anyway.
+const port = httpPort(process.argv, 7769); // 7768 is Spotify's
+if (port) serveHttp({ handleMessage, port, banner: "🎭 puppet-mcp shared daemon" });
+else serveStdio({ handleMessage, banner: "🎭 puppet-mcp server started (act: nav/reload/stroke/gesture/key/cursor/type/keys + eval/shot/list/term)" });

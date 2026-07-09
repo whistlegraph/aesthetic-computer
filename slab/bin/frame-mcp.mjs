@@ -18,7 +18,7 @@ import { readFile, unlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
-import * as readline from "node:readline";
+import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FRAME = join(HERE, "frame.mjs");
@@ -204,14 +204,10 @@ async function handleMessage(message) {
   }
 }
 
-const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: false });
-rl.on("line", async (line) => {
-  if (!line.trim()) return;
-  try {
-    const response = await handleMessage(JSON.parse(line));
-    if (response) console.log(JSON.stringify(response));
-  } catch (e) {
-    console.error(JSON.stringify({ jsonrpc: "2.0", id: null, error: { code: -32700, message: `Parse error: ${e.message}` } }));
-  }
-});
-console.error("🖼  frame-mcp server started (observe-only: frame, frame_list, frame_doctor, frame_setup)");
+// stdio by default (Claude spawns one process per session), or `--http [port]`
+// for one resident daemon every session shares — installed by
+// toolchain/mcp/install-daemons.sh. Each capture shells out fresh, so there is
+// no per-session state to keep.
+const port = httpPort(process.argv, 7767);
+if (port) serveHttp({ handleMessage, port, banner: "🖼  frame-mcp shared daemon" });
+else serveStdio({ handleMessage, banner: "🖼  frame-mcp server started (observe-only: frame, frame_list, frame_doctor, frame_setup)" });

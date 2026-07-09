@@ -11,7 +11,7 @@
  */
 
 import { spawn } from "child_process";
-import * as readline from "readline";
+import { httpPort, serveHttp, serveStdio } from "../toolchain/mcp/http-front.mjs";
 
 const EMACSCLIENT = process.env.EMACSCLIENT || "/usr/sbin/emacsclient";
 
@@ -340,84 +340,10 @@ async function handleMessage(message) {
   }
 }
 
-// Main — stdio by default (Claude spawns one process per session), or a
-// shared daemon with `--http [port]` so any number of parallel sessions
-// reuse ONE resident process (wired up by toolchain/mcp/install-daemons.sh
-// + a local-scope http entry in ~/.claude.json). handleMessage is already
-// stateless per call, so the streamable-HTTP front is just: POST a JSON-RPC
-// message, get the JSON reply — notifications (no id) get a bare 202.
-const httpFlag = process.argv.indexOf("--http");
-if (httpFlag !== -1) {
-  const { createServer } = await import("node:http");
-  const port = Number(process.argv[httpFlag + 1]) || 7766;
-  createServer(async (req, res) => {
-    if (req.method !== "POST") {
-      res.writeHead(405, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({
-        jsonrpc: "2.0",
-        id: null,
-        error: { code: -32000, message: "stateless server: POST only" },
-      }));
-      return;
-    }
-    let body = "";
-    for await (const chunk of req) body += chunk;
-    try {
-      const message = JSON.parse(body);
-      // Notifications carry no id and must not get a reply — without this
-      // guard "notifications/initialized" would fall through to the
-      // method-not-found error and every session would log a warning.
-      const answerable = (m) => m.id !== undefined && m.id !== null;
-      const response = Array.isArray(message)
-        ? (await Promise.all(message.filter(answerable).map(handleMessage))).filter(Boolean)
-        : answerable(message) ? await handleMessage(message) : null;
-      const empty = !response || (Array.isArray(response) && !response.length);
-      if (empty) {
-        res.writeHead(202);
-        res.end();
-        return;
-      }
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(response));
-    } catch (e) {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({
-        jsonrpc: "2.0",
-        id: null,
-        error: { code: -32700, message: `Parse error: ${e.message}` },
-      }));
-    }
-  }).listen(port, "127.0.0.1", () => {
-    console.error(`🧠 emacs-mcp shared daemon on http://127.0.0.1:${port}`);
-  });
-} else {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-    terminal: false,
-  });
-
-  rl.on("line", async (line) => {
-    try {
-      const message = JSON.parse(line);
-      const response = await handleMessage(message);
-      if (response) {
-        console.log(JSON.stringify(response));
-      }
-    } catch (e) {
-      console.error(
-        JSON.stringify({
-          jsonrpc: "2.0",
-          id: null,
-          error: {
-            code: -32700,
-            message: `Parse error: ${e.message}`,
-          },
-        }),
-      );
-    }
-  });
-
-  // Log to stderr for debugging (won't interfere with JSON-RPC on stdout)
-  console.error("🧠 Emacs MCP Server started");
-}
+// stdio by default (Claude spawns one process per session), or `--http [port]`
+// for one resident daemon every session shares — installed by
+// toolchain/mcp/install-daemons.sh, which also points Claude at it with a
+// local-scope http entry. handleMessage is stateless per call.
+const port = httpPort(process.argv, 7766);
+if (port) serveHttp({ handleMessage, port, banner: "🧠 emacs-mcp shared daemon" });
+else serveStdio({ handleMessage, banner: "🧠 Emacs MCP Server started" });
