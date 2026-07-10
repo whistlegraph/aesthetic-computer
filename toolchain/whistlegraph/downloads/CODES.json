@@ -123,8 +123,8 @@
    ]
   },
   {
-   "code": "cook",
-   "title": "Cookie Cutter",
+   "code": "fact",
+   "title": "Factory",
    "kind": "graph",
    "known": false,
    "performances": 11,
@@ -414,7 +414,7 @@
    ]
   },
   {
-   "code": "dykt",
+   "code": "simp",
    "title": "Do You Know This Show",
    "kind": "graph",
    "known": false,
@@ -472,7 +472,7 @@
   },
   {
    "code": "2la",
-   "title": "Move Down to LA",
+   "title": "Certain Personality",
    "kind": "graph",
    "known": false,
    "performances": 10,
@@ -687,7 +687,7 @@
   },
   {
    "code": "fire",
-   "title": "Sad Fire",
+   "title": "Sad Campfire",
    "kind": "graph",
    "known": true,
    "performances": 12,
@@ -758,8 +758,8 @@
    ]
   },
   {
-   "code": "door",
-   "title": "Open Up the Door",
+   "code": "itme",
+   "title": "It's Me",
    "kind": "graph",
    "known": false,
    "performances": 3,
@@ -2031,7 +2031,7 @@
   },
   {
    "code": "nsqh",
-   "title": "No Sé Qué Hacer",
+   "title": "No S\u00e9 Qu\u00e9 Hacer",
    "kind": "graph",
    "known": false,
    "performances": 1,
@@ -4188,7 +4188,7 @@
   },
   {
    "code": "kvds",
-   "title": "Ny Kvædse (Danish)",
+   "title": "Ny Kv\u00e6dse (Danish)",
    "kind": "graph",
    "known": false,
    "performances": 1,

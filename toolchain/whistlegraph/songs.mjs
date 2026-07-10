@@ -44,7 +44,7 @@ const KNOWN = [
   ["Sad Mushroom", "keep me in this dark place"],
   ["Scared of Stairs", "come down the stairs"],
   ["Frog Tiara", "frog tiara"],
-  ["Sad Fire", "chilly but i keep burning"],
+  ["Sad Campfire", "chilly but i keep burning"],
   ["I'm a Ghost", "im a ghost"],
   ["Bandaged Heart", "bandaged heart"],
   ["Five Ghosts", "five ghosts"],

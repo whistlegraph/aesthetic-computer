@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Whistlegraph — a drawing you sing</title>
-<meta name="description" content="A whistlegraph is a drawing you sing. Every line is a syllable. The finished picture is a score — it teaches you how to play it. An index of the artform.">
+<meta name="description" content="A whistlegraph is a drawing you sing. The finished picture is a score — it teaches you how to play it. An index of the artform.">
 <meta property="og:title" content="Whistlegraph">
-<meta property="og:description" content="A drawing you sing. Every line is a syllable. The score teaches you how to play it.">
+<meta property="og:description" content="A drawing you sing. The score teaches you how to play it.">
 <meta property="og:image" content="https://assets.aesthetic.computer/whistlegraph/butterfly-cosplayer/butterfly-cosplayer.webp">
 <meta name="theme-color" content="#fcf7c5">
 <link rel="icon" type="image/png" href="/favicon.png">
@@ -172,22 +172,22 @@
     <hr class="thick">
 
     <blockquote>
-      A whistlegraph is a drawing you sing. Every line is a syllable. You draw it
-      while you sing it, and the finished picture is a <em>score</em> — it teaches you
-      how to play it. I started making them in 2019; the trio drew millions of them
-      onto TikTok. This is the index.
+      A whistlegraph is a drawing you sing. You draw it while you sing it, and the
+      finished picture is a <em>score</em> — it teaches you how to play it. I started
+      making them in 2019; the trio drew millions of them onto TikTok. This is the
+      index.
     </blockquote>
 
     <div class="note">
       <b>Every whistlegraph has a code.</b><br>
       Type <code>imab</code> at <a href="https://aesthetic.computer">aesthetic.computer</a>
       to perform it — or open <a href="/imab">whistlegraph.org/imab</a>.
-      Four little letters, one whole song.
+      A short code for a whole song.
     </div>
 
     <hr>
     <h2>Index</h2>
-    <p class="dim" style="font-size:12.5px;margin-top:-2px"><span id="idxCount">…</span> whistlegraphs recovered so far — the ten first, then the rest of the archive, most-sung first. Still being combed. Tap a code.</p>
+    <p class="dim" style="font-size:12.5px;margin-top:-2px"><span id="idxCount">…</span> whistlegraphs recovered so far. Still being combed. Tap a code.</p>
     <div class="wrap">
       <table class="idx" id="idx"><tbody></tbody></table>
     </div>
@@ -288,7 +288,7 @@ function rowHTML(w){
     : `<img loading="lazy" alt="Final glyph of ${w.title}" src="${IDX}/${w.code}.jpg">`;
   return `<td class="th"><a href="/${w.code}">${thumb}</a></td>`+
     `<td class="cd"><span class="sw" style="--c:${w.c}"></span>[<a href="/${w.code}">${w.code}</a>]</td>`+
-    `<td class="ti"><a href="/${w.code}">${w.title}</a><span class="by">${w.by}${w.perf>1?` · ${w.perf} takes`:""}</span></td>`+
+    `<td class="ti"><a href="/${w.code}">${w.title}</a><span class="by">${w.by}${w.perf>1?` · ${w.perf} videos`:""}</span></td>`+
     `<td class="yr">${w.year}</td>`;
 }
 function addRow(tb,w){
@@ -304,7 +304,7 @@ fetch("/graphs.json").then(r=>r.json()).then(data=>{
   data.graphs.forEach((w,i)=>{
     if(i===data.curated){ // divider before the recovered archive
       const tr=document.createElement("tr");
-      tr.innerHTML=`<td colspan="4" style="padding:12px 8px 6px;color:var(--margin);font-size:12.5px;border-bottom:1px solid var(--margin)">— and ${data.graphs.length-data.curated} more, recovered from the archive, most-sung first —</td>`;
+      tr.innerHTML=`<td colspan="4" style="padding:12px 8px 6px;color:var(--margin);font-size:12.5px;border-bottom:1px solid var(--margin)">— more from the archive, most-sung first —</td>`;
       tb.appendChild(tr);
     }
     addRow(tb,w);
@@ -330,7 +330,7 @@ function showDetail(code){
     else{D.canonWrap.style.display="none";D.canon.removeAttribute("src");}
   }else{ // recovered — glyph poster + the sung take, no score sheet
     D.performNote.style.display="none"; D.archiveNote.style.display="";
-    D.stats.textContent=`${fmtViews(w.views)} views`+(w.perf>1?` across ${w.perf} takes`:"");
+    D.stats.textContent=`${fmtViews(w.views)} views`+(w.perf>1?` across ${w.perf} videos`:"");
     D.scoreWrap.style.display="none"; D.canonWrap.style.display="none"; D.canon.removeAttribute("src");
     D.videoRule.style.display=""; D.glyphCap.style.display=w.noGlyph?"none":"";
     D.video.poster=w.noGlyph?"":`${IDX}/${w.code}.jpg`;
