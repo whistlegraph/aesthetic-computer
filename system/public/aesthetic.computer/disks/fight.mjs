@@ -1,34 +1,40 @@
 // fight, 26.07.09
-// hotseat versus on one qwerty. phase 0 of the rollback plan: the sim is
-// deterministic and snapshot-clean, and nothing here touches the network yet.
+// one punch kills. block to survive it, and tap block just before it lands to
+// parry — that stuns the puncher and the kill is yours. blocking spends a
+// guard pip; out of guard and the next punch goes through. two fists meeting
+// on the same frame clash and bounce.
 //
-//   p1  w a s d  ·  f g h   (light / medium / heavy)
-//   p2  ← ↑ ↓ →  ·  j k l
+// four keys each, one hand each:
 //
-// `fight:boxes` overlays hit and hurt boxes. `fight:synctest` runs the
-// rollback harness in the browser and prints the verdict.
+//     w              ↑           block  (tap = parry)
+//   a   d      ←   →             move
+//     s              ↓           punch
+//
+// phase 0 of the rollback plan: the sim is deterministic and snapshot-clean,
+// and nothing here touches the network yet. `fight:boxes` overlays hitboxes.
+// `fight:synctest` runs the rollback harness and prints the verdict.
 
 import * as game from "../lib/fight/sim.mjs";
-import { syncTest, report } from "../lib/fight/rollback.mjs";
+import { syncTest, report, drills } from "../lib/fight/rollback.mjs";
 
-const { P, PN, G, ST, SFX, SUB, BODY_W, BODY_H, CROUCH_H, MOVES } = game;
+const { P, PN, G, ST, SFX, SUB, BODY_W, BODY_H, PUNCH_F } = game;
 
+// key → [player, bit, which face of the d-pad it draws on]
 const KEYS = {
-  w: [0, game.UP],
-  a: [0, game.LEFT],
-  s: [0, game.DOWN],
-  d: [0, game.RIGHT],
-  f: [0, game.LIGHT],
-  g: [0, game.MEDIUM],
-  h: [0, game.HEAVY],
-  arrowup: [1, game.UP],
-  arrowleft: [1, game.LEFT],
-  arrowdown: [1, game.DOWN],
-  arrowright: [1, game.RIGHT],
-  j: [1, game.LIGHT],
-  k: [1, game.MEDIUM],
-  l: [1, game.HEAVY],
+  a: [0, game.LEFT, "l"],
+  d: [0, game.RIGHT, "r"],
+  w: [0, game.BLOCK, "b"],
+  s: [0, game.PUNCH, "p"],
+  arrowleft: [1, game.LEFT, "l"],
+  arrowright: [1, game.RIGHT, "r"],
+  arrowup: [1, game.BLOCK, "b"],
+  arrowdown: [1, game.PUNCH, "p"],
 };
+
+const CAP = [
+  { l: "a", r: "d", b: "w", p: "s" },
+  { l: "<", r: ">", b: "^", p: "v" },
+];
 
 const SUIT = [
   [90, 170, 255],
@@ -36,7 +42,7 @@ const SUIT = [
 ];
 
 let s; // the whole simulation, one Int32Array
-let held = [0, 0];
+const held = [0, 0];
 let half = 0; // ac sims at 120hz; the game ticks at 60
 let boxes = false;
 let verdict; // synctest result, when asked for
@@ -45,48 +51,23 @@ function boot({ colon }) {
   s = game.create(1);
   boxes = colon.includes("boxes");
   if (colon.includes("synctest")) {
-    // buttons stay rare on purpose — tap one every frame and both fighters
-    // spend the match in recovery, never meet, and the test proves nothing.
-    const inputs = (f) => [
-      (f % 7 < 4 ? game.RIGHT : f % 7 < 6 ? game.LEFT : game.UP) |
-        (f % 23 === 0 ? game.MEDIUM : 0),
-      (f % 5 < 3 ? game.LEFT : game.DOWN) | (f % 31 === 0 ? game.LIGHT : 0),
-    ];
-    verdict = report(syncTest(game, inputs, { frames: 600, distance: 8 }));
+    // one drill per mechanic — random inputs practically never parry or clash,
+    // so a synctest over them is green across code it never entered.
+    const D = drills(game);
+    const bad = [];
+    for (const name in D) {
+      const r = syncTest(game, D[name], { frames: 900, distance: 8 });
+      if (!r.ok) bad.push(`${name}: ${report(r)}`);
+    }
+    verdict = bad.length ? bad.join("\n") : "synctest ok — parry, block, clash";
   }
 }
 
 function sim({ sound }) {
   if ((half ^= 1)) return; // every other 120hz step
-  if (s[G.OVER]) return;
+  if (s[G.MATCH]) return;
   game.step(s, held[0], held[1]);
   hear(sound); // leading frame only — a rollback's resimulated frames stay mute
-}
-
-// heavier hits land lower. the sim already decided what happened; this only
-// gives it a voice.
-const TONE = [220, 165, 110];
-
-function hear(sound) {
-  const f = s[G.SFX];
-  if (!f) return;
-  const mv = s[G.SFXMV];
-  const play = (o) => sound?.synth?.({ attack: 0.001, ...o });
-
-  if (f & SFX.SWING)
-    play({ type: "noise-white", duration: 0.03, decay: 0.6, volume: 0.1 });
-  if (f & SFX.JUMP)
-    play({ type: "triangle", tone: 330, duration: 0.05, decay: 0.7, volume: 0.14 });
-  if (f & SFX.BLOCK)
-    play({ type: "noise-white", duration: 0.07, decay: 0.5, volume: 0.24 });
-  if (f & SFX.HIT) {
-    play({ type: "square", tone: TONE[mv], duration: 0.06 + mv * 0.02, decay: 0.55, volume: 0.3 });
-    play({ type: "noise-white", duration: 0.05, decay: 0.4, volume: 0.18 });
-  }
-  if (f & SFX.KO) {
-    play({ type: "sawtooth", tone: 110, duration: 0.5, decay: 0.9, volume: 0.3 });
-    play({ type: "square", tone: 55, duration: 0.6, attack: 0.02, decay: 0.95, volume: 0.18 });
-  }
 }
 
 function act({ event: e }) {
@@ -95,50 +76,81 @@ function act({ event: e }) {
     if (e.is(`keyboard:down:${key}`)) held[p] |= bit;
     if (e.is(`keyboard:up:${key}`)) held[p] &= ~bit;
   }
-  if (e.is("keyboard:down:r") && s[G.OVER]) s = game.create(s[G.RNG]);
+  if (e.is("keyboard:down:r") && s[G.MATCH]) s = game.create(s[G.RNG]);
+}
+
+// the sim already decided what happened; this only gives it a voice.
+function hear(sound) {
+  const f = s[G.SFX];
+  if (!f) return;
+  const play = (o) => sound?.synth?.({ attack: 0.001, ...o });
+
+  if (f & SFX.SWING)
+    play({ type: "noise-white", duration: 0.03, decay: 0.6, volume: 0.1 });
+  if (f & SFX.BLOCK)
+    play({ type: "noise-white", duration: 0.07, decay: 0.5, volume: 0.24 });
+  if (f & SFX.CLASH) {
+    play({ type: "square", tone: 1320, duration: 0.05, decay: 0.4, volume: 0.2 });
+    play({ type: "noise-white", duration: 0.09, decay: 0.5, volume: 0.22 });
+  }
+  if (f & SFX.PARRY) {
+    play({ type: "sine", tone: 1760, duration: 0.09, decay: 0.35, volume: 0.3 });
+    play({ type: "triangle", tone: 880, duration: 0.14, decay: 0.5, volume: 0.16 });
+  }
+  if (f & SFX.BREAK)
+    play({ type: "sawtooth", tone: 165, duration: 0.22, decay: 0.7, volume: 0.26 });
+  if (f & SFX.KILL) {
+    play({ type: "square", tone: 110, duration: 0.3, decay: 0.7, volume: 0.32 });
+    play({ type: "noise-white", duration: 0.16, decay: 0.5, volume: 0.24 });
+  }
+  if (f & SFX.ROUND)
+    play({ type: "sine", tone: 660, duration: 0.12, decay: 0.5, volume: 0.18 });
+  if (f & SFX.MATCH) {
+    play({ type: "square", tone: 440, duration: 0.16, decay: 0.6, volume: 0.24 });
+    play({ type: "square", tone: 660, duration: 0.34, attack: 0.14, decay: 0.7, volume: 0.24 });
+  }
 }
 
 // render only. everything below reads state and writes pixels — it never
 // writes back, which is what keeps the sim rollback-safe.
 //
-// the stage is a fixed 256 subpixel-units wide in the sim and always will be:
-// if it tracked the screen, two players on differently sized windows would
-// simulate different fights. so the renderer scales instead.
+// the stage is a fixed 256 units wide in the sim and always will be: if it
+// tracked the screen, two players on differently sized windows would simulate
+// different fights. so the renderer scales instead.
 function paint({ wipe, ink, screen }) {
   const { width: w, height: h } = screen;
-  const floor = h - (h < 110 ? 10 : 14);
-  const k = w / 256; // stage → screen
-  const u = (subs) => ((subs * k) / SUB) | 0; // sim length → screen pixels
+  const pad = h < 112 ? 4 : 30; // the key pads want the bottom strip
+  const floor = h - pad - 6;
+  const k = w / 256;
+  const u = (subs) => ((subs * k) / SUB) | 0;
   const py = (v) => floor - u(v);
 
   wipe(18, 16, 26);
   ink(40, 38, 58).box(0, floor, w, 1);
-  for (let x = 0; x < w; x += 24) ink(30, 28, 44).box(x, floor + 1, 1, 3);
+  for (let x = 0; x < w; x += 24) ink(30, 28, 44).box(x, floor + 1, 1, 2);
 
   for (let p = 0; p < 2; p++) {
     const b = p * PN;
     const st = s[b + P.ST];
-    const tall = st === ST.CROUCH ? CROUCH_H : BODY_H;
     const x = u(s[b + P.X] - (BODY_W >> 1));
-    const y = py(s[b + P.Y] + tall);
+    const y = py(BODY_H);
     const bw = u(BODY_W);
-    const bh = u(tall);
+    const bh = u(BODY_H);
     const face = s[b + P.FACE];
 
     let c = SUIT[p];
-    if (st === ST.HITSTUN) c = [255, 240, 200];
+    if (st === ST.BLOCK) c = game.parrying(s, b) ? [255, 255, 255] : [170, 185, 210];
     if (st === ST.BLOCKSTUN) c = [190, 200, 220];
-    if (st === ST.KO) c = [70, 60, 70];
+    if (st === ST.PARRIED) c = [190, 120, 255];
+    if (st === ST.DEAD) c = [64, 56, 66];
 
     ink(...c).box(x, y, bw, bh);
-    // a notch on the leading edge, so facing reads at a glance
-    ink(255).box(face > 0 ? x + bw - 2 : x, y + 2, 2, 3);
+    ink(255).box(face > 0 ? x + bw - 2 : x, y + 2, 2, 3); // facing notch
 
-    if (st === ST.ATTACK) {
-      const m = MOVES[s[b + P.MV]];
+    if (st === ST.PUNCH) {
       const f = s[b + P.STF];
-      const live = f >= m.startup && f < m.startup + m.active;
-      const arm = live ? u(m.reach) : u(m.reach) >> 2;
+      const live = f >= PUNCH_F.startup && f < PUNCH_F.startup + PUNCH_F.active;
+      const arm = live ? u(PUNCH_F.reach) : u(PUNCH_F.reach) >> 2;
       const ax = face > 0 ? x + bw : x - arm;
       const ay = py(28 * SUB);
       if (live) ink(255, 255, 255).box(ax, ay, arm, 2);
@@ -147,52 +159,85 @@ function paint({ wipe, ink, screen }) {
 
     if (s[b + P.SPL] > 0) {
       const r = s[b + P.SPL];
-      ink(255, 230, 120).box(
-        u(s[b + P.X] + s[b + P.SPX]) - (r >> 1),
-        py(s[b + P.SPY]) - (r >> 1),
-        r,
-        r,
-      );
+      ink(255, 230, 120).box(u(s[b + P.X] + s[b + P.SPX]) - (r >> 1), py(26 * SUB), r, r);
     }
 
     if (boxes) {
-      ink(80, 255, 120, 80).box(x, y, bw, bh); // hurt
-      if (st === ST.ATTACK) {
-        const m = MOVES[s[b + P.MV]];
+      ink(80, 255, 120, 80).box(x, y, bw, bh);
+      if (st === ST.PUNCH) {
         const f = s[b + P.STF];
-        if (f >= m.startup && f < m.startup + m.active) {
+        if (f >= PUNCH_F.startup && f < PUNCH_F.startup + PUNCH_F.active) {
           const front = s[b + P.X] + face * (BODY_W >> 1);
-          const hx = face > 0 ? front : front - m.reach;
-          ink(255, 60, 90, 110).box(u(hx), py(34 * SUB), u(m.reach), u(16 * SUB));
+          const hx = face > 0 ? front : front - PUNCH_F.reach;
+          ink(255, 60, 90, 110).box(u(hx), py(34 * SUB), u(PUNCH_F.reach), u(16 * SUB));
         }
       }
     }
   }
 
-  // health sits below the piece label the hud draws in the top-left corner.
-  const bar = (w >> 1) - 12;
-  for (let p = 0; p < 2; p++) {
-    const hp = s[p * PN + P.HP];
-    const fill = ((hp * bar) / game.START_HP) | 0;
-    const x = p === 0 ? 4 : w - 4 - bar;
-    ink(50, 45, 60).box(x, 17, bar, 5);
-    ink(...SUIT[p]).box(p === 0 ? x : x + bar - fill, 17, fill, 5);
-  }
-  ink(220).write(`${(s[G.TIMER] / 60) | 0}`, { x: (w >> 1) - 5, y: 16 });
-
-  if (s[G.OVER]) {
-    const msg = s[G.OVER] === 3 ? "draw" : `p${s[G.OVER]} wins`;
-    ink(0, 0, 0, 200).box((w >> 1) - 42, (h >> 1) - 13, 84, 26);
-    ink(255, 220, 60).write(msg, { x: (w >> 1) - msg.length * 3, y: (h >> 1) - 7 });
-    ink(150).write("r to rematch", { x: (w >> 1) - 33, y: (h >> 1) + 3 });
+  hud(ink, w);
+  if (pad > 4) {
+    pads(ink, 4, h - 29, 0);
+    pads(ink, w - 32, h - 29, 1);
   }
 
   if (boxes) ink(70, 66, 90).write(`t${s[G.TICK]} ${game.checksum(s).toString(16)}`, { x: 4, y: 25 });
   if (verdict) ink(120, 255, 160).write(verdict, { x: 4, y: 33 });
+}
 
-  if (h >= 110) {
-    ink(58, 56, 76).write("wasd+fgh", { x: 4, y: h - 8 });
-    ink(58, 56, 76).write("arrows+jkl", { x: w - 62, y: h - 8 });
+// guard pips, round pips, clock, and whatever just ended.
+function hud(ink, w) {
+  for (let p = 0; p < 2; p++) {
+    const b = p * PN;
+    for (let i = 0; i < game.GUARD_MAX; i++) {
+      const x = p === 0 ? 4 + i * 7 : w - 10 - i * 7;
+      const lit = i < s[b + P.GUARD];
+      if (lit) ink(...SUIT[p]).box(x, 17, 5, 5);
+      else ink(48, 44, 58).box(x, 17, 5, 5);
+    }
+    for (let i = 0; i < game.WIN_TARGET; i++) {
+      const x = p === 0 ? 4 + i * 5 : w - 8 - i * 5;
+      ink(...(i < s[b + P.WINS] ? [255, 220, 60] : [46, 42, 56])).box(x, 25, 3, 3);
+    }
+  }
+  ink(220).write(`${(s[G.TIMER] / 60) | 0}`, { x: (w >> 1) - 5, y: 16 });
+
+  const over = s[G.MATCH] || s[G.OVER];
+  if (!over) return;
+  const msg = s[G.MATCH]
+    ? s[G.MATCH] === 3
+      ? "draw"
+      : `p${s[G.MATCH]} takes it`
+    : s[G.OVER] === 3
+      ? "time"
+      : `p${s[G.OVER]}`;
+  const y = 40;
+  ink(0, 0, 0, 200).box((w >> 1) - 44, y - 3, 88, s[G.MATCH] ? 22 : 12);
+  ink(255, 220, 60).write(msg, { x: (w >> 1) - msg.length * 3, y });
+  if (s[G.MATCH]) ink(150).write("r to rematch", { x: (w >> 1) - 33, y: y + 9 });
+}
+
+// the four keys, drawn as a d-pad that lights on press. the block key gets a
+// gold rim when a parry is armed — the cooldown is the whole reason mashing
+// block doesn't work, so it should be visible.
+function pads(ink, ox, oy, p) {
+  const b = p * PN;
+  const cell = 9;
+  const at = { b: [cell, 0], l: [0, cell], r: [cell * 2, cell], p: [cell, cell * 2] };
+  const bit = { l: game.LEFT, r: game.RIGHT, b: game.BLOCK, p: game.PUNCH };
+
+  for (const key in at) {
+    const [dx, dy] = at[key];
+    const x = ox + dx,
+      y = oy + dy;
+    const down = (held[p] & bit[key]) !== 0;
+    const armed = key === "b" && s[b + P.PCD] === 0;
+
+    if (down) ink(...SUIT[p]).box(x, y, 8, 8);
+    else ink(34, 32, 46).box(x, y, 8, 8);
+
+    if (armed && !down) ink(255, 220, 60).box(x, y, 8, 1);
+    ink(...(down ? [16, 14, 22] : [110, 106, 130])).write(CAP[p][key], { x: x + 2, y: y + 1 });
   }
 }
 

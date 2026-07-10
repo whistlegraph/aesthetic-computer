@@ -87,10 +87,11 @@ in the sim desyncs Chrome against Safari.
 
 So `lib/fight/sim.mjs` obeys:
 
-1. **Integers only.** Positions in subpixels (1/256px), velocities in
-   subpixels/frame. A 2D fighter is frame data and hitbox rectangles — it needs
-   no trig and no `sqrt`. This dissolves the problem rather than managing it,
-   and avoids fixed-point Q16.16 entirely.
+1. **Integers only.** Positions in subpixels (1/256px). A 2D fighter is frame
+   data and hitbox rectangles — it needs no trig and no `sqrt`. This dissolves
+   the problem rather than managing it, and avoids fixed-point Q16.16 entirely.
+   With four keys there is no jump, so there is no gravity and no vertical axis
+   at all: a hit is an overlap on one dimension.
 2. **All state in one `Int32Array`.** A snapshot is `.slice()`, a checksum is a
    walk. `Int32Array` also *forces* int32 on write, so state can never silently
    become a float.
@@ -119,8 +120,9 @@ function sim({ sound }) {
 
 Because the flag is derived state, a rewound frame that no longer lands a hit
 un-schedules its own sound. There is a spec for exactly the GGPO case: predict
-the defender idle and it sounds like a hit; the real input arrives showing they
-held back, and after the rollback that same frame sounds like a block.
+the defender standing there and the frame sounds like a kill; the real input
+arrives showing they had tapped block, and after the rollback that same frame
+sounds like a parry.
 
 The same rule governs particles and screen shake. Anything gameplay-relevant
 (hitboxes, animation frames that gate hurtboxes) must be *in* the snapshot.
@@ -149,37 +151,69 @@ a miserable 60Hz desync across two continents.
 npx jasmine --config=spec/support/jasmine.json --filter=fight
 ```
 
-Green at distances 1, 2, 4 and 8 (GGPO's `MAX_PREDICTION_FRAMES` is 8).
+Green at distances 1, 2, 4 and 8 (GGPO's `MAX_PREDICTION_FRAMES` is 8), across
+random play and each of the three drills.
 
-**A SyncTest can pass vacuously.** The first version of the input script tapped
-a button nearly every frame, so both fighters sat in attack recovery for all 900
-frames: they never walked, the gap stayed at exactly 96px, no hit landed, and
-the RNG never advanced. The harness faithfully verified that *nothing happening*
-rolls back correctly. There is now a spec asserting the RNG advances, so that
-failure mode cannot come back silently. If you write a new input script, check
-that it produces hits before you trust a green run.
+**A SyncTest is only worth what its inputs touch, and this has bitten three
+times.** The first script tapped a button nearly every frame, so both fighters
+sat in attack recovery for all 900 frames: they never walked, the gap stayed at
+exactly 96px, no hit landed, and the RNG never advanced — the harness faithfully
+verified that *nothing happening* rolls back correctly. The second held block
+for a single frame, so it always released before a fist arrived and never once
+entered the block or parry branch. The third tried to drill every mechanic in
+one script, and a round ending mid-script shifted every later phase out of
+alignment, silently losing the clash and the guard break.
+
+So each mechanic now gets its own drill in `rollback.mjs` — `drills(sim)`
+returns `parry`, `block`, and `clash` — and the specs assert that each drill
+*reaches* its mechanic (the parry drill parries and never kills; the block drill
+breaks guard) before rolling each one back. Random play essentially never
+parries, because the block press must land inside a five-frame window, and never
+clashes, because that needs two fists live on the same tick.
+
+If you write a new input script, count the events it produces before you trust a
+green run.
 
 ## Files
 
 | path | role |
 | --- | --- |
 | `system/public/aesthetic.computer/lib/fight/sim.mjs` | the deterministic integer simulation |
-| `system/public/aesthetic.computer/lib/fight/rollback.mjs` | SyncTest, snapshot ring, desync diff |
+| `system/public/aesthetic.computer/lib/fight/rollback.mjs` | SyncTest, per-mechanic drills, snapshot ring, desync diff |
 | `system/public/aesthetic.computer/disks/fight.mjs` | the piece: input, render, audio |
 | `spec/fight-sim-spec.mjs` | determinism, sound, and rules specs |
 
 Run it: `fight` for a match, `fight:boxes` for the hit/hurt overlay plus a live
 tick and checksum readout, `fight:synctest` to run the harness in the browser.
 
-Two players share one QWERTY, hands left-to-right across the board:
+### The game
 
-| | move | light / medium / heavy |
-| --- | --- | --- |
-| P1 | `W A S D` | `F G H` |
-| P2 | arrows | `J K L` |
+One punch kills. That leaves a triangle:
 
-Most keyboards ghost past ~6 simultaneous keys, so a two-player scramble can
-drop inputs. That is hardware, and it is part of why phase 3 exists.
+- a **punch** beats anyone standing,
+- a **block** survives it but spends one of three guard pips — out of guard and
+  the next punch goes straight through,
+- a **parry** beats the punch outright and leaves the attacker stunned long
+  enough that the kill is free.
+
+There is no parry button. Tapping block arms a five-frame parry window; holding
+it is only a block. Arming a parry starts a 45-frame cooldown, so mashing block
+gets you blocks, never parries. Two fists live on the same tick **clash** and
+bounce both fighters apart — nobody dies. First to three rounds.
+
+Four keys each, one hand each, so nothing overlaps:
+
+|  | move | block / parry | punch |
+| --- | --- | --- | --- |
+| P1 | `A` `D` | `W` | `S` |
+| P2 | `←` `→` | `↑` | `↓` |
+
+The keys are drawn on screen as a d-pad that lights while held, and the block
+key takes a gold rim when a parry is armed — the cooldown is the entire reason
+mashing doesn't work, so it should be visible.
+
+Most keyboards ghost past ~6 simultaneous keys. Four keys per player, on
+opposite sides of the board, keeps a two-player scramble inside that budget.
 
 ## Roadmap
 
@@ -204,7 +238,7 @@ drop inputs. That is hardware, and it is part of why phase 3 exists.
 | input delay used by real fighters | 3 frames (Killer Instinct); 3–4 acceptable |
 | prediction usability ceiling | ~100–150ms before it feels bad |
 | per-frame resim budget (8-frame window) | ~1.5–1.8ms |
-| input encoding | 1–2 byte bitmask, XOR-diffed against the previous frame |
+| input encoding | one nibble (left/right/block/punch), XOR-diffed against the previous frame |
 | latency identity | total ≈ input_delay + avg rollback frames |
 
 Inputs are re-sent redundantly: GGPO packs every un-ACKed frame into each
