@@ -208,6 +208,7 @@
       <button data-sort="year">By year</button>
       <button data-sort="title">Title A–Z</button>
       <button data-sort="author">Author A–Z</button>
+      <button data-sort="experiments">Research</button>
     </div>
     <div class="wrap">
       <table class="idx" id="idx"><tbody></tbody></table>
@@ -259,7 +260,6 @@
       <li><a href="https://dirt.fyi/article/2023/09/whistlegraph">What is a Whistlegraph?</a> — Dirt — 2023</li>
       <li><a href="https://rhizome.org/editorial/2022/sep/13/first-look-the-longest-whistlegraph-ever-so-far/">First Look</a> — Rhizome editorial — 2022</li>
       <li><a href="https://feralfile.com/journal/close-up/whistlegraph-doodling-clockwork-in-lore-and-score">Doodling Clockwork in Lore and Score</a> — Dorothy Howard, Feral File — 2022</li>
-      <li><a href="https://cmarthoughts.com/whistlegraph-body-language/">Whistlegraph: Body Language</a> — 2022</li>
     </ul>
 
     <hr>
@@ -358,7 +358,7 @@ function addRow(tb,w){
   tb.appendChild(tr);
 }
 
-let GRAPHS=[], CURATED_N=0;
+let GRAPHS=[], COMPOSITIONS=[], EXPERIMENTS=[], CURATED_N=0;
 
 // Sorts. `featured` (default) keeps the file order: the ten first, then the
 // archive by reach, with a divider between. Every other key flattens into one
@@ -366,7 +366,8 @@ let GRAPHS=[], CURATED_N=0;
 // featured view). Ties break on views, our richest signal.
 function sortedGraphs(key){
   const byViews=(a,b)=>b.views-a.views;
-  const g=[...GRAPHS];
+  if(key==="experiments") return [...EXPERIMENTS].sort(byViews);
+  const g=[...COMPOSITIONS];
   if(key==="videos") return g.sort((a,b)=>b.perf-a.perf||byViews(a,b));
   if(key==="sung")   return g.sort(byViews);
   if(key==="year")   return g.sort((a,b)=>a.year-b.year||byViews(a,b)); // oldest first
@@ -378,7 +379,7 @@ function renderIndex(key){
   const tb=document.querySelector("#idx tbody"); tb.innerHTML="";
   const sorted=sortedGraphs(key);
   if(!sorted){ // featured: ten first, then the archive, with a divider
-    GRAPHS.forEach((w,i)=>{
+    COMPOSITIONS.forEach((w,i)=>{
       if(i===CURATED_N){
         const tr=document.createElement("tr");
         tr.innerHTML=`<td colspan="4" style="padding:12px 8px 6px;color:var(--margin);font-size:12.5px;border-bottom:1px solid var(--margin)">— more from the archive, most-sung first —</td>`;
@@ -393,13 +394,15 @@ function renderIndex(key){
 
 fetch("/graphs.json").then(r=>r.json()).then(data=>{
   GRAPHS=data.graphs; CURATED_N=data.curated;
+  COMPOSITIONS=GRAPHS.filter(w=>w.kind!=="experiment");
+  EXPERIMENTS=GRAPHS.filter(w=>w.kind==="experiment");
   BY=Object.fromEntries(data.graphs.map(w=>[w.code,w]));
   renderIndex(null);
-  document.getElementById("idxCount").textContent=data.graphs.length;
+  document.getElementById("idxCount").textContent=COMPOSITIONS.length;
   // The example code randomizes each load — always one of the featured ten —
   // and its links follow the drawn code.
   (function(){
-    const pool=GRAPHS.slice(0,CURATED_N); if(!pool.length) return;
+    const pool=COMPOSITIONS.slice(0,CURATED_N); if(!pool.length) return;
     const w=pool[Math.floor(Math.random()*pool.length)];
     const c=document.getElementById("egCode"); if(c)c.textContent=w.code;
     const ac=document.getElementById("egAC"); if(ac)ac.href=`https://aesthetic.computer/${w.code}`;
