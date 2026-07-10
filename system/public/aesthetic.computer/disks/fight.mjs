@@ -71,7 +71,10 @@ function open(colon) {
   return { link, a, b, latency, loss };
 }
 
+let opened = []; // the colon we booted with, so `r` can rebuild the same match
+
 function boot({ colon }) {
+  opened = colon;
   net = open(colon);
   s = net ? net.a.state : game.create(1);
   boxes = colon.includes("boxes");
@@ -114,7 +117,12 @@ function act({ event: e }) {
     if (e.is(`keyboard:down:${key}`)) held[p] |= bit;
     if (e.is(`keyboard:up:${key}`)) held[p] &= ~bit;
   }
-  if (e.is("keyboard:down:r") && s[G.MATCH] && !net) s = game.create(s[G.RNG]);
+  if (e.is("keyboard:down:r") && s[G.MATCH]) {
+    // a networked rematch is a fresh session on a fresh wire, not a reset state
+    net = net ? open(opened) : null;
+    s = net ? net.a.state : game.create(s[G.RNG]);
+    sfxIn = 0;
+  }
 }
 
 // the sim already decided what happened; this only gives it a voice.
@@ -229,6 +237,9 @@ function paint({ wipe, ink, screen }) {
 
 // the netcode, out loud. depth is what you actually feel: it is how many frames
 // get thrown away and resimulated when a guess turns out wrong.
+//
+// this sits below the pips, not in the corners — ac owns the top-left label and
+// the top-right controls, and the readout was painting straight through both.
 function wire(ink, w) {
   const { a, link, latency, loss } = net;
   const st = a.stats;
@@ -236,15 +247,15 @@ function wire(ink, w) {
   const ls = link.stats();
   const ahead = a.frame - a.confirmed();
 
-  ink(90, 200, 255).write(`lag ${latency}f  loss ${(loss * 100) | 0}%`, { x: 4, y: 4 });
-  ink(70, 66, 90).write(`rollback ${st.rollbacks} @${depth}f  stall ${st.stalls}`, { x: 4, y: 12 });
-  ink(70, 66, 90).write(`ahead ${ahead}  dropped ${ls.dropped}/${ls.sent}`, { x: 4, y: 20 });
+  ink(90, 200, 255).write(`lag ${latency}f loss ${(loss * 100) | 0}%`, { x: 4, y: 33 });
+  ink(70, 66, 90).write(`rb ${st.rollbacks} @${depth}f stall ${st.stalls}`, { x: 4, y: 41 });
+  ink(70, 66, 90).write(`drop ${ls.dropped}/${ls.sent}`, { x: 4, y: 49 });
 
   // how far out on the limb we are, against the 8-frame prediction window
-  const bar = 40;
-  ink(40, 38, 54).box(w - bar - 4, 5, bar, 3);
+  const bar = Math.min(40, w - 12);
+  ink(40, 38, 54).box(4, 58, bar, 3);
   const fill = Math.min(bar, ((ahead * bar) / 8) | 0);
-  ink(...(ahead > 8 ? [255, 90, 90] : [90, 200, 255])).box(w - bar - 4, 5, fill, 3);
+  ink(...(ahead >= 8 ? [255, 90, 90] : [90, 200, 255])).box(4, 58, fill, 3);
 }
 
 // guard pips, round pips, clock, and whatever just ended. everything flanks the
