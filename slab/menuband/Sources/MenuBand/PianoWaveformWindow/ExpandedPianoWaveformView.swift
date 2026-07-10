@@ -73,6 +73,14 @@ final class ExpandedPianoWaveformView: NSView {
     /// The Gamepad toggle button — held so the popover's delegate can reset its
     /// pushOnPushOff state when the popover is dismissed by clicking away.
     private weak var gamepadToggle: NSButton?
+    /// Prominent on-screen twin of the backtick (`) sample-record key. Sits at
+    /// the leading edge of the mode row as a solid red "● REC" pill so recording
+    /// reads as a primary action on the fullscreen surface (the key itself has
+    /// no cap in the QWERTY grid). Toggling it drives the SAME
+    /// handleLocalKey(keyCode: 50) path the physical backtick uses — state .on =
+    /// key-down/start, .off = key-up/stop — and it pulses red while
+    /// `sampleRecordingActive`, so the button and the key are one control.
+    private let recordButton = NSButton()
 
     private var outlineBorderColor: NSColor = .separatorColor.withAlphaComponent(0.55)
 
@@ -277,6 +285,9 @@ final class ExpandedPianoWaveformView: NSView {
         modeStack.alignment = .centerY
         modeStack.spacing = 8
         modeStack.translatesAutoresizingMaskIntoConstraints = false
+        // Record pill leads the row — the fullscreen sample-record affordance.
+        configureRecordButton()
+        modeStack.addArrangedSubview(recordButton)
         let modeSymbol = NSImage.SymbolConfiguration(pointSize: 12, weight: .regular)
         let modeSpecs: [(label: String, image: NSImage?, tag: Int)] = [
             ("Menu Band",
@@ -691,6 +702,7 @@ final class ExpandedPianoWaveformView: NSView {
         updateOctaveContext()
         updateHapticsControl()
         updateModeToggle()
+        updateRecordButton()
         let keyboardSize = keyboardSize()
         widthConstraint?.constant = stableKeyboardWidth()
         waveformHeightConstraint?.constant = waveformHeight(for: keyboardSize)
@@ -723,6 +735,72 @@ final class ExpandedPianoWaveformView: NSView {
         for button in modeButtons {
             let isAbleton = (button.tag == 1)
             button.state = (menuBand.keymap == .ableton) == isAbleton ? .on : .off
+        }
+    }
+
+    // MARK: - Sample-record pill
+
+    /// Build the fullscreen sample-record button: a solid red "● REC" pill,
+    /// larger and bolder than the flat recessed mode chips so it reads as the
+    /// surface's primary action. It's a toggle wired to the backtick's
+    /// local-key path; `updateRecordButton()` keeps its look in sync with the
+    /// live recording state (including when the physical ` key drives it).
+    private func configureRecordButton() {
+        recordButton.title = "REC"
+        recordButton.bezelStyle = .rounded
+        recordButton.controlSize = .large
+        recordButton.setButtonType(.pushOnPushOff)
+        recordButton.imagePosition = .imageLeading
+        recordButton.imageHugsTitle = true
+        recordButton.font = NSFont.systemFont(ofSize: 13, weight: .heavy)
+        let dot = NSImage.SymbolConfiguration(pointSize: 11, weight: .black)
+        recordButton.image = NSImage(systemSymbolName: "circle.fill",
+                                     accessibilityDescription: "Record sample")?
+            .withSymbolConfiguration(dot)
+        recordButton.contentTintColor = .white
+        recordButton.bezelColor = .systemRed
+        recordButton.toolTip = "Record a microphone sample — same as the ` key"
+        recordButton.target = self
+        recordButton.action = #selector(toggleSampleRecording(_:))
+        recordButton.wantsLayer = true
+        recordButton.translatesAutoresizingMaskIntoConstraints = false
+        // Never let the pill get squeezed or stretched by the row — it keeps
+        // its intrinsic width so the leading edge stays a stable primary action.
+        recordButton.setContentHuggingPriority(.required, for: .horizontal)
+        recordButton.setContentCompressionResistancePriority(.required, for: .horizontal)
+        updateRecordButton()
+    }
+
+    @objc private func toggleSampleRecording(_ sender: NSButton) {
+        guard let menuBand else { return }
+        // Toggle: .on = start recording (backtick down), .off = stop (backtick
+        // up). Routes through the exact same local-key handler the physical `
+        // key uses, so the on-screen pill and the key are one control, one path.
+        let isDown = (sender.state == .on)
+        menuBand.handleLocalKey(keyCode: 50, isDown: isDown, isRepeat: false, flags: [])
+        updateRecordButton()
+    }
+
+    /// Reflect the live sampler state on the pill: pulsing while capturing,
+    /// steady when idle. Driven from `refresh()` so the button also tracks
+    /// recording started/stopped by the physical ` key.
+    private func updateRecordButton() {
+        let recording = menuBand?.sampleRecordingActive ?? false
+        recordButton.state = recording ? .on : .off
+        if recording {
+            if recordButton.layer?.animation(forKey: "recPulse") == nil {
+                let pulse = CABasicAnimation(keyPath: "opacity")
+                pulse.fromValue = 1.0
+                pulse.toValue = 0.45
+                pulse.duration = 0.6
+                pulse.autoreverses = true
+                pulse.repeatCount = .infinity
+                pulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                recordButton.layer?.add(pulse, forKey: "recPulse")
+            }
+        } else {
+            recordButton.layer?.removeAnimation(forKey: "recPulse")
+            recordButton.layer?.opacity = 1.0
         }
     }
 
