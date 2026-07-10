@@ -1,9 +1,13 @@
-// pop/lib/fal-seedance.mjs — shared Seedance 2.0 motion-shot client
-// (fal.ai queue API). Used by pop/bin/gen-motion.mjs (single shot) and
-// the per-track batch drivers (gen-motion-<track>.mjs).
+// pop/lib/fal.mjs — shared fal.ai client for AC's motion pipelines.
+// Covers Seedance 2.0 (image/text/reference/blend-to-video), sync-lipsync,
+// Kling AI Avatar (talking-head from a still), and fal storage upload.
+// Used by pop/bin/gen-motion.mjs, the per-track batch drivers, and the
+// wizards. All video jobs share one queue runner (runQueueJob).
 //
 // The illy panel carries the LOOK; the prompt carries only MOTION.
-// Tiers @720p: fast ≈ $0.2419/s · standard ≈ $0.3024/s.
+// Seedance @720p: fast ≈ $0.2419/s · standard ≈ $0.3024/s.
+// sync-lipsync patches a mouth (weak on flat cels); Kling AI Avatar
+// synthesizes a whole head performance and handles stylized characters.
 
 import { readFileSync, writeFileSync, existsSync, unlinkSync } from "node:fs";
 import { resolve, dirname } from "node:path";
@@ -39,6 +43,31 @@ const mime = (p) =>
 export const dataUri = (p) => `data:${mime(p)};base64,${readFileSync(p).toString("base64")}`;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Upload a local file to fal storage (CDN v3) and return its public URL.
+// Some endpoints (sync-lipsync et al.) reject inline data: URIs above a small
+// cap — upload first and pass the URL. The auth token is valid ~30 days, so a
+// per-call fetch is cheap enough.
+export async function uploadToFalStorage(path, log = console.log) {
+  if (!existsSync(path)) throw new Error(`upload: file not found: ${path}`);
+  const key = falKey();
+  const tRes = await fetch(
+    "https://rest.alpha.fal.ai/storage/auth/token?storage_type=fal-cdn-v3",
+    { method: "POST", headers: { Authorization: `Key ${key}`, "Content-Type": "application/json" }, body: "{}" },
+  );
+  if (!tRes.ok) throw new Error(`upload token ${tRes.status}: ${(await tRes.text()).slice(0, 200)}`);
+  const { token, base_url } = await tRes.json();
+  const uRes = await fetch(`${base_url}/files/upload`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": mime(path) },
+    body: readFileSync(path),
+  });
+  if (!uRes.ok) throw new Error(`upload ${uRes.status}: ${(await uRes.text()).slice(0, 200)}`);
+  const { access_url } = await uRes.json();
+  if (!access_url) throw new Error("upload: no access_url in response");
+  log(`  ↑ ${path.split("/").pop()} → ${access_url.split("/").pop()}`);
+  return access_url;
+}
 
 // Submit one shot and download the finished mp4 to outPath.
 // Returns { ok, seed, seconds, error }. Retries transient submit
@@ -201,6 +230,52 @@ async function runQueueJob({ endpoint, input, outPath, label, log }) {
   writeFileSync(outPath, mp4);
   unlinkSync(queuePath);
   return { ok: true, seed: result.seed, seconds: (Date.now() - t0) / 1000, bytes: mp4.length };
+}
+
+// Audio-driven lipsync (sync.so lipsync-2 via fal). Takes a source VIDEO and
+// an AUDIO clip and rewrites the speaker's mouth to match the speech, leaving
+// the rest of the frame untouched — so it layers cleanly on top of a Seedance
+// motion shot or even a static hold. model: "lipsync-2" | "lipsync-2-pro"
+// (pro ≈ 1.67× the cost). sync_mode governs length mismatch: "cut_off" trims
+// to the shorter of the two, "loop"/"bounce" repeat the video to cover audio.
+// Reuses runQueueJob — the endpoint also returns { video: { url } }.
+export async function generateLipsync({
+  video, audio, model = "lipsync-2", syncMode = "cut_off",
+  outPath, label = "lipsync", log = console.log,
+}) {
+  if (!existsSync(video)) throw new Error(`lipsync source video not found: ${video}`);
+  if (!existsSync(audio)) throw new Error(`lipsync audio not found: ${audio}`);
+  // sync-lipsync rejects inline data: URIs — upload both media first.
+  const input = {
+    model,
+    video_url: await uploadToFalStorage(video, log),
+    audio_url: await uploadToFalStorage(audio, log),
+    sync_mode: syncMode,
+  };
+  return runQueueJob({ endpoint: "fal-ai/sync-lipsync/v2", input, outPath, label, log });
+}
+
+// Audio-driven talking AVATAR (Kling AI Avatar v2 via fal). Unlike lipsync —
+// which only patches the mouth of an existing video and can't grip a flat
+// drawn lip-line — this synthesizes the whole head performance (mouth, blinks,
+// small head motion) from a single still portrait + audio, and Kling handles
+// "cartoons or stylized characters" without rigging. Output length follows the
+// audio (2–60s, ≤5MB). tier: "standard" ($0.056/s) | "pro" ($0.115/s).
+export async function generateAvatar({
+  image, audio, prompt = ".", tier = "standard",
+  outPath, label = "avatar", log = console.log,
+}) {
+  if (!existsSync(image)) throw new Error(`avatar image not found: ${image}`);
+  if (!existsSync(audio)) throw new Error(`avatar audio not found: ${audio}`);
+  const endpoint = tier === "pro"
+    ? "fal-ai/kling-video/ai-avatar/v2/pro"
+    : "fal-ai/kling-video/ai-avatar/v2/standard";
+  const input = {
+    prompt,
+    image_url: await uploadToFalStorage(image, log),
+    audio_url: await uploadToFalStorage(audio, log),
+  };
+  return runQueueJob({ endpoint, input, outPath, label, log });
 }
 
 // Text-to-video: generate a clip from a prompt alone (no source image). The

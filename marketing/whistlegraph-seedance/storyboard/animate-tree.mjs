@@ -1,6 +1,6 @@
 // Tree on blacktop: Seedance pinned between the two validated stills, with
 // SINGING (sung words, whistlegraph-style) and chalk-color swaps choreographed.
-import { generateShot } from "/Users/jas/aesthetic-computer/pop/lib/fal-seedance.mjs";
+import { generateShot } from "/Users/jas/aesthetic-computer/pop/lib/fal.mjs";
 
 const HERE = "/Users/jas/Desktop/seedance-variations/storyboard";
 

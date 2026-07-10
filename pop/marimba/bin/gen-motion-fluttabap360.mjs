@@ -9,7 +9,7 @@
 // because fluttabap360.struct.json is event-based, not the sections[] shape
 // the shared CLI expects — and because there is exactly one panel per beat
 // NAME (the visualizer reuses each per pass), so the natural unit here is the
-// beat, not the struct section. It still leans on the same fal-seedance.mjs
+// beat, not the struct section. It still leans on the same fal.mjs
 // client (caching, queue-resume, retries) the rest of /pop motion uses.
 //
 // Moderation: fal rejects face-forward likenesses. The story keeps the
@@ -29,7 +29,7 @@
 import { existsSync, mkdirSync, statSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { generateShot, RATE_PER_SEC } from "../../lib/fal-seedance.mjs";
+import { generateShot, RATE_PER_SEC } from "../../lib/fal.mjs";
 import {
   COLORED_PENCIL_TOOTH_MOTION,
   FRAMING_IG_STORY_PORTRAIT_MOTION,

@@ -517,3 +517,6 @@ wave-wizard/samples/
 
 # Mac App Store build output
 slab/menuband/.build-mas/
+
+# personal tailnet ACL scratchpad (not for the public repo)
+scratchpad-jas-nzxt-acl.md

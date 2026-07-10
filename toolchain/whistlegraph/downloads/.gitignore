@@ -15,3 +15,5 @@ NAMING.json
 YOUTUBE-CANDIDATES.json
 # upload staging (rebuilt from glyphs/ + video/)
 site/
+# Longest Whistlegraph film + stills — pulled from Dropbox/YouTube, on the CDN
+longest/

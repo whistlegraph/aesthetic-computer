@@ -5,7 +5,7 @@
 
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { generateShot, RATE_PER_SEC } from "../../../pop/lib/fal-seedance.mjs";
+import { generateShot, RATE_PER_SEC } from "../../../pop/lib/fal.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 

@@ -10,7 +10,7 @@
 // hands off to chrome-reel-fluttabap360.mjs.
 //
 // Story + cut list: pop/marimba/fluttabap360-reel.story.txt.
-// Standalone driver (one shot per beat); same fal-seedance.mjs client
+// Standalone driver (one shot per beat); same fal.mjs client
 // (caching, queue-resume, retries). Mostly CUTS; ONE morph —
 // growdance runs start-frame→end-frame from the grow panel to the
 // dance panel (same-camera escalation; the stand-up rolls into the
@@ -38,7 +38,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync } from "no
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
-import { generateShot, RATE_PER_SEC } from "../../lib/fal-seedance.mjs";
+import { generateShot, RATE_PER_SEC } from "../../lib/fal.mjs";
 import {
   COLORED_PENCIL_TOOTH_MOTION,
   FRAMING_IG_STORY_PORTRAIT_MOTION,

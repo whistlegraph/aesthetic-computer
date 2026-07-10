@@ -2,7 +2,7 @@
 
 Seedance 2.0 (fal.ai) variations of personally recorded whistlegraph videos —
 new drawings in the exact visual + sonic aesthetic of the source recordings.
-Shares `pop/lib/fal-seedance.mjs` with the /pop motion pipeline.
+Shares `pop/lib/fal.mjs` with the /pop motion pipeline.
 
 **THE ONE RULE:** the graphics align with the sounds. The voice (whistled or
 sung) traces each stroke as it is drawn — line rises, pitch rises; fast

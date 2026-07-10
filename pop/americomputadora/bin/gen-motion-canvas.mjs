@@ -13,7 +13,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
-import { generateShot } from "../../lib/fal-seedance.mjs";
+import { generateShot } from "../../lib/fal.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const LANE = resolve(HERE, "..");

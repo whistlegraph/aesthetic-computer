@@ -1,6 +1,6 @@
 // One-off: Seedance 2.0 reference-to-video variations of jeffrey's
 // 7s whistlegraph chalkboard recording, with generated audio.
-import { generateReferenceShot } from "/Users/jas/aesthetic-computer/pop/lib/fal-seedance.mjs";
+import { generateReferenceShot } from "/Users/jas/aesthetic-computer/pop/lib/fal.mjs";
 
 const SRC = "/Users/jas/Downloads/v12044gd0000ca7e5trc77udclceer40.MP4";
 const OUT = "/Users/jas/Desktop/seedance-variations";

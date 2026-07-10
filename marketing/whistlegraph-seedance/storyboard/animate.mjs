@@ -1,7 +1,7 @@
 // Storyboard animate: Seedance image-to-video pinned between the REAL start
 // frame and the validated gpt-image-2 end keyframe. The end state is known
 // good, so stray marks can't survive into the final frame.
-import { generateShot } from "/Users/jas/aesthetic-computer/pop/lib/fal-seedance.mjs";
+import { generateShot } from "/Users/jas/aesthetic-computer/pop/lib/fal.mjs";
 
 const HERE = "/Users/jas/Desktop/seedance-variations/storyboard";
 

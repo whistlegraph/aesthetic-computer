@@ -1,7 +1,7 @@
 // Singing test: voice SINGS (not whistles) and sings actual WORDS as the
 // marks are drawn, the way whistlegraphs chant the graph. Same one rule:
 // the sung syllables align with the strokes.
-import { generateReferenceShot } from "/Users/jas/aesthetic-computer/pop/lib/fal-seedance.mjs";
+import { generateReferenceShot } from "/Users/jas/aesthetic-computer/pop/lib/fal.mjs";
 
 const SRC1 = "/Users/jas/Downloads/v12044gd0000ca7e5trc77udclceer40.MP4";
 const SRC2 = "/Users/jas/Desktop/seedance-variations/src2-trim.mp4";

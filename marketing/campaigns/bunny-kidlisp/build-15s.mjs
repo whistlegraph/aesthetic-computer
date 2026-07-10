@@ -1,7 +1,7 @@
 // build-15s.mjs — 15s felt-bunny video: hold shot-A (5s) → morph A→B (5s) →
 // hold shot-B (5s). seg2 bridges (starts at A, ends at B) so the three clips
 // read continuous. Silent-ish; @jeffrey adds audio at post. → ~/Desktop.
-import { generateShot } from "../../../pop/lib/fal-seedance.mjs";
+import { generateShot } from "../../../pop/lib/fal.mjs";
 import { spawnSync } from "node:child_process";
 import { writeFileSync, existsSync } from "node:fs";
 import { homedir } from "node:os";

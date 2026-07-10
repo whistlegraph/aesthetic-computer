@@ -12,12 +12,12 @@
 //
 // A submitted job keeps running (and billing) on fal even if this process
 // dies, so the queue handle is persisted beside the output — a rerun RESUMES
-// the in-flight job instead of paying twice. (Same discipline as fal-seedance.)
+// the in-flight job instead of paying twice. (Same discipline as fal.)
 
 import { mkdirSync, existsSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { falKey } from "../../pop/lib/fal-seedance.mjs";
+import { falKey } from "../../pop/lib/fal.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ENDPOINT = "fal-ai/meshy/v6/text-to-3d";

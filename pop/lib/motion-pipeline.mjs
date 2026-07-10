@@ -30,7 +30,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
-import { generateShot, RATE_PER_SEC } from "./fal-seedance.mjs";
+import { generateShot, RATE_PER_SEC } from "./fal.mjs";
 
 export function parseFlags(argv = process.argv) {
   const flags = {};

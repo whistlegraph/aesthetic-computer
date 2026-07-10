@@ -20,7 +20,7 @@
 import { mkdirSync, existsSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { falKey } from "../../pop/lib/fal-seedance.mjs";
+import { falKey } from "../../pop/lib/fal.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ENDPOINT = "fal-ai/meshy/rigging/multi-animation";

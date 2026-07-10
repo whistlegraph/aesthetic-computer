@@ -1,6 +1,6 @@
 // animate-felt.mjs — felt bunny still → Seedance 2.0 motion clip (silent-ish),
 // motion-only prompt (the felt still carries the look). → ~/Desktop.
-import { generateShot } from "../../../pop/lib/fal-seedance.mjs";
+import { generateShot } from "../../../pop/lib/fal.mjs";
 import { homedir } from "node:os";
 
 const r = await generateShot({

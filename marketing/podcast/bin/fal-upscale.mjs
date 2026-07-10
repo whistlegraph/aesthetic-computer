@@ -2,7 +2,7 @@
 // fal-upscale.mjs — super-resolution for the pals logos (or any image) via
 // fal.ai. AuraSR (default) is a clean 4× GAN upscaler ideal for graphic/logo
 // art; clarity adds invented detail (better for photos). Reuses the FAL_KEY +
-// queue pattern from pop/lib/fal-seedance.mjs.
+// queue pattern from pop/lib/fal.mjs.
 //
 // Usage:
 //   node bin/fal-upscale.mjs <in.png> [out.png] [--model aura-sr|clarity|esrgan] [--factor 4]

@@ -8,7 +8,7 @@
 import { existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { generateShot } from "../../pop/lib/fal-seedance.mjs";
+import { generateShot } from "../../pop/lib/fal.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ASSETS = resolve(HERE, "../Sources/ClipWizard/Assets");

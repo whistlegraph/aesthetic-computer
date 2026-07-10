@@ -79,7 +79,7 @@ fill its whole movement seamlessly — a 5s felt scene ping-ponged = a 10s
 breathing loop that tiles under any movement length, and slow looping reads as
 *intentional* at sleep tempo, not as a GIF. The climax (row 7) gets one longer
 **hero shot** that plays once, un-looped, as the visual payoff. Generated
-through the existing `pop/lib/motion-pipeline.mjs` + `fal-seedance.mjs` (fast
+through the existing `pop/lib/motion-pipeline.mjs` + `fal.mjs` (fast
 tier, 720p) and assembled the same way as the reel.
 
 ### Layer C — The score overlay ("the video score", tasteful, few labels)
@@ -112,7 +112,7 @@ instrument-panel under the felt.
 
 ## 3. Budget — three tiers (the whole point)
 
-Seedance 720p: **fast $0.2419/s · standard $0.3024/s** (`fal-seedance.mjs`
+Seedance 720p: **fast $0.2419/s · standard $0.3024/s** (`fal.mjs`
 `RATE_PER_SEC`). gpt-image-2 stills are cents each. Pick a tier:
 
 | Tier | Seedance | Billed sec | Seedance $ | Stills | All-in | Feel |
@@ -214,7 +214,7 @@ generator and one landscape-chrome compositor; the rest is configuration.
 
 3. node pop/momboba/bin/gen-motion-listener.mjs  # NEW (fork gen-motion-…-reel.mjs)
    → out/motion/listener/<movement>-shot.mp4      # Tier-B: 4 shots, fast/720p
-   (uses pop/lib/motion-pipeline.mjs + fal-seedance.mjs; takes board via
+   (uses pop/lib/motion-pipeline.mjs + fal.mjs; takes board via
     pop/bin/audition-motion.mjs to pick the good roll before assembling)
 
 4. node pop/momboba/bin/chrome-listener.mjs       # NEW (fork chrome-reel.mjs)

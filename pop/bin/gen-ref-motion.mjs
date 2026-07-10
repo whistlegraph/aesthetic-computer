@@ -25,7 +25,7 @@
 
 import { existsSync } from "node:fs";
 import { resolve, basename } from "node:path";
-import { generateReferenceShot, RATE_PER_SEC } from "../lib/fal-seedance.mjs";
+import { generateReferenceShot, RATE_PER_SEC } from "../lib/fal.mjs";
 
 // Parse flags; --image/--video/--audio repeat into arrays.
 const flags = {};

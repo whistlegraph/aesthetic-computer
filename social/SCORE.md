@@ -6,6 +6,8 @@ the monorepo. Read this before touching social tooling or planning a campaign.
 
 Sibling docs: `pop/SCORE.md` (music mill), `recap/SCORE.md` (narrated video), `marketing/README.md` (promo gen).
 
+Research: `research/instagram-official-guidance.md` — what Instagram *officially* documents about ranking/reach vs. blog myth (cold-start, originality gates, Trial Reels, 3-min Reels; verified 2026-07-08).
+
 ---
 
 ## The accounts

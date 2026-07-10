@@ -15,7 +15,7 @@ import { resolve, dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
-import { generateShot } from "../../lib/fal-seedance.mjs";
+import { generateShot } from "../../lib/fal.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));      // pop/momboba/video
 const LANE = resolve(HERE, "..");                         // pop/momboba

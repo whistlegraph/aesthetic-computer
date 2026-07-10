@@ -1,6 +1,6 @@
 // Word test: the hand WRITES a word in chalk, whistle articulating each
 // letter's strokes (same one-rule sync). Two takes — model text is flaky.
-import { generateReferenceShot } from "/Users/jas/aesthetic-computer/pop/lib/fal-seedance.mjs";
+import { generateReferenceShot } from "/Users/jas/aesthetic-computer/pop/lib/fal.mjs";
 
 const SRC1 = "/Users/jas/Downloads/v12044gd0000ca7e5trc77udclceer40.MP4";
 const SRC2 = "/Users/jas/Desktop/seedance-variations/src2-trim.mp4";

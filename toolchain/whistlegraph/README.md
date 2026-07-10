@@ -33,3 +33,13 @@ survives without re-pulling from TikTok.
 Take the `key`, `tempoBPM`, and `melody[]` from the analysis JSON and
 compose bottom-up from AC instruments (never Suno end-to-end). See
 `pop/SCORE.md` and `pop/lib/`.
+
+## ⚠️ Re-posting these clips to Instagram
+
+`grab.mjs` pulls via `yt-dlp`, so the `.mp4` usually carries the **TikTok
+watermark**. As of Instagram's April 2026 originality expansion, visible
+cross-platform watermarks make a Reel **ineligible for recommendation to
+non-followers** — so a watermarked TikTok export posted to IG gets no
+cold-start reach. If funnelling @whistlegraph clips to IG, re-render from a
+clean (watermark-free) source, not the yt-dlp download. Background + sources:
+`social/research/instagram-official-guidance.md`.

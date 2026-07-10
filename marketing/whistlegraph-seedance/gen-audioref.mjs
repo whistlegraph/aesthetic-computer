@@ -1,7 +1,7 @@
 // Companion batch: same whistlegraph variations but with the ACTUAL audio
 // track passed as @Audio1 alongside the @Video1 ref, so the output whistling
 // follows jeffrey's real melody and chalk sounds.
-import { generateReferenceShot } from "/Users/jas/aesthetic-computer/pop/lib/fal-seedance.mjs";
+import { generateReferenceShot } from "/Users/jas/aesthetic-computer/pop/lib/fal.mjs";
 
 const SRC = "/Users/jas/Downloads/v12044gd0000ca7e5trc77udclceer40.MP4";
 const AUD = "/Users/jas/Desktop/seedance-variations/src-audio.mp3";

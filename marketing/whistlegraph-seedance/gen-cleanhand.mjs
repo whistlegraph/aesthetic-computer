@@ -1,7 +1,7 @@
 // Artifact fix test: chalk marks must grow ONLY from the chalk tip.
 // Same sun drawing, simplified choreography (fits 8s without rushing),
 // plus a physical-contact constraint — A/B fast tier vs standard tier.
-import { generateReferenceShot } from "/Users/jas/aesthetic-computer/pop/lib/fal-seedance.mjs";
+import { generateReferenceShot } from "/Users/jas/aesthetic-computer/pop/lib/fal.mjs";
 
 const SRC1 = "/Users/jas/Downloads/v12044gd0000ca7e5trc77udclceer40.MP4";
 const SRC2 = "/Users/jas/Desktop/seedance-variations/src2-trim.mp4";
