@@ -45,7 +45,7 @@ const STABILITY = 0.55; // >= 0.5 keeps jeffrey's identity (per project memory)
 //   3-keymap 22.7–31.0 (8.3s) one short line
 //   4-end    31.0–34.4 (3.4s) the sign-off
 const SCRIPT = {
-  "1-menu": "wanna start a band? play music straight from your macos menu bar.",
+  "1-menu": "wanna start a band? play music straight from your menu bar.",
   "2-about": "it's a tiny download, and it speaks your language.",
   "3-keymap": "it goes fullscreen too — a keymap, a gamepad mode, a mic sampler. you can even reverse playback by holding spacebar.",
   "4-end": "menu band. now on the mac app store.",
