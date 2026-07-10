@@ -205,8 +205,30 @@ final class MenuBandController {
     /// octave keys (heldControlKeys) so the keymap visualization
     /// reflects every kind of key the user is pressing.
     func heldKeyCodes() -> Set<UInt16> {
+        if let posed = captureHeldKeyCodes { return posed }
         heldLock.lock(); defer { heldLock.unlock() }
         return Set(heldNotes.keys).union(heldControlKeys)
+    }
+
+    /// Key codes a promo capture has posed as "held". nil in the shipping app,
+    /// where held state comes from the keyboard.
+    private var captureHeldKeyCodes: Set<UInt16>?
+
+    /// Pose the controller as though `notes` were being held, so a headless
+    /// render lights the big piano AND the QWERTY map from a score instead of
+    /// a live keyboard. The key codes are the keymap's own inverse — whichever
+    /// physical key would have sounded that note.
+    func captureHold(notes: Set<UInt8>) {
+        litNotes = notes
+        var codes = Set<UInt16>()
+        for keyCode in UInt16(0)..<128 {
+            if let midi = MenuBandLayout.midiNote(forKeyCode: keyCode,
+                                                 octaveShift: octaveShift,
+                                                 keymap: keymap), notes.contains(midi) {
+                codes.insert(keyCode)
+            }
+        }
+        captureHeldKeyCodes = codes
     }
 
     /// Hardware key codes for non-note keys we want to light up

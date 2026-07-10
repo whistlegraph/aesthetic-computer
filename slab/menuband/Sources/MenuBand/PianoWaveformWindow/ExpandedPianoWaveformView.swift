@@ -749,6 +749,14 @@ final class ExpandedPianoWaveformView: NSView {
         waveformView.seedSyntheticWaveform()
     }
 
+    /// Seed the scope from the real mix for a promo render, one peak level per
+    /// column. The reel's LED display then shows the waltz that's actually
+    /// playing over it, not the synthetic stand-in.
+    func seedWaveformForCapture(levels: [Float], cursorAt: Double) {
+        waveformView.isLive = false
+        waveformView.seedWaveform(levels: levels, cursorAt: cursorAt)
+    }
+
     private func updateWaveformLiveState(isPresented: Bool) {
         let recording = menuBand?.sampleRecordingActive ?? false
         let midiMode = menuBand?.midiMode ?? false

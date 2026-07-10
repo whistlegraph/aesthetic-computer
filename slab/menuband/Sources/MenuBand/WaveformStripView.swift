@@ -161,6 +161,29 @@ final class WaveformStripView: NSView {
     /// the picture of "a note is ringing out," with the not-yet-swept columns
     /// to the right showing only the off-grid. No-op at runtime; only the
     /// capture calls it.
+    /// Fill the scope's raster from REAL audio — one peak level per column,
+    /// oldest to newest, with the write cursor `cursorAt` (0…1) across the
+    /// strip. Promo renders scrub the actual mix through here so the LED
+    /// display shows the music that's playing, rather than the synthetic
+    /// stand-in below. No-op at runtime; only the capture calls it.
+    func seedWaveform(levels: [Float], cursorAt: Double) {
+        updateGridGeometry()
+        guard cols > 8, !levels.isEmpty else { return }
+        let fillEnd = max(1, min(cols, Int((Double(cols) * cursorAt).rounded())))
+        for c in 0..<cols {
+            guard c < fillEnd else { written[c] = false; continue }
+            let f = fillEnd > 1 ? Double(c) / Double(fillEnd - 1) : 0
+            let level = levels[min(levels.count - 1, Int(f * Double(levels.count - 1)))]
+            // Tiny floor so even silent columns tick the center baseline row,
+            // the same way the synthetic seed does.
+            gridMax[c] = max(0.012, level)
+            gridMin[c] = min(-0.012, -level * 0.85)
+            written[c] = true
+        }
+        cursor = fillEnd % cols
+        needsDisplay = true
+    }
+
     func seedSyntheticWaveform(columns: Int = 220) {
         _ = columns   // raster fills from its own geometry, not a history cap
         updateGridGeometry()

@@ -23,7 +23,7 @@ import { fileURLToPath } from "node:url";
 import { once } from "node:events";
 import { spawnSync } from "node:child_process";
 import { createCanvas, registerFont, loadImage } from "canvas";
-import { spawnFFmpegEncode } from "../../lib/preview-shared.mjs";
+import { spawnFFmpegEncode, decodeAudioMono } from "../../lib/preview-shared.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const LANE = resolve(HERE, "..");
@@ -390,19 +390,67 @@ async function prerenderFlip() {
 // captured per instrument program so the family tint cycles — piano, guitar,
 // violin, trumpet, flute — the same way the About pass cycles languages.
 const KEYMAP_PROGRAMS = [0, 24, 40, 56, 73];
-const keymapImgs = [];
+const KEYMAP_SEQ = `${OUT}/keymap-frames`;
+/// How much of the waltz the scope shows behind its write cursor, and how many
+/// columns of it we hand the app. The view resamples to its own grid.
+const SCOPE_WINDOW = 1.6, SCOPE_COLS = 240, SCOPE_CURSOR = 0.72;
+
+/// The keymap is a LIVE shot, not a still: the big piano and the QWERTY map
+/// hold the keys the waltz is playing, and the LED display shows the waltz's
+/// own waveform. The app renders the whole sequence in one process — spawning
+/// one per frame would rebuild the view tree hundreds of times.
 async function prerenderKeymap() {
   if (!existsSync(MENUBAR_BIN)) return;
-  console.log(`▸ capturing ${KEYMAP_PROGRAMS.length} real keymap views via MenuBand --render-keymap …`);
-  for (const prog of KEYMAP_PROGRAMS) {
-    const png = `${ABOUT_CACHE}/keymap-${prog}.png`;
-    if (!existsSync(png)) {
-      const r = spawnSync(MENUBAR_BIN, ["--render-keymap", "--lang", "en", "--program", String(prog), "--scale", "3", "--out", png],
-        { stdio: ["ignore", "ignore", "pipe"] });
-      if (r.status !== 0) console.error(`  ✗ keymap ${prog}: ${r.stderr?.toString().slice(-160)}`);
+  const sc = SCENES.find((s) => s.name === "keymap");
+  const count = Math.round((sc.to - sc.from) * FPS);
+  mkdirSync(KEYMAP_SEQ, { recursive: true });
+  const last = `${KEYMAP_SEQ}/keymap-${String(count - 1).padStart(4, "0")}.png`;
+  if (existsSync(last)) return;
+
+  const { audio, sr } = decodeAudioMono(AUDIO);
+  const frames = [];
+  for (let i = 0; i < count; i++) {
+    const t = sc.from + i / FPS;
+    const local = (t - sc.from) / (sc.to - sc.from);
+    // One peak per column across the window of audio ending at `t`.
+    const levels = [];
+    for (let c = 0; c < SCOPE_COLS; c++) {
+      const a = t - SCOPE_WINDOW * (1 - c / SCOPE_COLS);
+      const b = a + SCOPE_WINDOW / SCOPE_COLS;
+      let peak = 0;
+      for (let s = Math.max(0, Math.round(a * sr)); s < Math.min(audio.length, Math.round(b * sr)); s++) {
+        const v = Math.abs(audio[s]);
+        if (v > peak) peak = v;
+      }
+      levels.push(Math.min(1, peak * 1.6));
     }
-    if (existsSync(png)) keymapImgs.push(await loadImage(png));
+    frames.push({
+      notes: barNotesAt(t),
+      levels,
+      cursor: SCOPE_CURSOR,
+      program: KEYMAP_PROGRAMS[Math.min(KEYMAP_PROGRAMS.length - 1,
+        Math.floor(local * KEYMAP_PROGRAMS.length))],
+    });
   }
+  const seqJson = `${OUT}/keymap-seq.json`;
+  writeFileSync(seqJson, JSON.stringify(frames));
+  console.log(`▸ capturing ${count} live keymap frames via MenuBand --render-keymap --seq …`);
+  const r = spawnSync(MENUBAR_BIN, ["--render-keymap", "--lang", "en", "--scale", "3",
+    "--seq", seqJson, "--out-dir", KEYMAP_SEQ], { stdio: ["ignore", "ignore", "pipe"] });
+  if (r.status !== 0) console.error(`  ✗ keymap seq: ${r.stderr?.toString().slice(-200)}`);
+}
+
+/// Streamed, one frame at a time — 250 decoded PNGs at once is about a gigabyte.
+let keymapImg = null, keymapIdx = -1;
+async function ensureKeymapFrame(t) {
+  const sc = sceneAt(t);
+  if (sc.name !== "keymap") return;
+  const i = Math.max(0, Math.round((t - sc.from) * FPS));
+  if (i === keymapIdx) return;
+  const png = `${KEYMAP_SEQ}/keymap-${String(i).padStart(4, "0")}.png`;
+  if (!existsSync(png)) return;
+  keymapImg = await loadImage(png);
+  keymapIdx = i;
 }
 
 // ── scene timeline: the MENU front-and-center (first half) → the real ABOUT
@@ -609,13 +657,12 @@ function drawFrame(t) {
     spawnNote(heroKeyX(n.midi, t), edge, heroKeyColor(n.midi), hero.risen);
   }
 
-  if (sc.name === "keymap" && keymapImgs.length) {
-    // third act — the REAL fullscreen keymap (raster scope + big piano +
-    // QWERTY map), instrument family colors cycling. No caption: it's a
-    // screenshot of the real thing and it speaks for itself.
-    const idx = Math.min(keymapImgs.length - 1, Math.floor(local * keymapImgs.length));
+  if (sc.name === "keymap" && keymapImg) {
+    // third act — the REAL fullscreen keymap, live: keys held down with the
+    // melody, the LED display scoping the actual waltz, instrument families
+    // cycling. No caption; it speaks for itself.
     const e = easeOut(Math.min(1, local * 6));      // quick rise-in
-    drawKeymap(keymapImgs[idx], e, (H * 0.5) * (1 - e));
+    drawKeymap(keymapImg, e, (H * 0.5) * (1 - e));
   } else if (sc.name !== "menu") {
     // second act — the REAL About window, language cycling, floating up.
     let img, alpha = 1, yOff = 0, flip = null;
@@ -676,6 +723,7 @@ console.log(`▸ menuband sim · ${FRAMES} frames · ${TOTAL.toFixed(1)}s · ${W
 const enc = spawnFFmpegEncode({ audioPath: AUDIO, w: W, h: H, fps: FPS, outPath: BASE, crf: 18 });
 const t0 = Date.now();
 for (let fi = 0; fi < FRAMES; fi++) {
+  await ensureKeymapFrame(fi / FPS);
   drawFrame(fi / FPS);
   if (!enc.stdin.write(canvas.toBuffer("raw"))) await once(enc.stdin, "drain");
   if (fi % 150 === 0) console.log(`  ${fi}/${FRAMES} · ${((Date.now() - t0) / 1000).toFixed(0)}s`);
