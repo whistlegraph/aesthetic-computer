@@ -1,4 +1,4 @@
-Menu Band brings the built-in macOS instruments — the ones GarageBand uses — into your menu bar.
+Menu Band brings the built-in instruments — the ones GarageBand uses — into your menu bar.
 
 A tiny piano sits at the right of your menu bar. Click any key to play, or type to play while Menu Band is the active app, using the Notepat or Ableton-style QWERTY layouts.
 

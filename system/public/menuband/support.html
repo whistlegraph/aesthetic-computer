@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Menu Band — Support</title>
+<meta name="description" content="Menu Band support: how to play, troubleshooting, and how to reach a human.">
+<link rel="icon" href="/menuband/icon.png">
+<style>
+  :root {
+    --aqua-sky-top: #dfe9f2;
+    --aqua-sky-bot: #b9cfe6;
+    --aqua-blue:    #3d7fd6;
+    --panel-bg:     #ededed;
+    --panel-stripe: #e5e5e5;
+    --panel-edge:   #c4ccd4;
+    --titlebar-top: #e8e8e8;
+    --titlebar-bot: #c8c8c8;
+    --ink-body:     #2b2b2b;
+    --ink-head:     #1a1a1a;
+    --ink-soft:     #5a5f66;
+  }
+  * { box-sizing: border-box; }
+  html { cursor: url("/aesthetic.computer/cursors/precise.svg") 12 12, auto; }
+  html, body {
+    margin: 0; padding: 0;
+    color: var(--ink-body);
+    font-family: "Lucida Grande", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 14px; line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    background: linear-gradient(to bottom, var(--aqua-sky-top), var(--aqua-sky-bot)) fixed;
+    min-height: 100vh;
+    padding: 36px 16px 64px;
+  }
+  .window {
+    max-width: 640px; margin: 0 auto;
+    background: #fff;
+    border-radius: 8px 8px 6px 6px;
+    border: 1px solid var(--panel-edge);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.5) inset, 0 10px 40px rgba(40,60,90,0.18);
+    overflow: hidden;
+  }
+  .titlebar {
+    height: 22px;
+    background: linear-gradient(to bottom, var(--titlebar-top), var(--titlebar-bot));
+    border-bottom: 1px solid var(--panel-edge);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.7) inset;
+    display: flex; align-items: center; padding: 0 9px;
+    position: relative; user-select: none;
+  }
+  .lights { display: flex; gap: 7px; }
+  .light {
+    width: 11px; height: 11px; border-radius: 50%;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.55) inset, 0 0 0 0.5px rgba(0,0,0,0.25);
+  }
+  .light.r { background: radial-gradient(circle at 35% 35%, #ff8a85, #ff5f57); }
+  .light.y { background: radial-gradient(circle at 35% 35%, #ffd68a, #febc2e); }
+  .light.g { background: radial-gradient(circle at 35% 35%, #6fe89d, #28c840); }
+  .titlebar h1 {
+    margin: 0 0 0 10px; font-size: 11px; font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+  .titlebar h1 a, .titlebar h1 a:visited {
+    color: #4a4a4a; text-decoration: none;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.7); cursor: inherit;
+  }
+  .titlebar h1 a:hover { color: var(--aqua-blue); }
+  .content { padding: 28px 32px 32px; }
+  h2 {
+    margin: 0 0 4px;
+    font-size: 28px; font-weight: 500; letter-spacing: -0.012em;
+    color: var(--ink-head);
+  }
+  .tagline {
+    margin: 0 0 22px;
+    font-style: italic;
+    font-family: Georgia, "Times New Roman", serif;
+    color: var(--ink-soft);
+  }
+  h3 {
+    margin: 18px 0 6px;
+    font-size: 14px; font-weight: 500; color: var(--ink-head);
+  }
+  p { margin: 0 0 10px; }
+  code {
+    font-family: "SF Mono", Monaco, monospace;
+    font-size: 12.5px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-edge);
+    border-radius: 3px;
+    padding: 1px 5px;
+  }
+  a { color: var(--aqua-blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    margin: 18px auto 0;
+    max-width: 640px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--ink-soft);
+    text-shadow: 0 1px 0 rgba(255,255,255,0.7);
+  }
+  footer a { color: var(--ink-soft); }
+
+  ul.flat { margin: 4px 0 10px; padding-left: 18px; }
+  ul.flat li { margin-bottom: 6px; }
+  .contact-card {
+    margin: 20px 0 4px; padding: 14px 16px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-edge);
+    border-radius: 6px;
+  }
+  .contact-card p { margin: 0; }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --aqua-sky-top: #0e1a2e;
+      --aqua-sky-bot: #04070d;
+      --aqua-blue:    #4a93ff;
+      --panel-bg:     #2c2c2e;
+      --panel-stripe: #232325;
+      --panel-edge:   #2c2c2e;
+      --titlebar-top: #2c2c2e;
+      --titlebar-bot: #1f1f21;
+      --ink-body:     #ebebf0;
+      --ink-head:     #ffffff;
+      --ink-soft:     #98989d;
+    }
+    .window {
+      background: #1c1c1e;
+      box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 10px 40px rgba(0,0,0,0.55);
+    }
+    .titlebar h1 a, .titlebar h1 a:visited { color: #d0d0d2; text-shadow: 0 -1px 0 rgba(0,0,0,0.5); }
+    code { background: #2c2c2e; border-color: #3a3a3c; color: var(--ink-body); }
+    .contact-card { background: #232325; border-color: #3a3a3c; }
+  }
+</style>
+</head>
+<body>
+
+<article class="window">
+  <header class="titlebar" aria-hidden="true">
+    <div class="lights">
+      <div class="light r"></div>
+      <div class="light y"></div>
+      <div class="light g"></div>
+    </div>
+    <h1><a href="/prompt">menuband</a> — support</h1>
+  </header>
+
+  <div class="content">
+    <h2>Support</h2>
+    <p class="tagline">A tiny piano in your menu bar. Here's how to play it, and how to reach a human when something's off.</p>
+
+    <div class="contact-card">
+      <p><b>Need help?</b> Email <a href="mailto:mail@aesthetic.computer?subject=Menu%20Band%20support">mail@aesthetic.computer</a> and we'll get back to you. Please include your macOS version and the Menu Band version (shown in the popover's About).</p>
+    </div>
+
+    <h3>Getting started</h3>
+    <ul class="flat">
+      <li>A small piano strip appears at the right of your menu bar. Click it to open the popover.</li>
+      <li>Click keys in the popover to play, or turn on the <em>Notepat</em> or <em>Ableton</em> input mode to play by typing on your keyboard while Menu Band is the active app.</li>
+      <li>The full-screen keymap view opens from the scope display in the popover.</li>
+    </ul>
+
+    <h3>Playing through a DAW</h3>
+    <p>Menu Band publishes a virtual MIDI source named <code>Menu Band</code>. Choose it as a MIDI input in your DAW (GarageBand, Logic, Ableton Live, etc.) and the keys you tap or type will play through your DAW's instruments. When no DAW is connected, Menu Band's built-in General MIDI synth sounds instead.</p>
+
+    <h3>Recording a mic sample</h3>
+    <p>Hold the <code>`</code> (backtick) key to sample a sound from your microphone. The first time, macOS will ask for microphone permission — grant it in <b>System Settings → Privacy &amp; Security → Microphone</b> if you missed the prompt.</p>
+
+    <h3>Troubleshooting</h3>
+    <ul class="flat">
+      <li><b>Typing doesn't play notes.</b> The <em>Notepat</em> and <em>Ableton</em> modes need Accessibility access to receive global keystrokes. Enable Menu Band under <b>System Settings → Privacy &amp; Security → Accessibility</b>. Menu Band uses keystrokes only to play notes.</li>
+      <li><b>No sound.</b> Confirm your Mac's output volume, and that a DAW isn't capturing the <code>Menu Band</code> MIDI source silently. With no DAW connected, the built-in synth should sound.</li>
+      <li><b>My DAW doesn't see Menu Band.</b> Rescan MIDI devices in your DAW, or quit and reopen it after launching Menu Band so CoreMIDI re-enumerates the source.</li>
+      <li><b>Microphone sampling does nothing.</b> Grant microphone permission (see above), then try holding <code>`</code> again.</li>
+    </ul>
+
+    <h3>Privacy</h3>
+    <p>Menu Band collects nothing about you — no analytics, no account. Full details are on the <a href="/menuband/privacy.html">privacy page</a>.</p>
+
+    <h3>Open source</h3>
+    <p>Menu Band is open source and part of <a href="https://aesthetic.computer">aesthetic.computer</a>. Feature requests and bug reports are welcome by email.</p>
+
+    <h3>Contact</h3>
+    <p>Email: <a href="mailto:mail@aesthetic.computer?subject=Menu%20Band%20support">mail@aesthetic.computer</a> · Web: <a href="https://aesthetic.computer">aesthetic.computer</a></p>
+  </div>
+</article>
+
+<footer>
+  © <a href="https://aesthetic.computer">aesthetic.computer</a> · 2026 · <a href="/menuband">back to Menu Band</a>
+</footer>
+
+</body>
+</html>

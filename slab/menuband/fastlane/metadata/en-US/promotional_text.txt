@@ -1,1 +1,1 @@
-Built-in macOS instruments in your menu bar. Tap, type, or send to your DAW. One virtual MIDI source and a built-in GM synth.
+Built-in instruments in your menu bar. Tap, type, or send to your DAW. One virtual MIDI source and a built-in GM synth.

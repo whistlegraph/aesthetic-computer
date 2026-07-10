@@ -1,1 +1,1 @@
-Built-in macOS instruments
+Instruments in your menu bar
