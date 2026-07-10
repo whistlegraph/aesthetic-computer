@@ -7,7 +7,7 @@ import AppKit
 // Mirrors KLCLI.runIfRequested: short-circuits app startup when invoked.
 //
 //   MenuBand --render-menubar --notes 60,64,67 --out frame.png \
-//            [--voice "Marimba"] [--program 0] [--scale 3]
+//            [--voice "Marimba"] [--program 0] [--scale 3] [--light] [--midi]
 //
 // Renders KeyboardIconRenderer.image(...) (the full status-item icon: piano
 // keys + settings/voice/MIDI chips) to a TRANSPARENT PNG at `scale`× the
@@ -35,8 +35,14 @@ enum MenubarCLI {
         app.setActivationPolicy(.prohibited)
         app.appearance = NSAppearance(named: args.contains("--light") ? .aqua : .darkAqua)
 
+        // `enabled:` is the renderer's name for MIDI mode — AppDelegate passes
+        // `menuBand.midiMode` into it. Hardcoding it true meant every capture
+        // rendered as if MIDI mode were on: the voice badge printed a fixed "M"
+        // and `--voice` / `--program` were silently discarded. Off by default,
+        // so the badge shows the live voice slot the shipping menubar shows;
+        // `--midi` asks for the "M" back.
         let img = KeyboardIconRenderer.image(
-            litNotes: notes, enabled: true, melodicProgram: program,
+            litNotes: notes, enabled: args.contains("--midi"), melodicProgram: program,
             voiceLabel: voice, includeSettings: true, layout: .fixedCanvas)
 
         let pw = Int((img.size.width * scale).rounded())
@@ -57,7 +63,13 @@ enum MenubarCLI {
         guard let png = rep.representation(using: .png, properties: [:]) else {
             FileHandle.standardError.write(Data("✗ png encode failed\n".utf8)); return true
         }
-        try? png.write(to: URL(fileURLWithPath: out))
+        // Not `try?`: a failed write (a missing output directory, most often)
+        // would otherwise exit 0 with nothing on stderr, and the caller would
+        // render a whole reel around a strip that was never captured.
+        do { try png.write(to: URL(fileURLWithPath: out)) } catch {
+            FileHandle.standardError.write(Data("✗ write \(out): \(error)\n".utf8))
+            exit(1)
+        }
         print("menubar \(pw)x\(ph) (native \(Int(img.size.width))x\(Int(img.size.height))) notes=\(notes.sorted()) → \(out)")
         return true
     }
