@@ -185,22 +185,24 @@ function paint({ wipe, ink, screen }) {
   if (verdict) ink(120, 255, 160).write(verdict, { x: 4, y: 33 });
 }
 
-// guard pips, round pips, clock, and whatever just ended.
+// guard pips, round pips, clock, and whatever just ended. everything flanks the
+// clock rather than hugging the corners — ac draws its own label top-left and
+// its own controls top-right, and the pips were sitting underneath them.
 function hud(ink, w) {
+  const cx = w >> 1;
   for (let p = 0; p < 2; p++) {
     const b = p * PN;
     for (let i = 0; i < game.GUARD_MAX; i++) {
-      const x = p === 0 ? 4 + i * 7 : w - 10 - i * 7;
-      const lit = i < s[b + P.GUARD];
-      if (lit) ink(...SUIT[p]).box(x, 17, 5, 5);
+      const x = p === 0 ? cx - 13 - i * 7 : cx + 9 + i * 7;
+      if (i < s[b + P.GUARD]) ink(...SUIT[p]).box(x, 17, 5, 5);
       else ink(48, 44, 58).box(x, 17, 5, 5);
     }
     for (let i = 0; i < game.WIN_TARGET; i++) {
-      const x = p === 0 ? 4 + i * 5 : w - 8 - i * 5;
+      const x = p === 0 ? cx - 11 - i * 5 : cx + 9 + i * 5;
       ink(...(i < s[b + P.WINS] ? [255, 220, 60] : [46, 42, 56])).box(x, 25, 3, 3);
     }
   }
-  ink(220).write(`${(s[G.TIMER] / 60) | 0}`, { x: (w >> 1) - 5, y: 16 });
+  ink(220).write(`${(s[G.TIMER] / 60) | 0}`, { x: cx - 5, y: 16 });
 
   const over = s[G.MATCH] || s[G.OVER];
   if (!over) return;
