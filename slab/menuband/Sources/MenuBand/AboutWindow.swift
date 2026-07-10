@@ -1183,6 +1183,122 @@ final class CardStackView: NSView {
     }
     private func backTilt() -> CGFloat { (hovering ? 6 : 3) * .pi / 180 }
 
+    // MARK: - Promo capture
+
+    /// The shuffle, expressed as a pure function of progress instead of a
+    /// Core Animation sequence, so a headless promo render can capture it a
+    /// frame at a time.
+    ///
+    /// `flip()` animates through the presentation layer, and `cacheDisplay`
+    /// only ever sees model values — a captured frame would show the animation
+    /// already finished. This walks the SAME path `startNextTuck` walks (out
+    /// along `angle`, distance `cardSide * 1.25`, the counter-nudge, the two
+    /// half-phases and their easing curves) and writes it straight to the
+    /// model with actions off. `jitter` stands in for the shuffle's random
+    /// exit angle so a render is reproducible.
+    ///
+    /// `progress` runs 0…1 across the whole two-phase shuffle. At 1 the swap
+    /// is committed, exactly as the animation's completion block commits it.
+    /// Seed which card starts in front. A capture process is born with the icon
+    /// forward, so rendering the SECOND tap of a flicker — the QR shuffling back
+    /// behind the icon — needs the deck posed the other way round first.
+    func captureSetFront(icon: Bool) {
+        guard bounds.width > 0 else { return }
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        frontIsIcon = icon
+        relayout(animated: false)
+        raise(icon ? iconCard : qrCard)
+        CATransaction.commit()
+    }
+
+    func captureScrubShuffle(progress: CGFloat, jitter: CGFloat = 0) {
+        guard bounds.width > 0 else { return }
+        let p = min(max(progress, 0), 1)
+        let base = CGPoint(x: bounds.midX, y: bounds.midY)
+        let moving = frontIsIcon ? iconCard : qrCard   // current front → behind
+        let staying = frontIsIcon ? qrCard : iconCard  // current back → front
+
+        let angle = -CGFloat.pi / 2 + jitter
+        let dist = cardSide * 1.25
+        let ux = cos(angle), uy = sin(angle)
+        let out = CGPoint(x: base.x + ux * dist, y: base.y + uy * dist)
+        let nudge = CGPoint(x: base.x - ux * cardSide * 0.14,
+                            y: base.y - uy * cardSide * 0.14)
+
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        defer { CATransaction.commit() }
+
+        if p >= 1 {
+            frontIsIcon.toggle()
+            relayout(animated: false)
+            raise(frontIsIcon ? iconCard : qrCard)
+            return
+        }
+        if p < 0.5 {
+            // Phase 1 — moving slides out over the top; staying rises and
+            // nudges clear. Moving rides above everything until it's outside.
+            let u = p / 0.5
+            place(moving, at: lerp(frontCenter(base), out, Self.easeIn(u)),
+                  rotation: 0, scale: 1.0 + (0.96 - 1.0) * Self.easeIn(u))
+            place(staying, at: lerp(backCenter(base), nudge, Self.easeOut(u)),
+                  rotation: backTilt() * (1 - Self.easeOut(u)), scale: 0.9 + 0.1 * Self.easeOut(u))
+            raise(moving)
+        } else {
+            // Phase 2 — moving returns to the behind slot; staying centers as
+            // the new front. The z-swap already happened, clear of overlap.
+            let u = (p - 0.5) / 0.5
+            place(moving, at: lerp(out, backCenter(base), Self.easeOut(u)),
+                  rotation: backTilt() * Self.easeOut(u), scale: 0.96 + (0.9 - 0.96) * Self.easeOut(u))
+            place(staying, at: lerp(nudge, frontCenter(base), Self.easeInEaseOut(u)),
+                  rotation: 0, scale: 1.0)
+            raise(staying)
+        }
+    }
+
+    /// Put `card` on top. On screen the compositor sorts siblings by
+    /// `zPosition`, but `cacheDisplay` — which is how the promo captures render
+    /// — walks `sublayers` in array order and ignores it entirely. Reorder the
+    /// array so an offline frame stacks the way the app does.
+    private func raise(_ card: CALayer) {
+        let other = (card === iconCard) ? qrCard : iconCard
+        card.zPosition = 10
+        other.zPosition = 5
+        deck.sublayers = [other, card]
+    }
+
+    private func place(_ card: CALayer, at center: CGPoint,
+                       rotation: CGFloat, scale: CGFloat) {
+        card.position = center
+        card.transform = CATransform3DScale(
+            CATransform3DMakeRotation(rotation, 0, 0, 1), scale, scale, 1)
+    }
+
+    private func lerp(_ a: CGPoint, _ b: CGPoint, _ t: CGFloat) -> CGPoint {
+        CGPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t)
+    }
+
+    /// The three CAMediaTimingFunction curves the shuffle uses, as their
+    /// documented control points, solved on the unit interval.
+    private static func easeIn(_ t: CGFloat) -> CGFloat { bezier(t, 0.42, 0, 1, 1) }
+    private static func easeOut(_ t: CGFloat) -> CGFloat { bezier(t, 0, 0, 0.58, 1) }
+    private static func easeInEaseOut(_ t: CGFloat) -> CGFloat { bezier(t, 0.42, 0, 0.58, 1) }
+
+    /// Unit cubic bezier y-for-x, by bisection. Ten steps is well under a
+    /// pixel at this scale and needs no derivative.
+    private static func bezier(_ x: CGFloat, _ x1: CGFloat, _ y1: CGFloat,
+                               _ x2: CGFloat, _ y2: CGFloat) -> CGFloat {
+        func curve(_ t: CGFloat, _ a: CGFloat, _ b: CGFloat) -> CGFloat {
+            let m = 1 - t
+            return 3 * m * m * t * a + 3 * m * t * t * b + t * t * t
+        }
+        var lo: CGFloat = 0, hi: CGFloat = 1, t: CGFloat = x
+        for _ in 0..<10 {
+            t = (lo + hi) / 2
+            if curve(t, x1, x2) < x { lo = t } else { hi = t }
+        }
+        return curve(t, y1, y2)
+    }
+
     // MARK: - Layout / animation
 
     /// Settle both cards into their front/back slots with a spring, for

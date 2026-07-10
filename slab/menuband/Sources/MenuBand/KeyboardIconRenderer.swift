@@ -10,6 +10,21 @@ import AppKit
 // buttons are flat (no fill, no border) so they read like native menubar
 // text. Keys are skeuomorphic: white gradient + dark-accent black gradient.
 enum KeyboardIconRenderer {
+    /// Every lit key, glow and chip highlight rides the system accent. Promo
+    /// renders need to pin it to a specific color — including colors macOS
+    /// doesn't offer as an accent at all, like pure black — and
+    /// `NSColor.controlAccentColor` can't be overridden in-process (setting
+    /// `AppleAccentColor` in our own defaults domain doesn't move it). So the
+    /// accent is read through here, and `--render-menubar --accent <hex>`
+    /// pins it. `nil` (the shipping app, always) means the system's choice.
+    static var accentOverride: NSColor?
+    static var accent: NSColor { accentOverride ?? .controlAccentColor }
+
+    /// When true, a lit key is filled with its own ROYGBIV note color instead
+    /// of the accent. Promo renders only (`--render-menubar --key-accent`);
+    /// the shipping menubar lights every key in the one system accent.
+    static var perKeyAccent = false
+
     private static let pianoWaveformKeyHeightScale: CGFloat = 2.4
 
     enum Layout {
@@ -890,11 +905,25 @@ enum KeyboardIconRenderer {
             // highlight; dark mode dampens slightly toward black so
             // the press feedback doesn't blast out of the slate
             // keyboard.
-            let lit: NSColor = isDark
-                ? (NSColor.controlAccentColor.blended(withFraction: 0.18, of: .black)
-                    ?? NSColor.controlAccentColor)
-                : (NSColor.controlAccentColor.highlight(withLevel: 0.30)
-                    ?? NSColor.controlAccentColor)
+            let accentLit: NSColor = isDark
+                ? (KeyboardIconRenderer.accent.blended(withFraction: 0.18, of: .black)
+                    ?? KeyboardIconRenderer.accent)
+                : (KeyboardIconRenderer.accent.highlight(withLevel: 0.30)
+                    ?? KeyboardIconRenderer.accent)
+            // With `perKeyAccent`, a pressed key lights in ITS OWN ROYGBIV
+            // color — the same hue already printed as its chromatic stripe —
+            // rather than in the one system accent. Press G, the G key goes
+            // blue. Sharps have no stripe color, so they keep the accent.
+            //
+            // It also rescues the lit state under a black accent: highlighting
+            // pure black can only yield grey, because there is nothing above
+            // black to lift toward.
+            let lit: (Int) -> NSColor = { m in
+                guard KeyboardIconRenderer.perKeyAccent,
+                      let hue = Self.chromaticColorByPitchClass[((m % 12) + 12) % 12]
+                else { return accentLit }
+                return isDark ? (hue.blended(withFraction: 0.22, of: .black) ?? hue) : hue
+            }
             // Playback fill — red, distinct from the system-accent
             // press color so the user can tell "the score is playing
             // me back" from "I'm pressing keys right now."
@@ -928,10 +957,10 @@ enum KeyboardIconRenderer {
                                   blue: 230/255, alpha: 1)
                 whiteLo = NSColor(srgbRed: 195/255, green: 205/255,
                                   blue: 210/255, alpha: 1)
-                blackHi = NSColor.controlAccentColor.shadow(withLevel: 0.30)
-                    ?? NSColor.controlAccentColor
-                blackLo = NSColor.controlAccentColor.shadow(withLevel: 0.55)
-                    ?? NSColor.controlAccentColor
+                blackHi = KeyboardIconRenderer.accent.shadow(withLevel: 0.30)
+                    ?? KeyboardIconRenderer.accent
+                blackLo = KeyboardIconRenderer.accent.shadow(withLevel: 0.55)
+                    ?? KeyboardIconRenderer.accent
             }
 
             // "Edges" of the *active* range — used for the rounded outer
@@ -985,13 +1014,13 @@ enum KeyboardIconRenderer {
                         // — the rainbow stripe stays hidden while the
                         // key's down so the press reads as a single
                         // saturated event, not a stripe-grow animation.
-                        lit.setFill()
+                        lit(m).setFill()
                         path.fill()
                     } else {
                         NSGradient(starting: whiteHi, ending: whiteLo)!.draw(in: path, angle: -90)
                     }
                     if isHover && !isLit {
-                        NSColor.controlAccentColor.withAlphaComponent(0.50).setFill()
+                        KeyboardIconRenderer.accent.withAlphaComponent(0.50).setFill()
                         path.fill()
                     }
                     // Percussion split: wash the right-hand keys in their
@@ -1144,14 +1173,14 @@ enum KeyboardIconRenderer {
                                     blue: 36/255, alpha: 1).setFill()
                             path.fill()
                         } else {
-                            lit.setFill()
+                            lit(m).setFill()
                             path.fill()
                         }
                     } else if isDark {
                         // Sharps glow with the system color in dark
                         // mode — same backlit-organ feel as the
                         // chromatic stripe under the naturals.
-                        Self.withGlow(color: NSColor.controlAccentColor,
+                        Self.withGlow(color: KeyboardIconRenderer.accent,
                                       blur: 3.5,
                                       alpha: 0.55) {
                             NSGradient(starting: blackHi, ending: blackLo)!
@@ -1380,6 +1409,35 @@ enum KeyboardIconRenderer {
         }
     }
 
+    /// Where every key sits in the BARE keyboard image (the one `--no-settings`
+    /// writes), as a fraction of image width, plus that key's ROYGBIV stripe
+    /// color. Promo tools read this to launch note particles from the exact key
+    /// that lit, in that key's color, instead of guessing a position by
+    /// interpolating pitch across the strip.
+    ///
+    /// `pianoOriginX` shifts with `tapeReservedInLayout`, which is private and
+    /// defaults to true for the status item's hit-testing. A caller outside a
+    /// drawing closure would get every x offset by the tape reservation — so
+    /// this has to live in here, with the flag pinned to match the bare render.
+    static func bareKeyGeometry(layout: Layout = .fixedCanvas)
+        -> [(midi: Int, cx: CGFloat, hex: String?)] {
+        let saved = tapeReservedInLayout
+        tapeReservedInLayout = false
+        defer { tapeReservedInLayout = saved }
+
+        let width = pianoImageSize(layout: layout).width
+        guard width > 0, let lo = whiteList().min(), let hi = whiteList().max() else { return [] }
+        return (lo...hi).compactMap { m in
+            guard let rect = keyRect(for: UInt8(m), layout: layout) else { return nil }
+            let hex = chromaticColorByPitchClass[((m % 12) + 12) % 12]
+                .flatMap { $0.usingColorSpace(.sRGB) }
+                .map { String(format: "#%02X%02X%02X",
+                              Int($0.redComponent * 255), Int($0.greenComponent * 255),
+                              Int($0.blueComponent * 255)) }
+            return (midi: m, cx: rect.midX / width, hex: hex)
+        }
+    }
+
     /// Drag-friendly hit test for piano keys only. Vertically forgiving (y
     /// can be anywhere); horizontally tolerates a small overshoot past the
     /// leftmost/rightmost white key so a drag rolling past the edge keeps
@@ -1502,8 +1560,8 @@ enum KeyboardIconRenderer {
     /// system color instead of a muddy shadow.
     private static func boostedAccent(saturationBoost: CGFloat,
                                       brightnessBoost: CGFloat) -> NSColor {
-        let base = NSColor.controlAccentColor.usingColorSpace(.sRGB)
-            ?? NSColor.controlAccentColor
+        let base = KeyboardIconRenderer.accent.usingColorSpace(.sRGB)
+            ?? KeyboardIconRenderer.accent
         var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
         base.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
         let s2 = min(1, s + (1 - s) * saturationBoost)
@@ -2490,7 +2548,7 @@ enum KeyboardIconRenderer {
         let baseColor: NSColor = recordingActive
             ? recordingTint
             : (midiOn
-                ? NSColor.controlAccentColor
+                ? KeyboardIconRenderer.accent
                 : NSColor.labelColor.withAlphaComponent(alpha))
         // Blend toward the flash target based on `flash` (0..1).
         // Used to signal "activity" when the user taps an octave key
@@ -2507,9 +2565,9 @@ enum KeyboardIconRenderer {
             from: [.aqua, .darkAqua]) == .darkAqua
         let flashTarget: NSColor = isDark
             ? .white
-            : (NSColor.controlAccentColor.blended(withFraction: 0.4,
+            : (KeyboardIconRenderer.accent.blended(withFraction: 0.4,
                                                   of: .white)
-                ?? NSColor.controlAccentColor)
+                ?? KeyboardIconRenderer.accent)
         let f = max(0, min(1, flash))
         var color = (f > 0.001)
             ? baseColor.blended(withFraction: f, of: flashTarget) ?? baseColor
@@ -2712,8 +2770,8 @@ enum KeyboardIconRenderer {
                                        on: Bool, hovered: Bool) {
         drawHoverBackdrop(in: hoverRect, hovered: hovered)
         let alpha: CGFloat = hovered ? 1.0 : 0.78
-        let activeColor = NSColor.controlAccentColor.highlight(withLevel: 0.30)
-            ?? NSColor.controlAccentColor
+        let activeColor = KeyboardIconRenderer.accent.highlight(withLevel: 0.30)
+            ?? KeyboardIconRenderer.accent
         let color: NSColor = on ? activeColor : NSColor.labelColor.withAlphaComponent(alpha)
         drawQwertyMap(in: rect, color: color)
     }
@@ -2722,8 +2780,8 @@ enum KeyboardIconRenderer {
                                        on: Bool, hovered: Bool) {
         drawHoverBackdrop(in: hoverRect, hovered: hovered)
         let alpha: CGFloat = hovered ? 1.0 : 0.78
-        let activeColor = NSColor.controlAccentColor.highlight(withLevel: 0.30)
-            ?? NSColor.controlAccentColor
+        let activeColor = KeyboardIconRenderer.accent.highlight(withLevel: 0.30)
+            ?? KeyboardIconRenderer.accent
         let color: NSColor = on ? activeColor : NSColor.labelColor.withAlphaComponent(alpha)
 
         // Layout: [music note] [tiny "midi"] inline, centered together.
