@@ -1,8 +1,8 @@
 // VideoViewer — slab's minimal video player, so "watch this render" doesn't
 // mean QuickTime. The PdfViewer contract, but for movies: a chromeless
-// glass panel with an AVPlayerView (floating controls), a thin chip with
-// the filename and a single "QuickTime" escape hatch, Esc or ⌘W to dismiss.
-// Playback starts immediately.
+// glass panel with an AVPlayerView (floating controls) and NOTHING else on
+// screen — no filename, no buttons. Right-click for Show in Finder / open
+// elsewhere; Esc or ⌘W to dismiss. Playback starts immediately.
 //
 // How it gets asked: anything (Claude, a render script, the menu) appends
 // an absolute path per line to $SLAB_HOME/state/open-video; the menubar's
@@ -69,7 +69,7 @@ private final class VideoWindowController: NSObject, NSWindowDelegate {
     private let path: String
     private let emoji: String
     private let panel: VideoPanel
-    private let playerView = AVPlayerView()
+    private let playerView = ContextPlayerView()
     private let player = AVPlayer()
     private let onClose: () -> Void
     private var monitor: DispatchSourceFileSystemObject?
@@ -96,7 +96,11 @@ private final class VideoWindowController: NSObject, NSWindowDelegate {
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.delegate = self
-        panel.title = (path as NSString).lastPathComponent // for Mission Control, not chrome
+        // For Mission Control, not chrome — the title bar is hidden. The
+        // launching Claude session's sticky emoji leads it, so a wall of
+        // preview panels still reads back to its prompts at a glance.
+        panel.title = (emoji.isEmpty ? "" : emoji + " ")
+            + (path as NSString).lastPathComponent
         panel.isOpaque = false
         panel.backgroundColor = .black
 
@@ -114,61 +118,63 @@ private final class VideoWindowController: NSObject, NSWindowDelegate {
             playerView.leadingAnchor.constraint(equalTo: content.leadingAnchor),
             playerView.trailingAnchor.constraint(equalTo: content.trailingAnchor),
         ])
-        installChip()
+        installContextMenu()
         watchFile()
         player.play()
     }
 
-    // MARK: chip — filename + the one escape hatch
+    // MARK: context menu — nothing on screen until you ask for it
 
-    private func installChip() {
-        let chip = NSVisualEffectView()
-        chip.material = .hudWindow
-        chip.blendingMode = .withinWindow
-        chip.state = .active
-        chip.wantsLayer = true
-        chip.layer?.cornerRadius = 8
-        chip.translatesAutoresizingMaskIntoConstraints = false
+    /// The panel shows the movie and nothing else: no filename, no escape
+    /// button. Everything that used to live in the chip is a right-click
+    /// away, so a wall of preview panels is just a wall of moving pictures.
+    private func installContextMenu() {
+        let menu = NSMenu()
+        menu.addItem(withTitle: "Show in Finder",
+                     action: #selector(showInFinder), keyEquivalent: "")
+        menu.addItem(.separator())
+        menu.addItem(withTitle: "Open in QuickTime Player",
+                     action: #selector(openInQuickTime), keyEquivalent: "")
+        // Name the third item after whatever LaunchServices actually hands
+        // this filetype to — and skip it when that's QuickTime, which the
+        // item above already covers.
+        if let defaultApp = Self.defaultApplication(for: path),
+           defaultApp.name != "QuickTime Player" {
+            let item = menu.addItem(withTitle: "Open in \(defaultApp.name)",
+                                    action: #selector(openInDefaultApp), keyEquivalent: "")
+            item.target = self
+        }
+        for item in menu.items where item.action != nil { item.target = self }
+        // Right-click anywhere: over the picture, or the letterboxed margin.
+        playerView.menu = menu
+        panel.contentView?.menu = menu
+    }
 
-        // the launching Claude session's sticky emoji leads the filename so
-        // a wall of preview panels reads back to its prompts at a glance
-        let label = (emoji.isEmpty ? "" : emoji + " ") + (path as NSString).lastPathComponent
-        let name = NSTextField(labelWithString: label)
-        name.font = .monospacedSystemFont(ofSize: 10.5, weight: .regular)
-        name.textColor = .secondaryLabelColor
-        name.lineBreakMode = .byTruncatingMiddle
-        name.translatesAutoresizingMaskIntoConstraints = false
-        name.toolTip = path
+    /// The app LaunchServices would open this file with, and its display
+    /// name. Nil when nothing is registered for the type.
+    private static func defaultApplication(for path: String) -> (url: URL, name: String)? {
+        let url = URL(fileURLWithPath: path)
+        guard let app = NSWorkspace.shared.urlForApplication(toOpen: url) else { return nil }
+        return (app, FileManager.default.displayName(atPath: app.path)
+            .replacingOccurrences(of: ".app", with: ""))
+    }
 
-        let escape = NSButton(title: "QuickTime", target: self, action: #selector(openInQuickTime))
-        escape.bezelStyle = .inline
-        escape.controlSize = .small
-        escape.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
-        escape.translatesAutoresizingMaskIntoConstraints = false
-
-        chip.addSubview(name)
-        chip.addSubview(escape)
-        // The chip must be IN the hierarchy before any chip↔content
-        // constraint activates, or AppKit throws (no common ancestor).
-        let content = panel.contentView!
-        content.addSubview(chip)
-        NSLayoutConstraint.activate([
-            chip.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -12),
-            chip.topAnchor.constraint(equalTo: content.topAnchor, constant: 10),
-            name.leadingAnchor.constraint(equalTo: chip.leadingAnchor, constant: 10),
-            name.centerYAnchor.constraint(equalTo: chip.centerYAnchor),
-            name.widthAnchor.constraint(lessThanOrEqualToConstant: 240),
-            escape.leadingAnchor.constraint(equalTo: name.trailingAnchor, constant: 8),
-            escape.trailingAnchor.constraint(equalTo: chip.trailingAnchor, constant: -8),
-            escape.centerYAnchor.constraint(equalTo: chip.centerYAnchor),
-            chip.heightAnchor.constraint(equalToConstant: 24),
-        ])
+    @objc private func showInFinder() {
+        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
     }
 
     @objc private func openInQuickTime() {
         NSWorkspace.shared.open(
             [URL(fileURLWithPath: path)],
             withApplicationAt: URL(fileURLWithPath: "/System/Applications/QuickTime Player.app"),
+            configuration: NSWorkspace.OpenConfiguration())
+        close()
+    }
+
+    @objc private func openInDefaultApp() {
+        guard let app = Self.defaultApplication(for: path) else { return }
+        NSWorkspace.shared.open(
+            [URL(fileURLWithPath: path)], withApplicationAt: app.url,
             configuration: NSWorkspace.OpenConfiguration())
         close()
     }
@@ -246,6 +252,16 @@ private final class VideoWindowController: NSObject, NSWindowDelegate {
         }
         return NSRect(x: screen.midX - width / 2, y: screen.midY - height / 2,
                       width: width, height: height)
+    }
+}
+
+/// AVPlayerView eats right-clicks on its own transport controls, so setting
+/// `.menu` alone isn't enough to be sure the contextual menu appears. Pop it
+/// explicitly on right-mouse-down.
+private final class ContextPlayerView: AVPlayerView {
+    override func rightMouseDown(with event: NSEvent) {
+        guard let menu = menu else { return super.rightMouseDown(with: event) }
+        NSMenu.popUpContextMenu(menu, with: event, for: self)
     }
 }
 
