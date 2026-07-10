@@ -16,6 +16,7 @@ import { readFileSync, writeFileSync, readdirSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { renderCover } from "./cover.mjs";
+import { HOSTED } from "../lib/hosted.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
@@ -62,13 +63,8 @@ const sidecars = readdirSync(OUT)
 sidecars.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate)); // newest first
 
 // Local slug → hosted basename on the CDN (matches the papers siteName so the
-// same mp3 backs both the papers "podcast" link and this feed).
-const HOSTED = {
-  "may-26": "aesthetic-may-26-essay",
-  "june-26": "aesthetic-june-26-essay",
-  "july-4-26": "aesthetic-july-4-26-essay",
-  "july-10-26": "aesthetic-july-10-26-essay",
-};
+// same mp3 backs both the papers "podcast" link and this feed). The map is the
+// shared publish allowlist in lib/hosted.mjs.
 const host = (e) => HOSTED[e.slug] || e.slug;
 
 // HOSTED is also the PUBLISH ALLOWLIST — only episodes listed here go in the

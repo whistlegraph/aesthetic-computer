@@ -13,14 +13,18 @@ episode. Tooling lives in `marketing/podcast/bin/`. Voice is jeffrey-pvc via
 
 - **Publish allowlist.** Only publish essays @jeffrey has cleared. NEVER publish
   the REGARDE-adjacent reading `named-markets` ("The Market on Your Name") — it's
-  under NDA. `feed.mjs`'s `HOSTED` set and the papers `PODCASTS` set are the
-  allowlists; a slug not listed there does not go public.
+  under NDA. The allowlist is `marketing/podcast/lib/hosted.mjs` (shared by
+  `feed.mjs` + `ship.mjs`) plus the papers `PODCASTS` set; a slug not listed
+  there does not go public — `ship.mjs` hard-refuses it.
 - **Register the essay first** if it's new: it needs an entry in
-  `papers/cli.mjs` (PAPER_MAP + PAPER_COPY + the essays category) with a
-  `siteName` like `aesthetic-<month>-26-essay`, and the hosted mp3 uses that
-  siteName.
+  `papers/cli.mjs` (PAPER_MAP + PAPER_COPY + the essays category + the
+  reading-length map + a catalog abstract) with a `siteName` like
+  `aesthetic-<slug>-essay`, and the hosted mp3 uses that siteName.
 - **Register the podcast link:** add the siteName to `PODCASTS` in
-  `papers/cli.mjs` and to `HOSTED` in `marketing/podcast/bin/feed.mjs`.
+  `papers/cli.mjs`, and add the `"<slug>": "<siteName>"` line to
+  `marketing/podcast/lib/hosted.mjs`. Optional: set a per-episode `substrate`
+  in `marketing/podcast/lib/substrates.mjs` (`EPISODE_SUBSTRATE`) — clean / tape
+  / radio / night; default tape.
 
 ## Steps
 
@@ -40,36 +44,49 @@ episode. Tooling lives in `marketing/podcast/bin/`. Voice is jeffrey-pvc via
    → `out/youtube/<slug>.mp4`. (This ffmpeg has no libass — captions are baked
    with ImageMagick and concatenated as video clips, not the concat demuxer.)
 
-3. **Publish to Buzzsprout** (hosts audio + RSS, auto-distributes to
-   Spotify/Apple/YouTube). Needs `aesthetic-computer-vault/buzzsprout/.env`
-   (`BUZZSPROUT_TOKEN`, `BUZZSPROUT_PODCAST_ID`):
+3. **Ship it — one command** (`ship.mjs` does the whole publish dance).
+   Needs `aesthetic-computer-vault/buzzsprout/.env` (`BUZZSPROUT_TOKEN`,
+   `BUZZSPROUT_PODCAST_ID`) and DO Spaces creds in the environment:
    ```bash
-   node bin/buzzsprout.mjs <slug>        # publish; --private to stage; list to audit
+   node bin/ship.mjs <slug>              # Buzzsprout + CDN + feed + verify
+   node bin/ship.mjs <slug> --private    # stage on Buzzsprout (not public yet)
+   node bin/ship.mjs <slug> --papers     # also run papers deploy + index
    ```
-   One API call = live everywhere. Writes `out/<slug>.buzzsprout.json`.
-   Canonical show URL: `https://pod.prompt.ac` (Buzzsprout custom domain;
-   `podcast.aesthetic.computer` 301s there). RSS: `https://feeds.buzzsprout.com/2628235.rss`.
+   In order, `ship.mjs`:
+   1. **refuses** any slug not in `lib/hosted.mjs` (the allowlist guardrail);
+   2. **Buzzsprout** — uploads the episode → Spotify / Apple / YouTube (one API
+      call = live everywhere; writes `out/<slug>.buzzsprout.json`);
+   3. **CDN** — copies mp3 + cover to DO Spaces under the *hosted* name. This is
+      **required**, not optional — the papers "podcast" link points at
+      `assets.aesthetic.computer/podcast/<siteName>.mp3` and stays dark without it;
+   4. **feed** — regenerates `out/feed.xml` + `index.json` (allowlist-filtered);
+   5. **verify** — HEADs the live CDN mp3 + papers PDF so a claimed publish
+      really landed.
 
-4. **Wire the papers listing.** Host the mp3 + regen the papers index so the
-   essay shows a `podcast` link (mirrors `cards`):
+   It then prints the finish block. Audio is never committed to git — it lives on
+   Buzzsprout + the CDN. Canonical show URL: `https://pod.prompt.ac`
+   (`podcast.aesthetic.computer` 301s there); RSS
+   `https://feeds.buzzsprout.com/2628235.rss`.
+
+4. **Light the papers listing** — deploy the PDF + regen the site index so the
+   essay shows a `podcast` link (mirrors `cards`), then push + deploy lith
+   (papers is served by lith, and `system/public/**` is a live-served path):
    ```bash
-   # from repo root, once the essay + PODCASTS entries exist:
-   node papers/cli.mjs publish       # rebuilds index.html with the podcast link
+   node bin/ship.mjs <slug> --papers    # (or) node papers/cli.mjs deploy && node papers/cli.mjs index
+   # commit ONLY the episode's files (never `git add -A` — the shared tree
+   # accumulates build churn; see the finish block ship.mjs prints):
+   git add papers/essay-<slug>/<slug>.tex papers/cli.mjs \
+           marketing/podcast/bin/feed.mjs marketing/podcast/lib/hosted.mjs \
+           marketing/podcast/lib/substrates.mjs \
+           system/public/papers.aesthetic.computer/<siteName>.pdf \
+           system/public/papers.aesthetic.computer/thumbs/<siteName>.jpg \
+           system/public/papers.aesthetic.computer/index.html
+   git commit -m "podcast: <slug> reading" && git pull --rebase --autostash && git push
+   fish lith/deploy.fish
    ```
-   Then deploy papers (git commit + push → oven). Audio is NOT committed to git;
-   it lives on Buzzsprout / the CDN.
-
-## Fallback: self-hosted RSS (no Buzzsprout)
-
-If not using Buzzsprout, host on the asset CDN and self-serve the feed:
-```bash
-# upload mp3 + cover to s3://assets-aesthetic-computer/podcast/<siteName>.{mp3,-cover.png}
-node bin/feed.mjs        # regen out/feed.xml + index.json (HOSTED allowlist)
-# upload feed.xml + index.json to the podcast/ prefix; flush the CDN
-```
-Feed URL: `https://assets.aesthetic.computer/podcast/feed.xml`. Do NOT submit
-this feed to Spotify/Apple — Buzzsprout is the distribution path; submitting
-both feeds creates duplicate show listings in directories.
+   Housekeeping: `papers/cli.mjs build/deploy` regenerates many `.log`/`.toc`
+   build artifacts across all papers. Do NOT commit them — revert with
+   `git checkout -- $(git diff --name-only | grep -E '\.(log|toc|aux)$')`.
 
 ## Notes
 

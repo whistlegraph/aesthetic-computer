@@ -41,8 +41,17 @@ content-hash cached (`out/cache/`), so re-runs are free.
    `out/<slug>.json`. Output: `out/<slug>.mp3`.
 5. **`feed.mjs`** — aggregates the sidecars into `out/index.json` (catalog) +
    `out/feed.xml` (RSS 2.0 + iTunes), and renders the series cover `out/cover.png`.
-6. **`publish.mjs`** — stages the public set into `publish/` and syncs it to the
-   CDN. **Dry by default** (prints the command); `--push` actually uploads.
+   Filtered by the shared publish allowlist `lib/hosted.mjs`.
+6. **`ship.mjs`** — the one-command publish: guardrail (allowlist) → Buzzsprout
+   → CDN (mp3 + cover under the hosted name, which backs the papers podcast
+   link) → feed regen → verify. `--papers` also runs papers deploy+index;
+   `--private` stages on Buzzsprout. Stops before git (prints the finish block).
+7. **`publish.mjs`** *(legacy)* — stages `publish/` + syncs the self-hosted CDN
+   feed. Superseded by `ship.mjs` + Buzzsprout; kept for the retired RSS path.
+
+**Allowlist:** `lib/hosted.mjs` maps each cleared `slug → siteName` and is the
+single source of truth for what may publish. A slug absent from it never goes
+public — `ship.mjs` refuses it and `feed.mjs` drops it.
 
 ## Feed / hosting
 
@@ -62,11 +71,13 @@ be; Buzzsprout is the distribution path.
 
 ```bash
 cd marketing/podcast
-node bin/produce.mjs ../../papers/essay-named-markets/named-markets.tex --open
-node bin/feed.mjs                 # build index.json + feed.xml + series cover
-node bin/publish.mjs              # dry run: stage publish/ + print the sync cmd
-node bin/publish.mjs --push       # actually upload → feed goes live
+node bin/produce.mjs ../../papers/essay-<slug>/<base>.tex --open   # → out/<slug>.mp3
+node bin/ship.mjs <slug>          # publish: Buzzsprout + CDN + feed + verify
+node bin/ship.mjs <slug> --papers # also deploy the papers PDF + index
+# then commit the episode's files + `fish lith/deploy.fish` (ship prints the block)
 ```
+
+Legacy self-hosted feed: `node bin/feed.mjs && node bin/publish.mjs --push`.
 
 Flags: `--open` (slab-afplay the result), `--force` (bypass say cache),
 `--stability 0.55 --similarity 0.8 --speed 0.98` (voice tuning),
