@@ -65,7 +65,7 @@ const AUTHORS = {
   "2la": "Alex Freundlich and Camille Klein", // Certain Personality
   fire: "Alex Freundlich", // Sad Campfire
   hill: "Jeffrey Alan Scudder and Alex Freundlich", // Distant Hills
-  appl: "Jeffrey Alan Scudder and Alex Freundlich", // Hey There, Apple
+  appl: "Alex Freundlich", // Hey There, Apple
   bord: "Camille Klein", // Nothing But a Board
   bndg: "Jeffrey Alan Scudder", // Broken Heart
   symm: "Alex Freundlich", // Symmetry Game
