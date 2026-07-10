@@ -3,9 +3,11 @@
 // the fluttabap360 METAMORPHOSIS REEL motion pass. Same 13-shot loop cut,
 // shot names, durations and ONE morph (growdance grow→dance) as the
 // jeffrey driver (gen-motion-fluttabap360-reel.mjs), but the metamorph is
-// the felt-drawn bunny — a colored-pencil + gouache wool bunny with two
-// long ears, monarch paper-mache wings on dowels, an antenna headband and
-// round red glasses. Each bunny beat-master panel
+// the BUNNYFLY — a colored-pencil + gouache bunny × monarch hybrid (two
+// long ears, round red glasses, its OWN monarch wings, butterfly antennae)
+// that hatches as a larval BUNNYPILLAR and later hardens into a metal
+// bunnyfly drone. Motion prompts match the redesigned panels (dark-sharp
+// MacBook keys, one-creature molt — no split). Each bunny beat-master panel
 // (out/_fluttabap360-bunny-reel-beat-<name>.png) becomes the source frame
 // for a Seedance 2.0 image-to-video shot; --assemble cuts the same 46.2s
 // portrait phrase (mommywow → slinky → fly → ride, 34.7s→80.9s, loops)
@@ -16,7 +18,7 @@
 // never collide with the jeffrey reel's out/motion/takes.json.
 //
 // Story + cut list: pop/marimba/fluttabap360-reel.story.txt.
-// Standalone driver (one shot per beat); same fal-seedance.mjs client
+// Standalone driver (one shot per beat); same fal.mjs client
 // (caching, queue-resume, retries). Mostly CUTS; ONE morph —
 // growdance runs start-frame→end-frame from the grow panel to the
 // dance panel (same-camera escalation; the stand-up rolls into the
@@ -43,7 +45,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync } from "no
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
-import { generateShot, RATE_PER_SEC } from "../../lib/fal-seedance.mjs";
+import { generateShot, RATE_PER_SEC } from "../../lib/fal.mjs";
 import {
   COLORED_PENCIL_TOOTH_MOTION,
   FRAMING_IG_STORY_PORTRAIT_MOTION,
@@ -88,59 +90,59 @@ const BEATS = {
   hatch: {
     dur: 4, exact: 2.7,
     motion:
-`The felt-drawn bunny — a colored-pencil and gouache wool bunny with two long ears, monarch paper-mache wings on dowels, an antenna headband and round red glasses — crawls slowly OUT of the split chrysalis along the thick branch, on hands and knees, gooey with birth: the glistening strands of pale-jade fluid stretching from his shoulders back to the husk sag, wobble and SNAP one by one as he pulls forward, fat drops refracting the morning sun as they fall away toward the lawn. His fur stays matted; the soaked ears drip; the wet wool of the soaked paper-mache wings gives one heavy shiver, flinging droplets that glint as they spin off. The cracked husk swings and slowly rotates behind him, fluid stringing from its torn lip. The camera tracks alongside with a gentle tilt and shift, keeping his lowered head away from view. Wet shine stays painted gouache — never a glow.`,
+`The BUNNYPILLAR — the caterpillar form of the bunnyfly: a plump softly-segmented off-white wool body with a row of tiny stubby legs, two long rabbit ears, round red glasses and short nubby proto-antennae, tiny crumpled wing-buds on his back — inches slowly OUT of the split chrysalis along the thick branch, gripping the bark with his little legs, gooey with birth: the glistening strands of pale-jade fluid stretching from his body back to the husk sag, wobble and SNAP one by one as he pulls forward, fat drops refracting the morning sun as they fall away toward the lawn. His wool stays matted and wet, the soaked ears drip, his segments flexing caterpillar-like as he crawls. The cracked husk swings and slowly rotates behind him, fluid stringing from its torn lip. The camera tracks alongside with a gentle tilt and shift, keeping his lowered head away from view. Wet shine stays painted gouache — never a glow.`,
   },
   hatchpov: {
     dur: 4, exact: 3.0,
     motion:
-`First-person POV, brand-new eyes (no face ever visible, no second figure anywhere): the felt-drawn bunny's own two round paws grip the rough oak bark and pull forward paw over paw, wool knuckles flexing, a strand of jade goo on one wrist stretching and glinting in the sun. Beyond the paws the dawn park swims from blur into focus far below — dew refracting in tiny sparks across the lawn, the faint ground-grid resolving — and ONE monarch rises toward the camera-as-his-eyes, SPINNING slowly on its arc. The view sways and tilts with each paw-pull, like the first time a body is used.`,
+`First-person POV, brand-new eyes (no face ever visible, no second figure anywhere): the bunnypillar's own front stubby legs and the first ringed segment of his off-white wool caterpillar body grip the rough oak bark and pull forward, a strand of jade goo on one leg stretching and glinting in the sun. Beyond them the dawn park swims from blur into focus far below — dew refracting in tiny sparks across the lawn, the faint ground-grid resolving — and ONE monarch rises toward the camera-as-his-eyes, SPINNING slowly on its arc. The view sways and tilts with each pull forward, like the first time a body is used.`,
   },
   growdance: {
     dur: 6, exact: 4.4,
     image: "grow",
     endImage: "dance",
     motion:
-`One continuous shot, start frame to end frame: seen from behind, the felt-drawn bunny — a colored-pencil and gouache wool bunny with two long ears, monarch paper-mache wings on dowels, an antenna headband and round red glasses — rises from his crouch to full height in one long unfurling stretch — spine straightening, arms spreading, the paper-mache monarch wings creaking OPEN to full span, drops of jade goo spinning off the wingtips, both long ears rising tall — and the rise rolls WITHOUT A CUT into a full PIROUETTE: he spins on the ball of one foot, wings fanning bands of refracted sunlight, and lands out of the turn exactly in the ballet lift of the final frame — relevé, low arabesque, arms curved overhead. The camera ORBITS slowly counter to his spin. Three or four monarchs corkscrew upward around him, sharing the rotation. Joy arriving all at once.`,
+`One continuous shot, start frame to end frame — the METAMORPHOSIS: seen from behind, the BUNNYPILLAR rears up out of his segmented caterpillar body and TRANSFORMS into the BUNNYFLY in one unfurling stretch — the ringed larval segments drawing together into a small velvety butterfly body, his OWN real monarch wings (orange + black, part of his body, never paper-mache) swelling and creaking OPEN to full span, drops of jade goo spinning off the wingtips, two long ears rising tall and two slender butterfly antennae extending — and the rise rolls WITHOUT A CUT into a full PIROUETTE: now the finished bunnyfly spins on the ball of one foot, wings fanning bands of refracted sunlight, and lands out of the turn exactly in the ballet lift of the final frame — relevé, low arabesque, paws curved overhead. The camera ORBITS slowly counter to his spin. Three or four monarchs corkscrew upward around him, sharing the rotation. Joy arriving all at once.`,
   },
   laptops: {
     dur: 4, exact: 2.5,
     motion:
-`Wide from behind and over his shoulder, his head in three-quarter profile: the felt-drawn bunny kneels at his arc of five different-colored open laptops and PLAYS them like a marimba with his BARE PAWS — paw-tips bouncing off the colored keycaps in a quick alternating pattern, wrists loose and percussive, paws hopping machine to machine — while he SINGS like a pop star into the antenna-mic: the antenna headband's felt bobble bobbing at his lips as his chin lifts and drops mid-note, mouth shaping the song, head rocking with the beat, both long ears swaying to the rhythm. The camera ORBITS slowly around the arc — and as the angle changes, the glossy sheen on each notepat screen slides and refracts across the tile grids, candy-colored tiles winking pressed-and-released chords. The monarchs perched along the screen-tops flutter up and resettle with each strike. His wings tip in time. Gleeful, belting, musical.`,
+`Wide from behind and over his shoulder, his head in three-quarter profile: the BUNNYFLY — bunny head, two long ears, round red glasses, his own monarch wings — kneels at his arc of five different-colored open laptops and PLAYS them like a marimba with his BARE PAWS — paw-tips bouncing off the pale MacBook keys in a quick alternating pattern, wrists loose and percussive, paws hopping machine to machine — while he SINGS like a pop star into the antenna-mic: one slender butterfly antenna curved down with its club-knob bobbing at his lips as his chin lifts and drops mid-note, mouth shaping the song, both long ears swaying to the rhythm. The camera ORBITS slowly around the arc — and as the angle changes, the glossy sheen on each notepat screen slides and refracts across the tile grids, candy-colored tiles winking pressed-and-released chords. The monarchs perched along the screen-tops flutter up and resettle with each strike. His wings tip in time. Gleeful, belting, musical.`,
   },
   mallets: {
     dur: 4, exact: 2.75,
     motion:
-`Extreme close-up: the felt-drawn bunny's bare paw-tips BOUNCE off the colored keymap keycaps like a pair of marimba mallets — strike, rebound, strike, wrist loose — each hit brightening the matching candy-colored tile on the notepat screen, the grid winking through a chord. The screen's glossy sheen SPLITS and re-gathers around each bounce, painted glints sliding across the tilted glass. The camera tilts and shifts subtly with each strike, like a head keeping the beat. The monarch perched on the screen-top lip flutters and resettles in rhythm. The paw stays low in frame, face never shown.`,
+`Extreme close-up: the bunnyfly's bare paw-tips BOUNCE off the pale MacBook keys (a scatter of dark piano-sharp keys among them) like a pair of marimba mallets — strike, rebound, strike, wrist loose — each hit brightening the matching candy-colored tile on the notepat screen above, the grid winking through a chord. The screen's glossy sheen SPLITS and re-gathers around each bounce, painted glints sliding across the tilted glass. The camera tilts and shifts subtly with each strike, like a head keeping the beat. The monarch perched on the screen-top lip flutters and resettles in rhythm. The paw stays low in frame, face never shown.`,
   },
   laptopspov: {
     dur: 4, exact: 2.75,
     motion:
-`First-person POV mid-performance (no face ever visible, no second figure anywhere): the felt-drawn bunny's own bare forearms and paws play down across the arc of five different-colored laptops — left paw-tips striking one colored keyboard, right paw rebounding off another, alternating fast like a marimbist's mallets. The view BOBS and TILTS with the playing, and as it moves the sheen rolls in refracted bands across each screen, the notepat tile grids winking different chords under his paws. The monarchs along the screen-tops hop and flutter with the rhythm. Flow-state loose, the whole instrument his.`,
+`First-person POV mid-performance (no face ever visible, no second figure anywhere): the bunnyfly's own bare forearms and paws play down across the arc of five different-colored laptops — left paw-tips striking one pale MacBook keyboard, right paw rebounding off another, alternating fast like a marimbist's mallets. The view BOBS and TILTS with the playing, and as it moves the sheen rolls in refracted bands across each screen, the notepat tile grids winking different chords under his paws. The monarchs along the screen-tops hop and flutter with the rhythm. Flow-state loose, the whole instrument his.`,
   },
   molt: {
     dur: 6, exact: 5.4,
     motion:
-`The transformation: facing away from camera beside his neat stack of closed laptops, the felt-drawn bunny's arms rise into one last port de bras — and his outline DISSOLVES upward into a swirl of orange-and-black wing fragments that SPINS around him like a slow rising cyclone, each fragment catching and refracting the gold light as it turns. The camera circles slowly COUNTER to the swirl's rotation. The fragments gather into a single LARGE monarch that lifts away spinning gently at the top of the frame, while his empty fur-tuft and the two paper-mache wings settle soft and empty onto the lawn — the bunny's body dissolved entirely into monarchs. Solemn wonder, not chaos. The new wings give their first full beat.`,
+`The hardening: facing away from camera beside his neat stack of closed laptops, the BUNNYFLY's paws rise into one last port de bras — and his whole body CRYSTALLIZES into brushed metal from the wingtips inward, his own monarch wings hardening panel by panel into thin orange + black brushed-metal plates with rivet dots, the metal frost sweeping down across his woolly body and up his two long ears, closing around the red glasses. He stays ONE creature the entire shot — the bunnyfly BECOMING a metal bunnyfly in place, beginning to lift off. The camera circles slowly around him. CRITICAL: do NOT split him into a separate butterfly plus a leftover rabbit; NO second bunny, NO shed fur or empty body settling on the lawn, NO monarch flying away from him — one figure turning to metal. Solemn wonder, not chaos. The new metal wings give their first full beat.`,
   },
   wing: {
     dur: 5, exact: 4.5,
     motion:
-`Extreme close-up on the single monarch wing, and the camera ORBITS it slowly as the wing itself rotates on its axis: the hardening SWEEPS across the surface like frost — painted paper crystallizing panel by panel into brushed metal, rivet dots surfacing one by one — and each new plate catches the sun as it turns, throwing sliding, splitting bands of refracted glint across the frame. The hand-cut paper edge stiffens to a machined line. The small lens-eye at the wing root irises open and flashes once. The wing flexes, testing its new material.`,
+`Extreme close-up on the bunnyfly's OWN single monarch wing, and the camera ORBITS it slowly as the wing itself rotates on its axis: the hardening SWEEPS across the surface like frost — soft painted orange + black crystallizing panel by panel into brushed metal, rivet dots surfacing one by one — and each new plate catches the sun as it turns, throwing sliding, splitting bands of refracted glint across the frame. The soft wing edge stiffens to a machined line. The small lens-eye at the wing root irises open and flashes once. The wing flexes, testing its new material.`,
   },
   drone: {
     dur: 6, exact: 5.5,
     motion:
-`The drone-monarch CORKSCREWS upward over the shrinking park — spinning slowly on its own axis as it climbs, wings beating, the sun sweeping turning bands of refracted light around the brushed-metal panels with every rotation, rivet dots glinting in sequence. Its six legs stay tucked neatly beneath the thorax, trailing back. The camera SPIRALS up with it, counter-rotating gently, the lawn and oak and faint ground-grid wheeling far below. The dotted signal-arc corkscrews behind it. The sky deepens toward indigo as they climb.`,
+`The METAL BUNNYFLY — the same hero hardened to a brushed-metal bunny × monarch, keeping its two long metal rabbit ears and its red glowing lens-ring glasses — CORKSCREWS upward over the shrinking park, spinning slowly on its own axis as it climbs, metal monarch wings beating, the sun sweeping turning bands of refracted light around the brushed-metal panels with every rotation, rivet dots glinting in sequence. Its six legs stay tucked neatly beneath the thorax, trailing back. NO separate rabbit anywhere below — the bunny IS this flying machine now, the lawn far below EMPTY of any figure. The camera SPIRALS up with it, counter-rotating gently, the oak and faint ground-grid wheeling below. The dotted signal-arc corkscrews behind it. The sky deepens toward indigo as they climb.`,
   },
   spacepov: {
     dur: 4, exact: 3.5,
     motion:
-`First-person POV through the drone-monarch's lens-eye (no figure anywhere): the whole view BARREL-ROLLS slowly as the drone banks, its own brushed-metal wingtips framing the edges, starlight glinting and refracting off the panels in sliding sparks with each wingbeat. Between the wings Earth — the small blue-green hand-hatched marble — arcs gracefully across the rolling frame, the faint orbit-lines curving past. Stars stay fixed like bare paper under a rostrum camera. Vast, calm, leaving home.`,
+`First-person POV through the metal bunnyfly's red lens-eye (no full figure anywhere): the whole view BARREL-ROLLS slowly as it banks, its own brushed-metal monarch wingtips framing the left and right edges and its sleek metal rabbit ear-tips just visible at the top edges, starlight glinting and refracting off the panels in sliding sparks with each wingbeat. Between the wings Earth — the small blue-green hand-hatched marble — arcs gracefully across the rolling frame, the faint orbit-lines curving past. Stars stay fixed like bare paper under a rostrum camera. Vast, calm, leaving home.`,
   },
   space: {
     dur: 5, exact: 4.2,
     motion:
-`Outer space, the held last frame: the drone-monarch SPINS slowly on its own axis while drifting up among the bare-paper stars, wings beating in long slow strokes — each rotation sweeping a warm band of refracted sunlight around the metal panels, orange glints sliding wing to wing. Earth turns almost imperceptibly below. The camera drifts and tilts a hair, weightless. Everything slow, circular, final — composed to LOOP back into the dawn stillness of the first shot.`,
+`Outer space, the held last frame: the METAL BUNNYFLY — brushed-metal bunny × monarch, two sleek metal ears, red lens-ring glasses, metal monarch wings — SPINS slowly on its own axis while drifting up among the bare-paper stars, wings beating in long slow strokes, each rotation sweeping a warm band of refracted sunlight around the metal panels, orange glints sliding wing to wing. Earth turns almost imperceptibly below. The camera drifts and tilts a hair, weightless. Everything slow, circular, final — composed to LOOP back into the dawn stillness of the first shot.`,
   },
 };
 

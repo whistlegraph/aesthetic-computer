@@ -98,3 +98,32 @@ export function filmicFinal(inPath, outPath, opts = {}) {
   if (res.status !== 0) throw new Error(`filmicFinal: ${res.stderr?.toString().slice(-300)}`);
   return outPath;
 }
+
+// ── alternate final: "realistic through a LOMO lens" ───────────────────
+// A lomography-camera grade — the opposite mood from filmicFinal's soft
+// hand-drawn warmth: punchy saturation, cross-processed color (teal-cool
+// shadows, warm-gold highlights), crushed contrast, a heavy dark vignette,
+// a whisper of bloom for that plastic-lens dreaminess, and coarse grain.
+// Reads less "illustration", more "shot on a Lomo/Holga toy camera".
+export function lomoFinal(inPath, outPath, opts = {}) {
+  const {
+    saturation = 1.34, contrast = 1.14, sharpen = 0.5,
+    vignette = "PI/3.3", grain = 9, bloom = 0.7,
+  } = opts;
+  const vf = [
+    `unsharp=5:5:${sharpen}:5:5:0.0`,
+    // cross-process curves: lift+cool the shadows, warm+roll the highlights
+    `curves=r='0/0.00 0.25/0.22 0.5/0.55 0.75/0.82 1/1':g='0/0.03 0.5/0.5 1/0.97':b='0/0.10 0.25/0.24 0.5/0.44 0.75/0.66 1/0.88'`,
+    `eq=contrast=${contrast}:saturation=${saturation}`,
+    // teal shadows / gold highlights split — the classic lomo cross-process
+    `colorbalance=rs=-0.08:gs=0.03:bs=0.08:rm=0.05:gm=0.02:bm=-0.03:rh=0.10:gh=0.02:bh=-0.10`,
+    // toy-lens bloom: blend a soft-blurred copy back over the frame
+    `split[a][b];[b]gblur=sigma=6[bl];[a][bl]blend=all_mode=screen:all_opacity=${bloom * 0.22}`,
+    `vignette=${vignette}`,
+    `noise=alls=${grain}:allf=t+u`,
+    `format=yuv420p`,
+  ].join(",");
+  const res = ff(["-i", inPath, "-vf", vf, "-an", "-c:v", "libx264", "-preset", "medium", "-crf", "17", outPath]);
+  if (res.status !== 0) throw new Error(`lomoFinal: ${res.stderr?.toString().slice(-300)}`);
+  return outPath;
+}
