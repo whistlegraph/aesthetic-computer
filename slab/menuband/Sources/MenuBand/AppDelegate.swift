@@ -789,17 +789,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // registerLayoutToggleHotkey()
         // registerPercussionToggleHotkey()
 
-        // Start the Stickies bridge — listens for keystrokes when
-        // the macOS Stickies app is frontmost and the focused
-        // sticky matches the configured trigger color, then
-        // forwards them through the same keymap the physical
-        // keyboard uses. Requires Accessibility permission; on
-        // first launch the system will prompt.
+        // Start the Stickies bridge — watches the focused sticky's text
+        // and plays a note for each character typed after an `mbN` token,
+        // through the same keymap the physical keyboard uses. Requires
+        // Accessibility permission; on first launch the system will prompt.
         #if !MAC_APP_STORE
-        // The Stickies bridge taps global keystrokes and drives the
-        // Stickies app via Apple Events — both forbidden by the App
-        // Sandbox, so it's absent from the Mac App Store build. (Gating
-        // the access here also means the lazy `stickiesBridge` is never
+        // The bridge reads another app's text through Accessibility. The
+        // sandbox permits AX with the user's consent, so this is no longer
+        // categorically impossible on the Mac App Store — but reading a
+        // second app's document contents is an unproven ask with App
+        // Review, so the MAS build ships without it until that's settled.
+        // (Gating here also means the lazy `stickiesBridge` is never
         // constructed in that build.)
         if stickiesBridge.isEnabled {
             stickiesBridge.start()
