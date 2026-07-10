@@ -13,9 +13,20 @@
 import { spawnSync, spawn } from "node:child_process";
 import { mkdirSync, existsSync } from "node:fs";
 import { homedir } from "node:os";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { loadImage } from "canvas";
 
-export const YWFT_PATH = `${homedir()}/Library/Fonts/ywft-processing-bold.ttf`;
+// The typeface is installed on the machines that render regularly, but it
+// also ships in-repo as a Menu Band resource. Prefer the installed copy
+// (a user may have a newer cut) and fall back to the repo's, so a render
+// works on any checkout without a font-install step first.
+const YWFT_INSTALLED = `${homedir()}/Library/Fonts/ywft-processing-bold.ttf`;
+const YWFT_VENDORED = resolve(
+  dirname(fileURLToPath(import.meta.url)), "..", "..",
+  "slab/menuband/Sources/MenuBand/Resources/ywft-processing-bold.ttf",
+);
+export const YWFT_PATH = existsSync(YWFT_INSTALLED) ? YWFT_INSTALLED : YWFT_VENDORED;
 export const AUDIO_SR_DEFAULT = 4000;       // 4 kHz mono is enough for waveform display
 export const ENV_FPS_DEFAULT = 60;          // RMS envelope at 60 Hz drives bounces
 

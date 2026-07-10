@@ -86,13 +86,20 @@ const wmCtx = wmCanvas.getContext("2d");
 const charTintCanvas = createCanvas(2, 2);
 const charTintCtx = charTintCanvas.getContext("2d");
 
-// scene tint (from the sim's meta) brightened toward white through the scene
+// Scene tint (from the sim's meta), DEEPENED toward black through the scene.
+//
+// These tints were picked to glow against the old aubergine desktop, and the
+// chrome used to brighten them toward white as a scene played out. The reel
+// is light mode now: the desktop is pale lilac, so a tint walking toward
+// white walks straight into the background. Pull them down instead — the
+// stamps and the climbing title read as ink on paper.
+const TINT_DEEPEN = 0.55;
 function sectionTcRgb(t) {
   const s = META.slides.find((x) => t >= x.from && t < x.to) ?? META.slides.at(-1);
-  let [r, g, b] = s.tint ?? [180, 180, 180];
+  let [r, g, b] = (s.tint ?? [180, 180, 180]).map((v) => v * TINT_DEEPEN);
   const lp = Math.max(0, Math.min(1, (t - s.from) / Math.max(0.001, s.to - s.from)));
   const k = 0.30 * lp;
-  return [Math.round(r + (255 - r) * k), Math.round(g + (255 - g) * k), Math.round(b + (255 - b) * k)];
+  return [Math.round(r * (1 - k)), Math.round(g * (1 - k)), Math.round(b * (1 - k))];
 }
 function palsTinted(c, src) {
   const ww = src.width, wh = src.height;
