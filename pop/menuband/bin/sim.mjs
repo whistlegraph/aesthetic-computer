@@ -426,30 +426,27 @@ async function prerenderKeymap() {
   const progFor = (local) => KEYMAP_PROGRAMS[Math.min(KEYMAP_PROGRAMS.length - 1,
     Math.floor(local * KEYMAP_PROGRAMS.length))];
 
-  // The last stretch of the scene demos spacebar reverse: playback freezes and
-  // an orange playhead sweeps back through the columns just played, while the
-  // space bar lights on the QWERTY map. Everything freezes at the entry moment
-  // — that's what holding space does — so the scope's picture holds still under
-  // the sweeping head.
-  // Aligned to the VO: "you can even reverse playback by holding spacebar"
-  // is spoken from ~26.5s, which is local 0.46 of the 22.7–31s keymap scene.
-  const REVERSE_FROM = 0.46;
+  // After the VO says "reverse playback", the scope freezes and an orange
+  // playhead sweeps back through the columns just played, the space bar lights,
+  // and the waltz plays backward (built into the audio track below). Everything
+  // freezes at the entry moment — that's what holding space does — so the
+  // scope's picture holds still under the sweeping head.
   const freeze = {
-    levels: levelsAt(sc.from + (sc.to - sc.from) * REVERSE_FROM),
-    notes: barNotesAt(sc.from + (sc.to - sc.from) * REVERSE_FROM),
-    program: progFor(REVERSE_FROM),
+    levels: levelsAt(REVERSE_START),
+    notes: barNotesAt(REVERSE_START),
+    program: progFor((REVERSE_START - sc.from) / (sc.to - sc.from)),
   };
 
   const frames = [];
   for (let i = 0; i < count; i++) {
     const t = sc.from + i / FPS;
     const local = (t - sc.from) / (sc.to - sc.from);
-    if (local >= REVERSE_FROM) {
-      // Ease the playhead back to ~0.6 of the played span over the window.
-      const u = (local - REVERSE_FROM) / (1 - REVERSE_FROM);
+    if (t >= REVERSE_START) {
+      // Ease the playhead back over the reverse window.
+      const u = (t - REVERSE_START) / (REVERSE_END - REVERSE_START);
       frames.push({
         notes: freeze.notes, levels: freeze.levels, cursor: SCOPE_CURSOR,
-        program: freeze.program, reverse: true, scrub: easeOut(u) * 0.6,
+        program: freeze.program, reverse: true, scrub: easeOut(u) * 0.62,
       });
     } else {
       frames.push({
@@ -488,6 +485,15 @@ const SCENES = [
   { name: "end", from: 0.90, to: 1.00, tint: [255, 77, 107] },
 ].map((s) => ({ ...s, from: s.from * TOTAL, to: s.to * TOTAL }));
 const sceneAt = (t) => SCENES.find((s) => t >= s.from && t < s.to) ?? SCENES.at(-1);
+
+// The spacebar-reverse beat: it happens AFTER the VO says "reverse playback"
+// (~28.3s into the reel), and it reverses BOTH the scope visual and the waltz
+// audio. Shared here so the keymap frames, the audio track and the timing all
+// agree. `REVERSE_LOCAL` is the fraction of the keymap scene where it starts.
+const REVERSE_LOCAL = 0.70;
+const KEYMAP_SCENE = SCENES.find((s) => s.name === "keymap");
+const REVERSE_START = KEYMAP_SCENE.from + (KEYMAP_SCENE.to - KEYMAP_SCENE.from) * REVERSE_LOCAL;
+const REVERSE_END = KEYMAP_SCENE.to;
 
 // The MENU, front and center: the REAL captured piano, alone on the desktop.
 // No plate behind it — the captured strip already carries its own rounded
@@ -745,8 +751,31 @@ loadKeyGeometry();
 await prerenderAbout();
 await prerenderFlip();
 await prerenderKeymap();
+// The reel's audio plays the waltz backward through the reverse beat. Because
+// `areverse` flips the segment, the reversed part starts on the exact sample
+// the forward playback just left — no click at the entry. The seam at
+// REVERSE_END is masked by the scene's cut to the end card.
+const REV_AUDIO = `${OUT}/menuband-waltz-rev.mp3`;
+function buildReverseAudio() {
+  const dur = REVERSE_END - REVERSE_START;
+  const srcStart = Math.max(0, REVERSE_START - dur);
+  const f = (n) => n.toFixed(4);
+  const r = spawnSync("ffmpeg", ["-y", "-i", AUDIO, "-filter_complex",
+    `[0:a]asplit=3[s0][s1][s2];` +
+    `[s0]atrim=0:${f(REVERSE_START)},asetpts=PTS-STARTPTS[a];` +
+    `[s1]atrim=${f(srcStart)}:${f(REVERSE_START)},asetpts=PTS-STARTPTS,areverse[b];` +
+    `[s2]atrim=start=${f(REVERSE_END)},asetpts=PTS-STARTPTS[c];` +
+    `[a][b][c]concat=n=3:v=0:a=1[out]`,
+    "-map", "[out]", REV_AUDIO], { stdio: ["ignore", "ignore", "pipe"] });
+  if (r.status !== 0) {
+    console.error(`  ✗ reverse audio: ${r.stderr?.toString().slice(-200)} — falling back to forward waltz`);
+    return AUDIO;
+  }
+  return REV_AUDIO;
+}
+
 console.log(`▸ menuband sim · ${FRAMES} frames · ${TOTAL.toFixed(1)}s · ${W}x${H}@${FPS} · ${leadNotes.length} lead notes`);
-const enc = spawnFFmpegEncode({ audioPath: AUDIO, w: W, h: H, fps: FPS, outPath: BASE, crf: 18 });
+const enc = spawnFFmpegEncode({ audioPath: buildReverseAudio(), w: W, h: H, fps: FPS, outPath: BASE, crf: 18 });
 const t0 = Date.now();
 for (let fi = 0; fi < FRAMES; fi++) {
   await ensureKeymapFrame(fi / FPS);
