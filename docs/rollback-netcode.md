@@ -1,7 +1,8 @@
 # Rollback Netcode
 
-**Status:** phase 0 shipped — `fight` plays hotseat and the sim is proven
-rollback-safe. No networking yet.
+**Status:** phases 0 and 1 shipped — `fight` plays hotseat, the sim is proven
+rollback-safe, and a real GGPO-style rollback session runs against itself over a
+hostile fake wire. No actual network yet.
 
 The goal is a versus fighting game on AC with GGPO-style rollback: both peers
 run the same deterministic simulation, send only inputs, predict what they
@@ -174,17 +175,69 @@ clashes, because that needs two fists live on the same tick.
 If you write a new input script, count the events it produces before you trust a
 green run.
 
+## The rollback session
+
+`session.mjs` is GGPO's shape in about 200 lines, and it knows nothing about
+transport: `send` hands out a packet, `receive` takes one back.
+
+Each peer simulates every frame for *both* players. It only ever has its own
+input on time, so it predicts the opponent's by **repeating their last known
+input** — deliberately dumb, and right most of the time, because hands hold
+buttons. When the real input arrives and disagrees, the session rewinds to that
+frame, replays everything since with the correction, and lands back on the
+present. Those in-between frames are never drawn and never sounded.
+
+A packet carries a **window** of recent inputs, not one frame, so a dropped
+packet is covered by the next one. Never build retransmission on top of an
+unreliable channel — widen the window instead.
+
+### The identity, measured
+
+Input delay does *not* reduce how often you mispredict: repeat-last-input is
+wrong exactly when the opponent's input changes, however far ahead you are. What
+it buys is **shallower rewinds**. The spec asserts this exactly, and it holds
+frame for frame:
+
+```
+latency 6 frames, varying input delay
+  delay 0: rollbacks 24   resim 144   avg depth 6.0
+  delay 2: rollbacks 24   resim  96   avg depth 4.0
+  delay 5: rollbacks 24   resim  24   avg depth 1.0
+  delay 6: rollbacks  0   resim   0   —
+```
+
+That is `rollback depth = one-way latency − input delay`, and it goes to zero
+the moment the delay covers the latency. Past `maxPrediction` (8, as in GGPO)
+the session **stalls** rather than guessing further — a dropped frame beats a
+prediction that stale.
+
+### How we know it works
+
+Both peers are compared against a **ground-truth offline sim** fed the same
+inputs, not merely against each other. Under a wire dropping 487 of 1400 packets
+with jitter, both peers still land bit-exact on ground truth: 24 rollbacks, 135
+resimulated frames, 44 stalls.
+
+That assertion has teeth. Delete the `resync()` call from `advance()` and both
+the ground-truth match *and* peer agreement fail immediately — verified by
+mutation, because a test that passes against a broken implementation is worth
+nothing.
+
 ## Files
 
 | path | role |
 | --- | --- |
 | `system/public/aesthetic.computer/lib/fight/sim.mjs` | the deterministic integer simulation |
 | `system/public/aesthetic.computer/lib/fight/rollback.mjs` | SyncTest, per-mechanic drills, snapshot ring, desync diff |
+| `system/public/aesthetic.computer/lib/fight/session.mjs` | the rollback session: prediction, rewind, stall — plus a hostile fake link |
 | `system/public/aesthetic.computer/disks/fight.mjs` | the piece: input, render, audio |
 | `spec/fight-sim-spec.mjs` | determinism, sound, and rules specs |
+| `spec/fight-session-spec.mjs` | rollback session vs. an offline ground-truth sim |
 
 Run it: `fight` for a match, `fight:boxes` for the hit/hurt overlay plus a live
-tick and checksum readout, `fight:synctest` to run the harness in the browser.
+tick and checksum readout, `fight:synctest` to run the harness in the browser,
+and `fight:lag` (or `fight:lag:10:25` — ten frames of latency, 25% loss) to
+play across the real rollback session and watch the opponent snap.
 
 ### The game
 
@@ -218,11 +271,10 @@ opposite sides of the board, keeps a two-player scramble inside that budget.
 ## Roadmap
 
 - **Phase 0 — determinism.** *Done.* Integer sim, SyncTest, hotseat play.
-- **Phase 1 — the rollback session.** Input queues, repeat-last-input
-  prediction, the rewind loop, and the prediction-window stall. Driven by two
-  local input streams with latency and packet loss injected. Still no network.
-  SyncTest proves the *sim* survives rewinding; phase 1 proves the *session*
-  does.
+- **Phase 1 — the rollback session.** *Done.* `session.mjs`: input delay,
+  repeat-last-input prediction, the rewind loop, the prediction-window stall,
+  and a redundant input window per packet. Driven by two local sessions over a
+  fake link with latency, jitter and loss. See below.
 - **Phase 2 — rollback over the existing relay.** geckos.io works today and
   needs zero infrastructure. Rollback over a relay is still rollback; it just
   has worse RTT. This validates the machinery against real jitter and loss.

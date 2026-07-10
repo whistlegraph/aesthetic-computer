@@ -10,12 +10,16 @@
 //   a   d      ←   →             move
 //     s              ↓           punch
 //
-// phase 0 of the rollback plan: the sim is deterministic and snapshot-clean,
-// and nothing here touches the network yet. `fight:boxes` overlays hitboxes.
-// `fight:synctest` runs the rollback harness and prints the verdict.
+// the sim is deterministic and snapshot-clean; nothing here touches a network.
+//
+//   fight:boxes           hit and hurt boxes, tick, checksum
+//   fight:synctest        rewind every frame and check, for each mechanic
+//   fight:lag             two rollback sessions over a hostile fake wire
+//   fight:lag:10:25       …with 10 frames of latency and 25% packet loss
 
 import * as game from "../lib/fight/sim.mjs";
 import { syncTest, report, drills } from "../lib/fight/rollback.mjs";
+import { createSession, createLink } from "../lib/fight/session.mjs";
 
 const { P, PN, G, ST, SFX, SUB, BODY_W, BODY_H, PUNCH_F } = game;
 
@@ -46,9 +50,30 @@ const held = [0, 0];
 let half = 0; // ac sims at 120hz; the game ticks at 60
 let boxes = false;
 let verdict; // synctest result, when asked for
+let net = null; // two sessions over a fake laggy wire, when asked for
+let sfxIn = 0; // what the local session wants heard this frame
+
+// `fight:lag` runs the real rollback session against itself over a hostile
+// link, both players on this keyboard. we render player 0's view, so player 2
+// is the one who snaps when a prediction was wrong. `fight:lag:10:25` is ten
+// frames of latency and a quarter of the packets on the floor.
+function open(colon) {
+  const i = colon.indexOf("lag");
+  if (i < 0) return null;
+  const latency = Number(colon[i + 1]) || 6;
+  const loss = (Number(colon[i + 2]) || 0) / 100;
+  const link = createLink({ latency, jitter: 2, loss, seed: 7 });
+  const mk = (player, onSfx) =>
+    createSession(game, { player, seed: 1, send: (p) => link.ship(p), onSfx });
+  const a = mk(0, (f) => (sfxIn |= f));
+  const b = mk(1);
+  link.join(a, b);
+  return { link, a, b, latency, loss };
+}
 
 function boot({ colon }) {
-  s = game.create(1);
+  net = open(colon);
+  s = net ? net.a.state : game.create(1);
   boxes = colon.includes("boxes");
   if (colon.includes("synctest")) {
     // one drill per mechanic — random inputs practically never parry or clash,
@@ -66,8 +91,21 @@ function boot({ colon }) {
 function sim({ sound }) {
   if ((half ^= 1)) return; // every other 120hz step
   if (s[G.MATCH]) return;
-  game.step(s, held[0], held[1]);
-  hear(sound); // leading frame only — a rollback's resimulated frames stay mute
+
+  let flags;
+  if (net) {
+    net.link.tick();
+    sfxIn = 0;
+    // a stall is a dropped frame, not an error — the peer waits rather than
+    // predict past the window, and hands the same input back next tick.
+    net.a.advance(held[0]);
+    net.b.advance(held[1]);
+    flags = sfxIn; // only the local session's leading frames speak
+  } else {
+    game.step(s, held[0], held[1]);
+    flags = s[G.SFX];
+  }
+  hear(sound, flags); // a rollback's resimulated frames never reach here
 }
 
 function act({ event: e }) {
@@ -76,12 +114,11 @@ function act({ event: e }) {
     if (e.is(`keyboard:down:${key}`)) held[p] |= bit;
     if (e.is(`keyboard:up:${key}`)) held[p] &= ~bit;
   }
-  if (e.is("keyboard:down:r") && s[G.MATCH]) s = game.create(s[G.RNG]);
+  if (e.is("keyboard:down:r") && s[G.MATCH] && !net) s = game.create(s[G.RNG]);
 }
 
 // the sim already decided what happened; this only gives it a voice.
-function hear(sound) {
-  const f = s[G.SFX];
+function hear(sound, f) {
   if (!f) return;
   const play = (o) => sound?.synth?.({ attack: 0.001, ...o });
 
@@ -187,6 +224,27 @@ function paint({ wipe, ink, screen }) {
 
   if (boxes) ink(70, 66, 90).write(`t${s[G.TICK]} ${game.checksum(s).toString(16)}`, { x: 4, y: 25 });
   if (verdict) ink(120, 255, 160).write(verdict, { x: 4, y: 33 });
+  if (net) wire(ink, w);
+}
+
+// the netcode, out loud. depth is what you actually feel: it is how many frames
+// get thrown away and resimulated when a guess turns out wrong.
+function wire(ink, w) {
+  const { a, link, latency, loss } = net;
+  const st = a.stats;
+  const depth = st.rollbacks ? (st.resimFrames / st.rollbacks).toFixed(1) : "0";
+  const ls = link.stats();
+  const ahead = a.frame - a.confirmed();
+
+  ink(90, 200, 255).write(`lag ${latency}f  loss ${(loss * 100) | 0}%`, { x: 4, y: 4 });
+  ink(70, 66, 90).write(`rollback ${st.rollbacks} @${depth}f  stall ${st.stalls}`, { x: 4, y: 12 });
+  ink(70, 66, 90).write(`ahead ${ahead}  dropped ${ls.dropped}/${ls.sent}`, { x: 4, y: 20 });
+
+  // how far out on the limb we are, against the 8-frame prediction window
+  const bar = 40;
+  ink(40, 38, 54).box(w - bar - 4, 5, bar, 3);
+  const fill = Math.min(bar, ((ahead * bar) / 8) | 0);
+  ink(...(ahead > 8 ? [255, 90, 90] : [90, 200, 255])).box(w - bar - 4, 5, fill, 3);
 }
 
 // guard pips, round pips, clock, and whatever just ended. everything flanks the
