@@ -191,8 +191,8 @@
 
     <div class="note">
       <b>Every whistlegraph has a code.</b><br>
-      Type <code>imab</code> at <a href="https://aesthetic.computer">aesthetic.computer</a>
-      to perform it — or open <a href="/imab">whistlegraph.org/imab</a>.
+      Type <code id="egCode">imab</code> at <a id="egAC" href="https://aesthetic.computer">aesthetic.computer</a>
+      to perform it — or open <a id="egWG" href="/imab">whistlegraph.org/imab</a>.
       A short code for a whole song.
     </div>
 
@@ -229,8 +229,8 @@
       <li><a href="https://www.tiktok.com/@whistlegraph">TikTok</a> — where it grew (2.6M, no ads)</li>
       <li><a href="https://aesthetic.computer/whistlegraph">Record your own</a> — the recorder, on aesthetic.computer</li>
       <li><a href="https://www.youtube.com/watch?v=yB82tT8INxg">What's Inside Your Heart?</a> — the official music video</li>
-      <li><a href="https://feralfile.com/artists/Whistlegraph">Feral File</a> · <a href="https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/">Rhizome</a> · <a href="https://www.are.na/aesthetic-computer/self-teaching-scores">Are.na</a></li>
-      <li><a href="https://shop.whistlegraph.com">The zine + shop</a> · <a href="https://distrokid.com/hyperfollow/whistlegraph/music-2-whistlegraph-2">Music 2 Whistlegraph 2</a></li>
+      <li><a href="https://feralfile.com/artists/Whistlegraph">Feral File</a> · <a href="https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/">Rhizome</a> · <a href="https://www.are.na/aesthetic-computer/self-teaching-scores">Are.na</a> · <a href="https://www.youtube.com/watch?v=eD-6j1cNgMo">Galerie Yeche Lange</a></li>
+      <li><a href="https://shop.whistlegraph.com">The Whistlegraph Zine + Shop</a> · <a href="https://distrokid.com/hyperfollow/whistlegraph/music-2-whistlegraph-2">Music 2 Whistlegraph 2</a></li>
     </ul>
 
     <hr class="thick">
@@ -357,6 +357,15 @@ fetch("/graphs.json").then(r=>r.json()).then(data=>{
   BY=Object.fromEntries(data.graphs.map(w=>[w.code,w]));
   renderIndex(null);
   document.getElementById("idxCount").textContent=data.graphs.length;
+  // The example code randomizes each load — always one of the featured ten —
+  // and its links follow the drawn code.
+  (function(){
+    const pool=GRAPHS.slice(0,CURATED_N); if(!pool.length) return;
+    const w=pool[Math.floor(Math.random()*pool.length)];
+    const c=document.getElementById("egCode"); if(c)c.textContent=w.code;
+    const ac=document.getElementById("egAC"); if(ac)ac.href=`https://aesthetic.computer/${w.code}`;
+    const wg=document.getElementById("egWG"); if(wg){wg.href=`/${w.code}`;wg.textContent=`whistlegraph.org/${w.code}`;}
+  })();
   document.querySelectorAll("#sortbar button").forEach(b=>b.addEventListener("click",()=>{
     document.querySelectorAll("#sortbar button").forEach(x=>x.classList.remove("on"));
     b.classList.add("on");
