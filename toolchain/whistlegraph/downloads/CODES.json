@@ -1,6 +1,6 @@
 {
  "generated": "2026-07-09T00:49:00.763Z",
- "count": 421,
+ "count": 419,
  "songs": [
   {
    "code": "imab",
@@ -230,8 +230,8 @@
    "title": "The Three of Us Are in a Cult",
    "kind": "graph",
    "known": false,
-   "performances": 8,
-   "views": 61432400,
+   "performances": 9,
+   "views": 61591500,
    "span": [
     "2022-01-20",
     "2022-10-19"
@@ -245,7 +245,8 @@
     "7055148270699597103",
     "7055506210086456622",
     "7124494165806828842",
-    "7071405403367755054"
+    "7071405403367755054",
+    "7144849836880219434"
    ]
   },
   {
@@ -2384,15 +2385,16 @@
    "title": "Going Down to South Park",
    "kind": "graph",
    "known": false,
-   "performances": 1,
-   "views": 259100,
+   "performances": 2,
+   "views": 324800,
    "span": [
     "2023-03-31",
-    "2023-03-31"
+    "2023-04-03"
    ],
    "glyph": "7216808102480432427",
    "clips": [
-    "7216808102480432427"
+    "7216808102480432427",
+    "7217976918832925995"
    ]
   },
   {
@@ -2686,7 +2688,7 @@
   },
   {
    "code": "fle8",
-   "title": "Flower Eater",
+   "title": "Flower Eater (Role-Painting Game)",
    "kind": "graph",
    "known": false,
    "performances": 1,
@@ -2850,22 +2852,6 @@
    "clips": [
     "7383913518862503198",
     "7383883096917167391"
-   ]
-  },
-  {
-   "code": "cul2",
-   "title": "The Three of Us Are in a Cult",
-   "kind": "graph",
-   "known": false,
-   "performances": 1,
-   "views": 159100,
-   "span": [
-    "2022-09-18",
-    "2022-09-18"
-   ],
-   "glyph": "7144849836880219434",
-   "clips": [
-    "7144849836880219434"
    ]
   },
   {
@@ -3520,22 +3506,6 @@
    "glyph": "6990799351903751430",
    "clips": [
     "6990799351903751430"
-   ]
-  },
-  {
-   "code": "spr2",
-   "title": "Going Down to South Park",
-   "kind": "graph",
-   "known": false,
-   "performances": 1,
-   "views": 65700,
-   "span": [
-    "2023-04-03",
-    "2023-04-03"
-   ],
-   "glyph": "7217976918832925995",
-   "clips": [
-    "7217976918832925995"
    ]
   },
   {

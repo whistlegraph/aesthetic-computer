@@ -102,6 +102,16 @@
   }
   h2::before{content:"› "; color:var(--margin)}
 
+  /* index sort chips — legal-pad tabs */
+  .sortbar{display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 11px; align-items:baseline}
+  .sortbar .sl{font-size:11.5px; color:var(--dim); margin-right:2px}
+  .sortbar button{
+    font-family:inherit; font-size:11.5px; color:var(--ink); background:transparent;
+    border:1px solid var(--ink); border-radius:2px; padding:2px 8px; cursor:pointer; line-height:1.4;
+  }
+  .sortbar button:hover{background:rgba(255,255,255,.4)}
+  .sortbar button.on{background:var(--margin); color:var(--paper); border-color:var(--margin)}
+
   /* the codes note — a bordered wiki box */
   .note{
     border:1px solid var(--ink); background:rgba(255,255,255,.35);
@@ -188,6 +198,15 @@
     <hr>
     <h2>Index</h2>
     <p class="dim" style="font-size:12.5px;margin-top:-2px"><span id="idxCount">…</span> whistlegraphs recovered so far. Still being combed. Tap a code.</p>
+    <div class="sortbar" id="sortbar">
+      <span class="sl">Sort:</span>
+      <button data-sort="featured" class="on">Featured</button>
+      <button data-sort="videos">Most videos</button>
+      <button data-sort="sung">Most sung</button>
+      <button data-sort="year">By year</button>
+      <button data-sort="title">Title A–Z</button>
+      <button data-sort="author">Author A–Z</button>
+    </div>
     <div class="wrap">
       <table class="idx" id="idx"><tbody></tbody></table>
     </div>
@@ -298,18 +317,49 @@ function addRow(tb,w){
   tb.appendChild(tr);
 }
 
+let GRAPHS=[], CURATED_N=0;
+
+// Sorts. `featured` (default) keeps the file order: the ten first, then the
+// archive by reach, with a divider between. Every other key flattens into one
+// plain list — no divider, no top-ten grouping (the split only reads in the
+// featured view). Ties break on views, our richest signal.
+function sortedGraphs(key){
+  const byViews=(a,b)=>b.views-a.views;
+  const g=[...GRAPHS];
+  if(key==="videos") return g.sort((a,b)=>b.perf-a.perf||byViews(a,b));
+  if(key==="sung")   return g.sort(byViews);
+  if(key==="year")   return g.sort((a,b)=>a.year-b.year||byViews(a,b)); // oldest first
+  if(key==="title")  return g.sort((a,b)=>a.title.localeCompare(b.title));
+  if(key==="author") return g.sort((a,b)=>a.by.localeCompare(b.by)||byViews(a,b));
+  return null; // featured
+}
+function renderIndex(key){
+  const tb=document.querySelector("#idx tbody"); tb.innerHTML="";
+  const sorted=sortedGraphs(key);
+  if(!sorted){ // featured: ten first, then the archive, with a divider
+    GRAPHS.forEach((w,i)=>{
+      if(i===CURATED_N){
+        const tr=document.createElement("tr");
+        tr.innerHTML=`<td colspan="4" style="padding:12px 8px 6px;color:var(--margin);font-size:12.5px;border-bottom:1px solid var(--margin)">— more from the archive, most-sung first —</td>`;
+        tb.appendChild(tr);
+      }
+      addRow(tb,w);
+    });
+  }else{
+    sorted.forEach(w=>addRow(tb,w));
+  }
+}
+
 fetch("/graphs.json").then(r=>r.json()).then(data=>{
+  GRAPHS=data.graphs; CURATED_N=data.curated;
   BY=Object.fromEntries(data.graphs.map(w=>[w.code,w]));
-  const tb=document.querySelector("#idx tbody");
-  data.graphs.forEach((w,i)=>{
-    if(i===data.curated){ // divider before the recovered archive
-      const tr=document.createElement("tr");
-      tr.innerHTML=`<td colspan="4" style="padding:12px 8px 6px;color:var(--margin);font-size:12.5px;border-bottom:1px solid var(--margin)">— more from the archive, most-sung first —</td>`;
-      tb.appendChild(tr);
-    }
-    addRow(tb,w);
-  });
+  renderIndex(null);
   document.getElementById("idxCount").textContent=data.graphs.length;
+  document.querySelectorAll("#sortbar button").forEach(b=>b.addEventListener("click",()=>{
+    document.querySelectorAll("#sortbar button").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on");
+    renderIndex(b.dataset.sort==="featured"?null:b.dataset.sort);
+  }));
   // Resolve any deep-link now that data exists.
   const c=location.pathname.replace(/\//g,""); if(BY[c])showDetail(c);
 });
