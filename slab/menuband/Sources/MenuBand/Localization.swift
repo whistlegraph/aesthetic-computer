@@ -120,7 +120,7 @@ enum Localization {
 
         // Popover — about / footer
         "popover.about.lead": "Menu Band",
-        "popover.about.body": " makes the built-in macOS MIDI instruments playable right from the menu bar.",
+        "popover.about.body": " makes the built-in MIDI instruments playable right from the menu bar.",
         "popover.about.link": "About",
         "popover.about.lookingForPlayers": "Looking For Players?",
         "popover.about.version": "Version",
@@ -188,7 +188,7 @@ enum Localization {
         // Popover — about / footer
         "popover.about.lead": "Menu Band",
         "popover.about.body":
-            " hace tocables los instrumentos MIDI integrados de macOS directamente desde la barra de menús.",
+            " hace tocables los instrumentos MIDI integrados directamente desde la barra de menús.",
         "popover.about.link": "Acerca de",
         "popover.about.lookingForPlayers": "¿Buscas músicos?",
         "popover.about.version": "Versión",
@@ -256,7 +256,7 @@ enum Localization {
 
         // Popover — about / footer
         "popover.about.lead": "Menu Band",
-        "popover.about.body": " 让 macOS 内置的 MIDI 乐器可以直接从菜单栏弹奏。",
+        "popover.about.body": " 让内置的 MIDI 乐器可以直接从菜单栏弹奏。",
         "popover.about.link": "关于",
         "popover.about.lookingForPlayers": "寻找乐手?",
         "popover.about.version": "版本",
@@ -322,7 +322,7 @@ enum Localization {
 
         // Popover — about / footer
         "popover.about.lead": "Menu Band",
-        "popover.about.body": " は macOS 内蔵の MIDI 楽器をメニューバーから直接演奏できます。",
+        "popover.about.body": " は内蔵の MIDI 楽器をメニューバーから直接演奏できます。",
         "popover.about.link": "概要",
         "popover.about.lookingForPlayers": "仲間を募集中?",
         "popover.about.version": "バージョン",
@@ -391,7 +391,7 @@ enum Localization {
         // Popover — about / footer
         "popover.about.lead": "Menu Band",
         "popover.about.body":
-            " даёт играть на встроенных MIDI-инструментах macOS прямо из строки меню.",
+            " даёт играть на встроенных MIDI-инструментах прямо из строки меню.",
         "popover.about.link": "О программе",
         "popover.about.lookingForPlayers": "Ищете напарников?",
         "popover.about.version": "Версия",
@@ -460,7 +460,7 @@ enum Localization {
         // Popover — about / footer
         "popover.about.lead": "Menu Band",
         "popover.about.body":
-            " gør macOS' indbyggede MIDI-instrumenter spilbare direkte fra menulinjen.",
+            " gør de indbyggede MIDI-instrumenter spilbare direkte fra menulinjen.",
         "popover.about.link": "Om",
         "popover.about.lookingForPlayers": "Leder du efter medspillere?",
         "popover.about.version": "Version",
