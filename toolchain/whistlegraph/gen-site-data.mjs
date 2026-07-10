@@ -33,6 +33,21 @@ const CURATED = {
 };
 const ORDER = Object.keys(CURATED);
 
+// A few archive entries carry the real metadata a single TikTok clip can't.
+// The Longest Whistlegraph Ever (so far) is the 22-min Rhizome film — its
+// glyph is the whole transcribed score, its video the film itself (landscape,
+// so it wants a wide detail frame), and its reach is the YouTube film plus
+// the TikTok promos, not the one clip the cluster was minted from.
+const SPECIAL = {
+  long: {
+    by: "Whistlegraph",
+    year: 2022,
+    views: 152389, // YouTube Longest cut + trailers (136,189) + TikTok promos
+    wide: true,
+    film: true, // the Rhizome film — own provenance + a whole-score glyph
+  },
+};
+
 const { songs } = JSON.parse(readFileSync(CODES, "utf8"));
 const graphs = songs.filter((s) => s.kind === "graph");
 const byCode = Object.fromEntries(graphs.map((g) => [g.code, g]));
@@ -42,12 +57,13 @@ const NO_GLYPH = new Set(["crep", "meet", "kvds"]);
 
 const row = (g) => {
   const cur = CURATED[g.code];
+  const sp = SPECIAL[g.code];
   const out = {
     code: g.code,
     title: g.title,
-    by: cur?.by ?? "Whistlegraph",
-    year: Number(g.span[0].slice(0, 4)),
-    views: g.views,
+    by: sp?.by ?? cur?.by ?? "Whistlegraph",
+    year: sp?.year ?? Number(g.span[0].slice(0, 4)),
+    views: sp?.views ?? g.views,
     perf: g.performances,
     c: cur?.c ?? "#b44887",
   };
@@ -55,6 +71,8 @@ const row = (g) => {
     out.slug = cur.slug;
     if (cur.canonical) out.canonical = true;
   }
+  if (sp?.wide) out.wide = true;
+  if (sp?.film) out.film = true;
   if (NO_GLYPH.has(g.code)) out.noGlyph = true;
   return out;
 };

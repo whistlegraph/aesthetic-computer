@@ -150,6 +150,7 @@
   #index.off{display:none}
   #detail .score{width:300px; max-width:64vw; height:auto; border:1px solid var(--ink); background:#fff; float:left; margin:4px 16px 10px 0}
   #detail video{width:300px; max-width:64vw; aspect-ratio:1824/2280; height:auto; border:1px solid var(--ink); background:#000; display:block; clear:both; margin-top:6px}
+  #detail video.wide{width:560px; max-width:88vw; aspect-ratio:16/9} /* the Longest Whistlegraph film is landscape */
   #detail video.canon{width:360px; max-width:74vw; aspect-ratio:900/1080; background:var(--paper)}
   #detail .lbl{font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--margin); margin:0 0 7px}
   #detail .back{font-size:13px}
@@ -378,13 +379,19 @@ function showDetail(code){
     D.video.src=`${CDN}/${w.slug}/${w.slug}-web.mp4`;
     if(w.canonical){D.canon.src="/canonical/imab.mp4";D.canonWrap.style.display="";}
     else{D.canonWrap.style.display="none";D.canon.removeAttribute("src");}
+    D.video.classList.remove("wide");
   }else{ // recovered — glyph poster + the sung take, no score sheet
     D.performNote.style.display="none"; D.archiveNote.style.display="";
     D.stats.textContent=`${fmtViews(w.views)} views`+(w.perf>1?` across ${w.perf} videos`:"");
     D.scoreWrap.style.display="none"; D.canonWrap.style.display="none"; D.canon.removeAttribute("src");
     D.videoRule.style.display=""; D.glyphCap.style.display=w.noGlyph?"none":"";
+    D.video.classList.toggle("wide",!!w.wide); // the Longest film is landscape
     D.video.poster=w.noGlyph?"":`${IDX}/${w.code}.jpg`;
     D.video.src=`${IDX}/${w.code}.mp4`;
+    if(w.film){ // the Rhizome film, not a TikTok take — its own provenance + glyph
+      D.archiveNote.innerHTML=`Code <code>${w.code}</code> &nbsp; — &nbsp; ${fmtViews(w.views)} views &nbsp;·&nbsp; the ~22-minute <a href="https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/">Rhizome commission</a>, chalk on a 4×6 blackboard.`;
+      D.glyphCap.textContent="The glyph is the whole piece, transcribed as one score.";
+    }
   }
   det.classList.add("on"); idx.classList.add("off");
   document.title=`${w.title} — Whistlegraph`; scrollTo(0,0);
