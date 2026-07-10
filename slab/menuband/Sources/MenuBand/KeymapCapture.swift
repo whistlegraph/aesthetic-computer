@@ -36,6 +36,11 @@ enum KeymapCLI {
         // back to the SYSTEM appearance rather than the one set on NSApp — and
         // `refresh()` restyles the scope from it. Pin it to the app's.
         view.appearance = app.appearance
+        // The QWERTY map only lights its held keys while the panel counts as
+        // presented (refreshHeldNotes bails otherwise). The scope's live sweep
+        // that this would also switch on is overridden per frame by
+        // seedWaveformForCapture, which forces isLive back off.
+        view.setPresented(true)
         view.layoutSubtreeIfNeeded()
         var size = view.fittingSize
         if size.width < 100 || size.height < 100 { size = NSSize(width: 560, height: 420) }

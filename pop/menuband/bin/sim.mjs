@@ -431,7 +431,9 @@ async function prerenderKeymap() {
   // space bar lights on the QWERTY map. Everything freezes at the entry moment
   // — that's what holding space does — so the scope's picture holds still under
   // the sweeping head.
-  const REVERSE_FROM = 0.62;
+  // Aligned to the VO: "you can even reverse playback by holding spacebar"
+  // is spoken from ~26.5s, which is local 0.46 of the 22.7–31s keymap scene.
+  const REVERSE_FROM = 0.46;
   const freeze = {
     levels: levelsAt(sc.from + (sc.to - sc.from) * REVERSE_FROM),
     notes: barNotesAt(sc.from + (sc.to - sc.from) * REVERSE_FROM),
