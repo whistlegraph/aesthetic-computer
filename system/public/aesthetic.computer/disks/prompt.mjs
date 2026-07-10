@@ -1821,9 +1821,15 @@ async function halt($, text) {
     return true;
   } else if (slug === "nela") {
     // 🏙️ Jump to NELA Computer Club
-    const nelaUrl = "https://nelacomputer.club";
+    const nelaUrl = "https://nela.computer";
     if (openExternalFromIframe(nelaUrl)) return true;
     jump(`out:${nelaUrl}`);
+    return true;
+  } else if (slug === "menuband") {
+    // 🎹 Jump to Menu Band
+    const menuBandUrl = "https://menuband.app";
+    if (openExternalFromIframe(menuBandUrl)) return true;
+    jump(`out:${menuBandUrl}`);
     return true;
   } else if (slug === "desktop" || slug === "app" || slug === "electron") {
     // 💻 Jump to Desktop app download page

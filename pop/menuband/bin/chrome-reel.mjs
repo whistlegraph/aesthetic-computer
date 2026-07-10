@@ -39,7 +39,7 @@ mkdirSync(assetsDir, { recursive: true });
 const W = 1080, H = 1920, FPS = 30;
 const TOTAL = META.total;
 const FRAMES = Math.round(TOTAL * FPS);
-const TITLE = "menuband.app";
+const TITLE = "MenuBand.app";
 
 // ── audio envelope (drives LED pulse + char bounce) ────────────────────────
 const { audio, sr } = decodeAudioMono(BASE);
