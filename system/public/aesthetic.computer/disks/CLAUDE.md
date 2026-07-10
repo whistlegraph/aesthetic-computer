@@ -107,6 +107,10 @@ The shape: in `boot({ net: { socket, udp }, handle })`,
   receives `(id, type, content)`; watch for `connected*`, `left`, and your
   own `game:*` types.
 
+Note both channels relay through the server — geckos.io is not peer-to-peer.
+For frame-critical 1v1 (rollback netcode), see `docs/rollback-netcode.md` and
+the `fight` piece; its simulation lives in `../lib/fight/`.
+
 Session-server routing (`session-server/session.mjs`):
 - UDP handlers: add `channel.on("game:move", ...)` in the geckos section
 - WebSocket: position messages use `others()` (relay to all except sender),

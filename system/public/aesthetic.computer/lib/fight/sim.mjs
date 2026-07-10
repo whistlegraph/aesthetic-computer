@@ -76,8 +76,16 @@ export const P = {
 };
 export const PN = 15;
 
-export const G = { TICK: 30, RNG: 31, TIMER: 32, OVER: 33 };
-export const SIZE = 34;
+// what the sim wants heard this tick. the sim never plays a sound itself — it
+// records the intent and lets the caller decide. a rollback resimulates frames
+// that already happened, and playing audio from those is the street fighter x
+// tekken bug: sounds popping and cutting out. so only the leading frame reads
+// this. cleared at the top of every step, which means a rewound frame that no
+// longer lands a hit silently un-schedules its own sound.
+export const SFX = { SWING: 1, HIT: 2, BLOCK: 4, JUMP: 8, KO: 16 };
+
+export const G = { TICK: 30, RNG: 31, TIMER: 32, OVER: 33, SFX: 34, SFXMV: 35 };
+export const SIZE = 36;
 
 export const START_HP = 1000;
 export const ROUND_TICKS = 99 * 60;
@@ -125,6 +133,7 @@ const grounded = (s, b) => s[b + P.Y] === 0;
 
 export function step(s, i0, i1) {
   s[G.TICK]++;
+  s[G.SFX] = 0; // before every early return, so silent frames stay silent
   if (s[G.OVER]) return;
 
   // hitstop freezes both fighters. inputs still latch so a button held
@@ -159,6 +168,7 @@ export function step(s, i0, i1) {
       s[b + P.HP] = 0;
       s[b + P.ST] = ST.KO;
       s[G.OVER] = 2 - p; // 1 → p0 wins, 2 → p1 wins
+      s[G.SFX] |= SFX.KO;
     }
   }
   if (!s[G.OVER] && s[G.TIMER] === 0) {
@@ -207,6 +217,8 @@ function control(s, p, inp) {
     s[b + P.MV] = btn & LIGHT ? 0 : btn & MEDIUM ? 1 : 2;
     s[b + P.STF] = 0;
     s[b + P.HIT] = 0;
+    s[G.SFX] |= SFX.SWING;
+    s[G.SFXMV] = s[b + P.MV];
     return;
   }
 
@@ -219,6 +231,7 @@ function control(s, p, inp) {
     s[b + P.ST] = ST.JUMP;
     s[b + P.VY] = JUMP_V;
     s[b + P.VX] = inp & RIGHT ? AIR : inp & LEFT ? -AIR : 0;
+    s[G.SFX] |= SFX.JUMP;
     return;
   }
 
@@ -300,7 +313,10 @@ function connect(s, p) {
     s[ob + P.STF] = m.block;
     s[b + P.STOP] = BLOCK_STOP;
     s[ob + P.STOP] = BLOCK_STOP;
+    s[G.SFX] |= SFX.BLOCK;
   } else {
+    s[G.SFX] |= SFX.HIT;
+    s[G.SFXMV] = s[b + P.MV];
     s[ob + P.HP] -= m.dmg;
     s[ob + P.ST] = ST.HITSTUN;
     s[ob + P.STF] = m.stun;

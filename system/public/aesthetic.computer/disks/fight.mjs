@@ -11,7 +11,7 @@
 import * as game from "../lib/fight/sim.mjs";
 import { syncTest, report } from "../lib/fight/rollback.mjs";
 
-const { P, PN, G, ST, SUB, BODY_W, BODY_H, CROUCH_H, MOVES } = game;
+const { P, PN, G, ST, SFX, SUB, BODY_W, BODY_H, CROUCH_H, MOVES } = game;
 
 const KEYS = {
   w: [0, game.UP],
@@ -56,10 +56,37 @@ function boot({ colon }) {
   }
 }
 
-function sim() {
+function sim({ sound }) {
   if ((half ^= 1)) return; // every other 120hz step
   if (s[G.OVER]) return;
   game.step(s, held[0], held[1]);
+  hear(sound); // leading frame only — a rollback's resimulated frames stay mute
+}
+
+// heavier hits land lower. the sim already decided what happened; this only
+// gives it a voice.
+const TONE = [220, 165, 110];
+
+function hear(sound) {
+  const f = s[G.SFX];
+  if (!f) return;
+  const mv = s[G.SFXMV];
+  const play = (o) => sound?.synth?.({ attack: 0.001, ...o });
+
+  if (f & SFX.SWING)
+    play({ type: "noise-white", duration: 0.03, decay: 0.6, volume: 0.1 });
+  if (f & SFX.JUMP)
+    play({ type: "triangle", tone: 330, duration: 0.05, decay: 0.7, volume: 0.14 });
+  if (f & SFX.BLOCK)
+    play({ type: "noise-white", duration: 0.07, decay: 0.5, volume: 0.24 });
+  if (f & SFX.HIT) {
+    play({ type: "square", tone: TONE[mv], duration: 0.06 + mv * 0.02, decay: 0.55, volume: 0.3 });
+    play({ type: "noise-white", duration: 0.05, decay: 0.4, volume: 0.18 });
+  }
+  if (f & SFX.KO) {
+    play({ type: "sawtooth", tone: 110, duration: 0.5, decay: 0.9, volume: 0.3 });
+    play({ type: "square", tone: 55, duration: 0.6, attack: 0.02, decay: 0.95, volume: 0.18 });
+  }
 }
 
 function act({ event: e }) {
