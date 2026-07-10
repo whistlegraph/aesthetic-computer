@@ -224,15 +224,15 @@ function paint({ wipe, ink, screen }) {
     }
   }
 
-  hud(ink, w);
+  if (boxes) ink(70, 66, 90).write(`t${s[G.TICK]} ${game.checksum(s).toString(16)}`, { x: 4, y: 25 });
+  if (verdict) ink(120, 255, 160).write(verdict, { x: 4, y: 33 });
+  if (net) wire(ink, w);
+
+  hud(ink, w); // last, so the round-over card covers the readout behind it
   if (pad > 4) {
     pads(ink, 4, h - 29, 0);
     pads(ink, w - 32, h - 29, 1);
   }
-
-  if (boxes) ink(70, 66, 90).write(`t${s[G.TICK]} ${game.checksum(s).toString(16)}`, { x: 4, y: 25 });
-  if (verdict) ink(120, 255, 160).write(verdict, { x: 4, y: 33 });
-  if (net) wire(ink, w);
 }
 
 // the netcode, out loud. depth is what you actually feel: it is how many frames
