@@ -121,18 +121,22 @@ function paint({ wipe, ink, screen }) {
   const { width: w, height: h } = screen;
   const pad = h < 112 ? 4 : 30; // the key pads want the bottom strip
   const floor = h - pad - 6;
-  const k = w / 256;
-  const u = (subs) => ((subs * k) / SUB) | 0;
+  // scale to whichever runs out first. on a wide, short window the width alone
+  // would make a 95px fighter and run him straight through the hud.
+  const k = Math.max(0.12, Math.min(w / 256, (floor - 32) / 58));
+  const ox = (w - ((256 * k) | 0)) >> 1;
+  const u = (subs) => ((subs * k) / SUB) | 0; // a length
+  const sx = (subs) => ox + u(subs); // a position on the stage
   const py = (v) => floor - u(v);
 
   wipe(18, 16, 26);
-  ink(40, 38, 58).box(0, floor, w, 1);
-  for (let x = 0; x < w; x += 24) ink(30, 28, 44).box(x, floor + 1, 1, 2);
+  ink(40, 38, 58).box(ox, floor, (256 * k) | 0, 1);
+  for (let x = 0; x < 256; x += 24) ink(30, 28, 44).box(sx(x * SUB), floor + 1, 1, 2);
 
   for (let p = 0; p < 2; p++) {
     const b = p * PN;
     const st = s[b + P.ST];
-    const x = u(s[b + P.X] - (BODY_W >> 1));
+    const x = sx(s[b + P.X] - (BODY_W >> 1));
     const y = py(BODY_H);
     const bw = u(BODY_W);
     const bh = u(BODY_H);
@@ -159,7 +163,7 @@ function paint({ wipe, ink, screen }) {
 
     if (s[b + P.SPL] > 0) {
       const r = s[b + P.SPL];
-      ink(255, 230, 120).box(u(s[b + P.X] + s[b + P.SPX]) - (r >> 1), py(26 * SUB), r, r);
+      ink(255, 230, 120).box(sx(s[b + P.X] + s[b + P.SPX]) - (r >> 1), py(26 * SUB), r, r);
     }
 
     if (boxes) {
@@ -169,7 +173,7 @@ function paint({ wipe, ink, screen }) {
         if (f >= PUNCH_F.startup && f < PUNCH_F.startup + PUNCH_F.active) {
           const front = s[b + P.X] + face * (BODY_W >> 1);
           const hx = face > 0 ? front : front - PUNCH_F.reach;
-          ink(255, 60, 90, 110).box(u(hx), py(34 * SUB), u(PUNCH_F.reach), u(16 * SUB));
+          ink(255, 60, 90, 110).box(sx(hx), py(34 * SUB), u(PUNCH_F.reach), u(16 * SUB));
         }
       }
     }
