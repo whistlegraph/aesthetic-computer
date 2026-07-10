@@ -55,13 +55,33 @@ const byCode = Object.fromEntries(graphs.map((g) => [g.code, g]));
 // Graphs missing a glyph frame (audio-only TikTok posts, no video stream).
 const NO_GLYPH = new Set(["crep", "meet", "kvds"]);
 
+// Authorship the clustering can't know — per Alex and Camille's review. Keyed
+// by code (stable across re-clustering). Anything not listed stays the
+// collective "Whistlegraph". The curated ten carry their own `by` above.
+const AUTHORS = {
+  shrm: "Jeffrey Alan Scudder", // Sad Mushroom
+  tw12: "Jeffrey Alan Scudder", // Baby It's Twelve
+  web: "Alex Freundlich and Camille Klein", // In My Web
+  "2la": "Alex Freundlich and Camille Klein", // Certain Personality
+  fire: "Alex Freundlich", // Sad Campfire
+  hill: "Jeffrey Alan Scudder and Alex Freundlich", // Distant Hills
+  appl: "Jeffrey Alan Scudder and Alex Freundlich", // Hey There, Apple
+  bord: "Camille Klein", // Nothing But a Board
+  bndg: "Jeffrey Alan Scudder", // Broken Heart
+  symm: "Alex Freundlich", // Symmetry Game
+  chee: "Jeffrey Alan Scudder", // Cheerleader
+  bite: "Alex Freundlich", // Dog Bite
+  bech: "Alex Freundlich and Camille Klein", // Make This A Beach
+  kity: "Jeffrey Alan Scudder", // Kitty Head
+};
+
 const row = (g) => {
   const cur = CURATED[g.code];
   const sp = SPECIAL[g.code];
   const out = {
     code: g.code,
     title: g.title,
-    by: sp?.by ?? cur?.by ?? "Whistlegraph",
+    by: sp?.by ?? cur?.by ?? AUTHORS[g.code] ?? "Whistlegraph",
     year: sp?.year ?? Number(g.span[0].slice(0, 4)),
     views: sp?.views ?? g.views,
     perf: g.performances,
