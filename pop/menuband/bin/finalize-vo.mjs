@@ -81,23 +81,50 @@ if (mix.status !== 0) { console.error(`✗ audio mix failed:\n${mix.stderr.toStr
 const canvas = createCanvas(W, H);
 const ctx = canvas.getContext("2d");
 function cueAt(t) { return cues.find((c) => t >= c.s && t < c.e) || null; }
+/// Captions were drawn as one unbroken line, so a long cue ran off both edges
+/// of the frame — "play music straight from your macos menu bar." reached
+/// x=0 and x=1079 and lost its first and last letters. Wrap to a margin.
+const CAP_MAX_W = W - 140;
+const CAP_LINE_H = 64;
+function wrapCaption(text) {
+  const lines = [];
+  let line = "";
+  for (const word of text.split(" ")) {
+    const candidate = line ? `${line} ${word}` : word;
+    if (line && ctx.measureText(candidate).width > CAP_MAX_W) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = candidate;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
 function drawCaption(t) {
   const c = cueAt(t);
   if (!c) return;
   ctx.font = "700 52px MBCap";
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
-  const y = H - 520;            // raised toward center (clear of Reels UI + more presence)
-  // hard black outline (LACMA look: BorderStyle outline + shadow)
   ctx.lineJoin = "round";
-  ctx.strokeStyle = "rgba(0,0,0,0.92)";
-  ctx.lineWidth = 9;
-  ctx.strokeText(c.t, W / 2, y);
-  // soft drop shadow then white fill
-  ctx.fillStyle = "rgba(0,0,0,0.5)";
-  ctx.fillText(c.t, W / 2 + 2, y + 3);
-  ctx.fillStyle = "white";
-  ctx.fillText(c.t, W / 2, y);
+  const lines = wrapCaption(c.t);
+  // Stack upward from the baseline, so a two-line cue grows toward the middle
+  // and its last line stays where a one-line cue would have sat.
+  const base = H - 520;         // raised toward center (clear of Reels UI)
+  lines.forEach((line, i) => {
+    const y = base - (lines.length - 1 - i) * CAP_LINE_H;
+    // hard black outline (LACMA look: BorderStyle outline + shadow)
+    ctx.strokeStyle = "rgba(0,0,0,0.92)";
+    ctx.lineWidth = 9;
+    ctx.strokeText(line, W / 2, y);
+    // soft drop shadow then white fill
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    ctx.fillText(line, W / 2 + 2, y + 3);
+    ctx.fillStyle = "white";
+    ctx.fillText(line, W / 2, y);
+  });
 }
 
 console.log("▸ burning captions (node-canvas) + muxing mixed audio …");
