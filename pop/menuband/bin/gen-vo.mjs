@@ -47,7 +47,7 @@ const STABILITY = 0.55; // >= 0.5 keeps jeffrey's identity (per project memory)
 const SCRIPT = {
   "1-menu": "wanna start a band? play music straight from your macos menu bar.",
   "2-about": "it's a tiny download, and it speaks your language.",
-  "3-keymap": "it goes fullscreen too — a whole keymap, a gamepad mode, and a mic sampler.",
+  "3-keymap": "it goes fullscreen too — a keymap, a gamepad mode, a mic sampler. you can even reverse playback by holding spacebar.",
   "4-end": "menu band. now on the mac app store.",
 };
 

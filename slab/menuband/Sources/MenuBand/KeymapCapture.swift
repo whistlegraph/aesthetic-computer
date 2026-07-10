@@ -72,6 +72,8 @@ enum KeymapCLI {
             struct Frame: Decodable {
                 let notes: [UInt8]; let levels: [Float]; let cursor: Double
                 let program: UInt8?     // the shot cycles instrument families
+                let reverse: Bool?      // spacebar reverse-replay demo
+                let scrub: Double?      // playhead swept back (0…1) while reversing
             }
             guard let data = FileManager.default.contents(atPath: seqPath),
                   let frames = try? JSONDecoder().decode([Frame].self, from: data) else {
@@ -85,9 +87,12 @@ enum KeymapCLI {
                     controller.setMelodicProgram(p)
                     lastProgram = p
                 }
-                controller.captureHold(notes: Set(f.notes))
+                let reversing = f.reverse ?? false
+                controller.captureReverse(reversing)
+                controller.captureHold(notes: Set(f.notes), spaceHeld: reversing)
                 view.refresh()
-                view.seedWaveformForCapture(levels: f.levels, cursorAt: f.cursor)
+                view.seedWaveformForCapture(levels: f.levels, cursorAt: f.cursor,
+                                            scrubBack: reversing ? (f.scrub ?? 0) : 0)
                 view.displayIfNeeded()
                 let path = "\(dir)/keymap-\(String(format: "%04d", i)).png"
                 if !snapshot(to: path) { exit(1) }

@@ -166,7 +166,11 @@ final class WaveformStripView: NSView {
     /// strip. Promo renders scrub the actual mix through here so the LED
     /// display shows the music that's playing, rather than the synthetic
     /// stand-in below. No-op at runtime; only the capture calls it.
-    func seedWaveform(levels: [Float], cursorAt: Double) {
+    /// `scrubBack` (0…1) poses the reverse playhead: 0 sits it at the write
+    /// cursor, 1 sweeps it fully back through the columns just played. `draw`
+    /// only paints the orange indicator when the controller's `isRewinding` is
+    /// set, so a reverse capture poses both.
+    func seedWaveform(levels: [Float], cursorAt: Double, scrubBack: Double = 0) {
         updateGridGeometry()
         guard cols > 8, !levels.isEmpty else { return }
         let fillEnd = max(1, min(cols, Int((Double(cols) * cursorAt).rounded())))
@@ -181,6 +185,8 @@ final class WaveformStripView: NSView {
             written[c] = true
         }
         cursor = fillEnd % cols
+        scrubOffset = CGFloat(max(0, min(1, scrubBack))) * CGFloat(fillEnd)
+        wasReversing = scrubBack > 0
         needsDisplay = true
     }
 

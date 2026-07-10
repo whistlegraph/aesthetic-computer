@@ -408,10 +408,7 @@ async function prerenderKeymap() {
   if (existsSync(last)) return;
 
   const { audio, sr } = decodeAudioMono(AUDIO);
-  const frames = [];
-  for (let i = 0; i < count; i++) {
-    const t = sc.from + i / FPS;
-    const local = (t - sc.from) / (sc.to - sc.from);
+  const levelsAt = (t) => {
     // One peak per column across the window of audio ending at `t`.
     const levels = [];
     for (let c = 0; c < SCOPE_COLS; c++) {
@@ -424,13 +421,40 @@ async function prerenderKeymap() {
       }
       levels.push(Math.min(1, peak * 1.6));
     }
-    frames.push({
-      notes: barNotesAt(t),
-      levels,
-      cursor: SCOPE_CURSOR,
-      program: KEYMAP_PROGRAMS[Math.min(KEYMAP_PROGRAMS.length - 1,
-        Math.floor(local * KEYMAP_PROGRAMS.length))],
-    });
+    return levels;
+  };
+  const progFor = (local) => KEYMAP_PROGRAMS[Math.min(KEYMAP_PROGRAMS.length - 1,
+    Math.floor(local * KEYMAP_PROGRAMS.length))];
+
+  // The last stretch of the scene demos spacebar reverse: playback freezes and
+  // an orange playhead sweeps back through the columns just played, while the
+  // space bar lights on the QWERTY map. Everything freezes at the entry moment
+  // — that's what holding space does — so the scope's picture holds still under
+  // the sweeping head.
+  const REVERSE_FROM = 0.62;
+  const freeze = {
+    levels: levelsAt(sc.from + (sc.to - sc.from) * REVERSE_FROM),
+    notes: barNotesAt(sc.from + (sc.to - sc.from) * REVERSE_FROM),
+    program: progFor(REVERSE_FROM),
+  };
+
+  const frames = [];
+  for (let i = 0; i < count; i++) {
+    const t = sc.from + i / FPS;
+    const local = (t - sc.from) / (sc.to - sc.from);
+    if (local >= REVERSE_FROM) {
+      // Ease the playhead back to ~0.6 of the played span over the window.
+      const u = (local - REVERSE_FROM) / (1 - REVERSE_FROM);
+      frames.push({
+        notes: freeze.notes, levels: freeze.levels, cursor: SCOPE_CURSOR,
+        program: freeze.program, reverse: true, scrub: easeOut(u) * 0.6,
+      });
+    } else {
+      frames.push({
+        notes: barNotesAt(t), levels: levelsAt(t), cursor: SCOPE_CURSOR,
+        program: progFor(local),
+      });
+    }
   }
   const seqJson = `${OUT}/keymap-seq.json`;
   writeFileSync(seqJson, JSON.stringify(frames));

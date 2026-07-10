@@ -217,8 +217,9 @@ final class MenuBandController {
     /// Pose the controller as though `notes` were being held, so a headless
     /// render lights the big piano AND the QWERTY map from a score instead of
     /// a live keyboard. The key codes are the keymap's own inverse — whichever
-    /// physical key would have sounded that note.
-    func captureHold(notes: Set<UInt8>) {
+    /// physical key would have sounded that note. `spaceHeld` lights the space
+    /// bar too, for the reverse-playback demo.
+    func captureHold(notes: Set<UInt8>, spaceHeld: Bool = false) {
         litNotes = notes
         var codes = Set<UInt16>()
         for keyCode in UInt16(0)..<128 {
@@ -228,8 +229,13 @@ final class MenuBandController {
                 codes.insert(keyCode)
             }
         }
+        if spaceHeld { codes.insert(49) }   // kVK_Space
         captureHeldKeyCodes = codes
     }
+
+    /// Pose the spacebar reverse-replay state for a headless render — the scope
+    /// draws its frozen columns with an orange playhead when `isRewinding`.
+    func captureReverse(_ active: Bool) { isRewinding = active }
 
     /// Hardware key codes for non-note keys we want to light up
     /// on the QWERTY visualization (digits 0-9, octave keys, the
