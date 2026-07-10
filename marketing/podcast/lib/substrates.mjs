@@ -47,4 +47,5 @@ export const substrateChain = (name) => (SUBSTRATES[name] ?? SUBSTRATES[DEFAULT_
 export const EPISODE_SUBSTRATE = {
   "may-26": "tape",
   "june-26": "night",
+  "july-10-26": "radio",
 };

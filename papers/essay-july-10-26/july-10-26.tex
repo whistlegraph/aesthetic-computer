@@ -1,0 +1,108 @@
+% !TEX program = xelatex
+\documentclass[11pt,letterpaper]{article}
+
+% === GEOMETRY === (narrow measure, PG-style)
+\usepackage[top=1in, bottom=1in, left=1.15in, right=1.15in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+
+\setmainfont{Latin Modern Roman}[
+  Extension=.otf,
+  UprightFont=lmroman10-regular,
+  BoldFont=lmroman10-bold,
+  ItalicFont=lmroman10-italic,
+  BoldItalicFont=lmroman10-bolditalic,
+]
+\setsansfont{Latin Modern Sans}[
+  Extension=.otf,
+  UprightFont=lmsans10-regular,
+  BoldFont=lmsans10-bold,
+  ItalicFont=lmsans10-oblique,
+  BoldItalicFont=lmsans10-boldoblique,
+]
+\setmonofont{Latin Modern Mono}[
+  Extension=.otf,
+  UprightFont=lmmono10-regular,
+  ItalicFont=lmmono10-italic,
+  Scale=0.85,
+]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{ragged2e}
+\usepackage{microtype}
+
+\usepackage{ac-paper-essay}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={'Sup w/ July 10?},
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acgray}\thepage}
+
+\newcommand{\ac}{Aesthetic\textcolor{acpink}{.}Computer}
+
+% Local override: wrap/center long titles + start higher on the page.
+\renewcommand{\essaytitle}[1]{%
+  \begin{center}%
+    \begin{tikzpicture}
+      \node[acdark, opacity=0.25, align=center, text width=\linewidth,
+            font=\aclight\fontsize{40pt}{46pt}\selectfont, inner sep=0pt] at (2pt,-2pt) {#1};
+      \node[acpink, align=center, text width=\linewidth,
+            font=\aclight\fontsize{40pt}{46pt}\selectfont, inner sep=0pt] at (0,0) {#1};
+    \end{tikzpicture}%
+  \end{center}%
+  \vspace{0.6em}%
+}
+
+\begin{document}
+
+\thispagestyle{empty}
+\vspace*{-0.5in}
+
+\essaytitle{'Sup w/ July 10?}
+\essaydate{July 10, 2026}
+
+Somebody asked me how it was going, and the honest answer is that I've been living in two times at once. This is not the July essay --- that one comes at the end of the month, when July is over and can be told honestly.\footnote{The monthly essays: \textit{Aesthetic May '26}, \textit{June '26}, and a July 4th special that took a day trip into the word \textit{independence}. This is just a postcard from the tenth, written because someone asked.} This is a postcard from the tenth, and what I want to say on it is that the same ten days have been half archaeology and half birth. In the morning I dig up something a decade old. In the afternoon I make something that has never existed. I did not plan for the month to split down the middle like that. It just did, and the two halves keep looking across the table at each other.
+
+\section{The Old Thing Got Counted}
+
+Before Aesthetic Computer there was Whistlegraph --- a little artform I made years ago with my friend Alex, where you whistle a song and draw it at the same time, the melody and the marks arriving together. We made hundreds of them and then, in the way of these things, moved on and stopped counting.
+
+This week I went back and counted. A script watched nine hundred and sixty-three old videos and transcribed every whistle it could hear; another one clustered the transcriptions into four hundred and twenty-four songs, and found that thirty of them already had names and eighty-two were the same song whistled more than once, by more than one person, over years. Two hundred and seventy-seven of them had a finished drawing sitting in a bucket on a server, waiting. I gave the whole pile a home this week --- \texttt{whistlegraph.org}, built to look like a legal pad, Web-1.0 on purpose, with a logo I lettered by hand and a single \texttt{W} for a favicon. It is an index of the artform, every song coded so that re-counting never shuffles the shelves.
+
+The number that stopped me was the reach. Added up across the platforms these things drifted onto over the years --- the whistling ones on one app, the reposts on another --- it comes to about one and three-quarter billion views. I did not feel proud when I saw it so much as strange, the way you feel finding out a plant you forgot to water grew into a tree. And the best part was not the number. It was that Alex started sending me a batch of notes every morning --- fix this author, merge these two, this title has a typo --- and I would spend the first hour of the day applying them. The artform we made and wandered away from turned back into a thing two people work on before lunch. One of the songs this week is just called \textit{The Longest Whistlegraph Ever}. So far.
+
+\section{The New Thing Got Born}
+
+Then in the afternoons I made a fighting game.
+
+It has no reason to exist except that I wanted it to, and it arrived fast, the way a thing arrives when you are not being careful. It is called \texttt{fight}, and I gave it the hardest part first: rollback netcode, the technique arcade fighters use to hide the internet, where the machine quietly predicts what your opponent will do and rewinds itself the instant it guesses wrong. I built the rewinding before I built the network --- a safety net strung under a room with no floor yet --- because the rollback is the interesting part and I wanted to know it worked. Then I carved the whole game down to three verbs. One punch, one block, one parry. Two people, one keyboard, taking turns being quick. It got a little voice this week too.
+
+There is no lesson in it. That is almost the point. In the same ten days I was building a museum for something old and a toy for something that isn't anything yet, and the toy kept me honest about the museum: an archive is only worth keeping if you are still the kind of person who would make the thing in the first place.
+
+\section{The Small One Went to the Door}
+
+In between the digging and the building, a third thing was standing in a line. Menuband --- the little menu-bar synthesizer, the one whose whistle spent years a fifth sharp before I caught it --- had gone to the App Store for review, and this week it got sent back. Not for anything it did. For a word. I had called it a synth for macOS, and it turns out you are not allowed to say \textit{macOS} in the subtitle, because Apple owns the word and reserves the right to be the only one who says it about your app. So I spent an afternoon going through the app in all six languages it speaks, pulling one word out of each --- the subtitle, the little About box, even the opening line of the promo video, where I had to re-record myself saying one word less. There is something funny and small about it: you build an instrument for someone's platform and the platform's one condition is that you not name it out loud. I pulled the word, added a proper record button while I was in there, and put it back in the line.
+
+\section{So, 'Sup}
+
+That's July, ten days in. An old artform got counted and turned out to be a tree. A new game got born with its safety net built before its floor. A little synth learned to say one word less so it could be let through a door. I keep expecting one of the three to feel like the real one and the other two like distractions, and I keep being wrong --- the digging makes the building mean more, the building keeps the digging honest, and the synth at the door is just the toll you pay to be in the world at all. The real July essay will come when the month is done. This was only me answering the question, which was: how's it going? Like that. Two times at once, and both of them good.
+
+\colophon{ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913} \enspace$\cdot$\enspace aesthetic.computer \enspace$\cdot$\enspace A mid-month postcard, between the \textit{July 4th} special and the July essay to come.}
+
+\end{document}

@@ -48,6 +48,7 @@ const PODCASTS = new Set([
   "aesthetic-may-26-essay",
   "aesthetic-june-26-essay",
   "aesthetic-july-4-26-essay",
+  "aesthetic-july-10-26-essay",
 ]);
 const LANG_NAMES = { en: "English", da: "Danish", es: "Spanish", zh: "Chinese", ja: "Japanese", ru: "Russian" };
 
@@ -211,6 +212,12 @@ const PAPER_MAP = {
     base: "july-4-26",
     siteName: "aesthetic-july-4-26-essay",
     title: "Aesthetic July 4 '26",
+    format: "essay",
+  },
+  "essay-july-10-26": {
+    base: "july-10-26",
+    siteName: "aesthetic-july-10-26-essay",
+    title: "'Sup w/ July 10?",
     format: "essay",
   },
   "deck-media-estate": {
@@ -437,6 +444,7 @@ const CATEGORIES = [
       "essay-may-26",
       "essay-june-26",
       "essay-july-4-26",
+      "essay-july-10-26",
     ],
   },
   {
@@ -920,6 +928,7 @@ function updateIndex(entries) {
     "aesthetic-may-26-essay": 19.5,
     "aesthetic-june-26-essay": 19.6,
     "aesthetic-july-4-26-essay": 19.7,
+    "aesthetic-july-10-26-essay": 19.8,
     "calarts-callouts-papers-26-arxiv": 20,
     "handle-identity-atproto-26-arxiv": 21,
     "ucla-arts-funding-26-arxiv": 22,
@@ -1112,6 +1121,11 @@ function updateIndex(entries) {
       detail: "Essay &middot; ~4pp &middot; Independence Day special",
       abstract:
         "An Independence Day special between the June and July essays, written on the Declaration's 250th anniversary. Independence is a hanging word --- in + dependere, not to hang from --- and the essay follows it in the abstract: declarations versus definitions in C and in Philadelphia, the personal computer as an independence movement the cloud quietly reversed, artists who built their own rooms (a library in a church, folk songs as open-source software, an artwork designed to scan badly), and an honest ledger of which way one small platform hangs --- a podcast hung from a host, Menuband submitted to App Store review on the holiday weekend itself, and the CNAME record as infrastructure's most truthful sentence.",
+    },
+    "aesthetic-july-10-26-essay": {
+      detail: "Essay &middot; ~2pp &middot; mid-month postcard &middot; podcast",
+      abstract:
+        "A mid-month postcard from July 10th --- not the monthly essay but a check-in written because someone asked how it was going. The answer: living in two times at once. Told as three scenes: excavating Whistlegraph, an artform made years ago with a friend, now counted (963 videos transcribed, 424 songs clustered, ~1.72 billion views) and given a hand-lettered legal-pad home at whistlegraph.org; a brand-new fighting game, fight, born in two days with its rollback safety net built before its network floor; and Menuband bounced from App Store review for naming macOS in its subtitle, then let through after learning to say one word less. Also available as a spoken reading in @jeffrey's voice.",
     },
     "calarts-callouts-papers-26-arxiv": {
       detail: "",
