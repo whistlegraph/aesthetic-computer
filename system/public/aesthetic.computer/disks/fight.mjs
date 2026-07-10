@@ -73,25 +73,30 @@ function act({ event: e }) {
 
 // render only. everything below reads state and writes pixels — it never
 // writes back, which is what keeps the sim rollback-safe.
-function paint({ wipe, ink, screen, write }) {
+//
+// the stage is a fixed 256 subpixel-units wide in the sim and always will be:
+// if it tracked the screen, two players on differently sized windows would
+// simulate different fights. so the renderer scales instead.
+function paint({ wipe, ink, screen }) {
   const { width: w, height: h } = screen;
-  const ox = (w - 256) >> 1;
-  const floor = h - 18;
-  const px = (v) => ox + ((v / SUB) | 0);
-  const py = (v) => floor - ((v / SUB) | 0);
+  const floor = h - (h < 110 ? 10 : 14);
+  const k = w / 256; // stage → screen
+  const u = (subs) => ((subs * k) / SUB) | 0; // sim length → screen pixels
+  const py = (v) => floor - u(v);
 
   wipe(18, 16, 26);
-  ink(40, 38, 58).box(ox, floor, 256, 1);
-  for (let x = 0; x <= 256; x += 32) ink(30, 28, 44).box(ox + x, floor + 1, 1, 4);
+  ink(40, 38, 58).box(0, floor, w, 1);
+  for (let x = 0; x < w; x += 24) ink(30, 28, 44).box(x, floor + 1, 1, 3);
 
   for (let p = 0; p < 2; p++) {
     const b = p * PN;
     const st = s[b + P.ST];
     const tall = st === ST.CROUCH ? CROUCH_H : BODY_H;
-    const x = px(s[b + P.X] - (BODY_W >> 1));
+    const x = u(s[b + P.X] - (BODY_W >> 1));
     const y = py(s[b + P.Y] + tall);
-    const bw = BODY_W / SUB;
-    const bh = tall / SUB;
+    const bw = u(BODY_W);
+    const bh = u(tall);
+    const face = s[b + P.FACE];
 
     let c = SUIT[p];
     if (st === ST.HITSTUN) c = [255, 240, 200];
@@ -100,71 +105,68 @@ function paint({ wipe, ink, screen, write }) {
 
     ink(...c).box(x, y, bw, bh);
     // a notch on the leading edge, so facing reads at a glance
-    const nose = s[b + P.FACE] > 0 ? x + bw - 2 : x;
-    ink(255).box(nose, y + 3, 2, 4);
+    ink(255).box(face > 0 ? x + bw - 2 : x, y + 2, 2, 3);
 
     if (st === ST.ATTACK) {
       const m = MOVES[s[b + P.MV]];
       const f = s[b + P.STF];
       const live = f >= m.startup && f < m.startup + m.active;
-      const arm = live ? m.reach / SUB : (m.reach / SUB) >> 2;
-      const ax = s[b + P.FACE] > 0 ? x + bw : x - arm;
-      if (live) ink(255, 255, 255).box(ax, py(28 * SUB), arm, 3);
-      else ink(120, 120, 140).box(ax, py(28 * SUB), arm, 3);
+      const arm = live ? u(m.reach) : u(m.reach) >> 2;
+      const ax = face > 0 ? x + bw : x - arm;
+      const ay = py(28 * SUB);
+      if (live) ink(255, 255, 255).box(ax, ay, arm, 2);
+      else ink(120, 120, 140).box(ax, ay, arm, 2);
     }
 
     if (s[b + P.SPL] > 0) {
-      const sx = px(s[b + P.X] + s[b + P.SPX]);
-      const sy = py(s[b + P.SPY]);
       const r = s[b + P.SPL];
-      ink(255, 230, 120).box(sx - (r >> 1), sy - (r >> 1), r, r);
+      ink(255, 230, 120).box(
+        u(s[b + P.X] + s[b + P.SPX]) - (r >> 1),
+        py(s[b + P.SPY]) - (r >> 1),
+        r,
+        r,
+      );
     }
 
     if (boxes) {
-      ink(80, 255, 120, 90).box(x, y, bw, bh); // hurt
+      ink(80, 255, 120, 80).box(x, y, bw, bh); // hurt
       if (st === ST.ATTACK) {
         const m = MOVES[s[b + P.MV]];
         const f = s[b + P.STF];
         if (f >= m.startup && f < m.startup + m.active) {
-          const front = s[b + P.X] + s[b + P.FACE] * (BODY_W >> 1);
-          const hx = s[b + P.FACE] > 0 ? front : front - m.reach;
-          ink(255, 60, 90, 120).box(
-            px(hx),
-            py(34 * SUB),
-            m.reach / SUB,
-            (34 - 18),
-          );
+          const front = s[b + P.X] + face * (BODY_W >> 1);
+          const hx = face > 0 ? front : front - m.reach;
+          ink(255, 60, 90, 110).box(u(hx), py(34 * SUB), u(m.reach), u(16 * SUB));
         }
       }
     }
   }
 
-  // health, timer, and the numbers that matter while debugging.
+  // health sits below the piece label the hud draws in the top-left corner.
+  const bar = (w >> 1) - 12;
   for (let p = 0; p < 2; p++) {
     const hp = s[p * PN + P.HP];
-    const bw = ((hp * 110) / game.START_HP) | 0;
-    const x = p === 0 ? 6 : w - 6 - 110;
-    ink(50, 45, 60).box(x, 6, 110, 6);
-    ink(...SUIT[p]).box(p === 0 ? x : x + 110 - bw, 6, bw, 6);
+    const fill = ((hp * bar) / game.START_HP) | 0;
+    const x = p === 0 ? 4 : w - 4 - bar;
+    ink(50, 45, 60).box(x, 17, bar, 5);
+    ink(...SUIT[p]).box(p === 0 ? x : x + bar - fill, 17, fill, 5);
   }
-  ink(220).write(`${(s[G.TIMER] / 60) | 0}`, { x: (w >> 1) - 6, y: 5 });
-
-  ink(70, 66, 90).write(`t${s[G.TICK]}  ${game.checksum(s).toString(16)}`, {
-    x: 6,
-    y: 16,
-  });
+  ink(220).write(`${(s[G.TIMER] / 60) | 0}`, { x: (w >> 1) - 5, y: 16 });
 
   if (s[G.OVER]) {
     const msg = s[G.OVER] === 3 ? "draw" : `p${s[G.OVER]} wins`;
-    ink(0, 0, 0, 190).box((w >> 1) - 44, (h >> 1) - 14, 88, 28);
-    ink(255, 220, 60).write(msg, { x: (w >> 1) - msg.length * 3, y: (h >> 1) - 8 });
-    ink(150).write("r to rematch", { x: (w >> 1) - 33, y: (h >> 1) + 2 });
+    ink(0, 0, 0, 200).box((w >> 1) - 42, (h >> 1) - 13, 84, 26);
+    ink(255, 220, 60).write(msg, { x: (w >> 1) - msg.length * 3, y: (h >> 1) - 7 });
+    ink(150).write("r to rematch", { x: (w >> 1) - 33, y: (h >> 1) + 3 });
   }
 
-  ink(60, 58, 78).write("wasd+fgh", { x: 6, y: h - 9 });
-  ink(60, 58, 78).write("arrows+jkl", { x: w - 62, y: h - 9 });
+  if (boxes) ink(70, 66, 90).write(`t${s[G.TICK]} ${game.checksum(s).toString(16)}`, { x: 4, y: 25 });
+  if (verdict) ink(120, 255, 160).write(verdict, { x: 4, y: 33 });
 
-  if (verdict) ink(120, 255, 160).write(verdict, { x: 6, y: 26 });
+  if (h >= 110) {
+    ink(58, 56, 76).write("wasd+fgh", { x: 4, y: h - 8 });
+    ink(58, 56, 76).write("arrows+jkl", { x: w - 62, y: h - 8 });
+  }
 }
 
 export { boot, paint, act, sim };
