@@ -33,6 +33,13 @@
       "args": [
         "slab/bin/puppet-mcp.mjs"
       ]
+    },
+    "dm": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "slab/bin/dm-mcp.mjs"
+      ]
     }
   }
 }
