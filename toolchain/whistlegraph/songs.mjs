@@ -62,6 +62,7 @@ const KNOWN = [
   ["Some of the Time", "some of the time im feeling"],
   ["The Three of Us Are in a Cult", "three of us are in"], // merges the beatboxed take
   ["Going Down to South Park", "going down to south park"],
+  ["Kitty Head", "little kitty"], // "come here / meow" takes are one song
 ];
 
 const norm = (s) =>
