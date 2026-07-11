@@ -895,12 +895,12 @@ final class MenuBandPopoverViewController: NSViewController {
         keymapButton.target = self
         keymapButton.action = #selector(miniVisualizerClicked(_:))
         keymapButton.attributedTitle = NSAttributedString(
-            string: "Keymap",
+            string: "Controls",
             attributes: [
                 .foregroundColor: NSColor.controlTextColor,
                 .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
             ])
-        keymapButton.toolTip = "Open the full-screen keymap (piano + QWERTY)"
+        keymapButton.toolTip = "Open the full-screen controls (piano + QWERTY keymap)"
         Self.outlineFooterButton(keymapButton, color: Self.keymapOutlineColor)
 
         // (Gamepad config moved to the full-screen Keymap overlay's bottom-right

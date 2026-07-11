@@ -73,10 +73,6 @@ final class ExpandedPianoWaveformView: NSView {
     /// The Gamepad toggle button — held so the popover's delegate can reset its
     /// pushOnPushOff state when the popover is dismissed by clicking away.
     private weak var gamepadToggle: NSButton?
-    /// Squawk (voice dictation) toggle — the fullscreen twin of the popover's
-    /// 🦜 MIC cell. Hidden unless the Advanced flag is on; its pushed state
-    /// tracks live listening via `.menuBandSquawkStateChanged`.
-    private weak var squawkToggle: NSButton?
     /// Prominent on-screen twin of the backtick (`) sample-record key. Sits at
     /// the leading edge of the mode row as a solid red "● REC" pill so recording
     /// reads as a primary action on the fullscreen surface (the key itself has
@@ -334,25 +330,21 @@ final class ExpandedPianoWaveformView: NSView {
         gamepadToggle.translatesAutoresizingMaskIntoConstraints = false
         self.gamepadToggle = gamepadToggle
         modeStack.addArrangedSubview(gamepadToggle)
-        // Squawk — voice dictation. Talk and it types the transcription into
-        // the frontmost app (⌘⌃⌥` does the same). Hidden unless enabled in the
-        // About window's Advanced section; its state tracks live listening.
-        let squawkToggle = NSButton(title: "Squawk", target: self,
-                                    action: #selector(toggleSquawk(_:)))
-        squawkToggle.tag = 3
-        squawkToggle.bezelStyle = .recessed
-        squawkToggle.setButtonType(.pushOnPushOff)
-        squawkToggle.controlSize = .regular
-        squawkToggle.imagePosition = .imageLeading
-        squawkToggle.imageHugsTitle = true
-        squawkToggle.image = NSImage(systemSymbolName: "mic",
+        // Squawk — opens the Squawk window (voice dictation: enable, how-to,
+        // talk). A peer of the LLMs button; momentary, not a toggle.
+        let squawkButton = NSButton(title: "Squawk", target: self,
+                                    action: #selector(openSquawkWindow(_:)))
+        squawkButton.bezelStyle = .recessed
+        squawkButton.setButtonType(.momentaryPushIn)
+        squawkButton.controlSize = .regular
+        squawkButton.imagePosition = .imageLeading
+        squawkButton.imageHugsTitle = true
+        squawkButton.image = NSImage(systemSymbolName: "person.wave.2",
                                      accessibilityDescription: "Squawk")?
             .withSymbolConfiguration(modeSymbol)
-        squawkToggle.toolTip = "Squawk — click to toggle, or hold ⌘⌃⌥` to talk"
-        squawkToggle.isHidden = !MenuBandSquawk.isEnabled
-        squawkToggle.translatesAutoresizingMaskIntoConstraints = false
-        self.squawkToggle = squawkToggle
-        modeStack.addArrangedSubview(squawkToggle)
+        squawkButton.toolTip = "Squawk — voice dictation (talk and it types for you)"
+        squawkButton.translatesAutoresizingMaskIntoConstraints = false
+        modeStack.addArrangedSubview(squawkButton)
         // LLMs — opens the copy-paste guide that teaches an LLM (Claude, etc.)
         // to drive Menu Band over its notification hooks: autoplay, the live
         // engine, speech, and the peer-to-peer fleet. Sits at the right side of
@@ -382,13 +374,6 @@ final class ExpandedPianoWaveformView: NSView {
         whyButton.translatesAutoresizingMaskIntoConstraints = false
         modeStack.addArrangedSubview(whyButton)
         contentStack.addArrangedSubview(modeStack)
-        // Keep the Squawk toggle in sync with the engine + Advanced flag.
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(squawkStateChanged(_:)),
-            name: .menuBandSquawkStateChanged, object: nil)
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(squawkEnabledChanged(_:)),
-            name: .menuBandSquawkEnabledChanged, object: nil)
         for label in [focusHintLabel, octaveHintLabel, layoutHintLabel] {
             label.font = NSFont.systemFont(ofSize: 10, weight: .bold)
             label.textColor = .secondaryLabelColor
@@ -581,23 +566,10 @@ final class ExpandedPianoWaveformView: NSView {
         refreshGamepadStatus()
     }
 
-    /// Start/stop voice dictation. Routed through a notification so this view
-    /// never touches the Squawk engine directly (AppDelegate owns it).
-    @objc private func toggleSquawk(_ sender: NSButton) {
-        NotificationCenter.default.post(
-            name: .menuBandSquawkToggleRequested, object: nil)
-    }
-
-    /// Reflect live listening state on the toggle.
-    @objc private func squawkStateChanged(_ note: Notification) {
-        squawkToggle?.state = ((note.object as? Bool) ?? false) ? .on : .off
-    }
-
-    /// Show/hide the toggle when the Advanced flag flips.
-    @objc private func squawkEnabledChanged(_ note: Notification) {
-        let on = MenuBandSquawk.isEnabled
-        squawkToggle?.isHidden = !on
-        if !on { squawkToggle?.state = .off }
+    /// Open the Squawk window — enable voice dictation, read how it works,
+    /// and talk. A peer of the LLMs guide window.
+    @objc private func openSquawkWindow(_ sender: NSButton) {
+        SquawkWindowController.show()
     }
 
     @objc private func toggleGamepadCluster(_ sender: NSButton) {

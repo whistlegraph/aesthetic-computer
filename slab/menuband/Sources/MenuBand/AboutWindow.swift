@@ -228,14 +228,14 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         // without an .app wrapper).
         if let icon = IconTinter.tintedIcon() ?? Self.loadAppIcon() {
             // Two physical cards — the app icon in front, a QR code to
-            // prompt.ac/menuband behind. Hover fans them apart so the QR
+            // menuband.app behind. Hover fans them apart so the QR
             // peeks out; clicking shuffles the front card behind the
             // other (and plays a sparkle + particle burst). Modeled on
             // the stacked card-deck in aesthetic.computer's wg.mjs.
-            let qr = Self.qrCodeImage(for: "https://prompt.ac/menuband", side: 96)
+            let qr = Self.qrCodeImage(for: "https://menuband.app", side: 96)
             let cards = CardStackView(front: icon, back: qr)
             cards.translatesAutoresizingMaskIntoConstraints = false
-            cards.toolTip = "prompt.ac/menuband"
+            cards.toolTip = "menuband.app"
             cards.onFlip = { [weak self] in
                 EasterEggChord.shared.play()
                 self?.onPlayDrum?()
@@ -325,7 +325,7 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         // chip so the come-hang-out surface is one tap from identity, and
         // replaces the old purple "Jam" button that used to sit in the
         // popover footer.
-        stack.setCustomSpacing(12, after: langRow)
+        stack.setCustomSpacing(22, after: langRow)
         let playersLink = NSButton(title: "",
                                    target: self,
                                    action: #selector(openLookingForPlayers(_:)))
@@ -343,38 +343,8 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         playersLink.toolTip = "Aesthetic.Computer · computer clubs"
         stack.addArrangedSubview(playersLink)
 
-        #if !MAC_APP_STORE
-        // Advanced: voice squawk. Off by default. When on, ⌘⌃⌥` starts
-        // on-device transcription and types the result into the frontmost
-        // app. Gated out of the sandboxed build, which can't post keystrokes
-        // to other apps.
-        stack.setCustomSpacing(14, after: playersLink)
-        let squawkRow = NSStackView()
-        squawkRow.orientation = .vertical
-        squawkRow.alignment = .leading
-        squawkRow.spacing = 1
-        squawkRow.translatesAutoresizingMaskIntoConstraints = false
-        let squawkToggle = NSButton(
-            checkboxWithTitle: "Squawk — voice dictation (⌘⌃⌥`)",
-            target: self,
-            action: #selector(toggleVoiceSquawk(_:)))
-        squawkToggle.state = MenuBandSquawk.isEnabled ? .on : .off
-        squawkToggle.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
-        squawkToggle.translatesAutoresizingMaskIntoConstraints = false
-        let squawkSub = NSTextField(labelWithString:
-            "hold the mic key and talk — transcribes on-device and types "
-            + "into whatever app is in front")
-        squawkSub.font = NSFont.systemFont(ofSize: 9, weight: .regular)
-        squawkSub.textColor = .secondaryLabelColor
-        squawkSub.lineBreakMode = .byWordWrapping
-        squawkSub.maximumNumberOfLines = 2
-        squawkSub.translatesAutoresizingMaskIntoConstraints = false
-        squawkRow.addArrangedSubview(squawkToggle)
-        squawkRow.addArrangedSubview(squawkSub)
-        stack.addArrangedSubview(squawkRow)
-        squawkRow.widthAnchor.constraint(
-            equalTo: stack.widthAnchor, constant: -56).isActive = true
-        #endif
+        // (Tips moved to the popover footer; Squawk enable moved to its own
+        // window off the fullscreen keymap view — keeps About uncluttered.)
 
         // [v1 cutoff] "Cassette deck (beta)" + "Percussion split" beta
         // checkboxes removed — both features are post-v1. Their flags
@@ -428,21 +398,62 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
             let summary = logs.count == 1
                 ? L("popover.about.crash.summaryOne")
                 : L("popover.about.crash.summaryMany", String(logs.count))
-            let warn = NSButton(title: "⚠️",
-                                target: self,
+            // "Crashes ⚠️" — purple underlined word (peer of 💡 Tips), the
+            // warning glyph trailing and un-underlined.
+            let crashFont = NSFont.systemFont(ofSize: 11, weight: .semibold)
+            let crashTitle = NSMutableAttributedString(
+                string: "Crashes",
+                attributes: [
+                    .font: crashFont,
+                    .foregroundColor: acPurple,
+                    .underlineStyle: NSUnderlineStyle.single.rawValue,
+                ])
+            crashTitle.append(NSAttributedString(
+                string: " ⚠️", attributes: [.font: crashFont]))
+            let warn = NSButton(title: "", target: self,
                                 action: #selector(viewCrashLogs(_:)))
+            warn.attributedTitle = crashTitle
             warn.isBordered = false
             warn.bezelStyle = .regularSquare
-            warn.font = NSFont.systemFont(ofSize: 13)
             warn.toolTip = summary
             warn.setButtonType(.momentaryChange)
             warn.translatesAutoresizingMaskIntoConstraints = false
             content.addSubview(warn)
             NSLayoutConstraint.activate([
                 warn.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -10),
-                warn.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -6),
+                warn.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -14),
             ])
         }
+
+        // "Tips" — a quiet link pinned to the bottom-LEFT corner (mirroring
+        // the crash ⚠️ at bottom-right), opening the Menu Band manual. Corner-
+        // pinned so it doesn't take a row and keeps the brand chrome clean.
+        let tipsCorner = NSButton(title: "",
+                                  target: self,
+                                  action: #selector(openTips(_:)))
+        // "💡 Tips" — leading lightbulb (un-underlined), then the purple
+        // underlined word, matching the "Looking for players" link style.
+        let tipsFont = NSFont.systemFont(ofSize: 11, weight: .semibold)
+        let tipsTitle = NSMutableAttributedString(
+            string: "💡 ", attributes: [.font: tipsFont])
+        tipsTitle.append(NSAttributedString(
+            string: "Tips",
+            attributes: [
+                .font: tipsFont,
+                .foregroundColor: acPurple,
+                .underlineStyle: NSUnderlineStyle.single.rawValue,
+            ]))
+        tipsCorner.attributedTitle = tipsTitle
+        tipsCorner.isBordered = false
+        tipsCorner.bezelStyle = .regularSquare
+        tipsCorner.setButtonType(.momentaryChange)
+        tipsCorner.toolTip = "Open Menu Band Tips"
+        tipsCorner.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(tipsCorner)
+        NSLayoutConstraint.activate([
+            tipsCorner.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 12),
+            tipsCorner.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -14),
+        ])
 
         if let info = updateInfo,
            UpdateChecker.isNewer(info.version, than: UpdateChecker.currentVersion()) {
@@ -487,6 +498,15 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         copyright.textColor = .tertiaryLabelColor
         copyright.alignment = .center
         stack.addArrangedSubview(copyright)
+
+        // Breathing room beneath the copyright so the panel doesn't feel
+        // bottom-crowded and the corner links (💡 Tips / crashes, pinned to
+        // the window's bottom edge) get their own quiet band below the text.
+        let bottomSpacer = NSView()
+        bottomSpacer.translatesAutoresizingMaskIntoConstraints = false
+        bottomSpacer.heightAnchor.constraint(equalToConstant: 24).isActive = true
+        stack.setCustomSpacing(8, after: copyright)
+        stack.addArrangedSubview(bottomSpacer)
     }
 
     /// Open the Jam window ("Looking For Players?") — the social
@@ -558,13 +578,13 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
     // MARK: - Actions
 
     @objc private func openUpdateLink() {
-        if let url = URL(string: "https://prompt.ac/menuband") {
+        if let url = URL(string: "https://menuband.app") {
             NSWorkspace.shared.open(url)
         }
     }
 
     @objc private func openMenubandLanding() {
-        if let url = URL(string: "https://prompt.ac/menuband") {
+        if let url = URL(string: "https://menuband.app") {
             NSWorkspace.shared.open(url)
         }
     }
@@ -638,14 +658,10 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
             name: .menuBandUseACMIDIChanged, object: nil)
     }
 
-    /// Persist the voice-squawk flag and notify AppDelegate to arm or
-    /// disarm the ⌘⌃⌥` hotkey. DMG build only — the checkbox that drives
-    /// this is compiled out of the sandboxed build.
-    @objc private func toggleVoiceSquawk(_ sender: NSButton) {
-        let on = sender.state == .on
-        UserDefaults.standard.set(on, forKey: MenuBandSquawk.enabledDefaultsKey)
-        NotificationCenter.default.post(
-            name: .menuBandSquawkEnabledChanged, object: nil)
+    /// Open the Menu Band manual ("Tips"). Centralized in AppDelegate so the
+    /// help-book registration (needed for a menu-bar app) lives in one place.
+    @objc private func openTips(_ sender: Any?) {
+        AppDelegate.openTips()
     }
 
     /// Open a scroll panel containing the .ips text for every pending

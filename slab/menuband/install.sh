@@ -208,6 +208,28 @@ if [[ -d "${PKG_BUNDLE_SRC}" ]]; then
     cp -R "${PKG_BUNDLE_SRC}/." "${APP_RES}/"
 fi
 
+# --- Apple Help book ---
+# Bundle the MenuBand.help book into Contents/Resources so the About
+# window's "Manual" link (NSApp.showHelp) opens it in Help Viewer. Info.plist
+# registers it via CFBundleHelpBookFolder / CFBundleHelpBookName. Signed
+# inner-to-outer below (like the launcher/QuickLook appex).
+HELP_SRC="${SCRIPT_DIR}/Help/MenuBand.help"
+HELP_DST="${APP_RES}/MenuBand.help"
+if [[ -d "${HELP_SRC}" ]]; then
+    rm -rf "${HELP_DST}"
+    cp -R "${HELP_SRC}" "${HELP_DST}"
+    # Build the full-text search index so Help Viewer's search field works.
+    # HPDBookIndexPath (search.helpindex) is relative to Contents/Resources.
+    if command -v hiutil >/dev/null 2>&1; then
+        if hiutil -Caf "${HELP_DST}/Contents/Resources/search.helpindex" \
+             "${HELP_DST}/Contents/Resources/en.lproj" >/dev/null 2>&1; then
+            ok "indexed help book"
+        else
+            warn "hiutil index failed — help search disabled (book still opens)"
+        fi
+    fi
+fi
+
 # --- QuickLook preview extension (optional; needs Xcode + xcodegen) ---
 # Build ScorePreview.appex and embed it under Contents/PlugIns so ⌘-Space
 # renders the animated graphic score. Signed below (inner-to-outer) and thus
@@ -302,6 +324,18 @@ for qlax in ScorePreview ScoreThumbnail; do
         fi
     fi
 done
+# Sign the Help book (a resource bundle — no executable, so no hardened
+# runtime) before the outer seal, so --deep --strict verify covers a stable
+# nested signature.
+HELP_BUNDLE="${APP_DIR}/Contents/Resources/MenuBand.help"
+if [[ -d "${HELP_BUNDLE}" ]]; then
+    if ! codesign --force --sign "${SIGN_ID}" \
+        --identifier computer.aestheticcomputer.menuband.help \
+        --timestamp \
+        "${HELP_BUNDLE}" 2>&1; then
+        warn "help book sign failed"
+    fi
+fi
 if ! codesign --force --sign "${SIGN_ID}" \
     --identifier computer.aestheticcomputer.menuband \
     --options runtime \

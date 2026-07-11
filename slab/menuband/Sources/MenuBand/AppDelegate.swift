@@ -874,6 +874,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil
         )
 
+        // Sibling remote: open the Apple Help book (same path as the About
+        // window's "Manual" link). Also the reliable way to exercise Help
+        // Viewer registration from the shell.
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(handleShowManualNotification(_:)),
+            name: NSNotification.Name("computer.aestheticcomputer.menuband.showManual"),
+            object: nil
+        )
+
         // Sibling remote: autoplay a melody. Switches to the GM program
         // named in userInfo["program"] (default Whistle, 78) and plays the
         // note sequence in userInfo["notes"] through the real tap path, so
@@ -3714,6 +3724,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let s = s, !s.isEmpty else { return [] }
         return s.split(separator: ",", omittingEmptySubsequences: false)
             .map { $0.trimmingCharacters(in: .whitespaces) }
+    }
+
+    @objc private func handleShowManualNotification(_ note: Notification) {
+        debugLog("handleShowManualNotification received")
+        DispatchQueue.main.async { AppDelegate.openTips() }
+    }
+
+    /// Open the bundled Apple Help book ("Tips") in Help Viewer.
+    ///
+    /// `NSApp.showHelp` silently no-ops for a menu-bar (LSUIElement) app until
+    /// the book is force-registered — `helpd` only scans regular foreground
+    /// apps lazily. `AHRegisterHelpBookWithURL` (Carbon's Apple Help Manager)
+    /// registers the app's declared book up front, so the first click works.
+    static func openTips() {
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        AHRegisterHelpBookWithURL(Bundle.main.bundleURL as CFURL)
+        NSApplication.shared.showHelp(nil)
     }
 
     @objc private func handleShowAboutNotification(_ note: Notification) {

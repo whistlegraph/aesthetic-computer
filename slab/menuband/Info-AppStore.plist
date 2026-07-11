@@ -15,6 +15,10 @@
 	<string>MenuBand</string>
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
+	<key>CFBundleHelpBookFolder</key>
+	<string>MenuBand.help</string>
+	<key>CFBundleHelpBookName</key>
+	<string>computer.aestheticcomputer.menuband.help</string>
 	<key>CFBundleIdentifier</key>
 	<string>computer.aesthetic.menuband</string>
 	<key>CFBundleInfoDictionaryVersion</key>
