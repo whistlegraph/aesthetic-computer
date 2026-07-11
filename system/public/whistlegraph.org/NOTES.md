@@ -25,6 +25,19 @@ Data edits + copy/loop changes from that thread are already applied to `graphs.j
   days didn't take — needs a final comb-through against his list (get specifics).
 - Expect a **large manual component** to the final accuracy check.
 
+## "Where to find our merch?" section (Alex/jeffrey, 2026-07-11)
+- Don't funnel merch to one storefront — being spread across URLs and stocked in
+  multiple shops (incl. museum / art-museum gift shops) is a feature. Add a
+  **"Where to find our merch?"** section that *lists the outlets*: Sex Magazine
+  (the zine), the Whistlegraph shop, shop.aesthetic.computer's whistlegraph section
+  (TBD), plus any brick-and-mortar / museum gift shops that carry it. A directory,
+  not a checkout.
+- **Fan-made / user-made merch.** Some whistlegraph merch was made by users & fans —
+  worth surfacing (a "made by the community" strand of the directory). Evidence lives in
+  the **Instagram platter history** (see `/social`) and possibly **Notion**. Task:
+  source that evidence (screenshots / posts / links) — good subagent job, can lean on
+  the just-repurchased Notion seat + the IG archive.
+
 ## To design / decide
 - **Left-column "cover" colors.** Hand-select the swatch color on the left of each
   title (most archive rows currently share `#b44887`). Alex: pull colors from each
