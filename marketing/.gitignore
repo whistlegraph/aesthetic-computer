@@ -17,3 +17,6 @@ kidlisp-reels/out/
 podcast/out/
 podcast/assets/
 podcast/publish/
+
+# av-reels working outputs (regen-able)
+av-reels/out/
