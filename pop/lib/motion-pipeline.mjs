@@ -6,8 +6,8 @@
 // The iterative money-safe loop:
 //   1. generate            — Seedance shots per section (cached; --force
 //                            re-rolls ARCHIVE the old take, never delete)
-//   2. audition            — pop/bin/audition-motion.mjs serves a takes
-//                            board; picks land in out/motion/takes.json
+//   2. audition            — pick/re-roll takes in ClipWizard (macOS);
+//                            picks land in out/motion/takes.json
 //   3. --assemble          — trims the PICKED take of each section to its
 //                            exact struct length, concats, muxes the track
 //   …repeat 1–3 until the cut is right. Takes are never lost; a re-roll

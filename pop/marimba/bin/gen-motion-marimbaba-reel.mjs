@@ -25,7 +25,7 @@
 //   node pop/marimba/bin/gen-motion-marimbaba-reel.mjs               # gen missing shots (9:16)
 //   node pop/marimba/bin/gen-motion-marimbaba-reel.mjs --only baba2 --force  # re-roll
 //   node pop/marimba/bin/gen-motion-marimbaba-reel.mjs --assemble    # portrait cut + chrome
-//   node pop/bin/audition-motion.mjs --lane marimba --slug marimbaba-reel
+//   pick/re-roll takes in ClipWizard (macOS) — writes out/motion/takes.json
 //
 // Shot grammar: CUTS by default; morphTo ONLY same-camera escalations
 // (cross-scene morphs invent doubled figures — see pop-motion-pipeline).

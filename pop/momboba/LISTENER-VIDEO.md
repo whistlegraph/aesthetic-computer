@@ -215,7 +215,7 @@ generator and one landscape-chrome compositor; the rest is configuration.
 3. node pop/momboba/bin/gen-motion-listener.mjs  # NEW (fork gen-motion-…-reel.mjs)
    → out/motion/listener/<movement>-shot.mp4      # Tier-B: 4 shots, fast/720p
    (uses pop/lib/motion-pipeline.mjs + fal.mjs; takes board via
-    pop/bin/audition-motion.mjs to pick the good roll before assembling)
+    ClipWizard (macOS) to pick the good roll before assembling)
 
 4. node pop/momboba/bin/chrome-listener.mjs       # NEW (fork chrome-reel.mjs)
    --variant listener                              # landscape 1920×1080@30

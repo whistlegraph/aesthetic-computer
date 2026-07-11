@@ -75,6 +75,11 @@ const PAPER_MAP = {
     siteName: "aesthetic-computer-26-arxiv",
     title: "Aesthetic Computer '26",
   },
+  "arxiv-aesthinema": {
+    base: "aesthinema",
+    siteName: "aesthinema-26-arxiv",
+    title: "Aesthinema",
+  },
   "arxiv-api": {
     base: "api",
     siteName: "piece-api-26-arxiv",

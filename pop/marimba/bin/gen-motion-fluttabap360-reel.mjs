@@ -32,7 +32,7 @@
 //   node pop/marimba/bin/gen-motion-fluttabap360-reel.mjs               # gen all missing
 //   node pop/marimba/bin/gen-motion-fluttabap360-reel.mjs --only molt --force  # re-roll
 //   node pop/marimba/bin/gen-motion-fluttabap360-reel.mjs --assemble    # 46.2s loop cut + chrome
-//   node pop/bin/audition-motion.mjs --lane marimba --slug fluttabap360-reel
+//   pick/re-roll takes in ClipWizard (macOS) — writes out/motion/takes.json
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync } from "node:fs";
 import { resolve, dirname } from "node:path";

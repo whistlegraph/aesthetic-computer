@@ -22,7 +22,7 @@
 //   node pop/momboba/bin/gen-motion-listener.mjs --dry-run    # prompts + cost
 //   node pop/momboba/bin/gen-motion-listener.mjs              # gen missing shots
 //   node pop/momboba/bin/gen-motion-listener.mjs --only the-dream --force
-//   node pop/bin/audition-motion.mjs --lane momboba --slug momabobasheep-listener
+//   pick/re-roll takes in ClipWizard (macOS) — writes out/motion/takes.json
 
 import { writeFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";

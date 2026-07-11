@@ -18,7 +18,7 @@
 //   node pop/momboba/bin/gen-motion-reel.mjs                  # gen missing shots
 //   node pop/momboba/bin/gen-motion-reel.mjs --only dream --force  # re-roll (archives old take)
 //   node pop/momboba/bin/gen-motion-reel.mjs --assemble       # portrait cut
-//   node pop/bin/audition-motion.mjs --lane momboba --slug momabobasheep-reel
+//   pick/re-roll takes in ClipWizard (macOS) — writes out/motion/takes.json
 //
 // Shot grammar: ALL CUTS — the sleepy pace wants them, and cross-scene
 // morphs invent doubled figures (see pop-motion-pipeline memory).

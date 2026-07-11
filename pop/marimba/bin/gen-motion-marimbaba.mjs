@@ -9,7 +9,7 @@
 //   node pop/marimba/bin/gen-motion-marimbaba.mjs             # gen missing shots
 //   node pop/marimba/bin/gen-motion-marimbaba.mjs --only baba2 --force  # re-roll (archives old take)
 //   node pop/marimba/bin/gen-motion-marimbaba.mjs --assemble  # cut from picked takes
-//   node pop/bin/audition-motion.mjs --lane marimba --slug marimbaba    # takes board
+//   pick/re-roll takes in ClipWizard (macOS) — writes out/motion/takes.json
 //
 // Shot grammar: CUTS by default; morphTo ONLY same-camera escalations
 // (cross-scene morphs invent doubled figures — see pop-motion-pipeline).

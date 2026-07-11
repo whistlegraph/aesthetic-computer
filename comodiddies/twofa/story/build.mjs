@@ -105,7 +105,7 @@ ff(["-i", sheetPng,
 
 // ── Motion takes (Seedance via gen-motion.mjs) ─────────────────────────
 // A slide with a generated motion clip in motion/ uses it instead of the
-// zoompan still; takes.json picks (ClipWizard / audition-motion) win over
+// zoompan still; takes.json picks (ClipWizard) win over
 // the default shot file. The sheet never has one — typeset copy stays a
 // still. Missing takes fall back to zoompan so the cut always completes.
 const MOTION = join(HERE, "motion");

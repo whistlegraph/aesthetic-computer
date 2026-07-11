@@ -31,6 +31,71 @@ function countFiles(dirPath, ext) {
   return readdirSync(dirPath).filter((name) => name.endsWith(ext)).length;
 }
 
+// Count immediate subdirectories of dirPath (optionally skipping some names).
+function countDirs(dirPath, skip = []) {
+  if (!existsSync(dirPath)) return 0;
+  return readdirSync(dirPath, { withFileTypes: true }).filter(
+    (entry) => entry.isDirectory() && !skip.includes(entry.name),
+  ).length;
+}
+
+// Recursively count files whose name satisfies `match(name)`, up to `depth`.
+function countFilesDeep(dirPath, match, depth = 4) {
+  if (depth < 0 || !existsSync(dirPath)) return 0;
+  let total = 0;
+  for (const entry of readdirSync(dirPath, { withFileTypes: true })) {
+    if (entry.isFile()) {
+      if (match(entry.name)) total += 1;
+    } else if (entry.isDirectory()) {
+      total += countFilesDeep(join(dirPath, entry.name), match, depth - 1);
+    }
+  }
+  return total;
+}
+
+// Does dirPath (or a descendant, up to `depth`) contain a file matching `exts`?
+function hasFileDeep(dirPath, exts, depth = 3) {
+  if (depth < 0 || !existsSync(dirPath)) return false;
+  for (const entry of readdirSync(dirPath, { withFileTypes: true })) {
+    if (entry.isFile()) {
+      if (exts.some((ext) => entry.name.endsWith(ext))) return true;
+    } else if (entry.isDirectory()) {
+      if (hasFileDeep(join(dirPath, entry.name), exts, depth - 1)) return true;
+    }
+  }
+  return false;
+}
+
+// Count top-level pop/ lanes that carry musical signals (.illy.txt or .np),
+// skipping shared/tooling dirs so the number tracks actual music lanes.
+function countPopLanes(popDir) {
+  if (!existsSync(popDir)) return 0;
+  const skip = [
+    "bin",
+    "lib",
+    "dsp",
+    "out",
+    "samples",
+    "references",
+    "demos",
+    "big-pictures",
+    "voice",
+  ];
+  let lanes = 0;
+  for (const entry of readdirSync(popDir, { withFileTypes: true })) {
+    if (!entry.isDirectory() || skip.includes(entry.name)) continue;
+    if (hasFileDeep(join(popDir, entry.name), [".illy.txt", ".np"], 2)) lanes += 1;
+  }
+  return lanes;
+}
+
+// Count released singles in pop/RELEASES.md via "## <name> — RELEASED" headings.
+function countReleases(releasesPath) {
+  if (!existsSync(releasesPath)) return 0;
+  return (readFileSync(releasesPath, "utf8").match(/^## .*RELEASED/gm) || [])
+    .length;
+}
+
 function getMarkdownFiles(repoDir) {
   const fullPath = join(REPO_ROOT, repoDir);
   if (!existsSync(fullPath)) return [];
@@ -124,6 +189,39 @@ function main() {
     ".txt",
   );
 
+  // Pop / Music surface.
+  const popDir = join(REPO_ROOT, "pop");
+  const popLanes = countPopLanes(popDir);
+  const popReleases = countReleases(join(popDir, "RELEASES.md"));
+  const popMotionDrivers = (() => {
+    if (!existsSync(popDir)) return 0;
+    let n = 0;
+    for (const entry of readdirSync(popDir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const binDir = join(popDir, entry.name, "bin");
+      if (!existsSync(binDir)) continue;
+      n += readdirSync(binDir).filter(
+        (name) => name.startsWith("gen-motion-") && name.endsWith(".mjs"),
+      ).length;
+    }
+    return n;
+  })();
+
+  // Marketing surface.
+  const marketingDir = join(REPO_ROOT, "marketing");
+  const marketingCampaigns = countDirs(join(marketingDir, "campaigns"));
+  const marketingReelLanes = [
+    "av-reels",
+    "kidlisp-reels",
+    "whistlegraph-seedance",
+    "podcast",
+  ].filter((name) => existsSync(join(marketingDir, name))).length;
+  const marketingImagePrompts = countFilesDeep(
+    join(marketingDir, "campaigns"),
+    (name) => name.startsWith("cover-prompt") && name.endsWith(".txt"),
+    4,
+  );
+
   html = replaceOrThrow(
     html,
     /<div class="stats">[\s\S]*?<\/div>/,
@@ -199,6 +297,18 @@ function main() {
     `${piecesTotal} built-in pieces ·`,
     "platform stats built-in pieces",
   );
+  html = replaceOrThrow(
+    html,
+    /(<h2>Pop \/ Music<\/h2>\s*<span class="count">)\d+ lanes · \d+ released · \d+ motion drivers(<\/span>)/,
+    `$1${popLanes} lanes · ${popReleases} released · ${popMotionDrivers} motion drivers$2`,
+    "pop count",
+  );
+  html = replaceOrThrow(
+    html,
+    /(<h2>Marketing<\/h2>\s*<span class="count">)\d+ campaigns · \d+ reel pipelines · \d+ image prompts(<\/span>)/,
+    `$1${marketingCampaigns} campaigns · ${marketingReelLanes} reel pipelines · ${marketingImagePrompts} image prompts$2`,
+    "marketing count",
+  );
 
   writeFileSync(PLATTER_PATH, html, "utf8");
 
@@ -208,6 +318,12 @@ function main() {
   console.log(`studies: ${studies.count} (${studies.added} added, ${studies.removed} removed)`);
   console.log(
     `stats: pieces=${piecesTotal} (${piecesMjs}+${piecesLisp}), lib=${libModules}, functions=${functionCount}, papers=${papersCount}`,
+  );
+  console.log(
+    `pop: ${popLanes} lanes, ${popReleases} released, ${popMotionDrivers} motion drivers`,
+  );
+  console.log(
+    `marketing: ${marketingCampaigns} campaigns, ${marketingReelLanes} reel pipelines, ${marketingImagePrompts} image prompts`,
   );
 }
 
