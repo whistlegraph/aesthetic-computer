@@ -103,7 +103,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: computer.aesthetic.menuband
         INFOPLIST_FILE: Info-AppStore.plist
         MARKETING_VERSION: "1.5.3"
-        CURRENT_PROJECT_VERSION: "153"
+        CURRENT_PROJECT_VERSION: "154"
         CODE_SIGN_ENTITLEMENTS: MenuBand-AppStore.entitlements
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: FB5948YR3S

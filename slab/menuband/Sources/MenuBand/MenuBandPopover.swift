@@ -446,6 +446,13 @@ final class MenuBandPopoverViewController: NSViewController {
             cluster.onChartToggled = { [weak self] in
                 self?.refitAndResizePanel()
             }
+            // Tap the waveform strip → open the full-screen keymap, same as
+            // the "Keymap" footer button. (The embedded cluster's own
+            // onOpenKeymap was never wired, so the visualizer tap did
+            // nothing here — restored without any global cmd-cmd shortcut.)
+            cluster.onOpenKeymap = { [weak self] in
+                self?.onMiniVisualizerExpand?()
+            }
             instrumentCluster = cluster
             stack.addArrangedSubview(cluster)
             stack.setCustomSpacing(8, after: cluster)
@@ -895,12 +902,12 @@ final class MenuBandPopoverViewController: NSViewController {
         keymapButton.target = self
         keymapButton.action = #selector(miniVisualizerClicked(_:))
         keymapButton.attributedTitle = NSAttributedString(
-            string: "Controls",
+            string: "Keymap",
             attributes: [
                 .foregroundColor: NSColor.controlTextColor,
                 .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
             ])
-        keymapButton.toolTip = "Open the full-screen controls (piano + QWERTY keymap)"
+        keymapButton.toolTip = "Open the full-screen keymap (piano + QWERTY)"
         Self.outlineFooterButton(keymapButton, color: Self.keymapOutlineColor)
 
         // (Gamepad config moved to the full-screen Keymap overlay's bottom-right

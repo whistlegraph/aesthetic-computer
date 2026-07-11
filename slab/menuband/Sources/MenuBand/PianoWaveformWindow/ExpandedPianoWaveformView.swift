@@ -286,8 +286,12 @@ final class ExpandedPianoWaveformView: NSView {
         modeStack.spacing = 8
         modeStack.translatesAutoresizingMaskIntoConstraints = false
         // Record pill leads the row — the fullscreen sample-record affordance.
+        // Hidden in the App Store build (the SAMPLE cell + backtick still
+        // record); the fullscreen REC pill is direct-download only.
+        #if !MAC_APP_STORE
         configureRecordButton()
         modeStack.addArrangedSubview(recordButton)
+        #endif
         let modeSymbol = NSImage.SymbolConfiguration(pointSize: 12, weight: .regular)
         let modeSpecs: [(label: String, image: NSImage?, tag: Int)] = [
             ("Menu Band",
@@ -330,8 +334,11 @@ final class ExpandedPianoWaveformView: NSView {
         gamepadToggle.translatesAutoresizingMaskIntoConstraints = false
         self.gamepadToggle = gamepadToggle
         modeStack.addArrangedSubview(gamepadToggle)
+        #if !MAC_APP_STORE
         // Squawk — opens the Squawk window (voice dictation: enable, how-to,
-        // talk). A peer of the LLMs button; momentary, not a toggle.
+        // talk). A peer of the LLMs button; momentary, not a toggle. Absent
+        // from the App Store build: Squawk types into other apps (keystroke
+        // injection), which the sandbox forbids, so it's direct-download only.
         let squawkButton = NSButton(title: "Squawk", target: self,
                                     action: #selector(openSquawkWindow(_:)))
         squawkButton.bezelStyle = .recessed
@@ -345,6 +352,7 @@ final class ExpandedPianoWaveformView: NSView {
         squawkButton.toolTip = "Squawk — voice dictation (talk and it types for you)"
         squawkButton.translatesAutoresizingMaskIntoConstraints = false
         modeStack.addArrangedSubview(squawkButton)
+        #endif
         // LLMs — opens the copy-paste guide that teaches an LLM (Claude, etc.)
         // to drive Menu Band over its notification hooks: autoplay, the live
         // engine, speech, and the peer-to-peer fleet. Sits at the right side of

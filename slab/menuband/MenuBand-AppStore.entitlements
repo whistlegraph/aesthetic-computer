@@ -19,14 +19,14 @@
     <key>com.apple.security.network.client</key>
     <true/>
 
-
-    <!-- Bluetooth game controllers (Xbox / DualSense / generic) played via
-         the GameController framework. Required so the sandboxed App Store
-         build can receive input from a paired wireless controller. -->
-    <key>com.apple.security.device.bluetooth</key>
-    <true/>
-
     <!-- NOT included, and why:
+         • com.apple.security.device.bluetooth — REMOVED (App Review 2.4.5(i),
+           Jul 2026). It backed two things that don't need it in the sandboxed
+           build: (1) the MultipeerConnectivity fleet, which is
+           `#if !MAC_APP_STORE` (gated out of MAS), and (2) game controllers,
+           which use the high-level GameController framework — there is no raw
+           CoreBluetooth / CBCentralManager anywhere in the app, so paired
+           controllers work without this entitlement.
          • No global keystroke capture (CGEventTap / Carbon hotkeys) — the
            sandbox forbids it; gated out behind #if MAC_APP_STORE.
          • No Apple Events to Stickies — the StickiesBridge is gated out;

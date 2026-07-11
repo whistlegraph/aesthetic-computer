@@ -57,7 +57,17 @@ final class MenuBandSquawk {
     static let enabledDefaultsKey = "MenuBandVoiceSquawkEnabled"
 
     static var isEnabled: Bool {
-        UserDefaults.standard.bool(forKey: enabledDefaultsKey)
+        // Squawk needs keystroke injection to be useful (it types the
+        // transcription into the frontmost app), which the App Store sandbox
+        // forbids. Rather than ship a Speech-Recognition capability that can
+        // transcribe but do nothing, Squawk is direct-download only: force it
+        // off in the MAS build so the hotkey never registers, the 🦜 cell
+        // never shows, and the recognizer is never invoked.
+        #if MAC_APP_STORE
+        return false
+        #else
+        return UserDefaults.standard.bool(forKey: enabledDefaultsKey)
+        #endif
     }
 
     /// Fired on the main thread whenever listening starts (`true`) or stops
