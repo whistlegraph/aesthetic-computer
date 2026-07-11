@@ -432,6 +432,15 @@ enum MenuBuilder {
         tileNow.keyEquivalentModifierMask = [.command, .option]
         sub.addItem(tileNow)
 
+        // Scatter — the inverse of Tile: shrink every session into tiny confetti
+        // windows jittered across the desktop (non-overlapping, lots of desktop
+        // showing through) with super-tiny text.
+        let scatterNow = item("Scatter now", selector: #selector(AppDelegate.scatterNow), target: target)
+        scatterNow.keyEquivalent = "s"
+        scatterNow.keyEquivalentModifierMask = [.command, .option]
+        scatterNow.toolTip = "Opposite of Tile — shrink each session to a tiny window with super-small text and scatter them across the desktop without overlapping, so most of the desktop shows through."
+        sub.addItem(scatterNow)
+
         // Text size — radio trio so the active mode is visible at a glance.
         // Far = auto-fit "suitable", Near = denser, Tiny = edge-of-legibility.
         let textParent = NSMenuItem(title: "Text size", action: nil, keyEquivalent: "")

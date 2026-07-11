@@ -2123,6 +2123,76 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         )
     }
 
+    // MARK: - Scatter (the opposite of tile)
+
+    /// Scatter's font is deliberately tiny — the whole point is to shrink each
+    /// session to a little confetti window and let the desktop show through.
+    /// 6pt is about as small as Terminal.app renders while a couple of words
+    /// stay distinguishable; the window shrinks to match once the font lands.
+    static let scatterFontSize = 6
+    /// Hard cap on a scattered window's edge so a sparse scatter (few windows,
+    /// huge cells) still reads as "tiny confetti" instead of a loose tile.
+    static let scatterMaxWin = 230
+
+    /// Where each window lands in a scatter, in AppleScript top-left pixels.
+    /// Unlike TileLayout there is no fill invariant: windows are small and the
+    /// gaps between them are the feature (more visible desktop).
+    struct ScatterLayout {
+        let frames: [(left: Int, top: Int, right: Int, bottom: Int)]
+        let fontSize: Int
+    }
+
+    /// Jittered-grid scatter: carve the visible frame into `count` generous
+    /// cells (near-square, screen-aspect-aware), then drop one small window
+    /// into a random spot *inside* each cell. Because every window stays
+    /// within its own cell and is strictly smaller than it, windows can never
+    /// overlap — and the leftover slack in each cell is the desktop showing
+    /// through. Shuffling the cell order keeps the placement from reading as a
+    /// neat grid (a real scatter), while the per-cell containment keeps it
+    /// tidy. Returns nil when nothing is open.
+    private static func computeScatterLayout(count: Int, geom: ScreenGeom) -> ScatterLayout? {
+        guard count > 0 else { return nil }
+
+        // Cells sized to the screen aspect so they stay roughly square — a
+        // square cell gives jitter room in both axes. One cell per window
+        // (not more) keeps the confetti spread across the whole screen.
+        let aspect = Double(geom.width) / Double(max(1, geom.height))
+        var cols = max(1, Int((Double(count) * aspect).squareRoot().rounded()))
+        var rows = Int(ceil(Double(count) / Double(cols)))
+        while cols * rows < count { cols += 1; rows = Int(ceil(Double(count) / Double(cols))) }
+
+        let cellW = geom.width / cols
+        let cellH = geom.height / rows
+
+        // Window strictly smaller than its cell: ~60% leaves generous desktop
+        // slack for the jitter to move within, and guarantees non-overlap.
+        // Capped so even a 3-window scatter on a big screen stays little.
+        let winW = max(110, min(scatterMaxWin, Int(Double(cellW) * 0.6)))
+        let winH = max(80, min(Int(Double(scatterMaxWin) * 0.72), Int(Double(cellH) * 0.6)))
+
+        // Take `count` distinct cells in shuffled order so window i doesn't
+        // march left-to-right, top-to-bottom.
+        let cells = Array(0..<(cols * rows)).shuffled().prefix(count)
+
+        var frames: [(left: Int, top: Int, right: Int, bottom: Int)] = []
+        for idx in cells {
+            let cx = idx % cols
+            let cy = idx / cols
+            let cellLeft = geom.originX + cx * geom.width / cols
+            let cellTop = geom.originY + cy * geom.height / rows
+            // Slack computed from the floored cellW/cellH, so left+winW+slack
+            // never crosses the (>= cellW-wide) cell's right/bottom edge.
+            let slackX = max(0, cellW - winW)
+            let slackY = max(0, cellH - winH)
+            let ox = slackX > 0 ? Int.random(in: 0...slackX) : 0
+            let oy = slackY > 0 ? Int.random(in: 0...slackY) : 0
+            let left = cellLeft + ox
+            let top = cellTop + oy
+            frames.append((left, top, left + winW, top + winH))
+        }
+        return ScatterLayout(frames: frames, fontSize: scatterFontSize)
+    }
+
     /// Tile every currently-open iTerm2 *and* Terminal.app window into one
     /// shared grid. Independent of the auto-tile flag — this is the
     /// "I forgot to enable it" / "I want to re-pack what's open" button.
@@ -2202,6 +2272,88 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                         Self.axTilePass(geom: geom, textSize: textSize)
                     }
+                }
+            }
+        }
+    }
+
+    /// Scatter every open session into tiny confetti windows spread across the
+    /// desktop — the inverse of Tile. Same window set (iTerm2 + Terminal.app +
+    /// AC preview panes), but instead of packing them edge-to-edge it shrinks
+    /// each to a little window, drops the font to `scatterFontSize`, and jitters
+    /// them into non-overlapping spots so the desktop shows through the gaps.
+    ///
+    /// The layout is computed ONCE (it's randomized — recomputing per re-pin
+    /// would make windows jump), and the same frames are re-applied across a
+    /// few settles because a Terminal window only reaches its tiny pixel size
+    /// AFTER its font shrinks and the grid reflows (same reflow race the tiler
+    /// fights). Requires Accessibility trust; without it we no-op rather than
+    /// fall back, since scatter has no legacy osascript path.
+    @objc func scatterNow() {
+        guard let geom = Self.screenGeom() else { return }
+        guard AXTiler.trusted else {
+            NSLog("🎲 [scatter] skipped — Accessibility not trusted")
+            return
+        }
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let iterm = AXTiler.windows(bundleId: "com.googlecode.iterm2")
+            let term = AXTiler.windows(bundleId: "com.apple.Terminal")
+            // AC Electron preview windows are frameless (non-standard subrole).
+            let acpane = AXTiler.windows(bundleId: "computer.aesthetic.app",
+                                         requireStandardSubrole: false)
+            let all = iterm + term + acpane
+            NSLog("🎲 [scatter] iterm=\(iterm.count) term=\(term.count) acpane=\(acpane.count)")
+            guard !all.isEmpty,
+                  let layout = Self.computeScatterLayout(count: all.count, geom: geom)
+            else { return }
+
+            // Pin the fixed, pre-randomized frames — reused verbatim by every
+            // re-pin below so the confetti stays put across the font reflow.
+            let apply = {
+                for (i, w) in all.enumerated() {
+                    let f = layout.frames[i]
+                    AXTiler.setFrame(w, left: f.left, top: f.top,
+                                     right: f.right, bottom: f.bottom)
+                }
+            }
+            apply()  // iTerm2 + AC panes shrink instantly; terminals wait for the font.
+
+            DispatchQueue.main.async {
+                // A scatter re-lays everything, so forget prior decor placement.
+                self?.lastTerminalDecor.removeAll()
+            }
+            guard term.count > 0 else { return }
+
+            // Drop each Terminal window's font to the tiny scatter size, then
+            // force a live reflow via View ▸ Default Font Size (a per-window
+            // zoom otherwise silently overrides the profile font — same reason
+            // the tiler does this dance). Only Terminal.app needs it.
+            let lines: [String] = [
+                "tell application \"Terminal\"",
+                "    set _slabIds to id of (every window whose miniaturized is false)",
+                "    repeat with _wid in _slabIds",
+                "      try",
+                "        set font size of current settings of (first window whose id is (contents of _wid)) to \(layout.fontSize)",
+                "      end try",
+                "    end repeat",
+                "    activate",
+                "end tell",
+                "repeat with _wid in _slabIds",
+                "  try",
+                "    tell application \"Terminal\" to set index of (first window whose id is (contents of _wid)) to 1",
+                "    delay 0.15",
+                "    tell application \"System Events\" to tell process \"Terminal\" to click menu item \"Default Font Size\" of menu 1 of menu bar item \"View\" of menu bar 1",
+                "    delay 0.05",
+                "  end try",
+                "end repeat",
+            ]
+            ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", lines.joined(separator: "\n")]) {
+                // Font reflow resizes each Terminal window a beat after osascript
+                // returns; re-pin now and across a few settles so the tiny frame
+                // is always the LAST thing applied and wins.
+                apply()
+                for delay in [0.10, 0.25, 0.45] {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + delay) { apply() }
                 }
             }
         }
