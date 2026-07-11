@@ -12,8 +12,10 @@
 //
 // Usage:
 //   node bin/buzzsprout.mjs <slug> [--private] [--force]
-//     reads out/<slug>.{mp3,json}; title/description from the sidecar.
-//   node bin/buzzsprout.mjs list           # list existing episodes
+//     reads out/<slug>.{mp3,json}; title/description from the sidecar,
+//     and out/<slug>-cover-1400.png as episode artwork if present.
+//   node bin/buzzsprout.mjs artwork <slug>  # (re)set just the episode image
+//   node bin/buzzsprout.mjs list            # list existing episodes
 //
 // Writes out/<slug>.buzzsprout.json receipt on success.
 
@@ -81,6 +83,30 @@ if (positional[0] === "publish") {
   process.exit(0);
 }
 
+// ── set an episode's artwork ───────────────────────────────────────────
+// Push out/<slug>-cover-1400.png (Buzzsprout wants a square 1400–3000px
+// image) to the live episode. Buzzsprout ingests it async: the PUT returns a
+// placeholder artwork_url, then settles to a per-episode storage URL. Without
+// this every episode inherits the show's default cover — the "messed up,
+// all-the-same" images this fixes.
+if (positional[0] === "artwork") {
+  const s = positional[1];
+  const rp = resolve(OUT, `${s}.buzzsprout.json`);
+  if (!existsSync(rp)) { console.error(`✗ no receipt ${rp} — upload it first`); process.exit(1); }
+  const id = JSON.parse(readFileSync(rp, "utf8")).id;
+  const img = [`${s}-cover-1400.png`, `${s}-cover.png`].map((f) => resolve(OUT, f)).find(existsSync);
+  if (!img) { console.error(`✗ no cover for ${s} (looked for ${s}-cover-1400.png / ${s}-cover.png in out/)`); process.exit(1); }
+  const fd = new FormData();
+  fd.append("artwork_file", new Blob([readFileSync(img)], { type: "image/png" }), basename(img));
+  console.log(`▸ setting artwork on episode ${id} from ${basename(img)}…`);
+  const res = await fetch(`${API}/episodes/${id}.json`, { method: "PUT", headers: auth, body: fd });
+  if (!res.ok) { console.error(`✗ artwork ${res.status}: ${(await res.text()).slice(0, 300)}`); process.exit(1); }
+  const ep = await res.json();
+  writeFileSync(rp, JSON.stringify(ep, null, 2) + "\n");
+  console.log(`✓ ${s} artwork set (ingesting async; recheck with 'list' shortly)`);
+  process.exit(0);
+}
+
 // ── replace the audio of an already-published episode ──────────────────
 // Re-push out/<slug>.mp3 to the live episode (same URL/GUID). Note: already-
 // downloaded copies keep the old file; new plays get the update.
@@ -104,7 +130,7 @@ if (positional[0] === "replace") {
 
 // ── publish an episode ─────────────────────────────────────────────────
 const slug = positional[0];
-if (!slug) { console.error("usage: buzzsprout.mjs <slug> [--private] | publish <slug> | list"); process.exit(1); }
+if (!slug) { console.error("usage: buzzsprout.mjs <slug> [--private] | publish <slug> | replace <slug> | artwork <slug> | list"); process.exit(1); }
 
 const mp3 = resolve(OUT, `${slug}.mp3`);
 const metaPath = resolve(OUT, `${slug}.json`);
@@ -130,8 +156,12 @@ fd.append("artist", "@jeffrey");
 if (flags.has("--private")) fd.append("private", "true");
 else fd.append("published_at", new Date().toISOString());
 fd.append("audio_file", new Blob([readFileSync(mp3)], { type: "audio/mpeg" }), basename(mp3));
+// Attach the per-episode cover if one exists, so new episodes never inherit
+// the show's default artwork. (Set it later on any episode with `artwork`.)
+const coverPath = [`${slug}-cover-1400.png`, `${slug}-cover.png`].map((f) => resolve(OUT, f)).find(existsSync);
+if (coverPath) fd.append("artwork_file", new Blob([readFileSync(coverPath)], { type: "image/png" }), basename(coverPath));
 
-console.log(`▸ publishing "${title}" to Buzzsprout (${(readFileSync(mp3).length / 1e6).toFixed(1)} MB)…`);
+console.log(`▸ publishing "${title}" to Buzzsprout (${(readFileSync(mp3).length / 1e6).toFixed(1)} MB${coverPath ? ` + ${basename(coverPath)}` : ""})…`);
 const res = await fetch(`${API}/episodes.json`, { method: "POST", headers: auth, body: fd });
 if (!res.ok) { console.error(`✗ publish ${res.status}: ${(await res.text()).slice(0, 300)}`); process.exit(1); }
 const ep = await res.json();
