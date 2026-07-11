@@ -159,6 +159,7 @@
   #detail video.canon{width:360px; max-width:74vw; aspect-ratio:900/1080; background:var(--paper)}
   #detail .lbl{font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--margin); margin:0 0 7px}
   #detail .back{font-size:13px}
+  #dVersions video.ver{width:300px; max-width:64vw; height:auto; border:1px solid var(--ink); background:#000; display:block; margin:6px 0 2px}
   .clear{clear:both}
 </style>
 </head>
@@ -235,7 +236,7 @@
     <ul class="plain">
       <li><a href="https://www.youtube.com/watch?v=upgQTJtBeL4">New Dynamic Graphics — HCI Korea 2020 keynote</a> — 2020</li>
       <li><a href="https://www.youtube.com/watch?v=Q0fRogwoGt0">New Dynamic Graphics — India HCI 2019</a> — 2019</li>
-      <li>Art for COVID Relief India — workshop — 2021 <span class="dim">(recording to be posted)</span></li>
+      <li><a href="https://assets.aesthetic.computer/whistlegraph/lectures/art-for-covid-relief-india.mp4">Art for COVID Relief India — workshop</a> — 2021</li>
       <li><a href="https://www.youtube.com/watch?v=vXUfFexHuLw">What is a Picture? — college lecture</a> — 2020</li>
       <li><a href="https://media.ccc.de/v/35c3-9774-radical_digital_painting">Radical Digital Painting — 35c3, Leipzig</a> — 2018</li>
       <li><a href="https://gazelliarthouse.com/news/gazelli-connect-live-jeffrey-alan-scudder/">Gazelli Connect Live</a> — 2020</li>
@@ -326,6 +327,7 @@
     <hr id="dVideoRule" style="display:none">
     <video id="dVideo" controls playsinline preload="metadata" crossorigin="anonymous"></video>
     <p class="dim" id="dGlyphCap" style="font-size:12.5px;display:none">The finished glyph — the last frame of the sung take.</p>
+    <div id="dVersions" style="display:none;clear:both"></div>
     <div class="clear"></div>
     <hr class="thick">
     <p class="back"><a href="/">← Back to the index</a></p>
@@ -452,6 +454,11 @@ function showDetail(code){
       D.glyphCap.textContent="The glyph is the whole piece, transcribed as one score.";
     }
   }
+  const dv=document.getElementById("dVersions");
+  if(w.versions&&w.versions.length){
+    dv.innerHTML=`<hr><p class="lbl">Performances</p>`+w.versions.map(v=>`<video class="ver" controls playsinline preload="metadata" src="${v.url}"></video><p class="dim" style="font-size:12px;margin:2px 0 10px">${v.title||v.label}</p>`).join("");
+    dv.style.display="";
+  }else{ dv.style.display="none"; dv.innerHTML=""; }
   det.classList.add("on"); idx.classList.add("off");
   document.title=`${w.title} — Whistlegraph`; scrollTo(0,0);
 }
@@ -459,6 +466,7 @@ function showIndex(){
   det.classList.remove("on"); idx.classList.remove("off");
   D.video.pause(); D.video.removeAttribute("src"); D.video.load();
   D.canon.pause();
+  document.querySelectorAll("#dVersions video").forEach(v=>v.pause());
   document.title="Whistlegraph — a drawing you sing";
 }
 function go(code){ history.pushState({code},"",`/${code}`); showDetail(code); }
