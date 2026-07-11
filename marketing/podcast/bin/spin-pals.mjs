@@ -65,11 +65,16 @@ new GLTFLoader().load('${glbURL}', (gltf) => {
     if (!o.isMesh || !o.material) return;
     const mats = Array.isArray(o.material) ? o.material : [o.material];
     for (const m of mats) {
-      if ('metalness' in m) m.metalness = 0.45;
-      if ('roughness' in m) m.roughness = 0.12;
-      if ('envMapIntensity' in m) m.envMapIntensity = 2.2;
-      if (m.color) m.color.multiplyScalar(1.9);            // lift the dark purple
-      if (m.emissive) { m.emissive.setHex(0x3a1170); m.emissiveIntensity = 0.35; }
+      if ('metalness' in m) m.metalness = 0.5;
+      if ('roughness' in m) m.roughness = 0.1;
+      if ('envMapIntensity' in m) m.envMapIntensity = 2.4;
+      // Recolor to the pals pink: drop the baked amethyst-purple texture so the
+      // solid tint reads true, then keep the facet geometry + env reflections
+      // doing the "gem" work. A brighter rose color + faint pink inner glow.
+      if ('map' in m) m.map = null;
+      if (m.color) m.color.setHex(0xe86fb0);               // pals pink, lifted
+      if (m.emissive) { m.emissive.setHex(0x7a1f4d); m.emissiveIntensity = 0.3; }
+      if (m.needsUpdate !== undefined) m.needsUpdate = true;
     }
   });
   // center + scale to a unit sphere, then frame the camera with margin

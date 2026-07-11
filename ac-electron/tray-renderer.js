@@ -53,7 +53,14 @@ const DEFAULTS = {
   //    'pals' = the classic flat pink line-art. Spin is the default. ──
   logoMode: 'spin',   // 'spin' | 'pals'
   spinFps: 20,        // spin animation tick rate
-  spinPeriodMs: 3200, // ms for one full 360° rotation
+  // The gem turns SLOWLY when the Mac is idle and speeds UP as CPU load rises —
+  // a little ambient system monitor. Period (ms per 360°) eases between these
+  // two bounds by the live CPU busy fraction (0 = idle → spinIdleMs, 1 = pegged
+  // → spinBusyMs). Set spinReactive:false to hold a constant spinIdleMs.
+  spinReactive: true,
+  spinIdleMs: 7000,   // slow drift at rest
+  spinBusyMs: 1100,   // whirs when the CPU is pinned
+  spinPeriodMs: 7000, // back-compat: constant period when spinReactive is false
   show: false,        // show the badge?
   badge: 'USB',       // label text (Menuband-style)
   logoScale: 0.86,    // pals logo height as a fraction of the 22px bar (smaller
@@ -95,6 +102,8 @@ class TrayRenderer {
     this.spinCount = 0;        // number of spin frames (per scale)
     this.spinLoading = null;   // in-flight load promise (load once)
     this.phase = 0;            // 0..1 animation phase
+    this.cpu = 0;              // smoothed CPU busy fraction 0..1 (drives spin speed)
+    this._cpuPrev = null;      // last os.cpus() times snapshot for delta sampling
     this.timer = null;
     this.watcher = null;
     this.rendering = false;
@@ -356,8 +365,30 @@ class TrayRenderer {
     }
   }
 
+  // ── CPU sampler — busy fraction 0..1 from os.cpus() times deltas, eased so
+  //    the spin speed glides instead of jittering. Cheap; called a few times a
+  //    second from the ticker (not every frame). ──
+  sampleCpu() {
+    let idle = 0, total = 0;
+    for (const c of os.cpus()) {
+      for (const k in c.times) total += c.times[k];
+      idle += c.times.idle;
+    }
+    if (this._cpuPrev) {
+      const dTotal = total - this._cpuPrev.total;
+      const dIdle = idle - this._cpuPrev.idle;
+      if (dTotal > 0) {
+        const busy = Math.max(0, Math.min(1, 1 - dIdle / dTotal));
+        this.cpu += (busy - this.cpu) * 0.4;   // ease toward the new reading
+      }
+    }
+    this._cpuPrev = { idle, total };
+  }
+
   // ── Animation ticker — runs while the gem spins, or while a badge effect
-  //    is active. Spin mode drives `phase` continuously so the gem turns. ──
+  //    is active. Spin mode drives `phase` continuously so the gem turns; its
+  //    rotation period is recomputed each tick from the live CPU load (slow at
+  //    rest, faster under load) when spinReactive is on. ──
   syncTicker() {
     const s = this.state;
     const spinning = (s.logoMode || 'spin') === 'spin' && this.spin !== false;
@@ -366,12 +397,30 @@ class TrayRenderer {
     if (animating && !this.timer) {
       const fps = spinning ? (s.spinFps || 20) : s.fps;
       const dt = 1000 / Math.max(1, Math.min(30, fps));
-      const period = spinning
-        ? Math.max(400, s.spinPeriodMs || 3200)   // one full rotation
-        : Math.max(200, s.periodMs || 1500);      // badge blink/pulse cycle
-      this.timer = setInterval(() => { this.phase = (this.phase + dt / period) % 1; this.refresh(); }, dt);
+      let ticks = 0;
+      this.timer = setInterval(() => {
+        const st = this.state;
+        let period;
+        if (spinning) {
+          const reactive = st.spinReactive !== false;
+          if (reactive) {
+            if (ticks % 12 === 0) this.sampleCpu();   // ~ every 0.6s @20fps
+            const idleMs = Math.max(400, st.spinIdleMs || 7000);
+            const busyMs = Math.max(300, st.spinBusyMs || 1100);
+            period = idleMs + (busyMs - idleMs) * this.cpu;  // load → faster
+          } else {
+            period = Math.max(400, st.spinPeriodMs || st.spinIdleMs || 7000);
+          }
+        } else {
+          period = Math.max(200, st.periodMs || 1500);       // badge blink/pulse
+        }
+        ticks++;
+        this.phase = (this.phase + dt / period) % 1;
+        this.refresh();
+      }, dt);
     } else if (!animating && this.timer) {
       clearInterval(this.timer); this.timer = null; this.phase = 0;
+      this._cpuPrev = null;
     }
   }
 
