@@ -360,7 +360,7 @@ let BY={}; // code → graph, filled once graphs.json loads.
 function rowHTML(w){
   const thumb=w.noGlyph
     ? `<span class="sw noglyph" style="--c:${w.c}"></span>`
-    : `<img loading="lazy" alt="Final glyph of ${w.title}" src="${IDX}/${w.code}.jpg">`;
+    : `<img loading="lazy" alt="Final glyph of ${w.title}" src="${IDX}/${w.asset||w.code}.jpg">`;
   return `<td class="th"><a href="/${w.code}">${thumb}</a></td>`+
     `<td class="cd"><span class="sw" style="--c:${w.c}"></span>[<a href="/${w.code}">${w.code}</a>]</td>`+
     `<td class="ti"><a href="/${w.code}">${w.title}</a><span class="by">${w.by}${w.perf>1?` · ${w.perf} videos`:""}</span></td>`+
@@ -454,8 +454,9 @@ function showDetail(code){
     D.scoreWrap.style.display="none"; D.canonWrap.style.display="none"; D.canon.removeAttribute("src");
     D.videoRule.style.display=""; D.glyphCap.style.display="none"; D.glyphCap.textContent="";
     D.video.classList.toggle("wide",!!w.wide); // the Longest film is landscape
-    D.video.poster=w.noGlyph?"":`${IDX}/${w.code}.jpg`;
-    D.video.src=`${IDX}/${w.code}.mp4`;
+    const aset=w.asset||w.code; // renamed codes keep their original CDN asset key
+    D.video.poster=w.noGlyph?"":`${IDX}/${aset}.jpg`;
+    D.video.src=`${IDX}/${aset}.mp4`;
     if(w.film){ // the Rhizome film, not a TikTok take — its own provenance + glyph
       D.archiveNote.innerHTML=`Code <code>${w.code}</code> &nbsp; — &nbsp; ${fmtViews(w.views)} views &nbsp;·&nbsp; the ~22-minute <a href="https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/">Rhizome commission</a>, chalk on a 4×6 blackboard.`;
       D.glyphCap.textContent="The glyph is the whole piece, transcribed as one score."; D.glyphCap.style.display="";

@@ -12,6 +12,19 @@ Data edits + copy/loop changes from that thread are already applied to `graphs.j
   (populated from the TikTok archive / Notion) plus a render block in `showDetail`.
   This will also make the folds above self-documenting.
 
+## Data-accuracy pass (Alex, 2026-07-11) — resolve during the source-video intake
+- **Renamed codes break CDN assets.** Archive assets are keyed by the *original*
+  recovered code (`index/<code>.jpg|.mp4`). Any future code rename must add an
+  `asset:"<oldcode>"` field (see `bowm`→lvme, `more`→wtm) or the thumbnail/video 404s.
+- **Suspicious counts.** `2la` "Certain Personality" shows 10 videos — Alex thinks
+  that's dubious. The per-page source list is the way to verify what's actually
+  filed under each whistlegraph (he suspects some videos are mis-filed).
+- **Double posts.** When unprivating everything, decide whether duplicate re-posts
+  count toward a whistlegraph's video total or get de-duped. (Alex's open question.)
+- **Missed attributions.** Alex says a few attribution requests from the past couple
+  days didn't take — needs a final comb-through against his list (get specifics).
+- Expect a **large manual component** to the final accuracy check.
+
 ## To design / decide
 - **Left-column "cover" colors.** Hand-select the swatch color on the left of each
   title (most archive rows currently share `#b44887`). Alex: pull colors from each
