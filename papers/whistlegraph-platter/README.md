@@ -44,6 +44,7 @@ This is **index-only**: pointers to where things live. No file migration, no bin
 > The 10 piece dirs ARE the score↔video pairs already organized by directory name. No further pairing work needed for these — the analyzer can iterate `<piece>/` and have score + N-take video alongside. The tt-compilation files are the unfair advantage: each one is a built-in dataset of how the same score gets re-performed.
 
 ### Standalone site
+- [system/public/whistlegraph.org/index.html](../../system/public/whistlegraph.org/index.html) — **whistlegraph.org** — the live archive/index. 268 recovered compositions (sortable: featured / videos / sung / year / title / author) + a **Research** tab for drawing experiments; a **Lectures, shows & press** section (talks, livestreams, exhibitions, workshops, press) with verified links; the Sex Magazine zine with cover; and an example code that randomizes to a featured piece each load. Data in [graphs.json](../../system/public/whistlegraph.org/graphs.json). Detail pages carry per-graph `versions[]` (e.g. Underpainting's two performances). Live: https://whistlegraph.org
 - [sites/whistlegraph.com/index.html](../../sites/whistlegraph.com/index.html) — whistlegraph.com landing page
 
 ### Are.na Annual Vol. 8 submission (2026-04-20)
