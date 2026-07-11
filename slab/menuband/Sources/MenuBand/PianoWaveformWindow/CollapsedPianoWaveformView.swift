@@ -66,6 +66,10 @@ final class CollapsedPianoWaveformView: NSView {
     var onStepDown: (() -> Void)?
     /// Fired when the Keymap button is clicked — opens the full-screen view.
     var onOpenKeymap: (() -> Void)?
+    /// Fired when the live LED scope is clicked — blows the display up to the
+    /// full-screen visualizer. When unset, the scope falls back to opening the
+    /// keymap (its original behavior on the standalone floating panel).
+    var onOpenVisualizer: (() -> Void)?
     /// Fired after the chooser grid is shown/hidden via the instrument
     /// name — the host popover re-fits its panel height in response.
     var onChartToggled: (() -> Void)?
@@ -295,9 +299,18 @@ final class CollapsedPianoWaveformView: NSView {
         keymapButton.toolTip = "Open the full-screen keymap (piano + QWERTY)"
 
         waveformStrip.menuBand = menuBand
-        // Clicking the live scope opens the full keymap view — same action
-        // as the "Keymap" button below it.
-        waveformStrip.onClick = { [weak self] in self?.onOpenKeymap?() }
+        // Clicking the live scope blows it up to the full-screen LED wall —
+        // the same display, nothing else on screen. Where no visualizer is
+        // wired (the standalone floating panel), it falls back to its original
+        // job of opening the full keymap view, same as the "Keymap" button.
+        waveformStrip.onClick = { [weak self] in
+            guard let self else { return }
+            if let openVisualizer = self.onOpenVisualizer {
+                openVisualizer()
+            } else {
+                self.onOpenKeymap?()
+            }
+        }
         waveformStrip.translatesAutoresizingMaskIntoConstraints = false
 
         addSubview(contentContainer)

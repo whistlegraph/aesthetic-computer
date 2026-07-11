@@ -446,12 +446,11 @@ final class MenuBandPopoverViewController: NSViewController {
             cluster.onChartToggled = { [weak self] in
                 self?.refitAndResizePanel()
             }
-            // Tap the waveform strip → open the full-screen keymap, same as
-            // the "Keymap" footer button. (The embedded cluster's own
-            // onOpenKeymap was never wired, so the visualizer tap did
-            // nothing here — restored without any global cmd-cmd shortcut.)
-            cluster.onOpenKeymap = { [weak self] in
-                self?.onMiniVisualizerExpand?()
+            // Tap the waveform strip → the little LED scope is a door:
+            // clicking it takes the same display full-screen (AppDelegate wires
+            // onOpenVisualizer to visualizerOverlay.show()).
+            cluster.onOpenVisualizer = { [weak self] in
+                self?.onOpenVisualizer?()
             }
             instrumentCluster = cluster
             stack.addArrangedSubview(cluster)
@@ -1933,6 +1932,10 @@ final class MenuBandPopoverViewController: NSViewController {
     /// piano panel in expanded (Esteban's full-screen liquid)
     /// mode.
     var onMiniVisualizerExpand: (() -> Void)?
+
+    /// Closure called when the user clicks the instrument cluster's live LED
+    /// scope — AppDelegate hooks this to take that display full-screen.
+    var onOpenVisualizer: (() -> Void)?
 
     @objc private func miniVisualizerClicked(_ sender: Any?) {
         onMiniVisualizerExpand?()

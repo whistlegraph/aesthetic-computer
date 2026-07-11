@@ -22,7 +22,7 @@ final class WaveformStripView: NSView {
     /// family color so the display matches its per-voice framing. Rewind
     /// still flips to orange regardless of this.
     var tintColor: NSColor? {
-        didSet { offPattern = nil; needsDisplay = true }
+        didSet { needsDisplay = true }
     }
 
     /// When false the display stops capturing and clears to an empty grid —
@@ -71,15 +71,36 @@ final class WaveformStripView: NSView {
     private var written: [Bool] = []
     private var cursor = 0
     /// Raster geometry — chunky cells, low-res on purpose so it reads as a
-    /// hardware display, not an anti-aliased plot.
-    private static let cellStep: CGFloat = 5     // px between cell origins
-    private static let cellSize: CGFloat = 3.5   // lit cell square
-    private static let inset: CGFloat = 2        // glass inner margin
+    /// hardware display, not an anti-aliased plot. Sized for the popover by
+    /// default; `setCellGeometry` scales it up for the full-screen visualizer,
+    /// where the same 5 pt cells would read as a fine dot screen from across
+    /// the room instead of a wall of LEDs.
+    private var cellStep: CGFloat = 5     // px between cell origins
+    private var cellSize: CGFloat = 3.5   // lit cell square
+    private static let inset: CGFloat = 2 // glass inner margin
+
+    /// Resize the LEDs. Forces a full raster rebuild (the column/row counts
+    /// fall out of the cell pitch), so the sweep restarts from a clean grid.
+    func setCellGeometry(step: CGFloat, size: CGFloat) {
+        guard step != cellStep || size != cellSize else { return }
+        cellStep = step
+        cellSize = size
+        cols = 0                 // defeat updateGridGeometry's no-op guard
+        rows = 0
+        updateGridGeometry()
+        needsDisplay = true
+    }
     private var cols = 0
     private var rows = 0
-    /// Cached faint off-grid (every cell at rest-glow alpha) so the per-frame
-    /// draw only fills LIT cells. Rebuilt when geometry or tint changes.
-    private var offPattern: NSImage?
+    /// Every cell of the raster, precomputed once per geometry change. The
+    /// off-grid paints as ONE batched `CGContext.fill` of this list rather than
+    /// a per-frame blit of a screen-sized bitmap — at full-screen sizes that
+    /// bitmap was several megabytes copied 30× a second for a picture that
+    /// never changes.
+    private var offRects: [CGRect] = []
+    /// Scratch buffer for one column's lit cells, reused every frame so the
+    /// draw loop allocates nothing.
+    private var columnRects: [CGRect] = []
     private var timer: Timer?
     /// While reversing: eased column offset of the playhead back from the
     /// cursor, driven by the audio's actual reverse progress.
@@ -108,8 +129,8 @@ final class WaveformStripView: NSView {
     private func updateGridGeometry() {
         let w = bounds.width - Self.inset * 2
         let h = bounds.height - Self.inset * 2
-        let newCols = max(0, Int(w / Self.cellStep))
-        var newRows = max(3, Int(h / Self.cellStep))
+        let newCols = max(0, Int(w / cellStep))
+        var newRows = max(3, Int(h / cellStep))
         if newRows % 2 == 0 { newRows -= 1 }
         guard newCols != cols || newRows != rows else { return }
         cols = newCols
@@ -118,7 +139,15 @@ final class WaveformStripView: NSView {
         gridMax = .init(repeating: 0, count: cols)
         written = .init(repeating: false, count: cols)
         cursor = 0
-        offPattern = nil
+        columnRects.reserveCapacity(rows)
+        offRects = []
+        offRects.reserveCapacity(cols * rows)
+        for c in 0..<cols {
+            let x = cellX(c)
+            for r in 0..<rows {
+                offRects.append(CGRect(x: x, y: cellY(r), width: cellSize, height: cellSize))
+            }
+        }
         needsDisplay = true
     }
 
@@ -267,40 +296,25 @@ final class WaveformStripView: NSView {
     /// what makes it read as hardware.
     private static let glass = NSColor(srgbRed: 0.035, green: 0.045, blue: 0.042, alpha: 1.0)
 
-    /// Build (or reuse) the faint off-grid: every cell at rest glow, so the
-    /// raster is visible even where nothing has been written. Cached because
-    /// it's thousands of rects that never change between geometry/tint edits.
-    private func offGridImage(tint: NSColor) -> NSImage {
-        if let cached = offPattern, cached.size == bounds.size { return cached }
-        let img = NSImage(size: bounds.size)
-        img.lockFocus()
-        tint.withAlphaComponent(0.09).setFill()
-        for c in 0..<cols {
-            let x = cellX(c)
-            for r in 0..<rows {
-                NSBezierPath(rect: NSRect(x: x, y: cellY(r),
-                                          width: Self.cellSize, height: Self.cellSize)).fill()
-            }
-        }
-        img.unlockFocus()
-        offPattern = img
-        return img
-    }
+    /// Full-bleed glass is opaque, so AppKit can skip compositing whatever is
+    /// behind us — worth real time when "behind us" is the entire desktop.
+    /// The popover's plate has rounded corners, so it isn't.
+    override var isOpaque: Bool { !drawsPlate }
 
     private func cellX(_ c: Int) -> CGFloat {
-        Self.inset + (bounds.width - Self.inset * 2 - CGFloat(cols) * Self.cellStep) / 2
-            + CGFloat(c) * Self.cellStep
+        Self.inset + (bounds.width - Self.inset * 2 - CGFloat(cols) * cellStep) / 2
+            + CGFloat(c) * cellStep
     }
     private func cellY(_ r: Int) -> CGFloat {
-        Self.inset + (bounds.height - Self.inset * 2 - CGFloat(rows) * Self.cellStep) / 2
-            + CGFloat(r) * Self.cellStep
+        Self.inset + (bounds.height - Self.inset * 2 - CGFloat(rows) * cellStep) / 2
+            + CGFloat(r) * cellStep
     }
 
     override func draw(_ dirtyRect: NSRect) {
         let bounds = self.bounds
         guard bounds.width > 6, bounds.height > 6 else { return }
         if cols == 0 { updateGridGeometry() }
-        guard cols > 0 else { return }
+        guard cols > 0, let ctx = NSGraphicsContext.current?.cgContext else { return }
         let reversing = menuBand?.isRewinding ?? false
         let accent = NSColor.controlAccentColor
         let tint = tintColor ?? accent
@@ -313,12 +327,15 @@ final class WaveformStripView: NSView {
             Self.glass.setFill(); plate.fill()
             accent.withAlphaComponent(0.55).setStroke(); plate.lineWidth = 1.0; plate.stroke()
         } else {
-            Self.glass.setFill(); bounds.fill()
+            ctx.setFillColor(Self.glass.cgColor)
+            ctx.fill(bounds)
         }
 
-        // Faint off-grid — the raster itself, always visible.
-        offGridImage(tint: tint).draw(in: bounds, from: .zero,
-                                      operation: .sourceOver, fraction: 1.0)
+        // Faint off-grid — the raster itself, always visible. One batched fill
+        // of every cell; Quartz walks the rect list far faster than we can
+        // issue the fills one at a time.
+        ctx.setFillColor(tint.withAlphaComponent(0.09).cgColor)
+        ctx.fill(offRects)
 
         let halfRows = (rows - 1) / 2
         let centerRow = halfRows
@@ -344,32 +361,63 @@ final class WaveformStripView: NSView {
             CGFloat(sqrtf(Swift.min(1, Swift.max(0, v) * 2.2)))
         }
 
+        // Age of a column: 0 is the one just written, cols-1 the oldest — the
+        // one sitting immediately AHEAD of the write cursor, about to be
+        // overwritten.
+        func age(_ c: Int) -> CGFloat {
+            CGFloat(((cursor - 1 - c) % cols + cols) % cols)
+        }
+        // Phosphor decay. Without this the ring buffer never appears to clear:
+        // a column written a full sweep ago paints exactly as bright as one
+        // written this frame, so the wall just sits there full, quietly
+        // rewriting itself in place. Fading by age turns the sweep into a comet
+        // tail — the trace burns in at the head and dims to almost nothing by
+        // the time the cursor comes back around to erase it.
+        let oldest = CGFloat(max(1, cols - 1))
+        func glow(_ c: Int) -> CGFloat {
+            let t = age(c) / oldest                    // 0 fresh → 1 stale
+            return 0.06 + 0.88 * pow(1 - t, 1.7)       // ease-out; never fully black
+        }
+
         // Lit cells, column by column — center baseline outward. The column
         // under the write cursor (live) / playhead (reversing) burns brighter.
+        // One batched fill per column instead of one per cell: the full-screen
+        // wall repaints thousands of LEDs at 30 fps, and the per-cell fill is
+        // what made it work harder than it needed to.
         for c in 0..<cols where written[c] {
             let up = min(halfRows, Int((lift(gridMax[c]) * CGFloat(halfRows)).rounded()))
             let down = min(halfRows, Int((lift(-gridMin[c]) * CGFloat(halfRows)).rounded()))
             let isHead = reversing ? c == playheadCol : c == (cursor - 1 + cols) % cols
             let base = reversing && (isHead || consumed(c)) ? NSColor.systemOrange : tint
-            let alpha: CGFloat = isHead ? 1.0 : (consumed(c) ? 0.30 : 0.85)
-            base.withAlphaComponent(alpha).setFill()
-            let x = cellX(c)
-            for r in (centerRow - down)...(centerRow + up) {
-                NSBezierPath(rect: NSRect(x: x, y: cellY(r),
-                                          width: Self.cellSize, height: Self.cellSize)).fill()
+            // Reverse keeps its own flat shading (the raster is frozen, so age
+            // means nothing there); the live sweep decays.
+            let alpha: CGFloat
+            if reversing {
+                alpha = isHead ? 1.0 : (consumed(c) ? 0.30 : 0.85)
+            } else {
+                alpha = isHead ? 1.0 : glow(c)
             }
+            ctx.setFillColor(base.withAlphaComponent(alpha).cgColor)
+            let x = cellX(c)
+            columnRects.removeAll(keepingCapacity: true)
+            for r in (centerRow - down)...(centerRow + up) {
+                columnRects.append(CGRect(x: x, y: cellY(r), width: cellSize, height: cellSize))
+            }
+            ctx.fill(columnRects)
         }
 
         // Cursor / playhead column marker — a dim full-height lit column so
         // the write head reads even over silence. Orange during reverse.
         let headCol = reversing ? playheadCol : cursor
         if headCol >= 0, headCol < cols {
-            (reversing ? NSColor.systemOrange : accent).withAlphaComponent(0.30).setFill()
+            let marker = (reversing ? NSColor.systemOrange : accent).withAlphaComponent(0.30)
+            ctx.setFillColor(marker.cgColor)
             let x = cellX(headCol)
+            columnRects.removeAll(keepingCapacity: true)
             for r in 0..<rows {
-                NSBezierPath(rect: NSRect(x: x, y: cellY(r),
-                                          width: Self.cellSize, height: Self.cellSize)).fill()
+                columnRects.append(CGRect(x: x, y: cellY(r), width: cellSize, height: cellSize))
             }
+            ctx.fill(columnRects)
         }
     }
 }

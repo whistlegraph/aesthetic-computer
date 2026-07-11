@@ -14,6 +14,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Live conductible drone/arp/drum loop (see MenuBandEngine + the
     /// `engine.*` distributed-notification handlers).
     private lazy var engine = MenuBandEngine(menuBand: menuBand)
+    /// The popover's LED scope, taken full-screen (see VisualizerOverlay).
+    private lazy var visualizerOverlay = VisualizerOverlay(menuBand: menuBand)
     /// Mic tempo follower — steers the engine's BPM to the room (engine.listen).
     private var micTempo: MenuBandMicTempo?
     /// Text-to-speech voice for the `say` hook (machines talking to each other).
@@ -182,24 +184,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// works in TYPE mode and quiet-focus alike.
     private var globalChordMorphMonitor: Any?
     private var localChordMorphMonitor: Any?
-    /// Double-tap right-⌘ → toggle Menu Band focus. A bare modifier
-    /// can't be a Carbon hotkey, so this rides the same global/local
-    /// .flagsChanged stream the shift monitor uses. Why double-tap:
-    /// a single right-⌘ is too easy to hit by accident (and burns the
-    /// key as a plain modifier system-wide). The double-tap is a
-    /// deliberate gesture that leaves single ⌘ free for normal Mac
-    /// chording.
-    private var rightCmdMonitorGlobal: Any?
-    private var rightCmdMonitorLocal: Any?
-    /// Right Command's .flagsChanged virtual keycode (left ⌘ is 55).
+    /// The two bare-⌘ tap gestures. Both ride the same global/local
+    /// `.flagsChanged` stream (a bare modifier isn't a valid Carbon hotkey),
+    /// and neither can eat the other's taps because they key off different
+    /// patterns of the SAME two ⌘ keys:
+    ///
+    ///   ALTERNATING ⌘ ×3 (R-L-R or L-R-L) → quiet focus (arm/disarm the
+    ///                                        menubar piano for typing)
+    ///   RIGHT       ⌘ ×3                   → the full-screen LED visualizer
+    ///
+    /// The alternating focus gesture must switch sides on each tap, so three
+    /// bare RIGHT taps in a row (the visualizer) never register as focus, and
+    /// vice-versa. Left ⌘ is keycode 55, right ⌘ is 54; we tell them apart via
+    /// the flagsChanged event's keyCode.
+    private static let leftCommandKeyCode: UInt16 = 55
     private static let rightCommandKeyCode: UInt16 = 54
-    /// Wall time of the last bare right-⌘ DOWN edge. Reset to 0 once
-    /// a pair is consumed or a chord/other-mod press interrupts the
-    /// sequence, so the next tap starts a fresh window.
-    private var lastRightCmdPressAt: CFTimeInterval = 0
-    /// Max gap between the two bare right-⌘ presses that count as a
-    /// double-tap. ~300 ms matches macOS's own "press ⌘ twice" feel.
-    private static let rightCommandDoubleTapWindow: CFTimeInterval = 0.30
+
+    /// Alternating left/right ⌘ triple → toggle quiet focus. Tracks the side
+    /// of the last bare-⌘ down edge and the run length; a repeat of the same
+    /// side (or a lapsed window) restarts the run.
+    private var quietFocusMonitorGlobal: Any?
+    private var quietFocusMonitorLocal: Any?
+    private var quietFocusLastSide: UInt16 = 0     // 0 = none, else the keyCode
+    private var quietFocusRunCount = 0
+    private var lastQuietFocusTapAt: CFTimeInterval = 0
+    /// Max gap between consecutive taps of the alternating triple.
+    private static let quietFocusTapWindow: CFTimeInterval = 0.50
+
+    /// Triple-tap RIGHT ⌘ → the full-screen LED visualizer.
+    private var visualizerMonitorGlobal: Any?
+    private var visualizerMonitorLocal: Any?
+    /// Bare right-⌘ DOWN edges counted so far in the current run. Three inside
+    /// the window raises the full-screen visualizer.
+    private var visualizerTapCount = 0
+    private var lastVisualizerTapAt: CFTimeInterval = 0
+    /// Max gap BETWEEN consecutive taps of the triple. A touch roomier: three
+    /// taps is a longer motion to land, and missing it feels worse than waiting
+    /// a beat.
+    private static let visualizerTapWindow: CFTimeInterval = 0.40
     private var popoverEscMonitor: Any?
 
     /// Sandbox-friendly local key capture. Armed when the user clicks the
@@ -797,8 +819,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Four independent global controls: show the floating piano,
         // focus its keys, exit that focus, and switch the keyboard layout.
-        // [v1] The double right-⌘ tap (startRightCommandTapMonitor) is the
-        // ONLY system-wide key. It already arms AND disarms focus capture,
+        // [v1] The alternating-⌘ triple (startQuietFocusTapMonitor) is the
+        // ONLY system-wide focus key. It already arms AND disarms focus capture,
         // so the focus/exit global hotkeys are redundant; the piano-waveform
         // hotkey is dead (that overlay is retired); and layout + percussion
         // toggles still fire from the LOCAL `localCapture.onKey` handler —
@@ -871,6 +893,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self,
             selector: #selector(handleShowKeymapNotification(_:)),
             name: NSNotification.Name("computer.aestheticcomputer.menuband.showKeymap"),
+            object: nil
+        )
+
+        // Sibling remote: raise the full-screen LED visualizer (same path the
+        // popover's LED scope drives). Toggles, so a second post takes it down
+        // without needing to reach for the mouse or Escape.
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(handleShowVisualizerNotification(_:)),
+            name: NSNotification.Name("computer.aestheticcomputer.menuband.showVisualizer"),
             object: nil
         )
 
@@ -1188,7 +1220,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         startFitNegotiation()
         startShiftStateMonitors()
         startChordMorphMonitors()
-        startRightCommandTapMonitor()
+        startQuietFocusTapMonitor()
+        startVisualizerTripleTapMonitor()
         startVisualizerAnimation()
 
         // Retint the running app's icon (About panel + Dock) to the
@@ -1216,7 +1249,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if CommandLine.arguments.contains("--focus-on-launch") {
             debugLog("--focus-on-launch flag detected; arming focus after run-loop settles")
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
-                self?.toggleQuietFocusFromRightCommand()
+                self?.toggleQuietFocusFromCommandTap()
             }
         }
     }
@@ -1258,6 +1291,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.closePopover(dismissFloatingPanel: false)
             }
             self.pianoWaveformWindowDelegate.showExpandedForPopover()
+        }
+        // Click the cluster's LED scope → the whole screen becomes that scope.
+        // The popover goes with it: the visualizer is meant to be the only
+        // thing on screen, and it plays from the keyboard once it's up.
+        vc.onOpenVisualizer = { [weak self] in
+            guard let self = self else { return }
+            if self.isPopoverPanelShown {
+                self.closePopover()
+            }
+            self.visualizerOverlay.show()
         }
         popoverVC = vc
         _ = vc.view
@@ -1539,12 +1582,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Right-⌘ tap toggle: arm/disarm keyboard play WITHOUT bringing
+    /// Alternating-⌘ tap toggle: arm/disarm keyboard play WITHOUT bringing
     /// up the expanded piano overlay (that's what ⌃⌥⌘K does). Just
     /// readies the menubar instrument for typing, with a little chime
     /// so the silent focus change is felt.
-    private func toggleQuietFocusFromRightCommand() {
-        // Right-⌘ double-tap is FOCUS-ONLY now: it arms (or re-arms) quiet
+    private func toggleQuietFocusFromCommandTap() {
+        // The alternating ⌘ triple is FOCUS-ONLY now: it arms (or re-arms) quiet
         // focus and is inert once already focused — unfocusing is Esc's job
         // (see the localCapture Esc handler). Keeps the gesture a pure
         // "bring me into play" action that can't accidentally drop focus.
@@ -1986,53 +2029,124 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { event in handler(event); return event }
     }
 
-    /// Double-tap right-⌘ → toggle focus capture. Two bare right-⌘
-    /// presses within `rightCommandDoubleTapWindow` arm / disarm
-    /// the menubar piano for typing; a single tap does nothing, so
-    /// right ⌘ stays free as a normal modifier for the rest of the
-    /// system. Trade-off vs. the old single-press flow: you can't
-    /// do `right-⌘+f` to arm + play F in one motion — you tap twice
-    /// first, then play. That's the price of not arming on every
-    /// stray ⌘. The toggle fires a dry click on the qualifying
-    /// second press so the user feels the gesture land.
+    /// Alternating left/right ⌘ triple → toggle focus capture. Three bare ⌘
+    /// down edges that switch sides each tap (R-L-R or L-R-L) inside
+    /// `quietFocusTapWindow` arm / disarm the menubar piano for typing. Bare
+    /// single ⌘ and same-side repeats do nothing, so ⌘ stays free as a normal
+    /// modifier for the rest of the system, and three same-side RIGHT taps read
+    /// as the visualizer gesture (see `startVisualizerTripleTapMonitor`), never
+    /// as focus. The toggle fires a dry click on the qualifying third press so
+    /// the user feels the gesture land.
     ///
-    /// A bare modifier isn't a valid Carbon hotkey, so we ride the
-    /// same global/local .flagsChanged stream the shift monitor
-    /// already has permission for — nothing new.
-    private func startRightCommandTapMonitor() {
+    /// (This lived on a plain right-⌘ DOUBLE-tap until the visualizer's
+    /// right-⌘ triple took that key. Alternating sides keeps the two gestures
+    /// disjoint on the same pair of keys while staying instant.)
+    ///
+    /// A bare modifier isn't a valid Carbon hotkey, so we ride the same
+    /// global/local .flagsChanged stream the shift monitor already has
+    /// permission for — nothing new.
+    private func startQuietFocusTapMonitor() {
         let handler: (NSEvent) -> Void = { [weak self] event in
             guard let self = self else { return }
-            guard event.type == .flagsChanged,
-                  event.keyCode == Self.rightCommandKeyCode else { return }
-            // .flagsChanged fires on press AND release for the same
-            // physical key — `.command` is set on the down edge,
-            // cleared on the up edge. We only count down edges.
-            let isDown = event.modifierFlags.contains(.command)
-            guard isDown else { return }
-            // Bare right-⌘ only. If anything else is held (⇧/⌥/⌃/
-            // capsLock, or a chord like ⌘⇧), this isn't a double-tap
-            // candidate — reset the window so a chord can't form
-            // half of a future double-tap.
+            guard event.type == .flagsChanged else { return }
+            let side = event.keyCode
+            guard side == Self.leftCommandKeyCode || side == Self.rightCommandKeyCode
+            else { return }
+            // .flagsChanged fires on press AND release for the same physical
+            // key — `.command` is set on the down edge, cleared on the up edge.
+            // We only count down edges.
+            guard event.modifierFlags.contains(.command) else { return }
+            // Bare ⌘ only. If anything else is held (⇧/⌥/⌃/capsLock, or a chord
+            // like ⌘⇧), this isn't a tap candidate — reset the run so a chord
+            // can't form part of a future alternating triple.
             let mask = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             guard mask == .command else {
-                self.lastRightCmdPressAt = 0
+                self.quietFocusRunCount = 0
+                self.quietFocusLastSide = 0
                 return
             }
             let now = CACurrentMediaTime()
-            if now - self.lastRightCmdPressAt <= Self.rightCommandDoubleTapWindow {
-                // Pair completed — consume it so a third press
-                // starts a fresh window instead of chaining toggles.
-                self.lastRightCmdPressAt = 0
-                FocusCueBeep.shared.click()
-                self.toggleQuietFocusFromRightCommand()
+            let inWindow = now - self.lastQuietFocusTapAt <= Self.quietFocusTapWindow
+            // A run continues only when this tap ALTERNATES sides within the
+            // window; a same-side repeat (or a lapse) starts a fresh run at
+            // this side.
+            if inWindow, self.quietFocusRunCount > 0, side != self.quietFocusLastSide {
+                self.quietFocusRunCount += 1
             } else {
-                self.lastRightCmdPressAt = now
+                self.quietFocusRunCount = 1
             }
+            self.quietFocusLastSide = side
+            self.lastQuietFocusTapAt = now
+            guard self.quietFocusRunCount >= 3 else { return }
+            // Triple completed — consume it so a fourth tap starts a fresh run
+            // instead of chaining toggles.
+            self.quietFocusRunCount = 0
+            self.quietFocusLastSide = 0
+            self.lastQuietFocusTapAt = 0
+            FocusCueBeep.shared.click()
+            self.toggleQuietFocusFromCommandTap()
         }
-        rightCmdMonitorGlobal = NSEvent.addGlobalMonitorForEvents(
+        quietFocusMonitorGlobal = NSEvent.addGlobalMonitorForEvents(
             matching: [.flagsChanged, .keyDown]
         ) { handler($0) }
-        rightCmdMonitorLocal = NSEvent.addLocalMonitorForEvents(
+        quietFocusMonitorLocal = NSEvent.addLocalMonitorForEvents(
+            matching: [.flagsChanged, .keyDown]
+        ) { handler($0); return $0 }
+    }
+
+    /// Triple-tap RIGHT-⌘ → the full-screen LED visualizer (and again to put it
+    /// away). Rides the same global/local `.flagsChanged` stream the shift and
+    /// quiet-focus monitors already have permission for — nothing new to grant.
+    ///
+    /// RIGHT ⌘ because that's the key the hand actually reaches for. Quiet focus
+    /// alternates sides (see `startQuietFocusTapMonitor`) so three same-side
+    /// RIGHT taps stay unambiguously the visualizer.
+    ///
+    /// The subtle part is not counting chords. `.flagsChanged` fires the
+    /// instant ⌘ goes down, before you've hit the letter — so rattling off
+    /// ⌘C ⌘V ⌘X looks exactly like three bare taps unless we notice the key
+    /// that followed. Any keyDown while ⌘ is held cancels the run.
+    private func startVisualizerTripleTapMonitor() {
+        let handler: (NSEvent) -> Void = { [weak self] event in
+            guard let self = self else { return }
+            if event.type == .keyDown {
+                // ⌘ + something = a chord, not a tap. Kill the run — but only
+                // for a real key. A modifier's own keycode can arrive as a
+                // keyDown from synthesized input (System Events' `key code 54`),
+                // and treating that as a chord would cancel the very run it's
+                // trying to make.
+                let isModifierKey = event.keyCode == Self.leftCommandKeyCode
+                    || event.keyCode == Self.rightCommandKeyCode
+                if event.modifierFlags.contains(.command), !isModifierKey {
+                    self.visualizerTapCount = 0
+                }
+                return
+            }
+            guard event.type == .flagsChanged,
+                  event.keyCode == Self.rightCommandKeyCode else { return }
+            // .flagsChanged fires on press AND release; .command is set only
+            // on the down edge.
+            guard event.modifierFlags.contains(.command) else { return }
+            // Bare right-⌘ only — ⌘⇧, ⌘⌥ etc. can't build a tap run.
+            let mask = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            guard mask == .command else { self.visualizerTapCount = 0; return }
+            let now = CACurrentMediaTime()
+            self.visualizerTapCount =
+                (now - self.lastVisualizerTapAt <= Self.visualizerTapWindow)
+                ? self.visualizerTapCount + 1
+                : 1
+            self.lastVisualizerTapAt = now
+            guard self.visualizerTapCount >= 3 else { return }
+            self.visualizerTapCount = 0
+            self.lastVisualizerTapAt = 0
+            FocusCueBeep.shared.click()
+            if self.isPopoverPanelShown { self.closePopover() }
+            self.visualizerOverlay.toggle()
+        }
+        visualizerMonitorGlobal = NSEvent.addGlobalMonitorForEvents(
+            matching: [.flagsChanged, .keyDown]
+        ) { handler($0) }
+        visualizerMonitorLocal = NSEvent.addLocalMonitorForEvents(
             matching: [.flagsChanged, .keyDown]
         ) { handler($0); return $0 }
     }
@@ -3189,6 +3303,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func handleShowKeymapNotification(_ note: Notification) {
         DispatchQueue.main.async { [weak self] in
             self?.pianoWaveformWindowDelegate.showExpandedForPopover()
+        }
+    }
+
+    @objc private func handleShowVisualizerNotification(_ note: Notification) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if self.isPopoverPanelShown { self.closePopover() }
+            self.visualizerOverlay.toggle()
         }
     }
 
