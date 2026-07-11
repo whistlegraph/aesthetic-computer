@@ -3731,16 +3731,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.async { AppDelegate.openTips() }
     }
 
-    /// Open the bundled Apple Help book ("Tips") in Help Viewer.
+    /// Open the Menu Band manual ("Tips").
     ///
-    /// `NSApp.showHelp` silently no-ops for a menu-bar (LSUIElement) app until
-    /// the book is force-registered — `helpd` only scans regular foreground
-    /// apps lazily. `AHRegisterHelpBookWithURL` (Carbon's Apple Help Manager)
-    /// registers the app's declared book up front, so the first click works.
+    /// We render it in our own `WKWebView` window rather than Help Viewer:
+    /// Apple Help registration is unreliable for a menu-bar (LSUIElement) app
+    /// on recent macOS (`showHelp` silently no-ops), so the in-app window is
+    /// the dependable path. It loads the same bundled help HTML, so the
+    /// `.help` book stays the single content source.
     static func openTips() {
         NSApplication.shared.activate(ignoringOtherApps: true)
-        AHRegisterHelpBookWithURL(Bundle.main.bundleURL as CFURL)
-        NSApplication.shared.showHelp(nil)
+        TipsWindowController.show()
     }
 
     @objc private func handleShowAboutNotification(_ note: Notification) {
