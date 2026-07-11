@@ -32,6 +32,18 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
     // Periodic reload so the badge + agenda stay honest even when the window is
     // closed / we're parked in day mode.
     private var upcomingTimer: Timer?
+    // The last merged+capped upcoming set, kept so the badge can re-pick the next
+    // appointment against the wall clock between network reloads.
+    private var cachedUpcoming: [LaidEvent] = []
+    // Fast, network-free tick that re-selects the next appointment so the badge
+    // rolls off a meeting the moment it starts — it doesn't wait for the 5-minute
+    // reload (which may be asleep or failing), which used to strand the wand on
+    // "now" for hours after a meeting had actually ended.
+    private var badgeTicker: Timer?
+    // No timed event is treated as "ongoing" past this many seconds — a cap so a
+    // missing/garbled end time can't keep an appointment alive in the agenda (and
+    // masking the ones behind it) indefinitely.
+    static let maxTimedDuration: TimeInterval = 12 * 3600
 
     // Broadcast the focused day (nil in week mode) so the menu bar strip can
     // light the same dot. Wired by the AppDelegate.
@@ -139,6 +151,15 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         }
         RunLoop.main.add(timer, forMode: .common)
         upcomingTimer = timer
+
+        // Cheap local re-selection every 20s: advances the badge to the next
+        // meeting as soon as the current one starts, with no network round-trip.
+        guard badgeTicker == nil else { return }
+        let tick = Timer(timeInterval: 20, repeats: true) { [weak self] _ in
+            self?.publishNextEvent()
+        }
+        RunLoop.main.add(tick, forMode: .common)
+        badgeTicker = tick
     }
 
     // Reacts to a change in the shared ~/.ac-token (broadcast).
@@ -467,24 +488,27 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         var laid: [LaidEvent] = []
         for e in upcomingAesthetical {
             guard let s = Self.parseISO(e.start), let en = Self.parseISO(e.end) else { continue }
+            let allDay = e.allDay ?? false
             laid.append(LaidEvent(
                 kind: .aesthetical, uid: e.uid, title: e.title,
-                start: s, end: en, allDay: e.allDay ?? false,
+                start: s, end: Self.cappedEnd(start: s, end: en, allDay: allDay), allDay: allDay,
                 note: e.note ?? "", visibility: e.visibility ?? "private",
                 sourceLabel: nil, color: nil))
         }
         for e in upcomingFeed {
             guard let s = Self.parseISO(e.start) else { continue }
+            let allDay = e.allDay ?? false
             let en = e.end.flatMap(Self.parseISO) ?? s.addingTimeInterval(1800)
             laid.append(LaidEvent(
                 kind: .feed, uid: e.uid, title: e.title,
-                start: s, end: en, allDay: e.allDay ?? false,
+                start: s, end: Self.cappedEnd(start: s, end: en, allDay: allDay), allDay: allDay,
                 note: e.note ?? "", visibility: "private",
                 sourceLabel: e.label, color: Self.color(from: e.color)))
         }
         // Collapse duplicates (same event via import + feed) before filtering,
         // then keep still-relevant events (ongoing or ahead), ordered by start.
         let upcoming = Self.deduped(laid).filter { $0.end >= now }.sorted { $0.start < $1.start }
+        cachedUpcoming = upcoming
         agendaView?.events = upcoming
 
         if dayCount != 1 {
@@ -494,9 +518,26 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
                 : "\(count) upcoming event\(count == 1 ? "" : "s") · next \(Self.upcomingDays) days"
         }
 
-        // Next appointment = soonest timed event that hasn't started yet. Skip
-        // all-day items so the badge always counts down to a real clock time.
-        let next = upcoming.first { !$0.allDay && $0.start > now }
+        publishNextEvent()
+    }
+
+    // Clamp an event's end so a missing or garbled end time can't leave it
+    // "ongoing" forever. All-day items keep their span; timed items are capped at
+    // maxTimedDuration past their start.
+    private static func cappedEnd(start: Date, end: Date, allDay: Bool) -> Date {
+        if allDay { return max(end, start) }
+        let ceiling = start.addingTimeInterval(maxTimedDuration)
+        return min(max(end, start), ceiling)
+    }
+
+    // Pick the next appointment for the menu-bar badge from the cached set and
+    // hand it to the wand. Next = soonest timed event that hasn't started yet;
+    // all-day items are skipped so the badge always counts down to a clock time.
+    // Runs on the local ticker too, so the badge advances the instant a meeting
+    // starts — it never lingers on "now" waiting for the network reload.
+    private func publishNextEvent() {
+        let now = Date()
+        let next = cachedUpcoming.first { !$0.allDay && $0.start > now }
         onNextEventChanged?(next?.start, next?.title)
     }
 
