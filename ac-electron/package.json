@@ -55,6 +55,10 @@
         "to": "pals.svg"
       },
       {
+        "from": "build/icons/pals-spin",
+        "to": "pals-spin"
+      },
+      {
         "from": "build/icons/palsTray.png",
         "to": "palsTray.png"
       },

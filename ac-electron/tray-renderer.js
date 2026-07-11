@@ -48,6 +48,12 @@ const STATE_FILE = path.join(os.homedir(), '.ac-os', 'tray.json');
 
 // Default state. The watched JSON shallow-merges over this.
 const DEFAULTS = {
+  // ── Base logo art. 'spin' = the blinged low-poly amethyst pals turntable
+  //    (pre-baked frames under build/icons/pals-spin, cycled continuously);
+  //    'pals' = the classic flat pink line-art. Spin is the default. ──
+  logoMode: 'spin',   // 'spin' | 'pals'
+  spinFps: 20,        // spin animation tick rate
+  spinPeriodMs: 3200, // ms for one full 360° rotation
   show: false,        // show the badge?
   badge: 'USB',       // label text (Menuband-style)
   logoScale: 0.86,    // pals logo height as a fraction of the 22px bar (smaller
@@ -85,11 +91,59 @@ class TrayRenderer {
     this.tray = tray;
     this.state = { ...DEFAULTS };
     this.master = null;        // cached pals pink raster (sharp buffer)
+    this.spin = null;          // cached spin frames: {1:[{data,info}],2:[…],3:[…]}
+    this.spinCount = 0;        // number of spin frames (per scale)
+    this.spinLoading = null;   // in-flight load promise (load once)
     this.phase = 0;            // 0..1 animation phase
     this.timer = null;
     this.watcher = null;
     this.rendering = false;
     this.dirty = false;
+  }
+
+  // ── Spin frames: a pre-baked transparent turntable, stored as one
+  //    horizontal sprite sheet per scale (sheet-1x/2x/3x.png at tray heights
+  //    22/44/66) + manifest.json. Sliced once into per-frame raw RGBA and
+  //    cached. Dev reads build/icons/pals-spin; the packaged app ships it as
+  //    an extraResource at Resources/pals-spin. Returns null if absent (the
+  //    renderer then falls back to the flat pals line-art). ──
+  loadSpin() {
+    if (this.spin || this.spin === false) return Promise.resolve(this.spin || null);
+    if (this.spinLoading) return this.spinLoading;
+    this.spinLoading = (async () => {
+      if (!sharp) { this.spin = false; return null; }
+      const base = [
+        path.join(__dirname, 'build', 'icons', 'pals-spin'),
+        path.join(process.resourcesPath || '', 'pals-spin'),
+      ].find((p) => p && fs.existsSync(path.join(p, 'manifest.json')));
+      if (!base) { this.spin = false; return null; }
+      const spin = {};
+      try {
+        const man = JSON.parse(fs.readFileSync(path.join(base, 'manifest.json'), 'utf8'));
+        const N = man.frames;
+        for (const scale of [1, 2, 3]) {
+          const sheet = sharp(path.join(base, `sheet-${scale}x.png`)).ensureAlpha();
+          const meta = await sheet.metadata();
+          const fw = (man.frameW && man.frameW[scale]) || Math.round(meta.width / N);
+          const fh = meta.height;
+          spin[scale] = [];
+          for (let i = 0; i < N; i++) {
+            // extract() consumes the pipeline, so re-open per frame.
+            spin[scale].push(await sharp(path.join(base, `sheet-${scale}x.png`)).ensureAlpha()
+              .extract({ left: i * fw, top: 0, width: fw, height: fh })
+              .raw().toBuffer({ resolveWithObject: true }));
+          }
+        }
+      } catch (e) { console.warn('[tray] spin load failed:', e.message); this.spin = false; return null; }
+      if (!spin[1]?.length) { this.spin = false; return null; }
+      this.spin = spin;
+      this.spinCount = spin[1].length;
+      console.log(`[tray] spin frames loaded: ${this.spinCount} × 3 scales`);
+      return spin;
+    })();
+    // Once frames resolve (or fail), re-sync the ticker and redraw.
+    this.spinLoading.then(() => { this.syncTicker(); this.refresh(); }).catch(() => {});
+    return this.spinLoading;
   }
 
   // ── PALS master line-art, recolored to `logoColor` (default pals pink, or
@@ -184,8 +238,12 @@ class TrayRenderer {
 
   // ── PURE render: current state + phase -> nativeImage (multi-scale). ──
   async render() {
-    if (!(await this.buildMaster())) return null;   // rebuilds if logo color changed
     const s = this.state;
+    // Resolve the base art. Spin mode uses the pre-baked turntable frames;
+    // if they're missing it falls back to the flat pals line-art.
+    let mode = s.logoMode || 'spin';
+    if (mode === 'spin') { await this.loadSpin(); if (!this.spin) mode = 'pals'; }
+    if (mode !== 'spin' && !(await this.buildMaster())) return null;
 
     // Animation → a 0..1 multiplier applied to the label (opacity here; easy to
     // extend to position/scale). Static when effect is 'none' or badge hidden.
@@ -199,12 +257,21 @@ class TrayRenderer {
     for (const scale of [1, 2, 3]) {
       try {
         const H = 22 * scale;
-        const SHRINK = s.logoScale || 0.94;
-        const lh = Math.max(1, Math.round(22 * SHRINK * scale));
-        const logo = await sharp(this.master)
-          .resize({ height: lh, kernel: 'lanczos3' }).ensureAlpha().raw()
-          .toBuffer({ resolveWithObject: true });
+        // Base logo layer for this scale: a spin frame (already tray-height)
+        // or the recolored pals master resized to the shrunk logo height.
+        let logo;
+        if (mode === 'spin') {
+          const frames = this.spin[scale];
+          const idx = frames.length ? Math.floor(this.phase * frames.length) % frames.length : 0;
+          logo = frames[idx];                       // {data, info:{width,height}}
+        } else {
+          const SHRINK = s.logoScale || 0.94;
+          logo = await sharp(this.master)
+            .resize({ height: Math.max(1, Math.round(22 * SHRINK * scale)), kernel: 'lanczos3' })
+            .ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+        }
         const lw = logo.info.width;
+        const lh = logo.info.height;
 
         // Superscript count rides its OWN column to the right of the logo so it
         // never overlaps the art. Render it first to size that column.
@@ -289,12 +356,19 @@ class TrayRenderer {
     }
   }
 
-  // ── Animation ticker — runs only while an effect is active. ──
+  // ── Animation ticker — runs while the gem spins, or while a badge effect
+  //    is active. Spin mode drives `phase` continuously so the gem turns. ──
   syncTicker() {
-    const animating = this.state.show && this.state.effect !== 'none';
+    const s = this.state;
+    const spinning = (s.logoMode || 'spin') === 'spin' && this.spin !== false;
+    const badgeAnim = s.show && s.effect !== 'none';
+    const animating = spinning || badgeAnim;
     if (animating && !this.timer) {
-      const dt = 1000 / Math.max(1, Math.min(30, this.state.fps));
-      const period = Math.max(200, this.state.periodMs || 1500); // full cycle (ms)
+      const fps = spinning ? (s.spinFps || 20) : s.fps;
+      const dt = 1000 / Math.max(1, Math.min(30, fps));
+      const period = spinning
+        ? Math.max(400, s.spinPeriodMs || 3200)   // one full rotation
+        : Math.max(200, s.periodMs || 1500);      // badge blink/pulse cycle
       this.timer = setInterval(() => { this.phase = (this.phase + dt / period) % 1; this.refresh(); }, dt);
     } else if (!animating && this.timer) {
       clearInterval(this.timer); this.timer = null; this.phase = 0;
