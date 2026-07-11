@@ -482,8 +482,9 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
                 note: e.note ?? "", visibility: "private",
                 sourceLabel: e.label, color: Self.color(from: e.color)))
         }
-        // Keep still-relevant events (ongoing or ahead), ordered by start.
-        let upcoming = laid.filter { $0.end >= now }.sorted { $0.start < $1.start }
+        // Collapse duplicates (same event via import + feed) before filtering,
+        // then keep still-relevant events (ongoing or ahead), ordered by start.
+        let upcoming = Self.deduped(laid).filter { $0.end >= now }.sorted { $0.start < $1.start }
         agendaView?.events = upcoming
 
         if dayCount != 1 {
@@ -566,7 +567,32 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
                 note: e.note ?? "", visibility: "private",
                 sourceLabel: e.label, color: Self.color(from: e.color)))
         }
-        weekView.events = laid
+        weekView.events = Self.deduped(laid)
+    }
+
+    // Collapse events that represent the same underlying item — e.g. a Google
+    // event that is both imported into AesthetiCal (uid "ics:<sourceUID>") and
+    // shown live via a connected feed (uid "<sourceUID>"), or the same event
+    // arriving from two feeds. Callers append editable aesthetical events before
+    // feed events, so keeping the first occurrence prefers the editable copy.
+    private static func deduped(_ events: [LaidEvent]) -> [LaidEvent] {
+        var seen = Set<String>()
+        var out: [LaidEvent] = []
+        out.reserveCapacity(events.count)
+        for e in events {
+            if let key = dedupKey(e), !seen.insert(key).inserted { continue }
+            out.append(e)
+        }
+        return out
+    }
+
+    // Normalized identity for duplicate detection. Strips the "ics:" import
+    // prefix so an imported event and its feed twin share a key. Returns nil
+    // when there's no stable id to match on (those events are always kept).
+    private static func dedupKey(_ e: LaidEvent) -> String? {
+        var uid = e.uid.trimmingCharacters(in: .whitespacesAndNewlines)
+        if uid.hasPrefix("ics:") { uid = String(uid.dropFirst(4)) }
+        return uid.isEmpty ? nil : uid
     }
 
     // ── editor ───────────────────────────────────────────────────────
