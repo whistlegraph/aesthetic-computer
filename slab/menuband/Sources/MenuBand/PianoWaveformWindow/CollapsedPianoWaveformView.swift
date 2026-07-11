@@ -55,6 +55,9 @@ final class CollapsedPianoWaveformView: NSView {
     private let keymapButton = NSButton()
     private var trackingArea: NSTrackingArea?
     private weak var paletteGlassView: NSView?
+    /// Mirror of the dictation engine's listening state, kept in sync by the
+    /// `.menuBandDictationStateChanged` notification so the MIC cell fills.
+    private var dictationListening = false
 
     var onHoverChanged: ((Bool) -> Void)?
     var onStepBackward: (() -> Void)?
@@ -154,6 +157,19 @@ final class CollapsedPianoWaveformView: NSView {
             self?.menuBand?.setSampleBackend(true)
             self?.refresh()
         }
+        // MIC cell (far left, dictation-enabled only) — ask AppDelegate to
+        // start/stop voice dictation. Routed through a notification so this
+        // view stays decoupled from the dictation engine.
+        instrumentList.onMicCommit = {
+            NotificationCenter.default.post(
+                name: .menuBandDictationToggleRequested, object: nil)
+        }
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(dictationStateChanged(_:)),
+            name: .menuBandDictationStateChanged, object: nil)
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(dictationEnabledChanged(_:)),
+            name: .menuBandDictationEnabledChanged, object: nil)
         instrumentList.onHover = { [weak self] prog in
             self?.menuBand?.setInstrumentPreview(prog.map { UInt8($0) })
             self?.refresh()
@@ -420,6 +436,18 @@ final class CollapsedPianoWaveformView: NSView {
         super.mouseExited(with: event)
     }
 
+    /// Dictation started/stopped — repaint the MIC cell.
+    @objc private func dictationStateChanged(_ note: Notification) {
+        dictationListening = (note.object as? Bool) ?? false
+        refresh()
+    }
+
+    /// Voice-dictation Advanced flag flipped — show/hide the MIC cell.
+    @objc private func dictationEnabledChanged(_ note: Notification) {
+        if !MenuBandDictation.isEnabled { dictationListening = false }
+        refresh()
+    }
+
     func refresh() {
         guard let menuBand else { return }
         let isDark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
@@ -439,6 +467,8 @@ final class CollapsedPianoWaveformView: NSView {
         instrumentList.radioBackendActive = (menuBand.instrumentBackend == .kpbj)
         instrumentList.sampleBackendActive = (menuBand.instrumentBackend == .sample)
         instrumentList.selectedRadioStationID = menuBand.radioStation.id
+        instrumentList.dictationEnabled = MenuBandDictation.isEnabled
+        instrumentList.dictationListening = dictationListening
 
         applyInstrumentReadout(safe: safe, familyColor: familyColor, isDark: isDark)
 

@@ -73,6 +73,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var exitFocusHotkey: GlobalHotkey?
     private var layoutToggleHotkey: GlobalHotkey?
     private var percussionToggleHotkey: GlobalHotkey?
+    private var dictationHotkey: GlobalHotkey?
+    /// On-device voice dictation, driven by the ⌘⌃⌥` global hotkey. Off
+    /// until the About-window Advanced checkbox enables it.
+    private lazy var dictation = MenuBandDictation()
     private var popoverPanel: MenuBandPopoverPanel?
     private var popoverVC: MenuBandPopoverViewController?
     /// Indirect-touch sensor embedded in the popover so trackpad
@@ -519,6 +523,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             name: .menuBandUseACMIDIChanged,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleDictationEnabledToggled(_:)),
+            name: .menuBandDictationEnabledChanged,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleDictationToggleRequested(_:)),
+            name: .menuBandDictationToggleRequested,
+            object: nil
+        )
+        // Broadcast listening state so the popover MIC cell can fill/empty.
+        dictation.onStateChange = { listening in
+            NotificationCenter.default.post(
+                name: .menuBandDictationStateChanged, object: listening)
+        }
         Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { _ in
             debugLog("heartbeat")
         }
@@ -788,6 +809,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // _ = registerExitFocusHotkey(MenuBandShortcutPreferences.exitFocusShortcut)
         // registerLayoutToggleHotkey()
         // registerPercussionToggleHotkey()
+
+        // Voice dictation (⌘⌃⌥`) — self-gates on the Advanced flag, so this
+        // is a no-op unless the user has switched it on in the About window.
+        registerDictationHotkey()
 
         // Start the Stickies bridge — watches the focused sticky's text
         // and plays a note for each character typed after an `mbN` token,
@@ -1288,6 +1313,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if hotkey.register(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) {
             percussionToggleHotkey = hotkey
         }
+    }
+
+    /// Bind ⌘⌃⌥` to voice dictation, but only while the Advanced flag is
+    /// on. Idempotent — safe to call after the checkbox flips.
+    func registerDictationHotkey() {
+        guard MenuBandDictation.isEnabled else { return }
+        guard dictationHotkey == nil else { return }
+        let hotkey = GlobalHotkey(
+            signature: OSType(0x4D444354),  // 'MDCT'
+            id: 1
+        ) { [weak self] in
+            self?.dictation.toggle()
+        }
+        let shortcut = MenuBandShortcut.dictation
+        if hotkey.register(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) {
+            dictationHotkey = hotkey
+        }
+    }
+
+    /// Tear the dictation hotkey down (stops any in-flight listening) when
+    /// the Advanced flag is switched off.
+    func unregisterDictationHotkey() {
+        dictation.stop()
+        dictationHotkey?.unregister()
+        dictationHotkey = nil
+    }
+
+    /// React to the About-window checkbox: arm or disarm the ⌘⌃⌥` hotkey to
+    /// match the freshly-written flag.
+    @objc private func handleDictationEnabledToggled(_ note: Notification) {
+        if MenuBandDictation.isEnabled {
+            registerDictationHotkey()
+        } else {
+            unregisterDictationHotkey()
+        }
+    }
+
+    /// A UI affordance (popover MIC cell) asked to start/stop dictation.
+    @objc private func handleDictationToggleRequested(_ note: Notification) {
+        guard MenuBandDictation.isEnabled else { return }
+        dictation.toggle()
     }
 
     private func togglePercussionSplitFromShortcut() {

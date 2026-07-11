@@ -150,6 +150,71 @@ exceptions. CoreMIDI, AVAudioEngine, CGEventTap, and Carbon
 `RegisterEventHotKey` all work under default Hardened Runtime. Don't
 add exceptions unless you've demonstrated they're required.
 
+## Voice dictation (⌘⌃⌥`)
+
+A hold-to-talk (currently press-to-toggle) mic that transcribes speech
+**on-device** with Apple's `Speech` framework and drops the text into
+whatever app is frontmost — built for dictating into a terminal / Claude
+Code without leaving the keyboard, but it types into any focused text
+field. Lives in `MenuBandDictation.swift` (self-contained: recognizer +
+`CGEvent` unicode text injector), wired from `AppDelegate`.
+
+**Why it's cheap to add here.** Menu Band already owns the whole rig:
+the `audio-input` entitlement is in *both* `MenuBand.entitlements` and
+`MenuBand-AppStore.entitlements`; `MenuBandSampleVoice`/`MenuBandMicTempo`
+already tap the mic `inputNode`; `KeyEventTap` already types into the
+focused app; `GlobalHotkey` already registers system shortcuts; and the
+About window already persists feature flags via `UserDefaults` checkboxes
+(`toggleTapeFeature`/`togglePercussionSplit`). Dictation is those parts
+re-composed plus one new framework (`Speech`).
+
+**Design decisions**
+
+- **On-device, no account.** `SFSpeechAudioBufferRecognitionRequest` with
+  `requiresOnDeviceRecognition = true` — offline, free, zero backend, in
+  keeping with Menu Band's no-server character. (Claude Code's own
+  `/voice` is cloud + a Claude.ai account; this is the local path.)
+  Needs `NSSpeechRecognitionUsageDescription` (+ the existing mic desc)
+  in `Info.plist` and a one-time auth prompt.
+- **Separate `AVAudioEngine`.** Dictation runs its own engine + input tap
+  so it never fights the sampler's `recordEngine` tap on bus 0.
+- **Trigger.** Default `⌘⌃⌥` + `` ` `` (`kVK_ANSI_Grave`), matching the
+  ⌘⌃⌥-letter family the other shortcuts use. Press to start listening,
+  press again (or a trailing pause) to finalize and inject.
+- **Off by default, gated by an Advanced flag.** About-window checkbox
+  writes `MenuBandDictation.enabledDefaultsKey`; the hotkey only registers
+  when it's on. Keeps the mic dormant for users who don't want it.
+- **Sandbox reality (DMG-only for typing).** `CGEvent` keystroke
+  injection is forbidden in the App Store sandbox — same wall as the
+  Notepat/Ableton typing modes — so the *type-into-focused-app* path is
+  `#if !MAC_APP_STORE`. The MAS build can still transcribe; it just can't
+  type into other apps.
+
+**The mic-cell homogenization.** *Done (popover):* a 🎙 MIC cell at the
+LEFT edge of the top row in `InstrumentListView` (`InstrumentMapView.swift`)
+— pink, mirroring `sampleRect`'s special-cell pattern (`micRect` +
+`isMicHit` + `mouseDown` branch + draw block + `onMicCommit`). It only
+appears when the Advanced flag is on (`dictationEnabled`), fills while
+`dictationListening`, and toggles dictation. Wiring lives in
+`CollapsedPianoWaveformView`: `onMicCommit` posts
+`.menuBandDictationToggleRequested`; AppDelegate toggles and broadcasts
+`.menuBandDictationStateChanged`; the cell also watches
+`.menuBandDictationEnabledChanged` so it shows/hides live. Decoupled by
+notification — the grid view never touches the dictation engine.
+
+*Still pending:*
+- **fs view** — `ExpandedPianoWaveformView` renders its own custom liquid
+  instrument surface (it does NOT reuse `InstrumentListView`), so the mic
+  affordance there is a separate, bespoke addition.
+- **Sample / Dictate / Ask modes on one cell** — right now the MIC cell is
+  Dictate-only and SAMPLE stays separate. Folding them into a single
+  mode-cycling cell, with **Ask** routing the transcript to an LLM prompt
+  (`LLMGuideWindow`), is the next step. The seam is ready: swap
+  `MenuBandDictation.onFinalText` to route instead of type.
+
+See "Where popover controls ACTUALLY render" in the menuband memory before
+adding AppKit controls — many stacks here are built-but-dropped.
+
 ## Common tasks
 
 | Task | Command |

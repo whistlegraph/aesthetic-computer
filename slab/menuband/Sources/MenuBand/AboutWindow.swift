@@ -343,6 +343,39 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         playersLink.toolTip = "Aesthetic.Computer · computer clubs"
         stack.addArrangedSubview(playersLink)
 
+        #if !MAC_APP_STORE
+        // Advanced: voice dictation. Off by default. When on, ⌘⌃⌥` starts
+        // on-device transcription and types the result into the frontmost
+        // app. Gated out of the sandboxed build, which can't post keystrokes
+        // to other apps.
+        stack.setCustomSpacing(14, after: playersLink)
+        let dictationRow = NSStackView()
+        dictationRow.orientation = .vertical
+        dictationRow.alignment = .leading
+        dictationRow.spacing = 1
+        dictationRow.translatesAutoresizingMaskIntoConstraints = false
+        let dictationToggle = NSButton(
+            checkboxWithTitle: "Voice dictation (⌘⌃⌥`)",
+            target: self,
+            action: #selector(toggleVoiceDictation(_:)))
+        dictationToggle.state = MenuBandDictation.isEnabled ? .on : .off
+        dictationToggle.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
+        dictationToggle.translatesAutoresizingMaskIntoConstraints = false
+        let dictationSub = NSTextField(labelWithString:
+            "hold the mic key and talk — transcribes on-device and types "
+            + "into whatever app is in front")
+        dictationSub.font = NSFont.systemFont(ofSize: 9, weight: .regular)
+        dictationSub.textColor = .secondaryLabelColor
+        dictationSub.lineBreakMode = .byWordWrapping
+        dictationSub.maximumNumberOfLines = 2
+        dictationSub.translatesAutoresizingMaskIntoConstraints = false
+        dictationRow.addArrangedSubview(dictationToggle)
+        dictationRow.addArrangedSubview(dictationSub)
+        stack.addArrangedSubview(dictationRow)
+        dictationRow.widthAnchor.constraint(
+            equalTo: stack.widthAnchor, constant: -56).isActive = true
+        #endif
+
         // [v1 cutoff] "Cassette deck (beta)" + "Percussion split" beta
         // checkboxes removed — both features are post-v1. Their flags
         // default off and their live shortcuts stay in place, so the
@@ -603,6 +636,16 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         UserDefaults.standard.set(on, forKey: MenuBandSynth.useACMIDIDefaultsKey)
         NotificationCenter.default.post(
             name: .menuBandUseACMIDIChanged, object: nil)
+    }
+
+    /// Persist the voice-dictation flag and notify AppDelegate to arm or
+    /// disarm the ⌘⌃⌥` hotkey. DMG build only — the checkbox that drives
+    /// this is compiled out of the sandboxed build.
+    @objc private func toggleVoiceDictation(_ sender: NSButton) {
+        let on = sender.state == .on
+        UserDefaults.standard.set(on, forKey: MenuBandDictation.enabledDefaultsKey)
+        NotificationCenter.default.post(
+            name: .menuBandDictationEnabledChanged, object: nil)
     }
 
     /// Open a scroll panel containing the .ips text for every pending

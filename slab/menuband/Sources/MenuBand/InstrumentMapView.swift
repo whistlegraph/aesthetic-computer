@@ -55,6 +55,15 @@ final class InstrumentListView: NSView {
     /// True while the mic-sampler backend is active — fills the SAMPLE cell
     /// the same way `midiModeActive` fills MIDI OUT.
     var sampleBackendActive: Bool = false { didSet { needsDisplay = true } }
+    /// When true, a MIC cell appears at the LEFT edge of the top row — the
+    /// same mic Menu Band already uses for sampling, here routed to voice
+    /// dictation. Driven by the About-window "Voice dictation" Advanced flag,
+    /// so the cell is absent unless the user opted in.
+    var dictationEnabled: Bool = false { didSet { needsDisplay = true } }
+    /// Fills the MIC cell while dictation is actively listening.
+    var dictationListening: Bool = false { didSet { needsDisplay = true } }
+    /// Fires when the MIC cell is clicked — the host toggles listening.
+    var onMicCommit: (() -> Void)?
     /// Fires whenever the hovered cell changes (including transitions to
     /// "no hover" → nil). Drives the controller's hover-preview note for
     /// sonic browsing.
@@ -121,6 +130,9 @@ final class InstrumentListView: NSView {
         point: NSPoint,
         userData data: UnsafeMutableRawPointer?
     ) -> String {
+        if isMicHit(point) {
+            return "🎙 Voice dictation — click (or ⌘⌃⌥`) to talk; the text types into the frontmost app"
+        }
         if let i = radioStationIndex(at: point) {
             return "\(radioStations[i].name) - click to play the live radio as voice −1"
         }
@@ -183,8 +195,23 @@ final class InstrumentListView: NSView {
     /// Width of the SAMPLE cell carved off the right end of the top row.
     private var sampleCellW: CGFloat { min(86, bounds.width * 0.32) }
 
+    /// Width of the MIC cell carved off the LEFT end of the top row. Zero
+    /// (absent) unless dictation is enabled, so the top row keeps its old
+    /// two-cell shape for everyone else.
+    private var micCellW: CGFloat { dictationEnabled ? 40 : 0 }
+
+    /// MIC cell — sits at the far left of the top row, before MIDI OUT.
+    private var micRect: NSRect {
+        NSRect(x: 0, y: 0, width: micCellW, height: Self.midiOutH)
+    }
+
     private var midiOutRect: NSRect {
-        NSRect(x: 0, y: 0, width: bounds.width - sampleCellW, height: Self.midiOutH)
+        NSRect(x: micCellW, y: 0,
+               width: bounds.width - micCellW - sampleCellW, height: Self.midiOutH)
+    }
+
+    private func isMicHit(_ point: NSPoint) -> Bool {
+        micCellW > 0 && micRect.contains(point)
     }
 
     /// SAMPLE cell — sits to the right of MIDI OUT on the top row.
@@ -287,6 +314,30 @@ final class InstrumentListView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
+        // MIC cell — far left of the top row, present only when dictation is
+        // enabled. Magenta so it reads distinctly from MIDI OUT (accent) and
+        // SAMPLE (red); fills solid while actively listening.
+        if micCellW > 0 {
+            let micR = micRect
+            if micR.intersects(dirtyRect) {
+                let tint = NSColor.systemPink
+                let cap = NSBezierPath(roundedRect: micR.insetBy(dx: 1.75, dy: 1.5),
+                                       xRadius: 3, yRadius: 3)
+                if dictationListening {
+                    tint.withAlphaComponent(0.85).setFill(); cap.fill()
+                    tint.setStroke(); cap.lineWidth = 1.4; cap.stroke()
+                } else {
+                    tint.withAlphaComponent(0.30).setFill(); cap.fill()
+                    tint.withAlphaComponent(0.85).setStroke(); cap.lineWidth = 1.0; cap.stroke()
+                }
+                let str = NSAttributedString(string: "🎙", attributes: [
+                    .font: NSFont.systemFont(ofSize: 12, weight: .semibold),
+                ])
+                let size = str.size()
+                str.draw(at: NSPoint(x: micR.midX - size.width / 2,
+                                     y: micR.midY - size.height / 2))
+            }
+        }
         // MIDI OUT cell (slot 0) — full-width row at the TOP, accent-filled
         // when active, outlined when inactive. Draws first so the patch
         // grid renders below.
@@ -506,6 +557,12 @@ final class InstrumentListView: NSView {
         // MIDI OUT, there's no audible preview, so it bypasses the drag path.
         if let i = radioStationIndex(at: pt) {
             onRadioCommit?(radioStations[i])
+            return
+        }
+        // MIC cell — far left of the top row. Toggles voice dictation.
+        // No audible preview, so it bypasses the drag path.
+        if isMicHit(pt) {
+            onMicCommit?()
             return
         }
         // MIDI OUT cell — slot 0. Click toggles MIDI passthrough mode
