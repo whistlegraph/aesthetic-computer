@@ -3,6 +3,15 @@
 Deferred items from @minanimals (Alex Freundlich) via iMessage, 2026-07-10.
 Data edits + copy/loop changes from that thread are already applied to `graphs.json` / `index.html`.
 
+## Bigger feature — needs a data model (2026-07-11)
+- **Per-page source-video list.** On each whistlegraph's detail page, list *every*
+  TikTok video feeding its aggregate data, each with its own view count — so we can
+  audit that the numbers (and which takes belong to which composition) are accurate.
+  `graphs.json` currently only stores aggregate `views` + a `perf` count, not the
+  individual source URLs/views. Needs a `sources:[{url,views,date}]` array per graph
+  (populated from the TikTok archive / Notion) plus a render block in `showDetail`.
+  This will also make the folds above self-documenting.
+
 ## To design / decide
 - **Left-column "cover" colors.** Hand-select the swatch color on the left of each
   title (most archive rows currently share `#b44887`). Alex: pull colors from each

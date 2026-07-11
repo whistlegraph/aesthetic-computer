@@ -254,6 +254,7 @@
       <li><a href="https://feralfile.com/exhibitions/ten-whistlegraphs-thv">Ten Whistlegraphs</a> — Feral File — 2022</li>
       <li><a href="https://www.newmuseum.org/exhibition/first-look-the-longest-whistlegraph-ever-so-far/">First Look</a> — The New Museum — 2022</li>
       <li><a href="https://sma.sou.edu/whistlegraph/">Schneider Museum of Art</a> — Ashland — 2021</li>
+      <li><a href="https://www.youtube.com/watch?v=eD-6j1cNgMo">Galerie Yeche Lange</a> — 2022</li>
       <li>Taipei Dangdai — 2022</li>
     </ul>
     <p class="glab">Workshops</p>
@@ -331,7 +332,7 @@
     </div>
     <hr id="dVideoRule" style="display:none">
     <video id="dVideo" controls playsinline preload="metadata" loop crossorigin="anonymous"></video>
-    <p class="dim" id="dGlyphCap" style="font-size:12.5px;display:none">The finished glyph — the last frame of the sung take.</p>
+    <p class="dim" id="dGlyphCap" style="font-size:12.5px;display:none"></p>
     <div id="dVersions" style="display:none;clear:both"></div>
     <div class="clear"></div>
     <hr class="thick">
@@ -439,6 +440,7 @@ function showDetail(code){
   if(w.slug){ // curated — score sheet + card-player + (maybe) drawn canonical
     D.performNote.style.display=""; D.archiveNote.style.display="none";
     D.perform.href=`https://aesthetic.computer/wg~${w.code}`;
+    if(w.views)D.by.innerHTML+=` &nbsp;<b>·</b>&nbsp; ${fmtViews(w.views)} views`+(w.perf>1?` across ${w.perf} videos`:"");
     D.scoreWrap.style.display=""; D.videoRule.style.display="none"; D.glyphCap.style.display="none";
     D.score.src=`${CDN}/${w.slug}/${w.slug}-score.png`; D.score.alt=`Graphic score for ${w.title}`;
     D.video.poster=`${CDN}/${w.slug}/${w.slug}.webp`;
@@ -450,13 +452,13 @@ function showDetail(code){
     D.performNote.style.display="none"; D.archiveNote.style.display="";
     D.stats.textContent=`${fmtViews(w.views)} views`+(w.perf>1?` across ${w.perf} videos`:"");
     D.scoreWrap.style.display="none"; D.canonWrap.style.display="none"; D.canon.removeAttribute("src");
-    D.videoRule.style.display=""; D.glyphCap.style.display=w.noGlyph?"none":"";
+    D.videoRule.style.display=""; D.glyphCap.style.display="none"; D.glyphCap.textContent="";
     D.video.classList.toggle("wide",!!w.wide); // the Longest film is landscape
     D.video.poster=w.noGlyph?"":`${IDX}/${w.code}.jpg`;
     D.video.src=`${IDX}/${w.code}.mp4`;
     if(w.film){ // the Rhizome film, not a TikTok take — its own provenance + glyph
       D.archiveNote.innerHTML=`Code <code>${w.code}</code> &nbsp; — &nbsp; ${fmtViews(w.views)} views &nbsp;·&nbsp; the ~22-minute <a href="https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/">Rhizome commission</a>, chalk on a 4×6 blackboard.`;
-      D.glyphCap.textContent="The glyph is the whole piece, transcribed as one score.";
+      D.glyphCap.textContent="The glyph is the whole piece, transcribed as one score."; D.glyphCap.style.display="";
     }
   }
   const dv=document.getElementById("dVersions");
