@@ -150,13 +150,13 @@ exceptions. CoreMIDI, AVAudioEngine, CGEventTap, and Carbon
 `RegisterEventHotKey` all work under default Hardened Runtime. Don't
 add exceptions unless you've demonstrated they're required.
 
-## Voice dictation (⌘⌃⌥`)
+## Squawk — voice dictation (⌘⌃⌥`)
 
-A hold-to-talk (currently press-to-toggle) mic that transcribes speech
+A push-to-talk mic that transcribes speech
 **on-device** with Apple's `Speech` framework and drops the text into
 whatever app is frontmost — built for dictating into a terminal / Claude
 Code without leaving the keyboard, but it types into any focused text
-field. Lives in `MenuBandDictation.swift` (self-contained: recognizer +
+field. Lives in `MenuBandSquawk.swift` (self-contained: recognizer +
 `CGEvent` unicode text injector), wired from `AppDelegate`.
 
 **Why it's cheap to add here.** Menu Band already owns the whole rig:
@@ -179,10 +179,14 @@ re-composed plus one new framework (`Speech`).
 - **Separate `AVAudioEngine`.** Dictation runs its own engine + input tap
   so it never fights the sampler's `recordEngine` tap on bus 0.
 - **Trigger.** Default `⌘⌃⌥` + `` ` `` (`kVK_ANSI_Grave`), matching the
-  ⌘⌃⌥-letter family the other shortcuts use. Press to start listening,
-  press again (or a trailing pause) to finalize and inject.
+  ⌘⌃⌥-letter family the other shortcuts use. **Push-to-talk**: hold to
+  listen, release to finalize + inject. `GlobalHotkey` gained an
+  `onRelease` callback (registers `kEventHotKeyReleased`); `MenuBandSquawk`
+  guards a `wantsListening` desired-state so a release that lands mid-auth
+  cancels the pending start instead of stranding the mic. The popover 🦜
+  cell and fullscreen button stay **click-to-toggle** (a click can't hold).
 - **Off by default, gated by an Advanced flag.** About-window checkbox
-  writes `MenuBandDictation.enabledDefaultsKey`; the hotkey only registers
+  writes `MenuBandSquawk.enabledDefaultsKey`; the hotkey only registers
   when it's on. Keeps the mic dormant for users who don't want it.
 - **Sandbox reality (DMG-only for typing).** `CGEvent` keystroke
   injection is forbidden in the App Store sandbox — same wall as the
@@ -190,27 +194,35 @@ re-composed plus one new framework (`Speech`).
   `#if !MAC_APP_STORE`. The MAS build can still transcribe; it just can't
   type into other apps.
 
-**The mic-cell homogenization.** *Done (popover):* a 🎙 MIC cell at the
+**The mic-cell homogenization.** *Done (popover):* a 🦜 MIC cell at the
 LEFT edge of the top row in `InstrumentListView` (`InstrumentMapView.swift`)
 — pink, mirroring `sampleRect`'s special-cell pattern (`micRect` +
 `isMicHit` + `mouseDown` branch + draw block + `onMicCommit`). It only
-appears when the Advanced flag is on (`dictationEnabled`), fills while
-`dictationListening`, and toggles dictation. Wiring lives in
+appears when the Advanced flag is on (`squawkEnabled`), fills while
+`squawkListening`, and toggles dictation. Wiring lives in
 `CollapsedPianoWaveformView`: `onMicCommit` posts
-`.menuBandDictationToggleRequested`; AppDelegate toggles and broadcasts
-`.menuBandDictationStateChanged`; the cell also watches
-`.menuBandDictationEnabledChanged` so it shows/hides live. Decoupled by
+`.menuBandSquawkToggleRequested`; AppDelegate toggles and broadcasts
+`.menuBandSquawkStateChanged`; the cell also watches
+`.menuBandSquawkEnabledChanged` so it shows/hides live. Decoupled by
 notification — the grid view never touches the dictation engine.
 
-*Still pending:*
-- **fs view** — `ExpandedPianoWaveformView` renders its own custom liquid
-  instrument surface (it does NOT reuse `InstrumentListView`), so the mic
-  affordance there is a separate, bespoke addition.
-- **Sample / Dictate / Ask modes on one cell** — right now the MIC cell is
-  Dictate-only and SAMPLE stays separate. Folding them into a single
-  mode-cycling cell, with **Ask** routing the transcript to an LLM prompt
-  (`LLMGuideWindow`), is the next step. The seam is ready: swap
-  `MenuBandDictation.onFinalText` to route instead of type.
+*Done (fullscreen):* the Expanded view (`ExpandedPianoWaveformView`) draws
+its own custom liquid surface — it does NOT reuse `InstrumentListView` — so
+Squawk there is a **"Squawk" toggle button** in the mode row (next to
+Gamepad / LLMs), `mic` SF Symbol, hidden unless enabled. Same notification
+seam: click posts `.menuBandSquawkToggleRequested`; the button's pushed
+state follows `.menuBandSquawkStateChanged`; visibility follows
+`.menuBandSquawkEnabledChanged`.
+
+*Deliberately NOT built — "Ask / LLM prompt" mode.* The original idea was a
+third cell mode that queues the transcript as an LLM prompt. But
+`LLMGuideWindow` is a **static copy-paste guide**, not an interactive input
+— there is no in-app LLM chat surface to feed. And in practice **Dictate
+already *is* the "prompt an LLM" path**: when Claude Code (or any LLM CLI)
+is the frontmost app, talking types the prompt straight into it. A separate
+Ask mode would either duplicate Dictate or require a whole LLM chat UI. If
+that surface ever exists, the seam is ready: swap
+`MenuBandSquawk.onFinalText` to route the transcript instead of typing it.
 
 See "Where popover controls ACTUALLY render" in the menuband memory before
 adding AppKit controls — many stacks here are built-but-dropped.

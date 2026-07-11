@@ -27,8 +27,7 @@ final class DateWizardAppDelegate: NSObject, NSApplicationDelegate {
         let menu = MenuBarDays()
         menu.onOpen = { [weak controller] in
             NSApp.setActivationPolicy(.regular)
-            controller?.showWindow(nil)
-            NSApp.activate(ignoringOtherApps: true)
+            controller?.revealUpcoming()
         }
         menu.onToday = { [weak controller] in controller?.revealToday() }
         menu.onSelectDay = { [weak controller] date in controller?.revealDay(date) }

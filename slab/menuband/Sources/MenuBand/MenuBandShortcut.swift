@@ -37,9 +37,9 @@ struct MenuBandShortcut: Equatable {
         modifiers: UInt32(cmdKey | controlKey | optionKey)
     )
 
-    /// Toggle voice dictation. ⌘⌃⌥` — the `` ` `` key already means "mic"
+    /// Toggle voice squawk. ⌘⌃⌥` — the `` ` `` key already means "mic"
     /// in Menu Band (hold it to sample), so it carries over to talking.
-    static let dictation = MenuBandShortcut(
+    static let squawk = MenuBandShortcut(
         keyCode: UInt32(kVK_ANSI_Grave),
         modifiers: UInt32(cmdKey | controlKey | optionKey)
     )

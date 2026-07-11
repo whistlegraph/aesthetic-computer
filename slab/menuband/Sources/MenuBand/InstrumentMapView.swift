@@ -57,11 +57,11 @@ final class InstrumentListView: NSView {
     var sampleBackendActive: Bool = false { didSet { needsDisplay = true } }
     /// When true, a MIC cell appears at the LEFT edge of the top row — the
     /// same mic Menu Band already uses for sampling, here routed to voice
-    /// dictation. Driven by the About-window "Voice dictation" Advanced flag,
+    /// squawk. Driven by the About-window "Voice squawk" Advanced flag,
     /// so the cell is absent unless the user opted in.
-    var dictationEnabled: Bool = false { didSet { needsDisplay = true } }
-    /// Fills the MIC cell while dictation is actively listening.
-    var dictationListening: Bool = false { didSet { needsDisplay = true } }
+    var squawkEnabled: Bool = false { didSet { needsDisplay = true } }
+    /// Fills the MIC cell while squawk is actively listening.
+    var squawkListening: Bool = false { didSet { needsDisplay = true } }
     /// Fires when the MIC cell is clicked — the host toggles listening.
     var onMicCommit: (() -> Void)?
     /// Fires whenever the hovered cell changes (including transitions to
@@ -131,7 +131,7 @@ final class InstrumentListView: NSView {
         userData data: UnsafeMutableRawPointer?
     ) -> String {
         if isMicHit(point) {
-            return "🎙 Voice dictation — click (or ⌘⌃⌥`) to talk; the text types into the frontmost app"
+            return "🦜 Squawk — click to toggle, or hold ⌘⌃⌥` to talk; types into the frontmost app"
         }
         if let i = radioStationIndex(at: point) {
             return "\(radioStations[i].name) - click to play the live radio as voice −1"
@@ -196,9 +196,9 @@ final class InstrumentListView: NSView {
     private var sampleCellW: CGFloat { min(86, bounds.width * 0.32) }
 
     /// Width of the MIC cell carved off the LEFT end of the top row. Zero
-    /// (absent) unless dictation is enabled, so the top row keeps its old
+    /// (absent) unless squawk is enabled, so the top row keeps its old
     /// two-cell shape for everyone else.
-    private var micCellW: CGFloat { dictationEnabled ? 40 : 0 }
+    private var micCellW: CGFloat { squawkEnabled ? 40 : 0 }
 
     /// MIC cell — sits at the far left of the top row, before MIDI OUT.
     private var micRect: NSRect {
@@ -314,7 +314,7 @@ final class InstrumentListView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
-        // MIC cell — far left of the top row, present only when dictation is
+        // MIC cell — far left of the top row, present only when squawk is
         // enabled. Magenta so it reads distinctly from MIDI OUT (accent) and
         // SAMPLE (red); fills solid while actively listening.
         if micCellW > 0 {
@@ -323,14 +323,14 @@ final class InstrumentListView: NSView {
                 let tint = NSColor.systemPink
                 let cap = NSBezierPath(roundedRect: micR.insetBy(dx: 1.75, dy: 1.5),
                                        xRadius: 3, yRadius: 3)
-                if dictationListening {
+                if squawkListening {
                     tint.withAlphaComponent(0.85).setFill(); cap.fill()
                     tint.setStroke(); cap.lineWidth = 1.4; cap.stroke()
                 } else {
                     tint.withAlphaComponent(0.30).setFill(); cap.fill()
                     tint.withAlphaComponent(0.85).setStroke(); cap.lineWidth = 1.0; cap.stroke()
                 }
-                let str = NSAttributedString(string: "🎙", attributes: [
+                let str = NSAttributedString(string: "🦜", attributes: [
                     .font: NSFont.systemFont(ofSize: 12, weight: .semibold),
                 ])
                 let size = str.size()
@@ -559,7 +559,7 @@ final class InstrumentListView: NSView {
             onRadioCommit?(radioStations[i])
             return
         }
-        // MIC cell — far left of the top row. Toggles voice dictation.
+        // MIC cell — far left of the top row. Toggles voice squawk.
         // No audible preview, so it bypasses the drag path.
         if isMicHit(pt) {
             onMicCommit?()

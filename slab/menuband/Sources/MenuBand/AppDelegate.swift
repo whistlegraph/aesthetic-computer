@@ -73,10 +73,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var exitFocusHotkey: GlobalHotkey?
     private var layoutToggleHotkey: GlobalHotkey?
     private var percussionToggleHotkey: GlobalHotkey?
-    private var dictationHotkey: GlobalHotkey?
-    /// On-device voice dictation, driven by the ⌘⌃⌥` global hotkey. Off
+    private var squawkHotkey: GlobalHotkey?
+    /// On-device voice squawk, driven by the ⌘⌃⌥` global hotkey. Off
     /// until the About-window Advanced checkbox enables it.
-    private lazy var dictation = MenuBandDictation()
+    private lazy var squawk = MenuBandSquawk()
     private var popoverPanel: MenuBandPopoverPanel?
     private var popoverVC: MenuBandPopoverViewController?
     /// Indirect-touch sensor embedded in the popover so trackpad
@@ -525,20 +525,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(handleDictationEnabledToggled(_:)),
-            name: .menuBandDictationEnabledChanged,
+            selector: #selector(handleSquawkEnabledToggled(_:)),
+            name: .menuBandSquawkEnabledChanged,
             object: nil
         )
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(handleDictationToggleRequested(_:)),
-            name: .menuBandDictationToggleRequested,
+            selector: #selector(handleSquawkToggleRequested(_:)),
+            name: .menuBandSquawkToggleRequested,
             object: nil
         )
         // Broadcast listening state so the popover MIC cell can fill/empty.
-        dictation.onStateChange = { listening in
+        squawk.onStateChange = { listening in
             NotificationCenter.default.post(
-                name: .menuBandDictationStateChanged, object: listening)
+                name: .menuBandSquawkStateChanged, object: listening)
         }
         Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { _ in
             debugLog("heartbeat")
@@ -810,9 +810,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // registerLayoutToggleHotkey()
         // registerPercussionToggleHotkey()
 
-        // Voice dictation (⌘⌃⌥`) — self-gates on the Advanced flag, so this
+        // Voice squawk (⌘⌃⌥`) — self-gates on the Advanced flag, so this
         // is a no-op unless the user has switched it on in the About window.
-        registerDictationHotkey()
+        registerSquawkHotkey()
 
         // Start the Stickies bridge — watches the focused sticky's text
         // and plays a note for each character typed after an `mbN` token,
@@ -1315,45 +1315,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Bind ⌘⌃⌥` to voice dictation, but only while the Advanced flag is
-    /// on. Idempotent — safe to call after the checkbox flips.
-    func registerDictationHotkey() {
-        guard MenuBandDictation.isEnabled else { return }
-        guard dictationHotkey == nil else { return }
+    /// Bind ⌘⌃⌥` to voice squawk as push-to-talk — hold to listen, release
+    /// to finalize + inject — but only while the Advanced flag is on.
+    /// Idempotent; safe to call after the checkbox flips.
+    func registerSquawkHotkey() {
+        guard MenuBandSquawk.isEnabled else { return }
+        guard squawkHotkey == nil else { return }
         let hotkey = GlobalHotkey(
             signature: OSType(0x4D444354),  // 'MDCT'
-            id: 1
-        ) { [weak self] in
-            self?.dictation.toggle()
-        }
-        let shortcut = MenuBandShortcut.dictation
+            id: 1,
+            onTrigger: { [weak self] in self?.squawk.start() },
+            onRelease: { [weak self] in self?.squawk.stop() }
+        )
+        let shortcut = MenuBandShortcut.squawk
         if hotkey.register(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) {
-            dictationHotkey = hotkey
+            squawkHotkey = hotkey
         }
     }
 
-    /// Tear the dictation hotkey down (stops any in-flight listening) when
+    /// Tear the squawk hotkey down (stops any in-flight listening) when
     /// the Advanced flag is switched off.
-    func unregisterDictationHotkey() {
-        dictation.stop()
-        dictationHotkey?.unregister()
-        dictationHotkey = nil
+    func unregisterSquawkHotkey() {
+        squawk.stop()
+        squawkHotkey?.unregister()
+        squawkHotkey = nil
     }
 
     /// React to the About-window checkbox: arm or disarm the ⌘⌃⌥` hotkey to
     /// match the freshly-written flag.
-    @objc private func handleDictationEnabledToggled(_ note: Notification) {
-        if MenuBandDictation.isEnabled {
-            registerDictationHotkey()
+    @objc private func handleSquawkEnabledToggled(_ note: Notification) {
+        if MenuBandSquawk.isEnabled {
+            registerSquawkHotkey()
         } else {
-            unregisterDictationHotkey()
+            unregisterSquawkHotkey()
         }
     }
 
-    /// A UI affordance (popover MIC cell) asked to start/stop dictation.
-    @objc private func handleDictationToggleRequested(_ note: Notification) {
-        guard MenuBandDictation.isEnabled else { return }
-        dictation.toggle()
+    /// A UI affordance (popover MIC cell) asked to start/stop squawk.
+    @objc private func handleSquawkToggleRequested(_ note: Notification) {
+        guard MenuBandSquawk.isEnabled else { return }
+        squawk.toggle()
     }
 
     private func togglePercussionSplitFromShortcut() {

@@ -11,11 +11,18 @@ final class GlobalHotkey {
     private var hotKeyRef: EventHotKeyRef?
     private var eventHandler: EventHandlerRef?
     private let onTrigger: () -> Void
+    /// Optional key-up callback. When set, the hotkey also listens for
+    /// `kEventHotKeyReleased`, so a caller can implement hold-to-do gestures
+    /// (press starts, release ends) — e.g. push-to-talk Squawk.
+    private let onRelease: (() -> Void)?
 
-    init(signature: OSType = OSType(0x4E544B59), id: UInt32 = 1, onTrigger: @escaping () -> Void) {
+    init(signature: OSType = OSType(0x4E544B59), id: UInt32 = 1,
+         onTrigger: @escaping () -> Void,
+         onRelease: (() -> Void)? = nil) {
         self.signature = signature
         self.id = id
         self.onTrigger = onTrigger
+        self.onRelease = onRelease
     }
 
     /// Register the shortcut. `keyCode` uses Carbon `kVK_*` virtual key codes,
@@ -42,8 +49,14 @@ final class GlobalHotkey {
         }
         hotKeyRef = ref
 
-        var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard),
-                                 eventKind: UInt32(kEventHotKeyPressed))
+        // Listen for press always; add release only when the caller wants
+        // hold-to-do (so the handler can key off the event kind).
+        var specs = [EventTypeSpec(eventClass: OSType(kEventClassKeyboard),
+                                   eventKind: UInt32(kEventHotKeyPressed))]
+        if onRelease != nil {
+            specs.append(EventTypeSpec(eventClass: OSType(kEventClassKeyboard),
+                                       eventKind: UInt32(kEventHotKeyReleased)))
+        }
         let opaque = Unmanaged.passUnretained(self).toOpaque()
         let handler: EventHandlerUPP = { _, event, userData -> OSStatus in
             guard let userData = userData else { return noErr }
@@ -63,11 +76,14 @@ final class GlobalHotkey {
             guard incomingID.signature == hk.signature, incomingID.id == hk.id else {
                 return OSStatus(eventNotHandledErr)
             }
-            DispatchQueue.main.async { hk.onTrigger() }
+            let isRelease = GetEventKind(event) == UInt32(kEventHotKeyReleased)
+            DispatchQueue.main.async {
+                if isRelease { hk.onRelease?() } else { hk.onTrigger() }
+            }
             return noErr
         }
         let installOK = InstallEventHandler(GetApplicationEventTarget(), handler,
-                                            1, &spec, opaque, &eventHandler)
+                                            specs.count, &specs, opaque, &eventHandler)
         if installOK != noErr {
             NSLog("MenuBand hotkey event handler install failed: \(installOK)")
             unregister()

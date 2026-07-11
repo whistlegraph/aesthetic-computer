@@ -287,7 +287,11 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         // Frame the window in the day color (edge glow), not a full wash.
         dayGlow?.color = dayMode ? dayColor : nil
 
-        dayDots?.todayIndex = DayPalette.index(for: Date())
+        // Only mark today while a single day is in focus. On the "Upcoming"
+        // agenda nothing is selected, and DayStrip promotes today to the lit
+        // "selected" look when there's no selection — which read as a stray
+        // highlighted day (e.g. "F") on a screen that isn't about any one day.
+        dayDots?.todayIndex = dayMode ? DayPalette.index(for: Date()) : nil
         dayDots?.selectedIndex = dayMode ? DayPalette.index(for: weekStart) : nil
 
         titleLabel?.textColor = dayMode ? dayColor : .labelColor
@@ -348,6 +352,15 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         NSApp.activate(ignoringOtherApps: true)
         setDayMode(date)
         refresh()
+    }
+
+    // Show the window on the rolling "Upcoming" agenda with no day focused —
+    // backs a click on the menu-bar wand. You land on what's coming up next,
+    // not whatever single day happened to be showing last.
+    func revealUpcoming() {
+        showWindow(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        showUpcomingAction()
     }
 
     // ── paging ─────────────────────────────────────────────────────────
@@ -487,8 +500,9 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         let now = Date()
         var laid: [LaidEvent] = []
         for e in upcomingAesthetical {
-            guard let s = Self.parseISO(e.start), let en = Self.parseISO(e.end) else { continue }
             let allDay = e.allDay ?? false
+            guard let s = Self.parseBoundary(e.start, allDay: allDay),
+                  let en = Self.parseBoundary(e.end, allDay: allDay) else { continue }
             laid.append(LaidEvent(
                 kind: .aesthetical, uid: e.uid, title: e.title,
                 start: s, end: Self.cappedEnd(start: s, end: en, allDay: allDay), allDay: allDay,
@@ -496,9 +510,9 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
                 sourceLabel: nil, color: nil))
         }
         for e in upcomingFeed {
-            guard let s = Self.parseISO(e.start) else { continue }
             let allDay = e.allDay ?? false
-            let en = e.end.flatMap(Self.parseISO) ?? s.addingTimeInterval(1800)
+            guard let s = Self.parseBoundary(e.start, allDay: allDay) else { continue }
+            let en = e.end.flatMap { Self.parseBoundary($0, allDay: allDay) } ?? s.addingTimeInterval(1800)
             laid.append(LaidEvent(
                 kind: .feed, uid: e.uid, title: e.title,
                 start: s, end: Self.cappedEnd(start: s, end: en, allDay: allDay), allDay: allDay,
@@ -592,19 +606,22 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         var laid: [LaidEvent] = []
 
         for e in aestheticalEvents {
-            guard let s = Self.parseISO(e.start), let en = Self.parseISO(e.end) else { continue }
+            let allDay = e.allDay ?? false
+            guard let s = Self.parseBoundary(e.start, allDay: allDay),
+                  let en = Self.parseBoundary(e.end, allDay: allDay) else { continue }
             laid.append(LaidEvent(
                 kind: .aesthetical, uid: e.uid, title: e.title,
-                start: s, end: en, allDay: e.allDay ?? false,
+                start: s, end: en, allDay: allDay,
                 note: e.note ?? "", visibility: e.visibility ?? "private",
                 sourceLabel: nil, color: nil))
         }
         for e in feedEvents {
-            guard let s = Self.parseISO(e.start) else { continue }
-            let en = e.end.flatMap(Self.parseISO) ?? s.addingTimeInterval(1800)
+            let allDay = e.allDay ?? false
+            guard let s = Self.parseBoundary(e.start, allDay: allDay) else { continue }
+            let en = e.end.flatMap { Self.parseBoundary($0, allDay: allDay) } ?? s.addingTimeInterval(1800)
             laid.append(LaidEvent(
                 kind: .feed, uid: e.uid, title: e.title,
-                start: s, end: en, allDay: e.allDay ?? false,
+                start: s, end: en, allDay: allDay,
                 note: e.note ?? "", visibility: "private",
                 sourceLabel: e.label, color: Self.color(from: e.color)))
         }
@@ -1040,9 +1057,38 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         f.formatOptions = [.withInternetDateTime]
         return f
     }()
+    // Date-only ("2026-07-16"), read in UTC — how some all-day events arrive.
+    private static let isoDateOnly: DateFormatter = {
+        let f = DateFormatter()
+        f.calendar = Calendar(identifier: .gregorian)
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "UTC")
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+    // A UTC calendar for reading the calendar date out of an all-day instant.
+    private static let utcCalendar: Calendar = {
+        var c = Calendar(identifier: .gregorian)
+        c.timeZone = TimeZone(identifier: "UTC")!
+        return c
+    }()
 
     static func parseISO(_ s: String) -> Date? {
-        isoFractional.date(from: s) ?? isoPlain.date(from: s)
+        isoFractional.date(from: s) ?? isoPlain.date(from: s) ?? isoDateOnly.date(from: s)
+    }
+
+    // Parse an event boundary (start/end). Timed events keep their exact
+    // instant; all-day events are *floating dates* — they arrive as UTC midnight
+    // (e.g. "2026-07-16T00:00:00Z", or a bare "2026-07-16"), and converting that
+    // instant into a zone behind UTC would push it into the previous evening,
+    // rendering the event a full day early. So for all-day items we take the
+    // calendar Y/M/D (read in UTC) and rebuild it as local start-of-day, keeping
+    // July 16 on July 16 in every timezone.
+    static func parseBoundary(_ s: String, allDay: Bool) -> Date? {
+        guard let d = parseISO(s) else { return nil }
+        guard allDay else { return d }
+        let ymd = utcCalendar.dateComponents([.year, .month, .day], from: d)
+        return Calendar.current.date(from: ymd) ?? Calendar.current.startOfDay(for: d)
     }
 
     // Parse a CSS-ish color string ("#rrggbb", "#rgb", or a few named

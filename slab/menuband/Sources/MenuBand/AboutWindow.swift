@@ -344,35 +344,35 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         stack.addArrangedSubview(playersLink)
 
         #if !MAC_APP_STORE
-        // Advanced: voice dictation. Off by default. When on, ⌘⌃⌥` starts
+        // Advanced: voice squawk. Off by default. When on, ⌘⌃⌥` starts
         // on-device transcription and types the result into the frontmost
         // app. Gated out of the sandboxed build, which can't post keystrokes
         // to other apps.
         stack.setCustomSpacing(14, after: playersLink)
-        let dictationRow = NSStackView()
-        dictationRow.orientation = .vertical
-        dictationRow.alignment = .leading
-        dictationRow.spacing = 1
-        dictationRow.translatesAutoresizingMaskIntoConstraints = false
-        let dictationToggle = NSButton(
-            checkboxWithTitle: "Voice dictation (⌘⌃⌥`)",
+        let squawkRow = NSStackView()
+        squawkRow.orientation = .vertical
+        squawkRow.alignment = .leading
+        squawkRow.spacing = 1
+        squawkRow.translatesAutoresizingMaskIntoConstraints = false
+        let squawkToggle = NSButton(
+            checkboxWithTitle: "Squawk — voice dictation (⌘⌃⌥`)",
             target: self,
-            action: #selector(toggleVoiceDictation(_:)))
-        dictationToggle.state = MenuBandDictation.isEnabled ? .on : .off
-        dictationToggle.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
-        dictationToggle.translatesAutoresizingMaskIntoConstraints = false
-        let dictationSub = NSTextField(labelWithString:
+            action: #selector(toggleVoiceSquawk(_:)))
+        squawkToggle.state = MenuBandSquawk.isEnabled ? .on : .off
+        squawkToggle.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
+        squawkToggle.translatesAutoresizingMaskIntoConstraints = false
+        let squawkSub = NSTextField(labelWithString:
             "hold the mic key and talk — transcribes on-device and types "
             + "into whatever app is in front")
-        dictationSub.font = NSFont.systemFont(ofSize: 9, weight: .regular)
-        dictationSub.textColor = .secondaryLabelColor
-        dictationSub.lineBreakMode = .byWordWrapping
-        dictationSub.maximumNumberOfLines = 2
-        dictationSub.translatesAutoresizingMaskIntoConstraints = false
-        dictationRow.addArrangedSubview(dictationToggle)
-        dictationRow.addArrangedSubview(dictationSub)
-        stack.addArrangedSubview(dictationRow)
-        dictationRow.widthAnchor.constraint(
+        squawkSub.font = NSFont.systemFont(ofSize: 9, weight: .regular)
+        squawkSub.textColor = .secondaryLabelColor
+        squawkSub.lineBreakMode = .byWordWrapping
+        squawkSub.maximumNumberOfLines = 2
+        squawkSub.translatesAutoresizingMaskIntoConstraints = false
+        squawkRow.addArrangedSubview(squawkToggle)
+        squawkRow.addArrangedSubview(squawkSub)
+        stack.addArrangedSubview(squawkRow)
+        squawkRow.widthAnchor.constraint(
             equalTo: stack.widthAnchor, constant: -56).isActive = true
         #endif
 
@@ -638,14 +638,14 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
             name: .menuBandUseACMIDIChanged, object: nil)
     }
 
-    /// Persist the voice-dictation flag and notify AppDelegate to arm or
+    /// Persist the voice-squawk flag and notify AppDelegate to arm or
     /// disarm the ⌘⌃⌥` hotkey. DMG build only — the checkbox that drives
     /// this is compiled out of the sandboxed build.
-    @objc private func toggleVoiceDictation(_ sender: NSButton) {
+    @objc private func toggleVoiceSquawk(_ sender: NSButton) {
         let on = sender.state == .on
-        UserDefaults.standard.set(on, forKey: MenuBandDictation.enabledDefaultsKey)
+        UserDefaults.standard.set(on, forKey: MenuBandSquawk.enabledDefaultsKey)
         NotificationCenter.default.post(
-            name: .menuBandDictationEnabledChanged, object: nil)
+            name: .menuBandSquawkEnabledChanged, object: nil)
     }
 
     /// Open a scroll panel containing the .ips text for every pending

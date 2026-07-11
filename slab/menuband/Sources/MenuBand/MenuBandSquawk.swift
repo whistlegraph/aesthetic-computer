@@ -3,24 +3,24 @@ import AppKit
 import Speech
 
 extension Notification.Name {
-    /// Posted by the About-window checkbox when voice dictation is switched
+    /// Posted by the About-window checkbox when voice squawk is switched
     /// on or off; AppDelegate registers/unregisters the ⌘⌃⌥` hotkey and the
     /// popover shows/hides its MIC cell.
-    static let menuBandDictationEnabledChanged =
-        Notification.Name("MenuBandDictationEnabledChanged")
+    static let menuBandSquawkEnabledChanged =
+        Notification.Name("MenuBandSquawkEnabledChanged")
     /// Posted by any UI affordance (e.g. the popover MIC cell) that wants to
-    /// start/stop dictation without owning the engine. AppDelegate toggles.
-    static let menuBandDictationToggleRequested =
-        Notification.Name("MenuBandDictationToggleRequested")
+    /// start/stop squawk without owning the engine. AppDelegate toggles.
+    static let menuBandSquawkToggleRequested =
+        Notification.Name("MenuBandSquawkToggleRequested")
     /// Posted by AppDelegate when listening starts (`object: true`) or stops
     /// (`object: false`) so UI can reflect the live state.
-    static let menuBandDictationStateChanged =
-        Notification.Name("MenuBandDictationStateChanged")
+    static let menuBandSquawkStateChanged =
+        Notification.Name("MenuBandSquawkStateChanged")
 }
 
-/// On-device voice dictation for Menu Band.
+/// Squawk — on-device voice dictation for Menu Band.
 ///
-/// Press the dictation hotkey (⌘⌃⌥`) → this starts listening, transcribes
+/// Press the squawk hotkey (⌘⌃⌥`) → this starts listening, transcribes
 /// your speech locally with Apple's `Speech` framework, and — when you
 /// press again or pause — types the finished text into whatever app is
 /// frontmost. Built so you can talk into a terminal / Claude Code without
@@ -29,7 +29,7 @@ extension Notification.Name {
 ///
 /// It is deliberately self-contained: the recognizer, its own audio
 /// engine, and the keystroke injector all live here so nothing else in the
-/// app has to know how dictation works. The rest of Menu Band only calls
+/// app has to know how squawk works. The rest of Menu Band only calls
 /// `toggle()` and reads `onStateChange` for a status cue.
 ///
 /// ```
@@ -42,19 +42,19 @@ extension Notification.Name {
 /// ```
 ///
 /// **Why a separate `AVAudioEngine`.** `MenuBandSampleVoice` already taps
-/// the mic `inputNode` on bus 0 for the sampler; running dictation on its
+/// the mic `inputNode` on bus 0 for the sampler; running squawk on its
 /// own engine keeps the two from fighting over the same tap.
 ///
 /// **Sandbox note.** Keystroke injection (`CGEvent`) is forbidden in the
 /// App Store sandbox, exactly like the Notepat/Ableton typing modes, so the
 /// type-into-focused-app path is gated `#if !MAC_APP_STORE`. The MAS build
 /// still transcribes; it just can't type into other apps.
-final class MenuBandDictation {
+final class MenuBandSquawk {
 
     /// Off by default. The About-window "Advanced" checkbox flips this and
     /// the hotkey only registers while it's true, so the mic stays dormant
     /// for anyone who doesn't want it.
-    static let enabledDefaultsKey = "MenuBandVoiceDictationEnabled"
+    static let enabledDefaultsKey = "MenuBandVoiceSquawkEnabled"
 
     static var isEnabled: Bool {
         UserDefaults.standard.bool(forKey: enabledDefaultsKey)
@@ -84,10 +84,15 @@ final class MenuBandDictation {
     /// callback, so the text lands the instant you release.
     private var latestTranscript = ""
     private var didDeliver = false
+    /// Desired state, set the instant `start()`/`stop()` are called. Push-to-
+    /// talk releases can arrive before the async auth callback opens the
+    /// session; this lets a release that lands mid-authorization cancel the
+    /// pending start instead of stranding a live mic.
+    private var wantsListening = false
 
     init(localeIdentifier: String = "en-US") {
         recognizer = SFSpeechRecognizer(locale: Locale(identifier: localeIdentifier))
-        onFinalText = { text in MenuBandDictation.typeIntoFocusedApp(text) }
+        onFinalText = { text in MenuBandSquawk.typeIntoFocusedApp(text) }
     }
 
     // MARK: - Public control
@@ -98,26 +103,31 @@ final class MenuBandDictation {
         if isListening { stop() } else { start() }
     }
 
-    /// Ask for the two permissions dictation needs (speech + mic), then
+    /// Ask for the two permissions squawk needs (speech + mic), then
     /// begin a fresh recognition session. Safe to call when already
     /// listening (no-op).
     func start() {
         guard !isListening else { return }
         guard recognizer != nil else {
-            NSLog("MenuBand Dictation: no recognizer for locale — is the language pack installed?")
+            NSLog("MenuBand Squawk: no recognizer for locale — is the language pack installed?")
             return
         }
+        wantsListening = true
         authorize { [weak self] granted in
             guard let self, granted else {
-                NSLog("MenuBand Dictation: permission denied (speech or mic)")
+                NSLog("MenuBand Squawk: permission denied (speech or mic)")
                 return
             }
+            // The user may have already released (push-to-talk) while the
+            // permission round-trip was in flight — honor that.
+            guard self.wantsListening else { return }
             self.beginSession()
         }
     }
 
     /// Stop listening, deliver whatever we have, and tear the session down.
     func stop() {
+        wantsListening = false
         guard isListening else { return }
         isListening = false
 
@@ -140,7 +150,7 @@ final class MenuBandDictation {
 
     private func beginSession() {
         guard let recognizer, recognizer.isAvailable else {
-            NSLog("MenuBand Dictation: recognizer unavailable")
+            NSLog("MenuBand Squawk: recognizer unavailable")
             return
         }
 
@@ -165,7 +175,7 @@ final class MenuBandDictation {
         do {
             try engine.start()
         } catch {
-            NSLog("MenuBand Dictation: engine start failed: \(error)")
+            NSLog("MenuBand Squawk: engine start failed: \(error)")
             input.removeTap(onBus: 0)
             self.request = nil
             return
@@ -186,7 +196,7 @@ final class MenuBandDictation {
 
         isListening = true
         DispatchQueue.main.async { self.onStateChange?(true) }
-        NSLog("MenuBand Dictation: listening (onDevice=\(request.requiresOnDeviceRecognition))")
+        NSLog("MenuBand Squawk: listening (onDevice=\(request.requiresOnDeviceRecognition))")
     }
 
     /// Hand the transcript to `onFinalText` exactly once per session.
@@ -195,7 +205,7 @@ final class MenuBandDictation {
         let text = latestTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         didDeliver = true
-        NSLog("MenuBand Dictation: delivering \"\(text)\"")
+        NSLog("MenuBand Squawk: delivering \"\(text)\"")
         DispatchQueue.main.async { self.onFinalText?(text) }
     }
 
@@ -233,7 +243,7 @@ final class MenuBandDictation {
     /// LLM window) via a custom `onFinalText`.
     static func typeIntoFocusedApp(_ text: String) {
         #if MAC_APP_STORE
-        NSLog("MenuBand Dictation: keystroke injection unavailable in sandbox")
+        NSLog("MenuBand Squawk: keystroke injection unavailable in sandbox")
         #else
         let source = CGEventSource(stateID: .combinedSessionState)
         // Post in small UTF-16 chunks — long single-event strings are
