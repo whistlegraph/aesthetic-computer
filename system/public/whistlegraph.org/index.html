@@ -281,7 +281,7 @@
       <li><a href="https://www.tiktok.com/@whistlegraph">TikTok</a> — where it grew (2.6M, no ads)</li>
       <li><a href="https://aesthetic.computer/whistlegraph">Record your own</a> — the recorder, on aesthetic.computer</li>
       <li><a href="https://www.youtube.com/watch?v=yB82tT8INxg">What's Inside Your Heart?</a> — the official music video</li>
-      <li><a href="https://feralfile.com/artists/Whistlegraph">Feral File</a> · <a href="https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/">Rhizome</a> · <a href="https://www.are.na/aesthetic-computer/self-teaching-scores">Are.na</a> · <a href="https://www.youtube.com/watch?v=eD-6j1cNgMo">Galerie Yeche Lange</a></li>
+      <li><a href="https://feralfile.com/artists/Whistlegraph">Feral File</a> · <a href="https://www.youtube.com/watch?v=YXUUCkqv2LY">Kunstverein Hamburg</a> · <a href="https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/">Rhizome</a> · <a href="https://www.are.na/aesthetic-computer/self-teaching-scores">Are.na</a> · <a href="https://www.youtube.com/watch?v=eD-6j1cNgMo">Galerie Yeche Lange</a></li>
       <li><a href="https://shop.whistlegraph.com">The Whistlegraph Zine + Shop</a> · <a href="https://distrokid.com/hyperfollow/whistlegraph/music-2-whistlegraph-2">Music 2 Whistlegraph 2</a></li>
     </ul>
 
@@ -330,7 +330,7 @@
       <p class="dim" style="font-size:12.5px">The graphic score. Trace the lines; sing the words.</p>
     </div>
     <hr id="dVideoRule" style="display:none">
-    <video id="dVideo" controls playsinline preload="metadata" crossorigin="anonymous"></video>
+    <video id="dVideo" controls playsinline preload="metadata" loop crossorigin="anonymous"></video>
     <p class="dim" id="dGlyphCap" style="font-size:12.5px;display:none">The finished glyph — the last frame of the sung take.</p>
     <div id="dVersions" style="display:none;clear:both"></div>
     <div class="clear"></div>
@@ -396,7 +396,7 @@ function renderIndex(key){
     COMPOSITIONS.forEach((w,i)=>{
       if(i===CURATED_N){
         const tr=document.createElement("tr");
-        tr.innerHTML=`<td colspan="4" style="padding:12px 8px 6px;color:var(--margin);font-size:12.5px;border-bottom:1px solid var(--margin)">— more from the archive, most-sung first —</td>`;
+        tr.innerHTML=`<td colspan="4" style="padding:12px 8px 6px;color:var(--margin);font-size:12.5px;border-bottom:1px solid var(--margin)">— more from the archive —</td>`;
         tb.appendChild(tr);
       }
       addRow(tb,w);
@@ -461,7 +461,7 @@ function showDetail(code){
   }
   const dv=document.getElementById("dVersions");
   if(w.versions&&w.versions.length){
-    dv.innerHTML=`<hr><p class="lbl">Performances</p>`+w.versions.map(v=>`<video class="ver" controls playsinline preload="metadata" src="${v.url}"></video><p class="dim" style="font-size:12px;margin:2px 0 10px">${v.title||v.label}</p>`).join("");
+    dv.innerHTML=`<hr><p class="lbl">Performances</p>`+w.versions.map(v=>`<video class="ver" controls playsinline preload="metadata" loop src="${v.url}"></video><p class="dim" style="font-size:12px;margin:2px 0 10px">${v.title||v.label}</p>`).join("");
     dv.style.display="";
   }else{ dv.style.display="none"; dv.innerHTML=""; }
   det.classList.add("on"); idx.classList.add("off");
