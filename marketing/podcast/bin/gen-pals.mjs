@@ -4,8 +4,14 @@
 // Spotify avatar + fuser icon). Candidate artwork for the AC Readings /
 // "Aesthetic Dot Computer" podcast cover.
 //
-// Usage: node bin/gen-pals.mjs [--force] [--only crystal,felt] [--size 1024x1024]
-//   → out/pals/<slug>.png (+ a contact sheet out/pals/contact.png)
+// Usage: node bin/gen-pals.mjs [--tray natural] [--force] [--only nat-jade,nat-amber] [--size 1024x1024]
+//   → out/pals/<slug>.png (+ a contact sheet out/pals/contact-<tray>.png)
+//
+// Trays: materials · avatars · colorfield · insta · natural (default: materials)
+// Every generated logo passes a SECOND-ORDER observational check: a vision
+// model (PALS_QC_MODEL, default gpt-4o) grades it against the rubric — wrong
+// size, malformed/half-drawn mark, or low contrast is invalidated and
+// regenerated (up to 3 tries). Set PALS_NO_QC=1 to skip the check.
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
@@ -89,12 +95,48 @@ const COLORFIELD = [
   { slug: "cf-ember",    prompt: `A small brushed-metal ${MARK} centered in a WIDE golden-amber-to-crimson gradient field filling the frame, warm, luxe, glowing ember wash. ${CF}` },
 ];
 
-const TRAYS = { materials: THEMES, avatars: AVATARS, colorfield: COLORFIELD };
+// ── insta tray: a spread of COOL material treatments, each on a DIFFERENT
+// bold saturated color ground — punchy, grid-friendly tiles for Instagram. ──
+const IG = "Square composition, the mark centered with a generous calm margin so a round or square crop never clips it. One coherent studio object, no collage. Original artwork — no real brand names, no trademarked wordmarks, no other logos, and absolutely no lettering or text anywhere. No motion blur; crisp, sharp, high detail throughout.";
+const INSTA = [
+  { slug: "ig-cherry",    prompt: `A mirror-polished liquid chrome sculpture of ${MARK}, high-gloss reflective metal with smooth Y2K blob highlights, floating on a flat vivid cherry-red ground. Bold, glossy, poppy. ${IG}` },
+  { slug: "ig-cobalt",    prompt: `An iridescent hand-blown glass sculpture of ${MARK}, translucent with soft internal rainbow refractions and glossy highlights, floating on a flat rich cobalt-blue ground. Jewel-like, saturated. ${IG}` },
+  { slug: "ig-lime",      prompt: `A glossy translucent candy-jelly sculpture of ${MARK} in bright cherry-pink, juicy and wobbly with soft specular highlights, on a flat electric lime-green ground. Playful, high-contrast. ${IG}` },
+  { slug: "ig-tangerine", prompt: `A glossy kiln-glazed ceramic sculpture of ${MARK} in soft blush-pink porcelain with a subtle crackle glaze and gentle specular sheen, on a flat warm tangerine-orange ground. Handmade, bright. ${IG}` },
+  { slug: "ig-grape",     prompt: `A hyper-real faceted amethyst crystal sculpture of ${MARK}, glowing gemstone with fine internal fractures lit from within, on a flat deep grape-purple ground with soft violet bloom. Gemmy, rich. ${IG}` },
+  { slug: "ig-bubblegum", prompt: `A cozy needle-felted wool sculpture of ${MARK} in warm magenta-pink with soft fuzzy fibers and gentle hand-craft imperfection, on a flat bubblegum-pink ground. Tactile, sweet, tonal. ${IG}` },
+  { slug: "ig-mint",      prompt: `A small holographic iridescent foil sculpture of ${MARK} with rainbow sheen and glossy highlights, on a flat cool mint-green ground. Shiny, modern, fresh. ${IG}` },
+  { slug: "ig-black",     prompt: `A glowing hot-magenta neon tube shaped as ${MARK}, luminous with soft bloom and a faint holographic sheen, on a flat pure-black ground with high contrast. Electric, nightlife. ${IG}` },
+  { slug: "ig-sky",       prompt: `A glossy inflatable balloon sculpture of ${MARK} in candy red with plump highlights, on a flat bright sky-blue ground. Fun, bouncy, cheerful. ${IG}` },
+  { slug: "ig-sand",      prompt: `A hand-carved warm walnut wood sculpture of ${MARK} with visible grain and soft rounded edges, tinted faintly rosy, on a flat warm sand-beige ground under soft light. Warm, crafted. ${IG}` },
+  { slug: "ig-magenta",   prompt: `A brushed 3D gold sculpture of ${MARK} with luxe metallic sheen, on a flat hot-magenta ground, high contrast. Luxe, bold, glossy. ${IG}` },
+  { slug: "ig-teal",      prompt: `A matte terracotta clay sculpture of ${MARK} with earthy handmade texture, on a flat vivid teal ground. Earthy meets bright, tonal pop. ${IG}` },
+];
 
-async function gen(theme) {
-  const out = resolve(OUT, `${theme.slug}.png`);
-  if (existsSync(out) && !FORCE) { console.log(`  · ${theme.slug} cached`); return out; }
-  process.stdout.write(`  → ${theme.slug} …`);
+// ── natural tray: the mark sculpted from a single REAL natural material,
+// each on a distinct saturated natural-color ground. The mark is locked to a
+// consistent MIDDLE size in every tile, with strong material-vs-ground
+// contrast so it always reads clearly. ────────────────────────────────────
+const NAT = "Square composition. The mark is MIDDLE-SIZED — it occupies roughly the central 55–60% of the frame, centered, with an even calm margin on all four sides, and the SAME scale in every image (never filling the whole frame edge-to-edge, never small and lost). The mark is one complete, fully-formed, coherent object — every loop of its shape solid and closed, nothing half-drawn or cut off. Strong contrast between the object and its flat background so the mark reads boldly and clearly. Original artwork — no real brand names, no wordmarks, no other logos, no lettering or text anywhere. No motion blur; crisp, sharp, high detail throughout.";
+const NATURAL = [
+  { slug: "nat-walnut",     prompt: `A hand-carved warm walnut wood sculpture of ${MARK}, rich brown with visible flowing grain and soft rounded polished edges, on a flat sage-green ground under soft daylight. Warm, crafted, organic. ${NAT}` },
+  { slug: "nat-marble",     prompt: `A carved white Carrara marble sculpture of ${MARK}, smooth polished stone with delicate grey veining, on a flat deep terracotta-rust ground. Classical, sculptural, high contrast. ${NAT}` },
+  { slug: "nat-amethyst",   prompt: `A raw amethyst crystal sculpture of ${MARK}, deep violet faceted gemstone with natural internal fractures catching light, on a flat warm sand-beige ground. Gemmy, rich, natural. ${NAT}` },
+  { slug: "nat-rosequartz", prompt: `A polished rose quartz sculpture of ${MARK}, soft translucent blush-pink stone with gentle cloudy inclusions, on a flat slate-blue ground. Serene, mineral, tactile. ${NAT}` },
+  { slug: "nat-terracotta", prompt: `A matte terracotta clay sculpture of ${MARK}, earthy warm orange-brown with a soft handmade fired texture, on a flat deep teal ground. Earthy, handmade, bold contrast. ${NAT}` },
+  { slug: "nat-wool",       prompt: `A cozy needle-felted wool sculpture of ${MARK} in warm rose-pink, soft fuzzy fibers with gentle hand-craft imperfection, on a flat cream ground. Tactile, soft, handmade. ${NAT}` },
+  { slug: "nat-amber",      prompt: `A translucent golden amber sculpture of ${MARK}, honey-colored fossil resin glowing warmly with light passing through it, on a flat deep forest-green ground. Warm, luminous, natural. ${NAT}` },
+  { slug: "nat-jade",       prompt: `A carved polished green jade sculpture of ${MARK}, smooth nephrite stone with soft translucent depth, on a flat warm clay-red ground. Precious, smooth, high contrast. ${NAT}` },
+  { slug: "nat-sandstone",  prompt: `A carved tan sandstone sculpture of ${MARK}, soft sedimentary grain and gently weathered edges, on a flat rust-red ground. Earthy, ancient, warm. ${NAT}` },
+  { slug: "nat-coral",      prompt: `A natural pink coral sculpture of ${MARK}, organic branching sea-coral texture in warm coral-pink, on a flat aqua-teal ground. Organic, oceanic, bright contrast. ${NAT}` },
+  { slug: "nat-bone",       prompt: `A carved cream ivory-bone sculpture of ${MARK}, smooth polished pale bone with fine natural striations, on a flat charcoal-slate ground. Smooth, pale, striking contrast. ${NAT}` },
+  { slug: "nat-moss",       prompt: `A living moss and lichen sculpture of ${MARK}, lush velvety green moss with tiny natural texture, on a flat dark wet-bark brown ground. Living, verdant, organic. ${NAT}` },
+];
+
+const TRAYS = { materials: THEMES, avatars: AVATARS, colorfield: COLORFIELD, insta: INSTA, natural: NATURAL };
+
+// ── render one image (single gpt-image-2 call, with retry + hard timeout) ──
+async function render(theme, out) {
   const ATT = 4;
   for (let a = 1; a <= ATT; a++) {
     try {
@@ -107,17 +149,73 @@ async function gen(theme) {
       fd.append("image[]", new Blob([readFileSync(REF)], { type: "image/png" }), "pals.png");
       const res = await fetch("https://api.openai.com/v1/images/edits", {
         method: "POST", headers: { Authorization: `Bearer ${KEY}` }, body: fd,
+        signal: AbortSignal.timeout(180000), // never hang a socket forever
       });
-      if (!res.ok) { const t = await res.text(); if (res.status >= 500 && a < ATT) throw new Error(`HTTP ${res.status}`); process.stdout.write(" ✗\n"); throw new Error(`${res.status}: ${t.slice(0, 200)}`); }
+      if (!res.ok) { const t = await res.text(); if (res.status >= 500 && a < ATT) throw new Error(`HTTP ${res.status}`); throw new Error(`${res.status}: ${t.slice(0, 200)}`); }
       const j = await res.json();
       writeFileSync(out, Buffer.from(j.data[0].b64_json, "base64"));
-      process.stdout.write(" ✓\n");
-      return out;
+      return true;
     } catch (e) {
       if (a < ATT) { process.stdout.write(` retry${a}`); await new Promise((r) => setTimeout(r, 1500 * a)); }
-      else { process.stdout.write(" ✗\n"); console.error(`    ${theme.slug}: ${e.message}`); return null; }
+      else { console.error(`\n    ${theme.slug} render: ${e.message}`); return false; }
     }
   }
+  return false;
+}
+
+// ── second-order observational check — a vision model judges the finished
+// logo against the rubric; a fail invalidates the tile so gen() regenerates. ─
+const QC_MODEL = process.env.PALS_QC_MODEL || "gpt-4o";
+async function qc(theme, out) {
+  if (process.env.PALS_NO_QC) return { ok: true, reason: "qc skipped" };
+  const b64 = readFileSync(out).toString("base64");
+  const rubric = `You are grading a generated brand-logo image. The logo is a plump rounded hand-drawn squiggle of two little figures holding hands (the "pals" mark). Grade THIS image against these rules and answer ONLY with strict JSON {"ok": boolean, "reason": "<= 12 words"}:\n- The mark must be MIDDLE-SIZED: it fills roughly the central 55–60% of the frame, centered, with even margin. Reject if it fills the whole frame edge-to-edge, or is tiny/lost.\n- The mark must be ONE complete, fully-formed object — every loop closed and solid. Reject if it is half-drawn, cut off, broken, deformed, doubled, or malformed.\n- The mark must READ CLEARLY with strong contrast against the background. Reject if it is faint, low-contrast, or hard to see.\n- Reject any lettering, text, watermark, extra logos, or collage.\nBe strict — when in doubt, reject.`;
+  for (let a = 1; a <= 3; a++) {
+    try {
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(90000),
+        body: JSON.stringify({
+          model: QC_MODEL,
+          messages: [{ role: "user", content: [
+            { type: "text", text: rubric },
+            { type: "image_url", image_url: { url: `data:image/png;base64,${b64}`, detail: "low" } },
+          ] }],
+          max_tokens: 60,
+          temperature: 0,
+        }),
+      });
+      if (!res.ok) { if (res.status >= 500 && a < 3) throw new Error(`HTTP ${res.status}`); throw new Error(`${res.status}`); }
+      const j = await res.json();
+      const txt = j.choices?.[0]?.message?.content ?? "";
+      const m = txt.match(/\{[\s\S]*\}/);
+      const v = JSON.parse(m ? m[0] : txt);
+      return { ok: !!v.ok, reason: String(v.reason || "").slice(0, 60) };
+    } catch (e) {
+      if (a < 3) { await new Promise((r) => setTimeout(r, 1200 * a)); continue; }
+      console.error(`\n    ${theme.slug} qc: ${e.message} → passing (fail-open)`);
+      return { ok: true, reason: "qc unavailable" };
+    }
+  }
+}
+
+// ── generate + observationally verify; regenerate rejects up to REGEN times ─
+async function gen(theme) {
+  const out = resolve(OUT, `${theme.slug}.png`);
+  if (existsSync(out) && !FORCE) { console.log(`  · ${theme.slug} cached`); return out; }
+  process.stdout.write(`  → ${theme.slug} …`);
+  const REGEN = 3;
+  for (let g = 1; g <= REGEN; g++) {
+    const ok = await render(theme, out);
+    if (!ok) { process.stdout.write(" ✗\n"); return null; }
+    const verdict = await qc(theme, out);
+    if (verdict.ok) { process.stdout.write(` ✓ (qc ok${g > 1 ? `, try ${g}` : ""})\n`); return out; }
+    process.stdout.write(` ⤾ qc reject: ${verdict.reason}${g < REGEN ? " — regen" : " — giving up"}`);
+    if (g < REGEN) process.stdout.write("\n  → " + theme.slug + " …");
+    else { process.stdout.write("\n"); /* keep last attempt rather than nothing */ return out; }
+  }
+  return out;
 }
 
 const tray = flag("tray") || "materials";
