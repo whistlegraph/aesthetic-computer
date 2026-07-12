@@ -156,6 +156,52 @@ function hear(sound, f) {
   }
 }
 
+// a fighter is a posed stick figure, not a slab. joints live in a 22×46 body
+// box facing right; face < 0 mirrors it. everything scales with the box so it
+// reads at any window size. the front arm on a punch reaches to the real fist
+// so the figure lines up with the hitbox.
+const FB = {
+  idle:  { head: [11, 7], neck: [11, 12], pelvis: [11, 27], elbF: [13, 19], handF: [13, 25], elbB: [9, 19],  handB: [9, 25],  kneeF: [12, 37], footF: [13, 46], kneeB: [10, 37], footB: [9, 46] },
+  walkA: { head: [11, 7], neck: [11, 12], pelvis: [11, 27], elbF: [14, 18], handF: [16, 23], elbB: [8, 20],  handB: [7, 26],  kneeF: [15, 36], footF: [17, 46], kneeB: [8, 37],  footB: [5, 45] },
+  walkB: { head: [11, 7], neck: [11, 12], pelvis: [11, 27], elbF: [8, 18],  handF: [6, 23],  elbB: [14, 20], handB: [15, 26], kneeF: [8, 36],  footF: [5, 46],  kneeB: [15, 37], footB: [17, 45] },
+  punch: { head: [12, 7], neck: [12, 12], pelvis: [11, 27], elbB: [9, 19],  handB: [10, 24], kneeF: [15, 36], footF: [18, 46], kneeB: [8, 37],  footB: [6, 46] },
+  block: { head: [10, 8], neck: [10, 13], pelvis: [10, 27], elbF: [14, 14], handF: [15, 21], elbB: [12, 16], handB: [14, 22], kneeF: [12, 37], footF: [13, 46], kneeB: [8, 37],  footB: [7, 46] },
+  hurt:  { head: [8, 9],  neck: [9, 13],  pelvis: [11, 27], elbF: [6, 16],  handF: [3, 13],  elbB: [11, 18], handB: [13, 23], kneeF: [13, 37], footF: [15, 46], kneeB: [9, 37],  footB: [8, 46] },
+  dead:  { head: [17, 41],neck: [14, 43], pelvis: [5, 43],  elbF: [13, 40], handF: [12, 38], elbB: [9, 45],  handB: [8, 46],  kneeF: [5, 41],  footF: [2, 40],  kneeB: [5, 45],  footB: [2, 46] },
+};
+const FB_BONES = [["neck", "pelvis"], ["neck", "elbF"], ["elbF", "handF"], ["neck", "elbB"], ["elbB", "handB"], ["pelvis", "kneeF"], ["kneeF", "footF"], ["pelvis", "kneeB"], ["kneeB", "footB"]];
+
+function drawFighter(ink, x, y, bw, bh, face, st, stf, tick, c, u) {
+  const mx = (nx) => (x + ((face > 0 ? nx : 22 - nx) * bw) / 22) | 0;
+  const my = (ny) => (y + (ny * bh) / 46) | 0;
+
+  let pose = FB.idle;
+  if (st === ST.WALK) pose = (tick >> 2) & 1 ? FB.walkB : FB.walkA;
+  else if (st === ST.PUNCH) pose = FB.punch;
+  else if (st === ST.BLOCK) pose = FB.block;
+  else if (st === ST.BLOCKSTUN || st === ST.PARRIED) pose = FB.hurt;
+  else if (st === ST.DEAD) pose = FB.dead;
+
+  for (const [a, b] of FB_BONES) {
+    if (!pose[a] || !pose[b]) continue;
+    ink(...c).line(mx(pose[a][0]), my(pose[a][1]), mx(pose[b][0]), my(pose[b][1]));
+  }
+
+  // front arm — the punch. reaches the true fist during active frames, tucked
+  // otherwise, so the drawn jab and the hurtbox are the same length.
+  if (st === ST.PUNCH) {
+    const live = stf >= PUNCH_F.startup && stf < PUNCH_F.startup + PUNCH_F.active;
+    const arm = live ? u(PUNCH_F.reach) : u(PUNCH_F.reach) >> 2;
+    const sx0 = mx(pose.neck[0]);
+    const sy0 = my(13);
+    const fist = face > 0 ? x + bw + arm : x - arm;
+    ink(...(live ? [255, 255, 255] : c)).line(sx0, sy0, fist, sy0);
+  }
+
+  const hr = Math.max(1, ((4 * bw) / 22) | 0);
+  ink(...c).circle(mx(pose.head[0]), my(pose.head[1]), hr, true);
+}
+
 // render only. everything below reads state and writes pixels — it never
 // writes back, which is what keeps the sim rollback-safe.
 //
@@ -193,18 +239,7 @@ function paint({ wipe, ink, screen }) {
     if (st === ST.PARRIED) c = [190, 120, 255];
     if (st === ST.DEAD) c = [64, 56, 66];
 
-    ink(...c).box(x, y, bw, bh);
-    ink(255).box(face > 0 ? x + bw - 2 : x, y + 2, 2, 3); // facing notch
-
-    if (st === ST.PUNCH) {
-      const f = s[b + P.STF];
-      const live = f >= PUNCH_F.startup && f < PUNCH_F.startup + PUNCH_F.active;
-      const arm = live ? u(PUNCH_F.reach) : u(PUNCH_F.reach) >> 2;
-      const ax = face > 0 ? x + bw : x - arm;
-      const ay = py(28 * SUB);
-      if (live) ink(255, 255, 255).box(ax, ay, arm, 2);
-      else ink(120, 120, 140).box(ax, ay, arm, 2);
-    }
+    drawFighter(ink, x, y, bw, bh, face, st, s[b + P.STF], s[G.TICK], c, u);
 
     if (s[b + P.SPL] > 0) {
       const r = s[b + P.SPL];
