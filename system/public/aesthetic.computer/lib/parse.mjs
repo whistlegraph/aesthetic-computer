@@ -280,6 +280,15 @@ function parse(text, location = self?.location) {
     tokens.unshift("mug");
   }
 
+  // Map bag shortcodes like ^reel to the bag piece — a curated container of
+  // mixed media (pieces, paintings, kidlisp, tapes…). The ^ is the "handle" you
+  // carry the bag by; the box below it holds the bag's name. bag.mjs looks the
+  // bag up by name from bags.json (admin-curated / @jeffrey for now).
+  if (tokens[0] && tokens[0].startsWith("^") && tokens[0].length > 1) {
+    // Keep the ^ prefix in the first param so bag.mjs knows to fetch by name.
+    tokens.unshift("bag");
+  }
+
   // Map mo shortcodes like mo1 or mo10 to the mo piece with uniform seconds.
   // Examples:
   //   /mo1~c~e~g -> /mo~1~c~e~g

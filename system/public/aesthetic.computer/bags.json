@@ -1,0 +1,27 @@
+{
+  "$schema": "curated media bags — admin (@jeffrey) only for now. Each item has a `type` (piece | painting | kidlisp | tape) and a `code` used to open it. bag.mjs lists a bag by name; ^<name> at the prompt opens it.",
+  "bags": {
+    "reel": {
+      "title": "reel",
+      "description": "self-running audiovisual instruments - tap to play",
+      "color": "yellow",
+      "items": [
+        { "type": "piece", "code": "prism", "name": "prism" },
+        { "type": "piece", "code": "lull", "name": "lull" },
+        { "type": "piece", "code": "emberdrift", "name": "emberdrift" },
+        { "type": "piece", "code": "molten", "name": "molten" },
+        { "type": "piece", "code": "lavabath", "name": "lavabath" },
+        { "type": "piece", "code": "bloomwell", "name": "bloomwell" },
+        { "type": "piece", "code": "voop", "name": "voop" },
+        { "type": "piece", "code": "gloob", "name": "gloob" },
+        { "type": "piece", "code": "plax", "name": "plax" },
+        { "type": "piece", "code": "sundo", "name": "sundo" },
+        { "type": "piece", "code": "frizmo", "name": "frizmo" },
+        { "type": "piece", "code": "vindle", "name": "vindle" },
+        { "type": "piece", "code": "murmo", "name": "murmo" },
+        { "type": "piece", "code": "wobbo", "name": "wobbo" },
+        { "type": "piece", "code": "vroon", "name": "vroon" }
+      ]
+    }
+  }
+}
