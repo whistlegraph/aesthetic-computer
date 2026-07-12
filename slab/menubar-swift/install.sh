@@ -84,6 +84,22 @@ codesign_app() {
     # run from a GUI Terminal) AND we have a hash. Over SSH a direct sign fails
     # with errSecInternalComponent AND can pop a keychain dialog on the machine's
     # screen, so skip straight to the gui-bootstrap path below.
+    #
+    # Prep the dedicated keychain FIRST, non-interactively (every command below
+    # authenticates with the known "${SIGN_KC_PASS}", so none can prompt). This
+    # is what keeps SUBSEQUENT rebuilds silent: without it, a re-locked
+    # slab-signing keychain makes codesign pop a GUI unlock/allow dialog even
+    # though the cert already exists.
+    #   • unlock            — clear a lock from sleep/timeout so codesign can read the key
+    #   • set-keychain-settings (no flags) — drop the auto-lock timeout so it STAYS unlocked
+    #   • set-key-partition-list apple-tool:,apple: — pre-authorize Apple signing
+    #     tools for the key, suppressing the "codesign wants to use key" prompt
+    if [ -n "${SECURITYSESSIONID:-}" ] && [ -n "${hash}" ] && [ -f "${SIGN_KEYCHAIN}" ]; then
+        security unlock-keychain -p "${SIGN_KC_PASS}" "${SIGN_KEYCHAIN}" 2>/dev/null || true
+        security set-keychain-settings "${SIGN_KEYCHAIN}" 2>/dev/null || true
+        security set-key-partition-list -S apple-tool:,apple: -s \
+            -k "${SIGN_KC_PASS}" "${SIGN_KEYCHAIN}" >/dev/null 2>&1 || true
+    fi
     if [ -n "${SECURITYSESSIONID:-}" ] && [ -n "${hash}" ] && \
        codesign --force --deep --sign "${hash}" \
         --identifier computer.slab.menubar "${app}" >/dev/null 2>&1; then
@@ -306,16 +322,46 @@ ok "plist written"
 
 say "(re)starting launch agent in place (kickstart, not load — avoids the macOS background nag)"
 _uid="$(id -u)"
+
+# True "is it alive?" — a live PID for the bundle binary. `launchctl list |
+# grep` is NOT enough: a job that launched and immediately died stays listed
+# in "spawn failed" state, so grep reports a corpse as running (this masked the
+# code-signature crash below on every install until now).
+slab_pid() { pgrep -f "SlabMenubar.app/Contents/MacOS/slab-menubar" 2>/dev/null | head -1; }
+slab_wait_alive() {  # poll up to ~4s for a live pid; echo it (empty if none)
+    local i pid
+    for i in $(seq 1 16); do
+        pid="$(slab_pid)"; [ -n "${pid}" ] && { echo "${pid}"; return 0; }
+        sleep 0.25
+    done
+    return 1
+}
+
 if launchctl print "gui/${_uid}/computer.slab.menubar" >/dev/null 2>&1; then
     launchctl kickstart -k "gui/${_uid}/computer.slab.menubar"     # restart in place, no re-register
 else
     launchctl bootstrap "gui/${_uid}" "${PLIST_PATH}" 2>/dev/null || launchctl load "${PLIST_PATH}"
 fi
-sleep 1
-if launchctl list | grep -q computer.slab.menubar; then
-    ok "computer.slab.menubar is running"
+
+if _pid="$(slab_wait_alive)"; then
+    ok "computer.slab.menubar is running (pid ${_pid})"
 else
-    warn "launchctl did not register the agent — check /tmp/slab-menubar.err"
+    # kickstart -k relaunches the freshly-swapped binary against a stale
+    # codesigning cache for its old inode → a transient "SIGKILL (Code
+    # Signature Invalid) / Launch Constraint Violation", which parks the job in
+    # "spawn failed". A full bootout+bootstrap re-evaluates the signature from
+    # scratch and starts clean. This costs one "Background Items Added"
+    # notification (the very nag kickstart avoids) — an acceptable price only on
+    # the failure path, so the common install stays nag-free.
+    warn "agent did not come up after kickstart (code-signature race) — recovering via bootout/bootstrap"
+    launchctl bootout "gui/${_uid}/computer.slab.menubar" 2>/dev/null || true
+    sleep 1
+    launchctl bootstrap "gui/${_uid}" "${PLIST_PATH}" 2>/dev/null || launchctl load "${PLIST_PATH}"
+    if _pid="$(slab_wait_alive)"; then
+        ok "computer.slab.menubar recovered and running (pid ${_pid})"
+    else
+        warn "agent still not running after recovery — check /tmp/slab-menubar.err"
+    fi
 fi
 
 printf "\n%sdone.%s\n" "${BOLD}" "${RESET}"

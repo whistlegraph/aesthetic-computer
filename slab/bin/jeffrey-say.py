@@ -163,6 +163,42 @@ def envelope(audio, sr, hold_frac=HOLD_FRAC, tail_s=TAIL_SILENCE_S):
     return np.concatenate([audio * env, tail])
 
 
+# Softness/echo tuning — used by callers that want a gentler, roomier delivery
+# (e.g. the jas-nzxt guest connect/disconnect announcer) rather than the brisk
+# default stinger.
+SOFT_GAIN = 0.5          # scale amplitude down so the phrase doesn't bark
+SOFT_ATTACK_S = 0.04     # short fade-in to remove the hard consonant onset
+ECHO_DELAY_S = 0.19      # spacing between echo taps
+ECHO_DECAY = 0.42        # per-tap amplitude falloff
+ECHO_TAPS = 3            # number of trailing echoes
+
+
+def soften(audio, sr, gain=SOFT_GAIN, attack_s=SOFT_ATTACK_S):
+    if audio.size == 0:
+        return audio
+    out = audio * gain
+    a = min(int(sr * attack_s), out.size)
+    if a > 0:
+        t = np.linspace(0.0, 1.0, a, dtype=np.float32)
+        out[:a] *= np.sin(t * np.pi * 0.5) ** 2   # equal-power fade-in
+    return out
+
+
+def add_echo(audio, sr, delay_s=ECHO_DELAY_S, decay=ECHO_DECAY, taps=ECHO_TAPS):
+    if audio.size == 0:
+        return audio
+    d = int(sr * delay_s)
+    buf = np.zeros(audio.size + d * taps, dtype=np.float32)
+    buf[:audio.size] = audio
+    for k in range(1, taps + 1):
+        start = d * k
+        buf[start:start + audio.size] += audio * (decay ** k)
+    peak = float(np.max(np.abs(buf)))
+    if peak > 1.0:                 # guard against summed-tap clipping
+        buf /= peak
+    return buf
+
+
 def all_phrases():
     seen = set()
     for phrases in CATEGORIES.values():
@@ -215,12 +251,28 @@ def resolve_phrase(args):
 USAGE = (
     "usage: jeffrey-say.py <category> [N] | --phrase <text> | --prewarm\n"
     "  categories: " + ", ".join(sorted(CATEGORIES)) + "\n"
+    "  delivery:   --soft (quieter, gentle attack)  --echo (trailing echoes)\n"
+    "              --gain <f> (explicit amplitude scale, overrides --soft)\n"
 )
 
 
 def main(argv):
     if "--prewarm" in argv:
         return prewarm()
+    # Pull delivery flags out before phrase resolution so they don't get
+    # mistaken for a category or verbatim words.
+    want_soft = "--soft" in argv
+    want_echo = "--echo" in argv
+    gain = None
+    if "--gain" in argv:
+        i = argv.index("--gain")
+        try:
+            gain = float(argv[i + 1])
+            del argv[i:i + 2]
+        except (IndexError, ValueError):
+            sys.stderr.write(USAGE)
+            return 2
+    argv = [a for a in argv if a not in ("--soft", "--echo")]
     phrase = resolve_phrase(argv)
     if phrase is None:
         sys.stderr.write(USAGE)
@@ -235,7 +287,14 @@ def main(argv):
         except (subprocess.CalledProcessError, FileNotFoundError) as e2:
             print(f"jeffrey-say: fallback tts failed: {e2}", file=sys.stderr)
             return 1
-    sd.play(envelope(audio, sr), sr, blocking=True)
+    if gain is not None:
+        audio = audio * gain
+    elif want_soft:
+        audio = soften(audio, sr)
+    audio = envelope(audio, sr)
+    if want_echo:
+        audio = add_echo(audio, sr)
+    sd.play(audio, sr, blocking=True)
     return 0
 
 

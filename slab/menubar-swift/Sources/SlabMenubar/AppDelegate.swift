@@ -49,6 +49,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// scales typography off this — `.awaiting` ("orange") tiles get bumped
     /// up so focus reads typographically while the cell geometry stays put.
     private var lastTiledFontSize: Int?
+    /// True while the windows are scattered (⌘⌥S) rather than tiled. The 0.6s
+    /// decor refresh pins the terminal font to `lastTiledFontSize`, which would
+    /// otherwise stomp the tiny scatter font right back to the tile size every
+    /// tick — so while this is set, `applyTerminalDecor` pins `scatterFontSize`
+    /// instead. Any tile pass clears it.
+    private var scatterMode = false
     /// Count of AC Electron (preview) windows seen last tick — when it changes
     /// we auto re-pack the grid so previews slot in with the terminals.
     private var lastAcWindowCount = 0
@@ -84,6 +90,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// System-wide ⌘⌥T → re-tile claude terminals. Kept alive for the app's
     /// lifetime; unregistered in `applicationWillTerminate`.
     private var tileHotkey: GlobalHotkey?
+    /// System-wide ⌘⌥S → scatter every session into tiny confetti windows.
+    /// A Carbon global hotkey, not just a menu keyEquivalent: a status-bar
+    /// app's menu shortcuts only fire when it's frontmost, so ⌘⌥S would
+    /// otherwise be swallowed by whatever terminal has focus (see tileHotkey).
+    private var scatterHotkey: GlobalHotkey?
     /// System-wide ⌃⌥⌘A → toggle Dark Mode across this host + tailscale macs.
     private var appearanceHotkey: GlobalHotkey?
 
@@ -139,6 +150,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             tileHotkey = hotkey
         }
 
+        // Global ⌘⌥S scatters the session windows — same payload as the menu's
+        // "Scatter now" item. Distinct id (3) so it has its own hotkey slot.
+        let scatterHK = GlobalHotkey(id: 3) { [weak self] in self?.scatterNow() }
+        if scatterHK.register(keyCode: UInt32(kVK_ANSI_S),
+                              modifiers: UInt32(cmdKey | optionKey)) {
+            scatterHotkey = scatterHK
+        }
+
         // Global ⌃⌥⌘A toggles Dark Mode on this host + the tailscale macs.
         // Distinct id so it can't collide with the tiling hotkey's slot.
         let appHotkey = GlobalHotkey(id: 2) { [weak self] in self?.toggleAppearance() }
@@ -172,6 +191,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         tileHotkey?.unregister()
+        scatterHotkey?.unregister()
         appearanceHotkey?.unregister()
         passphraseServer.stop()
         LedgerStore.shared.stop()
@@ -1678,13 +1698,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             tm.append("    try")
             tm.append("      set font name of slabSS to font name of default settings")
             tm.append("    end try")
-            // Keep the family from the user's default, but pin the size to the
-            // last tiled font so a re-theme on the blink tick doesn't bounce
-            // the window back to the un-tiled 12pt. Falls back to the default
-            // size before the first tile of the session.
+            // Keep the family from the user's default, but pin the size so a
+            // re-theme on the blink tick doesn't bounce the window back to the
+            // un-tiled 12pt. In scatter mode that pin is the tiny scatter font
+            // (otherwise the refresh would undo the shrink every tick); tiled
+            // otherwise; default before the first tile of the session.
+            let decorFont = scatterMode ? Self.scatterFontSize : lastTiledFontSize
             tm.append("    try")
-            if let tiled = lastTiledFontSize {
-                tm.append("      set font size of slabSS to \(tiled)")
+            if let f = decorFont {
+                tm.append("      set font size of slabSS to \(f)")
             } else {
                 tm.append("      set font size of slabSS to font size of default settings")
             }
@@ -1988,6 +2010,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", script])
     }
 
+    // MARK: - Spatial locality
+
+    /// Assign windows to target cells so each lands in the cell NEAREST its
+    /// current position — the anti-teleport rule for both tile and scatter: a
+    /// window in the top-left stays top-left instead of jumping to wherever its
+    /// z-order index (tile) or a random shuffle (scatter) would have sent it.
+    ///
+    /// Returns `pick`, length == cellCenters.count, where `pick[c]` is the
+    /// index of the window assigned to cell `c` (or -1 if that cell goes empty,
+    /// which happens only when there are more cells than windows — scatter's
+    /// slack cells). Global-greedy over all (window, cell) pairs sorted by
+    /// distance: repeatedly take the closest still-unclaimed pair. O(n² log n)
+    /// with n = window count, which is a dozen at most — trivial.
+    static func localityAssignment(windowCenters: [CGPoint],
+                                   cellCenters: [CGPoint]) -> [Int] {
+        var pairs: [(d: Double, w: Int, c: Int)] = []
+        pairs.reserveCapacity(windowCenters.count * cellCenters.count)
+        for w in windowCenters.indices {
+            for c in cellCenters.indices {
+                let dx = windowCenters[w].x - cellCenters[c].x
+                let dy = windowCenters[w].y - cellCenters[c].y
+                pairs.append((dx * dx + dy * dy, w, c))
+            }
+        }
+        pairs.sort { $0.d < $1.d }
+        var pick = Array(repeating: -1, count: cellCenters.count)
+        var wTaken = Set<Int>()
+        var cTaken = Set<Int>()
+        for p in pairs {
+            if wTaken.contains(p.w) || cTaken.contains(p.c) { continue }
+            pick[p.c] = p.w
+            wTaken.insert(p.w)
+            cTaken.insert(p.c)
+            if wTaken.count == windowCenters.count { break }
+        }
+        return pick
+    }
+
     // MARK: - Auto tile layout
 
     /// One cell in the tiled grid, in AppleScript's top-left-origin pixel
@@ -2129,10 +2189,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// session to a little confetti window and let the desktop show through.
     /// 6pt is about as small as Terminal.app renders while a couple of words
     /// stay distinguishable; the window shrinks to match once the font lands.
-    static let scatterFontSize = 6
+    static let scatterFontSize = 7
     /// Hard cap on a scattered window's edge so a sparse scatter (few windows,
     /// huge cells) still reads as "tiny confetti" instead of a loose tile.
-    static let scatterMaxWin = 230
+    static let scatterMaxWin = 290
 
     /// Where each window lands in a scatter, in AppleScript top-left pixels.
     /// Unlike TileLayout there is no fill invariant: windows are small and the
@@ -2142,20 +2202,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let fontSize: Int
     }
 
-    /// Jittered-grid scatter: carve the visible frame into `count` generous
-    /// cells (near-square, screen-aspect-aware), then drop one small window
-    /// into a random spot *inside* each cell. Because every window stays
-    /// within its own cell and is strictly smaller than it, windows can never
-    /// overlap — and the leftover slack in each cell is the desktop showing
-    /// through. Shuffling the cell order keeps the placement from reading as a
-    /// neat grid (a real scatter), while the per-cell containment keeps it
-    /// tidy. Returns nil when nothing is open.
-    private static func computeScatterLayout(count: Int, geom: ScreenGeom) -> ScatterLayout? {
+    /// Jittered-grid scatter: carve the visible frame into cells (near-square,
+    /// screen-aspect-aware), then drop one small window into a random spot
+    /// *inside* a cell. Because every window stays within its own cell and is
+    /// strictly smaller than it, windows can never overlap — and the leftover
+    /// slack in each cell is the desktop showing through.
+    ///
+    /// `centers` are the windows' CURRENT centers (top-left-origin px; nil when
+    /// AX couldn't read one). Each window is assigned to the cell NEAREST its
+    /// current center, so scatter keeps a window roughly where it already was
+    /// instead of teleporting it — the confetti look comes from the shrink +
+    /// per-cell jitter, not from flinging windows across the screen. Returns
+    /// nil when nothing is open. `frames[i]` corresponds to `centers[i]`.
+    private static func computeScatterLayout(centers: [CGPoint?], geom: ScreenGeom) -> ScatterLayout? {
+        let count = centers.count
         guard count > 0 else { return nil }
 
         // Cells sized to the screen aspect so they stay roughly square — a
-        // square cell gives jitter room in both axes. One cell per window
-        // (not more) keeps the confetti spread across the whole screen.
+        // square cell gives jitter room in both axes.
         let aspect = Double(geom.width) / Double(max(1, geom.height))
         var cols = max(1, Int((Double(count) * aspect).squareRoot().rounded()))
         var rows = Int(ceil(Double(count) / Double(cols)))
@@ -2164,20 +2228,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let cellW = geom.width / cols
         let cellH = geom.height / rows
 
-        // Window strictly smaller than its cell: ~60% leaves generous desktop
-        // slack for the jitter to move within, and guarantees non-overlap.
-        // Capped so even a 3-window scatter on a big screen stays little.
-        let winW = max(110, min(scatterMaxWin, Int(Double(cellW) * 0.6)))
-        let winH = max(80, min(Int(Double(scatterMaxWin) * 0.72), Int(Double(cellH) * 0.6)))
+        // Window strictly smaller than its cell: ~66% leaves desktop slack for
+        // the jitter to move within, and guarantees non-overlap. Capped so even
+        // a 3-window scatter on a big screen stays little.
+        let winW = max(130, min(scatterMaxWin, Int(Double(cellW) * 0.66)))
+        let winH = max(90, min(Int(Double(scatterMaxWin) * 0.72), Int(Double(cellH) * 0.66)))
 
-        // Take `count` distinct cells in shuffled order so window i doesn't
-        // march left-to-right, top-to-bottom.
-        let cells = Array(0..<(cols * rows)).shuffled().prefix(count)
+        // Center of every cell in the grid (there may be more cells than
+        // windows — the slack ones stay empty).
+        let cellCenters: [CGPoint] = (0..<(cols * rows)).map { idx in
+            let cx = idx % cols, cy = idx / cols
+            let cellLeft = geom.originX + cx * geom.width / cols
+            let cellTop = geom.originY + cy * geom.height / rows
+            return CGPoint(x: Double(cellLeft) + Double(cellW) / 2,
+                           y: Double(cellTop) + Double(cellH) / 2)
+        }
+        // Fill unknown centers with the same-index cell center so they still
+        // participate deterministically.
+        let wCenters: [CGPoint] = centers.enumerated().map { i, c in
+            c ?? cellCenters[min(i, cellCenters.count - 1)]
+        }
+        // Nearest-cell assignment: pick[c] = window index in cell c (or -1).
+        let pick = localityAssignment(windowCenters: wCenters, cellCenters: cellCenters)
 
-        var frames: [(left: Int, top: Int, right: Int, bottom: Int)] = []
-        for idx in cells {
-            let cx = idx % cols
-            let cy = idx / cols
+        var frames = [(left: Int, top: Int, right: Int, bottom: Int)](
+            repeating: (0, 0, 0, 0), count: count)
+        for c in 0..<cellCenters.count {
+            let wi = pick[c]
+            guard wi >= 0 else { continue }
+            let cx = c % cols, cy = c / cols
             let cellLeft = geom.originX + cx * geom.width / cols
             let cellTop = geom.originY + cy * geom.height / rows
             // Slack computed from the floored cellW/cellH, so left+winW+slack
@@ -2188,7 +2267,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let oy = slackY > 0 ? Int.random(in: 0...slackY) : 0
             let left = cellLeft + ox
             let top = cellTop + oy
-            frames.append((left, top, left + winW, top + winH))
+            frames[wi] = (left, top, left + winW, top + winH)
         }
         return ScatterLayout(frames: frames, fontSize: scatterFontSize)
     }
@@ -2218,6 +2297,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// osascript path when Accessibility trust is missing.
     func tileNowImpl(resetZoom: Bool) {
         guard let geom = Self.screenGeom() else { return }
+        scatterMode = false  // tiling supersedes a prior scatter; restore tile font
         let textSize = state.textSize
         guard AXTiler.trusted else {
             tileNowLegacy(resetZoom: resetZoom, geom: geom, textSize: textSize)
@@ -2237,38 +2317,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // the profile-font write + Default-Font-Size menu dance is the
             // slow, focus-stealing part of the old tiler.
             guard pass.nTerm > 0, resetZoom || prevFont != pass.fontSize else { return }
-            var lines: [String] = [
+            // ONE fast bulk font-set, no `activate` / z-order reshuffle / View ▸
+            // Default Font Size menu dance / delays — that dance is what made an
+            // explicit tile feel heavy (it steals focus and touches each window
+            // serially). Setting the settings font reflows a normal window on
+            // its own; the only thing the dance added was clearing a MANUAL
+            // per-window zoom (Cmd +/-), which isn't part of the slab workflow.
+            // If a hand-zoomed window ever refuses to resize, that's the case to
+            // revisit — otherwise both tile and scatter now stay focus-free.
+            let lines: [String] = [
                 "tell application \"Terminal\"",
-                "    set _slabIds to id of (every window whose miniaturized is false)",
-                "    repeat with _wid in _slabIds",
-                "      try",
-                "        set font size of current settings of (first window whose id is (contents of _wid)) to \(pass.fontSize)",
-                "      end try",
-                "    end repeat",
+                "  repeat with _w in (every window whose miniaturized is false)",
+                "    try",
+                "      set font size of current settings of _w to \(pass.fontSize)",
+                "    end try",
+                "  end repeat",
                 "end tell",
             ]
-            if resetZoom {
-                lines.append("tell application \"Terminal\" to activate")
-                lines.append("repeat with _wid in _slabIds")
-                lines.append("  try")
-                lines.append("    tell application \"Terminal\" to set index of (first window whose id is (contents of _wid)) to 1")
-                lines.append("    delay 0.25")
-                lines.append("    tell application \"System Events\" to tell process \"Terminal\" to click menu item \"Default Font Size\" of menu 1 of menu bar item \"View\" of menu bar 1")
-                lines.append("    delay 0.1")
-                lines.append("  end try")
-                lines.append("end repeat")
-            }
             ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", lines.joined(separator: "\n")]) {
                 // Terminal sizes by character CELLS, so the font change reflows
                 // each window to a new pixel size — and that reflow can land a
                 // beat AFTER osascript returns, undoing a single re-pin (window
-                // gets "stuck" mid-resize). Re-pin now and again across short
+                // gets "stuck" mid-resize). Re-pin quickly across two short
                 // settles so the geometry is always the LAST thing to apply and
                 // wins. The windows already snapped instantly in the first pass
                 // above; these are tiny AX corrections (sub-ms, no focus steal),
                 // so it stays snappy while resolving cleanly after the reflow.
                 Self.axTilePass(geom: geom, textSize: textSize)
-                for delay in [0.10, 0.25, 0.45] {
+                for delay in [0.06, 0.16] {
                     DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                         Self.axTilePass(geom: geom, textSize: textSize)
                     }
@@ -2295,6 +2371,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             NSLog("🎲 [scatter] skipped — Accessibility not trusted")
             return
         }
+        // Enter scatter mode so the decor refresh pins the tiny font instead of
+        // bouncing it back to the tile size every 0.6s tick.
+        scatterMode = true
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let iterm = AXTiler.windows(bundleId: "com.googlecode.iterm2")
             let term = AXTiler.windows(bundleId: "com.apple.Terminal")
@@ -2303,8 +2382,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                                          requireStandardSubrole: false)
             let all = iterm + term + acpane
             NSLog("🎲 [scatter] iterm=\(iterm.count) term=\(term.count) acpane=\(acpane.count)")
+            // Read each window's current center so scatter can keep it near its
+            // present spot instead of flinging it across the screen.
+            let centers: [CGPoint?] = all.map { AXTiler.center($0) }
             guard !all.isEmpty,
-                  let layout = Self.computeScatterLayout(count: all.count, geom: geom)
+                  let layout = Self.computeScatterLayout(centers: centers, geom: geom)
             else { return }
 
             // Pin the fixed, pre-randomized frames — reused verbatim by every
@@ -2324,35 +2406,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             guard term.count > 0 else { return }
 
-            // Drop each Terminal window's font to the tiny scatter size, then
-            // force a live reflow via View ▸ Default Font Size (a per-window
-            // zoom otherwise silently overrides the profile font — same reason
-            // the tiler does this dance). Only Terminal.app needs it.
+            // Drop each Terminal window's font to the tiny scatter size in ONE
+            // fast bulk pass — no `activate`, no per-window z-order reshuffle,
+            // no View ▸ Default Font Size menu dance, no delays. That dance is
+            // what made the tiler feel heavy (it steals focus and touches each
+            // window serially); scatter skips it because setting the settings
+            // font alone reflows a normal window, and the scatterMode decor pin
+            // enforces the tiny size on the next tick for any window that lags.
             let lines: [String] = [
                 "tell application \"Terminal\"",
-                "    set _slabIds to id of (every window whose miniaturized is false)",
-                "    repeat with _wid in _slabIds",
-                "      try",
-                "        set font size of current settings of (first window whose id is (contents of _wid)) to \(layout.fontSize)",
-                "      end try",
-                "    end repeat",
-                "    activate",
+                "  repeat with _w in (every window whose miniaturized is false)",
+                "    try",
+                "      set font size of current settings of _w to \(layout.fontSize)",
+                "    end try",
+                "  end repeat",
                 "end tell",
-                "repeat with _wid in _slabIds",
-                "  try",
-                "    tell application \"Terminal\" to set index of (first window whose id is (contents of _wid)) to 1",
-                "    delay 0.15",
-                "    tell application \"System Events\" to tell process \"Terminal\" to click menu item \"Default Font Size\" of menu 1 of menu bar item \"View\" of menu bar 1",
-                "    delay 0.05",
-                "  end try",
-                "end repeat",
             ]
             ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", lines.joined(separator: "\n")]) {
-                // Font reflow resizes each Terminal window a beat after osascript
-                // returns; re-pin now and across a few settles so the tiny frame
-                // is always the LAST thing applied and wins.
+                // Shrinking the font reflows each window to a new pixel size a
+                // beat after osascript returns; re-pin twice, quickly, so the
+                // tiny frame is the last thing applied and wins.
                 apply()
-                for delay in [0.10, 0.25, 0.45] {
+                for delay in [0.06, 0.16] {
                     DispatchQueue.main.asyncAfter(deadline: .now() + delay) { apply() }
                 }
             }
@@ -2377,9 +2452,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard !all.isEmpty,
               let layout = computeTileLayout(count: all.count, geom: geom, size: textSize)
         else { return nil }
-        for (i, w) in all.enumerated() {
-            let cell = layout.cellAt(index: i).bounds
-            AXTiler.setFrame(w, left: cell.left, top: cell.top,
+        // Assign windows to grid cells by spatial locality so a window keeps
+        // its region instead of jumping to wherever its app+z-order index fell.
+        // Cell centers (top-left-origin px) from the layout; window centers from
+        // AX, falling back to the same-index cell center when AX can't read one.
+        let cellCenters: [CGPoint] = (0..<all.count).map { i in
+            let b = layout.cellAt(index: i).bounds
+            return CGPoint(x: Double(b.left + b.right) / 2, y: Double(b.top + b.bottom) / 2)
+        }
+        let windowCenters: [CGPoint] = all.enumerated().map { i, w in
+            AXTiler.center(w) ?? cellCenters[i]
+        }
+        let pick = localityAssignment(windowCenters: windowCenters, cellCenters: cellCenters)
+        for c in 0..<cellCenters.count {
+            let wi = pick[c]
+            guard wi >= 0 else { continue }
+            let cell = layout.cellAt(index: c).bounds
+            AXTiler.setFrame(all[wi], left: cell.left, top: cell.top,
                              right: cell.right, bottom: cell.bottom)
         }
         return AXPass(nIterm: iterm.count, nTerm: term.count, fontSize: layout.fontSize)

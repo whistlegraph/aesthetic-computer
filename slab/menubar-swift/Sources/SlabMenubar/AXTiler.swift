@@ -82,4 +82,22 @@ enum AXTiler {
         guard AXValueGetValue(v as! AXValue, .cgSize, &size) else { return nil }
         return size
     }
+
+    private static func positionAttr(_ el: AXUIElement) -> CGPoint? {
+        var ref: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(el, kAXPositionAttribute as CFString, &ref) == .success,
+              let v = ref, CFGetTypeID(v) == AXValueGetTypeID() else { return nil }
+        var point = CGPoint.zero
+        guard AXValueGetValue(v as! AXValue, .cgPoint, &point) else { return nil }
+        return point
+    }
+
+    /// A window's current center in AppleScript top-left-origin pixels — the
+    /// same coordinate space `setFrame` writes. Used to keep tile/scatter
+    /// placement spatially local (assign each window to the nearest target
+    /// cell so it stays roughly where it was). nil if AX can't read the frame.
+    static func center(_ w: AXUIElement) -> CGPoint? {
+        guard let p = positionAttr(w), let s = sizeAttr(w) else { return nil }
+        return CGPoint(x: p.x + s.width / 2, y: p.y + s.height / 2)
+    }
 }
