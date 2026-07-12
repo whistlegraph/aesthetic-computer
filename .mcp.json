@@ -17,7 +17,8 @@
         "ants/mail-mcp/server.mjs"
       ],
       "env": {
-        "AC_EMAIL_STYLE_GUIDE": "/Users/jas/aesthetic-computer/toolchain/email/style-guide.md"
+        "AC_EMAIL_STYLE_GUIDE": "/Users/jas/aesthetic-computer/toolchain/email/style-guide.md",
+        "AC_MAIL_HOST": "jas@24.144.92.66"
       }
     },
     "frame": {

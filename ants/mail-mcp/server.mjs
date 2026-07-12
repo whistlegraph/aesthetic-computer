@@ -25,11 +25,43 @@ function resolveBin(name, fallbacks) {
 }
 
 const HOME = homedir();
-const MU = resolveBin("mu", ["/opt/homebrew/bin/mu", "/usr/bin/mu"]);
-const MBSYNC = resolveBin("mbsync", ["/opt/homebrew/bin/mbsync", "/usr/bin/mbsync"]);
-const MSMTP = resolveBin("msmtp", ["/opt/homebrew/bin/msmtp", "/usr/bin/msmtp"]);
+
+// Where the mail actually lives. The maildir, the mu index, and the msmtp
+// credentials all sit on jasellite — no laptop keeps a copy anymore. So when
+// AC_MAIL_HOST is set (the default), mu/mbsync/msmtp are run *there* over ssh
+// and this process only shuttles argv and stdin. Searching the local disk
+// instead would quietly report an empty inbox, which is far worse than an
+// error: it reads as "you have no mail" rather than "I looked in the wrong
+// place". Set AC_MAIL_HOST="" to go local — that's how jasellite runs itself.
+//
+// ssh, not the HTTP daemon, is the default on purpose: the daemon is bearer-
+// authed, and handing that token to every laptop widens who can read the mail.
+// ssh keys are already per-machine and already scoped to @jeffrey.
+const MAIL_HOST = process.env.AC_MAIL_HOST ?? "jas@24.144.92.66";
+const REMOTE = MAIL_HOST !== "";
+
+// Remote binaries come off jasellite's login PATH; only resolve local paths
+// when we're actually going to exec locally.
+const MU = REMOTE ? "mu" : resolveBin("mu", ["/opt/homebrew/bin/mu", "/usr/bin/mu"]);
+const MBSYNC = REMOTE ? "mbsync" : resolveBin("mbsync", ["/opt/homebrew/bin/mbsync", "/usr/bin/mbsync"]);
+const MSMTP = REMOTE ? "msmtp" : resolveBin("msmtp", ["/opt/homebrew/bin/msmtp", "/usr/bin/msmtp"]);
 const MAILDIR = process.env.AC_MAIL_MAILDIR || join(HOME, ".mail-all");
 const MU_DB = process.env.AC_MAIL_MU_DB || join(HOME, ".cache", "mu", "xapian");
+
+// jasellite's login shell is fish, and ssh hands it one flat string — so every
+// argument we send has to survive a shell re-split on the far side. Single
+// quotes are literal in both fish and POSIX sh; the only character that needs
+// care is the quote itself.
+const shellQuote = (arg) => `'${String(arg).replaceAll("'", `'\\''`)}'`;
+
+// Rewrite a local command into the ssh invocation that runs it on jasellite.
+// BatchMode keeps a missing key failing fast instead of hanging on a password
+// prompt (nothing is watching stdin here — we're an MCP server on a pipe).
+const SSH_OPTS = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=10"];
+function remotely(cmd, args) {
+  if (!REMOTE) return [cmd, args];
+  return ["ssh", [...SSH_OPTS, MAIL_HOST, cmd, ...args.map(shellQuote)]];
+}
 const ACCOUNTS = {
   "ac-mail": "mail@aesthetic.computer",
   "jas-mail": "me@jas.life",
@@ -134,6 +166,19 @@ function applyEmailStyle({ subject, body, preserveCase, signature }, style) {
 }
 
 async function ensureMuIndex() {
+  // The index lives next to the maildir, so when that's remote this question
+  // can only be answered remotely — a local stat would say "missing" and send
+  // us off to re-init an index that already exists on the other machine.
+  if (REMOTE) {
+    try {
+      await run(MU, ["info"], { timeout: 15_000 });
+      return;
+    } catch {
+      await run(MU, ["init", `--maildir=${MAILDIR}`], { timeout: 30_000 });
+      await run(MU, ["index"], { timeout: 300_000 });
+      return;
+    }
+  }
   try {
     await access(MU_DB);
   } catch {
@@ -142,7 +187,8 @@ async function ensureMuIndex() {
   }
 }
 
-async function run(cmd, args, { input, timeout = 30_000 } = {}) {
+async function run(rawCmd, rawArgs, { input, timeout = 30_000 } = {}) {
+  const [cmd, args] = remotely(rawCmd, rawArgs);
   if (input !== undefined) {
     // execFile doesn't pipe input to stdin; use spawn instead.
     return new Promise((resolve, reject) => {

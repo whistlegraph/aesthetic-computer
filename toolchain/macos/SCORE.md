@@ -132,8 +132,11 @@ Always clear first — fully recover with no judgment call:
 
 - `**/.build` — Swift Package Manager build caches (menuband,
   menubar-swift, wave-wizard typically 200 MB–1.5 GB each)
-- `~/.cache/mu` — mu email index (rebuilds on next `mu index`,
-  often 1–2 GB)
+- `~/.cache/mu` — mu email index. On a Mac this is now always a
+  vestige (mail moved to jasellite), and an empty one is actively
+  harmful: `mu find` against it succeeds with zero hits, so a search
+  reports "no mail" instead of "wrong machine". Delete it on sight —
+  see "Mail lives on jasellite" below
 - `~/.cache/puppeteer` — Chromium download cache (~325 MB)
 - `~/Library/Caches/Google` — Chrome cache (regrows continuously)
 - `~/Library/Caches/com.spotify.client` — Spotify offline cache
@@ -199,8 +202,11 @@ These look like caches but encode hard-to-rebuild state:
 - `~/.brainglobe` — brain atlas data (used by Carlos demos)
 - `~/.whisper-models` — whisper model weights (redownloadable
   but each model is slow)
-- `~/.mail-all/jas-mail/` — full mail archive (27+ GB but
-  this is the source of truth for [[mail_bootstrap_macos]])
+- `~/.mail-all/` — **no longer on the Macs.** The mail archive and
+  its mu index live on jasellite now; see "Mail lives on jasellite"
+  below. If you find a `~/.mail-all` on a Mac it is a pre-2026-07
+  leftover, not the source of truth — confirm against jasellite,
+  then it is safe to reclaim (~27 GB)
 - `~/Library/Containers/com.apple.MobileSMS/` — iMessage
   attachments + conversation history
 - `~/Pictures/Photos Library.photoslibrary` — Apple Photos
@@ -219,6 +225,43 @@ Bash invocation** with the target path explicit in the description.
 Don't try to bypass — just split the commands.
 
 ---
+
+## Mail lives on jasellite
+
+**No Mac holds mail anymore.** The maildir (`~/.mail-all`, ~30 GB
+across five accounts), the mu index, and the msmtp send credentials
+all live on **jasellite** — the DO box. A systemd user unit there
+(`mail-sync.service`) runs mbsync + `mu index` on a timer, so the
+archive stays current without a laptop being awake.
+
+### Don't look locally first
+
+The failure this causes is quiet, which is what makes it worth a
+section. `mu find` against an absent or empty local index does not
+error — it returns zero hits. So a mail search on a Mac reports
+**"your inbox is empty"** when the truth is "you searched the wrong
+machine." If mail ever comes back empty, suspect the machine before
+you suspect the mailbox.
+
+### How the MCP reaches it
+
+`ants/mail-mcp/server.mjs` runs `mu` / `mbsync` / `msmtp` on
+jasellite over ssh (`AC_MAIL_HOST`, default `jas@24.144.92.66`);
+only argv and stdin cross the wire. Set `AC_MAIL_HOST=""` to force
+local exec — that's how jasellite runs the server against its own
+disk.
+
+There is also an HTTP daemon on jasellite (`--http 7765`, bound to
+the **tailnet** address `100.72.36.78`, never the public interface,
+bearer-authed via `AC_MAIL_TOKEN`). It is faster, but ssh is the
+default on purpose: the daemon's token would have to be copied to
+every laptop to be useful, and that widens who can read the mail.
+Ssh keys are already per-machine and already scoped to @jeffrey. Use
+the daemon from a host that already has the token; reach for ssh
+everywhere else.
+
+**Never commit `AC_MAIL_TOKEN`** — this repo is public. It lives in
+`~/.config/ac-mail/env` on jasellite.
 
 ## sticky.mjs
 
