@@ -24,14 +24,20 @@ import AVFoundation
 ///     reverse playback can never re-enter the ring (no reverse-of-a-reverse
 ///     stacking) and the tape keeps rolling even while reversing.
 ///
-/// Press/resume semantics (the REVERSE CURSOR): the first Space press of a
-/// session anchors "now"; releasing banks how far the playhead got; the next
-/// press RESUMES from that same reverse point, deeper into the tape — it
-/// does not restart at the top and it does not re-add time (the window is
-/// fixed at the first press's anchor). As soon as a real note sounds
-/// (`MenuBandSynth.noteOn` → `resetReverseAnchor`) the session drops and the
-/// reverse clock rejoins the live record head, so the next press reverses
-/// from the new "now" — which includes the notes just played.
+/// Press/release semantics (the REVERSE CURSOR): Space is a momentary dive.
+/// The first press anchors T0 ("now") and runs the needle backwards through the
+/// tape from there. RELEASING returns the needle to T0 — not to the live head,
+/// which by then has drifted on — so a re-press dives again from the SAME
+/// origin. That's what makes reverse REPEATABLE: whacking Space stutters the
+/// same passage. (It used to bank the playhead instead, so each press burrowed
+/// further and further back and you could never hit the same lick twice.)
+/// A real note drops the anchor, earning the next dive a new origin.
+///
+/// REVERSE DUB: notes played while the needle is diving are printed BACKWARDS
+/// onto the tape at the needle (see `feed`). The ring is only ever read
+/// backwards, so those notes come back out FORWARD on the next dive — normal
+/// phrases sitting inside reversed music. That's why `resetReverseAnchor` is a
+/// no-op while a pass is sounding: playing into the dive must not end it.
 final class MenuBandRewindVoice {
     /// How far back the ring physically remembers — a rolling 60 s tape
     /// loop (continuously overwritten). Plenty of headroom beyond the
@@ -115,6 +121,11 @@ final class MenuBandRewindVoice {
     private var sessionWantFrames = 0
     /// Frame length of the in-flight one-shot, for the settle accounting.
     private var lastClipFrames = 0
+    /// True while a reverse pass is sounding — i.e. while the needle is
+    /// travelling backwards through the tape. Gates the reverse dub in `feed`
+    /// and keeps `resetReverseAnchor` from yanking the needle back to the live
+    /// head when you play a note INTO the dive. Guarded by `ringLock`.
+    private var reverseActive = false
 
     /// Sample rate the player is currently connected at — re-wired to the
     /// ring's capture rate before playback so the reverse plays at the SAME
@@ -186,9 +197,10 @@ final class MenuBandRewindVoice {
     /// and lock-light.
     func feed(_ buffer: AVAudioPCMBuffer) {
         // Always capture — the tap is on the limiter (pre-mainMixer), so the
-        // reverse playback isn't in this signal and can't feed back. This
-        // lets the ring keep recording notes played WHILE reversing, so you
-        // can build material in both directions.
+        // reverse playback isn't in this signal and can't feed back. What
+        // arrives here while reversing is therefore exactly what you're playing
+        // live, clean of the rewind itself — which is what makes the reverse dub
+        // below possible.
         guard let ch = buffer.floatChannelData else { return }
         let frames = Int(buffer.frameLength)
         if frames == 0 { return }
@@ -206,8 +218,48 @@ final class MenuBandRewindVoice {
             framesWritten = 0
             ringSampleRate = rate
         }
-        var idx = writeIdx
         let cap = ringCapacity
+
+        // ── Reverse dub ──────────────────────────────────────────────────────
+        // While a rewind pass is sounding, what you play is NOT appended at the
+        // live head. It gets PRINTED BACKWARDS onto the tape right where the
+        // needle is. Because the ring is only ever READ backwards, a backwards
+        // print comes back out FORWARD on the next pass — normal-sounding
+        // phrases sitting inside reversed music, exactly where you played them.
+        // (Reel-flip: turn the tape over, record, turn it back.)
+        //
+        // The forward head deliberately does not advance: the tape isn't
+        // rolling forward while you're diving back through it. It stays parked
+        // at "now", which is where the needle snaps back to on release.
+        //
+        // Mixed in, not overwritten, so the dub sits ON the existing music
+        // instead of erasing it. Clamped because two full-scale signals sum.
+        if reverseActive, let head = reverseReadHeadLocked() {
+            // Absolute frame `a` lives at ring index writeIdx-1-(framesWritten-a).
+            var idx = (writeIdx - 1 - (framesWritten - head)) % cap
+            if idx < 0 { idx += cap }
+            if channels >= 2 {
+                let l = ch[0]
+                let r = ch[1]
+                for i in 0..<frames {
+                    ring[idx] = Swift.max(-1, Swift.min(1, ring[idx] + (l[i] + r[i]) * 0.5))
+                    idx -= 1                       // walk BACKWARD with the needle
+                    if idx < 0 { idx += cap }
+                }
+            } else {
+                let m = ch[0]
+                for i in 0..<frames {
+                    ring[idx] = Swift.max(-1, Swift.min(1, ring[idx] + m[i]))
+                    idx -= 1
+                    if idx < 0 { idx += cap }
+                }
+            }
+            ringLock.unlock()
+            return
+        }
+
+        // ── Normal forward capture ───────────────────────────────────────────
+        var idx = writeIdx
         if channels >= 2 {
             // Down-mix L+R to mono so the reversed clip matches what notepat
             // captures (a single mixed channel).
@@ -229,6 +281,24 @@ final class MenuBandRewindVoice {
         writeIdx = idx
         framesWritten += frames
         ringLock.unlock()
+    }
+
+    /// Absolute frame the reverse pass is reading right now — the needle. The
+    /// in-flight clip was snapshotted at press time, so there is no live read
+    /// pointer to ask; the position comes from the clip's wall-clock progress
+    /// (the same arithmetic `reverseProgress` shows the strip). Returns nil
+    /// once the one-shot has run out, so a still-held spacebar over an
+    /// exhausted window falls back to ordinary forward capture rather than
+    /// piling every note onto one parked frame.
+    ///
+    /// Call with `ringLock` held.
+    private func reverseReadHeadLocked() -> Int? {
+        guard let anchor = sessionAnchor,
+              clipDuration > 0, playStart > 0, lastClipFrames > 0 else { return nil }
+        let p = (CACurrentMediaTime() - playStart) / clipDuration
+        guard p >= 0, p < 1 else { return nil }
+        let head = anchor - consumedFrames - Int(p * Double(lastClipFrames))
+        return head > 0 ? head : nil
     }
 
     // MARK: Playback (main thread)
@@ -345,9 +415,14 @@ final class MenuBandRewindVoice {
         // to resume from wherever this playback stops.
         player.scheduleBuffer(clip, at: nil, options: [], completionHandler: nil)
         if !player.isPlaying { player.play() }
+        // Under the lock: `feed` reads these on the audio thread every buffer to
+        // place the reverse dub, and a torn read would print it at a bogus frame.
+        ringLock.lock()
         lastClipFrames = count
         clipDuration = Double(count) / rate
         playStart = CACurrentMediaTime()
+        reverseActive = true
+        ringLock.unlock()
         return true
     }
 
@@ -369,10 +444,16 @@ final class MenuBandRewindVoice {
     /// Drops the session so the next Space press anchors at the live "now"
     /// (which includes the note that just played) instead of resuming the
     /// old cursor. Called from `MenuBandSynth.noteOn` (any thread).
+    ///
+    /// EXCEPT while a reverse pass is sounding: notes played into the dive are
+    /// the reverse dub, and re-anchoring would rip the needle back to the live
+    /// head the instant you touched a key — you could never print anything.
     func resetReverseAnchor() {
         ringLock.lock()
-        sessionAnchor = nil
-        consumedFrames = 0
+        if !reverseActive {
+            sessionAnchor = nil
+            consumedFrames = 0
+        }
         ringLock.unlock()
     }
 
@@ -389,15 +470,31 @@ final class MenuBandRewindVoice {
         return Swift.min(1, frames / Double(sessionWantFrames))
     }
 
-    /// Space released — bank the playhead position into the session cursor
-    /// (so the NEXT press resumes from this exact reverse point — the whole
-    /// feature) and stop the reverse voice. A bare `player.stop()` mid-clip
-    /// cuts a non-zero sample to silence and clicks, so ramp the mixer down
-    /// first (AVAudioMixerNode smooths volume changes), then stop a beat
-    /// later and restore level.
+    /// Space released — the needle snaps back to NOW, and the reverse voice
+    /// stops. Space is a momentary excursion: while it's held you dive back
+    /// through the tape, and letting go drops you at the live record head
+    /// again, so the next press rewinds from "now" rather than resuming deeper
+    /// into the old dive. (This used to BANK the playhead so consecutive
+    /// presses burrowed further and further back; the snap-back is what makes
+    /// the gesture feel like a tape head you can lift.)
+    ///
+    /// A bare `player.stop()` mid-clip cuts a non-zero sample to silence and
+    /// clicks, so ramp the mixer down first (AVAudioMixerNode smooths volume
+    /// changes), then stop a beat later and restore level.
     func release() {
         ringLock.lock()
-        settleInFlightLocked()
+        reverseActive = false          // stop dubbing; forward capture resumes
+        // The needle jumps back to T0 — the moment Space was first pressed —
+        // NOT to "now". Keeping the anchor and zeroing the dive is what makes
+        // reverse REPEATABLE: whack Space again and it re-dives from the same
+        // original point, so quick represses stutter the same passage instead
+        // of each one reversing from a "now" that has drifted on, or (as it
+        // originally did) burrowing ever deeper into the tape.
+        //
+        // Only a real note (`resetReverseAnchor`, no-op mid-dive) drops the
+        // anchor — new material earns a new origin.
+        settleInFlightLocked()         // clears the in-flight clip's state
+        consumedFrames = 0             // …and rewinds the dive to the anchor
         ringLock.unlock()
         guard player.isPlaying else { return }
         playGeneration &+= 1
