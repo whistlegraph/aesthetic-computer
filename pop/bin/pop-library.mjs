@@ -88,6 +88,53 @@ function backendFor(laneTop, laneDir) {
   return "JS DSP";
 }
 
+// ── art + associated media discovery ───────────────────────────────────────
+// Covers live in a lane's out/ (usually), sometimes illy/ or the lane root,
+// named "<title>-cover.png" (prefer the plain square over sized/-p-/-yt-/thumb
+// variants). Media = the videos (reels/stories/canvas) whose name starts with
+// the track title — the interesting clips, not scratch stills.
+const IMG_EXT = new Set([".png", ".jpg", ".jpeg", ".webp"]);
+const VID_EXT = new Set([".mp4", ".mov", ".webm", ".m4v"]);
+function lsFiles(dir) {
+  try { return readdirSync(dir, { withFileTypes: true }).filter((e) => e.isFile()).map((e) => e.name); }
+  catch { return []; }
+}
+function findMedia(absMp3, title) {
+  const outDir = dirname(absMp3);                 // pop/<lane>/out
+  const laneDir = dirname(outDir);                // pop/<lane>
+  const searchDirs = [outDir, `${laneDir}/illy`, laneDir];
+  const t = title.toLowerCase();
+  const ext = (n) => n.slice(n.lastIndexOf(".")).toLowerCase();
+  const baseOf = (n) => n.slice(0, n.lastIndexOf(".")).toLowerCase();
+
+  // cover ranking (lower = better); 99 = not this track's cover, skip it.
+  const coverScore = (n) => {
+    const b = baseOf(n);
+    if (b === `${t}-cover`) return 0;
+    if (b === `${t}-cover-3000` || b === `${t}-cover-1024`) return 1;
+    if (b === `${t}-p-cover`) return 2;                      // portrait/square
+    if (b.startsWith(`${t}`) && b.includes("cover")) return 3; // -yt-cover, -cover-v2…
+    if (b === "cover" || b === t) return 4;
+    return 99;
+  };
+  let cover = null, coverRank = 100;
+  const media = [];
+  const seen = new Set();
+  for (const d of searchDirs) {
+    for (const n of lsFiles(d)) {
+      const e = ext(n), full = `${d}/${n}`, b = baseOf(n);
+      if (IMG_EXT.has(e)) {
+        const r = coverScore(n);
+        if (r < 99 && r < coverRank) { coverRank = r; cover = full; }
+      } else if (VID_EXT.has(e) && b.startsWith(t) && !seen.has(full)) {
+        seen.add(full); media.push({ kind: "video", path: full });
+      }
+    }
+  }
+  media.sort((a, b) => a.path.localeCompare(b.path));
+  return { art: cover, media };
+}
+
 const releases = parseReleases();
 const files = walkMp3(POP, []).sort();
 const gitCache = {};
@@ -102,6 +149,7 @@ for (const p of files) {
   const relInfo = releases[title.toLowerCase()] || releases[laneTop.toLowerCase()] || null;
   const laneAbs = `pop/${laneDirRel}`;
   if (gitCache[laneAbs] === undefined) gitCache[laneAbs] = gitCount(laneAbs);
+  const { art, media } = findMedia(p, title);
   tracks.push({
     path: p,
     title,
@@ -115,6 +163,8 @@ for (const p of files) {
     bpm: relInfo?.bpm ? Number(relInfo.bpm) : null,
     key: relInfo?.key || null,
     releaseDate: relInfo?.releaseDate || null,
+    art,
+    media,
     links: relInfo ? {
       spotify: relInfo.spotify, apple: relInfo.apple,
       youtube: relInfo.youtube, distrokid: relInfo.distrokid,

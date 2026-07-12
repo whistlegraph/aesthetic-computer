@@ -1,7 +1,29 @@
 {
-  "generated": "2026-07-02T18:48:31.792Z",
-  "count": 98,
+  "generated": "2026-07-12T23:13:16.736Z",
+  "count": 104,
   "tracks": [
+    {
+      "path": "/Users/jas/aesthetic-computer/pop/americomputadora/out/americomputadora.mp3",
+      "title": "americomputadora",
+      "lane": "americomputadora",
+      "backend": "C engine",
+      "status": "RELEASED",
+      "updated": "2026-07-04T21:12:25.275Z",
+      "revisions": 9,
+      "bytes": 8152642,
+      "durationSec": 149.3,
+      "bpm": 112,
+      "key": "D major",
+      "releaseDate": "2026-07-04",
+      "art": "/Users/jas/aesthetic-computer/pop/americomputadora/out/americomputadora-cover.png",
+      "media": [],
+      "links": {
+        "spotify": null,
+        "apple": null,
+        "youtube": null,
+        "distrokid": null
+      }
+    },
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/out/fluttabap360.mp3",
       "title": "fluttabap360",
@@ -9,12 +31,43 @@
       "backend": "C engine",
       "status": "RELEASED",
       "updated": "2026-06-30T21:27:44.435Z",
-      "revisions": 18,
+      "revisions": 25,
       "bytes": 8663397,
       "durationSec": 360,
       "bpm": null,
       "key": null,
       "releaseDate": "2026-06-30",
+      "art": "/Users/jas/aesthetic-computer/pop/marimba/out/fluttabap360-cover.png",
+      "media": [
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/marimba/out/fluttabap360-bunny-reel-clean.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/marimba/out/fluttabap360-bunny-reel-lomo.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/marimba/out/fluttabap360-bunny-reel.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/marimba/out/fluttabap360-canvas.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/marimba/out/fluttabap360-photo-canvas.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/marimba/out/fluttabap360-preview-score-portrait-insta-story.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/marimba/out/fluttabap360-reel.mp4"
+        }
+      ],
       "links": {
         "spotify": null,
         "apple": null,
@@ -29,12 +82,35 @@
       "backend": "C engine",
       "status": "RELEASED",
       "updated": "2026-06-12T03:15:25.590Z",
-      "revisions": 7,
+      "revisions": 11,
       "bytes": 25933009,
       "durationSec": 600,
       "bpm": null,
       "key": null,
       "releaseDate": "2026-06-12",
+      "art": "/Users/jas/aesthetic-computer/pop/momboba/out/momabobasheep-cover.png",
+      "media": [
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/momboba/out/momabobasheep-bunny-recut-clean.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/momboba/out/momabobasheep-bunny-recut-reel.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/momboba/out/momabobasheep-bunny-recut-story.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/momboba/out/momabobasheep-bunny-reel.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/momboba/out/momabobasheep-bunny-story.mp4"
+        }
+      ],
       "links": {
         "spotify": null,
         "apple": null,
@@ -55,6 +131,8 @@
       "bpm": 120,
       "key": "G major",
       "releaseDate": "2026-06-03",
+      "art": "/Users/jas/aesthetic-computer/pop/big-pictures/out/amaythingra-p-cover.png",
+      "media": [],
       "links": {
         "spotify": "https://open.spotify.com/track/4hVFWMISa235ybIEfOYuwt",
         "apple": "https://music.apple.com/us/album/amaythingra/6776359148?i=6776359150",
@@ -69,12 +147,43 @@
       "backend": "C engine",
       "status": "RELEASED",
       "updated": "2026-05-23T03:50:50.812Z",
-      "revisions": 18,
+      "revisions": 25,
       "bytes": 1946733,
       "durationSec": 83.6,
       "bpm": 56,
       "key": "F major",
       "releaseDate": "2026-05-22",
+      "art": "/Users/jas/aesthetic-computer/pop/marimba/out/marimbaba-cover.png",
+      "media": [
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/marimba/out/marimbaba-motion-email.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/marimba/out/marimbaba-motion-score-yt.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/marimba/out/marimbaba-motion-yt.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/marimba/out/marimbaba-preview-score-portrait-insta-story.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/marimba/out/marimbaba-preview-score-portrait-reel.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/marimba/out/marimbaba-preview-score-yt.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/marimba/out/marimbaba-reel.mp4"
+        }
+      ],
       "links": {
         "spotify": "https://open.spotify.com/track/1gopbVPw6LoinIpOANOnEG",
         "apple": "https://music.apple.com/us/album/marimbaba/6772460819?i=6772460820",
@@ -95,6 +204,8 @@
       "bpm": 84,
       "key": "A minor",
       "releaseDate": null,
+      "art": "/Users/jas/aesthetic-computer/pop/chillwave/out/helpabeach-cover.png",
+      "media": [],
       "links": {
         "spotify": "https://open.spotify.com/track/3jzlAylJQLSsNIXjnEY1e8",
         "apple": "https://music.apple.com/us/album/helpabeach/6772056808?i=6772057057",
@@ -109,12 +220,14 @@
       "backend": "C engine",
       "status": "RELEASED",
       "updated": "2026-05-17T23:59:44.894Z",
-      "revisions": 37,
+      "revisions": 39,
       "bytes": 1527477,
       "durationSec": 86.6,
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": {
         "spotify": "https://open.spotify.com/track/3PIPwPqptVlWy71rCEhQum",
         "apple": "https://music.apple.com/us/album/trancenwaltz/6773318345?i=6773318348",
@@ -135,6 +248,30 @@
       "bpm": 176,
       "key": null,
       "releaseDate": null,
+      "art": "/Users/jas/aesthetic-computer/pop/jungle/out/solafiya-cover.png",
+      "media": [],
+      "links": {
+        "spotify": null,
+        "apple": null,
+        "youtube": null,
+        "distrokid": null
+      }
+    },
+    {
+      "path": "/Users/jas/aesthetic-computer/pop/dance/out/cutezenwaltzi.mp3",
+      "title": "cutezenwaltzi",
+      "lane": "dance",
+      "backend": "C engine",
+      "status": "WIP",
+      "updated": "2026-07-02T19:58:11.648Z",
+      "revisions": 39,
+      "bytes": 8871405,
+      "durationSec": 221.7,
+      "bpm": 104,
+      "key": null,
+      "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": {
         "spotify": null,
         "apple": null,
@@ -149,12 +286,14 @@
       "backend": "C engine",
       "status": "WIP",
       "updated": "2026-06-22T01:33:39.436Z",
-      "revisions": 2,
+      "revisions": 3,
       "bytes": 3619389,
       "durationSec": 168,
       "bpm": 76,
       "key": "C major",
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": {
         "spotify": null,
         "apple": null,
@@ -175,6 +314,8 @@
       "bpm": 140,
       "key": "A minor",
       "releaseDate": null,
+      "art": "/Users/jas/aesthetic-computer/pop/teknull/out/teknull-cover.png",
+      "media": [],
       "links": {
         "spotify": null,
         "apple": null,
@@ -189,12 +330,14 @@
       "backend": "C engine",
       "status": "WIP",
       "updated": "2026-06-11T23:03:46.120Z",
-      "revisions": 2,
+      "revisions": 3,
       "bytes": 2666805,
       "durationSec": 120,
       "bpm": 76,
       "key": "C major",
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": {
         "spotify": null,
         "apple": null,
@@ -209,12 +352,14 @@
       "backend": "C engine",
       "status": "WIP",
       "updated": "2026-06-11T21:23:24.127Z",
-      "revisions": 2,
+      "revisions": 3,
       "bytes": 1561845,
       "durationSec": 78.8,
       "bpm": 76,
       "key": "C major",
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": {
         "spotify": null,
         "apple": null,
@@ -223,18 +368,105 @@
       }
     },
     {
-      "path": "/Users/jas/aesthetic-computer/pop/americomputadora/out/americomputadora.mp3",
-      "title": "americomputadora",
-      "lane": "americomputadora",
+      "path": "/Users/jas/aesthetic-computer/pop/marimba/out/flatterbop180.mp3",
+      "title": "flatterbop180",
+      "lane": "marimba",
       "backend": "C engine",
       "status": "UNRELEASED",
-      "updated": "2026-07-02T09:49:37.299Z",
-      "revisions": 6,
-      "bytes": 8034493,
-      "durationSec": 152.6,
+      "updated": "2026-07-07T17:52:37.921Z",
+      "revisions": 25,
+      "bytes": 4338381,
+      "durationSec": 180,
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
+      "links": null
+    },
+    {
+      "path": "/Users/jas/aesthetic-computer/pop/menuband/out/vo.mp3",
+      "title": "vo",
+      "lane": "menuband",
+      "backend": "JS DSP",
+      "status": "UNRELEASED",
+      "updated": "2026-07-06T01:43:08.863Z",
+      "revisions": 14,
+      "bytes": 249456,
+      "durationSec": 34.4,
+      "bpm": null,
+      "key": null,
+      "releaseDate": null,
+      "art": null,
+      "media": [],
+      "links": null
+    },
+    {
+      "path": "/Users/jas/aesthetic-computer/pop/wattajetta/out/wattajetta.mp3",
+      "title": "wattajetta",
+      "lane": "wattajetta",
+      "backend": "C engine",
+      "status": "UNRELEASED",
+      "updated": "2026-07-03T06:28:25.759Z",
+      "revisions": 2,
+      "bytes": 16071038,
+      "durationSec": 168.1,
+      "bpm": null,
+      "key": null,
+      "releaseDate": null,
+      "art": "/Users/jas/aesthetic-computer/pop/wattajetta/out/cover.png",
+      "media": [],
+      "links": null
+    },
+    {
+      "path": "/Users/jas/aesthetic-computer/pop/cutezen/out/cutezenith.mp3",
+      "title": "cutezenith",
+      "lane": "cutezen",
+      "backend": "JS DSP",
+      "status": "UNRELEASED",
+      "updated": "2026-07-02T21:25:05.802Z",
+      "revisions": 2,
+      "bytes": 5761965,
+      "durationSec": 144,
+      "bpm": null,
+      "key": null,
+      "releaseDate": null,
+      "art": null,
+      "media": [],
+      "links": null
+    },
+    {
+      "path": "/Users/jas/aesthetic-computer/pop/cutezen/out/cutezip.mp3",
+      "title": "cutezip",
+      "lane": "cutezen",
+      "backend": "JS DSP",
+      "status": "UNRELEASED",
+      "updated": "2026-07-02T21:19:34.856Z",
+      "revisions": 2,
+      "bytes": 4801965,
+      "durationSec": 120,
+      "bpm": null,
+      "key": null,
+      "releaseDate": null,
+      "art": null,
+      "media": [],
+      "links": null
+    },
+    {
+      "path": "/Users/jas/aesthetic-computer/pop/cutezen/out/cutezen.mp3",
+      "title": "cutezen",
+      "lane": "cutezen",
+      "backend": "JS DSP",
+      "status": "UNRELEASED",
+      "updated": "2026-07-02T20:29:48.650Z",
+      "revisions": 2,
+      "bytes": 3168333,
+      "durationSec": 150,
+      "bpm": null,
+      "key": null,
+      "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -244,12 +476,14 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-06-29T21:47:37.739Z",
-      "revisions": 18,
+      "revisions": 25,
       "bytes": 8676981,
       "durationSec": 360,
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -259,12 +493,14 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-06-29T17:57:23.906Z",
-      "revisions": 18,
+      "revisions": 25,
       "bytes": 2479077,
       "durationSec": 363,
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -274,12 +510,14 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-06-29T17:56:40.615Z",
-      "revisions": 18,
+      "revisions": 25,
       "bytes": 2043909,
       "durationSec": 363,
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -289,12 +527,14 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-06-22T23:56:10.605Z",
-      "revisions": 18,
+      "revisions": 25,
       "bytes": 1496349,
       "durationSec": 91.9,
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": "/Users/jas/aesthetic-computer/pop/marimba/out/flutterbap-cover.png",
+      "media": [],
       "links": null
     },
     {
@@ -310,21 +550,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
-      "links": null
-    },
-    {
-      "path": "/Users/jas/aesthetic-computer/pop/menuband/out/vo.mp3",
-      "title": "vo",
-      "lane": "menuband",
-      "backend": "JS DSP",
-      "status": "UNRELEASED",
-      "updated": "2026-06-17T05:58:08.146Z",
-      "revisions": 5,
-      "bytes": 229985,
-      "durationSec": 34.4,
-      "bpm": null,
-      "key": null,
-      "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -340,6 +567,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": "/Users/jas/aesthetic-computer/pop/cornerfive/out/cornerfive-footwork-cover.png",
+      "media": [],
       "links": null
     },
     {
@@ -355,6 +584,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": "/Users/jas/aesthetic-computer/pop/cornerfive/out/cornerfive-dub-cover.png",
+      "media": [],
       "links": null
     },
     {
@@ -370,6 +601,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": "/Users/jas/aesthetic-computer/pop/cornerfive/out/cornerfive-musicbox-cover.png",
+      "media": [],
       "links": null
     },
     {
@@ -385,6 +618,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": "/Users/jas/aesthetic-computer/pop/cornerfive/out/cornerfive-cover.png",
+      "media": [],
       "links": null
     },
     {
@@ -400,6 +635,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -415,6 +652,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -430,6 +669,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -445,6 +686,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -460,6 +703,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -475,6 +720,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -490,6 +737,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -505,6 +754,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -520,6 +771,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -535,6 +788,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -550,6 +805,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -565,6 +822,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -580,6 +839,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -595,6 +856,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -610,6 +873,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -625,6 +890,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -640,6 +907,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -655,6 +924,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -670,6 +941,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -685,6 +958,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -700,6 +975,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -715,6 +992,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -730,6 +1009,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -745,6 +1026,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -760,6 +1043,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -775,6 +1060,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -790,6 +1077,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -805,6 +1094,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -820,6 +1111,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -835,6 +1128,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -850,6 +1145,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -865,6 +1162,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -880,6 +1179,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -895,6 +1196,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -910,6 +1213,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -925,6 +1230,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -940,6 +1247,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -955,6 +1264,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -970,6 +1281,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -985,6 +1298,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -1000,6 +1315,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -1015,6 +1332,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -1030,6 +1349,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -1045,6 +1366,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -1060,6 +1383,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -1075,6 +1400,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": "/Users/jas/aesthetic-computer/pop/maytrax/out/maytrax-cover.png",
+      "media": [],
       "links": null
     },
     {
@@ -1090,6 +1417,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": "/Users/jas/aesthetic-computer/pop/maytrax/out/maytrax-cover.png",
+      "media": [],
       "links": null
     },
     {
@@ -1105,6 +1434,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": "/Users/jas/aesthetic-computer/pop/hopehop/out/hopehop-cover.png",
+      "media": [],
       "links": null
     },
     {
@@ -1114,12 +1445,14 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-05-23T02:30:24.224Z",
-      "revisions": 18,
+      "revisions": 25,
       "bytes": 789309,
       "durationSec": 71.8,
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -1129,12 +1462,14 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-05-23T02:29:27.446Z",
-      "revisions": 18,
+      "revisions": 25,
       "bytes": 499677,
       "durationSec": 61.2,
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -1144,12 +1479,14 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-05-23T01:43:08.116Z",
-      "revisions": 18,
+      "revisions": 25,
       "bytes": 557493,
       "durationSec": 72.9,
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -1159,12 +1496,14 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-05-23T01:42:38.072Z",
-      "revisions": 18,
+      "revisions": 25,
       "bytes": 407685,
       "durationSec": 66.7,
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -1174,12 +1513,14 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-05-23T01:42:03.916Z",
-      "revisions": 18,
+      "revisions": 25,
       "bytes": 474597,
       "durationSec": 47.8,
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -1189,12 +1530,14 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-05-23T01:41:23.776Z",
-      "revisions": 18,
+      "revisions": 25,
       "bytes": 709773,
       "durationSec": 74.2,
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -1204,12 +1547,14 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-05-23T01:41:14.509Z",
-      "revisions": 18,
+      "revisions": 25,
       "bytes": 376653,
       "durationSec": 40,
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -1219,12 +1564,14 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-05-23T01:40:53.052Z",
-      "revisions": 18,
+      "revisions": 25,
       "bytes": 486861,
       "durationSec": 60.2,
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -1234,12 +1581,14 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-05-23T01:40:06.621Z",
-      "revisions": 18,
+      "revisions": 25,
       "bytes": 464373,
       "durationSec": 62.6,
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -1249,12 +1598,14 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-05-23T01:40:00.561Z",
-      "revisions": 18,
+      "revisions": 25,
       "bytes": 409149,
       "durationSec": 44.9,
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -1264,12 +1615,14 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-05-23T01:39:24.405Z",
-      "revisions": 18,
+      "revisions": 25,
       "bytes": 599853,
       "durationSec": 50.7,
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -1279,12 +1632,14 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-05-23T01:39:23.661Z",
-      "revisions": 18,
+      "revisions": 25,
       "bytes": 584829,
       "durationSec": 44.7,
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -1294,12 +1649,14 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-05-23T01:38:59.662Z",
-      "revisions": 18,
+      "revisions": 25,
       "bytes": 438381,
       "durationSec": 31.8,
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -1309,12 +1666,14 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-05-23T01:38:41.062Z",
-      "revisions": 18,
+      "revisions": 25,
       "bytes": 574173,
       "durationSec": 62.1,
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -1324,12 +1683,14 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-05-23T01:37:55.193Z",
-      "revisions": 18,
+      "revisions": 25,
       "bytes": 525765,
       "durationSec": 53.2,
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -1339,12 +1700,14 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-05-23T01:37:40.850Z",
-      "revisions": 18,
+      "revisions": 25,
       "bytes": 481725,
       "durationSec": 41.9,
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -1354,12 +1717,14 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-05-22T22:09:18.722Z",
-      "revisions": 18,
+      "revisions": 25,
       "bytes": 6693981,
       "durationSec": 369.7,
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -1375,6 +1740,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -1384,12 +1751,14 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-05-21T16:00:37.912Z",
-      "revisions": 18,
+      "revisions": 25,
       "bytes": 3205215,
       "durationSec": 60,
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": "/Users/jas/aesthetic-computer/pop/marimba/out/tinkaboo-cover.png",
+      "media": [],
       "links": null
     },
     {
@@ -1399,12 +1768,14 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-05-21T15:59:47.418Z",
-      "revisions": 18,
+      "revisions": 25,
       "bytes": 3440990,
       "durationSec": 78,
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": "/Users/jas/aesthetic-computer/pop/marimba/out/bronzaba-cover.png",
+      "media": [],
       "links": null
     },
     {
@@ -1414,12 +1785,14 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-05-21T15:59:35.032Z",
-      "revisions": 18,
+      "revisions": 25,
       "bytes": 3763402,
       "durationSec": 106.4,
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": "/Users/jas/aesthetic-computer/pop/marimba/out/doziba-cover.png",
+      "media": [],
       "links": null
     },
     {
@@ -1435,6 +1808,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -1450,6 +1825,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     },
     {
@@ -1465,6 +1842,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": "/Users/jas/aesthetic-computer/pop/jungle/out/solfia-cover.png",
+      "media": [],
       "links": null
     },
     {
@@ -1480,6 +1859,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": "/Users/jas/aesthetic-computer/pop/jungle/out/rodando-cover.png",
+      "media": [],
       "links": null
     },
     {
@@ -1495,6 +1876,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": "/Users/jas/aesthetic-computer/pop/jungle/out/raggasol-cover.png",
+      "media": [],
       "links": null
     },
     {
@@ -1510,6 +1893,8 @@
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": "/Users/jas/aesthetic-computer/pop/jungle/out/jungleton-cover.png",
+      "media": [],
       "links": null
     },
     {
@@ -1519,12 +1904,14 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-05-15T18:31:19.939Z",
-      "revisions": 37,
+      "revisions": 39,
       "bytes": 75276,
       "durationSec": 4.6,
       "bpm": null,
       "key": null,
       "releaseDate": null,
+      "art": null,
+      "media": [],
       "links": null
     }
   ]

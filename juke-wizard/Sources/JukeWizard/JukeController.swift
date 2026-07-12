@@ -36,12 +36,62 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     var watchMtimes: [String: Date] = [:]
     var keyMonitor: Any?
 
+    // sort
+    enum SortMode: Int, CaseIterable {
+        case defaultOrder, newest, oldest, stars, title, lane, bpm, duration
+        var label: String {
+            switch self {
+            case .defaultOrder: return "status · recent"
+            case .newest:       return "newest rendered"
+            case .oldest:       return "oldest rendered"
+            case .stars:        return "★ rating"
+            case .title:        return "title A–Z"
+            case .lane:         return "lane"
+            case .bpm:          return "BPM"
+            case .duration:     return "duration"
+            }
+        }
+    }
+    var sortMode: SortMode = .defaultOrder
+    var sortPopup: NSPopUpButton!
+
+    // release-link services (button per platform, shown when a URL exists)
+    enum LinkService: Int, CaseIterable {
+        case spotify, apple, youtube, distrokid
+        var title: String {
+            switch self {
+            case .spotify:   return "♫ Spotify"
+            case .apple:     return " Apple"
+            case .youtube:   return "▶ YouTube"
+            case .distrokid: return "◆ DistroKid"
+            }
+        }
+        var color: NSColor {
+            switch self {
+            case .spotify:   return NSColor(srgbRed: 0.11, green: 0.73, blue: 0.33, alpha: 1)
+            case .apple:     return NSColor(srgbRed: 0.98, green: 0.24, blue: 0.36, alpha: 1)
+            case .youtube:   return NSColor(srgbRed: 0.90, green: 0.13, blue: 0.13, alpha: 1)
+            case .distrokid: return Palette.inkDim
+            }
+        }
+        func url(_ l: TrackLinks?) -> String? {
+            switch self {
+            case .spotify:   return l?.spotify
+            case .apple:     return l?.apple
+            case .youtube:   return l?.youtube
+            case .distrokid: return l?.distrokid
+            }
+        }
+    }
+
     // views
     var backdrop: BackdropView!
     var listTable: NSTableView!
     var titleLabel: NSTextField!
     var laneLabel: NSTextField!
-    var releaseButton: NSButton!
+    var artView: NSImageView!
+    var linkButtons: [NSButton] = []
+    var mediaButtons: [NSButton] = []
     var wave: WaveformView!
     var playButton: NSButton!
     var timeLabel: NSTextField!
@@ -64,6 +114,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered, defer: false)
         window.title = "JukeWizard — \(library.tracks.count) tracks"
+        window.isRestorable = false          // don't let AppKit re-select a stale row over our pick
         window.minSize = NSSize(width: 720, height: 460)
         window.center()
         super.init(window: window)
@@ -126,6 +177,16 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         backdrop.autoresizingMask = [.width, .height]
         content.addSubview(backdrop)
 
+        sortPopup = NSPopUpButton(frame: .zero, pullsDown: false)
+        sortPopup.addItems(withTitles: SortMode.allCases.map { "sort: \($0.label)" })
+        sortPopup.selectItem(at: sortMode.rawValue)
+        sortPopup.target = self
+        sortPopup.action = #selector(sortChanged(_:))
+        sortPopup.bezelStyle = .rounded
+        sortPopup.controlSize = .small
+        sortPopup.font = NSFont.systemFont(ofSize: 11)
+        content.addSubview(sortPopup)
+
         listTable = NSTableView()
         let col = NSTableColumn(identifier: .init("track"))
         col.title = "queue"
@@ -149,11 +210,30 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         laneLabel.lineBreakMode = .byWordWrapping
         content.addSubview(titleLabel)
         content.addSubview(laneLabel)
-        releaseButton = NSButton(title: "↗ listen", target: self, action: #selector(openReleaseLink))
-        releaseButton.bezelStyle = .inline
-        releaseButton.contentTintColor = NSColor.systemGreen
-        releaseButton.isHidden = true
-        content.addSubview(releaseButton)
+
+        // cover art — square thumbnail top-right; click to open full size.
+        artView = NSImageView()
+        artView.imageScaling = .scaleProportionallyUpOrDown
+        artView.wantsLayer = true
+        artView.layer?.cornerRadius = 6
+        artView.layer?.masksToBounds = true
+        artView.layer?.borderWidth = 1
+        artView.layer?.borderColor = Palette.inkDim.withAlphaComponent(0.4).cgColor
+        artView.isHidden = true
+        let artClick = NSClickGestureRecognizer(target: self, action: #selector(openArt))
+        artView.addGestureRecognizer(artClick)
+        content.addSubview(artView)
+
+        // per-service release links (only the ones this track has are shown).
+        for svc in LinkService.allCases {
+            let b = NSButton(title: svc.title, target: self, action: #selector(linkClicked(_:)))
+            b.bezelStyle = .inline
+            b.tag = svc.rawValue
+            b.contentTintColor = svc.color
+            b.isHidden = true
+            linkButtons.append(b)
+            content.addSubview(b)
+        }
 
         wave = WaveformView(frame: .zero)
         wave.delegate = self
@@ -269,15 +349,43 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         let pad: CGFloat = 12
         // proportional, clamped — looks right tiny or huge.
         let sidebarW = max(200, min(340, W * 0.26))
-        listScroll.frame = NSRect(x: pad, y: pad, width: sidebarW, height: H - pad * 2)
+        let sortH: CGFloat = 22
+        sortPopup.frame = NSRect(x: pad, y: H - pad - sortH, width: sidebarW, height: sortH)
+        listScroll.frame = NSRect(x: pad, y: pad, width: sidebarW, height: H - pad * 2 - sortH - 6)
         let rx = sidebarW + pad * 2
         let rw = W - rx - pad
+        // cover art — square thumbnail pinned top-right of the right panel.
+        let artSize: CGFloat = artView.isHidden ? 0 : min(84, max(56, rw * 0.14))
+        let textW = rw - (artSize > 0 ? artSize + 10 : 0)
+        if artSize > 0 {
+            artView.frame = NSRect(x: rx + rw - artSize, y: H - pad - artSize, width: artSize, height: artSize)
+        }
         var y = H - pad - 28
-        titleLabel.frame = NSRect(x: rx, y: y, width: rw - 90, height: 28)
-        releaseButton.frame = NSRect(x: rx + rw - 84, y: y + 4, width: 84, height: 22)
-        y -= 30
-        laneLabel.frame = NSRect(x: rx, y: y, width: rw, height: 28)
+        titleLabel.frame = NSRect(x: rx, y: y, width: textW, height: 28)
+        y -= 26
+        // per-service link buttons flow left→right on their own row.
+        var lx = rx
+        for b in linkButtons where !b.isHidden {
+            let bw = b.attributedTitle.size().width + 16
+            b.frame = NSRect(x: lx, y: y, width: bw, height: 20)
+            lx += bw + 6
+        }
+        let hasLinks = linkButtons.contains { !$0.isHidden }
+        if hasLinks { y -= 24 }
+        laneLabel.frame = NSRect(x: rx, y: y, width: textW, height: 28)
         y -= 8
+        // media buttons (reels/stories) flow on their own row when present.
+        if !mediaButtons.isEmpty {
+            var mx = rx
+            y -= 22
+            for b in mediaButtons {
+                let bw = min(160, b.attributedTitle.size().width + 16)
+                if mx + bw > rx + rw { mx = rx; y -= 22 }   // wrap
+                b.frame = NSRect(x: mx, y: y, width: bw, height: 20)
+                mx += bw + 6
+            }
+            y -= 6
+        }
         let waveH: CGFloat = max(110, min(195, H * 0.22))
         y -= waveH
         wave.frame = NSRect(x: rx, y: y, width: rw, height: waveH)
@@ -317,7 +425,10 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         titleLabel.stringValue = t.title
         laneLabel.stringValue = Self.metaLine(t)
         laneLabel.textColor = Self.statusColor(t.meta?.status)
-        releaseButton.isHidden = (Self.bestLink(t) == nil)
+        loadArt(t)
+        loadLinks(t)
+        buildMediaButtons(t)
+        relayout()                    // links/media/art change the header height
         wave.load(url: t.url)
         wave.comments = t.data.comments
         notesView.string = t.data.notes
@@ -328,6 +439,58 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         listTable.scrollRowToVisible(i)
         updateTime()
         if autoplay { wave.play(); playButton.title = "❚❚" } else { playButton.title = "▶" }
+    }
+
+    // ── sorting ────────────────────────────────────────────────────────────
+    @objc private func sortChanged(_ sender: NSPopUpButton) {
+        guard let m = SortMode(rawValue: sender.indexOfSelectedItem) else { return }
+        sortMode = m
+        applySort()
+    }
+    private static func statusRank(_ s: String?) -> Int {
+        switch s {
+        case "RELEASED": return 0
+        case "MASTERING", "SUBMITTED": return 1
+        case "RENDER": return 2
+        case "WIP", "IDEA": return 3
+        default: return 4
+        }
+    }
+    private func applySort() {
+        // keep the current track selected across the reorder (match by URL)
+        let currentURL = track?.url.standardizedFileURL.path
+        let mode = sortMode
+        library.reorder { a, b in
+            switch mode {
+            case .defaultOrder:
+                let ra = Self.statusRank(a.meta?.status), rb = Self.statusRank(b.meta?.status)
+                if ra != rb { return ra < rb }
+                return (a.meta?.updated ?? "") > (b.meta?.updated ?? "")   // recent first
+            case .newest:
+                return (a.meta?.updated ?? "") > (b.meta?.updated ?? "")
+            case .oldest:
+                return (a.meta?.updated ?? "") < (b.meta?.updated ?? "")
+            case .stars:
+                if a.data.stars != b.data.stars { return a.data.stars > b.data.stars }
+                return (a.meta?.updated ?? "") > (b.meta?.updated ?? "")
+            case .title:
+                return a.title.localizedCaseInsensitiveCompare(b.title) == .orderedAscending
+            case .lane:
+                if a.lane != b.lane { return a.lane.localizedCaseInsensitiveCompare(b.lane) == .orderedAscending }
+                return a.title.localizedCaseInsensitiveCompare(b.title) == .orderedAscending
+            case .bpm:
+                return (a.meta?.bpm ?? 0) > (b.meta?.bpm ?? 0)
+            case .duration:
+                return (a.meta?.durationSec ?? 0) > (b.meta?.durationSec ?? 0)
+            }
+        }
+        listTable.reloadData()
+        if let cu = currentURL,
+           let idx = library.tracks.firstIndex(where: { $0.url.standardizedFileURL.path == cu }) {
+            current = idx
+            listTable.selectRowIndexes(IndexSet(integer: idx), byExtendingSelection: false)
+            listTable.scrollRowToVisible(idx)
+        }
     }
 
     @objc private func listClicked() {
@@ -533,8 +696,57 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         if let sz = size(m.bytes) { parts.append(sz) }
         return parts.joined(separator: " · ")
     }
-    @objc func openReleaseLink() {
-        guard let t = track, let s = Self.bestLink(t), let u = URL(string: s) else { return }
+    // ── art + links + media ──────────────────────────────────────────────────
+    private func loadArt(_ t: Track) {
+        artView.image = nil
+        artView.isHidden = true
+        guard let p = t.meta?.art else { return }
+        let url = URL(fileURLWithPath: (p as NSString).expandingTildeInPath)
+        if let img = NSImage(contentsOf: url) {
+            artView.image = img
+            artView.isHidden = false
+        }
+    }
+    private func loadLinks(_ t: Track) {
+        for b in linkButtons {
+            let svc = LinkService(rawValue: b.tag)!
+            b.isHidden = (svc.url(t.meta?.links) == nil)
+        }
+    }
+    private func buildMediaButtons(_ t: Track) {
+        mediaButtons.forEach { $0.removeFromSuperview() }
+        mediaButtons.removeAll()
+        guard let media = t.meta?.media, !media.isEmpty else { return }
+        for (i, m) in media.enumerated() {
+            let name = URL(fileURLWithPath: m.path).deletingPathExtension().lastPathComponent
+            // trim the track title prefix so the label reads "reel", "story"…
+            var short = name
+            if short.lowercased().hasPrefix(t.title.lowercased()) {
+                short = String(short.dropFirst(t.title.count)).trimmingCharacters(in: CharacterSet(charactersIn: "-_ "))
+            }
+            if short.isEmpty { short = m.kind }
+            let b = NSButton(title: "▶ \(short)", target: self, action: #selector(mediaClicked(_:)))
+            b.bezelStyle = .inline
+            b.tag = i
+            b.contentTintColor = Palette.teal
+            b.font = NSFont.systemFont(ofSize: 11)
+            mediaButtons.append(b)
+            window?.contentView?.addSubview(b)
+        }
+    }
+    @objc private func linkClicked(_ sender: NSButton) {
+        guard let t = track, let svc = LinkService(rawValue: sender.tag),
+              let s = svc.url(t.meta?.links), let u = URL(string: s) else { return }
         NSWorkspace.shared.open(u)
+    }
+    @objc private func mediaClicked(_ sender: NSButton) {
+        guard let t = track, let media = t.meta?.media,
+              sender.tag < media.count else { return }
+        let url = URL(fileURLWithPath: (media[sender.tag].path as NSString).expandingTildeInPath)
+        NSWorkspace.shared.open(url)
+    }
+    @objc private func openArt() {
+        guard let t = track, let p = t.meta?.art else { return }
+        NSWorkspace.shared.open(URL(fileURLWithPath: (p as NSString).expandingTildeInPath))
     }
 }

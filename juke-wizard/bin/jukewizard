@@ -4,6 +4,9 @@
 # JukeWizard is the MASTER JUKE: it ALWAYS loads the whole /pop library so
 # every track is visible. Open it with no args to browse, or pass a specific
 # track to jump straight to it — the full library still loads underneath.
+# Each track shows its cover art, per-service listen links (Spotify/Apple/
+# YouTube/DistroKid), and any reels/videos made for it (from the lane's out/).
+# The sidebar sort menu reorders by newest-rendered, rating, title, etc.
 #
 # usage:
 #   juke-wizard/bin/jukewizard                       # browse the whole /pop library

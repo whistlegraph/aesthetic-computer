@@ -68,8 +68,11 @@ Open follow-ups (queued, not blockers):
 - **Master:** −9.0 LUFS · −1.8 dBTP · stereo 16-bit/44.1k · ID3 album `pixsies`.
 - **Bundle:** `~/Documents/Shelf/americomputadora/` (master wav, tagged mp3,
   3000×3000 cover, canvas mp4). Uploaded to DistroKid and LIVE same day,
-  2026-07-04. Remaining: attach the Canvas in Spotify for Artists + paste the
-  Spotify link here once it surfaces in search/S4A.
+  2026-07-04. **On the AC CDN (2026-07-12):** `assets.aesthetic.computer/pop/americomputadora.mp3`
+  + `.jpg` cover (canvas mp4 still on the Shelf — upload flat as
+  `pop/americomputadora.mp4` when self-hosting the Canvas). Remaining: attach
+  the Canvas in Spotify for Artists + paste the Spotify link here once it
+  surfaces in search/S4A.
 
 ---
 
@@ -865,9 +868,11 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
   lane's note below). mp3 tagged (`title=momabobasheep ·
   artist=Aesthetic Dot Computer · album=pixsies · date=2026`) with the
   cover embedded; upload assets staged in `~/Documents/Shelf/momboba/`
-  (MASTER.wav + momabobasheep.mp3 + momabobasheep-cover-3000.png). Not yet
-  on the CDN. TODO: Spotify Canvas upload via Spotify for Artists once the
-  track goes live (`momabobasheep-canvas.mp4`, staged on the Shelf).
+  (MASTER.wav + momabobasheep.mp3 + momabobasheep-cover-3000.png). **On the
+  AC CDN (2026-07-12):** `assets.aesthetic.computer/pop/momabobasheep.mp3` +
+  `.jpg` cover + `.mp4` (bunny-reel). TODO: Spotify Canvas upload via Spotify
+  for Artists once the track goes live (`momabobasheep-canvas.mp4`, staged on
+  the Shelf).
 - **Promo (2026-06-12):** full-motion 9:16 set via the Seedance lane —
   8 felt story beats (`pop/momboba/reel/`, gpt-image-2) animated through
   `bin/gen-motion-momabobasheep-reel.mjs` (door-morph entrance,
@@ -989,9 +994,9 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
   1080×1920 story-vertical), `--zoom` = seconds visible per screen.
   Generic JSON contract; lane adapter `bin/scorodeon-data.mjs` →
   `out/momabobasheep.scorodeon.json` → `out/momabobasheep-scorodeon.mp4`.
-- **Next:** ear-check the master → CDN
-  (`assets.aesthetic.computer/pop/momabobasheep.jpg` / `.mp3`) →
-  DistroKid → promote this entry to **RELEASED**.
+- **Done:** master ear-checked → DistroKid (RELEASED 2026-06-12) → media on
+  the AC CDN (`assets.aesthetic.computer/pop/momabobasheep.{mp3,jpg,mp4}`,
+  uploaded 2026-07-12).
 
 ---
 

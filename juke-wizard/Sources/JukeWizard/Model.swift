@@ -23,6 +23,7 @@ struct JukeData: Codable {
 
 // Release/status metadata for a /pop track (from pop/bin/pop-library.mjs).
 struct TrackLinks: Codable { var spotify: String?; var apple: String?; var youtube: String?; var distrokid: String? }
+struct MediaItem: Codable { var kind: String; var path: String }
 struct TrackMeta: Codable {
     var backend: String?
     var status: String?
@@ -33,6 +34,8 @@ struct TrackMeta: Codable {
     var bpm: Int?
     var key: String?
     var releaseDate: String?
+    var art: String?
+    var media: [MediaItem]?
     var links: TrackLinks?
 }
 
@@ -74,6 +77,9 @@ final class Library {
 
     init(inputs: [String]) { for p in inputs { add(path: p) } }
 
+    // Reorder the queue in place (JukeWizard's sort control).
+    func reorder(by cmp: (Track, Track) -> Bool) { tracks.sort(by: cmp) }
+
     @discardableResult
     func addFile(_ url: URL, lane: String) -> Track? {
         let key = url.standardizedFileURL.path
@@ -111,7 +117,8 @@ final class Library {
         var path: String; var title: String?; var lane: String?
         var backend: String?; var status: String?; var updated: String?
         var revisions: Int?; var bytes: Int?; var durationSec: Double?
-        var bpm: Int?; var key: String?; var releaseDate: String?; var links: TrackLinks?
+        var bpm: Int?; var key: String?; var releaseDate: String?
+        var art: String?; var media: [MediaItem]?; var links: TrackLinks?
     }
     private struct LibFile: Codable { var tracks: [LibEntry] }
     private func loadLibrary(_ url: URL) {
@@ -125,7 +132,8 @@ final class Library {
             let t = Track(url: f, lane: e.lane ?? f.deletingLastPathComponent().lastPathComponent, title: e.title)
             t.meta = TrackMeta(backend: e.backend, status: e.status, updated: e.updated,
                                revisions: e.revisions, bytes: e.bytes, durationSec: e.durationSec,
-                               bpm: e.bpm, key: e.key, releaseDate: e.releaseDate, links: e.links)
+                               bpm: e.bpm, key: e.key, releaseDate: e.releaseDate,
+                               art: e.art, media: e.media, links: e.links)
             tracks.append(t)
         }
     }
