@@ -7,7 +7,7 @@ import { appendFile, mkdir, readFile, readdir, writeFile } from "fs/promises";
 import { homedir, hostname } from "os";
 import { join } from "path";
 
-import { encryptJSON, resolveMemoryKey } from "./crypto.mjs";
+import { decryptJSON, encryptJSON, resolveMemoryKey } from "./crypto.mjs";
 import { enqueueRemoteRecord, flushRemoteQueue, getRemoteConfig } from "./remote.mjs";
 import { redactText } from "./redact.mjs";
 
@@ -345,6 +345,93 @@ export async function listSessions(options = {}) {
 
   const limit = Number(options.limit || 50);
   return filtered.slice(0, Math.max(limit, 1));
+}
+
+// Pull a readable window around the first match, so a hit shows its context
+// instead of a whole prompt. Redacted on the way out: the ciphertext holds the
+// prompt verbatim (secrets included), and a search result travels — to another
+// machine over ssh, into an agent's context — so it must not carry them.
+function snippetAround(text, index, span = 160) {
+  const start = Math.max(0, index - Math.floor(span / 2));
+  const end = Math.min(text.length, start + span);
+  const body = text.slice(start, end).replace(/\s+/g, " ").trim();
+  return `${start > 0 ? "…" : ""}${redactText(body).redacted}${end < text.length ? "…" : ""}`;
+}
+
+/// Full-text search across this machine's prompt history.
+///
+/// Matches against the DECRYPTED event text — the `redacted_preview` on each
+/// record is lossy (truncated, secrets masked), so searching it alone would
+/// miss real hits. Decryption needs the local key, which is exactly why the
+/// fleet search fans out over ssh and lets each machine search its own store:
+/// no key ever leaves the Mac that owns it. Events that won't decrypt (written
+/// under a rotated key) fall back to their preview rather than vanishing.
+export async function searchEvents(options = {}) {
+  const query = String(options.query || "").trim();
+  if (!query) throw new Error("searchEvents requires a query");
+
+  const storeHome = resolveStoreHome();
+  const paths = pathsFor(storeHome);
+  await ensureStore(paths);
+
+  const key = await resolveMemoryKey(storeHome);
+  const deviceId = await resolveDeviceId(paths);
+  const limit = Math.max(Number(options.limit || 20), 1);
+  const since = options.since ? new Date(options.since).getTime() : null;
+  const pattern = options.regex ? new RegExp(query, "i") : null;
+  const needle = query.toLowerCase();
+
+  // Sessions carry the project + title; events only point back at them.
+  const sessions = new Map();
+  for (const session of await listSessions({ limit: Number.MAX_SAFE_INTEGER })) {
+    sessions.set(session.session_id, session);
+  }
+
+  const files = (await readdir(paths.eventsDir)).filter((name) => name.endsWith(".ndjson"));
+  const hits = [];
+
+  for (const file of files) {
+    const sessionId = file.replace(/\.ndjson$/, "");
+    const session = sessions.get(sessionId) || null;
+
+    if (options.session && sessionId !== sanitizeSessionId(options.session)) continue;
+    if (options.project && session?.project !== options.project) continue;
+
+    for (const event of await readNdjson(join(paths.eventsDir, file))) {
+      if (since && new Date(event.when || 0).getTime() < since) continue;
+      if (options.provider && event.provider !== options.provider) continue;
+      if (options.role && event.role !== options.role) continue;
+
+      let text = "";
+      try {
+        const payload = decryptJSON(event.ciphertext, key);
+        if (typeof payload?.text === "string") text = payload.text;
+      } catch {
+        text = ""; // rotated/foreign key — fall through to the preview
+      }
+      const haystack = text || event.redacted_preview || "";
+      if (!haystack) continue;
+
+      const at = pattern ? haystack.search(pattern) : haystack.toLowerCase().indexOf(needle);
+      if (at < 0) continue;
+
+      hits.push({
+        device_id: event.device_id || deviceId,
+        session_id: sessionId,
+        session_title: session?.title || null,
+        project: session?.project || null,
+        provider: event.provider || null,
+        role: event.role || null,
+        source: event.source || null,
+        seq: event.seq,
+        when: event.when,
+        snippet: snippetAround(haystack, at),
+      });
+    }
+  }
+
+  hits.sort((a, b) => new Date(b.when || 0) - new Date(a.when || 0));
+  return { query, device_id: deviceId, total: hits.length, hits: hits.slice(0, limit) };
 }
 
 export async function rememberSession(options = {}) {

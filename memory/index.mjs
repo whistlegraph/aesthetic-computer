@@ -9,6 +9,7 @@ export {
   listSessionCheckpoints,
   listSessions,
   rememberSession,
+  searchEvents,
   setDeviceId,
 } from "./store.mjs";
 

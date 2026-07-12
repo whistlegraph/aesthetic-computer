@@ -12,6 +12,7 @@ import {
   listSessionCheckpoints,
   listSessions,
   rememberSession,
+  searchEvents,
   setDeviceId,
 } from "./index.mjs";
 
@@ -64,6 +65,7 @@ Commands:
   checkpoint --session <id> [--reason <reason>] [--summary <text>] [--max-events <n>]
   checkpoints --session <id>
   list [--limit <n>] [--project <name>] [--json]
+  search <query> [--limit <n>] [--since <iso|YYYY-MM-DD>] [--session <id>] [--project <name>] [--provider <name>] [--role <role>] [--regex] [--json]
   remember --from <session-id> [--checkpoint <id>] [--session <new-id>] [--title <title>] [--project <name>] [--provider <name>]
   set-device --id <device-id>
   doctor [--json]
@@ -182,6 +184,41 @@ async function commandList(args) {
   }
 }
 
+async function commandSearch(args) {
+  const query = args._.slice(1).join(" ").trim() || (typeof args.query === "string" ? args.query : "");
+  if (!query) {
+    throw new Error('search requires a query, e.g. search "menu band rejection"');
+  }
+
+  const result = await searchEvents({
+    query,
+    limit: toInt(args.limit, 20),
+    since: args.since,
+    session: args.session,
+    project: args.project || process.env.AGENT_MEMORY_PROJECT,
+    provider: args.provider,
+    role: args.role,
+    regex: Boolean(args.regex),
+  });
+
+  // --json is what the fleet fan-out consumes over ssh (memory-mcp.mjs).
+  if (args.json) {
+    console.log(JSON.stringify(result));
+    return;
+  }
+
+  if (result.hits.length === 0) {
+    console.log(`No matches for "${query}" on ${result.device_id}.`);
+    return;
+  }
+
+  console.log(`${result.total} match${result.total === 1 ? "" : "es"} for "${query}" on ${result.device_id}:\n`);
+  for (const hit of result.hits) {
+    console.log(`${hit.when}  ${hit.role}  ${hit.session_id}#${hit.seq}`);
+    console.log(`  ${hit.snippet}\n`);
+  }
+}
+
 async function commandRemember(args) {
   if (!args.from) {
     throw new Error("--from is required");
@@ -271,6 +308,7 @@ async function main() {
     checkpoint: commandCheckpoint,
     checkpoints: commandCheckpoints,
     list: commandList,
+    search: commandSearch,
     remember: commandRemember,
     "set-device": commandSetDevice,
     doctor: commandDoctor,

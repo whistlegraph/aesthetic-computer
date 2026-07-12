@@ -40,6 +40,13 @@
       "args": [
         "slab/bin/dm-mcp.mjs"
       ]
+    },
+    "memory": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "memory/memory-mcp.mjs"
+      ]
     }
   }
 }
