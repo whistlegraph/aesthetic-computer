@@ -17,6 +17,12 @@
 //    once and handed to every hook via ctx.
 //  • RICH ZERO-LATENCY VOICES — see `voices` below (harp/flute/bubble physical
 //    models + ADSR + layered detune), so pads sound full without sample latency.
+//  • ADAPTIVE QUALITY (auto-scale to hold ~60fps) — the engine times each onPaint
+//    and exposes `ctx.quality` (1 = full detail … 0.35 = auto-cut). READ it and
+//    scale your cost: per-pixel pads stride the loop / shrink the offscreen buffer
+//    (`step = quality<0.6 ? 2 : 1`), particle pads scale counts
+//    (`n = Math.round(BASE * quality)`), feedback pads drop blur/veil when low.
+//    Pads that ignore it always render full detail (fine for cheap vector pads).
 //
 // Wrapper skeleton (initPad MUST run in boot, not at import — this module is a
 // session singleton shared by every pad, so each entry must re-assert its config
@@ -40,6 +46,24 @@ let bands = [];
 let amp = 0;
 let beatHit = 0;
 
+// —— adaptive quality (auto-scale to hold ~60fps) ——
+// The engine times each onPaint and nudges a `quality` scalar (1 = full detail,
+// down to 0.35) with hysteresis. Pads READ ctx.quality and cut cost: per-pixel
+// pads stride/shrink their buffer, particle pads scale counts, feedback pads
+// skip blur/veil. AC's paint is rAF-driven (60fps display cap), so we target the
+// onPaint WORK time (not frame cadence, which vsync pins) against the ~16.7ms
+// budget — leaving margin for sim + compositing.
+let quality = 1;
+let workEMA = 8; // ms, smoothed onPaint work time
+let qAdjust = 0; // frames since last quality nudge
+let lastPaintAt = 0; // perfNow of previous paint (for fps)
+let fpsEMA = 60; // smoothed render fps (paint cadence)
+let fpsLog = 0; // frames since last fps log line
+const perfNow =
+  typeof performance !== "undefined" && performance.now
+    ? () => performance.now()
+    : () => Date.now();
+
 export function initPad(config) {
   cfg = { bpm: 120, steps: 16, hooks: {}, ...config };
   cfg.hooks = config.hooks || {};
@@ -55,6 +79,12 @@ function reset() {
   bands = [];
   amp = 0;
   beatHit = 0;
+  quality = 1;
+  workEMA = 8;
+  qAdjust = 0;
+  lastPaintAt = 0;
+  fpsEMA = 60;
+  fpsLog = 0;
 }
 
 const band = (name) =>
@@ -73,6 +103,7 @@ function ctx(extra) {
     band, // band("subBass"|"lowMid"|"mid"|"air"|…)
     bands,
     simMs,
+    quality, // 1 = full detail … 0.35 = auto-cut for perf (READ this to scale cost)
     ...extra,
   };
 }
@@ -129,6 +160,20 @@ export function sim(api) {
 }
 
 export function paint(api) {
+  const t0 = perfNow();
+  // render fps = paint-call cadence (this runs once per rendered frame). The
+  // heavier onPaint is, the further apart these calls land → fps drops.
+  if (lastPaintAt) {
+    const dt = t0 - lastPaintAt;
+    if (dt > 0 && dt < 1000) fpsEMA += (1000 / dt - fpsEMA) * 0.1;
+  }
+  lastPaintAt = t0;
+  if (++fpsLog >= 120) {
+    fpsLog = 0;
+    try {
+      console.log(`[pads:fps] ${fpsEMA.toFixed(1)} q=${quality.toFixed(2)} work=${workEMA.toFixed(1)}ms`);
+    } catch (e) {}
+  }
   cfg.hooks.onPaint?.(api, ctx());
   // Shared tap-burst overlay: expanding hollow rings at each tap, unless the
   // wrapper opted to draw bursts itself (drawBursts:false).
@@ -138,6 +183,16 @@ export function paint(api) {
       const [r, g, bl] = hueRGB(b.hue);
       api.ink(r, g, bl, a).circle(b.x, b.y, b.r, false);
     }
+  }
+  // Adaptive quality: keep onPaint work inside the 60fps budget. Smooth the work
+  // time and nudge `quality` every ~24 frames with a deadband so it doesn't
+  // oscillate. Pads that ignore ctx.quality simply always render full detail.
+  const work = perfNow() - t0;
+  workEMA += (work - workEMA) * 0.12;
+  if (++qAdjust >= 24) {
+    qAdjust = 0;
+    if (workEMA > 12) quality = Math.max(0.35, quality - 0.06); // over budget → cut
+    else if (workEMA < 7) quality = Math.min(1, quality + 0.03); // headroom → restore
   }
 }
 
