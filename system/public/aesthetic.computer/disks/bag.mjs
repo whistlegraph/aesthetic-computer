@@ -60,10 +60,13 @@ async function load() {
   }
 }
 
-function boot({ params, wipe }) {
+function boot({ params, wipe, hud }) {
   wipe(8, 8, 12);
   const raw = (params?.[0] || "").replace(/^\^/, "").trim().toLowerCase();
   bagName = raw || null;
+  // AC draws the corner label — set it once here so the bag name shows there
+  // (and don't redraw it in the piece, or it looks doubled).
+  hud?.label?.(bagName ? "^" + bagName : "bag");
   load();
 }
 
@@ -107,7 +110,6 @@ function paint({ wipe, ink, write, box, screen }) {
     maxScroll = Math.max(0, total - viewH);
 
     ink(10, 10, 16).box(0, 0, w, HEADER_H);
-    ink(255, 230, 90).write("bags", { x: LEFT, y: 8 });
     ink(120).write(names.length + " total", { x: LEFT, y: 20 });
     ink(40, 40, 52).box(0, HEADER_H - 1, w, 1);
     return;
@@ -149,10 +151,9 @@ function paint({ wipe, ink, write, box, screen }) {
     ink(120, 140, 190).box(w - 3, thumbY, 2, thumbH);
   }
 
-  // header (drawn last to mask scrolled rows)
+  // header (drawn last to mask scrolled rows). The bag NAME is shown by AC's
+  // corner label (set via hud.label in boot) — don't draw it again here.
   ink(10, 10, 16).box(0, 0, w, HEADER_H);
-  const titleColor = bag.color || "yellow";
-  ink(titleColor).write("^" + bagName, { x: LEFT, y: 6 });
   const count = (bag.items || []).length + " items";
   ink(120).write(count, { x: w - LEFT - count.length * 6, y: 6 });
   if (bag.description) ink(150).write(bag.description, { x: LEFT, y: 20 });

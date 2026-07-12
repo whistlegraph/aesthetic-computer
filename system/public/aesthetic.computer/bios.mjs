@@ -13152,7 +13152,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               }
             }
             const queryString = dawParams.toString();
-            const newUrl = window.location.pathname + (queryString ? '?' + queryString : '');
+            // Keep caret "bag" URLs literal (^pads): ^ is legal in a URL path per
+            // WHATWG, but the omnibox encodes it to %5E on first navigation. Decode
+            // it back so the address bar reads ^pads through and through.
+            const newUrl = (window.location.pathname + (queryString ? '?' + queryString : '')).replace(/%5[eE]/g, "^");
             try {
               window.history.replaceState({}, "", newUrl);
             } catch (e) { /* Ignore in restricted context */ }
