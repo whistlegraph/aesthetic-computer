@@ -56,11 +56,8 @@ const FPS = parseInt(flags.fps || 30, 10);
 const DENSITY = String(flags.density || 3);
 const CAP_W = parseInt(flags.width || 1080, 10);
 const CAP_H = parseInt(flags.height || 1920, 10);
-// merry tours are typed at the prompt, so AC must finish booting first — give
-// them a longer default settle (a short one lets keystrokes land in the prompt
-// text instead of executing the command → silent capture).
-const _isMerry0 = /\s/.test(PIECE) || PIECE.startsWith("merry");
-const SETTLE = parseInt(flags.settle || (_isMerry0 ? 5000 : 2600), 10);
+// SETTLE is now just a short grace AFTER load detection (see waitForLoaded).
+const SETTLE = parseInt(flags.settle || 500, 10);
 // Performance source: a named built-in (--perform NAME), an inline JSON array
 // (--perform-json '[...]'), or a JSON file (--perform-file path). Lets parallel
 // callers supply bespoke scores without editing performances.mjs.
@@ -89,9 +86,11 @@ const CHROME = [
 
 const BASE = flags.base || "https://aesthetic.computer";
 const isMerry = /\s/.test(PIECE) || PIECE.startsWith("merry");
+// --label keeps AC's top-left piece-name label (default hides it with nolabel).
+const noLabel = flags.label ? "" : "nolabel&";
 const url = isMerry
-  ? `${BASE}/prompt?nolabel&nogap&density=${DENSITY}`
-  : `${BASE}/${encodeURIComponent(PIECE)}?nolabel&nogap&density=${DENSITY}`;
+  ? `${BASE}/prompt?${noLabel}nogap&density=${DENSITY}`
+  : `${BASE}/${encodeURIComponent(PIECE)}?${noLabel}nogap&density=${DENSITY}`;
 
 console.log(`▸ capture-av "${PIECE}"${PERFORM ? ` · perform ${flags.perform}` : ""} → ${OUT}`);
 console.log(`  ${url}`);
@@ -150,6 +149,42 @@ if (isMerry) {
   await page.keyboard.type(PIECE, { delay: 45 });
   await page.keyboard.press("Enter");
 }
+
+// Wait for the piece to ACTUALLY paint (not a fixed timer) — some pieces
+// (notepat) take ~4s to boot; starting the performance early loses notes on the
+// black loading screen. We poll the largest canvas until it's non-black + varied
+// and stable, then a short grace. --settle N sets the grace (default 500ms).
+async function waitForLoaded(timeout) {
+  const start = Date.now(); let ok = 0;
+  while (Date.now() - start < timeout) {
+    let m = null;
+    try {
+      m = await page.evaluate(() => {
+        // Check EVERY canvas (the WebGL/glaze overlay can read blank via
+        // drawImage; the 2D content canvas is the one that shows the piece) and
+        // keep the most-content one.
+        const s = 48, o = document.createElement("canvas"); o.width = s; o.height = s;
+        const octx = o.getContext("2d");
+        let best = { varr: 0, frac: 0 };
+        for (const c of document.querySelectorAll("canvas")) {
+          if (!c.width) continue;
+          octx.clearRect(0, 0, s, s);
+          try { octx.drawImage(c, 0, 0, s, s); } catch (e) { continue; }
+          const d = octx.getImageData(0, 0, s, s).data; let sum = 0, sum2 = 0, nb = 0; const n = s * s;
+          for (let i = 0; i < d.length; i += 4) { const l = (d[i] + d[i + 1] + d[i + 2]) / 3; sum += l; sum2 += l * l; if (l > 16) nb++; }
+          const mean = sum / n, varr = sum2 / n - mean * mean, frac = nb / n;
+          if (frac > best.frac) best = { varr, frac };
+        }
+        return best;
+      });
+    } catch (e) {}
+    if (m && m.frac > 0.25 && (m.varr > 120 || m.frac > 0.55)) { if (++ok >= 2) return Date.now() - start; } else ok = 0;
+    await new Promise((r) => setTimeout(r, 180));
+  }
+  return -1;
+}
+const loadedMs = await waitForLoaded(flags["load-timeout"] ? parseInt(flags["load-timeout"], 10) : (isMerry ? 10000 : 13000));
+console.log(`  piece ${loadedMs >= 0 ? `loaded in ${(loadedMs / 1000).toFixed(1)}s` : "load not detected — proceeding"}`);
 await new Promise((r) => setTimeout(r, SETTLE));
 
 // ── Start the in-page audio-only recorder (records the teed synth output) ────
@@ -169,59 +204,114 @@ await page.evaluate(async () => {
   rec.start(200);
 });
 
-// ── CDP screencast → timestamped frames (video half) ─────────────────────────
-const client = await page.createCDPSession();
+// Video half. Two capture methods:
+//   screencast (default) — CDP Page.startScreencast, smooth + cheap, but only
+//     emits frames when the page REPAINTS (bad for static pieces like line/prompt).
+//   --grab — a fixed-interval page.screenshot loop; steady frames regardless of
+//     repaint, so multi-phase sessions on static pieces (prompt ↔ line) stay in sync.
+const GRAB = flags.grab !== undefined && flags.grab !== false && flags.grab !== "0";
 const stamps = [];
-const gestures = [];        // {id, t(video s), x, y, kind: down|up|tap} for the finger overlay
+const gestures = [];        // {id, t(video s), x, y, kind} for the finger overlay
 let wallAtFirstFrame = null; // Date.now() at first frame — the zero for gesture times
-let i = 0, t0 = null, realDuration = 0, stop = false;
-client.on("Page.screencastFrame", async ({ data, sessionId, metadata }) => {
-  client.send("Page.screencastFrameAck", { sessionId }).catch(() => {});
-  if (stop) return;
-  const ts = metadata.timestamp ?? Date.now() / 1000;
-  if (t0 === null) { t0 = ts; wallAtFirstFrame = Date.now(); }
-  const t = ts - t0;
-  if (t >= DURATION) { stop = true; realDuration = t; return; }
-  const file = `frame-${String(i).padStart(5, "0")}.png`;
-  writeFileSync(`${FRAMES_DIR}/${file}`, Buffer.from(data, "base64"));
-  stamps.push({ file, t });
-  i++;
-  if (i % 60 === 0) console.log(`  ${i} frames · ${t.toFixed(1)}/${DURATION}s`);
-});
-await client.send("Page.startScreencast", { format: "png", everyNthFrame: 1, maxWidth: CAP_W, maxHeight: CAP_H });
+let realDuration = 0;
 
 // ── Run the performance (timed key/mouse actions) while capturing ────────────
 const perfStart = Date.now();
 const elapsed = () => Date.now() - perfStart;
 const videoT = () => (Date.now() - (wallAtFirstFrame ?? perfStart)) / 1000; // gesture time in video seconds
 let lastPos = { x: 0.5, y: 0.5 };
+// Live pointer state — snapshotted into EVERY captured frame so the cursor
+// overlay is frame-exact (no time interpolation, immune to polling jitter).
+const pointer = { x: 0.5, y: 0.5, down: false, tapUntil: 0 };
+const pointerDownNow = () => pointer.down || Date.now() < pointer.tapUntil;
+// Serialize ALL page CDP ops (input + screenshots) so grab-mode screenshots
+// never overlap a mouse/keyboard event (which would silently drop the input).
+let lock = Promise.resolve();
+const withLock = (fn) => { const p = lock.then(fn); lock = p.then(() => {}, () => {}); return p; };
 async function runPerformance() {
   if (!PERFORM) return;
   for (const act of PERFORM) {
     const wait = act.t - elapsed();
     if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    // set pointer BEFORE the action so the per-frame cursor never lags the render
+    if (act.type === "down" || act.type === "mdown") { pointer.x = act.x; pointer.y = act.y; pointer.down = true; }
+    else if (act.type === "move") { pointer.x = act.x; pointer.y = act.y; }
+    else if (act.type === "tap") { pointer.x = act.x; pointer.y = act.y; pointer.tapUntil = Date.now() + 140; }
     try {
-      if (act.type === "down") await page.keyboard.down(act.key);
-      else if (act.type === "up") await page.keyboard.up(act.key);
-      else if (act.type === "press") await page.keyboard.press(act.key);
-      else if (act.type === "tap") await page.mouse.click(Math.round(act.x * CAP_W), Math.round(act.y * CAP_H));
-      else if (act.type === "mdown") { await page.mouse.move(Math.round(act.x * CAP_W), Math.round(act.y * CAP_H)); await page.mouse.down(); }
-      else if (act.type === "mup") await page.mouse.up();
-      else if (act.type === "type") await page.keyboard.type(act.text, { delay: 40 });
+      if (act.type === "down") await withLock(() => page.keyboard.down(act.key));
+      else if (act.type === "up") await withLock(() => page.keyboard.up(act.key));
+      else if (act.type === "press") await withLock(() => page.keyboard.press(act.key));
+      else if (act.type === "tap") await withLock(() => page.mouse.click(Math.round(act.x * CAP_W), Math.round(act.y * CAP_H)));
+      else if (act.type === "mdown") await withLock(async () => { await page.mouse.move(Math.round(act.x * CAP_W), Math.round(act.y * CAP_H)); await page.mouse.down(); });
+      else if (act.type === "move") await withLock(() => page.mouse.move(Math.round(act.x * CAP_W), Math.round(act.y * CAP_H)));
+      else if (act.type === "mup") await withLock(() => page.mouse.up());
+      else if (act.type === "type") await withLock(() => page.keyboard.type(act.text, { delay: 40 }));
     } catch (e) {}
-    // Record the gesture (in video time) for the finger overlay.
+    // Record the gesture (in video time) for the finger overlay. `move` while
+    // held = a drag: it belongs to its press id and drives the bubble's size.
     if (act.type === "down" || act.type === "mdown") { lastPos = { x: act.x, y: act.y }; gestures.push({ id: act.id, t: videoT(), x: act.x, y: act.y, kind: "down" }); }
     else if (act.type === "tap") { lastPos = { x: act.x, y: act.y }; gestures.push({ id: act.id, t: videoT(), x: act.x, y: act.y, kind: "tap" }); }
-    else if (act.type === "up" || act.type === "mup") { gestures.push({ id: act.id, t: videoT(), x: act.x ?? lastPos.x, y: act.y ?? lastPos.y, kind: "up" }); }
+    else if (act.type === "move") { lastPos = { x: act.x, y: act.y }; gestures.push({ id: act.id, t: videoT(), x: act.x, y: act.y, kind: "move" }); }
+    else if (act.type === "up" || act.type === "mup") { pointer.down = false; gestures.push({ id: act.id, t: videoT(), x: act.x ?? lastPos.x, y: act.y ?? lastPos.y, kind: "up" }); }
   }
 }
-const perfDone = runPerformance();
-
-const wallStart = Date.now();
-while (!stop && (Date.now() - wallStart) / 1000 < DURATION + 6) await new Promise((r) => setTimeout(r, 100));
-await perfDone.catch(() => {});
-await client.send("Page.stopScreencast").catch(() => {});
-if (!realDuration) realDuration = stamps.length ? stamps[stamps.length - 1].t : DURATION;
+let client = null;
+if (GRAB) {
+  // Fixed-interval screenshot loop. Runs the performance concurrently and keeps
+  // grabbing until the performance COMPLETES (screenshots + locked input take
+  // real time, so a scripted session runs longer than its scheduled duration) —
+  // then a short tail of the final state. DURATION*2.5 is just a safety cap.
+  const startWall = Date.now();
+  wallAtFirstFrame = startWall;
+  let perfComplete = false;
+  const perfDone = runPerformance().finally(() => { perfComplete = true; });
+  const interval = 1000 / FPS;
+  const capMs = DURATION * 2.5 * 1000;
+  let idx = 0, tailUntil = 0;
+  while (true) {
+    const nowWall = Date.now() - startWall;
+    if (perfComplete) { if (!tailUntil) tailUntil = Date.now() + 900; if (Date.now() > tailUntil) break; }
+    if (nowWall > capMs) break;
+    const target = startWall + idx * interval;
+    const now = Date.now();
+    if (now < target) await new Promise((r) => setTimeout(r, target - now));
+    const buf = await withLock(() => page.screenshot({ type: "jpeg", quality: 90 })).catch(() => null);
+    const t = (Date.now() - startWall) / 1000;
+    if (buf) {
+      const file = `frame-${String(idx).padStart(5, "0")}.jpg`;
+      writeFileSync(`${FRAMES_DIR}/${file}`, buf);
+      stamps.push({ file, t, cx: pointer.x, cy: pointer.y, down: pointerDownNow() });
+      if (idx % 30 === 0) console.log(`  ${idx} frames · ${t.toFixed(1)}s (grab${perfComplete ? " tail" : ""})`);
+    }
+    idx++;
+  }
+  await perfDone.catch(() => {});
+  realDuration = stamps.length ? stamps[stamps.length - 1].t : DURATION;
+} else {
+  // CDP screencast — emits a frame whenever the page paints.
+  client = await page.createCDPSession();
+  let i = 0, t0 = null, stop = false;
+  client.on("Page.screencastFrame", async ({ data, sessionId, metadata }) => {
+    client.send("Page.screencastFrameAck", { sessionId }).catch(() => {});
+    if (stop) return;
+    const ts = metadata.timestamp ?? Date.now() / 1000;
+    if (t0 === null) { t0 = ts; wallAtFirstFrame = Date.now(); }
+    const t = ts - t0;
+    if (t >= DURATION) { stop = true; realDuration = t; return; }
+    const file = `frame-${String(i).padStart(5, "0")}.png`;
+    writeFileSync(`${FRAMES_DIR}/${file}`, Buffer.from(data, "base64"));
+    stamps.push({ file, t, cx: pointer.x, cy: pointer.y, down: pointerDownNow() });
+    i++;
+    if (i % 60 === 0) console.log(`  ${i} frames · ${t.toFixed(1)}/${DURATION}s`);
+  });
+  await client.send("Page.startScreencast", { format: "png", everyNthFrame: 1, maxWidth: CAP_W, maxHeight: CAP_H });
+  const perfDone = runPerformance();
+  const wallStart = Date.now();
+  while (!stop && (Date.now() - wallStart) / 1000 < DURATION + 6) await new Promise((r) => setTimeout(r, 100));
+  await perfDone.catch(() => {});
+  await client.send("Page.stopScreencast").catch(() => {});
+  if (!realDuration) realDuration = stamps.length ? stamps[stamps.length - 1].t : DURATION;
+}
 
 // Stop audio recorder + read the webm back as base64.
 const audioB64 = await page.evaluate(async () => {
@@ -268,6 +358,8 @@ writeFileSync(`${OUT}/capture.json`, JSON.stringify({
   piece: PIECE, slug: SLUG, perform: flags.perform || null, isMerry, url,
   duration: DURATION, realDuration, fps: FPS, density: DENSITY, width: CAP_W, height: CAP_H,
   frames: stamps.length, base: OUTMP4, hasAudio, gestures,
+  // frame-exact cursor track: one {t, x, y, down} per captured frame
+  cursorTrack: stamps.map((s) => ({ t: s.t, x: s.cx, y: s.cy, down: !!s.down })),
 }, null, 2));
 console.log(`  ${gestures.length} gesture events recorded`);
 console.log((hasAudio ? "✓" : "⚠") + ` base → ${OUTMP4}  [audio: ${hasAudio ? "YES" : "MISSING"}]`);

@@ -18,7 +18,8 @@ import { fileURLToPath } from "node:url";
 import { once } from "node:events";
 import { createCanvas, loadImage } from "canvas";
 import { prerenderTitleChars, decodeAudioMono, computeRmsEnvelope, spawnFFmpegEncode } from "../../../pop/lib/preview-shared.mjs";
-import { buildPresses, drawFingers } from "./finger-gesture.mjs";
+import { buildPresses, drawFingers, drawCursorPoint } from "./finger-gesture.mjs";
+import { buildRipples, applyRipples } from "./displace-ripple.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "..", "..", "..");
@@ -47,13 +48,38 @@ const durProbe = spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=d
 const TOTAL = parseFloat((durProbe.stdout || "0").trim()) || 10;
 const FRAMES = Math.round(TOTAL * FPS);
 
-// ── finger overlay: gesture track from capture.json (or --gestures path) ─────
+// ── touch overlay: gesture track from capture.json (or --gestures path) ──────
+const POINTER = flags.pointer || "cursor"; // cursor | ring | circle | paw | pixel | none
+const DISPLACE = flags.displace !== undefined && flags.displace !== false && flags.displace !== "0";
+const FINGER_TINT = flags["finger-tint"]
+  ? flags["finger-tint"].split(",").map((n) => parseInt(n, 10))
+  : (POINTER === "paw" ? [230, 205, 235] : [236, 240, 250]);
+// The overlay lags the drawn interface a touch (input recorded before the frame
+// shows it); lead the marker by CURSOR_LEAD seconds to line it up.
+const CURSOR_LEAD = parseFloat(flags["cursor-lead"] ?? 0.12);
+const CURSOR_SIZE = parseInt(flags["cursor-size"] || 104, 10);
 let PRESSES = [];
+let CURSOR_TRACK = null; // per-frame [{t,x,y,down}] — exact, no interpolation
 {
   const gpath = flags.gestures ? flags.gestures.replace(/^~/, process.env.HOME) : `${dirname(BASE)}/capture.json`;
   if (!flags["no-fingers"] && existsSync(gpath)) {
-    try { PRESSES = buildPresses(JSON.parse(readFileSync(gpath, "utf8")).gestures || []); } catch (e) {}
+    try {
+      const cj = JSON.parse(readFileSync(gpath, "utf8"));
+      PRESSES = buildPresses(cj.gestures || []);
+      if (Array.isArray(cj.cursorTrack) && cj.cursorTrack.length && cj.cursorTrack[0].x != null) CURSOR_TRACK = cj.cursorTrack;
+    } catch (e) {}
   }
+}
+// Cursor for output time T. The cursor track is only ~capture-fps dense, so we
+// INTERPOLATE position between the bracketing samples — the reticle then moves
+// smoothly at the output fps even though the base video (the piece) is choppier.
+function cursorAt(T) {
+  const f = CURSOR_TRACK; let lo = 0, hi = f.length - 1, ans = 0;
+  while (lo <= hi) { const m = (lo + hi) >> 1; if (f[m].t <= T) { ans = m; lo = m + 1; } else hi = m - 1; }
+  const a = f[ans], b = f[Math.min(f.length - 1, ans + 1)];
+  if (b === a || b.t <= a.t) return { x: a.x, y: a.y, down: a.down };
+  const u = Math.max(0, Math.min(1, (T - a.t) / (b.t - a.t)));
+  return { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u, down: a.down };
 }
 
 // ── substrate sharpen: snap the chunky pixels to razor-hard edges ────────────
@@ -81,19 +107,31 @@ const lum = 0.2126 * TINT[0] + 0.7152 * TINT[1] + 0.0722 * TINT[2];
 if (lum < 90) { const k = 90 / Math.max(lum, 1); TINT = TINT.map((v) => Math.min(255, Math.round(v * k))); }
 console.log(`▸ stamp-reel "${TITLE}" · ${FRAMES} frames · tint ${TINT.join(",")} → ${OUT}`);
 
-// ── audio envelope drives LED pulse + char bounce ───────────────────────────
-const { audio, sr } = decodeAudioMono(BASE);
-const env = computeRmsEnvelope(audio, sr, FPS, TOTAL);
+// ── audio envelope drives LED pulse + char bounce (flat if no audio track) ──
+let env = new Array(Math.max(1, FRAMES)).fill(0);
+try { const { audio, sr } = decodeAudioMono(BASE); env = computeRmsEnvelope(audio, sr, FPS, TOTAL); }
+catch (e) { console.log("  (no audio track — flat LED pulse)"); }
 const peak = env.reduce((m, v) => Math.max(m, v), 0.0001);
 const envAt = (t) => (env[Math.max(0, Math.min(env.length - 1, Math.floor(t * FPS)))] ?? 0) / peak;
 
-// ── title chars + pals rasters ──────────────────────────────────────────────
-const { chars: titleChars, totalWidth: titleTotalW } = await prerenderTitleChars({
-  text: TITLE, ptSize: 96, palette: ["#FFFFFF"], shadowColor: null, assetsDir,
-});
+// ── side-stamp title: DYNAMIC — reflects the current command (commandTrack),
+// tinted to its color, and flashes/shakes/bounces when the command changes ────
+const COLOR_RGB = { red: [255, 40, 40], orange: [255, 165, 0], yellow: [235, 215, 60], green: [40, 175, 70], cyan: [40, 220, 220], blue: [70, 110, 255], purple: [165, 70, 205], white: [240, 240, 246], gray: [150, 150, 158], black: [130, 130, 145], brown: [165, 100, 45] };
+function cmdColor(c) { if (!c) return [205, 205, 215]; if (COLOR_RGB[c]) return COLOR_RGB[c]; const m = String(c).match(/(\d+)\D+(\d+)\D+(\d+)/); return m ? [+m[1], +m[2], +m[3]] : [225, 225, 235]; }
+function cmdDisplay(e) { if (!e || e.tool === "prompt" || e.cmd === "prompt") return "prompt"; return `${e.tool === "fill" ? "fill" : "line"} ${e.color}`; }
+let COMMAND_TRACK = [];
+try { const cj = JSON.parse(readFileSync(`${dirname(BASE)}/capture.json`, "utf8")); if (Array.isArray(cj.commandTrack)) COMMAND_TRACK = cj.commandTrack; } catch (e) {}
+const cmdTimeline = COMMAND_TRACK.map((e) => ({ t: e.t, display: cmdDisplay(e), rgb: cmdColor(e.color) }));
+if (!cmdTimeline.length || cmdTimeline[0].t > 0.1) cmdTimeline.unshift({ t: 0, display: TITLE, rgb: [205, 205, 215] });
+const charSet = new Map();
+for (const d of [...new Set(cmdTimeline.map((c) => c.display))]) charSet.set(d, await prerenderTitleChars({ text: d, ptSize: 96, palette: ["#FFFFFF"], shadowColor: null, assetsDir }));
+const currentCmdAt = (t) => { let c = cmdTimeline[0]; for (const e of cmdTimeline) if (e.t <= t) c = e; return c; };
+const flashAt = (t) => { let last = -999; for (const e of cmdTimeline) if (e.t <= t) last = e.t; const age = t - last, D = 0.75; return age >= 0 && age < D ? (1 - age / D) ** 1.4 : 0; };
+console.log(`  ${cmdTimeline.length} command changes → dynamic side stamps`);
+
 const PALS_S = 145, PALS_HALF = PALS_S / 2, PALS_EDGE_X = 64, CHARS_EDGE_X = PALS_EDGE_X + 12;
-const CHAR_SCALE = Math.min(0.48, 520 / Math.max(1, titleTotalW));
-const CHAR_SPAN = titleTotalW * CHAR_SCALE, BOUNCE_BUF = 26;
+const CHAR_SCALE = 0.42;
+const CHAR_SPAN = 360, BOUNCE_BUF = 26; // fixed nominal span so the pals don't jump per command
 const LEFT_CHARS_CY = H * 0.78, RIGHT_CHARS_CY = H * 0.22;
 const LEFT_PALS_CY = LEFT_CHARS_CY - CHAR_SPAN / 2 - BOUNCE_BUF - PALS_HALF;
 const RIGHT_PALS_CY = RIGHT_CHARS_CY + CHAR_SPAN / 2 + BOUNCE_BUF + PALS_HALF;
@@ -112,14 +150,31 @@ let palsImg = null, palsBlur = null;
 }
 if (!palsImg) throw new Error("pals watermark failed to rasterize (need rsvg-convert)");
 
+// AC's real cursors for the "cursor" pointer style (precise=up, active=down).
+let cursorImgs = null;
+if (POINTER === "cursor") {
+  cursorImgs = { size: CURSOR_SIZE };
+  for (const name of ["precise", "active"]) {
+    const svg = `${REPO}/system/public/aesthetic.computer/cursors/${name}.svg`;
+    const png = `${assetsDir}/cursor-${name}.png`;
+    const r = spawnSync("rsvg-convert", ["-w", "160", "-h", "160", "-o", png, svg]);
+    if (r.status === 0 && existsSync(png)) cursorImgs[name] = await loadImage(png);
+  }
+  if (!cursorImgs.precise && !cursorImgs.active) { console.log("  ⚠ cursor svgs failed to rasterize"); cursorImgs = null; }
+}
+const EFF_POINTER = POINTER === "cursor" && !cursorImgs ? "ring" : POINTER;
+
 const canvas = createCanvas(W, H);
 const ctx = canvas.getContext("2d");
 const wmCanvas = createCanvas(8, 8), wmCtx = wmCanvas.getContext("2d");
 const charTintCanvas = createCanvas(2, 2), charTintCtx = charTintCanvas.getContext("2d");
 
-const TINT_DEEPEN = 0.62;
-const baseTint = TINT.map((v) => Math.round(v * TINT_DEEPEN));
-const sectionTcRgb = () => baseTint;
+const TINT_DEEPEN = 0.72;
+// stamp color = the CURRENT command's color, blended toward white on a change-flash
+function sectionTcRgb(t) {
+  const c = currentCmdAt(t).rgb, f = flashAt(t);
+  return c.map((v) => { const d = v * TINT_DEEPEN; return Math.round(d + (255 - d) * f * 0.75); });
+}
 
 function tintInto(cv, cctx, src, c) {
   const w = src.width, h = src.height;
@@ -132,12 +187,15 @@ const palsTinted = (c, src) => tintInto(wmCanvas, wmCtx, src, c);
 const tintCharGlyph = (img, c) => tintInto(charTintCanvas, charTintCtx, img, c);
 
 function drawWatermark(audioT) {
-  const s = PALS_S, u = audioT * FPS / FRAMES, TAU = Math.PI * 2, col = sectionTcRgb();
-  const e = Math.min(1, envAt(audioT)), glow = e * e;
+  const u = audioT * FPS / FRAMES, TAU = Math.PI * 2, col = sectionTcRgb(audioT);
+  const flash = flashAt(audioT);
+  const s = PALS_S * (1 + flash * 0.3);              // scale bump on command change
+  const e = Math.min(1, envAt(audioT)), glow = Math.max(e * e, flash);
   const ledCol = col.map((c) => Math.round(c + (255 - c) * glow * 0.6));
-  const wig = 13 * Math.sin(TAU * 24 * u + 0.7) + 4 * Math.sin(TAU * 9 * u);
-  const bob = 3 * Math.sin(TAU * 17 * u + 2.1) + 1.5 * Math.sin(TAU * 31 * u);
-  const swiv = 0.05 * Math.sin(TAU * 19 * u) + 0.025 * Math.sin(TAU * 38 * u + 1.4);
+  const shk = flash * 22;                             // shake on change
+  const wig = 13 * Math.sin(TAU * 24 * u + 0.7) + 4 * Math.sin(TAU * 9 * u) + shk * Math.sin(audioT * 61);
+  const bob = 3 * Math.sin(TAU * 17 * u + 2.1) + 1.5 * Math.sin(TAU * 31 * u) + shk * Math.sin(audioT * 53 + 1);
+  const swiv = 0.05 * Math.sin(TAU * 19 * u) + 0.025 * Math.sin(TAU * 38 * u + 1.4) + flash * 0.2 * Math.sin(audioT * 47);
   const spots = [
     { cx: PALS_EDGE_X - wig, cy: LEFT_PALS_CY + bob, rot: Math.PI / 2 + swiv },
     { cx: W - PALS_EDGE_X + wig, cy: RIGHT_PALS_CY - bob, rot: -Math.PI / 2 - swiv },
@@ -165,20 +223,23 @@ function drawWatermark(audioT) {
 
 function drawTitleChars(audioT) {
   const u = audioT * FPS / FRAMES, TAU = Math.PI * 2;
-  const wig = 11 * Math.sin(TAU * 30 * u + 3.6) + 4 * Math.sin(TAU * 12 * u + 1.1);
-  const span = titleTotalW * CHAR_SCALE, palsRgb = sectionTcRgb(), startX = -span / 2;
+  const cmd = currentCmdAt(audioT), set = charSet.get(cmd.display); if (!set) return;
+  const chars = set.chars, flash = flashAt(audioT), shk = flash * 16;
+  const wig = 11 * Math.sin(TAU * 30 * u + 3.6) + 4 * Math.sin(TAU * 12 * u + 1.1) + shk * Math.sin(audioT * 58);
+  const span = set.totalWidth * CHAR_SCALE, palsRgb = sectionTcRgb(audioT), startX = -span / 2;
   const spots = [
     { charsCx: CHARS_EDGE_X - wig, cy: LEFT_CHARS_CY, rot: Math.PI / 2 },
     { charsCx: W - CHARS_EDGE_X + wig, cy: RIGHT_CHARS_CY, rot: -Math.PI / 2 },
   ];
   for (const sp of spots) {
     ctx.save(); ctx.translate(sp.charsCx, sp.cy); ctx.rotate(sp.rot);
-    for (let i = 0; i < titleChars.length; i++) {
-      const ch = titleChars[i]; if (!ch.img) continue;
+    const sc = 1 + flash * 0.2; ctx.scale(sc, sc);   // bounce/scale on change
+    for (let i = 0; i < chars.length; i++) {
+      const ch = chars[i]; if (!ch.img) continue;
       const x = startX + ch.prefixWidth * CHAR_SCALE, dw = ch.img.width * CHAR_SCALE, dh = ch.img.height * CHAR_SCALE;
       const charEnv = envAt(audioT - i * 0.03);
-      const lift = 4 * Math.sin(audioT * 4.0 + i * 0.8) * (0.3 + charEnv), y = -dh / 2 + lift;
-      const charRot = 0.03 * Math.sin(audioT * 3.1 + i * 1.15);
+      const lift = 4 * Math.sin(audioT * 4.0 + i * 0.8) * (0.3 + charEnv) + flash * 11 * Math.sin(audioT * 42 + i), y = -dh / 2 + lift;
+      const charRot = 0.03 * Math.sin(audioT * 3.1 + i * 1.15) + flash * 0.14 * Math.sin(audioT * 45 + i * 2);
       ctx.save(); ctx.translate(x + dw / 2, y + dh / 2); ctx.rotate(charRot); ctx.translate(-(x + dw / 2), -(y + dh / 2));
       const sh = 0.5 + 0.5 * Math.sin(audioT * 3.2 - i * 0.7);
       const charRgb = palsRgb.map((c) => Math.round(c + (255 - c) * sh * 0.35));
@@ -209,8 +270,10 @@ const substrate = SHARPEN > 1
   : "";
 const dec = spawn("ffmpeg", ["-loglevel", "error", "-i", BASE, "-f", "rawvideo", "-pix_fmt", "rgba",
   "-vf", `${fit}${substrate},fps=${FPS}`, "-"], { stdio: ["ignore", "pipe", "inherit"] });
-const enc = spawnFFmpegEncode({ audioPath: BASE, w: W, h: H, fps: FPS, outPath: OUT, crf: 18 });
+const enc = spawnFFmpegEncode({ audioPath: BASE, w: W, h: H, fps: FPS, outPath: OUT, crf: parseInt(flags.crf || 15, 10) });
+const RIPPLES = DISPLACE ? buildRipples(PRESSES) : [];
 const FRAME_BYTES = W * H * 4, fbuf = Buffer.alloc(FRAME_BYTES), img = ctx.createImageData(W, H);
+const dbuf = DISPLACE ? new Uint8ClampedArray(FRAME_BYTES) : null;
 let off = 0, fi = 0; const t0 = Date.now();
 for await (const chunk of dec.stdout) {
   let cOff = 0;
@@ -218,9 +281,21 @@ for await (const chunk of dec.stdout) {
     const n = Math.min(FRAME_BYTES - off, chunk.length - cOff);
     chunk.copy(fbuf, off, cOff, cOff + n); off += n; cOff += n;
     if (off === FRAME_BYTES) {
-      off = 0; img.data.set(fbuf); ctx.putImageData(img, 0, 0);
-      // fingers stay a warm neutral so they read as skin against any scene tint
-      if (PRESSES.length) drawFingers(ctx, PRESSES, fi / FPS, W, H, { tint: [230, 214, 200] });
+      off = 0;
+      // displacement warps the piece pixels (in place of a glyph); else glyph on top
+      if (DISPLACE) { applyRipples(fbuf, dbuf, W, H, RIPPLES, fi / FPS); img.data.set(dbuf); }
+      else img.data.set(fbuf);
+      ctx.putImageData(img, 0, 0);
+      // marker draws on TOP of the displacement (droplet + ripple together)
+      if (POINTER !== "none") {
+        if (EFF_POINTER === "cursor" && CURSOR_TRACK && cursorImgs) {
+          // frame-EXACT: draw the recorded cursor for this exact frame (no interp)
+          const c = cursorAt(fi / FPS);
+          drawCursorPoint(ctx, c.x * W, c.y * H, c.down, cursorImgs, 1);
+        } else if (PRESSES.length) {
+          drawFingers(ctx, PRESSES, fi / FPS + CURSOR_LEAD, W, H, { style: EFF_POINTER, tint: FINGER_TINT, cursorImgs });
+        }
+      }
       drawWatermark(fi / FPS);
       if (!enc.stdin.write(canvas.toBuffer("raw"))) await once(enc.stdin, "drain");
       fi++;
