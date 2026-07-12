@@ -120,6 +120,29 @@ Mechanics:
 |---|---|---|---|---|
 | First print edition | Keymaps as Social Software (`arxiv-keymaps`) | 64 | *Scores for Social Software*, UCLA Social Software Cycle 2, June 2026 | **printed — run of 64 cut June 2026** |
 
+### 11. Briefings (`briefing-*/`, vault-side)
+
+The **addressed** lane (added **2026-07-11**). A briefing is written *for a named recipient*, about *a situation they are entering* — a room joined, a residency begun, a meeting scheduled. It is the only lane with an addressee on the cover, and that is the whole of what makes it a different thing:
+
+| | dossier | profile | **briefing** |
+|---|---|---|---|
+| Subject | an institution | a person | **a situation** |
+| Audience | the record | @jeffrey | **a named recipient** |
+| Stance | outside observer | confidential researcher | **ally** |
+| Ends in | *"what this is not"* | sources | **openings — things to do** |
+
+Four properties define the form. It is **addressed** (the recipient is named on the cover). It is **occasioned** — there is a reason it exists *now*, and the occasion is stated rather than hidden (contrast the private profile, where the occasion is deliberately excluded). It is **corrective**: it says plainly where the recipient's current picture is wrong, because that is the most valuable thing an outside reader can supply. And it is **actionable** — it ends in *openings*, concrete moves, not in a shrug. A dossier stops when the facts stop; a briefing stops once it has said what to do with them.
+
+Register: direct address, peer-to-peer, warm but sourced. Uncertainty is flagged **inline** (`\soft{uncertain}`) rather than smoothed over — a briefing marks its own soft ground, because the recipient is going to act on it.
+
+Briefings are **private but not secret**: they live in `aesthetic-computer-vault/<client>/briefing-*/`, not because the recipient can't see them (it is *theirs*) but because they quote private correspondence and are client-scoped. No `CONFIDENTIAL` banner — the cover's *Prepared for X* line is the whole access-control story. Not published: no `PAPER_MAP` row, no `sync-platter.mjs`, no deploy.
+
+| Briefing | For | Occasion | Status |
+|---|---|---|---|
+| Stochastic Labs | Sage Jenson (@mxsage) | Arrived at the Stochastic Labs Summer 2026 session (*Liveness + Agency*), 2026-07-11 | **rev 2** — rev 1 sent, recipient corrected a factual claim from the room, §5 rewritten |
+
+**A rule the first briefing earned the hard way.** Rev 1 told its recipient that Adrian Freed "pointedly declines to claim" he invented the DAW — inferred from an institutional bio page he doesn't control and a 1985 paper that asserts no priority (which, read properly, is a paper about RS-232 protocol design; the silence was genre, not modesty). Sage, standing next to the man: *"adrian DOES say he invented the daw."* **Never build a behavioral instruction on an argument from silence.** A briefing's corrective clause is its sharpest edge and its biggest liability: the recipient is going to act on it, in a room you are not in, in front of people whose feelings are real. Correct only what you can source *positively*, and where the recipient has primary access and you have the internet, defer to them. The lane's `\soft{}` inline-uncertainty flag exists precisely for this and rev 1 failed to use it on the one claim that mattered.
+
 ## Tooling
 
 The mill's code lives at the top of `papers/` and in [`bin/`](bin/). All scripts are runnable as `node papers/bin/<name>.mjs`.
