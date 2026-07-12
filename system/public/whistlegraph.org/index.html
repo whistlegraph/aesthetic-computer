@@ -213,7 +213,6 @@
       <button data-sort="year">By year</button>
       <button data-sort="title">Title A–Z</button>
       <button data-sort="author">Author A–Z</button>
-      <button data-sort="experiments">Research</button>
     </div>
     <div class="wrap">
       <table class="idx" id="idx"><tbody></tbody></table>
@@ -409,7 +408,9 @@ function renderIndex(key){
 
 fetch("/graphs.json").then(r=>r.json()).then(data=>{
   GRAPHS=data.graphs; CURATED_N=data.curated;
-  COMPOSITIONS=GRAPHS.filter(w=>w.kind!=="experiment");
+  // Research tab is retired for now (per @minanimals) — experiments live in
+  // the main archive alongside everything else until we design that section.
+  COMPOSITIONS=GRAPHS.slice();
   EXPERIMENTS=GRAPHS.filter(w=>w.kind==="experiment");
   BY=Object.fromEntries(data.graphs.map(w=>[w.code,w]));
   renderIndex(null);
@@ -436,7 +437,7 @@ function showDetail(code){
   const w=BY[code]; if(!w) return showIndex();
   D.t.textContent=w.title;
   D.by.innerHTML=`Composed by ${w.by} &nbsp;<b>·</b>&nbsp; ${w.year}`;
-  D.code.textContent=w.code; D.code2.textContent=w.code;
+  D.code.textContent=w.code;
   if(w.slug){ // curated — score sheet + card-player + (maybe) drawn canonical
     D.performNote.style.display=""; D.archiveNote.style.display="none";
     D.perform.href=`https://aesthetic.computer/wg~${w.code}`;
@@ -450,16 +451,21 @@ function showDetail(code){
     D.video.classList.remove("wide");
   }else{ // recovered — glyph poster + the sung take, no score sheet
     D.performNote.style.display="none"; D.archiveNote.style.display="";
-    D.stats.textContent=`${fmtViews(w.views)} views`+(w.perf>1?` across ${w.perf} videos`:"");
     D.scoreWrap.style.display="none"; D.canonWrap.style.display="none"; D.canon.removeAttribute("src");
     D.videoRule.style.display=""; D.glyphCap.style.display="none"; D.glyphCap.textContent="";
     D.video.classList.toggle("wide",!!w.wide); // the Longest film is landscape
     const aset=w.asset||w.code; // renamed codes keep their original CDN asset key
     D.video.poster=w.noGlyph?"":`${IDX}/${aset}.jpg`;
     D.video.src=`${IDX}/${aset}.mp4`;
+    // Rebuild the note in full every time. The film override replaces the
+    // whole innerHTML (dropping the shared #dStats child), so reusing that
+    // child would leave the film's provenance stuck on every later graph.
+    const views=`${fmtViews(w.views)} views`+(w.perf>1?` across ${w.perf} videos`:"");
     if(w.film){ // the Rhizome film, not a TikTok take — its own provenance + glyph
-      D.archiveNote.innerHTML=`Code <code>${w.code}</code> &nbsp; — &nbsp; ${fmtViews(w.views)} views &nbsp;·&nbsp; the ~22-minute <a href="https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/">Rhizome commission</a>, chalk on a 4×6 blackboard.`;
+      D.archiveNote.innerHTML=`Code <code>${w.code}</code> &nbsp; — &nbsp; ${views} &nbsp;·&nbsp; the ~22-minute <a href="https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/">Rhizome commission</a>, chalk on a 4×6 blackboard.`;
       D.glyphCap.textContent="The glyph is the whole piece, transcribed as one score."; D.glyphCap.style.display="";
+    }else{
+      D.archiveNote.innerHTML=`Code <code>${w.code}</code> &nbsp; — &nbsp; ${views} &nbsp;·&nbsp; recovered from the <a href="https://www.tiktok.com/@whistlegraph">TikTok archive</a>.`;
     }
   }
   const dv=document.getElementById("dVersions");
