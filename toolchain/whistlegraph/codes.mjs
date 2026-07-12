@@ -18,8 +18,10 @@ import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DOWNLOADS = join(HERE, "downloads");
-const SCRATCH =
-  "/private/tmp/claude-501/-Users-jas-aesthetic-computer/ca2fe452-bc2a-4452-b4c6-a2d2783d92b2/scratchpad";
+// Naming batches (names-batch-<n>.json: [{i, kind, title, code}]) written by
+// the naming agents. Overridable via WG_SCRATCH; defaults to a stable dir
+// under downloads so a re-name run isn't tied to any one session's tmp path.
+const SCRATCH = process.env.WG_SCRATCH || join(DOWNLOADS, "naming-batches");
 
 // The ten already live on whistlegraph.org — their codes are canonical.
 const RESERVED = {
