@@ -147,6 +147,77 @@ New Netlify function: `system/netlify/functions/tape-bake-complete.mjs`:
 - MP4 remains in Spaces for backup/future use
 - ATProto gets blob, MongoDB gets both URLs and rkey
 
+## LaTeX: two paths, and they are not the same
+
+The oven carries the full texlive/xelatex toolchain, so it is the only box that
+can turn a `.tex` into a PDF. There are two ways to ask it, and the difference
+matters:
+
+| | `papers-build` (`papers-builder.mjs`) | `paper-crunch` (`paper-crunch.mjs`) |
+|---|---|---|
+| **source** | whatever is on `origin/main` | a `.tar.gz` you upload |
+| **committed?** | yes — builds from the git clone | no — never touches git |
+| **published?** | yes — rsynced to `papers.aesthetic.computer` | **no — the PDF comes back to you and nowhere else** |
+| **lifetime** | permanent | job + PDF reaped after 30 min |
+| **trigger** | `papers-git-poller.mjs`, or POST | `node papers/bin/crunch.mjs <dir>` |
+
+Crunch exists for the documents that must *not* be published — a private brief,
+a draft, anything not in the repo. It never writes to
+`system/public/papers.aesthetic.computer/`, never runs `papers/cli.mjs
+publish|deploy`, and never touches the git clone. It only *reads* the house
+`.sty` files and webfonts out of the clone, so a bundle using the AC styles
+resolves its fonts.
+
+### Paper Crunch endpoints
+
+All of them take the admin key — including the reads, because the documents are
+private and a 10-character job id is not a security boundary. Auth is the same
+`OS_BUILD_ADMIN_KEY` as `/papers-build` (`Authorization: Bearer <key>`).
+
+| Route | Purpose |
+|---|---|
+| `POST /paper-crunch` | Body is the gzipped tar. `x-crunch-tex` names the entrypoint (optional — otherwise the one `.tex` with a `\documentclass` wins), `x-crunch-name` labels the job. → `202 {jobId}`, `409` if busy. |
+| `GET /paper-crunch` | Active + recent jobs, and the limits. |
+| `GET /paper-crunch/:jobId` | Job snapshot. `?logs=1&tail=N` for the log. |
+| `GET /paper-crunch/:jobId/stream` | SSE: `logs`, `status`, `complete`. |
+| `GET /paper-crunch/:jobId/pdf` | The built PDF. |
+| `POST /paper-crunch/:jobId/cancel` | Kill the build. |
+
+### The fonts
+
+`ac-paper-essay.sty` loads fonts by the relative path a *real* paper sees —
+`Path=../../system/public/type/webfonts/`, which only resolves when the `.tex`
+sits two levels below the repo root. An uploaded bundle has no such root, so the
+builder pitches one: sources land in `<job>/root/papers/src/`, the webfonts are
+linked in at `<job>/root/system/public/type/webfonts`, and the house `.sty`
+files are linked in beside the sources and put on `TEXINPUTS`. A bundle can
+therefore `\usepackage{ac-paper-essay}` without shipping a copy of it.
+
+A build whose fonts silently fell back to `nullfont` is a **failure**, not a
+success — xelatex exits 0 and emits a stub PDF in that case, so the log is
+sniffed for the fontspec/nullfont signature (same check as `papers/cli.mjs`).
+
+### The bundle is untrusted
+
+Tar entries with `..`, absolute paths, or links (sym/hard) are refused before
+extraction. The gzip stream is capped mid-flight so a bomb cannot fill the
+droplet. `xelatex` runs with shell-escape **off** and `openout_any=p`, under a
+wall-clock deadline that kills the whole process group. The sources are shredded
+as soon as the PDF is out; the job directory is reaped on a TTL.
+
+Limits live in `CRUNCH_LIMITS` (32 MB upload, 192 MB extracted, 180 s build,
+30 min retention). Work lands in `/tmp/oven-crunch/` (`CRUNCH_WORK_DIR`).
+
+### The client
+
+```bash
+node papers/bin/crunch.mjs <paper-dir> [--tex <entrypoint>] [--out <path.pdf>] [--verbose]
+```
+
+Tars the directory (minus build artifacts), uploads it, streams the log, and
+writes the PDF next to the source. Reads `OVEN_URL` (default
+`https://oven.aesthetic.computer`) and `OS_BUILD_ADMIN_KEY` (else the vault).
+
 ## Deployment Strategy
 
 ### Following Existing Patterns

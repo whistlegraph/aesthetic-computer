@@ -22,6 +22,7 @@ import { startNativeBuild, getNativeBuild, getNativeBuildsSummary, cancelNativeB
 import { startPoller as startNativeGitPoller, getPollerStatus as getNativePollerStatus } from './native-git-poller.mjs';
 import { startPapersBuild, getPapersBuild, getPapersBuildsSummary, cancelPapersBuild } from './papers-builder.mjs';
 import { startPoller as startPapersGitPoller, getPollerStatus as getPapersPollerStatus } from './papers-git-poller.mjs';
+import { startPaperCrunch, getPaperCrunch, getPaperCrunchesSummary, getPaperCrunchPdf, cancelPaperCrunch, CRUNCH_LIMITS } from './paper-crunch.mjs';
 import { startRecapBuild, getRecapBuild, getRecapBuildsSummary, cancelRecapBuild, getRecapMp4Path } from './recap-builder.mjs';
 import { startPoller as startRecapGitPoller, getPollerStatus as getRecapPollerStatus } from './recap-git-poller.mjs';
 import { join, dirname, basename } from 'path';
@@ -3921,6 +3922,106 @@ app.post('/papers-build/:jobId/cancel', requireOSBuildAdmin, (req, res) => {
   const result = cancelPapersBuild(req.params.jobId);
   if (!result.ok) return res.status(400).json(result);
   addServerLog('info', '🛑', `Papers build cancel requested: ${req.params.jobId}`);
+  return res.json(result);
+});
+
+// ── Paper Crunch ───────────────────────────────────────────────────────────
+// On-demand xelatex for a private document that is NOT in the repo: POST a
+// .tar.gz of the paper directory, stream the log, download the PDF. Nothing is
+// committed and nothing reaches papers.aesthetic.computer — that is the whole
+// point (see paper-crunch.mjs). Client: `node papers/bin/crunch.mjs <dir>`.
+//
+// Every route takes the admin key, including the reads — the documents are
+// private, so a 10-char job id is not the thing standing between them and the
+// world. Auth: same OS_BUILD_ADMIN_KEY used for /papers-build.
+
+app.post('/paper-crunch', requireOSBuildAdmin, express.raw({ type: '*/*', limit: CRUNCH_LIMITS.MAX_BUNDLE_BYTES }), async (req, res) => {
+  try {
+    const job = await startPaperCrunch(req.body, {
+      name: req.get('x-crunch-name'),
+      tex: req.get('x-crunch-tex'),
+    });
+    addServerLog('info', '📐', `Paper crunch started: ${job.id} (${job.name})`);
+    return res.status(202).json({ ...job, jobId: job.id });
+  } catch (err) {
+    if (err.code === 'CRUNCH_BUSY') {
+      return res.status(409).json({ error: err.message, activeJobId: err.activeJobId });
+    }
+    if (err.code === 'CRUNCH_BAD_BUNDLE') {
+      return res.status(400).json({ error: err.message });
+    }
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/paper-crunch', requireOSBuildAdmin, (req, res) => {
+  res.json({ ...getPaperCrunchesSummary(), limits: CRUNCH_LIMITS });
+});
+
+app.get('/paper-crunch/:jobId', requireOSBuildAdmin, (req, res) => {
+  const tail = Math.max(0, Math.min(2000, parseInt(req.query.tail, 10) || 200));
+  const includeLogs = req.query.logs === '1' || req.query.logs === 'true';
+  const job = getPaperCrunch(req.params.jobId, { includeLogs, tail });
+  if (!job) return res.status(404).json({ error: 'Job not found' });
+  return res.json(job);
+});
+
+app.get('/paper-crunch/:jobId/stream', requireOSBuildAdmin, (req, res) => {
+  const jobId = req.params.jobId;
+  const initial = getPaperCrunch(jobId, { includeLogs: true, tail: 500 });
+  if (!initial) return res.status(404).json({ error: 'Job not found' });
+
+  res.set({
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+  res.flushHeaders();
+
+  let sentLogs = 0;
+  const sendEvent = (type, data) => {
+    res.write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`);
+    if (typeof res.flush === 'function') res.flush();
+  };
+
+  if (Array.isArray(initial.logs) && initial.logs.length > 0) {
+    sendEvent('logs', { logs: initial.logs });
+    sentLogs = initial.logs.length;
+  }
+  sendEvent('status', { id: initial.id, status: initial.status, stage: initial.stage, percent: initial.percent });
+
+  const timer = setInterval(() => {
+    const job = getPaperCrunch(jobId, { includeLogs: true, tail: 2000 });
+    if (!job) { clearInterval(timer); res.end(); return; }
+    const logs = Array.isArray(job.logs) ? job.logs : [];
+    if (logs.length > sentLogs) {
+      sendEvent('logs', { logs: logs.slice(sentLogs) });
+      sentLogs = logs.length;
+    }
+    sendEvent('status', { id: job.id, status: job.status, stage: job.stage, percent: job.percent, error: job.error });
+    if (job.status === 'success' || job.status === 'failed' || job.status === 'cancelled') {
+      sendEvent('complete', { status: job.status, error: job.error, pages: job.pages, pdfBytes: job.pdfBytes });
+      clearInterval(timer);
+      res.end();
+    }
+  }, 1000);
+
+  req.on('close', () => clearInterval(timer));
+});
+
+app.get('/paper-crunch/:jobId/pdf', requireOSBuildAdmin, (req, res) => {
+  const pdf = getPaperCrunchPdf(req.params.jobId);
+  if (!pdf) return res.status(404).json({ error: 'No PDF for that job (unfinished, failed, or reaped)' });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${pdf.name}"`);
+  res.sendFile(pdf.path);
+});
+
+app.post('/paper-crunch/:jobId/cancel', requireOSBuildAdmin, (req, res) => {
+  const result = cancelPaperCrunch(req.params.jobId);
+  if (!result.ok) return res.status(400).json(result);
+  addServerLog('info', '🛑', `Paper crunch cancel requested: ${req.params.jobId}`);
   return res.json(result);
 });
 
