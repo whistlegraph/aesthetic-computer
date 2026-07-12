@@ -29,6 +29,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const HOME = homedir();
 const REGISTRY = process.env.SLAB_PUPPET_CONFIG || join(HOME, ".config", "slab", "puppet.json");
 const DEFAULT_REPO = "~/aesthetic-computer";
+const SELF = hostname().split(".")[0]; // e.g. blueberry — what `local` actually is
 
 // The fleet, as frame/puppet already know it. `local` is always present — this
 // Mac searches its own store in-process, no ssh.
@@ -41,11 +42,13 @@ function machines() {
       registry = {};
     }
   }
-  const self = hostname().split(".")[0];
   const out = { ...registry };
   delete out._README;
   if (!out.local) out.local = { local: true };
-  delete out[self]; // this Mac IS `local`; don't search it twice over ssh
+  // This Mac already answers as `local`. If the fleet list also names it (we're
+  // running ON blueberry and blueberry is registered), drop the named copy —
+  // otherwise its store gets searched twice and every hit shows up doubled.
+  delete out[SELF];
   return out;
 }
 
@@ -170,7 +173,9 @@ async function toolSearch(a) {
       failures.push(`  ${entry.name}: ${entry.error}`);
       continue;
     }
-    for (const hit of entry.result.hits || []) hits.push({ ...hit, machine: entry.name });
+    // "[local]" is meaningless once a result is read back later — say which Mac.
+    const label = entry.name === "local" ? SELF : entry.name;
+    for (const hit of entry.result.hits || []) hits.push({ ...hit, machine: label });
   }
 
   hits.sort((a, b) => new Date(b.when || 0) - new Date(a.when || 0));
@@ -210,7 +215,7 @@ async function toolMachines() {
   const fleet = machines();
   const lines = Object.entries(fleet).map(([name, spec]) =>
     isLocal(name, spec)
-      ? `${name}  (this Mac — searched in-process)`
+      ? `local  (= ${SELF}, this Mac — searched in-process, no ssh)`
       : `${name}  ssh=${spec.sshHost || name}  repo=${spec.repo || DEFAULT_REPO}`,
   );
   lines.push(`\nregistry: ${REGISTRY}  (shared with frame/puppet — add a machine there and it's searchable here)`);
