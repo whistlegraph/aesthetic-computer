@@ -118,7 +118,7 @@ function paint({ ink, box, line, circle, screen, sound, num, paintCount, spin, z
   // --- Kaleidoscope geometry ------------------------------------------------
   // Build ONE wedge, mirrored/rotated SYMMETRY times around the center.
   // Everything keys to a wrapping phase so frame 0 == frame N (seamless loop).
-  const phase = Number(paintCount % 480n) / 480; // 0..1, wraps every 480 frames
+  const phase = (Number(paintCount) % 480) / 480; // 0..1, wraps every 480 frames (paintCount is a Number in the piece API)
   const spinAng = phase * Math.PI * 2; // full turn per loop
   const beatPhase = (beatCount % ARP.length) + beatProgress; // 0..16 smooth
   const maxR = Math.min(w, h) * 0.62;

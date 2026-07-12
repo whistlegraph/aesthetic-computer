@@ -165,31 +165,36 @@ function paint({ ink, box, screen, sound, num, paintCount }) {
     ink(cr, cg, cb, alpha).poly(pts);
   }
 
-  // Warm molten core — a soft pulsing heart that flares on the downbeat.
+  // Warm molten core — a soft glowing radial heart that breathes with the
+  // music and flares on the downbeat. Layered translucent circles (widest and
+  // faintest first) build a feathered halo with no hard edge; the innermost
+  // ring warms toward white. Pure circles → no opaque square.
   const beatPulse = 1 - beatProgress; // brightest right on each beat
-  const coreR = base * 0.05 * (1 + bass * 2) + beatPulse * base * 0.02;
-  const [gr, gg, gb] = num.hslToRgb((cyclePhase + 0.05) % 1, 0.6, 0.75);
-  for (let i = 4; i > 0; i--) {
-    ink(gr * 255, gg * 255, gb * 255, 30 + beatPulse * 40).box(
-      cx,
-      cy,
-      coreR * (i / 4) * 2,
-      coreR * (i / 4) * 2,
-      "*center",
-    );
+  const coreR = base * 0.075 * (1 + bass * 1.1) + beatPulse * base * 0.025;
+  const [gr, gg, gb] = num
+    .hslToRgb((cyclePhase + 0.05) % 1, 0.6, 0.78)
+    .map((v) => v * 255);
+  const HALO = 6;
+  for (let i = HALO; i >= 1; i--) {
+    const f = i / HALO; // 1 = outermost/faintest ring, →0 = tight bright center
+    // Warm hue at the edge, fading toward white in the middle for a molten glow.
+    const wr = gr + (255 - gr) * (1 - f);
+    const wg = gg + (255 - gg) * (1 - f);
+    const wb = gb + (245 - gb) * (1 - f);
+    // Low alpha per ring; overlapping layers accumulate into a soft bloom.
+    const a = (10 + beatPulse * 14 + amp * 16) * (1 - f * 0.55);
+    ink(wr, wg, wb, a).circle(cx, cy, coreR * f, true);
   }
 
   // A single slow drifting highlight droplet, wrapping every 480 frames so the
-  // top-layer motion also loops cleanly.
-  const dt = Number(paintCount % 480n) / 480;
+  // top-layer motion also loops cleanly. A soft round glow, not a hard box.
+  const dt = (Number(paintCount) % 480) / 480; // paintCount is a Number in the piece API
   const da = dt * Math.PI * 2;
-  ink(255, 250, 235, 90 + amp * 120).box(
-    cx + Math.cos(da) * base * 0.28,
-    cy + Math.sin(da * 1.5) * base * 0.32,
-    6 + bass * 30,
-    6 + bass * 30,
-    "*center",
-  );
+  const dropX = cx + Math.cos(da) * base * 0.28;
+  const dropY = cy + Math.sin(da * 1.5) * base * 0.32;
+  const dropR = 5 + bass * 22;
+  ink(255, 250, 235, 30 + amp * 50).circle(dropX, dropY, dropR * 1.8, true);
+  ink(255, 252, 240, 70 + amp * 90).circle(dropX, dropY, dropR, true);
 }
 
 function leave() {
