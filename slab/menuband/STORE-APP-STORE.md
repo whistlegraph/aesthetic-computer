@@ -1,16 +1,37 @@
-# Menu Band — Mac App Store submission plan
+# Menu Band — Mac App Store submission
 
 Companion to `STORE.md` (which covers the direct-download DMG). This file is
-the App Store-specific plan: what must change in the code, the sandbox audit,
-the signing/archive steps, and the runtime checks only a signed build can
-answer. Prepared 2026-05-29 against v1.4.1 (build 141).
+the App Store-specific record: the sandbox audit, what the code forks out, the
+signing/archive steps, the runtime checks only a signed build can answer — and
+the review log. Written 2026-05-29 against v1.4.1 (build 141) as a plan; kept
+since as the standing account of what Apple has said back.
 
 The App Store build ships as a **reduced, sandboxed subset** of the
 direct-download version. The full version stays at prompt.ac/menuband.
 
 ---
 
-## 0. Status of prep (done before handoff)
+## 0. Where it stands
+
+**v1.5.3 (build 154) — in Apple's queue, "Waiting for Review" since 2026-07-11.**
+App Apple ID `6767311903`, SKU `MENUBAND`. Two rejections so far; both fixed.
+
+### Review log
+
+| # | Submitted | Verdict | Guideline | What Apple objected to | Fix |
+|---|---|---|---|---|---|
+| 1 | Jul 5 (build 153) | rejected Jul 9 | **5.2.5** + **1.5** | The subtitle carried a trademark ("macOS"), and the support URL didn't lead to a real support page. | `ea903abae` — subtitle → *"Instruments in your menu bar"*; wrote `system/public/menuband/support.html` and pointed the support URL at `menuband.app/support.html`. |
+| 2 | Jul 9 (build 153) | rejected Jul 11 | **2.4.5(i)** | The app declared `com.apple.security.device.bluetooth` for features the sandboxed build doesn't ship — an entitlement it never uses. | `8fce4eb70` — dropped the entitlement, **build 154**. The MultipeerConnectivity fleet is `#if !MAC_APP_STORE` anyway, and game controllers ride the high-level GameController framework (no `CBCentralManager` anywhere), so paired controllers still work without it. |
+| 3 | Jul 11 (build 154) | **waiting** | — | — | — |
+
+**The lesson from round 2, worth keeping:** review reads the entitlements
+against what the app *actually does*, not against what the codebase could do.
+Every entitlement in `MenuBand-AppStore.entitlements` must be traceable to a
+code path that ships **in the MAS build** — a `#if !MAC_APP_STORE` feature is
+not a justification. That file now carries a "NOT included, and why" block;
+keep it truthful, and prune the entitlement whenever a feature gets gated out.
+
+### Prep (all done)
 
 - [x] `MenuBand-AppStore.entitlements` created — app-sandbox + audio-input + network.client.
 - [x] `Info.plist` — added `ITSAppUsesNonExemptEncryption=false` (skips the per-submission export question).
@@ -23,10 +44,12 @@ direct-download version. The full version stays at prompt.ac/menuband.
       `CrashLogReader.swift`. Decision locked: **Pointer + focused typing**
       (Notepat/Ableton layouts work while Menu Band is frontmost via
       `LocalKeyCapture`; no global typing).
-- [ ] Xcode app target + archive — see §3 (needs Jeffrey: Apple ID, certs).
-- [ ] Screenshots — see §4 (best captured from the signed sandboxed build).
+- [x] Xcode app target + archive — see §3. Archived and uploaded; the signing
+      prerequisites below are all resolved.
+- [x] Screenshots — see §4. Live in `fastlane/screenshots/en-US/`
+      (`00-overview`, `01-keymap`, 1440×900).
 
-### Environment prerequisites discovered on this Mac (Jeffrey — do these first)
+### Environment prerequisites (resolved — kept as the record of what it took)
 
 1. **Activate full Xcode** — `xcode-select` currently points at the Command
    Line Tools, so `xcodebuild`/archiving won't run. Xcode.app IS installed:
@@ -185,10 +208,23 @@ cannot be verified by `swift build` or an unsigned binary:
 
 ---
 
-## 7. Realistic timeline
+## 7. What review has actually cost
 
-- **Submitting by Sunday night: realistic** if the fork (§2) goes cleanly and
-  the signed build passes §5.
-- **Live this weekend: no.** Apple review is 1–7 days.
-- Biggest risks: the Xcode-target/provisioning setup (§3, first time), and a
-  §5 surprise (synth or MIDI behaving differently sandboxed).
+The original estimate here ("submitting by Sunday night, live in 1–7 days")
+was right about the submission and wrong about the shape of the wait. The real
+cost has not been the archive or the provisioning — those worked. It's the
+round-trip: **each rejection burns 2–4 days**, most of it sitting in the queue
+waiting for a reviewer, and the fixes themselves have each taken under an hour.
+
+Observed cadence, for planning the next version:
+
+- **Queue → In Review:** 2–4 days (Jul 5 → Jul 9; Jul 9 → Jul 11).
+- **In Review → verdict:** under an hour, both times.
+- **Rejection → resubmitted:** same day, both times.
+
+So the thing to optimize is *not being rejected*, not turnaround. Both
+rejections were avoidable pre-flight checks, and neither was about the app's
+behavior — one was metadata copy, one was an unused entitlement. Before the
+next submission, re-read §2's table and the "NOT included, and why" block in
+`MenuBand-AppStore.entitlements` against the code that actually ships, and read
+every metadata string in `fastlane/metadata/en-US/` for trademarks.
