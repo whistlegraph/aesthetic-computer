@@ -1,9 +1,9 @@
 {
   "$schema": "curated media bags — admin (@jeffrey) only for now. Each item has a `type` (piece | painting | kidlisp | tape) and a `code` used to open it. bag.mjs lists a bag by name; ^<name> at the prompt opens it.",
   "bags": {
-    "reel": {
-      "title": "reel",
-      "description": "self-running audiovisual instruments - tap to play",
+    "pads": {
+      "title": "pads",
+      "description": "self-running audiovisual instrument pads - tap or drag to play",
       "color": "yellow",
       "items": [
         { "type": "piece", "code": "prism", "name": "prism" },
