@@ -38,6 +38,14 @@
     "appId": "computer.aesthetic.app",
     "productName": "Aesthetic.Computer",
     "copyright": "Copyright © 2025 Aesthetic Computer",
+    "protocols": [
+      {
+        "name": "Aesthetic Computer",
+        "schemes": [
+          "aesthetic"
+        ]
+      }
+    ],
     "directories": {
       "output": "dist",
       "buildResources": "build"

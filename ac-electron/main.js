@@ -216,6 +216,13 @@ if (!acDropSingleLock) {
       app.whenReady().then(() => openPreviewWindow(previewURL));
       return;
     }
+    // 🔗 aesthetic:// deep link from a relaunch (Windows/Linux, and macOS when
+    // the OS routes it through argv rather than 'open-url').
+    const linkArg = findDeepLinkArg(argv);
+    if (linkArg) {
+      openDeepLink(linkArg);
+      return;
+    }
     for (const arg of argv) {
       if (acDropIsAudio(arg)) {
         app.whenReady().then(() => acDropHandleFile(arg));
@@ -231,6 +238,61 @@ if (!acDropSingleLock) {
     }
   });
 }
+
+// 🔗 aesthetic:// deep links ------------------------------------------------
+// `aesthetic://merryo~^pads` (or aesthetic://prompt, aesthetic://@handle/piece,
+// aesthetic://$cow …) opens that piece in an AC window — creating one if the app
+// is running headless in the menubar, or navigating the focused window if one is
+// already open. The piece string is exactly what follows the scheme, mirroring
+// the web URL structure (everything after `aesthetic.computer/`). This gives the
+// desktop app the same shareable deep links the site + iOS app use.
+function deepLinkToPiece(url) {
+  if (typeof url !== 'string') return null;
+  const m = /^aesthetic:\/\/(.*)$/i.exec(url.trim());
+  if (!m) return null;
+  let piece = m[1];
+  try { piece = decodeURIComponent(piece); } catch { /* keep raw */ }
+  piece = piece.replace(/\/+$/, '').trim(); // strip trailing slash(es)
+  return piece || 'prompt';
+}
+
+function findDeepLinkArg(argv) {
+  return (argv || []).find((a) => typeof a === 'string' && /^aesthetic:\/\//i.test(a)) || null;
+}
+
+function openDeepLink(url) {
+  const piece = deepLinkToPiece(url);
+  if (!piece) return;
+  const run = () => {
+    console.log('[ac-link] aesthetic:// →', piece);
+    const focused = getFocusedWindow?.();
+    if (focused && !focused.isDestroyed?.()) {
+      navigateTo(piece); // reuse the open window
+      try { if (focused.isMinimized()) focused.restore(); focused.focus(); } catch {}
+    } else {
+      openAcPaneWindow({ piece }); // headless menubar → open a fresh pane
+    }
+  };
+  if (app.isReady()) run();
+  else app.whenReady().then(run);
+}
+
+// Register the scheme. In dev (`electron .`) point the OS at this project so the
+// running instance receives the link; the packaged app registers via Info.plist
+// (see build.protocols in package.json).
+try {
+  if (process.defaultApp && process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient('aesthetic', process.execPath, [path.resolve(process.argv[1])]);
+  } else {
+    app.setAsDefaultProtocolClient('aesthetic');
+  }
+} catch (e) { console.warn('[ac-link] could not register aesthetic:// scheme', e); }
+
+// macOS delivers deep links (both cold-launch and while-running) via 'open-url'.
+app.on('open-url', (event, url) => {
+  event.preventDefault();
+  openDeepLink(url);
+});
 
 // Helper to get file path (repo in dev mode, bundle in production)
 function getAppPath(relativePath) {
@@ -3264,8 +3326,14 @@ app.whenReady().then(async () => {
   // own. The user opens pieces explicitly from the tray (or by re-activating the
   // app, which fires 'activate' below). We only auto-open a window for an
   // explicit intent: a slab preview host, or a file opened onto the app.
+  // 🔗 Cold-launch via an aesthetic:// deep link (Windows/Linux pass it in argv;
+  // macOS delivers it through the 'open-url' event instead, handled above).
+  const coldLaunchLink = findDeepLinkArg(process.argv.slice(1));
+
   if (initialPreviewURL) {
     openPreviewWindow(initialPreviewURL);   // launched as a preview host (slab)
+  } else if (coldLaunchLink) {
+    openDeepLink(coldLaunchLink);           // opened via aesthetic:// deep link
   } else if (acDropColdLaunchFile) {
     openAcPaneWindow({ piece: initialPiece }); // opened with a file argument
   }
