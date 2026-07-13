@@ -63,7 +63,12 @@ for (const e of live.graphs) {
 }
 
 // Audio-only posts (no video stream) can't carry a poster frame — flag media.
-const audioOnly = new Set(existsSync("/tmp/wg-audio-only.json") ? rd("/tmp/wg-audio-only.json") : []);
+// The id list lives durably under downloads/ (survives /tmp wipes on reboot);
+// the old /tmp path is a fallback for an un-migrated tree.
+const audioOnlyPath = existsSync(join(D, "audio-only.json"))
+  ? join(D, "audio-only.json")
+  : "/tmp/wg-audio-only.json";
+const audioOnly = new Set(existsSync(audioOnlyPath) ? rd(audioOnlyPath) : []);
 const hasGlyph = (id) => existsSync(join(D, "glyphs", `${id}.jpg`));
 
 const IDX = "https://assets.aesthetic.computer/whistlegraph/index";
