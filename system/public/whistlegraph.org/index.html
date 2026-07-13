@@ -449,8 +449,9 @@ function renderIndex(key){
 // with (a post can appear under more than one work). Detail pages read this.
 fetch("/posts.json").then(r=>r.ok?r.json():{posts:[]}).then(pd=>{
   for(const p of pd.posts||[]) for(const code of p.graphs||[]) (POSTS_BY_CODE[code]||=[]).push(p);
-  // Refresh a detail page that opened before posts arrived.
-  const c=location.pathname.replace(/\//g,""); if(c&&BY[c]&&det.classList.contains("on"))renderPosts(c);
+  // A deep-linked page may have opened before posts arrived — re-run the whole
+  // detail so its hero + summary metadata reflect the posts, not just the gallery.
+  const c=location.pathname.replace(/\//g,""); if(c&&BY[c]&&det.classList.contains("on"))showDetail(c);
 }).catch(()=>{});
 
 fetch("/graphs.json").then(r=>r.json()).then(data=>{
