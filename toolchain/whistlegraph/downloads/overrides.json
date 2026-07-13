@@ -3,7 +3,11 @@
   "renames": {
     "bugy": "Buggy on The Wall"
   },
-  "authors": {},
+  "authors": {
+    "ghst": "Alex Freundlich",
+    "enuf": "Alex Freundlich",
+    "fhs": "Camille Klein"
+  },
   "recodes": {
     "cdh": "bugy"
   },
@@ -31,6 +35,8 @@
     "sndy": "sdog",
     "aksy": "techn",
     "tchsh": "techn",
-    "xma3": "xma2"
+    "xma3": "xma2",
+    "tshee": "techn",
+    "boo": "appl"
   }
 }
