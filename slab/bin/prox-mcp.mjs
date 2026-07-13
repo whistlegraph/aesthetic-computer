@@ -20,14 +20,25 @@
 // Hand-rolled JSON-RPC over stdio, matching the house style of the sibling
 // frame-mcp / puppet-mcp — no SDK, only node builtins + the shared front.
 import { readFile, readdir } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { join } from "node:path";
 import { homedir, hostname } from "node:os";
 import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
+
+const pexec = promisify(execFile);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const LEDGER_DIR = join(homedir(), ".config", "slab", "ledger");
 const LOCAL_FILE = join(LEDGER_DIR, "local.json");
 const PEERS_DIR = join(LEDGER_DIR, "peers");
 const PORT = 5252; // the menubar's LedgerHTTPServer port on every machine
+
+// Per-session marker files (written by the slab claude hooks) carry the tty +
+// pid a rock is running on — the same source the menubar overlay reads. Keyed
+// by sessionId (== the ledger entry `id`), so prox_close can find the terminal.
+const SLAB_HOME = process.env.SLAB_HOME || join(homedir(), ".local", "share", "slab");
+const MARKER_DIRS = [join(SLAB_HOME, "state", "active-prompts"), join(SLAB_HOME, "state", "awaiting-prompts")];
 
 // ── load the fleet ledger off disk ──────────────────────────────────────────
 async function readJson(path) {
@@ -108,6 +119,56 @@ function resolve(rocks, handle) {
     (r.subject || "").toLowerCase().includes(name)));
 }
 
+// ── close plumbing (local machine only) ─────────────────────────────────────
+// Read a session's marker (tty + claude pid) by its ledger id == sessionId.
+async function readMarker(id) {
+  for (const d of MARKER_DIRS) {
+    const m = await readJson(join(d, id));
+    if (m) return m;
+  }
+  return null;
+}
+
+const pidAlive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
+
+// Walk the parent chain of `pid` so prox_close can refuse to close the very
+// session that is calling it (the MCP runs as a child of its own claude).
+async function ancestorPids(pid) {
+  const chain = new Set();
+  let cur = pid;
+  for (let i = 0; i < 40 && cur > 1; i++) {
+    try {
+      const { stdout } = await pexec("ps", ["-o", "ppid=", "-p", String(cur)]);
+      const ppid = parseInt(stdout.trim(), 10);
+      if (!ppid || ppid <= 1 || chain.has(ppid)) break;
+      chain.add(ppid); cur = ppid;
+    } catch { break; }
+  }
+  return chain;
+}
+
+// Close the Terminal.app window hosting a tty (SIGHUPs its process tree —
+// claude traps SIGTERM, so closing the window is what actually ends it).
+async function closeTerminalTty(tty) {
+  const dev = tty.startsWith("/dev/") ? tty : `/dev/${tty}`;
+  const osa = `tell application "Terminal"
+  set n to 0
+  repeat with w in windows
+    repeat with t in tabs of w
+      try
+        if (tty of t) is "${dev}" then
+          close w saving no
+          set n to n + 1
+        end if
+      end try
+    end repeat
+  end repeat
+  return n
+end tell`;
+  try { const { stdout } = await pexec("osascript", ["-e", osa]); return parseInt(stdout.trim(), 10) || 0; }
+  catch { return 0; }
+}
+
 // ── tools ─────────────────────────────────────────────────────────────────────
 async function toolList({ host, status, kind } = {}) {
   let rocks = await allRocks();
@@ -166,6 +227,38 @@ async function toolPoke({ handle, by }) {
   return [{ type: "text", text: `poked ${r.host}:${r.name} as «${poker}» — its rock should blink + rattle (HTTP ${res.status}).` }];
 }
 
+async function toolClose({ handle }) {
+  if (!handle) throw new Error("`handle` is required (a `host:name` or fuzzy name; see prox_find).");
+  const hits = resolve(await allRocks(), handle);
+  if (!hits.length) throw new Error(`no rock resolves «${handle}» to close.`);
+  if (hits.length > 1) {
+    return [{ type: "text", text: `«${handle}» is ambiguous (${hits.map((r) => `${r.host}:${r.name}`).join(", ")}). Close a specific host:name.` }];
+  }
+  const r = hits[0];
+  // Closing means killing a process + shutting its terminal window — only doable
+  // on the machine that owns the window. Remote close would need a ledger
+  // endpoint the menubar doesn't expose yet.
+  if (!r.self) throw new Error(`${r.host}:${r.name} runs on another machine — prox_close only closes rocks on this machine (no remote-close endpoint yet). Run it from ${r.host}.`);
+  const mk = await readMarker(r.id);
+  const tty = mk?.tty || "";
+  const pid = mk?.claude_pid || 0;
+  if (!tty && !pid) throw new Error(`no live tty/pid marker for ${r.host}:${r.name} (id ${r.id.slice(0, 8)}) — it may already be gone.`);
+  // Never close the session that is asking.
+  const anc = await ancestorPids(process.pid);
+  if (pid && anc.has(pid)) throw new Error(`refusing to close ${r.host}:${r.name} — that is the session calling prox_close.`);
+  const steps = [];
+  // Graceful first, then force. claude traps SIGTERM, so don't wait long on it.
+  if (pid && pidAlive(pid)) {
+    try { process.kill(pid, "SIGTERM"); } catch {}
+    for (let i = 0; i < 6 && pidAlive(pid); i++) await sleep(200);
+    if (pidAlive(pid)) { try { process.kill(pid, "SIGKILL"); steps.push(`SIGKILL ${pid}`); } catch (e) { steps.push(`kill ${pid} failed: ${e.message}`); } }
+    else steps.push(`terminated ${pid}`);
+  } else if (pid) steps.push(`pid ${pid} already exited`);
+  // Close the terminal window so no "[Process completed]" husk is left behind.
+  if (tty) { const n = await closeTerminalTty(tty); steps.push(`closed ${n} window(s) on /dev/${tty}`); }
+  return [{ type: "text", text: `closed ${r.host}:${r.name} — ${steps.join("; ")}.` }];
+}
+
 const TOOLS = [
   {
     name: "prox_list",
@@ -205,6 +298,18 @@ const TOOLS = [
       required: ["handle"],
     },
   },
+  {
+    name: "prox_close",
+    description:
+      "Close a prompt rock — end that Claude session and shut its terminal window. Resolves a `host:name` / fuzzy handle (refuses ambiguous matches), ends the session (SIGTERM then SIGKILL — claude traps SIGTERM), and closes its Terminal.app window. DESTRUCTIVE: the running session is terminated (its transcript persists and is resumable). Only closes rocks on THIS machine (it needs the terminal window); refuses to close the calling session.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        handle: { type: "string", description: "`host:name` (e.g. neo:regif) or a name that resolves to exactly one rock on this machine." },
+      },
+      required: ["handle"],
+    },
+  },
 ];
 
 async function callTool(name, args) {
@@ -212,6 +317,7 @@ async function callTool(name, args) {
     case "prox_list": return toolList(args || {});
     case "prox_find": return toolFind(args || {});
     case "prox_poke": return toolPoke(args || {});
+    case "prox_close": return toolClose(args || {});
     default: throw new Error(`Unknown tool: ${name}`);
   }
 }
@@ -253,4 +359,4 @@ async function handleMessage(message) {
 
 const port = httpPort(process.argv, 7773);
 if (port) serveHttp({ handleMessage, port, banner: "🪨 prox shared daemon" });
-else serveStdio({ handleMessage, banner: "🪨 prompt-rocks-mcp started (prox_list, prox_find, prox_poke)" });
+else serveStdio({ handleMessage, banner: "🪨 prox started (prox_list, prox_find, prox_poke, prox_close)" });
