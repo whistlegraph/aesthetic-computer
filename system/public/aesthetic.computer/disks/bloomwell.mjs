@@ -137,9 +137,32 @@ const CONFIG = {
 
     onPaint(api, ctx) {
       const { ink, screen, num, spin, zoom, blur, paste, painting } = api;
-      const { pump, band, amp } = ctx;
+      const { pump, band, amp, quality } = ctx;
       const { width: w, height: h } = screen;
       const cx = w / 2, cy = h / 2;
+
+      // ADAPTIVE QUALITY — the engine lowers ctx.quality (1 → floor) whenever
+      // onPaint runs over the ~16.7ms budget / render cadence dips under 60fps.
+      // Our whole cost is the SSAA 2× seed buffer (painting a 2×-sized offscreen
+      // then paste-downscaling). At (near-)full quality we keep the 2× supersample
+      // (identical look); the instant quality dips we render the seed at 1× (skip
+      // SSAA) — same drawing, half the linear resolution → ~4× fewer seed pixels.
+      // We also thin the radial FOLDS + petal/ring COUNTS as quality falls so the
+      // node/line count follows the budget. q=1 == byte-for-byte the original.
+      const q = quality ?? 1;
+      // SEED-BUFFER SCALE (S) — the single biggest cost lever. The mandala is
+      // drawn into a seedSize·S offscreen buffer then pasted back over a FIXED
+      // on-screen footprint, so S only changes internal pixel density, never the
+      // look's size/position:
+      //   • q ~1  → S=2 : full 2× SSAA (supersample + downscale = smooth edges) —
+      //                   IDENTICAL to the original bloomwell.
+      //   • q<1   → S=1 : draw the seed at 1× (skip the supersample). ~4× fewer
+      //                   seed pixels — the big saving.
+      // We commit to the 1× path the instant quality dips and only restore the 2×
+      // supersample once quality is fully back, so we never flip-flop across the
+      // 2×↔1× boundary (which showed up as fps dips).
+      const S = q >= 0.99 ? 2 : 1; // seed supersample factor (2× SSAA at full quality)
+      const folds = q >= 0.99 ? FOLDS : Math.max(3, Math.round(FOLDS * q)); // radial symmetry
 
       // --- Live audio reads ---------------------------------------------------
       const bass = band("subBass");
@@ -171,16 +194,16 @@ const CONFIG = {
       // OPAQUE + SPARSE so each hue stays pure (translucent multi-hue overlap
       // greys out under the feedback loop). The LIT PETALS from the arpeggio sit
       // at their pitch angle/hue so each arp note reads as a petal lighting up.
-      const S = 2; // supersample factor
       const seedSize = Math.floor(Math.min(w, h) * 0.46);
-      const bw = seedSize * S, bh = seedSize * S;
+      const bw = Math.max(1, Math.round(seedSize * S)), bh = bw;
+      const pasteScale = seedSize / bw; // upscale/downscale to a FIXED on-screen footprint
       seedBuf = painting(bw, bh, (p) => {
         const scx = bw / 2, scy = bh / 2;
         const maxR = (bw / 2) * 0.94;
 
         // Base structural mandala — a SPARSE ring of OPAQUE nodes (outer + inner).
-        for (let f = 0; f < FOLDS; f++) {
-          const fold = (f / FOLDS) * Math.PI * 2 + spinAng * 0.5;
+        for (let f = 0; f < folds; f++) {
+          const fold = (f / folds) * Math.PI * 2 + spinAng * 0.5;
           for (let ringN = 0; ringN < 2; ringN++) {
             const rr = ringN === 0 ? 0.92 : 0.56;
             const swirl = num.wave(phase * 6.28 + f + ringN * 0.9) * 0.3;
@@ -188,7 +211,7 @@ const CONFIG = {
             const radius = maxR * rr;
             const tx = scx + Math.cos(ang) * radius;
             const ty = scy + Math.sin(ang) * radius;
-            const hue = (baseHue + f * (360 / FOLDS) + ringN * 40) % 360;
+            const hue = (baseHue + f * (360 / folds) + ringN * 40) % 360;
             const [r, g, b] = num.hslToRgb(hue, 96, 56); // vivid, opaque
             const nodeR = (5 + (1 - rr) * 4 + energy * 4 + air * 5) * S;
             p.ink(r, g, b, 255).circle(tx, ty, nodeR, true);
@@ -199,13 +222,16 @@ const CONFIG = {
 
         // ALLEGORY: LIT PETALS — one per recent arp note, at its pitch angle/hue.
         // Bright + OPAQUE the instant it sounds (life ~1), fading as the note dies.
-        for (const pet of petals) {
+        // COUNT scales with quality (keep the freshest, brightest petals first).
+        const petalCap = q >= 0.99 ? petals.length : Math.max(6, Math.round(petals.length * q));
+        const litPetals = petalCap >= petals.length ? petals : petals.slice(petals.length - petalCap);
+        for (const pet of litPetals) {
           const life = Math.max(0, Math.min(1.2, pet.life));
           const ringR = maxR * (0.3 + pet.norm * 0.6); // pitch -> radial distance
           const petalAng = pet.norm * Math.PI * 2 + spinAng * 0.5; // pitch -> angle
           const [r, g, b] = num.hslToRgb(pet.hue % 360, 98, 60); // vivid
-          for (let f = 0; f < FOLDS; f++) { // mirror across folds → symmetric ring
-            const a = petalAng + (f / FOLDS) * Math.PI * 2;
+          for (let f = 0; f < folds; f++) { // mirror across folds → symmetric ring
+            const a = petalAng + (f / folds) * Math.PI * 2;
             const tx = scx + Math.cos(a) * ringR;
             const ty = scy + Math.sin(a) * ringR;
             const glow = (6 + life * 14 + air * 8) * S;
@@ -220,20 +246,26 @@ const CONFIG = {
         p.ink(hr, hg, hb, 255)
           .circle(scx, scy, (4 + downbeat * 8 + breath * 12) * S, true);
       });
-      // Downsample-composite (poor-man's SSAA) centered on screen.
-      paste(seedBuf, Math.round(cx - seedSize / 2), Math.round(cy - seedSize / 2), 1 / S);
+      // Composite the seed to its fixed on-screen footprint (downsample at 2×
+      // SSAA, upsample when sub-sampling) centered on screen.
+      paste(seedBuf, Math.round(cx - seedSize / 2), Math.round(cy - seedSize / 2), pasteScale);
 
       // --- MOTIF RINGS: fresh blooms from every beat + every tap --------------
       // Drawn at native res on top so tap-spawned rings visibly bloom outward
       // from the touch point and feed the feedback vortex (zoomed/spun next frame).
-      for (const r of rings) {
+      // COUNT scales with quality (keep the newest rings — they read strongest).
+      const ringCap = q >= 0.99 ? rings.length : Math.max(6, Math.round(rings.length * q));
+      const drawRings = ringCap >= rings.length ? rings : rings.slice(rings.length - ringCap);
+      for (const r of drawRings) {
         const life = Math.max(0, Math.min(1.2, r.life));
         const [rr, gg, bb] = num.hslToRgb(r.hue % 360, 92, 58);
         const a = Math.round(30 + life * 160);
         ink(rr, gg, bb, a).circle(r.x, r.y, r.r, false, 1 + life * 3);
         // A few petal spokes so a ring reads as a motif, not just a circle.
-        for (let sp = 0; sp < r.spokes; sp++) {
-          const ang = (sp / r.spokes) * Math.PI * 2 + spinAng;
+        // Spoke count scales with quality (q=1 → full r.spokes, unchanged).
+        const spokes = Math.max(3, Math.round(r.spokes * q));
+        for (let sp = 0; sp < spokes; sp++) {
+          const ang = (sp / spokes) * Math.PI * 2 + spinAng;
           const px = r.x + Math.cos(ang) * r.r;
           const py = r.y + Math.sin(ang) * r.r;
           ink(rr, gg, bb, Math.round(a * 0.7)).circle(px, py, 2 + life * 4, true);

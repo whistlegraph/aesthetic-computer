@@ -227,6 +227,14 @@ const CONFIG = {
     onPaint(api, s) {
       const { ink, circle, line, plot, screen, num, paintCount } = api;
       const { pump, beatProgress, amp, band } = s;
+      // Adaptive quality (1 = full detail … 0.35 = auto-cut). We DRAW a subset of
+      // the big particle arrays when under budget; at q=1 every count below is the
+      // full length so the field is pixel-identical to full detail. `qc` remaps
+      // the engine's [0.35..1] quality band onto a full [0..1] cut so the floor
+      // actually thins the field hard (0.35 → ~0 extras) while q=1 stays whole.
+      const q = s.quality ?? 1;
+      const qc = q >= 0.99 ? 1 : Math.max(0, (q - 0.35) / 0.65);
+      const sub = (arr) => Math.round(arr.length * qc); // how many to draw this frame
       const w = screen.width, h = screen.height;
       const cx = w / 2, cy = h / 2;
       const foc = Math.min(w, h) * 0.9;
@@ -249,15 +257,30 @@ const CONFIG = {
       if (bloom > 0.02) {
         const R = minWH * (0.14 + bass * 0.5) * bloom;
         const [r0, g0, b0] = hue2rgb(num, clockHue + 0.55, 0.9, 0.55);
-        for (let i = 5; i > 0; i--) {
-          ink(r0, g0, b0, 32 * bloom).circle(cx, cy, R * (i / 5), true);
+        // These are big FILLED circles — the single largest raster cost after the
+        // veil (each covers a big fraction of the screen). Draw all 5 halo layers
+        // at q=1; ramp the stack down to NONE by the quality floor (~0.35). Alpha
+        // is rescaled by the drawn count so peak density holds. The bright core
+        // dot is cheap and always stays, so the kick flash still reads. Mapping
+        // q∈[0.35,1] → layers∈[0,5] keeps q=1 pixel-identical (layers = 5).
+        const layers = q >= 0.99
+          ? 5
+          : Math.max(0, Math.round(((q - 0.35) / 0.65) * 5));
+        for (let i = layers; i > 0; i--) {
+          ink(r0, g0, b0, (32 * 5 / layers) * bloom)
+            .circle(cx, cy, R * (i / layers), true);
         }
         ink(255, 220, 255, 190 * bloom).circle(cx, cy, 7 + bass * 30, true);
       }
 
       // === Starfield: warp streaks; near stars throw sparks on a strong step ===
       const streak = 10 + flash * 26 + amp * 40 + pump * 30;
-      for (let i = 0; i < stars.length; i++) {
+      // Stars define the look, so keep at least ~40% even at the floor (they're
+      // not the dominant cost — the big FILLS are). Full set at q=1.
+      const nStars = q >= 0.99
+        ? stars.length
+        : Math.round(stars.length * (0.4 + 0.6 * qc));
+      for (let i = 0; i < nStars; i++) {
         const st = stars[i];
         const px = cx + (st.x / st.z) * foc * 0.5;
         const py = cy + (st.y / st.z) * foc * 0.5;
@@ -274,8 +297,13 @@ const CONFIG = {
         const dx = px - cx, dy = py - cy;
         const len = Math.hypot(dx, dy) || 1;
         const ux = dx / len, uy = dy / len;
+        // Warp-streak TAILS are the pixel-heavy part of the starfield. Draw them
+        // in full at q=1; under pressure only the nearest stars keep their tail
+        // (far, faint tails vanish first) — the bright head-point always stays.
         const tail = streak * near;
-        ink(r, g, b, bright).line(px, py, px - ux * tail, py - uy * tail);
+        if (q >= 0.99 || near > 1 - q) {
+          ink(r, g, b, bright).line(px, py, px - ux * tail, py - uy * tail);
+        }
         ink(Math.min(255, r + 80), Math.min(255, g + 80), Math.min(255, b + 80),
           bright).plot(px | 0, py | 0);
 
@@ -292,7 +320,8 @@ const CONFIG = {
       }
 
       // === ARP note = a RISING STAR launched at height ∝ pitch ===
-      for (let i = 0; i < rings.length; i++) {
+      const nRings = sub(rings);
+      for (let i = 0; i < nRings; i++) {
         const rg = rings[i];
         if (rg.kind === "arp") {
           const targetY = h * (0.9 - rg.launchY * 0.8); // higher pitch = higher
@@ -312,7 +341,8 @@ const CONFIG = {
       }
 
       // === HAT = tiny sparkle FLECK ===
-      for (let i = 0; i < flecks.length; i++) {
+      const nFlecks = sub(flecks);
+      for (let i = 0; i < nFlecks; i++) {
         const f = flecks[i];
         const fx = f.x * w, fy = f.y * h;
         const c = f.accent ? 255 : 210;
@@ -321,7 +351,8 @@ const CONFIG = {
       }
 
       // === Sparks — ember bursts (beat sparks + tap spark showers) ===
-      for (let i = 0; i < sparks.length; i++) {
+      const nSparks = sub(sparks);
+      for (let i = 0; i < nSparks; i++) {
         const p = sparks[i];
         const [r, g, b] = hue2rgb(num, (p.hue ?? 0) + 0.04, 1.0, 0.62);
         ink(r, g, b, 245 * p.life).circle(p.x, p.y, 1.2 + p.life * 3, true);
@@ -339,7 +370,9 @@ const CONFIG = {
       }
 
       // === The beat pulse of the whole field — a per-step shockwave ring ===
-      if (flash > 0.05) {
+      // A near-screen-wide stroked circle every step (heavy pixel coverage). Keep
+      // it at q=1; drop it first under pressure (flash stays high most frames).
+      if (flash > 0.05 && q > 0.55) {
         const rr = minWH * 0.5 * beatProgress;
         const [rr2, rg2, rb2] = hue2rgb(num, clockHue + 0.7, 0.95, 0.6);
         ink(rr2, rg2, rb2, 120 * (1 - beatProgress) * flash)

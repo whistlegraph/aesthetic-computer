@@ -188,9 +188,18 @@ const CONFIG = {
     // per charge ONCE outside the pixel loop (never call hslToRgb per pixel).
     onPaint(api, s) {
       const { screen, num } = api;
-      const { pump, simMs } = s;
+      const { pump, simMs, quality } = s;
       const { width: w, height: h, pixels } = screen;
       if (!w || !h || !pixels) return;
+
+      // Adaptive cost: compute one pixel per stride×stride block and fill the
+      // block so coverage stays full. stride=1 at quality=1 (identical to now).
+      const q = quality ?? 1;
+      // At full quality render every pixel (identical to the original). As soon as
+      // the engine trims quality below full, jump straight to a 3×3 stride — it's a
+      // ~9× cost cut that reliably restores 60fps headroom, and the engine will
+      // climb quality back toward 1 (stride 1) whenever there's room to spare.
+      const stride = q >= 0.98 ? 1 : q >= 0.85 ? 2 : 3;
 
       // Assemble all charges (resident voices + tap sparks); precompute RGB once.
       const minWH = Math.min(w, h);
@@ -224,8 +233,8 @@ const CONFIG = {
       const gloss = 0.55 + bass * 0.35;          // rim brightness / glossiness
       const jig = (kick * 6) | 0;                // whole-goo jiggle in px
 
-      for (let y = 0; y < h; y++) {
-        for (let x = 0; x < w; x++) {
+      for (let y = 0; y < h; y += stride) {
+        for (let x = 0; x < w; x += stride) {
           let sx = x, sy = y;
           if (jig) {
             sx = x + ((Math.sin(y * 0.09 + simMs * 0.02) * jig) | 0);
@@ -248,27 +257,42 @@ const CONFIG = {
             field += kick * 3.2 * Math.exp(-(dd * dd) / 260);
           }
 
-          const i = (y * w + x) * 4;
-          if (field < 0.9 || wsum <= 0) {
+          // Resolve this sample to R,G,B (background vs iso-surface body).
+          let R, G, B;
+          const isBg = field < 0.9 || wsum <= 0;
+          if (isBg) {
             const bg = 8 + (y / h) * 14; // deep candy background, not flat black
-            pixels[i] = bg + 6; pixels[i + 1] = bg * 0.4; pixels[i + 2] = bg + 18;
-            pixels[i + 3] = 255;
-            continue;
+            R = bg + 6; G = bg * 0.4; B = bg + 18;
+          } else {
+            // Inside the iso-surface → glossy blob body with a bright rim.
+            r /= wsum; g /= wsum; b /= wsum;
+            const core = Math.min(1.6, field / 2.2);
+            const rim = field > 0.9 && field < 1.5 ? (1.5 - field) * gloss * 220 : 0;
+            R = r * core + rim;
+            G = g * core + rim * 0.9;
+            B = b * core + rim;
+            if (field > 3) { const spc = Math.min(80, (field - 3) * 26); R += spc; G += spc; B += spc; }
           }
 
-          // Inside the iso-surface → glossy blob body with a bright rim.
-          r /= wsum; g /= wsum; b /= wsum;
-          const core = Math.min(1.6, field / 2.2);
-          const rim = field > 0.9 && field < 1.5 ? (1.5 - field) * gloss * 220 : 0;
-          let R = r * core + rim;
-          let G = g * core + rim * 0.9;
-          let B = b * core + rim;
-          if (field > 3) { const spc = Math.min(80, (field - 3) * 26); R += spc; G += spc; B += spc; }
-          const dith = ((x + y) & 1) * 8; // ordered dither for candy texture
-          pixels[i] = Math.max(0, Math.min(255, R - dith));
-          pixels[i + 1] = Math.max(0, Math.min(255, G - dith * 0.7));
-          pixels[i + 2] = Math.max(0, Math.min(255, B - dith * 0.5));
-          pixels[i + 3] = 255;
+          // Fill the stride×stride block (clamped at edges); each pixel keeps its
+          // own per-pixel ordered dither so texture matches the stride=1 path.
+          const yEnd = y + stride < h ? y + stride : h;
+          const xEnd = x + stride < w ? x + stride : w;
+          for (let by = y; by < yEnd; by++) {
+            const row = by * w;
+            for (let bx = x; bx < xEnd; bx++) {
+              const i = (row + bx) * 4;
+              if (isBg) {
+                pixels[i] = R; pixels[i + 1] = G; pixels[i + 2] = B;
+              } else {
+                const dith = ((bx + by) & 1) * 8; // ordered dither for candy texture
+                pixels[i] = Math.max(0, Math.min(255, R - dith));
+                pixels[i + 1] = Math.max(0, Math.min(255, G - dith * 0.7));
+                pixels[i + 2] = Math.max(0, Math.min(255, B - dith * 0.5));
+              }
+              pixels[i + 3] = 255;
+            }
+          }
         }
       }
     },

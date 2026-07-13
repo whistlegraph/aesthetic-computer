@@ -151,8 +151,25 @@ const CONFIG = {
     // The per-pixel molten field, written DIRECTLY to native screen.pixels.
     onPaint(api, s) {
       const { ink, screen, num } = api;
-      const { pump, step, beatProgress, band, amp } = s;
+      const { pump, step, beatProgress, band, amp, quality } = s;
       const { width: w, height: h } = screen;
+
+      // ADAPTIVE QUALITY: this is a per-pixel field written straight to
+      // screen.pixels, so cost scales with pixel count. When the engine lowers
+      // ctx.quality (over the 60fps budget) we STRIDE the loop and fill each
+      // stride×stride block with one computed pixel — coverage stays full, cost
+      // drops ~stride². At quality=1 stride=1 → byte-for-byte identical to now.
+      //
+      // Molten is by far the heaviest per-pixel pad: 4 sines + smoothstep + a
+      // ripple loop + hslToRgb per computed pixel, at native res (~12fps at
+      // stride 1). Strides 2 and even 3 still leave it over the 60fps budget on
+      // this field, so the moment quality drops off full we go STRAIGHT to the
+      // deep cut — any quality < 1 → stride 5 (~25× fewer computed pixels, well
+      // under budget). One nudge settles it; no slow grind down through still-
+      // too-heavy stride-2/3 bands, and the extra headroom keeps the render fps
+      // pinned at 60 even through occasional compositing hitches. At quality == 1
+      // → stride 1, identical to now.
+      const stride = quality >= 0.995 ? 1 : 5;
 
       const beatPulse = 1 - beatProgress;
       const flow = phase;
@@ -162,7 +179,13 @@ const CONFIG = {
       const gyN = Number.isFinite(easedHeight) ? easedHeight : 0.5; // glow y, 0..1
       const gh = Number.isFinite(easedHue) ? easedHue : 30; // glow hue
       const pumpBright = Math.min(1, pump * 0.5); // taps brighten the whole field
-      const blend = 0.28; // light temporal smoothing — never accumulates
+      // Light temporal smoothing — never accumulates. Only at FULL quality: the
+      // prev-buffer read+blend and the trailing prev.set(pix) full-buffer copy
+      // are fixed O(pixels) costs that don't shrink with stride, so when the
+      // engine drops quality we skip the blend (already reduced detail → the
+      // subtle softening is an acceptable cut, and native stride=1 is untouched).
+      const doBlend = stride === 1;
+      const blend = 0.28;
 
       // —— DIRECT PROCEDURAL MOLTEN PLASMA (native screen.pixels, no runaway) ——
       // The field is a PURE FUNCTION of (x,y,time,music): layered sines DISPLACED
@@ -174,14 +197,14 @@ const CONFIG = {
         prev = new Uint8ClampedArray(pix.length);
       }
 
-      for (let y = 0; y < h; y++) {
+      for (let y = 0; y < h; y += stride) {
         const fyN = y / h;
         const ry = fyN * Math.PI * 2;
         const distG = Math.abs(fyN - gyN);
         const bandBright = Math.max(0, 1 - distG * 4.5);
         const dispY = Math.sin(ry * 3.0 + flow + rot) * disp;
         const rowBase = y * w;
-        for (let x = 0; x < w; x++) {
+        for (let x = 0; x < w; x += stride) {
           const fxN = x / w;
           const rx = fxN * Math.PI * 2;
           const dispX = Math.sin(rx * 2.4 + flow * 1.3 - rot) * disp;
@@ -229,17 +252,40 @@ const CONFIG = {
           const sat = 96 - intensity * 20;
           const [cr, cg, cb] = num.hslToRgb(hue, sat, light);
 
-          const di = (rowBase + x) * 4;
-          // Light temporal blend against the PREVIOUS PLASMA only.
-          pix[di] = cr * (1 - blend) + prev[di] * blend;
-          pix[di + 1] = cg * (1 - blend) + prev[di + 1] * blend;
-          pix[di + 2] = cb * (1 - blend) + prev[di + 2] * blend;
-          pix[di + 3] = 255;
+          // Fill the whole stride×stride block with this computed pixel (clamped
+          // at the right/bottom edges) so coverage stays full at reduced quality.
+          // At stride=1 this is exactly one write with the temporal blend against
+          // the PREVIOUS PLASMA — byte-for-byte identical to the original.
+          const yEnd = y + stride < h ? y + stride : h;
+          const xEnd = x + stride < w ? x + stride : w;
+          if (doBlend) {
+            const cri = cr * (1 - blend);
+            const cgi = cg * (1 - blend);
+            const cbi = cb * (1 - blend);
+            const di = (rowBase + x) * 4;
+            pix[di] = cri + prev[di] * blend;
+            pix[di + 1] = cgi + prev[di + 1] * blend;
+            pix[di + 2] = cbi + prev[di + 2] * blend;
+            pix[di + 3] = 255;
+          } else {
+            for (let by = y; by < yEnd; by++) {
+              const bBase = by * w;
+              for (let bx = x; bx < xEnd; bx++) {
+                const di = (bBase + bx) * 4;
+                pix[di] = cr;
+                pix[di + 1] = cg;
+                pix[di + 2] = cb;
+                pix[di + 3] = 255;
+              }
+            }
+          }
         }
       }
 
       // Snapshot the pure plasma (pre-overlay) for next frame's temporal blend.
-      prev.set(pix);
+      // Only needed while blending (full quality); skipping the full-buffer copy
+      // is a meaningful per-frame saving when quality is reduced.
+      if (doBlend) prev.set(pix);
 
       // —— CRISP NATIVE-RES OVERLAYS ON TOP ——
 

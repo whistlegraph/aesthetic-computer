@@ -187,12 +187,27 @@ export function paint(api) {
   // Adaptive quality: keep onPaint work inside the 60fps budget. Smooth the work
   // time and nudge `quality` every ~24 frames with a deadband so it doesn't
   // oscillate. Pads that ignore ctx.quality simply always render full detail.
+  //
+  // We watch TWO signals, because a pad's cost can land outside the onPaint()
+  // timing window (immediate-mode draw commands are queued here but flushed/
+  // composited/GPU-drawn later — that time shows up as a LOW render cadence, not
+  // a high workEMA). So: cut when EITHER onPaint work is over budget OR the
+  // render cadence has dropped below ~60fps; only restore when BOTH have headroom.
   const work = perfNow() - t0;
   workEMA += (work - workEMA) * 0.12;
   if (++qAdjust >= 24) {
     qAdjust = 0;
-    if (workEMA > 12) quality = Math.max(0.35, quality - 0.06); // over budget → cut
-    else if (workEMA < 7) quality = Math.min(1, quality + 0.03); // headroom → restore
+    const overBudget = workEMA > 12 || fpsEMA < 59; // slow paint OR shy of 60fps
+    const headroom = workEMA < 7 && fpsEMA > 59.5; // fast paint AND pinned at 60fps
+    if (overBudget) {
+      // Cut PROPORTIONALLY to how far under 60fps we are, so a badly-over-budget
+      // pad settles in a couple of nudges instead of crawling down 0.06 at a time
+      // (a slow ramp leaves many low-fps frames = a bad measured min). Gentle
+      // near the target, aggressive when deep in the red.
+      const deficit = Math.max(0, 60 - fpsEMA) / 60; // 0 (at 60) … ~0.7 (at 20fps)
+      const cut = Math.max(0.06, deficit * 0.5);
+      quality = Math.max(0.35, quality - cut);
+    } else if (headroom) quality = Math.min(1, quality + 0.03); // headroom → restore
   }
 }
 

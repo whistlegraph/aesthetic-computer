@@ -36,8 +36,12 @@ const TAP_NOTES = ["c", "d", "e", "g", "a"]; // pentatonic for taps
 
 // --- lavabath-specific state (the engine owns pump/bursts/rhythm/clock) ------
 let field = null; // small offscreen buffer {pixels,width,height}
-let BUF_W = 132; // small → the N-charge inverse-square loop stays smooth
-let BUF_H = 234;
+let BASE_BW = 132; // native (quality=1) buffer width — small keeps the loop smooth
+let BASE_BH = 234; // native buffer height (aspect-fit in onBoot)
+let BUF_W = 132; // effective (qstep-scaled) buffer width used this frame
+let BUF_H = 234; // effective buffer height
+let qstepCur = 1; // integer downscale in effect (buffer rebuilt only on change)
+let nativePasteSlow = false; // latched once the N=1 native paste proves too slow
 let charges = []; // { seed,cx,cy,orbitRX,orbitRY,speed,phase,hue,x,y,strength,life,fade,pulse }
 let time = 0; // smooth animation clock (seconds-ish)
 let downbeatPulse = 0; // decays after each beat, spikes on bar starts
@@ -50,15 +54,17 @@ function makeSeedCharge(i) {
   return {
     seed: true,
     // Periodic orbits → seamless loop. Each charge on its own ellipse.
-    cx: BUF_W * (0.3 + 0.4 * ((i % 3) / 2)),
-    cy: BUF_H * (0.22 + 0.56 * (i % 2)),
-    orbitRX: BUF_W * (0.18 + (0.1 * ((i * 7) % 5)) / 5),
-    orbitRY: BUF_H * (0.12 + (0.09 * ((i * 3) % 4)) / 4),
+    // Positions live in BASE (quality=1) buffer space; the render loop scales
+    // them by qstep when the buffer shrinks, so the look is stable.
+    cx: BASE_BW * (0.3 + 0.4 * ((i % 3) / 2)),
+    cy: BASE_BH * (0.22 + 0.56 * (i % 2)),
+    orbitRX: BASE_BW * (0.18 + (0.1 * ((i * 7) % 5)) / 5),
+    orbitRY: BASE_BH * (0.12 + (0.09 * ((i * 3) % 4)) / 4),
     speed: 0.4 + 0.22 * (i % 4), // integer-ish ratios → clean loop
     phase: (i / NCHARGES) * Math.PI * 2,
     hue: (i / NCHARGES) * 360,
-    x: BUF_W / 2,
-    y: BUF_H / 2,
+    x: BASE_BW / 2,
+    y: BASE_BH / 2,
     strength: 120 + i * 26,
     life: 1, // seed voices never die
     fade: 1, // current visibility 0..1 (seeds pinned to 1)
@@ -75,11 +81,18 @@ const CONFIG = {
       // Reverb for the wet field bloom.
       sound.room?.set?.({ enabled: true, mix: 0.3, feedback: 0.6 });
 
-      // Size the small buffer to the screen's aspect so the paste-up isn't skewed.
+      // Size the native (quality=1) buffer to the screen's aspect so the
+      // paste-up isn't skewed. Charge math lives in this BASE space; the render
+      // buffer may shrink below it when ctx.quality drops (see onPaint).
       if (screen?.width && screen?.height) {
-        BUF_W = 132;
-        BUF_H = Math.max(120, Math.round(BUF_W * (screen.height / screen.width)));
+        BASE_BW = 132;
+        BASE_BH = Math.max(120, Math.round(BASE_BW * (screen.height / screen.width)));
       }
+      BUF_W = BASE_BW;
+      BUF_H = BASE_BH;
+      qstepCur = 1;
+      nativePasteSlow = false; // re-probe the native paste cost this session
+      field = null; // force rebuild at native size on first paint
 
       // Seed the orbiting voices.
       charges = [];
@@ -188,16 +201,17 @@ const CONFIG = {
       // Recolor the engine's burst to this pitch.
       if (burst) burst.hue = hue;
 
-      // Spawn a fresh hot charge (a new VOICE) at the tap point in buffer space.
+      // Spawn a fresh hot charge (a new VOICE) at the tap point in BASE buffer
+      // space (the render loop scales to the effective buffer per-frame).
       if (charges.length < MAX_CHARGES) {
-        const bx = x * BUF_W;
-        const by = y * BUF_H;
+        const bx = x * BASE_BW;
+        const by = y * BASE_BH;
         charges.push({
           seed: false,
           cx: bx,
           cy: by,
-          orbitRX: BUF_W * 0.06,
-          orbitRY: BUF_H * 0.05,
+          orbitRX: BASE_BW * 0.06,
+          orbitRY: BASE_BH * 0.05,
           speed: 0.7 + Math.random() * 0.6,
           phase: Math.random() * Math.PI * 2,
           hue,
@@ -213,21 +227,89 @@ const CONFIG = {
 
     onPaint(api, s) {
       const { screen, num, page, paste, ink, painting } = api;
-      const { pump, bursts, amp, band } = s;
+      const { pump, bursts, amp, band, quality } = s;
 
-      // Lazily (re)build the offscreen field buffer at the right size.
-      const wantH = Math.max(120, Math.round(BUF_W * (screen.height / screen.width)));
-      if (!field || field.width !== BUF_W || field.height !== wantH) {
+      // Keep the native (quality=1) buffer aspect-locked to the screen.
+      BASE_BH = Math.max(120, Math.round(BASE_BW * (screen.height / screen.width)));
+
+      // ── ADAPTIVE QUALITY ──
+      // The engine lowers ctx.quality (1→0.35) when over the 60fps budget. For
+      // lavabath the real cost is NOT the metaball loop — it's compositing the
+      // field up to native: at q=1 the paste uses arbitrary target dims
+      // ({width,height}), which takes graph.mjs's SLOW grid-scale path (samples
+      // every native pixel each frame → ~19fps). So when quality drops we switch
+      // to an INTEGER-DIVISOR buffer sized to `screen / N` and paste back at an
+      // INTEGER scale N, which hits graph.mjs's fast nearest-neighbour Uint32
+      // block path (one write per source pixel). We also shrink the buffer, so
+      // BOTH the metaball loop AND the paste get cheaper.
+      //
+      // qstepCur now holds the INTEGER divisor N (1 = the original native paste,
+      // untouched at q=1; 2/3/4 = progressively cheaper fast-path pastes).
+      // HYSTERESIS: reallocating the painting() buffer stalls a frame, so each N
+      // owns a WIDE band with overlap — quality must travel well past an edge
+      // before we switch (and rebuild).
+      const q = quality ?? 1;
+      // The N=1 native ({width,height}) paste takes graph.mjs's SLOW grid-scale
+      // path — on this content that alone caps the frame at ~19fps, a hard cliff.
+      // The engine's controller always climbs quality toward 1 when it sees
+      // headroom (which N=2 has), so left unchecked it WOULD keep re-entering N=1
+      // and stalling. So we LATCH away from N=1 for the session the first time it
+      // proves too slow. We can't time the native paste directly — its cost lands
+      // off the onPaint clock, in GPU compositing — but the tell is unmistakable:
+      // if we're in N=1 yet the controller has ALREADY pulled quality below the
+      // top, the native paste couldn't hold 60fps. Latch, and the engine then
+      // settles at N=2 (screen/2 buffer + fast integer paste) at ~60fps while it
+      // even restores quality to 1.0. On a machine fast enough to hold 60 at N=1
+      // the latch never trips and q=1 stays byte-identical to before.
+      if (qstepCur <= 1 && q < 0.95) nativePasteSlow = true;
+
+      let N = qstepCur; // integer downscale in effect
+      if (qstepCur <= 1) {
+        if (nativePasteSlow || q < 0.9) N = 2; // fall to integer paste
+      } else if (qstepCur === 2) {
+        if (!nativePasteSlow && q >= 0.995) N = 1; // try native only if not latched
+        else if (q < 0.62) N = 3;
+      } else if (qstepCur === 3) {
+        if (q >= 0.8) N = 2;
+        else if (q < 0.45) N = 4;
+      } else {
+        if (q >= 0.6) N = 3; // climb out of the floor only with real headroom
+      }
+
+      // Effective buffer dims. N=1 → the ORIGINAL BASE buffer + native
+      // {width,height} paste (identical look to before). N≥2 → screen/N so the
+      // integer-scale paste tiles it exactly back to native.
+      // floor (not ceil) so BUF*N <= screen — the fast integer-paste path's
+      // bounds check (destX+destW <= width) then passes. Any ≤N-1px uncovered
+      // edge stays black (fine on the black lava field, and only at low quality).
+      const nativeMode = N <= 1;
+      const wantW = nativeMode ? BASE_BW : Math.floor(screen.width / N);
+      const wantH = nativeMode ? BASE_BH : Math.floor(screen.height / N);
+
+      // (Re)build the offscreen field buffer only when the size actually changes.
+      if (!field || field.width !== wantW || field.height !== wantH) {
+        BUF_W = wantW;
         BUF_H = wantH;
+        qstepCur = N;
         field = painting(BUF_W, BUF_H, () => {});
       }
+
+      // Scale charge positions (authored in BASE space) into the effective
+      // buffer so the field looks identical regardless of buffer size.
+      const qx = BUF_W / BASE_BW;
+      const qy = BUF_H / BASE_BH;
+
+      // When quality is low, also thin the active charge count to further cut
+      // the inner loop (each charge is an inverse-square term per pixel). Seed
+      // voices stay lit in score order; the newest tap voices are skipped first.
+      const nbAll = charges.length;
+      const nb = N >= 4 ? Math.min(nbAll, 6) : N >= 3 ? Math.min(nbAll, 8) : nbAll;
 
       // ── draw the heavy metaball field into the SMALL offscreen buffer ──
       page(field);
       const w = field.width;
       const h = field.height;
       const pixels = field.pixels;
-      const nb = charges.length;
 
       const bass = band("subBass");
 
@@ -244,8 +326,8 @@ const CONFIG = {
       const heat = 1 + liveBass * 1.0 + downbeatPulse * 0.8 + Math.min(0.9, pump * 0.35);
       for (let i = 0; i < nb; i++) {
         const c = charges[i];
-        cx[i] = c.x;
-        cy[i] = c.y;
+        cx[i] = c.x * qx; // BASE → effective-buffer space
+        cy[i] = c.y * qy;
         const hue = (c.hue + time * 20 + paletteShift) % 360;
         const light = Math.min(64, 42 + c.pulse * 22); // note-flash lifts lightness
         const rgb = num.hslToRgb(hue, 100, light); // returns 0-255
@@ -316,12 +398,22 @@ const CONFIG = {
       }
 
       // ── composite the field up to NATIVE resolution ──
+      // N=1 (quality high): the ORIGINAL arbitrary-dimension paste — unchanged
+      // look. N≥2: buffer is screen/N, so an INTEGER-scale paste tiles it exactly
+      // back to native via graph.mjs's fast nearest-neighbour block path (the win
+      // that actually lifts fps, since the slow grid-scale paste was the cost).
       page(screen);
-      paste(field, 0, 0, { width: screen.width, height: screen.height });
+      if (nativeMode) {
+        paste(field, 0, 0, { width: screen.width, height: screen.height });
+      } else {
+        paste(field, 0, 0, N); // integer upscale → fast Uint32 block path
+      }
 
       // ── crisp native-res overlays: voice cores + tap rings ──
-      const sx = screen.width / w;
-      const sy = screen.height / h;
+      // Charge positions are in BASE buffer space; map BASE → native screen
+      // (independent of the qstep-scaled render buffer).
+      const sx = screen.width / BASE_BW;
+      const sy = screen.height / BASE_BH;
       for (let i = 0; i < charges.length; i++) {
         const c = charges[i];
         if (c.pulse < 0.04) continue; // only sounding voices get a crisp halo

@@ -178,7 +178,7 @@ const CONFIG = {
 
     onPaint(api, s) {
       const { ink, screen, num, zoom, blur } = api;
-      const { pump, amp, band } = s;
+      const { pump, amp, band, quality = 1 } = s;
       const { width: w, height: h } = screen;
       const cx = w / 2, cy = h / 2;
       const maxR = Math.max(w, h) * 0.72; // tunnel reaches past the corners
@@ -212,7 +212,20 @@ const CONFIG = {
       // --- RADIAL STREAKS rushing outward. Each is a line segment from its inner
       // point toward the rim; length + brightness ∝ amp and speed. Hue climbs with
       // the sweep (warm→bright). Together they read as a warp tunnel accelerating. ---
-      for (const st of streaks) {
+      // ADAPTIVE COST: the streak loop is vroon's heaviest work (per-streak
+      // hslToRgb + line + circle). Scale how many we draw by ctx.quality — at
+      // quality=1 we draw the whole live population (identical look); when the
+      // engine cuts quality we thin the herd (drop the OLDEST/faintest first, so
+      // the freshest streaks near the core survive). Cap keeps the array ≤420.
+      const drawCount = Math.max(8, Math.round(streaks.length * quality));
+      const streakStart = streaks.length - drawCount; // skip the oldest when thinned
+      // The comet-TIP circle is a second ink() per streak (doubles the streak op
+      // count). It's an extra sparkle pass, not the tunnel itself, so drop it when
+      // the engine has cut quality — the line (the streak's body) always draws. At
+      // quality=1 (drawTips true) every tip renders exactly as before.
+      const drawTips = quality >= 0.6;
+      for (let si = streakStart; si < streaks.length; si++) {
+        const st = streaks[si];
         const d0 = st.dist;
         const d1 = Math.min(1.4, st.dist + st.len * (1 + speed * 0.3));
         const x0 = cx + Math.cos(st.ang) * d0 * maxR;
@@ -225,8 +238,9 @@ const CONFIG = {
         const thick = 1.2 + st.dist * (2.2 + speed * 0.6);
         ink(r0, g0, b0, Math.min(255, a)).line(x0, y0, x1, y1, thick);
         // A brighter leading tip near the outer end for a comet feel.
-        ink(Math.min(255, r0 + 80), Math.min(255, g0 + 80), 255,
-          Math.min(255, 220 * st.life)).circle(x1, y1, 1 + st.dist * 2.5, true);
+        if (drawTips)
+          ink(Math.min(255, r0 + 80), Math.min(255, g0 + 80), 255,
+            Math.min(255, 220 * st.life)).circle(x1, y1, 1 + st.dist * 2.5, true);
       }
 
       // --- SHOCKWAVE RINGS (stabs + taps blast expanding rings outward). ---
@@ -237,8 +251,10 @@ const CONFIG = {
         ink(255, 255, 255, 120 * r.life).circle(r.x, r.y, r.r * 0.6, false, 1);
       }
 
-      // --- Bloom on loud peaks so the tunnel feels like it's punching through. ---
-      if (amp > 0.4 || pump > 1) blur?.(1);
+      // --- Bloom on loud peaks so the tunnel feels like it's punching through.
+      // The blur is a full-frame extra pass — the priciest single op here — so
+      // skip it when the engine has cut quality (< 0.6). Full at quality=1. ---
+      if (quality >= 0.6 && (amp > 0.4 || pump > 1)) blur?.(1);
     },
   },
 };
