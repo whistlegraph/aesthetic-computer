@@ -1,7 +1,8 @@
 {
   "_comment": "Hand-curation from the trio (Alex, broad strokes) that the clustering pass can't derive. Applied by gen-model.mjs after clustering. renames: code -> canonical title. recodes: oldCode -> newCode (change a work's deep-link slug; its posts retag, pair with a rename keyed on the newCode for the title). merges: sourceCode -> targetCode (source's posts retag to the target, source work drops out; folded codes intentionally stop resolving and fall back to the index).",
   "renames": {
-    "bugy": "Buggy on The Wall"
+    "bugy": "Buggy on The Wall",
+    "pnda": "When I'm Sad I Whip My Pen"
   },
   "authors": {
     "ghst": "Alex Freundlich",
@@ -13,7 +14,10 @@
     "itme": "Jeffrey Alan Scudder",
     "rshu": "Alex Freundlich and Camille Klein",
     "simp": "Jeffrey Alan Scudder",
-    "1p2": "Jeffrey Alan Scudder"
+    "1p2": "Jeffrey Alan Scudder",
+    "pant": "Alex Freundlich",
+    "tipg": "Alex Freundlich and Camille Klein",
+    "frog": "Jeffrey Alan Scudder"
   },
   "recodes": {
     "cdh": "bugy"
@@ -44,6 +48,7 @@
     "tchsh": "techn",
     "xma3": "xma2",
     "tshee": "techn",
-    "boo": "appl"
+    "boo": "appl",
+    "c12": "tw12"
   }
 }

@@ -481,10 +481,15 @@ function pump(){
   const s=document.getElementById("idxSentinel");
   while(SHOWN<VIEW.length && s.getBoundingClientRect().top < innerHeight+400) renderMore();
 }
-function renderReset(){
+function renderReset(scrollTop){
   buildView();
   document.querySelector("#idx tbody").innerHTML=""; SHOWN=0;
   document.getElementById("idxEmpty").style.display=VIEW.length?"none":"";
+  // On a user sort/search change, jump back to the top of the list first — else
+  // the scroll position is kept and pump() back-fills rows to catch up to that
+  // depth, which looks like the new view has "more" entries. (It doesn't; the
+  // total is identical — this only changes how many are painted at once.)
+  if(scrollTop) document.getElementById("idxSearch").scrollIntoView({block:"start"});
   renderMore(); pump();
 }
 
@@ -516,7 +521,7 @@ fetch("/graphs.json").then(r=>r.json()).then(data=>{
     .observe(document.getElementById("idxSentinel"));
   // Live search filters title / code / author; re-fills from the top.
   const search=document.getElementById("idxSearch");
-  search.addEventListener("input",()=>{ curQuery=search.value; renderReset(); });
+  search.addEventListener("input",()=>{ curQuery=search.value; renderReset(true); });
   renderReset();
   document.getElementById("idxCount").textContent=COMPOSITIONS.length;
   // The example code randomizes each load — always one of the featured ten —
@@ -532,7 +537,7 @@ fetch("/graphs.json").then(r=>r.json()).then(data=>{
     document.querySelectorAll("#sortbar button").forEach(x=>x.classList.remove("on"));
     b.classList.add("on");
     curSort=b.dataset.sort==="featured"?null:b.dataset.sort;
-    renderReset();
+    renderReset(true);
   }));
   // Resolve any deep-link now that data exists.
   const c=location.pathname.replace(/\//g,""); if(BY[c])showDetail(c);
