@@ -3387,6 +3387,43 @@ app.whenReady().then(async () => {
 app.on('web-contents-created', (event, contents) => {
   // Only handle webviews
   if (contents.getType() === 'webview') {
+    // 🪵 Expose the production webview's console — the pad/piece runs inside this
+    // nested <webview>, which Electron does NOT surface as its own CDP target, so
+    // its console is otherwise invisible to any external probe. Forward every
+    // message (+ hard crashes) to the main process stdout AND a tailable log file
+    // (~/.ac-os/webview-console.log), so we can read client-side logs from the
+    // running app remotely — e.g. to catch a pad/tour crash in context.
+    try {
+      const acOsDir = path.join(os.homedir(), '.ac-os');
+      try { fs.mkdirSync(acOsDir, { recursive: true }); } catch {}
+      const logPath = path.join(acOsDir, 'webview-console.log');
+      const LEVELS = ['debug', 'info', 'warn', 'error'];
+      const append = (line) => {
+        try { fs.appendFileSync(logPath, line + '\n'); } catch {}
+      };
+      append(`\n──── webview attached ${new Date().toISOString()} ────`);
+      contents.on('console-message', (_e, level, message, line, sourceId) => {
+        const tag = LEVELS[level] || level;
+        const src = sourceId ? ` (${String(sourceId).split('/').pop()}:${line})` : '';
+        const entry = `[webview:${tag}] ${message}${src}`;
+        // Mirror errors/warnings to main stdout so they show in the app's log too.
+        if (level >= 2) console.log(entry);
+        append(`${new Date().toISOString()} ${entry}`);
+      });
+      contents.on('render-process-gone', (_e, details) => {
+        const entry = `[webview:CRASH] render-process-gone reason=${details?.reason} exitCode=${details?.exitCode}`;
+        console.log(entry);
+        append(`${new Date().toISOString()} ${entry}`);
+      });
+      contents.on('unresponsive', () => {
+        const entry = '[webview:HANG] unresponsive';
+        console.log(entry);
+        append(`${new Date().toISOString()} ${entry}`);
+      });
+    } catch (e) {
+      console.warn('[main] webview console forwarding setup failed:', e?.message);
+    }
+
     contents.on('will-navigate', (navEvent, url) => {
       if (!url) return;
       if (url.startsWith('ac://close')) {
