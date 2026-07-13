@@ -51,6 +51,10 @@ const renames = overrides.renames || {};
 const authors = overrides.authors || {}; // code → attribution ("Alex Freundlich", …)
 const recodes = overrides.recodes || {};
 const merges = overrides.merges || {};
+// twins: a video can hold two whistlegraphs — mirror one cluster's posts under a
+// NEW code+title so the same takes appear as a second work. [{code, title, from,
+// by?}] where `from` is the source cluster's own code (its original clips).
+const twins = overrides.twins || [];
 const mergeSources = new Set(Object.keys(merges));
 // Resolve a raw cluster code to the slug it appears under: apply a recode
 // (slug change) first, then a merge (fold into another work). Posts and the
@@ -163,6 +167,19 @@ for (const { cl, siteCode } of clusterSite) {
 for (const post of postsById.values()) {
   post.graphs = [...new Set(post.graphs.map(resolve))];
 }
+// Twin overrides: add a second code to the posts of a source cluster's OWN
+// clips, so those multi-whistlegraph videos also appear under the twin work.
+// (Uses the source cluster's original clips, not the post-merge set, so a fold
+// into the source doesn't leak into the twin.)
+const codeByCluster = new Map(codes.map((c) => [c.code, c]));
+for (const t of twins) {
+  const src = codeByCluster.get(t.from);
+  if (!src) { console.warn(`twin ${t.code}: source cluster ${t.from} not found`); continue; }
+  for (const id of src.clips) {
+    const p = postsById.get(id);
+    if (p && !p.graphs.includes(t.code)) p.graphs.push(t.code);
+  }
+}
 const posts = [...postsById.values()].sort((a, b) => (b.views || 0) - (a.views || 0));
 
 // Roll the posts up per code so a work's headline count/reach/thumb is the
@@ -224,8 +241,25 @@ const freshWorks = clusterSite
     };
   });
 
+// Twin works — a new entry per twin, its reach rolled up from the shared posts.
+const twinWorks = twins.map((t) => {
+  const r = rollup.get(t.code) || { n: 0, views: 0, thumb: null };
+  const src = codeByCluster.get(t.from);
+  return {
+    code: t.code,
+    title: t.title,
+    by: authors[t.code] || t.by || "Whistlegraph",
+    year: year(src?.span),
+    kind: "graph",
+    views: r.views,
+    perf: r.n,
+    c: "#b44887",
+    ...(r.thumb ? { thumb: r.thumb } : { noGlyph: true }),
+  };
+});
+
 const curated = liveWorks.slice(0, live.curated);
-const rest = [...liveWorks.slice(live.curated), ...freshWorks].sort((a, b) => b.views - a.views);
+const rest = [...liveWorks.slice(live.curated), ...freshWorks, ...twinWorks].sort((a, b) => b.views - a.views);
 const works = [...curated, ...rest];
 
 const graphsOut = {
