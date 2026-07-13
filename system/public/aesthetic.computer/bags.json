@@ -3,7 +3,7 @@
   "bags": {
     "pads": {
       "title": "pads",
-      "description": "self-running audiovisual instrument pads - tap or drag to play",
+      "description": "47 self-running audiovisual instrument pads - tap or drag to play",
       "color": "yellow",
       "items": [
         { "type": "piece", "code": "prism", "name": "prism" },
@@ -20,7 +20,39 @@
         { "type": "piece", "code": "vindle", "name": "vindle" },
         { "type": "piece", "code": "murmo", "name": "murmo" },
         { "type": "piece", "code": "wobbo", "name": "wobbo" },
-        { "type": "piece", "code": "vroon", "name": "vroon" }
+        { "type": "piece", "code": "vroon", "name": "vroon" },
+        { "type": "piece", "code": "wispo", "name": "wispo" },
+        { "type": "piece", "code": "zorb", "name": "zorb" },
+        { "type": "piece", "code": "plimo", "name": "plimo" },
+        { "type": "piece", "code": "glibo", "name": "glibo" },
+        { "type": "piece", "code": "vunn", "name": "vunn" },
+        { "type": "piece", "code": "quilo", "name": "quilo" },
+        { "type": "piece", "code": "nibbo", "name": "nibbo" },
+        { "type": "piece", "code": "torva", "name": "torva" },
+        { "type": "piece", "code": "flim", "name": "flim" },
+        { "type": "piece", "code": "brindo", "name": "brindo" },
+        { "type": "piece", "code": "cobo", "name": "cobo" },
+        { "type": "piece", "code": "loxa", "name": "loxa" },
+        { "type": "piece", "code": "zim", "name": "zim" },
+        { "type": "piece", "code": "gulmo", "name": "gulmo" },
+        { "type": "piece", "code": "trido", "name": "trido" },
+        { "type": "piece", "code": "varo", "name": "varo" },
+        { "type": "piece", "code": "nuxo", "name": "nuxo" },
+        { "type": "piece", "code": "pledo", "name": "pledo" },
+        { "type": "piece", "code": "sork", "name": "sork" },
+        { "type": "piece", "code": "mibo", "name": "mibo" },
+        { "type": "piece", "code": "dorf", "name": "dorf" },
+        { "type": "piece", "code": "quem", "name": "quem" },
+        { "type": "piece", "code": "velk", "name": "velk" },
+        { "type": "piece", "code": "jaxo", "name": "jaxo" },
+        { "type": "piece", "code": "hoom", "name": "hoom" },
+        { "type": "piece", "code": "sifo", "name": "sifo" },
+        { "type": "piece", "code": "rullo", "name": "rullo" },
+        { "type": "piece", "code": "tavo", "name": "tavo" },
+        { "type": "piece", "code": "wexo", "name": "wexo" },
+        { "type": "piece", "code": "ploo", "name": "ploo" },
+        { "type": "piece", "code": "dax", "name": "dax" },
+        { "type": "piece", "code": "vex", "name": "vex" }
       ]
     }
   }
