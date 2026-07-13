@@ -4486,12 +4486,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         bendGestureTarget = bendAmount
     }
 
-    /// Write "<seq> <noteName>" to the desktop-badge note signal file so the
-    /// blueberry sticker opens its mouth + floats a note. Fire-and-forget on a
-    /// utility queue; silently does nothing on machines without the badge dir.
+    /// Ping MacPal's star so it opens its mouth + floats a note. Two paths,
+    /// both fire-and-forget:
+    ///
+    ///  1. Write "<seq> <noteName>" to the desktop-badge note signal file (the
+    ///     original protocol, polled by the fuser-profile badges on neo/blueberry).
+    ///     No-op on machines without the badge dir — and the SANDBOXED App Store
+    ///     build can't write there at all (its container forbids ~/.local writes).
+    ///
+    ///  2. Post a distributed notification. This is the ONLY path the App Store
+    ///     build has (distributed notifications cross the sandbox; the file write
+    ///     doesn't). MacPal switches to this source on the first ping it hears,
+    ///     so the DMG build doing both never double-sings the star.
     private func emitBadgeNote(_ name: String) {
         badgeNoteSeq &+= 1
         let seq = badgeNoteSeq
+        // The note name rides in `object` (a sandboxed sender's userInfo is
+        // dropped by distnoted, so we don't rely on it). MacPal sings with a
+        // neutral tint if the object arrives nil.
+        DistributedNotificationCenter.default().postNotificationName(
+            NSNotification.Name("computer.aestheticcomputer.menuband.badgeNote"),
+            object: name.isEmpty ? nil : name,
+            userInfo: nil, deliverImmediately: true)
         let dir = NSString(string: "~/.local/share/desktop-badge").expandingTildeInPath
         DispatchQueue.global(qos: .utility).async {
             var isDir: ObjCBool = false

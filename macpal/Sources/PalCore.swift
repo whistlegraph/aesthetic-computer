@@ -308,6 +308,7 @@ final class PalController: NSObject {
     // Menu Band "sing" easter egg state.
     var singImage: NSImage?            // open-mouth pose for the current color
     var lastNoteSeq = -1               // last seq seen in the note signal (-1 = unread)
+    var noteViaNotification = false    // a Menu Band distributed note-ping arrived → stop polling the file (App Store Menu Band can't write it; avoids a double-sing when a DMG build does both)
     var singUntil: CFTimeInterval = 0  // hold the open mouth until this time
     var showingSing = false
 
@@ -469,6 +470,17 @@ final class PalController: NSObject {
             name: NSApplication.didChangeScreenParametersNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(accentChanged),
             name: NSColor.systemColorsDidChangeNotification, object: nil)
+        // Menu Band note-ping. The sandboxed (App Store) Menu Band can't write
+        // the note file, so it posts this instead — it's the star's only way to
+        // sing along with an App Store Menu Band. The first ping supersedes the
+        // file poll (see noteViaNotification) so a DMG build never double-sings.
+        DistributedNotificationCenter.default().addObserver(self, selector: #selector(badgeNotePinged(_:)),
+            name: NSNotification.Name("computer.aestheticcomputer.menuband.badgeNote"), object: nil)
+    }
+
+    @objc func badgeNotePinged(_ note: Notification) {
+        noteViaNotification = true
+        sing((note.object as? String) ?? "")
     }
 
     @objc func accentChanged() {
@@ -588,6 +600,9 @@ final class PalController: NSObject {
                 iv.image = glyphImages[min(glyphState, glyphImages.count - 1)]
             }
         }
+        // Once a distributed ping has arrived, that's our note source — the file
+        // poll would only re-sing the same notes (or nothing, for App Store builds).
+        if noteViaNotification { return }
         guard let raw = try? String(contentsOfFile: config.noteSignalFile, encoding: .utf8) else { return }
         let parts = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             .split(separator: " ", maxSplits: 1)
