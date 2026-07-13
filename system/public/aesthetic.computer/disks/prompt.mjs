@@ -1423,6 +1423,57 @@ async function halt($, text) {
 
   system.stopMerryPipeline = stopMerryPipeline;
 
+  // 🎒 Expand a ^bag token — optionally wrapped with a duration like `5-^pads`
+  // or `^pads:5` — into that bag's piece codes, re-applying the duration wrapper
+  // to each. Lets `merryo ^pads` / `mo5 ^pads` tour every piece in a bag using
+  // the existing merry logic. (Bags live in /aesthetic.computer/bags.json.)
+  let merryBagCache = null;
+  const expandMerryBags = async (params) => {
+    const out = [];
+    for (const raw of params) {
+      const param = (raw || "").trim();
+      if (!param) continue;
+      // Peel a duration wrapper off the token so it can re-wrap each piece.
+      let core = param,
+        durPrefix = "",
+        durSuffix = "";
+      const ci = param.indexOf(":");
+      const hi = param.indexOf("-");
+      if (ci > 0 && !isNaN(parseFloat(param.slice(ci + 1)))) {
+        core = param.slice(0, ci);
+        durSuffix = param.slice(ci);
+      } else if (hi > 0 && !isNaN(parseFloat(param.slice(0, hi)))) {
+        durPrefix = param.slice(0, hi + 1);
+        core = param.slice(hi + 1);
+      }
+      if (core.startsWith("^") && core.length > 1) {
+        const name = core.slice(1).toLowerCase();
+        if (!merryBagCache) {
+          try {
+            const res = await fetch("/aesthetic.computer/bags.json");
+            merryBagCache = (await res.json())?.bags || {};
+          } catch (err) {
+            console.warn("🎒 merry: could not load bags.json", err);
+            merryBagCache = {};
+          }
+        }
+        const bag = merryBagCache[name];
+        if (bag && Array.isArray(bag.items) && bag.items.length) {
+          console.log(`🎒 merry: expanding ^${name} → ${bag.items.length} pieces`);
+          for (const it of bag.items) {
+            const code = it.code || it.name;
+            if (code) out.push(durPrefix + code + durSuffix);
+          }
+          continue;
+        }
+        console.warn(`🎒 merry: no bag named ^${name} (or empty) — skipping`);
+        continue;
+      }
+      out.push(param);
+    }
+    return out;
+  };
+
   const activateMerry = async (
     pieceParams,
     { markAsTaping = false, flashOnSuccess = true, loop = false, originalCommand = "", fadeDuration = 0 } = {}
@@ -1433,6 +1484,9 @@ async function halt($, text) {
       notice("MERRY NEEDS PIECES", ["yellow", "red"]);
       return false;
     }
+
+    // 🎒 Expand any ^bag tokens (e.g. `merryo ^pads`, `mo5 ^pads`) into their pieces.
+    pieceParams = await expandMerryBags(pieceParams);
 
     stopMerryPipeline({ reason: "restart", jumpAfter: false, cutTape: false });
 
