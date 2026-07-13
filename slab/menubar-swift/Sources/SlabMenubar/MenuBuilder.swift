@@ -475,6 +475,11 @@ enum MenuBuilder {
         sigils.toolTip = "Pin a PromptRock — a named little stone hashed from the prompt text — to each session's terminal top-right, so prompts are distinguishable at a glance (shape + name per prompt; colour still follows status; hover or click a rock for its subject summary)"
         sub.addItem(sigils)
 
+        let lens = item("Zoom lens (⌃⌃)", selector: #selector(AppDelegate.toggleZoomLens), target: target)
+        lens.state = state.zoomLens ? .on : .off
+        lens.toolTip = "Tap ⌃ twice to magnify the window under the pointer up to fill the screen — live and still clickable, not a screenshot. ⌃⌃ again, or Esc, drops back out."
+        sub.addItem(lens)
+
         let preferIterm = item("Spawn in iTerm2", selector: #selector(AppDelegate.togglePreferIterm), target: target)
         preferIterm.state = state.preferIterm ? .on : .off
         preferIterm.toolTip = "Restore-threads and restart-all open sessions in iTerm2 instead of Terminal.app — the only terminal that shows the tiled, per-session topic wallpapers."

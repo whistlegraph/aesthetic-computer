@@ -98,6 +98,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// System-wide ⌃⌥⌘A → toggle Dark Mode across this host + tailscale macs.
     private var appearanceHotkey: GlobalHotkey?
 
+    /// ⌃⌃ → magnify the window under the pointer. Not a `GlobalHotkey`: Carbon
+    /// can only register a keycode+modifier chord, and a bare modifier tapped
+    /// twice isn't one. See CtrlDoubleTap.
+    private var zoomLensTap: CtrlDoubleTap?
+
     /// Macs (beyond this host) to flip when going dark/light. ssh aliases that
     /// resolve on the LAN/tailnet; unreachable ones are skipped silently.
     private static let appearanceHosts = ["panda", "chicken", "blueberry"]
@@ -166,6 +171,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             appearanceHotkey = appHotkey
         }
 
+        // ⌃⌃ magnifies the window under the pointer; ⌃⌃ again (or Esc) drops it.
+        // The tap listens always — the flag is checked at fire time, not here, so
+        // toggling the feature from the menu doesn't need to tear a tap down.
+        if ZoomLensBridge.isSupported {
+            let lensTap = CtrlDoubleTap { [weak self] in
+                guard let self = self, self.state.zoomLens else { return }
+                ZoomLensBridge.toggle()
+            }
+            if lensTap.start() { zoomLensTap = lensTap }
+        }
+
         // setDesktopImageURL only writes the wallpaper on the active Space of
         // each screen — macOS gives every Space its own wallpaper slot. To
         // keep all Spaces synced to the current tint we re-apply on each
@@ -193,6 +209,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         tileHotkey?.unregister()
         scatterHotkey?.unregister()
         appearanceHotkey?.unregister()
+        // Quitting mid-zoom must not leave the machine with an invisible cursor.
+        zoomLensTap?.stop()
+        ZoomLensBridge.restoreCursorOnExit()
         passphraseServer.stop()
         LedgerStore.shared.stop()
         NSWorkspace.shared.notificationCenter.removeObserver(self)
@@ -1274,6 +1293,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         state.promptSigils = nowOn
         PromptSigilOverlayController.shared.sync(
             sessions: state.claudeSessions, enabled: nowOn)
+        refresh()
+    }
+
+    /// Toggle the ⌃⌃ zoom lens. The tap keeps listening either way — this only
+    /// flips the flag it consults — so turning the lens back on is instant and
+    /// doesn't risk a tap that fails to re-arm. If the lens is up when it's
+    /// switched off, drop it now rather than stranding the pointer.
+    @objc func toggleZoomLens() {
+        // On by default; the marker exists only when explicitly disabled.
+        let path = Paths.zoomLensDisabledFlag
+        let fm = FileManager.default
+        let nowOn: Bool
+        if fm.fileExists(atPath: path) {
+            try? fm.removeItem(atPath: path)
+            nowOn = true
+        } else {
+            let dir = (path as NSString).deletingLastPathComponent
+            try? fm.createDirectory(atPath: dir, withIntermediateDirectories: true)
+            fm.createFile(atPath: path, contents: nil)
+            nowOn = false
+        }
+        state.zoomLens = nowOn
+        if !nowOn, ZoomLensBridge.isZoomed { ZoomLensBridge.toggle() }
         refresh()
     }
 
