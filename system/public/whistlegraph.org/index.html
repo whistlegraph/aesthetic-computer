@@ -160,6 +160,19 @@
   #detail .lbl{font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--margin); margin:0 0 7px}
   #detail .back{font-size:13px}
   #dVersions video.ver{width:300px; max-width:64vw; height:auto; border:1px solid var(--ink); background:#000; display:block; margin:6px 0 2px}
+  /* Posts gallery — every published appearance of a whistlegraph */
+  #dPosts .posts{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:14px 12px; clear:both}
+  .post{display:flex; flex-direction:column; font-size:11.5px}
+  .post .pv{width:100%; aspect-ratio:9/16; height:auto; border:1px solid var(--ink); background:#000; display:block}
+  .post audio.pv{aspect-ratio:auto; height:32px; background:transparent; border:0}
+  .post .pmeta{margin-top:5px; line-height:1.45; color:var(--dim)}
+  .post .pdate{color:var(--ink)}
+  .post .plink{color:var(--margin); text-decoration:none; white-space:nowrap}
+  .post .plink:hover{text-decoration:underline}
+  .post .pdesc{color:var(--dim); margin-top:3px; font-size:11px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical}
+  .post .pbadge{display:inline-block; font-size:9.5px; letter-spacing:.06em; text-transform:uppercase; border:1px solid var(--margin); color:var(--margin); border-radius:3px; padding:0 4px; margin-right:5px; vertical-align:1px}
+  .ktag{display:inline-block; font-size:10.5px; letter-spacing:.07em; text-transform:uppercase; border:1px solid var(--margin); color:var(--margin); border-radius:3px; padding:1px 6px; margin-left:9px; vertical-align:3px}
+  .row .ktag{font-size:9px; margin-left:6px; padding:0 4px}
   .clear{clear:both}
 </style>
 </head>
@@ -333,6 +346,7 @@
     <video id="dVideo" controls playsinline preload="metadata" loop crossorigin="anonymous"></video>
     <p class="dim" id="dGlyphCap" style="font-size:12.5px;display:none"></p>
     <div id="dVersions" style="display:none;clear:both"></div>
+    <div id="dPosts" style="display:none;clear:both"></div>
     <div class="clear"></div>
     <hr class="thick">
     <p class="back"><a href="/">← Back to the index</a></p>
@@ -352,9 +366,34 @@ const D={t:document.getElementById("dTitle"),by:document.getElementById("dBy"),c
   video:document.getElementById("dVideo"),videoRule:document.getElementById("dVideoRule"),
   glyphCap:document.getElementById("dGlyphCap"),perform:document.getElementById("dPerform"),
   performNote:document.getElementById("dPerformNote"),archiveNote:document.getElementById("dArchiveNote"),
-  canon:document.getElementById("dCanon"),canonWrap:document.getElementById("dCanonWrap")};
+  canon:document.getElementById("dCanon"),canonWrap:document.getElementById("dCanonWrap"),
+  posts:document.getElementById("dPosts")};
 
-let BY={}; // code → graph, filled once graphs.json loads.
+let BY={};              // code → whistlegraph work, filled once graphs.json loads.
+let POSTS_BY_CODE={};   // code → [posts], filled once posts.json loads.
+const KIND_LABEL={talk:"Talk",other:"Note"}; // songs (graph) carry no tag
+const esc=s=>String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+// A whistlegraph's posts — every published appearance, most-seen first —
+// rendered by media type with its own metadata (date · reach · source link).
+function renderPosts(code){
+  const posts=POSTS_BY_CODE[code]||[];
+  const P=D.posts;
+  if(!posts.length){ P.style.display="none"; P.innerHTML=""; return; }
+  const card=p=>{
+    const media=p.media==="audio"
+      ? `<audio class="pv" controls preload="none" src="${p.src}"></audio>`
+      : `<video class="pv" controls playsinline preload="none" loop${p.thumb?` poster="${p.thumb}"`:""} src="${p.src}"></video>`;
+    const stat=[p.views!=null?fmtViews(p.views)+" views":null,p.likes?fmtViews(p.likes)+" likes":null].filter(Boolean).join(" · ");
+    const plat=p.platform&&p.platform!=="tiktok"?`<span class="pbadge">${esc(p.platform)}</span>`:"";
+    return `<div class="post">${media}<div class="pmeta">${plat}<span class="pdate">${p.date||""}</span>`+
+      (stat?` · <span class="pstat">${stat}</span>`:"")+
+      ` &nbsp;<a class="plink" href="${p.url}" target="_blank" rel="noopener">${p.platform==="tiktok"?"TikTok":"open"} ↗</a>`+
+      (p.desc?`<div class="pdesc">${esc(p.desc)}</div>`:"")+`</div></div>`;
+  };
+  P.innerHTML=`<hr><p class="lbl">${posts.length} post${posts.length>1?"s":""}</p><div class="posts">${posts.map(card).join("")}</div>`;
+  P.style.display="";
+}
 
 function rowHTML(w){
   const thumb=w.noGlyph
@@ -362,7 +401,7 @@ function rowHTML(w){
     : `<img loading="lazy" alt="Final glyph of ${w.title}" src="${IDX}/${w.asset||w.code}.jpg">`;
   return `<td class="th"><a href="/${w.code}">${thumb}</a></td>`+
     `<td class="cd"><span class="sw" style="--c:${w.c}"></span>[<a href="/${w.code}">${w.code}</a>]</td>`+
-    `<td class="ti"><a href="/${w.code}">${w.title}</a><span class="by">${w.by}${w.perf>1?` · ${w.perf} videos`:""}</span></td>`+
+    `<td class="ti"><a href="/${w.code}">${w.title}</a>${KIND_LABEL[w.kind]?`<span class="ktag">${KIND_LABEL[w.kind]}</span>`:""}<span class="by">${w.by}${w.perf>1?` · ${w.perf} posts`:""}</span></td>`+
     `<td class="yr">${w.year}</td>`;
 }
 function addRow(tb,w){
@@ -406,10 +445,16 @@ function renderIndex(key){
   }
 }
 
+// Posts load in parallel; group by the whistlegraph code(s) each is tagged
+// with (a post can appear under more than one work). Detail pages read this.
+fetch("/posts.json").then(r=>r.ok?r.json():{posts:[]}).then(pd=>{
+  for(const p of pd.posts||[]) for(const code of p.graphs||[]) (POSTS_BY_CODE[code]||=[]).push(p);
+  // Refresh a detail page that opened before posts arrived.
+  const c=location.pathname.replace(/\//g,""); if(c&&BY[c]&&det.classList.contains("on"))renderPosts(c);
+}).catch(()=>{});
+
 fetch("/graphs.json").then(r=>r.json()).then(data=>{
   GRAPHS=data.graphs; CURATED_N=data.curated;
-  // Research tab is retired for now (per @minanimals) — experiments live in
-  // the main archive alongside everything else until we design that section.
   COMPOSITIONS=GRAPHS.slice();
   EXPERIMENTS=GRAPHS.filter(w=>w.kind==="experiment");
   BY=Object.fromEntries(data.graphs.map(w=>[w.code,w]));
@@ -435,8 +480,9 @@ fetch("/graphs.json").then(r=>r.json()).then(data=>{
 
 function showDetail(code){
   const w=BY[code]; if(!w) return showIndex();
-  D.t.textContent=w.title;
-  D.by.innerHTML=`Composed by ${w.by} &nbsp;<b>·</b>&nbsp; ${w.year}`;
+  const posts=POSTS_BY_CODE[code]||[];
+  D.t.innerHTML=esc(w.title)+(KIND_LABEL[w.kind]?`<span class="ktag">${KIND_LABEL[w.kind]}</span>`:"");
+  D.by.innerHTML=`Composed by ${esc(w.by)} &nbsp;<b>·</b>&nbsp; ${w.year}`;
   D.code.textContent=w.code;
   if(w.slug){ // curated — score sheet + card-player + (maybe) drawn canonical
     D.performNote.style.display=""; D.archiveNote.style.display="none";
@@ -449,25 +495,28 @@ function showDetail(code){
     if(w.canonical){D.canon.src="/canonical/imab.mp4";D.canonWrap.style.display="";}
     else{D.canonWrap.style.display="none";D.canon.removeAttribute("src");}
     D.video.classList.remove("wide");
-  }else{ // recovered — glyph poster + the sung take, no score sheet
+  }else{ // recovered — the posts themselves lead; no drawn score sheet
     D.performNote.style.display="none"; D.archiveNote.style.display="";
     D.scoreWrap.style.display="none"; D.canonWrap.style.display="none"; D.canon.removeAttribute("src");
     D.videoRule.style.display=""; D.glyphCap.style.display="none"; D.glyphCap.textContent="";
     D.video.classList.toggle("wide",!!w.wide); // the Longest film is landscape
     const aset=w.asset||w.code; // renamed codes keep their original CDN asset key
-    D.video.poster=w.noGlyph?"":`${IDX}/${aset}.jpg`;
-    D.video.src=`${IDX}/${aset}.mp4`;
-    // Rebuild the note in full every time. The film override replaces the
-    // whole innerHTML (dropping the shared #dStats child), so reusing that
-    // child would leave the film's provenance stuck on every later graph.
-    const views=`${fmtViews(w.views)} views`+(w.perf>1?` across ${w.perf} videos`:"");
+    const hero=posts[0]; // most-seen post fronts the record
+    D.video.poster=hero&&hero.thumb?hero.thumb:(w.noGlyph?"":`${IDX}/${aset}.jpg`);
+    D.video.src=hero?hero.src:`${IDX}/${aset}.mp4`;
+    // Metadata summarized from the posts: reach + span of appearances.
+    const yrs=posts.map(p=>p.date&&p.date.slice(0,4)).filter(Boolean).sort();
+    const span=yrs.length?(yrs[0]===yrs[yrs.length-1]?yrs[0]:`${yrs[0]}–${yrs[yrs.length-1]}`):(w.year||"");
+    const n=posts.length||w.perf||0;
+    const meta=`${fmtViews(w.views)} views`+(n>1?` · ${n} posts`:"")+(span?` · ${span}`:"");
     if(w.film){ // the Rhizome film, not a TikTok take — its own provenance + glyph
-      D.archiveNote.innerHTML=`Code <code>${w.code}</code> &nbsp; — &nbsp; ${views} &nbsp;·&nbsp; the ~22-minute <a href="https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/">Rhizome commission</a>, chalk on a 4×6 blackboard.`;
+      D.archiveNote.innerHTML=`Code <code>${w.code}</code> &nbsp; — &nbsp; ${fmtViews(w.views)} views &nbsp;·&nbsp; the ~22-minute <a href="https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/">Rhizome commission</a>, chalk on a 4×6 blackboard.`;
       D.glyphCap.textContent="The glyph is the whole piece, transcribed as one score."; D.glyphCap.style.display="";
     }else{
-      D.archiveNote.innerHTML=`Code <code>${w.code}</code> &nbsp; — &nbsp; ${views} &nbsp;·&nbsp; recovered from the <a href="https://www.tiktok.com/@whistlegraph">TikTok archive</a>.`;
+      D.archiveNote.innerHTML=`Code <code>${w.code}</code> &nbsp; — &nbsp; ${meta} &nbsp;·&nbsp; from the <a href="https://www.tiktok.com/@whistlegraph">@whistlegraph archive</a>.`;
     }
   }
+  renderPosts(code); // the full gallery of appearances, by media type
   const dv=document.getElementById("dVersions");
   if(w.versions&&w.versions.length){
     dv.innerHTML=`<hr><p class="lbl">Performances</p>`+w.versions.map(v=>`<video class="ver" controls playsinline preload="metadata" loop src="${v.url}"></video><p class="dim" style="font-size:12px;margin:2px 0 10px">${v.title||v.label}</p>`).join("");
@@ -480,7 +529,7 @@ function showIndex(){
   det.classList.remove("on"); idx.classList.remove("off");
   D.video.pause(); D.video.removeAttribute("src"); D.video.load();
   D.canon.pause();
-  document.querySelectorAll("#dVersions video").forEach(v=>v.pause());
+  document.querySelectorAll("#dVersions video, #dPosts video, #dPosts audio").forEach(v=>v.pause());
   document.title="Whistlegraph — a drawing you sing";
 }
 function go(code){ history.pushState({code},"",`/${code}`); showDetail(code); }

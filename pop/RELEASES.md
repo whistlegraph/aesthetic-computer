@@ -69,10 +69,9 @@ Open follow-ups (queued, not blockers):
 - **Bundle:** `~/Documents/Shelf/americomputadora/` (master wav, tagged mp3,
   3000×3000 cover, canvas mp4). Uploaded to DistroKid and LIVE same day,
   2026-07-04. **On the AC CDN (2026-07-12):** `assets.aesthetic.computer/pop/americomputadora.mp3`
-  + `.jpg` cover (canvas mp4 still on the Shelf — upload flat as
-  `pop/americomputadora.mp4` when self-hosting the Canvas). Remaining: attach
-  the Canvas in Spotify for Artists + paste the Spotify link here once it
-  surfaces in search/S4A.
+  + `.jpg` cover + `-canvas.mp4` (the 8 s Seedance loop). Remaining: attach the
+  Canvas in Spotify for Artists + paste the Spotify link here once it surfaces
+  in search/S4A.
 
 ---
 
@@ -870,9 +869,9 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
   cover embedded; upload assets staged in `~/Documents/Shelf/momboba/`
   (MASTER.wav + momabobasheep.mp3 + momabobasheep-cover-3000.png). **On the
   AC CDN (2026-07-12):** `assets.aesthetic.computer/pop/momabobasheep.mp3` +
-  `.jpg` cover + `.mp4` (bunny-reel). TODO: Spotify Canvas upload via Spotify
-  for Artists once the track goes live (`momabobasheep-canvas.mp4`, staged on
-  the Shelf).
+  `.jpg` cover + `.mp4` (bunny-reel) + `-canvas.mp4`. TODO: Spotify Canvas
+  upload via Spotify for Artists once the track goes live (`momabobasheep-canvas.mp4`
+  now on the CDN, ready to attach in S4A).
 - **Promo (2026-06-12):** full-motion 9:16 set via the Seedance lane —
   8 felt story beats (`pop/momboba/reel/`, gpt-image-2) animated through
   `bin/gen-motion-momabobasheep-reel.mjs` (door-morph entrance,
