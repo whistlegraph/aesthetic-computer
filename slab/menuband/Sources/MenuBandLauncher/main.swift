@@ -1,10 +1,13 @@
 // MenuBandLauncher — tiny always-running helper.
 //
-// Job: watch for a double-tap of the right-Command key, and if Menu
+// Job: watch for a double-tap of the RIGHT Command key, and if Menu
 // Band's main process isn't running, launch it. When Menu Band IS
-// running, the launcher no-ops because the main app has its own
-// equivalent handler in AppDelegate.startRightCommandTapMonitor —
-// firing both would toggle focus capture twice.
+// running, the launcher no-ops.
+//
+// Right ⌘ specifically — not "either ⌘". The original accepted both sides, so
+// any two ⌘ presses within the window counted (left-left, left-right,
+// right-left), and ordinary two-handed ⌘ use would summon the app. The side is
+// now enforced; see `handle(type:event:)`.
 //
 // CGEventTap variant: an earlier version used
 // NSEvent.addGlobalMonitorForEvents, which silently delivered zero
@@ -114,11 +117,35 @@ final class Launcher {
             return
         }
 
+        // RIGHT ⌘ only. We used to accept either side, so any two ⌘ taps
+        // inside the window fired the launcher — left-left, left-right,
+        // right-left. That made a plain ⌘-key drum-roll (or just reaching for
+        // ⌘C twice) summon Menu Band. The side was already being computed and
+        // then thrown away; now it decides.
+        //
+        // The device bits are the authority when present, since some keyboards
+        // report keycode 55 for BOTH sides. Fall back to the keycode when
+        // neither bit is set.
+        let isRight: Bool
+        if (rawFlags & Self.nxDeviceRCmd) != 0 {
+            isRight = true
+        } else if (rawFlags & Self.nxDeviceLCmd) != 0 {
+            isRight = false
+        } else {
+            isRight = (keyCode == Self.rightCommandKeyCode)
+        }
+        guard isRight else {
+            // A left ⌘ doesn't just fail to count — it breaks the chain, so it
+            // can't be the first half of a right-⌘ double-tap.
+            lastPressAt = 0
+            return
+        }
+
         let now = CACurrentMediaTime()
         if now - lastPressAt <= Self.doubleTapWindow {
             lastPressAt = 0
             let running = isMenuBandRunning()
-            NSLog("MenuBandLauncher: double-tap ⌘ (\(side)) detected; menuband running=\(running)")
+            NSLog("MenuBandLauncher: double-tap right-⌘ detected; menuband running=\(running)")
             if !running {
                 launchMenuBand()
             }
