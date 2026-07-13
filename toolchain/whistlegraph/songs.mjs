@@ -52,6 +52,7 @@ const KNOWN = [
   ["Flower Eater", "looked for so long for the one"],
   ["It's Too Hot, No It's Not", "its too hot no its not"],
   ["Empty Soda Cup", "empty soda cup"],
+  ["Empty Soda Cup", "bush outside my house"], // same song, the verse that skips the "soda cup" hook
   ["Crawling in the Corner", "crawling in the corner"],
   ["Distant Hills", "distant hills"],
   ["Giant's Building", "giants building"],
@@ -116,16 +117,55 @@ for (const cluster of clusters) {
   cluster.knownTitle = known ? known[0] : null;
 }
 
-// Merge clusters that resolved to the same known title — greedy shingle
-// clustering can split one song across a few takes whose wording drifts
-// (the studio version vs a beatboxed intro); the title is ground truth.
+// Seed-anchored split — undo bridge-merges. A single video can hold more than
+// one whistlegraph; lyric 3-gram similarity then chains two distinct songs
+// through that bridge clip into one cluster (Scared of Stairs pulled into
+// Butterfly Cosplayer, My Neighbor into Empty Soda Cup). When a cluster's
+// clips collectively sing more than one KNOWN song, split it back apart: each
+// clip joins every seeded song it actually sings — a bridge clip lands in
+// several, which downstream becomes a post tagged with several codes — and an
+// unseeded clip falls to whichever sub-song its lyrics most resemble. This runs
+// BEFORE the title-merge so the freed halves rejoin their standalone twins.
+const seedTitles = (text) => {
+  const hit = new Set();
+  for (const [title, phrase] of KNOWN) if (text.includes(phrase)) hit.add(title);
+  return [...hit];
+};
+const split = [];
+for (const cluster of clusters) {
+  const titles = new Set();
+  for (const m of cluster.members) for (const t of seedTitles(m.lyr)) titles.add(t);
+  if (titles.size <= 1) { split.push(cluster); continue; }
+  const subs = new Map([...titles].map((t) => [t, { knownTitle: t, members: [] }]));
+  const unseeded = [];
+  for (const m of cluster.members) {
+    const ts = seedTitles(m.lyr);
+    if (ts.length) for (const t of ts) subs.get(t).members.push(m); // multi-tag
+    else unseeded.push(m);
+  }
+  for (const m of unseeded) { // ambiguous take → nearest sub by shingle overlap
+    let best = null, score = -1;
+    for (const sub of subs.values()) {
+      const s = sub.members.reduce((mx, x) => Math.max(mx, jaccard(m.sh, x.sh)), 0);
+      if (s > score) { score = s; best = sub; }
+    }
+    (best ?? subs.values().next().value).members.push(m);
+  }
+  for (const sub of subs.values()) if (sub.members.length) split.push(sub);
+}
+
+// Merge clusters (and split sub-clusters) that resolved to the same known
+// title — greedy shingle clustering and the split both scatter one song across
+// takes; the title is ground truth. Dedupe clips so a bridge take that landed
+// in two same-title subs isn't double-counted.
 const merged = [];
 const byTitle = new Map();
-for (const cluster of clusters) {
+for (const cluster of split) {
   if (cluster.knownTitle) {
     const home = byTitle.get(cluster.knownTitle);
     if (home) {
-      home.members.push(...cluster.members);
+      const seen = new Set(home.members.map((m) => m.id));
+      for (const m of cluster.members) if (!seen.has(m.id)) home.members.push(m);
       continue;
     }
     byTitle.set(cluster.knownTitle, cluster);

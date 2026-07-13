@@ -398,7 +398,7 @@ function renderPosts(code){
 function rowHTML(w){
   const thumb=w.noGlyph
     ? `<span class="sw noglyph" style="--c:${w.c}"></span>`
-    : `<img loading="lazy" alt="Final glyph of ${w.title}" src="${IDX}/${w.asset||w.code}.jpg">`;
+    : `<img loading="lazy" alt="Final glyph of ${w.title}" src="${w.thumb||`${IDX}/${w.asset||w.code}.jpg`}">`;
   return `<td class="th"><a href="/${w.code}">${thumb}</a></td>`+
     `<td class="cd"><span class="sw" style="--c:${w.c}"></span>[<a href="/${w.code}">${w.code}</a>]</td>`+
     `<td class="ti"><a href="/${w.code}">${w.title}</a>${KIND_LABEL[w.kind]?`<span class="ktag">${KIND_LABEL[w.kind]}</span>`:""}<span class="by">${w.by}${w.perf>1?` · ${w.perf} posts`:""}</span></td>`+

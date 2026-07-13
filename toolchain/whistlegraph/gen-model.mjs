@@ -34,7 +34,12 @@ const rd = (p) => JSON.parse(readFileSync(p, "utf8"));
 const codes = rd(join(D, "CODES.json")).songs;
 const songs = rd(join(D, "SONGS.json")).songs;
 const catalog = rd(join(D, "CATALOG.json")).videos;
-const live = rd(join(SITE, "graphs.json"));
+// Curation anchor is the ORIGINAL 264-work file (the curated ten, Alex's
+// attributions, renamed-code assets, the Longest film) — a stable snapshot,
+// NOT the live graphs.json. Reading the live file would re-absorb whatever the
+// last run wrote, so a re-cluster could never drop a stale/duplicate work.
+// Everything outside these 264 is derived fresh from CODES.json each run.
+const live = rd(join(D, "curation-seed.json"));
 const priorSnap = existsSync("/tmp/CODES-before.json") ? rd("/tmp/CODES-before.json").songs : [];
 
 const catById = new Map(catalog.map((v) => [v.id, v]));
@@ -73,8 +78,28 @@ const clusterSite = codes.map((cl) => {
   }
   let siteCode = cl.code, best = 0;
   for (const [lc, n] of votes) if (n > best) { best = n; siteCode = lc; }
-  return { cl, siteCode, reclaimed: best > 0 };
+  return { cl, siteCode, reclaimed: best > 0, best };
 });
+
+// De-merge safeguard: once a song is split apart (Scared of Stairs out of
+// Butterfly), both halves may still overlap the old merged live work and try
+// to reclaim its code — which would silently re-merge them here. Let only the
+// strongest claimant keep a given live code; the rest become their own works.
+const strongest = new Map();
+for (const cs of clusterSite) if (cs.reclaimed) {
+  const cur = strongest.get(cs.siteCode);
+  if (!cur || cs.best > cur.best) strongest.set(cs.siteCode, cs);
+}
+for (const cs of clusterSite) if (cs.reclaimed && strongest.get(cs.siteCode) !== cs) {
+  cs.siteCode = cs.cl.code; cs.reclaimed = false;
+}
+
+// When a live code ends up hosting a seed-KNOWN song, that song's canonical
+// title is ground truth — it corrects a stale live label (code "soda" was
+// titled "My Neighbor" while actually holding Empty Soda Cup). Unseeded works
+// keep their curated live title (turt "Turtle One Line", srce "The Source").
+const seedTitle = new Map();
+for (const [code, cs] of strongest) if (cs.reclaimed && cs.cl.known) seedTitle.set(code, cs.cl.title);
 
 // ── posts.json ──────────────────────────────────────────────────────────
 // One post per clip, tagged with its cluster's site code. (A clip lives in
@@ -111,6 +136,17 @@ for (const { cl, siteCode } of clusterSite) {
 }
 const posts = [...postsById.values()].sort((a, b) => (b.views || 0) - (a.views || 0));
 
+// Roll the posts up per code so a work's headline count/reach/thumb is the
+// truth of what's actually tagged to it — the index and the record page then
+// agree (they read from the same posts), and the split shows real numbers.
+const rollup = new Map(); // code → {n, views, thumb}
+for (const p of posts) for (const code of p.graphs) {
+  const r = rollup.get(code) || { n: 0, views: 0, thumb: null };
+  r.n += 1; r.views += p.views || 0;
+  if (!r.thumb && p.thumb) r.thumb = p.thumb; // posts are view-sorted → top post's thumb
+  rollup.set(code, r);
+}
+
 // ── graphs.json (works) ─────────────────────────────────────────────────
 // Preserve every live work verbatim; append every non-reclaimed cluster as a
 // fresh work (all kinds visible). Curated ten stay first; the rest sort by
@@ -120,22 +156,34 @@ const kindByLiveCode = new Map(clusterSite.filter((c) => c.reclaimed).map((c) =>
 
 // "experiment" was a retired tab — normalize it back to a graph.
 const normKind = (k) => (k === "experiment" ? "graph" : k);
-const liveWorks = live.graphs.map((e) => ({ ...e, kind: normKind(e.kind || kindByLiveCode.get(e.code) || "graph") }));
+const liveWorks = live.graphs.map((e) => {
+  const r = rollup.get(e.code);
+  return {
+    ...e,
+    ...(seedTitle.has(e.code) ? { title: seedTitle.get(e.code) } : {}), // canonical seed title corrects stale labels
+    kind: normKind(e.kind || kindByLiveCode.get(e.code) || "graph"),
+    ...(r ? { views: r.views, perf: r.n } : {}), // accurate reach/count from tagged posts
+    ...(r?.thumb ? { thumb: r.thumb } : {}),
+  };
+});
 const liveCodeSet = new Set(liveWorks.map((e) => e.code));
 
 const freshWorks = clusterSite
   .filter((c) => !c.reclaimed && !liveCodeSet.has(c.cl.code))
-  .map(({ cl }) => ({
-    code: cl.code,
-    title: cl.title,
-    by: "Whistlegraph",
-    year: year(cl.span),
-    kind: cl.kind,
-    views: cl.views,
-    perf: cl.performances,
-    c: "#b44887",
-    ...(audioOnly.size && cl.clips.every((id) => !hasGlyph(id)) ? { noGlyph: true } : {}),
-  }));
+  .map(({ cl }) => {
+    const r = rollup.get(cl.code) || { n: cl.performances, views: cl.views, thumb: null };
+    return {
+      code: cl.code,
+      title: cl.title,
+      by: "Whistlegraph",
+      year: year(cl.span),
+      kind: cl.kind,
+      views: r.views,
+      perf: r.n,
+      c: "#b44887",
+      ...(r.thumb ? { thumb: r.thumb } : { noGlyph: true }),
+    };
+  });
 
 const curated = liveWorks.slice(0, live.curated);
 const rest = [...liveWorks.slice(live.curated), ...freshWorks].sort((a, b) => b.views - a.views);
