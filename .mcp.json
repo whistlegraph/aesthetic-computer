@@ -49,6 +49,13 @@
         "slab/bin/prox-mcp.mjs"
       ]
     },
+    "cal": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "slab/bin/cal-mcp.mjs"
+      ]
+    },
     "memory": {
       "type": "stdio",
       "command": "node",
