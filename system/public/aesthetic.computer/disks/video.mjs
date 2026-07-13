@@ -477,8 +477,37 @@ function paint({
       }
     }
 
-    // 🔙 Back-to-cap button replaces the gif/mp4/zip export trio while we
-    // optimize for the cap → review → re-cap → post loop.
+    // 📥 GIF / MP4 / ZIP export trio, stacked in the bottom-right corner.
+    // When the POST button is visible (tape not yet posted) the stack sits
+    // just above it; on an already-posted tape (e.g. !code) POST is hidden
+    // so the trio starts flush with the bottom.
+    const exportRowH = 22;
+    let exportBottom = postBtn ? 6 + exportRowH : 6;
+
+    if (!zipBtn) {
+      zipBtn = new ui.TextButton("ZIP", { right: 6, bottom: exportBottom, screen });
+    }
+    zipBtn.reposition({ right: 6, bottom: exportBottom, screen }, "ZIP");
+    zipBtn.disabled = disableExports;
+    zipBtn.paint(api);
+    exportBottom += exportRowH;
+
+    if (!mp4Btn) {
+      mp4Btn = new ui.TextButton("MP4", { right: 6, bottom: exportBottom, screen });
+    }
+    mp4Btn.reposition({ right: 6, bottom: exportBottom, screen }, "MP4");
+    mp4Btn.disabled = disableExports;
+    mp4Btn.paint(api);
+    exportBottom += exportRowH;
+
+    if (!gifBtn) {
+      gifBtn = new ui.TextButton("GIF", { right: 6, bottom: exportBottom, screen });
+    }
+    gifBtn.reposition({ right: 6, bottom: exportBottom, screen }, "GIF");
+    gifBtn.disabled = disableExports;
+    gifBtn.paint(api);
+
+    // 🔙 Back-to-cap button (bottom-left) for the cap → review → re-cap loop.
     if (!backBtn) {
       backBtn = new ui.TextButton("Back", { left: 6, bottom: 6, screen });
     }
