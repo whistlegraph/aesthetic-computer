@@ -40,6 +40,81 @@ new color appears on the **next login or lock/unlock (⌃⌘Q)**, when accessibi
 prefs get re-read. Blueberry's blue is also baked into `blueberry-join.sh` (step 5/5)
 so a fresh rejoin restores it.
 
+## Ableton Live
+
+Two scripts extend the colour-as-identity convention into Live and let neo's tuned
+Live settings propagate to the other Macs.
+
+### `ableton-theme.mjs` — tint Live to each Mac's macOS accent
+
+The **macOS accent colour is the source of truth**: each host's Live is tinted to the
+hue of whatever `AppleAccentColor` that Mac is set to. Change it in System Settings >
+Appearance, re-run, and Live follows. Mirrors the cursor mapping — **neo = green,
+blueberry = blue**.
+
+```bash
+node ableton-theme.mjs                 # every host, matched to its own accent
+node ableton-theme.mjs blueberry       # just blueberry
+node ableton-theme.mjs --set-accent    # also write each Mac's fleet-identity accent first
+node ableton-theme.mjs neo 300         # one-off hue override (degrees)
+node ableton-theme.mjs neo --intensity 80
+```
+
+Live 12 dropped loadable custom themes — a `.ask` in `User Library/Themes/` is ignored,
+even after a restart. What Live 12 offers instead is native **Color Hue (0–360)** and
+**Color Intensity (0–100)** sliders under Settings > Theme & Colors > Customization, and
+the only way to reach them is Live's UI. So the script drives those sliders over
+Accessibility (`AXIncrement`/`AXDecrement`, since they reject `set value`). Consequences:
+**Live must be running and the Mac unlocked**, and because the slider values live in
+`Preferences.cfg`, an `ableton-sync.sh` run carries the source's hue to the target — so
+re-run this after any sync (the sync script prints that reminder).
+
+### `ableton-tiny.mjs` — make Live a tiny concern
+
+```bash
+node ableton-tiny.mjs                  # every host: 50% zoom, smallest window
+node ableton-tiny.mjs blueberry        # just blueberry
+node ableton-tiny.mjs neo --zoom 75 --size 900x600
+node ableton-tiny.mjs blueberry --reset  # back to 100% zoom, roomy window
+```
+
+Drives Live's native **Zoom** slider (Settings > Display & Input, 50–200%) and resizes the window.
+`720x579 @ 50%` is genuinely as small as Live goes — measured by asking for a `{1,1}` window and
+reading back what it clamped to. Ask for less and Live silently ignores you.
+
+> The window rect is **not** stored in the `.als` — Live keeps it globally — so a set can't carry
+> its own geometry. Homogenizing the window means re-running this after a set opens, not baking it
+> into a template.
+
+### Live's global modals
+
+Live throws app-modal alerts (most often **"Audio is disabled. Please choose an audio output
+device"** on a Mac with no audio device selected) that **block every other Accessibility call** —
+automation that ignores them just hangs. They are also not addressable as normal dialogs:
+`click button "OK" of window 1` fails with `-1728`. The OK button actually lives at
+`button 1 of group 1 of window 1`, and both scripts above dismiss it before doing anything else.
+
+When AX can't see a dialog at all, fall back to **vision**: `frame <machine>` (see `slab/bin/frame`)
+returns the AX tree *and* OCR with click coordinates, so you can locate the button visually and
+click its coordinate. That observe→act loop is the general escape hatch for any Ableton automation
+that stalls.
+
+### `ableton-sync.sh` — copy neo's Live settings to the fleet
+
+```bash
+bash ableton-sync.sh all               # neo -> blueberry chicken panda
+bash ableton-sync.sh blueberry         # neo -> blueberry
+SOURCE=chicken bash ableton-sync.sh neo
+```
+
+Copies `Preferences.cfg`, `Library.cfg`, User Remote Scripts, and the User Library from
+the source (default neo) to each target — theme, UI zoom, audio device, warp/record/launch
+defaults, plug-in paths. Safe because the Macs are the same model (`Mac17,5`), so even the
+Core Audio device selection lands correctly. The target's settings folder is backed up to
+`Live <version>.bak-<timestamp>` first. It **refuses to run while Live is open** on the
+target, because Live rewrites `Preferences.cfg` on quit and would clobber the sync. After a
+sync, run `node ableton-theme.mjs <host>` to restore that Mac's own accent-matched tint.
+
 ## SSH mesh
 
 `fleet-keys.pub` holds every fleet Mac's public identity key
