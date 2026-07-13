@@ -41,6 +41,16 @@ const catalog = rd(join(D, "CATALOG.json")).videos;
 // Everything outside these 264 is derived fresh from CODES.json each run.
 const live = rd(join(D, "curation-seed.json"));
 const priorSnap = existsSync("/tmp/CODES-before.json") ? rd("/tmp/CODES-before.json").songs : [];
+// Hand-curation the clustering can't derive (the trio's broad-strokes notes):
+//   renames  code → canonical title (title-only songs whose hook is never sung)
+//   merges   sourceCode → targetCode (fold separately-clustered takes into one
+//            whistlegraph; the source's posts retag to the target, the source
+//            work drops out, and /sourceCode falls back to the index)
+const overrides = existsSync(join(D, "overrides.json")) ? rd(join(D, "overrides.json")) : {};
+const renames = overrides.renames || {};
+const merges = overrides.merges || {};
+const mergeSources = new Set(Object.keys(merges));
+const resolve = (code) => merges[code] || code; // follow one merge hop
 
 const catById = new Map(catalog.map((v) => [v.id, v]));
 const songByGlyph = new Map(); // cluster glyph id → its SONGS cluster (for clip metadata)
@@ -139,6 +149,11 @@ for (const { cl, siteCode } of clusterSite) {
     if (!post.graphs.includes(siteCode)) post.graphs.push(siteCode);
   }
 }
+// Apply merge overrides: retag each post's codes to their merge target so the
+// rollup (and every record page) aggregates the folded-in takes under one work.
+for (const post of postsById.values()) {
+  post.graphs = [...new Set(post.graphs.map(resolve))];
+}
 const posts = [...postsById.values()].sort((a, b) => (b.views || 0) - (a.views || 0));
 
 // Roll the posts up per code so a work's headline count/reach/thumb is the
@@ -161,11 +176,14 @@ const kindByLiveCode = new Map(clusterSite.filter((c) => c.reclaimed).map((c) =>
 
 // "experiment" was a retired tab — normalize it back to a graph.
 const normKind = (k) => (k === "experiment" ? "graph" : k);
-const liveWorks = live.graphs.map((e) => {
+const liveWorks = live.graphs.filter((e) => !mergeSources.has(e.code)).map((e) => {
   const r = rollup.get(e.code);
+  // Title precedence: an explicit rename wins, else a canonical seed title
+  // corrects a stale live label, else keep the curated title.
+  const title = renames[e.code] ?? (seedTitle.has(e.code) ? seedTitle.get(e.code) : undefined);
   return {
     ...e,
-    ...(seedTitle.has(e.code) ? { title: seedTitle.get(e.code) } : {}), // canonical seed title corrects stale labels
+    ...(title !== undefined ? { title } : {}),
     kind: normKind(e.kind || kindByLiveCode.get(e.code) || "graph"),
     ...(r ? { views: r.views, perf: r.n } : {}), // accurate reach/count from tagged posts
     ...(r?.thumb ? { thumb: r.thumb } : {}),
@@ -174,12 +192,12 @@ const liveWorks = live.graphs.map((e) => {
 const liveCodeSet = new Set(liveWorks.map((e) => e.code));
 
 const freshWorks = clusterSite
-  .filter((c) => !c.reclaimed && !liveCodeSet.has(c.cl.code))
+  .filter((c) => !c.reclaimed && !liveCodeSet.has(c.cl.code) && !mergeSources.has(c.cl.code))
   .map(({ cl }) => {
     const r = rollup.get(cl.code) || { n: cl.performances, views: cl.views, thumb: null };
     return {
       code: cl.code,
-      title: cl.title,
+      title: renames[cl.code] ?? cl.title,
       by: "Whistlegraph",
       year: year(cl.span),
       kind: cl.kind,

@@ -1,0 +1,12 @@
+{
+  "_comment": "Hand-curation from the trio (Alex, broad strokes) that the clustering pass can't derive — title-only songs whose hook never appears in the sung lyric, and merges of separately-clustered takes into one canonical whistlegraph. Applied by gen-model.mjs after clustering. renames: code -> canonical title. merges: sourceCode -> targetCode (source's posts retag to the target, source work drops out; old /sourceCode falls back to the index).",
+  "renames": {
+    "wg4": "It Me"
+  },
+  "merges": {
+    "hlfn": "imab",
+    "knkm": "wg4",
+    "wtm": "enuf",
+    "more": "enuf"
+  }
+}
