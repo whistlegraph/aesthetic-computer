@@ -29,24 +29,28 @@ C=$((S/2)); ROUT=$((S/2 - 16)); RHOLE=$((S*27/256)); RCLAMP=$((S*25/128)); RCLAM
  +append -resize ${S}x${S}\! -distort Polar 0 -resize ${S}x${S}\! \
  -colorspace sRGB -type TrueColor "$TMP/wheel.png"
 
-# ── 2. brushed-silver base, rainbow dissolved over → iridescent metal ──────
-"$MAGICK" -size ${S}x${S} radial-gradient:'gray90-gray62' -colorspace sRGB -type TrueColor "$TMP/silver.png"
-"$MAGICK" "$TMP/silver.png" "$TMP/wheel.png" \
-  -compose dissolve -define compose:args=56 -composite \
-  -modulate 108,124,100 "$TMP/sheen.png"
+# ── 2. bright glassy silver base; rainbow dissolved VERY lightly and
+#       desaturated → a translucent shiny disc with just a whisper of the
+#       diffraction sheen (classic pressed-CD look, not a rainbow wheel) ────
+"$MAGICK" -size ${S}x${S} radial-gradient:'gray98-gray70' -colorspace sRGB -type TrueColor "$TMP/silver.png"
+"$MAGICK" "$TMP/silver.png" \
+  \( "$TMP/wheel.png" -modulate 100,45,100 \) -compose dissolve -define compose:args=26 -composite \
+  \( "$TMP/wheel.png" -rotate 90 -modulate 100,40,100 \) -compose dissolve -define compose:args=14 -composite \
+  -modulate 104,100,100 "$TMP/sheen.png"
 
-# ── 3. hub clamp rings + soft specular streak ──────────────────────────────
-"$MAGICK" -size ${S}x${S} xc:none -stroke 'rgba(255,255,255,0.30)' -strokewidth 6 -fill none \
+# ── 3. hub clamp rings + soft glossy sweep + hot sparkle ───────────────────
+"$MAGICK" -size ${S}x${S} xc:none -stroke 'rgba(255,255,255,0.35)' -strokewidth 6 -fill none \
   -draw "circle $C,$C $C,$((C-RCLAMP))" -draw "circle $C,$C $C,$((C-RCLAMPO))" "$TMP/clamp.png"
-"$MAGICK" -size ${S}x${S} xc:none -fill 'rgba(255,255,255,0.26)' \
-  -draw "translate $C,$C rotate -30 ellipse 0,0 $((S/2-60)),64 210,330" \
-  -blur 0x40 "$TMP/spec.png"
+"$MAGICK" -size ${S}x${S} xc:none \
+  -fill 'rgba(255,255,255,0.32)' -draw "translate $C,$C rotate -28 ellipse 0,0 $((S/2-60)),148 205,335" -blur 0x80 \
+  -fill 'rgba(255,255,255,0.55)' -draw "translate $((C-156)),$((C-192)) ellipse 0,0 96,40 0,360" -blur 0x44 "$TMP/gloss.png"
 
-# ── 4. alpha mask: disc with center hole; assemble the disc ────────────────
+# ── 4. alpha mask (disc + hole), rim shade, assemble ───────────────────────
 "$MAGICK" -size ${S}x${S} xc:black -fill white -draw "circle $C,$C $C,$((C-ROUT))" \
   -fill black -draw "circle $C,$C $C,$((C-RHOLE))" -blur 0x1 "$TMP/amask.png"
 "$MAGICK" "$TMP/sheen.png" "$TMP/clamp.png" -compose over -composite \
-  "$TMP/spec.png" -compose screen -composite \
+  "$TMP/gloss.png" -compose screen -composite \
+  \( -size ${S}x${S} radial-gradient:'none-rgba(0,0,0,0.18)' \) -compose over -composite \
   "$TMP/amask.png" -alpha off -compose CopyOpacity -composite "$ASSETS/$NAME-cd.png"
 
 # roster mascot = the bare disc (back up the original wizard art once)

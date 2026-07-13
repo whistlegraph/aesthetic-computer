@@ -153,6 +153,7 @@ for (const p of files) {
   tracks.push({
     path: p,
     title,
+    artist: "Aesthetic Dot Computer",
     lane: laneDirRel,
     backend: backendFor(laneTop, laneDirRel),
     status: relInfo?.status || "UNRELEASED",

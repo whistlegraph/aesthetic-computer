@@ -25,6 +25,7 @@ struct JukeData: Codable {
 struct TrackLinks: Codable { var spotify: String?; var apple: String?; var youtube: String?; var distrokid: String? }
 struct MediaItem: Codable { var kind: String; var path: String }
 struct TrackMeta: Codable {
+    var artist: String?
     var backend: String?
     var status: String?
     var updated: String?
@@ -114,7 +115,7 @@ final class Library {
 
     // a pop-library.json (from pop/bin/pop-library.mjs): tracks + status/meta.
     private struct LibEntry: Codable {
-        var path: String; var title: String?; var lane: String?
+        var path: String; var title: String?; var artist: String?; var lane: String?
         var backend: String?; var status: String?; var updated: String?
         var revisions: Int?; var bytes: Int?; var durationSec: Double?
         var bpm: Int?; var key: String?; var releaseDate: String?
@@ -130,7 +131,7 @@ final class Library {
             guard !seen.contains(key), FileManager.default.fileExists(atPath: f.path) else { continue }
             seen.insert(key)
             let t = Track(url: f, lane: e.lane ?? f.deletingLastPathComponent().lastPathComponent, title: e.title)
-            t.meta = TrackMeta(backend: e.backend, status: e.status, updated: e.updated,
+            t.meta = TrackMeta(artist: e.artist, backend: e.backend, status: e.status, updated: e.updated,
                                revisions: e.revisions, bytes: e.bytes, durationSec: e.durationSec,
                                bpm: e.bpm, key: e.key, releaseDate: e.releaseDate,
                                art: e.art, media: e.media, links: e.links)

@@ -1,10 +1,11 @@
 {
-  "generated": "2026-07-12T23:13:16.736Z",
+  "generated": "2026-07-13T03:46:31.009Z",
   "count": 104,
   "tracks": [
     {
       "path": "/Users/jas/aesthetic-computer/pop/americomputadora/out/americomputadora.mp3",
       "title": "americomputadora",
+      "artist": "Aesthetic Dot Computer",
       "lane": "americomputadora",
       "backend": "C engine",
       "status": "RELEASED",
@@ -27,6 +28,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/out/fluttabap360.mp3",
       "title": "fluttabap360",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba",
       "backend": "C engine",
       "status": "RELEASED",
@@ -78,6 +80,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/momboba/out/momabobasheep.mp3",
       "title": "momabobasheep",
+      "artist": "Aesthetic Dot Computer",
       "lane": "momboba",
       "backend": "C engine",
       "status": "RELEASED",
@@ -121,6 +124,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/big-pictures/out/amaythingra.mp3",
       "title": "amaythingra",
+      "artist": "Aesthetic Dot Computer",
       "lane": "big-pictures",
       "backend": "C engine",
       "status": "RELEASED",
@@ -143,6 +147,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/out/marimbaba.mp3",
       "title": "marimbaba",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba",
       "backend": "C engine",
       "status": "RELEASED",
@@ -194,6 +199,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/chillwave/out/helpabeach.mp3",
       "title": "helpabeach",
+      "artist": "Aesthetic Dot Computer",
       "lane": "chillwave",
       "backend": "JS DSP",
       "status": "RELEASED",
@@ -216,6 +222,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/dance/out/trancenwaltz.mp3",
       "title": "trancenwaltz",
+      "artist": "Aesthetic Dot Computer",
       "lane": "dance",
       "backend": "C engine",
       "status": "RELEASED",
@@ -238,6 +245,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/jungle/out/solafiya.mp3",
       "title": "solafiya",
+      "artist": "Aesthetic Dot Computer",
       "lane": "jungle",
       "backend": "JS DSP",
       "status": "MASTERING",
@@ -260,6 +268,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/dance/out/cutezenwaltzi.mp3",
       "title": "cutezenwaltzi",
+      "artist": "Aesthetic Dot Computer",
       "lane": "dance",
       "backend": "C engine",
       "status": "WIP",
@@ -282,6 +291,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/nullabye/out/nullabata.mp3",
       "title": "nullabata",
+      "artist": "Aesthetic Dot Computer",
       "lane": "nullabye",
       "backend": "C engine",
       "status": "WIP",
@@ -304,6 +314,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/teknull/out/teknull.mp3",
       "title": "teknull",
+      "artist": "Aesthetic Dot Computer",
       "lane": "teknull",
       "backend": "JS DSP",
       "status": "WIP",
@@ -326,6 +337,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/nullabye/out/nuellaby.mp3",
       "title": "nuellaby",
+      "artist": "Aesthetic Dot Computer",
       "lane": "nullabye",
       "backend": "C engine",
       "status": "WIP",
@@ -348,6 +360,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/nullabye/out/nullabye.mp3",
       "title": "nullabye",
+      "artist": "Aesthetic Dot Computer",
       "lane": "nullabye",
       "backend": "C engine",
       "status": "WIP",
@@ -370,6 +383,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/out/flatterbop180.mp3",
       "title": "flatterbop180",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -387,6 +401,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/menuband/out/vo.mp3",
       "title": "vo",
+      "artist": "Aesthetic Dot Computer",
       "lane": "menuband",
       "backend": "JS DSP",
       "status": "UNRELEASED",
@@ -404,6 +419,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/wattajetta/out/wattajetta.mp3",
       "title": "wattajetta",
+      "artist": "Aesthetic Dot Computer",
       "lane": "wattajetta",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -421,6 +437,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/cutezen/out/cutezenith.mp3",
       "title": "cutezenith",
+      "artist": "Aesthetic Dot Computer",
       "lane": "cutezen",
       "backend": "JS DSP",
       "status": "UNRELEASED",
@@ -438,6 +455,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/cutezen/out/cutezip.mp3",
       "title": "cutezip",
+      "artist": "Aesthetic Dot Computer",
       "lane": "cutezen",
       "backend": "JS DSP",
       "status": "UNRELEASED",
@@ -455,6 +473,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/cutezen/out/cutezen.mp3",
       "title": "cutezen",
+      "artist": "Aesthetic Dot Computer",
       "lane": "cutezen",
       "backend": "JS DSP",
       "status": "UNRELEASED",
@@ -472,6 +491,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/out/_cmp.mp3",
       "title": "_cmp",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -489,6 +509,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/out/_solo_scr.mp3",
       "title": "_solo_scr",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -506,6 +527,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/out/_solo_bell.mp3",
       "title": "_solo_bell",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -523,6 +545,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/out/flutterbap.mp3",
       "title": "flutterbap",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -540,6 +563,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/pianotrax.mp3",
       "title": "pianotrax",
+      "artist": "Aesthetic Dot Computer",
       "lane": "maytrax",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -557,6 +581,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/cornerfive/out/cornerfive-footwork.mp3",
       "title": "cornerfive-footwork",
+      "artist": "Aesthetic Dot Computer",
       "lane": "cornerfive",
       "backend": "JS DSP",
       "status": "UNRELEASED",
@@ -574,6 +599,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/cornerfive/out/cornerfive-dub.mp3",
       "title": "cornerfive-dub",
+      "artist": "Aesthetic Dot Computer",
       "lane": "cornerfive",
       "backend": "JS DSP",
       "status": "UNRELEASED",
@@ -591,6 +617,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/cornerfive/out/cornerfive-musicbox.mp3",
       "title": "cornerfive-musicbox",
+      "artist": "Aesthetic Dot Computer",
       "lane": "cornerfive",
       "backend": "JS DSP",
       "status": "UNRELEASED",
@@ -608,6 +635,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/cornerfive/out/cornerfive.mp3",
       "title": "cornerfive",
+      "artist": "Aesthetic Dot Computer",
       "lane": "cornerfive",
       "backend": "JS DSP",
       "status": "UNRELEASED",
@@ -625,6 +653,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/lullabies/out/hushabye.mp3",
       "title": "hushabye",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba/lullabies",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -642,6 +671,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/lullabies/out/driftwoodbaba.mp3",
       "title": "driftwoodbaba",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba/lullabies",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -659,6 +689,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/lullabies/out/spiralbaba.mp3",
       "title": "spiralbaba",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba/lullabies",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -676,6 +707,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/lullabies/out/meadowbaba.mp3",
       "title": "meadowbaba",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba/lullabies",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -693,6 +725,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/lullabies/out/velvetbaba.mp3",
       "title": "velvetbaba",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba/lullabies",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -710,6 +743,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/lullabies/out/snowbaba.mp3",
       "title": "snowbaba",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba/lullabies",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -727,6 +761,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/lullabies/out/cometbaba.mp3",
       "title": "cometbaba",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba/lullabies",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -744,6 +779,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/lullabies/out/lanternbaba.mp3",
       "title": "lanternbaba",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba/lullabies",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -761,6 +797,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/lullabies/out/prismbaba.mp3",
       "title": "prismbaba",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba/lullabies",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -778,6 +815,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/lullabies/out/tidebaba.mp3",
       "title": "tidebaba",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba/lullabies",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -795,6 +833,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/lullabies/out/waltzbaba.mp3",
       "title": "waltzbaba",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba/lullabies",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -812,6 +851,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/lullabies/out/tuckbaba.mp3",
       "title": "tuckbaba",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba/lullabies",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -829,6 +869,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/lullabies/out/toybaba.mp3",
       "title": "toybaba",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba/lullabies",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -846,6 +887,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/lullabies/out/starbaba.mp3",
       "title": "starbaba",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba/lullabies",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -863,6 +905,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/lullabies/out/rockingbaba.mp3",
       "title": "rockingbaba",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba/lullabies",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -880,6 +923,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/lullabies/out/pentababa.mp3",
       "title": "pentababa",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba/lullabies",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -897,6 +941,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/lullabies/out/musicboxbaba.mp3",
       "title": "musicboxbaba",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba/lullabies",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -914,6 +959,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/lullabies/out/moonbaba.mp3",
       "title": "moonbaba",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba/lullabies",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -931,6 +977,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/lullabies/out/mistbaba.mp3",
       "title": "mistbaba",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba/lullabies",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -948,6 +995,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/lullabies/out/minorbaba.mp3",
       "title": "minorbaba",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba/lullabies",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -965,6 +1013,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/lullabies/out/lydianbaba.mp3",
       "title": "lydianbaba",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba/lullabies",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -982,6 +1031,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/lullabies/out/gamelanbaba.mp3",
       "title": "gamelanbaba",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba/lullabies",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -999,6 +1049,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/lullabies/out/flybaba.mp3",
       "title": "flybaba",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba/lullabies",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1016,6 +1067,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/lullabies/out/dorianbaba.mp3",
       "title": "dorianbaba",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba/lullabies",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1033,6 +1085,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/lullabies/out/deepbaba.mp3",
       "title": "deepbaba",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba/lullabies",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1050,6 +1103,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/lullabies/out/_template.mp3",
       "title": "_template",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba/lullabies",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1067,6 +1121,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/minitek/out/rumbletek.mp3",
       "title": "rumbletek",
+      "artist": "Aesthetic Dot Computer",
       "lane": "minitek",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1084,6 +1139,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/minitek/out/glitchtek.mp3",
       "title": "glitchtek",
+      "artist": "Aesthetic Dot Computer",
       "lane": "minitek",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1101,6 +1157,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/minitek/out/brokentek.mp3",
       "title": "brokentek",
+      "artist": "Aesthetic Dot Computer",
       "lane": "minitek",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1118,6 +1175,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/minitek/out/deeptek.mp3",
       "title": "deeptek",
+      "artist": "Aesthetic Dot Computer",
       "lane": "minitek",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1135,6 +1193,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/minitek/out/peaktek.mp3",
       "title": "peaktek",
+      "artist": "Aesthetic Dot Computer",
       "lane": "minitek",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1152,6 +1211,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/minitek/out/dubtek.mp3",
       "title": "dubtek",
+      "artist": "Aesthetic Dot Computer",
       "lane": "minitek",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1169,6 +1229,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/minitek/out/acidtek.mp3",
       "title": "acidtek",
+      "artist": "Aesthetic Dot Computer",
       "lane": "minitek",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1186,6 +1247,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/minitek/out/hypnotek.mp3",
       "title": "hypnotek",
+      "artist": "Aesthetic Dot Computer",
       "lane": "minitek",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1203,6 +1265,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/minitek/out/minitek.mp3",
       "title": "minitek",
+      "artist": "Aesthetic Dot Computer",
       "lane": "minitek",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1220,6 +1283,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/lumitrax.mp3",
       "title": "lumitrax",
+      "artist": "Aesthetic Dot Computer",
       "lane": "maytrax",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1237,6 +1301,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/cavetrax.mp3",
       "title": "cavetrax",
+      "artist": "Aesthetic Dot Computer",
       "lane": "maytrax",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1254,6 +1319,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/dusktrax.mp3",
       "title": "dusktrax",
+      "artist": "Aesthetic Dot Computer",
       "lane": "maytrax",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1271,6 +1337,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/frosttrax.mp3",
       "title": "frosttrax",
+      "artist": "Aesthetic Dot Computer",
       "lane": "maytrax",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1288,6 +1355,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/glasstrax.mp3",
       "title": "glasstrax",
+      "artist": "Aesthetic Dot Computer",
       "lane": "maytrax",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1305,6 +1373,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/mosstrax.mp3",
       "title": "mosstrax",
+      "artist": "Aesthetic Dot Computer",
       "lane": "maytrax",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1322,6 +1391,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/embertrax.mp3",
       "title": "embertrax",
+      "artist": "Aesthetic Dot Computer",
       "lane": "maytrax",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1339,6 +1409,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/tidetrax.mp3",
       "title": "tidetrax",
+      "artist": "Aesthetic Dot Computer",
       "lane": "maytrax",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1356,6 +1427,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/dewtrax.mp3",
       "title": "dewtrax",
+      "artist": "Aesthetic Dot Computer",
       "lane": "maytrax",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1373,6 +1445,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/sinetrax.mp3",
       "title": "sinetrax",
+      "artist": "Aesthetic Dot Computer",
       "lane": "maytrax",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1390,6 +1463,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/maytrax-c.mp3",
       "title": "maytrax-c",
+      "artist": "Aesthetic Dot Computer",
       "lane": "maytrax",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1407,6 +1481,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/maytrax/out/maytrax.mp3",
       "title": "maytrax",
+      "artist": "Aesthetic Dot Computer",
       "lane": "maytrax",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1424,6 +1499,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/hopehop/out/hopehop.mp3",
       "title": "hopehop",
+      "artist": "Aesthetic Dot Computer",
       "lane": "hopehop",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1441,6 +1517,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/out/kikbouba.mp3",
       "title": "kikbouba",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1458,6 +1535,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/out/bonggabap.mp3",
       "title": "bonggabap",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1475,6 +1553,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/out/mooncalf.mp3",
       "title": "mooncalf",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1492,6 +1571,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/out/gloomboo.mp3",
       "title": "gloomboo",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1509,6 +1589,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/out/trumpaba.mp3",
       "title": "trumpaba",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1526,6 +1607,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/out/goosabap.mp3",
       "title": "goosabap",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1543,6 +1625,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/out/piggabap.mp3",
       "title": "piggabap",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1560,6 +1643,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/out/slinkybap.mp3",
       "title": "slinkybap",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1577,6 +1661,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/out/mommyboo.mp3",
       "title": "mommyboo",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1594,6 +1679,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/out/alleyhop.mp3",
       "title": "alleyhop",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1611,6 +1697,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/out/wibblybop.mp3",
       "title": "wibblybop",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1628,6 +1715,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/out/buzaboo.mp3",
       "title": "buzaboo",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1645,6 +1733,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/out/lollybap.mp3",
       "title": "lollybap",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1662,6 +1751,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/out/dewabap.mp3",
       "title": "dewabap",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1679,6 +1769,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/out/dingaba.mp3",
       "title": "dingaba",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1696,6 +1787,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/out/kookabap.mp3",
       "title": "kookabap",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1713,6 +1805,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/out/marimbabapp.mp3",
       "title": "marimbabapp",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1730,6 +1823,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/hum/out/hum.mp3",
       "title": "hum",
+      "artist": "Aesthetic Dot Computer",
       "lane": "hum",
       "backend": "JS DSP",
       "status": "UNRELEASED",
@@ -1747,6 +1841,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/out/tinkaboo.mp3",
       "title": "tinkaboo",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1764,6 +1859,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/out/bronzaba.mp3",
       "title": "bronzaba",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1781,6 +1877,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/marimba/out/doziba.mp3",
       "title": "doziba",
+      "artist": "Aesthetic Dot Computer",
       "lane": "marimba",
       "backend": "C engine",
       "status": "UNRELEASED",
@@ -1798,6 +1895,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/gecs/out/gecs.mp3",
       "title": "gecs",
+      "artist": "Aesthetic Dot Computer",
       "lane": "gecs",
       "backend": "JS DSP",
       "status": "UNRELEASED",
@@ -1815,6 +1913,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/hippyhayzard/out/hippyhayzard.mp3",
       "title": "hippyhayzard",
+      "artist": "Aesthetic Dot Computer",
       "lane": "hippyhayzard",
       "backend": "JS DSP",
       "status": "UNRELEASED",
@@ -1832,6 +1931,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/jungle/out/solfia.mp3",
       "title": "solfia",
+      "artist": "Aesthetic Dot Computer",
       "lane": "jungle",
       "backend": "JS DSP",
       "status": "UNRELEASED",
@@ -1849,6 +1949,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/jungle/out/rodando.mp3",
       "title": "rodando",
+      "artist": "Aesthetic Dot Computer",
       "lane": "jungle",
       "backend": "JS DSP",
       "status": "UNRELEASED",
@@ -1866,6 +1967,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/jungle/out/raggasol.mp3",
       "title": "raggasol",
+      "artist": "Aesthetic Dot Computer",
       "lane": "jungle",
       "backend": "JS DSP",
       "status": "UNRELEASED",
@@ -1883,6 +1985,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/jungle/out/jungleton.mp3",
       "title": "jungleton",
+      "artist": "Aesthetic Dot Computer",
       "lane": "jungle",
       "backend": "JS DSP",
       "status": "UNRELEASED",
@@ -1900,6 +2003,7 @@
     {
       "path": "/Users/jas/aesthetic-computer/pop/dance/out/.booty.mp3",
       "title": ".booty",
+      "artist": "Aesthetic Dot Computer",
       "lane": "dance",
       "backend": "C engine",
       "status": "UNRELEASED",

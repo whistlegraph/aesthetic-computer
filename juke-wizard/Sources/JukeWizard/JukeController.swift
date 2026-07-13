@@ -85,17 +85,20 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         }
     }
 
-    // views
-    var backdrop: BackdropView!
+    // views — Winamp-style: now-playing header on top, track list underneath.
+    var nowPlaying: NowPlayingMedia!
     var listTable: NSTableView!
     var titleLabel: NSTextField!
+    var artistLabel: NSTextField!
     var laneLabel: NSTextField!
-    var artView: NSImageView!
     var linkButtons: [NSButton] = []
-    var mediaButtons: [NSButton] = []
     var wave: WaveformView!
     var playButton: NSButton!
-    var timeLabel: NSTextField!
+    var ledLabel: NSTextField!
+    var notesToggle: NSButton!
+    var drawerPanel: NSView!
+    var drawerOpen = false
+    var currentArt: NSImage?
     var commentNowButton: NSButton!
     var starButtons: [NSButton] = []
     var notesView: NSTextView!
@@ -172,64 +175,19 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         guard let content = window?.contentView else { return }
         content.wantsLayer = true
         applyThemeBackground()
-        DistributedNotificationCenter.default().addObserver(
-            forName: NSNotification.Name("AppleInterfaceThemeChangedNotification"),
-            object: nil, queue: .main) { [weak self] _ in self?.applyThemeBackground() }
 
-        // living video backdrop behind everything (never intercepts clicks;
-        // falls back to the faded static illy until the loop is generated)
-        backdrop = BackdropView(frame: content.bounds)
-        backdrop.autoresizingMask = [.width, .height]
-        content.addSubview(backdrop)
+        // ── now-playing header: big art / streaming video on the left ─────────
+        nowPlaying = NowPlayingMedia(frame: .zero)
+        content.addSubview(nowPlaying)
 
-        sortPopup = NSPopUpButton(frame: .zero, pullsDown: false)
-        sortPopup.addItems(withTitles: SortMode.allCases.map { "sort: \($0.label)" })
-        sortPopup.selectItem(at: sortMode.rawValue)
-        sortPopup.target = self
-        sortPopup.action = #selector(sortChanged(_:))
-        sortPopup.bezelStyle = .rounded
-        sortPopup.controlSize = .small
-        sortPopup.font = NSFont.systemFont(ofSize: 11)
-        content.addSubview(sortPopup)
-
-        listTable = NSTableView()
-        let col = NSTableColumn(identifier: .init("track"))
-        col.title = "queue"
-        listTable.addTableColumn(col)
-        listTable.headerView = nil
-        listTable.rowHeight = 34
-        listTable.dataSource = self
-        listTable.delegate = self
-        listTable.target = self
-        listTable.action = #selector(listClicked)
-        listScroll = NSScrollView()
-        listScroll.documentView = listTable
-        listScroll.hasVerticalScroller = true
-        listScroll.borderType = .bezelBorder
-        content.addSubview(listScroll)
-
-        titleLabel = label("", size: 20, bold: true)
+        titleLabel = label("", size: 24, bold: true)
+        titleLabel.lineBreakMode = .byTruncatingTail
+        titleLabel.textColor = Palette.gold
+        artistLabel = label("", size: 13, color: NSColor(white: 0.85, alpha: 1))
         laneLabel = label("", size: 11, color: .secondaryLabelColor)
-        laneLabel.usesSingleLineMode = false
-        laneLabel.maximumNumberOfLines = 2
-        laneLabel.lineBreakMode = .byWordWrapping
-        content.addSubview(titleLabel)
-        content.addSubview(laneLabel)
+        laneLabel.lineBreakMode = .byTruncatingTail
+        content.addSubview(titleLabel); content.addSubview(artistLabel); content.addSubview(laneLabel)
 
-        // cover art — square thumbnail top-right; click to open full size.
-        artView = NSImageView()
-        artView.imageScaling = .scaleProportionallyUpOrDown
-        artView.wantsLayer = true
-        artView.layer?.cornerRadius = 6
-        artView.layer?.masksToBounds = true
-        artView.layer?.borderWidth = 1
-        artView.layer?.borderColor = Palette.inkDim.withAlphaComponent(0.4).cgColor
-        artView.isHidden = true
-        let artClick = NSClickGestureRecognizer(target: self, action: #selector(openArt))
-        artView.addGestureRecognizer(artClick)
-        content.addSubview(artView)
-
-        // per-service release links (only the ones this track has are shown).
         for svc in LinkService.allCases {
             let b = NSButton(title: svc.title, target: self, action: #selector(linkClicked(_:)))
             b.bezelStyle = .inline
@@ -254,25 +212,74 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         next.bezelStyle = .rounded; next.tag = 2
         content.addSubview(prev); content.addSubview(next)
         transportExtra = [prev, next]
-        commentNowButton = NSButton(title: "＋ comment @ now", target: self, action: #selector(addCommentNow))
-        commentNowButton.bezelStyle = .rounded
-        content.addSubview(commentNowButton)
-        timeLabel = label("0:00 / 0:00", size: 12, color: .secondaryLabelColor)
-        timeLabel.alignment = .right
-        content.addSubview(timeLabel)
+
+        // green LED time readout (Winamp signature) — monospace, glowing green.
+        ledLabel = label("0:00 / 0:00", size: 15, color: NSColor(srgbRed: 0.30, green: 1.0, blue: 0.45, alpha: 1))
+        ledLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 15, weight: .bold)
+        ledLabel.alignment = .right
+        content.addSubview(ledLabel)
+
+        notesToggle = NSButton(title: "♪ notes", target: self, action: #selector(toggleDrawer))
+        notesToggle.bezelStyle = .rounded
+        notesToggle.setButtonType(.pushOnPushOff)
+        content.addSubview(notesToggle)
+
+        // ── the track list (underneath) ───────────────────────────────────────
+        sortPopup = NSPopUpButton(frame: .zero, pullsDown: false)
+        sortPopup.addItems(withTitles: SortMode.allCases.map { "sort: \($0.label)" })
+        sortPopup.selectItem(at: sortMode.rawValue)
+        sortPopup.target = self
+        sortPopup.action = #selector(sortChanged(_:))
+        sortPopup.bezelStyle = .rounded
+        sortPopup.controlSize = .small
+        sortPopup.font = NSFont.systemFont(ofSize: 11)
+        content.addSubview(sortPopup)
+
+        listTable = NSTableView()
+        let col = NSTableColumn(identifier: .init("track"))
+        listTable.addTableColumn(col)
+        listTable.headerView = nil
+        listTable.rowHeight = TrackRowView.height
+        listTable.backgroundColor = .clear
+        listTable.selectionHighlightStyle = .none
+        listTable.dataSource = self
+        listTable.delegate = self
+        listTable.target = self
+        listTable.action = #selector(listClicked)
+        listScroll = NSScrollView()
+        listScroll.documentView = listTable
+        listScroll.hasVerticalScroller = true
+        listScroll.drawsBackground = false
+        listScroll.borderType = .noBorder
+        content.addSubview(listScroll)
+
+        buildDrawer(in: content)
+
+        playButton.contentTintColor = Palette.teal
+        transportExtra.forEach { $0.contentTintColor = Palette.teal }
+    }
+
+    // The collapsible notes + comments + rating drawer (hidden by default).
+    private func buildDrawer(in content: NSView) {
+        drawerPanel = NSView()
+        drawerPanel.wantsLayer = true
+        drawerPanel.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.82).cgColor
+        drawerPanel.layer?.cornerRadius = 10
+        drawerPanel.layer?.borderWidth = 1
+        drawerPanel.layer?.borderColor = Palette.teal.withAlphaComponent(0.5).cgColor
+        drawerPanel.isHidden = true
+        content.addSubview(drawerPanel)
 
         for i in 1...5 {
             let b = NSButton(title: "☆", target: self, action: #selector(starClicked(_:)))
-            b.tag = i
-            b.isBordered = false
+            b.tag = i; b.isBordered = false
             b.font = NSFont.systemFont(ofSize: 22)
             b.contentTintColor = .systemYellow
-            starButtons.append(b)
-            content.addSubview(b)
+            starButtons.append(b); drawerPanel.addSubview(b)
         }
         clearStars = NSButton(title: "clear", target: self, action: #selector(clearStarsClicked))
-        clearStars.bezelStyle = .inline
-        content.addSubview(clearStars)
+        clearStars.bezelStyle = .inline; clearStars.contentTintColor = Palette.inkDim
+        drawerPanel.addSubview(clearStars)
 
         notesView = NSTextView()
         notesView.isRichText = false
@@ -283,16 +290,20 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         notesScroll.documentView = notesView
         notesScroll.hasVerticalScroller = true
         notesScroll.borderType = .bezelBorder
-        content.addSubview(notesScroll)
+        drawerPanel.addSubview(notesScroll)
         notesPlaceholder = label("notes…", size: 12, color: .tertiaryLabelColor)
-        content.addSubview(notesPlaceholder)
+        drawerPanel.addSubview(notesPlaceholder)
+
+        commentNowButton = NSButton(title: "＋ comment @ now", target: self, action: #selector(addCommentNow))
+        commentNowButton.bezelStyle = .rounded; commentNowButton.contentTintColor = Palette.coral
+        drawerPanel.addSubview(commentNowButton)
 
         commentsTable = NSTableView()
         let cc = NSTableColumn(identifier: .init("comment"))
-        cc.title = "comments"
         commentsTable.addTableColumn(cc)
         commentsTable.headerView = nil
         commentsTable.rowHeight = 24
+        commentsTable.backgroundColor = .clear
         commentsTable.dataSource = self
         commentsTable.delegate = self
         commentsTable.target = self
@@ -301,35 +312,32 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         commentsScroll = NSScrollView()
         commentsScroll.documentView = commentsTable
         commentsScroll.hasVerticalScroller = true
+        commentsScroll.drawsBackground = false
         commentsScroll.borderType = .bezelBorder
-        content.addSubview(commentsScroll)
-        commentsHeader = label("comments  ·  space play · ←→ seek · ↑↓ track · 1–5 stars · C comment", size: 11, color: .secondaryLabelColor)
-        content.addSubview(commentsHeader)
+        drawerPanel.addSubview(commentsScroll)
+        commentsHeader = label("comments · click to jump", size: 11, color: .secondaryLabelColor)
+        drawerPanel.addSubview(commentsHeader)
         delCommentButton = NSButton(title: "– delete", target: self, action: #selector(deleteComment))
-        delCommentButton.bezelStyle = .inline
-        delCommentButton.contentTintColor = Palette.coral
-        content.addSubview(delCommentButton)
+        delCommentButton.bezelStyle = .inline; delCommentButton.contentTintColor = Palette.coral
+        drawerPanel.addSubview(delCommentButton)
 
-        // colored controls — teal transport, gold rating, coral accents.
-        playButton.contentTintColor = Palette.teal
-        transportExtra.forEach { $0.contentTintColor = Palette.teal }
-        commentNowButton.contentTintColor = Palette.coral
-        clearStars.contentTintColor = Palette.inkDim
-        titleLabel.textColor = Palette.teal
-        laneLabel.textColor = Palette.coral
         commentsHeader.textColor = Palette.inkDim
-        listTable.backgroundColor = .clear
-        commentsTable.backgroundColor = .clear
-        listTable.enclosingScrollView?.drawsBackground = false
-        commentsTable.enclosingScrollView?.drawsBackground = false
         notesScroll.drawsBackground = false
         notesView.drawsBackground = false
     }
 
+    @objc private func toggleDrawer() {
+        drawerOpen.toggle()
+        drawerPanel.isHidden = !drawerOpen
+        notesToggle.state = drawerOpen ? .on : .off
+        relayout()
+    }
+
     private func applyThemeBackground() {
-        let dark = window?.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-        window?.backgroundColor = Palette.bg(dark)
-        window?.contentView?.layer?.backgroundColor = Palette.bg(dark).withAlphaComponent(0.6).cgColor
+        // Winamp chassis is always a dark deck, regardless of system theme.
+        let chassis = NSColor(srgbRed: 0.07, green: 0.08, blue: 0.10, alpha: 1)
+        window?.backgroundColor = chassis
+        window?.contentView?.layer?.backgroundColor = chassis.cgColor
     }
 
     var transportExtra: [NSButton] = []
@@ -352,71 +360,71 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         guard let content = window?.contentView else { return }
         let W = content.bounds.width, H = content.bounds.height
         let pad: CGFloat = 12
-        // proportional, clamped — looks right tiny or huge.
-        let sidebarW = max(200, min(340, W * 0.26))
-        let sortH: CGFloat = 22
-        sortPopup.frame = NSRect(x: pad, y: H - pad - sortH, width: sidebarW, height: sortH)
-        listScroll.frame = NSRect(x: pad, y: pad, width: sidebarW, height: H - pad * 2 - sortH - 6)
-        let rx = sidebarW + pad * 2
-        let rw = W - rx - pad
-        // cover art — square thumbnail pinned top-right of the right panel.
-        let artSize: CGFloat = artView.isHidden ? 0 : min(84, max(56, rw * 0.14))
-        let textW = rw - (artSize > 0 ? artSize + 10 : 0)
-        if artSize > 0 {
-            artView.frame = NSRect(x: rx + rw - artSize, y: H - pad - artSize, width: artSize, height: artSize)
-        }
-        var y = H - pad - 28
-        titleLabel.frame = NSRect(x: rx, y: y, width: textW, height: 28)
+        // ── header (now-playing) across the top ───────────────────────────────
+        let headerH = max(240, min(380, H * 0.46))
+        let headerBottom = H - headerH
+        let mediaSide = min(headerH - pad * 2, W * 0.44)
+        nowPlaying.frame = NSRect(x: pad, y: headerBottom + pad, width: mediaSide, height: headerH - pad * 2)
+        let rx = pad + mediaSide + 14
+        let rw = max(120, W - rx - pad)
+
+        var y = H - pad - 32
+        titleLabel.frame = NSRect(x: rx, y: y, width: rw, height: 32)
+        y -= 24
+        artistLabel.frame = NSRect(x: rx, y: y, width: rw, height: 20)
+        y -= 18
+        laneLabel.frame = NSRect(x: rx, y: y, width: rw, height: 16)
         y -= 26
-        // per-service link buttons flow left→right on their own row.
-        var lx = rx
+        var lx = rx                                   // per-service link buttons row
         for b in linkButtons where !b.isHidden {
             let bw = b.attributedTitle.size().width + 16
             b.frame = NSRect(x: lx, y: y, width: bw, height: 20)
             lx += bw + 6
         }
-        let hasLinks = linkButtons.contains { !$0.isHidden }
-        if hasLinks { y -= 24 }
-        laneLabel.frame = NSRect(x: rx, y: y, width: textW, height: 28)
-        y -= 8
-        // media buttons (reels/stories) flow on their own row when present.
-        if !mediaButtons.isEmpty {
-            var mx = rx
-            y -= 22
-            for b in mediaButtons {
-                let bw = min(160, b.attributedTitle.size().width + 16)
-                if mx + bw > rx + rw { mx = rx; y -= 22 }   // wrap
-                b.frame = NSRect(x: mx, y: y, width: bw, height: 20)
-                mx += bw + 6
-            }
-            y -= 6
+        let linksBottom = y
+
+        // transport row pinned to the header's bottom edge
+        let transY = headerBottom + pad
+        transportExtra[0].frame = NSRect(x: rx, y: transY, width: 40, height: 30)         // prev
+        playButton.frame        = NSRect(x: rx + 44, y: transY, width: 54, height: 30)
+        transportExtra[1].frame = NSRect(x: rx + 102, y: transY, width: 40, height: 30)   // next
+        notesToggle.frame       = NSRect(x: rx + 150, y: transY, width: 92, height: 30)
+        ledLabel.frame          = NSRect(x: rx + rw - 160, y: transY + 5, width: 160, height: 22)
+
+        // waveform fills the space between the links row and the transport
+        let waveTop = linksBottom - 6
+        let waveBottom = transY + 38
+        wave.frame = NSRect(x: rx, y: waveBottom, width: rw, height: max(44, waveTop - waveBottom))
+
+        // ── track list underneath ─────────────────────────────────────────────
+        let sortY = headerBottom - 4 - 22
+        sortPopup.frame = NSRect(x: pad, y: sortY, width: 230, height: 22)
+        listScroll.frame = NSRect(x: pad, y: pad, width: W - pad * 2, height: sortY - pad - 6)
+
+        // ── drawer overlays the list when open ────────────────────────────────
+        if drawerOpen {
+            drawerPanel.frame = listScroll.frame.insetBy(dx: 0, dy: 0)
+            layoutDrawer()
         }
-        let waveH: CGFloat = max(110, min(195, H * 0.22))
-        y -= waveH
-        wave.frame = NSRect(x: rx, y: y, width: rw, height: waveH)
-        y -= 8 + 30
-        playButton.frame = NSRect(x: rx, y: y, width: 46, height: 30)
-        transportExtra[0].frame = NSRect(x: rx + 52, y: y, width: 46, height: 30)
-        transportExtra[1].frame = NSRect(x: rx + 104, y: y, width: 46, height: 30)
-        commentNowButton.frame = NSRect(x: rx + 160, y: y, width: 170, height: 30)
-        timeLabel.frame = NSRect(x: rx + rw - 150, y: y + 6, width: 150, height: 18)
-        y -= 8 + 30
+    }
+
+    private func layoutDrawer() {
+        let dw = drawerPanel.bounds.width, dh = drawerPanel.bounds.height, dp: CGFloat = 12
+        let starsY = dh - dp - 30
         for (i, b) in starButtons.enumerated() {
-            b.frame = NSRect(x: rx + CGFloat(i) * 30, y: y, width: 30, height: 30)
+            b.frame = NSRect(x: dp + CGFloat(i) * 30, y: starsY, width: 30, height: 30)
         }
-        clearStars.frame = NSRect(x: rx + 5 * 30 + 8, y: y + 4, width: 50, height: 22)
-        y -= 8
-        // comments block pinned to the bottom; notes fill the middle.
-        let commentsH: CGFloat = max(120, (y - pad) * 0.42)
-        let commentsTop = pad + commentsH
-        delCommentButton.frame = NSRect(x: rx + rw - 70, y: pad + commentsH + 2, width: 70, height: 18)
-        commentsHeader.frame = NSRect(x: rx, y: pad + commentsH + 2, width: rw - 75, height: 16)
-        commentsScroll.frame = NSRect(x: rx, y: pad, width: rw, height: commentsH)
-        let notesTop = y
-        let notesBottom = commentsTop + 22
-        let notesH = max(60, notesTop - notesBottom)
-        notesScroll.frame = NSRect(x: rx, y: notesBottom, width: rw, height: notesH)
-        notesPlaceholder.frame = NSRect(x: rx + 6, y: notesBottom + notesH - 20, width: 100, height: 16)
+        clearStars.frame = NSRect(x: dp + 5 * 30 + 8, y: starsY + 4, width: 50, height: 22)
+        commentNowButton.frame = NSRect(x: dw - 180 - dp, y: starsY, width: 180, height: 30)
+        let commentsH = max(90, (dh - dp * 2) * 0.4)
+        commentsHeader.frame = NSRect(x: dp, y: dp + commentsH + 2, width: dw - 90, height: 16)
+        delCommentButton.frame = NSRect(x: dw - 70 - dp, y: dp + commentsH + 2, width: 70, height: 18)
+        commentsScroll.frame = NSRect(x: dp, y: dp, width: dw - dp * 2, height: commentsH)
+        let notesTop = starsY - 8
+        let notesBottom = dp + commentsH + 22
+        let notesH = max(50, notesTop - notesBottom)
+        notesScroll.frame = NSRect(x: dp, y: notesBottom, width: dw - dp * 2, height: notesH)
+        notesPlaceholder.frame = NSRect(x: dp + 6, y: notesBottom + notesH - 20, width: 100, height: 16)
     }
 
     // ── menu-bar CD ────────────────────────────────────────────────────────
@@ -441,25 +449,31 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     func select(_ i: Int, autoplay: Bool) {
         guard i >= 0, i < library.tracks.count else { return }
         commitNotes()
+        let old = current
         current = i
         let t = library.tracks[i]
         titleLabel.stringValue = t.title
+        titleLabel.textColor = Self.statusColor(t.meta?.status)
+        artistLabel.stringValue = t.meta?.artist ?? "Aesthetic Dot Computer"
         laneLabel.stringValue = Self.metaLine(t)
-        laneLabel.textColor = Self.statusColor(t.meta?.status)
-        loadArt(t)
+        laneLabel.textColor = .secondaryLabelColor
+        updateNowPlaying(t)
         loadLinks(t)
-        buildMediaButtons(t)
-        relayout()                    // links/media/art change the header height
+        relayout()                    // link count changes the header row width
         wave.load(url: t.url)
         wave.comments = t.data.comments
         notesView.string = t.data.notes
         notesPlaceholder.isHidden = !t.data.notes.isEmpty
         renderStars(t.data.stars)
         commentsTable.reloadData()
-        listTable.selectRowIndexes(IndexSet(integer: i), byExtendingSelection: false)
+        // refresh only the two affected rows (custom .selected chip)
+        var rows = IndexSet(integer: i)
+        if old >= 0, old < library.tracks.count { rows.insert(old) }
+        listTable.reloadData(forRowIndexes: rows, columnIndexes: IndexSet(integer: 0))
         listTable.scrollRowToVisible(i)
         updateTime()
-        if autoplay { wave.play(); playButton.title = "❚❚" } else { playButton.title = "▶" }
+        if autoplay { wave.play(); playButton.title = "❚❚"; nowPlaying.setPaused(false) }
+        else { playButton.title = "▶"; nowPlaying.setPaused(true) }
         refreshMenuBar()               // new tempo + play state → spin the bar CD
     }
 
@@ -522,6 +536,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     @objc private func togglePlay() {
         wave.togglePlay()
         playButton.title = wave.isPlaying ? "❚❚" : "▶"
+        nowPlaying.setPaused(!wave.isPlaying)
         refreshMenuBar()
     }
     @objc private func prevTrack() { if current > 0 { select(current - 1, autoplay: true) } }
@@ -580,7 +595,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
                 listTable.reloadData(forRowIndexes: IndexSet(integer: current), columnIndexes: IndexSet(integer: 0))
             }
         }
-        if wasPlaying { wave.play(); playButton.title = "❚❚" }
+        if wasPlaying { wave.play(); playButton.title = "❚❚"; nowPlaying.setPaused(false) }
         refreshMenuBar()
     }
     @objc private func commentClicked() {
@@ -604,7 +619,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     func waveformDidFinish() { playButton.title = "▶"; nextTrack(); refreshMenuBar() }
     func waveformTick() { updateTime() }
     private func updateTime() {
-        timeLabel.stringValue = "\(JukeController.mmss(wave.currentTime)) / \(JukeController.mmss(wave.duration))"
+        ledLabel.stringValue = "\(JukeController.mmss(wave.currentTime)) / \(JukeController.mmss(wave.duration))"
     }
 
     // ── tables ───────────────────────────────────────────────────────────────
@@ -612,19 +627,19 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         if tableView == listTable { return library.tracks.count }
         return track?.data.comments.count ?? 0
     }
+    // list = dressed-up view rows; comments = plain cell strings.
+    func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+        guard tableView == listTable, row < library.tracks.count else { return nil }
+        let cell = (listTable.makeView(withIdentifier: TrackRowView.id, owner: self) as? TrackRowView)
+            ?? { let v = TrackRowView(); v.identifier = TrackRowView.id; return v }()
+        cell.configure(library.tracks[row])
+        cell.selected = (row == current)
+        return cell
+    }
     func tableView(_ tableView: NSTableView, objectValueFor tableColumn: NSTableColumn?, row: Int) -> Any? {
-        if tableView == listTable {
-            let t = library.tracks[row]
-            let stars = String(repeating: "★", count: t.data.stars) + String(repeating: "☆", count: 5 - t.data.stars)
-            let cc = t.data.comments.count
-            let badge = cc > 0 ? "  💬\(cc)" : ""
-            let st = t.meta?.status.map { " · \($0)" } ?? ""
-            return "\(stars)  \(t.title)\n      \(t.lane)\(st)\(badge)"
-        } else {
-            guard let t = track, row < t.data.comments.count else { return "" }
-            let c = t.data.comments[row]
-            return "\(JukeController.mmss(c.t))  \(c.text)"
-        }
+        guard tableView == commentsTable, let t = track, row < t.data.comments.count else { return "" }
+        let c = t.data.comments[row]
+        return "\(JukeController.mmss(c.t))  \(c.text)"
     }
 
     // ── auto-pop watcher ─────────────────────────────────────────────────────
@@ -720,16 +735,24 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         if let sz = size(m.bytes) { parts.append(sz) }
         return parts.joined(separator: " · ")
     }
-    // ── art + links + media ──────────────────────────────────────────────────
-    private func loadArt(_ t: Track) {
-        artView.image = nil
-        artView.isHidden = true
-        guard let p = t.meta?.art else { return }
-        let url = URL(fileURLWithPath: (p as NSString).expandingTildeInPath)
-        if let img = NSImage(contentsOf: url) {
-            artView.image = img
-            artView.isHidden = false
+    // ── now-playing art + video + links ──────────────────────────────────────
+    // Big cover in the header; if the track has a video (a local reel/story, or
+    // the CDN cut for a released single) it streams there instead — muted.
+    private func updateNowPlaying(_ t: Track) {
+        currentArt = t.meta?.art.flatMap {
+            NSImage(contentsOf: URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath))
         }
+        nowPlaying.present(art: currentArt, videoURL: Self.videoURL(for: t))
+    }
+    // Prefer a local clip; else stream the released single's CDN cut.
+    private static func videoURL(for t: Track) -> URL? {
+        if let v = t.meta?.media?.first(where: { $0.kind == "video" }) {
+            return URL(fileURLWithPath: (v.path as NSString).expandingTildeInPath)
+        }
+        if t.meta?.status == "RELEASED" {
+            return URL(string: "https://assets.aesthetic.computer/pop/\(t.title).mp4")
+        }
+        return nil
     }
     private func loadLinks(_ t: Track) {
         for b in linkButtons {
@@ -737,40 +760,9 @@ final class JukeController: NSWindowController, NSWindowDelegate,
             b.isHidden = (svc.url(t.meta?.links) == nil)
         }
     }
-    private func buildMediaButtons(_ t: Track) {
-        mediaButtons.forEach { $0.removeFromSuperview() }
-        mediaButtons.removeAll()
-        guard let media = t.meta?.media, !media.isEmpty else { return }
-        for (i, m) in media.enumerated() {
-            let name = URL(fileURLWithPath: m.path).deletingPathExtension().lastPathComponent
-            // trim the track title prefix so the label reads "reel", "story"…
-            var short = name
-            if short.lowercased().hasPrefix(t.title.lowercased()) {
-                short = String(short.dropFirst(t.title.count)).trimmingCharacters(in: CharacterSet(charactersIn: "-_ "))
-            }
-            if short.isEmpty { short = m.kind }
-            let b = NSButton(title: "▶ \(short)", target: self, action: #selector(mediaClicked(_:)))
-            b.bezelStyle = .inline
-            b.tag = i
-            b.contentTintColor = Palette.teal
-            b.font = NSFont.systemFont(ofSize: 11)
-            mediaButtons.append(b)
-            window?.contentView?.addSubview(b)
-        }
-    }
     @objc private func linkClicked(_ sender: NSButton) {
         guard let t = track, let svc = LinkService(rawValue: sender.tag),
               let s = svc.url(t.meta?.links), let u = URL(string: s) else { return }
         NSWorkspace.shared.open(u)
-    }
-    @objc private func mediaClicked(_ sender: NSButton) {
-        guard let t = track, let media = t.meta?.media,
-              sender.tag < media.count else { return }
-        let url = URL(fileURLWithPath: (media[sender.tag].path as NSString).expandingTildeInPath)
-        NSWorkspace.shared.open(url)
-    }
-    @objc private func openArt() {
-        guard let t = track, let p = t.meta?.art else { return }
-        NSWorkspace.shared.open(URL(fileURLWithPath: (p as NSString).expandingTildeInPath))
     }
 }
