@@ -172,10 +172,11 @@
   #dPosts .posts{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:14px 12px; clear:both}
   .post{display:flex; flex-direction:column; font-size:11.5px}
   .post .pv{width:100%; aspect-ratio:9/16; height:auto; border:1px solid var(--ink); background:#000; display:block}
-  .post .paud{width:100%; aspect-ratio:9/16; border:1px solid var(--ink); background:repeating-linear-gradient(-45deg,rgba(180,72,135,.06),rgba(180,72,135,.06) 8px,transparent 8px,transparent 16px);
-    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:12px; box-sizing:border-box}
-  .post .paud .paudlbl{font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--margin)}
-  .post .paud audio{width:100%}
+  .post .paud{width:100%; aspect-ratio:9/16; border:1px solid var(--ink); background:var(--paper);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; padding:12px; box-sizing:border-box; overflow:hidden}
+  .post .paud .paudlbl{font-size:34px; line-height:1; color:var(--margin)}
+  .post .paud .paudsub{font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim)}
+  .post .paud audio{width:100%; max-width:100%; min-width:0; margin-top:2px}
   .post .pmeta{margin-top:5px; line-height:1.45; color:var(--dim)}
   .post .pdate{color:var(--ink)}
   .post .plink{color:var(--margin); text-decoration:none; white-space:nowrap}
@@ -400,7 +401,7 @@ function renderPosts(code){
     // same shape as a video with a ♪ mark and the scrubber — so they read as a
     // deliberate audio take, not a broken player floating in an empty cell.
     const media=p.media==="audio"
-      ? `<div class="pv paud"><span class="paudlbl">♪ audio</span><audio controls preload="none" src="${p.src}"></audio></div>`
+      ? `<div class="pv paud"><span class="paudlbl">♪</span><audio controls preload="none" src="${p.src}"></audio><span class="paudsub">audio only</span></div>`
       : `<video class="pv" controls playsinline preload="none" loop${p.thumb?` poster="${p.thumb}"`:""} src="${p.src}"></video>`;
     const stat=[p.views!=null?fmtViews(p.views)+" views":null,p.likes?fmtViews(p.likes)+" likes":null].filter(Boolean).join(" · ");
     const plat=p.platform&&p.platform!=="tiktok"?`<span class="pbadge">${esc(p.platform)}</span>`:"";
