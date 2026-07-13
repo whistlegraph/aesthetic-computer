@@ -43,13 +43,26 @@ the requested tracks and no repair prompt. (Confirmed for the 1-audio/0-MIDI/0-r
 Note the base is Live 12.2.1 schema (`MinorVersion="12.0_12203"`); 12.4.2 opens it fine and
 re-serializes on save.
 
-## Known gap: this is not yet the *default* Set
+## Installing it
 
-Getting Live to use this for **New Live Set** is unsolved. Two dead ends worth recording so nobody
+`toolchain/macos/fleet/ableton-template.mjs` builds this and drops it in each fleet Mac's
+`~/Music/Ableton/User Library/Templates/`, so it shows up in Live's browser under **Templates > AC
+Blank** — one click to a genuinely blank Set.
+
+## Known gap: this is NOT the auto-default (⌘N)
+
+Making this the Set that **New Live Set** opens is unsolved. ⌘N still gives Ableton's stock
+2-MIDI/2-audio/2-return Set. Three dead ends, all verified across full Live restarts, so nobody
 repeats them:
 
-- `~/Library/Preferences/Ableton/Live <ver>/BaseFiles/` is **not** the default-set source. Live copies
-  any Set opened from outside the User Library into there as a working copy. Dropping an `.als` there
-  changes nothing — verified across a full Live restart.
-- `File > Save Live Set As Default Set…` did not visibly commit a default in testing; it surfaced a
-  rename field on a new `Templates/Untitled.als` instead. The mechanism still needs pinning down.
+- **`BaseFiles/` is not the default-set source.** `~/Library/Preferences/Ableton/Live <ver>/BaseFiles/`
+  is just where Live copies a Set that was opened from *outside* the User Library, as a working copy.
+  Dropping an `.als` there changes nothing.
+- **`File > Save Live Set As Default Set…` behaves like a template save.** It writes the current Set to
+  `User Library/Templates/<name>.als` (offering "Untitled" in a rename field) and ⌘N still opens the
+  stock Set afterwards.
+- **No pointer lands in `Preferences.cfg`.** After the above, the file contains no reference to the
+  saved Set, no `.als` path, and no default/template key — so the default isn't recorded there either.
+
+Whatever selects the default lives somewhere this black-box probing didn't reach. Next thing to try
+is probably watching Live's file I/O (`fs_usage`/`opensnoop`) during ⌘N to see what it actually reads.
