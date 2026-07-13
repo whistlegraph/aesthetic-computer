@@ -48,6 +48,7 @@ const priorSnap = existsSync("/tmp/CODES-before.json") ? rd("/tmp/CODES-before.j
 //            work drops out, and /sourceCode falls back to the index)
 const overrides = existsSync(join(D, "overrides.json")) ? rd(join(D, "overrides.json")) : {};
 const renames = overrides.renames || {};
+const authors = overrides.authors || {}; // code → attribution ("Alex Freundlich", …)
 const recodes = overrides.recodes || {};
 const merges = overrides.merges || {};
 const mergeSources = new Set(Object.keys(merges));
@@ -194,6 +195,7 @@ const liveWorks = live.graphs.filter((e) => !mergeSources.has(e.code)).map((e) =
     ...e,
     code,
     ...(title !== undefined ? { title } : {}),
+    ...(authors[code] ? { by: authors[code] } : {}), // durable attribution override
     kind: normKind(e.kind || kindByLiveCode.get(e.code) || "graph"),
     ...(r ? { views: r.views, perf: r.n } : {}), // accurate reach/count from tagged posts
     ...(r?.thumb ? { thumb: r.thumb } : {}),
@@ -212,7 +214,7 @@ const freshWorks = clusterSite
     return {
       code,
       title: renames[code] ?? cl.title,
-      by: "Whistlegraph",
+      by: authors[code] || "Whistlegraph", // durable attribution override; else collective credit
       year: year(cl.span),
       kind: cl.kind,
       views: r.views,
