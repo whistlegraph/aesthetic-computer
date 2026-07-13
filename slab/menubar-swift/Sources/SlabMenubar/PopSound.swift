@@ -28,12 +28,15 @@ enum PopSound {
                                               channels: 1)
     private static var running = false
 
+    /// Deliberately NOT gated on the menubar's mute. That toggle silences the
+    /// *ambient* sonification — the background hum of session status, noise you
+    /// didn't ask for. This is the acknowledgement of a key you just pressed, and
+    /// muting the ambient track shouldn't cost you the feedback on your own
+    /// keystroke.
     static func play(rising: Bool) {
-        // The menubar's mute is a promise about noise, and this is noise.
-        guard !FileManager.default.fileExists(atPath: Paths.muteFlag) else { return }
         queue.async {
             guard let buffer = render(rising: rising), start() else { return }
-            // .interrupts: a fast ⌃⌃ ⌃⌃ should re-pop, not queue up a backlog.
+            // .interrupts: a fast ⌃⌃ ⌃⌃ should re-pop, not queue a backlog.
             player.scheduleBuffer(buffer, at: nil, options: .interrupts)
             player.play()
         }
