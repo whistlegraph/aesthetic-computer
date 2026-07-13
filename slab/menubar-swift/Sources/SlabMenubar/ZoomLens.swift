@@ -2,8 +2,16 @@ import AppKit
 import ApplicationServices
 import CoreGraphics
 
-/// ⌃⌃ zooms in on the window under the pointer — the whole window, scaled to fit,
+/// ⌃⌃ zooms in on whatever the pointer is on — the whole thing, scaled to fit,
 /// centred, with a margin of surrounding context. ⌃⌃ again zooms back out.
+///
+/// "Whatever" means an ordinary window, or a menu bar item. Status items turn out
+/// to be real windows (Control Center hosts one apiece, up at the menu bar
+/// level), so they hit-test like anything else and Menu Band can be zoomed the
+/// same as a terminal. The app-menu half of the bar is not — those titles are
+/// painted straight into a single full-width Window Server surface, with no
+/// per-title window to aim at — so there we zoom a slice of the bar around the
+/// pointer instead.
 ///
 /// This drives the window server's *own* zoom — the same compositor path
 /// Accessibility Zoom uses — rather than rendering a magnifier of our own. That
@@ -58,9 +66,9 @@ enum ZoomLens {
             PopSound.play(rising: false)
             return
         }
-        guard let window = windowUnderCursor(excluding: getpid()),
-              let screen = screen(bestContaining: window) else {
-            NSSound.beep()   // pointer is over the desktop — nothing to aim at
+        guard let target = targetUnderCursor(excluding: getpid()),
+              let screen = screen(bestContaining: target) else {
+            NSSound.beep()   // pointer is over bare desktop — nothing to aim at
             return
         }
 
@@ -68,10 +76,10 @@ enum ZoomLens {
         // The looser axis keeps whatever slack the aspect ratio gives it — which
         // is why a window never fills the screen edge-to-edge, and why you can
         // still see what's around it.
-        let fit = min(screen.frame.width / window.width,
-                      screen.frame.height / window.height)
+        let fit = min(screen.frame.width / target.width,
+                      screen.frame.height / target.height)
         let factor = min(max(fit / contextMargin, minFactor), maxFactor)
-        let centre = CGPoint(x: window.midX, y: window.midY)
+        let centre = CGPoint(x: target.midX, y: target.midY)
 
         apply(origin: centre, factor: factor)
         PopSound.play(rising: true)
@@ -136,27 +144,81 @@ enum ZoomLens {
 
     // MARK: - what to aim at
 
-    /// The topmost ordinary window under the pointer, in CoreGraphics globals —
-    /// the same space the zoom origin uses. `optionOnScreenOnly` hands the list
-    /// back already sorted front-to-back, so the first hit wins.
-    private static func windowUnderCursor(excluding pid: pid_t) -> CGRect? {
+    /// What the pointer is on, in CoreGraphics globals — the same space the zoom
+    /// origin uses. An ordinary window, or a menu bar item, whichever is under it.
+    ///
+    /// SELECTION IS PURELY POSITIONAL: the topmost thing whose bounds contain the
+    /// pointer, full stop. Focus is never consulted, so ⌃⌃ over a background
+    /// window zooms *that* window and not the one you happen to be typing in.
+    /// What you're pointing at is what you meant — that's the whole contract, and
+    /// it's why nothing here asks who's frontmost.
+    private static func targetUnderCursor(excluding pid: pid_t) -> CGRect? {
         guard let point = CGEvent(source: nil)?.location,
               let info = CGWindowListCopyWindowInfo(
                 [.optionOnScreenOnly, .excludeDesktopElements],
                 kCGNullWindowID) as? [[String: Any]] else { return nil }
+
+        // Front-to-back, which is the order `optionOnScreenOnly` returns, so the
+        // first hit is the thing you're actually looking at. A status item (layer
+        // 25) therefore wins over the menu bar behind it (24).
         for w in info {
-            guard let layer = w[kCGWindowLayer as String] as? Int, layer == 0,
-                  let owner = w[kCGWindowOwnerPID as String] as? pid_t, owner != pid,
+            guard let layer = w[kCGWindowLayer as String] as? Int,
+                  let owner = w[kCGWindowOwnerPID as String] as? pid_t,
                   let b = w[kCGWindowBounds as String] as? [String: CGFloat],
                   let x = b["X"], let y = b["Y"],
                   let width = b["Width"], let height = b["Height"] else { continue }
-            // Anything smaller than this is a shadow, tooltip or other chrome that
-            // happens to sit at layer 0 — never what someone means by "this window".
-            guard width >= 64, height >= 64 else { continue }
             let rect = CGRect(x: x, y: y, width: width, height: height)
-            if rect.contains(point) { return rect }
+            guard rect.contains(point) else { continue }
+
+            if layer == 0 {
+                guard owner != pid else { continue }
+                // Smaller than this is a shadow, tooltip or other chrome that
+                // happens to sit at layer 0 — never what "this window" means.
+                guard width >= 64, height >= 64 else { continue }
+                return rect
+            }
+
+            if isStatusItem(layer: layer, rect: rect) { return rect }
         }
-        return nil
+
+        // Nothing addressable, but we might still be ON the menu bar — the left
+        // half of it has no per-item windows at all (the app menus are painted
+        // straight into one full-width Window Server surface), so there is
+        // nothing to hit-test. Zoom a slice of the bar around the pointer instead
+        // of beeping.
+        return menuBarSlice(around: point)
+    }
+
+    /// A menu bar status item — Control Center hosts one window per item, up at
+    /// the menu bar level. Distinguishing them from the two impostors that also
+    /// sit at layer ≥ 24: the full-width "Menubar" surface itself, and the
+    /// screen-sized Screenshot window.
+    private static func isStatusItem(layer: Int, rect: CGRect) -> Bool {
+        guard layer >= Int(CGWindowLevelForKey(.mainMenuWindow)) else { return false }
+        guard let screen = NSScreen.main else { return false }
+        guard rect.height <= menuBarDepth(of: screen) else { return false }
+        guard rect.width >= 16 else { return false }
+        // The bar itself spans the display; an item never comes close.
+        return rect.width < screen.frame.width * 0.9
+    }
+
+    /// The app-menu half of the bar, where there's nothing to hit-test. A slice
+    /// this wide lands around 3×, which is enough to read the titles without
+    /// losing your place in the bar.
+    private static func menuBarSlice(around point: CGPoint) -> CGRect? {
+        guard let screen = NSScreen.main else { return nil }
+        let depth = menuBarDepth(of: screen)
+        guard point.y <= depth else { return nil }
+        let width = screen.frame.width / 3
+        return CGRect(x: point.x - width / 2, y: 0, width: width, height: depth)
+    }
+
+    /// The menu bar's own height: the gap AppKit leaves at the TOP of the screen.
+    /// Not `frame.height - visibleFrame.height`, which also swallows the Dock.
+    /// Notched and unnotched Macs disagree on the number, so ask rather than
+    /// hardcode 24.
+    private static func menuBarDepth(of screen: NSScreen) -> CGFloat {
+        max(screen.frame.maxY - screen.visibleFrame.maxY, 24)
     }
 
     private static func screen(bestContaining rect: CGRect) -> NSScreen? {
