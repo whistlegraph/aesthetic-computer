@@ -1,3 +1,24 @@
+// PROMPT ROCKS.
+//
+// The tumbling stones parked at the top-right of every terminal window running
+// a live Claude session — one rock per prompt. Say "prompt rocks" and this file
+// is what you mean.
+//
+// A rock's SHAPE is its identity: a 3D sigil grown from the session's
+// id + current prompt, so the stone re-forms whenever the session moves on to a
+// new prompt. Its MOTION is the status channel — spin speed and direction say
+// working / awaiting / complete, and a poke from a peer makes it blink and
+// rattle. It carries a pet name in bubble lettering, and pointing at it reveals
+// a bubble summarizing the prompt.
+//
+// Each rock is a borderless, click-through `.floating` window, so it rides
+// above the whole normal-window stack and can't be buried by the wall of
+// preview cards. That means occlusion is OUR job, in two places that must
+// agree: `reposition` hides a rock whose terminal corner is covered, and
+// `overlayAt` refuses the pointer to a rock that is hidden or covered at the
+// cursor — otherwise a stone wakes up and pops its bubble through whatever
+// window is sitting on top of it.
+
 import AppKit
 import CoreGraphics
 import ApplicationServices
@@ -515,9 +536,16 @@ final class PromptSigilOverlay {
         if v {
             if !window.isVisible { window.orderFrontRegardless() }
         } else if window.isVisible {
+            setHovered(false)   // a covered rock stops reacting to the pointer
             window.orderOut(nil)
         }
     }
+
+    /// Is the badge actually on screen right now? A hidden rock keeps its
+    /// `hitRect` (the frame doesn't move when it's ordered out), so the hover
+    /// hit-test has to consult this or the stone answers the pointer from
+    /// under whatever is covering it.
+    var isOnScreen: Bool { window.isVisible }
 
     /// Ease the badge toward its target by a frame-rate-independent step.
     /// Returns true while still settling (so the controller keeps the
@@ -658,6 +686,10 @@ final class PromptSigilOverlayController {
     /// the terminal nothing. Dwelling on a rock shows the bubble; clicking a
     /// rock pins it; clicking anywhere else unpins.
     private var mouseMonitors: [Any] = []
+    /// The last window stack `reposition` saw (front-to-back, normal level), so
+    /// a mouse-move can ask "what's actually on top here?" without a fresh
+    /// CGWindowList snapshot per event. Refreshed at the tick rate.
+    private var lastStack: [(num: Int, rect: CGRect)] = []
     private var hoverTarget: String?
     private var hoverTimer: Timer?
     private var bubbleFor: String?
@@ -789,8 +821,36 @@ final class PromptSigilOverlayController {
         bubble.hide()
     }
 
+    /// The rock under the pointer — or nil when the pointer is over a window
+    /// that merely *covers* one. Two gates, because a badge floats above the
+    /// whole normal-window stack and is mouse-transparent, so a bare rect test
+    /// would let a buried stone wake up through the thing burying it:
+    /// the rock has to be on screen, and its terminal has to still be the
+    /// topmost normal window under the pointer (the same test `reposition`
+    /// runs at the rock's centre, re-run here at the exact point, so partial
+    /// coverage of the stone reads correctly too).
     private func overlayAt(_ p: NSPoint) -> PromptSigilOverlay? {
-        overlays.values.first { $0.hitRect.contains(p) }
+        guard let hit = overlays.values.first(where: { $0.isOnScreen && $0.hitRect.contains(p) }),
+              let num = binding[hit.tty]
+        else { return nil }
+        let screenH = NSScreen.main?.frame.height ?? 0
+        let cg = CGPoint(x: p.x, y: screenH - p.y)   // AppKit (bottom-left) → CG (top-left)
+        if let top = lastStack.first(where: { $0.rect.contains(cg) })?.num, top != num { return nil }
+        return hit
+    }
+
+    /// A rock that just went off screen (covered, or its window is gone) must
+    /// let go of the pointer: drop its hover and any bubble it owns, so the
+    /// card doesn't hang over the window that buried it.
+    private func dropInteraction(for ov: PromptSigilOverlay) {
+        if hoverTarget == ov.sessionId {
+            hoverTimer?.invalidate(); hoverTimer = nil
+            hoverTarget = nil
+        }
+        if bubbleFor == ov.sessionId {
+            bubbleFor = nil; bubblePinned = false
+            bubble.hide()
+        }
     }
 
     /// Dwell-to-reveal: entering a rock arms a short timer; leaving cancels
@@ -1056,10 +1116,13 @@ final class PromptSigilOverlayController {
     private func reposition() {
         guard !overlays.isEmpty else { timer?.invalidate(); timer = nil; return }
         let snap = snapshotWindows()
+        lastStack = snap.stack        // the hover hit-test reads this between ticks
         let screenH = NSScreen.main?.frame.height ?? 0
         var seen: [Int: (CGFloat, CGFloat, CGFloat, CGFloat)] = [:]
         for (_, ov) in overlays {
-            guard let num = binding[ov.tty], let b = snap.terminals[num] else { ov.hide(); continue }
+            guard let num = binding[ov.tty], let b = snap.terminals[num] else {
+                ov.hide(); dropInteraction(for: ov); continue
+            }
             ov.place(bounds: b, screenHeight: screenH)
             // The embedded illusion: the badge floats above everything, but
             // only SHOWS while its terminal is the topmost window at the
@@ -1067,7 +1130,9 @@ final class PromptSigilOverlayController {
             // exactly as if it were drawn inside it.
             let p = ov.rockPoint(bounds: b)
             let top = snap.stack.first(where: { $0.rect.contains(p) })?.num
-            ov.setVisible(top == nil || top == num)
+            let visible = (top == nil || top == num)
+            ov.setVisible(visible)
+            if !visible { dropInteraction(for: ov) }
             seen[num] = b
             if let prev = lastBoundsByNum[num], prev != b {
                 // A tracked window moved/resized — hold display rate for a short

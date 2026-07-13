@@ -33,6 +33,32 @@ Menu contents are parity with the Python version:
 
 Refresh cadence: 2 s. Mail unread count refreshes every 30 s (15 ticks).
 
+## Prompt rocks
+
+`Sources/SlabMenubar/PromptSigilOverlay.swift` — the tumbling stones parked at
+the top-right of each terminal window, one per live Claude session. When someone
+says "prompt rocks", this is it.
+
+- **Shape = identity.** Each rock is a 3D sigil grown from `sessionId + prompt`,
+  so it re-forms when the session moves on to a new prompt. Frames are
+  pre-rendered per rock (`SigilRockFrames`) and played back as a sprite sheet.
+- **Motion = status.** Spin speed and direction encode working / awaiting /
+  complete / stale. A poke from a peer (the ledger's "observed" note) makes the
+  stone blink and rattle.
+- **Name + bubble.** A deterministic pet name in Comic Sans bubble lettering
+  sits under the stone; pointing at it reveals a card summarizing the prompt
+  (one cheap `claude -p haiku` sentence, cached per seed).
+- **A shared sun** lights every rock from the local time of day, so the whole
+  wall of stones re-lights together.
+
+The rocks are borderless, click-through `.floating` windows — they ride above
+the normal-window stack so a busy wall of preview cards can't bury them. The
+price is that **occlusion is hand-rolled**, in two places that must agree:
+`reposition` hides a rock whose terminal corner is covered, and `overlayAt`
+refuses the pointer to a rock that is hidden or covered *at the cursor*. Skip
+either and a stone will wake up and pop its bubble through the window sitting on
+top of it.
+
 ## Passphrase modal (IPC server)
 
 The app listens on a Unix domain socket at `~/.ac-daemon.sock` (mode 0600). Any script on this user's account can request a passphrase.
