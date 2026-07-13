@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Menu Band — Advanced</title>
+<meta name="description" content="The unsandboxed Menu Band: a direct download with the features the Mac App Store build can't ship.">
+<link rel="icon" href="/menuband/icon.png">
+<style>
+  :root {
+    --aqua-sky-top: #dfe9f2;
+    --aqua-sky-bot: #b9cfe6;
+    --aqua-blue:    #3d7fd6;
+    --panel-bg:     #ededed;
+    --panel-stripe: #e5e5e5;
+    --panel-edge:   #c4ccd4;
+    --titlebar-top: #e8e8e8;
+    --titlebar-bot: #c8c8c8;
+    --ink-body:     #2b2b2b;
+    --ink-head:     #1a1a1a;
+    --ink-soft:     #5a5f66;
+  }
+  * { box-sizing: border-box; }
+  html { cursor: url("/aesthetic.computer/cursors/precise.svg") 12 12, auto; }
+  html, body {
+    margin: 0; padding: 0;
+    color: var(--ink-body);
+    font-family: "Lucida Grande", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 14px; line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    background: linear-gradient(to bottom, var(--aqua-sky-top), var(--aqua-sky-bot)) fixed;
+    min-height: 100vh;
+    padding: 36px 16px 64px;
+  }
+  .window {
+    max-width: 640px; margin: 0 auto;
+    background: #fff;
+    border-radius: 8px 8px 6px 6px;
+    border: 1px solid var(--panel-edge);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.5) inset, 0 10px 40px rgba(40,60,90,0.18);
+    overflow: hidden;
+  }
+  .titlebar {
+    height: 22px;
+    background: linear-gradient(to bottom, var(--titlebar-top), var(--titlebar-bot));
+    border-bottom: 1px solid var(--panel-edge);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.7) inset;
+    display: flex; align-items: center; padding: 0 9px;
+    position: relative; user-select: none;
+  }
+  .lights { display: flex; gap: 7px; }
+  .light {
+    width: 11px; height: 11px; border-radius: 50%;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.55) inset, 0 0 0 0.5px rgba(0,0,0,0.25);
+  }
+  .light.r { background: radial-gradient(circle at 35% 35%, #ff8a85, #ff5f57); }
+  .light.y { background: radial-gradient(circle at 35% 35%, #ffd68a, #febc2e); }
+  .light.g { background: radial-gradient(circle at 35% 35%, #6fe89d, #28c840); }
+  .titlebar h1 {
+    margin: 0 0 0 10px; font-size: 11px; font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+  .titlebar h1 a, .titlebar h1 a:visited {
+    color: #4a4a4a; text-decoration: none;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.7); cursor: inherit;
+  }
+  .titlebar h1 a:hover { color: var(--aqua-blue); }
+  .content { padding: 28px 32px 32px; }
+  h2 {
+    margin: 0 0 4px;
+    font-size: 28px; font-weight: 500; letter-spacing: -0.012em;
+    color: var(--ink-head);
+  }
+  .tagline {
+    margin: 0 0 22px;
+    font-style: italic;
+    font-family: Georgia, "Times New Roman", serif;
+    color: var(--ink-soft);
+  }
+  h3 {
+    margin: 18px 0 6px;
+    font-size: 14px; font-weight: 500; color: var(--ink-head);
+  }
+  p { margin: 0 0 10px; }
+  code {
+    font-family: "SF Mono", Monaco, monospace;
+    font-size: 12.5px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-edge);
+    border-radius: 3px;
+    padding: 1px 5px;
+  }
+  a { color: var(--aqua-blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    margin: 18px auto 0;
+    max-width: 640px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--ink-soft);
+    text-shadow: 0 1px 0 rgba(255,255,255,0.7);
+  }
+  footer a { color: var(--ink-soft); }
+
+  ul.flat { margin: 4px 0 10px; padding-left: 18px; }
+  ul.flat li { margin-bottom: 6px; }
+
+  /* The store-vs-direct choice, stated once and plainly. */
+  .note-card {
+    margin: 20px 0 4px; padding: 14px 16px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-edge);
+    border-radius: 6px;
+  }
+  .note-card p { margin: 0; }
+
+  /* Download button. Deliberately quieter than the App Store jellybean on
+     the landing page — this is the side door, not the front one. */
+  .download-stage { margin: 22px 0 4px; text-align: center; }
+  a.download {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 22px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #fff;
+    border-radius: 999px;
+    border: 1px solid rgba(0, 0, 0, 0.18);
+    background: linear-gradient(to bottom, #6ea8e8, var(--aqua-blue));
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.45) inset, 0 2px 6px rgba(40, 60, 90, 0.25);
+    text-decoration: none;
+  }
+  a.download:hover { text-decoration: none; filter: brightness(1.06); }
+  a.download small { font-size: 11px; opacity: 0.85; font-weight: 400; }
+
+  /* Fades in once /api resolves, so a slow round-trip never flashes "0". */
+  p.downloads {
+    margin: 8px auto 0;
+    font-family: "SF Mono", Monaco, monospace;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: var(--ink-soft);
+    text-align: center;
+    opacity: 0;
+    transition: opacity 360ms cubic-bezier(0.25, 0.1, 0.25, 1);
+    min-height: 1.4em;
+  }
+  p.downloads.ready { opacity: 1; }
+  p.downloads .count {
+    color: var(--ink-head);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --aqua-sky-top: #0e1a2e;
+      --aqua-sky-bot: #04070d;
+      --aqua-blue:    #4a93ff;
+      --panel-bg:     #2c2c2e;
+      --panel-stripe: #232325;
+      --panel-edge:   #2c2c2e;
+      --titlebar-top: #2c2c2e;
+      --titlebar-bot: #1f1f21;
+      --ink-body:     #ebebf0;
+      --ink-head:     #ffffff;
+      --ink-soft:     #98989d;
+    }
+    .window {
+      background: #1c1c1e;
+      box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 10px 40px rgba(0,0,0,0.55);
+    }
+    .titlebar h1 a, .titlebar h1 a:visited { color: #d0d0d2; text-shadow: 0 -1px 0 rgba(0,0,0,0.5); }
+    code { background: #2c2c2e; border-color: #3a3a3c; color: var(--ink-body); }
+    .note-card { background: #232325; border-color: #3a3a3c; }
+  }
+</style>
+</head>
+<body>
+
+<article class="window">
+  <header class="titlebar" aria-hidden="true">
+    <div class="lights">
+      <div class="light r"></div>
+      <div class="light y"></div>
+      <div class="light g"></div>
+    </div>
+    <h1><a href="/">menuband</a> — advanced</h1>
+  </header>
+
+  <div class="content">
+    <h2>Advanced</h2>
+    <p class="tagline">The unsandboxed Menu Band — a direct download, with the parts the App Store can't carry.</p>
+
+    <div class="note-card">
+      <p><b>Most people want the <a href="https://apps.apple.com/us/app/menu-band/id6767311903?mt=12">Mac App Store version</a>.</b> It updates itself, it's signed and sandboxed, and it plays the same instruments. This page is for the build that does more than Apple's sandbox permits.</p>
+    </div>
+
+    <h3>What only this build can do</h3>
+    <p>The Mac App Store requires the App Sandbox, which forbids the APIs these features are built on. They aren't disabled in the store version — they aren't compiled into it.</p>
+    <ul class="flat">
+      <li><b>Type to play in any app.</b> The store build only listens while Menu Band is frontmost. This one plays notes while you're in another window.</li>
+      <li><b>The ⌘⌘ launcher.</b> A background daemon that summons Menu Band from a double-tap of Command, anywhere.</li>
+      <li><b>The fleet.</b> Nearby Macs discover each other and play together over MultipeerConnectivity.</li>
+      <li><b>Multitouch trackpad.</b> Your trackpad becomes a continuous, multi-finger surface rather than a mouse.</li>
+    </ul>
+
+    <h3>What you give up</h3>
+    <ul class="flat">
+      <li><b>Self-updating is on us, not Apple.</b> The app checks for its own updates and tells you when one lands.</li>
+      <li><b>Permissions to grant by hand.</b> Global typing needs Accessibility access in <b>System Settings → Privacy &amp; Security</b>; the store version never asks because it never uses it.</li>
+      <li><b>First launch is a gatekeeper conversation.</b> The build is notarized, so it opens — but macOS will still want a moment to check it.</li>
+    </ul>
+
+    <div class="download-stage">
+      <a id="download-link" class="download" href="https://assets.aesthetic.computer/menuband/Menu-Band-1.5.3.dmg" data-version="1.5.3" download>
+        <span>Download</span>
+        <small id="download-meta">1.5.3 · Universal · 8.3 MB</small>
+      </a>
+      <p id="downloads-counter" class="downloads" aria-live="polite" hidden></p>
+    </div>
+
+    <h3>Source</h3>
+    <p>Both builds come from one codebase; the store version is carved out of it with <code>#if MAC_APP_STORE</code>. Read it at <a href="https://tangled.org/@aesthetic.computer/core/tree/main/slab/menuband">tangled.org</a>.</p>
+
+    <h3>Help</h3>
+    <p>Playing tips and troubleshooting live on the <a href="/menuband/support.html">support page</a>. Email <a href="mailto:mail@aesthetic.computer?subject=Menu%20Band%20advanced">mail@aesthetic.computer</a> for anything else.</p>
+  </div>
+</article>
+
+<footer>
+  © <a href="https://aesthetic.computer">aesthetic.computer</a> · 2026 · <a href="/">back to Menu Band</a>
+</footer>
+
+<script>
+  // ── Release manifest + downloads counter ────────────────────────────
+  //    Moved here from the landing page when the App Store became the
+  //    front door (2026-07-12). /menuband/manifest.json is the single
+  //    source of truth for which DMG the button points at;
+  //    bin/publish-release.fish updates it after each new build.
+  //    /api/menuband-downloads keeps a per-version tally in MongoDB and
+  //    only accepts POSTs whose `version` is in the manifest's allowlist,
+  //    so the counter can't be inflated with junk strings. We fire the
+  //    increment via sendBeacon so the click isn't blocked on the network
+  //    round-trip — the browser hands the download off normally and queues
+  //    the POST in the background.
+  (function downloadsAndManifest() {
+    const link = document.getElementById('download-link');
+    const meta = document.getElementById('download-meta');
+    const counter = document.getElementById('downloads-counter');
+
+    function fmtBytes(n) {
+      if (typeof n !== 'number' || !isFinite(n) || n <= 0) return '';
+      const mb = n / (1024 * 1024);
+      // Match the existing "2.3 MB" style — one decimal up to 9.9 MB,
+      // round to integer beyond.
+      return (mb < 10 ? mb.toFixed(1) : Math.round(mb).toString()) + ' MB';
+    }
+
+    function paintCounter(total) {
+      if (!counter) return;
+      const n = Number(total) || 0;
+      counter.innerHTML = (n === 1 ? '1 download' : '{n} downloads')
+        .replace('{n}', '<span class="count">' + n.toLocaleString() + '</span>');
+      counter.hidden = false;
+      // Defer adding the .ready class so the transition runs.
+      requestAnimationFrame(() => counter.classList.add('ready'));
+    }
+
+    // Pull the latest version + URL into the download button. The macOS
+    // app polls a smaller-schema sibling at
+    // https://assets.aesthetic.computer/menuband/latest.json and both
+    // files are kept in sync by bin/publish-release.fish. If the manifest
+    // is missing or malformed we leave the hardcoded fallback alone so the
+    // page still works.
+    fetch('/menuband/manifest.json', { cache: 'no-store' })
+      .then((r) => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
+      .then((m) => {
+        if (!m || !Array.isArray(m.versions)) return;
+        const latestVersion = m.latest || m.version;
+        if (!latestVersion) return;
+        const entry = m.versions.find((v) => v && v.version === latestVersion);
+        if (!entry || !entry.dmg || !entry.version) return;
+        if (link) {
+          link.href = entry.dmg;
+          link.setAttribute('data-version', entry.version);
+        }
+        if (meta) {
+          const arch = (entry.requirements || 'Universal').replace(/^macOS [^·]+·\s*/, '');
+          const size = fmtBytes(entry.size);
+          meta.textContent = [entry.version, arch].concat(size ? [size] : []).join(' · ');
+        }
+      })
+      .catch(() => { /* leave hardcoded fallback */ });
+
+    // Pull current downloads total. If the call fails, keep the line
+    // hidden — better no counter than a "—" placeholder.
+    fetch('/api/menuband-downloads', { cache: 'no-store' })
+      .then((r) => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
+      .then((d) => {
+        if (!d || typeof d.total !== 'number') return;
+        paintCounter(d.total);
+      })
+      .catch(() => { /* hidden */ });
+
+    // Fire the increment when the user actually clicks Download. sendBeacon
+    // keeps the request alive even though the browser is simultaneously
+    // navigating away to the DMG; fall back to fetch with keepalive on the
+    // rare browser without it.
+    if (link) {
+      link.addEventListener('click', () => {
+        const version = link.getAttribute('data-version');
+        if (!version) return;
+        const url = '/api/menuband-downloads';
+        const payload = JSON.stringify({ version });
+        try {
+          if (navigator.sendBeacon) {
+            navigator.sendBeacon(url, new Blob([payload], { type: 'application/json' }));
+            return;
+          }
+        } catch { /* fall through */ }
+        try {
+          fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: payload,
+            keepalive: true,
+          });
+        } catch { /* swallow — the download itself shouldn't fail */ }
+      });
+    }
+  })();
+</script>
+
+</body>
+</html>

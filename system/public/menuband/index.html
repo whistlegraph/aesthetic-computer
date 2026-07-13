@@ -206,8 +206,9 @@
     margin-top: 4px;
   }
 
-  /* Demoted caption beneath the download button — links read as plain
-     text, not as buttons. */
+  /* Demoted caption beneath the App Store button — links read as plain
+     text, not as buttons. Carries the `advanced` link to the direct
+     download, which is deliberately not a second jellybean up top. */
   p.aux {
     margin: 14px auto 0;
     font-family: "Berkeley Mono Variable", "SF Mono", Menlo, monospace;
@@ -218,44 +219,6 @@
   }
   p.aux a { color: var(--ink-soft); text-decoration: underline; text-decoration-color: rgba(90, 95, 102, 0.35); text-underline-offset: 2px; }
   p.aux a:hover { color: var(--tahoe-blue); text-decoration-color: currentColor; }
-
-  /* Downloads counter — sits under the button, same monospace caption
-     family as `.aux` but with the count picked out in the head color so
-     the number reads first. Fades in once the count resolves so a slow
-     /api round-trip doesn't pop a "0 downloads" placeholder. */
-  p.downloads {
-    margin: 8px auto 0;
-    font-family: "Berkeley Mono Variable", "SF Mono", Menlo, monospace;
-    font-size: 11px;
-    letter-spacing: 0.04em;
-    color: var(--ink-soft);
-    text-align: center;
-    opacity: 0;
-    transition: opacity 360ms var(--ease-apple);
-    min-height: 1.4em;
-  }
-  p.downloads.ready { opacity: 1; }
-  p.downloads .count {
-    color: var(--ink-head);
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-  }
-
-  /* Mac App Store status — same monospace caption family as `.aux`, with
-     the date picked out in the head color. A temporary line: swap it for
-     the App Store badge/link once Apple approves. */
-  p.appstore-note {
-    margin: 8px auto 0;
-    font-family: "Berkeley Mono Variable", "SF Mono", Menlo, monospace;
-    font-size: 11px;
-    letter-spacing: 0.04em;
-    color: var(--ink-soft);
-    text-align: center;
-  }
-  p.appstore-note .when {
-    color: var(--ink-head);
-    font-weight: 700;
-  }
 
   .aqua {
     display: inline-flex;
@@ -677,14 +640,12 @@
     <p class="tagline" data-i18n="tagline">Taking your Mac's standard instruments out of the 🎸 Garage and kickin' it on the curb!</p>
 
     <div class="button-row">
-      <a id="download-link" class="aqua" href="https://assets.aesthetic.computer/menuband/Menu-Band-1.3.dmg" data-version="1.3" download>
-        <span data-i18n="downloadCta">Download</span>
-        <small id="download-meta" data-i18n="downloadMeta">1.3 · Apple Silicon · 4.7 MB</small>
+      <a id="store-link" class="aqua" href="https://apps.apple.com/us/app/menu-band/id6767311903?mt=12">
+        <span data-i18n="storeCta">🍏 Mac App Store</span>
+        <small data-i18n="storeMeta">1.5.3 · $4.99 · macOS 11+</small>
       </a>
     </div>
-    <p id="downloads-counter" class="downloads" aria-live="polite" hidden></p>
-    <p class="appstore-note">🍏 Submitted to the Mac App Store for review <span class="when">July 5, 2026</span></p>
-    <p class="aux"><a href="https://tangled.org/@aesthetic.computer/core/tree/main/slab/menuband" data-i18n="viewSource">view source</a> · <span data-i18n="by">by</span> <a href="https://aesthetic.computer">aesthetic.computer</a></p>
+    <p class="aux"><a href="/advanced" data-i18n="advanced">advanced</a> · <a href="https://tangled.org/@aesthetic.computer/core/tree/main/slab/menuband" data-i18n="viewSource">view source</a> · <span data-i18n="by">by</span> <a href="https://aesthetic.computer">aesthetic.computer</a></p>
   </div>
 
   <section class="panel">
@@ -751,8 +712,9 @@
         title: "Menu Band — Built-in instruments, in the menu bar.",
         description: "Menu Band brings the built-in instruments — the ones GarageBand uses — to your menu bar. Tap, type, or send to your DAW over MIDI.",
         tagline: "Taking your Mac's standard instruments out of the 🎸 Garage and kickin' it on the curb!",
-        downloadCta: "Download",
-        downloadMeta: "1.3 · Apple Silicon · 4.7 MB",
+        storeCta: "🍏 Mac App Store",
+        storeMeta: "1.5.3 · $4.99 · macOS 11+",
+        advanced: "advanced",
         viewSource: "view source",
         by: "by",
         lede: 'A tiny piano lives in the right side of your menu bar. Click the keys, type letters, or pipe notes to your DAW over MIDI — Menu Band publishes a virtual MIDI source named <code>Menu Band</code> that any DAW can pick as input. When nothing\'s listening, a built-in General MIDI synth covers hundreds of patches.',
@@ -775,15 +737,14 @@
         requirementsTitle: "Requirements",
         requirementsBody: "macOS 11+ · Apple Silicon · ⌃⌥⌘P toggles typing mode.",
         privacy: "privacy",
-        downloadsOne: "1 download",
-        downloadsMany: "{n} downloads",
       },
       es: {
         title: "Menu Band — Los instrumentos integrados, en la barra de menús.",
         description: "Menu Band trae los instrumentos integrados — los que usa GarageBand — a tu barra de menús. Toca, escribe o envíalos a tu DAW por MIDI.",
         tagline: "¡Sacando los instrumentos clásicos de tu Mac del 🎸 Garage para tocarlos en la acera!",
-        downloadCta: "Descargar",
-        downloadMeta: "1.3 · Apple Silicon · 4,7 MB",
+        storeCta: "🍏 Mac App Store",
+        storeMeta: "1.5.3 · 4,99 $ · macOS 11+",
+        advanced: "avanzado",
         viewSource: "ver código",
         by: "por",
         lede: 'Un piano diminuto vive a la derecha de tu barra de menús. Toca las teclas, escribe letras o envía notas a tu DAW por MIDI — Menu Band publica una fuente MIDI virtual llamada <code>Menu Band</code> que cualquier DAW puede tomar como entrada. Cuando nadie escucha, un sintetizador General MIDI integrado cubre cientos de timbres.',
@@ -806,8 +767,6 @@
         requirementsTitle: "Requisitos",
         requirementsBody: "macOS 11+ · Apple Silicon · ⌃⌥⌘P alterna el modo de escritura.",
         privacy: "privacidad",
-        downloadsOne: "1 descarga",
-        downloadsMany: "{n} descargas",
       },
     };
 
@@ -955,115 +914,6 @@
         const t = (k) => (window.menubandT ? window.menubandT(k) : k);
         list.innerHTML = '<li class="commits-empty">' + t('recentError') + '</li>';
       });
-  })();
-
-  // ── Release manifest + downloads counter ────────────────────────────
-  //    /menuband/manifest.json is the single source of truth for which
-  //    DMG the button points at; bin/publish-release.fish updates it
-  //    after each new build. /api/menuband-downloads keeps a per-version
-  //    tally in MongoDB and only accepts POSTs whose `version` is in
-  //    the manifest's allowlist, so the counter can't be inflated with
-  //    junk strings. We fire the increment via sendBeacon so the click
-  //    isn't blocked on the network round-trip — the browser hands the
-  //    download off normally and queues the POST in the background.
-  (function downloadsAndManifest() {
-    const link = document.getElementById('download-link');
-    const meta = document.getElementById('download-meta');
-    const counter = document.getElementById('downloads-counter');
-
-    function fmtBytes(n) {
-      if (typeof n !== 'number' || !isFinite(n) || n <= 0) return '';
-      const mb = n / (1024 * 1024);
-      // Match the existing "2.3 MB" style — one decimal up to 9.9 MB,
-      // round to integer beyond.
-      return (mb < 10 ? mb.toFixed(1) : Math.round(mb).toString()) + ' MB';
-    }
-
-    function paintCounter(total) {
-      if (!counter) return;
-      const t = (k) => (window.menubandT ? window.menubandT(k) : k);
-      const n = Number(total) || 0;
-      const tmpl = n === 1 ? t('downloadsOne') : t('downloadsMany');
-      counter.innerHTML = tmpl
-        .replace('{n}', '<span class="count">' + n.toLocaleString() + '</span>');
-      counter.hidden = false;
-      // Defer adding the .ready class so the transition runs.
-      requestAnimationFrame(() => counter.classList.add('ready'));
-    }
-
-    // Pull the latest version + URL into the download button. The
-    // manifest at /menuband/manifest.json is committed in-repo and
-    // served by lith same-origin (so no CORS dance). The macOS app
-    // polls a smaller-schema sibling at
-    // https://assets.aesthetic.computer/menuband/latest.json and
-    // both files are kept in sync by bin/publish-release.fish.
-    // If the manifest is missing or malformed we leave the hardcoded
-    // fallback attributes alone so the page still works.
-    fetch('/menuband/manifest.json', { cache: 'no-store' })
-      .then((r) => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
-      .then((m) => {
-        if (!m || !Array.isArray(m.versions)) return;
-        const latestVersion = m.latest || m.version;
-        if (!latestVersion) return;
-        const entry = m.versions.find((v) => v && v.version === latestVersion);
-        if (!entry || !entry.dmg || !entry.version) return;
-        if (link) {
-          link.href = entry.dmg;
-          link.setAttribute('data-version', entry.version);
-        }
-        if (meta) {
-          // Keep the static i18n string in place, but rewrite the visible
-          // version+size from the manifest. Apple Silicon stays — every
-          // current release is Apple-Silicon-only and the string is in
-          // the manifest's `requirements` field if it ever changes.
-          const arch = (entry.requirements || 'Apple Silicon').replace(/^macOS [^·]+·\s*/, '');
-          const size = fmtBytes(entry.size);
-          const parts = [entry.version, arch].concat(size ? [size] : []);
-          meta.textContent = parts.join(' · ');
-          // Strip the i18n hook so applyLanguage() doesn't overwrite us
-          // when the user toggles EN/ES.
-          meta.removeAttribute('data-i18n');
-        }
-      })
-      .catch(() => { /* leave hardcoded fallback */ });
-
-    // Pull current downloads total. If the call fails, keep the line
-    // hidden — better no counter than a "—" placeholder.
-    fetch('/api/menuband-downloads', { cache: 'no-store' })
-      .then((r) => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
-      .then((d) => {
-        if (!d || typeof d.total !== 'number') return;
-        paintCounter(d.total);
-      })
-      .catch(() => { /* hidden */ });
-
-    // Fire the increment when the user actually clicks Download. We use
-    // sendBeacon so the request keeps going even though the browser is
-    // simultaneously navigating away to the DMG; fall back to fetch with
-    // keepalive: true on the rare browser without sendBeacon.
-    if (link) {
-      link.addEventListener('click', () => {
-        const version = link.getAttribute('data-version');
-        if (!version) return;
-        const url = '/api/menuband-downloads';
-        const payload = JSON.stringify({ version });
-        try {
-          if (navigator.sendBeacon) {
-            const blob = new Blob([payload], { type: 'application/json' });
-            navigator.sendBeacon(url, blob);
-            return;
-          }
-        } catch { /* fall through */ }
-        try {
-          fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: payload,
-            keepalive: true,
-          });
-        } catch { /* swallow — the download itself shouldn't fail */ }
-      });
-    }
   })();
 
 </script>
