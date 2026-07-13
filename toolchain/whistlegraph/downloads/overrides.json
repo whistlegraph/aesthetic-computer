@@ -1,7 +1,6 @@
 {
   "_comment": "Hand-curation from the trio (Alex, broad strokes) that the clustering pass can't derive. Applied by gen-model.mjs after clustering. renames: code -> canonical title. recodes: oldCode -> newCode (change a work's deep-link slug; its posts retag, pair with a rename keyed on the newCode for the title). merges: sourceCode -> targetCode (source's posts retag to the target, source work drops out; folded codes intentionally stop resolving and fall back to the index).",
   "renames": {
-    "wg4": "It Me",
     "bugy": "Buggy on The Wall"
   },
   "recodes": {
@@ -22,6 +21,13 @@
     "whol": "cult",
     "soti": "sotm",
     "suckt": "sotm",
-    "sumr": "sotm"
+    "sumr": "sotm",
+    "src": "srce",
+    "wg4": "itme",
+    "knkm": "itme",
+    "lgmw": "web",
+    "lvme": "bowm",
+    "sndy": "sdog",
+    "aksy": "techn"
   }
 }

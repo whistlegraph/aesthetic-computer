@@ -54,7 +54,11 @@ const mergeSources = new Set(Object.keys(merges));
 // Resolve a raw cluster code to the slug it appears under: apply a recode
 // (slug change) first, then a merge (fold into another work). Posts and the
 // rollup both go through this so counts land on the final code.
-const resolve = (code) => { const c = recodes[code] || code; return merges[c] || c; };
+const resolve = (code) => {
+  let c = recodes[code] || code;
+  for (let i = 0; i < 8 && merges[c]; i += 1) c = merges[c]; // follow merge chains (A→B→C), cycle-guarded
+  return c;
+};
 
 const catById = new Map(catalog.map((v) => [v.id, v]));
 const songByGlyph = new Map(); // cluster glyph id → its SONGS cluster (for clip metadata)
