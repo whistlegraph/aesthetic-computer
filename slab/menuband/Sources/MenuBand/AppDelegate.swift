@@ -205,23 +205,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// side (or a lapsed window) restarts the run.
     private var quietFocusMonitorGlobal: Any?
     private var quietFocusMonitorLocal: Any?
-    private var quietFocusLastSide: UInt16 = 0     // 0 = none, else the keyCode
     private var quietFocusRunCount = 0
     private var lastQuietFocusTapAt: CFTimeInterval = 0
-    /// Max gap between consecutive taps of the alternating triple.
+    /// Max gap between the two taps of the right-⌘ double.
     private static let quietFocusTapWindow: CFTimeInterval = 0.50
 
-    /// Triple-tap RIGHT ⌘ → the full-screen LED visualizer.
-    private var visualizerMonitorGlobal: Any?
-    private var visualizerMonitorLocal: Any?
-    /// Bare right-⌘ DOWN edges counted so far in the current run. Three inside
-    /// the window raises the full-screen visualizer.
-    private var visualizerTapCount = 0
-    private var lastVisualizerTapAt: CFTimeInterval = 0
-    /// Max gap BETWEEN consecutive taps of the triple. A touch roomier: three
-    /// taps is a longer motion to land, and missing it feels worse than waiting
-    /// a beat.
-    private static let visualizerTapWindow: CFTimeInterval = 0.40
+    // (The visualizer's right-⌘ TRIPLE-tap gesture was removed: it had claimed
+    // right-⌘ double-tap away from quiet focus, forcing focus onto an awkward
+    // left/right alternating triple. The visualizer is opened by clicking the
+    // scope in the popover, or the big scope in the keymap window.)
     private var popoverEscMonitor: Any?
 
     /// Sandbox-friendly local key capture. Armed when the user clicks the
@@ -737,6 +729,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pianoWaveformWindowDelegate.onToggleKeymap = { [weak self] in
             self?.toggleKeyboardLayoutShortcut()
         }
+        // Click the keymap window's big LED scope → the whole screen becomes
+        // that scope, same as clicking the little scope in the popover. The
+        // keymap window steps aside: the visualizer is meant to be the only
+        // thing on screen. This and the popover scope are now the ONLY ways in —
+        // the right-⌘ triple-tap gesture was retired.
+        pianoWaveformWindowDelegate.onOpenVisualizer = { [weak self] in
+            guard let self = self else { return }
+            self.pianoWaveformWindowDelegate.dismiss(reason: .closeButton)
+            self.visualizerOverlay.show()
+        }
 
         // Magnify the icon to fill the bar's usable height. The status
         // button centers (doesn't downscale) its image, so we scale up only
@@ -1228,7 +1230,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         startShiftStateMonitors()
         startChordMorphMonitors()
         startQuietFocusTapMonitor()
-        startVisualizerTripleTapMonitor()
         startVisualizerAnimation()
 
         // Retint the running app's icon (About panel + Dock) to the
@@ -2036,18 +2037,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { event in handler(event); return event }
     }
 
-    /// Alternating left/right ⌘ triple → toggle focus capture. Three bare ⌘
-    /// down edges that switch sides each tap (R-L-R or L-R-L) inside
-    /// `quietFocusTapWindow` arm / disarm the menubar piano for typing. Bare
-    /// single ⌘ and same-side repeats do nothing, so ⌘ stays free as a normal
-    /// modifier for the rest of the system, and three same-side RIGHT taps read
-    /// as the visualizer gesture (see `startVisualizerTripleTapMonitor`), never
-    /// as focus. The toggle fires a dry click on the qualifying third press so
-    /// the user feels the gesture land.
+    /// Double-tap the RIGHT ⌘ → toggle focus capture. Two bare right-⌘ down
+    /// edges inside `quietFocusTapWindow` arm / disarm the menubar piano for
+    /// typing. A single bare ⌘ does nothing, so ⌘ stays free as a normal
+    /// modifier for the rest of the system. The toggle fires a dry click on the
+    /// qualifying second press so the user feels the gesture land.
     ///
-    /// (This lived on a plain right-⌘ DOUBLE-tap until the visualizer's
-    /// right-⌘ triple took that key. Alternating sides keeps the two gestures
-    /// disjoint on the same pair of keys while staying instant.)
+    /// RIGHT ⌘ specifically, and LEFT ⌘ breaks the run rather than merely not
+    /// counting — otherwise ordinary two-handed ⌘ use would trip the gesture.
+    ///
+    /// (History worth keeping: this WAS a right-⌘ double-tap, then a right-⌘
+    /// TRIPLE-tap visualizer gesture took the key, so focus was moved onto an
+    /// awkward left/right ALTERNATING triple to stay disjoint. That alternating
+    /// gesture is gone: the visualizer no longer has a ⌘ gesture at all — it's
+    /// opened by clicking the scope in the popover or the big scope in the
+    /// keymap window — which frees right-⌘ double-tap to be what it always
+    /// should have been.)
     ///
     /// A bare modifier isn't a valid Carbon hotkey, so we ride the same
     /// global/local .flagsChanged stream the shift monitor already has
@@ -2055,6 +2060,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func startQuietFocusTapMonitor() {
         let handler: (NSEvent) -> Void = { [weak self] event in
             guard let self = self else { return }
+            // ⌘ + something = a chord, not a tap. `.flagsChanged` fires the
+            // instant ⌘ goes down, BEFORE the letter lands — so rattling off
+            // ⌘C ⌘V looks exactly like two bare ⌘ taps unless we notice the key
+            // that followed and kill the run. (Inherited from the retired
+            // visualizer triple-tap, which is where this hazard was first found;
+            // it matters more now that focus is a two-tap gesture.) Only a REAL
+            // key cancels: a modifier's own keycode can arrive as a keyDown from
+            // synthesized input (System Events' `key code 54`), and treating
+            // that as a chord would cancel the very run it's trying to make.
+            if event.type == .keyDown {
+                let isModifierKey = event.keyCode == Self.leftCommandKeyCode
+                    || event.keyCode == Self.rightCommandKeyCode
+                if event.modifierFlags.contains(.command), !isModifierKey {
+                    self.quietFocusRunCount = 0
+                }
+                return
+            }
             guard event.type == .flagsChanged else { return }
             let side = event.keyCode
             guard side == Self.leftCommandKeyCode || side == Self.rightCommandKeyCode
@@ -2065,30 +2087,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard event.modifierFlags.contains(.command) else { return }
             // Bare ⌘ only. If anything else is held (⇧/⌥/⌃/capsLock, or a chord
             // like ⌘⇧), this isn't a tap candidate — reset the run so a chord
-            // can't form part of a future alternating triple.
+            // can't pair into a future double-tap.
             let mask = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             guard mask == .command else {
                 self.quietFocusRunCount = 0
-                self.quietFocusLastSide = 0
+                return
+            }
+            // Left ⌘ breaks the run. Not just "doesn't count" — if it merely
+            // failed to count, a left tap between two right taps would still
+            // leave them adjacent in time and the gesture would fire on ordinary
+            // two-handed ⌘ use.
+            guard side == Self.rightCommandKeyCode else {
+                self.quietFocusRunCount = 0
                 return
             }
             let now = CACurrentMediaTime()
             let inWindow = now - self.lastQuietFocusTapAt <= Self.quietFocusTapWindow
-            // A run continues only when this tap ALTERNATES sides within the
-            // window; a same-side repeat (or a lapse) starts a fresh run at
-            // this side.
-            if inWindow, self.quietFocusRunCount > 0, side != self.quietFocusLastSide {
-                self.quietFocusRunCount += 1
-            } else {
-                self.quietFocusRunCount = 1
-            }
-            self.quietFocusLastSide = side
+            self.quietFocusRunCount = (inWindow && self.quietFocusRunCount > 0)
+                ? self.quietFocusRunCount + 1
+                : 1
             self.lastQuietFocusTapAt = now
-            guard self.quietFocusRunCount >= 3 else { return }
-            // Triple completed — consume it so a fourth tap starts a fresh run
+            guard self.quietFocusRunCount >= 2 else { return }
+            // Double completed — consume it so a third tap starts a fresh run
             // instead of chaining toggles.
             self.quietFocusRunCount = 0
-            self.quietFocusLastSide = 0
             self.lastQuietFocusTapAt = 0
             FocusCueBeep.shared.click()
             self.toggleQuietFocusFromCommandTap()
@@ -2101,62 +2123,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { handler($0); return $0 }
     }
 
-    /// Triple-tap RIGHT-⌘ → the full-screen LED visualizer (and again to put it
-    /// away). Rides the same global/local `.flagsChanged` stream the shift and
-    /// quiet-focus monitors already have permission for — nothing new to grant.
-    ///
-    /// RIGHT ⌘ because that's the key the hand actually reaches for. Quiet focus
-    /// alternates sides (see `startQuietFocusTapMonitor`) so three same-side
-    /// RIGHT taps stay unambiguously the visualizer.
-    ///
-    /// The subtle part is not counting chords. `.flagsChanged` fires the
-    /// instant ⌘ goes down, before you've hit the letter — so rattling off
-    /// ⌘C ⌘V ⌘X looks exactly like three bare taps unless we notice the key
-    /// that followed. Any keyDown while ⌘ is held cancels the run.
-    private func startVisualizerTripleTapMonitor() {
-        let handler: (NSEvent) -> Void = { [weak self] event in
-            guard let self = self else { return }
-            if event.type == .keyDown {
-                // ⌘ + something = a chord, not a tap. Kill the run — but only
-                // for a real key. A modifier's own keycode can arrive as a
-                // keyDown from synthesized input (System Events' `key code 54`),
-                // and treating that as a chord would cancel the very run it's
-                // trying to make.
-                let isModifierKey = event.keyCode == Self.leftCommandKeyCode
-                    || event.keyCode == Self.rightCommandKeyCode
-                if event.modifierFlags.contains(.command), !isModifierKey {
-                    self.visualizerTapCount = 0
-                }
-                return
-            }
-            guard event.type == .flagsChanged,
-                  event.keyCode == Self.rightCommandKeyCode else { return }
-            // .flagsChanged fires on press AND release; .command is set only
-            // on the down edge.
-            guard event.modifierFlags.contains(.command) else { return }
-            // Bare right-⌘ only — ⌘⇧, ⌘⌥ etc. can't build a tap run.
-            let mask = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-            guard mask == .command else { self.visualizerTapCount = 0; return }
-            let now = CACurrentMediaTime()
-            self.visualizerTapCount =
-                (now - self.lastVisualizerTapAt <= Self.visualizerTapWindow)
-                ? self.visualizerTapCount + 1
-                : 1
-            self.lastVisualizerTapAt = now
-            guard self.visualizerTapCount >= 3 else { return }
-            self.visualizerTapCount = 0
-            self.lastVisualizerTapAt = 0
-            FocusCueBeep.shared.click()
-            if self.isPopoverPanelShown { self.closePopover() }
-            self.visualizerOverlay.toggle()
-        }
-        visualizerMonitorGlobal = NSEvent.addGlobalMonitorForEvents(
-            matching: [.flagsChanged, .keyDown]
-        ) { handler($0) }
-        visualizerMonitorLocal = NSEvent.addLocalMonitorForEvents(
-            matching: [.flagsChanged, .keyDown]
-        ) { handler($0); return $0 }
-    }
 
     private func applyForcedLayoutIfAny() {
         let raw = UserDefaults.standard.string(forKey: "forceLayout") ?? ""

@@ -49,6 +49,13 @@ final class PianoWaveformViewController: NSViewController {
         set { collapsedView.onOpenKeymap = newValue }
     }
 
+    /// Click the keymap window's big LED scope → full-screen visualizer. (The
+    /// collapsed cluster's little scope is wired separately, by the popover.)
+    var onOpenVisualizer: (() -> Void)? {
+        get { expandedView.onOpenVisualizer }
+        set { expandedView.onOpenVisualizer = newValue }
+    }
+
     func setArrowHighlight(direction: Int, on: Bool) {
         collapsedView.setArrowHighlight(direction: direction, on: on)
     }

@@ -88,6 +88,12 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
         return panel.frame
     }
 
+    /// Click the keymap window's big LED scope → full-screen visualizer.
+    var onOpenVisualizer: (() -> Void)? {
+        get { pianoWaveformViewController.onOpenVisualizer }
+        set { pianoWaveformViewController.onOpenVisualizer = newValue }
+    }
+
     var onStepBackward: (() -> Void)? {
         get { pianoWaveformViewController.onStepBackward }
         set { pianoWaveformViewController.onStepBackward = newValue }

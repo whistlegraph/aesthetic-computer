@@ -86,6 +86,10 @@ final class ExpandedPianoWaveformView: NSView {
     var onStepForward: (() -> Void)?
     var onStepUp: (() -> Void)?
     var onStepDown: (() -> Void)?
+    /// Click the big LED scope → the whole screen becomes that scope. Mirrors
+    /// the collapsed popover's little scope, and is now the way in: the
+    /// visualizer's right-⌘ triple-tap gesture was retired.
+    var onOpenVisualizer: (() -> Void)?
 
     private let pianoScale: CGFloat = 1.6
     private let inset: CGFloat = 14
@@ -122,6 +126,11 @@ final class ExpandedPianoWaveformView: NSView {
         // doesn't enable the audio tap while the panel exists but isn't shown;
         // updateWaveformLiveState flips this true once the overlay is presented.
         waveformView.isLive = false
+        // Tapping the big scope blows it up to the full-screen LED wall, same
+        // as clicking the little scope in the popover.
+        waveformView.onClick = { [weak self] in
+            self?.onOpenVisualizer?()
+        }
         contentStack.orientation = .vertical
         contentStack.alignment = .centerX
         contentStack.distribution = .fill
