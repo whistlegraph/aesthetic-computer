@@ -499,13 +499,15 @@ function renderReset(scrollTop){
 let postsLoaded=null;
 function loadPosts(){
   if(postsLoaded) return postsLoaded;
-  postsLoaded=fetch("/posts.json").then(r=>r.ok?r.json():{posts:[]}).then(pd=>{
+  postsLoaded=fetch("/posts.json",{cache:"no-cache"}).then(r=>r.ok?r.json():{posts:[]}).then(pd=>{
     for(const p of pd.posts||[]) for(const code of p.graphs||[]) (POSTS_BY_CODE[code]||=[]).push(p);
   }).catch(()=>{});
   return postsLoaded;
 }
 
-fetch("/graphs.json").then(r=>r.json()).then(data=>{
+// no-cache: the curation changes constantly (folds, renames, attributions) — the
+// browser must revalidate so a stale max-age copy never hides a fresh deploy.
+fetch("/graphs.json",{cache:"no-cache"}).then(r=>r.json()).then(data=>{
   GRAPHS=data.graphs; CURATED_N=data.curated;
   COMPOSITIONS=GRAPHS.slice();
   EXPERIMENTS=GRAPHS.filter(w=>w.kind==="experiment");
