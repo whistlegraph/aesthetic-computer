@@ -49,20 +49,45 @@ re-serializes on save.
 `~/Music/Ableton/User Library/Templates/`, so it shows up in Live's browser under **Templates > AC
 Blank** — one click to a genuinely blank Set.
 
-## Known gap: this is NOT the auto-default (⌘N)
+## Making it the auto-default (⌘N) — the menu-item-by-name trap
 
-Making this the Set that **New Live Set** opens is unsolved. ⌘N still gives Ableton's stock
-2-MIDI/2-audio/2-return Set. Three dead ends, all verified across full Live restarts, so nobody
-repeats them:
+**`click menu item "Save Live Set As Default Set..."` silently invokes the WRONG command.** It
+reports success, but what actually fires is **"Save Live Set As Template…"**, the item immediately
+above it in the File menu. That is why every attempt merely dropped a file into
+`User Library/Templates/` and popped a rename field, and why ⌘N never changed.
 
-- **`BaseFiles/` is not the default-set source.** `~/Library/Preferences/Ableton/Live <ver>/BaseFiles/`
-  is just where Live copies a Set that was opened from *outside* the User Library, as a working copy.
-  Dropping an `.als` there changes nothing.
-- **`File > Save Live Set As Default Set…` behaves like a template save.** It writes the current Set to
-  `User Library/Templates/<name>.als` (offering "Untitled" in a rename field) and ⌘N still opens the
-  stock Set afterwards.
-- **No pointer lands in `Preferences.cfg`.** After the above, the file contains no reference to the
-  saved Set, no `.als` path, and no default/template key — so the default isn't recorded there either.
+Press it **by index** instead — item 17 of the File menu (16 is the Template item):
 
-Whatever selects the default lives somewhere this black-box probing didn't reach. Next thing to try
-is probably watching Live's file I/O (`fs_usage`/`opensnoop`) during ⌘N to see what it actually reads.
+```applescript
+tell application "System Events" to tell process "Live"
+  perform action "AXPress" of menu item 17 of menu 1 of menu bar item "File" of menu bar 1
+end tell
+```
+
+With the stripped Set open, that press did the real thing: Live came back with a Set whose entire
+mixer was `Audio` + `Main`. **Not yet verified across a Live restart** — that check is the one thing
+between this and a fleet-wide installer.
+
+Do NOT trust `click menu item "<name>"` for Live's File menu generally; verify by index and confirm
+the effect, because a wrong-but-adjacent command is worse than an error.
+
+## The default Set is a file — and the FILENAME is the whole trick
+
+```
+~/Library/Preferences/Ableton/Live <ver>/BaseFiles/DefaultLiveSet.als
+```
+
+That is the Set `New Live Set` (⌘N) opens. `DefaultLiveSet` is one of the strings in the Live binary,
+and the file turned up for real on neo (which had a hand-made default). `ableton-template.mjs
+--default` installs there, backing up any existing default first.
+
+Copies named **anything else** are ignored no matter where they sit — that is what made this so
+slippery. `Template.als` also appears in the binary but is a red herring for this purpose; dropping
+one into `User Library/`, `User Library/Templates/`, `User Library/Defaults/`,
+`Preferences/Live <ver>/`, or `BaseFiles/` changes nothing (all checked across full Live restarts).
+`BaseFiles/` is otherwise just where Live copies a Set opened from outside the User Library.
+
+No pointer is written to `Preferences.cfg` — no `.als` path, no default key. It is purely this file.
+
+**Still unverified:** installing `DefaultLiveSet.als` has not been confirmed to change ⌘N across a
+restart. Launch Live, press ⌘N, count the tracks.
