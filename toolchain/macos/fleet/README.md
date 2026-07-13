@@ -89,17 +89,23 @@ reading back what it clamped to. Ask for less and Live silently ignores you.
 ### `ableton-template.mjs` — a genuinely blank Set in the browser
 
 ```bash
-node ableton-template.mjs              # build + install on every host
-node ableton-template.mjs blueberry
+node ableton-template.mjs              # install as a browser template
+node ableton-template.mjs --default    # ALSO make it the Set ⌘N opens
 ```
 
 Builds the stripped Set (`reference/ableton/als-template.mjs` — one audio track + Main, no MIDI, no
 returns) and installs it to each Mac's `User Library/Templates/`, so Live's browser lists it under
 **Templates > AC Blank**.
 
-> **⌘N is still Ableton's stock Set.** Making the blank the *auto-default* is unsolved — `BaseFiles/`
-> isn't the source, `Save Live Set As Default Set…` just writes a template, and no pointer lands in
-> `Preferences.cfg`. All three ruled out across restarts; see `reference/ableton/TEMPLATE.md`.
+`--default` additionally writes it to
+`~/Library/Preferences/Ableton/Live <ver>/BaseFiles/**DefaultLiveSet.als**` — the Set ⌘N opens. The
+**filename is the whole trick**: a copy named anything else is ignored wherever you put it. Any
+existing default is backed up first (neo has a hand-made one).
+
+> **Unverified**: the `DefaultLiveSet.als` path was found by spotting the file on neo; it hasn't been
+> confirmed to change ⌘N across a Live restart. Also beware: `click menu item "Save Live Set As
+> Default Set..."` silently fires **"Save Live Set As Template…"** (the item above it) — press File
+> menu **item 17 by index** instead. See `reference/ableton/TEMPLATE.md`.
 
 ### Live's global modals
 
