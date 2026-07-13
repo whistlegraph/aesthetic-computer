@@ -103,6 +103,14 @@
   h2::before{content:"› "; color:var(--margin)}
 
   /* index sort chips — legal-pad tabs */
+  #idxSearch{
+    font-family:inherit; font-size:14px; color:var(--ink); background:var(--paper);
+    border:1px solid var(--ink); border-radius:2px; padding:6px 9px; width:100%; max-width:340px;
+    margin:8px 0 2px; box-sizing:border-box;
+  }
+  #idxSearch:focus{outline:none; border-color:var(--margin); box-shadow:0 0 0 2px rgba(180,72,135,.18)}
+  #idxSearch::placeholder{color:var(--dim)}
+  #idxSentinel{height:1px}
   .sortbar{display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 11px; align-items:baseline}
   .sortbar .sl{font-size:11.5px; color:var(--dim); margin-right:2px}
   .sortbar button{
@@ -218,6 +226,8 @@
     <hr>
     <h2>Index</h2>
     <p class="dim" style="font-size:12.5px;margin-top:-2px"><span id="idxCount">…</span> whistlegraphs recovered so far. Still being combed. Tap a code.</p>
+    <input id="idxSearch" type="search" placeholder="Search title or code…" autocomplete="off" spellcheck="false"
+      aria-label="Search whistlegraphs">
     <div class="sortbar" id="sortbar">
       <span class="sl">Sort:</span>
       <button data-sort="featured" class="on">Featured</button>
@@ -229,6 +239,8 @@
     </div>
     <div class="wrap">
       <table class="idx" id="idx"><tbody></tbody></table>
+      <div id="idxSentinel" aria-hidden="true"></div>
+      <p id="idxEmpty" class="dim" style="display:none;font-size:13px;padding:14px 8px">No whistlegraphs match that search.</p>
     </div>
 
     <hr>
@@ -426,17 +438,42 @@ function sortedGraphs(key){
   if(key==="author") return g.sort((a,b)=>a.by.localeCompare(b.by)||byViews(a,b));
   return null; // featured
 }
-function renderIndex(key){
-  const tb=document.querySelector("#idx tbody");
-  const sorted=sortedGraphs(key);
-  const list=sorted||COMPOSITIONS;
-  const divider=`<tr class="divider"><td colspan="4" style="padding:12px 8px 6px;color:var(--margin);font-size:12.5px;border-bottom:1px solid var(--margin)">— more from the archive —</td></tr>`;
+// The index holds 1000+ rows; painting them all (and their thumbnails) up front
+// is the slow part. So we window it — the full ordered VIEW lives in memory, but
+// only PAGE rows are in the DOM at a time, extended as a sentinel scrolls near
+// (async; thumbnails stay lazy). Search + sort just rebuild VIEW.
+const PAGE=60;
+let curSort=null, curQuery="", VIEW=[], SHOWN=0;
+const divHTML=`<tr class="divider"><td colspan="4" style="padding:12px 8px 6px;color:var(--margin);font-size:12.5px;border-bottom:1px solid var(--margin)">— more from the archive —</td></tr>`;
+
+// Build the ordered VIEW for the active sort + query. Featured splices in the
+// archive divider; any search (or non-featured sort) is a flat filtered list.
+function buildView(){
+  const q=curQuery.trim().toLowerCase();
+  const match=w=>!q||w.title.toLowerCase().includes(q)||w.code.toLowerCase().includes(q)||(w.by||"").toLowerCase().includes(q);
+  const sorted=sortedGraphs(curSort);
+  if(sorted){ VIEW=sorted.filter(match); return; }
+  if(q){ VIEW=COMPOSITIONS.filter(match); return; }
+  VIEW=[...COMPOSITIONS.slice(0,CURATED_N), {divider:true}, ...COMPOSITIONS.slice(CURATED_N)];
+}
+function renderMore(){
   let html="";
-  for(let i=0;i<list.length;i++){
-    if(!sorted&&i===CURATED_N) html+=divider; // featured view groups the ten
-    html+=rowTR(list[i]);
-  }
-  tb.innerHTML=html; // single write — no per-row reflow
+  const end=Math.min(SHOWN+PAGE, VIEW.length);
+  for(let i=SHOWN;i<end;i++){ const it=VIEW[i]; html+=it.divider?divHTML:rowTR(it); }
+  document.querySelector("#idx tbody").insertAdjacentHTML("beforeend",html);
+  SHOWN=end;
+}
+// Fill until the sentinel is pushed past the viewport (plus a 400px prefetch) or
+// the list runs out; the IntersectionObserver calls this again on every scroll.
+function pump(){
+  const s=document.getElementById("idxSentinel");
+  while(SHOWN<VIEW.length && s.getBoundingClientRect().top < innerHeight+400) renderMore();
+}
+function renderReset(){
+  buildView();
+  document.querySelector("#idx tbody").innerHTML=""; SHOWN=0;
+  document.getElementById("idxEmpty").style.display=VIEW.length?"none":"";
+  renderMore(); pump();
 }
 
 // posts.json (~1.1MB) powers the record-page galleries ONLY — never the index,
@@ -462,7 +499,13 @@ fetch("/graphs.json").then(r=>r.json()).then(data=>{
     const tr=e.target.closest("tr[data-code]"); if(!tr) return;
     if(e.target.closest("a")){ e.preventDefault(); go(tr.dataset.code); }
   });
-  renderIndex(null);
+  // Infinite scroll: the sentinel below the table pulls the next page into view.
+  new IntersectionObserver(es=>{ if(es.some(e=>e.isIntersecting)) pump(); },{rootMargin:"400px"})
+    .observe(document.getElementById("idxSentinel"));
+  // Live search filters title / code / author; re-fills from the top.
+  const search=document.getElementById("idxSearch");
+  search.addEventListener("input",()=>{ curQuery=search.value; renderReset(); });
+  renderReset();
   document.getElementById("idxCount").textContent=COMPOSITIONS.length;
   // The example code randomizes each load — always one of the featured ten —
   // and its links follow the drawn code.
@@ -476,7 +519,8 @@ fetch("/graphs.json").then(r=>r.json()).then(data=>{
   document.querySelectorAll("#sortbar button").forEach(b=>b.addEventListener("click",()=>{
     document.querySelectorAll("#sortbar button").forEach(x=>x.classList.remove("on"));
     b.classList.add("on");
-    renderIndex(b.dataset.sort==="featured"?null:b.dataset.sort);
+    curSort=b.dataset.sort==="featured"?null:b.dataset.sort;
+    renderReset();
   }));
   // Resolve any deep-link now that data exists.
   const c=location.pathname.replace(/\//g,""); if(BY[c])showDetail(c);
