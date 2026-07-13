@@ -1,5 +1,11 @@
 # Menu Band
 
+**On the Mac App Store since 2026-07-12 (v1.5.3, $4.99):**
+<https://apps.apple.com/us/app/menu-band/id6767311903> — that build is a reduced,
+sandboxed subset of this codebase; `STORE-APP-STORE.md` is the record of what it
+forks out and what review said. The full version stays at prompt.ac/menuband
+(`STORE.md`).
+
 A macOS menubar piano. The status item draws a multi-octave keyboard
 inline in the menu bar; clicks/key-presses play through CoreAudio +
 optional CoreMIDI; a popover (gear chip → click) exposes the GM

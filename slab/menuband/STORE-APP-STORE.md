@@ -13,8 +13,15 @@ direct-download version. The full version stays at prompt.ac/menuband.
 
 ## 0. Where it stands
 
-**v1.5.3 (build 154) — in Apple's queue, "Waiting for Review" since 2026-07-11.**
-App Apple ID `6767311903`, SKU `MENUBAND`. Two rejections so far; both fixed.
+**PUBLISHED — v1.5.3 (build 154) went live on the Mac App Store 2026-07-12.**
+
+> **https://apps.apple.com/us/app/menu-band/id6767311903**
+
+App Apple ID `6767311903`, SKU `MENUBAND`, bundle id `computer.aesthetic.menuband`,
+**$4.99**, Music category, macOS 11.0+, seller "Jeffrey Scudder". Approved on the
+third submission; the shipped commit is tagged **`menuband-v1.5.3`**. It was
+indexed in App Store search immediately (top hit for "menu band") rather than
+taking the usual day.
 
 ### Review log
 
@@ -22,7 +29,12 @@ App Apple ID `6767311903`, SKU `MENUBAND`. Two rejections so far; both fixed.
 |---|---|---|---|---|---|
 | 1 | Jul 5 (build 153) | rejected Jul 9 | **5.2.5** + **1.5** | The subtitle carried a trademark ("macOS"), and the support URL didn't lead to a real support page. | `ea903abae` — subtitle → *"Instruments in your menu bar"*; wrote `system/public/menuband/support.html` and pointed the support URL at `menuband.app/support.html`. |
 | 2 | Jul 9 (build 153) | rejected Jul 11 | **2.4.5(i)** | The app declared `com.apple.security.device.bluetooth` for features the sandboxed build doesn't ship — an entitlement it never uses. | `8fce4eb70` — dropped the entitlement, **build 154**. The MultipeerConnectivity fleet is `#if !MAC_APP_STORE` anyway, and game controllers ride the high-level GameController framework (no `CBCentralManager` anywhere), so paired controllers still work without it. |
-| 3 | Jul 11 (build 154) | **waiting** | — | — | — |
+| 3 | Jul 11 (build 154) | **approved Jul 12** | — | — | Released same day. |
+
+**The QuickLook payoff.** macOS will not register a locally-built QuickLook
+extension — the `.mbscore` piano-roll preview only loads from a *notarized*
+bundle, which is why it never worked on dev installs. The MAS build is notarized,
+so this is the first channel where ⌘-Space on an `.mbscore` file actually renders.
 
 **The lesson from round 2, worth keeping:** review reads the entitlements
 against what the app *actually does*, not against what the codebase could do.
