@@ -485,10 +485,14 @@ function showDetail(code){
   D.t.innerHTML=esc(w.title)+(KIND_LABEL[w.kind]?`<span class="ktag">${KIND_LABEL[w.kind]}</span>`:"");
   D.by.innerHTML=`Composed by ${esc(w.by)} &nbsp;<b>·</b>&nbsp; ${w.year}`;
   D.code.textContent=w.code;
+  // One reach line for every record, featured or not: views · posts · span.
+  const yrs=posts.map(p=>p.date&&p.date.slice(0,4)).filter(Boolean).sort();
+  const span=yrs.length?(yrs[0]===yrs[yrs.length-1]?yrs[0]:`${yrs[0]}–${yrs[yrs.length-1]}`):(w.year||"");
+  const n=posts.length||w.perf||0;
+  const reach=`${fmtViews(w.views)} views`+(n>1?` &nbsp;·&nbsp; ${n} posts`:"")+(span?` &nbsp;·&nbsp; ${span}`:"");
   if(w.slug){ // curated — score sheet + card-player + (maybe) drawn canonical
     D.performNote.style.display=""; D.archiveNote.style.display="none";
-    D.perform.href=`https://aesthetic.computer/wg~${w.code}`;
-    if(w.views)D.by.innerHTML+=` &nbsp;<b>·</b>&nbsp; ${fmtViews(w.views)} views`+(w.perf>1?` across ${w.perf} videos`:"");
+    D.performNote.innerHTML=`Code <code>${w.code}</code> &nbsp; — &nbsp; ${reach} &nbsp;·&nbsp; type it at <a href="https://aesthetic.computer">aesthetic.computer</a>, or <a href="https://aesthetic.computer/wg~${w.code}">perform it in the card player →</a>`;
     D.scoreWrap.style.display=""; D.videoRule.style.display="none"; D.glyphCap.style.display="none";
     D.score.src=`${CDN}/${w.slug}/${w.slug}-score.png`; D.score.alt=`Graphic score for ${w.title}`;
     D.video.poster=`${CDN}/${w.slug}/${w.slug}.webp`;
@@ -505,16 +509,11 @@ function showDetail(code){
     const hero=posts[0]; // most-seen post fronts the record
     D.video.poster=hero&&hero.thumb?hero.thumb:(w.noGlyph?"":`${IDX}/${aset}.jpg`);
     D.video.src=hero?hero.src:`${IDX}/${aset}.mp4`;
-    // Metadata summarized from the posts: reach + span of appearances.
-    const yrs=posts.map(p=>p.date&&p.date.slice(0,4)).filter(Boolean).sort();
-    const span=yrs.length?(yrs[0]===yrs[yrs.length-1]?yrs[0]:`${yrs[0]}–${yrs[yrs.length-1]}`):(w.year||"");
-    const n=posts.length||w.perf||0;
-    const meta=`${fmtViews(w.views)} views`+(n>1?` · ${n} posts`:"")+(span?` · ${span}`:"");
     if(w.film){ // the Rhizome film, not a TikTok take — its own provenance + glyph
       D.archiveNote.innerHTML=`Code <code>${w.code}</code> &nbsp; — &nbsp; ${fmtViews(w.views)} views &nbsp;·&nbsp; the ~22-minute <a href="https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/">Rhizome commission</a>, chalk on a 4×6 blackboard.`;
       D.glyphCap.textContent="The glyph is the whole piece, transcribed as one score."; D.glyphCap.style.display="";
     }else{
-      D.archiveNote.innerHTML=`Code <code>${w.code}</code> &nbsp; — &nbsp; ${meta} &nbsp;·&nbsp; from the <a href="https://www.tiktok.com/@whistlegraph">@whistlegraph archive</a>.`;
+      D.archiveNote.innerHTML=`Code <code>${w.code}</code> &nbsp; — &nbsp; ${reach} &nbsp;·&nbsp; from the <a href="https://www.tiktok.com/@whistlegraph">@whistlegraph archive</a>.`;
     }
   }
   renderPosts(code); // the full gallery of appearances, by media type
