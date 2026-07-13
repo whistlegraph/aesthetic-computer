@@ -28,6 +28,19 @@ final class CollapsedPianoWaveformView: NSView {
     /// shows/hides the chooser grid below, so the popover opens compact
     /// and only grows when the user wants to browse instruments.
     private let instrumentReadoutButton = HoverLinkButton()
+    /// A rounded fill that sits BEHIND the readout button and fades in on
+    /// hover. The readout button itself can't be layer-backed (it carries a
+    /// non-rasterized 1px Riso shadow), so this separate view supplies the
+    /// hover affordance — making it obvious the name is a clickable
+    /// show/hide-the-chooser control rather than a static label.
+    private let readoutHoverBackdrop = NSView()
+    /// Whether the pointer is currently over the readout, so the disclosure
+    /// chevron can render at full strength on hover.
+    private var readoutHovered = false
+    /// Last inputs handed to `applyInstrumentReadout`, cached so a hover
+    /// change can re-render the title (brighter chevron) without a full
+    /// refresh() round-trip.
+    private var lastReadoutInputs: (safe: Int, familyColor: NSColor, isDark: Bool)?
     /// QWERTY keymap visualization — moved out of the popover so
     /// the user can see which physical keys play which notes while
     /// the chooser is open. Lit cells reflect held keys.
@@ -278,6 +291,29 @@ final class CollapsedPianoWaveformView: NSView {
         instrumentReadoutButton.setContentHuggingPriority(.required, for: .vertical)
         instrumentReadoutButton.setContentCompressionResistancePriority(.required, for: .horizontal)
 
+        // Hover affordance lives in a separate backdrop view (see decl) so the
+        // readout text keeps its non-layer-backed Riso shadow. Fades a soft
+        // rounded fill in behind the name on hover, and brightens the chevron.
+        readoutHoverBackdrop.translatesAutoresizingMaskIntoConstraints = false
+        readoutHoverBackdrop.wantsLayer = true
+        readoutHoverBackdrop.layer?.cornerRadius = 6
+        readoutHoverBackdrop.layer?.backgroundColor =
+            NSColor.secondaryLabelColor.withAlphaComponent(0.14).cgColor
+        readoutHoverBackdrop.alphaValue = 0
+        instrumentReadoutButton.onHoverChange = { [weak self] hovered in
+            guard let self else { return }
+            self.readoutHovered = hovered
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.12
+                self.readoutHoverBackdrop.animator().alphaValue = hovered ? 1 : 0
+            }
+            // Re-render the title so the disclosure chevron tracks hover.
+            if let i = self.lastReadoutInputs {
+                self.applyInstrumentReadout(
+                    safe: i.safe, familyColor: i.familyColor, isDark: i.isDark)
+            }
+        }
+
         // Single accent "Keymap" button — opens the full-screen keymap
         // view. The QWERTY graphic + Notepat/Conventional mode toggle now
         // live there, so the collapsed panel is purely the instrument
@@ -317,6 +353,8 @@ final class CollapsedPianoWaveformView: NSView {
         contentContainer.addSubview(instrumentGridContainer)
         instrumentGridContainer.addSubview(instrumentList)
         contentContainer.addSubview(waveformStrip)
+        // Backdrop first so it sits behind the readout button.
+        contentContainer.addSubview(readoutHoverBackdrop)
         contentContainer.addSubview(instrumentReadoutButton)
         // [v1] Skip our own glass backdrop when embedded in the popover's
         // glass surface — otherwise the two stack into a doubled sheet.
@@ -352,6 +390,17 @@ final class CollapsedPianoWaveformView: NSView {
                 equalTo: contentContainer.centerXAnchor),
             instrumentReadoutButton.topAnchor.constraint(
                 equalTo: waveformStrip.bottomAnchor, constant: Self.rowGap),
+
+            // Hover backdrop hugs the readout button with a little breathing
+            // room, so the fade-in reads as a pill around the name + chevron.
+            readoutHoverBackdrop.leadingAnchor.constraint(
+                equalTo: instrumentReadoutButton.leadingAnchor, constant: -8),
+            readoutHoverBackdrop.trailingAnchor.constraint(
+                equalTo: instrumentReadoutButton.trailingAnchor, constant: 8),
+            readoutHoverBackdrop.topAnchor.constraint(
+                equalTo: instrumentReadoutButton.topAnchor, constant: -3),
+            readoutHoverBackdrop.bottomAnchor.constraint(
+                equalTo: instrumentReadoutButton.bottomAnchor, constant: 3),
 
             // Instrument chooser grid below the readout.
             instrumentGridContainer.centerXAnchor.constraint(equalTo: contentContainer.centerXAnchor),
@@ -548,6 +597,8 @@ final class CollapsedPianoWaveformView: NSView {
                                         familyColor: NSColor,
                                         isDark: Bool) {
         guard let menuBand else { return }
+        // Cache so a hover change can re-render without a full refresh().
+        lastReadoutInputs = (safe, familyColor, isDark)
         let title: String
         let badgeColor: NSColor
         if menuBand.midiMode {
@@ -595,14 +646,17 @@ final class CollapsedPianoWaveformView: NSView {
                 .shadow: shadow,
             ]
         )
-        // Disclosure chevron — the name doubles as the show/hide control
-        // for the chooser grid below.
+        // Disclosure chevron — the name doubles as the show/hide control for
+        // the chooser grid below. Sized up from a faint 11pt hint to a legible
+        // 15pt glyph, and brightened on hover (paired with the fade-in
+        // backdrop) so it reads as a real control, not decoration.
+        let chevronAlpha: CGFloat = readoutHovered ? 1.0 : 0.7
         attr.append(NSAttributedString(
             string: chartExpanded ? "  ▴" : "  ▾",
             attributes: [
-                .font: NSFont.systemFont(ofSize: 11, weight: .bold),
-                .foregroundColor: textColor.withAlphaComponent(0.55),
-                .baselineOffset: 2,
+                .font: NSFont.systemFont(ofSize: 15, weight: .bold),
+                .foregroundColor: textColor.withAlphaComponent(chevronAlpha),
+                .baselineOffset: 1,
             ]
         ))
         instrumentReadoutButton.attributedTitle = attr

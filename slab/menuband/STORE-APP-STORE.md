@@ -23,6 +23,9 @@ third submission; the shipped commit is tagged **`menuband-v1.5.3`**. It was
 indexed in App Store search immediately (top hit for "menu band") rather than
 taking the usual day.
 
+**IN PROGRESS — v1.5.4 (build 155):** the first patch, from bugs found by
+running the actual shipped store build. Not yet submitted. See §8.
+
 ### Review log
 
 | # | Submitted | Verdict | Guideline | What Apple objected to | Fix |
@@ -240,3 +243,34 @@ behavior — one was metadata copy, one was an unused entitlement. Before the
 next submission, re-read §2's table and the "NOT included, and why" block in
 `MenuBand-AppStore.entitlements` against the code that actually ships, and read
 every metadata string in `fastlane/metadata/en-US/` for trademarks.
+
+---
+
+## 8. v1.5.4 (build 155) — the first post-launch patch
+
+Five bugs, all found by installing the **actual store build** from the App Store
+and using it. Worth stating why that mattered: three of the five exist *only* in
+the sandboxed build, so no amount of testing the direct-download app would have
+surfaced them. Install from the store before believing the store build works.
+
+| # | Symptom | Root cause | Fix |
+|---|---|---|---|
+| 1 | **Never comes back after a reboot.** | There was no login-item code *at all*. The DMG build auto-starts from a LaunchAgent written by `install.sh` — a sandboxed app cannot install one, so the MAS build had no mechanism whatsoever. | New `MenuBandLoginItem.swift` (`#if MAC_APP_STORE`): `SMAppService.mainApp`, reconciled on every launch. Defaults **on** (parity with the LaunchAgent), with an "Open at Login" checkbox in About. `SMAppService` is macOS 13+, so it's `#available`-gated and the toggle hides on 11–12. |
+| 2 | Instrument-palette down-arrow too small, undiscoverable, no hover. | The "arrow" was never a control: a `▾` **character** appended to the readout button's attributed title at 11pt / 55% alpha. And the button *is* a `HoverLinkButton`, but its four hover colors were never set and it isn't layer-backed — so `applyState(hovered:)` ran and did nothing. Hover was a dead code path. | Chevron up to 15pt and brighter (0.7 → 1.0 on hover). Added `onHoverChange` to `HoverLinkButton`, and a separate rounded `readoutHoverBackdrop` that fades in behind the name — a real hover pill *without* layer-backing the text, which would have rasterized away its 1px Riso shadow. |
+| 3 | "Haptics" switch in a bizarre place. | It's **trackpad Force Touch** feedback (`MenuBandHaptics` probes `AppleMultitouchTrackpadHIDEventDriver`), not controller haptics — but it was wedged into the *instrument title row* of the keymap overlay, so foreign there that a constraint width-matched the instrument **number** label to it just to keep the name optically centered. | Switch, label, info button, and the width-match hack all deleted. Haptics is simply always on, gated by `MenuBandHaptics.isAvailable`. `hapticsEnabled` is now a `let … = true`. |
+| 4 | Expanded keymap opens at the **top-left** on a fresh install. | `expandedFrame` resolved `savedExpandedOrigin ?? fallbackOrigin ?? centeredOrigin`. On a new install the saved origin is nil, so it fell to `fallbackOrigin` (= the freshly-built panel's origin) and **never reached `centeredOrigin`**. | Opening always centers on the active screen; an in-place refit keeps its position (that distinction is why `expandedFrame` now takes an explicit `origin`). The dragged position is no longer persisted across opens. |
+| 5 | **"Tips" opens the menuband.app website.** | `TipsWindow` loads the bundled help HTML and falls back to `menuband.app/support.html` if it can't find it. `install.sh` copies + indexes + signs `MenuBand.help` for the DMG — but **`project.yml` never copied it**, so in the store build the lookup missed and users got the marketing site. Both Info plists already declared `CFBundleHelpBookFolder`/`Name`, pointing at a folder that wasn't there. | `Help/MenuBand.help` added to the MAS resources, plus an `Index Help Book` postBuildScript running `hiutil` on the copied book (verified: it runs before CodeSign, so the index is signed in). `AppDelegate.openTips()` now prefers the **real Help Viewer** and falls back to the in-app window only if Help Viewer doesn't come up — it can silently no-op for an LSUIElement app, and `showHelp` reports nothing back, so we check whether Help Viewer actually launched. The web fallback is gone. |
+
+**Verified:** `swift build` (direct-download) and `xcodebuild -scheme MenuBand
+-configuration Release` (MAS) both compile clean, and the built `.app` carries
+`1.5.4 (155)` with `Contents/Resources/MenuBand.help` + a generated
+`search.helpindex`.
+
+**NOT yet verified** (needs a signed/installed build): that Help Viewer actually
+opens for this LSUIElement app, that `SMAppService` registration survives a real
+reboot, and the visual result of the hover/centering changes.
+
+**Review watch-item:** #1 makes the app register itself as a login item on first
+launch (default on). That's normal for a menu-bar utility and there's a visible
+off switch in About, but if review objects, flip the `MBOpenAtLogin` default to
+`false` in `MenuBandLoginItem` and let the user opt in.

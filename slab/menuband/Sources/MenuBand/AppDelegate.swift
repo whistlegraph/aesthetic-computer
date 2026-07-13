@@ -504,6 +504,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             reason: "Menu Band live instrument audio"
         )
         Self.registerBundledFonts()
+        #if MAC_APP_STORE
+        // Launch-at-login (App Store build only — the DMG build uses a
+        // LaunchAgent). Reconcile the OS registration with the stored pref on
+        // every launch so a fresh install becomes a login item (default on)
+        // and the app actually returns after a reboot.
+        MenuBandLoginItem.apply()
+        #endif
         #if !MAC_APP_STORE
         // Global trackpad tap via private MultitouchSupport — the
         // focus-independent input source for the absolute fx pad (NSTouch never
@@ -3855,14 +3862,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Open the Menu Band manual ("Tips").
     ///
-    /// We render it in our own `WKWebView` window rather than Help Viewer:
-    /// Apple Help registration is unreliable for a menu-bar (LSUIElement) app
-    /// on recent macOS (`showHelp` silently no-ops), so the in-app window is
-    /// the dependable path. It loads the same bundled help HTML, so the
-    /// `.help` book stays the single content source.
+    /// Prefer the real macOS Help Viewer — classic, searchable, indexed. The
+    /// `.help` book is bundled in Resources/ and registered via the
+    /// CFBundleHelpBook* keys, so `showHelp(nil)` opens it. But Help Viewer can
+    /// silently no-op for a menu-bar (LSUIElement) app, and `showHelp` reports
+    /// nothing back — so we check whether Help Viewer actually came up and, if
+    /// not, fall back to our own `WKWebView` window (which loads the SAME
+    /// bundled book, never the website). Either way the `.help` bundle stays
+    /// the single content source.
     static func openTips() {
         NSApplication.shared.activate(ignoringOtherApps: true)
-        TipsWindowController.show()
+
+        guard helpBookIsBundled() else {
+            TipsWindowController.show()
+            return
+        }
+
+        NSApplication.shared.showHelp(nil)
+        // Give helpd a beat to launch Help Viewer; if it didn't, show our own.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+            if !helpViewerIsRunning() {
+                TipsWindowController.show()
+            }
+        }
+    }
+
+    /// The Apple Help book is present in the app bundle (Resources/). When it
+    /// isn't — e.g. an unusual build layout — skip Help Viewer entirely.
+    private static func helpBookIsBundled() -> Bool {
+        Bundle.main.url(forResource: "MenuBand", withExtension: "help") != nil
+    }
+
+    /// Whether macOS Help Viewer is running, used to tell if `showHelp` took.
+    private static func helpViewerIsRunning() -> Bool {
+        NSWorkspace.shared.runningApplications.contains {
+            $0.bundleIdentifier == "com.apple.helpviewer"
+        }
     }
 
     @objc private func handleShowAboutNotification(_ note: Notification) {

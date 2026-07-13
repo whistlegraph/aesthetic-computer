@@ -12,6 +12,11 @@ final class HoverLinkButton: NSButton {
     var idleBorder: NSColor?
     var hoverBackground: NSColor?
     var hoverBorder: NSColor?
+    /// Optional hover hook for buttons that can't be layer-backed (e.g. the
+    /// collapsed-panel instrument readout, which keeps a non-rasterized 1px
+    /// Riso shadow) and so drive their own hover feedback instead of the
+    /// layer-color swap below.
+    var onHoverChange: ((Bool) -> Void)?
     private var trackingArea: NSTrackingArea?
 
     override func resetCursorRects() {
@@ -44,6 +49,7 @@ final class HoverLinkButton: NSButton {
         let bd = hovered ? hoverBorder : idleBorder
         layer?.backgroundColor = bg?.cgColor
         layer?.borderColor = bd?.cgColor
+        onHoverChange?(hovered)
     }
 }
 

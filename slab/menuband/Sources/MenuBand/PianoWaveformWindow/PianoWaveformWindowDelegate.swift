@@ -37,7 +37,6 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
     private var dismissHandler: (() -> Void)?
     private var isDismissing = false
     private var isPositioningPanel = false
-    private var savedExpandedOrigin: NSPoint?
     private var collapsedCustomOrigin: NSPoint?
     private var hideWorkItem: DispatchWorkItem?
     private var isEnabled: Bool
@@ -49,8 +48,6 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
     /// many call sites keep compiling. Flip to false to revive it.
     static let retiredForV1 = true
 
-    private static let expandedOriginXKey = "notepat.unifiedPalette.expandedOriginX"
-    private static let expandedOriginYKey = "notepat.unifiedPalette.expandedOriginY"
     private static let collapsedOriginXKey = "notepat.unifiedPalette.collapsedOriginX"
     private static let collapsedOriginYKey = "notepat.unifiedPalette.collapsedOriginY"
     private static let enabledKey = "notepat.unifiedPalette.enabled"
@@ -144,10 +141,6 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
         self.pianoWaveformViewController = PianoWaveformViewController(menuBand: menuBand)
         self.preferredPresentationState = Self.loadPreferredState()
         self.isEnabled = Self.loadEnabledState()
-        self.savedExpandedOrigin = Self.loadOrigin(
-            xKey: Self.expandedOriginXKey,
-            yKey: Self.expandedOriginYKey
-        )
         self.collapsedCustomOrigin = Self.loadOrigin(
             xKey: Self.collapsedOriginXKey,
             yKey: Self.collapsedOriginYKey
@@ -232,9 +225,10 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
             pianoWaveformViewController.refresh()
             if let panel, panel.isVisible {
                 panel.allowsSurfaceDrag = true
+                // In-place refit: keep the panel where it is.
                 setPanelFrame(expandedFrame(
                     size: pianoWaveformViewController.preferredContentSize,
-                    fallbackOrigin: panel.frame.origin
+                    origin: panel.frame.origin
                 ))
             }
         case .collapsed:
@@ -395,8 +389,8 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
         guard let panel, !isPositioningPanel else { return }
         switch presentationState {
         case .expanded:
-            savedExpandedOrigin = panel.frame.origin
-            persistOrigin(savedExpandedOrigin, xKey: Self.expandedOriginXKey, yKey: Self.expandedOriginYKey)
+            // Expanded always re-centers on open, so a drag isn't persisted.
+            break
         case .collapsed:
             collapsedCustomOrigin = panel.frame.origin
             persistOrigin(collapsedCustomOrigin, xKey: Self.collapsedOriginXKey, yKey: Self.collapsedOriginYKey)
@@ -472,9 +466,11 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
         pianoWaveformViewController.refresh()
         panel.ignoresMouseEvents = false
         panel.allowsSurfaceDrag = true
+        // Opening always centers on the active screen.
+        let expandedSize = pianoWaveformViewController.preferredContentSize
         setPanelFrame(expandedFrame(
-            size: pianoWaveformViewController.preferredContentSize,
-            fallbackOrigin: savedExpandedOrigin ?? panel.frame.origin
+            size: expandedSize,
+            origin: centeredOrigin(for: expandedSize)
         ))
         NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)
@@ -632,12 +628,14 @@ final class PianoWaveformWindowDelegate: NSObject, NSWindowDelegate {
         }
     }
 
-    private func expandedFrame(size: NSSize, fallbackOrigin: NSPoint?) -> NSRect {
-        // The expanded panel opens from the user's last dragged
-        // position when one exists, otherwise it centers on the
-        // active screen. The popover-paired small panel keeps the
-        // relative anchor separately in `collapsedFrame`.
-        let origin = savedExpandedOrigin ?? fallbackOrigin ?? centeredOrigin(for: size)
+    /// Clamp an expanded-panel frame onto the active screen. Callers pick the
+    /// origin: opening (`showExpanded`) always passes a screen-centered origin
+    /// so every open is predictable; an in-place refit (`refresh`) passes the
+    /// panel's current origin so a live resize doesn't teleport it. The
+    /// dragged position isn't persisted across opens (a fresh install used to
+    /// land top-left because there was no saved origin to fall back to). The
+    /// popover-paired small panel keeps its own anchor in `collapsedFrame`.
+    private func expandedFrame(size: NSSize, origin: NSPoint) -> NSRect {
         return clampedFrame(
             origin: origin,
             size: size,

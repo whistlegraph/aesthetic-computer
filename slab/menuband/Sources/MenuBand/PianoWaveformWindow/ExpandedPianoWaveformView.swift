@@ -43,10 +43,6 @@ final class ExpandedPianoWaveformView: NSView {
     private let instrumentTitleRow = NSView()
     private let instrumentReadoutStack = NSStackView()
     private let audioRoutingLabel = NSTextField(labelWithString: "")
-    private let hapticsControls = NSStackView()
-    private let hapticsLabel = NSTextField(labelWithString: "Haptics")
-    private let hapticsSwitch = NSSwitch()
-    private let hapticsInfoButton = NSButton()
     private let pianoView: PianoKeyboardView
     private let shortcutHintRow = NSStackView()
     private let focusHintLabel = NSTextField(labelWithString: "")
@@ -104,7 +100,6 @@ final class ExpandedPianoWaveformView: NSView {
     private let chordCandidatesRowHorizontalInset: CGFloat = 6
     private var widthConstraint: NSLayoutConstraint?
     private var waveformHeightConstraint: NSLayoutConstraint?
-    private var hapticsWidthConstraint: NSLayoutConstraint?
     private var isPresented = false
     private var trackingArea: NSTrackingArea?
     private static let panelCornerRadius: CGFloat = 18
@@ -195,40 +190,10 @@ final class ExpandedPianoWaveformView: NSView {
         instrumentNumberLabel.isSelectable = false
         instrumentNumberLabel.toolTip = "Current GM voice number"
         instrumentTitleRow.translatesAutoresizingMaskIntoConstraints = false
-        hapticsControls.orientation = .horizontal
-        hapticsControls.alignment = .centerY
-        hapticsControls.spacing = 4
-        hapticsControls.translatesAutoresizingMaskIntoConstraints = false
-        hapticsControls.setContentHuggingPriority(.required, for: .horizontal)
-        hapticsControls.setContentCompressionResistancePriority(.required, for: .horizontal)
-        hapticsWidthConstraint = hapticsControls.widthAnchor.constraint(equalToConstant: 0)
-        hapticsLabel.font = NSFont.systemFont(ofSize: 10, weight: .semibold)
-        hapticsLabel.textColor = .secondaryLabelColor
-        hapticsLabel.lineBreakMode = .byClipping
-        hapticsLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
-        hapticsSwitch.controlSize = .mini
-        hapticsSwitch.setContentCompressionResistancePriority(.required, for: .horizontal)
-        hapticsSwitch.target = self
-        hapticsSwitch.action = #selector(hapticsSwitchChanged(_:))
-        let infoConfig = NSImage.SymbolConfiguration(pointSize: 11, weight: .semibold)
-        hapticsInfoButton.image = NSImage(
-            systemSymbolName: "info.circle",
-            accessibilityDescription: "About trackpad haptics"
-        )?.withSymbolConfiguration(infoConfig)
-        hapticsInfoButton.translatesAutoresizingMaskIntoConstraints = false
-        hapticsInfoButton.isBordered = false
-        hapticsInfoButton.imagePosition = .imageOnly
-        hapticsInfoButton.imageScaling = .scaleProportionallyDown
-        hapticsInfoButton.contentTintColor = .secondaryLabelColor
-        hapticsInfoButton.toolTip = "Force Touch must be enabled in System Settings > Trackpad > Point & Click > Force Click and haptic feedback."
-        hapticsInfoButton.target = self
-        hapticsInfoButton.action = #selector(showHapticsInfo(_:))
-        hapticsInfoButton.setButtonType(.momentaryPushIn)
-        hapticsInfoButton.setContentHuggingPriority(.required, for: .horizontal)
-        hapticsInfoButton.setContentCompressionResistancePriority(.required, for: .horizontal)
-        hapticsControls.addArrangedSubview(hapticsLabel)
-        hapticsControls.addArrangedSubview(hapticsSwitch)
-        hapticsControls.addArrangedSubview(hapticsInfoButton)
+        // Haptics has no toggle: it's always on when the trackpad supports
+        // Force Touch (see MenuBandHaptics.isAvailable), off automatically when
+        // it doesn't. It used to carry a switch pinned to this row's trailing
+        // edge; that's gone.
         pianoView.translatesAutoresizingMaskIntoConstraints = false
         shortcutHintRow.orientation = .horizontal
         shortcutHintRow.alignment = .centerY
@@ -268,7 +233,6 @@ final class ExpandedPianoWaveformView: NSView {
         waveformSection.addSubview(instrumentTitleRow)
         instrumentTitleRow.addSubview(instrumentNumberLabel)
         instrumentTitleRow.addSubview(instrumentReadoutStack)
-        instrumentTitleRow.addSubview(hapticsControls)
         addSubview(contentStack)
         contentStack.addArrangedSubview(waveformSection)
         contentStack.addArrangedSubview(pianoView)
@@ -399,7 +363,6 @@ final class ExpandedPianoWaveformView: NSView {
         focusHintLabel.alignment = .right
         updateShortcutHint()
         updateOctaveContext()
-        updateHapticsControl()
         installLiquidGlassBackgrounds()
 
         let keyboardSize = self.keyboardSize()
@@ -463,17 +426,11 @@ final class ExpandedPianoWaveformView: NSView {
 
             instrumentNumberLabel.leadingAnchor.constraint(equalTo: instrumentTitleRow.leadingAnchor, constant: 2),
             instrumentNumberLabel.centerYAnchor.constraint(equalTo: instrumentTitleRow.centerYAnchor),
-            hapticsControls.trailingAnchor.constraint(equalTo: instrumentTitleRow.trailingAnchor, constant: -8),
-            hapticsControls.centerYAnchor.constraint(equalTo: instrumentTitleRow.centerYAnchor),
-            hapticsInfoButton.widthAnchor.constraint(equalToConstant: 18),
-            hapticsInfoButton.heightAnchor.constraint(equalToConstant: 18),
-            // Width-match the number label to the haptics row so
-            // the two wings are symmetric — readout's centerX
-            // pinned to titleRow.centerX then lands at the
-            // OPTICAL midpoint between them, not just the
-            // geometric midpoint.
-            instrumentNumberLabel.widthAnchor.constraint(
-                greaterThanOrEqualTo: hapticsControls.widthAnchor),
+            // Readout sits dead-center in the row. The voice-number label
+            // floats at the leading edge; the trailing haptics switch that
+            // used to balance it is gone, so there's no optical-centering
+            // wing to match anymore — the leading/trailing insets below just
+            // keep the readout clear of the number label and the row edge.
             instrumentReadoutStack.centerXAnchor.constraint(equalTo: instrumentTitleRow.centerXAnchor),
             instrumentReadoutStack.centerYAnchor.constraint(equalTo: instrumentTitleRow.centerYAnchor),
             instrumentReadoutStack.topAnchor.constraint(greaterThanOrEqualTo: instrumentTitleRow.topAnchor),
@@ -483,8 +440,8 @@ final class ExpandedPianoWaveformView: NSView {
                 constant: 6
             ),
             instrumentReadoutStack.trailingAnchor.constraint(
-                lessThanOrEqualTo: hapticsControls.leadingAnchor,
-                constant: -6
+                lessThanOrEqualTo: instrumentTitleRow.trailingAnchor,
+                constant: -8
             ),
 
             shortcutHintRow.leadingAnchor.constraint(equalTo: contentStack.leadingAnchor),
@@ -729,7 +686,6 @@ final class ExpandedPianoWaveformView: NSView {
     func refresh() {
         updateShortcutHint()
         updateOctaveContext()
-        updateHapticsControl()
         updateModeToggle()
         updateRecordButton()
         let keyboardSize = keyboardSize()
@@ -869,16 +825,6 @@ final class ExpandedPianoWaveformView: NSView {
         let midiMode = menuBand?.midiMode ?? false
         waveformView.isLive = isPresented && (recording || !midiMode)
         waveformView.alphaValue = (midiMode && !recording) ? 0.35 : 1.0
-    }
-
-    private func updateHapticsControl() {
-        let available = MenuBandHaptics.isAvailable
-        hapticsControls.isHidden = !available
-        hapticsWidthConstraint?.isActive = !available
-        hapticsSwitch.isEnabled = available
-        hapticsInfoButton.isEnabled = available
-        guard available else { return }
-        hapticsSwitch.state = (menuBand?.hapticsEnabled ?? true) ? .on : .off
     }
 
     private func applyAppearanceToVisualizer() {
@@ -1139,24 +1085,6 @@ final class ExpandedPianoWaveformView: NSView {
         guard sender.state == .ended, let menuBand, menuBand.octaveShift != 0 else { return }
         menuBand.octaveShift = 0
         refresh()
-    }
-
-    @objc private func hapticsSwitchChanged(_ sender: NSSwitch) {
-        guard MenuBandHaptics.isAvailable else { return }
-        menuBand?.hapticsEnabled = (sender.state == .on)
-    }
-
-    @objc private func showHapticsInfo(_ sender: NSButton) {
-        guard MenuBandHaptics.isAvailable else { return }
-        guard let window else { return }
-        let alert = NSAlert()
-        alert.alertStyle = .informational
-        alert.messageText = "Trackpad Haptics"
-        alert.informativeText = """
-        Haptics use the Force Touch trackpad. If you don't feel feedback, open System Settings > Trackpad > Point & Click and turn on “Force Click and haptic feedback.”
-        """
-        alert.addButton(withTitle: "OK")
-        alert.beginSheetModal(for: window)
     }
 
 }

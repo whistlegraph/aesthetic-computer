@@ -150,7 +150,6 @@ final class MenuBandController {
     private let percussionLeftKey = KeyboardIconRenderer.percussionLeftDefaultsKey
     private let percussionRightKey = KeyboardIconRenderer.percussionRightDefaultsKey
     private let masterVolumeKey = "notepat.masterVolume"
-    private let hapticsEnabledKey = "notepat.hapticsEnabled"
     /// Active instrument backend: `"gm"` for the General MIDI bank, or
     /// `"gb"` for a GarageBand sampler patch. Default is GM. Stored as a
     /// string so future backends (Logic, EXS3rd-party, etc.) can be
@@ -868,18 +867,10 @@ final class MenuBandController {
         "Octave \(octaveShiftLabel) \(playableNoteRangeLabel)"
     }
 
-    var hapticsEnabled: Bool {
-        get {
-            if UserDefaults.standard.object(forKey: hapticsEnabledKey) == nil {
-                return true
-            }
-            return UserDefaults.standard.bool(forKey: hapticsEnabledKey)
-        }
-        set {
-            UserDefaults.standard.set(newValue, forKey: hapticsEnabledKey)
-            onChange?()
-        }
-    }
+    /// Trackpad key-tap haptics. No longer user-toggleable — always on, gated
+    /// only by hardware support (`MenuBandHaptics.isAvailable`) at the call
+    /// site. Kept as a property so the piano views can read it uniformly.
+    let hapticsEnabled = true
 
     var melodicProgram: UInt8 {
         let raw = UserDefaults.standard.integer(forKey: melodicProgramKey)

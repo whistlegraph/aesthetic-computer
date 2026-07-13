@@ -72,6 +72,18 @@ targets:
       - path: AppIcon.icns
         buildPhase: resources
 
+      # Apple Help book. Both Info plists already declare
+      # CFBundleHelpBookFolder=MenuBand.help / CFBundleHelpBookName, so once
+      # the .help wrapper lands in Resources/ the OS registers it and Tips can
+      # open the real Help Viewer. This copy is the whole fix for the store
+      # build opening menuband.app instead: without it the book folder is
+      # absent, registration fails, and TipsWindow's local-book lookup misses.
+      # (`.help` is a bundle extension, so Xcode copies the wrapper whole.)
+      # The direct-download build gets the same book via install.sh; the search
+      # index is (re)built by the postBuildScript below.
+      - path: Help/MenuBand.help
+        buildPhase: resources
+
       # The Aesthetic Computer GM synth C core (gm_synth.c, symlinked from
       # fedac/native/src). MenuBandGMSynth.swift does `import CGMSynth`.
       # Package.swift models this as a separate CGMSynth target; here we
@@ -102,8 +114,8 @@ targets:
         # the MAS-only fork (Info-AppStore.plist) for the same reason.
         PRODUCT_BUNDLE_IDENTIFIER: computer.aesthetic.menuband
         INFOPLIST_FILE: Info-AppStore.plist
-        MARKETING_VERSION: "1.5.3"
-        CURRENT_PROJECT_VERSION: "154"
+        MARKETING_VERSION: "1.5.4"
+        CURRENT_PROJECT_VERSION: "155"
         CODE_SIGN_ENTITLEMENTS: MenuBand-AppStore.entitlements
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: FB5948YR3S
@@ -118,6 +130,23 @@ targets:
         # its own "gm_synth.h".
         SWIFT_INCLUDE_PATHS: $(SRCROOT)/Sources/CGMSynth/include
         HEADER_SEARCH_PATHS: $(SRCROOT)/Sources/CGMSynth/include
+
+    postBuildScripts:
+      # Index the copied Help book so Help Viewer search works. We index the
+      # book INSIDE the built product (not the source tree) — this runs after
+      # Copy Bundle Resources and before Xcode's implicit CodeSign, so the
+      # generated search.helpindex is signed along with the rest of the book.
+      # Mirrors install.sh's approach for the direct-download build. If hiutil
+      # is missing or fails, the book still opens; only search is lost.
+      - name: Index Help Book
+        basedOnDependencyAnalysis: false
+        script: |
+          BOOK="${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}/Resources/MenuBand.help"
+          if [ -d "$BOOK" ] && command -v hiutil >/dev/null 2>&1; then
+            hiutil -Caf "$BOOK/Contents/Resources/search.helpindex" \
+              "$BOOK/Contents/Resources/en.lproj" \
+              || echo "warning: hiutil index failed — Help search disabled (book still opens)"
+          fi
 
   # Sandboxed QuickLook preview extension (animated graphic score). Shares the
   # same PreviewViewController.swift as the standalone quicklook/ container, but

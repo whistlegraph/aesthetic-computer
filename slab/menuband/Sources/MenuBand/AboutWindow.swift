@@ -489,6 +489,24 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         stack.addArrangedSubview(versionLabel)
         stack.setCustomSpacing(4, after: versionLabel)
 
+        #if MAC_APP_STORE
+        // Open at Login (App Store build only — the DMG build auto-starts via a
+        // LaunchAgent, so it has no toggle). Hidden on macOS < 13 where
+        // SMAppService doesn't exist. Defaults on; unchecking removes the app
+        // as a login item.
+        if MenuBandLoginItem.isSupported {
+            let loginCheck = NSButton(
+                checkboxWithTitle: "Open at Login",
+                target: self,
+                action: #selector(toggleOpenAtLogin(_:)))
+            loginCheck.state = MenuBandLoginItem.isEnabled ? .on : .off
+            loginCheck.font = NSFont.systemFont(ofSize: 11)
+            stack.setCustomSpacing(10, after: versionLabel)
+            stack.addArrangedSubview(loginCheck)
+            stack.setCustomSpacing(4, after: loginCheck)
+        }
+        #endif
+
         // Faint copyright line — the quiet footer every macOS About
         // panel closes with (Terminal: "© 1991–2025 Apple Inc.",
         // Finder: "™ & © 1983–2025 …"). Tertiary gray so it recedes
@@ -663,6 +681,14 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
     @objc private func openTips(_ sender: Any?) {
         AppDelegate.openTips()
     }
+
+    #if MAC_APP_STORE
+    /// Toggle "Open at Login" (App Store build). Writing the pref reconciles
+    /// the SMAppService registration immediately.
+    @objc private func toggleOpenAtLogin(_ sender: NSButton) {
+        MenuBandLoginItem.isEnabled = (sender.state == .on)
+    }
+    #endif
 
     /// Open a scroll panel containing the .ips text for every pending
     /// diagnostic report. Built fresh each time so it always reflects

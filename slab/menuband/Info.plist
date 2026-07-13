@@ -4,51 +4,6 @@
 <dict>
 	<key>CFBundleDisplayName</key>
 	<string>Menu Band</string>
-	<key>CFBundleExecutable</key>
-	<string>MenuBand</string>
-	<key>CFBundleIconFile</key>
-	<string>AppIcon</string>
-	<key>CFBundleHelpBookFolder</key>
-	<string>MenuBand.help</string>
-	<key>CFBundleHelpBookName</key>
-	<string>computer.aestheticcomputer.menuband.help</string>
-	<key>CFBundleIdentifier</key>
-	<string>computer.aestheticcomputer.menuband</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>Menu Band</string>
-	<key>CFBundlePackageType</key>
-	<string>APPL</string>
-	<key>CFBundleShortVersionString</key>
-	<string>1.5.3</string>
-	<key>CFBundleVersion</key>
-	<string>153</string>
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
-	<key>LSApplicationCategoryType</key>
-	<string>public.app-category.music</string>
-	<key>LSMinimumSystemVersion</key>
-	<string>11.0</string>
-	<key>LSUIElement</key>
-	<true/>
-	<key>NSHighResolutionCapable</key>
-	<true/>
-	<key>NSHumanReadableCopyright</key>
-	<string>By aesthetic.computer</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Menu Band records short clips from your microphone when you hold ` so you can play them back as a sampling voice.</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Menu Band transcribes your voice on-device so you can dictate text straight into whatever app is in front, hands on the keyboard.</string>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>Menu Band finds nearby Menu Bands so two machines can play together in sync over peer-to-peer Wi-Fi and Bluetooth, no router needed.</string>
-	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>Menu Band uses Bluetooth to discover and sync with nearby Menu Bands for multi-machine performances.</string>
-	<key>NSBonjourServices</key>
-	<array>
-		<string>_acmenuband._tcp</string>
-		<string>_acmenuband._udp</string>
-	</array>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
@@ -64,17 +19,62 @@
 			</array>
 		</dict>
 	</array>
+	<key>CFBundleExecutable</key>
+	<string>MenuBand</string>
+	<key>CFBundleHelpBookFolder</key>
+	<string>MenuBand.help</string>
+	<key>CFBundleHelpBookName</key>
+	<string>computer.aestheticcomputer.menuband.help</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIdentifier</key>
+	<string>computer.aestheticcomputer.menuband</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Menu Band</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.5.4</string>
+	<key>CFBundleVersion</key>
+	<string>155</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.music</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>11.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Menu Band uses Bluetooth to discover and sync with nearby Menu Bands for multi-machine performances.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_acmenuband._tcp</string>
+		<string>_acmenuband._udp</string>
+	</array>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSHumanReadableCopyright</key>
+	<string>By aesthetic.computer</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Menu Band finds nearby Menu Bands so two machines can play together in sync over peer-to-peer Wi-Fi and Bluetooth, no router needed.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Menu Band records short clips from your microphone when you hold ` so you can play them back as a sampling voice.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Menu Band transcribes your voice on-device so you can dictate text straight into whatever app is in front, hands on the keyboard.</string>
 	<key>UTExportedTypeDeclarations</key>
 	<array>
 		<dict>
-			<key>UTTypeIdentifier</key>
-			<string>computer.aestheticcomputer.menuband.score</string>
-			<key>UTTypeDescription</key>
-			<string>Menu Band Score</string>
 			<key>UTTypeConformsTo</key>
 			<array>
 				<string>public.data</string>
 			</array>
+			<key>UTTypeDescription</key>
+			<string>Menu Band Score</string>
+			<key>UTTypeIdentifier</key>
+			<string>computer.aestheticcomputer.menuband.score</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>
