@@ -172,11 +172,14 @@
   #dPosts .posts{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:14px 12px; clear:both}
   .post{display:flex; flex-direction:column; font-size:11.5px}
   .post .pv{width:100%; aspect-ratio:9/16; height:auto; border:1px solid var(--ink); background:#000; display:block}
-  .post .paud{width:100%; aspect-ratio:9/16; border:1px solid var(--ink); background:var(--paper);
-    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; padding:12px; box-sizing:border-box; overflow:hidden}
-  .post .paud .paudlbl{font-size:34px; line-height:1; color:var(--margin)}
-  .post .paud .paudsub{font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim)}
-  .post .paud audio{width:100%; max-width:100%; min-width:0; margin-top:2px}
+  /* Audio-only takes: a plain vertical list, separate from the video grid. */
+  #dPosts .albl{margin-top:18px}
+  #dPosts .audlist{display:flex; flex-direction:column; gap:12px}
+  #dPosts .arow{display:flex; align-items:center; gap:12px; border:1px solid var(--ink); border-radius:2px; padding:10px 12px; background:var(--paper)}
+  #dPosts .arow .aico{font-size:22px; line-height:1; color:var(--margin); flex:0 0 auto}
+  #dPosts .arow .acol{flex:1 1 auto; min-width:0}
+  #dPosts .arow audio{width:100%; height:34px; display:block}
+  #dPosts .arow .pmeta{margin-top:5px}
   .post .pmeta{margin-top:5px; line-height:1.45; color:var(--dim)}
   .post .pdate{color:var(--ink)}
   .post .plink{color:var(--margin); text-decoration:none; white-space:nowrap}
@@ -396,21 +399,23 @@ function renderPosts(code){
   const posts=POSTS_BY_CODE[code]||[];
   const P=D.posts;
   if(!posts.length){ P.style.display="none"; P.innerHTML=""; return; }
-  const card=p=>{
-    // Audio-only posts (no video stream) get an intentional card — a tile the
-    // same shape as a video with a ♪ mark and the scrubber — so they read as a
-    // deliberate audio take, not a broken player floating in an empty cell.
-    const media=p.media==="audio"
-      ? `<div class="pv paud"><span class="paudlbl">♪</span><audio controls preload="none" src="${p.src}"></audio><span class="paudsub">audio only</span></div>`
-      : `<video class="pv" controls playsinline preload="none" loop${p.thumb?` poster="${p.thumb}"`:""} src="${p.src}"></video>`;
+  const meta=p=>{
     const stat=[p.views!=null?fmtViews(p.views)+" views":null,p.likes?fmtViews(p.likes)+" likes":null].filter(Boolean).join(" · ");
     const plat=p.platform&&p.platform!=="tiktok"?`<span class="pbadge">${esc(p.platform)}</span>`:"";
-    return `<div class="post">${media}<div class="pmeta">${plat}<span class="pdate">${p.date||""}</span>`+
-      (stat?` · <span class="pstat">${stat}</span>`:"")+
-      ` &nbsp;<a class="plink" href="${p.url}" target="_blank" rel="noopener">${p.platform==="tiktok"?"TikTok":"open"} ↗</a>`+
-      (p.desc?`<div class="pdesc">${esc(p.desc)}</div>`:"")+`</div></div>`;
+    return `${plat}<span class="pdate">${p.date||""}</span>`+(stat?` · <span class="pstat">${stat}</span>`:"")+
+      ` &nbsp;<a class="plink" href="${p.url}" target="_blank" rel="noopener">${p.platform==="tiktok"?"TikTok":"open"} ↗</a>`;
   };
-  P.innerHTML=`<hr><p class="lbl">${posts.length} post${posts.length>1?"s":""}</p><div class="posts">${posts.map(card).join("")}</div>`;
+  // Video posts fill the grid; audio-only posts (no video stream) live in their
+  // OWN list below so they never sit between videos in a grid row (that mixed
+  // row was the layout snag). Each stays a clean player with its own metadata.
+  const vids=posts.filter(p=>p.media!=="audio"), auds=posts.filter(p=>p.media==="audio");
+  const vcard=p=>`<div class="post"><video class="pv" controls playsinline preload="none" loop${p.thumb?` poster="${p.thumb}"`:""} src="${p.src}"></video>`+
+    `<div class="pmeta">${meta(p)}${p.desc?`<div class="pdesc">${esc(p.desc)}</div>`:""}</div></div>`;
+  const arow=p=>`<div class="arow"><span class="aico">♪</span><div class="acol"><audio controls preload="none" src="${p.src}"></audio><div class="pmeta">${meta(p)}</div></div></div>`;
+  let html=`<hr><p class="lbl">${posts.length} post${posts.length>1?"s":""}</p>`;
+  if(vids.length) html+=`<div class="posts">${vids.map(vcard).join("")}</div>`;
+  if(auds.length) html+=`<p class="lbl albl">Audio-only take${auds.length>1?"s":""}</p><div class="audlist">${auds.map(arow).join("")}</div>`;
+  P.innerHTML=html;
   P.style.display="";
 }
 
