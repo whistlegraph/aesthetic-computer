@@ -477,7 +477,7 @@ enum MenuBuilder {
 
         let lens = item("Zoom lens (⌃⌃)", selector: #selector(AppDelegate.toggleZoomLens), target: target)
         lens.state = state.zoomLens ? .on : .off
-        lens.toolTip = "Tap ⌃ twice to magnify the window under the pointer up to fill the screen — live and still clickable, not a screenshot. ⌃⌃ again, or Esc, drops back out."
+        lens.toolTip = "Tap ⌃ twice to zoom in on the window under the pointer, centred on it. ⌃⌃ again zooms back out. Drives the real macOS Accessibility Zoom, at whatever magnification you've set in System Settings."
         sub.addItem(lens)
 
         let preferIterm = item("Spawn in iTerm2", selector: #selector(AppDelegate.togglePreferIterm), target: target)

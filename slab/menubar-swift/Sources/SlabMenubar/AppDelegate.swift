@@ -171,16 +171,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             appearanceHotkey = appHotkey
         }
 
-        // ⌃⌃ magnifies the window under the pointer; ⌃⌃ again (or Esc) drops it.
+        // ⌃⌃ zooms in on the window under the pointer; ⌃⌃ again zooms back out.
         // The tap listens always — the flag is checked at fire time, not here, so
         // toggling the feature from the menu doesn't need to tear a tap down.
-        if ZoomLensBridge.isSupported {
-            let lensTap = CtrlDoubleTap { [weak self] in
-                guard let self = self, self.state.zoomLens else { return }
-                ZoomLensBridge.toggle()
-            }
-            if lensTap.start() { zoomLensTap = lensTap }
+        ZoomLens.ensureHotkeysEnabled()
+        let lensTap = CtrlDoubleTap { [weak self] in
+            guard let self = self, self.state.zoomLens else { return }
+            ZoomLens.toggle()
         }
+        if lensTap.start() { zoomLensTap = lensTap }
 
         // setDesktopImageURL only writes the wallpaper on the active Space of
         // each screen — macOS gives every Space its own wallpaper slot. To
@@ -209,9 +208,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         tileHotkey?.unregister()
         scatterHotkey?.unregister()
         appearanceHotkey?.unregister()
-        // Quitting mid-zoom must not leave the machine with an invisible cursor.
         zoomLensTap?.stop()
-        ZoomLensBridge.restoreCursorOnExit()
         passphraseServer.stop()
         LedgerStore.shared.stop()
         NSWorkspace.shared.notificationCenter.removeObserver(self)
@@ -1315,7 +1312,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             nowOn = false
         }
         state.zoomLens = nowOn
-        if !nowOn, ZoomLensBridge.isZoomed { ZoomLensBridge.toggle() }
+        if !nowOn, ZoomLens.isZoomed { ZoomLens.toggle() }   // don't strand a zoom
         refresh()
     }
 
