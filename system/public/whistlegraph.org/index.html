@@ -404,12 +404,10 @@ function rowHTML(w){
     `<td class="ti"><a href="/${w.code}">${w.title}</a>${KIND_LABEL[w.kind]?`<span class="ktag">${KIND_LABEL[w.kind]}</span>`:""}<span class="by">${w.by}${w.perf>1?` · ${w.perf} posts`:""}</span></td>`+
     `<td class="yr">${w.year}</td>`;
 }
-function addRow(tb,w){
-  const tr=document.createElement("tr"); tr.className="row";
-  tr.innerHTML=rowHTML(w);
-  tr.querySelectorAll("a").forEach(a=>a.addEventListener("click",e=>{e.preventDefault();go(w.code)}));
-  tb.appendChild(tr);
-}
+// The row's own <a href="/code"> is intercepted by one delegated click handler
+// on the tbody (installed once) — 1120 rows share a single listener instead of
+// three apiece, and the grid is written in a single innerHTML pass.
+const rowTR=w=>`<tr class="row" data-code="${w.code}">${rowHTML(w)}</tr>`;
 
 let GRAPHS=[], COMPOSITIONS=[], EXPERIMENTS=[], CURATED_N=0;
 
@@ -429,36 +427,41 @@ function sortedGraphs(key){
   return null; // featured
 }
 function renderIndex(key){
-  const tb=document.querySelector("#idx tbody"); tb.innerHTML="";
+  const tb=document.querySelector("#idx tbody");
   const sorted=sortedGraphs(key);
-  if(!sorted){ // featured: ten first, then the archive, with a divider
-    COMPOSITIONS.forEach((w,i)=>{
-      if(i===CURATED_N){
-        const tr=document.createElement("tr");
-        tr.innerHTML=`<td colspan="4" style="padding:12px 8px 6px;color:var(--margin);font-size:12.5px;border-bottom:1px solid var(--margin)">— more from the archive —</td>`;
-        tb.appendChild(tr);
-      }
-      addRow(tb,w);
-    });
-  }else{
-    sorted.forEach(w=>addRow(tb,w));
+  const list=sorted||COMPOSITIONS;
+  const divider=`<tr class="divider"><td colspan="4" style="padding:12px 8px 6px;color:var(--margin);font-size:12.5px;border-bottom:1px solid var(--margin)">— more from the archive —</td></tr>`;
+  let html="";
+  for(let i=0;i<list.length;i++){
+    if(!sorted&&i===CURATED_N) html+=divider; // featured view groups the ten
+    html+=rowTR(list[i]);
   }
+  tb.innerHTML=html; // single write — no per-row reflow
 }
 
-// Posts load in parallel; group by the whistlegraph code(s) each is tagged
-// with (a post can appear under more than one work). Detail pages read this.
-fetch("/posts.json").then(r=>r.ok?r.json():{posts:[]}).then(pd=>{
-  for(const p of pd.posts||[]) for(const code of p.graphs||[]) (POSTS_BY_CODE[code]||=[]).push(p);
-  // A deep-linked page may have opened before posts arrived — re-run the whole
-  // detail so its hero + summary metadata reflect the posts, not just the gallery.
-  const c=location.pathname.replace(/\//g,""); if(c&&BY[c]&&det.classList.contains("on"))showDetail(c);
-}).catch(()=>{});
+// posts.json (~1.1MB) powers the record-page galleries ONLY — never the index,
+// whose reach counts come from graphs.json. So the fetch is deferred to the
+// first record open and memoized; the landing view never waits on it.
+let postsLoaded=null;
+function loadPosts(){
+  if(postsLoaded) return postsLoaded;
+  postsLoaded=fetch("/posts.json").then(r=>r.ok?r.json():{posts:[]}).then(pd=>{
+    for(const p of pd.posts||[]) for(const code of p.graphs||[]) (POSTS_BY_CODE[code]||=[]).push(p);
+  }).catch(()=>{});
+  return postsLoaded;
+}
 
 fetch("/graphs.json").then(r=>r.json()).then(data=>{
   GRAPHS=data.graphs; CURATED_N=data.curated;
   COMPOSITIONS=GRAPHS.slice();
   EXPERIMENTS=GRAPHS.filter(w=>w.kind==="experiment");
   BY=Object.fromEntries(data.graphs.map(w=>[w.code,w]));
+  // One delegated click for the whole grid — a row's <a href="/code"> routes to
+  // its record without 1120×3 individual listeners.
+  document.querySelector("#idx tbody").addEventListener("click",e=>{
+    const tr=e.target.closest("tr[data-code]"); if(!tr) return;
+    if(e.target.closest("a")){ e.preventDefault(); go(tr.dataset.code); }
+  });
   renderIndex(null);
   document.getElementById("idxCount").textContent=COMPOSITIONS.length;
   // The example code randomizes each load — always one of the featured ten —
@@ -481,6 +484,12 @@ fetch("/graphs.json").then(r=>r.json()).then(data=>{
 
 function showDetail(code){
   const w=BY[code]; if(!w) return showIndex();
+  // First record open kicks off the posts fetch; the page renders immediately
+  // from graphs.json (perf/views/poster fallbacks) and re-renders its gallery +
+  // exact span/hero once posts land. Later records already have them in hand.
+  if(!postsLoaded) loadPosts().then(()=>{
+    if(det.classList.contains("on")&&location.pathname.replace(/\//g,"")===code) showDetail(code);
+  });
   const posts=POSTS_BY_CODE[code]||[];
   D.t.innerHTML=esc(w.title)+(KIND_LABEL[w.kind]?`<span class="ktag">${KIND_LABEL[w.kind]}</span>`:"");
   D.by.innerHTML=`Composed by ${esc(w.by)} &nbsp;<b>·</b>&nbsp; ${w.year}`;
