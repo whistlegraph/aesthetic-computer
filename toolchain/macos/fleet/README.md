@@ -86,6 +86,21 @@ reading back what it clamped to. Ask for less and Live silently ignores you.
 > its own geometry. Homogenizing the window means re-running this after a set opens, not baking it
 > into a template.
 
+### `ableton-template.mjs` — a genuinely blank Set in the browser
+
+```bash
+node ableton-template.mjs              # build + install on every host
+node ableton-template.mjs blueberry
+```
+
+Builds the stripped Set (`reference/ableton/als-template.mjs` — one audio track + Main, no MIDI, no
+returns) and installs it to each Mac's `User Library/Templates/`, so Live's browser lists it under
+**Templates > AC Blank**.
+
+> **⌘N is still Ableton's stock Set.** Making the blank the *auto-default* is unsolved — `BaseFiles/`
+> isn't the source, `Save Live Set As Default Set…` just writes a template, and no pointer lands in
+> `Preferences.cfg`. All three ruled out across restarts; see `reference/ableton/TEMPLATE.md`.
+
 ### Live's global modals
 
 Live throws app-modal alerts (most often **"Audio is disabled. Please choose an audio output
