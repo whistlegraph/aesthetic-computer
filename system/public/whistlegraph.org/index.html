@@ -526,13 +526,15 @@ fetch("/graphs.json").then(r=>r.json()).then(data=>{
   const c=location.pathname.replace(/\//g,""); if(BY[c])showDetail(c);
 });
 
-function showDetail(code){
+function showDetail(code, keepScroll){
   const w=BY[code]; if(!w) return showIndex();
   // First record open kicks off the posts fetch; the page renders immediately
   // from graphs.json (perf/views/poster fallbacks) and re-renders its gallery +
-  // exact span/hero once posts land. Later records already have them in hand.
+  // exact span/hero once posts land. That re-render passes keepScroll so it does
+  // NOT yank you back to the top mid-browse (posts.json can arrive seconds later
+  // on a slow line). Later records already have posts in hand.
   if(!postsLoaded) loadPosts().then(()=>{
-    if(det.classList.contains("on")&&location.pathname.replace(/\//g,"")===code) showDetail(code);
+    if(det.classList.contains("on")&&location.pathname.replace(/\//g,"")===code) showDetail(code, true);
   });
   const posts=POSTS_BY_CODE[code]||[];
   D.t.innerHTML=esc(w.title)+(KIND_LABEL[w.kind]?`<span class="ktag">${KIND_LABEL[w.kind]}</span>`:"");
@@ -576,7 +578,7 @@ function showDetail(code){
     dv.style.display="";
   }else{ dv.style.display="none"; dv.innerHTML=""; }
   det.classList.add("on"); idx.classList.add("off");
-  document.title=`${w.title} — Whistlegraph`; scrollTo(0,0);
+  document.title=`${w.title} — Whistlegraph`; if(!keepScroll) scrollTo(0,0);
 }
 function showIndex(){
   det.classList.remove("on"); idx.classList.remove("off");
