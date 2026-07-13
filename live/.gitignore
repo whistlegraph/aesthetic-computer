@@ -1,0 +1,16 @@
+# Corpora (live/<slug>/) are derived from copyrighted source video — the audio
+# AND the transcript. Never committed. Fully reproducible from a URL:
+#   node bin/ingest.mjs <url> <slug>
+# Whitelist the source tree; ignore every other directory.
+*/
+!bin/
+!world/
+
+# build artifacts
+*.o
+*.a
+singer
+
+# bounces
+*.wav
+*.mp3

@@ -168,11 +168,13 @@ const VOICING_RAMP_MS = String(flags["voicing-ramp-ms"] ?? 20);
 const VIBRATO_HZ = String(flags["vibrato-hz"] ?? 0);
 const VIBRATO_CENTS = String(flags["vibrato-cents"] ?? 0);
 const RETAIN = String(flags["retain"] ?? 1.0);
+const F0_FLOOR = String(flags["f0-floor"] ?? 90.0);
 r = spawnSync(`${POP}/.venv/bin/python`, [
   `${POP}/bin/pitchsnap_world.py`, inWav, outWav,
   "--notes", notes.join(","),
   "--note-starts", starts.join(","),
   "--retain", RETAIN,
+  "--f0-floor", F0_FLOOR,
   "--xfade-ms", XFADE_MS,
   "--voicing-ramp-ms", VOICING_RAMP_MS,
   "--vibrato-hz", VIBRATO_HZ,

@@ -65,6 +65,12 @@ def main() -> int:
                         '(useful for whole-audio continuous resynth).')
     p.add_argument("--retain", type=float, default=1.0,
                    help="0 = source f0 unchanged, 1 = full clamp to target (default)")
+    p.add_argument("--f0-floor", type=float, default=90.0,
+                   help="Lowest f0 WORLD will call voiced, in Hz (default 90, "
+                        "tuned for jeffrey-pvc). Frames below the floor read as "
+                        "unvoiced and never sing — lower it for a deeper source. "
+                        "Costs formant sharpness: a lower floor widens cheaptrick's "
+                        "window and can ring on held notes.")
     p.add_argument("--vibrato-hz", type=float, default=0.0,
                    help="Vibrato frequency in Hz (0 = off)")
     p.add_argument("--vibrato-cents", type=float, default=0.0,
@@ -108,7 +114,10 @@ def main() -> int:
     # WORLD decompose. f0_floor=90 (jeffrey-pvc never goes below 90 Hz)
     # tightens cheaptrick's analysis window, which kills the held-note
     # "ring/echo" artifact (low-floor → wide window → formant smearing).
-    f0_floor = 90.0
+    # Lower it only for a deeper source: frames under the floor read as
+    # UNVOICED and fall through to unmodified speech, so a too-high floor
+    # silently costs you singing. Trade ring against voicing per speaker.
+    f0_floor = float(args.f0_floor)
     f0_raw, t = pw.harvest(x, fs, f0_floor=f0_floor, f0_ceil=600.0, frame_period=5.0)
     f0 = pw.stonemask(x, f0_raw, t, fs)
     fft_size = pw.get_cheaptrick_fft_size(fs, f0_floor=f0_floor)
