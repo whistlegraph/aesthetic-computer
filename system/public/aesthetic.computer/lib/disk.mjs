@@ -3098,15 +3098,24 @@ const $commonApi = {
   },
 
   // 🎄 Preload piece modules for merry pipelines (prevents network latency during fast cycling)
-  preloadPieces: async function preloadPieces(pieceNames) {
+  preloadPieces: async function preloadPieces(pieceNames, onProgress) {
     if (!pieceNames || pieceNames.length === 0) return;
 
     const baseUrl = getBuiltInPieceBaseUrl();
+    // Report fraction-complete (0..1) as each piece settles, so callers can
+    // drive a real loading spinner (e.g. `merryo ^pads` preloading 47 pieces).
+    let done = 0;
+    const total = pieceNames.length;
+    const bump = () => {
+      done += 1;
+      try { onProgress?.(done / total); } catch (e) {}
+    };
 
     const fetchPromises = pieceNames.map(async (piece) => {
       // Skip if already cached
       if (pieceCodeCache.has(piece)) {
         console.log(`🎄 Piece already cached: ${piece}`);
+        bump();
         return;
       }
 
@@ -3147,6 +3156,8 @@ const $commonApi = {
         console.warn(`🎄 Could not preload piece: ${piece}`);
       } catch (err) {
         console.warn(`🎄 Error preloading ${piece}:`, err);
+      } finally {
+        bump();
       }
     });
 

@@ -1485,6 +1485,24 @@ async function halt($, text) {
       return false;
     }
 
+    // 🎄⏳ Show a loading spinner while we resolve the bag + preload every piece.
+    // halt() is awaited by the TextInput's run(), so the prompt stays "busy"
+    // (input held, not deactivated) until the tour is actually ready — giving
+    // Enter the same interstitial feedback a normal piece load has, instead of a
+    // dead pause. The bar/label are drawn in paint(); progressTrick ticks in sim().
+    const clearMerryLoader = () => {
+      progressBar = -1;
+      progressTrick = null;
+      progressPhase = "";
+    };
+    progressPhase = "LOADING";
+    progressBar = 0.04; // a visible sliver right away
+    progressTrick = new gizmo.Hourglass(24, {
+      completed: () => (progressBar = Math.min(0.9, progressBar + 0.04)),
+      autoFlip: true,
+    });
+    needsPaint();
+
     // 🎒 Expand any ^bag tokens (e.g. `merryo ^pads`, `mo5 ^pads`) into their pieces.
     pieceParams = await expandMerryBags(pieceParams);
 
@@ -1526,6 +1544,7 @@ async function halt($, text) {
     });
 
     if (pipeline.length === 0) {
+      clearMerryLoader();
       flashColor = [255, 0, 0];
       makeFlash($);
       notice("MERRY NEEDS PIECES", ["yellow", "red"]);
@@ -1542,8 +1561,23 @@ async function halt($, text) {
     const pieceNames = pipeline.map(p => p.piece);
     if (preloadPieces) {
       console.log("🎄📦 Preloading pieces:", pieceNames);
-      await preloadPieces(pieceNames);
+      // Drive the loading bar with real per-piece progress (0.05 → 1.0).
+      await preloadPieces(pieceNames, (p) => {
+        progressBar = 0.05 + p * 0.95;
+        needsPaint();
+      });
     }
+    // Loaded — fill the bar, drop the spinner, and sound a "go" chime so the
+    // tour's start is audible (a quick ascending C5→G5 over the Enter beep).
+    progressBar = 1.0;
+    needsPaint();
+    clearMerryLoader();
+    try {
+      sound.synth({ type: "sine", tone: 523.25, duration: 0.08, volume: 0.4, attack: 0.01, decay: 0.05 });
+      setTimeout(() => {
+        try { sound.synth({ type: "sine", tone: 783.99, duration: 0.11, volume: 0.4, attack: 0.01, decay: 0.06 }); } catch (e) {}
+      }, 85);
+    } catch (e) { /* audio not ready — non-fatal */ }
 
     // Helper function to get UTC-synced time
     const getUTCTime = () => clock?.time?.()?.getTime?.() || Date.now();
@@ -1975,7 +2009,7 @@ async function halt($, text) {
       uniformDuration ? `(uniform: ${uniformDuration}s)` : "",
       fadeDuration ? `(fade: ${fadeDuration}s)` : "",
     );
-    activateMerry(processedParams, {
+    await activateMerry(processedParams, {
       markAsTaping: false,
       flashOnSuccess: true,
       loop,
@@ -2156,7 +2190,7 @@ async function halt($, text) {
       };
 
       if (isTapingMerry && merryPieceParams) {
-        const merryStarted = activateMerry(merryPieceParams, {
+        const merryStarted = await activateMerry(merryPieceParams, {
           markAsTaping: true,
           flashOnSuccess: false,
           loop: false,
