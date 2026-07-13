@@ -42,6 +42,13 @@
         "slab/bin/dm-mcp.mjs"
       ]
     },
+    "prox": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "slab/bin/prox-mcp.mjs"
+      ]
+    },
     "memory": {
       "type": "stdio",
       "command": "node",
