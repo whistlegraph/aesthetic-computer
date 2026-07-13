@@ -155,6 +155,12 @@ enum Paths {
     /// Prompt sigils are ON by default (they always run with slab); this marker
     /// exists only when the user has explicitly turned them OFF from the menu.
     static var promptSigilsDisabledFlag: String { "\(slabHome)/state/prompt-sigils-off" }
+
+    /// The ⌃⌃ zoom lens. On by default, like the sigils — this marker exists
+    /// only once someone has explicitly turned it off, which is worth having
+    /// because the lens takes over the pointer and someone hitting it by
+    /// accident wants a way out that survives a relaunch.
+    static var zoomLensDisabledFlag: String { "\(slabHome)/state/zoom-lens-off" }
 }
 
 enum Tools {
