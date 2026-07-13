@@ -1,12 +1,24 @@
 {
-  "_comment": "Hand-curation from the trio (Alex, broad strokes) that the clustering pass can't derive — title-only songs whose hook never appears in the sung lyric, and merges of separately-clustered takes into one canonical whistlegraph. Applied by gen-model.mjs after clustering. renames: code -> canonical title. merges: sourceCode -> targetCode (source's posts retag to the target, source work drops out; old /sourceCode falls back to the index).",
+  "_comment": "Hand-curation from the trio (Alex, broad strokes) that the clustering pass can't derive. Applied by gen-model.mjs after clustering. renames: code -> canonical title. recodes: oldCode -> newCode (change a work's deep-link slug; its posts retag, pair with a rename keyed on the newCode for the title). merges: sourceCode -> targetCode (source's posts retag to the target, source work drops out; folded codes intentionally stop resolving and fall back to the index).",
   "renames": {
-    "wg4": "It Me"
+    "wg4": "It Me",
+    "bugy": "Buggy on The Wall"
+  },
+  "recodes": {
+    "cdh": "bugy"
   },
   "merges": {
     "hlfn": "imab",
     "knkm": "wg4",
     "wtm": "enuf",
-    "more": "enuf"
+    "more": "enuf",
+    "sisq": "sqar",
+    "stink": "sdog",
+    "sinky": "sdog",
+    "nvgo": "sdog",
+    "mean": "knee",
+    "windw": "sprk",
+    "win2": "sprk",
+    "whol": "cult"
   }
 }
