@@ -10,11 +10,15 @@ import CoreGraphics
 /// lesson MenuBandLauncher learned; see its header.
 ///
 /// "On its own" is the whole difficulty. ⌃ is a chord key — emacs and the shell
-/// lean on it constantly — so a naive double-tap would fire on ⌃X ⌃S. Two
-/// filters keep it quiet: any *other* modifier held alongside ⌃ disqualifies the
-/// press, and any key or click that lands *while* ⌃ is down cancels the pending
-/// tap. What survives is a bare ⌃ pressed and released twice with nothing in
-/// between, which nothing on macOS otherwise claims.
+/// lean on it constantly — so a naive double-tap would fire on ⌃X ⌃S. Three
+/// filters keep it quiet: any other modifier held alongside ⌃ disqualifies the
+/// press; any other modifier tapped between the two ⌃s breaks the run; and any
+/// keystroke or click at all in between breaks it too. That last one has to be
+/// unconditional rather than "only while ⌃ is held", or ⌃ a ⌃ would still pair
+/// up — the `a` lands after ⌃ is already released.
+///
+/// What survives is a bare ⌃ pressed and released twice, directly, with nothing
+/// whatsoever in between — which nothing else on macOS claims.
 final class CtrlDoubleTap {
     /// Left and right ⌃. Some keyboards report 59 for both, so we accept either
     /// keycode and never try to tell the sides apart — any two ⌃ taps count.
@@ -42,7 +46,8 @@ final class CtrlDoubleTap {
             (1 << CGEventType.flagsChanged.rawValue) |
             (1 << CGEventType.keyDown.rawValue) |
             (1 << CGEventType.leftMouseDown.rawValue) |
-            (1 << CGEventType.rightMouseDown.rawValue)
+            (1 << CGEventType.rightMouseDown.rawValue) |
+            (1 << CGEventType.otherMouseDown.rawValue)
 
         let callback: CGEventTapCallBack = { _, type, event, refcon in
             guard let refcon = refcon else { return Unmanaged.passUnretained(event) }
@@ -86,16 +91,22 @@ final class CtrlDoubleTap {
             return
         }
 
-        // Anything typed or clicked while ⌃ is held means this ⌃ is a chord's
-        // modifier, not a tap. Burn the pending half so ⌃X ⌃S can't pair.
-        if type == .keyDown || type == .leftMouseDown || type == .rightMouseDown {
-            if event.flags.contains(.maskControl) { lastTapAt = 0 }
+        // The two taps must be DIRECTLY consecutive — nothing at all in between.
+        // Not merely "no key held under ⌃": any keystroke or click whatsoever
+        // breaks the run, so that ⌃ a ⌃ can never read as ⌃⌃ just because the
+        // `a` happened to land with ⌃ already released.
+        if type == .keyDown || type == .leftMouseDown
+            || type == .rightMouseDown || type == .otherMouseDown {
+            lastTapAt = 0
             return
         }
 
         guard type == .flagsChanged else { return }
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-        guard keyCode == Self.leftControlKeyCode || keyCode == Self.rightControlKeyCode else { return }
+        guard keyCode == Self.leftControlKeyCode || keyCode == Self.rightControlKeyCode else {
+            lastTapAt = 0   // a different modifier came between the taps — also breaks it
+            return
+        }
 
         // .maskControl is set on the press edge and cleared on release; we only
         // want the press.

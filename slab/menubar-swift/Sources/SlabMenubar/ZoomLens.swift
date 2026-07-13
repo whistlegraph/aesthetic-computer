@@ -55,6 +55,7 @@ enum ZoomLens {
     static func toggle() {
         if isZoomed {
             zoomOut()
+            PopSound.play(rising: false)
             return
         }
         guard let window = windowUnderCursor(excluding: getpid()),
@@ -73,6 +74,7 @@ enum ZoomLens {
         let centre = CGPoint(x: window.midX, y: window.midY)
 
         apply(origin: centre, factor: factor)
+        PopSound.play(rising: true)
     }
 
     static func zoomOut() {
