@@ -274,3 +274,35 @@ reboot, and the visual result of the hover/centering changes.
 launch (default on). That's normal for a menu-bar utility and there's a visible
 off switch in About, but if review objects, flip the `MBOpenAtLogin` default to
 `false` in `MenuBandLoginItem` and let the user opt in.
+
+### Open, diagnosed but NOT fixed (found 2026-07-12 on the shipped build)
+
+Two piano-input bugs, deliberately left out of 1.5.4 rather than patched on a
+guess. Both are in `PianoKeyboardView`.
+
+1. **The key hit-area doesn't match the drawn keys — it extends a full keyboard
+   above and below.** `rendererPoint(from:)` is the culprit, and it's on
+   purpose: with `strictY: false` (the path every mouse handler uses) it accepts
+   `y` from `-piano.height` to `piano.height * 2`. So the live hit region is
+   three keyboards tall stacked around a one-keyboard drawing. The comment calls
+   it "generous ±piano-height slack (fat-finger tolerance for holding a note
+   while sliding off the keys)" — the intent is real, the magnitude is not. A
+   `strictY` path already exists; the fix is choosing the right tolerance rather
+   than writing new code.
+
+2. **Click-and-hold works, but you can't slide to another key.** The note locks
+   under the cursor. `mouseDragged` DOES implement glissando (stop the old note,
+   start the new one) — but only when the hovered note *differs* from the held
+   one. When it's the same, it falls to `updateTapPan(...)` and reinterprets the
+   movement as **expression** (pan/velocity), which is what the drag feels like:
+   a pan knob instead of a glissando. Whether the note genuinely never changes
+   (drag events not reaching the view) or merely doesn't change *near* the press
+   point (bug 1's stretched geometry mapping neighbours onto the same note) is
+   UNRESOLVED — and the two have different fixes. The deciding experiment: press
+   a key and drag several keys sideways at the vertical middle. If the note
+   eventually changes, bug 1 is the whole story. If it never does, drag delivery
+   is broken and that's separate.
+
+   One unverified suspect for the "never changes" case: `mouseDown` calls
+   `window?.makeKey()`, and making the panel key mid-click can disturb AppKit's
+   drag tracking. Hypothesis only — do not fix on it without evidence.
