@@ -32,6 +32,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     let watchDirs: [String]
     let selectPath: String?
     var current: Int = -1
+    var menuBar: MenuBarCD?
     var watchTimer: Timer?
     var watchMtimes: [String: Date] = [:]
     var keyMonitor: Any?
@@ -115,12 +116,16 @@ final class JukeController: NSWindowController, NSWindowDelegate,
             backing: .buffered, defer: false)
         window.title = "JukeWizard — \(library.tracks.count) tracks"
         window.isRestorable = false          // don't let AppKit re-select a stale row over our pick
+        window.isReleasedWhenClosed = false  // keep it around so the menu-bar CD can reopen it
         window.minSize = NSSize(width: 720, height: 460)
         window.center()
         super.init(window: window)
         window.delegate = self
         setupUI()
         relayout()
+        // the spinning-CD menu-bar presence (persists when the window is closed)
+        menuBar = MenuBarCD()
+        menuBar?.onClick = { [weak self] in self?.toggleWindowFromMenuBar() }
         // open on the requested track (and play it) if given; else the top.
         if let sp = selectPath {
             let want = URL(fileURLWithPath: (sp as NSString).expandingTildeInPath).standardizedFileURL.path
@@ -414,6 +419,22 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         notesPlaceholder.frame = NSRect(x: rx + 6, y: notesBottom + notesH - 20, width: 100, height: 16)
     }
 
+    // ── menu-bar CD ────────────────────────────────────────────────────────
+    // Keep the bar disc's tempo + spin in step with playback.
+    private func refreshMenuBar() {
+        menuBar?.setBPM(track?.meta?.bpm.map(Double.init))
+        menuBar?.setPlaying(wave.isPlaying)
+    }
+    @objc private func toggleWindowFromMenuBar() {
+        guard let w = window else { return }
+        if w.isVisible && w.isKeyWindow {
+            w.orderOut(nil)
+        } else {
+            w.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+        }
+    }
+
     // ── selection / playback ──────────────────────────────────────────────
     private var track: Track? { (current >= 0 && current < library.tracks.count) ? library.tracks[current] : nil }
 
@@ -439,6 +460,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         listTable.scrollRowToVisible(i)
         updateTime()
         if autoplay { wave.play(); playButton.title = "❚❚" } else { playButton.title = "▶" }
+        refreshMenuBar()               // new tempo + play state → spin the bar CD
     }
 
     // ── sorting ────────────────────────────────────────────────────────────
@@ -500,6 +522,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     @objc private func togglePlay() {
         wave.togglePlay()
         playButton.title = wave.isPlaying ? "❚❚" : "▶"
+        refreshMenuBar()
     }
     @objc private func prevTrack() { if current > 0 { select(current - 1, autoplay: true) } }
     @objc private func nextTrack() { if current < library.tracks.count - 1 { select(current + 1, autoplay: true) } }
@@ -558,6 +581,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
             }
         }
         if wasPlaying { wave.play(); playButton.title = "❚❚" }
+        refreshMenuBar()
     }
     @objc private func commentClicked() {
         guard let t = track else { return }
@@ -577,7 +601,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     }
 
     // ── waveform delegate ───────────────────────────────────────────────────
-    func waveformDidFinish() { playButton.title = "▶"; nextTrack() }
+    func waveformDidFinish() { playButton.title = "▶"; nextTrack(); refreshMenuBar() }
     func waveformTick() { updateTime() }
     private func updateTime() {
         timeLabel.stringValue = "\(JukeController.mmss(wave.currentTime)) / \(JukeController.mmss(wave.duration))"

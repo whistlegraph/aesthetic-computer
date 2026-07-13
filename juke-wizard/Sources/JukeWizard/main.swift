@@ -51,7 +51,9 @@ final class JukeAppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+    // Stay resident when the window closes — the spinning-CD menu-bar item is
+    // JukeWizard's persistent face; click it to bring the window back.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 }
 
 let app = NSApplication.shared
