@@ -174,7 +174,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // ⌃⌃ zooms in on the window under the pointer; ⌃⌃ again zooms back out.
         // The tap listens always — the flag is checked at fire time, not here, so
         // toggling the feature from the menu doesn't need to tear a tap down.
-        ZoomLens.ensureHotkeysEnabled()
         let lensTap = CtrlDoubleTap { [weak self] in
             guard let self = self, self.state.zoomLens else { return }
             ZoomLens.toggle()
@@ -209,6 +208,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         scatterHotkey?.unregister()
         appearanceHotkey?.unregister()
         zoomLensTap?.stop()
+        // Compositor zoom outlives us — never quit leaving the screen magnified.
+        if ZoomLens.isZoomed { ZoomLens.zoomOut() }
         passphraseServer.stop()
         LedgerStore.shared.stop()
         NSWorkspace.shared.notificationCenter.removeObserver(self)
