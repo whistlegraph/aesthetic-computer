@@ -62,7 +62,8 @@ export const handler = async (event) => {
   if (work) {
     const title = work.title || "Whistlegraph";
     const by = work.by && work.by !== "Whistlegraph" ? ` by ${work.by}` : "";
-    const desc = `${title} — a whistlegraph${by}. A drawing you sing; the score teaches you how to play it.`;
+    const yr = work.year ? ` (${work.year})` : "";
+    const desc = `${title} — a whistlegraph${by}${yr}. A drawing you sing; the score teaches you how to play it.`;
     const img = work.thumb || DEFAULT_IMG;
     const vid = videoFor(work.thumb);
     const url = `https://whistlegraph.org/${code}`;
