@@ -34,11 +34,12 @@ say() { printf "%s• %s%s\n" "$CYAN" "$1" "$RESET"; }
 ok()  { printf "%s✓ %s%s\n" "$GREEN" "$1" "$RESET"; }
 warn(){ printf "%s! %s%s\n" "$YELLOW" "$1" "$RESET"; }
 
-command -v swift >/dev/null 2>&1 || {
+if [[ -z "${SLAB_PREBUILT:-}" ]] && ! command -v swift >/dev/null 2>&1; then
     echo "swift not found — install Xcode Command Line Tools first:"
     echo "    xcode-select --install"
+    echo "(or hand this machine a finished binary: SLAB_PREBUILT=/path/to/slab-menubar-swift)"
     exit 1
-}
+fi
 
 SIGN_CN="Slab Menubar Self-Signed"
 # A DEDICATED keychain, not login.keychain. Over SSH the login keychain is
@@ -244,16 +245,30 @@ provision_terminal_close_warning() {
     ok "provisioned ${n} Terminal profile(s): Ask before closing → Never"
 }
 
-say "building slab-menubar (swift build -c release)"
-cd "${SCRIPT_DIR}"
-swift build -c release >/dev/null
+# A release build is whole-module-optimized and wants real RAM. On an 8 GB box
+# that is already carrying Claude sessions it swaps the machine into the ground
+# — compiling here is what took neo down, not the thing we were installing.
+# SLAB_PREBUILT lets a machine with headroom hand over a finished arm64 binary,
+# so the small ones only have to sign and restart.
+if [[ -n "${SLAB_PREBUILT:-}" ]]; then
+    if [[ ! -x "${SLAB_PREBUILT}" ]]; then
+        echo "SLAB_PREBUILT is not an executable file: ${SLAB_PREBUILT}"
+        exit 1
+    fi
+    BUILT="${SLAB_PREBUILT}"
+    ok "using prebuilt binary (no local compile): ${BUILT}"
+else
+    say "building slab-menubar (swift build -c release)"
+    cd "${SCRIPT_DIR}"
+    swift build -c release >/dev/null
 
-BUILT="$(swift build -c release --show-bin-path)/slab-menubar-swift"
-if [[ ! -x "${BUILT}" ]]; then
-    echo "build succeeded but binary not found at ${BUILT}"
-    exit 1
+    BUILT="$(swift build -c release --show-bin-path)/slab-menubar-swift"
+    if [[ ! -x "${BUILT}" ]]; then
+        echo "build succeeded but binary not found at ${BUILT}"
+        exit 1
+    fi
+    ok "built: ${BUILT}"
 fi
-ok "built: ${BUILT}"
 
 provision_iterm2_profiles
 provision_terminal_close_warning

@@ -16,7 +16,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// so a slow generation isn't re-kicked every 2 s tick. Guarded by
     /// `wallpaperLock` (touched from the off-main resolve).
     private var kickedWallpapers = Set<String>()
+    /// At most one `slab-wallpaper` gen may run at a time. Every status flip and
+    /// every retitled session mints a fresh key, and a gen takes minutes on a
+    /// loaded box — detached spawns outran their own renders and piled up
+    /// (8 nodes × ~16 MB on neo, self-amplifying into swap). A request landing
+    /// mid-render coalesces into `pendingWallpaper`, replacing whatever was
+    /// waiting: only the newest state is worth drawing.
+    private var wallpaperBusy = false
+    private var pendingWallpaper: (key: String, subject: String, status: String)?
     private let wallpaperLock = NSLock()
+    /// `slab-wallpaper path` is a pure hash of (subject, status) plus an
+    /// existence check, so once it names a real file that answer is permanent —
+    /// but we were forking a node to re-ask it for every session on every 2 s
+    /// tick. Seven sessions is ~3.5 node spawns a second, forever, and it scales
+    /// with the one number that keeps growing. Remember the answers instead.
+    private var wallpaperPaths: [String: String] = [:]
+    /// Keys whose render hasn't landed yet still answer "" — those we re-ask, but
+    /// on a slow clock, not every tick. A finished gen clears its stamp so the
+    /// fresh picture is picked up on the next pass rather than after the wait.
+    private var wallpaperProbedAt: [String: Date] = [:]
+    private let wallpaperProbeRetry: TimeInterval = 20
     /// One-shot guard so the status-defaults gen is kicked once per launch.
     private var defaultsKicked = false
     private var refreshTimer: Timer?
@@ -1376,10 +1395,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let summary = s.titleString
             var pick = ""
             if !summary.isEmpty {
-                let probe = ShellRunner.output(
-                    bin, args: ["path", "subject", summary, st], timeout: 4
-                )?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                if !probe.isEmpty, fm.fileExists(atPath: probe) { pick = probe }
+                pick = wallpaperPath(subject: summary, status: st, fm: fm)
             }
             if pick.isEmpty {
                 let def = "\(Paths.wallpaperStatusDir)/\(st).jpg"
@@ -1387,18 +1403,83 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             s.wallpaper = pick
 
-            if !summary.isEmpty {
-                let key = "\(st)\u{1}\(summary)"
-                wallpaperLock.lock()
-                let fresh = kickedWallpapers.insert(key).inserted
-                wallpaperLock.unlock()
-                if fresh {
-                    ShellRunner.runAsync(bin, args: ["subject", summary, st])
-                }
-            }
+            if !summary.isEmpty { kickWallpaper(subject: summary, status: st) }
             out.append(s)
         }
         return out
+    }
+
+    /// The cached answer if we have one, else a throttled `slab-wallpaper path`.
+    /// Off-main (called from `resolveWallpapers`).
+    private func wallpaperPath(subject: String, status: String, fm: FileManager) -> String {
+        let key = "\(status)\u{1}\(subject)"
+
+        wallpaperLock.lock()
+        if let known = wallpaperPaths[key] {
+            wallpaperLock.unlock()
+            // The file can be swept out from under us; a stale name is worse
+            // than a fresh probe, so drop it and let the retry path re-ask.
+            if fm.fileExists(atPath: known) { return known }
+            wallpaperLock.lock()
+            wallpaperPaths[key] = nil
+        }
+        if let last = wallpaperProbedAt[key], Date().timeIntervalSince(last) < wallpaperProbeRetry {
+            wallpaperLock.unlock()
+            return ""
+        }
+        wallpaperProbedAt[key] = Date()
+        wallpaperLock.unlock()
+
+        let probe = ShellRunner.output(
+            Paths.slabWallpaper, args: ["path", "subject", subject, status], timeout: 4
+        )?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !probe.isEmpty, fm.fileExists(atPath: probe) else { return "" }
+
+        wallpaperLock.lock()
+        wallpaperPaths[key] = probe
+        wallpaperProbedAt[key] = nil
+        wallpaperLock.unlock()
+        return probe
+    }
+
+    /// Queue a subject gen: new if unseen, otherwise nothing. Coalescing — a
+    /// request that arrives while a gen runs displaces the one waiting, and the
+    /// displaced key leaves the once-only set so it can be asked for again if
+    /// that state comes back.
+    private func kickWallpaper(subject: String, status: String) {
+        let key = "\(status)\u{1}\(subject)"
+        wallpaperLock.lock()
+        guard kickedWallpapers.insert(key).inserted else { wallpaperLock.unlock(); return }
+        if wallpaperBusy {
+            if let stale = pendingWallpaper { kickedWallpapers.remove(stale.key) }
+            pendingWallpaper = (key, subject, status)
+            wallpaperLock.unlock()
+            return
+        }
+        wallpaperBusy = true
+        wallpaperLock.unlock()
+        runWallpaper(subject, status)
+    }
+
+    /// One gen, then drain whatever coalesced behind it. The 180 s cap matches
+    /// slab-wallpaper's own stale-lock reclaim — past that the render is wedged,
+    /// and a wedged render must die rather than hold the slot forever.
+    private func runWallpaper(_ subject: String, _ status: String) {
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            _ = ShellRunner.run(
+                Paths.slabWallpaper, args: ["subject", subject, status], timeout: 180
+            )
+            guard let self = self else { return }
+            self.wallpaperLock.lock()
+            // The picture this gen just drew is the one the probe was waiting
+            // for: forget the throttle so the next tick asks once and caches it.
+            self.wallpaperProbedAt["\(status)\u{1}\(subject)"] = nil
+            let next = self.pendingWallpaper
+            self.pendingWallpaper = nil
+            if next == nil { self.wallpaperBusy = false }
+            self.wallpaperLock.unlock()
+            if let next = next { self.runWallpaper(next.subject, next.status) }
+        }
     }
 
     /// RGB triple in AppleScript colorspace (0–65535 per channel).
