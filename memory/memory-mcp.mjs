@@ -306,6 +306,6 @@ async function handleMessage(message) {
   }
 }
 
-const port = httpPort(process.argv, 7769);
+const port = httpPort(process.argv, 7772); // 7769 is puppet's
 if (port) serveHttp({ handleMessage, port, banner: "🧠 memory-mcp shared daemon" });
 else serveStdio({ handleMessage, banner: "🧠 memory-mcp server started (memory_search, memory_sessions, memory_machines)" });

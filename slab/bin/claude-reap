@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# claude-reap — close Claude sessions that have gone quiet, and say so on their tty.
+#
+# neo is an 8 GB box. A finished session costs as much resident RAM as a working
+# one, and the sessions that killed it twice were mostly *done* — last words
+# "great", "yes", "compush now" — just sitting there. So: reap the quiet ones.
+#
+# Idleness is the mtime of the session's own transcript. Claude rewrites that
+# file on every turn, so a session that is thinking, tool-calling, or streaming
+# keeps touching it; only one waiting on a human goes stale. That makes mtime a
+# truthful "nobody is here" signal, and means we never reap live work.
+#
+# Nothing is lost: the transcript IS the session. We print the `--resume` line
+# onto the terminal we just cleared, so the way back is sitting where the
+# session used to be.
+#
+# Usage:
+#   claude-reap            # reap sessions idle >= IDLE_MINUTES (default 30)
+#   claude-reap 45         # ...with an explicit threshold
+#   claude-reap 30 dry     # report only, kill nothing
+
+set -u
+
+THRESHOLD="${1:-${IDLE_MINUTES:-30}}"
+DRY="${2:-}"
+PROJECTS="$HOME/.claude/projects"
+now=$(date +%s)
+
+for pid in $(pgrep -x claude); do
+    # The transcript this session holds open. Subagent transcripts live under
+    # subagents/ and belong to a parent that is still very much alive.
+    transcript=$(lsof -p "$pid" -Fn 2>/dev/null \
+        | grep -m1 -o "${PROJECTS}/[^ ]*\.jsonl" \
+        | grep -v '/subagents/')
+    [ -z "$transcript" ] && continue
+
+    mtime=$(stat -f %m "$transcript" 2>/dev/null) || continue
+    idle=$(( (now - mtime) / 60 ))
+    [ "$idle" -lt "$THRESHOLD" ] && continue
+
+    id=$(basename "$transcript" .jsonl)
+    tty=$(ps -o tty= -p "$pid" 2>/dev/null | tr -d ' ')
+
+    if [ -n "$DRY" ]; then
+        echo "would reap ${id%%-*} (idle ${idle}m, tty ${tty:-?})"
+        continue
+    fi
+
+    kill "$pid" 2>/dev/null || continue
+
+    # Leave the way back where the session was, not in a log nobody reads.
+    if [ -n "$tty" ] && [ -w "/dev/$tty" ]; then
+        {
+            printf '\n\033[33m─── claude-reap ───\033[0m\n'
+            printf '  quiet for %sm, so it was closed to keep neo off swap.\n' "$idle"
+            printf '  the conversation is intact — pick it back up with:\n\n'
+            printf '    \033[36mclaude --resume %s\033[0m\n\n' "$id"
+        } > "/dev/$tty" 2>/dev/null
+    fi
+
+    echo "reaped ${id%%-*} (idle ${idle}m, tty ${tty:-?})"
+done
