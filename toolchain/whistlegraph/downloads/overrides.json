@@ -1,9 +1,15 @@
 {
-  "_comment": "Hand-curation from the trio (Alex, broad strokes) that the clustering pass can't derive. Applied by gen-model.mjs after clustering. renames: code -> canonical title. recodes: oldCode -> newCode (change a work's deep-link slug; its posts retag, pair with a rename keyed on the newCode for the title). merges: sourceCode -> targetCode (source's posts retag to the target, source work drops out; folded codes intentionally stop resolving and fall back to the index).",
+  "_comment": "Hand-curation from the trio (Alex, broad strokes) that the clustering pass can't derive. Applied by gen-model.mjs after clustering. renames: code -> canonical title. recodes: oldCode -> newCode (change a work's deep-link slug; its posts retag, pair with a rename keyed on the newCode for the title). merges: sourceCode -> targetCode (source's posts retag to the target, source work drops out). crossTags: sourceCode -> [alsoUnderCode] (source's posts ALSO appear under another existing work while the source stays standalone). postTags: postId -> [tag] (keep a badge like TALK on one video after it folds into a graph). authors: code -> attribution (keyed on the POST-recode code). twins: mirror a cluster's clips under a NEW code+title.",
   "renames": {
     "bugy": "Buggy on The Wall",
     "pnda": "When I'm Sad I Whip My Pen",
-    "helo": "Say Hello"
+    "helo": "Say Hello",
+    "pump": "Pumpkin Carver",
+    "pppt": "Pointing, Painting, Picture Taking",
+    "tipj": "Tip Jean Allo",
+    "bpen": "Blow My Pen",
+    "kiss": "Dot Dot Kiss",
+    "lily": "Pick Me"
   },
   "twins": [
     { "code": "bye", "title": "Say Goodbye", "from": "helo" }
@@ -12,25 +18,43 @@
     "ghst": "Alex Freundlich",
     "enuf": "Alex Freundlich",
     "fhs": "Camille Klein",
-    "soda": "Jeffrey Alan Scudder",
-    "pmpk": "Adelaide Dalio",
+    "nbff": "Jeffrey Alan Scudder",
+    "pump": "Adelaide Dalio",
     "str": "Jeffrey Alan Scudder",
+    "sos": "Jeffrey Alan Scudder",
     "itme": "Jeffrey Alan Scudder",
     "rshu": "Alex Freundlich and Camille Klein",
     "simp": "Jeffrey Alan Scudder",
     "1p2": "Jeffrey Alan Scudder",
     "pant": "Alex Freundlich",
-    "tipg": "Alex Freundlich and Camille Klein",
-    "frog": "Jeffrey Alan Scudder"
+    "tipj": "Alex Freundlich and Camille Klein",
+    "frog": "Jeffrey Alan Scudder",
+    "symm": "Whistlegraph",
+    "hill": "Alex Freundlich",
+    "asfm": "Camille Klein",
+    "lamp": "Alex Freundlich",
+    "jbox": "Camille Klein",
+    "crpy": "Alex Freundlich"
   },
   "recodes": {
-    "cdh": "bugy"
+    "cdh": "bugy",
+    "soda": "nbff",
+    "shrm": "mush",
+    "pmpk": "pump",
+    "str": "sos",
+    "pofu": "pppt",
+    "tipg": "tipj",
+    "fan": "bpen",
+    "ltso": "jbox",
+    "ntal": "kiss",
+    "pikm": "lily",
+    "crwl": "well"
   },
   "postTags": {
     "7019362782122380550": ["talk"]
   },
   "crossTags": {
-    "lovw": ["str"]
+    "lovw": ["sos"]
   },
   "merges": {
     "hlfn": "imab",
@@ -50,7 +74,6 @@
     "sumr": "sotm",
     "src": "srce",
     "wg4": "itme",
-    "knkm": "itme",
     "lgmw": "web",
     "lvme": "bowm",
     "sndy": "sdog",
@@ -68,6 +91,8 @@
     "whwg": "fact",
     "dash": "cult",
     "tricl": "trip",
-    "tripl": "trip"
+    "tripl": "trip",
+    "stsq": "sqar",
+    "spike": "legs"
   }
 }
