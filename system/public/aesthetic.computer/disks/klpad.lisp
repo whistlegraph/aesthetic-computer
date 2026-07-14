@@ -24,12 +24,14 @@
 3s... (flute g4 0.22) (now air 1)
 0.5s... (hat 0.08)
 
-; …and every frame, they let go. Different voices forget at different speeds —
-; the bell rings long, the pluck is gone almost before you see it.
-(now hit (* hit 0.94))
-(now low (* low 0.97))
-(now str (* str 0.88))
-(now air (* air 0.985))
+; …and every frame, they let go. Different voices forget at different speeds — the
+; flute hangs in the air, the pluck is nearly gone before you see it. These numbers
+; are the whole feel of the pad: decay too fast and the screen is empty between
+; beats, which is a slideshow of silence. Something must always be ringing.
+(now hit (* hit 0.975))
+(now low (* low 0.99))
+(now str (* str 0.95))
+(now air (* air 0.995))
 
 ; Now draw what is still sounding. Big and slow underneath, bright and quick on top.
 (ink 60 40 160 (* low 90))
