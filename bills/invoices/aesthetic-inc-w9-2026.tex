@@ -1,0 +1,159 @@
+% !TEX program = xelatex
+% Aesthetic Inc. — Substitute Form W-9 (Rev. March 2024 content).
+%   Request for Taxpayer Identification Number and Certification.
+%   Payee: Aesthetic Inc. (C corporation, EIN 33-1483385).
+%   Sealed with the pals stamp at the signature line.
+% Build: tectonic -X compile aesthetic-inc-w9-2026.tex
+\documentclass[11pt]{article}
+\usepackage[margin=0.6in]{geometry}
+\usepackage[table]{xcolor}
+\usepackage{graphicx}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{hyperref}
+\usepackage{fontspec}
+\usepackage{tikz}
+\usetikzlibrary{calc}
+\pagestyle{empty}
+
+\definecolor{acink}{HTML}{1E1E1E}
+\definecolor{acpaper}{HTML}{FFFFFF}
+\definecolor{acline}{HTML}{9A9A9A}
+\definecolor{boxhead}{HTML}{EDEDED}
+\definecolor{accyan}{HTML}{1A7B74}
+
+\newfontfamily\acberkeley[
+  Path=./,
+  Extension=.ttf,
+  UprightFont=BerkeleyMonoVariable-Regular,
+  ItalicFont=BerkeleyMonoVariable-Italic
+]{BerkeleyMonoVariable}
+\hypersetup{hidelinks}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.3em}
+\arrayrulecolor{acline}
+\renewcommand{\arraystretch}{1.15}
+
+\newcommand{\checkbox}[1]{%
+  \tikz[baseline=-0.5ex]{%
+    \draw[acink, line width=0.7pt] (0,0) rectangle (2.6mm,2.6mm);
+    \ifnum#1=1 \draw[acink, line width=1.1pt, line cap=round]
+      (0.4mm,1.3mm)--(1.1mm,0.4mm)--(2.3mm,2.4mm);\fi}}
+
+\newcommand{\fieldrule}[1]{\leavevmode\hbox to #1{\hrulefill}}
+\newcommand{\seclabel}[1]{{\acberkeley\footnotesize\bfseries\textcolor{acink}{#1}}}
+
+% boxed section wrapper
+\newcommand{\formbox}[1]{%
+  \noindent
+  \begin{tikzpicture}
+    \node[draw=acink, line width=0.6pt, inner sep=5pt, text width=\dimexpr\linewidth-12pt\relax] {#1};
+  \end{tikzpicture}\par
+}
+
+\begin{document}
+\pagecolor{acpaper}
+\color{acink}
+
+% ---- Header ----
+\begin{tabularx}{\linewidth}{@{}p{2.1cm}X p{3.4cm}@{}}
+{\acberkeley\LARGE\bfseries W-9} &
+{\centering\footnotesize\textbf{Request for Taxpayer Identification Number and Certification}\\[2pt]
+Substitute Form W-9 \textcolor{acline}{$\cdot$} content per IRS Form W-9 (Rev.\ March 2024)\par} &
+{\raggedleft\footnotesize Give this form to the\\requester. Do \textbf{not}\\send to the IRS.\par} \\
+\end{tabularx}
+
+\vspace{0.15em}
+\noindent\textcolor{accyan}{\rule{\linewidth}{2pt}}
+\vspace{0.4em}
+
+% ---- Lines 1-6 ----
+\formbox{%
+\seclabel{1\quad Name of entity/individual (as shown on your income tax return).}\par
+\vspace{1pt}{\large\bfseries Aesthetic Inc.}\par
+\vspace{5pt}
+\seclabel{2\quad Business name/disregarded entity name, if different from above.}\par
+\vspace{1pt}Aesthetic Computer\par
+\vspace{6pt}
+\seclabel{3a\quad Federal tax classification (check one box only):}\par
+\vspace{3pt}
+\checkbox{0}~Individual/sole proprietor \quad
+\checkbox{1}~\textbf{C corporation} \quad
+\checkbox{0}~S corporation \quad
+\checkbox{0}~Partnership \quad
+\checkbox{0}~Trust/estate\par
+\vspace{2pt}
+\checkbox{0}~LLC (enter tax classification C/S/P): \underline{\hspace{1.2cm}} \quad
+\checkbox{0}~Other: \underline{\hspace{3cm}}\par
+\vspace{6pt}
+\seclabel{4\quad Exemptions (codes apply only to certain entities, not individuals):}\par
+\vspace{1pt}Exempt payee code (if any): \underline{\hspace{2cm}} \quad
+Exemption from FATCA reporting code (if any): \underline{\hspace{2cm}}\par
+\vspace{6pt}
+\seclabel{5\quad Address (number, street, and apt.\ or suite no.)}\par
+\vspace{1pt}18 N Main St\par
+\vspace{5pt}
+\seclabel{6\quad City, state, and ZIP code}\par
+\vspace{1pt}Assonet, MA 02702-1118\par
+\vspace{5pt}
+\seclabel{7\quad List account number(s) here (optional)}\par
+\vspace{1pt}Consulting --- Calisthenics Puerto Rico (Polygon Island LLC)\par
+}
+
+\vspace{0.35em}
+
+% ---- Part I: TIN ----
+\formbox{%
+\seclabel{Part I\quad Taxpayer Identification Number (TIN)}\par
+\vspace{3pt}
+This is an entity, so the TIN is the \textbf{Employer Identification Number (EIN)}:\par
+\vspace{3pt}
+{\acberkeley\Large\bfseries 33-1483385}\par
+}
+
+\vspace{0.35em}
+
+% ---- Part II: Certification ----
+\formbox{%
+\seclabel{Part II\quad Certification}\par
+\vspace{2pt}
+{\footnotesize Under penalties of perjury, I certify that:\par
+\vspace{2pt}
+1.~The number shown on this form is my correct taxpayer identification number (or I am waiting for a number to be issued to me); and\par
+2.~I am not subject to backup withholding because: (a)~I am exempt from backup withholding, or (b)~I have not been notified by the Internal Revenue Service (IRS) that I am subject to backup withholding as a result of a failure to report all interest or dividends, or (c)~the IRS has notified me that I am no longer subject to backup withholding; and\par
+3.~I am a U.S.\ citizen or other U.S.\ person (as defined in the Form W-9 instructions); and\par
+4.~The FATCA code(s) entered on this form (if any) indicating that I am exempt from FATCA reporting is correct.\par
+\vspace{2pt}
+\textit{Certification instructions.} Cross out item~2 above if the IRS has notified you that you are currently subject to backup withholding. (Not applicable here.)\par}
+}
+
+\vspace{0.5em}
+
+% ---- Signature block with pals seal ----
+\noindent
+\begin{minipage}[b]{0.62\linewidth}
+\seclabel{Signature of U.S.\ person}\par
+\vspace{2pt}
+{\Large\itshape Jeffrey Alan Scudder}\par
+\vspace{-2pt}\fieldrule{\linewidth}\par
+\vspace{1pt}Jeffrey Alan Scudder \textcolor{acline}{$\cdot$} President \& authorized officer, Aesthetic Inc.\par
+\vspace{7pt}
+\seclabel{Date}\par
+\vspace{2pt}July 13, 2026\par
+\vspace{-2pt}\fieldrule{5cm}\par
+\end{minipage}%
+\hfill
+\begin{minipage}[b]{0.34\linewidth}
+\raggedleft
+\begin{tikzpicture}
+  \node[rotate=14, inner sep=0pt] {\includegraphics[height=2.7cm]{pals-stamp.png}};
+\end{tikzpicture}\par
+{\footnotesize\textcolor{acline}{Aesthetic Inc.\ seal}}
+\end{minipage}
+
+\vspace{0.35em}
+\noindent\textcolor{acline}{\rule{\linewidth}{0.4pt}}\par
+{\scriptsize\textcolor{acline}{Substitute Form W-9 furnished by Aesthetic Inc.\ (EIN 33-1483385), 18 N Main St, Assonet, MA 02702-1118. Certification language conforms to IRS Form W-9 (Rev.\ March 2024). Provided to the requester; not filed with the IRS.}}
+
+\end{document}

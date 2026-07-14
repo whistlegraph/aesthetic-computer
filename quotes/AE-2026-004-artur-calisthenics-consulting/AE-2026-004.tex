@@ -1,0 +1,198 @@
+% !TEX program = xelatex
+% Aesthetic Inc. — Code Quote for Polygon Island LLC (Artur Matveichenkov).
+%   AE-2026-004 · single-page quote: consulting meetings on the
+%   Calisthenics Puerto Rico app. Flat $200.
+% Build: tectonic -X compile AE-2026-004.tex  (or xelatex AE-2026-004.tex)
+\documentclass[11pt]{article}
+\usepackage[margin=0.62in]{geometry}
+\usepackage[table]{xcolor}
+\usepackage{graphicx}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{fontspec}
+\usepackage{tikz}
+\usepackage{eso-pic}
+\pagestyle{empty}
+\flushbottom
+
+% === QUOTE METADATA ===
+\newcommand{\quoteid}{AE-2026-004}
+\newcommand{\permalink}{https://tangled.org/aesthetic.computer/core/blob/main/quotes/AE-2026-004-artur-calisthenics-consulting/AE-2026-004.pdf}
+\newcommand{\permalinkdisplay}{tangled.org/aesthetic.computer/core/blob/main/quotes/AE-2026-004-artur-calisthenics-consulting/AE-2026-004.pdf}
+
+% --- Aesthetic.Computer palette ---
+\definecolor{acink}{HTML}{1E1E1E}
+\definecolor{acpaper}{HTML}{FBFAFF}
+\definecolor{acline}{HTML}{E2DEEC}
+\definecolor{cellbg}{HTML}{FCFBFE}
+% --- Calisthenics Puerto Rico accents ---
+\definecolor{calteal}{HTML}{0E7C86}       % primary — sea / island
+\definecolor{calsun}{HTML}{C25A1A}        % warm accent
+\definecolor{calslate}{HTML}{3A3F4F}      % structural
+\definecolor{pricegreen}{HTML}{1E8A5B}    % prices
+\newcommand{\palsimg}{../../bills/invoices/pals.pdf}
+
+\newfontfamily\acprocessing[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf, UprightFont=ywft-processing-regular,
+  BoldFont=ywft-processing-bold, ItalicFont=ywft-processing-alternate
+]{YWFT Processing}
+\newfontfamily\acberkeley[
+  Path=../../bills/invoices/,
+  Extension=.ttf, UprightFont=BerkeleyMonoVariable-Regular,
+  ItalicFont=BerkeleyMonoVariable-Italic
+]{BerkeleyMonoVariable}
+\hypersetup{hidelinks}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.42em}
+\renewcommand{\arraystretch}{1.0}
+\setlength{\extrarowheight}{0pt}
+\setlength{\tabcolsep}{7pt}
+\newcommand{\cellstrut}{\rule[-7.3pt]{0pt}{20.3pt}}
+\arrayrulecolor{acline}
+
+\newcommand{\headgap}{\par\vspace{0.7em}}
+\newcommand{\modgap}{\par\vspace{1.05em plus 0.5em minus 0.45em}}
+\newcommand{\pagefoot}{\par\vspace{2pt plus 1fil}\null}
+
+\newcommand{\acdot}{\textcolor{calteal}{.}}
+\newcommand{\docslug}{artur-calisthenics-consulting}
+\newcommand{\doctimestamp}{Issued July 13, 2026}
+
+% subheaders — section color with a soft dark drop shadow.
+\newcommand{\subhead}[2]{{\acprocessing\fontsize{15pt}{17pt}\bfseries\selectfont%
+  \makebox[0pt][l]{\raisebox{-0.9pt}{\hspace{0.9pt}\textcolor{acink!40}{#2}}}%
+  \textcolor{#1}{#2}}}
+\newcommand{\heading}[2]{\subhead{#1}{#2}}
+\newcommand{\cellbgcolor}{cellbg}
+\newcommand{\cathead}[2]{%
+  \renewcommand{\cellbgcolor}{#1!8}%
+  \subhead{#1}{#2}%
+  \par\nopagebreak\vspace{0.55em}
+}
+\newcommand{\grandtot}[1]{%
+  \par\vspace{2pt}\noindent\hfill
+  \begin{tikzpicture}
+    \node[font={\acberkeley\Large\bfseries}, inner xsep=9pt, inner ysep=7pt]
+      (t) {\phantom{#1}};
+    \filldraw[fill=calteal, fill opacity=0.30, draw=calteal, line width=1.1pt, rounded corners=8pt]
+      (t.south west) rectangle (t.north east);
+    \node[font={\acberkeley\Large\bfseries}, text=black] at (t.center) {#1};
+  \end{tikzpicture}%
+  \par
+}
+
+\newcommand{\boxon}{\tikz[baseline=-0.45ex]{%
+  \draw[pricegreen,line width=1.2pt,line cap=round,line join=round]
+    (-1.05mm,0.05mm)--(-0.2mm,-0.9mm)--(1.3mm,1.1mm);}}
+
+% === BACKGROUND — footer line only. ===
+\AddToShipoutPictureBG{%
+  \begin{tikzpicture}[remember picture, overlay]
+    \draw[acline, line width=0.4pt]
+      ([xshift=0.62in,yshift=0.58in]current page.south west) --
+      ([xshift=-0.62in,yshift=0.58in]current page.south east);
+    \node[anchor=south, inner sep=0pt] at ([yshift=0.4in]current page.south)
+      {\makebox[\dimexpr\paperwidth-1.24in\relax]{{\acberkeley\footnotesize\color{acink}%
+        \doctimestamp\hfill \quoteid\ \ \textcolor{acline}{$\cdot$}\ \ \docslug\hfill \thepage\,/\,1}}};
+  \end{tikzpicture}%
+}
+
+% column types
+\newcolumntype{L}{>{\columncolor{\cellbgcolor}\cellstrut\raggedright\arraybackslash}X}
+\newcolumntype{R}[1]{>{\columncolor{calsun!14}\cellstrut\raggedleft\arraybackslash}p{#1}}
+
+% rtable — rounds a table block's outer corners (clip)
+\newsavebox{\rtbox}
+\newenvironment{rtable}{\begin{lrbox}{\rtbox}}{%
+  \end{lrbox}%
+  \par\noindent
+  \begin{tikzpicture}
+    \node[inner sep=0pt] (rt) {\phantom{\usebox{\rtbox}}};
+    \begin{scope}
+      \clip[rounded corners=6pt] (rt.south west) rectangle (rt.north east);
+      \node[inner sep=0pt] at (rt.center) {\usebox{\rtbox}};
+    \end{scope}
+    \draw[rounded corners=6pt, acline, line width=0.9pt]
+      (rt.south west) rectangle (rt.north east);
+  \end{tikzpicture}\par
+}
+
+\begin{document}
+\pagecolor{acpaper}
+\color{acink}
+\fontsize{10.5pt}{12.9pt}\selectfont
+
+%% ====================== CODE QUOTE ======================
+
+{{\acprocessing\Large\bfseries\makebox[0pt][l]{\raisebox{-1.0pt}{\hspace{1.0pt}\textcolor{acink!55}{Consulting Receipt}}}\textcolor{calteal}{Consulting Receipt}}}{\Large\rmfamily\bfseries\textcolor{acink}{\ --- Calisthenics Puerto Rico}}\\[0.22em]
+{{\acprocessing\Large\bfseries Advisory Meetings{\rmfamily\ ---\ }the fitness app}}
+
+\vspace{0.6em}
+\noindent{\color{calteal}\rule{\linewidth}{2.2pt}}
+
+\vspace{0.7em}
+
+\begin{tabularx}{\linewidth}{@{}Xr@{}}
+\textbf{Receipt date:} July 13, 2026 & \textbf{Status:} \textcolor{pricegreen}{\textbf{Paid in full}} \\
+\textbf{Money:} US dollars & \textbf{Paid:} \$200.00 cash, July 13, 2026 \\
+\end{tabularx}
+
+\vspace{0.7em}
+
+\begin{rtable}
+\begin{tabularx}{\linewidth}{L|L}
+\rowcolor{calteal!12}
+\textbf{From} & \textbf{For} \\ \hline
+Aesthetic\acdot Computer & Polygon Island LLC \\ \hline
+Authored by Jeffrey Alan Scudder & Artur Matveichenkov \\ \hline
+Billed under Aesthetic Inc. & Guaynabo, PR \textcolor{acline}{$\cdot$} EIN 66-1139452 \\
+\end{tabularx}
+\end{rtable}
+
+\headgap
+
+\heading{calteal}{The short version}
+
+A handful of consulting sessions on the \textbf{Calisthenics Puerto Rico} app ---
+sitting down together to talk through the build: architecture, deployment,
+payments and auth, and what to ship next. Advisory time, not a code deliverable.
+A flat \textbf{\$200}, \textbf{paid in cash} --- this is the receipt.
+
+\modgap
+
+\heading{calsun}{What it covers}
+
+\vspace{0.35em}
+\begin{rtable}
+\begin{tabularx}{\linewidth}{L|R{2.6cm}}
+\rowcolor{calteal!12}
+\textbf{Item} & \textbf{Cost} \\ \hline
+Consulting meetings --- architecture, deploy, payments/auth review, and next-step planning for the Calisthenics Puerto Rico app & \$200.00 \\
+\end{tabularx}
+\end{rtable}
+
+\vspace{0.4em}
+\textit{Advisory only \textcolor{acline}{$\bullet$} no code deliverable under this quote \textcolor{acline}{$\bullet$} any build work is a separate quote}
+
+\vspace{0.5em}
+\grandtot{Paid\quad\$200.00}
+
+\modgap
+
+\heading{calslate}{Terms}
+\begin{rtable}
+\begin{tabularx}{\linewidth}{>{\columncolor{\cellbgcolor}\cellstrut}c|L}
+\boxon & \textbf{Consulting, not work-for-hire} --- this covers advisory time; no software deliverable is assigned under this quote. \\ \hline
+\boxon & \textbf{Build work is separate} --- anything built on top of the advice gets its own code quote. \\ \hline
+\boxon & \textbf{Paid in full} --- \$200 received in cash; no balance outstanding. \\ \hline
+\boxon & \textbf{Tax reporting} --- billed under Aesthetic Inc.; a W-9 is on file for Polygon Island LLC's 480.6C / 480.6SP filings. \\
+\end{tabularx}
+\end{rtable}
+
+\pagefoot
+
+\end{document}
