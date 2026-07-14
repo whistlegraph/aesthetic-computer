@@ -239,7 +239,7 @@
       <span class="sl">Sort:</span>
       <button data-sort="featured" class="on">Featured</button>
       <button data-sort="videos">Most videos</button>
-      <button data-sort="sung">Most sung</button>
+      <button data-sort="viewed">Most viewed</button>
       <button data-sort="year">By year</button>
       <button data-sort="title">Title A–Z</button>
       <button data-sort="author">Author A–Z</button>
@@ -409,8 +409,9 @@ function renderPosts(code){
   // OWN list below so they never sit between videos in a grid row (that mixed
   // row was the layout snag). Each stays a clean player with its own metadata.
   const vids=posts.filter(p=>p.media!=="audio"), auds=posts.filter(p=>p.media==="audio");
+  const ptag=p=>(p.tags||[]).map(t=>KIND_LABEL[t]?`<span class="ktag">${KIND_LABEL[t]}</span>`:"").join("");
   const vcard=p=>`<div class="post"><video class="pv" controls playsinline preload="none" loop${p.thumb?` poster="${p.thumb}"`:""} src="${p.src}"></video>`+
-    `<div class="pmeta">${meta(p)}${p.desc?`<div class="pdesc">${esc(p.desc)}</div>`:""}</div></div>`;
+    `<div class="pmeta">${ptag(p)}${meta(p)}${p.desc?`<div class="pdesc">${esc(p.desc)}</div>`:""}</div></div>`;
   const arow=p=>`<div class="arow"><span class="aico">♪</span><div class="acol"><audio controls preload="none" src="${p.src}"></audio><div class="pmeta">${meta(p)}</div></div></div>`;
   let html=`<hr><p class="lbl">${posts.length} post${posts.length>1?"s":""}</p>`;
   if(vids.length) html+=`<div class="posts">${vids.map(vcard).join("")}</div>`;
@@ -444,7 +445,7 @@ function sortedGraphs(key){
   if(key==="experiments") return [...EXPERIMENTS].sort(byViews);
   const g=[...COMPOSITIONS];
   if(key==="videos") return g.sort((a,b)=>b.perf-a.perf||byViews(a,b));
-  if(key==="sung")   return g.sort(byViews);
+  if(key==="viewed") return g.sort(byViews);
   if(key==="year")   return g.sort((a,b)=>a.year-b.year||byViews(a,b)); // oldest first
   if(key==="title")  return g.sort((a,b)=>a.title.localeCompare(b.title));
   if(key==="author") return g.sort((a,b)=>a.by.localeCompare(b.by)||byViews(a,b));

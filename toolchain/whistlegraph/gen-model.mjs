@@ -55,6 +55,10 @@ const merges = overrides.merges || {};
 // NEW code+title so the same takes appear as a second work. [{code, title, from,
 // by?}] where `from` is the source cluster's own code (its original clips).
 const twins = overrides.twins || [];
+// postTags: keep an extra badge on ONE specific post after it folds into another
+// work — e.g. a talk video that merges into a song-graph but is still a "talk".
+// { postId → ["talk", …] }. Survives merges because it's keyed on the post id.
+const postTags = overrides.postTags || {};
 const mergeSources = new Set(Object.keys(merges));
 // Resolve a raw cluster code to the slug it appears under: apply a recode
 // (slug change) first, then a merge (fold into another work). Posts and the
@@ -179,6 +183,13 @@ for (const t of twins) {
     const p = postsById.get(id);
     if (p && !p.graphs.includes(t.code)) p.graphs.push(t.code);
   }
+}
+// Per-post tags: stamp the extra badges (kept even when the post's work is a
+// graph, so a folded-in talk video still reads as TALK on its card).
+for (const [id, tags] of Object.entries(postTags)) {
+  const p = postsById.get(id);
+  if (p && Array.isArray(tags) && tags.length) p.tags = tags;
+  else if (!p) console.warn(`postTags: post ${id} not found`);
 }
 const posts = [...postsById.values()].sort((a, b) => (b.views || 0) - (a.views || 0));
 
