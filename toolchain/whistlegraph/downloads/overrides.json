@@ -145,6 +145,18 @@
     "flo2": "trip",
     "mathc": "math",
     "brkht": "bndg",
-    "fotg": "grav"
+    "fotg": "grav",
+    "wtfd": "kity"
+  },
+  "splits": {
+    "lost": {
+      "title": "Lost Kitty",
+      "from": "kity",
+      "ids": [
+        "6817913323137355014",
+        "6939201639194709253",
+        "6889219750753357062"
+      ]
+    }
   }
 }

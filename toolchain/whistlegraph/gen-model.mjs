@@ -60,6 +60,11 @@ const twins = overrides.twins || [];
 // { postId → ["talk", …] }. Survives merges because it's keyed on the post id.
 const postTags = overrides.postTags || {};
 const crossTags = overrides.crossTags || {}; // srcCode → [alsoUnderCode, …]
+// splits: pull specific posts OUT of a work into a NEW standalone work — for a
+// take that got mis-clustered (e.g. a different song folded under Kitty Head).
+// { newCode: { title, from, by?, ids:[postId, …] } }. Each listed post drops its
+// `from` code and gains newCode; a fresh work is emitted from those posts.
+const splits = overrides.splits || {};
 const mergeSources = new Set(Object.keys(merges));
 // Resolve a raw cluster code to the slug it appears under: apply a recode
 // (slug change) first, then a merge (fold into another work). Posts and the
@@ -205,6 +210,16 @@ for (const [id, tags] of Object.entries(postTags)) {
   if (p && Array.isArray(tags) && tags.length) p.tags = tags;
   else if (!p) console.warn(`postTags: post ${id} not found`);
 }
+// splits: move the listed posts from their `from` work into the new code. Applied
+// last so it overrides earlier tagging — a mis-clustered take lands only on the
+// new work (and its old work's rollup count drops accordingly).
+for (const [newCode, spec] of Object.entries(splits)) {
+  for (const id of spec.ids || []) {
+    const p = postsById.get(id);
+    if (!p) { console.warn(`splits ${newCode}: post ${id} not found`); continue; }
+    p.graphs = [...new Set([...p.graphs.filter((c) => c !== spec.from), newCode])];
+  }
+}
 const posts = [...postsById.values()].sort((a, b) => (b.views || 0) - (a.views || 0));
 
 // Roll the posts up per code so a work's headline count/reach/thumb is the
@@ -285,8 +300,29 @@ const twinWorks = twins.map((t) => {
   };
 });
 
+// Split works — a new standalone work per split, rolled up from its moved posts,
+// its year taken from the earliest moved post.
+const splitYear = (ids) => {
+  const ds = (ids || []).map((id) => postsById.get(id)?.date).filter(Boolean).sort();
+  return ds.length ? Number(ds[0].slice(0, 4)) || null : null;
+};
+const splitWorks = Object.entries(splits).map(([code, spec]) => {
+  const r = rollup.get(code) || { n: 0, views: 0, thumb: null };
+  return {
+    code,
+    title: spec.title,
+    by: authors[code] || spec.by || "Whistlegraph",
+    year: splitYear(spec.ids),
+    kind: "graph",
+    views: r.views,
+    perf: r.n,
+    c: "#b44887",
+    ...(r.thumb ? { thumb: r.thumb } : { noGlyph: true }),
+  };
+});
+
 const curated = liveWorks.slice(0, live.curated);
-const rest = [...liveWorks.slice(live.curated), ...freshWorks, ...twinWorks].sort((a, b) => b.views - a.views);
+const rest = [...liveWorks.slice(live.curated), ...freshWorks, ...twinWorks, ...splitWorks].sort((a, b) => b.views - a.views);
 const works = [...curated, ...rest];
 
 const graphsOut = {
