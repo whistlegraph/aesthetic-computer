@@ -6,11 +6,6 @@ survives restarts. Resolve items and delete them as they close.
 
 ## Open
 
-- **"Boot Kitty Kitty" → [asmr] COLLISION (flagged to Alex 2026-07-14)** — Alex
-  asked to rename `[btky]` "Boot Kitty Kitty" to "Aggro Smile Money Raspberry"
-  with code `[asmr]`, but `[asmr]` is already taken by "My ASMR Tryout Video".
-  Held — awaiting his call (different code, or re-slug the existing asmr work).
-
 - **"Lost Kitty" [lost] author + post set — confirm with Alex** — created via the
   new `splits` mechanism with 3 posts (his example 6817913323137355014 + the two
   "hiking in the forest" takes 6939201639194709253, 6889219750753357062). Author
@@ -33,5 +28,8 @@ survives restarts. Resolve items and delete them as they close.
 
 ## Resolved
 
+- **asmr code swap (2026-07-14)** — "My ASMR Tryout Video" → `[tryo]`; "Boot Kitty
+  Kitty" `[btky]` → `[asmr]` renamed "Aggro Smile Money Raspberry" (Alex's call
+  after the `[asmr]` collision was flagged).
 - Both "Pictures Of You And Me" folded to `[pics]` as "Pointing, Painting, Picture
   Taking" (2026-07-13).
