@@ -48,7 +48,9 @@
     "dysm": "Alex Freundlich",
     "gbld": "Alex Freundlich",
     "rock": "Jeffrey Alan Scudder",
-    "lily": "Camille Klein"
+    "lily": "Camille Klein",
+    "cfsh": "Jeffrey Alan Scudder",
+    "magic": "Jeffrey Alan Scudder"
   },
   "recodes": {
     "cdh": "bugy",
@@ -109,6 +111,7 @@
     "stsq": "sqar",
     "spike": "legs",
     "pofu": "pics",
-    "morn": "chee"
+    "morn": "chee",
+    "flo2": "bmhd"
   }
 }
