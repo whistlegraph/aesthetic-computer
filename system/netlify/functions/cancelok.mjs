@@ -28,6 +28,49 @@ export async function handler(event) {
     // What YOU have already judged. The piece uses this to deal you a deck of
     // things you haven't seen — being asked the same question twice is the
     // fastest way to make someone stop answering honestly.
+    // Sessions, newest first. A session is a sitting: what you were shown, in
+    // what order, how long you stayed, what your hands did, and what the frame
+    // rate was while you decided. The ok/cancel column alone can't tell you that
+    // someone bailed on pad 12 because the whole run had gone slow.
+    if (who === "sessions") {
+      const rows = await verdicts.find({}).sort({ when: -1 }).limit(400).toArray();
+      const by = new Map();
+      for (const r of rows) {
+        const key = r.session || "—";
+        if (!by.has(key))
+          by.set(key, {
+            session: key,
+            handle: r.handle || null,
+            when: r.when,
+            pads: [],
+            ok: 0,
+            cancel: 0,
+            taps: 0,
+          });
+        const s = by.get(key);
+        s.pads.push({
+          code: r.code,
+          verdict: r.verdict,
+          dwellMs: r.dwellMs,
+          taps: r.taps,
+          fps: r.fps,
+          fpsMin: r.fpsMin,
+        });
+        s[r.verdict === "ok" ? "ok" : "cancel"] += 1;
+        s.taps += r.taps || 0;
+        if (r.when < s.when) s.when = r.when;
+      }
+      await database.disconnect();
+      return respond(200, {
+        sessions: [...by.values()].map((s) => ({
+          ...s,
+          pads: s.pads.reverse(), // back into the order you actually saw them
+          judged: s.pads.length,
+          slowest: Math.min(...s.pads.map((p) => p.fpsMin || 999)),
+        })),
+      });
+    }
+
     if (who === "mine") {
       let mine = [];
       try {
@@ -57,6 +100,9 @@ export async function handler(event) {
 
     // The tallies. `taps` sums because being played is the signal nobody was
     // asked for — a pad with 3 oks and 40 taps beats one with 5 oks and none.
+    // dwell and fps come along because they're the two things that explain WHY:
+    // a pad nobody stays with, and a pad nobody CAN stay with, look identical in
+    // the ok/cancel column and are completely different problems.
     const tally = await verdicts
       .aggregate([
         {
@@ -65,7 +111,12 @@ export async function handler(event) {
             ok: { $sum: { $cond: [{ $eq: ["$verdict", "ok"] }, 1, 0] } },
             cancel: { $sum: { $cond: [{ $eq: ["$verdict", "cancel"] }, 1, 0] } },
             taps: { $sum: "$taps" },
+            dwell: { $avg: "$dwellMs" },
+            fps: { $avg: "$fps" },
+            worstFps: { $min: "$fpsMin" },
+            revisits: { $sum: "$revisit" },
             judges: { $addToSet: "$handle" },
+            sessions: { $addToSet: "$session" },
           },
         },
         { $sort: { ok: -1 } },
@@ -79,7 +130,12 @@ export async function handler(event) {
         ok: t.ok,
         cancel: t.cancel,
         taps: t.taps,
+        dwellMs: Math.round(t.dwell || 0),
+        fps: Math.round(t.fps || 0),
+        worstFps: Math.round(t.worstFps || 0),
+        revisits: t.revisits || 0,
         judges: t.judges.filter(Boolean).length,
+        sessions: t.sessions.filter(Boolean).length,
       })),
     });
   }
@@ -121,21 +177,33 @@ export async function handler(event) {
     verdict,
     dwellMs: Number(body.dwellMs) || 0,
     taps: Number(body.taps) || 0,
+    // Real frame rate, on the machine a real person was holding. The headless
+    // gate can only prove a pad runs in a datacenter; this is whether it ran for
+    // YOU. A pad that stutters on the hardware it's judged on has already been
+    // cancelled by physics, and no amount of taste can save it.
+    fps: Number(body.fps) || 0,
+    fpsMin: Number(body.fpsMin) || 0,
+    w: Number(body.w) || 0,
+    h: Number(body.h) || 0,
+    revisit: Number(body.revisit) || 0, // coming BACK is the strongest keep there is
+    session: String(body.session || "").slice(0, 40),
     failed: Boolean(body.failed),
     when: new Date(),
     user: attributed ? user.sub : null,
     handle: attributed ? handle : null,
   };
 
+  await verdicts.createIndex({ session: 1 });
+
   if (attributed) {
     // One verdict per person per pad. Changing your mind should REPLACE, not
     // stack — otherwise whoever judges most often wins, and that's turnout,
-    // not taste.
-    await verdicts.updateOne(
-      { user: user.sub, code },
-      { $set: row },
-      { upsert: true },
-    );
+    // not taste. But keep the BEST of the two: if you came back and stayed, that
+    // supersedes the time you flicked past it, not the other way around.
+    const prior = await verdicts.findOne({ user: user.sub, code });
+    const better = !prior || row.verdict === "ok" || prior.verdict !== "ok";
+    if (better)
+      await verdicts.updateOne({ user: user.sub, code }, { $set: row }, { upsert: true });
   } else {
     await verdicts.insertOne(row);
   }

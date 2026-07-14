@@ -1,123 +1,150 @@
 // cancelok, 26.07.14
-// The judging surface. A candidate runs for real — full-bleed, playable, not a
-// screenshot — and you answer it with one of two buttons: `not` or `ok`. That's
-// the whole instrument. Everything downstream (what gets kept, what the next
-// generation is told to make) is built out of those two signals plus what your
-// hands did while you watched.
+// A machine makes instruments. You decide which ones live. There is no button
+// for it — you decide by staying.
 //
-// The name is the two buttons, the way nopaint's was: "Press Paint if you like
-// what you see or No if you don't." Same gesture, one medium over — the judgment
-// happens AFTER the thing exists, and it's one bit wide.
+// The whole screen is the pad, full-bleed and playable. Swipe up from the bottom
+// edge for the next one; swipe down from the top edge to go back. That's the
+// entire interface, and the verdict is a side effect of using it: linger and play
+// and it's an `ok`, flick past it in two seconds and it's a `cancel`. The two
+// signals never went away — you just cast them with your attention instead of
+// your thumb, and attention is the thing that was actually scarce.
 //
-// A candidate is HOSTED, not linked. We import the pad module and drive its
-// lifecycle ourselves (boot → sim/paint/act), then draw the verdict bar on top.
-// That works because lib/pads.mjs is a session singleton whose config is
-// re-asserted by each pad's own boot — so hosting a pad is just calling it.
-// The upshot: you can still PLAY the pad with the same taps you'd use anywhere
-// else, and the verdict bar is the only screen real estate we take from it.
+// Descended from nopaint: "Press Paint if you like what you see or No if you
+// don't." Make it first, judge it after. Except now judging isn't a press either.
+//
+// The candidate is HOSTED, not linked: we import a pad's module and drive its
+// lifecycle ourselves. lib/pads.mjs is a session singleton whose config each pad
+// re-asserts in its own boot, so hosting one is just calling it. Only the thin
+// edge bands are ours; every other pixel belongs to the instrument.
 
-const BAR_H = 46; // the verdict bar — the only pixels the pad doesn't get
-const CANCEL = [255, 70, 80];
+const EDGE = 40; // the swipe bands, top and bottom — a home-indicator's worth
+const SWIPE = 30; // travel before a drag becomes a page turn
+const LINGER = 6000; // stay this long and you meant it
+const NAME_MS = 2600; // the name fades — it's a label, not furniture
+
 const OK = [90, 255, 150];
+const NO = [255, 70, 80];
 
-// The disk worker's real origin (port included — dev lives on one).
 const ORIGIN =
   typeof location !== "undefined" && location.origin && location.origin !== "null"
     ? location.origin
     : "https://aesthetic.computer";
-
-// Where verdicts go and where the queue comes from. On a laptop that's the
-// loop's own sink (a file); in production it's the api, and the verdict is
-// signed so it carries your handle.
 const LOCAL = /localhost|127\.0\.0\.1/.test(ORIGIN);
-const SINK = LOCAL ? "http://localhost:8901" : `${ORIGIN}/api/cancelok`;
+const API = LOCAL ? "http://localhost:8901/verdict" : `${ORIGIN}/api/cancelok`;
 
-let state = "loading"; // loading | judging | done | error
+// One id for the whole sitting, so a session reads as a session: what you were
+// shown, in what order, how long you stayed, what you did with your hands.
+const SESSION = `${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
+
+let state = "loading"; // loading | judging | error
 let error = "";
 
-let deck = []; // [{ code, name }] — the candidates, in order
-let at = 0; // which one we're on
-let host = null; // the live candidate module
-let stage = null; // the candidate's own surface — everything above the bar
-let hostFailed = false; // it threw on load or on frame — a machine-gate fail
+let deck = [];
+let at = 0;
+let host = null;
+let hostFailed = false;
 
-let verdicts = []; // [{ code, verdict, dwellMs, taps, failed, at }]
-let shownAt = 0; // when this candidate came up (for dwell)
-let taps = 0; // how many times you played it — the usage signal
-let judge = null; // the handle whose taste this is (null = anonymous)
-let replaying = false; // you've judged them all — this is a second pass
-let armed = null; // "cancel" | "ok" — a press waiting on its lift
-let fromBar = false; // did this gesture start in the bar? (route the whole drag)
+let judge = null; // your handle, or null for anon
+let shownAt = 0; // when this pad came up
+let taps = 0; // times you played it
+let seen = {}; // code → how many times you've come back to it
+let sent = 0; // verdicts the server took
+let lost = 0; // verdicts it didn't — shown, because silence is how I lost yours
+
+// Real fps, on a real device, measured while a real person watches. The headless
+// gate can only certify that a pad runs on a Mac in a datacenter; THIS is whether
+// it ran for you. A pad that stutters on the machine it's judged on has already
+// been cancelled by the hardware.
+let frames = 0;
+let fpsAt = 0;
+let fps = 0;
+let fpsMin = 999;
+
+let drag = null; // { from, y0, moved } — a gesture that began in an edge band
+let flash = 0; // the last verdict, briefly, as a colored edge
+let flashOk = false;
 
 const now = () => Date.now();
 const current = () => deck[at];
 
-// Deal a deck. The loop's queue comes first — those are the candidates nobody
-// has seen yet, and they're the whole reason to be here. A bag is the fallback,
-// so `cancelok` still works with no loop running (and `cancelok:^pads` judges
-// the 47 that already shipped).
 async function load(api) {
   const asked = (api.params?.[0] || "").replace(/^\^/, "").toLowerCase();
-
-  if (!asked && LOCAL) {
-    const q = await fetch(`${SINK}/queue`)
-      .then((r) => (r.ok ? r.json() : null))
-      .catch(() => null); // no sink running is a normal state, not an error
-    const items = (typeof q === "string" ? JSON.parse(q) : q)?.items || [];
-    if (items.length) {
-      deck = items.map((i) => ({ code: i.code, name: i.trait || i.name || i.code }));
-      return;
-    }
-  }
-
-  const bagName = asked || "pads";
   const res = await fetch("/aesthetic.computer/bags.json");
   if (!res.ok) throw new Error("bags.json HTTP " + res.status);
-  const bag = (await res.json()).bags?.[bagName];
-  if (!bag) throw new Error("no bag named ^" + bagName);
+  const bag = (await res.json()).bags?.[asked || "pads"];
+  if (!bag) throw new Error("no bag named ^" + asked);
   deck = (bag.items || [])
     .filter((it) => it.type === "piece")
     .map((it) => ({ code: it.code, name: it.name || it.code }));
-  if (!deck.length) throw new Error("^" + bagName + " holds no pieces");
-
-  // Don't ask a question you already have the answer to. The deck is what YOU
-  // haven't judged — newest first, since the freshly-made ones are the point.
-  // Once you've judged everything, we deal the whole thing again rather than
-  // leaving you with an empty screen; a second pass is allowed to change its mind.
-  // Signed, because "what have I judged" is a question only you can ask about
-  // yourself. userRequest throws when logged out, and a logged-out visitor has
-  // judged nothing — so the throw IS the answer.
-  if (!LOCAL) {
-    const mine = await api.net
-      ?.userRequest?.("GET", "/api/cancelok/mine")
-      .catch(() => null);
-    const seen = new Set(mine?.judged || []);
-    if (seen.size) {
-      const fresh = deck.filter((d) => !seen.has(d.code));
-      if (fresh.length) deck = fresh;
-      else replaying = true; // judged them all — deal again, you may differ.
-    }
-  }
-  deck.reverse(); // the newest pads sit at the end of the bag — show them first.
+  if (!deck.length) throw new Error("that bag holds no pieces");
+  deck.reverse(); // newest first — the fresh ones are the point
 }
 
-// Bring a candidate up. A candidate that won't even load is not a crash — it's
-// a verdict the machine already made for you, so we show it as failed and let
-// you confirm with the same tap.
+// Send it. ALWAYS a plain fetch, with the token attached only if one shows up in
+// time. `net.userRequest` looked right and was a trap: it awaits authorize(),
+// which never settles when you're logged out — so the request hung forever, the
+// catch never ran, and a whole session of verdicts vanished without a sound.
+// Never again: a failure to send is counted and painted on screen.
+async function send(api, row) {
+  const headers = { "content-type": "application/json" };
+  try {
+    const token = await Promise.race([
+      api.authorize?.() ?? Promise.resolve(null),
+      new Promise((r) => setTimeout(() => r(null), 1200)), // logged out = silence
+    ]);
+    if (token) headers.Authorization = `Bearer ${token}`;
+  } catch {
+    // no token. you still count, you're just anonymous.
+  }
+  try {
+    const res = await fetch(API, { method: "POST", headers, body: JSON.stringify(row) });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    sent += 1;
+  } catch {
+    lost += 1;
+  }
+}
+
+// You're leaving a pad. Whatever you did while you were here IS the verdict —
+// nobody asked you a question, so nobody had to be honest.
+function leaving(api) {
+  const c = current();
+  if (!c || !shownAt) return;
+  const dwellMs = now() - shownAt;
+  const kept = taps > 0 || dwellMs >= LINGER;
+  flash = 1;
+  flashOk = kept;
+  send(api, {
+    session: SESSION,
+    code: c.code,
+    verdict: kept ? "ok" : "cancel",
+    dwellMs,
+    taps,
+    fps: Math.round(fps),
+    fpsMin: fpsMin === 999 ? 0 : Math.round(fpsMin),
+    revisit: seen[c.code] || 0,
+    failed: hostFailed,
+    w: api.screen.width,
+    h: api.screen.height,
+  });
+}
+
 async function mount(api) {
   host = null;
   hostFailed = false;
   taps = 0;
   shownAt = now();
+  frames = 0;
+  fpsAt = 0;
+  fps = 0;
+  fpsMin = 999;
   const { code } = current();
+  seen[code] = (seen[code] || 0) + 1;
   try {
-    // A fully-qualified URL, because AC runs a disk as a BLOB module: it has no
-    // base to resolve `./x.mjs` or even `/x.mjs` against, and updateCode only
-    // rewrites static imports. Fetched as a real URL, the pad's own
-    // `../lib/pads.mjs` resolves on its own.
+    // Origin-qualified: a disk runs as a blob module, so it has no base URL to
+    // resolve `./x.mjs` against, and updateCode only rewrites static imports.
     const mod = await import(`${ORIGIN}/aesthetic.computer/disks/${code}.mjs`);
-    stage = null; // a new candidate gets a fresh surface
-    mod.boot?.(staged(api)); // it must be born knowing its real size
+    mod.boot?.(api);
     host = mod;
   } catch (e) {
     hostFailed = true;
@@ -125,65 +152,17 @@ async function mount(api) {
   }
 }
 
-function record(api, verdict) {
-  const c = current();
-  const v = {
-    code: c.code,
-    verdict,
-    dwellMs: now() - shownAt,
-    taps,
-    failed: hostFailed,
-    at: now(),
-  };
-  verdicts.push(v);
-
-  // Fire and forget, always. A verdict is worth more than its confirmation, and
-  // nothing about judging should ever wait on a socket — the next pad is already
-  // playing.
-  if (LOCAL) {
-    fetch(`${SINK}/verdict`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(v),
-    }).catch(() => {});
-  } else {
-    // Signed, so the verdict has a name on it. A logged-out visitor still counts
-    // — userRequest throws when there's no token, and an anonymous tap is real
-    // usage, so we fall back rather than drop it.
-    api.net
-      ?.userRequest?.("POST", "/api/cancelok", v)
-      .catch(() =>
-        fetch("/api/cancelok", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(v),
-        }).catch(() => {}),
-      );
-  }
-}
-
-function advance(api, verdict) {
-  record(api, verdict);
-  at += 1;
-  if (at >= deck.length) {
-    state = "done";
-    save(api);
-    return;
-  }
+// Turn the page. Going BACK is not a neutral act — you returned to something, and
+// coming back is the strongest keep signal in the whole system.
+function turn(api, dir) {
+  leaving(api);
+  at = (at + dir + deck.length) % deck.length;
   mount(api);
-}
-
-function save({ store }) {
-  store["cancelok:verdicts"] = verdicts;
-  store.persist?.("cancelok:verdicts", "local:db");
 }
 
 function boot(api) {
   api.wipe(6, 6, 10);
-  api.hud?.label?.("cancelok");
-  // Your handle goes on every verdict you cast, so it belongs on screen. An
-  // unhandled visitor still judges — their taps are real — they just do it
-  // anonymously, and they should know that before they start.
+  api.hud?.label?.("");
   judge = api.handle?.() || null;
   load(api)
     .then(() => {
@@ -196,37 +175,16 @@ function boot(api) {
     });
 }
 
-// The pad's stage: everything above the bar. This is the ONLY size the candidate
-// is ever told about.
-const stageH = (h) => Math.max(1, h - BAR_H);
-
-// The candidate's surface, the way a nopaint brush gets a buffer instead of the
-// painting itself. Two surfaces, never one.
-function ensureStage(api) {
-  const w = api.screen.width;
-  const h = stageH(api.screen.height);
-  if (!stage || stage.width !== w || stage.height !== h)
-    stage = api.painting(w, h, (p) => p.wipe(0, 0, 0));
-  return stage;
-}
-
-// The pad's `screen` IS the stage buffer — not a copy of the real screen with a
-// shorter height. That distinction is the whole bug: per-pixel pads (vex, molten)
-// write straight into `screen.pixels` and never touch page(), so handing them a
-// fake screen that still pointed at the REAL pixel array made them scribble into
-// the wrong buffer at the wrong stride. Give them the surface itself and both
-// paths — immediate-mode draws and raw pixel pokes — land in the same place.
-const staged = (api) => ({ ...api, screen: ensureStage(api) });
-
 function sim(api) {
   if (state === "judging" && host && !hostFailed) {
     try {
-      host.sim?.(staged(api));
+      host.sim?.(api);
     } catch (e) {
-      hostFailed = true; // it ran, then died. still a verdict.
+      hostFailed = true;
       error = String(e?.message || e);
     }
   }
+  if (flash > 0) flash -= 0.04;
 }
 
 function paint(api) {
@@ -239,162 +197,115 @@ function paint(api) {
     ink(150).write("dealing…", { center: "xy" });
     return;
   }
-
   if (state === "error") {
     wipe(6, 6, 10);
-    ink(...CANCEL).write(error, { center: "x", y: h / 2 - 4 });
+    ink(...NO).write(error, { center: "x", y: h / 2 - 4 });
     return;
   }
 
-  if (state === "done") return summary(api);
+  // Frame cadence — the honest one, on the machine a person is actually holding.
+  const t = performance?.now?.() ?? now();
+  if (fpsAt) {
+    const dt = t - fpsAt;
+    if (dt > 0 && dt < 1000) {
+      const inst = 1000 / dt;
+      fps = fps ? fps + (inst - fps) * 0.1 : inst;
+      if (++frames > 30 && fps < fpsMin) fpsMin = fps; // ignore the boot stumble
+    }
+  }
+  fpsAt = t;
 
-  // The candidate paints into ITS OWN surface, then we composite. The pad can't
-  // scribble on the bar, and the bar isn't covering anything the pad meant you
-  // to see.
+  // The pad, full-bleed. It gets every pixel — nothing of ours sits on top of it
+  // except a name that fades and a number nobody has to read.
   if (host && !hostFailed) {
-    const surface = ensureStage(api);
     try {
-      api.page(surface);
-      host.paint?.(staged(api));
+      host.paint?.(api);
     } catch (e) {
       hostFailed = true;
       error = String(e?.message || e);
-    } finally {
-      api.page(screen); // whatever happened in there, we get the screen back.
     }
-    if (!hostFailed) api.paste(surface, 0, 0);
   }
   if (hostFailed || !host) {
-    wipe(20, 6, 10);
-    ink(...CANCEL).write("didn't run", { center: "x", y: h / 2 - 10 });
-    ink(120).write(error.slice(0, 48), { center: "x", y: h / 2 + 2 });
+    wipe(18, 6, 10);
+    ink(...NO).write("didn't run", { center: "x", y: h / 2 - 10 });
+    ink(110).write(String(error).slice(0, 44), { center: "x", y: h / 2 + 2 });
   }
 
-  bar(api, w, h);
+  chrome(api, w, h);
 }
 
-// The verdict bar: two halves, the whole width. Cancel is left because that's
-// where the thumb rests and the reflex is to keep going, not to keep the thing.
-function bar({ ink, write, box }, w, h) {
-  const y = h - BAR_H;
-  const half = w / 2;
+// Everything of ours. It should feel like almost nothing.
+function chrome({ ink, write, box, screen }, w, h) {
   const c = current();
+  const age = now() - shownAt;
 
-  ink(0, 0, 0, 170).box(0, y, w, BAR_H);
-  ink(40, 40, 50).box(0, y, w, 1);
-  ink(40, 40, 50).box(half, y, 1, BAR_H);
-
-  const lit = (side) => (armed === side ? 255 : 90);
-  ink(...CANCEL, lit("cancel")).box(0, y + 1, half, BAR_H - 1);
-  ink(...OK, lit("ok")).box(half + 1, y + 1, half - 1, BAR_H - 1);
-
-  // Each word centered in its own half. The halves are equal even though the
-  // words aren't — the two answers carry the same weight.
-  const mid = y + BAR_H / 2 - 4;
-  const mark = (word, x) =>
-    ink(armed === word ? 0 : 255).write(word, { x: x - word.length * 3, y: mid });
-  mark("cancel", half / 2);
-  mark("ok", half + half / 2);
-
-  // Progress + name, top-left, shadowed so it survives whatever the pad paints.
-  const tag = `${at + 1}/${deck.length}  ${c.name}`;
-  ink(0, 0, 0, 180).write(tag, { x: 7, y: 7 });
-  ink(230).write(tag, { x: 6, y: 6 });
-
-  // Whose taste this is. Anonymous is a real answer, so say it rather than
-  // leaving the corner empty and the question open.
-  const who = judge || "anon";
-  ink(0, 0, 0, 180).write(who, { x: 7, y: y - 11 });
-  ink(judge ? [120, 220, 255] : [110, 110, 120]).write(who, { x: 6, y: y - 12 });
-
-  // The usage signal, shown back to you — taps are the thing you did without
-  // being asked, and they're worth as much as the verdict.
-  if (taps > 0) {
-    const t = `${taps} ▸`;
-    ink(0, 0, 0, 180).write(t, { x: w - 6 - t.length * 6 + 1, y: 7 });
-    ink(255, 220, 120).write(t, { x: w - 6 - t.length * 6, y: 6 });
+  // The name — the one thing worth saying out loud, and only for a moment. A
+  // label that never leaves stops being read.
+  if (age < NAME_MS) {
+    const a = Math.min(1, Math.max(0, (NAME_MS - age) / 700));
+    const label = c.name;
+    ink(0, 0, 0, 150 * a).write(label, { x: 7, y: 8 });
+    ink(240, 240, 255, 255 * a).write(label, { x: 6, y: 7 });
+    const n = `${at + 1}/${deck.length}`;
+    ink(120, 120, 140, 200 * a).write(n, { x: w - 6 - n.length * 6, y: 7 });
   }
-}
 
-function summary({ wipe, ink, write, screen }) {
-  wipe(6, 6, 10);
-  const kept = verdicts.filter((v) => v.verdict === "ok");
-  const w = screen.width;
+  // The last verdict, as a breath of color at the edge you swiped from. You
+  // never pressed anything, so this is the only acknowledgement there is.
+  if (flash > 0) {
+    const [r, g, b] = flashOk ? OK : NO;
+    ink(r, g, b, 120 * flash).box(0, h - 3, w, 3);
+  }
 
-  ink(230).write(`${kept.length} ok · ${verdicts.length - kept.length} not`, {
-    x: 8,
-    y: 10,
-  });
-  ink(90).write("saved — tap to judge again", { x: 8, y: 24 });
+  // The swipe hint, only while you're touching an edge — furniture the rest of
+  // the time would just be in the pad's way.
+  if (drag) {
+    const up = drag.from === "bottom";
+    ink(255, 255, 255, 60).box(0, up ? h - 2 : 0, w, 2);
+  }
 
-  let y = 46;
-  for (const v of verdicts) {
-    if (y > screen.height - 12) break;
-    const on = v.verdict === "ok";
-    ink(...(on ? OK : [90, 70, 80])).write(on ? "ok" : "cancel", { x: 8, y });
-    ink(on ? 230 : 110).write(v.code, { x: 62, y });
-    const meta = `${Math.round(v.dwellMs / 100) / 10}s${v.taps ? " · " + v.taps + "▸" : ""}`;
-    ink(70).write(meta, { x: w - 8 - meta.length * 6, y });
-    y += 12;
+  // Verdicts the server refused. This is here because the first version of this
+  // piece lost an entire session in total silence, and I'm not doing that again.
+  if (lost > 0) {
+    const m = `${lost} unsent`;
+    ink(0, 0, 0, 160).write(m, { x: w - 5 - m.length * 6, y: h - 11 });
+    ink(...NO).write(m, { x: w - 6 - m.length * 6, y: h - 12 });
   }
 }
 
 function act(api) {
   const { event: e } = api;
-  if (state === "error") return;
-
-  if (state === "done") {
-    if (e.is("lift")) {
-      at = 0;
-      verdicts = [];
-      state = "judging";
-      mount(api);
-    }
-    return;
-  }
   if (state !== "judging") return;
 
   const h = api.screen.height;
-  const w = api.screen.width;
-  const inBar = (y) => y >= h - BAR_H;
 
-  // Route by where the gesture STARTED, so a drag out of the bar doesn't play
-  // the pad and a drag out of the pad doesn't cast a verdict.
+  // A gesture that starts in an edge band is ours; everything else is the pad's.
+  // The bands are thin on purpose — the instrument keeps its whole face.
   if (e.is("touch")) {
-    fromBar = inBar(e.y);
-    if (fromBar) armed = e.x < w / 2 ? "cancel" : "ok";
+    if (e.y >= h - EDGE) drag = { from: "bottom", y0: e.y };
+    else if (e.y <= EDGE) drag = { from: "top", y0: e.y };
+    else drag = null;
   }
 
-  if (e.is("lift") && fromBar) {
-    const still = armed && inBar(e.y) && (e.x < w / 2) === (armed === "cancel");
-    const verdict = armed;
-    armed = null;
-    fromBar = false;
-    if (still) return advance(api, verdict);
-    return;
+  if (drag && e.is("lift")) {
+    const moved = drag.y0 - e.y; // positive = swiped up
+    const d = drag.from;
+    drag = null;
+    if (d === "bottom" && moved > SWIPE) return turn(api, +1); // up → next
+    if (d === "top" && -moved > SWIPE) return turn(api, -1); // down → back
+    return; // a tap on the edge is not a verdict. Say nothing.
   }
 
-  // Keys — the same two signals, for judging a long deck without leaving home.
-  if (e.is("keyboard:down:arrowleft") || e.is("keyboard:down:escape"))
-    return advance(api, "cancel");
-  if (e.is("keyboard:down:arrowright") || e.is("keyboard:down:enter"))
-    return advance(api, "ok");
+  // Keys, for judging a long deck without leaving home.
+  if (e.is("keyboard:down:arrowdown") || e.is("keyboard:down:space"))
+    return turn(api, +1);
+  if (e.is("keyboard:down:arrowup")) return turn(api, -1);
 
-  // Everything else is the candidate's — it's an instrument, so play it. The
-  // event is clamped to the stage before it's handed over, so a drag that wanders
-  // down over the bar still reads as the bottom edge of the pad's world and never
-  // as a coordinate it has no pixels for.
-  if (!fromBar && host && !hostFailed) {
+  // Everything else belongs to the instrument. Play it — that's the whole vote.
+  if (!drag && host && !hostFailed) {
     if (e.is("touch")) taps += 1;
-    const ph = stageH(h);
-    const onStage = {
-      ...staged(api),
-      event: Object.assign(Object.create(Object.getPrototypeOf(e)), e, {
-        y: Math.max(0, Math.min(ph - 1, e.y)),
-      }),
-    };
     try {
-      host.act?.(onStage);
+      host.act?.(api);
     } catch (err) {
       hostFailed = true;
       error = String(err?.message || err);
@@ -402,4 +313,10 @@ function act(api) {
   }
 }
 
-export { boot, sim, paint, act };
+// The last pad you were on still deserves its verdict — leaving the piece is
+// leaving it.
+function leave(api) {
+  if (state === "judging") leaving(api);
+}
+
+export { boot, sim, paint, act, leave };

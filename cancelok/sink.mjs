@@ -58,6 +58,10 @@ createServer(async (req, res) => {
       verdict: v.verdict,
       dwellMs: v.dwellMs ?? 0,
       taps: v.taps ?? 0,
+      fps: v.fps ?? 0, // real fps on a real device — the gate can't see this
+      fpsMin: v.fpsMin ?? 0,
+      revisit: v.revisit ?? 0,
+      session: v.session ?? null,
       failed: !!v.failed,
       at: new Date().toISOString(),
     };
