@@ -2059,6 +2059,11 @@ class KidLisp {
     this.globalDef.treble = 0; // Treble frequencies (2000-20000Hz)
     this.globalDef.highMid = 0; // High-mid frequencies (1000-4000Hz)
     this.globalDef.presence = 0; // Presence frequencies (2500-5000Hz)
+    // 👆 The hand. Re-declared here because reset() empties globalDef, and a piece
+    // that reloads must still be able to feel you pressing it.
+    this.globalDef.down = 0; // 1 while pressed
+    this.globalDef.penx = 0; // where the hand is
+    this.globalDef.peny = 0;
 
     this.localEnvStore = [{}];
     this.localEnv = this.localEnvStore[0];
