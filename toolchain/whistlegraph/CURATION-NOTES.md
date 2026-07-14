@@ -6,11 +6,6 @@ survives restarts. Resolve items and delete them as they close.
 
 ## Open
 
-- **"Lost Kitty" [lost] author + post set — confirm with Alex** — created via the
-  new `splits` mechanism with 3 posts (his example 6817913323137355014 + the two
-  "hiking in the forest" takes 6939201639194709253, 6889219750753357062). Author
-  defaulted to Whistlegraph (he didn't specify). Confirm the set is complete and
-  whether it should be attributed.
 
 - **Find the other "Cheerleader" videos** — `[chee]` currently holds only 2 posts
   (Cheerleader + the folded-in "Beautiful Morning Whistlegraph"). Alex believes
@@ -28,6 +23,9 @@ survives restarts. Resolve items and delete them as they close.
 
 ## Resolved
 
+- **"Lost Kitty" [lost] (2026-07-14)** — split out of Kitty Head via the new
+  `splits` mechanism (3 takes of the "hiking in the forest" song), attributed to
+  Jeffrey Alan Scudder per Alex.
 - **asmr code swap (2026-07-14)** — "My ASMR Tryout Video" → `[tryo]`; "Boot Kitty
   Kitty" `[btky]` → `[asmr]` renamed "Aggro Smile Money Raspberry" (Alex's call
   after the `[asmr]` collision was flagged).
