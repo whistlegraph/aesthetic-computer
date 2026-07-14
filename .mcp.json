@@ -62,6 +62,13 @@
       "args": [
         "memory/memory-mcp.mjs"
       ]
+    },
+    "chat": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "slab/bin/chat-mcp.mjs"
+      ]
     }
   }
 }
