@@ -49,11 +49,23 @@ final class PianoWaveformViewController: NSViewController {
         set { collapsedView.onOpenKeymap = newValue }
     }
 
-    /// Click the keymap window's big LED scope → full-screen visualizer. (The
-    /// collapsed cluster's little scope is wired separately, by the popover.)
+    /// Click either LED scope — the keymap window's big one or the collapsed
+    /// cluster's little one — and it blows up to the full-screen visualizer.
+    ///
+    /// This used to forward to `expandedView` only, on the theory that "the
+    /// collapsed cluster's little scope is wired separately, by the popover."
+    /// That's true of the POPOVER's cluster, which is a different instance —
+    /// the one in this window never got the closure, so its
+    /// `onOpenVisualizer` stayed nil and `waveformStrip.onClick` fell through
+    /// to its `onOpenKeymap` fallback. Clicking the scope here opened the
+    /// keymap instead of the visualizer, and quietly: nil-coalescing to
+    /// another real action makes a missing wire look like a design choice.
     var onOpenVisualizer: (() -> Void)? {
         get { expandedView.onOpenVisualizer }
-        set { expandedView.onOpenVisualizer = newValue }
+        set {
+            expandedView.onOpenVisualizer = newValue
+            collapsedView.onOpenVisualizer = newValue
+        }
     }
 
     func setArrowHighlight(direction: Int, on: Bool) {
