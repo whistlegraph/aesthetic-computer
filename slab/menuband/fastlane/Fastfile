@@ -6,7 +6,12 @@ API_KEY_ID = "S4TQKG6U99" # Admin role — required for cloud signing (cert/prof
 API_ISSUER = "69a6de78-fa3c-47e3-e053-5b8c7c11a4d1"
 API_KEY_PATH = File.expand_path("~/.appstoreconnect/private_keys/AuthKey_S4TQKG6U99.p8")
 BUNDLE = "computer.aesthetic.menuband"
-PKG = "/tmp/MenuBand-export/Menu Band.pkg"
+# Where `xcodebuild -exportArchive` actually drops the package: slab/menuband/
+# build/export/. This used to point at /tmp/MenuBand-export/, a directory that
+# does not exist and never did — the `upload` lane would have failed the moment
+# anyone ran it. Anchored to the Fastfile's own location so it resolves no
+# matter where fastlane is invoked from.
+PKG = File.expand_path("../build/export/Menu Band.pkg", __dir__)
 
 def asc_key
   app_store_connect_api_key(
