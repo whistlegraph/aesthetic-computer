@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self';"
+    />
+    <title>PR Review Cockpit</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header id="topbar">
+      <div class="brand">PR&nbsp;Review&nbsp;Cockpit</div>
+
+      <div class="controls">
+        <button id="refreshBtn" title="Re-run gh pr list">↻ Refresh</button>
+
+        <button
+          id="signinBtn"
+          title="Sign in to GitHub once — the login is shared by every PR tile and persists across restarts"
+        >
+          ⌂ Sign in
+        </button>
+
+        <button
+          id="syncBtn"
+          title="Import your existing github.com login from Chrome (needs the Chrome-import glue in main.js)"
+        >
+          ⇄ Chrome login
+        </button>
+
+        <label class="ctl">
+          Cols
+          <select id="colsSelect">
+            <option value="2">2</option>
+            <option value="3" selected>3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+          </select>
+        </label>
+
+        <label class="ctl">
+          Sort
+          <select id="sortSelect">
+            <option value="priority" selected>Review priority</option>
+            <option value="newest">Newest</option>
+            <option value="status">CI status</option>
+            <option value="draft-last">Draft-last</option>
+          </select>
+        </label>
+
+        <button id="backBtn" class="hidden" title="Back to grid (Esc)">
+          ⤺ Grid
+        </button>
+      </div>
+
+      <div id="meta" class="meta"></div>
+    </header>
+
+    <!-- Focus toolbar: only visible in focus mode -->
+    <div id="focusToolbar" class="focus-toolbar hidden">
+      <span id="focusLabel" class="focus-label"></span>
+      <button id="openExtBtn">Open in browser</button>
+      <button id="reloadBtn">Reload</button>
+
+      <!-- Real GitHub review actions (via gh CLI on this host, not the webview).
+           A confirm is required before any of these fire. -->
+      <span class="review-actions">
+        <input
+          id="reviewBody"
+          type="text"
+          placeholder="Review / comment body…"
+          spellcheck="false"
+        />
+        <button id="approveBtn" class="act-approve" title="gh pr review --approve">
+          ✓ Approve
+        </button>
+        <button
+          id="reqChangesBtn"
+          class="act-reject"
+          title="gh pr review --request-changes (needs body)"
+        >
+          ✕ Request changes
+        </button>
+        <button id="commentBtn" class="act-comment" title="gh pr comment (needs body)">
+          💬 Comment
+        </button>
+      </span>
+
+      <input
+        id="jsInput"
+        type="text"
+        placeholder="JS to run in focused PR page… (Enter)"
+        spellcheck="false"
+      />
+      <button id="runJsBtn">Run JS</button>
+      <span id="jsResult" class="js-result"></span>
+    </div>
+
+    <main id="stage" class="grid">
+      <!-- tiles injected here -->
+    </main>
+
+    <div id="status" class="status-msg"></div>
+
+    <script src="renderer.js"></script>
+  </body>
+</html>

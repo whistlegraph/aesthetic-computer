@@ -1,0 +1,633 @@
+/* PR Review Cockpit — theme.
+   Automatic light/dark via prefers-color-scheme. Every color is a variable so
+   the two themes share one layout. Status (CI) coloring paints the WHOLE tile,
+   not just the header. */
+
+:root {
+  color-scheme: light dark;
+
+  /* dark (default) */
+  --bg: #0d1117;
+  --bg-2: #0a0e14;
+  --panel: #161b22;
+  --panel-2: #1c232c;
+  --elev: #21262d;
+  --elev-hi: #30363d;
+  --border: #30363d;
+  --border-soft: #262c34;
+  --text: #e6edf3;
+  --muted: #8b949e;
+  --accent: #58a6ff;
+  --accent-soft: rgba(88, 166, 255, 0.35);
+
+  --green: #3fb950;
+  --yellow: #d29922;
+  --red: #f85149;
+  --neutral: #6e7681;
+
+  /* soft status tints for backgrounds / glows */
+  --green-tint: rgba(63, 185, 80, 0.3);
+  --yellow-tint: rgba(210, 153, 34, 0.3);
+  --red-tint: rgba(248, 81, 73, 0.32);
+  --neutral-tint: rgba(110, 118, 129, 0.2);
+  --green-glow: rgba(63, 185, 80, 0.55);
+  --yellow-glow: rgba(210, 153, 34, 0.55);
+  --red-glow: rgba(248, 81, 73, 0.55);
+  --neutral-glow: rgba(110, 118, 129, 0.32);
+
+  --shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --sheen: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.06),
+    rgba(255, 255, 255, 0)
+  );
+  --tile-body-bg: #ffffff;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f6f8fa;
+    --bg-2: #eaeef2;
+    --panel: #ffffff;
+    --panel-2: #f6f8fa;
+    --elev: #f3f4f6;
+    --elev-hi: #e7ebef;
+    --border: #d0d7de;
+    --border-soft: #e2e6ea;
+    --text: #1f2328;
+    --muted: #636c76;
+    --accent: #0969da;
+    --accent-soft: rgba(9, 105, 218, 0.28);
+
+    --green: #1a7f37;
+    --yellow: #9a6700;
+    --red: #cf222e;
+    --neutral: #6e7781;
+
+    --green-tint: rgba(26, 127, 55, 0.1);
+    --yellow-tint: rgba(154, 103, 0, 0.1);
+    --red-tint: rgba(207, 34, 46, 0.09);
+    --neutral-tint: rgba(110, 119, 129, 0.08);
+    --green-glow: rgba(26, 127, 55, 0.22);
+    --yellow-glow: rgba(154, 103, 0, 0.22);
+    --red-glow: rgba(207, 34, 46, 0.22);
+    --neutral-glow: rgba(110, 119, 129, 0.16);
+
+    --shadow: 0 6px 20px rgba(140, 149, 159, 0.25);
+    --shadow-sm: 0 1px 4px rgba(140, 149, 159, 0.2);
+    --sheen: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.7),
+      rgba(255, 255, 255, 0)
+    );
+    --tile-body-bg: #ffffff;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: radial-gradient(
+      1200px 600px at 100% -10%,
+      var(--panel-2),
+      transparent 60%
+    ),
+    var(--bg);
+  color: var(--text);
+  font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
+    sans-serif;
+  overflow: hidden;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- top bar --- */
+#topbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 9px 14px;
+  background: linear-gradient(180deg, var(--panel), var(--panel-2));
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  flex: 0 0 auto;
+  z-index: 10;
+}
+
+.brand {
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  background: linear-gradient(92deg, var(--accent), var(--text));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ctl {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.meta {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+button,
+select,
+input[type="text"] {
+  background: linear-gradient(180deg, var(--elev), var(--panel-2));
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 5px 10px;
+  font: inherit;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition:
+    transform 0.06s ease,
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+input[type="text"] {
+  cursor: text;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+button:hover {
+  background: linear-gradient(180deg, var(--elev-hi), var(--elev));
+  border-color: var(--accent-soft);
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+button:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* accent the two auth buttons a touch */
+#signinBtn {
+  border-color: var(--accent-soft);
+}
+#syncBtn {
+  color: var(--accent);
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* --- focus toolbar --- */
+.focus-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  background: linear-gradient(180deg, var(--panel-2), var(--bg-2));
+  border-bottom: 1px solid var(--accent-soft);
+  flex: 0 0 auto;
+}
+
+.focus-label {
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+#jsInput {
+  flex: 1 1 auto;
+  min-width: 120px;
+}
+
+/* --- real GitHub review actions (in the focus toolbar) --- */
+.review-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 8px;
+  margin-left: 4px;
+  border-left: 1px solid var(--border);
+}
+
+#reviewBody {
+  width: 200px;
+  min-width: 120px;
+}
+
+.act-approve {
+  color: var(--green);
+  border-color: var(--green);
+  font-weight: 700;
+}
+.act-approve:hover {
+  border-color: var(--green);
+  box-shadow: 0 0 0 2px var(--green-glow);
+}
+
+.act-reject {
+  color: var(--red);
+  border-color: var(--red);
+  font-weight: 700;
+}
+.act-reject:hover {
+  border-color: var(--red);
+  box-shadow: 0 0 0 2px var(--red-glow);
+}
+
+.act-comment {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+}
+
+.review-actions button:disabled,
+#reviewBody:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: var(--shadow-sm);
+}
+
+.js-result {
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- stage --- */
+#stage {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 10px;
+}
+
+/* Horizontal band of full-height columns — one PR per column, scroll sideways.
+   `Cols` controls how many columns are visible at once; the rest scroll in. */
+#stage.grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: 1fr;
+  grid-auto-columns: calc((100% - (var(--cols, 3) - 1) * 10px) / var(--cols, 3));
+  gap: 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+#stage.focus {
+  display: grid;
+  grid-template-columns: 230px 1fr;
+  gap: 10px;
+}
+
+.rail {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-height: 0;
+}
+
+.main-pane {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- tile --- */
+.tile {
+  --st: var(--neutral);
+  --st-tint: var(--neutral-tint);
+  --st-glow: var(--neutral-glow);
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, var(--panel), var(--panel-2));
+  border: 1px solid var(--border);
+  border-top: 4px solid var(--st);
+  border-radius: 10px;
+  overflow: hidden;
+  min-height: 260px;
+  box-shadow: var(--shadow-sm);
+  transition:
+    box-shadow 0.18s ease,
+    transform 0.1s ease,
+    border-color 0.18s ease;
+}
+
+#stage.grid .tile {
+  height: 100%;
+  min-height: 0;
+}
+
+#stage.grid .tile:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    var(--shadow),
+    0 0 0 1px var(--st-glow);
+}
+
+/* whole-tile status coloring — set the per-tile vars, everything else reads them */
+.tile.st-ok {
+  --st: var(--green);
+  --st-tint: var(--green-tint);
+  --st-glow: var(--green-glow);
+}
+.tile.st-run {
+  --st: var(--yellow);
+  --st-tint: var(--yellow-tint);
+  --st-glow: var(--yellow-glow);
+}
+.tile.st-fail {
+  --st: var(--red);
+  --st-tint: var(--red-tint);
+  --st-glow: var(--red-glow);
+}
+.tile.st-none {
+  --st: var(--neutral);
+  --st-tint: var(--neutral-tint);
+  --st-glow: var(--neutral-glow);
+}
+
+.tile-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 9px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-soft);
+  user-select: none;
+  background:
+    var(--sheen),
+    linear-gradient(90deg, var(--st-tint), var(--st-tint) 45%, transparent 100%);
+  position: relative;
+}
+
+.tile-header::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--st);
+  box-shadow: 0 0 8px var(--st-glow);
+  flex: 0 0 auto;
+}
+
+.tile-header .num {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.tile-header .title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1 1 auto;
+}
+
+.tile-header .badges {
+  display: flex;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+.badge {
+  font-size: 10px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--elev), var(--panel-2));
+  color: var(--muted);
+  border: 1px solid var(--border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.badge.draft {
+  color: var(--yellow);
+  border-color: var(--yellow);
+}
+
+/* author badge + MINE marker */
+.badge.author {
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.badge.author.mine {
+  color: var(--accent);
+  border-color: var(--accent);
+  font-weight: 700;
+}
+
+/* --- settledness pill ---
+   The headline "where is this PR?" marker. Order of colors mirrors the
+   settledness() rule cascade in renderer.js. */
+.pill {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+  letter-spacing: 0.2px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+.pill.settle-ready-merge {
+  background: var(--green);
+  color: #08130b;
+  border-color: var(--green);
+  box-shadow: 0 0 10px var(--green-glow);
+}
+.pill.settle-ready-review {
+  background: var(--accent);
+  color: #071322;
+  border-color: var(--accent);
+  box-shadow: 0 0 10px var(--accent-soft);
+}
+.pill.settle-ci-failing,
+.pill.settle-conflicting {
+  background: var(--red);
+  color: #fff;
+  border-color: var(--red);
+  box-shadow: 0 0 10px var(--red-glow);
+}
+.pill.settle-changes-req {
+  background: var(--yellow);
+  color: #1a1200;
+  border-color: var(--yellow);
+  box-shadow: 0 0 10px var(--yellow-glow);
+}
+.pill.settle-draft {
+  background: var(--elev);
+  color: var(--muted);
+}
+.pill.settle-stale {
+  background: transparent;
+  color: var(--neutral);
+  border-color: var(--neutral);
+}
+.pill.settle-open {
+  background: var(--elev);
+  color: var(--text);
+}
+
+/* the webview host */
+.tile-body {
+  flex: 1 1 auto;
+  position: relative;
+  /* status-tinted backdrop shows during load / behind the page */
+  background:
+    linear-gradient(var(--st-tint), var(--st-tint)), var(--tile-body-bg);
+  min-height: 0;
+}
+
+.tile-body webview {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: flex;
+}
+
+/* placeholder shown before a tile's webview is loaded */
+.placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 6px;
+  background:
+    radial-gradient(120px 120px at 50% 40%, var(--st-tint), transparent 70%),
+    linear-gradient(180deg, var(--panel), var(--panel-2));
+  color: var(--muted);
+  cursor: pointer;
+  text-align: center;
+  padding: 12px;
+}
+
+.placeholder .big {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+/* focus mode: mini-strip variant */
+.tile.mini {
+  height: auto;
+  min-height: 0;
+  flex: 0 0 auto;
+}
+
+.tile.mini .tile-body {
+  display: none;
+}
+
+.tile.mini .tile-header {
+  border-bottom: none;
+}
+
+.tile.focused {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 2px var(--accent-soft),
+    var(--shadow);
+}
+
+.main-pane .tile {
+  height: 100%;
+  min-height: 0;
+}
+
+/* --- GitHub sign-in overlay (Path B: sign in once, shared partition) --- */
+#loginOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.login-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: linear-gradient(180deg, var(--panel), var(--panel-2));
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+.login-bar .login-title {
+  font-weight: 700;
+}
+
+.login-bar .login-hint {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.login-bar .spacer {
+  margin-left: auto;
+}
+
+.login-webview {
+  flex: 1 1 auto;
+  border: 0;
+  background: #fff;
+}
+
+/* --- status message --- */
+.status-msg {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, var(--elev), var(--panel-2));
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 9px 15px;
+  border-radius: 10px;
+  max-width: 80vw;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(6px);
+  z-index: 120;
+}
+
+.status-msg.error {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.status-msg:empty {
+  display: none;
+}

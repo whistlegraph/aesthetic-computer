@@ -1,0 +1,13 @@
+{
+  "name": "pr-cockpit",
+  "version": "1.0.0",
+  "description": "PR Review Cockpit — host many GitHub PRs as a grid of live Electron webviews, focus one and drive it.",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^33.0.0"
+  }
+}
