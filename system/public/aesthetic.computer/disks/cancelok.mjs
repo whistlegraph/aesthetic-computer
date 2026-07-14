@@ -455,6 +455,27 @@ function chrome(api, w, h, y = 0) {
     ink(120, 120, 140, 200 * a).write(n, { x: w - 6 - n.length * 6, y: y + 7 });
   }
 
+  // Your time on this pad, made visible. The whole premise is that staying IS the
+  // vote — so you should be able to watch the vote happen. A thin line along the
+  // bottom fills toward the keep threshold and turns green the instant you cross
+  // it (or the instant you touch the pad, which keeps it outright). Only on the
+  // live card — a photograph has no clock running.
+  if (anim === 0 && !pending && !mounting && host) {
+    const kept = taps > 0 || age >= LINGER;
+    const frac = kept ? 1 : Math.min(1, age / LINGER);
+    const [r, g, b] = kept ? OK : NO;
+    ink(r, g, b, 70).box(0, y + h - 2, Math.round(w * frac), 2);
+    // The seconds, bottom-left, quiet — a number you can glance at, not a HUD.
+    const secs = `${(age / 1000).toFixed(1)}s`;
+    ink(0, 0, 0, 150).write(secs, { x: 7, y: y + h - 12 });
+    ink(kept ? OK : [200, 200, 210], kept ? 255 : 200).write(secs, { x: 6, y: y + h - 13 });
+    if (taps > 0) {
+      const t = `${taps}▸`;
+      ink(0, 0, 0, 150).write(t, { x: 7 + secs.length * 6 + 6, y: y + h - 12 });
+      ink(255, 220, 120).write(t, { x: 6 + secs.length * 6 + 6, y: y + h - 13 });
+    }
+  }
+
   // The last verdict, as a breath of color at the edge you swiped from. You
   // never pressed anything, so this is the only acknowledgement there is.
   if (flash > 0) {
