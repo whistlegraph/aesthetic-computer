@@ -71,10 +71,21 @@ let flashOk = false;
 // card that arrives is playing.
 let mounting = false; // the next pad is in flight — not broken, just not here yet
 let stage = null; // the live pad's own surface
+
+// THE PEEK. You should see the next pad while you drag, not a black hole — but two
+// pads can't run at once (lib/pads.mjs is a session singleton: booting B kills A).
+// So we boot the next pad ONCE, steal a single frame, and boot the current one
+// back. The card under your finger is a photograph of a real instrument, taken a
+// moment ago. Not live — but live is a lie a singleton can't tell.
+let peek = null; // one frame of the pad below
+let peekOf = null; // which code that frame belongs to
+let peeking = false;
+const mods = new Map(); // imported modules, kept — a page turn shouldn't re-fetch
 let lisp = null; // a $code candidate's source, straight from the database
 let out = null; // the frozen frame of the pad you just left
 let outName = ""; // its name travels with it — the label belongs to the card
 let anim = 0; // 0 = settled, →1 = mid-slide
+let pending = 0; // a turn waiting on its pad to arrive: +1 next, -1 back
 let dir = 1; // +1 = the next pad rises, -1 = the last one falls back in
 let held = 0; // how far your finger has dragged the pad, right now
 
@@ -181,7 +192,13 @@ async function mount(api) {
     } else {
       // Origin-qualified: a disk runs as a blob module, so it has no base URL to
       // resolve `./x.mjs` against, and updateCode only rewrites static imports.
-      const mod = await import(`${ORIGIN}/aesthetic.computer/disks/${code}.mjs`);
+      // Cached, because the peek already fetched it — a page turn should not go
+      // back to the network for something it just looked at.
+      let mod = mods.get(code);
+      if (!mod) {
+        mod = await import(`${ORIGIN}/aesthetic.computer/disks/${code}.mjs`);
+        mods.set(code, mod);
+      }
       if (stage) api.page(stage); // it may draw at boot — into ITS surface, not ours
       mod.boot?.({ ...api, screen: stage || api.screen });
       api.page(api.screen);
@@ -195,10 +212,52 @@ async function mount(api) {
   }
 }
 
+// Steal one frame of the pad below, so the gap you drag open has something in it.
+// This is the only honest way to preview a pad without a second engine: boot it,
+// paint once, snapshot, and put the current pad back exactly as it was. It costs
+// one extra boot, and it happens once, while you're already looking at something
+// else.
+async function takePeek(api) {
+  if (peeking || !host || host.lisp || hostFailed) return;
+  const next = deck[(at + 1) % deck.length];
+  if (!next || next.code === peekOf || next.lisp) return;
+  peeking = true;
+  try {
+    let mod = mods.get(next.code);
+    if (!mod) {
+      mod = await import(`${ORIGIN}/aesthetic.computer/disks/${next.code}.mjs`);
+      mods.set(next.code, mod);
+    }
+    const w = api.screen.width;
+    const h = api.screen.height;
+    const shot = api.painting(w, h, (p) => p.wipe(0, 0, 0));
+
+    api.page(shot);
+    mod.boot?.({ ...api, screen: shot }); // this CLOBBERS the engine's config…
+    mod.sim?.({ ...api, screen: shot });
+    mod.paint?.({ ...api, screen: shot });
+    api.page(api.screen);
+
+    peek = shot;
+    peekOf = next.code;
+
+    // …so put the current pad back. Its boot re-asserts its own config, which is
+    // the only reason any of this is survivable.
+    api.page(stage);
+    host.boot?.({ ...api, screen: stage });
+    api.page(api.screen);
+  } catch {
+    peek = null; // a pad that won't preview is not an emergency.
+    peekOf = null;
+  } finally {
+    peeking = false;
+  }
+}
+
 // Turn the page. Going BACK is not a neutral act — you returned to something, and
 // coming back is the strongest keep signal in the whole system.
 function turn(api, d) {
-  if (anim > 0) return; // one page at a time
+  if (anim > 0 || pending) return; // one page at a time
   leaving(api);
 
   // Freeze it. This copy is the only thing that survives the next boot, so it has
@@ -210,9 +269,15 @@ function turn(api, d) {
     outName = current().name;
   }
 
-  dir = d;
-  anim = 0.0001; // any non-zero starts the slide
+  // DON'T slide yet. mount() is async — the next pad is still coming over the
+  // wire, and sliding now would raise an empty buffer into view. That's the black
+  // flash. We hold the frozen frame instead, and the slide begins the moment the
+  // new pad has actually painted something. A page turn should reveal a pad, not
+  // a hole where one is about to be.
+  pending = d;
   held = 0;
+  peek = null; // the pad below is about to become the pad you're on
+  peekOf = null;
   at = (at + d + deck.length) % deck.length;
   mount(api);
 }
@@ -286,6 +351,7 @@ function paint(api) {
   if (!stage || stage.width !== w || stage.height !== h)
     stage = api.painting(w, h, (p) => p.wipe(0, 0, 0));
 
+  let painted = false;
   if (host && !hostFailed) {
     try {
       api.page(stage);
@@ -293,12 +359,31 @@ function paint(api) {
       // a $code gets handed to the evaluator. Neither knows the other exists.
       if (host.lisp) api.kidlisp(0, 0, w, h, lisp);
       else host.paint?.({ ...api, screen: stage });
+      painted = true;
     } catch (e) {
       hostFailed = true;
       error = String(e?.message || e);
     } finally {
       api.page(screen);
     }
+  }
+
+  // The turn has been waiting for this: the new pad drew a frame. NOW slide. If it
+  // failed to load, slide anyway — a broken pad still deserves its three seconds
+  // and its verdict, and freezing forever would be worse than showing the wound.
+  if (pending && (painted || hostFailed)) {
+    dir = pending;
+    anim = 0.0001;
+    pending = 0;
+  }
+
+  // Still waiting? Hold the frozen frame. This is the whole cure for the black
+  // flash: you keep looking at the pad you had until there's a pad to replace it.
+  if (pending && out) {
+    wipe(0, 0, 0);
+    api.paste(out, 0, 0);
+    label(api, outName, w, 0, 1);
+    return;
   }
 
   wipe(0, 0, 0);
@@ -328,8 +413,19 @@ function paint(api) {
     }
   }
 
+  // The card under your finger. Only while dragging — during the slide the real
+  // pad is already live, and a photograph would only be a worse version of it.
+  if (!anim && held < 0 && peek) {
+    api.paste(peek, 0, Math.round(h + held));
+    label(api, deck[(at + 1) % deck.length].name, w, Math.round(h + held), 0.7);
+  }
+
   api.paste(stage, 0, Math.round(liveY));
   chrome(api, w, h, Math.round(liveY));
+
+  // Take the next pad's picture while you're busy with this one. Never mid-gesture
+  // and never mid-slide — the boot it costs would show.
+  if (!anim && !pending && !held && !mounting) takePeek(api);
 }
 
 // The name rides WITH its card. It isn't chrome bolted to the corner of the
