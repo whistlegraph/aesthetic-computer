@@ -14,6 +14,10 @@ import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { REPO, pheromone } from "./taste.mjs";
 
+// launchd has never heard of ~/.local/bin, so the cron hands us an absolute
+// path. A bare "claude" works in a terminal and ENOENTs at 3am.
+const CLAUDE = process.env.CANCELOK_CLAUDE || "claude";
+
 const DISKS = resolve(REPO, "system/public/aesthetic.computer/disks");
 const ENGINE = resolve(REPO, "system/public/aesthetic.computer/lib/pads.mjs");
 const EXAMPLE = resolve(DISKS, "wispo.mjs");
@@ -81,7 +85,7 @@ console.log("🧠 generating…");
 // writes its own pad will then collide with itself when we check the name. We
 // want a language model here, not an agent: it returns text, WE decide what
 // lands on disk. (This cost a whole generation to learn.)
-const raw = execFileSync("claude", ["--print", "--model", "sonnet", "--tools", ""], {
+const raw = execFileSync(CLAUDE, ["--print", "--model", "sonnet", "--tools", ""], {
   input: prompt,
   encoding: "utf8",
   maxBuffer: 1024 * 1024 * 8,

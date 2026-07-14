@@ -22,11 +22,37 @@ set -l PLIST "$HOME/Library/LaunchAgents/$LABEL.plist"
 set -l LOG "$HOME/Library/Logs/cancelok.log"
 set -l CMD $argv[1]
 
-# The loop needs serve-local (the gate measures against it) and `claude` (the
-# generator IS claude). launchd starts with a bare PATH, so we hand it the real
-# one rather than discovering at 3am that node isn't on it.
-set -l NODE (which node)
-set -l REALPATH (dirname $NODE):/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin
+# launchd starts with a bare PATH — it does not source your shell — so every
+# binary has to be handed over as an absolute path it will still be able to find
+# after a reboot.
+#
+# `which node` is a TRAP here: under fnm it resolves to a per-shell temp dir with
+# a PID in the name (…/fnm_multishells/36675_…/bin/node). Baking that into a
+# launchd plist works today and dies the next time you log in, and the failure is
+# invisible because the cron just quietly stops making anything. So we resolve the
+# STABLE fnm alias instead, and fall back to homebrew.
+set -l NODE
+for candidate in "$HOME/.local/share/fnm/aliases/default/bin/node" /opt/homebrew/bin/node /usr/local/bin/node
+  if test -x $candidate
+    set NODE $candidate
+    break
+  end
+end
+if test -z "$NODE"
+  echo "❌ no stable node found — refusing to install a cron that will rot."
+  exit 1
+end
+
+# `claude` IS the generator, and it lives in ~/.local/bin, which launchd has never
+# heard of.
+set -l CLAUDE (command -v claude)
+if test -z "$CLAUDE"; set CLAUDE "$HOME/.local/bin/claude"; end
+if not test -x $CLAUDE
+  echo "❌ claude not found at $CLAUDE — the generator cannot run."
+  exit 1
+end
+
+set -l REALPATH (dirname $NODE):(dirname $CLAUDE):/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin
 
 switch "$CMD"
   case install
@@ -40,10 +66,13 @@ switch "$CMD"
   <array>
     <string>/bin/sh</string>
     <string>-lc</string>
-    <string>cd $REPO; curl -sf -o /dev/null http://localhost:8899/ || (node marketing/av-reels/bin/serve-local.mjs &amp; sleep 3); node cancelok/loop.mjs --tries 2 --no-ship</string>
+    <string>cd $REPO; curl -sf -o /dev/null http://localhost:8899/ || ($NODE marketing/av-reels/bin/serve-local.mjs &amp; sleep 3); exec $NODE cancelok/loop.mjs --tries 2 --no-ship</string>
   </array>
   <key>EnvironmentVariables</key>
-  <dict><key>PATH</key><string>$REALPATH</string></dict>
+  <dict>
+    <key>PATH</key><string>$REALPATH</string>
+    <key>CANCELOK_CLAUDE</key><string>$CLAUDE</string>
+  </dict>
   <key>StartInterval</key><integer>3600</integer>
   <key>RunAtLoad</key><false/>
   <key>StandardOutPath</key><string>$LOG</string>

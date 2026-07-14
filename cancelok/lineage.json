@@ -5,5 +5,47 @@
     "mutation": "cross",
     "trait": "pixel-sort / datamosh field (from vex) x pendulum-wave bell/pluck voice, scored by just-intonation dissonance (from drolo)",
     "born": "2026-07-14T06:03:23.577Z"
+  },
+  "wandro": {
+    "parent": "wexo",
+    "second": "drolo",
+    "mutation": "cross",
+    "trait": "pendulum-row visual (wexo) x just-intonation layered voice (drolo)",
+    "born": "2026-07-14T06:33:06.854Z"
+  },
+  "welto": {
+    "parent": "wexo",
+    "second": null,
+    "mutation": "push",
+    "trait": "a pendulum wave you can grab and pull taut x pentatonic scrub + slingshot pluck",
+    "born": "2026-07-14T08:11:25.899Z"
+  },
+  "vosk": {
+    "parent": "vex",
+    "second": null,
+    "mutation": "voice",
+    "trait": "pixel-sort/datamosh glitch field x slow glass-flute drone",
+    "born": "2026-07-14T10:27:57.728Z"
+  },
+  "dravo": {
+    "parent": "drolo",
+    "second": "wexo",
+    "mutation": "cross",
+    "trait": "pendulum-wave row (drolo) x bottom-center pluck detection (wexo)",
+    "born": "2026-07-14T12:36:20.665Z"
+  },
+  "glavo": {
+    "parent": "vex",
+    "second": "tavo",
+    "mutation": "cross",
+    "trait": "pixel-sort/datamosh visual generator (vex) x bubble-bath synth voice (tavo)",
+    "born": "2026-07-14T13:39:43.347Z"
+  },
+  "vexen": {
+    "parent": "wexo",
+    "second": null,
+    "mutation": "invert",
+    "trait": "struck pendulum row that decays into stillness x pentatonic pluck fading to hush",
+    "born": "2026-07-14T14:43:43.424Z"
   }
 }
