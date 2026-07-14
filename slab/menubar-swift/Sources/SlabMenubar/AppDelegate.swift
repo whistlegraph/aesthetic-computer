@@ -12,9 +12,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// overlapping 2 s tick doesn't pile up worker threads (a stalled
     /// `tailscale status` can run right up to its 2 s timeout).
     private var gathering = false
-    /// Subject keys we've already fired a detached `slab-wallpaper` gen for,
-    /// so a slow generation isn't re-kicked every 2 s tick. Guarded by
-    /// `wallpaperLock` (touched from the off-main resolve).
+    /// Subject keys we've already fired a `slab-wallpaper` gen for, so a slow
+    /// generation isn't re-kicked every 2 s tick. Guarded by `wallpaperLock`
+    /// (touched from the off-main resolve).
     private var kickedWallpapers = Set<String>()
     /// At most one `slab-wallpaper` gen may run at a time. Every status flip and
     /// every retitled session mints a fresh key, and a gen takes minutes on a
@@ -215,6 +215,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // watcher — never touches ScreenCaptureKit until a frame is actually
         // requested, so no Screen Recording prompt at launch (lazy grant).
         FrameCapture.shared.start()
+
+        // `reel` — the moving-picture sibling of frame. Same lazy-grant file
+        // watcher; hardware-encodes an SCStream straight to mp4 when asked.
+        if #available(macOS 15.0, *) { ScreenRecord.shared.start() }
 
         // Advertised ledger: serve this machine's handles over the tailnet and
         // cache peers' ledgers, so `host:name` references resolve O(1) without
@@ -1373,8 +1377,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     /// Off-main: pick each session's wallpaper from cache only (instant
-    /// `slab-wallpaper path` probe + status-default file check), and fire
-    /// one-time detached generators for anything not yet cached. Never
+    /// `slab-wallpaper path` probe + status-default file check), and queue a
+    /// gen for anything not yet cached (`kickWallpaper` — one at a time). Never
     /// blocks on node/network beyond the ~50 ms probe (see slab-menubar-perf).
     private func resolveWallpapers(_ sessions: [ClaudeSession]) -> [ClaudeSession] {
         let bin = Paths.slabWallpaper

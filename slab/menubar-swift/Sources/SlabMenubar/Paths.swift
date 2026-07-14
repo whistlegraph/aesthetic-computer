@@ -91,6 +91,15 @@ enum Paths {
     static var frameOutJpg: String { "\(slabHome)/state/frame.out.jpg" }
     static var frameDone: String { "\(slabHome)/state/frame.done" }
 
+    /// `reel` video capture handshake (see ScreenRecord.swift) — the moving-picture
+    /// sibling of `frame`. The controller drops a JSON `reel.req`
+    /// ({action:"start"|"stop"}); the menubar streams to `reel.out.mp4`, keeps
+    /// `reel.state` current, and touches `reel.done` when the action settles.
+    static var reelReq: String { "\(slabHome)/state/reel.req" }
+    static var reelState: String { "\(slabHome)/state/reel.state" }
+    static var reelOutMp4: String { "\(slabHome)/state/reel.out.mp4" }
+    static var reelDone: String { "\(slabHome)/state/reel.done" }
+
     static var mailDir: String {
         ProcessInfo.processInfo.environment["AC_MAIL_MAILDIR"] ?? "\(home)/.mail-all"
     }
