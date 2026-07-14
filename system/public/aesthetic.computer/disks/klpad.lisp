@@ -1,33 +1,40 @@
-; klpad — proof that KidLisp can be a pad.
-; A beat grid, real voices, and a visual that IS the score. No JS, no deploy.
+; klpad — a pad, written in KidLisp.
+;
+; Everything a pad needs, said in a language a machine can safely write and a
+; person can read out loud. The beat is the second-clock, which is UTC-locked —
+; two people anywhere hear the same downbeat. The visual IS the score: every ring
+; you see is a voice you're hearing, and it swells with the sound it makes.
+;
+; No JS. No commit. No deploy. This can live in the database as a $code.
 
-(wipe 4 4 12)
+(wipe 6 6 14)
 
-; The pulse. `1s` is the beat — UTC-locked, so two people anywhere play in phase.
-1s (bell c4 0.35)
-   (ink 120 220 255 90)
-   (circle (/ width 2) (/ height 2) 40)
+; The pulse — a bell, and the ring it rings.
+1s (bell c4 0.3)
+   (ink 120 220 255 150)
+   (circle width/2 height/2 (+ 40 (* amplitude 140)))
 
-; The bass, half-time. This is the one you feel.
-2s... (sub a1 0.5)
-      (ink 90 60 200 70)
-      (circle (/ width 2) (/ height 2) 90)
+; The bass, half-time. This is the one you feel before you hear it.
+2s... (sub c2 0.5)
+      (ink 90 60 200 80)
+      (circle width/2 height/2 (+ 95 (* amplitude 70)))
 
-; A plucked line on the off-beat, panned across.
-1.5s... (pluck e4 0.4 -0.4)
-        (ink 255 200 120 120)
-        (box 20 (/ height 2) 30 4)
+; A plucked string across the off-beat, panned left.
+1.5s... (pluck e4 0.35 -0.4)
+        (ink 255 200 120 170)
+        (box 24 height/2 44 6)
 
-; Breath on top.
-3s... (flute g4 0.25)
-      (ink 200 255 220 60)
-      (circle (/ width 2) (/ height 2) 130)
+; Breath on top — the widest, quietest ring.
+3s... (flute g4 0.22)
+      (ink 200 255 220 55)
+      (circle width/2 height/2 150)
 
-; The tick.
-0.5s... (hat 0.1)
-        (ink 255 255 255 40)
-        (box 0 (- height 4) width 2)
+; The tick that keeps you honest.
+0.5s... (hat 0.08)
+        (ink 255 255 255 60)
+        (box 0 height-5 width 3)
 
-; Audio-reactive: the field answers the sound it is making.
+; The field answers the sound it is making. This is the whole allegory: you are
+; not watching a picture of the music, you are watching the music.
 (ink rainbow)
-(circle (/ width 2) (/ height 2) (+ 6 (* amplitude 200)))
+(circle width/2 height/2 (+ 5 (* amplitude 190)))
