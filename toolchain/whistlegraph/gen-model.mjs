@@ -243,13 +243,15 @@ const liveWorks = live.graphs.filter((e) => !mergeSources.has(e.code)).map((e) =
     ...(r?.thumb ? { thumb: r.thumb } : {}),
   };
 });
-// Exclude a fresh cluster if its code is already a live work — matched on both
-// the emitted (possibly recoded) codes AND the original live codes, so a recode
-// (cdh→bugy) doesn't let the still-cdh cluster slip through as a duplicate.
-const liveCodeSet = new Set([...liveWorks.map((e) => e.code), ...live.graphs.map((e) => e.code)]);
+// Exclude a fresh cluster only if its EMITTED (post-recode) slug collides with a
+// live work's emitted slug. Deduping on the emitted code — not the original —
+// still catches the still-cdh case (fresh cdh emits bugy, which collides) while
+// allowing a code swap (trip→tppl frees trip for bmhd→trip: fresh Triangle People
+// emits tppl, no collision, so it survives instead of being dropped as "trip").
+const liveCodeSet = new Set(liveWorks.map((e) => e.code));
 
 const freshWorks = clusterSite
-  .filter((c) => !c.reclaimed && !liveCodeSet.has(c.cl.code) && !mergeSources.has(c.cl.code))
+  .filter((c) => !c.reclaimed && !liveCodeSet.has(recodes[c.cl.code] || c.cl.code) && !mergeSources.has(c.cl.code))
   .map(({ cl }) => {
     const code = recodes[cl.code] || cl.code; // a recode changes the slug
     const r = rollup.get(code) || { n: cl.performances, views: cl.views, thumb: null };

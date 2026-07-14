@@ -13,10 +13,15 @@
     "well": "Well, Well, Well",
     "sitg": "A Sprout In The Grass",
     "rock": "I Just Found A Little Rock",
-    "dggy": "Doggy Head"
+    "dggy": "Doggy Head",
+    "grav": "Grave of My Friend"
   },
   "twins": [
-    { "code": "bye", "title": "Say Goodbye", "from": "helo" }
+    {
+      "code": "bye",
+      "title": "Say Goodbye",
+      "from": "helo"
+    }
   ],
   "authors": {
     "ghst": "Alex Freundlich",
@@ -51,7 +56,13 @@
     "rock": "Jeffrey Alan Scudder",
     "lily": "Camille Klein",
     "cfsh": "Jeffrey Alan Scudder",
-    "magic": "Jeffrey Alan Scudder"
+    "magic": "Jeffrey Alan Scudder",
+    "lump": "Jeffrey Alan Scudder",
+    "bang": "Jeffrey Alan Scudder",
+    "vlcn": "Jeffrey Alan Scudder",
+    "tppl": "Jeffrey Alan Scudder",
+    "trip": "Jeffrey Alan Scudder",
+    "grav": "Jeffrey Alan Scudder"
   },
   "recodes": {
     "cdh": "bugy",
@@ -65,17 +76,31 @@
     "ntal": "kiss",
     "pikm": "lily",
     "crwl": "well",
-    "alve": "fssl"
+    "alve": "fssl",
+    "trip": "tppl",
+    "bmhd": "trip"
   },
   "postTags": {
-    "7019362782122380550": ["talk"]
+    "7019362782122380550": [
+      "talk"
+    ]
   },
   "crossTags": {
-    "lovw": ["sos"],
-    "fntn": ["pnda"],
-    "dggy": ["kity"],
-    "whod": ["chee"],
-    "mode": ["chee"]
+    "lovw": [
+      "sos"
+    ],
+    "fntn": [
+      "pnda"
+    ],
+    "dggy": [
+      "kity"
+    ],
+    "whod": [
+      "chee"
+    ],
+    "mode": [
+      "chee"
+    ]
   },
   "merges": {
     "hlfn": "imab",
@@ -111,14 +136,15 @@
     "hole": "wiyh",
     "whwg": "fact",
     "dash": "cult",
-    "tricl": "trip",
-    "tripl": "trip",
+    "tricl": "tppl",
+    "tripl": "tppl",
     "stsq": "sqar",
     "spike": "legs",
     "pofu": "pics",
     "morn": "chee",
-    "flo2": "bmhd",
+    "flo2": "trip",
     "mathc": "math",
-    "brkht": "bndg"
+    "brkht": "bndg",
+    "fotg": "grav"
   }
 }
