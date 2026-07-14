@@ -1,8 +1,15 @@
 #!/usr/bin/env fish
 # cron.fish — install (or remove) the hourly cancelok loop on this Mac.
 #
-# One pad an hour, generated, certified, and shipped while you're not looking.
-# By morning there's a queue, and emptying it is a minute of thumbs.
+# One pad an hour, generated and certified while you're not looking. By morning
+# there's a queue, and emptying it is a minute of thumbs.
+#
+# The cron does NOT publish. It runs --no-ship, so a pad it makes waits in the
+# local queue until you've seen it and said so. Nothing reaches other people on
+# a timer — the machine can make things unattended, but it can't decide that
+# anyone else should have to look at them. To publish one you kept:
+#
+#   node cancelok/ship.mjs <pad> "<trait>"    # → ^pads, commit, push, deploy
 #
 #   fish cancelok/cron.fish install
 #   fish cancelok/cron.fish status
@@ -33,7 +40,7 @@ switch "$CMD"
   <array>
     <string>/bin/sh</string>
     <string>-lc</string>
-    <string>cd $REPO; curl -sf -o /dev/null http://localhost:8899/ || (node marketing/av-reels/bin/serve-local.mjs &amp; sleep 3); node cancelok/loop.mjs --tries 2</string>
+    <string>cd $REPO; curl -sf -o /dev/null http://localhost:8899/ || (node marketing/av-reels/bin/serve-local.mjs &amp; sleep 3); node cancelok/loop.mjs --tries 2 --no-ship</string>
   </array>
   <key>EnvironmentVariables</key>
   <dict><key>PATH</key><string>$REALPATH</string></dict>

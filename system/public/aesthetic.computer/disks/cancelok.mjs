@@ -38,6 +38,7 @@ let error = "";
 let deck = []; // [{ code, name }] — the candidates, in order
 let at = 0; // which one we're on
 let host = null; // the live candidate module
+let stage = null; // the candidate's own surface — everything above the bar
 let hostFailed = false; // it threw on load or on frame — a machine-gate fail
 
 let verdicts = []; // [{ code, verdict, dwellMs, taps, failed, at }]
@@ -115,7 +116,8 @@ async function mount(api) {
     // rewrites static imports. Fetched as a real URL, the pad's own
     // `../lib/pads.mjs` resolves on its own.
     const mod = await import(`${ORIGIN}/aesthetic.computer/disks/${code}.mjs`);
-    mod.boot?.(api);
+    stage = null; // a new candidate gets a fresh surface
+    mod.boot?.(staged(api)); // it must be born knowing its real size
     host = mod;
   } catch (e) {
     hostFailed = true;
@@ -194,10 +196,32 @@ function boot(api) {
     });
 }
 
+// The pad's stage: everything above the bar. This is the ONLY size the candidate
+// is ever told about.
+const stageH = (h) => Math.max(1, h - BAR_H);
+
+// The candidate's surface, the way a nopaint brush gets a buffer instead of the
+// painting itself. Two surfaces, never one.
+function ensureStage(api) {
+  const w = api.screen.width;
+  const h = stageH(api.screen.height);
+  if (!stage || stage.width !== w || stage.height !== h)
+    stage = api.painting(w, h, (p) => p.wipe(0, 0, 0));
+  return stage;
+}
+
+// The pad's `screen` IS the stage buffer — not a copy of the real screen with a
+// shorter height. That distinction is the whole bug: per-pixel pads (vex, molten)
+// write straight into `screen.pixels` and never touch page(), so handing them a
+// fake screen that still pointed at the REAL pixel array made them scribble into
+// the wrong buffer at the wrong stride. Give them the surface itself and both
+// paths — immediate-mode draws and raw pixel pokes — land in the same place.
+const staged = (api) => ({ ...api, screen: ensureStage(api) });
+
 function sim(api) {
   if (state === "judging" && host && !hostFailed) {
     try {
-      host.sim?.(api);
+      host.sim?.(staged(api));
     } catch (e) {
       hostFailed = true; // it ran, then died. still a verdict.
       error = String(e?.message || e);
@@ -224,15 +248,21 @@ function paint(api) {
 
   if (state === "done") return summary(api);
 
-  // The candidate paints itself, full-bleed. If it can't, we say so plainly —
-  // a broken candidate still deserves its three seconds and its verdict.
+  // The candidate paints into ITS OWN surface, then we composite. The pad can't
+  // scribble on the bar, and the bar isn't covering anything the pad meant you
+  // to see.
   if (host && !hostFailed) {
+    const surface = ensureStage(api);
     try {
-      host.paint?.(api);
+      api.page(surface);
+      host.paint?.(staged(api));
     } catch (e) {
       hostFailed = true;
       error = String(e?.message || e);
+    } finally {
+      api.page(screen); // whatever happened in there, we get the screen back.
     }
+    if (!hostFailed) api.paste(surface, 0, 0);
   }
   if (hostFailed || !host) {
     wipe(20, 6, 10);
@@ -350,11 +380,21 @@ function act(api) {
   if (e.is("keyboard:down:arrowright") || e.is("keyboard:down:enter"))
     return advance(api, "ok");
 
-  // Everything else is the candidate's — it's an instrument, so play it.
+  // Everything else is the candidate's — it's an instrument, so play it. The
+  // event is clamped to the stage before it's handed over, so a drag that wanders
+  // down over the bar still reads as the bottom edge of the pad's world and never
+  // as a coordinate it has no pixels for.
   if (!fromBar && host && !hostFailed) {
     if (e.is("touch")) taps += 1;
+    const ph = stageH(h);
+    const onStage = {
+      ...staged(api),
+      event: Object.assign(Object.create(Object.getPrototypeOf(e)), e, {
+        y: Math.max(0, Math.min(ph - 1, e.y)),
+      }),
+    };
     try {
-      host.act?.(api);
+      host.act?.(onStage);
     } catch (err) {
       hostFailed = true;
       error = String(err?.message || err);
