@@ -364,6 +364,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// True only where the private MultitouchSupport tap is compiled in.
     #if !MAC_APP_STORE
     private let trackpadFxAvailable = true
+    /// Double-tap left ⌘ → fullscreen trackpad-as-screen shape wall. Shares the
+    /// MultitouchSupport frames; while its wall is up, `handleTrackpadFrame`
+    /// routes fingers here instead of into the pitch-bend fx pad.
+    private let shapedown = Shapedown()
     /// Session CGEventTap that swallows Tab WHILE a bend is live, so the macOS
     /// ⌘-Tab app switcher (owned by the Dock, above any normal key handler) and
     /// plain focus traversal can't steal the gesture — Tab drives the
@@ -512,6 +516,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.handleTrackpadFrame(touches)
         }
         MultitouchTrackpad.shared.start()
+        // Arm the global double-tap-⌘ listener for the Shapedown wall.
+        shapedown.start()
         // Try to install the Tab-suppression tap up front (retried per-bend in
         // case Accessibility is granted after launch).
         _ = bendTabTap.start()
@@ -4157,6 +4163,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// touch dots fresh.
     private func handleTrackpadFrame(_ touches: [CGPoint]) {
         mtTouches = touches
+        // Shapedown wall takes over the trackpad while it's up — the fingers
+        // draw shapes, they don't bend pitch.
+        if shapedown.isActive {
+            shapedown.ingest(touches)
+            return
+        }
         let active = !touches.isEmpty
         if active != trackpadTouchActive { setTrackpadTouchActive(active) }
         if pitchBendAbsoluteMode, pitchBendCursorPushed, let p = touches.first {
