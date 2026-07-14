@@ -115,7 +115,7 @@ final class PianoKeyboardView: NSView {
     override func mouseDown(with event: NSEvent) {
         window?.makeKey()
         guard let menuBand = menuBand,
-              let point = rendererPoint(from: event),
+              let point = rendererPoint(from: event, slack: .none),
               let displayNote = KeyboardIconRenderer.withPianoWaveformKeyboard(
                   keymap: menuBand.keymap,
                   { KeyboardIconRenderer.noteAt(point, layout: Self.rendererLayout) }
@@ -141,7 +141,7 @@ final class PianoKeyboardView: NSView {
 
     override func mouseDragged(with event: NSEvent) {
         guard let menuBand = menuBand,
-              let point = rendererPoint(from: event) else { return }
+              let point = rendererPoint(from: event, slack: .drag) else { return }
         let hovered = KeyboardIconRenderer.withPianoWaveformKeyboard(
             keymap: menuBand.keymap,
             { KeyboardIconRenderer.noteAt(point, layout: Self.rendererLayout) }
@@ -200,7 +200,7 @@ final class PianoKeyboardView: NSView {
     }
 
     private func updateHover(with event: NSEvent) {
-        guard let point = rendererPoint(from: event, strictY: true) else {
+        guard let point = rendererPoint(from: event, slack: .none) else {
             if hoveredNote != nil {
                 hoveredNote = nil
                 needsDisplay = true
@@ -220,11 +220,29 @@ final class PianoKeyboardView: NSView {
         }
     }
 
-    // `strictY` confines the point to the keys' true vertical extent — used by
-    // hover, so keys only light while the cursor is actually over them. Drags
-    // and taps keep the generous ±piano-height slack (fat-finger tolerance for
-    // holding a note while sliding off the keys).
-    private func rendererPoint(from event: NSEvent, strictY: Bool = false) -> NSPoint? {
+    // `slack` is the vertical tolerance OUTSIDE the drawn keys, in renderer
+    // units. It exists for one case only, the one the drag handler needs: you
+    // press a key, and your hand wanders off the top or bottom of the keyboard
+    // while sliding sideways. The note should keep sounding rather than cut out.
+    //
+    // It is NOT for the initial press — `mouseDown` demands `.none`, so a note
+    // can only START on a key you actually clicked. That distinction is the
+    // whole bug: this used to hand every mouse handler ±a full piano height
+    // (`-piano.height ... piano.height * 2` — a hit region three keyboards tall
+    // around a one-keyboard drawing). On mouseDown that slack is unreachable
+    // anyway, since the view is sized exactly to the keys; but AppKit keeps
+    // delivering `mouseDragged` to the view that received the press even when
+    // the cursor leaves its bounds, so mid-drag the slack was very much live —
+    // and a whole keyboard of it meant notes kept firing absurdly far away.
+    enum YSlack {
+        /// Exactly the drawn keys. Hover and mouseDown: a key lights or sounds
+        /// only when the cursor is genuinely on it.
+        case none
+        /// Half a key-height of give above and below, for sustaining a held
+        /// note while the hand drifts off the keyboard mid-glissando.
+        case drag
+    }
+    private func rendererPoint(from event: NSEvent, slack: YSlack = .none) -> NSPoint? {
         let local = convert(event.locationInWindow, from: nil)
         let target = pianoTargetRect()
         let point = NSPoint(
@@ -234,12 +252,14 @@ final class PianoKeyboardView: NSView {
         let piano = KeyboardIconRenderer.withPianoWaveformKeyboard(keymap: menuBand?.keymap) {
             KeyboardIconRenderer.pianoImageSize(layout: Self.rendererLayout)
         }
-        let yMin: CGFloat = strictY ? 0 : -piano.height
-        let yMax: CGFloat = strictY ? piano.height : piano.height * 2
+        // Half a white key's height — enough to forgive a hand drifting off the
+        // keyboard mid-slide, small enough that the live region still reads as
+        // "the keyboard" rather than the whole panel.
+        let give: CGFloat = (slack == .drag) ? KeyboardIconRenderer.whiteH * 0.5 : 0
         guard point.x >= -KeyboardIconRenderer.whiteW,
               point.x <= piano.width + KeyboardIconRenderer.whiteW,
-              point.y >= yMin,
-              point.y <= yMax else { return nil }
+              point.y >= -give,
+              point.y <= piano.height + give else { return nil }
         return point
     }
 
