@@ -31,6 +31,14 @@ import { voices } from "./pads.mjs";
 
 // A note: letter, optional sharp/flat, octave. `c4` `f#3` `bb5` `a1`.
 const NOTE_LITERAL = /^[a-gA-G](#|s|b|f)?[0-8]$/;
+
+// A voice's first argument is a NOTE, taken raw. It has to be raw, because `c4` is
+// also a color in this language and would otherwise arrive as [0,255,0].
+const note = (raw, fallback) => {
+  if (raw === undefined || raw === null) return fallback;
+  const s = unquoteString(String(raw)).trim();
+  return s || fallback;
+};
 import { checkPackMode, getPackMode } from "./pack-mode.mjs";
 import { log } from "./logs.mjs";
 import { captureFrame, formatTimestamp, generateFilename } from "./frame-capture.mjs";
@@ -5375,6 +5383,17 @@ class KidLisp {
       return this.globalEnvCache;
     }
 
+    // The voices take their args RAW (a note must not be evaluated — `c4` is a
+    // color in this language). So their numeric args have to be evaluated by hand,
+    // which keeps `(bell c4 (* amplitude 2))` working while the note stays a note.
+    const numArg = (api, env, raw, fallback) => {
+      if (raw === undefined || raw === null) return fallback;
+      if (typeof raw === "number") return raw;
+      const v = this.fastEval(raw, api, env || this.localEnv);
+      const n = typeof v === "number" ? v : parseFloat(v);
+      return Number.isFinite(n) ? n : fallback;
+    };
+
     this.globalEnvCache = {
       // once: (api, args) => {
       //   console.log("Oncing...", args);
@@ -8245,47 +8264,56 @@ class KidLisp {
       // Sound is a boundary: `synth` isn't there on the first frames, and a voice
       // that throws takes the whole evaluation down with it. A pad with no audio
       // yet should draw silently, not die.
-      pluck: (api, args = []) =>
+      //
+      // The NOTE arrives unevaluated (these heads are in the no-eval list), because
+      // `c4` is ALREADY a color in KidLisp — it evaluates to [0,255,0], and a synth
+      // handed a green triple says "Note not found in the list". In a voice call a
+      // note is a note; nothing else gets to claim that name. Every OTHER argument
+      // is evaluated by hand, so volume and pan can still be expressions.
+      pluck: (api, args = [], env) =>
         api.sound?.synth &&
-        voices.pluck(api.sound.synth, args[0] ?? "c4", {
-          volume: args[1] ?? 0.5,
-          pan: args[2] ?? 0,
+        voices.pluck(api.sound.synth, note(args[0], "c4"), {
+          volume: numArg(api, env, args[1], 0.5),
+          pan: numArg(api, env, args[2], 0),
         }),
-      bell: (api, args = []) =>
+      bell: (api, args = [], env) =>
         api.sound?.synth &&
-        voices.bell(api.sound.synth, args[0] ?? "e5", {
-          volume: args[1] ?? 0.4,
-          pan: args[2] ?? 0,
+        voices.bell(api.sound.synth, note(args[0], "e5"), {
+          volume: numArg(api, env, args[1], 0.4),
+          pan: numArg(api, env, args[2], 0),
         }),
-      sub: (api, args = []) =>
+      sub: (api, args = [], env) =>
         api.sound?.synth &&
-        voices.sub(api.sound.synth, args[0] ?? "a1", {
-          volume: args[1] ?? 0.5,
-          pan: args[2] ?? 0,
+        voices.sub(api.sound.synth, note(args[0], "a1"), {
+          volume: numArg(api, env, args[1], 0.5),
+          pan: numArg(api, env, args[2], 0),
         }),
-      flute: (api, args = []) =>
+      flute: (api, args = [], env) =>
         api.sound?.synth &&
-        voices.flute(api.sound.synth, args[0] ?? "g4", {
-          volume: args[1] ?? 0.3,
-          pan: args[2] ?? 0,
+        voices.flute(api.sound.synth, note(args[0], "g4"), {
+          volume: numArg(api, env, args[1], 0.3),
+          pan: numArg(api, env, args[2], 0),
         }),
-      hat: (api, args = []) =>
+      hat: (api, args = [], env) =>
         api.sound?.synth &&
-        voices.hat(api.sound.synth, { volume: args[0] ?? 0.14, pan: args[1] ?? 0 }),
+        voices.hat(api.sound.synth, {
+          volume: numArg(api, env, args[0], 0.14),
+          pan: numArg(api, env, args[1], 0),
+        }),
 
       // The whole synth, for when a named voice isn't the one you hear.
       //   (voice sine c4 0.4 0 1.2)  → type, note, volume, pan, beats
-      voice: (api, args = []) => {
+      voice: (api, args = [], env) => {
         const synth = api.sound?.synth;
         if (!synth) return;
         return synth({
           type: unquoteString(String(args[0] ?? "sine")),
-          tone: args[1] ?? "c4",
-          volume: args[2] ?? 0.4,
-          pan: args[3] ?? 0,
-          beats: args[4] ?? 0.6,
-          attack: args[5] ?? 0.01,
-          decay: args[6] ?? 0.6,
+          tone: note(args[1], "c4"),
+          volume: numArg(api, env, args[2], 0.4),
+          pan: numArg(api, env, args[3], 0),
+          beats: numArg(api, env, args[4], 0.6),
+          attack: numArg(api, env, args[5], 0.01),
+          decay: numArg(api, env, args[6], 0.6),
         });
       },
 
@@ -10668,6 +10696,15 @@ class KidLisp {
                 let processedArgs;
                 // Functions that don't need argument evaluation
                 if (
+                  // The voices: their first argument is a NOTE and must arrive
+                  // unevaluated, because `c4` is also a color. They evaluate their
+                  // own numeric args (see numArg above).
+                  head === "pluck" ||
+                  head === "bell" ||
+                  head === "sub" ||
+                  head === "flute" ||
+                  head === "hat" ||
+                  head === "voice" ||
                   head === "later" ||
                   head === "tap" ||
                   head === "draw" ||
