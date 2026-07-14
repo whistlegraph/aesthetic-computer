@@ -63,6 +63,13 @@
         "memory/memory-mcp.mjs"
       ]
     },
+    "slack": {
+      "type": "stdio",
+      "command": "bash",
+      "args": [
+        "toolchain/mcp/slack-mcp.sh"
+      ]
+    },
     "chat": {
       "type": "stdio",
       "command": "node",
