@@ -179,8 +179,21 @@
     @whistlegraph host whistlegraph.org www.whistlegraph.org
     handle @whistlegraph {
         root * /opt/ac/system/public/whistlegraph.org
-        try_files {path} {path}.html /index.html
-        file_server
+        # Bare /<code> deep links (e.g. /imab, /clth) go to lith, which returns
+        # index.html with THAT work's og:title / og:image / og:video injected —
+        # so iMessage, Slack, Twitter, etc. unfurl the specific whistlegraph
+        # instead of one generic card. Unknown codes fall back to the plain page.
+        # Everything with a dot (index.html, *.json, *.jpg, favicon) skips this
+        # matcher and is served straight off disk.
+        @wgcode path_regexp wgcode ^/([A-Za-z0-9]+)$
+        handle @wgcode {
+            rewrite * /api/whistlegraph-og?code={re.wgcode.1}
+            reverse_proxy localhost:8888
+        }
+        handle {
+            try_files {path} {path}.html /index.html
+            file_server
+        }
     }
 
     # --- data.aesthetic.computer (Linked Open Data / CIDOC CRM) ---
