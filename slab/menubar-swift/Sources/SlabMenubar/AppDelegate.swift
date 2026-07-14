@@ -116,6 +116,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var scatterHotkey: GlobalHotkey?
     /// System-wide ⌃⌥⌘A → toggle Dark Mode across this host + tailscale macs.
     private var appearanceHotkey: GlobalHotkey?
+    /// System-wide ⌘⌥← → ↑ ↓ → walk focus spatially across the tiled terminal
+    /// wall (see WindowNav). Four hotkeys, one per arrow; held for the app's
+    /// lifetime and unregistered in `applicationWillTerminate`.
+    private var navHotkeys: [GlobalHotkey] = []
 
     /// ⌃⌃ → magnify the window under the pointer. Not a `GlobalHotkey`: Carbon
     /// can only register a keycode+modifier chord, and a bare modifier tapped
@@ -190,6 +194,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             appearanceHotkey = appHotkey
         }
 
+        // Global ⌘⌥←/→/↑/↓ walk focus across the tiled terminal wall spatially:
+        // each arrow raises the Claude terminal window in that direction. ⌘⌥
+        // (not bare ⌥) matches the tile/scatter family and leaves Option+arrow
+        // word-navigation intact. Distinct ids (4–7) so each arrow owns its slot.
+        let navBindings: [(UInt32, UInt32, WindowNav.Direction)] = [
+            (4, UInt32(kVK_LeftArrow),  .left),
+            (5, UInt32(kVK_RightArrow), .right),
+            (6, UInt32(kVK_UpArrow),    .up),
+            (7, UInt32(kVK_DownArrow),  .down),
+        ]
+        for (hkId, key, dir) in navBindings {
+            let hk = GlobalHotkey(id: hkId) { WindowNav.jump(dir) }
+            if hk.register(keyCode: key, modifiers: UInt32(cmdKey | optionKey)) {
+                navHotkeys.append(hk)
+            }
+        }
+
         // ⌃⌃ zooms in on the window under the pointer; ⌃⌃ again zooms back out.
         // The tap listens always — the flag is checked at fire time, not here, so
         // toggling the feature from the menu doesn't need to tear a tap down.
@@ -230,6 +251,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         tileHotkey?.unregister()
         scatterHotkey?.unregister()
         appearanceHotkey?.unregister()
+        navHotkeys.forEach { $0.unregister() }
         zoomLensTap?.stop()
         // Compositor zoom outlives us — never quit leaving the screen magnified.
         if ZoomLens.isZoomed { ZoomLens.zoomOut() }
