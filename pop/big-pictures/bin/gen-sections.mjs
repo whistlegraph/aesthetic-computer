@@ -159,9 +159,22 @@ const REALIZE = new Map([[OFFICE, R_OFFICE], [GRAY_WOMAN, R_GRAY_WOMAN], [MARK, 
 const PSYCH_MEDIUM =
 `A META-BLUE DIGITAL GLITCH RENDER — the metaverse tearing apart / assembling, rendered ENTIRELY in META BLUE (#0668E1): glowing Meta-blue polygon shards, Meta-blue wireframe, datamosh smears, scan-lines and luminous Meta-blue trails over a deep blue-black void. MONOCHROME META BLUE — NOT polychrome, NOT rainbow, NOT multicolour, NOT psychedelic-colour; cold corporate Facebook/Meta blue only. Crisp glowing geometry, no motion blur. Deadpan, eerie, corporate-cosmic.`;
 const PSYCH_JEFFREY =
-`JEFFREY — recognizable from the references (brown hair, beard, his real face), his avatar caught mid-transition, breaking apart into / assembling out of glowing rainbow-coloured polygon shards.`;
+`JEFFREY — recognizable from the references (brown hair, beard, his real face), his avatar caught mid-transition, breaking apart into / assembling out of glowing META-BLUE polygon shards.`;
+// Characters other than jeffrey still need their IDENTITY described in a
+// psych beat — the medium blocks supply the look, not the cast. Without
+// this, a beat whose body names MARK has only jeffrey described and only
+// jeffrey's reference photos to go on, and the model draws a SECOND
+// jeffrey (it did: the portal beat came back with two longhairs).
+const PSYCH_MARK =
+`MARK ZUCKERBERG — recognizably him (pale skin, short straight brown hair in a flat Caesar fringe, rounded boyish face, faint unblinking smile, plain crew-neck t-shirt), his avatar rendered in the same glowing Meta-blue polygon-shard idiom as the rest of the frame. Clearly a DIFFERENT person from jeffrey — NOT a second jeffrey: no long hair, no beard.`;
+const PSYCH_CAST = new Map([[MARK, PSYCH_MARK]]);
+// State the clean frame POSITIVELY. A bare "no giant hands" negative made
+// gpt-image-2 draw them anyway (and it volunteered a Meta wordmark + a
+// music-player UI on top) — naming a thing to forbid tends to summon it.
+const PSYCH_FRAME =
+`THE FRAME CONTAINS THE SCENE AND NOTHING ELSE — it is a clean, free-floating camera looking at the world. Every hand and arm in frame BELONGS to a full figure whose body is visible and attached. The image is bare of any graphic layer: no logos, no wordmarks, no brand marks, no lettering, no numbers, no buttons, no player controls, no progress bars, no interface of any kind anywhere in the picture.`;
 const PSYCH_AVOID =
-`AVOID — ANY polychrome / rainbow / multicolour / psychedelic-colour (this beat is MONOCHROME META BLUE #0668E1 only); grey; photoreal look; readable text / logos; UI / HUD overlays; motion blur.`;
+`AVOID — ANY polychrome / rainbow / multicolour / psychedelic-colour (this beat is MONOCHROME META BLUE #0668E1 only); grey; photoreal look; motion blur; ANY second jeffrey / duplicate of the same man.`;
 const PSYCH_SET = new Set(["build-c", "build-d", "drop1-a", "outro-b", "outro-c", "outro-d"]);
 
 // ── per-beat story — office → metaverse → office, 8 sections × 2 ──────
@@ -269,7 +282,10 @@ function build(beat, tightCrop, psych) {
     : (tightCrop ? "" : `\n\n${PORTRAIT_NOTE}`);
   const pov = beat.body.includes("FIRST-PERSON POV") ? `\n\n${POV_NOTE}` : "";
   if (psych) {  // degradation: Meta-blue glitch
-    return [PSYCH_MEDIUM, PSYCH_JEFFREY, beat.body, PSYCH_AVOID].join("\n\n") + pov + orient + "\n";
+    const cast = beat.blocks.map((b) => PSYCH_CAST.get(b)).filter(Boolean);
+    // POV beats WANT foreground hands; every other beat wants a clean frame.
+    const frame = pov ? [] : [PSYCH_FRAME];
+    return [PSYCH_MEDIUM, PSYCH_JEFFREY, ...cast, beat.body, ...frame, PSYCH_AVOID].join("\n\n") + pov + orient + "\n";
   }
   if (beat.blocks.includes(OFFICE)) {  // real-world office: photoreal + textured
     const rb = beat.blocks.map((b) => REALIZE.get(b) || b);
