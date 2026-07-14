@@ -15,7 +15,9 @@
     "rock": "I Just Found A Little Rock",
     "dggy": "Doggy Head",
     "grav": "Grave of My Friend",
-    "asmr": "Aggro Smile Money Raspberry"
+    "asmr": "Aggro Smile Money Raspberry",
+    "tsss": "The Sun Keeps Beaming Down",
+    "soda": "Empty Soda Cup"
   },
   "twins": [
     {
@@ -64,7 +66,10 @@
     "tppl": "Jeffrey Alan Scudder",
     "trip": "Jeffrey Alan Scudder",
     "grav": "Jeffrey Alan Scudder",
-    "lost": "Jeffrey Alan Scudder"
+    "lost": "Jeffrey Alan Scudder",
+    "tsss": "Jeffrey Alan Scudder",
+    "soda": "Jeffrey Alan Scudder",
+    "sitg": "Jeffrey Alan Scudder"
   },
   "recodes": {
     "cdh": "bugy",
@@ -82,7 +87,8 @@
     "trip": "tppl",
     "bmhd": "trip",
     "asmr": "tryo",
-    "btky": "asmr"
+    "btky": "asmr",
+    "bush": "soda"
   },
   "postTags": {
     "7019362782122380550": [
@@ -150,7 +156,8 @@
     "mathc": "math",
     "brkht": "bndg",
     "fotg": "grav",
-    "wtfd": "kity"
+    "wtfd": "kity",
+    "tear": "lost"
   },
   "splits": {
     "lost": {
