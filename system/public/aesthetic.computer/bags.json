@@ -3,7 +3,7 @@
   "bags": {
     "pads": {
       "title": "pads",
-      "description": "48 self-running audiovisual instrument pads - tap or drag to play",
+      "description": "49 self-running audiovisual instrument pads - tap or drag to play",
       "color": "yellow",
       "items": [
         {
@@ -245,6 +245,11 @@
           "type": "piece",
           "code": "velsor",
           "name": "velsor"
+        },
+        {
+          "type": "piece",
+          "code": "wandro",
+          "name": "wandro"
         }
       ]
     }
