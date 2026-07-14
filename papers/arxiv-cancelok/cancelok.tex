@@ -180,7 +180,7 @@
 
 \begin{quote}
 \small\noindent\textbf{Abstract.}
-A machine writes the software. A person only ever says \emph{cancel} or \emph{ok}. Out of nothing but that one bit --- plus the taps you didn't know you were giving --- a body of work accumulates. \texttt{cancelok} is a three-tier gate over machine-authored ``pads'': self-running audiovisual instruments where the whole screen is one button. A headless doctor certifies each candidate first (min fps $\geq$ 55, JS-heap growth $<$ 40\,MB, zero console errors) and junk dies there, unseen. Survivors are shown one at a time, full-bleed, \emph{actually running and playable}, and answered with two buttons. Dwell time, taps, and replays are recorded without being asked for. Verdicts plus usage become the prompt for the next generation. The tiers are ordered by what is scarce: machine time is free, so it goes first; human attention is the only irreplaceable input, so it is spent on the one thing no script can measure --- whether the thing is any good. The lineage is \emph{No Paint} (2020), whose two buttons were \emph{Paint} and \emph{No}; \texttt{cancelok} is that gesture pointed at software instead of pixels. The judging surface is built and working as of 2026-07-14. The generator and the feedback loop are prototypes, and this paper says so out loud. The uncomfortable part is at the end: if a machine makes it and a human only ever says no or ok, who made it?
+A machine writes the software. A person only ever says \emph{cancel} or \emph{ok}. Out of nothing but that one bit --- plus the taps you didn't know you were giving --- a body of work accumulates. \texttt{cancelok} is a three-tier gate over machine-authored ``pads'': self-running audiovisual instruments where the whole screen is one button. A headless doctor certifies each candidate first --- graded against a known-good pad measured in the same session, because an absolute frame-rate floor turns out to measure the host and not the pad --- and junk dies there, unseen. Survivors are shown one at a time, full-bleed, \emph{actually running and playable}, and answered with two buttons. Dwell time, taps, and replays are recorded without being asked for. Verdicts plus usage become the prompt for the next generation. The tiers are ordered by what is scarce: machine time is free, so it goes first; human attention is the only irreplaceable input, so it is spent on the one thing no script can measure --- whether the thing is any good. The lineage is \emph{No Paint} (2020), whose two buttons were \emph{Paint} and \emph{No}; \texttt{cancelok} is that gesture pointed at software instead of pixels. The judging surface is built and working as of 2026-07-14. The generator and the feedback loop are prototypes, and this paper says so out loud. The uncomfortable part is at the end: if a machine makes it and a human only ever says no or ok, who made it?
 \end{quote}
 \vspace{0.5em}
 }]
@@ -242,17 +242,28 @@ export { boot, sim, paint, act };
 
 That skeleton is not documentation of the engine. It \emph{is} the engine's file header --- the top of \texttt{pads.mjs} is written as an authoring prompt, because the intended reader is a language model. The contract, the hooks, the quality scalar you're expected to consume, the reason \texttt{initPad} must run in \texttt{boot} and not at import (the engine is a session singleton, so each pad re-asserts its config on entry) --- all of it is stated in the place a model will read it, in the words a model needs. This is the whole reason a pad can be generated at all. The surface area of ``a new pad'' has been squeezed down to five hooks and a bpm.
 
-Then \texttt{pad-doctor} certifies it. Headless Chrome, real GPU, no human:
-
-\begin{itemize}
-  \item \textbf{min fps $\geq$ 55} (below 40 is a hard fail),
-  \item \textbf{JS-heap growth $<$ 40\,MB} over the watch window --- the number that actually explains ``it crashed,''
-  \item \textbf{zero console errors}, with the known-benign offline noise filtered out so the count means something.
-\end{itemize}
-
-It writes nothing, it takes fifteen seconds, and it costs approximately zero. A candidate that stutters, leaks, or throws dies right there. \textbf{I never see it.}
+Then \texttt{pad-doctor} certifies it. Headless Chrome, real GPU, no human. It writes nothing, it takes fifteen seconds, and it costs approximately zero. A candidate that stutters, leaks, or throws dies right there. \textbf{I never see it.}
 
 That last sentence is the point. \emph{Correctness is not a human problem.} If a person has to be the one who rejects the crashes, then that person is doing a script's job with the one resource in the system that a script cannot replace. Every candidate that reaches my thumb has already been proven to \emph{run}. What remains for me is the only question left.
+
+\subsection{The gate needed a gate}
+
+I built it with absolute thresholds --- \textbf{min fps $\geq$ 55}, \textbf{heap growth $<$ 40\,MB}, \textbf{zero console errors} --- and every one of those numbers except the last was wrong, in a way I'd have never noticed if I hadn't gone looking.
+
+Headless Chrome does not render at the speed of the pad. It renders at the speed of whatever the host feels like. On this Mac, \emph{every} pad reads exactly 30\,fps --- including all 47 shipped ones, which hold a certified 60 on native. An absolute floor of 40 would have rejected \texttt{prism}. The first pad the loop ever made passed only because one run happened to report 60; the same pad measured 30 on the next. \textbf{The gate was a coin flip and it certified things anyway.}
+
+Heap was worse, because it looked like a real signal. Growth over a twelve-second window is dominated by when the garbage collector happens to feel like running. The same pad, measured twice, swung from $+11$\,MB to $+42$\,MB. \texttt{lull} --- shipped, certified, and the pad I'd chosen as my reference --- reads $+40$\,MB on a bad run and gets flagged as a leak.
+
+So the gate now does two things differently, and both are the same idea:
+
+\begin{itemize}
+  \item \textbf{Frame rate is relative.} It measures a known-good pad in the same session and grades the candidate against it. Whatever the host is doing to \texttt{lull}, it is doing to the candidate too, and the ratio survives it.
+  \item \textbf{It confirms before it convicts.} Anything that fails is measured again, and only a failure that \emph{repeats} is believed. A leak repeats. A GC hiccup doesn't. Thrown errors are exempt --- those are deterministic, so they're believed the first time.
+\end{itemize}
+
+\pull{a threshold is a claim about the world, and an absolute number measured on a machine that isn't the world is just a number.}
+
+I'm dwelling on this because it is the cheapest possible version of the failure this whole architecture is built to survive. A miscalibrated gate doesn't announce itself. It quietly rejects the good ones and passes the bad ones, and every generation still \emph{looks} fine from the inside, because the only thing checking the gate was the gate. What caught it was going and measuring the 47 pads I already knew were good --- which is to say: what caught the machine was a human who already had taste about the answer. That is not an aside from the thesis. That is the thesis.
 
 \subsection{Gate 2 --- the cancel/ok gate (scarce; the only human input)}
 
@@ -421,7 +432,11 @@ As of 2026-07-14, honestly:
   \item \textbf{The circle closed once.} A pad called \texttt{drolo} --- a pendulum-wave orrery whose swing ratios are just-intonation intervals, so the moment the row snaps back into a line is consonance made visible --- was written by the model, certified by the gate at 60fps, queued, judged in the surface, and its verdict (\texttt{ok}, 7 seconds, played 3 times) landed in the sink and is now sitting in the prompt the next generation will read. No human touched the file.
 \end{itemize}
 
-The loop taught me two things in its first hour, both of them embarrassing and both of them the point of building it. It burned an entire generation colliding with a name that already existed --- because \texttt{claude --print} \emph{has file-writing tools}, so the generator wrote its own pad to disk and then collided with itself. A generator must be a language model, not an agent: it returns text, and \emph{I} decide what lands. And the trait string came back with a Unicode $\times$ in it, which AC's font renders as a question mark. The machine gate certified the pad at 60fps and had nothing at all to say about either problem.
+The loop taught me four things in its first hours, all of them embarrassing and all of them the point of building it.
+
+It burned an entire generation colliding with a name that already existed --- because \texttt{claude --print} \emph{has file-writing tools}, so the generator wrote its own pad to disk and then collided with itself. A generator must be a language model, not an agent: it returns text, and \emph{I} decide what lands. The trait string came back with a Unicode $\times$ in it, which AC's ASCII font renders as a question mark, right in the judging bar. The gate was miscalibrated in two directions at once (\S3.1). And the judging surface was quietly \emph{lying about the instrument}: the verdict bar was painted over the candidate, so the bottom of every pad was hidden --- and worse, the pad was still normalizing taps against the full screen height, so part of its XY range sat underneath a button where no finger could reach it. I was asking people to judge a clipped instrument. The fix is the ancestor's, exactly: the candidate paints into its own surface, the way a nopaint brush paints into a buffer instead of the painting, and the two are composited. Two surfaces, never one.
+
+The machine gate certified every one of those pads at 60fps and had nothing whatsoever to say about any of it.
 
 \textbf{Still speculative.}
 \begin{itemize}
