@@ -530,8 +530,12 @@ final class CollapsedPianoWaveformView: NSView {
         instrumentList.radioBackendActive = (menuBand.instrumentBackend == .kpbj)
         instrumentList.sampleBackendActive = (menuBand.instrumentBackend == .sample)
         instrumentList.selectedRadioStationID = menuBand.radioStation.id
-        instrumentList.squawkEnabled = MenuBandSquawk.isEnabled
-        instrumentList.squawkListening = squawkListening
+        // The 🦜 MIC cell is retired from the sampling row in ALL builds — the
+        // instrument grid stays SAMPLE + MIDI OUT only. Squawk itself lives on
+        // for direct-download via its own window + the ⌘⌃⌥` hotkey; it just no
+        // longer surfaces as a grid cell. (Was `MenuBandSquawk.isEnabled`.)
+        instrumentList.squawkEnabled = false
+        instrumentList.squawkListening = false
 
         applyInstrumentReadout(safe: safe, familyColor: familyColor, isDark: isDark)
 

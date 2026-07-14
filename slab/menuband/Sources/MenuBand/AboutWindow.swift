@@ -331,7 +331,7 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         // replaces the old purple "Jam" button that used to sit in the
         // popover footer.
         stack.setCustomSpacing(22, after: langRow)
-        let playersLink = NSButton(title: "",
+        let playersLink = HoverTextLinkButton(title: "",
                                    target: self,
                                    action: #selector(openLookingForPlayers(_:)))
         let acPurple = NSColor(red: 167/255, green: 139/255, blue: 250/255, alpha: 1)
@@ -399,7 +399,7 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         // moved into the centered footer where a row can come and go without
         // leaving a hole. (Corner-pinned to `content`, outside the stack's
         // flow, so neither link can affect the window's fixed 320×340 height.)
-        let settingsCorner = NSButton(title: "", target: self,
+        let settingsCorner = HoverTextLinkButton(title: "", target: self,
                                       action: #selector(openSettings(_:)))
         let settingsFont = NSFont.systemFont(ofSize: 11, weight: .semibold)
         let settingsTitle = NSMutableAttributedString(
@@ -426,7 +426,7 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         // "Tips" — a quiet link pinned to the bottom-LEFT corner (mirroring
         // the crash ⚠️ at bottom-right), opening the Menu Band manual. Corner-
         // pinned so it doesn't take a row and keeps the brand chrome clean.
-        let tipsCorner = NSButton(title: "",
+        let tipsCorner = HoverTextLinkButton(title: "",
                                   target: self,
                                   action: #selector(openTips(_:)))
         // "💡 Tips" — leading lightbulb (un-underlined), then the purple
@@ -508,7 +508,7 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
                 ])
             crashTitle.append(NSAttributedString(
                 string: " ⚠️", attributes: [.font: crashFont]))
-            let warn = NSButton(title: "", target: self,
+            let warn = HoverTextLinkButton(title: "", target: self,
                                 action: #selector(viewCrashLogs(_:)))
             warn.attributedTitle = crashTitle
             warn.isBordered = false

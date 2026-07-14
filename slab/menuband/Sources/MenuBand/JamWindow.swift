@@ -139,7 +139,7 @@ final class JamWindowController: NSWindowController, NSWindowDelegate {
     private func clubLink(_ text: String, action: Selector,
                           tooltip: String, para: NSParagraphStyle,
                           color: NSColor) -> NSButton {
-        let button = NSButton(title: "", target: self, action: action)
+        let button = HoverTextLinkButton(title: "", target: self, action: action)
         button.attributedTitle = NSAttributedString(
             string: text,
             attributes: [

@@ -91,8 +91,8 @@ final class SquawkWindowController: NSWindowController, NSWindowDelegate {
         enableToggle.action = #selector(toggleEnabled(_:))
 
         let how = NSTextField(wrappingLabelWithString:
-            "Hold ⌘⌃⌥` and talk, then release to insert. The 🦜 cell in the "
-            + "popover toggles it with a click too. The first time, macOS asks "
+            "Hold ⌘⌃⌥` and talk, then release to insert. The Talk button below "
+            + "toggles it with a click too. The first time, macOS asks "
             + "for Microphone and Speech Recognition — allow both.")
         how.font = .systemFont(ofSize: 11)
         how.textColor = .secondaryLabelColor
