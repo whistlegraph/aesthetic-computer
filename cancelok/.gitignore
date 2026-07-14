@@ -1,0 +1,5 @@
+# Local taste. The verdicts that matter live in Mongo now (api/cancelok);
+# these are the laptop's own scratch copy, and one person's thumbs aren't
+# something to check in.
+verdicts.jsonl
+queue.json

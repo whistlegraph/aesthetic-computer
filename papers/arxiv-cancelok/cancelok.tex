@@ -1,0 +1,510 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+
+\setmainfont{Latin Modern Roman}[
+  Extension=.otf,
+  UprightFont=lmroman10-regular,
+  BoldFont=lmroman10-bold,
+  ItalicFont=lmroman10-italic,
+  BoldItalicFont=lmroman10-bolditalic,
+]
+\setsansfont{Latin Modern Sans}[
+  Extension=.otf,
+  UprightFont=lmsans10-regular,
+  BoldFont=lmsans10-bold,
+  ItalicFont=lmsans10-oblique,
+  BoldItalicFont=lmsans10-boldoblique,
+]
+
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\setmonofont{Latin Modern Mono}[
+  Extension=.otf,
+  UprightFont=lmmono10-regular,
+  ItalicFont=lmmono10-italic,
+  Scale=0.85,
+]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multicol}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS (AC palette) ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{acgreen}{RGB}{40,150,90}
+\definecolor{acred}{RGB}{200,50,60}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={cancelok: Software That Builds Itself Out of Two Buttons},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Working Draft --- not for citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === CUSTOM COMMANDS ===
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+% === PULL QUOTE ===
+\newcommand{\pull}[1]{%
+  \par\vspace{0.4em}
+  {\aclight\small\color{acpink}\itshape #1}\par
+  \vspace{0.4em}}
+
+% === LISTINGS ===
+\lstdefinestyle{acjs}{
+  basicstyle=\ttfamily\scriptsize,
+  keywordstyle=\color{acpurple},
+  commentstyle=\color{acgray}\itshape,
+  stringstyle=\color{acpink},
+  numbers=none,
+  frame=leftline,
+  framesep=6pt,
+  rulecolor=\color{acgray!40},
+  breaklines=true,
+  columns=fullflexible,
+  showstringspaces=false,
+  language=Java,
+  morekeywords={function,const,let,return,await,async,import,export,if,new},
+  aboveskip=0.6em,
+  belowskip=0.6em,
+}
+\lstset{style=acjs}
+
+\begin{document}
+
+% ============ TITLE BLOCK ============
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals.png}\par\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} cancel\,{\color{acpink}/}\,ok}\par
+\vspace{0.35em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Software That Builds Itself Out of Two Buttons}\par
+\vspace{0.6em}
+{\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ working draft --- not for citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Abstract.}
+A machine writes the software. A person only ever says \emph{cancel} or \emph{ok}. Out of nothing but that one bit --- plus the taps you didn't know you were giving --- a body of work accumulates. \texttt{cancelok} is a three-tier gate over machine-authored ``pads'': self-running audiovisual instruments where the whole screen is one button. A headless doctor certifies each candidate first (min fps $\geq$ 55, JS-heap growth $<$ 40\,MB, zero console errors) and junk dies there, unseen. Survivors are shown one at a time, full-bleed, \emph{actually running and playable}, and answered with two buttons. Dwell time, taps, and replays are recorded without being asked for. Verdicts plus usage become the prompt for the next generation. The tiers are ordered by what is scarce: machine time is free, so it goes first; human attention is the only irreplaceable input, so it is spent on the one thing no script can measure --- whether the thing is any good. The lineage is \emph{No Paint} (2020), whose two buttons were \emph{Paint} and \emph{No}; \texttt{cancelok} is that gesture pointed at software instead of pixels. The judging surface is built and working as of 2026-07-14. The generator and the feedback loop are prototypes, and this paper says so out loud. The uncomfortable part is at the end: if a machine makes it and a human only ever says no or ok, who made it?
+\end{quote}
+\vspace{0.5em}
+}]
+
+% ============ 1. THE ANCESTOR ============
+
+\section{The Ancestor: No Paint}
+
+Before \ac{} there was \emph{No Paint} (2020) --- a pixel-art tool whose community of non-technical users started sending me brushes, which is the bottleneck that eventually became this whole platform~\citep{scudder2026ac}. But the part that matters here isn't the origin story. It's the gesture.
+
+The demo piece still in the repo carries the header line, unchanged:
+
+\begin{quote}
+\small\emph{``Press Paint if you like what you see or No if you don't.''}
+\end{quote}
+
+That is the entire interaction model of a paint program, stated in one sentence, and it inverts the normal one. You don't choose a brush and then commit to a stroke. The stroke \emph{happens} --- optimistically, immediately, in full --- and then you judge it. Make it first, decide after. The judgment is one bit wide.
+
+And crucially the judgment is not destructive. In \texttt{disk.mjs}, \texttt{no} and \texttt{yes} move a cursor (\texttt{undoPosition}) across a 32-deep stack of paintings. \texttt{no} rewinds. \texttt{yes} fast-forwards. Nothing is popped, nothing is thrown away, and the rejected state is still sitting there if you change your mind. A cheap verdict has to be cheap in \emph{both} directions --- if saying no costs you something you can't get back, you stop saying it honestly, and the signal rots.
+
+The name was the two buttons. \texttt{cancelok} is the same name-shaped-like-its-interface, one medium over. Same gesture. Same optimism. Same one bit. Except now the thing being judged is not a rectangle of pixels. It's a program.
+
+\pull{make it first, decide after. the judgment is one bit wide, and it costs nothing in either direction.}
+
+% ============ 2. THE PROBLEM ============
+
+\section{Generation Got Free. Judgment Didn't.}
+
+Here is what changed, and it changed fast enough that most of our tools haven't noticed.
+
+Writing a small program used to be the expensive step. A 200-line audiovisual instrument --- a visual generator crossed with a synth voice, running at 60fps on a phone --- was an afternoon, minimum, and that's if you already had the engine. So all our machinery is built around \emph{protecting} that afternoon: code review, tests, linting, types, PR templates. Every one of those is a device for making sure the expensive thing you built doesn't get wasted.
+
+Now the afternoon is thirty seconds. I can have a hundred of those instruments by lunch. The last era of my own codebase already showed the shape of it: commit velocity went from about eight a day to about forty, and five new subsystems landed in roughly a fortnight~\citep{scudder2026handloop}. Generation is not the constraint anymore.
+
+But my afternoon didn't get cheaper. There are still only so many minutes in which I am willing to sit and \emph{feel} whether something is good. That number did not move. It will never move. It is the one input in the entire system that cannot be scaled, bought, parallelized, or prompted into existence.
+
+So the whole design question flips. It is no longer \emph{how do we make more software}. It is: \textbf{given that a machine can make an unbounded amount of this stuff and I can only look at a little of it, what is the smallest, cheapest, most honest thing I can do with my attention that still steers the whole pile?}
+
+The answer, I think, is: look at one thing at a time, actually running, and press one of two buttons.
+
+% ============ 3. THE THREE GATES ============
+
+\section{The Three Gates}
+
+\texttt{cancelok} is a funnel with three tiers, and the ordering is the argument. \textbf{The tiers are sorted by what's scarce.} Machine time is free, so it goes first and it goes on everything. Human attention is priceless, so it goes last, on the fewest items, and it's asked the one question nothing else can answer. Passive usage is free again, so it runs underneath, always, uninvited.
+
+\subsection{Gate 1 --- the machine gate (free, runs on every candidate)}
+
+The candidates are \emph{pads}: self-running audiovisual instruments where the whole screen is one button. Each pad is a visual generator crossed with a synth voice. There are 47 of them in the \texttt{\^{}pads} bag right now --- \texttt{prism}, \texttt{lull}, \texttt{gloob}, \texttt{voop}, \texttt{molten}, on and on --- and every single one is a thin wrapper over one shared engine, \texttt{lib/pads.mjs}. The engine owns the UTC-synced beat grid, the tap-to-pump energy, the audio-reactive polling, the zero-latency voice models, and an adaptive-quality controller that scales detail to hold 60fps. The wrapper only describes what makes it \emph{itself}:
+
+\begin{lstlisting}
+import { initPad, boot as padBoot, sim, paint, act }
+  from "../lib/pads.mjs";
+const CONFIG = { bpm: 132, steps: 16,
+  hooks: { onBoot, onBeat, onSim, onPaint, onTap } };
+function boot(api) { initPad(CONFIG); padBoot(api); }
+export { boot, sim, paint, act };
+\end{lstlisting}
+
+That skeleton is not documentation of the engine. It \emph{is} the engine's file header --- the top of \texttt{pads.mjs} is written as an authoring prompt, because the intended reader is a language model. The contract, the hooks, the quality scalar you're expected to consume, the reason \texttt{initPad} must run in \texttt{boot} and not at import (the engine is a session singleton, so each pad re-asserts its config on entry) --- all of it is stated in the place a model will read it, in the words a model needs. This is the whole reason a pad can be generated at all. The surface area of ``a new pad'' has been squeezed down to five hooks and a bpm.
+
+Then \texttt{pad-doctor} certifies it. Headless Chrome, real GPU, no human:
+
+\begin{itemize}
+  \item \textbf{min fps $\geq$ 55} (below 40 is a hard fail),
+  \item \textbf{JS-heap growth $<$ 40\,MB} over the watch window --- the number that actually explains ``it crashed,''
+  \item \textbf{zero console errors}, with the known-benign offline noise filtered out so the count means something.
+\end{itemize}
+
+It writes nothing, it takes fifteen seconds, and it costs approximately zero. A candidate that stutters, leaks, or throws dies right there. \textbf{I never see it.}
+
+That last sentence is the point. \emph{Correctness is not a human problem.} If a person has to be the one who rejects the crashes, then that person is doing a script's job with the one resource in the system that a script cannot replace. Every candidate that reaches my thumb has already been proven to \emph{run}. What remains for me is the only question left.
+
+\subsection{Gate 2 --- the cancel/ok gate (scarce; the only human input)}
+
+Survivors come up one at a time in the \texttt{cancelok} piece: full-bleed, at full frame rate, \emph{actually running}. Not a screenshot. Not a description. Not a diff.
+
+It's hosted, not linked. The piece imports the candidate's module and drives its lifecycle itself --- \texttt{boot}, then \texttt{sim}/\texttt{paint}/\texttt{act} every frame --- and paints a 46-pixel verdict bar on top. Everything above the bar belongs to the candidate. Everything you do above the bar goes \emph{to} the candidate:
+
+\begin{lstlisting}
+// Route by where the gesture STARTED, so a drag out of
+// the bar doesn't play the pad and a drag out of the pad
+// doesn't cast a verdict.
+if (e.is("touch")) {
+  fromBar = inBar(e.y);
+  if (fromBar) armed = e.x < w / 2 ? "cancel" : "ok";
+}
+// Everything else is the candidate's --- it's an
+// instrument, so play it.
+if (!fromBar && host && !hostFailed) {
+  if (e.is("touch")) taps += 1;
+  host.act?.(api);
+}
+\end{lstlisting}
+
+So you can play the thing while you judge it. That is not a convenience feature. Judging an instrument you're forbidden to touch is judging a photograph of an instrument, and the two are not the same object. The verdict bar takes the minimum pixels it can and gives everything else back.
+
+Two buttons, the full width, split down the middle. \texttt{cancel} is on the left, because that's where the thumb rests and the reflex is to keep moving. The halves are exactly equal even though the words aren't --- the two answers carry the same weight, and the layout should not lean. On a keyboard it's arrow-left / arrow-right, escape / enter. That is the entire human API of this system. There is nothing else to learn and nothing else to give.
+
+A candidate that fails to load --- that throws on import, or dies mid-frame --- doesn't crash the judge. It gets caught, painted as \texttt{didn't run} in the cancel color, and you dismiss it with the same tap you'd use on anything else. A machine-gate failure that slipped through is still just a verdict.
+
+\subsection{Gate 3 --- the usage gate (passive, free, slow)}
+
+While you're doing all that, the piece is writing things down that you did not agree to give it.
+
+\begin{itemize}
+  \item \textbf{dwell} --- how long the candidate was up before you answered,
+  \item \textbf{taps} --- how many times you reached out and \emph{played} it,
+  \item \textbf{failed} --- whether it ran at all,
+  \item and, over time: replays, skips, which ones you come back to.
+\end{itemize}
+
+Taps are the interesting one, and the piece shows the count back to you in the corner in warm yellow while you play, because you should know what you're saying.
+
+Here's why it matters. An \texttt{ok} costs one press. It's the polite answer. It's what you give something that isn't offensive. But a pad you \emph{touched nine times} --- you didn't approve that, you \textbf{wanted} it, and nobody asked you to demonstrate that and you did it anyway. The scoring in \texttt{taste.mjs} says it plainly:
+
+\begin{lstlisting}
+const enthusiasm = (v) =>
+  (v.verdict === "ok" ? 1 : 0) + Math.min(2, v.taps / 3);
+\end{lstlisting}
+
+An ok is worth one. Enthusiasm is worth up to two more. \textbf{The tap count is the signal you didn't know you were giving} --- and it's the only part of the whole apparatus that can tell the difference between \emph{fine} and \emph{yes}.
+
+The inverse is just as loud. A pad that got an \texttt{ok} and was never touched is \emph{approved but unwanted}, and the generator gets told exactly that, in those words.
+
+\begin{table*}[t]
+\footnotesize
+\centering
+\begin{tabularx}{\textwidth}{lllXX}
+\toprule
+\textbf{Gate} & \textbf{Cost / item} & \textbf{Runs on} & \textbf{What it can certify} & \textbf{What it cannot} \\
+\midrule
+1. Machine (\texttt{pad-doctor}) & $\approx$0 (15s of a CPU) & every candidate & fps, heap growth, console errors --- \emph{does it run} & whether it's worth running \\
+2. Cancel/ok (\texttt{cancelok}) & one press, one human & survivors only & \emph{is this any good} --- one bit & why; how good; what to fix \\
+3. Usage (dwell, taps) & 0 (uninvited) & everything judged & \emph{did you want it} --- enthusiasm vs.\ politeness & anything slow-burning or difficult \\
+\bottomrule
+\end{tabularx}
+\caption{The tiers are ordered by scarcity, not by importance. The free gate goes first so the scarce gate never wastes a press on a crash. Gate 3 is free again, so it runs underneath both --- but it is the least trustworthy of the three, for reasons in \S8.}
+\end{table*}
+
+% ============ 4. WHY ONE BIT ============
+
+\section{Why One Bit}
+
+This is the crux, so I want to argue it rather than assert it.
+
+The obvious objection: one bit is a terrible signal. A five-star rating carries more. A rubric --- \emph{rhythm 7, palette 4, does the tap feel good, 9} --- carries much more. A written critique carries the most of all, and it's the only one that tells the machine \emph{why}. If you want the next generation to be better, surely you want to say more than \emph{no}.
+
+And that's true, per item. It's also completely beside the point, because \textbf{the system is not bottlenecked on human information. It's bottlenecked on human attention.}
+
+Do the arithmetic on your own patience. A binary press on a thing that is already running in front of you is nearly free --- it is a reflex, not a decision, and you can sustain it for a hundred items without going numb. A five-point rating makes you \emph{deliberate}: now you're not reacting, you're calibrating, wondering whether this is a 3 or a 4, and whether the 4 you gave ten minutes ago meant the same thing. A rubric multiplies that by however many axes you invented. A written critique is a small essay --- generous, precise, and you will produce eleven of them before you quit forever.
+
+So the real comparison is not \emph{one bit vs.\ five bits}. It's:
+
+\begin{quote}
+\small 200 bits, given cheaply, across 200 items, honestly \\
+\hspace*{1.2em}\textbf{vs.} \\
+55 bits, given expensively, across 11 items, while getting tired
+\end{quote}
+
+The first one wins, and it isn't close --- not just on total information, but on \emph{quality} of information, because the fatigue in the second column is not neutral. A tired judge drifts to the middle. Ratings compress toward 3. The critique gets shorter and more generic, and eventually kind. The signal degrades exactly as you produce more of it, which is the worst possible property for a signal to have. This is the oldest known result in the interactive-evolution literature: when a human is the fitness function, human fatigue is \emph{the} limiting constraint on the entire system, and everything else is engineering around it~\citep{takagi2001}.
+
+Karl Sims knew this in 1991. In \emph{Artificial Evolution for Computer Graphics}, the interface is: here are the images, pick the ones you like, the picked ones breed~\citep{sims1991}. Not rate them. \emph{Pick} them. Thirty-five years later, the entire modern apparatus for aligning language models with human taste is built on \textbf{pairwise binary preference} --- this one or that one --- for precisely the same reason: the comparison is the cheapest reliable judgment a person can make, and cheap-and-reliable beats rich-and-scarce every single time~\citep{christiano2017}.
+
+I'm not doing anything clever here. I'm refusing to do something clever. \textbf{One bit, cheaply given, many times, beats five bits given rarely.} Every richer interface I could build would be a way of spending my scarcest resource on the parts of the problem that a machine could have handled.
+
+\pull{the signal degrades exactly as you produce more of it. that is the worst possible property a signal can have.}
+
+And there's a second reason, quieter than the arithmetic one. A rubric makes you \emph{explain yourself}, and explaining yourself makes you lie. You reach for a reason, and the reason you reach for is the reason you can articulate, which is not the reason you actually felt. \emph{Cancel} doesn't ask you to justify anything. It just asks whether you'd rather be looking at something else. You always know the answer to that, instantly, and you're never wrong about it.
+
+% ============ 5. THE LOOP ============
+
+\section{Verdicts Become the Prompt}
+
+The three gates would be a review queue if the output went nowhere. What makes it a system is that the verdicts turn around and become the input.
+
+The seam is small on purpose. A local sink (\texttt{cancelok/sink.mjs}) takes one \texttt{POST /verdict} per press and appends a single JSON line: code, verdict, dwell, taps, failed, timestamp. That's it. In production it's a function against Mongo; on a laptop it's a text file, and a text file is genuinely enough --- \emph{one person's taste fits in a file you can \texttt{cat}}, which is either a comforting fact or a devastating one depending on your mood.
+
+Then \texttt{taste.mjs} reads the file and writes the pheromone: a block of \textbf{prose} that gets pasted into the next generation's prompt. Prose, not JSON, because the reader is a language model and the task --- \emph{notice the pattern in what got kept} --- is a reading task, not a parsing one. The block has four moves:
+
+\begin{itemize}
+  \item \textbf{KEPT} --- ``make more things that rhyme with these,'' sorted by enthusiasm, not just by approval.
+  \item \textbf{PLAYED HARDEST} --- ``he didn't just approve these, he reached out and touched them. Whatever they're doing with the tap, do that.''
+  \item \textbf{CANCELLED} --- ``do not make these again.''
+  \item \textbf{APPROVED BUT NEVER TOUCHED} --- ``these passed, but they didn't invite a hand. Being inoffensive is not the goal. Aim above this.''
+\end{itemize}
+
+The last one is my favorite thing in the system, because it's the line a rating scale physically cannot produce. A four-star pad and a four-star-that-you-played-nine-times pad are the same number. Here they're opposite instructions.
+
+The last-write-wins rule matters too: \texttt{latest()} keeps only the most recent verdict per pad, because you are allowed to change your mind, and re-judging something should overwrite rather than double-count. Taste is not append-only.
+
+And the block always ends with a warning to the generator, hard-coded, unconditional:
+
+\begin{quote}
+\small\emph{``DON'T COLLAPSE: the point is not to converge on his favorite pad. Rhyme with what he kept, then go somewhere he hasn't been. A generation that only interpolates between past keeps is a dead loop.''}
+\end{quote}
+
+That's not decoration. It's the cheapest defense I have against the failure mode in \S8, and it costs nothing to keep saying it. On a cold start --- zero verdicts, no history --- the block refuses to invent a preference. It says so plainly: \emph{``this is the cold start\ldots{} this is the only generation that gets to be reckless.''} A model told ``here's what he likes'' when nothing is known will hallucinate a taste and then spend the rest of the run chasing it.
+
+So the full loop: an LLM on a cron authors a pad against \texttt{pads.mjs}'s header-as-prompt, with the pheromone block appended $\rightarrow$ \texttt{pad-doctor} certifies or kills it $\rightarrow$ survivors go in the bag $\rightarrow$ I press cancel or ok while playing them $\rightarrow$ verdicts and taps land in the sink $\rightarrow$ \texttt{taste.mjs} rewrites the pheromone $\rightarrow$ the next cron tick reads it.
+
+Cancelled pads teach it what to stop making. Ok'd-and-played pads teach it what to make more of. Nothing else is required from me.
+
+% ============ 6. THE OLDEST BUTTON ============
+
+\section{The Oldest Button in the Interface}
+
+There's a joke buried in the name and it's load-bearing, so let me dig it up.
+
+\emph{OK} and \emph{Cancel} are the deepest surviving pattern in graphical software. They're in the Macintosh Dialog Manager in 1985 --- the modal dialog, the default button, the one that backs out~\citep{insidemac1985} --- and forty years of interface fashion has washed straight over them without moving them an inch. Skeuomorphism came and went. Flat came and went. The buttons are still there. Every consequential thing a computer has ever asked a person, it has asked in this shape.
+
+And the shape long predates the pixel. It's the yes/no of a form, of a signature, of a customs officer. It's the oldest interface humans have with each other.
+
+So: the machine has spent forty years using this dialog to ask permission for the things \emph{it} wants to do. Delete this file? Quit without saving? Allow this app to access your camera?
+
+\texttt{cancelok} turns the dialog around and points it back at the machine's own output. Now the machine is the one waiting on the modal. It made a thing. It wants to know if the thing may live. \emph{OK} or \emph{Cancel}.
+
+That's the joke. It is also, exactly and without alteration, the thesis. The most familiar button in computing --- the one every person on earth already knows how to press without being taught --- turns out to be a complete interface for directing a machine that can write software faster than you can read it. We didn't need a new gesture. We needed to aim the old one the other way.
+
+\pull{forty years of the machine asking us for permission. now it's the one waiting on the modal.}
+
+% ============ 7. WHAT'S BUILT ============
+
+\section{What's Built, What Isn't}
+
+As of 2026-07-14, honestly:
+
+\textbf{Built and working.}
+\begin{itemize}
+  \item \texttt{lib/pads.mjs} --- the shared engine, committed, with its header written as the authoring prompt. 47 pads in the \texttt{\^{}pads} bag, all thin wrappers over it, all hand-verified to run.
+  \item \texttt{pad-doctor.mjs} --- the machine gate, committed, and it is the reason the pads hold 60fps: the adaptive-quality controller was built \emph{because} the doctor kept failing them.
+  \item \texttt{disks/cancelok.mjs} --- the judging surface. Hosts a real candidate, drives its lifecycle, routes gestures by origin, records verdict + dwell + taps + failed, survives a candidate that throws, and persists the run. It works. I have used it. It is 316 lines.
+\end{itemize}
+
+\textbf{Prototype --- built tonight, and it ran.}
+\begin{itemize}
+  \item \texttt{cancelok/} --- \texttt{generate.mjs} (assembles the prompt from the engine header, a worked example, and the pheromone), \texttt{gate.mjs} (pad-doctor as a pass/fail), \texttt{sink.mjs} (catches verdicts, serves the queue), \texttt{taste.mjs} (verdicts $\rightarrow$ pheromone), \texttt{loop.mjs} (generate $\rightarrow$ gate $\rightarrow$ enqueue). Uncommitted as of this draft.
+  \item \textbf{The circle closed once.} A pad called \texttt{drolo} --- a pendulum-wave orrery whose swing ratios are just-intonation intervals, so the moment the row snaps back into a line is consonance made visible --- was written by the model, certified by the gate at 60fps, queued, judged in the surface, and its verdict (\texttt{ok}, 7 seconds, played 3 times) landed in the sink and is now sitting in the prompt the next generation will read. No human touched the file.
+\end{itemize}
+
+The loop taught me two things in its first hour, both of them embarrassing and both of them the point of building it. It burned an entire generation colliding with a name that already existed --- because \texttt{claude --print} \emph{has file-writing tools}, so the generator wrote its own pad to disk and then collided with itself. A generator must be a language model, not an agent: it returns text, and \emph{I} decide what lands. And the trait string came back with a Unicode $\times$ in it, which AC's font renders as a question mark. The machine gate certified the pad at 60fps and had nothing at all to say about either problem.
+
+\textbf{Still speculative.}
+\begin{itemize}
+  \item The cron. One turn ran by hand tonight; nothing has yet run unattended on a timer for a week and filled a queue while I slept.
+  \item Everything about long-run dynamics. Every claim in \S8 about what happens after 500 verdicts is a prediction. I have run one.
+\end{itemize}
+
+So: the scarce tier is real, the free tier is real, and the wire between them is soldered and has carried exactly one signal. This paper is being written at the moment where the interesting question is barely ahead of the evidence, and I'd rather publish it there than wait until it's safe.
+
+% ============ 8. THE ANT COLONY ============
+
+\section{Prior Art, Same Repo: the Ant Colony}
+
+I already have an autonomous loop in this codebase, and it's older than this one, and the honest comparison is unflattering in one direction and clarifying in the other.
+
+\texttt{ants/colony.fish} wakes an LLM every 30 minutes. It reads a score (\texttt{SCORE.md}), reads the last twenty lines of \texttt{pheromones.log} to see what other ants did, reads the current test output, scouts a single target file, proposes a diff, and then: \texttt{git apply --check}, \texttt{git apply}, \texttt{npm test}. If the tests pass it commits. If they fail --- \texttt{git checkout .}, and the pheromone log records \texttt{REVERTED}. The ant's mindset file says an agent should only act at 98\% confidence, and that reporting \texttt{IDLE} is a perfectly good day's work: \emph{``an agent that makes a wrong change is worse than an agent that does nothing.''}
+
+It's a real stigmergic loop --- agents coordinating through marks left in a shared environment rather than by talking to each other, which is the mechanism Grassé described in termites~\citep{grasse1959}. And it works. It is also, structurally, \textbf{a machine gate with no gate above it.}
+
+Look at what the colony's pheromone actually carries: \emph{did the tests pass.} That's it. That's the whole fitness function. And a test suite is a magnificent instrument for detecting that something is \emph{broken} and a completely blind one for detecting that something is \emph{boring}. The colony can tell you a change is safe. It cannot tell you the change was worth making. So the mindset file has to compensate in prose --- ``graspable,'' it says; a human should be able to \emph{notice} what you did; ``abstract refactoring no one will see --- not graspable.'' That's a taste requirement, written as an instruction, enforced by nobody. Hope, in the form of a bullet point.
+
+\texttt{cancelok} is the same architecture with the missing tier bolted on. Same loop. Same pheromone file. Different pheromone.
+
+\begin{quote}
+\small The ant colony's pheromone is \textbf{did the tests pass}. \\
+\texttt{cancelok}'s pheromone is \textbf{did a person want it}.
+\end{quote}
+
+One of those a script can measure. The other is the only thing a script can never measure, and it is therefore the only thing worth spending a person on.
+
+There's a second difference, and it's about what the loop is allowed to touch. The colony works on the \emph{instrument} --- the shared libraries, the core, the thing that has to keep working for everyone --- which is why it's hemmed in with sacred-ground rules and a 98\% bar and a revert-on-red reflex. \texttt{cancelok} works on the \emph{leaves}. A pad is disposable. If a generation is garbage, the cost is that I press cancel forty times. The blast radius of a bad pad is zero, and that's precisely why the loop can be reckless there and must not be reckless in \texttt{disk.mjs}. The style guide already says this: leaves stay small and can be loop-generated; the foundational libs are the instrument and want a human hand. \texttt{cancelok} is what you build \emph{after} you've accepted that split --- the loop, turned all the way up, but pointed only at the parts of the system where being wrong is free.
+
+% ============ 9. LIMITATIONS ============
+
+\section{Limitations}
+
+Five, and the last one is the reason the whole thing is shaped this way.
+
+\textbf{Taste drift and mode collapse.} A loop optimizing for one person's \texttt{ok} converges on that person's cliché. It will find the shape I reliably approve of and then it will make that shape forever, in increasingly polished variations, and I will keep pressing ok, and both of us will be satisfied, and the work will be dead. This is the central failure mode and it is not hypothetical --- it's what optimization \emph{does}. The prompt-level defense (``don't collapse'') is real but weak; a sentence in a prompt is not a constraint, it's a suggestion. The actual fix is probably structural --- a mandatory quota of candidates generated \emph{against} the pheromone, an explicit exploration budget that doesn't get to read the taste block at all --- and I haven't built it.
+
+\textbf{The tyranny of the median.} Usage signals reward the immediately pleasant. A pad that grabs you in two seconds gets taps; a pad that needs ninety seconds to unfold gets a shrug and an ok, or worse, an impatient cancel. The tap counter is structurally biased toward the sugary, and if I let it drive too hard, the loop will learn to make candy. Everything difficult, slow, austere, or acquired will be selected against by the very signal I designed to be honest.
+
+\textbf{The cold start.} The first hundred verdicts are noise. I don't have a stable taste until I've seen enough to have one, and early presses are contaminated by novelty, mood, and the order things happened to come up in. \texttt{taste.mjs} at least refuses to \emph{pretend} otherwise --- it says ``this is the cold start'' rather than fabricating a preference --- but refusing to lie about it is not the same as solving it.
+
+\textbf{Bus factor of one.} There is exactly one judge. If my taste is bad, the corpus is bad; if I'm tired, the corpus is tired; if I stop, it stops. Multiple judges would fix the drift and would immediately introduce something worse --- averaged taste, which is nobody's taste, which is the specific way committees produce work that no one hates and no one wants. I don't have an answer to this. I'd rather have one person's real opinion than five people's blended one, and I'm aware that's a preference, not an argument.
+
+\textbf{And the one that justifies the whole design:} \textbf{the machine gate can certify performance, never interest.} \texttt{pad-doctor} will happily hand you a pad that holds a flawless 60 fps, allocates nothing, logs nothing, and is \emph{unbelievably boring}. Every number green. Nothing there. No script will ever tell you so --- not a linter, not a test suite, not a benchmark, not another model asked to score it, because a model scoring it is just a cheaper simulation of the thing I'm trying to preserve, and if I trusted that I wouldn't need to be here at all.
+
+That gap --- between \emph{it runs} and \emph{it's good} --- is not a gap in my tooling. It's the gap. It's the whole reason there's a human tier at all. Gate 1 exists so that Gate 2 never wastes a press. Gate 2 exists because Gate 1 is blind to the only thing that matters.
+
+\pull{a pad can hold a flawless 60fps and be utterly boring. no script will ever tell you so.}
+
+% ============ 10. CONCLUSION ============
+
+\section{So Who Made It?}
+
+Say the loop runs for a year. Say it works: a thousand pads generated, nine hundred killed by the doctor unseen, a hundred judged, thirty kept, six of them things I play every week and would defend to anyone. A body of work.
+
+I wrote none of them. A model wrote every line. The engine underneath them --- \texttt{pads.mjs} --- is mine, and the header that taught the model how to write a pad is mine, and the doctor's thresholds are mine. But the pads themselves? I never typed a character. My entire contribution, per pad, is one bit.
+
+So who made it.
+
+I'm not going to dodge this, because the dodges are all available and they're all cowardly. I could say \emph{the model made it and I curated}, which sounds humble and is actually a way of declining responsibility for the work. I could say \emph{I made it, the model was a tool}, which is the flattering answer and is false in a way anyone who has watched the diffs go by knows is false. I could say \emph{we made it together}, which is warm and means nothing.
+
+Here's what I actually think.
+
+\textbf{The bit is the authorship.} Not the typing. The typing was always the least of it --- \emph{The Hand and the Loop} is a whole paper about watching my own hand disappear from my own codebase and finding, when I looked for what was left, that the thing I minded losing was never the keystrokes~\citep{scudder2026handloop}. It was the judgment. It was the part that knew \texttt{choose} was a better name than \texttt{getRandomKey}, and that knew when a file had gotten too big to hold in a head, and that knew --- instantly, without a rubric --- that this pad is alive and that one is furniture.
+
+That faculty didn't go anywhere. \texttt{cancelok} is just what happens when you strip everything else away and leave only it. A thousand candidates go by and the only thing I contribute is the thing only I can contribute. In a sense it's the most concentrated authorship I've ever practiced --- there is no craft to hide behind, no clever implementation to be proud of, nothing between my taste and the work but one press. If the pads are bad, that is not the model's fault. It generated everything. I selected. \textbf{Selection is not a lesser form of making.} It is the form of making that the machine cannot do, and increasingly it is the only one left that's mine.
+
+No Paint said it first, in 2020, about a rectangle of pixels: \emph{press Paint if you like what you see or No if you don't.} It turns out that instruction generalizes.
+
+The machine makes it. I say cancel, or I say ok. And what accumulates on the ok side --- that's the work, and it's mine, and I'll sign it.
+
+\vspace{0.5em}
+\noindent\textbf{Artifacts.} \texttt{system/public/aesthetic.computer/disks/cancelok.mjs} (the judging surface, 285 lines); \texttt{system/public/aesthetic.computer/lib/pads.mjs} (the engine; its header is the authoring prompt); \texttt{marketing/av-reels/bin/pad-doctor.mjs} (the machine gate); \texttt{cancelok/sink.mjs} and \texttt{cancelok/taste.mjs} (the feedback loop, prototype). Ancestor: \texttt{disks/nopaint.mjs} and \texttt{systems/nopaint.mjs}. Prior art in-repo: \texttt{ants/colony.fish} and \texttt{ants/mindset-and-rules.md}. Status as of 2026-07-14 is stated in \S7 and is not aspirational.
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+% ============ REFERENCES ============
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
