@@ -5,11 +5,11 @@
     "pnda": "When I'm Sad I Whip My Pen",
     "helo": "Say Hello",
     "pump": "Pumpkin Carver",
-    "pppt": "Pointing, Painting, Picture Taking",
     "tipj": "Tip Jean Allo",
     "bpen": "Blow My Pen",
     "kiss": "Dot Dot Kiss",
-    "lily": "Pick Me"
+    "lily": "Pick Me",
+    "pics": "Pointing, Painting, Picture Taking"
   },
   "twins": [
     { "code": "bye", "title": "Say Goodbye", "from": "helo" }
@@ -34,7 +34,8 @@
     "asfm": "Camille Klein",
     "lamp": "Alex Freundlich",
     "jbox": "Camille Klein",
-    "crpy": "Alex Freundlich"
+    "crpy": "Alex Freundlich",
+    "pillo": "Camille Klein"
   },
   "recodes": {
     "cdh": "bugy",
@@ -42,7 +43,6 @@
     "shrm": "mush",
     "pmpk": "pump",
     "str": "sos",
-    "pofu": "pppt",
     "tipg": "tipj",
     "fan": "bpen",
     "ltso": "jbox",
@@ -93,6 +93,7 @@
     "tricl": "trip",
     "tripl": "trip",
     "stsq": "sqar",
-    "spike": "legs"
+    "spike": "legs",
+    "pofu": "pics"
   }
 }
