@@ -6,6 +6,7 @@
 //
 // Endpoints we touch (v3):
 //   /ping                       — auth smoke test, echoes your IP
+//   /account/balance            — account credit (undocumented, but live)
 //   /pricing/get                — every TLD's register/renew/transfer price
 //   /domain/checkDomain/{d}     — availability + live price for one domain
 //   /domain/create/{d}          — register (cost guard in cents + agreeToTerms)
@@ -69,6 +70,12 @@ async function call(path, body = {}) {
 
 export const ping = () => call("/ping");
 export const pricing = () => call("/pricing/get");
+
+// Registration spends account credit, never a card, so the balance is the one
+// number that decides whether a buy can go through. Porkbun doesn't document
+// this endpoint; it answers anyway, returning cents plus a preformatted string.
+export const balance = () => call("/account/balance");
+
 export const check = (domain) => call(`/domain/checkDomain/${domain}`);
 export const getNs = (domain) => call(`/domain/getNs/${domain}`);
 

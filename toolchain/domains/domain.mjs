@@ -11,6 +11,7 @@
 //
 // Usage:
 //   node toolchain/domains/domain.mjs ping                 test API keys
+//   node toolchain/domains/domain.mjs balance              account credit
 //   node toolchain/domains/domain.mjs price .games .com    price some TLDs
 //   node toolchain/domains/domain.mjs check a.com b.games  availability + price
 //   node toolchain/domains/domain.mjs buy nom.games        register (prompts)
@@ -40,6 +41,21 @@ async function confirm(question) {
 async function cmdPing() {
   const r = await pb.ping();
   console.log(`✅ Porkbun keys valid. Your IP: ${r.yourIp}`);
+}
+
+// Registration spends account credit. Read it in dollars so callers can compare
+// it against a price directly.
+async function funds() {
+  const r = await pb.balance();
+  return Number(r.balance) / 100;
+}
+
+async function cmdBalance() {
+  const dollars = await funds();
+  console.log(`💰 Porkbun balance: ${money(dollars)}`);
+  if (dollars < 10) {
+    console.log("   Low — top up at https://porkbun.com/account/balance");
+  }
 }
 
 async function cmdPrice(tlds) {
@@ -88,16 +104,28 @@ async function cmdCheck(domains) {
 
 async function cmdBuy(domains) {
   if (!domains.length) return console.error("Usage: buy <domain> [--yes]");
+  // Track credit as we spend it, so a batch stops at the wall instead of
+  // failing mid-way with Porkbun's terse "No funds".
+  let credit = await funds();
   for (const domain of domains) {
     const r = await pb.check(domain);
     const a = r.response || {};
     if (a.avail !== "yes") { console.log(`🔴 ${domain} is not available — skipping.`); continue; }
     const price = Number(a.price ?? a.firstYearPromo ?? 0);
+    if (price > credit) {
+      console.log(
+        `💸 ${domain} costs ${money(price)} but the balance is ${money(credit)}.` +
+          ` Top up at https://porkbun.com/account/balance`,
+      );
+      continue;
+    }
     const ok = await confirm(`Register ${domain} for ${money(price)}? [y/N]`);
     if (!ok) { console.log(`Skipped ${domain}.`); continue; }
     const cents = Math.round(price * 100);
     const result = await pb.register(domain, cents);
+    credit -= price;
     console.log(`🎉 Registered ${domain}. ${result.message || ""}`);
+    console.log(`   Balance now ${money(credit)}.`);
     console.log(`   Next: point DNS at lith (${LITH_IP}) and add the Caddy block:`);
     printCaddy(domain, domain.split(".")[0]);
   }
@@ -123,6 +151,7 @@ function cmdCaddy([domain, piece]) {
 
 const commands = {
   ping: cmdPing,
+  balance: cmdBalance,
   price: () => cmdPrice(args),
   check: () => cmdCheck(args),
   buy: () => cmdBuy(args),
@@ -131,7 +160,7 @@ const commands = {
 
 const run = commands[cmd];
 if (!run) {
-  console.error("Commands: ping | price | check | buy | caddy");
+  console.error("Commands: ping | balance | price | check | buy | caddy");
   process.exit(1);
 }
 Promise.resolve(run()).catch((e) => {
