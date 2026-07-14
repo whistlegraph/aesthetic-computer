@@ -9,7 +9,7 @@
 // Prose, not JSON, because the reader is a language model and the thing we want
 // it to do — notice a pattern in what got kept — is a reading task.
 
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -19,6 +19,38 @@ export const VERDICTS = resolve(HERE, "verdicts.jsonl");
 export const QUEUE = resolve(HERE, "queue.json");
 
 export const API = process.env.CANCELOK_API || "https://aesthetic.computer/api/cancelok";
+export const KIN = resolve(HERE, "lineage.json");
+
+// Who begat whom. Without this a bred pad is indistinguishable from a fresh one
+// after the fact, and the only interesting question about an evolving system —
+// is the line actually IMPROVING, or just drifting — becomes unanswerable.
+export function lineage() {
+  if (!existsSync(KIN)) return {};
+  try {
+    return JSON.parse(readFileSync(KIN, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+export function remember(code, kin) {
+  const all = lineage();
+  all[code] = kin;
+  writeFileSync(KIN, JSON.stringify(all, null, 2) + "\n");
+}
+
+// How many generations back does this pad go? A line that keeps getting kept is
+// the whole point; a line that dies at depth 1 every time means the mutations are
+// destroying whatever earned the parent its keep.
+export function depth(code, kin = lineage()) {
+  let d = 0;
+  let at = code;
+  while (kin[at]?.parent && d < 50) {
+    at = kin[at].parent;
+    d += 1;
+  }
+  return d;
+}
 
 // The crowd's thumbs, from the live database. This is the whole reason the game
 // is on the internet instead of on a laptop: the generator should be learning

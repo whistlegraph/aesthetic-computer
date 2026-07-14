@@ -59,12 +59,26 @@ if (!serving()) {
   process.exit(1);
 }
 
+// Breed or invent. Two thirds of the time we breed from something that already
+// earned attention; one third we throw the history away and make something with
+// no parents at all.
+//
+// That third is not a hedge, it's the anti-collapse valve. A loop that only ever
+// breeds from winners walks straight to a local maximum and then spends the rest
+// of its life congratulating itself there — and it can never notice, because every
+// generation still scores well against the last one. The only cure is to keep
+// spending real attention on ideas the history says nothing about.
+const EVOLVE_ODDS = 0.66;
+
 for (let turn = 1; turn <= TRIES; turn++) {
   console.log(`\n— turn ${turn}/${TRIES} —`);
 
+  const breeding = !process.argv.includes("--fresh") && Math.random() < EVOLVE_ODDS;
+  const tool = breeding ? "cancelok/evolve.mjs" : "cancelok/generate.mjs";
+
   let made;
   try {
-    const out = execFileSync("node", [resolve(REPO, "cancelok/generate.mjs")], {
+    const out = execFileSync("node", [resolve(REPO, tool)], {
       encoding: "utf8",
       cwd: REPO,
       stdio: ["inherit", "pipe", "inherit"],
@@ -72,8 +86,26 @@ for (let turn = 1; turn <= TRIES; turn++) {
     });
     made = JSON.parse(out.trim().split("\n").pop());
   } catch (e) {
-    console.error("❌ generation failed this turn — moving on.");
-    continue;
+    // Exit 2 from evolve = nothing has been kept yet, so there's nothing to
+    // breed from. That's not a failure, it's a cold start — go invent instead.
+    if (breeding && e.status === 2) {
+      console.log("   nothing kept yet — inventing from scratch instead.");
+      try {
+        const out = execFileSync("node", [resolve(REPO, "cancelok/generate.mjs")], {
+          encoding: "utf8",
+          cwd: REPO,
+          stdio: ["inherit", "pipe", "inherit"],
+          maxBuffer: 1024 * 1024 * 8,
+        });
+        made = JSON.parse(out.trim().split("\n").pop());
+      } catch {
+        console.error("❌ generation failed this turn — moving on.");
+        continue;
+      }
+    } else {
+      console.error("❌ generation failed this turn — moving on.");
+      continue;
+    }
   }
 
   const r = gate(made.code);
