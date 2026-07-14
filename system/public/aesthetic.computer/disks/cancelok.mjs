@@ -1,29 +1,33 @@
 // cancelok, 26.07.14
-// A machine makes instruments. You decide which ones live. There is no button
-// for it — you decide by staying.
+// A machine makes instruments. You decide which ones live — by wandering.
 //
-// The whole screen is the pad, full-bleed and playable. Swipe up from the bottom
-// edge for the next one; swipe down from the top edge to go back. That's the
-// entire interface, and the verdict is a side effect of using it: linger and play
-// and it's an `ok`, flick past it in two seconds and it's a `cancel`. The two
-// signals never went away — you just cast them with your attention instead of
-// your thumb, and attention is the thing that was actually scarce.
+// Each pad plays inside a vignetted screen, like a little television set into a
+// wall. Drag INSIDE the screen and you play the pad. Push off the EDGE — the
+// bezel, outside the glass — and you leave the room: swipe north, south, east or
+// west and the set slides to whatever instrument is in that direction.
+//
+// The rooms are built as you walk them. Go east and a new pad appears; come back
+// west and you're in the room you already saw. Your path persists, directionally,
+// the way rooms in a building do — so you are drawing a little map as you go, and
+// where you wander, and which rooms you return to, IS the verdict. Nobody asks you
+// a question. Staying is yes; walking on is no; coming back is the loudest yes of
+// all. It's a dérive, not a queue.
 //
 // Descended from nopaint: "Press Paint if you like what you see or No if you
-// don't." Make it first, judge it after. Except now judging isn't a press either.
+// don't." Make it first, judge it after — except now judging is a walk.
 //
-// The candidate is HOSTED, not linked: we import a pad's module and drive its
-// lifecycle ourselves. lib/pads.mjs is a session singleton whose config each pad
-// re-asserts in its own boot, so hosting one is just calling it. Only the thin
-// edge bands are ours; every other pixel belongs to the instrument.
+// The pad is HOSTED, not linked: we import its module and drive its lifecycle
+// ourselves, into a surface the size of the screen-within-the-screen. Two pads
+// can't run at once (lib/pads.mjs is a session singleton), so a room you leave
+// becomes a photograph until you return to it.
 
-const EDGE = 40; // the swipe bands, top and bottom — a home-indicator's worth
-const SWIPE = 30; // travel before a drag becomes a page turn
-const LINGER = 6000; // stay this long and you meant it
-const NAME_MS = 2600; // the name fades — it's a label, not furniture
+const LINGER = 6000; // stay this long in a room and you meant it
+const NAME_MS = 2600; // the room's name fades — a label, not furniture
+const SWIPE = 26; // travel off the bezel before it counts as leaving
 
 const OK = [90, 255, 150];
 const NO = [255, 70, 80];
+const BEZEL = [10, 10, 14]; // the wall the set is mounted in
 
 const ORIGIN =
   typeof location !== "undefined" && location.origin && location.origin !== "null"
@@ -31,69 +35,57 @@ const ORIGIN =
     : "https://aesthetic.computer";
 const LOCAL = /localhost|127\.0\.0\.1/.test(ORIGIN);
 const API = LOCAL ? "http://localhost:8901/verdict" : `${ORIGIN}/api/cancelok`;
-
-// One id for the whole sitting, so a session reads as a session: what you were
-// shown, in what order, how long you stayed, what you did with your hands.
 const SESSION = `${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
 
 let state = "loading"; // loading | judging | error
 let error = "";
 
-let deck = [];
-let at = 0;
+let deck = []; // the supply of unplaced pads
+let dealt = 0; // how many have been placed into rooms
+const world = new Map(); // "x,y" → { code, name, lisp } — the rooms you've found
+const frozen = new Map(); // "x,y" → a photograph of that room, last time you left it
+let pos = { x: 0, y: 0 }; // which room you're standing in
+const trail = []; // every room you've entered, in order — the psychogeographic map
+
 let host = null;
 let hostFailed = false;
+let lisp = null; // a $code room's source, straight from the database
+let mounting = false;
+const mods = new Map(); // imported modules, kept — walking back shouldn't re-fetch
 
-let judge = null; // your handle, or null for anon
-let shownAt = 0; // when this pad came up
-let taps = 0; // times you played it
-let seen = {}; // code → how many times you've come back to it
-let sent = 0; // verdicts the server took
-let lost = 0; // verdicts it didn't — shown, because silence is how I lost yours
+let judge = null;
+let shownAt = 0;
+let taps = 0;
+let seen = {}; // code → how many times you've walked into it
+let sent = 0;
+let lost = 0;
 
-// Real fps, on a real device, measured while a real person watches. The headless
-// gate can only certify that a pad runs on a Mac in a datacenter; THIS is whether
-// it ran for you. A pad that stutters on the machine it's judged on has already
-// been cancelled by the hardware.
 let frames = 0;
 let fpsAt = 0;
 let fps = 0;
 let fpsMin = 999;
 
-let drag = null; // { from, y0, moved } — a gesture that began in an edge band
-let flash = 0; // the last verdict, briefly, as a colored edge
-let flashOk = false;
+let stage = null; // the live pad's surface — the size of the glass
+let out = null; // the room you just left, frozen, sliding away
+let outName = "";
+let slide = { dx: 0, dy: 0, t: 0 }; // a walk in progress: direction + eased 0→1
+let pending = null; // a walk waiting for its room to load: { dx, dy }
+let dragv = null; // a bezel drag in progress: { x0, y0, dx, dy }
 
-// The slide. Two pads can never run at once — lib/pads.mjs is a session
-// singleton, so booting the next one kills the last one dead. So we FREEZE the
-// outgoing pad: copy its final frame into a buffer and slide the corpse out while
-// the live one comes in underneath it. The card that leaves is a photograph; the
-// card that arrives is playing.
-let mounting = false; // the next pad is in flight — not broken, just not here yet
-let stage = null; // the live pad's own surface
-
-// THE PEEK. You should see the next pad while you drag, not a black hole — but two
-// pads can't run at once (lib/pads.mjs is a session singleton: booting B kills A).
-// So we boot the next pad ONCE, steal a single frame, and boot the current one
-// back. The card under your finger is a photograph of a real instrument, taken a
-// moment ago. Not live — but live is a lie a singleton can't tell.
-let peek = null; // one frame of the pad below
-let peekOf = null; // which code that frame belongs to
-let peeking = false;
-const mods = new Map(); // imported modules, kept — a page turn shouldn't re-fetch
-let lisp = null; // a $code candidate's source, straight from the database
-let out = null; // the frozen frame of the pad you just left
-let outName = ""; // its name travels with it — the label belongs to the card
-let anim = 0; // 0 = settled, →1 = mid-slide
-let pending = 0; // a turn waiting on its pad to arrive: +1 next, -1 back
-let dir = 1; // +1 = the next pad rises, -1 = the last one falls back in
-let held = 0; // how far your finger has dragged the pad, right now
-
-const EASE = (t) => 1 - Math.pow(1 - t, 3); // out-cubic: fast away, soft landing
-const SLIDE = 0.075; // ~4 frames of ramp; a page turn should feel thrown, not eased
+const EASE = (t) => 1 - Math.pow(1 - t, 3);
+const STEP = 0.08;
 
 const now = () => Date.now();
-const current = () => deck[at];
+const key = (p) => `${p.x},${p.y}`;
+const current = () => world.get(key(pos));
+
+// The screen-within-the-screen. A margin of wall on every side, a little more
+// along the bottom so the timer and the map have somewhere to live.
+function glass(w, h) {
+  const m = Math.max(16, Math.round(Math.min(w, h) * 0.07));
+  const chin = m + 18;
+  return { x: m, y: m, w: w - 2 * m, h: h - m - chin, m, chin };
+}
 
 async function load(api) {
   const asked = (api.params?.[0] || "").replace(/^\^/, "").toLowerCase();
@@ -101,37 +93,26 @@ async function load(api) {
   if (!res.ok) throw new Error("bags.json HTTP " + res.status);
   const bag = (await res.json()).bags?.[asked || "pads"];
   if (!bag) throw new Error("no bag named ^" + asked);
-  // A candidate is either a compiled piece (a .mjs module we import) or a KidLisp
-  // $code (source we fetch from the database and hand to the evaluator). The
-  // second kind never touched the repo and was never deployed — which is the whole
-  // point, and the reason the machine is allowed to publish those on its own.
   deck = (bag.items || [])
     .filter((it) => it.type === "piece" || it.type === "kidlisp")
-    .map((it) => ({
-      code: it.code,
-      name: it.name || it.code,
-      lisp: it.type === "kidlisp",
-    }));
+    .map((it) => ({ code: it.code, name: it.name || it.code, lisp: it.type === "kidlisp" }));
   if (!deck.length) throw new Error("that bag holds nothing to judge");
-  deck.reverse(); // newest first — the fresh ones are the point
+  deck.reverse(); // newest first — the fresh rooms are the point
+
+  // Stand in the first room.
+  world.set(key(pos), deck[dealt++]);
+  trail.push({ ...pos });
 }
 
-// Send it. ALWAYS a plain fetch, with the token attached only if one shows up in
-// time. `net.userRequest` looked right and was a trap: it awaits authorize(),
-// which never settles when you're logged out — so the request hung forever, the
-// catch never ran, and a whole session of verdicts vanished without a sound.
-// Never again: a failure to send is counted and painted on screen.
 async function send(api, row) {
   const headers = { "content-type": "application/json" };
   try {
     const token = await Promise.race([
       api.authorize?.() ?? Promise.resolve(null),
-      new Promise((r) => setTimeout(() => r(null), 1200)), // logged out = silence
+      new Promise((r) => setTimeout(() => r(null), 1200)),
     ]);
     if (token) headers.Authorization = `Bearer ${token}`;
-  } catch {
-    // no token. you still count, you're just anonymous.
-  }
+  } catch {}
   try {
     const res = await fetch(API, { method: "POST", headers, body: JSON.stringify(row) });
     if (!res.ok) throw new Error("HTTP " + res.status);
@@ -141,15 +122,12 @@ async function send(api, row) {
   }
 }
 
-// You're leaving a pad. Whatever you did while you were here IS the verdict —
-// nobody asked you a question, so nobody had to be honest.
+// You've left a room. What you did while you were in it IS the verdict.
 function leaving(api) {
   const c = current();
   if (!c || !shownAt) return;
   const dwellMs = now() - shownAt;
   const kept = taps > 0 || dwellMs >= LINGER;
-  flash = 1;
-  flashOk = kept;
   send(api, {
     session: SESSION,
     code: c.code,
@@ -158,17 +136,26 @@ function leaving(api) {
     taps,
     fps: Math.round(fps),
     fpsMin: fpsMin === 999 ? 0 : Math.round(fpsMin),
-    revisit: seen[c.code] || 0,
+    revisit: (seen[c.code] || 1) - 1, // times you'd already been here before now
     failed: hostFailed,
+    x: pos.x,
+    y: pos.y,
     w: api.screen.width,
     h: api.screen.height,
   });
 }
 
+function ensureStage(api) {
+  const g = glass(api.screen.width, api.screen.height);
+  if (!stage || stage.width !== g.w || stage.height !== g.h)
+    stage = api.painting(g.w, g.h, (p) => p.wipe(0, 0, 0));
+  return stage;
+}
+
 async function mount(api) {
   host = null;
   hostFailed = false;
-  mounting = true; // the next pad is still coming over the wire
+  mounting = true;
   taps = 0;
   shownAt = now();
   frames = 0;
@@ -179,10 +166,9 @@ async function mount(api) {
   const { code } = c;
   seen[code] = (seen[code] || 0) + 1;
   lisp = null;
+  const surf = ensureStage(api);
   try {
     if (c.lisp) {
-      // A KidLisp pad lives in the database, not the repo. Nothing was committed
-      // and nothing was deployed to put it here.
       const res = await fetch(`/api/store-kidlisp?code=${encodeURIComponent(code)}`);
       if (!res.ok) throw new Error("no $" + code);
       const data = await res.json();
@@ -190,17 +176,13 @@ async function mount(api) {
       if (!lisp) throw new Error("$" + code + " has no source");
       host = { lisp: true };
     } else {
-      // Origin-qualified: a disk runs as a blob module, so it has no base URL to
-      // resolve `./x.mjs` against, and updateCode only rewrites static imports.
-      // Cached, because the peek already fetched it — a page turn should not go
-      // back to the network for something it just looked at.
       let mod = mods.get(code);
       if (!mod) {
         mod = await import(`${ORIGIN}/aesthetic.computer/disks/${code}.mjs`);
         mods.set(code, mod);
       }
-      if (stage) api.page(stage); // it may draw at boot — into ITS surface, not ours
-      mod.boot?.({ ...api, screen: stage || api.screen });
+      api.page(surf);
+      mod.boot?.({ ...api, screen: surf });
       api.page(api.screen);
       host = mod;
     }
@@ -212,78 +194,32 @@ async function mount(api) {
   }
 }
 
-// Steal one frame of the pad below, so the gap you drag open has something in it.
-// This is the only honest way to preview a pad without a second engine: boot it,
-// paint once, snapshot, and put the current pad back exactly as it was. It costs
-// one extra boot, and it happens once, while you're already looking at something
-// else.
-async function takePeek(api) {
-  if (peeking || !host || host.lisp || hostFailed) return;
-  const next = deck[(at + 1) % deck.length];
-  if (!next || next.code === peekOf || next.lisp) return;
-  peeking = true;
-  try {
-    let mod = mods.get(next.code);
-    if (!mod) {
-      mod = await import(`${ORIGIN}/aesthetic.computer/disks/${next.code}.mjs`);
-      mods.set(next.code, mod);
-    }
-    const w = api.screen.width;
-    const h = api.screen.height;
-    const shot = api.painting(w, h, (p) => p.wipe(0, 0, 0));
-
-    api.page(shot);
-    mod.boot?.({ ...api, screen: shot }); // this CLOBBERS the engine's config…
-    mod.sim?.({ ...api, screen: shot });
-    mod.paint?.({ ...api, screen: shot });
-    api.page(api.screen);
-
-    peek = shot;
-    peekOf = next.code;
-
-    // …so put the current pad back. Its boot re-asserts its own config, which is
-    // the only reason any of this is survivable.
-    api.page(stage);
-    host.boot?.({ ...api, screen: stage });
-    api.page(api.screen);
-  } catch {
-    peek = null; // a pad that won't preview is not an emergency.
-    peekOf = null;
-  } finally {
-    peeking = false;
-  }
-}
-
-// Turn the page. Going BACK is not a neutral act — you returned to something, and
-// coming back is the strongest keep signal in the whole system.
-function turn(api, d) {
-  if (anim > 0 || pending) return; // one page at a time
+// Walk. Leave this room (fire its verdict, keep its photograph), step to the next
+// cell, discover or re-enter whatever's there, and start the set sliding that way.
+function walk(api, dx, dy) {
+  if (slide.t > 0 || pending) return; // one doorway at a time
   leaving(api);
 
-  // Freeze it. This copy is the only thing that survives the next boot, so it has
-  // to happen before mount() — a pad, once replaced, cannot be asked to draw
-  // itself again.
   if (stage) {
-    out = api.painting(stage.width, stage.height, () => {});
-    out.pixels.set(stage.pixels);
+    const keep = api.painting(stage.width, stage.height, () => {});
+    keep.pixels.set(stage.pixels);
+    frozen.set(key(pos), { frame: keep, name: current().name });
+    out = keep;
     outName = current().name;
   }
 
-  // DON'T slide yet. mount() is async — the next pad is still coming over the
-  // wire, and sliding now would raise an empty buffer into view. That's the black
-  // flash. We hold the frozen frame instead, and the slide begins the moment the
-  // new pad has actually painted something. A page turn should reveal a pad, not
-  // a hole where one is about to be.
-  pending = d;
-  held = 0;
-  peek = null; // the pad below is about to become the pad you're on
-  peekOf = null;
-  at = (at + d + deck.length) % deck.length;
+  pos = { x: pos.x + dx, y: pos.y + dy };
+  if (!world.has(key(pos))) {
+    world.set(key(pos), deck[dealt++ % deck.length]); // a new room, freshly dealt
+  }
+  trail.push({ ...pos });
+
+  pending = { dx, dy }; // don't slide until the new room has drawn a frame
   mount(api);
 }
 
 function boot(api) {
-  api.wipe(6, 6, 10);
+  api.wipe(...BEZEL);
   api.hud?.label?.("");
   judge = api.handle?.() || null;
   load(api)
@@ -300,64 +236,58 @@ function boot(api) {
 function sim(api) {
   if (state === "judging" && host && !hostFailed && !host.lisp) {
     try {
-      host.sim?.(api);
+      host.sim?.({ ...api, screen: stage });
     } catch (e) {
       hostFailed = true;
       error = String(e?.message || e);
     }
   }
-  if (flash > 0) flash -= 0.04;
-  if (anim > 0) {
-    anim += SLIDE;
-    if (anim >= 1) {
-      anim = 0;
-      out = null; // let the photograph go
+  if (slide.t > 0) {
+    slide.t += STEP;
+    if (slide.t >= 1) {
+      slide = { dx: 0, dy: 0, t: 0 };
+      out = null;
     }
   }
 }
 
 function paint(api) {
-  const { wipe, ink, write, box, screen } = api;
+  const { wipe, ink, screen } = api;
   const w = screen.width;
   const h = screen.height;
 
   if (state === "loading") {
-    wipe(6, 6, 10);
-    ink(150).write("dealing…", { center: "xy" });
+    wipe(...BEZEL);
+    ink(150).write("finding the first room…", { center: "xy" });
     return;
   }
   if (state === "error") {
-    wipe(6, 6, 10);
+    wipe(...BEZEL);
     ink(...NO).write(error, { center: "x", y: h / 2 - 4 });
     return;
   }
 
-  // Frame cadence — the honest one, on the machine a person is actually holding.
+  const g = glass(w, h);
+  ensureStage(api);
+
+  // Frame rate, honest, on the machine you're holding.
   const t = performance?.now?.() ?? now();
   if (fpsAt) {
     const dt = t - fpsAt;
     if (dt > 0 && dt < 1000) {
       const inst = 1000 / dt;
       fps = fps ? fps + (inst - fps) * 0.1 : inst;
-      if (++frames > 30 && fps < fpsMin) fpsMin = fps; // ignore the boot stumble
+      if (++frames > 30 && fps < fpsMin) fpsMin = fps;
     }
   }
   fpsAt = t;
 
-  // The live pad paints into its OWN surface — not the screen. That's what makes
-  // the slide possible at all, and it's also what keeps per-pixel pads honest:
-  // they write straight into `screen.pixels`, so the surface we hand them has to
-  // BE their screen, not a copy of ours with a different shape.
-  if (!stage || stage.width !== w || stage.height !== h)
-    stage = api.painting(w, h, (p) => p.wipe(0, 0, 0));
-
+  // Paint the live room into the glass surface.
   let painted = false;
   if (host && !hostFailed) {
     try {
       api.page(stage);
-      // Two kinds of candidate, one surface. A module gets its lifecycle driven;
-      // a $code gets handed to the evaluator. Neither knows the other exists.
-      if (host.lisp) api.kidlisp(0, 0, w, h, lisp);
+      if (host.lisp) api.kidlisp(0, 0, g.w, g.h, lisp);
       else host.paint?.({ ...api, screen: stage });
       painted = true;
     } catch (e) {
@@ -368,191 +298,207 @@ function paint(api) {
     }
   }
 
-  // The turn has been waiting for this: the new pad drew a frame. NOW slide. If it
-  // failed to load, slide anyway — a broken pad still deserves its three seconds
-  // and its verdict, and freezing forever would be worse than showing the wound.
+  // A walk that was waiting on its room: the room has drawn — now the set slides.
   if (pending && (painted || hostFailed)) {
-    dir = pending;
-    anim = 0.0001;
-    pending = 0;
+    slide = { dx: pending.dx, dy: pending.dy, t: 0.0001 };
+    pending = null;
   }
 
-  // Still waiting? Hold the frozen frame. This is the whole cure for the black
-  // flash: you keep looking at the pad you had until there's a pad to replace it.
-  if (pending && out) {
-    wipe(0, 0, 0);
-    api.paste(out, 0, 0);
-    label(api, outName, w, 0, 1);
-    return;
+  wipe(...BEZEL);
+
+  // Where the two rooms sit inside the glass. The one you're leaving slides out
+  // in the direction you walked; the one you're entering slides in behind it.
+  let ox = 0;
+  let oy = 0; // live room offset
+  let px = 0;
+  let py = 0; // outgoing room offset
+  if (slide.t > 0) {
+    const e = EASE(Math.min(1, slide.t));
+    ox = slide.dx * g.w * (1 - e);
+    oy = slide.dy * g.h * (1 - e);
+    px = -slide.dx * g.w * e;
+    py = -slide.dy * g.h * e;
+  } else if (dragv) {
+    // Live nudge while you push off the bezel — the room leans toward the door.
+    ox = dragv.dx * 0.32;
+    oy = dragv.dy * 0.32;
   }
 
-  wipe(0, 0, 0);
-
-  // "didn't run" means it FAILED — not that it hasn't arrived yet. A pad takes a
-  // moment to come over the wire, and during a slide that gap is exactly where the
-  // eye is looking. Claiming a crash for 100ms on every single page turn is a lie
-  // told at the worst possible moment.
-  if (hostFailed) {
-    wipe(18, 6, 10);
-    ink(...NO).write("didn't run", { center: "x", y: h / 2 - 10 });
-    ink(110).write(String(error).slice(0, 44), { center: "x", y: h / 2 + 2 });
-    chrome(api, w, h, 0);
-    return;
+  if (hostFailed && !slide.t) {
+    ink(18, 6, 10).box(g.x, g.y, g.w, g.h);
+    ink(...NO).write("didn't run", { x: g.x + g.w / 2 - 30, y: g.y + g.h / 2 - 8 });
+  } else {
+    if (slide.t > 0 && out)
+      api.paste(out, Math.round(g.x + px), Math.round(g.y + py));
+    if (painted || !slide.t)
+      api.paste(stage, Math.round(g.x + ox), Math.round(g.y + oy));
+    else if (out) api.paste(out, g.x, g.y); // still loading — hold the last room
   }
 
-  // Where the two cards sit. Mid-slide the outgoing one is a photograph and the
-  // incoming one is playing; the rest of the time `held` is just your finger.
-  let liveY = held;
-  if (anim > 0) {
-    const e = EASE(Math.min(1, anim));
-    liveY = dir > 0 ? h * (1 - e) : -h * (1 - e); // next rises / last falls in
-    const outY = dir > 0 ? -h * e : h * e;
-    if (out) {
-      api.paste(out, 0, Math.round(outY));
-      label(api, outName, w, Math.round(outY), 1); // the name leaves with its card
-    }
-  }
-
-  // The card under your finger. Only while dragging — during the slide the real
-  // pad is already live, and a photograph would only be a worse version of it.
-  if (!anim && held < 0 && peek) {
-    api.paste(peek, 0, Math.round(h + held));
-    label(api, deck[(at + 1) % deck.length].name, w, Math.round(h + held), 0.7);
-  }
-
-  api.paste(stage, 0, Math.round(liveY));
-  chrome(api, w, h, Math.round(liveY));
-
-  // Take the next pad's picture while you're busy with this one. Never mid-gesture
-  // and never mid-slide — the boot it costs would show.
-  if (!anim && !pending && !held && !mounting) takePeek(api);
+  bezel(api, g, w, h); // the wall masks anything the slide pushed past the glass
+  vignette(api, g);
+  chrome(api, g, w, h);
 }
 
-// The name rides WITH its card. It isn't chrome bolted to the corner of the
-// screen — it belongs to the pad, so it slides out when the pad does and arrives
-// with the next one. Anything else and the label would sit still while the thing
-// it names flies away.
-function label({ ink }, text, w, y, a) {
-  if (a <= 0 || !text) return;
-  ink(0, 0, 0, 150 * a).write(text, { x: 7, y: y + 8 });
-  ink(240, 240, 255, 255 * a).write(text, { x: 6, y: y + 7 });
+// The wall. Opaque, so it hides the parts of a sliding room that spill past the
+// glass — the mask is free clipping.
+function bezel({ ink }, g, w, h) {
+  ink(...BEZEL).box(0, 0, w, g.y); // top
+  ink(...BEZEL).box(0, g.y + g.h, w, h - (g.y + g.h)); // bottom (the chin)
+  ink(...BEZEL).box(0, 0, g.x, h); // left
+  ink(...BEZEL).box(g.x + g.w, 0, w - (g.x + g.w), h); // right
+  // A thin lit edge where the glass meets the wall — sells the set.
+  ink(60, 60, 80).box(g.x - 1, g.y - 1, g.w + 2, 1);
+  ink(60, 60, 80).box(g.x - 1, g.y + g.h, g.w + 2, 1);
+  ink(60, 60, 80).box(g.x - 1, g.y - 1, 1, g.h + 2);
+  ink(60, 60, 80).box(g.x + g.w, g.y - 1, 1, g.h + 2);
 }
 
-// Everything of ours. It should feel like almost nothing.
-function chrome(api, w, h, y = 0) {
-  const { ink, write, box } = api;
+// The vignette. The glass darkens toward its edges, so the pad sits in the set
+// instead of being pasted flat against it.
+function vignette({ ink }, g) {
+  const V = Math.min(28, Math.round(g.h * 0.09));
+  for (let i = 0; i < V; i++) {
+    const a = Math.round(150 * Math.pow((V - i) / V, 2));
+    ink(0, 0, 0, a).box(g.x, g.y + i, g.w, 1);
+    ink(0, 0, 0, a).box(g.x, g.y + g.h - 1 - i, g.w, 1);
+    ink(0, 0, 0, a).box(g.x + i, g.y, 1, g.h);
+    ink(0, 0, 0, a).box(g.x + g.w - 1 - i, g.y, 1, g.h);
+  }
+}
+
+// Everything of ours lives in the wall, never on the glass.
+function chrome(api, g, w, h) {
+  const { ink } = api;
   const c = current();
   const age = now() - shownAt;
 
-  // The name — the one thing worth saying out loud, and only for a moment. A
-  // label that never leaves stops being read. It stays lit while the card is
-  // still moving, because a name you can't finish reading isn't a name.
-  const fade = Math.min(1, Math.max(0, (NAME_MS - age) / 700));
-  const a = anim > 0 ? 1 : fade;
-  label(api, c.name, w, y, a);
-  if (a > 0) {
-    const n = `${at + 1}/${deck.length}`;
-    ink(120, 120, 140, 200 * a).write(n, { x: w - 6 - n.length * 6, y: y + 7 });
+  // The room's name, in the top bezel, fading after a moment.
+  const fade = slide.t > 0 ? 1 : Math.min(1, Math.max(0, (NAME_MS - age) / 700));
+  if (fade > 0 && c) {
+    ink(0, 0, 0, 150 * fade).write(c.name, { x: g.x + 1, y: g.m / 2 - 3 });
+    ink(240, 240, 255, 255 * fade).write(c.name, { x: g.x, y: g.m / 2 - 4 });
   }
+  // How many rooms you've walked — the size of your wander.
+  const n = `${trail.length}`;
+  ink(90, 90, 110).write(n, { x: w - g.x - n.length * 6, y: g.m / 2 - 4 });
 
-  // Your time on this pad, made visible. The whole premise is that staying IS the
-  // vote — so you should be able to watch the vote happen. A thin line along the
-  // bottom fills toward the keep threshold and turns green the instant you cross
-  // it (or the instant you touch the pad, which keeps it outright). Only on the
-  // live card — a photograph has no clock running.
-  if (anim === 0 && !pending && !mounting && host) {
+  // The timer, in the chin. Staying IS the vote, so you can watch it happen: the
+  // bar fills toward the keep threshold and turns green the instant you cross it.
+  if (!slide.t && !pending && host) {
     const kept = taps > 0 || age >= LINGER;
     const frac = kept ? 1 : Math.min(1, age / LINGER);
-    const [r, g, b] = kept ? OK : NO;
-    ink(r, g, b, 70).box(0, y + h - 2, Math.round(w * frac), 2);
-    // The seconds, bottom-left, quiet — a number you can glance at, not a HUD.
-    const secs = `${(age / 1000).toFixed(1)}s`;
-    ink(0, 0, 0, 150).write(secs, { x: 7, y: y + h - 12 });
-    ink(kept ? OK : [200, 200, 210], kept ? 255 : 200).write(secs, { x: 6, y: y + h - 13 });
-    if (taps > 0) {
-      const t = `${taps}▸`;
-      ink(0, 0, 0, 150).write(t, { x: 7 + secs.length * 6 + 6, y: y + h - 12 });
-      ink(255, 220, 120).write(t, { x: 6 + secs.length * 6 + 6, y: y + h - 13 });
-    }
+    const by = g.y + g.h + 6;
+    const [r, gr, b] = kept ? OK : [120, 120, 140];
+    ink(30, 30, 40).box(g.x, by, g.w, 2);
+    ink(r, gr, b, 220).box(g.x, by, Math.round(g.w * frac), 2);
+    const secs = `${(age / 1000).toFixed(1)}s${taps ? "  " + taps + "▸" : ""}`;
+    ink(kept ? OK : [170, 170, 185]).write(secs, { x: g.x, y: by + 6 });
   }
 
-  // The last verdict, as a breath of color at the edge you swiped from. You
-  // never pressed anything, so this is the only acknowledgement there is.
-  if (flash > 0) {
-    const [r, g, b] = flashOk ? OK : NO;
-    ink(r, g, b, 120 * flash).box(0, h - 3, w, 3);
-  }
+  minimap(api, g, w, h);
 
-  // The swipe hint, only while you're touching an edge — furniture the rest of
-  // the time would just be in the pad's way.
-  if (drag) {
-    const up = drag.from === "bottom";
-    ink(255, 255, 255, 60).box(0, up ? h - 2 : 0, w, 2);
-  }
-
-  // Verdicts the server refused. This is here because the first version of this
-  // piece lost an entire session in total silence, and I'm not doing that again.
   if (lost > 0) {
     const m = `${lost} unsent`;
-    ink(0, 0, 0, 160).write(m, { x: w - 5 - m.length * 6, y: h - 11 });
-    ink(...NO).write(m, { x: w - 6 - m.length * 6, y: h - 12 });
+    ink(...NO).write(m, { x: w - g.x - m.length * 6, y: h - 9 });
   }
+}
+
+// Your psychogeographic map: the rooms you've found, laid where you found them,
+// and the path you took through them. Bottom-right of the wall.
+function minimap({ ink }, g, w, h) {
+  const cell = 5;
+  const gap = 2;
+  const pitch = cell + gap;
+  // Bounds of everything walked, centered on where you are.
+  const originX = w - g.x - cell;
+  const originY = h - 10 - cell;
+  const seenKeys = [...world.keys()].map((k) => k.split(",").map(Number));
+  for (const [x, y] of seenKeys) {
+    const dx = x - pos.x;
+    const dy = y - pos.y;
+    const sx = originX + dx * pitch;
+    const sy = originY + dy * pitch;
+    if (sx < g.x || sy < g.y + g.h) continue; // stay in the corner of the wall
+    const here = x === pos.x && y === pos.y;
+    ink(here ? OK : [70, 70, 90], here ? 255 : 180).box(sx, sy, cell, cell);
+  }
+}
+
+// Map a screen event into the glass, or return null if it's not on the glass.
+function onGlass(e, g) {
+  const x = (e.x ?? 0) - g.x;
+  const y = (e.y ?? 0) - g.y;
+  if (x < 0 || y < 0 || x >= g.w || y >= g.h) return null;
+  return Object.assign(Object.create(Object.getPrototypeOf(e)), e, { x, y });
 }
 
 function act(api) {
   const { event: e } = api;
   if (state !== "judging") return;
+  const g = glass(api.screen.width, api.screen.height);
 
-  const h = api.screen.height;
-
-  // A gesture that starts in an edge band is ours; everything else is the pad's.
-  // The bands are thin on purpose — the instrument keeps its whole face.
+  // A touch decides its own allegiance by where it lands. On the glass, it plays
+  // the pad. On the wall, it's the start of a walk.
   if (e.is("touch")) {
-    if (anim > 0) return; // mid-slide, the deck isn't listening
-    if (e.y >= h - EDGE) drag = { from: "bottom", y0: e.y };
-    else if (e.y <= EDGE) drag = { from: "top", y0: e.y };
-    else drag = null;
-  }
-
-  // The card follows your finger. Rubber-banded, so pulling the wrong way barely
-  // moves — the deck should feel like it wants to go one direction.
-  if (drag && e.is("draw")) {
-    const moved = drag.y0 - e.y; // + = pulled up, − = pulled down
-    const right = drag.from === "bottom" ? moved > 0 : moved < 0;
-    held = right ? -moved : -moved * 0.2; // wrong way barely budges
+    if (slide.t > 0 || pending) return;
+    const on = onGlass(e, g);
+    if (on) {
+      dragv = null;
+      if (host && !hostFailed) {
+        taps += 1;
+        try {
+          if (!host.lisp) host.act?.({ ...api, screen: stage, event: on });
+        } catch (err) {
+          hostFailed = true;
+          error = String(err?.message || err);
+        }
+      }
+    } else {
+      dragv = { x0: e.x, y0: e.y, dx: 0, dy: 0 };
+    }
     return;
   }
 
-  if (drag && e.is("lift")) {
-    const moved = drag.y0 - e.y; // positive = swiped up
-    const d = drag.from;
-    drag = null;
-    held = 0; // whichever way it goes, it stops following the finger now
-    if (d === "bottom" && moved > SWIPE) return turn(api, +1); // up → next
-    if (d === "top" && -moved > SWIPE) return turn(api, -1); // down → back
-    return; // not far enough. It snaps back, and nothing is recorded.
+  // A drag on the wall leans the room toward the door you're pushing.
+  if (dragv && e.is("draw")) {
+    dragv.dx = (e.x ?? dragv.x0) - dragv.x0;
+    dragv.dy = (e.y ?? dragv.y0) - dragv.y0;
+    return;
   }
 
-  // Keys, for judging a long deck without leaving home. Down goes forward, the
-  // way a page does.
-  if (e.is("keyboard:down:arrowdown") || e.is("keyboard:down:space"))
-    return turn(api, +1);
-  if (e.is("keyboard:down:arrowup")) return turn(api, -1);
-
-  // Everything else belongs to the instrument. Play it — that's the whole vote.
-  if (!drag && host && !hostFailed) {
-    if (e.is("touch")) taps += 1; // a tap on a $code still counts — the evaluator sees the pen itself
-    try {
-      if (!host.lisp) host.act?.(api);
-    } catch (err) {
-      hostFailed = true;
-      error = String(err?.message || err);
+  // A drag on the glass is playing the instrument.
+  if (!dragv && e.is("draw") && host && !hostFailed && !host.lisp) {
+    const on = onGlass(e, g);
+    if (on) {
+      try {
+        host.act?.({ ...api, screen: stage, event: on });
+      } catch (err) {
+        hostFailed = true;
+        error = String(err?.message || err);
+      }
     }
+    return;
   }
+
+  // Let go of a wall drag: if you pushed far enough, walk that cardinal way.
+  if (dragv && e.is("lift")) {
+    const { dx, dy } = dragv;
+    dragv = null;
+    const ax = Math.abs(dx);
+    const ay = Math.abs(dy);
+    if (Math.max(ax, ay) < SWIPE) return; // a tap on the wall goes nowhere
+    if (ax > ay) return walk(api, dx > 0 ? 1 : -1, 0); // east / west
+    return walk(api, 0, dy > 0 ? 1 : -1); // south / north
+  }
+
+  // Keys walk the four directions too.
+  if (e.is("keyboard:down:arrowright")) return walk(api, 1, 0);
+  if (e.is("keyboard:down:arrowleft")) return walk(api, -1, 0);
+  if (e.is("keyboard:down:arrowdown")) return walk(api, 0, 1);
+  if (e.is("keyboard:down:arrowup")) return walk(api, 0, -1);
 }
 
-// The last pad you were on still deserves its verdict — leaving the piece is
-// leaving it.
 function leave(api) {
   if (state === "judging") leaving(api);
 }
