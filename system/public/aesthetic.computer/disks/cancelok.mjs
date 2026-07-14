@@ -24,6 +24,7 @@ const FEATHER = 14; // the fuzzy width of the screen's edge, in pixels
 const OK = [90, 255, 150];
 const NO = [255, 70, 80];
 const WALL = [8, 8, 11]; // the dark the set is sunk into
+const GLOW = [24, 58, 92]; // the wall lights up when you take hold to walk
 
 const ORIGIN =
   typeof location !== "undefined" && location.origin && location.origin !== "null"
@@ -361,13 +362,16 @@ function paint(api) {
     }
   }
 
-  // Clip everything back into the glass rectangle with the opaque wall, then round
-  // and fuzz the edge in one pixel pass — the soft CRT border.
-  ink(...WALL).box(0, 0, w, g.y);
-  ink(...WALL).box(0, g.y + g.h, w, h - (g.y + g.h));
-  ink(...WALL).box(0, 0, g.x, h);
-  ink(...WALL).box(g.x + g.w, 0, w - (g.x + g.w), h);
-  softEdge(api, g);
+  // Clip everything back into the glass with the wall, then round and fuzz the
+  // edge with the baked overlay. The wall lights up the moment you take hold of it
+  // to walk — so the whole set tells you it's ready to move.
+  const swiping = !!grab || !!move;
+  const wc = swiping ? GLOW : WALL;
+  ink(...wc).box(0, 0, w, g.y);
+  ink(...wc).box(0, g.y + g.h, w, h - (g.y + g.h));
+  ink(...wc).box(0, 0, g.x, h);
+  ink(...wc).box(g.x + g.w, 0, w - (g.x + g.w), h);
+  softEdge(api, g, swiping);
 
   // The only thing on the wall: the room's name, top-left, fading after a moment.
   const c = current();
@@ -384,40 +388,47 @@ function paint(api) {
 // `painting()` buffer's pixels DO show when pasted — so we bake the edge into a
 // transparent overlay ONCE and paste it every frame. Signed distance to a rounded
 // rectangle gives corners (the field is round there) and fuzz (we blend over
-// FEATHER pixels instead of cutting) in the same number.
-let maskBuf = null;
+// FEATHER pixels instead of cutting) in the same number. We bake two: a dark wall
+// and a lit one, and paste the lit version while you're taking hold to walk.
+let maskWall = null;
+let maskGlow = null;
 let maskFor = "";
-function softEdge(api, g) {
+function bakeMask(api, g, w, h, color) {
+  const R = Math.max(8, Math.round(Math.min(g.w, g.h) * 0.16)); // corner radius
+  const cx = g.x + g.w / 2;
+  const cy = g.y + g.h / 2;
+  const hw = g.w / 2 - R;
+  const hh = g.h / 2 - R;
+  const F = FEATHER;
+  const [cr, cg, cb] = color;
+  const buf = api.painting(w, h, () => {});
+  const px = buf.pixels;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const qx = Math.abs(x - cx) - hw;
+      const qy = Math.abs(y - cy) - hh;
+      const d = Math.min(Math.max(qx, qy), 0) + Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) - R;
+      let a = (d + F) / (2 * F); // 0 deep inside → 1 at/after the edge
+      a = a < 0 ? 0 : a > 1 ? 1 : a * a * (3 - 2 * a); // smoothstep
+      const i = (y * w + x) * 4;
+      px[i] = cr;
+      px[i + 1] = cg;
+      px[i + 2] = cb;
+      px[i + 3] = Math.round(a * 255); // transparent center, opaque wall
+    }
+  }
+  return buf;
+}
+function softEdge(api, g, glow) {
   const w = api.screen.width;
   const h = api.screen.height;
   const sig = `${w}x${h}`;
   if (maskFor !== sig) {
-    const R = Math.max(8, Math.round(Math.min(g.w, g.h) * 0.07)); // corner radius
-    const cx = g.x + g.w / 2;
-    const cy = g.y + g.h / 2;
-    const hw = g.w / 2 - R;
-    const hh = g.h / 2 - R;
-    const F = FEATHER;
-    const [wr, wg, wb] = WALL;
-    maskBuf = api.painting(w, h, () => {});
-    const px = maskBuf.pixels;
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const qx = Math.abs(x - cx) - hw;
-        const qy = Math.abs(y - cy) - hh;
-        const d = Math.min(Math.max(qx, qy), 0) + Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) - R;
-        let a = (d + F) / (2 * F); // 0 deep inside → 1 at/after the edge
-        a = a < 0 ? 0 : a > 1 ? 1 : a * a * (3 - 2 * a); // smoothstep
-        const i = (y * w + x) * 4;
-        px[i] = wr;
-        px[i + 1] = wg;
-        px[i + 2] = wb;
-        px[i + 3] = Math.round(a * 255); // transparent center, opaque wall
-      }
-    }
+    maskWall = bakeMask(api, g, w, h, WALL);
+    maskGlow = bakeMask(api, g, w, h, GLOW);
     maskFor = sig;
   }
-  api.paste(maskBuf, 0, 0);
+  api.paste(glow ? maskGlow : maskWall, 0, 0);
 }
 
 function onGlass(e, g) {
