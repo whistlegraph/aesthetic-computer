@@ -125,32 +125,49 @@ export function magickMeasureWidth(text, ptSize) {
 }
 
 // Render `text` as a transparent PNG with YWFT-Processing-Bold.
-// opts: { ptSize, fill, shadow?, padX=0, padY=0, outPath }
+// opts: { ptSize, fill, shadow?, shadowSpec?, stroke?, strokeWidth?, padX=0, padY=0, outPath }
 // Returns a loaded Image.
+//
+// `shadowSpec` is magick's own <opacity>x<blur>+<dx>+<dy>. The default is a
+// faint 2px nudge, which is enough over a flat cover but vanishes over moving
+// footage — captions burned onto video want something like "100x0+6+7" (a hard,
+// offset drop) plus a `stroke`, so the glyph survives whatever passes behind it.
 export async function magickRenderText(text, opts) {
-  const { ptSize, fill, shadow, padX = 0, padY = 0, outPath } = opts;
+  const {
+    ptSize, fill, shadow, shadowSpec = "100x0+2+2",
+    stroke = null, strokeWidth = 0,
+    padX = 0, padY = 0, outPath,
+  } = opts;
   mkdirSync(outPath.replace(/\/[^\/]+$/, ""), { recursive: true });
   const args = [
     "-background", "none",
     "-fill", fill,
     "-font", activeFont,
     "-pointsize", String(ptSize),
-    `label:${text}`,
   ];
+  // Stroke is drawn under the fill, so the outline thickens the glyph outward
+  // instead of eating into its face.
+  if (stroke && strokeWidth > 0) {
+    args.push("-stroke", stroke, "-strokewidth", String(strokeWidth));
+  }
+  args.push(`label:${text}`);
+  if (stroke && strokeWidth > 0) args.push("-stroke", "none");
   if (shadow) {
-    args.push("(", "-clone", "0",
-      "-fill", shadow,
-      "-background", "none",
-      "-shadow", "100x0+2+2", "+swap",
-      "-background", "none",
-      "-flatten", ")");
+    // The clone is what gets blurred into a shadow, so it stays inside the
+    // parens; the swap and merge act on *both* images and must therefore sit
+    // outside them. Nesting them (as this once did) leaves `+swap` alone with a
+    // single image and magick refuses: "two or more images required".
+    args.push("(", "+clone", "-background", shadow, "-shadow", shadowSpec, ")",
+      "+swap", "-background", "none", "-layers", "merge", "+repage");
   }
   if (padX || padY) {
     args.push("-bordercolor", "none", "-border", `${padX}x${padY}`);
   }
   args.push(outPath);
   const r = spawnSync("magick", args);
-  if (r.status !== 0) throw new Error(`magick failed rendering: ${text}`);
+  if (r.status !== 0) {
+    throw new Error(`magick failed rendering "${text}": ${r.stderr?.toString().trim()}`);
+  }
   return await loadImage(outPath);
 }
 

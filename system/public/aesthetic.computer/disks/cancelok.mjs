@@ -1,33 +1,29 @@
 // cancelok, 26.07.14
 // A machine makes instruments. You decide which ones live — by wandering.
 //
-// Each pad plays inside a vignetted screen, like a little television set into a
-// wall. Drag INSIDE the screen and you play the pad. Push off the EDGE — the
-// bezel, outside the glass — and you leave the room: swipe north, south, east or
-// west and the set slides to whatever instrument is in that direction.
+// Each pad plays inside a soft-edged screen, like an old television set deep in a
+// dark wall. Drag on the GLASS and you play the pad. Push off the wall around it
+// and you leave the room: the set follows your finger and slides — north, south,
+// east or west — to whatever instrument is in that direction, and it locks to the
+// axis you started moving on, the way a feed does.
 //
-// The rooms are built as you walk them. Go east and a new pad appears; come back
-// west and you're in the room you already saw. Your path persists, directionally,
-// the way rooms in a building do — so you are drawing a little map as you go, and
-// where you wander, and which rooms you return to, IS the verdict. Nobody asks you
-// a question. Staying is yes; walking on is no; coming back is the loudest yes of
-// all. It's a dérive, not a queue.
+// The rooms are built as you walk them and they persist directionally: go east and
+// a new pad is dealt; come back west and you're in the room you already saw. Where
+// you wander, and which rooms you return to, IS the verdict — staying is yes,
+// walking on is no, coming back is the loudest yes. A dérive, not a queue.
 //
-// Descended from nopaint: "Press Paint if you like what you see or No if you
-// don't." Make it first, judge it after — except now judging is a walk.
-//
-// The pad is HOSTED, not linked: we import its module and drive its lifecycle
-// ourselves, into a surface the size of the screen-within-the-screen. Two pads
-// can't run at once (lib/pads.mjs is a session singleton), so a room you leave
-// becomes a photograph until you return to it.
+// Two pads can't run at once (lib/pads.mjs is a session singleton), so a room you
+// leave is a photograph until you walk back into it — which is the honest metaphor,
+// not a workaround: you are remembering rooms, not running them all at once.
 
 const LINGER = 6000; // stay this long in a room and you meant it
-const NAME_MS = 2600; // the room's name fades — a label, not furniture
-const SWIPE = 26; // travel off the bezel before it counts as leaving
+const NAME_MS = 2600; // the name fades — a label, not furniture
+const DEADZONE = 7; // finger travel before a drag picks its axis
+const FEATHER = 14; // the fuzzy width of the screen's edge, in pixels
 
 const OK = [90, 255, 150];
 const NO = [255, 70, 80];
-const BEZEL = [10, 10, 14]; // the wall the set is mounted in
+const WALL = [8, 8, 11]; // the dark the set is sunk into
 
 const ORIGIN =
   typeof location !== "undefined" && location.origin && location.origin !== "null"
@@ -37,27 +33,26 @@ const LOCAL = /localhost|127\.0\.0\.1/.test(ORIGIN);
 const API = LOCAL ? "http://localhost:8901/verdict" : `${ORIGIN}/api/cancelok`;
 const SESSION = `${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
 
-let state = "loading"; // loading | judging | error
+let state = "loading";
 let error = "";
 
-let deck = []; // the supply of unplaced pads
-let dealt = 0; // how many have been placed into rooms
-const world = new Map(); // "x,y" → { code, name, lisp } — the rooms you've found
-const frozen = new Map(); // "x,y" → a photograph of that room, last time you left it
-let pos = { x: 0, y: 0 }; // which room you're standing in
-const trail = []; // every room you've entered, in order — the psychogeographic map
+let deck = [];
+let dealt = 0;
+const world = new Map(); // "x,y" → { code, name, lisp }
+const frozen = new Map(); // "x,y" → a photograph of that room, last time you left
+let pos = { x: 0, y: 0 };
+const trail = [];
 
 let host = null;
 let hostFailed = false;
-let lisp = null; // a $code room's source, straight from the database
+let lisp = null;
 let mounting = false;
-const mods = new Map(); // imported modules, kept — walking back shouldn't re-fetch
+const mods = new Map();
 
 let judge = null;
 let shownAt = 0;
 let taps = 0;
-let seen = {}; // code → how many times you've walked into it
-let sent = 0;
+let seen = {};
 let lost = 0;
 
 let frames = 0;
@@ -66,25 +61,22 @@ let fps = 0;
 let fpsMin = 999;
 
 let stage = null; // the live pad's surface — the size of the glass
-let out = null; // the room you just left, frozen, sliding away
-let outName = "";
-let slide = { dx: 0, dy: 0, t: 0 }; // a walk in progress: direction + eased 0→1
-let pending = null; // a walk waiting for its room to load: { dx, dy }
-let dragv = null; // a bezel drag in progress: { x0, y0, dx, dy }
 
-const EASE = (t) => 1 - Math.pow(1 - t, 3);
-const STEP = 0.08;
+// A move in progress. `off` is how far the set has slid along its locked axis,
+// live under your finger; `anim` eases it home (to full = commit, to 0 = snap
+// back) when you let go. `in` is the neighbor room you're sliding toward —
+// frozen, because a singleton can't run two pads at once.
+let move = null; // { dx, dy, off, live, anim, from, to, frame }
 
 const now = () => Date.now();
 const key = (p) => `${p.x},${p.y}`;
 const current = () => world.get(key(pos));
+const EASE = (t) => 1 - Math.pow(1 - t, 3);
 
-// The screen-within-the-screen. A margin of wall on every side, a little more
-// along the bottom so the timer and the map have somewhere to live.
+// The screen-within-the-screen. A deep margin of wall on every side.
 function glass(w, h) {
-  const m = Math.max(16, Math.round(Math.min(w, h) * 0.07));
-  const chin = m + 18;
-  return { x: m, y: m, w: w - 2 * m, h: h - m - chin, m, chin };
+  const m = Math.max(24, Math.round(Math.min(w, h) * 0.12));
+  return { x: m, y: m, w: w - 2 * m, h: h - 2 * m, m };
 }
 
 async function load(api) {
@@ -97,9 +89,7 @@ async function load(api) {
     .filter((it) => it.type === "piece" || it.type === "kidlisp")
     .map((it) => ({ code: it.code, name: it.name || it.code, lisp: it.type === "kidlisp" }));
   if (!deck.length) throw new Error("that bag holds nothing to judge");
-  deck.reverse(); // newest first — the fresh rooms are the point
-
-  // Stand in the first room.
+  deck.reverse();
   world.set(key(pos), deck[dealt++]);
   trail.push({ ...pos });
 }
@@ -116,13 +106,11 @@ async function send(api, row) {
   try {
     const res = await fetch(API, { method: "POST", headers, body: JSON.stringify(row) });
     if (!res.ok) throw new Error("HTTP " + res.status);
-    sent += 1;
   } catch {
     lost += 1;
   }
 }
 
-// You've left a room. What you did while you were in it IS the verdict.
 function leaving(api) {
   const c = current();
   if (!c || !shownAt) return;
@@ -136,7 +124,7 @@ function leaving(api) {
     taps,
     fps: Math.round(fps),
     fpsMin: fpsMin === 999 ? 0 : Math.round(fpsMin),
-    revisit: (seen[c.code] || 1) - 1, // times you'd already been here before now
+    revisit: (seen[c.code] || 1) - 1,
     failed: hostFailed,
     x: pos.x,
     y: pos.y,
@@ -194,32 +182,82 @@ async function mount(api) {
   }
 }
 
-// Walk. Leave this room (fire its verdict, keep its photograph), step to the next
-// cell, discover or re-enter whatever's there, and start the set sliding that way.
-function walk(api, dx, dy) {
-  if (slide.t > 0 || pending) return; // one doorway at a time
-  leaving(api);
+// A photograph of the room in a given direction, so it can slide in under your
+// finger. If you've been there, it's your last frame of it; if not, we boot it
+// once, steal a frame, and boot the current room back (a singleton can't hold
+// two live). If it can't be shot, a wall-dark frame slides in — never black.
+function peekFrame(api, cellKey, cell) {
+  if (frozen.has(cellKey)) return frozen.get(cellKey).frame;
+  const g = glass(api.screen.width, api.screen.height);
+  const shot = api.painting(g.w, g.h, (p) => p.wipe(...WALL));
+  if (cell && !cell.lisp) {
+    try {
+      const mod = mods.get(cell.code);
+      if (mod) {
+        api.page(shot);
+        mod.boot?.({ ...api, screen: shot });
+        mod.sim?.({ ...api, screen: shot });
+        mod.paint?.({ ...api, screen: shot });
+        api.page(api.screen);
+        // Put the current room back — its boot re-asserts its own config.
+        if (host && !host.lisp && stage) {
+          api.page(stage);
+          host.boot?.({ ...api, screen: stage });
+          api.page(api.screen);
+        }
+      }
+    } catch {
+      // wall-dark it is.
+    }
+  }
+  return shot;
+}
 
+// Begin a walk in a travel direction (dx,dy in grid steps). Find the room that
+// way and grab its photograph so it can slide in as you drag.
+async function beginMove(api, dx, dy) {
+  const target = { x: pos.x + dx, y: pos.y + dy };
+  const tk = key(target);
+  if (!world.has(tk)) world.set(tk, deck[dealt++ % deck.length]);
+  // Cache the target module first (so peek can boot it synchronously next frame).
+  const cell = world.get(tk);
+  if (cell && !cell.lisp && !mods.get(cell.code)) {
+    try {
+      mods.set(cell.code, await import(`${ORIGIN}/aesthetic.computer/disks/${cell.code}.mjs`));
+    } catch {}
+  }
+  move = { dx, dy, off: 0, live: true, anim: 0, from: 0, to: 0, frame: null, target: tk, cell };
+}
+
+// You let go. If you pushed past the doorway, finish the slide and step through;
+// otherwise it eases back and you never left.
+function releaseMove(api, dim) {
+  if (!move) return;
+  const past = Math.abs(move.off) > dim * 0.22;
+  move.live = false;
+  move.from = move.off;
+  move.to = past ? (move.off > 0 ? dim : -dim) : 0;
+  move.commit = past;
+  move.anim = 0.0001;
+}
+
+// The slide finished on a commit: fire the verdict, freeze this room, step into
+// the next, and bring it to life.
+function step(api) {
+  leaving(api);
   if (stage) {
     const keep = api.painting(stage.width, stage.height, () => {});
     keep.pixels.set(stage.pixels);
     frozen.set(key(pos), { frame: keep, name: current().name });
-    out = keep;
-    outName = current().name;
   }
-
-  pos = { x: pos.x + dx, y: pos.y + dy };
-  if (!world.has(key(pos))) {
-    world.set(key(pos), deck[dealt++ % deck.length]); // a new room, freshly dealt
-  }
+  pos = { x: pos.x + move.dx, y: pos.y + move.dy };
   trail.push({ ...pos });
-
-  pending = { dx, dy }; // don't slide until the new room has drawn a frame
+  move = null;
   mount(api);
 }
 
 function boot(api) {
-  api.wipe(...BEZEL);
+  api.wipe(...WALL);
   api.hud?.label?.("");
   judge = api.handle?.() || null;
   load(api)
@@ -242,11 +280,14 @@ function sim(api) {
       error = String(e?.message || e);
     }
   }
-  if (slide.t > 0) {
-    slide.t += STEP;
-    if (slide.t >= 1) {
-      slide = { dx: 0, dy: 0, t: 0 };
-      out = null;
+  // Ease a released move home.
+  if (move && !move.live) {
+    move.anim += 0.09;
+    const e = EASE(Math.min(1, move.anim));
+    move.off = move.from + (move.to - move.from) * e;
+    if (move.anim >= 1) {
+      if (move.commit) step(api);
+      else move = null;
     }
   }
 }
@@ -257,12 +298,12 @@ function paint(api) {
   const h = screen.height;
 
   if (state === "loading") {
-    wipe(...BEZEL);
+    wipe(...WALL);
     ink(150).write("finding the first room…", { center: "xy" });
     return;
   }
   if (state === "error") {
-    wipe(...BEZEL);
+    wipe(...WALL);
     ink(...NO).write(error, { center: "x", y: h / 2 - 4 });
     return;
   }
@@ -270,7 +311,6 @@ function paint(api) {
   const g = glass(w, h);
   ensureStage(api);
 
-  // Frame rate, honest, on the machine you're holding.
   const t = performance?.now?.() ?? now();
   if (fpsAt) {
     const dt = t - fpsAt;
@@ -282,14 +322,15 @@ function paint(api) {
   }
   fpsAt = t;
 
+  // Grab the neighbor's photograph the first frame a move exists.
+  if (move && !move.frame) move.frame = peekFrame(api, move.target, move.cell);
+
   // Paint the live room into the glass surface.
-  let painted = false;
   if (host && !hostFailed) {
     try {
       api.page(stage);
       if (host.lisp) api.kidlisp(0, 0, g.w, g.h, lisp);
       else host.paint?.({ ...api, screen: stage });
-      painted = true;
     } catch (e) {
       hostFailed = true;
       error = String(e?.message || e);
@@ -298,134 +339,87 @@ function paint(api) {
     }
   }
 
-  // A walk that was waiting on its room: the room has drawn — now the set slides.
-  if (pending && (painted || hostFailed)) {
-    slide = { dx: pending.dx, dy: pending.dy, t: 0.0001 };
-    pending = null;
-  }
+  wipe(...WALL);
 
-  wipe(...BEZEL);
+  // Where the two rooms sit. The live one slides by `off`; the neighbor rides the
+  // opposite side, so they move together like a filmstrip.
+  const off = move ? move.off : 0;
+  const ax = move && move.dx ? off : 0;
+  const ay = move && move.dy ? off : 0;
 
-  // Where the two rooms sit inside the glass. The one you're leaving slides out
-  // in the direction you walked; the one you're entering slides in behind it.
-  let ox = 0;
-  let oy = 0; // live room offset
-  let px = 0;
-  let py = 0; // outgoing room offset
-  if (slide.t > 0) {
-    const e = EASE(Math.min(1, slide.t));
-    ox = slide.dx * g.w * (1 - e);
-    oy = slide.dy * g.h * (1 - e);
-    px = -slide.dx * g.w * e;
-    py = -slide.dy * g.h * e;
-  } else if (dragv) {
-    // Live nudge while you push off the bezel — the room leans toward the door.
-    ox = dragv.dx * 0.32;
-    oy = dragv.dy * 0.32;
-  }
-
-  if (hostFailed && !slide.t) {
+  if (hostFailed && !move) {
     ink(18, 6, 10).box(g.x, g.y, g.w, g.h);
     ink(...NO).write("didn't run", { x: g.x + g.w / 2 - 30, y: g.y + g.h / 2 - 8 });
   } else {
-    if (slide.t > 0 && out)
-      api.paste(out, Math.round(g.x + px), Math.round(g.y + py));
-    if (painted || !slide.t)
-      api.paste(stage, Math.round(g.x + ox), Math.round(g.y + oy));
-    else if (out) api.paste(out, g.x, g.y); // still loading — hold the last room
+    api.paste(stage, Math.round(g.x + ax), Math.round(g.y + ay));
+    if (move && move.frame) {
+      // The neighbor sits on the side you're walking toward and rides in as the
+      // current room slides away — a filmstrip of two.
+      const nx = ax + move.dx * g.w;
+      const ny = ay + move.dy * g.h;
+      api.paste(move.frame, Math.round(g.x + nx), Math.round(g.y + ny));
+    }
   }
 
-  bezel(api, g, w, h); // the wall masks anything the slide pushed past the glass
-  vignette(api, g);
-  chrome(api, g, w, h);
-}
+  // Clip everything back into the glass rectangle with the opaque wall, then round
+  // and fuzz the edge in one pixel pass — the soft CRT border.
+  ink(...WALL).box(0, 0, w, g.y);
+  ink(...WALL).box(0, g.y + g.h, w, h - (g.y + g.h));
+  ink(...WALL).box(0, 0, g.x, h);
+  ink(...WALL).box(g.x + g.w, 0, w - (g.x + g.w), h);
+  softEdge(api, g);
 
-// The wall. Opaque, so it hides the parts of a sliding room that spill past the
-// glass — the mask is free clipping.
-function bezel({ ink }, g, w, h) {
-  ink(...BEZEL).box(0, 0, w, g.y); // top
-  ink(...BEZEL).box(0, g.y + g.h, w, h - (g.y + g.h)); // bottom (the chin)
-  ink(...BEZEL).box(0, 0, g.x, h); // left
-  ink(...BEZEL).box(g.x + g.w, 0, w - (g.x + g.w), h); // right
-  // A thin lit edge where the glass meets the wall — sells the set.
-  ink(60, 60, 80).box(g.x - 1, g.y - 1, g.w + 2, 1);
-  ink(60, 60, 80).box(g.x - 1, g.y + g.h, g.w + 2, 1);
-  ink(60, 60, 80).box(g.x - 1, g.y - 1, 1, g.h + 2);
-  ink(60, 60, 80).box(g.x + g.w, g.y - 1, 1, g.h + 2);
-}
-
-// The vignette. The glass darkens toward its edges, so the pad sits in the set
-// instead of being pasted flat against it.
-function vignette({ ink }, g) {
-  const V = Math.min(28, Math.round(g.h * 0.09));
-  for (let i = 0; i < V; i++) {
-    const a = Math.round(150 * Math.pow((V - i) / V, 2));
-    ink(0, 0, 0, a).box(g.x, g.y + i, g.w, 1);
-    ink(0, 0, 0, a).box(g.x, g.y + g.h - 1 - i, g.w, 1);
-    ink(0, 0, 0, a).box(g.x + i, g.y, 1, g.h);
-    ink(0, 0, 0, a).box(g.x + g.w - 1 - i, g.y, 1, g.h);
-  }
-}
-
-// Everything of ours lives in the wall, never on the glass.
-function chrome(api, g, w, h) {
-  const { ink } = api;
+  // The only thing on the wall: the room's name, top-left, fading after a moment.
   const c = current();
   const age = now() - shownAt;
-
-  // The room's name, in the top bezel, fading after a moment.
-  const fade = slide.t > 0 ? 1 : Math.min(1, Math.max(0, (NAME_MS - age) / 700));
+  const fade = move ? 1 : Math.min(1, Math.max(0, (NAME_MS - age) / 700));
   if (fade > 0 && c) {
     ink(0, 0, 0, 150 * fade).write(c.name, { x: g.x + 1, y: g.m / 2 - 3 });
-    ink(240, 240, 255, 255 * fade).write(c.name, { x: g.x, y: g.m / 2 - 4 });
-  }
-  // How many rooms you've walked — the size of your wander.
-  const n = `${trail.length}`;
-  ink(90, 90, 110).write(n, { x: w - g.x - n.length * 6, y: g.m / 2 - 4 });
-
-  // The timer, in the chin. Staying IS the vote, so you can watch it happen: the
-  // bar fills toward the keep threshold and turns green the instant you cross it.
-  if (!slide.t && !pending && host) {
-    const kept = taps > 0 || age >= LINGER;
-    const frac = kept ? 1 : Math.min(1, age / LINGER);
-    const by = g.y + g.h + 6;
-    const [r, gr, b] = kept ? OK : [120, 120, 140];
-    ink(30, 30, 40).box(g.x, by, g.w, 2);
-    ink(r, gr, b, 220).box(g.x, by, Math.round(g.w * frac), 2);
-    const secs = `${(age / 1000).toFixed(1)}s${taps ? "  " + taps + "▸" : ""}`;
-    ink(kept ? OK : [170, 170, 185]).write(secs, { x: g.x, y: by + 6 });
-  }
-
-  minimap(api, g, w, h);
-
-  if (lost > 0) {
-    const m = `${lost} unsent`;
-    ink(...NO).write(m, { x: w - g.x - m.length * 6, y: h - 9 });
+    ink(235, 235, 245, 255 * fade).write(c.name, { x: g.x, y: g.m / 2 - 4 });
   }
 }
 
-// Your psychogeographic map: the rooms you've found, laid where you found them,
-// and the path you took through them. Bottom-right of the wall.
-function minimap({ ink }, g, w, h) {
-  const cell = 5;
-  const gap = 2;
-  const pitch = cell + gap;
-  // Bounds of everything walked, centered on where you are.
-  const originX = w - g.x - cell;
-  const originY = h - 10 - cell;
-  const seenKeys = [...world.keys()].map((k) => k.split(",").map(Number));
-  for (const [x, y] of seenKeys) {
-    const dx = x - pos.x;
-    const dy = y - pos.y;
-    const sx = originX + dx * pitch;
-    const sy = originY + dy * pitch;
-    if (sx < g.x || sy < g.y + g.h) continue; // stay in the corner of the wall
-    const here = x === pos.x && y === pos.y;
-    ink(here ? OK : [70, 70, 90], here ? 255 : 180).box(sx, sy, cell, cell);
+// The soft CRT edge: rounded corners + a fuzzy border. Writing the display buffer
+// directly doesn't composite here (AC copies its own buffer after paint), but a
+// `painting()` buffer's pixels DO show when pasted — so we bake the edge into a
+// transparent overlay ONCE and paste it every frame. Signed distance to a rounded
+// rectangle gives corners (the field is round there) and fuzz (we blend over
+// FEATHER pixels instead of cutting) in the same number.
+let maskBuf = null;
+let maskFor = "";
+function softEdge(api, g) {
+  const w = api.screen.width;
+  const h = api.screen.height;
+  const sig = `${w}x${h}`;
+  if (maskFor !== sig) {
+    const R = Math.max(8, Math.round(Math.min(g.w, g.h) * 0.07)); // corner radius
+    const cx = g.x + g.w / 2;
+    const cy = g.y + g.h / 2;
+    const hw = g.w / 2 - R;
+    const hh = g.h / 2 - R;
+    const F = FEATHER;
+    const [wr, wg, wb] = WALL;
+    maskBuf = api.painting(w, h, () => {});
+    const px = maskBuf.pixels;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const qx = Math.abs(x - cx) - hw;
+        const qy = Math.abs(y - cy) - hh;
+        const d = Math.min(Math.max(qx, qy), 0) + Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) - R;
+        let a = (d + F) / (2 * F); // 0 deep inside → 1 at/after the edge
+        a = a < 0 ? 0 : a > 1 ? 1 : a * a * (3 - 2 * a); // smoothstep
+        const i = (y * w + x) * 4;
+        px[i] = wr;
+        px[i + 1] = wg;
+        px[i + 2] = wb;
+        px[i + 3] = Math.round(a * 255); // transparent center, opaque wall
+      }
+    }
+    maskFor = sig;
   }
+  api.paste(maskBuf, 0, 0);
 }
 
-// Map a screen event into the glass, or return null if it's not on the glass.
 function onGlass(e, g) {
   const x = (e.x ?? 0) - g.x;
   const y = (e.y ?? 0) - g.y;
@@ -433,18 +427,20 @@ function onGlass(e, g) {
   return Object.assign(Object.create(Object.getPrototypeOf(e)), e, { x, y });
 }
 
+let grab = null; // a wall drag before it has picked an axis: { sx, sy }
+
 function act(api) {
   const { event: e } = api;
   if (state !== "judging") return;
-  const g = glass(api.screen.width, api.screen.height);
+  const w = api.screen.width;
+  const h = api.screen.height;
+  const g = glass(w, h);
 
-  // A touch decides its own allegiance by where it lands. On the glass, it plays
-  // the pad. On the wall, it's the start of a walk.
   if (e.is("touch")) {
-    if (slide.t > 0 || pending) return;
+    if (move && !move.live) return; // mid-snap, wait
     const on = onGlass(e, g);
-    if (on) {
-      dragv = null;
+    if (on && !move) {
+      grab = null; // on the glass → play the pad
       if (host && !hostFailed) {
         taps += 1;
         try {
@@ -454,49 +450,75 @@ function act(api) {
           error = String(err?.message || err);
         }
       }
-    } else {
-      dragv = { x0: e.x, y0: e.y, dx: 0, dy: 0 };
+    } else if (!on) {
+      grab = { sx: e.x, sy: e.y }; // on the wall → begin a walk
     }
     return;
   }
 
-  // A drag on the wall leans the room toward the door you're pushing.
-  if (dragv && e.is("draw")) {
-    dragv.dx = (e.x ?? dragv.x0) - dragv.x0;
-    dragv.dy = (e.y ?? dragv.y0) - dragv.y0;
-    return;
-  }
-
-  // A drag on the glass is playing the instrument.
-  if (!dragv && e.is("draw") && host && !hostFailed && !host.lisp) {
-    const on = onGlass(e, g);
-    if (on) {
-      try {
-        host.act?.({ ...api, screen: stage, event: on });
-      } catch (err) {
-        hostFailed = true;
-        error = String(err?.message || err);
+  if (e.is("draw")) {
+    // Still picking an axis?
+    if (grab && !move) {
+      const dx = (e.x ?? grab.sx) - grab.sx;
+      const dy = (e.y ?? grab.sy) - grab.sy;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) > DEADZONE) {
+        // Travel is OPPOSITE the drag — you're pulling the world, like a map.
+        // Drag the room left and you move east; the east room comes in from the
+        // right, following your finger.
+        const horiz = Math.abs(dx) > Math.abs(dy);
+        const tdx = horiz ? (dx > 0 ? -1 : 1) : 0;
+        const tdy = horiz ? 0 : dy > 0 ? -1 : 1;
+        beginMove(api, tdx, tdy); // async, sets `move` shortly
+      }
+      return;
+    }
+    // Following the finger along the locked axis.
+    if (move && move.live) {
+      const raw = move.dx ? (e.x ?? grab.sx) - grab.sx : (e.y ?? grab.sy) - grab.sy;
+      const dim = move.dx ? g.w : g.h;
+      move.off = Math.max(-dim, Math.min(dim, raw));
+      return;
+    }
+    // Playing the instrument.
+    if (!grab && !move && host && !hostFailed && !host.lisp) {
+      const on = onGlass(e, g);
+      if (on) {
+        try {
+          host.act?.({ ...api, screen: stage, event: on });
+        } catch (err) {
+          hostFailed = true;
+          error = String(err?.message || err);
+        }
       }
     }
     return;
   }
 
-  // Let go of a wall drag: if you pushed far enough, walk that cardinal way.
-  if (dragv && e.is("lift")) {
-    const { dx, dy } = dragv;
-    dragv = null;
-    const ax = Math.abs(dx);
-    const ay = Math.abs(dy);
-    if (Math.max(ax, ay) < SWIPE) return; // a tap on the wall goes nowhere
-    if (ax > ay) return walk(api, dx > 0 ? 1 : -1, 0); // east / west
-    return walk(api, 0, dy > 0 ? 1 : -1); // south / north
+  if (e.is("lift")) {
+    if (move && move.live) releaseMove(api, move.dx ? g.w : g.h);
+    grab = null;
+    return;
   }
 
-  // Keys walk the four directions too.
-  if (e.is("keyboard:down:arrowright")) return walk(api, 1, 0);
-  if (e.is("keyboard:down:arrowleft")) return walk(api, -1, 0);
-  if (e.is("keyboard:down:arrowdown")) return walk(api, 0, 1);
-  if (e.is("keyboard:down:arrowup")) return walk(api, 0, -1);
+  // Keys walk too — instant, no follow. `to = -dx*dim` lands the neighbor centered
+  // (its paste offset is `off + dx*dim`, which is 0 when off = -dx*dim).
+  const keyWalk = (dx, dy) => {
+    if (move) return;
+    beginMove(api, dx, dy).then(() => {
+      if (move) {
+        move.frame = peekFrame(api, move.target, move.cell);
+        move.live = false;
+        move.from = 0;
+        move.to = dx ? -dx * g.w : -dy * g.h;
+        move.commit = true;
+        move.anim = 0.0001;
+      }
+    });
+  };
+  if (e.is("keyboard:down:arrowright")) return keyWalk(1, 0);
+  if (e.is("keyboard:down:arrowleft")) return keyWalk(-1, 0);
+  if (e.is("keyboard:down:arrowdown")) return keyWalk(0, 1);
+  if (e.is("keyboard:down:arrowup")) return keyWalk(0, -1);
 }
 
 function leave(api) {

@@ -54,5 +54,33 @@
     "mutation": "eye",
     "trait": "orrery of orbiting motes (Kepler-speed solar system) x tavo's watery bubble-synth score",
     "born": "2026-07-14T16:51:52.296Z"
+  },
+  "olord": {
+    "parent": "drolo",
+    "second": null,
+    "mutation": "invert",
+    "trait": "decaying inverted pendulums (silence does the work) x melodically-mirrored bell/pluck",
+    "born": "2026-07-14T17:57:10.644Z"
+  },
+  "wubo": {
+    "parent": "tavo",
+    "second": null,
+    "mutation": "push",
+    "trait": "fading drag-trail glissando (played bubbles that hang, not rise) x continuous pitch-stepped bubble+bell voice that ducks the ambient bath",
+    "born": "2026-07-14T18:02:37.932Z"
+  },
+  "flurk": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "boid flock (separation/alignment/cohesion swarm) x granular pentatonic grains that sonify each boid's live position",
+    "born": "2026-07-14T19:43:38.985Z"
+  },
+  "talus": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "sandpile/avalanche cellular automaton (BakTangWiesenfeld toppling grid, one column per pitch) x cascading pluck/bell voice (each topple rings its column's note, so an avalanche IS an arpeggio)",
+    "born": "2026-07-14T19:48:24.750Z"
   }
 }

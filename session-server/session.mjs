@@ -31,7 +31,6 @@ import Fastify from "fastify";
 import geckos from "@geckos.io/server";
 import geoip from "geoip-lite";
 import { WebSocket, WebSocketServer } from "ws";
-import ip from "ip";
 import chokidar from "chokidar";
 import fs from "fs";
 import path from "path";
@@ -479,6 +478,18 @@ const DEV_LAN_IP = (() => {
   return null;
 })();
 console.log(`🖥️ Dev host: ${DEV_HOST_NAME}, LAN IP: ${DEV_LAN_IP || 'N/A'}`);
+
+// The `ip` package was here for exactly one thing — the address in the startup
+// banner below. It is unmaintained and carries an SSRF advisory with no fix, so
+// we do its `address()` ourselves. (The advisory is about isPublic/isPrivate,
+// which we never called, but an unfixable dep is not worth one line.) Unlike
+// DEV_LAN_IP above, this takes any non-internal IPv4, not just a 192.168.* one.
+function localAddress() {
+  for (const iface of Object.values(os.networkInterfaces()).flat()) {
+    if (iface?.family === "IPv4" && !iface.internal) return iface.address;
+  }
+  return "127.0.0.1";
+}
 
 // Helper: Assign device letters (A, B, C...) based on connection order
 function getDeviceLetter(connectionId) {
@@ -1128,7 +1139,7 @@ const start = async () => {
   try {
     if (dev) {
       fastify.listen({
-        host: "0.0.0.0", // ip.address(),
+        host: "0.0.0.0",
         port: info.port,
       });
     } else {
@@ -1334,7 +1345,7 @@ wss = new WebSocketServer({ server });
 log(
   `🤖 session.aesthetic.computer (${
     dev ? "Development" : "Production"
-  }) socket: wss://${ip.address()}:${info.port}`,
+  }) socket: wss://${localAddress()}:${info.port}`,
 );
 
 // *** Status Page Routes (defined after wss initialization) ***

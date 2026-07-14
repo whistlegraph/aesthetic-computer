@@ -20,25 +20,33 @@
     "logs": "f() { jamsocket logs $1; };f"
   },
   "author": "Jeffrey Alan Scudder",
+  "comment:pins": "geoip-lite stays on 1.x: 2.x requires Node >=24 and the Dockerfile runs node:lts-iron (Node 20). ws stays at 8.21.0, the fix for the memory-exhaustion advisory — 8.21.1 is too new to trust yet (see .npmrc min-release-age). redis 6 and mongodb 7 both need Node >=20.19, which Iron satisfies.",
   "dependencies": {
-    "@geckos.io/server": "^3.0.1",
-    "chokidar": "^4.0.3",
-    "dotenv": "^16.5.0",
-    "fastify": "^5.3.0",
+    "@geckos.io/server": "^3.1.0",
+    "chokidar": "^5.0.0",
+    "dotenv": "^17.4.2",
+    "fastify": "^5.10.0",
     "geoip-lite": "^1.4.10",
-    "ip": "^2.0.1",
-    "jamsocket": "^0.10.8",
-    "mongodb": "^6.20.0",
+    "mongodb": "^7.5.0",
     "node-fetch": "^3.3.2",
-    "obscenity": "^0.4.5",
-    "redis": "^4.7.0",
-    "ws": "^8.18.1"
+    "obscenity": "^0.4.6",
+    "redis": "^6.1.0",
+    "ws": "^8.21.0"
   },
   "devDependencies": {
-    "@geckos.io/client": "^3.0.2",
+    "@geckos.io/client": "^3.1.0",
+    "jamsocket": "^0.10.8",
     "kill-port": "^2.0.1",
-    "nodemon": "^3.1.9",
-    "terminal-kit": "^3.1.2",
-    "vitest": "^2.1.0"
+    "nodemon": "^3.1.14",
+    "terminal-kit": "^3.1.3",
+    "vitest": "^4.1.10"
+  },
+  "comment:overrides": "Transitive advisories with no direct dependency to bump. lodash and minimatch@3 both arrive under geoip-lite@1, whose own 2.x needs Node >=24 while the Dockerfile runs node:lts-iron (Node 20) — so we patch the grandchildren instead of moving the base image. minimatch is scoped to glob, which wants ^3; forcing 3.x globally would break anything on 9.x/10.x.",
+  "overrides": {
+    "lodash": "^4.18.1",
+    "fast-uri": "^3.1.3",
+    "glob": {
+      "minimatch": "^3.1.5"
+    }
   }
 }
