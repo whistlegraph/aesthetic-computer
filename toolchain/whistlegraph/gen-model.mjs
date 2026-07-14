@@ -59,6 +59,7 @@ const twins = overrides.twins || [];
 // work — e.g. a talk video that merges into a song-graph but is still a "talk".
 // { postId → ["talk", …] }. Survives merges because it's keyed on the post id.
 const postTags = overrides.postTags || {};
+const crossTags = overrides.crossTags || {}; // srcCode → [alsoUnderCode, …]
 const mergeSources = new Set(Object.keys(merges));
 // Resolve a raw cluster code to the slug it appears under: apply a recode
 // (slug change) first, then a merge (fold into another work). Posts and the
@@ -182,6 +183,19 @@ for (const t of twins) {
   for (const id of src.clips) {
     const p = postsById.get(id);
     if (p && !p.graphs.includes(t.code)) p.graphs.push(t.code);
+  }
+}
+// crossTags: a work that ALSO belongs under another existing work but keeps its
+// own standing too (unlike merges, which drop the source). { sourceCode →
+// [otherCode, …] } — the source's own clips gain the extra codes, so those posts
+// surface on both record pages while the source work stays in the index.
+for (const [srcCode, extra] of Object.entries(crossTags)) {
+  const src = codeByCluster.get(srcCode);
+  if (!src) { console.warn(`crossTags: source cluster ${srcCode} not found`); continue; }
+  for (const id of src.clips) {
+    const p = postsById.get(id);
+    if (!p) continue;
+    for (const c of extra) if (!p.graphs.includes(c)) p.graphs.push(c);
   }
 }
 // Per-post tags: stamp the extra badges (kept even when the post's work is a
