@@ -141,7 +141,69 @@ function ensureStage(api) {
   return stage;
 }
 
+// The audio leak that killed the sound after many walks: a pad's SUSTAINED voices
+// (padChord's `duration: "🔁"`, overtone's Infinity) never stop on their own, and
+// swapping the hosted pad never told them to. Room after room, they piled into the
+// synth's voice pool until it was full and nothing new could sound.
+//
+// So we hand each pad a `sound` whose `synth` logs the sustained voices it starts,
+// and we kill exactly those when we leave the room. Transient beat-voices decay by
+// themselves and are left alone, so the log stays tiny.
+let padSound = null;
+let voiceLog = [];
+const sustained = (d) => d === "🔁" || d === Infinity || d === "infinity";
+function wrapSound(sound) {
+  if (!sound || typeof sound.synth !== "function") return sound;
+  const realSynth = sound.synth.bind(sound);
+  const wrapped = Object.create(sound); // inherits speaker, bpm, room, …
+  wrapped.synth = (opts = {}) => {
+    const h = realSynth(opts);
+    if (h && sustained(opts.duration)) {
+      voiceLog.push(h);
+      if (voiceLog.length > 48) voiceLog.shift()?.kill?.(0.1);
+    }
+    return h;
+  };
+  return wrapped;
+}
+function killVoices() {
+  for (const h of voiceLog) {
+    try {
+      h?.kill?.(0.06);
+    } catch {}
+  }
+  voiceLog = [];
+}
+
+// A heartbeat for the stress harness. A piece runs in a worker, so it can't hang
+// a handle off the page's window — but its console reaches the page. Once a second
+// or so we print the counters that would reveal a leak, and the harness reads them.
+let statTick = 0;
+function stat() {
+  if (++statTick % 90) return;
+  try {
+    console.log(`[ce] v${voiceLog.length} r${world.size} f${frozen.size} m${mods.size} t${trail.length}`);
+  } catch {}
+}
+// The api a LIVE pad runs against: its own surface + the voice-logging sound.
+function padApi(api, surf, event) {
+  if (!padSound) padSound = wrapSound(api.sound);
+  const a = { ...api, screen: surf, sound: padSound };
+  if (event) a.event = event;
+  return a;
+}
+// A dead-silent sound, for the throwaway boots a peek does — a preview must not
+// make noise, and must not leak a voice.
+const SILENT = {
+  synth: () => ({ kill() {}, progress: async () => ({ progress: 0 }) }),
+  bpm: () => {},
+  speaker: { poll() {}, amplitudes: {}, frequencies: {}, beat: {} },
+  room: { set() {}, on() {}, off() {}, toggle() {} },
+};
+const peekApi = (api, surf) => ({ ...api, screen: surf, sound: SILENT });
+
 async function mount(api) {
+  killVoices(); // silence the room we're leaving before the next one speaks
   host = null;
   hostFailed = false;
   mounting = true;
@@ -171,7 +233,7 @@ async function mount(api) {
         mods.set(code, mod);
       }
       api.page(surf);
-      mod.boot?.({ ...api, screen: surf });
+      mod.boot?.(padApi(api, surf));
       api.page(api.screen);
       host = mod;
     }
@@ -195,15 +257,17 @@ function peekFrame(api, cellKey, cell) {
     try {
       const mod = mods.get(cell.code);
       if (mod) {
+        // Silent boots — a preview must not sound, and must not leak a voice.
         api.page(shot);
-        mod.boot?.({ ...api, screen: shot });
-        mod.sim?.({ ...api, screen: shot });
-        mod.paint?.({ ...api, screen: shot });
+        mod.boot?.(peekApi(api, shot));
+        mod.sim?.(peekApi(api, shot));
+        mod.paint?.(peekApi(api, shot));
         api.page(api.screen);
-        // Put the current room back — its boot re-asserts its own config.
+        // Put the current room back — its boot re-asserts its own config. Silent
+        // too: its live voices keep playing untouched; we just don't re-fire them.
         if (host && !host.lisp && stage) {
           api.page(stage);
-          host.boot?.({ ...api, screen: stage });
+          host.boot?.(peekApi(api, stage));
           api.page(api.screen);
         }
       }
@@ -249,7 +313,12 @@ function step(api) {
   if (stage) {
     const keep = api.painting(stage.width, stage.height, () => {});
     keep.pixels.set(stage.pixels);
+    frozen.delete(key(pos)); // move to newest (re-insert), so eviction is LRU-ish
     frozen.set(key(pos), { frame: keep, name: current().name });
+    // A photograph is ~300KB. Keep only the rooms you might soon walk back to —
+    // an evicted one just re-peeks (boots) when you return. Bounds the memory a
+    // long wander would otherwise pile up, one frame per room forever.
+    while (frozen.size > 32) frozen.delete(frozen.keys().next().value);
   }
   pos = { x: pos.x + move.dx, y: pos.y + move.dy };
   trail.push({ ...pos });
@@ -275,7 +344,7 @@ function boot(api) {
 function sim(api) {
   if (state === "judging" && host && !hostFailed && !host.lisp) {
     try {
-      host.sim?.({ ...api, screen: stage });
+      host.sim?.(padApi(api, stage));
     } catch (e) {
       hostFailed = true;
       error = String(e?.message || e);
@@ -311,6 +380,7 @@ function paint(api) {
 
   const g = glass(w, h);
   ensureStage(api);
+  stat();
 
   const t = performance?.now?.() ?? now();
   if (fpsAt) {
@@ -331,7 +401,7 @@ function paint(api) {
     try {
       api.page(stage);
       if (host.lisp) api.kidlisp(0, 0, g.w, g.h, lisp);
-      else host.paint?.({ ...api, screen: stage });
+      else host.paint?.(padApi(api, stage));
     } catch (e) {
       hostFailed = true;
       error = String(e?.message || e);
@@ -363,15 +433,17 @@ function paint(api) {
   }
 
   // Clip everything back into the glass with the wall, then round and fuzz the
-  // edge with the baked overlay. The wall lights up the moment you take hold of it
-  // to walk — so the whole set tells you it's ready to move.
+  // edge. The wall lights up (GLOW) the moment you take hold to walk; otherwise it
+  // takes a tone chosen to CONTRAST the pad's edge, so the touchable area is always
+  // visible — a dark pad never hides a dark wall.
+  sampleEdge();
   const swiping = !!grab || !!move;
-  const wc = swiping ? GLOW : WALL;
+  const wc = swiping ? GLOW : wallTone();
   ink(...wc).box(0, 0, w, g.y);
   ink(...wc).box(0, g.y + g.h, w, h - (g.y + g.h));
   ink(...wc).box(0, 0, g.x, h);
   ink(...wc).box(g.x + g.w, 0, w - (g.x + g.w), h);
-  softEdge(api, g, swiping);
+  softEdge(api, g, wc);
 
   // The only thing on the wall: the room's name, top-left, fading after a moment.
   const c = current();
@@ -383,16 +455,47 @@ function paint(api) {
   }
 }
 
+// The wall must never vanish into the pad — the touchable area has to stay
+// visible, so we pick its tone to CONTRAST whatever the pad is doing at its edge.
+// A dark pad gets a light wall; a bright pad keeps the deep dark one. Sampled from
+// the pad's own border, a few times a second.
+let padLum = 40;
+let lumTick = 0;
+function sampleEdge() {
+  if (!stage?.pixels || ++lumTick % 12) return;
+  const px = stage.pixels;
+  const W = stage.width;
+  const H = stage.height;
+  let sum = 0;
+  let n = 0;
+  const at = (x, y) => {
+    const i = (y * W + x) * 4;
+    sum += 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+    n++;
+  };
+  const step = Math.max(4, Math.floor(W / 20));
+  for (let x = 0; x < W; x += step) {
+    at(x, 2);
+    at(x, H - 3);
+  }
+  for (let y = 0; y < H; y += step) {
+    at(2, y);
+    at(W - 3, y);
+  }
+  if (n) padLum += (sum / n - padLum) * 0.4; // ease, so the wall doesn't strobe
+}
+// The resting wall tone: light slate over a dark pad, deep dark over a bright one —
+// either way, a clear step away from the pad's edge.
+const wallTone = () => (padLum < 82 ? [66, 72, 88] : [10, 10, 14]);
+
 // The soft CRT edge: rounded corners + a fuzzy border. Writing the display buffer
 // directly doesn't composite here (AC copies its own buffer after paint), but a
 // `painting()` buffer's pixels DO show when pasted — so we bake the edge into a
-// transparent overlay ONCE and paste it every frame. Signed distance to a rounded
+// transparent overlay and paste it every frame. Signed distance to a rounded
 // rectangle gives corners (the field is round there) and fuzz (we blend over
-// FEATHER pixels instead of cutting) in the same number. We bake two: a dark wall
-// and a lit one, and paste the lit version while you're taking hold to walk.
-let maskWall = null;
-let maskGlow = null;
-let maskFor = "";
+// FEATHER pixels instead of cutting) in one number. The overlay is baked per wall
+// colour and cached, so switching tones is free after the first time.
+const maskCache = new Map();
 function bakeMask(api, g, w, h, color) {
   const R = Math.max(8, Math.round(Math.min(g.w, g.h) * 0.16)); // corner radius
   const cx = g.x + g.w / 2;
@@ -419,16 +522,17 @@ function bakeMask(api, g, w, h, color) {
   }
   return buf;
 }
-function softEdge(api, g, glow) {
+function softEdge(api, g, color) {
   const w = api.screen.width;
   const h = api.screen.height;
-  const sig = `${w}x${h}`;
-  if (maskFor !== sig) {
-    maskWall = bakeMask(api, g, w, h, WALL);
-    maskGlow = bakeMask(api, g, w, h, GLOW);
-    maskFor = sig;
+  const k = `${w}x${h}:${color.join(",")}`;
+  let mask = maskCache.get(k);
+  if (!mask) {
+    mask = bakeMask(api, g, w, h, color);
+    maskCache.set(k, mask);
+    if (maskCache.size > 8) maskCache.delete(maskCache.keys().next().value); // bound it
   }
-  api.paste(glow ? maskGlow : maskWall, 0, 0);
+  api.paste(mask, 0, 0);
 }
 
 function onGlass(e, g) {
@@ -455,7 +559,7 @@ function act(api) {
       if (host && !hostFailed) {
         taps += 1;
         try {
-          if (!host.lisp) host.act?.({ ...api, screen: stage, event: on });
+          if (!host.lisp) host.act?.(padApi(api, stage, on));
         } catch (err) {
           hostFailed = true;
           error = String(err?.message || err);
@@ -495,7 +599,7 @@ function act(api) {
       const on = onGlass(e, g);
       if (on) {
         try {
-          host.act?.({ ...api, screen: stage, event: on });
+          host.act?.(padApi(api, stage, on));
         } catch (err) {
           hostFailed = true;
           error = String(err?.message || err);
