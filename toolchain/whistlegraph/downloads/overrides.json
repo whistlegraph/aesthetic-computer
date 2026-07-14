@@ -12,7 +12,8 @@
     "pics": "Pointing, Painting, Picture Taking",
     "well": "Well, Well, Well",
     "sitg": "A Sprout In The Grass",
-    "rock": "I Just Found A Little Rock"
+    "rock": "I Just Found A Little Rock",
+    "dggy": "Doggy Head"
   },
   "twins": [
     { "code": "bye", "title": "Say Goodbye", "from": "helo" }
@@ -70,7 +71,10 @@
     "7019362782122380550": ["talk"]
   },
   "crossTags": {
-    "lovw": ["sos"]
+    "lovw": ["sos"],
+    "fntn": ["pnda"],
+    "dggy": ["kity"],
+    "whod": ["chee"]
   },
   "merges": {
     "hlfn": "imab",
@@ -112,6 +116,7 @@
     "spike": "legs",
     "pofu": "pics",
     "morn": "chee",
-    "flo2": "bmhd"
+    "flo2": "bmhd",
+    "mathc": "math"
   }
 }
