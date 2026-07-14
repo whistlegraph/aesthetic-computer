@@ -169,20 +169,18 @@
   #detail .back{font-size:13px}
   #dVersions video.ver{width:300px; max-width:64vw; height:auto; border:1px solid var(--ink); background:#000; display:block; margin:6px 0 2px}
   /* Posts gallery — every published appearance of a whistlegraph */
-  /* The gallery is a horizontal, scroll-snap carousel: only the visible slides'
-     posters load (lazy via IntersectionObserver), so a 39-take record no longer
-     fetches 39 posters on open. Swipe on touch; arrows on hover devices. */
-  #dPosts .carousel{position:relative; clear:both}
-  #dPosts .posts{display:flex; gap:12px; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; scroll-behavior:smooth; padding:2px 2px 10px}
-  #dPosts .posts::-webkit-scrollbar{height:6px}
-  #dPosts .posts::-webkit-scrollbar-thumb{background:var(--margin); border-radius:3px}
-  #dPosts .posts .post{flex:0 0 auto; width:min(70vw,230px); scroll-snap-align:center}
-  #dPosts .cbtn{position:absolute; top:34%; transform:translateY(-50%); width:30px; height:46px; display:none; align-items:center; justify-content:center; border:1px solid var(--ink); background:var(--paper); color:var(--ink); font-size:20px; line-height:1; cursor:pointer; z-index:2; border-radius:3px; opacity:.9; padding:0}
-  #dPosts .cbtn:hover{opacity:1}
-  #dPosts .cbtn.prev{left:-4px} #dPosts .cbtn.next{right:-4px}
-  @media(hover:hover){#dPosts .carousel.multi .cbtn{display:flex}}
-  .post{display:flex; flex-direction:column; font-size:11.5px}
-  .post .pv{width:100%; aspect-ratio:9/16; height:auto; border:1px solid var(--ink); background:#000; display:block}
+  /* Takes list — jukebox style: the featured take plays in the top player and
+     the rest are a tap-to-play list underneath. Each row is a lazy thumbnail +
+     metadata (no per-row <video>), so even a 39-take record stays light. */
+  #dPosts .posts{display:flex; flex-direction:column; gap:8px; clear:both}
+  #dPosts .posts .post{display:flex; flex-direction:row; gap:11px; align-items:stretch; border:1px solid var(--ink); border-radius:2px; padding:8px 10px; background:var(--paper); cursor:pointer; font-size:11.5px}
+  #dPosts .posts .post:hover{border-color:var(--margin)}
+  #dPosts .posts .post.active{border-color:var(--margin); box-shadow:inset 0 0 0 1px var(--margin)}
+  #dPosts .post .thm{position:relative; flex:0 0 52px; width:52px; aspect-ratio:9/16; border:1px solid var(--ink); background:#000; overflow:hidden}
+  #dPosts .post .thm img{width:100%; height:100%; object-fit:cover; display:block}
+  #dPosts .post .thm .pl{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:13px; text-shadow:0 1px 3px #000; pointer-events:none}
+  #dPosts .post.active .thm .pl{color:var(--margin)}
+  #dPosts .post .pmeta{flex:1 1 auto; min-width:0; align-self:center; margin-top:0}
   /* Audio-only takes: a plain vertical list, separate from the video grid. */
   #dPosts .albl{margin-top:18px}
   #dPosts .audlist{display:flex; flex-direction:column; gap:12px}
@@ -421,38 +419,42 @@ function renderPosts(code){
   // row was the layout snag). Each stays a clean player with its own metadata.
   const vids=posts.filter(p=>p.media!=="audio"), auds=posts.filter(p=>p.media==="audio");
   const ptag=p=>(p.tags||[]).map(t=>KIND_LABEL[t]?`<span class="ktag">${KIND_LABEL[t]}</span>`:"").join("");
-  // Only the first slide gets its poster up front; the rest defer to data-poster
-  // and load as they scroll near (see the IntersectionObserver below). preload
-  // stays "none" so no video bytes fetch until play.
-  const vcard=(p,i)=>`<div class="post"><video class="pv" controls playsinline preload="none" loop${i===0&&p.thumb?` poster="${p.thumb}"`:""}${p.thumb?` data-poster="${p.thumb}"`:""} src="${p.src}"></video>`+
+  // Jukebox rows: a lazy thumbnail + metadata. Clicking a row plays that take in
+  // the top player (wired below). No per-row <video>, so even a 39-take record
+  // loads only small thumbnails, lazily — nothing heavier until you press play.
+  const curated=!!(BY[code]&&BY[code].slug); // curated works front a canonical performance, not posts[0]
+  const vcard=(p,i)=>`<div class="post${!curated&&i===0?" active":""}" data-i="${i}">`+
+    `<div class="thm"><img alt=""${p.thumb?` data-src="${p.thumb}"`:""}><span class="pl">▶</span></div>`+
     `<div class="pmeta">${ptag(p)}${meta(p)}${p.desc?`<div class="pdesc">${esc(p.desc)}</div>`:""}</div></div>`;
   const arow=p=>`<div class="arow"><span class="aico">♪</span><div class="acol"><audio controls preload="none" src="${p.src}"></audio><div class="pmeta">${meta(p)}</div></div></div>`;
   let html=`<hr><p class="lbl">${posts.length} post${posts.length>1?"s":""}</p>`;
-  if(vids.length){
-    const multi=vids.length>1;
-    html+=`<div class="carousel${multi?" multi":""}">`+
-      (multi?`<button class="cbtn prev" aria-label="Previous take">‹</button>`:"")+
-      `<div class="posts">${vids.map(vcard).join("")}</div>`+
-      (multi?`<button class="cbtn next" aria-label="Next take">›</button>`:"")+
-    `</div>`;
-  }
+  if(vids.length) html+=`<div class="posts">${vids.map(vcard).join("")}</div>`;
   if(auds.length) html+=`<p class="lbl albl">Audio-only take${auds.length>1?"s":""}</p><div class="audlist">${auds.map(arow).join("")}</div>`;
   P.innerHTML=html;
   P.style.display="";
-  // Lazy-load posters just before they scroll into view, and wire the arrows.
-  const strip=P.querySelector(".posts");
-  if(strip){
+  const list=P.querySelector(".posts");
+  if(list){
+    // Lazy thumbnails as rows scroll into view.
     const io=new IntersectionObserver((es)=>{
       for(const e of es) if(e.isIntersecting){
-        const v=e.target;
-        if(v.dataset.poster){ v.poster=v.dataset.poster; delete v.dataset.poster; }
-        io.unobserve(v);
+        const img=e.target.querySelector("img[data-src]");
+        if(img){ img.src=img.dataset.src; delete img.dataset.src; }
+        io.unobserve(e.target);
       }
-    },{root:strip, rootMargin:"250px"});
-    strip.querySelectorAll(".pv[data-poster]").forEach(v=>io.observe(v));
-    const step=()=>(strip.querySelector(".post")?.getBoundingClientRect().width||230)+12;
-    P.querySelector(".cbtn.prev")?.addEventListener("click",()=>strip.scrollBy({left:-step()}));
-    P.querySelector(".cbtn.next")?.addEventListener("click",()=>strip.scrollBy({left:step()}));
+    },{rootMargin:"300px"});
+    list.querySelectorAll(".post").forEach(el=>io.observe(el));
+    // Jukebox: tap a row → play that take in the top player.
+    list.addEventListener("click",(e)=>{
+      if(e.target.closest("a")) return; // let the source link open normally
+      const row=e.target.closest(".post"); if(!row) return;
+      const p=vids[+row.dataset.i]; if(!p) return;
+      list.querySelector(".post.active")?.classList.remove("active");
+      row.classList.add("active");
+      if(p.thumb) D.video.poster=p.thumb;
+      D.video.src=p.src;
+      D.video.play?.().catch(()=>{});
+      D.video.scrollIntoView({block:"center", behavior:"smooth"});
+    });
   }
 }
 
