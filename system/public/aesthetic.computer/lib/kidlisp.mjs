@@ -28,6 +28,9 @@ import { setFadeAlpha, clearFadeAlpha } from "./fade-state.mjs";
 // we borrow them rather than growing a second set here, because two definitions of
 // "what a bell sounds like" is one too many and they WILL drift.
 import { voices } from "./pads.mjs";
+
+// A note: letter, optional sharp/flat, octave. `c4` `f#3` `bb5` `a1`.
+const NOTE_LITERAL = /^[a-gA-G](#|s|b|f)?[0-8]$/;
 import { checkPackMode, getPackMode } from "./pack-mode.mjs";
 import { log } from "./logs.mjs";
 import { captureFrame, formatTimestamp, generateFilename } from "./frame-capture.mjs";
@@ -9466,9 +9469,15 @@ class KidLisp {
         }
       }
 
+      // A NOTE IS A LITERAL. `c4`, `f#3`, `bb5` evaluate to themselves, the way a
+      // number does — so you can write (bell e5) instead of (bell "e5"), and the
+      // language stays sayable out loud. Only when nothing else has claimed the
+      // name, so a variable called `e5` still wins if you defined one.
+      if (value === undefined && NOTE_LITERAL.test(expr)) return expr;
+
       // If we get here and expr looks like an identifier but wasn't found,
       // flag it as an unknown word (same as function head detection)
-      if (value === undefined && validIdentifierRegex.test(expr) && 
+      if (value === undefined && validIdentifierRegex.test(expr) &&
           !this.unknownWordsLogged?.has(expr) &&
           expr !== "fps" && expr !== "s" && expr.length > 1) {
         this.unknownWordsLogged?.add(expr);
