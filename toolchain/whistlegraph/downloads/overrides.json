@@ -10,7 +10,9 @@
     "kiss": "Dot Dot Kiss",
     "lily": "Pick Me",
     "pics": "Pointing, Painting, Picture Taking",
-    "well": "Well, Well, Well"
+    "well": "Well, Well, Well",
+    "sitg": "A Sprout In The Grass",
+    "rock": "I Just Found A Little Rock"
   },
   "twins": [
     { "code": "bye", "title": "Say Goodbye", "from": "helo" }
@@ -40,7 +42,13 @@
     "sotm": "Jeffrey Alan Scudder",
     "well": "Jeffrey Alan Scudder",
     "smil": "Camille Klein",
-    "bath": "Alex Freundlich"
+    "bath": "Alex Freundlich",
+    "tnkm": "Alex Freundlich",
+    "limb": "Jeffrey Alan Scudder",
+    "dysm": "Alex Freundlich",
+    "gbld": "Alex Freundlich",
+    "rock": "Jeffrey Alan Scudder",
+    "lily": "Camille Klein"
   },
   "recodes": {
     "cdh": "bugy",
@@ -53,7 +61,8 @@
     "ltso": "jbox",
     "ntal": "kiss",
     "pikm": "lily",
-    "crwl": "well"
+    "crwl": "well",
+    "alve": "fssl"
   },
   "postTags": {
     "7019362782122380550": ["talk"]
