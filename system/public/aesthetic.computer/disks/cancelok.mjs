@@ -44,6 +44,7 @@ let verdicts = []; // [{ code, verdict, dwellMs, taps, failed, at }]
 let shownAt = 0; // when this candidate came up (for dwell)
 let taps = 0; // how many times you played it — the usage signal
 let judge = null; // the handle whose taste this is (null = anonymous)
+let replaying = false; // you've judged them all — this is a second pass
 let armed = null; // "cancel" | "ok" — a press waiting on its lift
 let fromBar = false; // did this gesture start in the bar? (route the whole drag)
 
@@ -54,10 +55,10 @@ const current = () => deck[at];
 // has seen yet, and they're the whole reason to be here. A bag is the fallback,
 // so `cancelok` still works with no loop running (and `cancelok:^pads` judges
 // the 47 that already shipped).
-async function load({ params }) {
-  const asked = (params?.[0] || "").replace(/^\^/, "").toLowerCase();
+async function load(api) {
+  const asked = (api.params?.[0] || "").replace(/^\^/, "").toLowerCase();
 
-  if (!asked) {
+  if (!asked && LOCAL) {
     const q = await fetch(`${SINK}/queue`)
       .then((r) => (r.ok ? r.json() : null))
       .catch(() => null); // no sink running is a normal state, not an error
@@ -77,6 +78,26 @@ async function load({ params }) {
     .filter((it) => it.type === "piece")
     .map((it) => ({ code: it.code, name: it.name || it.code }));
   if (!deck.length) throw new Error("^" + bagName + " holds no pieces");
+
+  // Don't ask a question you already have the answer to. The deck is what YOU
+  // haven't judged — newest first, since the freshly-made ones are the point.
+  // Once you've judged everything, we deal the whole thing again rather than
+  // leaving you with an empty screen; a second pass is allowed to change its mind.
+  // Signed, because "what have I judged" is a question only you can ask about
+  // yourself. userRequest throws when logged out, and a logged-out visitor has
+  // judged nothing — so the throw IS the answer.
+  if (!LOCAL) {
+    const mine = await api.net
+      ?.userRequest?.("GET", "/api/cancelok/mine")
+      .catch(() => null);
+    const seen = new Set(mine?.judged || []);
+    if (seen.size) {
+      const fresh = deck.filter((d) => !seen.has(d.code));
+      if (fresh.length) deck = fresh;
+      else replaying = true; // judged them all — deal again, you may differ.
+    }
+  }
+  deck.reverse(); // the newest pads sit at the end of the bag — show them first.
 }
 
 // Bring a candidate up. A candidate that won't even load is not a crash — it's

@@ -23,7 +23,23 @@ export async function handler(event) {
   if (event.httpMethod === "GET") {
     const database = await connect();
     const verdicts = database.db.collection("cancelok");
-    const who = pathParams(event.path)[2]; // /api/cancelok/@handle
+    const who = pathParams(event.path)[2]; // /api/cancelok/@handle | /mine
+
+    // What YOU have already judged. The piece uses this to deal you a deck of
+    // things you haven't seen — being asked the same question twice is the
+    // fastest way to make someone stop answering honestly.
+    if (who === "mine") {
+      let mine = [];
+      try {
+        const user = await authorize(event.headers);
+        if (user?.sub)
+          mine = (await verdicts.find({ user: user.sub }).toArray()).map((r) => r.code);
+      } catch {
+        // logged out — you've judged nothing, so you get the whole deck.
+      }
+      await database.disconnect();
+      return respond(200, { judged: mine });
+    }
 
     if (who) {
       const rows = await verdicts

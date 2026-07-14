@@ -72,7 +72,7 @@ createServer(async (req, res) => {
   if (url.pathname === "/queue")
     return send(res, 200, existsSync(QUEUE) ? readFileSync(QUEUE, "utf8") : { items: [] });
 
-  if (url.pathname === "/taste") return send(res, 200, pheromone(), "text/plain");
+  if (url.pathname === "/taste") return send(res, 200, await pheromone(), "text/plain");
 
   if (url.pathname === "/verdicts") return send(res, 200, latest());
 

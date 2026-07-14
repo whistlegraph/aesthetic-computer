@@ -46,7 +46,7 @@ Here is one real, working pad as a worked example of the form:
 ${readFileSync(EXAMPLE, "utf8")}
 --- end example ---
 
-${pheromone()}
+${await pheromone()}
 
 WRITE ONE NEW PAD.
 

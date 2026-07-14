@@ -18,6 +18,25 @@ export const REPO = resolve(HERE, "..");
 export const VERDICTS = resolve(HERE, "verdicts.jsonl");
 export const QUEUE = resolve(HERE, "queue.json");
 
+export const API = process.env.CANCELOK_API || "https://aesthetic.computer/api/cancelok";
+
+// The crowd's thumbs, from the live database. This is the whole reason the game
+// is on the internet instead of on a laptop: the generator should be learning
+// from everyone who judged, not just from whoever happened to be sitting here.
+//
+// The API hands back tallies (per pad: ok, cancel, taps, judges) rather than raw
+// rows, which is exactly the shape taste wants — one person's ok is an opinion,
+// forty is a fact.
+export async function crowd() {
+  try {
+    const res = await fetch(API);
+    if (!res.ok) return [];
+    return (await res.json()).pads || [];
+  } catch {
+    return []; // offline is a normal state for a cron on a laptop.
+  }
+}
+
 // One verdict per line, appended by sink.mjs. A line that won't parse is a line
 // we drop — a corrupt tail shouldn't cost us the whole history.
 export function verdicts() {
@@ -54,11 +73,64 @@ const describe = (v, notes) => {
   return `- ${v.code}${trait ? ` (${trait})` : ""} — ${dwell}${played}`;
 };
 
+// The honest warning, said every single time. A loop that only ever hears "more
+// like the kept ones" collapses onto one mode — and the collapse is invisible
+// from inside, because every generation still scores well against the last one.
+// This costs nothing to keep saying, so we keep saying it.
+const DONT_COLLAPSE = [
+  "DON'T COLLAPSE: the point is not to converge on the favorite pad. Rhyme with",
+  "what got kept, then go somewhere nobody has been. A generation that only",
+  "interpolates between past keeps is a dead loop.",
+].join("\n");
+
+// A pad the room agreed on. A lone ok is an opinion; a pad that several people
+// kept and nobody cancelled is the closest thing to a fact this system produces.
+const consensus = (p) => p.ok - p.cancel;
+
+// What the crowd said, as prose. Ratios, not raw counts — "4 of 5 kept it" is a
+// sentence a model can reason about; "ok: 4" is a number it will pattern-match.
+function crowdBlock(pads) {
+  const seen = pads.filter((p) => p.ok + p.cancel > 0);
+  if (!seen.length) return null;
+
+  const loved = seen.filter((p) => consensus(p) > 0).sort((a, b) => consensus(b) - consensus(a));
+  const hated = seen.filter((p) => consensus(p) < 0).sort((a, b) => consensus(a) - consensus(b));
+  const played = [...seen].sort((a, b) => b.taps - a.taps).filter((p) => p.taps > 0);
+
+  const line = (p) =>
+    `- ${p.code} — ${p.ok} ok / ${p.cancel} cancel` +
+    `${p.judges ? ` (${p.judges} judge${p.judges > 1 ? "s" : ""})` : ""}` +
+    `${p.taps ? `, played ${p.taps}×` : ", never touched"}`;
+
+  const out = [`THE ROOM HAS SPOKEN — ${seen.length} pads judged by real visitors:`, ""];
+  if (loved.length) {
+    out.push("KEPT by the room — make more things that rhyme with these:");
+    out.push(...loved.slice(0, 10).map(line), "");
+  }
+  if (hated.length) {
+    out.push("CANCELLED by the room — do not make these again:");
+    out.push(...hated.slice(0, 10).map(line), "");
+  }
+  if (played.length) {
+    out.push(
+      `MOST PLAYED: ${played.slice(0, 5).map((p) => `${p.code} (${p.taps}×)`).join(", ")}.`,
+      "People reached out and touched these without being asked to. Whatever",
+      "they do with the tap, do that.",
+      "",
+    );
+  }
+  return out.join("\n");
+}
+
 // The block that goes into the generator's prompt. If there's no history yet we
 // say so plainly rather than inventing a preference — a cold start is a real
 // state, and a model told "here is what he likes" when nothing is known will
 // hallucinate a taste and then chase it.
-export function pheromone(notes = {}) {
+export async function pheromone(notes = {}) {
+  const pads = await crowd();
+  const room = crowdBlock(pads);
+  if (room) return room + "\n" + DONT_COLLAPSE;
+
   const all = latest();
   if (!all.length) {
     return [
@@ -109,16 +181,8 @@ export function pheromone(notes = {}) {
     );
   }
 
-  // The honest warning. A loop that only ever hears "more like the kept ones"
-  // collapses onto one mode; saying so in the prompt is the cheapest defense
-  // we have, and it costs nothing to keep saying it.
-  out.push(
-    "DON'T COLLAPSE: the point is not to converge on his favorite pad. Rhyme",
-    "with what he kept, then go somewhere he hasn't been. A generation that",
-    "only interpolates between past keeps is a dead loop.",
-  );
-
+  out.push(DONT_COLLAPSE);
   return out.join("\n");
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) console.log(pheromone());
+if (import.meta.url === `file://${process.argv[1]}`) console.log(await pheromone());
