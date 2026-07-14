@@ -139,7 +139,10 @@ final class JamWindowController: NSWindowController, NSWindowDelegate {
     private func clubLink(_ text: String, action: Selector,
                           tooltip: String, para: NSParagraphStyle,
                           color: NSColor) -> NSButton {
-        let button = HoverTextLinkButton(title: "", target: self, action: action)
+        // HoverFeedbackButton, not NSButton: these read as links (colored,
+        // underlined) but had no pointing-hand cursor and no hover state, so
+        // they looked like decorated text.
+        let button = HoverFeedbackButton(title: "", target: self, action: action)
         button.attributedTitle = NSAttributedString(
             string: text,
             attributes: [
@@ -158,6 +161,7 @@ final class JamWindowController: NSWindowController, NSWindowDelegate {
         if let cell = button.cell as? NSButtonCell { cell.imageScaling = .scaleNone }
         button.translatesAutoresizingMaskIntoConstraints = false
         button.toolTip = tooltip
+        button.titleBrightensOnHover(hoverColor: .white)
         return button
     }
 

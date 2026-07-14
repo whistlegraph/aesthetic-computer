@@ -2,6 +2,96 @@ import AppKit
 import Carbon
 import GameController
 
+/// The lightest possible hover: an NSButton that reports enter/exit and shows a
+/// pointing hand, and changes NOTHING about how it draws. Every other control in
+/// the popover was a plain `NSButton` with no hover feedback at all — only the
+/// Why-this-Keymap chip (a `HoverLinkButton`) responded to the cursor, so the
+/// panel felt inert everywhere else.
+///
+/// This is deliberately not `HoverLinkButton`. That one paints a layer-backed
+/// chip, which would restyle the system-bordered buttons (Quit / Keymap /
+/// About) into something non-native. Here the subclass only *reports* hover;
+/// each call site decides what to brighten — an icon's `contentTintColor`, or a
+/// title's foreground color — so the buttons look exactly as they did at rest
+/// and merely respond when the cursor arrives.
+class HoverFeedbackButton: NSButton {
+    /// Called with true on mouseEntered, false on mouseExited.
+    var onHoverChange: ((Bool) -> Void)?
+    private var hoverTrackingArea: NSTrackingArea?
+    /// The button's own title, stashed while a hover override is painted over
+    /// it, plus the override we actually painted — so on exit we can tell our
+    /// own handiwork from a title the button rewrote for itself mid-hover.
+    /// See `titleBrightensOnHover`.
+    fileprivate var titleBeforeHover: NSAttributedString?
+    fileprivate var hoverTitleShown: NSAttributedString?
+
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: .pointingHand)
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let ta = hoverTrackingArea { removeTrackingArea(ta) }
+        let ta = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(ta)
+        hoverTrackingArea = ta
+    }
+
+    override func mouseEntered(with event: NSEvent) { onHoverChange?(true) }
+    override func mouseExited(with event: NSEvent) { onHoverChange?(false) }
+
+    /// Brighten an icon button's tint on hover. `idle` is restored on exit, so
+    /// the resting appearance is untouched.
+    func tintOnHover(idle: NSColor, hover: NSColor) {
+        contentTintColor = idle
+        onHoverChange = { [weak self] hovered in
+            self?.contentTintColor = hovered ? hover : idle
+        }
+    }
+
+    /// Brighten a titled button's text on hover, preserving every other
+    /// attribute (font, alignment) of its title.
+    ///
+    /// The title is read LIVE on each hover, never captured at wiring time —
+    /// these buttons rewrite their own titles as state changes (the shortcut
+    /// buttons repaint the current key combo, the palette toggle flips
+    /// Show/Hide), so a captured copy would resurrect a stale label the moment
+    /// the cursor touched it.
+    func titleBrightensOnHover(hoverColor: NSColor = .labelColor) {
+        onHoverChange = { [weak self] hovered in
+            guard let self else { return }
+            guard hovered else {
+                // Restore only if our own override is still what's on screen.
+                // These buttons rewrite their titles from state — click the
+                // shortcut button and it becomes "Press keys…" while the cursor
+                // is still on it — and blindly restoring the stash would undo
+                // that the instant the cursor left.
+                if let stash = self.titleBeforeHover {
+                    if self.attributedTitle == self.hoverTitleShown {
+                        self.attributedTitle = stash
+                    }
+                    self.titleBeforeHover = nil
+                    self.hoverTitleShown = nil
+                }
+                return
+            }
+            let current = self.attributedTitle
+            self.titleBeforeHover = current
+            let lifted = NSMutableAttributedString(attributedString: current)
+            lifted.addAttribute(
+                .foregroundColor, value: hoverColor,
+                range: NSRange(location: 0, length: lifted.length))
+            self.attributedTitle = lifted
+            self.hoverTitleShown = lifted
+        }
+    }
+}
+
 /// NSButton subclass for chip-shaped link buttons — paints a layer-backed
 /// fill/border, swaps to a brighter "hover" pair when the cursor enters,
 /// and switches the cursor to a pointing hand. Used by the Why-this-Keymap
@@ -50,137 +140,6 @@ final class HoverLinkButton: NSButton {
         layer?.backgroundColor = bg?.cgColor
         layer?.borderColor = bd?.cgColor
         onHoverChange?(hovered)
-    }
-}
-
-/// NSButton subclass for the solid-bezel footer chips (About / Keymap /
-/// Quit). Stock NSButtons with a custom `bezelColor` don't brighten on
-/// hover, so these read as dead until clicked. This stores an idle + hover
-/// bezel pair, swaps between them on mouse enter/exit, and flips the cursor
-/// to a pointing hand — matching HoverLinkButton's link-like feedback.
-final class HoverOutlineButton: NSButton {
-    /// The chip's brand hue (fully opaque). idle + hover bezels and the glow
-    /// all derive from this so they can adapt to light vs dark at hover time —
-    /// the popover appearance isn't known when the chip is first built.
-    var brandColor: NSColor? { didSet { bezelColor = idleBezelColor() } }
-    private var trackingArea: NSTrackingArea?
-
-    private var isDark: Bool {
-        effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-    }
-
-    /// Solid idle fill — the brand hue nudged dark so white text stays legible.
-    func idleBezelColor() -> NSColor? {
-        guard let b = brandColor else { return bezelColor }
-        return b.blended(withFraction: 0.16, of: .black) ?? b
-    }
-
-    /// Hover fill. Dark mode lifts toward white; light mode DEEPENS the hue so
-    /// the chip gains contrast against the pale popover instead of washing out.
-    func hoverBezelColor() -> NSColor? {
-        guard let b = brandColor else { return bezelColor }
-        let idle = idleBezelColor() ?? b
-        return isDark
-            ? (idle.blended(withFraction: 0.42, of: .white) ?? idle)
-            : (b.blended(withFraction: 0.34, of: .black) ?? b)
-    }
-
-    override func resetCursorRects() {
-        super.resetCursorRects()
-        addCursorRect(bounds, cursor: .pointingHand)
-    }
-
-    // Follow live light/dark switches so the idle fill stays correct.
-    override func viewDidChangeEffectiveAppearance() {
-        super.viewDidChangeEffectiveAppearance()
-        bezelColor = idleBezelColor()
-    }
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let ta = trackingArea { removeTrackingArea(ta) }
-        let ta = NSTrackingArea(
-            rect: bounds,
-            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
-            owner: self, userInfo: nil
-        )
-        addTrackingArea(ta)
-        trackingArea = ta
-    }
-
-    override func mouseEntered(with event: NSEvent) {
-        setHover(true)
-    }
-
-    override func mouseExited(with event: NSEvent) {
-        setHover(false)
-    }
-
-    private func setHover(_ on: Bool) {
-        // Shift the bezel color AND bloom a colored glow so the chip visibly
-        // lights up — the subtle bezel swap alone read as "nothing happened."
-        bezelColor = on ? hoverBezelColor() : idleBezelColor()
-        let glow = NSShadow()
-        if on, let hue = brandColor {
-            glow.shadowColor = hue.withAlphaComponent(isDark ? 0.9 : 1.0)
-            glow.shadowBlurRadius = isDark ? 7 : 9
-            glow.shadowOffset = .zero
-            shadow = glow
-        } else {
-            shadow = nil
-        }
-    }
-}
-
-/// Borderless attributed-title text links (About's "Looking For Players?",
-/// ⚙️ Settings, 💡 Tips, the crash ⚠️ notice, and JamWindow's club links).
-/// These `.regularSquare` borderless buttons had no rollover at all — they
-/// read as static text. On hover this blooms a faint rounded chip behind the
-/// text in the link's own hue and flips the cursor to a pointing hand, so
-/// every link reads as pressable in both light and dark. The hue is derived
-/// from the title's foreground color, so a call site only has to swap the
-/// class — no extra wiring.
-final class HoverTextLinkButton: NSButton {
-    /// Override the chip hue; auto-derived from the title otherwise.
-    var hoverTint: NSColor?
-    private var trackingArea: NSTrackingArea?
-
-    private func tint() -> NSColor {
-        if let t = hoverTint { return t }
-        var found: NSColor?
-        let s = attributedTitle
-        s.enumerateAttribute(.foregroundColor,
-                             in: NSRange(location: 0, length: s.length)) { v, _, stop in
-            if let c = v as? NSColor { found = c; stop.pointee = true }
-        }
-        return found ?? .controlAccentColor
-    }
-
-    override func resetCursorRects() {
-        super.resetCursorRects()
-        addCursorRect(bounds, cursor: .pointingHand)
-    }
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let ta = trackingArea { removeTrackingArea(ta) }
-        let ta = NSTrackingArea(
-            rect: bounds,
-            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
-            owner: self, userInfo: nil
-        )
-        addTrackingArea(ta)
-        trackingArea = ta
-    }
-
-    override func mouseEntered(with event: NSEvent) {
-        wantsLayer = true
-        layer?.cornerRadius = 5
-        layer?.backgroundColor = tint().withAlphaComponent(0.18).cgColor
-    }
-
-    override func mouseExited(with event: NSEvent) {
-        layer?.backgroundColor = NSColor.clear.cgColor
     }
 }
 
@@ -253,12 +212,12 @@ final class MenuBandPopoverViewController: NSViewController {
 
     private var inputSegmented: HoverSegmentedControl!  // legacy reference; no longer added to stack
     private var modeButtons: [NSButton] = []           // vertical stack: Mouse Only / Notepat.com / Ableton MIDI Keys
-    private var focusShortcutButton: NSButton!
+    private var focusShortcutButton: HoverFeedbackButton!
     private var focusShortcutStatusLabel: NSTextField!
     private var focusShortcutRecorderMonitor: Any?
     private var isRecordingFocusShortcut = false
-    private var playPaletteToggleButton: NSButton!
-    private var playPaletteShortcutButton: NSButton!
+    private var playPaletteToggleButton: HoverFeedbackButton!
+    private var playPaletteShortcutButton: HoverFeedbackButton!
     private var playPaletteShortcutStatusLabel: NSTextField!
     private var playPaletteShortcutRecorderMonitor: Any?
     private var isRecordingPlayPaletteShortcut = false
@@ -302,7 +261,7 @@ final class MenuBandPopoverViewController: NSViewController {
     /// / plugin) together. Persisted in UserDefaults under
     /// `notepat.masterVolume`.
     private var volumeSlider: NSSlider!
-    private var volumeIcon: NSButton!
+    private var volumeIcon: HoverFeedbackButton!
     /// Cached result of the most recent UpdateChecker fetch. Populated
     /// asynchronously after view load; surfaced inside the custom About
     /// window when the user opens it.
@@ -441,25 +400,25 @@ final class MenuBandPopoverViewController: NSViewController {
         // Chevrons sized to balance the 17 pt label between them.
         let chevConfig = NSImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
 
-        let leftArrow = NSButton()
+        let leftArrow = HoverFeedbackButton()
         leftArrow.image = NSImage(systemSymbolName: "chevron.left",
                                   accessibilityDescription: L("popover.octave.down"))?
             .withSymbolConfiguration(chevConfig)
         leftArrow.isBordered = false
         leftArrow.controlSize = .small
         leftArrow.imagePosition = .imageOnly
-        leftArrow.contentTintColor = .secondaryLabelColor
+        leftArrow.tintOnHover(idle: .secondaryLabelColor, hover: .labelColor)
         leftArrow.target = self
         leftArrow.action = #selector(octaveDown)
 
-        let rightArrow = NSButton()
+        let rightArrow = HoverFeedbackButton()
         rightArrow.image = NSImage(systemSymbolName: "chevron.right",
                                    accessibilityDescription: L("popover.octave.up"))?
             .withSymbolConfiguration(chevConfig)
         rightArrow.isBordered = false
         rightArrow.controlSize = .small
         rightArrow.imagePosition = .imageOnly
-        rightArrow.contentTintColor = .secondaryLabelColor
+        rightArrow.tintOnHover(idle: .secondaryLabelColor, hover: .labelColor)
         rightArrow.target = self
         rightArrow.action = #selector(octaveUp)
 
@@ -624,13 +583,14 @@ final class MenuBandPopoverViewController: NSViewController {
         focusSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
         shortcuts.addArrangedSubview(focusSpacer)
 
-        focusShortcutButton = NSButton(
+        focusShortcutButton = HoverFeedbackButton(
             title: MenuBandShortcutPreferences.focusShortcut.displayString,
             target: self,
             action: #selector(focusShortcutButtonClicked(_:))
         )
         focusShortcutButton.bezelStyle = .recessed
         focusShortcutButton.controlSize = .small
+        focusShortcutButton.titleBrightensOnHover()
         focusShortcutButton.translatesAutoresizingMaskIntoConstraints = false
         focusShortcutButton.widthAnchor.constraint(equalToConstant: 96).isActive = true
         shortcuts.addArrangedSubview(focusShortcutButton)
@@ -665,24 +625,26 @@ final class MenuBandPopoverViewController: NSViewController {
         playPaletteSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
         playPaletteRow.addArrangedSubview(playPaletteSpacer)
 
-        playPaletteToggleButton = NSButton(
+        playPaletteToggleButton = HoverFeedbackButton(
             title: L("popover.shortcuts.show"),
             target: self,
             action: #selector(playPaletteToggleButtonClicked(_:))
         )
         playPaletteToggleButton.bezelStyle = .recessed
         playPaletteToggleButton.controlSize = .small
+        playPaletteToggleButton.titleBrightensOnHover()
         playPaletteToggleButton.translatesAutoresizingMaskIntoConstraints = false
         playPaletteToggleButton.widthAnchor.constraint(equalToConstant: 48).isActive = true
         playPaletteRow.addArrangedSubview(playPaletteToggleButton)
 
-        playPaletteShortcutButton = NSButton(
+        playPaletteShortcutButton = HoverFeedbackButton(
             title: MenuBandShortcutPreferences.playPaletteShortcut.displayString,
             target: self,
             action: #selector(playPaletteShortcutButtonClicked(_:))
         )
         playPaletteShortcutButton.bezelStyle = .recessed
         playPaletteShortcutButton.controlSize = .small
+        playPaletteShortcutButton.titleBrightensOnHover()
         playPaletteShortcutButton.translatesAutoresizingMaskIntoConstraints = false
         playPaletteShortcutButton.widthAnchor.constraint(equalToConstant: 88).isActive = true
         playPaletteRow.addArrangedSubview(playPaletteShortcutButton)
@@ -727,8 +689,8 @@ final class MenuBandPopoverViewController: NSViewController {
         modeStack.spacing = 2
         modeStack.translatesAutoresizingMaskIntoConstraints = false
         for (idx, spec) in modeSpecs.enumerated() {
-            let b = NSButton(title: spec.label, target: self,
-                             action: #selector(modeButtonClicked(_:)))
+            let b = HoverFeedbackButton(title: spec.label, target: self,
+                                        action: #selector(modeButtonClicked(_:)))
             b.tag = idx
             b.bezelStyle = .recessed
             b.setButtonType(.pushOnPushOff)
@@ -736,6 +698,7 @@ final class MenuBandPopoverViewController: NSViewController {
             b.alignment = .left
             b.imagePosition = .imageLeading
             b.imageHugsTitle = true
+            b.titleBrightensOnHover()
             b.image = spec.image
             b.translatesAutoresizingMaskIntoConstraints = false
             b.widthAnchor.constraint(
@@ -1009,7 +972,7 @@ final class MenuBandPopoverViewController: NSViewController {
         // outline (the three footer chips each get a distinct subtle hue).
         // Bottom-right of the footer row; crash-send button (when present)
         // sits at the left of the same row.
-        let quit = HoverOutlineButton()
+        let quit = HoverFeedbackButton()
         quit.bezelStyle = .rounded
         quit.isBordered = true
         quit.controlSize = .small
@@ -1032,7 +995,7 @@ final class MenuBandPopoverViewController: NSViewController {
         // Conventional toggle). Reuses the existing mini-visualizer-expand
         // hook. Sits in the footer so About / Keymap / Quit share one
         // bottom-aligned row (only Quit is accent-tinted).
-        let keymapButton = HoverOutlineButton()
+        let keymapButton = HoverFeedbackButton()
         keymapButton.bezelStyle = .rounded
         keymapButton.isBordered = true
         keymapButton.controlSize = .small
@@ -1055,7 +1018,7 @@ final class MenuBandPopoverViewController: NSViewController {
         // "About" — plain (default-tint) button, peer to Keymap and Quit.
         // Opens the identity/settings window (icon + flat-map language
         // picker + version + the "Looking For Players?" link).
-        let aboutButton = HoverOutlineButton()
+        let aboutButton = HoverFeedbackButton()
         aboutButton.bezelStyle = .rounded
         aboutButton.isBordered = true
         aboutButton.controlSize = .small
@@ -1167,11 +1130,12 @@ final class MenuBandPopoverViewController: NSViewController {
         progress.maxValue = 1
         progress.controlSize = .small
 
-        let stop = NSButton(title: "◼  STOP", target: self, action: #selector(transportStopPressed))
+        let stop = HoverFeedbackButton(title: "◼  STOP", target: self, action: #selector(transportStopPressed))
         stop.bezelStyle = .rounded
         stop.controlSize = .large
         stop.font = .systemFont(ofSize: 16, weight: .heavy)
-        stop.contentTintColor = NSColor.systemRed
+        stop.tintOnHover(idle: .systemRed,
+                         hover: NSColor.systemRed.blended(withFraction: 0.28, of: .white) ?? .systemRed)
         stop.keyEquivalent = "\u{1b}" // Esc also stops while the popover is open
 
         let stack = NSStackView(views: [nowPlaying, title, progress, stop])
@@ -1914,11 +1878,16 @@ final class MenuBandPopoverViewController: NSViewController {
         let solid = (color.withAlphaComponent(1.0).blended(withFraction: 0.16, of: .black)) ?? color
         button.bezelColor = solid
         button.contentTintColor = .white
-        // Hand the chip its brand hue; HoverOutlineButton derives the idle fill,
-        // the appearance-aware hover shift, and the glow from it. No-op for a
-        // plain NSButton.
-        if let hover = button as? HoverOutlineButton {
-            hover.brandColor = color.withAlphaComponent(1.0)
+        // Hover: lift the brand fill toward white. The bezel IS these buttons'
+        // visual language, so brightening it reads as a real hover without
+        // painting anything non-native over a system push button. Wired here
+        // because all three footer chips (Quit / Keymap / About) funnel through
+        // this one helper.
+        if let hoverable = button as? HoverFeedbackButton {
+            let lifted = solid.blended(withFraction: 0.18, of: .white) ?? solid
+            hoverable.onHoverChange = { hovered in
+                button.bezelColor = hovered ? lifted : solid
+            }
         }
         if let attr = button.attributedTitle.mutableCopy() as? NSMutableAttributedString, attr.length > 0 {
             attr.addAttribute(.foregroundColor, value: NSColor.white,
@@ -2157,13 +2126,22 @@ final class MenuBandPopoverViewController: NSViewController {
         // to 0; click again restores the prior value (held in
         // `preMuteVolume`). Symbol auto-flips between filled wave and
         // muted slash depending on the slider value.
-        volumeIcon = NSButton()
+        volumeIcon = HoverFeedbackButton()
         volumeIcon.translatesAutoresizingMaskIntoConstraints = false
         volumeIcon.isBordered = false
         volumeIcon.controlSize = .small
         volumeIcon.imagePosition = .imageOnly
         volumeIcon.target = self
         volumeIcon.action = #selector(volumeIconClicked(_:))
+        // The tint here is state-driven (refreshVolumeIcon paints it from the
+        // mute level), so a captured "idle" color would go stale the moment the
+        // volume changed. Brighten on enter, and on exit rebuild from the
+        // source of truth rather than a remembered value.
+        volumeIcon.onHoverChange = { [weak self] hovered in
+            guard let self else { return }
+            if hovered { self.volumeIcon.contentTintColor = .controlAccentColor }
+            else { self.refreshVolumeIcon() }
+        }
         volumeIcon.toolTip = "Master volume — click to mute"
         volumeIcon.widthAnchor.constraint(equalToConstant: 16).isActive = true
         volumeIcon.heightAnchor.constraint(equalToConstant: 14).isActive = true
