@@ -363,6 +363,18 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         showUpcomingAction()
     }
 
+    // Menu-bar wand left-click: toggle. If the window is already up and focused,
+    // a second tap hides it (matching the "click the icon to dismiss" reflex).
+    // Otherwise reveal it — this also covers the buried-window case, where the
+    // tap brings the wizard forward instead of dismissing it.
+    func toggleUpcoming() {
+        if let w = window, w.isVisible, NSApp.isActive, w.isKeyWindow {
+            w.orderOut(nil)
+        } else {
+            revealUpcoming()
+        }
+    }
+
     // ── paging ─────────────────────────────────────────────────────────
     // DEPRECATED: week paging was removed from the window UI (CLI / launch
     // flags handle it). Kept for reference; shiftWeek below backs these.

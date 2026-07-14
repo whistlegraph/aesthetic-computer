@@ -29,6 +29,11 @@ final class DateWizardAppDelegate: NSObject, NSApplicationDelegate {
             NSApp.setActivationPolicy(.regular)
             controller?.revealUpcoming()
         }
+        // Left-clicking the wand toggles: open if hidden, dismiss if already up.
+        menu.onToggle = { [weak controller] in
+            NSApp.setActivationPolicy(.regular)
+            controller?.toggleUpcoming()
+        }
         menu.onToday = { [weak controller] in controller?.revealToday() }
         menu.onSelectDay = { [weak controller] date in controller?.revealDay(date) }
         menu.install()

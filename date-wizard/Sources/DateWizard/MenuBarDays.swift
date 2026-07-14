@@ -22,6 +22,7 @@ final class MenuBarDays {
 
     // Callbacks wired by the AppDelegate.
     var onOpen: (() -> Void)?
+    var onToggle: (() -> Void)?
     var onToday: (() -> Void)?
     var onSelectDay: ((Date) -> Void)?
 
@@ -188,7 +189,7 @@ final class MenuBarDays {
         if NSApp.currentEvent?.type == .rightMouseUp {
             showMenu(from: sender)
         } else {
-            onOpen?()
+            onToggle?()
         }
     }
 
