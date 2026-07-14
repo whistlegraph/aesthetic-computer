@@ -1176,12 +1176,20 @@ class KidLisp {
     this.globalDef.beat = 0; // Beat detection (0 or 1)
     this.globalDef.kick = 0; // Kick drum / beat detected (0 or 1)
     this.globalDef.mic = 0; // Microphone amplitude (0-1 scale, fun default when disconnected)
+    // 👆 The hand. `down` is 1 while a finger is on the screen and 0 the instant it
+    // leaves — the whole screen is a button, and this is how a piece knows it's
+    // being pressed. Without it KidLisp could see a tap but never a RELEASE, so
+    // "hold to do X" was unsayable.
+    this.globalDef.down = 0; // 1 while pressed
+    this.globalDef.penx = 0; // where the hand is
+    this.globalDef.peny = 0;
 
     this.localEnvStore = [{}];
     this.localEnv = this.localEnvStore[0];
     this.localEnvLevel = 0;
     this.tapper = null;
     this.drawer = null;
+    this.lifter = null;
     this.frameCount = 0; // Frame counter for timing functions
     this.lastSecondExecutions = {}; // Track last execution times for second-based timing
     this.instantTriggersExecuted = {}; // Track which instant triggers have already fired
@@ -2057,6 +2065,7 @@ class KidLisp {
     this.localEnvLevel = 0;
     this.tapper = null;
     this.drawer = null;
+    this.lifter = null;
     this.frameCount = 0;
 
     // Keep first-line color state during reset (preserve for resize/reframe)
@@ -4535,6 +4544,25 @@ class KidLisp {
         this.updateMelodies({ sound });
       },
       act: ({ event: e, api }) => {
+        // 👆 The hand, tracked every event. `down` is the state a button needs and
+        // KidLisp never had: it could see a press and never a release, so you could
+        // say "on tap, do X" but not "while held, be red." Now you can.
+        if (e.is("touch")) {
+          this.globalDef.down = 1;
+          this.globalDef.penx = e.x ?? 0;
+          this.globalDef.peny = e.y ?? 0;
+        }
+        if (e.is("draw")) {
+          this.globalDef.penx = e.x ?? this.globalDef.penx;
+          this.globalDef.peny = e.y ?? this.globalDef.peny;
+        }
+        if (e.is("lift")) {
+          this.globalDef.down = 0;
+          api.needsPaint();
+          if (this.lifter)
+            withKidlispConsoleCapture(() => this.evaluate(this.lifter, api));
+        }
+
         // Check for center tap to hide UI (only if no custom tap/draw handlers)
         if (e.is("touch")) {
           // console.log("🫵 Touch event detected in kidlisp piece");
@@ -5505,6 +5533,12 @@ class KidLisp {
       },
       draw: (api, args) => {
         this.drawer = args;
+      },
+      // 🫳 The other half of a press. `tap` fires when the hand lands; `lift` fires
+      // when it leaves. A button that can be pushed but never released is not a
+      // button — it's a switch that only goes one way.
+      lift: (api, args) => {
+        this.lifter = args;
       },
       if: (api, args, env) => {
         if (!args || args.length < 1) {
@@ -10708,6 +10742,7 @@ class KidLisp {
                   head === "later" ||
                   head === "tap" ||
                   head === "draw" ||
+                  head === "lift" ||
                   head === "if" ||
                   head === "not" ||
                   head === ">" ||
