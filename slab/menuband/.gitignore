@@ -1,5 +1,6 @@
 .build/
 .build-debug/
+.build-rc/
 .swiftpm/
 DerivedData/
 AppIcon.iconset/

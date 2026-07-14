@@ -22,7 +22,12 @@ final class CrashViewerWindowController: NSWindowController, NSWindowDelegate {
         window.isReleasedWhenClosed = false
         // Float over the popover/About chrome so the user can keep
         // scrolling while the rest of the app stays interactive.
-        window.level = NSWindow.Level(rawValue: NSWindow.Level.popUpMenu.rawValue + 1)
+        // Ordinary window level. These secondary windows used to sit at
+        // popUpMenu + 1 so the status-bar popover couldn't bury them — but that
+        // floated them above every other app on the Mac for as long as they
+        // stayed open. Each one activates the app and orders front when shown,
+        // which lifts it over the popover at the only moment that matters.
+        window.level = .normal
         super.init(window: window)
         window.delegate = self
         buildContent()

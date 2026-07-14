@@ -36,6 +36,18 @@ final class TipsWindowController: NSWindowController, NSWindowDelegate {
         window.title = "Menu Band Tips"
         window.titlebarAppearsTransparent = true
         window.isMovableByWindowBackground = true
+        // Match the other secondary windows (About, Jam, Crash viewer, AU
+        // picker, LLM guide, Squawk all sit at popUpMenu + 1). Tips was the
+        // only one left at .normal, so it opened BEHIND About — it took key
+        // focus but rendered underneath, since no amount of ordering lifts a
+        // level-0 window above a level-102 one. Tips is usually opened FROM
+        // About, which made it the one window guaranteed to hit this.
+        // Ordinary window level. These secondary windows used to sit at
+        // popUpMenu + 1 so the status-bar popover couldn't bury them — but that
+        // floated them above every other app on the Mac for as long as they
+        // stayed open. Each one activates the app and orders front when shown,
+        // which lifts it over the popover at the only moment that matters.
+        window.level = .normal
         super.init(window: window)
         window.delegate = self
 

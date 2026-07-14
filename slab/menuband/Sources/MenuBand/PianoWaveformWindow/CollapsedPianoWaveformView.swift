@@ -209,7 +209,8 @@ final class CollapsedPianoWaveformView: NSView {
         qwertyMap.keymap = menuBand.keymap
         qwertyMap.onKey = { [weak self] kc, isDown in
             _ = self?.menuBand?.handleLocalKey(
-                keyCode: kc, isDown: isDown, isRepeat: false, flags: []
+                keyCode: kc, isDown: isDown, isRepeat: false, flags: [],
+                fromPointer: true
             )
         }
 

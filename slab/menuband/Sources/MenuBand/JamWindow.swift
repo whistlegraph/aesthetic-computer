@@ -20,8 +20,12 @@ final class JamWindowController: NSWindowController, NSWindowDelegate {
         window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
         window.isReleasedWhenClosed = false
-        window.level = NSWindow.Level(
-            rawValue: NSWindow.Level.popUpMenu.rawValue + 1)
+        // Ordinary window level. These secondary windows used to sit at
+        // popUpMenu + 1 so the status-bar popover couldn't bury them — but that
+        // floated them above every other app on the Mac for as long as they
+        // stayed open. Each one activates the app and orders front when shown,
+        // which lifts it over the popover at the only moment that matters.
+        window.level = .normal
         super.init(window: window)
         window.delegate = self
         buildContent()
@@ -41,8 +45,7 @@ final class JamWindowController: NSWindowController, NSWindowDelegate {
         guard let window = window else { return }
         JamWindowController.active = self
         window.center()
-        window.level = NSWindow.Level(
-            rawValue: NSWindow.Level.popUpMenu.rawValue + 1)
+        window.level = .normal
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
     }
@@ -159,7 +162,13 @@ final class JamWindowController: NSWindowController, NSWindowDelegate {
     }
 
     @objc private func openAesthetic() {
-        AestheticWebWindowController.showOrFocus(rightOf: window?.frame)
+        // The real browser, like its two row-mates below (NELA, start-a-club).
+        // This badge used to open the in-app AestheticWebWindow — the only one
+        // of the three that didn't leave the app, and it floats at .statusBar
+        // on top of everything besides.
+        if let url = URL(string: "https://aesthetic.computer") {
+            NSWorkspace.shared.open(url)
+        }
     }
     @objc private func openNELA() {
         if let url = URL(string: "https://nelacomputer.club") {

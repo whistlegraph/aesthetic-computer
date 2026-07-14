@@ -3836,6 +3836,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// not, fall back to our own `WKWebView` window (which loads the SAME
     /// bundled book, never the website). Either way the `.help` bundle stays
     /// the single content source.
+    /// Open Settings. Centralized here for the same reason as `openTips` — the
+    /// About window has no `MenuBandController` reference, and the controller
+    /// is what the Haptics toggle writes through.
+    static func openSettings() {
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        let controller = (NSApp.delegate as? AppDelegate)?.menuBand
+        SettingsWindowController.showOrFocus(menuBand: controller)
+    }
+
     static func openTips() {
         NSApplication.shared.activate(ignoringOtherApps: true)
 

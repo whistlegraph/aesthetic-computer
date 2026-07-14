@@ -73,7 +73,12 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         // The Menu Band popover panel runs at .popUpMenu (101); sit one
         // step above it so the About window paints over the popover
         // instead of being hidden behind it when both are visible.
-        window.level = NSWindow.Level(rawValue: NSWindow.Level.popUpMenu.rawValue + 1)
+        // Ordinary window level. These secondary windows used to sit at
+        // popUpMenu + 1 so the status-bar popover couldn't bury them — but that
+        // floated them above every other app on the Mac for as long as they
+        // stayed open. Each one activates the app and orders front when shown,
+        // which lifts it over the popover at the only moment that matters.
+        window.level = .normal
         super.init(window: window)
         window.delegate = self
         buildContent()
@@ -173,7 +178,7 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         // The Menu Band popover panel runs at .popUpMenu (101); sit one
         // step above it so the About window paints over the popover
         // instead of being hidden behind it when both are visible.
-        window.level = NSWindow.Level(rawValue: NSWindow.Level.popUpMenu.rawValue + 1)
+        window.level = .normal
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
         startFlashingIfNeeded()
@@ -386,44 +391,37 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         // acMIDIRow.widthAnchor.constraint(
         //     equalTo: stack.widthAnchor, constant: -56).isActive = true
 
-        // Crash-report affordance — a single quiet ⚠️ sign pinned to the
-        // bottom-right CORNER of the About window (overlaying the stack, not
-        // taking a row). It's a tooltip-first hint: hovering names the crash
-        // count, one click opens the scroll viewer where the user can review
-        // the .ips contents and Send to Aesthetic.Computer. Replaces the old
-        // orange "Menu Band crashed N times" banner so a single crash never
-        // crowds the brand chrome.
-        let logs = CrashLogReader.recentLogs()
-        if !logs.isEmpty {
-            let summary = logs.count == 1
-                ? L("popover.about.crash.summaryOne")
-                : L("popover.about.crash.summaryMany", String(logs.count))
-            // "Crashes ⚠️" — purple underlined word (peer of 💡 Tips), the
-            // warning glyph trailing and un-underlined.
-            let crashFont = NSFont.systemFont(ofSize: 11, weight: .semibold)
-            let crashTitle = NSMutableAttributedString(
-                string: "Crashes",
-                attributes: [
-                    .font: crashFont,
-                    .foregroundColor: acPurple,
-                    .underlineStyle: NSUnderlineStyle.single.rawValue,
-                ])
-            crashTitle.append(NSAttributedString(
-                string: " ⚠️", attributes: [.font: crashFont]))
-            let warn = NSButton(title: "", target: self,
-                                action: #selector(viewCrashLogs(_:)))
-            warn.attributedTitle = crashTitle
-            warn.isBordered = false
-            warn.bezelStyle = .regularSquare
-            warn.toolTip = summary
-            warn.setButtonType(.momentaryChange)
-            warn.translatesAutoresizingMaskIntoConstraints = false
-            content.addSubview(warn)
-            NSLayoutConstraint.activate([
-                warn.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -10),
-                warn.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -14),
-            ])
-        }
+        // "⚙️ Settings" — pinned to the bottom-RIGHT corner, the peer of 💡 Tips
+        // at bottom-left. It replaces the old "Crashes ⚠️" link, which only
+        // rendered `if !logs.isEmpty` — so a permanent corner slot sat empty
+        // for every user who had never crashed. The corners now hold the two
+        // things that are ALWAYS there; the crash notice, being conditional,
+        // moved into the centered footer where a row can come and go without
+        // leaving a hole. (Corner-pinned to `content`, outside the stack's
+        // flow, so neither link can affect the window's fixed 320×340 height.)
+        let settingsCorner = NSButton(title: "", target: self,
+                                      action: #selector(openSettings(_:)))
+        let settingsFont = NSFont.systemFont(ofSize: 11, weight: .semibold)
+        let settingsTitle = NSMutableAttributedString(
+            string: "⚙️ ", attributes: [.font: settingsFont])
+        settingsTitle.append(NSAttributedString(
+            string: "Settings",
+            attributes: [
+                .font: settingsFont,
+                .foregroundColor: acPurple,
+                .underlineStyle: NSUnderlineStyle.single.rawValue,
+            ]))
+        settingsCorner.attributedTitle = settingsTitle
+        settingsCorner.isBordered = false
+        settingsCorner.bezelStyle = .regularSquare
+        settingsCorner.setButtonType(.momentaryChange)
+        settingsCorner.toolTip = "Open Menu Band Settings"
+        settingsCorner.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(settingsCorner)
+        NSLayoutConstraint.activate([
+            settingsCorner.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -10),
+            settingsCorner.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -14),
+        ])
 
         // "Tips" — a quiet link pinned to the bottom-LEFT corner (mirroring
         // the crash ⚠️ at bottom-right), opening the Menu Band manual. Corner-
@@ -489,23 +487,38 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         stack.addArrangedSubview(versionLabel)
         stack.setCustomSpacing(4, after: versionLabel)
 
-        #if MAC_APP_STORE
-        // Open at Login (App Store build only — the DMG build auto-starts via a
-        // LaunchAgent, so it has no toggle). Hidden on macOS < 13 where
-        // SMAppService doesn't exist. Defaults on; unchecking removes the app
-        // as a login item.
-        if MenuBandLoginItem.isSupported {
-            let loginCheck = NSButton(
-                checkboxWithTitle: "Open at Login",
-                target: self,
-                action: #selector(toggleOpenAtLogin(_:)))
-            loginCheck.state = MenuBandLoginItem.isEnabled ? .on : .off
-            loginCheck.font = NSFont.systemFont(ofSize: 11)
+        // Crash notice — the slot the "Open at Login" checkbox used to occupy
+        // (that checkbox now lives in Settings, where a control belongs; this
+        // band is meant to be inert text). Centered between the version and the
+        // copyright, and rendered ONLY when there are crash logs, so a healthy
+        // install closes on version → copyright exactly as before. Clicking it
+        // opens the same scroll viewer the old corner ⚠️ did.
+        let logs = CrashLogReader.recentLogs()
+        if !logs.isEmpty {
+            let summary = logs.count == 1
+                ? L("popover.about.crash.summaryOne")
+                : L("popover.about.crash.summaryMany", String(logs.count))
+            let crashFont = NSFont.systemFont(ofSize: 11, weight: .semibold)
+            let crashTitle = NSMutableAttributedString(
+                string: summary,
+                attributes: [
+                    .font: crashFont,
+                    .foregroundColor: acPurple,
+                    .underlineStyle: NSUnderlineStyle.single.rawValue,
+                ])
+            crashTitle.append(NSAttributedString(
+                string: " ⚠️", attributes: [.font: crashFont]))
+            let warn = NSButton(title: "", target: self,
+                                action: #selector(viewCrashLogs(_:)))
+            warn.attributedTitle = crashTitle
+            warn.isBordered = false
+            warn.bezelStyle = .regularSquare
+            warn.setButtonType(.momentaryChange)
+            warn.toolTip = "Review the crash reports and send them to Aesthetic Computer."
             stack.setCustomSpacing(10, after: versionLabel)
-            stack.addArrangedSubview(loginCheck)
-            stack.setCustomSpacing(4, after: loginCheck)
+            stack.addArrangedSubview(warn)
+            stack.setCustomSpacing(4, after: warn)
         }
-        #endif
 
         // Faint copyright line — the quiet footer every macOS About
         // panel closes with (Terminal: "© 1991–2025 Apple Inc.",
@@ -682,13 +695,13 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         AppDelegate.openTips()
     }
 
-    #if MAC_APP_STORE
-    /// Toggle "Open at Login" (App Store build). Writing the pref reconciles
-    /// the SMAppService registration immediately.
-    @objc private func toggleOpenAtLogin(_ sender: NSButton) {
-        MenuBandLoginItem.isEnabled = (sender.state == .on)
+    /// Open Settings — the app's persistent preferences (Open at Login,
+    /// Haptics). "Open at Login" used to be a checkbox stranded in this
+    /// window's gray footer; it lives in Settings now, and this corner link
+    /// is how you get there.
+    @objc private func openSettings(_ sender: Any?) {
+        AppDelegate.openSettings()
     }
-    #endif
 
     /// Open a scroll panel containing the .ips text for every pending
     /// diagnostic report. Built fresh each time so it always reflects

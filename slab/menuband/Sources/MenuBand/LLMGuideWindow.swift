@@ -50,7 +50,12 @@ final class LLMGuideWindowController: NSWindowController, NSWindowDelegate {
         guard let window = window else { return }
         LLMGuideWindowController.active = self
         window.center()
-        window.level = NSWindow.Level(rawValue: NSWindow.Level.popUpMenu.rawValue + 1)
+        // Ordinary window level. These secondary windows used to sit at
+        // popUpMenu + 1 so the status-bar popover couldn't bury them — but that
+        // floated them above every other app on the Mac for as long as they
+        // stayed open. Each one activates the app and orders front when shown,
+        // which lifts it over the popover at the only moment that matters.
+        window.level = .normal
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
     }

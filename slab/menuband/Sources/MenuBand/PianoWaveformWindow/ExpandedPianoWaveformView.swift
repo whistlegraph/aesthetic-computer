@@ -220,8 +220,9 @@ final class ExpandedPianoWaveformView: NSView {
         // plays the same notes the physical keyboard would.
         qwertyView.onKey = { [weak self] keyCode, isDown in
             guard let self = self, let menuBand = self.menuBand else { return }
-            menuBand.handleLocalKey(keyCode: keyCode, isDown: isDown,
-                                    isRepeat: false, flags: [])
+            _ = menuBand.handleLocalKey(keyCode: keyCode, isDown: isDown,
+                                        isRepeat: false, flags: [],
+                                        fromPointer: true)
             self.refresh()
         }
         // Held-note pills and chord-suggestion cards overlay the metal

@@ -275,34 +275,56 @@ launch (default on). That's normal for a menu-bar utility and there's a visible
 off switch in About, but if review objects, flip the `MBOpenAtLogin` default to
 `false` in `MenuBandLoginItem` and let the user opt in.
 
-### Open, diagnosed but NOT fixed (found 2026-07-12 on the shipped build)
+### The slide bug — SOLVED (2026-07-14). It was never in `PianoKeyboardView`.
 
-Two piano-input bugs, deliberately left out of 1.5.4 rather than patched on a
-guess. Both are in `PianoKeyboardView`.
+The entry below used to file two bugs against `PianoKeyboardView`. That was a
+misdiagnosis, and it sent every subsequent reader to the wrong file. The
+symptom — press a key, drag sideways, the note never changes — reproduces on
+the **QWERTY keymap** (`QwertyLayoutView`), not on the piano graphic. The piano
+graphic always slid fine. Getting that distinction right *is* the diagnosis:
 
-1. **The key hit-area doesn't match the drawn keys — it extends a full keyboard
-   above and below.** `rendererPoint(from:)` is the culprit, and it's on
-   purpose: with `strictY: false` (the path every mouse handler uses) it accepts
-   `y` from `-piano.height` to `piano.height * 2`. So the live hit region is
-   three keyboards tall stacked around a one-keyboard drawing. The comment calls
-   it "generous ±piano-height slack (fat-finger tolerance for holding a note
-   while sliding off the keys)" — the intent is real, the magnitude is not. A
-   `strictY` path already exists; the fix is choosing the right tolerance rather
-   than writing new code.
+`QwertyLayoutView.mouseDown` plays a cap by calling `handleLocalKey(...)` — the
+**physical-keyboard** path. So the cap's key code lands in `heldNotes`,
+indistinguishable from a real keypress, and `keyboardNotesHeld` goes true. That
+arms the trackpad pitch-bend, which calls
+`CGAssociateMouseAndMouseCursorPosition(0)` and `CGDisplayHideCursor` — it
+**decouples the mouse from the cursor and hides it**. The note wasn't locking
+under the cursor; the cursor had stopped moving. Of course you couldn't slide.
 
-2. **Click-and-hold works, but you can't slide to another key.** The note locks
-   under the cursor. `mouseDragged` DOES implement glissando (stop the old note,
-   start the new one) — but only when the hovered note *differs* from the held
-   one. When it's the same, it falls to `updateTapPan(...)` and reinterprets the
-   movement as **expression** (pan/velocity), which is what the drag feels like:
-   a pan knob instead of a glissando. Whether the note genuinely never changes
-   (drag events not reaching the view) or merely doesn't change *near* the press
-   point (bug 1's stretched geometry mapping neighbours onto the same note) is
-   UNRESOLVED — and the two have different fixes. The deciding experiment: press
-   a key and drag several keys sideways at the vertical middle. If the note
-   eventually changes, bug 1 is the whole story. If it never does, drag delivery
-   is broken and that's separate.
+The guard against exactly this already existed, and said so:
 
-   One unverified suspect for the "never changes" case: `mouseDown` calls
-   `window?.makeKey()`, and making the panel key mid-click can disturb AppKit's
-   drag tracking. Hypothesis only — do not fix on it without evidence.
+> *"Pitch-bend cursor lifecycle — only engages when the user is playing via the
+> KEYBOARD (not mouse taps). Locking the cursor on a mouse-tapped note would
+> freeze drag mid-stroke, so we gate on `keyboardNotesHeld`."*
+
+The piano graphic honours that gate because it plays via `startTapNote` (the tap
+path). The QWERTY caps defeated it by borrowing the keyboard path.
+
+**Fix:** `handleLocalKey` takes `fromPointer:`, and pointer-held key codes go
+into a `pointerHeldKeys` set that `keyboardNotesHeld` excludes — the same shape
+as `latchArmedKeys`, which already exists to keep notes that are in `heldNotes`
+but not *physically held* from arming the bend. All three cap maps (popover,
+collapsed, expanded) pass it. The notes play identically; only the cursor lock
+is withheld. Note this means **no trackpad-vs-external-mouse detection is
+needed** — the pointer origin is known in our own code.
+
+Trade-off accepted: holding a cap with an external mouse while bending on the
+trackpad won't bend. Detectable via `NSEvent` touch data if it ever matters.
+
+### Open, diagnosed but NOT fixed
+
+**The piano key hit-area doesn't match the drawn keys — it extends a full
+keyboard above and below.** This one is real and still unfixed.
+`PianoKeyboardView.rendererPoint(from:)` is the culprit, and it's on purpose:
+with `strictY: false` (the path every mouse handler uses) it accepts `y` from
+`-piano.height` to `piano.height * 2`. So the live hit region is three keyboards
+tall stacked around a one-keyboard drawing. The comment calls it "generous
+±piano-height slack (fat-finger tolerance for holding a note while sliding off
+the keys)" — the intent is real, the magnitude is not. A `strictY` path already
+exists; the fix is choosing the right tolerance rather than writing new code.
+
+Worth stating plainly: this was **never** the cause of the slide bug, though the
+old entry guessed it might be. It can't be. `KeyboardIconRenderer.noteAt()`
+picks the note from **x only** — `y` merely selects the black-key band, and has
+no upper bound at all — so vertical slack cannot collapse two horizontally
+distinct keys onto the same note.

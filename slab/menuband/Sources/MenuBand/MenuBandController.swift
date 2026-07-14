@@ -84,6 +84,16 @@ final class MenuBandController {
     /// Keys pressed during the current Enter-hold whose key-up should
     /// latch (not release) the note.
     private var latchArmedKeys: Set<UInt16> = []
+
+    /// Key codes currently held by a POINTER (click/drag on a QWERTY keycap),
+    /// not by a physical key. They live in `heldNotes` like any other held key
+    /// — they play the same notes — but they must never count as *keyboard*
+    /// notes. See `keyboardNotesHeld`: counting them arms the trackpad
+    /// pitch-bend, which calls `CGAssociateMouseAndMouseCursorPosition(0)` and
+    /// pins the cursor, so the drag you are currently making across the caps
+    /// dies under your hand. Same shape as `latchArmedKeys` — in `heldNotes`,
+    /// deliberately not "physically held".
+    private var pointerHeldKeys: Set<UInt16> = []
     /// LIFO stack of currently-latched keyCodes — Backspace unlatches
     /// the top one.
     private var latchedKeys: [UInt16] = []
@@ -253,10 +263,17 @@ final class MenuBandController {
         // trackpad pitch-bend lock, or the bend cursor would stay
         // locked open forever after a latch. Count only keys whose
         // physical key is still down (i.e. not latch-armed).
-        let melodicHeld = heldNotes.keys.contains { !latchArmedKeys.contains($0) }
+        // Pointer-held caps are excluded for the same reason: the QWERTY map
+        // routes clicks through the keyboard path so they play identical
+        // notes, but a mouse-driven note must not lock the cursor — that is
+        // the very drag the user is in the middle of.
+        let melodicHeld = heldNotes.keys.contains {
+            !latchArmedKeys.contains($0) && !pointerHeldKeys.contains($0)
+        }
         // Held percussion keys count too — drumming engages the same
         // trackpad pitch-bend gesture so the kit can be bent live.
-        return melodicHeld || !heldDrumKeys.isEmpty
+        let drumHeld = heldDrumKeys.keys.contains { !pointerHeldKeys.contains($0) }
+        return melodicHeld || drumHeld
     }
 
     /// Fires whenever an outbound MIDI noteOn lands on the
@@ -867,10 +884,20 @@ final class MenuBandController {
         "Octave \(octaveShiftLabel) \(playableNoteRangeLabel)"
     }
 
-    /// Trackpad key-tap haptics. No longer user-toggleable — always on, gated
-    /// only by hardware support (`MenuBandHaptics.isAvailable`) at the call
-    /// site. Kept as a property so the piano views can read it uniformly.
-    let hapticsEnabled = true
+    /// Trackpad key-tap haptics. Toggleable again, from Settings — 1.5.4 had
+    /// deleted the switch because it was wedged into the keymap's instrument
+    /// title row with nowhere sane to live, not because the setting was
+    /// unwanted. Still gated by hardware support (`MenuBandHaptics.isAvailable`)
+    /// at the call site; on a Mac without a Force Touch trackpad the Settings
+    /// row disables itself and this value is moot.
+    private static let hapticsKey = "MBHaptics"
+    var hapticsEnabled: Bool {
+        get {
+            if UserDefaults.standard.object(forKey: Self.hapticsKey) == nil { return true }
+            return UserDefaults.standard.bool(forKey: Self.hapticsKey)
+        }
+        set { UserDefaults.standard.set(newValue, forKey: Self.hapticsKey) }
+    }
 
     var melodicProgram: UInt8 {
         let raw = UserDefaults.standard.integer(forKey: melodicProgramKey)
@@ -2506,7 +2533,18 @@ final class MenuBandController {
     /// and deactivates with the panel's key-window state, so an "exit"
     /// keystroke isn't needed.
     @discardableResult
-    func handleLocalKey(keyCode: UInt16, isDown: Bool, isRepeat: Bool, flags: NSEvent.ModifierFlags) -> Bool {
+    /// `fromPointer` marks a press driven by a click/drag on a QWERTY keycap
+    /// rather than a physical key. It plays the identical note; it only keeps
+    /// the key out of `keyboardNotesHeld` so the trackpad pitch-bend (which
+    /// pins and hides the cursor) stays a keyboard-only feature.
+    func handleLocalKey(keyCode: UInt16, isDown: Bool, isRepeat: Bool,
+                        flags: NSEvent.ModifierFlags, fromPointer: Bool = false) -> Bool {
+        if fromPointer {
+            heldLock.lock()
+            if isDown { pointerHeldKeys.insert(keyCode) }
+            else { pointerHeldKeys.remove(keyCode) }
+            heldLock.unlock()
+        }
         // ⌘ / ⌥ / ⌃ are the chord modifiers here (⌘ = major, ⌥ = minor,
         // ⌘+⌥ = sus, ⌃ = augmented). This path is only live while
         // quiet-focus is armed, and the user often armed it with right-⌘ —

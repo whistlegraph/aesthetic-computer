@@ -31,6 +31,15 @@ settings:
     # update-checker / crash-upload) AND the bundle-shim flag (supplies
     # Bundle.module for this non-SwiftPM target). See MASBundleShim.swift.
     SWIFT_ACTIVE_COMPILATION_CONDITIONS: MAC_APP_STORE XCODE_APP_TARGET
+    # The one place the MAS version lives. Every Info plist in this project
+    # (app + both .appex) reads it back as $(MARKETING_VERSION) /
+    # $(CURRENT_PROJECT_VERSION), so the extensions can't drift behind the app
+    # — a mismatch here is an App Store validation error, and the extensions
+    # sat a build behind through the whole 1.5.3 release.
+    # The direct-download build keeps its own literals in Info.plist (SwiftPM
+    # never sees these settings); bump both when releasing.
+    MARKETING_VERSION: "1.5.4"
+    CURRENT_PROJECT_VERSION: "155"
 
 targets:
   MenuBand:
@@ -114,8 +123,6 @@ targets:
         # the MAS-only fork (Info-AppStore.plist) for the same reason.
         PRODUCT_BUNDLE_IDENTIFIER: computer.aesthetic.menuband
         INFOPLIST_FILE: Info-AppStore.plist
-        MARKETING_VERSION: "1.5.4"
-        CURRENT_PROJECT_VERSION: "155"
         CODE_SIGN_ENTITLEMENTS: MenuBand-AppStore.entitlements
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: FB5948YR3S
