@@ -74,7 +74,8 @@
     "lovw": ["sos"],
     "fntn": ["pnda"],
     "dggy": ["kity"],
-    "whod": ["chee"]
+    "whod": ["chee"],
+    "mode": ["chee"]
   },
   "merges": {
     "hlfn": "imab",
@@ -117,6 +118,7 @@
     "pofu": "pics",
     "morn": "chee",
     "flo2": "bmhd",
-    "mathc": "math"
+    "mathc": "math",
+    "brkht": "bndg"
   }
 }
