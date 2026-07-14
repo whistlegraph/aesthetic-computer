@@ -9,7 +9,8 @@
     "bpen": "Blow My Pen",
     "kiss": "Dot Dot Kiss",
     "lily": "Pick Me",
-    "pics": "Pointing, Painting, Picture Taking"
+    "pics": "Pointing, Painting, Picture Taking",
+    "well": "Well, Well, Well"
   },
   "twins": [
     { "code": "bye", "title": "Say Goodbye", "from": "helo" }
@@ -25,7 +26,7 @@
     "itme": "Jeffrey Alan Scudder",
     "rshu": "Alex Freundlich and Camille Klein",
     "simp": "Jeffrey Alan Scudder",
-    "1p2": "Jeffrey Alan Scudder",
+    "1p2": "Whistlegraph",
     "pant": "Alex Freundlich",
     "tipj": "Alex Freundlich and Camille Klein",
     "frog": "Jeffrey Alan Scudder",
@@ -35,7 +36,10 @@
     "lamp": "Alex Freundlich",
     "jbox": "Camille Klein",
     "crpy": "Alex Freundlich",
-    "pillo": "Camille Klein"
+    "pillo": "Camille Klein",
+    "sotm": "Jeffrey Alan Scudder",
+    "well": "Jeffrey Alan Scudder",
+    "smil": "Camille Klein"
   },
   "recodes": {
     "cdh": "bugy",
