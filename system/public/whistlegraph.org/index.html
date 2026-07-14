@@ -169,7 +169,18 @@
   #detail .back{font-size:13px}
   #dVersions video.ver{width:300px; max-width:64vw; height:auto; border:1px solid var(--ink); background:#000; display:block; margin:6px 0 2px}
   /* Posts gallery — every published appearance of a whistlegraph */
-  #dPosts .posts{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:14px 12px; clear:both}
+  /* The gallery is a horizontal, scroll-snap carousel: only the visible slides'
+     posters load (lazy via IntersectionObserver), so a 39-take record no longer
+     fetches 39 posters on open. Swipe on touch; arrows on hover devices. */
+  #dPosts .carousel{position:relative; clear:both}
+  #dPosts .posts{display:flex; gap:12px; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; scroll-behavior:smooth; padding:2px 2px 10px}
+  #dPosts .posts::-webkit-scrollbar{height:6px}
+  #dPosts .posts::-webkit-scrollbar-thumb{background:var(--margin); border-radius:3px}
+  #dPosts .posts .post{flex:0 0 auto; width:min(70vw,230px); scroll-snap-align:center}
+  #dPosts .cbtn{position:absolute; top:34%; transform:translateY(-50%); width:30px; height:46px; display:none; align-items:center; justify-content:center; border:1px solid var(--ink); background:var(--paper); color:var(--ink); font-size:20px; line-height:1; cursor:pointer; z-index:2; border-radius:3px; opacity:.9; padding:0}
+  #dPosts .cbtn:hover{opacity:1}
+  #dPosts .cbtn.prev{left:-4px} #dPosts .cbtn.next{right:-4px}
+  @media(hover:hover){#dPosts .carousel.multi .cbtn{display:flex}}
   .post{display:flex; flex-direction:column; font-size:11.5px}
   .post .pv{width:100%; aspect-ratio:9/16; height:auto; border:1px solid var(--ink); background:#000; display:block}
   /* Audio-only takes: a plain vertical list, separate from the video grid. */
@@ -410,14 +421,39 @@ function renderPosts(code){
   // row was the layout snag). Each stays a clean player with its own metadata.
   const vids=posts.filter(p=>p.media!=="audio"), auds=posts.filter(p=>p.media==="audio");
   const ptag=p=>(p.tags||[]).map(t=>KIND_LABEL[t]?`<span class="ktag">${KIND_LABEL[t]}</span>`:"").join("");
-  const vcard=p=>`<div class="post"><video class="pv" controls playsinline preload="none" loop${p.thumb?` poster="${p.thumb}"`:""} src="${p.src}"></video>`+
+  // Only the first slide gets its poster up front; the rest defer to data-poster
+  // and load as they scroll near (see the IntersectionObserver below). preload
+  // stays "none" so no video bytes fetch until play.
+  const vcard=(p,i)=>`<div class="post"><video class="pv" controls playsinline preload="none" loop${i===0&&p.thumb?` poster="${p.thumb}"`:""}${p.thumb?` data-poster="${p.thumb}"`:""} src="${p.src}"></video>`+
     `<div class="pmeta">${ptag(p)}${meta(p)}${p.desc?`<div class="pdesc">${esc(p.desc)}</div>`:""}</div></div>`;
   const arow=p=>`<div class="arow"><span class="aico">♪</span><div class="acol"><audio controls preload="none" src="${p.src}"></audio><div class="pmeta">${meta(p)}</div></div></div>`;
   let html=`<hr><p class="lbl">${posts.length} post${posts.length>1?"s":""}</p>`;
-  if(vids.length) html+=`<div class="posts">${vids.map(vcard).join("")}</div>`;
+  if(vids.length){
+    const multi=vids.length>1;
+    html+=`<div class="carousel${multi?" multi":""}">`+
+      (multi?`<button class="cbtn prev" aria-label="Previous take">‹</button>`:"")+
+      `<div class="posts">${vids.map(vcard).join("")}</div>`+
+      (multi?`<button class="cbtn next" aria-label="Next take">›</button>`:"")+
+    `</div>`;
+  }
   if(auds.length) html+=`<p class="lbl albl">Audio-only take${auds.length>1?"s":""}</p><div class="audlist">${auds.map(arow).join("")}</div>`;
   P.innerHTML=html;
   P.style.display="";
+  // Lazy-load posters just before they scroll into view, and wire the arrows.
+  const strip=P.querySelector(".posts");
+  if(strip){
+    const io=new IntersectionObserver((es)=>{
+      for(const e of es) if(e.isIntersecting){
+        const v=e.target;
+        if(v.dataset.poster){ v.poster=v.dataset.poster; delete v.dataset.poster; }
+        io.unobserve(v);
+      }
+    },{root:strip, rootMargin:"250px"});
+    strip.querySelectorAll(".pv[data-poster]").forEach(v=>io.observe(v));
+    const step=()=>(strip.querySelector(".post")?.getBoundingClientRect().width||230)+12;
+    P.querySelector(".cbtn.prev")?.addEventListener("click",()=>strip.scrollBy({left:-step()}));
+    P.querySelector(".cbtn.next")?.addEventListener("click",()=>strip.scrollBy({left:step()}));
+  }
 }
 
 function rowHTML(w){
