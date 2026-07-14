@@ -36,6 +36,14 @@ http.createServer(async (req, res) => {
       res.writeHead(200, { ...hdr, "Content-Type": MIME[extname(fp).toLowerCase()] || "application/octet-stream" });
       return res.end(await readFile(fp));
     }
+    // A missing ASSET must 404 — only a bare route falls back to the SPA index.
+    // Serving index.html for a missing `disks/foo.mjs` makes AC believe the .mjs
+    // exists, import HTML as JavaScript, and never try `foo.lisp` — which is why
+    // KidLisp pieces could not be tested here at all.
+    if (extname(p)) {
+      res.writeHead(404, { ...hdr, "Content-Type": "text/plain" });
+      return res.end("not found");
+    }
     res.writeHead(200, { ...hdr, "Content-Type": "text/html; charset=utf-8" }); // SPA fallback → offline index
     res.end(await readFile(INDEX));
   } catch (e) { res.writeHead(500); res.end(String(e)); }

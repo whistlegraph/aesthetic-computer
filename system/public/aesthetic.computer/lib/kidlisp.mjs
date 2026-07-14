@@ -23,6 +23,11 @@ const MELODY_BASE_MS = 500;
 import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
 import { cssColors, rainbow, zebra, resetZebraCache, resetRainbowCache, staticColorMap } from "./num.mjs";
 import { setFadeAlpha, clearFadeAlpha } from "./fade-state.mjs";
+// The pad voices — Karplus-Strong pluck, layered bell, waveguide flute, warm sub,
+// filtered-noise hat. They live in pads.mjs because that's where they were grown;
+// we borrow them rather than growing a second set here, because two definitions of
+// "what a bell sounds like" is one too many and they WILL drift.
+import { voices } from "./pads.mjs";
 import { checkPackMode, getPackMode } from "./pack-mode.mjs";
 import { log } from "./logs.mjs";
 import { captureFrame, formatTimestamp, generateFilename } from "./frame-capture.mjs";
@@ -8222,6 +8227,57 @@ class KidLisp {
         // Delegate to the three-dot version
         return this.getGlobalEnv()["..."](api, args, env);
       },
+      // 🔈 Voices — the same physical models the JS pads use (lib/pads.mjs), said
+      // in Lisp. `overtone` below is a bare square wave; these have bodies.
+      //
+      //   (pluck c4)          a struck string
+      //   (bell e5 0.3)       shimmering, long tail    — second arg is volume
+      //   (sub a1)            warm low end
+      //   (flute g4)          breathy waveguide lead
+      //   (hat)               a closed hi-hat tick
+      //   (voice harp c4 0.4 -0.5)   any type, volume, pan
+      //
+      // A note is what you'd say out loud — c4, e5, a1 — because a language you
+      // can't say out loud is a language nobody writes music in.
+      pluck: (api, args = []) =>
+        voices.pluck(api.sound?.synth, args[0] ?? "c4", {
+          volume: args[1] ?? 0.5,
+          pan: args[2] ?? 0,
+        }),
+      bell: (api, args = []) =>
+        voices.bell(api.sound?.synth, args[0] ?? "e5", {
+          volume: args[1] ?? 0.4,
+          pan: args[2] ?? 0,
+        }),
+      sub: (api, args = []) =>
+        voices.sub(api.sound?.synth, args[0] ?? "a1", {
+          volume: args[1] ?? 0.5,
+          pan: args[2] ?? 0,
+        }),
+      flute: (api, args = []) =>
+        voices.flute(api.sound?.synth, args[0] ?? "g4", {
+          volume: args[1] ?? 0.3,
+          pan: args[2] ?? 0,
+        }),
+      hat: (api, args = []) =>
+        voices.hat(api.sound?.synth, { volume: args[0] ?? 0.14, pan: args[1] ?? 0 }),
+
+      // The whole synth, for when a named voice isn't the one you hear.
+      //   (voice sine c4 0.4 0 1.2)  → type, note, volume, pan, beats
+      voice: (api, args = []) => {
+        const synth = api.sound?.synth;
+        if (!synth) return;
+        return synth({
+          type: unquoteString(String(args[0] ?? "sine")),
+          tone: args[1] ?? "c4",
+          volume: args[2] ?? 0.4,
+          pan: args[3] ?? 0,
+          beats: args[4] ?? 0.6,
+          attack: args[5] ?? 0.01,
+          decay: args[6] ?? 0.6,
+        });
+      },
+
       // 🔈 Sound
       overtone: (api, args = []) => {
         // console.log("Synth at:", args);
