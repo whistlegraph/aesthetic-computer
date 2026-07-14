@@ -47,5 +47,12 @@
     "mutation": "invert",
     "trait": "struck pendulum row that decays into stillness x pentatonic pluck fading to hush",
     "born": "2026-07-14T14:43:43.424Z"
+  },
+  "quovo": {
+    "parent": "tavo",
+    "second": null,
+    "mutation": "eye",
+    "trait": "orrery of orbiting motes (Kepler-speed solar system) x tavo's watery bubble-synth score",
+    "born": "2026-07-14T16:51:52.296Z"
   }
 }

@@ -12,7 +12,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
-import { REPO, pheromone } from "./taste.mjs";
+import { REPO, pheromone, lineage, remember } from "./taste.mjs";
 
 // launchd has never heard of ~/.local/bin, so the cron hands us an absolute
 // path. A bare "claude" works in a terminal and ENOENTs at 3am.
@@ -22,6 +22,27 @@ const DISKS = resolve(REPO, "system/public/aesthetic.computer/disks");
 const ENGINE = resolve(REPO, "system/public/aesthetic.computer/lib/pads.mjs");
 const EXAMPLE = resolve(DISKS, "wispo.mjs");
 const dry = process.argv.includes("--dry");
+// A BLIND generation is told nothing about what anyone liked. That's the point:
+// a loop fed only its own taste converges, and the convergence is invisible from
+// inside because every generation still beats the last one. Blindness is the only
+// part of the machine that can leave a local maximum.
+const blind = process.argv.includes("--blind");
+
+// Every PAD that exists — from the ^pads bag and the loop's own lineage, not from
+// the disks directory, which holds several hundred unrelated AC pieces. A blind
+// generation needs the list of IDEAS already taken; a list of names is useless,
+// and a list of the wrong names is worse than nothing.
+function existing() {
+  const kin = lineage();
+  const bag = JSON.parse(
+    readFileSync(resolve(REPO, "system/public/aesthetic.computer/bags.json"), "utf8"),
+  );
+  const codes = new Set([
+    ...(bag.bags?.pads?.items || []).map((i) => i.code),
+    ...Object.keys(kin),
+  ]);
+  return [...codes].map((c) => (kin[c]?.trait ? `- ${c}: ${kin[c].trait}` : `- ${c}`));
+}
 
 // Pad names are invented syllable-words (wispo, zorb, plimo, glibo, torva…).
 // The model picks one; we only insist it isn't already taken.
@@ -50,7 +71,24 @@ Here is one real, working pad as a worked example of the form:
 ${readFileSync(EXAMPLE, "utf8")}
 --- end example ---
 
-${await pheromone()}
+${
+  blind
+    ? `THIS ONE IS BLIND. You are deliberately NOT being told what anyone liked.
+
+Here is every pad that already exists, so you can avoid them:
+
+${existing().join("\n")}
+
+Make something that is NOT ON THAT LIST and not adjacent to it. Different physics,
+different family of motion, different corner of music. If the list is full of
+pendulums and orbits, do not make a third kind of swinging thing.
+
+This generation exists precisely BECAUSE the loop is drifting toward its own
+favorites. Taste, fed back to itself, converges — and it can never notice from the
+inside, because every new pad still scores well against the last one. You are the
+part of the system that gets to be ignorant on purpose. Use it.`
+    : await pheromone()
+}
 
 WRITE ONE NEW PAD.
 
@@ -114,5 +152,8 @@ if (!/initPad\(/.test(code) || !/export\s*\{[^}]*boot/.test(code)) {
 }
 
 writeFileSync(resolve(DISKS, `${name}.mjs`), code);
-console.log(`✍️  ${name} — ${trait}`);
+// An invented pad has no parent, but it still has an IDEA — and the idea is what
+// the next blind generation needs in order to avoid repeating it.
+remember(name, { parent: null, second: null, mutation: blind ? "blind" : "fresh", trait, born: new Date().toISOString() });
+console.log(`✍️  ${name} — ${trait}${blind ? "  (blind)" : ""}`);
 console.log(JSON.stringify({ code: name, name, trait }));

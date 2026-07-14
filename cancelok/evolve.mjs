@@ -98,9 +98,40 @@ if (!pads.length) {
 }
 pads.sort((a, b) => fitness(b) - fitness(a));
 
+// FAMILY QUOTA. Overnight the loop made five pendulums out of nine, because the
+// two pads anyone had kept were a pendulum and a plasma, and everything bred from
+// them. Fitness alone cannot see this: each child scored fine, and the line
+// converged anyway. So count the dynasties, and refuse to breed one that already
+// owns a third of the population.
+const kin = lineage();
+const root = (c) => {
+  let at = c, hops = 0;
+  while (kin[at]?.parent && hops++ < 50) at = kin[at].parent;
+  return at;
+};
+const born = Object.keys(kin);
+const dynasty = {};
+for (const c of born) dynasty[root(c)] = (dynasty[root(c)] || 0) + 1;
+const SATURATED = Math.max(2, Math.ceil(born.length / 3));
+
+const pool = pads.filter((p) => (dynasty[root(p.code)] || 0) < SATURATED);
+if (pool.length < pads.length)
+  console.log(
+    `   skipping ${pads.length - pool.length} saturated line(s) — a dynasty shouldn't own the deck`,
+  );
+
+// Every line saturated means the gene pool IS the problem, and breeding again —
+// from anyone — only deepens it. Refuse. Exit 3 tells the loop to go blind, which
+// is the only move that can introduce something the history doesn't already
+// contain. A breeder that never says "not from these" is just a copier.
+if (!pool.length) {
+  console.error("❌ every line is saturated — breeding again would only deepen the rut.");
+  process.exit(3);
+}
+
 // Breed from the top few, not the top one. The best pad is a local maximum and
 // the loop's job is to leave it.
-const elite = pads.slice(0, Math.min(4, pads.length));
+const elite = pool.slice(0, Math.min(4, pool.length));
 const mum = elite[Math.floor(Math.random() * elite.length)];
 const canCross = elite.length > 1;
 

@@ -71,6 +71,7 @@ let flashOk = false;
 // card that arrives is playing.
 let mounting = false; // the next pad is in flight — not broken, just not here yet
 let stage = null; // the live pad's own surface
+let lisp = null; // a $code candidate's source, straight from the database
 let out = null; // the frozen frame of the pad you just left
 let outName = ""; // its name travels with it — the label belongs to the card
 let anim = 0; // 0 = settled, →1 = mid-slide
@@ -89,10 +90,18 @@ async function load(api) {
   if (!res.ok) throw new Error("bags.json HTTP " + res.status);
   const bag = (await res.json()).bags?.[asked || "pads"];
   if (!bag) throw new Error("no bag named ^" + asked);
+  // A candidate is either a compiled piece (a .mjs module we import) or a KidLisp
+  // $code (source we fetch from the database and hand to the evaluator). The
+  // second kind never touched the repo and was never deployed — which is the whole
+  // point, and the reason the machine is allowed to publish those on its own.
   deck = (bag.items || [])
-    .filter((it) => it.type === "piece")
-    .map((it) => ({ code: it.code, name: it.name || it.code }));
-  if (!deck.length) throw new Error("that bag holds no pieces");
+    .filter((it) => it.type === "piece" || it.type === "kidlisp")
+    .map((it) => ({
+      code: it.code,
+      name: it.name || it.code,
+      lisp: it.type === "kidlisp",
+    }));
+  if (!deck.length) throw new Error("that bag holds nothing to judge");
   deck.reverse(); // newest first — the fresh ones are the point
 }
 
@@ -155,16 +164,29 @@ async function mount(api) {
   fpsAt = 0;
   fps = 0;
   fpsMin = 999;
-  const { code } = current();
+  const c = current();
+  const { code } = c;
   seen[code] = (seen[code] || 0) + 1;
+  lisp = null;
   try {
-    // Origin-qualified: a disk runs as a blob module, so it has no base URL to
-    // resolve `./x.mjs` against, and updateCode only rewrites static imports.
-    const mod = await import(`${ORIGIN}/aesthetic.computer/disks/${code}.mjs`);
-    if (stage) api.page(stage); // it may draw at boot — into ITS surface, not ours
-    mod.boot?.({ ...api, screen: stage || api.screen });
-    api.page(api.screen);
-    host = mod;
+    if (c.lisp) {
+      // A KidLisp pad lives in the database, not the repo. Nothing was committed
+      // and nothing was deployed to put it here.
+      const res = await fetch(`/api/store-kidlisp?code=${encodeURIComponent(code)}`);
+      if (!res.ok) throw new Error("no $" + code);
+      const data = await res.json();
+      lisp = data.source || data.code || data.kidlisp;
+      if (!lisp) throw new Error("$" + code + " has no source");
+      host = { lisp: true };
+    } else {
+      // Origin-qualified: a disk runs as a blob module, so it has no base URL to
+      // resolve `./x.mjs` against, and updateCode only rewrites static imports.
+      const mod = await import(`${ORIGIN}/aesthetic.computer/disks/${code}.mjs`);
+      if (stage) api.page(stage); // it may draw at boot — into ITS surface, not ours
+      mod.boot?.({ ...api, screen: stage || api.screen });
+      api.page(api.screen);
+      host = mod;
+    }
   } catch (e) {
     hostFailed = true;
     error = String(e?.message || e);
@@ -211,7 +233,7 @@ function boot(api) {
 }
 
 function sim(api) {
-  if (state === "judging" && host && !hostFailed) {
+  if (state === "judging" && host && !hostFailed && !host.lisp) {
     try {
       host.sim?.(api);
     } catch (e) {
@@ -267,7 +289,10 @@ function paint(api) {
   if (host && !hostFailed) {
     try {
       api.page(stage);
-      host.paint?.({ ...api, screen: stage });
+      // Two kinds of candidate, one surface. A module gets its lifecycle driven;
+      // a $code gets handed to the evaluator. Neither knows the other exists.
+      if (host.lisp) api.kidlisp(0, 0, w, h, lisp);
+      else host.paint?.({ ...api, screen: stage });
     } catch (e) {
       hostFailed = true;
       error = String(e?.message || e);
@@ -399,9 +424,9 @@ function act(api) {
 
   // Everything else belongs to the instrument. Play it — that's the whole vote.
   if (!drag && host && !hostFailed) {
-    if (e.is("touch")) taps += 1;
+    if (e.is("touch")) taps += 1; // a tap on a $code still counts — the evaluator sees the pen itself
     try {
-      host.act?.(api);
+      if (!host.lisp) host.act?.(api);
     } catch (err) {
       hostFailed = true;
       error = String(err?.message || err);

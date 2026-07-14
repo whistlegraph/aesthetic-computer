@@ -8242,28 +8242,36 @@ class KidLisp {
       //
       // A note is what you'd say out loud — c4, e5, a1 — because a language you
       // can't say out loud is a language nobody writes music in.
+      // Sound is a boundary: `synth` isn't there on the first frames, and a voice
+      // that throws takes the whole evaluation down with it. A pad with no audio
+      // yet should draw silently, not die.
       pluck: (api, args = []) =>
-        voices.pluck(api.sound?.synth, args[0] ?? "c4", {
+        api.sound?.synth &&
+        voices.pluck(api.sound.synth, args[0] ?? "c4", {
           volume: args[1] ?? 0.5,
           pan: args[2] ?? 0,
         }),
       bell: (api, args = []) =>
-        voices.bell(api.sound?.synth, args[0] ?? "e5", {
+        api.sound?.synth &&
+        voices.bell(api.sound.synth, args[0] ?? "e5", {
           volume: args[1] ?? 0.4,
           pan: args[2] ?? 0,
         }),
       sub: (api, args = []) =>
-        voices.sub(api.sound?.synth, args[0] ?? "a1", {
+        api.sound?.synth &&
+        voices.sub(api.sound.synth, args[0] ?? "a1", {
           volume: args[1] ?? 0.5,
           pan: args[2] ?? 0,
         }),
       flute: (api, args = []) =>
-        voices.flute(api.sound?.synth, args[0] ?? "g4", {
+        api.sound?.synth &&
+        voices.flute(api.sound.synth, args[0] ?? "g4", {
           volume: args[1] ?? 0.3,
           pan: args[2] ?? 0,
         }),
       hat: (api, args = []) =>
-        voices.hat(api.sound?.synth, { volume: args[0] ?? 0.14, pan: args[1] ?? 0 }),
+        api.sound?.synth &&
+        voices.hat(api.sound.synth, { volume: args[0] ?? 0.14, pan: args[1] ?? 0 }),
 
       // The whole synth, for when a named voice isn't the one you hear.
       //   (voice sine c4 0.4 0 1.2)  → type, note, volume, pan, beats

@@ -75,10 +75,14 @@ for (let turn = 1; turn <= TRIES; turn++) {
 
   const breeding = !process.argv.includes("--fresh") && Math.random() < EVOLVE_ODDS;
   const tool = breeding ? "cancelok/evolve.mjs" : "cancelok/generate.mjs";
+  // The non-breeding turn is BLIND — it isn't told what anyone liked. A "fresh"
+  // generation that still reads the pheromone isn't fresh at all: it just invents
+  // another pendulum, politely. That was the bug that let five of them through.
+  const argv = breeding ? [] : ["--blind"];
 
   let made;
   try {
-    const out = execFileSync("node", [resolve(REPO, tool)], {
+    const out = execFileSync("node", [resolve(REPO, tool), ...argv], {
       encoding: "utf8",
       cwd: REPO,
       stdio: ["inherit", "pipe", "inherit"],
@@ -86,12 +90,17 @@ for (let turn = 1; turn <= TRIES; turn++) {
     });
     made = JSON.parse(out.trim().split("\n").pop());
   } catch (e) {
-    // Exit 2 from evolve = nothing has been kept yet, so there's nothing to
-    // breed from. That's not a failure, it's a cold start — go invent instead.
-    if (breeding && e.status === 2) {
-      console.log("   nothing kept yet — inventing from scratch instead.");
+    // Exit 2 = nothing kept yet (a cold start). Exit 3 = every line is saturated
+    // and breeding would only deepen the rut. Both mean the same thing: stop
+    // asking the history what to do, and go make something it can't predict.
+    if (breeding && (e.status === 2 || e.status === 3)) {
+      console.log(
+        e.status === 3
+          ? "   the gene pool has collapsed — going blind."
+          : "   nothing kept yet — inventing from scratch instead.",
+      );
       try {
-        const out = execFileSync("node", [resolve(REPO, "cancelok/generate.mjs")], {
+        const out = execFileSync("node", [resolve(REPO, "cancelok/generate.mjs"), "--blind"], {
           encoding: "utf8",
           cwd: REPO,
           stdio: ["inherit", "pipe", "inherit"],
