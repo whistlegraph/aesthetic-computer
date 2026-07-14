@@ -20,3 +20,6 @@ podcast/publish/
 
 # av-reels working outputs (regen-able)
 av-reels/out/
+
+# capur logo studies — regen with capur/gen-capur.mjs
+capur/out/

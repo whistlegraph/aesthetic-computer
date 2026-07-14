@@ -61,15 +61,14 @@ function loadConfig() {
   if (!existsSync(CONFIG_PATH)) return null;
   try {
     const cfg = JSON.parse(readFileSync(CONFIG_PATH, "utf8"));
-    if (
-      !cfg ||
-      cfg.displayName === "REPLACE_ME" ||
-      !Array.isArray(cfg.handles) ||
-      cfg.handles.length === 0 ||
-      cfg.handles.some((h) => /REPLACE|example\.com|5551234567/.test(h))
-    ) {
-      return null; // present but still a stub
-    }
+    const stub = (h) => /REPLACE|example\.com|5551234567/.test(h);
+    const okHandles = (hs) => Array.isArray(hs) && hs.length > 0 && !hs.some(stub);
+    // Valid if the legacy default contact is filled in, OR a `contacts` map has
+    // at least one real entry (new multi-contact schema).
+    const legacyOk = cfg && cfg.displayName !== "REPLACE_ME" && okHandles(cfg.handles);
+    const contactsOk = cfg && cfg.contacts && typeof cfg.contacts === "object" &&
+      Object.values(cfg.contacts).some((c) => c && okHandles(c.handles));
+    if (!cfg || (!legacyOk && !contactsOk)) return null; // present but still a stub
     return cfg;
   } catch {
     return null;
@@ -83,6 +82,54 @@ function ensureConfigStub() {
       mode: 0o600,
     });
   }
+}
+
+// ─── contacts ────────────────────────────────────────────────────────────
+// A config may declare many named contacts (`contacts: { artur: {...} }`) with
+// an optional `default`; the legacy top-level {displayName, handles} is treated
+// as the "default" contact so old single-contact configs keep working.
+
+function contactsMap(cfg) {
+  const m = {};
+  if (cfg && cfg.contacts && typeof cfg.contacts === "object") {
+    for (const [k, v] of Object.entries(cfg.contacts)) {
+      if (v && Array.isArray(v.handles) && v.handles.length) {
+        m[k.toLowerCase()] = { displayName: v.displayName || k, handles: v.handles };
+      }
+    }
+  }
+  return m;
+}
+
+function defaultContact(cfg) {
+  if (!cfg) return null;
+  const m = contactsMap(cfg);
+  if (cfg.default && m[String(cfg.default).toLowerCase()]) return m[String(cfg.default).toLowerCase()];
+  if (Array.isArray(cfg.handles) && cfg.handles.length) {
+    return { displayName: cfg.displayName || "default", handles: cfg.handles };
+  }
+  return Object.values(m)[0] || null;
+}
+
+// Resolve who a `--to` argument names: a contact key/displayName, a raw handle
+// (+E164 or an email), or — when omitted — the default contact.
+function resolveRecipient(cfg, toArg) {
+  if (!toArg) {
+    const d = defaultContact(cfg);
+    if (!d) throw new Error("no default contact configured");
+    return d;
+  }
+  const m = contactsMap(cfg);
+  const key = String(toArg).toLowerCase();
+  if (m[key]) return m[key];
+  const hit = Object.entries(m).find(
+    ([k, v]) => k.includes(key) || (v.displayName || "").toLowerCase().includes(key),
+  );
+  if (hit) return hit[1];
+  if (/^\+[0-9]{6,}$/.test(toArg) || /@/.test(toArg)) {
+    return { displayName: String(toArg), handles: [String(toArg)] };
+  }
+  throw new Error(`no contact matched "${toArg}" — known: ${Object.keys(m).join(", ") || "(none)"}`);
 }
 
 // ─── chat.db ─────────────────────────────────────────────────────────────
@@ -137,7 +184,8 @@ const APPLE_EPOCH = 978307200; // 2001-01-01 → unix seconds
 const appleNsToUnix = (ns) => Math.floor(Number(ns) / 1e9) + APPLE_EPOCH;
 
 function handleList(cfg) {
-  return cfg.handles
+  const c = defaultContact(cfg);
+  return (c ? c.handles : [])
     .map((h) => `'${String(h).replace(/'/g, "''")}'`)
     .join(",");
 }
@@ -219,8 +267,8 @@ function ringBell(cfg) {
 
 // ─── send ────────────────────────────────────────────────────────────────
 
-function sendMessage(cfg, body) {
-  const to = String(cfg.handles[0]);
+function sendMessage(handles, body) {
+  const to = String(handles[0]);
   // buddy-of-first-service path is the most reliable across macOS versions.
   const script = `
 on run argv
@@ -345,7 +393,7 @@ async function cmdTail() {
     const body = line.trim();
     if (!body) return;
     try {
-      sendMessage(cfg, body);
+      sendMessage(defaultContact(cfg).handles, body);
       process.stdout.write(`\x1b[36m  you ›\x1b[0m ${body}\n`);
     } catch (e) {
       process.stdout.write(`\x1b[31m  send failed: ${e.message}\x1b[0m\n`);
@@ -416,12 +464,18 @@ try {
         console.error(`No contact configured. Edit ${CONFIG_PATH}`);
         process.exit(1);
       }
-      const body = rest.join(" ").trim();
+      // Optional `--to <name|handle>` selects a contact; default otherwise.
+      const args = [...rest];
+      let toArg = null;
+      const ti = args.indexOf("--to");
+      if (ti >= 0) { toArg = args[ti + 1]; args.splice(ti, 2); }
+      const body = args.join(" ").trim();
       if (!body) {
-        console.error("usage: imsg send <text>");
+        console.error("usage: imsg send <text> [--to <name|handle>]");
         process.exit(1);
       }
-      sendMessage(cfg, body);
+      const rcpt = resolveRecipient(cfg, toArg);
+      sendMessage(rcpt.handles, body);
       break;
     }
     case "tail":
@@ -429,7 +483,7 @@ try {
       break;
     case "open": {
       const cfg = loadConfig();
-      const to = cfg ? cfg.handles[0] : "";
+      const to = cfg ? (defaultContact(cfg)?.handles[0] || "") : "";
       spawnSync("/usr/bin/open", [`imessage://${to}`], { stdio: "ignore" });
       break;
     }

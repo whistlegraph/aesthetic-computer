@@ -211,18 +211,19 @@ async function toolSend({ channel, to, text: body, confirm, machine } = {}) {
   }
 
   if (ch === "imessage" || ch === "imsg") {
-    // imsg.mjs send targets the FIRST configured handle only (no arbitrary
-    // recipient), so `to` is advisory — surface that in the preview.
+    // `to` selects a named contact / raw handle from imsg.json's contacts map
+    // (imsg send --to). Omit it to hit the config's default contact.
+    const toArgs = to ? ["--to", String(to)] : [];
     if (!confirm) {
       return text(
         `PREVIEW — not sent. Re-call with confirm:true to send.\n` +
         `channel: iMessage   machine: ${isLocal(machine) ? "local" : machine}\n` +
-        `to: the handle configured in ~/.config/slab/imsg.json` +
-        `${to ? ` (note: imsg send ignores an arbitrary \`to\`=${to})` : ""}\n--- message ---\n${body}`,
+        `to: ${to ? `contact/handle "${to}" (from imsg.json contacts)` : "the default contact in ~/.config/slab/imsg.json"}\n` +
+        `--- message ---\n${body}`,
       );
     }
-    const { stdout } = await runBridge(IMSG, ["send", body], machine, { timeoutMs: 30000 });
-    return text(`✅ iMessage sent${stdout.trim() ? `: ${stdout.trim()}` : ""}`);
+    const { stdout } = await runBridge(IMSG, ["send", body, ...toArgs], machine, { timeoutMs: 30000 });
+    return text(`✅ iMessage sent${to ? ` to "${to}"` : ""}${stdout.trim() ? `: ${stdout.trim()}` : ""}`);
   }
 
   throw new Error(`unknown channel "${channel}" (use "signal" or "imessage")`);
