@@ -64,6 +64,22 @@ let drag = null; // { from, y0, moved } — a gesture that began in an edge band
 let flash = 0; // the last verdict, briefly, as a colored edge
 let flashOk = false;
 
+// The slide. Two pads can never run at once — lib/pads.mjs is a session
+// singleton, so booting the next one kills the last one dead. So we FREEZE the
+// outgoing pad: copy its final frame into a buffer and slide the corpse out while
+// the live one comes in underneath it. The card that leaves is a photograph; the
+// card that arrives is playing.
+let mounting = false; // the next pad is in flight — not broken, just not here yet
+let stage = null; // the live pad's own surface
+let out = null; // the frozen frame of the pad you just left
+let outName = ""; // its name travels with it — the label belongs to the card
+let anim = 0; // 0 = settled, →1 = mid-slide
+let dir = 1; // +1 = the next pad rises, -1 = the last one falls back in
+let held = 0; // how far your finger has dragged the pad, right now
+
+const EASE = (t) => 1 - Math.pow(1 - t, 3); // out-cubic: fast away, soft landing
+const SLIDE = 0.075; // ~4 frames of ramp; a page turn should feel thrown, not eased
+
 const now = () => Date.now();
 const current = () => deck[at];
 
@@ -132,6 +148,7 @@ function leaving(api) {
 async function mount(api) {
   host = null;
   hostFailed = false;
+  mounting = true; // the next pad is still coming over the wire
   taps = 0;
   shownAt = now();
   frames = 0;
@@ -144,19 +161,37 @@ async function mount(api) {
     // Origin-qualified: a disk runs as a blob module, so it has no base URL to
     // resolve `./x.mjs` against, and updateCode only rewrites static imports.
     const mod = await import(`${ORIGIN}/aesthetic.computer/disks/${code}.mjs`);
-    mod.boot?.(api);
+    if (stage) api.page(stage); // it may draw at boot — into ITS surface, not ours
+    mod.boot?.({ ...api, screen: stage || api.screen });
+    api.page(api.screen);
     host = mod;
   } catch (e) {
     hostFailed = true;
     error = String(e?.message || e);
+  } finally {
+    mounting = false;
   }
 }
 
 // Turn the page. Going BACK is not a neutral act — you returned to something, and
 // coming back is the strongest keep signal in the whole system.
-function turn(api, dir) {
+function turn(api, d) {
+  if (anim > 0) return; // one page at a time
   leaving(api);
-  at = (at + dir + deck.length) % deck.length;
+
+  // Freeze it. This copy is the only thing that survives the next boot, so it has
+  // to happen before mount() — a pad, once replaced, cannot be asked to draw
+  // itself again.
+  if (stage) {
+    out = api.painting(stage.width, stage.height, () => {});
+    out.pixels.set(stage.pixels);
+    outName = current().name;
+  }
+
+  dir = d;
+  anim = 0.0001; // any non-zero starts the slide
+  held = 0;
+  at = (at + d + deck.length) % deck.length;
   mount(api);
 }
 
@@ -185,6 +220,13 @@ function sim(api) {
     }
   }
   if (flash > 0) flash -= 0.04;
+  if (anim > 0) {
+    anim += SLIDE;
+    if (anim >= 1) {
+      anim = 0;
+      out = null; // let the photograph go
+    }
+  }
 }
 
 function paint(api) {
@@ -215,39 +257,81 @@ function paint(api) {
   }
   fpsAt = t;
 
-  // The pad, full-bleed. It gets every pixel — nothing of ours sits on top of it
-  // except a name that fades and a number nobody has to read.
+  // The live pad paints into its OWN surface — not the screen. That's what makes
+  // the slide possible at all, and it's also what keeps per-pixel pads honest:
+  // they write straight into `screen.pixels`, so the surface we hand them has to
+  // BE their screen, not a copy of ours with a different shape.
+  if (!stage || stage.width !== w || stage.height !== h)
+    stage = api.painting(w, h, (p) => p.wipe(0, 0, 0));
+
   if (host && !hostFailed) {
     try {
-      host.paint?.(api);
+      api.page(stage);
+      host.paint?.({ ...api, screen: stage });
     } catch (e) {
       hostFailed = true;
       error = String(e?.message || e);
+    } finally {
+      api.page(screen);
     }
   }
-  if (hostFailed || !host) {
+
+  wipe(0, 0, 0);
+
+  // "didn't run" means it FAILED — not that it hasn't arrived yet. A pad takes a
+  // moment to come over the wire, and during a slide that gap is exactly where the
+  // eye is looking. Claiming a crash for 100ms on every single page turn is a lie
+  // told at the worst possible moment.
+  if (hostFailed) {
     wipe(18, 6, 10);
     ink(...NO).write("didn't run", { center: "x", y: h / 2 - 10 });
     ink(110).write(String(error).slice(0, 44), { center: "x", y: h / 2 + 2 });
+    chrome(api, w, h, 0);
+    return;
   }
 
-  chrome(api, w, h);
+  // Where the two cards sit. Mid-slide the outgoing one is a photograph and the
+  // incoming one is playing; the rest of the time `held` is just your finger.
+  let liveY = held;
+  if (anim > 0) {
+    const e = EASE(Math.min(1, anim));
+    liveY = dir > 0 ? h * (1 - e) : -h * (1 - e); // next rises / last falls in
+    const outY = dir > 0 ? -h * e : h * e;
+    if (out) {
+      api.paste(out, 0, Math.round(outY));
+      label(api, outName, w, Math.round(outY), 1); // the name leaves with its card
+    }
+  }
+
+  api.paste(stage, 0, Math.round(liveY));
+  chrome(api, w, h, Math.round(liveY));
+}
+
+// The name rides WITH its card. It isn't chrome bolted to the corner of the
+// screen — it belongs to the pad, so it slides out when the pad does and arrives
+// with the next one. Anything else and the label would sit still while the thing
+// it names flies away.
+function label({ ink }, text, w, y, a) {
+  if (a <= 0 || !text) return;
+  ink(0, 0, 0, 150 * a).write(text, { x: 7, y: y + 8 });
+  ink(240, 240, 255, 255 * a).write(text, { x: 6, y: y + 7 });
 }
 
 // Everything of ours. It should feel like almost nothing.
-function chrome({ ink, write, box, screen }, w, h) {
+function chrome(api, w, h, y = 0) {
+  const { ink, write, box } = api;
   const c = current();
   const age = now() - shownAt;
 
   // The name — the one thing worth saying out loud, and only for a moment. A
-  // label that never leaves stops being read.
-  if (age < NAME_MS) {
-    const a = Math.min(1, Math.max(0, (NAME_MS - age) / 700));
-    const label = c.name;
-    ink(0, 0, 0, 150 * a).write(label, { x: 7, y: 8 });
-    ink(240, 240, 255, 255 * a).write(label, { x: 6, y: 7 });
+  // label that never leaves stops being read. It stays lit while the card is
+  // still moving, because a name you can't finish reading isn't a name.
+  const fade = Math.min(1, Math.max(0, (NAME_MS - age) / 700));
+  const a = anim > 0 ? 1 : fade;
+  label(api, c.name, w, y, a);
+  if (a > 0) {
     const n = `${at + 1}/${deck.length}`;
-    ink(120, 120, 140, 200 * a).write(n, { x: w - 6 - n.length * 6, y: 7 });
+    ink(120, 120, 140, 200 * a).write(n, { x: w - 6 - n.length * 6, y: y + 7 });
   }
 
   // The last verdict, as a breath of color at the edge you swiped from. You
@@ -282,21 +366,33 @@ function act(api) {
   // A gesture that starts in an edge band is ours; everything else is the pad's.
   // The bands are thin on purpose — the instrument keeps its whole face.
   if (e.is("touch")) {
+    if (anim > 0) return; // mid-slide, the deck isn't listening
     if (e.y >= h - EDGE) drag = { from: "bottom", y0: e.y };
     else if (e.y <= EDGE) drag = { from: "top", y0: e.y };
     else drag = null;
+  }
+
+  // The card follows your finger. Rubber-banded, so pulling the wrong way barely
+  // moves — the deck should feel like it wants to go one direction.
+  if (drag && e.is("draw")) {
+    const moved = drag.y0 - e.y; // + = pulled up, − = pulled down
+    const right = drag.from === "bottom" ? moved > 0 : moved < 0;
+    held = right ? -moved : -moved * 0.2; // wrong way barely budges
+    return;
   }
 
   if (drag && e.is("lift")) {
     const moved = drag.y0 - e.y; // positive = swiped up
     const d = drag.from;
     drag = null;
+    held = 0; // whichever way it goes, it stops following the finger now
     if (d === "bottom" && moved > SWIPE) return turn(api, +1); // up → next
     if (d === "top" && -moved > SWIPE) return turn(api, -1); // down → back
-    return; // a tap on the edge is not a verdict. Say nothing.
+    return; // not far enough. It snaps back, and nothing is recorded.
   }
 
-  // Keys, for judging a long deck without leaving home.
+  // Keys, for judging a long deck without leaving home. Down goes forward, the
+  // way a page does.
   if (e.is("keyboard:down:arrowdown") || e.is("keyboard:down:space"))
     return turn(api, +1);
   if (e.is("keyboard:down:arrowup")) return turn(api, -1);
