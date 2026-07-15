@@ -49,6 +49,7 @@ const PODCASTS = new Set([
   "aesthetic-june-26-essay",
   "aesthetic-july-4-26-essay",
   "aesthetic-july-10-26-essay",
+  "the-record-is-a-better-interface-essay",
 ]);
 const LANG_NAMES = { en: "English", da: "Danish", es: "Spanish", zh: "Chinese", ja: "Japanese", ru: "Russian" };
 
@@ -223,6 +224,12 @@ const PAPER_MAP = {
     base: "july-10-26",
     siteName: "aesthetic-july-10-26-essay",
     title: "'Sup w/ July 10?",
+    format: "essay",
+  },
+  "essay-granularity": {
+    base: "granularity",
+    siteName: "the-record-is-a-better-interface-essay",
+    title: "The Record Is a Better Interface",
     format: "essay",
   },
   "deck-media-estate": {
@@ -456,6 +463,7 @@ const CATEGORIES = [
       "essay-june-26",
       "essay-july-4-26",
       "essay-july-10-26",
+      "essay-granularity",
     ],
   },
   {
@@ -1004,6 +1012,11 @@ function updateIndex(entries) {
 
   // Paper detail descriptions and short previews, keyed by siteName.
   const PAPER_COPY = {
+    "the-record-is-a-better-interface-essay": {
+      detail: "An essay on expressive playback &middot; podcast",
+      abstract:
+        "A turntable lets a listener hold recorded sound directly, while streaming apps reduce playback to a menu of approved speeds. This essay asks why production tools remain instruments while consumer players became transport controls, and argues for audible, continuous scrubbing that gives the recording back to the hand.",
+    },
     "gaps-in-granularity-26-arxiv": {
       detail: "Expressive Control and the Impoverishment of Consumer Playback &middot; arXiv 10pp",
       abstract:

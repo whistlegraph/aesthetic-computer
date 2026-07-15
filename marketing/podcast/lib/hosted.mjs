@@ -17,6 +17,7 @@ export const HOSTED = {
   "june-26": "aesthetic-june-26-essay",
   "july-4-26": "aesthetic-july-4-26-essay",
   "july-10-26": "aesthetic-july-10-26-essay",
+  "granularity": "the-record-is-a-better-interface-essay",
 };
 
 // slug → hosted basename, or null if the slug is not cleared to publish.

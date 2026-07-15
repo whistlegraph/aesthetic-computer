@@ -126,13 +126,26 @@ export function renderCover(script, outDir) {
   const tex = resolve(build, "cover.tex");
   writeFileSync(tex, coverTex(script));
 
-  execFileSync("xelatex", ["-interaction=nonstopmode", "-halt-on-error", "cover.tex"], {
-    cwd: build, stdio: "ignore",
-  });
+  // Homebrew's compact TeX setup may provide Tectonic without a `xelatex`
+  // executable. Both are XeTeX-compatible for this self-contained cover.
+  try {
+    execFileSync("xelatex", ["-interaction=nonstopmode", "-halt-on-error", "cover.tex"], {
+      cwd: build, stdio: "ignore",
+    });
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+    execFileSync("tectonic", ["cover.tex"], { cwd: build, stdio: "ignore" });
+  }
   const pdf = resolve(build, "cover.pdf");
   if (!existsSync(pdf)) throw new Error("cover xelatex produced no pdf");
 
-  execFileSync("mutool", ["draw", "-o", full, "-r", "500", pdf, "1"], { stdio: "ignore" });
+  try {
+    execFileSync("mutool", ["draw", "-o", full, "-r", "500", pdf, "1"], { stdio: "ignore" });
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+    const base = full.replace(/\.png$/i, "");
+    execFileSync("pdftoppm", ["-f", "1", "-singlefile", "-png", "-r", "500", pdf, base], { stdio: "ignore" });
+  }
   execFileSync("ffmpeg", ["-y", "-i", full, "-vf", "scale=1400:1400", embed], { stdio: "ignore" });
 
   rmSync(build, { recursive: true, force: true });

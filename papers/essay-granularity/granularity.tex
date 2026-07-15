@@ -1,0 +1,101 @@
+% !TEX program = xelatex
+\documentclass[11pt,letterpaper]{article}
+
+\usepackage[top=1in,bottom=1in,left=1.15in,right=1.15in]{geometry}
+\usepackage{fontspec}
+\setmainfont{Latin Modern Roman}[Extension=.otf,UprightFont=lmroman10-regular,BoldFont=lmroman10-bold,ItalicFont=lmroman10-italic,BoldItalicFont=lmroman10-bolditalic]
+\setsansfont{Latin Modern Sans}[Extension=.otf,UprightFont=lmsans10-regular,BoldFont=lmsans10-bold]
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{microtype}
+\usepackage{ac-paper-essay}
+
+% Long title: preserve the essay cover grammar while allowing a clean wrap.
+\renewcommand{\essaytitle}[1]{%
+  \begin{center}%
+    \begin{tikzpicture}
+      \node[acdark,opacity=0.25,align=center,text width=\linewidth,
+            font=\aclight\fontsize{37pt}{42pt}\selectfont,inner sep=0pt] at (2pt,-2pt) {#1};
+      \node[acpink,align=center,text width=\linewidth,
+            font=\aclight\fontsize{37pt}{42pt}\selectfont,inner sep=0pt] at (0,0) {#1};
+    \end{tikzpicture}%
+  \end{center}%
+  \vspace{0.6em}%
+}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,pdfauthor={@jeffrey},pdftitle={The Record Is a Better Interface}}
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acgray}\thepage}
+
+\begin{document}
+\thispagestyle{empty}
+\vspace*{-0.35in}
+
+\essaytitle{The Record Is a Better Interface}
+\essaydate{July 15, 2026}
+
+Put your finger on a spinning record and the recording becomes a thing you can hold. Push it and the voice rises. Pull it and the voice falls backward. Stop it under your fingertip and time stops with it. The motion of your hand, the motion of the sound, and the motion you hear are the same event.
+
+Now open a streaming app and try to do the same thing. You get a menu.
+
+This is one of those comparisons that makes modern software look worse the longer you consider it. A turntable is old, mechanical, and famously inconvenient. A streaming service has the whole catalog, a supercomputer in your pocket, and engineers who can make almost any behavior imaginable. Yet the turntable gives you continuous authority over a recording while the app gives you a row of approved numbers. Normal. One point two five. One point five. Two.
+
+We have mistaken access to more media for control of media. They are not the same thing.
+
+\section{The Missing Space Between the Buttons}
+
+I call this a gap in granularity. Granularity is how finely an action can be expressed. A light switch has two grains: off and on. A dimmer has every value between them. A menu of playback speeds is a switch with a few more notches. A record under a hand is a dimmer whose position, speed, and direction are all available at once.
+
+The difference is not mainly the number of choices. You could put a hundred speeds in the menu and still miss the important part. The record does not ask you to stop acting, translate your desire into a number, and select it. You act on the sound itself. You can speed through half a second, rest on a syllable, pull backward, and return to tempo as one gesture. The feedback arrives through the same material you are changing.
+
+Good interfaces shorten the distance between wanting and doing. The best ones almost make the distance disappear. Drawing with a pencil feels direct because the mark follows the hand. Throwing a ball in a game feels direct when the arc seems to leave the gesture rather than a dialog box. The record feels direct because there is no symbolic deputy between the hand and the sound.
+
+Consumer playback went the other way. It converted a continuous property into a setting. Once something becomes a setting, designers begin treating interruption as natural: open the panel, inspect the choices, make the selection, close the panel, resume the experience. The interaction may be tidy, but tidiness is not the same as fluency. A restaurant menu is tidy. A violin is fluent.
+
+\section{The Technology Is Not the Problem}
+
+There is an easy excuse for a coarse interface: perhaps the finer one is technically difficult. Here it is not.
+
+DJs have treated recorded sound as an instrument for half a century. Audio workstations let editors stretch, reverse, bend, loop, and scrub sound with precision. Phones sample touch hundreds of times a second. Modern browsers can schedule audio closely enough for musical work. Pitch can follow speed like tape, or time can stretch while pitch stays fixed. These are mature techniques, not laboratory wishes.
+
+The revealing fact is that the richer controls already exist behind professional doors. The person editing an advertisement may touch every millisecond of its audio. The person forced to watch the advertisement gets play and pause. The producer receives an instrument; the audience receives transport controls.
+
+This division made more sense when playback machines were separate from production machines. It makes almost no sense now. The phone on which you listen is also a camera, an editor, a synthesizer, a motion sensor, and a networked computer. Its passivity is designed, not inherent.
+
+Platforms have good reasons to prefer passive transport. Standard playback is predictable. It preserves the duration of an ad, the shape of a metric, the intended tempo of a licensed track, and the clean simplicity of a support document. Expressive control creates states the platform did not prescribe. It permits the listener to become a performer, and performers are harder to count than consumers.
+
+But this is precisely why the missing control matters. Interfaces teach people what their role is. A row of media with play buttons says: choose, then receive. A surface that bends under the hand says: this material is available to you.
+
+\section{Scrubbing Should Sound Like Scrubbing}
+
+The strangest convention in digital playback is silent scrubbing. You drag a playhead across a timeline while the image jumps or a thumbnail floats above your finger. The sound, which is often the thing you are actually searching, disappears. You release, wait, listen, discover you missed, and drag again.
+
+Tape solved this physically. Move tape across a head and you hear what passes the head. Fast motion becomes a high, compressed chatter; slow motion opens into texture; reverse announces itself immediately. The distortion is useful. It tells you where you are and how you are moving. The sound is not an afterthought attached to the location. It is the location reporting itself.
+
+We built this behavior into Aesthetic Computer's media pieces. In \texttt{tape} and \texttt{video}, touch does not merely request a seek after the gesture ends. It holds the playhead. Movement scrubs the material continuously. Speed and pitch can remain coupled, so the recording stretches and bends like something with physical resistance. The interface is not imitating brown plastic tape for nostalgia. It is recovering the closed loop that digital players threw away.
+
+Once you use playback this way, several supposedly separate controls collapse into one. Seeking, speed, direction, preview, and fine positioning become different qualities of the same gesture. This is usually what progress in interface design looks like: not adding more buttons, but finding the action from which the buttons were broken off.
+
+\section{Playback Can Be a Performance}
+
+The larger opportunity is not a better speed slider. It is a change in category.
+
+We currently treat recorded media as a finished object moving past a stationary audience. But a recording can also be material passing through a hand. Children discover this immediately when they find a record player, a cassette deck, or any toy that lets a voice become a monster by slowing it down. DJs build whole musical languages from it. Editors know it as the ordinary intimacy of their work. The expressive possibility is not obscure. It has simply been removed from the default player.
+
+There will still be times when play and pause are enough. A direct control does not require every listener to perform. A piano does not force everyone near it to give a concert. It only preserves the possibility that a touch can become more than a command.
+
+That possibility is what consumer software has been sanding away. Each simplification looks harmless by itself: five speeds instead of a continuum, a silent seek instead of audible scrub, separate controls instead of one coupled gesture. Together they establish a ceiling on what the listener is allowed to mean.
+
+The record is a better interface because it assumes more of the person touching it. It assumes timing, pressure, correction, play, and surprise. It assumes that access is not the end of agency. We do not need to bring back every inconvenience of vinyl to recover that assumption. We only need to stop confusing a short menu with a complete idea of control.
+
+Playback can be an instrument. The technical problem is solved. The remaining work is to put the instrument where the play button is.
+
+\colophon{Adapted from \textit{Gaps in Granularity: Expressive Control and the Impoverishment of Consumer Playback}. ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913} \enspace$\cdot$\enspace aesthetic.computer}
+
+\end{document}
