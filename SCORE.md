@@ -12,6 +12,16 @@ As implemented in this monorepo through the direction of [@jeffrey](https://prom
 
 ---
 
+## Context Resolution Order
+
+Interpret names and requests in this order unless the user explicitly points elsewhere:
+
+1. **Our seat / local fleet** — machines, displays, prompt rocks, host tooling, and the immediate development environment. Names such as `panda`, `chicken`, `neo`, and `blueberry` mean machines first.
+2. **Aesthetic Computer** — this monorepo, its pieces, services, and production system.
+3. **Client context** — client infrastructure or projects only when the conversation makes that context clear; resolve their details through `aesthetic-computer-vault`.
+
+Do not interpret a known machine name as an Aesthetic Computer piece until the seat/fleet meaning has been ruled out.
+
 ## Front Door
 
 <!-- stats:start -->
