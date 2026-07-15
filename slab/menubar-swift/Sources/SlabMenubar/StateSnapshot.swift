@@ -143,10 +143,10 @@ struct StateSnapshot {
     /// Live /pop renders with progress heartbeats — one temporary
     /// progress bar each in the menu (audio / illy / video).
     var popRenders: [PopRender] = []
-    /// The configured iMessage contact has unread inbound AND theme-by-status
-    /// is on. Set by AppDelegate (not gather()) from the imsg poll — the
-    /// whole status surface (polygon icon + themed terminals) then carries a
-    /// shared "she texted" accent until the thread is read.
+    /// The configured iMessage contact has unread inbound, or a message just
+    /// arrived. Set by AppDelegate (not gather()) from the imsg poll — the
+    /// menubar always carries the signal, while themed terminals also receive
+    /// the shared message accent. This is passive awareness only.
     var messageWaiting: Bool = false
     /// Deskflow KVM — present only on machines with a deskflow.json; the
     /// menu shows a status line + Start/Stop/Restart for the LaunchAgent.

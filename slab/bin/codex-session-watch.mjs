@@ -8,16 +8,17 @@
 //   task_started  → working  (rewrite active marker, drop awaiting, touch running-tools)
 //   task_complete → complete (write awaiting "turn complete", drop running-tools)
 //
-// Usage: node codex-session-watch.mjs <sessionId> <beginEpochSec> <wrapperPid>
+// Usage: node codex-session-watch.mjs <sessionId> <beginEpochSec> <wrapperPid> <tty> <cwd>
 // Launched (and killed) by codex-slab.sh. Exits when the wrapper pid dies.
 
-import { readdir, readFile, writeFile, stat, unlink, utimes } from "node:fs/promises";
+import { readFile, writeFile, stat, unlink, utimes } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { join } from "node:path";
 import { homedir } from "node:os";
 
-const [sid, beginArg, wrapperArg] = process.argv.slice(2);
+const [sid, _beginArg, wrapperArg, tty = "", cwd = ""] = process.argv.slice(2);
 if (!sid) process.exit(1);
-const beginSec = Number(beginArg) || Math.floor(Date.now() / 1000);
 const wrapperPid = Number(wrapperArg) || 0;
 
 const SLAB_HOME = process.env.SLAB_HOME || join(homedir(), ".local", "share", "slab");
@@ -25,37 +26,47 @@ const ACTIVE = join(SLAB_HOME, "state", "active-prompts", sid);
 const AWAITING = join(SLAB_HOME, "state", "awaiting-prompts", sid);
 const RUNNING = join(SLAB_HOME, "state", "running-tools", sid);
 const SESSIONS = join(process.env.CODEX_HOME || join(homedir(), ".codex"), "sessions");
+const execFileAsync = promisify(execFile);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const nowISO = () => new Date().toISOString().replace(/\.\d+Z$/, "Z");
 const wrapperAlive = () => {
   if (!wrapperPid) return true;
-  try { process.kill(wrapperPid, 0); return true; } catch { return false; }
+  try { process.kill(wrapperPid, 0); return true; }
+  catch (error) {
+    // Sandboxed launch contexts may forbid signalling an otherwise-live
+    // sibling. EPERM proves the PID exists; ESRCH is the actual dead case.
+    return error?.code === "EPERM";
+  }
 };
 
-async function walk(dir, out = []) {
-  let entries;
-  try { entries = await readdir(dir, { withFileTypes: true }); } catch { return out; }
-  for (const e of entries) {
-    const p = join(dir, e.name);
-    if (e.isDirectory()) await walk(p, out);
-    else if (e.isFile() && e.name.startsWith("rollout-") && e.name.endsWith(".jsonl")) out.push(p);
-  }
-  return out;
-}
-
-// Find the rollout file for THIS codex session: the newest one created at/after
-// the wrapper's start. Poll until it appears (codex writes it on session start).
+// Find the rollout file for THIS Codex process. Concurrent windows often share
+// cwd and start within the same second, so "newest file" cross-wires their
+// rocks. The wrapper and Codex are parent/child; Codex keeps its own rollout
+// open for writing, giving us an exact, resume-safe association via lsof.
 async function findRollout() {
   for (let i = 0; i < 40 && wrapperAlive(); i++) {
-    const files = await walk(SESSIONS);
-    let best = null, bestM = 0;
-    for (const f of files) {
-      let m;
-      try { m = (await stat(f)).mtimeMs; } catch { continue; }
-      if (m >= (beginSec - 3) * 1000 && m > bestM) { best = f; bestM = m; }
+    try {
+      // BSD/macOS ps has no Linux `-P <parent>` selector. Read its compact
+      // PID/PPID table and select the wrapper's children ourselves.
+      const { stdout: processes } = await execFileAsync(
+        "/bin/ps", ["-axo", "pid=,ppid="]);
+      const pids = processes.split("\n").map((line) => line.trim().split(/\s+/))
+        .filter((parts) => parts.length >= 2 && Number(parts[1]) === wrapperPid)
+        .map((parts) => parts[0])
+        .filter((p) => Number(p) !== process.pid);
+      for (const pid of pids) {
+        const { stdout } = await execFileAsync("/usr/sbin/lsof", ["-Fn", "-p", pid]);
+        const rollout = stdout.split("\n")
+          .filter((line) => line.startsWith("n"))
+          .map((line) => line.slice(1))
+          .find((p) => p.startsWith(SESSIONS + "/")
+            && p.includes("/rollout-") && p.endsWith(".jsonl"));
+        if (rollout) return rollout;
+      }
+    } catch {
+      // Codex may not have opened its rollout yet; retry below.
     }
-    if (best) return best;
     await sleep(500);
   }
   return null;
@@ -63,8 +74,21 @@ async function findRollout() {
 
 // Read the marker, merge fields, write it back (atomic-ish).
 async function updateMarker(patch) {
-  let obj = {};
-  try { obj = JSON.parse(await readFile(ACTIVE, "utf8")); } catch {}
+  // Keep enough launch metadata here to reconstruct a marker if an external
+  // janitor removes it while Codex is still alive. Without this baseline the
+  // next rollout event recreated only `{state, updated}`, losing the tty and
+  // agent type that Slab needs to theme the terminal.
+  let obj = {
+    session_id: sid,
+    cwd,
+    subject: "codex session",
+    summary: "codex",
+    tty,
+    agent_pid: wrapperPid,
+    agent_type: "codex",
+    state: "blank",
+  };
+  try { Object.assign(obj, JSON.parse(await readFile(ACTIVE, "utf8"))); } catch {}
   Object.assign(obj, patch, { updated: nowISO() });
   try { await writeFile(ACTIVE, JSON.stringify(obj)); } catch {}
 }
@@ -122,19 +146,22 @@ function handleLine(line, ctx) {
 async function main() {
   const file = await findRollout();
   if (!file) process.exit(0);
-  // Start tailing from EOF — historical turns already happened; we only care
-  // about live transitions from here on. (A fresh `co` launch has an empty log.)
+  // Replay once from the beginning so a resumed Codex window immediately
+  // inherits its real last state (usually complete) instead of sitting blank
+  // or aging into interrupted until the user submits another prompt. After
+  // that first pass `offset` makes this an ordinary incremental tail.
   let offset = 0;
-  try { offset = (await stat(file)).size; } catch {}
   const ctx = { lastUser: "", pending: [] };
   while (wrapperAlive()) {
     let size = offset;
     try { size = (await stat(file)).size; } catch { break; }
     if (size > offset) {
-      let chunk = "";
-      try { chunk = await readFile(file, { encoding: "utf8" }); } catch { chunk = ""; }
-      // Re-read whole file (rollouts are small) and process only new tail.
-      const tail = chunk.slice(offset);
+      let chunk = Buffer.alloc(0);
+      try { chunk = await readFile(file); } catch { chunk = Buffer.alloc(0); }
+      // Offsets from stat are bytes, not JavaScript UTF-16 character counts.
+      // Slice the Buffer first so emoji/non-ASCII output can never skew the
+      // tail boundary or cause an already-seen completion to be replayed.
+      const tail = chunk.subarray(offset).toString("utf8");
       offset = chunk.length;
       for (const line of tail.split("\n")) if (line.trim()) handleLine(line, ctx);
       // Apply transitions in order; last one wins the visible state.
@@ -145,4 +172,7 @@ async function main() {
   }
 }
 
-main().catch(() => process.exit(0));
+main().catch((error) => {
+  console.error(`codex-session-watch: ${error?.stack || error}`);
+  process.exit(1);
+});

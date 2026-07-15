@@ -5,8 +5,9 @@
 //
 // A "rock" is one live session (or headless agent), advertised by its machine
 // as `host:name` — e.g. neo:regif, blueberry:flock, panda:iris. The name is the
-// sigil pet-name (deterministic from the session's prompt seed), so it matches
-// exactly what you see rendered on that machine's overlay. This is how a
+// stable pet-name (deterministic from the session/thread id), so it matches
+// exactly what you see rendered on that machine's overlay even as the rock's
+// prompt-driven texture and form evolve. This is how a
 // `machine:promptname` reference resolves without an SSH+find crawl.
 //
 // The data source is the fleet ledger the menubar already publishes + caches:
@@ -19,7 +20,7 @@
 //
 // Hand-rolled JSON-RPC over stdio, matching the house style of the sibling
 // frame-mcp / puppet-mcp — no SDK, only node builtins + the shared front.
-import { readFile, readdir } from "node:fs/promises";
+import { readFile, readdir, writeFile, mkdir } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { join } from "node:path";
@@ -33,6 +34,7 @@ const LEDGER_DIR = join(homedir(), ".config", "slab", "ledger");
 const LOCAL_FILE = join(LEDGER_DIR, "local.json");
 const PEERS_DIR = join(LEDGER_DIR, "peers");
 const PORT = 5252; // the menubar's LedgerHTTPServer port on every machine
+const IMSG_BINDING = join(homedir(), ".config", "slab", "imsg-prox.json");
 
 // Per-session marker files (written by the slab claude hooks) carry the tty +
 // pid a rock is running on — the same source the menubar overlay reads. Keyed
@@ -113,7 +115,10 @@ function resolve(rocks, handle) {
     host = host === "local" ? null : host; // "local:foo" → any host with name foo on self
   }
   const inHost = (r) => !host || r.host.toLowerCase() === host || (host === "local" && r.self);
-  // exact name first, then prefix, then substring — so `neo:reg` finds regif.
+  // Stable session id is the strongest identity; then exact pet name, prefix,
+  // and substring — so `neo:reg` still finds regif.
+  const id = rocks.filter((r) => inHost(r) && r.id.toLowerCase() === name);
+  if (id.length) return id;
   const exact = rocks.filter((r) => inHost(r) && r.name.toLowerCase() === name);
   if (exact.length) return exact;
   const prefix = rocks.filter((r) => inHost(r) && r.name.toLowerCase().startsWith(name));
@@ -231,6 +236,27 @@ async function toolPoke({ handle, by }) {
   return [{ type: "text", text: `poked ${r.host}:${r.name} as «${poker}» — its rock should blink + rattle (HTTP ${res.status}).` }];
 }
 
+async function toolBindNotification({ handle, event = "imessage", wake = true }) {
+  if (event !== "imessage") throw new Error("only the `imessage` Slab notification is supported");
+  if (!handle) throw new Error("`handle` is required (use the stable host:name or session id)");
+  const hits = resolve(await allRocks(), handle);
+  if (!hits.length) throw new Error(`no rock resolves «${handle}» to bind.`);
+  if (hits.length > 1) throw new Error(`«${handle}» is ambiguous (${hits.map((r) => `${r.host}:${r.name}`).join(", ")}).`);
+  const r = hits[0];
+  if (!r.self) throw new Error("iMessage notification wake targets must be a local prox on this machine");
+  const binding = {
+    event: "imessage",
+    sessionId: r.id,
+    host: r.host,
+    name: r.name,
+    wake: wake !== false,
+    assignedAt: new Date().toISOString(),
+  };
+  await mkdir(join(homedir(), ".config", "slab"), { recursive: true });
+  await writeFile(IMSG_BINDING, JSON.stringify(binding, null, 2) + "\n", { mode: 0o600 });
+  return [{ type: "text", text: `bound Slab iMessage arrivals to ${r.host}:${r.name} (${r.id}) — poke${binding.wake ? " + reactivate" : " only"}.` }];
+}
+
 async function toolClose({ handle }) {
   if (!handle) throw new Error("`handle` is required (a `host:name` or fuzzy name; see prox_find).");
   const hits = resolve(await allRocks(), handle);
@@ -317,6 +343,20 @@ const TOOLS = [
       required: ["handle"],
     },
   },
+  {
+    name: "prox_bind_notification",
+    description:
+      "Assign a Slab notification to one stable local prox. For event `imessage`, every new inbound pokes the rock and, by default, reactivates its terminal session with a steering prompt. The binding uses session id, so it survives prompt/title/visual changes for that thread. This does not send or react to the incoming message.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        handle: { type: "string", description: "Stable local host:name, session id, or an unambiguous subject fragment." },
+        event: { type: "string", enum: ["imessage"], default: "imessage" },
+        wake: { type: "boolean", default: true, description: "Also reactivate the agent session; false means visual poke only." },
+      },
+      required: ["handle"],
+    },
+  },
 ];
 
 async function callTool(name, args) {
@@ -324,6 +364,7 @@ async function callTool(name, args) {
     case "prox_list": return toolList(args || {});
     case "prox_find": return toolFind(args || {});
     case "prox_poke": return toolPoke(args || {});
+    case "prox_bind_notification": return toolBindNotification(args || {});
     case "prox_close": return toolClose(args || {});
     default: throw new Error(`Unknown tool: ${name}`);
   }

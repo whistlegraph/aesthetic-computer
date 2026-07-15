@@ -174,9 +174,9 @@ final class PromptSigilOverlay {
     private let nameLayer = CALayer()        // the rock's pet name, under the rock (pixel-text bitmap)
     private var boxCenter = CGPoint.zero
 
-    /// The rock's pet name (deterministic from the prompt seed) and the hover
-    /// bubble copy — refreshed by the controller each sync so the bubble
-    /// always speaks the session's current subject.
+    /// The rock's pet name (deterministic from its session/thread id) and the
+    /// hover copy. The name stays fixed while the visual seed and copy evolve
+    /// with the session's current subject.
     private(set) var name: String = ""
     var tooltipTitle: String = ""
     var tooltipBody: String = ""
@@ -983,12 +983,13 @@ final class PromptSigilOverlayController {
             ov.setMotion(period: period, clockwise: cw)
             ov.setShadowColor(statusColor(for: s.state, agentType: s.agentType))
             ov.setLighting(drop: sun.drop)
-            // Name + hover copy. The name is the seed's, so it re-forms with
-            // the rock on a new prompt. The bubble body prefers a cached
+            // Name + hover copy. The name belongs to the session/thread and
+            // stays fixed while the visual rock re-forms on a new prompt.
+            // The bubble body prefers a cached
             // haiku-inferred sentence; until that lands it shows the hook
             // summary and prompt excerpt, deduped (the hook line is usually
             // the prompt's own first words — repeating both said nothing).
-            ov.setName(SigilRenderer.name(seed: seed), dark: dark)
+            ov.setName(SigilRenderer.name(forSessionId: s.sessionId), dark: dark)
             ov.tooltipTitle = s.emoji.isEmpty ? ov.name : "\(s.emoji) \(ov.name)"
             ov.tooltipBody = RockSummaries.shared.sentence(seed: seed, subject: s.subject)
                 ?? Self.fallbackBody(summary: s.titleString, subject: s.shortSubject)

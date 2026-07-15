@@ -20,9 +20,9 @@
 // This is a data channel, not a display one.
 import Foundation
 
-// One advertised handle. `name` is the sigil pet-name (deterministic from the
-// prompt, so it matches the rock on that machine's own overlay); `seed` carries
-// the same identity as hex so a reference can be re-rendered anywhere.
+// One advertised handle. `name` is the stable session/thread pet-name (and
+// matches the local overlay); `seed` is the evolving prompt-sensitive visual
+// identity in hex so the current rock can be re-rendered anywhere.
 struct LedgerEntry: Codable, Equatable {
     var id: String
     var host: String
@@ -144,6 +144,14 @@ final class LedgerStore {
         }
     }
 
+    /// Local event sources (iMessage, timers, host integrations) use the same
+    /// observed path as a fleet `/poke`, without an HTTP loopback. Binding by
+    /// session id keeps the target stable even while its prompt and rock form
+    /// evolve.
+    func pokeLocal(sessionId: String, by: String) {
+        receivePoke(["id": sessionId, "by": by])
+    }
+
     /// Live observed record for a session, or nil once the window has decayed.
     /// Thread-safe; the overlay controller calls this each frame.
     func observation(for sessionId: String) -> (by: String, remaining: TimeInterval)? {
@@ -183,7 +191,7 @@ final class LedgerStore {
             return LedgerEntry(
                 id: s.sessionId,
                 host: selfHost,
-                name: SigilRenderer.name(seed: seed),
+                name: SigilRenderer.name(forSessionId: s.sessionId),
                 subject: s.titleString,
                 status: statusName(s.state),
                 kind: "session",

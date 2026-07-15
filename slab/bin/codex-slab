@@ -52,7 +52,7 @@ jq -n \
 # Background watcher: derives per-turn state from the rollout JSONL.
 watcher=""
 if command -v node >/dev/null 2>&1 && [[ -f "$SLAB_BIN/codex-session-watch.mjs" ]]; then
-    node "$SLAB_BIN/codex-session-watch.mjs" "$sid" "$begin" "$$" \
+    node "$SLAB_BIN/codex-session-watch.mjs" "$sid" "$begin" "$$" "$tty" "$cwd" \
         >/dev/null 2>&1 &
     watcher=$!
 fi

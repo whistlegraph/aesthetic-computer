@@ -479,7 +479,7 @@ enum MenuBuilder {
 
         let sigils = item("PromptRocks", selector: #selector(AppDelegate.togglePromptSigils), target: target)
         sigils.state = state.promptSigils ? .on : .off
-        sigils.toolTip = "Pin a PromptRock — a named little stone hashed from the prompt text — to each session's terminal top-right, so prompts are distinguishable at a glance (shape + name per prompt; colour still follows status; hover or click a rock for its subject summary)"
+        sigils.toolTip = "Pin a PromptRock to each session's terminal top-right: its pet name stays fixed for the thread while its prompt-shaped form can evolve; colour follows status, and hovering or clicking reveals its subject summary"
         sub.addItem(sigils)
 
         let lens = item("Zoom lens (⌃⌃)", selector: #selector(AppDelegate.toggleZoomLens), target: target)

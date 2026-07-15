@@ -139,7 +139,11 @@ function sqlite(query) {
   // Read-only via URI; -json so blobs ride out as hex strings safely.
   const r = spawnSync(
     SQLITE3,
-    ["-readonly", "-json", `file:${CHAT_DB}?mode=ro`, query],
+    // Messages briefly takes an exclusive lock while committing. A short busy
+    // timeout lets the passive watcher ride through that normal write window
+    // instead of reporting a false failure; the surrounding Slab poll still
+    // has an 8-second hard timeout.
+    ["-readonly", "-cmd", ".timeout 1500", "-json", `file:${CHAT_DB}?mode=ro`, query],
     { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
   );
   if (r.status !== 0) {
@@ -376,13 +380,13 @@ function cmdStatus() {
     // First run: baseline silently, never blast the bell for history.
     st.primed = true;
     st.lastNotifiedRowid = s.maxInbound;
-  } else if (s.maxInbound > st.lastNotifiedRowid && s.unread > 0) {
+  } else if (s.maxInbound > st.lastNotifiedRowid) {
+    // Arrival is an event even if another Apple device marked the thread read
+    // before this poll. Slab/prox consumers still need the edge; only the
+    // audible bell remains conditional on the message being unread here.
     newSinceLast = true;
     st.lastNotifiedRowid = s.maxInbound;
-    ringBell(cfg);
-  } else if (s.maxInbound > st.lastNotifiedRowid) {
-    // New inbound that's already marked read elsewhere — track, don't ring.
-    st.lastNotifiedRowid = s.maxInbound;
+    if (s.unread > 0) ringBell(cfg);
   }
   saveState(st);
 

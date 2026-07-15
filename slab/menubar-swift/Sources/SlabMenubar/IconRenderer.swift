@@ -20,8 +20,9 @@ enum IconRenderer {
         let weight: NSFont.Weight
 
         if state.messageWaiting {
-            // She texted (and theme-by-status is on) — this outranks the
-            // ambient / idle glyphs. Template so the menubar still tints it.
+            // The watched contact texted — this outranks the ambient / idle
+            // glyphs even when terminal theming is off. Template so the
+            // menubar still tints it.
             name = "message.fill"
             weight = .semibold
         } else if state.ambientActive {
@@ -320,7 +321,7 @@ enum IconRenderer {
     }
 
     /// Composite a pulsing magenta dot bottom-left so the colored polygon
-    /// also carries the "she texted"
+    /// also carries the "new message"
     /// accent — the menubar and the themed wall then read one picture. The
     /// hue is deliberately off the working-green / awaiting-amber /
     /// complete-slate / stale-gray axis so it never reads as a session state.

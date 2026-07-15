@@ -39,6 +39,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// One-shot guard so the status-defaults gen is kicked once per launch.
     private var defaultsKicked = false
     private var refreshTimer: Timer?
+    /// Dedicated contact-awareness clock. iMessage must not depend on the
+    /// heavier fleet snapshot completing; a stalled system probe should never
+    /// make Slab miss an incoming message.
+    private var imsgTimer: Timer?
     private var animTimer: Timer?
     /// Drives the attention-blink on `.complete` / `.awaiting` terminal
     /// backgrounds — both states need the user's eyes, and a static blue vs.
@@ -87,11 +91,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// latency) but still off-main; the helper itself rings the bell when a
     /// NEW inbound arrives. `imsgUnread` is exposed so the theme-by-status
     /// pipeline can treat "she texted" as a first-class status accent.
-    private var imsgTickCount = 0
     private var imsgPending = false
     private var imsgStatus = "—"
     private var imsgConfigured = false
     private var imsgUnread = 0
+    /// Keeps a just-arrived message visible to Slab even if Messages marks it
+    /// read before our next snapshot. Unread messages keep the signal alive;
+    /// this short edge pulse covers the actual arrival moment.
+    private var imsgArrivalVisibleUntil = Date.distantPast
     /// Asana task state. Polled off-main on a slow cadence (tasks don't change
     /// second-to-second); the helper itself talks to the Asana REST API and
     /// the token lives only in the untracked config (see slab-public-repo PII).
@@ -106,7 +113,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var deployState = DeployStatusState()
     private var state = StateSnapshot()
     private let passphraseServer = PassphraseServer()
-    /// System-wide ⌘⌥T → re-tile claude terminals. Kept alive for the app's
+    /// System-wide ⌘⌥T → re-tile agent terminals. Kept alive for the app's
     /// lifetime; unregistered in `applicationWillTerminate`.
     private var tileHotkey: GlobalHotkey?
     /// System-wide ⌘⌥S → scatter every session into tiny confetti windows.
@@ -120,6 +127,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// wall (see WindowNav). Four hotkeys, one per arrow; held for the app's
     /// lifetime and unregistered in `applicationWillTerminate`.
     private var navHotkeys: [GlobalHotkey] = []
+
+    /// Keeps the focused terminal's pixel frame fixed while its native ⌘+/-
+    /// command changes only that window's font zoom. This watches Terminal and
+    /// iTerm2 themselves, so Claude and Codex windows behave identically.
+    private var terminalFontZoomGuard: TerminalFontZoomGuard?
 
     /// ⌃⌃ → magnify the window under the pointer. Not a `GlobalHotkey`: Carbon
     /// can only register a keycode+modifier chord, and a bare modifier tapped
@@ -153,6 +165,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         refreshTimer = timer
         RunLoop.main.add(timer, forMode: .common)
+
+        // Contact awareness has its own lightweight clock instead of riding
+        // the fleet refresh. Poll once at launch, then every three seconds.
+        refreshImsgCount()
+        let contactTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) {
+            [weak self] _ in self?.refreshImsgCount()
+        }
+        imsgTimer = contactTimer
+        RunLoop.main.add(contactTimer, forMode: .common)
 
         // Title-component hygiene for the Slab-* Terminal profiles: the
         // working-dir and active-process checkboxes are NOT scriptable and
@@ -211,6 +232,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
 
+        // Terminal.app sizes windows in character cells, so its native font
+        // zoom also changes the pixel frame. Preserve the frame around that
+        // native action; the terminal remains responsible for its per-window
+        // zoom state, and Slab only prevents the geometry side effect.
+        let fontGuard = TerminalFontZoomGuard()
+        if fontGuard.start() { terminalFontZoomGuard = fontGuard }
+
         // ⌃⌃ zooms in on the window under the pointer; ⌃⌃ again zooms back out.
         // The tap listens always — the flag is checked at fire time, not here, so
         // toggling the feature from the menu doesn't need to tear a tap down.
@@ -252,6 +280,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         scatterHotkey?.unregister()
         appearanceHotkey?.unregister()
         navHotkeys.forEach { $0.unregister() }
+        terminalFontZoomGuard?.stop()
+        imsgTimer?.invalidate()
         zoomLensTap?.stop()
         // Compositor zoom outlives us — never quit leaving the screen magnified.
         if ZoomLens.isZoomed { ZoomLens.zoomOut() }
@@ -313,9 +343,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 self.state = snapshot
                 // gather() doesn't know about iMessage; fold the cached poll
                 // result in here so the icon + decor read one consistent
-                // picture. Gated on theme-by-status per the accent's contract.
-                self.state.messageWaiting =
-                    self.imsgUnread > 0 && snapshot.themeByStatus
+                // picture. This awareness is independent of theme-by-status:
+                // the menubar should notice an arrival even on an unthemed
+                // wall. Unread keeps it present; the edge pulse catches a
+                // message that another device marks read almost immediately.
+                self.state.messageWaiting = self.imsgUnread > 0
+                    || Date() < self.imsgArrivalVisibleUntil
 
                 self.updateIcon()
                 self.updateAnimTimer()
@@ -325,15 +358,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 if self.mailTickCount >= 15 && !self.mailPending && !self.mailSyncing {
                     self.mailTickCount = 0
                     self.refreshMailCount()
-                }
-
-                // Chat wants lower latency than mail — poll ~10 s. The helper
-                // detects new inbound and rings the bell itself; we only pull
-                // the summary back for the menu label + theme accent.
-                self.imsgTickCount += 1
-                if self.imsgTickCount >= 5 && !self.imsgPending {
-                    self.imsgTickCount = 0
-                    self.refreshImsgCount()
                 }
 
                 // Asana tasks change on a human cadence, not a chat one —
@@ -371,7 +395,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                                                   requireStandardSubrole: false).count
                     if acCount != self.lastAcWindowCount {
                         self.lastAcWindowCount = acCount
-                        self.tileNowImpl(resetZoom: false)
+                        self.tileNowImpl(resetZoom: true)
                     }
                 }
                 // Pulled `frame` screenshots open in FramePreview, badged with
@@ -575,20 +599,118 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             var label = "iMessage: —"
             var configured = false
             var unread = 0
+            var newSinceLast = false
+            var helperError: String?
+            var lastText = ""
             if let data = line.data(using: .utf8),
                let obj = try? JSONSerialization.jsonObject(with: data)
                    as? [String: Any] {
                 label = (obj["label"] as? String) ?? label
                 configured = (obj["configured"] as? Bool) ?? false
                 unread = (obj["unread"] as? Int) ?? 0
+                newSinceLast = (obj["newSinceLast"] as? Bool) ?? false
+                helperError = obj["error"] as? String
+                if let last = obj["last"] as? [String: Any] {
+                    lastText = (last["text"] as? String) ?? ""
+                }
             }
             DispatchQueue.main.async {
-                self?.imsgStatus = label
-                self?.imsgConfigured = configured
-                self?.imsgUnread = unread
-                self?.imsgPending = false
+                guard let self = self else { return }
+                if let helperError = helperError {
+                    NSLog("💬 [imsg] watcher error: \(helperError)")
+                }
+                let wasWaiting = self.state.messageWaiting
+                self.imsgStatus = label
+                self.imsgConfigured = configured
+                self.imsgUnread = unread
+                if newSinceLast {
+                    self.imsgArrivalVisibleUntil = Date().addingTimeInterval(15)
+                    self.bumpBoundProx(displayLabel: label, message: lastText)
+                }
+                self.state.messageWaiting = unread > 0
+                    || Date() < self.imsgArrivalVisibleUntil
+                self.imsgPending = false
+                self.updateIcon()
+                self.updateAnimTimer()
+                if wasWaiting != self.state.messageWaiting {
+                    self.applyTerminalDecor()
+                }
             }
         }
+    }
+
+    /// Poke the prox explicitly assigned to iMessage awareness and optionally
+    /// submit a small steering prompt to its live TTY. This is deliberately
+    /// opt-in via an untracked binding file; Slab never guesses which agent to
+    /// wake and never sends a message back to the contact.
+    private func bumpBoundProx(displayLabel: String, message: String) {
+        guard let data = FileManager.default.contents(atPath: Paths.imsgProxBinding),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let sid = obj["sessionId"] as? String, !sid.isEmpty else { return }
+        let wake = (obj["wake"] as? Bool) ?? false
+        LedgerStore.shared.pokeLocal(sessionId: sid, by: "slab:imessage")
+        guard wake, let tty = ttyForSession(sid), !tty.isEmpty else { return }
+
+        let clean = message.replacingOccurrences(of: "\n", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let excerpt = String(clean.prefix(240))
+        let prompt = excerpt.isEmpty
+            ? "Slab received a new iMessage from Alex. Check Alex's latest messages and handle the request."
+            : "Slab received a new iMessage from Alex: \(excerpt) — check Alex's latest messages and handle the request."
+        wakeTerminal(tty: tty, prompt: prompt)
+        NSLog("💬 [imsg] poked + woke prox \(sid.prefix(8)) on \(tty) (\(displayLabel))")
+    }
+
+    private func ttyForSession(_ sid: String) -> String? {
+        if let tty = state.claudeSessions.first(where: { $0.sessionId == sid })?.tty,
+           !tty.isEmpty { return tty }
+        for dir in [Paths.activePromptsDir, Paths.awaitingPromptsDir] {
+            let path = "\(dir)/\(sid)"
+            guard let data = FileManager.default.contents(atPath: path),
+                  let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let tty = obj["tty"] as? String, !tty.isEmpty else { continue }
+            return tty
+        }
+        return nil
+    }
+
+    private func wakeTerminal(tty: String, prompt: String) {
+        func esc(_ s: String) -> String {
+            s.replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "\"", with: "\\\"")
+        }
+        let t = esc((tty as NSString).lastPathComponent)
+        let p = esc(prompt)
+        let script = """
+        tell application "Terminal"
+            repeat with w in windows
+                repeat with tabRef in tabs of w
+                    try
+                        if (tty of tabRef) ends with "\(t)" then
+                            do script "\(p)" in tabRef
+                            return "terminal"
+                        end if
+                    end try
+                end repeat
+            end repeat
+        end tell
+        try
+            tell application id "com.googlecode.iterm2"
+                repeat with w in windows
+                    repeat with tabRef in tabs of w
+                        repeat with sessionRef in sessions of tabRef
+                            if (tty of sessionRef) ends with "\(t)" then
+                                tell sessionRef to write text "\(p)"
+                                return "iterm"
+                            end if
+                        end repeat
+                    end repeat
+                end repeat
+            end tell
+        end try
+        return "tty-not-found"
+        """
+        ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", script])
     }
 
     /// Pull the Asana task tree off-main via `slab/bin/asana status`. The
@@ -967,9 +1089,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             DispatchQueue.main.async {
                 guard let self = self else { return }
                 if self.state.autoTile {
-                    // Re-pin geometry only — skip the focus-stealing zoom
-                    // reset on this frequent automatic path.
-                    self.tileNowImpl(resetZoom: false)
+                    // A tile is a normalization boundary: remaining windows
+                    // return to one grid-derived font size after the close.
+                    self.tileNowImpl(resetZoom: true)
                 }
                 self.refresh()
             }
@@ -1530,6 +1652,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         for state: ClaudeSession.State, dark: Bool, blink: Bool = false,
         agentType: String = "claude"
     ) -> (palette: Palette, glyph: String) {
+        // Codex completion is a stronger attention cue than Claude's calm
+        // slate: coral/red, distinct from approval/elicitation amber.
+        if agentType == "codex", state == .complete {
+            if dark {
+                return blink
+                    ? (Palette(bg: (23500, 3200, 4200), text: (65535, 48000, 46000),
+                               bold: (65535, 57000, 55000), cursor: (65535, 15000, 14000)), "✓ complete")
+                    : (Palette(bg: (17000, 1900, 3000), text: (65535, 45000, 43000),
+                               bold: (65535, 55000, 53000), cursor: (65535, 11000, 10000)), "✓ complete")
+            }
+            return blink
+                ? (Palette(bg: (65535, 39000, 38000), text: (30000, 1200, 1800),
+                           bold: (21000, 300, 800), cursor: (62000, 5000, 5000)), "✓ complete")
+                : (Palette(bg: (65535, 45500, 44000), text: (30000, 1200, 1800),
+                           bold: (21000, 300, 800), cursor: (62000, 5000, 5000)), "✓ complete")
+        }
         let base = baseStatusDecor(for: state, dark: dark, blink: blink)
         guard agentType == "codex" else { return base }
         return (palette: codexTint(base.palette, dark: dark), glyph: base.glyph)
@@ -2451,10 +2589,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return ScatterLayout(frames: frames, fontSize: scatterFontSize)
     }
 
-    /// Tile every currently-open iTerm2 *and* Terminal.app window into one
+    /// Tile every currently-open iTerm2 *and* Terminal.app agent window into one
     /// shared grid. Independent of the auto-tile flag — this is the
     /// "I forgot to enable it" / "I want to re-pack what's open" button.
-    /// iTerm2 windows fill the grid first, then Terminal.app windows.
+    /// iTerm2 windows fill the grid first, then Terminal.app windows. The pass
+    /// is deliberately agent-agnostic: Claude and Codex hosts share the same
+    /// geometry and Far/Near/Tiny font calculation.
     /// Terminal gets bounds only — AppleScript can't set per-session decor
     /// or wallpaper on Terminal.app, so those windows tile but stay
     /// un-themed (the iTerm2-only port intentionally dropped Terminal decor).
@@ -2496,16 +2636,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // the profile-font write + Default-Font-Size menu dance is the
             // slow, focus-stealing part of the old tiler.
             guard pass.nTerm > 0, resetZoom || prevFont != pass.fontSize else { return }
-            // ONE fast bulk font-set, no `activate` / z-order reshuffle / View ▸
-            // Default Font Size menu dance / delays — that dance is what made an
-            // explicit tile feel heavy (it steals focus and touches each window
-            // serially). Setting the settings font reflows a normal window on
-            // its own; the only thing the dance added was clearing a MANUAL
-            // per-window zoom (Cmd +/-), which isn't part of the slab workflow.
-            // If a hand-zoomed window ever refuses to resize, that's the case to
-            // revisit — otherwise both tile and scatter now stay focus-free.
-            let lines: [String] = [
+            // Set the shared profile size first. An explicit/automatic tile is
+            // also a normalization boundary: clear Terminal's invisible
+            // per-window Cmd +/- override via View ▸ Default Font Size so all
+            // Claude and Codex panes actually render at the same size.
+            var lines: [String] = [
                 "tell application \"Terminal\"",
+                "  set _slabIds to id of (every window whose miniaturized is false)",
                 "  repeat with _w in (every window whose miniaturized is false)",
                 "    try",
                 "      set font size of current settings of _w to \(pass.fontSize)",
@@ -2513,6 +2650,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 "  end repeat",
                 "end tell",
             ]
+            if resetZoom {
+                lines.append(contentsOf: [
+                    "tell application \"Terminal\" to activate",
+                    "repeat with _wid in _slabIds",
+                    "  try",
+                    "    tell application \"Terminal\" to set index of (first window whose id is (contents of _wid)) to 1",
+                    "    delay 0.04",
+                    "    tell application \"System Events\" to tell process \"Terminal\" to click menu item \"Default Font Size\" of menu 1 of menu bar item \"View\" of menu bar 1",
+                    "  end try",
+                    "end repeat",
+                ])
+            }
             ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", lines.joined(separator: "\n")]) {
                 // Terminal sizes by character CELLS, so the font change reflows
                 // each window to a new pixel size — and that reflow can land a

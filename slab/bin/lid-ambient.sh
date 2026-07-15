@@ -99,13 +99,20 @@ stop_monitor() {
     pkill -f slab-monitor.sh 2>/dev/null
 }
 
-claude_running() {
-    # Three shapes of "claude is running":
+agent_running() {
+    # Tracked prompts can belong to Claude or Codex. Keep the global stale-
+    # marker sweep agent-aware: treating "no Claude" as "no work" deletes
+    # live Codex markers, which also makes the menubar stop re-theming those
+    # terminal tabs when macOS flips appearance.
+    #
+    # Three shapes of "Claude is running":
     #   1. compiled bundled CLI — process name is literally "claude"
     #   2. legacy node-based CLI — node .../@anthropic-ai/claude-code/cli.js
     #   3. desktop-app embed     — .../claude.app/Contents/MacOS/claude
-    # pgrep -x catches (1) cheaply; the regex catches (2) and (3).
+    # Codex's compiled CLI is likewise named literally "codex". pgrep -x
+    # catches both native CLIs cheaply; the regex catches Claude's other two.
     pgrep -x claude >/dev/null 2>&1 \
+        || pgrep -x codex >/dev/null 2>&1 \
         || ps -eo command 2>/dev/null | grep -qE 'claude\.app/Contents/MacOS/claude |@anthropic-ai/claude-code/.*cli\.js'
 }
 
@@ -137,11 +144,11 @@ while true; do
     lid_state=$(ioreg -r -k AppleClamshellState -d 4 | awk '/AppleClamshellState/{print $NF; exit}')
     sleep_disabled=$(pmset -g | awk '/SleepDisabled/{print $2; exit}')
     sleep_disabled=${sleep_disabled:-0}
-    claude_alive=0
-    claude_running && claude_alive=1
+    agent_alive=0
+    agent_running && agent_alive=1
     active_count=$(active_work_count)
-    # drop stale markers if no Claude process is around at all
-    if (( claude_alive == 0 && active_count > 0 )); then
+    # Drop stale markers only when no supported agent process is around at all.
+    if (( agent_alive == 0 && active_count > 0 )); then
         rm -f "$ACTIVE_DIR"/* "$SUBAGENT_DIR"/* 2>/dev/null
         active_count=0
     fi

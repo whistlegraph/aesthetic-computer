@@ -29,8 +29,9 @@ enum SigilRenderer {
     }
 
     /// The rock's pet name: 3–6 pronounceable characters, deterministic from
-    /// the same seed as the shape — so the name IS the rock, stable across
-    /// restarts and re-renders. Alternating consonant/vowel starting on a
+    /// a caller-chosen identity seed. Session rocks use the session id here,
+    /// independently of the evolving prompt seed that shapes their texture.
+    /// Alternating consonant/vowel starting on a
     /// consonant (CVC … CVCVCV), which lands on sayable pebble-names like
     /// "gop", "miva", "tazok".
     static func name(seed: UInt64) -> String {
@@ -45,6 +46,13 @@ enum SigilRenderer {
             out.append(set[rng.int(0, set.count - 1)])
         }
         return out
+    }
+
+    /// A sticky pet name for one session/thread. Keep subject text out of this
+    /// seed: the rock may visually evolve with new prompts, but its spoken and
+    /// fleet-visible handle must remain recognizable for the session lifetime.
+    static func name(forSessionId sessionId: String) -> String {
+        name(seed: seed(for: sessionId))
     }
 
     /// SplitMix64 — a tiny, well-distributed PRNG. Seeding it from the
