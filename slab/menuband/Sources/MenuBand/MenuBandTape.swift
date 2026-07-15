@@ -296,12 +296,12 @@ final class MenuBandTape {
 
     /// Called from the synth's note hook (via the controller) on every
     /// note-on/off. Records only while the tape is rolling.
-    func ingestNote(_ note: UInt8, velocity: UInt8, on: Bool, channel: UInt8) {
+    func ingestNote(_ note: UInt8, velocity: UInt8, on: Bool, channel: UInt8, pan: UInt8) {
         guard state == .recording else { return }
         let t = ProcessInfo.processInfo.systemUptime - midiStart
         midiLock.lock()
         midiEvents.append(MidiFile.Event(time: t, note: note, velocity: velocity,
-                                          on: on, channel: channel))
+                                          on: on, channel: channel, pan: pan))
         midiLock.unlock()
     }
 
@@ -431,7 +431,10 @@ final class MenuBandTape {
                                        interleaved: false,
                                        channelLayout: quadLayout)
 
-        let file: AVAudioFile
+        // Optional so we can release it (→ flush + close the WAV header) BEFORE
+        // appending the RIFF metadata chunk; a still-open AVAudioFile would
+        // rewrite the header on deinit and clobber the appended LIST.
+        var file: AVAudioFile?
         do {
             try? FileManager.default.removeItem(at: url)
             file = try AVAudioFile(forWriting: url,
@@ -501,18 +504,34 @@ final class MenuBandTape {
                 return nil
             }
             do {
-                try file.write(from: dst)
+                try file?.write(from: dst)
             } catch {
                 NSLog("MenuBandTape: eject write failed: \(error)")
                 return nil
             }
             cursor += take
         }
+        file = nil   // flush + close the WAV before touching its bytes below
+
+        // Track metadata: RIFF LIST-INFO tags (also surfaced by Spotlight) plus
+        // a Finder comment. Written BEFORE the icon so the byte-rewrite can't
+        // strip the custom-icon resource fork. artist = "Menu Band".
+        let dateISO: String = {
+            let df = DateFormatter()
+            df.locale = Locale(identifier: "en_US_POSIX")
+            df.dateFormat = "yyyy-MM-dd"
+            return df.string(from: date)
+        }()
+        let mmss = String(format: "%d:%02d", Int(duration) / 60, Int(duration) % 60)
+        let comment = "\(mmss) · 4-channel stems (synth L/R + mic) · panned by keyboard position"
+        TakeMetadata.writeWavInfo(url: url, title: baseName, artist: "Menu Band",
+                                  dateISO: dateISO, software: "Menu Band", comment: comment)
 
         // Album-art cover for the .wav — a bold generative icon with the length
         // set large. (No waveform; the icon renderer ignores it.)
         let icon = TapeCoverArt.makeIcon(date: date, duration: duration)
         NSWorkspace.shared.setIcon(icon, forFile: url.path, options: [])
+        TakeMetadata.setFinderComment(url: url, "\(baseName) — Menu Band · \(comment)")
 
         // Sidecar .mid of the performance — same basename as the WAV. Times
         // are shifted by the trimmed lead so the notes line up with the audio.
@@ -524,10 +543,11 @@ final class MenuBandTape {
             let leadSeconds = Double(offset) / Self.sampleRate
             let shifted = events.map {
                 MidiFile.Event(time: max(0, $0.time - leadSeconds), note: $0.note,
-                               velocity: $0.velocity, on: $0.on, channel: $0.channel)
+                               velocity: $0.velocity, on: $0.on, channel: $0.channel,
+                               pan: $0.pan)
             }
             let mURL = url.deletingPathExtension().appendingPathExtension("mid")
-            if (try? MidiFile.data(events: shifted).write(to: mURL)) != nil {
+            if (try? MidiFile.data(events: shifted, trackName: baseName).write(to: mURL)) != nil {
                 midiURL = mURL
             }
         }

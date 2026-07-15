@@ -1930,6 +1930,9 @@ final class MenuBandSynth {
     /// no-op the sampler fallback rather than yanking the entire
     /// melodic mix.
     func setPan(_ pan: UInt8, channel: UInt8 = 0) {
+        // Mirror the pan into per-channel state regardless of the audible path,
+        // so the tape's note hook can stamp CC10 onto captured MIDI note-ons.
+        channelPan[Int(channel & 0x0F)] = pan & 0x7F
         guard started, midiSynthReady, let au = midiSynth?.audioUnit else { return }
         sendMIDIEvent(au, status: 0xB0 | (channel & 0x0F),
                       data1: 10, data2: pan & 0x7F)
@@ -2003,14 +2006,19 @@ final class MenuBandSynth {
                                       execute: workItem)
     }
 
-    /// Fires on every note-on/off (note, velocity, on, channel) — the tape
-    /// subscribes to capture a MIDI performance alongside the audio.
-    var onNoteEvent: ((UInt8, UInt8, Bool, UInt8) -> Void)?
+    /// Fires on every note-on/off (note, velocity, on, channel, pan) — the tape
+    /// subscribes to capture a MIDI performance (incl. CC10 pan) alongside the
+    /// audio. `pan` is the channel's current CC10 value (64 = center).
+    var onNoteEvent: ((UInt8, UInt8, Bool, UInt8, UInt8) -> Void)?
+
+    /// Per-channel CC10 pan (0–127, 64 = center), mirrored from `setPan` so the
+    /// note hook can stamp each note-on with the pan it was played at.
+    private(set) var channelPan = [UInt8](repeating: 64, count: 16)
 
     func noteOn(_ midi: UInt8, velocity: UInt8 = 100, channel: UInt8 = 0) {
         guard started else { return }
         guard resumeAudioEngineIfNeeded() else { return }
-        onNoteEvent?(midi, velocity, true, channel)
+        onNoteEvent?(midi, velocity, true, channel, channelPan[Int(channel & 0x0F)])
         // A fresh note re-syncs the spacebar reverse clock with the record
         // head: the next Space press rewinds from the new "now" (including
         // this note) instead of resuming the previous session's cursor.
@@ -2153,7 +2161,7 @@ final class MenuBandSynth {
 
     func noteOff(_ midi: UInt8, channel: UInt8 = 0) {
         guard started else { return }
-        onNoteEvent?(midi, 0, false, channel)
+        onNoteEvent?(midi, 0, false, channel, channelPan[Int(channel & 0x0F)])
         let key = noteKey(midi, channel: channel)
         activeNotes.remove(key)
         defer { scheduleIdleSuspendIfNeeded() }

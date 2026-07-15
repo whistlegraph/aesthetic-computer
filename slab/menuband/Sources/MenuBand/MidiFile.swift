@@ -11,27 +11,51 @@ enum MidiFile {
         var velocity: UInt8
         var on: Bool
         var channel: UInt8
+        var pan: UInt8 = 64      // MIDI CC10 pan the note was played at (64 = center)
     }
 
     private static let ppq = 480
     private static let ticksPerSecond = Double(ppq) * 2.0   // 120 BPM → 0.5 s/qn
 
     /// Build the `.mid` bytes. Times are normalized so the first event is 0.
-    static func data(events: [Event]) -> Data {
+    /// `trackName` (if given) is written as an FF 03 track-name meta event so
+    /// the take is labeled on import. Each note-on emits a CC10 (pan) first when
+    /// its channel's pan changed, reproducing Menu Band's keyboard-position pan.
+    static func data(events: [Event], trackName: String? = nil) -> Data {
         var track = Data()
 
         // Tempo meta (500000 µs/quarter = 120 BPM) at delta 0.
         track.append(contentsOf: [0x00, 0xFF, 0x51, 0x03, 0x07, 0xA1, 0x20])
 
+        // Track-name meta (FF 03 <len> <text>) at delta 0.
+        if let name = trackName, !name.isEmpty {
+            let bytes = Array(name.utf8)
+            track.append(contentsOf: [0x00, 0xFF, 0x03])
+            track.append(varLen(bytes.count))
+            track.append(contentsOf: bytes)
+        }
+
         let sorted = events.sorted { $0.time < $1.time }
         let base = sorted.first?.time ?? 0
         var lastTick = 0
+        var lastPan = [UInt8](repeating: 255, count: 16)   // force first CC10 per channel
         for e in sorted {
             let tick = Int(((e.time - base) * ticksPerSecond).rounded())
             let delta = max(0, tick - lastTick)
             lastTick = tick
+            let ch = e.channel & 0x0F
+            // Emit the pan (CC10) just before a note-on when it changed on this
+            // channel. The delta rides on the CC; the note-on then follows at 0.
+            if e.on && e.pan != lastPan[Int(ch)] {
+                lastPan[Int(ch)] = e.pan
+                track.append(varLen(delta))
+                track.append(contentsOf: [0xB0 | ch, 10, e.pan & 0x7F])
+                track.append(varLen(0))
+                track.append(contentsOf: [0x90 | ch, e.note & 0x7F, e.velocity & 0x7F])
+                continue
+            }
             track.append(varLen(delta))
-            let status: UInt8 = (e.on ? 0x90 : 0x80) | (e.channel & 0x0F)
+            let status: UInt8 = (e.on ? 0x90 : 0x80) | ch
             track.append(contentsOf: [status, e.note & 0x7F, e.velocity & 0x7F])
         }
         // End of track.

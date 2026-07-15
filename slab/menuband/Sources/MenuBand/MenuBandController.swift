@@ -1495,8 +1495,8 @@ final class MenuBandController {
         }
         // Capture the note performance as MIDI alongside the audio, so a take
         // carries editable notes (a .mid drops onto an Ableton MIDI track).
-        synth.onNoteEvent = { [weak self] note, vel, on, ch in
-            self?.tape.ingestNote(note, velocity: vel, on: on, channel: ch)
+        synth.onNoteEvent = { [weak self] note, vel, on, ch, pan in
+            self?.tape.ingestNote(note, velocity: vel, on: on, channel: ch, pan: pan)
         }
         // Block-based observer so the controller (a plain Swift class,
         // not NSObject) can register without inheriting from
