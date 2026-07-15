@@ -127,3 +127,6 @@ interaction (linger vs. flick) exactly.
 - **flikflak** — dead: `.com`/`.app` taken, and collides with Swatch's "Flik Flak".
 - **horopad** — "horo-" (time/horology, nods to the beat clock) + pad. Obscure
   meaning but fully free: `.com` $11 / `.app` $8.75 / `.art` $3.60.
+- **bobojam** — playful/singable; "jam" fits the music-making. "bobo" half is a bit
+  clownish/random. `.app` $8.75 / `.art` $3.60 free; `.com` taken. (bobo alone: dead,
+  taken + $348 premium .art.)
