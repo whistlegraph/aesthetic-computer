@@ -17,7 +17,6 @@
 // not a workaround: you are remembering rooms, not running them all at once.
 
 const LINGER = 6000; // stay this long in a room and you meant it
-const NAME_MS = 2600; // the name fades — a label, not furniture
 const DEADZONE = 7; // finger travel before a drag picks its axis
 const FEATHER = 14; // the fuzzy width of the screen's edge, in pixels
 
@@ -216,6 +215,9 @@ async function mount(api) {
   const c = current();
   const { code } = c;
   seen[code] = (seen[code] || 0) + 1;
+  // Announce the room the way AC announces a saved handle — a frontal notice,
+  // front and center, instead of a label pinned to the wall.
+  api.notice?.(c.name, ["white", "blue"]);
   lisp = null;
   const surf = ensureStage(api);
   try {
@@ -471,14 +473,8 @@ function paint(api) {
   ink(...wc).box(g.x + g.w, 0, w - (g.x + g.w), h);
   softEdge(api, g, wc);
 
-  // The only thing on the wall: the room's name, top-left, fading after a moment.
-  const c = current();
-  const age = now() - shownAt;
-  const fade = move ? 1 : Math.min(1, Math.max(0, (NAME_MS - age) / 700));
-  if (fade > 0 && c) {
-    ink(0, 0, 0, 150 * fade).write(c.name, { x: g.x + 1, y: g.m / 2 - 3 });
-    ink(235, 235, 245, 255 * fade).write(c.name, { x: g.x, y: g.m / 2 - 4 });
-  }
+  // The name isn't drawn here anymore — it arrives as AC's own frontal notice each
+  // time you enter a room (see mount), the same alert that announces a saved handle.
 }
 
 // The wall must never vanish into the pad — the touchable area has to stay
