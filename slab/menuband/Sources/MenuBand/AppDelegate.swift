@@ -4267,12 +4267,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         CountInWhoosh.shared.play(duration: total)
         FocusFlashOverlay.shared.beginCharge(duration: total)
         for (i, n) in numbers.enumerated() {
-            let w = DispatchWorkItem { CountInVoice.shared.play(n) }   // jeffrey: 3… 2… 1…
+            let w = DispatchWorkItem {
+                CountInVoice.shared.play(n)          // jeffrey: 3… 2… 1…
+                CountdownOverlay.shared.show(n)      // big on-screen numeral
+            }
             countInWork.append(w)
             DispatchQueue.main.asyncAfter(deadline: .now() + interval * Double(i), execute: w)
         }
         let go = DispatchWorkItem { [weak self] in
             self?.countInWork.removeAll()
+            CountdownOverlay.shared.clear()          // downbeat — drop the numerals
             self?.startRecordingMode()
         }
         countInWork.append(go)
@@ -4287,6 +4291,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         countInWork.removeAll()
         CountInWhoosh.shared.stop()
         FocusFlashOverlay.shared.endCharge(fadeOut: true)
+        CountdownOverlay.shared.clear()
     }
 
     /// Roll tape (audio-only, no mic). Arms the keyboard so keys play + record,
