@@ -46,6 +46,8 @@ let roomIdx = 0;
 
 let pos = { x: 0, y: 0 };
 let ox = 0, oy = 0, vx = 0, vy = 0, tox = 0, toy = 0, moving = false, dirv = { dx: 0, dy: 0 };
+let willAdvance = false; // does the settling spring step into the next room, or snap back?
+let drag = null; // { sx, sy, started } — a pull in progress
 let hover = null, pressed = null, pressT = 0;
 let t = 0;
 
@@ -122,7 +124,8 @@ function draw() {
     ox += vx; oy += vy;
     if (Math.abs(tox - ox) < 0.6 && Math.abs(toy - oy) < 0.6 && Math.hypot(vx, vy) < 0.6) {
       ox = 0; oy = 0; vx = 0; vy = 0; moving = false;
-      roomIdx = (roomIdx + dirv.dx + dirv.dy * 2 + ROOMS.length * 4) % ROOMS.length;
+      if (willAdvance) roomIdx = (roomIdx + dirv.dx + dirv.dy * 2 + ROOMS.length * 4) % ROOMS.length;
+      willAdvance = false;
     }
   }
   ctx.clearRect(0, 0, W, H);
@@ -137,23 +140,12 @@ function draw() {
     ctx.globalAlpha = 0.32 + (on ? 0.4 : 0) + lit * 0.5;
     ctx.fillStyle = d.col; rr(zx, zy, zw, zh, 12); ctx.fill();
     ctx.globalAlpha = 1;
-    // arrow
-    ctx.save();
-    const [cx, cy] = [zx + zw / 2, zy + zh / 2 - 5];
-    ctx.strokeStyle = on || lit ? "#fff" : "rgba(255,255,255,0.85)";
-    ctx.lineWidth = 2; ctx.lineCap = "round";
-    const L = Math.hypot(d.dx, d.dy), nx = d.dx / L, ny = d.dy / L, s = 7;
-    ctx.beginPath();
-    ctx.moveTo(cx - nx * s, cy - ny * s); ctx.lineTo(cx + nx * s, cy + ny * s);
-    ctx.moveTo(cx + nx * s, cy + ny * s); ctx.lineTo(cx + nx * s - nx * 5 - ny * 4, cy + ny * s - ny * 5 + nx * 4);
-    ctx.moveTo(cx + nx * s, cy + ny * s); ctx.lineTo(cx + nx * s - nx * 5 + ny * 4, cy + ny * s - ny * 5 - nx * 4);
-    ctx.stroke();
-    ctx.restore();
-    // label — crisp anti-aliased text
-    ctx.fillStyle = on || lit ? "#fff" : "rgba(255,255,255,0.85)";
-    ctx.font = "600 12px ui-monospace, monospace";
+    // just the key — no arrow. Big, crisp, centred; the tile's position already
+    // says which way it goes.
+    ctx.fillStyle = on || lit ? "#fff" : "rgba(255,255,255,0.9)";
+    ctx.font = "700 18px ui-monospace, monospace";
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText(d.k, zx + zw / 2, zy + zh / 2 + 8);
+    ctx.fillText(d.k, zx + zw / 2, zy + zh / 2 + 1);
   }
 
   // the room(s). current + the neighbor you're heading toward.
@@ -165,14 +157,15 @@ function draw() {
     paintPad(gg, hh, t * 0.02);
     frame(gg, hh);
   };
-  if (moving) {
+  const dragging = drag && drag.started;
+  if ((moving || dragging) && (dirv.dx || dirv.dy)) {
     const nIdx = (roomIdx + dirv.dx + dirv.dy * 2 + ROOMS.length * 4) % ROOMS.length;
     drawRoom(ox + dirv.dx * px, oy + dirv.dy * py, ROOMS[nIdx]);
   }
   drawRoom(ox, oy, ROOMS[roomIdx]);
 
   // the room name — crisp, front and centre, fading
-  if (!moving) {
+  if (!moving && !dragging) {
     ctx.fillStyle = "#fff"; ctx.font = "700 22px ui-monospace, monospace";
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.save(); ctx.shadowColor = "rgba(0,0,0,0.7)"; ctx.shadowBlur = 8;
@@ -187,12 +180,41 @@ function walk(d) {
   if (moving || !d) return;
   const px = glass().w + 2 * glass().m, py = glass().h + 2 * glass().m;
   dirv = { dx: d.dx, dy: d.dy };
-  tox = -d.dx * px; toy = -d.dy * py; moving = true;
+  tox = -d.dx * px; toy = -d.dy * py; moving = true; willAdvance = true;
   pressed = d; pressT = 1;
 }
 
-addEventListener("mousemove", (e) => { hover = moving ? null : zoneAt(e.clientX, e.clientY, glass()); });
-addEventListener("mousedown", (e) => { const d = zoneAt(e.clientX, e.clientY, glass()); if (d) walk(d); });
+// Swipe: drag pulls the web (travel opposite the drag, like a map); let go past the
+// doorway (or a flick) commits, short of it snaps back. Tap a tile = walk that way.
+addEventListener("pointerdown", (e) => { drag = { sx: e.clientX, sy: e.clientY, started: false }; });
+addEventListener("pointermove", (e) => {
+  if (!drag) { hover = moving ? null : zoneAt(e.clientX, e.clientY, glass()); return; }
+  const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+  const ax = Math.abs(dx), ay = Math.abs(dy);
+  if (!drag.started && Math.max(ax, ay) > 8) {
+    drag.started = true; hover = null;
+    const diag = Math.min(ax, ay) > Math.max(ax, ay) * 0.5;
+    dirv = { dx: diag || ax >= ay ? (dx > 0 ? -1 : 1) : 0, dy: diag || ay > ax ? (dy > 0 ? -1 : 1) : 0 };
+  }
+  if (drag.started && !moving) {
+    const px = glass().w + 2 * glass().m, py = glass().h + 2 * glass().m;
+    if (dirv.dx) ox = Math.max(-px, Math.min(px, dx));
+    if (dirv.dy) oy = Math.max(-py, Math.min(py, dy));
+  }
+});
+addEventListener("pointerup", (e) => {
+  if (!drag) return;
+  if (drag.started && !moving) {
+    const px = glass().w + 2 * glass().m, py = glass().h + 2 * glass().m;
+    const fx = dirv.dx ? Math.abs(ox) / px : 0, fy = dirv.dy ? Math.abs(oy) / py : 0;
+    const past = Math.max(fx, fy) > 0.18;
+    tox = past ? -dirv.dx * px : 0; toy = past ? -dirv.dy * py : 0;
+    willAdvance = past; moving = true;
+  } else if (!drag.started) {
+    const d = zoneAt(drag.sx, drag.sy, glass()); if (d) walk(d);
+  }
+  drag = null;
+});
 addEventListener("keydown", (e) => {
   const d = DIRS.find((z) => z.k.toLowerCase() === e.key.toLowerCase());
   if (d) walk(d);
