@@ -1,0 +1,329 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  /* STRIPPED-BACK black-and-white line-art variant of the notepat keymap
+     figure. No foot bands, no hand tint, no drop shadows — pure line-art
+     piano + QWERTY + connectors on white. Note identity rides on the
+     letter + note-name labels. Geometry stays in sync with figure.html. */
+  @font-face {
+    font-family: "Berkeley Mono";
+    src: url("__BERKELEY__") format("woff2");
+    font-weight: normal;
+    font-style: normal;
+  }
+  @font-face {
+    font-family: "YWFT Processing";
+    src: url("__YWFT_BOLD__") format("woff2");
+    font-weight: 800;
+    font-style: normal;
+  }
+
+  html, body { margin: 0; padding: 0; }
+  body {
+    width: 2400px;
+    height: 620px;
+    background: #ffffff;
+    color: #121212;
+    font-family: "YWFT Processing", -apple-system, "Helvetica Neue", sans-serif;
+    box-sizing: border-box;
+    padding: 36px 40px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  .connectors {
+    position: absolute;
+    inset: 0;
+    width: 2400px;
+    height: 860px;
+    pointer-events: none;
+    z-index: 50;
+  }
+
+  /* ---------------- Piano (small reference strip) ---------------- */
+  .piano-wrap { display: flex; justify-content: center; height: 168px; margin-bottom: 30px; overflow: visible; }
+  .piano {
+    position: relative;
+    height: 340px;
+    width: 2076px;
+    padding-left: 36px;
+    box-sizing: border-box;
+    transform: scale(0.46);
+    transform-origin: top center;
+  }
+  .wkey, .bkey {
+    position: absolute;
+    box-sizing: border-box;
+    border-radius: 0 0 10px 10px;
+    border: 2px solid #121212;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    padding-bottom: 16px;
+  }
+  .wkey {
+    width: 120px;
+    height: 320px;
+    background: #fff;
+    color: #121212;
+    overflow: hidden;
+  }
+  /* Stripped back: no foot band, no pitch/octave names — letters only. */
+  .wkey .keyswatch { display: none; }
+  .nname { display: none; }
+  .wkey .qkey {
+    font-family: "Berkeley Mono", "SF Mono", monospace;
+    font-size: 64px;
+    font-weight: 800;
+    line-height: 1;
+    color: #121212;
+    position: absolute;
+    /* Sit low, in the white-key area exposed below the black keys. */
+    top: 250px; left: 0; right: 0;
+    text-align: center;
+  }
+  .wkey .nname {
+    position: absolute;
+    bottom: 60px; left: 0; right: 0;
+    text-align: center;
+    font-family: "Berkeley Mono", "SF Mono", monospace;
+    font-size: 22px;
+    color: #2a2a2a;
+    letter-spacing: 0.05em;
+    margin: 0;
+    font-weight: 700;
+    z-index: 2;
+  }
+
+  .bkey {
+    width: 72px;
+    height: 210px;
+    background: #0a0a0a;
+    color: #fff;
+    border-color: #000;
+    z-index: 2;
+  }
+  .bkey .qkey {
+    font-family: "Berkeley Mono", "SF Mono", monospace;
+    font-size: 38px;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .bkey .nname {
+    font-family: "Berkeley Mono", "SF Mono", monospace;
+    font-size: 16px;
+    color: #bbb;
+    letter-spacing: 0.05em;
+    margin-top: 6px;
+    font-weight: 700;
+  }
+
+  /* Extended keys — dashed outline only, clearly outside the core tonal map. */
+  .wkey.ext { background: transparent; color: #8a8a8a; border: 2px dashed #b8b8b8; opacity: 0.95; }
+  .wkey.ext .qkey { color: #7a7a7a; text-shadow: none; position: static; padding-top: 22px; }
+  .wkey.ext .keyswatch { display: none; }
+  .wkey.ext .nname { position: static; color: #9a9a9a; text-shadow: none; font-size: 22px; font-weight: 700; }
+  .bkey.ext { background: #3a3a3a; color: #d8d8d8; border: 2px dashed #6a6a6a; opacity: 0.9; }
+  .bkey.ext .nname { color: #b8b8b8; }
+  .wkey.ext .ext-tag, .bkey.ext .ext-tag {
+    font-family: "Berkeley Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-top: 4px;
+    opacity: 0.85;
+    font-weight: 700;
+  }
+
+  /* ---------------- QWERTY ---------------- */
+  .below { display: flex; justify-content: center; }
+  .below-left { flex: 0 0 1380px; display: flex; flex-direction: column; }
+
+  .hand-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    font-family: "YWFT Processing";
+    font-size: 22px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    font-weight: 800;
+    padding: 0 24px;
+  }
+  .hand-labels .l { color: #121212; font-weight: 800; }
+  .hand-labels .r { color: #121212; font-weight: 800; }
+  /* YWFT Processing has no arrow/middle-dot glyphs; use system font for those. */
+  .glyph {
+    font-family: -apple-system, "Helvetica Neue", "Arial Unicode MS", sans-serif;
+    font-weight: 800;
+  }
+
+  /* Stripped back: no tinted container, just the bare keys. */
+  .qwerty-bg {
+    position: relative;
+    padding: 18px 20px;
+    background: transparent;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+  }
+  .qwerty-wrap { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; width: 100%; }
+  .qrow { display: flex; gap: 12px; }
+  /* Spacer that opens the lower→upper octave gap between key clusters. */
+  .octgap { width: 88px; flex-shrink: 0; }
+  .qrow.r0 { padding-left: 0; }
+  .qrow.r1 { padding-left: 28px; }
+  /* r2 keeps its natural stagger PLUS two removed keys (Z, X) so C still
+     lands in its real keyboard position: 84 + 2×(100+12). */
+  .qrow.r2 { padding-left: 308px; }
+  .qcap {
+    width: 100px; height: 100px;
+    border-radius: 14px;
+    border: 3px solid #121212;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Berkeley Mono", "SF Mono", monospace;
+    font-size: 46px;
+    font-weight: 800;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+  .qcap.white { background: #fff; color: #121212; }
+  .qcap.black { background: #121212; color: #fff; border-color: #000; }
+
+  /* Naturals: white cap, black label. */
+  .qcap[data-qn] { background: #fff; color: #121212; border-color: #121212; text-shadow: none; }
+  /* Sharps: solid black cap. */
+  .qcap.sharp { background: #121212; color: #fff; border-color: #000; }
+  /* Blank placeholders (Z, X): single outline, no letter — keeps the
+     keyboard silhouette without implying a note. */
+  .qcap.blank { background: #fff; border-color: #121212; }
+
+  .qcap.ext-white {
+    background: transparent; color: #8a8a8a;
+    border: 3px dashed #b8b8b8;
+    opacity: 0.95;
+    flex-direction: column;
+  }
+  .qcap.ext-black {
+    background: #3a3a3a; color: #d8d8d8;
+    border: 3px dashed #6a6a6a;
+    opacity: 0.9;
+    flex-direction: column;
+  }
+  .qcap .ext-tag {
+    font-family: "Berkeley Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-top: 5px;
+    opacity: 0.9;
+    font-weight: 700;
+  }
+  .qcap.ghost {
+    background: transparent;
+    color: #c8c8c8;
+    border: 2.5px dashed #d4d4d4;
+    font-weight: 600;
+    font-size: 30px;
+    box-shadow: none;
+  }
+  .qcap.octshift {
+    background: transparent;
+    color: #4a4a4a;
+    border: 2.5px solid #a8a8a8;
+    font-weight: 800;
+    font-size: 26px;
+    flex-direction: column;
+  }
+  .qcap.octshift .lbl {
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    opacity: 0.75;
+    margin-top: 3px;
+    font-family: "YWFT Processing";
+  }
+</style>
+</head>
+<body>
+  <!-- QWERTY (hero) -->
+  <div class="below">
+    <div class="below-left">
+      <div class="qwerty-bg">
+        <div class="qwerty-wrap">
+          <div class="qrow r0">
+            <div class="qcap sharp" data-sharp-of="a">Q</div>
+            <div class="qcap sharp" data-sharp-of="f">W</div>
+            <div class="qcap" data-qn="e">E</div>
+            <div class="qcap sharp" data-sharp-of="g">R</div>
+            <div class="octgap"></div>
+            <div class="qcap sharp" data-sharp-of="c">T</div>
+            <div class="qcap sharp" data-sharp-of="d">Y</div>
+            <div class="qcap sharp" data-sharp-of="f">U</div>
+            <div class="qcap" data-qn="D5">I</div>
+            <div class="qcap sharp" data-sharp-of="g">O</div>
+            <div class="qcap sharp" data-sharp-of="a">P</div>
+          </div>
+          <div class="qrow r1">
+            <div class="qcap" data-qn="a">A</div>
+            <div class="qcap sharp" data-sharp-of="d">S</div>
+            <div class="qcap" data-qn="d">D</div>
+            <div class="qcap" data-qn="f">F</div>
+            <div class="qcap" data-qn="g">G</div>
+            <div class="octgap"></div>
+            <div class="qcap" data-qn="C5">H</div>
+            <div class="qcap" data-qn="E5">J</div>
+            <div class="qcap" data-qn="F5">K</div>
+            <div class="qcap" data-qn="G5">L</div>
+          </div>
+          <div class="qrow r2">
+            <div class="qcap" data-qn="c">C</div>
+            <div class="qcap sharp" data-sharp-of="c">V</div>
+            <div class="qcap" data-qn="b">B</div>
+            <div class="octgap"></div>
+            <div class="qcap" data-qn="A5">N</div>
+            <div class="qcap" data-qn="B5">M</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PIANO (reference strip) -->
+  <div class="piano-wrap">
+    <div class="piano">
+      <div class="wkey" data-pn="c" style="left:156px;">  <div class="keyswatch"></div><div class="qkey">C</div><div class="nname">C4</div></div>
+      <div class="wkey" data-pn="d" style="left:276px;">  <div class="keyswatch"></div><div class="qkey">D</div><div class="nname">D4</div></div>
+      <div class="wkey" data-pn="e" style="left:396px;">  <div class="keyswatch"></div><div class="qkey">E</div><div class="nname">E4</div></div>
+      <div class="wkey" data-pn="f" style="left:516px;">  <div class="keyswatch"></div><div class="qkey">F</div><div class="nname">F4</div></div>
+      <div class="wkey" data-pn="g" style="left:636px;">  <div class="keyswatch"></div><div class="qkey">G</div><div class="nname">G4</div></div>
+      <div class="wkey" data-pn="a" style="left:756px;">  <div class="keyswatch"></div><div class="qkey">A</div><div class="nname">A4</div></div>
+      <div class="wkey" data-pn="b" style="left:876px;">  <div class="keyswatch"></div><div class="qkey">B</div><div class="nname">B4</div></div>
+      <div class="wkey" data-pn="C5" style="left:1116px;"> <div class="keyswatch"></div><div class="qkey">H</div><div class="nname">C5</div></div>
+      <div class="wkey" data-pn="D5" style="left:1236px;"><div class="keyswatch"></div><div class="qkey">I</div><div class="nname">D5</div></div>
+      <div class="wkey" data-pn="E5" style="left:1356px;"><div class="keyswatch"></div><div class="qkey">J</div><div class="nname">E5</div></div>
+      <div class="wkey" data-pn="F5" style="left:1476px;"><div class="keyswatch"></div><div class="qkey">K</div><div class="nname">F5</div></div>
+      <div class="wkey" data-pn="G5" style="left:1596px;"><div class="keyswatch"></div><div class="qkey">L</div><div class="nname">G5</div></div>
+      <div class="wkey" data-pn="A5" style="left:1716px;"><div class="keyswatch"></div><div class="qkey">M</div><div class="nname">A5</div></div>
+      <div class="wkey" data-pn="B5" style="left:1836px;"><div class="keyswatch"></div><div class="qkey">N</div><div class="nname">B5</div></div>
+
+      <!-- Sharps -->
+      <div class="bkey" style="left:240px;">  <div class="qkey">V</div><div class="nname">C♯4</div></div>
+      <div class="bkey" style="left:360px;">  <div class="qkey">S</div><div class="nname">D♯4</div></div>
+      <div class="bkey" style="left:600px;">  <div class="qkey">W</div><div class="nname">F♯4</div></div>
+      <div class="bkey" style="left:720px;">  <div class="qkey">R</div><div class="nname">G♯4</div></div>
+      <div class="bkey" style="left:840px;">  <div class="qkey">Q</div><div class="nname">A♯4</div></div>
+      <div class="bkey" style="left:1200px;"> <div class="qkey">T</div><div class="nname">C♯5</div></div>
+      <div class="bkey" style="left:1320px;"> <div class="qkey">Y</div><div class="nname">D♯5</div></div>
+      <div class="bkey" style="left:1560px;"> <div class="qkey">U</div><div class="nname">F♯5</div></div>
+      <div class="bkey" style="left:1680px;"> <div class="qkey">O</div><div class="nname">G♯5</div></div>
+      <div class="bkey" style="left:1800px;"> <div class="qkey">P</div><div class="nname">A♯5</div></div>
+    </div>
+  </div>
+</body>
+</html>
