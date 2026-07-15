@@ -125,3 +125,5 @@ interaction (linger vs. flick) exactly.
 - **flickware** — "flick" (the gesture) + "ware" (software); apt + evocative.
   `.app` $8.75 free; `.com` taken (some flickware exists — check before committing).
 - **flikflak** — dead: `.com`/`.app` taken, and collides with Swatch's "Flik Flak".
+- **horopad** — "horo-" (time/horology, nods to the beat clock) + pad. Obscure
+  meaning but fully free: `.com` $11 / `.app` $8.75 / `.art` $3.60.

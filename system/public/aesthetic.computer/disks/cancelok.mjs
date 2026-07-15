@@ -322,7 +322,10 @@ function grabFrames(api, cells) {
 // the destination plus, on a diagonal, the two orthogonal neighbors that fill the
 // edges as the corner opens. All of them are dealt into the world now, so the map
 // stays consistent no matter how you later approach them.
-async function beginMove(api, dx, dy) {
+// Gather the rooms a walk toward (dx,dy) reveals: the destination, plus (on a
+// diagonal) the two orthogonal neighbors that fill the opening edges. Deals any
+// new cells into the world and preloads their modules.
+async function gatherCells(api, dx, dy) {
   const rels = [];
   if (dx) rels.push([dx, 0]);
   if (dy) rels.push([0, dy]);
@@ -339,7 +342,25 @@ async function beginMove(api, dx, dy) {
     }
     cells.push({ rdx, rdy, key: k, cell, frame: null });
   }
+  return cells;
+}
+async function beginMove(api, dx, dy) {
+  const cells = await gatherCells(api, dx, dy);
   move = { dx, dy, ox: 0, oy: 0, vx: 0, vy: 0, lastOx: 0, lastOy: 0, live: true, tox: 0, toy: 0, commit: false, cells };
+}
+// Change a live drag's direction WITHOUT resetting the offset — so you can start
+// pulling one way and curve into another. Any direction, any time.
+let redirecting = false;
+async function redirect(api, dx, dy) {
+  if (redirecting || !move) return;
+  redirecting = true;
+  const cells = await gatherCells(api, dx, dy);
+  if (move && move.live) {
+    move.dx = dx;
+    move.dy = dy;
+    move.cells = cells;
+  }
+  redirecting = false;
 }
 
 // You let go. If you pulled past the doorway on either axis, finish the slide and
@@ -387,6 +408,7 @@ function step(api) {
 function boot(api) {
   api.wipe(...WALL);
   api.hud?.label?.("");
+  api.cursor?.("native"); // the OS pointer, not AC's grey box — cleaner over the UI
   // `?vec` parses to { vec: "" } — an empty string, which is falsy — so test for
   // PRESENCE, not truthiness. (Also accept the `cancelok:vec` param form.)
   VEC = (api.query && "vec" in api.query) || api.params?.includes?.("vec") || false;
@@ -782,30 +804,32 @@ function act(api) {
   }
 
   if (e.is("draw")) {
-    // Still picking a direction?
-    if (grab && !grab.started && !move) {
+    // Dragging the web — free in any direction, from anywhere. The room follows
+    // your finger on BOTH axes, and the travel direction is re-read every frame
+    // (opposite the drag, like pulling a map): start one way and curve into another
+    // and the revealed neighbors follow. No axis-lock.
+    if (grab) {
       const dx = (e.x ?? grab.sx) - grab.sx;
       const dy = (e.y ?? grab.sy) - grab.sy;
       const ax = Math.abs(dx);
       const ay = Math.abs(dy);
       if (Math.max(ax, ay) > DEADZONE) {
-        // Travel is OPPOSITE the drag — you're pulling the world, like a map. If
-        // both axes are meaningfully engaged (within a ~2:1 cone) it's a DIAGONAL,
-        // into a corner; otherwise it locks to the dominant axis.
-        grab.started = true; // beginMove is async — don't fire it twice
         const diag = Math.min(ax, ay) > Math.max(ax, ay) * 0.5;
         const tdx = diag || ax >= ay ? (dx > 0 ? -1 : 1) : 0;
         const tdy = diag || ay > ax ? (dy > 0 ? -1 : 1) : 0;
-        beginMove(api, tdx, tdy);
+        if (!move && !grab.begun) {
+          grab.begun = true; // beginMove is async — don't fire it twice
+          beginMove(api, tdx, tdy);
+        } else if (move && move.live && (tdx !== move.dx || tdy !== move.dy)) {
+          redirect(api, tdx, tdy); // curved into a new direction
+        }
       }
-      return;
-    }
-    // Following the finger, on whichever axes this move locked.
-    if (move && move.live) {
-      const pitchX = g.w + 2 * g.m;
-      const pitchY = g.h + 2 * g.m;
-      if (move.dx) move.ox = Math.max(-pitchX, Math.min(pitchX, (e.x ?? grab.sx) - grab.sx));
-      if (move.dy) move.oy = Math.max(-pitchY, Math.min(pitchY, (e.y ?? grab.sy) - grab.sy));
+      if (move && move.live) {
+        const pitchX = g.w + 2 * g.m;
+        const pitchY = g.h + 2 * g.m;
+        move.ox = Math.max(-pitchX, Math.min(pitchX, dx)); // both axes, always
+        move.oy = Math.max(-pitchY, Math.min(pitchY, dy));
+      }
       return;
     }
     // Playing the instrument.
@@ -826,7 +850,7 @@ function act(api) {
   if (e.is("lift")) {
     if (move && move.live) {
       releaseMove(api, g);
-    } else if (grab && !grab.started) {
+    } else if (grab && !grab.begun) {
       // A tap on the wall that never became a drag: walk the zone you tapped.
       const d = zoneAt(grab.sx, grab.sy, g);
       if (d) tap(api, d, g);
