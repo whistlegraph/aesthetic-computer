@@ -3204,14 +3204,29 @@ end
 # Read machine configs from vault/machines.json
 
 function __ac_machines_file --description "Resolve machines.json with local cache fallback"
-    set -l machines_file "/workspaces/aesthetic-computer/aesthetic-computer-vault/machines.json"
     set -l machines_cache "$HOME/.cache/ac/machines.json"
 
-    if test -f $machines_file
-        mkdir -p (dirname $machines_cache)
-        cp $machines_file $machines_cache 2>/dev/null
-        echo $machines_file
-        return 0
+    # The vault is a sibling checkout in the devcontainer, but lives inside
+    # the repo on native Macs. Prefer explicit environment configuration and
+    # then try both supported layouts so ac-host works in either environment.
+    set -l candidates
+    if set -q AESTHETIC_VAULT
+        set -a candidates "$AESTHETIC_VAULT/machines.json"
+    end
+    if set -q AC_ROOT
+        set -a candidates "$AC_ROOT/aesthetic-computer-vault/machines.json"
+    end
+    set -a candidates \
+        "/workspaces/aesthetic-computer/aesthetic-computer-vault/machines.json" \
+        "$HOME/aesthetic-computer/aesthetic-computer-vault/machines.json"
+
+    for machines_file in $candidates
+        if test -f $machines_file
+            mkdir -p (dirname $machines_cache)
+            cp $machines_file $machines_cache 2>/dev/null
+            echo $machines_file
+            return 0
+        end
     end
 
     if test -f $machines_cache
