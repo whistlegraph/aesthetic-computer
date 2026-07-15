@@ -34,7 +34,7 @@
     "mongodb": "^6.20.0",
     "node-fetch": "^3.3.2",
     "obscenity": "^0.4.5",
-    "redis": "^4.7.0",
+    "redis": "^6.1.0",
     "ws": "^8.18.1"
   },
   "devDependencies": {

@@ -547,44 +547,57 @@ function targetClients(target) {
 
 // *** Start up two `redis` clients. (One for subscribing, and for publishing)
 const redisEnabled = !!redisConnectionString;
-const sub = redisEnabled
-  ? (!dev ? createClient({ url: redisConnectionString }) : createClient())
-  : null;
+// The managed store is DigitalOcean Valkey 8. node-redis v5+ against it needs a
+// keepalive + a backoff reconnect, or an idle TLS socket the server closes sends
+// the client into a tight SocketClosedUnexpectedly loop — which, when awaited at
+// startup, gated fastify.listen() and took chat fully offline on the 4->6 bump.
+const redisOpts = () => ({
+  ...(dev ? {} : { url: redisConnectionString }),
+  pingInterval: 10000, // keep the idle Valkey TLS socket warm
+  socket: { reconnectStrategy: (retries) => Math.min(1000 + retries * 500, 8000) }, // backoff, not a hot loop
+});
+const sub = redisEnabled ? createClient(redisOpts()) : null;
 if (sub) sub.on("error", (err) => {
   log("🔴 Redis subscriber client error!", err);
   logError('error', `Redis sub: ${err.message}`);
 });
 
-const pub = redisEnabled
-  ? (!dev ? createClient({ url: redisConnectionString }) : createClient())
-  : null;
+const pub = redisEnabled ? createClient(redisOpts()) : null;
 if (pub) pub.on("error", (err) => {
   log("🔴 Redis publisher client error!", err);
   logError('error', `Redis pub: ${err.message}`);
 });
 
-try {
-  if (sub && pub) {
-    await sub.connect();
-    await pub.connect();
+// Connect + subscribe in the BACKGROUND. A slow or unreachable redis — or a
+// v6-client/Valkey-8 handshake stall — must never delay fastify.listen; that
+// gated the port bind and took the whole server down on the 4->6 attempt. The
+// .on("error") handlers above keep logging; pub/sub simply comes online when it
+// can, and the HTTP/WS server is up regardless.
+(async () => {
+  try {
+    if (sub && pub) {
+      await sub.connect();
+      await pub.connect();
 
-    await sub.subscribe("code", (message) => {
-      const parsed = JSON.parse(message);
-      if (codeChannels[parsed.codeChannel]) {
-        const msg = pack("code", message, "development");
-        subscribers(codeChannels[parsed.codeChannel], msg);
-      }
-    });
+      await sub.subscribe("code", (message) => {
+        const parsed = JSON.parse(message);
+        if (codeChannels[parsed.codeChannel]) {
+          const msg = pack("code", message, "development");
+          subscribers(codeChannels[parsed.codeChannel], msg);
+        }
+      });
 
-    await sub.subscribe("scream", (message) => {
-      everyone(pack("scream", message, "screamer")); // Socket back to everyone.
-    });
-  } else {
-    log("⚠️ Redis disabled — code/scream channels unavailable");
+      await sub.subscribe("scream", (message) => {
+        everyone(pack("scream", message, "screamer")); // Socket back to everyone.
+      });
+      log("🟢 Redis connected + subscribed (code, scream)");
+    } else {
+      log("⚠️ Redis disabled — code/scream channels unavailable");
+    }
+  } catch (err) {
+    error("🔴 Could not connect to `redis` instance (continuing; server stays up).");
   }
-} catch (err) {
-  error("🔴 Could not connect to `redis` instance.");
-}
+})();
 
 const secret = process.env.GITHUB_WEBHOOK_SECRET;
 
