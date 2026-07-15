@@ -872,9 +872,10 @@
     </div>
 
     <div class="sort-bar" id="sortBar">
-        <button class="sort-btn active" data-sort="hits">top hits</button>
-        <button class="sort-btn" data-sort="updated">newly updated</button>
+        <button class="sort-btn active" data-sort="fresh">freshest</button>
+        <button class="sort-btn" data-sort="updated">last edited</button>
         <button class="sort-btn" data-sort="created">recently added</button>
+        <button class="sort-btn" data-sort="hits">top hits</button>
     </div>
 
     <div class="papers-list">
@@ -1924,29 +1925,53 @@
 
         // === SORTING ===
         let hitTotals = {};
+        const papersList = document.querySelector('.papers-list');
+        // Curated (importance) section order, captured for the "top hits" view.
+        const origSectionOrder = papersList
+            ? [...papersList.querySelectorAll(':scope > section.cat')]
+            : [];
 
-        // Sort within each category section. Lists flagged [data-nosort]
-        // (dossiers, archive) keep their curated DOM order untouched.
+        // Freshness score: the most recent of "last edited" (updated) and
+        // "made" (created), in ms. Newer sorts higher.
+        function freshOf(el) {
+            const u = el.dataset.updated ? Date.parse(el.dataset.updated) || 0 : 0;
+            const c = el.dataset.created ? Date.parse(el.dataset.created) || 0 : 0;
+            return Math.max(u, c);
+        }
+        function paperKey(el, mode) {
+            if (mode === 'hits') return hitTotals[el.dataset.paperId] || 0;
+            if (mode === 'created') return Date.parse(el.dataset.created) || 0;
+            if (mode === 'updated') return Date.parse(el.dataset.updated) || 0;
+            return freshOf(el); // 'fresh'
+        }
+        function activeSort() {
+            const b = document.querySelector('.sort-btn.active');
+            return b ? b.dataset.sort : 'fresh';
+        }
+
+        // Sort papers within each category, and — for recency modes — float
+        // whole category sections so the one holding the freshest paper rises
+        // to the top of the page. Lists flagged [data-nosort] keep their
+        // internal curated order, but their section still floats by its
+        // freshest member. "top hits" restores the curated section order.
         function sortPapers(mode) {
-            const cmp = (a, b) => {
-                if (mode === 'hits') {
-                    return (hitTotals[b.dataset.paperId] || 0) - (hitTotals[a.dataset.paperId] || 0);
-                } else if (mode === 'updated') {
-                    const ta = a.dataset.updated ? new Date(a.dataset.updated).getTime() : 0;
-                    const tb = b.dataset.updated ? new Date(b.dataset.updated).getTime() : 0;
-                    return tb - ta;
-                } else if (mode === 'created') {
-                    const ca = a.dataset.created || '0';
-                    const cb = b.dataset.created || '0';
-                    return cb.localeCompare(ca);
-                }
-                return 0;
-            };
             document.querySelectorAll('.cat-list:not([data-nosort])').forEach(list => {
                 const papers = [...list.children].filter(el => el.classList.contains('p'));
-                papers.sort(cmp);
+                papers.sort((a, b) => paperKey(b, mode) - paperKey(a, mode));
                 for (const p of papers) list.appendChild(p);
             });
+            if (!papersList) return;
+            if (mode === 'hits') {
+                for (const s of origSectionOrder) papersList.appendChild(s);
+            } else {
+                const secScore = sec => {
+                    const ps = [...sec.querySelectorAll('.p')];
+                    return ps.length ? Math.max(...ps.map(p => paperKey(p, mode))) : 0;
+                };
+                const secs = [...papersList.querySelectorAll(':scope > section.cat')];
+                secs.sort((a, b) => secScore(b) - secScore(a));
+                for (const s of secs) papersList.appendChild(s);
+            }
         }
 
         // Sort bar clicks
@@ -1958,6 +1983,9 @@
             });
         });
 
+        // Default view: freshest first (runs before hit counts arrive).
+        sortPapers('fresh');
+
         // Collapsible categories — every section starts folded; clicking (or
         // Enter/Space on) a header opens it, and the set of OPEN categories
         // persists in localStorage.
@@ -1966,6 +1994,13 @@
             let open;
             try { open = new Set(JSON.parse(localStorage.getItem(KEY) || '[]')); }
             catch { open = new Set(); }
+            // First-time visitors: open the freshest (now first) section so the
+            // most recent work is visible without a click. Returning visitors
+            // keep whatever they last had open.
+            if (open.size === 0) {
+                const first = document.querySelector('.papers-list section.cat');
+                if (first && first.dataset.cat) open.add(first.dataset.cat);
+            }
             const save = () => {
                 try { localStorage.setItem(KEY, JSON.stringify([...open])); } catch {}
             };
@@ -2012,8 +2047,8 @@
                         metaRow.prepend(span);
                     }
                 }
-                // Apply default sort (top hits)
-                sortPapers('hits');
+                // Re-apply whatever sort is active (default: freshest).
+                sortPapers(activeSort());
             } catch {}
         })();
 
