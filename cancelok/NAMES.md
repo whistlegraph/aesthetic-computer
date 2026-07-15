@@ -113,3 +113,10 @@ gesture where **piece.place** is a generic domain-hack. Short, lowercase, one wa
 object, and `stomppad.app` / `stomppad.art` are both free at standard price. If a more
 conceptual name is wanted, **truebypass** is the runner-up — it encodes the core
 interaction (linger vs. flick) exactly.
+
+## Later floats
+
+- **pushpad** — `pad` family + "push" (you push/pull the web). `.app` $8.75 free;
+  `.com` taken; `.art` $53 (mild premium). Flag: collides with an existing "Pushpad"
+  web-push-notification SaaS, and reads a bit generic. stomppad avoids both.
+- **quilt / buzzer / gans** — dead ends (common words: taken + premium .art).
