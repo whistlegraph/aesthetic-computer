@@ -130,3 +130,11 @@ interaction (linger vs. flick) exactly.
 - **bobojam** — playful/singable; "jam" fits the music-making. "bobo" half is a bit
   clownish/random. `.app` $8.75 / `.art` $3.60 free; `.com` taken. (bobo alone: dead,
   taken + $348 premium .art.)
+
+## Strong contender — jamapad
+
+- **jamapad** — "jam" (what you do) + "pad" (the unit), connecting vowel. Self-
+  explaining, warm, singable. ALL free incl. `.com` $11 / `.app` $8.75 / `.art`
+  $3.60 (getting .com at std price is rare). Tighter "jampad.app" is TAKEN, hence
+  the "a". Arguably beats stomppad (jam > stomp, warmer) and ganny (no acronym to
+  teach). Top-tier candidate.
