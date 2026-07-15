@@ -230,22 +230,59 @@ async function toolSend({ channel, to, text: body, confirm, machine } = {}) {
   }
 
   if (ch === "imessage" || ch === "imsg") {
-    // `to` selects a named contact / raw handle from imsg.json's contacts map
-    // (imsg send --to). Omit it to hit the config's default contact.
-    const toArgs = to ? ["--to", String(to)] : [];
+    // Never silently fall back to imsg.json's default contact. An explicit
+    // recipient is required, resolved before preview, and resolved again by
+    // imsg.mjs at send time.
+    if (!to) throw new Error("`to` is required for an iMessage send (named contact or raw handle)");
+    const toArgs = ["--to", String(to)];
+    const { stdout: resolved } = await runBridge(IMSG, ["resolve", ...toArgs], machine, { timeoutMs: 30000 });
+    const rcpt = JSON.parse(resolved);
     if (!confirm) {
       return text(
         `PREVIEW — not sent. Re-call with confirm:true to send.\n` +
         `channel: iMessage   machine: ${isLocal(machine) ? "local" : machine}\n` +
-        `to: ${to ? `contact/handle "${to}" (from imsg.json contacts)` : "the default contact in ~/.config/slab/imsg.json"}\n` +
+        `to: ${rcpt.displayName}  [requested: "${to}"]\n` +
         `--- message ---\n${body}`,
       );
     }
     const { stdout } = await runBridge(IMSG, ["send", body, ...toArgs], machine, { timeoutMs: 30000 });
-    return text(`✅ iMessage sent${to ? ` to "${to}"` : ""}${stdout.trim() ? `: ${stdout.trim()}` : ""}`);
+    return text(`✅ iMessage sent to ${rcpt.displayName}${stdout.trim() ? `: ${stdout.trim()}` : ""}`);
   }
 
   throw new Error(`unknown channel "${channel}" (use "signal" or "imessage")`);
+}
+
+const TAPBACK_LABELS = new Map([
+  ["heart", "heart"], ["love", "heart"],
+  ["thumbs-up", "thumbs up"], ["thumbsup", "thumbs up"], ["like", "thumbs up"],
+  ["thumbs-down", "thumbs down"], ["thumbsdown", "thumbs down"], ["dislike", "thumbs down"],
+  ["haha", "Ha Ha"], ["laugh", "Ha Ha"],
+  ["emphasis", "emphasis"], ["!!", "emphasis"],
+  ["question", "question mark"], ["?", "question mark"],
+]);
+
+// Classic iMessage Tapback on the selected contact's most recent incoming
+// message. Apple exposes this through Messages' Cmd-T, 1–6 shortcuts rather
+// than its scripting dictionary, so execution uses guarded UI automation.
+async function toolReact({ to, reaction, confirm, machine } = {}) {
+  if (!to) throw new Error("`to` is required for an iMessage reaction (named contact or raw handle)");
+  const requested = String(reaction || "").trim().toLowerCase();
+  const label = TAPBACK_LABELS.get(requested);
+  if (!label) throw new Error("unknown `reaction` — use heart, thumbs-up, thumbs-down, haha, emphasis, or question");
+  const toArgs = ["--to", String(to)];
+  const { stdout: resolved } = await runBridge(IMSG, ["resolve", ...toArgs], machine, { timeoutMs: 30000 });
+  const rcpt = JSON.parse(resolved);
+  if (!confirm) {
+    return text(
+      `PREVIEW — no reaction added. Re-call with confirm:true to react.\n` +
+      `channel: iMessage   machine: ${isLocal(machine) ? "local" : machine}\n` +
+      `to: ${rcpt.displayName}  [requested: "${to}"]\n` +
+      `target: most recent incoming message\nreaction: ${label}`,
+    );
+  }
+  const { stdout } = await runBridge(IMSG, ["react", requested, ...toArgs], machine, { timeoutMs: 30000 });
+  const result = JSON.parse(stdout);
+  return text(`✅ added ${result.reaction} Tapback to ${result.displayName}'s most recent incoming message`);
 }
 
 const TOOLS = [
@@ -315,17 +352,31 @@ const TOOLS = [
   },
   {
     name: "dm_send",
-    description: "Send a DM. TWO-STEP AND SAFE: the first call PREVIEWS the resolved recipient + message and does NOT send; call again with confirm:true to actually send. Signal recipient (`to`) may be an ACI, +E164, or a name (resolved to its ACI). iMessage sends to the handle configured in imsg.json (an arbitrary `to` is ignored, and flagged in the preview).",
+    description: "Send a DM. TWO-STEP AND SAFE: the first call PREVIEWS the resolved recipient + message and does NOT send; call again with confirm:true to actually send. `to` is required. Signal accepts an ACI, +E164, or name. iMessage accepts a named contact from imsg.json or a raw handle and shows the resolved display name in the preview.",
     inputSchema: {
       type: "object",
       properties: {
         channel: { type: "string", enum: ["signal", "imessage"], description: "Which channel." },
-        to: { type: "string", description: "Signal: ACI / +number / name. iMessage: advisory only." },
+        to: { type: "string", description: "Required recipient. Signal: ACI / +number / name. iMessage: named imsg.json contact or raw +number/email." },
         text: { type: "string", description: "The message body (multi-line ok)." },
         confirm: { type: "boolean", description: "Must be true to actually send. Omit/false = preview only." },
         machine: { type: "string", description: "Machine (default local; signal-cli sends route over ssh for remote)." },
       },
       required: ["channel", "text"],
+    },
+  },
+  {
+    name: "dm_react",
+    description: "Add a classic iMessage Tapback to a contact's most recent incoming message. TWO-STEP AND SAFE: preview first, then re-call with confirm:true. Requires explicit `to`. Supported reactions: heart, thumbs-up, thumbs-down, haha, emphasis, question.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        to: { type: "string", description: "Required named imsg.json contact or raw +number/email." },
+        reaction: { type: "string", enum: ["heart", "thumbs-up", "thumbs-down", "haha", "emphasis", "question"], description: "Classic Tapback to add." },
+        confirm: { type: "boolean", description: "Must be true to actually react. Omit/false = preview only." },
+        machine: { type: "string", description: "Machine (default local; Messages UI automation is local-only)." },
+      },
+      required: ["to", "reaction"],
     },
   },
 ];
@@ -339,6 +390,7 @@ async function callTool(name, args) {
     case "dm_attachments": return toolAttachments(args || {});
     case "dm_contacts": return toolContacts(args || {});
     case "dm_send": return toolSend(args || {});
+    case "dm_react": return toolReact(args || {});
     default: throw new Error(`Unknown tool: ${name}`);
   }
 }
@@ -380,4 +432,4 @@ async function handleMessage(message) {
 
 const port = httpPort(process.argv, 7771);
 if (port) serveHttp({ handleMessage, port, banner: "✉️  dm-mcp shared daemon" });
-else serveStdio({ handleMessage, banner: "✉️  dm-mcp server started (dm_inbox, dm_chats, dm_read, dm_groups, dm_attachments, dm_contacts, dm_send)" });
+else serveStdio({ handleMessage, banner: "✉️  dm-mcp server started (dm_inbox, dm_chats, dm_read, dm_groups, dm_attachments, dm_contacts, dm_send, dm_react)" });

@@ -15,7 +15,8 @@
 //
 // Subcommands:
 //   imsg status        JSON summary to stdout; rings bell on new inbound
-//   imsg send <text>   send to the first configured handle via Messages.app
+//   imsg send <text>   send to an explicitly selected contact via Messages.app
+//   imsg react <kind>  classic Tapback on that contact's latest incoming message
 //   imsg tail          live terminal client (prints + BEL on new inbound)
 //   imsg open          open the Messages.app conversation
 //   imsg config        print the resolved config path (and create a stub)
@@ -299,6 +300,46 @@ end run`;
   }
 }
 
+const TAPBACKS = new Map([
+  ["heart", { key: "1", label: "heart" }],
+  ["love", { key: "1", label: "heart" }],
+  ["thumbs-up", { key: "2", label: "thumbs up" }],
+  ["thumbsup", { key: "2", label: "thumbs up" }],
+  ["like", { key: "2", label: "thumbs up" }],
+  ["thumbs-down", { key: "3", label: "thumbs down" }],
+  ["thumbsdown", { key: "3", label: "thumbs down" }],
+  ["dislike", { key: "3", label: "thumbs down" }],
+  ["haha", { key: "4", label: "Ha Ha" }],
+  ["laugh", { key: "4", label: "Ha Ha" }],
+  ["emphasis", { key: "5", label: "emphasis" }],
+  ["!!", { key: "5", label: "emphasis" }],
+  ["question", { key: "6", label: "question mark" }],
+  ["?", { key: "6", label: "question mark" }],
+]);
+
+function reactToLatest(handles, kind) {
+  const spec = TAPBACKS.get(String(kind).trim().toLowerCase());
+  if (!spec) {
+    throw new Error("unknown Tapback — use heart, thumbs-up, thumbs-down, haha, emphasis, or question");
+  }
+  const to = String(handles[0]);
+  const opened = spawnSync("/usr/bin/open", [`imessage://${to}`], { encoding: "utf8" });
+  if (opened.status !== 0) throw new Error((opened.stderr || "could not open Messages conversation").trim());
+  const script = `
+tell application "Messages" to activate
+delay 1
+tell application "System Events"
+  tell process "Messages"
+    keystroke "t" using command down
+    delay 0.25
+    keystroke "${spec.key}"
+  end tell
+end tell`;
+  const reacted = spawnSync("/usr/bin/osascript", ["-e", script], { encoding: "utf8" });
+  if (reacted.status !== 0) throw new Error((reacted.stderr || "Tapback failed").trim());
+  return spec.label;
+}
+
 // ─── command: status ─────────────────────────────────────────────────────
 
 function cmdStatus() {
@@ -458,6 +499,18 @@ try {
     case "status":
       cmdStatus();
       break;
+    case "resolve": {
+      const cfg = loadConfig();
+      if (!cfg) {
+        console.error(`No contact configured. Edit ${CONFIG_PATH}`);
+        process.exit(1);
+      }
+      const ti = rest.indexOf("--to");
+      const toArg = ti >= 0 ? rest[ti + 1] : rest[0];
+      const rcpt = resolveRecipient(cfg, toArg);
+      print({ displayName: rcpt.displayName });
+      break;
+    }
     case "send": {
       const cfg = loadConfig();
       if (!cfg) {
@@ -478,6 +531,26 @@ try {
       sendMessage(rcpt.handles, body);
       break;
     }
+    case "react": {
+      const cfg = loadConfig();
+      if (!cfg) {
+        console.error(`No contact configured. Edit ${CONFIG_PATH}`);
+        process.exit(1);
+      }
+      const args = [...rest];
+      let toArg = null;
+      const ti = args.indexOf("--to");
+      if (ti >= 0) { toArg = args[ti + 1]; args.splice(ti, 2); }
+      if (!toArg) {
+        console.error("usage: imsg react <kind> --to <name|handle>");
+        process.exit(1);
+      }
+      const kind = args.join(" ").trim();
+      const rcpt = resolveRecipient(cfg, toArg);
+      const reaction = reactToLatest(rcpt.handles, kind);
+      print({ displayName: rcpt.displayName, reaction });
+      break;
+    }
     case "tail":
       await cmdTail();
       break;
@@ -493,7 +566,7 @@ try {
       break;
     default:
       console.error(
-        "usage: imsg status|send <text>|tail|open|config",
+        "usage: imsg status|resolve [--to] <name|handle>|send <text> [--to <name|handle>]|react <kind> --to <name|handle>|tail|open|config",
       );
       process.exit(1);
   }
