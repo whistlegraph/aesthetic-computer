@@ -116,8 +116,19 @@
 \emergencystretch=1em
 \hyphenpenalty=50
 
+% Do not vertically justify columns to the bottom --- otherwise short
+% paragraphs (the platform entries in \S3) get their inter-paragraph glue
+% stretched, which reads as excessive space above the bold leads.
+\raggedbottom
+
 \newcommand{\acdot}{{\color{acpink}.}}
 \newcommand{\ac}{\textsc{Aesthetic.Computer}}
+
+% Version / history stamps — written by cli.mjs's xelatex build (git hash +
+% revision). Force the local ./ path so we never pick up a distribution
+% version.tex; dev fallback so the paper still compiles standalone.
+\IfFileExists{./version.tex}{\input{./version.tex}}{\providecommand{\paperhash}{dev}\providecommand{\paperrev}{0}}
+\IfFileExists{./history.tex}{\input{./history.tex}}{\providecommand{\paperhistory}{}}
 
 \begin{document}
 
@@ -130,12 +141,12 @@
 {\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Expressive Control and the Impoverishment of Consumer Playback}\par
 \vspace{0.6em}
 {\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
-{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} Aesthetic{\acdot}Computer}\par
 {\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
 \vspace{0.3em}
 {\small\color{acpurple} \url{https://aesthetic.computer}}\par
 \vspace{0.6em}
-\rule{\textwidth}{1.5pt}
+{\color{acpink}\rule{\textwidth}{1.5pt}}
 \vspace{0.5em}
 \end{center}
 
@@ -157,7 +168,14 @@ Put a finger on a spinning record and you have just done something no streaming 
 
 Now open YouTube and try to move through a video the way the DJ moves through a groove. You cannot. You get a dropdown. \emph{Normal. 1.25. 1.5. 1.75. 2.} A short list of round multipliers, applied globally, with no gestural surface, no pitch you can bend, no way to lean into a passage and back off --- and, until recently, no feedback at all except the changed pace once you let go of the menu. Spotify is worse: for music, the number of speeds you are offered is one. The most valuable listening surface ever built treats the play rate of a song as a constant of nature.
 
-I call the distance between these two worlds a \emph{gap in granularity}. On one side, playback is an instrument --- continuous, gestural, felt. On the other, it is a settings panel --- a finite menu of discrete states you pick from and wait on. The gap is not small and it is not cosmetic. It is the difference between \emph{performing} a recording and \emph{configuring} one.
+I call the distance between these two worlds a \emph{gap in granularity} (Figure~\ref{fig:gap}). On one side, playback is an instrument --- continuous, gestural, felt. On the other, it is a settings panel --- a finite menu of discrete states you pick from and wait on. The gap is not small and it is not cosmetic. It is the difference between \emph{performing} a recording and \emph{configuring} one.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{figures/granularity-gap-diagram}
+\caption{The gap, drawn. The smooth gradient curve is an expressive playback gesture --- a hand's continuous demand on the play rate, wandering freely between $0.5\times$ and past $2\times$. The grey staircase is what a speed menu makes of it: the same intention snapped to the nearest of four presets ($0.5\times$, $1\times$, $1.5\times$, $2\times$). The dashed pink connectors measure the error between them at each instant --- that error \emph{is} the granularity gap. The white-cored ring rides the gesture like a needle in a groove; the dropdown, lower right, is the impoverished control the paper indicts.}
+\label{fig:gap}
+\end{figure}
 
 The argument of this paper is threefold. First, that the itemized speed menu is a genuine design failure with a precise diagnosis in HCI's oldest literature, not a reasonable simplification. Second, that expressive, fine-grained, real-time control of recorded media is a fully solved craft --- turntablists and audio engineers have practiced it for decades and the algorithms are mature and cheap --- so the consumer layer's coarseness is a choice, not a limit. Third, that \ac{} already ships the alternative: players where speed, position, and pitch are continuous gestures with the sound and image as their own feedback, on by default, on a phone. That last part is why this is not just criticism. There is a large consumer gap here, it is unclaimed, and one of the ways to see it clearly is to look at a system that already closed it.
 
@@ -169,7 +187,7 @@ The speed dropdown is a machine for maximizing articulatory distance. What you w
 
 Engagement is the second casualty. \citet{shneiderman1983direct}, who coined \emph{direct manipulation}, built it on a \emph{continuous representation of the object of interest}, acted on by \emph{physical actions} rather than command syntax, through \emph{rapid, incremental, reversible} operations whose effect is immediately visible. Dragging a record satisfies every clause: the object is continuously present under your hand, the action is incremental and reversible in the same gesture, and the effect --- the sound --- is immediate. A speed menu satisfies none. The object of interest disappears behind a chrome popover; the action is a discrete jump; reversal means reopening the menu; and the effect is deferred until after you commit.
 
-There is a hard number under "immediate." \citet{nielsen1993usability} fixes 0.1 seconds as the threshold below which a response feels instantaneous --- the point at which the user perceives the system as reacting rather than replying. Direct manipulation lives entirely inside that window; you drag and the world moves with your hand. The turntablist's standard is stricter still. Scratching is built from percussive gestures timed to the tens of milliseconds --- the crossfader cut several times a second, pitch events on the order of tens of ms~\citep{hansen2010scratching}. Latency on that same scale, sitting between the hand and the sound, would smear the very attack the technique is made of; the demand for tight, low-latency, closed-loop coupling between gesture and result is what \citet{wessel2002intimate} name \emph{control intimacy}. The speed dropdown does not even try to enter that budget.
+There is a hard number under "immediate." \citet{nielsen1993usability} fixes 0.1 seconds as the threshold below which a response feels instantaneous --- the point at which the user perceives the system as reacting rather than replying. Direct manipulation lives entirely inside that window; you drag and the world moves with your hand. The turntablist's standard is stricter still. Scratching is built from percussive gestures timed to the tens of milliseconds --- the crossfader cut several times a second, pitch events on the order of tens of ms~\citep{hansen2010scratching}. Latency on that same scale, sitting between the hand and the sound, would smear the very attack the technique is made of; the demand for tight, low-latency, closed-loop coupling between gesture and result is what \citet{wessel2002intimate} name \emph{control intimacy}. \citet{omodhrain2000playing} shows that loop is not only auditory but haptic --- the instrument pushing back against the hand is itself part of the control. The speed dropdown does not even try to enter that budget.
 
 The last piece is Buxton's. The richness of an interaction, he argues, tracks the number of \emph{continuous degrees of freedom} the input affords~\citep{buxton2007multitouch,buxton2018gesture}. A menu selection is zero continuous degrees of freedom --- a choice among labels. A slider is one, sampled coarsely. A finger dragging across a groove is a continuous position \emph{and} a velocity \emph{and}, on a good surface, pressure --- several coupled dimensions streaming at the frame rate of the hand. \citet{buxton1986chunking} calls the difference \emph{chunking}: a good gesture lets you perform an entire phrase --- speed up here, hold, snap back --- as one motor act, where the menu forces you to decompose the same intention into a sequence of discrete selections. HCI has a name for the axis, too. Card, Mackinlay and Robertson's design space of input devices treats a control's \emph{resolution} --- its granularity --- as a first-class property, and a playback rate is natively a continuous, high-resolution dimension that the menu resamples down to four points~\citep{card1991morphological}. Buxton had put it more bluntly still: conventional interfaces throw away most of the hand's continuous motor bandwidth before the user ever gets to spend it~\citep{buxton1986more}. Consumer playback UIs have spent fifteen years converging on the zero-degree end of that scale.
 
@@ -193,7 +211,7 @@ One clarification pre-empts the obvious objection. Apple's players \emph{do} off
 
 The coarseness would be forgivable if fine, real-time control of recorded audio were hard, exotic, or unsolved. It is none of those things. It is a mature craft with a research literature, a professional practice, and cheap, shipping algorithms.
 
-Turntablism is the existence proof at the human end. \citet{hansen2010scratching}, in a full doctoral thesis on the acoustics and performance of scratching, treats the DJ's hand as a high-resolution musical controller and models the mapping from gesture to sound in detail. \citet{hansen2006mapping} lay out the parameter mappings --- position to playback phase, velocity to pitch and rate, the crossfader as an amplitude gate --- that let a performer improvise emotion into a record in real time. The technique has been formalized enough to build instruments around: the \emph{Skipproof} virtual turntable lets non-experts execute complex scratch gestures through simplified high-level controls~\citep{hansen2010skipproof}, and Lopes explores alternative multitouch interfaces for DJing on a phone~\citep{lopes2010mtdjing}. This is not folk knowledge. It is a studied, teachable, decades-deep discipline of expressive playback --- and its entire premise is the continuous, gestural, low-latency control that consumer apps refuse.
+Turntablism is the existence proof at the human end. \citet{hansen2010scratching}, in a full doctoral thesis on the acoustics and performance of scratching, treats the DJ's hand as a high-resolution musical controller and models the mapping from gesture to sound in detail. \citet{hansen2006mapping} lay out the parameter mappings --- position to playback phase, velocity to pitch and rate, the crossfader as an amplitude gate --- that let a performer improvise emotion into a record in real time. The technique has been formalized enough to build instruments around: the \emph{Skipproof} virtual turntable lets non-experts execute complex scratch gestures through simplified high-level controls~\citep{hansen2010skipproof}, and Lopes explores alternative multitouch interfaces for DJing on a phone~\citep{lopes2010mtdjing}. Its cultural history is documented in as much depth as its acoustics: \citet{katz2012groove} traces scratching from a mid-1970s Bronx accident into a codified, competitive, globally taught art form. And designing the expressive gesture-to-sound mappings underneath it is a live research practice of its own~\citep{fiebrink2009meta}. This is not folk knowledge. It is a studied, teachable, decades-deep discipline of expressive playback --- and its entire premise is the continuous, gestural, low-latency control that consumer apps refuse.
 
 Elastic audio is the existence proof at the tool end. Every serious production environment already treats a recording as a stretchable material. Ableton Live's Warp modes use granular resynthesis to decouple time from pitch, so you can slow a passage without dropping its key or drag its tempo around a grid in real time~\citep{ableton2024warp}. Pro Tools' Elastic Audio does real-time time-stretch and pitch-shift on any clip~\citep{avid2024elastic}. Serato Sample offers real-time waveform scrubbing and needle-drop, letting you stretch or contract individual hits while preserving pitch~\citep{serato2017sample}. The hard algorithmic problem underneath all of this --- high-quality time-stretching that preserves pitch --- is so thoroughly solved that most tools license the same off-the-shelf engine and move on. The pitch-preserving stretch that would let YouTube offer a smooth, gestural speed control without the chipmunk effect is a commodity. It runs on a phone.
 
@@ -245,6 +263,9 @@ Second, the case that expression is \emph{wanted in the default transport} at co
 The record scratch is the counterexample that should embarrass the whole consumer playback industry. It is old, cheap, physical, and expressive, and a fifteen-year-old can do things with it that a billion-dollar streaming app forbids its paying subscribers. Somewhere between the turntable and the phone, the recording stopped being something you touch and became something you configure --- and the interface that did that, the itemized speed menu, is not a neutral simplification. It is the low-water mark of directness, and we have been standing on it so long we mistook it for the ground.
 
 It is not the ground. Fine, gestural, real-time control of recorded media is solved, mature, and portable --- researchers built it in 2006, DJ apps ship it to millions, and \ac{} already runs it across its players because I could not see a reason not to. The instrument exists. What is still empty is the one place it would matter most: the default transport bar of the surfaces you actually listen and watch through, where the incumbents --- for reasons of catalog licensing and frozen UI, not of possibility --- keep handing you a menu instead. Playback wants to be played. Somebody is going to put the instrument where the listening happens, and the gap between the scratch and the dropdown is exactly how much room there is to do it.
+
+\vspace{1em}
+{\footnotesize\color{acgray}\noindent\textit{Colophon.} Built from commit \texttt{\paperhash}, revision~\paperrev, with \mbox{Xe\TeX} on the Latin Modern / YWFT Processing type system. Working draft --- not for citation.\par\paperhistory}
 
 \bibliographystyle{plainnat}
 \bibliography{references}

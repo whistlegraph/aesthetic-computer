@@ -113,5 +113,5 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" 
   ${menu}
 </svg>`;
 
-writeFileSync(new URL("./cover.svg", import.meta.url), svg);
-console.log("wrote cover.svg");
+writeFileSync(new URL("./granularity-gap-diagram.svg", import.meta.url), svg);
+console.log("wrote granularity-gap-diagram.svg");
