@@ -1,0 +1,39 @@
+{
+  "slug": "thespianjas",
+  "version": "v001",
+  "created": "2026-07-15T23:05:08.109Z",
+  "provider": "meshy",
+  "endpoint": "fal-ai/meshy/v6/multi-image-to-3d",
+  "references": [
+    "portraits/jeffrey/corpus/shoot-2k/jeffery-av--01.jpg",
+    "portraits/jeffrey/corpus/shoot-2k/jeffery-av--04.jpg",
+    "portraits/jeffrey/corpus/shoot-2k/jeffery-av--07.jpg"
+  ],
+  "requestId": "019f6801-450b-77a1-a108-86cd2a13f233",
+  "input": {
+    "image_urls": [
+      "portraits/jeffrey/corpus/shoot-2k/jeffery-av--01.jpg",
+      "portraits/jeffrey/corpus/shoot-2k/jeffery-av--04.jpg",
+      "portraits/jeffrey/corpus/shoot-2k/jeffery-av--07.jpg"
+    ],
+    "topology": "quad",
+    "target_polycount": 30000,
+    "symmetry_mode": "auto",
+    "should_remesh": true,
+    "should_texture": true,
+    "enable_pbr": true,
+    "pose_mode": "a-pose",
+    "texture_prompt": "faithful natural studio portrait texture, white layered shirt with small yellow tiger patch, coral undershirt, blue wide-leg shorts, dark shoes, natural skin and medium brown hair",
+    "enable_rigging": true,
+    "rigging_height_meters": 1.82,
+    "enable_animation": true,
+    "animation_action_id": 0,
+    "enable_safety_checker": true
+  },
+  "outputs": {
+    "model.glb": "https://v3b.fal.media/files/b/0aa2682c/cEwqhXoFHqUqTV6verT2n_model.glb",
+    "rigged.glb": "https://v3b.fal.media/files/b/0aa26833/JEkh0BXKGkN4YvkEvbGA6_rigged_character.glb",
+    "idle.glb": "https://v3b.fal.media/files/b/0aa26836/WJ7gBQmbVC7QtHvYeBwl7_animation.glb",
+    "preview.png": "https://v3b.fal.media/files/b/0aa2682d/-B2Ck7Fm9PnuFQcyNhXTo_preview.png"
+  }
+}

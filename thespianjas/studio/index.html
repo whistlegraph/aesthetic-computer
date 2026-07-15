@@ -1,0 +1,14 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>thespianjas studio</title>
+<script src="/system/public/aesthetic.computer/dep/aframe-v1.3.0.min.js"></script>
+<style>html,body{margin:0;background:#17141c;font:14px monospace;color:#fff}aside{position:fixed;z-index:2;left:18px;top:18px;background:#282230dd;padding:14px;border-radius:12px}label{display:block;margin:8px 0}input{vertical-align:middle}</style></head>
+<body><aside><b>thespianjas · local studio</b><label>key <input id="key" type="range" min="0" max="4" step=".05" value="2.2"></label><label>fill <input id="fill" type="range" min="0" max="3" step=".05" value=".8"></label><label>rim <input id="rim" type="range" min="0" max="4" step=".05" value="1.8"></label><small>drag to orbit · scroll to frame</small></aside>
+<a-scene background="color:#17141c" renderer="colorManagement:true; physicallyCorrectLights:true" shadow="type:pcfsoft">
+  <a-assets><a-asset-item id="twin" src="../assets/versions/v001/idle.glb"></a-asset-item></a-assets>
+  <a-entity id="subject" gltf-model="#twin" position="0 0 0" rotation="0 180 0" animation="property:rotation;to:0 182 0;dir:alternate;dur:4200;loop:true;easing:easeInOutSine"></a-entity>
+  <a-plane rotation="-90 0 0" width="30" height="30" color="#302a38" shadow="receive:true"></a-plane>
+  <a-light id="keyLight" type="spot" color="#fff2df" intensity="2.2" position="-3 4 4" angle="35" penumbra=".7" target="#subject" castShadow="true"></a-light>
+  <a-light id="fillLight" type="point" color="#78d8ff" intensity=".8" position="3 2 3"></a-light>
+  <a-light id="rimLight" type="spot" color="#ff6b9d" intensity="1.8" position="2 4 -3" angle="40" target="#subject"></a-light>
+  <a-entity camera position="0 1.55 4.5" look-controls orbit-controls="target:0 1.25 0;minDistance:2;maxDistance:9"></a-entity>
+</a-scene><script>for(const n of ['key','fill','rim'])document.querySelector('#'+n).oninput=e=>document.querySelector('#'+n+'Light').setAttribute('intensity',e.target.value)</script></body></html>

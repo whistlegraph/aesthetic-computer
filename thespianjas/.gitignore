@@ -1,0 +1,5 @@
+assets/versions/*/*.glb
+assets/versions/*/*.fbx
+assets/versions/*/*.png
+out/
+!.gitkeep
