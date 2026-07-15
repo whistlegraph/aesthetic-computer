@@ -58,6 +58,7 @@ while (state !== "COMPLETED") {
 const result = await (await fetch(queued.response_url, { headers: auth })).json();
 const files = {
   "model.glb": result.model_glb?.url || result.model_urls?.glb?.url,
+  "model.usdz": result.model_urls?.usdz?.url,
   "rigged.glb": result.rigged_character_glb?.url,
   "idle.glb": result.animation_glb?.url,
   "preview.png": result.thumbnail?.url,

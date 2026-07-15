@@ -11,8 +11,10 @@ live-performance pipelines consume versioned assets from here.
 2. **Reconstruction** — provider adapters turn those references into a textured,
    relightable GLB. Meshy 6 multi-image is the first adapter; Tripo H3.1 and SAM
    3D Body are named benchmark candidates.
-3. **Studio** — `studio/index.html` loads the GLB locally in A-Frame. Key, fill,
-   rim, ground, camera, and idle motion remain ours to direct.
+3. **Studio** — `metal/` is the primary native macOS renderer. Its SceneKit
+   scene graph is explicitly backed by Metal; key, fill, rim, ground, camera,
+   skeletal playback, and later facial controls remain ours to direct. The
+   browser studio is only a quick compatibility viewer.
 4. **Performance** — podcast audio drives energy, breathing, head emphasis, and
    eventually facial blendshapes. A video lipsync provider may polish exported
    shots, but it is downstream of the canonical relightable twin.
@@ -27,13 +29,16 @@ are tracked in git.
 
 ```fish
 node thespianjas/bin/generate.mjs --version v001 --provider meshy
-node thespianjas/bin/serve.mjs
-# open http://127.0.0.1:4177/thespianjas/studio/?version=v001
+cd thespianjas/metal && swift run ThespianJas ../assets/versions/v001/idle.glb
 ```
 
 Meshy accepts one to four views and returns a textured PBR GLB. The initial
 studio platter has a strong face view and two seated body views; a dedicated
 front/side/back neutral-pose capture will materially improve the next rig.
+
+The generated `rigged.glb` and `idle.glb` contain the humanoid skeleton. They do
+not promise facial ARKit blendshapes; viseme/blendshape authoring is a separate
+performance stage.
 
 ## Provider notes (July 2026)
 

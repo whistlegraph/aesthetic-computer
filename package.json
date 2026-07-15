@@ -102,6 +102,7 @@
     "essay:reel": "node marketing/essay-reels/bin/render.mjs",
     "thespianjas:generate": "node thespianjas/bin/generate.mjs",
     "thespianjas:studio": "node thespianjas/bin/serve.mjs",
+    "thespianjas:metal": "cd thespianjas/metal && swift run ThespianJas ../assets/versions/v001/idle.glb",
     "publish:m4l": "node ac-m4l/publish.mjs",
     "session:reset": "f() { cd session-server; npx jamsocket backend terminate $1 };f",
     "session:alive": "cd session-server; npx jamsocket backend list",

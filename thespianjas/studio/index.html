@@ -5,7 +5,7 @@
 <body><aside><b>thespianjas · local studio</b><label>key <input id="key" type="range" min="0" max="4" step=".05" value="2.2"></label><label>fill <input id="fill" type="range" min="0" max="3" step=".05" value=".8"></label><label>rim <input id="rim" type="range" min="0" max="4" step=".05" value="1.8"></label><small>drag to orbit · scroll to frame</small></aside>
 <a-scene background="color:#17141c" renderer="colorManagement:true; physicallyCorrectLights:true" shadow="type:pcfsoft">
   <a-assets><a-asset-item id="twin" src="../assets/versions/v001/idle.glb"></a-asset-item></a-assets>
-  <a-entity id="subject" gltf-model="#twin" position="0 0 0" rotation="0 180 0" animation="property:rotation;to:0 182 0;dir:alternate;dur:4200;loop:true;easing:easeInOutSine"></a-entity>
+  <a-entity id="subject" gltf-model="#twin" position="0 0 0" rotation="0 0 0" animation="property:rotation;from:0 -2 0;to:0 2 0;dir:alternate;dur:4200;loop:true;easing:easeInOutSine"></a-entity>
   <a-plane rotation="-90 0 0" width="30" height="30" color="#302a38" shadow="receive:true"></a-plane>
   <a-light id="keyLight" type="spot" color="#fff2df" intensity="2.2" position="-3 4 4" angle="35" penumbra=".7" target="#subject" castShadow="true"></a-light>
   <a-light id="fillLight" type="point" color="#78d8ff" intensity=".8" position="3 2 3"></a-light>
