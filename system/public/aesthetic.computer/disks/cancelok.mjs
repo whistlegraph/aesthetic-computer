@@ -245,63 +245,90 @@ async function mount(api) {
   }
 }
 
-// A photograph of the room in a given direction, so it can slide in under your
-// finger. If you've been there, it's your last frame of it; if not, we boot it
-// once, steal a frame, and boot the current room back (a singleton can't hold
-// two live). If it can't be shot, a wall-dark frame slides in — never black.
-function peekFrame(api, cellKey, cell) {
-  if (frozen.has(cellKey)) return frozen.get(cellKey).frame;
+// Boot a room silently into a fresh painting — a preview must not sound, and must
+// not leak a voice. Does NOT put the current room back; the caller does that once,
+// after all the shots, so a diagonal (three neighbors) reboots the current room a
+// single time instead of three.
+function shootCell(api, cell) {
   const g = glass(api.screen.width, api.screen.height);
   const shot = api.painting(g.w, g.h, (p) => p.wipe(...WALL));
   if (cell && !cell.lisp) {
     try {
       const mod = mods.get(cell.code);
       if (mod) {
-        // Silent boots — a preview must not sound, and must not leak a voice.
         api.page(shot);
         mod.boot?.(peekApi(api, shot));
         mod.sim?.(peekApi(api, shot));
         mod.paint?.(peekApi(api, shot));
         api.page(api.screen);
-        // Put the current room back — its boot re-asserts its own config. Silent
-        // too: its live voices keep playing untouched; we just don't re-fire them.
-        if (host && !host.lisp && stage) {
-          api.page(stage);
-          host.boot?.(peekApi(api, stage));
-          api.page(api.screen);
-        }
       }
-    } catch {
-      // wall-dark it is.
-    }
+    } catch {}
   }
   return shot;
 }
-
-// Begin a walk in a travel direction (dx,dy in grid steps). Find the room that
-// way and grab its photograph so it can slide in as you drag.
-async function beginMove(api, dx, dy) {
-  const target = { x: pos.x + dx, y: pos.y + dy };
-  const tk = key(target);
-  if (!world.has(tk)) world.set(tk, deck[dealt++ % deck.length]);
-  // Cache the target module first (so peek can boot it synchronously next frame).
-  const cell = world.get(tk);
-  if (cell && !cell.lisp && !mods.get(cell.code)) {
+function restoreCurrent(api) {
+  if (host && !host.lisp && stage) {
     try {
-      mods.set(cell.code, await import(`${ORIGIN}/aesthetic.computer/disks/${cell.code}.mjs`));
+      api.page(stage);
+      host.boot?.(peekApi(api, stage)); // re-asserts its config; live voices untouched
+      api.page(api.screen);
     } catch {}
   }
-  move = { dx, dy, off: 0, live: true, anim: 0, from: 0, to: 0, frame: null, target: tk, cell };
+}
+// Fill in any missing neighbor photographs — from the frozen cache if we've been
+// there, otherwise by booting once. The current room is rebooted only if we had to
+// boot at all, and only once.
+function grabFrames(api, cells) {
+  let booted = false;
+  for (const c of cells) {
+    if (c.frame) continue;
+    if (frozen.has(c.key)) {
+      c.frame = frozen.get(c.key).frame;
+      continue;
+    }
+    c.frame = shootCell(api, c.cell);
+    booted = true;
+  }
+  if (booted) restoreCurrent(api);
 }
 
-// You let go. If you pushed past the doorway, finish the slide and step through;
-// otherwise it eases back and you never left.
-function releaseMove(api, dim) {
+// Begin a walk. `dx,dy` is the travel step: a single axis for a straight walk, or
+// BOTH for a diagonal into a corner. The reveal shows every room the walk exposes —
+// the destination plus, on a diagonal, the two orthogonal neighbors that fill the
+// edges as the corner opens. All of them are dealt into the world now, so the map
+// stays consistent no matter how you later approach them.
+async function beginMove(api, dx, dy) {
+  const rels = [];
+  if (dx) rels.push([dx, 0]);
+  if (dy) rels.push([0, dy]);
+  if (dx && dy) rels.push([dx, dy]); // the corner room — the destination
+  const cells = [];
+  for (const [rdx, rdy] of rels) {
+    const k = key({ x: pos.x + rdx, y: pos.y + rdy });
+    if (!world.has(k)) world.set(k, deck[dealt++ % deck.length]);
+    const cell = world.get(k);
+    if (cell && !cell.lisp && !mods.get(cell.code)) {
+      try {
+        mods.set(cell.code, await import(`${ORIGIN}/aesthetic.computer/disks/${cell.code}.mjs`));
+      } catch {}
+    }
+    cells.push({ rdx, rdy, key: k, cell, frame: null });
+  }
+  move = { dx, dy, ox: 0, oy: 0, live: true, anim: 0, fromx: 0, fromy: 0, tox: 0, toy: 0, commit: false, cells };
+}
+
+// You let go. If you pulled past the doorway on either axis, finish the slide and
+// step through; otherwise it eases back and you never left.
+function releaseMove(api, g) {
   if (!move) return;
-  const past = Math.abs(move.off) > dim * 0.22;
+  const px = move.dx ? Math.abs(move.ox) / g.w : 0;
+  const py = move.dy ? Math.abs(move.oy) / g.h : 0;
+  const past = Math.max(px, py) > 0.22;
   move.live = false;
-  move.from = move.off;
-  move.to = past ? (move.off > 0 ? dim : -dim) : 0;
+  move.fromx = move.ox;
+  move.fromy = move.oy;
+  move.tox = past ? -move.dx * g.w : 0;
+  move.toy = past ? -move.dy * g.h : 0;
   move.commit = past;
   move.anim = 0.0001;
 }
@@ -350,11 +377,12 @@ function sim(api) {
       error = String(e?.message || e);
     }
   }
-  // Ease a released move home.
+  // Ease a released move home — both axes at once, so a diagonal lands true.
   if (move && !move.live) {
     move.anim += 0.09;
     const e = EASE(Math.min(1, move.anim));
-    move.off = move.from + (move.to - move.from) * e;
+    move.ox = move.fromx + (move.tox - move.fromx) * e;
+    move.oy = move.fromy + (move.toy - move.fromy) * e;
     if (move.anim >= 1) {
       if (move.commit) step(api);
       else move = null;
@@ -393,9 +421,6 @@ function paint(api) {
   }
   fpsAt = t;
 
-  // Grab the neighbor's photograph the first frame a move exists.
-  if (move && !move.frame) move.frame = peekFrame(api, move.target, move.cell);
-
   // Paint the live room into the glass surface.
   if (host && !hostFailed) {
     try {
@@ -412,23 +437,24 @@ function paint(api) {
 
   wipe(...WALL);
 
-  // Where the two rooms sit. The live one slides by `off`; the neighbor rides the
-  // opposite side, so they move together like a filmstrip.
-  const off = move ? move.off : 0;
-  const ax = move && move.dx ? off : 0;
-  const ay = move && move.dy ? off : 0;
+  // Where the rooms sit. The live one slides by (ox,oy); each revealed neighbor
+  // rides one cell away in its own direction, so they pan together like a window
+  // sliding over a grid. On a diagonal that's four rooms at once — current, the two
+  // edges, and the corner you're heading for.
+  const ax = move ? move.ox : 0;
+  const ay = move ? move.oy : 0;
 
   if (hostFailed && !move) {
     ink(18, 6, 10).box(g.x, g.y, g.w, g.h);
     ink(...NO).write("didn't run", { x: g.x + g.w / 2 - 30, y: g.y + g.h / 2 - 8 });
   } else {
     api.paste(stage, Math.round(g.x + ax), Math.round(g.y + ay));
-    if (move && move.frame) {
-      // The neighbor sits on the side you're walking toward and rides in as the
-      // current room slides away — a filmstrip of two.
-      const nx = ax + move.dx * g.w;
-      const ny = ay + move.dy * g.h;
-      api.paste(move.frame, Math.round(g.x + nx), Math.round(g.y + ny));
+    if (move) {
+      grabFrames(api, move.cells);
+      for (const c of move.cells) {
+        if (!c.frame) continue;
+        api.paste(c.frame, Math.round(g.x + ax + c.rdx * g.w), Math.round(g.y + ay + c.rdy * g.h));
+      }
     }
   }
 
@@ -572,26 +598,28 @@ function act(api) {
   }
 
   if (e.is("draw")) {
-    // Still picking an axis?
-    if (grab && !move) {
+    // Still picking a direction?
+    if (grab && !grab.started && !move) {
       const dx = (e.x ?? grab.sx) - grab.sx;
       const dy = (e.y ?? grab.sy) - grab.sy;
-      if (Math.max(Math.abs(dx), Math.abs(dy)) > DEADZONE) {
-        // Travel is OPPOSITE the drag — you're pulling the world, like a map.
-        // Drag the room left and you move east; the east room comes in from the
-        // right, following your finger.
-        const horiz = Math.abs(dx) > Math.abs(dy);
-        const tdx = horiz ? (dx > 0 ? -1 : 1) : 0;
-        const tdy = horiz ? 0 : dy > 0 ? -1 : 1;
-        beginMove(api, tdx, tdy); // async, sets `move` shortly
+      const ax = Math.abs(dx);
+      const ay = Math.abs(dy);
+      if (Math.max(ax, ay) > DEADZONE) {
+        // Travel is OPPOSITE the drag — you're pulling the world, like a map. If
+        // both axes are meaningfully engaged (within a ~2:1 cone) it's a DIAGONAL,
+        // into a corner; otherwise it locks to the dominant axis.
+        grab.started = true; // beginMove is async — don't fire it twice
+        const diag = Math.min(ax, ay) > Math.max(ax, ay) * 0.5;
+        const tdx = diag || ax >= ay ? (dx > 0 ? -1 : 1) : 0;
+        const tdy = diag || ay > ax ? (dy > 0 ? -1 : 1) : 0;
+        beginMove(api, tdx, tdy);
       }
       return;
     }
-    // Following the finger along the locked axis.
+    // Following the finger, on whichever axes this move locked.
     if (move && move.live) {
-      const raw = move.dx ? (e.x ?? grab.sx) - grab.sx : (e.y ?? grab.sy) - grab.sy;
-      const dim = move.dx ? g.w : g.h;
-      move.off = Math.max(-dim, Math.min(dim, raw));
+      if (move.dx) move.ox = Math.max(-g.w, Math.min(g.w, (e.x ?? grab.sx) - grab.sx));
+      if (move.dy) move.oy = Math.max(-g.h, Math.min(g.h, (e.y ?? grab.sy) - grab.sy));
       return;
     }
     // Playing the instrument.
@@ -610,24 +638,25 @@ function act(api) {
   }
 
   if (e.is("lift")) {
-    if (move && move.live) releaseMove(api, move.dx ? g.w : g.h);
+    if (move && move.live) releaseMove(api, g);
     grab = null;
     return;
   }
 
-  // Keys walk too — instant, no follow. `to = -dx*dim` lands the neighbor centered
-  // (its paste offset is `off + dx*dim`, which is 0 when off = -dx*dim).
+  // Keys walk too — instant, no follow. The destination lands centered when the
+  // window slides to (-dx*w, -dy*h).
   const keyWalk = (dx, dy) => {
     if (move) return;
     beginMove(api, dx, dy).then(() => {
-      if (move) {
-        move.frame = peekFrame(api, move.target, move.cell);
-        move.live = false;
-        move.from = 0;
-        move.to = dx ? -dx * g.w : -dy * g.h;
-        move.commit = true;
-        move.anim = 0.0001;
-      }
+      if (!move) return;
+      grabFrames(api, move.cells);
+      move.live = false;
+      move.fromx = 0;
+      move.fromy = 0;
+      move.tox = -dx * g.w;
+      move.toy = -dy * g.h;
+      move.commit = true;
+      move.anim = 0.0001;
     });
   };
   if (e.is("keyboard:down:arrowright")) return keyWalk(1, 0);
