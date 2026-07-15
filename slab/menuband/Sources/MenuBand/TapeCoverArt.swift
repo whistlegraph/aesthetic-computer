@@ -41,9 +41,9 @@ enum TapeCoverArt {
         NSColor.clear.setFill()
         rect.fill()
 
-        // Rounded-square cover.
+        // Rounded-square cover — big radius to echo the Menu Band app icon.
         let cover = rect.insetBy(dx: 26, dy: 26)
-        let clip = NSBezierPath(roundedRect: cover, xRadius: 44, yRadius: 44)
+        let clip = NSBezierPath(roundedRect: cover, xRadius: 104, yRadius: 104)
 
         // Drop shadow so the cover sits above the Finder background.
         NSGraphicsContext.saveGraphicsState()
@@ -59,51 +59,40 @@ enum TapeCoverArt {
         NSGraphicsContext.saveGraphicsState()
         clip.addClip()
 
-        // One random base hue defines the whole cover.
-        let base = CGFloat.random(in: 0..<1)
-        func hue(_ shift: CGFloat, _ s: CGFloat, _ b: CGFloat, _ a: CGFloat = 1) -> NSColor {
-            NSColor(hue: (base + shift).truncatingRemainder(dividingBy: 1),
+        // Menu Band purple→magenta gradient. A small per-take hue drift keeps a
+        // shelf of takes varied while staying unmistakably Menu Band.
+        let drift = CGFloat.random(in: -0.035...0.035)
+        func mb(_ h: CGFloat, _ s: CGFloat, _ b: CGFloat, _ a: CGFloat = 1) -> NSColor {
+            NSColor(hue: (0.80 + h + drift).truncatingRemainder(dividingBy: 1),
                     saturation: s, brightness: b, alpha: a)
         }
+        NSGradient(colors: [mb(0.03, 0.72, 0.88), mb(-0.05, 0.86, 0.40)])?
+            .draw(in: cover, angle: 125)
 
-        // Gradient field.
-        NSGradient(colors: [hue(0.00, 0.70, 0.88), hue(0.09, 0.88, 0.44)])?
-            .draw(in: cover, angle: CGFloat.random(in: 15...75))
+        // Soft magenta sheen, upper-left (matches the icon's light).
+        mb(0.04, 0.50, 1.0, 0.16).setFill()
+        let gr = cover.width * 0.62
+        NSBezierPath(ovalIn: NSRect(x: cover.minX - gr * 0.15, y: cover.maxY - gr * 0.65,
+                                    width: gr, height: gr)).fill()
 
-        // A few big soft discs in complementary hues — the "art".
-        for _ in 0..<Int.random(in: 3...5) {
-            let r = CGFloat.random(in: cover.width * 0.16 ... cover.width * 0.48)
-            let cx = CGFloat.random(in: cover.minX ... cover.maxX)
-            let cy = CGFloat.random(in: cover.minY ... cover.maxY)
-            hue(CGFloat.random(in: 0.33...0.62),
-                CGFloat.random(in: 0.5...0.9),
-                CGFloat.random(in: 0.75...1.0),
-                CGFloat.random(in: 0.16...0.32)).setFill()
-            NSBezierPath(ovalIn: NSRect(x: cx - r, y: cy - r, width: r * 2, height: r * 2)).fill()
-        }
+        // The identity: a piano-keys strip across the middle, a couple of keys lit.
+        let stripH = cover.height * 0.24
+        let strip = NSRect(x: cover.minX + cover.width * 0.11, y: cover.midY - stripH / 2,
+                           width: cover.width * 0.78, height: stripH)
+        drawKeyboardStrip(in: strip)
 
-        // A bold accent band.
-        let bandH = CGFloat.random(in: 24...58)
-        let bandY = CGFloat.random(in: cover.minY ... (cover.maxY - bandH))
-        hue(0.5, 0.9, 0.96, 0.45).setFill()
-        NSBezierPath(rect: NSRect(x: cover.minX, y: bandY,
-                                   width: cover.width, height: bandH)).fill()
+        let para = NSMutableParagraphStyle()
+        para.alignment = .center
 
-        // Vignette for depth (dark toward the edges).
-        NSGradient(colors: [.clear, NSColor.black.withAlphaComponent(0.30)])?
-            .draw(in: cover, relativeCenterPosition: NSPoint(x: 0, y: 0))
-
-        // LENGTH — the hero. Big, bold, centered, auto-fit to width.
+        // LENGTH — bold, in the upper third above the keys.
         let mins = Int(duration) / 60
         let secs = Int(duration) % 60
         let durStr = String(format: "%d:%02d", mins, secs)
-        let para = NSMutableParagraphStyle()
-        para.alignment = .center
         let textShadow = NSShadow()
         textShadow.shadowColor = NSColor.black.withAlphaComponent(0.5)
         textShadow.shadowOffset = NSSize(width: 0, height: -3)
         textShadow.shadowBlurRadius = 12
-        let durFont = fittedBlackFont(durStr, maxWidth: cover.width - 56, start: 180)
+        let durFont = fittedBlackFont(durStr, maxWidth: cover.width - 120, start: 120)
         let durAttrs: [NSAttributedString.Key: Any] = [
             .font: durFont,
             .foregroundColor: NSColor.white,
@@ -112,22 +101,24 @@ enum TapeCoverArt {
             .kern: -2,
         ]
         let ds = (durStr as NSString).size(withAttributes: durAttrs)
+        let durMidY = (strip.maxY + cover.maxY) / 2
         (durStr as NSString).draw(
-            in: NSRect(x: cover.minX, y: cover.midY - ds.height / 2 + 8,
+            in: NSRect(x: cover.minX, y: durMidY - ds.height / 2,
                        width: cover.width, height: ds.height),
             withAttributes: durAttrs)
 
-        // Wordmark + date, small along the bottom.
+        // Wordmark + date, centered in the lower third below the keys.
         let foot = "MENU BAND · \(footDate(date))"
         let footAttrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 20, weight: .bold),
-            .foregroundColor: NSColor.white.withAlphaComponent(0.85),
+            .font: NSFont.systemFont(ofSize: 22, weight: .bold),
+            .foregroundColor: NSColor.white.withAlphaComponent(0.9),
             .kern: 2,
             .paragraphStyle: para,
         ]
         let fs = (foot as NSString).size(withAttributes: footAttrs)
+        let footMidY = (cover.minY + strip.minY) / 2
         (foot as NSString).draw(
-            in: NSRect(x: cover.minX, y: cover.minY + 26,
+            in: NSRect(x: cover.minX, y: footMidY - fs.height / 2,
                        width: cover.width, height: fs.height),
             withAttributes: footAttrs)
 
@@ -137,6 +128,58 @@ enum TapeCoverArt {
         NSColor.white.withAlphaComponent(0.14).setStroke()
         clip.lineWidth = 2
         clip.stroke()
+    }
+
+    /// A stylized piano-keys strip — the Menu Band identity motif. White keys
+    /// with black keys on top; a couple of white keys lit warm for per-take
+    /// variety (echoes the menubar's lit keys).
+    private static func drawKeyboardStrip(in rect: NSRect) {
+        let corner = rect.height * 0.16
+        let bg = NSBezierPath(roundedRect: rect, xRadius: corner, yRadius: corner)
+
+        // Ivory backing with a soft drop shadow so the strip floats.
+        NSGraphicsContext.saveGraphicsState()
+        let sh = NSShadow()
+        sh.shadowColor = NSColor.black.withAlphaComponent(0.35)
+        sh.shadowOffset = NSSize(width: 0, height: -6)
+        sh.shadowBlurRadius = 16
+        sh.set()
+        NSColor(srgbRed: 0.96, green: 0.95, blue: 0.90, alpha: 1).setFill()
+        bg.fill()
+        NSGraphicsContext.restoreGraphicsState()
+
+        NSGraphicsContext.saveGraphicsState()
+        bg.addClip()
+        let whiteCount = 7
+        let kw = rect.width / CGFloat(whiteCount)
+        var lit = Set<Int>()
+        while lit.count < 2 { lit.insert(Int.random(in: 0..<whiteCount)) }
+        for i in 0..<whiteCount {
+            let kx = rect.minX + CGFloat(i) * kw
+            if lit.contains(i) {
+                NSColor(srgbRed: 1.0, green: 0.83, blue: 0.36, alpha: 0.92).setFill()
+                NSRect(x: kx, y: rect.minY, width: kw, height: rect.height).fill()
+            }
+            if i > 0 {
+                let sep = NSBezierPath()
+                sep.move(to: NSPoint(x: kx, y: rect.minY))
+                sep.line(to: NSPoint(x: kx, y: rect.maxY))
+                sep.lineWidth = 2
+                NSColor.black.withAlphaComponent(0.16).setStroke()
+                sep.stroke()
+            }
+        }
+        // Black keys between the appropriate whites (C-D-E-F-G-A-B pattern).
+        let blackAfter = [0, 1, 3, 4, 5]
+        let bkW = kw * 0.60, bkH = rect.height * 0.62
+        NSColor(srgbRed: 0.10, green: 0.10, blue: 0.12, alpha: 1).setFill()
+        for i in blackAfter where i < whiteCount - 1 {
+            let cx = rect.minX + CGFloat(i + 1) * kw
+            NSBezierPath(roundedRect: NSRect(x: cx - bkW / 2, y: rect.maxY - bkH,
+                                             width: bkW, height: bkH),
+                         xRadius: bkW * 0.16, yRadius: bkW * 0.16).fill()
+        }
+        NSGraphicsContext.restoreGraphicsState()
     }
 
     /// Largest `.black` system font at which `s` fits `maxWidth`.
