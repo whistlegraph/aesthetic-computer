@@ -368,12 +368,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// MultitouchSupport frames; while its wall is up, `handleTrackpadFrame`
     /// routes fingers here instead of into the pitch-bend fx pad.
     private let shapedown = Shapedown()
-    /// Record gesture (folded into the quiet-focus ⌘ monitor): a LEFT-⌘ tap
-    /// immediately before the RIGHT-⌘ double means "record", not "focus". This
-    /// is when that left-⌘ prefix landed.
-    /// Physically-held ⌘ keycodes (toggled per flagsChanged edge) — used to
-    /// detect the both-⌘ hold that starts the record count-in.
-    private var heldCmdKeys: Set<UInt16> = []
+    /// Record gesture (folded into the quiet-focus ⌘ monitor): hold both the
+    /// left and right Command keys through the full count-in.
     /// Scheduled count-in beats + the final record-start, so releasing a ⌘
     /// mid-hold can cancel them.
     private var countInWork: [DispatchWorkItem] = []
@@ -2117,15 +2113,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard side == Self.leftCommandKeyCode || side == Self.rightCommandKeyCode
             else { return }
 
-            // Track which ⌘ keys are physically held by toggling per keycode
-            // edge (each press/release is one flagsChanged for that keycode).
-            let wasHeld = self.heldCmdKeys.contains(side)
-            if wasHeld { self.heldCmdKeys.remove(side) } else { self.heldCmdKeys.insert(side) }
-            let bothHeld = self.heldCmdKeys.contains(Self.leftCommandKeyCode)
-                && self.heldCmdKeys.contains(Self.rightCommandKeyCode)
+            // Read the hardware state instead of toggling our own set. A
+            // missed/duplicated flagsChanged edge must never leave one side
+            // looking stuck and let right-⌘ alone start recording.
+            let sideIsHeld = CGEventSource.keyState(
+                .combinedSessionState, key: CGKeyCode(side)
+            )
+            let bothHeld = self.bothCommandKeysAreDown
             // Releasing either ⌘ cancels a count-in in progress.
             if !bothHeld { self.cancelCountIn() }
-            guard !wasHeld else { return }   // up edge — done
+            guard sideIsHeld else { return }   // up edge — done
 
             // Both ⌘ held together (bare) → start the 3s record count-in.
             let mask = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
@@ -2158,6 +2155,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { handler($0); return $0 }
     }
 
+    /// Recording's physical-key gate. Both Command keys must remain down for
+    /// the entire count-in; a single Command key can only use its tap gesture.
+    private var bothCommandKeysAreDown: Bool {
+        CGEventSource.keyState(
+            .combinedSessionState, key: CGKeyCode(Self.leftCommandKeyCode)
+        ) && CGEventSource.keyState(
+            .combinedSessionState, key: CGKeyCode(Self.rightCommandKeyCode)
+        )
+    }
 
     private func applyForcedLayoutIfAny() {
         let raw = UserDefaults.standard.string(forKey: "forceLayout") ?? ""
@@ -4276,10 +4282,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + interval * Double(i), execute: w)
         }
         let go = DispatchWorkItem { [weak self] in
-            self?.countInWork.removeAll()
+            guard let self = self else { return }
+            // Re-check at the commit point as well as on flagsChanged. This
+            // makes the full-duration two-key hold the actual recording gate.
+            guard self.bothCommandKeysAreDown else {
+                self.cancelCountIn()
+                return
+            }
+            self.countInWork.removeAll()
             KeyboardIconRenderer.countInDigit = nil          // downbeat — back to the keyboard
-            self?.updateIcon()
-            self?.startRecordingMode()
+            self.updateIcon()
+            self.startRecordingMode()
         }
         countInWork.append(go)
         DispatchQueue.main.asyncAfter(deadline: .now() + total, execute: go)
