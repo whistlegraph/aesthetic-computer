@@ -4,5 +4,6 @@ import PackageDescription
 let package = Package(
   name: "ThespianJas",
   platforms: [.macOS(.v13)],
-  targets: [.executableTarget(name: "ThespianJas")]
+  dependencies: [.package(url: "https://github.com/warrenm/GLTFKit2.git", branch: "master")],
+  targets: [.executableTarget(name: "ThespianJas", dependencies: ["GLTFKit2"])]
 )

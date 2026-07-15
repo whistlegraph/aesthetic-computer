@@ -1,5 +1,6 @@
 import AppKit
 import SceneKit
+import GLTFKit2
 
 final class StudioController: NSViewController {
   private let scene = SCNScene()
@@ -7,6 +8,7 @@ final class StudioController: NSViewController {
   private var key = SCNLight()
   private var fill = SCNLight()
   private var rim = SCNLight()
+  private var retainedGLTF: GLTFAsset?
   private let assetURL: URL
 
   init(assetURL: URL) {
@@ -22,7 +24,7 @@ final class StudioController: NSViewController {
     view.autoresizingMask = [NSView.AutoresizingMask.width, NSView.AutoresizingMask.height]
     view.scene = scene
     view.backgroundColor = NSColor(calibratedRed: 0.09, green: 0.075, blue: 0.11, alpha: 1)
-    view.allowsCameraControl = true
+    view.allowsCameraControl = false
     view.antialiasingMode = SCNAntialiasingMode.multisampling4X
     view.rendersContinuously = true
     view.preferredFramesPerSecond = 60
@@ -65,15 +67,28 @@ final class StudioController: NSViewController {
   }
 
   private func buildScene() {
-    do {
-      let loaded = try SCNScene(url: assetURL, options: [.checkConsistency: true])
-      for child in loaded.rootNode.childNodes { subject.addChildNode(child.clone()) }
-    } catch {
-      let message = label("Could not load \(assetURL.lastPathComponent): \(error.localizedDescription)")
-      message.textColor = .systemRed; message.frame = NSRect(x: 290, y: 30, width: 760, height: 40); view.addSubview(message)
-    }
     subject.name = "thespianjas"
     scene.rootNode.addChildNode(subject)
+    if assetURL.pathExtension.lowercased() == "glb" || assetURL.pathExtension.lowercased() == "gltf" {
+      GLTFAsset.load(with: assetURL, options: [:]) { [weak self] _, status, asset, error, _ in
+        guard status == .complete, let self, let asset else {
+          if status == .error { DispatchQueue.main.async { self?.showLoadError(error) } }
+          return
+        }
+        self.retainedGLTF = asset
+        let loaded = SCNScene(gltfAsset: asset)
+        DispatchQueue.main.async {
+          for child in loaded.rootNode.childNodes { self.subject.addChildNode(child) }
+          self.frameSubject()
+        }
+      }
+    } else {
+      do {
+        let loaded = try SCNScene(url: assetURL, options: [.checkConsistency: true])
+        for child in loaded.rootNode.childNodes { subject.addChildNode(child) }
+        frameSubject()
+      } catch { showLoadError(error) }
+    }
 
     let floor = SCNFloor(); floor.reflectivity = 0.08
     floor.firstMaterial?.diffuse.contents = NSColor(calibratedRed: 0.18, green: 0.15, blue: 0.21, alpha: 1)
@@ -88,6 +103,27 @@ final class StudioController: NSViewController {
     let cameraNode = SCNNode(); cameraNode.camera = camera; cameraNode.position = SCNVector3(0, 1.5, 4.8)
     let look = SCNLookAtConstraint(target: subject); look.isGimbalLockEnabled = true; cameraNode.constraints = [look]
     scene.rootNode.addChildNode(cameraNode)
+  }
+
+  private func showLoadError(_ error: Error?) {
+    let message = label("Could not load \(assetURL.lastPathComponent): \(error?.localizedDescription ?? "unknown error")")
+    message.textColor = .systemRed; message.frame = NSRect(x: 290, y: 30, width: 760, height: 40); view.addSubview(message)
+  }
+
+  private func frameSubject() {
+    // Provider assets vary between centimeters/meters and may be authored far
+    // from the origin. Normalize the root while preserving the skeleton's
+    // internal transforms: 2.4 scene units tall, centered, feet on the floor.
+    let (min, max) = subject.boundingBox
+    let height = max.y - min.y
+    if height.isFinite && height > 0.0001 {
+      let s = 2.4 / height
+      subject.scale = SCNVector3(s, s, s)
+      subject.position = SCNVector3(-((min.x + max.x) * 0.5) * s, -min.y * s, -((min.z + max.z) * 0.5) * s)
+    }
+    subject.enumerateChildNodes { node, _ in
+      for key in node.animationKeys { node.animationPlayer(forKey: key)?.play() }
+    }
   }
 
   private func lightNode(_ light: SCNLight, at p: SCNVector3) {
