@@ -147,24 +147,33 @@ async function toolInbox({ machine } = {}) {
   return text(L.join("\n"));
 }
 
-// The recent-conversation list — who's talking, unread, last message. This is
-// how you find a thread to pass as `to` (Signal only; imsg has no chats verb).
+// The recent-conversation list — who's talking, unread, last message. Find a
+// thread here, then pass its name/id to dm_read's `to` (Signal only).
 async function toolChats({ n = 20, machine } = {}) {
   const { stdout } = await runBridge(SIGNAL, ["chats", String(n)], machine);
   return text(stdout.trim() || "(no conversations)");
 }
 
+// The groups-only view of the above (Signal group threads: name + id).
+async function toolGroups({ n = 20, machine } = {}) {
+  const { stdout } = await runBridge(SIGNAL, ["groups", String(n)], machine);
+  return text(stdout.trim() || "(no groups)");
+}
+
 // Thread history. Signal has a real one-shot read; iMessage only a status
 // summary today (imsg.mjs has no history verb yet — noted, not silently empty).
-async function toolRead({ channel, n = 15, to, machine } = {}) {
+// `to` (alias `group`) targets ANY conversation — group or person — by name or
+// conversationId; omit for the configured 1:1 contact. Group reads attribute
+// each sender. An ambiguous target fails loudly rather than guessing.
+async function toolRead({ channel, n = 15, to, group, machine } = {}) {
   const ch = (channel || "signal").toLowerCase();
+  const dest = to || group;
   if (ch === "signal") {
-    // `to` targets one conversation for this call; omit it for the configured
-    // contact. An ambiguous `to` fails loudly rather than guessing a thread.
-    const toArgs = to ? ["--to", String(to)] : [];
+    const toArgs = dest ? ["--to", String(dest)] : [];
     const { stdout } = await runBridge(SIGNAL, ["read", String(n), ...toArgs], machine);
     return text(stdout.trim() || "(no messages)");
   }
+  if (dest) throw new Error("`to`/`group` is only supported on the Signal channel");
   if (ch === "imessage" || ch === "imsg") {
     const { stdout } = await runBridge(IMSG, ["status"], machine);
     return text(
@@ -258,14 +267,26 @@ const TOOLS = [
   },
   {
     name: "dm_read",
-    description: "Read recent thread history. Signal returns the last N messages (← inbound / → outbound). iMessage currently returns only the latest (imsg.mjs has no history verb yet). Use this to digest what someone said.",
+    description: "Read recent thread history. Signal returns the last N messages (← inbound / → outbound). Pass `group` (Signal only) to read ANY group or person thread by name or conversationId instead of the configured 1:1 contact — group reads attribute each sender. iMessage currently returns only the latest (imsg.mjs has no history verb yet). Use this to digest what someone said.",
     inputSchema: {
       type: "object",
       properties: {
         channel: { type: "string", enum: ["signal", "imessage"], description: "Which channel (default signal)." },
         n: { type: "number", description: "How many recent messages (Signal only; default 15)." },
         to: { type: "string", description: "Signal only: which conversation — a name substring (dm or group, per dm_chats) or an exact conversationId. Omit for the configured contact. An ambiguous name errors with the candidates rather than guessing." },
+        group: { type: "string", description: "Signal only: alias for `to` — a group/person name substring or conversationId (find ids with dm_groups)." },
         machine: { type: "string", description: "Machine (default local)." },
+      },
+    },
+  },
+  {
+    name: "dm_groups",
+    description: "List recently-active Signal group threads (name + conversationId, newest first). Use this to find the `group` argument for dm_read.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        n: { type: "number", description: "How many groups to list (default 20)." },
+        machine: { type: "string", description: "Machine (default local; Signal Desktop DB is local-only)." },
       },
     },
   },
@@ -314,6 +335,7 @@ async function callTool(name, args) {
     case "dm_inbox": return toolInbox(args || {});
     case "dm_chats": return toolChats(args || {});
     case "dm_read": return toolRead(args || {});
+    case "dm_groups": return toolGroups(args || {});
     case "dm_attachments": return toolAttachments(args || {});
     case "dm_contacts": return toolContacts(args || {});
     case "dm_send": return toolSend(args || {});
@@ -358,4 +380,4 @@ async function handleMessage(message) {
 
 const port = httpPort(process.argv, 7771);
 if (port) serveHttp({ handleMessage, port, banner: "✉️  dm-mcp shared daemon" });
-else serveStdio({ handleMessage, banner: "✉️  dm-mcp server started (dm_inbox, dm_chats, dm_read, dm_attachments, dm_contacts, dm_send)" });
+else serveStdio({ handleMessage, banner: "✉️  dm-mcp server started (dm_inbox, dm_chats, dm_read, dm_groups, dm_attachments, dm_contacts, dm_send)" });

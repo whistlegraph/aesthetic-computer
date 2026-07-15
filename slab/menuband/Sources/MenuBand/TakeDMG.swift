@@ -9,10 +9,10 @@ import AppKit
 /// All via `hdiutil` (always present) + `NSWorkspace.setIcon` for the custom
 /// icon bit — no Xcode command-line tools, so it works on any tester's Mac.
 enum TakeDMG {
-    /// Build `<name>.dmg` next to where `wav` should live (the Desktop). The
-    /// WAV is consumed INTO the image (not left loose). Returns the .dmg URL,
-    /// or nil on failure (caller can fall back to the bare WAV).
-    static func build(wav: URL, name: String, coverIcon: NSImage?) -> URL? {
+    /// Build `<name>.dmg` on the Desktop containing the WAV plus any `extras`
+    /// (e.g. the sidecar `.mid`). The source files are copied INTO the image.
+    /// Returns the .dmg URL, or nil on failure (caller can fall back).
+    static func build(wav: URL, extras: [URL] = [], name: String, coverIcon: NSImage?) -> URL? {
         let fm = FileManager.default
         let desktop = fm.urls(for: .desktopDirectory, in: .userDomainMask).first
             ?? fm.homeDirectoryForCurrentUser.appendingPathComponent("Desktop")
@@ -25,6 +25,9 @@ enum TakeDMG {
         do {
             try fm.createDirectory(at: stage, withIntermediateDirectories: true)
             try fm.copyItem(at: wav, to: stage.appendingPathComponent(wav.lastPathComponent))
+            for extra in extras {
+                try? fm.copyItem(at: extra, to: stage.appendingPathComponent(extra.lastPathComponent))
+            }
             // .VolumeIcon.icns at the volume root is the fallback the OS reads
             // when the custom-icon bit is set (we set it via NSWorkspace below).
             if let icns = Bundle.appResources.url(forResource: "AppIcon", withExtension: "icns") {

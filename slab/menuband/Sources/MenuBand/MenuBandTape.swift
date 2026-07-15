@@ -186,6 +186,10 @@ final class MenuBandTape {
         recordStartDate = Date()
         cachedEject = nil
         bufferLock.unlock()
+        midiLock.lock()
+        midiEvents.removeAll()
+        midiStart = ProcessInfo.processInfo.systemUptime
+        midiLock.unlock()
         state = .recording
     }
 
@@ -276,6 +280,24 @@ final class MenuBandTape {
         let file: URL
         let date: Date
         let duration: TimeInterval
+        var midi: URL? = nil   // sidecar .mid of the notes played (if any)
+    }
+
+    // MIDI performance capture — note events (relative to record start) so a
+    // take carries editable notes for Ableton alongside the rendered audio.
+    private var midiEvents: [MidiFile.Event] = []
+    private var midiStart: TimeInterval = 0
+    private var midiLock = NSLock()
+
+    /// Called from the synth's note hook (via the controller) on every
+    /// note-on/off. Records only while the tape is rolling.
+    func ingestNote(_ note: UInt8, velocity: UInt8, on: Bool, channel: UInt8) {
+        guard state == .recording else { return }
+        let t = ProcessInfo.processInfo.systemUptime - midiStart
+        midiLock.lock()
+        midiEvents.append(MidiFile.Event(time: t, note: note, velocity: velocity,
+                                          on: on, channel: channel))
+        midiLock.unlock()
     }
 
     /// Render the recording into a single 4-channel WAV:
@@ -487,8 +509,26 @@ final class MenuBandTape {
         let icon = TapeCoverArt.makeIcon(date: date, duration: duration)
         NSWorkspace.shared.setIcon(icon, forFile: url.path, options: [])
 
-        NSLog("MenuBandTape: ejected \(baseName).wav (\(duration) s, 4ch) → \(url.path)")
-        let result = EjectResult(file: url, date: date, duration: duration)
+        // Sidecar .mid of the performance — same basename as the WAV. Times
+        // are shifted by the trimmed lead so the notes line up with the audio.
+        var midiURL: URL?
+        midiLock.lock()
+        let events = midiEvents
+        midiLock.unlock()
+        if !events.isEmpty {
+            let leadSeconds = Double(offset) / Self.sampleRate
+            let shifted = events.map {
+                MidiFile.Event(time: max(0, $0.time - leadSeconds), note: $0.note,
+                               velocity: $0.velocity, on: $0.on, channel: $0.channel)
+            }
+            let mURL = url.deletingPathExtension().appendingPathExtension("mid")
+            if (try? MidiFile.data(events: shifted).write(to: mURL)) != nil {
+                midiURL = mURL
+            }
+        }
+
+        NSLog("MenuBandTape: ejected \(baseName).wav (\(duration) s, 4ch, \(events.count) midi ev) → \(url.path)")
+        let result = EjectResult(file: url, date: date, duration: duration, midi: midiURL)
         cachedEject = result
         return result
     }

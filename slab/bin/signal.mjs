@@ -22,7 +22,10 @@
 // Subcommands:
 //   signal chats [N]         list the N most recent conversations (default 20)
 //   signal status            JSON summary; rings bell on new inbound
-//   signal read [N]          print the last N messages (default 15)
+//   signal read [N] [target] print the last N messages (default 15); with a
+//                            target (group/person name or conversationId) read
+//                            ANY thread — group reads attribute each sender
+//   signal groups [N]        list recently-active group threads (name + id)
 //   signal tail              live terminal client (prints + BEL on new inbound)
 //   signal attachments [N]   list the last N attachments (default 10), indexed
 //   signal save [N|all]      decrypt recent attachments → temp dir; open PDFs
@@ -208,7 +211,8 @@ function resolveConversationId(cfg) {
 // `--to` addresses a conversation for one invocation. An exact conversationId
 // wins; otherwise the needle must land on exactly ONE conversation. A needle
 // that silently picks among several is how you read the wrong person's thread,
-// so ambiguity prints the candidates and exits nonzero.
+// so ambiguity prints the candidates and exits nonzero. Groups and 1:1s share
+// the conversations table, so `--to` reaches either.
 function resolveTo(to) {
   const exact = sql(`SELECT ${CONVO_COLS} FROM conversations WHERE id=${sqlStr(to)} LIMIT 1;`);
   if (exact.length) return exact[0];
@@ -233,10 +237,11 @@ function resolveTo(to) {
 
 // Every read-ish command picks its conversation here: `--to` when given, else
 // the configured contact (unchanged — this is the path the menubar/dm-mcp use).
+// Returns the conversation `type` too, so group reads can attribute senders.
 function target(to) {
   if (to) {
     const c = resolveTo(to);
-    return { convoId: c.id, name: convoName(c), cfg: loadConfig() || {} };
+    return { convoId: c.id, name: convoName(c), type: c.type, cfg: loadConfig() || {} };
   }
   const cfg = loadConfig() || needConfig();
   const convoId = resolveConversationId(cfg);
@@ -244,7 +249,7 @@ function target(to) {
     console.error("signal: conversation not found");
     process.exit(1);
   }
-  return { convoId, name: cfg.displayName, cfg };
+  return { convoId, name: cfg.displayName, type: "private", cfg };
 }
 
 // Most-recent-first, with each conversation's last message + unread count. The
@@ -265,6 +270,15 @@ function recentConversations(limit) {
   );
 }
 
+// The groups-only filter behind `signal groups` / dm_groups (id, name, active).
+function listGroups(limit) {
+  return sql(
+    `SELECT id, IFNULL(name,'(unnamed group)') AS name, active_at AS activeAt ` +
+      `FROM conversations WHERE type='group' AND active_at IS NOT NULL ` +
+      `ORDER BY active_at DESC LIMIT ${Number(limit) || 20};`,
+  );
+}
+
 // ─── messages ────────────────────────────────────────────────────────────────
 
 function recentMessages(convoId, limit) {
@@ -274,6 +288,21 @@ function recentMessages(convoId, limit) {
       `FROM messages WHERE conversationId=${sqlStr(convoId)} ` +
       `AND ((body IS NOT NULL AND body!='') OR hasAttachments=1) ` +
       `ORDER BY sent_at DESC LIMIT ${Number(limit) || 15};`,
+  ).reverse();
+}
+
+// Group history with sender attribution. In a group, each incoming message
+// carries the author's ACI in `sourceServiceId`; join it back to that person's
+// 1:1 conversation row to get their name. Outgoing messages are "me".
+function recentGroupMessages(convoId, limit) {
+  return sql(
+    `SELECT m.rowid AS id, m.type, m.body, m.sent_at AS sentAt, m.hasAttachments, ` +
+      `IFNULL(c.profileFullName, IFNULL(c.name, IFNULL(c.profileName, c.e164))) AS sender ` +
+      `FROM messages m ` +
+      `LEFT JOIN conversations c ON c.serviceId = m.sourceServiceId AND c.type='private' ` +
+      `WHERE m.conversationId=${sqlStr(convoId)} ` +
+      `AND ((m.body IS NOT NULL AND m.body!='') OR m.hasAttachments=1) ` +
+      `ORDER BY m.sent_at DESC LIMIT ${Number(limit) || 15};`,
   ).reverse();
 }
 
@@ -419,11 +448,32 @@ function cmdStatus(to) {
   });
 }
 
+// read [N], optionally targeted with `--to <name|id>`. No target → the
+// configured 1:1 contact. When the resolved conversation is a group, each
+// line is prefixed with the sender.
 function cmdRead(n, to) {
-  const { convoId } = target(to);
-  for (const m of recentMessages(convoId, n || 15)) {
-    const body = m.body || (m.hasAttachments ? "📎 attachment" : "");
-    console.log(`${arrow(m.type)} ${humanAgo(m.sentAt).padStart(3)}  ${body}`);
+  const { convoId, name, type } = target(to);
+  if (to && name) console.log(`— ${name} —`);
+  if (type === "group") {
+    for (const m of recentGroupMessages(convoId, n || 15)) {
+      const body = m.body || (m.hasAttachments ? "📎 attachment" : "");
+      const who = m.type === "outgoing" ? "me" : (m.sender || "?");
+      console.log(`${arrow(m.type)} ${humanAgo(m.sentAt).padStart(3)}  ${who}: ${body}`);
+    }
+  } else {
+    for (const m of recentMessages(convoId, n || 15)) {
+      const body = m.body || (m.hasAttachments ? "📎 attachment" : "");
+      console.log(`${arrow(m.type)} ${humanAgo(m.sentAt).padStart(3)}  ${body}`);
+    }
+  }
+}
+
+// groups [N] — list the most-recently-active group conversations.
+function cmdGroups(n) {
+  const groups = listGroups(n || 20);
+  if (!groups.length) { console.log("(no groups)"); return; }
+  for (const g of groups) {
+    console.log(`${humanAgo(g.activeAt).padStart(4)}  ${g.name}   [${g.id}]`);
   }
 }
 
@@ -508,6 +558,7 @@ const [cmd, arg] = argv;
 try {
   switch (cmd) {
     case "chats": case "recent": cmdChats(arg ? Number(arg) : 20); break;
+    case "groups": cmdGroups(arg ? Number(arg) : 20); break;
     case "status": cmdStatus(to); break;
     case "read": cmdRead(arg ? Number(arg) : 15, to); break;
     case "attachments": case "atts": cmdAttachments(arg ? Number(arg) : 10, to); break;
@@ -517,8 +568,8 @@ try {
     case "config": ensureConfigStub(); console.log(CONFIG_PATH); break;
     default:
       console.log(
-        "usage: signal chats [N]|status|read [N]|attachments [N]|save [N|all]|tail|open|config\n" +
-          "       read-ish commands take --to <name|id> to target one conversation",
+        "usage: signal chats [N]|groups [N]|status|read [N]|attachments [N]|save [N|all]|tail|open|config\n" +
+          "       read-ish commands take --to <name|id> to target one conversation (dm or group)",
       );
   }
 } catch (e) {

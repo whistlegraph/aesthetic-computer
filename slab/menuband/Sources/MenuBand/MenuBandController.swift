@@ -1442,11 +1442,14 @@ final class MenuBandController {
     /// OFF the main thread. Returns the .dmg URL, or nil if empty.
     @discardableResult
     func saveStoppedTakeToDesktop() -> URL? {
-        guard let src = tape.eject()?.file else { return nil }
+        guard let take = tape.eject() else { return nil }
+        let src = take.file
         // The album-art icon eject() stamped on the WAV → the .dmg file icon.
         let cover = NSWorkspace.shared.icon(forFile: src.path)
         let name = src.deletingPathExtension().lastPathComponent
-        return TakeDMG.build(wav: src, name: name, coverIcon: cover)
+        // Include the sidecar .mid (editable notes for Ableton) in the release.
+        let extras = [take.midi].compactMap { $0 }
+        return TakeDMG.build(wav: src, extras: extras, name: name, coverIcon: cover)
     }
 
     /// State-change observer. Drops the pins whenever the tape goes
@@ -1485,6 +1488,11 @@ final class MenuBandController {
         }
         synth.onMicInputBuffer = { [weak self] buffer in
             self?.tape.ingestMic(buffer)
+        }
+        // Capture the note performance as MIDI alongside the audio, so a take
+        // carries editable notes (a .mid drops onto an Ableton MIDI track).
+        synth.onNoteEvent = { [weak self] note, vel, on, ch in
+            self?.tape.ingestNote(note, velocity: vel, on: on, channel: ch)
         }
         // Block-based observer so the controller (a plain Swift class,
         // not NSObject) can register without inheriting from

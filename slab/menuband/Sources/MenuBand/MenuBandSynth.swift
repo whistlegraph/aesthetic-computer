@@ -2003,9 +2003,14 @@ final class MenuBandSynth {
                                       execute: workItem)
     }
 
+    /// Fires on every note-on/off (note, velocity, on, channel) — the tape
+    /// subscribes to capture a MIDI performance alongside the audio.
+    var onNoteEvent: ((UInt8, UInt8, Bool, UInt8) -> Void)?
+
     func noteOn(_ midi: UInt8, velocity: UInt8 = 100, channel: UInt8 = 0) {
         guard started else { return }
         guard resumeAudioEngineIfNeeded() else { return }
+        onNoteEvent?(midi, velocity, true, channel)
         // A fresh note re-syncs the spacebar reverse clock with the record
         // head: the next Space press rewinds from the new "now" (including
         // this note) instead of resuming the previous session's cursor.
@@ -2148,6 +2153,7 @@ final class MenuBandSynth {
 
     func noteOff(_ midi: UInt8, channel: UInt8 = 0) {
         guard started else { return }
+        onNoteEvent?(midi, 0, false, channel)
         let key = noteKey(midi, channel: channel)
         activeNotes.remove(key)
         defer { scheduleIdleSuspendIfNeeded() }
