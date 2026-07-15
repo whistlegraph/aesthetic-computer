@@ -26,10 +26,23 @@ Two confounds worth stating honestly:
    closes idle TLS connections; the client reconnects. So that log line alone is
    not the smoking gun — the *tight loop* on v6 is the concern.
 
+## Two facts that reframe this (from the DO API, 2026-07-15)
+
+- **The managed "redis" is actually DigitalOcean Managed Valkey 8**
+  (`db-redis-sfo3-24903`, engine `valkey/8`). node-redis v6 against a Valkey 8
+  server is a real compatibility variable — the `SocketClosedUnexpectedly` loop
+  may be a v6-client / Valkey-8-server interaction, not pure client config. Test
+  the redis-6 client specifically against Valkey 8, not a vanilla redis.
+- **session-server runs on a 1 vcpu / 1 GB droplet** (`s-1vcpu-1gb-amd`, nyc1,
+  $7/mo). On a single core, a tight synchronous reconnect loop starves the event
+  loop, which makes "redis retry storm delays `fastify.listen()`" far more
+  plausible than it would be on a bigger box. The non-blocking-connect fix below
+  matters more here, and a slightly larger droplet may be warranted regardless.
+
 ## Root cause hypothesis
 
-redis-py-js **v5 changed reconnection and socket semantics** vs v4. The likely
-issues:
+node-redis **v5 changed reconnection and socket semantics** vs v4, and the server
+is Valkey 8 (above). The likely issues:
 
 - No `pingInterval` set → the managed redis (or a proxy) closes idle sockets and
   v6 handles the closure differently than v4.

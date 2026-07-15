@@ -85,12 +85,12 @@ Production web: Express 5 + Caddy monolith. All /api, runtime .mjs, KidLisp, not
 fish lith/deploy.fish \newline systemd lith.service (MemMax 3G) \\
 \addlinespace
 \textbf{session-server} \newline session-server.aesthetic.computer \newline 157.245.134.225 &
-\chip{cDO}{DO} droplet &
-Chat + single shared realtime room (Geckos WS+UDP). Loads chat history on boot ($\sim$45s) &
+\chip{cDO}{DO} \real{\$7/mo} \newline 1vcpu-1gb, nyc1 &
+Chat + single shared realtime room (Geckos WS+UDP). Loads chat history on boot ($\sim$45s). Tiny 1GB box $\Rightarrow$ mem-sensitive &
 fish session-server/deploy.fish \newline systemd, node 20.17 (fnm) \\
 \addlinespace
 \textbf{oven} \newline oven.aesthetic.computer &
-\chip{cDO}{DO} 2GB/2vCPU &
+\chip{cDO}{DO} \real{\$96/mo} \newline 8vcpu-16gb, sfo3 &
 Tape$\rightarrow$MP4 (ffmpeg/Sharp); AC Native OS OTA builds; git pollers &
 fish oven/deploy.fish \newline systemd oven.service \\
 \addlinespace
@@ -257,11 +257,16 @@ mongodb & \warn{reverted to 6.20} & bundled w/ redis revert \\
 \textbf{vendor / use} & \textbf{billing} & \textbf{cost} \\
 \midrule
 \chip{cDO}{DO} Droplet --- lith host & subscription & \real{\$24/mo} \\
-\chip{cDO}{DO} Droplet --- session-server & subscription & \tbd \\
-\chip{cDO}{DO} Droplet --- oven & subscription & \tbd \\
-\chip{cDO}{DO} Spaces --- asset CDN & storage + egress & \tbd \\
+\chip{cDO}{DO} Droplet --- session-server & subscription & \real{\$7/mo} \\
+\chip{cDO}{DO} Droplet --- oven (8vcpu/16gb) & subscription & \real{\$96/mo} \\
+\chip{cDO}{DO} Droplet --- jasellite & subscription & \real{\$96/mo} \\
+\chip{cDO}{DO} Droplets --- at, silo, help & subscription & \real{\$24 ea} \\
+\chip{cDO}{DO} Droplet --- \warn{legacy-2016} & subscription & \real{\$12/mo} \\
+\chip{cDO}{DO} Spaces --- asset CDN (11 keys) & storage + egress & on invoice \\
+\chip{cRedis}{Valkey 8} --- DO managed, sfo3 & subscription & \real{$\sim$\$15/mo} \\
+\multicolumn{3}{@{}p{12cm}}{\real{\textbf{DO total $\approx$\$330/mo}} and \warn{climbing} --- invoices Mar \$189 $\rightarrow$ Jun \$259.54; Jul \$172 by the 15th} \\
+\midrule
 \chip{cMongo}{MongoDB} Atlas --- primary DB & subscription/usage & \tbd \\
-\chip{cRedis}{Redis} --- managed, sfo3 & subscription/usage & \tbd \\
 \chip{cCF}{Cloudflare} --- DNS/cache & free tier likely & \usg \\
 \chip{cCF}{Cloudflare} --- Workers/KV/R2/Queues & usage & \usg \\
 \chip{cCF}{Cloudflare} --- Browser Rendering (grab) & paid tier & \tbd \\
