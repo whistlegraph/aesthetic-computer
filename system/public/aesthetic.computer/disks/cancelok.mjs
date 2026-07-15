@@ -23,7 +23,6 @@ const FEATHER = 14; // the fuzzy width of the screen's edge, in pixels
 const OK = [90, 255, 150];
 const NO = [255, 70, 80];
 const WALL = [26, 28, 38]; // the dark the set is sunk into — never pure black
-const GLOW = [26, 62, 98]; // the wall lights up when you take hold to walk
 const RIM = [150, 158, 180]; // the lit edge line around the glass, always present
 
 const ORIGIN =
@@ -77,6 +76,29 @@ const current = () => world.get(key(pos));
 function glass(w, h) {
   const m = Math.max(24, Math.round(Math.min(w, h) * 0.12));
   return { x: m, y: m, w: w - 2 * m, h: h - 2 * m, m };
+}
+
+// Every pad gets its own signature colour, derived from its name so it's stable —
+// a pad is always "the amber one." The frame around a room is that colour, so as
+// you wander the whole wall shifts room to room and you learn the map by hue. Dark
+// and rich, so it reads as a coloured bezel and the pad still pops, never black.
+function hslToRgb(h, s, l) {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  let r, g, b;
+  if (h < 60) [r, g, b] = [c, x, 0];
+  else if (h < 120) [r, g, b] = [x, c, 0];
+  else if (h < 180) [r, g, b] = [0, c, x];
+  else if (h < 240) [r, g, b] = [0, x, c];
+  else if (h < 300) [r, g, b] = [x, 0, c];
+  else [r, g, b] = [c, 0, x];
+  return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+}
+function padColor(code, bright) {
+  let h = 0;
+  for (let i = 0; i < (code || "").length; i++) h = (h * 31 + code.charCodeAt(i)) >>> 0;
+  return hslToRgb(h % 360, 0.52, bright ? 0.34 : 0.24);
 }
 
 async function load(api) {
@@ -467,27 +489,26 @@ function paint(api) {
     }
   }
 
-  // The wall the puddles sit in — a tone chosen to CONTRAST the pad, so a dark
-  // room never hides a dark wall, and lit with GLOW while you're pulling. Never
-  // pure black.
-  sampleEdge();
+  // The wall takes the CURRENT room's colour — its whole margin is that pad's hue,
+  // so you're always sitting inside the colour of where you are. Lit a touch while
+  // you pull. Never pure black.
   const swiping = !!grab || !!move;
-  const wc = swiping ? GLOW : wallTone();
-  wipe(...wc);
+  const cur = current();
+  wipe(...padColor(cur?.code, swiping));
 
-  // The web. Every room is its own framed puddle, and each one carries its frame
-  // WITH it — so dragging pulls the whole web across the grid, not content behind a
-  // fixed window. Pitch is a full screen, so neighbors sit a wall's-width apart.
+  // The web. Every room is its own framed puddle in ITS OWN colour, and each one
+  // carries its frame WITH it — so dragging pulls the whole web across the grid,
+  // and the neighbors you're heading toward show their colours as they arrive.
   const ax = move ? move.ox : 0;
   const ay = move ? move.oy : 0;
   const px = g.w + 2 * g.m; // one cell across
   const py = g.h + 2 * g.m;
-  const frame = frameFor(api, g, wc);
 
-  const rooms = [{ rdx: 0, rdy: 0, content: hostFailed ? null : stage }];
+  const rooms = [{ rdx: 0, rdy: 0, content: hostFailed ? null : stage, code: cur?.code }];
   if (move) {
     grabFrames(api, move.cells);
-    for (const c of move.cells) rooms.push({ rdx: c.rdx, rdy: c.rdy, content: c.frame });
+    for (const c of move.cells)
+      rooms.push({ rdx: c.rdx, rdy: c.rdy, content: c.frame, code: c.cell?.code });
   }
   for (const r of rooms) {
     const sx = Math.round(g.x + ax + r.rdx * px);
@@ -497,7 +518,7 @@ function paint(api) {
       ink(...WALL).box(sx, sy, g.w, g.h);
       ink(...NO).write("didn't run", { x: sx + g.w / 2 - 30, y: sy + g.h / 2 - 8 });
     }
-    api.paste(frame, sx, sy); // round the corners, feather the edge, draw the rim
+    api.paste(frameFor(api, g, padColor(r.code, swiping)), sx, sy); // its coloured bezel
   }
 
   // The 8-way control surface, on the wall: each direction's key + arrow, lit when
@@ -541,39 +562,6 @@ function controls({ ink, write }, g, w, h) {
     ink(...col, a).write(d.k.toUpperCase(), { x: cx - 3, y: cy + 3 });
   }
 }
-
-// The wall must never vanish into the pad — the touchable area has to stay
-// visible, so we pick its tone to CONTRAST whatever the pad is doing at its edge.
-// A dark pad gets a light wall; a bright pad keeps the deep dark one. Sampled from
-// the pad's own border, a few times a second.
-let padLum = 40;
-let lumTick = 0;
-function sampleEdge() {
-  if (!stage?.pixels || ++lumTick % 12) return;
-  const px = stage.pixels;
-  const W = stage.width;
-  const H = stage.height;
-  let sum = 0;
-  let n = 0;
-  const at = (x, y) => {
-    const i = (y * W + x) * 4;
-    sum += 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
-    n++;
-  };
-  const step = Math.max(4, Math.floor(W / 20));
-  for (let x = 0; x < W; x += step) {
-    at(x, 2);
-    at(x, H - 3);
-  }
-  for (let y = 0; y < H; y += step) {
-    at(2, y);
-    at(W - 3, y);
-  }
-  if (n) padLum += (sum / n - padLum) * 0.4; // ease, so the wall doesn't strobe
-}
-// The resting wall tone: light slate over a dark pad, deep slate over a bright one
-// — a clear step away from the pad's edge, and never pure black.
-const wallTone = () => (padLum < 82 ? [66, 72, 88] : [26, 28, 38]);
 
 // The soft CRT edge: rounded corners + a fuzzy border. Writing the display buffer
 // directly doesn't composite here (AC copies its own buffer after paint), but a
@@ -637,7 +625,7 @@ function frameFor(api, g, color) {
   if (!f) {
     f = bakeFrame(api, g, color);
     maskCache.set(k, f);
-    if (maskCache.size > 8) maskCache.delete(maskCache.keys().next().value);
+    if (maskCache.size > 20) maskCache.delete(maskCache.keys().next().value);
   }
   return f;
 }
