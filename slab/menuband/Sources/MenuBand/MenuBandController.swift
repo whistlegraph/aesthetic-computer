@@ -1444,12 +1444,17 @@ final class MenuBandController {
     func saveStoppedTakeToDesktop() -> URL? {
         guard let take = tape.eject() else { return nil }
         let src = take.file
-        // The album-art icon eject() stamped on the WAV → the .dmg file icon.
-        let cover = NSWorkspace.shared.icon(forFile: src.path)
+        // The generative album art eject() made → the artifact icon. Use the
+        // in-memory image directly; `icon(forFile:)` races the async icon write
+        // and hands back the stale generic .wav type icon (no cover art at all).
+        let cover = take.cover ?? NSWorkspace.shared.icon(forFile: src.path)
         let name = src.deletingPathExtension().lastPathComponent
-        // Include the sidecar .mid (editable notes for Ableton) in the release.
-        let extras = [take.midi].compactMap { $0 }
-        return TakeDMG.build(wav: src, extras: extras, name: name, coverIcon: cover)
+        // The take's files: WAV + the sidecar .mid (editable notes for Ableton).
+        let files = [src] + [take.midi].compactMap { $0 }
+        // Instant .mbtape (zip) first, then the mountable DMG a few seconds
+        // later — both land on the Desktop so they can be compared.
+        TakeDMG.buildMbtape(files: files, name: name, coverIcon: cover)
+        return TakeDMG.build(wav: src, extras: Array(files.dropFirst()), name: name, coverIcon: cover)
     }
 
     /// State-change observer. Drops the pins whenever the tape goes

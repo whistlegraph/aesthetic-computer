@@ -19,40 +19,43 @@ enum TakeDMG {
         let out = uniqueURL(desktop.appendingPathComponent("\(name).dmg"))
 
         let stage = fm.temporaryDirectory.appendingPathComponent("mbtake-\(UUID().uuidString)")
-        let rw = fm.temporaryDirectory.appendingPathComponent("mbtake-rw-\(UUID().uuidString).dmg")
-        defer { try? fm.removeItem(at: stage); try? fm.removeItem(at: rw) }
+        defer { try? fm.removeItem(at: stage) }
 
         do {
             try fm.createDirectory(at: stage, withIntermediateDirectories: true)
-            try fm.copyItem(at: wav, to: stage.appendingPathComponent(wav.lastPathComponent))
+            let stagedWav = stage.appendingPathComponent(wav.lastPathComponent)
+            try fm.copyItem(at: wav, to: stagedWav)
+            var staged = [stagedWav]
             for extra in extras {
-                try? fm.copyItem(at: extra, to: stage.appendingPathComponent(extra.lastPathComponent))
+                let dst = stage.appendingPathComponent(extra.lastPathComponent)
+                if (try? fm.copyItem(at: extra, to: dst)) != nil { staged.append(dst) }
             }
-            // .VolumeIcon.icns at the volume root is the fallback the OS reads
-            // when the custom-icon bit is set (we set it via NSWorkspace below).
+            // Stamp the album art onto the STAGED files (not the /tmp source).
+            // eject() stamps the source, but build() copies it immediately after
+            // — racing the async icon write, so the copy catches a truncated
+            // resource fork and the inner file shows the generic icon. Stamping
+            // here (no concurrent copy) writes the full fork, which hdiutil then
+            // preserves into the image.
+            if let cover = coverIcon {
+                for f in staged { NSWorkspace.shared.setIcon(cover, forFile: f.path, options: []) }
+            }
+            // Bundle our logo as the volume-root icon. (Shows as the volume icon
+            // on systems that honor .VolumeIcon.icns; harmless otherwise.)
             if let icns = Bundle.appResources.url(forResource: "AppIcon", withExtension: "icns") {
                 try? fm.copyItem(at: icns, to: stage.appendingPathComponent(".VolumeIcon.icns"))
             }
 
-            // 1) Read-write image from the staging folder.
-            guard run("/usr/bin/hdiutil",
-                      ["create", "-srcfolder", stage.path,
-                       "-volname", name, "-fs", "HFS+",
-                       "-format", "UDRW", "-ov", rw.path]) else { return nil }
-
-            // 2) Mount it, grab the mount point, brand the VOLUME with our logo.
-            guard let mount = attach(rw) else { return nil }
-            if let logo = appLogo() {
-                NSWorkspace.shared.setIcon(logo, forFile: mount, options: [])
-            }
-            _ = run("/usr/bin/hdiutil", ["detach", mount, "-quiet"])
-
-            // 3) Compress to the final read-only .dmg on the Desktop.
+            // ONE step: compressed read-only image straight from the folder.
+            // No mount → no stray Desktop volume, and ~1 hdiutil call instead of
+            // four (create RW → attach → detach → convert), so it's quick.
             try? fm.removeItem(at: out)
             guard run("/usr/bin/hdiutil",
-                      ["convert", rw.path, "-format", "UDZO", "-o", out.path]) else { return nil }
+                      ["create", "-srcfolder", stage.path, "-volname", name,
+                       "-fs", "HFS+", "-format", "UDZO", "-ov", "-quiet", out.path])
+            else { return nil }
 
-            // 4) The colorful album art on the .dmg FILE itself (Desktop icon).
+            // The album-art cover on the .dmg FILE itself (what shows on the
+            // Desktop / in Messages).
             if let cover = coverIcon {
                 NSWorkspace.shared.setIcon(cover, forFile: out.path, options: [])
             }
@@ -64,30 +67,24 @@ enum TakeDMG {
         }
     }
 
-    private static func appLogo() -> NSImage? {
-        if let icns = Bundle.appResources.url(forResource: "AppIcon", withExtension: "icns") {
-            return NSImage(contentsOf: icns)
+    /// Instant alternative to the DMG: a `.mbtape` — a stored (uncompressed)
+    /// zip of the take's files, written in milliseconds (no filesystem image,
+    /// no mount). Drags into Messages the same way; just not mountable. The
+    /// album-art cover goes on the .mbtape file.
+    @discardableResult
+    static func buildMbtape(files: [URL], name: String, coverIcon: NSImage?) -> URL? {
+        let fm = FileManager.default
+        let desktop = fm.urls(for: .desktopDirectory, in: .userDomainMask).first
+            ?? fm.homeDirectoryForCurrentUser.appendingPathComponent("Desktop")
+        let out = uniqueURL(desktop.appendingPathComponent("\(name).mbtape"))
+        try? fm.removeItem(at: out)
+        // zip -0 store (audio won't compress anyway), -j flat, -q quiet.
+        guard run("/usr/bin/zip", ["-0", "-j", "-q", out.path] + files.map { $0.path }) else { return nil }
+        if let cover = coverIcon {
+            NSWorkspace.shared.setIcon(cover, forFile: out.path, options: [])
         }
-        return NSImage(named: NSImage.applicationIconName)
-    }
-
-    /// Attach an image and return its mount point (parses hdiutil's plist-free
-    /// tabular output — the last field of the line naming a /Volumes path).
-    private static func attach(_ image: URL) -> String? {
-        let p = Process()
-        p.executableURL = URL(fileURLWithPath: "/usr/bin/hdiutil")
-        p.arguments = ["attach", image.path, "-nobrowse", "-noautoopen"]
-        let pipe = Pipe()
-        p.standardOutput = pipe
-        do { try p.run(); p.waitUntilExit() } catch { return nil }
-        guard p.terminationStatus == 0 else { return nil }
-        let out = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-        for line in out.split(separator: "\n") {
-            if let r = line.range(of: "/Volumes/") {
-                return String(line[r.lowerBound...]).trimmingCharacters(in: .whitespaces)
-            }
-        }
-        return nil
+        NSLog("MenuBand mbtape: \(out.path)")
+        return out
     }
 
     @discardableResult
@@ -104,11 +101,12 @@ enum TakeDMG {
     private static func uniqueURL(_ url: URL) -> URL {
         let fm = FileManager.default
         guard fm.fileExists(atPath: url.path) else { return url }
+        let ext = url.pathExtension
         let base = url.deletingPathExtension().lastPathComponent
         let dir = url.deletingLastPathComponent()
         var i = 2
         while true {
-            let candidate = dir.appendingPathComponent("\(base)-\(i).dmg")
+            let candidate = dir.appendingPathComponent("\(base)-\(i).\(ext)")
             if !fm.fileExists(atPath: candidate.path) { return candidate }
             i += 1
         }

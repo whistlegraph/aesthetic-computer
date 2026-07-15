@@ -281,6 +281,11 @@ final class MenuBandTape {
         let date: Date
         let duration: TimeInterval
         var midi: URL? = nil   // sidecar .mid of the notes played (if any)
+        // The generative album art (already stamped on `file`). Carried as the
+        // in-memory image so downstream artifact-building uses it DIRECTLY —
+        // never re-reading it off disk via `icon(forFile:)`, which races the
+        // async icon write and returns the stale generic type icon.
+        var cover: NSImage? = nil
     }
 
     // MIDI performance capture — note events (relative to record start) so a
@@ -528,7 +533,7 @@ final class MenuBandTape {
         }
 
         NSLog("MenuBandTape: ejected \(baseName).wav (\(duration) s, 4ch, \(events.count) midi ev) → \(url.path)")
-        let result = EjectResult(file: url, date: date, duration: duration, midi: midiURL)
+        let result = EjectResult(file: url, date: date, duration: duration, midi: midiURL, cover: icon)
         cachedEject = result
         return result
     }
