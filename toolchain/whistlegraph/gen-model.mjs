@@ -65,6 +65,8 @@ const crossTags = overrides.crossTags || {}; // srcCode → [alsoUnderCode, …]
 // { newCode: { title, from, by?, ids:[postId, …] } }. Each listed post drops its
 // `from` code and gains newCode; a fresh work is emitted from those posts.
 const splits = overrides.splits || {};
+// postEdits: per-post code surgery, keyed on post id. { id: {add:[…], remove:[…]} }
+const postEdits = overrides.postEdits || {};
 const mergeSources = new Set(Object.keys(merges));
 // Resolve a raw cluster code to the slug it appears under: apply a recode
 // (slug change) first, then a merge (fold into another work). Posts and the
@@ -219,6 +221,18 @@ for (const [newCode, spec] of Object.entries(splits)) {
     if (!p) { console.warn(`splits ${newCode}: post ${id} not found`); continue; }
     p.graphs = [...new Set([...p.graphs.filter((c) => c !== spec.from), newCode])];
   }
+}
+// postEdits: per-VIDEO surgery — one post's own code list, not a whole work.
+// { postId: { add:[code…], remove:[code…] } }. Runs last so it can reference
+// codes made by splits/twins. add = also appears under those works; remove =
+// drops from that work (removing every code orphans the post → shown nowhere).
+// Handles move (remove old + add new) in one entry.
+for (const [id, edit] of Object.entries(postEdits)) {
+  const p = postsById.get(id);
+  if (!p) { console.warn(`postEdits: post ${id} not found`); continue; }
+  const remove = new Set(edit.remove || []);
+  p.graphs = p.graphs.filter((c) => !remove.has(c));
+  for (const c of edit.add || []) if (!p.graphs.includes(c)) p.graphs.push(c);
 }
 const posts = [...postsById.values()].sort((a, b) => (b.views || 0) - (a.views || 0));
 
