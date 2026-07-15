@@ -49,7 +49,6 @@
 \usepackage{ragged2e}
 \usepackage{microtype}
 \usepackage{natbib}
-\usepackage[colorspec=0.92]{draftwatermark}
 
 % === COLORS ===
 \definecolor{acpink}{RGB}{180,72,135}
@@ -59,14 +58,9 @@
 \definecolor{acgreen}{RGB}{70,200,90}
 \definecolor{draftcolor}{RGB}{180,72,135}
 
-% === DRAFT WATERMARK ===
-\DraftwatermarkOptions{
-  text=WORKING DRAFT,
-  fontsize=3cm,
-  color=draftcolor!18,
-  angle=45,
-  pos={0.5\paperwidth, 0.5\paperheight}
-}
+% Draft status is carried by the running header and the title-page notice
+% below — no diagonal watermark (it interfered with two-column vertical
+% spacing, stretching short columns; keymaps carries none either).
 
 % === HYPERREF ===
 \hypersetup{
@@ -116,10 +110,15 @@
 \emergencystretch=1em
 \hyphenpenalty=50
 
-% Do not vertically justify columns to the bottom --- otherwise short
-% paragraphs (the platform entries in \S3) get their inter-paragraph glue
-% stretched, which reads as excessive space above the bold leads.
+% Two-column pages with figures often leave a column slightly short; let the
+% bottom go ragged instead of stretching interline/inter-paragraph glue (which
+% otherwise spreads a paragraph's own lines apart). Keep float separation
+% rigid so the space around figures does not inflate either.
 \raggedbottom
+\setlength{\textfloatsep}{16pt}
+\setlength{\floatsep}{14pt}
+\setlength{\intextsep}{14pt}
+
 
 \newcommand{\acdot}{{\color{acpink}.}}
 \newcommand{\ac}{\textsc{Aesthetic.Computer}}
@@ -161,6 +160,10 @@ A DJ dragging a record under a needle controls playback with a bandwidth the app
 \end{quote}
 \vspace{0.5em}
 }]
+
+% \twocolumn[...] (the title block) resets to \flushbottom; re-assert ragged
+% bottoms here so short columns beside a figure don't get their lines stretched.
+\raggedbottom
 
 \section{Introduction}
 
