@@ -1453,7 +1453,9 @@ final class MenuBandController {
         let extras = [take.midi].compactMap { $0 }
         // DMG only — the .mbtape (zip) alternative is dropped. `buildMbtape`
         // stays in TakeDMG if we ever want to flag it back on.
-        return TakeDMG.build(wav: src, extras: extras, name: name, coverIcon: cover)
+        let dmg = TakeDMG.build(wav: src, extras: extras, name: name, coverIcon: cover)
+        if dmg != nil { ReadyChime.shared.play() }   // cool "release" chime when the artifact lands
+        return dmg
     }
 
     /// State-change observer. Drops the pins whenever the tape goes

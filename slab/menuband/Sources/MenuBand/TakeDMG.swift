@@ -18,8 +18,13 @@ enum TakeDMG {
             ?? fm.homeDirectoryForCurrentUser.appendingPathComponent("Desktop")
         let out = uniqueURL(desktop.appendingPathComponent("\(name).dmg"))
 
-        let stage = fm.temporaryDirectory.appendingPathComponent("mbtake-\(UUID().uuidString)")
-        defer { try? fm.removeItem(at: stage) }
+        // Everything is built inside one temp work dir — staging AND the .dmg
+        // itself — so the Desktop never shows a half-written / cover-less file.
+        // Only the finished, cover-stamped artifact is moved onto the Desktop.
+        let work = fm.temporaryDirectory.appendingPathComponent("mbtake-\(UUID().uuidString)")
+        let stage = work.appendingPathComponent("stage")
+        let tmpDMG = work.appendingPathComponent("\(name).dmg")
+        defer { try? fm.removeItem(at: work) }
 
         do {
             try fm.createDirectory(at: stage, withIntermediateDirectories: true)
@@ -45,20 +50,25 @@ enum TakeDMG {
                 try? fm.copyItem(at: icns, to: stage.appendingPathComponent(".VolumeIcon.icns"))
             }
 
-            // ONE step: compressed read-only image straight from the folder.
-            // No mount → no stray Desktop volume, and ~1 hdiutil call instead of
-            // four (create RW → attach → detach → convert), so it's quick.
-            try? fm.removeItem(at: out)
+            // ONE step: compressed read-only image straight from the folder,
+            // written to the TEMP work dir (not the Desktop).
             guard run("/usr/bin/hdiutil",
                       ["create", "-srcfolder", stage.path, "-volname", name,
-                       "-fs", "HFS+", "-format", "UDZO", "-ov", "-quiet", out.path])
+                       "-fs", "HFS+", "-format", "UDZO", "-ov", "-quiet", tmpDMG.path])
             else { return nil }
 
-            // The album-art cover on the .dmg FILE itself (what shows on the
-            // Desktop / in Messages).
+            // Stamp the album-art cover on the temp .dmg, then wait for the icon
+            // write to actually land (NSWorkspace.setIcon flushes the resource
+            // fork asynchronously) so the file is COMPLETE before it moves.
             if let cover = coverIcon {
-                NSWorkspace.shared.setIcon(cover, forFile: out.path, options: [])
+                NSWorkspace.shared.setIcon(cover, forFile: tmpDMG.path, options: [])
+                waitForResourceFork(tmpDMG, minBytes: 4096, timeout: 1.5)
             }
+
+            // Move the finished, cover-stamped artifact onto the Desktop in one
+            // step — the Desktop only ever sees the completed record.
+            try? fm.removeItem(at: out)
+            try fm.moveItem(at: tmpDMG, to: out)
             NSLog("MenuBand TakeDMG: \(out.path)")
             return out
         } catch {
@@ -85,6 +95,22 @@ enum TakeDMG {
         }
         NSLog("MenuBand mbtape: \(out.path)")
         return out
+    }
+
+    /// Block (off the main thread) until a custom-icon resource fork of at least
+    /// `minBytes` has been written — `NSWorkspace.setIcon` flushes it
+    /// asynchronously, so this prevents moving a file whose icon is half-written.
+    private static func waitForResourceFork(_ url: URL, minBytes: Int, timeout: TimeInterval) {
+        let key = "com.apple.ResourceFork"
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            let size = url.withUnsafeFileSystemRepresentation { path -> Int in
+                guard let path = path else { return 0 }
+                return max(0, getxattr(path, key, nil, 0, 0, 0))
+            }
+            if size >= minBytes { return }
+            usleep(20_000)   // 20 ms
+        } while Date() < deadline
     }
 
     @discardableResult
