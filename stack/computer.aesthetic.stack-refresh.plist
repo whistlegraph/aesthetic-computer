@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Nightly stack-knowledge refresh. Install:
+       cp stack/computer.aesthetic.stack-refresh.plist ~/Library/LaunchAgents/
+       launchctl load ~/Library/LaunchAgents/computer.aesthetic.stack-refresh.plist
+     Run once now:  launchctl kickstart -k gui/$(id -u)/computer.aesthetic.stack-refresh
+     Disable:       launchctl unload ~/Library/LaunchAgents/computer.aesthetic.stack-refresh.plist
+     Only fires while the Mac is awake at the scheduled time. -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>computer.aesthetic.stack-refresh</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/sh</string>
+    <string>/Users/jas/aesthetic-computer/stack/nightly-refresh.sh</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key><integer>2</integer>
+    <key>Minute</key><integer>7</integer>
+  </dict>
+  <key>RunAtLoad</key>
+  <false/>
+  <key>StandardOutPath</key>
+  <string>/Users/jas/aesthetic-computer/stack/snapshots/refresh.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/jas/aesthetic-computer/stack/snapshots/refresh.log</string>
+</dict>
+</plist>
