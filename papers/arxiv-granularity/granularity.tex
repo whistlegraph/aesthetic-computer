@@ -195,7 +195,14 @@ The last piece is Buxton's. The richness of an interaction, he argues, tracks th
 
 It is worth being specific about how little the dominant platforms actually give you, because the poverty is easy to miss when you have never been offered anything better.
 
-\textbf{YouTube} offers discrete presets from 0.25$\times$ to 2$\times$, and, more recently, a "custom" slider that moves in 0.05 steps within that range~\citep{youtube2026speed}. This is the generous end of the consumer spectrum, and it is still a global multiplier with no gestural surface, no pitch control, and no coupling to the content: you set a number and the whole video obeys it. Scrubbing the timeline is separate from setting the speed, and neither one is expressive --- the scrub bar is a seek, not a performance.
+\textbf{YouTube} offers discrete presets from 0.25$\times$ to 2$\times$, and, more recently, a "custom" slider that moves in 0.05 steps within that range (Figure~\ref{fig:youtube})~\citep{youtube2026speed}. This is the generous end of the consumer spectrum, and it is still a global multiplier with no gestural surface, no pitch control, and no coupling to the content: you set a number and the whole video obeys it. Scrubbing the timeline is separate from setting the speed, and neither one is expressive --- the scrub bar is a seek, not a performance.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{figures/fig-youtube-speed}
+\caption{YouTube's playback-speed control, 2026 --- the generous end of the consumer spectrum. A slider that snaps to a row of presets ($1{\times}$ ``Normal'', $1.25$, $1.5$, $2$, and a Premium-gated $3.0$), applied globally to the whole video. There is no coupling to the content, no pitch to bend, and nothing continuous under the finger. The ``instrument'' is a list of numbers you pick from and release.}
+\label{fig:youtube}
+\end{figure}
 
 \textbf{Spotify} is the instructive case. For music --- the core of the product --- there is no speed control at all. Every track plays at 1.0$\times$, always, and years of it sitting among the most-requested items in the community forums have not changed it~\citep{spotify2026speed}. Speed adjustment exists only for podcasts and audiobooks, as a small set of increments from 0.5$\times$ to 3$\times$. The company that convinced the world to rent its music instead of owning it has decided that the one thing you may not do to a song is change how fast it moves.
 
@@ -230,7 +237,14 @@ Two details make it feel like an instrument rather than a control. First, it has
 
 \subsection{The dj piece is a turntable}
 
-\ac{} also ships an actual record. The \texttt{dj} piece (\texttt{disks/dj.mjs}) draws a platter spinning at 33\,1/3\,rpm with a needle on it, and you scratch it. The gesture is radial: the interface takes the angular change of your pointer around the center of the platter and turns it into a signed rate --- twist the record forward and it plays forward with the pitch riding up, wind it back and it reverses. There is a pitch fader, and a waveform strip you can needle-drop into. This is the turntablist's mapping from \S4 --- position to phase, velocity to rate and pitch --- rebuilt as a piece you can open by typing a word.
+\ac{} also ships an actual record (Figure~\ref{fig:acdj}). The \texttt{dj} piece (\texttt{disks/dj.mjs}) draws a platter spinning at 33\,1/3\,rpm with a needle on it, and you scratch it.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{figures/fig-ac-dj}
+\caption{The \ac{} \texttt{dj} piece --- a scratchable record on a screen that has no record on it. The grooved platter turns under a tonearm and needle; dragging it radially bends pitch and rate in real time, and the label waits for a track (\texttt{drop an audio file / or: dj:https://url.mp3}). The transport strip at the bottom ($-$, \textsc{play}, $+$, $1{\times}$) is the fallback --- but it is the record, not the readout, that you play.}
+\label{fig:acdj}
+\end{figure} The gesture is radial: the interface takes the angular change of your pointer around the center of the platter and turns it into a signed rate --- twist the record forward and it plays forward with the pitch riding up, wind it back and it reverses. There is a pitch fader, and a waveform strip you can needle-drop into. This is the turntablist's mapping from \S4 --- position to phase, velocity to rate and pitch --- rebuilt as a piece you can open by typing a word.
 
 I will be honest about the seam, because the two versions differ. In the browser, the audio backend cannot truly run in reverse, so forward drags are audibly pitch-bent while backward drags scrub by seeking silently --- vinyl-ish, within the limits of a web audio element, and the code says so in its own comments. The \ac{} native build has no such limit: it scratches a bespoke C audio deck that runs genuinely bidirectionally, clamped to $\pm4\times$, mixing a fractional ring-buffer read with interpolation so reverse playback is real sound, not a silent seek. So the web \texttt{dj} is an honest approximation and the native one is the real thing --- but both put a scratchable record on a screen that has no record on it.
 
@@ -250,7 +264,14 @@ Here is the false version: \emph{nobody offers this}. They do. HCI research ship
 
 So here is the claim that actually survives, and it is sharper than the one it replaces. The instrument exists everywhere except the one place most listening and watching happens: the default transport bar of the surfaces you passively consume through. It is always walled off into a \emph{separate} app --- a DJ tool, a practice tool --- that you leave your feed to open, never offered as the way you touch the recording you came to hear. And when someone tried to bring it inside, the incumbent shut the door: \emph{Pacemaker} shipped native, Spotify-integrated mixing to a mainstream audience, and Spotify revoked the DJ API that made it possible~\citep{pacemaker2018}. That is not a market being served. It is the exact structural refusal this paper is about, caught in the act.
 
-That refusal is the shape of the opening. The enabling technology --- pitch-preserving stretch, low-latency audio, continuous multi-touch input --- is a commodity available to anyone. The demand is visibly unmet even in its crudest form: for years, one of the most-requested items on Spotify's own forums has been \emph{any} speed control for music, and the answer has stayed no~\citep{spotify2026speed}. People are asking for a worse version of the thing this paper describes and cannot get even that. The first \emph{default transport} to treat playback as an instrument --- continuous, gestural, felt, with the media as its own feedback --- would not be competing on a feature. It would be offering a different relationship to recorded sound and image than the incumbents, locked by catalog licensing and a decade of frozen UI, have been willing to build.
+That refusal is the shape of the opening. The enabling technology --- pitch-preserving stretch, low-latency audio, continuous multi-touch input --- is a commodity available to anyone. The demand is visibly unmet even in its crudest form: for years, one of the most-requested items on Spotify's own forums has been \emph{any} speed control for music, and the answer has stayed no (Figure~\ref{fig:spotify})~\citep{spotify2026speed}.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.88\textwidth]{figures/fig-spotify-demand}
+\caption{Demand and refusal in one frame, from Spotify's own Idea Exchange. The request is only for the \emph{crude} version --- \emph{any} speed control for music --- and it has 666 votes, citing an older thread with 573. Its status is ``Not Right Now,'' and Spotify's response marks the idea \emph{Case Closed} because that status ``hasn't changed in over 3 years.'' Whatever the actual reason --- catalog licensing, artist relations, or plain deprioritization; the platform does not say --- the answer is not ``impossible.'' It is ``no.'' This is the structural refusal the paper is about, in the incumbent's own words.}
+\label{fig:spotify}
+\end{figure*} People are asking for a worse version of the thing this paper describes and cannot get even that. The first \emph{default transport} to treat playback as an instrument --- continuous, gestural, felt, with the media as its own feedback --- would not be competing on a feature. It would be offering a different relationship to recorded sound and image than the incumbents, locked by catalog licensing and a decade of frozen UI, have been willing to build.
 
 \section{Limitations}
 
