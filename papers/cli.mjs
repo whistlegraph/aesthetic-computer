@@ -266,6 +266,11 @@ const PAPER_MAP = {
     siteName: "nom-games-26-arxiv",
     title: "The nom Games",
   },
+  "arxiv-granularity": {
+    base: "granularity",
+    siteName: "gaps-in-granularity-26-arxiv",
+    title: "Gaps in Granularity",
+  },
   "arxiv-cal": {
     base: "cal",
     siteName: "cal-aesthetical-26-arxiv",
@@ -446,6 +451,7 @@ const CATEGORIES = [
       "arxiv-score-analysis",
       "arxiv-comp-strats",
       "arxiv-nom",
+      "arxiv-granularity",
       "essay-may-26",
       "essay-june-26",
       "essay-july-4-26",
