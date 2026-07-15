@@ -72,7 +72,6 @@ let move = null; // { dx, dy, off, live, anim, from, to, frame }
 const now = () => Date.now();
 const key = (p) => `${p.x},${p.y}`;
 const current = () => world.get(key(pos));
-const EASE = (t) => 1 - Math.pow(1 - t, 3);
 
 // The screen-within-the-screen. A deep margin of wall on every side.
 function glass(w, h) {
@@ -317,7 +316,7 @@ async function beginMove(api, dx, dy) {
     }
     cells.push({ rdx, rdy, key: k, cell, frame: null });
   }
-  move = { dx, dy, ox: 0, oy: 0, live: true, anim: 0, fromx: 0, fromy: 0, tox: 0, toy: 0, commit: false, cells };
+  move = { dx, dy, ox: 0, oy: 0, vx: 0, vy: 0, lastOx: 0, lastOy: 0, live: true, tox: 0, toy: 0, commit: false, cells };
 }
 
 // You let go. If you pulled past the doorway on either axis, finish the slide and
@@ -328,14 +327,18 @@ function releaseMove(api, g) {
   const pitchY = g.h + 2 * g.m;
   const fx = move.dx ? Math.abs(move.ox) / pitchX : 0;
   const fy = move.dy ? Math.abs(move.oy) / pitchY : 0;
-  const past = Math.max(fx, fy) > 0.2;
+  // Commit if you pulled far enough OR flicked — a quick throw carries through even
+  // when you didn't drag all the way. This is what makes a flick feel like a flick.
+  const flick =
+    (move.dx && Math.sign(move.vx) === Math.sign(-move.dx) && Math.abs(move.vx) > 4) ||
+    (move.dy && Math.sign(move.vy) === Math.sign(-move.dy) && Math.abs(move.vy) > 4);
+  const past = Math.max(fx, fy) > 0.18 || flick;
   move.live = false;
-  move.fromx = move.ox;
-  move.fromy = move.oy;
   move.tox = past ? -move.dx * pitchX : 0;
   move.toy = past ? -move.dy * pitchY : 0;
   move.commit = past;
-  move.anim = 0.0001;
+  // vx/vy are carried from the drag — the spring in sim continues that motion
+  // instead of restarting, so there's no lurch on release.
 }
 
 // The slide finished on a commit: fire the verdict, freeze this room, step into
@@ -382,13 +385,34 @@ function sim(api) {
       error = String(e?.message || e);
     }
   }
-  // Ease a released move home — both axes at once, so a diagonal lands true.
+  if (pressT > 0) pressT -= 0.06; // the tapped label's flash fades
+
+  // While you're dragging, remember how fast the room is moving — that velocity is
+  // what a natural release should carry.
+  if (move && move.live) {
+    move.vx = move.ox - move.lastOx;
+    move.vy = move.oy - move.lastOy;
+    move.lastOx = move.ox;
+    move.lastOy = move.oy;
+  }
+
+  // After you let go, a spring pulls the room home — it keeps your finger's
+  // momentum, overshoots a hair on a fast throw, and eases in soft on a slow one.
+  // Organic, not a fixed-length slide that lurches from wherever you released.
   if (move && !move.live) {
-    move.anim += 0.09;
-    const e = EASE(Math.min(1, move.anim));
-    move.ox = move.fromx + (move.tox - move.fromx) * e;
-    move.oy = move.fromy + (move.toy - move.fromy) * e;
-    if (move.anim >= 1) {
+    const K = 0.12; // stiffness
+    const D = 0.78; // damping — under 1 so a flick can overshoot and settle
+    move.vx = (move.vx + (move.tox - move.ox) * K) * D;
+    move.vy = (move.vy + (move.toy - move.oy) * K) * D;
+    move.ox += move.vx;
+    move.oy += move.vy;
+    const settled =
+      Math.abs(move.tox - move.ox) < 0.6 &&
+      Math.abs(move.toy - move.oy) < 0.6 &&
+      Math.hypot(move.vx, move.vy) < 0.6;
+    if (settled) {
+      move.ox = move.tox;
+      move.oy = move.toy;
       if (move.commit) step(api);
       else move = null;
     }
@@ -473,8 +497,44 @@ function paint(api) {
     api.paste(frame, sx, sy); // round the corners, feather the edge, draw the rim
   }
 
+  // The 8-way control surface, on the wall: each direction's key + arrow, lit when
+  // you hover or take it. Hidden mid-pull — you're already navigating then.
+  if (!move) controls(api, g, w, h);
+
   // The name isn't drawn here anymore — it arrives as AC's own frontal notice each
   // time you enter a room (see mount), the same alert that announces a saved handle.
+}
+
+// A little arrow, drawn (not typed — the font has no arrow glyphs). A shaft from
+// the zone center outward, and a two-line head at the tip.
+function arrow(ink, cx, cy, dx, dy, s, col, a) {
+  const L = Math.hypot(dx, dy) || 1;
+  const nx = dx / L;
+  const ny = dy / L;
+  const tx = cx + nx * s;
+  const ty = cy + ny * s;
+  ink(...col, a).line(cx - nx * s, cy - ny * s, tx, ty);
+  const hx = nx * 4;
+  const hy = ny * 4;
+  const pxp = -ny * 3;
+  const pyp = nx * 3;
+  ink(...col, a).line(tx, ty, tx - hx + pxp, ty - hy + pyp);
+  ink(...col, a).line(tx, ty, tx - hx - pxp, ty - hy - pyp);
+}
+
+// The wall's D-pad. Eight small labels — an arrow and the QWERTY key — one per
+// border zone. Brightens under the pointer (hover) and flashes when taken.
+function controls({ ink, write }, g, w, h) {
+  for (const d of DIRS) {
+    const [cx, cy] = zoneCenter(d, g, w, h);
+    const on = hover === d;
+    const lit = pressed === d ? pressT : 0;
+    const a = Math.round(90 + on * 110 + lit * 60);
+    const col = pressed === d ? OK : on ? RIM : [120, 128, 148];
+    arrow(ink, cx, cy - 3, d.dx, d.dy, 6, col, a);
+    ink(0, 0, 0, a * 0.5).write(d.k.toUpperCase(), { x: cx - 2, y: cy + 4 });
+    ink(...col, a).write(d.k.toUpperCase(), { x: cx - 3, y: cy + 3 });
+  }
 }
 
 // The wall must never vanish into the pad — the touchable area has to stay
@@ -585,6 +645,33 @@ function onGlass(e, g) {
 }
 
 let grab = null; // a wall drag before it has picked an axis: { sx, sy }
+let hover = null; // the direction zone under the pointer, for the hover glow
+let pressed = null; // the direction just taken, briefly lit as feedback
+let pressT = 0;
+
+// The eight ways out, as a 9-patch on the QWERTY keys — the cluster around S, so
+// your hand never leaves home row. Each also names the wall zone (which third of
+// the border) you tap to go that way, and the arrow that points there.
+const DIRS = [
+  { k: "q", dx: -1, dy: -1, zx: -1, zy: -1 }, // ↖ NW
+  { k: "w", dx: 0, dy: -1, zx: 0, zy: -1 }, //  ↑ N
+  { k: "e", dx: 1, dy: -1, zx: 1, zy: -1 }, //  ↗ NE
+  { k: "a", dx: -1, dy: 0, zx: -1, zy: 0 }, //  ← W
+  { k: "d", dx: 1, dy: 0, zx: 1, zy: 0 }, //   → E
+  { k: "z", dx: -1, dy: 1, zx: -1, zy: 1 }, //  ↙ SW
+  { k: "x", dx: 0, dy: 1, zx: 0, zy: 1 }, //   ↓ S
+  { k: "c", dx: 1, dy: 1, zx: 1, zy: 1 }, //   ↘ SE
+];
+const zoneAt = (x, y, g) => {
+  const zx = x < g.x ? -1 : x >= g.x + g.w ? 1 : 0;
+  const zy = y < g.y ? -1 : y >= g.y + g.h ? 1 : 0;
+  if (!zx && !zy) return null; // on the glass — that's the pad's
+  return DIRS.find((d) => d.zx === zx && d.zy === zy);
+};
+const zoneCenter = (d, g, w, h) => [
+  d.zx < 0 ? g.x / 2 : d.zx > 0 ? (g.x + g.w + w) / 2 : g.x + g.w / 2,
+  d.zy < 0 ? g.y / 2 : d.zy > 0 ? (g.y + g.h + h) / 2 : g.y + g.h / 2,
+];
 
 function act(api) {
   const { event: e } = api;
@@ -592,6 +679,12 @@ function act(api) {
   const w = api.screen.width;
   const h = api.screen.height;
   const g = glass(w, h);
+
+  // Hover: the pointer moving over a wall zone lights that direction's label.
+  if (e.is("move")) {
+    hover = grab || move ? null : zoneAt(e.x ?? -1, e.y ?? -1, g);
+    return;
+  }
 
   if (e.is("touch")) {
     if (move && !move.live) return; // mid-snap, wait
@@ -656,31 +749,41 @@ function act(api) {
   }
 
   if (e.is("lift")) {
-    if (move && move.live) releaseMove(api, g);
+    if (move && move.live) {
+      releaseMove(api, g);
+    } else if (grab && !grab.started) {
+      // A tap on the wall that never became a drag: walk the zone you tapped.
+      const d = zoneAt(grab.sx, grab.sy, g);
+      if (d) tap(api, d, g);
+    }
     grab = null;
     return;
   }
 
-  // Keys walk too — instant, no follow. The destination lands centered when the
-  // window slides to (-dx*w, -dy*h).
-  const keyWalk = (dx, dy) => {
-    if (move) return;
-    beginMove(api, dx, dy).then(() => {
-      if (!move) return;
-      grabFrames(api, move.cells);
-      move.live = false;
-      move.fromx = 0;
-      move.fromy = 0;
-      move.tox = -dx * (g.w + 2 * g.m);
-      move.toy = -dy * (g.h + 2 * g.m);
-      move.commit = true;
-      move.anim = 0.0001;
-    });
-  };
-  if (e.is("keyboard:down:arrowright")) return keyWalk(1, 0);
-  if (e.is("keyboard:down:arrowleft")) return keyWalk(-1, 0);
-  if (e.is("keyboard:down:arrowdown")) return keyWalk(0, 1);
-  if (e.is("keyboard:down:arrowup")) return keyWalk(0, -1);
+  // The QWERTY 9-patch and the arrow keys — same eight walks.
+  for (const d of DIRS) {
+    if (e.is(`keyboard:down:${d.k}`)) return tap(api, d, g);
+  }
+  if (e.is("keyboard:down:arrowright")) return tap(api, DIRS[4], g); // d / E
+  if (e.is("keyboard:down:arrowleft")) return tap(api, DIRS[3], g); // a / W
+  if (e.is("keyboard:down:arrowdown")) return tap(api, DIRS[6], g); // x / S
+  if (e.is("keyboard:down:arrowup")) return tap(api, DIRS[1], g); // w / N
+}
+
+// Take a direction by tap or key — instant, no finger-follow. The spring animates
+// it from rest, so it eases in organically, and the label flashes as feedback.
+function tap(api, d, g) {
+  if (move) return;
+  pressed = d;
+  pressT = 1;
+  beginMove(api, d.dx, d.dy).then(() => {
+    if (!move) return;
+    grabFrames(api, move.cells);
+    move.live = false;
+    move.tox = -d.dx * (g.w + 2 * g.m);
+    move.toy = -d.dy * (g.h + 2 * g.m);
+    move.commit = true;
+  });
 }
 
 function leave(api) {
