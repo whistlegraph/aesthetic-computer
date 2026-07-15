@@ -74,7 +74,9 @@
     "phon": "Alex Freundlich",
     "buny": "Jeffrey Alan Scudder",
     "pyrm": "Jeffrey Alan Scudder",
-    "flwr": "Jeffrey Alan Scudder"
+    "flwr": "Jeffrey Alan Scudder",
+    "ngst": "Sage Jenson",
+    "flwe": "Jeffrey Alan Scudder"
   },
   "recodes": {
     "cdh": "bugy",
@@ -164,7 +166,8 @@
     "wtfd": "kity",
     "tear": "lost",
     "cosp": "imab",
-    "chalk": "well"
+    "chalk": "well",
+    "mystf": "flwe"
   },
   "splits": {
     "lost": {
@@ -199,7 +202,7 @@
       ]
     },
     "ngst": {
-      "title": "Nerd Ghost by Sage",
+      "title": "Nerd Ghost",
       "from": "ghst",
       "ids": [
         "6947173087985126661"
