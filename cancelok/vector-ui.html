@@ -1,0 +1,203 @@
+<!doctype html>
+<!-- vector-ui.html — a standalone sandbox for the crisp Canvas-2D version of the
+     cancelok interface. NOT wired into AC; this is the "what would the vector layer
+     look like" prototype, so we can design the look before touching the bios render
+     loop. Open it directly in a browser. Everything is native Canvas 2D: real
+     rounded rects, gradients, soft shadows, anti-aliased text. -->
+<meta charset="utf8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+<title>ganny — vector UI sandbox</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0b0d12; overflow: hidden; touch-action: none; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+</style>
+<canvas id="c"></canvas>
+<script>
+const cv = document.getElementById("c");
+const ctx = cv.getContext("2d");
+let W, H, dpi;
+function resize() {
+  dpi = Math.min(2, window.devicePixelRatio || 1);
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = W * dpi; cv.height = H * dpi;
+  ctx.setTransform(dpi, 0, 0, dpi, 0, 0);
+}
+addEventListener("resize", resize); resize();
+
+// —— the eight ways out, a compass colour wheel ——
+const DIRS = [
+  { k: "W", dx: 0, dy: -1, zx: 0, zy: -1, col: "#ff3232" },
+  { k: "E", dx: 1, dy: -1, zx: 1, zy: -1, col: "#ff9600" },
+  { k: "D", dx: 1, dy: 0, zx: 1, zy: 0, col: "#ebdc00" },
+  { k: "C", dx: 1, dy: 1, zx: 1, zy: 1, col: "#3cd246" },
+  { k: "X", dx: 0, dy: 1, zx: 0, zy: 1, col: "#00c8d2" },
+  { k: "Z", dx: -1, dy: 1, zx: -1, zy: 1, col: "#3c78ff" },
+  { k: "A", dx: -1, dy: 0, zx: -1, zy: 0, col: "#9646eb" },
+  { k: "Q", dx: -1, dy: -1, zx: -1, zy: -1, col: "#e650eb" },
+];
+
+// A pad's signature colour, from a name — the room hue.
+function padHue(name) {
+  let h = 0; for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return h % 360;
+}
+const ROOMS = ["ganny", "wispo", "drolo", "velsor", "molten", "plax", "voop", "gloob", "torva"];
+let roomIdx = 0;
+
+let pos = { x: 0, y: 0 };
+let ox = 0, oy = 0, vx = 0, vy = 0, tox = 0, toy = 0, moving = false, dirv = { dx: 0, dy: 0 };
+let hover = null, pressed = null, pressT = 0;
+let t = 0;
+
+const glass = () => {
+  const m = Math.max(28, Math.round(Math.min(W, H) * 0.13));
+  return { x: m, y: m, w: W - 2 * m, h: H - 2 * m, m };
+};
+const zoneRect = (d, g) => {
+  const x0 = d.zx < 0 ? 0 : d.zx > 0 ? g.x + g.w : g.x;
+  const x1 = d.zx < 0 ? g.x : d.zx > 0 ? W : g.x + g.w;
+  const y0 = d.zy < 0 ? 0 : d.zy > 0 ? g.y + g.h : g.y;
+  const y1 = d.zy < 0 ? g.y : d.zy > 0 ? H : g.y + g.h;
+  return [x0, y0, x1 - x0, y1 - y0];
+};
+const zoneAt = (px, py, g) => {
+  const zx = px < g.x ? -1 : px >= g.x + g.w ? 1 : 0;
+  const zy = py < g.y ? -1 : py >= g.y + g.h ? 1 : 0;
+  if (!zx && !zy) return null;
+  return DIRS.find((d) => d.zx === zx && d.zy === zy);
+};
+
+function rr(x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+// A placeholder "pad" — a living gradient, standing in for a real instrument.
+function paintPad(g, hue, phase) {
+  ctx.save();
+  rr(g.x, g.y, g.w, g.h, 26); ctx.clip();
+  const grad = ctx.createLinearGradient(g.x, g.y, g.x + g.w, g.y + g.h);
+  grad.addColorStop(0, `hsl(${hue},70%,22%)`);
+  grad.addColorStop(1, `hsl(${(hue + 60) % 360},70%,12%)`);
+  ctx.fillStyle = grad; ctx.fillRect(g.x, g.y, g.w, g.h);
+  for (let i = 0; i < 5; i++) {
+    const a = phase + i * 1.2;
+    const cx = g.x + g.w * (0.5 + 0.3 * Math.cos(a));
+    const cy = g.y + g.h * (0.5 + 0.3 * Math.sin(a * 1.3));
+    const r = Math.min(g.w, g.h) * (0.12 + 0.05 * Math.sin(a * 2));
+    const rad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    rad.addColorStop(0, `hsla(${(hue + i * 40) % 360},90%,65%,0.9)`);
+    rad.addColorStop(1, `hsla(${(hue + i * 40) % 360},90%,65%,0)`);
+    ctx.fillStyle = rad; ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function frame(g, hue) {
+  // soft outer shadow
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,0.6)"; ctx.shadowBlur = 24; ctx.shadowOffsetY = 6;
+  ctx.fillStyle = "#0b0d12"; rr(g.x - 1, g.y - 1, g.w + 2, g.h + 2, 27); ctx.fill();
+  ctx.restore();
+  // the lit rim, in the room hue
+  ctx.strokeStyle = `hsl(${hue},60%,62%)`; ctx.lineWidth = 2;
+  rr(g.x, g.y, g.w, g.h, 26); ctx.stroke();
+  ctx.strokeStyle = "rgba(255,255,255,0.12)"; ctx.lineWidth = 1;
+  rr(g.x + 2, g.y + 2, g.w - 4, g.h - 4, 24); ctx.stroke();
+}
+
+function draw() {
+  t += 1;
+  if (pressT > 0) pressT -= 0.05;
+  // spring
+  if (moving) {
+    vx = (vx + (tox - ox) * 0.09) * 0.62;
+    vy = (vy + (toy - oy) * 0.09) * 0.62;
+    ox += vx; oy += vy;
+    if (Math.abs(tox - ox) < 0.6 && Math.abs(toy - oy) < 0.6 && Math.hypot(vx, vy) < 0.6) {
+      ox = 0; oy = 0; vx = 0; vy = 0; moving = false;
+      roomIdx = (roomIdx + dirv.dx + dirv.dy * 2 + ROOMS.length * 4) % ROOMS.length;
+    }
+  }
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = "#0b0d12"; ctx.fillRect(0, 0, W, H);
+  const g = glass();
+
+  // the coloured compass background tiles
+  for (const d of DIRS) {
+    let [zx, zy, zw, zh] = zoneRect(d, g);
+    const gap = 4; zx += gap; zy += gap; zw -= gap * 2; zh -= gap * 2;
+    const on = hover === d, lit = pressed === d ? pressT : 0;
+    ctx.globalAlpha = 0.32 + (on ? 0.4 : 0) + lit * 0.5;
+    ctx.fillStyle = d.col; rr(zx, zy, zw, zh, 12); ctx.fill();
+    ctx.globalAlpha = 1;
+    // arrow
+    ctx.save();
+    const [cx, cy] = [zx + zw / 2, zy + zh / 2 - 5];
+    ctx.strokeStyle = on || lit ? "#fff" : "rgba(255,255,255,0.85)";
+    ctx.lineWidth = 2; ctx.lineCap = "round";
+    const L = Math.hypot(d.dx, d.dy), nx = d.dx / L, ny = d.dy / L, s = 7;
+    ctx.beginPath();
+    ctx.moveTo(cx - nx * s, cy - ny * s); ctx.lineTo(cx + nx * s, cy + ny * s);
+    ctx.moveTo(cx + nx * s, cy + ny * s); ctx.lineTo(cx + nx * s - nx * 5 - ny * 4, cy + ny * s - ny * 5 + nx * 4);
+    ctx.moveTo(cx + nx * s, cy + ny * s); ctx.lineTo(cx + nx * s - nx * 5 + ny * 4, cy + ny * s - ny * 5 - nx * 4);
+    ctx.stroke();
+    ctx.restore();
+    // label — crisp anti-aliased text
+    ctx.fillStyle = on || lit ? "#fff" : "rgba(255,255,255,0.85)";
+    ctx.font = "600 12px ui-monospace, monospace";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(d.k, zx + zw / 2, zy + zh / 2 + 8);
+  }
+
+  // the room(s). current + the neighbor you're heading toward.
+  const px = g.w + 2 * g.m, py = g.h + 2 * g.m;
+  const hue = padHue(ROOMS[roomIdx]);
+  const drawRoom = (offx, offy, name) => {
+    const gg = { x: g.x + offx, y: g.y + offy, w: g.w, h: g.h, m: g.m };
+    const hh = padHue(name);
+    paintPad(gg, hh, t * 0.02);
+    frame(gg, hh);
+  };
+  if (moving) {
+    const nIdx = (roomIdx + dirv.dx + dirv.dy * 2 + ROOMS.length * 4) % ROOMS.length;
+    drawRoom(ox + dirv.dx * px, oy + dirv.dy * py, ROOMS[nIdx]);
+  }
+  drawRoom(ox, oy, ROOMS[roomIdx]);
+
+  // the room name — crisp, front and centre, fading
+  if (!moving) {
+    ctx.fillStyle = "#fff"; ctx.font = "700 22px ui-monospace, monospace";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.save(); ctx.shadowColor = "rgba(0,0,0,0.7)"; ctx.shadowBlur = 8;
+    ctx.fillText(ROOMS[roomIdx], W / 2, g.y + g.h / 2);
+    ctx.restore();
+  }
+
+  requestAnimationFrame(draw);
+}
+
+function walk(d) {
+  if (moving || !d) return;
+  const px = glass().w + 2 * glass().m, py = glass().h + 2 * glass().m;
+  dirv = { dx: d.dx, dy: d.dy };
+  tox = -d.dx * px; toy = -d.dy * py; moving = true;
+  pressed = d; pressT = 1;
+}
+
+addEventListener("mousemove", (e) => { hover = moving ? null : zoneAt(e.clientX, e.clientY, glass()); });
+addEventListener("mousedown", (e) => { const d = zoneAt(e.clientX, e.clientY, glass()); if (d) walk(d); });
+addEventListener("keydown", (e) => {
+  const d = DIRS.find((z) => z.k.toLowerCase() === e.key.toLowerCase());
+  if (d) walk(d);
+  const arrows = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
+  if (arrows[e.key]) walk(DIRS.find((z) => z.dx === arrows[e.key][0] && z.dy === arrows[e.key][1]));
+});
+draw();
+</script>
