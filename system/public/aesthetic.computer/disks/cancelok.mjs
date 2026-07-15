@@ -489,26 +489,30 @@ function paint(api) {
     }
   }
 
-  // The wall takes the CURRENT room's colour — its whole margin is that pad's hue,
-  // so you're always sitting inside the colour of where you are. Lit a touch while
-  // you pull. Never pure black.
+  // The background IS the compass: each of the eight margin zones is dyed its
+  // direction's colour, so the wall around you is a colour-coded D-pad — north
+  // reads red up top, east yellow to the right, and so on, always in the same
+  // place. Dark, so the pad still pops; never pure black.
   const swiping = !!grab || !!move;
-  const cur = current();
-  wipe(...padColor(cur?.code, swiping));
+  wipe(...WALL);
+  for (const d of DIRS) {
+    const [zx, zy, zw, zh] = zoneRect(d, g, w, h);
+    ink(...bezelTone(d.col, swiping)).box(zx, zy, zw, zh);
+  }
 
-  // The web. Every room is its own framed puddle in ITS OWN colour, and each one
-  // carries its frame WITH it — so dragging pulls the whole web across the grid,
-  // and the neighbors you're heading toward show their colours as they arrive.
+  // The web. Every room is its own framed puddle, carrying its frame WITH it — so a
+  // drag pulls the whole web across the grid. The frame is neutral so the coloured
+  // compass behind it stays the star.
   const ax = move ? move.ox : 0;
   const ay = move ? move.oy : 0;
   const px = g.w + 2 * g.m; // one cell across
   const py = g.h + 2 * g.m;
+  const frame = frameFor(api, g, WALL);
 
-  const rooms = [{ rdx: 0, rdy: 0, content: hostFailed ? null : stage, code: cur?.code }];
+  const rooms = [{ rdx: 0, rdy: 0, content: hostFailed ? null : stage }];
   if (move) {
     grabFrames(api, move.cells);
-    for (const c of move.cells)
-      rooms.push({ rdx: c.rdx, rdy: c.rdy, content: c.frame, code: c.cell?.code });
+    for (const c of move.cells) rooms.push({ rdx: c.rdx, rdy: c.rdy, content: c.frame });
   }
   for (const r of rooms) {
     const sx = Math.round(g.x + ax + r.rdx * px);
@@ -518,7 +522,7 @@ function paint(api) {
       ink(...WALL).box(sx, sy, g.w, g.h);
       ink(...NO).write("didn't run", { x: sx + g.w / 2 - 30, y: sy + g.h / 2 - 8 });
     }
-    api.paste(frameFor(api, g, padColor(r.code, swiping)), sx, sy); // its coloured bezel
+    api.paste(frame, sx, sy); // round the corners, feather the edge, draw the rim
   }
 
   // The 8-way control surface, on the wall: each direction's key + arrow, lit when
@@ -668,6 +672,20 @@ const zoneCenter = (d, g, w, h) => [
   d.zx < 0 ? g.x / 2 : d.zx > 0 ? (g.x + g.w + w) / 2 : g.x + g.w / 2,
   d.zy < 0 ? g.y / 2 : d.zy > 0 ? (g.y + g.h + h) / 2 : g.y + g.h / 2,
 ];
+// The wall rectangle for a zone — the third of the border on that side/corner.
+const zoneRect = (d, g, w, h) => {
+  const x0 = d.zx < 0 ? 0 : d.zx > 0 ? g.x + g.w : g.x;
+  const x1 = d.zx < 0 ? g.x : d.zx > 0 ? w : g.x + g.w;
+  const y0 = d.zy < 0 ? 0 : d.zy > 0 ? g.y + g.h : g.y;
+  const y1 = d.zy < 0 ? g.y : d.zy > 0 ? h : g.y + g.h;
+  return [x0, y0, x1 - x0, y1 - y0];
+};
+// A direction's colour dimmed to a background bezel — rich but not blinding, lit a
+// touch brighter while you're pulling.
+const bezelTone = (c, bright) => {
+  const f = bright ? 0.5 : 0.36;
+  return [Math.round(c[0] * f), Math.round(c[1] * f), Math.round(c[2] * f)];
+};
 
 function act(api) {
   const { event: e } = api;
