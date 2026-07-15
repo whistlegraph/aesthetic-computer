@@ -578,18 +578,18 @@ function arrow(ink, cx, cy, dx, dy, s, col, a) {
 
 // The wall's D-pad. Eight small labels — an arrow and the QWERTY key — one per
 // border zone. Brightens under the pointer (hover) and flashes when taken.
-function controls({ ink, write }, g, w, h) {
+function controls({ ink }, g, w, h) {
   for (const d of DIRS) {
     const [cx, cy] = zoneCenter(d, g, w, h);
     const on = hover === d;
     const lit = pressed === d ? pressT : 0;
-    const a = Math.round(150 + on * 90 + lit * 90);
-    // The direction's own colour, brightened when hovered or just taken.
-    const b = on || lit ? 55 : 0;
-    const col = [Math.min(255, d.col[0] + b), Math.min(255, d.col[1] + b), Math.min(255, d.col[2] + b)];
-    arrow(ink, cx, cy - 3, d.dx, d.dy, 6, col, a);
-    ink(0, 0, 0, a * 0.5).write(d.k.toUpperCase(), { x: cx - 2, y: cy + 4 });
-    ink(...col, a).write(d.k.toUpperCase(), { x: cx - 3, y: cy + 3 });
+    const a = Math.round(180 + on * 75 + lit * 75);
+    // Light on the coloured tile — the tile carries the hue, the label just has to
+    // read. MatrixChunky8 is the crisp little bitmap font the muncher games use.
+    const col = on || lit ? [255, 255, 255] : [222, 228, 240];
+    arrow(ink, cx, cy - 4, d.dx, d.dy, 5, col, a);
+    ink(0, 0, 0, a * 0.45).write(d.k.toUpperCase(), { x: cx - 1, y: cy + 3 }, undefined, undefined, undefined, "MatrixChunky8");
+    ink(...col, a).write(d.k.toUpperCase(), { x: cx - 2, y: cy + 2 }, undefined, undefined, undefined, "MatrixChunky8");
   }
 }
 
