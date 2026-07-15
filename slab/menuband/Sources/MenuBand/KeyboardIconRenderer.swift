@@ -271,6 +271,11 @@ enum KeyboardIconRenderer {
     /// `sampleRecordingActive` proxy.
     static var recordingActive: Bool = false
 
+    /// When set ("3"/"2"/"1"), the menubar icon shows the record count-in as a
+    /// Menu-Band-purple pill with the numeral, in place of the keyboard — the
+    /// countdown lives IN the menubar, not as a full-screen overlay.
+    static var countInDigit: String? = nil
+
     // Render area shrinks with the layout. Compact has no piano keys at
     // all — `lastMidi < firstMidi` makes whiteList() empty.
     static let firstMidi: Int = 60                 // C4 (middle C)
@@ -781,6 +786,35 @@ enum KeyboardIconRenderer {
 
     /// Draw the REC dot (idle) or dot + elapsed timer (recording) in the
     /// reserved left slot. Drawn in base coords inside the render closure.
+    /// Draw the record count-in numeral as a Menu-Band-purple pill centered in
+    /// the icon — white numeral, the app's monospaced-heavy numeric style, a
+    /// 1px title-shadow. Reads on light or dark menubars; matches the app icon.
+    private static func drawCountIn(_ digit: String, size: NSSize) {
+        let fontSize = size.height * 0.70
+        let shadow = NSShadow()
+        shadow.shadowColor = NSColor.black.withAlphaComponent(0.35)
+        shadow.shadowOffset = NSSize(width: 0, height: -1)
+        shadow.shadowBlurRadius = 0
+        let para = NSMutableParagraphStyle(); para.alignment = .center
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: fontSize, weight: .heavy),
+            .foregroundColor: NSColor.white,
+            .paragraphStyle: para,
+            .shadow: shadow,
+        ]
+        let ds = (digit as NSString).size(withAttributes: attrs)
+        let pillH = size.height - 2
+        let pillW = min(size.width - 2, ds.width + fontSize * 0.9)
+        let pill = NSRect(x: (size.width - pillW) / 2, y: (size.height - pillH) / 2,
+                          width: pillW, height: pillH)
+        NSColor(srgbRed: 0.55, green: 0.16, blue: 0.80, alpha: 1).setFill()   // Menu Band purple
+        NSBezierPath(roundedRect: pill, xRadius: pillH * 0.34, yRadius: pillH * 0.34).fill()
+        (digit as NSString).draw(
+            in: NSRect(x: pill.minX, y: pill.midY - ds.height / 2,
+                       width: pill.width, height: ds.height),
+            withAttributes: attrs)
+    }
+
     private static func drawRecIndicator(canvasHeight: CGFloat) {
         let x = recDotLeadPad
         // Idle: a steady red record dot.
@@ -859,6 +893,12 @@ enum KeyboardIconRenderer {
                 let scale = NSAffineTransform()
                 scale.scale(by: s)
                 scale.concat()
+            }
+
+            // Record count-in: a purple pill + numeral takes over the icon.
+            if includeSettings, let digit = countInDigit {
+                drawCountIn(digit, size: size)
+                return true
             }
 
             // 🔴 REC dot — fixed slot at the far left, before the piano.
