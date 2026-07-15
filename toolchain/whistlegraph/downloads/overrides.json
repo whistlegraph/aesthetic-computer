@@ -71,7 +71,10 @@
     "soda": "Jeffrey Alan Scudder",
     "sitg": "Jeffrey Alan Scudder",
     "dino": "Alex Freundlich",
-    "phon": "Alex Freundlich"
+    "phon": "Alex Freundlich",
+    "buny": "Jeffrey Alan Scudder",
+    "pyrm": "Jeffrey Alan Scudder",
+    "flwr": "Jeffrey Alan Scudder"
   },
   "recodes": {
     "cdh": "bugy",
@@ -240,6 +243,11 @@
       ],
       "add": [
         "fact"
+      ]
+    },
+    "6964689309886696709": {
+      "add": [
+        "imab"
       ]
     }
   }
