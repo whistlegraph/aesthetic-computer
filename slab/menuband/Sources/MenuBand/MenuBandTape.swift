@@ -1,6 +1,7 @@
 import Foundation
 import AVFoundation
 import AppKit
+import Accelerate
 
 extension Notification.Name {
     /// Fired (on main) whenever tape state, position, or buffer changes
@@ -294,6 +295,61 @@ final class MenuBandTape {
     /// for left, 2+4 for right). We don't pre-bake a mix track here;
     /// a single 4-channel WAV is the cleanest "tape" artifact.
     @discardableResult
+    /// The audible span of the take: first and last frames above a silence
+    /// threshold across both stems, so leading dead air (count-in → first note)
+    /// AND a trailing tail before Escape are both trimmed. Small pads keep the
+    /// attack and release intact. Returns (0,0) when nothing is audible.
+    private func trimmedRange(total: Int) -> (start: Int, end: Int) {
+        guard total > 0 else { return (0, 0) }
+        let threshold: Float = 0.0008
+        var first = total, last = 0
+        bufferLock.lock()
+        if let l = synthBuffer.floatChannelData?[0],
+           let r = synthBuffer.floatChannelData?[1] {
+            var i = 0
+            while i < total { if abs(l[i]) > threshold || abs(r[i]) > threshold { first = i; break }; i += 1 }
+            var j = total - 1
+            while j >= 0 { if abs(l[j]) > threshold || abs(r[j]) > threshold { last = j + 1; break }; j -= 1 }
+        }
+        if let m = micBuffer.floatChannelData?[0] {
+            var i = 0
+            while i < first { if abs(m[i]) > threshold { first = i; break }; i += 1 }
+            var j = total - 1
+            while j >= last { if abs(m[j]) > threshold { last = j + 1; break }; j -= 1 }
+        }
+        bufferLock.unlock()
+        guard last > first else { return (0, 0) }
+        let start = max(0, first - Int(Self.sampleRate * 0.03))   // 30 ms pre-roll
+        let end = min(total, last + Int(Self.sampleRate * 0.15))  // 150 ms tail
+        return (start, end)
+    }
+
+    /// Peak-normalization gain to master the take up to ~-1 dBFS. The signal is
+    /// already through the compressor + limiter (mastered tone); this just lifts
+    /// the ceiling so quiet takes aren't quiet files. Same gain on both stems so
+    /// their balance is preserved. Boost is capped so a near-silent take doesn't
+    /// roar its noise floor.
+    private func normalizationGain(from offset: Int, count: Int) -> Float {
+        guard count > 0 else { return 1 }
+        var peak: Float = 0
+        bufferLock.lock()
+        if let sl = synthBuffer.floatChannelData?[0],
+           let sr = synthBuffer.floatChannelData?[1] {
+            var p0: Float = 0, p1: Float = 0
+            vDSP_maxmgv(sl.advanced(by: offset), 1, &p0, vDSP_Length(count))
+            vDSP_maxmgv(sr.advanced(by: offset), 1, &p1, vDSP_Length(count))
+            peak = max(peak, p0, p1)
+        }
+        if let mc = micBuffer.floatChannelData?[0] {
+            var pm: Float = 0
+            vDSP_maxmgv(mc.advanced(by: offset), 1, &pm, vDSP_Length(count))
+            peak = max(peak, pm)
+        }
+        bufferLock.unlock()
+        guard peak > 1e-5 else { return 1 }
+        return min(0.89 / peak, 24)   // -1 dBFS target, capped boost
+    }
+
     func eject() -> EjectResult? {
         guard hasRecording else { return nil }
         // Reuse the cached result if the on-disk file is still
@@ -303,10 +359,17 @@ final class MenuBandTape {
            FileManager.default.fileExists(atPath: cached.file.path) {
             return cached
         }
-        let frames = bufferLock.withLock { max(synthWriteFrame, micWriteFrame) }
+        let rawFrames = bufferLock.withLock { max(synthWriteFrame, micWriteFrame) }
+        // Trim dead air off BOTH ends — the take starts at the first note and
+        // ends at the last, regardless of the count-in lead or the pause before
+        // Escape. `offset` is where the trimmed audio begins in the buffer.
+        let (offset, endFrame) = trimmedRange(total: rawFrames)
+        let frames = endFrame - offset
+        NSLog("MenuBandTape: eject raw=\(rawFrames) offset=\(offset) end=\(endFrame) frames=\(frames)")
         guard frames > 0 else { return nil }
         let duration = Double(frames) / Self.sampleRate
         let date = recordStartDate
+        let normGain = normalizationGain(from: offset, count: frames)   // master to ~-1 dBFS
 
         // Pick a friendly filename + dodge collisions in /tmp.
         let baseName = Self.makeCuteName(date: date)
@@ -322,19 +385,24 @@ final class MenuBandTape {
         // 32-bit float would preserve internal headroom but some
         // legacy DAW versions choke on float WAV; 16-bit is the
         // safest format that every audio app on macOS can open.
-        guard let outFormat = AVAudioFormat(commonFormat: .pcmFormatInt16,
-                                             sampleRate: Self.sampleRate,
-                                             channels: 4,
-                                             interleaved: true)
-        else { return nil }
+        // 4 channels need an EXPLICIT layout — the channels/interleaved
+        // convenience initializer only knows the standard mono/stereo layouts
+        // and returns nil for 4. Discrete-in-order = four independent tracks,
+        // exactly the multitrack "tape" artifact we want.
+        guard let quadLayout = AVAudioChannelLayout(
+            layoutTag: kAudioChannelLayoutTag_DiscreteInOrder | 4)
+        else { NSLog("MenuBandTape: eject nil — quadLayout"); return nil }
+        let outFormat = AVAudioFormat(commonFormat: .pcmFormatInt16,
+                                       sampleRate: Self.sampleRate,
+                                       interleaved: true,
+                                       channelLayout: quadLayout)
         // Float storage format for the in-memory 4-channel buffer
         // we hand to the converter. Non-interleaved so we can fill
         // each channel independently.
-        guard let quadFloat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
-                                             sampleRate: Self.sampleRate,
-                                             channels: 4,
-                                             interleaved: false)
-        else { return nil }
+        let quadFloat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
+                                       sampleRate: Self.sampleRate,
+                                       interleaved: false,
+                                       channelLayout: quadLayout)
 
         let file: AVAudioFile
         do {
@@ -352,14 +420,14 @@ final class MenuBandTape {
         // buffer stays small. Each chunk: copy synth L/R + mic into
         // a 4-channel float buffer, convert to int16, write.
         guard let converter = AVAudioConverter(from: quadFloat, to: outFormat)
-        else { return nil }
+        else { NSLog("MenuBandTape: eject nil — converter"); return nil }
         let chunkFrames = 8192
         var cursor = 0
         while cursor < frames {
             let take = min(chunkFrames, frames - cursor)
             guard let src = AVAudioPCMBuffer(pcmFormat: quadFloat,
                                               frameCapacity: AVAudioFrameCount(take))
-            else { return nil }
+            else { NSLog("MenuBandTape: eject nil — src buffer"); return nil }
             src.frameLength = AVAudioFrameCount(take)
             bufferLock.lock()
             if let sl = synthBuffer.floatChannelData?[0],
@@ -369,18 +437,27 @@ final class MenuBandTape {
                let d1 = src.floatChannelData?[1],
                let d2 = src.floatChannelData?[2],
                let d3 = src.floatChannelData?[3] {
-                memcpy(d0, sl.advanced(by: cursor), take * MemoryLayout<Float>.size)
-                memcpy(d1, sr.advanced(by: cursor), take * MemoryLayout<Float>.size)
+                let read = offset + cursor
+                memcpy(d0, sl.advanced(by: read), take * MemoryLayout<Float>.size)
+                memcpy(d1, sr.advanced(by: read), take * MemoryLayout<Float>.size)
                 // Mic is mono — duplicate into ch3 + ch4 so DAWs
                 // that auto-pair-stereo see a vocal stereo track.
-                memcpy(d2, mc.advanced(by: cursor), take * MemoryLayout<Float>.size)
-                memcpy(d3, mc.advanced(by: cursor), take * MemoryLayout<Float>.size)
+                memcpy(d2, mc.advanced(by: read), take * MemoryLayout<Float>.size)
+                memcpy(d3, mc.advanced(by: read), take * MemoryLayout<Float>.size)
+                // Master gain — normalize the whole take to ~-1 dBFS.
+                if normGain != 1 {
+                    var g = normGain
+                    vDSP_vsmul(d0, 1, &g, d0, 1, vDSP_Length(take))
+                    vDSP_vsmul(d1, 1, &g, d1, 1, vDSP_Length(take))
+                    vDSP_vsmul(d2, 1, &g, d2, 1, vDSP_Length(take))
+                    vDSP_vsmul(d3, 1, &g, d3, 1, vDSP_Length(take))
+                }
             }
             bufferLock.unlock()
 
             guard let dst = AVAudioPCMBuffer(pcmFormat: outFormat,
                                               frameCapacity: AVAudioFrameCount(take))
-            else { return nil }
+            else { NSLog("MenuBandTape: eject nil — dst buffer"); return nil }
             var supplied = false
             var error: NSError?
             let status = converter.convert(to: dst, error: &error) { _, outStatus in
@@ -405,13 +482,9 @@ final class MenuBandTape {
             cursor += take
         }
 
-        // Cover art on the .wav file. Use the mix-derived waveform
-        // for the icon — visually represents what the user will hear
-        // by default when scrubbing the file.
-        let waveform = mixDownsampleRMS(frames: frames, buckets: 512)
-        let icon = TapeCoverArt.makeIcon(date: date,
-                                          duration: duration,
-                                          waveform: waveform)
+        // Album-art cover for the .wav — a bold generative icon with the length
+        // set large. (No waveform; the icon renderer ignores it.)
+        let icon = TapeCoverArt.makeIcon(date: date, duration: duration)
         NSWorkspace.shared.setIcon(icon, forFile: url.path, options: [])
 
         NSLog("MenuBandTape: ejected \(baseName).wav (\(duration) s, 4ch) → \(url.path)")
@@ -448,12 +521,19 @@ final class MenuBandTape {
         else { return }
         var supplied = false
         var err: NSError?
+        // .noDataNow (NOT .endOfStream) once this buffer is consumed: the
+        // converter produces what it can and RETAINS its resampling filter
+        // state for the next buffer. endOfStream would flush + terminate it
+        // (dropping the rest of the take), and reset()-per-buffer would clear
+        // the filter each time (audible pops at every buffer boundary). This
+        // keeps one continuous, glitch-free stream.
         let status = conv.convert(to: scratch, error: &err) { _, outStatus in
-            if supplied { outStatus.pointee = .endOfStream; return nil }
+            if supplied { outStatus.pointee = .noDataNow; return nil }
             supplied = true; outStatus.pointee = .haveData
             return buffer
         }
         guard status != .error,
+              scratch.frameLength > 0,
               let l = scratch.floatChannelData?[0],
               let r = scratch.floatChannelData?[1] else { return }
         writeSynthFrames(left: l, right: r, frames: Int(scratch.frameLength))
@@ -499,11 +579,12 @@ final class MenuBandTape {
         var supplied = false
         var err: NSError?
         let status = conv.convert(to: scratch, error: &err) { _, outStatus in
-            if supplied { outStatus.pointee = .endOfStream; return nil }
+            if supplied { outStatus.pointee = .noDataNow; return nil }   // keep filter state (see ingestSynth)
             supplied = true; outStatus.pointee = .haveData
             return buffer
         }
         guard status != .error,
+              scratch.frameLength > 0,
               let mono = scratch.floatChannelData?[0] else { return }
         writeMicFrames(mono: mono, frames: Int(scratch.frameLength))
     }

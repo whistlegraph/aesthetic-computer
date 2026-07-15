@@ -1,0 +1,15 @@
+{
+  "name": "tape-test",
+  "tailSeconds": 0.6,
+  "notes": [
+    { "midi": 60, "start": 0.0, "dur": 0.35 },
+    { "midi": 64, "start": 0.35, "dur": 0.35 },
+    { "midi": 67, "start": 0.70, "dur": 0.35 },
+    { "midi": 72, "start": 1.05, "dur": 0.5 },
+    { "midi": 67, "start": 1.55, "dur": 0.3 },
+    { "midi": 64, "start": 1.85, "dur": 0.3 },
+    { "midi": 60, "start": 2.15, "dur": 0.9 },
+    { "midi": 64, "start": 2.15, "dur": 0.9 },
+    { "midi": 67, "start": 2.15, "dur": 0.9 }
+  ]
+}

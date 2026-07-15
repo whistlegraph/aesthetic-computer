@@ -120,6 +120,24 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             stack.addArrangedSubview(note)
         }
 
+        #if !MAC_APP_STORE
+        // Shapedown (double-tap left ⌘) feedback cues — the same flash + bell
+        // the right-⌘ focus gesture uses, switchable independently.
+        let sdFlash = NSButton(checkboxWithTitle: "Shapedown flashes",
+                               target: self,
+                               action: #selector(toggleShapedownFlash(_:)))
+        sdFlash.state = Shapedown.flashesEnabled ? .on : .off
+        sdFlash.toolTip = "Full-screen flash when the Shapedown wall opens, closes, or stamps."
+        stack.addArrangedSubview(sdFlash)
+
+        let sdSound = NSButton(checkboxWithTitle: "Shapedown sounds",
+                               target: self,
+                               action: #selector(toggleShapedownSound(_:)))
+        sdSound.state = Shapedown.soundsEnabled ? .on : .off
+        sdSound.toolTip = "Bell and click sounds for the Shapedown wall."
+        stack.addArrangedSubview(sdSound)
+        #endif
+
         // Crashes — conditional. A diagnostics link only earns a row if there
         // is something to diagnose; on a healthy install Settings shouldn't
         // advertise a crash viewer at all.
@@ -154,6 +172,16 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     @objc private func toggleHaptics(_ sender: NSButton) {
         menuBand?.hapticsEnabled = (sender.state == .on)
     }
+
+    #if !MAC_APP_STORE
+    @objc private func toggleShapedownFlash(_ sender: NSButton) {
+        Shapedown.flashesEnabled = (sender.state == .on)
+    }
+
+    @objc private func toggleShapedownSound(_ sender: NSButton) {
+        Shapedown.soundsEnabled = (sender.state == .on)
+    }
+    #endif
 
     @objc private func viewCrashLogs(_ sender: Any?) {
         let logs = CrashLogReader.recentLogs()

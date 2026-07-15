@@ -54,6 +54,40 @@ final class Shapedown {
     /// trackpad frames here instead of into the pitch-bend fx pad.
     var isActive: Bool { overlay?.isVisible == true }
 
+    // MARK: Feedback cues — the same full-screen flash and bell/click the
+    // right-⌘ focus gesture uses, each independently switchable in Settings.
+    private static let flashKey = "ShapedownFlash"
+    private static let soundKey = "ShapedownSound"
+    /// Both default ON (absent key == on), like Haptics.
+    static var flashesEnabled: Bool {
+        get { UserDefaults.standard.object(forKey: flashKey) == nil
+                ? true : UserDefaults.standard.bool(forKey: flashKey) }
+        set { UserDefaults.standard.set(newValue, forKey: flashKey) }
+    }
+    static var soundsEnabled: Bool {
+        get { UserDefaults.standard.object(forKey: soundKey) == nil
+                ? true : UserDefaults.standard.bool(forKey: soundKey) }
+        set { UserDefaults.standard.set(newValue, forKey: soundKey) }
+    }
+    private func flashCue(rising: Bool) {
+        if Self.flashesEnabled { FocusFlashOverlay.shared.flash(rising: rising) }
+    }
+    private func bellCue(rising: Bool) {
+        if Self.soundsEnabled { FocusCueBeep.shared.play(rising: rising) }
+    }
+    private func clickCue() {
+        if Self.soundsEnabled { FocusCueBeep.shared.click() }
+    }
+
+    /// Physical trackpad click (pushing the pad in) → pin the current shape so
+    /// it stays put until the wall closes, with a click + flash to confirm.
+    private func stampPermanently() {
+        guard isActive else { return }
+        canvas?.pinCurrent()
+        clickCue()
+        flashCue(rising: true)
+    }
+
     /// Arm the global ⌘ listener. Idempotent. Needs Accessibility (same grant
     /// TYPE mode already asks for); silently inert until it's given.
     func start() {
@@ -109,6 +143,10 @@ final class Shapedown {
 
     private func toggle() { isActive ? hide() : show() }
 
+    /// Close the wall without cues — used when the ⌘⌘↩ record gesture starts
+    /// and a left-⌘⌘ had just opened it as a side effect.
+    func dismissIfActive() { if isActive { hide(cues: false) } }
+
     private func show() {
         guard overlay == nil else { return }
         guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
@@ -139,35 +177,54 @@ final class Shapedown {
 
         self.overlay = panel
         self.canvas = canvas
-        // Hide the pointer for the whole session. CGDisplayHideCursor is
-        // focus-independent (NSCursor.hide only works while frontmost + over
-        // our window), which a non-activating click-through panel never is.
+        // Hide the pointer for the whole session, from a BACKGROUND app.
+        // CGDisplayHideCursor alone is ignored unless the caller is frontmost,
+        // which this menubar panel never is — so first flip the private
+        // `SetsCursorInBackground` connection property, which lifts that
+        // restriction. Then decouple the mouse so a single finger stops
+        // dragging the (now hidden) pointer. All three are undone in hide().
         if !cursorHidden {
+            Self.setBackgroundCursorHiding(true)
+            CGAssociateMouseAndMouseCursorPosition(0)
             CGDisplayHideCursor(CGMainDisplayID())
             cursorHidden = true
         }
-        _ = gestureTap.start()          // block system gestures for the session
+        gestureTap.onClick = { [weak self] in self?.stampPermanently() }
+        _ = gestureTap.start()          // block system gestures + catch clicks
         panel.orderFrontRegardless()
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = 0.16
             panel.animator().alphaValue = 1
         }
+        flashCue(rising: true)          // "wall on" cue, matching the ⌘ gesture
+        bellCue(rising: true)
     }
 
-    private func hide() {
+    private func hide(cues: Bool = true) {
         guard let panel = overlay else { return }
+        if cues {
+            flashCue(rising: false)     // "wall off" cue
+            bellCue(rising: false)
+        }
         overlay = nil
-        canvas?.stop()
-        canvas = nil
+        // Cursor + gestures return to the system immediately.
         if cursorHidden {
+            CGAssociateMouseAndMouseCursorPosition(1)   // mouse drives the cursor again
             CGDisplayShowCursor(CGMainDisplayID())
+            Self.setBackgroundCursorHiding(false)
             cursorHidden = false
         }
         gestureTap.stop()               // gestures return to the system
+        // Bloom every committed shape out together, and fade the wall over the
+        // same beat, so the whole thing leaves as one gesture.
+        let dyingCanvas = canvas
+        canvas = nil
+        let dur = dyingCanvas?.beginClose() ?? 0.2
         NSAnimationContext.runAnimationGroup({ ctx in
-            ctx.duration = 0.2
+            ctx.duration = max(0.2, dur)
             panel.animator().alphaValue = 0
         }, completionHandler: {
+            dyingCanvas?.stop()
             panel.orderOut(nil)
         })
     }
@@ -176,6 +233,25 @@ final class Shapedown {
     /// wall. Called from AppDelegate's trackpad frame handler while active.
     func ingest(_ touches: [CGPoint]) {
         canvas?.ingest(touches)
+    }
+
+    /// Toggle the private CGS `SetsCursorInBackground` connection property so
+    /// CGDisplayHideCursor works from a non-frontmost app. The two symbols live
+    /// in the already-loaded CoreGraphics image; we dlsym them (RTLD_DEFAULT)
+    /// rather than link, so a future SDK that drops them just no-ops instead of
+    /// failing to build. Private API — fine here (this whole file is out of the
+    /// MAS build alongside the MultitouchSupport tap).
+    private static func setBackgroundCursorHiding(_ on: Bool) {
+        typealias MainConnFn = @convention(c) () -> Int32
+        typealias SetPropFn = @convention(c) (Int32, Int32, CFString, CFTypeRef) -> Int32
+        let dflt = UnsafeMutableRawPointer(bitPattern: -2)   // RTLD_DEFAULT
+        guard let connSym = dlsym(dflt, "CGSMainConnectionID"),
+              let setSym = dlsym(dflt, "CGSSetConnectionProperty") else { return }
+        let mainConn = unsafeBitCast(connSym, to: MainConnFn.self)
+        let setProp = unsafeBitCast(setSym, to: SetPropFn.self)
+        let cid = mainConn()
+        _ = setProp(cid, cid, "SetsCursorInBackground" as CFString,
+                    (on ? kCFBooleanTrue : kCFBooleanFalse))
     }
 }
 
@@ -196,13 +272,19 @@ final class ShapedownGestureTap {
     private var thread: Thread?
     private var runLoop: CFRunLoop?
 
+    /// Fired (on main) when the trackpad is physically clicked in — the wall
+    /// uses it to pin the current shape permanently.
+    var onClick: (() -> Void)?
+
     @discardableResult
     func start() -> Bool {
         guard tap == nil else { return true }
-        // Raw event-type numbers the tap sees: 22 = scrollWheel, and the
-        // NSEvent gesture family 18/19/20 (rotate/begin/end), 29 gesture,
-        // 30 magnify, 31 swipe, 32 smartMagnify, 33 quickLook, 34 pressure.
-        let types: [UInt32] = [18, 19, 20, 22, 29, 30, 31, 32, 33, 34]
+        // Raw event-type numbers the tap sees: 1/2 left mouse down/up (the
+        // physical trackpad click), 3/4 right, 25/26 other; 22 = scrollWheel;
+        // and the NSEvent gesture family 18/19/20 (rotate/begin/end), 29
+        // gesture, 30 magnify, 31 swipe, 32 smartMagnify, 33 quickLook, 34
+        // pressure. All consumed so the wall owns the trackpad completely.
+        let types: [UInt32] = [1, 2, 3, 4, 18, 19, 20, 22, 25, 26, 29, 30, 31, 32, 33, 34]
         var mask: CGEventMask = 0
         for t in types { mask |= (CGEventMask(1) << CGEventMask(t)) }
 
@@ -213,6 +295,9 @@ final class ShapedownGestureTap {
             if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
                 if let tap = me.tap { CGEvent.tapEnable(tap: tap, enable: true) }
                 return Unmanaged.passUnretained(event)
+            }
+            if type == .leftMouseDown {
+                DispatchQueue.main.async { me.onClick?() }
             }
             return nil                  // consume — the wall owns the trackpad
         }
@@ -270,32 +355,40 @@ final class ShapedownOverlayPanel: NSPanel {
 /// MultitouchSupport normalized space (also bottom-left) maps straight across
 /// without a Y flip.
 final class ShapedownCanvas: NSView {
-    /// A committed shape, sustaining then fading on the wall.
+    /// A committed shape, held crisp on the wall until close.
     private struct Stamp {
         var points: [CGPoint]     // view space
         var hue: CGFloat
+        var born: TimeInterval    // for the pop-in entrance
+    }
+    /// A transient fade — a lifted sketch evaporating, or a committed shape
+    /// blooming away as the wall closes. One mechanism for every fade.
+    private struct Ghost {
+        var points: [CGPoint]
+        var hue: CGFloat
         var born: TimeInterval
+        var dur: TimeInterval
+        var bloom: CGFloat        // outward swell across the fade (0 = none)
     }
 
     private var live: [CGPoint] = []          // fingers right now, view space
-    private var stamps: [Stamp] = []
-    private var stampCount = 0                 // ever — drives hue cycling
-
-    // Hold-to-set: a shape "sets" once its centroid has sat within `stillSlop`
-    // for `holdThreshold`. armedPoints is the frozen shape we'll stamp on lift.
-    private var heldSince: TimeInterval = 0
-    private var heldCentroid: CGPoint = .zero
-    private var heldCount = 0
-    private var armed = false
-    private var armedPoints: [CGPoint] = []
+    private var pinned: [Stamp] = []          // committed shapes — held until close
+    private var ghosts: [Ghost] = []          // transient fades (evaporate / close bloom)
+    private var recent: [(t: TimeInterval, pts: [CGPoint])] = []  // short frame history
+    private var stampCount = 0                 // the pen-color index; advances per commit
+    private var committedThisTouch = false     // don't evaporate a touch that got committed
+    private var closing = false
 
     private var timer: Timer?
 
     // Tuning.
-    private let holdThreshold: TimeInterval = 0.4     // stillness before a shape sets
-    private let stillSlop: CGFloat = 22               // px of centroid drift still counts as "held"
-    private let sustain: TimeInterval = 1.6           // full-strength hold after stamping
-    private let fadeDur: TimeInterval = 2.6           // fade to gone
+    private let evaporateDur: TimeInterval = 0.5      // lift-without-commit: quick dissolve
+    private let evaporateBloom: CGFloat = 0.06        // barely swells — it just goes
+    private let popDur: TimeInterval = 0.22           // commit entrance settle
+    private let closeBloomDur: TimeInterval = 0.75    // all commits bloom out together on close
+    private let closeBloom: CGFloat = 0.28
+    private let nodeRadius: CGFloat = 13               // ONE thickness: dot / line / corner-wrap
+    private let commitLookback: TimeInterval = 0.25   // peak-finger window a click commits from
 
     override var isFlipped: Bool { false }
     override var wantsDefaultClipping: Bool { false }
@@ -315,61 +408,98 @@ final class ShapedownCanvas: NSView {
     }
 
     func ingest(_ normalized: [CGPoint]) {
+        guard !closing else { return }
         let w = bounds.width, h = bounds.height
         let pts = normalized.map { CGPoint(x: $0.x * w, y: $0.y * h) }
-        let t = now
 
         if pts.isEmpty {
-            // All fingers lifted — stamp the shape iff it had set.
-            if armed, !armedPoints.isEmpty {
-                stamps.append(Stamp(points: armedPoints, hue: hue(for: stampCount), born: t))
-                stampCount += 1
+            // Fingers lifted. If this touch was never committed with a click,
+            // the sketch just evaporates — using the peak shape so a press that
+            // collapsed the last frame to one finger doesn't shrink it.
+            if !live.isEmpty, !committedThisTouch {
+                ghosts.append(Ghost(points: committedShape(), hue: hue(for: stampCount),
+                                    born: now, dur: evaporateDur, bloom: evaporateBloom))
             }
             live = []
-            armed = false
-            armedPoints = []
-            heldSince = 0
-            heldCount = 0
+            recent.removeAll()
+            committedThisTouch = false
         } else {
+            if live.isEmpty { committedThisTouch = false }   // a fresh touch begins
             live = pts
-            let c = centroid(pts)
-            let stillHolding = pts.count == heldCount && hypot(c.x - heldCentroid.x, c.y - heldCentroid.y) < stillSlop
-            if stillHolding {
-                heldCentroid = c                        // track slowly with the hand
-                if t - heldSince >= holdThreshold {
-                    armed = true
-                    armedPoints = pts                   // freeze the latest steady pose
-                }
-            } else {
-                heldCentroid = c
-                heldCount = pts.count
-                heldSince = t
-                armed = false
-            }
+            let t = now
+            recent.append((t, pts))
+            recent.removeAll { t - $0.t > commitLookback }
         }
         ensureTimer()
         needsDisplay = true
     }
 
-    /// ~60fps while anything is on screen (live fingers or fading stamps);
-    /// stops itself once the wall is empty so it costs nothing at rest.
+    /// The shape a click should commit: the frame with the MOST fingers seen in
+    /// the last `commitLookback` (ties → most recent). Pressing the pad to click
+    /// briefly collapses the contacts to the one finger doing the pressing, so
+    /// sampling `live` at the click instant loses the line/tri/quad; the peak
+    /// over the recent window recovers what the hand was actually holding.
+    private func committedShape() -> [CGPoint] {
+        let cutoff = now - commitLookback
+        let best = recent.filter { $0.t >= cutoff }
+            .max { $0.pts.count < $1.pts.count }?.pts
+        return (best?.isEmpty == false) ? best! : live
+    }
+
+    /// ~60fps while anything is animating — fingers down, a fade in flight, a
+    /// commit still popping, or the closing bloom. Idles to nothing at rest
+    /// (committed shapes are static, so they just stay drawn).
     private func ensureTimer() {
         guard timer == nil else { return }
         timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
             guard let self else { return }
             self.needsDisplay = true
-            if self.live.isEmpty && self.stamps.isEmpty {
+            let popping = self.pinned.contains { self.now - $0.born < self.popDur }
+            if self.live.isEmpty, self.ghosts.isEmpty, !self.closing, !popping {
                 self.timer?.invalidate()
                 self.timer = nil
             }
         }
     }
 
+    /// Commit the shape currently under the fingers (physical trackpad click):
+    /// it pops in crisp and stays until the wall closes. Advances the pen color.
+    func pinCurrent() {
+        let shape = committedShape()
+        guard !shape.isEmpty else { return }
+        pinned.append(Stamp(points: shape, hue: hue(for: stampCount), born: now))
+        stampCount += 1
+        committedThisTouch = true
+        needsDisplay = true
+    }
+
+    /// Begin the closing exit: turn every committed shape into a bloom-fade so
+    /// they all leave together. Returns the duration so the overlay can match
+    /// its own fade to it. Further input is ignored once closing.
+    @discardableResult
+    func beginClose() -> TimeInterval {
+        closing = true
+        let t = now
+        for p in pinned {
+            ghosts.append(Ghost(points: p.points, hue: p.hue, born: t,
+                                dur: closeBloomDur, bloom: closeBloom))
+        }
+        pinned = []
+        live = []
+        recent.removeAll()
+        ensureTimer()
+        needsDisplay = true
+        return closeBloomDur
+    }
+
     func stop() {
         timer?.invalidate()
         timer = nil
         live = []
-        stamps = []
+        pinned = []
+        ghosts = []
+        recent.removeAll()
+        closing = false
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -380,20 +510,38 @@ final class ShapedownCanvas: NSView {
         NSColor(white: 0, alpha: 0.16).setFill()
         bounds.fill()
 
-        // Stamps: oldest first, sustaining then fading.
-        stamps.removeAll { t - $0.born > sustain + fadeDur }
-        for s in stamps {
-            let age = t - s.born
-            let a: CGFloat = age <= sustain ? 1 : CGFloat(1 - (age - sustain) / fadeDur)
-            drawShape(s.points, hue: s.hue, alpha: max(0, a) * 0.9, glow: true, ctx: ctx)
+        // Transient fades: evaporating sketches and the closing bloom, one path.
+        ghosts.removeAll { t - $0.born > $0.dur }
+        for g in ghosts {
+            let f = CGFloat(min(max((t - g.born) / g.dur, 0), 1))
+            let eased = f * f * (3 - 2 * f)                   // smoothstep
+            let alpha = (1 - eased) * 0.9
+            let scale = 1 + g.bloom * eased
+            let pts = scale == 1 ? g.points : scaled(g.points, by: scale)
+            drawShape(pts, hue: g.hue, alpha: alpha, glow: true, ctx: ctx)
         }
 
-        // The shape under your fingers, on top. Pulses once it has set.
+        // Committed shapes: crisp and permanent, with a little pop as they land.
+        for p in pinned {
+            let age = t - p.born
+            let alpha: CGFloat
+            let scale: CGFloat
+            if age < popDur {
+                let f = CGFloat(age / popDur)
+                alpha = f
+                scale = 1 + 0.10 * (1 - f)
+            } else {
+                alpha = 1
+                scale = 1
+            }
+            let pts = scale == 1 ? p.points : scaled(p.points, by: scale)
+            drawShape(pts, hue: p.hue, alpha: alpha * 0.95, glow: true, ctx: ctx)
+        }
+
+        // The wet sketch under your fingers, on top — dim, and in the NEXT pen
+        // color, so it reads as provisional until you click to commit it.
         if !live.isEmpty {
-            let h = hue(for: stampCount)
-            let alpha: CGFloat = armed ? (0.7 + 0.3 * CGFloat(abs(sin(t * 6)))) : 0.55
-            drawShape(live, hue: h, alpha: alpha, glow: armed, ctx: ctx)
-            for p in live { drawVertex(p, hue: h, ctx: ctx) }
+            drawShape(live, hue: hue(for: stampCount), alpha: 0.5, glow: false, ctx: ctx)
         }
     }
 
@@ -404,50 +552,66 @@ final class ShapedownCanvas: NSView {
         return pts.sorted { atan2($0.y - c.y, $0.x - c.x) < atan2($1.y - c.y, $1.x - c.x) }
     }
 
+    /// Scale a point set out from its own centroid — used for the fade bloom.
+    private func scaled(_ pts: [CGPoint], by k: CGFloat) -> [CGPoint] {
+        let c = centroid(pts)
+        return pts.map { CGPoint(x: c.x + ($0.x - c.x) * k, y: c.y + ($0.y - c.y) * k) }
+    }
+
     private func drawShape(_ points: [CGPoint], hue: CGFloat, alpha: CGFloat, glow: Bool, ctx: CGContext) {
         guard !points.isEmpty, alpha > 0.001 else { return }
-        let fill = NSColor(hue: hue, saturation: 0.85, brightness: 1, alpha: alpha)
+        // Composite the whole shape as ONE group: draw fill + stroke fully
+        // OPAQUE inside a transparency layer, then let the layer composite at
+        // `alpha`. Opaque-over-opaque unions to flat coverage, so the stroke
+        // and fill can't double-blend into a darker seam — the bug that showed
+        // as a doubled outline at low alpha. Glow + alpha apply to the layer
+        // as a whole, so the glow is drawn once around the union, not per-op.
+        let color = NSColor(hue: hue, saturation: 0.85, brightness: 1, alpha: 1)
+        let r = nodeRadius
 
         ctx.saveGState()
         if glow {
             ctx.setShadow(offset: .zero, blur: 24,
-                          color: NSColor(hue: hue, saturation: 0.9, brightness: 1, alpha: alpha).cgColor)
+                          color: NSColor(hue: hue, saturation: 0.9, brightness: 1, alpha: 1).cgColor)
         }
+        ctx.setAlpha(alpha)
+        ctx.beginTransparencyLayer(auxiliaryInfo: nil)
+        color.setFill()
+        color.setStroke()
 
         switch points.count {
         case 1:
-            let p = points[0], r: CGFloat = 44
-            fill.setFill()
+            // A dot exactly nodeRadius in radius.
+            let p = points[0]
             ctx.fillEllipse(in: CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2))
         case 2:
+            // A capsule the same thickness as the dot — each rounded end IS a dot.
             let path = NSBezierPath()
-            path.lineWidth = 26
-            path.lineCapStyle = .round
             path.move(to: points[0])
             path.line(to: points[1])
-            fill.setStroke()
+            path.lineWidth = r * 2
+            path.lineCapStyle = .round
+            path.lineJoinStyle = .round
             path.stroke()
         default:
+            // Fill the polygon, then stroke its outline with a round-joined pen
+            // of the same nodeRadius. The stroke bulges OUTWARD around every
+            // vertex, so each corner wraps around its dot instead of cutting
+            // across it — and inside the transparency layer the two union into
+            // one solid weight, no seam.
             let poly = hull(points)
             let path = NSBezierPath()
             path.move(to: poly[0])
             for p in poly.dropFirst() { path.line(to: p) }
             path.close()
-            fill.setFill()
-            path.fill()
-            NSColor(hue: hue, saturation: 0.4, brightness: 1, alpha: alpha).setStroke()
-            path.lineWidth = 3
+            path.lineWidth = r * 2
+            path.lineCapStyle = .round
+            path.lineJoinStyle = .round
             path.stroke()
+            path.fill()
         }
+        ctx.endTransparencyLayer()
         ctx.restoreGState()
-    }
-
-    /// A little white core at every fingertip so the vertices are always
-    /// legible even inside a big filled shape.
-    private func drawVertex(_ p: CGPoint, hue: CGFloat, ctx: CGContext) {
-        let r: CGFloat = 7
-        NSColor(white: 1, alpha: 0.9).setFill()
-        ctx.fillEllipse(in: CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2))
     }
 }
 

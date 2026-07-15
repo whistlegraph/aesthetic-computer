@@ -1405,6 +1405,50 @@ final class MenuBandController {
     /// single multi-track WAV that DAWs can split into stems.
     func ejectTape() -> URL? { tape.eject()?.file }
 
+    /// True while a tape recording is rolling — the global record shortcut
+    /// keys off this so it can't stack recordings.
+    var isTapeRecording: Bool { tape.state == .recording }
+
+    /// Audio-only recording for the global record gesture: pin ONLY the synth
+    /// waveform tap, never the mic — so it captures the instrument with no
+    /// microphone permission prompt. The mic stem stays silent in the WAV.
+    func startSynthOnlyRecording() {
+        guard tape.state != .recording else { return }
+        synth.addWaveformTapPin(tapeWaveformPinReason)
+        tape.record()
+    }
+
+    /// Instant transport stop — just flips the tape state. The heavy WAV
+    /// render happens later in `saveStoppedTakeToDesktop()` off the main
+    /// thread, so Escape feels immediate.
+    func stopTapeNow() {
+        if tape.state == .recording { tape.stop() }
+    }
+
+    /// Play one melodic note for `duration` seconds — drives the synth
+    /// directly (bypassing the keyboard) so an `.mbscore` can auto-perform a
+    /// take for testing the record → DMG pipeline.
+    func playTestNote(midi: UInt8, velocity: UInt8 = 100, duration: TimeInterval) {
+        synth.noteOn(midi, velocity: velocity, channel: 0)
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration) { [weak self] in
+            self?.synth.noteOff(midi, channel: 0)
+        }
+    }
+
+    /// Render the stopped take and wrap it into a per-take **DMG "record
+    /// release"** on the Desktop: our logo as the volume icon, the take's WAV
+    /// (with its generative album-art icon) inside, and that album art on the
+    /// .dmg file itself. HEAVY (audio conversion + drawing + hdiutil) — call
+    /// OFF the main thread. Returns the .dmg URL, or nil if empty.
+    @discardableResult
+    func saveStoppedTakeToDesktop() -> URL? {
+        guard let src = tape.eject()?.file else { return nil }
+        // The album-art icon eject() stamped on the WAV → the .dmg file icon.
+        let cover = NSWorkspace.shared.icon(forFile: src.path)
+        let name = src.deletingPathExtension().lastPathComponent
+        return TakeDMG.build(wav: src, name: name, coverIcon: cover)
+    }
+
     /// State-change observer. Drops the pins whenever the tape goes
     /// back to idle so the synth engine can suspend on inactivity.
     private func handleTapeChange() {

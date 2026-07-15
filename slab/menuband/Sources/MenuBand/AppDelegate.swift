@@ -368,6 +368,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// MultitouchSupport frames; while its wall is up, `handleTrackpadFrame`
     /// routes fingers here instead of into the pitch-bend fx pad.
     private let shapedown = Shapedown()
+    /// Record gesture (folded into the quiet-focus ⌘ monitor): a LEFT-⌘ tap
+    /// immediately before the RIGHT-⌘ double means "record", not "focus". This
+    /// is when that left-⌘ prefix landed.
+    /// Physically-held ⌘ keycodes (toggled per flagsChanged edge) — used to
+    /// detect the both-⌘ hold that starts the record count-in.
+    private var heldCmdKeys: Set<UInt16> = []
+    /// Scheduled count-in beats + the final record-start, so releasing a ⌘
+    /// mid-hold can cancel them.
+    private var countInWork: [DispatchWorkItem] = []
+    /// True from the moment recording starts until it's dumped — drives the red
+    /// keys.
+    private var recordModeActive = false
     /// Session CGEventTap that swallows Tab WHILE a bend is live, so the macOS
     /// ⌘-Tab app switcher (owned by the Dock, above any normal key handler) and
     /// plain focus traversal can't steal the gesture — Tab drives the
@@ -518,6 +530,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         MultitouchTrackpad.shared.start()
         // Arm the global double-tap-⌘ listener for the Shapedown wall.
         shapedown.start()
+        // `--mbscore <path>` → auto-perform a take (record-pipeline test).
+        runMBScoreIfRequested()
         // Try to install the Tab-suppression tap up front (retried per-bend in
         // case Accessibility is granted after launch).
         _ = bendTabTap.start()
@@ -1126,6 +1140,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // wants to release focus without clicking another app. Also
             // the explicit exit for latched pitch-bend mode.
             if isDown && keyCode == 53 /* kVK_Escape */ {
+                // In record mode, Escape DUMPS the take to the Desktop and
+                // leaves capture armed — so the keyboard keeps playing after.
+                // Only unfocus when NOT in record mode.
+                if self.recordModeActive {
+                    self.stopRecordingAndSave()
+                    return true
+                }
                 if self.pitchBendModeLatched { self.endPitchBendSession() }
                 // Esc is now the UNFOCUS gesture — it shows the same red
                 // flash + falling-bell cue the right-⌘ double-tap used to
@@ -2076,6 +2097,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // synthesized input (System Events' `key code 54`), and treating
             // that as a chord would cancel the very run it's trying to make.
             if event.type == .keyDown {
+                if event.keyCode == 53 /* Escape */ {
+                    // Escape cancels a count-in, or dumps a rolling take.
+                    if !self.countInWork.isEmpty { self.cancelCountIn(); return }
+                    if self.menuBand.isTapeRecording {
+                        self.stopRecordingAndSave()
+                        return
+                    }
+                }
                 let isModifierKey = event.keyCode == Self.leftCommandKeyCode
                     || event.keyCode == Self.rightCommandKeyCode
                 if event.modifierFlags.contains(.command), !isModifierKey {
@@ -2087,26 +2116,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let side = event.keyCode
             guard side == Self.leftCommandKeyCode || side == Self.rightCommandKeyCode
             else { return }
-            // .flagsChanged fires on press AND release for the same physical
-            // key — `.command` is set on the down edge, cleared on the up edge.
-            // We only count down edges.
-            guard event.modifierFlags.contains(.command) else { return }
-            // Bare ⌘ only. If anything else is held (⇧/⌥/⌃/capsLock, or a chord
-            // like ⌘⇧), this isn't a tap candidate — reset the run so a chord
-            // can't pair into a future double-tap.
+
+            // Track which ⌘ keys are physically held by toggling per keycode
+            // edge (each press/release is one flagsChanged for that keycode).
+            let wasHeld = self.heldCmdKeys.contains(side)
+            if wasHeld { self.heldCmdKeys.remove(side) } else { self.heldCmdKeys.insert(side) }
+            let bothHeld = self.heldCmdKeys.contains(Self.leftCommandKeyCode)
+                && self.heldCmdKeys.contains(Self.rightCommandKeyCode)
+            // Releasing either ⌘ cancels a count-in in progress.
+            if !bothHeld { self.cancelCountIn() }
+            guard !wasHeld else { return }   // up edge — done
+
+            // Both ⌘ held together (bare) → start the 3s record count-in.
             let mask = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-            guard mask == .command else {
-                self.quietFocusRunCount = 0
+            if bothHeld, mask == .command {
+                self.beginCountIn()
                 return
             }
-            // Left ⌘ breaks the run. Not just "doesn't count" — if it merely
-            // failed to count, a left tap between two right taps would still
-            // leave them adjacent in time and the gesture would fire on ordinary
-            // two-handed ⌘ use.
-            guard side == Self.rightCommandKeyCode else {
-                self.quietFocusRunCount = 0
-                return
-            }
+            // Otherwise: bare-⌘ double-tap tracking for PLAY.
+            guard mask == .command else { self.quietFocusRunCount = 0; return }
+            // Left ⌘ breaks the run (leaves left-⌘⌘ free for Shapedown).
+            guard side == Self.rightCommandKeyCode else { self.quietFocusRunCount = 0; return }
             let now = CACurrentMediaTime()
             let inWindow = now - self.lastQuietFocusTapAt <= Self.quietFocusTapWindow
             self.quietFocusRunCount = (inWindow && self.quietFocusRunCount > 0)
@@ -2114,8 +2144,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 : 1
             self.lastQuietFocusTapAt = now
             guard self.quietFocusRunCount >= 2 else { return }
-            // Double completed — consume it so a third tap starts a fresh run
-            // instead of chaining toggles.
+            // Right-⌘ DOUBLE = PLAY (arm the keyboard).
             self.quietFocusRunCount = 0
             self.lastQuietFocusTapAt = 0
             FocusCueBeep.shared.click()
@@ -2445,7 +2474,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Sample-voice recording state — the renderer reads this to
         // tint the chip + VU bars red while the user is holding the
         // record key.
-        KeyboardIconRenderer.recordingActive = menuBand.sampleRecordingActive
+        // Red keys for sample-voice recording, a rolling tape take, OR an armed
+        // record mode waiting on the first keypress.
+        KeyboardIconRenderer.recordingActive =
+            menuBand.sampleRecordingActive || menuBand.isTapeRecording || recordModeActive
         // Tape state — refreshed every paint so the cassette REC dot,
         // mic LED, fill bar and playhead track the controller in real
         // time. Position fractions are computed off the tape's own
@@ -4192,6 +4224,103 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBand.setSpace(amount: spaceAmount)
         menuBand.setEcho(amount: echoAmount)
         pushStaffPitchShift()
+    }
+
+    /// `--mbscore <path>` test hook: auto-perform the score into a take so the
+    /// whole record → trim → normalize → album-art → DMG pipeline can be
+    /// exercised without a human playing. Skips the count-in; drives the synth
+    /// directly on the note timeline, then stops + saves.
+    private func runMBScoreIfRequested() {
+        let args = CommandLine.arguments
+        guard let i = args.firstIndex(of: "--mbscore"), i + 1 < args.count,
+              let score = MBScore.load(URL(fileURLWithPath: args[i + 1])) else { return }
+        NSLog("MenuBand mbscore: running '\(score.name)' — \(score.notes.count) notes, \(score.duration)s")
+        // Let the audio engine warm up, then perform into a recording.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            guard let self else { return }
+            self.recordModeActive = true
+            self.menuBand.startSynthOnlyRecording()
+            self.updateIcon()
+            for n in score.notes {
+                DispatchQueue.main.asyncAfter(deadline: .now() + n.start) {
+                    self.menuBand.playTestNote(midi: n.midi, velocity: n.velocity ?? 100, duration: n.dur)
+                }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + score.duration) {
+                self.stopRecordingAndSave()
+                NSLog("MenuBand mbscore: take complete")
+            }
+        }
+    }
+
+    /// Both ⌘ held together → a ~3s count-in that "charges up" (a white-noise
+    /// suck swelling under four ticks, the red flash brightening each beat),
+    /// then rolls tape. Holding the whole time is the commit; releasing a ⌘ or
+    /// hitting Escape cancels.
+    private func beginCountIn() {
+        NSLog("MenuBand: beginCountIn (recordModeActive=\(recordModeActive) pending=\(countInWork.count) tapeRec=\(menuBand.isTapeRecording))")
+        guard !recordModeActive, countInWork.isEmpty, !menuBand.isTapeRecording else { return }
+        let numbers = ["3", "2", "1"]
+        let interval = 0.7
+        let total = interval * Double(numbers.count)   // 2.1 s
+        // Soft rising hush + a red glow that charges UP over the whole count.
+        CountInWhoosh.shared.play(duration: total)
+        FocusFlashOverlay.shared.beginCharge(duration: total)
+        for (i, n) in numbers.enumerated() {
+            let w = DispatchWorkItem { CountInVoice.shared.play(n) }   // jeffrey: 3… 2… 1…
+            countInWork.append(w)
+            DispatchQueue.main.asyncAfter(deadline: .now() + interval * Double(i), execute: w)
+        }
+        let go = DispatchWorkItem { [weak self] in
+            self?.countInWork.removeAll()
+            self?.startRecordingMode()
+        }
+        countInWork.append(go)
+        DispatchQueue.main.asyncAfter(deadline: .now() + total, execute: go)
+    }
+
+    /// Abort a count-in (a ⌘ released mid-hold, or Escape).
+    private func cancelCountIn() {
+        guard !countInWork.isEmpty else { return }
+        NSLog("MenuBand: cancelCountIn (count-in aborted)")
+        countInWork.forEach { $0.cancel() }
+        countInWork.removeAll()
+        CountInWhoosh.shared.stop()
+        FocusFlashOverlay.shared.endCharge(fadeOut: true)
+    }
+
+    /// Roll tape (audio-only, no mic). Arms the keyboard so keys play + record,
+    /// starts the take IMMEDIATELY on the main thread (a background-thread start
+    /// only captured a few buffers), with the hot-red flash + Ping. Leading
+    /// silence up to the first note is trimmed at eject.
+    private func startRecordingMode() {
+        guard !menuBand.isTapeRecording, !recordModeActive else { return }
+        if !localCapture.isArmed {
+            beginFocusCaptureFromShortcut(keepPopoverOpen: true)
+        }
+        recordModeActive = true
+        menuBand.startSynthOnlyRecording()
+        FocusFlashOverlay.shared.flashRecord()
+        NSSound(named: "Ping")?.play()
+        updateIcon()
+        NSLog("MenuBand: RECORDING started")
+    }
+
+    /// Escape while rolling → stop and dump the WAV onto the Desktop, with a
+    /// distinct "saved" chime + red stop flash.
+    private func stopRecordingAndSave() {
+        // INSTANT feedback: stop the transport + fire the cues right away.
+        menuBand.stopTapeNow()
+        recordModeActive = false
+        FocusFlashOverlay.shared.flash(rising: false)
+        NSSound(named: "Glass")?.play()
+        updateIcon()                            // keys/chip back to normal color
+        // The WAV render + album-art icon + Desktop copy are heavy — do them
+        // off the main thread so Escape never blocks.
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let saved = self?.menuBand.saveStoppedTakeToDesktop()
+            NSLog("MenuBand: recording dumped → \(saved?.path ?? "nothing captured")")
+        }
     }
 
     /// Toggle the absolute trackpad fx mode (Tab, mid-bend). Snaps onto the

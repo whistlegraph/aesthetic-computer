@@ -919,6 +919,13 @@ enum KeyboardIconRenderer {
             // pure black can only yield grey, because there is nothing above
             // black to lift toward.
             let lit: (Int) -> NSColor = { m in
+                // Recording: every pressed key lights RED so the keyboard
+                // itself reads as "REC ON", not the usual accent/ROYGBIV.
+                if KeyboardIconRenderer.recordingActive {
+                    return isDark
+                        ? NSColor(srgbRed: 230/255, green: 60/255, blue: 60/255, alpha: 1)
+                        : NSColor(srgbRed: 220/255, green: 35/255, blue: 35/255, alpha: 1)
+                }
                 guard KeyboardIconRenderer.perKeyAccent,
                       let hue = Self.chromaticColorByPitchClass[((m % 12) + 12) % 12]
                 else { return accentLit }

@@ -40,22 +40,57 @@ final class FocusFlashOverlay: NSPanel {
     /// opaque so you always see through it — punched on for ~a
     /// frame then fast-faded. Never a stark white-out.
     func flash(rising: Bool) {
-        guard let screen = NSScreen.main else { return }
-        setFrame(screen.frame, display: true)
-        guard let layer = contentView?.layer else { return }
-
-        // Vivid, saturated start/stop colors — not the accent, not
-        // washed toward white.
         let color: NSColor = rising
             ? NSColor(srgbRed: 0.06, green: 0.42, blue: 1.0, alpha: 1)   // blue = go
             : NSColor(srgbRed: 1.0,  green: 0.12, blue: 0.16, alpha: 1)  // red  = stop
+        pulse(color: color, peak: 0.42)
+    }
+
+    /// Distinct RECORDING-mode flash — a brighter, hotter red than the plain
+    /// stop pulse, at a higher peak, so dropping into record reads unmistakably.
+    func flashRecord() {
+        pulse(color: NSColor(srgbRed: 1.0, green: 0.04, blue: 0.04, alpha: 1), peak: 0.62)
+    }
+
+    /// Charging reveal for the record count-in — a red glow that ramps UP over
+    /// `duration`, so the screen visibly powers up into the downbeat. The
+    /// record burst (`flashRecord`) or `endCharge(fadeOut:)` takes it from here.
+    func beginCharge(duration: Double) {
+        guard let screen = NSScreen.main, let layer = contentView?.layer else { return }
+        setFrame(screen.frame, display: true)
+        layer.removeAllAnimations()
+        layer.backgroundColor = NSColor(srgbRed: 1.0, green: 0.05, blue: 0.05, alpha: 1).cgColor
+        alphaValue = 0
+        orderFrontRegardless()
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = duration
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            animator().alphaValue = 0.30
+        }
+    }
+
+    /// Cancel the charge (count-in aborted) — quick fade out.
+    func endCharge(fadeOut: Bool) {
+        guard fadeOut else { return }
+        contentView?.layer?.removeAllAnimations()
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.16
+            animator().alphaValue = 0
+        }, completionHandler: { [weak self] in
+            if (self?.alphaValue ?? 0) <= 0.01 { self?.orderOut(nil) }
+        })
+    }
+
+    private func pulse(color: NSColor, peak: CGFloat) {
+        guard let screen = NSScreen.main else { return }
+        setFrame(screen.frame, display: true)
+        guard let layer = contentView?.layer else { return }
         layer.backgroundColor = color.cgColor
 
         // Peak stays a translucent blend (never fully opaque over
         // the UI). Punch to peak instantly, then a fast ease-out
         // fade — reads as a single colored glow frame. Kill any
         // in-flight fade so rapid toggles re-pulse cleanly.
-        let peak: CGFloat = 0.42
         layer.removeAllAnimations()
         alphaValue = peak
         orderFrontRegardless()
