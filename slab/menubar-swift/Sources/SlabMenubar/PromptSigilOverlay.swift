@@ -900,9 +900,9 @@ final class PromptSigilOverlayController {
 
     /// The session's status colour (the same per-status `cursor` accent the
     /// menubar polygon + themed terminals use), for the badge's halo.
-    private func statusColor(for state: ClaudeSession.State) -> NSColor {
+    private func statusColor(for state: ClaudeSession.State, agentType: String = "claude") -> NSColor {
         let dark = AppDelegate.isDarkAppearance()
-        let cur = AppDelegate.statusDecor(for: state, dark: dark).palette.cursor
+        let cur = AppDelegate.statusDecor(for: state, dark: dark, agentType: agentType).palette.cursor
             ?? (32768, 32768, 32768)
         return NSColor(deviceRed: CGFloat(cur.0) / 65535, green: CGFloat(cur.1) / 65535,
                        blue: CGFloat(cur.2) / 65535, alpha: 1.0)
@@ -981,7 +981,7 @@ final class PromptSigilOverlayController {
             }
             let (period, cw) = motion(for: s.state)
             ov.setMotion(period: period, clockwise: cw)
-            ov.setShadowColor(statusColor(for: s.state))
+            ov.setShadowColor(statusColor(for: s.state, agentType: s.agentType))
             ov.setLighting(drop: sun.drop)
             // Name + hover copy. The name is the seed's, so it re-forms with
             // the rock on a new prompt. The bubble body prefers a cached

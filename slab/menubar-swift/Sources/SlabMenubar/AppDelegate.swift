@@ -1522,7 +1522,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// direct sunlight outdoors. Dark mode = the same hue dimmed to a
     /// genuine dark page (never collapsed to black) with bright ink, so
     /// status stays legible across windows at night.
+    /// Per-status palette + glyph, agent-aware. Claude uses the base palette;
+    /// Codex gets a slightly cooler sibling of the SAME state color (a small
+    /// pull toward blue) so you can tell agents apart at a glance without
+    /// breaking the state-as-color language (green=working, slate=complete…).
     static func statusDecor(
+        for state: ClaudeSession.State, dark: Bool, blink: Bool = false,
+        agentType: String = "claude"
+    ) -> (palette: Palette, glyph: String) {
+        let base = baseStatusDecor(for: state, dark: dark, blink: blink)
+        guard agentType == "codex" else { return base }
+        return (palette: codexTint(base.palette, dark: dark), glyph: base.glyph)
+    }
+
+    /// The Codex variant: a mild, uniform cool shift (−R, +B) on every channel
+    /// of the palette. Keeps state identity (a working page stays green-ish,
+    /// just cooler/tealer) while reading as "not Claude". Awaiting is left
+    /// nearly untouched so its urgency amber doesn't go muddy.
+    static func codexTint(_ p: Palette, dark: Bool) -> Palette {
+        func t(_ c: RGB?) -> RGB? {
+            guard let c = c else { return nil }
+            let r = Int((Double(c.0) * 0.86).rounded())
+            let g = c.1
+            let b = min(65535, Int((Double(c.2) * 1.14).rounded()) + 2600)
+            return (r, g, b)
+        }
+        return Palette(bg: t(p.bg), text: t(p.text), bold: t(p.bold), cursor: t(p.cursor))
+    }
+
+    private static func baseStatusDecor(
         for state: ClaudeSession.State, dark: Bool, blink: Bool = false
     ) -> (palette: Palette, glyph: String) {
         switch state {
@@ -1538,10 +1566,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // forest ink — the hue lives in the wash + ink, not a dark field.
         case .working:
             return dark
-                ? (Palette(bg: (900, 8000, 2400), text: (42000, 62000, 48000),
-                           bold: (56000, 65535, 60000), cursor: (24000, 56000, 34000)), "● working")
-                : (Palette(bg: (55000, 65535, 58000), text: (2500, 20000, 8000),
-                           bold: (1000, 13000, 4000), cursor: (4000, 42000, 15000)), "● working")
+                ? (Palette(bg: (600, 12000, 3200), text: (40000, 64000, 47000),
+                           bold: (54000, 65535, 58000), cursor: (14000, 62000, 30000)), "● working")
+                : (Palette(bg: (39000, 64000, 45000), text: (1200, 22000, 6000),
+                           bold: (400, 13000, 3000), cursor: (1000, 53000, 11000)), "● working")
         // Rendering = pink (turn done, but a launched render is still
         // cooking — between working-green and awaiting-amber). Light: bright
         // rose page, deep magenta ink; dark: deep rose page, bright pink ink.
@@ -1559,16 +1587,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .complete:
             if blink {
                 return dark
-                    ? (Palette(bg: (4500, 6500, 11500), text: (48000, 52000, 62000),
-                               bold: (60000, 62000, 65535), cursor: (32000, 42000, 57000)), "✓ complete")
-                    : (Palette(bg: (50000, 54000, 64000), text: (8000, 14000, 30000),
-                               bold: (3000, 7000, 21000), cursor: (15000, 25000, 52000)), "✓ complete")
+                    ? (Palette(bg: (5000, 8000, 18500), text: (46000, 51000, 64000),
+                               bold: (58000, 61000, 65535), cursor: (24000, 40000, 64000)), "✓ complete")
+                    : (Palette(bg: (37000, 45000, 64000), text: (5000, 12000, 35000),
+                               bold: (2000, 6000, 25000), cursor: (8000, 22000, 63000)), "✓ complete")
             }
             return dark
-                ? (Palette(bg: (2800, 4000, 7500), text: (48000, 52000, 62000),
-                           bold: (60000, 62000, 65535), cursor: (32000, 42000, 57000)), "✓ complete")
-                : (Palette(bg: (56000, 59000, 65535), text: (8000, 14000, 30000),
-                           bold: (3000, 7000, 21000), cursor: (15000, 25000, 52000)), "✓ complete")
+                ? (Palette(bg: (2200, 4200, 14000), text: (46000, 51000, 64000),
+                           bold: (58000, 61000, 65535), cursor: (24000, 40000, 64000)), "✓ complete")
+                : (Palette(bg: (42000, 50000, 65535), text: (5000, 12000, 35000),
+                           bold: (2000, 6000, 25000), cursor: (8000, 22000, 63000)), "✓ complete")
         // Awaiting = warm amber (needs input, focus pop). Blink: same
         // subtle-nudge rule — dark mode warms slightly brighter, bright mode
         // saturates slightly deeper. Still distinguishable from complete's
@@ -1616,7 +1644,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// can't set ad-hoc per-window RGB like iTerm2, so slab provisions one
     /// named profile per combo and just switches a tab's `current settings`.
     static func profileName(
-        for state: ClaudeSession.State, dark: Bool, blink: Bool = false
+        for state: ClaudeSession.State, dark: Bool, blink: Bool = false,
+        agentType: String = "claude"
     ) -> String {
         let s: String
         switch state {
@@ -1631,7 +1660,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .interrupted: s = "complete"
         case .stale:    s = "stale"
         }
-        let base = "Slab-\(s)-\(dark ? "dark" : "light")"
+        // Codex gets its own settings-set family so its slightly-cooler
+        // palette is provisioned + switched independently of Claude's.
+        let agentSuffix = agentType == "codex" ? "-codex" : ""
+        let base = "Slab-\(s)-\(dark ? "dark" : "light")\(agentSuffix)"
         // Only attention states ever pulse; the suffix keeps the alt
         // settings set distinct so Terminal.app can flip between two
         // provisioned profiles per tick.
@@ -1685,7 +1717,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // 0.6 s blink tick.
             let isAttention = (s.state == .complete || s.state == .awaiting || s.state == .interrupted)
             let blink = isAttention && blinkPhase
-            let decor = Self.statusDecor(for: s.state, dark: darkAppearance, blink: blink)
+            let decor = Self.statusDecor(for: s.state, dark: darkAppearance, blink: blink, agentType: s.agentType)
             var palette = decor.palette
             let glyph = decor.glyph
             // She texted (theme-by-status on): fold a shared magenta accent
@@ -1718,7 +1750,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // texted" magenta-tinted palette its own settings set so Terminal
             // windows show the accent too (their colors come from the profile,
             // not ad-hoc RGB). Provisioned below from this Assignment.palette.
-            let profile = Self.profileName(for: s.state, dark: darkAppearance, blink: blink)
+            let profile = Self.profileName(for: s.state, dark: darkAppearance, blink: blink, agentType: s.agentType)
                 + (state.messageWaiting ? "-msg" : "")
             func keyOf(_ c: RGB?) -> String { c.map { "\($0.0),\($0.1),\($0.2)" } ?? "-" }
             let key = [
@@ -1863,7 +1895,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // deciding whether to warn on close. Include shells + dev runtimes so
             // Slab can close terminals (dev servers, REPLs) without a popover.
             tm.append("    try")
-            tm.append("      set clean commands of slabSS to {\"screen\", \"tmux\", \"less\", \"more\", \"view\", \"mandoc\", \"tail\", \"log\", \"top\", \"htop\", \"bash\", \"zsh\", \"sh\", \"fish\", \"node\", \"npm\", \"pnpm\", \"yarn\", \"bun\", \"deno\", \"turbo\", \"vite\", \"tsx\", \"ts-node\", \"nodemon\", \"esbuild\", \"git\", \"ssh\", \"python\", \"python3\", \"ruby\", \"claude\"}")
+            tm.append("      set clean commands of slabSS to {\"screen\", \"tmux\", \"less\", \"more\", \"view\", \"mandoc\", \"tail\", \"log\", \"top\", \"htop\", \"bash\", \"zsh\", \"sh\", \"fish\", \"node\", \"npm\", \"pnpm\", \"yarn\", \"bun\", \"deno\", \"turbo\", \"vite\", \"tsx\", \"ts-node\", \"nodemon\", \"esbuild\", \"git\", \"ssh\", \"python\", \"python3\", \"ruby\", \"claude\", \"codex\", \"codex-slab\"}")
             tm.append("    end try")
             // A fresh `make new settings set` inherits Terminal's FACTORY
             // title components (working dir + process + size all on), not
@@ -1966,7 +1998,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Component-wise mean of every session's status page color.
         var sr = 0, sg = 0, sb = 0
         for s in sessions {
-            let c = Self.statusDecor(for: s.state, dark: dark).palette.bg
+            let c = Self.statusDecor(for: s.state, dark: dark, agentType: s.agentType).palette.bg
                 ?? (0, 0, 0)
             sr += c.0; sg += c.1; sb += c.2
         }
