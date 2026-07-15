@@ -138,3 +138,14 @@ interaction (linger vs. flick) exactly.
   $3.60 (getting .com at std price is rare). Tighter "jampad.app" is TAKEN, hence
   the "a". Arguably beats stomppad (jam > stomp, warmer) and ganny (no acronym to
   teach). Top-tier candidate.
+
+## Product-conflict check (web, 2026-07-15)
+
+- **jamapad / jamapat** — no exact product. "Jam*" is a crowded prefix (Jam.dev,
+  Jampp, Jamf, Jam Family Calendar) but the specific compounds are clear. jamapat
+  also echoes our own `notepat`. CLEANEST. Both fully free incl. `.com`.
+- **stomppad** — no exact match, BUT "STOMP" is an established music foot-pedal /
+  page-turner brand (Coda Music Technologies). Same space + the pedal analogy makes
+  confusion likelier. Moderate conflict.
+- **bobojam** — no exact match, but "bobo" is a crowded app prefix (BoBo Balance,
+  BoBo Home, BoBo voice chat). Moderate.
