@@ -400,8 +400,11 @@ function sim(api) {
   // momentum, overshoots a hair on a fast throw, and eases in soft on a slow one.
   // Organic, not a fixed-length slide that lurches from wherever you released.
   if (move && !move.live) {
-    const K = 0.12; // stiffness
-    const D = 0.78; // damping — under 1 so a flick can overshoot and settle
+    // A gentle, decelerating glide — you WANDER toward the room and ARRIVE, rather
+    // than snapping. Soft stiffness for the long travel, firm damping so it eases
+    // in and lands without a bounce.
+    const K = 0.09;
+    const D = 0.62;
     move.vx = (move.vx + (move.tox - move.ox) * K) * D;
     move.vy = (move.vy + (move.toy - move.oy) * K) * D;
     move.ox += move.vx;
@@ -529,8 +532,10 @@ function controls({ ink, write }, g, w, h) {
     const [cx, cy] = zoneCenter(d, g, w, h);
     const on = hover === d;
     const lit = pressed === d ? pressT : 0;
-    const a = Math.round(90 + on * 110 + lit * 60);
-    const col = pressed === d ? OK : on ? RIM : [120, 128, 148];
+    const a = Math.round(150 + on * 90 + lit * 90);
+    // The direction's own colour, brightened when hovered or just taken.
+    const b = on || lit ? 55 : 0;
+    const col = [Math.min(255, d.col[0] + b), Math.min(255, d.col[1] + b), Math.min(255, d.col[2] + b)];
     arrow(ink, cx, cy - 3, d.dx, d.dy, 6, col, a);
     ink(0, 0, 0, a * 0.5).write(d.k.toUpperCase(), { x: cx - 2, y: cy + 4 });
     ink(...col, a).write(d.k.toUpperCase(), { x: cx - 3, y: cy + 3 });
@@ -652,15 +657,18 @@ let pressT = 0;
 // The eight ways out, as a 9-patch on the QWERTY keys — the cluster around S, so
 // your hand never leaves home row. Each also names the wall zone (which third of
 // the border) you tap to go that way, and the arrow that points there.
+// Each direction wears a colour, a compass wheel — the way notepat gives every
+// note its own. Warm at the top, cooling clockwise around, so the eight ways out
+// read as a spectrum you can learn by hue.
 const DIRS = [
-  { k: "q", dx: -1, dy: -1, zx: -1, zy: -1 }, // ↖ NW
-  { k: "w", dx: 0, dy: -1, zx: 0, zy: -1 }, //  ↑ N
-  { k: "e", dx: 1, dy: -1, zx: 1, zy: -1 }, //  ↗ NE
-  { k: "a", dx: -1, dy: 0, zx: -1, zy: 0 }, //  ← W
-  { k: "d", dx: 1, dy: 0, zx: 1, zy: 0 }, //   → E
-  { k: "z", dx: -1, dy: 1, zx: -1, zy: 1 }, //  ↙ SW
-  { k: "x", dx: 0, dy: 1, zx: 0, zy: 1 }, //   ↓ S
-  { k: "c", dx: 1, dy: 1, zx: 1, zy: 1 }, //   ↘ SE
+  { k: "w", dx: 0, dy: -1, zx: 0, zy: -1, col: [255, 50, 50] }, //   ↑ N   red
+  { k: "e", dx: 1, dy: -1, zx: 1, zy: -1, col: [255, 150, 0] }, //   ↗ NE  orange
+  { k: "d", dx: 1, dy: 0, zx: 1, zy: 0, col: [235, 220, 0] }, //     → E   yellow
+  { k: "c", dx: 1, dy: 1, zx: 1, zy: 1, col: [60, 210, 70] }, //     ↘ SE  green
+  { k: "x", dx: 0, dy: 1, zx: 0, zy: 1, col: [0, 200, 210] }, //     ↓ S   cyan
+  { k: "z", dx: -1, dy: 1, zx: -1, zy: 1, col: [60, 120, 255] }, //  ↙ SW  blue
+  { k: "a", dx: -1, dy: 0, zx: -1, zy: 0, col: [150, 70, 235] }, //  ← W   purple
+  { k: "q", dx: -1, dy: -1, zx: -1, zy: -1, col: [230, 80, 235] }, // ↖ NW magenta
 ];
 const zoneAt = (x, y, g) => {
   const zx = x < g.x ? -1 : x >= g.x + g.w ? 1 : 0;
@@ -764,10 +772,11 @@ function act(api) {
   for (const d of DIRS) {
     if (e.is(`keyboard:down:${d.k}`)) return tap(api, d, g);
   }
-  if (e.is("keyboard:down:arrowright")) return tap(api, DIRS[4], g); // d / E
-  if (e.is("keyboard:down:arrowleft")) return tap(api, DIRS[3], g); // a / W
-  if (e.is("keyboard:down:arrowdown")) return tap(api, DIRS[6], g); // x / S
-  if (e.is("keyboard:down:arrowup")) return tap(api, DIRS[1], g); // w / N
+  const dir = (dx, dy) => DIRS.find((d) => d.dx === dx && d.dy === dy);
+  if (e.is("keyboard:down:arrowright")) return tap(api, dir(1, 0), g);
+  if (e.is("keyboard:down:arrowleft")) return tap(api, dir(-1, 0), g);
+  if (e.is("keyboard:down:arrowdown")) return tap(api, dir(0, 1), g);
+  if (e.is("keyboard:down:arrowup")) return tap(api, dir(0, -1), g);
 }
 
 // Take a direction by tap or key — instant, no finger-follow. The spring animates
