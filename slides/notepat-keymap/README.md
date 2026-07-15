@@ -14,10 +14,21 @@ as a template for future AC slides.
 ```fish
 ./build.fish                                       # → notepat-keymap.png
 ./build.fish ~/Desktop/notepat-keymap.png          # → custom path
+./build-figure.fish                                # → color figure only
+./build-figure-bw.fish                             # → shaded B&W figure
+./build-figure-bw-line.fish                        # → stripped line-art figure
+./build-bw.fish canonical-bw-notepat-keymap.html canonical-bw-notepat-keymap-musical-below.png 4 0.70 154.286 bottom
+./build-bw.fish canonical-bw-notepat-keymap.html canonical-bw-notepat-keymap-musical-above.png 4 0.70 154.286 top
 ```
 
-Deps: `qrencode` (`brew install qrencode`), `sips` (built-in), `python3`,
-Google Chrome at `/Applications/Google Chrome.app`.
+The canonical B&W figure has matching keyboard widths, Mac-style modifier and
+arrow keys, and separate musical-keyboard-above and -below outputs. The generic
+renderer accepts optional output path, device scale factor, piano scale, octave
+gap, and piano position arguments after the template path.
+
+Deps: `qrencode` (`brew install qrencode`) and `sips` for the complete slide;
+`python3`, ImageMagick, and Google Chrome at `/Applications/Google Chrome.app`
+for the figure renders.
 
 ## Files
 
@@ -26,6 +37,13 @@ Google Chrome at `/Applications/Google Chrome.app`.
   `__JEFFREY_PIC__`); `build.fish` substitutes data URIs at render time.
 - `build.fish` — generates QRs, crops portrait, injects data URIs, runs
   headless Chrome to capture the PNG.
+- `canonical-bw-notepat-keymap.html` — canonical monochrome figure source,
+  designed for legible halftone printing at small sizes.
+- `canonical-bw-notepat-keymap-musical-{above,below}.png` — canonical 4x PNG
+  exports with the musical keyboard above or below the Mac keyboard.
+- `build-figure*.fish` — fixed renderers for the primary figure variants.
+- `build-bw.fish` — generic renderer for B&W HTML variants, including font
+  embedding, print scaling, and tight whitespace trimming.
 
 ## Editing
 

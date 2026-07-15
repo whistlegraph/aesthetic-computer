@@ -1,0 +1,325 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  /* Canonical B&W notepat keymap figure.
+     The complete QWERTY board is drawn; the central two-octave keys light up
+     (white naturals / solid-black sharps), while keys outside that figure are
+     ghosted (solid-gray cap, white knockout legend) so the whole keyboard
+     silhouette stays legible. Pure monochrome. */
+  @font-face {
+    font-family: "Berkeley Mono";
+    src: url("__BERKELEY__") format("woff2");
+    font-weight: normal;
+    font-style: normal;
+  }
+  @font-face {
+    font-family: "YWFT Processing";
+    src: url("__YWFT_BOLD__") format("woff2");
+    font-weight: 800;
+    font-style: normal;
+  }
+
+  html, body { margin: 0; padding: 0; }
+  body {
+    width: 2000px;
+    background: #ffffff;
+    color: #121212;
+    font-family: "YWFT Processing", -apple-system, "Helvetica Neue", sans-serif;
+    box-sizing: border-box;
+    padding: 44px 48px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+  }
+
+  /* ---------------- Full QWERTY board ---------------- */
+  .board { display: flex; flex-direction: column; gap: 12px; }
+  .krow { display: flex; gap: 12px; }
+  .cap {
+    width: 84px; height: 84px;
+    border-radius: 14px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Berkeley Mono", "SF Mono", monospace;
+    font-size: 40px;
+    font-weight: 800;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+  /* Wider keys for the ghosted utility keys. */
+  .cap.w120 { width: 120px; }
+  .cap.w72 { width: 72px; }
+  .cap.w150 { width: 150px; }
+  .cap.w180 { width: 180px; }
+  .cap.w216 { width: 216px; }
+  .cap.space { width: 468px; }
+
+  /* Featured keys. Naturals: white cap, black ink, black outline. */
+  .cap.nat {
+    background: #fff; color: #121212;
+    border: 3px solid #121212;
+  }
+  /* Sharps: solid black cap, white ink. */
+  .cap.sharp {
+    background: #121212; color: #fff;
+    border: 3px solid #000;
+  }
+
+  /* Keys outside the featured octaves recede as quiet solid-gray caps. */
+  .cap.ghost {
+    background: #b3b3b3;
+    color: #ffffff;
+    border: 0;
+    font-weight: 600;
+    font-size: 30px;
+  }
+  .cap.ghost.small { font-size: 22px; }
+  .cap.symbol { font-size: 34px; }
+  .cap.modifier {
+    flex-direction: column;
+    gap: 3px;
+    line-height: 1;
+  }
+  .modifier-symbol {
+    font-size: 26px;
+    font-weight: 800;
+  }
+  .modifier-word {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+  }
+
+  /* A separated, Mac-style inverted-T arrow cluster. */
+  .arrow-cluster {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+  }
+  .arrow-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .cap.arrow-half {
+    height: 36px;
+    border-radius: 8px;
+    font-size: 24px;
+  }
+
+  /* ---------------- Piano reference strip ---------------- */
+  .piano-wrap { display: flex; justify-content: center; margin-top: 54px; }
+  body.piano-top .piano-wrap {
+    order: -1;
+    margin-top: 0;
+    margin-bottom: 54px;
+  }
+  .piano {
+    position: relative;
+    height: 340px;
+    width: calc(2112px + var(--octave-gap-extra, 0px));
+    padding-left: 36px;
+    box-sizing: border-box;
+    transform: scale(var(--piano-scale, 0.659));
+    transform-origin: top center;
+  }
+  .piano .upper {
+    transform: translateX(var(--octave-gap-extra, 0px));
+  }
+  .wkey, .bkey {
+    position: absolute;
+    box-sizing: border-box;
+    border-radius: 0 0 10px 10px;
+    border: 2px solid #121212;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    padding-bottom: 16px;
+  }
+  .wkey {
+    width: 120px; height: 320px;
+    background: #fff; color: #121212;
+    overflow: hidden;
+  }
+  .wkey .qkey {
+    font-family: "Berkeley Mono", "SF Mono", monospace;
+    font-size: 64px;
+    font-weight: 800;
+    line-height: 1;
+    color: #121212;
+    position: absolute;
+    top: 240px; left: 0; right: 0;
+    text-align: center;
+  }
+  .bkey {
+    width: 72px; height: 210px;
+    background: #0a0a0a;
+    color: #fff;
+    border-color: #000;
+    z-index: 2;
+  }
+  .bkey .qkey {
+    font-family: "Berkeley Mono", "SF Mono", monospace;
+    font-size: 38px;
+    font-weight: 800;
+    line-height: 1;
+  }
+</style>
+</head>
+<body>
+  <!-- Full ghosted QWERTY board; note keys light up. -->
+  <div class="board">
+    <!-- Number row — all ghosted -->
+    <div class="krow r0">
+      <div class="cap ghost">`</div>
+      <div class="cap ghost">1</div>
+      <div class="cap ghost">2</div>
+      <div class="cap ghost">3</div>
+      <div class="cap ghost">4</div>
+      <div class="cap ghost">5</div>
+      <div class="cap ghost">6</div>
+      <div class="cap ghost">7</div>
+      <div class="cap ghost">8</div>
+      <div class="cap ghost">9</div>
+      <div class="cap ghost">0</div>
+      <div class="cap ghost">-</div>
+      <div class="cap ghost">=</div>
+      <div class="cap ghost w120 small">DELETE</div>
+    </div>
+
+    <!-- Q row -->
+    <div class="krow r1">
+      <div class="cap ghost w120 small">TAB</div>
+      <div class="cap sharp">Q</div>
+      <div class="cap sharp">W</div>
+      <div class="cap nat">E</div>
+      <div class="cap sharp">R</div>
+      <div class="cap sharp">T</div>
+      <div class="cap sharp">Y</div>
+      <div class="cap sharp">U</div>
+      <div class="cap nat">I</div>
+      <div class="cap sharp">O</div>
+      <div class="cap sharp">P</div>
+      <div class="cap ghost">[</div>
+      <div class="cap ghost">]</div>
+      <div class="cap ghost">\</div>
+    </div>
+
+    <!-- A row -->
+    <div class="krow r2">
+      <div class="cap ghost w150 small">CAPS</div>
+      <div class="cap nat">A</div>
+      <div class="cap sharp">S</div>
+      <div class="cap nat">D</div>
+      <div class="cap nat">F</div>
+      <div class="cap nat">G</div>
+      <div class="cap nat">H</div>
+      <div class="cap nat">J</div>
+      <div class="cap nat">K</div>
+      <div class="cap nat">L</div>
+      <div class="cap ghost">;</div>
+      <div class="cap ghost">'</div>
+      <div class="cap ghost w150 small">RETURN</div>
+    </div>
+
+    <!-- Z row -->
+    <div class="krow r3">
+      <div class="cap ghost w180 small">SHIFT</div>
+      <div class="cap ghost">Z</div>
+      <div class="cap ghost">X</div>
+      <div class="cap nat">C</div>
+      <div class="cap sharp">V</div>
+      <div class="cap nat">B</div>
+      <div class="cap nat">N</div>
+      <div class="cap nat">M</div>
+      <div class="cap ghost">,</div>
+      <div class="cap ghost">.</div>
+      <div class="cap ghost">/</div>
+      <div class="cap ghost w216 small">SHIFT</div>
+    </div>
+
+    <!-- MacBook-style modifier and space row -->
+    <div class="krow r4">
+      <div class="cap ghost w72 small">FN</div>
+      <div class="cap ghost w72 modifier"><span class="modifier-symbol">⌃</span><span class="modifier-word">CONTROL</span></div>
+      <div class="cap ghost w72 modifier"><span class="modifier-symbol">⌥</span><span class="modifier-word">OPTION</span></div>
+      <div class="cap ghost w120 modifier"><span class="modifier-symbol">⌘</span><span class="modifier-word">COMMAND</span></div>
+      <div class="cap ghost space" aria-label="Space"></div>
+      <div class="cap ghost w120 modifier"><span class="modifier-symbol">⌘</span><span class="modifier-word">COMMAND</span></div>
+      <div class="cap ghost modifier"><span class="modifier-symbol">⌥</span><span class="modifier-word">OPTION</span></div>
+      <div class="arrow-cluster">
+        <div class="cap ghost arrow-half">←</div>
+        <div class="arrow-stack">
+          <div class="cap ghost arrow-half">↑</div>
+          <div class="cap ghost arrow-half">↓</div>
+        </div>
+        <div class="cap ghost arrow-half">→</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PIANO reference strip: lower octave (C D E F G A B) + gap + upper (H I J K L M N) -->
+  <div class="piano-wrap">
+    <div class="piano">
+      <div class="wkey" style="left:156px;">  <div class="qkey">C</div></div>
+      <div class="wkey" style="left:276px;">  <div class="qkey">D</div></div>
+      <div class="wkey" style="left:396px;">  <div class="qkey">E</div></div>
+      <div class="wkey" style="left:516px;">  <div class="qkey">F</div></div>
+      <div class="wkey" style="left:636px;">  <div class="qkey">G</div></div>
+      <div class="wkey" style="left:756px;">  <div class="qkey">A</div></div>
+      <div class="wkey" style="left:876px;">  <div class="qkey">B</div></div>
+      <div class="wkey upper" style="left:1116px;"> <div class="qkey">H</div></div>
+      <div class="wkey upper" style="left:1236px;"><div class="qkey">I</div></div>
+      <div class="wkey upper" style="left:1356px;"><div class="qkey">J</div></div>
+      <div class="wkey upper" style="left:1476px;"><div class="qkey">K</div></div>
+      <div class="wkey upper" style="left:1596px;"><div class="qkey">L</div></div>
+      <div class="wkey upper" style="left:1716px;"><div class="qkey">M</div></div>
+      <div class="wkey upper" style="left:1836px;"><div class="qkey">N</div></div>
+
+      <!-- Sharps -->
+      <div class="bkey" style="left:240px;">  <div class="qkey">V</div></div>
+      <div class="bkey" style="left:360px;">  <div class="qkey">S</div></div>
+      <div class="bkey" style="left:600px;">  <div class="qkey">W</div></div>
+      <div class="bkey" style="left:720px;">  <div class="qkey">R</div></div>
+      <div class="bkey" style="left:840px;">  <div class="qkey">Q</div></div>
+      <div class="bkey upper" style="left:1200px;"> <div class="qkey">T</div></div>
+      <div class="bkey upper" style="left:1320px;"> <div class="qkey">Y</div></div>
+      <div class="bkey upper" style="left:1560px;"> <div class="qkey">U</div></div>
+      <div class="bkey upper" style="left:1680px;"> <div class="qkey">O</div></div>
+      <div class="bkey upper" style="left:1800px;"> <div class="qkey">P</div></div>
+    </div>
+  </div>
+  <script>
+    const requestedPianoScale = Number(
+      new URLSearchParams(location.search).get("pianoScale")
+    );
+    if (Number.isFinite(requestedPianoScale) && requestedPianoScale > 0) {
+      document.documentElement.style.setProperty(
+        "--piano-scale",
+        String(requestedPianoScale)
+      );
+    }
+    const requestedOctaveGapExtra = Number(
+      new URLSearchParams(location.search).get("octaveGapExtra")
+    );
+    if (Number.isFinite(requestedOctaveGapExtra) && requestedOctaveGapExtra >= 0) {
+      document.documentElement.style.setProperty(
+        "--octave-gap-extra",
+        `${requestedOctaveGapExtra}px`
+      );
+    }
+    const requestedPianoPosition = new URLSearchParams(location.search).get(
+      "pianoPosition"
+    );
+    if (requestedPianoPosition === "top") {
+      document.body.classList.add("piano-top");
+    }
+  </script>
+</body>
+</html>
