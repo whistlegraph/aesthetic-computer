@@ -496,8 +496,21 @@ function paint(api) {
   const swiping = !!grab || !!move;
   wipe(...WALL);
   for (const d of DIRS) {
-    const [zx, zy, zw, zh] = zoneRect(d, g, w, h);
-    ink(...bezelTone(d.col, swiping)).box(zx, zy, zw, zh);
+    let [zx, zy, zw, zh] = zoneRect(d, g, w, h);
+    const gap = 3; // soft neutral seam between tiles, so each reads as its own shape
+    zx += gap;
+    zy += gap;
+    zw -= gap * 2;
+    zh -= gap * 2;
+    // The WHOLE tile lights, not just its label: dim at rest, brighter while you
+    // pull, brightest under the pointer, and a flash the moment it's taken.
+    const on = hover === d;
+    const lit = pressed === d ? pressT : 0;
+    const f = 0.34 + (swiping ? 0.1 : 0) + (on ? 0.36 : 0) + lit * 0.4;
+    const col = [Math.min(255, d.col[0] * f), Math.min(255, d.col[1] * f), Math.min(255, d.col[2] * f)];
+    // A rounded tile — corners and edges alike get real shape, so nothing butts
+    // squarely against the round glass and feels off.
+    tile(ink, zx, zy, zw, zh, Math.min(12, zw / 2, zh / 2), col);
   }
 
   // The web. Every room is its own framed puddle, carrying its frame WITH it — so a
@@ -531,6 +544,19 @@ function paint(api) {
 
   // The name isn't drawn here anymore — it arrives as AC's own frontal notice each
   // time you enter a room (see mount), the same alert that announces a saved handle.
+}
+
+// A filled rounded rectangle from primitives — a cross of two boxes plus a disc at
+// each corner. Gives the direction tiles real shape so nothing butts squarely
+// against the round glass.
+function tile(ink, x, y, wd, ht, r, col) {
+  r = Math.max(0, Math.min(r, wd / 2, ht / 2));
+  ink(...col).box(x + r, y, wd - 2 * r, ht);
+  ink(...col).box(x, y + r, wd, ht - 2 * r);
+  ink(...col).circle(x + r, y + r, r, true);
+  ink(...col).circle(x + wd - r, y + r, r, true);
+  ink(...col).circle(x + r, y + ht - r, r, true);
+  ink(...col).circle(x + wd - r, y + ht - r, r, true);
 }
 
 // A little arrow, drawn (not typed — the font has no arrow glyphs). A shaft from
