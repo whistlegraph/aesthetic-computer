@@ -120,3 +120,8 @@ interaction (linger vs. flick) exactly.
   `.com` taken; `.art` $53 (mild premium). Flag: collides with an existing "Pushpad"
   web-push-notification SaaS, and reads a bit generic. stomppad avoids both.
 - **quilt / buzzer / gans** — dead ends (common words: taken + premium .art).
+- **lalapad** — `pad` family, playful/singable. `.com` $11 / `.app` $8.75 / `.art`
+  $3.60 — ALL free at standard price (rare to get .com too).
+- **flickware** — "flick" (the gesture) + "ware" (software); apt + evocative.
+  `.app` $8.75 free; `.com` taken (some flickware exists — check before committing).
+- **flikflak** — dead: `.com`/`.app` taken, and collides with Swatch's "Flik Flak".
