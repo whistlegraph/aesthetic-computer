@@ -3183,6 +3183,14 @@ const $commonApi = {
     if (color[0] === "yellow" && color[1] === "red") sound.tone = 300;
     noticeBell(cachedAPI, sound);
   },
+  // 🪟 A crisp vector overlay, drawn on the native UI canvas (uiCtx) above the pixel
+  // buffer. Hand it a display-list of ops each frame and bios replays them with
+  // anti-aliased Canvas 2D — rounded rects, text, lines. For UI that wants to look
+  // like an app, not pixels. Set null / omit to draw nothing.
+  //   overlay([["rr", x,y,w,h,r, [r,g,b,a]], ["text","W", x,y, size, [r,g,b,a], "center"], ...])
+  overlay: (list) => {
+    overlay2D = list || null;
+  },
   // ⌛ Delay a function by `time` number of sim steps.
   delay: (fun, time) => {
     hourGlasses.push(new gizmo.Hourglass(time, { completed: () => fun() }));
@@ -7583,6 +7591,7 @@ let originalHost;
 let firstLoad = true;
 
 let notice, noticeTimer, noticeColor, noticeOpts; // Renders a full-screen notice on piece-load if present.
+let overlay2D = null; // A per-frame vector display-list drawn on uiCtx (api.overlay).
 
 async function load(
   parsed, // If parsed is not an object, then assume it's source code.
@@ -15557,6 +15566,7 @@ async function makeFrame({ data: { type, content } }) {
 
       // TODO: Write this up to the data in `painting`.
       sendData.TwoD = { code: twoDCommands };
+      if (overlay2D) sendData.overlay = overlay2D; // 🪟 vector UI display-list → uiCtx
 
       // Attach a label buffer if necessary.
       // Hide label when QR is in fullscreen mode or in device mode (device.html has its own overlay)
@@ -16698,6 +16708,7 @@ async function makeFrame({ data: { type, content } }) {
 
       send({ type: "render", content: sendData }, transferredObjects);
 
+      overlay2D = null; // consumed — the piece re-sets it each paint, so it never staleness-flickers
       sound.sounds.length = 0; // Empty the sound command buffer.
       sound.bubbles.length = 0;
       sound.farts.length = 0;

@@ -46,6 +46,53 @@ import { createWebGLBlitter } from "./lib/webgl-blit.mjs";
 
 // import * as TwoD from "./lib/2d.mjs"; // 🆕 2D GPU Renderer.
 const TwoD = undefined;
+let hadVectorOverlay = false; // so the vector overlay clears once when a piece drops it
+
+// 🪟 Replay a piece's vector-overlay display-list onto the native UI canvas — crisp
+// anti-aliased rounded rects, text and lines above the pixel buffer. Cleared fresh
+// each frame (the piece re-sends every paint). Coords are logical; the ctx is
+// already dpi-scaled by the caller.
+function drawVectorOverlay(ctx, ops) {
+  if (!ctx || !ops) return;
+  const rgba = (c) => `rgba(${c?.[0] || 0},${c?.[1] || 0},${c?.[2] || 0},${(c?.[3] ?? 255) / 255})`;
+  const round = (x, y, w, h, r) => {
+    const rr = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + rr, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rr);
+    ctx.arcTo(x + w, y + h, x, y + h, rr);
+    ctx.arcTo(x, y + h, x, y, rr);
+    ctx.arcTo(x, y, x + w, y, rr);
+    ctx.closePath();
+  };
+  for (const op of ops) {
+    const k = op[0];
+    if (k === "rr") {
+      round(op[1], op[2], op[3], op[4], op[5]);
+      ctx.fillStyle = rgba(op[6]);
+      ctx.fill();
+    } else if (k === "stroke") {
+      round(op[1], op[2], op[3], op[4], op[5]);
+      ctx.strokeStyle = rgba(op[6]);
+      ctx.lineWidth = op[7] || 1;
+      ctx.stroke();
+    } else if (k === "text") {
+      ctx.fillStyle = rgba(op[5]);
+      ctx.font = `700 ${op[4] || 12}px ui-monospace, "SF Mono", monospace`;
+      ctx.textAlign = op[6] || "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(op[1], op[2], op[3]);
+    } else if (k === "line") {
+      ctx.strokeStyle = rgba(op[5]);
+      ctx.lineWidth = op[6] || 1;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(op[1], op[2]);
+      ctx.lineTo(op[3], op[4]);
+      ctx.stroke();
+    }
+  }
+}
 
 const { assign, keys } = Object;
 const { round, floor, min, max } = Math;
@@ -18854,6 +18901,28 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       
       uiCtx.clearRect(0, uiCtx.canvas.height / dpi - 64, 64, 64); // Bottom left
       uiCtx.clearRect(uiCtx.canvas.width / dpi - 64, 0, 64, 64); // Top right
+
+      // 🪟 Vector overlay — a piece's api.overlay() display-list, drawn crisp on the
+      // native UI canvas above the pixel buffer. Gated: only pieces that send one
+      // pay anything. The piece sends coords in ITS screen units, so we scale by the
+      // ratio of the UI canvas to the piece resolution (content.width). Cleared
+      // fresh each frame; the cursor still draws on top afterward.
+      if (content.overlay) {
+        const logicalW = uiCtx.canvas.width / dpi;
+        const logicalH = uiCtx.canvas.height / dpi;
+        uiCtx.clearRect(0, 0, logicalW, logicalH);
+        const s = content.width ? logicalW / content.width : 1;
+        uiCtx.save();
+        uiCtx.scale(s, s);
+        drawVectorOverlay(uiCtx, content.overlay);
+        uiCtx.restore();
+        hadVectorOverlay = true;
+      } else if (hadVectorOverlay) {
+        // The overlay just went away (left the piece) — clear it once so it doesn't
+        // linger on the UI canvas.
+        uiCtx.clearRect(0, 0, uiCtx.canvas.width / dpi, uiCtx.canvas.height / dpi);
+        hadVectorOverlay = false;
+      }
 
       pen?.render(uiCtx, canvasRect); // ️ 🐭 Draw the cursor.
 

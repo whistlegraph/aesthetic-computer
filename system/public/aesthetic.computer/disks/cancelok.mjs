@@ -49,6 +49,7 @@ let lisp = null;
 let mounting = false;
 const mods = new Map();
 
+let VEC = false; // ?vec — draw the D-pad as a crisp vector overlay (uiCtx), not pixels
 let judge = null;
 let shownAt = 0;
 let taps = 0;
@@ -386,6 +387,9 @@ function step(api) {
 function boot(api) {
   api.wipe(...WALL);
   api.hud?.label?.("");
+  // `?vec` parses to { vec: "" } — an empty string, which is falsy — so test for
+  // PRESENCE, not truthiness. (Also accept the `cancelok:vec` param form.)
+  VEC = (api.query && "vec" in api.query) || api.params?.includes?.("vec") || false;
   judge = api.handle?.() || null;
   load(api)
     .then(() => {
@@ -495,23 +499,27 @@ function paint(api) {
   // place. Dark, so the pad still pops; never pure black.
   const swiping = !!grab || !!move;
   wipe(...WALL);
-  for (const d of DIRS) {
-    let [zx, zy, zw, zh] = zoneRect(d, g, w, h);
-    const gap = 3; // soft neutral seam between tiles, so each reads as its own shape
-    zx += gap;
-    zy += gap;
-    zw -= gap * 2;
-    zh -= gap * 2;
-    // The WHOLE tile lights, not just its label: dim at rest, brighter while you
-    // pull, brightest under the pointer, and a flash the moment it's taken.
-    const on = hover === d;
-    const lit = pressed === d ? pressT : 0;
-    const f = 0.34 + (swiping ? 0.1 : 0) + (on ? 0.36 : 0) + lit * 0.4;
-    const col = [Math.min(255, d.col[0] * f), Math.min(255, d.col[1] * f), Math.min(255, d.col[2] * f)];
-    // A rounded tile — corners and edges alike get real shape, so nothing butts
-    // squarely against the round glass and feels off.
-    tile(ink, zx, zy, zw, zh, Math.min(12, zw / 2, zh / 2), col);
-  }
+  // The compass D-pad. In pixel mode it's rounded tiles drawn straight into the
+  // buffer; in ?vec mode the same tiles are handed to bios as a crisp vector
+  // overlay (uiCtx) instead — see the VEC block after the web below.
+  if (!VEC)
+    for (const d of DIRS) {
+      let [zx, zy, zw, zh] = zoneRect(d, g, w, h);
+      const gap = 3; // soft neutral seam between tiles, so each reads as its own shape
+      zx += gap;
+      zy += gap;
+      zw -= gap * 2;
+      zh -= gap * 2;
+      // The WHOLE tile lights, not just its label: dim at rest, brighter while you
+      // pull, brightest under the pointer, and a flash the moment it's taken.
+      const on = hover === d;
+      const lit = pressed === d ? pressT : 0;
+      const f = 0.34 + (swiping ? 0.1 : 0) + (on ? 0.36 : 0) + lit * 0.4;
+      const col = [Math.min(255, d.col[0] * f), Math.min(255, d.col[1] * f), Math.min(255, d.col[2] * f)];
+      // A rounded tile — corners and edges alike get real shape, so nothing butts
+      // squarely against the round glass and feels off.
+      tile(ink, zx, zy, zw, zh, Math.min(12, zw / 2, zh / 2), col);
+    }
 
   // The web. Every room is its own framed puddle, carrying its frame WITH it — so a
   // drag pulls the whole web across the grid. The frame is neutral so the coloured
@@ -538,9 +546,16 @@ function paint(api) {
     api.paste(frame, sx, sy); // round the corners, feather the edge, draw the rim
   }
 
-  // The 8-way control surface, on the wall: each direction's key + arrow, lit when
-  // you hover or take it. Hidden mid-pull — you're already navigating then.
-  if (!move) controls(api, g, w, h);
+  // The 8-way control surface, on the wall: each direction's key, lit when you
+  // hover or take it. Hidden mid-pull — you're already navigating then.
+  // Pixel mode draws it into the buffer; ?vec mode ships it as a crisp vector
+  // overlay to bios (native Canvas 2D on uiCtx) instead.
+  if (!move) {
+    if (VEC) vectorControls(api, g, w, h);
+    else controls(api, g, w, h);
+  } else if (VEC) {
+    api.overlay?.(null); // clear the overlay while pulling
+  }
 
   // The name isn't drawn here anymore — it arrives as AC's own frontal notice each
   // time you enter a room (see mount), the same alert that announces a saved handle.
@@ -591,6 +606,26 @@ function controls({ ink }, g, w, h) {
     ink(0, 0, 0, a * 0.45).write(d.k.toUpperCase(), { x: cx - 1, y: cy + 3 }, undefined, undefined, undefined, "MatrixChunky8");
     ink(...col, a).write(d.k.toUpperCase(), { x: cx - 2, y: cy + 2 }, undefined, undefined, undefined, "MatrixChunky8");
   }
+}
+
+// The same D-pad, but as a CRISP VECTOR display-list handed to bios (?vec mode) —
+// native rounded rects and anti-aliased text on uiCtx, above the pixel pads. Coords
+// are in the piece's screen units; bios scales them to the UI canvas.
+function vectorControls(api, g, w, h) {
+  const list = [];
+  for (const d of DIRS) {
+    let [zx, zy, zw, zh] = zoneRect(d, g, w, h);
+    const gap = 3;
+    zx += gap; zy += gap; zw -= gap * 2; zh -= gap * 2;
+    const on = hover === d;
+    const lit = pressed === d ? pressT : 0;
+    const f = 0.4 + (on ? 0.4 : 0) + lit * 0.5;
+    list.push(["rr", zx, zy, zw, zh, Math.min(12, zw / 2, zh / 2),
+      [Math.min(255, d.col[0] * f), Math.min(255, d.col[1] * f), Math.min(255, d.col[2] * f), 255]]);
+    const [cx, cy] = zoneCenter(d, g, w, h);
+    list.push(["text", d.k.toUpperCase(), cx, cy, 12, [255, 255, 255, on || lit ? 255 : 220], "center"]);
+  }
+  api.overlay?.(list);
 }
 
 // The soft CRT edge: rounded corners + a fuzzy border. Writing the display buffer
