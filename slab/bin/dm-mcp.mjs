@@ -147,12 +147,22 @@ async function toolInbox({ machine } = {}) {
   return text(L.join("\n"));
 }
 
+// The recent-conversation list — who's talking, unread, last message. This is
+// how you find a thread to pass as `to` (Signal only; imsg has no chats verb).
+async function toolChats({ n = 20, machine } = {}) {
+  const { stdout } = await runBridge(SIGNAL, ["chats", String(n)], machine);
+  return text(stdout.trim() || "(no conversations)");
+}
+
 // Thread history. Signal has a real one-shot read; iMessage only a status
 // summary today (imsg.mjs has no history verb yet — noted, not silently empty).
-async function toolRead({ channel, n = 15, machine } = {}) {
+async function toolRead({ channel, n = 15, to, machine } = {}) {
   const ch = (channel || "signal").toLowerCase();
   if (ch === "signal") {
-    const { stdout } = await runBridge(SIGNAL, ["read", String(n)], machine);
+    // `to` targets one conversation for this call; omit it for the configured
+    // contact. An ambiguous `to` fails loudly rather than guessing a thread.
+    const toArgs = to ? ["--to", String(to)] : [];
+    const { stdout } = await runBridge(SIGNAL, ["read", String(n), ...toArgs], machine);
     return text(stdout.trim() || "(no messages)");
   }
   if (ch === "imessage" || ch === "imsg") {
@@ -236,6 +246,17 @@ const TOOLS = [
     inputSchema: { type: "object", properties: { machine: { type: "string", description: "Machine to read (default local). Desktop-DB reads are local-only." } } },
   },
   {
+    name: "dm_chats",
+    description: "List the most recent Signal conversations (most-recent-first): name, dm/group, unread count, and the age + short preview of the last message. Use this to see what threads exist, then pass a name to dm_read's `to` to read one.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        n: { type: "number", description: "How many conversations (default 20)." },
+        machine: { type: "string", description: "Machine (default local; Signal Desktop DB is local-only)." },
+      },
+    },
+  },
+  {
     name: "dm_read",
     description: "Read recent thread history. Signal returns the last N messages (← inbound / → outbound). iMessage currently returns only the latest (imsg.mjs has no history verb yet). Use this to digest what someone said.",
     inputSchema: {
@@ -243,6 +264,7 @@ const TOOLS = [
       properties: {
         channel: { type: "string", enum: ["signal", "imessage"], description: "Which channel (default signal)." },
         n: { type: "number", description: "How many recent messages (Signal only; default 15)." },
+        to: { type: "string", description: "Signal only: which conversation — a name substring (dm or group, per dm_chats) or an exact conversationId. Omit for the configured contact. An ambiguous name errors with the candidates rather than guessing." },
         machine: { type: "string", description: "Machine (default local)." },
       },
     },
@@ -290,6 +312,7 @@ const TOOLS = [
 async function callTool(name, args) {
   switch (name) {
     case "dm_inbox": return toolInbox(args || {});
+    case "dm_chats": return toolChats(args || {});
     case "dm_read": return toolRead(args || {});
     case "dm_attachments": return toolAttachments(args || {});
     case "dm_contacts": return toolContacts(args || {});
@@ -335,4 +358,4 @@ async function handleMessage(message) {
 
 const port = httpPort(process.argv, 7771);
 if (port) serveHttp({ handleMessage, port, banner: "✉️  dm-mcp shared daemon" });
-else serveStdio({ handleMessage, banner: "✉️  dm-mcp server started (dm_inbox, dm_read, dm_attachments, dm_contacts, dm_send)" });
+else serveStdio({ handleMessage, banner: "✉️  dm-mcp server started (dm_inbox, dm_chats, dm_read, dm_attachments, dm_contacts, dm_send)" });

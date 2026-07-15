@@ -20,6 +20,7 @@
 // first 32B of localKey, mac = last 32B, plaintext truncated to `size`.
 //
 // Subcommands:
+//   signal chats [N]         list the N most recent conversations (default 20)
 //   signal status            JSON summary; rings bell on new inbound
 //   signal read [N]          print the last N messages (default 15)
 //   signal tail              live terminal client (prints + BEL on new inbound)
@@ -27,6 +28,10 @@
 //   signal save [N|all]      decrypt recent attachments → temp dir; open PDFs
 //   signal open              open Signal.app
 //   signal config            print the resolved config path (creates a stub)
+//
+// Every read-ish subcommand takes `--to <name|id>` to address ONE conversation
+// for that invocation (`signal read 30 --to jayson`) without touching config.
+// Without it they read the configured contact, exactly as they always have.
 
 import { spawnSync, execFileSync } from "node:child_process";
 import crypto from "node:crypto";
@@ -159,6 +164,30 @@ const sqlStr = (s) => "'" + String(s).replace(/'/g, "''") + "'";
 
 // ─── conversation resolution ─────────────────────────────────────────────────
 
+const CONVO_COLS =
+  "id, type, name, profileFullName, profileName, profileFamilyName, e164, active_at AS activeAt";
+
+// The fields a person would actually type: contact name, profile name, group
+// name, phone. Case-insensitive substring — the `match.contains` semantics.
+function likeAny(needle) {
+  const like = sqlStr(`%${String(needle).toLowerCase()}%`);
+  return (
+    `(LOWER(IFNULL(profileFullName,'')) LIKE ${like} OR ` +
+    `LOWER(IFNULL(profileName,'')||' '||IFNULL(profileFamilyName,'')) LIKE ${like} OR ` +
+    `LOWER(IFNULL(name,'')) LIKE ${like} OR ` +
+    `IFNULL(e164,'') LIKE ${like})`
+  );
+}
+
+const convoName = (c) =>
+  c.name ||
+  c.profileFullName ||
+  [c.profileName, c.profileFamilyName].filter(Boolean).join(" ") ||
+  c.e164 ||
+  (c.type === "group" ? "(group)" : "(unknown)");
+
+const kindOf = (c) => (c.type === "group" ? "group" : "dm");
+
 function resolveConversationId(cfg) {
   const m = cfg.match || {};
   if (m.conversationId) return m.conversationId;
@@ -167,18 +196,73 @@ function resolveConversationId(cfg) {
     if (r.length) return r[0].id;
   }
   if (m.contains) {
-    const like = `%${m.contains.toLowerCase()}%`;
     const r = sql(
-      `SELECT id FROM conversations WHERE type='private' AND (` +
-        `LOWER(IFNULL(profileFullName,'')) LIKE ${sqlStr(like)} OR ` +
-        `LOWER(IFNULL(profileName,'')||' '||IFNULL(profileFamilyName,'')) LIKE ${sqlStr(like)} OR ` +
-        `LOWER(IFNULL(name,'')) LIKE ${sqlStr(like)} OR ` +
-        `IFNULL(e164,'') LIKE ${sqlStr(like)}) ` +
+      `SELECT id FROM conversations WHERE type='private' AND ${likeAny(m.contains)} ` +
         `ORDER BY active_at DESC LIMIT 1;`,
     );
     if (r.length) return r[0].id;
   }
   return null;
+}
+
+// `--to` addresses a conversation for one invocation. An exact conversationId
+// wins; otherwise the needle must land on exactly ONE conversation. A needle
+// that silently picks among several is how you read the wrong person's thread,
+// so ambiguity prints the candidates and exits nonzero.
+function resolveTo(to) {
+  const exact = sql(`SELECT ${CONVO_COLS} FROM conversations WHERE id=${sqlStr(to)} LIMIT 1;`);
+  if (exact.length) return exact[0];
+
+  const hits = sql(
+    `SELECT ${CONVO_COLS} FROM conversations ` +
+      `WHERE active_at IS NOT NULL AND ${likeAny(to)} ORDER BY active_at DESC LIMIT 20;`,
+  );
+  if (!hits.length) {
+    console.error(`signal: no conversation matched "${to}" — see: signal chats`);
+    process.exit(1);
+  }
+  if (hits.length > 1) {
+    console.error(`signal: "${to}" matched ${hits.length} conversations — narrow it, or pass an id:`);
+    for (const c of hits) {
+      console.error(`  ${clip(convoName(c), 28).padEnd(28)} ${kindOf(c).padEnd(5)} ${c.id}`);
+    }
+    process.exit(1);
+  }
+  return hits[0];
+}
+
+// Every read-ish command picks its conversation here: `--to` when given, else
+// the configured contact (unchanged — this is the path the menubar/dm-mcp use).
+function target(to) {
+  if (to) {
+    const c = resolveTo(to);
+    return { convoId: c.id, name: convoName(c), cfg: loadConfig() || {} };
+  }
+  const cfg = loadConfig() || needConfig();
+  const convoId = resolveConversationId(cfg);
+  if (!convoId) {
+    console.error("signal: conversation not found");
+    process.exit(1);
+  }
+  return { convoId, name: cfg.displayName, cfg };
+}
+
+// Most-recent-first, with each conversation's last message + unread count. The
+// LEFT JOIN pins one row per conversation (its newest message worth showing).
+function recentConversations(limit) {
+  return sql(
+    `SELECT c.id, c.type, c.name, c.profileFullName, c.profileName, c.profileFamilyName, ` +
+      `c.e164, c.active_at AS activeAt, ` +
+      `(SELECT COUNT(*) FROM messages u WHERE u.conversationId=c.id ` +
+      `AND u.type='incoming' AND u.readStatus=0) AS unread, ` +
+      `m.type AS lastType, m.body AS lastBody, m.sent_at AS lastAt, ` +
+      `m.hasAttachments AS lastHasAttachments ` +
+      `FROM conversations c LEFT JOIN messages m ON m.rowid=(` +
+      `SELECT rowid FROM messages x WHERE x.conversationId=c.id ` +
+      `AND ((x.body IS NOT NULL AND x.body!='') OR x.hasAttachments=1) ` +
+      `ORDER BY x.sent_at DESC LIMIT 1) ` +
+      `WHERE c.active_at IS NOT NULL ORDER BY c.active_at DESC LIMIT ${Number(limit) || 20};`,
+  );
 }
 
 // ─── messages ────────────────────────────────────────────────────────────────
@@ -286,11 +370,30 @@ function needConfig() {
   process.exit(2);
 }
 
-function cmdStatus() {
+// The at-a-glance list: who's talking, how stale, how loud. Previews stay short
+// — this gets read over shoulders and on screen-shares.
+function cmdChats(n) {
+  const convos = recentConversations(n || 20);
+  for (const c of convos) {
+    // Collapse newlines — a wrapped body would tear the table apart.
+    const body = String(c.lastBody || (c.lastHasAttachments ? "📎 attachment" : "")).replace(/\s+/g, " ").trim();
+    const preview = c.lastAt ? `${arrow(c.lastType)} ${clip(body, 44)}` : "";
+    console.log(
+      `${humanAgo(c.lastAt || c.activeAt).padStart(4)}  ` +
+        `${(c.unread ? `●${c.unread}` : "").padStart(5)}  ` +
+        `${kindOf(c).padEnd(5)}  ${clip(convoName(c), 26).padEnd(26)}  ${preview}`,
+    );
+  }
+  if (!convos.length) console.log("(no conversations)");
+}
+
+function cmdStatus(to) {
   const cfg = loadConfig();
-  if (!cfg) { print({ configured: false, label: "Signal: setup" }); return; }
-  const convoId = resolveConversationId(cfg);
+  if (!cfg && !to) { print({ configured: false, label: "Signal: setup" }); return; }
+  const c = to ? resolveTo(to) : null;
+  const convoId = c ? c.id : resolveConversationId(cfg);
   if (!convoId) { print({ configured: true, found: false, label: "Signal: ?" }); return; }
+  const name = c ? convoName(c) : cfg.displayName;
 
   const unread = unreadInbound(convoId);
   const last = recentMessages(convoId, 1)[0];
@@ -299,7 +402,7 @@ function cmdStatus() {
   const state = loadState();
   const prev = state[convoId]?.lastInboundRowid || 0;
   if (maxRowid > prev) {
-    if (prev !== 0) ringBell(cfg); // don't blast history on first run
+    if (prev !== 0) ringBell(cfg || {}); // don't blast history on first run
     state[convoId] = { lastInboundRowid: maxRowid };
     saveState(state);
   }
@@ -307,7 +410,7 @@ function cmdStatus() {
   print({
     configured: true,
     found: true,
-    name: cfg.displayName,
+    name,
     unread,
     label: unread > 0 ? `Signal: ${unread}` : "Signal",
     last: last
@@ -316,20 +419,16 @@ function cmdStatus() {
   });
 }
 
-function cmdRead(n) {
-  const cfg = loadConfig() || needConfig();
-  const convoId = resolveConversationId(cfg);
-  if (!convoId) { console.error("signal: conversation not found"); process.exit(1); }
+function cmdRead(n, to) {
+  const { convoId } = target(to);
   for (const m of recentMessages(convoId, n || 15)) {
     const body = m.body || (m.hasAttachments ? "📎 attachment" : "");
     console.log(`${arrow(m.type)} ${humanAgo(m.sentAt).padStart(3)}  ${body}`);
   }
 }
 
-function cmdAttachments(n) {
-  const cfg = loadConfig() || needConfig();
-  const convoId = resolveConversationId(cfg);
-  if (!convoId) { console.error("signal: conversation not found"); process.exit(1); }
+function cmdAttachments(n, to) {
+  const { convoId } = target(to);
   const atts = recentAttachments(convoId, n || 10);
   atts.forEach((a, i) => {
     console.log(
@@ -340,10 +439,8 @@ function cmdAttachments(n) {
   if (!atts.length) console.log("(no downloaded attachments)");
 }
 
-function cmdSave(which) {
-  const cfg = loadConfig() || needConfig();
-  const convoId = resolveConversationId(cfg);
-  if (!convoId) { console.error("signal: conversation not found"); process.exit(1); }
+function cmdSave(which, to) {
+  const { convoId } = target(to);
   const atts = recentAttachments(convoId, 30);
   let picks;
   if (which === "all") picks = atts;
@@ -370,11 +467,9 @@ function cmdSave(which) {
   return saved;
 }
 
-async function cmdTail() {
-  const cfg = loadConfig() || needConfig();
-  const convoId = resolveConversationId(cfg);
-  if (!convoId) { console.error("signal: conversation not found"); process.exit(1); }
-  console.log(`— signal tail: ${cfg.displayName} (Ctrl-C to quit) —`);
+async function cmdTail(to) {
+  const { convoId, name } = target(to);
+  console.log(`— signal tail: ${name} (Ctrl-C to quit) —`);
   for (const m of recentMessages(convoId, 10)) {
     console.log(`${arrow(m.type)} ${m.body || (m.hasAttachments ? "📎 attachment" : "")}`);
   }
@@ -398,18 +493,33 @@ async function cmdTail() {
 
 // ─── main ────────────────────────────────────────────────────────────────────
 
-const [cmd, arg] = process.argv.slice(2);
+// `--to <name|id>` can sit anywhere; lift it out before the positionals.
+const argv = process.argv.slice(2);
+const ti = argv.indexOf("--to");
+const to = ti < 0 ? null : argv.splice(ti, 2)[1];
+// A bare `--to` must not quietly fall back to the configured contact — that
+// reads the wrong person while you think you retargeted.
+if (ti >= 0 && !to) {
+  console.error("signal: --to needs a value (a name substring, or a conversationId)");
+  process.exit(1);
+}
+const [cmd, arg] = argv;
+
 try {
   switch (cmd) {
-    case "status": cmdStatus(); break;
-    case "read": cmdRead(arg ? Number(arg) : 15); break;
-    case "attachments": case "atts": cmdAttachments(arg ? Number(arg) : 10); break;
-    case "save": cmdSave(arg); break;
-    case "tail": await cmdTail(); break;
+    case "chats": case "recent": cmdChats(arg ? Number(arg) : 20); break;
+    case "status": cmdStatus(to); break;
+    case "read": cmdRead(arg ? Number(arg) : 15, to); break;
+    case "attachments": case "atts": cmdAttachments(arg ? Number(arg) : 10, to); break;
+    case "save": cmdSave(arg, to); break;
+    case "tail": await cmdTail(to); break;
     case "open": spawnSync("/usr/bin/open", ["-a", "Signal"], { stdio: "ignore" }); break;
     case "config": ensureConfigStub(); console.log(CONFIG_PATH); break;
     default:
-      console.log("usage: signal status|read [N]|attachments [N]|save [N|all]|tail|open|config");
+      console.log(
+        "usage: signal chats [N]|status|read [N]|attachments [N]|save [N|all]|tail|open|config\n" +
+          "       read-ish commands take --to <name|id> to target one conversation",
+      );
   }
 } catch (e) {
   if (cmd === "status") { print({ configured: !!loadConfig(), error: e.message }); }
