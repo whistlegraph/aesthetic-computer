@@ -74,16 +74,31 @@ const bootTelemetry = (() => {
   let flushTimer = null;
   let started = false;
   const ua = navigator?.userAgent || "";
+  // Every pattern captures the VERSION in group 1; the name travels alongside it.
+  // The previous version had three alternations but only the first captured a
+  // name — so for Chrome and Safari `m[1]` was the version and `m[2]` was
+  // undefined, and both logged as e.g. "150 undefined". Chrome is the most
+  // common browser here and was invisible in the data for as long as this has
+  // been collecting.
+  //
+  // Order matters, and the UA strings overlap on purpose: Edge, Opera, Samsung
+  // and Chrome-on-iOS all carry "Chrome/", and Chrome itself carries "Safari/".
+  // Most specific first; Safari last, and only when it presents a Version/.
+  const BROWSERS = [
+    ["Edge", /\bEdg\/(\d+)/],
+    ["Opera", /\bOPR\/(\d+)/],
+    ["Samsung", /\bSamsungBrowser\/(\d+)/],
+    ["Chrome iOS", /\bCriOS\/(\d+)/],
+    ["Firefox iOS", /\bFxiOS\/(\d+)/],
+    ["Firefox", /\bFirefox\/(\d+)/],
+    ["Chrome", /\bChrome\/(\d+)/],
+    ["Safari", /\bVersion\/(\d+)[\s\S]*\bSafari\//],
+  ];
   const parseBrowser = (s) => {
     if (!s) return null;
-    // Order matters: check specific before generic
-    const m = s.match(/(Edg|OPR|Firefox|SamsungBrowser|CriOS|FxiOS)\/(\d+)/) ||
-              s.match(/Version\/(\d+).+Safari/) ||
-              s.match(/Chrome\/(\d+)/);
-    if (m) {
-      const names = { Edg: "Edge", OPR: "Opera", CriOS: "Chrome iOS", FxiOS: "Firefox iOS", SamsungBrowser: "Samsung" };
-      if (m[1] === "Version") return "Safari " + m[1]; // Version/X Safari
-      return (names[m[1]] || m[1]) + " " + m[2];
+    for (const [name, re] of BROWSERS) {
+      const m = s.match(re);
+      if (m) return `${name} ${m[1]}`;
     }
     return null;
   };
@@ -106,18 +121,29 @@ const bootTelemetry = (() => {
     embedded: window !== window.top,
     packMode: Boolean(window.acPACK_MODE),
     localDev: typeof location !== "undefined" && location.hostname === "localhost",
-    user: window.acUSER ? {
-      sub: window.acUSER?.sub,
-      handle: window.acUSER?.handle,
-    } : null,
   };
+
+  // Read the user at SEND time. `meta` above is built while boot.mjs is still
+  // evaluating — long before auth resolves and assigns window.acUSER — and it
+  // was then captured in this closure and reused for every event, so `user` was
+  // null on every boot ever recorded (0 of 2,314 last week, including everyone
+  // who was in fact signed in).
+  const currentUser = () =>
+    window.acUSER
+      ? { sub: window.acUSER.sub, handle: window.acUSER.handle }
+      : null;
 
   async function sendBootEvent(phase, data = {}) {
     try {
       await fetch("/api/boot-log", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bootId, phase, meta, data }),
+        body: JSON.stringify({
+          bootId,
+          phase,
+          meta: { ...meta, user: currentUser() },
+          data,
+        }),
         keepalive: true,
       });
     } catch {
@@ -242,7 +268,31 @@ function bootLog(message) {
   }
 }
 
-// Hide the boot log overlay (called when boot completes)
+// 🧾 Boot success — the telemetry "this boot worked" signal, kept deliberately
+// SEPARATE from the overlay UI below. A boot has succeeded the moment the disk
+// has loaded and run its boot lifecycle (`disk-loaded-and-booted` in disk.mjs),
+// which fires for every piece, with or without a custom paint function.
+//
+// This used to be welded to hideBootLog(), which only fires once a piece's paint
+// takes over the boot overlay. Pieces on the default paint never sent
+// `piece-paint-ready`, fell through to an unreliable 500ms fallback, and were
+// recorded as never-finished forever — ~20% of all boots, and 73% of /kidlisp,
+// none of which had actually failed. Idempotent: the first caller wins, and
+// later piece navigations within the same page session are no-ops (a page load
+// is one boot, however many pieces the user then jumps between).
+let bootCompleted = false;
+function markBootSuccess() {
+  if (bootCompleted) return;
+  bootCompleted = true;
+  bootTelemetry.complete({
+    elapsedTotal: Math.round(performance.now() - bootStartTime),
+    timings: window._bootTimings || [],
+  });
+}
+if (typeof window !== "undefined") window.acBOOT_SUCCESS = markBootSuccess;
+
+// Hide the boot log overlay. Purely a UI concern now — it no longer decides
+// whether the boot succeeded (that is markBootSuccess, above).
 let bootLogHidden = false;
 let hideBootLogFirstCall = 0;
 const HIDE_BOOT_MAX_WAIT_MS = 8000; // cap motd wait so boot can never stall forever
@@ -260,11 +310,9 @@ function hideBootLog() {
   if (bc?.hide) {
     bc.hide();
   }
-  const elapsedTotal = Math.round(performance.now() - bootStartTime);
-  bootTelemetry.complete({
-    elapsedTotal,
-    timings: window._bootTimings || [],
-  });
+  // Safety net: if the disk-loaded path somehow never marked success, getting
+  // far enough to hide the overlay still counts as a boot.
+  markBootSuccess();
 }
 
 // Show connection error and retry UI
@@ -809,7 +857,22 @@ async function importWithRetry(modulePath, retries = IMPORT_MAX_RETRIES, useWsBu
     throw new Error('ws-missing-blob');
   };
 
-  const tryLoadViaHttp = async () => import(modulePath);
+  // The browser caches a FAILED dynamic import against its specifier: once
+  // import("./bios.mjs?v=123") rejects, every later import() of that exact URL
+  // returns the same rejected promise without re-fetching (ES module spec). So
+  // the retry loop below, re-importing an unchanged modulePath, was a no-op on
+  // the "Failed to fetch dynamically imported module" case — the steady-state
+  // boot error. Append a unique query on every attempt after the first so the
+  // browser treats it as a new module and actually re-requests it. The first
+  // attempt uses the URL as-is, to still benefit from any SW/precache hit.
+  let httpAttempted = false;
+  const tryLoadViaHttp = async () => {
+    const url = httpAttempted
+      ? `${modulePath}${modulePath.includes("?") ? "&" : "?"}r=${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+      : modulePath;
+    httpAttempted = true;
+    return import(url);
+  };
 
   const raceToSuccess = async (promises) => new Promise((resolve, reject) => {
     let pending = promises.length;
@@ -840,11 +903,20 @@ async function importWithRetry(modulePath, retries = IMPORT_MAX_RETRIES, useWsBu
       const module = await tryLoadViaHttp();
       return module;
     } catch (err) {
-      const isNetworkError = err.message?.includes('net::ERR_') || 
-                             err.message?.includes('Failed to fetch') ||
-                             err.message?.includes('timed out') ||
-                             err.message?.includes('NetworkError') ||
-                             err.message?.includes('Content-Length');
+      // A transient module-load failure worth retrying. Each browser phrases the
+      // same "the module fetch didn't complete" event differently: Chrome
+      // "Failed to fetch dynamically imported module", Safari "Importing a module
+      // script failed.", Firefox "error loading dynamically imported module".
+      // The last two were previously unmatched, so Safari/Firefox never retried
+      // at all — they were the whole "import script failed" error bucket.
+      const msg = err.message || "";
+      const isNetworkError = msg.includes('net::ERR_') ||
+                             msg.includes('Failed to fetch') ||
+                             msg.includes('timed out') ||
+                             msg.includes('NetworkError') ||
+                             msg.includes('Content-Length') ||
+                             msg.includes('Importing a module script failed') ||
+                             msg.includes('error loading dynamically imported module');
       
       if (isNetworkError && !triedWs) {
         try {

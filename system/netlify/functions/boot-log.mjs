@@ -60,14 +60,38 @@ export async function handler(event) {
     const boots = database.db.collection("boots");
     const now = new Date();
 
-    // Capture server-side request headers (Cloudflare, IP, etc.)
+    // Capture server-side request headers.
+    //
+    // These used to read Netlify's x-nf-* headers. Production is lith (Caddy +
+    // Express) behind Cloudflare, where those headers simply do not exist — so
+    // country, region and city were null on every boot ever recorded.
+    //
+    // Cloudflare was sending the real thing the entire time: the
+    // `add_visitor_location_headers` Managed Transform is enabled on the zone,
+    // so cf-ipcountry / cf-ipcity / cf-region arrive on every request. Nothing
+    // read them. If geo ever goes null again, check that transform first.
     const headers = event.headers || {};
     const server = {
-      ip: headers["x-nf-client-connection-ip"] || headers["x-forwarded-for"]?.split(",")[0]?.trim() || null,
-      country: headers["x-country"] || headers["x-nf-country-code"] || null,
-      region: headers["x-nf-subdivision-code"] || null,
-      city: headers["x-nf-city"] || null,
+      ip:
+        headers["cf-connecting-ip"] ||
+        headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
+        null,
+      country: headers["cf-ipcountry"] || null,
+      region: headers["cf-region"] || null,
+      city: headers["cf-ipcity"] || null,
       referer: headers["referer"] || headers["referrer"] || null,
+    };
+
+    // The signed-in user is not known when `start` fires — auth resolves later —
+    // and `start` writes meta with $setOnInsert, so it can never be corrected.
+    // Let any later phase upgrade a null user to a real one, without letting it
+    // rewrite the rest of meta.
+    const lateUser = meta?.user
+      ? { $set: { "meta.user": meta.user } }
+      : null;
+    const withUser = (update) => {
+      if (!lateUser) return update;
+      return { ...update, $set: { ...(update.$set || {}), ...lateUser.$set } };
     };
 
     if (phase === "start") {
@@ -93,22 +117,15 @@ export async function handler(event) {
 
     if (phase === "log") {
       const events = Array.isArray(data.events) ? data.events : [];
-      if (events.length) {
-        await boots.updateOne(
-          { bootId },
-          {
-            $push: { events: { $each: events } },
-            $set: { updatedAt: now },
-          },
-          { upsert: true },
-        );
-      } else {
-        await boots.updateOne(
-          { bootId },
-          { $set: { updatedAt: now } },
-          { upsert: true },
-        );
-      }
+      await boots.updateOne(
+        { bootId },
+        withUser(
+          events.length
+            ? { $push: { events: { $each: events } }, $set: { updatedAt: now } }
+            : { $set: { updatedAt: now } },
+        ),
+        { upsert: true },
+      );
       await database.disconnect();
       return respond(200, { ok: true });
     }
@@ -116,13 +133,13 @@ export async function handler(event) {
     if (phase === "error") {
       await boots.updateOne(
         { bootId },
-        {
+        withUser({
           $set: {
             updatedAt: now,
             status: "error",
             error: data,
           },
-        },
+        }),
         { upsert: true },
       );
       await database.disconnect();
@@ -132,14 +149,14 @@ export async function handler(event) {
     if (phase === "complete") {
       await boots.updateOne(
         { bootId },
-        {
+        withUser({
           $set: {
             updatedAt: now,
             status: "success",
             completedAt: now,
             summary: data,
           },
-        },
+        }),
         { upsert: true },
       );
       await database.disconnect();

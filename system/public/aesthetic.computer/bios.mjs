@@ -17386,7 +17386,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "disk-loaded-and-booted") {
       perf.markBoot("disk-loaded-and-booted");
-      
+
+      // 🧾 Boot telemetry: the disk loaded and ran its boot lifecycle — the real
+      // "boot succeeded" moment, fired for every piece whether or not it defines
+      // a custom paint. Idempotent in boot.mjs, so later navigations are no-ops.
+      window.acBOOT_SUCCESS?.();
+
       // Skip preload marker on default init piece, and toggle it if necessary.
       if (currentPiece !== null && !window.waitForPreload)
         window.preloaded = true;
