@@ -1449,12 +1449,11 @@ final class MenuBandController {
         // and hands back the stale generic .wav type icon (no cover art at all).
         let cover = take.cover ?? NSWorkspace.shared.icon(forFile: src.path)
         let name = src.deletingPathExtension().lastPathComponent
-        // The take's files: WAV + the sidecar .mid (editable notes for Ableton).
-        let files = [src] + [take.midi].compactMap { $0 }
-        // Instant .mbtape (zip) first, then the mountable DMG a few seconds
-        // later — both land on the Desktop so they can be compared.
-        TakeDMG.buildMbtape(files: files, name: name, coverIcon: cover)
-        return TakeDMG.build(wav: src, extras: Array(files.dropFirst()), name: name, coverIcon: cover)
+        // The sidecar .mid (editable notes for Ableton) rides inside the DMG.
+        let extras = [take.midi].compactMap { $0 }
+        // DMG only — the .mbtape (zip) alternative is dropped. `buildMbtape`
+        // stays in TakeDMG if we ever want to flag it back on.
+        return TakeDMG.build(wav: src, extras: extras, name: name, coverIcon: cover)
     }
 
     /// State-change observer. Drops the pins whenever the tape goes
