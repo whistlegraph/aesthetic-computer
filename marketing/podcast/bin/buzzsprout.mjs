@@ -26,7 +26,11 @@ import { fileURLToPath } from "node:url";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
 const OUT = resolve(ROOT, "out");
-const VAULT_ENV = resolve(ROOT, "..", "..", "..", "aesthetic-computer-vault", "buzzsprout", ".env");
+const VAULT_ENVS = [
+  resolve(ROOT, "..", "..", "aesthetic-computer-vault", "buzzsprout", ".env"),
+  resolve(ROOT, "..", "..", "..", "aesthetic-computer-vault", "buzzsprout", ".env"),
+];
+const VAULT_ENV = VAULT_ENVS.find(existsSync) || VAULT_ENVS[0];
 
 // ── credentials (env → vault .env) ─────────────────────────────────────
 function loadCreds() {
