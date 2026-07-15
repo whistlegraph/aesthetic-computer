@@ -49,7 +49,7 @@ let lisp = null;
 let mounting = false;
 const mods = new Map();
 
-let VEC = false; // ?vec — draw the D-pad as a crisp vector overlay (uiCtx), not pixels
+let VEC = true; // default: crisp vector overlay (uiCtx). `?novec` → pixel-baked D-pad
 let judge = null;
 let shownAt = 0;
 let taps = 0;
@@ -409,9 +409,10 @@ function boot(api) {
   api.wipe(...WALL);
   api.hud?.label?.("");
   api.cursor?.("native"); // the OS pointer, not AC's grey box — cleaner over the UI
-  // `?vec` parses to { vec: "" } — an empty string, which is falsy — so test for
-  // PRESENCE, not truthiness. (Also accept the `cancelok:vec` param form.)
-  VEC = (api.query && "vec" in api.query) || api.params?.includes?.("vec") || false;
+  // The crisp vector overlay (uiCtx) is now the DEFAULT — it's the high-res look.
+  // Opt back into the pixel-baked D-pad with `?novec` (or the `novec` param).
+  const noVec = (api.query && "novec" in api.query) || api.params?.includes?.("novec");
+  VEC = !noVec;
   judge = api.handle?.() || null;
   load(api)
     .then(() => {
