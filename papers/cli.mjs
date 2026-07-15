@@ -1005,7 +1005,7 @@ function updateIndex(entries) {
   // Paper detail descriptions and short previews, keyed by siteName.
   const PAPER_COPY = {
     "gaps-in-granularity-26-arxiv": {
-      detail: "Expressive Control and the Impoverishment of Consumer Playback &middot; arXiv 6pp",
+      detail: "Expressive Control and the Impoverishment of Consumer Playback &middot; arXiv 9pp",
       abstract:
         "A record scratch gives you continuous, gestural, real-time control over a recording; YouTube and Spotify give you a dropdown of round speeds, and some give nothing at all. This paper names that gap 'granularity,' grounds it in the theory of directness and the mature craft of turntablism and elastic audio, and shows that Aesthetic Computer already ships the alternative across its players. The real opening is not that the instrument is impossible, but that it lives everywhere except the default transport of the apps you actually listen and watch through.",
     },
