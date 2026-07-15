@@ -353,13 +353,20 @@ enum MenuBuilder {
     /// menubar polygon and the dropdown read as the same picture.
     private static func appendClaude(to menu: NSMenu, state: StateSnapshot, target: AppDelegate) {
         let sessions = state.claudeSessions
+        // Label by the agent(s) present: a single agent names itself
+        // ("Claude" / "Codex"); a mix reads as "Agents".
+        let agentTypes = Set(sessions.map { $0.agentType })
+        let label: String = {
+            guard let only = agentTypes.first, agentTypes.count == 1 else { return "Agents" }
+            return only.isEmpty ? "Claude" : only.prefix(1).uppercased() + only.dropFirst()
+        }()
         let header: String
         if sessions.isEmpty {
-            header = "Claude: idle"
+            header = "Agents: idle"
         } else if state.anyAwaiting {
-            header = "Claude: \(state.awaitingCount) awaiting · \(sessions.count) active"
+            header = "\(label): \(state.awaitingCount) awaiting · \(sessions.count) active"
         } else {
-            header = "Claude: \(sessions.count) active"
+            header = "\(label): \(sessions.count) active"
         }
         menu.addItem(info(header))
 
@@ -517,7 +524,10 @@ enum MenuBuilder {
     }
 
     private static func coloredTitle(for s: ClaudeSession, dot: String, subject: String, tail: String) -> NSAttributedString {
-        let full = "\(dot) \(subject)\(tail)"
+        // Tag non-Claude agents inline so a mixed list is glanceable
+        // (Claude rows stay clean/untagged as the default).
+        let agentTag = s.agentType == "claude" ? "" : "[\(s.agentType)] "
+        let full = "\(dot) \(agentTag)\(subject)\(tail)"
         let attr = NSMutableAttributedString(string: full)
         let dotColor: NSColor
         switch s.state {
@@ -559,8 +569,9 @@ enum MenuBuilder {
         case .blank:
             parts.append("blank (no prompt yet)")
         case .stale:
-            parts.append("stale (claude pid gone)")
+            parts.append("stale (agent pid gone)")
         }
+        parts.append("agent: \(s.agentType)")
         if !s.cwd.isEmpty { parts.append(s.cwd) }
         if !s.tty.isEmpty { parts.append("/dev/\(s.tty)") }
         parts.append("session \(s.sessionId)")

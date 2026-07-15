@@ -1,5 +1,11 @@
 import Foundation
 
+/// Generic alias — a tracked agent session is no longer Claude-specific
+/// (Codex sessions flow through the same markers + reducer). New code should
+/// prefer `AgentSession`; the old name stays valid so existing call sites
+/// (overlay, snapshot, menu) keep compiling.
+typealias AgentSession = ClaudeSession
+
 struct ClaudeSession {
     /// `blank`    — SessionStart fired but no UserPromptSubmit yet; window
     ///              is open with the welcome screen, awaiting the first input.
@@ -63,8 +69,19 @@ struct ClaudeSession {
     /// remote session reads distinctly from a local one.
     var remoteHost: String = ""
 
+    /// Which CLI agent owns this session — "claude" (default) or "codex".
+    /// Read from the marker's `agent_type`; drives per-agent labels/tooltips
+    /// in the menu. The state/color engine is agent-agnostic, so this is
+    /// display-only.
+    var agentType: String = "claude"
+
     /// True for sessions running on another machine, surfaced via the bridge.
     var isRemote: Bool { !remoteHost.isEmpty }
+
+    /// Human label for the owning agent ("Claude", "Codex").
+    var agentLabel: String {
+        agentType.isEmpty ? "Claude" : agentType.prefix(1).uppercased() + agentType.dropFirst()
+    }
 
     var shortSubject: String {
         let trimmed = subject.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -278,12 +295,15 @@ enum ClaudeSessionReader {
             subject: (obj["subject"] as? String) ?? "(no subject)",
             summary: (obj["summary"] as? String) ?? "",
             tty: (obj["tty"] as? String) ?? "",
-            claudePid: (obj["claude_pid"] as? Int) ?? 0,
+            // Prefer the generic `agent_pid`; fall back to the legacy
+            // `claude_pid` so existing Claude markers keep reaping.
+            claudePid: (obj["agent_pid"] as? Int) ?? (obj["claude_pid"] as? Int) ?? 0,
             updated: updated,
             state: parsedState,
             awaitingMessage: nil
         )
         session.remoteHost = (obj["remote_host"] as? String) ?? ""
+        session.agentType = (obj["agent_type"] as? String) ?? "claude"
         return session
     }
 

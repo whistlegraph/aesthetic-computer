@@ -33,6 +33,9 @@ struct LedgerEntry: Codable, Equatable {
     var seed: String       // hex of the sigil seed
     var cwd: String
     var updated: Double     // ms since epoch
+    // Owning CLI agent ("claude" | "codex" | …). Optional so ledgers published
+    // by older peers (no field) still decode; nil is treated as "claude".
+    var agentType: String?
 }
 
 struct Ledger: Codable {
@@ -186,7 +189,8 @@ final class LedgerStore {
                 kind: "session",
                 seed: String(format: "%016llx", seed),
                 cwd: s.cwd,
-                updated: s.updated.timeIntervalSince1970 * 1000)
+                updated: s.updated.timeIntervalSince1970 * 1000,
+                agentType: s.agentType)
         }
         entries.append(contentsOf: advertisedAgents())
 
@@ -228,7 +232,8 @@ final class LedgerStore {
                 status: (obj["status"] as? String) ?? "running",
                 kind: "agent", seed: String(format: "%016llx", seed),
                 cwd: (obj["cwd"] as? String) ?? "",
-                updated: mtime.timeIntervalSince1970 * 1000))
+                updated: mtime.timeIntervalSince1970 * 1000,
+                agentType: (obj["agent_type"] as? String)))
         }
         return out
     }

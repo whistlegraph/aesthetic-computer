@@ -96,7 +96,10 @@ const STATUS_MARK = {
 function line(r) {
   const mark = STATUS_MARK[r.status] || "•";
   const subj = (r.subject || "").replace(/\s+/g, " ").slice(0, 64);
-  return `${mark} ${r.host}:${r.name}  [${r.status}] ${r.kind}  ·${age(r.updated)}  ${subj}`;
+  // Tag the owning agent when it isn't the default (Claude), so a mixed
+  // fleet reads clearly: "session·codex".
+  const agent = r.agentType && r.agentType !== "claude" ? `·${r.agentType}` : "";
+  return `${mark} ${r.host}:${r.name}  [${r.status}] ${r.kind}${agent}  ·${age(r.updated)}  ${subj}`;
 }
 
 // ── resolve a `host:name` / bare-name / fuzzy handle to rock rows ────────────
@@ -170,11 +173,12 @@ end tell`;
 }
 
 // ── tools ─────────────────────────────────────────────────────────────────────
-async function toolList({ host, status, kind } = {}) {
+async function toolList({ host, status, kind, agent } = {}) {
   let rocks = await allRocks();
   if (host) rocks = rocks.filter((r) => r.host.toLowerCase() === host.toLowerCase());
   if (status) rocks = rocks.filter((r) => r.status === status);
   if (kind) rocks = rocks.filter((r) => r.kind === kind);
+  if (agent) rocks = rocks.filter((r) => (r.agentType || "claude").toLowerCase() === agent.toLowerCase());
   if (!rocks.length) return [{ type: "text", text: "(no prompt rocks match — is SlabMenubar running? try again in a few seconds)" }];
   // group by host, self first
   rocks.sort((a, b) => (a.self === b.self ? a.host.localeCompare(b.host) : a.self ? -1 : 1) || 0);
@@ -241,7 +245,9 @@ async function toolClose({ handle }) {
   if (!r.self) throw new Error(`${r.host}:${r.name} runs on another machine — prox_close only closes rocks on this machine (no remote-close endpoint yet). Run it from ${r.host}.`);
   const mk = await readMarker(r.id);
   const tty = mk?.tty || "";
-  const pid = mk?.claude_pid || 0;
+  // Prefer the generic `agent_pid` (Codex + future agents); fall back to the
+  // legacy `claude_pid` so existing Claude markers still close.
+  const pid = mk?.agent_pid || mk?.claude_pid || 0;
   if (!tty && !pid) throw new Error(`no live tty/pid marker for ${r.host}:${r.name} (id ${r.id.slice(0, 8)}) — it may already be gone.`);
   // Never close the session that is asking.
   const anc = await ancestorPids(process.pid);
@@ -263,13 +269,14 @@ const TOOLS = [
   {
     name: "prox_list",
     description:
-      "List the 'prompt rocks' across the slab fleet — every live Claude session (and headless agent) the menubar advertises, as host:name with its status (working/awaiting/complete/rendering/blank/interrupted), kind, age, and a one-line subject. Use this to see what every machine is working on right now. Reads the local fleet ledger cache (no SSH).",
+      "List the 'prompt rocks' across the slab fleet — every live agent session (Claude or Codex) and headless agent the menubar advertises, as host:name with its status (working/awaiting/complete/rendering/blank/interrupted), kind, owning agent, age, and a one-line subject. Use this to see what every machine is working on right now. Reads the local fleet ledger cache (no SSH).",
     inputSchema: {
       type: "object",
       properties: {
         host: { type: "string", description: "Only rocks on this machine (e.g. neo, blueberry, panda)." },
         status: { type: "string", description: "Filter by status: working | awaiting | complete | rendering | blank | interrupted." },
         kind: { type: "string", description: "Filter by kind: session | agent." },
+        agent: { type: "string", description: "Filter by owning agent: claude | codex." },
       },
     },
   },

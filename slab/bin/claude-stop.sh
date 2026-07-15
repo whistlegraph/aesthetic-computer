@@ -46,7 +46,7 @@ fi
 shopt -s nullglob
 for f in "$ACTIVE_DIR"/*; do
     [[ -f "$f" ]] || continue
-    pid=$(jq -r '.claude_pid // 0' "$f" 2>/dev/null)
+    pid=$(jq -r '.agent_pid // .claude_pid // 0' "$f" 2>/dev/null)
     [[ -z "$pid" || "$pid" == "0" ]] && continue
     if ! kill -0 "$pid" 2>/dev/null; then
         sid=$(basename "$f")

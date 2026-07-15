@@ -65,7 +65,7 @@ if [[ -n "$input" ]]; then
             --arg pid "$claude_pid" \
             --arg ts "$ts" \
             --arg sum "$summary" \
-            '{session_id: $sid, cwd: .cwd, subject: (.prompt | tostring | .[0:140]), summary: $sum, tty: $tty, claude_pid: ($pid | tonumber? // 0), updated: $ts, state: "working"}' \
+            '{session_id: $sid, cwd: .cwd, subject: (.prompt | tostring | .[0:140]), summary: $sum, tty: $tty, claude_pid: ($pid | tonumber? // 0), agent_pid: ($pid | tonumber? // 0), agent_type: "claude", updated: $ts, state: "working"}' \
             > "$ACTIVE_DIR/$session_id" 2>/dev/null
 
         # Live terminal title: write OSC 0 ("set window + icon name") direct

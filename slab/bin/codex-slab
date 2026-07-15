@@ -1,0 +1,66 @@
+#!/bin/bash
+# slab-tracked Codex launcher.
+#
+# Registers this Codex session as a "prompt rock" so it shows up in the slab
+# menubar + prox exactly like a Claude session. Codex fires no per-event hooks
+# the way Claude Code does, so instead we:
+#   1. write an active-prompts marker (agent_type=codex) up front,
+#   2. run a background watcher that tails Codex's rollout JSONL and flips the
+#      shared state files (active-prompts / awaiting-prompts / running-tools)
+#      on task_started / task_complete — the same files the Claude hooks touch,
+#      so the menubar's state→color reducer needs zero Codex-specific logic,
+#   3. clean everything up when Codex exits (or gets reaped if the tab dies,
+#      since the marker carries agent_pid).
+#
+# Invoked by the `co` / `cor` fish shortcuts. Run `codex` directly to skip
+# tracking.
+set -u
+SLAB_HOME=${SLAB_HOME:-$HOME/.local/share/slab}
+SLAB_BIN=${SLAB_BIN:-$HOME/.local/bin}
+ACTIVE_DIR="$SLAB_HOME/state/active-prompts"
+AWAITING_DIR="$SLAB_HOME/state/awaiting-prompts"
+RUNNING_DIR="$SLAB_HOME/state/running-tools"
+mkdir -p "$ACTIVE_DIR" "$AWAITING_DIR" "$RUNNING_DIR"
+
+# No jq or codex? Fall back to a plain, untracked codex so the shortcut never
+# breaks the user's ability to launch it.
+if ! command -v codex >/dev/null 2>&1; then
+    echo "codex not found on PATH" >&2
+    exit 127
+fi
+if ! command -v jq >/dev/null 2>&1; then
+    exec codex "$@"
+fi
+
+sid=$(uuidgen)
+begin=$(date +%s)
+# The wrapper (this bash process) is the parent of codex and holds the tab's
+# controlling tty — use it for liveness + terminal-close, matching claude_pid.
+tty=$(ps -o tty= -p $$ 2>/dev/null | tr -d ' ')
+cwd=$PWD
+ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+# Fresh window reads "blank" (like Claude's SessionStart) until the first turn.
+jq -n \
+    --arg sid "$sid" --arg cwd "$cwd" --arg tty "$tty" \
+    --arg pid "$$" --arg ts "$ts" \
+    '{session_id:$sid, cwd:$cwd, subject:"codex session", summary:"codex",
+      tty:$tty, agent_pid:($pid|tonumber), agent_type:"codex",
+      updated:$ts, state:"blank"}' \
+    > "$ACTIVE_DIR/$sid" 2>/dev/null
+
+# Background watcher: derives per-turn state from the rollout JSONL.
+watcher=""
+if command -v node >/dev/null 2>&1 && [[ -f "$SLAB_BIN/codex-session-watch.mjs" ]]; then
+    node "$SLAB_BIN/codex-session-watch.mjs" "$sid" "$begin" "$$" \
+        >/dev/null 2>&1 &
+    watcher=$!
+fi
+
+cleanup() {
+    [[ -n "$watcher" ]] && kill "$watcher" 2>/dev/null
+    rm -f "$ACTIVE_DIR/$sid" "$AWAITING_DIR/$sid" "$RUNNING_DIR/$sid"
+}
+trap cleanup EXIT INT TERM
+
+codex "$@"
