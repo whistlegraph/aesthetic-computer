@@ -22,8 +22,9 @@ const FEATHER = 14; // the fuzzy width of the screen's edge, in pixels
 
 const OK = [90, 255, 150];
 const NO = [255, 70, 80];
-const WALL = [8, 8, 11]; // the dark the set is sunk into
-const GLOW = [24, 58, 92]; // the wall lights up when you take hold to walk
+const WALL = [26, 28, 38]; // the dark the set is sunk into — never pure black
+const GLOW = [26, 62, 98]; // the wall lights up when you take hold to walk
+const RIM = [150, 158, 180]; // the lit edge line around the glass, always present
 
 const ORIGIN =
   typeof location !== "undefined" && location.origin && location.origin !== "null"
@@ -136,7 +137,7 @@ function leaving(api) {
 function ensureStage(api) {
   const g = glass(api.screen.width, api.screen.height);
   if (!stage || stage.width !== g.w || stage.height !== g.h)
-    stage = api.painting(g.w, g.h, (p) => p.wipe(0, 0, 0));
+    stage = api.painting(g.w, g.h, (p) => p.wipe(...WALL)); // never pure black
   return stage;
 }
 
@@ -323,14 +324,16 @@ async function beginMove(api, dx, dy) {
 // step through; otherwise it eases back and you never left.
 function releaseMove(api, g) {
   if (!move) return;
-  const px = move.dx ? Math.abs(move.ox) / g.w : 0;
-  const py = move.dy ? Math.abs(move.oy) / g.h : 0;
-  const past = Math.max(px, py) > 0.22;
+  const pitchX = g.w + 2 * g.m;
+  const pitchY = g.h + 2 * g.m;
+  const fx = move.dx ? Math.abs(move.ox) / pitchX : 0;
+  const fy = move.dy ? Math.abs(move.oy) / pitchY : 0;
+  const past = Math.max(fx, fy) > 0.2;
   move.live = false;
   move.fromx = move.ox;
   move.fromy = move.oy;
-  move.tox = past ? -move.dx * g.w : 0;
-  move.toy = past ? -move.dy * g.h : 0;
+  move.tox = past ? -move.dx * pitchX : 0;
+  move.toy = past ? -move.dy * pitchY : 0;
   move.commit = past;
   move.anim = 0.0001;
 }
@@ -437,41 +440,38 @@ function paint(api) {
     }
   }
 
-  wipe(...WALL);
-
-  // Where the rooms sit. The live one slides by (ox,oy); each revealed neighbor
-  // rides one cell away in its own direction, so they pan together like a window
-  // sliding over a grid. On a diagonal that's four rooms at once — current, the two
-  // edges, and the corner you're heading for.
-  const ax = move ? move.ox : 0;
-  const ay = move ? move.oy : 0;
-
-  if (hostFailed && !move) {
-    ink(18, 6, 10).box(g.x, g.y, g.w, g.h);
-    ink(...NO).write("didn't run", { x: g.x + g.w / 2 - 30, y: g.y + g.h / 2 - 8 });
-  } else {
-    api.paste(stage, Math.round(g.x + ax), Math.round(g.y + ay));
-    if (move) {
-      grabFrames(api, move.cells);
-      for (const c of move.cells) {
-        if (!c.frame) continue;
-        api.paste(c.frame, Math.round(g.x + ax + c.rdx * g.w), Math.round(g.y + ay + c.rdy * g.h));
-      }
-    }
-  }
-
-  // Clip everything back into the glass with the wall, then round and fuzz the
-  // edge. The wall lights up (GLOW) the moment you take hold to walk; otherwise it
-  // takes a tone chosen to CONTRAST the pad's edge, so the touchable area is always
-  // visible — a dark pad never hides a dark wall.
+  // The wall the puddles sit in — a tone chosen to CONTRAST the pad, so a dark
+  // room never hides a dark wall, and lit with GLOW while you're pulling. Never
+  // pure black.
   sampleEdge();
   const swiping = !!grab || !!move;
   const wc = swiping ? GLOW : wallTone();
-  ink(...wc).box(0, 0, w, g.y);
-  ink(...wc).box(0, g.y + g.h, w, h - (g.y + g.h));
-  ink(...wc).box(0, 0, g.x, h);
-  ink(...wc).box(g.x + g.w, 0, w - (g.x + g.w), h);
-  softEdge(api, g, wc);
+  wipe(...wc);
+
+  // The web. Every room is its own framed puddle, and each one carries its frame
+  // WITH it — so dragging pulls the whole web across the grid, not content behind a
+  // fixed window. Pitch is a full screen, so neighbors sit a wall's-width apart.
+  const ax = move ? move.ox : 0;
+  const ay = move ? move.oy : 0;
+  const px = g.w + 2 * g.m; // one cell across
+  const py = g.h + 2 * g.m;
+  const frame = frameFor(api, g, wc);
+
+  const rooms = [{ rdx: 0, rdy: 0, content: hostFailed ? null : stage }];
+  if (move) {
+    grabFrames(api, move.cells);
+    for (const c of move.cells) rooms.push({ rdx: c.rdx, rdy: c.rdy, content: c.frame });
+  }
+  for (const r of rooms) {
+    const sx = Math.round(g.x + ax + r.rdx * px);
+    const sy = Math.round(g.y + ay + r.rdy * py);
+    if (r.content) api.paste(r.content, sx, sy);
+    else {
+      ink(...WALL).box(sx, sy, g.w, g.h);
+      ink(...NO).write("didn't run", { x: sx + g.w / 2 - 30, y: sy + g.h / 2 - 8 });
+    }
+    api.paste(frame, sx, sy); // round the corners, feather the edge, draw the rim
+  }
 
   // The name isn't drawn here anymore — it arrives as AC's own frontal notice each
   // time you enter a room (see mount), the same alert that announces a saved handle.
@@ -506,9 +506,9 @@ function sampleEdge() {
   }
   if (n) padLum += (sum / n - padLum) * 0.4; // ease, so the wall doesn't strobe
 }
-// The resting wall tone: light slate over a dark pad, deep dark over a bright one —
-// either way, a clear step away from the pad's edge.
-const wallTone = () => (padLum < 82 ? [66, 72, 88] : [10, 10, 14]);
+// The resting wall tone: light slate over a dark pad, deep slate over a bright one
+// — a clear step away from the pad's edge, and never pure black.
+const wallTone = () => (padLum < 82 ? [66, 72, 88] : [26, 28, 38]);
 
 // The soft CRT edge: rounded corners + a fuzzy border. Writing the display buffer
 // directly doesn't composite here (AC copies its own buffer after paint), but a
@@ -517,44 +517,64 @@ const wallTone = () => (padLum < 82 ? [66, 72, 88] : [10, 10, 14]);
 // rectangle gives corners (the field is round there) and fuzz (we blend over
 // FEATHER pixels instead of cutting) in one number. The overlay is baked per wall
 // colour and cached, so switching tones is free after the first time.
+// A single puddle's frame — GLASS-SIZED, so it rides WITH its room instead of
+// sitting fixed over the whole screen. That's what turns the set from one window
+// into a web: every room carries its own rounded frame, and dragging pulls the
+// whole web of them across the grid. Transparent in the middle (the pad shows),
+// rounded + feathered at the edge (a soft CRT border), wall in the corners, and a
+// lit RIM line hugging the boundary so the sides are always drawn. Baked per wall
+// colour and cached.
 const maskCache = new Map();
-function bakeMask(api, g, w, h, color) {
-  const R = Math.max(8, Math.round(Math.min(g.w, g.h) * 0.16)); // corner radius
-  const cx = g.x + g.w / 2;
-  const cy = g.y + g.h / 2;
-  const hw = g.w / 2 - R;
-  const hh = g.h / 2 - R;
+function bakeFrame(api, g, color) {
+  const gw = g.w;
+  const gh = g.h;
+  const R = Math.max(8, Math.round(Math.min(gw, gh) * 0.16)); // corner radius
+  const cx = gw / 2;
+  const cy = gh / 2;
+  const hw = gw / 2 - R;
+  const hh = gh / 2 - R;
   const F = FEATHER;
   const [cr, cg, cb] = color;
-  const buf = api.painting(w, h, () => {});
+  const buf = api.painting(gw, gh, () => {});
   const px = buf.pixels;
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
+  for (let y = 0; y < gh; y++) {
+    for (let x = 0; x < gw; x++) {
       const qx = Math.abs(x - cx) - hw;
       const qy = Math.abs(y - cy) - hh;
       const d = Math.min(Math.max(qx, qy), 0) + Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) - R;
       let a = (d + F) / (2 * F); // 0 deep inside → 1 at/after the edge
-      a = a < 0 ? 0 : a > 1 ? 1 : a * a * (3 - 2 * a); // smoothstep
-      const i = (y * w + x) * 4;
-      px[i] = cr;
-      px[i + 1] = cg;
-      px[i + 2] = cb;
-      px[i + 3] = Math.round(a * 255); // transparent center, opaque wall
+      a = a < 0 ? 0 : a > 1 ? 1 : a * a * (3 - 2 * a); // smoothstep to wall
+      let rr = cr;
+      let rg = cg;
+      let rb = cb;
+      let A = a;
+      // The lit edge line — a bright band a couple pixels inside the boundary, so
+      // there's always a visible line on every side, whatever the pad is doing.
+      const rim = Math.max(0, 1 - Math.abs(d + 2) / 2);
+      if (rim > 0) {
+        rr = rr * (1 - rim) + RIM[0] * rim;
+        rg = rg * (1 - rim) + RIM[1] * rim;
+        rb = rb * (1 - rim) + RIM[2] * rim;
+        A = Math.max(A, rim);
+      }
+      const i = (y * gw + x) * 4;
+      px[i] = rr;
+      px[i + 1] = rg;
+      px[i + 2] = rb;
+      px[i + 3] = Math.round(A * 255);
     }
   }
   return buf;
 }
-function softEdge(api, g, color) {
-  const w = api.screen.width;
-  const h = api.screen.height;
-  const k = `${w}x${h}:${color.join(",")}`;
-  let mask = maskCache.get(k);
-  if (!mask) {
-    mask = bakeMask(api, g, w, h, color);
-    maskCache.set(k, mask);
-    if (maskCache.size > 8) maskCache.delete(maskCache.keys().next().value); // bound it
+function frameFor(api, g, color) {
+  const k = `${g.w}x${g.h}:${color.join(",")}`;
+  let f = maskCache.get(k);
+  if (!f) {
+    f = bakeFrame(api, g, color);
+    maskCache.set(k, f);
+    if (maskCache.size > 8) maskCache.delete(maskCache.keys().next().value);
   }
-  api.paste(mask, 0, 0);
+  return f;
 }
 
 function onGlass(e, g) {
@@ -614,8 +634,10 @@ function act(api) {
     }
     // Following the finger, on whichever axes this move locked.
     if (move && move.live) {
-      if (move.dx) move.ox = Math.max(-g.w, Math.min(g.w, (e.x ?? grab.sx) - grab.sx));
-      if (move.dy) move.oy = Math.max(-g.h, Math.min(g.h, (e.y ?? grab.sy) - grab.sy));
+      const pitchX = g.w + 2 * g.m;
+      const pitchY = g.h + 2 * g.m;
+      if (move.dx) move.ox = Math.max(-pitchX, Math.min(pitchX, (e.x ?? grab.sx) - grab.sx));
+      if (move.dy) move.oy = Math.max(-pitchY, Math.min(pitchY, (e.y ?? grab.sy) - grab.sy));
       return;
     }
     // Playing the instrument.
@@ -649,8 +671,8 @@ function act(api) {
       move.live = false;
       move.fromx = 0;
       move.fromy = 0;
-      move.tox = -dx * g.w;
-      move.toy = -dy * g.h;
+      move.tox = -dx * (g.w + 2 * g.m);
+      move.toy = -dy * (g.h + 2 * g.m);
       move.commit = true;
       move.anim = 0.0001;
     });
