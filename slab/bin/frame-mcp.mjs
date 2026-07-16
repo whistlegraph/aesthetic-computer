@@ -86,11 +86,14 @@ function digest(env) {
   const visual = env.visual || [];
   L.push(`\nVISUAL (${visual.length} compact controls) — kind @(cx,cy), distance from hover:`);
   for (const v of visual) L.push(`  ${v.kind} @(${v.cx},${v.cy}) d=${v.distance}`);
+  const changes = env.diff || [];
+  L.push(`\nDIFF (${changes.length} changed regions) — @(cx,cy), changed grid cells:`);
+  for (const d of changes) L.push(`  change @(${d.cx},${d.cy}) cells=${d.cells}`);
   return L.join("\n");
 }
 
 // ── the capture tool: frame a machine, return image + digest ────────────────
-async function toolFrame({ machine, ocr = true, fast = false, cursor = true, cursorAt, crop } = {}) {
+async function toolFrame({ machine, ocr = true, fast = false, cursor = true, cursorAt, crop, baseline = false, diff = false } = {}) {
   if (!machine) throw new Error("`machine` is required (see frame_list)");
   const out = join(tmpdir(), `frame-mcp-${machine}-${process.pid}.jpg`);
   const args = [machine, "--json", "--out", out];
@@ -99,6 +102,8 @@ async function toolFrame({ machine, ocr = true, fast = false, cursor = true, cur
   if (cursorAt) args.push("--cursor-at", `${cursorAt[0]},${cursorAt[1]}`);
   else if (cursor) args.push("--cursor");
   if (crop) args.push("--crop", crop.join(","));
+  if (baseline) args.push("--baseline");
+  if (diff) args.push("--diff");
 
   const { stdout } = await runFrame(args);
   let env;
@@ -128,10 +133,11 @@ async function toolFrame({ machine, ocr = true, fast = false, cursor = true, cur
 
 async function toolHover({ machine, x, y, width = 720, height = 520, ocr = true, fast = true }) {
   x = Number(x); y = Number(y);
+  const crop = [Math.round(x - width / 2), Math.round(y - height / 2), Math.round(width), Math.round(height)];
+  await toolFrame({ machine, ocr: false, cursor: false, crop, baseline: true });
   hoverPoint(machineSpec(machine), x, y);
   await settle(350);
-  const crop = [Math.round(x - width / 2), Math.round(y - height / 2), Math.round(width), Math.round(height)];
-  return toolFrame({ machine, ocr, fast, cursorAt: [x, y], crop });
+  return toolFrame({ machine, ocr, fast, cursorAt: [x, y], crop, diff: true });
 }
 
 // Native exploration primitives return the post-action frame in the SAME MCP
