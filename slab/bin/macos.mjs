@@ -72,6 +72,20 @@ export function osa(spec, script) {
   return sh(spec, "osascript -", { stdin: script });
 }
 
+export function jxa(spec, script) {
+  return sh(spec, "osascript -l JavaScript -", { stdin: script });
+}
+
+// Post a genuine no-click mouse move. A simple cursor warp is ignored from
+// some SSH sessions; the HID event reliably activates contextual hover UI.
+export function hoverPoint(spec, x, y) {
+  if (!Number.isFinite(x) || !Number.isFinite(y)) throw new Error("hover coordinates must be numbers");
+  return jxa(spec, `ObjC.import("CoreGraphics");
+const p = $.CGPointMake(${Math.round(x)}, ${Math.round(y)});
+const e = $.CGEventCreateMouseEvent(null, $.kCGEventMouseMoved, p, $.kCGMouseButtonLeft);
+$.CGEventPost($.kCGHIDEventTap, e);`);
+}
+
 // AppleScript string literal: quote it, escape backslash + quote.
 function aslit(s) {
   return '"' + String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"';

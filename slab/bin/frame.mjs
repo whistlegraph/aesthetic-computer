@@ -326,13 +326,13 @@ function directFrame(name, machines, mode, timeoutMs = 15000) {
   });
 }
 
-async function captureFrame(name, { noOCR = false, fast = false, cursor = false, cursorAt, out, json = false, direct = false, preview = false } = {}) {
+async function captureFrame(name, { noOCR = false, fast = false, cursor = false, cursorAt, crop, out, json = false, direct = false, preview = false } = {}) {
   const machines = loadMachines();
   if (!machines[name]) {
     console.error(`unknown machine "${name}" — known: ${Object.keys(machines).join(", ") || "(none)"}`);
     process.exit(1);
   }
-  const mode = [noOCR ? "noocr" : "full", fast ? "fast" : "", cursorAt ? `cursor=${cursorAt[0]},${cursorAt[1]}` : cursor ? "cursor" : ""]
+  const mode = [noOCR ? "noocr" : "full", fast ? "fast" : "", cursorAt ? `cursor=${cursorAt[0]},${cursorAt[1]}` : cursor ? "cursor" : "", crop ? `crop=${crop.join(",")}` : ""]
     .filter(Boolean).join(" ");
   // Use the resident server only if already running (opt-in; see runServer);
   // otherwise a one-shot direct ssh. Both return an ACF1 {json, jpg} frame —
@@ -504,4 +504,4 @@ else if (cmd === "view") {
   // slab-pdf "show me this" verbs.
   if (!argv[1]) { console.error("usage: frame view <machine>"); process.exit(1); }
   await captureFrame(argv[1], { noOCR: flag("--no-ocr"), fast: flag("--fast"), cursor: flag("--cursor"), direct: flag("--direct"), out: opt("--out"), preview: true });
-} else await captureFrame(cmd, { noOCR: flag("--no-ocr"), fast: flag("--fast"), cursor: flag("--cursor"), cursorAt: pointOpt("--cursor-at"), direct: flag("--direct"), out: opt("--out"), json: flag("--json"), preview: flag("--preview") });
+} else await captureFrame(cmd, { noOCR: flag("--no-ocr"), fast: flag("--fast"), cursor: flag("--cursor"), cursorAt: pointOpt("--cursor-at"), crop: opt("--crop")?.split(",").map(Number), direct: flag("--direct"), out: opt("--out"), json: flag("--json"), preview: flag("--preview") });

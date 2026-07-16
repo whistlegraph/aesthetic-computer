@@ -21,7 +21,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
-import { clickPoint, sendKeys } from "./macos.mjs";
+import { clickPoint, hoverPoint, sendKeys } from "./macos.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FRAME = join(HERE, "frame.mjs");
@@ -87,7 +87,7 @@ function digest(env) {
 }
 
 // ── the capture tool: frame a machine, return image + digest ────────────────
-async function toolFrame({ machine, ocr = true, fast = false, cursor = true, cursorAt } = {}) {
+async function toolFrame({ machine, ocr = true, fast = false, cursor = true, cursorAt, crop } = {}) {
   if (!machine) throw new Error("`machine` is required (see frame_list)");
   const out = join(tmpdir(), `frame-mcp-${machine}-${process.pid}.jpg`);
   const args = [machine, "--json", "--out", out];
@@ -95,6 +95,7 @@ async function toolFrame({ machine, ocr = true, fast = false, cursor = true, cur
   if (fast) args.push("--fast");
   if (cursorAt) args.push("--cursor-at", `${cursorAt[0]},${cursorAt[1]}`);
   else if (cursor) args.push("--cursor");
+  if (crop) args.push("--crop", crop.join(","));
 
   const { stdout } = await runFrame(args);
   let env;
@@ -120,6 +121,14 @@ async function toolFrame({ machine, ocr = true, fast = false, cursor = true, cur
   }
   try { await unlink(out); } catch {}
   return content;
+}
+
+async function toolHover({ machine, x, y, width = 720, height = 520, ocr = true, fast = true }) {
+  x = Number(x); y = Number(y);
+  hoverPoint(machineSpec(machine), x, y);
+  await settle(350);
+  const crop = [Math.round(x - width / 2), Math.round(y - height / 2), Math.round(width), Math.round(height)];
+  return toolFrame({ machine, ocr, fast, cursorAt: [x, y], crop });
 }
 
 // Native exploration primitives return the post-action frame in the SAME MCP
@@ -168,6 +177,11 @@ const TOOLS = [
       },
       required: ["machine"],
     },
+  },
+  {
+    name: "frame_hover",
+    description: "OBSERVES CONTEXT: move the real pointer without clicking, wait for hover-only controls/tooltips, then return a cheaper cropped reframe around that point. Lesson 1: when an element may reveal options, hover and reframe before clicking. Coordinates remain global and click-ready.",
+    inputSchema: { type: "object", properties: { machine: { type: "string" }, x: { type: "number" }, y: { type: "number" }, width: { type: "number", description: "Crop width (default 720)." }, height: { type: "number", description: "Crop height (default 520)." }, ocr: { type: "boolean" }, fast: { type: "boolean" } }, required: ["machine", "x", "y"] },
   },
   {
     name: "frame_click",
@@ -223,6 +237,7 @@ const TOOLS = [
 async function callTool(name, args) {
   switch (name) {
     case "frame": return toolFrame(args || {});
+    case "frame_hover": return toolHover(args || {});
     case "frame_click": return toolClick(args || {});
     case "frame_key": return toolKey(args || {});
     case "frame_list": return toolList();
