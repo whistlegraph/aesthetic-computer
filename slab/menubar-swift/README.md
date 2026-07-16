@@ -59,6 +59,16 @@ refuses the pointer to a rock that is hidden or covered *at the cursor*. Skip
 either and a stone will wake up and pop its bubble through the window sitting on
 top of it.
 
+## Fleet prompt hosts
+
+Each Slab host publishes its Claude and Codex rocks on tailnet-only port 5252.
+The `prox` MCP can list, resolve, and poke those handles, or use `prox_launch`
+to open a new interactive Claude/Codex Terminal on a host. The launch endpoint
+is not a general remote shell: it accepts only those two installed launchers,
+a prompt of at most 4000 characters, and an existing cwd beneath the target
+user's home directory. Use `slab/install.sh --prompt-host` to install the agent
+hooks and wrappers without the legacy ambient-audio or lid-control services.
+
 ## Passphrase modal (IPC server)
 
 The app listens on a Unix domain socket at `~/.ac-daemon.sock` (mode 0600). Any script on this user's account can request a passphrase.
@@ -90,6 +100,8 @@ The modal is a native `NSAlert` + `NSSecureTextField`, brought to the front with
 
 ```
 menubar-swift/
+├── AppIcon.png                         # 1024px prompt-rock source artwork
+├── AppIcon.icns                        # generated macOS bundle icon
 ├── Package.swift
 ├── install.sh                          # build + install + launchctl
 ├── computer.slab.menubar.plist.tmpl    # launchd agent template (@HOME@ is substituted)
@@ -113,6 +125,8 @@ menubar-swift/
 ```
 
 Idempotent. Re-run after edits to rebuild, replace the binary, and bounce the launch agent.
+On Macs using the sandboxed Tailscale app, installation also provisions a
+user-local CLI wrapper so the fleet ledger can discover and bind its tailnet IP.
 
 ### Manual
 

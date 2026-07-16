@@ -17,7 +17,8 @@
 //     off the main thread, failure-tolerant, so resolves stay local + instant.
 //
 // The overlay stays local-only: rocks are never rendered for remote machines.
-// This is a data channel, not a display one.
+// The only remote control action is an allowlisted Claude/Codex launch; the
+// ledger never accepts an arbitrary executable or shell command.
 import Foundation
 
 // One advertised handle. `name` is the stable session/thread pet-name (and
@@ -119,7 +120,103 @@ final class LedgerStore {
         server?.stop()
         let s = try? LedgerHTTPServer(ip: selfIP, port: Self.port)
         s?.onPoke = { [weak self] body in self?.receivePoke(body) }
+        s?.onLaunch = { body in Self.launchPrompt(body) }
         server = s
+    }
+
+    /// Start one allowlisted interactive agent in Terminal.app. The ledger is
+    /// bound only to the tailnet IP; this endpoint deliberately accepts no
+    /// executable or shell text from the caller. A caller chooses only the
+    /// agent, an initial prompt, and a working directory inside this user's
+    /// home folder.
+    private static func launchPrompt(_ body: [String: Any]) -> [String: Any] {
+        let agent = ((body["agent"] as? String) ?? "").lowercased()
+        guard agent == "claude" || agent == "codex" else {
+            return ["ok": false, "error": "agent must be claude or codex"]
+        }
+
+        let prompt = (body["prompt"] as? String) ?? ""
+        guard prompt.count <= 4_000 else {
+            return ["ok": false, "error": "prompt exceeds 4000 characters"]
+        }
+
+        let requested = (body["cwd"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+            ?? Paths.acRepo
+        guard requested.hasPrefix("/") else {
+            return ["ok": false, "error": "cwd must be an absolute path"]
+        }
+        let fm = FileManager.default
+        var isDir: ObjCBool = false
+        guard fm.fileExists(atPath: requested, isDirectory: &isDir), isDir.boolValue else {
+            return ["ok": false, "error": "cwd does not exist or is not a directory"]
+        }
+        let home = URL(fileURLWithPath: Paths.home).standardizedFileURL
+            .resolvingSymlinksInPath().path
+        let cwd = URL(fileURLWithPath: requested).standardizedFileURL
+            .resolvingSymlinksInPath().path
+        guard cwd == home || cwd.hasPrefix(home + "/") else {
+            return ["ok": false, "error": "cwd must stay inside the target user's home folder"]
+        }
+
+        let binary = agent == "codex"
+            ? "\(Paths.slabBin)/codex-slab"
+            : "\(Paths.home)/.local/bin/claude"
+        guard fm.isExecutableFile(atPath: binary) else {
+            return ["ok": false, "error": "\(agent) launcher is not installed"]
+        }
+
+        var command = "cd \(shellQuote(cwd)) && exec \(shellQuote(binary))"
+        if !prompt.isEmpty { command += " \(shellQuote(prompt))" }
+
+        // Hand Terminal a one-shot executable document through LaunchServices.
+        // This avoids the macOS Automation permission required by AppleScript
+        // `tell application "Terminal"`, which would otherwise leave a fresh
+        // headless prompt host waiting behind a TCC dialog. Every dynamic field
+        // in `command` was shell-quoted above; the script is private to the user
+        // and removes itself as soon as Terminal starts it.
+        let launchDir = "\(Paths.slabHome)/launches"
+        do {
+            try fm.createDirectory(atPath: launchDir, withIntermediateDirectories: true,
+                                   attributes: [.posixPermissions: 0o700])
+        } catch {
+            return ["ok": false, "error": "could not create launch directory"]
+        }
+        let launchPath = "\(launchDir)/\(UUID().uuidString).command"
+        let script = "#!/bin/zsh\nrm -f \(shellQuote(launchPath))\n\(command)\n"
+        do {
+            try script.write(toFile: launchPath, atomically: true, encoding: .utf8)
+            try fm.setAttributes([.posixPermissions: 0o700], ofItemAtPath: launchPath)
+        } catch {
+            try? fm.removeItem(atPath: launchPath)
+            return ["ok": false, "error": "could not stage Terminal launch"]
+        }
+
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        proc.arguments = ["-a", "Terminal", launchPath]
+        let err = Pipe()
+        proc.standardOutput = Pipe()
+        proc.standardError = err
+        do {
+            try proc.run()
+            proc.waitUntilExit()
+        } catch {
+            try? fm.removeItem(atPath: launchPath)
+            return ["ok": false, "error": "could not start Terminal.app"]
+        }
+        guard proc.terminationStatus == 0 else {
+            try? fm.removeItem(atPath: launchPath)
+            let detail = String(data: err.fileHandleForReading.readDataToEndOfFile(),
+                                encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return ["ok": false, "error": detail?.isEmpty == false ? detail! : "Terminal.app rejected launch"]
+        }
+        let by = String(((body["by"] as? String) ?? "prox").prefix(100))
+        NSLog("🪨 [ledger] %@ launched %@ in %@", by, agent, cwd)
+        return ["ok": true, "host": selfIdentity().host, "agent": agent, "cwd": cwd]
+    }
+
+    private static func shellQuote(_ value: String) -> String {
+        "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 
     // ── observed (poke) state ────────────────────────────────────────────
@@ -346,6 +443,9 @@ final class LedgerHTTPServer {
     /// Called on `POST /poke` with the decoded JSON body — the owner marks the
     /// referenced handle "observed".
     var onPoke: (([String: Any]) -> Void)?
+    /// Called on POST /launch. The callback owns validation and returns a
+    /// compact JSON-safe result dictionary.
+    var onLaunch: (([String: Any]) -> [String: Any])?
     private var fd: Int32 = -1
     private let queue = DispatchQueue(label: "slab.ledger.http")
     private var running = false
@@ -356,6 +456,11 @@ final class LedgerHTTPServer {
         guard fd >= 0 else { throw NSError(domain: "slab.ledger.socket", code: Int(errno)) }
         var yes: Int32 = 1
         setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, socklen_t(MemoryLayout<Int32>.size))
+        // macOS can retain the previous listener's tailnet 4-tuple through
+        // TIME_WAIT after an in-place app upgrade. REUSEPORT lets the freshly
+        // signed replacement reclaim 5252 immediately instead of disappearing
+        // from prox for up to a minute.
+        setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &yes, socklen_t(MemoryLayout<Int32>.size))
 
         var addr = sockaddr_in()
         addr.sin_family = sa_family_t(AF_INET)
@@ -424,6 +529,24 @@ final class LedgerHTTPServer {
                 onPoke?(obj)
             }
             respond(client, body: Data("{\"ok\":true}".utf8))
+            return
+        }
+
+        // POST /launch — start one fixed Claude/Codex launcher in Terminal.
+        // The callback rejects arbitrary binaries, paths outside HOME, and
+        // oversized prompts; this HTTP layer only handles framing.
+        if line.hasPrefix("POST"), line.contains("/launch") {
+            let obj: [String: Any]
+            if let bs = bodyStart, bs <= data.count,
+               let decoded = try? JSONSerialization.jsonObject(with: data[bs...]) as? [String: Any] {
+                obj = decoded
+            } else {
+                obj = [:]
+            }
+            let result = onLaunch?(obj) ?? ["ok": false, "error": "launcher unavailable"]
+            let body = (try? JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]))
+                ?? Data("{\"ok\":false,\"error\":\"encoding failed\"}".utf8)
+            respond(client, body: body)
             return
         }
 

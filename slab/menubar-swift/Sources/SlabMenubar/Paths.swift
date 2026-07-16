@@ -180,6 +180,7 @@ enum Tools {
     static let candidates: [String: [String]] = [
         "tailscale": [
             "/opt/homebrew/bin/tailscale",
+            "\(Paths.home)/.local/bin/tailscale",
             "/usr/local/bin/tailscale",
         ],
         "mbsync":    ["/opt/homebrew/bin/mbsync", "/usr/local/bin/mbsync"],

@@ -3,6 +3,7 @@
 #
 # Usage:
 #   ./install.sh                # install everything interactively
+#   ./install.sh --prompt-host  # hooks + agent wrappers only (no audio/sleep daemons)
 #   ./install.sh --no-hooks     # skip Claude Code hook merge
 #   ./install.sh --no-sudoers   # skip passwordless-sudo rule for pmset
 #   ./install.sh --uninstall    # same as ./uninstall.sh
@@ -25,8 +26,10 @@ SUDOERS_FILE=/etc/sudoers.d/slab-pmset
 
 DO_HOOKS=1
 DO_SUDOERS=1
+PROMPT_HOST_ONLY=0
 for arg in "$@"; do
     case "$arg" in
+        --prompt-host) PROMPT_HOST_ONLY=1; DO_SUDOERS=0 ;;
         --no-hooks)   DO_HOOKS=0 ;;
         --no-sudoers) DO_SUDOERS=0 ;;
         --uninstall)  exec "$SLAB_REPO/uninstall.sh" ;;
@@ -40,7 +43,12 @@ err() { printf '\033[1;31m✗ %s\033[0m\n' "$*" >&2; }
 
 # ------------ prereqs ------------
 say "checking prerequisites"
-for cmd in brew python3 jq ioreg pmset afplay osascript swiftc; do
+if [[ $PROMPT_HOST_ONLY -eq 1 ]]; then
+    prereqs=(jq node)
+else
+    prereqs=(brew python3 jq ioreg pmset afplay osascript swiftc)
+fi
+for cmd in "${prereqs[@]}"; do
     if ! command -v "$cmd" >/dev/null 2>&1; then
         err "missing: $cmd"
         [[ "$cmd" == "brew" ]] && echo "  install Homebrew first: https://brew.sh"
@@ -49,6 +57,24 @@ for cmd in brew python3 jq ioreg pmset afplay osascript swiftc; do
         exit 1
     fi
 done
+
+merge_claude_hooks() {
+    [[ $DO_HOOKS -eq 1 ]] || return 0
+    say "merging Claude Code hooks into $CLAUDE_DIR/settings.json"
+    mkdir -p "$CLAUDE_DIR"
+    local target="$CLAUDE_DIR/settings.json" fragment tmp
+    fragment=$(sed "s|@HOME@|$HOME_DIR|g" "$SLAB_REPO/settings-fragment.json")
+    if [[ -f "$target" ]]; then
+        # Merge only Slab's event keys; preserve unrelated user settings.
+        tmp=$(mktemp)
+        echo "$fragment" | jq -s '.[0]' > "$tmp.frag"
+        jq -s '.[0] * .[1]' "$target" "$tmp.frag" > "$tmp"
+        mv "$tmp" "$target"
+        rm -f "$tmp.frag"
+    else
+        echo "$fragment" > "$target"
+    fi
+}
 
 # ------------ layout ------------
 say "creating directories"
@@ -66,6 +92,26 @@ for f in "$SLAB_REPO/bin/"*; do
     ln -s "$f" "$dest"
     chmod +x "$f"
 done
+
+# A prompt host participates in the Slab/prox fleet without inheriting the
+# original ambient-audio and lid-control stack. The Swift menubar is installed
+# separately by menubar-swift/install.sh.
+if [[ $PROMPT_HOST_ONLY -eq 1 ]]; then
+    mkdir -p "$SLAB_HOME/state/active-prompts" \
+             "$SLAB_HOME/state/awaiting-prompts" \
+             "$SLAB_HOME/state/running-tools"
+    merge_claude_hooks
+    say "prompt-host install complete"
+    cat <<EOF
+
+  scripts:       $SLAB_BIN
+  marker state:  $SLAB_HOME/state
+  Claude hooks:  $CLAUDE_DIR/settings.json$([ $DO_HOOKS -eq 0 ] && echo ' (skipped)')
+  Codex launch:  codex-slab [codex arguments]
+
+EOF
+    exit 0
+fi
 
 # ------------ Monaspace Argon font (terminal-theming base) ------------
 # The Slab terminal profiles render in Monaspace Argon. Install it into the
@@ -129,22 +175,7 @@ fi
 launchctl load "$MENUBAR_PLIST_INSTALLED"
 
 # ------------ Claude Code hooks ------------
-if [[ $DO_HOOKS -eq 1 ]]; then
-    say "merging Claude Code hooks into $CLAUDE_DIR/settings.json"
-    mkdir -p "$CLAUDE_DIR"
-    target="$CLAUDE_DIR/settings.json"
-    fragment=$(sed "s|@HOME@|$HOME_DIR|g" "$SLAB_REPO/settings-fragment.json")
-    if [[ -f "$target" ]]; then
-        # merge: slab hooks overwrite existing ones under same event keys
-        tmp=$(mktemp)
-        echo "$fragment" | jq -s '.[0]' > "$tmp.frag"
-        jq -s '.[0] * .[1]' "$target" "$tmp.frag" > "$tmp"
-        mv "$tmp" "$target"
-        rm -f "$tmp.frag"
-    else
-        echo "$fragment" > "$target"
-    fi
-fi
+merge_claude_hooks
 
 # ------------ passwordless sudo for pmset ------------
 if [[ $DO_SUDOERS -eq 1 ]]; then

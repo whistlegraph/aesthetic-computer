@@ -51,10 +51,27 @@ async function findRollout() {
       // PID/PPID table and select the wrapper's children ourselves.
       const { stdout: processes } = await execFileAsync(
         "/bin/ps", ["-axo", "pid=,ppid="]);
-      const pids = processes.split("\n").map((line) => line.trim().split(/\s+/))
-        .filter((parts) => parts.length >= 2 && Number(parts[1]) === wrapperPid)
-        .map((parts) => parts[0])
-        .filter((p) => Number(p) !== process.pid);
+      const pairs = processes.split("\n").map((line) => line.trim().split(/\s+/))
+        .filter((parts) => parts.length >= 2)
+        .map(([pid, ppid]) => ({ pid: Number(pid), ppid: Number(ppid) }))
+        .filter(({ pid, ppid }) => Number.isFinite(pid) && Number.isFinite(ppid));
+      // npm's current Codex package launches a Node shim, which then launches
+      // the native Rust binary that owns the rollout. Walk the whole process
+      // subtree instead of inspecting only the wrapper's direct child.
+      const descendants = new Set([wrapperPid]);
+      let grew = true;
+      while (grew) {
+        grew = false;
+        for (const { pid, ppid } of pairs) {
+          if (descendants.has(ppid) && !descendants.has(pid)) {
+            descendants.add(pid);
+            grew = true;
+          }
+        }
+      }
+      const pids = [...descendants]
+        .filter((pid) => pid !== wrapperPid && pid !== process.pid)
+        .map(String);
       for (const pid of pids) {
         const { stdout } = await execFileAsync("/usr/sbin/lsof", ["-Fn", "-p", pid]);
         const rollout = stdout.split("\n")
@@ -132,7 +149,18 @@ function handleLine(line, ctx) {
   const payload = obj.payload || obj;
   if (type === "response_item" && (payload.role === "user")) {
     const t = textOf(payload);
-    if (t) ctx.lastUser = t;
+    if (t) {
+      ctx.lastUser = t;
+      // Current Codex writes task_started before the user response items. If
+      // we only sample lastUser at task_started, a fresh rock stays named
+      // simply "codex" for the entire first turn. Update the visible subject
+      // when the actual user message arrives; later user items in the same
+      // rollout naturally win over injected context blocks.
+      ctx.pending.push(() => updateMarker({
+        subject: t.slice(0, 140),
+        summary: summarize(t),
+      }));
+    }
     return;
   }
   if (type === "event_msg") {

@@ -62,6 +62,16 @@ The installer will:
 
 Opt-outs: `--no-hooks`, `--no-sudoers`.
 
+For a Mac that should participate in the prompt-rock/prox fleet without the
+ambient audio, lid daemon, or sudoers changes, use:
+
+```sh
+./install.sh --prompt-host
+```
+
+This installs the agent wrappers, Claude hooks, and marker state only. Install
+the Swift menu bar separately with `menubar-swift/install.sh`.
+
 ## Usage
 
 ```sh

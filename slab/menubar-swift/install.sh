@@ -245,6 +245,42 @@ provision_terminal_close_warning() {
     ok "provisioned ${n} Terminal profile(s): Ask before closing → Never"
 }
 
+# The sandboxed macOS Tailscale app ships its CLI inside the app bundle, but
+# invoking that executable through a plain symlink loses the bundle identifier
+# and aborts before printing status.  Slab needs `tailscale status --json` to
+# bind its ledger to the tailnet IP, so provision a user-local wrapper when no
+# ordinary Homebrew/system CLI works.  No daemon or network configuration is
+# changed; the wrapper talks to the already-running Tailscale app.
+provision_tailscale_cli() {
+    local cli app dst
+    for cli in /opt/homebrew/bin/tailscale /usr/local/bin/tailscale; do
+        # A launcher symlink straight into the sandboxed app is not a regular
+        # CLI until TAILSCALE_BE_CLI is set; skip it and build the wrapper below.
+        if [[ "$(readlink "${cli}" 2>/dev/null || true)" == *"/Tailscale.app/Contents/MacOS/Tailscale" ]]; then
+            continue
+        fi
+        if [[ -x "${cli}" ]] && "${cli}" status --json >/dev/null 2>&1; then
+            return 0
+        fi
+    done
+
+    app="/Applications/Tailscale.app/Contents/MacOS/Tailscale"
+    [[ -x "${app}" ]] || { warn "working Tailscale CLI not found — fleet ledger will wait for one"; return 0; }
+    dst="${HOME}/.local/bin/tailscale"
+    mkdir -p "$(dirname "${dst}")"
+    cat > "${dst}" <<'EOF'
+#!/bin/sh
+export TAILSCALE_BE_CLI=1
+exec /Applications/Tailscale.app/Contents/MacOS/Tailscale "$@"
+EOF
+    chmod +x "${dst}"
+    if "${dst}" status --json >/dev/null 2>&1; then
+        ok "provisioned sandboxed Tailscale CLI wrapper → ${dst}"
+    else
+        warn "Tailscale wrapper did not return status — fleet ledger will retry"
+    fi
+}
+
 # A release build is whole-module-optimized and wants real RAM. On an 8 GB box
 # that is already carrying Claude sessions it swaps the machine into the ground
 # — compiling here is what took neo down, not the thing we were installing.
@@ -270,6 +306,7 @@ else
     ok "built: ${BUILT}"
 fi
 
+provision_tailscale_cli
 provision_iterm2_profiles
 provision_terminal_close_warning
 
@@ -286,6 +323,10 @@ mkdir -p "${APP_DIR}/Contents/Resources"
 cp "${BUILT}" "${APP_BIN}"
 chmod +x "${APP_BIN}"
 cp "${INFO_PLIST}" "${APP_DIR}/Contents/Info.plist"
+# Never preserve an icon inherited from an older install.  App bundles are
+# replaced in place so macOS keeps their background-item permissions, which
+# means Resources can otherwise retain a file that no longer exists in source.
+rm -f "${APP_DIR}/Contents/Resources/AppIcon.icns"
 if [[ -f "${SCRIPT_DIR}/AppIcon.icns" ]]; then
     cp "${SCRIPT_DIR}/AppIcon.icns" "${APP_DIR}/Contents/Resources/AppIcon.icns"
 fi

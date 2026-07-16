@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // prox-mcp.mjs — an MCP over the slab "prompt rocks" ledger, so any
-// agent can LIST, FIND, and POKE the little tumbling sigil stones the slab
+// agent can LIST, FIND, POKE, and launch the little tumbling sigil stones the slab
 // menubar parks over every live Claude session across the fleet.
 //
 // A "rock" is one live session (or headless agent), advertised by its machine
@@ -236,6 +236,43 @@ async function toolPoke({ handle, by }) {
   return [{ type: "text", text: `poked ${r.host}:${r.name} as «${poker}» — its rock should blink + rattle (HTTP ${res.status}).` }];
 }
 
+async function toolLaunch({ host, agent, cwd, prompt = "", by }) {
+  const wanted = String(host || "").trim().toLowerCase().replace(/\.local$/, "");
+  if (!wanted) throw new Error("`host` is required (for example, poorslice).");
+  const agentName = String(agent || "").trim().toLowerCase();
+  if (!new Set(["claude", "codex"]).has(agentName)) {
+    throw new Error("`agent` must be `claude` or `codex`.");
+  }
+  if (String(prompt).length > 4000) throw new Error("`prompt` exceeds 4000 characters.");
+
+  const ledgers = await allLedgers();
+  const target = ledgers.find((l) => String(l.host || "").toLowerCase() === wanted);
+  if (!target) throw new Error(`no cached ledger for host «${host}» — it must be online in prox first.`);
+  if (!target.ip) throw new Error(`no tailnet IP known for ${target.host}.`);
+  const self = (await readJson(LOCAL_FILE))?.host || hostname().split(".")[0];
+  const launcher = by || `${self}:prox`;
+  const body = JSON.stringify({
+    agent: agentName,
+    prompt: String(prompt),
+    ...(cwd ? { cwd: String(cwd) } : {}),
+    by: launcher,
+  });
+  const res = await fetch(`http://${target.ip}:${PORT}/launch`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "content-length": Buffer.byteLength(body) },
+    body,
+    signal: AbortSignal.timeout(8000),
+  }).catch((e) => { throw new Error(`launch on ${target.host} (${target.ip}) failed: ${e.message}`); });
+  const text = await res.text();
+  let result;
+  try { result = JSON.parse(text); } catch { throw new Error(`launch on ${target.host} returned invalid JSON (HTTP ${res.status}).`); }
+  if (!res.ok || !result.ok) throw new Error(`launch on ${target.host} failed: ${result.error || `HTTP ${res.status}`}`);
+  return [{
+    type: "text",
+    text: `launched ${agentName} on ${result.host || target.host} in ${result.cwd} as «${launcher}»${prompt ? " with an initial prompt" : ""}.`,
+  }];
+}
+
 async function toolBindNotification({ handle, event = "imessage", wake = true }) {
   if (event !== "imessage") throw new Error("only the `imessage` Slab notification is supported");
   if (!handle) throw new Error("`handle` is required (use the stable host:name or session id)");
@@ -344,6 +381,22 @@ const TOOLS = [
     },
   },
   {
+    name: "prox_launch",
+    description:
+      "Launch a new interactive Claude or Codex prompt in Terminal.app on a Slab fleet host. SIDE EFFECT: opens a live agent session and may consume account usage. The target accepts only the fixed claude/codex launchers, limits cwd to that user's home folder, and binds the endpoint to its tailnet IP; no arbitrary command is accepted.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        host: { type: "string", description: "Target Slab hostname, for example poorslice." },
+        agent: { type: "string", enum: ["claude", "codex"], description: "Agent CLI to launch." },
+        cwd: { type: "string", description: "Optional absolute directory on the target. Defaults to its aesthetic-computer checkout and must stay under its home folder." },
+        prompt: { type: "string", description: "Optional initial prompt, at most 4000 characters. Omit to open an idle TUI." },
+        by: { type: "string", description: "Optional caller label recorded by the target." },
+      },
+      required: ["host", "agent"],
+    },
+  },
+  {
     name: "prox_bind_notification",
     description:
       "Assign a Slab notification to one stable local prox. For event `imessage`, every new inbound pokes the rock and, by default, reactivates its terminal session with a steering prompt. The binding uses session id, so it survives prompt/title/visual changes for that thread. This does not send or react to the incoming message.",
@@ -364,6 +417,7 @@ async function callTool(name, args) {
     case "prox_list": return toolList(args || {});
     case "prox_find": return toolFind(args || {});
     case "prox_poke": return toolPoke(args || {});
+    case "prox_launch": return toolLaunch(args || {});
     case "prox_bind_notification": return toolBindNotification(args || {});
     case "prox_close": return toolClose(args || {});
     default: throw new Error(`Unknown tool: ${name}`);
@@ -407,4 +461,4 @@ async function handleMessage(message) {
 
 const port = httpPort(process.argv, 7773);
 if (port) serveHttp({ handleMessage, port, banner: "🪨 prox shared daemon" });
-else serveStdio({ handleMessage, banner: "🪨 prox started (prox_list, prox_find, prox_poke, prox_close)" });
+else serveStdio({ handleMessage, banner: "🪨 prox started (prox_list, prox_find, prox_poke, prox_launch, prox_close)" });
