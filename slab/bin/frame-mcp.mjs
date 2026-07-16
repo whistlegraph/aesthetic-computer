@@ -47,7 +47,7 @@ const settle = (ms = 180) => new Promise((resolve) => setTimeout(resolve, ms));
 function runFrame(args, { timeoutMs = 30000 } = {}) {
   return new Promise((resolve, reject) => {
     execFile(
-      "node",
+      process.execPath,
       [FRAME, ...args],
       { timeout: timeoutMs, maxBuffer: 64 * 1024 * 1024, encoding: "utf8" },
       (err, stdout, stderr) => {
