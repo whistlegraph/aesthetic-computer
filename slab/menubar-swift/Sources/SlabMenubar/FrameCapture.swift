@@ -226,6 +226,33 @@ final class FrameCapture {
         return out
     }
 
+    // Lightweight icon/control awareness for local reframes. OCR intentionally
+    // ignores drawn glyphs such as notification × buttons; contours recover
+    // compact, near-square controls without needing app-specific templates.
+    private func visualControls(_ cg: CGImage, scale: Double, origin: CGPoint,
+                                focus: CGPoint?) -> [[String: Any]] {
+        let req = VNDetectContoursRequest()
+        req.contrastAdjustment = 1.5
+        req.detectsDarkOnLight = true
+        try? VNImageRequestHandler(cgImage: cg, options: [:]).perform([req])
+        guard let obs = req.results?.first else { return [] }
+        let W = Double(cg.width) / scale, H = Double(cg.height) / scale
+        var out: [[String: Any]] = []
+        for c in obs.topLevelContours {
+            let b = c.normalizedPath.boundingBox
+            let x = origin.x + b.minX * W
+            let y = origin.y + (1 - b.maxY) * H
+            let w = b.width * W, h = b.height * H
+            let ratio = w / max(h, 0.1)
+            guard w >= 10, h >= 10, w <= 46, h <= 46, ratio >= 0.65, ratio <= 1.5 else { continue }
+            let cx = x + w / 2, cy = y + h / 2
+            let distance = focus.map { hypot(cx - $0.x, cy - $0.y) } ?? 0
+            out.append(["kind": "compact-control", "cx": Int(cx), "cy": Int(cy),
+                        "r": [Int(x), Int(y), Int(w), Int(h)], "distance": Int(distance)])
+        }
+        return out.sorted { ($0["distance"] as? Int ?? 0) < ($1["distance"] as? Int ?? 0) }.prefix(24).map { $0 }
+    }
+
     // MARK: - Accessibility element tree of the frontmost app (trust already held)
 
     // Fetch several attributes in ONE IPC round-trip instead of one call each.
@@ -405,10 +432,13 @@ final class FrameCapture {
                 env["ocr"] = boxes
                 showOcrOverlay(boxes)
             }
-            t = nowNs()
             let cursorMeta = (mt["cursor"] as? [String: Int]).map {
                 CGPoint(x: $0["x"] ?? 0, y: $0["y"] ?? 0)
             }
+            let visualOrigin = boundedCrop?.origin ?? .zero
+            t = nowNs(); env["visual"] = visualControls(cg, scale: captureScale,
+                origin: visualOrigin, focus: cursorOverride ?? cursorMeta); tm["visual"] = msSince(t)
+            t = nowNs()
             let marker = virtualCursor ? (cursorOverride ?? cursorMeta) : nil
             let jpg = thumbJPEG(cg, maxWidth: 1568, cursor: marker, crop: boundedCrop) ?? Data()
             try? jpg.write(to: URL(fileURLWithPath: Paths.frameOutJpg))
