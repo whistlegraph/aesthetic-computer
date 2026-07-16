@@ -5,8 +5,9 @@
 // JPEG back as an inline image block plus a text digest of the OCR/AX/window
 // state — no screencapture→Read shuffle, discoverable by name from any session.
 //
-// OBSERVE-ONLY on purpose: this exposes `frame` (look), not `puppet` (act).
-// Adding the acting loop is a deliberate later step, gated behind confirmation.
+// Native click/key exploration deliberately returns a fresh frame in the same
+// response. Broader mutation (typing, shell, browser navigation) stays in
+// puppet, keeping this loop narrow and visually self-verifying.
 //
 // Hand-rolled JSON-RPC over stdio (newline-delimited), matching the house style
 // of artery/emacs-mcp.mjs and ants/mail-mcp — no SDK, only node builtins. It
@@ -14,14 +15,31 @@
 // with the repo. The machine registry still lives in the untracked
 // ~/.config/slab/puppet.json that `frame` already reads.
 import { execFile } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { readFile, unlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
+import { clickPoint, sendKeys } from "./macos.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FRAME = join(HERE, "frame.mjs");
+const CONFIG_PATH = process.env.SLAB_PUPPET_CONFIG || join(process.env.HOME, ".config", "slab", "puppet.json");
+
+function machineSpec(name) {
+  if (!name) throw new Error("`machine` is required");
+  let cfg;
+  try { cfg = JSON.parse(readFileSync(CONFIG_PATH, "utf8")); } catch {}
+  const spec = cfg?.machines?.[name];
+  if (spec) return spec;
+  // frame.mjs synthesizes the controller's hostname when it is absent from
+  // puppet.json; `local` is the explicit portable spelling for that host.
+  if (name === "local") return { local: true };
+  throw new Error(`unknown machine: ${name} — see frame_list`);
+}
+
+const settle = (ms = 180) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Run frame.mjs with args; resolve { stdout, stderr }. frame prints its JSON
 // envelope (with --json) to stdout and writes the JPEG to --out, so a capture
@@ -69,12 +87,14 @@ function digest(env) {
 }
 
 // ── the capture tool: frame a machine, return image + digest ────────────────
-async function toolFrame({ machine, ocr = true, fast = false }) {
+async function toolFrame({ machine, ocr = true, fast = false, cursor = true, cursorAt } = {}) {
   if (!machine) throw new Error("`machine` is required (see frame_list)");
   const out = join(tmpdir(), `frame-mcp-${machine}-${process.pid}.jpg`);
   const args = [machine, "--json", "--out", out];
   if (!ocr) args.push("--no-ocr");
   if (fast) args.push("--fast");
+  if (cursorAt) args.push("--cursor-at", `${cursorAt[0]},${cursorAt[1]}`);
+  else if (cursor) args.push("--cursor");
 
   const { stdout } = await runFrame(args);
   let env;
@@ -100,6 +120,21 @@ async function toolFrame({ machine, ocr = true, fast = false }) {
   }
   try { await unlink(out); } catch {}
   return content;
+}
+
+// Native exploration primitives return the post-action frame in the SAME MCP
+// response. Agents need one tool round-trip, not act → wait → call frame again.
+async function toolClick({ machine, x, y, count = 1, ocr = true, fast = true }) {
+  clickPoint(machineSpec(machine), Number(x), Number(y), { count });
+  await settle();
+  return toolFrame({ machine, ocr, fast, cursorAt: [Number(x), Number(y)] });
+}
+
+async function toolKey({ machine, key, mod, ocr = true, fast = true }) {
+  const mods = Array.isArray(mod) ? mod : (mod ? String(mod).split(",").filter(Boolean) : []);
+  sendKeys(machineSpec(machine), key, mods);
+  await settle();
+  return toolFrame({ machine, ocr, fast, cursor: true });
 }
 
 async function toolList() {
@@ -129,8 +164,36 @@ const TOOLS = [
         machine: { type: "string", description: "Machine name (e.g. neo, blueberry, local). See frame_list." },
         ocr: { type: "boolean", description: "Run OCR (default true). Set false for a faster pixels+AX-only frame." },
         fast: { type: "boolean", description: "Use Vision .fast OCR — lower latency, less accurate on small text (default false)." },
+        cursor: { type: "boolean", description: "Draw a high-contrast virtual cursor at the current mouse position (default true)." },
       },
       required: ["machine"],
+    },
+  },
+  {
+    name: "frame_click",
+    description: "ACTS + OBSERVES: click a native macOS screen coordinate from frame OCR/AX, then immediately return a fresh frame with a virtual marker at the click. Use for low-risk UI exploration; inspect labels and avoid destructive controls.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        machine: { type: "string" }, x: { type: "number" }, y: { type: "number" },
+        count: { type: "number", minimum: 1, maximum: 3, description: "Click count (default 1)." },
+        ocr: { type: "boolean", description: "Include OCR in the returned frame (default true)." },
+        fast: { type: "boolean", description: "Use fast OCR for the returned frame (default true)." },
+      },
+      required: ["machine", "x", "y"],
+    },
+  },
+  {
+    name: "frame_key",
+    description: "ACTS + OBSERVES: send one navigation key/chord to the frontmost native app, then immediately return a fresh frame. Intended for reversible exploration such as tab, escape, arrows, space, and enter.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        machine: { type: "string" }, key: { type: "string" },
+        mod: { type: "string", description: "Optional comma-separated modifiers: cmd,shift,opt,ctrl." },
+        ocr: { type: "boolean" }, fast: { type: "boolean" },
+      },
+      required: ["machine", "key"],
     },
   },
   {
@@ -160,6 +223,8 @@ const TOOLS = [
 async function callTool(name, args) {
   switch (name) {
     case "frame": return toolFrame(args || {});
+    case "frame_click": return toolClick(args || {});
+    case "frame_key": return toolKey(args || {});
     case "frame_list": return toolList();
     case "frame_doctor": return toolDoctor(args || {});
     case "frame_setup": return toolSetup(args || {});
@@ -210,4 +275,4 @@ async function handleMessage(message) {
 // no per-session state to keep.
 const port = httpPort(process.argv, 7767);
 if (port) serveHttp({ handleMessage, port, banner: "🖼  frame-mcp shared daemon" });
-else serveStdio({ handleMessage, banner: "🖼  frame-mcp server started (observe-only: frame, frame_list, frame_doctor, frame_setup)" });
+else serveStdio({ handleMessage, banner: "🖼  frame-mcp started (observe + native click/key exploration)" });

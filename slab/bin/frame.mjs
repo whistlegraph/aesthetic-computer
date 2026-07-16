@@ -326,13 +326,14 @@ function directFrame(name, machines, mode, timeoutMs = 15000) {
   });
 }
 
-async function captureFrame(name, { noOCR = false, fast = false, out, json = false, direct = false, preview = false } = {}) {
+async function captureFrame(name, { noOCR = false, fast = false, cursor = false, cursorAt, out, json = false, direct = false, preview = false } = {}) {
   const machines = loadMachines();
   if (!machines[name]) {
     console.error(`unknown machine "${name}" — known: ${Object.keys(machines).join(", ") || "(none)"}`);
     process.exit(1);
   }
-  const mode = noOCR ? "noocr" : fast ? "fast" : "full";
+  const mode = [noOCR ? "noocr" : "full", fast ? "fast" : "", cursorAt ? `cursor=${cursorAt[0]},${cursorAt[1]}` : cursor ? "cursor" : ""]
+    .filter(Boolean).join(" ");
   // Use the resident server only if already running (opt-in; see runServer);
   // otherwise a one-shot direct ssh. Both return an ACF1 {json, jpg} frame —
   // the JPEG is raw bytes, never base64.
@@ -464,12 +465,19 @@ const opt = (f) => {
   const i = argv.indexOf(f);
   return i >= 0 ? argv[i + 1] : undefined;
 };
+const pointOpt = (f) => {
+  const raw = opt(f);
+  if (!raw) return undefined;
+  const p = raw.split(",").map(Number);
+  return p.length === 2 && p.every(Number.isFinite) ? p : undefined;
+};
 
 if (!cmd || cmd === "-h" || cmd === "--help") {
   console.log(
     "frame — capture a rich frame (pixels + OCR + AX + state) of a remote Mac\n\n" +
-      "  frame <machine> [--no-ocr] [--fast] [--direct] [--preview] [--out file.jpg] [--json]\n" +
+      "  frame <machine> [--no-ocr] [--fast] [--cursor] [--direct] [--preview] [--out file.jpg] [--json]\n" +
       "      --fast: Vision .fast OCR (lower latency, less accurate on small text)\n" +
+      "      --cursor: draw a high-contrast virtual marker at the mouse position\n" +
       "      --direct: bypass the resident server, do a one-shot ssh\n" +
       "      --preview: pop a labeled preview window of the pulled frame on THIS Mac\n" +
       "  frame view <machine>        capture + open the badged preview window (= --preview)\n" +
@@ -495,5 +503,5 @@ else if (cmd === "view") {
   // Sugar for `frame <machine> --preview` so it reads like the slab-video /
   // slab-pdf "show me this" verbs.
   if (!argv[1]) { console.error("usage: frame view <machine>"); process.exit(1); }
-  await captureFrame(argv[1], { noOCR: flag("--no-ocr"), fast: flag("--fast"), direct: flag("--direct"), out: opt("--out"), preview: true });
-} else await captureFrame(cmd, { noOCR: flag("--no-ocr"), fast: flag("--fast"), direct: flag("--direct"), out: opt("--out"), json: flag("--json"), preview: flag("--preview") });
+  await captureFrame(argv[1], { noOCR: flag("--no-ocr"), fast: flag("--fast"), cursor: flag("--cursor"), direct: flag("--direct"), out: opt("--out"), preview: true });
+} else await captureFrame(cmd, { noOCR: flag("--no-ocr"), fast: flag("--fast"), cursor: flag("--cursor"), cursorAt: pointOpt("--cursor-at"), direct: flag("--direct"), out: opt("--out"), json: flag("--json"), preview: flag("--preview") });

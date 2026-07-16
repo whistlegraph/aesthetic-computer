@@ -60,7 +60,13 @@ final class FrameCapture {
         let mode = (try? String(contentsOfFile: Paths.frameReq, encoding: .utf8)) ?? ""
         try? fm.removeItem(atPath: Paths.frameReq)
         try? fm.removeItem(atPath: Paths.frameDone)
-        produce(noOCR: mode.contains("noocr"), fast: mode.contains("fast"))
+        var cursorOverride: CGPoint?
+        if let token = mode.split(separator: " ").first(where: { $0.hasPrefix("cursor=") }) {
+            let xy = token.dropFirst("cursor=".count).split(separator: ",").compactMap { Double($0) }
+            if xy.count == 2 { cursorOverride = CGPoint(x: xy[0], y: xy[1]) }
+        }
+        produce(noOCR: mode.contains("noocr"), fast: mode.contains("fast"),
+                virtualCursor: mode.contains("cursor"), cursorOverride: cursorOverride)
         fm.createFile(atPath: Paths.frameDone, contents: nil)
     }
 
@@ -306,7 +312,7 @@ final class FrameCapture {
 
     // MARK: - thumbnail (downscale to 1568px — what a vision model downsamples to anyway)
 
-    private func thumbJPEG(_ cg: CGImage, maxWidth: Int) -> Data? {
+    private func thumbJPEG(_ cg: CGImage, maxWidth: Int, cursor: CGPoint? = nil) -> Data? {
         let s = Double(maxWidth) / Double(cg.width)
         let w = maxWidth, h = max(1, Int(Double(cg.height) * s))
         guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: w, pixelsHigh: h,
@@ -317,6 +323,23 @@ final class FrameCapture {
         NSGraphicsContext.current = ctx
         ctx.cgContext.interpolationQuality = .high
         ctx.cgContext.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+        if let cursor = cursor, let screen = NSScreen.main {
+            let x = cursor.x * CGFloat(w) / screen.frame.width
+            let y = CGFloat(h) - cursor.y * CGFloat(h) / screen.frame.height
+            let radius = max(9.0, CGFloat(w) / 110.0)
+            let marker = CGRect(x: x - radius, y: y - radius,
+                              width: radius * 2, height: radius * 2)
+            ctx.cgContext.setFillColor(NSColor.systemPink.withAlphaComponent(0.78).cgColor)
+            ctx.cgContext.fillEllipse(in: marker)
+            ctx.cgContext.setStrokeColor(NSColor.white.cgColor)
+            ctx.cgContext.setLineWidth(max(2.0, radius / 5.0))
+            ctx.cgContext.strokeEllipse(in: marker)
+            ctx.cgContext.move(to: CGPoint(x: x - radius * 1.5, y: y))
+            ctx.cgContext.addLine(to: CGPoint(x: x + radius * 1.5, y: y))
+            ctx.cgContext.move(to: CGPoint(x: x, y: y - radius * 1.5))
+            ctx.cgContext.addLine(to: CGPoint(x: x, y: y + radius * 1.5))
+            ctx.cgContext.strokePath()
+        }
         ctx.flushGraphics()
         NSGraphicsContext.restoreGraphicsState()
         return rep.representation(using: .jpeg, properties: [.compressionFactor: 0.6])
@@ -324,7 +347,8 @@ final class FrameCapture {
 
     // MARK: - assemble + write the envelope
 
-    private func produce(noOCR: Bool, fast: Bool = false) {
+    private func produce(noOCR: Bool, fast: Bool = false,
+                         virtualCursor: Bool = false, cursorOverride: CGPoint? = nil) {
         func nowNs() -> UInt64 { DispatchTime.now().uptimeNanoseconds }
         func msSince(_ t: UInt64) -> Double { (Double(nowNs() - t) / 1e6 * 10).rounded() / 10 }
         var env: [String: Any] = [:]
@@ -363,7 +387,11 @@ final class FrameCapture {
                 showOcrOverlay(boxes)
             }
             t = nowNs()
-            let jpg = thumbJPEG(cg, maxWidth: 1568) ?? Data()
+            let cursorMeta = (mt["cursor"] as? [String: Int]).map {
+                CGPoint(x: $0["x"] ?? 0, y: $0["y"] ?? 0)
+            }
+            let marker = virtualCursor ? (cursorOverride ?? cursorMeta) : nil
+            let jpg = thumbJPEG(cg, maxWidth: 1568, cursor: marker) ?? Data()
             try? jpg.write(to: URL(fileURLWithPath: Paths.frameOutJpg))
             jpgBytes = jpg.count
             tm["thumb"] = msSince(t)

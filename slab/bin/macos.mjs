@@ -42,7 +42,28 @@ export function sh(spec, command, { stdin } = {}) {
     const argv = [...spec.ssh.split(/\s+/), "bash", "-lc", command];
     return execFileSync("ssh", argv, opts).trim();
   }
+  if (spec.sshHost) {
+    return execFileSync("ssh", [spec.sshHost, "bash", "-lc", command], opts).trim();
+  }
   throw new Error("machine spec needs `local: true` or `ssh: \"...\"`");
+}
+
+// Click a whole-screen point in macOS's top-left coordinate space. This is the
+// native counterpart to puppet's CDP-only stroke: frame OCR/AX coordinates can
+// be used directly, including for apps with no browser DOM.
+export function clickPoint(spec, x, y, { count = 1 } = {}) {
+  if (!Number.isFinite(x) || !Number.isFinite(y)) throw new Error("click coordinates must be numbers");
+  const n = Math.max(1, Math.min(3, Math.round(count)));
+  const clicks = Array.from({ length: n }, () => `click at {${Math.round(x)}, ${Math.round(y)}}`).join("\n  delay 0.08\n  ");
+  return osa(
+    spec,
+    `with timeout of 15 seconds
+  tell application "System Events"
+    ${clicks}
+  end tell
+  return "ok"
+end timeout`,
+  );
 }
 
 // Run AppleScript by piping it to `osascript -` (reads the script from stdin),
