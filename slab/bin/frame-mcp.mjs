@@ -47,7 +47,7 @@ const settle = (ms = 180) => new Promise((resolve) => setTimeout(resolve, ms));
 function runFrame(args, { timeoutMs = 30000 } = {}) {
   return new Promise((resolve, reject) => {
     execFile(
-      "node",
+      process.execPath,
       [FRAME, ...args],
       { timeout: timeoutMs, maxBuffer: 64 * 1024 * 1024, encoding: "utf8" },
       (err, stdout, stderr) => {
@@ -83,6 +83,9 @@ function digest(env) {
     const acts = (e.actions || []).join(",");
     L.push(`  ${e.role} «${title}» @(${e.cx},${e.cy})${acts ? ` [${acts}]` : ""}`);
   }
+  const visual = env.visual || [];
+  L.push(`\nVISUAL (${visual.length} compact controls) — kind @(cx,cy), distance from hover:`);
+  for (const v of visual) L.push(`  ${v.kind} @(${v.cx},${v.cy}) d=${v.distance}`);
   return L.join("\n");
 }
 

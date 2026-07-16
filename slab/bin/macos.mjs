@@ -39,11 +39,13 @@ export function sh(spec, command, { stdin } = {}) {
   const opts = { input: stdin, encoding: "utf8", maxBuffer: MAX_BUFFER };
   if (spec.local) return execFileSync("bash", ["-lc", command], opts).trim();
   if (spec.ssh) {
-    const argv = [...spec.ssh.split(/\s+/), "bash", "-lc", command];
+    const q = `'${command.replace(/'/g, `'\\''`)}'`;
+    const argv = [...spec.ssh.split(/\s+/), `bash -lc ${q}`];
     return execFileSync("ssh", argv, opts).trim();
   }
   if (spec.sshHost) {
-    return execFileSync("ssh", [spec.sshHost, "bash", "-lc", command], opts).trim();
+    const q = `'${command.replace(/'/g, `'\\''`)}'`;
+    return execFileSync("ssh", [spec.sshHost, `bash -lc ${q}`], opts).trim();
   }
   throw new Error("machine spec needs `local: true` or `ssh: \"...\"`");
 }

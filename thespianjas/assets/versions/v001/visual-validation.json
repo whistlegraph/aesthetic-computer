@@ -1,0 +1,20 @@
+{
+  "pass": false,
+  "scores": {
+    "identity_likeness": 5,
+    "face_detail_lod": 4,
+    "mouth_articulation": 0,
+    "independent_eye_readability": 0,
+    "shoulder_up_framing": 6,
+    "material_naturalness": 5,
+    "lighting_readability": 5,
+    "background_depth_texture": 4,
+    "no_clipping_or_culling": 7
+  },
+  "blockers": [
+    "Mouth not visibly open",
+    "Eyes not independently readable",
+    "Low level of detail in face"
+  ],
+  "notes": "The avatar lacks sufficient detail and articulation for production readiness."
+}
