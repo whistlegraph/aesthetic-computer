@@ -42,13 +42,48 @@ export function sh(spec, command, { stdin } = {}) {
     const argv = [...spec.ssh.split(/\s+/), "bash", "-lc", command];
     return execFileSync("ssh", argv, opts).trim();
   }
+  if (spec.sshHost) {
+    return execFileSync("ssh", [spec.sshHost, "bash", "-lc", command], opts).trim();
+  }
   throw new Error("machine spec needs `local: true` or `ssh: \"...\"`");
+}
+
+// Click a whole-screen point in macOS's top-left coordinate space. This is the
+// native counterpart to puppet's CDP-only stroke: frame OCR/AX coordinates can
+// be used directly, including for apps with no browser DOM.
+export function clickPoint(spec, x, y, { count = 1 } = {}) {
+  if (!Number.isFinite(x) || !Number.isFinite(y)) throw new Error("click coordinates must be numbers");
+  const n = Math.max(1, Math.min(3, Math.round(count)));
+  const clicks = Array.from({ length: n }, () => `click at {${Math.round(x)}, ${Math.round(y)}}`).join("\n  delay 0.08\n  ");
+  return osa(
+    spec,
+    `with timeout of 15 seconds
+  tell application "System Events"
+    ${clicks}
+  end tell
+  return "ok"
+end timeout`,
+  );
 }
 
 // Run AppleScript by piping it to `osascript -` (reads the script from stdin),
 // which sidesteps every layer of shell-quoting the script body would face.
 export function osa(spec, script) {
   return sh(spec, "osascript -", { stdin: script });
+}
+
+export function jxa(spec, script) {
+  return sh(spec, "osascript -l JavaScript -", { stdin: script });
+}
+
+// Post a genuine no-click mouse move. A simple cursor warp is ignored from
+// some SSH sessions; the HID event reliably activates contextual hover UI.
+export function hoverPoint(spec, x, y) {
+  if (!Number.isFinite(x) || !Number.isFinite(y)) throw new Error("hover coordinates must be numbers");
+  return jxa(spec, `ObjC.import("CoreGraphics");
+const p = $.CGPointMake(${Math.round(x)}, ${Math.round(y)});
+const e = $.CGEventCreateMouseEvent(null, $.kCGEventMouseMoved, p, $.kCGMouseButtonLeft);
+$.CGEventPost($.kCGHIDEventTap, e);`);
 }
 
 // AppleScript string literal: quote it, escape backslash + quote.

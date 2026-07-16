@@ -60,7 +60,18 @@ final class FrameCapture {
         let mode = (try? String(contentsOfFile: Paths.frameReq, encoding: .utf8)) ?? ""
         try? fm.removeItem(atPath: Paths.frameReq)
         try? fm.removeItem(atPath: Paths.frameDone)
-        produce(noOCR: mode.contains("noocr"), fast: mode.contains("fast"))
+        var cursorOverride: CGPoint?
+        if let token = mode.split(separator: " ").first(where: { $0.hasPrefix("cursor=") }) {
+            let xy = token.dropFirst("cursor=".count).split(separator: ",").compactMap { Double($0) }
+            if xy.count == 2 { cursorOverride = CGPoint(x: xy[0], y: xy[1]) }
+        }
+        var crop: CGRect?
+        if let token = mode.split(separator: " ").first(where: { $0.hasPrefix("crop=") }) {
+            let v = token.dropFirst("crop=".count).split(separator: ",").compactMap { Double($0) }
+            if v.count == 4 { crop = CGRect(x: v[0], y: v[1], width: v[2], height: v[3]) }
+        }
+        produce(noOCR: mode.contains("noocr"), fast: mode.contains("fast"),
+                virtualCursor: mode.contains("cursor"), cursorOverride: cursorOverride, crop: crop)
         fm.createFile(atPath: Paths.frameDone, contents: nil)
     }
 
@@ -154,7 +165,7 @@ final class FrameCapture {
 
     // MARK: - capture (in-process; no screencapture subprocess → no launchd throttle)
 
-    private func captureDisplay() -> CGImage? {
+    private func captureDisplay(crop: CGRect? = nil) -> CGImage? {
         guard #available(macOS 14.0, *) else { return nil }
         let sem = DispatchSemaphore(value: 0)
         var img: CGImage?
@@ -176,8 +187,13 @@ final class FrameCapture {
             }
             let filter = SCContentFilter(display: display, excludingWindows: exclude)
             let cfg = SCStreamConfiguration()
-            cfg.width = Int(Double(display.width) * self.captureScale)
-            cfg.height = Int(Double(display.height) * self.captureScale)
+            var region = CGRect(x: 0, y: 0, width: display.width, height: display.height)
+            if let crop = crop {
+                region = crop.intersection(CGRect(x: 0, y: 0, width: display.width, height: display.height))
+                cfg.sourceRect = region
+            }
+            cfg.width = Int(Double(region.width) * self.captureScale)
+            cfg.height = Int(Double(region.height) * self.captureScale)
             cfg.showsCursor = true
             img = try? await SCScreenshotManager.captureImage(contentFilter: filter, configuration: cfg)
         }
@@ -187,7 +203,8 @@ final class FrameCapture {
 
     // MARK: - OCR (text + click-center coords, in logical points)
 
-    private func ocr(_ cg: CGImage, scale: Double, fast: Bool = false) -> [[String: Any]] {
+    private func ocr(_ cg: CGImage, scale: Double, fast: Bool = false,
+                     origin: CGPoint = .zero) -> [[String: Any]] {
         let req = VNRecognizeTextRequest()
         req.recognitionLevel = fast ? .fast : .accurate
         req.usesLanguageCorrection = false
@@ -200,7 +217,8 @@ final class FrameCapture {
         for obs in (req.results ?? []) {
             guard let c = obs.topCandidates(1).first else { continue }
             let bb = obs.boundingBox
-            let x = bb.minX * W / scale, y = (1 - bb.maxY) * H / scale
+            let x = origin.x + bb.minX * W / scale
+            let y = origin.y + (1 - bb.maxY) * H / scale
             let w = bb.width * W / scale, h = bb.height * H / scale
             out.append(["t": c.string, "cx": Int(x + w / 2), "cy": Int(y + h / 2),
                         "r": [Int(x), Int(y), Int(w), Int(h)]])
@@ -306,9 +324,11 @@ final class FrameCapture {
 
     // MARK: - thumbnail (downscale to 1568px — what a vision model downsamples to anyway)
 
-    private func thumbJPEG(_ cg: CGImage, maxWidth: Int) -> Data? {
-        let s = Double(maxWidth) / Double(cg.width)
-        let w = maxWidth, h = max(1, Int(Double(cg.height) * s))
+    private func thumbJPEG(_ cg: CGImage, maxWidth: Int, cursor: CGPoint? = nil,
+                           crop: CGRect? = nil) -> Data? {
+        let w = min(maxWidth, cg.width)
+        let s = Double(w) / Double(cg.width)
+        let h = max(1, Int(Double(cg.height) * s))
         guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: w, pixelsHigh: h,
             bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
             colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0),
@@ -317,6 +337,24 @@ final class FrameCapture {
         NSGraphicsContext.current = ctx
         ctx.cgContext.interpolationQuality = .high
         ctx.cgContext.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+        if let cursor = cursor, let screen = NSScreen.main {
+            let region = crop ?? screen.frame
+            let x = (cursor.x - region.minX) * CGFloat(w) / region.width
+            let y = CGFloat(h) - (cursor.y - region.minY) * CGFloat(h) / region.height
+            let radius = max(9.0, CGFloat(w) / 110.0)
+            let marker = CGRect(x: x - radius, y: y - radius,
+                              width: radius * 2, height: radius * 2)
+            ctx.cgContext.setFillColor(NSColor.systemPink.withAlphaComponent(0.78).cgColor)
+            ctx.cgContext.fillEllipse(in: marker)
+            ctx.cgContext.setStrokeColor(NSColor.white.cgColor)
+            ctx.cgContext.setLineWidth(max(2.0, radius / 5.0))
+            ctx.cgContext.strokeEllipse(in: marker)
+            ctx.cgContext.move(to: CGPoint(x: x - radius * 1.5, y: y))
+            ctx.cgContext.addLine(to: CGPoint(x: x + radius * 1.5, y: y))
+            ctx.cgContext.move(to: CGPoint(x: x, y: y - radius * 1.5))
+            ctx.cgContext.addLine(to: CGPoint(x: x, y: y + radius * 1.5))
+            ctx.cgContext.strokePath()
+        }
         ctx.flushGraphics()
         NSGraphicsContext.restoreGraphicsState()
         return rep.representation(using: .jpeg, properties: [.compressionFactor: 0.6])
@@ -324,7 +362,9 @@ final class FrameCapture {
 
     // MARK: - assemble + write the envelope
 
-    private func produce(noOCR: Bool, fast: Bool = false) {
+    private func produce(noOCR: Bool, fast: Bool = false,
+                         virtualCursor: Bool = false, cursorOverride: CGPoint? = nil,
+                         crop: CGRect? = nil) {
         func nowNs() -> UInt64 { DispatchTime.now().uptimeNanoseconds }
         func msSince(_ t: UInt64) -> Double { (Double(nowNs() - t) / 1e6 * 10).rounded() / 10 }
         var env: [String: Any] = [:]
@@ -347,7 +387,9 @@ final class FrameCapture {
 
         var t = nowNs(); let mt = meta(); tm["meta"] = msSince(t)
         env["meta"] = mt
-        t = nowNs(); let cg = captureDisplay(); tm["capture"] = msSince(t)
+        let boundedCrop = crop.flatMap { c in NSScreen.main.map { c.intersection($0.frame) } }
+        if let c = boundedCrop { env["crop"] = ["x": Int(c.minX), "y": Int(c.minY), "w": Int(c.width), "h": Int(c.height)] }
+        t = nowNs(); let cg = captureDisplay(crop: boundedCrop); tm["capture"] = msSince(t)
         if cg != nil { flashCaptureIndicator() }  // subtle post-capture awareness flash
         // The JPEG ships as RAW BYTES in a sidecar file (frame.out.jpg), not
         // base64 in the JSON — base64 inflates the payload +33% and burns
@@ -358,12 +400,17 @@ final class FrameCapture {
             if noOCR {
                 env["ocr"] = []
             } else {
-                t = nowNs(); let boxes = ocr(cg, scale: captureScale, fast: fast); tm["ocr"] = msSince(t)
+                t = nowNs(); let boxes = ocr(cg, scale: captureScale, fast: fast,
+                                             origin: boundedCrop?.origin ?? .zero); tm["ocr"] = msSince(t)
                 env["ocr"] = boxes
                 showOcrOverlay(boxes)
             }
             t = nowNs()
-            let jpg = thumbJPEG(cg, maxWidth: 1568) ?? Data()
+            let cursorMeta = (mt["cursor"] as? [String: Int]).map {
+                CGPoint(x: $0["x"] ?? 0, y: $0["y"] ?? 0)
+            }
+            let marker = virtualCursor ? (cursorOverride ?? cursorMeta) : nil
+            let jpg = thumbJPEG(cg, maxWidth: 1568, cursor: marker, crop: boundedCrop) ?? Data()
             try? jpg.write(to: URL(fileURLWithPath: Paths.frameOutJpg))
             jpgBytes = jpg.count
             tm["thumb"] = msSince(t)
