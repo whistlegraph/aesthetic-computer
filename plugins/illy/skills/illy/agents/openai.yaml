@@ -1,0 +1,12 @@
+interface:
+  display_name: "Illy"
+  short_description: "Orchestrate illustration pipelines and backends"
+  default_prompt: "Use $illy to generate an illustration through a configurable media pipeline."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "illy"
+      description: "Plans, renders, and records illy pipeline runs."
+      transport: "stdio"
+policy:
+  allow_implicit_invocation: true

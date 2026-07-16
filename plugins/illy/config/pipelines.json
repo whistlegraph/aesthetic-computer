@@ -1,0 +1,28 @@
+{
+  "pipelines": {
+    "marketing": {
+      "description": "Campaign illy: cover-prompt.txt + refs/ -> gens/<variant>.png",
+      "providerOrder": ["openai", "fal"],
+      "modelByProvider": { "openai": "gpt-image-2", "fal": "fal-ai/flux/dev" },
+      "promptFile": "cover-prompt.txt", "refsDir": "refs", "outputTemplate": "gens/{variant}.png",
+      "defaults": { "variant": "v1", "size": "1024x1536", "quality": "high" },
+      "stages": ["resolve-inputs", "select-provider", "generate", "archive", "provenance"]
+    },
+    "pop-cover": {
+      "description": "Square pop cover illy; remains separate from motion prompts.",
+      "providerOrder": ["openai", "fal"],
+      "modelByProvider": { "openai": "gpt-image-2", "fal": "fal-ai/flux/dev" },
+      "promptGlobs": ["*.illy.txt", "gpt-image-2-prompt.md", "cover-prompt.txt"], "outputTemplate": "out/{slug}-cover.png",
+      "defaults": { "size": "1024x1024", "quality": "high" },
+      "stages": ["resolve-inputs", "select-provider", "generate", "archive", "provenance"]
+    },
+    "pop-panel": {
+      "description": "Landscape storyboard/source-frame illy for the pop motion pipeline.",
+      "providerOrder": ["openai", "fal"],
+      "modelByProvider": { "openai": "gpt-image-2", "fal": "fal-ai/flux/dev" },
+      "outputTemplate": "out/{slug}-yt-sec-{variant}.png",
+      "defaults": { "variant": "0-panel", "size": "1536x1024", "quality": "high" },
+      "stages": ["resolve-inputs", "select-provider", "generate", "archive", "provenance", "motion-ready"]
+    }
+  }
+}
