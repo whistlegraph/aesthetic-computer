@@ -233,15 +233,33 @@ final class FrameCapture {
     // compact, near-square controls without needing app-specific templates.
     private func visualControls(_ cg: CGImage, scale: Double, origin: CGPoint,
                                 focus: CGPoint?) -> [[String: Any]] {
+        // Contour cost grows sharply with dense desktop content. Analyze a
+        // bounded local buffer and carry its scale back to global coordinates;
+        // the returned frame pixels remain full quality.
+        var scan = cg
+        var scanScale = scale
+        if cg.width > 512 {
+            let w = 512, h = max(1, Int(Double(cg.height) * Double(w) / Double(cg.width)))
+            if let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8,
+                bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) {
+                ctx.interpolationQuality = .medium
+                ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+                if let small = ctx.makeImage() {
+                    scan = small
+                    scanScale = scale * Double(w) / Double(cg.width)
+                }
+            }
+        }
         let dark = VNDetectContoursRequest()
         dark.contrastAdjustment = 1.5
         dark.detectsDarkOnLight = true
         let light = VNDetectContoursRequest()
         light.contrastAdjustment = 1.5
         light.detectsDarkOnLight = false
-        try? VNImageRequestHandler(cgImage: cg, options: [:]).perform([dark, light])
+        try? VNImageRequestHandler(cgImage: scan, options: [:]).perform([dark, light])
         let observations = [dark.results?.first, light.results?.first].compactMap { $0 }
-        let W = Double(cg.width) / scale, H = Double(cg.height) / scale
+        let W = Double(scan.width) / scanScale, H = Double(scan.height) / scanScale
         var out: [[String: Any]] = []
         for c in observations.flatMap({ $0.topLevelContours }) {
             let b = c.normalizedPath.boundingBox
