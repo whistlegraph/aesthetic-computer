@@ -25,6 +25,7 @@ const SLAB_HOME = process.env.SLAB_HOME || join(homedir(), ".local", "share", "s
 const ACTIVE = join(SLAB_HOME, "state", "active-prompts", sid);
 const AWAITING = join(SLAB_HOME, "state", "awaiting-prompts", sid);
 const RUNNING = join(SLAB_HOME, "state", "running-tools", sid);
+const OPEN_IMAGES = join(SLAB_HOME, "state", "open-images");
 const SESSIONS = join(process.env.CODEX_HOME || join(homedir(), ".codex"), "sessions");
 const execFileAsync = promisify(execFile);
 
@@ -125,7 +126,22 @@ async function onAwaiting(msg) {
   await rm(RUNNING);
 }
 
+async function onVisualArtifact(path) {
+  // ImageGroupPreview consumes this request on the menubar's next tick.
+  // The newest generated artifact becomes the current review wall.
+  try { await writeFile(OPEN_IMAGES, path + "\n"); } catch {}
+  await onAwaiting("visual artifact ready for review");
+}
+
 function handleLine(line, ctx) {
+  // Image generation returns a saved host path beside an inline bitmap. Match
+  // only tool response items so quoted history cannot reopen stale artifacts.
+  const isImageToolOutput = line.includes('"type":"response_item"')
+    && line.includes('"role":"tool"');
+  const generated = isImageToolOutput
+    ? line.match(/Generated images are saved[^\n]*? as (\/[^\s]+\.(?:png|jpe?g|webp))/i)
+    : null;
+  if (generated) ctx.pending.push(() => onVisualArtifact(generated[1]));
   let obj;
   try { obj = JSON.parse(line); } catch { return; }
   const type = obj.type;
