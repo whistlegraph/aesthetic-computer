@@ -37,6 +37,7 @@ final class FrameCapture {
     private let overlayLock = NSLock()
     private var overlayWindowIDs = Set<Int>()
     private var ocrOverlayWindow: NSWindow?
+    private var diffBaseline: (rect: CGRect, image: CGImage)?
     private func registerOverlay(_ w: NSWindow) {
         overlayLock.lock(); overlayWindowIDs.insert(w.windowNumber); overlayLock.unlock()
     }
@@ -71,7 +72,8 @@ final class FrameCapture {
             if v.count == 4 { crop = CGRect(x: v[0], y: v[1], width: v[2], height: v[3]) }
         }
         produce(noOCR: mode.contains("noocr"), fast: mode.contains("fast"),
-                virtualCursor: mode.contains("cursor"), cursorOverride: cursorOverride, crop: crop)
+                virtualCursor: mode.contains("cursor"), cursorOverride: cursorOverride, crop: crop,
+                saveBaseline: mode.contains("baseline"), includeDiff: mode.contains("diff"))
         fm.createFile(atPath: Paths.frameDone, contents: nil)
     }
 
@@ -231,14 +233,35 @@ final class FrameCapture {
     // compact, near-square controls without needing app-specific templates.
     private func visualControls(_ cg: CGImage, scale: Double, origin: CGPoint,
                                 focus: CGPoint?) -> [[String: Any]] {
-        let req = VNDetectContoursRequest()
-        req.contrastAdjustment = 1.5
-        req.detectsDarkOnLight = true
-        try? VNImageRequestHandler(cgImage: cg, options: [:]).perform([req])
-        guard let obs = req.results?.first else { return [] }
-        let W = Double(cg.width) / scale, H = Double(cg.height) / scale
+        // Contour cost grows sharply with dense desktop content. Analyze a
+        // bounded local buffer and carry its scale back to global coordinates;
+        // the returned frame pixels remain full quality.
+        var scan = cg
+        var scanScale = scale
+        if cg.width > 512 {
+            let w = 512, h = max(1, Int(Double(cg.height) * Double(w) / Double(cg.width)))
+            if let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8,
+                bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) {
+                ctx.interpolationQuality = .medium
+                ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+                if let small = ctx.makeImage() {
+                    scan = small
+                    scanScale = scale * Double(w) / Double(cg.width)
+                }
+            }
+        }
+        let dark = VNDetectContoursRequest()
+        dark.contrastAdjustment = 1.5
+        dark.detectsDarkOnLight = true
+        let light = VNDetectContoursRequest()
+        light.contrastAdjustment = 1.5
+        light.detectsDarkOnLight = false
+        try? VNImageRequestHandler(cgImage: scan, options: [:]).perform([dark, light])
+        let observations = [dark.results?.first, light.results?.first].compactMap { $0 }
+        let W = Double(scan.width) / scanScale, H = Double(scan.height) / scanScale
         var out: [[String: Any]] = []
-        for c in obs.topLevelContours {
+        for c in observations.flatMap({ $0.topLevelContours }) {
             let b = c.normalizedPath.boundingBox
             let x = origin.x + b.minX * W
             let y = origin.y + (1 - b.maxY) * H
@@ -247,8 +270,9 @@ final class FrameCapture {
             guard w >= 10, h >= 10, w <= 46, h <= 46, ratio >= 0.65, ratio <= 1.5 else { continue }
             let cx = x + w / 2, cy = y + h / 2
             let distance = focus.map { hypot(cx - $0.x, cy - $0.y) } ?? 0
-            out.append(["kind": "compact-control", "cx": Int(cx), "cy": Int(cy),
-                        "r": [Int(x), Int(y), Int(w), Int(h)], "distance": Int(distance)])
+            let duplicate = out.contains { abs(($0["cx"] as? Int ?? 0) - Int(cx)) < 3 && abs(($0["cy"] as? Int ?? 0) - Int(cy)) < 3 }
+            if !duplicate { out.append(["kind": "compact-control", "cx": Int(cx), "cy": Int(cy),
+                "r": [Int(x), Int(y), Int(w), Int(h)], "distance": Int(distance)]) }
         }
         return out.sorted { ($0["distance"] as? Int ?? 0) < ($1["distance"] as? Int ?? 0) }.prefix(24).map { $0 }
     }
@@ -387,11 +411,76 @@ final class FrameCapture {
         return rep.representation(using: .jpeg, properties: [.compressionFactor: 0.6])
     }
 
+    // Binary difference map for assured hover exploration. Work on a 4×4
+    // occupancy grid: unchanged cells vanish; adjacent changed cells collapse
+    // into global-coordinate regions that can be grepped locally or promoted
+    // as tiny crops to a visual model only when meaning remains ambiguous.
+    private func differenceMap(_ before: CGImage, _ after: CGImage,
+                               origin: CGPoint, scale: Double) -> [[String: Any]] {
+        guard before.width == after.width, before.height == after.height else { return [] }
+        let w = after.width, h = after.height, stride = w * 4
+        func pixels(_ image: CGImage) -> [UInt8] {
+            var data = [UInt8](repeating: 0, count: h * stride)
+            data.withUnsafeMutableBytes { raw in
+                if let ctx = CGContext(data: raw.baseAddress, width: w, height: h,
+                    bitsPerComponent: 8, bytesPerRow: stride,
+                    space: CGColorSpaceCreateDeviceRGB(),
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) {
+                    ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
+                }
+            }
+            return data
+        }
+        let a = pixels(before), b = pixels(after), cell = 4
+        let gw = (w + cell - 1) / cell, gh = (h + cell - 1) / cell
+        var changed = [Bool](repeating: false, count: gw * gh)
+        for gy in 0..<gh { for gx in 0..<gw {
+            var hits = 0
+            for py in (gy * cell)..<min(h, (gy + 1) * cell) {
+                for px in (gx * cell)..<min(w, (gx + 1) * cell) {
+                    let i = py * stride + px * 4
+                    let delta = max(abs(Int(a[i]) - Int(b[i])),
+                        abs(Int(a[i + 1]) - Int(b[i + 1])), abs(Int(a[i + 2]) - Int(b[i + 2])))
+                    if delta >= 24 { hits += 1 }
+                }
+            }
+            changed[gy * gw + gx] = hits >= 2
+        } }
+        var seen = [Bool](repeating: false, count: changed.count)
+        var out: [[String: Any]] = []
+        for sy in 0..<gh { for sx in 0..<gw {
+            let start = sy * gw + sx
+            if !changed[start] || seen[start] { continue }
+            seen[start] = true
+            var q = [(sx, sy)], head = 0, minX = sx, maxX = sx, minY = sy, maxY = sy
+            while head < q.count {
+                let (x, y) = q[head]; head += 1
+                minX = min(minX, x); maxX = max(maxX, x); minY = min(minY, y); maxY = max(maxY, y)
+                for ny in max(0, y - 1)...min(gh - 1, y + 1) {
+                    for nx in max(0, x - 1)...min(gw - 1, x + 1) {
+                        let i = ny * gw + nx
+                        if changed[i] && !seen[i] { seen[i] = true; q.append((nx, ny)) }
+                    }
+                }
+            }
+            guard q.count >= 2 else { continue }
+            let px = minX * cell, pyTop = h - min(h, (maxY + 1) * cell)
+            let pw = min(w, (maxX + 1) * cell) - px
+            let ph = min(h, (maxY + 1) * cell) - minY * cell
+            let x = origin.x + Double(px) / scale, y = origin.y + Double(pyTop) / scale
+            let rw = Double(pw) / scale, rh = Double(ph) / scale
+            out.append(["kind": "change", "cx": Int(x + rw / 2), "cy": Int(y + rh / 2),
+                        "r": [Int(x), Int(y), Int(rw), Int(rh)], "cells": q.count])
+        } }
+        return out.sorted { ($0["cells"] as? Int ?? 0) > ($1["cells"] as? Int ?? 0) }.prefix(32).map { $0 }
+    }
+
     // MARK: - assemble + write the envelope
 
     private func produce(noOCR: Bool, fast: Bool = false,
                          virtualCursor: Bool = false, cursorOverride: CGPoint? = nil,
-                         crop: CGRect? = nil) {
+                         crop: CGRect? = nil, saveBaseline: Bool = false,
+                         includeDiff: Bool = false) {
         func nowNs() -> UInt64 { DispatchTime.now().uptimeNanoseconds }
         func msSince(_ t: UInt64) -> Double { (Double(nowNs() - t) / 1e6 * 10).rounded() / 10 }
         var env: [String: Any] = [:]
@@ -424,6 +513,12 @@ final class FrameCapture {
         // BEFORE the JSON + done marker so a reader that sees `done` has both.
         var jpgBytes = 0
         if let cg = cg {
+            let region = boundedCrop ?? CGRect(x: 0, y: 0, width: cg.width, height: cg.height)
+            if includeDiff, let baseline = diffBaseline, baseline.rect.equalTo(region) {
+                t = nowNs(); env["diff"] = differenceMap(baseline.image, cg,
+                    origin: region.origin, scale: captureScale); tm["diff"] = msSince(t)
+            } else { env["diff"] = [] }
+            if saveBaseline { diffBaseline = (region, cg) }
             if noOCR {
                 env["ocr"] = []
             } else {

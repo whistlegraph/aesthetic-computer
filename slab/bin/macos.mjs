@@ -56,16 +56,14 @@ export function sh(spec, command, { stdin } = {}) {
 export function clickPoint(spec, x, y, { count = 1 } = {}) {
   if (!Number.isFinite(x) || !Number.isFinite(y)) throw new Error("click coordinates must be numbers");
   const n = Math.max(1, Math.min(3, Math.round(count)));
-  const clicks = Array.from({ length: n }, () => `click at {${Math.round(x)}, ${Math.round(y)}}`).join("\n  delay 0.08\n  ");
-  return osa(
-    spec,
-    `with timeout of 15 seconds
-  tell application "System Events"
-    ${clicks}
-  end tell
-  return "ok"
-end timeout`,
-  );
+  return jxa(spec, `ObjC.import("CoreGraphics");
+const p = $.CGPointMake(${Math.round(x)}, ${Math.round(y)});
+for (let i = 0; i < ${n}; i++) {
+  $.CGEventPost($.kCGHIDEventTap, $.CGEventCreateMouseEvent(null, $.kCGEventLeftMouseDown, p, $.kCGMouseButtonLeft));
+  delay(0.04);
+  $.CGEventPost($.kCGHIDEventTap, $.CGEventCreateMouseEvent(null, $.kCGEventLeftMouseUp, p, $.kCGMouseButtonLeft));
+  if (i + 1 < ${n}) delay(0.08);
+}`);
 }
 
 // Run AppleScript by piping it to `osascript -` (reads the script from stdin),
