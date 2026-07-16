@@ -51,7 +51,7 @@ node toolchain/fleet/normalize-machines.mjs
 # CLI smoke test (same code the MCP runs)
 node toolchain/fleet/fleet-mcp.mjs list
 node toolchain/fleet/fleet-mcp.mjs find gpu
-node toolchain/fleet/fleet-mcp.mjs machine macbook-pro-clam
+node toolchain/fleet/fleet-mcp.mjs machine poorslice
 ```
 
 Data path is resolved in order: `$FLEET_MACHINES` → vault

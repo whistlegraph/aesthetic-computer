@@ -126,6 +126,21 @@ full Bash can't even capture output, redirect to a file and Read it:
 buckets below — and check `/System/Volumes/Data` (not `/`, the sealed system
 snapshot) for the real usage.
 
+### Reusable cleanup command
+
+Fleet Macs can install [`ac-disk-clean.sh`](ac-disk-clean.sh) as a report-first
+cleanup utility:
+
+```bash
+ac-disk-clean                            # inventory only
+ac-disk-clean --apply                    # known regenerable caches
+ac-disk-clean --apply --thin-snapshots   # opt-in APFS snapshot thinning
+```
+
+`--install` places it in `~/.local/bin` and enables a weekly user LaunchAgent.
+Running applications keep ownership of their caches; repositories, downloads,
+models, agent state, and CoreSimulator runtimes are always report-only.
+
 ### Safe regenerable buckets
 
 Always clear first — fully recover with no judgment call:

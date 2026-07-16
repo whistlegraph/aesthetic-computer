@@ -136,11 +136,11 @@ const ENRICH = {
     status: { source: "tailscale", key: "blueberry" },
     fleetRole: "Lightweight (8GB) control / macpal box. Too small to host hermes — author + drive only.",
   },
-  "macbook-pro-clam": {
+  poorslice: {
     designation: "compute-node",
     capabilities: ["mlx", "macos-automation", "screen-capture", "chromium-pool", "ffmpeg-render", "always-on"],
-    tailscale: { name: "macbook-pro-clam", ip: "100.86.206.3" },
-    status: { source: "tailscale", key: "macbook-pro-clam" },
+    tailscale: { name: "poorslice", ip: "100.86.206.3" },
+    status: { source: "tailscale", key: "poorslice" },
     fleetRole: "Always-on macOS media-gen compute node (M1 Pro/16GB): Chromium pool, MLX local models, screen + native-app automation. Also the strongest agent-endpoint CANDIDATE among the Macs.",
   },
 };
@@ -206,14 +206,14 @@ const ADD = {
     fleetRole: "Always-on Linux services appliance + PRIMARY hermes agent-endpoint host. Runs the mail appliance and authed tailnet APIs.",
     _review: "Added by fleet normalization 2026-07-06. This is the intended home for the hermes gateway + fleet identity.",
   },
-  "jas-nzxt": {
-    label: "🖥️ jas-nzxt (GPU tower)",
+  jastow: {
+    label: "🖥️ jastow (GPU tower)",
     emoji: "🖥️",
     os: "Linux",
     designation: "compute-node",
     capabilities: ["gpu", "cuda", "docker", "ffmpeg-render"],
-    tailscale: { name: "jas-nzxt", ip: "100.103.42.46" },
-    status: { source: "tailscale", key: "jas-nzxt" },
+    tailscale: { name: "jastow", ip: "100.103.42.46" },
+    status: { source: "tailscale", key: "jastow" },
     fleetRole: "Linux GPU tower for heavy compute / render.",
     _review: "Added by fleet normalization 2026-07-06 (on the tailnet, absent from vault). Fill in hardware/ssh/user.",
   },

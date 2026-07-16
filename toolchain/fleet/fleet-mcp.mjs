@@ -171,7 +171,7 @@ const TOOLS = [
   {
     name: "fleet_machine",
     description: "Full detail for ONE machine (hardware, os, ssh, repoPath, designation, capabilities, notes) plus its live tailnet status. Accepts the registry key or the tailnet short name. Names come from fleet_list.",
-    inputSchema: { type: "object", properties: { name: { type: "string", description: "Machine name, e.g. macbook-pro-clam, jasellite, neo." } }, required: ["name"] },
+    inputSchema: { type: "object", properties: { name: { type: "string", description: "Machine name, e.g. poorslice, jastow, neo." } }, required: ["name"] },
   },
   {
     name: "fleet_find",

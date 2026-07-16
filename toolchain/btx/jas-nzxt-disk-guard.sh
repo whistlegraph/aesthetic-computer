@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# jas-nzxt disk self-maintenance — idempotent, safe to re-run.
-# Run on the box:  bash jas-nzxt-disk-guard.sh   (uses sudo internally)
+# jastow disk self-maintenance — idempotent, safe to re-run.
+# Legacy filename retained for compatibility. Uses sudo internally.
 set -euo pipefail
 
 echo "== 1. Cap systemd journal at 500M =="
@@ -13,7 +13,7 @@ sudo journalctl --vacuum-size=500M
 echo "== 2. Weekly docker + package-cache prune (systemd timer) =="
 sudo tee /etc/systemd/system/disk-tidy.service >/dev/null <<'EOF'
 [Unit]
-Description=jas-nzxt weekly disk tidy (docker + pkg caches)
+Description=jastow weekly disk tidy (docker + pkg caches)
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/docker image prune -af

@@ -1,0 +1,11 @@
+[Unit]
+Description=Check whether BTX mining should run
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=30s
+AccuracySec=5s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,7 @@
+[Unit]
+Description=Pause BTX mining during interactive/build work
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/btx-miner-guard
