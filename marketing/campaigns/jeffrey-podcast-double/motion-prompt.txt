@@ -1,0 +1,10 @@
+Animate this still as a restrained living editorial portrait synchronized to the supplied podcast audio.
+
+Preserve identity, face geometry, glasses, hair, wardrobe, lighting, camera,
+background, and crop exactly. Add natural breath, irregular blinks, tiny eye
+refocusing, subtle head and shoulder emphasis, and phoneme-appropriate speech.
+The voice is thoughtful and conversational. Keep the camera locked.
+
+Avoid rubber mouth, oversized lip motion, frozen eyes, head bobbing, drifting
+features, teeth flicker, changing hair, changing clothes, hand gestures, camera
+motion, cuts, zooms, captions, or new objects.

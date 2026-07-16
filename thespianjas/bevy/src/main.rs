@@ -1,12 +1,14 @@
 use bevy::prelude::*;
-use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use std::collections::HashMap;
 
-const MODEL: &str = "thespianjas/assets/versions/v001/idle.glb#Scene0";
+const MODEL: &str = "thespianjas/assets/versions/v001/model.glb#Scene0";
 const AUDIO: &str = "marketing/talking-head/out/.work-yc/mono16k.wav";
 
 #[derive(Resource, Default)]
 struct SpeechEnvelope(Vec<f32>);
+
+#[derive(Component)]
+struct Performer;
 
 fn main() {
     App::new()
@@ -25,7 +27,6 @@ fn main() {
             }),
             ..default()
             }))
-        .add_plugins(PanOrbitCameraPlugin)
         .add_systems(Startup, setup)
         .add_systems(Update, (fly_camera, soften_performer_material, perform_speech).chain())
         .run();
@@ -43,10 +44,13 @@ fn setup(
         affects_lightmapped_meshes: true,
     });
     commands.spawn((
+        Performer,
         SceneRoot(assets.load(MODEL)),
-        // Meshy's accessor bounds are 1.82 units tall. Present the performer
-        // at the same 2.4-unit studio height as the original prototype.
-        Transform::from_scale(Vec3::splat(2.4 / 1.82)),
+        // Meshy's canonical textured mesh is 1.82 units tall. Keep this
+        // unwrapped model as the visual endpoint until the skinned export's
+        // 0.01 armature hierarchy is normalized into a production face rig.
+        Transform::from_xyz(0.0, 1.25, 0.0)
+            .with_scale(Vec3::splat(2.4 / 1.90)),
     ));
 
     commands.spawn(AudioPlayer::new(assets.load(AUDIO)));
@@ -95,12 +99,8 @@ fn setup(
             fov: 24.0_f32.to_radians(),
             ..default()
         }),
-        Transform::from_xyz(0.0, 1.68, 1.65),
-        PanOrbitCamera {
-            focus: Vec3::new(0.0, 1.68, 0.0),
-            radius: Some(1.65),
-            ..default()
-        },
+        Transform::from_xyz(0.0, 2.05, 2.5)
+            .looking_at(Vec3::new(0.0, 2.05, 0.0), Vec3::Y),
     ));
 }
 
@@ -146,6 +146,7 @@ fn perform_speech(
     envelope: Res<SpeechEnvelope>,
     mut originals: Local<HashMap<Entity, Quat>>,
     mut joints: Query<(Entity, &Name, &mut Transform)>,
+    mut performer: Query<&mut Transform, (With<Performer>, Without<Name>)>,
 ) {
     if envelope.0.is_empty() { return; }
     let elapsed = time.elapsed_secs();
@@ -154,6 +155,11 @@ fn perform_speech(
     let previous = envelope.0.get(frame.saturating_sub(2)).copied().unwrap_or(raw);
     let speech = raw * 0.7 + previous * 0.3;
     let sway = (elapsed * 1.7).sin();
+    if let Ok(mut root) = performer.single_mut() {
+        root.translation.y = 1.25 + speech * 0.012;
+        root.rotation = Quat::from_rotation_z(sway * (0.004 + speech * 0.006))
+            * Quat::from_rotation_y(sway * speech * 0.008);
+    }
     for (entity, name, mut transform) in &mut joints {
         let weight = match name.as_str() {
             "Head" => 1.0,
