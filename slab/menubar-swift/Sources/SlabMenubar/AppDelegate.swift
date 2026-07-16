@@ -239,13 +239,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let fontGuard = TerminalFontZoomGuard()
         if fontGuard.start() { terminalFontZoomGuard = fontGuard }
 
-        // ⌃⌃ zooms in on the window under the pointer; ⌃⌃ again zooms back out.
+        // ⌃⌃ zooms in on the window under the pointer; moving onto another
+        // window follows and reframes it; ⌃⌃ again zooms back out.
         // The tap listens always — the flag is checked at fire time, not here, so
         // toggling the feature from the menu doesn't need to tear a tap down.
-        let lensTap = CtrlDoubleTap { [weak self] in
-            guard let self = self, self.state.zoomLens else { return }
-            ZoomLens.toggle()
-        }
+        let lensTap = CtrlDoubleTap(
+            onDoubleTap: { [weak self] in
+                guard let self = self, self.state.zoomLens else { return }
+                ZoomLens.toggle()
+            },
+            onPointerMove: { [weak self] point in
+                guard let self = self, self.state.zoomLens else { return }
+                ZoomLens.followCursor(to: point)
+            })
         if lensTap.start() { zoomLensTap = lensTap }
 
         // setDesktopImageURL only writes the wallpaper on the active Space of

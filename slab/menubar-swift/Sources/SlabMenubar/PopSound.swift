@@ -42,6 +42,17 @@ enum PopSound {
         }
     }
 
+    /// The tiny mechanical catch when a pointer-follow pan settles onto its new
+    /// window. Kept separate from the rising/falling lens pop: this says "locked
+    /// on", not "zoom mode changed".
+    static func playTransferClick() {
+        queue.async {
+            guard let buffer = renderTransferClick(), start() else { return }
+            player.scheduleBuffer(buffer, at: nil, options: .interrupts)
+            player.play()
+        }
+    }
+
     /// Lazy, so an app that never zooms never spins up an audio engine.
     private static func start() -> Bool {
         if running { return true }
@@ -76,6 +87,31 @@ enum PopSound {
             let attack = min(1.0, t / 0.02)             // ~2ms — a click, not a swell
             let decay = exp(-5.5 * t)
             samples[i] = Float(sin(phase) * attack * decay * gain)
+        }
+        return buffer
+    }
+
+    private static func renderTransferClick() -> AVAudioPCMBuffer? {
+        guard let format = format else { return nil }
+        let clickDuration = 0.052
+        let frames = AVAudioFrameCount(sampleRate * clickDuration)
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames),
+              let samples = buffer.floatChannelData?[0] else { return nil }
+        buffer.frameLength = frames
+
+        // A seeded noise tick supplies the physical "catch"; the short falling
+        // partial underneath gives it a definite pitch without becoming a beep.
+        var noise: UInt32 = 0x51ab_cafe
+        var phase = 0.0
+        for i in 0..<Int(frames) {
+            let t = Double(i) / Double(frames)
+            noise = 1_664_525 &* noise &+ 1_013_904_223
+            let white = Double(Int32(bitPattern: noise)) / Double(Int32.max)
+            let frequency = 1_340.0 * pow(620.0 / 1_340.0, t)
+            phase += 2 * .pi * frequency / sampleRate
+            let body = sin(phase) * exp(-8.5 * t)
+            let tick = white * exp(-28 * t)
+            samples[i] = Float((body * 0.12 + tick * 0.07) * (1 - t))
         }
         return buffer
     }

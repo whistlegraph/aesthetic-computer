@@ -3,7 +3,8 @@ import ApplicationServices
 import CoreGraphics
 
 /// ⌃⌃ zooms in on whatever the pointer is on — the whole thing, scaled to fit,
-/// centred, with a margin of surrounding context. ⌃⌃ again zooms back out.
+/// centred, with a margin of surrounding context. Moving onto another window
+/// follows, refits, and recentres it. ⌃⌃ again zooms back out.
 ///
 /// "Whatever" means an ordinary window, or a menu bar item. Status items turn out
 /// to be real windows (Control Center hosts one apiece, up at the menu bar
@@ -57,6 +58,20 @@ enum ZoomLens {
     private static let maxFactor: CGFloat = 8.0
     /// Floating-point slop — the compositor reports 1.0029 for "not zoomed".
     private static let zoomedThreshold: CGFloat = 1.01
+    /// Window-list hit-testing is much heavier than reading a pointer sample.
+    /// 20 Hz feels immediate while keeping mouse motion cheap.
+    private static let followInterval: CFTimeInterval = 1.0 / 20.0
+    /// A retarget should read as a deliberate camera move, not a teleport.
+    private static let panDuration: CFTimeInterval = 0.38
+
+    private struct Target: Equatable {
+        let id: CGWindowID?
+        let frame: CGRect
+    }
+
+    private static var activeTarget: Target?
+    private static var lastFollowAt: CFTimeInterval = 0
+    private static var panTimer: Timer?
 
     static var isZoomed: Bool { current().factor > zoomedThreshold }
 
@@ -67,29 +82,100 @@ enum ZoomLens {
             return
         }
         guard let target = targetUnderCursor(excluding: getpid()),
-              let screen = screen(bestContaining: target) else {
+              let screen = screen(bestContaining: target.frame) else {
             NSSound.beep()   // pointer is over bare desktop — nothing to aim at
             return
         }
 
+        zoom(to: target, on: screen, animated: false)
+        PopSound.play(rising: true)
+    }
+
+    /// While the lens is up, crossing onto a different window makes that window
+    /// the new subject. Recompute both magnification and origin so differently
+    /// sized windows still fit and land centred, rather than merely sliding the
+    /// old zoom factor across the desktop.
+    static func followCursor(to point: CGPoint) {
+        guard activeTarget != nil else { return }
+
+        let now = CACurrentMediaTime()
+        guard now - lastFollowAt >= followInterval else { return }
+        lastFollowAt = now
+
+        // Compositor zoom can also be changed outside Slab (for example with
+        // Accessibility shortcuts). Notice that promptly and stop following.
+        guard isZoomed else {
+            activeTarget = nil
+            return
+        }
+
+        guard let target = targetUnderCursor(excluding: getpid(), at: point),
+              target != activeTarget,
+              let screen = screen(bestContaining: target.frame) else { return }
+        zoom(to: target, on: screen, animated: true)
+    }
+
+    private static func zoom(to target: Target, on screen: NSScreen, animated: Bool) {
         // Fit the whole window on the tighter axis, then back off by the margin.
         // The looser axis keeps whatever slack the aspect ratio gives it — which
         // is why a window never fills the screen edge-to-edge, and why you can
         // still see what's around it.
-        let fit = min(screen.frame.width / target.width,
-                      screen.frame.height / target.height)
+        let fit = min(screen.frame.width / target.frame.width,
+                      screen.frame.height / target.frame.height)
         let factor = min(max(fit / contextMargin, minFactor), maxFactor)
-        let centre = CGPoint(x: target.midX, y: target.midY)
+        let centre = CGPoint(x: target.frame.midX, y: target.frame.midY)
 
-        apply(origin: centre, factor: factor)
-        PopSound.play(rising: true)
+        activeTarget = target
+        if animated {
+            pan(to: centre, factor: factor)
+        } else {
+            panTimer?.invalidate()
+            panTimer = nil
+            apply(origin: centre, factor: factor)
+        }
+        ZoomSpecialMove.fire(around: target.frame, on: screen)
     }
 
     static func zoomOut() {
+        panTimer?.invalidate()
+        panTimer = nil
+        activeTarget = nil
+        lastFollowAt = 0
         guard let screen = NSScreen.main else { return }
         // Factor 1.0 is the exit. The origin is irrelevant at 1×, but hand back
         // the screen centre so a subsequent zoom-by-hand starts somewhere sane.
         apply(origin: CGPoint(x: screen.frame.midX, y: screen.frame.midY), factor: 1.0)
+    }
+
+    /// Ease both the viewport centre and magnification. Factor is interpolated
+    /// logarithmically because zoom is perceived as a ratio: halfway from 2× to
+    /// 8× should feel like 4×, not 5×.
+    private static func pan(to destination: CGPoint, factor destinationFactor: CGFloat) {
+        panTimer?.invalidate()
+        let start = current()
+        let began = CACurrentMediaTime()
+        let startLogFactor = log(max(start.factor, 0.001))
+        let endLogFactor = log(max(destinationFactor, 0.001))
+
+        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { timer in
+            let elapsed = CACurrentMediaTime() - began
+            let unit = min(max(CGFloat(elapsed / panDuration), 0), 1)
+            // Smoothstep: zero velocity at both ends, with no sluggish wind-up.
+            let eased = unit * unit * (3 - 2 * unit)
+            let origin = CGPoint(
+                x: start.origin.x + (destination.x - start.origin.x) * eased,
+                y: start.origin.y + (destination.y - start.origin.y) * eased)
+            let factor = exp(startLogFactor + (endLogFactor - startLogFactor) * eased)
+            apply(origin: origin, factor: factor, smoothing: start.smoothing)
+
+            if unit >= 1 {
+                timer.invalidate()
+                panTimer = nil
+                PopSound.playTransferClick()
+            }
+        }
+        panTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
     }
 
     // MARK: - the window server's zoom
@@ -132,11 +218,11 @@ enum ZoomLens {
         return (origin, CGFloat(factor), smoothing)
     }
 
-    private static func apply(origin: CGPoint, factor: CGFloat) {
+    private static func apply(origin: CGPoint, factor: CGFloat, smoothing suppliedSmoothing: Bool? = nil) {
         guard let cgs = cgs else { return }
         // Preserve the user's smoothing choice; it's their Accessibility setting,
         // not ours to flip.
-        let smoothing = current().smoothing
+        let smoothing = suppliedSmoothing ?? current().smoothing
         var o = origin
         let err = cgs.set(cgs.connection, &o, Double(factor), smoothing)
         if err != 0 { NSLog("slab zoom lens: CGSSetZoomParameters failed (\(err))") }
@@ -152,8 +238,9 @@ enum ZoomLens {
     /// window zooms *that* window and not the one you happen to be typing in.
     /// What you're pointing at is what you meant — that's the whole contract, and
     /// it's why nothing here asks who's frontmost.
-    private static func targetUnderCursor(excluding pid: pid_t) -> CGRect? {
-        guard let point = CGEvent(source: nil)?.location,
+    private static func targetUnderCursor(excluding pid: pid_t,
+                                          at suppliedPoint: CGPoint? = nil) -> Target? {
+        guard let point = suppliedPoint ?? CGEvent(source: nil)?.location,
               let info = CGWindowListCopyWindowInfo(
                 [.optionOnScreenOnly, .excludeDesktopElements],
                 kCGNullWindowID) as? [[String: Any]] else { return nil }
@@ -164,6 +251,7 @@ enum ZoomLens {
         for w in info {
             guard let layer = w[kCGWindowLayer as String] as? Int,
                   let owner = w[kCGWindowOwnerPID as String] as? pid_t,
+                  let number = w[kCGWindowNumber as String] as? CGWindowID,
                   let b = w[kCGWindowBounds as String] as? [String: CGFloat],
                   let x = b["X"], let y = b["Y"],
                   let width = b["Width"], let height = b["Height"] else { continue }
@@ -175,10 +263,12 @@ enum ZoomLens {
                 // Smaller than this is a shadow, tooltip or other chrome that
                 // happens to sit at layer 0 — never what "this window" means.
                 guard width >= 64, height >= 64 else { continue }
-                return rect
+                return Target(id: number, frame: rect)
             }
 
-            if isStatusItem(layer: layer, rect: rect) { return rect }
+            if isStatusItem(layer: layer, rect: rect) {
+                return Target(id: number, frame: rect)
+            }
         }
 
         // Nothing addressable, but we might still be ON the menu bar — the left
@@ -186,7 +276,7 @@ enum ZoomLens {
         // straight into one full-width Window Server surface), so there is
         // nothing to hit-test. Zoom a slice of the bar around the pointer instead
         // of beeping.
-        return menuBarSlice(around: point)
+        return menuBarSlice(around: point).map { Target(id: nil, frame: $0) }
     }
 
     /// A menu bar status item — Control Center hosts one window per item, up at

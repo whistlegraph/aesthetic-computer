@@ -29,12 +29,17 @@ final class CtrlDoubleTap {
     private static let window: CFTimeInterval = 0.40
 
     private let onDoubleTap: () -> Void
+    private let onPointerMove: (CGPoint) -> Void
     private var tap: CFMachPort?
     private var source: CFRunLoopSource?
     private var lastTapAt: CFTimeInterval = 0
+    private var pendingPointerLocation: CGPoint?
+    private var pointerDeliveryScheduled = false
 
-    init(onDoubleTap: @escaping () -> Void) {
+    init(onDoubleTap: @escaping () -> Void,
+         onPointerMove: @escaping (CGPoint) -> Void = { _ in }) {
         self.onDoubleTap = onDoubleTap
+        self.onPointerMove = onPointerMove
     }
 
     /// Returns false if the tap couldn't be created — which in practice always
@@ -47,7 +52,11 @@ final class CtrlDoubleTap {
             (1 << CGEventType.keyDown.rawValue) |
             (1 << CGEventType.leftMouseDown.rawValue) |
             (1 << CGEventType.rightMouseDown.rawValue) |
-            (1 << CGEventType.otherMouseDown.rawValue)
+            (1 << CGEventType.otherMouseDown.rawValue) |
+            (1 << CGEventType.mouseMoved.rawValue) |
+            (1 << CGEventType.leftMouseDragged.rawValue) |
+            (1 << CGEventType.rightMouseDragged.rawValue) |
+            (1 << CGEventType.otherMouseDragged.rawValue)
 
         let callback: CGEventTapCallBack = { _, type, event, refcon in
             guard let refcon = refcon else { return Unmanaged.passUnretained(event) }
@@ -91,6 +100,12 @@ final class CtrlDoubleTap {
             return
         }
 
+        if type == .mouseMoved || type == .leftMouseDragged
+            || type == .rightMouseDragged || type == .otherMouseDragged {
+            queuePointerMove(event.location)
+            return
+        }
+
         // The two taps must be DIRECTLY consecutive — nothing at all in between.
         // Not merely "no key held under ⌃": any keystroke or click whatsoever
         // breaks the run, so that ⌃ a ⌃ can never read as ⌃⌃ just because the
@@ -127,6 +142,22 @@ final class CtrlDoubleTap {
             DispatchQueue.main.async { [weak self] in self?.onDoubleTap() }
         } else {
             lastTapAt = now
+        }
+    }
+
+    /// Mouse devices can report hundreds of samples per second. Collapse a
+    /// burst into one main-runloop delivery so following the pointer never
+    /// makes the listen-only event tap slow enough for macOS to disable it.
+    private func queuePointerMove(_ point: CGPoint) {
+        pendingPointerLocation = point
+        guard !pointerDeliveryScheduled else { return }
+        pointerDeliveryScheduled = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.pointerDeliveryScheduled = false
+            guard let latest = self.pendingPointerLocation else { return }
+            self.pendingPointerLocation = nil
+            self.onPointerMove(latest)
         }
     }
 }
