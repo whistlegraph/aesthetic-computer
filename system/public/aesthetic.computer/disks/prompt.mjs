@@ -86,7 +86,7 @@ import { nopaint_adjust } from "../systems/nopaint.mjs";
 import { parse } from "../lib/parse.mjs";
 import { signed as shop } from "../lib/shop.mjs";
 import { ordfish } from "./ordfish.mjs";
-import { whistlegraphs } from "./whistlegraphs.mjs";
+import { whistlegraphs as legacyWhistlegraphs } from "./whistlegraphs.mjs";
 import { createHandleAutocomplete } from "../lib/autocomplete.mjs";
 import {
   isPromptInKidlispMode,
@@ -331,6 +331,7 @@ function sigilTrigger(kind, sigil, color) {
 // the UNITICKER legend so result types stay recognizable.
 const UNIVERSAL_COLORS = {
   command: [200, 200, 210],
+  whistlegraph: [255, 210, 70],
   handle: [255, 100, 180],
   kidlisp: [150, 255, 150],
   painting: [255, 150, 255],
@@ -340,6 +341,62 @@ const UNIVERSAL_COLORS = {
   chatClock: [255, 180, 80],
   mood: [100, 255, 220],
 };
+
+// 🎼 Live Whistlegraph command namespace. whistlegraph.org publishes this
+// feed whenever its model is regenerated; the tiny legacy map keeps the ten
+// original cards reachable if the network is unavailable during boot.
+const WHISTLEGRAPH_COMMANDS_URL = "https://whistlegraph.org/api/commands";
+const whistlegraphCommands = new Map(
+  Object.entries(legacyWhistlegraphs).map(([code, slug]) => [code, {
+    code,
+    command: code,
+    bare: true,
+    title: slug.replaceAll("-", " "),
+    url: `https://whistlegraph.org/${code}`,
+  }]),
+);
+
+async function loadWhistlegraphCommands() {
+  try {
+    const data = await timedJson(WHISTLEGRAPH_COMMANDS_URL, 3000);
+    const commands = Array.isArray(data) ? data : data?.commands || [];
+    if (!commands.length) return;
+    whistlegraphCommands.clear();
+    for (const entry of commands) {
+      if (!entry?.code) continue;
+      whistlegraphCommands.set(String(entry.code).toLowerCase(), entry);
+    }
+  } catch (err) {
+    console.warn("🎼 Could not refresh Whistlegraph command feed.");
+  }
+}
+
+function whistlegraphFromInput(input) {
+  const value = String(input || "").trim().toLowerCase();
+  const explicit = value.match(/^wg(?:\s+|:)([a-z0-9]+)$/);
+  if (explicit) return whistlegraphCommands.get(explicit[1]) || null;
+  const entry = whistlegraphCommands.get(value);
+  return entry?.bare ? entry : null;
+}
+
+function whistlegraphSuggestions(query, limit = 6, explicit = false) {
+  const q = String(query || "").trim().toLowerCase();
+  const exact = [], prefix = [], contains = [];
+  for (const entry of whistlegraphCommands.values()) {
+    const code = String(entry.code || "").toLowerCase();
+    const title = String(entry.title || "");
+    const titleLower = title.toLowerCase();
+    const row = {
+      text: explicit ? `wg ${code}` : entry.command || (entry.bare ? code : `wg ${code}`),
+      display: `${code} — ${title.slice(0, 38)} · whistlegraph`,
+      color: UNIVERSAL_COLORS.whistlegraph,
+    };
+    if (code === q) exact.push(row);
+    else if (code.startsWith(q) || titleLower.startsWith(q)) prefix.push(row);
+    else if (code.includes(q) || titleLower.includes(q)) contains.push(row);
+  }
+  return [...exact, ...prefix, ...contains].slice(0, limit);
+}
 
 async function timedJson(url, ms = 1500) {
   try {
@@ -365,6 +422,7 @@ function makeUniversalDiag(query) {
     query,
     done: false,
     cmds: 0,
+    whistlegraphs: 0,
     sigil: 0,
     // Each network source: state is "…" (in flight) → "ok" | "timeout" |
     // "err" | an HTTP status string; n is the row count it contributed.
@@ -402,7 +460,18 @@ async function universalSearch(query) {
   const q = (query || "").trim().toLowerCase();
   if (q.length < 2) return [];
   // Mid-command with arguments — don't turn it into a search.
-  if (q.includes(" ")) return [];
+  const explicitWhistlegraph = q.match(/^wg(?:\s+|:)([a-z0-9]*)$/);
+  if (q.includes(" ") && !explicitWhistlegraph) return [];
+  if (explicitWhistlegraph) {
+    const rows = whistlegraphSuggestions(explicitWhistlegraph[1], 16, true);
+    universalDiag = {
+      ...makeUniversalDiag(q),
+      done: true,
+      whistlegraphs: rows.length,
+    };
+    for (const source of Object.values(universalDiag.sources)) source.state = "skip";
+    return rows;
+  }
 
   // 1) Local: docs.json commands + pieces (instant).
   const docHits = [];
@@ -440,13 +509,17 @@ async function universalSearch(query) {
     }
   }
 
+  // 3) Local: the live whistlegraph.org command feed.
+  const whistlegraphHits = whistlegraphSuggestions(q);
+
   // Publish a live diagnostic the dropdown reads each frame.
   const diag = makeUniversalDiag(q);
   diag.cmds = docHits.length;
+  diag.whistlegraphs = whistlegraphHits.length;
   diag.sigil = sigilHits.length;
   universalDiag = diag;
 
-  // 3–6) Network sources, in parallel, each best-effort (timed/abortable).
+  // 4–7) Network sources, in parallel, each best-effort (timed/abortable).
   // `diagJson` flips each source's state the moment it settles, so the UI
   // shows exactly which source is slow, failing, or empty.
   const [handlesRes, piecesRes, moodRes, chatRes] = await Promise.all([
@@ -526,10 +599,11 @@ async function universalSearch(query) {
   diag.sources.chat.n = chatHits.length;
   diag.done = true;
 
-  // Priority: commands/pieces → handles → sigil media → user pieces →
+  // Priority: commands/pieces → whistlegraphs → handles → sigil media → user pieces →
   // moods → chat (moods & chat sit "underneath", as designed).
   return [
     ...docHits,
+    ...whistlegraphHits,
     ...handleHits,
     ...sigilHits,
     ...pieceHits,
@@ -1058,6 +1132,8 @@ async function boot({
       if (autocompletions[key].hidden) delete autocompletions[key];
     });
   });
+
+  loadWhistlegraphCommands().then(() => needsPaint());
 
   server = socket((id, type, content) => {
     // console.log("🧦 Got message:", id, type, content);
@@ -4508,11 +4584,11 @@ async function halt($, text) {
   } else if (ordfish[text] || text.split(" ") === "of") {
     jump(`ordfish~${text}`);
     return true;
-  } else if (whistlegraphs[text]) {
-    // Whistlegraph index codes (imab → butterfly-cosplayer, etc.). Opens the
-    // `wg` card player for that piece. Must sit above the bare-code kidlisp
-    // fallback below, or `imab` gets swallowed as a `$imab` cache lookup.
-    jump(`wg~${text}`);
+  } else if (whistlegraphFromInput(text)) {
+    // Every work is explicit as `wg <code>`; non-conflicting codes are also
+    // bare commands. The feed's `bare` flag protects AC pieces like `line` and
+    // `mood`. This must sit above the bare KidLisp-code fallback.
+    jump(whistlegraphFromInput(text).url);
     return true;
   } else if (text.startsWith("hiccup")) {
     // Disconnect from socket server, chat, and udp in 5 seconds...

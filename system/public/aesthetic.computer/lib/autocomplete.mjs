@@ -392,7 +392,7 @@ class Autocomplete {
               : src.state;
         loadingLines = [
           `"${diag.query}" ${diag.done ? "done" : "..."}`,
-          `cmd ${diag.cmds}  $ ${diag.sigil}`,
+          `cmd ${diag.cmds}  wg ${diag.whistlegraphs ?? 0}  $ ${diag.sigil}`,
           `@ ${tag(s.handles)}  pc ${tag(s.pieces)}`,
           `md ${tag(s.mood)}  ch ${tag(s.chat)}`,
         ];

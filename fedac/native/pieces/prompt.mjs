@@ -26,6 +26,10 @@ const BUILTIN_COMMANDS = [
 ];
 // All completable commands (built in boot)
 let COMMANDS = [];
+const WHISTLEGRAPH_COMMANDS_URL = "https://whistlegraph.org/api/commands";
+const WHISTLEGRAPH_COMMANDS = new Map();
+let whistlegraphFetchStarted = false;
+let whistlegraphFetchConsumed = false;
 // $code aliases
 const CODE_NAMES = ["$roz"];
 // Piece descriptions (for tab completion display)
@@ -67,6 +71,34 @@ const PIECE_DESC = {
   "error":         "error screen",
   "404":           "not found",
 };
+
+function installWhistlegraphCommands(data) {
+  const entries = Array.isArray(data) ? data : data?.commands || [];
+  if (!entries.length) return false;
+  WHISTLEGRAPH_COMMANDS.clear();
+  for (const entry of entries) {
+    if (!entry?.code) continue;
+    const code = String(entry.code).toLowerCase();
+    const command = entry.command || (entry.bare ? code : "wg " + code);
+    WHISTLEGRAPH_COMMANDS.set(code, entry);
+    PIECE_DESC[command] = (entry.title || "Whistlegraph") + " — whistlegraph";
+  }
+  COMMANDS = [...new Set([
+    ...PIECE_NAMES,
+    ...BUILTIN_COMMANDS,
+    ...CODE_NAMES,
+    ...[...WHISTLEGRAPH_COMMANDS.values()].map((entry) => entry.command),
+  ])].sort();
+  return true;
+}
+
+function whistlegraphFromInput(input) {
+  const value = String(input || "").trim().toLowerCase();
+  const explicit = value.match(/^wg(?:\s+|:)([a-z0-9]+)$/);
+  if (explicit) return WHISTLEGRAPH_COMMANDS.get(explicit[1]) || null;
+  const entry = WHISTLEGRAPH_COMMANDS.get(value);
+  return entry?.bare ? entry : null;
+}
 
 // WiFi auto-connect state
 const AC_SSID = "aesthetic.computer";
@@ -188,6 +220,12 @@ function boot({ system }) {
     .filter(n => n !== "prompt" && n !== "lisp" && n !== "cc");
   PIECE_NAMES.sort();
   COMMANDS = [...PIECE_NAMES, ...BUILTIN_COMMANDS, ...CODE_NAMES];
+  whistlegraphFetchStarted = false;
+  whistlegraphFetchConsumed = false;
+  if (system?.fetch && !system.fetchPending) {
+    system.fetch(WHISTLEGRAPH_COMMANDS_URL);
+    whistlegraphFetchStarted = true;
+  }
   // Restore input from KidLisp return (backspace/escape preserves source)
   if (globalThis.__promptRestore) {
     input = globalThis.__promptRestore;
@@ -649,6 +687,15 @@ function execute(cmd, system) {
     return;
   }
 
+  const whistlegraph = whistlegraphFromInput(lower);
+  if (whistlegraph) {
+    const url = whistlegraph.url || "https://whistlegraph.org/" + whistlegraph.code;
+    message = "~> " + url;
+    messageFrame = 0;
+    system?.openBrowser?.(url);
+    return;
+  }
+
   // Dynamic piece jump — check if the command matches any discovered piece
   if (PIECE_NAMES.includes(baseName) || PIECE_NAMES.includes(baseWord)) {
     const pieceName = PIECE_NAMES.includes(baseName) ? baseName : baseWord;
@@ -849,7 +896,18 @@ function paint({ wipe, ink, box, write, screen, paintCount, wifi, system }) {
   }
 }
 
-function sim() {}
+function sim({ system }) {
+  if (!whistlegraphFetchStarted || whistlegraphFetchConsumed) return;
+  if (system?.fetchPending) return;
+  const raw = typeof system?.fetchResult === "string" ? system.fetchResult.trim() : "";
+  whistlegraphFetchConsumed = true;
+  if (!raw) return;
+  try {
+    installWhistlegraphCommands(JSON.parse(raw));
+  } catch (_) {
+    // Offline and malformed responses leave the normal native command set intact.
+  }
+}
 
 const system = "prompt";
 export { boot, paint, act, sim, system };

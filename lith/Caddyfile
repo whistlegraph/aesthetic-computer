@@ -173,12 +173,19 @@
     }
 
     # --- whistlegraph.org (the index of the artform) ---
-    # Static gallery of the ten canonical whistlegraphs; /<code> (e.g. /imab)
-    # falls back to index.html, whose client router deep-links that piece.
-    # Codes mirror the wg.mjs shortcut map; media is served from the assets CDN.
+    # Live index of the artform; /<code> (e.g. /imab) falls back to index.html,
+    # whose client router deep-links that piece. commands.json is the canonical
+    # prompt feed consumed by AC, prompt.ac, and ac-native.
     @whistlegraph host whistlegraph.org www.whistlegraph.org
     handle @whistlegraph {
         root * /opt/ac/system/public/whistlegraph.org
+        @wgcommands path /api/commands /api/commands.json
+        handle @wgcommands {
+            rewrite * /commands.json
+            header Cache-Control "public, max-age=60, stale-while-revalidate=300"
+            header Access-Control-Allow-Origin "*"
+            file_server
+        }
         # Bare /<code> deep links (e.g. /imab, /clth) go to lith, which returns
         # index.html with THAT work's og:title / og:image / og:video injected —
         # so iMessage, Slack, Twitter, etc. unfurl the specific whistlegraph
@@ -511,17 +518,16 @@
         file_server
     }
 
-    # --- prompt.ac → aesthetic.computer (everything else, 301) ---
-    # `not path /` so the apex root falls through to @promptac_root above.
-    # Caddy compiles this host-only handle ahead of the path-/ root handle
-    # (route order is not strict source order), so without the exclusion this
-    # catch-all would swallow `/` before the shell handler is reached.
+    # --- prompt.ac routes ---
+    # Non-root paths pass through lith's conflict-aware Whistlegraph resolver.
+    # It sends live codes to whistlegraph.org and preserves the historical
+    # aesthetic.computer redirect for pieces, commands, and unknown paths.
     @promptac {
         host prompt.ac
         not path /
     }
     handle @promptac {
-        redir https://aesthetic.computer{uri} 301
+        reverse_proxy localhost:8888
     }
 
     @tryshared {

@@ -163,6 +163,58 @@ app.use((req, res, next) => {
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
 });
+
+// --- Whistlegraph prompt routes ---
+// commands.json is regenerated with the site model and marks which codes may
+// safely occupy AC's bare command namespace. Every work also gets the explicit
+// /wg/<code> route, including names that collide with pieces such as `line`.
+const WG_COMMANDS_PATH = join(PUBLIC, "whistlegraph.org", "commands.json");
+let wgCommandCache = { mtime: 0, byCode: new Map() };
+
+function whistlegraphCommand(code) {
+  try {
+    const mtime = statSync(WG_COMMANDS_PATH).mtimeMs;
+    if (mtime !== wgCommandCache.mtime) {
+      const data = JSON.parse(readFileSync(WG_COMMANDS_PATH, "utf8"));
+      const commands = Array.isArray(data) ? data : data.commands || [];
+      wgCommandCache = {
+        mtime,
+        byCode: new Map(commands.map((entry) => [String(entry.code).toLowerCase(), entry])),
+      };
+    }
+  } catch (err) {
+    return null; // Fail open to the normal AC router during deploys/rebuilds.
+  }
+  return wgCommandCache.byCode.get(String(code || "").toLowerCase()) || null;
+}
+
+app.use((req, res, next) => {
+  if (req.method !== "GET" && req.method !== "HEAD") return next();
+  const host = (req.headers.host || "").split(":")[0].toLowerCase();
+  const isAc = host === "aesthetic.computer" || host === "www.aesthetic.computer";
+  const isPrompt = host === "prompt.ac" || host === "www.prompt.ac";
+  if (!isAc && !isPrompt) return next();
+
+  const explicit = req.path.match(/^\/wg\/([A-Za-z0-9]+)\/?$/);
+  if (explicit) {
+    const entry = whistlegraphCommand(explicit[1]);
+    if (entry) return res.redirect(302, entry.url || `https://whistlegraph.org/${entry.code}`);
+  }
+
+  const bare = req.path.match(/^\/([A-Za-z0-9]+)\/?$/);
+  if (bare) {
+    const entry = whistlegraphCommand(bare[1]);
+    if (entry?.bare) return res.redirect(302, entry.url || `https://whistlegraph.org/${entry.code}`);
+  }
+
+  // Caddy sends non-root prompt.ac routes here so the same live resolver owns
+  // both domains. Preserve the old behavior when no Whistlegraph route wins.
+  if (isPrompt && req.path !== "/") {
+    return res.redirect(301, `https://aesthetic.computer${req.originalUrl}`);
+  }
+  next();
+});
+
 // --- Host-based rewrites that Netlify previously handled ---
 app.use((req, _res, next) => {
   const host = (req.headers.host || "").split(":")[0].toLowerCase();

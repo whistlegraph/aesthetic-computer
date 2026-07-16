@@ -73,7 +73,8 @@
 <body>
   <div class="bar">
     <span class="glyph">&gt;</span>
-    <input id="cmd" placeholder="type a piece — clock, paint, @handle, $code…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" />
+    <input id="cmd" list="wgCommands" placeholder="type a piece — clock, paint, @handle, $code…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" />
+    <datalist id="wgCommands"></datalist>
     <span class="wordmark"><b id="here">prompt</b> · prompt.ac</span>
     <span class="dot" id="dot" title="runtime status"></span>
   </div>
@@ -94,9 +95,41 @@ const $corner = document.getElementById("corner");
 const $cornerName = document.getElementById("cornerName");
 const frame = new ACFrame(document.getElementById("ac"));
 
+// Live Whistlegraph command feed. Non-conflicting codes work bare; collisions
+// such as `line` keep their AC meaning and are exposed as `wg line` instead.
+const wgByCode = new Map();
+const $wgCommands = document.getElementById("wgCommands");
+const wgFeed = fetch("https://whistlegraph.org/api/commands")
+  .then((res) => res.ok ? res.json() : null)
+  .then((data) => {
+    const commands = Array.isArray(data) ? data : data?.commands || [];
+    for (const entry of commands) {
+      if (!entry?.code) continue;
+      wgByCode.set(String(entry.code).toLowerCase(), entry);
+      const option = document.createElement("option");
+      option.value = entry.command || entry.code;
+      option.label = `${entry.code} — ${entry.title || "Whistlegraph"}`;
+      $wgCommands.appendChild(option);
+    }
+  })
+  .catch(() => {});
+
+function whistlegraphFromInput(input) {
+  const value = String(input || "").trim().toLowerCase();
+  const explicit = value.match(/^wg(?:\s+|:)([a-z0-9]+)$/);
+  if (explicit) return wgByCode.get(explicit[1]) || null;
+  const entry = wgByCode.get(value);
+  return entry?.bare ? entry : null;
+}
+
 // Deep-link support that doesn't fight Caddy: prompt.ac/#clock stays on the
 // shell (hash never reaches the server), while prompt.ac/clock 301s to AC.
 const initial = decodeURIComponent(location.hash.slice(1)) || "prompt";
+
+wgFeed.then(() => {
+  const work = whistlegraphFromInput(initial);
+  if (work) location.replace(work.url);
+});
 
 $dot.title = "booting…";
 // shellhtml: the runtime's composited prompt + corner label stand down — this
@@ -134,6 +167,11 @@ $cmd.addEventListener("keydown", (e) => {
     const v = $cmd.value.trim();
     if (!v) return;
     pushHistory(v);
+    const work = whistlegraphFromInput(v);
+    if (work) {
+      location.assign(work.url);
+      return;
+    }
     frame.load(v);
     $cmd.value = "";
     $cmd.blur(); // hand focus to the canvas so the piece is interactive

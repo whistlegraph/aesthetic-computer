@@ -21,9 +21,10 @@
 // and CDN asset keys never churn). Everything else (new songs + all talks +
 // other — now ALL visible) is emitted fresh from CODES.json + the naming pass.
 
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { commandDescriptions } from "../../system/public/aesthetic.computer/lib/prompt-commands.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const D = join(HERE, "downloads");
@@ -347,10 +348,51 @@ const graphsOut = {
 };
 const postsOut = { generated: new Date().toISOString().slice(0, 10), count: posts.length, posts };
 
+// Prompt command feed. Whistlegraph codes share AC's bare command namespace,
+// so publish collision metadata with the live index instead of teaching every
+// client a second, inevitably stale list. A colliding work remains available
+// everywhere as `wg <code>` and at /wg/<code>; non-colliding codes can also be
+// entered bare (`imab`).
+const commandConflicts = new Map();
+const reserve = (code, reason) => {
+  if (!commandConflicts.has(code)) commandConflicts.set(code, []);
+  if (!commandConflicts.get(code).includes(reason)) commandConflicts.get(code).push(reason);
+};
+const pieceNames = (dir, reason) => {
+  for (const file of readdirSync(dir)) {
+    if (!file.endsWith(".mjs") && !file.endsWith(".lisp")) continue;
+    reserve(file.replace(/\.(mjs|lisp)$/, ""), reason);
+  }
+};
+pieceNames(join(SITE, "..", "aesthetic.computer", "disks"), "web-piece");
+pieceNames(join(HERE, "..", "..", "fedac", "native", "pieces"), "native-piece");
+for (const code of Object.keys(commandDescriptions)) reserve(code.toLowerCase(), "command");
+
+const commandsOut = {
+  generated: graphsOut.generated,
+  count: works.length,
+  commands: works.map((w) => {
+    const conflicts = commandConflicts.get(w.code) || [];
+    const bare = conflicts.length === 0;
+    return {
+      code: w.code,
+      command: bare ? w.code : `wg ${w.code}`,
+      bare,
+      ...(conflicts.length ? { conflicts } : {}),
+      title: w.title,
+      by: w.by,
+      kind: w.kind,
+      url: `https://whistlegraph.org/${w.code}`,
+      ac: `https://aesthetic.computer/wg/${w.code}`,
+    };
+  }),
+};
+
 const kinds = works.reduce((m, w) => ((m[w.kind] = (m[w.kind] || 0) + 1), m), {});
 console.log(`works: ${works.length} (${live.graphs.length} live kept, ${freshWorks.length} fresh) — kinds ${JSON.stringify(kinds)}`);
 console.log(`posts: ${posts.length} (multi-tagged: ${posts.filter((p) => p.graphs.length > 1).length}, audio: ${posts.filter((p) => p.media === "audio").length})`);
 if (DRY) { console.log("(dry — not written)"); process.exit(0); }
 writeFileSync(join(SITE, "graphs.json"), JSON.stringify(graphsOut));
 writeFileSync(join(SITE, "posts.json"), JSON.stringify(postsOut));
-console.log(`wrote graphs.json + posts.json → ${SITE}`);
+writeFileSync(join(SITE, "commands.json"), JSON.stringify(commandsOut));
+console.log(`wrote graphs.json + posts.json + commands.json → ${SITE}`);
