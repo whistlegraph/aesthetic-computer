@@ -4,6 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bevy = { version = "0.18", features = ["wav"] }
+bevy = { version = "0.18", features = ["jpeg", "wav"] }
 bevy_panorbit_camera = "0.34"
 hound = "3.5"

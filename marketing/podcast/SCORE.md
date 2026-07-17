@@ -31,9 +31,10 @@ content-hash cached (`out/cache/`), so re-runs are free.
    `{ title, author, date, paragraphs[], wordCount }`.
 2. **`jingle.mjs`** — synthesizes `intro.wav` / `outro.wav`: a short pentatonic
    bell motif (ascending in, resolving out). Deterministic, $0, no samples.
-3. **`cover.mjs`** — square cover art per episode via xelatex (same fonts as the
-   essays): the pink drop-shadow YWFT title + AC color bar. Embedded into the mp3
-   as ID3 album art and kept as `out/<slug>-cover.png`.
+3. **`cover.mjs`** — one canonical PALS-mark cover identity for the series and
+   every episode (`system/public/purple-pals.svg`). Episode titles live in
+   metadata rather than being expressed as substitute/generated logo variants.
+   The cover is embedded as ID3 album art and kept as `out/<slug>-cover.png`.
 4. **`produce.mjs`** — the orchestrator. Narrates intro + each paragraph + outro
    via `/api/say`, measures the real body duration with ffprobe to fill in the
    announced length, assembles jingle + VO + paragraph breaths with ffmpeg

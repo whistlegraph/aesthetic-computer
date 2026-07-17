@@ -10,14 +10,14 @@
 //   import { renderCover } from "./cover.mjs"
 //   renderCover({ title, author, date, slug }, outDir) → { full, embed }
 
-import { writeFileSync, mkdirSync, rmSync, existsSync, readdirSync } from "node:fs";
+import { writeFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "..", "..", "..");           // repo root (absolute)
-const PALS = resolve(HERE, "..", "out", "pals");        // generated PALS logos
+const PALS = resolve(REPO, "system/public/purple-pals.svg"); // canonical PALS mark
 const FONTS = resolve(REPO, "system/public/type/webfonts") + "/";
 const MONO = resolve(REPO, "bills/invoices") + "/";
 
@@ -88,35 +88,26 @@ ${date ? String.raw`{\covermono\fontsize{12pt}{15pt}\selectfont\color{acgray} ${
 `;
 }
 
-// Every AC Readings cover is a generated PALS logo (the paper-doll trio) —
-// picked deterministically from the tray by slug, so each episode gets its own
-// distinct material (felt / glass / chrome / …) but the same one every re-run.
-// Hi-res .x4 preferred. Falls back to the typographic card if the tray is empty.
-function pickPals(slug) {
-  let files = [];
-  try {
-    files = readdirSync(PALS)
-      .filter((f) => f.endsWith(".png") && !f.includes("contact") && !f.includes(".x4."))
-      .sort();
-  } catch { return null; }
-  if (!files.length) return null;
-  let h = 2166136261;
-  for (const ch of slug) h = (h ^ ch.charCodeAt(0)) * 16777619 >>> 0;
-  const name = files[h % files.length].replace(/\.png$/, "");
-  const x4 = resolve(PALS, `${name}.x4.png`);
-  return existsSync(x4) ? x4 : resolve(PALS, `${name}.png`);
-}
-
 export function renderCover(script, outDir) {
   mkdirSync(outDir, { recursive: true });
   const full = resolve(outDir, `${script.slug}-cover.png`);        // ~3000px, archival
   const embed = resolve(outDir, `${script.slug}-cover-1400.png`);  // podcast art
 
-  // PALS-logo cover (the house style for every episode)
-  const pals = pickPals(script.slug);
-  if (pals) {
-    execFileSync("magick", [pals, "-resize", "3000x3000", full], { stdio: "ignore" });
-    execFileSync("magick", [pals, "-resize", "1400x1400", embed], { stdio: "ignore" });
+  // One canonical PALS identity for the whole podcast. Episodes are
+  // differentiated by their metadata, not substitute/generated logo variants.
+  if (existsSync(PALS)) {
+    const palsBuild = resolve(outDir, `.cover-pals-${script.slug}.png`);
+    execFileSync("magick", [
+      "-background", "none", "-density", "1200", PALS,
+      "-resize", "2100x2100", palsBuild,
+    ], { stdio: "ignore" });
+    execFileSync("magick", [
+      "-size", "3000x3000", "canvas:#fff9fc",
+      palsBuild,
+      "-gravity", "center", "-composite", full,
+    ], { stdio: "ignore" });
+    execFileSync("magick", [full, "-resize", "1400x1400", embed], { stdio: "ignore" });
+    rmSync(palsBuild, { force: true });
     return { full, embed };
   }
 

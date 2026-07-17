@@ -1,0 +1,25 @@
+{
+  "generatedAt": "2026-07-17T04:55:17.260Z",
+  "files": [
+    {
+      "file": "scores-for-social-software-master-vertical.mp4",
+      "bytes": 261396518,
+      "sha256": "072a2b2e80d09bb9aab0837b09cdbc275a0e6f69a28cced8d8685b782b7e0200"
+    },
+    {
+      "file": "scores-for-social-software-review-vertical.mp4",
+      "bytes": 67565869,
+      "sha256": "334a65e0cf9b529ba48d27b11aeaab0831ef411b90542683df135cc49220750a"
+    },
+    {
+      "file": "scores-for-social-software-poster.jpg",
+      "bytes": 279639,
+      "sha256": "3e3a163bf83713bb7a86a33cfd2770d4210981588da2115ff4db200054bbfbde"
+    },
+    {
+      "file": "scores-for-social-software-captions.srt",
+      "bytes": 3878,
+      "sha256": "d5fd0965a237ee89c0c92779a9af7bec54abf944b079371c87c92a30fdd941fb"
+    }
+  ]
+}

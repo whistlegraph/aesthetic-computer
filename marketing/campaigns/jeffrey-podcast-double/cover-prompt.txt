@@ -1,0 +1,11 @@
+Use case: ads-marketing
+Asset type: 9:16 source portrait for an AI-animated podcast Story
+Input image: Jeffrey modeling plate; use it strictly for identity, wardrobe, and proportions
+Primary request: create a deeply believable editorial portrait of Jeffrey speaking from an intimate creative-computing studio
+Subject: Jeffrey, matching the reference identity; medium brown jaw-length hair, hazel-green eyes, long narrow face, translucent red plastic glasses, pale-blue pinstripe button-down over a coral shirt, yellow fountain pen and small yellow bear emblem
+Scene/backdrop: minimal dark warm-grey studio with a faint cyan monitor glow and a tiny muted coral practical light; no visible computers or clutter
+Style/medium: natural contemporary editorial photography, subtle 35mm grain, real pores and flyaway hair, understated and intelligent
+Composition/framing: vertical 9:16, straight-on chest-up portrait, eyes near the upper third, generous clean space above and around the shoulders for Story captions, symmetrical camera but naturally asymmetric person
+Lighting/mood: soft warm key from camera-left, low cyan fill from camera-right, calm nocturnal attention
+Constraints: preserve Jeffrey's identity and real proportions; closed relaxed mouth suitable as a neutral animation source; both eyes unobstructed and sharply readable; shoulders fully inside frame
+Avoid: 3D render, wax skin, uncanny avatar, beautification, influencer pose, smile, open mouth, text, watermark, logos added by the model, extra jewelry, deformed glasses, oversaturated cyberpunk lighting

@@ -1,0 +1,19 @@
+{
+  "providers": {
+    "openai": {
+      "label": "OpenAI Images API",
+      "credential": "OPENAI_API_KEY",
+      "models": {
+        "gpt-image-2": { "modes": ["generate", "edit"], "sizes": ["1024x1024", "1024x1536", "1536x1024"], "defaultQuality": "high" }
+      }
+    },
+    "fal": {
+      "label": "fal.ai",
+      "credential": "FAL_KEY",
+      "models": {
+        "fal-ai/flux/dev": { "modes": ["generate"], "input": { "prompt": "prompt", "size": "image_size" }, "output": "images.0.url" },
+        "fal-ai/flux/dev/image-to-image": { "modes": ["edit"], "maxReferences": 1, "input": { "prompt": "prompt", "reference": "image_url" }, "output": "images.0.url" }
+      }
+    }
+  }
+}

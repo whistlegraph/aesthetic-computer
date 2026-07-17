@@ -1,5 +1,26 @@
 {
   "mcpServers": {
+    "fleet": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "slab/bin/fleet-mcp.mjs"
+      ]
+    },
+    "illy": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "plugins/illy/scripts/illy-mcp.mjs"
+      ]
+    },
+    "slack": {
+      "type": "stdio",
+      "command": "bash",
+      "args": [
+        "toolchain/mcp/slack-mcp.sh"
+      ]
+    },
     "chat": {
       "type": "stdio",
       "command": "node",

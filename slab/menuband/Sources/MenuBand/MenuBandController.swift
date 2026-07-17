@@ -2889,6 +2889,13 @@ final class MenuBandController {
                 }
             }
             if isDown && !isRepeat {
+                // Audio feedback is a true key-down sample: the speech voice
+                // rendered 0–9 at startup, so this call only schedules cached
+                // PCM and does not wait for AVSpeech to synthesize the growing
+                // voice-slot number.
+                DispatchQueue.main.async { [weak self] in
+                    self?.synth.playSpokenDigit(digit)
+                }
                 // Start fresh if the buffer hit its cap OR enough time
                 // passed since the last digit that this is plainly a
                 // new pick, not the next digit of a longer number.

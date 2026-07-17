@@ -1,0 +1,15 @@
+{
+  "pipeline": {
+    "name": "jeffrey-podcast-double",
+    "providerOrder": ["fal"],
+    "modelByProvider": {
+      "fal": "fal-ai/kling-video/ai-avatar/v2/standard"
+    },
+    "outputTemplate": "gens/{slug}-{variant}.mp4",
+    "defaults": {
+      "variant": "standard-v1",
+      "tier": "standard"
+    },
+    "stages": ["identity-still", "audio-driven-avatar", "visual-validation"]
+  }
+}

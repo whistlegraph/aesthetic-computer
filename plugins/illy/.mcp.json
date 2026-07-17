@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "illy": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${pluginDir}/scripts/illy-mcp.mjs"]
+    }
+  }
+}
