@@ -1,6 +1,6 @@
 # DateWizard
 
-A native macOS AppKit pop-up that shows your **week** and lets you schedule
+A native macOS AppKit pop-up that shows your upcoming **appointments agenda** and lets you schedule
 against the [AesthetiCal](https://aesthetic.computer) backend. Your editable
 *aesthetical* events sit next to your Google calendar(s), overlaid read-only.
 
@@ -46,17 +46,16 @@ The token file is JSON written either by the native flow or the AC stack:
 The token is treated as expired when the file is missing, unparseable, or
 `expires_at` is in the past — at which point you're prompted to sign in again.
 
-## Using the week
+## Using the agenda
 
-- **‹ / ›** page weeks; **Today** jumps back to the current week.
-- **Refresh** reloads both editable + connected-calendar events.
-- **+ Event** (or clicking an empty slot) opens the editor sheet.
+- The main window is one chronological, scrollable list covering the next 14 days.
+- **+ Event** opens the editor sheet.
 - **Aesthetical events** draw with a solid fill (green = public, accent =
   private) and are **editable** — click one to edit or delete it.
 - **Google / connected-calendar events** draw dashed with a source-color dot
   and are **read-only** — clicking shows details, no edit.
-- A red **now** line marks the current time in today's column.
-- A small **legend** along the bottom maps fill colors to sources.
+- Former week/day drill-down views are retired; Today and legacy day launch
+  actions open the same reliable upcoming agenda.
 
 ## Connect a Google calendar
 
@@ -93,8 +92,9 @@ Times are ISO-8601 UTC strings.
 Sources/DateWizard/
   main.swift             NSApplication bootstrap
   AppDelegate.swift      window + WizardController; ensure auth then load week
-  WizardController.swift owns state (week, events, token); paging/refresh/editor/sign-in screen
-  WeekView.swift         custom NSView: 7-column Sun→Sat grid, hour rows, now line, legend
+  WizardController.swift owns state (agenda, events, token); refresh/editor/sign-in screen
+  AgendaView.swift       chronological, scrollable upcoming appointments list
+  WeekView.swift         deprecated grid implementation retained for shared event types
   EventEditor.swift      native sheet: Title/Start/End/Note/privacy + Add/Save/Delete
   CalAPI.swift           URLSession networking + Codable models
   Auth.swift             reads the shared AC session token (~/.ac-token) from ac-login

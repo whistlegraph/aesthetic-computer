@@ -1,7 +1,7 @@
 // WizardController.swift — owns the window + all state (focused week, the
 // events, the auth token). Drives:
 //   • the sign-in screen (when there's no shared AC token / on a 401),
-//   • the week view (paging, refresh),
+//   • the rolling upcoming agenda,
 //   • the add/edit/delete editor sheet for aesthetical events,
 //   • a "Connect a Google calendar" action.
 import AppKit
@@ -45,8 +45,7 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
     // masking the ones behind it) indefinitely.
     static let maxTimedDuration: TimeInterval = 12 * 3600
 
-    // Broadcast the focused day (nil in week mode) so the menu bar strip can
-    // light the same dot. Wired by the AppDelegate.
+    // Legacy day-focus broadcast. The agenda-only UI always publishes nil.
     var onFocusedDayChanged: ((Date?) -> Void)?
 
     // Broadcast the start of the next upcoming appointment (nil = none ahead) so
@@ -55,10 +54,9 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
 
     // ── UI ───────────────────────────────────────────────────────────
     private var backdrop: BackdropView!
-    // Inner radial glow framing the window in the focused day's color (only
-    // in single-day mode). A subtle edge highlight, not a full wash.
+    // Legacy day-view surfaces. They remain typed here while the old grid code
+    // is retired, but are no longer installed in the window hierarchy.
     private var dayGlow: DayGlowView!
-    // In-window twin of the menu bar strip: seven ROYGBIV day dots.
     private var dayDots: DayDotsView!
     private var weekView: WeekView!
     // The ordered "no day selected" agenda list (rolling upcoming events),
@@ -68,8 +66,6 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
     private var titleLabel: NSTextField!
     private var statusLabel: NSTextField!
     private var addButton: NSButton!          // "+ Event" — the only toolbar button.
-    // "‹ Upcoming" — jumps back from a single day to the agenda list. Hidden
-    // while the agenda is already showing.
     private var upcomingButton: NSButton!
     // Vestigial: there's no mode-toggle button in the window anymore (mode is
     // driven by launch flags / CLI). Live code still harmlessly sets its title.
@@ -90,7 +86,8 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
     @available(*, deprecated, message: "Removed from window UI — calendar setup lives in the CLI.")
     private var connectButton: NSButton!
 
-    // Display span: 7 = week (Sun→Sat), 1 = a single day.
+    // Kept at seven while the old day-grid implementation is retired. The
+    // visible surface is always the rolling agenda.
     private var dayCount: Int = 7
 
     // Auth overlay (shown when unauthenticated).
@@ -195,7 +192,7 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         let pad: CGFloat = 12
         let topH: CGFloat = 40
 
-        // Toolbar row (top): title · day-dots · + Event. Week/day paging,
+        // Toolbar row (top): title · + Event. Week/day paging,
         // refresh, "today", and calendar management all live in the
         // ac-login / wizard CLI — the window stays deliberately minimal.
         titleLabel = NSTextField(labelWithString: weekRangeTitle())
@@ -203,14 +200,6 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         titleLabel.frame = NSRect(x: pad, y: 560 - topH + 4, width: 245, height: 28)
         titleLabel.autoresizingMask = [.maxXMargin, .minYMargin]
         cv.addSubview(titleLabel)
-
-        // Day-dots, to the right of the title — the in-window twin of the menu
-        // bar strip. Click a dot to jump to that day of the week.
-        dayDots = DayDotsView(frame: NSRect(x: pad + 252, y: 560 - topH + 7,
-                                            width: 190, height: 26))
-        dayDots.autoresizingMask = [.minYMargin]
-        dayDots.onSelect = { [weak self] idx in self?.focusDayInCurrentWeek(idx) }
-        cv.addSubview(dayDots)
 
         // + Event, far right.
         addButton = NSButton(title: "+ Event", target: self, action: #selector(addEventAction))
@@ -220,31 +209,12 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         addButton.frame = NSRect(x: 840 - pad - 78, y: 560 - topH + 6, width: 78, height: 26)
         cv.addSubview(addButton)
 
-        // "‹ Upcoming" — return to the agenda list from a single-day view. Sits
-        // just left of + Event; hidden while the agenda is already showing.
-        upcomingButton = NSButton(title: "‹ Upcoming", target: self, action: #selector(showUpcomingAction))
-        upcomingButton.bezelStyle = .rounded
-        upcomingButton.font = .systemFont(ofSize: 12)
-        upcomingButton.autoresizingMask = [.minXMargin, .minYMargin]
-        upcomingButton.frame = NSRect(x: 840 - pad - 78 - 8 - 96, y: 560 - topH + 6, width: 96, height: 26)
-        upcomingButton.isHidden = true
-        cv.addSubview(upcomingButton)
-
         let bodyRect = NSRect(x: pad, y: pad + 22,
                               width: 840 - pad * 2,
                               height: 560 - topH - pad * 2 - 22)
 
-        // Week/day grid (used for the single-day view).
-        weekView = WeekView(frame: bodyRect)
-        weekView.autoresizingMask = [.width, .height]
-        weekView.weekStart = weekStart
-        weekView.dayCount = dayCount
-        weekView.delegate = self
-        weekView.isHidden = (dayCount != 1)
-        cv.addSubview(weekView)
-
-        // Agenda list (the "no day selected" face), in a scroll view over the
-        // same body rect. Transparent so the living backdrop shows through.
+        // The sole calendar surface: a rolling appointments agenda. Transparent
+        // so the living backdrop shows through.
         agendaScroll = NSScrollView(frame: bodyRect)
         agendaScroll.autoresizingMask = [.width, .height]
         agendaScroll.drawsBackground = false
@@ -256,7 +226,7 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
                                               width: bodyRect.width, height: bodyRect.height))
         agendaView.delegate = self
         agendaScroll.documentView = agendaView
-        agendaScroll.isHidden = (dayCount == 1)
+        agendaScroll.isHidden = false
         cv.addSubview(agendaScroll)
 
         // Status line (bottom).
@@ -268,40 +238,20 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         statusLabel.lineBreakMode = .byTruncatingTail
         cv.addSubview(statusLabel)
 
-        // Inner radial glow, added last so it frames everything (click-through).
-        dayGlow = DayGlowView(frame: cv.bounds)
-        dayGlow.autoresizingMask = [.width, .height]
-        cv.addSubview(dayGlow)
-
         updateDayTheme()
     }
 
     // Single source of truth for the day-color theme: washes the pane, lights
-    // the in-window dots, colors the title, and tells the menu bar which day
-    // is focused. In week mode there's no single focus (the week shows all
-    // seven), so the wash clears and the title returns to neutral.
+    // Agenda-only theme: no day is focused, so legacy day accents stay clear.
     private func updateDayTheme() {
-        let dayMode = (dayCount == 1)
-        let dayColor = DayPalette.color(for: weekStart)
-
-        // Frame the window in the day color (edge glow), not a full wash.
-        dayGlow?.color = dayMode ? dayColor : nil
-
-        // Only mark today while a single day is in focus. On the "Upcoming"
-        // agenda nothing is selected, and DayStrip promotes today to the lit
-        // "selected" look when there's no selection — which read as a stray
-        // highlighted day (e.g. "F") on a screen that isn't about any one day.
-        dayDots?.todayIndex = dayMode ? DayPalette.index(for: Date()) : nil
-        dayDots?.selectedIndex = dayMode ? DayPalette.index(for: weekStart) : nil
-
-        titleLabel?.textColor = dayMode ? dayColor : .labelColor
-
-        // Grid for a single day, agenda list for "no day selected".
-        weekView?.isHidden = !dayMode
-        agendaScroll?.isHidden = dayMode
-        upcomingButton?.isHidden = !dayMode
-
-        onFocusedDayChanged?(dayMode ? weekStart : nil)
+        dayGlow?.color = nil
+        dayDots?.todayIndex = nil
+        dayDots?.selectedIndex = nil
+        titleLabel?.textColor = .labelColor
+        weekView?.isHidden = true
+        agendaScroll?.isHidden = false
+        upcomingButton?.isHidden = true
+        onFocusedDayChanged?(nil)
     }
 
     // A dot in the in-window strip was clicked: focus that weekday within the
@@ -339,19 +289,19 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         return "Upcoming"
     }
 
-    // Show the window and jump to today (menu bar "Go to Today").
+    // "Today" now opens the same rolling agenda; there is no secondary day UI.
     func revealToday() {
         showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
-        goToday()
+        showUpcomingAction()
     }
 
-    // Show the window focused on a single day (menu bar day-circle tap).
+    // Compatibility entry point for older callers: day requests land on the
+    // agenda rather than navigating to the retired hour grid.
     func revealDay(_ date: Date) {
         showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
-        setDayMode(date)
-        refresh()
+        showUpcomingAction()
     }
 
     // Show the window on the rolling "Upcoming" agenda with no day focused —
@@ -383,13 +333,7 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
     @available(*, deprecated, message: "Removed from window UI — paging lives in the CLI.")
     @objc private func nextWeek() { shiftWeek(by: dayCount) }
     @objc private func goToday() {
-        weekStart = (dayCount == 1)
-            ? Calendar.current.startOfDay(for: Date())
-            : WeekView.startOfWeek(for: Date())
-        weekView.weekStart = weekStart
-        titleLabel.stringValue = weekRangeTitle()
-        updateDayTheme()
-        refresh()
+        showUpcomingAction()
     }
 
     // Leave a single-day view and return to the rolling agenda ("no day
@@ -398,8 +342,8 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         dayCount = 7
         weekStart = WeekView.startOfWeek(for: Date())
         modeButton?.title = "Day"
-        weekView.dayCount = dayCount
-        weekView.weekStart = weekStart
+        weekView?.dayCount = dayCount
+        weekView?.weekStart = weekStart
         titleLabel.stringValue = weekRangeTitle()
         updateDayTheme()
         refresh()
@@ -431,15 +375,12 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         refresh()
     }
 
-    // Pre-set a single-day view BEFORE start() (used by the --tomorrow / --day
-    // launch flag). Does NOT refresh — start() does the single initial load, so
-    // we don't race a stale week fetch against the day fetch.
+    // Compatibility shim for old --today/--tomorrow/--day launchers. Day mode
+    // is retired, so all of them now open the rolling agenda.
+    @available(*, deprecated, message: "DateWizard is agenda-only; day mode is retired.")
     func setDayMode(_ date: Date) {
-        dayCount = 1
-        weekStart = Calendar.current.startOfDay(for: date)
-        modeButton?.title = "Week"
-        weekView?.dayCount = dayCount
-        weekView?.weekStart = weekStart
+        dayCount = 7
+        weekStart = WeekView.startOfWeek(for: Date())
         titleLabel?.stringValue = weekRangeTitle()
         updateDayTheme()
     }
@@ -474,7 +415,6 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         guard let token = auth.currentToken() else { showAuthScreen(); return }
         api.setToken(token)
         loadUpcoming()
-        if dayCount == 1 { loadDayGrid() }
     }
 
     // Rolling window [start of today, +upcomingDays). Feeds the agenda list and
@@ -927,6 +867,10 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
     }
 
     func weekView(_ view: WeekView, didSelectReadOnly event: LaidEvent) {
+        presentReadOnlyDetails(event)
+    }
+
+    private func presentReadOnlyDetails(_ event: LaidEvent) {
         // Read-only details — no edit.
         let alert = NSAlert()
         alert.messageText = event.title
@@ -950,7 +894,7 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
     }
 
     func agendaView(_ view: AgendaView, didSelectReadOnly event: LaidEvent) {
-        weekView(weekView, didSelectReadOnly: event)
+        presentReadOnlyDetails(event)
     }
 
     func weekView(_ view: WeekView, didRequestNewEventAt day: Date, hour: Int) {

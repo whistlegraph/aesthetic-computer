@@ -35,7 +35,6 @@ final class DateWizardAppDelegate: NSObject, NSApplicationDelegate {
             controller?.toggleUpcoming()
         }
         menu.onToday = { [weak controller] in controller?.revealToday() }
-        menu.onSelectDay = { [weak controller] date in controller?.revealDay(date) }
         menu.install()
         menuBar = menu
 
@@ -43,22 +42,6 @@ final class DateWizardAppDelegate: NSObject, NSApplicationDelegate {
         controller.onFocusedDayChanged = { [weak menu] date in menu?.setFocusedDay(date) }
         // Feed the next appointment to the wand's countdown badge.
         controller.onNextEventChanged = { [weak menu] date, title in menu?.setNextEvent(date, title: title) }
-
-        // Launch flags: open straight into a single-day view. Applied BEFORE
-        // start() so the initial load fetches the day (not the week first).
-        //   --tomorrow            tomorrow
-        //   --today               today
-        //   --day=<+/-N>          N days from today (e.g. --day=2)
-        let args = CommandLine.arguments
-        let cal = Calendar.current
-        if args.contains("--tomorrow") {
-            controller.setDayMode(cal.date(byAdding: .day, value: 1, to: Date()) ?? Date())
-        } else if args.contains("--today") {
-            controller.setDayMode(Date())
-        } else if let dayArg = args.first(where: { $0.hasPrefix("--day=") }),
-                  let n = Int(dayArg.dropFirst("--day=".count)) {
-            controller.setDayMode(cal.date(byAdding: .day, value: n, to: Date()) ?? Date())
-        }
 
         // Ensure auth (sign-in screen if no shared ~/.ac-token), then load.
         controller.start()

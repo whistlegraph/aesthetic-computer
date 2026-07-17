@@ -1,10 +1,9 @@
 // MenuBarDays.swift — DateWizard's always-on menu bar presence.
 //
 // A strip of seven circles (Sun→Sat: S M T W T F S) painted in the shared
-// ROYGBIV DayPalette (see DayStrip for the drawing). The focused day — the
-// day showing in the wizard — is lit and ringed; today carries a faint
-// marker; the rest dim back. Hovering a dot lights it; left-clicking a dot
-// opens that day; right-click drops a menu.
+// ROYGBIV DayPalette (see DayStrip for the drawing). The current production
+// face is the wand + next-appointment countdown; left-click opens the agenda
+// and right-click drops the wizard menu.
 import AppKit
 
 // NSResponder shim that forwards tracking-area mouse events to closures
@@ -24,7 +23,6 @@ final class MenuBarDays {
     var onOpen: (() -> Void)?
     var onToggle: (() -> Void)?
     var onToday: (() -> Void)?
-    var onSelectDay: ((Date) -> Void)?
 
     private var statusItem: NSStatusItem!
     private weak var button: NSStatusBarButton?
