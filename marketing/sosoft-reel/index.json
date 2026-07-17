@@ -1,0 +1,65 @@
+{
+  "project": "Scores for Social Software",
+  "edition": {
+    "season": "Spring 2026",
+    "size": 64,
+    "copySeen": 51
+  },
+  "event": {
+    "date": "2026-06-13",
+    "venue": "Fuser",
+    "address": "1811 Blake Ave, Los Angeles"
+  },
+  "video": {
+    "master": "/Users/jas/Downloads/IMG_4889.MOV",
+    "durationSeconds": 687.683333,
+    "displayWidth": 2160,
+    "displayHeight": 3840,
+    "fps": 60,
+    "rotation": -90
+  },
+  "supportingVideos": [
+    {
+      "work": "Software as a Choreography",
+      "artist": "Chelly Jin",
+      "path": "/Users/jas/Downloads/ChellyJin_SoSoftPresentation.mp4",
+      "durationSeconds": 459.892771,
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "work": "Biophonía",
+      "artist": "Thomas Noya",
+      "path": "/Users/jas/Downloads/Biophonia_SoSoft_Fuser_V2.mp4",
+      "durationSeconds": 275,
+      "width": 3840,
+      "height": 2160
+    }
+  ],
+  "voice": {
+    "provider": "jeffrey",
+    "voice": "neutral:0",
+    "style": "lowercase, calm, descriptive"
+  },
+  "items": [
+    {"order": 1, "artist": "Jeffrey Alan Scudder", "title": "Notepat", "unboxingTime": 140, "visualDescription": "A folded white user manual opens into a pointed shape, combining an illustrated player, a QR code, instructions, and circular keyboard diagrams.", "status": "identified"},
+    {"order": 2, "artist": "Æther Cavendish", "title": "Vigil Score", "unboxingTime": 215, "visualDescription": "A matte-black folded packet is closed by a small circular silver seal.", "status": "identified"},
+    {"order": 3, "artist": "Chelly Jin", "title": "Software as a Choreography", "unboxingTime": 250, "visualDescription": "A white score sheet presents a grid of black silhouetted hands and arms paired with timing and movement marks.", "status": "identified"},
+    {"order": 4, "artist": "Jordan Silver", "title": "Sonic Architecture", "unboxingTime": 300, "visualDescription": "A single sheet combines printed columns, the large numbers 375 and 136, typewritten spatial commands, and a bold looping spiral diagram.", "status": "identified"},
+    {"order": 5, "artist": "Em Lugo", "title": "Cues for Losing Direction", "unboxingTime": 640, "visualDescription": "A small black handheld card names the piece in pale condensed type.", "status": "identified"},
+    {"order": 6, "artist": "Darlyn Phan", "title": "Line Piece 1", "unboxingTime": 360, "visualDescription": "A translucent white title sheet with a faint rainbow cast floats over the colored papers beneath it.", "status": "identified"},
+    {"order": 7, "artist": "Thomas Noya", "title": "Biophonía", "unboxingTime": 390, "visualDescription": "Blue, yellow, black, and beige cell-like forms branch across a white field and reorganize in the accompanying video.", "status": "identified"},
+    {"order": 8, "artist": "Banyi Huang", "title": "A Cosmographic Score for Folding Back into the Kernel", "unboxingTime": 440, "visualDescription": "A lavender square contains a luminous circular field and a small cross-shaped diagram of connected nodes.", "status": "identified"},
+    {"order": 9, "artist": "Alexander Espinosa", "title": "Music for World Computers", "unboxingTime": 480, "visualDescription": "A white typographic score carries a vertical vocabulary including awake, expand, oxygen, forest, cinnamon, and hammer.", "status": "identified"},
+    {"order": 10, "artist": "Mavyn Vu", "title": "The Radio Is an Altar: Portal", "unboxingTime": 505, "visualDescription": "Translucent blue and white score cards show a target-like radio image, a small central figure or altar, and walking instructions around the edge.", "status": "identified"}
+  ],
+  "credits": [
+    {"name": "Casey Reas", "role": "facilitator"},
+    {"name": "Lauren Lee McCarthy", "role": "Social Software co-director"}
+  ],
+  "verification": {
+    "canonicalOrder": "blue publication colophon and official closing-event page",
+    "descriptions": "draft; verify against page texts, presentations, email, and participant confirmation",
+    "imageSelections": "pending frame and still matching"
+  }
+}
