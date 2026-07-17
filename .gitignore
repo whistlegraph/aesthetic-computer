@@ -517,6 +517,12 @@ wave-wizard/samples/
 
 # Mac App Store build output
 slab/menuband/.build-mas/
+slab/menuband/build/*.xcarchive/
+slab/menuband/build/export-*/
+
+# Thread-scoped Codex artifact workspaces. Final deliverables belong in their
+# project directory; intermediate renders and QA scratch stay local.
+/outputs/
 
 # personal tailnet ACL scratchpad (not for the public repo)
 scratchpad-jas-nzxt-acl.md
