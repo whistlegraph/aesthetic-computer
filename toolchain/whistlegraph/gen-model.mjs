@@ -2,24 +2,28 @@
 //
 //   node gen-model.mjs [--dry]
 //
-// Two entities (per @jeffrey's taxonomy):
+// Two entities plus an explicit relationship layer (approved by Alex +
+// @jeffrey, 2026-07-17):
 //
-//   WHISTLEGRAPH (a work — a drawing you sing) → graphs.json
-//     code · title · by · year · kind · score assets · summary counts
+//   WHISTLEGRAPH (a confirmed work — a drawing you sing) → graphs.json:works
+//     code · title · by · year · score assets · contribution rollups
 //
 //   POST (a published appearance of one or more whistlegraphs) → posts.json
-//     id · platform · media · url · date · views/likes/… · thumb · graphs:[codes]
+//     id · kind · platform · media · url · date · views/likes/… · thumb
 //
-// A post is tagged with the whistlegraph code(s) it performs (many-to-many;
-// today one code each, but the array is ready for a video that holds several).
-// A record page is one work + the gallery of posts whose graphs[] include it.
+//   RELATIONSHIP (many-to-many) → post.relationships:[{work,role}]
+//     only explicit `contributes` edges enter a work's count/reach.
+//
+// Automatic graph-like clusters stay candidates until curation confirms them.
+// Talk/other cluster codes remain in graphs.json:legacy and post.graphs only as
+// a compatibility bridge for old URLs; they are not commands or work codes.
 //
 // Curation stability: the live graphs.json carries hand-curation the cluster
 // pass can't reproduce (Alex's attributions, renamed-code assets, the curated
 // ten). We keep every live work verbatim and keep its CODE stable — a cluster
 // that shares clips with a live work inherits that work's code (so deep links
-// and CDN asset keys never churn). Everything else (new songs + all talks +
-// other — now ALL visible) is emitted fresh from CODES.json + the naming pass.
+// and CDN asset keys never churn). Everything else is emitted as an archive
+// post and, when graph-like, a curation candidate from CODES.json.
 
 import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -65,6 +69,13 @@ const postTags = overrides.postTags || {};
 // every whistlegraph in `graphs`; plots are a parallel descriptive layer.
 const postPlots = overrides.postPlots || {};
 const crossTags = overrides.crossTags || {}; // srcCode → [alsoUnderCode, …]
+// The automatic cluster pass can suggest a composition, but only curation can
+// promote it into the public work/code namespace. Seed works and known songs
+// are confirmed automatically; these lists handle the exceptions Alex and the
+// trio have explicitly identified during the archive pass.
+const workModel = overrides.works || {};
+const workIncludes = new Set(workModel.include || []);
+const workExcludes = new Set(workModel.exclude || []);
 // splits: pull specific posts OUT of a work into a NEW standalone work — for a
 // take that got mis-clustered (e.g. a different song folded under Kitty Head).
 // { newCode: { title, from, by?, ids:[postId, …] } }. Each listed post drops its
@@ -259,8 +270,8 @@ for (const p of posts) for (const code of p.graphs) {
 
 // ── graphs.json (works) ─────────────────────────────────────────────────
 // Preserve every live work verbatim; append every non-reclaimed cluster as a
-// fresh work (all kinds visible). Curated ten stay first; the rest sort by
-// reach. Each work carries its kind + a summary post-count and total views.
+// fresh curation record. Curated ten stay first; the rest sort by reach. Only
+// confirmed records enter `works` and the public command/code namespace.
 const year = (span) => Number(String(span?.[0] ?? "").slice(0, 4)) || null;
 const kindByLiveCode = new Map(clusterSite.filter((c) => c.reclaimed).map((c) => [c.siteCode, c.cl.kind]));
 // A recognized whistlegraph stays a composition even when its cluster also
@@ -272,7 +283,8 @@ const knownCompositionCodes = new Set(
 
 // "experiment" was a retired tab — normalize it back to a graph.
 const normKind = (k) => (k === "experiment" ? "graph" : k);
-const workKind = (code, fallback) => knownCompositionCodes.has(code) ? "graph" : normKind(fallback);
+const workKind = (code, fallback) =>
+  workIncludes.has(code) || knownCompositionCodes.has(code) ? "graph" : normKind(fallback);
 const liveWorks = live.graphs.filter((e) => !mergeSources.has(e.code)).map((e) => {
   const code = recodes[e.code] || e.code; // a recode changes a live work's slug too
   const r = rollup.get(code);
@@ -285,6 +297,7 @@ const liveWorks = live.graphs.filter((e) => !mergeSources.has(e.code)).map((e) =
     ...(title !== undefined ? { title } : {}),
     ...(authors[code] ? { by: authors[code] } : {}), // durable attribution override
     kind: workKind(code, e.kind || kindByLiveCode.get(e.code) || "graph"),
+    status: workExcludes.has(code) ? "archived" : "confirmed",
     ...(r ? { views: r.views, perf: r.n } : {}), // accurate reach/count from tagged posts
     ...(r?.thumb ? { thumb: r.thumb } : {}),
   };
@@ -306,7 +319,12 @@ const freshWorks = clusterSite
       title: renames[code] ?? cl.title,
       by: authors[code] || "Whistlegraph", // durable attribution override; else collective credit
       year: year(cl.span),
-      kind: cl.known ? "graph" : normKind(cl.kind),
+      kind: workKind(code, cl.kind),
+      status: workExcludes.has(code)
+        ? "archived"
+        : workIncludes.has(code) || cl.known
+          ? "confirmed"
+          : normKind(cl.kind) === "graph" ? "candidate" : "archived",
       views: r.views,
       perf: r.n,
       c: "#b44887",
@@ -324,6 +342,7 @@ const twinWorks = twins.map((t) => {
     by: authors[t.code] || t.by || "Whistlegraph",
     year: year(src?.span),
     kind: "graph",
+    status: workExcludes.has(t.code) ? "archived" : "confirmed",
     views: r.views,
     perf: r.n,
     c: "#b44887",
@@ -345,6 +364,7 @@ const splitWorks = Object.entries(splits).map(([code, spec]) => {
     by: authors[code] || spec.by || "Whistlegraph",
     year: splitYear(spec.ids),
     kind: "graph",
+    status: workExcludes.has(code) ? "archived" : "confirmed",
     views: r.views,
     perf: r.n,
     c: "#b44887",
@@ -354,13 +374,45 @@ const splitWorks = Object.entries(splits).map(([code, spec]) => {
 
 const curated = liveWorks.slice(0, live.curated);
 const rest = [...liveWorks.slice(live.curated), ...freshWorks, ...twinWorks, ...splitWorks].sort((a, b) => b.views - a.views);
-const works = [...curated, ...rest];
+const records = [...curated, ...rest];
+const works = records.filter((w) => w.status === "confirmed");
+const candidates = records.filter((w) => w.status === "candidate");
+const legacy = records.filter((w) => w.status !== "confirmed");
+const workCodes = new Set(works.map((w) => w.code));
+const recordByCode = new Map(records.map((w) => [w.code, w]));
+
+// Normalize the many-to-many relationship layer without breaking the old
+// `graphs` field. `works` is the canonical set of compositions this post
+// contributes to; `relationships` leaves room for discussion/source roles.
+// Old cluster codes remain in `graphs` solely so legacy /<code> URLs can still
+// resolve while the archive is being curated.
+for (const p of posts) {
+  p.works = p.graphs.filter((code) => workCodes.has(code));
+  p.relationships = p.works.map((work) => ({ work, role: "contributes" }));
+  const taggedKind = (p.tags || []).find((tag) => tag === "talk" || tag === "other");
+  const recordKinds = p.graphs
+    .map((code) => recordByCode.get(code)?.kind)
+    .filter(Boolean);
+  // Post type is independent of work confirmation: a performance in a
+  // graph-like candidate remains a performance in the Archive even before the
+  // composition is promoted into the coded Works index.
+  p.kind = taggedKind || (p.works.length || recordKinds.includes("graph")
+    ? "performance"
+    : recordKinds.includes("talk") ? "talk" : "other");
+}
 
 const graphsOut = {
   generated: new Date().toISOString().slice(0, 10),
   count: works.length,
-  curated: live.curated,
-  graphs: works,
+  candidateCount: candidates.length,
+  legacyCount: legacy.length,
+  curated: works.filter((w) => curated.includes(w)).length,
+  works,
+  candidates,
+  legacy,
+  // Compatibility for the OG endpoint and any old data clients. New code must
+  // consume `works`; this full record list is the migration bridge.
+  graphs: records,
 };
 const postsOut = { generated: new Date().toISOString().slice(0, 10), count: posts.length, posts };
 
@@ -397,16 +449,16 @@ const commandsOut = {
       ...(conflicts.length ? { conflicts } : {}),
       title: w.title,
       by: w.by,
-      kind: w.kind,
+      kind: "graph",
       url: `https://whistlegraph.org/${w.code}`,
       ac: `https://aesthetic.computer/wg/${w.code}`,
     };
   }),
 };
 
-const kinds = works.reduce((m, w) => ((m[w.kind] = (m[w.kind] || 0) + 1), m), {});
-console.log(`works: ${works.length} (${live.graphs.length} live kept, ${freshWorks.length} fresh) — kinds ${JSON.stringify(kinds)}`);
-console.log(`posts: ${posts.length} (multi-tagged: ${posts.filter((p) => p.graphs.length > 1).length}, audio: ${posts.filter((p) => p.media === "audio").length})`);
+const archiveKinds = posts.reduce((m, p) => ((m[p.kind] = (m[p.kind] || 0) + 1), m), {});
+console.log(`works: ${works.length} confirmed · ${candidates.length} candidates · ${legacy.length} legacy archive records`);
+console.log(`posts: ${posts.length} — kinds ${JSON.stringify(archiveKinds)} (multi-work: ${posts.filter((p) => p.works.length > 1).length}, audio: ${posts.filter((p) => p.media === "audio").length})`);
 if (DRY) { console.log("(dry — not written)"); process.exit(0); }
 writeFileSync(join(SITE, "graphs.json"), JSON.stringify(graphsOut));
 writeFileSync(join(SITE, "posts.json"), JSON.stringify(postsOut));

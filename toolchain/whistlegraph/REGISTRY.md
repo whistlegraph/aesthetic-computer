@@ -10,12 +10,14 @@ Reels selected for future posting live in
 [`REELS-BACKLOG.md`](REELS-BACKLOG.md), including the individual source takes
 for each suggested whistlegraph.
 
-**The code table** — `downloads/CODES.json` is the master: every one of the
-424 clustered songs has a unique short code (like `imab`), a title, a kind
-(`graph` = a performed whistlegraph · `talk` = tutorial/promo/commentary ·
-`other` = wordless), performance count, combined views, date span, and the id
-of its most-viewed clip (whose final frame is the glyph). 277 are graphs. The
-ten site codes are reserved. Rebuild after re-clustering: naming is an
+**The cluster table** — `downloads/CODES.json` gives every automatic cluster a
+stable internal slug, title, and provisional kind (`graph`, `talk`, `other`) so
+the archive can be reconciled across rebuilds. It is not the public code
+namespace: only human-confirmed Whistlegraph works in `graphs.json:works`
+receive performable short codes. Individual media live in `posts.json` with
+stable post IDs and explicit relationships to any works they contribute to;
+old non-work slugs remain URL aliases during migration. The ten featured site
+codes are reserved. Rebuild after re-clustering: naming is an
 LLM pass over `downloads/NAMING.json` (batched to subagents) → merged by
 `codes.mjs`. Titles/kinds are first-pass and meant to be corrected in place.
 

@@ -125,6 +125,9 @@
   .sectionbar button{font:inherit; font-size:14px; color:var(--ink); border:1px solid transparent; border-bottom:0; background:transparent; padding:7px 11px 6px; cursor:pointer; margin-bottom:-2px}
   .sectionbar button:hover{border-color:var(--ink); background:rgba(255,255,255,.4)}
   .sectionbar button.on{background:var(--ink); color:var(--paper); border-color:var(--ink)}
+  .archive-kind{font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--margin)}
+  .archive-desc{display:block; max-width:520px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .archive-links{display:block; color:var(--dim); font-size:11.5px; margin-top:2px}
 
   /* the codes note — a bordered wiki box */
   .note{
@@ -168,6 +171,7 @@
   #detail.on{display:block}
   #index.off{display:none}
   #detail .score{width:300px; max-width:64vw; height:auto; border:1px solid var(--ink); background:#fff; float:left; margin:4px 16px 10px 0}
+  #detail .post-title{font-size:clamp(24px,6vw,38px)!important; line-height:1.08}
   #detail video{width:300px; max-width:64vw; aspect-ratio:1824/2280; height:auto; border:1px solid var(--ink); background:#000; display:block; clear:both; margin-top:6px}
   #detail video.wide{width:560px; max-width:88vw; aspect-ratio:16/9} /* the Longest Whistlegraph film is landscape */
   #detail video.canon{width:360px; max-width:74vw; aspect-ratio:900/1080; background:var(--paper)}
@@ -248,17 +252,15 @@
 
     <hr>
     <h2>Index</h2>
-    <p class="dim" style="font-size:12.5px;margin-top:-2px"><span id="idxCount">…</span> <span id="idxType">whistlegraphs</span> recovered so far. Still being combed. Tap a code.</p>
+    <p class="dim" style="font-size:12.5px;margin-top:-2px"><span id="idxCount">…</span> <span id="idxType">confirmed whistlegraph works</span> recovered so far. Still being combed.</p>
     <div class="sectionbar" id="sectionbar" aria-label="Archive section">
-      <span class="sl">Show:</span>
-      <button data-section="graphs" class="on">Whistlegraphs</button>
-      <button data-section="talks">Talks</button>
-      <button data-section="notes">Other posts</button>
-      <button data-section="all">All</button>
+      <span class="sl">Browse:</span>
+      <button data-section="works" class="on">Works</button>
+      <button data-section="archive">Archive</button>
     </div>
     <input id="idxSearch" type="search" placeholder="Search title or code…" autocomplete="off" spellcheck="false"
       aria-label="Search whistlegraphs">
-    <div class="sortbar" id="sortbar">
+    <div class="sortbar" id="workSortbar">
       <span class="sl">Sort:</span>
       <button data-sort="featured" class="on">Featured</button>
       <button data-sort="videos">Most videos</button>
@@ -267,10 +269,23 @@
       <button data-sort="title">Title A–Z</button>
       <button data-sort="author">Author A–Z</button>
     </div>
+    <div class="sortbar" id="archiveFilterbar" style="display:none">
+      <span class="sl">Filter:</span>
+      <button data-kind="all" class="on">All posts</button>
+      <button data-kind="performance">Performances</button>
+      <button data-kind="talk">Talks</button>
+      <button data-kind="other">Other</button>
+    </div>
+    <div class="sortbar" id="archiveSortbar" style="display:none">
+      <span class="sl">Sort:</span>
+      <button data-sort="viewed" class="on">Most viewed</button>
+      <button data-sort="newest">Newest</button>
+      <button data-sort="oldest">Oldest</button>
+    </div>
     <div class="wrap">
       <table class="idx" id="idx"><tbody></tbody></table>
       <div id="idxSentinel" aria-hidden="true"></div>
-      <p id="idxEmpty" class="dim" style="display:none;font-size:13px;padding:14px 8px">No whistlegraphs match that search.</p>
+      <p id="idxEmpty" class="dim" style="display:none;font-size:13px;padding:14px 8px">Nothing matches that search.</p>
     </div>
 
     <hr>
@@ -411,9 +426,11 @@ const D={t:document.getElementById("dTitle"),by:document.getElementById("dBy"),c
   canon:document.getElementById("dCanon"),canonWrap:document.getElementById("dCanonWrap"),
   posts:document.getElementById("dPosts")};
 
-let BY={};              // code → whistlegraph work, filled once graphs.json loads.
-let POSTS_BY_CODE={};   // code → [posts], filled once posts.json loads.
-const KIND_LABEL={talk:"Talk",other:"Note"}; // songs (graph) carry no tag
+let BY={};              // confirmed work code → whistlegraph work.
+let LEGACY_BY={};       // retired/candidate code → compatibility archive record.
+let POSTS_BY_CODE={};   // confirmed work code → [contributing posts].
+let POSTS_BY_ID={};     // stable archive post id → post.
+const KIND_LABEL={performance:"Performance",talk:"Talk",other:"Other"};
 const esc=s=>String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
 // A whistlegraph's posts — every published appearance, most-seen first —
@@ -479,33 +496,53 @@ function rowHTML(w){
     : `<img loading="lazy" alt="Final glyph of ${w.title}" src="${w.thumb||`${IDX}/${w.asset||w.code}.jpg`}">`;
   return `<td class="th"><a href="/${w.code}">${thumb}</a></td>`+
     `<td class="cd"><span class="sw" style="--c:${w.c}"></span>[<a href="/${w.code}">${w.code}</a>]</td>`+
-    `<td class="ti"><a href="/${w.code}">${w.title}</a>${KIND_LABEL[w.kind]?`<span class="ktag">${KIND_LABEL[w.kind]}</span>`:""}<span class="by">${w.by}${w.perf>1?` · ${w.perf} posts`:""}</span></td>`+
+    `<td class="ti"><a href="/${w.code}">${w.title}</a><span class="by">${w.by}${w.perf>1?` · ${w.perf} posts`:""}</span></td>`+
     `<td class="yr">${w.year}</td>`;
 }
 // The row's own <a href="/code"> is intercepted by one delegated click handler
-// on the tbody (installed once) — 1120 rows share a single listener instead of
+// on the tbody (installed once) — thousands of rows share one listener instead of
 // three apiece, and the grid is written in a single innerHTML pass.
 const rowTR=w=>`<tr class="row" data-code="${w.code}">${rowHTML(w)}</tr>`;
 
-let GRAPHS=[], COMPOSITIONS=[], TALKS=[], NOTES=[], CURATED_N=0;
-let curSection="graphs";
-const activeWorks=()=>curSection==="talks"?TALKS:curSection==="notes"?NOTES:curSection==="all"?GRAPHS:COMPOSITIONS;
+const postTitle=p=>{
+  const text=(p.desc||"").trim();
+  if(text) return text.length>120?`${text.slice(0,117)}…`:text;
+  const related=(p.works||[]).map(code=>BY[code]?.title).filter(Boolean);
+  if(related.length) return related.join(" + ");
+  return `Archive post ${p.id}`;
+};
+const postRowHTML=p=>{
+  const thumb=p.thumb
+    ? `<img loading="lazy" alt="" src="${p.thumb}">`
+    : `<span class="sw noglyph" style="--c:#b44887"></span>`;
+  const related=(p.works||[]).map(code=>`<a href="/${code}" data-work="${code}">[${code}] ${esc(BY[code]?.title||code)}</a>`).join(" · ");
+  const postPath=`/post/${encodeURIComponent(p.id)}`;
+  return `<td class="th"><a href="${postPath}">${thumb}</a></td>`+
+    `<td class="cd"><span class="archive-kind">${KIND_LABEL[p.kind]||"Post"}</span></td>`+
+    `<td class="ti"><a class="archive-desc" href="${postPath}">${esc(postTitle(p))}</a>`+
+      `<span class="archive-links">${related||esc(p.platform||"archive")}${p.views!=null?` · ${fmtViews(p.views)} views`:""}</span></td>`+
+    `<td class="yr">${p.date?p.date.slice(0,4):""}</td>`;
+};
+const postTR=p=>`<tr class="row archive-row" data-post="${p.id}">${postRowHTML(p)}</tr>`;
+
+let WORKS=[], ARCHIVE_POSTS=[], CURATED_N=0;
+let curSection="works", curArchiveKind="all", archiveSort="viewed";
 
 // Sorts. `featured` (default) keeps the file order: the ten first, then the
 // archive by reach, with a divider between. Every other key flattens into one
 // plain list — no divider, no top-ten grouping (the split only reads in the
 // featured view). Ties break on views, our richest signal.
-function sortedGraphs(key){
+function sortedWorks(key){
   const byViews=(a,b)=>b.views-a.views;
-  const g=[...activeWorks()];
+  const g=[...WORKS];
   if(key==="videos") return g.sort((a,b)=>b.perf-a.perf||byViews(a,b));
   if(key==="viewed") return g.sort(byViews);
   if(key==="year")   return g.sort((a,b)=>a.year-b.year||byViews(a,b)); // oldest first
   if(key==="title")  return g.sort((a,b)=>a.title.localeCompare(b.title));
   if(key==="author") return g.sort((a,b)=>a.by.localeCompare(b.by)||byViews(a,b));
-  return curSection==="graphs"?null:g.sort(byViews); // featured graph order; reach elsewhere
+  return null;
 }
-// The index holds 1000+ rows; painting them all (and their thumbnails) up front
+// The archive holds 2000+ rows; painting them all (and their thumbnails) up front
 // is the slow part. So we window it — the full ordered VIEW lives in memory, but
 // only PAGE rows are in the DOM at a time, extended as a sentinel scrolls near
 // (async; thumbnails stay lazy). Search + sort just rebuild VIEW.
@@ -517,17 +554,27 @@ const divHTML=`<tr class="divider"><td colspan="4" style="padding:12px 8px 6px;c
 // archive divider; any search (or non-featured sort) is a flat filtered list.
 function buildView(){
   const q=curQuery.trim().toLowerCase();
+  if(curSection==="archive"){
+    const match=p=>!q||postTitle(p).toLowerCase().includes(q)||String(p.id).includes(q)||
+      (p.works||[]).some(code=>code.includes(q)||(BY[code]?.title||"").toLowerCase().includes(q));
+    VIEW=ARCHIVE_POSTS.filter(p=>(curArchiveKind==="all"||p.kind===curArchiveKind)&&match(p));
+    if(archiveSort==="newest") VIEW.sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")));
+    else if(archiveSort==="oldest") VIEW.sort((a,b)=>String(a.date||"").localeCompare(String(b.date||"")));
+    else VIEW.sort((a,b)=>(b.views||0)-(a.views||0));
+    return;
+  }
   const match=w=>!q||w.title.toLowerCase().includes(q)||w.code.toLowerCase().includes(q)||(w.by||"").toLowerCase().includes(q);
-  const source=activeWorks();
-  const sorted=sortedGraphs(curSort);
+  const sorted=sortedWorks(curSort);
   if(sorted){ VIEW=sorted.filter(match); return; }
-  if(q){ VIEW=source.filter(match); return; }
-  VIEW=[...COMPOSITIONS.slice(0,CURATED_N), {divider:true}, ...COMPOSITIONS.slice(CURATED_N)];
+  if(q){ VIEW=WORKS.filter(match); return; }
+  VIEW=[...WORKS.slice(0,CURATED_N), {divider:true}, ...WORKS.slice(CURATED_N)];
 }
 function renderMore(){
   let html="";
   const end=Math.min(SHOWN+PAGE, VIEW.length);
-  for(let i=SHOWN;i<end;i++){ const it=VIEW[i]; html+=it.divider?divHTML:rowTR(it); }
+  for(let i=SHOWN;i<end;i++){
+    const it=VIEW[i]; html+=it.divider?divHTML:curSection==="archive"?postTR(it):rowTR(it);
+  }
   document.querySelector("#idx tbody").insertAdjacentHTML("beforeend",html);
   SHOWN=end;
 }
@@ -539,9 +586,8 @@ function pump(){
 }
 function renderReset(scrollTop){
   buildView();
-  const labels={graphs:"whistlegraphs",talks:"talk posts",notes:"other posts",all:"archive records"};
-  document.getElementById("idxCount").textContent=activeWorks().length;
-  document.getElementById("idxType").textContent=labels[curSection];
+  document.getElementById("idxCount").textContent=curSection==="archive"?ARCHIVE_POSTS.length:WORKS.length;
+  document.getElementById("idxType").textContent=curSection==="archive"?"individual archive posts":"confirmed whistlegraph works";
   document.querySelector("#idx tbody").innerHTML=""; SHOWN=0;
   document.getElementById("idxEmpty").style.display=VIEW.length?"none":"";
   // On a user sort/search change, jump back to the top of the list first — else
@@ -552,14 +598,32 @@ function renderReset(scrollTop){
   renderMore(); pump();
 }
 
-// posts.json (~1.1MB) powers the record-page galleries ONLY — never the index,
-// whose reach counts come from graphs.json. So the fetch is deferred to the
-// first record open and memoized; the landing view never waits on it.
+function selectSection(section,scrollTop=false){
+  curSection=section==="archive"?"archive":"works";
+  document.querySelectorAll("#sectionbar button").forEach(x=>x.classList.toggle("on",x.dataset.section===curSection));
+  const archive=curSection==="archive";
+  document.getElementById("workSortbar").style.display=archive?"none":"";
+  document.getElementById("archiveFilterbar").style.display=archive?"":"none";
+  document.getElementById("archiveSortbar").style.display=archive?"":"none";
+  document.getElementById("idxSearch").placeholder=archive?"Search posts, works, or IDs…":"Search title or code…";
+  if(archive){
+    document.getElementById("idxCount").textContent="…";
+    document.getElementById("idxType").textContent="individual archive posts";
+    document.querySelector("#idx tbody").innerHTML=""; SHOWN=0;
+    loadPosts().then(()=>renderReset(scrollTop));
+  }else renderReset(scrollTop);
+}
+
+// posts.json powers the Archive index and work galleries. The fetch is deferred
+// until Archive or a detail route opens, so the Works landing page stays light.
 let postsLoaded=null;
 function loadPosts(){
   if(postsLoaded) return postsLoaded;
   postsLoaded=fetch("/posts.json?t="+Date.now(),{cache:"no-cache"}).then(r=>r.ok?r.json():{posts:[]}).then(pd=>{
-    for(const p of pd.posts||[]) for(const code of p.graphs||[]) (POSTS_BY_CODE[code]||=[]).push(p);
+    ARCHIVE_POSTS=pd.posts||[];
+    POSTS_BY_ID=Object.fromEntries(ARCHIVE_POSTS.map(p=>[p.id,p]));
+    for(const p of ARCHIVE_POSTS) for(const code of p.works||[]) (POSTS_BY_CODE[code]||=[]).push(p);
+    return pd;
   }).catch(()=>{});
   return postsLoaded;
 }
@@ -569,16 +633,18 @@ function loadPosts(){
 // which would otherwise show a visitor day-old data on load. A unique URL each
 // visit defeats browser cache + CDN + SWR, so a fresh deploy always shows now.
 fetch("/graphs.json?t="+Date.now(),{cache:"no-cache"}).then(r=>r.json()).then(data=>{
-  GRAPHS=data.graphs; CURATED_N=data.curated;
-  COMPOSITIONS=GRAPHS.filter(w=>w.kind==="graph");
-  TALKS=GRAPHS.filter(w=>w.kind==="talk");
-  NOTES=GRAPHS.filter(w=>w.kind==="other");
-  BY=Object.fromEntries(data.graphs.map(w=>[w.code,w]));
-  // One delegated click for the whole grid — a row's <a href="/code"> routes to
-  // its record without 1120×3 individual listeners.
+  WORKS=data.works||data.graphs.filter(w=>w.kind==="graph"); CURATED_N=data.curated;
+  BY=Object.fromEntries(WORKS.map(w=>[w.code,w]));
+  LEGACY_BY=Object.fromEntries((data.legacy||[]).map(w=>[w.code,w]));
+  // One delegated click for both work rows and stable archive-post rows.
   document.querySelector("#idx tbody").addEventListener("click",e=>{
-    const tr=e.target.closest("tr[data-code]"); if(!tr) return;
-    if(e.target.closest("a")){ e.preventDefault(); go(tr.dataset.code); }
+    const tr=e.target.closest("tr[data-code],tr[data-post]"); if(!tr) return;
+    if(!e.target.closest("a")) return;
+    e.preventDefault();
+    const workLink=e.target.closest("a[data-work]");
+    if(workLink) go(workLink.dataset.work);
+    else if(tr.dataset.post) goPost(tr.dataset.post);
+    else go(tr.dataset.code);
   });
   // Infinite scroll: the sentinel below the table pulls the next page into view.
   new IntersectionObserver(es=>{ if(es.some(e=>e.isIntersecting)) pump(); },{rootMargin:"400px"})
@@ -590,26 +656,32 @@ fetch("/graphs.json?t="+Date.now(),{cache:"no-cache"}).then(r=>r.json()).then(da
   // The example code randomizes each load — always one of the featured ten —
   // and its links follow the drawn code.
   (function(){
-    const pool=COMPOSITIONS.slice(0,CURATED_N); if(!pool.length) return;
+    const pool=WORKS.slice(0,CURATED_N); if(!pool.length) return;
     const w=pool[Math.floor(Math.random()*pool.length)];
     const c=document.getElementById("egCode"); if(c)c.textContent=w.code;
     const ac=document.getElementById("egAC"); if(ac)ac.href=`https://aesthetic.computer/${w.code}`;
     const wg=document.getElementById("egWG"); if(wg){wg.href=`/${w.code}`;wg.textContent=`whistlegraph.org/${w.code}`;}
   })();
-  document.querySelectorAll("#sortbar button").forEach(b=>b.addEventListener("click",()=>{
-    document.querySelectorAll("#sortbar button").forEach(x=>x.classList.remove("on"));
+  document.querySelectorAll("#workSortbar button").forEach(b=>b.addEventListener("click",()=>{
+    document.querySelectorAll("#workSortbar button").forEach(x=>x.classList.remove("on"));
     b.classList.add("on");
     curSort=b.dataset.sort==="featured"?null:b.dataset.sort;
     renderReset(true);
   }));
-  document.querySelectorAll("#sectionbar button").forEach(b=>b.addEventListener("click",()=>{
-    document.querySelectorAll("#sectionbar button").forEach(x=>x.classList.remove("on"));
-    b.classList.add("on");
-    curSection=b.dataset.section;
-    renderReset(true);
+  document.querySelectorAll("#archiveFilterbar button").forEach(b=>b.addEventListener("click",()=>{
+    document.querySelectorAll("#archiveFilterbar button").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on"); curArchiveKind=b.dataset.kind; renderReset(true);
   }));
-  // Resolve any deep-link now that data exists.
-  const c=location.pathname.replace(/\//g,""); if(BY[c])showDetail(c);
+  document.querySelectorAll("#archiveSortbar button").forEach(b=>b.addEventListener("click",()=>{
+    document.querySelectorAll("#archiveSortbar button").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on"); archiveSort=b.dataset.sort; renderReset(true);
+  }));
+  document.querySelectorAll("#sectionbar button").forEach(b=>b.addEventListener("click",()=>{
+    const section=b.dataset.section;
+    history.pushState({section},"",section==="archive"?"/archive":"/");
+    selectSection(section,true);
+  }));
+  routeLocation();
 });
 
 function showDetail(code, keepScroll){
@@ -623,9 +695,10 @@ function showDetail(code, keepScroll){
     if(det.classList.contains("on")&&location.pathname.replace(/\//g,"")===code) showDetail(code, true);
   });
   const posts=POSTS_BY_CODE[code]||[];
-  D.t.innerHTML=esc(w.title)+(KIND_LABEL[w.kind]?`<span class="ktag">${KIND_LABEL[w.kind]}</span>`:"");
+  D.t.classList.remove("post-title"); D.t.innerHTML=esc(w.title);
   D.by.innerHTML=`Composed by ${esc(w.by)} &nbsp;<b>·</b>&nbsp; ${w.year}`;
   D.code.textContent=w.code;
+  D.video.style.display="";
   // One reach line for every record, featured or not: views · posts · span.
   const yrs=posts.map(p=>p.date&&p.date.slice(0,4)).filter(Boolean).sort();
   const span=yrs.length?(yrs[0]===yrs[yrs.length-1]?yrs[0]:`${yrs[0]}–${yrs[yrs.length-1]}`):(w.year||"");
@@ -666,6 +739,69 @@ function showDetail(code, keepScroll){
   det.classList.add("on"); idx.classList.add("off");
   document.title=`${w.title} — Whistlegraph`; if(!keepScroll) scrollTo(0,0);
 }
+
+function postFacts(p){
+  const stats=[p.date,p.views!=null?`${fmtViews(p.views)} views`:null,p.likes?`${fmtViews(p.likes)} likes`:null].filter(Boolean);
+  return stats.join(" &nbsp;·&nbsp; ");
+}
+
+// An archive post is media, not a composition: it has a stable /post/<id> URL,
+// a post type, and explicit relationships to any works it contributes to.
+function showPost(id, keepScroll){
+  const p=POSTS_BY_ID[id]; if(!p) return showIndex();
+  const related=(p.works||[]).map(code=>BY[code]).filter(Boolean);
+  D.t.classList.add("post-title");
+  D.t.innerHTML=esc(postTitle(p))+`<span class="ktag">${KIND_LABEL[p.kind]||"Post"}</span>`;
+  D.by.innerHTML=`Archive post &nbsp;<b>·</b>&nbsp; ${esc(p.platform||"media")} &nbsp;<b>·</b>&nbsp; ${p.date||"date unknown"}`;
+  D.performNote.style.display="none"; D.archiveNote.style.display="";
+  D.archiveNote.innerHTML=`${postFacts(p)} &nbsp;·&nbsp; <a href="${p.url}" target="_blank" rel="noopener">Open original ${esc(p.platform||"source")} ↗</a>`;
+  D.scoreWrap.style.display="none"; D.canonWrap.style.display="none"; D.canon.removeAttribute("src");
+  D.videoRule.style.display=""; D.glyphCap.style.display="none"; D.glyphCap.textContent="";
+  D.video.classList.remove("wide");
+  if(p.media==="audio"){
+    D.video.pause(); D.video.removeAttribute("src"); D.video.style.display="none";
+  }else{
+    D.video.style.display=""; D.video.poster=p.thumb||""; D.video.src=p.src;
+  }
+  const workLinks=related.map(w=>`<a href="/${w.code}" data-work="${w.code}">[${w.code}] ${esc(w.title)}</a>`).join(" · ");
+  const plots=(p.plots||[]).map(plot=>`<span class="plottag">Plot: ${esc(plot)}</span>`).join("");
+  D.posts.innerHTML=`<hr><p class="lbl">Relationships</p>`+
+    `<p>${workLinks||'<span class="dim">No confirmed work relationship yet.</span>'}</p>`+
+    (plots?`<p>${plots}</p>`:"")+
+    (p.desc?`<p>${esc(p.desc)}</p>`:"")+
+    (p.media==="audio"?`<audio controls preload="metadata" src="${p.src}" style="width:100%"></audio>`:"");
+  D.posts.style.display="";
+  D.posts.querySelectorAll("a[data-work]").forEach(a=>a.addEventListener("click",e=>{e.preventDefault();go(a.dataset.work);}));
+  document.getElementById("dVersions").style.display="none";
+  det.classList.add("on"); idx.classList.add("off");
+  document.title=`${postTitle(p)} — Whistlegraph Archive`; if(!keepScroll) scrollTo(0,0);
+}
+
+// Old talk/other codes stay resolvable, but canonicalize to a post URL (or an
+// archive collection when the old cluster held several posts). They are never
+// presented as playable Whistlegraph codes and never enter commands.json.
+function showLegacy(code, canonicalize=true, keepScroll=false){
+  const record=LEGACY_BY[code]; if(!record) return showIndex();
+  const posts=ARCHIVE_POSTS.filter(p=>(p.graphs||[]).includes(code));
+  if(posts.length===1){
+    if(canonicalize) history.replaceState({post:posts[0].id},"",`/post/${encodeURIComponent(posts[0].id)}`);
+    return showPost(posts[0].id,keepScroll);
+  }
+  if(canonicalize) history.replaceState({archive:code},"",`/archive/${encodeURIComponent(code)}`);
+  D.t.classList.remove("post-title");
+  D.t.innerHTML=esc(record.title)+`<span class="ktag">Archive collection</span>`;
+  D.by.innerHTML=`Legacy archive grouping &nbsp;<b>·</b>&nbsp; ${record.year||"date unknown"}`;
+  D.performNote.style.display="none"; D.archiveNote.style.display="";
+  D.archiveNote.innerHTML=`Former archive link <code>${esc(code)}</code> &nbsp;·&nbsp; ${posts.length} individual posts. This is not a composition code.`;
+  D.scoreWrap.style.display="none"; D.canonWrap.style.display="none"; D.canon.removeAttribute("src");
+  D.videoRule.style.display=""; D.video.style.display=""; D.video.classList.remove("wide");
+  const hero=posts[0]; D.video.poster=hero?.thumb||""; D.video.src=hero?.src||"";
+  POSTS_BY_CODE[code]=posts; renderPosts(code);
+  document.getElementById("dVersions").style.display="none";
+  det.classList.add("on"); idx.classList.add("off");
+  document.title=`${record.title} — Whistlegraph Archive`; if(!keepScroll) scrollTo(0,0);
+}
+
 function showIndex(){
   det.classList.remove("on"); idx.classList.remove("off");
   D.video.pause(); D.video.removeAttribute("src"); D.video.load();
@@ -673,11 +809,22 @@ function showIndex(){
   document.querySelectorAll("#dVersions video, #dPosts video, #dPosts audio").forEach(v=>v.pause());
   document.title="Whistlegraph — a drawing you sing";
 }
-function go(code){ history.pushState({code},"",`/${code}`); showDetail(code); }
-function home(e){e.preventDefault();history.pushState({},"","/");showIndex();}
+function go(code){ history.pushState({code},"",`/${encodeURIComponent(code)}`); showDetail(code); }
+function goPost(id){ history.pushState({post:id},"",`/post/${encodeURIComponent(id)}`); showPost(id); }
+function home(e){e.preventDefault();history.pushState({},"","/");routeLocation();}
 document.getElementById("backlink").addEventListener("click",home);
 document.getElementById("homelogo").addEventListener("click",home);
-addEventListener("popstate",()=>{const c=location.pathname.replace(/\//g,"");BY[c]?showDetail(c):showIndex();});
+function routeLocation(){
+  const parts=location.pathname.split("/").filter(Boolean);
+  if(parts[0]==="post"&&parts[1]) return loadPosts().then(()=>showPost(decodeURIComponent(parts[1])));
+  if(parts[0]==="archive"&&!parts[1]){ showIndex(); return selectSection("archive"); }
+  if(parts[0]==="archive"&&parts[1]) return loadPosts().then(()=>showLegacy(decodeURIComponent(parts[1]),false));
+  const code=parts.length===1?decodeURIComponent(parts[0]):"";
+  if(BY[code]) return showDetail(code);
+  if(LEGACY_BY[code]) return loadPosts().then(()=>showLegacy(code,true));
+  showIndex(); selectSection("works");
+}
+addEventListener("popstate",routeLocation);
 </script>
 </body>
 </html>

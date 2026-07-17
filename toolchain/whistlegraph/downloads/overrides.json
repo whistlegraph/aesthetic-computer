@@ -1,5 +1,19 @@
 {
-  "_comment": "Hand-curation from the trio (Alex, broad strokes) that the clustering pass can't derive. Applied by gen-model.mjs after clustering. renames: code -> canonical title. recodes: oldCode -> newCode (change a work's deep-link slug; its posts retag, pair with a rename keyed on the newCode for the title). merges: sourceCode -> targetCode (source's posts retag to the target, source work drops out). crossTags: sourceCode -> [alsoUnderCode] (source's posts ALSO appear under another existing work while the source stays standalone). postTags: postId -> [tag] (keep a badge like TALK on one video after it folds into a graph). postPlots: postId -> [plot title] (cross-cutting narrative events). authors: code -> attribution (keyed on the POST-recode code). twins: mirror a cluster's clips under a NEW code+title.",
+  "_comment": "Hand-curation from the trio (Alex, broad strokes) that the clustering pass can't derive. Applied by gen-model.mjs after clustering. works.include promotes an automatic cluster into the confirmed composition/code namespace; works.exclude keeps a legacy code URL working but treats its media as archive posts. renames: code -> canonical title. recodes: oldCode -> newCode (change a work's deep-link slug; its posts retag, pair with a rename keyed on the newCode for the title). merges: sourceCode -> targetCode (source's posts retag to the target, source work drops out). crossTags: sourceCode -> [alsoUnderCode] (source's posts ALSO appear under another existing work while the source stays standalone). postTags: postId -> [tag] (keep a badge like TALK on one video after it folds into a graph). postPlots: postId -> [plot title] (cross-cutting narrative events). authors: code -> attribution (keyed on the POST-recode code). twins: mirror a cluster's clips under a NEW code+title.",
+  "works": {
+    "include": [
+      "tppl",
+      "dodo",
+      "jeff",
+      "lent",
+      "chnd"
+    ],
+    "exclude": [
+      "znme",
+      "bmdo",
+      "tryo"
+    ]
+  },
   "renames": {
     "bugy": "Buggy on The Wall",
     "pnda": "When I'm Sad I Whip My Pen",

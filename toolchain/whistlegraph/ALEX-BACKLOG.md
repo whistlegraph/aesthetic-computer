@@ -40,3 +40,4 @@ Status: `received` → `verified` → `applied` → `live`
 | applied | Keep “TikTok Is A Video Game” distinct and also associate its video with “Hey There, Apple”. |
 | applied | Fold “Drawing Boxes” and “Rehearsing Making Boxes” into “Making Boxes”. |
 | applied | “Buggy On The Wall” — author Jeffrey Alan Scudder. |
+| applied | Archive model: **Works** are human-confirmed compositions and alone receive short `[codes]`; **Archive** contains stable individual post records; explicit post→work relationships control contribution and rollup stats. Legacy code URLs remain compatibility aliases. Approved by Alex, 2026-07-17. |
