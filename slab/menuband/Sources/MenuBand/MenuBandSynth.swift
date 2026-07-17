@@ -874,6 +874,12 @@ final class MenuBandSynth {
         speechVoice.say(text, languageCode: languageCode)
     }
 
+    /// Immediate number-row feedback from the speech voice's pre-rendered
+    /// digit bank. Unlike `speak`, this does no synthesis on key-down.
+    func playSpokenDigit(_ digit: Int) {
+        speechVoice.playDigit(digit)
+    }
+
     /// Spacebar reverse-replay: play the master-output tape backwards from
     /// the session's reverse cursor (first press anchors "now"; later
     /// presses resume where the last one stopped). Returns false if there
