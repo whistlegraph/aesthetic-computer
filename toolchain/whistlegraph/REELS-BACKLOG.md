@@ -39,3 +39,4 @@ one to `selected`; Alex's take-specific notes are preserved below.
 | suggested | [Circle Line Triangle Hand `[clth]`](https://whistlegraph.org/clth) | Command-drawing candidate; sole take is [TikTok 6945376059697270022](https://www.tiktok.com/@whistlegraph/video/6945376059697270022). |
 | suggested | [Camille and Alex `[cmal]`](https://whistlegraph.org/cmal) | Command-drawing candidate; choose among the merged archive takes. |
 | suggested | [Blow My Pen `[bpen]`](https://whistlegraph.org/bpen) | Command-drawing candidate; choose among the three archive takes. |
+| suggested | [Bum Doo Doo `[bmdo]`](https://whistlegraph.org/bmdo) | Possible Reel; sole take is [TikTok 7054371039035297070](https://www.tiktok.com/@whistlegraph/video/7054371039035297070). |

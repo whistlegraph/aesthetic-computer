@@ -112,14 +112,19 @@
   #idxSearch:focus{outline:none; border-color:var(--margin); box-shadow:0 0 0 2px rgba(180,72,135,.18)}
   #idxSearch::placeholder{color:var(--dim)}
   #idxSentinel{height:1px}
-  .sortbar,.sectionbar{display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 11px; align-items:baseline}
-  .sortbar .sl,.sectionbar .sl{font-size:11.5px; color:var(--dim); margin-right:2px}
-  .sortbar button,.sectionbar button{
+  .sortbar{display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 11px; align-items:baseline}
+  .sortbar .sl{font-size:11.5px; color:var(--dim); margin-right:2px}
+  .sortbar button{
     font-family:inherit; font-size:11.5px; color:var(--ink); background:transparent;
     border:1px solid var(--ink); border-radius:2px; padding:2px 8px; cursor:pointer; line-height:1.4;
   }
-  .sortbar button:hover,.sectionbar button:hover{background:rgba(255,255,255,.4)}
-  .sortbar button.on,.sectionbar button.on{background:var(--margin); color:var(--paper); border-color:var(--margin)}
+  .sortbar button:hover{background:rgba(255,255,255,.4)}
+  .sortbar button.on{background:var(--margin); color:var(--paper); border-color:var(--margin)}
+  .sectionbar{display:flex; flex-wrap:wrap; gap:0; margin:7px 0 13px; border-bottom:2px solid var(--ink); align-items:flex-end}
+  .sectionbar .sl{font-size:11px; color:var(--dim); padding:7px 9px 6px 0; text-transform:uppercase; letter-spacing:.08em}
+  .sectionbar button{font:inherit; font-size:14px; color:var(--ink); border:1px solid transparent; border-bottom:0; background:transparent; padding:7px 11px 6px; cursor:pointer; margin-bottom:-2px}
+  .sectionbar button:hover{border-color:var(--ink); background:rgba(255,255,255,.4)}
+  .sectionbar button.on{background:var(--ink); color:var(--paper); border-color:var(--ink)}
 
   /* the codes note — a bordered wiki box */
   .note{

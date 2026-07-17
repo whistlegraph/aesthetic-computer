@@ -263,9 +263,16 @@ for (const p of posts) for (const code of p.graphs) {
 // reach. Each work carries its kind + a summary post-count and total views.
 const year = (span) => Number(String(span?.[0] ?? "").slice(0, 4)) || null;
 const kindByLiveCode = new Map(clusterSite.filter((c) => c.reclaimed).map((c) => [c.siteCode, c.cl.kind]));
+// A recognized whistlegraph stays a composition even when its cluster also
+// contains a tutorial, reply, or behind-the-scenes post. Post-level media type
+// must not promote the entire work into Talks / Other Posts.
+const knownCompositionCodes = new Set(
+  clusterSite.filter(({ cl }) => cl.known).map(({ siteCode }) => resolve(siteCode)),
+);
 
 // "experiment" was a retired tab — normalize it back to a graph.
 const normKind = (k) => (k === "experiment" ? "graph" : k);
+const workKind = (code, fallback) => knownCompositionCodes.has(code) ? "graph" : normKind(fallback);
 const liveWorks = live.graphs.filter((e) => !mergeSources.has(e.code)).map((e) => {
   const code = recodes[e.code] || e.code; // a recode changes a live work's slug too
   const r = rollup.get(code);
@@ -277,7 +284,7 @@ const liveWorks = live.graphs.filter((e) => !mergeSources.has(e.code)).map((e) =
     code,
     ...(title !== undefined ? { title } : {}),
     ...(authors[code] ? { by: authors[code] } : {}), // durable attribution override
-    kind: normKind(e.kind || kindByLiveCode.get(e.code) || "graph"),
+    kind: workKind(code, e.kind || kindByLiveCode.get(e.code) || "graph"),
     ...(r ? { views: r.views, perf: r.n } : {}), // accurate reach/count from tagged posts
     ...(r?.thumb ? { thumb: r.thumb } : {}),
   };
@@ -299,7 +306,7 @@ const freshWorks = clusterSite
       title: renames[code] ?? cl.title,
       by: authors[code] || "Whistlegraph", // durable attribution override; else collective credit
       year: year(cl.span),
-      kind: cl.kind,
+      kind: cl.known ? "graph" : normKind(cl.kind),
       views: r.views,
       perf: r.n,
       c: "#b44887",
