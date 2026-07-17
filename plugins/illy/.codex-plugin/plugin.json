@@ -1,6 +1,6 @@
 {
   "name": "illy",
-  "version": "0.1.0",
+  "version": "0.1.0+codex.20260717042017",
   "description": "Backend-neutral illustration pipelines for Aesthetic Computer media work.",
   "author": {
     "name": "Aesthetic Computer"
@@ -12,8 +12,17 @@
     "longDescription": "Plan and run configurable illustration pipelines across OpenAI, fal.ai, and future image backends while preserving Aesthetic Computer marketing and pop conventions.",
     "developerName": "Aesthetic Computer",
     "category": "Creative",
-    "capabilities": ["Image generation", "Provider routing", "Media pipelines", "Provenance"],
-    "defaultPrompt": ["Make an illy for this marketing campaign.", "Compare available illy backends for this prompt.", "Generate pop storyboard panels from these prompts."]
+    "capabilities": [
+      "Image generation",
+      "Provider routing",
+      "Media pipelines",
+      "Provenance"
+    ],
+    "defaultPrompt": [
+      "Make an illy for this marketing campaign.",
+      "Compare available illy backends for this prompt.",
+      "Generate pop storyboard panels from these prompts."
+    ]
   },
   "mcpServers": "./.mcp.json"
 }
