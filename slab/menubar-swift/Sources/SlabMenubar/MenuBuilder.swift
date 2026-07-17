@@ -6,6 +6,8 @@ enum MenuBuilder {
         mailStatus: String,
         imsgStatus: String,
         imsgConfigured: Bool,
+        signalStatus: String,
+        signalConfigured: Bool,
         asana: AsanaState,
         deploy: DeployStatusState,
         target: AppDelegate
@@ -17,6 +19,8 @@ enum MenuBuilder {
             mailStatus: mailStatus,
             imsgStatus: imsgStatus,
             imsgConfigured: imsgConfigured,
+            signalStatus: signalStatus,
+            signalConfigured: signalConfigured,
             asana: asana,
             deploy: deploy,
             target: target
@@ -34,6 +38,8 @@ enum MenuBuilder {
         mailStatus: String,
         imsgStatus: String,
         imsgConfigured: Bool,
+        signalStatus: String,
+        signalConfigured: Bool,
         asana: AsanaState,
         deploy: DeployStatusState,
         target: AppDelegate
@@ -41,27 +47,54 @@ enum MenuBuilder {
         menu.removeAllItems()
         menu.autoenablesItems = false
 
-        menu.addItem(info("Status: \(state.statusLine)"))
-        menu.addItem(buildSystem(state: state, target: target))
+        let statusSuffix = state.inputNotificationCount > 0
+            ? " · \(state.inputNotificationCount) waiting"
+            : ""
+        menu.addItem(info("Slab · \(state.statusLine)\(statusSuffix)"))
         menu.addItem(.separator())
 
-        appendPopRenders(to: menu, state: state)
-        appendClaude(to: menu, state: state, target: target)
-        menu.addItem(info("Subagents in flight: \(state.activeSubagents)"))
-        menu.addItem(.separator())
+        let agents = NSMenu()
+        appendPopRenders(to: agents, state: state)
+        appendClaude(to: agents, state: state, target: target)
+        agents.addItem(info("Subagents in flight: \(state.activeSubagents)"))
+        agents.addItem(.separator())
+        agents.addItem(buildWindowLayout(state: state, target: target))
+        agents.addItem(buildAgentAppearance(state: state, target: target))
+        let closeTerm = item("Close front terminal window",
+                             selector: #selector(AppDelegate.closeFrontTerminal),
+                             target: target)
+        closeTerm.toolTip = "Close the frontmost Terminal or iTerm2 window. If auto-tile is on, the remaining windows re-tile."
+        agents.addItem(closeTerm)
+        menu.addItem(section(agentTitle(state), symbol: "person.2.fill", submenu: agents))
 
-        menu.addItem(buildTailnet(state: state, target: target))
-        menu.addItem(buildMail(status: mailStatus, target: target))
-        menu.addItem(buildImsg(status: imsgStatus, configured: imsgConfigured, target: target))
-        menu.addItem(buildAsana(state: asana, target: target))
-        menu.addItem(buildDeploy(state: deploy, target: target))
-        appendOvertime(to: menu, target: target)
-        menu.addItem(buildPdf(target: target))
-        menu.addItem(buildVideo(target: target))
-        menu.addItem(buildAudio(target: target))
+        let inbox = NSMenu()
+        inbox.addItem(info("iMessage + Signal · \(state.inputNotificationCount) un-ingested"))
+        inbox.addItem(buildMail(status: mailStatus, target: target))
+        inbox.addItem(buildImsg(status: imsgStatus, configured: imsgConfigured, target: target))
+        inbox.addItem(buildSignal(status: signalStatus, configured: signalConfigured, target: target))
+        let inboxTitle = state.inputNotificationCount > 0
+            ? "Inbox: \(state.inputNotificationCount) waiting"
+            : "Inbox: clear"
+        menu.addItem(section(inboxTitle, symbol: "tray.full.fill", submenu: inbox))
+
+        let work = NSMenu()
+        work.addItem(buildAsana(state: asana, target: target))
+        work.addItem(buildDeploy(state: deploy, target: target))
+        appendOvertime(to: work, target: target)
+        menu.addItem(section("Work", symbol: "checkmark.circle.fill", submenu: work))
+
+        let fleet = NSMenu()
+        fleet.addItem(buildSystem(state: state, target: target))
+        fleet.addItem(buildTailnet(state: state, target: target))
         if state.deskflow.configured {
-            menu.addItem(buildDeskflow(state: state, target: target))
+            fleet.addItem(buildDeskflow(state: state, target: target))
         }
+        menu.addItem(section("Fleet & System", symbol: "network", submenu: fleet))
+
+        let media = NSMenu()
+        media.addItem(buildPdf(target: target))
+        media.addItem(buildVideo(target: target))
+        media.addItem(buildAudio(target: target))
 
         // Request for Audio — sing a /pop melody, one note at a time. The
         // wizard plays the pitch + shows the word per note, records, then
@@ -70,56 +103,51 @@ enum MenuBuilder {
                        selector: #selector(AppDelegate.requestForAudio(_:)), target: target)
         rfa.representedObject = "hum"
         rfa.toolTip = "Open the RFA wizard in iTerm2 — sing the 'hum' melody note by note, then hear it recompiled."
-        menu.addItem(rfa)
+        media.addItem(rfa)
 
         // Call recording — captures mic (+ system audio if an aggregate
         // device is wired) to a WAV in ~/Documents/Shelf/meetings/. On stop
         // the WAV is handed off to meetings/cli.mjs which transcribes,
         // detects whistlepops, and builds an arxiv-style PDF.
-        menu.addItem(buildCall(state: state, target: target))
-        menu.addItem(.separator())
+        media.addItem(buildCall(state: state, target: target))
+        menu.addItem(section("Media & Capture", symbol: "play.rectangle.fill", submenu: media))
 
-        // Close the frontmost Terminal / iTerm2 window from the menubar.
-        // Useful for closing Claude sessions cleanly without reaching for
-        // the keyboard, and a faster path than ⌘W when the menu is already
-        // open. Auto-re-tiles the remaining windows when auto-tile is on.
-        let closeTerm = item("Close front terminal window",
-                             selector: #selector(AppDelegate.closeFrontTerminal),
-                             target: target)
-        closeTerm.toolTip = "Close the frontmost Terminal or iTerm2 window. If auto-tile is on, the remaining windows re-tile."
-        menu.addItem(closeTerm)
-
+        let mac = NSMenu()
         // Tidy a scattered desktop of Stickies notes into a tight collapsed
         // column in the top-left via Stickies' own "Arrange By" command.
         let stackSticky = item("Arrange Stickies (collapse + top-left)",
                                selector: #selector(AppDelegate.stackStickies),
                                target: target)
         stackSticky.toolTip = "Run Stickies' built-in Arrange By (Color) with Collapse All — packs all notes into a collapsed column in the top-left corner."
-        menu.addItem(stackSticky)
-        menu.addItem(.separator())
+        mac.addItem(stackSticky)
+        mac.addItem(.separator())
 
         let stayAwake = item("Stay awake (lid closed)", selector: #selector(AppDelegate.toggleStayAwake), target: target)
         stayAwake.state = state.sleepDisabled ? .on : .off
-        menu.addItem(stayAwake)
-        menu.addItem(item("Sleep now", selector: #selector(AppDelegate.sleepNow), target: target))
+        mac.addItem(stayAwake)
+        mac.addItem(item("Sleep now", selector: #selector(AppDelegate.sleepNow), target: target))
 
         let saver = item("Start screensaver", selector: #selector(AppDelegate.startScreensaver), target: target)
         saver.toolTip = "Launch the currently-selected screen saver now (Slab Status if chosen in System Settings)."
-        menu.addItem(saver)
+        mac.addItem(saver)
 
-        menu.addItem(buildAppearance(target: target))
+        mac.addItem(buildAppearance(target: target))
 
         let mute = item("Mute ambient sonification", selector: #selector(AppDelegate.toggleMute), target: target)
         mute.state = state.muted ? .on : .off
-        menu.addItem(mute)
-        menu.addItem(.separator())
+        mac.addItem(mute)
+        menu.addItem(section("Mac", symbol: "desktopcomputer", submenu: mac))
 
-        menu.addItem(item("Open daemon log", selector: #selector(AppDelegate.openDaemonLog), target: target))
-        menu.addItem(item("Open sounds folder", selector: #selector(AppDelegate.openSoundsFolder), target: target))
-        menu.addItem(.separator())
+        let slab = NSMenu()
+        slab.addItem(item("Open daemon log", selector: #selector(AppDelegate.openDaemonLog), target: target))
+        slab.addItem(item("Open sounds folder", selector: #selector(AppDelegate.openSoundsFolder), target: target))
+        slab.addItem(.separator())
+        slab.addItem(item("Reload daemon", selector: #selector(AppDelegate.reloadDaemon), target: target))
+        menu.addItem(section("Slab", symbol: "square.stack.3d.up.fill", submenu: slab))
 
-        menu.addItem(item("Reload daemon", selector: #selector(AppDelegate.reloadDaemon), target: target))
-        menu.addItem(item("Quit menu bar", selector: #selector(AppDelegate.quitMenubar), target: target))
+        menu.addItem(.separator())
+        menu.addItem(item("About Slab", selector: #selector(AppDelegate.showAboutSlab), target: target))
+        menu.addItem(item("Quit Slab", selector: #selector(AppDelegate.quitMenubar), target: target))
     }
 
     private static func info(_ title: String) -> NSMenuItem {
@@ -133,6 +161,35 @@ enum MenuBuilder {
         it.target = target
         it.isEnabled = true
         return it
+    }
+
+    /// Consistent first-level navigation: every subsystem is represented by
+    /// one titled, symbol-bearing parent instead of spilling its controls into
+    /// the root menu. Deeper builders keep ownership of their own details.
+    private static func section(_ title: String, symbol: String, submenu: NSMenu) -> NSMenuItem {
+        submenu.autoenablesItems = false
+        let parent = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        if let image = NSImage(systemSymbolName: symbol, accessibilityDescription: title) {
+            image.isTemplate = true
+            parent.image = image.withSymbolConfiguration(
+                NSImage.SymbolConfiguration(pointSize: 13, weight: .regular)
+            ) ?? image
+        }
+        parent.submenu = submenu
+        return parent
+    }
+
+    private static func agentTitle(_ state: StateSnapshot) -> String {
+        let sessions = state.claudeSessions.count
+        let subagents = state.activeSubagents
+        if sessions == 0 {
+            return subagents > 0 ? "Agents: \(subagents) subagents" : "Agents: idle"
+        }
+        let subagentSuffix = subagents > 0 ? " · +\(subagents) subagents" : ""
+        if state.anyAwaiting {
+            return "Agents: \(state.awaitingCount) awaiting · \(sessions) active\(subagentSuffix)"
+        }
+        return "Agents: \(sessions) active\(subagentSuffix)"
     }
 
     /// Extra mail accounts loaded from untracked `~/.config/slab/mail-accounts.json`
@@ -235,6 +292,9 @@ enum MenuBuilder {
         var byID: [String: PopRender] = [:]
         for r in state.popRenders { byID[r.id] = r }
         for item in menu.items {
+            if let submenu = item.submenu {
+                updatePopRenders(in: submenu, state: state)
+            }
             guard let raw = item.identifier?.rawValue,
                   raw.hasPrefix(popRenderItemIDPrefix) else { continue }
             let id = String(raw.dropFirst(popRenderItemIDPrefix.count))
@@ -346,30 +406,12 @@ enum MenuBuilder {
         return parent
     }
 
-    /// Inline the Claude session list straight into the main menu so the
-    /// user can see (and click into) every thread without drilling through
-    /// a submenu. Each row is colored with the same palette as its icon
+    /// List Claude/Codex sessions inside the Agents section. Each row is
+    /// colored with the same palette as its icon
     /// edge — cyan for working, red for awaiting, gray for stale — so the
     /// menubar polygon and the dropdown read as the same picture.
     private static func appendClaude(to menu: NSMenu, state: StateSnapshot, target: AppDelegate) {
         let sessions = state.claudeSessions
-        // Label by the agent(s) present: a single agent names itself
-        // ("Claude" / "Codex"); a mix reads as "Agents".
-        let agentTypes = Set(sessions.map { $0.agentType })
-        let label: String = {
-            guard let only = agentTypes.first, agentTypes.count == 1 else { return "Agents" }
-            return only.isEmpty ? "Claude" : only.prefix(1).uppercased() + only.dropFirst()
-        }()
-        let header: String
-        if sessions.isEmpty {
-            header = "Agents: idle"
-        } else if state.anyAwaiting {
-            header = "\(label): \(state.awaitingCount) awaiting · \(sessions.count) active"
-        } else {
-            header = "\(label): \(sessions.count) active"
-        }
-        menu.addItem(info(header))
-
         menu.addItem(buildRestoreSubmenu(state: state, target: target))
 
         if !sessions.isEmpty {
@@ -431,83 +473,6 @@ enum MenuBuilder {
         let parent = NSMenuItem(title: "Restore threads", action: nil, keyEquivalent: "")
         let sub = NSMenu()
 
-        let tile = item("Auto tile windows", selector: #selector(AppDelegate.toggleAutoTile), target: target)
-        tile.state = state.autoTile ? .on : .off
-        sub.addItem(tile)
-        let tileNow = item("Tile now", selector: #selector(AppDelegate.tileNow), target: target)
-        tileNow.keyEquivalent = "t"
-        tileNow.keyEquivalentModifierMask = [.command, .option]
-        sub.addItem(tileNow)
-
-        // Scatter — the inverse of Tile: shrink every session into tiny confetti
-        // windows jittered across the desktop (non-overlapping, lots of desktop
-        // showing through) with super-tiny text.
-        let scatterNow = item("Scatter now", selector: #selector(AppDelegate.scatterNow), target: target)
-        scatterNow.keyEquivalent = "s"
-        scatterNow.keyEquivalentModifierMask = [.command, .option]
-        scatterNow.toolTip = "Opposite of Tile — shrink each session to a tiny window with super-small text and scatter them across the desktop without overlapping, so most of the desktop shows through."
-        sub.addItem(scatterNow)
-
-        // Text size — radio trio so the active mode is visible at a glance.
-        // Far = auto-fit "suitable", Near = denser, Tiny = edge-of-legibility.
-        let textParent = NSMenuItem(title: "Text size", action: nil, keyEquivalent: "")
-        let textSub = NSMenu()
-        let farItem = NSMenuItem(title: "Far (suitable)", action: #selector(AppDelegate.setTextFar), keyEquivalent: "")
-        farItem.target = target
-        farItem.state = state.textSize == .far ? .on : .off
-        textSub.addItem(farItem)
-        let nearItem = NSMenuItem(title: "Near (small)", action: #selector(AppDelegate.setTextNear), keyEquivalent: "")
-        nearItem.target = target
-        nearItem.state = state.textSize == .near ? .on : .off
-        textSub.addItem(nearItem)
-        let tinyItem = NSMenuItem(title: "Tiny (tightest)", action: #selector(AppDelegate.setTextTiny), keyEquivalent: "")
-        tinyItem.target = target
-        tinyItem.state = state.textSize == .tiny ? .on : .off
-        textSub.addItem(tinyItem)
-        textParent.submenu = textSub
-        sub.addItem(textParent)
-
-        let theme = item("Theme by status", selector: #selector(AppDelegate.toggleThemeByStatus), target: target)
-        theme.state = state.themeByStatus ? .on : .off
-        theme.toolTip = "Re-skin Terminal windows by Claude state — Ocean for working, Red Sands for awaiting, custom title shows the subject"
-        sub.addItem(theme)
-
-        let bright = item("Bright (sunlight)", selector: #selector(AppDelegate.toggleForceBright), target: target)
-        bright.state = state.forceBright ? .on : .off
-        bright.toolTip = "Force the bright, sunlight-readable status palettes regardless of the macOS Auto dark/light schedule — for working outdoors"
-        sub.addItem(bright)
-
-        let sigils = item("PromptRocks", selector: #selector(AppDelegate.togglePromptSigils), target: target)
-        sigils.state = state.promptSigils ? .on : .off
-        sigils.toolTip = "Pin a PromptRock to each session's terminal top-right: its pet name stays fixed for the thread while its prompt-shaped form can evolve; colour follows status, and hovering or clicking reveals its subject summary"
-        sub.addItem(sigils)
-
-        let lens = item("Zoom lens (⌃⌃)", selector: #selector(AppDelegate.toggleZoomLens), target: target)
-        lens.state = state.zoomLens ? .on : .off
-        lens.toolTip = "Tap ⌃ twice for a zoom-and-flame special move on the window under the pointer. Move or drag onto another window to ease across, refit, recenter, and fire it again. ⌃⌃ zooms back out."
-        sub.addItem(lens)
-
-        let preferIterm = item("Spawn in iTerm2", selector: #selector(AppDelegate.togglePreferIterm), target: target)
-        preferIterm.state = state.preferIterm ? .on : .off
-        preferIterm.toolTip = "Restore-threads and restart-all open sessions in iTerm2 instead of Terminal.app — the only terminal that shows the tiled, per-session topic wallpapers."
-        sub.addItem(preferIterm)
-
-        sub.addItem(.separator())
-
-        // Experimental: tint overlay over the focused Terminal window. Toggles
-        // on/off for the front window. Mostly here to prove the
-        // overlay-window-tracks-Terminal approach works before we sink time
-        // into the real plist-rewrite-for-bg-image path.
-        let overlay = item("Tint overlay on front window", selector: #selector(AppDelegate.toggleBackgroundOverlay), target: target)
-        overlay.toolTip = "Park a translucent NSWindow over the front Terminal — proof of concept for bg image / transparency. Click again on the same window to remove."
-        sub.addItem(overlay)
-
-        let clearOverlays = item("Clear all overlays", selector: #selector(AppDelegate.clearBackgroundOverlays), target: target)
-        clearOverlays.toolTip = "Remove every active tint overlay across all Terminal windows."
-        sub.addItem(clearOverlays)
-
-        sub.addItem(.separator())
-
         for n in 1...10 {
             let entry = NSMenuItem(
                 title: "Restore last \(n)",
@@ -519,6 +484,71 @@ enum MenuBuilder {
             entry.isEnabled = true
             sub.addItem(entry)
         }
+        parent.submenu = sub
+        return parent
+    }
+
+    private static func buildWindowLayout(state: StateSnapshot, target: AppDelegate) -> NSMenuItem {
+        let parent = NSMenuItem(title: "Window layout", action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        let tile = item("Auto tile windows", selector: #selector(AppDelegate.toggleAutoTile), target: target)
+        tile.state = state.autoTile ? .on : .off
+        sub.addItem(tile)
+
+        let tileNow = item("Tile now", selector: #selector(AppDelegate.tileNow), target: target)
+        tileNow.keyEquivalent = "t"
+        tileNow.keyEquivalentModifierMask = [.command, .option]
+        sub.addItem(tileNow)
+
+        let scatterNow = item("Scatter now", selector: #selector(AppDelegate.scatterNow), target: target)
+        scatterNow.keyEquivalent = "s"
+        scatterNow.keyEquivalentModifierMask = [.command, .option]
+        scatterNow.toolTip = "Shrink each session into a tiny window and scatter them across the desktop."
+        sub.addItem(scatterNow)
+        sub.addItem(.separator())
+
+        let textParent = NSMenuItem(title: "Text size", action: nil, keyEquivalent: "")
+        let textSub = NSMenu()
+        let sizes: [(String, Selector, TextSize)] = [
+            ("Far (suitable)", #selector(AppDelegate.setTextFar), .far),
+            ("Near (small)", #selector(AppDelegate.setTextNear), .near),
+            ("Tiny (tightest)", #selector(AppDelegate.setTextTiny), .tiny),
+        ]
+        for (title, selector, size) in sizes {
+            let entry = item(title, selector: selector, target: target)
+            entry.state = state.textSize == size ? .on : .off
+            textSub.addItem(entry)
+        }
+        textParent.submenu = textSub
+        sub.addItem(textParent)
+        parent.submenu = sub
+        return parent
+    }
+
+    private static func buildAgentAppearance(state: StateSnapshot, target: AppDelegate) -> NSMenuItem {
+        let parent = NSMenuItem(title: "Terminal experience", action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+
+        let theme = item("Theme by status", selector: #selector(AppDelegate.toggleThemeByStatus), target: target)
+        theme.state = state.themeByStatus ? .on : .off
+        sub.addItem(theme)
+        let bright = item("Bright (sunlight)", selector: #selector(AppDelegate.toggleForceBright), target: target)
+        bright.state = state.forceBright ? .on : .off
+        sub.addItem(bright)
+        let sigils = item("PromptRocks", selector: #selector(AppDelegate.togglePromptSigils), target: target)
+        sigils.state = state.promptSigils ? .on : .off
+        sub.addItem(sigils)
+        let lens = item("Zoom lens (⌃⌃)", selector: #selector(AppDelegate.toggleZoomLens), target: target)
+        lens.state = state.zoomLens ? .on : .off
+        sub.addItem(lens)
+        let preferIterm = item("Spawn in iTerm2", selector: #selector(AppDelegate.togglePreferIterm), target: target)
+        preferIterm.state = state.preferIterm ? .on : .off
+        sub.addItem(preferIterm)
+        sub.addItem(.separator())
+
+        let overlay = item("Tint overlay on front window", selector: #selector(AppDelegate.toggleBackgroundOverlay), target: target)
+        sub.addItem(overlay)
+        sub.addItem(item("Clear all overlays", selector: #selector(AppDelegate.clearBackgroundOverlays), target: target))
         parent.submenu = sub
         return parent
     }
@@ -736,10 +766,36 @@ enum MenuBuilder {
             sub.addItem(item("Live tail in terminal", selector: #selector(AppDelegate.openImsgTail), target: target))
             sub.addItem(item("Open in Messages", selector: #selector(AppDelegate.openImsg), target: target))
             sub.addItem(.separator())
+            let acknowledge = item("Mark as ingested",
+                                   selector: #selector(AppDelegate.acknowledgeImsg),
+                                   target: target)
+            acknowledge.toolTip = "Clear Slab's pending-input count for this conversation. This is separate from Messages.app's read badge."
+            sub.addItem(acknowledge)
+            sub.addItem(.separator())
         } else {
             sub.addItem(info("Not set up — fill in the contact config:"))
         }
         sub.addItem(item("Edit contact config", selector: #selector(AppDelegate.openImsgConfig), target: target))
+        parent.submenu = sub
+        return parent
+    }
+
+    private static func buildSignal(status: String, configured: Bool, target: AppDelegate) -> NSMenuItem {
+        let parent = NSMenuItem(title: status, action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        if configured {
+            sub.addItem(item("Open Signal", selector: #selector(AppDelegate.openSignal), target: target))
+            sub.addItem(.separator())
+            let acknowledge = item("Mark as ingested",
+                                   selector: #selector(AppDelegate.acknowledgeSignal),
+                                   target: target)
+            acknowledge.toolTip = "Clear Slab's pending-input count for the watched Signal conversation."
+            sub.addItem(acknowledge)
+            sub.addItem(.separator())
+        } else {
+            sub.addItem(info("Not set up — fill in the Signal contact config:"))
+        }
+        sub.addItem(item("Edit contact config", selector: #selector(AppDelegate.openSignalConfig), target: target))
         parent.submenu = sub
         return parent
     }

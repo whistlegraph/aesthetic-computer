@@ -148,6 +148,10 @@ struct StateSnapshot {
     /// menubar always carries the signal, while themed terminals also receive
     /// the shared message accent. This is passive awareness only.
     var messageWaiting: Bool = false
+    /// Total messages not yet ingested by Slab across the watched input
+    /// channels. Unlike each desktop app's read badge, this clears when the
+    /// agent checks, reads, or replies through the bridge.
+    var inputNotificationCount: Int = 0
     /// Deskflow KVM — present only on machines with a deskflow.json; the
     /// menu shows a status line + Start/Stop/Restart for the LaunchAgent.
     var deskflow: DeskflowState = DeskflowState()

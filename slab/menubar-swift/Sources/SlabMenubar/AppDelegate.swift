@@ -95,6 +95,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var imsgStatus = "—"
     private var imsgConfigured = false
     private var imsgUnread = 0
+    private var signalPending = false
+    private var signalStatus = "Signal: —"
+    private var signalConfigured = false
+    private var signalUnread = 0
     /// Keeps a just-arrived message visible to Slab even if Messages marks it
     /// read before our next snapshot. Unread messages keep the signal alive;
     /// this short edge pulse covers the actual arrival moment.
@@ -169,8 +173,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Contact awareness has its own lightweight clock instead of riding
         // the fleet refresh. Poll once at launch, then every three seconds.
         refreshImsgCount()
+        refreshSignalCount()
         let contactTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) {
-            [weak self] _ in self?.refreshImsgCount()
+            [weak self] _ in
+            self?.refreshImsgCount()
+            self?.refreshSignalCount()
         }
         imsgTimer = contactTimer
         RunLoop.main.add(contactTimer, forMode: .common)
@@ -353,8 +360,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 // the menubar should notice an arrival even on an unthemed
                 // wall. Unread keeps it present; the edge pulse catches a
                 // message that another device marks read almost immediately.
-                self.state.messageWaiting = self.imsgUnread > 0
-                    || Date() < self.imsgArrivalVisibleUntil
+                self.applyInputNotificationState()
 
                 self.updateIcon()
                 self.updateAnimTimer()
@@ -444,6 +450,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             mailStatus: mailStatus,
             imsgStatus: imsgStatus,
             imsgConfigured: imsgConfigured,
+            signalStatus: signalStatus,
+            signalConfigured: signalConfigured,
             asana: asanaState,
             deploy: deployState,
             target: self
@@ -486,16 +494,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // recolor non-template images on macOS 10.14+.
         button.contentTintColor = nil
         button.image = IconRenderer.image(for: state, phase: rainbowPhase, rotation: rotationPhase)
-        // When the polygon icon is showing, the edge count communicates the
-        // number — only show a numeric tail for subagents (which the polygon
-        // doesn't represent) or the legacy fallback states.
-        if state.claudeSessions.isEmpty && state.totalActive > 0 {
-            button.title = " \(state.totalActive)"
-        } else if state.activeSubagents > 0 {
-            button.title = " +\(state.activeSubagents)"
-        } else {
-            button.title = ""
+        // The red message signal is an event; its numeric tail says how many
+        // inputs remain un-ingested. Agent counts stay separate with a `+`.
+        var tails: [String] = []
+        if state.inputNotificationCount > 0 {
+            tails.append(String(state.inputNotificationCount))
         }
+        if state.claudeSessions.isEmpty && state.totalActive > 0 {
+            tails.append("+\(state.totalActive)")
+        } else if state.activeSubagents > 0 {
+            tails.append("+\(state.activeSubagents)")
+        }
+        button.title = tails.isEmpty ? "" : " " + tails.joined(separator: " ")
     }
 
     private func updateAnimTimer() {
@@ -633,8 +643,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     self.imsgArrivalVisibleUntil = Date().addingTimeInterval(15)
                     self.bumpBoundProx(displayLabel: label, message: lastText)
                 }
-                self.state.messageWaiting = unread > 0
-                    || Date() < self.imsgArrivalVisibleUntil
+                self.applyInputNotificationState()
                 self.imsgPending = false
                 self.updateIcon()
                 self.updateAnimTimer()
@@ -643,6 +652,66 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
             }
         }
+    }
+
+    /// Signal mirrors the iMessage poll, but keeps its own ingestion cursor.
+    /// The icon folds both counts together while the menu preserves the
+    /// per-channel breakdown.
+    private func refreshSignalCount() {
+        let helper = Paths.signalHelper
+        guard FileManager.default.isExecutableFile(atPath: helper) else {
+            signalStatus = "Signal: helper missing"
+            signalConfigured = false
+            signalUnread = 0
+            applyInputNotificationState()
+            return
+        }
+        guard !signalPending else { return }
+        signalPending = true
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let out = ShellRunner.run(helper, args: ["status"], timeout: 8).output
+            let line = out.split(separator: "\n").last.map(String.init) ?? ""
+            var label = "Signal: —"
+            var configured = false
+            var unread = 0
+            var newSinceLast = false
+            var helperError: String?
+            if let data = line.data(using: .utf8),
+               let obj = try? JSONSerialization.jsonObject(with: data)
+                   as? [String: Any] {
+                label = (obj["label"] as? String) ?? label
+                configured = (obj["configured"] as? Bool) ?? false
+                unread = (obj["unread"] as? Int) ?? 0
+                newSinceLast = (obj["newSinceLast"] as? Bool) ?? false
+                helperError = obj["error"] as? String
+            }
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if let helperError = helperError {
+                    NSLog("💬 [signal] watcher error: \(helperError)")
+                }
+                let wasWaiting = self.state.messageWaiting
+                self.signalStatus = label
+                self.signalConfigured = configured
+                self.signalUnread = unread
+                if newSinceLast {
+                    self.imsgArrivalVisibleUntil = Date().addingTimeInterval(15)
+                }
+                self.applyInputNotificationState()
+                self.signalPending = false
+                self.updateIcon()
+                self.updateAnimTimer()
+                if wasWaiting != self.state.messageWaiting {
+                    self.applyTerminalDecor()
+                }
+            }
+        }
+    }
+
+    private func applyInputNotificationState() {
+        state.inputNotificationCount = imsgUnread + signalUnread
+        state.messageWaiting = state.inputNotificationCount > 0
+            || Date() < imsgArrivalVisibleUntil
     }
 
     /// Poke the prox explicitly assigned to iMessage awareness and optionally
@@ -933,6 +1002,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ShellRunner.run("/usr/bin/open", args: ["-t", Paths.imsgConfig])
     }
 
+    @objc func acknowledgeImsg() {
+        ShellRunner.runAsync(Paths.imsgHelper, args: ["ack"]) { [weak self] in
+            DispatchQueue.main.async { self?.refreshImsgCount() }
+        }
+    }
+
+    @objc func openSignal() {
+        ShellRunner.runAsync(Paths.signalHelper, args: ["open"])
+    }
+
+    @objc func openSignalConfig() {
+        ShellRunner.run(Paths.signalHelper, args: ["config"])
+        ShellRunner.run("/usr/bin/open", args: ["-t", Paths.signalConfig])
+    }
+
+    @objc func acknowledgeSignal() {
+        ShellRunner.runAsync(Paths.signalHelper, args: ["ack"]) { [weak self] in
+            DispatchQueue.main.async { self?.refreshSignalCount() }
+        }
+    }
+
     // MARK: - Deskflow KVM
 
     /// Read the launchd agent label from the untracked deskflow config.
@@ -1131,6 +1221,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             ShellRunner.run("/bin/launchctl", args: ["unload", Paths.daemonPlist])
             ShellRunner.run("/bin/launchctl", args: ["load", Paths.daemonPlist])
         }
+    }
+
+    @objc func showAboutSlab() {
+        SlabAboutWindow.show()
     }
 
     @objc func quitMenubar() {

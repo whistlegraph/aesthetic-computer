@@ -31,6 +31,8 @@ enum Paths {
     /// never in tracked code). Mirrors the slab-wallpaper wrapper convention.
     static var imsgHelper: String { "\(slabBin)/imsg" }
     static var imsgConfig: String { "\(home)/.config/slab/imsg.json" }
+    static var signalHelper: String { "\(slabBin)/signal" }
+    static var signalConfig: String { "\(home)/.config/slab/signal.json" }
     /// Optional prox binding written by `prox_bind_notification`. It contains
     /// only a stable local session id and wake flag; contact identity remains
     /// in the separate private iMessage config.

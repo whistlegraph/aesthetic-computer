@@ -14,22 +14,19 @@ Native macOS menu-bar app for the slab workflow — replaces `slab/bin/slab-menu
 
 The status-item icon changes by state:
 
-| State                                              | SF Symbol                           |
-| -------------------------------------------------- | ----------------------------------- |
-| idle (no work)                                     | `square.stack.3d.up` (outline)      |
-| N active, lid open                                 | `square.stack.3d.up.fill` + `N`     |
-| N active, lid closed, sleep disabled (working)     | `moon.zzz.fill` + `N`               |
-| N active, lid closed, sleep NOT disabled (⚠ drift) | `exclamationmark.triangle.fill` + N |
-| ambient synth running                              | `waveform.path.ecg`                 |
+| State | Menu-bar picture |
+| --- | --- |
+| idle (no work) | slow-spinning rainbow line |
+| N agent sessions | N-sided status polygon (one line / two bars / triangle…) |
+| input waiting, no agent sessions | `message.fill` + un-ingested count |
+| input waiting with agent sessions | message dot over the session polygon |
+| ambient synth running | `waveform.path.ecg` |
+| lid closed with unrepresented work | `moon.zzz.fill` or warning triangle |
 
-Menu contents are parity with the Python version:
-
-- status line + active-prompt / active-subagent counts
-- Tailnet submenu (click peer → opens `ssh <host>` in Terminal.app)
-- Mail submenu (`mbsync` + `mu index`, open sync log)
-- Stay-awake toggle / Sleep now
-- Open daemon log / Open sounds folder
-- Reload daemon / Quit menu bar
+The root menu stays deliberately short and stable: Agents, Inbox, Work,
+Fleet & System, Media & Capture, Mac, and Slab. Each owns its details in a
+submenu; layout and terminal styling no longer crowd the Restore Threads menu.
+The footer contains a native About Slab window and Quit Slab.
 
 Refresh cadence: 2 s. Mail unread count refreshes every 30 s (15 ticks).
 
