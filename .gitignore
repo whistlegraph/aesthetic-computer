@@ -524,5 +524,11 @@ slab/menuband/build/export-*/
 # project directory; intermediate renders and QA scratch stay local.
 /outputs/
 
+# Generated media workspaces and local executable builds.
+/marketing/essay-reels/out/
+/marketing/talking-head/out/
+/pop/nullabye/c/spatial-sineabye
+/.mcp.json.bak
+
 # personal tailnet ACL scratchpad (not for the public repo)
 scratchpad-jas-nzxt-acl.md
