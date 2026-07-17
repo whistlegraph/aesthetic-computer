@@ -21,7 +21,7 @@ import { execFile } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import * as readline from "node:readline";
+import { httpPort, serveHttp, serveStdio } from "../mcp/http-front.mjs";
 
 const HOME = homedir();
 // Prefer the normalized/proposal file, fall back to canonical. Override with env.
@@ -222,7 +222,7 @@ async function handleMessage(message) {
 }
 
 // Allow a quick CLI smoke test: `node fleet-mcp.mjs list|find <cap>|machine <name>`.
-if (process.argv[2]) {
+if (process.argv[2] && process.argv[2] !== "--http") {
   const [cmd, arg] = process.argv.slice(2);
   const map = { list: () => toolList(), find: () => toolFind({ capability: arg }), machine: () => toolMachine({ name: arg }), designations: () => toolDesignations() };
   const fn = map[cmd];
@@ -232,15 +232,7 @@ if (process.argv[2]) {
   }
   fn().then((c) => console.log(c.map((x) => x.text).join("\n"))).catch((e) => { console.error(String(e.message || e)); process.exit(1); });
 } else {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: false });
-  rl.on("line", async (line) => {
-    if (!line.trim()) return;
-    try {
-      const response = await handleMessage(JSON.parse(line));
-      if (response) console.log(JSON.stringify(response));
-    } catch (e) {
-      console.error(JSON.stringify({ jsonrpc: "2.0", id: null, error: { code: -32700, message: `Parse error: ${e.message}` } }));
-    }
-  });
-  console.error("🛰  fleet-mcp server started (fleet_list, fleet_machine, fleet_find, fleet_designations)");
+  const port = httpPort(process.argv, 7776);
+  if (port) serveHttp({ handleMessage, port, banner: "🛰  fleet-mcp shared daemon" });
+  else serveStdio({ handleMessage, banner: "🛰  fleet-mcp server started (fleet_list, fleet_machine, fleet_find, fleet_designations)" });
 }

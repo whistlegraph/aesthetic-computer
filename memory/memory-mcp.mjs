@@ -10,10 +10,10 @@
 // ever crosses the network, and a machine that's asleep simply drops out of the
 // results instead of failing the search.
 //
-// Machines come from the registry `frame`/`puppet` already keep at
-// ~/.config/slab/puppet.json — one fleet list, not three. A machine's name
-// doubles as its ssh host unless it sets "sshHost"; set "repo" to override
-// where the checkout lives (default ~/aesthetic-computer).
+// Machines come from the fleet registry first, with the older frame/puppet
+// registry layered on top for SSH/CDP overrides. A machine's name doubles as
+// its ssh host unless it sets `sshHost`/`ssh.alias`/`ssh`; set `repo` or
+// `repoPath` to override where the checkout lives.
 //
 // Hand-rolled JSON-RPC over stdio, matching the house style of
 // slab/bin/frame-mcp.mjs and artery/emacs-mcp.mjs — no SDK, node builtins only.
@@ -27,29 +27,118 @@ import { httpPort, serveHttp, serveStdio } from "../toolchain/mcp/http-front.mjs
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const HOME = homedir();
-const REGISTRY = process.env.SLAB_PUPPET_CONFIG || join(HOME, ".config", "slab", "puppet.json");
+const REPO = join(HERE, "..");
+const FLEET_REGISTRIES = [
+  process.env.FLEET_MACHINES,
+  join(HOME, "aesthetic-computer-vault", "machines.normalized.json"),
+  join(HOME, "aesthetic-computer-vault", "machines.json"),
+  join(REPO, "aesthetic-computer-vault", "machines.normalized.json"),
+  join(REPO, "aesthetic-computer-vault", "machines.json"),
+].filter(Boolean);
+const PUPPET_REGISTRY =
+  process.env.SLAB_PUPPET_CONFIG || join(HOME, ".config", "slab", "puppet.json");
+const LEDGER_LOCAL = join(HOME, ".config", "slab", "ledger", "local.json");
 const DEFAULT_REPO = "~/aesthetic-computer";
-const SELF = hostname().split(".")[0]; // e.g. blueberry — what `local` actually is
+const SELF = localHostName(); // e.g. neo/blueberry — what `local` actually is
 
-// The fleet, as frame/puppet already know it. `local` is always present — this
-// Mac searches its own store in-process, no ssh.
-function machines() {
-  let registry = {};
-  if (existsSync(REGISTRY)) {
-    try {
-      registry = JSON.parse(readFileSync(REGISTRY, "utf8")).machines || {};
-    } catch {
-      registry = {};
-    }
+function readJson(path) {
+  if (!path || !existsSync(path)) return null;
+  try {
+    return JSON.parse(readFileSync(path, "utf8"));
+  } catch {
+    return null;
   }
-  const out = { ...registry };
-  delete out._README;
-  if (!out.local) out.local = { local: true };
-  // This Mac already answers as `local`. If the fleet list also names it (we're
-  // running ON blueberry and blueberry is registered), drop the named copy —
-  // otherwise its store gets searched twice and every hit shows up doubled.
+}
+
+function localHostName() {
+  const ledger = readJson(LEDGER_LOCAL);
+  if (ledger?.host) return ledger.host;
+  return hostname().split(".")[0];
+}
+
+function loadFleet() {
+  for (const path of FLEET_REGISTRIES) {
+    const data = readJson(path);
+    const machines = data?.machines || data;
+    if (machines && typeof machines === "object") return { path, machines };
+  }
+  return { path: null, machines: {} };
+}
+
+function loadPuppet() {
+  const data = readJson(PUPPET_REGISTRY);
+  return data?.machines || data || {};
+}
+
+function sshHost(name, spec) {
+  const ssh = spec.ssh;
+  return (
+    spec.sshHost ||
+    (typeof ssh === "string" ? ssh : ssh?.alias || ssh?.host) ||
+    spec.host ||
+    spec.tailscale?.name ||
+    spec.hostname ||
+    name
+  );
+}
+
+function repoPath(spec) {
+  return spec.repo || spec.repoPath || DEFAULT_REPO;
+}
+
+function memoryCandidate(name, spec, puppet) {
+  if (name === SELF || spec.local || puppet[name]) return true;
+  const caps = spec.capabilities || [];
+  return (
+    caps.includes("macos-automation") ||
+    caps.includes("tailnet-api") ||
+    caps.includes("mail") ||
+    spec.designation === "agent-endpoint"
+  );
+}
+
+function normalizeMachine(name, spec = {}, puppet = {}) {
+  return {
+    ...spec,
+    ...puppet,
+    sourceName: name,
+    local: spec.local || name === SELF || puppet.local === true,
+    sshHost: sshHost(name, { ...spec, ...puppet }),
+    repo: repoPath({ ...spec, ...puppet }),
+  };
+}
+
+// The fleet, as the canonical registry knows it. `local` is always present —
+// this Mac searches its own store in-process, no ssh.
+function machines() {
+  const { machines: fleet } = loadFleet();
+  const puppet = loadPuppet();
+  const out = {};
+
+  for (const [name, spec] of Object.entries(fleet)) {
+    if (name.startsWith("_")) continue;
+    if (!memoryCandidate(name, spec, puppet)) continue;
+    out[name] = normalizeMachine(name, spec, puppet[name]);
+  }
+
+  // Puppet-only machines are still valid; they may be work boxes not promoted
+  // into the fleet registry yet.
+  for (const [name, spec] of Object.entries(puppet)) {
+    if (name.startsWith("_") || out[name]) continue;
+    out[name] = normalizeMachine(name, {}, spec);
+  }
+
+  // This Mac already answers as `local`. If the fleet list also names it, drop
+  // the named copy — otherwise its store gets searched twice and every hit
+  // shows up doubled.
   delete out[SELF];
+  out.local = normalizeMachine("local", { local: true }, {});
   return out;
+}
+
+function registryLabel() {
+  const { path } = loadFleet();
+  return `${path || "(no fleet registry)"}; puppet overrides: ${PUPPET_REGISTRY}`;
 }
 
 function isLocal(name, spec) {
@@ -68,7 +157,7 @@ function runCli(name, spec, args, { timeoutMs = 20000 } = {}) {
 
   if (isLocal(name, spec)) {
     return execFileAsync("node", [join(HERE, "cli.mjs"), ...args, "--json"], {
-      cwd: join(HERE, ".."),
+      cwd: REPO,
       timeoutMs,
     });
   }
@@ -218,7 +307,7 @@ async function toolMachines() {
       ? `local  (= ${SELF}, this Mac — searched in-process, no ssh)`
       : `${name}  ssh=${spec.sshHost || name}  repo=${spec.repo || DEFAULT_REPO}`,
   );
-  lines.push(`\nregistry: ${REGISTRY}  (shared with frame/puppet — add a machine there and it's searchable here)`);
+  lines.push(`\nregistry: ${registryLabel()}  (fleet first; puppet supplies overrides and legacy machines)`);
   return [{ type: "text", text: lines.join("\n") }];
 }
 

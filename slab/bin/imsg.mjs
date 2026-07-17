@@ -15,6 +15,11 @@
 //
 // Subcommands:
 //   imsg status        JSON summary to stdout; rings bell on new inbound
+//   imsg chats [N]     recent indexed conversations (default 20)
+//   imsg read [N]      recent messages; optional --to <name|handle>
+//   imsg search <text> full-text search; optional --to and --limit
+//   imsg index         incrementally refresh the private local FTS index
+//   imsg use <name>    switch the notification/default contact safely
 //   imsg send <text>   send to an explicitly selected contact via Messages.app
 //   imsg react <kind>  classic Tapback on that contact's latest incoming message
 //   imsg tail          live terminal client (prints + BEL on new inbound)
@@ -23,9 +28,11 @@
 
 import { spawnSync } from "node:child_process";
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   readFileSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
@@ -39,8 +46,11 @@ const STATE_DIR = join(
   "imsg",
 );
 const STATE_PATH = join(STATE_DIR, "state.json");
+const ACK_PATH = join(STATE_DIR, "ack.json");
+const INDEX_PATH = join(STATE_DIR, "index.sqlite");
 const CHAT_DB = join(HOME, "Library", "Messages", "chat.db");
 const SQLITE3 = "/usr/bin/sqlite3";
+const DEFAULT_INDEX_DAYS = 730;
 
 // ─── config ──────────────────────────────────────────────────────────────
 
@@ -133,6 +143,36 @@ function resolveRecipient(cfg, toArg) {
   throw new Error(`no contact matched "${toArg}" — known: ${Object.keys(m).join(", ") || "(none)"}`);
 }
 
+function resolveContactKey(cfg, name) {
+  const m = contactsMap(cfg);
+  const needle = String(name || "").trim().toLowerCase();
+  if (!needle) throw new Error("a configured contact name is required");
+  if (m[needle]) return needle;
+  const hits = Object.entries(m).filter(
+    ([key, value]) =>
+      key.includes(needle) ||
+      String(value.displayName || "").toLowerCase().includes(needle),
+  );
+  if (hits.length === 1) return hits[0][0];
+  if (hits.length > 1) {
+    throw new Error(`"${name}" is ambiguous — matched: ${hits.map(([key]) => key).join(", ")}`);
+  }
+  throw new Error(`no configured contact matched "${name}" — known: ${Object.keys(m).join(", ") || "(none)"}`);
+}
+
+function contactNameForHandles(cfg, handles, fallback = "") {
+  const ids = new Set((handles || []).map((h) => String(h).toLowerCase()));
+  for (const contact of Object.values(contactsMap(cfg))) {
+    if (contact.handles.some((h) => ids.has(String(h).toLowerCase()))) {
+      return contact.displayName;
+    }
+  }
+  if (Array.isArray(cfg?.handles) && cfg.handles.some((h) => ids.has(String(h).toLowerCase()))) {
+    return cfg.displayName || fallback;
+  }
+  return fallback || handles.join(", ") || "Unknown";
+}
+
 // ─── chat.db ─────────────────────────────────────────────────────────────
 
 function sqlite(query) {
@@ -153,6 +193,167 @@ function sqlite(query) {
   }
   const out = (r.stdout || "").trim();
   return out ? JSON.parse(out) : [];
+}
+
+function sqlString(value) {
+  return `'${String(value ?? "").replace(/\0/g, "").replace(/'/g, "''")}'`;
+}
+
+function indexSql(query, { json = true } = {}) {
+  mkdirSync(STATE_DIR, { recursive: true });
+  const args = ["-cmd", ".timeout 3000"];
+  if (json) args.push("-json");
+  args.push(INDEX_PATH, query);
+  const r = spawnSync(SQLITE3, args, {
+    encoding: "utf8",
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  if (r.status !== 0) throw new Error((r.stderr || "iMessage index failed").trim());
+  if (existsSync(INDEX_PATH)) chmodSync(INDEX_PATH, 0o600);
+  const out = (r.stdout || "").trim();
+  return json && out ? JSON.parse(out) : [];
+}
+
+function ensureIndexSchema() {
+  indexSql(
+    `PRAGMA journal_mode=DELETE;
+     CREATE TABLE IF NOT EXISTS meta (
+       key TEXT PRIMARY KEY,
+       value TEXT NOT NULL
+     );
+     CREATE TABLE IF NOT EXISTS messages (
+       source_rowid INTEGER NOT NULL,
+       chat_id INTEGER NOT NULL,
+       chat_guid TEXT NOT NULL DEFAULT '',
+       display_name TEXT NOT NULL DEFAULT '',
+       handles TEXT NOT NULL DEFAULT '[]',
+       from_me INTEGER NOT NULL DEFAULT 0,
+       body TEXT NOT NULL DEFAULT '',
+       at INTEGER NOT NULL DEFAULT 0,
+       PRIMARY KEY (source_rowid, chat_id)
+     );
+     CREATE INDEX IF NOT EXISTS messages_chat_at ON messages(chat_id, at DESC);
+     CREATE INDEX IF NOT EXISTS messages_at ON messages(at DESC);
+     CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
+       body, display_name, handles,
+       content='messages', content_rowid='rowid', tokenize='unicode61'
+     );
+     CREATE TRIGGER IF NOT EXISTS messages_ai AFTER INSERT ON messages BEGIN
+       INSERT INTO messages_fts(rowid, body, display_name, handles)
+       VALUES (new.rowid, new.body, new.display_name, new.handles);
+     END;
+     CREATE TRIGGER IF NOT EXISTS messages_ad AFTER DELETE ON messages BEGIN
+       INSERT INTO messages_fts(messages_fts, rowid, body, display_name, handles)
+       VALUES ('delete', old.rowid, old.body, old.display_name, old.handles);
+     END;
+     CREATE TRIGGER IF NOT EXISTS messages_au AFTER UPDATE ON messages BEGIN
+       INSERT INTO messages_fts(messages_fts, rowid, body, display_name, handles)
+       VALUES ('delete', old.rowid, old.body, old.display_name, old.handles);
+       INSERT INTO messages_fts(rowid, body, display_name, handles)
+       VALUES (new.rowid, new.body, new.display_name, new.handles);
+     END;`,
+    { json: false },
+  );
+}
+
+function indexMeta(key) {
+  return indexSql(`SELECT value FROM meta WHERE key=${sqlString(key)} LIMIT 1;`)[0]?.value;
+}
+
+function sourceIndexBatch(afterRowid, { all, limit = 750 } = {}) {
+  const floor = all
+    ? ""
+    : `AND date >= (strftime('%s','now','-${DEFAULT_INDEX_DAYS} days') - ${APPLE_EPOCH}) * 1000000000`;
+  return sqlite(
+    `SELECT m.ROWID AS id, cmj.chat_id AS chatId,
+            IFNULL(c.guid, '') AS chatGuid,
+            IFNULL(c.display_name, '') AS chatName,
+            IFNULL(c.chat_identifier, '') AS chatIdentifier,
+            m.is_from_me AS fromMe, m.text AS text,
+            hex(m.attributedBody) AS body, m.date AS date,
+            IFNULL((
+              SELECT group_concat(participant.id, char(31))
+              FROM (
+                SELECT DISTINCT h.id AS id
+                FROM chat_handle_join chj
+                JOIN handle h ON h.ROWID=chj.handle_id
+                WHERE chj.chat_id=c.ROWID
+                ORDER BY h.id
+              ) participant
+            ), '') AS handles
+     FROM message m
+     JOIN chat_message_join cmj ON cmj.message_id=m.ROWID
+     JOIN chat c ON c.ROWID=cmj.chat_id
+     WHERE m.ROWID IN (
+       SELECT ROWID FROM message
+       WHERE ROWID > ${Number(afterRowid) || 0} ${floor}
+       ORDER BY ROWID ASC LIMIT ${Math.max(1, Math.min(2000, Number(limit) || 750))}
+     )
+     ORDER BY m.ROWID ASC, cmj.chat_id ASC;`,
+  );
+}
+
+function syncIndex({ all = false, rebuild = false } = {}) {
+  if (rebuild && existsSync(INDEX_PATH)) {
+    rmSync(INDEX_PATH, { force: true });
+  }
+  ensureIndexSchema();
+  if (all && indexMeta("full") !== "1" && Number(indexMeta("last_rowid"))) {
+    rmSync(INDEX_PATH, { force: true });
+    ensureIndexSchema();
+  }
+  let lastRowid = Number(indexMeta("last_rowid")) || 0;
+  const cfg = loadConfig() || {};
+  let added = 0;
+  let batches = 0;
+
+  for (;;) {
+    const rows = sourceIndexBatch(lastRowid, { all });
+    if (!rows.length) break;
+    let batchMax = lastRowid;
+    const statements = [];
+    for (const row of rows) {
+      batchMax = Math.max(batchMax, Number(row.id) || 0);
+      const handles = String(row.handles || "").split("\x1f").filter(Boolean);
+      const fallback = row.chatName || (handles.length === 1 ? handles[0] : row.chatIdentifier);
+      const displayName = contactNameForHandles(cfg, handles, fallback);
+      const body = decodeBody(row.text, row.body);
+      statements.push(
+        `INSERT INTO messages
+          (source_rowid, chat_id, chat_guid, display_name, handles, from_me, body, at)
+         VALUES (
+          ${Number(row.id) || 0}, ${Number(row.chatId) || 0}, ${sqlString(row.chatGuid)},
+          ${sqlString(displayName)}, ${sqlString(JSON.stringify(handles))}, ${row.fromMe ? 1 : 0},
+          ${sqlString(body)}, ${appleNsToUnix(row.date)}
+         )
+         ON CONFLICT(source_rowid, chat_id) DO UPDATE SET
+          chat_guid=excluded.chat_guid, display_name=excluded.display_name,
+          handles=excluded.handles, from_me=excluded.from_me,
+          body=excluded.body, at=excluded.at;`,
+      );
+    }
+    indexSql(
+      `BEGIN IMMEDIATE;
+       ${statements.join("\n")}
+       INSERT INTO meta(key,value) VALUES('last_rowid',${sqlString(batchMax)})
+       ON CONFLICT(key) DO UPDATE SET value=excluded.value;
+       COMMIT;`,
+      { json: false },
+    );
+    added += rows.length;
+    batches += 1;
+    lastRowid = batchMax;
+  }
+
+  if (all) {
+    indexSql(
+      `INSERT INTO meta(key,value) VALUES('full','1')
+       ON CONFLICT(key) DO UPDATE SET value='1';`,
+      { json: false },
+    );
+  }
+  const total = Number(indexSql("SELECT COUNT(*) AS n FROM messages;")[0]?.n || 0);
+  return { path: INDEX_PATH, added, total, batches, full: indexMeta("full") === "1", lastRowid };
 }
 
 // Decode the message body. On modern macOS `text` is usually NULL and the
@@ -245,6 +446,42 @@ function loadState() {
 function saveState(s) {
   mkdirSync(STATE_DIR, { recursive: true });
   writeFileSync(STATE_PATH, JSON.stringify(s));
+}
+
+// Slab owns an acknowledgement cursor separate from Messages.app's read bit.
+// Reading chat.db is intentionally passive, so Apple may keep `is_read=0`
+// even after an agent has ingested and answered a message. The cursor is what
+// the menubar means by "un-ingested" and lives in its own file so the 3-second
+// status poll cannot race an acknowledgement write.
+function loadAcknowledgedRowid() {
+  try {
+    return Number(JSON.parse(readFileSync(ACK_PATH, "utf8")).rowid) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+function saveAcknowledgedRowid(rowid) {
+  mkdirSync(STATE_DIR, { recursive: true });
+  writeFileSync(ACK_PATH, JSON.stringify({ rowid: Number(rowid) || 0 }));
+}
+
+function pendingInbound(cfg, afterRowid) {
+  const ids = handleList(cfg);
+  return Number(
+    sqlite(
+      `SELECT COUNT(*) AS n FROM message m
+       JOIN handle h ON h.ROWID = m.handle_id
+       WHERE h.id IN (${ids}) AND m.is_from_me=0
+         AND m.ROWID > ${Number(afterRowid) || 0};`,
+    )[0]?.n || 0,
+  );
+}
+
+function acknowledge(cfg) {
+  const rowid = fetchSummary(cfg).maxInbound;
+  saveAcknowledgedRowid(rowid);
+  return rowid;
 }
 
 // ─── bell ────────────────────────────────────────────────────────────────
@@ -364,17 +601,25 @@ function cmdStatus() {
     const noFDA = /authorization denied|unable to open|not permitted/i.test(
       e.message,
     );
+    const watched = defaultContact(cfg);
     print({
       configured: true,
       label: noFDA
-        ? `${cfg.displayName}: needs Full Disk Access`
-        : `${cfg.displayName}: read error`,
+        ? `${watched?.displayName || cfg.displayName}: needs Full Disk Access`
+        : `${watched?.displayName || cfg.displayName}: read error`,
       error: e.message,
     });
     return;
   }
 
   const st = loadState();
+  let acknowledgedRowid = loadAcknowledgedRowid();
+  if (!acknowledgedRowid) {
+    // Migration/first run: baseline history instead of presenting every old
+    // message as newly un-ingested.
+    acknowledgedRowid = s.maxInbound;
+    saveAcknowledgedRowid(acknowledgedRowid);
+  }
   let newSinceLast = false;
   if (!st.primed) {
     // First run: baseline silently, never blast the bell for history.
@@ -390,18 +635,24 @@ function cmdStatus() {
   }
   saveState(st);
 
-  const name = cfg.displayName;
+  const pending = pendingInbound(cfg, acknowledgedRowid);
+
+  const name = defaultContact(cfg)?.displayName || cfg.displayName;
   const label =
-    s.unread > 0
-      ? `${name}: ${s.unread} new`
+    pending > 0
+      ? `${name}: ${pending} un-ingested`
       : s.last
-        ? `${name}: all read`
+        ? `${name}: ingested`
         : `${name}: —`;
   print({
     configured: true,
     label,
     displayName: name,
-    unread: s.unread,
+    // `unread` remains the compatibility field consumed by dm-mcp + Swift,
+    // but now means Slab-un-ingested. Apple's independent read count remains
+    // available for diagnostics.
+    unread: pending,
+    systemUnread: s.unread,
     newSinceLast,
     last: s.last
       ? {
@@ -413,6 +664,121 @@ function cmdStatus() {
   });
 }
 
+function takeFlag(args, flag) {
+  const i = args.indexOf(flag);
+  if (i < 0) return null;
+  const value = args[i + 1];
+  args.splice(i, value === undefined ? 1 : 2);
+  return value ?? "";
+}
+
+function recipientWhere(recipient, alias = "m") {
+  const handles = (recipient?.handles || []).map(sqlString).join(",");
+  if (!handles) throw new Error("recipient has no iMessage handles");
+  return `EXISTS (
+    SELECT 1 FROM json_each(${alias}.handles) participant
+    WHERE participant.value IN (${handles})
+  )`;
+}
+
+function stamp(unix) {
+  if (!unix) return "unknown time";
+  const d = new Date(Number(unix) * 1000);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function formatMessages(rows) {
+  return rows.map((row) => {
+    const direction = row.from_me ? "→ you" : `← ${row.display_name || "them"}`;
+    return `${stamp(row.at)}  ${direction} | ${row.body || "[attachment or empty message]"}`;
+  }).join("\n");
+}
+
+function cmdIndex(args = []) {
+  const all = args.includes("--all");
+  const rebuild = args.includes("--rebuild");
+  print(syncIndex({ all, rebuild }));
+}
+
+function cmdChats(args = []) {
+  syncIndex();
+  const n = Math.max(1, Math.min(100, Number(args[0]) || 20));
+  const rows = indexSql(
+    `WITH ranked AS (
+       SELECT m.*,
+              ROW_NUMBER() OVER (PARTITION BY chat_id ORDER BY at DESC, source_rowid DESC) AS rank,
+              COUNT(*) OVER (PARTITION BY chat_id) AS message_count
+       FROM messages m
+     )
+     SELECT chat_id, chat_guid, display_name, handles, from_me, body, at, message_count
+     FROM ranked WHERE rank=1
+     ORDER BY at DESC LIMIT ${n};`,
+  );
+  const out = rows.map((row) => {
+    const direction = row.from_me ? "→" : "←";
+    const handles = JSON.parse(row.handles || "[]").join(", ");
+    return `${row.display_name || handles || `chat ${row.chat_id}`} — ${stamp(row.at)} · ${row.message_count} indexed · ${direction} "${clip(row.body, 90)}"${handles ? ` · ${handles}` : ""}`;
+  });
+  process.stdout.write((out.join("\n") || "(no indexed iMessage conversations)") + "\n");
+}
+
+function cmdRead(args = []) {
+  syncIndex();
+  const cfg = loadConfig();
+  if (!cfg) throw new Error(`No contacts configured. Edit ${CONFIG_PATH}`);
+  const argv = [...args];
+  const toArg = takeFlag(argv, "--to");
+  const n = Math.max(1, Math.min(200, Number(argv[0]) || 15));
+  const recipient = resolveRecipient(cfg, toArg);
+  const rows = indexSql(
+    `SELECT source_rowid, chat_id, display_name, handles, from_me, body, at
+     FROM messages m
+     WHERE ${recipientWhere(recipient)}
+     ORDER BY at DESC, source_rowid DESC LIMIT ${n};`,
+  ).reverse();
+  process.stdout.write((formatMessages(rows) || `(no indexed messages for ${recipient.displayName})`) + "\n");
+}
+
+function ftsQuery(input) {
+  const terms = String(input || "").match(/[\p{L}\p{N}_@.+-]+/gu) || [];
+  if (!terms.length) throw new Error("search text is required");
+  return terms.map((term) => `"${term.replace(/"/g, '""')}"`).join(" AND ");
+}
+
+function cmdSearch(args = []) {
+  syncIndex();
+  const cfg = loadConfig();
+  const argv = [...args];
+  const toArg = takeFlag(argv, "--to");
+  const limitArg = takeFlag(argv, "--limit");
+  const limit = Math.max(1, Math.min(200, Number(limitArg) || 25));
+  const query = argv.join(" ").trim();
+  const recipient = toArg ? resolveRecipient(cfg, toArg) : null;
+  const scoped = recipient ? `AND ${recipientWhere(recipient)}` : "";
+  const rows = indexSql(
+    `SELECT m.source_rowid, m.chat_id, m.display_name, m.handles,
+            m.from_me, m.body, m.at
+     FROM messages_fts
+     JOIN messages m ON m.rowid=messages_fts.rowid
+     WHERE messages_fts MATCH ${sqlString(ftsQuery(query))} ${scoped}
+     ORDER BY m.at DESC, m.source_rowid DESC LIMIT ${limit};`,
+  );
+  process.stdout.write((formatMessages(rows) || `(no indexed iMessages matching "${query}")`) + "\n");
+}
+
+function cmdUse(name) {
+  const cfg = loadConfig();
+  if (!cfg) throw new Error(`No contacts configured. Edit ${CONFIG_PATH}`);
+  const key = resolveContactKey(cfg, name);
+  cfg.default = key;
+  writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2) + "\n", { mode: 0o600 });
+  const summary = fetchSummary(cfg);
+  saveAcknowledgedRowid(summary.maxInbound);
+  saveState({ primed: true, lastNotifiedRowid: summary.maxInbound });
+  print({ default: key, displayName: defaultContact(cfg).displayName });
+}
+
 // ─── command: tail (live terminal client) ────────────────────────────────
 
 async function cmdTail() {
@@ -421,6 +787,7 @@ async function cmdTail() {
     console.error(`No contact configured. Edit ${CONFIG_PATH}`);
     process.exit(1);
   }
+  const watched = defaultContact(cfg);
   const ids = handleList(cfg);
   let seen = Number(
     sqlite(
@@ -428,8 +795,9 @@ async function cmdTail() {
        JOIN handle h ON h.ROWID=m.handle_id WHERE h.id IN (${ids});`,
     )[0]?.r || 0,
   );
+  acknowledge(cfg);
   process.stdout.write(
-    `\x1b[2m── imsg · ${cfg.displayName} · type to reply, Ctrl-C to quit ──\x1b[0m\n`,
+    `\x1b[2m── imsg · ${watched.displayName} · type to reply, Ctrl-C to quit ──\x1b[0m\n`,
   );
 
   const readline = await import("node:readline");
@@ -439,6 +807,7 @@ async function cmdTail() {
     if (!body) return;
     try {
       sendMessage(defaultContact(cfg).handles, body);
+      acknowledge(cfg);
       process.stdout.write(`\x1b[36m  you ›\x1b[0m ${body}\n`);
     } catch (e) {
       process.stdout.write(`\x1b[31m  send failed: ${e.message}\x1b[0m\n`);
@@ -468,8 +837,9 @@ async function cmdTail() {
       } else {
         ringBell(cfg);
         process.stdout.write(
-          `\x07\x1b[35m  ${cfg.displayName} ›\x1b[0m ${txt}\n`,
+          `\x07\x1b[35m  ${watched.displayName} ›\x1b[0m ${txt}\n`,
         );
+        saveAcknowledgedRowid(Number(r.id));
       }
     }
   };
@@ -503,6 +873,30 @@ try {
     case "status":
       cmdStatus();
       break;
+    case "index":
+      cmdIndex(rest);
+      break;
+    case "chats":
+      cmdChats(rest);
+      break;
+    case "read":
+      cmdRead(rest);
+      break;
+    case "search":
+      cmdSearch(rest);
+      break;
+    case "use":
+      cmdUse(rest.join(" ").trim());
+      break;
+    case "ack": {
+      const cfg = loadConfig();
+      if (!cfg) {
+        console.error(`No contact configured. Edit ${CONFIG_PATH}`);
+        process.exit(1);
+      }
+      print({ acknowledged: true, rowid: acknowledge(cfg) });
+      break;
+    }
     case "resolve": {
       const cfg = loadConfig();
       if (!cfg) {
@@ -533,6 +927,10 @@ try {
       }
       const rcpt = resolveRecipient(cfg, toArg);
       sendMessage(rcpt.handles, body);
+      const watched = defaultContact(cfg);
+      if (watched && rcpt.handles.some((h) => watched.handles.includes(h))) {
+        acknowledge(cfg);
+      }
       break;
     }
     case "react": {
@@ -552,6 +950,10 @@ try {
       const kind = args.join(" ").trim();
       const rcpt = resolveRecipient(cfg, toArg);
       const reaction = reactToLatest(rcpt.handles, kind);
+      const watched = defaultContact(cfg);
+      if (watched && rcpt.handles.some((h) => watched.handles.includes(h))) {
+        acknowledge(cfg);
+      }
       print({ displayName: rcpt.displayName, reaction });
       break;
     }
@@ -562,6 +964,7 @@ try {
       const cfg = loadConfig();
       const to = cfg ? (defaultContact(cfg)?.handles[0] || "") : "";
       spawnSync("/usr/bin/open", [`imessage://${to}`], { stdio: "ignore" });
+      if (cfg) acknowledge(cfg);
       break;
     }
     case "config":
@@ -570,7 +973,7 @@ try {
       break;
     default:
       console.error(
-        "usage: imsg status|resolve [--to] <name|handle>|send <text> [--to <name|handle>]|react <kind> --to <name|handle>|tail|open|config",
+        "usage: imsg status|chats [N]|read [N] [--to <name|handle>]|search <text> [--to <name|handle>] [--limit N]|index [--all] [--rebuild]|use <contact>|ack|resolve [--to] <name|handle>|send <text> [--to <name|handle>]|react <kind> --to <name|handle>|tail|open|config",
       );
       process.exit(1);
   }

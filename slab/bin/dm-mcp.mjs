@@ -9,7 +9,7 @@
 //   • signal-cli  — the linked-device CLI (Homebrew). Adds the SEND path Signal
 //                   Desktop can't script, plus contact resolution + receive.
 //   • imsg.mjs    — reads Messages' chat.db + sends via Messages.app
-//                   (status / send). No one-shot history verb yet.
+//                   (status / indexed chats / history / FTS search / send).
 //
 // House style: hand-rolled JSON-RPC over stdio (newline-delimited), matching
 // frame-mcp.mjs / ants/mail-mcp / artery/emacs-mcp.mjs — no SDK, node builtins
@@ -126,7 +126,8 @@ const text = (s) => [{ type: "text", text: s }];
 
 // ── tools ────────────────────────────────────────────────────────────────────
 
-// Unified "what's waiting" across both channels.
+// Unified "what's waiting" across both channels. Returning the snapshot is
+// ingestion, so both Slab-owned notification cursors advance afterward.
 async function toolInbox({ machine } = {}) {
   const L = [];
   const names = ["Signal", "iMessage"];
@@ -134,23 +135,36 @@ async function toolInbox({ machine } = {}) {
     runBridge(SIGNAL, ["status"], machine),
     runBridge(IMSG, ["status"], machine),
   ]);
+  // Capturing the summaries is ingestion: clear Slab's passive notification
+  // cursors only after both snapshots have been obtained.
+  await Promise.allSettled([
+    runBridge(SIGNAL, ["ack"], machine),
+    runBridge(IMSG, ["ack"], machine),
+  ]);
   results.forEach((r, i) => {
     const name = names[i];
     if (r.status === "rejected") { L.push(`${name}: ⚠️ ${r.reason.message}`); return; }
     let j; try { j = JSON.parse(r.value.stdout); } catch { L.push(`${name}: ${r.value.stdout.trim()}`); return; }
     const last = j.last || {};
+    const direction = last.dir || last.direction ||
+      (last.fromMe === true ? "outgoing" : last.fromMe === false ? "incoming" : "");
     L.push(
-      `${name}: ${j.name || j.displayName || "(contact)"} — unread ${j.unread ?? "?"}` +
-      (last.text ? ` · last ${last.dir || last.direction || ""} "${String(last.text).slice(0, 80)}" (${last.ago || "?"})` : ""),
+      `${name}: ${j.name || j.displayName || "(contact)"} — un-ingested ${j.unread ?? "?"}` +
+      (last.text ? ` · last ${direction} "${String(last.text).slice(0, 80)}" (${last.ago || "?"})` : ""),
     );
   });
   return text(L.join("\n"));
 }
 
 // The recent-conversation list — who's talking, unread, last message. Find a
-// thread here, then pass its name/id to dm_read's `to` (Signal only).
-async function toolChats({ n = 20, machine } = {}) {
-  const { stdout } = await runBridge(SIGNAL, ["chats", String(n)], machine);
+// thread here, then pass its name/id to dm_read's `to`.
+async function toolChats({ channel = "signal", n = 20, machine } = {}) {
+  const ch = String(channel).toLowerCase();
+  if (!["signal", "imessage", "imsg"].includes(ch)) {
+    throw new Error(`unknown channel "${channel}" (use "signal" or "imessage")`);
+  }
+  const bridge = ch === "imessage" || ch === "imsg" ? IMSG : SIGNAL;
+  const { stdout } = await runBridge(bridge, ["chats", String(n)], machine, { timeoutMs: 120000 });
   return text(stdout.trim() || "(no conversations)");
 }
 
@@ -160,8 +174,9 @@ async function toolGroups({ n = 20, machine } = {}) {
   return text(stdout.trim() || "(no groups)");
 }
 
-// Thread history. Signal has a real one-shot read; iMessage only a status
-// summary today (imsg.mjs has no history verb yet — noted, not silently empty).
+// Thread history. Both channels accept an optional target without changing the
+// notification/default contact. iMessage history comes from its private local
+// incremental FTS index; Signal reads its Desktop database directly.
 // `to` (alias `group`) targets ANY conversation — group or person — by name or
 // conversationId; omit for the configured 1:1 contact. Group reads attribute
 // each sender. An ambiguous target fails loudly rather than guessing.
@@ -173,15 +188,23 @@ async function toolRead({ channel, n = 15, to, group, machine } = {}) {
     const { stdout } = await runBridge(SIGNAL, ["read", String(n), ...toArgs], machine);
     return text(stdout.trim() || "(no messages)");
   }
-  if (dest) throw new Error("`to`/`group` is only supported on the Signal channel");
   if (ch === "imessage" || ch === "imsg") {
-    const { stdout } = await runBridge(IMSG, ["status"], machine);
-    return text(
-      "iMessage (summary — imsg.mjs has no history verb yet, so only the latest is shown):\n" +
-      stdout.trim(),
-    );
+    if (group) throw new Error("iMessage group lookup uses `to`, not the Signal-only `group` alias");
+    const toArgs = dest ? ["--to", String(dest)] : [];
+    const { stdout } = await runBridge(IMSG, ["read", String(n), ...toArgs], machine, { timeoutMs: 120000 });
+    return text(stdout.trim() || "(no messages)");
   }
   throw new Error(`unknown channel "${channel}" (use "signal" or "imessage")`);
+}
+
+// Full-text iMessage search, optionally scoped to one configured contact or
+// raw handle. This never changes or acknowledges the watched/default thread.
+async function toolSearch({ query, to, n = 25, machine } = {}) {
+  if (!String(query || "").trim()) throw new Error("`query` is required");
+  const args = ["search", String(query), "--limit", String(n)];
+  if (to) args.push("--to", String(to));
+  const { stdout } = await runBridge(IMSG, args, machine, { timeoutMs: 120000 });
+  return text(stdout.trim() || "(no matching iMessages)");
 }
 
 // List / decrypt Signal attachments (the voice-memo → transcribe pipeline).
@@ -225,6 +248,9 @@ async function toolSend({ channel, to, text: body, confirm, machine } = {}) {
     }
     const acct = await signalAccount(machine);
     const { stdout } = await runSignalCli(["-a", acct, "send", "-m", body, rcpt.id], machine, { timeoutMs: 60000 });
+    // Best effort: if this is the conversation Slab watches, replying is also
+    // an acknowledgement. Other conversations keep independent cursors.
+    await runBridge(SIGNAL, ["ack", "--to", String(to)], machine).catch(() => {});
     const ts = (stdout.match(/\d{10,}/) || [])[0];
     return text(`✅ sent to ${rcpt.label}${ts ? ` (ts ${ts})` : ""}`);
   }
@@ -288,15 +314,16 @@ async function toolReact({ to, reaction, confirm, machine } = {}) {
 const TOOLS = [
   {
     name: "dm_inbox",
-    description: "Unified 'what's waiting' across Signal + iMessage on this machine: per channel, the configured contact, unread count, and the last message (direction, text, how long ago). Start here to see if anyone replied.",
+    description: "Unified 'what's waiting' across Signal + iMessage on this machine: per channel, the configured contact, un-ingested count, and the last message (direction, text, how long ago). Reading this snapshot acknowledges both Slab notification cursors.",
     inputSchema: { type: "object", properties: { machine: { type: "string", description: "Machine to read (default local). Desktop-DB reads are local-only." } } },
   },
   {
     name: "dm_chats",
-    description: "List the most recent Signal conversations (most-recent-first): name, dm/group, unread count, and the age + short preview of the last message. Use this to see what threads exist, then pass a name to dm_read's `to` to read one.",
+    description: "List recent conversations for Signal or iMessage (most-recent-first). iMessage uses a private local incremental index and does not change the watched/default contact. Pass a result's name/id to dm_read's `to`.",
     inputSchema: {
       type: "object",
       properties: {
+        channel: { type: "string", enum: ["signal", "imessage"], description: "Channel to list (default signal)." },
         n: { type: "number", description: "How many conversations (default 20)." },
         machine: { type: "string", description: "Machine (default local; Signal Desktop DB is local-only)." },
       },
@@ -304,16 +331,30 @@ const TOOLS = [
   },
   {
     name: "dm_read",
-    description: "Read recent thread history. Signal returns the last N messages (← inbound / → outbound). Pass `group` (Signal only) to read ANY group or person thread by name or conversationId instead of the configured 1:1 contact — group reads attribute each sender. iMessage currently returns only the latest (imsg.mjs has no history verb yet). Use this to digest what someone said.",
+    description: "Read recent thread history (← inbound / → outbound). `to` targets a person/thread without changing the channel's watched/default contact. Signal accepts a name or conversationId; iMessage accepts a configured contact name or raw handle and reads its private local incremental index.",
     inputSchema: {
       type: "object",
       properties: {
         channel: { type: "string", enum: ["signal", "imessage"], description: "Which channel (default signal)." },
-        n: { type: "number", description: "How many recent messages (Signal only; default 15)." },
-        to: { type: "string", description: "Signal only: which conversation — a name substring (dm or group, per dm_chats) or an exact conversationId. Omit for the configured contact. An ambiguous name errors with the candidates rather than guessing." },
+        n: { type: "number", description: "How many recent messages (default 15)." },
+        to: { type: "string", description: "Conversation target. Signal: name/conversationId. iMessage: configured contact name or raw +number/email. Omit for the channel's default contact." },
         group: { type: "string", description: "Signal only: alias for `to` — a group/person name substring or conversationId (find ids with dm_groups)." },
         machine: { type: "string", description: "Machine (default local)." },
       },
+    },
+  },
+  {
+    name: "dm_search",
+    description: "Full-text search the private local iMessage index, optionally scoped to a configured contact name or raw handle. Search is read-only and does not change or acknowledge the watched/default contact.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Words to find (all terms must match)." },
+        to: { type: "string", description: "Optional configured iMessage contact name or raw +number/email." },
+        n: { type: "number", description: "Maximum results (default 25, max 200)." },
+        machine: { type: "string", description: "Machine (default local; Messages DB reads are local-only)." },
+      },
+      required: ["query"],
     },
   },
   {
@@ -386,6 +427,7 @@ async function callTool(name, args) {
     case "dm_inbox": return toolInbox(args || {});
     case "dm_chats": return toolChats(args || {});
     case "dm_read": return toolRead(args || {});
+    case "dm_search": return toolSearch(args || {});
     case "dm_groups": return toolGroups(args || {});
     case "dm_attachments": return toolAttachments(args || {});
     case "dm_contacts": return toolContacts(args || {});
@@ -405,7 +447,7 @@ async function handleMessage(message) {
           result: {
             protocolVersion: "2024-11-05",
             capabilities: { tools: {} },
-            serverInfo: { name: "dm-mcp", version: "1.0.0" },
+            serverInfo: { name: "dm-mcp", version: "1.1.0" },
           },
         };
       case "initialized":
@@ -432,4 +474,4 @@ async function handleMessage(message) {
 
 const port = httpPort(process.argv, 7771);
 if (port) serveHttp({ handleMessage, port, banner: "✉️  dm-mcp shared daemon" });
-else serveStdio({ handleMessage, banner: "✉️  dm-mcp server started (dm_inbox, dm_chats, dm_read, dm_groups, dm_attachments, dm_contacts, dm_send, dm_react)" });
+else serveStdio({ handleMessage, banner: "✉️  dm-mcp server started (dm_inbox, dm_chats, dm_read, dm_search, dm_groups, dm_attachments, dm_contacts, dm_send, dm_react)" });

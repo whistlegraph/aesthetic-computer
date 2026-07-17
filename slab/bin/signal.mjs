@@ -60,6 +60,7 @@ const STATE_DIR = join(
   "signal",
 );
 const STATE_PATH = join(STATE_DIR, "state.json");
+const ACK_PATH = join(STATE_DIR, "ack.json");
 const SAVE_DIR = join(STATE_DIR, "attachments");
 const SQLCIPHER = "/opt/homebrew/bin/sqlcipher";
 const SECURITY = "/usr/bin/security";
@@ -168,7 +169,7 @@ const sqlStr = (s) => "'" + String(s).replace(/'/g, "''") + "'";
 // ─── conversation resolution ─────────────────────────────────────────────────
 
 const CONVO_COLS =
-  "id, type, name, profileFullName, profileName, profileFamilyName, e164, active_at AS activeAt";
+  "id, type, name, profileFullName, profileName, profileFamilyName, e164, serviceId, active_at AS activeAt";
 
 // The fields a person would actually type: contact name, profile name, group
 // name, phone. Case-insensitive substring — the `match.contains` semantics.
@@ -214,7 +215,10 @@ function resolveConversationId(cfg) {
 // so ambiguity prints the candidates and exits nonzero. Groups and 1:1s share
 // the conversations table, so `--to` reaches either.
 function resolveTo(to) {
-  const exact = sql(`SELECT ${CONVO_COLS} FROM conversations WHERE id=${sqlStr(to)} LIMIT 1;`);
+  const exact = sql(
+    `SELECT ${CONVO_COLS} FROM conversations ` +
+      `WHERE id=${sqlStr(to)} OR serviceId=${sqlStr(to)} LIMIT 1;`,
+  );
   if (exact.length) return exact[0];
 
   const hits = sql(
@@ -368,6 +372,27 @@ function saveState(s) {
   mkdirSync(STATE_DIR, { recursive: true });
   writeFileSync(STATE_PATH, JSON.stringify(s, null, 2));
 }
+function loadAcknowledgements() {
+  try { return JSON.parse(readFileSync(ACK_PATH, "utf8")); } catch { return {}; }
+}
+function saveAcknowledgements(s) {
+  mkdirSync(STATE_DIR, { recursive: true });
+  writeFileSync(ACK_PATH, JSON.stringify(s, null, 2));
+}
+function pendingInbound(convoId, afterRowid) {
+  const r = sql(
+    `SELECT COUNT(*) AS n FROM messages WHERE conversationId=${sqlStr(convoId)} ` +
+      `AND type='incoming' AND rowid>${Number(afterRowid) || 0};`,
+  );
+  return r.length ? Number(r[0].n) || 0 : 0;
+}
+function acknowledgeConversation(convoId) {
+  const acks = loadAcknowledgements();
+  const rowid = maxInboundRowid(convoId);
+  acks[convoId] = rowid;
+  saveAcknowledgements(acks);
+  return rowid;
+}
 function ringBell(cfg) {
   if (cfg.bellTty && existsSync(cfg.bellTty)) {
     try { writeFileSync(cfg.bellTty, "\x07"); } catch {}
@@ -424,14 +449,25 @@ function cmdStatus(to) {
   if (!convoId) { print({ configured: true, found: false, label: "Signal: ?" }); return; }
   const name = c ? convoName(c) : cfg.displayName;
 
-  const unread = unreadInbound(convoId);
+  const systemUnread = unreadInbound(convoId);
   const last = recentMessages(convoId, 1)[0];
   const maxRowid = maxInboundRowid(convoId);
 
+  const acks = loadAcknowledgements();
+  if (!Number(acks[convoId])) {
+    // Migration/first run: don't reinterpret the entire existing history as
+    // newly un-ingested.
+    acks[convoId] = maxRowid;
+    saveAcknowledgements(acks);
+  }
+  const unread = pendingInbound(convoId, acks[convoId]);
+
   const state = loadState();
   const prev = state[convoId]?.lastInboundRowid || 0;
+  let newSinceLast = false;
   if (maxRowid > prev) {
-    if (prev !== 0) ringBell(cfg || {}); // don't blast history on first run
+    newSinceLast = prev !== 0;
+    if (newSinceLast && systemUnread > 0) ringBell(cfg || {}); // don't blast history on first run
     state[convoId] = { lastInboundRowid: maxRowid };
     saveState(state);
   }
@@ -441,7 +477,9 @@ function cmdStatus(to) {
     found: true,
     name,
     unread,
-    label: unread > 0 ? `Signal: ${unread}` : "Signal",
+    systemUnread,
+    newSinceLast,
+    label: unread > 0 ? `Signal: ${unread} un-ingested` : "Signal: ingested",
     last: last
       ? { dir: last.type, text: clip(last.body || (last.hasAttachments ? "📎 attachment" : ""), 80), ago: humanAgo(last.sentAt) }
       : null,
@@ -466,6 +504,12 @@ function cmdRead(n, to) {
       console.log(`${arrow(m.type)} ${humanAgo(m.sentAt).padStart(3)}  ${body}`);
     }
   }
+  acknowledgeConversation(convoId);
+}
+
+function cmdAck(to) {
+  const { convoId } = target(to);
+  print({ acknowledged: true, rowid: acknowledgeConversation(convoId) });
 }
 
 // groups [N] — list the most-recently-active group conversations.
@@ -524,6 +568,7 @@ async function cmdTail(to) {
     console.log(`${arrow(m.type)} ${m.body || (m.hasAttachments ? "📎 attachment" : "")}`);
   }
   let last = maxInboundRowid(convoId);
+  acknowledgeConversation(convoId);
   for (;;) {
     await new Promise((r) => setTimeout(r, 3000));
     const cur = maxInboundRowid(convoId);
@@ -537,6 +582,7 @@ async function cmdTail(to) {
         console.log(`← ${m.body || (m.hasAttachments ? "📎 attachment" : "")}`);
       }
       last = cur;
+      acknowledgeConversation(convoId);
     }
   }
 }
@@ -560,15 +606,21 @@ try {
     case "chats": case "recent": cmdChats(arg ? Number(arg) : 20); break;
     case "groups": cmdGroups(arg ? Number(arg) : 20); break;
     case "status": cmdStatus(to); break;
+    case "ack": cmdAck(to); break;
     case "read": cmdRead(arg ? Number(arg) : 15, to); break;
     case "attachments": case "atts": cmdAttachments(arg ? Number(arg) : 10, to); break;
     case "save": cmdSave(arg, to); break;
     case "tail": await cmdTail(to); break;
-    case "open": spawnSync("/usr/bin/open", ["-a", "Signal"], { stdio: "ignore" }); break;
+    case "open": {
+      const { convoId } = target(to);
+      acknowledgeConversation(convoId);
+      spawnSync("/usr/bin/open", ["-a", "Signal"], { stdio: "ignore" });
+      break;
+    }
     case "config": ensureConfigStub(); console.log(CONFIG_PATH); break;
     default:
       console.log(
-        "usage: signal chats [N]|groups [N]|status|read [N]|attachments [N]|save [N|all]|tail|open|config\n" +
+        "usage: signal chats [N]|groups [N]|status|ack|read [N]|attachments [N]|save [N|all]|tail|open|config\n" +
           "       read-ish commands take --to <name|id> to target one conversation (dm or group)",
       );
   }

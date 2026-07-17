@@ -11,12 +11,16 @@
 #   emacs-mcp  → http://127.0.0.1:7766/mcp
 #   frame-mcp  → http://127.0.0.1:7767/mcp
 #   puppet-mcp → http://127.0.0.1:7769/mcp   (7768 is Spotify's)
+#   dm-mcp     → http://127.0.0.1:7771/mcp
+#   memory-mcp → http://127.0.0.1:7772/mcp
+#   prox-mcp   → http://127.0.0.1:7773/mcp
+#   cal-mcp    → http://127.0.0.1:7774/mcp
+#   chat-mcp   → http://127.0.0.1:7775/mcp
+#   fleet-mcp  → http://127.0.0.1:7776/mcp
 #
-# This script also POINTS Claude at the daemons, with same-name local-scope
-# entries that shadow the stdio ones in .mcp.json. That step used to live in a
-# comment here and was never run on neo, so the daemons sat idle while every
-# session still spawned its own stdio copy. A half-applied fix is worse than
-# none: it looks installed. Now the script does both halves, and verifies.
+# This script also POINTS Claude and Codex at the daemons. Claude gets same-name
+# local-scope entries that shadow the stdio ones in .mcp.json; Codex gets its
+# user-level MCP entries via `codex mcp add --url`.
 #
 # The stdio entries in .mcp.json stay as the fallback: a box without daemons
 # (or a session outside this repo) still works, just at one process per session.
@@ -44,6 +48,12 @@ mail   7765 ants/mail-mcp/server.mjs
 emacs  7766 artery/emacs-mcp.mjs
 frame  7767 slab/bin/frame-mcp.mjs
 puppet 7769 slab/bin/puppet-mcp.mjs
+dm     7771 slab/bin/dm-mcp.mjs
+memory 7772 memory/memory-mcp.mjs
+prox   7773 slab/bin/prox-mcp.mjs
+cal    7774 slab/bin/cal-mcp.mjs
+chat   7775 slab/bin/chat-mcp.mjs
+fleet  7776 toolchain/fleet/fleet-mcp.mjs
 ROWS
 }
 
@@ -100,6 +110,8 @@ EOF
 
 HAVE_CLAUDE=0
 command -v claude >/dev/null 2>&1 && HAVE_CLAUDE=1
+HAVE_CODEX=0
+command -v codex >/dev/null 2>&1 && HAVE_CODEX=1
 cd "$REPO"  # `claude mcp --scope local` is per-project
 
 while read -r name port script; do
@@ -112,12 +124,22 @@ while read -r name port script; do
     claude mcp add --transport http --scope local "$name" "http://127.0.0.1:$port/mcp" >/dev/null
     echo "  ↳ claude → http://127.0.0.1:$port/mcp (local scope)"
   fi
+  if [ "$HAVE_CODEX" = 1 ]; then
+    codex mcp remove "$name" >/dev/null 2>&1 || true
+    codex mcp add "$name" --url "http://127.0.0.1:$port/mcp" >/dev/null
+    echo "  ↳ codex  → http://127.0.0.1:$port/mcp"
+  fi
 done <<<"$(servers)"
 
 if [ "$HAVE_CLAUDE" = 0 ]; then
   echo
   echo "⚠ 'claude' not on PATH — daemons installed, but sessions will still spawn"
   echo "  stdio copies. Re-run from a shell where 'claude' resolves."
+fi
+if [ "$HAVE_CODEX" = 0 ]; then
+  echo
+  echo "⚠ 'codex' not on PATH — daemons installed, but Codex will not see them"
+  echo "  until you re-run from a shell where 'codex' resolves."
 fi
 
 # Verify. A daemon that never answers is precisely the silent half-apply this
