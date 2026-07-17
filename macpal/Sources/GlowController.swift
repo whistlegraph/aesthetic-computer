@@ -143,6 +143,14 @@ final class GlowController {
         }
     }
 
+    /// Controller-role feedback is intentionally distinct from an ordinary
+    /// cursor crossover: the same edge bloom plus one short local glass ding.
+    /// Called only after the role fan-out has completed successfully.
+    func controlAcquired() {
+        flash()
+        NSSound(named: NSSound.Name("Glass"))?.play()
+    }
+
     // LEAVE mid-flash: kill the light instantly — it never trails the cursor.
     private func cut() {
         flashSeq += 1

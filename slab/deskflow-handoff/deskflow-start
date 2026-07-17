@@ -1,0 +1,29 @@
+#!/bin/bash
+set -euo pipefail
+
+UID_=$(id -u)
+MAIN="$HOME/Library/LaunchAgents/computer.aesthetic.deskflow.plist"
+WATCHDOG="$HOME/Library/LaunchAgents/computer.aesthetic.deskflow-watchdog.plist"
+
+bootstrap_retry() {
+  local plist=$1
+  local attempt
+  for attempt in 1 2 3 4 5 6 7 8; do
+    if launchctl bootstrap "gui/${UID_}" "$plist" 2>/dev/null; then
+      return 0
+    fi
+    sleep 0.4
+  done
+  echo "could not bootstrap $plist" >&2
+  return 1
+}
+
+launchctl enable "gui/${UID_}/computer.aesthetic.deskflow"
+launchctl enable "gui/${UID_}/computer.aesthetic.deskflow-watchdog"
+ROLE=$(/usr/bin/python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("role", "client"))' "$HOME/.config/slab/deskflow.json" 2>/dev/null || echo client)
+
+if [[ "$ROLE" == "client" ]]; then
+  /usr/bin/caffeinate -u -t 2 >/dev/null 2>&1 &
+fi
+bootstrap_retry "$MAIN"
+bootstrap_retry "$WATCHDOG"

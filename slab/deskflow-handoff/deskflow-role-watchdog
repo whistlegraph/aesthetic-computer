@@ -1,0 +1,35 @@
+#!/bin/bash
+set -euo pipefail
+
+LABEL="computer.aesthetic.deskflow"
+UID_=$(id -u)
+STATE="$HOME/.config/slab/deskflow.json"
+MISS="$HOME/.deskflow-role-watchdog.miss"
+
+ROLE=$(/usr/bin/python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("role", "client"))' "$STATE" 2>/dev/null || echo client)
+
+healthy=0
+if [[ "$ROLE" == "server" ]]; then
+  pgrep -f "deskflow-core server" >/dev/null && nc -z -G3 127.0.0.1 24800 >/dev/null 2>&1 && healthy=1
+else
+  line=$(netstat -an 2>/dev/null | grep -E '\.[0-9]+ +[^ ]+\.24800 +ESTABLISHED' | head -1 || true)
+  if pgrep -f "deskflow-core client" >/dev/null && [[ -n "$line" ]]; then
+    recvq=$(awk '{print $2}' <<<"$line")
+    [[ "$recvq" == "0" ]] && healthy=1
+  fi
+fi
+
+if [[ "$healthy" == "1" ]]; then
+  rm -f "$MISS"
+  exit 0
+fi
+
+# Two-strike grace avoids bouncing the core during a normal role transition.
+if [[ ! -f "$MISS" ]]; then
+  touch "$MISS"
+  exit 0
+fi
+
+rm -f "$MISS"
+/bin/launchctl kickstart -k "gui/${UID_}/${LABEL}" 2>/dev/null
+logger -t deskflow-role-watchdog "$ROLE core unhealthy — kicked $LABEL"

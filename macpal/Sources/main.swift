@@ -212,6 +212,17 @@ if config.profile == "fuser" {
     glow = GlowController(home: config.supportDir)
 }
 
+// Neo and Blueberry can trade the Deskflow server role by touching their
+// physical trackpads. Machines without the installed claim helper simply skip
+// this feature. Keep the controller alive beside the glow for the app lifetime.
+#if !MAC_APP_STORE
+var deskflowHandoff: DeskflowHandoff?
+if config.profile == "fuser" {
+    deskflowHandoff = DeskflowHandoff()
+    deskflowHandoff?.onControlAcquired = { glow?.controlAcquired() }
+}
+#endif
+
 if config.showsAbout, CommandLine.arguments.contains("--about") {
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { AboutWindow.show(config: config) }
 }

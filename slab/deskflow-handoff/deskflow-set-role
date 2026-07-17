@@ -1,0 +1,152 @@
+#!/bin/bash
+set -euo pipefail
+
+ROLE=${1:-}
+SERVER_HOST=${2:-}
+EPOCH=${3:-0}
+STATE="$HOME/.config/slab/deskflow.json"
+CLIENT_CONF="$HOME/Library/Deskflow/Deskflow-client-role.conf"
+EPOCH_FILE="$HOME/.config/slab/deskflow-role-epoch"
+LABEL="computer.aesthetic.deskflow"
+UID_=$(id -u)
+
+case "$ROLE" in
+  server) ;;
+  client)
+    if [[ -z "$SERVER_HOST" ]]; then
+      echo "usage: deskflow-set-role client SERVER_HOST" >&2
+      exit 64
+    fi
+    ;;
+  *)
+    echo "usage: deskflow-set-role server | client SERVER_HOST" >&2
+    exit 64
+    ;;
+esac
+
+mkdir -p "$HOME/.config/slab" "$HOME/Library/Deskflow"
+
+if ! [[ "$EPOCH" =~ ^[0-9]+$ ]]; then
+  echo "deskflow-set-role: invalid claim generation" >&2
+  exit 64
+fi
+CURRENT_EPOCH=$(cat "$EPOCH_FILE" 2>/dev/null || echo 0)
+if [[ "$EPOCH" != "0" && "$CURRENT_EPOCH" =~ ^[0-9]+$ && "$EPOCH" -lt "$CURRENT_EPOCH" ]]; then
+  echo "deskflow-set-role: ignored stale generation $EPOCH (current $CURRENT_EPOCH)" >&2
+  exit 73
+fi
+if [[ "$EPOCH" != "0" ]]; then
+  printf '%s\n' "$EPOCH" > "$EPOCH_FILE.tmp.$$"
+  mv "$EPOCH_FILE.tmp.$$" "$EPOCH_FILE"
+fi
+
+CURRENT_HOST=$(sed -n 's/^remoteHost=//p' "$CLIENT_CONF" 2>/dev/null | head -1)
+META=()
+TMP="$STATE.tmp.$$"
+META_FILE="$STATE.meta.$$"
+/usr/bin/python3 - "$STATE" "$HOME/.config/slab/deskflow-handoff.json" "$TMP" "$META_FILE" "$ROLE" <<'PY'
+import json, sys
+state_path, handoff_path, dst, meta_path, role = sys.argv[1:]
+try:
+    with open(state_path) as f:
+        state = json.load(f)
+except Exception:
+    state = {}
+try:
+    with open(handoff_path) as f:
+        handoff = json.load(f)
+except Exception:
+    handoff = {}
+with open(meta_path, "w") as f:
+    f.write(str(state.get("role", "")) + "\n")
+    f.write(str(handoff.get("controller", False)).lower() + "\n")
+    f.write(str(handoff.get("screenName", "")) + "\n")
+state.update({
+    "enabled": True,
+    "role": role,
+    "label": state.get("label", "Deskflow"),
+    "agent": "computer.aesthetic.deskflow",
+})
+with open(dst, "w") as f:
+    json.dump(state, f, indent=2, sort_keys=True)
+    f.write("\n")
+PY
+while IFS= read -r value; do
+  META+=("$value")
+done < "$META_FILE"
+rm -f "$META_FILE"
+mv "$TMP" "$STATE"
+CURRENT_ROLE=${META[0]:-}
+CONTROLLER=${META[1]:-false}
+SCREEN_NAME=${META[2]:-}
+
+if [[ "$ROLE" == "client" ]]; then
+  if [[ -z "$SCREEN_NAME" ]]; then
+    SCREEN_NAME=$(scutil --get LocalHostName 2>/dev/null || hostname)
+  fi
+  TMP="$CLIENT_CONF.tmp.$$"
+  cat > "$TMP" <<EOF
+[client]
+remoteHost=$SERVER_HOST
+
+[core]
+computerName=$SCREEN_NAME
+coreMode=1
+lastVersion=1.26.0.0
+
+[gui]
+enableUpdateCheck=false
+startCoreWithGui=false
+EOF
+  mv "$TMP" "$CLIENT_CONF"
+fi
+
+if [[ "$CURRENT_ROLE" == "$ROLE" ]] && { [[ "$ROLE" == "server" ]] || [[ "$CURRENT_HOST" == "$SERVER_HOST" ]]; }; then
+  if [[ "$ROLE" == "client" ]] && pgrep -f "deskflow-core client -s $CLIENT_CONF" >/dev/null; then
+    echo "unchanged $ROLE"
+    exit 0
+  elif [[ "$ROLE" == "server" ]] && \
+       pgrep -f "deskflow-core server -s $HOME/Library/Deskflow/Deskflow-server-role.conf" >/dev/null; then
+    echo "unchanged $ROLE"
+    exit 0
+  fi
+fi
+
+if [[ "$ROLE" == "server" ]]; then
+  DESIRED="deskflow-core server -s $HOME/Library/Deskflow/Deskflow-server-role.conf"
+else
+  DESIRED="deskflow-core client -s $HOME/Library/Deskflow/Deskflow-client-role.conf"
+fi
+
+# `kickstart -k` asks the Cocoa core to exit and can block for its full ~10s
+# shutdown timeout. Kill only this exact launchd job; KeepAlive immediately
+# re-execs the role runner against the state/config written above.
+if [[ "$ROLE" == "client" ]]; then
+  # Headless display clients can report an invalid screen shape while their
+  # monitor is asleep. A brief user-activity pulse makes the first edge usable.
+  /usr/bin/caffeinate -u -t 2 >/dev/null 2>&1 &
+fi
+/bin/launchctl kill SIGKILL "gui/${UID_}/${LABEL}" 2>/dev/null || true
+sleep 0.02
+/bin/launchctl kickstart "gui/${UID_}/${LABEL}" 2>/dev/null || true
+for attempt in {1..40}; do
+  if pgrep -f "$DESIRED" >/dev/null; then
+    echo "changed $ROLE${SERVER_HOST:+ $SERVER_HOST}"
+    exit 0
+  fi
+  sleep 0.05
+done
+
+/bin/launchctl kickstart "gui/${UID_}/${LABEL}" 2>/dev/null || {
+  /bin/launchctl bootstrap "gui/${UID_}" "$HOME/Library/LaunchAgents/${LABEL}.plist"
+}
+for attempt in {1..40}; do
+  if pgrep -f "$DESIRED" >/dev/null; then
+    echo "changed $ROLE${SERVER_HOST:+ $SERVER_HOST}"
+    exit 0
+  fi
+  sleep 0.05
+done
+
+echo "deskflow-set-role: $ROLE core did not start" >&2
+exit 70

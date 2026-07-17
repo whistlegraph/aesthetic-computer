@@ -1,0 +1,99 @@
+#!/bin/bash
+set -euo pipefail
+
+CONFIG="$HOME/.config/slab/deskflow-handoff.json"
+SET_ROLE="$HOME/.local/bin/deskflow-set-role"
+LOCK="$HOME/.config/slab/deskflow-claim.lock"
+
+if [[ ! -f "$CONFIG" ]]; then
+  echo "deskflow claim: no handoff config" >&2
+  exit 78
+fi
+
+VALUES=()
+while IFS= read -r value; do
+  VALUES+=("$value")
+done < <(/usr/bin/python3 - "$CONFIG" "$HOME/.config/slab/deskflow.json" <<'PY'
+import json, sys, time
+with open(sys.argv[1]) as f:
+    config = json.load(f)
+try:
+    with open(sys.argv[2]) as f:
+        state = json.load(f)
+except Exception:
+    state = {}
+print(str(config.get("controller", False)).lower())
+print(state.get("role", ""))
+print(config.get("address", ""))
+print(time.time_ns())
+for peer in config.get("clients", []):
+    print(peer)
+PY
+)
+CONTROLLER=${VALUES[0]:-false}
+if [[ "$CONTROLLER" != "true" ]]; then
+  echo "deskflow claim: this machine is not a controller" >&2
+  exit 77
+fi
+
+ROLE=${VALUES[1]:-}
+if [[ "$ROLE" == "server" ]]; then
+  echo "unchanged server"
+  exit 0
+fi
+
+if ! mkdir "$LOCK" 2>/dev/null; then
+  echo "deskflow claim: already switching" >&2
+  exit 75
+fi
+LOCAL_OUT=""
+PEER_OUT=""
+cleanup() {
+  [[ -n "$LOCAL_OUT" ]] && rm -f "$LOCAL_OUT"
+  [[ -n "$PEER_OUT" ]] && rm -f "$PEER_OUT"
+  rmdir "$LOCK" 2>/dev/null || true
+}
+trap cleanup EXIT
+
+ADDRESS=${VALUES[2]:-}
+EPOCH=${VALUES[3]:-0}
+PEERS=("${VALUES[@]:4}")
+
+if [[ ${#PEERS[@]} -lt 1 ]]; then
+  echo "deskflow claim: no peer controller configured" >&2
+  exit 78
+fi
+
+mkdir -p "$HOME/.ssh"
+SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=4
+          -o ControlMaster=auto -o ControlPersist=600
+          -o "ControlPath=$HOME/.ssh/deskflow-%C")
+
+# Flip the local core and the other controller concurrently. The client will
+# retry briefly if it wins the race and reaches the new server before it binds.
+LOCAL_OUT=$(mktemp /tmp/deskflow-local.XXXXXX)
+PEER_OUT=$(mktemp /tmp/deskflow-peer.XXXXXX)
+"$SET_ROLE" server "" "$EPOCH" > "$LOCAL_OUT" 2>&1 &
+LOCAL_PID=$!
+ssh "${SSH_OPTS[@]}" "${PEERS[0]}" \
+  '~/.local/bin/deskflow-set-role client '"$ADDRESS $EPOCH" > "$PEER_OUT" 2>&1 &
+PEER_PID=$!
+
+LOG="$HOME/Library/Logs/deskflow-handoff.log"
+for peer in "${PEERS[@]:1}"; do
+  nohup ssh -n "${SSH_OPTS[@]}" "$peer" \
+    '~/.local/bin/deskflow-set-role client '"$ADDRESS $EPOCH" >> "$LOG" 2>&1 &
+done
+
+LOCAL_STATUS=0
+PEER_STATUS=0
+wait "$LOCAL_PID" || LOCAL_STATUS=$?
+wait "$PEER_PID" || PEER_STATUS=$?
+cat "$LOCAL_OUT"
+cat "$PEER_OUT"
+if [[ "$LOCAL_STATUS" != "0" || "$PEER_STATUS" != "0" ]]; then
+  echo "deskflow claim: controller pair did not converge" >&2
+  exit 74
+fi
+
+echo "changed server; peer controller now uses $ADDRESS"

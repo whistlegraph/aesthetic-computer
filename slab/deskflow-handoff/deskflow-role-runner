@@ -1,0 +1,28 @@
+#!/bin/bash
+set -euo pipefail
+
+STATE="$HOME/.config/slab/deskflow.json"
+HANDOFF="$HOME/.config/slab/deskflow-handoff.json"
+CORE="/Applications/Deskflow.app/Contents/MacOS/deskflow-core"
+ROLE="client"
+CONTROLLER="false"
+
+if [[ -f "$STATE" ]]; then
+  ROLE=$(/usr/bin/python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("role", "client"))' "$STATE" 2>/dev/null || echo client)
+fi
+if [[ -f "$HANDOFF" ]]; then
+  CONTROLLER=$(/usr/bin/python3 -c 'import json,sys; print(str(json.load(open(sys.argv[1])).get("controller", False)).lower())' "$HANDOFF" 2>/dev/null || echo false)
+fi
+
+case "$ROLE" in
+  server)
+    exec "$CORE" server -s "$HOME/Library/Deskflow/Deskflow-server-role.conf"
+    ;;
+  client)
+    exec "$CORE" client -s "$HOME/Library/Deskflow/Deskflow-client-role.conf"
+    ;;
+  *)
+    echo "deskflow-role-runner: invalid role: $ROLE" >&2
+    exit 64
+    ;;
+esac
