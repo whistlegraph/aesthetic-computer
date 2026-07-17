@@ -8,7 +8,8 @@
 // purple desktop with a minimal menu bar (Apple logo in the corner + the real
 // piano status item + clock). No marketing typography.
 //
-// Four shots: menu bar (no popover) / menu bar + popover / About / Jam.
+// Two shots: a tightly framed real popover, then a reel-inspired composition
+// that keeps the real expanded keymap as its dominant surface.
 // Output: ~/Desktop/MenuBand-AppStore-Real/*.png (review) AND
 //         fastlane/screenshots/en-US/*.png (so `fastlane mac shots` uploads).
 
@@ -24,6 +25,8 @@ const BIN = resolve(ROOT, ".build/debug/MenuBand");
 const DESK = resolve(homedir(), "Desktop/MenuBand-AppStore-Real");
 const RAW = resolve(DESK, "raw");
 const FL = resolve(ROOT, "fastlane/screenshots/en-US");
+const REEL_BG = resolve(ROOT, "screenshots/reel-background.png");
+const PALS_SVG = resolve(ROOT, "../../system/public/purple-pals.svg");
 const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 // Lower resolution (1440x900 — a valid Mac App Store size) so the UI fills more
 // of the frame and reads larger than it did at 2880x1800.
@@ -44,8 +47,6 @@ const render = (args, out) => {
 console.log("rendering real UI surfaces…");
 render(["--render-menubar", "--light"], "menubar.png");   // keys at rest, light theme
 render(["--render-popover", "--lang", "en", "--program", "0"], "popover.png");
-render(["--render-about", "--lang", "en"], "about.png");
-render(["--render-jam", "--lang", "en"], "jam.png");
 render(["--render-keymap", "--lang", "en", "--program", "0"], "keymap.png");  // fullscreen expanded view
 
 // The ♪ status glyph at the strip's right end renders in the system accent
@@ -62,6 +63,8 @@ render(["--render-keymap", "--lang", "en", "--program", "0"], "keymap.png");  //
 }
 
 const uri = (f) => `data:image/png;base64,${readFileSync(resolve(RAW, f)).toString("base64")}`;
+const fileUri = (f, mime = "image/png") => `data:${mime};base64,${readFileSync(f).toString("base64")}`;
+if (!existsSync(REEL_BG)) { console.error(`missing reel backdrop: ${REEL_BG}`); process.exit(1); }
 // Real macOS menu-bar glyphs cropped from the live bar (committed under
 // bin/menubar-assets) — black variants for the LIGHT bar that pairs with the
 // light piano keys.
@@ -77,18 +80,10 @@ const pngDims = (name) => {
   return { w: b.readUInt32BE(16), h: b.readUInt32BE(20) };  // PNG IHDR width/height
 };
 
-// ── 2. the shots: plainly place the real screens on a neutral-gray desktop ───
-// `center` floats the window centered below the bar; `drop` anchors it under
-// the top-right status item like the live popover; `layered` cascades all
-// three surfaces (About + Looking-for-Players to the left, popover dropping
-// from the ♪ glyph) into one composed overview scene.
-// Single App Store shot: the three-panel aggregate overview (popover dropping
-// from the ♩M note, About + Looking-for-Players cascaded). The per-surface
-// renders below still run because the overview composites them; the cleanup
-// pass at the end deletes any other PNGs left in the upload dir.
+// ── 2. two focused App Store portraits ──────────────────────────────────────
 const SHOTS = [
-  { file: "00-overview", layered: true },
-  { file: "01-keymap", screen: "keymap", place: "fill" },  // fullscreen expanded view
+  { file: "00-keyboard-menu", kind: "literal" },
+  { file: "01-reel", kind: "reel" },
 ];
 
 const FILL = "#ffffff";          // solid light-theme backing behind the panels
@@ -101,7 +96,8 @@ const STRIP_CENTER = 1082;       // px from left — center of the ♩M note gly
 // draws the upward NSPopover callout (only the popover gets one). Returns
 // the absolute-positioned <div> markup; reused by both `screenCSS` (one
 // surface per canvas) and `overviewCSS` (three cascaded on one canvas).
-const windowEl = ({ screen, left, top, scale = S, chrome = false, z = 1, arrow = false }) => {
+const windowEl = ({ screen, left, top, scale = S, chrome = false, z = 1,
+                    arrow = false, anchorX = STRIP_CENTER, arrowTop = BAR_H }) => {
   const dims = pngDims(screen);
   const h = Math.round(dims.h / RENDER_SCALE * scale);   // displayed height (points × scale)
   const w = Math.round(h * dims.w / dims.h);             // true width from the real aspect
@@ -109,7 +105,7 @@ const windowEl = ({ screen, left, top, scale = S, chrome = false, z = 1, arrow =
   // NSPopover callout arrow — a triangle pointing UP at the status item, tip
   // at the menu-bar bottom, base meeting the popover top, centered on the strip.
   const callout = arrow
-    ? `<div style="position:absolute;z-index:${z};left:${STRIP_CENTER - 13}px;top:${BAR_H}px;width:0;height:0;
+    ? `<div style="position:absolute;z-index:${z};left:${anchorX - 13}px;top:${arrowTop}px;width:0;height:0;
         border-left:13px solid transparent;border-right:13px solid transparent;
         border-bottom:12px solid ${FILL};
         filter:drop-shadow(0 -1px 1.5px rgba(0,0,0,.16));"></div>`
@@ -131,7 +127,24 @@ const windowEl = ({ screen, left, top, scale = S, chrome = false, z = 1, arrow =
 };
 
 const screenCSS = (s) => {
-  if (s.layered) return overviewCSS();
+  if (s.kind === "literal") {
+    const d = pngDims("popover");
+    const scale = 1.85;
+    const h = Math.round(d.h / RENDER_SCALE * scale);
+    const w = Math.round(h * d.w / d.h);
+    const anchorX = Math.round(W / 2);
+    return windowEl({ screen: "popover", scale,
+      left: Math.round(anchorX - w / 2), top: 90,
+      arrow: true, anchorX, arrowTop: 78 });
+  }
+  if (s.kind === "reel") {
+    const d = pngDims("keymap");
+    const h = 742;
+    const scale = h / (d.h / RENDER_SCALE);
+    const w = Math.round(h * d.w / d.h);
+    return windowEl({ screen: "keymap", scale,
+      left: Math.round((W - w) / 2), top: 104, z: 3 });
+  }
   if (!s.screen) return "";
   const dims = pngDims(s.screen);
   const h = Math.round(dims.h / RENDER_SCALE * S);   // displayed height (points × S)
@@ -204,34 +217,50 @@ const SYS_ICONS = `
   <img class="ic" src="${asset('sf-wifi.png')}">
   <img class="ic" src="${asset('sf-battery.png')}">`;
 
+const literalStrip = () => {
+  const d = pngDims("menubar");
+  const height = 42;
+  const width = Math.round(height * d.w / d.h);
+  // The note glyph occupies the strip's far-right slice; position that slice
+  // over the popover callout while keeping the complete keyboard visible.
+  const noteOffset = Math.round(width * 0.953);
+  return `<img class="literal-strip" style="left:${Math.round(W / 2 - noteOffset)}px;width:${width}px;height:${height}px" src="${uri('menubar.png')}">`;
+};
+
+const scene = (s) => {
+  if (s.kind === "literal") return `${literalStrip()}${screenCSS(s)}`;
+  return `<div class="edge-title left">menuband</div>
+    <div class="edge-title right">menuband</div>
+    <img class="pals pals-left" src="${fileUri(PALS_SVG, 'image/svg+xml')}">
+    <img class="pals pals-right" src="${fileUri(PALS_SVG, 'image/svg+xml')}">
+    <img class="reel-strip" src="${uri('menubar.png')}">
+    ${screenCSS(s)}`;
+};
+
 const html = (s) => `<!doctype html><meta charset="utf8"><style>
   *{margin:0;padding:0;box-sizing:border-box}html,body{width:${W}px;height:${H}px;overflow:hidden}
-  body{font-family:-apple-system,"SF Pro Display",sans-serif;background:${GRAY};position:relative}
-  /* Transparent light-mode menu bar — content sits on the gray wallpaper. */
-  .menubar{position:absolute;top:0;left:0;width:100%;height:${BAR_H}px;display:flex;align-items:center;
-    justify-content:space-between;padding:0 22px;background:transparent}
-  .apple{height:21px;width:auto;display:block}
-  .right{display:flex;align-items:center;gap:22px}
-  .right .strip{height:30px;width:auto;display:block}
-  .sys{display:flex;align-items:center;gap:17px}
-  .sys .ic{height:18px;width:auto;display:block}
-  .clock{color:${INK};font-size:18px;font-weight:500;white-space:nowrap}
+  body{font-family:-apple-system,"SF Pro Display",sans-serif;position:relative;
+    background:${s.kind === 'literal' ? '#d4d1d8' : `url(${fileUri(REEL_BG)}) center/cover no-repeat`}}
   .win{overflow:hidden}
   .lights{position:absolute;top:16px;left:18px;display:flex;gap:12px}
   .lights i{display:block;width:20px;height:20px;border-radius:50%;
     box-shadow:inset 0 0 0 .5px rgba(0,0,0,.14)}
+  .literal-strip{position:absolute;top:22px;display:block;object-fit:contain;z-index:5;
+    filter:drop-shadow(0 8px 12px rgba(0,0,0,.16))}
+  .reel-strip{position:absolute;left:50%;top:24px;transform:translateX(-50%);
+    height:38px;width:auto;z-index:5;filter:drop-shadow(0 8px 14px rgba(0,0,0,.35))}
+  .edge-title{position:absolute;z-index:2;top:50%;color:#8fb4ff;font:500 38px/1 "SF Mono",monospace;
+    letter-spacing:5px;text-shadow:0 2px 0 #24183f,0 0 16px rgba(83,127,255,.5)}
+  .edge-title.left{left:31px;transform:translateY(-50%) rotate(-90deg)}
+  .edge-title.right{right:31px;transform:translateY(-50%) rotate(90deg);color:#ffab45}
+  .pals{position:absolute;z-index:2;width:116px;height:116px;opacity:.72;
+    filter:drop-shadow(3px 4px 0 rgba(24,13,49,.5))}
+  .pals-left{left:38px;bottom:72px;transform:rotate(90deg)}
+  .pals-right{right:38px;top:86px;transform:rotate(-90deg)}
 </style>
-<div class="menubar">
-  <img class="apple" src="${asset('sf-apple.png')}">
-  <div class="right">
-    <img class="strip" src="${uri('menubar.png')}">
-    <span class="sys">${SYS_ICONS}</span>
-    <span class="clock">Sat Jun 20&nbsp;&nbsp;9:41&#8202;AM</span>
-  </div>
-</div>
-${screenCSS(s)}`;
+${scene(s)}`;
 
-console.log("compositing canvases (solid neutral gray)…");
+console.log("compositing focused App Store portraits…");
 for (const s of SHOTS) {
   const htmlPath = resolve(RAW, `.${s.file}.html`);
   writeFileSync(htmlPath, html(s));

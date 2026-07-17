@@ -510,9 +510,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Self.registerBundledFonts()
         #if MAC_APP_STORE
         // Launch-at-login (App Store build only — the DMG build uses a
-        // LaunchAgent). Reconcile the OS registration with the stored pref on
-        // every launch so a fresh install becomes a login item (default on)
-        // and the app actually returns after a reboot.
+        // LaunchAgent). Reconcile the OS registration with the user's stored
+        // preference. Fresh App Store installs remain opt-in.
         MenuBandLoginItem.apply()
         #endif
         #if !MAC_APP_STORE
@@ -1136,6 +1135,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // wants to release focus without clicking another app. Also
             // the explicit exit for latched pitch-bend mode.
             if isDown && keyCode == 53 /* kVK_Escape */ {
+#if !MAC_APP_STORE
                 // In record mode, Escape DUMPS the take to the Desktop and
                 // leaves capture armed — so the keyboard keeps playing after.
                 // Only unfocus when NOT in record mode.
@@ -1143,6 +1143,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     self.stopRecordingAndSave()
                     return true
                 }
+#endif
                 if self.pitchBendModeLatched { self.endPitchBendSession() }
                 // Esc is now the UNFOCUS gesture — it shows the same red
                 // flash + falling-bell cue the right-⌘ double-tap used to
@@ -2093,6 +2094,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // synthesized input (System Events' `key code 54`), and treating
             // that as a chord would cancel the very run it's trying to make.
             if event.type == .keyDown {
+#if !MAC_APP_STORE
                 if event.keyCode == 53 /* Escape */ {
                     // Escape cancels a count-in, or dumps a rolling take.
                     if !self.countInWork.isEmpty { self.cancelCountIn(); return }
@@ -2101,6 +2103,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         return
                     }
                 }
+#endif
                 let isModifierKey = event.keyCode == Self.leftCommandKeyCode
                     || event.keyCode == Self.rightCommandKeyCode
                 if event.modifierFlags.contains(.command), !isModifierKey {
@@ -2119,17 +2122,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let sideIsHeld = CGEventSource.keyState(
                 .combinedSessionState, key: CGKeyCode(side)
             )
+#if !MAC_APP_STORE
             let bothHeld = self.bothCommandKeysAreDown
             // Releasing either ⌘ cancels a count-in in progress.
             if !bothHeld { self.cancelCountIn() }
+#endif
             guard sideIsHeld else { return }   // up edge — done
 
+#if !MAC_APP_STORE
             // Both ⌘ held together (bare) → start the 3s record count-in.
             let mask = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             if bothHeld, mask == .command {
                 self.beginCountIn()
                 return
             }
+#else
+            let mask = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+#endif
             // Otherwise: bare-⌘ double-tap tracking for PLAY.
             guard mask == .command else { self.quietFocusRunCount = 0; return }
             // Left ⌘ breaks the run (leaves left-⌘⌘ free for Shapedown).
@@ -2482,8 +2491,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // record key.
         // Red keys for sample-voice recording, a rolling tape take, OR an armed
         // record mode waiting on the first keypress.
+#if MAC_APP_STORE
+        KeyboardIconRenderer.recordingActive =
+            menuBand.sampleRecordingActive || menuBand.isTapeRecording
+#else
         KeyboardIconRenderer.recordingActive =
             menuBand.sampleRecordingActive || menuBand.isTapeRecording || recordModeActive
+#endif
         // Tape state — refreshed every paint so the cassette REC dot,
         // mic LED, fill bar and playhead track the controller in real
         // time. Position fractions are computed off the tape's own
@@ -2963,15 +2977,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         updateIcon()
     }
 
-    /// Stop-and-drop: export the finished take to a shareable MP3 (cover
-    /// art embedded), then move it onto the Desktop and reveal it. Runs the
-    /// transcode off the main thread; falls back to the raw WAV if ffmpeg
-    /// isn't available or the encode fails.
+    /// Stop-and-drop: the direct build writes a shareable MP3 to the Desktop;
+    /// the sandboxed Store build asks the user where to save its WAV.
     private func dropTapeOnDesktop() {
         guard menuBand.tape.hasRecording else {
             NSSound.beep()
             return
         }
+#if MAC_APP_STORE
+        guard let file = exportTapeMP3() else { return }
+        presentTapeSavePanel(source: file)
+#else
         guard let desktop = FileManager.default.urls(
             for: .desktopDirectory, in: .userDomainMask).first else {
             if let f = exportTapeMP3() {
@@ -2986,7 +3002,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.revealOnDesktop(file, desktop: desktop)
             }
         }
+#endif
     }
+
+#if MAC_APP_STORE
+    /// Save through an explicit user-selected destination. `NSSavePanel` grants
+    /// the sandbox access only to the URL the user chose.
+    private func presentTapeSavePanel(source: URL) {
+        let panel = NSSavePanel()
+        panel.title = "Save Menu Band Recording"
+        panel.prompt = "Save"
+        panel.nameFieldStringValue = source.lastPathComponent
+        panel.canCreateDirectories = true
+        panel.isExtensionHidden = false
+        panel.begin { response in
+            guard response == .OK, let destination = panel.url else { return }
+            do {
+                if FileManager.default.fileExists(atPath: destination.path) {
+                    try FileManager.default.removeItem(at: destination)
+                }
+                try FileManager.default.copyItem(at: source, to: destination)
+                NSWorkspace.shared.activateFileViewerSelecting([destination])
+            } catch {
+                let alert = NSAlert()
+                alert.alertStyle = .warning
+                alert.messageText = "Couldn’t Save Recording"
+                alert.informativeText = error.localizedDescription
+                alert.runModal()
+            }
+        }
+    }
+#endif
 
     /// Eject the current take and return a shareable stereo MP3 with the
     /// cassette cover art embedded + stamped as the file icon. Falls back
@@ -3008,6 +3054,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         guard let prep = prep else { return nil }
 
+#if MAC_APP_STORE
+        // App Store builds cannot launch an external ffmpeg process. The raw
+        // WAV is fully playable and is copied through NSSavePanel instead.
+        return prep.wav
+#else
         // 2. Serialize cache lookup + encode. A second caller blocks here
         //    until the first finishes, then hits the cache instead of
         //    launching a duplicate ffmpeg against the same temp file.
@@ -3027,6 +3078,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         onMain { NSWorkspace.shared.setIcon(prep.cover, forFile: mp3.path, options: []) }
         return mp3
+#endif
     }
 
     /// Kick off the MP3 transcode for the just-finished take on a
@@ -3034,12 +3086,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// for drag-out or EJECT — keeps those paths feeling instant. No-op if
     /// there's nothing recorded or the cache is already populated.
     private func prewarmTapeMP3() {
+#if !MAC_APP_STORE
         guard menuBand.tape.hasRecording else { return }
         DispatchQueue.global(qos: .utility).async { [weak self] in
             self?.exportTapeMP3()
         }
+#endif
     }
 
+#if !MAC_APP_STORE
     /// Transcode the 4-channel tape WAV to a stereo MP3, embedding `cover`
     /// (the cassette art) as the ID3 attached picture. Pure CPU/IO — no
     /// NSWorkspace, no main-thread hops — so it's safe to call while
@@ -3086,6 +3141,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         return mp3
     }
+#endif
 
     /// Run `work` on the main thread and return its result, executing
     /// inline if already on main (so callers on either thread are safe and
@@ -3096,6 +3152,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return DispatchQueue.main.sync(execute: work)
     }
 
+#if !MAC_APP_STORE
     /// Locate a usable ffmpeg (Homebrew arm64 / Intel). The launch-agent's
     /// PATH may not include Homebrew, so probe absolute paths.
     private static func ffmpegPath() -> String? {
@@ -3151,6 +3208,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             n += 1
         }
     }
+#endif
 
     private func handleTapeMouseDown(button: NSStatusBarButton,
                                      downEvent: NSEvent,
@@ -4201,12 +4259,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// touch dots fresh.
     private func handleTrackpadFrame(_ touches: [CGPoint]) {
         mtTouches = touches
+#if !MAC_APP_STORE
         // Shapedown wall takes over the trackpad while it's up — the fingers
         // draw shapes, they don't bend pitch.
         if shapedown.isActive {
             shapedown.ingest(touches)
             return
         }
+#endif
         let active = !touches.isEmpty
         if active != trackpadTouchActive { setTrackpadTouchActive(active) }
         if pitchBendAbsoluteMode, pitchBendCursorPushed, let p = touches.first {
@@ -4232,6 +4292,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pushStaffPitchShift()
     }
 
+#if !MAC_APP_STORE
     /// `--mbscore <path>` test hook: auto-perform the score into a take so the
     /// whole record → trim → normalize → album-art → DMG pipeline can be
     /// exercised without a human playing. Skips the count-in; drives the synth
@@ -4343,6 +4404,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSLog("MenuBand: recording dumped → \(saved?.path ?? "nothing captured")")
         }
     }
+#endif
 
     /// Toggle the absolute trackpad fx mode (Tab, mid-bend). Snaps onto the
     /// finger's current position when entering so there's no jump.

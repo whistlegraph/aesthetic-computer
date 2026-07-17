@@ -19,6 +19,11 @@
     <key>com.apple.security.network.client</key>
     <true/>
 
+    <!-- Recording export is initiated through NSSavePanel and may write only
+         to the destination explicitly chosen by the user. -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+
     <!-- NOT included, and why:
          • com.apple.security.device.bluetooth — REMOVED (App Review 2.4.5(i),
            Jul 2026). It backed two things that don't need it in the sandboxed
@@ -32,7 +37,6 @@
          • No Apple Events to Stickies — the StickiesBridge is gated out;
            com.apple.security.automation.apple-events is omitted on purpose
            (App Review routinely rejects it for a menubar instrument).
-         • No file access entitlements — the app reads only its own bundle
-           resources and UserDefaults, both allowed inside the sandbox. -->
+         • No broad Downloads, Desktop, Documents, or home-directory access. -->
 </dict>
 </plist>

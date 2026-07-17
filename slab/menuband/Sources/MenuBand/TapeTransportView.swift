@@ -96,9 +96,14 @@ final class TapeTransportView: NSView {
                            tint: NSColor(srgbRed: 220/255, green: 60/255,
                                           blue: 60/255, alpha: 1),
                            action: #selector(recClicked(_:)))
+#if MAC_APP_STORE
+        let ejectTooltip = "Save tape… (or drag the cassette)"
+#else
+        let ejectTooltip = "Save tape to Desktop (or drag the cassette)"
+#endif
         configureTransport(button: ejectButton,
                            symbol: "eject.fill",
-                           tooltip: "Save tape to Desktop (or drag the cassette)",
+                           tooltip: ejectTooltip,
                            action: #selector(ejectClicked(_:)))
 
         // Apply the buttons + symbol config in one pass.

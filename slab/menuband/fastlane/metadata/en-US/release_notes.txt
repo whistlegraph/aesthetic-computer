@@ -1,1 +1,1 @@
-Menu Band for the Mac App Store — the built-in instruments in your menu bar. Click the little piano to play, or type to play while Menu Band is focused. Publishes a virtual MIDI source so any DAW can receive your notes, with a built-in General MIDI synth when no DAW is running.
+Menu Band 1.5.5 begins the next reliability patch and refreshes the App Store presentation.

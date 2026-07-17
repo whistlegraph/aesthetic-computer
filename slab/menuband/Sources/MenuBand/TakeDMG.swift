@@ -1,3 +1,4 @@
+#if !MAC_APP_STORE
 import AppKit
 
 /// Wraps a finished take into its own little **DMG "record release"**: a
@@ -138,3 +139,4 @@ enum TakeDMG {
         }
     }
 }
+#endif

@@ -1435,6 +1435,7 @@ final class MenuBandController {
         }
     }
 
+#if !MAC_APP_STORE
     /// Render the stopped take and wrap it into a per-take **DMG "record
     /// release"** on the Desktop: our logo as the volume icon, the take's WAV
     /// (with its generative album-art icon) inside, and that album art on the
@@ -1457,6 +1458,7 @@ final class MenuBandController {
         if dmg != nil { ReadyChime.shared.play() }   // cool "release" chime when the artifact lands
         return dmg
     }
+#endif
 
     /// State-change observer. Drops the pins whenever the tape goes
     /// back to idle so the synth engine can suspend on inactivity.

@@ -144,26 +144,26 @@
 
   <div class="content">
     <h2>Privacy</h2>
-    <p class="tagline">Short version: Menu Band only phones home for two things — a version check, and a crash report you have to send by hand.</p>
+    <p class="tagline">Short version: Menu Band has no analytics, advertising, account, or automatic crash reporting.</p>
 
     <h3>What Menu Band collects</h3>
-    <p>Nothing about you. No analytics, no usage telemetry, no automatic crash reporting, no account, no identifiers. The two network requests Menu Band makes are listed below in full.</p>
+    <p>Nothing about you. No analytics, no usage telemetry, no automatic crash reporting, no account, and no identifiers.</p>
 
-    <h3>Network requests Menu Band makes</h3>
+    <h3>Network features</h3>
     <ul class="flat">
-      <li><b>Update check (automatic).</b> Menu Band fetches a small JSON manifest from <code>https://assets.aesthetic.computer/menuband/latest.json</code> to find out whether a newer version exists. The request happens at most once an hour and includes only what your operating system attaches to any HTTP request (your IP address and a generic <code>URLSession</code> user-agent). It contains no identifier for you, your Mac, or your install. If a newer version is published, the popover shows a small banner; nothing is downloaded or installed automatically.</li>
-      <li><b>Crash report upload (manual, button-press).</b> If macOS has captured a Menu Band crash log in <code>~/Library/Logs/DiagnosticReports/</code>, the popover shows a count and a <em>Send</em> button. Clicking <em>Send</em> POSTs the contents of that crash file (a standard Apple <code>.ips</code> / <code>.crash</code> diagnostic, which contains stack traces and runtime info but no documents you've authored) to <code>https://aesthetic.computer/menuband-logs</code>. The request also includes the Menu Band version string and the crash filename so we can group reports. Menu Band <b>never</b> uploads a crash report without you clicking <em>Send</em>.</li>
+      <li><b>Direct-download update check.</b> The direct-download build fetches a small JSON manifest from <code>https://assets.aesthetic.computer/menuband/latest.json</code> at most once an hour. It contains no identifier for you, your Mac, or your install. The Mac App Store build does not perform this check; the App Store handles its updates.</li>
+      <li><b>Direct-download crash report upload.</b> If macOS has captured a Menu Band crash log, the direct-download build can show a <em>Send</em> button. Nothing is uploaded unless you press it. The Mac App Store build does not read or upload system crash logs.</li>
+      <li><b>Content you open.</b> Radio streams, KidLisp TV, and pages from aesthetic.computer connect only when you choose those features. These ordinary web requests include the network information your operating system sends with any request, such as your IP address and user agent, but Menu Band adds no account or install identifier.</li>
     </ul>
-    <p>That's the complete list. There are no other network requests.</p>
 
     <h3>What Menu Band stores locally</h3>
     <p>A handful of preferences in <code>UserDefaults</code> on your own Mac: which input mode you last used, the selected General MIDI patch, the octave shift, and whether MIDI output is enabled. None of this leaves your machine.</p>
 
     <h3>Permissions Menu Band may request</h3>
-    <p><b>Accessibility access.</b> Asked for only when you turn on the <em>Notepat</em> or <em>Ableton</em> input modes. macOS requires this permission for any app that wants to receive global keystrokes (the rest of the time, your typing goes wherever it normally goes). Menu Band uses keystrokes solely to play notes; nothing is recorded, logged, or transmitted.</p>
+    <p><b>Accessibility access.</b> The direct-download build asks only when you enable global <em>Notepat</em> or <em>Ableton</em> typing. The Mac App Store build never asks: typing works locally while Menu Band is active. Menu Band uses keystrokes solely to play notes; nothing is recorded, logged, or transmitted.</p>
 
     <h3>Third parties</h3>
-    <p>The two endpoints above are operated by aesthetic.computer; the manifest is served from Cloudflare's CDN in front of our DigitalOcean Spaces bucket and the crash endpoint is served from our own VPS. There are no third-party analytics, advertising, or data-sharing services. Audio and MIDI use only Apple's built-in CoreMIDI and AVAudioEngine. The virtual MIDI source named <code>Menu Band</code> is published to your Mac's CoreMIDI server so DAWs on your Mac can receive notes — that traffic is local-only.</p>
+    <p>The update manifest and crash endpoint are operated by aesthetic.computer; user-opened radio or web content connects to the named stream or website. There are no third-party analytics, advertising, or data-sharing services. Audio and MIDI use Apple's built-in CoreMIDI and AVAudioEngine. The virtual MIDI source named <code>Menu Band</code> is published to your Mac's CoreMIDI server so DAWs on your Mac can receive notes — that traffic is local-only.</p>
 
     <h3>Children</h3>
     <p>Menu Band does not collect data about users, so there is nothing to disclose about users of any age.</p>

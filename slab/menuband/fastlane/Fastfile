@@ -1,17 +1,27 @@
 # Menu Band — Mac App Store submission, driven by an App Store Connect API key.
-# Usage: fastlane create   /   fastlane meta   /   fastlane ship
+# Usage: fastlane create / fastlane meta / fastlane shots / fastlane ship
+# Screenshots deliberately have one owner: `shots`. Neither `meta` nor `ship`
+# uploads them, because running two deliver actions against the same version can
+# leave byte-for-byte duplicate assets in App Store Connect.
 # (run from slab/menuband; the API key .p8 lives at ~/.appstoreconnect/private_keys/)
 
 API_KEY_ID = "S4TQKG6U99" # Admin role — required for cloud signing (cert/profile creation)
 API_ISSUER = "69a6de78-fa3c-47e3-e053-5b8c7c11a4d1"
 API_KEY_PATH = File.expand_path("~/.appstoreconnect/private_keys/AuthKey_S4TQKG6U99.p8")
 BUNDLE = "computer.aesthetic.menuband"
+VERSION = ENV.fetch("MENUBAND_VERSION", "1.5.5")
+BUILD_NUMBER = ENV.fetch("MENUBAND_BUILD_NUMBER", "156")
 # Where `xcodebuild -exportArchive` actually drops the package: slab/menuband/
 # build/export/. This used to point at /tmp/MenuBand-export/, a directory that
 # does not exist and never did — the `upload` lane would have failed the moment
 # anyone ran it. Anchored to the Fastfile's own location so it resolves no
 # matter where fastlane is invoked from.
-PKG = File.expand_path("../build/export/Menu Band.pkg", __dir__)
+# Override for one-off/versioned exports, e.g.
+# MENUBAND_PKG=build/export-1.5.5-156/Menu\ Band.pkg fastlane mac upload
+PKG = File.expand_path(
+  ENV.fetch("MENUBAND_PKG", "build/export/Menu Band.pkg"),
+  File.expand_path("..", __dir__),
+)
 
 def asc_key
   app_store_connect_api_key(
@@ -23,13 +33,14 @@ def asc_key
 end
 
 platform :mac do
-  # 2b. Upload screenshots ONLY (skip_metadata avoids the review-attachment
-  #     code path in deliver's metadata uploader). Safe to re-run.
+  # 2b. Replace screenshots ONLY. Run once after creating a version and before
+  #     `ship`; the other lanes intentionally skip screenshots.
   lane :shots do
     deliver(
       api_key: asc_key,
       platform: "osx",
       app_identifier: BUNDLE,
+      app_version: VERSION,
       screenshots_path: "./fastlane/screenshots",
       skip_metadata: true,
       skip_binary_upload: true,
@@ -52,15 +63,15 @@ platform :mac do
     )
   end
 
-  # 2. Upload metadata + screenshots only (no binary, no submit). Safe to re-run.
+  # 2. Upload metadata only (no screenshots, binary, or submit). Safe to re-run.
   lane :meta do
     deliver(
       api_key: asc_key,
       platform: "osx",
       app_identifier: BUNDLE,
+      app_version: VERSION,
       metadata_path: "./fastlane/metadata",
-      screenshots_path: "./fastlane/screenshots",
-      overwrite_screenshots: true,
+      skip_screenshots: true,
       skip_binary_upload: true,
       submit_for_review: false,
       force: true,
@@ -100,9 +111,10 @@ platform :mac do
       api_key: asc_key,
       platform: "osx",
       app_identifier: BUNDLE,
+      app_version: VERSION,
+      build_number: BUILD_NUMBER,
       metadata_path: "./fastlane/metadata",
-      screenshots_path: "./fastlane/screenshots",
-      overwrite_screenshots: true,
+      skip_screenshots: true,
       skip_binary_upload: true,
       submit_for_review: true,
       automatic_release: true,

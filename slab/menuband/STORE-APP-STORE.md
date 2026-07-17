@@ -23,8 +23,12 @@ third submission; the shipped commit is tagged **`menuband-v1.5.3`**. It was
 indexed in App Store search immediately (top hit for "menu band") rather than
 taking the usual day.
 
-**IN PROGRESS — v1.5.4 (build 155):** the first patch, from bugs found by
-running the actual shipped store build. Not yet submitted. See §8.
+**PUBLISHED — v1.5.4 (build 155) went live on 2026-07-16.** The next patch will
+also replace the duplicated 1.5.4 screenshot assets; see the review log below.
+
+**IN PROGRESS — v1.5.5 (build 156):** screenshot uploads now have a single
+release lane, so the inherited four-image set will be replaced once with the
+two canonical images before submission.
 
 ### Review log
 
@@ -33,6 +37,27 @@ running the actual shipped store build. Not yet submitted. See §8.
 | 1 | Jul 5 (build 153) | rejected Jul 9 | **5.2.5** + **1.5** | The subtitle carried a trademark ("macOS"), and the support URL didn't lead to a real support page. | `ea903abae` — subtitle → *"Instruments in your menu bar"*; wrote `system/public/menuband/support.html` and pointed the support URL at `menuband.app/support.html`. |
 | 2 | Jul 9 (build 153) | rejected Jul 11 | **2.4.5(i)** | The app declared `com.apple.security.device.bluetooth` for features the sandboxed build doesn't ship — an entitlement it never uses. | `8fce4eb70` — dropped the entitlement, **build 154**. The MultipeerConnectivity fleet is `#if !MAC_APP_STORE` anyway, and game controllers ride the high-level GameController framework (no `CBCentralManager` anywhere), so paired controllers still work without it. |
 | 3 | Jul 11 (build 154) | **approved Jul 12** | — | — | Released same day. |
+| 4 | Jul 15 (build 155) | **approved Jul 16** | — | v1.5.4 post-launch fixes and submission hardening. | Released automatically as configured. |
+
+### Screenshot duplication found after release
+
+The 1.5.4 storefront shows each of its two screenshots twice. App Store Connect
+contains four distinct asset records, but each pair has the same filename,
+size, and source checksum. Apple refuses screenshot deletion after submission,
+including after the version reaches `READY_FOR_SALE`, so this cannot be repaired
+in place. Replace the screenshot set on the next version before submitting it.
+
+Cause: both `fastlane mac shots` and `fastlane mac ship` uploaded the screenshot
+directory. The Fastfile now gives screenshots a single owner: `shots` replaces
+the set once, while `meta` and `ship` both pass `skip_screenshots: true`. For each
+new version, run the lanes in this order:
+
+```fish
+fastlane mac meta
+fastlane mac shots
+fastlane mac upload
+fastlane mac ship
+```
 
 **The QuickLook payoff.** macOS will not register a locally-built QuickLook
 extension — the `.mbscore` piano-roll preview only loads from a *notarized*
@@ -48,7 +73,8 @@ keep it truthful, and prune the entitlement whenever a feature gets gated out.
 
 ### Prep (all done)
 
-- [x] `MenuBand-AppStore.entitlements` created — app-sandbox + audio-input + network.client.
+- [x] `MenuBand-AppStore.entitlements` created — app-sandbox + audio-input +
+      network.client + user-selected read/write for recording export.
 - [x] `Info.plist` — added `ITSAppUsesNonExemptEncryption=false` (skips the per-submission export question).
 - [x] Privacy policy already live at **https://aesthetic.computer/menuband/privacy.html** — use this as the App Store Connect Privacy Policy URL (resolves the STORE.md TODO). It accurately describes the full app; the sandboxed build collects strictly less.
 - [x] **`#if MAC_APP_STORE` source fork APPLIED + compile-verified** (see §2). Both
@@ -62,7 +88,7 @@ keep it truthful, and prune the entitlement whenever a feature gets gated out.
 - [x] Xcode app target + archive — see §3. Archived and uploaded; the signing
       prerequisites below are all resolved.
 - [x] Screenshots — see §4. Live in `fastlane/screenshots/en-US/`
-      (`00-overview`, `01-keymap`, 1440×900).
+      (`00-keyboard-menu`, `01-reel`, 1440×900).
 
 ### Environment prerequisites (resolved — kept as the record of what it took)
 
@@ -80,7 +106,7 @@ keep it truthful, and prune the entitlement whenever a feature gets gated out.
    Accounts).
 3. **Team-ID check.** Developer ID is team `FB5948YR3S`; the Apple Development
    cert is under `88649MN8MK`. Create the App Store Connect app record and sign
-   under **the team that owns the bundle id `computer.aestheticcomputer.menuband`**
+   under **the team that owns the bundle id `computer.aesthetic.menuband`**
    (the FB5948YR3S team, per STORE.md). Pick that team in the Xcode signing pane.
 
 ---
@@ -118,6 +144,7 @@ out behind `#if MAC_APP_STORE` and ship without them.
 | Virtual CoreMIDI source ("Menu Band") + MIDI out to DAWs | CoreMIDI virtual sources are sandbox-legal, no entitlement. |
 | Microphone sampler (hold `` ` ``) | `com.apple.security.device.audio-input` + the existing `NSMicrophoneUsageDescription`. |
 | MIDI-file drag-and-drop (`MidiDropTargetView`/`MidiFilePlayer`) | Dragging a file in is a user-intent gesture; the sandbox grants temporary read access to dropped files. No entitlement needed. |
+| Tape recording export | Store builds return the rendered WAV directly and use `NSSavePanel`; `com.apple.security.files.user-selected.read-write` permits writing only to the destination the user explicitly chooses. The Desktop/DMG and external-ffmpeg paths are compiled out. |
 | KidLisp TV feed, KPBJ radio stream, web window | Outbound HTTPS only → `com.apple.security.network.client`. |
 
 ### Needs a judgment call
@@ -184,7 +211,7 @@ target is intentionally omitted. (`Bundle.module` is supplied for this target by
 
 ## 4. App Store Connect record
 
-- Create the app record (bundle id `computer.aestheticcomputer.menuband`, name
+- Use the existing app record (bundle id `computer.aesthetic.menuband`, name
   "Menu Band", category Music).
 - Metadata is ready in `STORE.md` (description, subtitle, keywords, support +
   marketing URLs). **Privacy Policy URL → https://aesthetic.computer/menuband/privacy.html**.
@@ -255,7 +282,7 @@ surfaced them. Install from the store before believing the store build works.
 
 | # | Symptom | Root cause | Fix |
 |---|---|---|---|
-| 1 | **Never comes back after a reboot.** | There was no login-item code *at all*. The DMG build auto-starts from a LaunchAgent written by `install.sh` — a sandboxed app cannot install one, so the MAS build had no mechanism whatsoever. | New `MenuBandLoginItem.swift` (`#if MAC_APP_STORE`): `SMAppService.mainApp`, reconciled on every launch. Defaults **on** (parity with the LaunchAgent), with an "Open at Login" checkbox in About. `SMAppService` is macOS 13+, so it's `#available`-gated and the toggle hides on 11–12. |
+| 1 | **Never comes back after a reboot.** | There was no login-item code *at all*. The DMG build auto-starts from a LaunchAgent written by `install.sh` — a sandboxed app cannot install one, so the MAS build had no mechanism whatsoever. | New `MenuBandLoginItem.swift` (`#if MAC_APP_STORE`): `SMAppService.mainApp`, reconciled on every launch. Explicitly **opt-in** through the "Open at Login" checkbox in About. `SMAppService` is macOS 13+, so it's `#available`-gated and the toggle hides on 11–12. |
 | 2 | Instrument-palette down-arrow too small, undiscoverable, no hover. | The "arrow" was never a control: a `▾` **character** appended to the readout button's attributed title at 11pt / 55% alpha. And the button *is* a `HoverLinkButton`, but its four hover colors were never set and it isn't layer-backed — so `applyState(hovered:)` ran and did nothing. Hover was a dead code path. | Chevron up to 15pt and brighter (0.7 → 1.0 on hover). Added `onHoverChange` to `HoverLinkButton`, and a separate rounded `readoutHoverBackdrop` that fades in behind the name — a real hover pill *without* layer-backing the text, which would have rasterized away its 1px Riso shadow. |
 | 3 | "Haptics" switch in a bizarre place. | It's **trackpad Force Touch** feedback (`MenuBandHaptics` probes `AppleMultitouchTrackpadHIDEventDriver`), not controller haptics — but it was wedged into the *instrument title row* of the keymap overlay, so foreign there that a constraint width-matched the instrument **number** label to it just to keep the name optically centered. | Switch, label, info button, and the width-match hack all deleted. Haptics is simply always on, gated by `MenuBandHaptics.isAvailable`. `hapticsEnabled` is now a `let … = true`. |
 | 4 | Expanded keymap opens at the **top-left** on a fresh install. | `expandedFrame` resolved `savedExpandedOrigin ?? fallbackOrigin ?? centeredOrigin`. On a new install the saved origin is nil, so it fell to `fallbackOrigin` (= the freshly-built panel's origin) and **never reached `centeredOrigin`**. | Opening always centers on the active screen; an in-place refit keeps its position (that distinction is why `expandedFrame` now takes an explicit `origin`). The dragged position is no longer persisted across opens. |
@@ -264,16 +291,19 @@ surfaced them. Install from the store before believing the store build works.
 **Verified:** `swift build` (direct-download) and `xcodebuild -scheme MenuBand
 -configuration Release` (MAS) both compile clean, and the built `.app` carries
 `1.5.4 (155)` with `Contents/Resources/MenuBand.help` + a generated
-`search.helpindex`.
+`search.helpindex`. A fresh universal archive and App Store export also succeed;
+the exported payload is signed with Apple Distribution and carries only the
+expected sandbox, microphone, outbound-network, and user-selected-file
+entitlements.
 
 **NOT yet verified** (needs a signed/installed build): that Help Viewer actually
 opens for this LSUIElement app, that `SMAppService` registration survives a real
 reboot, and the visual result of the hover/centering changes.
 
-**Review watch-item:** #1 makes the app register itself as a login item on first
-launch (default on). That's normal for a menu-bar utility and there's a visible
-off switch in About, but if review objects, flip the `MBOpenAtLogin` default to
-`false` in `MenuBandLoginItem` and let the user opt in.
+**Review hardening:** launch-at-login is off on a fresh install and is registered
+only after the user enables the visible checkbox. Tape export is likewise an
+explicit user action through `NSSavePanel`; no Store path writes directly to the
+Desktop or launches `ffmpeg`, `hdiutil`, or `zip`.
 
 ### The slide bug — SOLVED (2026-07-14). It was never in `PianoKeyboardView`.
 
