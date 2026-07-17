@@ -6,6 +6,10 @@ face is [whistlegraph.org](https://whistlegraph.org)
 (`system/public/whistlegraph.org/index.html`, the `WGS` table); this registry
 is the back room where candidates wait for codes, glyphs, and pages.
 
+Reels selected for future posting live in
+[`REELS-BACKLOG.md`](REELS-BACKLOG.md), including the individual source takes
+for each suggested whistlegraph.
+
 **The code table** — `downloads/CODES.json` is the master: every one of the
 424 clustered songs has a unique short code (like `imab`), a title, a kind
 (`graph` = a performed whistlegraph · `talk` = tutorial/promo/commentary ·

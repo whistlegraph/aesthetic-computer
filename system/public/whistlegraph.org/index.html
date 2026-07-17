@@ -112,14 +112,14 @@
   #idxSearch:focus{outline:none; border-color:var(--margin); box-shadow:0 0 0 2px rgba(180,72,135,.18)}
   #idxSearch::placeholder{color:var(--dim)}
   #idxSentinel{height:1px}
-  .sortbar{display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 11px; align-items:baseline}
-  .sortbar .sl{font-size:11.5px; color:var(--dim); margin-right:2px}
-  .sortbar button{
+  .sortbar,.sectionbar{display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 11px; align-items:baseline}
+  .sortbar .sl,.sectionbar .sl{font-size:11.5px; color:var(--dim); margin-right:2px}
+  .sortbar button,.sectionbar button{
     font-family:inherit; font-size:11.5px; color:var(--ink); background:transparent;
     border:1px solid var(--ink); border-radius:2px; padding:2px 8px; cursor:pointer; line-height:1.4;
   }
-  .sortbar button:hover{background:rgba(255,255,255,.4)}
-  .sortbar button.on{background:var(--margin); color:var(--paper); border-color:var(--margin)}
+  .sortbar button:hover,.sectionbar button:hover{background:rgba(255,255,255,.4)}
+  .sortbar button.on,.sectionbar button.on{background:var(--margin); color:var(--paper); border-color:var(--margin)}
 
   /* the codes note — a bordered wiki box */
   .note{
@@ -197,6 +197,7 @@
   .post .pdesc{color:var(--dim); margin-top:3px; font-size:11px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical}
   .post .pbadge{display:inline-block; font-size:9.5px; letter-spacing:.06em; text-transform:uppercase; border:1px solid var(--margin); color:var(--margin); border-radius:3px; padding:0 4px; margin-right:5px; vertical-align:1px}
   .ktag{display:inline-block; font-size:10.5px; letter-spacing:.07em; text-transform:uppercase; border:1px solid var(--margin); color:var(--margin); border-radius:3px; padding:1px 6px; margin-left:9px; vertical-align:3px}
+  .plottag{display:inline-block; font-size:10.5px; letter-spacing:.04em; border:1px dashed var(--margin); color:var(--margin); border-radius:3px; padding:1px 6px; margin-right:6px; vertical-align:1px}
   .row .ktag{font-size:9px; margin-left:6px; padding:0 4px}
   .clear{clear:both}
 </style>
@@ -242,7 +243,14 @@
 
     <hr>
     <h2>Index</h2>
-    <p class="dim" style="font-size:12.5px;margin-top:-2px"><span id="idxCount">…</span> whistlegraphs recovered so far. Still being combed. Tap a code.</p>
+    <p class="dim" style="font-size:12.5px;margin-top:-2px"><span id="idxCount">…</span> <span id="idxType">whistlegraphs</span> recovered so far. Still being combed. Tap a code.</p>
+    <div class="sectionbar" id="sectionbar" aria-label="Archive section">
+      <span class="sl">Show:</span>
+      <button data-section="graphs" class="on">Whistlegraphs</button>
+      <button data-section="talks">Talks</button>
+      <button data-section="notes">Other posts</button>
+      <button data-section="all">All</button>
+    </div>
     <input id="idxSearch" type="search" placeholder="Search title or code…" autocomplete="off" spellcheck="false"
       aria-label="Search whistlegraphs">
     <div class="sortbar" id="sortbar">
@@ -419,7 +427,8 @@ function renderPosts(code){
   // OWN list below so they never sit between videos in a grid row (that mixed
   // row was the layout snag). Each stays a clean player with its own metadata.
   const vids=posts.filter(p=>p.media!=="audio"), auds=posts.filter(p=>p.media==="audio");
-  const ptag=p=>(p.tags||[]).map(t=>KIND_LABEL[t]?`<span class="ktag">${KIND_LABEL[t]}</span>`:"").join("");
+  const ptag=p=>(p.tags||[]).map(t=>KIND_LABEL[t]?`<span class="ktag">${KIND_LABEL[t]}</span>`:"").join("")+
+    (p.plots||[]).map(t=>`<span class="plottag">Plot: ${esc(t)}</span>`).join("");
   // Jukebox rows: a lazy thumbnail + metadata. Clicking a row plays that take in
   // the top player (wired below). No per-row <video>, so even a 39-take record
   // loads only small thumbnails, lazily — nothing heavier until you press play.
@@ -473,7 +482,9 @@ function rowHTML(w){
 // three apiece, and the grid is written in a single innerHTML pass.
 const rowTR=w=>`<tr class="row" data-code="${w.code}">${rowHTML(w)}</tr>`;
 
-let GRAPHS=[], COMPOSITIONS=[], EXPERIMENTS=[], CURATED_N=0;
+let GRAPHS=[], COMPOSITIONS=[], TALKS=[], NOTES=[], CURATED_N=0;
+let curSection="graphs";
+const activeWorks=()=>curSection==="talks"?TALKS:curSection==="notes"?NOTES:curSection==="all"?GRAPHS:COMPOSITIONS;
 
 // Sorts. `featured` (default) keeps the file order: the ten first, then the
 // archive by reach, with a divider between. Every other key flattens into one
@@ -481,14 +492,13 @@ let GRAPHS=[], COMPOSITIONS=[], EXPERIMENTS=[], CURATED_N=0;
 // featured view). Ties break on views, our richest signal.
 function sortedGraphs(key){
   const byViews=(a,b)=>b.views-a.views;
-  if(key==="experiments") return [...EXPERIMENTS].sort(byViews);
-  const g=[...COMPOSITIONS];
+  const g=[...activeWorks()];
   if(key==="videos") return g.sort((a,b)=>b.perf-a.perf||byViews(a,b));
   if(key==="viewed") return g.sort(byViews);
   if(key==="year")   return g.sort((a,b)=>a.year-b.year||byViews(a,b)); // oldest first
   if(key==="title")  return g.sort((a,b)=>a.title.localeCompare(b.title));
   if(key==="author") return g.sort((a,b)=>a.by.localeCompare(b.by)||byViews(a,b));
-  return null; // featured
+  return curSection==="graphs"?null:g.sort(byViews); // featured graph order; reach elsewhere
 }
 // The index holds 1000+ rows; painting them all (and their thumbnails) up front
 // is the slow part. So we window it — the full ordered VIEW lives in memory, but
@@ -503,9 +513,10 @@ const divHTML=`<tr class="divider"><td colspan="4" style="padding:12px 8px 6px;c
 function buildView(){
   const q=curQuery.trim().toLowerCase();
   const match=w=>!q||w.title.toLowerCase().includes(q)||w.code.toLowerCase().includes(q)||(w.by||"").toLowerCase().includes(q);
+  const source=activeWorks();
   const sorted=sortedGraphs(curSort);
   if(sorted){ VIEW=sorted.filter(match); return; }
-  if(q){ VIEW=COMPOSITIONS.filter(match); return; }
+  if(q){ VIEW=source.filter(match); return; }
   VIEW=[...COMPOSITIONS.slice(0,CURATED_N), {divider:true}, ...COMPOSITIONS.slice(CURATED_N)];
 }
 function renderMore(){
@@ -523,6 +534,9 @@ function pump(){
 }
 function renderReset(scrollTop){
   buildView();
+  const labels={graphs:"whistlegraphs",talks:"talk posts",notes:"other posts",all:"archive records"};
+  document.getElementById("idxCount").textContent=activeWorks().length;
+  document.getElementById("idxType").textContent=labels[curSection];
   document.querySelector("#idx tbody").innerHTML=""; SHOWN=0;
   document.getElementById("idxEmpty").style.display=VIEW.length?"none":"";
   // On a user sort/search change, jump back to the top of the list first — else
@@ -551,8 +565,9 @@ function loadPosts(){
 // visit defeats browser cache + CDN + SWR, so a fresh deploy always shows now.
 fetch("/graphs.json?t="+Date.now(),{cache:"no-cache"}).then(r=>r.json()).then(data=>{
   GRAPHS=data.graphs; CURATED_N=data.curated;
-  COMPOSITIONS=GRAPHS.slice();
-  EXPERIMENTS=GRAPHS.filter(w=>w.kind==="experiment");
+  COMPOSITIONS=GRAPHS.filter(w=>w.kind==="graph");
+  TALKS=GRAPHS.filter(w=>w.kind==="talk");
+  NOTES=GRAPHS.filter(w=>w.kind==="other");
   BY=Object.fromEntries(data.graphs.map(w=>[w.code,w]));
   // One delegated click for the whole grid — a row's <a href="/code"> routes to
   // its record without 1120×3 individual listeners.
@@ -567,7 +582,6 @@ fetch("/graphs.json?t="+Date.now(),{cache:"no-cache"}).then(r=>r.json()).then(da
   const search=document.getElementById("idxSearch");
   search.addEventListener("input",()=>{ curQuery=search.value; renderReset(true); });
   renderReset();
-  document.getElementById("idxCount").textContent=COMPOSITIONS.length;
   // The example code randomizes each load — always one of the featured ten —
   // and its links follow the drawn code.
   (function(){
@@ -581,6 +595,12 @@ fetch("/graphs.json?t="+Date.now(),{cache:"no-cache"}).then(r=>r.json()).then(da
     document.querySelectorAll("#sortbar button").forEach(x=>x.classList.remove("on"));
     b.classList.add("on");
     curSort=b.dataset.sort==="featured"?null:b.dataset.sort;
+    renderReset(true);
+  }));
+  document.querySelectorAll("#sectionbar button").forEach(b=>b.addEventListener("click",()=>{
+    document.querySelectorAll("#sectionbar button").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on");
+    curSection=b.dataset.section;
     renderReset(true);
   }));
   // Resolve any deep-link now that data exists.

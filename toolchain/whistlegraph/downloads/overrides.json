@@ -1,5 +1,5 @@
 {
-  "_comment": "Hand-curation from the trio (Alex, broad strokes) that the clustering pass can't derive. Applied by gen-model.mjs after clustering. renames: code -> canonical title. recodes: oldCode -> newCode (change a work's deep-link slug; its posts retag, pair with a rename keyed on the newCode for the title). merges: sourceCode -> targetCode (source's posts retag to the target, source work drops out). crossTags: sourceCode -> [alsoUnderCode] (source's posts ALSO appear under another existing work while the source stays standalone). postTags: postId -> [tag] (keep a badge like TALK on one video after it folds into a graph). authors: code -> attribution (keyed on the POST-recode code). twins: mirror a cluster's clips under a NEW code+title.",
+  "_comment": "Hand-curation from the trio (Alex, broad strokes) that the clustering pass can't derive. Applied by gen-model.mjs after clustering. renames: code -> canonical title. recodes: oldCode -> newCode (change a work's deep-link slug; its posts retag, pair with a rename keyed on the newCode for the title). merges: sourceCode -> targetCode (source's posts retag to the target, source work drops out). crossTags: sourceCode -> [alsoUnderCode] (source's posts ALSO appear under another existing work while the source stays standalone). postTags: postId -> [tag] (keep a badge like TALK on one video after it folds into a graph). postPlots: postId -> [plot title] (cross-cutting narrative events). authors: code -> attribution (keyed on the POST-recode code). twins: mirror a cluster's clips under a NEW code+title.",
   "renames": {
     "bugy": "Buggy on The Wall",
     "pnda": "When I'm Sad I Whip My Pen",
@@ -17,7 +17,13 @@
     "grav": "Grave of My Friend",
     "asmr": "Aggro Smile Money Raspberry",
     "tsss": "The Sun Keeps Beaming Down",
-    "soda": "Empty Soda Cup"
+    "soda": "Empty Soda Cup",
+    "sno2": "I Miss The Snowball Flying",
+    "lent": "Worm Lent Trucker",
+    "jube": "Juice Bone Lonely",
+    "chnd": "Chain Drawing",
+    "fing": "All These Fingers",
+    "mouse": "A Mouse Named Raichu"
   },
   "twins": [
     {
@@ -85,7 +91,12 @@
     "spik": "Alex Freundlich",
     "vfly": "Adelaide Dalio",
     "legs": "Alex Freundlich",
-    "crrt": "Alex Freundlich"
+    "crrt": "Alex Freundlich",
+    "snow": "Adelaide Dalio",
+    "sno2": "Jeffrey Alan Scudder",
+    "ship": "Alex Freundlich and Camille Klein",
+    "fing": "Jeffrey Alan Scudder",
+    "bugy": "Jeffrey Alan Scudder"
   },
   "recodes": {
     "cdh": "bugy",
@@ -104,11 +115,24 @@
     "bmhd": "trip",
     "asmr": "tryo",
     "btky": "asmr",
-    "bush": "soda"
+    "bush": "soda",
+    "ballo": "bllos",
+    "heart": "ballo",
+    "blun": "bubb",
+    "wrm": "lent",
+    "douh": "chnd",
+    "ghost": "fing",
+    "jeff": "mnij",
+    "spmn": "jeff"
   },
   "postTags": {
     "7019362782122380550": [
       "talk"
+    ]
+  },
+  "postPlots": {
+    "7160197103426325802": [
+      "Us Kidnapping You"
     ]
   },
   "crossTags": {
@@ -176,7 +200,13 @@
     "tear": "lost",
     "cosp": "imab",
     "chalk": "well",
-    "mystf": "flwe"
+    "mystf": "flwe",
+    "trpd": "trip",
+    "baggy": "bagy",
+    "cala": "cmal",
+    "vertx": "chee",
+    "boxes": "boxs",
+    "rmbx": "boxs"
   },
   "splits": {
     "lost": {
@@ -274,6 +304,29 @@
     "6964689309886696709": {
       "add": [
         "imab"
+      ]
+    },
+    "7160197103426325802": {
+      "add": [
+        "tppl"
+      ]
+    },
+    "6923393682217372934": {
+      "remove": [
+        "ready"
+      ],
+      "add": [
+        "chee"
+      ]
+    },
+    "6949252328843250949": {
+      "add": [
+        "chee"
+      ]
+    },
+    "6879519891418909957": {
+      "add": [
+        "appl"
       ]
     }
   }

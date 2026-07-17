@@ -60,6 +60,10 @@ const twins = overrides.twins || [];
 // work — e.g. a talk video that merges into a song-graph but is still a "talk".
 // { postId → ["talk", …] }. Survives merges because it's keyed on the post id.
 const postTags = overrides.postTags || {};
+// postPlots: narrative events that cut across works without becoming works.
+// { postId → [plot title, …] }. A post can still stand alone and contribute to
+// every whistlegraph in `graphs`; plots are a parallel descriptive layer.
+const postPlots = overrides.postPlots || {};
 const crossTags = overrides.crossTags || {}; // srcCode → [alsoUnderCode, …]
 // splits: pull specific posts OUT of a work into a NEW standalone work — for a
 // take that got mis-clustered (e.g. a different song folded under Kitty Head).
@@ -212,6 +216,11 @@ for (const [id, tags] of Object.entries(postTags)) {
   const p = postsById.get(id);
   if (p && Array.isArray(tags) && tags.length) p.tags = tags;
   else if (!p) console.warn(`postTags: post ${id} not found`);
+}
+for (const [id, plots] of Object.entries(postPlots)) {
+  const p = postsById.get(id);
+  if (p && Array.isArray(plots) && plots.length) p.plots = [...new Set(plots)];
+  else if (!p) console.warn(`postPlots: post ${id} not found`);
 }
 // splits: move the listed posts from their `from` work into the new code. Applied
 // last so it overrides earlier tagging — a mis-clustered take lands only on the
