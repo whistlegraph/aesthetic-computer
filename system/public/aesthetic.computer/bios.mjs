@@ -12053,6 +12053,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             window.location.reload();
           }
 
+          if (content.label === "update-auto-corner") {
+            let enabled = false;
+            try {
+              enabled = localStorage.getItem("aesthetic:update-auto-reload") !== "true";
+              localStorage.setItem("aesthetic:update-auto-reload", String(enabled));
+            } catch {}
+            send({ type: "update:auto-state", content: enabled });
+            if (window.acUpdateReloadTimer) clearTimeout(window.acUpdateReloadTimer);
+            window.acUpdateReloadTimer = enabled
+              ? setTimeout(() => window.location.reload(), 2500)
+              : null;
+          }
+
           if (content.label === "copy") {
             try {
               await navigator.clipboard.writeText(content.message);
@@ -18178,6 +18191,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     buildOverlay("qrCornerLabel", content.qrCornerLabel);
     buildOverlay("qrFullscreenLabel", content.qrFullscreenLabel);
     buildOverlay("authorOverlay", content.authorOverlay); // 👤 Author attribution for KidLisp pieces
+    if (content.updateBadge) {
+      let autoReload = false;
+      try { autoReload = localStorage.getItem("aesthetic:update-auto-reload") === "true"; } catch {}
+      if (window.acUpdateAutoState !== autoReload) {
+        window.acUpdateAutoState = autoReload;
+        send({ type: "update:auto-state", content: autoReload });
+      }
+      if (autoReload && !window.acUpdateReloadTimer) {
+        window.acUpdateReloadTimer = setTimeout(() => window.location.reload(), 2500);
+      }
+    }
     buildOverlay("updateBadge", content.updateBadge); // 📦 Update-ready ↑ badge (top-right)
     buildOverlay("merryProgressBar", content.merryProgressBar); // 🎄 Merry pipeline progress bar
     buildOverlay("demoplayCard", content.demoplayCard); // 🎬 Demoplay text card overlay

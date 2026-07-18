@@ -1928,6 +1928,7 @@ let updatePollStarted = false;
 let updatePollController = null;
 let updateBadgeBoxScreen = null; // {x, y, w, h} of the rendered badge for hitbox bookkeeping
 let updateBadgeHitboxRegistered = false;
+let globalAutoReload = false;
 
 // 📱 LAN Dev mode identity (set by session server in dev mode)
 let devIdentity = null; // { name, host, hostIp, mode, connectionId }
@@ -11892,6 +11893,12 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  if (type === "update:auto-state") {
+    globalAutoReload = content === true;
+    $commonApi.needsPaint?.();
+    return;
+  }
+
   if (type === "reframed") {
     // Always update the currentDisplay settings for synchronous
     // screen buffer updates.
@@ -16486,8 +16493,9 @@ async function makeFrame({ data: { type, content } }) {
         !hudAnimationState.qrFullscreen
       ) {
         const badgeSize = 13;
+        const badgeWidth = badgeSize * 2 + 3;
         const margin = 4;
-        const startX = screen.width - badgeSize - margin;
+        const startX = screen.width - badgeWidth - margin;
         const startY = margin;
 
         // Pulse for attention.
@@ -16496,7 +16504,7 @@ async function makeFrame({ data: { type, content } }) {
         const fillBoost = Math.round(40 * pulse);
         const outlineBoost = Math.round(60 * pulse);
 
-        const badge = $api.painting(badgeSize, badgeSize, ($) => {
+        const badge = $api.painting(badgeWidth, badgeSize, ($) => {
           $.unpan();
           $.unmask();
           // Filled square w/ pulsing green.
@@ -16513,6 +16521,25 @@ async function makeFrame({ data: { type, content } }) {
           $.box(cx - 1, 4, 3, 1);     // wing 1
           $.box(cx - 2, 5, 5, 1);     // wing 2
           $.box(cx, 6, 1, 4);         // shaft
+          // Auto-reload toggle: check means reload after the short grace
+          // period; X means updates wait for a manual arrow tap.
+          const bx = badgeSize + 3;
+          $.ink(8, 30, 12, 230).box(bx, 0, badgeSize, badgeSize);
+          $.ink(80, 210, 90, 255).box(bx, 0, badgeSize, badgeSize, "outline");
+          $.ink(255, 255, 255, 255);
+          if (globalAutoReload) {
+            $.box(bx + 3, 6, 2, 1);
+            $.box(bx + 4, 7, 2, 1);
+            $.box(bx + 5, 5, 1, 2);
+            $.box(bx + 6, 4, 1, 2);
+            $.box(bx + 7, 3, 2, 1);
+          } else {
+            $.box(bx + 3, 3, 1, 1); $.box(bx + 8, 3, 1, 1);
+            $.box(bx + 4, 4, 1, 1); $.box(bx + 7, 4, 1, 1);
+            $.box(bx + 5, 5, 2, 2);
+            $.box(bx + 4, 7, 1, 1); $.box(bx + 7, 7, 1, 1);
+            $.box(bx + 3, 8, 1, 1); $.box(bx + 8, 8, 1, 1);
+          }
         });
 
         sendData.updateBadge = {
@@ -16524,7 +16551,7 @@ async function makeFrame({ data: { type, content } }) {
           ),
         };
 
-        const boxKey = `${startX},${startY},${badgeSize}`;
+        const boxKey = `${startX},${startY},${badgeWidth},${globalAutoReload}`;
         if (!updateBadgeBoxScreen || updateBadgeBoxScreen.key !== boxKey) {
           send({
             type: "button:hitbox:add",
@@ -16534,6 +16561,14 @@ async function makeFrame({ data: { type, content } }) {
               message: "update-corner-tap",
             },
           });
+          send({
+            type: "button:hitbox:add",
+            content: {
+              label: "update-auto-corner",
+              box: { x: startX + badgeSize + 3, y: startY, w: badgeSize, h: badgeSize },
+              message: "update-auto-corner-tap",
+            },
+          });
           updateBadgeBoxScreen = {
             x: startX, y: startY, w: badgeSize, h: badgeSize, key: boxKey,
           };
@@ -16541,6 +16576,7 @@ async function makeFrame({ data: { type, content } }) {
         }
       } else if (updateBadgeHitboxRegistered) {
         send({ type: "button:hitbox:remove", content: "update-corner" });
+        send({ type: "button:hitbox:remove", content: "update-auto-corner" });
         updateBadgeHitboxRegistered = false;
         updateBadgeBoxScreen = null;
       }
