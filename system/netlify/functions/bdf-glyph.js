@@ -2,7 +2,6 @@
 // Loads a font file from the aethetic.computer assets directory and adds parsed
 // `json` files there as needed, sending them to the client on-demand.
 
-import fetch from "node-fetch";
 import zlib from "zlib";
 import { promisify } from "util";
 import https from "https"; // Added for custom agent
