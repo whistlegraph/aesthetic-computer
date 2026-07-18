@@ -57,6 +57,17 @@ const MASTERS = {
     "treble=g=1.6:f=8500",
     "alimiter=limit=0.97:attack=3:release=50",
   ],
+  // teknull needs audible drum attack without re-brightening its noise source.
+  teknull: [
+    "highpass=f=26",
+    "lowpass=f=14500",
+    "acompressor=threshold=-17dB:ratio=2.8:attack=18:release=105:makeup=3:knee=5",
+    "equalizer=f=52:t=q:w=1.1:g=3",
+    "bass=g=2:f=72",
+    "treble=g=-1.5:f=7200",
+    "alimiter=limit=0.96:attack=4:release=65",
+    "volume=0.82", // MP3-safe headroom; avoids decoded/intersample overs
+  ],
 };
 const chain = MASTERS[masterPreset];
 if (!chain) { console.error(`unknown master preset: ${masterPreset}`); process.exit(1); }

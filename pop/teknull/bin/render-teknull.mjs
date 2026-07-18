@@ -109,30 +109,30 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
     for (const beat of [0, 1, 2, 3]) {
       const soft = bar < 8 ? bar / 8 : 1;
       note("kick", t(bar, beat), {
-        freq: 80 + soft * 35, freqEnd: 38, peakDb: 22 + soft * 9, q: 2.2,
-        atk: 0.002 + (1 - soft) * 0.012, hold: 0.02, rel: 0.32,
+        freq: 88 + soft * 42, freqEnd: 42, peakDb: 23 + soft * 10, q: 2.8,
+        atk: 0.0015 + (1 - soft) * 0.01, hold: 0.016, rel: 0.24,
       });
       if (bar >= 4)
-        note("kickSub", t(bar, beat + 0.025), { freq: 52, freqEnd: 40, peakDb: 26 * Math.min(1, soft + 0.3), q: 4.5, atk: 0.008, hold: 0.08, rel: 0.26 });
+        note("kickSub", t(bar, beat + 0.018), { freq: 58, freqEnd: 43, peakDb: 27 * Math.min(1, soft + 0.3), q: 5.5, atk: 0.005, hold: 0.055, rel: 0.2 });
     }
 
   // hats — eager (lean in early), accent cycle, open hat wanders
   if (bar <= 67) // ticking from bar 0 — soft at first, full by bar 8
     [0.5, 1.5, 2.5, 3.5].forEach((beat, i) =>
       note("hatC", t(bar, beat) + EAGER + jit(bar, i), {
-        freq: 9200, peakDb: (bar < 8 ? -3 : 0) + [22, 19, 23, 20][i], q: 2.5,
+        freq: 8200, peakDb: (bar < 8 ? -3 : 0) + [18, 16, 19, 17][i], q: 4.2,
         atk: 0.002, hold: 0.006, rel: 0.04,
       }));
   if (bar >= 4 && bar <= 67 && !inBreak)
-    note("hatO", t(bar, bar % 4 === 2 ? 1.5 : 3.5) + EAGER, { freq: 7400, peakDb: 20, q: 1.8, atk: 0.002, hold: 0.015, rel: 0.2 });
+    note("hatO", t(bar, bar % 4 === 2 ? 1.5 : 3.5) + EAGER, { freq: 6800, peakDb: 17, q: 3.2, atk: 0.002, hold: 0.012, rel: 0.16 });
 
   // clap — 2 and 4, dragged late against the eager hats; ghost "clap-a"
   // closing every 4th bar. the most honest instrument here, it IS the noise
   if (bar >= 6 && bar <= 67 && !inBreak) {
     for (const beat of [1, 3])
-      note("clap", t(bar, beat) + DRAG, { freq: 2300, peakDb: 21, q: 1.3, atk: 0.002, hold: 0.03, rel: 0.15 });
+      note("clap", t(bar, beat) + DRAG, { freq: 2050, peakDb: 19, q: 2.2, atk: 0.0015, hold: 0.022, rel: 0.11 });
     if (bar % 4 === 3)
-      note("clap", t(bar, 3.375) + DRAG, { freq: 2300, peakDb: 15, q: 1.3, atk: 0.002, hold: 0.02, rel: 0.1 });
+      note("clap", t(bar, 3.375) + DRAG, { freq: 2050, peakDb: 13, q: 2.2, atk: 0.0015, hold: 0.015, rel: 0.08 });
   }
 
   // sub — offbeat "oontz" with a small downward settle per note; odd bars
@@ -186,7 +186,7 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
   if (DROP_B(bar))
     for (let k = 0; k < 16; k++) {
       if (k % 8 === 7) continue;
-      note("ride16", t(bar, sw(k * 0.25)) + jit(bar * 16 + k, 41, 0.002), { freq: 12500, peakDb: k % 4 === 2 ? 12 : 9, q: 5, atk: 0.002, hold: 0.005, rel: 0.04 });
+      note("ride16", t(bar, sw(k * 0.25)) + jit(bar * 16 + k, 41, 0.002), { freq: 10500, peakDb: k % 4 === 2 ? 10 : 7, q: 7, atk: 0.002, hold: 0.004, rel: 0.032 });
     }
 
   // LEADS — the hook rides the WHOLE drop now: a swung 2-bar pentatonic
@@ -205,15 +205,15 @@ for (let bar = 0; bar < TOTAL_BARS; bar++) {
 
   // breakdown — chord swells + rising noise-wash while the kick rests
   if (inBreak) {
-    note("noisewash", t(bar), { freq: 1200 + (bar - 40) * 350, peakDb: 9 + (bar - 40) * 0.7, q: 0.5, atk: 0.5, hold: BAR - 0.5, rel: 0.8 });
+    note("noisewash", t(bar), { freq: 1000 + (bar - 40) * 250, peakDb: 7 + (bar - 40) * 0.55, q: 1.1, atk: 0.35, hold: BAR - 0.35, rel: 0.9 });
   }
 }
 
 // one-shots: crashes, risers, drop zaps, sub booms
 for (const bar of [8, 16, 24, 32, 40, 48, 56, 64])
-  note("crash", t(bar), { freq: 5500, peakDb: 16, q: 0.7, atk: 0.003, hold: 0.05, rel: 1.0 });
+  note("crash", t(bar), { freq: 4800, peakDb: 13, q: 1.5, atk: 0.003, hold: 0.035, rel: 0.75 });
 for (const bar of [14, 22, 46, 62])
-  note("riser", t(bar), { freq: 600, freqEnd: 6500, peakDb: 8.5, q: 1.2, atk: 2 * BAR - 0.6, hold: 0.3, rel: 0.3 });
+  note("riser", t(bar), { freq: 600, freqEnd: 4800, peakDb: 7, q: 2, atk: 2 * BAR - 0.6, hold: 0.3, rel: 0.3 });
 for (const bar of [24, 48, 64])
   note("fall", t(bar), { freq: 3500, freqEnd: 90, peakDb: 18, q: 2, atk: 0.004, hold: 0.05, rel: 0.45 });
 for (const bar of [40, 64, 68])
@@ -267,6 +267,18 @@ if (lanes.size > MAX_POINTS)
 console.log(`→ teknull · ${TOTAL_BARS} bars · A minor @ ${BPM} BPM · ${lanes.size}/${MAX_POINTS} EQ points`);
 
 // ── bake the score for the C engine ───────────────────────────────────
+// Give each family its own independently generated and filtered source.
+// This keeps the 32 serial EQ voices from smearing into one shared wash:
+// drums are dry velvet impulses, the low end uses rounder brown noise,
+// and the musical/ambient layers retain separate pink-noise identities.
+const family = (name) => {
+  if (/^kick|^sub$|^subdrop$/.test(name)) return 2;
+  if (/^(hat|clap|perc|ride|crash|riser|fall)/.test(name)) return 3;
+  if (/^acid/.test(name)) return 4;
+  if (/^(veil|drone|air|noisewash)$/.test(name)) return 5;
+  return lanes.get(name).group ?? 1;
+};
+for (const [name, lane] of lanes) lane.group = family(name);
 const bands = [...lanes.values()];
 for (const b of bands) b.events.sort((x, y) => x.t0 - y.t0);
 
@@ -287,10 +299,12 @@ L.push(`sr ${SR}`, `dur ${totalSec}`, `detune 1.0009 0.9991`, `seed ${0xAC1D} ${
 L.push(`normpeak 0.9`, `fadein 0.004`, `fadeout 1.2`);
 L.push(`ridewin ${BAR} ${RIDE_BARS}`);
 for (let b = 0; b < RIDE_BARS; b++) L.push(String(rideTarget(b)));
-for (const g of [0, 1]) {
+const noiseType = ["pink", "pink", "brown", "velvet", "pink", "pink"];
+for (const g of [...new Set(bands.map((b) => b.group ?? 0))].sort()) {
   const groupBands = bands.filter((b) => (b.group ?? 0) === g);
   if (!groupBands.length) continue;
-  if (g > 0) L.push(`group ${0x7E77 + g} ${0x9A11 + g}`); // fresh noise pair per group
+  if (g > 0) L.push(`group ${0x7E77 + g} ${0x9A11 + g}`); // fresh noise pair per family
+  L.push(`noisetype ${noiseType[g] ?? "pink"}`);
   for (const band of groupBands) {
     L.push(`band ${band.events.length}`);
     for (const e of band.events)
@@ -308,5 +322,5 @@ if (process.argv.includes("--bake-only")) process.exit(0);
 const _argi = (k) => { const i = process.argv.indexOf(k); return i >= 0 ? process.argv[i + 1] : null; };
 const outPath = _argi("--out") || resolve(OUT_DIR, "teknull.mp3");
 const r = spawnSync("node", [resolve(HERE, "../../nullabye/c/run-c.mjs"),
-  scorePath, "--out", outPath, "--master", "techno"], { stdio: "inherit" });
+  scorePath, "--out", outPath, "--master", "teknull"], { stdio: "inherit" });
 process.exit(r.status ?? 1);

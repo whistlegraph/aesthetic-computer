@@ -125,16 +125,21 @@ export function magickMeasureWidth(text, ptSize) {
 }
 
 // Render `text` as a transparent PNG with YWFT-Processing-Bold.
-// opts: { ptSize, fill, shadow?, shadowSpec?, stroke?, strokeWidth?, padX=0, padY=0, outPath }
+// opts: { ptSize, fill, font?, shadow?, shadowSpec?, stroke?, strokeWidth?, padX=0, padY=0, outPath }
 // Returns a loaded Image.
 //
 // `shadowSpec` is magick's own <opacity>x<blur>+<dx>+<dy>. The default is a
 // faint 2px nudge, which is enough over a flat cover but vanishes over moving
 // footage — captions burned onto video want something like "100x0+6+7" (a hard,
 // offset drop) plus a `stroke`, so the glyph survives whatever passes behind it.
+//
+// `font` overrides the module's active font for this call only. Reach for it
+// when one render needs two typefaces at once — burned-in captions in a plain
+// system face, say, while the chrome around them stays in YWFT — since
+// setPreviewFont() is global and would take both.
 export async function magickRenderText(text, opts) {
   const {
-    ptSize, fill, shadow, shadowSpec = "100x0+2+2",
+    ptSize, fill, font = null, shadow, shadowSpec = "100x0+2+2",
     stroke = null, strokeWidth = 0,
     padX = 0, padY = 0, outPath,
   } = opts;
@@ -142,7 +147,7 @@ export async function magickRenderText(text, opts) {
   const args = [
     "-background", "none",
     "-fill", fill,
-    "-font", activeFont,
+    "-font", font || activeFont,
     "-pointsize", String(ptSize),
   ];
   // Stroke is drawn under the fill, so the outline thickens the glyph outward

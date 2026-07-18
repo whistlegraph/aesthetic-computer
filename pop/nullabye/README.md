@@ -39,6 +39,60 @@ node pop/nullabye/bin/render-nullabye.mjs --proof    # flat EQ ⇒ bit-exact sil
 `--proof` renders with every band forced flat and asserts the output is
 bit-exact digital zero — the cancellation is real, not just quiet.
 
+## sineabye — the oscillator cut
+
+`bin/render-sineabye.mjs` recasts the lullaby around sine voices, with a very
+quiet bed of independently filtered noise hats and soft percussion. It uses no
+samples, distortion, cancellation, or EQ-as-instrument technique.
+It expands the original theme to exactly **2:00** (38 bars at 76 BPM), moving
+through an immediate quiet opening verse, two increasingly full statements,
+a consonant F-major bridge, homecoming, and a melody-only ending. Even the
+heartbeat is a short downward-gliding sine; sparse modal gongs mark the form.
+
+```bash
+node pop/nullabye/bin/render-sineabye.mjs
+# → out/sineabye.mp3 + out/sineabye.struct.json
+```
+
+### spatial-sineabye — gravitational room cut
+
+`c/spatial-sineabye.c` is a small acoustic game engine: every musical voice is
+a persistent body in a virtual room, and its live acoustic energy exerts
+gravity plus a tangential “groove” force on a damped listener body. The moving
+listener position compiles to distance, azimuth, elevation, Doppler, ear gain,
+and room reflections. The same C simulation rasterizes an MP4 showing sources,
+energy, attraction lines, listener position, and head direction in perspective
+3D. After 1:18 its camera withdraws from the listener and eventually leaves the
+whole room floating far away as a small source constellation.
+Its listening law is intentionally selective: distance falls steeply after a
+few room units, so wandering actively remixes the piece. Faint grey tethers in
+the video show physical source distance; colored halos and lines show the
+post-distance energy that actually reaches the stereo listener.
+From 0:50–1:18 the complete source constellation eases through two physical
+rotations. The audio and gravity use the rotating coordinates, so this passage
+produces real proximity, Doppler, and stereo movement rather than a camera spin.
+The echo and air sources are follower bodies: they occupy the listener's
+position 2.2 and 5.5 seconds in the past, respectively. Their sound and gravity
+therefore chase the player; a fading breadcrumb in the video exposes the same
+six-second positional memory.
+
+```bash
+sh pop/nullabye/c/build-spatial.sh
+cd pop/nullabye/c
+./spatial-sineabye --wav ../out/spatial-sineabye.wav \
+  --mp3 ../out/spatial-sineabye.mp3 \
+  --video ../out/spatial-sineabye.mp4 --spatial-wet 0.58
+```
+
+`--spatial-wet 0..1` interpolates every voice between a restrained fixed-pan,
+constant-distance studio mix and the complete moving-listener model (including
+distance, azimuth, Doppler, and room motion). The pop default is 0.58; use 1 for
+the fully experimental observation or 0 for the stable dry reference. The wet
+bus is implemented by `c/ac_hrtf.h`, an allocation-free procedural binaural
+core designed to compile unchanged to WebAssembly. It models fractional ITD,
+far-ear head shadow, distance and elevation-dependent pinna notches. This is
+portable directional DSP, not yet a personalized measured HRIR dataset.
+
 ## nuellaby — the complexity-arch cut
 
 Second cut in the lane (`bin/render-nuellaby.mjs` → `out/nuellaby.mp3`,
