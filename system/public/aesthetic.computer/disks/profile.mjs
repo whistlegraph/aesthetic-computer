@@ -218,12 +218,12 @@ function paint({ api, wipe, help, ink, screen, ui, pen, paste, text }) {
   paintHeader({ ink, text, x: L.header.x, y: L.header.y, w: L.header.w });
 
   // Hero painting — the largest, most-recent work.
-  paintHero({ ink, paste, text, region: L.hero });
+  paintHero({ ink, paste, text, pen, region: L.hero });
 
   // Secondary surfaces.
-  if (L.filmstrip) paintFilmstrip({ ink, paste, region: L.filmstrip });
-  if (L.grid) paintGrid({ ink, paste, region: L.grid });
-  if (L.ribbon) paintRibbon({ ink, text, region: L.ribbon });
+  if (L.filmstrip) paintFilmstrip({ ink, paste, pen, region: L.filmstrip });
+  if (L.grid) paintGrid({ ink, paste, pen, region: L.grid });
+  if (L.ribbon) paintRibbon({ ink, text, pen, region: L.ribbon });
 
   // Bottom bar — sit the button a margin up from the edge (AC convention),
   // not flush to the bottom.
@@ -412,7 +412,7 @@ function paintHeader({ ink, text, x, y, w }) {
   );
 }
 
-function paintHero({ ink, paste, text, region }) {
+function paintHero({ ink, paste, text, pen, region }) {
   const { x, y, w, h } = region;
   if (h <= 0) return;
   const hero = thumbs[0];
@@ -442,7 +442,9 @@ function paintHero({ ink, paste, text, region }) {
 
   ink(bgTint[0] + 6, bgTint[1] + 6, bgTint[2] + 8).box(ix - 1, iy - 1, iw + 2, ih + 2);
   paste(hero.img, ix, iy, { scale });
-  ink(dom.r, dom.g, dom.b, 175).box(ix - 1, iy - 1, iw + 2, ih + 2, "outline");
+  const over = pointInBox(pen, { x: ix, y: iy, w: iw, h: ih });
+  ink(over ? 255 : dom.r, over ? 220 : dom.g, over ? 90 : dom.b, over ? 255 : 175)
+    .box(ix - 1, iy - 1, iw + 2, ih + 2, "outline");
 
   // Share code, hugging the painting's bottom-right (@sat: short-codes as IDs).
   const code = hero.code ? `#${hero.code}` : shortSlug(hero.slug);
@@ -460,7 +462,7 @@ function paintHero({ ink, paste, text, region }) {
   if (route) hitRegions.push({ box: { x: ix, y: iy, w: iw, h: ih }, route });
 }
 
-function paintFilmstrip({ ink, paste, region }) {
+function paintFilmstrip({ ink, paste, pen, region }) {
   const { x, y, w, h } = region;
   const rest = thumbs.slice(1);
   if (rest.length === 0) return;
@@ -479,19 +481,21 @@ function paintFilmstrip({ ink, paste, region }) {
       const iy = y + floor((h - t.img.height * scale) / 2);
       paste(t.img, ix, iy, { scale });
     }
-    ink(dom.r, dom.g, dom.b, 90).box(tx, y, tileW, h, "outline");
+    const over = pointInBox(pen, { x: tx, y, w: tileW, h });
+    ink(over ? 255 : dom.r, over ? 220 : dom.g, over ? 90 : dom.b, over ? 255 : 90)
+      .box(tx, y, tileW, h, "outline");
     t.route = t.slug ? `painting~${visiting}/${t.slug}` : null;
     if (t.route) hitRegions.push({ box: { x: tx, y, w: tileW, h }, route: t.route });
   }
 }
 
 // Wide-frame recent-works grid (right column).
-function paintGrid({ ink, paste, region }) {
+function paintGrid({ ink, paste, pen, region }) {
   const { x, y, w, h } = region;
   const rest = thumbs.slice(1);
   if (rest.length === 0) {
     ink(110).write("no other paintings", { x, y }, undefined, w, false, SMALL_FONT);
-    paintRibbon({ ink, region: { x, y: y + h - 11, w, h: 11 } });
+    paintRibbon({ ink, pen, region: { x, y: y + h - 11, w, h: 11 } });
     return;
   }
 
@@ -517,7 +521,9 @@ function paintGrid({ ink, paste, region }) {
         const iy = ty + floor((tileH - t.img.height * scale) / 2);
         paste(t.img, ix, iy, { scale });
       }
-      ink(dom.r, dom.g, dom.b, 90).box(tx, ty, tileW, tileH, "outline");
+      const over = pointInBox(pen, { x: tx, y: ty, w: tileW, h: tileH });
+      ink(over ? 255 : dom.r, over ? 220 : dom.g, over ? 90 : dom.b, over ? 255 : 90)
+        .box(tx, ty, tileW, tileH, "outline");
       t.route = t.slug ? `painting~${visiting}/${t.slug}` : null;
       if (t.route) hitRegions.push({ box: { x: tx, y: ty, w: tileW, h: tileH }, route: t.route });
       i++;
@@ -526,12 +532,12 @@ function paintGrid({ ink, paste, region }) {
   }
 
   // Catalog ribbon along the bottom of the column.
-  paintRibbon({ ink, region: { x, y: y + h - ribbonH, w, h: ribbonH } });
+  paintRibbon({ ink, pen, region: { x, y: y + h - ribbonH, w, h: ribbonH } });
 }
 
 // Compact catalog ribbon (@sat's composite catalog, distilled to counts) —
 // replaces the 30-row activity ledger. Small font, type-colored, tappable.
-function paintRibbon({ ink, text, region }) {
+function paintRibbon({ ink, text, pen, region }) {
   const { x, y, w } = region;
   const c = scorecard.counts;
   const chips = [
@@ -551,8 +557,11 @@ function paintRibbon({ ink, text, region }) {
     const label = `${chip.n} ${chip.label}`;
     const cw = measure(text, label);
     if (cx + cw > x + w) break; // never overflow the ribbon
-    ink(chip.color).write(label, { x: cx, y }, undefined, cw + 2, false, SMALL_FONT);
-    if (chip.route) hitRegions.push({ box: { x: cx, y: y - 1, w: cw, h: 10 }, route: chip.route });
+    const chipBox = { x: cx, y: y - 1, w: cw, h: 10 };
+    const over = chip.route && pointInBox(pen, chipBox);
+    ink(over ? 255 : chip.color).write(label, { x: cx, y }, undefined, cw + 2, false, SMALL_FONT);
+    if (over) ink(255, 220, 90).line(cx, y + 8, cx + cw, y + 8);
+    if (chip.route) hitRegions.push({ box: chipBox, route: chip.route });
     cx += cw;
     if (i < chips.length - 1) {
       const sw = measure(text, sep);
@@ -719,11 +728,18 @@ async function loadScorecard() {
     })
     .slice(0, 8);
 
-  await Promise.all(
+  // Codes enrich labels/routes, but images should not wait on six Mongo round
+  // trips. Start metadata hydration in parallel and let loadThumbnails use the
+  // collection's already-valid object URLs immediately.
+  Promise.all(
     recentPaintings.slice(0, 6).map(async (painting) => {
       painting.code = await fetchPaintingCode(painting.slug, bare);
+      const thumb = thumbs.find((item) => item.slug === painting.slug);
+      if (thumb) thumb.code = painting.code;
     }),
-  );
+  ).catch((err) => {
+    if (debug) console.warn("Painting code hydration failed:", err);
+  });
 
   const recentKidlisp = kidlispRecent.slice(0, 8).map((item) => ({
     code: item.code,
@@ -836,6 +852,7 @@ async function loadThumbnails() {
       next.push({
         slug: p.slug,
         code: p.code,
+        url: p.url,
         img: null,
         when: p.when,
         btn: null,
@@ -854,7 +871,9 @@ async function loadThumbnails() {
         // exposed in the collection by their filename. Metadata resolves that
         // filename to a stable short code, which /media/paintings/:code can
         // route to the actual object regardless of its storage folder.
-        const got = await getApi.painting(t.code || t.slug).by(bareHandle(visiting));
+        const got = t.url
+          ? await getApi.picture(t.url)
+          : await getApi.painting(t.code || t.slug).by(bareHandle(visiting));
         if (!disposed) t.img = got?.img || null;
       } catch (err) {
         if (debug) console.warn("Thumb load failed:", t.slug, err);
@@ -1263,6 +1282,12 @@ function timestampFromSlug(slug) {
   if (!Number.isFinite(maybe)) return null;
   if (maybe < 1000000000) return null;
   return maybe;
+}
+
+function pointInBox(pen, box) {
+  if (!pen || !box) return false;
+  return pen.x >= box.x && pen.x <= box.x + box.w &&
+    pen.y >= box.y && pen.y <= box.y + box.h;
 }
 
 function normalizeHandle(value) {

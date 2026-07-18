@@ -731,12 +731,12 @@ function paint({
 
     if (!prevBtn.disabled) {
       prevBtn.paint((btn) => {
-        ink(btn.down ? "orange" : 255).write("<", {
+        ink(btn.down ? "orange" : btn.over ? "yellow" : 255).write("<", {
           x: 6,
           y: screen.height / 2 - 4,
         });
       });
-      ink(255, 255, 0, 8).box(prevBtn.box);
+      ink(255, 255, 0, prevBtn.over ? 28 : 8).box(prevBtn.box);
     }
 
     if (!nextBtn) {
@@ -752,12 +752,12 @@ function paint({
 
     if (!nextBtn.disabled) {
       nextBtn.paint((btn) => {
-        ink(btn.down ? "orange" : 255).write(">", {
+        ink(btn.down ? "orange" : btn.over ? "yellow" : 255).write(">", {
           x: screen.width - 10,
           y: screen.height / 2 - 4,
         });
       });
-      ink(255, 255, 0, 8).box(nextBtn.box);
+      ink(255, 255, 0, nextBtn.over ? 28 : 8).box(nextBtn.box);
     }
 
     paintUi();

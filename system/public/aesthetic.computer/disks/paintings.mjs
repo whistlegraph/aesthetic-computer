@@ -248,7 +248,7 @@ function paint({ api, geo, wipe, help, ink, pen, screen, ui, text, paste }) {
       if (!timestampBtn) timestampBtn = new ui.Button(buttonBox);
       timestampBtn.box = buttonBox;
       timestampBtn.paint((btn) => {
-        ink(btn.down ? "orange" : 255).write(code, pos);
+        ink(btn.down ? "orange" : btn.over ? "yellow" : 255).write(code, pos);
       });
     }
 
@@ -274,7 +274,7 @@ function paint({ api, geo, wipe, help, ink, pen, screen, ui, text, paste }) {
       if (!shortCodeBtn) shortCodeBtn = new ui.Button(shortCodeBox);
       shortCodeBtn.box = shortCodeBox;
       shortCodeBtn.paint((btn) => {
-        ink(btn.down ? "orange" : 255).write(shortDisplay, codePos);
+        ink(btn.down ? "orange" : btn.over ? "yellow" : 255).write(shortDisplay, codePos);
       });
     } else if (code && paintings?.length > 0) {
       // Fallback: show "pending" while waiting for metadata (non-clickable)
@@ -307,12 +307,12 @@ function paint({ api, geo, wipe, help, ink, pen, screen, ui, text, paste }) {
 
     if (!prevBtn.disabled) {
       prevBtn.paint((btn) => {
-        ink(btn.down ? "orange" : 255).write("<", {
+        ink(btn.down ? "orange" : btn.over ? "yellow" : 255).write("<", {
           x: 6,
           y: screen.height / 2 - 4,
         });
       });
-      ink(255, 255, 0, 8).box(prevBtn.box);
+      ink(255, 255, 0, prevBtn.over ? 28 : 8).box(prevBtn.box);
     }
 
     if (!nextBtn) {
@@ -329,12 +329,12 @@ function paint({ api, geo, wipe, help, ink, pen, screen, ui, text, paste }) {
 
     if (!nextBtn.disabled) {
       nextBtn.paint((btn) => {
-        ink(btn.down ? "orange" : 255).write(">", {
+        ink(btn.down ? "orange" : btn.over ? "yellow" : 255).write(">", {
           x: screen.width - 10,
           y: screen.height / 2 - 4,
         });
       });
-      ink(255, 255, 0, 8).box(nextBtn.box);
+      ink(255, 255, 0, nextBtn.over ? 28 : 8).box(nextBtn.box);
     }
   }
 
