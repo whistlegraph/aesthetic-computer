@@ -3,6 +3,7 @@
 using Microsoft::WRL::ComPtr;
 using namespace Platform;
 using namespace Windows::ApplicationModel::Core;
+using namespace Windows::ApplicationModel::Activation;
 using namespace Windows::Gaming::Input;
 using namespace Windows::UI::Core;
 using namespace Windows::Foundation;
@@ -217,4 +218,3 @@ int main(Array<String^>^) {
   CoreApplication::Run(ref new XboxLatency::AppSource());
   return 0;
 }
-
