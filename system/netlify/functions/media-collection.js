@@ -6,6 +6,14 @@ import { getHandleOrEmail, userIDFromHandleOrEmail } from "../../backend/authori
 import { respond } from "../../backend/http.mjs";
 import { connect } from "../../backend/database.mjs";
 
+export function mediaCollectionPath({ userId, mediaType, slug, extension }) {
+  const normalized = `${slug}`.replace(/^\/+/, "");
+  const storagePath = normalized.startsWith(`${userId}/`)
+    ? normalized
+    : `${mediaType}/${normalized}`;
+  return `${storagePath}.${extension}`;
+}
+
 // GET `/media/{@userHandleOrEmail}` will list files.
 export async function handler(event, context) {
   // Make sure this is a GET request
@@ -50,7 +58,13 @@ export async function handler(event, context) {
 
     // Format the response
     files = media.map((file) => {
-      return `${baseUrl}/media/${userId}/${mediaType}/${file.slug}.${extension}`;
+      const path = mediaCollectionPath({
+        userId: userSub,
+        mediaType,
+        slug: file.slug,
+        extension,
+      });
+      return `${baseUrl}/media/${userId}/${path}`;
     });
 
     disconnect();
