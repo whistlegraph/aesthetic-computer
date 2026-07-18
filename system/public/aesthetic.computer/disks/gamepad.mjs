@@ -26,13 +26,13 @@ const MAX_HISTORY = 256; // Enough frames to fill full screen height
 const recentEvents = [];
 const MAX_EVENTS = 10;
 const FONT = "MatrixChunky8"; // Pixel-perfect font
-const soundQueue = [];
 
 // Stable pitches make the test useful as a tiny instrument. The M30 face
 // layout (A B C / X Y Z) lands on two related three-note rows.
 const BUTTON_TONES = [261.63, 329.63, 523.25, 659.25, 783.99, 392.0,
   174.61, 196.0, 220.0, 246.94, 293.66, 349.23, 880.0, 987.77, 1174.66,
   1318.51, 1567.98];
+const buttonVoices = new Map();
 
 const timelinePaintings = [null, null, null, null]; // One timeline per gamepad
 
@@ -129,7 +129,7 @@ function drawXboxControllerDiagram({ ink, line, circle, box }, gp, x, y) {
   const topY = baseY;
   ink(getColors(6)).box(baseX + 2, topY, 12, 2);         // LT (outer/left)
   ink(getColors(4)).box(baseX + 14, topY, 8, 2);         // LB (inner)
-  
+
   ink(getColors(7)).box(baseX + width - 14, topY, 12, 2); // RT (outer/right)
   ink(getColors(5)).box(baseX + width - 22, topY, 8, 2); // RB (inner)
 }
@@ -138,7 +138,7 @@ function draw8BitDoMicroDiagram({ ink, line, circle, box }, gp, x, y) {
   const baseX = x;
   const baseY = y;
   const gamepadId = gp.id || "standard";
-  
+
   // Get button colors from mapping
   const getColors = (btnIndex) => {
     const colors = getButtonColors(gamepadId, btnIndex);
@@ -549,21 +549,7 @@ function paint({ wipe, ink, write, screen, line, circle, box, painting, paste, h
   });
 }
 
-function sim({ sound }) {
-  while (soundQueue.length) {
-    const tone = soundQueue.shift();
-    sound?.synth?.({
-      type: "triangle",
-      tone,
-      attack: 0.003,
-      duration: 0.12,
-      decay: 0.55,
-      volume: 0.18,
-    });
-  }
-}
-
-function act({ event: e }) {
+function act({ event: e, sound }) {
   if (e.is("gamepad")) {
     const gpIndex = e.gamepad;
 
@@ -611,21 +597,40 @@ function act({ event: e }) {
     
     // Update last event
     gp.lastEvent = e.name;
-    
+
     // Track button state
     if (e.is(`gamepad:${gpIndex}:button`)) {
       const buttonIndex = e.button;
+      const voiceKey = `${gpIndex}:${buttonIndex}`;
       if (e.action === "push") {
+        const synthStartedAt = performance.now();
         if (!gp.pressedButtons.includes(buttonIndex)) {
           gp.pressedButtons.push(buttonIndex);
         }
-        soundQueue.push(BUTTON_TONES[buttonIndex] || 220 + buttonIndex * 30);
+        buttonVoices.get(voiceKey)?.kill?.(0.005);
+        const voice = sound?.synth?.({
+          type: "triangle",
+          tone: BUTTON_TONES[buttonIndex] || 220 + buttonIndex * 30,
+          attack: 0.001,
+          duration: "🔁",
+          decay: 0.85,
+          volume: 0.22,
+        });
+        if (voice) buttonVoices.set(voiceKey, voice);
+        const synthMs = performance.now() - synthStartedAt;
+        const deliveryMs = e.createdAt ? Date.now() - e.createdAt : null;
+        console.log(
+          `🎮 AUDIO_LATENCY button=${buttonIndex}` +
+          ` delivery=${deliveryMs ?? "?"}ms synth=${synthMs.toFixed(2)}ms`,
+        );
         console.log(`🔴 Button ${buttonIndex} PRESSED -`, getButtonName(gp.id, buttonIndex));
       } else if (e.action === "release") {
         gp.pressedButtons = gp.pressedButtons.filter(b => b !== buttonIndex);
+        buttonVoices.get(voiceKey)?.kill?.(0.025);
+        buttonVoices.delete(voiceKey);
         console.log(`⚪ Button ${buttonIndex} RELEASED -`, getButtonName(gp.id, buttonIndex));
       }
-      
+
       // Add to recent events
       recentEvents.push(`P${gpIndex + 1} Button ${buttonIndex}: ${e.action}`);
       if (recentEvents.length > MAX_EVENTS) recentEvents.shift();
@@ -658,6 +663,11 @@ function act({ event: e }) {
   }
 }
 
+function leave() {
+  for (const voice of buttonVoices.values()) voice?.kill?.(0.01);
+  buttonVoices.clear();
+}
+
 // 📚 Library
 // function boot() {
 //   Runs once at the start.
@@ -687,4 +697,4 @@ function act({ event: e }) {
 //   Render an application icon, aka favicon.
 // }
 
-export { paint, act, sim };
+export { paint, act, leave };

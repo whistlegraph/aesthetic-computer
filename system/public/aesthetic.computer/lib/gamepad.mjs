@@ -30,6 +30,7 @@ export class Gamepad {
             const name = `gamepad:${gi}:button:${bi}:${action}`;
             const event = { 
               name, 
+              createdAt: Date.now(),
               gamepad: gi, 
               button: bi, 
               action,
@@ -64,6 +65,7 @@ export class Gamepad {
             const name = `gamepad:${gi}:axis:${ai}:move`;
             const event = { 
               name, 
+              createdAt: Date.now(),
               gamepad: gi, 
               axis: ai, 
               value,
@@ -78,6 +80,7 @@ export class Gamepad {
             const name = `gamepad:${gi}:axis:${ai}:move`;
             const event = { 
               name, 
+              createdAt: Date.now(),
               gamepad: gi, 
               axis: ai, 
               value: 0,
