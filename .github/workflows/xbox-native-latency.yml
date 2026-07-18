@@ -1,0 +1,37 @@
+name: Xbox native latency
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "xbox/native-latency/**"
+      - ".github/workflows/xbox-native-latency.yml"
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create assets and signing certificate
+        shell: pwsh
+        run: |
+          $root = Join-Path $env:GITHUB_WORKSPACE 'xbox/native-latency'
+          $assets = Join-Path $root 'Assets'
+          New-Item -ItemType Directory -Force $assets | Out-Null
+          $png = [Convert]::FromBase64String('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL8WQAAAABJRU5ErkJggg==')
+          'Square150x150Logo.png','Square44x44Logo.png','Wide310x150Logo.png','SplashScreen.png','StoreLogo.png' | ForEach-Object { [IO.File]::WriteAllBytes((Join-Path $assets $_), $png) }
+          $cert = New-SelfSignedCertificate -Type Custom -Subject 'CN=AestheticComputerDev' -KeyUsage DigitalSignature -FriendlyName 'AC Xbox CI' -CertStoreLocation 'Cert:\CurrentUser\My'
+          $password = ConvertTo-SecureString 'aesthetic-xbox-ci' -AsPlainText -Force
+          Export-PfxCertificate -Cert $cert -FilePath (Join-Path $root 'XboxLatency_TemporaryKey.pfx') -Password $password | Out-Null
+      - name: Build signed x64 UWP package
+        shell: cmd
+        working-directory: xbox/native-latency
+        run: >-
+          "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe"
+          XboxLatency.sln /restore /m /p:Configuration=Release /p:Platform=x64
+          /p:GenerateAppxPackageOnBuild=true /p:AppxBundle=Never
+          /p:PackageCertificatePassword=aesthetic-xbox-ci
+          /p:AppxPackageDir=%GITHUB_WORKSPACE%\artifacts\
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xbox-native-latency-x64
+          path: artifacts/**
+          if-no-files-found: error
