@@ -22,6 +22,7 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
+import { hosted } from "../lib/hosted.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
@@ -60,6 +61,13 @@ const argv = process.argv.slice(2);
 const flags = new Set(argv.filter((a) => a.startsWith("--")));
 const positional = argv.filter((a) => !a.startsWith("--"));
 
+const episodeDescription = (slug, meta = {}) => {
+  const title = meta.title || slug;
+  const siteName = hosted(slug) || `aesthetic-${slug}-essay`;
+  const essayUrl = `https://papers.aesthetic.computer/${siteName}.pdf`;
+  return `${meta.description || `A reading of "${title}" in @jeffrey's voice.`}\n\nWrite with questions and feedback: mail@aesthetic.computer. Unless you ask us not to, your letter may be read or mentioned on a future episode.\n\nRead the essay: ${essayUrl}\nMore readings + papers: https://papers.aesthetic.computer`;
+};
+
 // ── list ───────────────────────────────────────────────────────────────
 if (positional[0] === "list") {
   const res = await fetch(`${API}/episodes.json`, { headers: auth });
@@ -84,6 +92,24 @@ if (positional[0] === "publish") {
   const ep = await res.json();
   writeFileSync(rp, JSON.stringify(ep, null, 2) + "\n");
   console.log(`✓ ${s} is now public · episode #${ep.episode_number ?? ep.id}`);
+  process.exit(0);
+}
+
+// Refresh the show notes of an existing episode without replacing its audio.
+if (positional[0] === "description") {
+  const s = positional[1];
+  const rp = resolve(OUT, `${s}.buzzsprout.json`);
+  const mp = resolve(OUT, `${s}.json`);
+  if (!existsSync(rp)) { console.error(`✗ no receipt ${rp}`); process.exit(1); }
+  const receipt = JSON.parse(readFileSync(rp, "utf8"));
+  const meta = existsSync(mp) ? JSON.parse(readFileSync(mp, "utf8")) : {};
+  const fd = new FormData();
+  fd.append("description", episodeDescription(s, meta));
+  const res = await fetch(`${API}/episodes/${receipt.id}.json`, { method: "PUT", headers: auth, body: fd });
+  if (!res.ok) { console.error(`✗ description ${res.status}: ${(await res.text()).slice(0, 300)}`); process.exit(1); }
+  const ep = await res.json();
+  writeFileSync(rp, JSON.stringify(ep, null, 2) + "\n");
+  console.log(`✓ ${s} description refreshed`);
   process.exit(0);
 }
 
@@ -148,8 +174,7 @@ if (existsSync(receiptPath) && !flags.has("--force")) {
 }
 
 const title = meta.title || slug;
-const essayUrl = `https://papers.aesthetic.computer/aesthetic-${slug}-essay.pdf`;
-const description = `${meta.description || `A reading of "${title}" in @jeffrey's voice.`}\n\nWrite with questions and feedback: mail@aesthetic.computer. Unless you ask us not to, your letter may be read or mentioned on a future episode.\n\nRead the essay: ${essayUrl}\nMore readings + papers: https://papers.aesthetic.computer`;
+const description = episodeDescription(slug, meta);
 
 const fd = new FormData();
 fd.append("title", title);
