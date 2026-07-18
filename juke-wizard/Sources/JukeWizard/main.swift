@@ -6,6 +6,7 @@
 //
 // Usage:
 //   jukewizard [<playlist.m3u8 | folder | file.mp3> ...] [--watch <dir>]
+//   bin/jukewizard --queue <file.mp3> <file.mp3>  focused ordered queue
 //   (no args → opens ~/Desktop/MASTER-playlist.m3u8 if present)
 //
 //   --watch <dir>   auto-pop: when a fresh audio file lands here, add it
@@ -54,6 +55,16 @@ final class JukeAppDelegate: NSObject, NSApplicationDelegate {
     // Stay resident when the window closes — the spinning-CD menu-bar item is
     // JukeWizard's persistent face; click it to bring the window back.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    // A hidden resident window should always come back from a Dock click.
+    // Without this, AppKit can activate the process while leaving its only
+    // window closed, which looks indistinguishable from a crash.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag { controller?.showWindow(nil) }
+        controller?.window?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        return true
+    }
 }
 
 let app = NSApplication.shared

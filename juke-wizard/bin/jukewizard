@@ -11,6 +11,7 @@
 # usage:
 #   juke-wizard/bin/jukewizard                       # browse the whole /pop library
 #   juke-wizard/bin/jukewizard <file.mp3>            # load library + select/play that track
+#   juke-wizard/bin/jukewizard --queue <a.mp3> <b.mp3> # focused ordered playlist; play a
 #   juke-wizard/bin/jukewizard <folder | playlist>   # load library + add these too
 #   juke-wizard/bin/jukewizard ... --watch <dir>     # auto-pop new renders
 #
@@ -24,6 +25,21 @@ swift build -c release --package-path "$WIZ" 2>&1 | grep -v '^$' | tail -2 || tr
 BIN="$WIZ/.build/release/JukeWizard"
 LIB="$REPO/pop/out/pop-library.json"
 node "$REPO/pop/bin/pop-library.mjs" >/dev/null 2>&1 || true   # refresh the index
+
+# Focused queue mode: use only the following loose files/folders/playlists,
+# preserving their command-line order. This makes `--queue a.mp3 b.mp3` a
+# real two-track listening session instead of burying those tracks inside the
+# master /pop library. Select + autoplay the first supplied audio file.
+if [ "${1:-}" = "--queue" ]; then
+  shift
+  if [ "$#" -eq 0 ]; then
+    echo "usage: jukewizard --queue <file | folder | playlist> [...]" >&2
+    exit 2
+  fi
+  FIRST="$1"
+  case "$FIRST" in /*) SEL="$FIRST";; *) SEL="$(pwd)/$FIRST";; esac
+  exec "$BIN" "$@" --select "$SEL"
+fi
 
 # No args → just the master library.
 if [ "$#" -eq 0 ]; then

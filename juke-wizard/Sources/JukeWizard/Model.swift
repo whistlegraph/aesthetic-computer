@@ -46,6 +46,7 @@ final class Track {
     let lane: String
     var data: JukeData
     var meta: TrackMeta?
+    var liveStatus: String?
 
     init(url: URL, lane: String, title: String? = nil) {
         self.url = url
