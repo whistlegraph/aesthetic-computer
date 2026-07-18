@@ -10,6 +10,9 @@
 //   a   d      ←   →             move
 //     s              ↓           punch
 //
+// gamepads: D-pad/left stick moves. Xbox A/X/RB punches and B/Y/LB blocks;
+// on an 8BitDo M30 the lower A/B/C row punches and upper X/Y/Z row blocks.
+//
 // the sim is deterministic and snapshot-clean; nothing here touches a network.
 //
 //   fight:boxes           hit and hurt boxes, tick, checksum
@@ -20,6 +23,7 @@
 import * as game from "../lib/fight/sim.mjs";
 import { syncTest, report, drills } from "../lib/fight/rollback.mjs";
 import { createSession, createLink } from "../lib/fight/session.mjs";
+import { getGamepadMapping } from "../lib/gamepad-mappings.mjs";
 
 const { P, PN, G, ST, SFX, SUB, BODY_W, BODY_H, PUNCH_F } = game;
 
@@ -47,6 +51,9 @@ const SUIT = [
 
 let s; // the whole simulation, one Int32Array
 const held = [0, 0];
+const keyHeld = [0, 0];
+const padsHeld = [0, 0];
+const padInput = new Map();
 let half = 0; // ac sims at 120hz; the game ticks at 60
 let boxes = false;
 let verdict; // synctest result, when asked for
@@ -91,6 +98,31 @@ function boot({ colon }) {
   }
 }
 
+function refreshPad(e) {
+  const player = e.gamepad & 1;
+  let pad = padInput.get(e.gamepad);
+  if (!pad) {
+    pad = { id: e.gamepadId || "standard", buttons: new Set(), axes: {} };
+    padInput.set(e.gamepad, pad);
+  }
+  if (e.gamepadId) pad.id = e.gamepadId;
+  if (e.button !== undefined) {
+    if (e.action === "push") pad.buttons.add(e.button);
+    else if (e.action === "release") pad.buttons.delete(e.button);
+  }
+  if (e.axis !== undefined) pad.axes[e.axis] = e.value;
+
+  const mapping = getGamepadMapping(pad.id);
+  const down = (list) => list.some((button) => pad.buttons.has(button));
+  let bits = 0;
+  if (pad.buttons.has(14) || (pad.axes[0] || 0) < -0.35) bits |= game.LEFT;
+  if (pad.buttons.has(15) || (pad.axes[0] || 0) > 0.35) bits |= game.RIGHT;
+  if (down(mapping.fight?.punch || [0, 2, 5])) bits |= game.PUNCH;
+  if (down(mapping.fight?.block || [1, 3, 4])) bits |= game.BLOCK;
+  padsHeld[player] = bits;
+  held[player] = keyHeld[player] | padsHeld[player];
+}
+
 function sim({ sound }) {
   if ((half ^= 1)) return; // every other 120hz step
   if (s[G.MATCH]) return;
@@ -114,10 +146,12 @@ function sim({ sound }) {
 function act({ event: e }) {
   for (const key in KEYS) {
     const [p, bit] = KEYS[key];
-    if (e.is(`keyboard:down:${key}`)) held[p] |= bit;
-    if (e.is(`keyboard:up:${key}`)) held[p] &= ~bit;
+    if (e.is(`keyboard:down:${key}`)) keyHeld[p] |= bit;
+    if (e.is(`keyboard:up:${key}`)) keyHeld[p] &= ~bit;
+    held[p] = keyHeld[p] | padsHeld[p];
   }
-  if (e.is("keyboard:down:r") && s[G.MATCH]) {
+  if (e.is("gamepad")) refreshPad(e);
+  if ((e.is("keyboard:down:r") || (e.button === 9 && e.action === "push")) && s[G.MATCH]) {
     // a networked rematch is a fresh session on a fresh wire, not a reset state
     net = net ? open(opened) : null;
     s = net ? net.a.state : game.create(s[G.RNG]);

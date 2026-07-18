@@ -26,6 +26,13 @@ const MAX_HISTORY = 256; // Enough frames to fill full screen height
 const recentEvents = [];
 const MAX_EVENTS = 10;
 const FONT = "MatrixChunky8"; // Pixel-perfect font
+const soundQueue = [];
+
+// Stable pitches make the test useful as a tiny instrument. The M30 face
+// layout (A B C / X Y Z) lands on two related three-note rows.
+const BUTTON_TONES = [261.63, 329.63, 523.25, 659.25, 783.99, 392.0,
+  174.61, 196.0, 220.0, 246.94, 293.66, 349.23, 880.0, 987.77, 1174.66,
+  1318.51, 1567.98];
 
 const timelinePaintings = [null, null, null, null]; // One timeline per gamepad
 
@@ -216,14 +223,44 @@ function draw8BitDoMicroDiagram({ ink, line, circle, box }, gp, x, y) {
   // L2/R2 triggers - with gap in center (original mapping)
   ink(getColors(8)).box(baseX + 14, shoulderY, 8, 2);  // L2 (narrower, gap on right)
   ink(getColors(9)).box(baseX + 26, shoulderY, 8, 2); // R2 (narrower, gap on left)
-  
+
   // Home/Heart button at bottom center
   ink(getColors(12)).box(centerX - 2, baseY + 19, 4, 3);
 }
 
+function draw8BitDoM30Diagram({ ink }, gp, x, y) {
+  const color = (button) => {
+    const colors = getButtonColors(gp.id, button);
+    return gp.pressedButtons.includes(button) ? colors.active : colors.inactive;
+  };
+  const axisX = parseFloat(gp.axes["0"] || 0);
+  const axisY = parseFloat(gp.axes["1"] || 0);
+  const active = gp.pressedButtons.length || Math.abs(axisX) > 0.3 || Math.abs(axisY) > 0.3;
+  const w = 56;
+
+  // The M30's low, rounded silhouette and its defining two rows of three.
+  ink(active ? "slategray" : "dimgray").box(x + 4, y, w - 8, 24);
+  ink(active ? "slategray" : "dimgray").box(x, y + 5, w, 14);
+
+  const dx = x + 10, dy = y + 12, ds = 4;
+  ink(axisY < -0.3 || gp.pressedButtons.includes(12) ? "lime" : "gray").box(dx, dy - 5, ds, ds);
+  ink(axisY > 0.3 || gp.pressedButtons.includes(13) ? "lime" : "gray").box(dx, dy + 5, ds, ds);
+  ink(axisX < -0.3 || gp.pressedButtons.includes(14) ? "lime" : "gray").box(dx - 5, dy, ds, ds);
+  ink(axisX > 0.3 || gp.pressedButtons.includes(15) ? "lime" : "gray").box(dx + 5, dy, ds, ds);
+  ink("black").box(dx, dy, ds, ds);
+
+  const fx = x + 34, fy = y + 7, bs = 4, gap = 6;
+  [2, 3, 4].forEach((button, i) => ink(color(button)).box(fx + i * gap, fy, bs, bs));
+  [0, 1, 5].forEach((button, i) => ink(color(button)).box(fx + i * gap, fy + 8, bs, bs));
+  ink(color(8)).box(x + 23, y + 8, 3, 2);
+  ink(color(9)).box(x + 27, y + 8, 3, 2);
+}
+
 function drawGamepadDiagram({ ink, line, circle, box }, gp, x, y) {
   // Detect controller type and use appropriate diagram
-  if (gp.id && (gp.id.includes("045e") && gp.id.includes("0b13"))) {
+  if (/m30|^xbox one game controller$/i.test(gp.id || "")) {
+    draw8BitDoM30Diagram({ ink, line, circle, box }, gp, x, y);
+  } else if (/xbox|xinput|045e/i.test(gp.id || "")) {
     // Xbox Controller
     drawXboxControllerDiagram({ ink, line, circle, box }, gp, x, y);
   } else {
@@ -413,10 +450,12 @@ function paint({ wipe, ink, write, screen, line, circle, box, painting, paste, h
     if (gp.id) {
       const nameY = slotY + slotHeight - diagramHeight - metadataHeight - 8;
       const maxWidth = slotWidth - 8;
-      
+
       // Detect controller type and show friendly name
       let displayName = gp.id;
-      if (displayName.includes("045e") && displayName.includes("0b13")) {
+      if (/m30|^xbox one game controller$/i.test(displayName)) {
+        displayName = "8BitDo M30 — 6 Button";
+      } else if (/xbox|xinput|045e/i.test(displayName)) {
         displayName = "Xbox Controller";
       } else if (displayName.includes("2dc8") && displayName.includes("9020")) {
         displayName = "8BitDo Micro";
@@ -510,10 +549,24 @@ function paint({ wipe, ink, write, screen, line, circle, box, painting, paste, h
   });
 }
 
+function sim({ sound }) {
+  while (soundQueue.length) {
+    const tone = soundQueue.shift();
+    sound?.synth?.({
+      type: "triangle",
+      tone,
+      attack: 0.003,
+      duration: 0.12,
+      decay: 0.55,
+      volume: 0.18,
+    });
+  }
+}
+
 function act({ event: e }) {
   if (e.is("gamepad")) {
     const gpIndex = e.gamepad;
-    
+
     // Initialize gamepad entry if needed
     if (!connectedGamepads[gpIndex]) {
       connectedGamepads[gpIndex] = {
@@ -566,6 +619,7 @@ function act({ event: e }) {
         if (!gp.pressedButtons.includes(buttonIndex)) {
           gp.pressedButtons.push(buttonIndex);
         }
+        soundQueue.push(BUTTON_TONES[buttonIndex] || 220 + buttonIndex * 30);
         console.log(`🔴 Button ${buttonIndex} PRESSED -`, getButtonName(gp.id, buttonIndex));
       } else if (e.action === "release") {
         gp.pressedButtons = gp.pressedButtons.filter(b => b !== buttonIndex);
@@ -633,4 +687,4 @@ function act({ event: e }) {
 //   Render an application icon, aka favicon.
 // }
 
-export { paint, act };
+export { paint, act, sim };

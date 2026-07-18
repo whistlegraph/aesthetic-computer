@@ -3,6 +3,43 @@
 // Uses CSS color names from lib/num.mjs for consistent color coding
 
 export const GAMEPAD_MAPPINGS = {
+  // 8BitDo M30 (Bluetooth, 2.4G, and Wired for Xbox). In X-input mode
+  // browsers expose its six face buttons as ABXY + the two bumpers.
+  "M30": {
+    vendor: "8BitDo",
+    product: "M30",
+    description: "Classic six-button arcade controller",
+    fight: {
+      punch: [0, 1, 5], // A, B, C
+      block: [2, 3, 4], // X, Y, Z
+    },
+    buttons: {
+      0: { name: "A", position: "face_bottom_left", active: "lime", inactive: "darkgreen" },
+      1: { name: "B", position: "face_bottom_center", active: "red", inactive: "maroon" },
+      2: { name: "X", position: "face_top_left", active: "dodgerblue", inactive: "navy" },
+      3: { name: "Y", position: "face_top_center", active: "yellow", inactive: "darkgoldenrod" },
+      4: { name: "Z", position: "face_top_right", active: "orange", inactive: "sienna" },
+      5: { name: "C", position: "face_bottom_right", active: "turquoise", inactive: "darkcyan" },
+      6: { name: "LT", position: "trigger_left", active: "coral", inactive: "brown" },
+      7: { name: "RT", position: "trigger_right", active: "violet", inactive: "indigo" },
+      8: { name: "Select", position: "center_left", active: "white", inactive: "slategray" },
+      9: { name: "Start", position: "center_right", active: "springgreen", inactive: "darkslategray" },
+      10: { name: "L3", position: "stick_left_press", active: "cyan", inactive: "cadetblue" },
+      11: { name: "R3", position: "stick_right_press", active: "magenta", inactive: "purple" },
+      12: { name: "D-Up", position: "dpad_up", active: "chartreuse", inactive: "forestgreen" },
+      13: { name: "D-Down", position: "dpad_down", active: "greenyellow", inactive: "olivedrab" },
+      14: { name: "D-Left", position: "dpad_left", active: "limegreen", inactive: "seagreen" },
+      15: { name: "D-Right", position: "dpad_right", active: "yellowgreen", inactive: "darkolivegreen" },
+      16: { name: "Home", position: "center", active: "hotpink", inactive: "darkslateblue" },
+    },
+    axes: {
+      0: { name: "D-Pad X", type: "dpad", direction: "horizontal", active: { left: "lime", right: "chartreuse" }, inactive: "darkseagreen" },
+      1: { name: "D-Pad Y", type: "dpad", direction: "vertical", active: { up: "greenyellow", down: "yellowgreen" }, inactive: "olivedrab" },
+      2: { name: "Right X", type: "stick", direction: "horizontal", active: "magenta", inactive: "dimgray" },
+      3: { name: "Right Y", type: "stick", direction: "vertical", active: "violet", inactive: "dimgray" },
+    },
+    layout: { type: "m30", hasAnalogSticks: false, width: 56, height: 24 },
+  },
   // 8BitDo Micro - Ultra-compact Bluetooth controller
   "8BitDo Micro gamepad": {
     vendor: "8BitDo",
@@ -101,6 +138,10 @@ export const GAMEPAD_MAPPINGS = {
     vendor: "Generic",
     product: "Standard Gamepad",
     description: "W3C Standard Gamepad mapping",
+    fight: {
+      punch: [0, 2, 5], // A, X, RB
+      block: [1, 3, 4], // B, Y, LB
+    },
     
     buttons: {
       0: { name: "A/X", position: "face_bottom", active: "lime", inactive: "darkgreen" },
@@ -171,6 +212,12 @@ export const GAMEPAD_MAPPINGS = {
  * @returns {object|null} - The mapping object or null if not found
  */
 export function getGamepadMapping(gamepadId) {
+  gamepadId ||= "standard";
+  // The officially licensed M30 Wired Controller for Xbox identifies this
+  // generically in browsers, with no 8BitDo/M30 vendor text to detect.
+  if (gamepadId.toLowerCase() === "xbox one game controller") {
+    return GAMEPAD_MAPPINGS["M30"];
+  }
   // Try exact match first
   if (GAMEPAD_MAPPINGS[gamepadId]) {
     return GAMEPAD_MAPPINGS[gamepadId];
