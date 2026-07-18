@@ -33,6 +33,9 @@ const BUTTON_TONES = [261.63, 329.63, 523.25, 659.25, 783.99, 392.0,
   174.61, 196.0, 220.0, 246.94, 293.66, 349.23, 880.0, 987.77, 1174.66,
   1318.51, 1567.98];
 const buttonVoices = new Map();
+const latencySamples = [];
+const MAX_LATENCY_SAMPLES = 60;
+let lastLatency = null;
 
 const timelinePaintings = [null, null, null, null]; // One timeline per gamepad
 
@@ -281,6 +284,20 @@ function paint({ wipe, ink, write, screen, line, circle, box, painting, paste, h
   
   const playerColors = ["cyan", "magenta", "lime", "yellow"];
   const playerLabels = ["P1", "P2", "P3", "P4"];
+
+  // These cover the software path only: input poll -> piece delivery, then
+  // time spent submitting the synth. HDMI/TV acoustic latency is downstream.
+  if (lastLatency) {
+    const average = latencySamples.reduce((sum, sample) => sum + sample, 0) /
+      latencySamples.length;
+    const latencyText = `IN ${lastLatency.delivery.toFixed(0)}ms AVG ${average.toFixed(0)}ms SYN ${lastLatency.synth.toFixed(2)}ms`;
+    const width = latencyText.length * 4 + 6;
+    const x = Math.max(2, screen.width - width - 4);
+    const y = hudHeight;
+    ink("black", 210).box(x, y, width, lineHeight + 2);
+    ink(lastLatency.delivery <= 20 ? "lime" : lastLatency.delivery <= 35 ? "yellow" : "red")
+      .write(latencyText, { x: x + 3, y: y + 2 }, undefined, width - 6, false, FONT);
+  }
   
   if (numConnected === 0) {
     // No gamepads - show message
@@ -619,6 +636,11 @@ function act({ event: e, sound }) {
         if (voice) buttonVoices.set(voiceKey, voice);
         const synthMs = performance.now() - synthStartedAt;
         const deliveryMs = e.createdAt ? Date.now() - e.createdAt : null;
+        if (deliveryMs !== null) {
+          lastLatency = { delivery: deliveryMs, synth: synthMs };
+          latencySamples.push(deliveryMs);
+          if (latencySamples.length > MAX_LATENCY_SAMPLES) latencySamples.shift();
+        }
         console.log(
           `🎮 AUDIO_LATENCY button=${buttonIndex}` +
           ` delivery=${deliveryMs ?? "?"}ms synth=${synthMs.toFixed(2)}ms`,
