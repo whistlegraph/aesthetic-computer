@@ -37,4 +37,11 @@ The broader catalog and provenance live in `social-software/scores-for-social-so
 6. Build the vertical composite using shared reframing and side-stamp libraries.
 7. Master the delivery to −14 LUFS and check phone playback.
 
+## Social derivatives
+
+- `node identity-proof.mjs [seconds]` renders a short proof of the combined
+  Pals + animated SO SOFT double-box side identity over the delivery master.
+- `node export-carousel.mjs` masters the ten selected work stills as a numbered
+  1080×1350 Instagram multi-swipe set in `out/carousel/`.
+
 See [SCRIPT.md](SCRIPT.md) and [index.json](index.json).

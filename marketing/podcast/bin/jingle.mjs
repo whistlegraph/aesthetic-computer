@@ -231,7 +231,10 @@ export function renderBed(durationSec, outPath, opts = {}) {
   const L = new Float32Array(Math.ceil(dur * SR));
   const R = new Float32Array(L.length);
   const rnd = lcg(0x51ED9);
-  const bpm = BED_BPM, beat = 60 / bpm, bar = beat * 4;
+  const bpm = (opts.bpm || BED_BPM), beat = 60 / bpm, bar = beat * 4;
+  // `semitones` transposes all pitched material (chords + melody), leaving the
+  // drums where they are — so the bed can meet a vocal in any key. Default 0 = C.
+  const tr = 2 ** ((opts.semitones || 0) / 12);
 
   // Chord pad — I · vi · IV · V, two bars each, gently overlapping.
   const prog = [
@@ -244,9 +247,9 @@ export function renderBed(durationSec, outPath, opts = {}) {
   for (let t = 0; t < dur; t += bar * 2) {
     const [r, th, fi] = prog[ci++ % prog.length];
     const d = Math.min(bar * 2 + 0.7, dur - t + 0.7);
-    addPad(L, R, r, t, d, 0.17);    // chords — the harmonic bed, well up
-    addPad(L, R, th, t, d, 0.12);
-    addPad(L, R, fi, t, d, 0.145);
+    addPad(L, R, r * tr, t, d, 0.17);    // chords — the harmonic bed, well up
+    addPad(L, R, th * tr, t, d, 0.12);
+    addPad(L, R, fi * tr, t, d, 0.145);
   }
 
   // Rhythm — swappable drum kit (default "felt" = the current sound).
@@ -258,10 +261,64 @@ export function renderBed(durationSec, outPath, opts = {}) {
   let mi = 2;
   for (let t = 0.5; t < dur; t += beat * (rnd() < 0.5 ? 2 : 3)) {
     mi = Math.max(0, Math.min(penta.length - 1, mi + (rnd() < 0.5 ? -1 : 1) * (rnd() < 0.3 ? 2 : 1)));
-    addBell(L, R, penta[mi], t, 3.4, 0.24, rnd() * 0.6 - 0.3, 0.4); // bright=0.4 → warm
+    addBell(L, R, penta[mi] * tr, t, 3.4, 0.24, rnd() * 0.6 - 0.3, 0.4); // bright=0.4 → warm
   }
 
   normalize(L, R, 0.72);
+  writeFileSync(outPath, encodeWav(L, R));
+  return outPath;
+}
+
+// A sine-wave bed: the same I·vi·IV·V harmony as renderBed, but nothing struck
+// and nothing rhythmic — just pure sine tones, slow-attack and slow-release, so
+// chords bleed into each other like breathing. No drums, no bells, no melody.
+// It sits under a voice as a warm pad rather than a track. A faint octave-up
+// sine and a slow tremolo keep it from sounding like a test tone.
+export function renderSineBed(durationSec, outPath) {
+  const dur = Math.max(4, durationSec);
+  const L = new Float32Array(Math.ceil(dur * SR));
+  const R = new Float32Array(L.length);
+  const bar = (60 / BED_BPM) * 4;
+
+  const prog = [
+    [130.81, 164.81, 196.00], // C  (C3 E3 G3)
+    [110.00, 130.81, 164.81], // Am (A2 C3 E3)
+    [ 87.31, 110.00, 130.81], // F  (F2 A2 C3)
+    [ 98.00, 123.47, 146.83], // G  (G2 B2 D3)
+  ];
+
+  // One sine voice: fade in over `fade`, hold, fade out — the long overlaps mean
+  // no chord ever starts or stops abruptly. A little detuned octave adds shimmer,
+  // a slow tremolo adds life, and a gentle pan spreads the three chord tones.
+  const sine = (f, at, len, gain, pan) => {
+    const start = Math.floor(at * SR);
+    const n = Math.floor(len * SR);
+    const fade = Math.min(len * 0.45, 1.1);
+    const gl = gain * (1 - Math.max(0, pan)) * 0.5;
+    const gr = gain * (1 + Math.min(0, pan)) * 0.5;
+    for (let i = 0; i < n; i += 1) {
+      const j = start + i;
+      if (j >= L.length) break;
+      const t = i / SR;
+      const a = Math.min(1, t / fade, (len - t) / fade); // trapezoid envelope
+      const trem = 1 + 0.05 * Math.sin(2 * Math.PI * 0.18 * t); // slow breathing
+      const s = (Math.sin(2 * Math.PI * f * t) + 0.18 * Math.sin(2 * Math.PI * f * 2.003 * t)) * a * trem;
+      L[j] += s * gl;
+      R[j] += s * gr;
+    }
+  };
+
+  let ci = 0;
+  for (let t = 0; t < dur; t += bar * 2) {
+    const [r, th, fi] = prog[ci++ % prog.length];
+    const len = Math.min(bar * 2 + 1.4, dur - t + 1.4); // overlap the next chord
+    sine(r, t, len, 0.16, 0);
+    sine(th, t, len, 0.12, -0.35);
+    sine(fi, t, len, 0.12, 0.35);
+    sine(r / 2, t, len, 0.10, 0); // a soft sub-octave drone under the root
+  }
+
+  normalize(L, R, 0.6); // quieter than the felt bed — it's a wash, not a track
   writeFileSync(outPath, encodeWav(L, R));
   return outPath;
 }
