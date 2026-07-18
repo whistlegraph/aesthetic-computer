@@ -412,14 +412,33 @@ enum MenuBuilder {
     /// menubar polygon and the dropdown read as the same picture.
     private static func appendClaude(to menu: NSMenu, state: StateSnapshot, target: AppDelegate) {
         let sessions = state.claudeSessions
+        // Label by the agent(s) present: a single agent names itself
+        // ("Claude" / "Codex"); a mix reads as "Agents".
+        let agentTypes = Set(sessions.map { $0.agentType })
+        let label: String = {
+            guard let only = agentTypes.first, agentTypes.count == 1 else { return "Agents" }
+            return only.isEmpty ? "Claude" : only.prefix(1).uppercased() + only.dropFirst()
+        }()
+        let header: String
+        if sessions.isEmpty {
+            header = "Agents: idle"
+        } else if state.anyAwaiting {
+            header = "\(label): \(state.awaitingCount) awaiting · \(sessions.count) active"
+        } else {
+            header = "\(label): \(sessions.count) active"
+        }
+        menu.addItem(info(header))
+
         menu.addItem(buildRestoreSubmenu(state: state, target: target))
 
-        if !sessions.isEmpty {
+        let localSessions = sessions.filter { !$0.isRemote }
+        if !localSessions.isEmpty {
             let restartAll = item(
-                "Restart all active (\(sessions.count))",
+                "Refresh sessions (\(localSessions.count))",
                 selector: #selector(AppDelegate.restartAllActive),
                 target: target
             )
+            restartAll.toolTip = "Restart every local Claude and Codex session so current configuration is reloaded, resuming existing threads when possible."
             menu.addItem(restartAll)
         }
 

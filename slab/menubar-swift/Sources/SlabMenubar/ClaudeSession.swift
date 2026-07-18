@@ -75,6 +75,10 @@ struct ClaudeSession {
     /// display-only.
     var agentType: String = "claude"
 
+    /// Native provider thread id. Claude uses `sessionId`; Codex's tracked
+    /// wrapper has its own rock id, so the watcher records the rollout id here.
+    var providerSessionId: String = ""
+
     /// True for sessions running on another machine, surfaced via the bridge.
     var isRemote: Bool { !remoteHost.isEmpty }
 
@@ -304,6 +308,7 @@ enum ClaudeSessionReader {
         )
         session.remoteHost = (obj["remote_host"] as? String) ?? ""
         session.agentType = (obj["agent_type"] as? String) ?? "claude"
+        session.providerSessionId = (obj["codex_session_id"] as? String) ?? ""
         return session
     }
 

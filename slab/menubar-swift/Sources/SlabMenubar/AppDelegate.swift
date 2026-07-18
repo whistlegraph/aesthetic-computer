@@ -494,12 +494,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // recolor non-template images on macOS 10.14+.
         button.contentTintColor = nil
         button.image = IconRenderer.image(for: state, phase: rainbowPhase, rotation: rotationPhase)
-        // The red message signal is an event; its numeric tail says how many
-        // inputs remain un-ingested. Agent counts stay separate with a `+`.
+        // Keep message state out of the status item so its dot/count never
+        // obscures or stretches the Slab bars. It remains visible in the menu.
+        // Agent counts stay separate with a `+`.
         var tails: [String] = []
-        if state.inputNotificationCount > 0 {
-            tails.append(String(state.inputNotificationCount))
-        }
         if state.claudeSessions.isEmpty && state.totalActive > 0 {
             tails.append("+\(state.totalActive)")
         } else if state.activeSubagents > 0 {
@@ -515,7 +513,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // session is non-stale; pulse phase always advances (it drives both
         // awaiting brightness and stale blink). When the polygon goes away
         // entirely, stop the timer and reset phases.
-        if !state.claudeSessions.isEmpty || state.messageWaiting || state.idleResting {
+        if !state.claudeSessions.isEmpty || state.idleResting {
             if animTimer == nil {
                 let t = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { [weak self] _ in
                     guard let self = self else { return }
@@ -1408,23 +1406,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    /// Stop every live Claude session, then relaunch each in a fresh Terminal
-    /// window with `--resume`. Confirms first because it kills in-flight work.
+    /// Stop every live local agent session, then relaunch it in a fresh
+    /// terminal, resuming the provider thread. This reloads current CLI config
+    /// (including Codex sandbox/approval policy) without losing conversation.
     @objc func restartAllActive() {
-        let sessions = state.claudeSessions
+        let sessions = state.claudeSessions.filter { !$0.isRemote }
         if sessions.isEmpty { return }
+        let legacyCodexCount = sessions.filter {
+            $0.agentType == "codex" && $0.providerSessionId.isEmpty
+        }.count
         let alert = NSAlert()
-        alert.messageText = "Restart all active Claude sessions?"
-        alert.informativeText = "This will stop \(sessions.count) running session\(sessions.count == 1 ? "" : "s") and relaunch each in a fresh Terminal window. In-flight work will be interrupted."
+        alert.messageText = "Refresh all local agent sessions?"
+        var detail = "This will stop \(sessions.count) running Claude/Codex session\(sessions.count == 1 ? "" : "s"), reload current configuration, and resume each thread in a fresh terminal. In-flight work will be interrupted."
+        if legacyCodexCount > 0 {
+            detail += " \(legacyCodexCount) Codex session\(legacyCodexCount == 1 ? "" : "s") predates refresh tracking and will reopen as a new thread this once."
+        }
+        alert.informativeText = detail
         alert.alertStyle = .warning
-        alert.addButton(withTitle: "Restart All")
+        alert.addButton(withTitle: "Refresh All")
         alert.addButton(withTitle: "Cancel")
         NSApp.activate(ignoringOtherApps: true)
         guard alert.runModal() == .alertFirstButtonReturn else { return }
 
         // Snapshot what we need before SIGTERM races the active-prompts
         // janitor — once the pid dies, the marker file gets reaped.
-        let payloads = sessions.map { (sid: $0.sessionId, cwd: $0.cwd, pid: $0.claudePid) }
+        let payloads = sessions.map {
+            (sid: $0.sessionId, providerSid: $0.providerSessionId,
+             agent: $0.agentType, cwd: $0.cwd, pid: $0.claudePid)
+        }
         let geom = state.autoTile ? Self.screenGeom() : nil
         let layout = geom.flatMap { Self.computeTileLayout(count: payloads.count, geom: $0, size: state.textSize) }
         DispatchQueue.global(qos: .userInitiated).async {
@@ -1439,9 +1448,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             Thread.sleep(forTimeInterval: 0.5)
             for (i, p) in payloads.enumerated() where !p.cwd.isEmpty {
                 let cell = layout?.cellAt(index: i)
-                Self.openTerminalRunningClaude(
+                Self.openTerminalRunningAgent(
                     cwd: p.cwd,
                     sessionId: p.sid,
+                    providerSessionId: p.providerSid,
+                    agentType: p.agent,
                     bounds: cell?.bounds,
                     fontSize: layout?.fontSize,
                     app: term
@@ -2392,10 +2403,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         fontSize: Int? = nil,
         app: String = "iTerm2"
     ) {
+        openTerminalRunningAgent(cwd: cwd, sessionId: sessionId,
+            providerSessionId: sessionId, agentType: "claude", bounds: bounds,
+            fontSize: fontSize, app: app)
+    }
+
+    /// Provider-aware sibling used by Refresh Sessions. Codex is launched via
+    /// its Slab wrapper so the replacement remains visible as a prompt rock.
+    private static func openTerminalRunningAgent(
+        cwd: String,
+        sessionId: String,
+        providerSessionId: String,
+        agentType: String,
+        bounds: (left: Int, top: Int, right: Int, bottom: Int)? = nil,
+        fontSize: Int? = nil,
+        app: String = "iTerm2"
+    ) {
         _ = fontSize
         let safeCwd = cwd.replacingOccurrences(of: "'", with: "'\\''")
-        let safeSid = sessionId.replacingOccurrences(of: "'", with: "'\\''")
-        let shellCmd = "cd '\(safeCwd)' && claude -r '\(safeSid)'"
+        let shellCmd: String
+        if agentType == "codex" {
+            if providerSessionId.isEmpty {
+                shellCmd = "cd '\(safeCwd)' && codex-slab"
+            } else {
+                let safeSid = providerSessionId.replacingOccurrences(of: "'", with: "'\\''")
+                shellCmd = "cd '\(safeCwd)' && codex-slab resume '\(safeSid)'"
+            }
+        } else {
+            let safeSid = sessionId.replacingOccurrences(of: "'", with: "'\\''")
+            shellCmd = "cd '\(safeCwd)' && claude -r '\(safeSid)'"
+        }
         let escapedCmd = shellCmd.replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
 
