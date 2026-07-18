@@ -99,6 +99,8 @@
     "podcast:feed": "node marketing/podcast/bin/feed.mjs",
     "podcast:publish": "node marketing/podcast/bin/publish.mjs",
     "podcast:publish:push": "node marketing/podcast/bin/publish.mjs --push",
+    "podcast:kunaki": "node marketing/podcast/bin/kunaki.mjs",
+    "podcast:cassette-kit": "node marketing/podcast/bin/kunaki-cassette-kit.mjs",
     "essay:reel": "node marketing/essay-reels/bin/render.mjs",
     "thespianjas:generate": "node thespianjas/bin/generate.mjs",
     "thespianjas:studio": "node thespianjas/bin/serve.mjs",
