@@ -6,7 +6,7 @@ import AppKit
 
 final class TrackRowView: NSView {
     static let id = NSUserInterfaceItemIdentifier("TrackRow")
-    static let height: CGFloat = 46
+    static let height: CGFloat = 36
 
     private let thumb = NSImageView()
     private let titleField = NSTextField(labelWithString: "")
@@ -20,16 +20,16 @@ final class TrackRowView: NSView {
         wantsLayer = true
         thumb.imageScaling = .scaleProportionallyUpOrDown
         thumb.wantsLayer = true
-        thumb.layer?.cornerRadius = 5
+        thumb.layer?.cornerRadius = 4
         thumb.layer?.masksToBounds = true
         thumb.layer?.borderWidth = 1
         thumb.layer?.borderColor = NSColor.white.withAlphaComponent(0.15).cgColor
-        titleField.font = .systemFont(ofSize: 13, weight: .semibold)
+        titleField.font = .systemFont(ofSize: 12, weight: .semibold)
         titleField.lineBreakMode = .byTruncatingTail
-        artistField.font = .systemFont(ofSize: 10.5)
+        artistField.font = .systemFont(ofSize: 9.5)
         artistField.textColor = .secondaryLabelColor
         artistField.lineBreakMode = .byTruncatingTail
-        badges.font = .systemFont(ofSize: 12, weight: .bold)
+        badges.font = .systemFont(ofSize: 10, weight: .bold)
         badges.alignment = .right
         for v in [thumb, titleField, artistField, badges] { addSubview(v) }
     }
@@ -46,8 +46,9 @@ final class TrackRowView: NSView {
         let cc = t.data.comments.count
         titleField.stringValue = t.title
         titleField.textColor = TrackRowView.titleColor(t)
-        artistField.stringValue = (t.meta?.artist ?? "Aesthetic Dot Computer")
+        artistField.stringValue = (t.liveStatus.map { "● \($0) · " } ?? "") + (t.meta?.artist ?? "Aesthetic Dot Computer")
             + (cc > 0 ? "   💬\(cc)" : "")
+        artistField.textColor = t.liveStatus == nil ? .secondaryLabelColor : Palette.gold
         badges.attributedStringValue = TrackRowView.badgeString(t)
         tint = TrackRowView.laneTint(t.lane)
         needsDisplay = true
@@ -56,15 +57,15 @@ final class TrackRowView: NSView {
 
     override func layout() {
         super.layout()
-        let h = bounds.height, pad: CGFloat = 8
-        let side = h - 10
-        thumb.frame = NSRect(x: pad, y: 5, width: side, height: side)
-        let tx = pad + side + 9
-        let bw: CGFloat = 96
+        let h = bounds.height, pad: CGFloat = 6
+        let side = h - 6
+        thumb.frame = NSRect(x: pad, y: 3, width: side, height: side)
+        let tx = pad + side + 7
+        let bw: CGFloat = 72
         let textW = bounds.width - tx - bw - pad
-        titleField.frame = NSRect(x: tx, y: 6, width: textW, height: 17)
-        artistField.frame = NSRect(x: tx, y: 24, width: textW, height: 14)
-        badges.frame = NSRect(x: bounds.width - bw - pad, y: 14, width: bw, height: 18)
+        titleField.frame = NSRect(x: tx, y: 3, width: textW, height: 15)
+        artistField.frame = NSRect(x: tx, y: 18, width: textW, height: 12)
+        badges.frame = NSRect(x: bounds.width - bw - pad, y: 9, width: bw, height: 16)
     }
 
     override func draw(_ dirtyRect: NSRect) {

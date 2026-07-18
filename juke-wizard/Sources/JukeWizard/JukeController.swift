@@ -34,6 +34,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     var current: Int = -1
     var menuBar: MenuBarCD?
     var watchTimer: Timer?
+    var activityTimer: Timer?
     var watchMtimes: [String: Date] = [:]
     var keyMonitor: Any?
 
@@ -91,6 +92,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     var titleLabel: NSTextField!
     var artistLabel: NSTextField!
     var laneLabel: NSTextField!
+    var activityLabel: NSTextField!
     var linkButtons: [NSButton] = []
     var wave: WaveformView!
     var playButton: NSButton!
@@ -114,13 +116,21 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         self.watchDirs = watch
         self.selectPath = selectArg
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 1120, height: 720),
+            contentRect: NSRect(x: 0, y: 0, width: 820, height: 540),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered, defer: false)
         window.title = "JukeWizard — \(library.tracks.count) tracks"
+        // JukeWizard is a compact listening utility: keep it visible above
+        // normal document windows and available across Spaces. Previously it
+        // could fall behind a full-screen development stack while its process
+        // remained healthy, which looked exactly like a crash.
+        window.level = .floating
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        window.hidesOnDeactivate = false
+        window.isMovableByWindowBackground = true
         window.isRestorable = false          // don't let AppKit re-select a stale row over our pick
         window.isReleasedWhenClosed = false  // keep it around so the menu-bar CD can reopen it
-        window.minSize = NSSize(width: 720, height: 460)
+        window.minSize = NSSize(width: 640, height: 420)
         window.center()
         super.init(window: window)
         window.delegate = self
@@ -137,10 +147,18 @@ final class JukeController: NSWindowController, NSWindowDelegate,
             } else if !library.tracks.isEmpty { select(0, autoplay: false) }
         } else if !library.tracks.isEmpty { select(0, autoplay: false) }
         armWatch()
+        armActivityStatus()
         installKeyMonitor()
     }
     required init?(coder: NSCoder) { fatalError() }
     deinit { if let m = keyMonitor { NSEvent.removeMonitor(m) } }
+
+    // Keep the single player window alive: the menu-bar CD and Dock icon can
+    // restore it instantly, and playback/queue state cannot be lost on close.
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        sender.orderOut(nil)
+        return false
+    }
 
     // ── keyboard control (yields to text editing) ────────────────────────
     private func installKeyMonitor() {
@@ -180,13 +198,16 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         nowPlaying = NowPlayingMedia(frame: .zero)
         content.addSubview(nowPlaying)
 
-        titleLabel = label("", size: 24, bold: true)
+        titleLabel = label("", size: 19, bold: true)
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.textColor = Palette.gold
         artistLabel = label("", size: 13, color: NSColor(white: 0.85, alpha: 1))
         laneLabel = label("", size: 11, color: .secondaryLabelColor)
         laneLabel.lineBreakMode = .byTruncatingTail
         content.addSubview(titleLabel); content.addSubview(artistLabel); content.addSubview(laneLabel)
+        activityLabel = label("● watching agents + renders", size: 10, color: Palette.teal)
+        activityLabel.lineBreakMode = .byTruncatingTail
+        content.addSubview(activityLabel)
 
         for svc in LinkService.allCases {
             let b = NSButton(title: svc.title, target: self, action: #selector(linkClicked(_:)))
@@ -244,6 +265,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         listTable.selectionHighlightStyle = .none
         listTable.dataSource = self
         listTable.delegate = self
+        listTable.setDraggingSourceOperationMask([.copy], forLocal: false)
         listTable.target = self
         listTable.action = #selector(listClicked)
         listScroll = NSScrollView()
@@ -359,22 +381,24 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     private func relayout() {
         guard let content = window?.contentView else { return }
         let W = content.bounds.width, H = content.bounds.height
-        let pad: CGFloat = 12
+        let pad: CGFloat = 8
         // ── header (now-playing) across the top ───────────────────────────────
-        let headerH = max(240, min(380, H * 0.46))
+        let headerH = max(178, min(245, H * 0.39))
         let headerBottom = H - headerH
-        let mediaSide = min(headerH - pad * 2, W * 0.44)
+        let mediaSide = min(headerH - pad * 2, W * 0.34)
         nowPlaying.frame = NSRect(x: pad, y: headerBottom + pad, width: mediaSide, height: headerH - pad * 2)
-        let rx = pad + mediaSide + 14
+        let rx = pad + mediaSide + 10
         let rw = max(120, W - rx - pad)
 
-        var y = H - pad - 32
-        titleLabel.frame = NSRect(x: rx, y: y, width: rw, height: 32)
-        y -= 24
-        artistLabel.frame = NSRect(x: rx, y: y, width: rw, height: 20)
-        y -= 18
+        var y = H - pad - 25
+        titleLabel.frame = NSRect(x: rx, y: y, width: rw, height: 25)
+        y -= 19
+        artistLabel.frame = NSRect(x: rx, y: y, width: rw, height: 17)
+        y -= 15
         laneLabel.frame = NSRect(x: rx, y: y, width: rw, height: 16)
-        y -= 26
+        y -= 16
+        activityLabel.frame = NSRect(x: rx, y: y, width: rw, height: 14)
+        y -= 21
         var lx = rx                                   // per-service link buttons row
         for b in linkButtons where !b.isHidden {
             let bw = b.attributedTitle.size().width + 16
@@ -385,21 +409,21 @@ final class JukeController: NSWindowController, NSWindowDelegate,
 
         // transport row pinned to the header's bottom edge
         let transY = headerBottom + pad
-        transportExtra[0].frame = NSRect(x: rx, y: transY, width: 40, height: 30)         // prev
-        playButton.frame        = NSRect(x: rx + 44, y: transY, width: 54, height: 30)
-        transportExtra[1].frame = NSRect(x: rx + 102, y: transY, width: 40, height: 30)   // next
-        notesToggle.frame       = NSRect(x: rx + 150, y: transY, width: 92, height: 30)
-        ledLabel.frame          = NSRect(x: rx + rw - 160, y: transY + 5, width: 160, height: 22)
+        transportExtra[0].frame = NSRect(x: rx, y: transY, width: 34, height: 25)
+        playButton.frame        = NSRect(x: rx + 37, y: transY, width: 44, height: 25)
+        transportExtra[1].frame = NSRect(x: rx + 84, y: transY, width: 34, height: 25)
+        notesToggle.frame       = NSRect(x: rx + 124, y: transY, width: 75, height: 25)
+        ledLabel.frame          = NSRect(x: rx + rw - 135, y: transY + 3, width: 135, height: 20)
 
         // waveform fills the space between the links row and the transport
         let waveTop = linksBottom - 6
-        let waveBottom = transY + 38
-        wave.frame = NSRect(x: rx, y: waveBottom, width: rw, height: max(44, waveTop - waveBottom))
+        let waveBottom = transY + 31
+        wave.frame = NSRect(x: rx, y: waveBottom, width: rw, height: max(32, waveTop - waveBottom))
 
         // ── track list underneath ─────────────────────────────────────────────
-        let sortY = headerBottom - 4 - 22
-        sortPopup.frame = NSRect(x: pad, y: sortY, width: 230, height: 22)
-        listScroll.frame = NSRect(x: pad, y: pad, width: W - pad * 2, height: sortY - pad - 6)
+        let sortY = headerBottom - 2 - 20
+        sortPopup.frame = NSRect(x: pad, y: sortY, width: 205, height: 20)
+        listScroll.frame = NSRect(x: pad, y: pad, width: W - pad * 2, height: sortY - pad - 3)
 
         // ── drawer overlays the list when open ────────────────────────────────
         if drawerOpen {
@@ -622,6 +646,40 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         ledLabel.stringValue = "\(JukeController.mmss(wave.currentTime)) / \(JukeController.mmss(wave.duration))"
     }
 
+    // ── live work awareness ────────────────────────────────────────────────
+    // Slab's ledger tells us which agents are active; local process inspection
+    // catches the narrower render/bake window. Polling is read-only and cheap.
+    private func armActivityStatus() {
+        pollActivityStatus()
+        activityTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+            self?.pollActivityStatus()
+        }
+    }
+    private func pollActivityStatus() {
+        let activities = WorkStatus.snapshot(tracks: library.tracks)
+        for t in library.tracks {
+            let matches = activities.filter { a in
+                (a.track != nil && a.track == t.title) || (a.track == nil && a.lane == t.lane)
+            }
+            t.liveStatus = matches.first.map { $0.track == nil ? "\($0.state) in \(t.lane)" : $0.state }
+        }
+        if activities.isEmpty {
+            activityLabel.stringValue = "● agents + renders idle"
+            activityLabel.textColor = Palette.inkDim
+        } else {
+            activityLabel.stringValue = activities.prefix(3).map { a in
+                let target = a.track ?? a.lane ?? "pop"
+                return "● \(target): \(a.state)"
+            }.joined(separator: "   ")
+            activityLabel.textColor = activities.contains(where: { $0.state == "baking" }) ? Palette.gold : Palette.teal
+        }
+        if let t = track {
+            laneLabel.stringValue = Self.metaLine(t)
+            laneLabel.textColor = t.liveStatus == nil ? .secondaryLabelColor : Palette.gold
+        }
+        listTable.reloadData()
+    }
+
     // ── tables ───────────────────────────────────────────────────────────────
     func numberOfRows(in tableView: NSTableView) -> Int {
         if tableView == listTable { return library.tracks.count }
@@ -640,6 +698,13 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         guard tableView == commentsTable, let t = track, row < t.data.comments.count else { return "" }
         let c = t.data.comments[row]
         return "\(JukeController.mmss(c.t))  \(c.text)"
+    }
+    // Export the actual audio file to Finder, Messages, Mail, etc. AppKit's
+    // file-URL pasteboard type lets each destination decide whether to copy or
+    // attach it; JukeWizard never moves or mutates the source track.
+    func tableView(_ tableView: NSTableView, pasteboardWriterForRow row: Int) -> NSPasteboardWriting? {
+        guard tableView == listTable, row >= 0, row < library.tracks.count else { return nil }
+        return library.tracks[row].url as NSURL
     }
 
     // ── auto-pop watcher ─────────────────────────────────────────────────────
