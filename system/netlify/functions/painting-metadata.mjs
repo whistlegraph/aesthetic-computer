@@ -6,6 +6,7 @@
 // Gallery list: ?limit=20&sort=recent&offset=0 (no slug parameter)
 
 import { MongoClient } from "mongodb";
+import { userPaintingSlugQuery } from "../../backend/painting-slug-query.mjs";
 
 const client = new MongoClient(process.env.MONGODB_CONNECTION_STRING);
 const dbName = process.env.MONGODB_NAME || "aesthetic";
@@ -117,7 +118,7 @@ export async function handler(event) {
     // For anonymous paintings, slug might be in colon format (imageCode:recordingCode)
     // Support both exact match and partial match (just imageCode part)
     const query = handle && handle !== "anon"
-      ? { slug } // User paintings use timestamp, exact match
+      ? userPaintingSlugQuery(slug)
       : { 
           $or: [
             { slug }, // Exact match (no recording)

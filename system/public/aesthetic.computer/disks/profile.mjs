@@ -850,7 +850,11 @@ async function loadThumbnails() {
     thumbs.map(async (t) => {
       if (t.img || disposed) return;
       try {
-        const got = await getApi.painting(t.slug).by(bareHandle(visiting));
+        // Qualified storage slugs (for example auth0|…/chat/<timestamp>) are
+        // exposed in the collection by their filename. Metadata resolves that
+        // filename to a stable short code, which /media/paintings/:code can
+        // route to the actual object regardless of its storage folder.
+        const got = await getApi.painting(t.code || t.slug).by(bareHandle(visiting));
         if (!disposed) t.img = got?.img || null;
       } catch (err) {
         if (debug) console.warn("Thumb load failed:", t.slug, err);

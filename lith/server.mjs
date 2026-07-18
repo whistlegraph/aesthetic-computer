@@ -47,6 +47,7 @@ if (typeof globalThis.awslambda === "undefined") {
 }
 
 import express from "express";
+import { userMediaTarget } from "./media-path.mjs";
 import { readdirSync, readFileSync, existsSync, mkdirSync, writeFileSync, statSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath, pathToFileURL } from "url";
@@ -1049,12 +1050,11 @@ app.all("/media/*rest", async (req, res) => {
         const user = JSON.parse(result.body);
         const userId = user.sub;
         if (userId) {
-          const fullPath = `${userId}/${subPath}`;
-          const baseUrl = ext === "mjs"
-            ? "https://user-aesthetic-computer.sfo3.digitaloceanspaces.com"
-            : "https://user.aesthetic.computer";
-          const encoded = fullPath.split("/").map(encodeURIComponent).join("/");
-          return res.redirect(302, `${baseUrl}/${encoded}`);
+          return res.redirect(302, userMediaTarget({
+            userId,
+            subPath,
+            extension: ext,
+          }));
         }
       }
     } catch (err) {
