@@ -21,7 +21,6 @@ final class MenuBandSpeechVoice {
     /// Digit feedback is polyphonic: rapid number entry takes a fresh player
     /// instead of cutting off the word already sounding.
     private let digitPlayers = (0..<8).map { _ in AVAudioPlayerNode() }
-    private let digitPitch = AVAudioUnitTimePitch()
     private let digitMixer = AVAudioMixerNode()
     private var nextDigitPlayer = 0
     /// Pitch-only shift (rate stays 1.0) so the trackpad bend slides the
@@ -54,7 +53,6 @@ final class MenuBandSpeechVoice {
         engine.attach(player)
         engine.attach(pitch)
         engine.attach(mixer)
-        engine.attach(digitPitch)
         engine.attach(digitMixer)
         for digitPlayer in digitPlayers {
             engine.attach(digitPlayer)
@@ -62,9 +60,12 @@ final class MenuBandSpeechVoice {
         }
         engine.connect(player, to: pitch, format: renderFormat)
         engine.connect(pitch, to: mixer, format: renderFormat)
+        // Join the digit pool at the already-valid speech mixer. A separate
+        // TimePitch branch here made AVAudioEngine fail graph initialization
+        // with kAudioUnitErr_FormatNotSupported (-10868), silencing every
+        // instrument—not just speech.
+        engine.connect(digitMixer, to: mixer, format: renderFormat)
         engine.connect(mixer, to: output, format: nil)
-        engine.connect(digitMixer, to: digitPitch, format: renderFormat)
-        engine.connect(digitPitch, to: output, format: nil)
         mixer.outputVolume = 1.0
         digitMixer.outputVolume = 1.0
         attached = true
@@ -163,7 +164,6 @@ final class MenuBandSpeechVoice {
     func setBend(amount: Float) {
         let cents = max(-2400, min(2400, amount * 1200))
         pitch.pitch = cents
-        digitPitch.pitch = cents
     }
 
     /// Speak `text` in `languageCode` (our short code: en/es/zh/ja/ru),
