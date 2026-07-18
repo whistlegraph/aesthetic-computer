@@ -278,6 +278,32 @@ export async function generateAvatar({
   return runQueueJob({ endpoint, input, outPath, label, log });
 }
 
+// Video UPSCALE / restore (Topaz Video AI via fal). Unlike the generators above,
+// this invents no motion — it takes a real clip and rebuilds detail: denoise,
+// deblur, and a learned 2×/4× upscale that actually recovers edges rather than
+// interpolating them. Made for exactly the old-webcam-footage case. Takes a
+// source VIDEO, returns a larger one. `factor` is 2 or 4; `targetFps` optionally
+// resamples (leave null to keep the source rate).
+//
+// Cost is billed by fal per output-second and is NOT one of the Seedance rates
+// above — confirm the current number on the model's fal page before a long run;
+// this is why callers should test on a short cut first. The job's wall-clock is
+// returned, not the dollar figure — read that from the fal dashboard.
+export async function upscaleVideo({
+  video, factor = 2, targetFps = null, model = "fal-ai/topaz/upscale/video",
+  outPath, label = "upscale", log = console.log,
+}) {
+  if (!existsSync(video)) throw new Error(`upscale source not found: ${video}`);
+  // Topaz reads the clip from a URL, not an inline data: URI — upload first, the
+  // same as sync-lipsync.
+  const input = {
+    video_url: await uploadToFalStorage(video, log),
+    upscale_factor: factor,
+    ...(targetFps ? { target_fps: targetFps } : {}),
+  };
+  return runQueueJob({ endpoint: model, input, outPath, label, log });
+}
+
 // Text-to-video: generate a clip from a prompt alone (no source image). The
 // counterpart to generateShot (image+text) — together the helper covers both
 // the image-led and text-led paths.

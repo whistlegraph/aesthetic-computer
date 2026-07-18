@@ -49,6 +49,26 @@ node pop/maytrax/bin/maytrax.mjs
 node pop/maytrax/bin/maytrax.mjs --bpm 140 --out ~/m.mp3
 ```
 
+### microtrax
+
+`microtrax` keeps `pianotrax`'s A-major ragtime motion but removes the piano
+entirely. Short additive-sine bells play the syncopated figures over continuous
+four-on-the-floor sine booms and tiny 16th-note clockwork. Its 72 bars at 144
+BPM land exactly at 2:00.
+
+```bash
+node pop/maytrax/bin/render-microtrax.mjs
+# → out/microtrax.mp3
+```
+
+`femrag` plays the same two-minute micro-rag through a marimba-like hybrid of
+bowl body modes and the FEM-derived shell modes from `pop/bell`:
+
+```bash
+node pop/maytrax/bin/render-femrag.mjs
+# → out/femrag.mp3
+```
+
 ## conventions
 
 - bpm: 138–142 (prodigy classic; `firestarter`=140, `breathe`=137)
