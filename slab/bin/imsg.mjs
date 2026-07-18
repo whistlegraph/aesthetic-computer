@@ -738,6 +738,13 @@ function cmdRead(args = []) {
      ORDER BY at DESC, source_rowid DESC LIMIT ${n};`,
   ).reverse();
   process.stdout.write((formatMessages(rows) || `(no indexed messages for ${recipient.displayName})`) + "\n");
+  // Reading the watched conversation is ingestion, whether it came from the
+  // terminal helper or dm_read in another agent prompt. Keep unrelated thread
+  // reads passive so inspecting Alex cannot clear pending messages from Fía.
+  const watched = defaultContact(cfg);
+  if (watched && recipient.handles.some((h) => watched.handles.includes(h))) {
+    acknowledge(cfg);
+  }
 }
 
 function ftsQuery(input) {

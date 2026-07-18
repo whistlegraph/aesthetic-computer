@@ -41,3 +41,11 @@ Status: `received` → `verified` → `applied` → `live`
 | applied | Fold “Drawing Boxes” and “Rehearsing Making Boxes” into “Making Boxes”. |
 | applied | “Buggy On The Wall” — author Jeffrey Alan Scudder. |
 | applied | Archive model: **Works** are human-confirmed compositions and alone receive short `[codes]`; **Archive** contains stable individual post records; explicit post→work relationships control contribution and rollup stats. Legacy code URLs remain compatibility aliases. Approved by Alex, 2026-07-17. |
+
+## Received July 17–18, 2026
+
+| Status | Request |
+|---|---|
+| applied | Restore “Pointing, Painting, Picture Taking” as confirmed whistlegraph `[pics]`, including post `6916051720535559430`. |
+| applied | Rename the site tabs “Works” → “Whistlegraphs” and “Archive” → “Posts”. |
+| applied | Associate “always more butterfliez” (`6989208651135274245`) with both “Scared of Stairs” `[sos]` and “Butterfly Cosplayer” `[imab]`. |

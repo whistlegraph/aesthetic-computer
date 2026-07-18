@@ -11,21 +11,13 @@ enum IconRenderer {
     /// for idle / ambient / lid-closed states.
     static func image(for state: StateSnapshot, phase: CGFloat = 0, rotation: CGFloat = 0) -> NSImage {
         if !state.claudeSessions.isEmpty {
-            var poly = polygonImage(state: state, phase: phase, rotation: rotation)
-            if state.messageWaiting { poly = withMessageDot(poly, phase: phase) }
-            return poly
+            return polygonImage(state: state, phase: phase, rotation: rotation)
         }
 
         let name: String
         let weight: NSFont.Weight
 
-        if state.messageWaiting {
-            // The watched contact texted — this outranks the ambient / idle
-            // glyphs even when terminal theming is off. Template so the
-            // menubar still tints it.
-            name = "message.fill"
-            weight = .semibold
-        } else if state.ambientActive {
+        if state.ambientActive {
             name = "waveform.path.ecg"
             weight = .medium
         } else if state.hasWork && state.lidClosed && !state.sleepDisabled {
@@ -318,30 +310,6 @@ enum IconRenderer {
         default:
             return base
         }
-    }
-
-    /// Composite a pulsing magenta dot bottom-left so the colored polygon
-    /// also carries the "new message"
-    /// accent — the menubar and the themed wall then read one picture. The
-    /// hue is deliberately off the working-green / awaiting-amber /
-    /// complete-slate / stale-gray axis so it never reads as a session state.
-    private static func withMessageDot(_ base: NSImage, phase: CGFloat) -> NSImage {
-        let sz = base.size
-        let out = NSImage(size: sz)
-        out.lockFocus()
-        base.draw(in: NSRect(origin: .zero, size: sz))
-        let pulse = 0.5 + 0.5 * cos(phase * .pi * 2)
-        let d: CGFloat = sz.width * 0.34
-        let path = NSBezierPath(ovalIn: NSRect(x: 1, y: 1, width: d, height: d))
-        NSColor(deviceHue: 0.92, saturation: 0.85, brightness: 0.98,
-                alpha: 0.55 + 0.45 * pulse).setFill()
-        path.fill()
-        NSColor(deviceWhite: 1.0, alpha: 0.65).setStroke()
-        path.lineWidth = 0.75
-        path.stroke()
-        out.unlockFocus()
-        out.isTemplate = false
-        return out
     }
 
     private static func fallbackImage() -> NSImage {

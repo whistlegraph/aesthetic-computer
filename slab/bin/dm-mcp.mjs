@@ -176,7 +176,8 @@ async function toolGroups({ n = 20, machine } = {}) {
 
 // Thread history. Both channels accept an optional target without changing the
 // notification/default contact. iMessage history comes from its private local
-// incremental FTS index; Signal reads its Desktop database directly.
+// incremental FTS index; Signal reads its Desktop database directly. Reading
+// the watched conversation acknowledges its Slab cursor on both channels.
 // `to` (alias `group`) targets ANY conversation — group or person — by name or
 // conversationId; omit for the configured 1:1 contact. Group reads attribute
 // each sender. An ambiguous target fails loudly rather than guessing.
@@ -331,7 +332,7 @@ const TOOLS = [
   },
   {
     name: "dm_read",
-    description: "Read recent thread history (← inbound / → outbound). `to` targets a person/thread without changing the channel's watched/default contact. Signal accepts a name or conversationId; iMessage accepts a configured contact name or raw handle and reads its private local incremental index.",
+    description: "Read recent thread history (← inbound / → outbound). `to` targets a person/thread without changing the channel's watched/default contact. Reading the watched conversation marks its Slab notification cursor ingested; unrelated thread reads remain passive. Signal accepts a name or conversationId; iMessage accepts a configured contact name or raw handle and reads its private local incremental index.",
     inputSchema: {
       type: "object",
       properties: {

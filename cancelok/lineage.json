@@ -143,8 +143,8 @@
     "parent": "nuxo",
     "second": null,
     "mutation": "push",
-    "trait": "freehand thread-shuttle loom x plucked/bowed harp voices",
-    "born": "2026-07-15T02:32:43.106Z"
+    "trait": "drag-thrown loom weave (finger = shuttle) x warp-crossing harp/flute glissando",
+    "born": "2026-07-18T16:43:57.757Z"
   },
   "threno": {
     "parent": "nuxo",
@@ -177,9 +177,9 @@
   "windro": {
     "parent": "wandro",
     "second": null,
-    "mutation": "invert",
-    "trait": "friction-damped pendulum row (dissonance burns out first) x fading pluck/bell/sub voice that quiets with the row",
-    "born": "2026-07-15T07:34:34.419Z"
+    "mutation": "push",
+    "trait": "wind-swept pendulum row (spring-kicked wobble + fading comet-wake under the hand) x velocity-panned pluck/bell strikes with a held-bow drone",
+    "born": "2026-07-18T13:20:28.838Z"
   },
   "fenro": {
     "parent": null,
@@ -378,11 +378,11 @@
     "born": "2026-07-16T23:49:09.473Z"
   },
   "holvo": {
-    "parent": null,
+    "parent": "ploo",
     "second": null,
-    "mutation": "blind",
-    "trait": "predatorprey phase-portrait (seasonally-forced RosenzweigMacArthur ecosystem) x pentatonic pluck/sub/bell ecology voice",
-    "born": "2026-07-17T00:55:58.000Z"
+    "mutation": "invert",
+    "trait": "gravity-well implosion x swallowed synth voice",
+    "born": "2026-07-18T11:08:54.115Z"
   },
   "riolo": {
     "parent": null,
@@ -469,11 +469,11 @@
     "born": "2026-07-17T17:44:56.086Z"
   },
   "weavo": {
-    "parent": "dax",
-    "second": "varo",
-    "mutation": "cross",
-    "trait": "hanging cloth height-field (dax) x detuned pad-pair swell (varo)",
-    "born": "2026-07-17T17:47:25.075Z"
+    "parent": "nuxo",
+    "second": null,
+    "mutation": "push",
+    "trait": "finger-strummed peg-ring glissando x harp pluck/bell/sub voice",
+    "born": "2026-07-18T05:24:24.086Z"
   },
   "dinglo": {
     "parent": "dax",
@@ -495,5 +495,187 @@
     "mutation": "eye",
     "trait": "pond ripple rings (expanding, interfering, per-pitch) x plucked-harp/bell/sub-bass",
     "born": "2026-07-17T21:07:59.333Z"
+  },
+  "arvo": {
+    "parent": "varo",
+    "second": null,
+    "mutation": "eye",
+    "trait": "harmonograph trail (two coupled rotating arms tracing a beat-curve) x detuned pad swell",
+    "born": "2026-07-18T00:22:51.328Z"
+  },
+  "shalvo": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "SIRS contagion field (susceptible/infected/recovered agents drifting and touching) x contact-triggered pluck/bell voice, ambient sub tied to population health",
+    "born": "2026-07-18T00:27:01.048Z"
+  },
+  "welvo": {
+    "parent": "varo",
+    "second": "wandro",
+    "mutation": "cross",
+    "trait": "moir ring interference (varo) x pendulum-timed just-intonation pluck/bell voice (wandro)",
+    "born": "2026-07-18T05:20:40.545Z"
+  },
+  "morlo": {
+    "parent": "varo",
+    "second": "ploo",
+    "mutation": "cross",
+    "trait": "moir interference rings (varo) x cinematic riser/drop score (ploo)",
+    "born": "2026-07-18T07:47:24.046Z"
+  },
+  "vaxo": {
+    "parent": "varo",
+    "second": "nuxo",
+    "mutation": "cross",
+    "trait": "moir interference rings (varo) x plucked pentatonic harp (nuxo)",
+    "born": "2026-07-18T09:59:52.638Z"
+  },
+  "kelvo": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "kumihimo braid-weave (strands crossing, fed from below, closure resets) x call-and-response pluck/thud voice with a periodic closure-chord",
+    "born": "2026-07-18T10:04:59.933Z"
+  },
+  "wilto": {
+    "parent": "wandro",
+    "second": null,
+    "mutation": "invert",
+    "trait": "damped pendulum wave (decaying wexo) x fading pluck/bell/sub voice (drolo run down)",
+    "born": "2026-07-18T11:12:15.343Z"
+  },
+  "narbo": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "predator-prey ecosystem (chase/eat/starve/breed agent sim) x population-balance drone with per-event pluck/bell/sub sonification",
+    "born": "2026-07-18T12:15:37.847Z"
+  },
+  "glowdrift": {
+    "parent": "nuxo",
+    "second": null,
+    "mutation": "eye",
+    "trait": "fireflies rising through night wind x pentatonic harp",
+    "born": "2026-07-18T12:17:25.478Z"
+  },
+  "vringo": {
+    "parent": "wandro",
+    "second": null,
+    "mutation": "push",
+    "trait": "pendulum row (wexo) bent live toward your finger x wound-string pluck/bell/sub (drolo)",
+    "born": "2026-07-18T13:25:24.453Z"
+  },
+  "sylvo": {
+    "parent": "varo",
+    "second": null,
+    "mutation": "eye",
+    "trait": "phosphor oscilloscope Lissajous trace x detuned pad swell",
+    "born": "2026-07-18T14:27:29.181Z"
+  },
+  "flurn": {
+    "parent": "nuxo",
+    "second": null,
+    "mutation": "voice",
+    "trait": "peg-and-thread string art x sustained flute breath voice",
+    "born": "2026-07-18T15:32:58.616Z"
+  },
+  "swayo": {
+    "parent": "varo",
+    "second": null,
+    "mutation": "eye",
+    "trait": "twin interference wave field x detuned pad swell (same voice as varo)",
+    "born": "2026-07-18T15:36:16.380Z"
+  },
+  "vezzo": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "connected-vessel fluid-leveling row (gravity flow between glass tanks) x pentatonic bubble/pluck pours over a sub-bass floor drone",
+    "born": "2026-07-18T16:40:00.520Z"
+  },
+  "reedo": {
+    "parent": "nuxo",
+    "second": null,
+    "mutation": "eye",
+    "trait": "growing meadow of wind-swayed reeds x pentatonic harp (pluck/bell/sub)",
+    "born": "2026-07-18T17:46:06.368Z"
+  },
+  "glorp": {
+    "parent": "ploo",
+    "second": null,
+    "mutation": "voice",
+    "trait": "concentric shockwave/starburst bloom x underwater bubble-and-splash voice",
+    "born": "2026-07-18T17:48:42.005Z"
+  },
+  "skeino": {
+    "parent": "nuxo",
+    "second": null,
+    "mutation": "push",
+    "trait": "drag-drawn thread loom (finger path IS the string) x continuous bowed-pluck harp that pitches with height, brightens with speed",
+    "born": "2026-07-18T18:51:16.186Z"
+  },
+  "thendo": {
+    "parent": "nuxo",
+    "second": "ploo",
+    "mutation": "cross",
+    "trait": "string-art harp loom (nuxo) x cinematic riser/drop score (ploo)",
+    "born": "2026-07-18T18:53:18.449Z"
+  },
+  "quelbo": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "double-slit interference build-up (rejection-sampled photon accumulation, decohering on touch) x pentatonic bell/pluck sonification of fringe order",
+    "born": "2026-07-18T20:03:12.256Z"
+  },
+  "klanko": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "typewriter grid-stamp visual generator x alphabet-indexed pluck/bell voice",
+    "born": "2026-07-18T20:07:31.906Z"
+  },
+  "brelo": {
+    "parent": "ploo",
+    "second": null,
+    "mutation": "eye",
+    "trait": "branching light-tree growth x cinematic riser/drop synth-bell",
+    "born": "2026-07-18T21:12:21.420Z"
+  },
+  "ebbro": {
+    "parent": "varo",
+    "second": null,
+    "mutation": "invert",
+    "trait": "collapsing moir rings (edge-inward, shrinking toward a vanishing center) x decaying detuned pluck pair",
+    "born": "2026-07-18T21:15:41.375Z"
+  },
+  "fizbo": {
+    "parent": "ploo",
+    "second": null,
+    "mutation": "voice",
+    "trait": "concentric shockwave/starburst bloom x physical bubble-pop & breath-fizz",
+    "born": "2026-07-18T22:18:15.693Z"
+  },
+  "shravo": {
+    "parent": "ploo",
+    "second": "varo",
+    "mutation": "cross",
+    "trait": "ploo's radial shockwave/starburst generator x varo's detuned-pad swell voice",
+    "born": "2026-07-18T22:21:11.180Z"
+  },
+  "flendo": {
+    "parent": "nuxo",
+    "second": null,
+    "mutation": "voice",
+    "trait": "string-art harp geometry x breath-sustained flute/bubble voice",
+    "born": "2026-07-18T23:24:04.703Z"
+  },
+  "rindo": {
+    "parent": "nuxo",
+    "second": null,
+    "mutation": "eye",
+    "trait": "pond-ripple rings x pentatonic harp",
+    "born": "2026-07-18T23:26:49.401Z"
   }
 }

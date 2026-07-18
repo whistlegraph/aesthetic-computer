@@ -1,0 +1,13 @@
+name = "status-prompt-ac"
+main = "worker.mjs"
+compatibility_date = "2026-07-18"
+workers_dev = true
+
+routes = [
+  { pattern = "status.prompt.ac", custom_domain = true }
+]
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+# Optional persistence: create a KV namespace and bind it as STATUS_HISTORY.

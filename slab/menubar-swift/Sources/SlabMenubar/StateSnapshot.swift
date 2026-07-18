@@ -173,10 +173,10 @@ struct StateSnapshot {
     var anyActive: Bool { claudeSessions.contains(where: { $0.state != .stale }) }
     /// Pure "resting" idle — nothing open and nothing pending. This is the
     /// state the menubar shows as the slow, colour-flowing spinning line
-    /// (instead of a static glyph). messageWaiting is folded onto the
-    /// snapshot by AppDelegate after gather(), so it's authoritative here.
+    /// (instead of a static glyph). Pending messages remain available in the
+    /// dropdown but do not alter the status-item icon.
     var idleResting: Bool {
-        claudeSessions.isEmpty && !messageWaiting && !ambientActive && !hasWork
+        claudeSessions.isEmpty && !ambientActive && !hasWork
     }
 
     var statusLine: String {

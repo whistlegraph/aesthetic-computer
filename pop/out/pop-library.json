@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-17T18:04:41.152Z",
+  "generated": "2026-07-18T17:44:00.258Z",
   "count": 106,
   "tracks": [
     {
@@ -203,14 +203,95 @@
       "backend": "C engine",
       "status": "WIP",
       "updated": "2026-07-17T17:22:19.971Z",
-      "revisions": 3,
+      "revisions": 4,
       "bytes": 2441253,
       "durationSec": 120,
       "bpm": 76,
       "key": "C major",
       "releaseDate": null,
       "art": null,
-      "media": [],
+      "media": [
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/nullabye/out/sineabye-distance-1v-final.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/nullabye/out/sineabye-distance-1v.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/nullabye/out/sineabye-distance-3v-final.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/nullabye/out/sineabye-distance-3v.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/nullabye/out/sineabye-distance-4v-final.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/nullabye/out/sineabye-distance-4v.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/nullabye/out/sineabye-full-cuda-denoised.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/nullabye/out/sineabye-full-cuda-silent.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/nullabye/out/sineabye-full-cuda.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/nullabye/out/sineabye-overview-telemetry-15s.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/nullabye/out/sineabye-overview-telemetry-denoised-15s.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/nullabye/out/sineabye-overview-telemetry-silent.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/nullabye/out/sineabye-pathtrace-preview-15s.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/nullabye/out/sineabye-pathtrace-preview-silent.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/nullabye/out/sineabye-spin-cpu-vs-cuda-30s.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/nullabye/out/sineabye-spin-cuda-30s.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/nullabye/out/sineabye-spin-cuda-denoised-30s.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/nullabye/out/sineabye-spin-cuda-silent.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/nullabye/out/sineabye-spin-raster-30s.mp4"
+        },
+        {
+          "kind": "video",
+          "path": "/Users/jas/aesthetic-computer/pop/nullabye/out/sineabye-spin-raster-full.mp4"
+        }
+      ],
       "links": {
         "spotify": null,
         "apple": null,
@@ -226,7 +307,7 @@
       "backend": "JS DSP",
       "status": "WIP",
       "updated": "2026-07-17T17:05:59.298Z",
-      "revisions": 1,
+      "revisions": 2,
       "bytes": 2776461,
       "durationSec": 120,
       "bpm": 140,
@@ -272,7 +353,7 @@
       "backend": "C engine",
       "status": "WIP",
       "updated": "2026-06-22T01:33:39.000Z",
-      "revisions": 3,
+      "revisions": 4,
       "bytes": 3619389,
       "durationSec": 168,
       "bpm": 76,
@@ -295,7 +376,7 @@
       "backend": "C engine",
       "status": "WIP",
       "updated": "2026-06-11T23:03:46.000Z",
-      "revisions": 3,
+      "revisions": 4,
       "bytes": 2666805,
       "durationSec": 120,
       "bpm": 76,
@@ -318,7 +399,7 @@
       "backend": "C engine",
       "status": "WIP",
       "updated": "2026-06-11T21:23:24.000Z",
-      "revisions": 3,
+      "revisions": 4,
       "bytes": 1561845,
       "durationSec": 78.8,
       "bpm": 76,
@@ -341,7 +422,7 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-07-17T17:14:33.124Z",
-      "revisions": 6,
+      "revisions": 7,
       "bytes": 4802021,
       "durationSec": 120,
       "bpm": null,
@@ -359,7 +440,7 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-07-17T17:14:30.199Z",
-      "revisions": 6,
+      "revisions": 7,
       "bytes": 4802024,
       "durationSec": 120,
       "bpm": null,
@@ -539,7 +620,7 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-06-22T01:31:13.000Z",
-      "revisions": 6,
+      "revisions": 7,
       "bytes": 4578344,
       "durationSec": 114.4,
       "bpm": null,
@@ -1259,7 +1340,7 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-06-14T00:50:35.000Z",
-      "revisions": 6,
+      "revisions": 7,
       "bytes": 4876903,
       "durationSec": 121.9,
       "bpm": null,
@@ -1277,7 +1358,7 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-06-14T00:50:33.000Z",
-      "revisions": 6,
+      "revisions": 7,
       "bytes": 5122663,
       "durationSec": 128,
       "bpm": null,
@@ -1295,7 +1376,7 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-06-14T00:50:21.000Z",
-      "revisions": 6,
+      "revisions": 7,
       "bytes": 4935463,
       "durationSec": 123.3,
       "bpm": null,
@@ -1313,7 +1394,7 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-06-14T00:50:09.000Z",
-      "revisions": 6,
+      "revisions": 7,
       "bytes": 4791464,
       "durationSec": 119.7,
       "bpm": null,
@@ -1331,7 +1412,7 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-06-14T00:48:00.000Z",
-      "revisions": 6,
+      "revisions": 7,
       "bytes": 4578344,
       "durationSec": 114.4,
       "bpm": null,
@@ -1349,7 +1430,7 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-06-14T00:47:52.000Z",
-      "revisions": 6,
+      "revisions": 7,
       "bytes": 4894183,
       "durationSec": 122.3,
       "bpm": null,
@@ -1367,7 +1448,7 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-06-14T00:47:50.000Z",
-      "revisions": 6,
+      "revisions": 7,
       "bytes": 4904744,
       "durationSec": 122.6,
       "bpm": null,
@@ -1385,7 +1466,7 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-06-14T00:47:43.000Z",
-      "revisions": 6,
+      "revisions": 7,
       "bytes": 4890343,
       "durationSec": 122.2,
       "bpm": null,
@@ -1403,7 +1484,7 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-06-14T00:44:27.000Z",
-      "revisions": 6,
+      "revisions": 7,
       "bytes": 5042022,
       "durationSec": 126,
       "bpm": null,
@@ -1421,7 +1502,7 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-06-13T06:28:06.000Z",
-      "revisions": 6,
+      "revisions": 7,
       "bytes": 5522023,
       "durationSec": 138,
       "bpm": null,
@@ -1439,7 +1520,7 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-06-13T06:00:22.000Z",
-      "revisions": 6,
+      "revisions": 7,
       "bytes": 5718822,
       "durationSec": 142.9,
       "bpm": null,
@@ -1457,7 +1538,7 @@
       "backend": "C engine",
       "status": "UNRELEASED",
       "updated": "2026-06-12T06:10:38.000Z",
-      "revisions": 6,
+      "revisions": 7,
       "bytes": 5718765,
       "durationSec": 142.9,
       "bpm": null,
