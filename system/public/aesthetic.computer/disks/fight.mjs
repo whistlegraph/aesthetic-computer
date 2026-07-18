@@ -1,17 +1,8 @@
 // fight, 26.07.09
-// one punch kills. block to survive it, and tap block just before it lands to
-// parry — that stuns the puncher and the kill is yours. blocking spends a
-// guard pip; out of guard and the next punch goes through. two fists meeting
-// on the same frame clash and bounce.
-//
-// four keys each, one hand each:
-//
-//     w              ↑           block  (tap = parry)
-//   a   d      ←   →             move
-//     s              ↓           punch
-//
-// gamepads: D-pad/left stick moves. Xbox A/X/RB punches and B/Y/LB blocks;
-// on an 8BitDo M30 the lower A/B/C row punches and upper X/Y/Z row blocks.
+// six attacks, throws, jumping, crouching, dashes and hold-away blocking.
+// Hold away to block; crouching kicks get underneath that guard. Up jumps,
+// down crouches, and a quick second tap left/right dashes. Xbox X/Y/RB are
+// light/medium/heavy punch; A/B/RT are light/medium/heavy kick; X+A throws.
 //
 // the sim is deterministic and snapshot-clean; nothing here touches a network.
 //
@@ -24,6 +15,9 @@ import * as game from "../lib/fight/sim.mjs";
 import { syncTest, report, drills } from "../lib/fight/rollback.mjs";
 import { createSession, createLink } from "../lib/fight/session.mjs";
 import { getButtonColors, getGamepadMapping } from "../lib/gamepad-mappings.mjs";
+import { createFightLobby } from "../lib/fight/lobby.mjs";
+import { createFightLogin, pollFightLogin, adoptFightSession } from "../lib/fight/login.mjs";
+import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
 
 const { P, PN, G, ST, SFX, SUB, BODY_W, BODY_H, PUNCH_F } = game;
 
@@ -31,12 +25,14 @@ const { P, PN, G, ST, SFX, SUB, BODY_W, BODY_H, PUNCH_F } = game;
 const KEYS = {
   a: [0, game.LEFT, "l"],
   d: [0, game.RIGHT, "r"],
-  w: [0, game.BLOCK, "b"],
-  s: [0, game.PUNCH, "p"],
+  w: [0, game.UP, "u"], s: [0, game.DOWN, "d"],
+  f: [0, game.LP, "LP"], g: [0, game.MP, "MP"], h: [0, game.HP, "HP"],
+  v: [0, game.LK, "LK"], b: [0, game.MK, "MK"], n: [0, game.HK, "HK"],
   arrowleft: [1, game.LEFT, "l"],
   arrowright: [1, game.RIGHT, "r"],
-  arrowup: [1, game.BLOCK, "b"],
-  arrowdown: [1, game.PUNCH, "p"],
+  arrowup: [1, game.UP, "u"], arrowdown: [1, game.DOWN, "d"],
+  j: [1, game.LP, "LP"], k: [1, game.MP, "MP"], l: [1, game.HP, "HP"],
+  m: [1, game.LK, "LK"], comma: [1, game.MK, "MK"], period: [1, game.HK, "HK"],
 };
 
 const CAP = [
@@ -61,8 +57,52 @@ let net = null; // two sessions over a fake laggy wire, when asked for
 let sfxIn = 0; // what the local session wants heard this frame
 let attract = true;
 let attractPause = 0;
+let fpsSystem = null;
+let screenWidth = 256;
+let fps = 0, fpsFrames = 0, fpsAt = 0;
 const inputStream = [];
 const INPUT_STREAM_MAX = 12;
+const lastResult = [0, 0];
+let server = null;
+let lobby = createFightLobby("guest");
+let loginPair = null;
+let loginCells = null;
+let loginStatus = "idle";
+let loginTimer = null;
+let loggedInHandle = null;
+
+async function beginFightLogin() {
+  if (loggedInHandle || loginStatus === "creating" || loginStatus === "pending") return;
+  loginStatus = "creating";
+  try {
+    loginPair = await createFightLogin();
+    loginCells = qr(loginPair.loginUrl, { errorCorrectLevel: 1 }).modules;
+    loginStatus = "pending";
+    pollFightPair();
+  } catch (error) {
+    console.warn("fight login unavailable", error);
+    loginStatus = "error";
+  }
+}
+
+async function pollFightPair() {
+  if (!loginPair || loginStatus !== "pending") return;
+  try {
+    const result = await pollFightLogin(loginPair);
+    if (result.status === "claimed") {
+      loginStatus = "claimed";
+      adoptFightSession(result.session);
+      return;
+    }
+    if (result.status === "expired") {
+      loginStatus = "expired";
+      return;
+    }
+  } catch (error) {
+    console.warn("fight login poll failed", error);
+  }
+  loginTimer = setTimeout(pollFightPair, 2000);
+}
 
 // `fight:lag` runs the real rollback session against itself over a hostile
 // link, both players on this keyboard. we render player 0's view, so player 2
@@ -84,9 +124,24 @@ function open(colon) {
 
 let opened = []; // the colon we booted with, so `r` can rebuild the same match
 
-function boot({ colon }) {
+function boot({ colon, system, net: { socket } = {}, handle }) {
+  fpsSystem = system;
+  loggedInHandle = handle?.() || null;
+  const lobbyHandle = loggedInHandle || `guest-${Math.random().toString(36).slice(2, 7)}`;
+  lobby = createFightLobby(lobbyHandle);
+  if (socket) {
+    server = socket((_id, type, content) => {
+      if (type.startsWith("connected")) {
+        lobby.join(server);
+        return;
+      }
+      lobby.receive(type, content);
+    });
+  }
+  if (!loggedInHandle) beginFightLogin();
   opened = colon;
   inputStream.length = 0;
+  lastResult.fill(0);
   padInput.clear();
   held.fill(0);
   keyHeld.fill(0);
@@ -126,8 +181,8 @@ function demoInput(player) {
   const phase = (s[G.TICK] + player * 43) % 120;
   let bits = 0;
   if (distance > 34 * SUB) bits |= s[me + P.X] < s[them + P.X] ? game.RIGHT : game.LEFT;
-  if (phase >= 44 && phase < 50) bits |= game.PUNCH;
-  if (phase >= 34 && phase < 42) bits |= game.BLOCK;
+  if (phase >= 44 && phase < 50) bits |= (phase & 1) ? game.LP : game.LK;
+  if (phase >= 82 && phase < 84) bits |= game.UP;
   return bits;
 }
 
@@ -150,8 +205,14 @@ function refreshPad(e) {
   let bits = 0;
   if (pad.buttons.has(14) || (pad.axes[0] || 0) < -0.35) bits |= game.LEFT;
   if (pad.buttons.has(15) || (pad.axes[0] || 0) > 0.35) bits |= game.RIGHT;
-  if (down(mapping.fight?.punch || [0, 2, 5])) bits |= game.PUNCH;
-  if (down(mapping.fight?.block || [1, 3, 4])) bits |= game.BLOCK;
+  if (pad.buttons.has(12) || (pad.axes[1] || 0) < -0.35) bits |= game.UP;
+  if (pad.buttons.has(13) || (pad.axes[1] || 0) > 0.35) bits |= game.DOWN;
+  if (pad.buttons.has(2)) bits |= game.LP; // X
+  if (pad.buttons.has(3)) bits |= game.MP; // Y
+  if (pad.buttons.has(5)) bits |= game.HP; // RB
+  if (pad.buttons.has(0)) bits |= game.LK; // A
+  if (pad.buttons.has(1)) bits |= game.MK; // B
+  if (pad.buttons.has(7)) bits |= game.HK; // RT
   padsHeld[player] = bits;
   held[player] = keyHeld[player] | padsHeld[player];
 }
@@ -160,6 +221,8 @@ function streamInput(player, label, color = "gray") {
   inputStream.unshift({ player, label, color });
   if (inputStream.length > INPUT_STREAM_MAX) inputStream.pop();
 }
+
+const BUTTON_MOVES = { 0: "LK", 1: "MK", 2: "LP", 3: "MP", 5: "HP", 7: "HK" };
 
 function playerPad(player) {
   for (const [index, pad] of padInput) {
@@ -204,6 +267,15 @@ function sim({ sound }) {
     flags = s[G.SFX];
   }
   hear(sound, flags); // a rollback's resimulated frames never reach here
+  for (let p = 0; p < 2; p++) {
+    const b = p * PN;
+    const result = s[b + P.RESULT];
+    if (result && result !== lastResult[p]) {
+      const name = game.ATTACK_NAMES[s[b + P.ATK]] || "attack";
+      streamInput(p, `${name} ${result > 0 ? "SUCCESS" : "FAILED"}`, result > 0 ? "lime" : "red");
+    }
+    lastResult[p] = result;
+  }
 }
 
 function act({ event: e }) {
@@ -229,9 +301,10 @@ function act({ event: e }) {
     const pad = padInput.get(e.gamepad);
     const player = e.gamepad & 1;
     if (e.button !== undefined && e.action === "push") {
-      const mapping = getGamepadMapping(pad.id);
-      const label = mapping?.buttons?.[e.button]?.name || String(e.button);
-      streamInput(player, label, getButtonColors(pad.id, e.button).active);
+      const label = controllerButtonLabel(pad.id, e.button);
+      const move = BUTTON_MOVES[e.button];
+      streamInput(player, move ? `${label} ${move}` : label, getButtonColors(pad.id, e.button).active);
+      if (pad.buttons.has(0) && pad.buttons.has(2)) streamInput(player, "X+A GRAPPLE THROW", "violet");
     }
     if (e.axis === 0) {
       const direction = e.value < -0.35 ? -1 : e.value > 0.35 ? 1 : 0;
@@ -247,6 +320,17 @@ function act({ event: e }) {
     s = net ? net.a.state : game.create(s[G.RNG]);
     sfxIn = 0;
   }
+}
+
+function controllerButtonLabel(id = "", button) {
+  const lower = id.toLowerCase();
+  const xbox = lower.includes("xbox") || lower.includes("xinput") || lower.includes("8bitdo") || lower.includes("m30");
+  const ps = lower.includes("playstation") || lower.includes("dualshock") || lower.includes("dualsense") || lower.includes("sony");
+  const xboxLabels = ["A", "B", "X", "Y", "LB", "RB", "LT", "RT", "View", "Menu"];
+  const psLabels = ["X", "O", "square", "triangle", "L1", "R1", "L2", "R2", "Share", "Options"];
+  if (xbox) return xboxLabels[button] || `B${button}`;
+  if (ps) return psLabels[button] || `B${button}`;
+  return `B${button}`;
 }
 
 // the sim already decided what happened; this only gives it a voice.
@@ -334,6 +418,14 @@ function drawFighter(ink, x, y, bw, bh, face, st, stf, tick, c, u) {
 // different fights. so the renderer scales instead.
 function paint({ wipe, ink, screen }) {
   const { width: w, height: h } = screen;
+  screenWidth = w;
+  const now = globalThis.performance?.now?.() || 0;
+  fpsFrames++;
+  if (!fpsAt) fpsAt = now;
+  if (now - fpsAt >= 500) {
+    fps = Math.round((fpsFrames * 1000) / (now - fpsAt));
+    fpsFrames = 0; fpsAt = now;
+  }
   const pad = h < 112 ? 4 : 30; // the key pads want the bottom strip
   const floor = h - pad - 6;
   // scale to whichever runs out first. on a wide, short window the width alone
@@ -352,7 +444,7 @@ function paint({ wipe, ink, screen }) {
     const b = p * PN;
     const st = s[b + P.ST];
     const x = sx(s[b + P.X] - (BODY_W >> 1));
-    const y = py(BODY_H);
+    const y = py(BODY_H + s[b + P.Y]);
     const bw = u(BODY_W);
     const bh = u(BODY_H);
     const face = s[b + P.FACE];
@@ -370,21 +462,22 @@ function paint({ wipe, ink, screen }) {
       ink(255, 230, 120).box(sx(s[b + P.X] + s[b + P.SPX]) - (r >> 1), py(26 * SUB), r, r);
     }
 
-    if (boxes) {
+    if (boxes || st === ST.PUNCH) {
       ink(80, 255, 120, 80).box(x, y, bw, bh);
       if (st === ST.PUNCH) {
         const f = s[b + P.STF];
         if (f >= PUNCH_F.startup && f < PUNCH_F.startup + PUNCH_F.active) {
           const front = s[b + P.X] + face * (BODY_W >> 1);
           const hx = face > 0 ? front : front - PUNCH_F.reach;
-          ink(255, 60, 90, 110).box(sx(hx), py(34 * SUB), u(PUNCH_F.reach), u(16 * SUB));
+          const low = !!s[b + P.LOW];
+          ink(255, 60, 90, 110).box(sx(hx), py((low ? 16 : 34) * SUB), u(PUNCH_F.reach), u(low ? 8 * SUB : 16 * SUB));
         }
       }
     }
   }
 
-  if (boxes) ink(70, 66, 90).write(`t${s[G.TICK]} ${game.checksum(s).toString(16)}`, { x: 4, y: 25 });
-  if (verdict) ink(120, 255, 160).write(verdict, { x: 4, y: 33 });
+  if (boxes) ink(70, 66, 90).write(`t${s[G.TICK]} ${game.checksum(s).toString(16)}`, { x: 4, y: 25, font: "MatrixChunky8" });
+  if (verdict) ink(120, 255, 160).write(verdict, { x: 4, y: 33, font: "MatrixChunky8" });
   if (net) wire(ink, w);
 
   hud(ink, w); // last, so the round-over card covers the readout behind it
@@ -393,6 +486,8 @@ function paint({ wipe, ink, screen }) {
     pads(ink, w - 32, h - 29, 1);
   }
   paintInputStream(ink);
+  paintPresence(ink, w);
+  if (!loggedInHandle) paintLogin(ink, w);
   if (attract) {
     // A neutral wash makes the demo visibly separate from the live match.
     // The invitation is painted afterward so it stays crisp and warm.
@@ -401,19 +496,53 @@ function paint({ wipe, ink, screen }) {
     const x = (w >> 1) - msg.length * 3;
     const y = Math.max(36, (floor >> 1) - 5);
     ink(0, 0, 0, 210).box(x - 5, y - 4, msg.length * 6 + 10, 15);
-    ink(255, 220, 60).write(msg, { x, y });
+    ink(255, 220, 60).write(msg, { x, y, font: "MatrixChunky8" });
   }
 }
 
+function paintPresence(ink, w) {
+  const state = lobby.state;
+  const who = loggedInHandle ? `@${String(loggedInHandle).replace(/^@/, "")}` : state.handle;
+  const text = `${who}  ${state.count || 1} in lobby`;
+  ink(145, 140, 165).write(text, {
+    x: Math.max(4, w - text.length * 6 - 4), y: 24, font: "MatrixChunky8",
+  });
+}
+
+function paintLogin(ink, w) {
+  if (!loginCells?.length) {
+    const label = loginStatus === "error" ? "login unavailable" : "making login...";
+    ink(150).write(label, { x: Math.max(4, w - label.length * 6 - 4), y: 34, font: "MatrixChunky8" });
+    return;
+  }
+  const maxSize = Math.min(78, Math.max(42, (w / 4) | 0));
+  const scale = Math.max(1, Math.floor(maxSize / loginCells.length));
+  const size = loginCells.length * scale;
+  const ox = w - size - 5, oy = 35;
+  ink(245, 242, 232).box(ox - 2, oy - 11, size + 4, size + 13);
+  ink(20, 18, 28).write("LOGIN", { x: ox, y: oy - 9, font: "MatrixChunky8" });
+  for (let y = 0; y < loginCells.length; y++) for (let x = 0; x < loginCells.length; x++) {
+    if (loginCells[y][x]) ink(12, 12, 18).box(ox + x * scale, oy + y * scale, scale, scale);
+  }
+}
+
+function leave() {
+  if (loginTimer) clearTimeout(loginTimer);
+  loginTimer = null;
+  lobby.leave(server);
+  server = null;
+}
+
 function paintInputStream(ink) {
-  inputStream.slice(0, 10).forEach((entry, row) => {
+  for (const player of [0, 1]) inputStream.filter((e) => e.player === player).slice(0, 8).forEach((entry, row) => {
     const y = 30 + row * 10;
     const label = String(entry.label);
     const width = Math.max(9, label.length * 6 + 4);
-    ink(...SUIT[entry.player], 190).write(`P${entry.player + 1}`, { x: 4, y: y + 1 });
-    if (Array.isArray(entry.color)) ink(...entry.color).box(18, y, width, 9);
-    else ink(entry.color).box(18, y, width, 9);
-    ink(12, 12, 18).write(label, { x: 20, y: y + 1 });
+    const x = player === 0 ? 18 : Math.max(18, screenWidth - width - 4);
+    ink(...SUIT[player], 190).write(`P${player + 1}`, { x: player === 0 ? 4 : x - 14, y: y + 1, font: "MatrixChunky8" });
+    if (Array.isArray(entry.color)) ink(...entry.color).box(x, y, width, 9);
+    else ink(entry.color).box(x, y, width, 9);
+    ink(12, 12, 18).write(label, { x: x + 2, y: y + 1, font: "MatrixChunky8" });
   });
 }
 
@@ -429,9 +558,9 @@ function wire(ink, w) {
   const ls = link.stats();
   const ahead = a.frame - a.confirmed();
 
-  ink(90, 200, 255).write(`lag ${latency}f loss ${(loss * 100) | 0}%`, { x: 4, y: 33 });
-  ink(70, 66, 90).write(`rb ${st.rollbacks} @${depth}f stall ${st.stalls}`, { x: 4, y: 41 });
-  ink(70, 66, 90).write(`drop ${ls.dropped}/${ls.sent}`, { x: 4, y: 49 });
+  ink(90, 200, 255).write(`lag ${latency}f loss ${(loss * 100) | 0}%`, { x: 4, y: 33, font: "MatrixChunky8" });
+  ink(70, 66, 90).write(`rb ${st.rollbacks} @${depth}f stall ${st.stalls}`, { x: 4, y: 41, font: "MatrixChunky8" });
+  ink(70, 66, 90).write(`drop ${ls.dropped}/${ls.sent}`, { x: 4, y: 49, font: "MatrixChunky8" });
 
   // how far out on the limb we are, against the 8-frame prediction window
   const bar = Math.min(40, w - 12);
@@ -457,7 +586,9 @@ function hud(ink, w) {
       ink(...(i < s[b + P.WINS] ? [255, 220, 60] : [46, 42, 56])).box(x, 25, 3, 3);
     }
   }
-  ink(220).write(`${(s[G.TIMER] / 60) | 0}`, { x: cx - 5, y: 16 });
+  ink(220).write(`${(s[G.TIMER] / 60) | 0}`, { x: cx - 5, y: 16, font: "MatrixChunky8" });
+  const perf = `${fps}fps f${s[G.ROUND_FRAME]}`;
+  ink(145, 140, 165).write(perf, { x: w - perf.length * 6 - 4, y: 16, font: "MatrixChunky8" });
 
   const over = s[G.MATCH] || s[G.OVER];
   if (!over) return;
@@ -470,10 +601,10 @@ function hud(ink, w) {
       : `p${s[G.OVER]}`;
   const y = 40;
   ink(0, 0, 0, 200).box((w >> 1) - 44, y - 3, 88, s[G.MATCH] ? 22 : 12);
-  ink(255, 220, 60).write(msg, { x: (w >> 1) - msg.length * 3, y });
+  ink(255, 220, 60).write(msg, { x: (w >> 1) - msg.length * 3, y, font: "MatrixChunky8" });
   if (s[G.MATCH]) {
     const rematch = padInput.size ? "Start to rematch" : "r to rematch";
-    ink(150).write(rematch, { x: (w >> 1) - rematch.length * 3, y: y + 9 });
+    ink(150).write(rematch, { x: (w >> 1) - rematch.length * 3, y: y + 9, font: "MatrixChunky8" });
   }
 }
 
@@ -481,29 +612,26 @@ function hud(ink, w) {
 // gold rim when a parry is armed — the cooldown is the whole reason mashing
 // block doesn't work, so it should be visible.
 function pads(ink, ox, oy, p) {
-  const b = p * PN;
-  const cell = 9;
-  const help = padHelp(p);
-  const at = { b: [cell, 0], l: [0, cell], r: [cell * 2, cell], p: [cell, cell * 2] };
-  const bit = { l: game.LEFT, r: game.RIGHT, b: game.BLOCK, p: game.PUNCH };
+  const pad = playerPad(p);
+  // HORI NOLVA-inspired leverless geometry: four directions at left and two
+  // arcing rows of three attack buttons. The dormant map stays quiet gray;
+  // labels and move names light only while pressed.
+  const dirs = [[14, "<", game.LEFT, 0, 9], [13, "v", game.DOWN, 9, 9], [15, ">", game.RIGHT, 18, 9], [12, "^", game.UP, 13, 0]];
+  for (const [button, label, bit, dx, dy] of dirs) buttonDot(ink, ox + dx, oy + dy, label, !!(held[p] & bit), pad, button);
+  const attacks = [[2, "X", "LP", game.LP], [3, "Y", "MP", game.MP], [5, "RB", "HP", game.HP], [0, "A", "LK", game.LK], [1, "B", "MK", game.MK], [7, "RT", "HK", game.HK]];
+  const ax = p === 0 ? ox + 34 : ox - 53;
+  attacks.forEach(([button, label, move, bit], i) => {
+    const row = i > 2 ? 1 : 0, col = i % 3;
+    buttonDot(ink, ax + col * 18, oy + row * 11 + (row ? 1 : 0), label, !!(held[p] & bit), pad, button, move);
+  });
+}
 
-  for (const key in at) {
-    const [dx, dy] = at[key];
-    const x = ox + dx,
-      y = oy + dy;
-    const down = (held[p] & bit[key]) !== 0;
-    const armed = key === "b" && s[b + P.PCD] === 0;
-
-    if (down) ink(...SUIT[p]).box(x, y, 8, 8);
-    else ink(34, 32, 46).box(x, y, 8, 8);
-
-    if (armed && !down) ink(255, 220, 60).box(x, y, 8, 1);
-    ink(...(down ? [16, 14, 22] : [110, 106, 130])).write(help.caps[key], { x: x + 2, y: y + 1 });
-  }
-
-  if (help.mapping) {
-    paintPadTags(ink, ox, oy - 11, p, help);
-  }
+function buttonDot(ink, x, y, label, down, pad, button, move = "") {
+  const colors = getButtonColors(pad?.id || "standard", button);
+  ink(down ? colors.active : [38, 36, 48]).circle(x + 4, y + 4, 4, true);
+  ink(...(down ? [8, 8, 12] : [105, 101, 120])).write(label, { x: x + 1, y: y + 1, font: "MatrixChunky8" });
+  if (down && move) ink(colors.active).write(move, { x: x - 2, y: y - 8, font: "MatrixChunky8" });
+  if (down && button === 2 && pad?.buttons.has(0)) ink("violet").write("THROW", { x: x - 5, y: y - 16, font: "MatrixChunky8" });
 }
 
 function paintPadTags(ink, ox, y, player, help) {
@@ -518,7 +646,7 @@ function paintPadTags(ink, ox, y, player, help) {
     }, 0));
   let x = player === 0 ? ox : ox + 27 - widths.reduce((a, b) => a + b, 0) - 5;
   groups.forEach(([action, buttons], group) => {
-    ink(110, 106, 130).write(action, { x, y: y + 1 });
+    ink(110, 106, 130).write(action, { x, y: y + 1, font: "MatrixChunky8" });
     x += action.length * 6 + 4;
     buttons.forEach((button) => {
       const name = help.mapping.buttons?.[button]?.name || String(button);
@@ -526,11 +654,12 @@ function paintPadTags(ink, ox, y, player, help) {
       const down = help.pad.buttons.has(button);
       const colors = getButtonColors(help.pad.id, button);
       ink(down ? colors.active : colors.inactive).box(x, y, width, 9);
-      ink(down ? "black" : "white").write(name, { x: x + 2, y: y + 1 });
+      ink(down ? "black" : "white").write(name, { x: x + 2, y: y + 1, font: "MatrixChunky8" });
       x += width + 2;
     });
     if (group === 0) x += 5;
   });
 }
 
-export { boot, paint, act, sim };
+export { boot, paint, act, sim, leave };
+export const system = "fps";

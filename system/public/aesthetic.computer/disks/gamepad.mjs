@@ -36,6 +36,8 @@ const buttonVoices = new Map();
 const latencySamples = [];
 const MAX_LATENCY_SAMPLES = 60;
 let lastLatency = null;
+let audioLatency = null;
+let sendToBios = null;
 
 const timelinePaintings = [null, null, null, null]; // One timeline per gamepad
 
@@ -290,7 +292,10 @@ function paint({ wipe, ink, write, screen, line, circle, box, painting, paste, h
   if (lastLatency) {
     const average = latencySamples.reduce((sum, sample) => sum + sample, 0) /
       latencySamples.length;
-    const latencyText = `IN ${lastLatency.delivery.toFixed(0)}ms AVG ${average.toFixed(0)}ms SYN ${lastLatency.synth.toFixed(2)}ms`;
+    const browserAudio = audioLatency
+      ? ` BASE ${audioLatency.base.toFixed(1)}ms OUT ${audioLatency.output.toFixed(1)}ms Q ${audioLatency.quantum.toFixed(1)}ms`
+      : " AUDIO --";
+    const latencyText = `IN ${lastLatency.delivery.toFixed(0)}ms AVG ${average.toFixed(0)}ms SYN ${lastLatency.synth.toFixed(2)}ms${browserAudio}`;
     const width = latencyText.length * 4 + 6;
     const x = Math.max(2, screen.width - width - 4);
     const y = hudHeight;
@@ -690,6 +695,34 @@ function leave() {
   buttonVoices.clear();
 }
 
+function boot({ send }) {
+  sendToBios = send;
+  // gamepad is an input-latency diagnostic: recreate the already-running
+  // context with Chrome's most aggressive practical target. Xbox Edge uses
+  // 48 kHz natively, avoiding an extra resampling stage on the console path.
+  sendToBios?.({
+    type: "audio:reinit",
+    content: { latencyHint: 0.003, sampleRate: 48000 },
+  });
+}
+
+function receive({ type, content }) {
+  if (type !== "audio:latency-info" || !content) return;
+  audioLatency = {
+    base: Number(content.base) || 0,
+    output: Number(content.output) || 0,
+    quantum: Number(content.quantum) || 0,
+    total: Number(content.total) || 0,
+    sampleRate: Number(content.sampleRate) || 0,
+  };
+  console.log(
+    `🎧 AUDIO_CONTEXT base=${audioLatency.base.toFixed(2)}ms` +
+    ` output=${audioLatency.output.toFixed(2)}ms` +
+    ` quantum=${audioLatency.quantum.toFixed(2)}ms` +
+    ` rate=${audioLatency.sampleRate}Hz`,
+  );
+}
+
 // 📚 Library
 // function boot() {
 //   Runs once at the start.
@@ -719,4 +752,4 @@ function leave() {
 //   Render an application icon, aka favicon.
 // }
 
-export { paint, act, leave };
+export { boot, paint, act, receive, leave };

@@ -161,6 +161,71 @@ describe("fight sim rollback through every mechanic", () => {
 });
 
 describe("fight sim rules", () => {
+  it("jumps with integer gravity and lands", () => {
+    const s = sim.create(1);
+    sim.step(s, sim.UP, 0);
+    expect(s[P.Y]).toBeGreaterThan(0);
+    expect(s[P.ST]).toBe(ST.JUMP);
+    for (let f = 0; f < 80; f++) sim.step(s, 0, 0);
+    expect(s[P.Y]).toBe(0);
+    expect(s[P.VY]).toBe(0);
+  });
+
+  it("dashes on a same-direction double tap", () => {
+    const s = sim.create(1);
+    sim.step(s, sim.RIGHT, 0);
+    sim.step(s, 0, 0);
+    const before = s[P.X];
+    sim.step(s, sim.RIGHT, 0);
+    expect(s[P.ST]).toBe(ST.DASH);
+    expect(s[P.X] - before).toBeGreaterThan(2 * sim.SUB);
+  });
+
+  it("holding away blocks without a block button", () => {
+    const s = closeIn(sim.create(1));
+    for (let f = 0; f < 10; f++) sim.step(s, 0, sim.RIGHT); // p2 faces left
+    expect(s[p1(P.ST)]).toBe(ST.BLOCK);
+    const flags = trade(s, sim.RIGHT);
+    expect(flags & SFX.BLOCK).toBeTruthy();
+    expect(flags & SFX.KILL).toBeFalsy();
+  });
+
+  it("a crouching low kick defeats a standing block", () => {
+    const s = closeIn(sim.create(1));
+    for (let f = 0; f < 10; f++) sim.step(s, 0, sim.RIGHT);
+    const flags = trade(s, sim.RIGHT, 24); // settle legacy helper first
+    // fresh round state for an explicit low-kick input
+    const low = closeIn(sim.create(2));
+    for (let f = 0; f < 10; f++) sim.step(low, 0, sim.RIGHT);
+    let lowFlags = 0;
+    for (let f = 0; f < 24; f++) {
+      sim.step(low, f < 2 ? sim.DOWN | sim.LK : 0, sim.RIGHT);
+      lowFlags |= low[G.SFX];
+    }
+    expect(lowFlags & SFX.KILL).toBeTruthy();
+    expect(low[p1(P.ST)]).toBe(ST.DEAD);
+    expect(flags & SFX.BLOCK).toBeTruthy();
+  });
+
+  it("a crouching low punch is still blockable", () => {
+    const s = closeIn(sim.create(1));
+    for (let f = 0; f < 10; f++) sim.step(s, 0, sim.RIGHT);
+    let flags = 0;
+    for (let f = 0; f < 24; f++) {
+      sim.step(s, f < 2 ? sim.DOWN | sim.LP : 0, sim.RIGHT);
+      flags |= s[G.SFX];
+    }
+    expect(flags & SFX.BLOCK).toBeTruthy();
+    expect(flags & SFX.KILL).toBeFalsy();
+  });
+
+  it("recognizes X+A as a successful grapple throw", () => {
+    const s = closeIn(sim.create(1));
+    for (let f = 0; f < 24; f++) sim.step(s, f < 2 ? sim.LP | sim.LK : 0, sim.RIGHT);
+    expect(s[P.ATK]).toBe(sim.ATK.THROW);
+    expect(s[P.RESULT]).toBe(1);
+    expect(s[p1(P.ST)]).toBe(ST.DEAD);
+  });
   it("kills with one punch", () => {
     const s = closeIn(sim.create(1));
     const flags = trade(s);

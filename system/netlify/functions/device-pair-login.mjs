@@ -133,7 +133,9 @@ async function claimDevice() {
     if (res.ok && data.handle) {
       document.getElementById("status").innerHTML =
         '<p class="ok">Paired as @' + data.handle + '!</p>' +
-        '<p>This window will close. Your device will reboot into the new identity.</p>';
+        '<p>' + (data.kind === "browser"
+          ? 'Return to the fight screen. It will sign in automatically.'
+          : 'This window will close. Your device will reboot into the new identity.') + '</p>';
       // Auto-close after a moment (Firefox kiosk)
       setTimeout(() => { try { window.close(); } catch(_) {} }, 4000);
     } else {

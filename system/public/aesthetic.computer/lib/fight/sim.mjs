@@ -9,8 +9,8 @@
 // it is just a block. mashing gets you nothing, because arming a parry starts
 // a cooldown.
 //
-// four keys, so no jumping and no crouching, so no gravity and no vertical
-// axis at all. a hit is an overlap on one dimension.
+// Movement, gravity, dashes, attack strengths, throws and low attacks are all
+// integer state so the richer move set remains safe to rewind.
 //
 // every value that matters lives in one Int32Array, so a snapshot is a slice
 // and a checksum is a walk. no floats reach state, and nothing here calls
@@ -23,10 +23,14 @@ export const SUB = 256; // subpixels per pixel
 export const STAGE_W = 256 * SUB;
 
 export const BODY_W = 22 * SUB;
-export const BODY_H = 46 * SUB; // render-only; nothing can leave the ground
+export const BODY_H = 46 * SUB;
 
 const WALK = 384; // forward, ~1.5px per frame
 const BACK = 288; // retreating is slower, as it should be
+const JUMP_V = 1450;
+const GRAVITY = 105;
+const DASH = 1050;
+export const DASH_WINDOW = 12;
 
 export const PUNCH_F = { startup: 5, active: 3, recovery: 14, reach: 34 * SUB };
 const PUNCH_TOTAL = PUNCH_F.startup + PUNCH_F.active + PUNCH_F.recovery;
@@ -49,11 +53,13 @@ export const WIN_TARGET = 3;
 export const ROUND_TICKS = 20 * 60;
 const WAIT_TICKS = 110; // the beat between rounds
 
-// input bits. one nibble per player per frame — this is the whole wire format.
-export const LEFT = 1,
-  RIGHT = 2,
-  BLOCK = 4,
-  PUNCH = 8;
+// Input bits per player per frame — this is the whole wire format.
+export const LEFT = 1, RIGHT = 2, BLOCK = 4, PUNCH = 8,
+  UP = 16, DOWN = 32, LP = 64, MP = 128, HP = 256,
+  LK = 512, MK = 1024, HK = 2048;
+export const ATTACK_MASK = PUNCH | LP | MP | HP | LK | MK | HK;
+export const ATK = { NONE: 0, LP: 1, MP: 2, HP: 3, LK: 4, MK: 5, HK: 6, THROW: 7 };
+export const ATTACK_NAMES = ["", "light punch", "medium punch", "heavy punch", "light kick", "medium kick", "heavy kick", "grapple throw"];
 
 export const ST = {
   IDLE: 0,
@@ -63,6 +69,9 @@ export const ST = {
   BLOCKSTUN: 4,
   PARRIED: 5,
   DEAD: 6,
+  JUMP: 7,
+  CROUCH: 8,
+  DASH: 9,
 };
 
 // what the sim wants heard this tick. the sim never plays a sound itself — it
@@ -95,19 +104,27 @@ export const P = {
   STOP: 9, // hitstop
   SPX: 10, // spark — visual, but drawn from the rng so it must roll back
   SPL: 11,
+  Y: 12,
+  VY: 13,
+  TAPL: 14,
+  TAPR: 15,
+  ATK: 16,
+  LOW: 17,
+  RESULT: 18, // 1 success, -1 failed/blocked
 };
-export const PN = 12;
+export const PN = 19;
 
 export const G = {
-  TICK: 24,
-  RNG: 25,
-  TIMER: 26,
-  OVER: 27, // round result: 0 running, 1 p0, 2 p1, 3 draw
-  WAIT: 28,
-  MATCH: 29, // match result, same encoding. set → the sim is frozen for good
-  SFX: 30,
+  TICK: 38,
+  RNG: 39,
+  TIMER: 40,
+  OVER: 41,
+  WAIT: 42,
+  MATCH: 43,
+  SFX: 44,
+  ROUND_FRAME: 45,
 };
-export const SIZE = 31;
+export const SIZE = 46;
 
 export function create(seed = 1) {
   const s = new Int32Array(SIZE);
@@ -131,6 +148,9 @@ function spawn(s, i0, i1) {
     s[b + P.STOP] = 0;
     s[b + P.SPX] = 0;
     s[b + P.SPL] = 0;
+    s[b + P.Y] = s[b + P.VY] = 0;
+    s[b + P.TAPL] = s[b + P.TAPR] = 99;
+    s[b + P.ATK] = s[b + P.LOW] = s[b + P.RESULT] = 0;
     // seed the edge detector with what's actually held, or a punch key still
     // down from last round reads as a fresh press the instant we un-pause.
     s[b + P.PIN] = p === 0 ? i0 : i1;
@@ -172,6 +192,7 @@ export function step(s, i0, i1) {
   s[G.TICK]++;
   s[G.SFX] = 0; // before every early return, so silent frames stay silent
   if (s[G.MATCH]) return;
+  s[G.ROUND_FRAME]++;
 
   if (s[G.OVER]) {
     fade(s);
@@ -179,6 +200,7 @@ export function step(s, i0, i1) {
       spawn(s, i0, i1);
       s[G.TIMER] = ROUND_TICKS;
       s[G.OVER] = 0;
+      s[G.ROUND_FRAME] = 0;
       s[G.SFX] |= SFX.ROUND;
     }
     return;
@@ -240,7 +262,7 @@ function face(s) {
   for (let p = 0; p < 2; p++) {
     const b = p * PN,
       st = s[b + P.ST];
-    if (st !== ST.IDLE && st !== ST.WALK) continue;
+    if (st !== ST.IDLE && st !== ST.WALK && st !== ST.CROUCH) continue;
     const d = s[(1 - p) * PN + P.X] - s[b + P.X];
     if (d !== 0) s[b + P.FACE] = d > 0 ? 1 : -1;
   }
@@ -261,28 +283,64 @@ function control(s, p, inp) {
 
   if (st === ST.PUNCH) {
     if (++s[b + P.STF] >= PUNCH_TOTAL) {
+      if (!s[b + P.HIT]) s[b + P.RESULT] = -1;
       s[b + P.ST] = ST.IDLE;
       s[b + P.HIT] = 0;
     }
     return;
   }
 
+  // Vertical motion is integer-only and therefore rollback safe.
+  if (s[b + P.Y] || s[b + P.VY]) {
+    s[b + P.Y] += s[b + P.VY];
+    s[b + P.VY] -= GRAVITY;
+    if (s[b + P.Y] <= 0) {
+      s[b + P.Y] = s[b + P.VY] = 0;
+      s[b + P.ST] = ST.IDLE;
+    } else s[b + P.ST] = ST.JUMP;
+    const airDir = inp & RIGHT ? 1 : inp & LEFT ? -1 : 0;
+    if (airDir) s[b + P.X] = clampX(s[b + P.X] + airDir * BACK);
+    return;
+  }
+
   if (st === ST.BLOCK) {
-    if (!(inp & BLOCK)) s[b + P.ST] = ST.IDLE;
+    const blockDir = inp & RIGHT ? 1 : inp & LEFT ? -1 : 0;
+    if (!(inp & BLOCK) && blockDir !== -s[b + P.FACE]) s[b + P.ST] = ST.IDLE;
     else s[b + P.STF]++;
     return;
   }
 
-  // idle or walking: actionable.
-  if (press & PUNCH) {
+  // X+A on the same frame is a throw, before either single attack can win.
+  const attackPress = press & ATTACK_MASK;
+  if (attackPress) {
+    let attack = ATK.LP;
+    if ((inp & LP) && (inp & LK)) attack = ATK.THROW;
+    else if (attackPress & HP) attack = ATK.HP;
+    else if (attackPress & MP) attack = ATK.MP;
+    else if (attackPress & LP) attack = ATK.LP;
+    else if (attackPress & HK) attack = ATK.HK;
+    else if (attackPress & MK) attack = ATK.MK;
+    else if (attackPress & LK) attack = ATK.LK;
     s[b + P.ST] = ST.PUNCH;
     s[b + P.STF] = 0;
     s[b + P.HIT] = 0;
+    s[b + P.ATK] = attack;
+    s[b + P.LOW] = (inp & DOWN) && attack >= ATK.LK && attack <= ATK.HK ? 1 : 0;
+    s[b + P.RESULT] = 0;
     s[G.SFX] |= SFX.SWING;
     return;
   }
 
-  if (inp & BLOCK) {
+  if (press & UP) {
+    s[b + P.Y] = 1;
+    s[b + P.VY] = JUMP_V;
+    s[b + P.ST] = ST.JUMP;
+    return;
+  }
+
+  const dir = inp & RIGHT ? 1 : inp & LEFT ? -1 : 0;
+  const away = dir && dir === -s[b + P.FACE];
+  if ((inp & BLOCK) || away) {
     s[b + P.ST] = ST.BLOCK;
     if (s[b + P.PCD] === 0) {
       s[b + P.STF] = 0; // armed: the next few frames parry
@@ -293,10 +351,24 @@ function control(s, p, inp) {
     return;
   }
 
-  const dir = inp & RIGHT ? 1 : inp & LEFT ? -1 : 0;
+  if (press & LEFT) {
+    if (s[b + P.TAPL] <= DASH_WINDOW) s[b + P.STF] = 8;
+    s[b + P.TAPL] = 0;
+  }
+  if (press & RIGHT) {
+    if (s[b + P.TAPR] <= DASH_WINDOW) s[b + P.STF] = 8;
+    s[b + P.TAPR] = 0;
+  }
+  s[b + P.TAPL]++; s[b + P.TAPR]++;
+  if (inp & DOWN) {
+    s[b + P.ST] = ST.CROUCH;
+    return;
+  }
   if (dir) {
-    s[b + P.X] = clampX(s[b + P.X] + dir * (dir === s[b + P.FACE] ? WALK : BACK));
-    s[b + P.ST] = ST.WALK;
+    const dashing = s[b + P.STF] > 0;
+    s[b + P.X] = clampX(s[b + P.X] + dir * (dashing ? DASH : dir === s[b + P.FACE] ? WALK : BACK));
+    if (dashing) s[b + P.STF]--;
+    s[b + P.ST] = dashing ? ST.DASH : ST.WALK;
   } else {
     s[b + P.ST] = ST.IDLE;
   }
@@ -325,8 +397,9 @@ function probe(s, p) {
 
   const fc = s[b + P.FACE];
   const front = s[b + P.X] + fc * (BODY_W >> 1);
-  const x0 = fc > 0 ? front : front - PUNCH_F.reach;
-  const x1 = fc > 0 ? front + PUNCH_F.reach : front;
+  const reach = s[b + P.ATK] === ATK.THROW ? 18 * SUB : PUNCH_F.reach;
+  const x0 = fc > 0 ? front : front - reach;
+  const x1 = fc > 0 ? front + reach : front;
 
   const ox0 = s[ob + P.X] - (BODY_W >> 1);
   const ox1 = s[ob + P.X] + (BODY_W >> 1);
@@ -356,10 +429,12 @@ function connect(s, p) {
     ob = (1 - p) * PN;
   const fc = s[b + P.FACE];
   s[b + P.HIT] = 1;
+  const attack = s[b + P.ATK];
+  const lowKick = !!s[b + P.LOW];
 
   // parry: they tapped block just in time. the punch is thrown away and the
   // attacker is left standing in it.
-  if (parrying(s, ob)) {
+  if (attack !== ATK.THROW && !lowKick && parrying(s, ob)) {
     s[b + P.ST] = ST.PARRIED;
     s[b + P.STF] = PARRIED_STUN;
     s[ob + P.ST] = ST.IDLE;
@@ -368,12 +443,13 @@ function connect(s, p) {
     s[ob + P.STOP] = PARRY_STOP;
     s[G.SFX] |= SFX.PARRY;
     s[b + P.X] = clampX(s[b + P.X] - fc * PARRY_PUSH);
+    s[b + P.RESULT] = -1;
     return;
   }
 
   const blocking = s[ob + P.ST] === ST.BLOCK;
 
-  if (blocking && s[ob + P.GUARD] > 0) {
+  if (attack !== ATK.THROW && !lowKick && blocking && s[ob + P.GUARD] > 0) {
     s[ob + P.GUARD]--;
     s[ob + P.ST] = ST.BLOCKSTUN;
     s[ob + P.STF] = BLOCKSTUN;
@@ -382,11 +458,13 @@ function connect(s, p) {
     s[G.SFX] |= SFX.BLOCK;
     s[b + P.X] = clampX(s[b + P.X] - fc * PUSH);
     s[ob + P.X] = clampX(s[ob + P.X] + fc * PUSH);
+    s[b + P.RESULT] = -1;
     return;
   }
 
   // out of guard, or never guarding at all.
   s[ob + P.ST] = ST.DEAD;
+  s[b + P.RESULT] = 1;
   s[b + P.STOP] = KILL_STOP;
   s[ob + P.STOP] = KILL_STOP;
   s[G.SFX] |= blocking ? SFX.KILL | SFX.BREAK : SFX.KILL;

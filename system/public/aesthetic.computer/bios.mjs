@@ -3009,6 +3009,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       sampleRate: targetSampleRate,
     });
 
+    const baseLatency = Number(audioContext.baseLatency) || 0;
+    const outputLatency = Number(audioContext.outputLatency) || 0;
+    acDISK_SEND({
+      type: "audio:latency-info",
+      content: {
+        base: baseLatency * 1000,
+        output: outputLatency * 1000,
+        quantum: (128 / audioContext.sampleRate) * 1000,
+        total: (baseLatency + outputLatency) * 1000,
+        sampleRate: audioContext.sampleRate,
+        latencyHint,
+      },
+    });
+
     // Resume immediately to capture the user gesture window.
     // On iOS Safari, AudioContext may start "suspended" even during a gesture —
     // calling resume() synchronously here ensures we don't lose the gesture.

@@ -153,6 +153,7 @@ chatManager.setPresenceResolver(getHandlesOnPiece);
 
 // 🎯 Duel Manager — server-authoritative game for dumduel piece
 const duelManager = new DuelManager();
+const fightManager = new FightManager();
 // 🌐 World Managers — Q3-style server-authoritative multiplayer, one
 // instance per 3D world. Wire protocol is shared; only the event prefix
 // differs (`arena:*`, `land:*`). Routing below is generic over this map —
@@ -165,6 +166,7 @@ const worldManagers = {
 import { filter } from "./filter.mjs"; // Profanity filtering.
 import { ChatManager } from "./chat-manager.mjs"; // Multi-instance chat support.
 import { DuelManager } from "./duel-manager.mjs"; // Server-authoritative duel game.
+import { FightManager } from "./fight-manager.mjs"; // Fight presence + seat queue.
 import { WorldManager, ARENA_CFG, ARENA_SPAWNS } from "./world-manager.mjs"; // Server-authoritative 3D worlds.
 import { LAND_CFG, LAND_SPAWNS } from "../system/public/aesthetic.computer/lib/land-world.mjs";
 
@@ -2883,6 +2885,21 @@ wss.on("connection", async (ws, req) => {
         return;
       }
 
+      if (msg.type === "fight:join") {
+        const parsed = typeof msg.content === "string" ? JSON.parse(msg.content) : msg.content;
+        if (parsed?.handle) {
+          if (!clients[id]) clients[id] = {};
+          clients[id].handle = parsed.handle;
+          fightManager.join(parsed.handle, id);
+        }
+        return;
+      }
+      if (msg.type === "fight:leave") {
+        const parsed = typeof msg.content === "string" ? JSON.parse(msg.content) : msg.content;
+        if (parsed?.handle) fightManager.leave(parsed.handle, id);
+        return;
+      }
+
       // 🌐 World messages (arena:*, land:*) — routed to the matching
       // WorldManager. Generic over the worldManagers map so new worlds
       // don't need new routing code. Consumes ALL messages with a known
@@ -2922,12 +2939,13 @@ wss.on("connection", async (ws, req) => {
   // More info: https://stackoverflow.com/a/49791634/8146077
   ws.on("close", () => {
     log("🚪 Someone left:", id, "Online:", wss.clients.size, "🫂");
-    const departingHandle = normalizeProfileHandle(clients?.[id]?.handle);
+    const rawDepartingHandle = clients?.[id]?.handle;
+    const departingHandle = normalizeProfileHandle(rawDepartingHandle);
     if (departingHandle) duelManager.playerLeave(departingHandle);
+    if (rawDepartingHandle) fightManager.leave(rawDepartingHandle, id);
     // Worlds use the raw handle (matches <world>:hello), not the @-normalized
     // form. Pass the closing wsId so a quick reload-race doesn't delete the
     // freshly-rebound player (the new hello will have set a different wsId).
-    const rawDepartingHandle = clients?.[id]?.handle;
     if (rawDepartingHandle) {
       for (const wm of Object.values(worldManagers)) wm.playerLeave(rawDepartingHandle, id);
     }
@@ -3118,6 +3136,10 @@ duelManager.setSendFunctions({
     }
     return null;
   },
+});
+
+fightManager.setSendFunction((wsId, type, content) => {
+  connections[wsId]?.send(pack(type, JSON.stringify(content), "fight"));
 });
 
 // 🌐 Wire WorldManager send functions (same shape as DuelManager; source tag
