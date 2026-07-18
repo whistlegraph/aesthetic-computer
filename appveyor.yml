@@ -21,9 +21,20 @@ install:
   - ps: |
       $assets = Join-Path $env:APPVEYOR_BUILD_FOLDER "$env:project_root\Assets"
       New-Item -ItemType Directory -Force $assets | Out-Null
-      $png = [Convert]::FromBase64String('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL8WQAAAABJRU5ErkJggg==')
-      'Square150x150Logo.png','Square44x44Logo.png','Wide310x150Logo.png','SplashScreen.png','StoreLogo.png' |
-        ForEach-Object { [IO.File]::WriteAllBytes((Join-Path $assets $_), $png) }
+      Add-Type -AssemblyName System.Drawing
+      function Write-Asset($name, $width, $height) {
+        $bitmap = [Drawing.Bitmap]::new($width, $height)
+        $graphics = [Drawing.Graphics]::FromImage($bitmap)
+        $graphics.Clear([Drawing.Color]::FromArgb(18, 15, 26))
+        $graphics.FillEllipse([Drawing.Brushes]::Gold, $width * .2, $height * .2, $width * .6, $height * .6)
+        $bitmap.Save((Join-Path $assets $name), [Drawing.Imaging.ImageFormat]::Png)
+        $graphics.Dispose(); $bitmap.Dispose()
+      }
+      Write-Asset 'Square150x150Logo.png' 150 150
+      Write-Asset 'Square44x44Logo.png' 44 44
+      Write-Asset 'Wide310x150Logo.png' 310 150
+      Write-Asset 'SplashScreen.png' 620 300
+      Write-Asset 'StoreLogo.png' 50 50
       $cert = New-SelfSignedCertificate -Type Custom -Subject 'CN=AestheticComputerDev' `
         -KeyUsage DigitalSignature -FriendlyName 'AC Xbox CI' -CertStoreLocation 'Cert:\CurrentUser\My'
       $password = ConvertTo-SecureString $env:cert_password -AsPlainText -Force
