@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.20)
+project(ac_xbox_runtime_contract LANGUAGES CXX)
+add_executable(runtime_contract tests/runtime_contract.cpp)
+target_include_directories(runtime_contract PRIVATE include)
+target_compile_features(runtime_contract PRIVATE cxx_std_20)
+enable_testing()
+add_test(NAME runtime_contract COMMAND runtime_contract)
