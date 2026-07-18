@@ -23,7 +23,7 @@
 import * as game from "../lib/fight/sim.mjs";
 import { syncTest, report, drills } from "../lib/fight/rollback.mjs";
 import { createSession, createLink } from "../lib/fight/session.mjs";
-import { getGamepadMapping } from "../lib/gamepad-mappings.mjs";
+import { getButtonColors, getGamepadMapping } from "../lib/gamepad-mappings.mjs";
 
 const { P, PN, G, ST, SFX, SUB, BODY_W, BODY_H, PUNCH_F } = game;
 
@@ -61,6 +61,8 @@ let net = null; // two sessions over a fake laggy wire, when asked for
 let sfxIn = 0; // what the local session wants heard this frame
 let attract = true;
 let attractPause = 0;
+const inputStream = [];
+const INPUT_STREAM_MAX = 12;
 
 // `fight:lag` runs the real rollback session against itself over a hostile
 // link, both players on this keyboard. we render player 0's view, so player 2
@@ -84,6 +86,11 @@ let opened = []; // the colon we booted with, so `r` can rebuild the same match
 
 function boot({ colon }) {
   opened = colon;
+  inputStream.length = 0;
+  padInput.clear();
+  held.fill(0);
+  keyHeld.fill(0);
+  padsHeld.fill(0);
   net = open(colon);
   s = net ? net.a.state : game.create(1);
   attract = !colon.includes("synctest");
@@ -128,7 +135,7 @@ function refreshPad(e) {
   const player = e.gamepad & 1;
   let pad = padInput.get(e.gamepad);
   if (!pad) {
-    pad = { id: e.gamepadId || "standard", buttons: new Set(), axes: {} };
+    pad = { id: e.gamepadId || "standard", buttons: new Set(), axes: {}, streamAxis: 0 };
     padInput.set(e.gamepad, pad);
   }
   if (e.gamepadId) pad.id = e.gamepadId;
@@ -149,6 +156,11 @@ function refreshPad(e) {
   held[player] = keyHeld[player] | padsHeld[player];
 }
 
+function streamInput(player, label, color = "gray") {
+  inputStream.unshift({ player, label, color });
+  if (inputStream.length > INPUT_STREAM_MAX) inputStream.pop();
+}
+
 function playerPad(player) {
   for (const [index, pad] of padInput) {
     if ((index & 1) === player) return pad;
@@ -163,7 +175,8 @@ function padHelp(player) {
   const m30 = mapping?.product === "M30";
   return {
     caps: { l: "<", r: ">", b: m30 ? "X" : "B", p: "A" },
-    hint: m30 ? "ABC hit  XYZ guard" : "A/X/RB hit  B/Y/LB guard",
+    mapping,
+    pad,
   };
 }
 
@@ -204,11 +217,30 @@ function act({ event: e }) {
   }
   for (const key in KEYS) {
     const [p, bit] = KEYS[key];
-    if (e.is(`keyboard:down:${key}`)) keyHeld[p] |= bit;
+    if (e.is(`keyboard:down:${key}`)) {
+      if (!(keyHeld[p] & bit)) streamInput(p, CAP[p][KEYS[key][2]], SUIT[p]);
+      keyHeld[p] |= bit;
+    }
     if (e.is(`keyboard:up:${key}`)) keyHeld[p] &= ~bit;
     held[p] = keyHeld[p] | padsHeld[p];
   }
-  if (e.is("gamepad")) refreshPad(e);
+  if (e.is("gamepad")) {
+    refreshPad(e);
+    const pad = padInput.get(e.gamepad);
+    const player = e.gamepad & 1;
+    if (e.button !== undefined && e.action === "push") {
+      const mapping = getGamepadMapping(pad.id);
+      const label = mapping?.buttons?.[e.button]?.name || String(e.button);
+      streamInput(player, label, getButtonColors(pad.id, e.button).active);
+    }
+    if (e.axis === 0) {
+      const direction = e.value < -0.35 ? -1 : e.value > 0.35 ? 1 : 0;
+      if (direction && direction !== pad.streamAxis) {
+        streamInput(player, direction < 0 ? "<" : ">", "limegreen");
+      }
+      pad.streamAxis = direction;
+    }
+  }
   if ((e.is("keyboard:down:r") || (e.button === 9 && e.action === "push")) && s[G.MATCH]) {
     // a networked rematch is a fresh session on a fresh wire, not a reset state
     net = net ? open(opened) : null;
@@ -360,6 +392,7 @@ function paint({ wipe, ink, screen }) {
     pads(ink, 4, h - 29, 0);
     pads(ink, w - 32, h - 29, 1);
   }
+  paintInputStream(ink);
   if (attract) {
     // A neutral wash makes the demo visibly separate from the live match.
     // The invitation is painted afterward so it stays crisp and warm.
@@ -370,6 +403,18 @@ function paint({ wipe, ink, screen }) {
     ink(0, 0, 0, 210).box(x - 5, y - 4, msg.length * 6 + 10, 15);
     ink(255, 220, 60).write(msg, { x, y });
   }
+}
+
+function paintInputStream(ink) {
+  inputStream.slice(0, 10).forEach((entry, row) => {
+    const y = 30 + row * 10;
+    const label = String(entry.label);
+    const width = Math.max(9, label.length * 6 + 4);
+    ink(...SUIT[entry.player], 190).write(`P${entry.player + 1}`, { x: 4, y: y + 1 });
+    if (Array.isArray(entry.color)) ink(...entry.color).box(18, y, width, 9);
+    else ink(entry.color).box(18, y, width, 9);
+    ink(12, 12, 18).write(label, { x: 20, y: y + 1 });
+  });
 }
 
 // the netcode, out loud. depth is what you actually feel: it is how many frames
@@ -456,10 +501,36 @@ function pads(ink, ox, oy, p) {
     ink(...(down ? [16, 14, 22] : [110, 106, 130])).write(help.caps[key], { x: x + 2, y: y + 1 });
   }
 
-  if (help.hint) {
-    const x = p === 0 ? ox : ox + 27 - help.hint.length * 6;
-    ink(110, 106, 130).write(help.hint, { x, y: oy - 9 });
+  if (help.mapping) {
+    paintPadTags(ink, ox, oy - 11, p, help);
   }
+}
+
+function paintPadTags(ink, ox, y, player, help) {
+  const groups = [
+    ["hit", help.mapping.fight?.punch || []],
+    ["guard", help.mapping.fight?.block || []],
+  ];
+  const widths = groups.map(([action, buttons]) =>
+    action.length * 6 + 4 + buttons.reduce((sum, button) => {
+      const name = help.mapping.buttons?.[button]?.name || String(button);
+      return sum + Math.max(9, name.length * 6 + 4) + 2;
+    }, 0));
+  let x = player === 0 ? ox : ox + 27 - widths.reduce((a, b) => a + b, 0) - 5;
+  groups.forEach(([action, buttons], group) => {
+    ink(110, 106, 130).write(action, { x, y: y + 1 });
+    x += action.length * 6 + 4;
+    buttons.forEach((button) => {
+      const name = help.mapping.buttons?.[button]?.name || String(button);
+      const width = Math.max(9, name.length * 6 + 4);
+      const down = help.pad.buttons.has(button);
+      const colors = getButtonColors(help.pad.id, button);
+      ink(down ? colors.active : colors.inactive).box(x, y, width, 9);
+      ink(down ? "black" : "white").write(name, { x: x + 2, y: y + 1 });
+      x += width + 2;
+    });
+    if (group === 0) x += 5;
+  });
 }
 
 export { boot, paint, act, sim };
