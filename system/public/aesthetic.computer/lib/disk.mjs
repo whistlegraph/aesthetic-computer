@@ -11197,6 +11197,7 @@ async function makeFrame({ data: { type, content } }) {
     type === "tape:audio-context-state" ||
     type === "audio:latency-info" ||
     type === "audio:probe" ||
+    type === "audio:reinit-complete" ||
     type === "tape:playback-progress" ||
     // Video-backed (kind:"mp4") tape playback callbacks → video.mjs.
     type === "tape:mp4-ready" ||

@@ -3610,6 +3610,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 pieceToBios: probe.pieceEpoch
                   ? (probe.biosEpoch || Date.now()) - probe.pieceEpoch
                   : (probe.biosAt || receivedAt) - (probe.pieceAt || probe.biosAt || receivedAt),
+                context: {
+                  sampleRate: audioContext?.sampleRate || probe.sampleRate,
+                  base: (Number(audioContext?.baseLatency) || 0) * 1000,
+                  output: (Number(audioContext?.outputLatency) || 0) * 1000,
+                  quantum: audioContext?.sampleRate ? 128 / audioContext.sampleRate * 1000 : 0,
+                },
               },
             });
             return;
@@ -5324,6 +5330,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         console.error("🎵 Audio reinit: Timed out waiting for worklet to initialize");
       } else {
         console.log("🎵 Audio reinit complete, sample rate:", audioContext?.sampleRate);
+        acDISK_SEND({
+          type: "audio:reinit-complete",
+          content: {
+            requestedSampleRate: Number.isFinite(sampleRate) ? sampleRate : audioContext?.sampleRate,
+            sampleRate: audioContext?.sampleRate,
+            base: (Number(audioContext?.baseLatency) || 0) * 1000,
+            output: (Number(audioContext?.outputLatency) || 0) * 1000,
+            quantum: audioContext?.sampleRate ? 128 / audioContext.sampleRate * 1000 : 0,
+          },
+        });
       }
     }
 

@@ -762,9 +762,34 @@ function boot({ send }) {
 
 function receive({ type, content }) {
   if (!content) return;
+  if (type === "audio:reinit-complete") {
+    changingSampleRate = false;
+    requestedSampleRate = Number(content.sampleRate) || requestedSampleRate;
+    const rateIndex = SAMPLE_RATES.indexOf(requestedSampleRate);
+    if (rateIndex >= 0) sampleRateIndex = rateIndex;
+    console.log(
+      `🧪 AUDIO_RATE_READY requested=${content.requestedSampleRate}Hz` +
+      ` actual=${content.sampleRate}Hz quantum=${Number(content.quantum).toFixed(2)}ms` +
+      ` output=${Number(content.output).toFixed(2)}ms`,
+    );
+    return;
+  }
   if (type === "audio:probe") {
     audioProbe = content;
-    const rate = Number(content.sampleRate) || audioLatency?.sampleRate || requestedSampleRate;
+    const rate = Number(content.context?.sampleRate || content.sampleRate) || requestedSampleRate;
+    changingSampleRate = false;
+    requestedSampleRate = rate;
+    const rateIndex = SAMPLE_RATES.indexOf(rate);
+    if (rateIndex >= 0) sampleRateIndex = rateIndex;
+    if (content.context) {
+      audioLatency = {
+        base: Number(content.context.base) || 0,
+        output: Number(content.context.output) || 0,
+        quantum: Number(content.context.quantum) || 0,
+        total: (Number(content.context.base) || 0) + (Number(content.context.output) || 0),
+        sampleRate: rate,
+      };
+    }
     const stat = rateStats.get(rate) || { count: 0, worklet: 0, pieceToBios: 0, quantum: 128 / rate * 1000, output: 0 };
     stat.count++;
     stat.worklet += Number(content.workletRoundTrip) || 0;
