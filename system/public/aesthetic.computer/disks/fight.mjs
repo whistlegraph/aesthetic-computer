@@ -59,6 +59,8 @@ let boxes = false;
 let verdict; // synctest result, when asked for
 let net = null; // two sessions over a fake laggy wire, when asked for
 let sfxIn = 0; // what the local session wants heard this frame
+let attract = true;
+let attractPause = 0;
 
 // `fight:lag` runs the real rollback session against itself over a hostile
 // link, both players on this keyboard. we render player 0's view, so player 2
@@ -84,6 +86,8 @@ function boot({ colon }) {
   opened = colon;
   net = open(colon);
   s = net ? net.a.state : game.create(1);
+  attract = !colon.includes("synctest");
+  attractPause = 0;
   boxes = colon.includes("boxes");
   if (colon.includes("synctest")) {
     // one drill per mechanic — random inputs practically never parry or clash,
@@ -96,6 +100,28 @@ function boot({ colon }) {
     }
     verdict = bad.length ? bad.join("\n") : "synctest ok — parry, block, clash";
   }
+}
+
+function resetFight() {
+  net = net ? open(opened) : null;
+  s = net ? net.a.state : game.create(s[G.RNG]);
+  held.fill(0);
+  keyHeld.fill(0);
+  padsHeld.fill(0);
+  sfxIn = 0;
+  attractPause = 0;
+}
+
+function demoInput(player) {
+  const me = player * PN;
+  const them = (1 - player) * PN;
+  const distance = Math.abs(s[me + P.X] - s[them + P.X]);
+  const phase = (s[G.TICK] + player * 43) % 120;
+  let bits = 0;
+  if (distance > 34 * SUB) bits |= s[me + P.X] < s[them + P.X] ? game.RIGHT : game.LEFT;
+  if (phase >= 44 && phase < 50) bits |= game.PUNCH;
+  if (phase >= 34 && phase < 42) bits |= game.BLOCK;
+  return bits;
 }
 
 function refreshPad(e) {
@@ -143,7 +169,13 @@ function padHelp(player) {
 
 function sim({ sound }) {
   if ((half ^= 1)) return; // every other 120hz step
+  if (attract && s[G.MATCH]) {
+    if (++attractPause > 75) resetFight();
+    return;
+  }
   if (s[G.MATCH]) return;
+
+  const input = attract ? [demoInput(0), demoInput(1)] : held;
 
   let flags;
   if (net) {
@@ -151,17 +183,25 @@ function sim({ sound }) {
     sfxIn = 0;
     // a stall is a dropped frame, not an error — the peer waits rather than
     // predict past the window, and hands the same input back next tick.
-    net.a.advance(held[0]);
-    net.b.advance(held[1]);
+    net.a.advance(input[0]);
+    net.b.advance(input[1]);
     flags = sfxIn; // only the local session's leading frames speak
   } else {
-    game.step(s, held[0], held[1]);
+    game.step(s, input[0], input[1]);
     flags = s[G.SFX];
   }
   hear(sound, flags); // a rollback's resimulated frames never reach here
 }
 
 function act({ event: e }) {
+  const startsWithKey = Object.keys(KEYS).some((key) => e.is(`keyboard:down:${key}`));
+  const startsWithPad = e.is("gamepad") &&
+    ((e.button !== undefined && e.action === "push") ||
+      (e.axis !== undefined && Math.abs(e.value) > 0.35));
+  if (attract && (startsWithKey || startsWithPad)) {
+    attract = false;
+    resetFight();
+  }
   for (const key in KEYS) {
     const [p, bit] = KEYS[key];
     if (e.is(`keyboard:down:${key}`)) keyHeld[p] |= bit;
@@ -319,6 +359,16 @@ function paint({ wipe, ink, screen }) {
   if (pad > 4) {
     pads(ink, 4, h - 29, 0);
     pads(ink, w - 32, h - 29, 1);
+  }
+  if (attract) {
+    // A neutral wash makes the demo visibly separate from the live match.
+    // The invitation is painted afterward so it stays crisp and warm.
+    ink(74, 72, 82, 190).box(0, 0, w, h);
+    const msg = "press any key";
+    const x = (w >> 1) - msg.length * 3;
+    const y = Math.max(36, (floor >> 1) - 5);
+    ink(0, 0, 0, 210).box(x - 5, y - 4, msg.length * 6 + 10, 15);
+    ink(255, 220, 60).write(msg, { x, y });
   }
 }
 
