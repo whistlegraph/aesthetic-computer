@@ -38,6 +38,10 @@ const MAX_LATENCY_SAMPLES = 60;
 let lastLatency = null;
 let audioLatency = null;
 let sendToBios = null;
+let lightMode = false;
+const gamepadTheme = () => lightMode
+  ? { bg: [244, 242, 235], panel: [224, 220, 211], activePanel: [184, 190, 196], border: [135, 130, 142], text: [45, 42, 54], quiet: [94, 90, 104], timeline: [205, 202, 194] }
+  : { bg: [0, 0, 0], panel: [105, 105, 105], activePanel: [112, 128, 144], border: [128, 128, 128], text: [255, 255, 255], quiet: [128, 128, 128], timeline: [105, 105, 105] };
 
 const timelinePaintings = [null, null, null, null]; // One timeline per gamepad
 
@@ -61,7 +65,7 @@ function drawXboxControllerDiagram({ ink, line, circle, box }, gp, x, y) {
     Object.values(gp.axes).some(v => Math.abs(parseFloat(v)) > 0.5);
   
   // Solid background box - lightens when any input is active
-  ink(hasActiveInput ? "slategray" : "dimgray").box(baseX, baseY, width, height);
+  ink(...(hasActiveInput ? gamepadTheme().activePanel : gamepadTheme().panel)).box(baseX, baseY, width, height);
   
   // LEFT SIDE: Left stick at top-left, D-pad below (REVERSED from before)
   const lStickX = baseX + 8;  // Moved further left
@@ -184,7 +188,7 @@ function draw8BitDoMicroDiagram({ ink, line, circle, box }, gp, x, y) {
     Object.values(gp.axes).some(v => Math.abs(parseFloat(v)) > 0.5);
   
   // Solid background box - lightens when any input is active
-  ink(hasActiveInput ? "slategray" : "dimgray").box(baseX, baseY, width, height);
+  ink(...(hasActiveInput ? gamepadTheme().activePanel : gamepadTheme().panel)).box(baseX, baseY, width, height);
   
   // D-Pad on left side - using AXES like original mapping
   const dpadX = baseX + 8;
@@ -244,8 +248,8 @@ function draw8BitDoM30Diagram({ ink }, gp, x, y) {
   const w = 56;
 
   // The M30's low, rounded silhouette and its defining two rows of three.
-  ink(active ? "slategray" : "dimgray").box(x + 4, y, w - 8, 24);
-  ink(active ? "slategray" : "dimgray").box(x, y + 5, w, 14);
+  ink(...(active ? gamepadTheme().activePanel : gamepadTheme().panel)).box(x + 4, y, w - 8, 24);
+  ink(...(active ? gamepadTheme().activePanel : gamepadTheme().panel)).box(x, y + 5, w, 14);
 
   const dx = x + 10, dy = y + 12, ds = 4;
   ink(axisY < -0.3 || gp.pressedButtons.includes(12) ? "lime" : "gray").box(dx, dy - 5, ds, ds);
@@ -274,8 +278,12 @@ function drawGamepadDiagram({ ink, line, circle, box }, gp, x, y) {
   }
 }
 
-function paint({ wipe, ink, write, screen, line, circle, box, painting, paste, help, text }) {
-  wipe("black");
+function paint({ wipe, ink, write, screen, line, circle, box, painting, paste, help, text, dark }) {
+  const nextLightMode = dark === false;
+  if (nextLightMode !== lightMode) timelinePaintings.fill(null);
+  lightMode = nextLightMode;
+  const theme = gamepadTheme();
+  wipe(...theme.bg);
   
   const lineHeight = 10;
   const hudHeight = 20; // Space for prompt HUD at top
@@ -284,7 +292,9 @@ function paint({ wipe, ink, write, screen, line, circle, box, painting, paste, h
   const connectedIndices = keys(connectedGamepads).map(k => parseInt(k)).filter(i => connectedGamepads[i]);
   const numConnected = connectedIndices.length;
   
-  const playerColors = ["cyan", "magenta", "lime", "yellow"];
+  const playerColors = lightMode
+    ? ["blue", "purple", "green", "darkorange"]
+    : ["cyan", "magenta", "lime", "yellow"];
   const playerLabels = ["P1", "P2", "P3", "P4"];
 
   // These cover the software path only: input poll -> piece delivery, then
@@ -299,8 +309,11 @@ function paint({ wipe, ink, write, screen, line, circle, box, painting, paste, h
     const width = latencyText.length * 4 + 6;
     const x = Math.max(2, screen.width - width - 4);
     const y = hudHeight;
-    ink("black", 210).box(x, y, width, lineHeight + 2);
-    ink(lastLatency.delivery <= 20 ? "lime" : lastLatency.delivery <= 35 ? "yellow" : "red")
+    ink(...(lightMode ? [255, 253, 247, 225] : [0, 0, 0, 210])).box(x, y, width, lineHeight + 2);
+    const latencyColor = lightMode
+      ? lastLatency.delivery <= 20 ? "green" : lastLatency.delivery <= 35 ? "darkorange" : "red"
+      : lastLatency.delivery <= 20 ? "lime" : lastLatency.delivery <= 35 ? "yellow" : "red";
+    ink(latencyColor)
       .write(latencyText, { x: x + 3, y: y + 2 }, undefined, width - 6, false, FONT);
   }
   
@@ -308,7 +321,7 @@ function paint({ wipe, ink, write, screen, line, circle, box, painting, paste, h
     // No gamepads - show message
     const msgY = hudHeight + 50;
     ink("orange").write("No gamepads connected", { x: 10, y: msgY }, undefined, undefined, false, FONT);
-    ink("gray").write("Press any button to connect", { x: 10, y: msgY + lineHeight }, undefined, undefined, false, FONT);
+    ink(...theme.quiet).write("Press any button to connect", { x: 10, y: msgY + lineHeight }, undefined, undefined, false, FONT);
     return;
   }
   
@@ -345,11 +358,11 @@ function paint({ wipe, ink, write, screen, line, circle, box, painting, paste, h
     
     // Draw border (only if multiple gamepads)
     if (numConnected > 1) {
-      ink("dimgray").box(slotX, slotY, slotWidth - 1, slotHeight - 1, "line");
+      ink(...theme.border).box(slotX, slotY, slotWidth - 1, slotHeight - 1, "line");
       
       // Draw vertical separator line on right edge
       if (col < cols - 1) {
-        ink("gray").line(slotX + slotWidth - 1, slotY, slotX + slotWidth - 1, slotY + slotHeight);
+        ink(...theme.border).line(slotX + slotWidth - 1, slotY, slotX + slotWidth - 1, slotY + slotHeight);
       }
     }
     
@@ -406,9 +419,9 @@ function paint({ wipe, ink, write, screen, line, circle, box, painting, paste, h
         timelinePaintings[gpIndex] = painting(slotWidth, timelineHeight);
         // Fill with dimgray initially
         for (let i = 0; i < timelinePaintings[gpIndex].pixels.length; i += 4) {
-          timelinePaintings[gpIndex].pixels[i + 0] = 105;
-          timelinePaintings[gpIndex].pixels[i + 1] = 105;
-          timelinePaintings[gpIndex].pixels[i + 2] = 105;
+          timelinePaintings[gpIndex].pixels[i + 0] = theme.timeline[0];
+          timelinePaintings[gpIndex].pixels[i + 1] = theme.timeline[1];
+          timelinePaintings[gpIndex].pixels[i + 2] = theme.timeline[2];
           timelinePaintings[gpIndex].pixels[i + 3] = 255;
         }
       }
@@ -488,7 +501,7 @@ function paint({ wipe, ink, write, screen, line, circle, box, painting, paste, h
       }
       
       // Controller name - use MatrixChunky8 font
-      ink("white").write(displayName, { x: slotX + 4, y: nameY }, undefined, maxWidth, true, FONT);
+      ink(...theme.text).write(displayName, { x: slotX + 4, y: nameY }, undefined, maxWidth, true, FONT);
       
       // Draw controller diagram right below name
       const diagramWidth = 48;

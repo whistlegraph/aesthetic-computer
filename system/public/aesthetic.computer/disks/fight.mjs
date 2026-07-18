@@ -63,6 +63,12 @@ let fps = 0, fpsFrames = 0, fpsAt = 0;
 const inputStream = [];
 const INPUT_STREAM_MAX = 12;
 const lastResult = [0, 0];
+let lightMode = false;
+const THEMES = {
+  dark: { bg: [18, 16, 26], floor: [40, 38, 58], grid: [30, 28, 44], quiet: [145, 140, 165], empty: [48, 44, 58], panel: [0, 0, 0, 200] },
+  light: { bg: [242, 239, 230], floor: [92, 88, 108], grid: [211, 206, 194], quiet: [73, 68, 88], empty: [196, 190, 181], panel: [255, 253, 247, 225] },
+};
+const colors = () => THEMES[lightMode ? "light" : "dark"];
 let server = null;
 let lobby = createFightLobby("guest");
 let loginPair = null;
@@ -416,7 +422,8 @@ function drawFighter(ink, x, y, bw, bh, face, st, stf, tick, c, u) {
 // the stage is a fixed 256 units wide in the sim and always will be: if it
 // tracked the screen, two players on differently sized windows would simulate
 // different fights. so the renderer scales instead.
-function paint({ wipe, ink, screen }) {
+function paint({ wipe, ink, screen, dark }) {
+  lightMode = dark === false;
   const { width: w, height: h } = screen;
   screenWidth = w;
   const now = globalThis.performance?.now?.() || 0;
@@ -436,9 +443,9 @@ function paint({ wipe, ink, screen }) {
   const sx = (subs) => ox + u(subs); // a position on the stage
   const py = (v) => floor - u(v);
 
-  wipe(18, 16, 26);
-  ink(40, 38, 58).box(ox, floor, (256 * k) | 0, 1);
-  for (let x = 0; x < 256; x += 24) ink(30, 28, 44).box(sx(x * SUB), floor + 1, 1, 2);
+  wipe(...colors().bg);
+  ink(...colors().floor).box(ox, floor, (256 * k) | 0, 1);
+  for (let x = 0; x < 256; x += 24) ink(...colors().grid).box(sx(x * SUB), floor + 1, 1, 2);
 
   for (let p = 0; p < 2; p++) {
     const b = p * PN;
@@ -453,7 +460,7 @@ function paint({ wipe, ink, screen }) {
     if (st === ST.BLOCK) c = game.parrying(s, b) ? [255, 255, 255] : [170, 185, 210];
     if (st === ST.BLOCKSTUN) c = [190, 200, 220];
     if (st === ST.PARRIED) c = [190, 120, 255];
-    if (st === ST.DEAD) c = [64, 56, 66];
+    if (st === ST.DEAD) c = lightMode ? [132, 124, 132] : [64, 56, 66];
 
     drawFighter(ink, x, y, bw, bh, face, st, s[b + P.STF], s[G.TICK], c, u);
 
@@ -491,12 +498,12 @@ function paint({ wipe, ink, screen }) {
   if (attract) {
     // A neutral wash makes the demo visibly separate from the live match.
     // The invitation is painted afterward so it stays crisp and warm.
-    ink(74, 72, 82, 190).box(0, 0, w, h);
+    ink(...(lightMode ? [210, 207, 202, 190] : [74, 72, 82, 190])).box(0, 0, w, h);
     const msg = "press any key";
     const x = (w >> 1) - msg.length * 3;
     const y = Math.max(36, (floor >> 1) - 5);
-    ink(0, 0, 0, 210).box(x - 5, y - 4, msg.length * 6 + 10, 15);
-    ink(255, 220, 60).write(msg, { x, y, font: "MatrixChunky8" });
+    ink(...colors().panel).box(x - 5, y - 4, msg.length * 6 + 10, 15);
+    ink(...(lightMode ? [125, 76, 0] : [255, 220, 60])).write(msg, { x, y, font: "MatrixChunky8" });
   }
 }
 
@@ -504,7 +511,7 @@ function paintPresence(ink, w) {
   const state = lobby.state;
   const who = loggedInHandle ? `@${String(loggedInHandle).replace(/^@/, "")}` : state.handle;
   const text = `${who}  ${state.count || 1} in lobby`;
-  ink(145, 140, 165).write(text, {
+  ink(...colors().quiet).write(text, {
     x: Math.max(4, w - text.length * 6 - 4), y: 24, font: "MatrixChunky8",
   });
 }
@@ -579,16 +586,16 @@ function hud(ink, w) {
     for (let i = 0; i < game.GUARD_MAX; i++) {
       const x = p === 0 ? cx - 13 - i * 7 : cx + 9 + i * 7;
       if (i < s[b + P.GUARD]) ink(...SUIT[p]).box(x, 17, 5, 5);
-      else ink(48, 44, 58).box(x, 17, 5, 5);
+      else ink(...colors().empty).box(x, 17, 5, 5);
     }
     for (let i = 0; i < game.WIN_TARGET; i++) {
       const x = p === 0 ? cx - 11 - i * 5 : cx + 9 + i * 5;
       ink(...(i < s[b + P.WINS] ? [255, 220, 60] : [46, 42, 56])).box(x, 25, 3, 3);
     }
   }
-  ink(220).write(`${(s[G.TIMER] / 60) | 0}`, { x: cx - 5, y: 16, font: "MatrixChunky8" });
+  ink(lightMode ? 45 : 220).write(`${(s[G.TIMER] / 60) | 0}`, { x: cx - 5, y: 16, font: "MatrixChunky8" });
   const perf = `${fps}fps f${s[G.ROUND_FRAME]}`;
-  ink(145, 140, 165).write(perf, { x: w - perf.length * 6 - 4, y: 16, font: "MatrixChunky8" });
+  ink(...colors().quiet).write(perf, { x: w - perf.length * 6 - 4, y: 16, font: "MatrixChunky8" });
 
   const over = s[G.MATCH] || s[G.OVER];
   if (!over) return;
@@ -600,7 +607,7 @@ function hud(ink, w) {
       ? "time"
       : `p${s[G.OVER]}`;
   const y = 40;
-  ink(0, 0, 0, 200).box((w >> 1) - 44, y - 3, 88, s[G.MATCH] ? 22 : 12);
+  ink(...colors().panel).box((w >> 1) - 44, y - 3, 88, s[G.MATCH] ? 22 : 12);
   ink(255, 220, 60).write(msg, { x: (w >> 1) - msg.length * 3, y, font: "MatrixChunky8" });
   if (s[G.MATCH]) {
     const rematch = padInput.size ? "Start to rematch" : "r to rematch";
@@ -628,8 +635,8 @@ function pads(ink, ox, oy, p) {
 
 function buttonDot(ink, x, y, label, down, pad, button, move = "") {
   const colors = getButtonColors(pad?.id || "standard", button);
-  ink(down ? colors.active : [38, 36, 48]).circle(x + 4, y + 4, 4, true);
-  ink(...(down ? [8, 8, 12] : [105, 101, 120])).write(label, { x: x + 1, y: y + 1, font: "MatrixChunky8" });
+  ink(down ? colors.active : lightMode ? [205, 199, 190] : [38, 36, 48]).circle(x + 4, y + 4, 4, true);
+  ink(...(down ? [8, 8, 12] : lightMode ? [78, 73, 88] : [105, 101, 120])).write(label, { x: x + 1, y: y + 1, font: "MatrixChunky8" });
   if (down && move) ink(colors.active).write(move, { x: x - 2, y: y - 8, font: "MatrixChunky8" });
   if (down && button === 2 && pad?.buttons.has(0)) ink("violet").write("THROW", { x: x - 5, y: y - 16, font: "MatrixChunky8" });
 }
