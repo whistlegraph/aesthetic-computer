@@ -655,6 +655,7 @@ function act({ event: e, sound }) {
           duration: "🔁",
           decay: 0.85,
           volume: 0.22,
+          immediate: true,
           probe: {
             id: `gamepad-${++probeSequence}`,
             button: buttonIndex,

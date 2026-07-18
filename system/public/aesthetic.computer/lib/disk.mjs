@@ -12857,6 +12857,7 @@ async function makeFrame({ data: { type, content } }) {
       decay = 0.9, // A multiplier for when the sound fades.
       volume,
       pan = 0,
+      immediate = false, // Bypass the next frame batch for latency-critical input.
       probe = null, // Opt-in main-thread → AudioWorklet profiling metadata.
       generator = null, // Custom waveform generator function for type "custom"
     } = {}) {
@@ -12874,7 +12875,8 @@ async function makeFrame({ data: { type, content } }) {
         soundData.generator = generator.toString(); // Convert function to string for postMessage
       }
 
-      sound.sounds.push(soundData);
+      if (immediate) send({ type: "synth:trigger", content: soundData });
+      else sound.sounds.push(soundData);
       soundId += 1n;
       let seconds;
       if (beats === undefined && duration !== undefined) seconds = duration;
@@ -12887,7 +12889,8 @@ async function makeFrame({ data: { type, content } }) {
         startedAt: soundTime, // performance.now(),
         id,
         kill: function (fade) {
-          sound.kills.push({ id, fade });
+          if (immediate) send({ type: "synth:kill", content: { id, fade } });
+          else sound.kills.push({ id, fade });
         },
         progress: function (time) {
           return 1 - max(0, end - time) / seconds;

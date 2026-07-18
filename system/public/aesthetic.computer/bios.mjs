@@ -14089,6 +14089,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       updateSound?.(content);
       return;
     }
+    if (type === "synth:trigger") {
+      triggerSound?.(content);
+      return;
+    }
+    if (type === "synth:kill") {
+      killSound?.(content.id, content.fade);
+      return;
+    }
 
     if (type === "bubble:update") {
       updateSound?.(content);
