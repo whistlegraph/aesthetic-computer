@@ -3008,10 +3008,24 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       latencyHint = 0.005;
     }
 
-    audioContext = new AudioContext({
-      latencyHint,
-      sampleRate: targetSampleRate,
-    });
+    const requestedTargetSampleRate = targetSampleRate;
+    let sampleRateFallback = false;
+    try {
+      audioContext = new AudioContext({
+        latencyHint,
+        sampleRate: targetSampleRate,
+      });
+    } catch (error) {
+      if (targetSampleRate === 48000) throw error;
+      sampleRateFallback = true;
+      targetSampleRate = 48000;
+      window.__acSampleRate = 48000;
+      console.warn(
+        `🎧 AudioContext rejected ${requestedTargetSampleRate}Hz; falling back to 48000Hz`,
+        error,
+      );
+      audioContext = new AudioContext({ latencyHint, sampleRate: 48000 });
+    }
 
     const baseLatency = Number(audioContext.baseLatency) || 0;
     const outputLatency = Number(audioContext.outputLatency) || 0;
@@ -3023,6 +3037,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         quantum: (128 / audioContext.sampleRate) * 1000,
         total: (baseLatency + outputLatency) * 1000,
         sampleRate: audioContext.sampleRate,
+        requestedSampleRate: requestedTargetSampleRate,
+        sampleRateFallback,
         latencyHint,
       },
     });

@@ -35,10 +35,15 @@ const BUTTON_TONES = [261.63, 329.63, 523.25, 659.25, 783.99, 392.0,
 const buttonVoices = new Map();
 const latencySamples = [];
 const MAX_LATENCY_SAMPLES = 60;
+const SAMPLE_RATES = [44100, 48000, 96000];
 let lastLatency = null;
 let audioLatency = null;
 let audioProbe = null;
 let probeSequence = 0;
+let requestedSampleRate = 48000;
+let sampleRateIndex = 1;
+let changingSampleRate = false;
+const rateStats = new Map();
 let sendToBios = null;
 let lightMode = false;
 const gamepadTheme = () => lightMode
@@ -320,6 +325,17 @@ function paint({ wipe, ink, write, screen, line, circle, box, painting, paste, h
       : lastLatency.delivery <= 20 ? "lime" : lastLatency.delivery <= 35 ? "yellow" : "red";
     ink(latencyColor)
       .write(latencyText, { x: x + 3, y: y + 2 }, undefined, width - 6, false, FONT);
+
+    const summaries = SAMPLE_RATES.map((rate) => {
+      const stat = rateStats.get(rate);
+      if (!stat?.count) return `${rate / 1000}k --`;
+      return `${rate / 1000}k n${stat.count} w${(stat.worklet / stat.count).toFixed(2)} q${stat.quantum.toFixed(2)} o${stat.output.toFixed(1)}`;
+    });
+    const rateText = `${changingSampleRate ? "SWITCHING " : ""}MENU: HZ  ${summaries.join("  ")}`;
+    const rateWidth = rateText.length * 4 + 6;
+    const rateX = Math.max(2, screen.width - rateWidth - 4);
+    ink(...(lightMode ? [255, 253, 247, 225] : [0, 0, 0, 210])).box(rateX, y + lineHeight + 3, rateWidth, lineHeight + 2);
+    ink(...theme.text).write(rateText, { x: rateX + 3, y: y + lineHeight + 5 }, undefined, rateWidth - 6, false, FONT);
   }
   
   if (numConnected === 0) {
@@ -643,6 +659,19 @@ function act({ event: e, sound }) {
       const buttonIndex = e.button;
       const voiceKey = `${gpIndex}:${buttonIndex}`;
       if (e.action === "push") {
+        if (buttonIndex === 9 && !changingSampleRate) {
+          for (const voice of buttonVoices.values()) voice?.kill?.(0.005);
+          buttonVoices.clear();
+          sampleRateIndex = (sampleRateIndex + 1) % SAMPLE_RATES.length;
+          requestedSampleRate = SAMPLE_RATES[sampleRateIndex];
+          changingSampleRate = true;
+          console.log(`🧪 AUDIO_RATE_TEST requesting=${requestedSampleRate}Hz`);
+          sendToBios?.({
+            type: "audio:reinit",
+            content: { latencyHint: 0.003, sampleRate: requestedSampleRate },
+          });
+          return;
+        }
         const synthStartedAt = performance.now();
         if (!gp.pressedButtons.includes(buttonIndex)) {
           gp.pressedButtons.push(buttonIndex);
@@ -735,6 +764,14 @@ function receive({ type, content }) {
   if (!content) return;
   if (type === "audio:probe") {
     audioProbe = content;
+    const rate = Number(content.sampleRate) || audioLatency?.sampleRate || requestedSampleRate;
+    const stat = rateStats.get(rate) || { count: 0, worklet: 0, pieceToBios: 0, quantum: 128 / rate * 1000, output: 0 };
+    stat.count++;
+    stat.worklet += Number(content.workletRoundTrip) || 0;
+    stat.pieceToBios += Number(content.pieceToBios) || 0;
+    stat.quantum = 128 / rate * 1000;
+    stat.output = audioLatency?.output || 0;
+    rateStats.set(rate, stat);
     console.log(
       `🔬 AUDIO_PIPELINE id=${content.id} button=${content.button}` +
       ` pieceToBios=${content.pieceToBios.toFixed(2)}ms` +
@@ -753,8 +790,13 @@ function receive({ type, content }) {
     total: Number(content.total) || 0,
     sampleRate: Number(content.sampleRate) || 0,
   };
+  changingSampleRate = false;
+  requestedSampleRate = Number(content.requestedSampleRate) || audioLatency.sampleRate;
+  const actualIndex = SAMPLE_RATES.indexOf(audioLatency.sampleRate);
+  if (actualIndex >= 0) sampleRateIndex = actualIndex;
   console.log(
-    `🎧 AUDIO_CONTEXT base=${audioLatency.base.toFixed(2)}ms` +
+    `🎧 AUDIO_CONTEXT requested=${requestedSampleRate}Hz actual=${audioLatency.sampleRate}Hz` +
+    ` base=${audioLatency.base.toFixed(2)}ms` +
     ` output=${audioLatency.output.toFixed(2)}ms` +
     ` quantum=${audioLatency.quantum.toFixed(2)}ms` +
     ` rate=${audioLatency.sampleRate}Hz`,
