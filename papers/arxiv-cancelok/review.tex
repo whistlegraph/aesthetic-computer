@@ -1,0 +1,208 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+\usepackage[top=0.7in, bottom=0.7in, left=0.7in, right=0.7in]{geometry}
+
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}[Extension=.otf, UprightFont=lmroman10-regular, BoldFont=lmroman10-bold, ItalicFont=lmroman10-italic, BoldItalicFont=lmroman10-bolditalic]
+\setsansfont{Latin Modern Sans}[Extension=.otf, UprightFont=lmsans10-regular, BoldFont=lmsans10-bold, ItalicFont=lmsans10-oblique, BoldItalicFont=lmsans10-boldoblique]
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/, Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/, Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Extension=.otf, UprightFont=lmmono10-regular, ItalicFont=lmmono10-italic, Scale=0.85]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{graphicx}
+\graphicspath{{figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage[colorspec=0.93]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{acgreen}{RGB}{40,150,90}
+\definecolor{acred}{RGB}{200,50,60}
+\definecolor{acamber}{RGB}{200,140,20}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=REVIEW, fontsize=3cm, color=draftcolor!16, angle=45, pos={0.5\paperwidth, 0.5\paperheight}}
+
+\hypersetup{colorlinks=true, linkcolor=acpurple, urlcolor=acpurple, citecolor=acpurple, pdfauthor={@jeffrey}, pdftitle={cancelok — session review}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.1em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.7em}{0.15em}
+
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{cancelok — session review, for @jeffrey}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+\newcommand{\ok}{{\color{acgreen}\textbf{✓ shipped}}}
+\newcommand{\flaky}{{\color{acamber}\textbf{⚠ flaky}}}
+\newcommand{\nope}{{\color{acred}\textbf{✗ not built}}}
+\newcommand{\pull}[1]{\par\vspace{0.35em}{\aclight\small\color{acpink}\itshape #1}\par\vspace{0.35em}}
+
+\setlist[itemize]{nosep, leftmargin=1.1em, itemsep=0.12em}
+\setlist[enumerate]{nosep, leftmargin=1.3em}
+\setlength{\columnsep}{1.7em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+\tolerance=800 \emergencystretch=1em \hyphenpenalty=50
+
+\lstdefinestyle{acjs}{basicstyle=\ttfamily\scriptsize, keywordstyle=\color{acpurple}, commentstyle=\color{acgray}\itshape, stringstyle=\color{acpink}, numbers=none, frame=leftline, framesep=6pt, rulecolor=\color{acgray!40}, breaklines=true, columns=fullflexible, showstringspaces=false, morekeywords={def,now,once,if,not,tap,lift,bell,pluck,sub,flute,hat,wipe,ink,circle,box,down,penx,peny}, aboveskip=0.5em, belowskip=0.5em}
+\lstset{style=acjs}
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=3.4em]{pals.png}\par\vspace{0.4em}
+{\acbold\fontsize{21pt}{24pt}\selectfont\color{acdark} cancel\,{\color{acpink}/}\,ok}\par
+\vspace{0.3em}
+{\aclight\fontsize{10.5pt}{12pt}\selectfont\color{acpink} A Session Review --- What Is Built, What Is Flaky, What Is Not}\par
+\vspace{0.5em}
+{\small\color{acgray} @jeffrey \& Claude · 2026-07-14 · a review, not a paper}\par
+\vspace{0.5em}
+\rule{\textwidth}{1.2pt}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{What this is.} A pause, so you can look at the whole thing at once and decide where it goes. The idea: a machine makes little audiovisual instruments (``pads''); a headless gate certifies they run; you judge the survivors by \emph{staying} with the ones you like and \emph{swiping past} the ones you don't; those verdicts steer the next generation. Over one long session it grew a full loop, a swipe-feed to judge in, an evolutionary breeder, and --- the surprise --- a reason to move the whole thing into KidLisp so nothing has to be deployed at all. This document is honest about the parts that don't work yet, because that's what a review is for.
+\end{quote}
+\vspace{0.4em}
+}]
+
+% ========================================================
+\section{The One-Paragraph Status}
+
+The judging loop is real and running hourly. The swipe-feed (\texttt{cancelok}) works, records attributed verdicts to the database, and no longer flashes black between pads. The evolutionary breeder works and made real children. The overnight run exposed a \emph{collapse} (five pendulums out of nine) which is now fixed with a blindness valve and a family quota. The big strategic turn --- KidLisp as the substrate, so generated pads need no deploy --- is half-proven: KidLisp gained voices, a release event, and pen state, and a \emph{button} works. A full KidLisp \emph{pad} does not yet. Two things you asked for are honestly \nope: true simultaneous playback on the scroll, and a reliable press-to-red in the KidLisp button.
+
+% ========================================================
+\section{The Ledger}
+
+\newcommand{\row}[2]{\item[] \textbf{#1} \hfill #2}
+
+\subsection{The judging surface}
+\begin{itemize}
+  \row{\texttt{cancelok} swipe-feed}{\ok}
+  \item Whole screen is the pad, full-bleed and playable. Swipe up (bottom edge) $\to$ next; swipe down (top edge) $\to$ back. No buttons.
+  \row{Attention \emph{is} the vote}{\ok}
+  \item Linger $\geq$ 6s or tap it $\to$ \texttt{ok}. Flick past $\to$ \texttt{cancel}. Nobody is asked a question, so nobody has to be honest.
+  \row{Attributed verdicts in Mongo}{\ok}
+  \item \texttt{api/cancelok} stores each verdict against your handle (one per pad, changing your mind replaces). Logged-out visitors still count, anonymously, and the bar says so. Sessions and real-device fps are tracked.
+  \row{The card below, during a drag}{\ok}
+  \item You see the next pad in the gap you open, not black.
+  \row{Two pads truly live at once}{\nope}
+  \item The reveal is a \emph{stolen still frame}, not a running pad, because the engine is a singleton (see \S5). Genuine dual-playback needs the engine refactor.
+\end{itemize}
+
+\subsection{The loop}
+\begin{itemize}
+  \row{\texttt{generate} $\to$ \texttt{gate} $\to$ queue}{\ok}
+  \item The engine's own file header \emph{is} the authoring prompt. The gate is \texttt{pad-doctor} (fps, heap, console errors).
+  \row{The gate, recalibrated}{\ok}
+  \item It was a coin flip: an absolute 40fps floor that headless Chrome fails for \emph{every} pad. Now it grades against a known-good pad measured in the same session, and confirms a failure before believing it. A leak repeats; a GC hiccup doesn't.
+  \row{\texttt{evolve} --- breed from winners}{\ok}
+  \item Genes are \emph{visual generator × synth voice}. Mutations are named: voice, eye, cross, push, invert. First child \texttt{velsor}; overnight the cron bred \texttt{wandro}.
+  \row{Anti-collapse}{\ok}
+  \item Overnight it made five pendulums. Fixed two ways: the ``fresh'' third is now \emph{blind} (told nothing about taste, handed the list of taken ideas), and a \emph{family quota} refuses to breed a line that owns a third of the population.
+  \row{Hourly cron (queue-only)}{\ok}
+  \item launchd, on the laptop. It does \emph{not} auto-publish. Two path bugs found and fixed: \texttt{claude} not on launchd's PATH, and \texttt{node} resolving to an fnm temp path with a PID in it that would rot on reboot.
+\end{itemize}
+
+\subsection{KidLisp as the substrate}
+\begin{itemize}
+  \row{Voices in KidLisp}{\ok}
+  \item \texttt{(bell c4)} \texttt{(pluck e4)} \texttt{(sub c2)} \texttt{(flute g4)} \texttt{(hat)} \texttt{(voice …)} --- the \emph{same} models as the JS pads, imported, not copied.
+  \row{Notes are literals}{\ok}
+  \item \texttt{(bell e5)}, not \texttt{(bell "e5")}. And \texttt{c4} was silently a \emph{color} --- it evaluated to [0,255,0], so the synth got a green triple. Voices now take the note raw.
+  \row{The hand: \texttt{down}, \texttt{penx}, \texttt{peny}, \texttt{(lift …)}}{\ok}
+  \item KidLisp had \texttt{(tap …)} and \texttt{(draw …)} and \emph{no release event, no pointer position}. So ``the whole screen is a button'' was unsayable. Now it isn't.
+  \row{\texttt{cancelok} deals \texttt{\$codes}}{\ok}
+  \item Fetches KidLisp source from the DB, hands it to \texttt{api.kidlisp()}, composites into the same stage a JS pad gets. \textbf{Never committed, never deployed} --- the whole point.
+  \row{\texttt{klbutton} --- a KidLisp button on the clock}{\flaky}
+  \item Ring-on-the-beat animation works. Persistent state works (\texttt{(once (def t 0))}). But \emph{press-to-red does not reliably fire} in the live pad --- held frames still read blue. This is the open bug you caught.
+  \row{\texttt{klpad} --- a full KidLisp pad}{\nope}
+  \item Renders black. Almost certainly the same class of bug as klbutton's state: \texttt{(def hit 0)} re-running every frame and zeroing the energy. Not yet rebuilt on the working \texttt{once}/\texttt{now} idiom.
+\end{itemize}
+
+% ========================================================
+\section{Cross-Reference: JS Pads vs.\ KidLisp}
+
+The question underneath the KidLisp turn: can a \texttt{.lisp} pad do everything a \texttt{.mjs} pad can? Here is the honest gap. ``Build it'' means the primitive exists but you assemble the behavior yourself; the JS engine gives it for free.
+
+\vspace{0.3em}
+{\footnotesize
+\begin{tabularx}{\columnwidth}{@{}lX@{}}
+\toprule
+\textbf{JS pad (\texttt{pads.mjs})} & \textbf{KidLisp today} \\
+\midrule
+UTC beat grid (\texttt{onBeat}) & \texttt{1s} / \texttt{2s...} \quad{\color{acgreen}✓ same clock} \\
+voices (pluck/bell/…) & same, imported \quad{\color{acgreen}✓} \\
+tap + XY (\texttt{onTap}, x/y) & \texttt{(tap …)}, \texttt{penx/peny} \quad{\color{acgreen}✓} \\
+release / held & \texttt{(lift …)}, \texttt{down} \quad{\color{acgreen}✓ new} \\
+audio-reactive \texttt{amp}, bands & \texttt{amp bass mid treble} \quad{\color{acgreen}✓} \\
+\midrule
+\texttt{pump} (decaying tap energy) & build it: \texttt{once}+\texttt{now} \\
+\texttt{bursts} (tap ripples) & build it yourself \\
+\texttt{beatProgress} / \texttt{step} & derive from a frame counter \\
+\midrule
+\texttt{quality} (adaptive perf scalar) & {\color{acred}no equivalent} \\
+\bottomrule
+\end{tabularx}}
+\vspace{0.3em}
+
+Four rows are dead even --- the ones that matter most (clock, voices, hand). Three are ``build it yourself,'' which is fine for hand-written pads and a small burden for a generator. \textbf{One is a real hole:} the JS engine's \texttt{quality} scalar auto-scales a heavy pad down to hold 60fps, and the gate depends on it. KidLisp has an internal performance mode but exposes no scalar a pad can read. A generated KidLisp pad can't throttle itself, so it will hit the gate at full cost every time. If KidLisp becomes the substrate, exposing \texttt{quality} is the one engine change that isn't optional.
+
+\pull{the clock, the voices, and the hand are even. the gap is that a KidLisp pad can't yet be told to try less hard.}
+
+% ========================================================
+\section{The Constraint Behind the ``Not Built''}
+
+Both ``not built'' items trace to one fact: \textbf{\texttt{lib/pads.mjs} is a session singleton.} Its config and state are module-level, so \texttt{initPad(B)} overwrites \texttt{A}. Booting the next pad \emph{destroys} the current one. That is why the scroll reveal is a photograph and not a live pad, and it is the ceiling on everything ``two at once.''
+
+The fix is a real refactor: make the engine instance-based --- \texttt{createPad(config)} returning its own state object instead of mutating module globals --- with a compatibility shim so all 49 existing wrappers keep working untouched. It is the correct move and it unlocks: genuine continuous scroll with both pads alive, suspend-the-one-you-leave, and side-by-side judging. It is also the riskiest change on the board, because every pad shares that file.
+
+% ========================================================
+\section{Open Decisions --- Your Call}
+
+\begin{enumerate}
+  \item \textbf{KidLisp or JS as the pad substrate?} KidLisp wins on safety (no arbitrary JS), on \emph{no-deploy} (\$codes live in the DB), and on being mutable as a tree. It loses until \texttt{quality} is exposed and a genuinely good \texttt{.lisp} pad exists. My read: commit to KidLisp, but only after one hand-written KidLisp pad is unarguably good.
+  \item \textbf{Fix \texttt{klbutton}/\texttt{klpad} first, or refactor the engine first?} The button bug is small and teaches us the KidLisp pad idiom. The engine refactor is large and unlocks the scroll. I'd fix the button first --- it's cheap and it de-risks the substrate question.
+  \item \textbf{Let the cron auto-publish \$codes?} Once pads are \$codes, publishing is a DB write, not a deploy --- so the ``queue-only'' safety valve loses its reason to exist. This is the moment the loop could actually run itself.
+  \item \textbf{The 6-second \texttt{LINGER} threshold.} It decides what the machine thinks you love, and it's a guess. Worth tuning against a real session of your own swiping.
+\end{enumerate}
+
+% ========================================================
+\section{Bugs Found This Session (the good kind)}
+
+Each of these was invisible until something forced it into the open, and each taught the system something:
+\begin{itemize}
+  \item \textbf{The gate was a coin flip} --- absolute fps floor vs.\ a headless renderer that pins every pad to 30fps. Caught by measuring the 47 pads already known good. \emph{A human with taste caught the machine.}
+  \item \textbf{Verdicts vanished silently} --- \texttt{net.userRequest} awaits an auth token that never arrives when logged out, so the POST hung and \texttt{.catch} never fired. A whole session lost without a sound. Now every unsent verdict is counted on screen.
+  \item \textbf{The overnight collapse} --- five pendulums, because the ``fresh'' third still read the pheromone. Taste fed to itself converges, invisibly.
+  \item \textbf{\texttt{c4} is a color} --- \texttt{(bell c4)} threw while \texttt{(bell e4)} worked. Looked like flakiness until we printed the value.
+  \item \textbf{\texttt{if} has no \texttt{else}} --- \texttt{(if c a b)} runs \emph{both} a and b. The button stayed blue while the circle correctly grew.
+  \item \textbf{launchd's PATH, and an fnm PID temp path} --- a cron that would have quietly rotted on the next reboot.
+\end{itemize}
+
+\vspace{0.5em}
+\hrule
+\vspace{0.4em}
+{\footnotesize\color{acgray}\noindent Live to try: \texttt{aesthetic.computer/cancelok} (the feed), \texttt{/klbutton} (the button, flaky red), \texttt{/velsor} and \texttt{/wandro} (bred pads). The companion essay is \texttt{cancelok.tex} in this same folder. Everything here is committed and deployed except the two ✗ items and the engine refactor.}
+
+\end{document}
