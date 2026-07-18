@@ -19,6 +19,14 @@ function spinnerReset() {
   spinnerDelay = 0;
 }
 
+function defaultRolloverScheme($, small = false) {
+  const mode = $?.dark ? $?.theme?.dark : $?.theme?.light;
+  const bg = mode?.buttonHover || mode?.buttonBg || ($?.dark ? [24, 32, 42] : [220, 245, 255]);
+  const outline = mode?.buttonHoverOutline || mode?.buttonOutline || [255, 220, 0];
+  const text = mode?.buttonHoverText || mode?.buttonText || ($?.dark ? 255 : 0);
+  return small ? [bg, outline, text, bg] : [bg, outline, text, 255];
+}
+
 // Loading icon.
 function spinner(ctx, timePassed) {
   if (spinnerDelay < spinnerDelayMax) {
@@ -992,8 +1000,9 @@ class TextButton {
     scheme = [0, 255, 255, 0],
     hoverScheme = [255, 0, 0, 255],
     disabledScheme = [64, 127, 127, 64],
-    rolloverScheme = null, // Optional: used when mouse is over but not pressed
+    rolloverScheme = undefined, // Defaults to the active light/dark theme.
   ) {
+    if (rolloverScheme === undefined) rolloverScheme = defaultRolloverScheme($);
     // Choose scheme based on state: disabled, pressed (down), rollover (hover), default
     let s;
     if (this.btn.disabled) {
@@ -1128,8 +1137,9 @@ class TextButtonSmall {
     scheme = [[0, 64, 0], [0, 140, 0], 255, [0, 64, 0]],      // [fill, outline, text, fill]
     hoverScheme = [[0, 100, 0], [0, 180, 0], 255, [0, 100, 0]], // hover/down
     disabledScheme = [[32, 32, 32], [64, 64, 64], 80, [32, 32, 32]],
-    rolloverScheme = null, // Optional: used when mouse is over but not pressed
+    rolloverScheme = undefined, // Defaults to the active light/dark theme.
   ) {
+    if (rolloverScheme === undefined) rolloverScheme = defaultRolloverScheme($, true);
     let s;
     if (this.btn.disabled) {
       s = disabledScheme;

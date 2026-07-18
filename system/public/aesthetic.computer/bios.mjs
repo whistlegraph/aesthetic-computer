@@ -1201,6 +1201,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   freezeFrameCan.style.position = "absolute";
   freezeFrameCan.style.zIndex = "10"; // Above all other canvases during reframe
   freezeFrameCan.style.pointerEvents = "none";
+  // During a live window resize the old framebuffer must keep its aspect
+  // ratio. The wrapper may change shape before the worker returns new pixels;
+  // object-fit prevents that continuity frame from rubber-sheet stretching.
+  freezeFrameCan.style.objectFit = "contain";
 
   // A buffer for corner label overlays.
   const overlayCan = document.createElement("canvas");
@@ -12250,7 +12254,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // hidden. pen.render() owns the on-canvas reticles + the native-cursor
       // class; here we only drive the OS cursor. Valid CSS values (none,
       // crosshair, …) pass straight through.
-      const CURSOR_CSS = { native: "auto", precise: "", tiny: "none", dot: "none" };
+      const CURSOR_CSS = {
+        native: "auto",
+        precise: "url('/aesthetic.computer/cursors/precise.svg') 12 12, auto",
+        active: "url('/aesthetic.computer/cursors/active.svg') 12 12, pointer",
+        viewpoint: "url('/aesthetic.computer/cursors/viewpoint.svg') 12 12, auto",
+        tiny: "none",
+        dot: "none",
+      };
+      if (code === "native") document.body.classList.add("native-cursor");
+      else document.body.classList.remove("native-cursor");
       document.body.style.cursor = code in CURSOR_CSS ? CURSOR_CSS[code] : code;
       return;
     }
