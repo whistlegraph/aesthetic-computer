@@ -149,7 +149,7 @@ if (existsSync(receiptPath) && !flags.has("--force")) {
 
 const title = meta.title || slug;
 const essayUrl = `https://papers.aesthetic.computer/aesthetic-${slug}-essay.pdf`;
-const description = `${meta.description || `A reading of "${title}" in @jeffrey's voice.`}\n\nRead the essay: ${essayUrl}\nMore readings + papers: https://papers.aesthetic.computer`;
+const description = `${meta.description || `A reading of "${title}" in @jeffrey's voice.`}\n\nWrite with questions and feedback: mail@aesthetic.computer. Unless you ask us not to, your letter may be read or mentioned on a future episode.\n\nRead the essay: ${essayUrl}\nMore readings + papers: https://papers.aesthetic.computer`;
 
 const fd = new FormData();
 fd.append("title", title);

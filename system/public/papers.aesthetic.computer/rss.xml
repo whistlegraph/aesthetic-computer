@@ -5,13 +5,30 @@
   <link rel="alternate" type="text/html" href="https://papers.aesthetic.computer/"/>
   <link rel="self" type="application/atom+xml" href="https://papers.aesthetic.computer/feed.xml"/>
   <id>https://papers.aesthetic.computer/</id>
-  <updated>2026-07-15T22:00:00.000Z</updated>
+  <updated>2026-07-18T18:43:30.990Z</updated>
   <author>
     <name>@jeffrey</name>
     <uri>https://prompt.ac/@jeffrey</uri>
   </author>
   <icon>https://papers.aesthetic.computer/papers-og.jpg</icon>
   <rights>CC BY 4.0 unless noted otherwise.</rights>
+  <entry>
+    <title>A Record in the Mail</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/a-record-in-the-mail-essay.pdf"/>
+    <id>https://papers.aesthetic.computer/a-record-in-the-mail-essay.pdf</id>
+    <updated>2026-07-18T18:43:30.990Z</updated>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">An essay on API-made vinyl and cassette fulfillment · podcast — A podcast asks to become an object. This essay maps two routes from an Aesthetic Computer episode to the mailbox: Kunaki&apos;s product-and-order API for one-off vinyl, and Tape On Demand&apos;s more human cassette workflow. It argues for a shared physical-release manifest, a deliberate payment gate, and a side B that can turn physical media into correspondence.</summary>
+  </entry>
+  <entry>
+    <title>The Console Has a Browser</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/the-console-has-a-browser-essay.pdf"/>
+    <id>https://papers.aesthetic.computer/the-console-has-a-browser-essay.pdf</id>
+    <updated>2026-07-18T18:43:30.989Z</updated>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+  </entry>
   <entry>
     <title>The Record Is a Better Interface</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/the-record-is-a-better-interface-essay.pdf"/>
@@ -21,51 +38,6 @@
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
     <summary type="text">An essay on expressive playback · podcast — A turntable lets a listener hold recorded sound directly, while streaming apps reduce playback to a menu of approved speeds. This essay asks why production tools remain instruments while consumer players became transport controls, and argues for audible, continuous scrubbing that gives the recording back to the hand.</summary>
-  </entry>
-  <entry>
-    <title>KidLisp (ELS 2026)</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/kidlisp-els-2026.pdf"/>
-    <id>https://papers.aesthetic.computer/kidlisp-els-2026.pdf</id>
-    <updated>2026-07-15T20:34:39.864Z</updated>
-    <category term="ELS"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">A Minimal Lisp for Generative Art with Social Composition · ELS ACM SIGS 4pp — An ELS conference version of KidLisp that emphasizes social composition. It positions the language as a shared practice rather than a solo scripting environment.</summary>
-  </entry>
-  <entry>
-    <title>KidLisp &apos;26</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/kidlisp-26-joss.pdf"/>
-    <id>https://papers.aesthetic.computer/kidlisp-26-joss.pdf</id>
-    <updated>2026-07-15T20:34:39.822Z</updated>
-    <category term="JOSS"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">JOSS Summary · 3pp — A compact JOSS summary of KidLisp for archival and citation purposes. It frames the language as a small but expressive tool for generative art.</summary>
-  </entry>
-  <entry>
-    <title>Aesthetic June &apos;26</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-june-26-essay.pdf"/>
-    <id>https://papers.aesthetic.computer/aesthetic-june-26-essay.pdf</id>
-    <updated>2026-07-15T20:34:39.339Z</updated>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Essay · ~3pp · podcast — Aesthetic June &apos;26 is the storytelling companion to May. Where May was the modal mood, June is the answer, delivered as four hundred and fifty-seven commits --- the word carrying both its meanings, version control and Juno&apos;s oath. Told as scenes: the songs that caught up, the whistle found a perfect fifth sharp, the ring of native wizards learning one sign-in, and a Danish learn-the-clock community getting its own front door on the chat. Also available as a spoken reading in @jeffrey&apos;s voice.</summary>
-  </entry>
-  <entry>
-    <title>&apos;Sup w/ July 10?</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-july-10-26-essay.pdf"/>
-    <id>https://papers.aesthetic.computer/aesthetic-july-10-26-essay.pdf</id>
-    <updated>2026-07-15T20:34:39.338Z</updated>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Essay · ~2pp · mid-month postcard · podcast — A mid-month postcard from July 10th --- not the monthly essay but a check-in written because someone asked how it was going. The answer: living in two times at once. Told as three scenes: excavating Whistlegraph, an artform made years ago with a friend, now counted (963 videos transcribed, 424 songs clustered, ~1.72 billion views) and given a hand-lettered legal-pad home at whistlegraph.org; a brand-new fighting game, fight, born in two days with its rollback safety net built before its network floor; and Menuband bounced from App Store review for naming macOS in its subtitle, then let through after learning to say one word less. Also available as a spoken reading in @jeffrey&apos;s voice.</summary>
-  </entry>
-  <entry>
-    <title>Aesthetic Computer &apos;26</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-computer-26-joss.pdf"/>
-    <id>https://papers.aesthetic.computer/aesthetic-computer-26-joss.pdf</id>
-    <updated>2026-07-15T20:34:39.337Z</updated>
-    <category term="JOSS"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">JOSS Summary · 2pp — A compact JOSS summary of Aesthetic Computer for archival and citation purposes. It distills the platform into a conventional software paper format.</summary>
   </entry>
   <entry>
     <title>Gaps in Granularity</title>
@@ -78,6 +50,15 @@
     <summary type="text">Expressive Control and the Impoverishment of Consumer Playback · arXiv 10pp — A record scratch gives you continuous, gestural, real-time control over a recording; YouTube and Spotify give you a dropdown of round speeds, and some give nothing at all. This paper names that gap &apos;granularity,&apos; grounds it in the theory of directness and the mature craft of turntablism and elastic audio, and shows that Aesthetic Computer already ships the alternative across its players. The real opening is not that the instrument is impossible, but that it lives everywhere except the default transport of the apps you actually listen and watch through.</summary>
   </entry>
   <entry>
+    <title>&apos;Sup w/ July 10?</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-july-10-26-essay.pdf"/>
+    <id>https://papers.aesthetic.computer/aesthetic-july-10-26-essay.pdf</id>
+    <updated>2026-07-10T22:52:39.924Z</updated>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Essay · ~2pp · mid-month postcard · podcast — A mid-month postcard from July 10th --- not the monthly essay but a check-in written because someone asked how it was going. The answer: living in two times at once. Told as three scenes: excavating Whistlegraph, an artform made years ago with a friend, now counted (963 videos transcribed, 424 songs clustered, ~1.72 billion views) and given a hand-lettered legal-pad home at whistlegraph.org; a brand-new fighting game, fight, born in two days with its rollback safety net built before its network floor; and Menuband bounced from App Store review for naming macOS in its subtitle, then let through after learning to say one word less. Also available as a spoken reading in @jeffrey&apos;s voice.</summary>
+  </entry>
+  <entry>
     <title>Aesthetic July 4 &apos;26</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-july-4-26-essay.pdf"/>
     <id>https://papers.aesthetic.computer/aesthetic-july-4-26-essay.pdf</id>
@@ -86,6 +67,15 @@
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
     <summary type="text">Essay · ~4pp · Independence Day special — An Independence Day special between the June and July essays, written on the Declaration&apos;s 250th anniversary. Independence is a hanging word --- in + dependere, not to hang from --- and the essay follows it in the abstract: declarations versus definitions in C and in Philadelphia, the personal computer as an independence movement the cloud quietly reversed, artists who built their own rooms (a library in a church, folk songs as open-source software, an artwork designed to scan badly), and an honest ledger of which way one small platform hangs --- a podcast hung from a host, Menuband submitted to App Store review on the holiday weekend itself, and the CNAME record as infrastructure&apos;s most truthful sentence.</summary>
+  </entry>
+  <entry>
+    <title>Aesthetic June &apos;26</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-june-26-essay.pdf"/>
+    <id>https://papers.aesthetic.computer/aesthetic-june-26-essay.pdf</id>
+    <updated>2026-07-03T17:52:48.466Z</updated>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Essay · ~3pp · podcast — Aesthetic June &apos;26 is the storytelling companion to May. Where May was the modal mood, June is the answer, delivered as four hundred and fifty-seven commits --- the word carrying both its meanings, version control and Juno&apos;s oath. Told as scenes: the songs that caught up, the whistle found a perfect fifth sharp, the ring of native wizards learning one sign-in, and a Danish learn-the-clock community getting its own front door on the chat. Also available as a spoken reading in @jeffrey&apos;s voice.</summary>
   </entry>
   <entry>
     <title>Aesthetic Computer &apos;26</title>
@@ -599,6 +589,33 @@
     <published>2026-05-02T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
+  </entry>
+  <entry>
+    <title>KidLisp (ELS 2026)</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/kidlisp-els-2026.pdf"/>
+    <id>https://papers.aesthetic.computer/kidlisp-els-2026.pdf</id>
+    <updated>2026-06-11T06:06:38.492Z</updated>
+    <category term="ELS"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">A Minimal Lisp for Generative Art with Social Composition · ELS ACM SIGS 4pp — An ELS conference version of KidLisp that emphasizes social composition. It positions the language as a shared practice rather than a solo scripting environment.</summary>
+  </entry>
+  <entry>
+    <title>KidLisp &apos;26</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/kidlisp-26-joss.pdf"/>
+    <id>https://papers.aesthetic.computer/kidlisp-26-joss.pdf</id>
+    <updated>2026-06-11T06:06:38.482Z</updated>
+    <category term="JOSS"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">JOSS Summary · 3pp — A compact JOSS summary of KidLisp for archival and citation purposes. It frames the language as a small but expressive tool for generative art.</summary>
+  </entry>
+  <entry>
+    <title>Aesthetic Computer &apos;26</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-computer-26-joss.pdf"/>
+    <id>https://papers.aesthetic.computer/aesthetic-computer-26-joss.pdf</id>
+    <updated>2026-06-11T06:06:38.412Z</updated>
+    <category term="JOSS"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">JOSS Summary · 2pp — A compact JOSS summary of Aesthetic Computer for archival and citation purposes. It distills the platform into a conventional software paper format.</summary>
   </entry>
   <entry>
     <title>The Hand and the Loop</title>

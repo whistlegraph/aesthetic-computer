@@ -195,7 +195,7 @@ console.log(`\n${units.length} utterances · body ${bodySec.toFixed(1)}s${BEAT_A
 
 // 3. Intro + outro voice-over (liturgical framing), with the measured length.
 const introText = `A reading of the essay: ${script.title}, by ${speaker}. Approximately ${lengthText}.`;
-const outroText = `Here ends the reading.`;
+const outroText = `Here ends the reading. Questions and feedback are welcome at mail at aesthetic dot computer. Unless you ask us not to, your letter may be read or mentioned on a future episode.`;
 console.log("Narrating frame…");
 const introVo = await say(introText, "intro");
 const outroVo = await say(outroText, "outro");

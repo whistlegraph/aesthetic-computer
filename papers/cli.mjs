@@ -50,6 +50,8 @@ const PODCASTS = new Set([
   "aesthetic-july-4-26-essay",
   "aesthetic-july-10-26-essay",
   "the-record-is-a-better-interface-essay",
+  "the-console-has-a-browser-essay",
+  "a-record-in-the-mail-essay",
 ]);
 const LANG_NAMES = { en: "English", da: "Danish", es: "Spanish", zh: "Chinese", ja: "Japanese", ru: "Russian" };
 
@@ -230,6 +232,18 @@ const PAPER_MAP = {
     base: "granularity",
     siteName: "the-record-is-a-better-interface-essay",
     title: "The Record Is a Better Interface",
+    format: "essay",
+  },
+  "essay-console-browser": {
+    base: "console-browser",
+    siteName: "the-console-has-a-browser-essay",
+    title: "The Console Has a Browser",
+    format: "essay",
+  },
+  "essay-physical-mail": {
+    base: "physical-mail",
+    siteName: "a-record-in-the-mail-essay",
+    title: "A Record in the Mail",
     format: "essay",
   },
   "deck-media-estate": {
@@ -464,6 +478,8 @@ const CATEGORIES = [
       "essay-july-4-26",
       "essay-july-10-26",
       "essay-granularity",
+      "essay-console-browser",
+      "essay-physical-mail",
     ],
   },
   {
@@ -1012,6 +1028,11 @@ function updateIndex(entries) {
 
   // Paper detail descriptions and short previews, keyed by siteName.
   const PAPER_COPY = {
+    "a-record-in-the-mail-essay": {
+      detail: "An essay on API-made vinyl and cassette fulfillment &middot; podcast",
+      abstract:
+        "A podcast asks to become an object. This essay maps two routes from an Aesthetic Computer episode to the mailbox: Kunaki's product-and-order API for one-off vinyl, and Tape On Demand's more human cassette workflow. It argues for a shared physical-release manifest, a deliberate payment gate, and a side B that can turn physical media into correspondence.",
+    },
     "the-record-is-a-better-interface-essay": {
       detail: "An essay on expressive playback &middot; podcast",
       abstract:

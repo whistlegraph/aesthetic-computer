@@ -48,4 +48,6 @@ export const EPISODE_SUBSTRATE = {
   "may-26": "tape",
   "june-26": "night",
   "july-10-26": "radio",
+  "console-browser": "radio",
+  "physical-mail": "tape",
 };

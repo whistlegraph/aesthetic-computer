@@ -1,0 +1,65 @@
+% !TEX program = xelatex
+\documentclass[11pt,letterpaper]{article}
+\usepackage[top=1in,bottom=1in,left=1.15in,right=1.15in]{geometry}
+\usepackage{fontspec}
+\setmainfont{Latin Modern Roman}[Extension=.otf,UprightFont=lmroman10-regular,BoldFont=lmroman10-bold,ItalicFont=lmroman10-italic,BoldItalicFont=lmroman10-bolditalic]
+\setsansfont{Latin Modern Sans}[Extension=.otf,UprightFont=lmsans10-regular,BoldFont=lmsans10-bold,ItalicFont=lmsans10-oblique,BoldItalicFont=lmsans10-boldoblique]
+\setmonofont{Latin Modern Mono}[Extension=.otf,UprightFont=lmmono10-regular,ItalicFont=lmmono10-italic,Scale=0.85]
+\usepackage{xcolor,titlesec,enumitem,fancyhdr,hyperref,xurl,ragged2e,microtype}
+\usepackage{../ac-paper-essay}
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,pdfauthor={@jeffrey},pdftitle={A Record in the Mail}}
+\pagestyle{fancy}\fancyhf{}\renewcommand{\headrulewidth}{0pt}\fancyhead[C]{\footnotesize\color{acgray}\thepage}
+\begin{document}
+\thispagestyle{empty}
+\essaytitle{A Record in the Mail}
+\essaydate{July 18, 2026}
+
+A podcast episode begins as a file that pretends it has no body. It moves from a voice model to an MP3, from an object store to an RSS feed, from Buzzsprout into a car. The copy is perfect and the delivery is nearly weightless. Then comes a wonderfully unreasonable question: can this recording arrive at the house as a record or a tape, ordered by software?
+
+The answer is yes, but the two formats produce opposite kinds of automation. Vinyl has the stronger factory endpoint. Cassette has the more human workshop. One path begins with a product identifier and ends with a tracking number. The other begins with an email or submission tool and ends with somebody loading a shell, printing a J-card, and carrying a parcel to the mail.
+
+\section{The Record Factory Has an Endpoint}
+
+Kunaki is the closest thing to print-on-demand for playable records. It says it will manufacture and drop-ship one or more units, with no inventory held by the artist. Its standard twelve-inch record is black, 180 grams, stereo, with full-color center labels and jacket. Each side may contain up to twenty minutes. A thirteen-minute Aesthetic Computer reading fits on one side with room for a second piece, field recording, or deliberate silence on the other.
+
+The automation is real but begins halfway through the story. A title must first be created using Kunaki's publishing software. Audio and 300-DPI JPEG artwork enter there, and the result receives a ten-character product identifier. The HTTP and XML services cannot create that title. They automate what follows.
+
+Given a product identifier and destination, software asks Kunaki for shipping choices. The response includes service names, delivery estimates, and prices. After a person or policy selects one, the program submits the recipient, address, product, quantity, and shipping description. Kunaki returns an order identifier. A third request turns that identifier into a manufacturing state and, when available, a carrier and tracking number.
+
+That is almost exactly the shape Aesthetic Computer wants: quote, approve, order, observe. The API is old-fashioned---query parameters or XML rather than a fashionable JSON client---but its plainness is attractive. Nothing important is hidden. A record is a product. A shipment is an order. An order passes through pending, processing, and shipped.
+
+Payment is the intentional interruption. API orders remain pending until the Kunaki account is funded, unless money was placed in the account beforehand. This is useful safety, not missing automation. The podcast pipeline can prepare the files, retrieve a live shipping quote, and create a pending order without silently spending money. A human sees the final invoice and funds it. Once paid, the order cannot be cancelled or returned, so the last click ought to remain heavy.
+
+Vinyl also asks something the podcast master does not. A good streaming master is not automatically a good cutting master. Low bass should be centered, sibilance controlled, phase behavior watched, and level chosen for the length of the side. The physical-release stage should derive a vinyl WAV from the clean voice master, not press the delivery MP3 into wax. Artwork likewise needs a print contract: exact templates, bleed, color inspection, and readable type at jacket scale.
+
+The proposed command is therefore not \texttt{buy vinyl}. It is \texttt{physical quote}. It produces side-A and side-B masters, jacket and label proofs, checks duration, creates or records the vendor product identifier, asks for current shipping choices, and writes an immutable manifest. Only a second command, supplied with an approved quote and address token, may create the pending order. Funding stays outside the repository.
+
+\section{The Tape Shop Has a Person}
+
+Cassette on demand looks less like cloud infrastructure and more like correspondence. Tape On Demand describes a submission tool for music and artwork, a reorder tool for drop-shipping individual copies, an eight-business-day fulfillment target, and integration with Bandcamp's fulfillment manager. It gives an example in which a unit costs six dollars before postage. It does not publish a general-purpose order API comparable to Kunaki's.
+
+That missing endpoint does not make the path worse. It changes the interface. A first cassette becomes an onboarding job: choose tape length and shell, divide the program into sides, prepare the J-card, approve a proof, establish a reorderable title, and learn what identifier or form the shop expects for subsequent addresses. After that, automation can be modest and honest. Aesthetic Computer can generate the production bundle and a fulfillment record, then open the vendor's reorder surface with the fields ready. If the shop offers a private integration, a small adapter can be added without pretending its terms are public.
+
+Tape is especially right for a spoken essay because its mechanics are audible. The leader passes the head. A side ends. The listener flips the object. The format supplies an intermission that the RSS file does not. A thirteen-minute reading could occupy side A while side B holds sources read aloud, listener letters, controller sounds from the Xbox session, or a reply recorded after the first edition. The cassette can become correspondence rather than merely merchandise.
+
+The cassette workflow should therefore export two continuous WAVs at the requested sample rate, a duration report, a print-ready J-card, shell labels, credits, mailing copy, and checksums. It should also write a vendor-neutral release manifest. The manual submission is logged as a state transition: prepared, proofed, approved, ordered, shipped. If Tape On Demand later exposes an API, only the adapter changes; the release remains legible.
+
+Leerecs points toward a possible convergence. It advertises vinyl, cassette, and CD made on demand with no minimums, but currently presents an application and early-access relationship rather than an open ordering interface. That is worth watching. The ideal service would combine the cassette shop's format range with the record factory's quote, order, and tracking endpoints.
+
+\section{Two Maps}
+
+The vinyl map is: clean master to vinyl master; episode art to jacket and labels; manual title creation to product identifier; API quote to human approval; API order to pending invoice; human funding to manufacturing; status polling to tracking; record to mailbox.
+
+The cassette map is: clean master to two sides; episode art to J-card and shell; submission bundle to human proof; approval to reorderable title; manual or private fulfillment request to production; shop notification to tracking; tape to mailbox.
+
+Both should share one Aesthetic Computer release manifest containing title, episode URL, essay URL, rights statement, source audio checksum, side durations, artwork versions, vendor, vendor product identifier, quote, approval time, order identifier, and tracking history. The manifest makes a physical copy reproducible without putting an address, password, or payment credential in git.
+
+There is a useful moral in the asymmetry. Software people tend to describe a human step as friction. Physical media reminds us that friction is the medium. A stylus moves because a groove pushes it. Tape crosses a head. A jacket resists the hand slightly as the record comes out. The goal is not to automate away every person. It is to place certainty around the handoff: correct files, clear consent, visible cost, recoverable state.
+
+So yes, a podcast can become an object through an API. More importantly, the object can become part of the podcast's form. Side B can answer side A. A future pressing can contain a listener's question. The mailbox can join the feed.
+
+Questions and feedback about this episode are welcome at \href{mailto:mail@aesthetic.computer}{mail@aesthetic.computer}. Unless you ask us not to, your letter may be read or mentioned on a future episode.
+
+\colophon{ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913} \enspace$\cdot$\enspace aesthetic.computer \enspace$\cdot$\enspace Written after asking how a podcast might reach the mailbox as playable matter.}
+\end{document}
+
