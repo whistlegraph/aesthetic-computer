@@ -123,6 +123,24 @@ function refreshPad(e) {
   held[player] = keyHeld[player] | padsHeld[player];
 }
 
+function playerPad(player) {
+  for (const [index, pad] of padInput) {
+    if ((index & 1) === player) return pad;
+  }
+  return null;
+}
+
+function padHelp(player) {
+  const pad = playerPad(player);
+  if (!pad) return { caps: CAP[player], hint: null };
+  const mapping = getGamepadMapping(pad.id);
+  const m30 = mapping?.product === "M30";
+  return {
+    caps: { l: "<", r: ">", b: m30 ? "X" : "B", p: "A" },
+    hint: m30 ? "ABC hit  XYZ guard" : "A/X/RB hit  B/Y/LB guard",
+  };
+}
+
 function sim({ sound }) {
   if ((half ^= 1)) return; // every other 120hz step
   if (s[G.MATCH]) return;
@@ -358,7 +376,10 @@ function hud(ink, w) {
   const y = 40;
   ink(0, 0, 0, 200).box((w >> 1) - 44, y - 3, 88, s[G.MATCH] ? 22 : 12);
   ink(255, 220, 60).write(msg, { x: (w >> 1) - msg.length * 3, y });
-  if (s[G.MATCH]) ink(150).write("r to rematch", { x: (w >> 1) - 33, y: y + 9 });
+  if (s[G.MATCH]) {
+    const rematch = padInput.size ? "Start to rematch" : "r to rematch";
+    ink(150).write(rematch, { x: (w >> 1) - rematch.length * 3, y: y + 9 });
+  }
 }
 
 // the four keys, drawn as a d-pad that lights on press. the block key gets a
@@ -367,6 +388,7 @@ function hud(ink, w) {
 function pads(ink, ox, oy, p) {
   const b = p * PN;
   const cell = 9;
+  const help = padHelp(p);
   const at = { b: [cell, 0], l: [0, cell], r: [cell * 2, cell], p: [cell, cell * 2] };
   const bit = { l: game.LEFT, r: game.RIGHT, b: game.BLOCK, p: game.PUNCH };
 
@@ -381,7 +403,12 @@ function pads(ink, ox, oy, p) {
     else ink(34, 32, 46).box(x, y, 8, 8);
 
     if (armed && !down) ink(255, 220, 60).box(x, y, 8, 1);
-    ink(...(down ? [16, 14, 22] : [110, 106, 130])).write(CAP[p][key], { x: x + 2, y: y + 1 });
+    ink(...(down ? [16, 14, 22] : [110, 106, 130])).write(help.caps[key], { x: x + 2, y: y + 1 });
+  }
+
+  if (help.hint) {
+    const x = p === 0 ? ox : ox + 27 - help.hint.length * 6;
+    ink(110, 106, 130).write(help.hint, { x, y: oy - 9 });
   }
 }
 
