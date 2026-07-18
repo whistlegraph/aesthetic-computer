@@ -35,14 +35,16 @@ const BUTTON_TONES = [261.63, 329.63, 523.25, 659.25, 783.99, 392.0,
 const buttonVoices = new Map();
 const latencySamples = [];
 const MAX_LATENCY_SAMPLES = 60;
-const SAMPLE_RATES = [44100, 48000, 96000];
+const SAMPLE_RATES = [44100, 48000, 88200, 96000];
 let lastLatency = null;
 let audioLatency = null;
 let audioProbe = null;
 let probeSequence = 0;
 let requestedSampleRate = 48000;
+let activeSampleRate = 48000;
 let sampleRateIndex = 1;
 let changingSampleRate = false;
+let sampleRateRequestId = 0;
 const rateStats = new Map();
 let sendToBios = null;
 let lightMode = false;
@@ -328,10 +330,13 @@ function paint({ wipe, ink, write, screen, line, circle, box, painting, paste, h
 
     const summaries = SAMPLE_RATES.map((rate) => {
       const stat = rateStats.get(rate);
-      if (!stat?.count) return `${rate / 1000}k --`;
-      return `${rate / 1000}k n${stat.count} w${(stat.worklet / stat.count).toFixed(2)} q${stat.quantum.toFixed(2)} o${stat.output.toFixed(1)}`;
+      if (!stat?.count) return `${rate / 1000}:--`;
+      return `${rate / 1000}:${stat.count}/${(stat.worklet / stat.count).toFixed(2)}/${stat.quantum.toFixed(2)}/${stat.output.toFixed(1)}`;
     });
-    const rateText = `${changingSampleRate ? "SWITCHING " : ""}MENU: HZ  ${summaries.join("  ")}`;
+    const rateState = changingSampleRate
+      ? `${activeSampleRate / 1000}>${requestedSampleRate / 1000}k`
+      : `${activeSampleRate / 1000}k`;
+    const rateText = `MENU HZ ${rateState}  n/w/q/o ${summaries.join(" ")}`;
     const rateWidth = rateText.length * 4 + 6;
     const rateX = Math.max(2, screen.width - rateWidth - 4);
     ink(...(lightMode ? [255, 253, 247, 225] : [0, 0, 0, 210])).box(rateX, y + lineHeight + 3, rateWidth, lineHeight + 2);
@@ -665,10 +670,14 @@ function act({ event: e, sound }) {
           sampleRateIndex = (sampleRateIndex + 1) % SAMPLE_RATES.length;
           requestedSampleRate = SAMPLE_RATES[sampleRateIndex];
           changingSampleRate = true;
-          console.log(`🧪 AUDIO_RATE_TEST requesting=${requestedSampleRate}Hz`);
+          const requestId = ++sampleRateRequestId;
+          console.log(
+            `🧪 AUDIO_RATE_REQUEST id=${requestId}` +
+            ` active=${activeSampleRate}Hz requested=${requestedSampleRate}Hz`,
+          );
           sendToBios?.({
             type: "audio:reinit",
-            content: { latencyHint: 0.003, sampleRate: requestedSampleRate },
+            content: { latencyHint: 0.003, sampleRate: requestedSampleRate, requestId },
           });
           return;
         }
@@ -763,12 +772,27 @@ function boot({ send }) {
 function receive({ type, content }) {
   if (!content) return;
   if (type === "audio:reinit-complete") {
+    if (Number(content.requestId) !== sampleRateRequestId) {
+      console.log(
+        `🧪 AUDIO_RATE_STALE id=${content.requestId}` +
+        ` expected=${sampleRateRequestId} actual=${content.sampleRate}Hz`,
+      );
+      return;
+    }
     changingSampleRate = false;
-    requestedSampleRate = Number(content.sampleRate) || requestedSampleRate;
-    const rateIndex = SAMPLE_RATES.indexOf(requestedSampleRate);
+    activeSampleRate = Number(content.sampleRate) || activeSampleRate;
+    const rateIndex = SAMPLE_RATES.indexOf(activeSampleRate);
     if (rateIndex >= 0) sampleRateIndex = rateIndex;
+    audioLatency = {
+      base: Number(content.base) || 0,
+      output: Number(content.output) || 0,
+      quantum: Number(content.quantum) || 0,
+      total: (Number(content.base) || 0) + (Number(content.output) || 0),
+      sampleRate: activeSampleRate,
+    };
     console.log(
-      `🧪 AUDIO_RATE_READY requested=${content.requestedSampleRate}Hz` +
+      `🧪 AUDIO_RATE_READY id=${content.requestId}` +
+      ` requested=${content.requestedSampleRate}Hz` +
       ` actual=${content.sampleRate}Hz quantum=${Number(content.quantum).toFixed(2)}ms` +
       ` output=${Number(content.output).toFixed(2)}ms`,
     );
@@ -776,12 +800,8 @@ function receive({ type, content }) {
   }
   if (type === "audio:probe") {
     audioProbe = content;
-    const rate = Number(content.context?.sampleRate || content.sampleRate) || requestedSampleRate;
-    changingSampleRate = false;
-    requestedSampleRate = rate;
-    const rateIndex = SAMPLE_RATES.indexOf(rate);
-    if (rateIndex >= 0) sampleRateIndex = rateIndex;
-    if (content.context) {
+    const rate = Number(content.context?.sampleRate || content.sampleRate) || activeSampleRate;
+    if (content.context && !changingSampleRate && rate === activeSampleRate) {
       audioLatency = {
         base: Number(content.context.base) || 0,
         output: Number(content.context.output) || 0,
@@ -816,9 +836,12 @@ function receive({ type, content }) {
     sampleRate: Number(content.sampleRate) || 0,
   };
   changingSampleRate = false;
-  requestedSampleRate = Number(content.requestedSampleRate) || audioLatency.sampleRate;
-  const actualIndex = SAMPLE_RATES.indexOf(audioLatency.sampleRate);
-  if (actualIndex >= 0) sampleRateIndex = actualIndex;
+  activeSampleRate = audioLatency.sampleRate;
+  if (!changingSampleRate) {
+    requestedSampleRate = Number(content.requestedSampleRate) || activeSampleRate;
+    const actualIndex = SAMPLE_RATES.indexOf(activeSampleRate);
+    if (actualIndex >= 0) sampleRateIndex = actualIndex;
+  }
   console.log(
     `🎧 AUDIO_CONTEXT requested=${requestedSampleRate}Hz actual=${audioLatency.sampleRate}Hz` +
     ` base=${audioLatency.base.toFixed(2)}ms` +

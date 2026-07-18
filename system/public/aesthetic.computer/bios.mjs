@@ -5257,7 +5257,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let mp4PlaybackVideo; // DOM <video> for kind:"mp4" tape playback (camera-roll clips)
 
     async function reinitAudioSystem(options = {}) {
-      const { latencyHint, sampleRate, speakerPerformanceMode } = options;
+      const { latencyHint, sampleRate, speakerPerformanceMode, requestId = 0 } = options;
 
       if (latencyHint !== undefined) {
         window.__acLatencyHint = latencyHint;
@@ -5333,6 +5333,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         acDISK_SEND({
           type: "audio:reinit-complete",
           content: {
+            requestId,
             requestedSampleRate: Number.isFinite(sampleRate) ? sampleRate : audioContext?.sampleRate,
             sampleRate: audioContext?.sampleRate,
             base: (Number(audioContext?.baseLatency) || 0) * 1000,
