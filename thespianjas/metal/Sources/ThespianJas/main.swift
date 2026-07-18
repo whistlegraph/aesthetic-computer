@@ -9,6 +9,10 @@ final class StudioController: NSViewController {
   private var fill = SCNLight()
   private var rim = SCNLight()
   private var retainedGLTF: GLTFAsset?
+  private let focus = SCNNode()
+  private weak var sceneView: SCNView?
+  private let cameraNode = SCNNode()
+  private var keyMonitor: Any?
   private let assetURL: URL
 
   init(assetURL: URL) {
@@ -23,8 +27,9 @@ final class StudioController: NSViewController {
     let view = SCNView(frame: root.bounds, options: options)
     view.autoresizingMask = [NSView.AutoresizingMask.width, NSView.AutoresizingMask.height]
     view.scene = scene
+    sceneView = view
     view.backgroundColor = NSColor(calibratedRed: 0.09, green: 0.075, blue: 0.11, alpha: 1)
-    view.allowsCameraControl = false
+    view.allowsCameraControl = true
     view.antialiasingMode = SCNAntialiasingMode.multisampling4X
     view.rendersContinuously = true
     view.preferredFramesPerSecond = 60
@@ -46,6 +51,20 @@ final class StudioController: NSViewController {
     root.addSubview(panel)
     self.view = root
     buildScene()
+    keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+      guard let self else { return event }
+      let step: CGFloat = event.modifierFlags.contains(.shift) ? 0.45 : 0.16
+      switch event.charactersIgnoringModifiers?.lowercased() {
+      case "w": self.cameraNode.localTranslate(by: SCNVector3(0, 0, -step))
+      case "s": self.cameraNode.localTranslate(by: SCNVector3(0, 0, step))
+      case "a": self.cameraNode.localTranslate(by: SCNVector3(-step, 0, 0))
+      case "d": self.cameraNode.localTranslate(by: SCNVector3(step, 0, 0))
+      case "q": self.cameraNode.position.y -= step
+      case "e": self.cameraNode.position.y += step
+      default: return event
+      }
+      return nil
+    }
   }
 
   private func label(_ text: String) -> NSTextField {
@@ -69,6 +88,9 @@ final class StudioController: NSViewController {
   private func buildScene() {
     subject.name = "thespianjas"
     scene.rootNode.addChildNode(subject)
+    focus.name = "camera-focus"
+    focus.position = SCNVector3(0, 1.2, 0)
+    scene.rootNode.addChildNode(focus)
     if assetURL.pathExtension.lowercased() == "glb" || assetURL.pathExtension.lowercased() == "gltf" {
       GLTFAsset.load(with: assetURL, options: [:]) { [weak self] _, status, asset, error, _ in
         guard status == .complete, let self, let asset else {
@@ -79,6 +101,7 @@ final class StudioController: NSViewController {
         let loaded = SCNScene(gltfAsset: asset)
         DispatchQueue.main.async {
           for child in loaded.rootNode.childNodes { self.subject.addChildNode(child) }
+          print("thespianjas GLB loaded: \(self.subject.childNodes.count) roots")
           self.frameSubject()
         }
       }
@@ -100,10 +123,12 @@ final class StudioController: NSViewController {
     lightNode(key, at: SCNVector3(-3, 4, 4)); lightNode(fill, at: SCNVector3(3, 2, 3)); lightNode(rim, at: SCNVector3(2, 4, -3))
 
     let camera = SCNCamera(); camera.fieldOfView = 40
-    let cameraNode = SCNNode(); cameraNode.camera = camera; cameraNode.position = SCNVector3(0, 1.5, 4.8)
-    let look = SCNLookAtConstraint(target: subject); look.isGimbalLockEnabled = true; cameraNode.constraints = [look]
+    cameraNode.camera = camera; cameraNode.position = SCNVector3(0, 1.35, 4.2)
     scene.rootNode.addChildNode(cameraNode)
+    sceneView?.pointOfView = cameraNode
   }
+
+  deinit { if let keyMonitor { NSEvent.removeMonitor(keyMonitor) } }
 
   private func showLoadError(_ error: Error?) {
     let message = label("Could not load \(assetURL.lastPathComponent): \(error?.localizedDescription ?? "unknown error")")
@@ -116,6 +141,7 @@ final class StudioController: NSViewController {
     // internal transforms: 2.4 scene units tall, centered, feet on the floor.
     let (min, max) = subject.boundingBox
     let height = max.y - min.y
+    print("thespianjas bounds min=\(min) max=\(max) height=\(height)")
     if height.isFinite && height > 0.0001 {
       let s = 2.4 / height
       subject.scale = SCNVector3(s, s, s)
@@ -128,7 +154,7 @@ final class StudioController: NSViewController {
 
   private func lightNode(_ light: SCNLight, at p: SCNVector3) {
     let n = SCNNode(); n.light = light; n.position = p
-    let look = SCNLookAtConstraint(target: subject); look.isGimbalLockEnabled = true; n.constraints = [look]
+    let look = SCNLookAtConstraint(target: focus); look.isGimbalLockEnabled = true; n.constraints = [look]
     scene.rootNode.addChildNode(n)
   }
 }
