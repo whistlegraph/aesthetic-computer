@@ -37,6 +37,8 @@ const latencySamples = [];
 const MAX_LATENCY_SAMPLES = 60;
 let lastLatency = null;
 let audioLatency = null;
+let audioProbe = null;
+let probeSequence = 0;
 let sendToBios = null;
 let lightMode = false;
 const gamepadTheme = () => lightMode
@@ -305,7 +307,10 @@ function paint({ wipe, ink, write, screen, line, circle, box, painting, paste, h
     const browserAudio = audioLatency
       ? ` BASE ${audioLatency.base.toFixed(1)}ms OUT ${audioLatency.output.toFixed(1)}ms Q ${audioLatency.quantum.toFixed(1)}ms`
       : " AUDIO --";
-    const latencyText = `IN ${lastLatency.delivery.toFixed(0)}ms AVG ${average.toFixed(0)}ms SYN ${lastLatency.synth.toFixed(2)}ms${browserAudio}`;
+    const worker = audioProbe
+      ? ` P>B ${audioProbe.pieceToBios.toFixed(1)}ms WRT ${audioProbe.workletRoundTrip.toFixed(1)}ms ATK ${audioProbe.attackMs.toFixed(1)}ms/${audioProbe.attackFrames}smp ${audioProbe.payloadBytes}B V${audioProbe.runningCount}`
+      : " WORK --";
+    const latencyText = `IN ${lastLatency.delivery.toFixed(0)}ms AVG ${average.toFixed(0)}ms SYN ${lastLatency.synth.toFixed(2)}ms${browserAudio}${worker}`;
     const width = latencyText.length * 4 + 6;
     const x = Math.max(2, screen.width - width - 4);
     const y = hudHeight;
@@ -650,6 +655,12 @@ function act({ event: e, sound }) {
           duration: "🔁",
           decay: 0.85,
           volume: 0.22,
+          probe: {
+            id: `gamepad-${++probeSequence}`,
+            button: buttonIndex,
+            pieceAt: performance.now(),
+            pieceEpoch: Date.now(),
+          },
         });
         if (voice) buttonVoices.set(voiceKey, voice);
         const synthMs = performance.now() - synthStartedAt;
@@ -720,7 +731,20 @@ function boot({ send }) {
 }
 
 function receive({ type, content }) {
-  if (type !== "audio:latency-info" || !content) return;
+  if (!content) return;
+  if (type === "audio:probe") {
+    audioProbe = content;
+    console.log(
+      `🔬 AUDIO_PIPELINE id=${content.id} button=${content.button}` +
+      ` pieceToBios=${content.pieceToBios.toFixed(2)}ms` +
+      ` workletRT=${content.workletRoundTrip.toFixed(2)}ms` +
+      ` attack=${content.attackMs.toFixed(2)}ms/${content.attackFrames}frames` +
+      ` payload=${content.payloadBytes}B queue=${content.queueLength}` +
+      ` voices=${content.runningCount} frame=${content.workletFrame}`,
+    );
+    return;
+  }
+  if (type !== "audio:latency-info") return;
   audioLatency = {
     base: Number(content.base) || 0,
     output: Number(content.output) || 0,

@@ -11196,6 +11196,7 @@ async function makeFrame({ data: { type, content } }) {
     type === "tape:frames" ||
     type === "tape:audio-context-state" ||
     type === "audio:latency-info" ||
+    type === "audio:probe" ||
     type === "tape:playback-progress" ||
     // Video-backed (kind:"mp4") tape playback callbacks → video.mjs.
     type === "tape:mp4-ready" ||
@@ -12856,6 +12857,7 @@ async function makeFrame({ data: { type, content } }) {
       decay = 0.9, // A multiplier for when the sound fades.
       volume,
       pan = 0,
+      probe = null, // Opt-in main-thread → AudioWorklet profiling metadata.
       generator = null, // Custom waveform generator function for type "custom"
     } = {}) {
       const id = soundId;
@@ -12867,7 +12869,7 @@ async function makeFrame({ data: { type, content } }) {
       tone = $sound.freq(tone);
       // console.log("⛈️ Tone:", tone);
       // Add generator to sound data for custom type
-      const soundData = { id, type, tone, beats, attack, decay, volume, pan };
+      const soundData = { id, type, tone, beats, attack, decay, volume, pan, probe };
       if (type === "custom" && generator) {
         soundData.generator = generator.toString(); // Convert function to string for postMessage
       }

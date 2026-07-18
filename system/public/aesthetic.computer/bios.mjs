@@ -3419,6 +3419,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             soundTelemetry.recentTriggers.shift();
           }
 
+          if (sound.probe) {
+            sound.probe = {
+              ...sound.probe,
+              biosAt: triggerTime,
+              biosEpoch: Date.now(),
+              sentAt: performance.now(),
+              payloadBytes: JSON.stringify({
+                type: sound.type, tone: sound.tone, beats: sound.beats,
+                attack: sound.attack, decay: sound.decay, volume: sound.volume,
+                pan: sound.pan, probe: sound.probe,
+              }).length,
+            };
+          }
           speakerProcessor.port.postMessage({ type: "sound", data: sound });
 
           return {
@@ -3567,6 +3580,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               window.__speaker_telemetry.performanceMode = msg.content.performanceMode || 'auto';
               window.__speaker_telemetry.lastUpdate = Date.now();
             }
+            return;
+          }
+
+          if (msg.type === "audio:probe") {
+            const receivedAt = performance.now();
+            const probe = msg.content || {};
+            send({
+              type: "audio:probe",
+              content: {
+                ...probe,
+                workletRoundTrip: receivedAt - (probe.sentAt || receivedAt),
+                pieceToBios: probe.pieceEpoch
+                  ? (probe.biosEpoch || Date.now()) - probe.pieceEpoch
+                  : (probe.biosAt || receivedAt) - (probe.pieceAt || probe.biosAt || receivedAt),
+              },
+            });
             return;
           }
           
@@ -18226,7 +18255,40 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         send({ type: "update:auto-state", content: autoReload });
       }
       if (autoReload && !window.acUpdateReloadTimer) {
-        window.acUpdateReloadTimer = setTimeout(() => window.location.reload(), 2500);
+        // Make a hot update feel intentional: a tiny ascending chord and warm
+        // visual pulse, then enough grace for Xbox/TV output buffers to play it.
+        try {
+          const now = audioContext?.currentTime;
+          if (audioContext && Number.isFinite(now)) {
+            [523.25, 659.25, 783.99].forEach((frequency, index) => {
+              const oscillator = audioContext.createOscillator();
+              const gain = audioContext.createGain();
+              oscillator.type = index === 2 ? "triangle" : "sine";
+              oscillator.frequency.value = frequency;
+              gain.gain.setValueAtTime(0.0001, now + index * 0.055);
+              gain.gain.exponentialRampToValueAtTime(0.085, now + index * 0.055 + 0.012);
+              gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.55 + index * 0.055);
+              oscillator.connect(gain).connect(speakerGain || audioContext.destination);
+              oscillator.start(now + index * 0.055);
+              oscillator.stop(now + 0.65 + index * 0.055);
+            });
+          }
+          const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+          const flash = document.createElement("div");
+          Object.assign(flash.style, {
+            position: "fixed", inset: "0", zIndex: "2147483647",
+            pointerEvents: "none", background: "rgba(255,210,40,.48)",
+            transition: reduced ? "opacity .35s ease" : "background .16s ease, opacity .5s ease",
+          });
+          document.body.appendChild(flash);
+          requestAnimationFrame(() => {
+            if (!reduced) flash.style.background = "rgba(255,70,45,.42)";
+          });
+          setTimeout(() => { flash.style.opacity = "0"; }, reduced ? 180 : 360);
+        } catch (error) {
+          console.warn("📦 Update awareness cue unavailable:", error);
+        }
+        window.acUpdateReloadTimer = setTimeout(() => window.location.reload(), 1250);
       }
     }
     buildOverlay("updateBadge", content.updateBadge); // 📦 Update-ready ↑ badge (top-right)

@@ -569,6 +569,18 @@ class SpeakerProcessor extends AudioWorkletProcessor {
           // }
 
           this.#queue.push(sound);
+          if (msg.data.probe) {
+            this.#report("audio:probe", {
+              ...msg.data.probe,
+              workletFrame: currentFrame,
+              workletTime: currentTime,
+              attackFrames: attack,
+              attackMs: (attack / sampleRate) * 1000,
+              queueLength: this.#queue.length,
+              runningCount: Object.keys(this.#running).length,
+              sampleRate,
+            });
+          }
         //} else {
           // Wait and then trigger...
           // console.log("😊 Waiting on sound:", msg.data.when);

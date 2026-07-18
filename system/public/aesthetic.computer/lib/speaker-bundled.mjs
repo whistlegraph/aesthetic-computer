@@ -1362,6 +1362,18 @@ var SpeakerProcessor = class extends AudioWorkletProcessor {
         });
         this.#running[msg.data.id] = sound;
         this.#queue.push(sound);
+        if (msg.data.probe) {
+          this.#report("audio:probe", {
+            ...msg.data.probe,
+            workletFrame: currentFrame,
+            workletTime: currentTime,
+            attackFrames: attack2,
+            attackMs: attack2 / sampleRate * 1e3,
+            queueLength: this.#queue.length,
+            runningCount: Object.keys(this.#running).length,
+            sampleRate
+          });
+        }
         return;
       }
       if (msg.type === "bubble") {
