@@ -11549,6 +11549,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           let sweepPhase = 0; // Phase-increment, not sin(TAU*f*t) — no drift on long tapes.
           let bassPhase = 0;
           let melPhase = 0;
+          let ph1 = 0; // Generic per-style phase accumulators
+          let ph2 = 0;
+          let ph3 = 0;
           // 🥁 "break" style: one bar of 16th-note breakbeat, repeated —
           // scratch material with hard transients on a funk grid.
           const STEP = BEAT / 4; // 16ths at 120 BPM
@@ -11559,13 +11562,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             const tt = s / sampleRate;
             const pos = tt / duration;
             const inBeat = tt % BEAT;
+            const beatIdx = Math.floor(tt / BEAT) % 4;
+            const nz = Math.sin(s * 12.9898) * 43758.5453;
+            const noise = nz - Math.floor(nz) - 0.5;
             let v = 0;
 
             if (style === "break") {
               const step16 = Math.floor(tt / STEP) % 16;
               const inStep = tt % STEP;
-              const n = Math.sin(s * 12.9898) * 43758.5453;
-              const noise = n - Math.floor(n) - 0.5;
               if (BREAK_KICK[step16]) {
                 v +=
                   Math.sin(TAU * (50 + 130 * Math.exp(-inStep * 30)) * inStep) *
@@ -11577,6 +11581,46 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               }
               if (BREAK_HAT[step16]) {
                 v += noise * Math.exp(-inStep * 220) * 0.3;
+              }
+            } else if (style === "house") {
+              // 🏠 Four-on-the-floor: kick every beat, clap on 2 & 4, open
+              // hats and a 55Hz bass stab on the offbeats.
+              const step8 = Math.floor(tt / (BEAT / 2)) % 8;
+              const inHalf = tt % (BEAT / 2);
+              v +=
+                Math.sin(TAU * (48 + 110 * Math.exp(-inBeat * 28)) * inBeat) *
+                Math.exp(-inBeat * 15) * 0.7;
+              if (beatIdx === 1 || beatIdx === 3) {
+                v += noise * Math.exp(-inBeat * 30) * 0.4; // Clap
+              }
+              ph1 += (TAU * 55) / sampleRate; // A1 — whole cycles per bar
+              if (step8 % 2 === 1) {
+                v += noise * Math.exp(-inHalf * 25) * 0.26; // Open hat
+                v +=
+                  (Math.sin(ph1) + Math.sin(ph1 * 2) * 0.4) *
+                  Math.exp(-inHalf * 12) * 0.42; // Bass stab
+              }
+            } else if (style === "dub") {
+              // 🌫️ Halftime dub: deep kicks on 1 & 3, rim on 3, a sub line
+              // per half-bar, and offbeat skank chords.
+              const inHalfBar = tt % (BAR / 2);
+              if (beatIdx === 0 || beatIdx === 2) {
+                v +=
+                  Math.sin(TAU * (38 + 90 * Math.exp(-inBeat * 18)) * inBeat) *
+                  Math.exp(-inBeat * 9) * 0.75;
+              }
+              if (beatIdx === 2) {
+                v += noise * Math.exp(-inBeat * 12) * 0.14; // Airy tail
+                v += Math.sin(TAU * 620 * inBeat) * Math.exp(-inBeat * 45) * 0.22; // Rim
+              }
+              const half = Math.floor(tt / (BAR / 2)) % 2;
+              ph1 += (TAU * (half ? 41.5 : 55)) / sampleRate; // A1 ↔ ~E1 sub
+              v += Math.sin(ph1) * Math.exp(-inHalfBar * 1.2) * 0.42;
+              ph2 += (TAU * 220) / sampleRate; // Skank chord: A3 + ~C4
+              ph3 += (TAU * 261.5) / sampleRate;
+              const off = (tt + BEAT / 2) % BEAT;
+              if (off < 0.12 && (beatIdx === 1 || beatIdx === 3)) {
+                v += (Math.sin(ph2) + Math.sin(ph3)) * Math.exp(-off * 30) * 0.16;
               }
             } else {
               // Kick: a 120→45Hz chirp with a fast decay.

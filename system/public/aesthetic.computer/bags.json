@@ -1,6 +1,43 @@
 {
   "$schema": "curated media bags — admin (@jeffrey) only for now. Each item has a `type` (piece | painting | kidlisp | tape) and a `code` used to open it. bag.mjs lists a bag by name; ^<name> at the prompt opens it.",
   "bags": {
+    "tapes": {
+      "title": "tapes",
+      "description": "scrubbable synthtapes - grab, scratch, flick, dip; every loop is seam-perfect",
+      "color": "orange",
+      "items": [
+        {
+          "type": "piece",
+          "code": "video~scrub",
+          "name": "bed"
+        },
+        {
+          "type": "piece",
+          "code": "video~scrub~break",
+          "name": "break"
+        },
+        {
+          "type": "piece",
+          "code": "video~scrub~house",
+          "name": "house"
+        },
+        {
+          "type": "piece",
+          "code": "video~scrub~dub",
+          "name": "dub"
+        },
+        {
+          "type": "piece",
+          "code": "video~scrub~break~2",
+          "name": "one-bar break"
+        },
+        {
+          "type": "piece",
+          "code": "video~scrub~16",
+          "name": "long bed"
+        }
+      ]
+    },
     "pads": {
       "title": "pads",
       "description": "49 self-running audiovisual instrument pads - tap or drag to play",

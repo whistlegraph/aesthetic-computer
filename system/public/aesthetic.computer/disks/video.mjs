@@ -437,7 +437,14 @@ function boot({ wipe, rec, gizmo, jump, notice, store, params, send, hud }) {
     // exercise, reported to the console.
     const rest = params.slice(1);
     synthAuto = rest.includes("auto");
-    const style = rest.includes("break") || rest.includes("beat") ? "break" : "bed";
+    const style =
+      rest.includes("break") || rest.includes("beat")
+        ? "break"
+        : rest.includes("house")
+          ? "house"
+          : rest.includes("dub")
+            ? "dub"
+            : "bed";
     const nums = rest.map(parseFloat).filter((n) => Number.isFinite(n));
     let duration = nums[0] || 8; // Four bars by default, break included
     if (rest.includes("bar")) duration = 2;
