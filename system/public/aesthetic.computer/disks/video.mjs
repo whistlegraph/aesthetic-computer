@@ -1122,6 +1122,21 @@ function sim({ needsPaint, rec, send }) {
       }
     }
 
+    // 🌀 Friction: even a parked rate isn't forever — it glides home to
+    // 1× over a few seconds, like a wheel that always feels the bearing.
+    if (sustained && !isScrubbing) {
+      scrubSpeed += (1 - scrubSpeed) * (1 - Math.pow(0.9965, rate));
+      if (Math.abs(scrubSpeed - 1) < PARK_SNAP) {
+        sustained = false;
+        scrubSpeed = 0;
+        nudgeTapeAudioSpeed(send, 1);
+        send({
+          type: "recorder:present:seek",
+          content: { progress: scrubCurrentProgress, scrubEnd: true },
+        });
+      }
+    }
+
     // 🖐️ Brake release: spin back up to the pre-gesture rate.
     if (brakeResume && !isScrubbing) {
       scrubSpeed += (resumeTarget - scrubSpeed) * (1 - Math.pow(0.88, rate));
@@ -2275,8 +2290,9 @@ function act({
         }
         scrubMoved = true;
         // Expressive range: two-finger scroll can push way past the drag's
-        // reach — up to ±12×.
-        scrubSpeed = Math.max(-12, Math.min(12, scrubSpeed * 0.6 + d * 0.35));
+        // reach — up to ±12×. Negated so scroll direction matches drag
+        // direction (natural scrolling inverts the wheel deltas).
+        scrubSpeed = Math.max(-12, Math.min(12, scrubSpeed * 0.6 - d * 0.35));
         lastScrollAt = performance.now();
         nudgeTapeAudioSpeed(send, scrubSpeed);
         triggerRender();
@@ -2292,18 +2308,23 @@ function act({
           isScrubbing = false;
           inertiaActive = false;
           brakeHolding = false;
-          brakeResume = false;
-          scrollScrubbing = false;
-          wheelActive = false;
           tapDipTime = -1;
           holdTime = 0;
           flickVel = 0;
           elasticAnchorX = e.x ?? null;
-          // 🅿️ A parked rate survives a new touch: the gesture starts FROM
-          // it and returns TO it.
-          resumeTarget = sustained ? scrubSpeed : 1;
-          elasticBase = sustained ? scrubSpeed : 1;
-          if (!sustained) {
+          // 🅿️ A parked, spinning, or ramping rate survives a new touch:
+          // the gesture starts FROM it — so you can grab a fast wheel and
+          // drag it slower — and returns TO it.
+          const carrying =
+            sustained || wheelActive || brakeResume || scrollScrubbing;
+          brakeResume = false;
+          scrollScrubbing = false;
+          wheelActive = false;
+          resumeTarget = carrying ? scrubSpeed : 1;
+          // ✊ Grabbing the tape holds it — the drag is anchored at 0×, so
+          // a still finger means a still tape and displacement is motion.
+          elasticBase = 0;
+          if (!carrying) {
             scrubCurrentProgress = rec.presentProgress || 0;
             scrubSpeed = 0;
           }
@@ -2330,9 +2351,9 @@ function act({
               content: { progress: scrubCurrentProgress, speedScrub: true, scrubbing: true },
             });
           }
-          // 🪀 Elastic rate: displacement from the anchor stretches the rate
-          // around the base — a third of the screen right adds 3×, left
-          // pulls through 0 into reverse.
+          // ✊ The grabbed tape moves with the hand: displacement from the
+          // grab point IS the rate — hold still and it holds still, a third
+          // of the screen right drags at 3×, left drags in reverse.
           const dx = e.x - elasticAnchorX;
           if (Math.abs(dx) > 2) scrubMoved = true;
           flickVel = flickVel * 0.6 + (e.delta?.x || 0) * 0.4;
