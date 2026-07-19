@@ -11,6 +11,9 @@
 //     --spoken yc.json           (whisper on the ORIGINAL audio — spoken timing)
 //     --sung   sung-alignment.json  (the sung word timing)
 //     --audio  jeffrey-sung.mp3   (laid under the warped picture)
+//     --source-sync 95            (original picture lag vs original audio, ms)
+//     --mouth-lead 100            (pull lip motion 100ms earlier)
+//     --continuous                (play through pauses; no gap dissolves)
 //     --out    warped.mp4
 //
 // The map is piecewise-linear through (sungStart[i] → spokenStart[i]) anchors,
@@ -33,7 +36,14 @@ const SPOKEN = resolve(flag("spoken"));
 const SUNG = resolve(flag("sung"));
 const AUDIO = resolve(flag("audio"));
 const OUT = resolve(flag("out", "warped.mp4"));
+const SOURCE_SYNC_MS = Number(flag("source-sync", "0"));
+const MOUTH_LEAD_MS = Number(flag("mouth-lead", "0"));
+const CONTINUOUS = argv.includes("--continuous");
 const FPS = 30;
+if (!Number.isFinite(MOUTH_LEAD_MS) || !Number.isFinite(SOURCE_SYNC_MS)) {
+  console.error("✗ --mouth-lead and --source-sync must be milliseconds");
+  process.exit(1);
+}
 for (const [p, n] of [[SRC, "video"], [SPOKEN, "--spoken"], [SUNG, "--sung"], [AUDIO, "--audio"]]) {
   if (!existsSync(p)) { console.error(`✗ ${n} not found: ${p}`); process.exit(1); }
 }
@@ -47,26 +57,81 @@ const sh = (c, a) => {
 // whisper words (seconds) from the spoken side, with START and END. words.mjs'
 // merge logic inline: a leading space (or the first token) begins a word, and
 // each token extends the current word's end.
-function spokenWords() {
-  const segs = JSON.parse(readFileSync(SPOKEN, "utf8")).transcription;
+function wordsFromTranscription(doc) {
+  const segs = doc.transcription;
   const out = [];
   for (const s of segs) {
     if (!s.text.trim()) continue;
     if (s.text.startsWith(" ") || out.length === 0) {
-      out.push({ from: s.offsets.from / 1000, to: s.offsets.to / 1000 });
+      out.push({ text: s.text.trim(), from: s.offsets.from / 1000, to: s.offsets.to / 1000 });
     } else {
+      out[out.length - 1].text += s.text.trim();
       out[out.length - 1].to = s.offsets.to / 1000;
     }
   }
   return out;
 }
+function spokenWords() {
+  return wordsFromTranscription(JSON.parse(readFileSync(SPOKEN, "utf8")));
+}
 // sung words — accept either a bare word array or an alignment doc with `.words`
 const sungDoc = JSON.parse(readFileSync(SUNG, "utf8"));
-const sungWords = Array.isArray(sungDoc) ? sungDoc : sungDoc.words;
-const sung = sungWords.map((w) => ({ from: (w.fromMs ?? w.from) / 1000, to: (w.toMs ?? w.to) / 1000 }));
-const spoken = spokenWords();
+const sungWords = Array.isArray(sungDoc)
+  ? sungDoc
+  : sungDoc.words || wordsFromTranscription(sungDoc).map((w) => ({
+    text: w.text, from: w.from * 1000, to: w.to * 1000,
+  }));
+// Generated/forced alignments tend to place a word boundary a shade after the
+// visible articulation begins. A positive mouth lead moves the VIDEO's word
+// slots earlier against the untouched song. Keep this correction here, at the
+// retracking boundary: shifting the finished reel would also move captions and
+// chrome, while shifting the audio would undo its authored musical clock.
+const mouthLead = MOUTH_LEAD_MS / 1000;
+const sungRaw = sungWords.map((w) => ({
+  text: w.text,
+  from: Math.max(0, (w.fromMs ?? w.from) / 1000 - mouthLead),
+  to: Math.max(0, (w.toMs ?? w.to) / 1000 - mouthLead),
+}));
+const sourceSync = SOURCE_SYNC_MS / 1000;
+const spokenRaw = spokenWords().map((w) => ({
+  ...w, from: w.from + sourceSync, to: w.to + sourceSync,
+}));
 
-const n = Math.min(spoken.length, sung.length);
+// Never pair by array index blindly. Aligners split contractions, initials and
+// compounds differently ("I'm", "U.S.", "Combinator"); one extra token would
+// shift every later mouth onto the wrong lyric. LCS gives us an ordered set of
+// identical normalized words and simply bridges an occasional recognition miss.
+const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+const matchWords = (a, b) => {
+  if (!a.some((w) => norm(w.text)) || !b.some((w) => norm(w.text))) {
+    return Array.from({ length: Math.min(a.length, b.length) }, (_, i) => [a[i], b[i]]);
+  }
+  const dp = Array.from({ length: a.length + 1 }, () => new Uint16Array(b.length + 1));
+  for (let i = a.length - 1; i >= 0; i -= 1) {
+    for (let j = b.length - 1; j >= 0; j -= 1) {
+      dp[i][j] = norm(a[i].text) === norm(b[j].text)
+        ? dp[i + 1][j + 1] + 1
+        : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    }
+  }
+  const pairs = [];
+  let i = 0;
+  let j = 0;
+  while (i < a.length && j < b.length) {
+    if (norm(a[i].text) && norm(a[i].text) === norm(b[j].text)) {
+      pairs.push([a[i], b[j]]); i += 1; j += 1;
+    } else if (dp[i + 1][j] >= dp[i][j + 1]) i += 1;
+    else j += 1;
+  }
+  return pairs;
+};
+const pairs = matchWords(spokenRaw, sungRaw);
+const spoken = pairs.map(([w]) => w);
+const sung = pairs.map(([, w]) => w);
+
+const n = pairs.length;
+console.log(`· word map: ${n} matched (${spokenRaw.length} original / ${sungRaw.length} sung)`);
+if (SOURCE_SYNC_MS) console.log(`  original picture lag: ${SOURCE_SYNC_MS}ms`);
 
 // Each WORD is a segment: the sung word's slot maps to the spoken word's video,
 // at one steady rate across the whole word (no mid-word speed change — that was
@@ -122,6 +187,33 @@ const [W, Hh] = sh("ffprobe", ["-v", "error", "-select_streams", "v",
 const FB = W * Hh * 4;
 const gaps = segs.filter((s) => s.gap).length;
 console.log(`· ${W}×${Hh} · ${segs.length} segments (${gaps} gaps morphed) · sung ${sungDur.toFixed(1)}s ← spoken ${srcDur.toFixed(1)}s`);
+if (MOUTH_LEAD_MS) console.log(`  mouth lead: ${MOUTH_LEAD_MS}ms`);
+if (CONTINUOUS) console.log("  motion: continuous cubic time map + sub-frame blends");
+
+// Per-word linear remapping makes playback velocity snap at every anchor: a
+// short sung word followed by a held one reads as fast-forward → stall. For the
+// continuous take, use monotone cubic Hermite interpolation. It still lands on
+// every word boundary, but shares one velocity on both sides of that boundary.
+// Harmonic-mean tangents are the PCHIP choice: continuous speed, no overshoot,
+// and therefore no accidental backward frames.
+const slopes = segs.map((s) => (s.s1 - s.s0) / Math.max(1, s.o1 - s.o0));
+const tangents = new Array(segs.length + 1);
+tangents[0] = slopes[0] || 0;
+tangents[tangents.length - 1] = slopes[slopes.length - 1] || 0;
+for (let i = 1; i < tangents.length - 1; i += 1) {
+  const a = slopes[i - 1];
+  const b = slopes[i];
+  tangents[i] = a > 0 && b > 0 ? (2 * a * b) / (a + b) : 0;
+}
+const cubicSourceFrame = (s, i, p) => {
+  const p2 = p * p;
+  const p3 = p2 * p;
+  const len = s.o1 - s.o0;
+  return (2 * p3 - 3 * p2 + 1) * s.s0
+    + (p3 - 2 * p2 + p) * tangents[i] * len
+    + (-2 * p3 + 3 * p2) * s.s1
+    + (p3 - p2) * tangents[i + 1] * len;
+};
 
 const dec = spawn("ffmpeg", ["-v", "error", "-i", SRC, "-f", "rawvideo", "-pix_fmt", "rgba",
   "-vf", `fps=${FPS}`, "-"], { stdio: ["ignore", "pipe", "inherit"] });
@@ -174,22 +266,26 @@ const blendInto = (a, b, f) => {
 };
 
 let minNeeded = 0;
-for (const s of segs) {
+for (const [si, s] of segs.entries()) {
   const oLen = s.o1 - s.o0;
   for (let k = 0; k < oLen; k += 1) {
     const of = s.o0 + k;
     if (of >= outFrames) break;
     const p = oLen > 0 ? k / oLen : 0; // 0..1 through the segment
 
-    if (s.gap) {
+    if (s.gap && !CONTINUOUS) {
       // even crossfade between the two connecting frames — no dwell
       minNeeded = s.s0;
       const a = await frame(s.s0);
       const b = await frame(s.s1);
       blendInto(a, b, p);
     } else {
-      // step through the word's real frames at constant rate, blending neighbors
-      const sf = s.s0 + p * (s.s1 - s.s0);
+      // Step through the source frames at constant rate, blending neighbors.
+      // In continuous mode this applies to gaps too: the original head and mouth
+      // motion play through instead of dissolving between two frozen endpoints.
+      const sf = CONTINUOUS
+        ? cubicSourceFrame(s, si, p)
+        : s.s0 + p * (s.s1 - s.s0);
       const i0 = Math.floor(sf);
       minNeeded = i0;
       const a = await frame(i0);
