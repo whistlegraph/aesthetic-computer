@@ -781,15 +781,24 @@
 # Construct build until the native remake lands; /classic stays the
 # permanent home of that build either way.
 nopaint.art {
-    # Pin issuance to LE production. After the DNS flip, Caddy's early
-    # failures demoted this host to LE staging, whose resolvers kept the
-    # stale Vercel IP long after production had the new one (www obtained
-    # its production cert hours earlier). Pinning skips the staging
-    # fallback and the policy change resets the retry backoff on reload.
+    # Pin issuance to LE production (Caddy demoted this host to LE staging
+    # after early post-DNS-flip failures; staging's resolvers held the stale
+    # Vercel IP long after production had the new one).
+    #
+    # The `protocols` line is NOT a hardening tweak — it is what makes this
+    # site's certificate get SERVED. The :443 catch-all above pins its
+    # certificate_selection to the Cloudflare origin cert (any_tag cert0),
+    # and without a distinct TLS setting here the Caddyfile adapter emits
+    # only that catch-all connection policy, so every SNI — including this
+    # one — gets the origin cert. A site-specific setting forces an
+    # sni-matched policy with default (managed-cert) selection, ordered
+    # before the catch-all. Verify with:
+    #   caddy adapt --config lith/Caddyfile | jq '.apps.http.servers.srv0.tls_connection_policies'
     tls {
         issuer acme {
             dir https://acme-v02.api.letsencrypt.org/directory
         }
+        protocols tls1.2 tls1.3
     }
     root * /opt/ac/system/public/nopaint.art
     encode gzip
@@ -800,6 +809,11 @@ nopaint.art {
 }
 
 www.nopaint.art {
+    # Same serving requirement as the apex block above: without a distinct
+    # TLS setting, the catch-all's pinned origin cert answers this SNI too.
+    tls {
+        protocols tls1.2 tls1.3
+    }
     redir https://nopaint.art{uri} 301
 }
 
