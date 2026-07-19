@@ -430,8 +430,16 @@ let BY={};              // confirmed work code → whistlegraph work.
 let LEGACY_BY={};       // retired/candidate code → compatibility archive record.
 let POSTS_BY_CODE={};   // confirmed work code → [contributing posts].
 let POSTS_BY_ID={};     // stable archive post id → post.
+let LIVE_CURATION={works:{},posts:{}}; // Auth0-admin edits, stored durably by lith.
 const KIND_LABEL={performance:"Performance",talk:"Talk",other:"Other"};
 const esc=s=>String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+// Generated files remain the reproducible baseline. Small live patches from
+// the authenticated archive desk layer over that model and survive deploys.
+const curationLoaded=fetch("/api/whistlegraph-admin?action=curation",{cache:"no-store"})
+  .then(r=>r.ok?r.json():{works:{},posts:{}})
+  .then(data=>(LIVE_CURATION={works:data.works||{},posts:data.posts||{}},LIVE_CURATION))
+  .catch(()=>LIVE_CURATION);
 
 // A whistlegraph's posts — every published appearance, most-seen first —
 // rendered by media type with its own metadata (date · reach · source link).
@@ -619,10 +627,30 @@ function selectSection(section,scrollTop=false){
 let postsLoaded=null;
 function loadPosts(){
   if(postsLoaded) return postsLoaded;
-  postsLoaded=fetch("/posts.json?t="+Date.now(),{cache:"no-cache"}).then(r=>r.ok?r.json():{posts:[]}).then(pd=>{
-    ARCHIVE_POSTS=pd.posts||[];
+  postsLoaded=Promise.all([
+    fetch("/posts.json?t="+Date.now(),{cache:"no-cache"}).then(r=>r.ok?r.json():{posts:[]}),
+    curationLoaded,
+  ]).then(([pd,curation])=>{
+    const generatedPosts=pd.posts||[];
+    const generatedRelationships=new Set(generatedPosts.flatMap(post=>post.works||[]));
+    ARCHIVE_POSTS=generatedPosts.map(post=>{
+      const next={...post,...(curation.posts?.[post.id]||{})};
+      next.works=(next.works||[]).filter(code=>BY[code]);
+      next.relationships=next.works.map(work=>({work,role:"contributes"}));
+      return next;
+    });
     POSTS_BY_ID=Object.fromEntries(ARCHIVE_POSTS.map(p=>[p.id,p]));
+    POSTS_BY_CODE={};
     for(const p of ARCHIVE_POSTS) for(const code of p.works||[]) (POSTS_BY_CODE[code]||=[]).push(p);
+    // Relationship edits change work reach/count immediately. Recompute from
+    // patched posts so index and detail pages continue to agree.
+    for(const work of WORKS){
+      const related=POSTS_BY_CODE[work.code]||[];
+      if(related.length||generatedRelationships.has(work.code)){
+        work.perf=related.length;
+        work.views=related.reduce((sum,p)=>sum+(p.views||0),0);
+      }
+    }
     return pd;
   }).catch(()=>{});
   return postsLoaded;
@@ -632,8 +660,12 @@ function loadPosts(){
 // renames, attributions) and the CDN serves the JSON with stale-while-revalidate,
 // which would otherwise show a visitor day-old data on load. A unique URL each
 // visit defeats browser cache + CDN + SWR, so a fresh deploy always shows now.
-fetch("/graphs.json?t="+Date.now(),{cache:"no-cache"}).then(r=>r.json()).then(data=>{
-  WORKS=data.works||data.graphs.filter(w=>w.kind==="graph"); CURATED_N=data.curated;
+Promise.all([
+  fetch("/graphs.json?t="+Date.now(),{cache:"no-cache"}).then(r=>r.json()),
+  curationLoaded,
+]).then(([data,curation])=>{
+  WORKS=(data.works||data.graphs.filter(w=>w.kind==="graph"))
+    .map(work=>({...work,...(curation.works?.[work.code]||{})})); CURATED_N=data.curated;
   BY=Object.fromEntries(WORKS.map(w=>[w.code,w]));
   LEGACY_BY=Object.fromEntries((data.legacy||[]).map(w=>[w.code,w]));
   // One delegated click for both work rows and stable archive-post rows.

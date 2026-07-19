@@ -179,6 +179,20 @@
     @whistlegraph host whistlegraph.org www.whistlegraph.org
     handle @whistlegraph {
         root * /opt/ac/system/public/whistlegraph.org
+        # Auth0-gated archive desk API. Keep the rest of aesthetic.com's API
+        # namespace off this host; only this narrowly-scoped function crosses
+        # from the static Whistlegraph site into lith.
+        handle /api/whistlegraph-admin* {
+            reverse_proxy localhost:8888
+        }
+        # Reserve the archive desk before the bare-code matcher below so Auth0
+        # callbacks to /admin cannot be interpreted as a Whistlegraph code.
+        @wgadmin path /admin /admin/ /admin.html
+        handle @wgadmin {
+            rewrite * /admin.html
+            header Cache-Control "no-store"
+            file_server
+        }
         @wgcommands path /api/commands /api/commands.json
         handle @wgcommands {
             rewrite * /commands.json

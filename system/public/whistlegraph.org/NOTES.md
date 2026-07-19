@@ -3,6 +3,27 @@
 Deferred items from @minanimals (Alex Freundlich) via iMessage, 2026-07-10.
 Data edits + copy/loop changes from that thread are already applied to `graphs.json` / `index.html`.
 
+## Archive Desk
+
+`/admin` is the private archive editor. It uses the existing Aesthetic Computer
+Auth0 application and authorizes the immutable Auth0 subjects for @jeffrey and
+@minanimals on the server; matching a display handle is never enough. Live edits
+are stored as a MongoDB curation overlay and applied on top of the generated
+`graphs.json` / `posts.json`, so the scraper remains reproducible and an edit can
+be restored to generated data at any time.
+
+The Auth0 application needs these production entries before first deployment:
+
+- Allowed callback URLs: `https://whistlegraph.org/admin`,
+  `https://www.whistlegraph.org/admin`
+- Allowed logout URLs: the same two URLs
+- Allowed web origins: `https://whistlegraph.org`,
+  `https://www.whistlegraph.org`
+
+The server allowlist defaults to the two current Auth0 subjects. Override it with
+the comma-separated `WHISTLEGRAPH_ADMIN_SUBS` environment variable when identities
+change; do not put email addresses or handles in that variable.
+
 ## Bigger feature — needs a data model (2026-07-11)
 - **Per-page source-video list.** On each whistlegraph's detail page, list *every*
   TikTok video feeding its aggregate data, each with its own view count — so we can
