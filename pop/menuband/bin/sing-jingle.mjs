@@ -1,6 +1,26 @@
 #!/usr/bin/env node
 // sing-jingle.mjs — jeffrey SINGS the Menu Band campaign jingles.
 //
+// v5 — the DICTION round: consonant time-stretching the way trained choirs
+// handle it (round 4's whisper gate was failing on swallowed consonants):
+//   · STRETCHED CONSONANTS — the engine (spinging/lib/sing_line_world.py)
+//     stretches sustainable consonant runs (~2.0× unvoiced fricatives via
+//     WORLD noise, ~1.7× voiced sonorants through the pitch path); plosives
+//     never stretch — they get a ~22 ms pre-plosive glottal-set-up gap and
+//     a full-strength raw burst (now 1.5×). Vowel onsets stay ON the beat;
+//     the stretch is stolen from preceding vowel tails and bridge sustains.
+//   · CHOIR GATED TO VOWELS — the self-choir tacets on consonant frames
+//     (choirs unify on vowels; the LEAD carries diction), and the engine
+//     reports consonant_spans so the mix ducks the BED an extra ~5 dB under
+//     every consonant (the plain sidechain ducks least exactly when the
+//     lead is quietest — its consonants). De-esser eased 0.4 → 0.15 so the
+//     stretched sibilants survive the vocal bus.
+//   · Clarity re-renders now also raise cons_stretch_scale (more diction,
+//     less air/vibrato) when a line misses the WER gate.
+//   · LEAD-ONLY DIAGNOSTIC — each line's choir-less lead stem is also
+//     whisper-transcribed (separates diction gains from choir masking);
+//     verbatim in the QA sidecar.
+//
 // v4 — the legato/intelligibility round, per jeffrey's round-3 notes:
 //   · LEGATO — phrase grouping now comes from the notation sidecar
 //     (punctuation + melody rests ≥ 0.4 s); inside a phrase the engine
@@ -352,6 +372,25 @@ function normTokens(text) {
 }
 const tokEq = (a, b) =>
   a === b || (a.length >= 3 && b.length >= 3 && editDist(a, b) <= 1);
+// merge hyp tokens that SPLIT one ref token ("full screen" vs "fullscreen",
+// whisper's hyphenation) — the mirror of dewedge below
+function rewedge(refToks, hypToks) {
+  const out = [];
+  for (let i = 0; i < hypToks.length; i++) {
+    let merged = false;
+    for (let k = 4; k >= 2 && !merged; k--) {
+      if (i + k > hypToks.length) continue;
+      const cat = hypToks.slice(i, i + k).join("");
+      if (refToks.some((r) => tokEq(r, cat))) {
+        out.push(cat);
+        i += k - 1;
+        merged = true;
+      }
+    }
+    if (!merged) out.push(hypToks[i]);
+  }
+  return out;
+}
 // split hyp tokens that are welds of consecutive ref tokens ("menubandapp")
 function dewedge(refToks, hypToks) {
   const out = [];
@@ -388,7 +427,7 @@ function werScore(refToks, hypToks) {
 }
 function evalWER(refText, hypText) {
   const ref = normTokens(refText);
-  const hyp = dewedge(ref, normTokens(hypText));
+  const hyp = dewedge(ref, rewedge(ref, normTokens(hypText)));
   const wer = +werScore(ref, hyp).toFixed(3);
   const missing = ref.filter((w) =>
     w.length >= 3 && !STOPWORDS.has(w) && !hyp.some((h) => tokEq(w, h)));
@@ -637,6 +676,7 @@ async function singOne(slug) {
   const report = [];
   const qaLines = [];
   const lineSpans = [];   // absolute spans for the per-line stem re-transcribe
+  const consSpans = [];   // v5: absolute consonant spans → extra bed duck
   if (!existsSync(GOALPOSTS)) {
     throw new Error(`goalposts missing: ${GOALPOSTS} — build with spinging goalposts`);
   }
@@ -747,7 +787,8 @@ async function singOne(slug) {
     // reference bands (or the pass budget runs out) ────────────────────────
     // drift starts at the calibrated point where announce's lines land inside
     // the reference plateau-drift band on pass 1
-    const tweaks = { drift_scale: 1.6, glide_scale: 1, vib_depth_scale: 1, beta_scale: 1, air_scale: 1 };
+    const tweaks = { drift_scale: 1.6, glide_scale: 1, vib_depth_scale: 1, beta_scale: 1, air_scale: 1,
+      cons_stretch_scale: 1 };   // v5: consonant diction stretch (engine caps at 2.5×)
     const renderPlan = () => {
       const plan = {
         line_wav: w48,
@@ -770,6 +811,31 @@ async function singOne(slug) {
       try { st = JSON.parse(wr.stdout.trim().split("\n").pop()); } catch {}
       return st;
     };
+    // ── render loop + whisper round-trip gate. v5: EVERY render (QA passes
+    // and clarity passes alike) is transcribed and the best take wins —
+    // conformance first (the goalposts arbitrate, musicality before WER),
+    // then WER. Deterministic: no take lottery between equivalent passes.
+    const leadWav = `${dir}/words/line-${li}-lead.wav`;
+    const bestWav = `${dir}/words/line-${li}-sung-best.wav`;
+    const bestLead = `${dir}/words/line-${li}-lead-best.wav`;
+    const confOf = (s) => s?.conformance?._pass !== false;
+    const best = { res: null, transcript: "", stats: null, conf: false };
+    let lastIsBest = false;
+    const consider = (st) => {
+      const tx = whisperTranscribe(outWav);
+      const wr = evalWER(line.tts, tx);
+      const cf = confOf(st);
+      const wins = best.stats === null
+        || (wr.wer < best.res.wer && (cf || !best.conf))
+        || (wr.wer <= best.res.wer && cf && !best.conf);
+      if (wins) {
+        Object.assign(best, { res: wr, transcript: tx, stats: st, conf: cf });
+        copyFileSync(outWav, bestWav);
+        copyFileSync(leadWav, bestLead);
+      }
+      lastIsBest = wins;
+      return wr;
+    };
     let stats = {};
     let passes = 0;
     for (let pass = 1; pass <= QA_PASSES; pass++) {
@@ -777,7 +843,8 @@ async function singOne(slug) {
       stats = renderPlan();
       if (stats.error) break;
       const clean = stats.clicks && stats.clicks.clicks === 0 && stats.clicks.flux_spikes === 0;
-      if ((!stats.conformance || stats.conformance._pass) && clean) break;
+      if ((!stats.conformance || stats.conformance._pass) && clean) { consider(stats); break; }
+      consider(stats);
       if (pass === QA_PASSES) break;
       adjustTweaks(tweaks, stats.conformance);
       console.log(`    ↻ pass ${pass}: out of band — retweak ` +
@@ -787,43 +854,34 @@ async function singOne(slug) {
       report.push({ slug, line: li, word: "(line)", note: stats.error });
       continue;
     }
-
-    // ── whisper round-trip gate (round 4): the rendered line must still be
-    // machine-readable — WER ≤ 0.25 + every content word present, else
-    // re-render with clarity tweaks (less air/vibrato masking) ─────────────
-    let transcript = whisperTranscribe(outWav);
-    let werRes = evalWER(line.tts, transcript);
     let clarityPasses = 0;
-    if (!werRes.pass) {
-      const bestWav = `${dir}/words/line-${li}-sung-best.wav`;
-      let best = { wer: werRes.wer, transcript, stats };
-      let lastIsBest = true;
-      copyFileSync(outWav, bestWav);
-      for (let cp = 1; cp <= CLARITY_PASSES && !werRes.pass; cp++) {
-        clarityPasses = cp;
-        tweaks.air_scale *= 0.6;
-        tweaks.vib_depth_scale *= 0.7;
-        console.log(`    ↻ clarity pass ${cp}: WER ${werRes.wer} ` +
-          `(heard "${transcript}") — re-render with less air/vibrato`);
-        const st = renderPlan();
-        if (st.error) break;
-        const tx = whisperTranscribe(outWav);
-        const wr2 = evalWER(line.tts, tx);
-        // STRICT improvement only — a tie keeps the earlier take, whose air
-        // still sits inside the goalpost hf_ratio band (angelic regression)
-        if (wr2.wer < best.wer) {
-          best = { wer: wr2.wer, transcript: tx, stats: st };
-          copyFileSync(outWav, bestWav);
-          lastIsBest = true;
-        } else lastIsBest = false;
-        werRes = wr2; transcript = tx; stats = st;
-      }
-      if (!lastIsBest) {
-        // the final re-render didn't win — restore the best-scoring take
-        copyFileSync(bestWav, outWav);
-        werRes = { ...evalWER(line.tts, best.transcript) };
-        transcript = best.transcript; stats = best.stats;
-      }
+    for (let cp = 1; cp <= CLARITY_PASSES && !best.res.pass; cp++) {
+      clarityPasses = cp;
+      tweaks.air_scale *= 0.6;
+      tweaks.vib_depth_scale *= 0.7;
+      // v5: more diction, not just less air — lean the stretch in harder
+      tweaks.cons_stretch_scale = Math.min(1.3, tweaks.cons_stretch_scale * 1.15);
+      console.log(`    ↻ clarity pass ${cp}: WER ${best.res.wer} ` +
+        `(heard "${best.transcript}") — re-render with less air/vibrato, more stretch`);
+      const st = renderPlan();
+      if (st.error) break;
+      consider(st);
+    }
+    if (!lastIsBest) {
+      // the final re-render didn't win — restore the best-scoring take
+      copyFileSync(bestWav, outWav);
+      copyFileSync(bestLead, leadWav);
+    }
+    let werRes = best.res;
+    let transcript = best.transcript;
+    stats = best.stats;
+    // v5 diagnostic: transcribe the choir-less LEAD stem too — separates
+    // diction gains from choir masking in the QA sidecar
+    const leadTranscript = whisperTranscribe(leadWav);
+    const leadWer = evalWER(line.tts, leadTranscript);
+    // v5: absolute consonant spans drive the bed's extra diction duck
+    for (const [a, b] of stats.consonant_spans || []) {
+      consSpans.push([lineT0 + a, lineT0 + b]);
     }
     for (const w of stats.words || []) {
       report.push({
@@ -848,17 +906,22 @@ async function singOne(slug) {
         `clicks ${stats.clicks?.clicks ?? "?"}/${stats.clicks?.flux_spikes ?? "?"} · ` +
         `legato ${cont.min ?? "?"} (${cont.bridges ?? 0} bridges) ${contPass ? "PASS" : "FAIL"} · ` +
         `onset-jump ${stats.voiced_onset_jump_max_cents ?? "?"}¢ · ` +
-        `WER ${werRes.wer} ${werRes.pass ? "PASS" : `FAIL missing:[${werRes.missing}]`} · heard "${transcript}"`,
+        `WER ${werRes.wer} ${werRes.pass ? "PASS" : `FAIL missing:[${werRes.missing}]`} · heard "${transcript}" · ` +
+        `lead-WER ${leadWer.wer} heard "${leadTranscript}"`,
     });
     if (!contPass) console.log(`  ⚠ line ${li}: voicing continuity ${cont.min} < ${CONTINUITY_GATE}`);
     if (!werRes.pass) console.log(`  ⚠ line ${li}: WER gate FAILED at ${werRes.wer} — heard "${transcript}"`);
+    console.log(`    lead-only diagnostic: WER ${leadWer.wer} — heard "${leadTranscript}"`);
     qaLines.push({
       line: li, text: line.tts, passes, clarityPasses, tweaks,
       lineTranspose: stats.line_transpose, beta: stats.beta, harmony: HARMONY,
+      consStretchScale: stats.cons_stretch_scale,
       f0JumpMaxCents: stats.f0_jump_max_cents, f0JumpP95Cents: stats.f0_jump_p95_cents,
       voicingContinuity: cont, voicingContinuityPass: contPass,
       voicedOnsetJumpMaxCents: stats.voiced_onset_jump_max_cents,
       whisper: { transcript, wer: werRes.wer, missing: werRes.missing, pass: werRes.pass },
+      whisperLead: { transcript: leadTranscript, wer: leadWer.wer,
+        missing: leadWer.missing, pass: leadWer.pass },
       conformance: stats.conformance, clicks: stats.clicks,
     });
     lineSpans.push({
@@ -889,16 +952,45 @@ async function singOne(slug) {
   const mix = `${OUT}/${slug}-sung.mp3`;
   const bedDur = parseFloat(sh("ffprobe", ["-v", "error", "-show_entries", "format=duration",
     "-of", "csv=p=0", bed]).stdout.trim());
+
+  // v5 mix diction aid: a control track marking the engine's consonant spans
+  // drives an EXTRA bed duck — the level-following sidechain alone ducks
+  // least exactly when the lead is quietest, i.e. on its consonants.
+  const duckWav = `${OUT}/${slug}-consduck.wav`;
+  {
+    const ctrl = new Float32Array(master.length);
+    const ramp = Math.floor(0.006 * SR);
+    for (const [a, b] of consSpans) {
+      const s0 = Math.max(0, Math.floor(a * SR));
+      const s1 = Math.min(ctrl.length, Math.ceil(b * SR));
+      for (let i = s0; i < s1; i++) {
+        let g = 1;
+        if (i - s0 < ramp) g = (i - s0) / ramp;
+        if (s1 - i < ramp) g = Math.min(g, (s1 - i) / ramp);
+        ctrl[i] = Math.max(ctrl[i], 0.35 * g);
+      }
+    }
+    // 400 Hz carrier so the compressor's detector sees real level
+    for (let i = 0; i < ctrl.length; i++) {
+      ctrl[i] *= Math.sin((2 * Math.PI * 400 * i) / SR);
+    }
+    writeWavF32(duckWav, ctrl);
+  }
+
   // Vocal bus: highpass → gentle 3:1 compression (slow-ish release) →
-  // de-harsh, then the bed ducks under it. apad+atrim pin the mix to the
-  // bed's exact length — the sims mux with -shortest, and a mix even a
-  // frame short would truncate the video.
+  // de-harsh (eased to 0.15 in v5 — the stretched sibilants ARE the diction),
+  // then the bed ducks under it: first the consonant-span duck (~5 dB), then
+  // the level sidechain. apad+atrim pin the mix to the bed's exact length —
+  // the sims mux with -shortest, and a mix even a frame short would truncate
+  // the video.
   const premaster = `${OUT}/${slug}-sung-premaster.wav`;
-  sh("ffmpeg", ["-y", "-v", "error", "-i", bed, "-i", vocalWet, "-filter_complex",
+  sh("ffmpeg", ["-y", "-v", "error", "-i", bed, "-i", vocalWet, "-i", duckWav, "-filter_complex",
     "[1:a]aformat=sample_rates=48000:channel_layouts=stereo,highpass=f=70," +
     "acompressor=threshold=0.125:ratio=3:attack=12:release=250:makeup=2," +
-    "deesser=i=0.4,asplit=2[sc][v];" +
-    "[0:a]aformat=sample_rates=48000:channel_layouts=stereo[b];" +
+    "deesser=i=0.15,asplit=2[sc][v];" +
+    "[2:a]aformat=sample_rates=48000:channel_layouts=stereo[cd];" +
+    "[0:a]aformat=sample_rates=48000:channel_layouts=stereo[b0];" +
+    "[b0][cd]sidechaincompress=threshold=0.08:ratio=2:attack=5:release=90[b];" +
     "[b][sc]sidechaincompress=threshold=0.05:ratio=5:attack=12:release=220[duck];" +
     "[duck][v]amix=inputs=2:duration=first:normalize=0:weights=1 1.25[m];" +
     "[m]highpass=f=30,alimiter=limit=0.89:level=false,apad=pad_dur=2," +
@@ -938,9 +1030,10 @@ async function singOne(slug) {
 
   writeFileSync(`${OUT}/${slug}.words.sung.json`, JSON.stringify(sungWords, null, 2));
   writeFileSync(`${OUT}/${slug}-sung-qa.json`, JSON.stringify({
-    slug, harmony: HARMONY, engine: "spinging/lib/sing_line_world.py (round 4)",
+    slug, harmony: HARMONY, engine: "spinging/lib/sing_line_world.py (round 5)",
     goalposts: GOALPOSTS,
     gates: { werMax: WER_GATE, voicingContinuityMin: CONTINUITY_GATE },
+    consDuckSpans: consSpans.length,
     pronunciationSources: { ...sourceCounts },
     lines: qaLines,
     stemWhisper: stemLines,

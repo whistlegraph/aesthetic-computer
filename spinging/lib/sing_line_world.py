@@ -1,8 +1,36 @@
 #!/usr/bin/env python3
 """
-sing_line_world.py — spinging's line-continuous singing engine (round 4).
+sing_line_world.py — spinging's line-continuous singing engine (round 5).
 
-What round 4 adds, per jeffrey's review of round 3:
+What round 5 adds — CONSONANT TIME-STRETCHING, the way trained choirs
+handle diction (the whisper round-trip gate was failing on swallowed
+consonants, not on the singing):
+
+  R5·1 STRETCHED CONSONANTS — every onset/coda window is partitioned into
+       homogeneous runs ('pitch' = voiced frames, 'noise' = unvoiced
+       fricative-ish frames, 'raw' = plosive closure/burst). Sustainable
+       runs stretch (~2.0× noise via WORLD's noise synthesis, ~1.7× voiced
+       through the pitch path); plosive runs stay 1:1 raw composites with
+       their full-strength burst. Affricates stretch only their fricative
+       frames (the runs partition does this for free).
+  R5·2 PLOSIVE GAPS — plosive/affricate-initial words get a ~22 ms
+       pre-plosive dip (the choir's glottal set-up), carved into the final
+       render (lead AND choir) and excluded from the continuity gate.
+  R5·3 VOWELS STAY ON THE BEAT — all onsets (voiced ones included, revising
+       R4·2's on-the-beat sonorants) now END at the note's beat so the vowel
+       lands ON it; the stretch is stolen from the preceding vowel's tail
+       and bridge sustains (reserve = stretched onset + gap). Word-final
+       codas get full value, borrowing up to 50 ms past hardEnd at phrase
+       ends.
+  R5·4 CONSONANT PROMINENCE — stretched consonant frames sit +3 dB proud in
+       the spectral envelope; raw composites lift 1.4→1.5×. The self-choir
+       is gated to VOWELS ONLY (choirs unify on vowels — the lead carries
+       diction); stats expose consonant_spans so the caller can duck the
+       bed under them too.
+       QA: per-word onset_out/coda_out/gap ms + cons_stretch_scale in stats;
+       tweak knob cons_stretch_scale for clarity re-renders.
+
+Round 4 (kept), per jeffrey's review of round 3:
 
   R4·1 LEGATO BRIDGING — melody rests between words INSIDE a phrase no longer
        render as vocal silence: the previous word's vowel sustains through
@@ -98,8 +126,19 @@ from vocal_shapes import (FRAME_S, segment_notes, note_features, frame_rms_hf,
                           conformance, click_scan, hz_to_midi as vs_hz_to_midi)
 
 MAX_ONSET_S = 0.22
-MAX_VOICED_ONSET_S = 0.12   # a sung m/n/l onset ON the beat stays musical
+MAX_VOICED_ONSET_S = 0.12   # raw m/n/l onset capture cap (stretched on output)
 MAX_CODA_S = 0.26
+# R5 — consonant time-stretching (choir diction)
+NOISE_STRETCH = 2.0         # unvoiced sustainable fricatives via WORLD noise
+VOICED_STRETCH = 1.7        # nasal/liquid/voiced-fricative runs, pitch path
+STRETCH_HARD_CAP = 2.5      # no run ever stretches beyond this
+MAX_ONSET_OUT_S = 0.34      # stretched onset ceiling
+MAX_CODA_OUT_S = 0.42       # stretched coda ceiling
+PLOSIVE_GAP_S = 0.022       # pre-plosive silence (the choir's glottal set-up)
+GAP_FLOOR_AMP = 0.06        # the gap dips to this, never digital zero
+CONS_GAIN_DB = 3.0          # consonant prominence on the WORLD path
+RAW_BOOST = 1.5             # raw composite boost (plosive bursts; R4 was 1.4)
+CODA_EXTEND_S = 0.05        # word-final codas may run past hardEnd at phrase ends
 MAX_BREATH_S = 0.45
 BRIDGE_MAX_S = 0.45         # intra-phrase gaps up to this sustain legato
 BRIDGE_DIP_AMP = 0.72       # shallow energy dip at a bridged word boundary
@@ -107,7 +146,8 @@ GLIDE_SIGMA_S = 0.020
 SCOOP_S = 0.07
 SCOOP_ST = 0.8
 DRIFT_CENTS = 8.0
-VIB_HOLD_S = 0.6
+VIB_HOLD_S = 0.45   # R5: stretched codas shortened vowels — a 0.5 s hold
+                    # still wants vibrato (the QA analyzer measures it)
 VIB_ONSET_S = 0.25
 BETA_END_TAPER_S = 0.08     # contour → 0 over the last 80ms of a note
 BETA_START_TAPER_S = 0.04   # …and the first 40ms of the next
@@ -269,26 +309,52 @@ def _cluster_budget_s(phones, base=0.10, per=0.055, fric_bonus=0.08):
     return min(budget, MAX_ONSET_S + 0.06)
 
 
-def guide_onset(nuc_start, w0, expected, cls, flux, voiced, hf_ratio, rms, floor):
-    """Onset cluster window [a, nuc_start) matching the expected consonants."""
+def _cons_ish(i, cls, voiced, hf_ratio):
+    """Consonant-ish frame: consonant class, or quiet sibilance the high
+    band vouches for (quiet sibilants classify 'sil')."""
+    return (cls[i] in ("plosive", "fric", "vcons")
+            or (cls[i] == "sil" and hf_ratio[i] > 0.08))
+
+
+def guide_onset(nuc_start, w0, w0_ext, expected, cls, flux, voiced, hf_ratio,
+                rms, floor):
+    """Onset cluster window [a, b) matching the expected consonants.
+
+    R5: b can land BEFORE nuc_start — the found nucleus often under-runs the
+    real vowel start, stranding the onset cluster behind a stretch of vowel
+    frames ("store"'s /st/ sat 110 ms before its found nucleus). When no
+    consonant material touches nuc_start we SEEK back across those frames
+    first; the caller extends the nucleus left to b.
+
+    Two floors: the SEEK (which crosses vowel frames) never passes w0 — the
+    adjacent-word clamp — while the consonant walks may reach w0_ext (~100 ms
+    lower): consonants straddle whisper's boundaries, vowels must not."""
     if not expected:                       # vowel-initial → essentially no onset
         a = nuc_start
         while a > w0 and a > nuc_start - 4 and voiced[a - 1] and cls[a - 1] != "vowel":
             a -= 1
         return a, nuc_start
     budget = int(_cluster_budget_s(expected) / FRAME_S)
-    a = nuc_start
-    lim = max(w0, nuc_start - budget)
-    # walk back over consonant-ish frames (quiet sibilants classify "sil" —
-    # let the high band vouch for them)
-    while a > lim and (cls[a - 1] in ("plosive", "fric", "vcons")
-                       or (cls[a - 1] == "sil" and hf_ratio[a - 1] > 0.08)):
+    seek = nuc_start
+    if nuc_start > w0 and not _cons_ish(nuc_start - 1, cls, voiced, hf_ratio):
+        lim_seek = max(w0, nuc_start - int(0.16 / FRAME_S))
+        i = nuc_start
+        while i > lim_seek and not _cons_ish(i - 1, cls, voiced, hf_ratio):
+            i -= 1
+        if i > lim_seek:
+            seek = i
+    a = seek
+    lim = max(w0_ext, seek - budget)
+    # walk back over consonant-ish frames
+    while a > lim and _cons_ish(a - 1, cls, voiced, hf_ratio):
         a -= 1
     first = expected[0]
-    if first["cls"] in ("plosive", "affricate") and not first["voiced"]:
+    if first["cls"] in ("plosive", "affricate"):
         # anchor on the LAST burst before the vowel; include ~25ms closure
-        win_a = max(w0, nuc_start - budget - 6)
-        bursts = [i for i in range(win_a, nuc_start)
+        # (voiced plosives too — R5: they used to fall into the murmur walk
+        # below and swallow the previous vowel's tail)
+        win_a = max(w0_ext, seek - budget - 6)
+        bursts = [i for i in range(win_a, seek)
                   if cls[i] == "plosive" and flux[i] > 0]
         if bursts:
             a = min(a, max(win_a, bursts[-1] - 5))
@@ -304,29 +370,130 @@ def guide_onset(nuc_start, w0, expected, cls, flux, voiced, hf_ratio, rms, floor
         # never captures it (round 3's zero-length "mac" onset). Walk back
         # over VOICED frames while the RMS sits below the nucleus level —
         # the murmur/liquid is the quiet voiced shoulder before the vowel.
-        ref = rms[nuc_start:nuc_start + 20].max() if nuc_start + 1 < len(rms) else floor
+        ref = rms[seek:seek + 20].max() if seek + 1 < len(rms) else floor
         while a > lim and voiced[a - 1] and rms[a - 1] > floor * 0.5 \
                 and rms[a - 1] < 0.85 * max(ref, floor):
             a -= 1
-        while a < nuc_start and not voiced[a]:
+        while a < seek and not voiced[a]:
             a += 1
-    return a, nuc_start
+    return a, seek
 
 
-def guide_coda(nuc_end, w1, expected, cls, voiced, hf_ratio, rms, floor):
+def guide_coda(nuc_start, nuc_end, w1, expected, cls, voiced, hf_ratio, rms, floor):
+    """Coda cluster window [a, b) matching the expected consonants.
+
+    R5: a can land BEFORE nuc_end — the found nucleus often OVER-runs the
+    vowel and swallows the coda ("band"'s æ ate its /nd/ → "Ben"); we walk
+    BACK to the true vowel end (never deeper than the nucleus core) and the
+    caller trims the nucleus to a. The mirror case (nucleus under-run, coda
+    stranded past leftover vowel frames) seeks FORWARD instead."""
     if not expected:                       # open syllable → tiny release only
         return nuc_end, min(w1, nuc_end + int(0.04 / FRAME_S))
     budget = int(_cluster_budget_s(expected, base=0.12, per=0.06) / FRAME_S)
-    b = nuc_end
-    lim = min(w1, nuc_end + budget)
-    while b < lim and (cls[b] in ("plosive", "fric", "vcons")
-                       or (cls[b] == "sil" and hf_ratio[b] > 0.08)):
-        b += 1
+    first = expected[0]
     last = expected[-1]
+    slack = int(0.14 / FRAME_S)
+    ref = max(rms[max(0, nuc_end - 30):nuc_end + 1].max() if nuc_end > 0 else floor,
+              floor)
+    sonorant = first["cls"] in ("nasal", "approximant")
+
+    def coda_ish(i):
+        if _cons_ish(i, cls, voiced, hf_ratio):
+            return True
+        # murmur frames often classify "vowel" (low-frequency dominant):
+        # accept the quiet voiced shoulder for sonorant-led codas
+        return sonorant and voiced[i] and rms[i] < 0.85 * ref
+
+    start = nuc_end
+    floor_b = max(nuc_start + 12,
+                  nuc_end - min(budget + slack, int(0.20 / FRAME_S)))
+    while start > floor_b and coda_ish(start - 1):
+        start -= 1
+    if start == nuc_end:
+        # under-run: seek forward past leftover vowel frames
+        i = nuc_end
+        lim_seek = min(w1, nuc_end + budget + slack)
+        while i < lim_seek and not coda_ish(i):
+            i += 1
+        if i < lim_seek:
+            start = i
+    b = max(start, nuc_end)
+    lim = min(w1, b + budget)
+    while b < lim and coda_ish(b):
+        b += 1
     if last["cls"] == "fricative":
         while b < lim and not voiced[b] and hf_ratio[b] > 0.08:
             b += 1
-    return nuc_end, b
+    return start, b
+
+
+# ── R5: consonant diction plans (choir-style time-stretching) ──────────────
+
+def cons_runs(a, b, cls, voiced, hf_ratio):
+    """Partition a consonant window into homogeneous render runs:
+    'pitch' (voiced → WORLD pitch path), 'noise' (unvoiced fricative-ish →
+    WORLD noise synthesis), 'raw' (plosive closure/burst → 1:1 composite)."""
+    runs = []
+    for i in range(a, b):
+        if voiced[i]:
+            m = "pitch"
+        elif cls[i] == "fric" or (cls[i] == "sil" and hf_ratio[i] > 0.08):
+            m = "noise"
+        else:
+            m = "raw"
+        if runs and runs[-1][2] == m:
+            runs[-1][1] = i + 1
+        else:
+            runs.append([i, i + 1, m])
+    return runs
+
+
+SIBILANTS = ("s", "z", "ʃ", "ʒ", "tʃ", "dʒ", "t͡ʃ", "d͡ʒ")
+
+
+def diction_plan(a, b, expected, cls, voiced, hf_ratio, scale, cap_s,
+                 force_pitch_all=False, noise_f=None):
+    """[[src_a, src_b, out_frames, mode] …] for a consonant window.
+
+    Sustainable runs stretch like a choir lengthens diction (fricatives/
+    nasals/liquids ~1.5–2.5×); plosive runs keep raw length so bursts stay
+    bursts; the whole plan shrinks back toward raw length if it outgrows
+    cap_s (the room actually available before/after the vowel)."""
+    if b <= a:
+        return [], 0
+    exp = expected or []
+    if force_pitch_all:
+        # R4 semantics preserved: an all-sonorant cluster stays on the pitch
+        # path even where harvest missed the murmur
+        runs = [[a, b, "pitch"]]
+    else:
+        runs = cons_runs(a, b, cls, voiced, hf_ratio)
+    can_noise = any(p["cls"] in ("fricative", "affricate") for p in exp)
+    can_pitch = any(p["cls"] in ("nasal", "approximant")
+                    or (p["cls"] == "fricative" and p["voiced"]) for p in exp)
+    if noise_f is None:
+        noise_f = NOISE_STRETCH
+    plan = []
+    for ra, rb, m in runs:
+        f = 1.0
+        if m == "noise" and can_noise:
+            f = min(STRETCH_HARD_CAP, noise_f * scale)
+        elif m == "pitch" and can_pitch:
+            f = min(STRETCH_HARD_CAP, VOICED_STRETCH * scale)
+        plan.append([ra, rb, max(1, int(round((rb - ra) * f))), m])
+    raw_total = sum(p[1] - p[0] for p in plan)
+    total = sum(p[2] for p in plan)
+    cap_f = max(1, int(cap_s / FRAME_S))
+    if total > cap_f and total > raw_total:
+        # give back the excess proportionally, never below raw length
+        excess = total - max(cap_f, raw_total)
+        stretchy = [p for p in plan if p[2] > (p[1] - p[0])]
+        amt = sum(p[2] - (p[1] - p[0]) for p in stretchy) or 1
+        for p in stretchy:
+            cut = int(round(excess * (p[2] - (p[1] - p[0])) / amt))
+            p[2] = max(p[1] - p[0], p[2] - cut)
+        total = sum(p[2] for p in plan)
+    return plan, total
 
 
 # ── curve helpers ──────────────────────────────────────────────────────────
@@ -463,12 +630,43 @@ def main():
                 ps = segs[-1]
                 ps["coda"] = (ps["coda"][0], min(ps["coda"][1], nuclei[0][0]))
                 ps["w1"] = min(ps["w1"], nuclei[0][0])
+        # R5: shrink each nucleus to its longest ENERGETIC run — region
+        # merging can hide internal silence, and a held note that maps silent
+        # source frames goes dead mid-phrase ("app!"'s clipped vowel mapped
+        # 45 ms of silence across a 1 s note)
+        for ni in range(len(nuclei)):
+            a_n, b_n = nuclei[ni]
+            if b_n <= a_n:
+                continue
+            # energy relative to the region's own peak — quiet voiced tails
+            # (breathy decay) count as dead too, harvest voicing does not
+            thr_n = max(floor, 0.15 * float(rms[a_n:b_n].max()))
+            runs_v = []
+            i0 = a_n
+            for i in range(a_n, b_n + 1):
+                good = i < b_n and rms[i] > thr_n
+                if not good:
+                    if i > i0:
+                        runs_v.append((i0, i))
+                    i0 = i + 1
+            if runs_v:
+                best = max(runs_v, key=lambda r: r[1] - r[0])
+                if best[1] - best[0] >= 4 and best != (a_n, b_n):
+                    nuclei[ni] = best
         # guided onset / coda from the expected phoneme classes
         exp_onset = exp_notes[0]["phonemes"]["onset"] if exp_notes else None
         exp_coda = exp_notes[-1]["phonemes"]["coda"] if exp_notes else None
         if exp_onset is not None:
-            onset = guide_onset(nuclei[0][0], w0t, exp_onset, cls, flux, voiced,
-                                hf_ratio, rms, floor)
+            # R5: the consonant-walk floor reaches ~100 ms past the adjacent-
+            # word clamp (consonants straddle whisper's word boundaries) —
+            # but never across a PHRASE break ("keys. Sus" must not sing
+            # keys' /z/ into sus' /s/ → "kisses"); the vowel-crossing seek
+            # stays clamped at w0t either way
+            w0_ext = w0t
+            if exp_onset and not (w.get("phraseStart") and len(segs)):
+                w0_ext = max(0, w0t - int(0.10 / FRAME_S))
+            onset = guide_onset(nuclei[0][0], w0t, w0_ext, exp_onset, cls, flux,
+                                voiced, hf_ratio, rms, floor)
         else:
             onset = (w0t, nuclei[0][0])
         # R4·2: fully-voiced SONORANT/fricative onsets sing ON the note
@@ -481,14 +679,37 @@ def main():
         max_on = MAX_VOICED_ONSET_S if onset_voiced else MAX_ONSET_S
         if (onset[1] - onset[0]) * FRAME_S > max_on:
             onset = (onset[1] - int(max_on / FRAME_S), onset[1])
-        medials = [(nuclei[k][1], nuclei[k + 1][0]) for k in range(n_groups - 1)]
+        # R5: a leftward onset seek means the vowel truly starts at the
+        # onset's end — extend the first nucleus to meet it, but only across
+        # frames with real vowel ENERGY (a seek that crossed silence must
+        # not hand the note dead source frames)
+        if onset[1] < nuclei[0][0]:
+            a_n, b_n = nuclei[0]
+            gap_sl = rms[onset[1]:a_n]
+            thr_x = max(floor, 0.15 * float(rms[a_n:b_n].max())) if b_n > a_n else floor
+            if len(gap_sl) and float((gap_sl > thr_x).mean()) > 0.5:
+                nuclei[0] = (onset[1], max(b_n, onset[1] + 4))
         if exp_coda is not None:
-            coda = guide_coda(nuclei[-1][1], w1t, exp_coda, cls, voiced,
-                              hf_ratio, rms, floor)
+            coda = guide_coda(nuclei[-1][0], nuclei[-1][1], w1t, exp_coda, cls,
+                              voiced, hf_ratio, rms, floor)
         else:
             coda = (nuclei[-1][1], w1t)
         if (coda[1] - coda[0]) * FRAME_S > MAX_CODA_S:
             coda = (coda[0], coda[0] + int(MAX_CODA_S / FRAME_S))
+        # R5: coda walked back into an over-grown nucleus → trim the vowel;
+        # coda found past leftover VOICED vowel frames → the vowel extends
+        if coda[0] < nuclei[-1][1]:
+            a_n, b_n = nuclei[-1]
+            nuclei[-1] = (a_n, max(a_n + 6, coda[0]))
+        elif coda[0] > nuclei[-1][1]:
+            # extend only across frames with real vowel ENERGY — harvest
+            # voicing alone also marks near-silent breathy tails
+            a_n, b_n = nuclei[-1]
+            gap_sl = rms[b_n:coda[0]]
+            thr_x = max(floor, 0.15 * float(rms[a_n:b_n].max())) if b_n > a_n else floor
+            if len(gap_sl) and float((gap_sl > thr_x).mean()) > 0.5:
+                nuclei[-1] = (a_n, coda[0])
+        medials = [(nuclei[k][1], nuclei[k + 1][0]) for k in range(n_groups - 1)]
         coda_sonorant = bool(exp_coda) and all(
             p["cls"] in ("nasal", "approximant") for p in exp_coda)
         segs.append({"w": w, "onset": onset, "nuclei": nuclei, "medials": medials,
@@ -569,6 +790,9 @@ def main():
     note_regions = []                   # (o_a, o_b, hold_s) per sung note
     force_voiced = np.zeros(out_n, dtype=bool)  # R4·2 sung voiced consonants
     sp_gain = np.ones(out_n)            # R4·1 shallow bridge energy dips
+    cons_gain = np.ones(out_n)          # R5·4 consonant prominence (sp amp)
+    cons_mask = np.zeros(out_n, dtype=bool)  # R5 consonant frames (choir gate)
+    gap_env = np.ones(out_n)            # R5·2 pre-plosive glottal-set-up dips
     onset_marks = []                    # (onset_f, vowel_f) voiced-onset QA
     word_spans = []                     # (start_f, end_f, phraseStart) R4·1 QA
     bridges = 0
@@ -591,7 +815,72 @@ def main():
         if med is not None:
             word_med[idx] = med
 
+    cons_g = db(CONS_GAIN_DB)
+
+    def place_plan(o_end, plan, midi, med):
+        """R5·1: place a diction plan so its output ENDS at frame o_end.
+
+        Raw runs map 1:1 (integer source steps → the raw composite path picks
+        them up with true transients); stretched runs map fractionally and
+        render through WORLD (noise for unvoiced fricatives, the pitch path
+        for voiced sonorants). Returns the plan's output start frame."""
+        o = o_end - sum(p[2] for p in plan)
+        o_start = o
+        for ra, rb, out, m in plan:
+            a = max(0, o)
+            b = min(out_n, o + out)
+            if b > a:
+                idx = np.arange(a, b)
+                if m != "pitch" and out == rb - ra:
+                    src_pos[idx] = ra + (idx - o)      # 1:1 → raw composite
+                    natural[idx] = True
+                else:
+                    pos = (np.linspace(ra, max(ra, rb - 1) + 1e-6, out)
+                           if out > 1 else np.array([float(ra)]))
+                    src_pos[idx] = pos[idx - o]
+                    cons_gain[idx] = cons_g            # R5·4 prominence
+                in_word[idx] = True
+                target_midi[idx] = midi
+                word_med[idx] = med
+                cons_mask[idx] = True
+                if m == "pitch":
+                    force_voiced[idx] = True
+                    beta_taper[idx] = 0.0
+            seam[max(0, o - 1):min(out_n, o + 1)] = True
+            o += out
+        seam[max(0, o - 1):min(out_n, o + 1)] = True
+        return o_start
+
     onset_len = [(s["onset"][1] - s["onset"][0]) * FRAME_S for s in segs]
+
+    # R5·3: onset diction plans up front — the reserve a word demands from its
+    # predecessor is the STRETCHED onset (+ glottal gap), capped by the room
+    # actually available before its beat
+    stretch_scale = float(tweaks.get("cons_stretch_scale", 1.0))
+    onset_plans = []
+    for wi, s in enumerate(segs):
+        t0w = s["w"]["slots"][0]["t"]
+        if wi > 0:
+            avail = t0w - (segs[wi - 1]["w"]["slots"][-1]["t"] + 0.12)
+        else:
+            # a line-opening word may push its onset INTO the note instead
+            # (the vowel arrives late, R4-style) when there is no runway
+            avail = max(t0w - line_t0 - 0.02, MAX_VOICED_ONSET_S + 0.02)
+        exp_on = s["exp"][0]["phonemes"]["onset"] if s["exp"] else None
+        # the glottal set-up: before every plosive/affricate, and at every
+        # phrase-initial consonant (a stretched phrase-opening /s/ otherwise
+        # welds onto the previous phrase's coda — "keys. Sus" → "kisses")
+        gap_s = PLOSIVE_GAP_S if (exp_on and (
+            exp_on[0]["cls"] in ("plosive", "affricate")
+            or (wi > 0 and s["w"].get("phraseStart")))) else 0.0
+        oplan, out_f = diction_plan(
+            s["onset"][0], s["onset"][1], exp_on, cls, voiced, hf_ratio,
+            stretch_scale, min(MAX_ONSET_OUT_S, max(0.04, avail - gap_s)),
+            force_pitch_all=s["onset_voiced"])
+        onset_plans.append({"plan": oplan, "out_f": out_f,
+                            "out_s": out_f * FRAME_S,
+                            "gap_f": int(round(gap_s / FRAME_S)),
+                            "gap_s": gap_s})
 
     stats_words = []
     for wi, s in enumerate(segs):
@@ -609,8 +898,9 @@ def main():
         bridge_from = None
         if wi + 1 < len(segs):
             nxt = segs[wi + 1]
-            # voiced onsets start ON their note (no pre-beat reserve)
-            reserve = 0.0 if nxt["onset_voiced"] else onset_len[wi + 1]
+            # R5·3: every onset (voiced included) now ends AT its beat, so the
+            # reserve is the stretched onset + glottal gap
+            reserve = onset_plans[wi + 1]["out_s"] + onset_plans[wi + 1]["gap_s"]
             nxt_start = nxt["w"]["slots"][0]["t"] - reserve
             # R4·1: legato bridge — inside a phrase, sustain through the gap
             if not nxt["w"].get("phraseStart") and \
@@ -623,23 +913,54 @@ def main():
                 hard_end = min(hard_end, nxt_start - 0.01)
         hard_end = max(hard_end, slots[-1]["t"] + 0.10)
 
-        oa, ob = s["onset"]
-        if s["onset_voiced"] and ob > oa:
-            # R4·2: the note BEGINS on the voiced consonant — through the
-            # WORLD pitch path, beta-taper 0 (pure target + glide), forced
-            # voiced so it can never raw-composite at spoken pitch.
-            o_on = of(slots[0]["t"])
-            place(o_on, oa, ob, midi=slots[0]["midi"], med=med_log)
-            a_f = max(0, o_on)
-            e_f = min(out_n, o_on + (ob - oa))
-            if e_f > a_f:
-                force_voiced[a_f:e_f] = True
-                beta_taper[a_f:e_f] = 0.0
-                onset_marks.append((a_f, e_f))
-        else:
-            place(of(slots[0]["t"]) - (ob - oa), oa, ob, midi=slots[0]["midi"], med=med_log)
+        # R5·1+3: the onset plan ENDS at the beat — the vowel lands ON the
+        # note; sustained consonants borrow from the previous vowel's tail.
+        # Voiced onsets stay on the pitch path (forced voicing, beta 0, one
+        # continuous f0 into the vowel), now anticipating the beat the way a
+        # choir places sonorants early.
+        op = onset_plans[wi]
+        o_beat = of(slots[0]["t"])
+        # runway check: if the beat sits too close to the line start the plan
+        # would clip at frame 0 — push it into the note and delay the vowel
+        onset_total = sum(p[2] for p in op["plan"])
+        room = o_beat - op["gap_f"]
+        v_delay = 0.0
+        o_end_on = o_beat
+        if onset_total > room:
+            push = min(onset_total - room, int(0.14 / FRAME_S))
+            o_end_on = o_beat + push
+            v_delay = push * FRAME_S
+        s["_v_delay"] = v_delay
+        onset_start = o_end_on
+        if op["plan"]:
+            onset_start = place_plan(o_end_on, op["plan"], slots[0]["midi"], med_log)
+            if s["onset_voiced"] and o_end_on > onset_start:
+                onset_marks.append((max(0, onset_start), min(out_n, o_end_on)))
+        if op["gap_f"] > 0:
+            ga = max(0, onset_start - op["gap_f"])
+            if onset_start > ga:
+                gap_env[ga:onset_start] = GAP_FLOOR_AMP
+        s["_onset_start"] = onset_start
 
-        coda_len = (s["coda"][1] - s["coda"][0]) * FRAME_S
+        # R5·3: coda diction plan — stretched to full value, stealing time
+        # from the vowel tail; word-final codas at phrase ends may borrow up
+        # to CODA_EXTEND_S past hardEnd (bridged codas already ride the
+        # bridge into the next word's onset).
+        nxt_seg = segs[wi + 1] if wi + 1 < len(segs) else None
+        ext_s = 0.0
+        if nxt_seg is None:
+            ext_s = CODA_EXTEND_S
+        elif nxt_seg["w"].get("phraseStart") and bridge_from is None:
+            nxt_onset_t = nxt_seg["w"]["slots"][0]["t"] - \
+                (onset_plans[wi + 1]["out_s"] + onset_plans[wi + 1]["gap_s"])
+            ext_s = max(0.0, min(CODA_EXTEND_S, nxt_onset_t - hard_end - 0.06))
+        exp_coda_ph = s["exp"][-1]["phonemes"]["coda"] if s["exp"] else None
+        coda_avail = (hard_end + ext_s) - (slots[-1]["t"] + 0.06)
+        cp_plan, cp_out_f = diction_plan(
+            s["coda"][0], s["coda"][1], exp_coda_ph, cls, voiced, hf_ratio,
+            stretch_scale, min(MAX_CODA_OUT_S, max(0.04, coda_avail)),
+            force_pitch_all=s["coda_sonorant"])
+        coda_len = cp_out_f * FRAME_S - ext_s   # what the vowel tail gives up
         ngroups = len(s["nuclei"])
         for k in range(n_slots):
             grp = s["nucleus_slot"][k] if k < len(s["nucleus_slot"]) else min(k, ngroups - 1)
@@ -652,9 +973,9 @@ def main():
                 span = nb - na
                 na = na + (span * pos_in) // len(melmates)
                 nb = s["nuclei"][min(grp, ngroups - 1)][0] + (span * (pos_in + 1)) // len(melmates)
-            v_start = slots[k]["t"]
-            if k == 0 and s["onset_voiced"]:
-                v_start += onset_len[wi]    # vowel follows the sung consonant
+            # R5·3: the vowel owns the beat (late only when the line opened
+            # with no onset runway)
+            v_start = slots[k]["t"] + (s["_v_delay"] if k == 0 else 0.0)
             if k + 1 < n_slots:
                 same_group = (s["nucleus_slot"][k + 1] if k + 1 < len(s["nucleus_slot"]) else -1) == grp
                 if same_group:
@@ -706,7 +1027,7 @@ def main():
                 # voiced onsets carry the natural→plateau glide from the
                 # consonant itself so f0 is one continuous path into the vowel
                 if k == 0 and s["onset_voiced"]:
-                    glide_pending.append((max(0, of(slots[0]["t"])), na))
+                    glide_pending.append((max(0, s["_onset_start"]), na))
                 else:
                     glide_pending.append((o_a, na))
             # vibrato + airy sustain on true holds (angelic)
@@ -727,14 +1048,13 @@ def main():
                         place(o_b, mb - min(mb - ma, mlen), mb,
                               midi=slots[k + 1]["midi"], med=med_log)
 
-        ca, cb = s["coda"]
-        if cb > ca:
-            o_c = of(hard_end) - (cb - ca)
-            place(o_c, ca, cb, midi=slots[-1]["midi"], med=med_log)
-            seam[max(0, o_c):min(out_n, o_c + 2)] = True
-            if s["coda_sonorant"]:
-                # R4·2: sung nasal/liquid codas stay on the pitch path too
-                force_voiced[max(0, o_c):min(out_n, o_c + (cb - ca))] = True
+        # R5·1: the coda plan ENDS at hardEnd (+ its phrase-end extension) —
+        # stretched sonorant/fricative codas articulate at full value, sung
+        # nasal/liquid codas stay on the pitch path (place_plan forces them).
+        coda_end_f = of(hard_end)
+        if cp_plan:
+            coda_end_f = of(hard_end + ext_s)
+            place_plan(coda_end_f, cp_plan, slots[-1]["midi"], med_log)
 
         # R4·1: shallow energy dip over the bridged gap articulates the word
         # boundary without breaking voicing (applied to sp — lead AND choir)
@@ -747,8 +1067,8 @@ def main():
                 sp_gain[da_f:db_f] = np.minimum(sp_gain[da_f:db_f], dip)
 
         word_spans.append((
-            max(0, of(slots[0]["t"]) - (0 if s["onset_voiced"] else (ob - oa))),
-            min(out_n, of(hard_end)),
+            max(0, s["_onset_start"] - op["gap_f"]),
+            min(out_n, coda_end_f),
             bool(w.get("phraseStart")),
         ))
 
@@ -758,10 +1078,9 @@ def main():
             if gb > ga + 4 and rms[ga:gb].mean() > floor * 0.6:
                 blen = min(gb - ga, int(MAX_BREATH_S / FRAME_S))
                 nxt_on = of(segs[wi + 1]["w"]["slots"][0]["t"]) - \
-                    (0 if segs[wi + 1]["onset_voiced"]
-                     else int(onset_len[wi + 1] / FRAME_S))
+                    onset_plans[wi + 1]["out_f"] - onset_plans[wi + 1]["gap_f"]
                 ba = nxt_on - blen - 4
-                if ba > of(hard_end) + 2:
+                if ba > coda_end_f + 2:
                     place(ba, gb - blen, gb)
         stats_words.append({
             "word": w["w"], "targets": [sl["midi"] for sl in slots],
@@ -769,7 +1088,10 @@ def main():
             "shift_st": None if detected is None else
                 round(float(np.mean([sl["midi"] for sl in slots])) - detected, 2),
             "onset_ms": round(onset_len[wi] * 1000),
-            "coda_ms": round(coda_len * 1000),
+            "onset_out_ms": round(op["out_s"] * 1000),
+            "gap_ms": round(op["gap_s"] * 1000),
+            "coda_ms": round((s["coda"][1] - s["coda"][0]) * FRAME_S * 1000),
+            "coda_out_ms": round(cp_out_f * FRAME_S * 1000),
             "nuclei": len(s["nuclei"]), "sung": s["sung"],
             "onset_voiced": s["onset_voiced"],
             "bridged": bridge_from is not None,
@@ -888,6 +1210,8 @@ def main():
     ap_out[mapped] = np.clip(w0f * ap[i0[mapped]] + w1f * ap[i1[mapped]], 0.0, 1.0)
     # R4·1: bridged-gap energy dips (power spectrum → amplitude² scaling)
     sp_out *= (sp_gain ** 2)[:, None]
+    # R5·4: consonant prominence — stretched consonant frames sit proud
+    sp_out *= (cons_gain ** 2)[:, None]
 
     # angelic air: breath on every sung vowel, more on sustains. WORLD's noise
     # excitation is scaled by the spectral envelope, so real air needs an HF
@@ -970,10 +1294,10 @@ def main():
             sa = int(round(src_pos[i])) * hop
             sb = sa + (ob - oa)
             if sb <= len(x) and ob <= len(y):
-                # R4: articulate — the vowel leveling (arc conformance) lifts
-                # sung vowels well above the raw spoken consonants; boost the
-                # composite so plosive bursts and sibilants stay legible.
-                seg = x[sa:sb] * 1.4
+                # R4/R5: articulate — the vowel leveling (arc conformance)
+                # lifts sung vowels well above the raw spoken consonants;
+                # boost the composite so plosive bursts stay legible.
+                seg = x[sa:sb] * RAW_BOOST
                 L = ob - oa
                 r = min(ramp, L // 2)
                 if r > 1:
@@ -1010,27 +1334,52 @@ def main():
 
     # ── C6: quiet self-choir under the lead ────────────────────────────────
     if plan.get("choir", True):
+        # R5·4: each layer sits 1.5 dB lower than round 4 — with the vowel
+        # gate this keeps the halo but stops it drowning the lead's diction
         layers = [
-            {"ratio": 1.0, "cents": +9.0, "ms": 12, "db": -10.0},
-            {"ratio": 1.0, "cents": -12.0, "ms": 19, "db": -10.5},
-            {"ratio": 2.0, "cents": -8.0, "ms": 15, "db": -11.0},
-            {"ratio": 1.5, "cents": +10.0, "ms": 22, "db": -13.0},
+            {"ratio": 1.0, "cents": +9.0, "ms": 12, "db": -11.5},
+            {"ratio": 1.0, "cents": -12.0, "ms": 19, "db": -12.0},
+            {"ratio": 2.0, "cents": -8.0, "ms": 15, "db": -12.5},
+            {"ratio": 1.5, "cents": +10.0, "ms": 22, "db": -14.5},
         ]
         ap_choir = ap_out.copy()
         nbins = ap_choir.shape[1]
         k3 = int(nbins * 3000.0 / (fs / 2.0))
         ap_choir[:, k3:] = np.clip(ap_choir[:, k3:] + (1 - ap_choir[:, k3:]) * 0.2, 0, 1)
+        # R5·4: the choir sings VOWELS ONLY — consonant frames and glottal
+        # gaps belong to the lead alone (a unison bed right on top of the
+        # diction is what masked it); ~20 ms hann edges keep it clickless.
+        choir_gain = np.ones(out_n)
+        choir_gain[cons_mask] = 0.0
+        choir_gain[gap_env < 0.999] = 0.0
+        ck = np.hanning(9)
+        ck /= ck.sum()
+        choir_gain = np.convolve(np.pad(choir_gain, (4, 4), mode="edge"), ck, mode="valid")
+        hop_ch = int(round(fs * FRAME_S))
         for lay in layers:
             f0_c = f0_out * lay["ratio"] * (2.0 ** (lay["cents"] / 1200.0))
             yc = pw.synthesize(np.ascontiguousarray(f0_c),
                                np.ascontiguousarray(sp_out),
                                np.ascontiguousarray(ap_choir), fs,
                                frame_period=FRAME_S * 1000.0)
+            yc *= np.interp(np.arange(len(yc)) / hop_ch,
+                            np.arange(out_n), choir_gain)
             off = int(lay["ms"] * fs / 1000.0)
             g = db(lay["db"])
             L = min(len(y), len(yc) - 0) - off
             if L > 0:
                 y[off:off + L] += g * yc[:L]
+
+    # R5·2: carve the pre-plosive glottal set-up into the final render (lead
+    # AND choir) — a short, near-silent breath before every plosive burst
+    if (gap_env < 0.999).any():
+        gk = np.hanning(5)
+        gk /= gk.sum()
+        ge = np.convolve(np.pad(gap_env, (2, 2), mode="edge"), gk, mode="valid")
+        hop_g = int(round(fs * FRAME_S))
+        gs = np.interp(np.arange(len(y)) / hop_g, np.arange(out_n), ge)
+        y *= gs
+        y_lead *= gs[:len(y_lead)]
 
     # R4·1 QA: intra-phrase voicing continuity — % of frames inside each
     # phrase span that carry real vocal energy on the FINAL render
@@ -1049,11 +1398,17 @@ def main():
     for a_f, e_f in phrases:
         in_span[max(0, a_f):min(n_env_c, e_f)] = True
     thr_c = 0.05 * (float(np.percentile(env_c[in_span], 95)) if in_span.any() else 0.0)
+    # R5·2: deliberate consonant articulation — glottal set-up gaps, stretched
+    # closures, unvoiced fricatives — is not broken voicing; the continuity
+    # gate watches the VOWEL/bridge stream only
+    gap_f_mask = gap_env < 0.999
+    art_mask = gap_f_mask | cons_mask
     cont = []
     for a_f, e_f in phrases:
-        seg_e = env_c[max(0, a_f):min(n_env_c, e_f)]
-        if len(seg_e):
-            cont.append(float((seg_e > thr_c).mean()))
+        seg_idx = np.arange(max(0, a_f), min(n_env_c, e_f))
+        seg_idx = seg_idx[~art_mask[np.clip(seg_idx, 0, out_n - 1)]]
+        if len(seg_idx):
+            cont.append(float((env_c[seg_idx] > thr_c).mean()))
     continuity = {
         "per_phrase": [round(c, 3) for c in cont],
         "min": round(min(cont), 3) if cont else None,
@@ -1075,6 +1430,19 @@ def main():
         fl = 0.05 * np.percentile(rms_r, 95)
         f0r = np.where(rms_r > fl, f0r, 0.0)
         notes_r = segment_notes(f0r, min_dur_s=0.12)
+        # R5: the goalposts describe VOWEL notes — trim each note's leading
+        # stretched-consonant frames (a 100 ms murmur ramp is deliberate
+        # diction, not a slow vowel attack), then drop notes that are still
+        # mostly consonant material
+        trimmed = []
+        for a, b in notes_r:
+            a2 = a
+            while a2 < min(b, out_n) and cons_mask[a2]:
+                a2 += 1
+            if (b - a2) * FRAME_S >= 0.12:
+                trimmed.append((a2, b))
+        notes_r = [(a, b) for a, b in (trimmed or notes_r)
+                   if a >= out_n or cons_mask[a:min(b, out_n)].mean() < 0.5]
         feats_r = [note_features(f0r, rms_r, hf_r, a, b) for a, b in notes_r]
         conf = conformance(feats_r, bands)
         conf["_notes_measured"] = len(feats_r)
@@ -1093,12 +1461,29 @@ def main():
         clicks["spike_s"] = real
         clicks["positions_s"] = clicks["click_s"] + real
 
+    # R5·4: consonant spans (line-relative seconds) — the caller ducks the
+    # bed under these so the diction isn't masked by the jingle either
+    cons_spans = []
+    marked = cons_mask | gap_f_mask
+    ii = 0
+    while ii < out_n:
+        if marked[ii]:
+            jj = ii
+            while jj < out_n and marked[jj]:
+                jj += 1
+            cons_spans.append([round(ii * FRAME_S, 3), round(jj * FRAME_S, 3)])
+            ii = jj
+        else:
+            ii += 1
+
     j = np.abs(np.diff(np.log(np.where(f0_out > 0, f0_out, np.nan)))) * 1200 / np.log(2)
     j = j[~np.isnan(j)]
     print(json.dumps({
         "words": stats_words,
         "line_transpose": line_transpose,
         "beta": round(beta, 4), "harmony": harmony,
+        "cons_stretch_scale": stretch_scale,
+        "consonant_spans": cons_spans,
         "f0_jump_max_cents": round(float(j.max()), 1) if len(j) else 0,
         "f0_jump_p95_cents": round(float(np.percentile(j, 95)), 1) if len(j) else 0,
         "voicing_continuity": continuity,

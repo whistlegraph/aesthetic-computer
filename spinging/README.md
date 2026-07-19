@@ -61,7 +61,7 @@ map, the door, and — where a module is clean enough — the home.
 | realign-from-whisper.mjs | pop/bin | retime visuals from whisper on the final mix | in place (big-pictures) |
 | identify-speaker.py | pop/bin | resemblyzer speaker-similarity windows | in place |
 
-### The sing core (round 4 — lives IN spinging/lib)
+### The sing core (round 5 — lives IN spinging/lib)
 
 | Module | Role | Spinging surface |
 |---|---|---|
@@ -73,7 +73,7 @@ map, the door, and — where a module is clean enough — the home.
 | vocal_bus.py | Schroeder reverb halo on the vocal bus; standalone click scan | `spinging bus reverb\|scan` |
 
 First caller: `pop/menuband/bin/sing-jingle.mjs` (`--harmony` 0…1 = contour
-lock; rounds 3–4 ship at 0.875). The engine re-renders each line with
+lock; rounds 3–5 ship at 0.875). The engine re-renders each line with
 adjusted tweaks until its measured features sit inside the reference p10–p90
 bands and the click scan is clean, then a WHISPER ROUND-TRIP gate transcribes
 the rendered line back (per-line WER ≤ 0.25 + all content words, clarity
@@ -81,6 +81,58 @@ re-renders on failure, best take kept); the assembled vocal stem is
 re-transcribed per line and the final mix once more — transcripts land
 verbatim in `out/<slug>-sung-qa.json`. QA is statistical AND machine-read,
 not ear-only.
+
+Changelog — round 5 (2026-07, the DICTION round — consonant time-stretching
+the way trained choirs handle it; round 4's whisper gate was failing on
+swallowed consonants, not on the singing):
+- **Consonant time-stretching** — every onset/coda window partitions into
+  homogeneous runs: 'pitch' (voiced → WORLD pitch path, ~1.7×), 'noise'
+  (unvoiced fricative-ish → WORLD noise synthesis, ~2.0×), 'raw' (plosive
+  closure/burst → 1:1 composite, now 1.5×, never stretched). Affricates
+  stretch only their fricative frames for free via the runs partition. New
+  tweak knob `cons_stretch_scale` (clarity re-renders lean it to 1.3, engine
+  hard-caps 2.5×).
+- **Glottal set-up gaps** — ~22 ms pre-plosive dips before every plosive/
+  affricate onset AND at phrase-initial consonants (a stretched phrase-
+  opening /s/ otherwise welds onto the previous coda — "keys. Sus" →
+  "kisses"); carved into lead + choir, excluded from the continuity gate.
+- **Vowels own the beat** — ALL onsets (voiced included, revising R4·2) end
+  AT the note's beat; stretch is stolen from preceding vowel tails and
+  bridge sustains (reserve = stretched onset + gap). Word-final codas take
+  full value, borrowing up to 50 ms past hardEnd at phrase ends. Line-
+  opening words with no runway push into the note (vowel late, R4-style).
+- **Guided alignment, symmetric seeks** — the found nucleus often misses the
+  real vowel edges: guide_onset now SEEKS back across the word's own under-
+  found vowel frames ("store"'s /st/ sat 110 ms before its nucleus),
+  guide_coda walks BACK out of over-grown nuclei ("band"'s æ ate its /nd/ →
+  "Ben") and seeks FORWARD past leftover vowel frames; nuclei re-trim/extend
+  to match, gated on real vowel ENERGY (harvest voicing alone also marks
+  near-silent breathy tails — mapping those across a held note went dead
+  mid-phrase). Voiced plosives anchor on their burst (the murmur walk used
+  to swallow the previous vowel's tail). Nuclei shrink to their longest
+  energetic run (merged regions can hide internal silence).
+- **Choir gated to vowels** — the self-choir tacets on consonant frames and
+  glottal gaps (choirs unify on vowels; the LEAD carries diction) and each
+  layer sits 1.5 dB lower; consonant frames get +3 dB spectral prominence;
+  stats expose `consonant_spans` and sing-jingle drives an extra ~5 dB bed
+  duck under them (the level sidechain ducks least exactly when the lead is
+  quietest — its consonants). De-esser eased 0.4 → 0.15 so stretched
+  sibilants survive the vocal bus.
+- **Deterministic best-take** — every render (QA passes and clarity passes)
+  is whisper-transcribed; the best take wins, conformance FIRST (the
+  goalposts arbitrate — musicality before WER), then WER. Conformance QA
+  measures VOWEL notes only (leading stretched-murmur frames trimmed,
+  consonant-dominated notes dropped); vibrato hold threshold 0.6 → 0.45 s
+  (stretched codas shortened vowels). WER scorer gains `rewedge` (whisper's
+  "full-screen" vs ref "fullscreen") and a per-line LEAD-ONLY diagnostic
+  transcript separates diction gains from choir masking.
+- Result: 6/19 lines pass the whisper render gate (round 4: 4/19; chords
+  "Command option. Sus two." and features "Goes fullscreen." land at WER 0),
+  no round-4 pass regressed, all hard gates green (conformance, continuity
+  ≥ 0.95 vowel-stream, clicks 0, onset jumps ≤ 27¢, −14 LUFS / ≤ −1.4 dBTP).
+  Missing-content-word counts drop broadly (announce L5 recovers "menu
+  band", L4 recovers "now"+"mac"); melisma lines remain whisper-hostile and
+  ship with FAIL marks recorded honestly.
 
 Changelog — round 4 (2026-07, per jeffrey's round-3 review):
 - **Legato bridging** ("some words are too disconnected") — notation.mjs owns
