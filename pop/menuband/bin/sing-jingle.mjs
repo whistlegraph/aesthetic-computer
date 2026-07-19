@@ -1,6 +1,30 @@
 #!/usr/bin/env node
 // sing-jingle.mjs — jeffrey SINGS the Menu Band campaign jingles.
 //
+// v6 — the REGISTER round + the SCALES teaching singalong:
+//   · REGISTER — `--register <semitones>` (default +12) lifts every line
+//     that many semitones ABOVE the engine's minimal-|shift| octave fit
+//     (jeffrey: "I could be higher octave?"). The formant envelope is never
+//     touched (no kermit by construction) and the goalpost conformance is
+//     register-aware (f0-linked bands widen/shift with the lift; duration/
+//     energy/click gates unchanged). Per-line FALLBACK LADDER: if a line
+//     fails the WER gate at the asked register it re-renders at +7 then 0
+//     and the most intelligible take wins (ties prefer the higher register);
+//     fallbacks are reported per line.
+//   · SCALES (menuband-scales) — a spoken frame around a sung two-octave
+//     notepat letter ladder (c d e f g a b h i j k l m n up, back down;
+//     h..n = notepat's second octave). Spoken lines are placed verbatim
+//     (natural TTS, unpitched, level-matched to the sung lines) with
+//     whisper word timings for captions; the ladder is explicit-mode with
+//     absolute pitches C3..B4 (register 0, octave_opt off — the ladder IS
+//     the register) and letter-name lyrics ("see dee ee …") for curated
+//     IPA. WER scoring letter-folds both sides so "C-D-E" == "see dee ee".
+//   · Engine fixes this round (spinging/lib/sing_line_world.py R6·2-4):
+//     final unstressed syllables stop starving ("diminished" → "deman"),
+//     real ~100 ms phrase-boundary silence before phrase-initial fricatives
+//     ("keys. Sus" → "kisses"), phrase-medial onset bursts sit prouder
+//     ("control" → "Troll").
+//
 // v5 — the DICTION round: consonant time-stretching the way trained choirs
 // handle it (round 4's whisper gate was failing on swallowed consonants):
 //   · STRETCHED CONSONANTS — the engine (spinging/lib/sing_line_world.py)
@@ -102,6 +126,12 @@ const SR = 48_000;
 // Round 3 defaults to a ~0.875 lock — "drift more into the perfect harmony".
 const hIdx = process.argv.indexOf("--harmony");
 const HARMONY = hIdx > 0 ? parseFloat(process.argv[hIdx + 1]) : 0.875;
+// --register: semitones ABOVE the minimal-shift octave fit (v6 default +12 —
+// "I could be higher octave?"). Lines that fail the WER gate up there fall
+// back down the ladder (+7, then 0) and the best take wins.
+const rIdx = process.argv.indexOf("--register");
+const REGISTER = rIdx > 0 ? parseInt(process.argv[rIdx + 1], 10) : 12;
+const REGISTER_FALLBACKS = [7, 0];
 const QA_PASSES = 3;         // re-render budget per line (percentile gate)
 const CLARITY_PASSES = 2;    // extra re-renders if the whisper WER gate fails
 const BRIDGE_MAX_S = 0.45;   // keep in sync with sing_line_world.BRIDGE_MAX_S
@@ -183,7 +213,28 @@ const LYRICS = {
                 ["keys", [[18.8, 1.6, 48]]]] },
     ],
   },
+  // v6 — the SCALES teaching singalong. A spoken frame around the notepat
+  // two-octave letter ladder; timings + pitches come from the shared
+  // menuband-scales.score.json sidecar (render-jingles.mjs), so buildLines
+  // assembles the words there. `register: 0` — the ladder places its own
+  // absolute pitches (C3..B4, bright top, unstrained); octave_opt off.
+  "menuband-scales": {
+    mode: "scales", register: 0,
+    intro: "Here's how to type out the C scale.",
+    run: "C, D, E, F, G, A, B. Now sing it!",
+    asc: "C. D. E. F. G. A. B. H. I. J. K. L. M. N.",
+    desc: "M, L, K, J, I, H, B, A, G, F, E, D, C!",
+    outro: "Wanna type it yourself? Try Menu Band.",
+  },
 };
+
+// notepat letter → letter-NAME word (the lyric the ladder is sung on —
+// real dictionary words so pronounce.mjs serves curated GenAm IPA).
+const LETTER_WORDS = {
+  a: "ay", b: "bee", c: "see", d: "dee", e: "ee", f: "eff", g: "gee",
+  h: "aitch", i: "eye", j: "jay", k: "kay", l: "ell", m: "em", n: "en",
+};
+const LETTER_NAME_SET = new Set(Object.values(LETTER_WORDS));
 
 // ── helpers ────────────────────────────────────────────────────────────────
 // Percentile-gate feedback: nudge the engine's tweak knobs toward the
@@ -357,6 +408,9 @@ const HOMOPHONES = {
   won: "one", banned: "band", cord: "chord", cords: "chords", suss: "sus",
   knew: "new", oar: "or", ore: "or", write: "right", rite: "right",
 };
+// casual contractions whisper expands ("wanna" → "want to") — canonicalize
+// BOTH sides to the expansion so the outro CTA scores verbatim
+const CONTRACTIONS = { wanna: ["want", "to"], gonna: ["going", "to"], gotta: ["got", "to"] };
 function normTokens(text) {
   const rough = String(text).toLowerCase()
     .replace(/[’‘]/g, "'")
@@ -366,9 +420,24 @@ function normTokens(text) {
   const out = [];
   for (const w of rough) {
     if (/^\d+$/.test(w)) out.push(...numberToWords(parseInt(w, 10)));
+    else if (CONTRACTIONS[w]) out.push(...CONTRACTIONS[w]);
     else out.push(w.replace(/'/g, ""));
   }
   return out.map((w) => HOMOPHONES[w] || w);
+}
+
+// v6 letter folding (the scales ladder): "C-D-E" and "see dee ee" must score
+// as the same thing. Single tokens a–n become their letter names; welded
+// letter runs ("cde") split first. Only applied on lettered lines.
+function letterFoldTokens(toks) {
+  const out = [];
+  for (const t of toks) {
+    if (/^[a-n]$/.test(t)) out.push(LETTER_WORDS[t]);
+    else if (/^[a-n]{2,}$/.test(t) && !LETTER_NAME_SET.has(t) && !HOMOPHONES[t])
+      out.push(...t.split("").map((c) => LETTER_WORDS[c]));
+    else out.push(t);
+  }
+  return out;
 }
 const tokEq = (a, b) =>
   a === b || (a.length >= 3 && b.length >= 3 && editDist(a, b) <= 1);
@@ -425,9 +494,11 @@ function werScore(refToks, hypToks) {
   }
   return m ? prev[n] / m : 0;
 }
-function evalWER(refText, hypText) {
-  const ref = normTokens(refText);
-  const hyp = dewedge(ref, rewedge(ref, normTokens(hypText)));
+function evalWER(refText, hypText, { lettered = false } = {}) {
+  let ref = normTokens(refText);
+  let hypRaw = normTokens(hypText);
+  if (lettered) { ref = letterFoldTokens(ref); hypRaw = letterFoldTokens(hypRaw); }
+  const hyp = dewedge(ref, rewedge(ref, hypRaw));
   const wer = +werScore(ref, hyp).toFixed(3);
   const missing = ref.filter((w) =>
     w.length >= 3 && !STOPWORDS.has(w) && !hyp.some((h) => tokEq(w, h)));
@@ -500,6 +571,30 @@ function presplitHeard(scoreWords, heard) {
         if (sn === hn || editDist(sn, hn) <= 2 || (sn.length >= 3 && hn.startsWith(sn))) i++;
       }
     }
+  }
+  return out;
+}
+
+// v6 (scales): before alignment, fold whisper's heard letters onto the
+// spelled letter-name score words — "C" → "see", and welded runs ("CDE",
+// or dashes normed away: "c-d-e" → "cde") split char-proportionally into
+// one window per letter. Only for lettered lines.
+function letterizeHeard(heard) {
+  const out = [];
+  for (const h of heard) {
+    const t = norm(h.text);
+    if (/^[a-n]$/.test(t)) { out.push({ ...h, text: LETTER_WORDS[t] }); continue; }
+    if (/^[a-n]{2,}$/.test(t) && !LETTER_NAME_SET.has(t)) {
+      const span = h.toMs - h.fromMs;
+      let t0 = h.fromMs;
+      for (let c = 0; c < t.length; c++) {
+        const w = span / t.length;
+        out.push({ text: LETTER_WORDS[t[c]], fromMs: Math.round(t0), toMs: Math.round(t0 + w) });
+        t0 += w;
+      }
+      continue;
+    }
+    out.push(h);
   }
   return out;
 }
@@ -651,6 +746,30 @@ function buildLines(slug) {
       });
       lines.push({ tts: line.tts, words });
     }
+  } else if (spec.mode === "scales") {
+    // spoken frame + the sung letter ladder, all timed by the shared
+    // score sidecar (render-jingles.mjs writes it; sim-scales reads it too)
+    const sc = JSON.parse(readFileSync(`${OUT}/${slug}.score.json`, "utf8"));
+    const asc = sc.ladder.filter((n) => n.dir === "up");
+    const desc = sc.ladder.filter((n) => n.dir === "down");
+    // notationText: the spelled letter names WITH commas — notation.mjs
+    // matches its tokens to the lyric words, so every letter becomes its own
+    // phrase and the engine ARTICULATES the ladder (tiny onset gaps, no
+    // melisma blur) instead of welding 14 letters into one glissando.
+    const sungLine = (tts, notes) => ({
+      tts, lettered: true,
+      notationText: notes.map((n) => LETTER_WORDS[n.letter]).join(", ") + ".",
+      words: notes.map((n) => ({
+        w: LETTER_WORDS[n.letter], display: n.letter,
+        slots: [{ t: n.t, dur: n.dur, midi: n.vocal }],
+      })),
+    });
+    lines.push({ tts: spec.intro, spoken: true, t: sc.spoken.intro.t, words: [] });
+    // lettered: the run's welded "C-D-E-F-G-A-B" caption splits into letters
+    lines.push({ tts: spec.run, spoken: true, lettered: true, t: sc.spoken.run.t, words: [] });
+    lines.push(sungLine(spec.asc, asc));
+    lines.push(sungLine(spec.desc, desc));
+    lines.push({ tts: spec.outro, spoken: true, t: sc.spoken.outro.t, words: [] });
   } else {
     for (const line of spec.lines) {
       lines.push({
@@ -659,13 +778,19 @@ function buildLines(slug) {
       });
     }
   }
-  return { lines, durationSec: score.durationSec };
+  return { lines, durationSec: score.durationSec, spec };
 }
 
 // ── main ───────────────────────────────────────────────────────────────────
 async function singOne(slug) {
   console.log(`\n▸ ${slug} — jeffrey sings (line-continuous WORLD)`);
-  const { lines, durationSec } = buildLines(slug);
+  const { lines, durationSec, spec } = buildLines(slug);
+  // v6: register ladder — the asked lift first, then the kermit/strain
+  // fallbacks; a line stops falling as soon as it passes the WER gate.
+  const specRegister = spec.register ?? REGISTER;
+  const regLadder = [specRegister, ...REGISTER_FALLBACKS.filter((r) => r < specRegister)];
+  const OCT_OPT = spec.mode !== "scales";   // the ladder places its own pitches
+  console.log(`  register +${specRegister} (fallback ladder ${regLadder.join(" → ")})`);
   const dir = `${OUT}/sung/${slug}`;
   mkdirSync(`${dir}/words`, { recursive: true });
   if (!existsSync(WHISPER_MODEL)) throw new Error(`whisper model missing: ${WHISPER_MODEL}`);
@@ -677,6 +802,8 @@ async function singOne(slug) {
   const qaLines = [];
   const lineSpans = [];   // absolute spans for the per-line stem re-transcribe
   const consSpans = [];   // v5: absolute consonant spans → extra bed duck
+  const spokenPlacements = [];  // v6: spoken lines placed after level match
+  const regFallbacks = [];      // v6: per-line register fallbacks (reported)
   if (!existsSync(GOALPOSTS)) {
     throw new Error(`goalposts missing: ${GOALPOSTS} — build with spinging goalposts`);
   }
@@ -690,6 +817,63 @@ async function singOne(slug) {
     const hash = createHash("sha1").update(line.tts).digest("hex").slice(0, 8);
     const mp3 = `${dir}/line-${li}-${hash}.mp3`;
     await ttsLine(line.tts, mp3);
+
+    // ── v6 spoken lines (the scales frame): natural TTS placed verbatim at
+    // its absolute time — no engine, no pitch; whisper word timings become
+    // the caption windows and the transcript must be essentially verbatim ──
+    if (line.spoken) {
+      const w16s = mp3.replace(/\.mp3$/, "-16k.wav");
+      if (!existsSync(w16s)) {
+        sh("ffmpeg", ["-y", "-v", "error", "-i", mp3, "-ac", "1", "-ar", "16000", w16s]);
+      }
+      const wjs = mp3.replace(/\.mp3$/, "-words");
+      if (!existsSync(`${wjs}.json`)) {
+        sh("whisper-cli", ["-m", WHISPER_MODEL, "-f", w16s, "-ml", "1", "-oj", "-ojf", "-of", wjs],
+          { stdio: ["ignore", "ignore", "pipe"] });
+      }
+      const heard = wordsFromWhisper(`${wjs}.json`);
+      const { audio: spokenAudio } = decodeAudioMono(mp3, SR);
+      spokenPlacements.push({ audio: spokenAudio, at: Math.floor(line.t * SR) });
+      // caption words: strip trailing commas/periods; a lettered spoken line
+      // (the "C, D, E…" run) splits welded letter runs into single capitals
+      let capWords = heard;
+      if (line.lettered) {
+        capWords = [];
+        for (const h of heard) {
+          const tN = norm(h.text);
+          if (/^[a-n]{2,}$/.test(tN) && !LETTER_NAME_SET.has(tN)) {
+            const span = (h.toMs - h.fromMs) / tN.length;
+            let t0 = h.fromMs;
+            for (const c of tN) {
+              capWords.push({ text: c.toUpperCase(), fromMs: Math.round(t0), toMs: Math.round(t0 + span) });
+              t0 += span;
+            }
+          } else if (/^[a-n]$/.test(tN)) capWords.push({ ...h, text: tN.toUpperCase() });
+          else capWords.push(h);
+        }
+      }
+      for (const h of capWords) {
+        const text = h.text.replace(/[.,;:]+$/, "");
+        if (!text) continue;
+        sungWords.push({
+          text, fromMs: Math.round(line.t * 1000 + h.fromMs),
+          toMs: Math.round(line.t * 1000 + h.toMs), line: li, spoken: true,
+        });
+      }
+      const tx = whisperTranscribe(mp3);
+      const wr = evalWER(line.tts, tx, { lettered: !!line.lettered });
+      console.log(`  line ${li} (spoken): "${line.tts}" → heard "${tx}" · WER ${wr.wer} ${wr.pass ? "✓" : "✗"}`);
+      qaLines.push({
+        line: li, text: line.tts, spoken: true,
+        whisper: { transcript: tx, wer: wr.wer, missing: wr.missing, pass: wr.pass },
+      });
+      lineSpans.push({
+        li, text: line.tts, lettered: !!line.lettered, spoken: true,
+        t0: Math.max(0, line.t - 0.1),
+        t1: Math.min(durationSec, line.t + spokenAudio.length / SR + 0.15),
+      });
+      continue;
+    }
 
     // 16k mono for whisper (unpadded — trailing silence makes whisper smear
     // word timestamps into it; repairWindows handles the zero-width final
@@ -710,8 +894,10 @@ async function singOne(slug) {
     const { audio: lineAudio } = decodeAudioMono(mp3, SR);
     const lineLen = lineAudio.length / SR;
     const mapWords = line.words.map((w) => w.w);
+    let heardRaw = expandDigitWords(wordsFromWhisper(`${wj}.json`));
+    if (line.lettered) heardRaw = letterizeHeard(heardRaw);   // v6 scales
     const heard = presplitHeard(mapWords,
-      rescaleHeard(expandDigitWords(wordsFromWhisper(`${wj}.json`)), lineAudio, lineLen * 1000));
+      rescaleHeard(heardRaw, lineAudio, lineLen * 1000));
     const windows = repairWindows(alignWords(mapWords, heard), lineLen * 1000, lineAudio);
 
     console.log(`  line ${li}: "${line.tts}" · whisper heard "${heard.map((h) => h.text).join(" ")}"`);
@@ -720,7 +906,7 @@ async function singOne(slug) {
     // punctuation + melody rests ≥ 0.4 s; the engine bridges legato inside a
     // phrase and breathes only at its edges). Phonemes from curated US IPA.
     const score = await buildLineScore({
-      text: line.tts,
+      text: line.notationText ?? line.tts,   // v6: scales phrases per letter
       words: line.words.map((w) => ({ w: w.w, slots: w.slots })),
     });
     const scorePath = `${dir}/words/line-${li}-score.json`;
@@ -763,7 +949,8 @@ async function singOne(slug) {
         slots, hardEnd: +tEnd.toFixed(4), phraseStart: phraseStartOf[wi],
       });
       sungWords.push({
-        text: word.w, fromMs: Math.round(tStart * 1000), toMs: Math.round(tEnd * 1000), line: li,
+        text: word.display ?? word.w,   // v6: the scales karaoke shows LETTERS
+        fromMs: Math.round(tStart * 1000), toMs: Math.round(tEnd * 1000), line: li,
       });
     }
 
@@ -789,7 +976,7 @@ async function singOne(slug) {
     // the reference plateau-drift band on pass 1
     const tweaks = { drift_scale: 1.6, glide_scale: 1, vib_depth_scale: 1, beta_scale: 1, air_scale: 1,
       cons_stretch_scale: 1 };   // v5: consonant diction stretch (engine caps at 2.5×)
-    const renderPlan = () => {
+    const renderPlan = (register) => {
       const plan = {
         line_wav: w48,
         out_wav: outWav,
@@ -801,7 +988,8 @@ async function singOne(slug) {
         f0_floor: 60, f0_ceil: 300,        // jeffrey's real range — de-kermit
         // (the octave optimizer weighs words by voiced evidence instead of
         // narrowing this ceiling — the TTS exclamations genuinely peak high)
-        octave_opt: true, choir: true,
+        octave_opt: OCT_OPT, choir: true,
+        register,                          // v6: applied AFTER the octave fit
         tweaks,
         words: planWords,
       };
@@ -823,7 +1011,7 @@ async function singOne(slug) {
     let lastIsBest = false;
     const consider = (st) => {
       const tx = whisperTranscribe(outWav);
-      const wr = evalWER(line.tts, tx);
+      const wr = evalWER(line.tts, tx, { lettered: !!line.lettered });
       const cf = confOf(st);
       const wins = best.stats === null
         || (wr.wer < best.res.wer && (cf || !best.conf))
@@ -838,34 +1026,48 @@ async function singOne(slug) {
     };
     let stats = {};
     let passes = 0;
-    for (let pass = 1; pass <= QA_PASSES; pass++) {
-      passes = pass;
-      stats = renderPlan();
+    let clarityPasses = 0;
+    const registersTried = [];
+    // ── v6: register ladder — full QA + clarity budget per register; a line
+    // stops falling as soon as the whisper gate passes. consider() keeps the
+    // best take across ALL registers (ties prefer the earlier = higher one).
+    for (const reg of regLadder) {
+      registersTried.push(reg);
+      Object.assign(tweaks, { drift_scale: 1.6, glide_scale: 1, vib_depth_scale: 1,
+        beta_scale: 1, air_scale: 1, cons_stretch_scale: 1 });
+      for (let pass = 1; pass <= QA_PASSES; pass++) {
+        passes++;
+        stats = renderPlan(reg);
+        if (stats.error) break;
+        const clean = stats.clicks && stats.clicks.clicks === 0 && stats.clicks.flux_spikes === 0;
+        if ((!stats.conformance || stats.conformance._pass) && clean) { consider(stats); break; }
+        consider(stats);
+        if (pass === QA_PASSES) break;
+        adjustTweaks(tweaks, stats.conformance);
+        console.log(`    ↻ pass ${pass} (reg +${reg}): out of band — retweak ` +
+          Object.entries(tweaks).map(([k, v]) => `${k}=${v.toFixed(2)}`).join(" "));
+      }
       if (stats.error) break;
-      const clean = stats.clicks && stats.clicks.clicks === 0 && stats.clicks.flux_spikes === 0;
-      if ((!stats.conformance || stats.conformance._pass) && clean) { consider(stats); break; }
-      consider(stats);
-      if (pass === QA_PASSES) break;
-      adjustTweaks(tweaks, stats.conformance);
-      console.log(`    ↻ pass ${pass}: out of band — retweak ` +
-        Object.entries(tweaks).map(([k, v]) => `${k}=${v.toFixed(2)}`).join(" "));
+      for (let cp = 1; cp <= CLARITY_PASSES && !best.res.pass; cp++) {
+        clarityPasses++;
+        tweaks.air_scale *= 0.6;
+        tweaks.vib_depth_scale *= 0.7;
+        // v5: more diction, not just less air — lean the stretch in harder
+        tweaks.cons_stretch_scale = Math.min(1.3, tweaks.cons_stretch_scale * 1.15);
+        console.log(`    ↻ clarity pass ${cp} (reg +${reg}): WER ${best.res.wer} ` +
+          `(heard "${best.transcript}") — re-render with less air/vibrato, more stretch`);
+        const st = renderPlan(reg);
+        if (st.error) break;
+        consider(st);
+      }
+      if (best.res?.pass) break;
+      if (reg !== regLadder[regLadder.length - 1]) {
+        console.log(`    ↧ register +${reg} missed the WER gate (${best.res?.wer}) — falling back`);
+      }
     }
     if (stats.error) {
       report.push({ slug, line: li, word: "(line)", note: stats.error });
       continue;
-    }
-    let clarityPasses = 0;
-    for (let cp = 1; cp <= CLARITY_PASSES && !best.res.pass; cp++) {
-      clarityPasses = cp;
-      tweaks.air_scale *= 0.6;
-      tweaks.vib_depth_scale *= 0.7;
-      // v5: more diction, not just less air — lean the stretch in harder
-      tweaks.cons_stretch_scale = Math.min(1.3, tweaks.cons_stretch_scale * 1.15);
-      console.log(`    ↻ clarity pass ${cp}: WER ${best.res.wer} ` +
-        `(heard "${best.transcript}") — re-render with less air/vibrato, more stretch`);
-      const st = renderPlan();
-      if (st.error) break;
-      consider(st);
     }
     if (!lastIsBest) {
       // the final re-render didn't win — restore the best-scoring take
@@ -875,10 +1077,18 @@ async function singOne(slug) {
     let werRes = best.res;
     let transcript = best.transcript;
     stats = best.stats;
+    // v6: which register actually won — a drop below the asked one is a
+    // reported fallback (kermit/strain safety valve)
+    const finalReg = best.stats?.register ?? regLadder[0];
+    if (finalReg !== specRegister) {
+      regFallbacks.push({ slug, line: li, text: line.tts,
+        asked: specRegister, used: finalReg, wer: best.res.wer });
+      console.log(`    ⤵ line ${li} register fallback: +${specRegister} → +${finalReg}`);
+    }
     // v5 diagnostic: transcribe the choir-less LEAD stem too — separates
     // diction gains from choir masking in the QA sidecar
     const leadTranscript = whisperTranscribe(leadWav);
-    const leadWer = evalWER(line.tts, leadTranscript);
+    const leadWer = evalWER(line.tts, leadTranscript, { lettered: !!line.lettered });
     // v5: absolute consonant spans drive the bed's extra diction duck
     for (const [a, b] of stats.consonant_spans || []) {
       consSpans.push([lineT0 + a, lineT0 + b]);
@@ -914,6 +1124,8 @@ async function singOne(slug) {
     console.log(`    lead-only diagnostic: WER ${leadWer.wer} — heard "${leadTranscript}"`);
     qaLines.push({
       line: li, text: line.tts, passes, clarityPasses, tweaks,
+      register: finalReg, registersTried,
+      registerFallback: finalReg !== specRegister,
       lineTranspose: stats.line_transpose, beta: stats.beta, harmony: HARMONY,
       consStretchScale: stats.cons_stretch_scale,
       f0JumpMaxCents: stats.f0_jump_max_cents, f0JumpP95Cents: stats.f0_jump_p95_cents,
@@ -925,7 +1137,7 @@ async function singOne(slug) {
       conformance: stats.conformance, clicks: stats.clicks,
     });
     lineSpans.push({
-      li, text: line.tts,
+      li, text: line.tts, lettered: !!line.lettered,
       t0: Math.max(0, planWords[0].slots[0].t - 0.15),
       t1: Math.min(durationSec, planWords[planWords.length - 1].hardEnd + 0.3),
     });
@@ -935,6 +1147,28 @@ async function singOne(slug) {
     const { audio: sung } = decodeAudioMono(outWav, SR);
     const at = Math.floor(lineT0 * SR);
     for (let i = 0; i < sung.length && at + i < master.length; i++) master[at + i] += sung[i];
+  }
+
+  // v6: place the spoken lines now, level-matched to the sung material —
+  // active-frame RMS of the assembled sung vocal vs each spoken take, spoken
+  // sitting just under the singing so the frame never shouts over the song
+  if (spokenPlacements.length) {
+    const rmsActive = (buf) => {
+      let e = 0, n = 0;
+      for (let i = 0; i < buf.length; i++) {
+        const v = buf[i];
+        if (Math.abs(v) > 1e-3) { e += v * v; n++; }
+      }
+      return n ? Math.sqrt(e / n) : 0;
+    };
+    const sungRms = rmsActive(master);
+    for (const p of spokenPlacements) {
+      const own = rmsActive(p.audio);
+      const g = sungRms > 0 && own > 0 ? Math.min(1.6, (sungRms * 0.9) / own) : 1;
+      for (let i = 0; i < p.audio.length && p.at + i < master.length; i++) {
+        master[p.at + i] += p.audio[i] * g;
+      }
+    }
   }
 
   // normalize the vocal, write it, then MASTER the mix
@@ -1020,7 +1254,7 @@ async function singOne(slug) {
   console.log(`  whisper end-to-end on the vocal stem …`);
   const stemLines = lineSpans.map((s) => {
     const tx = whisperTranscribeSpan(vocalWav, s.t0, s.t1, `${dir}/words/stem-line-${s.li}`);
-    const w = evalWER(s.text, tx);
+    const w = evalWER(s.text, tx, { lettered: !!s.lettered });
     const mark = w.pass ? "✓" : "✗";
     console.log(`    ${mark} L${s.li} WER ${w.wer} "${s.text}" → heard "${tx}"`);
     return { line: s.li, text: s.text, transcript: tx, wer: w.wer, missing: w.missing, pass: w.pass };
@@ -1030,8 +1264,9 @@ async function singOne(slug) {
 
   writeFileSync(`${OUT}/${slug}.words.sung.json`, JSON.stringify(sungWords, null, 2));
   writeFileSync(`${OUT}/${slug}-sung-qa.json`, JSON.stringify({
-    slug, harmony: HARMONY, engine: "spinging/lib/sing_line_world.py (round 5)",
+    slug, harmony: HARMONY, engine: "spinging/lib/sing_line_world.py (round 6)",
     goalposts: GOALPOSTS,
+    register: { asked: specRegister, ladder: regLadder, fallbacks: regFallbacks },
     gates: { werMax: WER_GATE, voicingContinuityMin: CONTINUITY_GATE },
     consDuckSpans: consSpans.length,
     pronunciationSources: { ...sourceCounts },
@@ -1044,6 +1279,13 @@ async function singOne(slug) {
   console.log(`✓ ${mix}`);
   console.log(`✓ ${OUT}/${slug}.words.sung.json · ${sungWords.length} words`);
   console.log(`✓ ${OUT}/${slug}-sung-qa.json`);
+  for (const f of regFallbacks) {
+    report.push({ slug, line: f.line, word: "(register)",
+      info: `register fallback +${f.asked} → +${f.used} (best WER ${f.wer}) — "${f.text}"` });
+  }
+  if (!regFallbacks.length && specRegister !== 0) {
+    console.log(`  register: every line held +${specRegister}`);
+  }
   return report;
 }
 

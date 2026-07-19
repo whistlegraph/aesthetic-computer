@@ -136,6 +136,26 @@ let flickVel = 0; // Low-passed drag velocity, for telling flicks from lets-go
 const FLICK_THRESHOLD = 5; // px/event of recent drag velocity
 const FLICK_KICK = 0.12; // Extra rate per px of flick velocity
 
+// 📟 Steady-rate dial: dragging the top-right rate readout vertically sets
+// a held steady rate — friction leaves it alone until it's brought back to
+// 1× (or spacebar resets).
+let rateBtn = null;
+let steadyHold = false;
+let rateDragStartY = 0;
+let rateDragStartRate = 1;
+
+// 🧭 Gesture vector debug: the grab anchor and current finger, so the
+// stretch reads as a drawn vector (direction + energy) on screen.
+let elasticAnchorY = null;
+let penX = null;
+let penY = null;
+
+// 🎛️ Deck keys (Pioneer-style): ← → beat-jump; holding ↑/↓ chop-repeats a
+// beat fraction. chopActive holds the slice length in beats (0 = off).
+let chopActive = 0;
+let chopStart = 0;
+const BEAT_SEC = 0.5; // 120 BPM
+
 // Scrub physics runs on measured wall time, not an assumed tick rate —
 // sim ticks at ~120Hz here, and a fixed 1/60 dt made every commanded
 // speed land at roughly half its real value.
@@ -207,10 +227,11 @@ function ensureScrubStripButton(ui, screen, enabled) {
 }
 
 function nudgeTapeAudioSpeed(send, targetSpeed) {
-  const clampedTarget = Math.max(-16, Math.min(16, targetSpeed));
-  const delta = clampedTarget - scrubAudioSpeed;
-  if (Math.abs(delta) < 0.0005) return;
-  send({ type: "tape:audio-shift", content: delta });
+  // Absolute rate: the worklet is set to exactly this speed, so repeated
+  // gestures can never accumulate drift the way relative shifts did.
+  const clampedTarget = Math.max(-24, Math.min(24, targetSpeed));
+  if (Math.abs(clampedTarget - scrubAudioSpeed) < 0.0005) return;
+  send({ type: "tape:audio-rate", content: clampedTarget });
   scrubAudioSpeed = clampedTarget;
 }
 
@@ -313,6 +334,9 @@ function boot({ wipe, rec, gizmo, jump, notice, store, params, send, hud }) {
   lastScrollAt = 0;
   wheelActive = false;
   sustained = false;
+  steadyHold = false;
+  rateBtn = null;
+  chopActive = 0;
   flickVel = 0;
   resumeTarget = 1;
   dipBase = 1;
@@ -444,7 +468,9 @@ function boot({ wipe, rec, gizmo, jump, notice, store, params, send, hud }) {
           ? "house"
           : rest.includes("dub")
             ? "dub"
-            : "bed";
+            : rest.includes("sine") || rest.includes("line")
+              ? "sine"
+              : "bed";
     const nums = rest.map(parseFloat).filter((n) => Number.isFinite(n));
     let duration = nums[0] || 8; // Four bars by default, break included
     if (rest.includes("bar")) duration = 2;
@@ -485,6 +511,7 @@ function paint({
   sound,
   send,
   num,
+  clock,
 }) {
   if (typeof needsPaint === "function") {
     requestPaint = needsPaint;
@@ -848,11 +875,21 @@ function paint({
       sustained ||
       tapDipTime >= 0;
     const liveRate = scrubDriven ? scrubSpeed : playing ? 1 : 0;
-    ink(255, 255, 0).write(`${liveRate.toFixed(2)}x`, {
-      x: screen.width - 6,
-      y: 6,
-      right: true,
-    });
+    ink(steadyHold ? [0, 255, 180] : [255, 255, 0]).write(
+      `${liveRate.toFixed(2)}x`,
+      { x: screen.width - 6, y: 6, right: true },
+    );
+
+    // 📟 The readout is also a dial — keep its hit area in place.
+    if (!rateBtn) {
+      rateBtn = new ui.Button(screen.width - 64, 0, 64, 24);
+      rateBtn.stickyScrubbing = true;
+      rateBtn.noRolloverActivation = true;
+    }
+    rateBtn.box.x = screen.width - 64;
+    rateBtn.box.y = 0;
+    rateBtn.box.w = 64;
+    rateBtn.box.h = 24;
 
     // 🔴 The red marker rides the bottom edge at the actual playback
     // position — drawn from live state so it never lies.
@@ -865,6 +902,56 @@ function paint({
       6,
       4,
     );
+
+    // 🕰️ Net-time unison readout: phase offset vs the AC network clock's
+    // grid — green when locked, amber while converging.
+    if (tapeInfo?.totalDuration) {
+      const durMs = tapeInfo.totalDuration * 1000;
+      const nowMs = clock?.time?.()?.getTime?.() ?? Date.now();
+      let phaseErr = (nowMs % durMs) / durMs - livePos;
+      if (phaseErr > 0.5) phaseErr -= 1;
+      else if (phaseErr < -0.5) phaseErr += 1;
+      const errMs = Math.round(phaseErr * durMs);
+      const locked = Math.abs(errMs) < 60;
+      ink(locked ? [0, 255, 120] : [255, 170, 0]).write(
+        `sync ${errMs >= 0 ? "+" : ""}${errMs}ms`,
+        { x: screen.width - 6, y: 18, right: true },
+      );
+    }
+
+    // 🧭 Gesture vector: anchor → finger, with the horizontal component
+    // (the part that drives the rate) emphasized.
+    if (isScrubbing && elasticAnchorX !== null && penX !== null) {
+      const ay = elasticAnchorY ?? penY ?? 0;
+      ink(255, 255, 255, 70).line(elasticAnchorX, ay, penX, penY ?? ay);
+      const fwd = penX >= elasticAnchorX;
+      ink(fwd ? [0, 255, 120, 200] : [255, 80, 80, 200]).box(
+        Math.min(elasticAnchorX, penX),
+        (ay) - 1,
+        Math.max(1, Math.abs(penX - elasticAnchorX)),
+        3,
+      );
+      ink(255, 255, 255, 220).box(elasticAnchorX - 2, ay - 2, 5, 5);
+      ink(255, 255, 255).write(`${scrubSpeed.toFixed(2)}x`, {
+        x: penX + 8,
+        y: (penY ?? ay) - 4,
+      });
+    }
+
+    // ⌨️ Deck keys legend, bottom-right.
+    const keyLines = [
+      "<- -> beat jump",
+      "hold ^ 1/4 chop",
+      "hold v 1/8 chop",
+      "space reset",
+    ];
+    keyLines.forEach((l, i) => {
+      ink(255, 255, 255, 110).write(l, {
+        x: screen.width - 6,
+        y: screen.height - 10 - (keyLines.length - i) * 10,
+        right: true,
+      });
+    });
   }
 
   // Scrub overlay (STAMPLE-style speed-based)
@@ -950,7 +1037,7 @@ function paint({
   return true; // Always keep painting
 }
 
-function sim({ needsPaint, rec, send }) {
+function sim({ needsPaint, rec, send, clock }) {
   ellipsisTicker?.sim();
   frameCount++; // Increment frame counter for animations
 
@@ -1033,18 +1120,10 @@ function sim({ needsPaint, rec, send }) {
     const phase = Math.min(1, tapDipTime / TAP_DIP_DURATION);
     scrubSpeed = dipBase * (1 - TAP_DIP_DEPTH * Math.sin(Math.PI * phase));
     if (phase >= 1) {
+      // Lands as a seamless park at the departed rate — no handoff jump.
       tapDipTime = -1;
-      if (Math.abs(dipBase - 1) < PARK_SNAP) {
-        scrubSpeed = 0;
-        nudgeTapeAudioSpeed(send, 1);
-        send({
-          type: "recorder:present:seek",
-          content: { progress: scrubCurrentProgress, scrubEnd: true },
-        });
-      } else {
-        scrubSpeed = dipBase;
-        sustained = true;
-      }
+      scrubSpeed = dipBase;
+      sustained = true;
     }
   }
 
@@ -1091,21 +1170,14 @@ function sim({ needsPaint, rec, send }) {
       if (scrubSpeed < 0.02) scrubSpeed = 0;
     }
 
-    // 🖱️ Scroll release: the wheel went quiet — park at the landed rate.
+    // 🖱️ Scroll release: the wheel went quiet — a seamless park at the
+    // landed rate (pinned to exactly 1 when close).
     if (scrollScrubbing && isScrubbing && performance.now() - lastScrollAt > 150) {
       scrollScrubbing = false;
       tapDipTime = -1;
       isScrubbing = false;
-      if (Math.abs(scrubSpeed - 1) < PARK_SNAP) {
-        scrubSpeed = 0;
-        nudgeTapeAudioSpeed(send, 1);
-        send({
-          type: "recorder:present:seek",
-          content: { progress: scrubCurrentProgress, scrubEnd: true },
-        });
-      } else {
-        sustained = true;
-      }
+      if (Math.abs(scrubSpeed - 1) < PARK_SNAP) scrubSpeed = 1;
+      sustained = true;
     }
 
     // 🎰 Wheel spin-down: after a flick the platter runs free, then eases
@@ -1114,33 +1186,50 @@ function sim({ needsPaint, rec, send }) {
       scrubSpeed =
         resumeTarget + (scrubSpeed - resumeTarget) * Math.pow(0.975, rate);
       if (Math.abs(scrubSpeed - resumeTarget) < 0.04) {
+        // Lands as a seamless park — the drive keeps running, no handoff.
         wheelActive = false;
-        if (Math.abs(resumeTarget - 1) < PARK_SNAP) {
-          scrubSpeed = 0;
-          nudgeTapeAudioSpeed(send, 1);
-          send({
-            type: "recorder:present:seek",
-            content: { progress: scrubCurrentProgress, scrubEnd: true },
-          });
-        } else {
-          scrubSpeed = resumeTarget;
-          sustained = true;
-        }
+        scrubSpeed = resumeTarget;
+        sustained = true;
       }
     }
 
     // 🌀 Friction: even a parked rate isn't forever — it glides home to
     // 1× over a few seconds, like a wheel that always feels the bearing.
-    if (sustained && !isScrubbing) {
+    // It never hands off: the drive just converges to exactly 1.0 and
+    // keeps driving — seamless by construction.
+    if (sustained && !steadyHold && !isScrubbing && !chopActive) {
       scrubSpeed += (1 - scrubSpeed) * (1 - Math.pow(0.9965, rate));
-      if (Math.abs(scrubSpeed - 1) < PARK_SNAP) {
-        sustained = false;
-        scrubSpeed = 0;
-        nudgeTapeAudioSpeed(send, 1);
+      if (Math.abs(scrubSpeed - 1) < 0.005) scrubSpeed = 1;
+
+      // 🕰️ Net-time phase pull: at rest the loop always lerps toward the
+      // AC network clock's phase grid (clock.mjs / /api/clock synced), so
+      // every player of this tape converges into unison — a gentle ±5%
+      // tempo lean, never a jump.
+      if (Math.abs(scrubSpeed - 1) < 0.01) {
+        const durMs = totalDuration * 1000;
+        const nowMs = clock?.time?.()?.getTime?.() ?? Date.now();
+        const target = (nowMs % durMs) / durMs;
+        let phaseErr = target - scrubCurrentProgress;
+        if (phaseErr > 0.5) phaseErr -= 1;
+        else if (phaseErr < -0.5) phaseErr += 1;
+        scrubSpeed = 1 + Math.max(-0.05, Math.min(0.05, phaseErr * 0.15));
+      }
+    }
+
+    // 🌀 Chop repeat: while ↑/↓ is held, loop a beat-fraction slice —
+    // glitch stutter, Pioneer-style.
+    if (chopActive && rec?.presenting) {
+      const chopLen = (chopActive * BEAT_SEC) / totalDuration;
+      let rel = scrubCurrentProgress - chopStart;
+      if (rel < -0.5) rel += 1;
+      else if (rel > 0.5) rel -= 1;
+      if (rel >= chopLen || rel < 0) {
+        scrubCurrentProgress = chopStart;
         send({
           type: "recorder:present:seek",
-          content: { progress: scrubCurrentProgress, scrubEnd: true },
+          content: { progress: chopStart, speedScrub: true },
         });
+        send({ type: "tape:audio-pos", content: chopStart });
       }
     }
 
@@ -1148,18 +1237,10 @@ function sim({ needsPaint, rec, send }) {
     if (brakeResume && !isScrubbing) {
       scrubSpeed += (resumeTarget - scrubSpeed) * (1 - Math.pow(0.88, rate));
       if (Math.abs(scrubSpeed - resumeTarget) < 0.05) {
+        // Lands as a seamless park — the drive keeps running, no handoff.
         brakeResume = false;
-        if (Math.abs(resumeTarget - 1) < PARK_SNAP) {
-          scrubSpeed = 0;
-          nudgeTapeAudioSpeed(send, 1);
-          send({
-            type: "recorder:present:seek",
-            content: { progress: scrubCurrentProgress, scrubEnd: true },
-          });
-        } else {
-          scrubSpeed = resumeTarget;
-          sustained = true;
-        }
+        scrubSpeed = resumeTarget;
+        sustained = true;
       }
     }
 
@@ -2263,12 +2344,49 @@ function act({
       sustained = false;
       scrollScrubbing = false;
       tapDipTime = -1;
+      steadyHold = false;
+      chopActive = 0;
       scrubSpeed = 0;
       nudgeTapeAudioSpeed(send, 1);
       if (rec.playing) rec.pause();
       else rec.play();
       triggerRender();
       return;
+    }
+
+    // 🎛️ Deck keys, Pioneer-style: ← → beat-jump the tape (audio included);
+    // holding ↑ chop-repeats a quarter beat, ↓ an eighth — release to run on.
+    if (rec.presenting && tapeInfo?.totalDuration) {
+      const dur = tapeInfo.totalDuration;
+      const beatJump = (beats) => {
+        ensureDriven(rec, send);
+        let p = scrubCurrentProgress + (beats * BEAT_SEC) / dur;
+        p = ((p % 1) + 1) % 1;
+        scrubCurrentProgress = p;
+        send({
+          type: "recorder:present:seek",
+          content: { progress: p, speedScrub: true },
+        });
+        send({ type: "tape:audio-pos", content: p });
+        triggerRender();
+      };
+      if (e.is("keyboard:down:arrowleft")) beatJump(-1);
+      if (e.is("keyboard:down:arrowright")) beatJump(1);
+      if (e.is("keyboard:down:arrowup") && !chopActive) {
+        ensureDriven(rec, send);
+        chopActive = 0.25;
+        chopStart = scrubCurrentProgress;
+        send({ type: "tape:audio-pos", content: chopStart });
+      }
+      if (e.is("keyboard:down:arrowdown") && !chopActive) {
+        ensureDriven(rec, send);
+        chopActive = 0.125;
+        chopStart = scrubCurrentProgress;
+        send({ type: "tape:audio-pos", content: chopStart });
+      }
+      if (e.is("keyboard:up:arrowup") || e.is("keyboard:up:arrowdown")) {
+        chopActive = 0;
+      }
     }
 
     // 🖱️ Two-finger scroll scrubs directly — no tap-drag needed. Wheel
@@ -2297,13 +2415,59 @@ function act({
         }
         scrubMoved = true;
         // Expressive range: two-finger scroll can push way past the drag's
-        // reach — up to ±12×. Negated so scroll direction matches drag
+        // reach — up to ±24×. Negated so scroll direction matches drag
         // direction (natural scrolling inverts the wheel deltas).
-        scrubSpeed = Math.max(-12, Math.min(12, scrubSpeed * 0.6 - d * 0.35));
+        scrubSpeed = Math.max(-24, Math.min(24, scrubSpeed * 0.6 - d * 0.35));
         lastScrollAt = performance.now();
         nudgeTapeAudioSpeed(send, scrubSpeed);
         triggerRender();
       }
+    }
+
+    // 📟 Steady-rate dial: vertical drag on the top-right readout sets a
+    // held rate the friction won't touch.
+    if (rateBtn && rec.presenting && !isPrinting && !isPostingTape) {
+      rateBtn.act(e, {
+        down: () => {
+          rateDragStartY = e.y ?? 0;
+          rateDragStartRate =
+            isScrubbing || inertiaActive || brakeResume || wheelActive || sustained || tapDipTime >= 0
+              ? scrubSpeed
+              : rec.playing
+                ? 1
+                : 0;
+        },
+        scrub: () => {
+          if (e.y === undefined) return;
+          if (!sustained && !isScrubbing) {
+            // Engage the drive so the dialed rate actually plays.
+            scrubCurrentProgress = rec.presentProgress || scrubCurrentProgress || 0;
+            if (!rec.playing) rec.play();
+            send({
+              type: "recorder:present:seek",
+              content: { progress: scrubCurrentProgress, speedScrub: true, scrubbing: true },
+            });
+          }
+          inertiaActive = false;
+          brakeResume = false;
+          wheelActive = false;
+          tapDipTime = -1;
+          sustained = true;
+          steadyHold = true;
+          const dyRate = (rateDragStartY - e.y) * 0.03;
+          scrubSpeed = Math.max(-24, Math.min(24, rateDragStartRate + dyRate));
+          nudgeTapeAudioSpeed(send, scrubSpeed);
+          triggerRender();
+        },
+        up: () => {
+          if (Math.abs(scrubSpeed - 1) < PARK_SNAP) {
+            scrubSpeed = 1;
+            steadyHold = false; // Back at play speed — friction may hold it
+          }
+          triggerRender();
+        },
+      });
+      if (rateBtn.down) return; // The dial owns this gesture
     }
 
     if (!anyButtonDown && !isPrinting && !isPostingTape && rec.presenting) {
@@ -2319,6 +2483,9 @@ function act({
           holdTime = 0;
           flickVel = 0;
           elasticAnchorX = e.x ?? null;
+          elasticAnchorY = e.y ?? null;
+          penX = e.x ?? null;
+          penY = e.y ?? null;
           // 🅿️ A parked, spinning, or ramping rate survives a new touch:
           // the gesture starts FROM it — so you can grab a fast wheel and
           // drag it slower — and returns TO it.
@@ -2362,6 +2529,8 @@ function act({
           // grab point IS the rate — hold still and it holds still, a third
           // of the screen right drags at 3×, left drags in reverse.
           const dx = e.x - elasticAnchorX;
+          penX = e.x;
+          penY = e.y ?? penY;
           if (Math.abs(dx) > 2) scrubMoved = true;
           flickVel = flickVel * 0.6 + (e.delta?.x || 0) * 0.4;
           const K = 9 / screen.width;
@@ -2382,22 +2551,18 @@ function act({
             // 🎰 Flick: the platter runs free with the throw's momentum,
             // then eases down like a prize wheel to the pre-flick rate.
             scrubSpeed = Math.max(
-              -12,
-              Math.min(12, scrubSpeed + flickVel * FLICK_KICK),
+              -24,
+              Math.min(24, scrubSpeed + flickVel * FLICK_KICK),
             );
             nudgeTapeAudioSpeed(send, scrubSpeed);
             wheelActive = true;
-          } else if (Math.abs(scrubSpeed - 1) < PARK_SNAP) {
-            // Close enough to play speed — hand back to normal playback.
-            scrubSpeed = 0;
-            nudgeTapeAudioSpeed(send, 1);
-            send({
-              type: "recorder:present:seek",
-              content: { progress: scrubCurrentProgress, scrubEnd: true },
-            });
           } else {
-            // 🅿️ Gentle release: the rate parks where you left it.
+            // 🅿️ Release parks where you left it. Near 1× it pins to
+            // exactly 1 — the scrub drive at 1.0 IS normal playback, so
+            // there's no handoff and no jump, ever.
+            if (Math.abs(scrubSpeed - 1) < PARK_SNAP) scrubSpeed = 1;
             sustained = true;
+            nudgeTapeAudioSpeed(send, scrubSpeed);
           }
           triggerRender();
           return true;
@@ -3048,6 +3213,7 @@ function leave({ send }) {
   tapDipTime = -1;
   wheelActive = false;
   sustained = false;
+  steadyHold = false;
   flickVel = 0;
   scrubSpeed = 0;
   scrubCurrentProgress = 0;
@@ -3068,6 +3234,29 @@ function leave({ send }) {
 export { boot, paint, sim, act, signal, receive, leave };
 
 // 📚 Library (Useful functions used throughout the piece)
+
+// 🎛️ Make sure the scrub drive owns playback (used by deck keys) — engages
+// a sustained 1× drive if nothing else is driving.
+function ensureDriven(rec, send) {
+  if (
+    isScrubbing ||
+    sustained ||
+    wheelActive ||
+    brakeResume ||
+    inertiaActive ||
+    tapDipTime >= 0
+  ) {
+    return;
+  }
+  scrubCurrentProgress = rec.presentProgress || 0;
+  scrubSpeed = 1;
+  sustained = true;
+  if (!rec.playing) rec.play();
+  send({
+    type: "recorder:present:seek",
+    content: { progress: scrubCurrentProgress, speedScrub: true, scrubbing: true },
+  });
+}
 
 // 🧪 Synthtape autopilot — a scripted stand-in for the finger. Each segment
 // either lets the tape roll, holds a scrub speed, or releases into inertia,
@@ -3092,6 +3281,8 @@ function autopilot(rec, send, simDt) {
       { name: "tap dip", mode: "dip" },
       { name: "scratch", mode: "scratch", frames: 150 },
       { name: "scratch release", mode: "coast" },
+      { name: "fast scratch", mode: "scratch", frames: 120, hz: 4, amp: 2.2 },
+      { name: "fast scratch release", mode: "coast" },
       { name: "touch brake", mode: "brake", frames: 90 },
       { name: "brake release spin-up", mode: "brakeRelease" },
     ];
@@ -3200,8 +3391,11 @@ function autopilot(rec, send, simDt) {
 
   autoTimer += 1;
   if (autoSeg.mode === "scratch") {
-    // 🎚️ Musical scratch: the rate rocks ±3.2× at ~2Hz like a hand on the reel.
-    scrubSpeed = 3.2 * Math.sin((autoTimer / 60) * Math.PI * 2);
+    // 🎚️ Musical scratch: the rate rocks like a hand on the reel —
+    // amplitude and tempo per segment (default ±3.2× at 2Hz).
+    const amp = autoSeg.amp || 3.2;
+    const hz = autoSeg.hz || 2;
+    scrubSpeed = amp * Math.sin((autoTimer / 120) * Math.PI * 2 * hz);
   }
   if (autoSeg.mode === "scrub") {
     scrubSpeed = autoSeg.speed; // Hold the drag
@@ -3268,8 +3462,10 @@ function autopilot(rec, send, simDt) {
     }
   } else if (autoSeg.mode === "scratch") {
     const totalDuration = tapeInfo?.totalDuration || 10;
+    const amp = autoSeg.amp || 3.2;
     const driftSecs = Math.abs(autoMotionSum * totalDuration);
-    pass = autoSpeedMax > 1.5 && autoSpeedMin < -1.5 && driftSecs < 0.7;
+    pass =
+      autoSpeedMax > amp * 0.45 && autoSpeedMin < -amp * 0.45 && driftSecs < 0.7;
     detail += ` (rate swung ${autoSpeedMin.toFixed(1)}..${autoSpeedMax.toFixed(1)}×, net drift ${driftSecs.toFixed(2)}s)`;
   } else if (autoSeg.mode === "dip") {
     const totalDuration = tapeInfo?.totalDuration || 10;

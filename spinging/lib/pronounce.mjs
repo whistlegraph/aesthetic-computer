@@ -264,6 +264,15 @@ const BUILTIN = {
   a: "/ə/", the: "/ðə/",
 };
 
+// Round 6 — words where the dictionary's PRIMARY entry is the wrong
+// homograph for singing (the scales letter ladder): "ay" resolves to the
+// aye-vote /aɪ/ where the letter A is /eɪ/, and Wiktionary's "eye" line
+// parses to /ˈaː/. CURATED wins over every source, the cache included.
+const CURATED = {
+  ay: "/eɪ/",     // the letter A
+  eye: "/aɪ/",    // the letter I
+};
+
 // ── cache + public API ─────────────────────────────────────────────────────
 function loadCache() {
   try { return JSON.parse(readFileSync(CACHE_FILE, "utf8")); } catch { return {}; }
@@ -273,7 +282,7 @@ function saveCache(c) {
   writeFileSync(CACHE_FILE, JSON.stringify(c, null, 1));
 }
 
-export const sourceCounts = { wiktionary: 0, espeak: 0, builtin: 0, cache: 0 };
+export const sourceCounts = { wiktionary: 0, espeak: 0, builtin: 0, cache: 0, curated: 0 };
 
 // Cache format version — bump to invalidate every cached word (round 4: the
 // per-line accent read + usSafe screen obsoleted every round-3 entry).
@@ -289,6 +298,11 @@ async function resolveWord(word) {
 
 export async function pronounce(rawWord) {
   const word = rawWord.toLowerCase().replace(/[^a-z']/g, "");
+  if (CURATED[word]) {
+    sourceCounts.curated++;
+    return { word, ipa: CURATED[word], source: "curated",
+      syllables: syllabify(tokenizeIPA(CURATED[word])) };
+  }
   const cache = loadCache();
   let entry = cache[word];
   if (entry && entry.v === CACHE_V) sourceCounts.cache++;

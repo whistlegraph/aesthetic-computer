@@ -28,6 +28,11 @@
         },
         {
           "type": "piece",
+          "code": "video~scrub~sine",
+          "name": "sineline"
+        },
+        {
+          "type": "piece",
           "code": "video~scrub~break~2",
           "name": "one-bar break"
         },

@@ -165,9 +165,12 @@ export function makeParticles(ctx) {
 }
 
 // ── the strip rig — real captured strip, re-lightable per note set ─────────
-/// Midis the cache holds single-note captures for (the waltz's white keys,
-/// G4..B5). Any melody is folded onto these before lighting.
-export const STRIP_MIDIS = [67, 69, 71, 72, 74, 76, 77, 79, 81, 83];
+/// Midis the cache holds single-note captures for: the waltz's white keys
+/// (G4..B5) + the low C4..F4 the scales ladder added (round 6 — captured via
+/// `MenuBand --render-menubar --notes <midi> --light`, same args as sim.mjs).
+/// Together that's every white key on the strip, C4..B5. Any melody is
+/// folded onto these before lighting.
+export const STRIP_MIDIS = [60, 62, 64, 65, 67, 69, 71, 72, 74, 76, 77, 79, 81, 83];
 const PC_TO_STRIP = new Map([[0, 72], [2, 74], [4, 76], [5, 77], [7, 79], [9, 69], [11, 71]]);
 
 /// Fold any (white-key) midi onto a strip key: same pitch class, the cached

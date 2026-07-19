@@ -383,5 +383,103 @@
   "accent": "US",
   "v": 4,
   "fetchedAt": "2026-07-19T16:14:52.422Z"
+ },
+ "see": {
+  "ipa": "/ˈsi/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-07-19T20:06:25.007Z"
+ },
+ "dee": {
+  "ipa": "/ˈdiː/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-07-19T20:06:25.170Z"
+ },
+ "ee": {
+  "ipa": "/ˈiː/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-07-19T20:06:25.438Z"
+ },
+ "eff": {
+  "ipa": "/ɛf/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-07-19T20:06:26.894Z"
+ },
+ "gee": {
+  "ipa": "/d͡ʒiː/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-07-19T20:06:27.120Z"
+ },
+ "ay": {
+  "ipa": "/aɪ/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-07-19T20:06:27.344Z"
+ },
+ "bee": {
+  "ipa": "/ˈbiː/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-07-19T20:06:33.055Z"
+ },
+ "aitch": {
+  "ipa": "/ˈeɪt͡ʃ/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-07-19T20:06:33.250Z"
+ },
+ "eye": {
+  "ipa": "/ˈaː/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-07-19T20:06:33.463Z"
+ },
+ "jay": {
+  "ipa": "/ˈd͡ʒeɪ/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-07-19T20:06:33.644Z"
+ },
+ "kay": {
+  "ipa": "/keɪ/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-07-19T20:06:33.806Z"
+ },
+ "ell": {
+  "ipa": "/ˈɛl/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-07-19T20:06:35.346Z"
+ },
+ "em": {
+  "ipa": "/ˈɛm/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-07-19T20:06:35.585Z"
+ },
+ "en": {
+  "ipa": "/ˈɛn/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-07-19T20:06:36.065Z"
  }
 }
