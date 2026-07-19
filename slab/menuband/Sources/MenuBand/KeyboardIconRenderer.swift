@@ -793,16 +793,17 @@ enum KeyboardIconRenderer {
         )
     }
 
-    /// Tiny high-contrast charge line laid over the bottom of the piano. The
-    /// bar fills continuously for the spoken count-in and never replaces keys.
+    /// Tiny high-contrast countdown line laid over the bottom of the piano.
+    /// It starts full, then its right edge travels left until recording begins.
     private static func drawCountInProgress(_ progress: CGFloat, layout: Layout) {
         let x = pianoOriginX + 2
         let width = max(0, pianoWidth(layout: layout) - 4)
         let track = NSRect(x: x, y: pad + 0.7, width: width, height: 2.2)
         NSColor.black.withAlphaComponent(0.55).setFill()
         NSBezierPath(roundedRect: track, xRadius: 1.1, yRadius: 1.1).fill()
+        let remaining = 1 - min(1, max(0, progress))
         let fill = NSRect(x: track.minX, y: track.minY,
-                          width: track.width * min(1, max(0, progress)),
+                          width: track.width * remaining,
                           height: track.height)
         NSColor.white.withAlphaComponent(0.95).setFill()
         NSBezierPath(roundedRect: fill, xRadius: 1.1, yRadius: 1.1).fill()
@@ -949,13 +950,6 @@ enum KeyboardIconRenderer {
             // pure black can only yield grey, because there is nothing above
             // black to lift toward.
             let lit: (Int) -> NSColor = { m in
-                // Recording: every pressed key lights RED so the keyboard
-                // itself reads as "REC ON", not the usual accent/ROYGBIV.
-                if KeyboardIconRenderer.recordingActive {
-                    return isDark
-                        ? NSColor(srgbRed: 230/255, green: 60/255, blue: 60/255, alpha: 1)
-                        : NSColor(srgbRed: 220/255, green: 35/255, blue: 35/255, alpha: 1)
-                }
                 guard KeyboardIconRenderer.perKeyAccent,
                       let hue = Self.chromaticColorByPitchClass[((m % 12) + 12) % 12]
                 else { return accentLit }

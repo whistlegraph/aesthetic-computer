@@ -4419,10 +4419,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Both ⌘ held together → a ~3s count-in that "charges up" (a white-noise
-    /// suck swelling under four ticks, the red flash brightening each beat),
-    /// then rolls tape. Holding the whole time is the commit; releasing a ⌘ or
-    /// hitting Escape cancels.
+    /// Both ⌘ held together → a ~3s count-in, then rolls tape. Holding the
+    /// whole time is the commit; releasing a ⌘ or hitting Escape cancels.
     private func beginCountIn() {
         NSLog("MenuBand: beginCountIn (recordModeActive=\(recordModeActive) pending=\(countInWork.count) tapeRec=\(menuBand.isTapeRecording))")
         guard !menuBandIsFocused,
@@ -4437,9 +4435,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         KeyboardIconRenderer.countInProgress = 0
         startIconAnimTimerIfNeeded()
         updateIcon()
-        // Soft rising hush + a red glow that charges UP over the whole count.
+        // Soft rising hush. The menubar keyboard itself carries the visual cue.
         CountInWhoosh.shared.play(duration: total)
-        FocusFlashOverlay.shared.beginCharge(duration: total)
         for (i, n) in numbers.enumerated() {
             let w = DispatchWorkItem {
                 CountInVoice.shared.play(n)                 // jeffrey: 3… 2… 1…
@@ -4473,15 +4470,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         countInWork.removeAll()
         countInDuration = 0
         CountInWhoosh.shared.stop()
-        FocusFlashOverlay.shared.endCharge(fadeOut: true)
         KeyboardIconRenderer.countInProgress = nil
         updateIcon()
     }
 
     /// Roll tape (audio-only, no mic). Arms the keyboard so keys play + record,
     /// starts the take IMMEDIATELY on the main thread (a background-thread start
-    /// only captured a few buffers), with the hot-red flash + Ping. Leading
-    /// silence up to the first note is trimmed at eject.
+    /// only captured a few buffers), with a Ping. Leading silence up to the
+    /// first note is trimmed at eject.
     private func startRecordingMode() {
         guard !menuBand.isTapeRecording, !recordModeActive else { return }
         if !localCapture.isArmed {
@@ -4489,19 +4485,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         recordModeActive = true
         menuBand.startSynthOnlyRecording()
-        FocusFlashOverlay.shared.flashRecord()
         NSSound(named: "Ping")?.play()
         updateIcon()
         NSLog("MenuBand: RECORDING started")
     }
 
     /// Escape while rolling → stop and dump the WAV onto the Desktop, with a
-    /// distinct "saved" chime + red stop flash.
+    /// distinct "saved" chime.
     private func stopRecordingAndSave() {
         // INSTANT feedback: stop the transport + fire the cues right away.
         menuBand.stopTapeNow()
         recordModeActive = false
-        FocusFlashOverlay.shared.flash(rising: false)
         NSSound(named: "Glass")?.play()
         updateIcon()                            // keys/chip back to normal color
         // The WAV render + album-art icon + Desktop copy are heavy — do them
