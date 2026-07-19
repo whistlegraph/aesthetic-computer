@@ -86,6 +86,8 @@
   <script>
   const AUTH0_DOMAIN="https://hi.aesthetic.computer";
   const AUTH0_CLIENT="LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt";
+  const AUTH0_RETURN=location.origin;
+  const DESK_PATH="/desk";
   const API="/api/whistlegraph-admin";
   const LOCAL=/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
   const PREVIEW=LOCAL&&new URLSearchParams(location.search).get("preview")==="1";
@@ -120,11 +122,13 @@
     basePosts=pd.posts||[];baseWorks=gd.works||[];curation={works:cd.works||{},posts:cd.posts||{}};applyCuration();renderReset();
   }
   function enterDesk(name){gate.classList.add("hidden");desk.classList.remove("hidden");document.getElementById("who").textContent=name;if(PREVIEW){document.getElementById("previewBadge").classList.remove("hidden");document.getElementById("logout").classList.add("hidden")}}
+  function canonicalizeDesk(){if(!LOCAL&&location.pathname!==DESK_PATH)history.replaceState({},"",DESK_PATH)}
   async function init(){
     if(PREVIEW){enterDesk("preview");await loadData();return}
     try{
-      client=await auth0.createAuth0Client({domain:AUTH0_DOMAIN,clientId:AUTH0_CLIENT,cacheLocation:"localstorage",useRefreshTokens:true,authorizationParams:{redirect_uri:location.origin+"/admin"}});
-      if(location.search.includes("state=")&&(location.search.includes("code=")||location.search.includes("error="))){await client.handleRedirectCallback();history.replaceState({},"","/admin")}
+      client=await auth0.createAuth0Client({domain:AUTH0_DOMAIN,clientId:AUTH0_CLIENT,cacheLocation:"localstorage",useRefreshTokens:true,authorizationParams:{redirect_uri:AUTH0_RETURN}});
+      if(location.search.includes("state=")&&(location.search.includes("code=")||location.search.includes("error="))){await client.handleRedirectCallback()}
+      canonicalizeDesk();
       if(!await client.isAuthenticated()){document.getElementById("gateStatus").textContent="Sign in to continue.";return}
       token=await client.getTokenSilently();
       const session=await getJSON(`${API}?action=session`,{headers:{Authorization:`Bearer ${token}`},cache:"no-store"});
@@ -132,9 +136,9 @@
     }catch(error){fail(error.message||"Could not open the Whistlegraph Desk.")}
   }
   document.getElementById("login").addEventListener("click",async()=>{
-    try{if(!client)client=await auth0.createAuth0Client({domain:AUTH0_DOMAIN,clientId:AUTH0_CLIENT,cacheLocation:"localstorage",useRefreshTokens:true,authorizationParams:{redirect_uri:location.origin+"/admin"}});await client.loginWithRedirect({authorizationParams:{prompt:"login"}})}catch(error){fail(error.message)}
+    try{if(!client)client=await auth0.createAuth0Client({domain:AUTH0_DOMAIN,clientId:AUTH0_CLIENT,cacheLocation:"localstorage",useRefreshTokens:true,authorizationParams:{redirect_uri:AUTH0_RETURN}});await client.loginWithRedirect({authorizationParams:{prompt:"login"}})}catch(error){fail(error.message)}
   });
-  document.getElementById("logout").addEventListener("click",()=>client?.logout({logoutParams:{returnTo:location.origin+"/admin"}}));
+  document.getElementById("logout").addEventListener("click",()=>client?.logout({logoutParams:{returnTo:AUTH0_RETURN}}));
 
   function postTitle(p){const text=(p.desc||"").trim();return text?text.slice(0,100):`Post ${p.id}`}
   function heroForWork(code){return posts.filter(p=>(p.works||[]).includes(code)).sort((a,b)=>(b.views||0)-(a.views||0))[0]}

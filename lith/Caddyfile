@@ -185,10 +185,21 @@
         handle /api/whistlegraph-admin* {
             reverse_proxy localhost:8888
         }
-        # Reserve the Whistlegraph Desk before the bare-code matcher below so Auth0
-        # callbacks to /admin cannot be interpreted as a Whistlegraph code.
-        @wgadmin path /admin /admin/ /admin.html
-        handle @wgadmin {
+        # Auth0 returns to the bare origin. Only a root request carrying its
+        # transaction state is served by the Desk; ordinary / remains the site.
+        @wgcallback {
+            path /
+            query state=*
+        }
+        handle @wgcallback {
+            rewrite * /admin.html
+            header Cache-Control "no-store"
+            file_server
+        }
+        # /desk is canonical. Keep the old /admin path as a quiet compatibility
+        # alias for sessions begun before the callback moved to the bare origin.
+        @wgdesk path /desk /desk/ /admin /admin/ /admin.html
+        handle @wgdesk {
             rewrite * /admin.html
             header Cache-Control "no-store"
             file_server

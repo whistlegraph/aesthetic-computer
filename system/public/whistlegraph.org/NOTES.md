@@ -5,7 +5,7 @@ Data edits + copy/loop changes from that thread are already applied to `graphs.j
 
 ## Whistlegraph Desk
 
-`/admin` is the private Whistlegraph Desk. It uses the existing Aesthetic Computer
+`/desk` is the private Whistlegraph Desk. It uses the existing Aesthetic Computer
 Auth0 application and authorizes the immutable Auth0 subjects for @jeffrey and
 @minanimals on the server; matching a display handle is never enough. Live edits
 are stored as a MongoDB curation overlay and applied on top of the generated
@@ -14,11 +14,15 @@ be restored to generated data at any time.
 
 The Auth0 application needs these production entries before first deployment:
 
-- Allowed callback URLs: `https://whistlegraph.org/admin`,
-  `https://www.whistlegraph.org/admin`
+- Allowed callback URLs: `https://whistlegraph.org`,
+  `https://www.whistlegraph.org`
 - Allowed logout URLs: the same two URLs
 - Allowed web origins: `https://whistlegraph.org`,
   `https://www.whistlegraph.org`
+
+Auth0 returns to the bare origin; Caddy recognizes its `state` parameter, serves
+the Desk callback there, and the client replaces the address with `/desk` after
+the transaction completes. Ordinary visits to `/` continue to show the public site.
 
 The server allowlist defaults to the two current Auth0 subjects. Override it with
 the comma-separated `WHISTLEGRAPH_ADMIN_SUBS` environment variable when identities
