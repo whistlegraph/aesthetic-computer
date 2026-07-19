@@ -1,10 +1,13 @@
 #!/usr/bin/env node
-// render-jingles.mjs — the three campaign jingles for the Menu Band promo
-// reels (announce / features / chords), built on the same /pop lullaby engine
-// as the launch waltz (render-waltz.mjs). Each jingle writes an mp3 + a
-// notes.json its sim choreographs to; the chords jingle also writes a
-// segment score (menuband-chords.score.json) so the audio and the on-screen
-// modifier keycaps agree to the frame.
+// render-jingles.mjs — the four campaign jingles for the Menu Band promo
+// reels (announce / features / chords / scales), built on the same /pop
+// lullaby engine as the launch waltz (render-waltz.mjs). Each jingle writes
+// an mp3 + a notes.json its sim choreographs to; the chords jingle also
+// writes a segment score (menuband-chords.score.json) so the audio and the
+// on-screen modifier keycaps agree to the frame; the scales jingle writes
+// menuband-scales.score.json (spoken cue times + the letter ladder) that
+// sing-jingle.mjs and sim-scales.mjs both read, so the voice, the bed and
+// the visuals share ONE timeline.
 //
 // EVERY lead note is a WHITE KEY: the strip rig re-lights the real captured
 // menu-bar piano from the single-note captures sim.mjs cached (G4..B5,
@@ -200,4 +203,87 @@ function master(name, events, opts) {
   writeFileSync(resolve(OUT_DIR, "menuband-chords.score.json"),
     JSON.stringify({ durationSec: +durationSec.toFixed(4), segs }, null, 2));
   console.log(`  ${segs.length} chord segments`);
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// 4 · SCALES — the teaching singalong (round 6). Spoken frame + the notepat
+//     two-octave letter ladder (c d e f g a b · h i j k l m n = the second
+//     octave, straight from notepat's NOTE_TO_KEYBOARD_KEY) sung up then
+//     down at 108 BPM over a soft drone bed. The `lead` lane carries the
+//     ladder at the STRIP's midis (C4..B5 — every one a real cached key);
+//     jeffrey sings it an octave below (C3..B4, bright top, unstrained).
+//     The bed stays light — a pedal drone, gentle kalimba, a quiet
+//     vibraphone doubling the ladder — never burying the voice.
+// ════════════════════════════════════════════════════════════════════════
+{
+  const BPM = 108, BEAT = 60 / BPM, BAR = 4 * BEAT;
+  const { events, push } = makeTrack();
+
+  // ── the shared timeline (spoken cues measured off the cached TTS takes) ──
+  const INTRO_T = 0.8;    // "Here's how to type out the C scale." (~2.1s)
+  const RUN_T = 3.5;      // "C, D, E, F, G, A, B. Now sing it!"  (~2.9s)
+  const SING0 = 6.95;     // the ladder's first beat
+  const LETTERS_ASC = ["c", "d", "e", "f", "g", "a", "b",
+    "h", "i", "j", "k", "l", "m", "n"];
+  const STRIP_ASC = [60, 62, 64, 65, 67, 69, 71, 72, 74, 76, 77, 79, 81, 83];
+  const HOLD_TOP = 2.0, HOLD_BOTTOM = 2.5;   // beats: top n rings, home c lands
+  const ladder = [];
+  LETTERS_ASC.forEach((letter, i) => {
+    const top = i === LETTERS_ASC.length - 1;
+    ladder.push({ letter, t: +(SING0 + i * BEAT).toFixed(4),
+      dur: +((top ? HOLD_TOP : 0.92) * BEAT).toFixed(4),
+      strip: STRIP_ASC[i], vocal: STRIP_ASC[i] - 12, dir: "up" });
+  });
+  // descending starts on m after the top-n hold (2 beats of ring)
+  const DESC0 = SING0 + (LETTERS_ASC.length + 1) * BEAT;
+  for (let j = 0; j < 13; j++) {
+    const i = 12 - j;                      // m l k j i h b a g f e d c
+    const bottom = j === 12;
+    ladder.push({ letter: LETTERS_ASC[i], t: +(DESC0 + j * BEAT).toFixed(4),
+      dur: +((bottom ? HOLD_BOTTOM : 0.92) * BEAT).toFixed(4),
+      strip: STRIP_ASC[i], vocal: STRIP_ASC[i] - 12, dir: "down" });
+  }
+  const SING1 = DESC0 + 12 * BEAT + HOLD_BOTTOM * BEAT;   // ladder ends
+  const OUTRO_T = +(SING1 + 0.9).toFixed(3);   // "Wanna type it yourself? …"
+
+  // ── the bed ──────────────────────────────────────────────────────────────
+  // pedal drone: soft C2/G2 bass, one note per bar, entering under the intro
+  const LAST_BAR = Math.ceil((OUTRO_T + 3.2) / BAR);
+  for (let bar = 0; bar < LAST_BAR; bar++) {
+    const t = bar * BAR;
+    push("bass", "bass", t, bar % 4 === 3 ? "G2" : "C2", 3.6 * BEAT, 0.20, 0);
+  }
+  // gentle kalimba broken chord, quiet, from the spoken run onward
+  const ARP = ["C4", "E4", "G4", "A3"];
+  for (let bar = 1; bar < LAST_BAR - 1; bar++) {
+    for (let s = 0; s < 4; s++) {
+      push("harmony", "kalimba", bar * BAR + s * BEAT, ARP[s % 4],
+        0.9 * BEAT, 0.085, s % 2 ? 0.2 : -0.2, 1.0);
+    }
+  }
+  // the ladder itself: lead lane at STRIP midis — lights the real keys and
+  // doubles the voice an octave up, quietly
+  for (const n of ladder) {
+    push("lead", "vibraphone", n.t, n.strip, n.dur * 1.15, 0.22, 0.05, 1.25);
+  }
+  // soft woodblock ticks keep the singalong honest through the ladder bars
+  for (let t = SING0; t < SING1 - BEAT; t += 2 * BEAT) {
+    push("perc", "woodblock", +t.toFixed(4), "E5", 0.12, 0.06, 0.12);
+  }
+  // home-chord sparkle under the outro CTA
+  push("harmony", "glockenspiel", OUTRO_T + 0.3, m("E6"), 2.0, 0.08, 0.28, 1.5);
+  push("harmony", "glockenspiel", OUTRO_T + 0.9, m("C6"), 2.4, 0.09, -0.2, 1.5);
+
+  const durationSec = master("menuband-scales", events, { title: "Menu Band C Scale Singalong" });
+  writeScore("menuband-scales", events, {}, {
+    bpm: BPM, beatSec: +BEAT.toFixed(6), barSec: +BAR.toFixed(6),
+    durationSec: +durationSec.toFixed(4),
+  });
+  writeFileSync(resolve(OUT_DIR, "menuband-scales.score.json"), JSON.stringify({
+    bpm: BPM, beatSec: +BEAT.toFixed(6), durationSec: +durationSec.toFixed(4),
+    spoken: { intro: { t: INTRO_T }, run: { t: RUN_T }, outro: { t: OUTRO_T } },
+    sing: { t0: +SING0.toFixed(4), t1: +SING1.toFixed(4) },
+    ladder,
+  }, null, 2));
+  console.log(`  ladder ${ladder.length} letters · sing ${SING0.toFixed(2)}–${SING1.toFixed(2)}s · outro @ ${OUTRO_T}s`);
 }

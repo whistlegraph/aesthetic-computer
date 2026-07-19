@@ -82,6 +82,44 @@ re-transcribed per line and the final mix once more — transcripts land
 verbatim in `out/<slug>-sung-qa.json`. QA is statistical AND machine-read,
 not ear-only.
 
+Changelog — round 6 (2026-07, the REGISTER round + the SCALES singalong —
+"I could be higher octave?"):
+- **Register lift** — `plan.register` (semitones) applies AFTER the per-line
+  minimal-|shift| octave fit; sing-jingle's `--register` (default +12 this
+  round) drives it with a per-line fallback ladder (+12 → +7 → 0): a line
+  that misses the whisper gate re-renders lower and the most intelligible
+  take wins (ties prefer the higher register); fallbacks land in the QA
+  sidecar (`register.fallbacks`). Conformance is register-aware
+  (`vocal_shapes.conformance(register=…)`): the f0-linked bands (glide/
+  drift/release/vib cents + hf_ratio) widen 35 %/octave and hf_ratio shifts
+  with the harmonic comb (×2^(R/24)); duration/energy/click gates unchanged.
+- **R6·2 final unstressed syllables stop starving** ("diminished" → "deman"):
+  word-final unstressed vowels get a minimum-duration floor (0.14 s, borrowed
+  by anticipating the note into the preceding stressed vowel) and word-final
+  coda CLUSTERS (≥2 phones) may articulate into the phrase gap (extension cap
+  0.05 → 0.18 s). Chords L4 now closes the word ("demand" — the coda exists;
+  the full /ʃt/ remains whisper-hostile).
+- **R6·3 phrase-boundary silence** ("keys. Sus" → "kisses"): phrase-initial
+  FRICATIVE onsets get a real ~100 ms near-zero gap (verified in stats:
+  `gap_ms 100`, onset 115 ms) instead of the 22 ms glottal dip.
+- **R6·4 phrase-medial onset prominence** ("control" → "Troll"): raw plosive
+  composites in a phrase-medial word's onset ride an extra 1.25× on top of
+  RAW_BOOST.
+- **The scales reel** (pop/menuband/bin/sing-jingle.mjs `menuband-scales`) —
+  spoken lines placed verbatim at absolute times (level-matched to the sung
+  material, whisper word timings → captions; all three spoken lines
+  transcribe at WER 0) around the sung notepat letter ladder: explicit
+  pitches C3..B4, `octave_opt` off, per-letter phrases via a notation-only
+  text (letter names + commas) so the ladder articulates instead of
+  smearing into one glissando; letter-name lyrics ("see dee ee …", curated
+  /eɪ/ "ay" + /aɪ/ "eye" in pronounce.mjs — CURATED wins over cache) and
+  letter-folded WER scoring ("C-D-E" == "see dee ee").
+- Result: every line CAN now ride an octave above round 5 (13/19 sung
+  campaign lines hold +12, 3 land +7, 3 fall to +0 — all reported); scales
+  descending ladder hits WER 0.154 (11/13 letters) with the ascending run
+  flagged honestly (whisper hears sustained sung letter-vowels as melody);
+  clicks 0 and conformance green on every shipped line.
+
 Changelog — round 5 (2026-07, the DICTION round — consonant time-stretching
 the way trained choirs handle it; round 4's whisper gate was failing on
 swallowed consonants, not on the singing):

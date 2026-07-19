@@ -1,8 +1,34 @@
 #!/usr/bin/env python3
 """
-sing_line_world.py — spinging's line-continuous singing engine (round 5).
+sing_line_world.py — spinging's line-continuous singing engine (round 6).
 
-What round 5 adds — CONSONANT TIME-STRETCHING, the way trained choirs
+What round 6 adds — REGISTER + the diction starve fixes:
+
+  R6·1 REGISTER — plan.register (semitones) lifts every target AFTER the
+       per-line minimal-|shift| octave fit: the fit still finds where the
+       spoken take naturally sits, then the whole line rides up (jeffrey:
+       "I could be higher octave?"). The formant envelope is untouched (no
+       kermit by construction) and the goalpost conformance becomes
+       register-aware (vocal_shapes.conformance widens/shifts the f0-linked
+       bands; duration/energy/click gates unchanged). The caller may retry
+       a line at lower registers if it sounds strained (fallback ladder).
+  R6·2 FINAL UNSTRESSED SYLLABLES STOP STARVING ("diminished" → "deman"):
+       a word-final unstressed syllable's vowel gets a minimum-duration
+       floor (borrowed from the preceding stressed vowel by anticipating
+       the note), and word-final coda CLUSTERS (≥2 phones) may articulate
+       into the phrase gap (extension cap 0.05 → 0.18 s) so /ʃt/-style
+       codas render at full value instead of vanishing.
+  R6·3 PHRASE-BOUNDARY SILENCE ("keys. Sus" → "kisses"): a phrase-initial
+       fricative onset now gets a real ~100 ms silence carved before it
+       (near-zero floor, not the 22 ms glottal dip) so the /s/ can't weld
+       backward onto the previous phrase's coda.
+  R6·4 PHRASE-MEDIAL ONSET PROMINENCE ("control" → "Troll"): raw plosive
+       composites inside a phrase-medial word's onset get an extra boost on
+       top of RAW_BOOST — the /k/ burst stays legible against the already-
+       leveled vowels around it. (Consonant-span bed ducking already covers
+       these frames via cons_mask.)
+
+Round 5 (kept) — CONSONANT TIME-STRETCHING, the way trained choirs
 handle diction (the whisper round-trip gate was failing on swallowed
 consonants, not on the singing):
 
@@ -136,9 +162,14 @@ MAX_ONSET_OUT_S = 0.34      # stretched onset ceiling
 MAX_CODA_OUT_S = 0.42       # stretched coda ceiling
 PLOSIVE_GAP_S = 0.022       # pre-plosive silence (the choir's glottal set-up)
 GAP_FLOOR_AMP = 0.06        # the gap dips to this, never digital zero
+PHRASE_FRIC_GAP_S = 0.10    # R6·3 real silence before a phrase-initial fricative
+PHRASE_FRIC_GAP_AMP = 0.02  # …and it dips near-zero (a true phrase breath)
 CONS_GAIN_DB = 3.0          # consonant prominence on the WORLD path
 RAW_BOOST = 1.5             # raw composite boost (plosive bursts; R4 was 1.4)
+ONSET_RAW_EXTRA = 1.25      # R6·4 extra boost on phrase-medial onset bursts
 CODA_EXTEND_S = 0.05        # word-final codas may run past hardEnd at phrase ends
+CODA_CLUSTER_EXTEND_S = 0.18  # R6·2 …coda CLUSTERS may run this far into the gap
+FINAL_UNSTRESSED_VOWEL_S = 0.14  # R6·2 word-final unstressed vowel floor
 MAX_BREATH_S = 0.45
 BRIDGE_MAX_S = 0.45         # intra-phrase gaps up to this sustain legato
 BRIDGE_DIP_AMP = 0.72       # shallow energy dip at a bridged word boundary
@@ -769,6 +800,13 @@ def main():
         for s in segs:
             for sl in s["w"]["slots"]:
                 sl["midi"] += line_transpose
+    # R6·1: the register lift rides ON TOP of the minimal-shift fit — the fit
+    # finds where the spoken take naturally sits, the register is the ask.
+    register = int(plan.get("register", 0))
+    if register:
+        for s in segs:
+            for sl in s["w"]["slots"]:
+                sl["midi"] += register
 
     # ── output timeline ────────────────────────────────────────────────────
     line_t0 = float(plan["line_t0"])
@@ -791,6 +829,7 @@ def main():
     force_voiced = np.zeros(out_n, dtype=bool)  # R4·2 sung voiced consonants
     sp_gain = np.ones(out_n)            # R4·1 shallow bridge energy dips
     cons_gain = np.ones(out_n)          # R5·4 consonant prominence (sp amp)
+    raw_gain = np.ones(out_n)           # R6·4 extra boost on onset raw bursts
     cons_mask = np.zeros(out_n, dtype=bool)  # R5 consonant frames (choir gate)
     gap_env = np.ones(out_n)            # R5·2 pre-plosive glottal-set-up dips
     onset_marks = []                    # (onset_f, vowel_f) voiced-onset QA
@@ -817,13 +856,15 @@ def main():
 
     cons_g = db(CONS_GAIN_DB)
 
-    def place_plan(o_end, plan, midi, med):
+    def place_plan(o_end, plan, midi, med, raw_extra=1.0):
         """R5·1: place a diction plan so its output ENDS at frame o_end.
 
         Raw runs map 1:1 (integer source steps → the raw composite path picks
         them up with true transients); stretched runs map fractionally and
         render through WORLD (noise for unvoiced fricatives, the pitch path
-        for voiced sonorants). Returns the plan's output start frame."""
+        for voiced sonorants). raw_extra (R6·4) rides on RAW_BOOST for the
+        raw runs — phrase-medial onset bursts sit prouder. Returns the
+        plan's output start frame."""
         o = o_end - sum(p[2] for p in plan)
         o_start = o
         for ra, rb, out, m in plan:
@@ -834,6 +875,7 @@ def main():
                 if m != "pitch" and out == rb - ra:
                     src_pos[idx] = ra + (idx - o)      # 1:1 → raw composite
                     natural[idx] = True
+                    raw_gain[idx] = raw_extra
                 else:
                     pos = (np.linspace(ra, max(ra, rb - 1) + 1e-6, out)
                            if out > 1 else np.array([float(ra)]))
@@ -869,10 +911,17 @@ def main():
         exp_on = s["exp"][0]["phonemes"]["onset"] if s["exp"] else None
         # the glottal set-up: before every plosive/affricate, and at every
         # phrase-initial consonant (a stretched phrase-opening /s/ otherwise
-        # welds onto the previous phrase's coda — "keys. Sus" → "kisses")
-        gap_s = PLOSIVE_GAP_S if (exp_on and (
-            exp_on[0]["cls"] in ("plosive", "affricate")
-            or (wi > 0 and s["w"].get("phraseStart")))) else 0.0
+        # welds onto the previous phrase's coda — "keys. Sus" → "kisses").
+        # R6·3: a 22 ms dip wasn't enough for phrase-initial FRICATIVES —
+        # whisper still heard the /z s/ weld — so those now get a real
+        # ~100 ms near-silent phrase breath instead.
+        gap_s, gap_amp = 0.0, GAP_FLOOR_AMP
+        if exp_on:
+            phrase_medial_start = wi > 0 and s["w"].get("phraseStart")
+            if phrase_medial_start and exp_on[0]["cls"] == "fricative":
+                gap_s, gap_amp = PHRASE_FRIC_GAP_S, PHRASE_FRIC_GAP_AMP
+            elif exp_on[0]["cls"] in ("plosive", "affricate") or phrase_medial_start:
+                gap_s = PLOSIVE_GAP_S
         oplan, out_f = diction_plan(
             s["onset"][0], s["onset"][1], exp_on, cls, voiced, hf_ratio,
             stretch_scale, min(MAX_ONSET_OUT_S, max(0.04, avail - gap_s)),
@@ -880,7 +929,7 @@ def main():
         onset_plans.append({"plan": oplan, "out_f": out_f,
                             "out_s": out_f * FRAME_S,
                             "gap_f": int(round(gap_s / FRAME_S)),
-                            "gap_s": gap_s})
+                            "gap_s": gap_s, "gap_amp": gap_amp})
 
     stats_words = []
     for wi, s in enumerate(segs):
@@ -933,13 +982,15 @@ def main():
         s["_v_delay"] = v_delay
         onset_start = o_end_on
         if op["plan"]:
-            onset_start = place_plan(o_end_on, op["plan"], slots[0]["midi"], med_log)
+            onset_start = place_plan(o_end_on, op["plan"], slots[0]["midi"], med_log,
+                                     raw_extra=ONSET_RAW_EXTRA if wi > 0 else 1.0)
             if s["onset_voiced"] and o_end_on > onset_start:
                 onset_marks.append((max(0, onset_start), min(out_n, o_end_on)))
         if op["gap_f"] > 0:
             ga = max(0, onset_start - op["gap_f"])
             if onset_start > ga:
-                gap_env[ga:onset_start] = GAP_FLOOR_AMP
+                gap_env[ga:onset_start] = np.minimum(
+                    gap_env[ga:onset_start], op["gap_amp"])
         s["_onset_start"] = onset_start
 
         # R5·3: coda diction plan — stretched to full value, stealing time
@@ -947,14 +998,19 @@ def main():
         # to CODA_EXTEND_S past hardEnd (bridged codas already ride the
         # bridge into the next word's onset).
         nxt_seg = segs[wi + 1] if wi + 1 < len(segs) else None
+        exp_coda_ph = s["exp"][-1]["phonemes"]["coda"] if s["exp"] else None
+        # R6·2: a coda CLUSTER (≥2 phones — "diminished"'s /ʃt/) needs real
+        # articulation room; let it run further into the phrase gap than a
+        # single-consonant coda would.
+        ext_cap = CODA_CLUSTER_EXTEND_S if exp_coda_ph and len(exp_coda_ph) >= 2 \
+            else CODA_EXTEND_S
         ext_s = 0.0
         if nxt_seg is None:
-            ext_s = CODA_EXTEND_S
+            ext_s = ext_cap
         elif nxt_seg["w"].get("phraseStart") and bridge_from is None:
             nxt_onset_t = nxt_seg["w"]["slots"][0]["t"] - \
                 (onset_plans[wi + 1]["out_s"] + onset_plans[wi + 1]["gap_s"])
-            ext_s = max(0.0, min(CODA_EXTEND_S, nxt_onset_t - hard_end - 0.06))
-        exp_coda_ph = s["exp"][-1]["phonemes"]["coda"] if s["exp"] else None
+            ext_s = max(0.0, min(ext_cap, nxt_onset_t - hard_end - 0.06))
         coda_avail = (hard_end + ext_s) - (slots[-1]["t"] + 0.06)
         cp_plan, cp_out_f = diction_plan(
             s["coda"][0], s["coda"][1], exp_coda_ph, cls, voiced, hf_ratio,
@@ -989,6 +1045,16 @@ def main():
             else:
                 v_end = hard_end - coda_len
             v_end = max(v_end, v_start + 0.03)
+            # R6·2: a word-final UNSTRESSED syllable must not starve — its
+            # vowel gets a minimum duration, borrowed by anticipating the
+            # note into the preceding (stressed) vowel's tail ("diminished"'s
+            # final -nished was 3 output frames + no coda room → "deman").
+            if k == n_slots - 1 and n_slots >= 2:
+                exp_k = s["exp"][k] if k < len(s["exp"]) else None
+                if exp_k is not None and not exp_k.get("stress") \
+                        and v_end - v_start < FINAL_UNSTRESSED_VOWEL_S:
+                    v_start = max(slots[k - 1]["t"] + 0.10,
+                                  v_end - FINAL_UNSTRESSED_VOWEL_S)
             o_a, o_b = of(v_start), of(v_end)
             o_a = max(0, o_a)
             o_b = min(out_n, max(o_b, o_a + 2))
@@ -1297,7 +1363,8 @@ def main():
                 # R4/R5: articulate — the vowel leveling (arc conformance)
                 # lifts sung vowels well above the raw spoken consonants;
                 # boost the composite so plosive bursts stay legible.
-                seg = x[sa:sb] * RAW_BOOST
+                # R6·4: raw_gain adds onset-burst prominence on top.
+                seg = x[sa:sb] * RAW_BOOST * float(raw_gain[i])
                 L = ob - oa
                 r = min(ramp, L // 2)
                 if r > 1:
@@ -1444,7 +1511,7 @@ def main():
         notes_r = [(a, b) for a, b in (trimmed or notes_r)
                    if a >= out_n or cons_mask[a:min(b, out_n)].mean() < 0.5]
         feats_r = [note_features(f0r, rms_r, hf_r, a, b) for a, b in notes_r]
-        conf = conformance(feats_r, bands)
+        conf = conformance(feats_r, bands, register=register)
         conf["_notes_measured"] = len(feats_r)
     clicks = click_scan(y.astype(np.float64), fs)
     # exonerate flux spikes that land on NATURAL consonant composites — those
@@ -1481,6 +1548,7 @@ def main():
     print(json.dumps({
         "words": stats_words,
         "line_transpose": line_transpose,
+        "register": register,
         "beta": round(beta, 4), "harmony": harmony,
         "cons_stretch_scale": stretch_scale,
         "consonant_spans": cons_spans,

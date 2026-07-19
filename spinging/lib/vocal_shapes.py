@@ -161,18 +161,42 @@ def percentile_bands(all_feats, ps=(5, 10, 25, 50, 75, 90, 95)):
     return bands
 
 
-def conformance(feats_list, bands, lo="p10", hi="p90"):
-    """Median-of-notes per feature vs reference band → {feature: {…, pass}}."""
+# Round 6: bands whose reference values ride the SPEAKER'S F0 — the goalposts
+# were measured on low-baritone acapellas, so a register lift (singing the
+# same voice N semitones up) legitimately moves them: pitch-tracking noise
+# scales with f0 (drift/glide/release cents), and the harmonic comb shifts
+# energy above the 4 kHz line (hf_ratio). Duration / energy / click gates are
+# register-independent and stay untouched.
+F0_LINKED = ("onset_glide_cents", "onset_glide_ms", "plateau_drift_cents",
+             "release_cents", "vib_depth_cents", "hf_ratio")
+
+
+def conformance(feats_list, bands, lo="p10", hi="p90", register=0):
+    """Median-of-notes per feature vs reference band → {feature: {…, pass}}.
+
+    register (semitones above the calibrated speaker) makes the f0-linked
+    bands register-aware: cents/ms bands widen by 35 % per octave of lift,
+    hf_ratio's band shifts up with the harmonic comb (×2^(R/24)) and relaxes.
+    """
     rep = {}
     ok_all = True
+    widen = 1.0 + 0.35 * abs(register) / 12.0
+    hf_shift = 2.0 ** (register / 24.0)
     for k, band in bands.items():
         vals = np.array([f[k] for f in feats_list if k in f])
         if len(vals) == 0:
             rep[k] = {"value": None, "pass": None}  # n/a this line
             continue
         v = float(np.median(vals))
-        ok = bool(band[lo] <= v <= band[hi])
-        rep[k] = {"value": round(v, 3), "lo": band[lo], "hi": band[hi], "pass": ok}
+        b_lo, b_hi = band[lo], band[hi]
+        if register and k in F0_LINKED:
+            if k == "hf_ratio":
+                b_lo, b_hi = b_lo * hf_shift / widen, b_hi * hf_shift * widen
+            else:
+                b_lo, b_hi = b_lo / widen, b_hi * widen
+            b_lo, b_hi = round(b_lo, 3), round(b_hi, 3)
+        ok = bool(b_lo <= v <= b_hi)
+        rep[k] = {"value": round(v, 3), "lo": b_lo, "hi": b_hi, "pass": ok}
         # duration + energy arcs are score/arrangement-driven (and vib delay's
         # estimator is weak on the references) — advisory only
         if k not in ("dur_s", "energy_release_ms", "vib_rate_hz", "vib_delay_ms") and not ok:
