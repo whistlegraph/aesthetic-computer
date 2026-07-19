@@ -26,9 +26,14 @@ taking the usual day.
 **PUBLISHED — v1.5.4 (build 155) went live on 2026-07-16.** The next patch will
 also replace the duplicated 1.5.4 screenshot assets; see the review log below.
 
-**IN PROGRESS — v1.5.5 (build 156):** screenshot uploads now have a single
-release lane, so the inherited four-image set will be replaced once with the
-two canonical images before submission.
+**SUBMITTED — v1.5.5 (build 156), 2026-07-18, `WAITING_FOR_REVIEW`.** Lane
+order ran as documented (`meta → shots → upload → ship`), but the version
+still inherited duplicated screenshot assets (00×2, 01×3 — `shots` even added
+a third `01-reel` copy). Fixed via the API before submitting: while the
+version is `PREPARE_FOR_SUBMISSION`, `DELETE /v1/appScreenshots/{id}` works —
+listed the set's assets with their `sourceFileChecksum`s, kept the first of
+each, deleted the rest. `bin/asc.mjs` (new) wraps the JWT + common queries:
+`status` / `get <path>` / `sales` / `analytics`.
 
 ### Review log
 
@@ -38,6 +43,7 @@ two canonical images before submission.
 | 2 | Jul 9 (build 153) | rejected Jul 11 | **2.4.5(i)** | The app declared `com.apple.security.device.bluetooth` for features the sandboxed build doesn't ship — an entitlement it never uses. | `8fce4eb70` — dropped the entitlement, **build 154**. The MultipeerConnectivity fleet is `#if !MAC_APP_STORE` anyway, and game controllers ride the high-level GameController framework (no `CBCentralManager` anywhere), so paired controllers still work without it. |
 | 3 | Jul 11 (build 154) | **approved Jul 12** | — | — | Released same day. |
 | 4 | Jul 15 (build 155) | **approved Jul 16** | — | v1.5.4 post-launch fixes and submission hardening. | Released automatically as configured. |
+| 5 | Jul 18 (build 156) | pending | — | v1.5.5: menu-bar 3·2·1 count-in, save-anywhere tape export, tape cover art, spoken digits; deduplicated screenshot set. | — |
 
 ### Screenshot duplication found after release
 
