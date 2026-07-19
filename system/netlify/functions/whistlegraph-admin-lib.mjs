@@ -8,6 +8,8 @@ export const DEFAULT_WHISTLEGRAPH_ADMIN_SUBS = Object.freeze([
 const POST_KINDS = new Set(["performance", "talk", "other"]);
 const CODE_RE = /^[A-Za-z0-9]{1,24}$/;
 const COLOR_RE = /^#[0-9a-f]{6}$/i;
+const COMMIT_RE = /^[0-9a-f]{40}$/i;
+const CHANGE_ID_RE = /^[a-z0-9-]{8,100}$/i;
 
 export function whistlegraphAdminSubs(env = process.env) {
   const configured = String(env.WHISTLEGRAPH_ADMIN_SUBS || "")
@@ -18,6 +20,46 @@ export function whistlegraphAdminSubs(env = process.env) {
 }
 export function isWhistlegraphAdmin(user, allowed = whistlegraphAdminSubs()) {
   return Boolean(user?.sub && user.email_verified && allowed.has(user.sub));
+}
+
+export function normalizeDeployRequest(input) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    throw new Error("Deployment request must be an object.");
+  }
+  const commit = String(input.commit || "").trim().toLowerCase();
+  const changeId = String(input.changeId || "").trim();
+  const branch = String(input.branch || "").trim();
+  if (!COMMIT_RE.test(commit)) throw new Error("Send the exact 40-character commit SHA pushed to main.");
+  if (!CHANGE_ID_RE.test(changeId)) throw new Error("Send the Whistlegraph change ID.");
+  if (branch !== `whistlegraph/${branch.split("/")[1] || ""}/${changeId}` || !/^whistlegraph\/[a-z0-9-]{1,32}\/[a-z0-9-]{8,100}$/i.test(branch)) {
+    throw new Error("Deployment branch does not match the Whistlegraph change.");
+  }
+  return { commit, changeId, branch };
+}
+
+export function validateDeployEvidence({
+  commit,
+  changeId,
+  actorSub,
+  originHead,
+  branchHead,
+  ancestry,
+  changed = [],
+  treeEntries = [],
+  message = "",
+}) {
+  if (originHead !== commit) throw new Error(`origin/main is ${String(originHead).slice(0, 12)}, not ${commit.slice(0, 12)}.`);
+  if (branchHead !== commit) throw new Error("The review branch does not point at this commit.");
+  if (String(ancestry).trim().split(/\s+/).length !== 2) throw new Error("Whistlegraph publishes must be single-parent commits.");
+  if (!changed.length || changed.length > 25 || changed.some((path) => !path.startsWith("system/public/whistlegraph.org/") || /[\u0000-\u001f\u007f]/.test(path))) {
+    throw new Error("The commit changes files outside the Whistlegraph frontend allowlist.");
+  }
+  if (treeEntries.some((entry) => entry.startsWith("120000 "))) throw new Error("Symlinks are not allowed in the Whistlegraph frontend.");
+  const trailers = new Set(String(message).split("\n").map((line) => line.trim()));
+  if (!trailers.has(`Whistlegraph-Actor-Sub: ${actorSub}`) || !trailers.has(`Whistlegraph-Change: ${changeId}`)) {
+    throw new Error("Commit attribution does not match this authenticated request.");
+  }
+  return { changed };
 }
 
 function own(object, key) {

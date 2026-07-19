@@ -34,6 +34,15 @@ OLD_BRANCH=$(git branch --show-current)
 log "pulling branch $DEPLOY_BRANCH..."
 git fetch origin "$DEPLOY_BRANCH" --quiet
 
+# Authenticated publishers pin a deployment to the exact SHA they just pushed.
+# Re-check after fetch so a racing push can never make us deploy a different
+# commit than the one the maintainer reviewed.
+REMOTE_HEAD=$(git rev-parse "origin/$DEPLOY_BRANCH")
+if [ -n "${EXPECTED_COMMIT:-}" ] && [ "$REMOTE_HEAD" != "$EXPECTED_COMMIT" ]; then
+  log "refusing deploy: origin/$DEPLOY_BRANCH is $REMOTE_HEAD, expected $EXPECTED_COMMIT"
+  exit 3
+fi
+
 if git show-ref --verify --quiet "refs/heads/$DEPLOY_BRANCH"; then
   git checkout "$DEPLOY_BRANCH" --quiet
 else

@@ -5,25 +5,34 @@
 // GET   /api/whistlegraph-admin?action=data      authenticated overlay + audit view
 // PATCH /api/whistlegraph-admin                  upsert/reset one post or work patch
 
-import { readFileSync, statSync } from "node:fs";
+import { execFile as execFileCallback, spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { promisify } from "node:util";
 import { authorize, handleFor } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 import {
   curationPayload,
   isWhistlegraphAdmin,
+  normalizeDeployRequest,
   normalizePostPatch,
   normalizeWorkPatch,
+  validateDeployEvidence,
   whistlegraphAdminSubs,
 } from "./whistlegraph-admin-lib.mjs";
 
 const COLLECTION = "whistlegraph-curation";
 const AUDIT_COLLECTION = "whistlegraph-curation-audit";
+const DEPLOY_COLLECTION = "whistlegraph-deployments";
 const MODEL_DIR = join(process.cwd(), "public", "whistlegraph.org");
+const REPO_ROOT = join(process.cwd(), "..");
+const DEPLOY_SCRIPT = join(REPO_ROOT, "lith", "webhook.sh");
+const execFile = promisify(execFileCallback);
 const HEADERS = {
   "Cache-Control": "no-store",
-  "Access-Control-Allow-Methods": "GET, PATCH, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, PATCH, POST, OPTIONS",
 };
 
 let modelCache = { stamp: "", workCodes: new Set(), postIds: new Set() };
@@ -65,12 +74,58 @@ async function readCuration(database) {
   return curationPayload(documents);
 }
 
+function deployError(message, statusCode = 409) {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+}
+
+async function deployPushedCommit({ commit, changeId, branch, user }) {
+  if (!existsSync(DEPLOY_SCRIPT) || REPO_ROOT !== "/opt/ac") {
+    throw deployError("Whistlegraph deployment is available only on the production publisher.", 503);
+  }
+  await execFile("git", ["-C", REPO_ROOT, "fetch", "origin", "main", branch, "--quiet"], { timeout: 60_000 });
+  const { stdout } = await execFile("git", ["-C", REPO_ROOT, "rev-parse", "origin/main"], { timeout: 10_000 });
+  const originHead = stdout.trim();
+  const { stdout: branchStdout } = await execFile("git", ["-C", REPO_ROOT, "rev-parse", `origin/${branch}`], { timeout: 10_000 });
+  const { stdout: ancestry } = await execFile("git", ["-C", REPO_ROOT, "rev-list", "--parents", "-n", "1", commit], { timeout: 10_000 });
+  const { stdout: changedStdout } = await execFile("git", ["-C", REPO_ROOT, "diff-tree", "--no-commit-id", "--name-only", "-r", "-z", commit], { timeout: 10_000 });
+  const changed = changedStdout.split("\0").filter(Boolean);
+  const { stdout: treeStdout } = await execFile("git", ["-C", REPO_ROOT, "ls-tree", "-r", "-z", commit, "--", "system/public/whistlegraph.org"], { timeout: 10_000 });
+  const { stdout: message } = await execFile("git", ["-C", REPO_ROOT, "show", "-s", "--format=%B", commit], { timeout: 10_000 });
+  try {
+    validateDeployEvidence({
+      commit,
+      changeId,
+      actorSub: user.sub,
+      originHead,
+      branchHead: branchStdout.trim(),
+      ancestry,
+      changed,
+      treeEntries: treeStdout.split("\0").filter(Boolean),
+      message,
+    });
+  } catch (error) {
+    const conflict = /^(origin\/main|The review branch)/.test(error.message);
+    throw deployError(`Refusing deploy: ${error.message}`, conflict ? 409 : 403);
+  }
+  const child = spawn(DEPLOY_SCRIPT, [], {
+    cwd: REPO_ROOT,
+    env: { ...process.env, DEPLOY_BRANCH: "main", EXPECTED_COMMIT: commit, WHISTLEGRAPH_CHANGE_ID: changeId || "" },
+    stdio: "ignore",
+  });
+  child.on("error", (error) => console.error("Whistlegraph deploy launch failed:", error?.message || error));
+  child.unref();
+  return { queued: true, commit };
+}
+
 export function createHandler({
   authorizeFn = authorize,
   handleForFn = handleFor,
   connectFn = connect,
   allowedSubs = whistlegraphAdminSubs(),
   loadModelFn = loadBaseModel,
+  deployFn = deployPushedCommit,
 } = {}) {
   return async function whistlegraphAdminHandler(event) {
     if (event.httpMethod === "OPTIONS") return respond(204, "", HEADERS);
@@ -109,10 +164,54 @@ export function createHandler({
           .sort({ when: -1 })
           .limit(30)
           .toArray();
-        return respond(200, { ...curation, recent }, HEADERS);
+        const deployments = await database.db.collection(DEPLOY_COLLECTION)
+          .find({})
+          .sort({ when: -1 })
+          .limit(20)
+          .toArray();
+        return respond(200, { ...curation, recent, deployments }, HEADERS);
       } finally {
         await database.disconnect?.();
       }
+    }
+
+    if (event.httpMethod === "POST" && action === "deploy") {
+      let body;
+      try { body = parseBody(event); }
+      catch (error) { return respond(400, { message: error.message }, HEADERS); }
+      let request;
+      try { request = normalizeDeployRequest(body); }
+      catch (error) { return respond(400, { message: error.message }, HEADERS); }
+      const { commit, changeId, branch } = request;
+      const deploymentId = randomUUID();
+      const database = await connectFn();
+      let result;
+      try {
+        const deployments = database.db.collection(DEPLOY_COLLECTION);
+        await deployments.createIndex({ when: -1 }, { background: true });
+        await deployments.insertOne({
+          _id: deploymentId,
+          commit,
+          changeId: changeId || null,
+          branch: branch || null,
+          actorSub: user.sub,
+          status: "requested",
+          when: new Date(),
+        });
+        try {
+          result = await deployFn({ commit, changeId, branch, user });
+          await deployments.updateOne({ _id: deploymentId }, { $set: { status: "queued", queuedAt: new Date() } });
+        } catch (error) {
+          await deployments.updateOne(
+            { _id: deploymentId },
+            { $set: { status: "refused", error: String(error.message || error).slice(0, 500), finishedAt: new Date() } },
+          );
+          return respond(error.statusCode || 500, { message: error.message || "Deployment could not start." }, HEADERS);
+        }
+      } finally {
+        await database.disconnect?.();
+      }
+      return respond(202, { deploymentId, status: "queued", ...result }, HEADERS);
     }
 
     if (event.httpMethod !== "PATCH") {

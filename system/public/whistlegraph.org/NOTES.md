@@ -28,6 +28,20 @@ The server allowlist defaults to the two current Auth0 subjects. Override it wit
 the comma-separated `WHISTLEGRAPH_ADMIN_SUBS` environment variable when identities
 change; do not put email addresses or handles in that variable.
 
+### Codex publishing
+
+The Desk's **Codex tools** panel installs the repository's `plugins/whistlegraph`
+plugin. Its MCP creates a clean worktree from `origin/main`, restricts writes to
+`system/public/whistlegraph.org/**`, validates the patch, creates an attributed
+review-branch commit, and fast-forwards `main` only when the reviewed base is still
+current. The plugin then POSTs the exact commit SHA to the Auth0-protected
+`?action=deploy` endpoint. Production re-checks that SHA against `origin/main`
+before `lith/webhook.sh` changes the live checkout. Neither the MCP nor the browser
+receives `DEPLOY_SECRET` or the deployment vault.
+
+The publisher requires the Tangled knot as the checkout's `origin`; GitHub remains
+the public marketplace/mirror used to install the plugin.
+
 ## Bigger feature — needs a data model (2026-07-11)
 - **Per-page source-video list.** On each whistlegraph's detail page, list *every*
   TikTok video feeding its aggregate data, each with its own view count — so we can

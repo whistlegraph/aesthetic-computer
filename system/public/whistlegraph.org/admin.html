@@ -39,6 +39,7 @@
     .hero{display:grid;grid-template-columns:136px 1fr;gap:14px;margin:18px 0}.hero img{width:136px;aspect-ratio:9/16;object-fit:cover;border:1px solid var(--ink);background:#fff}.facts{font-size:11px;line-height:1.7;overflow-wrap:anywhere}.facts a{color:var(--link)}
     label{display:block;font-size:10.5px;color:var(--margin);text-transform:uppercase;letter-spacing:.06em;margin:16px 0 4px}.field{width:100%;border:1px solid var(--ink);border-radius:2px;background:rgba(255,255,255,.58);padding:7px 9px}.field:focus{outline:none;border-color:var(--margin);box-shadow:0 0 0 2px rgba(180,72,135,.18)}textarea.field{min-height:104px;resize:vertical;line-height:1.55}.hint{font-size:10px;color:var(--dim);margin:4px 0}
     .actions{position:sticky;bottom:-44px;background:linear-gradient(transparent,var(--paper) 25%);display:flex;gap:9px;padding:30px 0 12px;margin-top:6px}.danger{border:1px solid var(--ink);border-radius:2px;background:var(--paper);padding:7px 10px}.danger:hover{background:var(--hi)}.save{margin-left:auto}
+    #codexShade{position:fixed;z-index:40;inset:0;background:rgba(40,30,90,.28)}#codexPanel{position:fixed;z-index:41;right:0;top:0;bottom:0;width:min(660px,96vw);overflow:auto;background:repeating-linear-gradient(var(--paper),var(--paper) 26px,var(--rule) 26px,var(--rule) 27px);border-left:2px solid var(--margin);padding:20px 26px 56px}.codex-head{display:flex;gap:14px;align-items:start;border-bottom:2px solid var(--margin);padding-bottom:13px}.codex-head h2{font-family:'YWFTProcessing',"Arial Black",system-ui,sans-serif;font-size:29px;font-weight:normal;line-height:1;margin:2px 0 7px}.codex-head p{margin:0;color:var(--dim);font-size:11.5px}.codex-step{margin:22px 0}.codex-step h3{font-size:11px;color:var(--margin);text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px}.codex-step p{font-size:12px;color:var(--dim)}.command{position:relative;border:1px solid var(--ink);background:rgba(255,255,255,.48);padding:11px 72px 11px 12px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px;line-height:1.65}.copy{position:absolute;right:7px;top:7px;border:1px solid var(--margin);background:var(--paper);color:var(--margin);padding:3px 7px;font-size:10px}.copy:hover{background:var(--hi)}.guardrails{border-left:3px solid var(--margin);padding:2px 0 2px 12px;font-size:11px;color:var(--dim)}.deploy-list{margin:0;padding:0;list-style:none;font-size:11px}.deploy-list li{border-top:1px solid rgba(40,30,90,.2);padding:7px 0}.deploy-list code{color:var(--margin)}
     #toast{position:fixed;z-index:60;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:7px 11px;border-bottom:3px solid var(--margin);font-size:11.5px}.empty{padding:50px;text-align:center;color:var(--dim)}
     @media(max-width:760px){body::before{left:20px}header{padding-left:30px}.topline{flex-wrap:wrap}.brand{font-size:24px}.controls{display:flex;flex-wrap:wrap}.controls #mode{order:1}.controls #search{order:2;flex:1 0 100%}.controls #filter{order:3;width:100%;max-width:100%;overflow-x:auto}.controls #count{order:4}.who{display:none}main{padding-left:30px}#grid{grid-template-columns:repeat(auto-fill,minmax(94px,1fr));gap:12px 7px}#drawer{width:calc(100vw - 12px);padding-inline:18px}.hero{grid-template-columns:104px 1fr}.hero img{width:104px}.actions{flex-wrap:wrap}}
   </style>
@@ -61,6 +62,7 @@
         <span id="previewBadge" class="preview hidden">LOCAL PREVIEW · SAVING OFF</span>
         <span class="who" id="who"></span>
         <a class="quiet" href="/" target="_blank">View site ↗</a>
+        <button class="quiet" id="codexOpen" data-testid="codex-tools">Codex tools</button>
         <button class="quiet" id="logout">Sign out</button>
       </div>
       <div class="controls">
@@ -79,6 +81,8 @@
 
   <div id="drawerShade" class="hidden"></div>
   <aside id="drawer" class="hidden" aria-label="Archive editor" data-testid="archive-editor"></aside>
+  <div id="codexShade" class="hidden"></div>
+  <aside id="codexPanel" class="hidden" aria-label="Codex publishing tools" data-testid="codex-panel"></aside>
   <div id="toast" class="hidden"></div>
   <datalist id="workCodes"></datalist>
 
@@ -96,7 +100,7 @@
   const esc=value=>String(value??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'\"':"&quot;"}[c]));
   const fmt=value=>value>=1e6?`${(value/1e6).toFixed(1)}M`:value>=1e3?`${Math.round(value/1e3)}K`:String(value||0);
   let client=null,token=null,mode="posts",kind="all",query="",shown=0,view=[];
-  let basePosts=[],baseWorks=[],posts=[],works=[],postById={},workByCode={},curation={works:{},posts:{}},selected=null;
+  let basePosts=[],baseWorks=[],posts=[],works=[],postById={},workByCode={},curation={works:{},posts:{}},deployments=[],selected=null;
   const gate=document.getElementById("gate"),desk=document.getElementById("desk"),grid=document.getElementById("grid"),drawer=document.getElementById("drawer");
 
   function toast(message){const el=document.getElementById("toast");el.textContent=message;el.classList.remove("hidden");clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.add("hidden"),2400)}
@@ -119,7 +123,7 @@
       getJSON(`${STATIC_ROOT}/graphs.json?t=${Date.now()}`,{cache:"no-cache"}),
       PREVIEW?Promise.resolve({works:{},posts:{}}):getJSON(`${API}?action=data`,{headers:{Authorization:`Bearer ${token}`},cache:"no-store"})
     ]);
-    basePosts=pd.posts||[];baseWorks=gd.works||[];curation={works:cd.works||{},posts:cd.posts||{}};applyCuration();renderReset();
+    basePosts=pd.posts||[];baseWorks=gd.works||[];curation={works:cd.works||{},posts:cd.posts||{}};deployments=cd.deployments||[];applyCuration();renderReset();
   }
   function enterDesk(name){gate.classList.add("hidden");desk.classList.remove("hidden");document.getElementById("who").textContent=name;if(PREVIEW){document.getElementById("previewBadge").classList.remove("hidden");document.getElementById("logout").classList.add("hidden")}}
   function canonicalizeDesk(){if(!LOCAL&&location.pathname!==DESK_PATH)history.replaceState({},"",DESK_PATH)}
@@ -139,6 +143,25 @@
     try{if(!client)client=await auth0.createAuth0Client({domain:AUTH0_DOMAIN,clientId:AUTH0_CLIENT,cacheLocation:"localstorage",useRefreshTokens:true,authorizationParams:{redirect_uri:AUTH0_RETURN}});await client.loginWithRedirect({authorizationParams:{prompt:"login"}})}catch(error){fail(error.message)}
   });
   document.getElementById("logout").addEventListener("click",()=>client?.logout({logoutParams:{returnTo:AUTH0_RETURN}}));
+
+  const codexPanel=document.getElementById("codexPanel"),codexShade=document.getElementById("codexShade");
+  function closeCodex(){codexPanel.classList.add("hidden");codexShade.classList.add("hidden")}
+  function openCodex(){
+    const install="codex plugin marketplace add whistlegraph/aesthetic-computer --ref main\ncodex plugin add whistlegraph@personal";
+    const checkout="git clone git@knot.aesthetic.computer:aesthetic.computer/core aesthetic-computer\ncd aesthetic-computer\nac-login\ncodex";
+    const recent=deployments.length?deployments.slice(0,8).map(d=>`<li><code>${esc(String(d.commit||"").slice(0,12))}</code> · ${esc(d.status||"queued")} · ${esc(d.changeId||"Desk publish")}<br><small>${esc(d.when?new Date(d.when).toLocaleString():"")}</small></li>`).join(""):"<li>No Codex deployments yet.</li>";
+    codexPanel.innerHTML=`<div class="codex-head"><div><h2>Whistlegraph <b>for Codex</b></h2><p>Authenticated frontend editing, ordinary Git commits, and exact-SHA deployment.</p></div><button class="close" aria-label="Close Codex tools">×</button></div>
+      <section class="codex-step"><h3>1 · Install the plugin</h3><p>Add the Aesthetic Computer Git marketplace, then install Whistlegraph Desk.</p><div class="command">${esc(install)}<button class="copy" data-copy="install">Copy</button></div></section>
+      <section class="codex-step"><h3>2 · Open the knot checkout</h3><p>The plugin edits a clean temporary worktree. Your normal checkout can contain other work without being touched.</p><div class="command">${esc(checkout)}<button class="copy" data-copy="checkout">Copy</button></div></section>
+      <section class="codex-step"><h3>3 · Ask Codex</h3><div class="command">Find the copy I want to change on whistlegraph.org, show me the diff, then validate and publish it.<button class="copy" data-copy="prompt">Copy</button></div></section>
+      <section class="codex-step guardrails">Only the immutable Auth0 subjects for @jeffrey and @minanimals pass the server check. The plugin can write only <code>system/public/whistlegraph.org/**</code>. Publishing creates a review branch and attributed commit, refuses a moved <code>main</code>, and deploys only the exact pushed SHA.</section>
+      <section class="codex-step"><h3>Recent deployments</h3><ul class="deploy-list">${recent}</ul></section>
+      <p><a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/plugins/whistlegraph" target="_blank" rel="noopener">Inspect the plugin source ↗</a></p>`;
+    codexPanel.querySelector(".close").addEventListener("click",closeCodex);
+    codexPanel.addEventListener("click",async event=>{const button=event.target.closest("button[data-copy]");if(!button)return;const text=button.dataset.copy==="install"?install:button.dataset.copy==="checkout"?checkout:"Find the copy I want to change on whistlegraph.org, show me the diff, then validate and publish it.";try{await navigator.clipboard.writeText(text);toast("Copied") }catch{toast("Copy unavailable")}});
+    codexPanel.classList.remove("hidden");codexShade.classList.remove("hidden");
+  }
+  document.getElementById("codexOpen").addEventListener("click",openCodex);codexShade.addEventListener("click",closeCodex);
 
   function postTitle(p){const text=(p.desc||"").trim();return text?text.slice(0,100):`Post ${p.id}`}
   function heroForWork(code){return posts.filter(p=>(p.works||[]).includes(code)).sort((a,b)=>(b.views||0)-(a.views||0))[0]}
@@ -169,7 +192,7 @@
 
   function closeEditor(){selected=null;drawer.classList.add("hidden");document.getElementById("drawerShade").classList.add("hidden");drawer.innerHTML=""}
   document.getElementById("drawerShade").addEventListener("click",closeEditor);
-  addEventListener("keydown",event=>{if(event.key==="Escape")closeEditor()});
+  addEventListener("keydown",event=>{if(event.key==="Escape"){closeEditor();closeCodex()}});
   function openEditor(key){
     selected={type:mode==="works"?"work":"post",key};const item=selected.type==="work"?workByCode[key]:postById[key];if(!item)return;
     const post=selected.type==="work"?heroForWork(key):item,title=selected.type==="work"?item.title:postTitle(item),changed=Boolean((selected.type==="work"?curation.works:curation.posts)?.[key]);

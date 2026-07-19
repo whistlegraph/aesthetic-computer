@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "whistlegraph": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${pluginDir}/scripts/whistlegraph-mcp.mjs"]
+    }
+  }
+}

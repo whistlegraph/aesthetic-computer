@@ -1,0 +1,28 @@
+{
+  "name": "whistlegraph",
+  "version": "0.1.0",
+  "description": "Curate and safely publish whistlegraph.org from Codex.",
+  "author": {
+    "name": "Whistlegraph"
+  },
+  "homepage": "https://whistlegraph.org/desk",
+  "repository": "https://github.com/whistlegraph/aesthetic-computer",
+  "keywords": ["whistlegraph", "archive", "publishing", "git"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Whistlegraph Desk",
+    "shortDescription": "Curate and publish whistlegraph.org.",
+    "longDescription": "Authenticated archive tools and a narrow Git publishing lane for the Whistlegraph frontend.",
+    "developerName": "Whistlegraph",
+    "category": "Productivity",
+    "capabilities": ["Archive curation", "Frontend editing", "Git publishing", "Deployment"],
+    "websiteURL": "https://whistlegraph.org/desk",
+    "brandColor": "#B44887",
+    "defaultPrompt": [
+      "Show me the Whistlegraph frontend and start a change.",
+      "Find and update this copy on whistlegraph.org.",
+      "Validate, commit, and publish my Whistlegraph change."
+    ]
+  },
+  "mcpServers": "./.mcp.json"
+}

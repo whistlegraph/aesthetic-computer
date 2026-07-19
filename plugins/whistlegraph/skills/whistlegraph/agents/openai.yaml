@@ -1,0 +1,4 @@
+interface:
+  display_name: "Whistlegraph Desk"
+  short_description: "Curate and publish whistlegraph.org safely"
+  default_prompt: "Use the Whistlegraph tools to inspect the site, prepare an isolated frontend change, validate it, and publish only when I approve."

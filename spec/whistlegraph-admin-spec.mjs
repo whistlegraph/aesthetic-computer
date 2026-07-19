@@ -1,8 +1,11 @@
 import {
   curationPayload,
+  DEFAULT_WHISTLEGRAPH_ADMIN_SUBS,
   isWhistlegraphAdmin,
+  normalizeDeployRequest,
   normalizePostPatch,
   normalizeWorkPatch,
+  validateDeployEvidence,
 } from "../system/netlify/functions/whistlegraph-admin-lib.mjs";
 import { createHandler } from "../system/netlify/functions/whistlegraph-admin.mjs";
 
@@ -95,5 +98,80 @@ describe("Whistlegraph Desk", () => {
     const publicRead = await handler({ httpMethod: "GET", headers: {}, queryStringParameters: { action: "curation" } });
     expect(publicRead.statusCode).toBe(200);
     expect(JSON.parse(publicRead.body).posts["123"].works).toEqual(["sos", "imab"]);
+  });
+});
+
+describe("Whistlegraph Desk publishing", () => {
+  const commit = "a".repeat(40);
+  const changeId = "mabcdef0-12345678";
+  const branch = `whistlegraph/minanimals/${changeId}`;
+
+  it("keeps both maintainers in the default immutable-sub allowlist", () => {
+    expect(DEFAULT_WHISTLEGRAPH_ADMIN_SUBS).toContain(JEFFREY);
+    expect(DEFAULT_WHISTLEGRAPH_ADMIN_SUBS).toContain(MINANIMALS);
+  });
+
+  it("normalizes an exact-SHA deployment request", () => {
+    expect(normalizeDeployRequest({ commit: commit.toUpperCase(), changeId, branch })).toEqual({ commit, changeId, branch });
+    expect(() => normalizeDeployRequest({ commit: "main", changeId, branch })).toThrowError(/40-character/);
+    expect(() => normalizeDeployRequest({ commit, changeId, branch: "main" })).toThrowError(/branch/);
+    expect(() => normalizeDeployRequest({ commit, changeId, branch: `whistlegraph/jeffrey/not-${changeId}` })).toThrowError(/branch/);
+  });
+
+  it("independently verifies commit scope and Auth0 attribution", () => {
+    const evidence = {
+      commit,
+      changeId,
+      actorSub: MINANIMALS,
+      originHead: commit,
+      branchHead: commit,
+      ancestry: `${commit} ${"b".repeat(40)}`,
+      changed: ["system/public/whistlegraph.org/index.html"],
+      treeEntries: [`100644 blob ${"c".repeat(40)}\tsystem/public/whistlegraph.org/index.html`],
+      message: `Update the index\n\nWhistlegraph-Actor-Sub: ${MINANIMALS}\nWhistlegraph-Change: ${changeId}\n`,
+    };
+    expect(validateDeployEvidence(evidence).changed).toEqual(evidence.changed);
+    expect(() => validateDeployEvidence({ ...evidence, changed: ["lith/server.mjs"] })).toThrowError(/allowlist/);
+    expect(() => validateDeployEvidence({ ...evidence, treeEntries: [`120000 blob ${"c".repeat(40)}\tsystem/public/whistlegraph.org/link`] })).toThrowError(/Symlinks/);
+    expect(() => validateDeployEvidence({ ...evidence, actorSub: JEFFREY })).toThrowError(/attribution/);
+  });
+
+  it("queues a validated deployment and audits the Auth0 sub", async () => {
+    const inserted = [];
+    const deploys = [];
+    const collection = {
+      createIndex: async () => {},
+      insertOne: async (document) => { inserted.push(document); },
+      updateOne: async ({ _id }, { $set }) => Object.assign(inserted.find((document) => document._id === _id), $set),
+    };
+    const handler = createHandler({
+      authorizeFn: async () => ({ sub: MINANIMALS, email_verified: true }),
+      connectFn: async () => ({ db: { collection: () => collection }, disconnect: async () => {} }),
+      deployFn: async (request) => { deploys.push(request); return { queued: true, commit: request.commit }; },
+    });
+    const result = await handler({
+      httpMethod: "POST",
+      headers: { authorization: "Bearer test" },
+      queryStringParameters: { action: "deploy" },
+      body: JSON.stringify({ commit, changeId, branch }),
+    });
+    const body = JSON.parse(result.body);
+    expect(result.statusCode).toBe(202);
+    expect(body.status).toBe("queued");
+    expect(deploys.length).toBe(1);
+    expect(inserted.length).toBe(1);
+    expect(inserted[0].actorSub).toBe(MINANIMALS);
+    expect(inserted[0].commit).toBe(commit);
+  });
+
+  it("rejects a lookalike handle before invoking deployment", async () => {
+    let called = false;
+    const handler = createHandler({
+      authorizeFn: async () => ({ sub: "auth0|other", handle: "minanimals", email_verified: true }),
+      deployFn: async () => { called = true; },
+    });
+    const result = await handler({ httpMethod: "POST", headers: {}, queryStringParameters: { action: "deploy" }, body: JSON.stringify({ commit, changeId, branch }) });
+    expect(result.statusCode).toBe(403);
+    expect(called).toBeFalse();
   });
 });
