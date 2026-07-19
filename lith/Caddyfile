@@ -749,6 +749,7 @@
 }
 
 # --- nopaint.art ---
+# (touched 2026-07-19 to force a reload after the DNS flip so ACME retries promptly)
 # This host's DNS points straight at lith (DigitalOcean zone, no Cloudflare
 # proxy), so it cannot ride the origin cert the :443 block uses — Caddy
 # manages a real ACME cert for it instead. Root serves the preserved 2021
