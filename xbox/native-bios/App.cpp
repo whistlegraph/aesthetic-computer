@@ -32,7 +32,9 @@ class HostGraphics final : public Graphics {
  public:
   std::function<void(Color)> on_wipe;
   void wipe(Color color) override { if (on_wipe) on_wipe(color); }
-  void box(const Rect&) override {} void line(const Line&) override {} void write(const Text&) override {}
+  void box(const ac::xbox::Rect&) override {}
+  void line(const ac::xbox::Line&) override {}
+  void write(const ac::xbox::Text&) override {}
 };
 class HostSound final : public Sound {
  public:
