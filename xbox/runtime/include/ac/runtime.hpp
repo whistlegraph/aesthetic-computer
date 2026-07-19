@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
@@ -102,8 +103,98 @@ class Piece {
   virtual void leave(Api&) {}
 };
 
-// Control-plane commands are deliberately data/configuration, never downloaded
-// executable code. A shim can change pieces, settings, and probes remotely.
+// A downloaded piece is JavaScript source evaluated by an embedded engine. It
+// is data to the UWP package: no PE/DLL/native code is accepted by this API.
+// sha256 is supplied by the AC endpoint and verified by the platform host
+// before stage() is called.
+struct PieceBundle {
+  std::string slug;
+  std::string version;
+  std::string source;
+  std::string sha256;
+};
+
+struct JsLimits {
+  std::size_t max_source_bytes = 2 * 1024 * 1024;
+  std::size_t max_heap_bytes = 32 * 1024 * 1024;
+  std::uint64_t max_callback_us = 8'000;
+};
+
+// Adapter seam for QuickJS (or another interpreter compiled into the app).
+// The engine exposes only the AC Api bindings; browser, filesystem, process,
+// WinRT and arbitrary network globals are intentionally absent.
+class JsPiece : public Piece {
+ public:
+  ~JsPiece() override = default;
+  [[nodiscard]] virtual std::string_view slug() const noexcept = 0;
+  [[nodiscard]] virtual std::string_view version() const noexcept = 0;
+};
+
+class JsEngine {
+ public:
+  virtual ~JsEngine() = default;
+  virtual std::unique_ptr<JsPiece> compile(const PieceBundle&, const JsLimits&,
+                                           std::string& error) = 0;
+};
+
+// Owns the active and last-known-good JS contexts. Reload is transactional:
+// compile and boot the candidate first, then swap at a frame boundary. If a
+// callback throws or exceeds its budget the previous generation is restored.
+class PieceSupervisor {
+ public:
+  explicit PieceSupervisor(JsEngine& engine, JsLimits limits = {})
+      : engine_(engine), limits_(limits) {}
+
+  bool stage(const PieceBundle& bundle, Api& api, std::string& error) {
+    if (bundle.source.size() > limits_.max_source_bytes) {
+      error = "piece source exceeds configured byte limit";
+      return false;
+    }
+    auto candidate = engine_.compile(bundle, limits_, error);
+    if (!candidate) return false;
+    try {
+      candidate->boot(api);
+    } catch (...) {
+      error = "piece boot failed";
+      return false;
+    }
+    staged_ = std::move(candidate);
+    return true;
+  }
+
+  bool activate(Api& api) {
+    if (!staged_) return false;
+    if (active_) {
+      active_->leave(api);
+      fallback_ = std::move(active_);
+    }
+    active_ = std::move(staged_);
+    ++generation_;
+    return true;
+  }
+
+  bool rollback(Api& api) {
+    if (!fallback_) return false;
+    if (active_) active_->leave(api);
+    active_ = std::move(fallback_);
+    ++generation_;
+    return true;
+  }
+
+  [[nodiscard]] Piece* active() const noexcept { return active_.get(); }
+  [[nodiscard]] std::uint64_t generation() const noexcept { return generation_; }
+
+ private:
+  JsEngine& engine_;
+  JsLimits limits_;
+  std::unique_ptr<JsPiece> active_;
+  std::unique_ptr<JsPiece> staged_;
+  std::unique_ptr<JsPiece> fallback_;
+  std::uint64_t generation_ = 0;
+};
+
+// Control-plane commands are data/configuration or sandboxed JS piece source,
+// never downloaded native executable code.
 enum class CommandKind { load_piece, configure, run_probe, reload, ping };
 struct Command {
   CommandKind kind;

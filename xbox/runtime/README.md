@@ -1,8 +1,10 @@
 # Aesthetic Computer Xbox native runtime
 
-This directory is the portability seam between AC game logic and the Xbox UWP
-host. It does not replace the latency probe or the WebView app. It defines the
-small native API that future C++ ports—starting with the `nom` family—can share.
+This directory is the portability seam for the native Xbox AC BIOS. The target
+does **not** host a WebView: Direct3D renders AC drawing commands, XAudio2 plays
+sound, Windows.Gaming.Input supplies input, and an interpreter compiled into
+the package runs downloaded AC JavaScript pieces. The WebView dynamic shell is
+an experimental comparison target, not the production architecture.
 
 ## Compatibility target
 
@@ -32,9 +34,38 @@ game rules but use native text and basic oscillator cues.
 5. Enqueue `Sound::synth` directly to a preallocated XAudio2 source voice.
 6. Poll the outbound `ControlChannel` and emit timestamped telemetry.
 
-The control channel accepts only precompiled piece/probe identifiers and JSON
-configuration. It must not evaluate downloaded native code. A hosted WebView can
-remain available when arbitrary JS iteration is useful.
+## Live piece loading
+
+`JsEngine` is the narrow adapter for an embedded interpreter. The intended
+first engine is QuickJS: it is MIT licensed, small, has no required external
+dependencies, and is an interpreter (so it does not require runtime code
+generation/JIT privileges). Pin and vendor an audited release in the build;
+never download the engine itself at runtime.
+
+The AC endpoint returns a bounded `PieceBundle` containing `slug`, immutable
+`version`, UTF-8 `source`, and SHA-256. The host downloads it with
+`Windows.Web.Http.HttpClient`, requires HTTPS, verifies the digest, then asks
+`PieceSupervisor` to stage it. Staging creates a fresh JS runtime with only AC
+bindings, compiles and calls `boot`; activation happens at a frame boundary.
+The prior context remains the last-known-good fallback until the new generation
+has survived its probation window. Syntax/boot/runtime/watchdog failures emit
+telemetry and roll back without restarting the binary.
+
+The JS global surface must not expose WinRT, filesystem/process APIs, `eval` of
+untrusted secondary sources, raw sockets, or a general-purpose browser API.
+Heap, source size, stack, callback time, and pending-job counts are bounded.
+Network access is host-mediated and restricted to declared AC endpoints.
+
+This dynamic model must remain consistent with the product's declared purpose.
+Microsoft Store policy 10.2.2 disallows using downloaded code to fundamentally
+change or extend an app's described functionality. AC pieces therefore need to
+be presented and certified as the title's normal content/runtime model, not as
+a way to install unrelated programs. Dev Mode testing is feasible now; retail
+certification needs an explicit policy review before relying on remote source.
+
+The control channel accepts configuration, piece source, and probe identifiers.
+It must never accept downloaded native code. Native BIOS changes still require
+a rebuilt and signed package.
 
 ## Nom porting plan
 
