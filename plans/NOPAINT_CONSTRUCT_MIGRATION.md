@@ -233,12 +233,13 @@ Step 0 is materially complete and the domain now lives on AC infrastructure.
   metadata; handle association (if recorded) lived in the dead Glitch
   app. Check for a Glitch project export before assuming it is lost.
 
-### Gallery (extends step 3)
+### Gallery (extends step 3) — SHIPPED 2026-07-19
 
-The award entry should let the jury walk the archive. Plan:
-`nopaint.art/gallery` — a paginated/endless grid over the bucket,
-served from a generated manifest (bucket listing → JSON with id, date,
-size), images straight off the pix CDN. Random-walk and by-year views
-fall out of the manifest for free. Painter-handle overlays arrive later
-if the Glitch data surfaces. The 1,197 in-project stamp/profile images
-remain a separate, curated set from the extracted `.c3p`.
+`nopaint.art/gallery` is live: an endless grid over all 32,184
+paintings, driven by `gallery/manifest.json` (generated from the bucket
+listing: id, date, size; regenerate after save is restored), images
+straight off the pix CDN, with by-year filters and a shuffle view
+(default). Pixelar face + the #ebebeb grey, matching the game. Painter-
+handle overlays arrive later if the Glitch data surfaces. The 1,197
+in-project stamp/profile images remain a separate, curated set from
+the extracted `.c3p`.
