@@ -11526,8 +11526,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           const fps = Math.max(5, Math.min(60, content?.fps || 30));
           const width = content?.width || 320;
           const height = content?.height || 180;
+          const style = content?.style || "bed"; // "bed" | "break"
           const totalFrames = Math.round(duration * fps);
-          console.log(`🧪 Synthesizing tape: ${totalFrames} frames @ ${fps}fps, ${duration}s`);
+          console.log(`🧪 Synthesizing tape: ${totalFrames} frames @ ${fps}fps, ${duration}s, style "${style}"`);
 
           // Soundtrack first (the frames render its waveform): a 120 BPM
           // bed — kick on every beat, hats on the offbeats, a bass root per
@@ -11548,37 +11549,62 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           let sweepPhase = 0; // Phase-increment, not sin(TAU*f*t) — no drift on long tapes.
           let bassPhase = 0;
           let melPhase = 0;
+          // 🥁 "break" style: one bar of 16th-note breakbeat, repeated —
+          // scratch material with hard transients on a funk grid.
+          const STEP = BEAT / 4; // 16ths at 120 BPM
+          const BREAK_KICK = [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0];
+          const BREAK_SNARE = [0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1];
+          const BREAK_HAT = [1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1];
           for (let s = 0; s < sampleCount; s++) {
             const tt = s / sampleRate;
             const pos = tt / duration;
             const inBeat = tt % BEAT;
             let v = 0;
 
-            // Kick: a 120→45Hz chirp with a fast decay.
-            v +=
-              Math.sin(TAU * (45 + 120 * Math.exp(-inBeat * 26)) * inBeat) *
-              Math.exp(-inBeat * 18) * 0.6;
-
-            // Hat: a short burst of deterministic pseudo-noise on the offbeat.
-            const inOff = (tt + BEAT / 2) % BEAT;
-            if (inOff < 0.03) {
+            if (style === "break") {
+              const step16 = Math.floor(tt / STEP) % 16;
+              const inStep = tt % STEP;
               const n = Math.sin(s * 12.9898) * 43758.5453;
-              v += (n - Math.floor(n) - 0.5) * Math.exp(-inOff * 160) * 0.35;
+              const noise = n - Math.floor(n) - 0.5;
+              if (BREAK_KICK[step16]) {
+                v +=
+                  Math.sin(TAU * (50 + 130 * Math.exp(-inStep * 30)) * inStep) *
+                  Math.exp(-inStep * 16) * 0.75;
+              }
+              if (BREAK_SNARE[step16]) {
+                v += noise * Math.exp(-inStep * 40) * 0.55; // Crack
+                v += Math.sin(TAU * 190 * inStep) * Math.exp(-inStep * 30) * 0.3; // Body
+              }
+              if (BREAK_HAT[step16]) {
+                v += noise * Math.exp(-inStep * 220) * 0.3;
+              }
+            } else {
+              // Kick: a 120→45Hz chirp with a fast decay.
+              v +=
+                Math.sin(TAU * (45 + 120 * Math.exp(-inBeat * 26)) * inBeat) *
+                Math.exp(-inBeat * 18) * 0.6;
+
+              // Hat: a short burst of deterministic pseudo-noise on the offbeat.
+              const inOff = (tt + BEAT / 2) % BEAT;
+              if (inOff < 0.03) {
+                const n = Math.sin(s * 12.9898) * 43758.5453;
+                v += (n - Math.floor(n) - 0.5) * Math.exp(-inOff * 160) * 0.35;
+              }
+
+              // Bass: one root per bar, pulsed per beat.
+              const bar = Math.floor(tt / BAR) % bassRoots.length;
+              bassPhase += (TAU * bassRoots[bar]) / sampleRate;
+              v +=
+                (Math.sin(bassPhase) + Math.sin(bassPhase * 2) * 0.3) *
+                Math.exp(-inBeat * 4) * 0.25;
+
+              // Melody: a pentatonic pluck every half beat, stepped deterministically.
+              const noteIdx = Math.floor(tt / (BEAT / 2));
+              const inNote = tt % (BEAT / 2);
+              const mf = pent[(noteIdx * 3 + Math.floor(noteIdx / 5)) % pent.length];
+              melPhase += (TAU * mf) / sampleRate;
+              v += Math.sin(melPhase) * Math.exp(-inNote * 9) * 0.22;
             }
-
-            // Bass: one root per bar, pulsed per beat.
-            const bar = Math.floor(tt / BAR) % bassRoots.length;
-            bassPhase += (TAU * bassRoots[bar]) / sampleRate;
-            v +=
-              (Math.sin(bassPhase) + Math.sin(bassPhase * 2) * 0.3) *
-              Math.exp(-inBeat * 4) * 0.25;
-
-            // Melody: a pentatonic pluck every half beat, stepped deterministically.
-            const noteIdx = Math.floor(tt / (BEAT / 2));
-            const inNote = tt % (BEAT / 2);
-            const mf = pent[(noteIdx * 3 + Math.floor(noteIdx / 5)) % pent.length];
-            melPhase += (TAU * mf) / sampleRate;
-            v += Math.sin(melPhase) * Math.exp(-inNote * 9) * 0.22;
 
             // Position sweep, quiet underneath, with a 50ms edge fade so
             // the 880→220Hz jump at the loop seam can't click.
@@ -11627,7 +11653,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             // a fixed center playhead, so scrub velocity reads directly as
             // pixel velocity (and direction as scroll direction).
             const bandTop = 8;
-            const bandH = height - bandTop - 10;
+            const bandH = height - bandTop - 4;
             const halfSpanSec = width / 2 / pxPerSec + 1;
             for (
               let s = Math.floor(t - halfSpanSec);
@@ -11635,20 +11661,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               s++
             ) {
               const x = Math.round(width / 2 + (s - t) * pxPerSec);
-              if (s >= 0 && s < duration) {
-                // Alternating per-second panels make speed and direction legible.
-                sctx.fillStyle = `hsl(${Math.round((s / duration) * 300)}, 55%, ${s % 2 ? 26 : 18}%)`;
-                sctx.fillRect(x, bandTop, Math.ceil(pxPerSec), bandH);
-                sctx.fillStyle = "rgba(255, 255, 255, 0.3)";
-                sctx.textAlign = "center";
-                sctx.font = `bold ${Math.floor(bandH / 2.4)}px monospace`;
-                sctx.fillText(String(s), x + pxPerSec / 2, bandTop + bandH * 0.6);
-              } else {
-                // Off-tape zone, so the reel's edges are visible when you
-                // scrub past the ends.
-                sctx.fillStyle = "#111111";
-                sctx.fillRect(x, bandTop, Math.ceil(pxPerSec), bandH);
-              }
+              // The tape is a loop — wrap the ruler past both edges so
+              // there's never dead black; the material just repeats.
+              const sw = ((s % duration) + duration) % duration;
+              // Alternating per-second panels make speed and direction legible.
+              sctx.fillStyle = `hsl(${Math.round((sw / duration) * 300)}, 55%, ${sw % 2 ? 26 : 18}%)`;
+              sctx.fillRect(x, bandTop, Math.ceil(pxPerSec), bandH);
+              sctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+              sctx.textAlign = "center";
+              sctx.font = `bold ${Math.floor(bandH / 2.4)}px monospace`;
+              sctx.fillText(String(sw), x + pxPerSec / 2, bandTop + bandH * 0.6);
               // Major tick each second, minor ticks each tenth.
               sctx.fillStyle = "rgba(255, 255, 255, 0.5)";
               sctx.fillRect(x, bandTop, 2, bandH);
@@ -11657,12 +11679,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               }
             }
 
-            // The soundtrack's actual waveform, scrolling with the ruler.
+            // The soundtrack's actual waveform, scrolling with the ruler
+            // (wrapped past the seam like the panels).
             const midY = bandTop + bandH / 2;
             sctx.fillStyle = "rgba(255, 220, 120, 0.9)";
             for (let x = 0; x < width; x++) {
-              const c = Math.round(t * pxPerSec + x - width / 2);
-              if (c < 0 || c >= waveCols) continue;
+              let c = Math.round(t * pxPerSec + x - width / 2);
+              c = ((c % waveCols) + waveCols) % waveCols;
               const yTop = midY + waveMin[c] * (bandH / 2 - 2);
               const yBot = midY + waveMax[c] * (bandH / 2 - 2);
               sctx.fillRect(
@@ -11678,13 +11701,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             // kept tiny so it doesn't strobe the whole player.
             sctx.fillStyle = i % 2 ? "#ffffff" : "#333333";
             sctx.fillRect(width - 8, 2, 6, 4);
-            // Position bar flush with the frame's bottom edge.
-            sctx.fillStyle = "#ffcc00";
-            sctx.fillRect(0, height - 6, Math.floor(progress * width), 6);
-            // Subtle center reading-head marker the ruler slides beneath —
-            // the live red playhead is drawn by the piece from real state.
+            // (No baked-in progress bar — the piece draws the red bottom
+            // marker from live playback state.)
+            // Subtle center reading-head marker the ruler slides beneath.
             sctx.fillStyle = "rgba(255, 255, 255, 0.35)";
-            sctx.fillRect(Math.floor(width / 2), 8, 1, height - 18);
+            sctx.fillRect(Math.floor(width / 2), 8, 1, height - 12);
 
             // Small frame number + timecode, above the progress bar.
             const secs = Math.floor(t);
