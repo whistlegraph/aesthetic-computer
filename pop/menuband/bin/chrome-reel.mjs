@@ -10,10 +10,12 @@
 // REEL-ONLY: no progress bar, no timecode (Reels bring their own
 // furniture; @jeffrey wants reels with nothing under them). Pals + title.
 //
-// Post pass: sim.mjs writes out/base-menuband-reel.mp4 + meta-menuband-reel.json,
-// this pipes every frame through node-canvas and re-encodes with the audio.
+// Post pass: a sim writes out/base-<slug>.mp4 + meta-<slug>.json, this pipes
+// every frame through node-canvas and re-encodes with the audio.
 //
-// Usage: node pop/menuband/bin/chrome-reel.mjs
+// Usage: node pop/menuband/bin/chrome-reel.mjs [slug]
+//   slug defaults to "menuband-reel" (the launch reel); the campaign sims
+//   use menuband-announce / menuband-features / menuband-chords.
 
 import { spawn, spawnSync } from "node:child_process";
 import { readFileSync, existsSync, mkdirSync } from "node:fs";
@@ -30,9 +32,10 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const LANE = resolve(HERE, "..");
 const REPO = resolve(LANE, "..", "..");
 const OUTDIR = `${LANE}/out`;
-const BASE = `${OUTDIR}/base-menuband-reel.mp4`;
-const META = JSON.parse(readFileSync(`${OUTDIR}/meta-menuband-reel.json`, "utf8"));
-const OUT = `${OUTDIR}/menuband-reel.mp4`;
+const SLUG = process.argv[2] || "menuband-reel";
+const BASE = `${OUTDIR}/base-${SLUG}.mp4`;
+const META = JSON.parse(readFileSync(`${OUTDIR}/meta-${SLUG}.json`, "utf8"));
+const OUT = `${OUTDIR}/${SLUG}.mp4`;
 const assetsDir = `${OUTDIR}/chrome-assets-reel`;
 mkdirSync(assetsDir, { recursive: true });
 

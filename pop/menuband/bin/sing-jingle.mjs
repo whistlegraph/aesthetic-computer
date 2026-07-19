@@ -1,0 +1,729 @@
+#!/usr/bin/env node
+// sing-jingle.mjs — jeffrey SINGS the Menu Band campaign jingles.
+//
+// v3 — the spinging engine round. The line-continuous WORLD chain of v2 now
+// lives in spinging/lib (this script is its first caller), grounded in TEXT
+// rather than spectra alone. Per line:
+//
+//   1 · TTS through /api/say (provider "jeffrey", stability 0.55 — identity;
+//       lines are cached, never re-spent)
+//   2 · whisper-cli -ml 1 word boundaries, reconciled by
+//       spinging/lib/align-words.mjs (+ the presplit/rescale/repair guards)
+//   3 · CHORAL NOTATION (spinging/lib/notation.mjs): every note gets its
+//       syllable underlay + {onset, nucleus, coda} phonemes from curated IPA
+//       (Wiktionary → espeak fallback, cached in spinging/cache).
+//   4 · spinging/lib/sing_line_world.py — guided alignment (expected
+//       consonants anchor burst detection), per-line octave transposition
+//       minimizing |f0 shift| from the spoken take, harvest clamped to the
+//       real 60–300 Hz range (de-kermit), unstretched vowel onsets with
+//       natural-pitch glides, note-edge contour tapers (no pre-transition
+//       dip), monotone source maps (no stutter), goalpost-conformed drift/
+//       vibrato, airy sustains + a quiet self-choir (angelic), and a
+//       percentile-conformance + click-scan QA gate — the line re-renders
+//       with adjusted tweaks until it sits inside the reference bands.
+//   5 · lines placed at absolute time → out/<slug>-vocal.wav, then a soft
+//       reverb halo (spinging/lib/vocal_bus.py) on the vocal bus
+//   6 · MASTERED mix: vocal bus (highpass → 3:1 compression → de-ess) ducks
+//       the jingle bed, then two-pass ffmpeg loudnorm to -14 LUFS / -1 dBTP
+//       → out/<slug>-sung.mp3
+//
+// Also writes out/<slug>.words.sung.json (never touching any existing
+// words.json) — the karaoke caption timings the --sung sims burn in.
+//
+// Run:  node pop/menuband/bin/sing-jingle.mjs menuband-announce
+//       (or menuband-features / menuband-chords / all)
+//       --harmony 0.875   0 = fully spoken contour, 1 = perfect pitch lock
+
+import { spawnSync } from "node:child_process";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { createHash } from "node:crypto";
+import { alignWords } from "../../../spinging/lib/align-words.mjs";
+import { buildLineScore, writeLineScore } from "../../../spinging/lib/notation.mjs";
+import { sourceCounts } from "../../../spinging/lib/pronounce.mjs";
+import { decodeAudioMono } from "../../lib/preview-shared.mjs";
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const LANE = resolve(HERE, "..");
+const OUT = `${LANE}/out`;
+const POP = resolve(LANE, "..");
+const REPO = resolve(POP, "..");
+const SPINGING = `${REPO}/spinging`;
+const VENV_PY = `${POP}/.venv/bin/python`;
+const WORLD_HELPER = `${SPINGING}/lib/sing_line_world.py`;
+const VOCAL_BUS = `${SPINGING}/lib/vocal_bus.py`;
+const GOALPOSTS = `${SPINGING}/cache/goalposts.json`;
+const WHISPER_MODEL = `${process.env.HOME}/.whisper-models/ggml-base.en.bin`;
+const SAY_URL = "https://aesthetic.computer/api/say";
+const STABILITY = 0.55;      // >= 0.5 keeps jeffrey's identity
+const SR = 48_000;
+// --harmony: contour-retention as a first-class knob (0 = spoken, 1 = lock).
+// Round 3 defaults to a ~0.875 lock — "drift more into the perfect harmony".
+const hIdx = process.argv.indexOf("--harmony");
+const HARMONY = hIdx > 0 ? parseFloat(process.argv[hIdx + 1]) : 0.875;
+const QA_PASSES = 3;         // re-render budget per line (percentile gate)
+
+// ── the lyrics ─────────────────────────────────────────────────────────────
+// "lead" mode: words consume the jingle's lead notes in order — [word, nSlots]
+// where nSlots is the word's syllable count. Totals must equal the lead lane.
+// "explicit" mode (chords): every syllable is hand-placed on the triad —
+// [word, [[t, dur, midi], …]] with midis already in the baritone register.
+const LYRICS = {
+  "menuband-announce": {
+    mode: "lead", transpose: -24,
+    lines: [
+      { tts: "Menu Band sings out!",
+        words: [["menu", 2], ["band", 1], ["sings", 1], ["out", 1]] },
+      { tts: "Right up in your menu bar.",
+        words: [["right", 1], ["up", 1], ["in", 1], ["your", 1], ["menu", 2], ["bar", 1]] },
+      { tts: "A synthesizer now.",
+        words: [["a", 1], ["synthesizer", 4], ["now", 1]] },
+      { tts: "Every key plays a note.",
+        words: [["every", 2], ["key", 1], ["plays", 1], ["a", 1], ["note", 1]] },
+      { tts: "It's out now on the Mac App Store.",
+        words: [["it's", 1], ["out", 1], ["now", 1], ["on", 1], ["the", 1], ["mac", 1], ["app", 1], ["store", 1]] },
+      { tts: "Menu band dot app!",
+        words: [["menu", 2], ["band", 1], ["dot", 1], ["app", 1]] },
+    ],
+  },
+  "menuband-features": {
+    mode: "lead", transpose: -24,
+    lines: [
+      { tts: "Click the note. Piano!",
+        words: [["click", 1], ["the", 1], ["note", 1], ["piano", 3]] },
+      { tts: "A hundred twenty eight instruments, yeah!",
+        words: [["a", 1], ["hundred", 2], ["twenty", 2], ["eight", 1], ["instruments", 3], ["yeah", 1]] },
+      { tts: "Type to play.",
+        words: [["type", 1], ["to", 1], ["play", 1]] },
+      { tts: "Goes fullscreen.",
+        words: [["goes", 1], ["fullscreen", 2]] },
+      { tts: "Your keys make music for free.",
+        words: [["your", 1], ["keys", 1], ["make", 1], ["music", 2], ["for", 1], ["free", 1]] },
+      { tts: "The Mac App Store.",
+        words: [["the", 1], ["mac", 1], ["app", 1], ["store", 1]] },
+    ],
+  },
+  // Chord hits land at seg.t0 + 0.15, restrikes at seg.t0 + 1.45
+  // (render-jingles.mjs chordHit) — phrase fronts sit on the hit, the
+  // quality word answers on the restrike, sung on the actual triad tones.
+  "menuband-chords": {
+    mode: "explicit",
+    lines: [
+      { tts: "One key. One note.",
+        words: [["one", [[0.55, 0.5, 48]]], ["key", [[1.15, 0.5, 48]]],
+                ["one", [[1.85, 0.5, 48]]], ["note", [[2.35, 0.5, 48]]]] },
+      { tts: "Command. Major.",
+        words: [["command", [[3.05, 0.4, 48], [3.45, 0.55, 52]]],
+                ["major", [[4.35, 0.45, 55], [4.8, 0.55, 52]]]] },
+      { tts: "Option. Minor.",
+        words: [["option", [[5.55, 0.4, 45], [5.95, 0.55, 48]]],
+                ["minor", [[6.85, 0.45, 52], [7.3, 0.55, 48]]]] },
+      { tts: "Command option. Sus two.",
+        words: [["command", [[8.05, 0.32, 48], [8.37, 0.33, 50]]],
+                ["option", [[8.7, 0.32, 55], [9.02, 0.33, 50]]],
+                ["sus", [[9.35, 0.45, 48]]], ["two", [[9.8, 0.55, 50]]]] },
+      { tts: "Option control. Diminished.",
+        words: [["option", [[10.55, 0.32, 47], [10.87, 0.33, 50]]],
+                ["control", [[11.2, 0.32, 53], [11.52, 0.33, 50]]],
+                ["diminished", [[11.85, 0.3, 47], [12.15, 0.3, 50], [12.45, 0.45, 53]]]] },
+      { tts: "All three keys. Sus four.",
+        words: [["all", [[13.05, 0.38, 48]]], ["three", [[13.43, 0.4, 53]]],
+                ["keys", [[13.83, 0.45, 55]]],
+                ["sus", [[14.35, 0.45, 53]]], ["four", [[14.8, 0.55, 48]]]] },
+      { tts: "Every chord under three keys.",
+        words: [["every", [[15.4, 0.4, 48], [15.8, 0.4, 52]]],
+                ["chord", [[16.25, 0.7, 45]]],
+                ["under", [[17.1, 0.35, 53], [17.45, 0.35, 57]]],
+                ["three", [[17.95, 0.6, 55]]],
+                ["keys", [[18.8, 1.6, 48]]]] },
+    ],
+  },
+};
+
+// ── helpers ────────────────────────────────────────────────────────────────
+// Percentile-gate feedback: nudge the engine's tweak knobs toward the
+// reference bands (see spinging/lib/vocal_shapes.py conformance()).
+function adjustTweaks(tweaks, conf) {
+  if (!conf) return;
+  const miss = (k) => (conf[k] && conf[k].pass === false ? conf[k] : null);
+  let m;
+  if ((m = miss("plateau_drift_cents"))) {
+    if (m.value > m.hi) { tweaks.drift_scale *= 0.55; tweaks.beta_scale *= 0.75; }
+    else tweaks.drift_scale *= 1.6;
+  }
+  if ((m = miss("onset_glide_ms")) || (m = miss("onset_glide_cents"))) {
+    tweaks.glide_scale *= m.value > m.hi ? 0.7 : 1.35;
+  }
+  if ((m = miss("release_cents"))) {
+    if (m.value > m.hi) tweaks.beta_scale *= 0.8;
+  }
+  if ((m = miss("vib_depth_cents"))) {
+    tweaks.vib_depth_scale *= m.value > m.hi ? 0.6 : 1.5;
+  }
+  if ((m = miss("hf_ratio"))) {
+    tweaks.air_scale *= m.value > m.hi ? 0.6 : 1.5;
+  }
+}
+
+function measureLoudnorm(file) {
+  const r = sh("ffmpeg", ["-y", "-i", file, "-af",
+    "loudnorm=I=-14:TP=-1.5:LRA=11:print_format=json", "-f", "null", "-"]);
+  const m = r.stderr.toString().match(/\{[^{}]*"input_i"[\s\S]*?\}/);
+  if (!m) throw new Error(`loudnorm measure pass printed no JSON for ${file}`);
+  return JSON.parse(m[0]);
+}
+
+const sh = (cmd, args, opts = {}) => {
+  const r = spawnSync(cmd, args, { encoding: "utf8", maxBuffer: 256 * 1024 * 1024, ...opts });
+  if (r.status !== 0) throw new Error(`${cmd} ${args[0]}: ${r.stderr?.toString().slice(0, 400)}`);
+  return r;
+};
+
+function writeWavF32(path, samples, sr = SR) {
+  const n = samples.length;
+  const buf = Buffer.alloc(44 + n * 4);
+  buf.write("RIFF", 0); buf.writeUInt32LE(36 + n * 4, 4); buf.write("WAVE", 8);
+  buf.write("fmt ", 12); buf.writeUInt32LE(16, 16); buf.writeUInt16LE(3, 20); // float
+  buf.writeUInt16LE(1, 22); buf.writeUInt32LE(sr, 24); buf.writeUInt32LE(sr * 4, 28);
+  buf.writeUInt16LE(4, 32); buf.writeUInt16LE(32, 34);
+  buf.write("data", 36); buf.writeUInt32LE(n * 4, 40);
+  for (let i = 0; i < n; i++) buf.writeFloatLE(samples[i], 44 + i * 4);
+  writeFileSync(path, buf);
+}
+
+async function ttsLine(text, outFile, attempt = 0) {
+  if (existsSync(outFile)) return;
+  try {
+    await ttsLineOnce(text, outFile);
+  } catch (e) {
+    if (attempt >= 2) throw e;
+    console.log(`  … /api/say hiccup (${String(e.message).slice(0, 60)}), retrying`);
+    await new Promise((r) => setTimeout(r, 2500 * (attempt + 1)));
+    await ttsLine(text, outFile, attempt + 1);
+  }
+}
+
+async function ttsLineOnce(text, outFile) {
+  const res = await fetch(SAY_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Origin: "https://aesthetic.computer" },
+    body: JSON.stringify({ from: text, provider: "jeffrey", stability: STABILITY }),
+    redirect: "follow",
+  });
+  if (!res.ok) throw new Error(`/api/say ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const ctype = res.headers.get("content-type") || "";
+  let buf;
+  if (ctype.includes("application/json")) {
+    const json = await res.json();
+    if (json.audio) buf = Buffer.from(json.audio, "base64");
+    else if (json.url) buf = Buffer.from(await (await fetch(json.url)).arrayBuffer());
+    else throw new Error(`/api/say JSON without audio`);
+  } else buf = Buffer.from(await res.arrayBuffer());
+  if (!buf || buf.length < 256) throw new Error(`/api/say tiny body (${buf?.length})`);
+  writeFileSync(outFile, buf);
+}
+
+// whisper.cpp -ml 1 tokens → words (the leading-space merge — yc-ref/lib/words.mjs)
+function wordsFromWhisper(jsonPath) {
+  const raw = JSON.parse(readFileSync(jsonPath, "utf8"));
+  const words = [];
+  for (const seg of raw.transcription) {
+    const piece = seg.text;
+    if (!piece || !piece.trim()) continue;
+    const text = piece.trim();
+    if (piece.startsWith(" ") || words.length === 0) {
+      words.push({ text, fromMs: seg.offsets.from, toMs: seg.offsets.to });
+    } else {
+      const prev = words[words.length - 1];
+      prev.text += text;
+      prev.toMs = seg.offsets.to;
+    }
+  }
+  const merged = [];
+  for (const w of words) {
+    if (/^[^\w'"“”‘’(]+$/.test(w.text) && merged.length > 0) {
+      const prev = merged[merged.length - 1];
+      prev.text += w.text;
+      prev.toMs = Math.max(prev.toMs, w.toMs);
+    } else merged.push(w);
+  }
+  return merged;
+}
+
+const norm = (s) => (s || "").toLowerCase().replace(/[^a-z']/g, "");
+
+// Whisper writes spoken numbers as digits ("a hundred twenty eight" → "128"),
+// which norms to nothing and derails alignment. Expand a digit word back into
+// its spoken words, splitting the window char-proportionally.
+function numberToWords(n) {
+  const ones = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
+    "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen",
+    "eighteen", "nineteen"];
+  const tens = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"];
+  if (n < 20) return [ones[n]];
+  if (n < 100) return n % 10 ? [tens[Math.floor(n / 10)], ones[n % 10]] : [tens[Math.floor(n / 10)]];
+  if (n < 1000) {
+    const rest = n % 100 ? numberToWords(n % 100) : [];
+    return [ones[Math.floor(n / 100)], "hundred", ...rest];
+  }
+  return [String(n)];
+}
+function expandDigitWords(words) {
+  const out = [];
+  for (const w of words) {
+    const digits = w.text.replace(/[^\d]/g, "");
+    if (!digits || !/^\W*\d[\d,]*\W*$/.test(w.text)) { out.push(w); continue; }
+    const parts = numberToWords(parseInt(digits, 10));
+    const chars = parts.reduce((s, p) => s + p.length, 0);
+    let t0 = w.fromMs;
+    const span = w.toMs - w.fromMs;
+    for (const p of parts) {
+      const dw = (span * p.length) / chars;
+      out.push({ text: p, fromMs: Math.round(t0), toMs: Math.round(t0 + dw) });
+      t0 += dw;
+    }
+  }
+  return out;
+}
+function editDist(a, b) {
+  const m = a.length, n = b.length;
+  let prev = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i++) {
+    const curr = [i];
+    for (let j = 1; j <= n; j++) {
+      curr[j] = a[i - 1] === b[j - 1] ? prev[j - 1] : 1 + Math.min(prev[j - 1], prev[j], curr[j - 1]);
+    }
+    prev = curr;
+  }
+  return prev[n];
+}
+
+// Whisper loves to weld words together ("menu band dot app" → "menuband.app.",
+// "a synthesizer" → "synthesizer") — align-words' midpoint split then hands a
+// tiny function word HALF the audio. Pre-split any heard word whose norm is
+// (fuzzily) the concatenation of the next 2-4 score words, char-proportionally,
+// so every score word owns roughly its own audio before alignment runs.
+function presplitHeard(scoreWords, heard) {
+  const out = [];
+  let i = 0;
+  for (const h of heard) {
+    const hn = norm(h.text);
+    // best k = the join of score words that lands CLOSEST to this heard word —
+    // and a merge only wins if it beats the single next score word outright
+    // (otherwise "synthesizer" would swallow the "now" after it).
+    const singleDist = i < scoreWords.length ? editDist(norm(scoreWords[i]), hn) : Infinity;
+    let best = 0, bestDist = singleDist;
+    for (let k = 2; k <= 4 && i + k <= scoreWords.length; k++) {
+      const cat = scoreWords.slice(i, i + k).map(norm).join("");
+      const d = editDist(cat, hn);
+      // ties prefer the LONGER join — "menubanddot" and "menubanddotapp" are
+      // equidistant from a heard "menubandapp.", and only the full join
+      // leaves no score word stranded past the end of the audio.
+      if (d <= Math.max(1, Math.ceil(cat.length / 4)) && d <= bestDist && d < singleDist) {
+        best = k; bestDist = d;
+      }
+    }
+    if (best >= 2) {
+      const parts = scoreWords.slice(i, i + best).map(norm);
+      const chars = parts.reduce((s, p) => s + Math.max(1, p.length), 0);
+      let t0 = h.fromMs;
+      const span = h.toMs - h.fromMs;
+      for (const p of parts) {
+        const w = (span * Math.max(1, p.length)) / chars;
+        out.push({ text: p, fromMs: Math.round(t0), toMs: Math.round(t0 + w) });
+        t0 += w;
+      }
+      i += best;
+    } else {
+      out.push(h);
+      if (i < scoreWords.length) {
+        const sn = norm(scoreWords[i]);
+        if (sn === hn || editDist(sn, hn) <= 2 || (sn.length >= 3 && hn.startsWith(sn))) i++;
+      }
+    }
+  }
+  return out;
+}
+
+// Whisper stamps the words at a clip's hard end zero-width and buries their
+// audio inside the PREVIOUS window ("Type" 110-1020 actually holds "type to
+// play"). Clamp every window into the audio, then repair each RUN of
+// degenerate windows by re-splitting the host span (the last good window
+// through the run's end) at its quietest energy dips — the gaps between the
+// words whisper welded together.
+function energySplit(audio, aMs, bMs, n) {
+  const hop = Math.floor(SR / 100);        // 10ms
+  const a = Math.max(0, Math.floor((aMs / 1000) * SR));
+  const b = Math.min(audio.length, Math.floor((bMs / 1000) * SR));
+  let env = [];
+  for (let s = a; s + hop <= b; s += hop) {
+    let e = 0;
+    for (let k = s; k < s + hop; k++) e += audio[k] * audio[k];
+    env.push(Math.sqrt(e / hop));
+  }
+  // Trim the span to actual SPEECH: a whisper window welded to the file end
+  // drags a silent tail in, and dips picked there would hand words silence.
+  const thr = Math.max(0.008, 0.15 * Math.max(...env, 0));
+  let f = env.findIndex((e) => e >= thr);
+  let l = env.length - 1;
+  while (l > 0 && env[l] < thr) l--;
+  if (f > 0 || l < env.length - 1) {
+    f = Math.max(0, f - 2); l = Math.min(env.length - 1, l + 4);
+    aMs = aMs + f * 10; bMs = aMs + (l - f + 1) * 10;
+    env = env.slice(f, l + 1);
+  }
+  const bounds = [Math.round(aMs)];
+  if (n > 1) {
+    const lo = Math.floor(env.length * 0.12), hi = Math.ceil(env.length * 0.94);
+    const minSep = Math.max(3, Math.floor(env.length / (n * 2)));
+    const cand = [];
+    for (let k = lo; k < hi; k++) cand.push([env[k], k]);
+    cand.sort((x, y) => x[0] - y[0]);
+    const picks = [];
+    for (const [, k] of cand) {
+      if (picks.length >= n - 1) break;
+      if (picks.every((p) => Math.abs(p - k) >= minSep)) picks.push(k);
+    }
+    while (picks.length < n - 1) picks.push(Math.floor(((picks.length + 1) / n) * env.length));
+    picks.sort((x, y) => x - y);
+    for (const p of picks) bounds.push(Math.round(aMs + p * 10));
+  }
+  bounds.push(Math.round(bMs));
+  return bounds;
+}
+
+// On short exclamation lines whisper sometimes smears the whole timestamp
+// axis past the real speech ("sings out" placed in post-speech silence). If
+// even the PENULTIMATE word ends after the audible speech does, the axis is
+// stretched — linearly rescale every window onto the real speech span.
+function rescaleHeard(heard, audio, lineLenMs) {
+  if (heard.length < 2) return heard;
+  const hop = Math.floor(SR / 100);
+  const env = [];
+  for (let s = 0; s + hop <= audio.length; s += hop) {
+    let e = 0;
+    for (let k = s; k < s + hop; k++) e += audio[k] * audio[k];
+    env.push(Math.sqrt(e / hop));
+  }
+  const thr = Math.max(0.008, 0.15 * Math.max(...env, 0));
+  let f = env.findIndex((e) => e >= thr);
+  let l = env.length - 1;
+  while (l > 0 && env[l] < thr) l--;
+  const speechStart = Math.max(0, f * 10 - 20);
+  const speechEnd = Math.min(lineLenMs, (l + 1) * 10 + 40);
+  if (heard[heard.length - 2].toMs <= speechEnd + 120) return heard;
+  const wStart = heard[0].fromMs;
+  const wEnd = Math.max(...heard.map((h) => h.toMs));
+  const scale = (speechEnd - speechStart) / Math.max(1, wEnd - wStart);
+  for (const h of heard) {
+    h.fromMs = Math.round(speechStart + (h.fromMs - wStart) * scale);
+    h.toMs = Math.round(speechStart + (h.toMs - wStart) * scale);
+  }
+  return heard;
+}
+
+function repairWindows(windows, lineLenMs, audio) {
+  for (const w of windows) {
+    w.toMs = Math.min(w.toMs, lineLenMs);
+    w.fromMs = Math.min(w.fromMs, Math.max(0, w.toMs - 40));
+  }
+  let i = 0;
+  while (i < windows.length) {
+    if (windows[i].toMs - windows[i].fromMs >= 60) { i++; continue; }
+    let j = i;
+    while (j < windows.length && windows[j].toMs - windows[j].fromMs < 60) j++;
+    const host = i > 0 ? windows[i - 1] : null;
+    const hostStart = host ? host.fromMs : 0;
+    const hostEnd = Math.min(lineLenMs, Math.max(windows[j - 1].toMs, host ? host.toMs : 0));
+    const parts = (host ? 1 : 0) + (j - i);
+    const bounds = energySplit(audio, hostStart, hostEnd, parts);
+    let k = 0;
+    if (host) { host.fromMs = bounds[0]; host.toMs = bounds[1]; k = 1; }
+    for (let w = i; w < j; w++, k++) { windows[w].fromMs = bounds[k]; windows[w].toMs = bounds[k + 1]; }
+    i = j;
+  }
+  return windows;
+}
+
+// ── build absolute slots per word from the spec ────────────────────────────
+function buildLines(slug) {
+  const spec = LYRICS[slug];
+  if (!spec) throw new Error(`no lyrics for ${slug}`);
+  const score = JSON.parse(readFileSync(`${OUT}/${slug}.notes.json`, "utf8"));
+  const lines = [];
+  if (spec.mode === "lead") {
+    const lead = (score.notes || []).filter((n) => n.lane === "lead").sort((a, b) => a.t - b.t);
+    const need = spec.lines.reduce((s, l) => s + l.words.reduce((a, [, n]) => a + n, 0), 0);
+    if (need !== lead.length) throw new Error(`${slug}: lyric syllables ${need} != lead notes ${lead.length}`);
+    let k = 0;
+    for (const line of spec.lines) {
+      const words = line.words.map(([w, n]) => {
+        const slots = lead.slice(k, k + n).map((s) => ({ t: s.t, dur: s.dur, midi: s.midi + spec.transpose }));
+        k += n;
+        return { w, slots };
+      });
+      lines.push({ tts: line.tts, words });
+    }
+  } else {
+    for (const line of spec.lines) {
+      lines.push({
+        tts: line.tts,
+        words: line.words.map(([w, slots]) => ({ w, slots: slots.map(([t, dur, midi]) => ({ t, dur, midi })) })),
+      });
+    }
+  }
+  return { lines, durationSec: score.durationSec };
+}
+
+// ── main ───────────────────────────────────────────────────────────────────
+async function singOne(slug) {
+  console.log(`\n▸ ${slug} — jeffrey sings (line-continuous WORLD)`);
+  const { lines, durationSec } = buildLines(slug);
+  const dir = `${OUT}/sung/${slug}`;
+  mkdirSync(`${dir}/words`, { recursive: true });
+  if (!existsSync(WHISPER_MODEL)) throw new Error(`whisper model missing: ${WHISPER_MODEL}`);
+  if (!existsSync(VENV_PY)) throw new Error(`pop venv missing: ${VENV_PY}`);
+
+  const master = new Float32Array(Math.ceil(durationSec * SR));
+  const sungWords = [];
+  const report = [];
+  const qaLines = [];
+  if (!existsSync(GOALPOSTS)) {
+    throw new Error(`goalposts missing: ${GOALPOSTS} — build with spinging goalposts`);
+  }
+
+  // flatten words across lines for next-word lookahead
+  const flat = [];
+  lines.forEach((line, li) => line.words.forEach((w) => flat.push({ ...w, li })));
+
+  for (let li = 0; li < lines.length; li++) {
+    const line = lines[li];
+    const hash = createHash("sha1").update(line.tts).digest("hex").slice(0, 8);
+    const mp3 = `${dir}/line-${li}-${hash}.mp3`;
+    await ttsLine(line.tts, mp3);
+
+    // 16k mono for whisper (unpadded — trailing silence makes whisper smear
+    // word timestamps into it; repairWindows handles the zero-width final
+    // word it stamps at a hard file end), 48k mono for the WORLD engine
+    const w16 = mp3.replace(/\.mp3$/, "-16k.wav");
+    if (!existsSync(w16)) {
+      sh("ffmpeg", ["-y", "-v", "error", "-i", mp3, "-ac", "1", "-ar", "16000", w16]);
+    }
+    const w48 = mp3.replace(/\.mp3$/, "-48k.wav");
+    if (!existsSync(w48)) {
+      sh("ffmpeg", ["-y", "-v", "error", "-i", mp3, "-ac", "1", "-ar", String(SR), w48]);
+    }
+    const wj = mp3.replace(/\.mp3$/, "-words");
+    if (!existsSync(`${wj}.json`)) {
+      sh("whisper-cli", ["-m", WHISPER_MODEL, "-f", w16, "-ml", "1", "-oj", "-ojf", "-of", wj],
+        { stdio: ["ignore", "ignore", "pipe"] });
+    }
+    const { audio: lineAudio } = decodeAudioMono(mp3, SR);
+    const lineLen = lineAudio.length / SR;
+    const mapWords = line.words.map((w) => w.w);
+    const heard = presplitHeard(mapWords,
+      rescaleHeard(expandDigitWords(wordsFromWhisper(`${wj}.json`)), lineAudio, lineLen * 1000));
+    const windows = repairWindows(alignWords(mapWords, heard), lineLen * 1000, lineAudio);
+
+    console.log(`  line ${li}: "${line.tts}" · whisper heard "${heard.map((h) => h.text).join(" ")}"`);
+
+    // ── plan the line for sing_line_world.py ───────────────────────────────
+    const planWords = [];
+    for (let wi = 0; wi < line.words.length; wi++) {
+      const word = line.words[wi];
+      const win = windows[wi];
+      const slots = word.slots;
+      const tStart = slots[0].t;
+      const last = slots[slots.length - 1];
+      const globalIdx = lines.slice(0, li).reduce((s, l) => s + l.words.length, 0) + wi;
+      const next = flat[globalIdx + 1];
+      let tEnd = last.t + Math.min(last.dur, 1.8);
+      // stop before the next word — a bigger reserve across lines, where the
+      // next line's onset cluster (which python can't see) needs room
+      if (next) tEnd = Math.min(tEnd, next.slots[0].t - (next.li === li ? 0.01 : 0.12));
+      if (tEnd <= tStart + 0.1) tEnd = tStart + 0.1;
+
+      // padded source window — consonants live just outside whisper's window,
+      // clamped to the neighbouring words' midpoints
+      const prevWin = wi > 0 ? windows[wi - 1] : null;
+      const nextWin = wi + 1 < windows.length ? windows[wi + 1] : null;
+      let s0 = win.fromMs - 60;
+      let s1 = win.toMs + 100;
+      if (prevWin) s0 = Math.max(s0, (prevWin.toMs + win.fromMs) / 2);
+      if (nextWin) s1 = Math.min(s1, (win.toMs + nextWin.fromMs) / 2 + 20);
+      s0 = Math.max(0, s0); s1 = Math.min(lineLen * 1000, s1);
+
+      // a phrase starts at the line top or after an audible source gap
+      const phraseStart = wi === 0 || (prevWin && win.fromMs - prevWin.toMs > 150);
+
+      planWords.push({
+        w: word.w, wordIndex: wi, srcFromMs: Math.round(s0), srcToMs: Math.round(s1),
+        slots, hardEnd: +tEnd.toFixed(4), phraseStart: !!phraseStart,
+      });
+      sungWords.push({
+        text: word.w, fromMs: Math.round(tStart * 1000), toMs: Math.round(tEnd * 1000), line: li,
+      });
+    }
+
+    // ── choral notation sidecar (part A2) — the aligner + synthesizer both
+    // consume this; phonemes come from curated IPA, not spectra.
+    const score = await buildLineScore({
+      text: line.tts,
+      words: planWords.map((p) => ({ w: p.w, slots: p.slots, phraseStart: p.phraseStart })),
+    });
+    const scorePath = `${dir}/words/line-${li}-score.json`;
+    writeLineScore(scorePath, score);
+
+    const lineT0 = Math.max(0, planWords[0].slots[0].t - 0.35);
+    const lineT1 = Math.min(durationSec, planWords[planWords.length - 1].hardEnd + 0.4);
+    const outWav = `${dir}/words/line-${li}-sung.wav`;
+    const planPath = `${dir}/words/line-${li}-plan.json`;
+
+    // ── render + percentile-gate: iterate until the line sits inside the
+    // reference bands (or the pass budget runs out) ────────────────────────
+    const tweaks = { drift_scale: 1, glide_scale: 1, vib_depth_scale: 1, beta_scale: 1, air_scale: 1 };
+    let stats = {};
+    let passes = 0;
+    for (let pass = 1; pass <= QA_PASSES; pass++) {
+      passes = pass;
+      const plan = {
+        line_wav: w48,
+        out_wav: outWav,
+        lead_wav: `${dir}/words/line-${li}-lead.wav`,
+        phoneme_sidecar: mp3.replace(/\.mp3$/, ".phonemes.json"),
+        score: scorePath, goalposts: GOALPOSTS,
+        line_t0: +lineT0.toFixed(4), line_t1: +lineT1.toFixed(4),
+        harmony: HARMONY, seed: 7 + li,
+        f0_floor: 60, f0_ceil: 300,        // jeffrey's real range — de-kermit
+        octave_opt: true, choir: true,
+        tweaks,
+        words: planWords,
+      };
+      writeFileSync(planPath, JSON.stringify(plan, null, 1));
+      const wr = sh(VENV_PY, [WORLD_HELPER, planPath]);
+      try { stats = JSON.parse(wr.stdout.trim().split("\n").pop()); } catch {}
+      if (stats.error) break;
+      const clean = stats.clicks && stats.clicks.clicks === 0 && stats.clicks.flux_spikes === 0;
+      if ((!stats.conformance || stats.conformance._pass) && clean) break;
+      if (pass === QA_PASSES) break;
+      adjustTweaks(tweaks, stats.conformance);
+      console.log(`    ↻ pass ${pass}: out of band — retweak ` +
+        Object.entries(tweaks).map(([k, v]) => `${k}=${v.toFixed(2)}`).join(" "));
+    }
+    if (stats.error) {
+      report.push({ slug, line: li, word: "(line)", note: stats.error });
+      continue;
+    }
+    for (const w of stats.words || []) {
+      report.push({
+        slug, line: li, word: w.word, target: w.targets.join(","),
+        detected: w.detected_midi ?? "—", shift: w.shift_st ?? "—",
+        onsetMs: w.onset_ms, codaMs: w.coda_ms,
+        note: w.sung ? undefined : "no voiced nuclei — sung unpitched",
+      });
+    }
+    const confBits = stats.conformance
+      ? Object.entries(stats.conformance)
+        .filter(([k, v]) => !k.startsWith("_") && v && v.pass === false)
+        .map(([k, v]) => `${k}=${v.value}∉[${v.lo},${v.hi}]`)
+      : [];
+    report.push({
+      slug, line: li, word: "(qa)", info:
+        `f0 jumps max ${stats.f0_jump_max_cents}¢ p95 ${stats.f0_jump_p95_cents}¢ · ` +
+        `oct ${stats.line_transpose >= 0 ? "+" : ""}${stats.line_transpose} · β ${stats.beta} · ` +
+        `passes ${passes} · conf ${stats.conformance ? (stats.conformance._pass ? "PASS" : "miss: " + confBits.join(" ")) : "n/a"} · ` +
+        `clicks ${stats.clicks?.clicks ?? "?"}/${stats.clicks?.flux_spikes ?? "?"}`,
+    });
+    qaLines.push({
+      line: li, text: line.tts, passes, tweaks,
+      lineTranspose: stats.line_transpose, beta: stats.beta, harmony: HARMONY,
+      f0JumpMaxCents: stats.f0_jump_max_cents, f0JumpP95Cents: stats.f0_jump_p95_cents,
+      conformance: stats.conformance, clicks: stats.clicks,
+    });
+
+    // place the whole line at its absolute time — one continuous render,
+    // no per-word fades to smear
+    const { audio: sung } = decodeAudioMono(outWav, SR);
+    const at = Math.floor(lineT0 * SR);
+    for (let i = 0; i < sung.length && at + i < master.length; i++) master[at + i] += sung[i];
+  }
+
+  // normalize the vocal, write it, then MASTER the mix
+  let peak = 0;
+  for (let i = 0; i < master.length; i++) peak = Math.max(peak, Math.abs(master[i]));
+  if (peak > 0) for (let i = 0; i < master.length; i++) master[i] *= 0.85 / peak;
+  const vocalWav = `${OUT}/${slug}-vocal.wav`;
+  writeWavF32(vocalWav, master);
+
+  // soft reverb halo on the vocal bus (angelic) — quiet wet, short decay
+  const vocalWet = `${OUT}/${slug}-vocal-wet.wav`;
+  sh(VENV_PY, [VOCAL_BUS, "reverb", vocalWav, vocalWet, "-16", "1.1"]);
+
+  const bed = `${OUT}/${slug}.mp3`;
+  const mix = `${OUT}/${slug}-sung.mp3`;
+  const bedDur = parseFloat(sh("ffprobe", ["-v", "error", "-show_entries", "format=duration",
+    "-of", "csv=p=0", bed]).stdout.trim());
+  // Vocal bus: highpass → gentle 3:1 compression (slow-ish release) →
+  // de-harsh, then the bed ducks under it. apad+atrim pin the mix to the
+  // bed's exact length — the sims mux with -shortest, and a mix even a
+  // frame short would truncate the video.
+  const premaster = `${OUT}/${slug}-sung-premaster.wav`;
+  sh("ffmpeg", ["-y", "-v", "error", "-i", bed, "-i", vocalWet, "-filter_complex",
+    "[1:a]aformat=sample_rates=48000:channel_layouts=stereo,highpass=f=70," +
+    "acompressor=threshold=0.125:ratio=3:attack=12:release=250:makeup=2," +
+    "deesser=i=0.4,asplit=2[sc][v];" +
+    "[0:a]aformat=sample_rates=48000:channel_layouts=stereo[b];" +
+    "[b][sc]sidechaincompress=threshold=0.05:ratio=5:attack=12:release=220[duck];" +
+    "[duck][v]amix=inputs=2:duration=first:normalize=0:weights=1 1.25[m];" +
+    "[m]highpass=f=30,alimiter=limit=0.89:level=false,apad=pad_dur=2," +
+    `atrim=0:${bedDur.toFixed(4)},asetpts=PTS-STARTPTS[out]`,
+    "-map", "[out]", premaster]);
+
+  // hard glitch gate on the premaster (waveform + spectral-flux click scan)
+  const mixScan = JSON.parse(
+    sh(VENV_PY, [VOCAL_BUS, "scan", premaster]).stdout.trim().split("\n").pop());
+  if (mixScan.clicks > 0) {
+    console.log(`  ⚠ click scan flagged ${mixScan.clicks} clicks at ${mixScan.positions_s}`);
+  }
+
+  // MASTER: two-pass loudnorm to -14 LUFS integrated / -1 dBTP
+  const mjson = measureLoudnorm(premaster);
+  sh("ffmpeg", ["-y", "-v", "error", "-i", premaster, "-af",
+    `loudnorm=I=-14:TP=-1.5:LRA=11:measured_I=${mjson.input_i}:measured_TP=${mjson.input_tp}` +
+    `:measured_LRA=${mjson.input_lra}:measured_thresh=${mjson.input_thresh}` +
+    `:offset=${mjson.target_offset}:linear=true`,
+    "-ar", "48000", "-c:a", "libmp3lame", "-q:a", "2", mix]);
+  const verify = measureLoudnorm(mix);   // what actually landed on the mp3
+  console.log(`  mastered: ${mjson.input_i} LUFS / ${mjson.input_tp} dBTP → ` +
+    `${verify.input_i} LUFS / ${verify.input_tp} dBTP on disk`);
+
+  writeFileSync(`${OUT}/${slug}.words.sung.json`, JSON.stringify(sungWords, null, 2));
+  writeFileSync(`${OUT}/${slug}-sung-qa.json`, JSON.stringify({
+    slug, harmony: HARMONY, engine: "spinging/lib/sing_line_world.py (round 3)",
+    goalposts: GOALPOSTS,
+    pronunciationSources: { ...sourceCounts },
+    lines: qaLines,
+    mixClickScan: mixScan,
+    mastered: { lufs: parseFloat(verify.input_i), truePeakDb: parseFloat(verify.input_tp) },
+  }, null, 1));
+  console.log(`✓ ${mix}`);
+  console.log(`✓ ${OUT}/${slug}.words.sung.json · ${sungWords.length} words`);
+  console.log(`✓ ${OUT}/${slug}-sung-qa.json`);
+  return report;
+}
+
+const positional = process.argv.slice(2).filter((a, i, all) =>
+  !a.startsWith("--") && all[i - 1] !== "--harmony");
+const arg = positional[0] || "all";
+const slugs = arg === "all" ? Object.keys(LYRICS) : [arg];
+console.log(`harmony lock ${HARMONY} (β = ${(1 - HARMONY).toFixed(3)})`);
+const allReports = [];
+for (const slug of slugs) allReports.push(...(await singOne(slug)));
+console.log(`\npronunciations: ${JSON.stringify(sourceCounts)}`);
+console.log("\nword map (target ← detected, shift in st, onset/coda pickups in ms):");
+for (const r of allReports) {
+  if (r.info) { console.log(`  [${r.slug} L${r.line}] ${r.info}`); continue; }
+  if (r.note) console.log(`  ⚠ [${r.slug} L${r.line}] "${r.word}" — ${r.note}`);
+  else console.log(`  [${r.slug} L${r.line}] "${r.word}" → ${r.target} (det ${r.detected}, shift ${r.shift}, on ${r.onsetMs}ms, coda ${r.codaMs}ms)`);
+}
