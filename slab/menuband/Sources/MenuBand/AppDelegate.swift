@@ -390,6 +390,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Scheduled count-in beats + the final record-start, so releasing a ⌘
     /// mid-hold can cancel them.
     private var countInWork: [DispatchWorkItem] = []
+    /// Count-in animation clock. The existing transient icon timer reads these
+    /// at 60 Hz to shake/redline the piano and advance its progress bar.
+    private var countInStartedAt: CFTimeInterval = 0
+    private var countInDuration: CFTimeInterval = 0
     /// True from the moment recording starts until it's dumped — drives the red
     /// keys.
     private var recordModeActive = false
@@ -2249,6 +2253,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         commandKeysHeld.left && commandKeysHeld.right
     }
 
+    /// Recording's two-Command gesture is a background summon, not an action
+    /// available while Menu Band already owns keyboard/app focus.
+    private var menuBandIsFocused: Bool {
+        if localCapture.isArmed || pianoWaveformWindowDelegate.isKeyboardFocused {
+            return true
+        }
+        return NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+            == Bundle.main.bundleIdentifier
+    }
+
     private func applyForcedLayoutIfAny() {
         let raw = UserDefaults.standard.string(forKey: "forceLayout") ?? ""
         guard !raw.isEmpty,
@@ -2490,6 +2504,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let now = CACurrentMediaTime()
         var slideActive = false
         var flashActive = false
+        var countInActive = false
         if slideDirection != 0 {
             if (now - slideStartedAt) >= Self.slideDuration {
                 slideDirection = 0
@@ -2505,7 +2520,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 flashActive = true
             }
         }
-        if !slideActive && !flashActive {
+#if !MAC_APP_STORE
+        if KeyboardIconRenderer.countInProgress != nil, countInDuration > 0 {
+            countInActive = true
+            let elapsed = max(0, now - countInStartedAt)
+            KeyboardIconRenderer.countInProgress = CGFloat(
+                min(1, elapsed / countInDuration)
+            )
+        }
+#endif
+        if !slideActive && !flashActive && !countInActive {
             iconAnimTimer?.invalidate()
             iconAnimTimer = nil
         }
@@ -4401,18 +4425,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// hitting Escape cancels.
     private func beginCountIn() {
         NSLog("MenuBand: beginCountIn (recordModeActive=\(recordModeActive) pending=\(countInWork.count) tapeRec=\(menuBand.isTapeRecording))")
-        guard !recordModeActive, countInWork.isEmpty, !menuBand.isTapeRecording else { return }
+        guard !menuBandIsFocused,
+              !recordModeActive,
+              countInWork.isEmpty,
+              !menuBand.isTapeRecording else { return }
         let numbers = ["3", "2", "1"]
         let interval = 0.7
         let total = interval * Double(numbers.count)   // 2.1 s
+        countInStartedAt = CACurrentMediaTime()
+        countInDuration = total
+        KeyboardIconRenderer.countInProgress = 0
+        startIconAnimTimerIfNeeded()
+        updateIcon()
         // Soft rising hush + a red glow that charges UP over the whole count.
         CountInWhoosh.shared.play(duration: total)
         FocusFlashOverlay.shared.beginCharge(duration: total)
         for (i, n) in numbers.enumerated() {
-            let w = DispatchWorkItem { [weak self] in
+            let w = DispatchWorkItem {
                 CountInVoice.shared.play(n)                 // jeffrey: 3… 2… 1…
-                KeyboardIconRenderer.countInDigit = n        // numeral in the menubar icon
-                self?.updateIcon()
             }
             countInWork.append(w)
             DispatchQueue.main.asyncAfter(deadline: .now() + interval * Double(i), execute: w)
@@ -4421,12 +4451,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self = self else { return }
             // Re-check at the commit point as well as on flagsChanged. This
             // makes the full-duration two-key hold the actual recording gate.
-            guard self.bothCommandKeysAreDown else {
+            guard self.bothCommandKeysAreDown, !self.menuBandIsFocused else {
                 self.cancelCountIn()
                 return
             }
             self.countInWork.removeAll()
-            KeyboardIconRenderer.countInDigit = nil          // downbeat — back to the keyboard
+            self.countInDuration = 0
+            KeyboardIconRenderer.countInProgress = nil
             self.updateIcon()
             self.startRecordingMode()
         }
@@ -4440,9 +4471,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSLog("MenuBand: cancelCountIn (count-in aborted)")
         countInWork.forEach { $0.cancel() }
         countInWork.removeAll()
+        countInDuration = 0
         CountInWhoosh.shared.stop()
         FocusFlashOverlay.shared.endCharge(fadeOut: true)
-        KeyboardIconRenderer.countInDigit = nil
+        KeyboardIconRenderer.countInProgress = nil
         updateIcon()
     }
 

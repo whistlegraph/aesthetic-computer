@@ -271,10 +271,9 @@ enum KeyboardIconRenderer {
     /// `sampleRecordingActive` proxy.
     static var recordingActive: Bool = false
 
-    /// When set ("3"/"2"/"1"), the menubar icon shows the record count-in as a
-    /// Menu-Band-purple pill with the numeral, in place of the keyboard — the
-    /// countdown lives IN the menubar, not as a full-screen overlay.
-    static var countInDigit: String? = nil
+    /// Non-nil during the record count-in. The keyboard stays visible while
+    /// every key shakes red; this 0...1 value drives the slim charge bar.
+    static var countInProgress: CGFloat? = nil
 
     // Render area shrinks with the layout. Compact has no piano keys at
     // all — `lastMidi < firstMidi` makes whiteList() empty.
@@ -786,33 +785,27 @@ enum KeyboardIconRenderer {
 
     /// Draw the REC dot (idle) or dot + elapsed timer (recording) in the
     /// reserved left slot. Drawn in base coords inside the render closure.
-    /// Draw the record count-in numeral as a Menu-Band-purple pill centered in
-    /// the icon — white numeral, the app's monospaced-heavy numeric style, a
-    /// 1px title-shadow. Reads on light or dark menubars; matches the app icon.
-    private static func drawCountIn(_ digit: String, size: NSSize) {
-        let fontSize = size.height * 0.70
-        let shadow = NSShadow()
-        shadow.shadowColor = NSColor.black.withAlphaComponent(0.35)
-        shadow.shadowOffset = NSSize(width: 0, height: -1)
-        shadow.shadowBlurRadius = 0
-        let para = NSMutableParagraphStyle(); para.alignment = .center
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedDigitSystemFont(ofSize: fontSize, weight: .heavy),
-            .foregroundColor: NSColor.white,
-            .paragraphStyle: para,
-            .shadow: shadow,
-        ]
-        let ds = (digit as NSString).size(withAttributes: attrs)
-        let pillH = size.height - 2
-        let pillW = min(size.width - 2, ds.width + fontSize * 0.9)
-        let pill = NSRect(x: (size.width - pillW) / 2, y: (size.height - pillH) / 2,
-                          width: pillW, height: pillH)
-        NSColor(srgbRed: 0.55, green: 0.16, blue: 0.80, alpha: 1).setFill()   // Menu Band purple
-        NSBezierPath(roundedRect: pill, xRadius: pillH * 0.34, yRadius: pillH * 0.34).fill()
-        (digit as NSString).draw(
-            in: NSRect(x: pill.minX, y: pill.midY - ds.height / 2,
-                       width: pill.width, height: ds.height),
-            withAttributes: attrs)
+    private static func countInShake(for midi: Int, phase: CFTimeInterval) -> NSPoint {
+        let seed = Double(midi) * 1.73
+        return NSPoint(
+            x: sin(phase * 53 + seed) * 1.15,
+            y: cos(phase * 67 + seed * 1.31) * 0.80
+        )
+    }
+
+    /// Tiny high-contrast charge line laid over the bottom of the piano. The
+    /// bar fills continuously for the spoken count-in and never replaces keys.
+    private static func drawCountInProgress(_ progress: CGFloat, layout: Layout) {
+        let x = pianoOriginX + 2
+        let width = max(0, pianoWidth(layout: layout) - 4)
+        let track = NSRect(x: x, y: pad + 0.7, width: width, height: 2.2)
+        NSColor.black.withAlphaComponent(0.55).setFill()
+        NSBezierPath(roundedRect: track, xRadius: 1.1, yRadius: 1.1).fill()
+        let fill = NSRect(x: track.minX, y: track.minY,
+                          width: track.width * min(1, max(0, progress)),
+                          height: track.height)
+        NSColor.white.withAlphaComponent(0.95).setFill()
+        NSBezierPath(roundedRect: fill, xRadius: 1.1, yRadius: 1.1).fill()
     }
 
     private static func drawRecIndicator(canvasHeight: CGFloat) {
@@ -895,11 +888,8 @@ enum KeyboardIconRenderer {
                 scale.concat()
             }
 
-            // Record count-in: a purple pill + numeral takes over the icon.
-            if includeSettings, let digit = countInDigit {
-                drawCountIn(digit, size: size)
-                return true
-            }
+            let countIn = includeSettings ? countInProgress : nil
+            let countInPhase = CACurrentMediaTime()
 
             // 🔴 REC dot — fixed slot at the far left, before the piano.
             // Solid red when idle; a blinking dot + elapsed timer while
@@ -977,6 +967,9 @@ enum KeyboardIconRenderer {
             let playbackLit: NSColor = isDark
                 ? NSColor(srgbRed: 230/255, green: 60/255, blue: 60/255, alpha: 1)
                 : NSColor(srgbRed: 220/255, green: 35/255, blue: 35/255, alpha: 1)
+            let countInRed: NSColor = isDark
+                ? NSColor(srgbRed: 245/255, green: 48/255, blue: 58/255, alpha: 1)
+                : NSColor(srgbRed: 225/255, green: 28/255, blue: 38/255, alpha: 1)
             let groove: NSColor
             let whiteHi: NSColor
             let whiteLo: NSColor
@@ -1037,7 +1030,11 @@ enum KeyboardIconRenderer {
                     // put so just the label shakes (the blink still rides
                     // the same envelope on the drum-pad wash below).
                     let vibe = Self.percussionVibe(forMidi: m)
-                    let rect = whiteRect(at: idx + slotOffset)
+                    let baseRect = whiteRect(at: idx + slotOffset)
+                    let shake = countIn == nil
+                        ? NSPoint.zero
+                        : Self.countInShake(for: m, phase: countInPhase)
+                    let rect = baseRect.offsetBy(dx: shake.x, dy: shake.y)
                     let isLit = tileOffset == 0 && litNotes.contains(UInt8(m))
                     let isPlaybackLit = tileOffset == 0 && playbackLitNotes.contains(UInt8(m))
                     let isHover = tileOffset == 0 && hovered == .note(UInt8(m))
@@ -1050,7 +1047,10 @@ enum KeyboardIconRenderer {
                         br: isRightmost ? 2.5 : 0,
                         bl: isLeftmost ? 2.5 : 0
                     )
-                    if isPlaybackLit {
+                    if countIn != nil {
+                        countInRed.setFill()
+                        path.fill()
+                    } else if isPlaybackLit {
                         // Auto-playback from a dragged-in PDF — red
                         // wins over the user's accent press color so
                         // the source of the sound stays unambiguous.
@@ -1066,7 +1066,7 @@ enum KeyboardIconRenderer {
                     } else {
                         NSGradient(starting: whiteHi, ending: whiteLo)!.draw(in: path, angle: -90)
                     }
-                    if isHover && !isLit {
+                    if countIn == nil && isHover && !isLit {
                         KeyboardIconRenderer.accent.withAlphaComponent(0.50).setFill()
                         path.fill()
                     }
@@ -1074,7 +1074,7 @@ enum KeyboardIconRenderer {
                     // drum-pad color so the drum zone is unmistakable. Takes
                     // the place of the chromatic stripe for those keys.
                     let drumColor = Self.percussionDrumColor(forMidi: m)
-                    if let drumColor, !isLit {
+                    if let drumColor, !isLit, countIn == nil {
                         // Blink: a fresh hit flashes the pad brighter/whiter,
                         // riding the same envelope as the shake.
                         let b = vibe.blink
@@ -1201,12 +1201,19 @@ enum KeyboardIconRenderer {
                     // Vibe shakes only the letter (see white-key note) —
                     // the keycap stays put.
                     let vibe = Self.percussionVibe(forMidi: m)
-                    let rect = blackRect(rightOfWhiteIndex: leftIdx + slotOffset)
+                    let baseRect = blackRect(rightOfWhiteIndex: leftIdx + slotOffset)
+                    let shake = countIn == nil
+                        ? NSPoint.zero
+                        : Self.countInShake(for: m, phase: countInPhase)
+                    let rect = baseRect.offsetBy(dx: shake.x, dy: shake.y)
                     let isLit = tileOffset == 0 && litNotes.contains(UInt8(m))
                     let isPlaybackLit = tileOffset == 0 && playbackLitNotes.contains(UInt8(m))
                     let isHover = tileOffset == 0 && hovered == .note(UInt8(m))
                     let path = roundedKeyPath(rect: rect, tl: 0, tr: 0, br: 1.2, bl: 1.2)
-                    if isPlaybackLit {
+                    if countIn != nil {
+                        countInRed.setFill()
+                        path.fill()
+                    } else if isPlaybackLit {
                         playbackLit.setFill()
                         path.fill()
                     } else if isLit {
@@ -1236,7 +1243,7 @@ enum KeyboardIconRenderer {
                     } else {
                         NSGradient(starting: blackHi, ending: blackLo)!.draw(in: path, angle: -90)
                     }
-                    if isHover && !isLit {
+                    if countIn == nil && isHover && !isLit {
                         NSColor.white.withAlphaComponent(0.20).setFill()
                         path.fill()
                     }
@@ -1245,7 +1252,7 @@ enum KeyboardIconRenderer {
                     // their pad color. Higher alpha than the naturals so it
                     // reads against the dark keycap.
                     let sharpDrumColor = Self.percussionDrumColor(forMidi: m)
-                    if let drumColor = sharpDrumColor, !isLit {
+                    if let drumColor = sharpDrumColor, !isLit, countIn == nil {
                         let b = vibe.blink
                         let c = b > 0.01
                             ? (drumColor.blended(withFraction: b * 0.85, of: .white) ?? drumColor)
@@ -1281,6 +1288,9 @@ enum KeyboardIconRenderer {
                     }
                 }
                 NSGraphicsContext.restoreGraphicsState()
+            }
+            if let countIn {
+                drawCountInProgress(countIn, layout: layout)
             }
             NSGraphicsContext.restoreGraphicsState()
 
