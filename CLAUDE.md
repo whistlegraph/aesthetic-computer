@@ -2,6 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository. It is kept deliberately short (target: under 200 lines); domain detail lives in on-demand files noted throughout — read those when working in their area.
 
+## Execution Environment
+
+Read `ENVIRONMENT.md` and resolve the active environment before applying
+editor-specific instructions from any score. Claude Terminal on macOS uses its
+local shell directly; Emacs MCP/fishy instructions apply only when the active
+environment is `emacs`.
+
 ## Project Overview
 
 Aesthetic Computer (AC) is a mobile-first runtime and social network for creative computing. It's designed as a musical instrument-like interface where users discover memorizable paths through commands and published "pieces" (interactive programs). The system supports both JavaScript (.mjs) and KidLisp (.lisp) pieces.

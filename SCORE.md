@@ -126,6 +126,7 @@ This is critical because `lib/pmove.mjs` is shared physics: client (lith) and se
 - **Tiling auto-fits the type:** `tileNow` sizes each Terminal window's font to the grid (Far/Near/Tiny modes) and drives `View ▸ Default Font Size` per window so a live window actually adopts it — a per-window zoom otherwise silently overrides the profile font and is invisible to AppleScript. Floors keep it legible (Far 10 / Near 9 / Tiny 8). iTerm2 has no AppleScript font property, so it tiles by bounds only.
 - **Prompt rocks** (`slab/menubar-swift/Sources/SlabMenubar/PromptSigilOverlay.swift`) — the tumbling little stones parked at the top-right of each terminal window, one per live Claude session. Each rock is a 3D sigil rendered from the session's `sessionId + prompt` seed (so it re-forms when the session moves to a new prompt), lit by a shared global sun that tracks local time of day, wearing a pet name in bubble lettering. Its *motion* is the status channel — spin speed and direction encode working/awaiting/complete; being read by a peer makes it blink and rattle. Hovering one reveals a bubble summarizing the prompt (a cached one-line `claude -p haiku` inference). They're borderless click-through `.floating` windows, so hit-testing has to check occlusion by hand: a rock only answers the pointer while it's on screen *and* its terminal is still the topmost normal window under the cursor.
 - **Prompt rocks MCP** (`slab/bin/prox-mcp.mjs`, registered as `prox` in `.mcp.json`) — an MCP over the fleet handle ledger (`Ledger.swift`; `~/.config/slab/ledger/{local,peers/*}.json`, served per-machine on tailnet-only `:5252`) so any agent can `prox_list` every live session across machines, `prox_find` a `host:name` reference (e.g. `neo:regif`) to its status/subject/cwd/seed, `prox_poke` one (`POST /poke` → the target rock blinks + rattles), and `prox_launch` a new Claude/Codex Terminal on a prompt host. Launch is deliberately not a remote shell: the target accepts only those two fixed agents, a bounded prompt, and a cwd beneath that user's home. `prox_close` reads the session marker for tty+pid and closes locally only (refuses the calling session). This is how a `machine:promptname` handle resolves without an SSH crawl.
+- **Loopboy** (`~/.config/slab/loopboy.json`, surfaced in the Slab menubar) — the primary client-loop interface. Each route maps one private iMessage contact key to one stable local prox session; new inbound messages poke and optionally wake only that contact's rock. Loopboy never replies by itself. Armed rocks spin faster, glow pink, and identify themselves as Loopboy on hover. Create or replace a route with `prox_bind_notification(handle, contact)`.
 - `slab/bin/ac-passphrase` — pinentry-free secret fetch from the daemon (see Development Environment below).
 
 **Other Projects**
@@ -184,13 +185,16 @@ flow and [`CLAUDE.md`](CLAUDE.md) for the full piece API surface.
 
 ### Development Environment
 
-**Terminal Workflow (IMPORTANT):**
-- **Use Emacs MCP + fishy terminal** for all command execution
-- **DO NOT use Bash tool** for running commands - use fishy via Emacs MCP instead
-- The fishy terminal (`🐟-fishy`) is the primary shell for all development commands
+The global environment model lives in [`ENVIRONMENT.md`](ENVIRONMENT.md). Resolve
+the active environment before applying editor- or host-specific instructions.
+An ordinary Claude Terminal session on macOS is `terminal-macos`; it should use
+its local shell directly and should not describe Emacs/fishy as a missing bridge
+or fallback.
 
-**Emacs Terminal Buffers:**
-The development environment uses Emacs with named terminal buffers. Use Emacs MCP tools (`mcp_emacs_*`) to interact with them:
+#### `[environment: emacs]` Emacs Terminal Buffers
+
+When Emacs is the active environment, use Emacs MCP tools (`mcp_emacs_*`) and
+the named terminal buffers. The `🐟-fishy` buffer is the primary shell:
 
 - `🐟-fishy` — Main fish shell (use this for all commands!)
 - `🌐-site` — Site/web server logs
@@ -201,7 +205,7 @@ The development environment uses Emacs with named terminal buffers. Use Emacs MC
 - `🚇-tunnel` — Tunnel logs
 - (See AGENTS.md.backup for full list)
 
-**How to run commands in fishy:**
+**How to run commands in fishy (Emacs environment only):**
 1. Use `mcp_emacs_emacs_switch_buffer` to switch to `🐟-fishy`
 2. Use `mcp_emacs_emacs_send_keys` to send the command
 3. Send newline to execute

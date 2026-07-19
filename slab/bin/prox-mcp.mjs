@@ -34,7 +34,7 @@ const LEDGER_DIR = join(homedir(), ".config", "slab", "ledger");
 const LOCAL_FILE = join(LEDGER_DIR, "local.json");
 const PEERS_DIR = join(LEDGER_DIR, "peers");
 const PORT = 5252; // the menubar's LedgerHTTPServer port on every machine
-const IMSG_BINDING = join(homedir(), ".config", "slab", "imsg-prox.json");
+const LOOPBOY_CONFIG = join(homedir(), ".config", "slab", "loopboy.json");
 
 // Per-session marker files (written by the slab claude hooks) carry the tty +
 // pid a rock is running on — the same source the menubar overlay reads. Keyed
@@ -273,16 +273,19 @@ async function toolLaunch({ host, agent, cwd, prompt = "", by }) {
   }];
 }
 
-async function toolBindNotification({ handle, event = "imessage", wake = true }) {
+async function toolBindNotification({ handle, contact, event = "imessage", wake = true }) {
   if (event !== "imessage") throw new Error("only the `imessage` Slab notification is supported");
   if (!handle) throw new Error("`handle` is required (use the stable host:name or session id)");
+  const contactKey = String(contact || "").trim().toLowerCase();
+  if (!contactKey) throw new Error("`contact` is required (the key from ~/.config/slab/imsg.json)");
   const hits = resolve(await allRocks(), handle);
   if (!hits.length) throw new Error(`no rock resolves «${handle}» to bind.`);
   if (hits.length > 1) throw new Error(`«${handle}» is ambiguous (${hits.map((r) => `${r.host}:${r.name}`).join(", ")}).`);
   const r = hits[0];
   if (!r.self) throw new Error("iMessage notification wake targets must be a local prox on this machine");
-  const binding = {
+  const loop = {
     event: "imessage",
+    contact: contactKey,
     sessionId: r.id,
     host: r.host,
     name: r.name,
@@ -290,8 +293,12 @@ async function toolBindNotification({ handle, event = "imessage", wake = true })
     assignedAt: new Date().toISOString(),
   };
   await mkdir(join(homedir(), ".config", "slab"), { recursive: true });
-  await writeFile(IMSG_BINDING, JSON.stringify(binding, null, 2) + "\n", { mode: 0o600 });
-  return [{ type: "text", text: `bound Slab iMessage arrivals to ${r.host}:${r.name} (${r.id}) — poke${binding.wake ? " + reactivate" : " only"}.` }];
+  const cfg = (await readJson(LOOPBOY_CONFIG)) || { version: 1, loops: {} };
+  cfg.version = 1;
+  cfg.loops ||= {};
+  cfg.loops[contactKey] = loop;
+  await writeFile(LOOPBOY_CONFIG, JSON.stringify(cfg, null, 2) + "\n", { mode: 0o600 });
+  return [{ type: "text", text: `Loopboy bound ${contactKey} → ${r.host}:${r.name} (${r.id}) — poke${loop.wake ? " + reactivate" : " only"}.` }];
 }
 
 async function toolClose({ handle }) {
@@ -399,15 +406,16 @@ const TOOLS = [
   {
     name: "prox_bind_notification",
     description:
-      "Assign a Slab notification to one stable local prox. For event `imessage`, every new inbound pokes the rock and, by default, reactivates its terminal session with a steering prompt. The binding uses session id, so it survives prompt/title/visual changes for that thread. This does not send or react to the incoming message.",
+      "Create or replace one contact-keyed Loopboy route from iMessage to a stable local prox. Every new inbound from that contact pokes the rock and, by default, reactivates its terminal session with a steering prompt. This does not send or react to the incoming message.",
     inputSchema: {
       type: "object",
       properties: {
         handle: { type: "string", description: "Stable local host:name, session id, or an unambiguous subject fragment." },
+        contact: { type: "string", description: "Contact key from ~/.config/slab/imsg.json, for example alex." },
         event: { type: "string", enum: ["imessage"], default: "imessage" },
         wake: { type: "boolean", default: true, description: "Also reactivate the agent session; false means visual poke only." },
       },
-      required: ["handle"],
+      required: ["handle", "contact"],
     },
   },
 ];

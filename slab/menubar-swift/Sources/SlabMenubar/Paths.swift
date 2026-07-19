@@ -33,10 +33,9 @@ enum Paths {
     static var imsgConfig: String { "\(home)/.config/slab/imsg.json" }
     static var signalHelper: String { "\(slabBin)/signal" }
     static var signalConfig: String { "\(home)/.config/slab/signal.json" }
-    /// Optional prox binding written by `prox_bind_notification`. It contains
-    /// only a stable local session id and wake flag; contact identity remains
-    /// in the separate private iMessage config.
-    static var imsgProxBinding: String { "\(home)/.config/slab/imsg-prox.json" }
+    /// Contact-keyed input → prox routes. Contact handles remain private in
+    /// imsgConfig; Loopboy stores only contact keys and local session ids.
+    static var loopboyConfig: String { "\(home)/.config/slab/loopboy.json" }
 
     /// Asana bridge for the task submenu. The Personal Access Token lives in
     /// the untracked config below (never in tracked code) — same convention as

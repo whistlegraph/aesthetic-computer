@@ -77,6 +77,8 @@ enum MenuBuilder {
             : "Inbox: clear"
         menu.addItem(section(inboxTitle, symbol: "tray.full.fill", submenu: inbox))
 
+        menu.addItem(buildLoopboy(target: target))
+
         let work = NSMenu()
         work.addItem(buildAsana(state: asana, target: target))
         work.addItem(buildDeploy(state: deploy, target: target))
@@ -161,6 +163,31 @@ enum MenuBuilder {
         it.target = target
         it.isEnabled = true
         return it
+    }
+
+    private static func buildLoopboy(target: AppDelegate) -> NSMenuItem {
+        let sub = NSMenu()
+        var count = 0
+        if let data = FileManager.default.contents(atPath: Paths.loopboyConfig),
+           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let loops = obj["loops"] as? [String: Any] {
+            for key in loops.keys.sorted() {
+                guard let loop = loops[key] as? [String: Any] else { continue }
+                let host = (loop["host"] as? String) ?? "?"
+                let name = (loop["name"] as? String) ?? "?"
+                let wake = (loop["wake"] as? Bool) ?? false
+                sub.addItem(info("\(wake ? "↻" : "◌") \(key) → \(host):\(name)"))
+                count += 1
+            }
+        }
+        if count == 0 { sub.addItem(info("No client loops")) }
+        sub.addItem(.separator())
+        sub.addItem(item("Open Loopboy routes…",
+                         selector: #selector(AppDelegate.openLoopboyConfig),
+                         target: target))
+        return section(count == 1 ? "Loopboy: 1 client loop" : "Loopboy: \(count) client loops",
+                       symbol: "arrow.triangle.2.circlepath",
+                       submenu: sub)
     }
 
     /// Consistent first-level navigation: every subsystem is represented by

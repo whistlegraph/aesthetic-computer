@@ -396,6 +396,15 @@ function handleList(cfg) {
     .join(",");
 }
 
+function contactConfig(cfg, key, contact) {
+  return {
+    ...cfg,
+    default: key,
+    displayName: contact.displayName,
+    handles: contact.handles,
+  };
+}
+
 // Latest inbound message + unread count for the configured contact.
 function fetchSummary(cfg) {
   const ids = handleList(cfg);
@@ -613,6 +622,27 @@ function cmdStatus() {
   }
 
   const st = loadState();
+  st.contacts ||= {};
+  const arrivals = [];
+  for (const [key, contact] of Object.entries(contactsMap(cfg))) {
+    const cc = contactConfig(cfg, key, contact);
+    const summary = fetchSummary(cc);
+    const cs = st.contacts[key] || { primed: false, lastNotifiedRowid: 0 };
+    if (!cs.primed) {
+      cs.primed = true;
+      cs.lastNotifiedRowid = summary.maxInbound;
+    } else if (summary.maxInbound > cs.lastNotifiedRowid) {
+      cs.lastNotifiedRowid = summary.maxInbound;
+      arrivals.push({
+        contact: key,
+        displayName: contact.displayName,
+        last: summary.last
+          ? { fromMe: summary.last.fromMe, text: clip(summary.last.text, 240) }
+          : null,
+      });
+    }
+    st.contacts[key] = cs;
+  }
   let acknowledgedRowid = loadAcknowledgedRowid();
   if (!acknowledgedRowid) {
     // Migration/first run: baseline history instead of presenting every old
@@ -654,6 +684,7 @@ function cmdStatus() {
     unread: pending,
     systemUnread: s.unread,
     newSinceLast,
+    arrivals,
     last: s.last
       ? {
           fromMe: s.last.fromMe,

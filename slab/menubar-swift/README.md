@@ -63,8 +63,17 @@ The `prox` MCP can list, resolve, and poke those handles, or use `prox_launch`
 to open a new interactive Claude/Codex Terminal on a host. The launch endpoint
 is not a general remote shell: it accepts only those two installed launchers,
 a prompt of at most 4000 characters, and an existing cwd beneath the target
-user's home directory. Use `slab/install.sh --prompt-host` to install the agent
+user’s home directory. Use `slab/install.sh --prompt-host` to install the agent
 hooks and wrappers without the legacy ambient-audio or lid-control services.
+
+## Loopboy
+
+Loopboy is Slab's client-loop router. Routes in
+`~/.config/slab/loopboy.json` map one private iMessage contact key to one local
+prox session. New inbound messages poke and optionally wake only that contact's
+rock; Loopboy never replies on its own. Armed Loopboy rocks spin faster, wear a
+pink glow, and identify themselves in their hover bubble. The Slab menu lists
+all active client loops and their prox targets.
 
 ## Passphrase modal (IPC server)
 

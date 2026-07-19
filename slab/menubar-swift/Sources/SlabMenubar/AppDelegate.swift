@@ -615,7 +615,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             var unread = 0
             var newSinceLast = false
             var helperError: String?
-            var lastText = ""
+            var arrivals: [[String: Any]] = []
             if let data = line.data(using: .utf8),
                let obj = try? JSONSerialization.jsonObject(with: data)
                    as? [String: Any] {
@@ -624,9 +624,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 unread = (obj["unread"] as? Int) ?? 0
                 newSinceLast = (obj["newSinceLast"] as? Bool) ?? false
                 helperError = obj["error"] as? String
-                if let last = obj["last"] as? [String: Any] {
-                    lastText = (last["text"] as? String) ?? ""
-                }
+                arrivals = (obj["arrivals"] as? [[String: Any]]) ?? []
             }
             DispatchQueue.main.async {
                 guard let self = self else { return }
@@ -637,9 +635,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 self.imsgStatus = label
                 self.imsgConfigured = configured
                 self.imsgUnread = unread
-                if newSinceLast {
+                if newSinceLast || !arrivals.isEmpty {
                     self.imsgArrivalVisibleUntil = Date().addingTimeInterval(15)
-                    self.bumpBoundProx(displayLabel: label, message: lastText)
+                }
+                for arrival in arrivals {
+                    let contact = (arrival["contact"] as? String) ?? ""
+                    let display = (arrival["displayName"] as? String) ?? contact
+                    let last = arrival["last"] as? [String: Any]
+                    self.bumpBoundProx(contact: contact,
+                                       displayLabel: display,
+                                       message: (last?["text"] as? String) ?? "")
                 }
                 self.applyInputNotificationState()
                 self.imsgPending = false
@@ -716,22 +721,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// submit a small steering prompt to its live TTY. This is deliberately
     /// opt-in via an untracked binding file; Slab never guesses which agent to
     /// wake and never sends a message back to the contact.
-    private func bumpBoundProx(displayLabel: String, message: String) {
-        guard let data = FileManager.default.contents(atPath: Paths.imsgProxBinding),
+    private func bumpBoundProx(contact: String, displayLabel: String, message: String) {
+        guard let data = FileManager.default.contents(atPath: Paths.loopboyConfig),
               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let sid = obj["sessionId"] as? String, !sid.isEmpty else { return }
-        let wake = (obj["wake"] as? Bool) ?? false
-        LedgerStore.shared.pokeLocal(sessionId: sid, by: "slab:imessage")
+              let loops = obj["loops"] as? [String: Any],
+              let loop = loops[contact] as? [String: Any],
+              let sid = loop["sessionId"] as? String, !sid.isEmpty else { return }
+        let wake = (loop["wake"] as? Bool) ?? false
+        LedgerStore.shared.pokeLocal(sessionId: sid, by: "loopboy:\(contact)")
         guard wake, let tty = ttyForSession(sid), !tty.isEmpty else { return }
 
         let clean = message.replacingOccurrences(of: "\n", with: " ")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let excerpt = String(clean.prefix(240))
         let prompt = excerpt.isEmpty
-            ? "Slab received a new iMessage from Alex. Check Alex's latest messages and handle the request."
-            : "Slab received a new iMessage from Alex: \(excerpt) — check Alex's latest messages and handle the request."
+            ? "Loopboy received a new iMessage from \(displayLabel). Check their latest messages and continue the client loop."
+            : "Loopboy received a new iMessage from \(displayLabel): \(excerpt) — check their latest messages and continue the client loop."
         wakeTerminal(tty: tty, prompt: prompt)
-        NSLog("💬 [imsg] poked + woke prox \(sid.prefix(8)) on \(tty) (\(displayLabel))")
+        NSLog("💬 [loopboy] \(contact) poked + woke prox \(sid.prefix(8)) on \(tty)")
     }
 
     private func ttyForSession(_ sid: String) -> String? {
@@ -998,6 +1005,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // `config` creates the untracked stub if absent, then open it.
         ShellRunner.run(Paths.imsgHelper, args: ["config"])
         ShellRunner.run("/usr/bin/open", args: ["-t", Paths.imsgConfig])
+    }
+
+    @objc func openLoopboyConfig() {
+        let path = Paths.loopboyConfig
+        if !FileManager.default.fileExists(atPath: path) {
+            let seed: [String: Any] = ["version": 1, "loops": [:]]
+            if let data = try? JSONSerialization.data(withJSONObject: seed, options: [.prettyPrinted]) {
+                FileManager.default.createFile(atPath: path, contents: data)
+            }
+        }
+        NSWorkspace.shared.open(URL(fileURLWithPath: path))
     }
 
     @objc func acknowledgeImsg() {

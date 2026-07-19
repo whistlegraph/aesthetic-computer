@@ -920,6 +920,15 @@ final class PromptSigilOverlayController {
         }
     }
 
+    private func loopboySessions() -> Set<String> {
+        guard let data = FileManager.default.contents(atPath: Paths.loopboyConfig),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let loops = obj["loops"] as? [String: Any] else { return [] }
+        return Set(loops.values.compactMap {
+            ($0 as? [String: Any])?["sessionId"] as? String
+        })
+    }
+
     /// Reconcile the badge set with the live sessions. Off when `enabled` is
     /// false. Only sessions with a real local tty get a badge.
     func sync(sessions: [ClaudeSession], enabled: Bool) {
@@ -931,6 +940,7 @@ final class PromptSigilOverlayController {
 
         let live = sessions.filter { !$0.tty.isEmpty && $0.remoteHost.isEmpty }
         let liveIds = Set(live.map { $0.sessionId })
+        let loopIds = loopboySessions()
         let dark = AppDelegate.isDarkAppearance()
 
         // Recompute the global sun every 5 minutes — the sun moves slowly, and
@@ -979,9 +989,12 @@ final class PromptSigilOverlayController {
                     DispatchQueue.main.async { ov?.setFrames(rock: lo, shadow: hi) }
                 }
             }
-            let (period, cw) = motion(for: s.state)
-            ov.setMotion(period: period, clockwise: cw)
-            ov.setShadowColor(statusColor(for: s.state, agentType: s.agentType))
+            let (basePeriod, cw) = motion(for: s.state)
+            let loopboy = loopIds.contains(s.sessionId)
+            ov.setMotion(period: loopboy ? basePeriod * 0.45 : basePeriod, clockwise: cw)
+            ov.setShadowColor(loopboy
+                ? NSColor(deviceRed: 1.0, green: 0.23, blue: 0.58, alpha: 1.0)
+                : statusColor(for: s.state, agentType: s.agentType))
             ov.setLighting(drop: sun.drop)
             // Name + hover copy. The name belongs to the session/thread and
             // stays fixed while the visual rock re-forms on a new prompt.
@@ -990,7 +1003,8 @@ final class PromptSigilOverlayController {
             // summary and prompt excerpt, deduped (the hook line is usually
             // the prompt's own first words — repeating both said nothing).
             ov.setName(SigilRenderer.name(forSessionId: s.sessionId), dark: dark)
-            ov.tooltipTitle = s.emoji.isEmpty ? ov.name : "\(s.emoji) \(ov.name)"
+            let title = s.emoji.isEmpty ? ov.name : "\(s.emoji) \(ov.name)"
+            ov.tooltipTitle = loopboy ? "↻ Loopboy · \(title)" : title
             ov.tooltipBody = RockSummaries.shared.sentence(seed: seed, subject: s.subject)
                 ?? Self.fallbackBody(summary: s.titleString, subject: s.shortSubject)
         }
