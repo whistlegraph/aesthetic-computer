@@ -21,7 +21,10 @@ import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
 
 const { P, PN, G, ST, SFX, SUB, BODY_W, BODY_H, PUNCH_F } = game;
 
-// key → [player, bit, which face of the d-pad it draws on]
+// QWERTY keeps the two attack rows in the same physical layout as the arcade
+// buttons. Throws are chords (LP+LK), while block and dash remain directional:
+// hold away to block and double-tap left/right to dash.
+// key → [player, bit, short command-stream label]
 const KEYS = {
   a: [0, game.LEFT, "l"],
   d: [0, game.RIGHT, "r"],
@@ -36,8 +39,13 @@ const KEYS = {
 };
 
 const CAP = [
-  { l: "a", r: "d", b: "w", p: "s" },
-  { l: "<", r: ">", b: "^", p: "v" },
+  { l: "A", r: "D", u: "W", d: "S", LP: "F LP", MP: "G MP", HP: "H HP", LK: "V LK", MK: "B MK", HK: "N HK" },
+  { l: "<", r: ">", u: "^", d: "v", LP: "J LP", MP: "K MP", HP: "L HP", LK: "M LK", MK: ", MK", HK: ". HK" },
+];
+
+const KEYBOARD_LAYOUT = [
+  { dirs: [["A", game.LEFT, 0, 9], ["S", game.DOWN, 9, 9], ["D", game.RIGHT, 18, 9], ["W", game.UP, 13, 0]], attacks: [["F", "LP", game.LP], ["G", "MP", game.MP], ["H", "HP", game.HP], ["V", "LK", game.LK], ["B", "MK", game.MK], ["N", "HK", game.HK]], throw: "F+V THROW" },
+  { dirs: [["<", game.LEFT, 0, 9], ["v", game.DOWN, 9, 9], [">", game.RIGHT, 18, 9], ["^", game.UP, 13, 0]], attacks: [["J", "LP", game.LP], ["K", "MP", game.MP], ["L", "HP", game.HP], ["M", "LK", game.LK], [",", "MK", game.MK], [".", "HK", game.HK]], throw: "J+M THROW" },
 ];
 
 const SUIT = [
@@ -296,8 +304,12 @@ function act({ event: e }) {
   for (const key in KEYS) {
     const [p, bit] = KEYS[key];
     if (e.is(`keyboard:down:${key}`)) {
+      const wasThrowing = (keyHeld[p] & (game.LP | game.LK)) === (game.LP | game.LK);
       if (!(keyHeld[p] & bit)) streamInput(p, CAP[p][KEYS[key][2]], SUIT[p]);
       keyHeld[p] |= bit;
+      if (!wasThrowing && (keyHeld[p] & (game.LP | game.LK)) === (game.LP | game.LK)) {
+        streamInput(p, `${p ? "J+M" : "F+V"} GRAPPLE THROW`, "violet");
+      }
     }
     if (e.is(`keyboard:up:${key}`)) keyHeld[p] &= ~bit;
     held[p] = keyHeld[p] | padsHeld[p];
@@ -620,6 +632,7 @@ function hud(ink, w) {
 // block doesn't work, so it should be visible.
 function pads(ink, ox, oy, p) {
   const pad = playerPad(p);
+  if (!pad) return keyboardPad(ink, ox, oy, p);
   // HORI NOLVA-inspired leverless geometry: four directions at left and two
   // arcing rows of three attack buttons. The dormant map stays quiet gray;
   // labels and move names light only while pressed.
@@ -631,6 +644,27 @@ function pads(ink, ox, oy, p) {
     const row = i > 2 ? 1 : 0, col = i % 3;
     buttonDot(ink, ax + col * 18, oy + row * 11 + (row ? 1 : 0), label, !!(held[p] & bit), pad, button, move);
   });
+}
+
+function keyboardPad(ink, ox, oy, p) {
+  const layout = KEYBOARD_LAYOUT[p];
+  for (const [label, bit, dx, dy] of layout.dirs) keyDot(ink, ox + dx, oy + dy, label, !!(held[p] & bit));
+  const ax = p === 0 ? ox + 34 : ox - 53;
+  layout.attacks.forEach(([label, move, bit], i) => {
+    const row = i > 2 ? 1 : 0, col = i % 3;
+    keyDot(ink, ax + col * 18, oy + row * 11 + (row ? 1 : 0), label, !!(held[p] & bit), move);
+  });
+  const throwing = (held[p] & (game.LP | game.LK)) === (game.LP | game.LK);
+  if (throwing) ink("violet").write(layout.throw, { x: p === 0 ? ax : ax - 12, y: oy - 16, font: "MatrixChunky8" });
+  const hint = "AWAY BLOCK  2x DIR DASH";
+  ink(...colors().quiet).write(hint, { x: p === 0 ? ox : ox - 94, y: oy + 23, font: "MatrixChunky8" });
+}
+
+function keyDot(ink, x, y, label, down, move = "") {
+  const width = Math.max(8, label.length * 6 + 4);
+  ink(...(down ? [255, 220, 60] : lightMode ? [205, 199, 190] : [38, 36, 48])).box(x, y, width, 9);
+  ink(...(down ? [12, 12, 18] : lightMode ? [78, 73, 88] : [145, 140, 165])).write(label, { x: x + 2, y: y + 1, font: "MatrixChunky8" });
+  if (down && move) ink(255, 220, 60).write(move, { x: x - 2, y: y - 8, font: "MatrixChunky8" });
 }
 
 function buttonDot(ink, x, y, label, down, pad, button, move = "") {
