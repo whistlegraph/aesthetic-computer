@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>No Paint — Gallery</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="author" content="Jeffrey Alan Scudder w/ Alex Freundlich, Ella Fleck, Camille Klein &amp; Friends">
+<meta name="description" content="Every painting kept by pressing Paint — the No Paint archive, 2021 to now.">
+<link rel="icon" type="image/png" href="../icons/icon-1024.png">
+<style>
+  @font-face {
+    font-family: "Pixelar";
+    src: url("../fonts/pixelar-regular-w01.woff2") format("woff2");
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: #ebebeb;
+    font-family: "Pixelar", monospace;
+    color: #222;
+    image-rendering: pixelated;
+  }
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #ebebeb;
+    border-bottom: 2px solid #222;
+    padding: 12px 16px 10px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 10px 18px;
+  }
+  header h1 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: normal;
+    letter-spacing: 1px;
+  }
+  header h1 a { color: inherit; text-decoration: none; }
+  #count { font-size: 16px; color: #666; }
+  nav { display: flex; gap: 8px; flex-wrap: wrap; }
+  nav button {
+    font-family: inherit;
+    font-size: 16px;
+    padding: 2px 10px;
+    background: #fff;
+    border: 2px solid #222;
+    border-radius: 0;
+    cursor: pointer;
+  }
+  nav button.on { background: #222; color: #ebebeb; }
+  nav button:active { transform: translateY(1px); }
+  #grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+    gap: 4px;
+    padding: 4px;
+  }
+  #grid a {
+    display: block;
+    aspect-ratio: 256 / 288;
+    background: #ddd;
+  }
+  #grid img {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  #more { text-align: center; padding: 24px; font-size: 18px; color: #666; }
+  footer {
+    padding: 24px 16px 40px;
+    font-size: 15px;
+    color: #666;
+    text-align: center;
+  }
+  footer a { color: #444; }
+</style>
+</head>
+<body>
+<header>
+  <h1><a href="/">No Paint</a> Gallery</h1>
+  <span id="count">loading the archive…</span>
+  <nav id="years"></nav>
+</header>
+<div id="grid"></div>
+<div id="more"></div>
+<footer>
+  Every image here is a painting somebody kept by pressing
+  <strong>Paint</strong>. The archive runs from 2021 to now.
+  <a href="/">Play No Paint</a> · <a href="/classic/">Classic build</a>
+</footer>
+<script>
+  const CDN = "https://pix.nopaint.art/";
+  const PAGE = 60;
+  let all = [], view = [], shown = 0, filter = "all";
+
+  const grid = document.getElementById("grid");
+  const more = document.getElementById("more");
+  const count = document.getElementById("count");
+  const years = document.getElementById("years");
+
+  function setFilter(f) {
+    filter = f;
+    view = f === "all" ? all.slice()
+         : f === "shuffle" ? shuffled(all)
+         : all.filter(p => p.d.startsWith(f));
+    if (f !== "shuffle") view.reverse(); // newest first
+    grid.innerHTML = "";
+    shown = 0;
+    count.textContent = view.length.toLocaleString() + " paintings";
+    for (const b of years.children) b.classList.toggle("on", b.dataset.f === f);
+    fill();
+  }
+
+  function shuffled(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function fill() {
+    const frag = document.createDocumentFragment();
+    const end = Math.min(shown + PAGE, view.length);
+    for (; shown < end; shown++) {
+      const p = view[shown];
+      const a = document.createElement("a");
+      a.href = CDN + p.id + ".png";
+      a.target = "_blank";
+      a.title = p.id + " · " + p.d;
+      const img = document.createElement("img");
+      img.loading = "lazy";
+      img.decoding = "async";
+      img.src = CDN + p.id + ".png";
+      img.alt = "No Paint painting " + p.id + " from " + p.d;
+      a.appendChild(img);
+      frag.appendChild(a);
+    }
+    grid.appendChild(frag);
+    more.textContent = shown < view.length
+      ? "…" + (view.length - shown).toLocaleString() + " more"
+      : "that's every painting";
+  }
+
+  new IntersectionObserver(es => {
+    if (es[0].isIntersecting && shown < view.length) fill();
+  }, { rootMargin: "1200px" }).observe(more);
+
+  fetch("manifest.json").then(r => r.json()).then(m => {
+    all = m.paintings;
+    const ys = [...new Set(all.map(p => p.d.slice(0, 4)))].sort();
+    for (const label of ["all", ...ys, "shuffle"]) {
+      const b = document.createElement("button");
+      b.textContent = label;
+      b.dataset.f = label;
+      b.onclick = () => setFilter(label);
+      years.appendChild(b);
+    }
+    setFilter("shuffle");
+  }).catch(() => count.textContent = "the archive could not load");
+</script>
+</body>
+</html>
