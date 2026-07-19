@@ -945,6 +945,7 @@ function updateIndex(entries) {
 
   // Importance ranking — curated order for 2026 impact
   const IMPORTANCE = {
+    "stack-of-the-summer-26-arxiv": 0.25,
     "keymaps-social-software-26-arxiv": 0.5,
     "aesthetic-computer-26-arxiv": 1,
     "kidlisp-26-arxiv": 2,
@@ -1034,6 +1035,11 @@ function updateIndex(entries) {
 
   // Paper detail descriptions and short previews, keyed by siteName.
   const PAPER_COPY = {
+    "stack-of-the-summer-26-arxiv": {
+      detail: "A Nine-Vector Platform Report · arXiv-style · Summer 2026",
+      abstract:
+        "Stack of the Summer '26 cuts through Aesthetic Computer's living platform: the piece lifecycle and creative runtime, user data and backend choices, realtime and deployment, KidLisp publishing, shared services, desktop and bare-metal embodiments, engineering quality, privacy boundaries, and architectural history. It distinguishes canonical, transitional, and experimental layers, then names the priorities that can thicken the platform without losing its narrow creative waist.",
+    },
     "a-record-in-the-mail-essay": {
       detail: "An essay on API-made vinyl and cassette fulfillment &middot; podcast",
       abstract:
