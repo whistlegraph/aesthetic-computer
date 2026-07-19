@@ -11664,19 +11664,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               // The tape is a loop — wrap the ruler past both edges so
               // there's never dead black; the material just repeats.
               const sw = ((s % duration) + duration) % duration;
-              // Alternating per-second panels make speed and direction legible.
+              // Alternating per-second panels make speed and direction
+              // legible; a faint line marks each second. No numbers, no
+              // tick rows — the waveform is the marking.
               sctx.fillStyle = `hsl(${Math.round((sw / duration) * 300)}, 55%, ${sw % 2 ? 26 : 18}%)`;
               sctx.fillRect(x, bandTop, Math.ceil(pxPerSec), bandH);
-              sctx.fillStyle = "rgba(255, 255, 255, 0.3)";
-              sctx.textAlign = "center";
-              sctx.font = `bold ${Math.floor(bandH / 2.4)}px monospace`;
-              sctx.fillText(String(sw), x + pxPerSec / 2, bandTop + bandH * 0.6);
-              // Major tick each second, minor ticks each tenth.
-              sctx.fillStyle = "rgba(255, 255, 255, 0.5)";
-              sctx.fillRect(x, bandTop, 2, bandH);
-              for (let m = 1; m < 10; m++) {
-                sctx.fillRect(Math.round(x + (m / 10) * pxPerSec), bandTop, 1, 6);
-              }
+              sctx.fillStyle = "rgba(255, 255, 255, 0.25)";
+              sctx.fillRect(x, bandTop, 1, bandH);
             }
 
             // The soundtrack's actual waveform, scrolling with the ruler
@@ -11696,28 +11690,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               );
             }
 
-            // Frame-parity chip (top-right): alternates every frame so a
-            // dropped or duplicated frame reads as a hiccup in its flicker —
-            // kept tiny so it doesn't strobe the whole player.
-            sctx.fillStyle = i % 2 ? "#ffffff" : "#333333";
-            sctx.fillRect(width - 8, 2, 6, 4);
-            // (No baked-in progress bar — the piece draws the red bottom
-            // marker from live playback state.)
+            // (No parity chip, timecode, or baked-in progress bar anymore —
+            // the diagnostics served their purpose; the piece draws the red
+            // bottom marker from live playback state.)
             // Subtle center reading-head marker the ruler slides beneath.
             sctx.fillStyle = "rgba(255, 255, 255, 0.35)";
             sctx.fillRect(Math.floor(width / 2), 8, 1, height - 12);
-
-            // Small frame number + timecode, above the progress bar.
-            const secs = Math.floor(t);
-            const ms = Math.floor((t - secs) * 1000);
-            sctx.fillStyle = "#ffffff";
-            sctx.textAlign = "left";
-            sctx.font = `${Math.floor(height / 11)}px monospace`;
-            sctx.fillText(
-              `${String(i).padStart(3, "0")} ${String(secs).padStart(2, "0")}.${String(ms).padStart(3, "0")}`,
-              6,
-              height - 12,
-            );
 
             recordedFrames.push([
               (i * 1000) / fps,

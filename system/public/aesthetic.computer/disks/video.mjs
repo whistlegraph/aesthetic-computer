@@ -120,6 +120,21 @@ let lastScrollAt = 0;
 let tapDipTime = -1; // ≥0 = seconds elapsed in the dip animation
 const TAP_DIP_DURATION = 0.35;
 const TAP_DIP_DEPTH = 0.9; // Bottom of the dip reaches 0.1×
+let dipBase = 1; // The rate a dip departs from and returns to
+
+// 🅿️ Parked rate: letting go of any gesture keeps the CURRENT rate instead
+// of snapping back to 1× — the rate is a setting you performed. Release
+// within 0.05 of 1× hands back to normal playback; spacebar always resets.
+let sustained = false;
+let resumeTarget = 1; // The pre-gesture rate: brake, wheel, and dip return here
+const PARK_SNAP = 0.05; // Within this of 1×, a release ends the scrub cleanly
+
+// 🎰 Wheel: a FLICK release lets the platter run free, then it eases down
+// like a prize wheel to the pre-flick rate. A gentle release parks instead.
+let wheelActive = false;
+let flickVel = 0; // Low-passed drag velocity, for telling flicks from lets-go
+const FLICK_THRESHOLD = 5; // px/event of recent drag velocity
+const FLICK_KICK = 0.12; // Extra rate per px of flick velocity
 
 // Scrub physics runs on measured wall time, not an assumed tick rate —
 // sim ticks at ~120Hz here, and a fixed 1/60 dt made every commanded
@@ -192,7 +207,7 @@ function ensureScrubStripButton(ui, screen, enabled) {
 }
 
 function nudgeTapeAudioSpeed(send, targetSpeed) {
-  const clampedTarget = Math.max(-4, Math.min(4, targetSpeed));
+  const clampedTarget = Math.max(-16, Math.min(16, targetSpeed));
   const delta = clampedTarget - scrubAudioSpeed;
   if (Math.abs(delta) < 0.0005) return;
   send({ type: "tape:audio-shift", content: delta });
@@ -296,6 +311,11 @@ function boot({ wipe, rec, gizmo, jump, notice, store, params, send, hud }) {
   scrollScrubbing = false;
   tapDipTime = -1;
   lastScrollAt = 0;
+  wheelActive = false;
+  sustained = false;
+  flickVel = 0;
+  resumeTarget = 1;
+  dipBase = 1;
   scrubSpeed = 0;
   scrubCurrentProgress = 0;
   wasPlayingBeforeScrub = false;
@@ -419,7 +439,7 @@ function boot({ wipe, rec, gizmo, jump, notice, store, params, send, hud }) {
     synthAuto = rest.includes("auto");
     const style = rest.includes("break") || rest.includes("beat") ? "break" : "bed";
     const nums = rest.map(parseFloat).filter((n) => Number.isFinite(n));
-    let duration = nums[0] || (style === "break" ? 2 : 8);
+    let duration = nums[0] || 8; // Four bars by default, break included
     if (rest.includes("bar")) duration = 2;
     const fps = nums[1] || 30;
     isSynthTape = true;
@@ -814,7 +834,12 @@ function paint({
   // 📟 Current playback rate, top-right, always visible on a tape.
   if (presenting && !isPrinting && !isLoadingTape) {
     const scrubDriven =
-      isScrubbing || inertiaActive || brakeResume || tapDipTime >= 0;
+      isScrubbing ||
+      inertiaActive ||
+      brakeResume ||
+      wheelActive ||
+      sustained ||
+      tapDipTime >= 0;
     const liveRate = scrubDriven ? scrubSpeed : playing ? 1 : 0;
     ink(255, 255, 0).write(`${liveRate.toFixed(2)}x`, {
       x: screen.width - 6,
@@ -836,7 +861,7 @@ function paint({
   }
 
   // Scrub overlay (STAMPLE-style speed-based)
-  if ((isScrubbing || inertiaActive || brakeResume) && rec?.presenting) {
+  if ((isScrubbing || inertiaActive || brakeResume || wheelActive) && rec?.presenting) {
     // Waveform fetch (async, cached)
     if (!tapeWaveform && sound.getSampleData) {
       sound.getSampleData("tape:audio").then((data) => {
@@ -844,14 +869,26 @@ function paint({
       }).catch(() => {});
     }
 
-    // Draw waveform background
+    // Draw waveform background — only the SEGMENT around the playhead
+    // (a ±1s window, matching the ruler's visible span), not the whole tape.
     let audioWaveform = tapeWaveform;
     if (!audioWaveform && sound?.speaker?.waveforms?.left?.length > 0) {
       audioWaveform = sound.speaker.waveforms.left;
     }
     if (audioWaveform?.length > 0 && sound?.paint?.waveform) {
-      const skipN = Math.max(1, Math.floor(audioWaveform.length / 128));
-      const compressed = num.arrCompress(audioWaveform, skipN);
+      const dur = tapeInfo?.totalDuration || 10;
+      const winFrac = Math.min(1, 2 / dur); // 2s of tape across the screen
+      const len = audioWaveform.length;
+      const segLen = Math.max(1, Math.floor(winFrac * len));
+      const segStart = Math.floor(
+        ((((scrubCurrentProgress - winFrac / 2) % 1) + 1) % 1) * len,
+      );
+      const segment = new Array(segLen);
+      for (let i = 0; i < segLen; i++) {
+        segment[i] = audioWaveform[(segStart + i) % len];
+      }
+      const skipN = Math.max(1, Math.floor(segment.length / 128));
+      const compressed = num.arrCompress(segment, skipN);
       try {
         sound.paint.waveform(
           api, num.arrMax(compressed), compressed,
@@ -941,6 +978,8 @@ function sim({ needsPaint, rec, send }) {
       inertiaActive || // Keep painting during inertia
       brakeHolding || // Keep painting while the touch brake slows the tape
       brakeResume || // Keep painting while it spins back up
+      wheelActive || // Keep painting while the wheel spins down
+      sustained || // Keep painting at a parked rate
       tapDipTime >= 0 // Keep painting through a tap dip
     ) {
       needsPaint();
@@ -965,8 +1004,12 @@ function sim({ needsPaint, rec, send }) {
       isScrubbing = true;
       scrubMoved = true; // A brake is a gesture, not a tap — no toggle on lift
       wasPlayingBeforeScrub = true;
-      scrubCurrentProgress = rec.presentProgress || 0;
-      scrubSpeed = 1; // Start at play speed and decay from there
+      // Brake from the current rate — the parked rate if one is set — and
+      // remember it so the release spins back up to it.
+      resumeTarget = sustained ? scrubSpeed : 1;
+      if (!sustained) scrubCurrentProgress = rec.presentProgress || 0;
+      scrubSpeed = resumeTarget;
+      sustained = false;
       send({
         type: "recorder:present:seek",
         content: { progress: scrubCurrentProgress, speedScrub: true, scrubbing: true },
@@ -977,24 +1020,37 @@ function sim({ needsPaint, rec, send }) {
   }
 
   // 👇 Tap dip animation: rate sags along a half-sine and springs back to
-  // 1×, then hands off to normal play.
+  // the rate it departed from, then lands (normal play or parked).
   if (tapDipTime >= 0 && rec?.presenting) {
     tapDipTime += simDt;
     const phase = Math.min(1, tapDipTime / TAP_DIP_DURATION);
-    scrubSpeed = 1 - TAP_DIP_DEPTH * Math.sin(Math.PI * phase);
+    scrubSpeed = dipBase * (1 - TAP_DIP_DEPTH * Math.sin(Math.PI * phase));
     if (phase >= 1) {
       tapDipTime = -1;
-      scrubSpeed = 0;
-      nudgeTapeAudioSpeed(send, 1);
-      send({
-        type: "recorder:present:seek",
-        content: { progress: scrubCurrentProgress, scrubEnd: true },
-      });
+      if (Math.abs(dipBase - 1) < PARK_SNAP) {
+        scrubSpeed = 0;
+        nudgeTapeAudioSpeed(send, 1);
+        send({
+          type: "recorder:present:seek",
+          content: { progress: scrubCurrentProgress, scrubEnd: true },
+        });
+      } else {
+        scrubSpeed = dipBase;
+        sustained = true;
+      }
     }
   }
 
   // Speed-based scrubbing physics (STAMPLE-style: drag velocity = playback speed)
-  if ((isScrubbing || inertiaActive || brakeResume || tapDipTime >= 0) && rec?.presenting) {
+  if (
+    (isScrubbing ||
+      inertiaActive ||
+      brakeResume ||
+      wheelActive ||
+      sustained ||
+      tapDipTime >= 0) &&
+    rec?.presenting
+  ) {
     const totalDuration = tapeInfo?.totalDuration || 10; // seconds
     // Decay/ramp factors below were tuned at 60fps; raise them to the
     // measured tick so the feel is identical at any sim rate.
@@ -1028,25 +1084,60 @@ function sim({ needsPaint, rec, send }) {
       if (scrubSpeed < 0.02) scrubSpeed = 0;
     }
 
-    // 🖱️ Scroll release: the wheel went quiet — spring back to 1× play.
+    // 🖱️ Scroll release: the wheel went quiet — park at the landed rate.
     if (scrollScrubbing && isScrubbing && performance.now() - lastScrollAt > 150) {
       scrollScrubbing = false;
       tapDipTime = -1;
       isScrubbing = false;
-      brakeResume = true;
-    }
-
-    // 🖐️ Brake release: spin back up to 1× and hand off to normal play.
-    if (brakeResume && !isScrubbing) {
-      scrubSpeed += (1 - scrubSpeed) * (1 - Math.pow(0.88, rate));
-      if (scrubSpeed > 0.95) {
-        brakeResume = false;
+      if (Math.abs(scrubSpeed - 1) < PARK_SNAP) {
         scrubSpeed = 0;
         nudgeTapeAudioSpeed(send, 1);
         send({
           type: "recorder:present:seek",
           content: { progress: scrubCurrentProgress, scrubEnd: true },
         });
+      } else {
+        sustained = true;
+      }
+    }
+
+    // 🎰 Wheel spin-down: after a flick the platter runs free, then eases
+    // down like a prize wheel to the pre-flick rate.
+    if (wheelActive && !isScrubbing) {
+      scrubSpeed =
+        resumeTarget + (scrubSpeed - resumeTarget) * Math.pow(0.975, rate);
+      if (Math.abs(scrubSpeed - resumeTarget) < 0.04) {
+        wheelActive = false;
+        if (Math.abs(resumeTarget - 1) < PARK_SNAP) {
+          scrubSpeed = 0;
+          nudgeTapeAudioSpeed(send, 1);
+          send({
+            type: "recorder:present:seek",
+            content: { progress: scrubCurrentProgress, scrubEnd: true },
+          });
+        } else {
+          scrubSpeed = resumeTarget;
+          sustained = true;
+        }
+      }
+    }
+
+    // 🖐️ Brake release: spin back up to the pre-gesture rate.
+    if (brakeResume && !isScrubbing) {
+      scrubSpeed += (resumeTarget - scrubSpeed) * (1 - Math.pow(0.88, rate));
+      if (Math.abs(scrubSpeed - resumeTarget) < 0.05) {
+        brakeResume = false;
+        if (Math.abs(resumeTarget - 1) < PARK_SNAP) {
+          scrubSpeed = 0;
+          nudgeTapeAudioSpeed(send, 1);
+          send({
+            type: "recorder:present:seek",
+            content: { progress: scrubCurrentProgress, scrubEnd: true },
+          });
+        } else {
+          scrubSpeed = resumeTarget;
+          sustained = true;
+        }
       }
     }
 
@@ -1129,12 +1220,18 @@ function act({
     return;
   }
 
-  if (!rec.presenting && (isScrubbing || inertiaActive || brakeHolding || brakeResume)) {
+  if (
+    !rec.presenting &&
+    (isScrubbing || inertiaActive || brakeHolding || brakeResume || wheelActive || sustained)
+  ) {
     isScrubbing = false;
     inertiaActive = false;
     brakeHolding = false;
     brakeResume = false;
+    wheelActive = false;
+    sustained = false;
     holdTime = 0;
+    flickVel = 0;
     scrubSpeed = 0;
     scrubMoved = false;
     nudgeTapeAudioSpeed(send, 1);
@@ -2135,6 +2232,17 @@ function act({
     // ⌨️ Spacebar is the only pause — touch never pauses, but a deliberate
     // keypress can still halt and resume the tape.
     if (e.is("keyboard:down:space") && rec.presenting) {
+      // Spacebar also resets any parked/spinning rate back to normal.
+      isScrubbing = false;
+      inertiaActive = false;
+      brakeHolding = false;
+      brakeResume = false;
+      wheelActive = false;
+      sustained = false;
+      scrollScrubbing = false;
+      tapDipTime = -1;
+      scrubSpeed = 0;
+      nudgeTapeAudioSpeed(send, 1);
       if (rec.playing) rec.pause();
       else rec.play();
       triggerRender();
@@ -2150,7 +2258,12 @@ function act({
           inertiaActive = false;
           brakeHolding = false;
           brakeResume = false;
-          scrubCurrentProgress = rec.presentProgress || scrubCurrentProgress || 0;
+          wheelActive = false;
+          if (!sustained) {
+            scrubCurrentProgress =
+              rec.presentProgress || scrubCurrentProgress || 0;
+          }
+          sustained = false;
           wasPlayingBeforeScrub = true;
           isScrubbing = true;
           scrollScrubbing = true;
@@ -2161,7 +2274,9 @@ function act({
           });
         }
         scrubMoved = true;
-        scrubSpeed = Math.max(-4, Math.min(4, scrubSpeed * 0.6 + d * 0.25));
+        // Expressive range: two-finger scroll can push way past the drag's
+        // reach — up to ±12×.
+        scrubSpeed = Math.max(-12, Math.min(12, scrubSpeed * 0.6 + d * 0.35));
         lastScrollAt = performance.now();
         nudgeTapeAudioSpeed(send, scrubSpeed);
         triggerRender();
@@ -2179,12 +2294,19 @@ function act({
           brakeHolding = false;
           brakeResume = false;
           scrollScrubbing = false;
+          wheelActive = false;
           tapDipTime = -1;
           holdTime = 0;
+          flickVel = 0;
           elasticAnchorX = e.x ?? null;
-          elasticBase = 1;
-          scrubCurrentProgress = rec.presentProgress || 0;
-          scrubSpeed = 0;
+          // 🅿️ A parked rate survives a new touch: the gesture starts FROM
+          // it and returns TO it.
+          resumeTarget = sustained ? scrubSpeed : 1;
+          elasticBase = sustained ? scrubSpeed : 1;
+          if (!sustained) {
+            scrubCurrentProgress = rec.presentProgress || 0;
+            scrubSpeed = 0;
+          }
           wasPlayingBeforeScrub = rec.playing;
           scrubAudioSpeed = 1;
         },
@@ -2200,6 +2322,7 @@ function act({
           if (elasticAnchorX === null) elasticAnchorX = e.x;
           if (!isScrubbing) {
             isScrubbing = true;
+            sustained = false; // The finger owns the rate while it's down
             // STAMPLE-like: start a live source so drag can bend audio immediately.
             if (!rec.playing) rec.play();
             send({
@@ -2208,28 +2331,46 @@ function act({
             });
           }
           // 🪀 Elastic rate: displacement from the anchor stretches the rate
-          // around the base — a third of the screen right reaches 4×, left
+          // around the base — a third of the screen right adds 3×, left
           // pulls through 0 into reverse.
           const dx = e.x - elasticAnchorX;
           if (Math.abs(dx) > 2) scrubMoved = true;
+          flickVel = flickVel * 0.6 + (e.delta?.x || 0) * 0.4;
           const K = 9 / screen.width;
-          scrubSpeed = Math.max(-4, Math.min(4, elasticBase + dx * K));
+          scrubSpeed = Math.max(-8, Math.min(8, elasticBase + dx * K));
           nudgeTapeAudioSpeed(send, scrubSpeed);
           triggerRender();
         },
         up: () => {
           if (!isScrubbing) return true;
           isScrubbing = false;
-          brakeHolding = false;
           elasticAnchorX = null;
-          if (elasticBase === 0 && Math.abs(scrubSpeed) > 0.1) {
-            // 🪀 Thrown from a halt — glide in that direction on inertia.
-            inertiaActive = true;
-          } else {
-            // 🪀 Stretch release springs the rate back to 1× play.
-            brakeResume = true;
-          }
           elasticBase = 1;
+          if (brakeHolding) {
+            // 🖐️ Brake release: spin back up to the pre-gesture rate.
+            brakeHolding = false;
+            brakeResume = true;
+          } else if (Math.abs(flickVel) > FLICK_THRESHOLD) {
+            // 🎰 Flick: the platter runs free with the throw's momentum,
+            // then eases down like a prize wheel to the pre-flick rate.
+            scrubSpeed = Math.max(
+              -12,
+              Math.min(12, scrubSpeed + flickVel * FLICK_KICK),
+            );
+            nudgeTapeAudioSpeed(send, scrubSpeed);
+            wheelActive = true;
+          } else if (Math.abs(scrubSpeed - 1) < PARK_SNAP) {
+            // Close enough to play speed — hand back to normal playback.
+            scrubSpeed = 0;
+            nudgeTapeAudioSpeed(send, 1);
+            send({
+              type: "recorder:present:seek",
+              content: { progress: scrubCurrentProgress, scrubEnd: true },
+            });
+          } else {
+            // 🅿️ Gentle release: the rate parks where you left it.
+            sustained = true;
+          }
           triggerRender();
           return true;
         },
@@ -2239,6 +2380,8 @@ function act({
           inertiaActive = false;
           brakeHolding = false;
           brakeResume = false;
+          wheelActive = false;
+          sustained = false;
           elasticAnchorX = null;
           scrubSpeed = 0;
           nudgeTapeAudioSpeed(send, 1);
@@ -2250,20 +2393,22 @@ function act({
           triggerRender();
         },
         push: () => {
-          if (scrubMoved || isScrubbing || inertiaActive) return;
+          if (scrubMoved || isScrubbing || inertiaActive || wheelActive) return;
           if (hasAudioContext && audioContextState === "suspended") {
             handleAudioContextAndPlay(sound, rec, triggerRender);
             return;
           }
           // 👇 A single tap dips the platter: the rate sags toward 0 and
-          // springs back up — one quick audible wow. (Pause stays on
-          // spacebar only.)
+          // springs back — from and to the parked rate if one is set.
+          // (Pause stays on spacebar only.)
           if (!rec.playing) rec.play();
+          dipBase = sustained ? scrubSpeed : 1;
+          sustained = false;
           tapDipTime = 0;
           inertiaActive = false;
           brakeResume = false;
-          scrubCurrentProgress = rec.presentProgress || 0;
-          scrubSpeed = 1;
+          if (dipBase === 1) scrubCurrentProgress = rec.presentProgress || 0;
+          scrubSpeed = dipBase;
           send({
             type: "recorder:present:seek",
             content: { progress: scrubCurrentProgress, speedScrub: true, scrubbing: true },
@@ -2873,6 +3018,9 @@ function leave({ send }) {
   elasticAnchorX = null;
   scrollScrubbing = false;
   tapDipTime = -1;
+  wheelActive = false;
+  sustained = false;
+  flickVel = 0;
   scrubSpeed = 0;
   scrubCurrentProgress = 0;
   scrubStripBtn = null;
@@ -2948,6 +3096,8 @@ function autopilot(rec, send, simDt) {
     if (autoSeg.mode === "scrub" || autoSeg.mode === "scratch") {
       if (!isScrubbing) {
         inertiaActive = false;
+        sustained = false;
+        wheelActive = false;
         // Position must be captured BEFORE isScrubbing flips — after the
         // flip autopilotProgress() returns the stale scrub position.
         scrubCurrentProgress = autoSegStartProgress;
@@ -2979,6 +3129,9 @@ function autopilot(rec, send, simDt) {
       // before the isScrubbing flip, as above.
       inertiaActive = false;
       brakeResume = false;
+      sustained = false;
+      wheelActive = false;
+      resumeTarget = 1;
       scrubCurrentProgress = autoSegStartProgress;
       isScrubbing = true;
       brakeHolding = true;
@@ -2998,7 +3151,10 @@ function autopilot(rec, send, simDt) {
       // Same state a single tap triggers.
       inertiaActive = false;
       brakeResume = false;
+      sustained = false;
+      wheelActive = false;
       isScrubbing = false;
+      dipBase = 1;
       scrubCurrentProgress = autoSegStartProgress;
       scrubSpeed = 1;
       tapDipTime = 0;
