@@ -199,12 +199,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// the flagsChanged event's keyCode.
     private static let leftCommandKeyCode: UInt16 = 55
     private static let rightCommandKeyCode: UInt16 = 54
+    /// Device-dependent flags preserve the physical Command side. On some
+    /// keyboards `CGEventSource.keyState` aliases right Command into both
+    /// virtual keycodes, which made right Command alone look like the two-key
+    /// recording chord and swallowed the double-tap gesture.
+    private static let nxDeviceLeftCommand: UInt = 0x8
+    private static let nxDeviceRightCommand: UInt = 0x10
+    /// Last full physical-side state observed in `.flagsChanged`. The count-in
+    /// commit reads this rather than the aliased virtual-key state.
+    private var commandKeysHeld = (left: false, right: false)
 
     /// Alternating left/right ⌘ triple → toggle quiet focus. Tracks the side
     /// of the last bare-⌘ down edge and the run length; a repeat of the same
     /// side (or a lapsed window) restarts the run.
     private var quietFocusMonitorGlobal: Any?
     private var quietFocusMonitorLocal: Any?
+#if MAC_APP_STORE
+    /// Store builds cannot rely on an NSEvent global keyboard monitor (it asks
+    /// for Accessibility trust). A listen-only CGEventTap uses the sandbox-safe
+    /// Input Monitoring grant instead and carries the same flagsChanged data.
+    private var quietFocusStoreTap: CFMachPort?
+    private var quietFocusStoreTapSource: CFRunLoopSource?
+    private var quietFocusStoreHandler: ((NSEvent) -> Void)?
+#endif
     private var quietFocusRunCount = 0
     private var lastQuietFocusTapAt: CFTimeInterval = 0
     /// Max gap between the two taps of the right-⌘ double.
@@ -2116,14 +2133,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard side == Self.leftCommandKeyCode || side == Self.rightCommandKeyCode
             else { return }
 
-            // Read the hardware state instead of toggling our own set. A
-            // missed/duplicated flagsChanged edge must never leave one side
-            // looking stuck and let right-⌘ alone start recording.
-            let sideIsHeld = CGEventSource.keyState(
-                .combinedSessionState, key: CGKeyCode(side)
-            )
+            // Prefer the event's physical-side flags. `keyState` aliases the
+            // two Command keycodes on some hardware, so right Command alone can
+            // otherwise appear to mean "both held". Fall back only for devices
+            // that omit side flags entirely.
+            let commandState = self.commandKeyState(for: event)
+            self.commandKeysHeld = commandState
+            let sideIsHeld = side == Self.leftCommandKeyCode
+                ? commandState.left : commandState.right
 #if !MAC_APP_STORE
-            let bothHeld = self.bothCommandKeysAreDown
+            let bothHeld = commandState.left && commandState.right
             // Releasing either ⌘ cancels a count-in in progress.
             if !bothHeld { self.cancelCountIn() }
 #endif
@@ -2156,22 +2175,78 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             FocusCueBeep.shared.click()
             self.toggleQuietFocusFromCommandTap()
         }
+#if MAC_APP_STORE
+        let installStoreTap: () -> Bool = {
+            let mask: CGEventMask =
+                (1 << CGEventType.flagsChanged.rawValue) |
+                (1 << CGEventType.keyDown.rawValue)
+            let callback: CGEventTapCallBack = { _, type, event, refcon in
+                guard let refcon,
+                      type == .flagsChanged || type == .keyDown,
+                      let nsEvent = NSEvent(cgEvent: event) else {
+                    return Unmanaged.passUnretained(event)
+                }
+                let appDelegate = Unmanaged<AppDelegate>
+                    .fromOpaque(refcon).takeUnretainedValue()
+                appDelegate.quietFocusStoreHandler?(nsEvent)
+                return Unmanaged.passUnretained(event)
+            }
+            guard let tap = CGEvent.tapCreate(
+                tap: .cgSessionEventTap,
+                place: .headInsertEventTap,
+                options: .listenOnly,
+                eventsOfInterest: mask,
+                callback: callback,
+                userInfo: Unmanaged.passUnretained(self).toOpaque()
+            ) else { return false }
+            self.quietFocusStoreTap = tap
+            let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+            self.quietFocusStoreTapSource = source
+            CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
+            CGEvent.tapEnable(tap: tap, enable: true)
+            return true
+        }
+        quietFocusStoreHandler = handler
+        if CGPreflightListenEventAccess() || CGRequestListenEventAccess() {
+            if !installStoreTap() {
+                NSLog("MenuBand: Input Monitoring granted but Command gesture tap failed")
+            }
+        } else {
+            NSLog("MenuBand: Input Monitoring not granted; Command gesture is local-only")
+            quietFocusMonitorLocal = NSEvent.addLocalMonitorForEvents(
+                matching: [.flagsChanged, .keyDown]
+            ) { handler($0); return $0 }
+        }
+#else
         quietFocusMonitorGlobal = NSEvent.addGlobalMonitorForEvents(
             matching: [.flagsChanged, .keyDown]
         ) { handler($0) }
         quietFocusMonitorLocal = NSEvent.addLocalMonitorForEvents(
             matching: [.flagsChanged, .keyDown]
         ) { handler($0); return $0 }
+#endif
     }
 
     /// Recording's physical-key gate. Both Command keys must remain down for
     /// the entire count-in; a single Command key can only use its tap gesture.
-    private var bothCommandKeysAreDown: Bool {
-        CGEventSource.keyState(
-            .combinedSessionState, key: CGKeyCode(Self.leftCommandKeyCode)
-        ) && CGEventSource.keyState(
-            .combinedSessionState, key: CGKeyCode(Self.rightCommandKeyCode)
+    private func commandKeyState(for event: NSEvent) -> (left: Bool, right: Bool) {
+        let raw = event.modifierFlags.rawValue
+        let left = (raw & Self.nxDeviceLeftCommand) != 0
+        let right = (raw & Self.nxDeviceRightCommand) != 0
+        if left || right { return (left, right) }
+
+        return (
+            CGEventSource.keyState(
+                .combinedSessionState, key: CGKeyCode(Self.leftCommandKeyCode)
+            ),
+            CGEventSource.keyState(
+                .combinedSessionState, key: CGKeyCode(Self.rightCommandKeyCode)
+            )
         )
+    }
+
+    private var bothCommandKeysAreDown: Bool {
+        commandKeysHeld.left && commandKeysHeld.right
     }
 
     private func applyForcedLayoutIfAny() {
