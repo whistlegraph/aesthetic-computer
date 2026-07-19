@@ -73,6 +73,11 @@ function translationKey(dir) {
 
 // Map paper dir → tex base name + site PDF name
 const PAPER_MAP = {
+  "arxiv-stack-summer-26": {
+    base: "stack-summer-26",
+    siteName: "stack-of-the-summer-26-arxiv",
+    title: "Stack of the Summer '26",
+  },
   "arxiv-ac": {
     base: "ac",
     siteName: "aesthetic-computer-26-arxiv",
@@ -438,6 +443,7 @@ const CATEGORIES = [
     title: "Platform &amp; Language",
     sub: "The runtime, the language, and the surfaces you actually touch.",
     dirs: [
+      "arxiv-stack-summer-26",
       "arxiv-ac",
       "arxiv-kidlisp",
       "arxiv-os",

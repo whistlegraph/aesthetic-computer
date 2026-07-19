@@ -1,0 +1,244 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=.72in,bottom=.75in,left=.72in,right=.72in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}[Extension=.otf,UprightFont=lmroman10-regular,BoldFont=lmroman10-bold,ItalicFont=lmroman10-italic,BoldItalicFont=lmroman10-bolditalic]
+\setsansfont{Latin Modern Sans}[Extension=.otf,UprightFont=lmsans10-regular,BoldFont=lmsans10-bold,ItalicFont=lmsans10-oblique,BoldItalicFont=lmsans10-boldoblique]
+\setmonofont{Latin Modern Mono}[Extension=.otf,UprightFont=lmmono10-regular,Scale=.82]
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{microtype}
+\usepackage{ragged2e}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{natbib}
+\usepackage{ac-stack-report}
+
+\hypersetup{colorlinks=true,linkcolor=stackviolet,urlcolor=stackviolet,citecolor=stackviolet,
+  pdftitle={Stack of the Summer '26},pdfauthor={Jeffrey Alan Scudder}}
+\titleformat{\section}{\normalfont\sffamily\bfseries\large}{\thesection.}{.45em}{}
+\titleformat{\subsection}{\normalfont\sffamily\bfseries\normalsize}{\thesubsection}{.45em}{}
+\titlespacing{\section}{0pt}{1.2em}{.35em}
+\titlespacing{\subsection}{0pt}{.9em}{.25em}
+\pagestyle{fancy}\fancyhf{}\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\scriptsize\sffamily\color{stackgray}STACK OF THE SUMMER '26}
+\fancyfoot[C]{\scriptsize\thepage}
+\setlength{\columnsep}{1.7em}\setlength{\parindent}{1em}\setlength{\parskip}{.25em}
+\setlist[itemize]{nosep,leftmargin=1.2em}\setlist[enumerate]{nosep,leftmargin=1.4em}
+\newcommand{\ac}{\textsc{Aesthetic Computer}}
+
+\begin{document}
+\twocolumn[{%
+\begin{center}
+{\sffamily\bfseries\scriptsize\MakeUppercase{Platform report / 18 July 2026}}\par\vspace{.35em}
+{\acbold\fontsize{34pt}{35pt}\selectfont\color{stackink} Stack of the Summer '26}\par
+\vspace{.5em}
+\includegraphics[width=.72\textwidth]{cover}\par\vspace{.4em}
+{\aclight\fontsize{13pt}{15pt}\selectfont A cutaway of the living Aesthetic Computer stack}\par\vspace{.35em}
+{\small Jeffrey Alan Scudder / \href{https://prompt.ac/@jeffrey}{@jeffrey} / ORCID \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par\vspace{.45em}
+\canonical\quad\transitional\quad\experimental
+\vspace{.6em}\hrule\vspace{.6em}
+\end{center}
+\begin{quote}\small
+\textbf{Abstract.} \ac{} is no longer adequately described as a website. It is a browser-native creative runtime, a command-driven social network, a source-addressed language system, a self-hosted compatibility monolith, an authoritative realtime island, a publishing and provenance braid, a desktop shell, and a bare-metal operating system. This report presents a nine-vector audit of the platform as it stood in July 2026. Its thesis is that these layers remain coherent because they gather around a narrow creative contract: the piece lifecycle and its portable sensory primitives. The report maps frontend and backend choices, user-data gravity, shared services, deployment, native embodiments, engineering quality, security boundaries, and architectural history. It distinguishes canonical, transitional, and experimental strata; identifies immediate reliability and privacy priorities; and argues that the next move is not a framework rewrite but a formalization of the narrow waist.
+\end{quote}\vspace{.5em}
+}]
+
+\section{Method and Snapshot}
+
+Nine independent research passes inspected the frontend/runtime; backend, data, and APIs; infrastructure; desktop and native embodiments; KidLisp and publishing; engineering quality; security and privacy; product and community; and architectural history. Findings were checked against current source, configuration, local tests, and dated Git history rather than inferred from product language alone. The repository is the primary source~\citep{acrepo2026}.
+
+The most recent generated community snapshot in the repository is dated 16 March 2026: 359 indexed built-ins, 2,812 registered handles, 265 user-published pieces, 4,429 paintings, 16,779 KidLisp programs, 18,107 chat messages, and 20 physical prints. These are historical counts, not live analytics. The distinction matters: a platform report should attach dates to metrics instead of using them as timeless decoration.
+
+\begin{stackfinding}{Status language}
+\canonical{} means the operational center of gravity. \transitional{} means a compatibility or migration layer that currently carries production responsibility. \experimental{} means a real implementation or contract whose platform role is still being discovered. These labels describe architecture, not quality.
+\end{stackfinding}
+
+\section{The Narrow Waist}
+
+The stack's stable center is not the browser, Electron, Linux, Xbox, MongoDB, or a hosting vendor. It is a compact lifecycle: a piece may implement \texttt{boot}, \texttt{sim}, \texttt{paint}, \texttt{act}, and \texttt{leave}, then meet an immediate-mode system of drawing, sound, input, storage, identity, and network primitives. JavaScript and KidLisp converge on this contract. Electron wraps it. AC Native reimplements it. The Xbox work separates into a dynamic web envelope and a future native host that preserves the same semantics.
+
+\begin{stackpull}
+The platform is the piece. Everything else is an envelope, a memory, or a route by which the piece reaches a person.
+\end{stackpull}
+
+This is the principal architectural conservation across six years. The project has changed hosting, source forges, data satellites, display paths, and machine bodies without making its creative unit unrecognizable. The browser runtime remains canonical because it implements the broadest API and serves the public culture, not because the Web is treated as the final body.
+
+\evidence{\path{system/public/aesthetic.computer/{boot.mjs,bios.mjs,lib/disk.mjs}}, \path{WRITE-A-PIECE.md}, \path{fedac/native/src}, \path{xbox/runtime}.}
+
+\section{Layer-Cake Cutaway}
+
+\stacklayer{stackyellow!65}{Door and commons}{prompt, URLs, handles, profiles, list, chat, moods, hearts, QR, give}
+\stacklayer{stackpink!55}{Creative waist}{piece lifecycle, Disk API, Canvas/WebGL, audio, input, JavaScript, KidLisp}
+\stacklayer{stackteal!55}{Delivery envelopes}{browser, Electron, QuickJS/native, Xbox web shell and native seam}
+\stacklayer{stackviolet!35}{Living backend}{lith compatibility monolith and authoritative session-server island}
+\stacklayer{stackorange!35}{Memory and provenance}{MongoDB, Redis/Valkey, Spaces, ATProto, Datomic, IPFS, Tezos}
+
+\subsection{Three operational substrates}
+
+The public cultural runtime flows through Cloudflare, Caddy, and lith. Lith is a root-run Node/Express systemd service behind Caddy, which routes static sites and adapts historical function handlers. Realtime remains a separate DigitalOcean droplet: Socket.io and geckos.io carry chat and authoritative arena state. A third, private substrate lives on the Tailscale fleet: Slab's ledger and prompt-rock tooling coordinate human and agent sessions across local machines.
+
+The knot--GitHub mirror is connective tissue between these substrates. Tangled's self-hosted knot is canonical; GitHub is a read-only public mirror and remains an operational dependency because session-server still pulls from it after the mirror interval. Migration is therefore culturally complete but operationally transitional.
+
+\subsection{The living compatibility monolith}
+
+Lith did not rewrite the backend. It gathered 159 serverless-era handler files under an Express adapter that emulates request/event, streaming, and background-function behavior. The historical \path{system/netlify/functions} name remains a production compatibility seam. MongoDB is the durable social and creative memory; Redis/Valkey appears through overlapping cache, KV, and realtime roles; specialized systems extend rather than replace the core.
+
+This conservation allowed the project to move off Netlify without simultaneously rewriting roughly ninety public endpoints. The cost is adapter risk: device-auth GET polling appears to expect a raw query shape lith does not provide, while contract coverage for bodies, headers, auth, streaming, and background execution remains thin.
+
+\evidence{\path{lith/server.mjs}, \path{lith/Caddyfile}, \path{system/backend/database.mjs}, \path{session-server/session.mjs}.}
+
+\section{Frontend: Concentrated Coherence}
+
+Three core files---\path{boot.mjs}, \path{bios.mjs}, and \path{lib/disk.mjs}---contain roughly 41,500 lines. This concentration buys a coherent system API: fixed-step 120 Hz simulation, separately paced rendering, module-worker execution with same-thread fallback, stale-module recovery, platform-aware authentication, and restricted capabilities for user-published JavaScript. A piece can assume an unusually rich environment without importing a framework.
+
+The same concentration magnifies blast radius. Lifecycle and API assembly are mutation-heavy. The GPU backend registry does not currently advertise the WebGPU preference selected elsewhere, and the backend-switch call shape appears inconsistent with its implementation. Browser tests can degrade to screenshots when production state hooks are unavailable; the performance documentation names a CI workflow that is absent.
+
+The appropriate response is not a rewrite. Characterization tests should establish boundaries around lifecycle dispatch, telemetry, loading, and restricted capabilities; extraction can follow those seams.
+
+\section{User Data and Data Gravity}
+
+An interaction begins as ephemeral input. It may become a painting, a source-addressed program, a chat record, an ATProto object, an IPFS artifact, or an on-chain Keep. The architecture's special power is this continuum. Its obligation is to make each change in durability legible.
+
+\begin{table}[h]
+\small\centering
+\begin{tabularx}{\columnwidth}{@{}lXl@{}}
+\toprule
+\textbf{surface} & \textbf{role} & \textbf{badge}\\\midrule
+Auth0/browser & bearer identity and account & \reviewbadge\\
+MongoDB & authoritative creative/social memory & \canonical\\
+Redis/Valkey & cache, KV, pub/sub, realtime & \shipping\\
+Chat API & public searchable archive & \canonical\\
+Piece telemetry & open write, admin read, geo/logs & \reviewbadge\\
+ATProto/Datomic & asynchronous mirrors/sidecars & \transitional\\
+IPFS/Tezos & public artifact and provenance & \experimental\\
+\bottomrule
+\end{tabularx}
+\caption{Data roles and report status. A badge is an architectural judgment, not an uptime indicator.}
+\end{table}
+
+\subsection{Telemetry boundary}
+
+Every piece patches the global console and can upload serialized logs plus slug, parameters, host, boot ID, user agent, user identifier, and timing. The server adds IP-derived country, region, and city. Reads are admin-only, but writes are unauthenticated; callers choose \texttt{pieceId}; event and metadata payloads lack tight visible byte/schema bounds; and no retention TTL is declared in the implementation.
+
+This is the highest-priority user-data seam. It needs disclosure, redaction, payload caps, rate limiting, server-issued or signed identifiers, and a documented TTL/deletion policy. A missing repo-visible TTL does not prove that no out-of-band Mongo index exists; production indexes and backup policy require operational verification.
+
+\subsection{Bearer exposure and public archives}
+
+Auth0 refresh/access state is stored in local storage, and legacy cross-device session paths expose bearer state to the page-level runtime. This raises the consequence of same-origin script compromise, especially where pinned CDN modules execute without a visible integrity mechanism. Narrower audiences, shorter lifetimes, refresh rotation, in-memory storage where practical, CSP/Trusted Types, and removal of duplicate token stores would reduce the trust radius.
+
+The public chat API provides pagination and search across durable history. This may be exactly the intended social contract, but the contract should be stated: conversation is a public archive, with defined deletion, indexing, export, and retention semantics.
+
+\evidence{\path{lib/disk.mjs:983--1075}, \path{functions/piece-log.mjs}, \path{boot.mjs:1406--1560}, \path{functions/chat-messages.mjs}.}
+
+\section{KidLisp: Expression to Institution}
+
+KidLisp is not merely a small language rendered by the browser. A tiny live expression becomes a framebuffer and sound, a global \texttt{\$code}, an embeddable dependency, a feed object, and optionally a collectible with durable provenance. The reference runtime exposes 118 categorized functions. Its compatibility corpus follows culturally used programs---\texttt{\$bop}, \texttt{\$pie}, \texttt{\$roz}---rather than relying only on synthetic examples.
+
+Decree '26 names Core, Render, and Audio profiles and a stable act--beat--sim--paint--present rhythm. It is also still marked Draft, and the formal KDL-26 conformance suite remains planned. Several ports exist or are in progress, but only the JavaScript reference has a mature conformance claim. The paper therefore treats language portability as a trajectory rather than a finished fact.
+
+Publication braids several stores. Mongo remains request-authoritative; Datomic dual-write may lag; ATProto creation is asynchronous; IPFS and Tezos carry baked artifact and provenance. This is migration safety and consistency debt at the same time.
+
+\evidence{\path{kidlisp/SCORE.md}, \path{kidlisp/docs/core/kidlisp-decree-26.md}, \path{lib/kidlisp.mjs}, \path{functions/store-kidlisp.mjs}, \path{backend/kidlisp-dual-write.mjs}.}
+
+\section{The Shared-Service Constellation}
+
+The prompt is a vertical skewer through the product: play, make, publish, identify, meet, materialize, support. Around it, specialized fronts keep their own identities while sharing cultural and technical substrates.
+
+\begin{center}
+\servicechip{stackpink}{AC}\;\textsf{aesthetic.computer}\quad
+\servicechip{stackyellow}{KL}\;\textsf{kidlisp.com}\quad
+\servicechip{stackteal}{NP}\;\textsf{notepat.com}\par\smallskip
+\servicechip{stackviolet!45}{PP}\;\textsf{papers}\quad
+\servicechip{stackorange!60}{GV}\;\textsf{give}\quad
+\servicechip{stackteal!55}{PR}\;\textsf{processing}\par\smallskip
+\servicechip{stackpink!55}{NW}\;\textsf{news}\quad
+\servicechip{stackyellow!55}{MB}\;\textsf{menuband}\quad
+\servicechip{stackviolet!45}{WG}\;\textsf{whistlegraph}
+\end{center}
+
+The report's \path{figures/services} directory preserves available first-party favicon and logo sources so future editions can replace typographic bottlecaps without redesigning the layout. Capability/provider badges should remain visually distinct from first-party service identity to avoid implying endorsement.
+
+Product coherence is real: every piece is URL-addressable; anonymous play precedes registration; handles carry authored color; profiles combine artifacts, chat, presence, and activity; digital work can become a QR, print, Keep, paper, or act of support. The main product gap is a missing semantic mirror. Canvas makes a visual and touch-first instrument, but most pieces expose little screen-reader structure. Focus, state, alternatives, contrast, and reduced-motion semantics should become a first-class plane beside paint.
+
+\section{Embodiments}
+
+\subsection{Electron: local authority around the Web}
+
+An OS file association enters Electron, receives a tokenized localhost Range URL, crosses preload IPC, becomes \texttt{system.droppedFile}, and opens the audio player. This is a clean bridge: filesystem authority stays in the host while the canonical runtime receives a scrub-capable URL. The next step is a generic \texttt{droppedFiles[]} API for images, Lisp source, and playlists. Electron's main process is already a new concentration point, holding windows, updates, files, gamepads, deep links, and diagnostics.
+
+\subsection{AC Native: the runtime becomes PID 1}
+
+AC Native owns the machine: DRM, evdev, ALSA, Wi-Fi, TTS, QuickJS, installation, and browser handoff live within a minimal initramfs. Direct DRM provides the appliance path; Cage/Wayland provides an escape hatch for OAuth and browser surfaces; the runtime attempts to reclaim DRM on return or failure.
+
+Build canaries strongly defend against stale kernels and missing shared libraries. Server-side release history exists, and the kernel receives a short-lived \texttt{.prev}; however, the external initramfs cannot retain a paired previous slot under present ESP pressure. Release rollback is not device A/B rollback. A bootable kernel-plus-initramfs slot pair remains the critical reliability frontier.
+
+\subsection{Xbox: a fork in delivery}
+
+The dynamic track is a UWP WebView shell whose endpoint can change without rebuilding the package. The native track is currently a C++ portability contract: timestamped input, bounded fixed simulation, command-list paint, one present, and preallocated audio. The contract is not yet built by the Xbox CI pipeline and no complete D3D/XAudio2 host appears. It is a principled seam, not a shipped native runtime.
+
+\begin{stackpull}
+Embodiment should reuse piece semantics, not fork the culture.
+\end{stackpull}
+
+\section{Quality and Operations}
+
+AC is maintained like a living studio instrument: operational knowledge is unusually legible, authoring is fast, and deploy scripts encode hard-won safeguards. Session-server deployment waits for slow history hydration, detects crash loops, performs external health checks, and rolls back. Lith deploys pushed state, refuses local-ahead drift, records the commit, and drains in-flight requests.
+
+The missing layer is a shared automated gate. At the audit snapshot, \texttt{npm test} ran 166 Jasmine specs with six failures and 48 pending; the failures were stale Keeps source-contract assertions. Root discovery does not aggregate Jest, Vitest, Node, browser, performance, session, or shared suites. The only checked-in GitHub Actions workflow covers a narrow Xbox path, and no Tangled CI configuration surfaced.
+
+Fifty \texttt{package.json} files and 45 lockfiles form package islands rather than a workspace. Per-island reproducibility is good; version coherence and vulnerability remediation become expensive. Core hotspots---BIOS, Disk, KidLisp, prompt, graph, notepat---amplify the value of characterization tests.
+
+\begin{stackfinding}{Summer quality order}
+\begin{enumerate}
+\item Make the offline default gate green; replace brittle source-string checks with behavioral contracts.
+\item Aggregate the test islands into a canonical core command and run it in Tangled-side CI.
+\item Add lith adapter parity fixtures and schema/rate/retention controls around telemetry.
+\item Publish a machine-readable package/runtime/deploy/test support matrix.
+\item Characterize core gravity wells before extracting seams; avoid a rewrite.
+\end{enumerate}
+\end{stackfinding}
+
+The counterweight is exceptional living documentation. SCORE files, AGENTS, doctor scripts, deploy comments, and hardware logs turn tacit operations into a score that humans and agents can perform. The next step is to make more of that score executable.
+
+\section{Architectural Stratigraphy}
+
+\textbf{2020--21: pedagogical geology.} No Paint, classroom Canvas/p5/Glitch practice, URL-first making, and rejection of engine/editor overhead establish the values.\\
+\textbf{2022--24: the kernel forms.} BIOS, Disk, prompt, lifecycle, and realtime cohere; KidLisp, identity, paintings, tapes, and chat become platform layers.\\
+\textbf{December 2025: first new envelope.} Electron wraps the canonical runtime with updater, desktop windows, and host bridges.\\
+\textbf{March 2026: self-hosting and bare metal.} Lith replaces Netlify hosting while preserving handler compatibility; AC Native begins as a direct-DRM appliance runtime.\\
+\textbf{April--July 2026: federation and radiation.} Tangled/knot becomes canonical; GitHub becomes a mirror; ATProto and Datomic extend the data braid; Xbox, Metal, and native ports probe a portable ABI.
+
+The history is not a sequence of framework rewrites. New bodies, stores, and publics accumulated around a creative contract that remained small enough to remember.
+
+\section{Priorities for the Summer}
+
+\begin{enumerate}
+\item \textbf{Formalize the narrow waist.} Publish a portable lifecycle and sensory subset, with conformance tests across browser, KidLisp, Electron, native, and Xbox work.
+\item \textbf{Publish the user-data map.} For every flow: classification, reader, writer, purpose, retention, export, deletion, and evidence level.
+\item \textbf{Make quality canonical.} Green offline tests, Tangled CI, adapter parity, and executable deploy coupling.
+\item \textbf{Finish source-host migration.} Remove session-server's GitHub mirror-delay dependency when knot access is available.
+\item \textbf{Durabilize asynchronous work.} Queue critical background jobs, make stages idempotent, and separate realtime listen readiness from history hydration.
+\item \textbf{Build the semantic plane.} Treat accessibility state as a sibling of pixels, not an overlay afterthought.
+\item \textbf{Preserve the continuum.} One source should continue to become performance, social object, program, paper, print, and Keep.
+\end{enumerate}
+
+\begin{stackpull}
+The Summer '26 stack is coherent because it grew by conservation: new bodies, new stores, and new publics gathered around a creative contract that stayed small enough to remember.
+\end{stackpull}
+
+\section*{Research Note}
+
+This report is a repository-grounded platform assessment, not a penetration test or production compliance audit. Operational hypotheses---Mongo TTL/index state, encryption and backup policy, CSP headers, Auth0 rotation, Redis ACL/TLS, third-party agreements---require verification against deployed configuration. Host addresses, database identifiers, and secrets visible in internal infrastructure material are deliberately omitted.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

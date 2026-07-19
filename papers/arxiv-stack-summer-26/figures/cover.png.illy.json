@@ -1,0 +1,37 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-07-19T00:26:13.179Z",
+  "pipeline": "marketing",
+  "provider": "openai",
+  "model": "gpt-image-2",
+  "mode": "generate",
+  "size": "1536x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/system/public/aesthetic.computer/paper/assets/illustrations/stack-cake.png",
+  "promptPath": null,
+  "promptHash": "cc20faca40e0e61ae4b6ceeb46d1230e0d611b18c5bd6a332a3a0cbc0de04bc4",
+  "references": [],
+  "stages": [
+    "resolve-inputs",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance"
+  ],
+  "durationSeconds": 136.595,
+  "archived": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 171,
+    "input_tokens_details": {
+      "image_tokens": 0,
+      "text_tokens": 171
+    },
+    "output_tokens": 5488,
+    "output_tokens_details": {
+      "image_tokens": 5488,
+      "text_tokens": 0
+    },
+    "total_tokens": 5659
+  }
+}

@@ -1,0 +1,47 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{ac-stack-report}[2026/07/18 Stack of the Summer report system]
+\RequirePackage{xcolor}
+\RequirePackage{tikz}
+\RequirePackage[most]{tcolorbox}
+\RequirePackage{booktabs}
+\RequirePackage{tabularx}
+\RequirePackage{enumitem}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric}
+
+\definecolor{stackpink}{HTML}{FF6B9D}
+\definecolor{stackyellow}{HTML}{F6C915}
+\definecolor{stackteal}{HTML}{4ECDC4}
+\definecolor{stackviolet}{HTML}{8667D8}
+\definecolor{stackorange}{HTML}{FF9F43}
+\definecolor{stackink}{HTML}{17151C}
+\definecolor{stackpaper}{HTML}{F7F1E6}
+\definecolor{stackgray}{HTML}{706B72}
+
+\newcommand{\stackbadge}[2]{%
+  \tikz[baseline=(n.base)]\node[fill=#1,draw=stackink,rounded corners=4pt,
+    inner xsep=5pt,inner ysep=2.2pt,font=\sffamily\bfseries\scriptsize] (n)
+    {\MakeUppercase{#2}};%
+}
+\newcommand{\canonical}{\stackbadge{stackteal}{canonical}}
+\newcommand{\transitional}{\stackbadge{stackyellow}{transitional}}
+\newcommand{\experimental}{\stackbadge{stackpink}{experimental}}
+\newcommand{\shipping}{\stackbadge{stackteal}{shipping}}
+\newcommand{\reviewbadge}{\stackbadge{stackorange}{review}}
+
+\newtcolorbox{stackfinding}[2][]{colback=white,colframe=stackink,
+  boxrule=.7pt,arc=1.5mm,title={#2},fonttitle=\sffamily\bfseries,
+  colbacktitle=stackink,coltitle=stackpaper,#1}
+\newtcolorbox{stackpull}{colback=stackpink!10,colframe=stackpink,
+  boxrule=0pt,leftrule=5pt,arc=0pt,fontupper=\large\itshape}
+\newcommand{\evidence}[1]{\par\smallskip{\scriptsize\ttfamily\color{stackgray}Evidence: #1}\par}
+
+\newcommand{\stacklayer}[3]{%
+  \noindent\colorbox{#1}{\parbox{.97\linewidth}{\vspace{3pt}%
+  \textsf{\textbf{#2}}\hfill #3\vspace{3pt}}}\par\vspace{1pt}}
+
+\newcommand{\servicechip}[2]{%
+  \tikz[baseline=(n.base)]\node[fill=#1,draw=stackink,circle,minimum size=7mm,
+    inner sep=1pt,font=\sffamily\bfseries\tiny,text=stackink] (n) {#2};%
+}
+
+\endinput
