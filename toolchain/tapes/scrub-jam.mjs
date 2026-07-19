@@ -15,6 +15,14 @@
 //   node toolchain/tapes/scrub-jam.mjs --prod                # aesthetic.computer
 //   node toolchain/tapes/scrub-jam.mjs --tapes break,house,dub,sine
 //   node toolchain/tapes/scrub-jam.mjs --secs 60 --shots     # timed + screenshots
+//
+// Drive the AC Electron app (or any Chrome) instead of launching windows —
+// start the app with a remote-debugging port, then attach:
+//   ac-electron: launch with --remote-debugging-port=9333 (dev.fish already
+//   exposes CDP for injection), then:
+//   node toolchain/tapes/scrub-jam.mjs --cdp 9333 --tapes house
+// One tape per attached window; the harness navigates each to the tape and
+// freestyles it in-app. --prod/--base still choose which server the app loads.
 
 import puppeteer from "puppeteer-core";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -38,6 +46,8 @@ const PROD = has("--prod");
 const BASE = PROD
   ? "https://aesthetic.computer"
   : val("--base", "http://localhost:8899");
+const CDP_PORT = val("--cdp", null); // Attach to a running Chrome/Electron
+const CDP_URL = val("--connect", null); // ...or a full ws:// endpoint
 const TAPES = val("--tapes", "sine,house").split(",").map((s) => s.trim());
 const SECS = parseFloat(val("--secs", "0")) || 0; // 0 = until Ctrl+C
 const SHOTS = has("--shots");
@@ -200,8 +210,20 @@ class Performer {
 }
 
 const windows = [];
+let attached = null; // Shared browser when attaching over CDP.
 
-async function launchWindow(tape, idx) {
+async function getBrowser(idx) {
+  if (CDP_PORT || CDP_URL) {
+    // Attach to a running Chrome / AC Electron app (one shared browser).
+    if (!attached) {
+      attached = await puppeteer.connect(
+        CDP_URL
+          ? { browserWSEndpoint: CDP_URL, defaultViewport: null }
+          : { browserURL: `http://127.0.0.1:${CDP_PORT}`, defaultViewport: null },
+      );
+    }
+    return { browser: attached, launched: false };
+  }
   const browser = await puppeteer.launch({
     executablePath: CHROME,
     headless: false,
@@ -215,13 +237,21 @@ async function launchWindow(tape, idx) {
     ],
     defaultViewport: { width: W, height: H },
   });
-  const page = (await browser.pages())[0];
+  return { browser, launched: true };
+}
+
+async function launchWindow(tape, idx) {
+  const { browser, launched } = await getBrowser(idx);
+  // Attached: open a fresh tab per tape; launched: reuse the sole page.
+  const page = launched
+    ? (await browser.pages())[0]
+    : await browser.newPage();
   const url = `${BASE}/video~scrub~${tape}`;
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45000 });
   // Give boot + synth a moment.
   await sleep(3500);
   const perf = new Performer(page, tape, idx);
-  windows.push({ browser, page, perf, tape });
+  windows.push({ browser, page, perf, tape, launched });
   return perf;
 }
 
@@ -279,7 +309,14 @@ async function main() {
     await sleep(300);
     for (const w of windows) {
       try {
-        await w.browser.close();
+        // Close tabs we opened; never close an app we merely attached to.
+        if (w.launched) await w.browser.close();
+        else await w.page.close();
+      } catch {}
+    }
+    if (attached) {
+      try {
+        attached.disconnect();
       } catch {}
     }
     process.exit(0);
