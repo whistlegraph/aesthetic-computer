@@ -52,9 +52,10 @@ enum ZoomLens {
     /// ~90% of the screen's tighter axis, and the 10% left over is the context
     /// that tells you *where* the window is.
     private static let contextMargin: CGFloat = 1.1
-    /// Below this the zoom isn't worth the interruption; above it, a tiny palette
-    /// window becomes an unreadable wall of pixels.
-    private static let minFactor: CGFloat = 1.2
+    /// Above this, a tiny palette window becomes an unreadable wall of pixels.
+    /// There is deliberately no minimum factor: tall and nearly full-screen
+    /// windows may only have a little room to grow, and forcing a minimum zoom
+    /// would crop them instead of preserving the whole window in the viewport.
     private static let maxFactor: CGFloat = 8.0
     /// Floating-point slop — the compositor reports 1.0029 for "not zoomed".
     private static let zoomedThreshold: CGFloat = 1.01
@@ -122,7 +123,12 @@ enum ZoomLens {
         // still see what's around it.
         let fit = min(screen.frame.width / target.frame.width,
                       screen.frame.height / target.frame.height)
-        let factor = min(max(fit / contextMargin, minFactor), maxFactor)
+        // Never exceed `fit`: that is the largest factor at which the target's
+        // complete width and height remain visible. Usually `contextMargin`
+        // makes the factor smaller still, but for a tall/full-height window the
+        // requested margin can take it below 1×. The compositor cannot zoom out,
+        // so settle at 1× while retaining the window's unmodified aspect ratio.
+        let factor = min(max(fit / contextMargin, 1.0), fit, maxFactor)
         let centre = CGPoint(x: target.frame.midX, y: target.frame.midY)
 
         activeTarget = target
