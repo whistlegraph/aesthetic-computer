@@ -11546,12 +11546,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           const bassRoots = [82.5, 65.5, 98, 73.5];
           // Plucks quantized to 4Hz — whole cycles per quarter-beat note.
           const pent = [328, 392, 440, 492, 588];
-          let sweepPhase = 0; // Phase-increment, not sin(TAU*f*t) — no drift on long tapes.
           let bassPhase = 0;
           let melPhase = 0;
           let ph1 = 0; // Generic per-style phase accumulators
           let ph2 = 0;
           let ph3 = 0;
+          let sineF = 164; // Sineline's gliding frequency (~E3 start)
           // 🥁 "break" style: one bar of 16th-note breakbeat, repeated —
           // scratch material with hard transients on a funk grid.
           const STEP = BEAT / 4; // 16ths at 120 BPM
@@ -11600,6 +11600,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                   (Math.sin(ph1) + Math.sin(ph1 * 2) * 0.4) *
                   Math.exp(-inHalf * 12) * 0.42; // Bass stab
               }
+            } else if (style === "sine") {
+              // 〰️ Sineline: one continuous legato sine gliding through a
+              // pentatonic line, with a soft sub octave — pure pitch
+              // material, lovely under a scrub. The glide keeps frequency
+              // continuous; a 15ms edge fade softens the loop seam.
+              const noteIdx = Math.floor(tt / BEAT);
+              const target =
+                pent[(noteIdx * 2 + Math.floor(noteIdx / 3)) % pent.length] / 2;
+              sineF += (target - sineF) * 0.0004; // ~50ms portamento
+              ph1 += (TAU * sineF) / sampleRate;
+              ph2 += (TAU * sineF) / 2 / sampleRate;
+              const sineEdge = Math.min(1, tt / 0.015, (duration - tt) / 0.015);
+              v += Math.sin(ph1) * 0.48 * sineEdge;
+              v += Math.sin(ph2) * 0.16 * sineEdge;
             } else if (style === "dub") {
               // 🌫️ Halftime dub: deep kicks on 1 & 3, rim on 3, a sub line
               // per half-bar, and offbeat skank chords.
@@ -11650,12 +11664,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               v += Math.sin(melPhase) * Math.exp(-inNote * 9) * 0.22;
             }
 
-            // Position sweep, quiet underneath, with a 50ms edge fade so
-            // the 880→220Hz jump at the loop seam can't click.
-            sweepPhase += (TAU * (220 + pos * 660)) / sampleRate;
-            const edge = Math.min(1, tt / 0.05, (duration - tt) / 0.05);
-            v += Math.sin(sweepPhase) * 0.07 * edge;
-
+            // (The 220→880Hz position-sweep diagnostic is gone — the tapes
+            // are musical material now; position lives in the visuals.)
             pcm[s] = Math.tanh(v) * 32767; // Soft-clip the mix.
           }
 
@@ -11930,11 +11940,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         cachedCode: window.currentRecordingOptions?.cachedCode || null,
       };
       
-      // Calculate total duration from frame timestamps
-      if (recordedFrames.length > 1) {
+      // Total duration must include the LAST frame's display time —
+      // mediaRecorderDuration has it. The timestamp span alone runs one
+      // frame short, which made the piece's wrap point land ~a frame
+      // before the audio loop's and drift by that much every lap.
+      if (mediaRecorderDuration > 0) {
+        info.totalDuration = mediaRecorderDuration / 1000;
+      } else if (recordedFrames.length > 1) {
         const firstTimestamp = recordedFrames[0][0];
         const lastTimestamp = recordedFrames[recordedFrames.length - 1][0];
-        info.totalDuration = (lastTimestamp - firstTimestamp) / 1000; // Convert to seconds
+        info.totalDuration = (lastTimestamp - firstTimestamp) / 1000;
       }
       
       // Reply back to the disk
@@ -12304,6 +12319,32 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const shift = typeof content === "number" ? content : 0;
         // console.log(`📼 🎵 Shifting tape audio pitch: ${shift.toFixed(3)}`);
         sfxPlaying[tapeAudioId].update({ shift });
+      }
+      return;
+    }
+
+    if (type === "tape:audio-pos") {
+      // Absolute read-head position (0..1) for the tape audio — used by
+      // beat jumps and chop repeats to relocate the free-running loop.
+      const tapeAudioId = Object.keys(sfxPlaying).find((id) =>
+        id.startsWith("tape:audio_"),
+      );
+      if (tapeAudioId && sfxPlaying[tapeAudioId]) {
+        const p = typeof content === "number" ? Math.max(0, Math.min(1, content)) : 0;
+        sfxPlaying[tapeAudioId].update({ samplePosition: p });
+      }
+      return;
+    }
+
+    if (type === "tape:audio-rate") {
+      // Absolute playback rate for the tape audio — drift-proof, unlike
+      // accumulating relative shifts against a piece-side estimate.
+      const tapeAudioId = Object.keys(sfxPlaying).find((id) =>
+        id.startsWith("tape:audio_"),
+      );
+      if (tapeAudioId && sfxPlaying[tapeAudioId]) {
+        const rate = typeof content === "number" ? content : 1;
+        sfxPlaying[tapeAudioId].update({ sampleSpeed: rate });
       }
       return;
     }
@@ -15321,10 +15362,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           let tapeSoundId;
 
-          // 🕰️ Absolute grid for musical loop timing — see the loop branch.
-          let tapeLoopGridEpoch = null;
-          let tapeLoopGridCount = 0;
-
           stopTapePlayback = () => {
             continuePlaying = false;
             stopped = true;
@@ -15419,9 +15456,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             // Adjust playback start time to match new position
             const currentTime = performance.now();
             playbackStart = currentTime - (progress * playbackDurationMs);
-            // A seek breaks the musical loop grid — re-anchor at next loop.
-            tapeLoopGridEpoch = null;
-            tapeLoopGridCount = 0;
             
             // Update display with new frame
             if (recordedFrames[f]) {
@@ -15617,7 +15651,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
             
             // Advance frames while playback has progressed past the current frame's time
-            if (f >= recordedFrames.length - 1) {
+            if (isScrubbing && !render) {
+              // While the piece is speed-scrubbing, its seeks own the frame
+              // index — the RAF clock must not advance frames at 1× between
+              // seeks (at slow rates that read as jitter and inaccuracy).
+            } else if (f >= recordedFrames.length - 1) {
               // For video export, don't loop - complete when all frames are processed
               if (doneCb && render) {
                 console.log(`🎬 📹 Video export reaching completion - final frame processed`);
@@ -15627,25 +15665,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               
               // For normal playback, loop
               f = 0;
-              // 🕰️ Musical loop grid: anchor each loop start to an absolute
-              // grid so the period can't accumulate RAF drift (measured
-              // ~-31ms/loop before). The next loop simply begins at
-              // epoch + N × duration; if the frames arrive early the grid
-              // holds tempo, if late they catch up.
+              // 🕰️ Net-time phase lock: every loop boundary anchors to UTC
+              // multiples of the tape length, so any two players of the
+              // same tape converge into phase — and the local period can't
+              // accumulate RAF drift either.
               const gridNow = performance.now();
-              if (
-                tapeLoopGridEpoch === null ||
-                Math.abs(gridNow - (tapeLoopGridEpoch + (tapeLoopGridCount + 1) * mediaRecorderDuration)) >
-                  mediaRecorderDuration / 2
-              ) {
-                // First loop or a broken grid (seek/suspend) — re-anchor.
-                tapeLoopGridEpoch = gridNow;
-                tapeLoopGridCount = 0;
-                playbackStart = gridNow;
-              } else {
-                tapeLoopGridCount += 1;
-                playbackStart = tapeLoopGridEpoch + tapeLoopGridCount * mediaRecorderDuration;
-              }
+              playbackStart = gridNow - (Date.now() % mediaRecorderDuration);
               playbackProgress = 0;
               // The next update's f===0 branch would reset playbackStart to
               // "now", clobbering the grid — isResuming makes it skip once.
@@ -15670,7 +15695,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 window.__lastTapeLoopAt = gridNow;
                 if (loopPeriod) {
                   console.log(
-                    `🕰️ Video loop period ${loopPeriod.toFixed(1)}ms vs tape ${mediaRecorderDuration.toFixed(1)}ms (drift ${(loopPeriod - mediaRecorderDuration).toFixed(1)}ms, grid loop #${tapeLoopGridCount})`,
+                    `🕰️ Video loop period ${loopPeriod.toFixed(1)}ms vs tape ${mediaRecorderDuration.toFixed(1)}ms (drift ${(loopPeriod - mediaRecorderDuration).toFixed(1)}ms, utc phase ${(Date.now() % mediaRecorderDuration).toFixed(0)}ms)`,
                   );
                 }
               }
