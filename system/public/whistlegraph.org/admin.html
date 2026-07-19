@@ -108,10 +108,12 @@
   function thumb(id){return `${THUMBS}/${encodeURIComponent(id)}.jpg`}
   function splitList(value){return [...new Set(String(value||"").split(",").map(x=>x.trim()).filter(Boolean))]}
   function applyCuration(){
-    works=baseWorks.map(w=>({...w,...(curation.works?.[w.code]||{})}));
-    const valid=new Set(works.map(w=>w.code));
+    const allWorks=baseWorks.map(w=>({...w,...(curation.works?.[w.code]||{})}));
+    const valid=new Set(allWorks.map(w=>w.code));
     const generatedRelationships=new Set(basePosts.flatMap(p=>p.works||[]));
     posts=basePosts.map(p=>{const patch=curation.posts?.[p.id]||{};const next={...p,...patch};next.works=(next.works||[]).filter(code=>valid.has(code));next.relationships=next.works.map(work=>({work,role:"contributes"}));return next});
+    const active=new Set(posts.flatMap(p=>p.works||[]));
+    works=allWorks.filter(work=>active.has(work.code));
     for(const work of works){const related=posts.filter(p=>(p.works||[]).includes(work.code));if(related.length||generatedRelationships.has(work.code)){work.perf=related.length;work.views=related.reduce((sum,p)=>sum+(p.views||0),0)}}
     postById=Object.fromEntries(posts.map(p=>[p.id,p]));workByCode=Object.fromEntries(works.map(w=>[w.code,w]));
     document.getElementById("workCodes").innerHTML=works.map(w=>`<option value="${esc(w.code)}">${esc(w.title)}</option>`).join("");
@@ -173,17 +175,21 @@
     view=posts.filter(p=>{
       if(kind==="unfiled"&&(p.works||[]).length)return false;
       if(kind!=="all"&&kind!=="unfiled"&&p.kind!==kind)return false;
-      return !q||postTitle(p).toLowerCase().includes(q)||String(p.id).includes(q)||(p.works||[]).some(code=>code.toLowerCase().includes(q)||(workByCode[code]?.title||"").toLowerCase().includes(q));
+      return !q||postTitle(p).toLowerCase().includes(q)||String(p.id).includes(q)||(p.visual?.summary||"").toLowerCase().includes(q)||(p.visual?.marksAndForms||[]).some(mark=>mark.toLowerCase().includes(q))||(p.works||[]).some(code=>code.toLowerCase().includes(q)||(workByCode[code]?.title||"").toLowerCase().includes(q));
     });
   }
   function tileHTML(item){
     const isWork=mode==="works",key=isWork?item.code:item.id,post=isWork?heroForWork(item.code):item;
     const title=isWork?item.title:postTitle(item),label=isWork?`[${item.code}]`:(item.kind||"post"),meta=isWork?`${item.by||""} · ${item.perf||0} posts`:`${item.date||""} · ${fmt(item.views)} views`;
     const changed=Boolean((isWork?curation.works:curation.posts)?.[key]);
-    return `<button class="tile" data-key="${esc(key)}" aria-label="Edit ${esc(title)}"><img loading="lazy" src="${post?thumb(post.id):""}" alt=""><span class="kind">${esc(label)}</span>${changed?'<span class="changed" title="Live edit"></span>':""}<span class="tile-info"><b>${esc(title)}</b><small>${esc(meta)}</small></span></button>`;
+    return `<button class="tile" data-key="${esc(key)}" aria-label="Edit ${esc(title)}"><img loading="lazy" src="${post?thumb(post.id):""}" alt="${esc(post?.visual?.summary||"")}"><span class="kind">${esc(label)}</span>${changed?'<span class="changed" title="Live edit"></span>':""}<span class="tile-info"><b>${esc(title)}</b><small>${esc(meta)}</small></span></button>`;
   }
   function renderMore(){const end=Math.min(shown+180,view.length);grid.insertAdjacentHTML("beforeend",view.slice(shown,end).map(tileHTML).join(""));shown=end;document.getElementById("count").textContent=`${view.length.toLocaleString()} ${mode}`}
-  function renderReset(){buildView();shown=0;grid.innerHTML="";document.getElementById("empty").classList.toggle("hidden",view.length>0);renderMore()}
+  function renderReset(preservePosition=false){
+    const scrollY=window.scrollY,previouslyShown=shown;
+    buildView();shown=0;grid.innerHTML="";document.getElementById("empty").classList.toggle("hidden",view.length>0);renderMore();
+    if(preservePosition){while(shown<Math.min(previouslyShown,view.length))renderMore();requestAnimationFrame(()=>scrollTo(0,scrollY))}
+  }
   new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting)&&shown<view.length)renderMore()},{rootMargin:"600px"}).observe(document.getElementById("sentinel"));
   grid.addEventListener("click",event=>{const tile=event.target.closest("button[data-key]");if(tile)openEditor(tile.dataset.key)});
   document.getElementById("search").addEventListener("input",event=>{query=event.target.value;renderReset()});
@@ -197,7 +203,7 @@
     selected={type:mode==="works"?"work":"post",key};const item=selected.type==="work"?workByCode[key]:postById[key];if(!item)return;
     const post=selected.type==="work"?heroForWork(key):item,title=selected.type==="work"?item.title:postTitle(item),changed=Boolean((selected.type==="work"?curation.works:curation.posts)?.[key]);
     drawer.innerHTML=`<div class="drawer-head"><div><h2>${esc(title)}</h2><p>${selected.type==="work"?`Whistlegraph [${esc(key)}]`:`Archive post ${esc(key)}`}</p></div><button class="close" aria-label="Close editor">×</button></div>
-      <div class="hero"><img src="${post?thumb(post.id):""}" alt=""><div class="facts">${selected.type==="post"?`${esc(item.date||"date unknown")}<br>${fmt(item.views)} views · ${fmt(item.likes)} likes<br><a href="${esc(item.url)}" target="_blank" rel="noopener">Open original ↗</a><br><a href="/post/${encodeURIComponent(item.id)}" target="_blank">Open archive page ↗</a>`:`${esc(item.by||"")}<br>${item.year||""} · ${fmt(item.views)} views<br><a href="/${encodeURIComponent(item.code)}" target="_blank">Open Whistlegraph ↗</a>`}</div></div>
+      <div class="hero"><img src="${post?thumb(post.id):""}" alt="${esc(post?.visual?.summary||"")}"><div class="facts">${selected.type==="post"?`${esc(item.date||"date unknown")}<br>${fmt(item.views)} views · ${fmt(item.likes)} likes<br><a href="${esc(item.url)}" target="_blank" rel="noopener">Open original ↗</a><br><a href="/post/${encodeURIComponent(item.id)}" target="_blank">Open archive page ↗</a>`:`${esc(item.by||"")}<br>${item.year||""} · ${fmt(item.views)} views<br><a href="/${encodeURIComponent(item.code)}" target="_blank">Open Whistlegraph ↗</a>`}</div></div>
       ${selected.type==="post"?postFields(item):workFields(item)}
       <div class="actions"><button class="danger" id="reset" ${changed&&!PREVIEW?"":"disabled"}>Restore generated data</button><button class="primary save" id="save" ${PREVIEW?"disabled":""}>Save live</button></div>`;
     drawer.querySelector(".close").addEventListener("click",closeEditor);drawer.querySelector("#save").addEventListener("click",saveEditor);drawer.querySelector("#reset").addEventListener("click",resetEditor);
@@ -206,17 +212,18 @@
   function postFields(p){return `<label for="postKind">Post type</label><select class="field" id="postKind"><option value="performance" ${p.kind==="performance"?"selected":""}>Performance</option><option value="talk" ${p.kind==="talk"?"selected":""}>Talk</option><option value="other" ${p.kind==="other"?"selected":""}>Other</option></select>
     <label for="postWorks">Whistlegraph relationships</label><input class="field" id="postWorks" value="${esc((p.works||[]).join(", "))}" placeholder="sos, imab" list="workCodes"><p class="hint">Comma-separated codes. Empty means this post is unfiled.</p>
     <label for="postPlots">Plots / narrative events</label><input class="field" id="postPlots" value="${esc((p.plots||[]).join(", "))}" placeholder="Us Kidnapping You"><p class="hint">Comma-separated plot names.</p>
-    <label for="postDesc">Caption / description</label><textarea class="field" id="postDesc">${esc(p.desc||"")}</textarea>`}
+    <label for="postDesc">Author caption</label><textarea class="field" id="postDesc">${esc(p.desc||"")}</textarea>
+    ${p.visual?.summary?`<label for="postVisual">Machine-read visual description</label><textarea class="field" id="postVisual" readonly>${esc(p.visual.summary)}</textarea><p class="hint">Evidence from six sampled frames · ${esc(p.visual.model||"vision model")} · prompt ${esc(p.visual.promptVersion||"unknown")}</p>`:""}`}
   function workFields(w){return `<label for="workTitle">Title</label><input class="field" id="workTitle" value="${esc(w.title||"")}"><label for="workBy">Composed by</label><input class="field" id="workBy" value="${esc(w.by||"")}"><label for="workYear">Year</label><input class="field" id="workYear" type="number" min="1900" max="2200" value="${esc(w.year||"")}"><label for="workColor">Archive color</label><input class="field" id="workColor" type="color" value="${esc(w.c||"#b44887")}"><p class="hint">Codes remain immutable here so shared links and Aesthetic Computer commands cannot be broken accidentally.</p>`}
   async function saveEditor(){
     if(!selected||PREVIEW)return;const patch=selected.type==="post"?{kind:drawer.querySelector("#postKind").value,works:splitList(drawer.querySelector("#postWorks").value),plots:splitList(drawer.querySelector("#postPlots").value),desc:drawer.querySelector("#postDesc").value}:{title:drawer.querySelector("#workTitle").value,by:drawer.querySelector("#workBy").value,year:Number(drawer.querySelector("#workYear").value),c:drawer.querySelector("#workColor").value};
     const button=drawer.querySelector("#save");button.disabled=true;button.textContent="Saving…";
-    try{const result=await getJSON(API,{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({...selected,patch})});curation[selected.type==="work"?"works":"posts"][selected.key]=result.patch;applyCuration();renderReset();openEditor(selected.key);toast("Saved live")}
+    try{const result=await getJSON(API,{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({...selected,patch})});curation[selected.type==="work"?"works":"posts"][selected.key]=result.patch;applyCuration();renderReset(true);openEditor(selected.key);toast("Saved live")}
     catch(error){toast(error.message);button.disabled=false;button.textContent="Save live"}
   }
   async function resetEditor(){
     if(!selected||PREVIEW)return;const current={...selected};
-    try{await getJSON(API,{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({...current,reset:true})});delete curation[current.type==="work"?"works":"posts"][current.key];applyCuration();renderReset();openEditor(current.key);toast("Restored generated data")}
+    try{await getJSON(API,{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({...current,reset:true})});delete curation[current.type==="work"?"works":"posts"][current.key];applyCuration();renderReset(true);openEditor(current.key);toast("Restored generated data")}
     catch(error){toast(error.message)}
   }
   init();

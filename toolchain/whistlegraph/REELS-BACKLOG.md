@@ -14,6 +14,8 @@ Status: `suggested` → `selected` → `edited` → `posted`
 | suggested | [Blown Up Blue Balloon `[blun]`](https://whistlegraph.org/blun) | [TikTok 7143830552666246443](https://www.tiktok.com/@whistlegraph/video/7143830552666246443) | 2022-09-16 | 18s | Alternate take; 646.7K views. |
 | suggested | [Double Heart Balloon `[heart]`](https://whistlegraph.org/heart) | [TikTok 7213456526663568683](https://www.tiktok.com/@whistlegraph/video/7213456526663568683) | 2023-03-22 | 21s | Alex: “This one’s advanced”; caption: “💕🎈 double heart balloon”. |
 | suggested | [Double Heart Balloon `[heart]`](https://whistlegraph.org/heart) | [TikTok 7214261543750405418](https://www.tiktok.com/@whistlegraph/video/7214261543750405418) | 2023-03-24 | 20s | Alternate take; caption: “sky-yie-yie i-yie yie ☁️🎈”. |
+| suggested | [Scared of Stairs `[sos]`](https://whistlegraph.org/sos) | [TikTok 6925092114304961797](https://www.tiktok.com/@whistlegraph/video/6925092114304961797) | 2021-02-03 | 13s | Alex: “We gotta try posting this classic” / “The top [SOS] video”; caption: “alex slides down one more time”; 20.5M views. |
+| suggested | The Effort Behind A Whistlegraph (talk post) | [TikTok 6930792379267992838](https://www.tiktok.com/@whistlegraph/video/6930792379267992838) | 2021-02-19 | 16s | Alex: “This is a good video.” Caption draft: “50–60 takes for one whistlegraph. First we memorize it, then we record until the drawing sings back. ✒️🎶” |
 
 ## Suggested by Alex — take selection pending
 

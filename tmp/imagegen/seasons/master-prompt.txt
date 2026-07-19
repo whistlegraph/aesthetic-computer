@@ -1,0 +1,11 @@
+Use case: product-mockup
+Asset type: jewelry concept master for a material-exploration contact sheet
+Primary request: Design one elegant, manufacturable pendant necklace charm called “Seasons.” The charm is a coin-sized abstract cycle made from four softly interlocking leaf-like lobes revolving around a small round central opening. Each lobe subtly progresses from compact bud to full leaf to flame-like summer leaf to gently folding autumn leaf, but the whole mark remains minimal, balanced, and readable as one continuous four-part circular emblem. Include one simple integrated round bail at the top and a short, delicate chain segment entering from above.
+Scene/backdrop: seamless warm light-gray jewelry studio sweep
+Subject: exactly one pendant, shown straight-on and centered; 28 mm diameter, about 3 mm thick, softly rounded production-ready edges; neutral matte pale-gray jeweler’s resin so geometry is unmistakable
+Style/medium: photoreal premium jewelry product photography and industrial-design prototype render
+Composition/framing: square, full charm visible, centered, generous identical margin on every side, orthographic frontal view, chain only in the top 15% of frame
+Lighting/mood: soft diffuse studio lighting with a restrained contact shadow; calm, precise, catalog-ready
+Materials/textures: neutral matte prototyping resin only
+Constraints: this image becomes the invariant reference for later material edits; make the silhouette coherent, symmetrical in overall balance, practical for lost-wax casting or CNC fabrication, with no fragile floating parts and no undercuts that would make it implausible as a pendant
+Avoid: lettering, labels, the word Seasons, logos, gemstones, extra charms, human model, hands, display bust, dramatic perspective, cropped edges, multiple objects, collage, watermark

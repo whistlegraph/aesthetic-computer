@@ -220,9 +220,10 @@ function master(name, events, opts) {
   const { events, push } = makeTrack();
 
   // ── the shared timeline (spoken cues measured off the cached TTS takes) ──
+  // R6·5: the spoken letter run is GONE (jeffrey's v1 review — intro
+  // straight into the singing); the ladder starts a breath after the intro.
   const INTRO_T = 0.8;    // "Here's how to type out the C scale." (~2.1s)
-  const RUN_T = 3.5;      // "C, D, E, F, G, A, B. Now sing it!"  (~2.9s)
-  const SING0 = 6.95;     // the ladder's first beat
+  const SING0 = +(7 * BEAT).toFixed(4);   // ≈3.89 — the ladder's first beat
   const LETTERS_ASC = ["c", "d", "e", "f", "g", "a", "b",
     "h", "i", "j", "k", "l", "m", "n"];
   const STRIP_ASC = [60, 62, 64, 65, 67, 69, 71, 72, 74, 76, 77, 79, 81, 83];
@@ -253,7 +254,7 @@ function master(name, events, opts) {
     const t = bar * BAR;
     push("bass", "bass", t, bar % 4 === 3 ? "G2" : "C2", 3.6 * BEAT, 0.20, 0);
   }
-  // gentle kalimba broken chord, quiet, from the spoken run onward
+  // gentle kalimba broken chord, quiet, from bar 1 onward
   const ARP = ["C4", "E4", "G4", "A3"];
   for (let bar = 1; bar < LAST_BAR - 1; bar++) {
     for (let s = 0; s < 4; s++) {
@@ -281,7 +282,7 @@ function master(name, events, opts) {
   });
   writeFileSync(resolve(OUT_DIR, "menuband-scales.score.json"), JSON.stringify({
     bpm: BPM, beatSec: +BEAT.toFixed(6), durationSec: +durationSec.toFixed(4),
-    spoken: { intro: { t: INTRO_T }, run: { t: RUN_T }, outro: { t: OUTRO_T } },
+    spoken: { intro: { t: INTRO_T }, outro: { t: OUTRO_T } },
     sing: { t0: +SING0.toFixed(4), t1: +SING1.toFixed(4) },
     ladder,
   }, null, 2));

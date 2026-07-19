@@ -1,8 +1,8 @@
 // vertilok, 26.07.17
 // A full-screen, vertical-only cancelok feed.
 
-// One instrument fills the viewport. Swipe up or down from anywhere to move one
-// room at a time; taps and small drags still reach the instrument underneath.
+// One instrument fills the viewport. Pull inward from the top or bottom edge to
+// move one room at a time; the rest of the screen belongs to the instrument.
 // The fixed edge gradients keep the room name legible without putting the piece
 // back inside a frame.
 
@@ -50,6 +50,13 @@ let move = null; // { dir, off, lastOff, velocity, live, to, commit, cell, frame
 
 const now = () => Date.now();
 const current = () => world.get(pos);
+const edgeSize = (height) => Math.min(48, Math.max(24, Math.round(height * 0.12)));
+const edgeAt = (y, height) => {
+  const size = edgeSize(height);
+  if (y < size) return -1; // top edge: pull down for the previous room
+  if (y >= height - size) return 1; // bottom edge: pull up for the next room
+  return 0;
+};
 
 async function load(api) {
   const asked = (api.params?.[0] || "").replace(/^\^/, "").toLowerCase();
@@ -454,7 +461,13 @@ function act(api) {
 
   if (e.is("touch")) {
     if (move && !move.live) return;
-    grab = { sx: e.x ?? 0, sy: e.y ?? 0, begun: false };
+    const sy = e.y ?? 0;
+    grab = {
+      sx: e.x ?? 0,
+      sy,
+      edge: edgeAt(sy, api.screen.height),
+      begun: false,
+    };
     forward(api, e);
     return;
   }
@@ -463,9 +476,12 @@ function act(api) {
     if (!grab || (move && !move.live)) return;
     const dy = (e.y ?? grab.sy) - grab.sy;
     grab.dy = dy;
-    if (!grab.begun && Math.abs(dy) > DEADZONE) {
+    const inward =
+      (grab.edge === -1 && dy > DEADZONE) ||
+      (grab.edge === 1 && dy < -DEADZONE);
+    if (!grab.begun && inward) {
       grab.begun = true;
-      beginMove(api, dy < 0 ? 1 : -1);
+      beginMove(api, grab.edge);
     }
     if (move?.live) {
       const height = api.screen.height;

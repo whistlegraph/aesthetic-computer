@@ -2,8 +2,9 @@
 // sim-scales.mjs — the Menu Band SCALES teaching-singalong reel base (v6).
 //
 // The reel that literally demonstrates the spinging speak→sing transform:
-// a spoken frame ("Here's how to type out the C scale." … "Now sing it!")
-// around the notepat two-octave letter ladder — c d e f g a b h i j k l m n
+// a spoken frame ("Here's how to type out the C scale." → straight into the
+// singing — v6·5 dropped the spoken letter run) around the notepat
+// two-octave letter ladder — c d e f g a b h i j k l m n
 // up and back down (h..n = notepat's second octave) — each letter sung on
 // its own scale degree while the REAL captured menu-bar strip lights that
 // key (strip rig, now covering every white key C4..B5) and a BIG keycap
@@ -49,9 +50,10 @@ const rig = await loadStripRig();
 const particles = makeParticles(ctx);
 
 const SING0 = sc.sing.t0, SING1 = sc.sing.t1;
+// v6·5: no spoken letter run anymore — the intro scene runs straight into
+// the singing (jeffrey's v1 review; render-jingles retimed the bed)
 const { scenes: SCENES, sceneAt } = makeScenes([
-  { name: "intro", from: 0, to: sc.spoken.run.t / TOTAL, tint: [97, 158, 255] },
-  { name: "speak", from: sc.spoken.run.t / TOTAL, to: SING0 / TOTAL, tint: [255, 214, 56] },
+  { name: "intro", from: 0, to: SING0 / TOTAL, tint: [97, 158, 255] },
   { name: "sing-up", from: SING0 / TOTAL, to: (SING0 + (SING1 - SING0) * 0.52) / TOTAL, tint: [51, 209, 179] },
   { name: "sing-down", from: (SING0 + (SING1 - SING0) * 0.52) / TOTAL, to: (SING1 + 0.8) / TOTAL, tint: [167, 139, 250] },
   { name: "end", from: (SING1 + 0.8) / TOTAL, to: 1.0, tint: [255, 77, 107] },

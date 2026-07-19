@@ -1,0 +1,91 @@
+{
+  "version": 1,
+  "promptVersion": "whistlegraph-visual-v1",
+  "generated": "2026-07-19T22:29:35.969Z",
+  "count": 1,
+  "visuals": [
+    {
+      "version": 1,
+      "status": "complete",
+      "postId": "6984626715117079814",
+      "source": {
+        "url": "https://assets.aesthetic.computer/whistlegraph/index/posts/6984626715117079814.mp4",
+        "duration": 16.933,
+        "sampledSeconds": [
+          0.847,
+          3.725,
+          6.773,
+          9.821,
+          12.869,
+          15.917
+        ]
+      },
+      "visual": {
+        "summary": "A hand uses a pen to draw on a white dotted notebook page. Across the sampled frames, small triangular shapes are added and then combined with curved lines into two simple face-like drawings, one above the other, with circular outlines added later around each face.",
+        "sequence": [
+          "A notebook and pen are held over a table; the page is blank or nearly blank at the start of the sample.",
+          "Small triangle-like shapes appear near the upper area of the page and another similar shape lower down.",
+          "Curved lines are added around the upper cluster, suggesting a partial outline or arc.",
+          "The lower cluster gains more linework, including another triangular form and a curved line below it.",
+          "Two face-like drawings become clearer: each has triangular eye/hat-like shapes and small interior details, with a smile-like curve under the lower one.",
+          "A large circle is drawn around the upper face-like cluster, and a smaller circular outline surrounds the lower one.",
+          "By the last frame, both clusters are enclosed in round outlines and the pen is still near the lower drawing."
+        ],
+        "setting": "A close-up view of a dotted notebook page on a wooden tabletop, with a person’s hands and pen entering from the edges of the frame.",
+        "subjects": [
+          "A right hand holding a pen",
+          "Another hand briefly steadying or near the notebook",
+          "A white dotted notebook page",
+          "A blue pen earlier in the sequence",
+          "A gray pen nib and barrel in the later frames",
+          "Two small face-like drawn figures made of triangles, curves, and circles"
+        ],
+        "drawingSurface": "A white dotted notebook page",
+        "toolsAndMaterials": [
+          "Pen with gray barrel and metal nib",
+          "Blue pen",
+          "Notebook paper",
+          "Wooden table"
+        ],
+        "marksAndForms": [
+          "Triangle-like outlines",
+          "Curved arc above the upper figure",
+          "Small interior marks within the triangular shapes",
+          "A smile-like curved line under the lower figure",
+          "Circular outlines around each figure",
+          "Two stacked face-like clusters, one above the other"
+        ],
+        "visibleText": [
+          "Partial pink text on a page edge or cover reading \"Whistleg...\""
+        ],
+        "camera": "Static overhead close-up contact-sheet framing, with each panel showing a slightly different moment and angle of the notebook and hands.",
+        "uncertainties": [
+          "The exact subject of the drawings is not established beyond their face-like appearance.",
+          "The video may include additional drawing steps between sampled frames.",
+          "The visible pink text is only partially legible.",
+          "The people’s identities and relationship are not established."
+        ],
+        "confidence": 0.87
+      },
+      "provenance": {
+        "model": "gpt-5.4-mini",
+        "promptVersion": "whistlegraph-visual-v1",
+        "responseId": "resp_0550f513c221e9e6006a5d4fcb13dc819bb0b3cb913cc3ac8f",
+        "montageSha256": "9a8bedd09381abc61f6e77a13957131bc490ffbe2f8774ebb5770f062ae3058b",
+        "createdAt": "2026-07-19T22:29:35.962Z",
+        "usage": {
+          "input_tokens": 2354,
+          "input_tokens_details": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0
+          },
+          "output_tokens": 501,
+          "output_tokens_details": {
+            "reasoning_tokens": 0
+          },
+          "total_tokens": 2855
+        }
+      }
+    }
+  ]
+}

@@ -27,6 +27,24 @@ What round 6 adds — REGISTER + the diction starve fixes:
        top of RAW_BOOST — the /k/ burst stays legible against the already-
        leveled vowels around it. (Consonant-span bed ducking already covers
        these frames via cons_mask.)
+  R6·5 (round 6.5 — the finisher pass; R6·2-4 shipped but the QA proved
+       them insufficient on the two flagged chord lines):
+       · FRICATIVE CODAS MUST ACTUALLY FRICATE — guide_coda gains two
+         rescues, both bounded by the next word's source start: run a
+         captured fricative out past the trimmed window edge ("keys"' /z/
+         lived past w1 → 25 ms of a 160 ms fricative), and seek forward
+         across a closure gap the contiguous walk can't cross
+         ("diminished"'s /ʃt/ sat 120 ms after the nucleus → the coda was
+         a 20 ms click and whisper heard "deman").
+       · PHRASE-INITIAL UNVOICED FRICATIVES STOP REACHING BACK — the
+         backward onset walk no longer crosses voiced frames (and never
+         the previous word's captured coda): sus's /s/ walk was swallowing
+         keys' /z/ tail, singing it on the WRONG side of the R6·3 phrase
+         gap ("keys. Sus" → "kisses" with the gap in place).
+       · onset prominence up (ONSET_RAW_EXTRA 1.25 → 1.6) and word-initial
+         plosives mid-phrase get a longer glottal set-up gap (22 → 32 ms)
+         so "control"'s /k/ reads against the leveled vowels; the caller
+         widens the bed's consonant duck spans to match.
 
 Round 5 (kept) — CONSONANT TIME-STRETCHING, the way trained choirs
 handle diction (the whisper round-trip gate was failing on swallowed
@@ -161,12 +179,16 @@ STRETCH_HARD_CAP = 2.5      # no run ever stretches beyond this
 MAX_ONSET_OUT_S = 0.34      # stretched onset ceiling
 MAX_CODA_OUT_S = 0.42       # stretched coda ceiling
 PLOSIVE_GAP_S = 0.022       # pre-plosive silence (the choir's glottal set-up)
+PLOSIVE_GAP_MEDIAL_S = 0.032  # R6·5 word-initial plosives mid-phrase set up longer
 GAP_FLOOR_AMP = 0.06        # the gap dips to this, never digital zero
 PHRASE_FRIC_GAP_S = 0.10    # R6·3 real silence before a phrase-initial fricative
 PHRASE_FRIC_GAP_AMP = 0.02  # …and it dips near-zero (a true phrase breath)
 CONS_GAIN_DB = 3.0          # consonant prominence on the WORLD path
 RAW_BOOST = 1.5             # raw composite boost (plosive bursts; R4 was 1.4)
-ONSET_RAW_EXTRA = 1.25      # R6·4 extra boost on phrase-medial onset bursts
+ONSET_RAW_EXTRA = 1.6       # R6·5 extra boost on phrase-medial onset bursts
+                            # (1.25 in R6·4 — "control"'s /k/ still drowned)
+CODA_FRIC_SEEK_S = 0.35     # R6·5 how far past the nucleus a fricative coda
+                            # may be sought (closure gaps break the walk)
 CODA_EXTEND_S = 0.05        # word-final codas may run past hardEnd at phrase ends
 CODA_CLUSTER_EXTEND_S = 0.18  # R6·2 …coda CLUSTERS may run this far into the gap
 FINAL_UNSTRESSED_VOWEL_S = 0.14  # R6·2 word-final unstressed vowel floor
@@ -348,7 +370,7 @@ def _cons_ish(i, cls, voiced, hf_ratio):
 
 
 def guide_onset(nuc_start, w0, w0_ext, expected, cls, flux, voiced, hf_ratio,
-                rms, floor):
+                rms, floor, prev_coda_end=0, phrase_start=False):
     """Onset cluster window [a, b) matching the expected consonants.
 
     R5: b can land BEFORE nuc_start — the found nucleus often under-runs the
@@ -359,7 +381,15 @@ def guide_onset(nuc_start, w0, w0_ext, expected, cls, flux, voiced, hf_ratio,
 
     Two floors: the SEEK (which crosses vowel frames) never passes w0 — the
     adjacent-word clamp — while the consonant walks may reach w0_ext (~100 ms
-    lower): consonants straddle whisper's boundaries, vowels must not."""
+    lower): consonants straddle whisper's boundaries, vowels must not.
+
+    R6·5: a third floor — the previous word's CAPTURED CODA (prev_coda_end).
+    Now that codas may run past their trimmed window (the fricative
+    rescues), the next onset must not re-sing those frames."""
+    if prev_coda_end:
+        cap = min(prev_coda_end, max(w0, nuc_start - 2))
+        w0 = max(w0, cap)
+        w0_ext = max(w0_ext, cap)
     if not expected:                       # vowel-initial → essentially no onset
         a = nuc_start
         while a > w0 and a > nuc_start - 4 and voiced[a - 1] and cls[a - 1] != "vowel":
@@ -376,10 +406,10 @@ def guide_onset(nuc_start, w0, w0_ext, expected, cls, flux, voiced, hf_ratio,
             seek = i
     a = seek
     lim = max(w0_ext, seek - budget)
+    first = expected[0]
     # walk back over consonant-ish frames
     while a > lim and _cons_ish(a - 1, cls, voiced, hf_ratio):
         a -= 1
-    first = expected[0]
     if first["cls"] in ("plosive", "affricate"):
         # anchor on the LAST burst before the vowel; include ~25ms closure
         # (voiced plosives too — R5: they used to fall into the murmur walk
@@ -395,6 +425,12 @@ def guide_onset(nuc_start, w0, w0_ext, expected, cls, flux, voiced, hf_ratio,
         # its whole /st/) — the high-band ratio is the real witness
         while a > lim and not voiced[a - 1] and hf_ratio[a - 1] > 0.08:
             a -= 1
+        # R6·5: non-sibilant fricatives (f θ) barely tickle the high band
+        # ("four"'s /f/ captured 15 ms) — accept quiet unvoiced frames with
+        # real energy just above the floor
+        while a > lim and not voiced[a - 1] and hf_ratio[a - 1] > 0.03 \
+                and rms[a - 1] > floor * 0.5:
+            a -= 1
     elif first["cls"] in ("nasal", "approximant") or first["voiced"]:
         # Voiced sonorant onset. Nasal murmur is low-frequency dominant, so
         # classify_frames calls it "vowel" and the consonant-class walk above
@@ -407,17 +443,46 @@ def guide_onset(nuc_start, w0, w0_ext, expected, cls, flux, voiced, hf_ratio,
             a -= 1
         while a < seek and not voiced[a]:
             a += 1
+    # R6·5: a phrase-initial UNVOICED fricative must not sing the previous
+    # phrase's voiced coda — the /s/ walk was swallowing keys' /z/ tail and
+    # rendering it on the WRONG side of the R6·3 phrase gap ("keys. Sus" →
+    # "kisses" with the gap in place). Trim the captured window to its LAST
+    # unvoiced run: everything voiced before that run is the previous word's
+    # material (trailing voice-onset transition frames stay).
+    if phrase_start and first["cls"] == "fricative" and not first["voiced"] \
+            and a < seek and voiced[a:seek].any():
+        j = seek
+        while j > a and voiced[j - 1]:
+            j -= 1
+        i2 = j
+        while i2 > a and not voiced[i2 - 1]:
+            i2 -= 1
+        if j > i2:
+            a = i2
+        # …but keep enough fricative to HEAR: flickery voicing overcalls on
+        # a strong sibilant (the harvest's, not the source's) can split the
+        # run and shave it to nothing ("see"'s /s/ fell to 10 ms). Re-extend
+        # over non-vowel frames; w0 is already floored at the previous
+        # word's captured coda, so nothing gets re-sung.
+        min_f = int(0.07 / FRAME_S)
+        while seek - a < min_f and a > w0 and cls[a - 1] != "vowel":
+            a -= 1
     return a, seek
 
 
-def guide_coda(nuc_start, nuc_end, w1, expected, cls, voiced, hf_ratio, rms, floor):
+def guide_coda(nuc_start, nuc_end, w1, expected, cls, voiced, hf_ratio, rms,
+               floor, w1_hard=None):
     """Coda cluster window [a, b) matching the expected consonants.
 
     R5: a can land BEFORE nuc_end — the found nucleus often OVER-runs the
     vowel and swallows the coda ("band"'s æ ate its /nd/ → "Ben"); we walk
     BACK to the true vowel end (never deeper than the nucleus core) and the
     caller trims the nucleus to a. The mirror case (nucleus under-run, coda
-    stranded past leftover vowel frames) seeks FORWARD instead."""
+    stranded past leftover vowel frames) seeks FORWARD instead.
+
+    R6·5: w1_hard (the next word's source start, or the line end) lets a
+    FRICATIVE coda run past the trimmed window edge and be sought across a
+    closure gap — see the rescues at the bottom."""
     if not expected:                       # open syllable → tiny release only
         return nuc_end, min(w1, nuc_end + int(0.04 / FRAME_S))
     budget = int(_cluster_budget_s(expected, base=0.12, per=0.06) / FRAME_S)
@@ -455,6 +520,52 @@ def guide_coda(nuc_start, nuc_end, w1, expected, cls, voiced, hf_ratio, rms, flo
     if last["cls"] == "fricative":
         while b < lim and not voiced[b] and hf_ratio[b] > 0.08:
             b += 1
+    # R6·5: FRICATIVE CODAS MUST ACTUALLY FRICATE. Two rescues, both bounded
+    # by w1_hard (the next word's own source audio is never stolen):
+    #  · the contiguous walk stopped at the trimmed window edge mid-run
+    #    ("keys"' /z/ lived past w1 → 25 ms of a 160 ms fricative) — run
+    #    the captured fricative out past the edge;
+    #  · the fricative sits past a closure gap the walk can't cross
+    #    ("diminished"'s /ʃt/ 120 ms after the nucleus → a 20 ms click) —
+    #    seek forward across the junk, then capture through the run and its
+    #    trailing burst. The intervening closure maps 1:1 raw (it is the
+    #    source's own articulation silence).
+    fric_exp = [p for p in expected if p["cls"] in ("fricative", "affricate")]
+    if fric_exp:
+        v_ok = bool(fric_exp[0]["voiced"])
+        affr = any(p["cls"] == "affricate" for p in fric_exp)
+
+        def fric_here(i):
+            if v_ok:
+                # a lenited /z/ murmurs more than it hisses — the voiced
+                # consonant class is the witness, not the high band
+                return voiced[i] and cls[i] == "vcons"
+            if not voiced[i] and hf_ratio[i] > 0.07:
+                return True
+            # R6·5: an affricate's STOP half classifies "plosive" (its hf
+            # sits under the fricative bar) — "aitch"'s /tʃ/ was invisible
+            # to this seek and its coda fell to a 5 ms click
+            return affr and not voiced[i] and cls[i] == "plosive" \
+                and rms[i] > floor * 0.3
+
+        far = min(len(cls), nuc_end + int(CODA_FRIC_SEEK_S / FRAME_S))
+        if any(fric_here(i) for i in range(start, b)):
+            # run a captured fricative out past the window edge while it
+            # DECAYS — the padded source windows overlap, so the next word's
+            # start is no bound; the rms rise on the far side of the energy
+            # valley is the next word's own onset and stops the walk
+            while b < far and fric_here(b) and rms[b] <= rms[b - 1] * 1.2:
+                b += 1
+        elif (far := min(far, w1 if w1_hard is None else max(w1, w1_hard))) > b:
+            i = b
+            while i < far and not fric_here(i):
+                i += 1
+            if i < far:
+                j = i
+                while j < far and (fric_here(j) or cls[j] in ("plosive", "fric")
+                                   or (cls[j] == "sil" and hf_ratio[j] > 0.05)):
+                    j += 1
+                b = j
     return start, b
 
 
@@ -499,6 +610,14 @@ def diction_plan(a, b, expected, cls, voiced, hf_ratio, scale, cap_s,
         runs = [[a, b, "pitch"]]
     else:
         runs = cons_runs(a, b, cls, voiced, hf_ratio)
+        # R6·5: an expected all-UNVOICED cluster must never ride the pitch
+        # path — harvest overcalls voicing on strong sibilants ("sus"'s /s/
+        # tracked "voiced", sang as TONE, and whisper heard a syllable:
+        # "keys. Sus" → "kisses" with the phrase gap rendered perfectly).
+        if exp and all(not p["voiced"] for p in exp):
+            for r in runs:
+                if r[2] == "pitch":
+                    r[2] = "noise"
     can_noise = any(p["cls"] in ("fricative", "affricate") for p in exp)
     can_pitch = any(p["cls"] in ("nasal", "approximant")
                     or (p["cls"] == "fricative" and p["voiced"]) for p in exp)
@@ -623,7 +742,7 @@ def main():
     # ── segment every word (guided by the choral score) ────────────────────
     segs = []
     sidecar_words = []
-    for w in words:
+    for wi_w, w in enumerate(words):
         w0 = max(0, int(round(w["srcFromMs"] / 1000.0 / FRAME_S)))
         w1 = min(n_src, int(round(w["srcToMs"] / 1000.0 / FRAME_S)))
         if w1 <= w0 + 2:
@@ -697,7 +816,9 @@ def main():
             if exp_onset and not (w.get("phraseStart") and len(segs)):
                 w0_ext = max(0, w0t - int(0.10 / FRAME_S))
             onset = guide_onset(nuclei[0][0], w0t, w0_ext, exp_onset, cls, flux,
-                                voiced, hf_ratio, rms, floor)
+                                voiced, hf_ratio, rms, floor,
+                                prev_coda_end=segs[-1]["coda"][1] if segs else 0,
+                                phrase_start=bool(w.get("phraseStart")) and bool(segs))
         else:
             onset = (w0t, nuclei[0][0])
         # R4·2: fully-voiced SONORANT/fricative onsets sing ON the note
@@ -721,8 +842,16 @@ def main():
             if len(gap_sl) and float((gap_sl > thr_x).mean()) > 0.5:
                 nuclei[0] = (onset[1], max(b_n, onset[1] + 4))
         if exp_coda is not None:
+            # R6·5: the coda may run past the trimmed window edge, but never
+            # into the NEXT word's own source audio
+            if wi_w + 1 < len(words):
+                nxt_w0 = max(0, int(round(
+                    words[wi_w + 1]["srcFromMs"] / 1000.0 / FRAME_S)))
+                w1_hard = max(w1t, nxt_w0)
+            else:
+                w1_hard = n_src
             coda = guide_coda(nuclei[-1][0], nuclei[-1][1], w1t, exp_coda, cls,
-                              voiced, hf_ratio, rms, floor)
+                              voiced, hf_ratio, rms, floor, w1_hard=w1_hard)
         else:
             coda = (nuclei[-1][1], w1t)
         if (coda[1] - coda[0]) * FRAME_S > MAX_CODA_S:
@@ -831,6 +960,8 @@ def main():
     cons_gain = np.ones(out_n)          # R5·4 consonant prominence (sp amp)
     raw_gain = np.ones(out_n)           # R6·4 extra boost on onset raw bursts
     cons_mask = np.zeros(out_n, dtype=bool)  # R5 consonant frames (choir gate)
+    short_vowel = np.zeros(out_n, dtype=bool)  # R6·5 quick syllables: lead only
+    force_unvoiced = np.zeros(out_n, dtype=bool)  # R6·5 expected-unvoiced runs
     gap_env = np.ones(out_n)            # R5·2 pre-plosive glottal-set-up dips
     onset_marks = []                    # (onset_f, vowel_f) voiced-onset QA
     word_spans = []                     # (start_f, end_f, phraseStart) R4·1 QA
@@ -888,6 +1019,10 @@ def main():
                 if m == "pitch":
                     force_voiced[idx] = True
                     beta_taper[idx] = 0.0
+                elif m == "noise":
+                    # R6·5: render as NOISE even where harvest called the
+                    # source voiced (sibilant f0 overcall) — see diction_plan
+                    force_unvoiced[idx] = True
             seam[max(0, o - 1):min(out_n, o + 1)] = True
             o += out
         seam[max(0, o - 1):min(out_n, o + 1)] = True
@@ -920,7 +1055,13 @@ def main():
             phrase_medial_start = wi > 0 and s["w"].get("phraseStart")
             if phrase_medial_start and exp_on[0]["cls"] == "fricative":
                 gap_s, gap_amp = PHRASE_FRIC_GAP_S, PHRASE_FRIC_GAP_AMP
-            elif exp_on[0]["cls"] in ("plosive", "affricate") or phrase_medial_start:
+            elif exp_on[0]["cls"] in ("plosive", "affricate"):
+                # R6·5: a word-initial plosive MID-phrase ("control"'s /k/
+                # inside "Option control.") sets up longer — 22 ms drowned
+                # against the leveled vowels around it
+                gap_s = PLOSIVE_GAP_MEDIAL_S \
+                    if wi > 0 and not s["w"].get("phraseStart") else PLOSIVE_GAP_S
+            elif phrase_medial_start:
                 gap_s = PLOSIVE_GAP_S
         oplan, out_f = diction_plan(
             s["onset"][0], s["onset"][1], exp_on, cls, voiced, hf_ratio,
@@ -1040,6 +1181,16 @@ def main():
                     med_idx = min(grp, len(s["medials"]) - 1)
                     med_len = ((s["medials"][med_idx][1] - s["medials"][med_idx][0]) * FRAME_S
                                if s["medials"] else 0.0)
+                    # R6·5: cap the medial at its expected cluster budget —
+                    # a carved medial spanning a long closure must not starve
+                    # the vowel before it ("con" fell to 30 ms when /ntɹ/'s
+                    # 290 ms closure counted as medial). place() keeps the
+                    # medial's TAIL — the burst and liquid nearest the vowel.
+                    exp_med_ph = (s["exp"][k + 1]["phonemes"]["onset"]
+                                  if k + 1 < len(s["exp"]) else None)
+                    med_len = min(med_len,
+                                  _cluster_budget_s(exp_med_ph)
+                                  if exp_med_ph else 0.16)
                     med_len = min(med_len, max(0.0, slots[k + 1]["t"] - v_start - 0.03))
                 v_end = slots[k + 1]["t"] - med_len
             else:
@@ -1100,6 +1251,18 @@ def main():
             hold = v_end - v_start
             if hold >= VIB_HOLD_S:
                 vib_gain[idx] = np.clip((tt - 0.12) / VIB_ONSET_S, 0, 1)
+            # R6·5: the choir tacets on QUICK vowels and on the UNSTRESSED
+            # syllables of polysyllabic words — a four-layer detuned unison
+            # on a schwa smears it into the previous word ("Option control"
+            # → "Option-Troll" in the choired render while the bare lead
+            # transcribed fine). Choirs unify on held stressed vowels;
+            # passing syllables belong to the lead's diction. (Monosyllables
+            # keep their choir — pronounce marks them stress 0.)
+            exp_k2 = s["exp"][k] if k < len(s["exp"]) else None
+            unstressed_poly = n_slots >= 2 and exp_k2 is not None \
+                and not exp_k2.get("stress")
+            if hold < 0.20 or unstressed_poly:
+                short_vowel[idx] = True
             vowel_air[idx] = 1.0
             if hold >= 0.35:
                 hold_air[idx] = np.clip((tt - 0.10) / 0.35, 0, 1)
@@ -1175,6 +1338,7 @@ def main():
     # R4·2: sung voiced consonants are voiced by fiat — harvest missing a
     # nasal murmur must not silence (or raw-composite) the pitch path
     voiced_out |= force_voiced & mapped
+    voiced_out &= ~force_unvoiced          # R6·5 sibilant f0 overcall → noise
 
     tm = target_midi.copy()
     have = ~np.isnan(tm)
@@ -1419,6 +1583,7 @@ def main():
         choir_gain = np.ones(out_n)
         choir_gain[cons_mask] = 0.0
         choir_gain[gap_env < 0.999] = 0.0
+        choir_gain[short_vowel] = 0.0        # R6·5 quick syllables: lead only
         ck = np.hanning(9)
         ck /= ck.sum()
         choir_gain = np.convolve(np.pad(choir_gain, (4, 4), mode="edge"), ck, mode="valid")

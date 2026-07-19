@@ -7,7 +7,11 @@
       "jeff",
       "lent",
       "chnd",
-      "pics"
+      "pics",
+      "pigg",
+      "pose",
+      "mmgf",
+      "ldog"
     ],
     "exclude": [
       "znme",
@@ -38,7 +42,10 @@
     "jube": "Juice Bone Lonely",
     "chnd": "Chain Drawing",
     "fing": "All These Fingers",
-    "mouse": "A Mouse Named Raichu"
+    "mouse": "A Mouse Named Raichu",
+    "pose": "Triangle Pose",
+    "mmgf": "I Miss My Girlfriend",
+    "ldog": "Lost Dog"
   },
   "twins": [
     {
@@ -111,7 +118,8 @@
     "sno2": "Jeffrey Alan Scudder",
     "ship": "Alex Freundlich and Camille Klein",
     "fing": "Jeffrey Alan Scudder",
-    "bugy": "Jeffrey Alan Scudder"
+    "bugy": "Jeffrey Alan Scudder",
+    "pose": "Camille Klein"
   },
   "recodes": {
     "cdh": "bugy",
@@ -138,7 +146,11 @@
     "douh": "chnd",
     "ghost": "fing",
     "jeff": "mnij",
-    "spmn": "jeff"
+    "spmn": "jeff",
+    "clean": "pigg",
+    "sides": "pose",
+    "miss": "mmgf",
+    "sea": "ldog"
   },
   "postTags": {
     "7019362782122380550": [
@@ -282,7 +294,12 @@
     },
     "6889219750753357062": {
       "add": [
-        "sea"
+        "ldog"
+      ]
+    },
+    "6935376590419283205": {
+      "add": [
+        "mmgf"
       ]
     },
     "6988355028184583429": {

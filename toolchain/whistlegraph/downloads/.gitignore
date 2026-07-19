@@ -9,6 +9,10 @@
 transcripts/
 video/
 glyphs/
+# resumable per-post vision results and optional contact sheets are machine-local;
+# visual-farm.mjs compiles them into the tracked VISUALS.json artifact
+visual-records/
+visual-montages/
 # intermediate naming work-list (regenerated from SONGS.json)
 NAMING.json
 # noisy YouTube search review queue (regenerated; mostly not-ours)

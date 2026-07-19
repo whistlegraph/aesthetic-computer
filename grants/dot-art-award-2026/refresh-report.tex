@@ -1,0 +1,233 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+\usepackage[top=0.7in, bottom=0.7in, left=0.7in, right=0.7in]{geometry}
+
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}[Extension=.otf, UprightFont=lmroman10-regular, BoldFont=lmroman10-bold, ItalicFont=lmroman10-italic, BoldItalicFont=lmroman10-bolditalic]
+\setsansfont{Latin Modern Sans}[Extension=.otf, UprightFont=lmsans10-regular, BoldFont=lmsans10-bold, ItalicFont=lmsans10-oblique, BoldItalicFont=lmsans10-boldoblique]
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/, Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/, Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Extension=.otf, UprightFont=lmmono10-regular, ItalicFont=lmmono10-italic, Scale=0.85]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{graphicx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{acgreen}{RGB}{40,150,90}
+\definecolor{acred}{RGB}{200,50,60}
+\definecolor{acamber}{RGB}{200,140,20}
+
+\hypersetup{colorlinks=true, linkcolor=acpurple, urlcolor=acpurple, citecolor=acpurple, pdfauthor={@jeffrey}, pdftitle={No Paint — refresh report, 2026-07-19}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.1em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.7em}{0.15em}
+
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{No Paint — refresh report, for @jeffrey}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+\newcommand{\ok}{{\color{acgreen}\textbf{✓ done}}}
+\newcommand{\open}{{\color{acamber}\textbf{◌ open}}}
+\newcommand{\dead}{{\color{acred}\textbf{✗ dead}}}
+\newcommand{\pull}[1]{\par\vspace{0.35em}{\aclight\small\color{acpink}\itshape #1}\par\vspace{0.35em}}
+
+\setlist[itemize]{nosep, leftmargin=1.1em, itemsep=0.12em}
+\setlist[enumerate]{nosep, leftmargin=1.3em}
+\setlength{\columnsep}{1.7em}
+
+\begin{document}
+
+\twocolumn[{%
+  \vspace*{0.2em}
+  \begin{center}
+    {\aclight\large\color{acgray} the no paint refresh}\\[0.5em]
+    {\acbold\Huge The Domain Comes Home}\\[0.6em]
+    {\large\itshape Hosting swap, a living archive of 32,184 paintings,
+      and the road to the .ART Award}\\[0.7em]
+    {\small\color{acgray} @jeffrey \;·\; prompt.ac/@jeffrey \;·\; July 19, 2026}\\[0.3em]
+    {\small\color{acgray} \url{https://nopaint.art} \;·\; \texttt{grants/dot-art-award-2026/}}
+  \end{center}
+  \vspace{1.1em}
+}]
+
+\section{Summary}
+
+No Paint --- the collaborative painting game that preceded \ac{} ---
+moved from Vercel onto AC's own production monolith (lith) today, with
+its preserved 2021 build serving at the root and at
+\texttt{/classic}, valid TLS, and a new endless gallery over its full
+painting archive at \texttt{/gallery}. Along the way the archive turned
+out to be far larger and far more alive than expected, the game's save
+server turned out to be dead, and lith's TLS layer taught a lesson
+worth writing down. The work anchors the entry for the
+\textbf{.ART Award 2026} (\$15{,}000 grand prize, deadline
+November~1): \emph{No Paint, 2016--present}, an artwork that is
+literally a domain.
+
+\section{What shipped}
+
+\begin{itemize}
+  \item \ok\ \textbf{Hosting swap.} The complete 2021 Construct export
+    (165 files: runtime, 32 spritesheets, all 130 audio files, fonts,
+    icons) was mirrored from the live Vercel deployment into
+    \texttt{system/public/nopaint.art/} and now serves from lith. DNS
+    A records for the apex and \texttt{www} flipped from Vercel
+    (76.76.21.21) to lith (209.38.133.33) via \texttt{doctl}; the zone
+    was already in DigitalOcean.
+  \item \ok\ \textbf{Source recovery.} The editable Construct project
+    (\texttt{No Paint.c3p}, 7.4\,MB) was pulled from Dropbox and its
+    SHA-256 matches the provenance hash recorded in the migration
+    plan. It is extracted locally --- 45 event sheets, 82 layouts,
+    205 object types, 1{,}197 images --- so brush ports need neither
+    Dropbox nor Construct.
+  \item \ok\ \textbf{Gallery.} \url{https://nopaint.art/gallery} ---
+    an endless grid over every painting in the archive, with by-year
+    filters and a shuffle view, images served straight from the
+    existing \texttt{pix.nopaint.art} CDN, styled in the game's own
+    Pixelar face and \texttt{\#ebebeb} grey. Driven by a generated
+    1.4\,MB manifest (408\,KB gzipped).
+  \item \ok\ \textbf{Valid TLS.} Let's Encrypt production certificate,
+    \texttt{CN=nopaint.art}, valid through October 17, plus a separate
+    certificate for \texttt{www}, which 301s to the apex.
+\end{itemize}
+
+\section{The archive is alive}
+
+The project file suggested a finished 2021 artwork. The bucket says
+otherwise: \textbf{32{,}184 paintings, 3.9\,GB}, each 256$\times$288
+pixels, uploaded continuously for four years after ``Summer 2021.''
+
+\begin{center}
+\begin{tabular}{lr}
+\toprule
+\textbf{Year} & \textbf{Paintings kept} \\
+\midrule
+2021 & 15{,}407 \\
+2022 & 8{,}016 \\
+2023 & 5{,}449 \\
+2024 & 2{,}112 \\
+2025 & 1{,}200 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\pull{People kept pressing Paint for four years after the artwork was
+``done.''}
+
+The taper to zero is not fading interest --- it is infrastructure
+death. The game saves through \texttt{server.nopaint.art}, a CNAME to
+\texttt{glitch.edgeapp.net}, and Glitch no longer exists. \dead\
+Saving is broken today; restoring it (a small lith endpoint writing
+into the same DigitalOcean Space, plus a CNAME repoint) would bring
+the archive back to life. One loss to flag: the paintings carry no
+painter-handle metadata --- no PNG text chunks, no S3 metadata --- so
+attribution, if it was ever recorded, lived in the dead Glitch app.
+Worth checking for a Glitch project export before declaring it lost.
+
+\section{The TLS post-mortem}
+
+The swap's only real fight was TLS, and the loud symptom was a decoy.
+Three problems stacked:
+
+\begin{enumerate}
+  \item \textbf{DNS timing.} Caddy's first ACME attempts fired before
+    the flip propagated, so validation reached the old Vercel IP.
+  \item \textbf{Staging demotion.} After those failures Caddy demoted
+    the host to Let's Encrypt's \emph{staging} endpoint, whose
+    resolvers held the stale IP for up to the record's one-hour TTL,
+    and its retry backoff stretched to tens of minutes.
+  \item \textbf{The real bug: certificates were obtained but never
+    served.} lith's Caddyfile is one big \texttt{:443} catch-all that
+    pins its certificate selection to the Cloudflare origin
+    certificate. The Caddyfile adapter emitted \emph{only} that
+    catch-all TLS connection policy --- so every SNI, including
+    \texttt{nopaint.art}, was handed the origin certificate even
+    after issuance succeeded. \texttt{www} held a valid certificate
+    for hours without serving it. The proof and the fix both came
+    from \texttt{caddy adapt}: adding a distinct per-site TLS setting
+    (\texttt{protocols tls1.2 tls1.3}) forces an SNI-matched policy
+    with managed-certificate selection, ordered ahead of the
+    catch-all.
+\end{enumerate}
+
+The recipe is documented in the Caddyfile itself and in agent memory:
+any future direct-DNS (non-Cloudflare) domain on lith needs the same
+per-site TLS block, and \texttt{caddy adapt \textbar\ jq} verifies the
+policy order before deploying.
+
+\section{The award frame}
+
+The .ART Award 2026 (\url{https://award.art}) is uncannily aligned:
+the submission \emph{is} a .art domain URL. Grand prize \$15{,}000
+cash, plus month-long residencies in France and Spain, editorial
+coverage, and a premium .art domain; deadline November~1, winners
+December~3; no fee, no geographic restriction, multiple entries
+allowed. The jury includes Jerry Saltz and Regina Harsanyi (Museum of
+the Moving Image), whose specialty is variable-media and software
+preservation --- exactly what this project practices: a hash-verified
+source recovery, a preserved classic build at a stable URL, and a
+living native remake at the same address.
+
+\pull{The entry: No Paint, 2016--present --- an artwork that is a
+domain, submitted as the domain itself.}
+
+Materials live in \texttt{grants/dot-art-award-2026/} (research +
+draft bio, process narrative, documentation plan), with a tracker row
+on the papers deadlines page. An optional second entry --- cancelok,
+on the free-as-of-July \texttt{nopad.art} --- gets decided by
+mid-October only if it matures.
+
+\section{What's next}
+
+In order, toward November~1:
+
+\begin{enumerate}
+  \item \open\ \textbf{Restore saving.} Lith endpoint
+    $\rightarrow$ \texttt{pix.nopaint.art} Space; repoint the dead
+    \texttt{server} CNAME; regenerate the gallery manifest on save.
+    The classic game becomes fully alive for the first time since
+    2025.
+  \item \open\ \textbf{Native remake at the root.} The proposal loop
+    already landed in \ac{} (\texttt{disks/nopaint.mjs}, explicit
+    choosing/proposing/committing states plus the original weighted
+    picker and a test suite). The root page presents it; the classic
+    build stays at \texttt{/classic}.
+  \item \open\ \textbf{Port the authored brushes} from the extracted
+    event sheets --- Softy, Bubbles, Grid Worm, Walker, Banner, Wafer
+    first --- treating each sheet as a behavioral score, not code to
+    translate.
+  \item \open\ \textbf{The story page} (\texttt{/story}): 2016
+    $\rightarrow$ Summer 2021 $\rightarrow$ the quiet four years
+    $\rightarrow$ \ac{} $\rightarrow$ the remake.
+  \item \open\ \textbf{Submit}: trim bio and narrative to the form,
+    cut the 30--60s process video, verify collection claims, decide
+    the credit line (solo vs.\ the 2021 collaborators), file well
+    before the deadline.
+\end{enumerate}
+
+\vspace{1em}
+\begin{center}
+{\aclight\small\color{acgray} pressed together from the July 19
+session {\normalfont\small\color{acgray}·} \ac{}
+{\normalfont\small\color{acgray}·} the archive does not end here}
+\end{center}
+
+\end{document}

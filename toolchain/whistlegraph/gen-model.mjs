@@ -92,6 +92,18 @@ const resolve = (code) => {
   for (let i = 0; i < 8 && merges[c]; i += 1) c = merges[c]; // follow merge chains (A→B→C), cycle-guarded
   return c;
 };
+// Every durable title, attribution, recode, or merge target records a human
+// curation decision about a composition. Preserve those decisions as confirmed
+// works across model rebuilds; otherwise the candidate classifier can silently
+// demote entries Alex just named or coded (the July 17 migration dropped
+// "All These Fingers" this way). Explicit works.exclude still wins below.
+const curatedWorkCodes = new Set(workIncludes);
+for (const code of [
+  ...Object.keys(renames),
+  ...Object.keys(authors),
+  ...Object.values(recodes),
+  ...Object.values(merges),
+]) curatedWorkCodes.add(resolve(code));
 
 const catById = new Map(catalog.map((v) => [v.id, v]));
 const songByGlyph = new Map(); // cluster glyph id → its SONGS cluster (for clip metadata)
@@ -284,7 +296,7 @@ const knownCompositionCodes = new Set(
 // "experiment" was a retired tab — normalize it back to a graph.
 const normKind = (k) => (k === "experiment" ? "graph" : k);
 const workKind = (code, fallback) =>
-  workIncludes.has(code) || knownCompositionCodes.has(code) ? "graph" : normKind(fallback);
+  curatedWorkCodes.has(code) || knownCompositionCodes.has(code) ? "graph" : normKind(fallback);
 const liveWorks = live.graphs.filter((e) => !mergeSources.has(e.code)).map((e) => {
   const code = recodes[e.code] || e.code; // a recode changes a live work's slug too
   const r = rollup.get(code);
@@ -322,7 +334,7 @@ const freshWorks = clusterSite
       kind: workKind(code, cl.kind),
       status: workExcludes.has(code)
         ? "archived"
-        : workIncludes.has(code) || cl.known
+        : curatedWorkCodes.has(code) || cl.known
           ? "confirmed"
           : normKind(cl.kind) === "graph" ? "candidate" : "archived",
       views: r.views,

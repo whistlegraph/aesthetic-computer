@@ -642,6 +642,11 @@ function loadPosts(){
     POSTS_BY_ID=Object.fromEntries(ARCHIVE_POSTS.map(p=>[p.id,p]));
     POSTS_BY_CODE={};
     for(const p of ARCHIVE_POSTS) for(const code of p.works||[]) (POSTS_BY_CODE[code]||=[]).push(p);
+    // A Desk edit can remove the last contributing post from a work. Drop that
+    // now-empty code from the public index instead of leaving a dangling page.
+    const activeCodes=new Set(Object.keys(POSTS_BY_CODE));
+    WORKS=WORKS.filter(work=>activeCodes.has(work.code));
+    BY=Object.fromEntries(WORKS.map(work=>[work.code,work]));
     // Relationship edits change work reach/count immediately. Recompute from
     // patched posts so index and detail pages continue to agree.
     for(const work of WORKS){
@@ -714,6 +719,10 @@ Promise.all([
     selectSection(section,true);
   }));
   routeLocation();
+  // Keep the first paint light, then reconcile Desk relationship edits so
+  // works whose final post was removed disappear without waiting for a click.
+  const reconcilePosts=()=>loadPosts().then(()=>{if(curSection==="works"&&!document.getElementById("detail").classList.contains("on"))renderReset(true)});
+  if("requestIdleCallback" in window)requestIdleCallback(reconcilePosts);else setTimeout(reconcilePosts,0);
 });
 
 function showDetail(code, keepScroll){

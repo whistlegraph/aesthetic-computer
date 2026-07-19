@@ -36,7 +36,7 @@ supply-URLs-then-pull-stats flow like `--ids`).
 
 **Data sources**
 
-- `downloads/CATALOG.json` — full @whistlegraph TikTok metadata: **963 videos**
+- `downloads/CATALOG.json` — full @whistlegraph TikTok metadata: **2,482 videos**
   (2019-10-15 → present, 1.47B combined views), refreshed via
   `yt-dlp --flat-playlist -J --no-warnings "https://www.tiktok.com/@whistlegraph"`.
   Descriptions, view/like/comment/save counts, timestamps, durations, music
@@ -49,8 +49,21 @@ supply-URLs-then-pull-stats flow like `--ids`).
   captions in `portraits/jeffrey/curated/whistlegraph-meta.jsonl`.
 - `downloads/INDEX.json` + `grab.mjs` — per-video pulls with pitch analysis.
 
+**Machine-read visual evidence** — `visual-farm.mjs` downloads each live video
+post temporarily, samples six chronological frames into a 3×2 contact sheet,
+and asks a vision-capable OpenAI Responses API model for strict structured
+JSON. Author captions and speech transcripts are intentionally withheld from
+that request so observed visuals cannot be confused with author copy or audio
+context. Each result records sample timestamps, model, prompt version, response
+id, contact-sheet hash, and token use. Per-post checkpoints live in the ignored
+`downloads/visual-records/` directory; `--merge-only` compiles the tracked
+`downloads/VISUALS.json`, and `gen-model.mjs` attaches it to `posts.json` as
+`post.visual`. A full spend requires the explicit `--all` flag; interrupted
+runs resume by skipping completed records.
+
 **Pipeline** (per candidate): `grab.mjs <url>` → mp4 + wav + melody analysis →
-WhisperX the audio for lyrics → `ffmpeg -sseof -0.4` final frame for the glyph
+WhisperX the audio for lyrics → `visual-farm.mjs` sampled-frame evidence →
+`ffmpeg -sseof -0.4` final frame for the glyph
 (back off a few seconds when a video ends on a title card or fade) → assign a
 short code → add to the site's `WGS` table. Comments are NOT harvestable via
 yt-dlp (extractor lacks support) — would need TikTok web API or browser

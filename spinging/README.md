@@ -82,6 +82,8 @@ re-transcribed per line and the final mix once more — transcripts land
 verbatim in `out/<slug>-sung-qa.json`. QA is statistical AND machine-read,
 not ear-only.
 
+Changelog — round 6.5 (2026-07, the finisher): `sing_line_world.py` R6·5 — fricative codas actually fricate (run-out past the trimmed window + seek across closure gaps: "diminished"'s /ʃt/, "keys"' /z/), phrase-initial unvoiced fricatives stop reaching back across the phrase gap ("keys. Sus" → "kisses"), expected-unvoiced clusters forced onto the noise path, choir tacets on quick/unstressed syllables, mid-phrase word-initial plosives get a 32 ms set-up + prouder bursts ("control"'s /k/) with matching wider bed ducks in sing-jingle.mjs; the scales reel drops its spoken letter run and TTSes the ladder as spelled letter names ("See. Dee. Ee." — bare letters tripped ElevenLabs spelling mode).
+
 Changelog — round 6 (2026-07, the REGISTER round + the SCALES singalong —
 "I could be higher octave?"):
 - **Register lift** — `plan.register` (semitones) applies AFTER the per-line

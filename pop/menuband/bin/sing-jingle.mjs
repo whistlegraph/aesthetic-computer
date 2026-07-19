@@ -1,6 +1,22 @@
 #!/usr/bin/env node
 // sing-jingle.mjs — jeffrey SINGS the Menu Band campaign jingles.
 //
+// v6·5 — the finisher pass (jeffrey's v1 scales review + the two flagged
+// chord lines):
+//   · SCALES — the spoken letter run is dropped (intro straight into the
+//     singing; render-jingles.mjs retimed the bed to match) and the ladder's
+//     TTS is spelled-out letter names ("See. Dee. Ee." …) — bare letters
+//     tripped ElevenLabs into spelling mode (doubled "d", a phantom "The").
+//     Karaoke/chart still shows letters (word.display).
+//   · CHORDS — engine R6·5 (spinging/lib/sing_line_world.py): fricative
+//     codas actually fricate ("diminished"'s /ʃt/, "keys"' /z/), phrase-
+//     initial unvoiced fricatives stop reaching back across the phrase gap
+//     ("keys. Sus" → "kisses"), expected-unvoiced clusters ride the noise
+//     path, quick/unstressed syllables sing lead-only (choir tacet), and
+//     mid-phrase word-initial plosives set up longer + sit prouder
+//     ("control"'s /k/) — this file widens the bed's consonant duck spans
+//     (~25 ms early / 15 ms late) to match.
+//
 // v6 — the REGISTER round + the SCALES teaching singalong:
 //   · REGISTER — `--register <semitones>` (default +12) lifts every line
 //     that many semitones ABOVE the engine's minimal-|shift| octave fit
@@ -99,7 +115,7 @@
 //       --harmony 0.875   0 = fully spoken contour, 1 = perfect pitch lock
 
 import { spawnSync } from "node:child_process";
-import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync, readdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
@@ -218,12 +234,20 @@ const LYRICS = {
   // menuband-scales.score.json sidecar (render-jingles.mjs), so buildLines
   // assembles the words there. `register: 0` — the ladder places its own
   // absolute pitches (C3..B4, bright top, unstrained); octave_opt off.
+  //
+  // v6·5 (jeffrey's v1 review): the spoken letter run is GONE — the intro
+  // goes straight into the singing. And the ladder's TTS is SPELLED-OUT
+  // letter names, not bare letters: "C. D. E." tripped ElevenLabs into
+  // spelling mode (the "d" audibly doubled; whisper heard a leading "The").
+  // COMMAS, not periods, between the names — a period-separated take came
+  // out staccato and whisper's word timestamps smeared ("jay" sang "eye"'s
+  // vowel); the comma take flows and aligns clean.
+  // The on-screen karaoke still shows LETTERS (word.display, the big chart).
   "menuband-scales": {
     mode: "scales", register: 0,
     intro: "Here's how to type out the C scale.",
-    run: "C, D, E, F, G, A, B. Now sing it!",
-    asc: "C. D. E. F. G. A. B. H. I. J. K. L. M. N.",
-    desc: "M, L, K, J, I, H, B, A, G, F, E, D, C!",
+    asc: "See, dee, ee, eff, gee, ay, bee, aitch, eye, jay, kay, ell, em, en!",
+    desc: "Em, ell, kay, jay, eye, aitch, bee, ay, gee, eff, ee, dee, see!",
     outro: "Wanna type it yourself? Try Menu Band.",
   },
 };
@@ -765,8 +789,7 @@ function buildLines(slug) {
       })),
     });
     lines.push({ tts: spec.intro, spoken: true, t: sc.spoken.intro.t, words: [] });
-    // lettered: the run's welded "C-D-E-F-G-A-B" caption splits into letters
-    lines.push({ tts: spec.run, spoken: true, lettered: true, t: sc.spoken.run.t, words: [] });
+    // v6·5: no spoken letter run anymore — intro straight into the singing
     lines.push(sungLine(spec.asc, asc));
     lines.push(sungLine(spec.desc, desc));
     lines.push({ tts: spec.outro, spoken: true, t: sc.spoken.outro.t, words: [] });
@@ -816,6 +839,17 @@ async function singOne(slug) {
     const line = lines[li];
     const hash = createHash("sha1").update(line.tts).digest("hex").slice(0, 8);
     const mp3 = `${dir}/line-${li}-${hash}.mp3`;
+    // v6·5: dropping a line (the scales run) shifts every later line index —
+    // the hash is the take's identity, so adopt any cached take of the SAME
+    // text before spending a fresh /api/say call.
+    if (!existsSync(mp3)) {
+      const prior = readdirSync(dir).find((f) =>
+        new RegExp(`^line-\\d+-${hash}\\.mp3$`).test(f));
+      if (prior) {
+        console.log(`  line ${li}: adopting cached take ${prior}`);
+        copyFileSync(`${dir}/${prior}`, mp3);
+      }
+    }
     await ttsLine(line.tts, mp3);
 
     // ── v6 spoken lines (the scales frame): natural TTS placed verbatim at
@@ -1194,9 +1228,12 @@ async function singOne(slug) {
   {
     const ctrl = new Float32Array(master.length);
     const ramp = Math.floor(0.006 * SR);
+    // R6·5: widen every span (~25 ms early / 15 ms late) so the bed has
+    // RELEASED before the burst lands — "control"'s /k/ was legible on the
+    // lead stem but drowned in the mix.
     for (const [a, b] of consSpans) {
-      const s0 = Math.max(0, Math.floor(a * SR));
-      const s1 = Math.min(ctrl.length, Math.ceil(b * SR));
+      const s0 = Math.max(0, Math.floor((a - 0.025) * SR));
+      const s1 = Math.min(ctrl.length, Math.ceil((b + 0.015) * SR));
       for (let i = s0; i < s1; i++) {
         let g = 1;
         if (i - s0 < ramp) g = (i - s0) / ramp;
@@ -1264,7 +1301,7 @@ async function singOne(slug) {
 
   writeFileSync(`${OUT}/${slug}.words.sung.json`, JSON.stringify(sungWords, null, 2));
   writeFileSync(`${OUT}/${slug}-sung-qa.json`, JSON.stringify({
-    slug, harmony: HARMONY, engine: "spinging/lib/sing_line_world.py (round 6)",
+    slug, harmony: HARMONY, engine: "spinging/lib/sing_line_world.py (round 6.5)",
     goalposts: GOALPOSTS,
     register: { asked: specRegister, ladder: regLadder, fallbacks: regFallbacks },
     gates: { werMax: WER_GATE, voicingContinuityMin: CONTINUITY_GATE },

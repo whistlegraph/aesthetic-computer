@@ -12323,6 +12323,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    if (type === "tape:telemetry") {
+      // Stash on window so an external jam/test harness can read live
+      // rate + net-time sync offset numerically.
+      window.__tapeTelemetry = { ...content, at: performance.now() };
+      return;
+    }
+
     if (type === "tape:audio-pos") {
       // Absolute read-head position (0..1) for the tape audio — used by
       // beat jumps and chop repeats to relocate the free-running loop.

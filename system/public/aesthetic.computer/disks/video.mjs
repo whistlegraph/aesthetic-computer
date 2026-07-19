@@ -917,6 +917,22 @@ function paint({
         `sync ${errMs >= 0 ? "+" : ""}${errMs}ms`,
         { x: screen.width - 6, y: 18, right: true },
       );
+
+      // 📡 Telemetry for the jam harness (bios stashes it on window) —
+      // throttled to ~5Hz. Lets a driver prove sync/rate numerically.
+      if (Number(paintCount) % 12 === 0) {
+        send({
+          type: "tape:telemetry",
+          content: {
+            rate: liveRate,
+            pos: livePos,
+            syncMs: errMs,
+            locked,
+            scrubbing: isScrubbing,
+            style: postedTapeCode || "synth",
+          },
+        });
+      }
     }
 
     // 🧭 Gesture vector: anchor → finger, with the horizontal component
@@ -1193,26 +1209,26 @@ function sim({ needsPaint, rec, send, clock }) {
       }
     }
 
-    // 🌀 Friction: even a parked rate isn't forever — it glides home to
-    // 1× over a few seconds, like a wheel that always feels the bearing.
-    // It never hands off: the drive just converges to exactly 1.0 and
-    // keeps driving — seamless by construction.
+    // 🌀🕰️ Bearing + net-time PLL: a released/parked rate glides home, and
+    // "home" is the AC network-clock phase grid — not just 1×. The target
+    // rate is 1× plus a phase-correcting lean (up to ±35%, decaying to 0 as
+    // the loop comes into phase), and the rate eases toward it smoothly, so
+    // it's always the same gesture: let go, the wheel finds the groove and
+    // locks. Never a jump. (The steady-dial holds a rate friction-free; a
+    // held chop owns position — both opt out.)
     if (sustained && !steadyHold && !isScrubbing && !chopActive) {
-      scrubSpeed += (1 - scrubSpeed) * (1 - Math.pow(0.9965, rate));
-      if (Math.abs(scrubSpeed - 1) < 0.005) scrubSpeed = 1;
-
-      // 🕰️ Net-time phase pull: at rest the loop always lerps toward the
-      // AC network clock's phase grid (clock.mjs / /api/clock synced), so
-      // every player of this tape converges into unison — a gentle ±5%
-      // tempo lean, never a jump.
-      if (Math.abs(scrubSpeed - 1) < 0.01) {
-        const durMs = totalDuration * 1000;
-        const nowMs = clock?.time?.()?.getTime?.() ?? Date.now();
-        const target = (nowMs % durMs) / durMs;
-        let phaseErr = target - scrubCurrentProgress;
-        if (phaseErr > 0.5) phaseErr -= 1;
-        else if (phaseErr < -0.5) phaseErr += 1;
-        scrubSpeed = 1 + Math.max(-0.05, Math.min(0.05, phaseErr * 0.15));
+      const durMs = totalDuration * 1000;
+      const nowMs = clock?.time?.()?.getTime?.() ?? Date.now();
+      let phaseErr = ((nowMs % durMs) / durMs) - scrubCurrentProgress;
+      if (phaseErr > 0.5) phaseErr -= 1;
+      else if (phaseErr < -0.5) phaseErr += 1;
+      const lean = Math.max(-0.35, Math.min(0.35, phaseErr * 1.4));
+      const targetRate = 1 + lean;
+      // Ease toward target — homes a big displacement in ~2s, musical warp.
+      scrubSpeed += (targetRate - scrubSpeed) * (1 - Math.pow(0.94, rate));
+      // Locked: at 1× and in phase → pin exactly, the drive is now playback.
+      if (Math.abs(scrubSpeed - 1) < 0.004 && Math.abs(phaseErr) < 0.0015) {
+        scrubSpeed = 1;
       }
     }
 

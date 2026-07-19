@@ -49,3 +49,16 @@ Status: `received` → `verified` → `applied` → `live`
 | applied | Restore “Pointing, Painting, Picture Taking” as confirmed whistlegraph `[pics]`, including post `6916051720535559430`. |
 | applied | Rename the site tabs “Works” → “Whistlegraphs” and “Archive” → “Posts”. |
 | applied | Associate “always more butterfliez” (`6989208651135274245`) with both “Scared of Stairs” `[sos]` and “Butterfly Cosplayer” `[imab]`. |
+
+## Received July 19, 2026
+
+| Status | Request |
+|---|---|
+| applied | “Being Clean Isn't My Thing” — code `[pigg]`; include both matching performances. |
+| applied | “Triangle Pose” — code `[pose]`; source post `6946003250336255237`; author Camille Klein. |
+| applied | “I Miss My Girlfriend” — code `[mmgf]`; include the full performance and the later principles/rules post that performs its opening. |
+| applied | Restore “Lost Dog” as `[ldog]`; include the three matching takes and the Kitty/Doggy mashup already cross-tagged with the work. |
+| applied | Saving or restoring a Desk entry keeps the current list depth and scroll position. |
+| applied | Explicit human curation (titles, authors, recodes, and merge targets) remains confirmed across taxonomy rebuilds; restores “All These Fingers” `[fing]` and the other July curation entries demoted on July 17. |
+| applied | Hide work codes whose last contributing post was removed by a Desk relationship edit. |
+| received | Add richer hidden tags / visual descriptions so archive search can find concepts such as “finger painting,” colors, and number of people. |
