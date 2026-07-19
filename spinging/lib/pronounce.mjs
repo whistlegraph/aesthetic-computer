@@ -1,17 +1,22 @@
-// pronounce.mjs — definitive pronunciations for spinging (round 3).
+// pronounce.mjs — definitive pronunciations for spinging (round 4).
 //
 // word → curated IPA + syllable structure {onset, nucleus, coda} — the ground
 // truth the choral notation and the guided aligner sing from, so phonemes are
 // never guessed from spectra alone.
 //
-// Source chain (each hit cached forever in spinging/cache/pronounce.json):
-//   1 · en.wiktionary.org — MediaWiki parse API, English section, first
-//       {{IPA|en|…}} transcription (US/GA variant preferred). Curated by
-//       humans; usually carries syllable dots.
-//   2 · espeak --ipa (brew espeak) — machine G2P, still real IPA.
-//   3 · a tiny built-in table for anything both miss.
+// Source chain (each hit cached in spinging/cache/pronounce.json, versioned):
+//   1 · en.wiktionary.org — MediaWiki parse API, English section. Round 4:
+//       accent tags are read PER LINE (they usually live in the adjacent
+//       {{enPR|…|a=GA}} / {{a|US}} template, NOT inside {{IPA|en|…}} — the
+//       round-3 in-template-only read is how RP /stɔː/ slipped in for
+//       "store"). A US/GA/GenAm-tagged line is REQUIRED; an untagged line is
+//       accepted only if it passes the usSafe() rhotic screen.
+//   2 · espeak --ipa -v en-us (brew espeak) — machine G2P, rhotic GenAm.
+//   3 · a built-in GenAm table for anything both miss.
 //
 // CLI:  node spinging/lib/pronounce.mjs word [word …]
+//       node spinging/lib/pronounce.mjs --audit   (re-resolve every cached
+//         word with the current chain and report what changed)
 // API:  await pronounce("synthesizer") →
 //   { word, ipa, source, syllables: [{ onset:[{ipa,cls,voiced}],
 //     nucleus:{ipa,cls:"vowel",voiced:true}, coda:[…], stress }] }
@@ -165,6 +170,39 @@ function structure({ phones, stress }) {
 }
 
 // ── sources ────────────────────────────────────────────────────────────────
+const US_RE = /(?:^|[^A-Za-z])(?:US|U\.S\.|GA|GenAm|General American|American?)(?:$|[^A-Za-z])/i;
+const NON_US_RE = /(?:^|[^A-Za-z])(?:UK|RP|British|England|non-rhotic|Received|Australia|AU|NZ|Ireland|Scotland)(?:$|[^A-Za-z])/i;
+
+// GenAm plausibility screen for accent-UNTAGGED transcriptions: reject the
+// tell-tale UK vowels (ɒ, əʊ, ɐ) and any long back vowel that isn't followed
+// by a rhotic — /stɔː/-shaped non-rhotic forms. "(ɹ)" counts as rhotic (the
+// tokenizer keeps parenthesized phones).
+export function usSafe(ipa) {
+  const s = ipa.replace(/^[/\[]|[/\]]$/g, "").replace(/\(ɹ\)/g, "ɹ");
+  if (/[ɒ]/.test(s) || /əʊ/.test(s) || /ɐ/.test(s)) return false;
+  if (/[ɔɑɜ]ː(?![ɹr˞])/.test(s)) return false;
+  if (/[oɔu]ə/.test(s)) return false; // centering diphthongs ([foə]) = dropped ɹ
+  return true;
+}
+
+// Wiktionary's newer Lindsey-style FLEECE/GOOSE spellings → classic GenAm so
+// the syllabifier lands on the right nucleus ("three" /θɹɪj/ → /θɹiː/).
+function normalizeIPA(ipa) {
+  return ipa.replace(/ɪj/g, "iː").replace(/ʉw/g, "uː").replace(/ʊw/g, "uː");
+}
+
+// Accent qualifiers for ONE wikitext line: {{a|US}} / {{accent|…}} templates
+// plus a= / aa= params of ANY template on the line ({{enPR|stôr|a=GA}} is
+// where US tags actually live on most pages).
+function lineAccents(line) {
+  const acc = [];
+  for (const m of line.matchAll(/\{\{(?:a|accent)\|([^{}]+)\}\}/g))
+    acc.push(...m[1].split("|").filter((p) => !/=/.test(p) && p !== "en"));
+  for (const m of line.matchAll(/\ba{1,2}=([^|{}]+)/g))
+    acc.push(...m[1].split(","));
+  return acc;
+}
+
 async function fromWiktionary(word) {
   const url = `https://en.wiktionary.org/w/api.php?action=parse&page=${encodeURIComponent(word)}` +
     `&prop=wikitext&format=json&formatversion=2&redirects=1`;
@@ -175,34 +213,55 @@ async function fromWiktionary(word) {
   if (!wt) return null;
   const en = wt.split(/^==English==/m)[1]?.split(/^==[A-Z]/m)[0];
   if (!en) return null;
-  const hits = [...en.matchAll(/\{\{IPA\|en\|([^}]+)\}\}/g)].map((m) => m[1]);
-  if (!hits.length) return null;
-  // each hit = pipe-separated transcriptions + qualifiers like a=US
-  const parsed = [];
-  for (const h of hits) {
-    const parts = h.split("|");
-    const accents = parts.filter((p) => p.startsWith("a=")).map((p) => p.slice(2));
-    for (const p of parts) {
-      if (/^[/\[].+[/\]]$/.test(p.trim()))
-        parsed.push({ ipa: p.trim(), us: /US|GA|GenAm/i.test(accents.join(",")) });
+  const candidates = []; // { ipa, us, untagged } in page order
+  for (const line of en.split("\n")) {
+    const ipaTemplates = [...line.matchAll(/\{\{IPA\|en\|([^{}]+)\}\}/g)];
+    if (!ipaTemplates.length) continue;
+    const accents = lineAccents(line).join(",");
+    const nonUs = NON_US_RE.test(accents);
+    // "UK,US" combo tags still count as US; only an explicit non-rhotic
+    // qualifier disqualifies (that's a dropped-ɹ variant by definition)
+    const us = US_RE.test(accents) && !/non-rhotic/i.test(accents);
+    for (const m of ipaTemplates) {
+      for (const p of m[1].split("|")) {
+        const t = p.trim();
+        // phonemic /…/ preferred; phonetic […] accepted
+        if (/^[/\[].+[/\]]$/.test(t)) {
+          candidates.push({ ipa: t, us, untagged: accents.length === 0 && !nonUs });
+        }
+      }
     }
   }
-  if (!parsed.length) return null;
-  const pick = parsed.find((p) => p.us) || parsed[0];
-  return { ipa: pick.ipa, source: "wiktionary" };
+  if (!candidates.length) return null;
+  const phonemicFirst = (list) =>
+    list.find((c) => c.ipa.startsWith("/")) || list[0];
+  // a US tag can still dress a narrow regional variant ([foə] aa=US,non-
+  // rhotic) — every pick must ALSO pass the rhotic screen
+  const usHit = candidates.filter((c) => c.us && usSafe(c.ipa));
+  if (usHit.length) {
+    return { ipa: normalizeIPA(phonemicFirst(usHit).ipa), source: "wiktionary", accent: "US" };
+  }
+  const untagged = candidates.filter((c) => c.untagged && usSafe(c.ipa));
+  if (untagged.length) {
+    return { ipa: normalizeIPA(phonemicFirst(untagged).ipa), source: "wiktionary", accent: "untagged-usSafe" };
+  }
+  return null; // only non-US / rhotically unsafe lines → let espeak en-us speak
 }
 
 function fromEspeak(word) {
-  const r = spawnSync("espeak", ["-q", "--ipa", word], { encoding: "utf8" });
+  const r = spawnSync("espeak", ["-q", "--ipa", "-v", "en-us", word], { encoding: "utf8" });
   if (r.status !== 0) return null;
   const ipa = (r.stdout || "").trim();
   if (!ipa) return null;
-  return { ipa: `/${ipa}/`, source: "espeak" };
+  return { ipa: `/${ipa}/`, source: "espeak", accent: "en-us" };
 }
 
 const BUILTIN = {
-  // last-resort seeds for words both sources might fumble
+  // curated GenAm seeds for words the sources fumble
   "it's": "/ɪts/", sus: "/sʌs/", app: "/æp/", dot: "/dɑt/", yeah: "/jɛə/",
+  store: "/stɔɹ/", chord: "/kɔɹd/", your: "/jɔɹ/", under: "/ˈʌn.dɚ/",
+  up: "/ʌp/", in: "/ɪn/", on: "/ɔn/", three: "/θɹiː/", to: "/tu/",
+  a: "/ə/", the: "/ðə/",
 };
 
 // ── cache + public API ─────────────────────────────────────────────────────
@@ -216,16 +275,26 @@ function saveCache(c) {
 
 export const sourceCounts = { wiktionary: 0, espeak: 0, builtin: 0, cache: 0 };
 
+// Cache format version — bump to invalidate every cached word (round 4: the
+// per-line accent read + usSafe screen obsoleted every round-3 entry).
+const CACHE_V = 4;
+
+async function resolveWord(word) {
+  let entry = await fromWiktionary(word).catch(() => null);
+  if (!entry) entry = fromEspeak(word);
+  if (!entry && BUILTIN[word]) entry = { ipa: BUILTIN[word], source: "builtin", accent: "builtin" };
+  if (!entry) throw new Error(`pronounce: no IPA for "${word}" from any source`);
+  return entry;
+}
+
 export async function pronounce(rawWord) {
   const word = rawWord.toLowerCase().replace(/[^a-z']/g, "");
   const cache = loadCache();
   let entry = cache[word];
-  if (entry) sourceCounts.cache++;
-  if (!entry) {
-    entry = await fromWiktionary(word).catch(() => null);
-    if (!entry && BUILTIN[word]) entry = { ipa: BUILTIN[word], source: "builtin" };
-    if (!entry) entry = fromEspeak(word);
-    if (!entry) throw new Error(`pronounce: no IPA for "${word}" from any source`);
+  if (entry && entry.v === CACHE_V) sourceCounts.cache++;
+  else {
+    entry = await resolveWord(word);
+    entry.v = CACHE_V;
     entry.fetchedAt = new Date().toISOString();
     cache[word] = entry;
     saveCache(cache);
@@ -243,8 +312,27 @@ export async function pronounceAll(words) {
 
 // ── CLI ────────────────────────────────────────────────────────────────────
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const words = process.argv.slice(2);
-  if (!words.length) { console.log("usage: pronounce.mjs word [word …]"); process.exit(2); }
+  let words = process.argv.slice(2);
+  if (words[0] === "--audit") {
+    // Re-resolve every cached word with the current chain; report changes.
+    const cache = loadCache();
+    const audited = {};
+    let changed = 0;
+    for (const w of Object.keys(cache)) {
+      const old = cache[w];
+      const fresh = await resolveWord(w);
+      fresh.v = CACHE_V;
+      fresh.fetchedAt = new Date().toISOString();
+      audited[w] = fresh;
+      const flag = old.ipa !== fresh.ipa ? "CHANGED" : usSafe(fresh.ipa) ? "ok" : "⚠ still-suspect";
+      if (old.ipa !== fresh.ipa) changed++;
+      console.log(`${w.padEnd(14)} ${String(old.ipa).padEnd(26)} → ${fresh.ipa.padEnd(26)} [${fresh.source}/${fresh.accent ?? "?"}] ${flag}`);
+    }
+    saveCache(audited);
+    console.log(`\n${changed}/${Object.keys(cache).length} entries changed; cache rewritten at v${CACHE_V}`);
+    process.exit(0);
+  }
+  if (!words.length) { console.log("usage: pronounce.mjs [--audit] word [word …]"); process.exit(2); }
   for (const w of words) {
     const p = await pronounce(w);
     const syl = p.syllables.map((s) =>

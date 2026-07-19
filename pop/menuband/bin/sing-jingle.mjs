@@ -1,7 +1,27 @@
 #!/usr/bin/env node
 // sing-jingle.mjs — jeffrey SINGS the Menu Band campaign jingles.
 //
-// v3 — the spinging engine round. The line-continuous WORLD chain of v2 now
+// v4 — the legato/intelligibility round, per jeffrey's round-3 notes:
+//   · LEGATO — phrase grouping now comes from the notation sidecar
+//     (punctuation + melody rests ≥ 0.4 s); inside a phrase the engine
+//     bridges inter-word gaps (sustained vowel, gliding f0, shallow energy
+//     dip) so words stop being islands. Karaoke word windows extend across
+//     bridges. QA gate: intra-phrase voicing continuity ≥ 95 %.
+//   · VOICED ONSETS — m/n/l/w… notes begin ON the note through the WORLD
+//     pitch path ("mac"'s m no longer floats a beat early at spoken pitch).
+//   · ALIGNMENT — whisper punctuation tokens no longer smear word ends into
+//     trailing silence (the round-3 "synthesizer" axis collapse), final-word
+//     repairs may reclaim the line tail, and adjacent word windows can't
+//     overlap (the "mac app" double-sing).
+//   · WHISPER ROUND-TRIP GATE — every rendered line is transcribed back by
+//     whisper-cli; per-line WER vs the lyric must be ≤ 0.25 with every
+//     content word present, else the line re-renders with clarity tweaks.
+//     The vocal stem is re-transcribed per line and the final mixed reel
+//     once more as a smoke check; transcripts land verbatim in the QA
+//     sidecar.
+//   · US IPA — pronounce.mjs now demands GenAm ("store" /stɔɹ/, not /stɔː/).
+//
+// v3 (kept) — the spinging engine round. The line-continuous WORLD chain
 // lives in spinging/lib (this script is its first caller), grounded in TEXT
 // rather than spectra alone. Per line:
 //
@@ -35,7 +55,7 @@
 //       --harmony 0.875   0 = fully spoken contour, 1 = perfect pitch lock
 
 import { spawnSync } from "node:child_process";
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
@@ -63,6 +83,10 @@ const SR = 48_000;
 const hIdx = process.argv.indexOf("--harmony");
 const HARMONY = hIdx > 0 ? parseFloat(process.argv[hIdx + 1]) : 0.875;
 const QA_PASSES = 3;         // re-render budget per line (percentile gate)
+const CLARITY_PASSES = 2;    // extra re-renders if the whisper WER gate fails
+const BRIDGE_MAX_S = 0.45;   // keep in sync with sing_line_world.BRIDGE_MAX_S
+const WER_GATE = 0.25;       // per-line whisper round-trip ceiling
+const CONTINUITY_GATE = 0.95; // intra-phrase voicing continuity floor
 
 // ── the lyrics ─────────────────────────────────────────────────────────────
 // "lead" mode: words consume the jingle's lead notes in order — [word, nSlots]
@@ -225,6 +249,11 @@ async function ttsLineOnce(text, outFile) {
 }
 
 // whisper.cpp -ml 1 tokens → words (the leading-space merge — yc-ref/lib/words.mjs)
+// Punctuation-only tokens merge their TEXT but never their TIME: whisper
+// stamps a trailing "." across the line's silent tail, and letting it extend
+// the previous word's window is what collapsed round 3's "synthesizer" line
+// (rescaleHeard saw a word "ending" at the file end and squashed the axis).
+const punctOnly = (s) => /^[^\w'"“”‘’(]+$/.test(s);
 function wordsFromWhisper(jsonPath) {
   const raw = JSON.parse(readFileSync(jsonPath, "utf8"));
   const words = [];
@@ -237,15 +266,14 @@ function wordsFromWhisper(jsonPath) {
     } else {
       const prev = words[words.length - 1];
       prev.text += text;
-      prev.toMs = seg.offsets.to;
+      if (!punctOnly(text)) prev.toMs = seg.offsets.to;
     }
   }
   const merged = [];
   for (const w of words) {
-    if (/^[^\w'"“”‘’(]+$/.test(w.text) && merged.length > 0) {
+    if (punctOnly(w.text) && merged.length > 0) {
       const prev = merged[merged.length - 1];
       prev.text += w.text;
-      prev.toMs = Math.max(prev.toMs, w.toMs);
     } else merged.push(w);
   }
   return merged;
@@ -297,6 +325,97 @@ function editDist(a, b) {
     prev = curr;
   }
   return prev[n];
+}
+
+// ── whisper round-trip intelligibility (round 4 — jeffrey's hard gate) ─────
+// "confirm with whisper end-to-end that we can still machine read the output
+// sung lyrics." Rendered vocals are transcribed back and scored per line.
+const STOPWORDS = new Set(["a", "an", "the", "in", "on", "of", "to", "for",
+  "your", "its", "is", "and", "at", "up", "out"]);
+const HOMOPHONES = {
+  to: "two", too: "two", for: "four", fore: "four", ate: "eight",
+  won: "one", banned: "band", cord: "chord", cords: "chords", suss: "sus",
+  knew: "new", oar: "or", ore: "or", write: "right", rite: "right",
+};
+function normTokens(text) {
+  const rough = String(text).toLowerCase()
+    .replace(/[’‘]/g, "'")
+    .replace(/[.…]+/g, " ")          // dots split welded "menuband.app"
+    .replace(/[^a-z0-9' ]+/g, " ")
+    .split(/\s+/).filter(Boolean);
+  const out = [];
+  for (const w of rough) {
+    if (/^\d+$/.test(w)) out.push(...numberToWords(parseInt(w, 10)));
+    else out.push(w.replace(/'/g, ""));
+  }
+  return out.map((w) => HOMOPHONES[w] || w);
+}
+const tokEq = (a, b) =>
+  a === b || (a.length >= 3 && b.length >= 3 && editDist(a, b) <= 1);
+// split hyp tokens that are welds of consecutive ref tokens ("menubandapp")
+function dewedge(refToks, hypToks) {
+  const out = [];
+  let i = 0;
+  for (const h of hypToks) {
+    let done = false;
+    for (let s = i; s < refToks.length && !done; s++) {
+      if (tokEq(refToks[s], h)) { out.push(refToks[s]); i = s + 1; done = true; break; }
+      for (let k = 2; k <= 4 && s + k <= refToks.length; k++) {
+        const cat = refToks.slice(s, s + k).join("");
+        if (editDist(cat, h) <= Math.max(1, Math.ceil(cat.length / 5))) {
+          out.push(...refToks.slice(s, s + k));
+          i = s + k; done = true; break;
+        }
+      }
+    }
+    if (!done) out.push(h);
+  }
+  return out;
+}
+// token-level Levenshtein with fuzzy (≤1 edit) substitutions counted as hits
+function werScore(refToks, hypToks) {
+  const m = refToks.length, n = hypToks.length;
+  let prev = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i++) {
+    const curr = [i];
+    for (let j = 1; j <= n; j++) {
+      const sub = (tokEq(refToks[i - 1], hypToks[j - 1]) ? 0 : 1) + prev[j - 1];
+      curr[j] = Math.min(sub, 1 + prev[j], 1 + curr[j - 1]);
+    }
+    prev = curr;
+  }
+  return m ? prev[n] / m : 0;
+}
+function evalWER(refText, hypText) {
+  const ref = normTokens(refText);
+  const hyp = dewedge(ref, normTokens(hypText));
+  const wer = +werScore(ref, hyp).toFixed(3);
+  const missing = ref.filter((w) =>
+    w.length >= 3 && !STOPWORDS.has(w) && !hyp.some((h) => tokEq(w, h)));
+  return { wer, missing, pass: wer <= WER_GATE && missing.length === 0 };
+}
+
+// whisper-cli full transcription (segments, not -ml 1) of any audio file —
+// always re-runs (renders change under the same path).
+function whisperTranscribe(audioPath) {
+  const wav16 = audioPath.replace(/\.(wav|mp3)$/, "") + "-tx16k.wav";
+  sh("ffmpeg", ["-y", "-v", "error", "-i", audioPath, "-ac", "1", "-ar", "16000", wav16]);
+  const oPath = wav16.replace(/\.wav$/, "");
+  sh("whisper-cli", ["-m", WHISPER_MODEL, "-f", wav16, "-oj", "-of", oPath],
+    { stdio: ["ignore", "ignore", "pipe"] });
+  const j = JSON.parse(readFileSync(`${oPath}.json`, "utf8"));
+  return j.transcription.map((s) => s.text).join(" ").replace(/\s+/g, " ").trim();
+}
+// transcribe a time span of a longer file (per-line stem checks)
+function whisperTranscribeSpan(audioPath, t0, t1, outBase) {
+  const seg = `${outBase}.wav`;
+  sh("ffmpeg", ["-y", "-v", "error", "-i", audioPath,
+    "-ss", Math.max(0, t0).toFixed(3), "-to", t1.toFixed(3),
+    "-ac", "1", "-ar", "16000", seg]);
+  sh("whisper-cli", ["-m", WHISPER_MODEL, "-f", seg, "-oj", "-of", outBase],
+    { stdio: ["ignore", "ignore", "pipe"] });
+  const j = JSON.parse(readFileSync(`${outBase}.json`, "utf8"));
+  return j.transcription.map((s) => s.text).join(" ").replace(/\s+/g, " ").trim();
 }
 
 // Whisper loves to weld words together ("menu band dot app" → "menuband.app.",
@@ -435,13 +554,41 @@ function repairWindows(windows, lineLenMs, audio) {
     while (j < windows.length && windows[j].toMs - windows[j].fromMs < 60) j++;
     const host = i > 0 ? windows[i - 1] : null;
     const hostStart = host ? host.fromMs : 0;
-    const hostEnd = Math.min(lineLenMs, Math.max(windows[j - 1].toMs, host ? host.toMs : 0));
+    // A degenerate run at the LINE END: whisper either stamped the words
+    // zero-width at the file end with their audio still AHEAD (then the
+    // remaining speech after the host's end is theirs — keep the host's own
+    // good boundary! re-splitting from the host start is how "now" stole the
+    // "si" out of round 4's "synthesizer") … or buried their audio INSIDE
+    // the host window ("Type" 110-1020 holding "type to play") — then fall
+    // back to re-splitting the host span.
+    if (j >= windows.length && host) {
+      const tail = energySplit(audio, host.toMs, lineLenMs, j - i);
+      const speechMs = tail[tail.length - 1] - tail[0];
+      if (speechMs >= 120 * (j - i)) {
+        for (let w = i, k = 0; w < j; w++, k++) {
+          windows[w].fromMs = tail[k]; windows[w].toMs = tail[k + 1];
+        }
+        i = j; continue;
+      }
+    }
+    const hostEnd = j >= windows.length ? lineLenMs
+      : Math.min(lineLenMs, Math.max(windows[j - 1].toMs, host ? host.toMs : 0));
     const parts = (host ? 1 : 0) + (j - i);
     const bounds = energySplit(audio, hostStart, hostEnd, parts);
     let k = 0;
     if (host) { host.fromMs = bounds[0]; host.toMs = bounds[1]; k = 1; }
     for (let w = i; w < j; w++, k++) { windows[w].fromMs = bounds[k]; windows[w].toMs = bounds[k + 1]; }
     i = j;
+  }
+  // Adjacent words must never share audio (round 3's "mac app" overlap sang
+  // the same /æ/ on two beats) — clamp overlaps to the midpoint.
+  for (let k = 1; k < windows.length; k++) {
+    const a = windows[k - 1], b = windows[k];
+    if (b.fromMs < a.toMs) {
+      const mid = Math.round((Math.max(b.fromMs, a.fromMs) + a.toMs) / 2);
+      a.toMs = Math.max(a.fromMs + 40, mid);
+      b.fromMs = Math.min(a.toMs, Math.max(b.toMs - 40, mid));
+    }
   }
   return windows;
 }
@@ -489,6 +636,7 @@ async function singOne(slug) {
   const sungWords = [];
   const report = [];
   const qaLines = [];
+  const lineSpans = [];   // absolute spans for the per-line stem re-transcribe
   if (!existsSync(GOALPOSTS)) {
     throw new Error(`goalposts missing: ${GOALPOSTS} — build with spinging goalposts`);
   }
@@ -528,6 +676,22 @@ async function singOne(slug) {
 
     console.log(`  line ${li}: "${line.tts}" · whisper heard "${heard.map((h) => h.text).join(" ")}"`);
 
+    // ── choral notation sidecar (round 4: phrase grouping lives HERE — lyric
+    // punctuation + melody rests ≥ 0.4 s; the engine bridges legato inside a
+    // phrase and breathes only at its edges). Phonemes from curated US IPA.
+    const score = await buildLineScore({
+      text: line.tts,
+      words: line.words.map((w) => ({ w: w.w, slots: w.slots })),
+    });
+    const scorePath = `${dir}/words/line-${li}-score.json`;
+    writeLineScore(scorePath, score);
+    const phraseStartOf = new Array(line.words.length).fill(false);
+    for (const n of score.notes) {
+      if (n.syllableIndex === 0 && n.articulation === "phraseStart") {
+        phraseStartOf[n.wordIndex] = true;
+      }
+    }
+
     // ── plan the line for sing_line_world.py ───────────────────────────────
     const planWords = [];
     for (let wi = 0; wi < line.words.length; wi++) {
@@ -554,26 +718,25 @@ async function singOne(slug) {
       if (nextWin) s1 = Math.min(s1, (win.toMs + nextWin.fromMs) / 2 + 20);
       s0 = Math.max(0, s0); s1 = Math.min(lineLen * 1000, s1);
 
-      // a phrase starts at the line top or after an audible source gap
-      const phraseStart = wi === 0 || (prevWin && win.fromMs - prevWin.toMs > 150);
-
       planWords.push({
         w: word.w, wordIndex: wi, srcFromMs: Math.round(s0), srcToMs: Math.round(s1),
-        slots, hardEnd: +tEnd.toFixed(4), phraseStart: !!phraseStart,
+        slots, hardEnd: +tEnd.toFixed(4), phraseStart: phraseStartOf[wi],
       });
       sungWords.push({
         text: word.w, fromMs: Math.round(tStart * 1000), toMs: Math.round(tEnd * 1000), line: li,
       });
     }
 
-    // ── choral notation sidecar (part A2) — the aligner + synthesizer both
-    // consume this; phonemes come from curated IPA, not spectra.
-    const score = await buildLineScore({
-      text: line.tts,
-      words: planWords.map((p) => ({ w: p.w, slots: p.slots, phraseStart: p.phraseStart })),
-    });
-    const scorePath = `${dir}/words/line-${li}-score.json`;
-    writeLineScore(scorePath, score);
+    // karaoke windows ride the legato bridges — a bridged word keeps
+    // sounding until the next word starts, so its caption should too
+    const lineWord0 = sungWords.length - line.words.length;
+    for (let wi = 0; wi + 1 < line.words.length; wi++) {
+      if (phraseStartOf[wi + 1]) continue;
+      const cur = sungWords[lineWord0 + wi];
+      const nxt = sungWords[lineWord0 + wi + 1];
+      const gap = nxt.fromMs - cur.toMs;
+      if (gap > 0 && gap <= BRIDGE_MAX_S * 1000) cur.toMs = nxt.fromMs;
+    }
 
     const lineT0 = Math.max(0, planWords[0].slots[0].t - 0.35);
     const lineT1 = Math.min(durationSec, planWords[planWords.length - 1].hardEnd + 0.4);
@@ -585,10 +748,7 @@ async function singOne(slug) {
     // drift starts at the calibrated point where announce's lines land inside
     // the reference plateau-drift band on pass 1
     const tweaks = { drift_scale: 1.6, glide_scale: 1, vib_depth_scale: 1, beta_scale: 1, air_scale: 1 };
-    let stats = {};
-    let passes = 0;
-    for (let pass = 1; pass <= QA_PASSES; pass++) {
-      passes = pass;
+    const renderPlan = () => {
       const plan = {
         line_wav: w48,
         out_wav: outWav,
@@ -598,13 +758,23 @@ async function singOne(slug) {
         line_t0: +lineT0.toFixed(4), line_t1: +lineT1.toFixed(4),
         harmony: HARMONY, seed: 7 + li,
         f0_floor: 60, f0_ceil: 300,        // jeffrey's real range — de-kermit
+        // (the octave optimizer weighs words by voiced evidence instead of
+        // narrowing this ceiling — the TTS exclamations genuinely peak high)
         octave_opt: true, choir: true,
         tweaks,
         words: planWords,
       };
       writeFileSync(planPath, JSON.stringify(plan, null, 1));
       const wr = sh(VENV_PY, [WORLD_HELPER, planPath]);
-      try { stats = JSON.parse(wr.stdout.trim().split("\n").pop()); } catch {}
+      let st = {};
+      try { st = JSON.parse(wr.stdout.trim().split("\n").pop()); } catch {}
+      return st;
+    };
+    let stats = {};
+    let passes = 0;
+    for (let pass = 1; pass <= QA_PASSES; pass++) {
+      passes = pass;
+      stats = renderPlan();
       if (stats.error) break;
       const clean = stats.clicks && stats.clicks.clicks === 0 && stats.clicks.flux_spikes === 0;
       if ((!stats.conformance || stats.conformance._pass) && clean) break;
@@ -616,6 +786,44 @@ async function singOne(slug) {
     if (stats.error) {
       report.push({ slug, line: li, word: "(line)", note: stats.error });
       continue;
+    }
+
+    // ── whisper round-trip gate (round 4): the rendered line must still be
+    // machine-readable — WER ≤ 0.25 + every content word present, else
+    // re-render with clarity tweaks (less air/vibrato masking) ─────────────
+    let transcript = whisperTranscribe(outWav);
+    let werRes = evalWER(line.tts, transcript);
+    let clarityPasses = 0;
+    if (!werRes.pass) {
+      const bestWav = `${dir}/words/line-${li}-sung-best.wav`;
+      let best = { wer: werRes.wer, transcript, stats };
+      let lastIsBest = true;
+      copyFileSync(outWav, bestWav);
+      for (let cp = 1; cp <= CLARITY_PASSES && !werRes.pass; cp++) {
+        clarityPasses = cp;
+        tweaks.air_scale *= 0.6;
+        tweaks.vib_depth_scale *= 0.7;
+        console.log(`    ↻ clarity pass ${cp}: WER ${werRes.wer} ` +
+          `(heard "${transcript}") — re-render with less air/vibrato`);
+        const st = renderPlan();
+        if (st.error) break;
+        const tx = whisperTranscribe(outWav);
+        const wr2 = evalWER(line.tts, tx);
+        // STRICT improvement only — a tie keeps the earlier take, whose air
+        // still sits inside the goalpost hf_ratio band (angelic regression)
+        if (wr2.wer < best.wer) {
+          best = { wer: wr2.wer, transcript: tx, stats: st };
+          copyFileSync(outWav, bestWav);
+          lastIsBest = true;
+        } else lastIsBest = false;
+        werRes = wr2; transcript = tx; stats = st;
+      }
+      if (!lastIsBest) {
+        // the final re-render didn't win — restore the best-scoring take
+        copyFileSync(bestWav, outWav);
+        werRes = { ...evalWER(line.tts, best.transcript) };
+        transcript = best.transcript; stats = best.stats;
+      }
     }
     for (const w of stats.words || []) {
       report.push({
@@ -630,18 +838,33 @@ async function singOne(slug) {
         .filter(([k, v]) => !k.startsWith("_") && v && v.pass === false)
         .map(([k, v]) => `${k}=${v.value}∉[${v.lo},${v.hi}]`)
       : [];
+    const cont = stats.voicing_continuity || {};
+    const contPass = cont.min == null || cont.min >= CONTINUITY_GATE;
     report.push({
       slug, line: li, word: "(qa)", info:
         `f0 jumps max ${stats.f0_jump_max_cents}¢ p95 ${stats.f0_jump_p95_cents}¢ · ` +
         `oct ${stats.line_transpose >= 0 ? "+" : ""}${stats.line_transpose} · β ${stats.beta} · ` +
-        `passes ${passes} · conf ${stats.conformance ? (stats.conformance._pass ? "PASS" : "miss: " + confBits.join(" ")) : "n/a"} · ` +
-        `clicks ${stats.clicks?.clicks ?? "?"}/${stats.clicks?.flux_spikes ?? "?"}`,
+        `passes ${passes}+${clarityPasses} · conf ${stats.conformance ? (stats.conformance._pass ? "PASS" : "miss: " + confBits.join(" ")) : "n/a"} · ` +
+        `clicks ${stats.clicks?.clicks ?? "?"}/${stats.clicks?.flux_spikes ?? "?"} · ` +
+        `legato ${cont.min ?? "?"} (${cont.bridges ?? 0} bridges) ${contPass ? "PASS" : "FAIL"} · ` +
+        `onset-jump ${stats.voiced_onset_jump_max_cents ?? "?"}¢ · ` +
+        `WER ${werRes.wer} ${werRes.pass ? "PASS" : `FAIL missing:[${werRes.missing}]`} · heard "${transcript}"`,
     });
+    if (!contPass) console.log(`  ⚠ line ${li}: voicing continuity ${cont.min} < ${CONTINUITY_GATE}`);
+    if (!werRes.pass) console.log(`  ⚠ line ${li}: WER gate FAILED at ${werRes.wer} — heard "${transcript}"`);
     qaLines.push({
-      line: li, text: line.tts, passes, tweaks,
+      line: li, text: line.tts, passes, clarityPasses, tweaks,
       lineTranspose: stats.line_transpose, beta: stats.beta, harmony: HARMONY,
       f0JumpMaxCents: stats.f0_jump_max_cents, f0JumpP95Cents: stats.f0_jump_p95_cents,
+      voicingContinuity: cont, voicingContinuityPass: contPass,
+      voicedOnsetJumpMaxCents: stats.voiced_onset_jump_max_cents,
+      whisper: { transcript, wer: werRes.wer, missing: werRes.missing, pass: werRes.pass },
       conformance: stats.conformance, clicks: stats.clicks,
+    });
+    lineSpans.push({
+      li, text: line.tts,
+      t0: Math.max(0, planWords[0].slots[0].t - 0.15),
+      t1: Math.min(durationSec, planWords[planWords.length - 1].hardEnd + 0.3),
     });
 
     // place the whole line at its absolute time — one continuous render,
@@ -700,12 +923,28 @@ async function singOne(slug) {
   console.log(`  mastered: ${mjson.input_i} LUFS / ${mjson.input_tp} dBTP → ` +
     `${verify.input_i} LUFS / ${verify.input_tp} dBTP on disk`);
 
+  // ── whisper end-to-end (round 4): per-line WER on the assembled vocal
+  // STEM (pre-mix), then one smoke transcript of the final mixed reel ──────
+  console.log(`  whisper end-to-end on the vocal stem …`);
+  const stemLines = lineSpans.map((s) => {
+    const tx = whisperTranscribeSpan(vocalWav, s.t0, s.t1, `${dir}/words/stem-line-${s.li}`);
+    const w = evalWER(s.text, tx);
+    const mark = w.pass ? "✓" : "✗";
+    console.log(`    ${mark} L${s.li} WER ${w.wer} "${s.text}" → heard "${tx}"`);
+    return { line: s.li, text: s.text, transcript: tx, wer: w.wer, missing: w.missing, pass: w.pass };
+  });
+  const mixTranscript = whisperTranscribe(mix);
+  console.log(`  mix smoke transcript: "${mixTranscript}"`);
+
   writeFileSync(`${OUT}/${slug}.words.sung.json`, JSON.stringify(sungWords, null, 2));
   writeFileSync(`${OUT}/${slug}-sung-qa.json`, JSON.stringify({
-    slug, harmony: HARMONY, engine: "spinging/lib/sing_line_world.py (round 3)",
+    slug, harmony: HARMONY, engine: "spinging/lib/sing_line_world.py (round 4)",
     goalposts: GOALPOSTS,
+    gates: { werMax: WER_GATE, voicingContinuityMin: CONTINUITY_GATE },
     pronunciationSources: { ...sourceCounts },
     lines: qaLines,
+    stemWhisper: stemLines,
+    mixWhisperSmoke: mixTranscript,
     mixClickScan: mixScan,
     mastered: { lufs: parseFloat(verify.input_i), truePeakDb: parseFloat(verify.input_tp) },
   }, null, 1));

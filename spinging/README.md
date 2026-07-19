@@ -61,21 +61,55 @@ map, the door, and — where a module is clean enough — the home.
 | realign-from-whisper.mjs | pop/bin | retime visuals from whisper on the final mix | in place (big-pictures) |
 | identify-speaker.py | pop/bin | resemblyzer speaker-similarity windows | in place |
 
-### The sing core (round 3 — lives IN spinging/lib)
+### The sing core (round 4 — lives IN spinging/lib)
 
 | Module | Role | Spinging surface |
 |---|---|---|
-| pronounce.mjs | word → definitive IPA + syllable {onset, nucleus, coda} (Wiktionary API first, espeak fallback; cached in spinging/cache/pronounce.json) | `spinging pronounce` + imported |
-| notation.mjs | choral score: jingle notes married to syllable underlay + phoneme classes — the ground truth BOTH the aligner and synthesizer consume | imported (sidecar per line) |
-| sing_line_world.py | the line-continuous WORLD engine: guided alignment (expected consonants anchor bursts), per-line octave fit to the spoken take, 60–300 Hz harvest clamp (de-kermit), unstretched vowel onsets + natural-pitch glides, note-edge contour tapers, monotone source maps, goalpost-conformed drift/vibrato/energy arcs, airy sustains, quiet self-choir, conformance + click-scan QA in its stats | `spinging singline plan.json` |
+| pronounce.mjs | word → definitive GenAm IPA + syllable {onset, nucleus, coda} (Wiktionary API with PER-LINE accent tags — US/GA required, usSafe() rhotic screen; espeak en-us fallback; builtin seeds; cache versioned in spinging/cache/pronounce.json, `--audit` re-resolves it) | `spinging pronounce` + imported |
+| notation.mjs | choral score: jingle notes married to syllable underlay + phoneme classes + PHRASE GROUPING (lyric punctuation + melody rests ≥ 0.4 s) — the ground truth the aligner, synthesizer AND legato bridging consume | imported (sidecar per line) |
+| sing_line_world.py | the line-continuous WORLD engine: guided alignment (expected consonants anchor bursts; sibilants vouch by high band; nasal murmurs walk the RMS dip), legato bridging inside phrases (sustained vowel through melody rests, gliding f0, shallow sp dip, coda lands pre-onset), voiced sonorant/fricative onsets THROUGH the pitch path (note begins on the consonant, forced voicing, beta-taper 0), per-line octave fit weighted by voiced evidence, 60–300 Hz harvest clamp (de-kermit), nucleus widening to real vowel extent with edge-bleed penalties, unstretched vowel onsets + natural-pitch glides, note-edge contour tapers, monotone source maps, goalpost-conformed drift/vibrato/energy arcs, +1.4× consonant composites, airy sustains, quiet self-choir; stats carry conformance, click scan, per-phrase voicing continuity, voiced-onset f0-jump and per-nucleus voiced fractions | `spinging singline plan.json` |
 | vocal_shapes.py | shared feature extraction: note segmentation, shape features, percentile bands, conformance, click scan | imported by goalposts + engine |
 | goalposts.py | reference SUNG wavs → percentile shape bands (spinging/cache/goalposts.json; built from the WIYH acapellas — same singer) | `spinging goalposts` |
 | vocal_bus.py | Schroeder reverb halo on the vocal bus; standalone click scan | `spinging bus reverb\|scan` |
 
 First caller: `pop/menuband/bin/sing-jingle.mjs` (`--harmony` 0…1 = contour
-lock; round 3 ships at 0.875). The engine re-renders each line with adjusted
-tweaks until its measured features sit inside the reference p10–p90 bands and
-the click scan is clean — QA is statistical, not ear-only.
+lock; rounds 3–4 ship at 0.875). The engine re-renders each line with
+adjusted tweaks until its measured features sit inside the reference p10–p90
+bands and the click scan is clean, then a WHISPER ROUND-TRIP gate transcribes
+the rendered line back (per-line WER ≤ 0.25 + all content words, clarity
+re-renders on failure, best take kept); the assembled vocal stem is
+re-transcribed per line and the final mix once more — transcripts land
+verbatim in `out/<slug>-sung-qa.json`. QA is statistical AND machine-read,
+not ear-only.
+
+Changelog — round 4 (2026-07, per jeffrey's round-3 review):
+- **Legato bridging** ("some words are too disconnected") — notation.mjs owns
+  phrase grouping (punctuation + melody rests ≥ 0.4 s); the engine sustains
+  vowels through intra-phrase gaps with gliding f0 and a shallow energy dip,
+  breathes only at phrase edges; karaoke word windows ride the bridges.
+  Gated: per-phrase voicing continuity ≥ 95 % (ships 0.966–1.0).
+- **Voiced onsets through the pitch path** ("mac — m and ac don't connect") —
+  nasal/liquid/glide/voiced-fricative onsets begin ON the note, forced
+  through WORLD (never raw-composited at spoken pitch), f0 continuous into
+  the vowel; voiced plosives keep their raw bursts. Nasal murmur capture
+  fixed (was zero-length onsets). Gated: boundary f0 jump (ships ≤ 27¢).
+- **Alignment repairs** ("synthesizer is all messed up") — whisper
+  punctuation tokens no longer smear timestamps across trailing silence;
+  trailing zero-width words reclaim the post-host audio instead of
+  re-splitting the host at an in-word energy dip; adjacent word windows and
+  nucleus searches can't overlap (the "mac app" double-sing); nucleus finding
+  drops quiet-schwa-killing thresholds and penalizes right-edge bleed-ins.
+  Reported: per-nucleus voiced fractions in the stats.
+- **US IPA** — the Wiktionary accent tag lives in the ADJACENT template
+  ({{enPR|stôr|a=GA}}), not inside {{IPA}}; round 3 therefore cached RP
+  ("store" /stɔː/, "chord" /kɔːd/). Round 4 reads accents per line, requires
+  US/GA (usSafe screen otherwise), falls back espeak en-us; all 55 cached
+  words audited, 12 corrected.
+- **Whisper round-trip gate** — see above; whisper-cli (ggml-base.en) on
+  every rendered line + the stem + the mix, transcripts verbatim in the QA
+  sidecars. Sung-choir audio remains genuinely hard ASR; lines that still
+  miss the 0.25 WER bar ship with their transcripts and FAIL marks recorded
+  honestly (round 4 strictly improves on round 3 line-for-line).
 
 ### Spoken → sung (WORLD, older lanes)
 

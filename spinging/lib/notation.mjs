@@ -1,25 +1,32 @@
-// notation.mjs — the spinging choral score (round 3).
+// notation.mjs — the spinging choral score (round 4).
 //
 // Choir-sheet syllable underlay married to jingle melodies: per NOTE —
 //   { t, dur, midi, word, wordIndex, syllableIndex, syllable,
 //     phonemes: { onset:[{ipa,cls,voiced}…], nucleus:{ipa,…}, coda:[…] },
 //     melisma: "start"|"mid"|"end"|null,   // slots sharing one sung vowel
+//     phrase: 0-based phrase index,
 //     articulation: "phraseStart"|"phraseEnd"|"legato" }
 //
 // Built from the lyric spec (words + note slots) + definitive pronunciations
-// (spinging/lib/pronounce.mjs — Wiktionary first). Both the guided aligner
+// (spinging/lib/pronounce.mjs — Wiktionary US first). Both the guided aligner
 // and the WORLD synthesizer consume this sidecar; nobody guesses phonemes
 // from spectra alone anymore.
 //
+// Round 4: PHRASE GROUPING is owned here — a phrase breaks at lyric
+// punctuation (. ! ? , ; : —) and at melody rests ≥ REST_PHRASE_S. Within a
+// phrase the engine bridges inter-word gaps legato (sustained vowel, gliding
+// f0); breaths happen ONLY at phrase boundaries.
+//
 // API:
-//   await buildLineScore({ text, words })   // words: [{ w, slots:[{t,dur,midi}], phraseStart }]
-//     → { version, text, notes:[…] }
+//   await buildLineScore({ text, words })   // words: [{ w, slots:[{t,dur,midi}] }]
+//     → { version, text, notes:[…], phrases: n }
 //   readLineScore(path) / writeLineScore(path, score)
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { pronounce } from "./pronounce.mjs";
 
-const VERSION = 3;
+const VERSION = 4;
+export const REST_PHRASE_S = 0.4; // melody rest ≥ this → phrase break (breathe)
 
 // Fit a word's pronounced syllables onto its note slots.
 //  - equal: 1:1
@@ -66,17 +73,49 @@ function fitSyllables(sylls, nSlots) {
 const syllableText = (s) =>
   [...s.onset, s.nucleus, ...s.coda].map((p) => p.ipa).join("");
 
+// Phrase grouping (round 4): word i STARTS a new phrase when
+//   - it is the first word of the line, or
+//   - the lyric text puts phrase punctuation right after word i-1, or
+//   - the melody rests ≥ REST_PHRASE_S between word i-1's last note end
+//     and word i's first note.
+// Lyric words are matched to text tokens in order (the specs are written 1:1).
+function phraseStarts(text, words) {
+  const norm = (s) => (s || "").toLowerCase().replace(/[^a-z0-9']/g, "");
+  const tokens = (text || "").split(/\s+/).filter(Boolean)
+    .map((tok) => ({ word: norm(tok), breakAfter: /[.!?,;:—…]["')\]]*$/.test(tok) }));
+  const starts = new Array(words.length).fill(false);
+  starts[0] = true;
+  let ti = 0;
+  for (let wi = 0; wi < words.length; wi++) {
+    const w = norm(words[wi].w);
+    while (ti < tokens.length && tokens[ti].word !== w) ti++;
+    const tok = ti < tokens.length ? tokens[ti] : null;
+    ti++;
+    if (tok?.breakAfter && wi + 1 < words.length) starts[wi + 1] = true;
+    if (wi + 1 < words.length) {
+      const prevSlots = words[wi].slots;
+      const last = prevSlots[prevSlots.length - 1];
+      const rest = words[wi + 1].slots[0].t - (last.t + last.dur);
+      if (rest >= REST_PHRASE_S) starts[wi + 1] = true;
+    }
+  }
+  return starts;
+}
+
 export async function buildLineScore({ text, words }) {
+  const starts = phraseStarts(text, words);
   const notes = [];
+  let phrase = -1;
   for (let wi = 0; wi < words.length; wi++) {
     const word = words[wi];
+    if (starts[wi]) phrase++;
+    const phraseEndsHere = wi === words.length - 1 || starts[wi + 1];
     const pron = await pronounce(word.w);
     const fitted = fitSyllables(pron.syllables, word.slots.length);
     for (let si = 0; si < word.slots.length; si++) {
       const slot = word.slots[si];
       const syl = fitted[si];
       const lastOfWord = si === word.slots.length - 1;
-      const lastOfLine = lastOfWord && wi === words.length - 1;
       notes.push({
         t: slot.t, dur: slot.dur, midi: slot.midi,
         word: word.w, wordIndex: wi, syllableIndex: si,
@@ -84,12 +123,13 @@ export async function buildLineScore({ text, words }) {
         ipa: pron.ipa, ipaSource: pron.source,
         phonemes: { onset: syl.onset, nucleus: syl.nucleus, coda: syl.coda },
         stress: syl.stress, melisma: syl.melisma,
-        articulation: si === 0 && word.phraseStart ? "phraseStart"
-          : lastOfLine ? "phraseEnd" : "legato",
+        phrase,
+        articulation: si === 0 && starts[wi] ? "phraseStart"
+          : lastOfWord && phraseEndsHere ? "phraseEnd" : "legato",
       });
     }
   }
-  return { version: VERSION, text, notes };
+  return { version: VERSION, text, notes, phrases: phrase + 1 };
 }
 
 export function writeLineScore(path, score) {
