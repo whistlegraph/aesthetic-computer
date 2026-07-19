@@ -19,6 +19,8 @@ import {
   normalizeDeployRequest,
   normalizePostPatch,
   normalizeWorkPatch,
+  deriveVisualTags,
+  visualSearchText,
   validateDeployEvidence,
   whistlegraphAdminSubs,
 } from "./whistlegraph-admin-lib.mjs";
@@ -28,6 +30,7 @@ const AUDIT_COLLECTION = "whistlegraph-curation-audit";
 const DEPLOY_COLLECTION = "whistlegraph-deployments";
 const MODEL_DIR = join(process.cwd(), "public", "whistlegraph.org");
 const REPO_ROOT = join(process.cwd(), "..");
+const VISUALS_PATH = join(REPO_ROOT, "toolchain", "whistlegraph", "downloads", "VISUALS.json");
 const DEPLOY_SCRIPT = join(REPO_ROOT, "lith", "webhook.sh");
 const execFile = promisify(execFileCallback);
 const HEADERS = {
@@ -36,6 +39,7 @@ const HEADERS = {
 };
 
 let modelCache = { stamp: "", workCodes: new Set(), postIds: new Set() };
+let visualCache = { stamp: "", byId: new Map(), searchable: [], metadata: { count: 0 } };
 
 function loadBaseModel() {
   const graphsPath = join(MODEL_DIR, "graphs.json");
@@ -50,6 +54,22 @@ function loadBaseModel() {
     postIds: new Set((posts.posts || []).map((post) => String(post.id))),
   };
   return modelCache;
+}
+
+function loadVisualModel() {
+  if (!existsSync(VISUALS_PATH)) return { byId: new Map(), searchable: [], metadata: { count: 0 } };
+  const stamp = String(statSync(VISUALS_PATH).mtimeMs);
+  if (visualCache.stamp === stamp) return visualCache;
+  const data = JSON.parse(readFileSync(VISUALS_PATH, "utf8"));
+  const records = Array.isArray(data.visuals) ? data.visuals : [];
+  const enriched = records.map((record) => ({ ...record, autoTags: deriveVisualTags(record) }));
+  visualCache = {
+    stamp,
+    byId: new Map(enriched.map((record) => [String(record.postId), record])),
+    searchable: enriched.map((record) => ({ id: String(record.postId), text: `${visualSearchText(record)} ${record.autoTags.join(" ")}` })),
+    metadata: { count: enriched.length, generated: data.generated || null, promptVersion: data.promptVersion || null },
+  };
+  return visualCache;
 }
 
 function parseBody(event) {
@@ -125,6 +145,7 @@ export function createHandler({
   connectFn = connect,
   allowedSubs = whistlegraphAdminSubs(),
   loadModelFn = loadBaseModel,
+  loadVisualsFn = loadVisualModel,
   deployFn = deployPushedCommit,
 } = {}) {
   return async function whistlegraphAdminHandler(event) {
@@ -169,10 +190,33 @@ export function createHandler({
           .sort({ when: -1 })
           .limit(20)
           .toArray();
-        return respond(200, { ...curation, recent, deployments }, HEADERS);
+        let visualCoverage = { count: 0 };
+        try { visualCoverage = loadVisualsFn().metadata; } catch (error) { console.error("Whistlegraph visual coverage unavailable:", error?.message || error); }
+        return respond(200, { ...curation, recent, deployments, visualCoverage }, HEADERS);
       } finally {
         await database.disconnect?.();
       }
+    }
+
+    if (event.httpMethod === "GET" && action === "visual-search") {
+      const query = String(event.queryStringParameters?.q || "").trim().toLowerCase();
+      if (!query || query.length > 200) return respond(400, { message: "Send a search query up to 200 characters." }, HEADERS);
+      const terms = query.split(/\s+/).filter(Boolean);
+      let visuals;
+      try { visuals = loadVisualsFn(); }
+      catch (error) { return respond(503, { message: `Machine visual index unavailable: ${error.message}` }, HEADERS); }
+      const ids = visuals.searchable.filter((entry) => terms.every((term) => entry.text.includes(term))).map((entry) => entry.id);
+      return respond(200, { query, total: ids.length, ids }, HEADERS);
+    }
+
+    if (event.httpMethod === "GET" && action === "visual") {
+      const id = String(event.queryStringParameters?.id || "").trim();
+      if (!/^\d+$/.test(id)) return respond(400, { message: "Send a post id." }, HEADERS);
+      let record;
+      try { record = loadVisualsFn().byId.get(id); }
+      catch (error) { return respond(503, { message: `Machine visual index unavailable: ${error.message}` }, HEADERS); }
+      if (!record) return respond(404, { message: "Machine visual record not found." }, HEADERS);
+      return respond(200, { record }, HEADERS);
     }
 
     if (event.httpMethod === "POST" && action === "deploy") {

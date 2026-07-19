@@ -11,6 +11,53 @@ const COLOR_RE = /^#[0-9a-f]{6}$/i;
 const COMMIT_RE = /^[0-9a-f]{40}$/i;
 const CHANGE_ID_RE = /^[a-z0-9-]{8,100}$/i;
 
+const VISUAL_TAG_RULES = Object.freeze([
+  ["drawing", /\b(draw|draws|drawn|drawing|sketch|doodle|linework|mark-making)\b/],
+  ["writing", /\b(writ(?:e|es|ing|ten)|handwritten|lettering|caption|label)\b/],
+  ["pen", /\b(pen|fountain pen|nib)\b/],
+  ["marker", /\b(marker|felt-tip)\b/],
+  ["pencil", /\b(pencil|graphite)\b/],
+  ["chalk", /\b(chalk|chalkboard|pavement|sidewalk)\b/],
+  ["paint", /\b(paint|paintbrush|brushstroke|watercolor|gouache|acrylic)\b/],
+  ["digital", /\b(screen|phone|tablet|computer|digital|canvas interface|browser-based)\b/],
+  ["paper", /\b(paper|page|notebook|sketchbook|card)\b/],
+  ["outdoors", /\b(outdoor|outside|pavement|sidewalk|snow|grass|greenery)\b/],
+  ["multiple-hands", /\b(several hands|multiple hands|two hands|more than one hand)\b/],
+  ["face", /\b(face|facial|portrait|selfie)\b/],
+  ["figure", /\b(figure|person|character|body|head)\b/],
+  ["animal", /\b(animal|bird|cat|dog|rabbit|bunny|butterfly|insect|fish|frog)\b/],
+  ["botanical", /\b(flower|floral|plant|leaf|leaves|petal|stem|tree)\b/],
+  ["geometric", /\b(geometric|triangle|square|rectangle|circle|oval|grid|polygon)\b/],
+  ["spiral", /\b(spiral|swirl|coiled)\b/],
+  ["abstract", /\b(abstract|nonrepresentational)\b/],
+  ["overhead", /\b(overhead|top-down|from above)\b/],
+  ["close-up", /\b(close-up|close view|tightly framed)\b/],
+  ["handheld", /\b(handheld|hand-held|camera shake)\b/],
+]);
+
+export function visualSearchText(record) {
+  const visual = record?.visual || {};
+  return [
+    visual.summary,
+    ...(visual.sequence || []),
+    visual.setting,
+    ...(visual.subjects || []),
+    visual.drawingSurface,
+    ...(visual.toolsAndMaterials || []),
+    ...(visual.marksAndForms || []),
+    ...(visual.visibleText || []),
+    visual.camera,
+    ...(visual.uncertainties || []),
+  ].filter(Boolean).join(" \n").toLowerCase();
+}
+
+export function deriveVisualTags(record) {
+  const text = visualSearchText(record);
+  const tags = VISUAL_TAG_RULES.filter(([, pattern]) => pattern.test(text)).map(([tag]) => tag);
+  if ((record?.visual?.visibleText || []).length) tags.push("visible-text");
+  return [...new Set(tags)];
+}
+
 export function whistlegraphAdminSubs(env = process.env) {
   const configured = String(env.WHISTLEGRAPH_ADMIN_SUBS || "")
     .split(",")

@@ -69,7 +69,7 @@
         <div class="seg" id="mode" aria-label="Archive layer">
           <button class="on" data-mode="posts">Posts</button><button data-mode="works">Whistlegraphs</button>
         </div>
-        <input id="search" type="search" placeholder="Search captions, IDs, or codes…" autocomplete="off" data-testid="archive-search">
+        <input id="search" type="search" placeholder="Search captions, IDs, codes, or machine visuals…" autocomplete="off" data-testid="archive-search">
         <div class="seg" id="filter" aria-label="Post type">
           <button class="on" data-kind="all">All</button><button data-kind="performance">Performances</button><button data-kind="talk">Talks</button><button data-kind="other">Other</button><button data-kind="unfiled">Unfiled</button>
         </div>
@@ -100,7 +100,8 @@
   const esc=value=>String(value??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'\"':"&quot;"}[c]));
   const fmt=value=>value>=1e6?`${(value/1e6).toFixed(1)}M`:value>=1e3?`${Math.round(value/1e3)}K`:String(value||0);
   let client=null,token=null,mode="posts",kind="all",query="",shown=0,view=[];
-  let basePosts=[],baseWorks=[],posts=[],works=[],postById={},workByCode={},curation={works:{},posts:{}},deployments=[],selected=null;
+  let basePosts=[],baseWorks=[],posts=[],works=[],postById={},workByCode={},curation={works:{},posts:{}},deployments=[],selected=null,visualCoverage={count:0};
+  let machineMatchIds=new Set(),machineQuery="",machineSearchTimer=null,machineSearchVersion=0;
   const gate=document.getElementById("gate"),desk=document.getElementById("desk"),grid=document.getElementById("grid"),drawer=document.getElementById("drawer");
 
   function toast(message){const el=document.getElementById("toast");el.textContent=message;el.classList.remove("hidden");clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.add("hidden"),2400)}
@@ -125,7 +126,7 @@
       getJSON(`${STATIC_ROOT}/graphs.json?t=${Date.now()}`,{cache:"no-cache"}),
       PREVIEW?Promise.resolve({works:{},posts:{}}):getJSON(`${API}?action=data`,{headers:{Authorization:`Bearer ${token}`},cache:"no-store"})
     ]);
-    basePosts=pd.posts||[];baseWorks=gd.works||[];curation={works:cd.works||{},posts:cd.posts||{}};deployments=cd.deployments||[];applyCuration();renderReset();
+    basePosts=pd.posts||[];baseWorks=gd.works||[];curation={works:cd.works||{},posts:cd.posts||{}};deployments=cd.deployments||[];visualCoverage=cd.visualCoverage||{count:0};applyCuration();renderReset();
   }
   function enterDesk(name){gate.classList.add("hidden");desk.classList.remove("hidden");document.getElementById("who").textContent=name;if(PREVIEW){document.getElementById("previewBadge").classList.remove("hidden");document.getElementById("logout").classList.add("hidden")}}
   function canonicalizeDesk(){if(!LOCAL&&location.pathname!==DESK_PATH)history.replaceState({},"",DESK_PATH)}
@@ -175,7 +176,8 @@
     view=posts.filter(p=>{
       if(kind==="unfiled"&&(p.works||[]).length)return false;
       if(kind!=="all"&&kind!=="unfiled"&&p.kind!==kind)return false;
-      return !q||postTitle(p).toLowerCase().includes(q)||String(p.id).includes(q)||(p.visual?.summary||"").toLowerCase().includes(q)||(p.visual?.marksAndForms||[]).some(mark=>mark.toLowerCase().includes(q))||(p.works||[]).some(code=>code.toLowerCase().includes(q)||(workByCode[code]?.title||"").toLowerCase().includes(q));
+      const machineHit=machineQuery===q&&machineMatchIds.has(String(p.id));
+      return !q||machineHit||postTitle(p).toLowerCase().includes(q)||String(p.id).includes(q)||(p.works||[]).some(code=>code.toLowerCase().includes(q)||(workByCode[code]?.title||"").toLowerCase().includes(q));
     });
   }
   function tileHTML(item){
@@ -184,7 +186,7 @@
     const changed=Boolean((isWork?curation.works:curation.posts)?.[key]);
     return `<button class="tile" data-key="${esc(key)}" aria-label="Edit ${esc(title)}"><img loading="lazy" src="${post?thumb(post.id):""}" alt="${esc(post?.visual?.summary||"")}"><span class="kind">${esc(label)}</span>${changed?'<span class="changed" title="Live edit"></span>':""}<span class="tile-info"><b>${esc(title)}</b><small>${esc(meta)}</small></span></button>`;
   }
-  function renderMore(){const end=Math.min(shown+180,view.length);grid.insertAdjacentHTML("beforeend",view.slice(shown,end).map(tileHTML).join(""));shown=end;document.getElementById("count").textContent=`${view.length.toLocaleString()} ${mode}`}
+  function renderMore(){const end=Math.min(shown+180,view.length);grid.insertAdjacentHTML("beforeend",view.slice(shown,end).map(tileHTML).join(""));shown=end;const coverage=mode==="posts"&&visualCoverage.count?` · ${visualCoverage.count.toLocaleString()} described`:"";document.getElementById("count").textContent=`${view.length.toLocaleString()} ${mode}${coverage}`}
   function renderReset(preservePosition=false){
     const scrollY=window.scrollY,previouslyShown=shown;
     buildView();shown=0;grid.innerHTML="";document.getElementById("empty").classList.toggle("hidden",view.length>0);renderMore();
@@ -192,15 +194,30 @@
   }
   new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting)&&shown<view.length)renderMore()},{rootMargin:"600px"}).observe(document.getElementById("sentinel"));
   grid.addEventListener("click",event=>{const tile=event.target.closest("button[data-key]");if(tile)openEditor(tile.dataset.key)});
-  document.getElementById("search").addEventListener("input",event=>{query=event.target.value;renderReset()});
-  document.getElementById("mode").addEventListener("click",event=>{const button=event.target.closest("button[data-mode]");if(!button)return;mode=button.dataset.mode;document.querySelectorAll("#mode button").forEach(x=>x.classList.toggle("on",x===button));document.getElementById("filter").classList.toggle("hidden",mode==="works");document.getElementById("search").placeholder=mode==="works"?"Search titles, codes, or authors…":"Search captions, IDs, or codes…";renderReset()});
+  async function searchMachineVisuals(value,version){
+    const q=value.trim().toLowerCase();
+    if(!q||mode!=="posts"){machineQuery=q;machineMatchIds=new Set();renderReset();return}
+    try{
+      const result=await getJSON(`${API}?action=visual-search&q=${encodeURIComponent(q)}`,{headers:{Authorization:`Bearer ${token}`},cache:"no-store"});
+      if(version!==machineSearchVersion||query.trim().toLowerCase()!==q)return;
+      machineQuery=q;machineMatchIds=new Set(result.ids||[]);renderReset();
+    }catch(error){if(version===machineSearchVersion)toast(error.message)}
+  }
+  function queueMachineSearch(){clearTimeout(machineSearchTimer);const version=++machineSearchVersion;machineSearchTimer=setTimeout(()=>searchMachineVisuals(query,version),180)}
+  document.getElementById("search").addEventListener("input",event=>{query=event.target.value;renderReset();queueMachineSearch()});
+  document.getElementById("mode").addEventListener("click",event=>{const button=event.target.closest("button[data-mode]");if(!button)return;mode=button.dataset.mode;document.querySelectorAll("#mode button").forEach(x=>x.classList.toggle("on",x===button));document.getElementById("filter").classList.toggle("hidden",mode==="works");document.getElementById("search").placeholder=mode==="works"?"Search titles, codes, or authors…":"Search captions, IDs, codes, or machine visuals…";renderReset();queueMachineSearch()});
   document.getElementById("filter").addEventListener("click",event=>{const button=event.target.closest("button[data-kind]");if(!button)return;kind=button.dataset.kind;document.querySelectorAll("#filter button").forEach(x=>x.classList.toggle("on",x===button));renderReset()});
 
   function closeEditor(){selected=null;drawer.classList.add("hidden");document.getElementById("drawerShade").classList.add("hidden");drawer.innerHTML=""}
   document.getElementById("drawerShade").addEventListener("click",closeEditor);
   addEventListener("keydown",event=>{if(event.key==="Escape"){closeEditor();closeCodex()}});
-  function openEditor(key){
+  async function openEditor(key){
     selected={type:mode==="works"?"work":"post",key};const item=selected.type==="work"?workByCode[key]:postById[key];if(!item)return;
+    if(selected.type==="post"&&!PREVIEW&&!item.visual){
+      try{const result=await getJSON(`${API}?action=visual&id=${encodeURIComponent(key)}`,{headers:{Authorization:`Bearer ${token}`},cache:"no-store"});const record=result.record||{};item.visual={...(record.visual||{}),autoTags:record.autoTags||[],sampledSeconds:record.source?.sampledSeconds||[],model:record.provenance?.model||null,promptVersion:record.provenance?.promptVersion||null,generated:record.provenance?.createdAt||null}}
+      catch(error){if(!/not found/i.test(error.message))toast(error.message)}
+      if(selected?.key!==key)return;
+    }
     const post=selected.type==="work"?heroForWork(key):item,title=selected.type==="work"?item.title:postTitle(item),changed=Boolean((selected.type==="work"?curation.works:curation.posts)?.[key]);
     drawer.innerHTML=`<div class="drawer-head"><div><h2>${esc(title)}</h2><p>${selected.type==="work"?`Whistlegraph [${esc(key)}]`:`Archive post ${esc(key)}`}</p></div><button class="close" aria-label="Close editor">×</button></div>
       <div class="hero"><img src="${post?thumb(post.id):""}" alt="${esc(post?.visual?.summary||"")}"><div class="facts">${selected.type==="post"?`${esc(item.date||"date unknown")}<br>${fmt(item.views)} views · ${fmt(item.likes)} likes<br><a href="${esc(item.url)}" target="_blank" rel="noopener">Open original ↗</a><br><a href="/post/${encodeURIComponent(item.id)}" target="_blank">Open archive page ↗</a>`:`${esc(item.by||"")}<br>${item.year||""} · ${fmt(item.views)} views<br><a href="/${encodeURIComponent(item.code)}" target="_blank">Open Whistlegraph ↗</a>`}</div></div>
@@ -209,11 +226,15 @@
     drawer.querySelector(".close").addEventListener("click",closeEditor);drawer.querySelector("#save").addEventListener("click",saveEditor);drawer.querySelector("#reset").addEventListener("click",resetEditor);
     drawer.classList.remove("hidden");document.getElementById("drawerShade").classList.remove("hidden");
   }
+  function machineList(label,items){return items?.length?`<label>${esc(label)}</label><ul class="hint">${items.map(item=>`<li>${esc(item)}</li>`).join("")}</ul>`:""}
+  function machineFields(p){const v=p.visual;if(!v)return `<p class="hint">No machine visual record for this ${p.media==="audio"?"audio-only":"video"} post.</p>`;return `<label for="postVisual">Machine-read visual description</label><textarea class="field" id="postVisual" readonly>${esc(v.summary||"")}</textarea>
+    ${v.autoTags?.length?`<label>Automatic visual tags</label><p>${v.autoTags.map(tag=>`<span class="kind">${esc(tag)}</span>`).join(" ")}</p>`:""}
+    ${machineList("Visible sequence",v.sequence)}${v.setting?`<label>Setting</label><p class="hint">${esc(v.setting)}</p>`:""}${machineList("Subjects",v.subjects)}${machineList("Tools and materials",v.toolsAndMaterials)}${machineList("Marks and forms",v.marksAndForms)}${machineList("Visible text",v.visibleText)}${v.camera?`<label>Camera</label><p class="hint">${esc(v.camera)}</p>`:""}${machineList("Uncertainties",v.uncertainties)}
+    <p class="hint">Six sampled frames at ${(v.sampledSeconds||[]).map(x=>`${x}s`).join(", ")} · confidence ${v.confidence??"unknown"} · ${esc(v.model||"vision model")} · prompt ${esc(v.promptVersion||"unknown")}</p>`}
   function postFields(p){return `<label for="postKind">Post type</label><select class="field" id="postKind"><option value="performance" ${p.kind==="performance"?"selected":""}>Performance</option><option value="talk" ${p.kind==="talk"?"selected":""}>Talk</option><option value="other" ${p.kind==="other"?"selected":""}>Other</option></select>
     <label for="postWorks">Whistlegraph relationships</label><input class="field" id="postWorks" value="${esc((p.works||[]).join(", "))}" placeholder="sos, imab" list="workCodes"><p class="hint">Comma-separated codes. Empty means this post is unfiled.</p>
     <label for="postPlots">Plots / narrative events</label><input class="field" id="postPlots" value="${esc((p.plots||[]).join(", "))}" placeholder="Us Kidnapping You"><p class="hint">Comma-separated plot names.</p>
-    <label for="postDesc">Author caption</label><textarea class="field" id="postDesc">${esc(p.desc||"")}</textarea>
-    ${p.visual?.summary?`<label for="postVisual">Machine-read visual description</label><textarea class="field" id="postVisual" readonly>${esc(p.visual.summary)}</textarea><p class="hint">Evidence from six sampled frames · ${esc(p.visual.model||"vision model")} · prompt ${esc(p.visual.promptVersion||"unknown")}</p>`:""}`}
+    <label for="postDesc">Author caption</label><textarea class="field" id="postDesc">${esc(p.desc||"")}</textarea>${machineFields(p)}`}
   function workFields(w){return `<label for="workTitle">Title</label><input class="field" id="workTitle" value="${esc(w.title||"")}"><label for="workBy">Composed by</label><input class="field" id="workBy" value="${esc(w.by||"")}"><label for="workYear">Year</label><input class="field" id="workYear" type="number" min="1900" max="2200" value="${esc(w.year||"")}"><label for="workColor">Archive color</label><input class="field" id="workColor" type="color" value="${esc(w.c||"#b44887")}"><p class="hint">Codes remain immutable here so shared links and Aesthetic Computer commands cannot be broken accidentally.</p>`}
   async function saveEditor(){
     if(!selected||PREVIEW)return;const patch=selected.type==="post"?{kind:drawer.querySelector("#postKind").value,works:splitList(drawer.querySelector("#postWorks").value),plots:splitList(drawer.querySelector("#postPlots").value),desc:drawer.querySelector("#postDesc").value}:{title:drawer.querySelector("#workTitle").value,by:drawer.querySelector("#workBy").value,year:Number(drawer.querySelector("#workYear").value),c:drawer.querySelector("#workColor").value};

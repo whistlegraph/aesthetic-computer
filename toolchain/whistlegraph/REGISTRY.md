@@ -57,9 +57,12 @@ that request so observed visuals cannot be confused with author copy or audio
 context. Each result records sample timestamps, model, prompt version, response
 id, contact-sheet hash, and token use. Per-post checkpoints live in the ignored
 `downloads/visual-records/` directory; `--merge-only` compiles the tracked
-`downloads/VISUALS.json`, and `gen-model.mjs` attaches it to `posts.json` as
-`post.visual`. A full spend requires the explicit `--all` flag; interrupted
-runs resume by skipping completed records.
+`downloads/VISUALS.json`. The authenticated Whistlegraph Desk loads this
+artifact through `/api/whistlegraph-admin` for full-text search, read-only
+descriptions, and deterministic visual tags. It is deliberately excluded from
+the public `posts.json` model and the main archive index. A full spend requires
+the explicit `--all` flag; interrupted runs resume by skipping completed
+records.
 
 **Pipeline** (per candidate): `grab.mjs <url>` → mp4 + wav + melody analysis →
 WhisperX the audio for lyrics → `visual-farm.mjs` sampled-frame evidence →

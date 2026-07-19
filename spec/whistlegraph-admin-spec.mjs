@@ -1,11 +1,13 @@
 import {
   curationPayload,
   DEFAULT_WHISTLEGRAPH_ADMIN_SUBS,
+  deriveVisualTags,
   isWhistlegraphAdmin,
   normalizeDeployRequest,
   normalizePostPatch,
   normalizeWorkPatch,
   validateDeployEvidence,
+  visualSearchText,
 } from "../system/netlify/functions/whistlegraph-admin-lib.mjs";
 import { createHandler } from "../system/netlify/functions/whistlegraph-admin.mjs";
 
@@ -68,6 +70,63 @@ describe("Whistlegraph Desk", () => {
     expect(payload.works).toEqual({ sos: { title: "Steps" } });
     expect(payload.revision).toBe("2026-07-19T11:00:00.000Z");
     expect(JSON.stringify(payload)).not.toContain("auth0|");
+  });
+
+  it("indexes every machine-read visual field and derives stable visual tags", () => {
+    const record = {
+      visual: {
+        summary: "A hand draws a spiral in chalk.",
+        sequence: ["The mark grows into an oval."],
+        setting: "Outdoor pavement",
+        subjects: ["Two hands"],
+        drawingSurface: "Sidewalk",
+        toolsAndMaterials: ["Blue chalk"],
+        marksAndForms: ["Spiral", "oval"],
+        visibleText: ["SEASONS"],
+        camera: "Overhead handheld view",
+        uncertainties: ["The small mark may be a leaf."],
+      },
+    };
+    const text = visualSearchText(record);
+    expect(text).toContain("seasons");
+    expect(text).toContain("small mark may be a leaf");
+    expect(deriveVisualTags(record)).toEqual([
+      "drawing", "chalk", "outdoors", "multiple-hands", "botanical",
+      "geometric", "spiral", "overhead", "handheld", "visible-text",
+    ]);
+  });
+
+  it("keeps machine visuals behind immutable-sub authentication", async () => {
+    const record = {
+      postId: "123",
+      visual: { summary: "A hand draws a blue chalk spiral.", visibleText: [] },
+      autoTags: ["drawing", "chalk", "spiral"],
+    };
+    const loadVisualsFn = () => ({
+      metadata: { count: 1, promptVersion: "test-v1" },
+      searchable: [{ id: "123", text: "a hand draws a blue chalk spiral drawing chalk spiral" }],
+      byId: new Map([["123", record]]),
+    });
+    let user = { sub: "auth0|lookalike", email_verified: true };
+    const handler = createHandler({
+      authorizeFn: async () => user,
+      allowedSubs: new Set([JEFFREY, MINANIMALS]),
+      loadVisualsFn,
+    });
+    const event = (action, params = {}) => ({
+      httpMethod: "GET",
+      headers: { authorization: "Bearer test" },
+      queryStringParameters: { action, ...params },
+    });
+    expect((await handler(event("visual-search", { q: "chalk blue" }))).statusCode).toBe(403);
+
+    user = { sub: JEFFREY, email_verified: true };
+    const search = await handler(event("visual-search", { q: "chalk blue" }));
+    expect(search.statusCode).toBe(200);
+    expect(JSON.parse(search.body).ids).toEqual(["123"]);
+    const detail = await handler(event("visual", { id: "123" }));
+    expect(detail.statusCode).toBe(200);
+    expect(JSON.parse(detail.body).record.visual.summary).toContain("blue chalk spiral");
   });
 
   it("rejects non-admin mutations and accepts a validated admin patch", async () => {
