@@ -34,7 +34,8 @@
     <ClCompile>
       <PrecompiledHeader>Use</PrecompiledHeader><PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <CompileAsWinRT>true</CompileAsWinRT><WarningLevel>Level4</WarningLevel><SDLCheck>true</SDLCheck>
-      <LanguageStandard>stdcpp20</LanguageStandard>
+      <!-- C++/CX (/ZW) is incompatible with /std:c++20 in MSVC. -->
+      <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>third_party\quickjs-ng;..\runtime\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WINAPI_FAMILY=WINAPI_FAMILY_APP;QUICKJS_NG_BUILD;WIN32_LEAN_AND_MEAN;_WIN32_WINNT=0x0A00;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>

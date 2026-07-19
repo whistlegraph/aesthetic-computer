@@ -29,7 +29,7 @@ struct GamepadState {
   float left_trigger = 0, right_trigger = 0;
   std::unordered_set<std::string> down;
   [[nodiscard]] bool pressed(std::string_view button) const {
-    return down.contains(std::string(button));
+    return down.find(std::string(button)) != down.end();
   }
 };
 
