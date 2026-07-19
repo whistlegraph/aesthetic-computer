@@ -14,6 +14,8 @@ clone_script:
   - cmd: echo xbox/native-latency/>>.git\info\sparse-checkout
   - cmd: echo xbox/dynamic-shell/>>.git\info\sparse-checkout
   - cmd: echo xbox/assets/>>.git\info\sparse-checkout
+  - cmd: echo xbox/native-bios/>>.git\info\sparse-checkout
+  - cmd: echo xbox/runtime/>>.git\info\sparse-checkout
   - cmd: echo appveyor.yml>>.git\info\sparse-checkout
   - cmd: git fetch --depth=1 --filter=blob:none origin %APPVEYOR_REPO_COMMIT%
   - cmd: git checkout --detach FETCH_HEAD
@@ -41,7 +43,7 @@ install:
         $graphics.Dispose(); $bitmap.Dispose()
       }
       $password = ConvertTo-SecureString $env:cert_password -AsPlainText -Force
-      foreach ($project in @('xbox\native-latency', 'xbox\dynamic-shell')) {
+      foreach ($project in @('xbox\native-latency', 'xbox\dynamic-shell', 'xbox\native-bios')) {
         $root = Join-Path $env:APPVEYOR_BUILD_FOLDER $project
         $assets = Join-Path $root 'Assets'
         New-Item -ItemType Directory -Force $assets | Out-Null
@@ -54,7 +56,7 @@ install:
           -KeyUsage DigitalSignature -KeyExportPolicy Exportable -HashAlgorithm SHA256 `
           -TextExtension @('2.5.29.37={text}1.3.6.1.5.5.7.3.3') `
           -FriendlyName 'AC Xbox CI' -CertStoreLocation 'Cert:\CurrentUser\My'
-        $key = if ($project -like '*native-latency') { 'XboxLatency_TemporaryKey.pfx' } else { 'DynamicShell_TemporaryKey.pfx' }
+        $key = if ($project -like '*native-latency') { 'XboxLatency_TemporaryKey.pfx' } elseif ($project -like '*native-bios') { 'NativeBios_TemporaryKey.pfx' } else { 'DynamicShell_TemporaryKey.pfx' }
         Export-PfxCertificate -Cert $cert -FilePath (Join-Path $root $key) -Password $password | Out-Null
       }
       $master.Dispose()
@@ -74,6 +76,13 @@ build_script:
       /p:UapAppxPackageBuildMode=SideloadOnly
       /p:PackageCertificatePassword=%cert_password%
       /p:AppxPackageDir=%package_dir%dynamic-shell\
+  - cmd: >-
+      msbuild "xbox\native-bios\NativeBios.sln" /restore /m
+      /p:Configuration=Release /p:Platform=x64
+      /p:GenerateAppxPackageOnBuild=true /p:AppxBundle=Never
+      /p:UapAppxPackageBuildMode=SideloadOnly
+      /p:PackageCertificatePassword=%cert_password%
+      /p:AppxPackageDir=%package_dir%native-bios\
 
 test: off
 
@@ -82,6 +91,8 @@ artifacts:
     name: xbox-native-latency-x64
   - path: artifacts\dynamic-shell\**\*
     name: xbox-dynamic-shell-x64
+  - path: artifacts\native-bios\**\*
+    name: xbox-native-bios-x64
 
 branches:
   only:
