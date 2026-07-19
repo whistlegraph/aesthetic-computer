@@ -13,6 +13,7 @@ clone_script:
   - cmd: git config core.sparseCheckout true
   - cmd: echo xbox/native-latency/>>.git\info\sparse-checkout
   - cmd: echo xbox/dynamic-shell/>>.git\info\sparse-checkout
+  - cmd: echo xbox/assets/>>.git\info\sparse-checkout
   - cmd: echo appveyor.yml>>.git\info\sparse-checkout
   - cmd: git fetch --depth=1 --filter=blob:none origin %APPVEYOR_REPO_COMMIT%
   - cmd: git checkout --detach FETCH_HEAD
@@ -24,11 +25,18 @@ environment:
 install:
   - ps: |
       Add-Type -AssemblyName System.Drawing
+      $master = [Drawing.Image]::FromFile((Join-Path $env:APPVEYOR_BUILD_FOLDER 'xbox\assets\ac-native-icon-master.png'))
       function Write-Asset($assets, $name, $width, $height) {
         $bitmap = [Drawing.Bitmap]::new($width, $height)
         $graphics = [Drawing.Graphics]::FromImage($bitmap)
         $graphics.Clear([Drawing.Color]::FromArgb(18, 15, 26))
-        $graphics.FillEllipse([Drawing.Brushes]::Gold, $width * .2, $height * .2, $width * .6, $height * .6)
+        $graphics.InterpolationMode = [Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+        $scale = [Math]::Min($width / $master.Width, $height / $master.Height)
+        $drawWidth = [int]($master.Width * $scale)
+        $drawHeight = [int]($master.Height * $scale)
+        $left = [int](($width - $drawWidth) / 2)
+        $top = [int](($height - $drawHeight) / 2)
+        $graphics.DrawImage($master, $left, $top, $drawWidth, $drawHeight)
         $bitmap.Save((Join-Path $assets $name), [Drawing.Imaging.ImageFormat]::Png)
         $graphics.Dispose(); $bitmap.Dispose()
       }
@@ -49,6 +57,7 @@ install:
         $key = if ($project -like '*native-latency') { 'XboxLatency_TemporaryKey.pfx' } else { 'DynamicShell_TemporaryKey.pfx' }
         Export-PfxCertificate -Cert $cert -FilePath (Join-Path $root $key) -Password $password | Out-Null
       }
+      $master.Dispose()
 
 build_script:
   - cmd: >-
