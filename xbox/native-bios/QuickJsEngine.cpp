@@ -1,10 +1,6 @@
-#ifdef _WIN32
-#include "pch.h"
-#else
 #include <cstdint>
 #include <memory>
 #include <string>
-#endif
 #include "QuickJsEngine.hpp"
 extern "C" {
 #include "third_party/quickjs-ng/quickjs.h"
