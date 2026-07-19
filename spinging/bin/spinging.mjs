@@ -33,6 +33,10 @@
 //   sample     pop/bin/sample-from-youtube.mjs  youtube → onset-aligned chops + index
 //   stems      pop/bin/separate-stems.mjs  demucs vocal/drums/bass/other split
 //   master     marketing/podcast/bin/master.mjs  loudnorm finishing (see README for -14 LUFS)
+//   pronounce  spinging/lib/pronounce.mjs  word → curated IPA + syllables (Wiktionary→espeak)
+//   goalposts  spinging/lib/goalposts.py   reference sung wavs → shape percentile bands
+//   singline   spinging/lib/sing_line_world.py  plan.json → sung line (the round-3 engine)
+//   bus        spinging/lib/vocal_bus.py   reverb halo on the vocal bus / click scan
 
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -55,6 +59,11 @@ const ROUTES = {
   sample: { path: TOOLS.sampleFromYoutube, runner: "node" },
   stems: { path: TOOLS.separateStems, runner: "node" },
   master: { path: TOOLS.master, runner: "node" },
+  // round 3 — the sing core lives in spinging/lib
+  pronounce: { path: TOOLS.pronounce, runner: "node" },
+  goalposts: { path: TOOLS.goalposts, runner: "python" },
+  singline: { path: TOOLS.singLineWorld, runner: "python" },
+  bus: { path: TOOLS.vocalBus, runner: "python" },
 };
 
 const [cmd, ...rest] = process.argv.slice(2);
@@ -66,8 +75,9 @@ function help() {
     console.log(`  ${name.padEnd(10)} → ${rel(r.path)}`);
   }
   console.log("  doctor     → check python env (pyworld) + whisper model");
-  console.log("\nPending adoption (in-flight, do not route yet):");
-  console.log(`  sing core  → ${rel(TOOLS.singJingle)} + ${rel(TOOLS.singWordWorld)}`);
+  console.log("\nSing core (round 3, adopted): spinging/lib/{pronounce.mjs, notation.mjs,");
+  console.log("  sing_line_world.py, vocal_shapes.py, goalposts.py, vocal_bus.py} —");
+  console.log(`  first caller: ${rel(TOOLS.singJingle)}`);
 }
 
 if (!cmd || cmd === "help" || cmd === "--help" || cmd === "-h") {

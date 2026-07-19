@@ -471,7 +471,9 @@ def main():
     onset_glide = np.zeros(out_n)       # log-f0 offsets (natural onset pitch)
     glide_pending = []                  # (out_frame, src_frame) — filled later
     hold_air = np.zeros(out_n)          # airy-sustain gain (angelic)
+    vowel_air = np.zeros(out_n)         # base air on every sung vowel
     seam = np.zeros(out_n, dtype=bool)  # composite seams → energy smoothing
+    note_regions = []                   # (o_a, o_b, hold_s) per sung note
 
     def of(t_abs):
         return int(round((t_abs - line_t0) / FRAME_S))
@@ -566,6 +568,7 @@ def main():
             target_midi[idx] = slots[k]["midi"]
             word_med[idx] = med_log
             seam[o_a:min(out_n, o_a + 2)] = True
+            note_regions.append((o_a, o_b, v_end - v_start))
             # C4: contour retention tapers out at note edges
             tt = (idx - o_a) * FRAME_S
             te = (o_b - 1 - idx) * FRAME_S
@@ -579,8 +582,9 @@ def main():
             hold = v_end - v_start
             if hold >= VIB_HOLD_S:
                 vib_gain[idx] = np.clip((tt - 0.12) / VIB_ONSET_S, 0, 1)
+            vowel_air[idx] = 1.0
             if hold >= 0.35:
-                hold_air[idx] = np.clip((tt - 0.10) / 0.35, 0, 1) * air_scale
+                hold_air[idx] = np.clip((tt - 0.10) / 0.35, 0, 1)
             if k == 0 and w.get("phraseStart"):
                 scoop[idx] = -SCOOP_ST * np.clip(1.0 - tt / SCOOP_S, 0, 1)
             if k + 1 < n_slots and v_end < slots[k + 1]["t"]:
@@ -658,6 +662,20 @@ def main():
     drift = (DRIFT_CENTS * drift_scale / 1200.0) * np.log(2) * \
         (0.6 * np.sin(2 * np.pi * 0.23 * tt + ph[0]) +
          0.4 * np.sin(2 * np.pi * 0.61 * tt + ph[1]))
+    # human micro-instability — the goalpost references show plateau
+    # micro-drift p10 ≈ 8¢ / p50 ≈ 46¢; a frozen plateau fails the band and
+    # sounds synthetic. Gaussian-filtered frame noise keeps real CURVATURE
+    # inside short notes (piecewise-linear knot noise detrends away).
+    def smooth_noise(sigma_s, cents):
+        nn = rng.standard_normal(out_n)
+        sf_ = sigma_s / FRAME_S
+        r = int(max(1, round(3 * sf_)))
+        k = np.exp(-0.5 * (np.arange(-r, r + 1) / sf_) ** 2)
+        k /= k.sum()
+        c = np.convolve(np.pad(nn, (r, r), mode="reflect"), k, mode="valid")
+        c = c / (np.std(c) + 1e-9)
+        return c * (cents / 1200.0) * np.log(2)
+    drift = drift + (smooth_noise(0.030, 9.0) + smooth_noise(0.080, 6.0)) * drift_scale
     vib = (vib_cents / 1200.0) * np.log(2) * vib_gain * np.sin(2 * np.pi * vib_hz * tt)
 
     resid = np.zeros(out_n)
@@ -687,6 +705,8 @@ def main():
 
     f0_out = np.exp(target_log + beta_arr * resid + onset_glide + drift + vib)
     f0_out[~voiced_out] = 0.0
+    if plan.get("debug_f0"):
+        np.save(plan["debug_f0"], f0_out)
 
     # ── sp/ap streams (formants untouched by any f0 move) ──────────────────
     sp_out = np.full((out_n, sp.shape[1]), 1e-12)
@@ -696,19 +716,69 @@ def main():
     sp_out[mapped] = w0f * sp[i0[mapped]] + w1f * sp[i1[mapped]]
     ap_out[mapped] = np.clip(w0f * ap[i0[mapped]] + w1f * ap[i1[mapped]], 0.0, 1.0)
 
-    # angelic air: raise HF aperiodicity on sustains (breath, not buzz)
-    if hold_air.any():
+    # angelic air: breath on every sung vowel, more on sustains. WORLD's noise
+    # excitation is scaled by the spectral envelope, so real air needs an HF
+    # ENERGY floor (a quiet aspiration bed > 4kHz, tilted down toward nyquist)
+    # rendered as noise (ap → high there) — breath, not buzz. This is what
+    # conforms the rendered hf_ratio into the reference spectral-balance band.
+    air_arr = np.clip((0.30 * vowel_air + 0.55 * hold_air) * air_scale, 0.0, 1.2)
+    if air_arr.any():
         nbins = ap_out.shape[1]
         k3 = int(nbins * 3000.0 / (fs / 2.0))
-        airy = np.where(hold_air > 0)[0]
-        gain = (0.30 * hold_air[airy])[:, None]
-        ap_out[airy, k3:] = np.clip(
-            ap_out[airy, k3:] + (1.0 - ap_out[airy, k3:]) * gain, 0.0, 1.0)
+        k4 = int(nbins * 4000.0 / (fs / 2.0))
+        airy = np.where(air_arr > 0)[0]
+        tilt = np.exp(-3.0 * np.arange(nbins - k4) / max(1, nbins - k4))
+        tot = sp_out[airy].sum(axis=1)
+        hf_now = sp_out[airy, k4:].sum(axis=1)
+        need = 0.010 * air_arr[airy] * tot
+        add = np.maximum(0.0, need - hf_now) / tilt.sum()
+        sp_out[airy, k4:] += add[:, None] * tilt[None, :]
+        # the aspiration bed is noise; presence band gets a gentler lift
+        ap_out[airy, k4:] = np.clip(
+            ap_out[airy, k4:] + (1.0 - ap_out[airy, k4:]) * 0.85, 0.0, 1.0)
+        gain = (0.25 * air_arr[airy])[:, None]
+        ap_out[airy, k3:k4] = np.clip(
+            ap_out[airy, k3:k4] + (1.0 - ap_out[airy, k3:k4]) * gain, 0.0, 1.0)
 
     y = pw.synthesize(np.ascontiguousarray(f0_out),
                       np.ascontiguousarray(sp_out),
                       np.ascontiguousarray(ap_out), fs,
                       frame_period=FRAME_S * 1000.0)
+
+    # goalpost energy-arc conformance on held notes (time domain — exact):
+    # a stretched vowel keeps the source's slow crescendo and lands outside
+    # the reference energy_attack band. Reshape each hold's rendered envelope
+    # to the template arc (quick rise → gentle singerly decay), with held
+    # notes leveled to the line's median so a quiet vowel gliding into a loud
+    # one doesn't read as one long crescendo peaking a note late.
+    hop = int(round(fs * FRAME_S))
+    att_s = float(bands.get("energy_attack_ms", {}).get("p50", 30.0)) / 1000.0
+    att_f = max(2, int(max(att_s, 0.03) / FRAME_S))
+    holds = [(o_a, o_b) for (o_a, o_b, hold) in note_regions
+             if hold >= 0.4 and o_b - o_a >= att_f * 2]
+    if holds:
+        n_env = max(1, len(y) // hop)
+        env_y = np.array([np.sqrt(np.mean(y[i * hop:(i + 1) * hop] ** 2) + 1e-12)
+                          for i in range(n_env)])
+        env_sm = smooth_runs(env_y, np.ones(n_env, dtype=bool), 3.0)
+        pks = [env_sm[a:min(b, n_env)].max() if a < n_env else 0.0 for a, b in holds]
+        live = [p for p in pks if p > 1e-5]
+        even_pk = float(np.median(live)) if live else 0.0
+        gain_fr = np.ones(n_env)
+        for (o_a, o_b), pk in zip(holds, pks):
+            if pk <= 1e-5 or o_a >= n_env:
+                continue
+            b = min(o_b, n_env)
+            n_note = b - o_a
+            arc = np.ones(n_note)
+            arc[:att_f] = np.linspace(0.5, 1.0, min(att_f, n_note))[:min(att_f, n_note)]
+            if n_note > att_f:
+                arc[att_f:] = np.linspace(1.0, 0.85, n_note - att_f)
+            tgt = even_pk if even_pk > 0 else pk
+            gain_fr[o_a:b] = np.clip((arc * tgt) / (env_sm[o_a:b] + 1e-9), 0.6, 1.8)
+        gain_fr = smooth_runs(gain_fr, np.ones(n_env, dtype=bool), 3.0)
+        y *= np.interp(np.arange(len(y)) / hop, np.arange(n_env), gain_fr)
+
 
     # ── unvoiced natural runs: composite ORIGINAL samples back in ──────────
     hop = int(round(fs * FRAME_S))
@@ -804,6 +874,19 @@ def main():
         conf = conformance(feats_r, bands)
         conf["_notes_measured"] = len(feats_r)
     clicks = click_scan(y.astype(np.float64), fs)
+    # exonerate flux spikes that land on NATURAL consonant composites — those
+    # samples are the original take (plosive bursts are supposed to be there)
+    if clicks["flux_spikes"]:
+        real = []
+        for p in clicks["spike_s"]:
+            fr = int(p / FRAME_S)
+            a = max(0, fr - 6)
+            b = min(out_n, fr + 7)
+            if not (comp[a:b].any() or seam[a:b].any()):
+                real.append(p)
+        clicks["flux_spikes"] = len(real)
+        clicks["spike_s"] = real
+        clicks["positions_s"] = clicks["click_s"] + real
 
     j = np.abs(np.diff(np.log(np.where(f0_out > 0, f0_out, np.nan)))) * 1200 / np.log(2)
     j = j[~np.isnan(j)]

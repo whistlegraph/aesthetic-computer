@@ -61,7 +61,23 @@ map, the door, and — where a module is clean enough — the home.
 | realign-from-whisper.mjs | pop/bin | retime visuals from whisper on the final mix | in place (big-pictures) |
 | identify-speaker.py | pop/bin | resemblyzer speaker-similarity windows | in place |
 
-### Spoken → sung (WORLD)
+### The sing core (round 3 — lives IN spinging/lib)
+
+| Module | Role | Spinging surface |
+|---|---|---|
+| pronounce.mjs | word → definitive IPA + syllable {onset, nucleus, coda} (Wiktionary API first, espeak fallback; cached in spinging/cache/pronounce.json) | `spinging pronounce` + imported |
+| notation.mjs | choral score: jingle notes married to syllable underlay + phoneme classes — the ground truth BOTH the aligner and synthesizer consume | imported (sidecar per line) |
+| sing_line_world.py | the line-continuous WORLD engine: guided alignment (expected consonants anchor bursts), per-line octave fit to the spoken take, 60–300 Hz harvest clamp (de-kermit), unstretched vowel onsets + natural-pitch glides, note-edge contour tapers, monotone source maps, goalpost-conformed drift/vibrato/energy arcs, airy sustains, quiet self-choir, conformance + click-scan QA in its stats | `spinging singline plan.json` |
+| vocal_shapes.py | shared feature extraction: note segmentation, shape features, percentile bands, conformance, click scan | imported by goalposts + engine |
+| goalposts.py | reference SUNG wavs → percentile shape bands (spinging/cache/goalposts.json; built from the WIYH acapellas — same singer) | `spinging goalposts` |
+| vocal_bus.py | Schroeder reverb halo on the vocal bus; standalone click scan | `spinging bus reverb\|scan` |
+
+First caller: `pop/menuband/bin/sing-jingle.mjs` (`--harmony` 0…1 = contour
+lock; round 3 ships at 0.875). The engine re-renders each line with adjusted
+tweaks until its measured features sit inside the reference p10–p90 bands and
+the click scan is clean — QA is statistical, not ear-only.
+
+### Spoken → sung (WORLD, older lanes)
 
 | Tool | Home | Role | Spinging surface |
 |---|---|---|---|
@@ -114,16 +130,16 @@ pitchsnap_world.py 30+) — those stay put and are reached through
 
 ## TODO — pending adoption
 
-- **Adopt the menuband sing engine as the spinging/lib sing core once the
-  smoothing pass lands.** `pop/menuband/bin/sing-jingle.mjs` +
-  `sing_word_world.py` are today's phoneme-aware sung-TTS engine (relative
-  pitch mapping, consonant preroll, β-contour retention) and are the closest
-  expression of the canonical chain — but they are being actively revised
-  right now (along with a new line-level `sing_line_world.py` sibling), so
-  spinging references them (`paths.mjs` → `singJingle` / `singWordWorld`)
-  without routing or importing. When they settle: lift the
-  word-level engine into `spinging/lib/sing.mjs` + `spinging/lib/sing_word_world.py`,
-  shim the menuband paths, and repoint `spinging sing`.
+- ~~Adopt the menuband sing engine as the spinging/lib sing core.~~ **DONE
+  (round 3, 2026-07):** the line-level engine now lives at
+  `spinging/lib/sing_line_world.py` with `pronounce.mjs` / `notation.mjs` /
+  `vocal_shapes.py` / `goalposts.py` / `vocal_bus.py` beside it;
+  `pop/menuband/bin/sing-jingle.mjs` imports from spinging and is the first
+  caller. The old round-2 `pop/menuband/bin/sing_line_world.py` and the
+  word-level `sing_word_world.py` stay in place as history. Next: repoint
+  `spinging sing` (score-pitch.mjs) at the new core for non-jingle lanes.
+- Rebuild `spinging/cache/goalposts.json` when better/drier reference
+  acapellas land — the bands are only as good as the references.
 - Unify autotune forks (pop/jungle/bin/autotune.py is a local variant of
   pop/bin/autotune.py).
 - Give `master` a target flag so sung output hits -14 LUFS / -1.0 dBTP without

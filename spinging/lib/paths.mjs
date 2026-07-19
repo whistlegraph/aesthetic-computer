@@ -61,10 +61,19 @@ export const TOOLS = {
   // finishing
   master: resolve(PODCAST, "bin", "master.mjs"),
 
-  // pending adoption (in-flight; see README) — referenced, never imported
+  // the spinging sing core (round 3 — adopted from pop/menuband)
+  pronounce: resolve(HERE, "pronounce.mjs"),
+  goalposts: resolve(HERE, "goalposts.py"),
+  singLineWorld: resolve(HERE, "sing_line_world.py"),
+  vocalBus: resolve(HERE, "vocal_bus.py"),
+
+  // the menuband caller of the sing core (word-level v1 kept for history)
   singJingle: resolve(POP, "menuband", "bin", "sing-jingle.mjs"),
   singWordWorld: resolve(POP, "menuband", "bin", "sing_word_world.py"),
 };
+
+// reference goalpost bands (built by goalposts.py from repo acapellas)
+export const GOALPOSTS_CACHE = resolve(HERE, "..", "cache", "goalposts.json");
 
 export function checkEnv() {
   return {

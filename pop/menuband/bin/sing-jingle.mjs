@@ -582,7 +582,9 @@ async function singOne(slug) {
 
     // ── render + percentile-gate: iterate until the line sits inside the
     // reference bands (or the pass budget runs out) ────────────────────────
-    const tweaks = { drift_scale: 1, glide_scale: 1, vib_depth_scale: 1, beta_scale: 1, air_scale: 1 };
+    // drift starts at the calibrated point where announce's lines land inside
+    // the reference plateau-drift band on pass 1
+    const tweaks = { drift_scale: 1.6, glide_scale: 1, vib_depth_scale: 1, beta_scale: 1, air_scale: 1 };
     let stats = {};
     let passes = 0;
     for (let pass = 1; pass <= QA_PASSES; pass++) {

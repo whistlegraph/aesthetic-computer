@@ -224,5 +224,7 @@ def click_scan(x, fs):
     return {
         "clicks": len(clicks), "flux_spikes": len(spikes),
         "worst_jump": round(worst, 3),
+        "click_s": [round(p, 3) for p in clicks[:12]],
+        "spike_s": [round(p, 3) for p in spikes[:12]],
         "positions_s": [round(p, 3) for p in (clicks + spikes)[:12]],
     }
