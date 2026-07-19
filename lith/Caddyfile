@@ -781,6 +781,16 @@
 # Construct build until the native remake lands; /classic stays the
 # permanent home of that build either way.
 nopaint.art {
+    # Pin issuance to LE production. After the DNS flip, Caddy's early
+    # failures demoted this host to LE staging, whose resolvers kept the
+    # stale Vercel IP long after production had the new one (www obtained
+    # its production cert hours earlier). Pinning skips the staging
+    # fallback and the policy change resets the retry backoff on reload.
+    tls {
+        issuer acme {
+            dir https://acme-v02.api.letsencrypt.org/directory
+        }
+    }
     root * /opt/ac/system/public/nopaint.art
     encode gzip
     handle_path /classic* {
