@@ -40,7 +40,7 @@ function memoryDatabase() {
   };
 }
 
-describe("Whistlegraph archive desk", () => {
+describe("Whistlegraph Desk", () => {
   it("authorizes immutable AC subjects, not claimed handles", () => {
     const allowed = new Set([JEFFREY, MINANIMALS]);
     expect(isWhistlegraphAdmin({ sub: JEFFREY, email_verified: true }, allowed)).toBeTrue();

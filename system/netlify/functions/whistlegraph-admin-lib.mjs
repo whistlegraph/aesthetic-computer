@@ -1,4 +1,4 @@
-// Shared validation and authorization rules for the Whistlegraph archive desk.
+// Shared validation and authorization rules for the Whistlegraph Desk.
 
 export const DEFAULT_WHISTLEGRAPH_ADMIN_SUBS = Object.freeze([
   "auth0|63effeeb2a7d55f8098d62f9", // @jeffrey

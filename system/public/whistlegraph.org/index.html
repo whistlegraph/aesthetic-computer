@@ -435,7 +435,7 @@ const KIND_LABEL={performance:"Performance",talk:"Talk",other:"Other"};
 const esc=s=>String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
 // Generated files remain the reproducible baseline. Small live patches from
-// the authenticated archive desk layer over that model and survive deploys.
+// the authenticated Whistlegraph Desk layer over that model and survive deploys.
 const curationLoaded=fetch("/api/whistlegraph-admin?action=curation",{cache:"no-store"})
   .then(r=>r.ok?r.json():{works:{},posts:{}})
   .then(data=>(LIVE_CURATION={works:data.works||{},posts:data.posts||{}},LIVE_CURATION))

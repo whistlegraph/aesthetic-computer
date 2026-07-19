@@ -1,4 +1,4 @@
-// Whistlegraph archive desk — Auth0-gated live curation overlays.
+// Whistlegraph Desk — Auth0-gated live curation overlays.
 //
 // GET   /api/whistlegraph-admin?action=curation  public overlay for the site
 // GET   /api/whistlegraph-admin?action=session   authenticated admin session

@@ -3,9 +3,9 @@
 Deferred items from @minanimals (Alex Freundlich) via iMessage, 2026-07-10.
 Data edits + copy/loop changes from that thread are already applied to `graphs.json` / `index.html`.
 
-## Archive Desk
+## Whistlegraph Desk
 
-`/admin` is the private archive editor. It uses the existing Aesthetic Computer
+`/admin` is the private Whistlegraph Desk. It uses the existing Aesthetic Computer
 Auth0 application and authorizes the immutable Auth0 subjects for @jeffrey and
 @minanimals on the server; matching a display handle is never enough. Live edits
 are stored as a MongoDB curation overlay and applied on top of the generated
