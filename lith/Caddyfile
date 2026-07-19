@@ -748,6 +748,25 @@
     }
 }
 
+# --- nopaint.art ---
+# This host's DNS points straight at lith (DigitalOcean zone, no Cloudflare
+# proxy), so it cannot ride the origin cert the :443 block uses — Caddy
+# manages a real ACME cert for it instead. Root serves the preserved 2021
+# Construct build until the native remake lands; /classic stays the
+# permanent home of that build either way.
+nopaint.art {
+    root * /opt/ac/system/public/nopaint.art
+    encode gzip
+    handle_path /classic* {
+        file_server
+    }
+    file_server
+}
+
+www.nopaint.art {
+    redir https://nopaint.art{uri} 301
+}
+
 :80 {
     redir https://{host}{uri} 301
 }

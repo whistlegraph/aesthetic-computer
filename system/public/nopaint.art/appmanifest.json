@@ -1,0 +1,16 @@
+{
+	"name": "No Paint",
+	"short_name": "No Paint",
+	"description": "Press \"Paint\" if you like what you see, or \"No\" if you don't.",
+	"start_url": "index.html",
+	"display": "fullscreen",
+	"orientation": "portrait",
+	"background_color": "#e7e8e9",
+	"icons": [
+		{
+			"src": "icons/icon-1024.png",
+			"sizes": "1024x1024",
+			"type": "image/png"
+		}
+	]
+}

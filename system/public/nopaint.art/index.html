@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>No Paint: Summer 2021</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
+<meta name="author" content="Jeffrey Alan Scudder w/ Alex Freundlich, Ella Fleck, Camille Klein &amp; Friends">
+<meta name="description" content="Press &quot;Paint&quot; if you like what you see, or &quot;No&quot; if you don&#39;t.">
+<link rel="manifest" href="appmanifest.json">
+<link rel="apple-touch-icon" sizes="129x129" href="https://nopaint.art/icons/icon-128.png">
+<link rel="apple-touch-icon" sizes="256x256" href="https://nopaint.art/icons/icon-256.png">
+<link rel="apple-touch-icon" sizes="1024x1024" href="icons/icon-1024.png">
+<link rel="icon" type="image/png" href="icons/icon-1024.png">
+<link rel="stylesheet" href="style.css">
+<meta property="og:image" content="https://nopaint.art/hero.png">
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-166851838-2"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-166851838-2');
+</script>
+<script>
+	// Prevent TAB and Alt keys from losing focus.
+	window.addEventListener('keydown', (e) => {
+		if (e.keyCode === 9 || e.keyCode === 18) {
+			e.preventDefault();
+		}
+	})
+</script>
+<style>
+    body, html {
+        width: 100%;
+        height: 100%;
+    }
+	body {
+		background:  #ebebeb url('loader.gif') no-repeat center/32px !important;
+		image-rendering: pixelated;
+	}
+</style>
+</head>
+<body>
+<div id="fb-root"></div>
+	<noscript>
+		<div id="notSupportedWrap">
+			<h2 id="notSupportedTitle">This content requires JavaScript</h2>
+			<p class="notSupportedMessage">JavaScript appears to be disabled. Please enable it to view this content.</p>
+		</div>
+	</noscript>
+	<script src="scripts/supportcheck.js"></script>
+	<script src="scripts/offlineclient.js"></script>
+	<script src="scripts/main.js"></script>
+	<script src="scripts/register-sw.js"></script>
+</body>
+</html>
