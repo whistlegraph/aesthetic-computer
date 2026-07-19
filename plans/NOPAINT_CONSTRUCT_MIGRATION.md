@@ -205,3 +205,40 @@ A useful first milestone is intentionally narrow:
 That is enough to recover the original artwork's agency and make a credible
 award submission. The remaining brushes, profiles, sounds, and playlists can
 then return incrementally without blocking the relaunch.
+
+## 2026-07-19 — hosting swap + archive findings
+
+Step 0 is materially complete and the domain now lives on AC infrastructure.
+
+- **Hosting moved Vercel → lith.** `system/public/nopaint.art/` holds the
+  complete 2021 export mirrored from the live site (165 files; all 130
+  audio, 32 spritesheets, runtime, fonts, icons). Caddy serves it at both
+  the root and `/classic` with a dedicated ACME site block (this host is
+  direct-DNS on DigitalOcean, not Cloudflare-proxied like the rest of
+  lith). `www` 301s to the apex. DNS A records flipped via doctl
+  (76.76.21.21 → 209.38.133.33).
+- **`.c3p` is local**: `~/Documents/nopaint-recovery/` holds the Dropbox
+  original (SHA-256 verified against the hash above) plus a full
+  extraction — so brush ports need neither Dropbox nor Construct.
+- **The painting archive is far larger than the project file suggests.**
+  DO Spaces bucket `pix.nopaint.art` (sfo3, CDN at
+  `https://pix.nopaint.art/<id>.png`) holds **32,184 paintings / 3.9 GB**,
+  256×288 px, uploaded 2021 (15,407) → 2022 (8,016) → 2023 (5,449) →
+  2024 (2,112) → 2025 (1,200). People kept playing for four years after
+  "Summer 2021."
+- **Saving is currently broken.** Uploads stop in 2025; the game's save
+  server was `server.nopaint.art` → `glitch.edgeapp.net`, and Glitch is
+  gone. Restoring save (lith endpoint → Spaces) is now part of the plan.
+- **No painter attribution in the archive**: PNGs carry no tEXt/S3
+  metadata; handle association (if recorded) lived in the dead Glitch
+  app. Check for a Glitch project export before assuming it is lost.
+
+### Gallery (extends step 3)
+
+The award entry should let the jury walk the archive. Plan:
+`nopaint.art/gallery` — a paginated/endless grid over the bucket,
+served from a generated manifest (bucket listing → JSON with id, date,
+size), images straight off the pix CDN. Random-walk and by-year views
+fall out of the manifest for free. Painter-handle overlays arrive later
+if the Glitch data surfaces. The 1,197 in-project stamp/profile images
+remain a separate, curated set from the extracted `.c3p`.
