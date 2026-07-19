@@ -2105,8 +2105,30 @@ final class MenuBandSynth {
         let lsb = UInt8(v & 0x7F)
         let msb = UInt8((v >> 7) & 0x7F)
         let status: UInt8 = 0xE0 | (channel & 0x0F)
+        if usingPluginInstrument && channel != 9, let au = pluginUnit?.audioUnit {
+            sendMIDIEvent(au, status: status, data1: lsb, data2: msb)
+            return
+        }
         if midiSynthReady, let au = midiSynth?.audioUnit {
             sendMIDIEvent(au, status: status, data1: lsb, data2: msb)
+        }
+    }
+
+    /// Pass a hardware controller's generic MIDI CC through to synth backends
+    /// that understand channel messages (notably CC1 modulation). Sustain is
+    /// implemented in MenuBandController so it also works for sample/radio/GM
+    /// backends that do not consume CC64 themselves.
+    func sendControlChange(_ controller: UInt8, value: UInt8, channel: UInt8 = 0) {
+        guard started else { return }
+        let status: UInt8 = 0xB0 | (channel & 0x0F)
+        if usingPluginInstrument && channel != 9, let au = pluginUnit?.audioUnit {
+            sendMIDIEvent(au, status: status,
+                          data1: controller & 0x7F, data2: value & 0x7F)
+            return
+        }
+        if midiSynthReady, let au = midiSynth?.audioUnit {
+            sendMIDIEvent(au, status: status,
+                          data1: controller & 0x7F, data2: value & 0x7F)
         }
     }
 

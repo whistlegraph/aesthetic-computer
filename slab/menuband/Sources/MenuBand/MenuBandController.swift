@@ -28,6 +28,14 @@ extension Float {
 final class MenuBandController {
     private let midi = MenuBandMIDI()
     private let synth = MenuBandSynth()
+    /// Physical CoreMIDI keyboard state, keyed by channel+note. Kept apart
+    /// from QWERTY state so USB note-offs cannot release a computer-keyboard
+    /// voice that happens to share the same pitch.
+    private var hardwareMIDIHeld: Set<UInt16> = []
+    private var hardwareMIDISustained: Set<UInt16> = []
+    private var hardwareMIDISustainChannels: Set<UInt8> = []
+    private var hardwareMIDIDisplayByKey: [UInt16: UInt8] = [:]
+    private var hardwareMIDIDisplayRefs: [UInt8: Int] = [:]
     /// 90-second tape that captures synth output + mic together. Wired
     /// up in `bootstrap` after `synth.start()` so the player node has
     /// a running engine to attach to.
@@ -1486,6 +1494,14 @@ final class MenuBandController {
         }
         synth.start()
         synth.setMelodicProgram(melodicProgram)
+        // Physical USB/Bluetooth MIDI input is always available and does not
+        // depend on the DAW-facing MIDI output toggle. CoreMIDI invokes us on
+        // its delivery queue; serialize controller/synth/UI state on main.
+        midi.startHardwareInput { [weak self] event in
+            DispatchQueue.main.async {
+                self?.handleHardwareMIDI(event)
+            }
+        }
         // Tape wiring: attach the player to the synth's pre-limiter
         // sum bus, fork the existing audio taps into the tape's
         // ingestion methods, and listen for state changes so we can
@@ -1563,9 +1579,139 @@ final class MenuBandController {
     }
 
     func shutdown() {
+        releaseAllHardwareMIDINotes()
+        midi.stopHardwareInput()
         disableTypeMode()
         disableMIDIMode()
         synth.stop()
+    }
+
+    // MARK: - Physical MIDI controller input
+
+    @inline(__always)
+    private func hardwareMIDIKey(note: UInt8, channel: UInt8) -> UInt16 {
+        (UInt16(channel & 0x0F) << 8) | UInt16(note & 0x7F)
+    }
+
+    @inline(__always)
+    private func hardwareMIDIAddress(_ key: UInt16) -> (note: UInt8, channel: UInt8) {
+        (UInt8(key & 0x7F), UInt8((key >> 8) & 0x0F))
+    }
+
+    /// Fold an 88-key controller onto the two-octave menubar display while
+    /// preserving pitch class and octave-within-the-strip.
+    private func hardwareMIDIDisplayNote(_ note: UInt8) -> UInt8 {
+        let wrapped = ((Int(note) - 60) % 24 + 24) % 24
+        return UInt8(60 + wrapped)
+    }
+
+    private func handleHardwareMIDI(_ event: MenuBandMIDI.HardwareEvent) {
+        switch event {
+        case let .noteOn(note, velocity, channel):
+            let key = hardwareMIDIKey(note: note, channel: channel)
+            // Re-attacking a note held by the sustain pedal must close the old
+            // voice first; many controllers legitimately send this sequence.
+            if hardwareMIDIHeld.contains(key) || hardwareMIDISustained.contains(key) {
+                releaseHardwareMIDINote(key)
+            }
+            hardwareMIDIHeld.insert(key)
+            lastPlayedNote = note
+            if !midiMode {
+                synth.noteOn(note, velocity: velocity, channel: channel)
+            }
+            midiNoteOn(note, velocity: velocity, channel: channel)
+            lightHardwareMIDINote(key, note: note)
+
+        case let .noteOff(note, channel):
+            let key = hardwareMIDIKey(note: note, channel: channel)
+            guard hardwareMIDIHeld.remove(key) != nil else { return }
+            if hardwareMIDISustainChannels.contains(channel) {
+                hardwareMIDISustained.insert(key)
+            } else {
+                releaseHardwareMIDINote(key)
+            }
+
+        case let .controlChange(controller, value, channel):
+            // Always mirror controller data to Menu Band's virtual output
+            // when MIDI mode is enabled.
+            midi.sendCC(controller, value: value, channel: channel)
+            switch controller {
+            case 64: // damper / sustain pedal
+                if value >= 64 {
+                    hardwareMIDISustainChannels.insert(channel)
+                } else {
+                    hardwareMIDISustainChannels.remove(channel)
+                    let releases = hardwareMIDISustained.filter {
+                        hardwareMIDIAddress($0).channel == channel
+                    }
+                    for key in releases { releaseHardwareMIDINote(key) }
+                }
+            case 120, 123: // All Sound Off / All Notes Off
+                releaseAllHardwareMIDINotes(channel: channel)
+            default:
+                if !midiMode {
+                    // CC1 modulation and any AU-specific knobs reach synths
+                    // that consume ordinary MIDI controller messages.
+                    synth.sendControlChange(controller, value: value, channel: channel)
+                }
+            }
+
+        case let .pitchBend(value, channel):
+            let amount = Float(value) / 8192.0
+            if !midiMode {
+                synth.sendPitchBend(value: value, channel: channel)
+                // Non-MIDI-native backends need their equivalent direct
+                // controls so the Arturia wheel works on every Menu Band voice.
+                synth.setSamplePitchBend(amount: amount)
+                synth.setRadioPitchBend(amount: amount)
+                synth.setGMPitchBend(amount: amount)
+            }
+            midi.sendPitchBend(value: value, channel: channel)
+
+        case .reset:
+            releaseAllHardwareMIDINotes()
+        }
+    }
+
+    private func lightHardwareMIDINote(_ key: UInt16, note: UInt8) {
+        let display = hardwareMIDIDisplayNote(note)
+        hardwareMIDIDisplayByKey[key] = display
+        hardwareMIDIDisplayRefs[display, default: 0] += 1
+        litDownAt[display] = CACurrentMediaTime()
+        if litNotes.insert(display).inserted { onLitChanged?() }
+    }
+
+    private func releaseHardwareMIDINote(_ key: UInt16) {
+        hardwareMIDIHeld.remove(key)
+        hardwareMIDISustained.remove(key)
+        let address = hardwareMIDIAddress(key)
+        if !midiMode {
+            synth.noteOff(address.note, channel: address.channel)
+        }
+        midi.noteOff(address.note, channel: address.channel)
+
+        guard let display = hardwareMIDIDisplayByKey.removeValue(forKey: key) else { return }
+        let nextRef = max(0, (hardwareMIDIDisplayRefs[display] ?? 1) - 1)
+        if nextRef > 0 {
+            hardwareMIDIDisplayRefs[display] = nextRef
+            return
+        }
+        hardwareMIDIDisplayRefs.removeValue(forKey: display)
+        litDownAt.removeValue(forKey: display)
+        if litNotes.remove(display) != nil { onLitChanged?() }
+    }
+
+    private func releaseAllHardwareMIDINotes(channel: UInt8? = nil) {
+        let sounding = hardwareMIDIHeld.union(hardwareMIDISustained).filter { key in
+            guard let channel else { return true }
+            return hardwareMIDIAddress(key).channel == channel
+        }
+        for key in sounding { releaseHardwareMIDINote(key) }
+        if let channel {
+            hardwareMIDISustainChannels.remove(channel)
+        } else {
+            hardwareMIDISustainChannels.removeAll()
+        }
     }
 
     // MARK: - MIDI virtual port (Ableton-facing output)

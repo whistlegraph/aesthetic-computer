@@ -193,6 +193,14 @@ enum MenuBandLayout {
 }
 
 final class MenuBandMIDI {
+    enum HardwareEvent {
+        case noteOn(note: UInt8, velocity: UInt8, channel: UInt8)
+        case noteOff(note: UInt8, channel: UInt8)
+        case controlChange(controller: UInt8, value: UInt8, channel: UInt8)
+        case pitchBend(value: Int16, channel: UInt8)
+        case reset
+    }
+
     private var client: MIDIClientRef = 0
     private var source: MIDIEndpointRef = 0
     // `started` = virtual port is published (lifetime bit; once true, stays
@@ -208,6 +216,9 @@ final class MenuBandMIDI {
     private var enabled = false
     private var loopbackPort: MIDIPortRef = 0
     private var loopbackHandler: ((UInt8, UInt8) -> Void)?
+    private var hardwareInputPort: MIDIPortRef = 0
+    private var connectedHardwareSources: Set<MIDIEndpointRef> = []
+    private var hardwareInputHandler: ((HardwareEvent) -> Void)?
 
     deinit {
         // Don't dispose CoreMIDI here — see the `started`/`enabled` comment.
@@ -265,18 +276,163 @@ final class MenuBandMIDI {
         loopbackHandler = nil
     }
 
+    /// Listen to every physical/external CoreMIDI source. This is separate
+    /// from `start()`: hardware keyboards should play Menu Band even when the
+    /// DAW-facing virtual MIDI output toggle is off. CoreMIDI notifications
+    /// keep the subscriptions current when a USB controller is hot-plugged.
+    func startHardwareInput(onEvent: @escaping (HardwareEvent) -> Void) {
+        hardwareInputHandler = onEvent
+        guard ensureClient() else { return }
+        if hardwareInputPort == 0 {
+            let status = MIDIInputPortCreateWithBlock(
+                client,
+                "Menu Band Hardware Input" as CFString,
+                &hardwareInputPort
+            ) { [weak self] listPtr, _ in
+                self?.handleHardwarePackets(listPtr)
+            }
+            guard status == noErr else {
+                NSLog("MenuBand MIDIInputPortCreateWithBlock failed: \(status)")
+                hardwareInputPort = 0
+                return
+            }
+        }
+        refreshHardwareInputs()
+    }
+
+    func stopHardwareInput() {
+        guard hardwareInputPort != 0 else {
+            hardwareInputHandler = nil
+            return
+        }
+        for endpoint in connectedHardwareSources {
+            MIDIPortDisconnectSource(hardwareInputPort, endpoint)
+        }
+        connectedHardwareSources.removeAll()
+        hardwareInputHandler = nil
+    }
+
+    /// Reconcile the input port with CoreMIDI's current source list. The
+    /// virtual Menu Band source is deliberately excluded so enabling MIDI
+    /// output cannot feed our own notes back into the local synth.
+    private func refreshHardwareInputs() {
+        guard hardwareInputPort != 0 else { return }
+        var available: Set<MIDIEndpointRef> = []
+        for index in 0..<MIDIGetNumberOfSources() {
+            let endpoint = MIDIGetSource(index)
+            guard endpoint != 0, endpoint != source else { continue }
+            available.insert(endpoint)
+        }
+
+        let removed = connectedHardwareSources.subtracting(available)
+        for endpoint in removed {
+            MIDIPortDisconnectSource(hardwareInputPort, endpoint)
+            connectedHardwareSources.remove(endpoint)
+        }
+        if !removed.isEmpty {
+            // A keyboard can disappear while keys or its sustain pedal are
+            // down. Tell the controller to release its hardware-owned notes.
+            hardwareInputHandler?(.reset)
+        }
+
+        for endpoint in available.subtracting(connectedHardwareSources) {
+            let status = MIDIPortConnectSource(hardwareInputPort, endpoint, nil)
+            if status == noErr {
+                connectedHardwareSources.insert(endpoint)
+                debugLog("MIDI hardware input connected endpoint=\(endpoint)")
+            } else {
+                NSLog("MenuBand MIDIPortConnectSource failed for \(endpoint): \(status)")
+            }
+        }
+    }
+
+    /// Decode the MIDI 1.0 channel voice messages used by class-compliant USB
+    /// keyboards. A CoreMIDI packet may contain several messages, so walk the
+    /// complete byte stream rather than assuming one three-byte packet.
+    private func handleHardwarePackets(_ listPtr: UnsafePointer<MIDIPacketList>) {
+        let list = listPtr.pointee
+        var packet = list.packet
+        for _ in 0..<list.numPackets {
+            let length = Int(packet.length)
+            withUnsafePointer(to: &packet.data) { dataPtr in
+                dataPtr.withMemoryRebound(to: UInt8.self, capacity: length) { bytes in
+                    var index = 0
+                    var runningStatus: UInt8?
+                    while index < length {
+                        let byte = bytes[index]
+                        if byte >= 0xF8 { // MIDI realtime: one byte, may interleave
+                            index += 1
+                            continue
+                        }
+                        if (byte & 0x80) != 0 {
+                            if byte >= 0xF0 { // Ignore SysEx/system-common input.
+                                runningStatus = nil
+                                index += 1
+                                continue
+                            }
+                            runningStatus = byte
+                            index += 1
+                        }
+                        guard let status = runningStatus else {
+                            index += 1
+                            continue
+                        }
+                        let kind = status & 0xF0
+                        let dataCount = (kind == 0xC0 || kind == 0xD0) ? 1 : 2
+                        guard index + dataCount <= length else { break }
+                        let data1 = bytes[index] & 0x7F
+                        let data2 = dataCount == 2 ? bytes[index + 1] & 0x7F : 0
+                        index += dataCount
+                        let channel = status & 0x0F
+                        switch kind {
+                        case 0x80:
+                            hardwareInputHandler?(.noteOff(note: data1, channel: channel))
+                        case 0x90:
+                            if data2 == 0 {
+                                hardwareInputHandler?(.noteOff(note: data1, channel: channel))
+                            } else {
+                                hardwareInputHandler?(.noteOn(note: data1, velocity: data2, channel: channel))
+                            }
+                        case 0xB0:
+                            hardwareInputHandler?(.controlChange(controller: data1, value: data2, channel: channel))
+                        case 0xE0:
+                            let unsigned = Int(data1) | (Int(data2) << 7)
+                            hardwareInputHandler?(.pitchBend(value: Int16(unsigned - 8192), channel: channel))
+                        default:
+                            break
+                        }
+                    }
+                }
+            }
+            packet = MIDIPacketNext(&packet).pointee
+        }
+    }
+
+    private func ensureClient() -> Bool {
+        if client != 0 { return true }
+        let status = MIDIClientCreateWithBlock("Menu Band" as CFString, &client) { [weak self] notification in
+            switch notification.pointee.messageID {
+            case .msgObjectAdded, .msgObjectRemoved, .msgSetupChanged:
+                DispatchQueue.main.async { self?.refreshHardwareInputs() }
+            default:
+                break
+            }
+        }
+        if status != noErr {
+            NSLog("MenuBand MIDIClientCreate failed: \(status)")
+            client = 0
+            return false
+        }
+        return true
+    }
+
     /// Idempotent: publishes the virtual source on first call, then enables
     /// outbound sends. Subsequent calls just re-enable. Pairs with `stop()`,
     /// which only flips `enabled` — the port stays published for the app's
     /// lifetime.
     func start() {
         if !started {
-            let clientName = "Menu Band" as CFString
-            let status = MIDIClientCreate(clientName, nil, nil, &client)
-            guard status == noErr else {
-                NSLog("MenuBand MIDIClientCreate failed: \(status)")
-                return
-            }
+            guard ensureClient() else { return }
             let sourceName = "Menu Band" as CFString
             let srcStatus = MIDISourceCreate(client, sourceName, &source)
             guard srcStatus == noErr else {
@@ -344,6 +500,10 @@ final class MenuBandMIDI {
                                         "Menu Band" as CFString)
             started = true
             debugLog("midi.start: virtual source published")
+            // Creating our virtual source generates a CoreMIDI setup change.
+            // Reconcile immediately too so it can never remain subscribed as
+            // a hardware input during the notification's delivery window.
+            refreshHardwareInputs()
         }
         enabled = true
         debugLog("midi.start: enabled")
