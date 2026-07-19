@@ -3476,6 +3476,27 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Set flag to indicate worklet is ready
         window.audioWorkletReady = true;
 
+        // 📼 If a tape is mid-presentation its soundtrack has been silent —
+        // audio decode happens before the worklet exists (cold tape loads).
+        // Start it now from the current playhead.
+        if (sfx["tape:audio"] && typeof seekTapePlayback === "function") {
+          Object.keys(sfxPlaying).forEach((id) => {
+            if (id.startsWith("tape:audio_")) {
+              sfxPlaying[id]?.kill();
+              delete sfxPlaying[id];
+            }
+          });
+          startTapeAudioLoop(currentTapePosition || 0);
+          console.log(
+            "🎵 📼 Tape audio started on worklet-ready at",
+            (currentTapePosition || 0).toFixed(3),
+          );
+          acDISK_SEND({
+            type: "tape:audio-context-state",
+            content: { state: audioContext.state, hasAudio: true },
+          });
+        }
+
         // Apply speaker performance mode hint if provided
         const speakerPerfMode =
           typeof window !== "undefined" ? window.__acSpeakerPerformanceMode : null;
@@ -4142,6 +4163,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         queuedAt: Date.now(),
       });
     }
+  }
+
+  // 📼 Start the tape soundtrack as a free-running full-range loop and nudge
+  // the read head to `fromPosition`. `from` can't express this — in the
+  // sample synth it sets the LOOP START boundary, which would trap the loop
+  // in the tail of the tape instead of wrapping over the whole thing.
+  function startTapeAudioLoop(fromPosition) {
+    const id = "tape:audio_" + performance.now();
+    playSfx(id, "tape:audio", { loop: true }).then(() => {
+      const pos = Math.max(0, Math.min(1, fromPosition || 0));
+      if (pos > 0) sfxPlaying[id]?.update({ samplePosition: pos });
+    });
+    return id;
   }
 
   speakAPI.playSfx = playSfx;
@@ -11405,41 +11439,27 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               const audioBlob = await soundtrackFile.async("blob");
               const audioArrayBuffer = await audioBlob.arrayBuffer();
               
-              // Lazy load: use existing global audioContext or create one only when needed
-              let ctx = window.audioContext || audioContext;
-              
-              if (!ctx) {
-                // No AudioContext exists yet - create one with optimal settings
-                const targetSampleRate = tapeMetadata.audioSampleRate || 48000;
-                console.log(`📼 Lazy-creating AudioContext at ${targetSampleRate}Hz for tape playback`);
-                try {
-                  ctx = new (window.AudioContext || window.webkitAudioContext)({
-                    sampleRate: targetSampleRate,
-                    latencyHint: "playback", // Optimize for playback vs. interactive
-                  });
-                  // Store globally for future use
-                  window.audioContext = ctx;
-                  audioContext = ctx;
-                  console.log(`📼 AudioContext created: ${ctx.sampleRate}Hz, state: ${ctx.state}`);
-                } catch (e) {
-                  console.error("📼 Failed to create AudioContext:", e);
-                  throw new Error("AudioContext not available - audio playback will be silent");
-                }
-              } else {
+              // Decode WITHOUT creating a bios AudioContext. A bare context
+              // here would make startSound() bail on the user's first tap,
+              // so the speaker worklet — the only thing that can actually
+              // play tape audio — would never boot and the tape would stay
+              // silent forever. When no real context exists yet, decode
+              // through a throwaway OfflineAudioContext; the worklet-ready
+              // hook in startSound() starts the soundtrack after the tap.
+              const targetSampleRate = tapeMetadata.audioSampleRate || 48000;
+              const ctx =
+                audioContext && audioContext.state !== "closed"
+                  ? audioContext
+                  : new OfflineAudioContext(1, 1, targetSampleRate);
+              if (ctx === audioContext) {
                 console.log(`📼 Using existing AudioContext: ${ctx.sampleRate}Hz, state: ${ctx.state}`);
+              } else {
+                console.log(`📼 Decoding tape audio via OfflineAudioContext at ${targetSampleRate}Hz`);
               }
-              
-              // Resume AudioContext if it's suspended (browser autoplay policy)
-              if (ctx.state === 'suspended') {
-                console.log("📼 AudioContext suspended - will resume on user interaction");
-                console.log("📼 Skipping audio resume to allow video playback");
-                // Don't await ctx.resume() - it may hang without user gesture
-                // Video will play silently, audio will start when user interacts
-              }
-              
+
               // Store raw audio data for potential re-decoding when AudioContext becomes running
               window.tapeAudioArrayBuffer = audioArrayBuffer.slice();
-              
+
               const audioBuffer = await ctx.decodeAudioData(audioArrayBuffer);
               sfx["tape:audio"] = audioBuffer;
               console.log(`📼 Audio loaded: ${audioBuffer.duration.toFixed(2)}s, ${audioBuffer.numberOfChannels} channels, ${audioBuffer.sampleRate}Hz`);
@@ -11470,13 +11490,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           console.log("📼 Tape loaded and ready to play");
           
           // Send AudioContext state to video piece so it knows about audio
-          console.log("📼 🎵 Sending AudioContext state to video piece:", { state: audioContext?.state, hasAudio: !!audioContext });
-          send({ 
-            type: "tape:audio-context-state", 
-            content: { 
-              state: audioContext?.state,
-              hasAudio: !!audioContext
-            } 
+          console.log("📼 🎵 Sending AudioContext state to video piece:", { state: audioContext?.state || "suspended", hasAudio: !!sfx["tape:audio"] });
+          send({
+            type: "tape:audio-context-state",
+            content: {
+              state: audioContext?.state || "suspended",
+              hasAudio: !!sfx["tape:audio"],
+            },
           });
           
           // Now trigger presentation by calling the same logic as recorder:present
@@ -11490,7 +11510,284 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           send({ type: "tape:error", content: error.message });
         }
       })();
-      
+
+      return;
+    }
+
+    // 🧪 Synthesize a scrubbable test tape (a "synthtape") entirely
+    // client-side — no zip, no network. Deterministic frames (frame number,
+    // timecode, position hue, per-frame parity flicker) plus a soundtrack
+    // whose pitch encodes tape position, so scrub speed, direction, inertia,
+    // and AV sync can all be judged against ground truth. Entry: `video scrub`.
+    if (type === "tape:play-synth") {
+      (async () => {
+        try {
+          const duration = Math.max(1, Math.min(30, content?.duration || 8)); // seconds
+          const fps = Math.max(5, Math.min(60, content?.fps || 30));
+          const width = content?.width || 320;
+          const height = content?.height || 180;
+          const totalFrames = Math.round(duration * fps);
+          console.log(`🧪 Synthesizing tape: ${totalFrames} frames @ ${fps}fps, ${duration}s`);
+
+          // Soundtrack first (the frames render its waveform): a 120 BPM
+          // bed — kick on every beat, hats on the offbeats, a bass root per
+          // bar, pentatonic plucks — with a quiet position-pitch sweep
+          // underneath. Every pitched voice is quantized to whole cycles
+          // per loop, so the loop seam is phase-continuous: musically
+          // seamless by construction, not by fade.
+          const sampleRate = 48000;
+          const sampleCount = Math.floor(duration * sampleRate);
+          const pcm = new Int16Array(sampleCount);
+          const TAU = Math.PI * 2;
+          const BEAT = 0.5; // 120 BPM
+          const BAR = BEAT * 4;
+          // Roots quantized to 0.5Hz — whole cycles per 2s bar: ~E2 C2 G2 D2.
+          const bassRoots = [82.5, 65.5, 98, 73.5];
+          // Plucks quantized to 4Hz — whole cycles per quarter-beat note.
+          const pent = [328, 392, 440, 492, 588];
+          let sweepPhase = 0; // Phase-increment, not sin(TAU*f*t) — no drift on long tapes.
+          let bassPhase = 0;
+          let melPhase = 0;
+          for (let s = 0; s < sampleCount; s++) {
+            const tt = s / sampleRate;
+            const pos = tt / duration;
+            const inBeat = tt % BEAT;
+            let v = 0;
+
+            // Kick: a 120→45Hz chirp with a fast decay.
+            v +=
+              Math.sin(TAU * (45 + 120 * Math.exp(-inBeat * 26)) * inBeat) *
+              Math.exp(-inBeat * 18) * 0.6;
+
+            // Hat: a short burst of deterministic pseudo-noise on the offbeat.
+            const inOff = (tt + BEAT / 2) % BEAT;
+            if (inOff < 0.03) {
+              const n = Math.sin(s * 12.9898) * 43758.5453;
+              v += (n - Math.floor(n) - 0.5) * Math.exp(-inOff * 160) * 0.35;
+            }
+
+            // Bass: one root per bar, pulsed per beat.
+            const bar = Math.floor(tt / BAR) % bassRoots.length;
+            bassPhase += (TAU * bassRoots[bar]) / sampleRate;
+            v +=
+              (Math.sin(bassPhase) + Math.sin(bassPhase * 2) * 0.3) *
+              Math.exp(-inBeat * 4) * 0.25;
+
+            // Melody: a pentatonic pluck every half beat, stepped deterministically.
+            const noteIdx = Math.floor(tt / (BEAT / 2));
+            const inNote = tt % (BEAT / 2);
+            const mf = pent[(noteIdx * 3 + Math.floor(noteIdx / 5)) % pent.length];
+            melPhase += (TAU * mf) / sampleRate;
+            v += Math.sin(melPhase) * Math.exp(-inNote * 9) * 0.22;
+
+            // Position sweep, quiet underneath, with a 50ms edge fade so
+            // the 880→220Hz jump at the loop seam can't click.
+            sweepPhase += (TAU * (220 + pos * 660)) / sampleRate;
+            const edge = Math.min(1, tt / 0.05, (duration - tt) / 0.05);
+            v += Math.sin(sweepPhase) * 0.07 * edge;
+
+            pcm[s] = Math.tanh(v) * 32767; // Soft-clip the mix.
+          }
+
+          // Min/max waveform envelope per ruler pixel, so the frames can
+          // draw the actual soundtrack scrolling by.
+          const pxPerSec = width / 2; // One tape-second spans half a frame-width
+          const waveCols = Math.ceil(duration * pxPerSec);
+          const waveMin = new Float32Array(waveCols);
+          const waveMax = new Float32Array(waveCols);
+          const samplesPerCol = sampleCount / waveCols;
+          for (let c = 0; c < waveCols; c++) {
+            let lo = 1;
+            let hi = -1;
+            const colStart = Math.floor(c * samplesPerCol);
+            const colEnd = Math.min(sampleCount, Math.ceil((c + 1) * samplesPerCol));
+            for (let s = colStart; s < colEnd; s += 4) {
+              const vv = pcm[s] / 32767;
+              if (vv < lo) lo = vv;
+              if (vv > hi) hi = vv;
+            }
+            waveMin[c] = lo;
+            waveMax[c] = hi;
+          }
+
+          recordedFrames.length = 0;
+          const synthCanvas = document.createElement("canvas");
+          synthCanvas.width = width;
+          synthCanvas.height = height;
+          const sctx = synthCanvas.getContext("2d", { willReadFrequently: true });
+
+          for (let i = 0; i < totalFrames; i++) {
+            const t = i / fps; // seconds
+            const progress = totalFrames > 1 ? i / (totalFrames - 1) : 0;
+            // Position-hue background: an instant "where am I" cue.
+            sctx.fillStyle = `hsl(${Math.round(progress * 300)}, 60%, 16%)`;
+            sctx.fillRect(0, 0, width, height);
+
+            // Scrolling ruler: the tape's timeline slides horizontally under
+            // a fixed center playhead, so scrub velocity reads directly as
+            // pixel velocity (and direction as scroll direction).
+            const bandTop = 8;
+            const bandH = height - bandTop - 10;
+            const halfSpanSec = width / 2 / pxPerSec + 1;
+            for (
+              let s = Math.floor(t - halfSpanSec);
+              s <= Math.ceil(t + halfSpanSec);
+              s++
+            ) {
+              const x = Math.round(width / 2 + (s - t) * pxPerSec);
+              if (s >= 0 && s < duration) {
+                // Alternating per-second panels make speed and direction legible.
+                sctx.fillStyle = `hsl(${Math.round((s / duration) * 300)}, 55%, ${s % 2 ? 26 : 18}%)`;
+                sctx.fillRect(x, bandTop, Math.ceil(pxPerSec), bandH);
+                sctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+                sctx.textAlign = "center";
+                sctx.font = `bold ${Math.floor(bandH / 2.4)}px monospace`;
+                sctx.fillText(String(s), x + pxPerSec / 2, bandTop + bandH * 0.6);
+              } else {
+                // Off-tape zone, so the reel's edges are visible when you
+                // scrub past the ends.
+                sctx.fillStyle = "#111111";
+                sctx.fillRect(x, bandTop, Math.ceil(pxPerSec), bandH);
+              }
+              // Major tick each second, minor ticks each tenth.
+              sctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+              sctx.fillRect(x, bandTop, 2, bandH);
+              for (let m = 1; m < 10; m++) {
+                sctx.fillRect(Math.round(x + (m / 10) * pxPerSec), bandTop, 1, 6);
+              }
+            }
+
+            // The soundtrack's actual waveform, scrolling with the ruler.
+            const midY = bandTop + bandH / 2;
+            sctx.fillStyle = "rgba(255, 220, 120, 0.9)";
+            for (let x = 0; x < width; x++) {
+              const c = Math.round(t * pxPerSec + x - width / 2);
+              if (c < 0 || c >= waveCols) continue;
+              const yTop = midY + waveMin[c] * (bandH / 2 - 2);
+              const yBot = midY + waveMax[c] * (bandH / 2 - 2);
+              sctx.fillRect(
+                x,
+                Math.min(yTop, yBot),
+                1,
+                Math.max(1, Math.abs(yBot - yTop)),
+              );
+            }
+
+            // Frame-parity chip (top-right): alternates every frame so a
+            // dropped or duplicated frame reads as a hiccup in its flicker —
+            // kept tiny so it doesn't strobe the whole player.
+            sctx.fillStyle = i % 2 ? "#ffffff" : "#333333";
+            sctx.fillRect(width - 8, 2, 6, 4);
+            // Position bar flush with the frame's bottom edge.
+            sctx.fillStyle = "#ffcc00";
+            sctx.fillRect(0, height - 6, Math.floor(progress * width), 6);
+            // Subtle center reading-head marker the ruler slides beneath —
+            // the live red playhead is drawn by the piece from real state.
+            sctx.fillStyle = "rgba(255, 255, 255, 0.35)";
+            sctx.fillRect(Math.floor(width / 2), 8, 1, height - 18);
+
+            // Small frame number + timecode, above the progress bar.
+            const secs = Math.floor(t);
+            const ms = Math.floor((t - secs) * 1000);
+            sctx.fillStyle = "#ffffff";
+            sctx.textAlign = "left";
+            sctx.font = `${Math.floor(height / 11)}px monospace`;
+            sctx.fillText(
+              `${String(i).padStart(3, "0")} ${String(secs).padStart(2, "0")}.${String(ms).padStart(3, "0")}`,
+              6,
+              height - 12,
+            );
+
+            recordedFrames.push([
+              (i * 1000) / fps,
+              sctx.getImageData(0, 0, width, height),
+            ]);
+            if (i % 30 === 0 || i === totalFrames - 1) {
+              send({
+                type: "tape:load-progress",
+                content: {
+                  code: "synth",
+                  phase: "frames",
+                  progress: (i + 1) / totalFrames,
+                  loadedFrames: i + 1,
+                  totalFrames,
+                },
+              });
+            }
+          }
+
+          mediaRecorderDuration = (totalFrames * 1000) / fps;
+
+          // (Soundtrack was synthesized above, before the frames, so the
+          // ruler could render its waveform.)
+          const wavBytes = new ArrayBuffer(44 + pcm.length * 2);
+          const dv = new DataView(wavBytes);
+          const writeStr = (off, str) => {
+            for (let c = 0; c < str.length; c++) dv.setUint8(off + c, str.charCodeAt(c));
+          };
+          writeStr(0, "RIFF");
+          dv.setUint32(4, 36 + pcm.length * 2, true);
+          writeStr(8, "WAVE");
+          writeStr(12, "fmt ");
+          dv.setUint32(16, 16, true);
+          dv.setUint16(20, 1, true); // PCM
+          dv.setUint16(22, 1, true); // Mono
+          dv.setUint32(24, sampleRate, true);
+          dv.setUint32(28, sampleRate * 2, true);
+          dv.setUint16(32, 2, true);
+          dv.setUint16(34, 16, true);
+          writeStr(36, "data");
+          dv.setUint32(40, pcm.length * 2, true);
+          new Int16Array(wavBytes, 44).set(pcm);
+
+          window.tapeAudioArrayBuffer = wavBytes.slice(0);
+          // Decode WITHOUT creating a bios AudioContext. A bare context here
+          // would make startSound() bail on the user's first tap, so the
+          // speaker worklet — the only thing that can actually play tape
+          // audio — would never boot and the tape would stay silent forever.
+          const decodeCtx =
+            audioContext && audioContext.state !== "closed"
+              ? audioContext
+              : new OfflineAudioContext(1, 1, sampleRate);
+          try {
+            sfx["tape:audio"] = await decodeCtx.decodeAudioData(wavBytes);
+            console.log(`🧪 Synthtape audio ready: ${sfx["tape:audio"].duration.toFixed(2)}s`);
+          } catch (audioError) {
+            console.error("🧪 Synthtape audio decode failed:", audioError);
+          }
+
+          // Boot the audio system eagerly — the context starts suspended
+          // (no gesture yet) but the speaker worklet loads now, so the
+          // first tap only needs a resume instead of a full bootstrap.
+          if (!audioContext) startSound();
+
+          send({
+            type: "tape:loaded",
+            content: {
+              code: "synth",
+              framesReady: recordedFrames.length,
+              totalFrames,
+              streaming: false,
+            },
+          });
+          send({
+            type: "tape:audio-context-state",
+            content: {
+              state: audioContext?.state || "suspended",
+              hasAudio: !!sfx["tape:audio"],
+            },
+          });
+
+          console.log("🧪 Synthtape ready — presenting");
+          setTimeout(async () => {
+            await receivedChange({ data: { type: "recorder:present", content: {} } });
+          }, 100);
+        } catch (error) {
+          console.error("🧪 Error synthesizing tape:", error);
+          send({ type: "tape:error", content: error.message });
+        }
+      })();
+
       return;
     }
 
@@ -11584,6 +11881,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         frameCount: recordedFrames.length,
         totalDuration: 0,
         hasAudio: !!window.tapeAudioArrayBuffer,
+        // Source of the recording, so the video piece can tell KidLisp
+        // $code tapes (which get the GIF/MP4/ZIP export trio) from others.
+        pieceName: window.currentRecordingOptions?.pieceName || null,
+        cachedCode: window.currentRecordingOptions?.cachedCode || null,
       };
       
       // Calculate total duration from frame timestamps
@@ -14977,6 +15278,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           let tapeSoundId;
 
+          // 🕰️ Absolute grid for musical loop timing — see the loop branch.
+          let tapeLoopGridEpoch = null;
+          let tapeLoopGridCount = 0;
+
           stopTapePlayback = () => {
             continuePlaying = false;
             stopped = true;
@@ -15039,10 +15344,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 }
               });
 
-              tapeSoundId = "tape:audio_" + performance.now();
-              playSfx(tapeSoundId, "tape:audio", {
-                from: clampedPosition, // Start from the paused position
-              });
+              tapeSoundId = startTapeAudioLoop(clampedPosition);
             }
 
             window.requestAnimationFrame(update);
@@ -15074,6 +15376,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             // Adjust playback start time to match new position
             const currentTime = performance.now();
             playbackStart = currentTime - (progress * playbackDurationMs);
+            // A seek breaks the musical loop grid — re-anchor at next loop.
+            tapeLoopGridEpoch = null;
+            tapeLoopGridCount = 0;
             
             // Update display with new frame
             if (recordedFrames[f]) {
@@ -15101,10 +15406,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               // Ending scrub - restart audio at final position
               isScrubbing = false;
               if (!render && workletReady && audioContextReady && mediaRecorderDuration > 0 && continuePlaying) {
-                tapeSoundId = "tape:audio_" + performance.now();
-                playSfx(tapeSoundId, "tape:audio", {
-                  from: progress,
-                });
+                tapeSoundId = startTapeAudioLoop(progress);
               }
             } else if (!scrubbing && !isScrubbing) {
               // Normal seek (not scrubbing) - sync audio immediately
@@ -15116,13 +15418,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                     delete sfxPlaying[id];
                   }
                 });
-                
+
                 // Restart audio from new position if currently playing
                 if (continuePlaying) {
-                  tapeSoundId = "tape:audio_" + performance.now();
-                  playSfx(tapeSoundId, "tape:audio", {
-                    from: progress,
-                  });
+                  tapeSoundId = startTapeAudioLoop(progress);
                 }
               }
             }
@@ -15206,8 +15505,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 }
               });
               
-              tapeSoundId = "tape:audio_" + performance.now();
-              await playSfx(tapeSoundId, "tape:audio", { from: audioPosition });
+              tapeSoundId = startTapeAudioLoop(audioPosition);
             }
 
             // Resize fctx here if the width and
@@ -15286,27 +15584,52 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               
               // For normal playback, loop
               f = 0;
-              // Reset playback timing for the loop
-              playbackStart = performance.now();
-              playbackProgress = 0;
-              // Clear resume flag when looping
-              isResuming = false;
-              
-              // Restart audio for the loop (only during normal playback)
-              if (!render) {
-                // Kill any existing tape audio before starting new one
-                Object.keys(sfxPlaying).forEach(id => {
-                  if (id.startsWith("tape:audio_")) {
-                    sfxPlaying[id]?.kill();
-                    delete sfxPlaying[id];
-                  }
-                });
-                
-                tapeSoundId = "tape:audio_" + performance.now();
-                await playSfx(tapeSoundId, "tape:audio");
-                console.log("🎵 Audio restarted for loop");
+              // 🕰️ Musical loop grid: anchor each loop start to an absolute
+              // grid so the period can't accumulate RAF drift (measured
+              // ~-31ms/loop before). The next loop simply begins at
+              // epoch + N × duration; if the frames arrive early the grid
+              // holds tempo, if late they catch up.
+              const gridNow = performance.now();
+              if (
+                tapeLoopGridEpoch === null ||
+                Math.abs(gridNow - (tapeLoopGridEpoch + (tapeLoopGridCount + 1) * mediaRecorderDuration)) >
+                  mediaRecorderDuration / 2
+              ) {
+                // First loop or a broken grid (seek/suspend) — re-anchor.
+                tapeLoopGridEpoch = gridNow;
+                tapeLoopGridCount = 0;
+                playbackStart = gridNow;
               } else {
-                console.log("🎵 Skipping audio restart during video export");
+                tapeLoopGridCount += 1;
+                playbackStart = tapeLoopGridEpoch + tapeLoopGridCount * mediaRecorderDuration;
+              }
+              playbackProgress = 0;
+              // The next update's f===0 branch would reset playbackStart to
+              // "now", clobbering the grid — isResuming makes it skip once.
+              isResuming = true;
+
+              // The tape soundtrack is a free-running looped sample now
+              // (loop: true) — the worklet wraps the read at both ends like
+              // stample's ring buffer, so the seam never retriggers it.
+              // Only start audio here if it somehow died (recovery).
+              if (!render && !isScrubbing) {
+                const tapeAudioLive = Object.keys(sfxPlaying).some((id) =>
+                  id.startsWith("tape:audio_"),
+                );
+                if (!tapeAudioLive) {
+                  tapeSoundId = startTapeAudioLoop(0);
+                  console.log("🎵 Tape audio recovered at loop boundary");
+                }
+                // Loop-period telemetry vs the tape length.
+                const loopPeriod = window.__lastTapeLoopAt
+                  ? gridNow - window.__lastTapeLoopAt
+                  : null;
+                window.__lastTapeLoopAt = gridNow;
+                if (loopPeriod) {
+                  console.log(
+                    `🕰️ Video loop period ${loopPeriod.toFixed(1)}ms vs tape ${mediaRecorderDuration.toFixed(1)}ms (drift ${(loopPeriod - mediaRecorderDuration).toFixed(1)}ms, grid loop #${tapeLoopGridCount})`,
+                  );
+                }
               }
             } else {
               // Improved frame advancement logic with better hang detection and refresh rate handling
@@ -21227,15 +21550,24 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   //});
 
   // Window Scroll 📜
-  window.addEventListener("wheel", function (event) {
-    send({
-      type: "scroll",
-      content: {
-        x: event.deltaX / subdivisions,
-        y: event.deltaY / subdivisions,
-      },
-    });
-  });
+  // Horizontal two-finger scroll is piece input (e.g. tape scrubbing), so
+  // keep Chrome from turning it into back/forward swipe navigation.
+  document.documentElement.style.overscrollBehavior = "none";
+  if (document.body) document.body.style.overscrollBehavior = "none";
+  window.addEventListener(
+    "wheel",
+    function (event) {
+      if (underlayFrame) event.preventDefault(); // Tape presenting: scroll = scrub
+      send({
+        type: "scroll",
+        content: {
+          x: event.deltaX / subdivisions,
+          y: event.deltaY / subdivisions,
+        },
+      });
+    },
+    { passive: false },
+  );
 
   // Window Focus
   window.addEventListener("focus", function (e) {

@@ -93,6 +93,51 @@ let scrubStripBtn = null; // STAMPLE-like sticky scrub area
 let scrubMoved = false; // Prevent tap toggle after a real scrub gesture
 let scrubAudioSpeed = 1; // Local estimate of tape audio sampleSpeed
 
+// 🖐️ Touch brake: holding a finger on a playing tape slows it to a stop
+// like a record under a hand (pitch bending down with it); letting go spins
+// it back up to 1×. A quick tap (released before the brake engages) still
+// toggles play/pause.
+let brakeHolding = false; // Finger down, speed decaying toward 0
+let brakeResume = false; // Finger lifted, speed ramping back to 1
+let holdTime = 0; // Seconds the finger has been down without dragging
+const BRAKE_ENGAGE_TIME = 0.09; // Hold this long before braking
+
+// 🪀 Elastic drag: displacement from the touch anchor stretches the rate
+// around 1× — pull right to speed up, left through 0 into reverse; release
+// springs back to 1×. Rate is the instrument, not position. A swipe out of
+// a brake hold instead anchors at 0×: swipe direction = playback direction,
+// and release glides on inertia.
+let elasticAnchorX = null;
+let elasticBase = 1; // 1 = stretching around play; 0 = thrown from a halt
+
+// 🖱️ Two-finger scroll drives the scrub too (no tap-drag needed); it eases
+// back to 1× when the wheel goes quiet.
+let scrollScrubbing = false;
+let lastScrollAt = 0;
+
+// Scrub physics runs on measured wall time, not an assumed tick rate —
+// sim ticks at ~120Hz here, and a fixed 1/60 dt made every commanded
+// speed land at roughly half its real value.
+let scrubLastSimTime = 0;
+
+// 🧪 Synthtape state (`video scrub`): bios fabricates a deterministic test
+// tape so scrub feel can be tuned without recording anything. `auto` runs a
+// scripted gesture exercise that grades the physics (🧪 SYNTHSCRUB logs).
+let isSynthTape = false;
+let synthAuto = false;
+let autoScript = null; // Remaining autopilot segments
+let autoSeg = null; // Segment currently running
+let autoTimer = 0; // Frames elapsed in the current segment
+let autoSegStartProgress = 0;
+let autoSegStartTime = 0; // Wall clock at segment start, for effective-speed math
+let autoDtSum = 0; // Wall time the physics actually integrated this segment
+let autoPhysTicks = 0; // Physics executions this segment
+let autoSpeedMin = Infinity; // Observed scrubSpeed range this segment
+let autoSpeedMax = -Infinity;
+let autoPrevPos = null; // Last observed position, for per-tick step anomaly tracing
+let autoAnomalies = 0;
+let autoChecks = []; // Pass/fail results for the final 🧪 SYNTHSCRUB report
+
 const buttonBottom = 6;
 const buttonLeft = 6;
 const buttonSpacing = 6;
@@ -237,6 +282,12 @@ function boot({ wipe, rec, gizmo, jump, notice, store, params, send, hud }) {
   tapeInfo = null; // Reset tape info for new recording
   isScrubbing = false;
   inertiaActive = false;
+  brakeHolding = false;
+  brakeResume = false;
+  holdTime = 0;
+  elasticAnchorX = null;
+  scrollScrubbing = false;
+  lastScrollAt = 0;
   scrubSpeed = 0;
   scrubCurrentProgress = 0;
   wasPlayingBeforeScrub = false;
@@ -247,6 +298,12 @@ function boot({ wipe, rec, gizmo, jump, notice, store, params, send, hud }) {
   mp4Playing = true;
   mp4Progress = 0;
   mp4BackBtn = null;
+  isSynthTape = false;
+  synthAuto = false;
+  autoScript = null;
+  autoSeg = null;
+  autoTimer = 0;
+  autoChecks = [];
 
   // Check if a tape code was passed (e.g., "video !abc")
   if (params[0] && params[0].startsWith("!")) {
@@ -343,6 +400,21 @@ function boot({ wipe, rec, gizmo, jump, notice, store, params, send, hud }) {
         tapeLoadProgress = 0;
         tapeLoadMessage = "";
       });
+  } else if (params[0] === "scrub" || params[0] === "synth") {
+    // 🧪 Synthtape: `video scrub [duration] [fps]` — bios fabricates a
+    // deterministic test tape (numbered frames, timecode, position hue,
+    // pitch-sweep soundtrack). Add `auto` to run the scripted scrub
+    // exercise and print a 🧪 SYNTHSCRUB report to the console.
+    const duration = parseFloat(params[1]) || 8;
+    const fps = parseFloat(params[2]) || 30;
+    synthAuto = params.includes("auto");
+    isSynthTape = true;
+    isLoadingTape = true;
+    tapeLoadPhase = "synth";
+    tapeLoadProgress = 0;
+    tapeLoadMessage = "SYNTHESIZING TAPE";
+    hud?.label(synthAuto ? "synthtape auto" : "synthtape");
+    send({ type: "tape:play-synth", content: { duration, fps } });
   } else {
     // Try to restore cached video from IndexedDB
     store.retrieve("tape", "local:db", (data) => {
@@ -453,7 +525,7 @@ function paint({
     // Only show POST button if tape hasn't been posted yet AND duration is within limit
     const tapeWithinDurationLimit = !tapeInfo || (tapeInfo.totalDuration <= MAX_TAPE_DURATION);
     
-    if (!postedTapeCode && tapeWithinDurationLimit) {
+    if (!postedTapeCode && tapeWithinDurationLimit && !isSynthTape) {
       if (!postBtn) {
         postBtn = new ui.TextButton("POST", { right: 6, bottom: 6, screen });
       }
@@ -477,35 +549,45 @@ function paint({
       }
     }
 
-    // 📥 GIF / MP4 / ZIP export trio, stacked in the bottom-right corner.
-    // When the POST button is visible (tape not yet posted) the stack sits
-    // just above it; on an already-posted tape (e.g. !code) POST is hidden
-    // so the trio starts flush with the bottom.
-    const exportRowH = 22;
-    let exportBottom = postBtn ? 6 + exportRowH : 6;
+    // 📥 GIF / MP4 / ZIP export trio, stacked in the bottom-right corner —
+    // only for tapes recorded from a KidLisp $code piece (atm); everything
+    // else keeps just POST + Back. When the POST button is visible the
+    // stack sits just above it; otherwise it starts flush with the bottom.
+    const isKidlispTape =
+      !isSynthTape &&
+      !!(tapeInfo?.cachedCode || tapeInfo?.pieceName?.startsWith?.("$"));
 
-    if (!zipBtn) {
-      zipBtn = new ui.TextButton("ZIP", { right: 6, bottom: exportBottom, screen });
-    }
-    zipBtn.reposition({ right: 6, bottom: exportBottom, screen }, "ZIP");
-    zipBtn.disabled = disableExports;
-    zipBtn.paint(api);
-    exportBottom += exportRowH;
+    if (isKidlispTape) {
+      const exportRowH = 22;
+      let exportBottom = postBtn ? 6 + exportRowH : 6;
 
-    if (!mp4Btn) {
-      mp4Btn = new ui.TextButton("MP4", { right: 6, bottom: exportBottom, screen });
-    }
-    mp4Btn.reposition({ right: 6, bottom: exportBottom, screen }, "MP4");
-    mp4Btn.disabled = disableExports;
-    mp4Btn.paint(api);
-    exportBottom += exportRowH;
+      if (!zipBtn) {
+        zipBtn = new ui.TextButton("ZIP", { right: 6, bottom: exportBottom, screen });
+      }
+      zipBtn.reposition({ right: 6, bottom: exportBottom, screen }, "ZIP");
+      zipBtn.disabled = disableExports;
+      zipBtn.paint(api);
+      exportBottom += exportRowH;
 
-    if (!gifBtn) {
-      gifBtn = new ui.TextButton("GIF", { right: 6, bottom: exportBottom, screen });
+      if (!mp4Btn) {
+        mp4Btn = new ui.TextButton("MP4", { right: 6, bottom: exportBottom, screen });
+      }
+      mp4Btn.reposition({ right: 6, bottom: exportBottom, screen }, "MP4");
+      mp4Btn.disabled = disableExports;
+      mp4Btn.paint(api);
+      exportBottom += exportRowH;
+
+      if (!gifBtn) {
+        gifBtn = new ui.TextButton("GIF", { right: 6, bottom: exportBottom, screen });
+      }
+      gifBtn.reposition({ right: 6, bottom: exportBottom, screen }, "GIF");
+      gifBtn.disabled = disableExports;
+      gifBtn.paint(api);
+    } else {
+      gifBtn = undefined;
+      mp4Btn = undefined;
+      zipBtn = undefined;
     }
-    gifBtn.reposition({ right: 6, bottom: exportBottom, screen }, "GIF");
-    gifBtn.disabled = disableExports;
-    gifBtn.paint(api);
 
     // 🔙 Back-to-cap button (bottom-left) for the cap → review → re-cap loop.
     if (!backBtn) {
@@ -715,8 +797,36 @@ function paint({
     ink(180, 0, 0).write("NO VIDEO", { center: "xy" });
   }
   
+  // 📟 Current playback rate, top-right, always visible on a tape.
+  if (presenting && !isPrinting && !isLoadingTape) {
+    const liveRate =
+      isScrubbing || inertiaActive || brakeResume
+        ? scrubSpeed
+        : playing
+          ? 1
+          : 0;
+    ink(255, 255, 0).write(`${liveRate.toFixed(2)}x`, {
+      x: screen.width - 6,
+      y: 6,
+      right: true,
+    });
+
+    // 🔴 The red line IS the playhead: actual playback position, drawn
+    // from live state so it never lies.
+    const livePos =
+      isScrubbing || inertiaActive || brakeResume
+        ? scrubCurrentProgress
+        : (rec?.presentProgress ?? 0);
+    ink(255, 51, 68).box(
+      Math.floor(livePos * (screen.width - 2)),
+      0,
+      2,
+      screen.height,
+    );
+  }
+
   // Scrub overlay (STAMPLE-style speed-based)
-  if ((isScrubbing || inertiaActive) && rec?.presenting) {
+  if ((isScrubbing || inertiaActive || brakeResume) && rec?.presenting) {
     // Waveform fetch (async, cached)
     if (!tapeWaveform && sound.getSampleData) {
       sound.getSampleData("tape:audio").then((data) => {
@@ -741,10 +851,10 @@ function paint({
       } catch (_) {}
     }
 
-    // Playhead line at current scrub position
-    const playX = Math.floor(scrubCurrentProgress * screen.width);
+    // (No overlay playhead line — the tape's own center needle and bottom
+    // position bar already show where you are; a third moving line reads
+    // as clutter.)
     const c = isScrubbing ? [255, 255, 0, 255] : [100, 200, 255, 220];
-    ink(...c).box(playX, 0, 1, screen.height);
 
     // Speed indicator (stample-style)
     const absSpeed = Math.abs(scrubSpeed);
@@ -752,10 +862,10 @@ function paint({
     const speedLabel = absSpeed < 0.08 ? "\u258c\u258c" : `${dir} ${absSpeed.toFixed(1)}\u00d7`;
     ink(...c).write(speedLabel, { center: "xy" });
 
-    // Progress % at top-right
+    // Progress % at top-right, under the rate readout
     ink(...c).write(
       `${Math.floor(scrubCurrentProgress * 100)}%`,
-      { x: screen.width - 8, y: 8, right: true },
+      { x: screen.width - 8, y: 20, right: true },
     );
 
     // Drive VHS tape progress bar from scrub position
@@ -790,6 +900,22 @@ function sim({ needsPaint, rec, send }) {
   ellipsisTicker?.sim();
   frameCount++; // Increment frame counter for animations
 
+  // Measured wall-time per sim tick — the scrub physics scales by this so
+  // commanded speed means tape-seconds per wall-second at any tick rate.
+  // Sim calls arrive in bursts, so the clamp must stay generous: it only
+  // guards against a suspended tab, not ordinary burst gaps.
+  const simNow = performance.now();
+  const simDt = scrubLastSimTime
+    ? Math.min(0.25, (simNow - scrubLastSimTime) / 1000)
+    : 1 / 60;
+  scrubLastSimTime = simNow;
+
+  // 🧪 Synthtape autopilot: drive the same scrub state the finger would,
+  // segment by segment, and grade the resulting motion.
+  if (synthAuto && rec?.presenting && !isLoadingTape) {
+    autopilot(rec, send, simDt);
+  }
+
   if (typeof needsPaint === "function") {
     requestPaint = needsPaint;
     if (
@@ -802,28 +928,61 @@ function sim({ needsPaint, rec, send }) {
       ((rec?.tapeProgress ?? 0) > 0 && (rec?.tapeProgress ?? 0) < 1) ||
       postedTapeCode || // Keep painting when button shows tape code
       isScrubbing || // Keep painting during scrubbing
-      inertiaActive // Keep painting during inertia
+      inertiaActive || // Keep painting during inertia
+      brakeHolding || // Keep painting while the touch brake slows the tape
+      brakeResume // Keep painting while it spins back up
     ) {
       needsPaint();
     }
   }
   
+  // 🖐️ Touch brake engage: a held (non-dragging) finger on a playing tape
+  // starts slowing it to a stop after a short threshold, so a quick tap
+  // still toggles play/pause.
+  if (
+    scrubStripBtn?.down &&
+    !isScrubbing &&
+    !inertiaActive &&
+    !brakeResume &&
+    !scrubMoved &&
+    rec?.presenting &&
+    rec?.playing
+  ) {
+    holdTime += simDt;
+    if (holdTime >= BRAKE_ENGAGE_TIME) {
+      brakeHolding = true;
+      isScrubbing = true;
+      scrubMoved = true; // A brake is a gesture, not a tap — no toggle on lift
+      wasPlayingBeforeScrub = true;
+      scrubCurrentProgress = rec.presentProgress || 0;
+      scrubSpeed = 1; // Start at play speed and decay from there
+      send({
+        type: "recorder:present:seek",
+        content: { progress: scrubCurrentProgress, speedScrub: true, scrubbing: true },
+      });
+    }
+  } else if (!scrubStripBtn?.down) {
+    holdTime = 0;
+  }
+
   // Speed-based scrubbing physics (STAMPLE-style: drag velocity = playback speed)
-  if ((isScrubbing || inertiaActive) && rec?.presenting) {
+  if ((isScrubbing || inertiaActive || brakeResume) && rec?.presenting) {
     const totalDuration = tapeInfo?.totalDuration || 10; // seconds
-    const dt = 1 / 60; // ~60fps
+    // Decay/ramp factors below were tuned at 60fps; raise them to the
+    // measured tick so the feel is identical at any sim rate.
+    const rate = simDt * 60;
 
     // Advance position at current speed (like stample's pitch-shifted sample)
-    scrubCurrentProgress += scrubSpeed * dt / totalDuration;
+    scrubCurrentProgress += scrubSpeed * simDt / totalDuration;
+    autoDtSum += simDt; // 🧪 Physics wall-time integration, for autopilot grading
+    autoPhysTicks += 1;
+    autoSpeedMin = Math.min(autoSpeedMin, scrubSpeed);
+    autoSpeedMax = Math.max(autoSpeedMax, scrubSpeed);
 
-    // Edge handling with light bounce during inertia
-    if (scrubCurrentProgress <= 0) {
-      scrubCurrentProgress = 0;
-      if (inertiaActive) scrubSpeed = Math.abs(scrubSpeed) * 0.3;
-    } else if (scrubCurrentProgress >= 1) {
-      scrubCurrentProgress = 1;
-      if (inertiaActive) scrubSpeed = -Math.abs(scrubSpeed) * 0.3;
-    }
+    // The tape is a loop — wrap at the seam, so holding or scrubbing
+    // through the ends keeps going instead of cutting.
+    if (scrubCurrentProgress < 0) scrubCurrentProgress += 1;
+    else if (scrubCurrentProgress >= 1) scrubCurrentProgress -= 1;
 
     // Seek frame only — audio managed separately via tape:audio-shift
     send({
@@ -834,9 +993,36 @@ function sim({ needsPaint, rec, send }) {
     // Match tape audio speed to scrub speed (incremental shift like stample)
     nudgeTapeAudioSpeed(send, scrubSpeed);
 
+    // 🖐️ Brake hold: speed sags toward 0 under the finger — deeeessshshvuueee.
+    if (brakeHolding && isScrubbing) {
+      scrubSpeed *= Math.pow(0.85, rate);
+      if (scrubSpeed < 0.02) scrubSpeed = 0;
+    }
+
+    // 🖱️ Scroll release: the wheel went quiet — spring back to 1× play.
+    if (scrollScrubbing && isScrubbing && performance.now() - lastScrollAt > 150) {
+      scrollScrubbing = false;
+      isScrubbing = false;
+      brakeResume = true;
+    }
+
+    // 🖐️ Brake release: spin back up to 1× and hand off to normal play.
+    if (brakeResume && !isScrubbing) {
+      scrubSpeed += (1 - scrubSpeed) * (1 - Math.pow(0.88, rate));
+      if (scrubSpeed > 0.95) {
+        brakeResume = false;
+        scrubSpeed = 0;
+        nudgeTapeAudioSpeed(send, 1);
+        send({
+          type: "recorder:present:seek",
+          content: { progress: scrubCurrentProgress, scrubEnd: true },
+        });
+      }
+    }
+
     // Inertia: speed decays toward 0, then resume normal play
     if (inertiaActive && !isScrubbing) {
-      scrubSpeed *= 0.88;
+      scrubSpeed *= Math.pow(0.88, rate);
       if (Math.abs(scrubSpeed) < 0.04) {
         inertiaActive = false;
         scrubSpeed = 0;
@@ -845,7 +1031,7 @@ function sim({ needsPaint, rec, send }) {
           type: "recorder:present:seek",
           content: { progress: scrubCurrentProgress, scrubEnd: true },
         });
-        if (!wasPlayingBeforeScrub) rec.pause();
+        // Pause disabled — the tape always rolls.
       }
     }
 
@@ -913,9 +1099,12 @@ function act({
     return;
   }
 
-  if (!rec.presenting && (isScrubbing || inertiaActive)) {
+  if (!rec.presenting && (isScrubbing || inertiaActive || brakeHolding || brakeResume)) {
     isScrubbing = false;
     inertiaActive = false;
+    brakeHolding = false;
+    brakeResume = false;
+    holdTime = 0;
     scrubSpeed = 0;
     scrubMoved = false;
     nudgeTapeAudioSpeed(send, 1);
@@ -977,6 +1166,9 @@ function act({
         tapeInfo = null;
         isScrubbing = false;
         inertiaActive = false;
+        brakeHolding = false;
+        brakeResume = false;
+        holdTime = 0;
         scrubSpeed = 0;
         scrubMoved = false;
         scrubCurrentProgress = 0;
@@ -1910,20 +2102,71 @@ function act({
       gifBtn?.down || 
       zipBtn?.down;
     
+    // ⌨️ Spacebar is the only pause — touch never pauses, but a deliberate
+    // keypress can still halt and resume the tape.
+    if (e.is("keyboard:down:space") && rec.presenting) {
+      if (rec.playing) rec.pause();
+      else rec.play();
+      triggerRender();
+      return;
+    }
+
+    // 🖱️ Two-finger scroll scrubs directly — no tap-drag needed. Wheel
+    // deltas bend the rate; when the gesture stops it springs back to 1×.
+    if (e.is("scroll") && rec.presenting) {
+      const d = e.x || e.y || 0; // Horizontal primary, vertical works too
+      if (d) {
+        if (!isScrubbing) {
+          inertiaActive = false;
+          brakeHolding = false;
+          brakeResume = false;
+          scrubCurrentProgress = rec.presentProgress || scrubCurrentProgress || 0;
+          wasPlayingBeforeScrub = true;
+          isScrubbing = true;
+          scrollScrubbing = true;
+          if (!rec.playing) rec.play();
+          send({
+            type: "recorder:present:seek",
+            content: { progress: scrubCurrentProgress, speedScrub: true, scrubbing: true },
+          });
+        }
+        scrubMoved = true;
+        scrubSpeed = Math.max(-4, Math.min(4, scrubSpeed * 0.6 + d * 0.25));
+        lastScrollAt = performance.now();
+        nudgeTapeAudioSpeed(send, scrubSpeed);
+        triggerRender();
+      }
+    }
+
     if (!anyButtonDown && !isPrinting && !isPostingTape && rec.presenting) {
       ensureScrubStripButton(ui, screen, true);
       scrubStripBtn?.act(e, {
         down: () => {
+          if (synthAuto) console.log(`🧪 STRIP DOWN fired (e.type=${e.type})`);
           scrubMoved = false;
           isScrubbing = false;
           inertiaActive = false;
+          brakeHolding = false;
+          brakeResume = false;
+          scrollScrubbing = false;
+          holdTime = 0;
+          elasticAnchorX = e.x ?? null;
+          elasticBase = 1;
           scrubCurrentProgress = rec.presentProgress || 0;
           scrubSpeed = 0;
           wasPlayingBeforeScrub = rec.playing;
           scrubAudioSpeed = 1;
         },
         scrub: () => {
-          if (Math.abs(e.delta.x) <= 0) return;
+          if (e.x === undefined) return;
+          if (brakeHolding) {
+            // 🖐️→🪀 Swiping out of a brake hold throws the reel: the rate
+            // anchors at 0×, so swipe direction is playback direction.
+            brakeHolding = false;
+            elasticBase = 0;
+            elasticAnchorX = e.x;
+          }
+          if (elasticAnchorX === null) elasticAnchorX = e.x;
           if (!isScrubbing) {
             isScrubbing = true;
             // STAMPLE-like: start a live source so drag can bend audio immediately.
@@ -1933,27 +2176,29 @@ function act({
               content: { progress: scrubCurrentProgress, speedScrub: true, scrubbing: true },
             });
           }
-          scrubMoved = true;
-          const SENSITIVITY = 0.25;
-          const MAX_SPEED = 4;
-          scrubSpeed = Math.max(-MAX_SPEED, Math.min(MAX_SPEED, e.delta.x * SENSITIVITY));
+          // 🪀 Elastic rate: displacement from the anchor stretches the rate
+          // around the base — a third of the screen right reaches 4×, left
+          // pulls through 0 into reverse.
+          const dx = e.x - elasticAnchorX;
+          if (Math.abs(dx) > 2) scrubMoved = true;
+          const K = 9 / screen.width;
+          scrubSpeed = Math.max(-4, Math.min(4, elasticBase + dx * K));
           nudgeTapeAudioSpeed(send, scrubSpeed);
           triggerRender();
         },
         up: () => {
           if (!isScrubbing) return true;
           isScrubbing = false;
-          if (Math.abs(scrubSpeed) > 0.1) {
+          brakeHolding = false;
+          elasticAnchorX = null;
+          if (elasticBase === 0 && Math.abs(scrubSpeed) > 0.1) {
+            // 🪀 Thrown from a halt — glide in that direction on inertia.
             inertiaActive = true;
           } else {
-            scrubSpeed = 0;
-            nudgeTapeAudioSpeed(send, 1);
-            send({
-              type: "recorder:present:seek",
-              content: { progress: scrubCurrentProgress, scrubEnd: true },
-            });
-            if (!wasPlayingBeforeScrub) rec.pause();
+            // 🪀 Stretch release springs the rate back to 1× play.
+            brakeResume = true;
           }
+          elasticBase = 1;
           triggerRender();
           return true;
         },
@@ -1961,13 +2206,16 @@ function act({
           if (!isScrubbing) return;
           isScrubbing = false;
           inertiaActive = false;
+          brakeHolding = false;
+          brakeResume = false;
+          elasticAnchorX = null;
           scrubSpeed = 0;
           nudgeTapeAudioSpeed(send, 1);
           send({
             type: "recorder:present:seek",
             content: { progress: scrubCurrentProgress, scrubEnd: true },
           });
-          if (!wasPlayingBeforeScrub) rec.pause();
+          // Pause disabled — the tape always rolls.
           triggerRender();
         },
         push: () => {
@@ -1976,8 +2224,9 @@ function act({
             handleAudioContextAndPlay(sound, rec, triggerRender);
             return;
           }
+          // Pause is disabled — the tape always rolls. A held finger brakes
+          // it; a tap just makes sure it's rolling (and unlocks audio).
           if (!rec.playing) rec.play();
-          else rec.pause();
           triggerRender();
         },
       });
@@ -2577,6 +2826,11 @@ function leave({ send }) {
   console.log("📼 Leaving video disk - stopping tape playback");
   isScrubbing = false;
   inertiaActive = false;
+  brakeHolding = false;
+  brakeResume = false;
+  holdTime = 0;
+  elasticAnchorX = null;
+  scrollScrubbing = false;
   scrubSpeed = 0;
   scrubCurrentProgress = 0;
   scrubStripBtn = null;
@@ -2584,7 +2838,10 @@ function leave({ send }) {
   scrubAudioSpeed = 1;
   isMp4Tape = false;
   mp4BackBtn = null;
-  
+  synthAuto = false;
+  autoScript = null;
+  autoSeg = null;
+
   // Stop any playing tape audio/video
   send({ type: "tape:audio-shift", content: 0 });
   send({ type: "tape:stop" });
@@ -2593,4 +2850,199 @@ function leave({ send }) {
 export { boot, paint, sim, act, signal, receive, leave };
 
 // 📚 Library (Useful functions used throughout the piece)
-// ...
+
+// 🧪 Synthtape autopilot — a scripted stand-in for the finger. Each segment
+// either lets the tape roll, holds a scrub speed, or releases into inertia,
+// then the observed progress delta is graded against the physics. All output
+// is console-greppable by 🧪 so a headless run can assert on it.
+function autopilotProgress(rec) {
+  return isScrubbing || inertiaActive
+    ? scrubCurrentProgress
+    : (rec.presentProgress ?? scrubCurrentProgress);
+}
+
+function autopilot(rec, send, simDt) {
+  if (!autoScript) {
+    autoScript = [
+      { name: "roll", mode: "play", frames: 90 },
+      { name: "fast forward", mode: "scrub", speed: 3, frames: 90 },
+      { name: "release into inertia", mode: "coast" },
+      { name: "reverse", mode: "scrub", speed: -2, frames: 90 },
+      { name: "release from reverse", mode: "coast" },
+      { name: "slow crawl", mode: "scrub", speed: 0.5, frames: 60 },
+      { name: "final release", mode: "coast" },
+      { name: "scratch", mode: "scratch", frames: 150 },
+      { name: "scratch release", mode: "coast" },
+      { name: "touch brake", mode: "brake", frames: 90 },
+      { name: "brake release spin-up", mode: "brakeRelease" },
+    ];
+    console.log(`🧪 SYNTHSCRUB autopilot engaged: ${autoScript.length} segments`);
+  }
+
+  if (!autoSeg) {
+    autoSeg = autoScript.shift();
+    if (!autoSeg) {
+      const failed = autoChecks.filter((c) => !c.pass);
+      console.log(
+        `🧪 SYNTHSCRUB REPORT: ${autoChecks.length - failed.length}/${autoChecks.length} checks passed`,
+      );
+      autoChecks.forEach((c) =>
+        console.log(`🧪 ${c.pass ? "PASS" : "FAIL"} — ${c.name}: ${c.detail}`),
+      );
+      synthAuto = false;
+      return;
+    }
+    autoTimer = 0;
+    autoSegStartProgress = autopilotProgress(rec);
+    autoSegStartTime = performance.now();
+    autoDtSum = 0;
+    autoPhysTicks = 0;
+    autoSpeedMin = Infinity;
+    autoSpeedMax = -Infinity;
+    autoPrevPos = null;
+    autoAnomalies = 0;
+    if (autoSeg.mode === "scrub" || autoSeg.mode === "scratch") {
+      if (!isScrubbing) {
+        inertiaActive = false;
+        // Position must be captured BEFORE isScrubbing flips — after the
+        // flip autopilotProgress() returns the stale scrub position.
+        scrubCurrentProgress = autoSegStartProgress;
+        isScrubbing = true;
+        wasPlayingBeforeScrub = true; // Keep rolling after each release
+        if (!rec.playing) rec.play();
+        send({
+          type: "recorder:present:seek",
+          content: { progress: scrubCurrentProgress, speedScrub: true, scrubbing: true },
+        });
+      }
+      scrubSpeed = autoSeg.mode === "scrub" ? autoSeg.speed : 0;
+    } else if (autoSeg.mode === "coast") {
+      isScrubbing = false;
+      if (Math.abs(scrubSpeed) > 0.1) {
+        inertiaActive = true;
+      } else {
+        // Nothing to coast — end the scrub cleanly.
+        scrubSpeed = 0;
+        inertiaActive = false;
+        nudgeTapeAudioSpeed(send, 1);
+        send({
+          type: "recorder:present:seek",
+          content: { progress: scrubCurrentProgress, scrubEnd: true },
+        });
+      }
+    } else if (autoSeg.mode === "brake") {
+      // Same engage the held finger triggers in sim. Position captured
+      // before the isScrubbing flip, as above.
+      inertiaActive = false;
+      brakeResume = false;
+      scrubCurrentProgress = autoSegStartProgress;
+      isScrubbing = true;
+      brakeHolding = true;
+      scrubMoved = true;
+      wasPlayingBeforeScrub = true;
+      scrubSpeed = 1;
+      if (!rec.playing) rec.play();
+      send({
+        type: "recorder:present:seek",
+        content: { progress: scrubCurrentProgress, speedScrub: true, scrubbing: true },
+      });
+    } else if (autoSeg.mode === "brakeRelease") {
+      isScrubbing = false;
+      brakeHolding = false;
+      brakeResume = true;
+    }
+    console.log(
+      `🧪 SYNTHSCRUB segment "${autoSeg.name}" from ${(autoSegStartProgress * 100).toFixed(1)}%`,
+    );
+    return;
+  }
+
+  autoTimer += 1;
+  if (autoSeg.mode === "scratch") {
+    // 🎚️ Musical scratch: the rate rocks ±3.2× at ~2Hz like a hand on the reel.
+    scrubSpeed = 3.2 * Math.sin((autoTimer / 60) * Math.PI * 2);
+  }
+  if (autoSeg.mode === "scrub") {
+    scrubSpeed = autoSeg.speed; // Hold the drag
+    // Trace per-tick steps: a step against the commanded direction (or far
+    // short of it) means something outside the physics rewrote the position.
+    if (autoPrevPos !== null && autoAnomalies < 12) {
+      const step = scrubCurrentProgress - autoPrevPos;
+      const expectedStep =
+        (autoSeg.speed * simDt) / (tapeInfo?.totalDuration || 10);
+      if (
+        Math.sign(step) !== Math.sign(expectedStep) ||
+        Math.abs(step) < Math.abs(expectedStep) * 0.5
+      ) {
+        autoAnomalies += 1;
+        console.log(
+          `🧪 STEP ANOMALY tick ${autoTimer}: pos ${(scrubCurrentProgress * 100).toFixed(2)}% step ${(step * 100).toFixed(3)}% expected ${(expectedStep * 100).toFixed(3)}% presentProgress ${((rec.presentProgress ?? 0) * 100).toFixed(2)}%`,
+        );
+      }
+    }
+    autoPrevPos = scrubCurrentProgress;
+  }
+
+  const done =
+    autoSeg.mode === "coast"
+      ? (!inertiaActive && !isScrubbing && !brakeResume) || autoTimer > 600
+      : autoSeg.mode === "brakeRelease"
+        ? !brakeResume || autoTimer > 600
+        : autoTimer >= autoSeg.frames;
+  if (!done) return;
+
+  const progress = autopilotProgress(rec);
+  let delta = progress - autoSegStartProgress;
+  // The tape wraps at the seam now — unwrap the delta.
+  if (delta > 0.5) delta -= 1;
+  else if (delta < -0.5) delta += 1;
+  const wallSeconds = (performance.now() - autoSegStartTime) / 1000;
+  let pass = true;
+  let detail = `Δ ${(delta * 100).toFixed(1)}% over ${wallSeconds.toFixed(2)}s [phys ${autoPhysTicks} ticks, ${autoDtSum.toFixed(2)}s, speed ${autoSpeedMin === Infinity ? "-" : autoSpeedMin.toFixed(2)}..${autoSpeedMax === -Infinity ? "-" : autoSpeedMax.toFixed(2)}, dur ${tapeInfo?.totalDuration ?? "null"}]`;
+  if (autoSeg.mode === "play") {
+    pass = delta > 0;
+    detail += pass ? " (advanced under normal play)" : " (tape did not advance)";
+  } else if (autoSeg.mode === "scrub") {
+    const totalDuration = tapeInfo?.totalDuration || 10; // Same fallback as the physics
+    // Effective speed in tape-seconds per wall-second vs the commanded rate.
+    const effective = (delta * totalDuration) / Math.max(wallSeconds, 0.001);
+    const edgeClamped = progress <= 0 || progress >= 1;
+    pass =
+      edgeClamped ||
+      (Math.sign(delta) === Math.sign(autoSeg.speed) &&
+        Math.abs(effective / autoSeg.speed - 1) < 0.25);
+    detail += ` effective ${effective.toFixed(2)}× vs commanded ${autoSeg.speed}×${edgeClamped ? " (edge-clamped)" : ""}`;
+  } else if (autoSeg.mode === "coast") {
+    pass = !inertiaActive && !isScrubbing && scrubSpeed === 0;
+    if (!pass) {
+      detail += ` (stuck: speed=${scrubSpeed.toFixed(2)})`;
+      // Force a clean state so later segments still run.
+      inertiaActive = false;
+      scrubSpeed = 0;
+      nudgeTapeAudioSpeed(send, 1);
+    } else {
+      detail += " (inertia converged)";
+    }
+  } else if (autoSeg.mode === "scratch") {
+    pass =
+      autoSpeedMax > 1.5 && autoSpeedMin < -1.5 && Math.abs(delta) < 0.12;
+    detail += ` (rate swung ${autoSpeedMin.toFixed(1)}..${autoSpeedMax.toFixed(1)}×, net drift ${(delta * 100).toFixed(1)}%)`;
+  } else if (autoSeg.mode === "brake") {
+    pass = scrubSpeed < 0.05;
+    detail += ` (speed sagged to ${scrubSpeed.toFixed(3)}×)`;
+    // Hold ends here; the next segment releases.
+  } else if (autoSeg.mode === "brakeRelease") {
+    pass = !brakeResume;
+    if (!pass) {
+      detail += " (spin-up never converged)";
+      brakeResume = false;
+      scrubSpeed = 0;
+      nudgeTapeAudioSpeed(send, 1);
+    } else {
+      detail += " (spun back up to 1×)";
+    }
+  }
+  autoChecks.push({ name: autoSeg.name, pass, detail });
+  console.log(`🧪 SYNTHSCRUB ${pass ? "PASS" : "FAIL"} — ${autoSeg.name}: ${detail}`);
+  autoSeg = null;
+}

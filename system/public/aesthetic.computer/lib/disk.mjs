@@ -11194,6 +11194,7 @@ async function makeFrame({ data: { type, content } }) {
     type === "tape:preloaded" ||
     type === "tape:preload-error" ||
     type === "tape:frames" ||
+    type === "tape:info-reply" || // tape:get-info answer → video.mjs tapeInfo
     type === "tape:audio-context-state" ||
     type === "audio:latency-info" ||
     type === "audio:probe" ||
