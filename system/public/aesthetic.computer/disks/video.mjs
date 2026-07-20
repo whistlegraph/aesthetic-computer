@@ -993,7 +993,11 @@ function paint({
       let phaseErr = (nowMs % durMs) / durMs - livePos;
       if (phaseErr > 0.5) phaseErr -= 1;
       else if (phaseErr < -0.5) phaseErr += 1;
-      const errMs = Math.round(phaseErr * durMs);
+      // Lock is measured to the nearest BEAT line (matching the drive) —
+      // a deliberate beat jump parks green, shown as its own ±Nbt tag.
+      const beatFracR = (BEAT_SEC * 1000) / durMs;
+      const beatsOff = Math.round(phaseErr / beatFracR);
+      const errMs = Math.round((phaseErr - beatsOff * beatFracR) * durMs);
       const locked = Math.abs(errMs) < 60;
       // Measured in bars too — 64ths are the finest musical slice worth
       // naming; inside half a 64th the tape is simply "on grid". Both
@@ -1002,9 +1006,11 @@ function paint({
       const n64 = Math.round(errMs / (barMs / 64));
       const msStr = `${errMs >= 0 ? "+" : "-"}${String(Math.min(9999, Math.abs(errMs))).padStart(4)}ms`;
       const musical = (
-        n64 === 0
-          ? "on grid"
-          : `${n64 > 0 ? "+" : "-"}${String(Math.min(99, Math.abs(n64))).padStart(2)}/64`
+        beatsOff !== 0
+          ? `${beatsOff > 0 ? "+" : "-"}${Math.min(9, Math.abs(beatsOff))}bt`
+          : n64 === 0
+            ? "on grid"
+            : `${n64 > 0 ? "+" : "-"}${String(Math.min(99, Math.abs(n64))).padStart(2)}/64`
       ).padStart(7);
       ink(locked ? [0, 255, 120] : [255, 170, 0]).write(
         `sync ${msStr} ${musical}`,
@@ -1039,7 +1045,8 @@ function paint({
           content: {
             rate: liveRate,
             pos: livePos,
-            syncMs: errMs,
+            syncMs: errMs, // Residual to the nearest beat line
+            beats: beatsOff, // Deliberately parked beat offset (±N)
             locked,
             scrubbing: isScrubbing,
             style: postedTapeCode || "synth",
@@ -1523,30 +1530,15 @@ function sim({ needsPaint, rec, send, clock, sound }) {
       if (phaseErr > 0.5) phaseErr -= 1;
       else if (phaseErr < -0.5) phaseErr += 1;
 
-      // 🦘 Beat slip: a release that lands beats away from the grid jumps
-      // the whole-beat part of the error instantly — a musical relocation
-      // within the same loop (the ←/→ beat-jump move, self-applied) — and
-      // leaves only a sub-beat residual for the tempo lean. Without this,
-      // landing half a loop out means many seconds of ±35% warble; with
-      // it, the ear hears one clean beat-jump and a small settle.
+      // 🎯 The grid is BEAT LINES, not one phase: correct only the
+      // within-beat residual, so a deliberate ←/→ beat jump is a valid
+      // parking spot (it must NOT snap back), and any landing sits at
+      // most half a beat from the pocket — a few seconds of gentle lean,
+      // never a warble, never a teleport.
       const beatFrac = BEAT_SEC / totalDuration;
-      if (Math.abs(phaseErr) > beatFrac * 0.6) {
-        const beats = Math.round(phaseErr / beatFrac);
-        if (beats !== 0) {
-          scrubCurrentProgress += beats * beatFrac;
-          scrubCurrentProgress -= Math.floor(scrubCurrentProgress); // 0..1 wrap
-          send({
-            type: "recorder:present:seek",
-            content: { progress: scrubCurrentProgress, speedScrub: true },
-          });
-          send({ type: "tape:audio-pos", content: scrubCurrentProgress });
-          phaseErr -= beats * beatFrac;
-        }
-      }
+      phaseErr -= Math.round(phaseErr / beatFrac) * beatFrac;
 
-      // Gentle lean for the sub-beat residual — ±8% reads as the tape
-      // breathing into the pocket, not warping. ≤250ms residual → locked
-      // in a few seconds, always.
+      // ±8% reads as the tape breathing into the pocket, not warping.
       const lean = Math.max(-0.08, Math.min(0.08, phaseErr * 1.4));
       const targetRate = 1 + lean;
       scrubSpeed += (targetRate - scrubSpeed) * (1 - Math.pow(0.94, rate));
