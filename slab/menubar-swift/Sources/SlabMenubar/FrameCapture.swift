@@ -87,11 +87,24 @@ final class FrameCapture {
                 )
             }
         }
+        var approvedClickTitle: String?
+        if let token = mode.split(separator: " ").first(where: { $0.hasPrefix("press-title=") }) {
+            let encoded = String(token.dropFirst("press-title=".count))
+            if let data = Data(base64Encoded: encoded) {
+                approvedClickTitle = String(data: data, encoding: .utf8)
+            }
+        }
         if mode.split(separator: " ").contains("target-clear") {
             clearPendingClickTarget()
         }
         if let approvedClick {
-            performApprovedClick(at: approvedClick.point, count: approvedClick.count)
+            performApprovedClick(at: approvedClick.point, count: approvedClick.count,
+                                 title: approvedClickTitle)
+            if mode.split(separator: " ").contains("action-only") {
+                writeActionAcknowledgement()
+                fm.createFile(atPath: Paths.frameDone, contents: nil)
+                return
+            }
         }
         produce(noOCR: mode.contains("noocr"), fast: mode.contains("fast"),
                 wholeScreen: mode.contains("screen"),
@@ -272,10 +285,46 @@ final class FrameCapture {
     /// without firing the page handler. Focusing the semantic control and
     /// sending its keyboard activation is the reliable accessible path.
     /// Canvas/custom targets retain the physical click fallback.
-    private func performApprovedClick(at point: CGPoint, count: Int) {
+    private func pendingClickElement(matching title: String, near point: CGPoint) -> AXUIElement? {
+        guard let front = NSWorkspace.shared.frontmostApplication else { return nil }
+        let root = AXUIElementCreateApplication(front.processIdentifier)
+        let wanted = title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        var best: (element: AXUIElement, distance: CGFloat)?
+        var visited = 0
+        func walk(_ element: AXUIElement, depth: Int) {
+            guard visited < 2200, depth < 28 else { return }
+            visited += 1
+            let values = axBatch(element)
+            let role = values[0] as? String
+            let rawCandidate = (values[2] as? String) ?? (values[3] as? String) ??
+                (values[4] as? String)
+            let candidate = rawCandidate?
+                .trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            // Frame envelopes intentionally cap titles at 80 characters; a
+            // capped staged title still identifies the full live AX title.
+            if candidate == wanted || (wanted.count >= 80 && candidate?.hasPrefix(wanted) == true),
+               let role, ["AXButton", "AXLink", "AXCheckBox", "AXRadioButton"].contains(role),
+               let rect = pendingClickRect(from: values) {
+                let distance = hypot(rect.midX - point.x, rect.midY - point.y)
+                if best == nil || distance < best!.distance { best = (element, distance) }
+            }
+            if let children = values[1] as? [AXUIElement] {
+                for child in children { walk(child, depth: depth + 1) }
+            }
+        }
+        walk(root, depth: 0)
+        return best?.element
+    }
+
+    private func performApprovedClick(at point: CGPoint, count: Int, title: String?) {
         DispatchQueue.main.sync {
+            // The spotlight is both mouse-transparent and absent from the AX
+            // tree, but remove it synchronously before resolving/committing so
+            // its WindowServer surface cannot outlive the approval boundary.
             self.clearPendingClickTargetOnMain(animated: false)
-            if let element = self.pendingClickElement(at: point) {
+            self.yieldMainRunLoop(for: 0.012)
+            let titled = title.flatMap { self.pendingClickElement(matching: $0, near: point) }
+            if let element = titled ?? self.pendingClickElement(at: point) {
                 var roleValue: CFTypeRef?
                 let role = AXUIElementCopyAttributeValue(
                     element, kAXRoleAttribute as CFString, &roleValue
@@ -285,9 +334,13 @@ final class FrameCapture {
                     AXUIElementSetAttributeValue(
                         element, kAXFocusedAttribute as CFString, kCFBooleanTrue
                     )
+                    // Chrome applies AX focus asynchronously. Pumping (rather
+                    // than sleeping on) the main run loop lets that focus
+                    // commit, and exits early as soon as AX reports it.
+                    self.yieldMainRunLoopUntilFocused(element, timeout: 0.08)
                     let keyCode: CGKeyCode = (role == "AXCheckBox" || role == "AXRadioButton") ? 49 : 36
                     CGEvent(keyboardEventSource: nil, virtualKey: keyCode, keyDown: true)?.post(tap: .cghidEventTap)
-                    Thread.sleep(forTimeInterval: 0.04)
+                    self.yieldMainRunLoop(for: 0.012)
                     CGEvent(keyboardEventSource: nil, virtualKey: keyCode, keyDown: false)?.post(tap: .cghidEventTap)
                     return
                 }
@@ -298,11 +351,35 @@ final class FrameCapture {
                 let up = CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp,
                                  mouseCursorPosition: point, mouseButton: .left)
                 down?.post(tap: .cghidEventTap)
-                Thread.sleep(forTimeInterval: 0.04)
+                self.yieldMainRunLoop(for: 0.012)
                 up?.post(tap: .cghidEventTap)
-                if index + 1 < count { Thread.sleep(forTimeInterval: 0.08) }
+                if index + 1 < count { self.yieldMainRunLoop(for: 0.04) }
             }
         }
+    }
+
+    private func yieldMainRunLoop(for interval: TimeInterval) {
+        let deadline = Date(timeIntervalSinceNow: interval)
+        repeat {
+            let slice = min(deadline, Date(timeIntervalSinceNow: 0.006))
+            _ = RunLoop.main.run(mode: .default, before: slice)
+        } while Date() < deadline
+    }
+
+    private func yieldMainRunLoopUntilFocused(_ element: AXUIElement,
+                                               timeout: TimeInterval) {
+        let deadline = Date(timeIntervalSinceNow: timeout)
+        repeat {
+            // Always yield at least one turn after AXFocused is set; checking
+            // before the run-loop turn can observe the setter's local state
+            // before Chrome has moved keyboard focus in the page.
+            let slice = min(deadline, Date(timeIntervalSinceNow: 0.008))
+            _ = RunLoop.main.run(mode: .default, before: slice)
+            var focusedValue: CFTypeRef?
+            if AXUIElementCopyAttributeValue(element, kAXFocusedAttribute as CFString,
+                                             &focusedValue) == .success,
+               focusedValue as? Bool == true { return }
+        } while Date() < deadline
     }
 
     private func pendingClickElementIsInteractive(_ element: AXUIElement) -> Bool {
@@ -322,22 +399,33 @@ final class FrameCapture {
     }
 
     private func pendingClickRect(of element: AXUIElement) -> CGRect? {
-        var positionValue: CFTypeRef?
-        var sizeValue: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString,
-                                            &positionValue) == .success,
-              AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString,
-                                            &sizeValue) == .success,
-              let positionValue, let sizeValue,
-              CFGetTypeID(positionValue) == AXValueGetTypeID(),
-              CFGetTypeID(sizeValue) == AXValueGetTypeID() else { return nil }
-        let positionAX = unsafeBitCast(positionValue, to: AXValue.self)
-        let sizeAX = unsafeBitCast(sizeValue, to: AXValue.self)
-        var origin = CGPoint.zero
-        var size = CGSize.zero
-        guard AXValueGetValue(positionAX, .cgPoint, &origin),
-              AXValueGetValue(sizeAX, .cgSize, &size) else { return nil }
-        return CGRect(origin: origin, size: size)
+        pendingClickRect(from: axBatch(element))
+    }
+
+    private func pendingClickRect(from values: [AnyObject?]) -> CGRect? {
+        guard values.count > 6,
+              let (x, y) = axCGPoint(values[5]),
+              let (width, height) = axCGSize(values[6]),
+              x.isFinite, y.isFinite, width.isFinite, height.isFinite,
+              width > 0, height > 0 else { return nil }
+        return CGRect(x: x, y: y, width: width, height: height)
+    }
+
+    private func writeActionAcknowledgement() {
+        try? Data().write(to: URL(fileURLWithPath: Paths.frameOutJpg))
+        let acknowledgement: [String: Any] = [
+            "capture": "action",
+            "capture_scope": "none",
+            "ocr": [[String: Any]](),
+            "visual": [[String: Any]](),
+            "diff": [[String: Any]](),
+            "ax": ["trusted": AXIsProcessTrusted(),
+                   "elements": [[String: Any]]()] as [String: Any],
+            "thumb_bytes": 0,
+        ]
+        if let data = try? JSONSerialization.data(withJSONObject: acknowledgement) {
+            try? data.write(to: URL(fileURLWithPath: Paths.frameOut))
+        }
     }
 
     private func clearPendingClickTarget() {

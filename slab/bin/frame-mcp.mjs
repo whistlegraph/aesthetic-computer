@@ -105,7 +105,7 @@ function digest(env) {
 const stagedClicks = new Map();
 const recentActionTrails = new Map();
 
-async function captureFrame({ machine, ocr = true, fast = false, screen = false, cursor = true, cursorAt, targetAt, pressAt, pressCount = 1, clearTarget = false, crop, baseline = false, diff = false } = {}) {
+async function captureFrame({ machine, ocr = true, fast = false, screen = false, cursor = true, cursorAt, targetAt, pressAt, pressCount = 1, pressTitle, actionOnly = false, clearTarget = false, crop, baseline = false, diff = false } = {}) {
   if (!machine) throw new Error("`machine` is required (see frame_list)");
   // A unique path matters now that an action trail may capture while another
   // session asks for a normal frame of the same machine.
@@ -118,6 +118,8 @@ async function captureFrame({ machine, ocr = true, fast = false, screen = false,
   else if (cursor) args.push("--cursor");
   if (targetAt) args.push("--target-at", `${targetAt[0]},${targetAt[1]}`);
   if (pressAt) args.push("--press-at", `${pressAt[0]},${pressAt[1]}`, "--press-count", String(pressCount));
+  if (pressTitle) args.push("--press-title", String(pressTitle));
+  if (actionOnly) args.push("--action-only");
   if (clearTarget) args.push("--clear-target");
   if (crop) args.push("--crop", crop.join(","));
   if (baseline) args.push("--baseline");
@@ -177,20 +179,53 @@ function visibleText(env) {
   return byKey;
 }
 
-function nearestTargetLabel(env, x, y) {
+function clickTargetPrediction(env, x, y) {
   let best;
+  const interactiveRoles = new Set(["AXButton", "AXLink", "AXCheckBox", "AXRadioButton", "AXPopUpButton"]);
   for (const item of env.ax?.elements || []) {
     const title = String(item.title || "").replace(/\s+/g, " ").trim();
-    if (!title) continue;
-    const distance = Math.hypot(Number(item.cx) - x, Number(item.cy) - y);
-    if (!best || distance < best.distance) best = { title, distance };
+    const rect = Array.isArray(item.r) && item.r.length === 4 ? item.r.map(Number) : null;
+    const validRect = rect?.every(Number.isFinite);
+    const contains = validRect && x >= rect[0] && x <= rect[0] + rect[2] &&
+      y >= rect[1] && y <= rect[1] + rect[3];
+    const edgeDistance = validRect ? Math.hypot(
+      Math.max(rect[0] - x, 0, x - rect[0] - rect[2]),
+      Math.max(rect[1] - y, 0, y - rect[1] - rect[3]),
+    ) : Infinity;
+    const centerDistance = Math.hypot(Number(item.cx) - x, Number(item.cy) - y);
+    const interactive = interactiveRoles.has(item.role) || (item.actions || []).includes("AXPress");
+    let probability = 0;
+    let basis = "nearby accessibility element";
+    if (contains && interactive) { probability = 0.98; basis = "point inside an actionable AX control"; }
+    else if (contains) { probability = 0.82; basis = "point inside a bounded AX element"; }
+    else if (edgeDistance <= 8 && interactive) { probability = 0.9; basis = "point beside an actionable AX control"; }
+    else if (centerDistance <= 120 && interactive) { probability = 0.68; basis = "nearby actionable AX control"; }
+    else if (centerDistance <= 120 && title) { probability = 0.48; }
+    if (!best || probability > best.probability ||
+        (probability === best.probability && centerDistance < best.distance)) {
+      best = { title, role: item.role, probability, basis, distance: centerDistance };
+    }
   }
-  return best?.distance <= 120 ? best.title.slice(0, 42) : "Confirm click";
+  if ((best?.probability || 0) > 0) {
+    return { ...best, title: best.title.slice(0, 80) || null };
+  }
+  for (const item of env.ocr || []) {
+    const rect = Array.isArray(item.r) && item.r.length === 4 ? item.r.map(Number) : null;
+    if (!rect?.every(Number.isFinite)) continue;
+    if (x >= rect[0] && x <= rect[0] + rect[2] && y >= rect[1] && y <= rect[1] + rect[3]) {
+      return {
+        title: String(item.t || "").replace(/\s+/g, " ").trim().slice(0, 80) || null,
+        role: "OCRText", probability: 0.45, basis: "point inside OCR text",
+      };
+    }
+  }
+  return { title: null, role: null, probability: 0.2, basis: "unresolved point fallback" };
 }
 
-function choiceBox(label) {
+function choiceBox(label, probability) {
   const question = `${label.replace(/[?\s]+$/g, "")}?`;
-  let innerWidth = Math.max(29, Math.min(49, question.length + 14));
+  const confidence = `Target confidence ${Math.round(probability * 100)}% · p=${probability.toFixed(2)}`;
+  let innerWidth = Math.max(29, Math.min(59, Math.max(question.length, confidence.length) + 14));
   // Matching parity lets the title have exactly equal padding on both sides.
   if ((innerWidth - question.length) % 2 !== 0) innerWidth += 1;
   const centered = (text) => {
@@ -212,6 +247,7 @@ function choiceBox(label) {
     centered(""),
     centered(question),
     centered(""),
+    centered(confidence),
     centered(""),
     `██${choices.join("")}██`,
     centered(""),
@@ -303,12 +339,19 @@ async function toolStageClick({ machine, x, y, count = 1, label, ocr = true, fas
   if (![1, 2, 3].includes(count)) throw new Error("count must be 1, 2, or 3");
   const approvalId = randomUUID();
   hoverPoint(machineSpec(machine), x, y);
-  await settle(250);
+  await settle(80);
   const capture = await captureFrame({ machine, ocr, fast, cursorAt: [x, y], targetAt: [x, y] });
-  label = String(label || nearestTargetLabel(capture.env, x, y)).trim();
-  stagedClicks.set(machine, { approvalId, x, y, count, label, baselineText: visibleText(capture.env) });
+  const target = clickTargetPrediction(capture.env, x, y);
+  label = String(label || target.title || "Confirm click").trim();
+  stagedClicks.set(machine, {
+    approvalId, x, y, count, label,
+    targetTitle: target.title,
+    targetConfidence: target.probability,
+    targetBasis: target.basis,
+    baselineText: visibleText(capture.env),
+  });
   const content = frameContent(capture, machine);
-  content.push({ type: "text", text: `\n\`\`\`text\n${choiceBox(label)}\n\`\`\`\napproval_id: ${approvalId}` });
+  content.push({ type: "text", text: `\n\`\`\`text\n${choiceBox(label, target.probability)}\n\`\`\`\napproval_id: ${approvalId}\ntarget_confidence: ${target.probability.toFixed(2)} (${Math.round(target.probability * 100)}%)\ntarget_basis: ${target.basis}` });
   return content;
 }
 
@@ -328,6 +371,8 @@ async function toolCommitClick({ machine, approvalId, ocr = true, fast = true })
     clearTarget: true,
     pressAt: [pending.x, pending.y],
     pressCount: pending.count,
+    pressTitle: pending.targetTitle,
+    actionOnly: true,
   });
   stagedClicks.delete(machine);
   const trail = await recordActionTrail({

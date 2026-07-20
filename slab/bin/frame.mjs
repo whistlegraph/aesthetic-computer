@@ -328,13 +328,13 @@ function directFrame(name, machines, mode, timeoutMs = 15000) {
   });
 }
 
-async function captureFrame(name, { noOCR = false, fast = false, screen = false, cursor = false, cursorAt, targetAt, pressAt, pressCount = 1, clearTarget = false, crop, baseline = false, diff = false, out, json = false, direct = false, preview = false } = {}) {
+async function captureFrame(name, { noOCR = false, fast = false, screen = false, cursor = false, cursorAt, targetAt, pressAt, pressCount = 1, pressTitle, actionOnly = false, clearTarget = false, crop, baseline = false, diff = false, out, json = false, direct = false, preview = false } = {}) {
   const machines = loadMachines();
   if (!machines[name]) {
     console.error(`unknown machine "${name}" — known: ${Object.keys(machines).join(", ") || "(none)"}`);
     process.exit(1);
   }
-  const mode = [screen ? "screen" : "window", noOCR ? "noocr" : "full", fast ? "fast" : "", cursorAt ? `cursor=${cursorAt[0]},${cursorAt[1]}` : cursor ? "cursor" : "", targetAt ? `target=${targetAt[0]},${targetAt[1]}` : "", pressAt ? `press=${pressAt[0]},${pressAt[1]},${pressCount}` : "", clearTarget ? "target-clear" : "", crop ? `crop=${crop.join(",")}` : "", baseline ? "baseline" : "", diff ? "diff" : ""]
+  const mode = [screen ? "screen" : "window", noOCR ? "noocr" : "full", fast ? "fast" : "", cursorAt ? `cursor=${cursorAt[0]},${cursorAt[1]}` : cursor ? "cursor" : "", targetAt ? `target=${targetAt[0]},${targetAt[1]}` : "", pressAt ? `press=${pressAt[0]},${pressAt[1]},${pressCount}` : "", pressTitle ? `press-title=${Buffer.from(pressTitle, "utf8").toString("base64")}` : "", actionOnly ? "action-only" : "", clearTarget ? "target-clear" : "", crop ? `crop=${crop.join(",")}` : "", baseline ? "baseline" : "", diff ? "diff" : ""]
     .filter(Boolean).join(" ");
   // Use the resident server only if already running (opt-in; see runServer);
   // otherwise a one-shot direct ssh. Both return an ACF1 {json, jpg} frame —
@@ -477,12 +477,13 @@ const pointOpt = (f) => {
 if (!cmd || cmd === "-h" || cmd === "--help") {
   console.log(
     "frame — capture the focused window (pixels + OCR + AX + state) of a remote Mac\n\n" +
-      "  frame <machine> [--screen] [--no-ocr] [--fast] [--cursor] [--target-at x,y] [--press-at x,y] [--clear-target] [--direct] [--preview] [--out file.jpg] [--json]\n" +
+      "  frame <machine> [--screen] [--no-ocr] [--fast] [--cursor] [--target-at x,y] [--press-at x,y] [--action-only] [--clear-target] [--direct] [--preview] [--out file.jpg] [--json]\n" +
       "      --screen: capture the complete display instead of the focused window\n" +
       "      --fast: Vision .fast OCR (lower latency, less accurate on small text)\n" +
       "      --cursor: draw a high-contrast virtual marker at the mouse position\n" +
       "      --target-at: dim the display and outline a proposed click target\n" +
       "      --press-at: perform the approved AX action (physical click fallback)\n" +
+      "      --action-only: acknowledge an approved action without a redundant capture\n" +
       "      --clear-target: clear the persistent proposed-click marker\n" +
       "      --direct: bypass the resident server, do a one-shot ssh\n" +
       "      --preview: pop a labeled preview window of the pulled frame on THIS Mac\n" +
@@ -510,4 +511,4 @@ else if (cmd === "view") {
   // slab-pdf "show me this" verbs.
   if (!argv[1]) { console.error("usage: frame view <machine>"); process.exit(1); }
   await captureFrame(argv[1], { noOCR: flag("--no-ocr"), fast: flag("--fast"), screen: flag("--screen"), cursor: flag("--cursor"), direct: flag("--direct"), out: opt("--out"), preview: true });
-} else await captureFrame(cmd, { noOCR: flag("--no-ocr"), fast: flag("--fast"), screen: flag("--screen"), cursor: flag("--cursor"), cursorAt: pointOpt("--cursor-at"), targetAt: pointOpt("--target-at"), pressAt: pointOpt("--press-at"), pressCount: Number(opt("--press-count") || 1), clearTarget: flag("--clear-target"), crop: opt("--crop")?.split(",").map(Number), baseline: flag("--baseline"), diff: flag("--diff"), direct: flag("--direct"), out: opt("--out"), json: flag("--json"), preview: flag("--preview") });
+} else await captureFrame(cmd, { noOCR: flag("--no-ocr"), fast: flag("--fast"), screen: flag("--screen"), cursor: flag("--cursor"), cursorAt: pointOpt("--cursor-at"), targetAt: pointOpt("--target-at"), pressAt: pointOpt("--press-at"), pressCount: Number(opt("--press-count") || 1), pressTitle: opt("--press-title"), actionOnly: flag("--action-only"), clearTarget: flag("--clear-target"), crop: opt("--crop")?.split(",").map(Number), baseline: flag("--baseline"), diff: flag("--diff"), direct: flag("--direct"), out: opt("--out"), json: flag("--json"), preview: flag("--preview") });
