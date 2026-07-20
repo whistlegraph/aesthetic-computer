@@ -11612,6 +11612,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           let ph2 = 0;
           let ph3 = 0;
           let sineF = 164; // Sineline's gliding frequency (~E3 start)
+          let acidF = 82; // Acid line's sliding frequency (~E2 start)
+          let acidPh = 0; // Acid oscillator phase
+          let arpPh = 0; // Arp oscillator phase
+          let bellPh1 = 0; // Bell partial phases
+          let bellPh2 = 0;
+          let bellPh3 = 0;
+          let bellLastHit = -10; // Time of the most recent bell strike
+          let bellPrevStep = -1;
+          const q05 = (f) => Math.round(f * 2) / 2; // Quantize to 0.5Hz — whole cycles per loop
           // 🥁 "break" style: one bar of 16th-note breakbeat, repeated —
           // scratch material with hard transients on a funk grid.
           const STEP = BEAT / 4; // 16ths at 120 BPM
@@ -11659,6 +11668,78 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 v +=
                   (Math.sin(ph1) + Math.sin(ph1 * 2) * 0.4) *
                   Math.exp(-inHalf * 12) * 0.42; // Bass stab
+              }
+            } else if (style === "acid") {
+              // 🧪 Acid line: a 303-ish 16-step bassline — pent-derived low
+              // notes with slides, octave jumps, and accented steps whose
+              // "filter" opens (more harmonics, brighter). One continuous-
+              // phase oscillator; the squelch is all envelope + harmonics.
+              const step16 = Math.floor(tt / STEP) % 16;
+              const inStep = tt % STEP;
+              // Pattern: pent index (0-4), +10 = octave up, -1 = rest.
+              const ACID = [0, 0, 12, 0, 3, -1, 0, 13, 0, 10, 3, 0, 14, 0, 1, -1];
+              const ACCENT = [1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0];
+              const a = ACID[step16];
+              if (a >= 0) {
+                const idx = a % 10;
+                const oct = a >= 10 ? 2 : 1;
+                const target = q05((pent[idx] / 4) * oct);
+                acidF += (target - acidF) * 0.0015; // The 303 slide
+                acidPh += (TAU * acidF) / sampleRate;
+                const acc = ACCENT[step16];
+                const env = Math.exp(-inStep * (acc ? 7 : 12));
+                const bright = acc ? 1 : 0.35; // Accent opens the filter
+                const edge = Math.min(1, tt / 0.01, (duration - tt) / 0.01);
+                v +=
+                  (Math.sin(acidPh) +
+                    Math.sin(acidPh * 2) * 0.5 * bright +
+                    Math.sin(acidPh * 3) * 0.33 * bright) *
+                  env * (acc ? 0.5 : 0.36) * edge;
+              }
+            } else if (style === "arp") {
+              // ✨ Arp: plucky 16th-note arpeggio bouncing up an octave and
+              // back — the sparkling top line. Chord root walks per bar.
+              const step16 = Math.floor(tt / STEP) % 16;
+              const inStep = tt % STEP;
+              const bar = Math.floor(tt / BAR) % 4;
+              const SHAPE = [0, 2, 4, 12, 14, 12, 4, 2]; // Up-and-over
+              const s = SHAPE[step16 % 8];
+              const idx = (s % 10) + bar; // Root walks with the bars
+              const oct = s >= 10 ? 2 : 1;
+              const f = q05(pent[idx % pent.length] * oct);
+              arpPh += (TAU * f) / sampleRate;
+              const att = Math.min(1, inStep / 0.003);
+              const env = Math.exp(-inStep * 20) * att;
+              const edge = Math.min(1, tt / 0.01, (duration - tt) / 0.01);
+              v += Math.sin(arpPh) * env * 0.42 * edge;
+              v += Math.sin(arpPh * 2) * env * env * 0.12 * edge; // Sparkle
+            } else if (style === "bell") {
+              // 🔔 Bells: sparse gamelan-ish strikes with inharmonic-leaning
+              // partials (each quantized to whole cycles), long rings damped
+              // by the next strike. Mid-register color for the band.
+              const HALFB = BEAT / 2;
+              const step = Math.floor(tt / HALFB) % 16;
+              const BELLHITS = [0, 3, 6, 10, 13]; // Lilting strike pattern
+              if (step !== bellPrevStep) {
+                bellPrevStep = step;
+                if (BELLHITS.includes(step)) bellLastHit = Math.floor(tt / HALFB) * HALFB;
+              }
+              const hitNo = Math.floor(tt / HALFB); // For note choice stability
+              const noteIdx = (Math.floor(hitNo / 3) * 2 + hitNo) % pent.length;
+              const f = pent[noteIdx]; // Already 4Hz-quantized
+              bellPh1 += (TAU * q05(f)) / sampleRate;
+              bellPh2 += (TAU * q05(f * 2.756)) / sampleRate;
+              bellPh3 += (TAU * q05(f * 5.404)) / sampleRate;
+              const since = tt - bellLastHit;
+              if (since >= 0 && since < 2) {
+                const ring = Math.exp(-since * 2.4);
+                const edge = Math.min(1, tt / 0.01, (duration - tt) / 0.01);
+                v +=
+                  (Math.sin(bellPh1) * 0.4 +
+                    Math.sin(bellPh2) * 0.22 * Math.exp(-since * 4) +
+                    Math.sin(bellPh3) * 0.1 * Math.exp(-since * 7)) *
+                  ring * edge;
+                v += noise * Math.exp(-since * 90) * 0.08; // Mallet tick
               }
             } else if (
               style === "kick" ||

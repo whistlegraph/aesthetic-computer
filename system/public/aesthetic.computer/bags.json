@@ -55,6 +55,21 @@
           "type": "piece",
           "code": "video~scrub~snare",
           "name": "snare stem"
+        },
+        {
+          "type": "piece",
+          "code": "video~scrub~acid",
+          "name": "acid"
+        },
+        {
+          "type": "piece",
+          "code": "video~scrub~arp",
+          "name": "arp"
+        },
+        {
+          "type": "piece",
+          "code": "video~scrub~bell",
+          "name": "bells"
         }
       ]
     },

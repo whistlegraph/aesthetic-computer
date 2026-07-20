@@ -555,7 +555,13 @@ function boot({ wipe, rec, gizmo, jump, notice, store, params, send, hud }) {
                   ? "hat"
                   : rest.includes("snare")
                     ? "snare"
-                    : "bed";
+                    : rest.includes("acid")
+                      ? "acid"
+                      : rest.includes("arp")
+                        ? "arp"
+                        : rest.includes("bell") || rest.includes("bells")
+                          ? "bell"
+                          : "bed";
     const nums = rest.map(parseFloat).filter((n) => Number.isFinite(n));
     let duration = nums[0] || 8; // Four bars by default, break included
     if (rest.includes("bar")) duration = 2;
@@ -744,9 +750,9 @@ function paint({
     }
 
     // 🔙 Back-to-cap button (bottom-left) for the cap → review → re-cap
-    // loop — only when we actually came from recording. A synthtape player
-    // has no cap to go back to, so it gets no Back at all.
-    if (!isSynthTape) {
+    // loop — only when we actually came from recording THIS session.
+    // Synthtapes and posted !code tapes have no cap to go back to.
+    if (!isSynthTape && !postedTapeCode) {
       if (!backBtn) {
         backBtn = new ui.TextButton("Back", { left: 6, bottom: 6, screen });
       }
@@ -968,10 +974,13 @@ function paint({
       tapDipTime >= 0;
     const liveRate = scrubDriven ? scrubSpeed : playing ? 1 : 0;
     // Fixed-width readout — every glyph keeps its position as values
-    // change, so `frame` OCR (and eyes) can anchor on it.
+    // change, so `frame` OCR (and eyes) can anchor on it. Chromed like
+    // the deck pads so the top-right reads as one instrument panel.
+    ink(60, 75, 95, 150).box(screen.width - 6 - 36, 3, 38, 11);
+    ink(110, 130, 160).box(screen.width - 6 - 36, 3, 38, 11, "outline");
     ink(255, 255, 0).write(
       `${liveRate.toFixed(2).padStart(6)}x`,
-      { x: screen.width - 6, y: 6, right: true },
+      { x: screen.width - 8, y: 6, right: true },
       undefined,
       undefined,
       false,
@@ -1025,9 +1034,11 @@ function paint({
             ? "on grid"
             : `${n64 > 0 ? "+" : "-"}${String(Math.min(99, Math.abs(n64))).padStart(2)}/64`
       ).padStart(7);
+      ink(60, 75, 95, 150).box(screen.width - 6 - 88, 15, 90, 11);
+      ink(110, 130, 160).box(screen.width - 6 - 88, 15, 90, 11, "outline");
       ink(locked ? [0, 255, 120] : [255, 170, 0]).write(
         `sync ${msStr} ${musical}`,
-        { x: screen.width - 6, y: 18, right: true },
+        { x: screen.width - 8, y: 18, right: true },
         undefined,
         undefined,
         false,
