@@ -1,0 +1,41 @@
+Use case: identity-preserve
+Asset type: vertical social-video still / premium jewelry campaign frame
+
+Primary request:
+Edit Image 1 into a more accurate, youthful portrait of Camille using the clean original photographs in Images 2–5 as identity references. Camille is an adult. Preserve her real recognizable identity and her apparent young-adult age from the recent clean references. The previous render made her look older, beige-grey, dry, and artificially textured; correct that.
+
+Input images:
+- Image 1: edit target and composition reference. Keep its vertical framing, pose, black top, held package, necklace placement, studio setting, and candid Reel-frame energy.
+- Image 2: strongest clean Camille identity reference, direct frontal angle and natural facial proportions.
+- Image 3: additional clean Camille identity reference, three-quarter angle and natural skin color.
+- Image 4: recent merch photo; Camille is the woman on the right. Use it for her current young-adult silhouette, hair, and relaxed expression.
+- Image 5: archival close portrait of Camille. Use only for stable facial structure and eye/nose/mouth identity, not to make her a child or copy the old hairstyle.
+- Image 6: authoritative Whistlegraph product/package reference. Preserve this exact pendant construction and package art.
+
+Subject and identity:
+- Camille must look like the same real adult woman shown in Images 2–5, not a generic model.
+- Natural youthful face shape, soft natural cheeks, clear lively eyes, and relaxed slightly playful expression.
+- Shoulder-length medium brown hair with the natural texture and center/soft side part shown in the recent references.
+- Real skin with subtle fine texture, but healthy warm-neutral color and a small amount of natural pink in cheeks and lips.
+- Keep believable pores and tiny imperfections. No beauty-filter plasticity.
+
+Product invariants:
+- Keep the exact delicate gold-wire Seasons pendant from Image 6: orange oval center, green trapezoid stem, five petal loops, and a fully closed bottom-left inner curl/loop.
+- Exactly five tiny snow-white sprinkle/tick accents, one crossing the gold wire at each petal apex. They are short white marks, not pearls, flowers, beads, gems, or dots.
+- The held package must use the real colorful hand-lettered WHISTLEGRAPH header and the [h0t] archive lore/layout from Image 6. Do not add “06”.
+- The pendant worn on her neck and the pendant on the package must match each other.
+
+Composition and finish:
+- Photorealistic direct-flash/soft-window editorial image with a tactile, slightly DIY Whistlegraph studio feeling.
+- Vertical 2:3 crop, chest-up portrait, pendant clearly legible, package clearly visible in her hand.
+- Feels like a paused frame from a lively premium Instagram Reel, not a formal catalog portrait.
+
+Avoid:
+- No grey, chalky, ashy, waxy, orange-tan, or monochrome skin cast.
+- No etched wrinkles, leathery texture, crackle pattern, exaggerated pores, age spots, hollowed cheeks, or overly sharp mature facial planes.
+- Do not de-age her into a teenager or child; she is a young adult.
+- No generic influencer face, no heavy makeup, no cosmetic retouching, no glamour airbrushing.
+- No coral center; it is orange.
+- No round white gems, flower shapes, pearls, snowballs, or misplaced white accents.
+- No open or broken bottom-left curl.
+- No extra petals, extra jewelry, invented logos, watermarks, or unrelated text.
