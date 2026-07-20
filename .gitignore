@@ -532,3 +532,5 @@ slab/menuband/build/export-*/
 
 # personal tailnet ACL scratchpad (not for the public repo)
 scratchpad-jas-nzxt-acl.md
+toolchain/tapes/.tape-cache/
+toolchain/tapes/.jam-shots/
