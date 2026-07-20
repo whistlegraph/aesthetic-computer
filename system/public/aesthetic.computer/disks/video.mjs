@@ -994,12 +994,12 @@ function paint({
     // Right-anchored readout: the box hugs the value (no dead padding),
     // and the right edge never moves — OCR and eyes anchor there.
     const rateStr = `${liveRate.toFixed(2)}x`;
-    const rateW = rateStr.length * 5 + 8;
+    const rateW = Math.ceil(rateStr.length * 4.5) + 6;
     ink(60, 75, 95, 150).box(screen.width - SAFE_R - rateW, SAFE_T, rateW + 2, 11);
     ink(110, 130, 160).box(screen.width - SAFE_R - rateW, SAFE_T, rateW + 2, 11, "outline");
     ink(255, 255, 0).write(
       rateStr,
-      { x: screen.width - SAFE_R - 2, y: SAFE_T + 3, right: true },
+      { y: SAFE_T + 2, right: SAFE_R + 4 },
       undefined,
       undefined,
       false,
@@ -1043,16 +1043,17 @@ function paint({
       (tapeInfo?.frameCount && tapeInfo?.totalDuration
         ? Math.round(tapeInfo.frameCount / tapeInfo.totalDuration)
         : 0);
-    ink(255, 255, 255, 140).write(
-      `${String(fpsNow).padStart(3)}fps ${tfps}tf ` +
-        `${(audioDiag.audioRate / 1000).toFixed(1)}k>${(audioDiag.ctxRate / 1000).toFixed(1)}k ` +
-        `${audioDiag.latencyMs}ms`,
-      { x: 6, y: screen.height - 16 },
-      undefined,
-      undefined,
-      false,
-      "MatrixChunky8",
+    const diagY = screen.height - 16;
+    const diagWrite = (txt, x, color) =>
+      ink(...color).write(txt, { x, y: diagY }, undefined, undefined, false, "MatrixChunky8");
+    diagWrite(`${fpsNow}fps`, 6, fpsNow >= 28 ? [0, 255, 120] : [255, 170, 0]);
+    diagWrite(`${tfps}tf`, 48, [0, 200, 255]);
+    diagWrite(
+      `${(audioDiag.audioRate / 1000).toFixed(1)}k>${(audioDiag.ctxRate / 1000).toFixed(1)}k`,
+      78,
+      [200, 160, 255],
     );
+    diagWrite(`${audioDiag.latencyMs}ms`, 152, [255, 200, 80]);
 
     // ✂️ Chop region: while a chop is held, show the exact in/out slice
     // looping on the tape — split across the seam when it wraps.
@@ -1119,12 +1120,12 @@ function paint({
       // One clean boxed row — value and musical unit inside a single
       // chip, fixed-width so nothing ever collides or shifts.
       const syncStr = `${msStr} ${musical.trim()}`;
-      const syncW = syncStr.length * 5 + 8;
+      const syncW = Math.ceil(syncStr.length * 4.5) + 6;
       ink(60, 75, 95, 150).box(screen.width - SAFE_R - syncW, SAFE_T + 12, syncW + 2, 11);
       ink(110, 130, 160).box(screen.width - SAFE_R - syncW, 15, syncW + 2, 11, "outline");
       ink(locked ? [0, 255, 120] : [255, 170, 0]).write(
         syncStr,
-        { x: screen.width - SAFE_R - 2, y: SAFE_T + 15, right: true },
+        { y: SAFE_T + 14, right: SAFE_R + 4 },
         undefined,
         undefined,
         false,
@@ -1160,6 +1161,8 @@ function paint({
             locked,
             scrubbing: isScrubbing,
             style: postedTapeCode || "synth",
+            safeR: SAFE_R, // Layout debug: which margin profile is live
+            ua: (typeof navigator !== "undefined" ? navigator.userAgent : "none").slice(-40),
           },
         });
       }
@@ -1247,7 +1250,7 @@ function paint({
       const shown = Math.round((lastSentTapeVolume < 0 ? mixVolume : lastSentTapeVolume) * 100);
       ink(255, 255, 255).write(
         `${shown}`,
-        { x: screen.width - SAFE_R, y: vy + vh + 6, right: true },
+        { y: vy + vh + 6, right: SAFE_R },
         undefined,
         undefined,
         false,
@@ -1257,7 +1260,7 @@ function paint({
       if (jamPeers.size > 0) {
         ink(0, 255, 255).write(
           `${jamPeers.size + 1}win`,
-          { x: screen.width - SAFE_R, y: SAFE_T + 37, right: true },
+          { y: SAFE_T + 37, right: SAFE_R },
           undefined,
           undefined,
           false,
@@ -1346,7 +1349,7 @@ function paint({
     if (pitchSemis !== 0) {
       ink(200, 160, 255).write(
         `${pitchSemis > 0 ? "+" : ""}${pitchSemis}st`,
-        { x: bx0 - 4, y: screen.height - 12 - 4 * (bh + bgap) + 4, right: true },
+        { y: screen.height - 12 - 4 * (bh + bgap) + 4, right: screen.width - bx0 + 4 },
         undefined,
         undefined,
         false,
@@ -1407,7 +1410,7 @@ function paint({
     // Progress % at top-right, under the rate readout
     ink(...c).write(
       `${Math.floor(scrubCurrentProgress * 100)}%`,
-      { x: screen.width - 8, y: 20, right: true },
+      { y: 20, right: 8 },
     );
 
     // Drive VHS tape progress bar from scrub position
