@@ -183,6 +183,16 @@ let pitchSemis = 0; // Varispeed pitch offset from the p-/p+ pads (semitones)
 let stickyGrabProgress = 0; // Where the finger grabbed the tape (sticky drag)
 let stickyTargetProgress = null; // Finger-pinned position while dragging
 let lastCursorScrub = false; // Tracks cursor mode swaps (precise ↔ active)
+
+// 🖥️ Platform-aware safe margins: frameless macOS/Electron panes have
+// rounded window corners that clip flush chrome, so every edge inset
+// widens on the desktop host. Tune per platform here — the AC desktop
+// app carries "Aesthetic" (and Electron) in its user agent.
+const DESKTOP_HOST =
+  typeof navigator !== "undefined" &&
+  /Aesthetic|Electron/i.test(navigator.userAgent || "");
+const SAFE_R = DESKTOP_HOST ? 12 : 6; // Right-edge inset for chrome
+const SAFE_B = DESKTOP_HOST ? 16 : 12; // Bottom inset for the pad cluster
 const JAM_ARM_TIMEOUT = 8000; // A never-loading sibling can't hold us hostage
 let legendBtns = null; // Tappable deck-key legend (bottom-right)
 let synthAuto = false;
@@ -978,14 +988,15 @@ function paint({
       sustained ||
       tapDipTime >= 0;
     const liveRate = scrubDriven ? scrubSpeed : playing ? 1 : 0;
-    // Fixed-width readout — every glyph keeps its position as values
-    // change, so `frame` OCR (and eyes) can anchor on it. Chromed like
-    // the deck pads so the top-right reads as one instrument panel.
-    ink(60, 75, 95, 150).box(screen.width - 6 - 36, 3, 38, 11);
-    ink(110, 130, 160).box(screen.width - 6 - 36, 3, 38, 11, "outline");
+    // Right-anchored readout: the box hugs the value (no dead padding),
+    // and the right edge never moves — OCR and eyes anchor there.
+    const rateStr = `${liveRate.toFixed(2)}x`;
+    const rateW = rateStr.length * 5 + 8;
+    ink(60, 75, 95, 150).box(screen.width - SAFE_R - rateW, 3, rateW + 2, 11);
+    ink(110, 130, 160).box(screen.width - SAFE_R - rateW, 3, rateW + 2, 11, "outline");
     ink(255, 255, 0).write(
-      `${liveRate.toFixed(2).padStart(6)}x`,
-      { x: screen.width - 8, y: 6, right: true },
+      rateStr,
+      { x: screen.width - SAFE_R - 2, y: 6, right: true },
       undefined,
       undefined,
       false,
@@ -1071,11 +1082,13 @@ function paint({
       ).padStart(7);
       // One clean boxed row — value and musical unit inside a single
       // chip, fixed-width so nothing ever collides or shifts.
-      ink(60, 75, 95, 150).box(screen.width - 6 - 92, 15, 94, 11);
-      ink(110, 130, 160).box(screen.width - 6 - 92, 15, 94, 11, "outline");
+      const syncStr = `${msStr} ${musical.trim()}`;
+      const syncW = syncStr.length * 5 + 8;
+      ink(60, 75, 95, 150).box(screen.width - SAFE_R - syncW, 15, syncW + 2, 11);
+      ink(110, 130, 160).box(screen.width - SAFE_R - syncW, 15, syncW + 2, 11, "outline");
       ink(locked ? [0, 255, 120] : [255, 170, 0]).write(
-        `${msStr} ${musical}`,
-        { x: screen.width - 8, y: 18, right: true },
+        syncStr,
+        { x: screen.width - SAFE_R - 2, y: 18, right: true },
         undefined,
         undefined,
         false,
@@ -1095,7 +1108,7 @@ function paint({
             : locked
               ? [0, 255, 120]
               : [255, 170, 0],
-        ).box(screen.width - 11, 30, 6, 6);
+        ).box(screen.width - SAFE_R - 5, 30, 6, 6);
       }
 
       // 📡 Telemetry for the jam harness (bios stashes it on window) —
@@ -1146,7 +1159,7 @@ function paint({
     if (jamChannel) {
       const vw = 44; // Wedge width
       const vh = 14; // Wedge height at the tall end
-      const vx = screen.width - 6 - vw;
+      const vx = screen.width - SAFE_R - vw;
       const vy = 52;
       if (!volBtn) {
         volBtn = new ui.Button(vx - 6, vy - 6, vw + 12, vh + 12);
@@ -1198,7 +1211,7 @@ function paint({
       const shown = Math.round((lastSentTapeVolume < 0 ? mixVolume : lastSentTapeVolume) * 100);
       ink(255, 255, 255).write(
         `${shown}`,
-        { x: screen.width - 6, y: vy + vh + 6, right: true },
+        { x: screen.width - SAFE_R, y: vy + vh + 6, right: true },
         undefined,
         undefined,
         false,
@@ -1208,7 +1221,7 @@ function paint({
       if (jamPeers.size > 0) {
         ink(0, 255, 255).write(
           `${jamPeers.size + 1}win`,
-          { x: screen.width - 6, y: 40, right: true },
+          { x: screen.width - SAFE_R, y: 40, right: true },
           undefined,
           undefined,
           false,
@@ -1253,8 +1266,8 @@ function paint({
     const bw = 64; // Cluster width
     const bh = 14; // Button height
     const bgap = 2;
-    const bx0 = screen.width - 6 - bw;
-    let by = screen.height - 12 - DECK.length * (bh + bgap);
+    const bx0 = screen.width - SAFE_R - bw;
+    let by = screen.height - SAFE_B - DECK.length * (bh + bgap);
     for (const row of DECK) {
       const cw = Math.floor((bw - (row.length - 1) * bgap) / row.length);
       row.forEach((cell, ci) => {
@@ -2801,7 +2814,7 @@ function act({
     if (volBtn && rec.presenting && !isPrinting && !isPostingTape) {
       const wedgeX = () => {
         const vw = 44;
-        const vx = screen.width - 6 - vw;
+        const vx = screen.width - SAFE_R - vw;
         return { vw, vx };
       };
       volBtn.act(e, {

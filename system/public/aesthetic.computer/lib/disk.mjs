@@ -14799,7 +14799,7 @@ async function makeFrame({ data: { type, content } }) {
             // Keep text fixed while scrubbing left; only right-scrub shifts label content.
             const hudTextX =
               baseX + HUD_LABEL_TEXT_MARGIN + Math.max(0, currentHUDScrub) + shakeX;
-            const hudTextY = 0 + shakeY;
+            const hudTextY = 4 + shakeY; // Aligned with the QR (corner-radius safe)
             const typefaceNameForWrite = selectedHudFont;
             const hasColorCodes = textContainsColorCodes(text);
             const baseTextColor = hudHovering
