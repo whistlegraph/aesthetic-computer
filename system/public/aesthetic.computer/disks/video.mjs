@@ -2703,9 +2703,13 @@ function act({
     // holding ↑ chop-repeats a quarter beat, ↓ an eighth — release to run on.
     if (rec.presenting && tapeInfo?.totalDuration) {
       const dur = tapeInfo.totalDuration;
+      const beatFrac = BEAT_SEC / dur;
+      // Quantized jump: land exactly ON a beat line, not a beat's-width
+      // from wherever the head happened to sit — like a DJ's hot cue,
+      // always musically placed.
       const beatJump = (beats) => {
         ensureDriven(rec, send);
-        let p = scrubCurrentProgress + (beats * BEAT_SEC) / dur;
+        let p = (Math.round(scrubCurrentProgress / beatFrac) + beats) * beatFrac;
         p = ((p % 1) + 1) % 1;
         scrubCurrentProgress = p;
         send({
@@ -2715,39 +2719,33 @@ function act({
         send({ type: "tape:audio-pos", content: p });
         triggerRender();
       };
+      // Quantized chop: the stutter slice snaps to its own subdivision
+      // grid (a 1/4-beat chop loops a real 1/4-beat cell of the bar), so
+      // held chops are always in time instead of smearing off-grid.
+      const startChop = (fraction) => {
+        if (chopActive) return;
+        ensureDriven(rec, send);
+        chopActive = fraction;
+        const len = (fraction * BEAT_SEC) / dur;
+        chopStart = Math.floor(scrubCurrentProgress / len) * len;
+        send({ type: "tape:audio-pos", content: chopStart });
+      };
       if (e.is("keyboard:down:arrowleft")) beatJump(-1);
       if (e.is("keyboard:down:arrowright")) beatJump(1);
-      if (e.is("keyboard:down:arrowup") && !chopActive) {
-        ensureDriven(rec, send);
-        chopActive = 0.25;
-        chopStart = scrubCurrentProgress;
-        send({ type: "tape:audio-pos", content: chopStart });
-      }
-      if (e.is("keyboard:down:arrowdown") && !chopActive) {
-        ensureDriven(rec, send);
-        chopActive = 0.125;
-        chopStart = scrubCurrentProgress;
-        send({ type: "tape:audio-pos", content: chopStart });
-      }
+      if (e.is("keyboard:down:arrowup")) startChop(0.25);
+      if (e.is("keyboard:down:arrowdown")) startChop(0.125);
       if (e.is("keyboard:up:arrowup") || e.is("keyboard:up:arrowdown")) {
         chopActive = 0;
       }
 
       // 🖲️ The legend rows are buttons too — identical moves by touch.
-      const chopDown = (fraction) => () => {
-        if (chopActive) return;
-        ensureDriven(rec, send);
-        chopActive = fraction;
-        chopStart = scrubCurrentProgress;
-        send({ type: "tape:audio-pos", content: chopStart });
-      };
       const chopUp = () => {
         chopActive = 0;
       };
       legendBtns?.jumpL?.act(e, { down: () => beatJump(-1) });
       legendBtns?.jumpR?.act(e, { down: () => beatJump(1) });
-      legendBtns?.chop4?.act(e, { down: chopDown(0.25), up: chopUp, cancel: chopUp });
-      legendBtns?.chop8?.act(e, { down: chopDown(0.125), up: chopUp, cancel: chopUp });
+      legendBtns?.chop4?.act(e, { down: () => startChop(0.25), up: chopUp, cancel: chopUp });
+      legendBtns?.chop8?.act(e, { down: () => startChop(0.125), up: chopUp, cancel: chopUp });
       legendBtns?.reset?.act(e, { push: fullReset });
       if (
         legendBtns &&

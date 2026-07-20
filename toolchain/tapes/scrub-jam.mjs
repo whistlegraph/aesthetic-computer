@@ -99,12 +99,13 @@ class Performer {
           el.id = "jam-cursor";
           el.setAttribute("role", "img");
           el.setAttribute("aria-label", `jam-cursor-${label}`);
+          // AC's `precise` cursor verbatim (24×24, hotspot 12,12), cross
+          // tinted per tape. No label, no chrome — and it only exists
+          // while a gesture is happening, fading out after each use.
           el.style.cssText =
-            "position:fixed;left:-12px;top:-12px;z-index:2147483647;pointer-events:none;" +
-            `font:bold 10px monospace;color:${color};text-shadow:1px 1px 0 #000;` +
-            "text-align:center;width:24px;";
-          // AC's own `precise` cursor — shadow crosshair under a tinted
-          // crosshair with a white center dot — so the jam hands look native.
+            "position:fixed;left:-12px;top:-12px;width:24px;height:24px;" +
+            "z-index:2147483647;pointer-events:none;opacity:0;" +
+            "transition:opacity 0.45s ease-out;";
           el.innerHTML =
             `<svg width="24" height="24" viewBox="0 0 25 25">` +
             `<path d="M 13,3 L 13,6 M 13,20 L 13,23 M 6,13 L 3,13 M 20,13 L 23,13"` +
@@ -112,15 +113,20 @@ class Performer {
             `<circle cx="13" cy="13" r="2" fill="black"/>` +
             `<path d="M 12,2 L 12,5 M 12,19 L 12,22 M 5,12 L 2,12 M 19,12 L 22,12"` +
             ` stroke="${color}" stroke-width="4" stroke-linecap="round"/>` +
-            `<circle cx="12" cy="12" r="2" fill="#ffffff"/></svg>` +
-            `<div style="margin-top:-4px">${label}</div>`;
+            `<circle cx="12" cy="12" r="2" fill="#ffffff"/></svg>`;
           document.body.appendChild(el);
           window.__jamCursorEl = el;
           window.__jamCursor = { x: 0, y: 0, down: false };
+          let fadeTimer = null;
           window.__jamCursorMove = (x, y, down) => {
             window.__jamCursor = { x, y, down };
             el.style.transform = `translate(${x}px,${y}px)`;
-            el.style.filter = down ? "brightness(1.7) drop-shadow(0 0 3px #fff)" : "none";
+            el.style.opacity = "1"; // Appear while in use...
+            el.style.filter = down ? "brightness(1.6)" : "none";
+            clearTimeout(fadeTimer);
+            fadeTimer = setTimeout(() => {
+              el.style.opacity = "0"; // ...fade once the hand goes quiet.
+            }, 650);
           };
         },
         { label: this.tape, color },
