@@ -5,122 +5,94 @@
 <title>No Paint — Gallery</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="author" content="Jeffrey Alan Scudder w/ Alex Freundlich, Ella Fleck, Camille Klein &amp; Friends">
-<meta name="description" content="Every painting kept by pressing Paint — the No Paint archive, 2021 to now.">
+<meta name="description" content="Every painting kept by pressing Paint — the No Paint archive, 2021 to now. Searchable.">
 <link rel="icon" type="image/png" href="../icons/icon-1024.png">
 <style>
-  @font-face {
-    font-family: "Pixelar";
-    src: url("../fonts/pixelar-regular-w01.woff2") format("woff2");
-  }
+  @font-face { font-family: "Pixelar"; src: url("../fonts/pixelar-regular-w01.woff2") format("woff2"); }
   * { box-sizing: border-box; }
-  html, body {
-    margin: 0;
-    background: #ebebeb;
-    font-family: "Pixelar", monospace;
-    color: #222;
-    image-rendering: pixelated;
-  }
+  html, body { margin: 0; background: #ebebeb; font-family: "Pixelar", monospace; color: #222; image-rendering: pixelated; }
   header {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    background: #ebebeb;
-    border-bottom: 2px solid #222;
-    padding: 12px 16px 10px;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 10px 18px;
+    position: sticky; top: 0; z-index: 2; background: #ebebeb;
+    border-bottom: 2px solid #222; padding: 12px 16px 10px;
   }
-  header h1 {
-    margin: 0;
-    font-size: 28px;
-    font-weight: normal;
-    letter-spacing: 1px;
-  }
+  .row1 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 18px; }
+  header h1 { margin: 0; font-size: 28px; font-weight: normal; letter-spacing: 1px; }
   header h1 a { color: inherit; text-decoration: none; }
   #count { font-size: 16px; color: #666; }
-  nav { display: flex; gap: 8px; flex-wrap: wrap; }
+  #q {
+    font-family: inherit; font-size: 18px; padding: 4px 12px; margin-top: 8px;
+    width: 100%; max-width: 420px; background: #fff; border: 2px solid #222; border-radius: 0;
+  }
+  nav { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
   nav button {
-    font-family: inherit;
-    font-size: 16px;
-    padding: 2px 10px;
-    background: #fff;
-    border: 2px solid #222;
-    border-radius: 0;
-    cursor: pointer;
+    font-family: inherit; font-size: 15px; padding: 2px 10px;
+    background: #fff; border: 2px solid #222; border-radius: 0; cursor: pointer;
   }
   nav button.on { background: #222; color: #ebebeb; }
   nav button:active { transform: translateY(1px); }
-  #grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
-    gap: 4px;
-    padding: 4px;
+  #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 4px; padding: 4px; }
+  .cell { position: relative; display: block; aspect-ratio: 256 / 288; background: #ddd; }
+  .cell img { width: 100%; height: 100%; display: block; }
+  .cell .cap {
+    position: absolute; left: 0; right: 0; bottom: 0; padding: 3px 5px;
+    font-size: 11px; line-height: 1.2; color: #fff; background: rgba(0,0,0,0.62);
+    opacity: 0; transition: opacity .12s; pointer-events: none; max-height: 70%; overflow: hidden;
   }
-  #grid a {
-    display: block;
-    aspect-ratio: 256 / 288;
-    background: #ddd;
-  }
-  #grid img {
-    width: 100%;
-    height: 100%;
-    display: block;
-  }
+  .cell:hover .cap { opacity: 1; }
   #more { text-align: center; padding: 24px; font-size: 18px; color: #666; }
-  footer {
-    padding: 24px 16px 40px;
-    font-size: 15px;
-    color: #666;
-    text-align: center;
-  }
+  footer { padding: 24px 16px 40px; font-size: 15px; color: #666; text-align: center; }
   footer a { color: #444; }
 </style>
 </head>
 <body>
 <header>
-  <h1><a href="/">No Paint</a> Gallery</h1>
-  <span id="count">loading the archive…</span>
+  <div class="row1">
+    <h1><a href="/">No Paint</a> Gallery</h1>
+    <span id="count">loading the archive…</span>
+  </div>
+  <input id="q" type="search" placeholder="search paintings — colors, subjects, painted words…" autocomplete="off">
   <nav id="years"></nav>
 </header>
 <div id="grid"></div>
 <div id="more"></div>
 <footer>
-  Every image here is a painting somebody kept by pressing
-  <strong>Paint</strong>. The archive runs from 2021 to now.
-  <a href="/">Play No Paint</a> · <a href="/classic/">Classic build</a>
+  Every image is a painting somebody kept by pressing <strong>Paint</strong>, 2021 to now.
+  Descriptions by machine vision; search covers titles, painted text, colors, and subjects.
+  <br><a href="/">Play No Paint</a> · <a href="/classic/">Classic build</a>
 </footer>
 <script>
-  const CDN = "https://pix.nopaint.art/";
   const PAGE = 60;
-  let all = [], view = [], shown = 0, filter = "all";
+  let all = [], view = [], shown = 0, yearFilter = "shuffle", query = "";
+  let CDN = "https://pix.nopaint.art/", THUMB = "https://pix.nopaint.art/thumb/";
 
   const grid = document.getElementById("grid");
   const more = document.getElementById("more");
   const count = document.getElementById("count");
   const years = document.getElementById("years");
+  const q = document.getElementById("q");
 
-  function setFilter(f) {
-    filter = f;
-    view = f === "all" ? all.slice()
-         : f === "shuffle" ? shuffled(all)
-         : all.filter(p => p.d.startsWith(f));
-    if (f !== "shuffle") view.reverse(); // newest first
-    grid.innerHTML = "";
-    shown = 0;
-    count.textContent = view.length.toLocaleString() + " paintings";
-    for (const b of years.children) b.classList.toggle("on", b.dataset.f === f);
-    fill();
+  function shuffled(a) { a = a.slice(); for (let i = a.length-1; i>0; i--) { const j = Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+  // searchable haystack per painting (lazy-built, cached)
+  function hay(p) {
+    if (p._h === undefined) p._h = [p.t, p.desc, p.tags, p.c, p.s].filter(Boolean).join(" ").toLowerCase();
+    return p._h;
   }
 
-  function shuffled(arr) {
-    const a = arr.slice();
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
+  function recompute() {
+    let base = all;
+    if (query) {
+      const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+      base = base.filter((p) => { const h = hay(p); return terms.every((t) => h.includes(t)); });
     }
-    return a;
+    if (yearFilter !== "all" && yearFilter !== "shuffle") {
+      base = base.filter((p) => (p.d || "").startsWith(yearFilter));
+    }
+    view = yearFilter === "shuffle" && !query ? shuffled(base) : base.slice();
+    if (yearFilter !== "shuffle" || query) view.reverse(); // newest first when not shuffling
+    grid.innerHTML = ""; shown = 0;
+    count.textContent = view.length.toLocaleString() + (query ? " matches" : " paintings");
+    fill();
   }
 
   function fill() {
@@ -129,38 +101,34 @@
     for (; shown < end; shown++) {
       const p = view[shown];
       const a = document.createElement("a");
-      a.href = CDN + p.id + ".png";
-      a.target = "_blank";
-      a.title = p.id + " · " + p.d;
+      a.className = "cell"; a.href = CDN + p.id + ".png"; a.target = "_blank";
       const img = document.createElement("img");
-      img.loading = "lazy";
-      img.decoding = "async";
-      img.src = CDN + p.id + ".png";
-      img.alt = "No Paint painting " + p.id + " from " + p.d;
+      img.loading = "lazy"; img.decoding = "async";
+      img.src = THUMB + p.id + ".webp";
+      img.alt = p.desc || ("No Paint painting " + p.id);
       a.appendChild(img);
+      const cap = p.desc || p.t;
+      if (cap) { const d = document.createElement("div"); d.className = "cap"; d.textContent = cap; a.appendChild(d); }
       frag.appendChild(a);
     }
     grid.appendChild(frag);
-    more.textContent = shown < view.length
-      ? "…" + (view.length - shown).toLocaleString() + " more"
-      : "that's every painting";
+    more.textContent = shown < view.length ? "…" + (view.length - shown).toLocaleString() + " more" : (view.length ? "that's all" : "no matches");
   }
 
-  new IntersectionObserver(es => {
-    if (es[0].isIntersecting && shown < view.length) fill();
-  }, { rootMargin: "1200px" }).observe(more);
+  new IntersectionObserver((es) => { if (es[0].isIntersecting && shown < view.length) fill(); }, { rootMargin: "1200px" }).observe(more);
 
-  fetch("manifest.json").then(r => r.json()).then(m => {
-    all = m.paintings;
-    const ys = [...new Set(all.map(p => p.d.slice(0, 4)))].sort();
-    for (const label of ["all", ...ys, "shuffle"]) {
-      const b = document.createElement("button");
-      b.textContent = label;
-      b.dataset.f = label;
-      b.onclick = () => setFilter(label);
+  let qt; q.addEventListener("input", () => { clearTimeout(qt); qt = setTimeout(() => { query = q.value.trim(); recompute(); }, 180); });
+
+  fetch("gallery.json").then((r) => r.json()).then((m) => {
+    all = m.paintings; if (m.cdn) CDN = m.cdn; if (m.thumb) THUMB = m.thumb;
+    const ys = [...new Set(all.map((p) => (p.d || "").slice(0, 4)).filter(Boolean))].sort();
+    for (const label of ["shuffle", "all", ...ys]) {
+      const b = document.createElement("button"); b.textContent = label; b.dataset.f = label;
+      b.onclick = () => { yearFilter = label; for (const x of years.children) x.classList.toggle("on", x.dataset.f === label); recompute(); };
       years.appendChild(b);
     }
-    setFilter("shuffle");
+    years.firstChild.classList.add("on");
+    recompute();
   }).catch(() => count.textContent = "the archive could not load");
 </script>
 </body>
