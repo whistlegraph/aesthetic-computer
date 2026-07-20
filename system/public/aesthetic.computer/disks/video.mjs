@@ -962,9 +962,10 @@ function paint({
       sustained ||
       tapDipTime >= 0;
     const liveRate = scrubDriven ? scrubSpeed : playing ? 1 : 0;
-    // Top-right is display-only — no pointer targets live up here.
+    // Fixed-width readout — every glyph keeps its position as values
+    // change, so `frame` OCR (and eyes) can anchor on it.
     ink(255, 255, 0).write(
-      `${liveRate.toFixed(2)}x`,
+      `${liveRate.toFixed(2).padStart(6)}x`,
       { x: screen.width - 6, y: 6, right: true },
       undefined,
       undefined,
@@ -995,13 +996,18 @@ function paint({
       const errMs = Math.round(phaseErr * durMs);
       const locked = Math.abs(errMs) < 60;
       // Measured in bars too — 64ths are the finest musical slice worth
-      // naming; inside half a 64th the tape is simply "on grid".
+      // naming; inside half a 64th the tape is simply "on grid". Both
+      // fields are fixed-width so the label never shifts as values move.
       const barMs = BEAT_SEC * 4 * 1000;
       const n64 = Math.round(errMs / (barMs / 64));
-      const musical =
-        n64 === 0 ? "on grid" : `${n64 > 0 ? "+" : "-"}${Math.abs(n64)}/64 bar`;
+      const msStr = `${errMs >= 0 ? "+" : "-"}${String(Math.min(9999, Math.abs(errMs))).padStart(4)}ms`;
+      const musical = (
+        n64 === 0
+          ? "on grid"
+          : `${n64 > 0 ? "+" : "-"}${String(Math.min(99, Math.abs(n64))).padStart(2)}/64`
+      ).padStart(7);
       ink(locked ? [0, 255, 120] : [255, 170, 0]).write(
-        `sync ${errMs >= 0 ? "+" : ""}${errMs}ms ${musical}`,
+        `sync ${msStr} ${musical}`,
         { x: screen.width - 6, y: 18, right: true },
         undefined,
         undefined,
@@ -1083,6 +1089,16 @@ function paint({
       volBtn.box.y = vy - 6;
       volBtn.box.w = vw + 12;
       volBtn.box.h = vh + 12;
+      // Hovering shows the true hit box — you can see what you can grab.
+      if (volBtn.over || volBtn.down) {
+        ink(volBtn.down ? [255, 255, 255] : [200, 220, 255]).box(
+          volBtn.box.x,
+          volBtn.box.y,
+          volBtn.box.w,
+          volBtn.box.h,
+          "outline",
+        );
+      }
       // Wedge silhouette (dim) + filled portion up to the level.
       for (let i = 0; i < vw; i += 2) {
         const colH = Math.max(1, Math.round(vh * (i / vw)));
@@ -1128,70 +1144,65 @@ function paint({
       }
     }
 
-    // ⌨️🖲️ Deck keys legend, bottom-right — every row is also a button:
-    // tap ←/→ to beat-jump, hold the chop rows, tap reset. Keyboard and
-    // touch drive the exact same moves.
-    const keyRows = [
-      { key: "jumpL", label: "<-", extra: "-> beat jump" },
-      { key: "chop4", label: "hold ^ 1/4 chop" },
-      { key: "chop8", label: "hold v 1/8 chop" },
-      { key: "reset", label: "space reset" },
+    // 🖲️ Deck buttons, arena-style (the arena.mjs mobile-controls idiom):
+    // color-coded fill + outline with distinct idle / hover / pressed
+    // states. Tap ‹ › to beat-jump, HOLD the chop pads, tap reset —
+    // keyboard drives the exact same moves.
+    const DECK = [
+      [{ key: "jumpL", label: "<" }, { key: "jumpR", label: ">" }],
+      [{ key: "chop4", label: "1/4 chop" }],
+      [{ key: "chop8", label: "1/8 chop" }],
+      [{ key: "reset", label: "reset" }],
     ];
     if (!legendBtns) legendBtns = {};
-    const rowH = 10;
-    keyRows.forEach((row, i) => {
-      const y = screen.height - 10 - (keyRows.length - i) * rowH;
-      const full = row.extra ? `${row.label} ${row.extra}` : row.label;
-      const w = 78; // Generous hit box for the whole row
-      if (row.key === "jumpL") {
-        // Row 1 splits: left half jumps back, right half jumps forward.
-        for (const [k, x0] of [["jumpL", screen.width - 6 - w], ["jumpR", screen.width - 6 - w / 2]]) {
-          if (!legendBtns[k]) {
-            legendBtns[k] = new ui.Button(x0, y - 1, w / 2, rowH);
-            legendBtns[k].noRolloverActivation = true;
-          }
-          legendBtns[k].box.x = x0;
-          legendBtns[k].box.y = y - 1;
-          legendBtns[k].box.w = w / 2;
-          legendBtns[k].box.h = rowH;
+    const bw = 64; // Cluster width
+    const bh = 14; // Button height
+    const bgap = 2;
+    const bx0 = screen.width - 6 - bw;
+    let by = screen.height - 12 - DECK.length * (bh + bgap);
+    for (const row of DECK) {
+      const cw = Math.floor((bw - (row.length - 1) * bgap) / row.length);
+      row.forEach((cell, ci) => {
+        const bx = bx0 + ci * (cw + bgap);
+        if (!legendBtns[cell.key]) {
+          legendBtns[cell.key] = new ui.Button(bx, by, cw, bh);
+          legendBtns[cell.key].noRolloverActivation = true;
         }
-      } else {
-        if (!legendBtns[row.key]) {
-          legendBtns[row.key] = new ui.Button(screen.width - 6 - w, y - 1, w, rowH);
-          legendBtns[row.key].noRolloverActivation = true;
-        }
-        legendBtns[row.key].box.x = screen.width - 6 - w;
-        legendBtns[row.key].box.y = y - 1;
-        legendBtns[row.key].box.w = w;
-        legendBtns[row.key].box.h = rowH;
-      }
-      const active =
-        row.key === "jumpL"
-          ? legendBtns.jumpL?.down || legendBtns.jumpR?.down
-          : legendBtns[row.key]?.down;
-      // Button chrome — these are controls, not a ghosted legend.
-      ink(active ? [40, 90, 40, 220] : [0, 0, 0, 170]).box(
-        screen.width - 6 - w,
-        y - 1,
-        w,
-        rowH,
-      );
-      ink(255, 255, 255, active ? 255 : 120).box(
-        screen.width - 6 - w,
-        y - 1,
-        w,
-        rowH,
-        "outline",
-      );
-      ink(active ? [0, 255, 120] : [255, 255, 255]).write(
-        full,
-        { x: screen.width - 8, y, right: true },
-        undefined,
-        undefined,
-        false,
-        "MatrixChunky8",
-      );
-    });
+        const b = legendBtns[cell.key];
+        b.box.x = bx;
+        b.box.y = by;
+        b.box.w = cw;
+        b.box.h = bh;
+        const pressed = b.down;
+        const hover = b.over && !pressed;
+        const bg = pressed
+          ? [100, 140, 180, 220]
+          : hover
+            ? [80, 100, 125, 190]
+            : [60, 75, 95, 150];
+        const border = pressed
+          ? [255, 255, 255]
+          : hover
+            ? [200, 220, 255]
+            : [110, 130, 160];
+        const txt = pressed
+          ? [255, 255, 255]
+          : hover
+            ? [230, 240, 255]
+            : [180, 200, 230];
+        ink(...bg).box(bx, by, cw, bh);
+        ink(...border).box(bx, by, cw, bh, "outline");
+        ink(...txt).write(
+          cell.label,
+          { x: bx + (row.length > 1 ? Math.floor(cw / 2) - 2 : 5), y: by + 4 },
+          undefined,
+          undefined,
+          false,
+          "MatrixChunky8",
+        );
+      });
+      by += bh + bgap;
+    }
   }
 
   // Scrub overlay (STAMPLE-style speed-based)

@@ -5,7 +5,16 @@
 // the window itself; a plain tap still passes through as before.
 //
 // Wired only into `--preview` windows (see openPreviewWindow in main.js).
-const { ipcRenderer } = require('electron');
+const { ipcRenderer, contextBridge } = require('electron');
+
+// Give preview panes the same close API the main window has, so the
+// prompt's `-` command closes THIS pane instead of falling back to a
+// window.open("ac://close") that spawns a stray window.
+try {
+  contextBridge.exposeInMainWorld('acElectron', {
+    closeWindow: () => ipcRenderer.send('preview-close'),
+  });
+} catch {}
 
 const THRESHOLD = 4;            // px of travel before it counts as a drag
 let down = false, dragging = false, startX = 0, startY = 0;

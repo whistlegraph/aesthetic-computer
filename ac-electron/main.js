@@ -1734,6 +1734,29 @@ function openPreviewWindow(rawUrl) {
       preload: getAppPath('renderer/preview-preload.js'),  // click-drag to move
     },
   });
+  // ac://close (prompt's `-` command) closes THIS pane; externals go to
+  // the system browser; anything else is denied — a preview never spawns
+  // sibling windows via window.open.
+  win.webContents.setWindowOpenHandler(({ url: openUrl }) => {
+    if (openUrl.startsWith('ac://close')) {
+      win.close();
+      return { action: 'deny' };
+    }
+    try {
+      const u = new URL(openUrl);
+      if (!u.hostname.includes('aesthetic.computer') &&
+          !u.hostname.includes('localhost') && !u.hostname.includes('127.0.0.1')) {
+        shell.openExternal(openUrl);
+      }
+    } catch {}
+    return { action: 'deny' };
+  });
+  win.webContents.on('will-navigate', (event, navUrl) => {
+    if (navUrl.startsWith('ac://close')) {
+      event.preventDefault();
+      win.close();
+    }
+  });
   win.loadURL(url);
   const windowId = windowIdCounter++;
   windows.set(windowId, { window: win, mode: 'preview' });
@@ -1759,6 +1782,12 @@ ipcMain.on('preview-drag-move', (event, { sx, sy }) => {
   }
 });
 ipcMain.on('preview-drag-end', (event) => { previewDragOrigin.delete(event.sender.id); });
+
+// Preview close (prompt's `-` command via preview-preload's acElectron API).
+ipcMain.on('preview-close', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win && !win.isDestroyed()) win.close();
+});
 
 // Open a standalone Notepat window — compact window dedicated to the /notepat piece
 let notepatWindow = null;

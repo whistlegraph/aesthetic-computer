@@ -120,9 +120,12 @@ class Performer {
           let fadeTimer = null;
           window.__jamCursorMove = (x, y, down) => {
             window.__jamCursor = { x, y, down };
-            el.style.transform = `translate(${x}px,${y}px)`;
+            // Down is unmistakable: the crosshair grows and glows.
+            el.style.transform = `translate(${x}px,${y}px) scale(${down ? 1.6 : 1})`;
             el.style.opacity = "1"; // Appear while in use...
-            el.style.filter = down ? "brightness(1.6)" : "none";
+            el.style.filter = down
+              ? `brightness(1.5) drop-shadow(0 0 5px ${color})`
+              : "none";
             clearTimeout(fadeTimer);
             fadeTimer = setTimeout(() => {
               el.style.opacity = "0"; // ...fade once the hand goes quiet.
@@ -135,12 +138,26 @@ class Performer {
   }
 
   // Mirror a pointer state onto the virtual cursor (fire-and-forget).
+  // Self-healing: a page reload wipes the overlay — if the move lands on
+  // a bare window, reinstall the cursor so it never silently vanishes.
   cur(x, y, down = this.curDown) {
     this.curDown = down;
     this.curX = x;
     this.curY = y;
     this.page
-      .evaluate((a) => window.__jamCursorMove?.(a.x, a.y, a.down), { x, y, down })
+      .evaluate(
+        (a) =>
+          window.__jamCursorMove ? (window.__jamCursorMove(a.x, a.y, a.down), true) : false,
+        { x, y, down },
+      )
+      .then((ok) => {
+        if (!ok && !this.reinstalling) {
+          this.reinstalling = true;
+          this.installCursor()
+            .then(() => (this.reinstalling = false))
+            .catch(() => (this.reinstalling = false));
+        }
+      })
       .catch(() => {});
   }
 
