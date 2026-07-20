@@ -177,8 +177,12 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         relayout()
         // the spinning-CD menu-bar presence (persists when the window is closed)
         menuBar = MenuBarCD()
-        menuBar?.onClick = { [weak self] in self?.showMiniPlayer() }
-        menuBar?.onDoubleClick = { [weak self] in self?.quickOpenFull() }
+        menuBar?.onOpen = { [weak self] in self?.quickOpenFull() }
+        menuBar?.onPrevious = { [weak self] in self?.quickPrevious() }
+        menuBar?.onTogglePlay = { [weak self] in self?.quickTogglePlay() }
+        menuBar?.onNext = { [weak self] in self?.quickNext() }
+        menuBar?.onVolumeChanged = { [weak self] value in self?.setQuickVolume(value) }
+        menuBar?.setVolume(quickVolume)
         roomAudio.onState = { [weak self] state in
             DispatchQueue.main.async { self?.renderRoomState(state) }
         }
@@ -591,6 +595,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         menuBar?.setBPM(bpm)
         menuBar?.setNowPlaying(title: title, art: currentArt)
         menuBar?.setPlaying(playing)
+        menuBar?.setVolume(quickVolume)
         DockIcon.setNowPlaying(art: currentArt, playing: playing, bpm: bpm)
         miniPlayer?.refresh()
     }
