@@ -15942,6 +15942,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               if (gridR > mediaRecorderDuration / 2) gridR -= mediaRecorderDuration;
               playbackStart = gridNow - gridR;
               playbackProgress = 0;
+              // 🔊↔️🔴 Keep the SOUND on the needle: the video just
+              // re-anchored to the grid, so relocate the free-running
+              // audio loop to the same phase (declick ramp makes this
+              // inaudible). Without it, each lap's anchor correction
+              // accumulated as audio-vs-needle drift.
+              const anchorPos =
+                Math.max(0, gridR) / mediaRecorderDuration;
+              const tapeAudioIdA = Object.keys(sfxPlaying).find((id) =>
+                id.startsWith("tape:audio_"),
+              );
+              if (tapeAudioIdA && sfxPlaying[tapeAudioIdA]) {
+                sfxPlaying[tapeAudioIdA].update({ samplePosition: anchorPos });
+              }
               // The next update's f===0 branch would reset playbackStart to
               // "now", clobbering the grid — isResuming makes it skip once.
               isResuming = true;
