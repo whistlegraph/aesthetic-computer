@@ -11,6 +11,7 @@ import {
   visualSearchText,
 } from "../system/netlify/functions/whistlegraph-admin-lib.mjs";
 import { createHandler } from "../system/netlify/functions/whistlegraph-admin.mjs";
+import { readFileSync } from "node:fs";
 
 const JEFFREY = "auth0|63effeeb2a7d55f8098d62f9";
 const MINANIMALS = "auth0|6414a4fb936cc041cfc1f011";
@@ -49,6 +50,12 @@ function memoryDatabase() {
 }
 
 describe("Whistlegraph Desk", () => {
+  it("recovers an existing Auth0 session before returning to the login splash", () => {
+    const page = readFileSync(new URL("../system/public/whistlegraph.org/admin.html", import.meta.url), "utf8");
+    expect(page).toContain("useRefreshTokensFallback:true");
+    expect(page).toContain("if(!authenticated){try{token=await client.getTokenSilently()");
+  });
+
   it("authorizes immutable AC subjects, not claimed handles", () => {
     const allowed = new Set([JEFFREY, MINANIMALS]);
     expect(isWhistlegraphAdmin({ sub: JEFFREY, email_verified: true }, allowed)).toBeTrue();

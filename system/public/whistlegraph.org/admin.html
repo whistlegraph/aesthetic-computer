@@ -144,17 +144,19 @@
   async function init(){
     if(PREVIEW){enterDesk("preview");await loadData();return}
     try{
-      client=await auth0.createAuth0Client({domain:AUTH0_DOMAIN,clientId:AUTH0_CLIENT,cacheLocation:"localstorage",useRefreshTokens:true,authorizationParams:{redirect_uri:AUTH0_RETURN}});
+      client=await auth0.createAuth0Client({domain:AUTH0_DOMAIN,clientId:AUTH0_CLIENT,cacheLocation:"localstorage",useRefreshTokens:true,useRefreshTokensFallback:true,authorizationParams:{redirect_uri:AUTH0_RETURN}});
       if(location.search.includes("state=")&&(location.search.includes("code=")||location.search.includes("error="))){await client.handleRedirectCallback()}
       canonicalizeDesk();
-      if(!await client.isAuthenticated()){document.getElementById("gateStatus").textContent="Sign in to continue.";return}
-      token=await client.getTokenSilently();
+      let authenticated=await client.isAuthenticated();
+      if(!authenticated){try{token=await client.getTokenSilently();authenticated=await client.isAuthenticated()}catch{}}
+      if(!authenticated){document.getElementById("gateStatus").textContent="Sign in to continue.";return}
+      token=token||await client.getTokenSilently();
       const session=await getJSON(`${API}?action=session`,{headers:{Authorization:`Bearer ${token}`},cache:"no-store"});
       enterDesk(session.handle?`@${session.handle}`:"authorized editor");await loadData();
     }catch(error){fail(error.message||"Could not open the Whistlegraph Desk.")}
   }
   document.getElementById("login").addEventListener("click",async()=>{
-    try{if(!client)client=await auth0.createAuth0Client({domain:AUTH0_DOMAIN,clientId:AUTH0_CLIENT,cacheLocation:"localstorage",useRefreshTokens:true,authorizationParams:{redirect_uri:AUTH0_RETURN}});await client.loginWithRedirect({authorizationParams:{prompt:"login"}})}catch(error){fail(error.message)}
+    try{if(!client)client=await auth0.createAuth0Client({domain:AUTH0_DOMAIN,clientId:AUTH0_CLIENT,cacheLocation:"localstorage",useRefreshTokens:true,useRefreshTokensFallback:true,authorizationParams:{redirect_uri:AUTH0_RETURN}});await client.loginWithRedirect({authorizationParams:{prompt:"login"}})}catch(error){fail(error.message)}
   });
   document.getElementById("logout").addEventListener("click",()=>client?.logout({logoutParams:{returnTo:AUTH0_RETURN}}));
 
