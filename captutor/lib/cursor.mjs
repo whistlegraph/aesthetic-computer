@@ -133,6 +133,10 @@ export async function pointAt(cdp, selector, { moveMs = 620 } = {}) {
   const { x, y } = await cdp.center(selector);
   if (REAL_CURSOR) await moveRealPointer(cdp, { x, y }, moveMs);
   else await cdp.eval(`window.__captutor.moveTo(${x}, ${y}, ${moveMs})`);
+  // Keep the page's pointer state aligned with the native pointer. Besides
+  // making hover treatments truthful, this gives ScreenCaptureKit a compositor
+  // change to record during an otherwise static, pointer-only beat.
+  await cdp.mouse("mouseMoved", x, y);
   return { x, y };
 }
 

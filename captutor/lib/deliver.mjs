@@ -210,6 +210,13 @@ function duration(clip) {
   ], { encoding: "utf8" }).trim();
 }
 
+function videoDuration(clip) {
+  return +execFileSync("ffprobe", [
+    "-v", "error", "-select_streams", "v:0",
+    "-show_entries", "stream=duration", "-of", "csv=p=0", clip,
+  ], { encoding: "utf8" }).trim();
+}
+
 /// Group each beat's words into on-screen caption phrases — same rule the VTT
 /// uses, so burned and soft captions never disagree.
 function phrases(cues, { maxWords = 6, pauseMs = 380 } = {}) {
@@ -256,6 +263,14 @@ export function deliver({ clip, cues, format, out, workDir, locale = "en" }) {
 
   const src = probeDims(clip);
   const dur = duration(clip);
+  const videoDur = videoDuration(clip);
+  // ScreenCaptureKit may stop emitting frames when a desktop is perfectly
+  // static even though narration is still running. Never let that truncate the
+  // visual stream: hold its final valid frame through the audio duration.
+  const pad = Math.max(0, dur - videoDur);
+  const holdLastFrame = pad > 0.02
+    ? `tpad=stop_mode=clone:stop_duration=${pad.toFixed(3)},`
+    : "";
   const W = F.out.w;
   const H = F.out.h;
 
@@ -286,12 +301,12 @@ export function deliver({ clip, cues, format, out, workDir, locale = "en" }) {
     const vy = Math.round(H * F.compose.videoY);
     chain.push(
       `color=c=${BG}:s=${W}x${H}:d=${dur.toFixed(3)},format=yuva420p[bg]`,
-      `[0:v]scale=${vw}:${vh}[vid]`,
+      `[0:v]${holdLastFrame}scale=${vw}:${vh}[vid]`,
       `[bg][vid]overlay=(W-w)/2:${vy}[base]`);
   } else {
     // Filmed at this exact shape already — just scale to the delivery size.
     chain.push(
-      `[0:v]scale=${W}:${H}:force_original_aspect_ratio=decrease,` +
+      `[0:v]${holdLastFrame}scale=${W}:${H}:force_original_aspect_ratio=decrease,` +
       `pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=${BG},format=yuva420p[base]`);
   }
 

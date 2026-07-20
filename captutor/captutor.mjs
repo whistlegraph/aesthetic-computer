@@ -347,10 +347,13 @@ function cmdPublish(sp, workDir) {
 /// Reads clip.mp4 + cues.json, so it never touches the app: the recording is the
 /// negative, and every format is just another print from it.
 function cmdDeliver(sp, workDir, formats, locale) {
-  const clip = join(workDir, "clip.mp4");
+  // Recut the composed master, not the raw ScreenCaptureKit negative. The
+  // master carries narration and its full duration; using clip.mp4 here made a
+  // caption-only recut silently lose audio and hide a short static video track.
+  const clip = join(workDir, `${sp.slug}.mp4`);
   const cuesPath = join(workDir, "cues.json");
   if (!existsSync(clip) || !existsSync(cuesPath)) {
-    throw new Error(`no take to cut — run: captutor render ${sp.slug}`);
+    throw new Error(`no composed take to cut — run: captutor render ${sp.slug}`);
   }
   const cues = JSON.parse(readFileSync(cuesPath, "utf8"));
   const rendered = [];
