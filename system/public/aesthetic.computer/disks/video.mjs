@@ -994,8 +994,14 @@ function paint({
       else if (phaseErr < -0.5) phaseErr += 1;
       const errMs = Math.round(phaseErr * durMs);
       const locked = Math.abs(errMs) < 60;
+      // Measured in bars too — 64ths are the finest musical slice worth
+      // naming; inside half a 64th the tape is simply "on grid".
+      const barMs = BEAT_SEC * 4 * 1000;
+      const n64 = Math.round(errMs / (barMs / 64));
+      const musical =
+        n64 === 0 ? "on grid" : `${n64 > 0 ? "+" : "-"}${Math.abs(n64)}/64 bar`;
       ink(locked ? [0, 255, 120] : [255, 170, 0]).write(
-        `sync ${errMs >= 0 ? "+" : ""}${errMs}ms`,
+        `sync ${errMs >= 0 ? "+" : ""}${errMs}ms ${musical}`,
         { x: screen.width - 6, y: 18, right: true },
         undefined,
         undefined,

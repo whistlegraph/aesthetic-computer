@@ -412,7 +412,9 @@ async function main() {
     let band = "";
     if (syncs.length >= 2) {
       const spread = Math.max(...syncs) - Math.min(...syncs);
-      band = `  ‖ band Δ${spread}ms ${spread < 120 ? "🟢" : "🟠"}`;
+      const n64 = Math.round(spread / (2000 / 64)); // 120 BPM bar = 2000ms
+      const bars = n64 === 0 ? "on grid" : `${n64}/64 bar`;
+      band = `  ‖ band Δ${spread}ms (${bars}) ${spread < 120 ? "🟢" : "🟠"}`;
     }
     const secs = ((Date.now() - start) / 1000).toFixed(0);
     process.stdout.write(`\r[${secs}s] ` + cells.join("  |  ") + band + "          \n");
