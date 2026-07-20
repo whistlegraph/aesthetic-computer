@@ -435,9 +435,15 @@ function boot({ wipe, rec, gizmo, jump, notice, store, params, send, hud }) {
   if (params[0] && params[0].startsWith("!")) {
     const tapeCode = params[0].substring(1); // Remove the "!" prefix
     console.log("📼 Loading tape by code:", tapeCode);
-    
+
     // Store the code for HUD display
     postedTapeCode = tapeCode;
+
+    // Real tapes are band members too: join the jam bus so the volume
+    // wedge, 1/√N auto-mix, scrub focus, and the coordinated drop all
+    // apply — a recorded tape mixes with synthtape stems on the same
+    // UTC beat grid.
+    jamJoin();
     
     // Set loading state
     isLoadingTape = true;
@@ -990,14 +996,22 @@ function paint({
     if (tapeInfo?.totalDuration) {
       const durMs = tapeInfo.totalDuration * 1000;
       const nowMs = clock?.time?.()?.getTime?.() ?? Date.now();
-      let phaseErr = (nowMs % durMs) / durMs - livePos;
-      if (phaseErr > 0.5) phaseErr -= 1;
-      else if (phaseErr < -0.5) phaseErr += 1;
-      // Lock is measured to the nearest BEAT line (matching the drive) —
-      // a deliberate beat jump parks green, shown as its own ±Nbt tag.
-      const beatFracR = (BEAT_SEC * 1000) / durMs;
-      const beatsOff = Math.round(phaseErr / beatFracR);
-      const errMs = Math.round((phaseErr - beatsOff * beatFracR) * durMs);
+      // Lock is measured to the nearest UTC BEAT line in time space
+      // (matching the drive) — correct for any tape duration. The ±Nbt
+      // tag (a deliberately parked beat offset vs full-loop unison) only
+      // means something when the loop is a bar multiple, i.e. synthtapes.
+      const beatMsR = BEAT_SEC * 1000;
+      let beatResidR = (nowMs - livePos * durMs) % beatMsR;
+      if (beatResidR < 0) beatResidR += beatMsR;
+      if (beatResidR > beatMsR / 2) beatResidR -= beatMsR;
+      const errMs = Math.round(beatResidR);
+      let beatsOff = 0;
+      if (Math.abs(durMs % (beatMsR * 4)) < 25) {
+        let pf = (nowMs % durMs) / durMs - livePos;
+        if (pf > 0.5) pf -= 1;
+        else if (pf < -0.5) pf += 1;
+        beatsOff = Math.round((pf * durMs) / beatMsR);
+      }
       const locked = Math.abs(errMs) < 60;
       // Measured in bars too — 64ths are the finest musical slice worth
       // naming; inside half a 64th the tape is simply "on grid". Both
@@ -1526,17 +1540,17 @@ function sim({ needsPaint, rec, send, clock, sound }) {
     if (sustained && !isScrubbing && !chopActive) {
       const durMs = totalDuration * 1000;
       const nowMs = clock?.time?.()?.getTime?.() ?? Date.now();
-      let phaseErr = ((nowMs % durMs) / durMs) - scrubCurrentProgress;
-      if (phaseErr > 0.5) phaseErr -= 1;
-      else if (phaseErr < -0.5) phaseErr += 1;
-
-      // 🎯 The grid is BEAT LINES, not one phase: correct only the
-      // within-beat residual, so a deliberate ←/→ beat jump is a valid
-      // parking spot (it must NOT snap back), and any landing sits at
-      // most half a beat from the pocket — a few seconds of gentle lean,
-      // never a warble, never a teleport.
-      const beatFrac = BEAT_SEC / totalDuration;
-      phaseErr -= Math.round(phaseErr / beatFrac) * beatFrac;
+      // 🎯 Time-space beat lock: how far the playhead's absolute time
+      // sits from the nearest UTC beat line. The grid is BEAT LINES, not
+      // one phase — a deliberate ←/→ beat jump is a valid parking spot,
+      // and any landing sits at most half a beat from the pocket. Works
+      // for ANY duration: synthtapes (bar-multiple loops) fall into full
+      // unison, and real recorded tapes ride the same 120 BPM grid.
+      const beatMs = BEAT_SEC * 1000;
+      let beatResid = (nowMs - scrubCurrentProgress * durMs) % beatMs;
+      if (beatResid < 0) beatResid += beatMs;
+      if (beatResid > beatMs / 2) beatResid -= beatMs;
+      const phaseErr = beatResid / durMs; // Position-space, for the lean
 
       // ±8% reads as the tape breathing into the pocket, not warping.
       const lean = Math.max(-0.08, Math.min(0.08, phaseErr * 1.4));
