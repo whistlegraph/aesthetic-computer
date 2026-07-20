@@ -5,6 +5,51 @@
 // show/hide the JukeWizard window; it sits near DateWizard's wand.
 import AppKit
 
+private final class MenuBarTitleButton: NSButton {
+    private var hovered = false
+    private var hoverTrackingArea: NSTrackingArea?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let hoverTrackingArea { removeTrackingArea(hoverTrackingArea) }
+        let tracking = NSTrackingArea(rect: .zero,
+                                      options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+                                      owner: self, userInfo: nil)
+        addTrackingArea(tracking)
+        hoverTrackingArea = tracking
+    }
+
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        addCursorRect(bounds, cursor: .pointingHand)
+    }
+
+    override func mouseEntered(with event: NSEvent) { hovered = true; needsDisplay = true }
+    override func mouseExited(with event: NSEvent) { hovered = false; needsDisplay = true }
+    override func highlight(_ flag: Bool) { super.highlight(flag); needsDisplay = true }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let pressed = isHighlighted
+        let color: NSColor = hovered ? .controlAccentColor : .labelColor
+        let shadow = NSShadow()
+        shadow.shadowColor = hovered
+            ? NSColor.controlAccentColor.withAlphaComponent(0.48)
+            : NSColor.black.withAlphaComponent(0.24)
+        shadow.shadowOffset = NSSize(width: 0, height: pressed ? 0 : -0.5)
+        shadow.shadowBlurRadius = hovered ? 2.0 : 0.4
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineBreakMode = .byTruncatingTail
+        paragraph.alignment = .left
+        let text = NSAttributedString(string: title, attributes: [
+            .font: font ?? NSFont.systemFont(ofSize: 12, weight: .medium),
+            .foregroundColor: color,
+            .shadow: shadow,
+            .paragraphStyle: paragraph,
+        ])
+        text.draw(in: bounds.insetBy(dx: 1, dy: 3).offsetBy(dx: 0, dy: pressed ? -0.7 : 0))
+    }
+}
+
 /// A transport glyph embossed directly into the menu-bar faceplate. There is
 /// deliberately no button body: the colored symbol itself rises, glows, and
 /// presses into the bar like the legends on MenuBand's instrument controls.
@@ -37,6 +82,11 @@ private final class MenuBarKeyButton: NSButton {
     override func mouseEntered(with event: NSEvent) { hovered = true; needsDisplay = true }
     override func mouseExited(with event: NSEvent) { hovered = false; needsDisplay = true }
 
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        addCursorRect(bounds, cursor: .pointingHand)
+    }
+
     override func highlight(_ flag: Bool) {
         super.highlight(flag)
         needsDisplay = true
@@ -50,17 +100,18 @@ private final class MenuBarKeyButton: NSButton {
         let glyphColor = lit
             ? (accent.highlight(withLevel: 0.40) ?? accent)
             : hovered
-                ? accent
+                ? (accent.highlight(withLevel: 0.48) ?? accent)
                 : (dark ? accent.highlight(withLevel: 0.22) ?? accent
                         : accent.shadow(withLevel: 0.12) ?? accent)
         let shadow = NSShadow()
-        shadow.shadowColor = latched
+        shadow.shadowColor = latched || hovered
             ? accent.withAlphaComponent(0.90)
             : NSColor.black.withAlphaComponent(pressed ? 0.18 : 0.48)
         shadow.shadowOffset = NSSize(width: 0, height: pressed ? 0 : -1)
-        shadow.shadowBlurRadius = latched ? 2.8 : (pressed ? 0 : 0.8)
+        shadow.shadowBlurRadius = latched ? 2.8 : (hovered ? 3.4 : (pressed ? 0 : 0.8))
         let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: title == "❚❚" ? 9.0 : 10.5, weight: .black),
+            .font: NSFont.systemFont(ofSize: (title == "❚❚" ? 9.0 : 10.5) + (hovered ? 1.4 : 0),
+                                     weight: .black),
             .foregroundColor: glyphColor,
             .shadow: shadow,
         ]
@@ -95,8 +146,30 @@ private final class MenuBarVolumeWedge: NSControl {
     ]
     private(set) var level: Float = 0.8
     private var pressed = false
+    private var hoveredSegment: Int?
+    private var hoverTrackingArea: NSTrackingArea?
 
     override var acceptsFirstResponder: Bool { false }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let hoverTrackingArea { removeTrackingArea(hoverTrackingArea) }
+        let tracking = NSTrackingArea(rect: .zero,
+                                      options: [.mouseEnteredAndExited, .mouseMoved,
+                                                .activeAlways, .inVisibleRect],
+                                      owner: self, userInfo: nil)
+        addTrackingArea(tracking)
+        hoverTrackingArea = tracking
+    }
+
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        addCursorRect(bounds, cursor: .pointingHand)
+    }
+
+    override func mouseEntered(with event: NSEvent) { updateHover(from: event) }
+    override func mouseMoved(with event: NSEvent) { updateHover(from: event) }
+    override func mouseExited(with event: NSEvent) { hoveredSegment = nil; needsDisplay = true }
 
     func setValue(_ value: Float) {
         level = max(0, min(1, value))
@@ -121,6 +194,13 @@ private final class MenuBarVolumeWedge: NSControl {
         let x = convert(event.locationInWindow, from: nil).x
         let segment = min(5, max(0, Int((x / max(1, bounds.width)) * 6)))
         level = Float(segment + 1) / 6
+        hoveredSegment = segment
+        needsDisplay = true
+    }
+
+    private func updateHover(from event: NSEvent) {
+        let x = convert(event.locationInWindow, from: nil).x
+        hoveredSegment = min(5, max(0, Int((x / max(1, bounds.width)) * 6)))
         needsDisplay = true
     }
 
@@ -152,11 +232,18 @@ private final class MenuBarVolumeWedge: NSControl {
             bar.line(to: NSPoint(x: x0 + 0.5, y: baseY + h0))
             bar.close()
             let lit = segment < litSegments
-            Self.colors[segment].withAlphaComponent(lit ? 0.95 : 0.20).setFill()
+            let hovered = hoveredSegment == segment
+            Self.colors[segment].withAlphaComponent(hovered ? 1.0 : (lit ? 0.95 : 0.20)).setFill()
             bar.fill()
-            NSColor.white.withAlphaComponent(lit ? 0.30 : 0.08).setStroke()
-            bar.lineWidth = 0.5
+            NSColor.white.withAlphaComponent(hovered ? 0.90 : (lit ? 0.30 : 0.08)).setStroke()
+            bar.lineWidth = hovered ? 1.0 : 0.5
             bar.stroke()
+        }
+
+        if hoveredSegment != nil {
+            NSColor.controlAccentColor.withAlphaComponent(0.72).setStroke()
+            silhouette.lineWidth = 0.8
+            silhouette.stroke()
         }
 
         // Bright fader notch at the selected quantized boundary.
@@ -171,14 +258,97 @@ private final class MenuBarVolumeWedge: NSControl {
     }
 }
 
+private final class MenuBarDiscButton: NSButton {
+    private var hovered = false
+    private var hoverTrackingArea: NSTrackingArea?
+    var level: Float = 0.8
+    var onClick: (() -> Void)?
+    var onVolumeDragBegan: (() -> Void)?
+    var onVolumeChanged: ((Float) -> Void)?
+    var onVolumeDragEnded: (() -> Void)?
+    private var dragStartY: CGFloat = 0
+    private var dragStartStep = 1
+    private var dragLastStep = 1
+    private var draggingVolume = false
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let hoverTrackingArea { removeTrackingArea(hoverTrackingArea) }
+        let tracking = NSTrackingArea(rect: .zero,
+                                      options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+                                      owner: self, userInfo: nil)
+        addTrackingArea(tracking)
+        hoverTrackingArea = tracking
+    }
+
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        addCursorRect(bounds, cursor: .pointingHand)
+    }
+
+    override func mouseEntered(with event: NSEvent) { hovered = true; needsDisplay = true }
+    override func mouseExited(with event: NSEvent) { hovered = false; needsDisplay = true }
+    override func highlight(_ flag: Bool) { super.highlight(flag); needsDisplay = true }
+
+    override func mouseDown(with event: NSEvent) {
+        dragStartY = NSEvent.mouseLocation.y
+        dragStartStep = min(6, max(1, Int((level * 6).rounded())))
+        dragLastStep = dragStartStep
+        draggingVolume = false
+        highlight(true)
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        let deltaY = NSEvent.mouseLocation.y - dragStartY
+        if !draggingVolume, abs(deltaY) >= 3 {
+            draggingVolume = true
+            onVolumeDragBegan?()
+        }
+        if draggingVolume {
+            // The record sits against the top screen edge, so upward travel
+            // is scarce. Two points per notch still gives all six levels.
+            let step = min(6, max(1, dragStartStep + Int(deltaY / 2)))
+            if step != dragLastStep {
+                dragLastStep = step
+                level = Float(step) / 6
+                onVolumeChanged?(level)
+            }
+        }
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        highlight(false)
+        if draggingVolume { onVolumeDragEnded?() }
+        else { onClick?() }
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        guard let image else { return }
+        let pressed = isHighlighted
+        let scale: CGFloat = pressed ? 0.93 : (hovered ? 1.08 : 1)
+        let side = min(bounds.width, bounds.height) * scale
+        let imageRect = NSRect(x: bounds.midX - side / 2,
+                               y: bounds.midY - side / 2 + (pressed ? -0.7 : 0),
+                               width: side, height: side)
+        if hovered {
+            let halo = NSBezierPath(ovalIn: imageRect.insetBy(dx: -1.2, dy: -1.2))
+            NSColor.controlAccentColor.withAlphaComponent(0.76).setStroke()
+            halo.lineWidth = 1.2
+            halo.stroke()
+        }
+        image.draw(in: imageRect, from: .zero, operation: .sourceOver, fraction: 1,
+                   respectFlipped: true, hints: [.interpolation: NSImageInterpolation.high])
+    }
+}
+
 final class MenuBarCD {
     private let statusItem: NSStatusItem
-    private let titleButton = NSButton(title: "JukeWizard", target: nil, action: nil)
+    private let titleButton = MenuBarTitleButton(title: "JukeWizard", target: nil, action: nil)
     private let previousButton = MenuBarKeyButton("⏮", hueOffset: -0.075)
     private let playButton = MenuBarKeyButton("▶", hueOffset: 0)
     private let nextButton = MenuBarKeyButton("⏭", hueOffset: 0.075)
     private let volumeSlider = MenuBarVolumeWedge()
-    private let discButton = NSButton(title: "", target: nil, action: nil)
+    private let discButton = MenuBarDiscButton(title: "", target: nil, action: nil)
     private let fallbackImage: NSImage
     private var baseImage: NSImage
     private var timer: Timer?
@@ -190,6 +360,7 @@ final class MenuBarCD {
     private let beatsPerRev: Double = 8       // calm turntable pace
     private var currentTitle = ""
     private var currentArtwork: NSImage?
+    private var volumeGestureVisible = false
 
     var onOpen: (() -> Void)?
     var onPrevious: (() -> Void)?
@@ -227,16 +398,19 @@ final class MenuBarCD {
         nextButton.action = #selector(next)
         nextButton.toolTip = "Next"
 
-        volumeSlider.target = self
-        volumeSlider.action = #selector(volumeChanged)
-        volumeSlider.toolTip = "Volume"
+        volumeSlider.isHidden = true
 
-        discButton.target = self
-        discButton.action = #selector(openFull)
         discButton.isBordered = false
         discButton.image = baseImage
         discButton.imageScaling = .scaleProportionallyDown
-        discButton.toolTip = "Open JukeWizard"
+        discButton.toolTip = "Open JukeWizard · drag up/down for volume"
+        discButton.onClick = { [weak self] in self?.onOpen?() }
+        discButton.onVolumeDragBegan = { [weak self] in self?.setVolumeGestureVisible(true) }
+        discButton.onVolumeChanged = { [weak self] value in
+            self?.volumeSlider.setValue(value)
+            self?.onVolumeChanged?(value)
+        }
+        discButton.onVolumeDragEnded = { [weak self] in self?.setVolumeGestureVisible(false) }
 
         [titleButton, previousButton, playButton, nextButton, volumeSlider, discButton]
             .forEach(barButton.addSubview)
@@ -254,9 +428,11 @@ final class MenuBarCD {
             button.frame = NSRect(x: x, y: y, width: 23, height: buttonHeight)
             x += 23
         }
-        x += 2
-        volumeSlider.frame = NSRect(x: x, y: y + 2, width: 50, height: buttonHeight - 4)
-        x += 54
+        if volumeGestureVisible {
+            x += 2
+            volumeSlider.frame = NSRect(x: x, y: y + 2, width: 50, height: buttonHeight - 4)
+            x += 54
+        }
         discButton.frame = NSRect(x: x, y: y, width: side + 3, height: buttonHeight)
         x += side + 6
         statusItem.length = x
@@ -276,7 +452,13 @@ final class MenuBarCD {
     @objc private func previous() { onPrevious?() }
     @objc private func togglePlay() { onTogglePlay?() }
     @objc private func next() { onNext?() }
-    @objc private func volumeChanged() { onVolumeChanged?(volumeSlider.level) }
+
+    private func setVolumeGestureVisible(_ visible: Bool) {
+        guard visible != volumeGestureVisible else { return }
+        volumeGestureVisible = visible
+        volumeSlider.isHidden = !visible
+        layoutControls()
+    }
 
     // Kept for the room mixer's anchored popover; the main music controls no
     // longer use a popover.
@@ -322,6 +504,7 @@ final class MenuBarCD {
 
     func setVolume(_ value: Float) {
         volumeSlider.setValue(value)
+        discButton.level = max(0, min(1, value))
     }
 
     private func startSpin() {
