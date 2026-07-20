@@ -4053,12 +4053,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const channelData = channels[0];
       if (channelData && channelData.length > 100) {
         let maxAmplitude = 0;
-        // Check samples throughout the buffer (not just the beginning)
-        const checkPoints = [100, 500, 1000, 2000, 5000, 10000, channelData.length / 2];
-        for (const idx of checkPoints) {
-          if (idx < channelData.length) {
-            maxAmplitude = Math.max(maxAmplitude, Math.abs(channelData[Math.floor(idx)]));
-          }
+        // Stride-scan the WHOLE buffer (≤4096 probes, early exit) — the
+        // old 7-point check (first 0.2s + midpoint) deleted real tapes
+        // whose audio happened to be quiet at those exact spots.
+        const stride = Math.max(1, Math.floor(channelData.length / 4096));
+        for (let i = 0; i < channelData.length; i += stride) {
+          const a = Math.abs(channelData[i]);
+          if (a > maxAmplitude) maxAmplitude = a;
+          if (maxAmplitude >= 0.001) break;
         }
         
         // If max amplitude is below threshold, this sample is effectively silent
@@ -11463,9 +11465,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
           };
           const bufferIsSilent = (buf) => {
+            // "Has content" bar: anything under −40dB peak across the
+            // whole buffer counts as a placeholder, not a soundtrack.
             const ch = buf.getChannelData(0);
             for (let i = 0; i < ch.length; i += 128) {
-              if (Math.abs(ch[i]) > 0.001) return false;
+              if (Math.abs(ch[i]) > 0.01) return false;
             }
             return true;
           };
