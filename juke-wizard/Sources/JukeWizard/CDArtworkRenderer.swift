@@ -4,6 +4,16 @@ import AppKit
 /// data rings, translucent plastic hub, a true transparent die-cut, and a
 /// restrained specular sheen. The result is cached by callers before spin.
 enum CDArtworkRenderer {
+    private static func fan(center: NSPoint, radius: CGFloat,
+                            startAngle: CGFloat, endAngle: CGFloat) -> NSBezierPath {
+        let path = NSBezierPath()
+        path.move(to: center)
+        path.appendArc(withCenter: center, radius: radius,
+                       startAngle: startAngle, endAngle: endAngle)
+        path.close()
+        return path
+    }
+
     /// Default disc when no cover art exists: the user's live macOS accent
     /// color molded into glossy translucent polycarbonate.
     static func accentDisc(side: CGFloat) -> NSImage {
@@ -26,23 +36,31 @@ enum CDArtworkRenderer {
 
         NSGraphicsContext.current?.saveGraphicsState()
         facePath.addClip()
-        // Data rings catch the light without introducing another hue.
-        for (fraction, alpha) in [(0.88, 0.24), (0.71, 0.15), (0.54, 0.10)] {
+        // A couple of data rings catch the light without becoming noise at 21 pt.
+        for (fraction, alpha) in [(0.88, 0.24), (0.66, 0.11)] {
             let inset = face.width * (1 - fraction) / 2
             NSColor.white.withAlphaComponent(alpha).setStroke()
             let ring = NSBezierPath(ovalIn: face.insetBy(dx: inset, dy: inset))
             ring.lineWidth = max(0.35, side * 0.006)
             ring.stroke()
         }
-        // Broad plastic streak plus a sharp top-left specular glint.
-        let sheen = NSBezierPath()
-        sheen.move(to: NSPoint(x: face.minX + face.width * 0.03, y: face.maxY * 0.84))
-        sheen.line(to: NSPoint(x: face.minX + face.width * 0.37, y: face.maxY))
-        sheen.line(to: NSPoint(x: face.maxX, y: face.minY + face.height * 0.36))
-        sheen.line(to: NSPoint(x: face.maxX, y: face.minY + face.height * 0.13))
-        sheen.close()
-        NSGradient(starting: NSColor.white.withAlphaComponent(0.48),
-                   ending: NSColor.white.withAlphaComponent(0.02))?.draw(in: sheen, angle: -38)
+
+        // CD gloss fans radiate from the hub, following the disc's circular tracks.
+        // Layering a wide soft fan and a narrower bright fan gives the angular edges
+        // a natural fade without doing any per-frame drawing while the disc spins.
+        let center = NSPoint(x: face.midX, y: face.midY)
+        let radius = face.width * 0.56
+        NSColor.white.withAlphaComponent(0.15).setFill()
+        fan(center: center, radius: radius, startAngle: 58, endAngle: 132).fill()
+        NSGradient(starting: NSColor.white.withAlphaComponent(0.08),
+                   ending: NSColor.white.withAlphaComponent(0.53))?
+            .draw(in: fan(center: center, radius: radius,
+                          startAngle: 76, endAngle: 116), angle: 90)
+        // A quiet counter-reflection keeps the accent disc monochromatic.
+        NSColor.white.withAlphaComponent(0.09).setFill()
+        fan(center: center, radius: radius, startAngle: 238, endAngle: 270).fill()
+
+        // Sharp outer glint sells the molded plastic at menu-bar scale.
         NSColor.white.withAlphaComponent(0.82).setStroke()
         let glint = NSBezierPath()
         glint.move(to: NSPoint(x: face.minX + face.width * 0.18, y: face.maxY - side * 0.06))
@@ -110,11 +128,10 @@ enum CDArtworkRenderer {
                            y: face.midY - artSize.height / 2,
                            width: artSize.width, height: artSize.height))
 
-        // Thin iridescent data rings keep the cover visible while reading CD.
+        // Thin data rings keep the cover visible while reading CD.
         for (fraction, color, width) in [
             (0.92, NSColor.white.withAlphaComponent(0.30), side * 0.008),
-            (0.80, NSColor.systemCyan.withAlphaComponent(0.16), side * 0.006),
-            (0.68, NSColor.systemPink.withAlphaComponent(0.13), side * 0.005),
+            (0.70, NSColor.white.withAlphaComponent(0.11), side * 0.005),
         ] {
             let inset = face.width * (1 - fraction) / 2
             color.setStroke()
@@ -123,15 +140,23 @@ enum CDArtworkRenderer {
             ring.stroke()
         }
 
-        // A diagonal plastic sheen, deliberately translucent and quiet.
-        let sheen = NSBezierPath()
-        sheen.move(to: NSPoint(x: face.minX + face.width * 0.10, y: face.maxY))
-        sheen.line(to: NSPoint(x: face.minX + face.width * 0.39, y: face.maxY))
-        sheen.line(to: NSPoint(x: face.maxX, y: face.minY + face.height * 0.27))
-        sheen.line(to: NSPoint(x: face.maxX, y: face.minY + face.height * 0.05))
-        sheen.close()
-        NSGradient(starting: NSColor.white.withAlphaComponent(0.30),
-                   ending: NSColor.white.withAlphaComponent(0.015))?.draw(in: sheen, angle: -35)
+        // Classic hub-radiating plastic gloss. The broad white fan reads clearly at
+        // menu-bar size; the narrow opposite spectral fan hints at CD diffraction.
+        let center = NSPoint(x: face.midX, y: face.midY)
+        let radius = face.width * 0.56
+        NSColor.white.withAlphaComponent(0.12).setFill()
+        fan(center: center, radius: radius, startAngle: 58, endAngle: 132).fill()
+        NSGradient(starting: NSColor.white.withAlphaComponent(0.05),
+                   ending: NSColor.white.withAlphaComponent(0.36))?
+            .draw(in: fan(center: center, radius: radius,
+                          startAngle: 76, endAngle: 116), angle: 90)
+
+        NSColor.systemCyan.withAlphaComponent(0.12).setFill()
+        fan(center: center, radius: radius, startAngle: 236, endAngle: 248).fill()
+        NSColor.systemPink.withAlphaComponent(0.10).setFill()
+        fan(center: center, radius: radius, startAngle: 248, endAngle: 259).fill()
+        NSColor.systemYellow.withAlphaComponent(0.09).setFill()
+        fan(center: center, radius: radius, startAngle: 259, endAngle: 269).fill()
         NSGraphicsContext.current?.restoreGraphicsState()
 
         // Clear polycarbonate hub + real die-cut center.
