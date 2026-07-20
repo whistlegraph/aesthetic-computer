@@ -271,12 +271,22 @@ class Performer {
   }
 
   // If a stray gesture navigated the pane off the tape (back to prompt),
-  // steer it home before the next phrase — the jam must outlive misclicks.
+  // or the pane caught a bad gateway (Cloudflare 502 during a lith
+  // restart), steer it home before the next phrase — the jam must
+  // outlive misclicks AND deploys.
   async ensureOnTape() {
     try {
       const url = this.page.url();
-      if (!url.includes(`video~scrub~${this.tape}`)) {
-        this.last.act = "re-enter tape";
+      const sick = await this.page
+        .evaluate(
+          () =>
+            !!document.querySelector("#cf-error-details") ||
+            /bad gateway|cloudflare|origin/i.test(document.title),
+        )
+        .catch(() => false);
+      if (sick || !url.includes(`video~scrub~${this.tape}`)) {
+        this.last.act = sick ? "heal 502 → re-enter" : "re-enter tape";
+        await sleep(sick ? 2500 : 0); // Give the origin a breath first
         await this.page.goto(tapeURL(this.tape), {
           waitUntil: "domcontentloaded",
           timeout: 45000,
