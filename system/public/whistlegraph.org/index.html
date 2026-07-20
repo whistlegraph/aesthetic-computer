@@ -432,6 +432,7 @@ let POSTS_BY_CODE={};   // confirmed work code → [contributing posts].
 let POSTS_BY_ID={};     // stable archive post id → post.
 let LIVE_CURATION={works:{},posts:{}}; // Auth0-admin edits, stored durably by lith.
 const KIND_LABEL={performance:"Performance",talk:"Talk",other:"Other"};
+const postThumb=p=>p?.thumb||(p?.media!=="audio"&&p?.id?`${IDX}/posts/${p.id}.jpg`:"");
 const esc=s=>String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
 // Generated files remain the reproducible baseline. Small live patches from
@@ -464,7 +465,7 @@ function renderPosts(code){
   // loads only small thumbnails, lazily — nothing heavier until you press play.
   const curated=!!(BY[code]&&BY[code].slug); // curated works front a canonical performance, not posts[0]
   const vcard=(p,i)=>`<div class="post${!curated&&i===0?" active":""}" data-i="${i}">`+
-    `<div class="thm"><img alt=""${p.thumb?` data-src="${p.thumb}"`:""}><span class="pl">▶</span></div>`+
+    `<div class="thm"><img alt=""${postThumb(p)?` data-src="${postThumb(p)}"`:""}><span class="pl">▶</span></div>`+
     `<div class="pmeta">${ptag(p)}${meta(p)}${p.desc?`<div class="pdesc">${esc(p.desc)}</div>`:""}</div></div>`;
   const arow=p=>`<div class="arow"><span class="aico">♪</span><div class="acol"><audio controls preload="none" src="${p.src}"></audio><div class="pmeta">${meta(p)}</div></div></div>`;
   let html=`<hr><p class="lbl">${posts.length} post${posts.length>1?"s":""}</p>`;
@@ -490,7 +491,7 @@ function renderPosts(code){
       const p=vids[+row.dataset.i]; if(!p) return;
       list.querySelector(".post.active")?.classList.remove("active");
       row.classList.add("active");
-      if(p.thumb) D.video.poster=p.thumb;
+      if(postThumb(p)) D.video.poster=postThumb(p);
       D.video.src=p.src;
       D.video.play?.().catch(()=>{});
       D.video.scrollIntoView({block:"center", behavior:"smooth"});
@@ -520,8 +521,8 @@ const postTitle=p=>{
   return `Archive post ${p.id}`;
 };
 const postRowHTML=p=>{
-  const thumb=p.thumb
-    ? `<img loading="lazy" alt="" src="${p.thumb}">`
+  const thumb=postThumb(p)
+    ? `<img loading="lazy" alt="" src="${postThumb(p)}">`
     : `<span class="sw noglyph" style="--c:#b44887"></span>`;
   const related=(p.works||[]).map(code=>`<a href="/${code}" data-work="${code}">[${code}] ${esc(BY[code]?.title||code)}</a>`).join(" · ");
   const postPath=`/post/${encodeURIComponent(p.id)}`;
@@ -655,7 +656,7 @@ function loadPosts(){
         work.perf=related.length;
         work.views=related.reduce((sum,p)=>sum+(p.views||0),0);
         const featured=related.find(post=>post.id===work.featuredPost)||related[0];
-        if(!work.slug&&featured?.thumb) work.thumb=featured.thumb;
+        if(!work.slug&&postThumb(featured)) work.thumb=postThumb(featured);
       }
     }
     WORKS=[...WORKS.slice(0,CURATED_N),...WORKS.slice(CURATED_N).sort((a,b)=>(b.views||0)-(a.views||0))];
@@ -771,7 +772,7 @@ function showDetail(code, keepScroll){
     D.video.classList.toggle("wide",!!w.wide); // the Longest film is landscape
     const aset=w.asset||w.code; // renamed codes keep their original CDN asset key
     const hero=posts.find(post=>post.id===w.featuredPost)||posts[0]; // editorial choice, then most-seen
-    D.video.poster=hero&&hero.thumb?hero.thumb:(w.noGlyph?"":`${IDX}/${aset}.jpg`);
+    D.video.poster=postThumb(hero)||(w.noGlyph?"":`${IDX}/${aset}.jpg`);
     D.video.src=hero?hero.src:`${IDX}/${aset}.mp4`;
     if(w.film){ // the Rhizome film, not a TikTok take — its own provenance + glyph
       D.archiveNote.innerHTML=`Code <code>${w.code}</code> &nbsp; — &nbsp; ${fmtViews(w.views)} views &nbsp;·&nbsp; the ~22-minute <a href="https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/">Rhizome commission</a>, chalk on a 4×6 blackboard.`;
