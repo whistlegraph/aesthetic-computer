@@ -459,13 +459,15 @@ def guide_onset(nuc_start, w0, w0_ext, expected, cls, flux, voiced, hf_ratio,
             i2 -= 1
         if j > i2:
             a = i2
-        # …but keep enough fricative to HEAR: flickery voicing overcalls on
-        # a strong sibilant (the harvest's, not the source's) can split the
-        # run and shave it to nothing ("see"'s /s/ fell to 10 ms). Re-extend
-        # over non-vowel frames; w0 is already floored at the previous
-        # word's captured coda, so nothing gets re-sung.
+        # …but keep enough fricative to HEAR: voicing overcalls on a strong
+        # sibilant (the harvest's error, not the source's) can class the /s/
+        # itself "vowel" and shave the run to nothing ("see"'s /s/ fell to
+        # 10 ms). Re-extend while the HIGH BAND witnesses sibilance (or the
+        # frame is honestly consonantal); w0 is already floored at the
+        # previous word's captured coda, so nothing gets re-sung.
         min_f = int(0.07 / FRAME_S)
-        while seek - a < min_f and a > w0 and cls[a - 1] != "vowel":
+        while seek - a < min_f and a > w0 \
+                and (cls[a - 1] != "vowel" or hf_ratio[a - 1] > 0.10):
             a -= 1
     return a, seek
 
@@ -548,15 +550,20 @@ def guide_coda(nuc_start, nuc_end, w1, expected, cls, voiced, hf_ratio, rms,
             return affr and not voiced[i] and cls[i] == "plosive" \
                 and rms[i] > floor * 0.3
 
-        far = min(len(cls), nuc_end + int(CODA_FRIC_SEEK_S / FRAME_S))
+        far0 = min(len(cls), nuc_end + int(CODA_FRIC_SEEK_S / FRAME_S))
         if any(fric_here(i) for i in range(start, b)):
             # run a captured fricative out past the window edge while it
             # DECAYS — the padded source windows overlap, so the next word's
             # start is no bound; the rms rise on the far side of the energy
             # valley is the next word's own onset and stops the walk
-            while b < far and fric_here(b) and rms[b] <= rms[b - 1] * 1.2:
+            while b < far0 and fric_here(b) and rms[b] <= rms[b - 1] * 1.2:
                 b += 1
-        elif (far := min(far, w1 if w1_hard is None else max(w1, w1_hard))) > b:
+        # a ONE-FLICKER capture must not satisfy the rescue — a single
+        # stray fric frame inside the walk was short-circuiting the seek
+        # while the real /tʃ/ sat past the closure gap ("aitch" again)
+        fric_n = sum(1 for i in range(start, b) if fric_here(i))
+        if fric_n < int(0.04 / FRAME_S) and \
+                (far := min(far0, w1 if w1_hard is None else max(w1, w1_hard))) > b:
             i = b
             while i < far and not fric_here(i):
                 i += 1
@@ -614,9 +621,13 @@ def diction_plan(a, b, expected, cls, voiced, hf_ratio, scale, cap_s,
         # path — harvest overcalls voicing on strong sibilants ("sus"'s /s/
         # tracked "voiced", sang as TONE, and whisper heard a syllable:
         # "keys. Sus" → "kisses" with the phrase gap rendered perfectly).
+        # …unless the run is too SHORT to fricate audibly (< 30 ms): a
+        # 2-frame /s/ rendered as noise is nothing, while the brief tone at
+        # least cues the listener ("see"'s clipped /s/ — the descent tail
+        # went mute when it flipped).
         if exp and all(not p["voiced"] for p in exp):
             for r in runs:
-                if r[2] == "pitch":
+                if r[2] == "pitch" and r[1] - r[0] >= int(0.03 / FRAME_S):
                     r[2] = "noise"
     can_noise = any(p["cls"] in ("fricative", "affricate") for p in exp)
     can_pitch = any(p["cls"] in ("nasal", "approximant")
