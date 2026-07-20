@@ -227,9 +227,12 @@ private:
     Check(factory->CreateSwapChainForCoreWindow(
       m_device.Get(), reinterpret_cast<IUnknown*>(m_window), &desc, nullptr, &m_swapChain));
 
-    ComPtr<ID3D11Texture2D> backBuffer;
-    Check(m_swapChain->GetBuffer(0, IID_PPV_ARGS(&backBuffer)));
-    Check(m_device->CreateRenderTargetView(backBuffer.Get(), nullptr, &m_target));
+    Check(m_swapChain->GetBuffer(0, IID_PPV_ARGS(&m_backBuffer)));
+    D3D11_TEXTURE2D_DESC backBufferDesc{};
+    m_backBuffer->GetDesc(&backBufferDesc);
+    m_frameWidth = backBufferDesc.Width;
+    m_frameHeight = backBufferDesc.Height;
+    Check(m_device->CreateRenderTargetView(m_backBuffer.Get(), nullptr, &m_target));
 
     Check(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED,
       IID_PPV_ARGS(&m_d2dFactory)));
@@ -238,7 +241,7 @@ private:
     Check(m_d2dFactory->CreateDevice(d2dDxgiDevice.Get(), &m_d2dDevice));
     Check(m_d2dDevice->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_NONE, &m_d2dContext));
     ComPtr<IDXGISurface> surface;
-    Check(backBuffer.As(&surface));
+    Check(m_backBuffer.As(&surface));
     const auto bitmapProperties = D2D1::BitmapProperties1(
       D2D1_BITMAP_OPTIONS_TARGET | D2D1_BITMAP_OPTIONS_CANNOT_DRAW,
       D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE));
@@ -435,33 +438,50 @@ private:
 
   void Render(const std::array<float, 4>& color) {
     if (!m_target) return;
-    m_context->OMSetRenderTargets(1, m_target.GetAddressOf(), nullptr);
-    m_context->ClearRenderTargetView(m_target.Get(), color.data());
     if (m_frameText) {
-      const float ink[] = {1.0f, 1.0f, 1.0f, 1.0f};
-      const float panel[] = {0.02f, 0.02f, 0.04f, 1.0f};
-      const int cell = (std::max)(2, static_cast<int>(m_frameText->size / 7.0f));
-      int penX = static_cast<int>(m_frameText->x);
-      int penY = static_cast<int>(m_frameText->y);
-      D3D11_RECT panelRect{penX - cell, penY - cell,
-        (std::min)(1910, penX + static_cast<int>(m_frameText->value.size()) * cell * 6 + cell),
-        (std::min)(1070, penY + cell * 8)};
-      m_context->ClearView(m_target.Get(), panel, &panelRect, 1);
+      const auto byte = [](float value) {
+        return static_cast<unsigned>(255.0f * (std::max)(0.0f, (std::min)(1.0f, value)));
+      };
+      const uint32_t background = 0xff000000u | (byte(color[0]) << 16) |
+        (byte(color[1]) << 8) | byte(color[2]);
+      m_cpuFrame.assign(static_cast<std::size_t>(m_frameWidth) * m_frameHeight, background);
+      const auto fill = [this](int left, int top, int right, int bottom, uint32_t value) {
+        left = (std::max)(0, left); top = (std::max)(0, top);
+        right = (std::min)(static_cast<int>(m_frameWidth), right);
+        bottom = (std::min)(static_cast<int>(m_frameHeight), bottom);
+        for (int y = top; y < bottom; ++y)
+          std::fill(m_cpuFrame.begin() + static_cast<std::size_t>(y) * m_frameWidth + left,
+            m_cpuFrame.begin() + static_cast<std::size_t>(y) * m_frameWidth + right, value);
+      };
+      const float scaleX = m_frameWidth / 1920.0f;
+      const float scaleY = m_frameHeight / 1080.0f;
+      const int cell = (std::max)(2, static_cast<int>(m_frameText->size / 7.0f * scaleY));
+      int penX = static_cast<int>(m_frameText->x * scaleX);
+      const int penY = static_cast<int>(m_frameText->y * scaleY);
+      fill(penX - cell, penY - cell,
+        penX + static_cast<int>(m_frameText->value.size()) * cell * 6 + cell,
+        penY + cell * 8, 0xff05050au);
       for (const char character : m_frameText->value) {
         const auto glyph = BlockGlyph(character);
         for (int row = 0; row < 7; ++row) for (int column = 0; column < 5; ++column) {
           if (!(glyph[row] & (1 << (4 - column)))) continue;
-          D3D11_RECT pixel{penX + column * cell, penY + row * cell,
-            penX + (column + 1) * cell - 1, penY + (row + 1) * cell - 1};
-          m_context->ClearView(m_target.Get(), ink, &pixel, 1);
+          fill(penX + column * cell, penY + row * cell,
+            penX + (column + 1) * cell - 1, penY + (row + 1) * cell - 1, 0xffffffffu);
         }
         penX += cell * 6;
       }
+      m_context->OMSetRenderTargets(0, nullptr, nullptr);
+      m_context->UpdateSubresource(m_backBuffer.Get(), 0, nullptr, m_cpuFrame.data(),
+        m_frameWidth * sizeof(uint32_t), 0);
       if (!m_loggedTextFrame) {
-        LogTelemetry("AC_NATIVE_D3D_TEXT_FRAME chars=" +
-          std::to_string(m_frameText->value.size()) + " cell=" + std::to_string(cell));
+        LogTelemetry("AC_NATIVE_CPU_TEXT_FRAME chars=" +
+          std::to_string(m_frameText->value.size()) + " cell=" + std::to_string(cell) +
+          " surface=" + std::to_string(m_frameWidth) + "x" + std::to_string(m_frameHeight));
         m_loggedTextFrame = true;
       }
+    } else {
+      m_context->OMSetRenderTargets(1, m_target.GetAddressOf(), nullptr);
+      m_context->ClearRenderTargetView(m_target.Get(), color.data());
     }
     const HRESULT hr = m_swapChain->Present(1, 0);
     if (FAILED(hr) && hr != DXGI_STATUS_OCCLUDED) Check(hr);
@@ -476,6 +496,8 @@ private:
   unsigned long long m_livePieceSignature = 0;
   unsigned long long m_nextLivePollMs = 0;
   unsigned long long m_nextCapabilityPollMs = 0;
+  unsigned m_frameWidth = 0;
+  unsigned m_frameHeight = 0;
   std::string m_lastCapabilityInventory;
   uint32_t m_sampleRate = 48000;
   std::array<float, 4> m_flashColor{1, 1, 1, 1};
@@ -486,6 +508,7 @@ private:
   ComPtr<ID3D11Device1> m_device;
   ComPtr<ID3D11DeviceContext1> m_context;
   ComPtr<IDXGISwapChain1> m_swapChain;
+  ComPtr<ID3D11Texture2D> m_backBuffer;
   ComPtr<ID3D11RenderTargetView> m_target;
   ComPtr<ID2D1Factory1> m_d2dFactory;
   ComPtr<ID2D1Device> m_d2dDevice;
@@ -497,6 +520,7 @@ private:
   IXAudio2MasteringVoice* m_master = nullptr;
   IXAudio2SourceVoice* m_voice = nullptr;
   std::vector<int16_t> m_samples;
+  std::vector<uint32_t> m_cpuFrame;
   XAUDIO2_BUFFER m_buffer{};
   std::unique_ptr<HostGraphics> m_graphics;
   std::unique_ptr<HostSound> m_sound;
