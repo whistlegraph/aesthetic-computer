@@ -100,13 +100,20 @@ class Performer {
           el.setAttribute("role", "img");
           el.setAttribute("aria-label", `jam-cursor-${label}`);
           el.style.cssText =
-            "position:fixed;left:0;top:0;z-index:2147483647;pointer-events:none;" +
-            `font:bold 10px monospace;color:${color};text-shadow:1px 1px 0 #000;`;
+            "position:fixed;left:-12px;top:-12px;z-index:2147483647;pointer-events:none;" +
+            `font:bold 10px monospace;color:${color};text-shadow:1px 1px 0 #000;` +
+            "text-align:center;width:24px;";
+          // AC's own `precise` cursor — shadow crosshair under a tinted
+          // crosshair with a white center dot — so the jam hands look native.
           el.innerHTML =
-            `<svg width="15" height="15" viewBox="0 0 15 15">` +
-            `<path d="M1 1 L1 11.5 L4.2 8.4 L6.3 13 L8.4 12 L6.3 7.4 L10.5 7 Z"` +
-            ` fill="${color}" stroke="#000" stroke-width="1"/></svg>` +
-            `<div style="margin-top:-3px">${label}</div>`;
+            `<svg width="24" height="24" viewBox="0 0 25 25">` +
+            `<path d="M 13,3 L 13,6 M 13,20 L 13,23 M 6,13 L 3,13 M 20,13 L 23,13"` +
+            ` stroke="black" stroke-width="4" stroke-linecap="round"/>` +
+            `<circle cx="13" cy="13" r="2" fill="black"/>` +
+            `<path d="M 12,2 L 12,5 M 12,19 L 12,22 M 5,12 L 2,12 M 19,12 L 22,12"` +
+            ` stroke="${color}" stroke-width="4" stroke-linecap="round"/>` +
+            `<circle cx="12" cy="12" r="2" fill="#ffffff"/></svg>` +
+            `<div style="margin-top:-4px">${label}</div>`;
           document.body.appendChild(el);
           window.__jamCursorEl = el;
           window.__jamCursor = { x: 0, y: 0, down: false };
@@ -201,6 +208,28 @@ class Performer {
     await this.mup();
   }
 
+  // 🎚️ Ride the volume wedge (top-right): grab, dip to a random level,
+  // hold it audibly, then ride back home to full — automated mixing.
+  async volRide() {
+    const vw = 44;
+    const vx = this.w - 6 - vw;
+    const vy = 52 + 7; // Mid-height of the wedge
+    const from = 1.0;
+    const target = rnd(0.15, 0.65);
+    await this.mmove(vx + vw * from, vy);
+    await this.mdown();
+    for (let i = 1; i <= 6 && !this.stopped; i++) {
+      await this.mmove(vx + vw * (from + (target - from) * (i / 6)), vy, { steps: 2 });
+      await sleep(60);
+    }
+    await sleep(rnd(700, 1400)); // Sit in the dip — the duck is the point
+    for (let i = 5; i >= 0 && !this.stopped; i--) {
+      await this.mmove(vx + vw * (from + (target - from) * (i / 6)), vy, { steps: 2 });
+      await sleep(50);
+    }
+    await this.mup();
+  }
+
   async beatJump(n, key) {
     for (let i = 0; i < n && !this.stopped; i++) {
       await this.page.keyboard.press(key);
@@ -228,6 +257,7 @@ class Performer {
       ["jump <-", () => this.beatJump(3, "ArrowLeft")],
       ["chop 1/4", () => this.chop("ArrowUp", 900)],
       ["chop 1/8", () => this.chop("ArrowDown", 700)],
+      ["vol ride", () => this.volRide()],
     ];
     const [name, fn] = pick(moves);
     this.last.act = name;
