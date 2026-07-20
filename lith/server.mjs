@@ -480,7 +480,7 @@ async function handleFunctionResolved(req, res) {
 }
 
 // --- Deploy webhook (POST /lith/deploy?secret=...) ---
-import { execFile } from "child_process";
+import { execFile, spawnSync } from "child_process";
 import { createHmac, timingSafeEqual } from "crypto";
 const DEPLOY_SECRET = process.env.DEPLOY_SECRET || "";
 const DEPLOY_BRANCHES = (process.env.DEPLOY_BRANCHES || process.env.DEPLOY_BRANCH || "main,master")
@@ -607,33 +607,133 @@ app.post("/lith/deploy", (req, res) => {
 // bearer token; the temporary-file rename keeps readers from seeing a partial
 // upload.
 const GYM_SITE_DIR = process.env.GYM_SITE_DIR || "/var/lib/aesthetic-computer/gym.anthonyzollo.com";
+const GYM_HISTORY_DIR = process.env.GYM_HISTORY_DIR || "/var/lib/aesthetic-computer/gym-history.git";
 const GYM_PUBLISH_TOKEN = process.env.GYM_PUBLISH_TOKEN || "";
 
-app.put("/api/publish-gym", (req, res) => {
+function authorizeGym(req, res) {
   const host = (req.headers.host || "").split(":")[0].toLowerCase();
-  if (host !== "gym.anthonyzollo.com") return res.status(404).send("Not found");
+  if (host !== "gym.anthonyzollo.com") {
+    res.status(404).send("Not found");
+    return false;
+  }
 
   const authorization = req.get("authorization") || "";
   if (!GYM_PUBLISH_TOKEN || authorization !== `Bearer ${GYM_PUBLISH_TOKEN}`) {
-    return res.status(401).set("WWW-Authenticate", "Bearer").json({ error: "Unauthorized" });
+    res.status(401).set("WWW-Authenticate", "Bearer").json({ error: "Unauthorized" });
+    return false;
   }
+  return true;
+}
+
+function gymGit(args) {
+  const result = spawnSync("git", [
+    `--git-dir=${GYM_HISTORY_DIR}`,
+    `--work-tree=${GYM_SITE_DIR}`,
+    ...args,
+  ], { encoding: "utf8" });
+  if (result.status !== 0) throw new Error((result.stderr || result.stdout || "git command failed").trim());
+  return result.stdout.trim();
+}
+
+function ensureGymHistory() {
+  if (!existsSync(GYM_HISTORY_DIR)) {
+    mkdirSync(dirname(GYM_HISTORY_DIR), { recursive: true });
+    const initialized = spawnSync("git", ["init", "--bare", "--initial-branch=main", GYM_HISTORY_DIR], { encoding: "utf8" });
+    if (initialized.status !== 0) throw new Error((initialized.stderr || "git init failed").trim());
+  }
+  gymGit(["config", "user.name", "gym.anthonyzollo.com publisher"]);
+  gymGit(["config", "user.email", "publisher@gym.anthonyzollo.com"]);
+}
+
+function commitGymHtml(message) {
+  ensureGymHistory();
+  gymGit(["add", "--", "index.html"]);
+  const changed = spawnSync("git", [
+    `--git-dir=${GYM_HISTORY_DIR}`,
+    `--work-tree=${GYM_SITE_DIR}`,
+    "diff", "--cached", "--quiet",
+  ]);
+  if (changed.status === 1) gymGit(["commit", "-m", message]);
+  else if (changed.status !== 0) throw new Error("git diff failed");
+  return gymGit(["rev-parse", "--short", "HEAD"]);
+}
+
+function installGymHtml(html) {
+  mkdirSync(GYM_SITE_DIR, { recursive: true });
+  const temporary = join(GYM_SITE_DIR, `.index.html.${process.pid}.tmp`);
+  writeFileSync(temporary, html, { mode: 0o644 });
+  renameSync(temporary, join(GYM_SITE_DIR, "index.html"));
+}
+
+app.put("/api/publish-gym", (req, res) => {
+  if (!authorizeGym(req, res)) return;
 
   const html = Buffer.isBuffer(req.body) ? req.body : req.rawBody;
   if (!html?.length) return res.status(400).json({ error: "Send index.html as the request body" });
   if (html.length > 5 * 1024 * 1024) return res.status(413).json({ error: "HTML exceeds 5 MB" });
 
-  mkdirSync(GYM_SITE_DIR, { recursive: true });
-  const temporary = join(GYM_SITE_DIR, `.index.html.${process.pid}.tmp`);
-  writeFileSync(temporary, html, { mode: 0o644 });
-  renameSync(temporary, join(GYM_SITE_DIR, "index.html"));
+  const publishedAt = new Date().toISOString();
+  installGymHtml(html);
+  let revision;
+  try {
+    revision = commitGymHtml(`Publish ${publishedAt} (${html.length} bytes)`);
+  } catch (error) {
+    console.error("[gym-publish] history commit failed:", error.message);
+    return res.status(500).json({ error: "Page published, but history commit failed" });
+  }
 
-  console.log(`[gym-publish] ${html.length} bytes published`);
+  console.log(`[gym-publish] ${html.length} bytes published as ${revision}`);
   res.set("Cache-Control", "no-store").json({
     ok: true,
     bytes: html.length,
+    revision,
     url: "https://gym.anthonyzollo.com/",
-    publishedAt: new Date().toISOString(),
+    publishedAt,
   });
+});
+
+app.get("/api/history-gym", (req, res) => {
+  if (!authorizeGym(req, res)) return;
+  try {
+    ensureGymHistory();
+    const output = gymGit(["log", "-50", "--date=iso-strict", "--pretty=format:%h%x09%aI%x09%s"]);
+    const history = output ? output.split("\n").map((line) => {
+      const [revision, publishedAt, ...message] = line.split("\t");
+      return { revision, publishedAt, message: message.join("\t") };
+    }) : [];
+    res.set("Cache-Control", "no-store").json({ history });
+  } catch (error) {
+    if (error.message.includes("does not have any commits")) return res.json({ history: [] });
+    console.error("[gym-history]", error.message);
+    res.status(500).json({ error: "Could not read history" });
+  }
+});
+
+app.post("/api/rewind-gym", (req, res) => {
+  if (!authorizeGym(req, res)) return;
+  const revision = String(req.body?.revision || "");
+  if (!/^(?:HEAD(?:~[1-9][0-9]*)?|[0-9a-f]{7,40})$/.test(revision)) {
+    return res.status(400).json({ error: "revision must be HEAD~N or a 7–40 character commit hash" });
+  }
+  try {
+    ensureGymHistory();
+    const shown = spawnSync("git", [
+      `--git-dir=${GYM_HISTORY_DIR}`,
+      "show", `${revision}:index.html`,
+    ], { maxBuffer: 6 * 1024 * 1024 });
+    if (shown.status !== 0) return res.status(404).json({ error: "Revision not found" });
+    installGymHtml(shown.stdout);
+    const restoredAs = commitGymHtml(`Rewind to ${revision} at ${new Date().toISOString()}`);
+    res.set("Cache-Control", "no-store").json({
+      ok: true,
+      restoredFrom: revision,
+      revision: restoredAs,
+      url: "https://gym.anthonyzollo.com/",
+    });
+  } catch (error) {
+    console.error("[gym-rewind]", error.message);
+    res.status(500).json({ error: "Could not rewind site" });
+  }
 });
 
 // --- Routes ---

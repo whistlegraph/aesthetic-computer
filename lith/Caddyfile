@@ -854,7 +854,7 @@ gym.anthonyzollo.com {
     }
     encode zstd gzip
 
-    handle /api/publish-gym {
+    handle /api/publish-gym /api/history-gym /api/rewind-gym {
         import lith_proxy
     }
     handle {

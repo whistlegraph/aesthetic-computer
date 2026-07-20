@@ -53,7 +53,7 @@ unset GYM_PUBLISH_TOKEN
 A successful response looks like:
 
 ```json
-{"ok":true,"bytes":12345,"url":"https://gym.anthonyzollo.com/","publishedAt":"..."}
+{"ok":true,"bytes":12345,"revision":"abc1234","url":"https://gym.anthonyzollo.com/","publishedAt":"..."}
 ```
 
 Then open <https://gym.anthonyzollo.com/> and hard-refresh if necessary.
@@ -71,6 +71,32 @@ Anthony can give Claude this file and say:
 The endpoint accepts one `index.html` up to 5 MB. CSS and JavaScript should be
 inline, or loaded from public HTTPS URLs. Anyone can view the site; only a
 holder of the publish token can replace it.
+
+## History and rewind
+
+Every changed publish is committed to a private Git repository on lith. The
+repository is outside the public web directory and cannot be downloaded from
+the website. To list its latest 50 revisions:
+
+```bash
+curl --fail-with-body \
+  --header "Authorization: Bearer $GYM_PUBLISH_TOKEN" \
+  https://gym.anthonyzollo.com/api/history-gym
+```
+
+To restore an earlier version, use a revision returned by that command:
+
+```bash
+curl --fail-with-body \
+  --request POST \
+  --header "Authorization: Bearer $GYM_PUBLISH_TOKEN" \
+  --header "Content-Type: application/json" \
+  --data '{"revision":"abc1234"}' \
+  https://gym.anthonyzollo.com/api/rewind-gym
+```
+
+Rewind does not delete newer history. It publishes the older file again as a
+new commit, so another rewind can always undo it.
 
 If the token is ever exposed, Jeffrey should replace `GYM_PUBLISH_TOKEN` in the
 lith production environment and redeploy lith.
