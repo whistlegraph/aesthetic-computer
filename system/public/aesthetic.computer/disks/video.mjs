@@ -1261,9 +1261,33 @@ function sim({ needsPaint, rec, send, clock, sound }) {
       let phaseErr = ((nowMs % durMs) / durMs) - scrubCurrentProgress;
       if (phaseErr > 0.5) phaseErr -= 1;
       else if (phaseErr < -0.5) phaseErr += 1;
-      const lean = Math.max(-0.35, Math.min(0.35, phaseErr * 1.4));
+
+      // 🦘 Beat slip: a release that lands beats away from the grid jumps
+      // the whole-beat part of the error instantly — a musical relocation
+      // within the same loop (the ←/→ beat-jump move, self-applied) — and
+      // leaves only a sub-beat residual for the tempo lean. Without this,
+      // landing half a loop out means many seconds of ±35% warble; with
+      // it, the ear hears one clean beat-jump and a small settle.
+      const beatFrac = BEAT_SEC / totalDuration;
+      if (Math.abs(phaseErr) > beatFrac * 0.6) {
+        const beats = Math.round(phaseErr / beatFrac);
+        if (beats !== 0) {
+          scrubCurrentProgress += beats * beatFrac;
+          scrubCurrentProgress -= Math.floor(scrubCurrentProgress); // 0..1 wrap
+          send({
+            type: "recorder:present:seek",
+            content: { progress: scrubCurrentProgress, speedScrub: true },
+          });
+          send({ type: "tape:audio-pos", content: scrubCurrentProgress });
+          phaseErr -= beats * beatFrac;
+        }
+      }
+
+      // Gentle lean for the sub-beat residual — ±8% reads as the tape
+      // breathing into the pocket, not warping. ≤250ms residual → locked
+      // in a few seconds, always.
+      const lean = Math.max(-0.08, Math.min(0.08, phaseErr * 1.4));
       const targetRate = 1 + lean;
-      // Ease toward target — homes a big displacement in ~2s, musical warp.
       scrubSpeed += (targetRate - scrubSpeed) * (1 - Math.pow(0.94, rate));
       // Locked: at 1× and in phase → pin exactly, the drive is now playback.
       if (Math.abs(scrubSpeed - 1) < 0.004 && Math.abs(phaseErr) < 0.0015) {

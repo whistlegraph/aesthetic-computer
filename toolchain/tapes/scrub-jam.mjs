@@ -51,6 +51,7 @@ const CDP_URL = val("--connect", null); // ...or a full ws:// endpoint
 const TAPES = val("--tapes", "sine,house").split(",").map((s) => s.trim());
 const SECS = parseFloat(val("--secs", "0")) || 0; // 0 = until Ctrl+C
 const RELEASE_S = parseFloat(val("--release", "15")); // Hands-off per phrase
+const DENSITY = val("--density", null); // AC pixel density (1 = chunky)
 const SHOTS = has("--shots");
 const W = 720;
 const H = 480;
@@ -180,7 +181,7 @@ class Performer {
       const url = this.page.url();
       if (!url.includes(`video~scrub~${this.tape}`)) {
         this.last.act = "re-enter tape";
-        await this.page.goto(`${BASE}/video~scrub~${this.tape}`, {
+        await this.page.goto(tapeURL(this.tape), {
           waitUntil: "domcontentloaded",
           timeout: 45000,
         });
@@ -263,9 +264,12 @@ async function adoptPage(browser, url) {
   return page;
 }
 
+const tapeURL = (tape) =>
+  `${BASE}/video~scrub~${tape}${DENSITY ? `?density=${DENSITY}` : ""}`;
+
 async function launchWindow(tape, idx) {
   const { browser, launched } = await getBrowser(idx);
-  const url = `${BASE}/video~scrub~${tape}`;
+  const url = tapeURL(tape);
   // Attached: claim an existing app window; launched: reuse the sole page.
   const page = launched ? (await browser.pages())[0] : await adoptPage(browser, url);
   // Only navigate if it isn't already there — reloading a window that is
