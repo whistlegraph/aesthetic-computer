@@ -170,7 +170,18 @@ async function main() {
         { maxBuffer: 1024 * 1024 * 512, timeout: 120000 },
       );
       if (dec.status !== 0 || !dec.stdout?.length) {
-        console.log(`   ${t.code} — decode failed (${dec.stderr?.toString().slice(0, 80)})`);
+        // No audio stream at all — index it as silent rather than skip,
+        // so consumers can filter it out (or find video-only tapes).
+        index.tapes[t.code] = {
+          code: t.code,
+          owner: t.owner?.handle || null,
+          when: t.when,
+          acUrl: t.acUrl || `https://aesthetic.computer/!${t.code}`,
+          videoUrl: url,
+          audio: null,
+          silent: true,
+        };
+        console.log(`   ${t.code} — no audio stream → silent:true`);
         continue;
       }
       const f32 = new Float32Array(
@@ -198,6 +209,9 @@ async function main() {
         acUrl: t.acUrl || `https://aesthetic.computer/!${t.code}`,
         videoUrl: url,
         audio,
+        // The one-look filter: too quiet or mostly-empty audio counts as
+        // silent — jam tooling should pass these over.
+        silent: audio.rmsDb < -50 || audio.silenceRatio > 0.9,
       };
       console.log(
         `   ${t.code} — ${audio.durationS}s  ${audio.bpm}bpm(${audio.bpmConfidence})  ` +
