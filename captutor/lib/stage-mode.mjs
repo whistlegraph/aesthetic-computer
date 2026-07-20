@@ -122,9 +122,14 @@ JSON.stringify(answer);
 `]));
   const left = slider.position[0];
   const y = slider.position[1] + slider.size[1] / 2;
-  const width = slider.size[0];
-  const x0 = left + ((Number(slider.value) - 1) / 3) * width;
-  const x1 = left + ((Number(to) - 1) / 3) * width;
+  // AX reports the slider's full control bounds, while the knob travels on a
+  // track inset by its radius. Starting at `left` can therefore miss the knob
+  // when the saved size is exactly 1.0 — an intermittent Stage entry failure.
+  const knobRadius = slider.size[1] / 2;
+  const trackLeft = left + knobRadius;
+  const trackWidth = slider.size[0] - knobRadius * 2;
+  const x0 = trackLeft + ((Number(slider.value) - 1) / 3) * trackWidth;
+  const x1 = trackLeft + ((Number(to) - 1) / 3) * trackWidth;
   swift(`
 import CoreGraphics
 let start = CGPoint(x: ${x0}, y: ${y}), end = CGPoint(x: ${x1}, y: ${y})
