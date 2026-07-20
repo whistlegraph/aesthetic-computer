@@ -994,7 +994,7 @@ function paint({
     const rateStr = `${liveRate.toFixed(2)}x`;
     const rateW = rateStr.length * 5 + 8;
     ink(60, 75, 95, 150).box(screen.width - SAFE_R - rateW, SAFE_T, rateW + 2, 11);
-    ink(110, 130, 160).box(screen.width - SAFE_R - rateW, 3, rateW + 2, 11, "outline");
+    ink(110, 130, 160).box(screen.width - SAFE_R - rateW, SAFE_T, rateW + 2, 11, "outline");
     ink(255, 255, 0).write(
       rateStr,
       { x: screen.width - SAFE_R - 2, y: SAFE_T + 3, right: true },
