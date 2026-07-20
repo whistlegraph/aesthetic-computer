@@ -37,6 +37,7 @@ final class FrameCapture {
     private let overlayLock = NSLock()
     private var overlayWindowIDs = Set<Int>()
     private var ocrOverlayWindow: NSWindow?
+    private var pendingClickWindows: [NSWindow] = []
     private var diffBaseline: (rect: CGRect, image: CGImage)?
     private func registerOverlay(_ w: NSWindow) {
         overlayLock.lock(); overlayWindowIDs.insert(w.windowNumber); overlayLock.unlock()
@@ -71,10 +72,296 @@ final class FrameCapture {
             let v = token.dropFirst("crop=".count).split(separator: ",").compactMap { Double($0) }
             if v.count == 4 { crop = CGRect(x: v[0], y: v[1], width: v[2], height: v[3]) }
         }
+        var pendingClickTarget: CGPoint?
+        if let token = mode.split(separator: " ").first(where: { $0.hasPrefix("target=") }) {
+            let xy = token.dropFirst("target=".count).split(separator: ",").compactMap { Double($0) }
+            if xy.count == 2 { pendingClickTarget = CGPoint(x: xy[0], y: xy[1]) }
+        }
+        var approvedClick: (point: CGPoint, count: Int)?
+        if let token = mode.split(separator: " ").first(where: { $0.hasPrefix("press=") }) {
+            let values = token.dropFirst("press=".count).split(separator: ",").compactMap { Double($0) }
+            if values.count >= 2 {
+                approvedClick = (
+                    CGPoint(x: values[0], y: values[1]),
+                    values.count >= 3 ? max(1, min(3, Int(values[2]))) : 1
+                )
+            }
+        }
+        if mode.split(separator: " ").contains("target-clear") {
+            clearPendingClickTarget()
+        }
+        if let approvedClick {
+            performApprovedClick(at: approvedClick.point, count: approvedClick.count)
+        }
         produce(noOCR: mode.contains("noocr"), fast: mode.contains("fast"),
+                wholeScreen: mode.contains("screen"),
                 virtualCursor: mode.contains("cursor"), cursorOverride: cursorOverride, crop: crop,
                 saveBaseline: mode.contains("baseline"), includeDiff: mode.contains("diff"))
+        if let pendingClickTarget { showPendingClickTarget(at: pendingClickTarget) }
         fm.createFile(atPath: Paths.frameDone, contents: nil)
+    }
+
+    /// Spotlight a proposed click without performing it. Accessibility expands
+    /// the point to the whole control (button, field, link, etc.); when no
+    /// bounded control can be resolved we fall back to a compact point target.
+    /// The rest of the display is dimmed while the target outline pulses until
+    /// a later `target-clear` request approves or rejects the staged action.
+    /// The click-through overlay is excluded from captures, whose virtual
+    /// cursor still records the exact staged coordinate.
+    private func showPendingClickTarget(at point: CGPoint) {
+        DispatchQueue.main.async {
+            self.clearPendingClickTargetOnMain()
+            guard let screen = NSScreen.main else { return }
+            let displayHeight = screen.frame.height
+            let resolved = self.pendingClickElementRect(at: point)
+            let fallbackSize = CGSize(width: 64, height: 52)
+            let targetInScreen: CGRect
+            if let resolved {
+                targetInScreen = CGRect(
+                    x: resolved.minX - screen.frame.minX,
+                    y: displayHeight - resolved.maxY,
+                    width: resolved.width,
+                    height: resolved.height
+                )
+            } else {
+                targetInScreen = CGRect(
+                    x: point.x - screen.frame.minX - fallbackSize.width / 2,
+                    y: displayHeight - point.y - fallbackSize.height / 2,
+                    width: fallbackSize.width,
+                    height: fallbackSize.height
+                )
+            }
+            let spotlight = targetInScreen
+                .insetBy(dx: -7, dy: -7)
+                .intersection(CGRect(origin: .zero, size: screen.frame.size))
+            guard !spotlight.isNull, spotlight.width > 0, spotlight.height > 0 else { return }
+
+            let win = NSWindow(contentRect: screen.frame,
+                               styleMask: .borderless, backing: .buffered, defer: false)
+            win.isOpaque = false
+            win.backgroundColor = .clear
+            win.level = .screenSaver
+            win.ignoresMouseEvents = true
+            win.setAccessibilityElement(false)
+            win.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
+
+            let view = NSView(frame: CGRect(origin: .zero, size: screen.frame.size))
+            view.wantsLayer = true
+
+            let dim = CAShapeLayer()
+            let dimPath = CGMutablePath()
+            dimPath.addRect(view.bounds)
+            dimPath.addPath(CGPath(roundedRect: spotlight, cornerWidth: 9,
+                                   cornerHeight: 9, transform: nil))
+            dim.path = dimPath
+            dim.fillRule = .evenOdd
+            dim.fillColor = NSColor.black.withAlphaComponent(0.42).cgColor
+
+            let pulse = CAShapeLayer()
+            pulse.path = CGPath(roundedRect: spotlight, cornerWidth: 9,
+                                cornerHeight: 9, transform: nil)
+            pulse.fillColor = NSColor.clear.cgColor
+            pulse.strokeColor = NSColor.controlAccentColor.cgColor
+            pulse.lineWidth = 4
+            pulse.shadowColor = NSColor.controlAccentColor.cgColor
+            pulse.shadowOpacity = 0.95
+            pulse.shadowRadius = 8
+
+            view.layer?.addSublayer(dim)
+            view.layer?.addSublayer(pulse)
+            self.addPendingChoiceQuestionMarks(to: view, above: spotlight)
+            let blink = CABasicAnimation(keyPath: "opacity")
+            blink.fromValue = 1.0
+            blink.toValue = 0.28
+            blink.duration = 0.48
+            blink.autoreverses = true
+            blink.repeatCount = .infinity
+            pulse.add(blink, forKey: "pending-click-blink")
+
+            win.contentView = view
+            win.orderFrontRegardless()
+            self.registerOverlay(win)
+            self.pendingClickWindows = [win]
+        }
+    }
+
+    /// A light, repeating “choice needed” cue. Three question marks rise and
+    /// dissolve from the target's top edge at staggered intervals, leaving the
+    /// control itself completely unobscured.
+    private func addPendingChoiceQuestionMarks(to view: NSView, above target: CGRect) {
+        guard let root = view.layer else { return }
+        let count = 3
+        let available = max(30, target.width)
+        for index in 0..<count {
+            let mark = CATextLayer()
+            mark.string = "?"
+            mark.alignmentMode = .center
+            mark.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
+            mark.font = NSFont.systemFont(ofSize: 28, weight: .bold)
+            mark.fontSize = 28
+            mark.foregroundColor = (index == 1
+                ? NSColor.controlAccentColor
+                : NSColor.white).cgColor
+            mark.shadowColor = NSColor.black.cgColor
+            mark.shadowOpacity = 0.85
+            mark.shadowRadius = 3
+            let fraction = CGFloat(index + 1) / CGFloat(count + 1)
+            let x = target.midX - available / 2 + available * fraction - 14
+            let y = min(view.bounds.maxY - 34, target.maxY + 8)
+            mark.frame = CGRect(x: x, y: y, width: 32, height: 38)
+            mark.opacity = 0
+
+            let rise = CABasicAnimation(keyPath: "transform.translation.y")
+            rise.fromValue = 0
+            // Travel from the pending control to the top edge instead of
+            // evaporating beside it. Keeping the full path visible makes the
+            // human-choice state readable even when attention is elsewhere.
+            rise.toValue = max(30, view.bounds.maxY - y - mark.bounds.height)
+            let drift = CAKeyframeAnimation(keyPath: "transform.translation.x")
+            let direction: CGFloat = index.isMultiple(of: 2) ? -1 : 1
+            drift.values = [0, 10 * direction, -7 * direction, 14 * direction]
+            drift.keyTimes = [0, 0.34, 0.7, 1]
+            let fade = CAKeyframeAnimation(keyPath: "opacity")
+            fade.values = [0, 1, 1, 0]
+            fade.keyTimes = [0, 0.08, 0.88, 1]
+            let group = CAAnimationGroup()
+            group.animations = [rise, drift, fade]
+            group.duration = 3.2
+            group.beginTime = CACurrentMediaTime() + Double(index) * 0.52
+            group.repeatCount = .infinity
+            group.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            mark.add(group, forKey: "pending-choice-float")
+            root.addSublayer(mark)
+        }
+    }
+
+    /// Return the nearest sensibly-sized interactive AX element containing the
+    /// proposed point. Browser text often sits inside an AXButton/AXLink, so we
+    /// walk parents until we find an actionable control rather than outlining
+    /// only the glyph under the pointer.
+    private func pendingClickElementRect(at point: CGPoint) -> CGRect? {
+        guard let element = pendingClickElement(at: point) else { return nil }
+        return pendingClickRect(of: element)
+    }
+
+    private func pendingClickElement(at point: CGPoint) -> AXUIElement? {
+        let system = AXUIElementCreateSystemWide()
+        var hit: AXUIElement?
+        guard AXUIElementCopyElementAtPosition(system, Float(point.x), Float(point.y), &hit) == .success,
+              var current = hit else { return nil }
+
+        for _ in 0..<8 {
+            if pendingClickElementIsInteractive(current),
+               let rect = pendingClickRect(of: current),
+               rect.width >= 8, rect.height >= 8,
+               rect.width <= 900, rect.height <= 500 {
+                return current
+            }
+            var parentValue: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(current, kAXParentAttribute as CFString,
+                                                &parentValue) == .success,
+                  let parentValue,
+                  CFGetTypeID(parentValue) == AXUIElementGetTypeID() else { break }
+            current = unsafeBitCast(parentValue, to: AXUIElement.self)
+        }
+        return nil
+    }
+
+    /// Perform a human-approved action from the already-trusted native app.
+    /// Chrome exposes AXPress for React dialog buttons but can acknowledge it
+    /// without firing the page handler. Focusing the semantic control and
+    /// sending its keyboard activation is the reliable accessible path.
+    /// Canvas/custom targets retain the physical click fallback.
+    private func performApprovedClick(at point: CGPoint, count: Int) {
+        DispatchQueue.main.sync {
+            self.clearPendingClickTargetOnMain(animated: false)
+            if let element = self.pendingClickElement(at: point) {
+                var roleValue: CFTypeRef?
+                let role = AXUIElementCopyAttributeValue(
+                    element, kAXRoleAttribute as CFString, &roleValue
+                ) == .success ? roleValue as? String : nil
+                if role == "AXButton" || role == "AXLink" ||
+                   role == "AXCheckBox" || role == "AXRadioButton" {
+                    AXUIElementSetAttributeValue(
+                        element, kAXFocusedAttribute as CFString, kCFBooleanTrue
+                    )
+                    let keyCode: CGKeyCode = (role == "AXCheckBox" || role == "AXRadioButton") ? 49 : 36
+                    CGEvent(keyboardEventSource: nil, virtualKey: keyCode, keyDown: true)?.post(tap: .cghidEventTap)
+                    Thread.sleep(forTimeInterval: 0.04)
+                    CGEvent(keyboardEventSource: nil, virtualKey: keyCode, keyDown: false)?.post(tap: .cghidEventTap)
+                    return
+                }
+            }
+            for index in 0..<count {
+                let down = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown,
+                                   mouseCursorPosition: point, mouseButton: .left)
+                let up = CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp,
+                                 mouseCursorPosition: point, mouseButton: .left)
+                down?.post(tap: .cghidEventTap)
+                Thread.sleep(forTimeInterval: 0.04)
+                up?.post(tap: .cghidEventTap)
+                if index + 1 < count { Thread.sleep(forTimeInterval: 0.08) }
+            }
+        }
+    }
+
+    private func pendingClickElementIsInteractive(_ element: AXUIElement) -> Bool {
+        var roleValue: CFTypeRef?
+        let role: String? = AXUIElementCopyAttributeValue(
+            element, kAXRoleAttribute as CFString, &roleValue
+        ) == .success ? roleValue as? String : nil
+        let interactiveRoles: Set<String> = [
+            "AXButton", "AXCheckBox", "AXRadioButton", "AXPopUpButton",
+            "AXTextField", "AXTextArea", "AXLink", "AXSlider",
+        ]
+        if let role, interactiveRoles.contains(role) { return true }
+        var actions: CFArray?
+        guard AXUIElementCopyActionNames(element, &actions) == .success,
+              let names = actions as? [String] else { return false }
+        return names.contains(kAXPressAction as String)
+    }
+
+    private func pendingClickRect(of element: AXUIElement) -> CGRect? {
+        var positionValue: CFTypeRef?
+        var sizeValue: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString,
+                                            &positionValue) == .success,
+              AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString,
+                                            &sizeValue) == .success,
+              let positionValue, let sizeValue,
+              CFGetTypeID(positionValue) == AXValueGetTypeID(),
+              CFGetTypeID(sizeValue) == AXValueGetTypeID() else { return nil }
+        let positionAX = unsafeBitCast(positionValue, to: AXValue.self)
+        let sizeAX = unsafeBitCast(sizeValue, to: AXValue.self)
+        var origin = CGPoint.zero
+        var size = CGSize.zero
+        guard AXValueGetValue(positionAX, .cgPoint, &origin),
+              AXValueGetValue(sizeAX, .cgSize, &size) else { return nil }
+        return CGRect(origin: origin, size: size)
+    }
+
+    private func clearPendingClickTarget() {
+        DispatchQueue.main.async { self.clearPendingClickTargetOnMain() }
+    }
+
+    private func clearPendingClickTargetOnMain(animated: Bool = true) {
+        let windows = pendingClickWindows
+        pendingClickWindows.removeAll()
+        for win in windows {
+            guard animated else {
+                unregisterOverlay(win)
+                win.orderOut(nil)
+                continue
+            }
+            NSAnimationContext.runAnimationGroup({ context in
+                context.duration = 0.14
+                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                win.animator().alphaValue = 0
+            }, completionHandler: {
+                self.unregisterOverlay(win)
+                win.orderOut(nil)
+            })
+        }
     }
 
     // Frame observation must be invisible. A previous whole-display pulse made
@@ -137,15 +424,63 @@ final class FrameCapture {
 
     // MARK: - capture (in-process; no screencapture subprocess → no launchd throttle)
 
-    private func captureDisplay(crop: CGRect? = nil) -> CGImage? {
-        guard #available(macOS 14.0, *) else { return nil }
+    /// Find the frontmost app's topmost ordinary window. CGWindowList is in
+    /// actual z-order. ScreenCaptureKit supplies the matched window's canonical
+    /// global frame after this ID lookup, avoiding geometry drift between APIs.
+    private func focusedWindowID() -> CGWindowID? {
+        guard let front = NSWorkspace.shared.frontmostApplication else { return nil }
+        let ownPID = ProcessInfo.processInfo.processIdentifier
+        guard front.processIdentifier != ownPID,
+              let info = CGWindowListCopyWindowInfo(
+                [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID
+              ) as? [[String: Any]] else { return nil }
+        for window in info {
+            guard (window[kCGWindowOwnerPID as String] as? Int32) == front.processIdentifier,
+                  (window[kCGWindowLayer as String] as? Int) == 0,
+                  let number = window[kCGWindowNumber as String] as? UInt32,
+                  let bounds = window[kCGWindowBounds as String] as? [String: Any],
+                  let rect = CGRect(dictionaryRepresentation: bounds as CFDictionary),
+                  rect.width >= 2, rect.height >= 2 else { continue }
+            return CGWindowID(number)
+        }
+        return nil
+    }
+
+    /// Capture either an explicit global crop, the focused window, or the
+    /// whole display. The returned region is always in global screen points;
+    /// OCR, visual controls, diffs, and virtual cursor markers use that origin
+    /// so their coordinates remain directly click-ready even for window-only
+    /// images.
+    private func captureDisplay(crop: CGRect? = nil,
+                                focusedWindowID: CGWindowID? = nil) ->
+                                (image: CGImage?, region: CGRect, scope: String) {
+        guard #available(macOS 14.0, *) else { return (nil, .zero, "screen") }
         let sem = DispatchSemaphore(value: 0)
         var img: CGImage?
+        var capturedRegion = CGRect.zero
+        var capturedScope = "screen"
         Task {
             defer { sem.signal() }
             guard let content = try? await SCShareableContent.excludingDesktopWindows(
-                    false, onScreenWindowsOnly: true),
-                  let display = content.displays.first else { return }
+                    false, onScreenWindowsOnly: true) else { return }
+            if crop == nil, let focusedWindowID,
+               let window = content.windows.first(where: { $0.windowID == focusedWindowID }) {
+                let region = window.frame
+                let filter = SCContentFilter(desktopIndependentWindow: window)
+                let cfg = SCStreamConfiguration()
+                cfg.width = max(1, Int(Double(region.width) * self.captureScale))
+                cfg.height = max(1, Int(Double(region.height) * self.captureScale))
+                cfg.showsCursor = true
+                // Keep the pixel edge identical to SCWindow.frame. Shadows add
+                // padding outside that global rect and would offset OCR/clicks.
+                cfg.ignoreShadowsSingleWindow = true
+                capturedRegion = region
+                capturedScope = "window"
+                img = try? await SCScreenshotManager.captureImage(
+                    contentFilter: filter, configuration: cfg)
+                return
+            }
+            guard let display = content.displays.first else { return }
             // GUARANTEE we capture UNDER everything this app draws. Belt: any
             // window we own (flash, OCR overlay, badge, previews) by bundle id.
             // Suspenders: the explicitly-tracked overlay window ids, in case a
@@ -163,14 +498,16 @@ final class FrameCapture {
             if let crop = crop {
                 region = crop.intersection(CGRect(x: 0, y: 0, width: display.width, height: display.height))
                 cfg.sourceRect = region
+                capturedScope = "crop"
             }
+            capturedRegion = region
             cfg.width = Int(Double(region.width) * self.captureScale)
             cfg.height = Int(Double(region.height) * self.captureScale)
             cfg.showsCursor = true
             img = try? await SCScreenshotManager.captureImage(contentFilter: filter, configuration: cfg)
         }
         sem.wait()
-        return img
+        return (img, capturedRegion, capturedScope)
     }
 
     // MARK: - OCR (text + click-center coords, in logical points)
@@ -447,7 +784,7 @@ final class FrameCapture {
 
     // MARK: - assemble + write the envelope
 
-    private func produce(noOCR: Bool, fast: Bool = false,
+    private func produce(noOCR: Bool, fast: Bool = false, wholeScreen: Bool = false,
                          virtualCursor: Bool = false, cursorOverride: CGPoint? = nil,
                          crop: CGRect? = nil, saveBaseline: Bool = false,
                          includeDiff: Bool = false) {
@@ -455,6 +792,11 @@ final class FrameCapture {
         func msSince(_ t: UInt64) -> Double { (Double(nowNs() - t) / 1e6 * 10).rounded() / 10 }
         var env: [String: Any] = [:]
         var tm: [String: Double] = [:]
+
+        // An explicit crop always wins. Otherwise capture the topmost window
+        // of the frontmost app unless the caller explicitly requested screen.
+        let boundedCrop = crop.flatMap { c in NSScreen.main.map { c.intersection($0.frame) } }
+        let target = (!wholeScreen && boundedCrop == nil) ? focusedWindowID() : nil
 
         // The AX walk is independent of the screenshot, so run it CONCURRENTLY
         // with capture+OCR: wall-clock becomes max(ax, capture+ocr) instead of
@@ -473,9 +815,17 @@ final class FrameCapture {
 
         var t = nowNs(); let mt = meta(); tm["meta"] = msSince(t)
         env["meta"] = mt
-        let boundedCrop = crop.flatMap { c in NSScreen.main.map { c.intersection($0.frame) } }
-        if let c = boundedCrop { env["crop"] = ["x": Int(c.minX), "y": Int(c.minY), "w": Int(c.width), "h": Int(c.height)] }
-        t = nowNs(); let cg = captureDisplay(crop: boundedCrop); tm["capture"] = msSince(t)
+        t = nowNs()
+        let captured = captureDisplay(crop: boundedCrop,
+            focusedWindowID: wholeScreen ? nil : target)
+        let cg = captured.image
+        let captureRegion = captured.region
+        env["capture_scope"] = captured.scope
+        if captured.scope != "screen" {
+            env["crop"] = ["x": Int(captureRegion.minX), "y": Int(captureRegion.minY),
+                           "w": Int(captureRegion.width), "h": Int(captureRegion.height)]
+        }
+        tm["capture"] = msSince(t)
         if cg != nil { flashCaptureIndicator() }  // subtle post-capture awareness flash
         // The JPEG ships as RAW BYTES in a sidecar file (frame.out.jpg), not
         // base64 in the JSON — base64 inflates the payload +33% and burns
@@ -483,7 +833,7 @@ final class FrameCapture {
         // BEFORE the JSON + done marker so a reader that sees `done` has both.
         var jpgBytes = 0
         if let cg = cg {
-            let region = boundedCrop ?? CGRect(x: 0, y: 0, width: cg.width, height: cg.height)
+            let region = captureRegion
             if includeDiff, let baseline = diffBaseline, baseline.rect.equalTo(region) {
                 t = nowNs(); env["diff"] = differenceMap(baseline.image, cg,
                     origin: region.origin, scale: captureScale); tm["diff"] = msSince(t)
@@ -493,19 +843,19 @@ final class FrameCapture {
                 env["ocr"] = []
             } else {
                 t = nowNs(); let boxes = ocr(cg, scale: captureScale, fast: fast,
-                                             origin: boundedCrop?.origin ?? .zero); tm["ocr"] = msSince(t)
+                                             origin: region.origin); tm["ocr"] = msSince(t)
                 env["ocr"] = boxes
                 showOcrOverlay(boxes)
             }
             let cursorMeta = (mt["cursor"] as? [String: Int]).map {
                 CGPoint(x: $0["x"] ?? 0, y: $0["y"] ?? 0)
             }
-            let visualOrigin = boundedCrop?.origin ?? .zero
+            let visualOrigin = region.origin
             t = nowNs(); env["visual"] = visualControls(cg, scale: captureScale,
                 origin: visualOrigin, focus: cursorOverride ?? cursorMeta); tm["visual"] = msSince(t)
             t = nowNs()
             let marker = virtualCursor ? (cursorOverride ?? cursorMeta) : nil
-            let jpg = thumbJPEG(cg, maxWidth: 1568, cursor: marker, crop: boundedCrop) ?? Data()
+            let jpg = thumbJPEG(cg, maxWidth: 1568, cursor: marker, crop: region) ?? Data()
             try? jpg.write(to: URL(fileURLWithPath: Paths.frameOutJpg))
             jpgBytes = jpg.count
             tm["thumb"] = msSince(t)
@@ -519,6 +869,19 @@ final class FrameCapture {
         }
         env["thumb_bytes"] = jpgBytes
         grp.wait()                 // join the concurrent AX walk
+        // Filter only after capture, against the region ScreenCaptureKit
+        // actually returned. If a focused window vanished between the CG and
+        // SC lookups, captureDisplay falls back to `screen` and the AX tree
+        // correctly remains unfiltered instead of describing a stale crop.
+        if captured.scope != "screen",
+           let elements = axResult["elements"] as? [[String: Any]] {
+            axResult["elements"] = elements.filter { element in
+                guard let cx = element["cx"] as? Int, let cy = element["cy"] as? Int else {
+                    return false
+                }
+                return captureRegion.contains(CGPoint(x: cx, y: cy))
+            }
+        }
         env["ax"] = axResult
         tm["ax"] = axMs
         tm["wall"] = (tm["meta"]! + tm["capture"]! + (tm["ocr"] ?? 0) + tm["thumb"]!)  // serial part; ax overlapped
