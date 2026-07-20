@@ -35,8 +35,20 @@ function resolveAssetBase() {
     host.endsWith(".gitpod.io");
   return isLocal ? "/assets/gm" : "https://assets.aesthetic.computer/gm";
 }
-const ASSET_BASE = resolveAssetBase();
-const MANIFEST_URL = `${ASSET_BASE}/manifest.json`;
+let ASSET_BASE = resolveAssetBase();
+
+// Standalone consumers (outside the full AC dev server) can point the player
+// at the shared CDN explicitly. Calling this before loadPatch/loadManifest is
+// enough; the ordinary Notepat piece keeps the existing auto-resolution.
+export function setGMAssetBase(base) {
+  if (!base) return ASSET_BASE;
+  ASSET_BASE = String(base).replace(/\/$/, "");
+  _manifest = null;
+  _manifestPromise = null;
+  _patchCache.clear();
+  _bufferCache.clear();
+  return ASSET_BASE;
+}
 
 // ─── AudioContext access ──────────────────────────────────────────────
 // AC's bios.mjs creates and stores a single AudioContext at
@@ -104,7 +116,7 @@ export async function loadManifest(audioContext) {
 
   _manifestPromise = (async () => {
     try {
-      const res = await fetch(MANIFEST_URL, { cache: "force-cache" });
+      const res = await fetch(`${ASSET_BASE}/manifest.json`, { cache: "force-cache" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       _manifest = normalizeManifest(json);
@@ -137,8 +149,9 @@ function normalizeManifest(raw) {
   const patchSrc = raw.patches || raw.programs || raw;
   if (Array.isArray(patchSrc)) {
     for (const entry of patchSrc) {
-      if (entry?.program != null) {
-        out.patches[entry.program] = { notes: entry.notes || null, name: entry.name };
+      const program = entry?.program ?? entry?.id;
+      if (program != null) {
+        out.patches[program] = { notes: entry.notes || null, name: entry.name };
       }
     }
   } else if (patchSrc && typeof patchSrc === "object") {

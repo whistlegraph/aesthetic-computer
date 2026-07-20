@@ -77,8 +77,7 @@
   }
 
   body {
-    background:
-      linear-gradient(to bottom, var(--aqua-sky-top) 0%, var(--aqua-sky-bot) 100%) fixed;
+    background: linear-gradient(160deg, #edf5fb 0%, #cbdff0 100%) fixed;
     background-attachment: fixed;
     min-height: 100vh;
     padding: 32px 16px 64px;
@@ -90,7 +89,7 @@
      it reads like confetti behind glass. Pans diagonally over 90s for a
      slow drift; pointer-events disabled so it can't grab clicks. */
   body::before {
-    content: "";
+    content: none;
     position: fixed;
     inset: -120px;       /* overscan so panning never reveals an edge */
     pointer-events: none;
@@ -130,7 +129,7 @@
      hero and panels each become their own floating glass card, with
      gaps that let the music notes peek through. */
   .window {
-    max-width: 520px;
+    max-width: 920px;
     margin: 0 auto;
     background: none;
     border: 0;
@@ -141,18 +140,17 @@
   /* ── Hero ─────────────────────────────────────────────────────────────── */
 
   .hero {
-    padding: 36px 32px 28px;
+    min-height: calc(100vh - 64px);
+    padding: clamp(72px, 13vh, 140px) 32px 48px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
     text-align: center;
     position: relative;
-    background: rgba(255, 255, 255, 0.5);
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
-    border-radius: 18px;
-    border: 1px solid rgba(255, 255, 255, 0.7);
-    box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.85) inset,
-      0 12px 32px -14px rgba(15, 30, 60, 0.18);
-    margin-bottom: 14px;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    margin-bottom: 28px;
   }
 
   .icon-stage {
@@ -171,91 +169,28 @@
       drop-shadow(0 14px 18px rgba(15, 30, 60, 0.28));
   }
 
-  /* The icon is the door into the campaign films. The player keeps the
-     native 4:3 web composition; the icon floats over its poster until the
-     visitor asks for sound. */
-  .film-stage {
-    position: relative;
-    aspect-ratio: 4 / 3;
-    width: 100%;
-    margin: 0 auto 18px;
-    overflow: hidden;
-    border-radius: 20px;
-    background: #cfc5df;
-    box-shadow: 0 18px 38px -18px rgba(34, 22, 62, 0.55);
-  }
-  .film-stage video {
-    width: 100%;
-    height: 100%;
-    display: block;
-    object-fit: cover;
-  }
-  .film-door {
-    position: absolute;
-    inset: 0;
-    border: 0;
-    padding: 0;
-    display: grid;
-    place-items: center;
-    background: rgba(224, 217, 238, 0.18);
-    cursor: pointer;
-    transition: opacity 300ms var(--ease-apple), background 300ms var(--ease-apple);
-  }
-  .film-door img {
-    width: 42%;
-    height: auto;
-    filter: drop-shadow(0 16px 22px rgba(29, 14, 50, 0.35));
-    transition: transform 300ms var(--ease-apple);
-  }
-  .film-door::after {
-    content: "▶";
-    position: absolute;
-    width: 48px;
-    height: 48px;
-    display: grid;
-    place-items: center;
-    padding-left: 3px;
-    border-radius: 50%;
-    color: white;
-    font-size: 18px;
-    background: rgba(20, 18, 28, 0.78);
-    box-shadow: 0 5px 18px rgba(20, 18, 28, 0.35);
-  }
-  .film-door:hover { background: rgba(255, 255, 255, 0.2); }
-  .film-door:hover img { transform: scale(1.035) rotate(-1deg); }
-  .film-stage.is-playing .film-door { opacity: 0; pointer-events: none; }
-
-  .film-rail {
-    display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(158px, 1fr);
-    gap: 9px;
-    margin: -4px 0 22px;
-    overflow-x: auto;
-    padding: 4px 2px 10px;
-    scroll-snap-type: x mandatory;
-    scrollbar-width: thin;
-  }
-  .film-card {
-    appearance: none;
-    scroll-snap-align: start;
-    border: 1px solid rgba(255, 255, 255, 0.72);
-    border-radius: 12px;
-    padding: 10px 11px;
-    text-align: left;
-    color: var(--ink-head);
-    background: rgba(255, 255, 255, 0.48);
-    box-shadow: 0 4px 12px rgba(25, 20, 45, 0.08);
-    cursor: pointer;
-  }
-  .film-card[aria-current="true"] {
-    outline: 2px solid var(--tahoe-blue);
-    outline-offset: 1px;
-    background: rgba(255, 255, 255, 0.75);
-  }
-  .film-card b, .film-card small { display: block; }
-  .film-card b { font-family: var(--display-stack); font-size: 12px; }
-  .film-card small { margin-top: 2px; color: var(--ink-soft); font-size: 10px; }
+  /* The product page is the instrument: Notepat's c..n white-key run,
+     enlarged into a touch surface shaped like Menu Band's menu-bar strip. */
+  .instrument-stage { position: relative; margin: 20px 0 14px; padding: 28px 6px 38px; perspective: 800px; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .menu-strip { position: relative; display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); width: min(418px, calc(100vw - 36px)); aspect-ratio: 322 / 21; height: auto; margin: 0 auto; border: 0; border-radius: 4px; outline: none; overflow: hidden; background: #c3cdd2; box-shadow: 0 0 0 1px rgba(24, 28, 32, 0.82), 0 1px 0 rgba(255,255,255,0.78) inset, 0 9px 16px -9px rgba(29, 17, 54, 0.50); }
+  .menu-strip:focus-visible { box-shadow: 0 0 0 1px rgba(24, 28, 32, 0.82), 0 0 0 3px rgba(10,132,255,0.28), 0 8px 14px -8px rgba(29,17,54,0.48); }
+  .piano-key { -webkit-tap-highlight-color: transparent; }
+  .white-key { appearance: none; position: relative; display: flex; align-items: flex-end; justify-content: center; min-width: 0; padding: 0 0 clamp(2px, 0.7vw, 4px); border: 0; border-right: 1px solid rgba(50, 65, 75, 0.75); color: rgba(20, 18, 28, 0.72); background: linear-gradient(180deg, #d7e1e6 0%, #cbd6db 48%, #c3cdd2 100%); font: 800 clamp(8px, 2.4vw, 12px) var(--display-stack); line-height: 1; cursor: pointer; transform-origin: 50% 0; }
+  .white-key:first-child { border-radius: 4px 0 0 4px; }
+  .white-key:last-of-type { border-radius: 0 4px 4px 0; border-right: 0; }
+  .white-key::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: hsl(var(--hue) 86% 56%); opacity: 0.9; box-shadow: 0 0 0 transparent; }
+  .white-key { animation: key-score 5.6s calc(var(--step) * 115ms) infinite; }
+  .white-key.is-down, .white-key:active { color: #15131a; background: var(--tahoe-blue); transform: translateY(1px); box-shadow: 0 -3px 8px rgba(20, 18, 28, 0.15) inset; }
+  .white-key.is-down::after, .white-key:active::after { opacity: 1; box-shadow: 0 0 18px 5px hsl(var(--hue) 90% 56% / 0.72); }
+  .black-key { appearance: none; position: absolute; z-index: 2; top: 0; left: calc(var(--at) * (100% / 14) - (13.5 / 46) * (100% / 14)); width: calc((13.5 / 23) * (100% / 14)); height: calc((12 / 21) * 100%); display: flex; align-items: flex-end; justify-content: center; padding: 0 0 1px; border: 0; border-radius: 0 0 3px 3px; color: rgba(255,255,255,0.90); font: 800 clamp(6px, 1.6vw, 9px) var(--display-stack); line-height: 1; cursor: pointer; background: linear-gradient(180deg, #397fc0 0%, #245f99 45%, #123e69 100%); box-shadow: 0 2px 3px rgba(0,0,0,0.42); }
+  .black-key.is-down, .black-key:active { color: #15131a; background: var(--tahoe-blue); transform: translateY(1px); }
+  .now-playing { min-height: 22px; margin: -10px 0 12px; font: 700 12px "Berkeley Mono Variable", "SF Mono", monospace; color: var(--tahoe-indigo); letter-spacing: 0.06em; }
+  .instrument-controls { display: inline-flex; align-self: center; align-items: center; gap: 6px; padding: 4px; border: 1px solid rgba(40,50,65,0.22); border-radius: 9px; background: rgba(255,255,255,0.45); }
+  .instrument-controls button, .voice-control { height: 30px; border: 0; border-radius: 6px; color: var(--ink-head); background: rgba(255,255,255,0.6); font: 700 11px "Berkeley Mono Variable", "SF Mono", monospace; }
+  .instrument-controls button { width: 34px; cursor: pointer; font-size: 18px; }
+  .voice-control { display: flex; align-items: center; gap: 5px; padding: 0 9px; }
+  .voice-control input { width: 32px; padding: 0; border: 0; outline: 0; color: inherit; background: transparent; font: inherit; text-align: center; }
+  @keyframes key-score { 0%, 6%, 100% { filter: none; transform: none; } 2% { filter: brightness(0.94) saturate(1.15); transform: translateY(2px); } }
 
   /* Apple Garamond italic — the "Think different" / classic-product wordmark
      feel. Falls back through ITC Garamond, Hoefler Text, and Garamond on
@@ -370,7 +305,8 @@
     position: relative;
     z-index: 1;
     padding: 20px 28px;
-    margin-bottom: 10px;
+    max-width: 520px;
+    margin: 0 auto 10px;
     background: rgba(255, 255, 255, 0.5);
     backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
@@ -581,8 +517,9 @@
     .hero { padding: 24px 18px 20px; border-radius: 14px; }
     .icon-stage { width: 192px; height: 192px; }
     .icon-stage img.app-icon { width: 192px; height: 192px; }
-    .film-stage { border-radius: 14px; }
-    .film-rail { grid-auto-columns: 72%; }
+    .instrument-stage { margin-left: -15px; margin-right: -15px; padding-top: 18px; }
+    .menu-strip { border-radius: 4px; }
+    .black-key { border-radius: 0 0 5px 5px; }
     h2.app-title { font-size: 40px; }
     section.panel { padding: 16px 18px; border-radius: 12px; }
   }
@@ -592,6 +529,7 @@
     body::before { animation: none; }
     .footer-mark { animation: none; }
     .aqua, a { transition-duration: 1ms; }
+    .menu-strip, .white-key { animation: none; }
   }
 
   /* ── Dark mode ────────────────────────────────────────────────────────── */
@@ -618,6 +556,7 @@
     }
     body {
       color: var(--ink-body);
+      background: linear-gradient(160deg, #111923 0%, #05080d 100%) fixed;
     }
     /* Music-drift glyphs keep their multi-hued fills on the dark sky;
        opacity stays modest so the page doesn't get loud at night. */
@@ -631,8 +570,8 @@
         0 1px 0 rgba(255, 255, 255, 0.06) inset,
         0 12px 32px -14px rgba(0, 0, 0, 0.55);
     }
-    .film-card { background: rgba(28, 28, 30, 0.62); border-color: rgba(255,255,255,0.09); }
-    .film-card[aria-current="true"] { background: rgba(44, 44, 48, 0.86); }
+    .hero { background: transparent; border: 0; box-shadow: none; }
+    .white-key { background: linear-gradient(#eceef0, #bfc3c8); color: rgba(20,18,28,0.76); }
     code {
       background: #2c2c2e;
       border-color: #3a3a3c;
@@ -723,69 +662,48 @@
 
 <article class="window" aria-label="Menu Band">
   <div class="hero">
-    <div class="film-stage" id="film-stage">
-      <video id="film-player" playsinline preload="metadata" poster="/menuband/icon.png">
-        <source src="/menuband/video/meet-menuband.mp4" type="video/mp4">
-      </video>
-      <button class="film-door" id="film-door" type="button" aria-label="Play Meet Menu Band">
-        <img src="/menuband/icon.png" alt="">
-      </button>
+    <div class="instrument-stage">
+      <div class="menu-strip" id="menu-strip" role="group" tabindex="0" aria-label="Playable Menu Band keyboard">
+        <button class="piano-key white-key" style="--hue:350;--step:0" data-key="c" data-midi="60">c</button>
+        <button class="piano-key white-key" style="--hue:28;--step:1" data-key="d" data-midi="62">d</button>
+        <button class="piano-key white-key" style="--hue:50;--step:2" data-key="e" data-midi="64">e</button>
+        <button class="piano-key white-key" style="--hue:136;--step:3" data-key="f" data-midi="65">f</button>
+        <button class="piano-key white-key" style="--hue:205;--step:4" data-key="g" data-midi="67">g</button>
+        <button class="piano-key white-key" style="--hue:270;--step:5" data-key="a" data-midi="69">a</button>
+        <button class="piano-key white-key" style="--hue:310;--step:6" data-key="b" data-midi="71">b</button>
+        <button class="piano-key white-key" style="--hue:350;--step:7" data-key="h" data-midi="72">h</button>
+        <button class="piano-key white-key" style="--hue:28;--step:8" data-key="i" data-midi="74">i</button>
+        <button class="piano-key white-key" style="--hue:50;--step:9" data-key="j" data-midi="76">j</button>
+        <button class="piano-key white-key" style="--hue:136;--step:10" data-key="k" data-midi="77">k</button>
+        <button class="piano-key white-key" style="--hue:205;--step:11" data-key="l" data-midi="79">l</button>
+        <button class="piano-key white-key" style="--hue:270;--step:12" data-key="m" data-midi="81">m</button>
+        <button class="piano-key white-key" style="--hue:310;--step:13" data-key="n" data-midi="83">n</button>
+        <button class="piano-key black-key" style="--at:1" data-key="v" data-midi="61">v</button>
+        <button class="piano-key black-key" style="--at:2" data-key="s" data-midi="63">s</button>
+        <button class="piano-key black-key" style="--at:4" data-key="w" data-midi="66">w</button>
+        <button class="piano-key black-key" style="--at:5" data-key="r" data-midi="68">r</button>
+        <button class="piano-key black-key" style="--at:6" data-key="q" data-midi="70">q</button>
+        <button class="piano-key black-key" style="--at:8" data-key="t" data-midi="73">t</button>
+        <button class="piano-key black-key" style="--at:9" data-key="y" data-midi="75">y</button>
+        <button class="piano-key black-key" style="--at:11" data-key="u" data-midi="78">u</button>
+        <button class="piano-key black-key" style="--at:12" data-key="o" data-midi="80">o</button>
+        <button class="piano-key black-key" style="--at:13" data-key="p" data-midi="82">p</button>
+      </div>
     </div>
-    <div class="film-rail" id="film-rail" aria-label="Menu Band films">
-      <button class="film-card" type="button" aria-current="true" data-src="/menuband/video/meet-menuband.mp4" data-title="Meet Menu Band">
-        <b>Meet Menu Band</b><small>the tiny menu-bar instrument</small>
-      </button>
-      <button class="film-card" type="button" aria-current="false" data-src="/menuband/video/sing-the-scale.mp4" data-title="Sing the C scale">
-        <b>Sing the C scale</b><small>c d e f g… but weird</small>
-      </button>
+    <div class="instrument-controls" aria-label="Instrument controls">
+      <button id="octave-down" type="button" aria-label="Octave down">−</button>
+      <label class="voice-control">voice <input id="voice-number" inputmode="numeric" pattern="[0-9]*" maxlength="3" value="79" aria-label="General MIDI voice number"></label>
+      <button id="octave-up" type="button" aria-label="Octave up">+</button>
     </div>
-    <h2 class="app-title">Menu Band</h2>
-    <p class="tagline" data-i18n="tagline">Taking your Mac's standard instruments out of the 🎸 Garage and kickin' it on the curb!</p>
-
-    <div class="button-row">
-      <a id="store-link" class="aqua" href="https://apps.apple.com/us/app/menu-band/id6767311903?mt=12">
-        <span data-i18n="storeCta">🍏 Mac App Store</span>
-        <small data-i18n="storeMeta">1.5.3 · $4.99 · macOS 11+</small>
-      </a>
-    </div>
-    <p class="aux"><a href="/advanced" data-i18n="advanced">advanced</a> · <a href="https://tangled.org/@aesthetic.computer/core/tree/main/slab/menuband" data-i18n="viewSource">view source</a> · <span data-i18n="by">by</span> <a href="https://aesthetic.computer">aesthetic.computer</a></p>
+    <div class="now-playing" id="now-playing" aria-live="polite">079 · whistle · octave 0</div>
   </div>
 
   <section class="panel">
     <p data-i18n="lede" data-i18n-html="true">A tiny piano lives in the right side of your menu bar. Click the keys, type letters, or pipe notes to your DAW over MIDI — Menu Band publishes a virtual MIDI source named <code>Menu Band</code> that any DAW can pick as input. When nothing's listening, a built-in General MIDI synth covers hundreds of patches.</p>
-  </section>
-
-  <section class="panel testimonial">
-    <blockquote data-i18n="testimonial">“i use it on my macbook neo. practice notepat, play ableton without leaving my menu bar.”</blockquote>
-    <p class="attribution">— <a href="https://aesthetic.computer/@jeffrey">@jeffrey</a></p>
-  </section>
-
-  <section class="panel">
-    <h3 data-i18n="modesTitle">Three modes</h3>
-    <ul class="modes">
-      <li><b data-i18n="modePointer">Pointer</b><span data-i18n="modePointerBody">Mouse only. Two octaves.</span></li>
-      <li><b data-i18n="modeNotepat">Notepat</b><span data-i18n="modeNotepatBody">Type to play. Two octaves.</span></li>
-      <li><b data-i18n="modeAbleton">Ableton</b><span data-i18n="modeAbletonBody">Type to play. Live's M-mode layout.</span></li>
-    </ul>
-  </section>
-
-  <section class="panel">
-    <h3><span data-i18n="whatsNewTitle">What's new</span> <span class="badge">1.2</span></h3>
-    <p data-i18n="whatsNew1" data-i18n-html="true"><b>Type music into Stickies.</b> Any sticky whose body starts with <code>mb&lt;N&gt;</code> becomes a live keyboard for GM instrument N — type <code>mb5 hhg mb6 hhih</code> and the first chunk plays as instrument 5, the second as 6. Inline <code>mb&lt;N&gt;</code> tokens mid-text switch instruments on the fly; backspace and arrows keep their normal repeat.</p>
-    <p data-i18n="whatsNew2" data-i18n-html="true"><b>Two-finger swipe scrolls the octave.</b> Swipe over the menubar piano icon and the octave steps incrementally — first 16 px of motion already moves it, so it feels responsive instead of waiting for a full flick. Scoped to the icon only, so scrolls in the popover and floating panel still scroll their content normally.</p>
-    <p data-i18n="whatsNew3" data-i18n-html="true"><b>Plus:</b> the score view sits flush against the popover (no tinted backdrop strip), the octave readout pins to the top-right with a sharp theme-aware drop shadow, and the About panel now shows a scannable QR code for <code>prompt.ac/menuband</code>.</p>
-  </section>
-
-  <section class="panel">
-    <h3><span data-i18n="recentTitle">Recent changes</span> <span id="recent-deployed" class="commit-chip" hidden></span></h3>
-    <ul id="recent-commits" class="commits">
-      <li class="commits-empty" data-i18n="loading">loading…</li>
-    </ul>
-  </section>
-
-  <section class="panel">
-    <h3 data-i18n="requirementsTitle">Requirements</h3>
-    <p data-i18n="requirementsBody">macOS 11+ · Apple Silicon · ⌃⌥⌘P toggles typing mode.</p>
+    <div class="button-row">
+      <a id="store-link" class="aqua" href="https://apps.apple.com/us/app/menu-band/id6767311903?mt=12"><span data-i18n="storeCta">🍏 Mac App Store</span><small data-i18n="storeMeta">1.5.3 · $4.99 · macOS 11+</small></a>
+    </div>
+    <p class="aux"><a href="/advanced" data-i18n="advanced">advanced</a> · <a href="https://tangled.org/@aesthetic.computer/core/tree/main/slab/menuband" data-i18n="viewSource">view source</a></p>
   </section>
 </article>
 
@@ -793,33 +711,122 @@
   <div><a class="footer-mark" href="https://aesthetic.computer">Aesthetic.Computer</a></div>
 </footer>
 
-<script>
-  (function menubandFilms() {
-    const stage = document.getElementById("film-stage");
-    const player = document.getElementById("film-player");
-    const door = document.getElementById("film-door");
-    const cards = [...document.querySelectorAll(".film-card")];
+<script type="module">
+  import { createNotepat } from "/aesthetic.computer/lib/notepat-engine.mjs";
 
-    async function play() {
-      stage.classList.add("is-playing");
-      player.controls = true;
-      try { await player.play(); }
-      catch { stage.classList.remove("is-playing"); }
-    }
+  (function playableMenuBand() {
+    const instrument = createNotepat({ program: 78, volume: 0.72 });
+    const strip = document.getElementById("menu-strip");
+    const status = document.getElementById("now-playing");
+    const voiceInput = document.getElementById("voice-number");
+    const keys = [...document.querySelectorAll(".piano-key")];
+    const keyByLetter = new Map(keys.map((key) => [key.dataset.key, key]));
+    const pointers = new Map();
+    const heldKeyboard = new Set();
+    let voiceName = "whistle";
+    let digitBuffer = "";
+    let lastDigitAt = 0;
 
-    door.addEventListener("click", play);
-    cards.forEach((card) => card.addEventListener("click", async () => {
-      const wasPlaying = !player.paused || stage.classList.contains("is-playing");
-      cards.forEach((item) => item.setAttribute("aria-current", String(item === card)));
-      if (player.getAttribute("src") !== card.dataset.src) {
-        player.src = card.dataset.src;
-        player.load();
-      }
-      door.setAttribute("aria-label", `Play ${card.dataset.title}`);
-      if (wasPlaying) await play();
-      else stage.classList.remove("is-playing");
+    const label = () => {
+      const down = keys.filter((key) => key.classList.contains("is-down")).map((key) => key.dataset.key);
+      const octave = instrument.octave > 0 ? `+${instrument.octave}` : String(instrument.octave);
+      status.textContent = `${String(instrument.voice).padStart(3, "0")} · ${voiceName} · octave ${octave}${down.length ? ` · ${down.join(" + ")}` : ""}`;
+    };
+    const light = (key, down) => { key?.classList.toggle("is-down", down); label(); };
+
+    const keyAt = (x, y) => document.elementFromPoint(x, y)?.closest?.(".piano-key");
+    const movePointer = (pointerId, key) => {
+      if (!key || !strip.contains(key)) return;
+      const prior = pointers.get(pointerId);
+      if (prior?.key === key) return;
+      if (prior) { instrument.release(prior.id); light(prior.key, false); }
+      const id = `pointer:${pointerId}:${key.dataset.midi}`;
+      pointers.set(pointerId, { id, key });
+      light(key, true);
+      instrument.pressMidi(Number(key.dataset.midi), id).catch(() => { status.textContent = "tap again to wake audio"; });
+    };
+    const endPointer = (pointerId) => {
+      const prior = pointers.get(pointerId);
+      if (!prior) return;
+      pointers.delete(pointerId);
+      instrument.release(prior.id);
+      light(prior.key, false);
+    };
+    strip.addEventListener("pointerdown", (event) => {
+      const key = event.target.closest?.(".piano-key");
+      if (!key) return;
+      event.preventDefault();
+      strip.focus({ preventScroll: true });
+      try { strip.setPointerCapture(event.pointerId); } catch {}
+      movePointer(event.pointerId, key);
+    });
+    strip.addEventListener("pointermove", (event) => {
+      if (!pointers.has(event.pointerId)) return;
+      event.preventDefault();
+      movePointer(event.pointerId, keyAt(event.clientX, event.clientY));
+    });
+    strip.addEventListener("pointerup", (event) => endPointer(event.pointerId));
+    strip.addEventListener("pointercancel", (event) => endPointer(event.pointerId));
+    keys.forEach((key) => key.addEventListener("click", (event) => {
+      if (event.detail !== 0) return; // Pointer gestures already sounded above.
+      const id = `activate:${key.dataset.midi}`;
+      light(key, true);
+      instrument.pressMidi(Number(key.dataset.midi), id);
+      setTimeout(() => { instrument.release(id); light(key, false); }, 220);
     }));
-    player.addEventListener("ended", () => stage.classList.remove("is-playing"));
+
+    const setVoice = (voice) => {
+      const normalized = Math.max(1, Math.min(128, Number(voice) || 1));
+      voiceInput.value = String(normalized);
+      voiceName = "loading";
+      instrument.setProgram(normalized - 1);
+      label();
+    };
+    const stepOctave = (delta) => { instrument.stepOctave(delta); label(); };
+    document.getElementById("octave-down").addEventListener("click", () => stepOctave(-1));
+    document.getElementById("octave-up").addEventListener("click", () => stepOctave(1));
+    voiceInput.addEventListener("change", () => setVoice(voiceInput.value));
+    voiceInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") { event.preventDefault(); setVoice(voiceInput.value); voiceInput.blur(); }
+    });
+    instrument.onActivity((event) => {
+      if (event.type === "ready") { voiceName = event.name.replace(/^\d+\s*[·._-]?\s*/, ""); label(); }
+    });
+
+    addEventListener("keydown", (event) => {
+      if (event.repeat || event.metaKey || event.ctrlKey || event.altKey) return;
+      const letter = event.key.toLowerCase();
+      if (event.target === voiceInput) return;
+      if (/^[0-9]$/.test(letter)) {
+        event.preventDefault();
+        const now = performance.now();
+        if (now - lastDigitAt > 800 || digitBuffer.length >= 3) digitBuffer = "";
+        lastDigitAt = now;
+        digitBuffer += letter;
+        setVoice(Number(digitBuffer));
+        return;
+      }
+      if (letter === "," || letter === ".") {
+        event.preventDefault();
+        stepOctave(letter === "," ? -1 : 1);
+        return;
+      }
+      if (instrument.midiForKey(letter) == null) return;
+      event.preventDefault();
+      digitBuffer = "";
+      heldKeyboard.add(letter);
+      light(keyByLetter.get(letter), true);
+      instrument.pressKey(letter).catch(() => { status.textContent = "press again to wake audio"; });
+    });
+    addEventListener("keyup", (event) => {
+      const letter = event.key.toLowerCase();
+      if (!heldKeyboard.delete(letter)) return;
+      instrument.releaseKey(letter);
+      light(keyByLetter.get(letter), false);
+    });
+    addEventListener("blur", () => { heldKeyboard.clear(); pointers.clear(); instrument.releaseAll(); keys.forEach((key) => key.classList.remove("is-down")); label(); });
+    instrument.ready().then((patch) => { voiceName = patch?.name || "whistle"; label(); });
+    label();
   })();
 
   // ── i18n. Same plug-and-play shape as kidlisp.com / help.aesthetic.computer:
