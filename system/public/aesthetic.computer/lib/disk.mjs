@@ -14787,7 +14787,7 @@ async function makeFrame({ data: { type, content } }) {
                 }
               }
 
-              qrOffset = qrSize + 4; // QR width + border + gap
+              qrOffset = qrSize + 10; // QR width + border + breathing room
             }
 
             const baseX = currentHUDLeftPad + qrOffset;
@@ -14814,15 +14814,6 @@ async function makeFrame({ data: { type, content } }) {
             // Wrap based on screen width minus padding (6px total: 2px margin + 4px padding)
             // Subtract the left margin since text starts at x=HUD_LABEL_TEXT_MARGIN
             const wrapBounds = isKidlispPiece ? ($api.screen.width - 6 - HUD_LABEL_TEXT_MARGIN) : undefined;
-
-            // Dark backing chip so the label reads over any tape frame —
-            // matches the deck-pad chrome instead of floating raw text.
-            $.ink(0, 0, 0, 150).box(
-              hudTextX - 3,
-              hudTextY,
-              Math.min(bufferW - hudTextX + 1, currentHUDLabelMeasuredWidth + 8),
-              (typeof hudBlockHeight === "number" ? hudBlockHeight : 10) + 4,
-            );
 
             drawHudLabelText($, text, {
               x: hudTextX,

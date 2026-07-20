@@ -191,7 +191,8 @@ let lastCursorScrub = false; // Tracks cursor mode swaps (precise ↔ active)
 const DESKTOP_HOST =
   typeof navigator !== "undefined" &&
   /Aesthetic|Electron/i.test(navigator.userAgent || "");
-const SAFE_R = DESKTOP_HOST ? 12 : 6; // Right-edge inset for chrome
+const SAFE_R = DESKTOP_HOST ? 20 : 6; // Right-edge inset for chrome
+const SAFE_T = DESKTOP_HOST ? 8 : 3; // Top inset (rounded corners bite here)
 const SAFE_B = DESKTOP_HOST ? 16 : 12; // Bottom inset for the pad cluster
 const JAM_ARM_TIMEOUT = 8000; // A never-loading sibling can't hold us hostage
 let legendBtns = null; // Tappable deck-key legend (bottom-right)
@@ -992,11 +993,11 @@ function paint({
     // and the right edge never moves — OCR and eyes anchor there.
     const rateStr = `${liveRate.toFixed(2)}x`;
     const rateW = rateStr.length * 5 + 8;
-    ink(60, 75, 95, 150).box(screen.width - SAFE_R - rateW, 3, rateW + 2, 11);
+    ink(60, 75, 95, 150).box(screen.width - SAFE_R - rateW, SAFE_T, rateW + 2, 11);
     ink(110, 130, 160).box(screen.width - SAFE_R - rateW, 3, rateW + 2, 11, "outline");
     ink(255, 255, 0).write(
       rateStr,
-      { x: screen.width - SAFE_R - 2, y: 6, right: true },
+      { x: screen.width - SAFE_R - 2, y: SAFE_T + 3, right: true },
       undefined,
       undefined,
       false,
@@ -1084,11 +1085,11 @@ function paint({
       // chip, fixed-width so nothing ever collides or shifts.
       const syncStr = `${msStr} ${musical.trim()}`;
       const syncW = syncStr.length * 5 + 8;
-      ink(60, 75, 95, 150).box(screen.width - SAFE_R - syncW, 15, syncW + 2, 11);
+      ink(60, 75, 95, 150).box(screen.width - SAFE_R - syncW, SAFE_T + 12, syncW + 2, 11);
       ink(110, 130, 160).box(screen.width - SAFE_R - syncW, 15, syncW + 2, 11, "outline");
       ink(locked ? [0, 255, 120] : [255, 170, 0]).write(
         syncStr,
-        { x: screen.width - SAFE_R - 2, y: 18, right: true },
+        { x: screen.width - SAFE_R - 2, y: SAFE_T + 15, right: true },
         undefined,
         undefined,
         false,
@@ -1108,7 +1109,7 @@ function paint({
             : locked
               ? [0, 255, 120]
               : [255, 170, 0],
-        ).box(screen.width - SAFE_R - 5, 30, 6, 6);
+        ).box(screen.width - SAFE_R - 5, SAFE_T + 27, 6, 6);
       }
 
       // 📡 Telemetry for the jam harness (bios stashes it on window) —
@@ -1160,7 +1161,7 @@ function paint({
       const vw = 44; // Wedge width
       const vh = 14; // Wedge height at the tall end
       const vx = screen.width - SAFE_R - vw;
-      const vy = 52;
+      const vy = SAFE_T + 49;
       if (!volBtn) {
         volBtn = new ui.Button(vx - 6, vy - 6, vw + 12, vh + 12);
         volBtn.stickyScrubbing = true;
@@ -1221,7 +1222,7 @@ function paint({
       if (jamPeers.size > 0) {
         ink(0, 255, 255).write(
           `${jamPeers.size + 1}win`,
-          { x: screen.width - SAFE_R, y: 40, right: true },
+          { x: screen.width - SAFE_R, y: SAFE_T + 37, right: true },
           undefined,
           undefined,
           false,
