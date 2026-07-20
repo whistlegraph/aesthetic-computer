@@ -268,10 +268,12 @@ class Performer {
       await this.phrase();
       // Release: hands off, tape drifts back toward net-time unison.
       this.last.act += " → release";
-      if (SOLO) soloTurn++; // Next player's turn while we re-lock.
       const releaseMs = rnd(RELEASE_S * 1000, RELEASE_S * 1400);
       const until = Date.now() + releaseMs;
       while (Date.now() < until && !this.stopped) await sleep(150);
+      // Solo baton passes only AFTER our release re-locks — truly one
+      // player messing at a time, against an otherwise steady band.
+      if (SOLO) soloTurn++;
     }
   }
 
