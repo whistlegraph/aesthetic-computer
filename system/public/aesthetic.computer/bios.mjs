@@ -11904,8 +11904,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           const drawSynthFrame = (i, sctx) => {
             const t = i / fps; // seconds
             const progress = totalFrames > 1 ? i / (totalFrames - 1) : 0;
-            // Position-hue background: an instant "where am I" cue.
-            sctx.fillStyle = `hsl(${Math.round(progress * 300)}, 60%, 16%)`;
+            // Position-hue background: an instant "where am I" cue. Full
+            // 360° wheel so the hue is CONTINUOUS across the loop seam.
+            sctx.fillStyle = `hsl(${Math.round(progress * 360) % 360}, 60%, 16%)`;
             sctx.fillRect(0, 0, width, height);
 
             // Scrolling ruler: the tape's timeline slides horizontally under
@@ -15932,7 +15933,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               // same tape converge into phase — and the local period can't
               // accumulate RAF drift either.
               const gridNow = performance.now();
-              playbackStart = gridNow - (Date.now() % mediaRecorderDuration);
+              // Snap to the NEAREST grid boundary — flooring meant a pane
+              // running ε ahead of the grid re-anchored to almost-end-of-
+              // loop and REPLAYED the tail (the "skips back when it loops"
+              // glitch). Negative r = the boundary is ε in the future, so
+              // frame 0 simply holds for ε ms instead.
+              let gridR = Date.now() % mediaRecorderDuration;
+              if (gridR > mediaRecorderDuration / 2) gridR -= mediaRecorderDuration;
+              playbackStart = gridNow - gridR;
               playbackProgress = 0;
               // The next update's f===0 branch would reset playbackStart to
               // "now", clobbering the grid — isResuming makes it skip once.
