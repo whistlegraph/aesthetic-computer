@@ -301,7 +301,7 @@ class Performer {
             /bad gateway|cloudflare|origin/i.test(document.title),
         )
         .catch(() => false);
-      if (sick || !url.includes(`video~scrub~${this.tape}`)) {
+      if (sick || !url.includes(tapeToken(this.tape))) {
         this.last.act = sick ? "heal 502 → re-enter" : "re-enter tape";
         await sleep(sick ? 2500 : 0); // Give the origin a breath first
         await this.page.goto(tapeURL(this.tape), {
@@ -392,19 +392,23 @@ async function adoptPage(browser, url) {
     );
   }
   // Match by tape token, not exact URL — boot canonicalizes query params.
-  const tapeToken = url.match(/video~scrub~[^?]+/)?.[0];
-  const page =
-    pages.find((p) => tapeToken && p.url().includes(tapeToken)) || pages[0];
+  const tok = url.match(/video~[^?]+/)?.[0];
+  const page = pages.find((p) => tok && p.url().includes(tok)) || pages[0];
   claimed.add(page);
   return page;
 }
+
+// A tape is either a synth style ("kick") or a real recorded tape code
+// ("!udd") — both open in the same scrub instrument.
+const tapeToken = (tape) =>
+  tape.startsWith("!") ? `video~${tape}` : `video~scrub~${tape}`;
 
 // nogap always: the AC canvas reaches the window edge, so the tape's
 // bottom progress bar sits on the true bottom of the pane.
 const tapeURL = (tape) => {
   const q = ["nogap=true"];
   if (DENSITY) q.push(`density=${DENSITY}`);
-  return `${BASE}/video~scrub~${tape}?${q.join("&")}`;
+  return `${BASE}/${tapeToken(tape)}?${q.join("&")}`;
 };
 
 // Per-window cursor colors — sine yellow, house cyan, dub pink, break blue.
