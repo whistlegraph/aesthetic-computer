@@ -363,6 +363,35 @@ export function createHandler({
       } finally { await database.disconnect?.(); }
     }
 
+    if (event.httpMethod === "POST" && action === "bulk-assign") {
+      let body;
+      try { body = parseBody(event); } catch (error) { return respond(400, { message: error.message }, HEADERS); }
+      let code;
+      try { code = normalizeWorkCode(body.code); } catch (error) { return respond(400, { message: error.message }, HEADERS); }
+      const postIds = [...new Set((Array.isArray(body.postIds) ? body.postIds : []).map(String))];
+      if (!postIds.length || postIds.length > 500) return respond(400, { message: "Choose between 1 and 500 posts." }, HEADERS);
+      const operation = body.operation === "remove" ? "remove" : "add";
+      let model;
+      try { model = loadModelFn(); } catch (error) { return respond(500, { message: `Archive model unavailable: ${error.message}` }, HEADERS); }
+      if (postIds.some(id => !model.postIds.has(id))) return respond(404, { message: "One or more posts were not found." }, HEADERS);
+      const database = await connectFn();
+      try {
+        await ensureMutationIndexes(database);
+        const collection = database.db.collection(COLLECTION), audit = database.db.collection(AUDIT_COLLECTION);
+        const work = await collection.findOne({ _id: `work:${code}` });
+        if ((!model.workCodes.has(code) && !work?.created) || work?.deleted) return respond(404, { message: `Whistlegraph [${code}] not found.` }, HEADERS);
+        const now = new Date();
+        for (const postId of postIds) {
+          const previous = await collection.findOne({ _id: `post:${postId}` });
+          const current = previous?.patch?.works || model.postWorks?.get(postId) || [];
+          const works = operation === "add" ? [...new Set([...current, code])] : current.filter(value => value !== code);
+          await collection.updateOne({ _id: `post:${postId}` }, { $set: { type: "post", key: postId, patch: { ...(previous?.patch || {}), works }, updatedAt: now, updatedBy: user.sub } }, { upsert: true });
+        }
+        await audit.insertOne({ type: "post", key: `${postIds.length} posts`, action: `bulk-${operation}`, code, postIds, admin: user.sub, when: now });
+        return respond(200, { saved: true, operation, code, count: postIds.length, revision: now.toISOString() }, HEADERS);
+      } finally { await database.disconnect?.(); }
+    }
+
     if (event.httpMethod !== "PATCH" && event.httpMethod !== "DELETE") {
       return respond(405, { message: "Method Not Allowed." }, HEADERS);
     }

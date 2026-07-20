@@ -62,6 +62,7 @@
         <span id="previewBadge" class="preview hidden">LOCAL PREVIEW · SAVING OFF</span>
         <span class="who" id="who"></span>
         <button class="primary" id="newWork" data-testid="new-work">New whistlegraph</button>
+        <button class="quiet" id="bulkAssign">Assign results</button>
         <a class="quiet" href="/" target="_blank">View site ↗</a>
         <button class="quiet" id="codexOpen" data-testid="codex-tools">Codex tools</button>
         <button class="quiet" id="logout">Sign out</button>
@@ -234,6 +235,13 @@
   document.getElementById("search").addEventListener("input",event=>{query=event.target.value;renderReset();queueMachineSearch()});
   document.getElementById("mode").addEventListener("click",event=>{const button=event.target.closest("button[data-mode]");if(!button)return;mode=button.dataset.mode;document.querySelectorAll("#mode button").forEach(x=>x.classList.toggle("on",x===button));document.getElementById("filter").classList.toggle("hidden",mode!=="posts");document.getElementById("search").placeholder=mode==="posts"?"Search captions, IDs, codes, or machine visuals…":"Search titles, codes, or authors…";renderReset();queueMachineSearch()});
   document.getElementById("filter").addEventListener("click",event=>{const button=event.target.closest("button[data-kind]");if(!button)return;kind=button.dataset.kind;document.querySelectorAll("#filter button").forEach(x=>x.classList.toggle("on",x===button));renderReset()});
+  document.getElementById("bulkAssign").addEventListener("click",async()=>{
+    if(PREVIEW||mode!=="posts"||!view.length)return toast("Search or filter Posts first");
+    if(view.length>500)return toast("Narrow results to 500 posts or fewer");
+    const code=prompt(`Assign all ${view.length} current results to which whistlegraph code?`)?.trim().toLowerCase();if(!code)return;
+    if(!confirm(`Add [${code}] to all ${view.length} current results? Existing relationships stay intact.`))return;
+    try{const result=await getJSON(`${API}?action=bulk-assign`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({code,postIds:view.map(post=>post.id),operation:"add"})});await loadData();toast(`Assigned ${result.count} posts to [${result.code}]`)}catch(error){toast(error.message)}
+  });
 
   document.getElementById("newWork").addEventListener("click",()=>{
     if(PREVIEW)return;
