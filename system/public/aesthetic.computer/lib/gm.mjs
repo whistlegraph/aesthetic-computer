@@ -369,7 +369,10 @@ export async function loadPatch(programNumber, audioContext) {
       notes: noteList,
       // Warm the cache for a single rendered note (or all of them).
       async prefetch(midi) {
-        if (typeof midi === "number") return getSample(midi);
+        if (typeof midi === "number") {
+          const sampleNote = nearestRenderedNote(noteList, midi | 0);
+          return sampleNote == null ? null : getSample(sampleNote);
+        }
         return Promise.all(noteList.map((m) => getSample(m)));
       },
       play(midiNote, opts = {}) {
