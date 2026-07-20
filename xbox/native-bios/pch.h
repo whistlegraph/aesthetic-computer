@@ -5,6 +5,7 @@
 #include <d3d11_1.h>
 #include <dxgi1_2.h>
 #include <xaudio2.h>
+#include <windows.networking.connectivity.h>
 #include <collection.h>
 #include <array>
 #include <atomic>
@@ -15,4 +16,5 @@
 #include <memory>
 #include <string>
 #include <stdexcept>
+#include <sys/stat.h>
 #include <vector>

@@ -23,10 +23,21 @@ struct Event {
 };
 
 struct Screen { int width = 1920; int height = 1080; float scale = 1.0f; };
+struct ControllerInfo {
+  std::string id;
+  std::string name;
+  std::uint16_t vendor_id = 0;
+  std::uint16_t product_id = 0;
+  std::uint16_t axes = 0;
+  std::uint16_t buttons = 0;
+  std::uint16_t switches = 0;
+  bool gamepad = false;
+};
 struct GamepadState {
   float left_x = 0, left_y = 0, right_x = 0, right_y = 0;
   float left_trigger = 0, right_trigger = 0;
   std::unordered_set<std::string> down;
+  std::vector<ControllerInfo> controllers;
   [[nodiscard]] bool pressed(std::string_view button) const {
     return down.find(std::string(button)) != down.end();
   }

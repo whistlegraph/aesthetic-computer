@@ -6,6 +6,8 @@ using namespace Platform;
 using namespace Windows::ApplicationModel::Core;
 using namespace Windows::ApplicationModel::Activation;
 using namespace Windows::Gaming::Input;
+using namespace Windows::Networking::Connectivity;
+using namespace Windows::Storage;
 using namespace Windows::UI::Core;
 using namespace Windows::Foundation;
 
@@ -27,6 +29,27 @@ function act(button){
 }
 function leave(){}
 )JS";
+
+static void LogTelemetry(const std::string& line) {
+  const auto folder = ApplicationData::Current->LocalFolder->Path;
+  std::wstring path(folder->Data());
+  path += L"\\ac-native-bios.log";
+  FILE* file = nullptr;
+  if (_wfopen_s(&file, path.c_str(), L"a") != 0 || !file) return;
+  std::fwrite(line.data(), 1, line.size(), file);
+  std::fwrite("\n", 1, 1, file);
+  std::fclose(file);
+}
+
+static std::string Utf8(String^ value) {
+  if (!value || value->IsEmpty()) return {};
+  const int size = WideCharToMultiByte(CP_UTF8, 0, value->Data(), value->Length(),
+    nullptr, 0, nullptr, nullptr);
+  std::string result(static_cast<std::size_t>(size), '\0');
+  WideCharToMultiByte(CP_UTF8, 0, value->Data(), value->Length(), result.data(),
+    size, nullptr, nullptr);
+  return result;
+}
 
 class HostGraphics final : public Graphics {
  public:
@@ -72,6 +95,7 @@ public:
     m_sound->on_stop = [this]() { if (m_voice) { m_voice->Stop(0); m_voice->FlushSourceBuffers(); } };
     m_sound->get_rate = [this]() { return static_cast<int>(m_sampleRate); };
     m_api = std::make_unique<Api>(Api{{1920, 1080, 1}, {}, {}, {}, *m_graphics, *m_sound});
+    RefreshCapabilities(true);
     m_engine = std::make_unique<QuickJsEngine>();
     m_supervisor = std::make_unique<PieceSupervisor>(*m_engine);
     std::string error;
@@ -80,6 +104,7 @@ public:
       OutputDebugStringA(("AC_NATIVE_BIOS_BOOT_ERROR " + error + "\n").c_str());
     } else {
       OutputDebugStringA("AC_NATIVE_BIOS_READY engine=quickjs-ng piece=smoke\n");
+      LogTelemetry("AC_NATIVE_BIOS_READY engine=quickjs-ng piece=smoke");
     }
   }
 
@@ -90,7 +115,9 @@ public:
     Render({0.025f, 0.02f, 0.04f, 1.0f});
     while (!m_closed) {
       m_window->Dispatcher->ProcessEvents(CoreProcessEventsOption::ProcessAllIfPresent);
+      RefreshCapabilities(false);
       PollController();
+      PollLivePiece();
       if (m_supervisor && m_supervisor->active()) {
         try {
           m_supervisor->active()->sim(*m_api);
@@ -239,6 +266,12 @@ private:
       };
       for (const auto& named : names) {
         if (pressed & static_cast<unsigned>(named.bit)) {
+          LARGE_INTEGER now{}, frequency{};
+          QueryPerformanceCounter(&now);
+          QueryPerformanceFrequency(&frequency);
+          LogTelemetry("AC_NATIVE_INPUT button=" + std::string(named.name) +
+            " qpc_us=" + std::to_string(
+              static_cast<unsigned long long>(now.QuadPart * 1000000 / frequency.QuadPart)));
           try { m_supervisor->active()->act(*m_api, {named.name, 1, 0}); }
           catch (const std::exception& error) {
             OutputDebugStringA((std::string("AC_NATIVE_BIOS_ACT_ERROR ") + error.what() + "\n").c_str());
@@ -265,6 +298,81 @@ private:
     m_needsIdleFrame = true;
   }
 
+  void RefreshCapabilities(bool force) {
+    const auto now = GetTickCount64();
+    if (!force && now < m_nextCapabilityPollMs) return;
+    m_nextCapabilityPollMs = now + 1000;
+    m_api->system.online = NetworkInformation::GetInternetConnectionProfile() != nullptr;
+    m_api->gamepad.controllers.clear();
+    for (auto raw : RawGameController::RawGameControllers) {
+      ControllerInfo info;
+      info.id = Utf8(raw->NonRoamableId);
+      info.name = Utf8(raw->DisplayName);
+      info.vendor_id = raw->HardwareVendorId;
+      info.product_id = raw->HardwareProductId;
+      info.axes = raw->AxisCount;
+      info.buttons = raw->ButtonCount;
+      info.switches = raw->SwitchCount;
+      info.gamepad = Gamepad::FromGameController(raw) != nullptr;
+      m_api->gamepad.controllers.push_back(std::move(info));
+    }
+    std::string inventory = "online=" + std::to_string(m_api->system.online) +
+      " controllers=" + std::to_string(m_api->gamepad.controllers.size());
+    for (const auto& controller : m_api->gamepad.controllers) {
+      inventory += " | " + controller.name + " vendor=" +
+        std::to_string(controller.vendor_id) + " product=" +
+        std::to_string(controller.product_id) + " axes=" +
+        std::to_string(controller.axes) + " buttons=" +
+        std::to_string(controller.buttons) + " switches=" +
+        std::to_string(controller.switches) + " gamepad=" +
+        std::to_string(controller.gamepad);
+    }
+    if (inventory != m_lastCapabilityInventory) {
+      m_lastCapabilityInventory = inventory;
+      LogTelemetry("AC_NATIVE_CAPABILITIES " + inventory);
+    }
+  }
+
+  void PollLivePiece() {
+    const auto now = GetTickCount64();
+    if (now < m_nextLivePollMs) return;
+    m_nextLivePollMs = now + 500;
+
+    const auto folder = ApplicationData::Current->LocalFolder->Path;
+    std::wstring path(folder->Data());
+    path += L"\\live-piece.js";
+    struct _stat64 info{};
+    if (_wstat64(path.c_str(), &info) != 0) return;
+    const auto signature = static_cast<unsigned long long>(info.st_mtime) ^
+      (static_cast<unsigned long long>(info.st_size) << 32);
+    if (signature == m_livePieceSignature) return;
+    m_livePieceSignature = signature;
+
+    if (info.st_size <= 0 || info.st_size > 2 * 1024 * 1024) {
+      LogTelemetry("AC_NATIVE_LIVE_REJECT reason=source-size");
+      return;
+    }
+    FILE* file = nullptr;
+    if (_wfopen_s(&file, path.c_str(), L"rb") != 0 || !file) {
+      LogTelemetry("AC_NATIVE_LIVE_REJECT reason=open-failed");
+      return;
+    }
+    std::string source(static_cast<std::size_t>(info.st_size), '\0');
+    const auto bytes = std::fread(source.data(), 1, source.size(), file);
+    std::fclose(file);
+    source.resize(bytes);
+
+    std::string error;
+    if (!m_supervisor->stage({"live", std::to_string(signature), source, "local-dev"},
+                             *m_api, error) || !m_supervisor->activate(*m_api)) {
+      for (auto& character : error) if (character == '\n' || character == '\r') character = ' ';
+      LogTelemetry("AC_NATIVE_LIVE_REJECT reason=" + error);
+      return;
+    }
+    LogTelemetry("AC_NATIVE_LIVE_READY bytes=" + std::to_string(source.size()) +
+      " generation=" + std::to_string(m_supervisor->generation()));
+  }
+
   void Render(const std::array<float, 4>& color) {
     if (!m_target) return;
     m_context->OMSetRenderTargets(1, m_target.GetAddressOf(), nullptr);
@@ -279,6 +387,10 @@ private:
   unsigned m_previousButtons = 0;
   unsigned m_flashFrames = 0;
   unsigned m_rateIndex = 1;
+  unsigned long long m_livePieceSignature = 0;
+  unsigned long long m_nextLivePollMs = 0;
+  unsigned long long m_nextCapabilityPollMs = 0;
+  std::string m_lastCapabilityInventory;
   uint32_t m_sampleRate = 48000;
   std::array<float, 4> m_flashColor{1, 1, 1, 1};
 

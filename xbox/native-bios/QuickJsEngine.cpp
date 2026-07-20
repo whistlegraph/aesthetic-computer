@@ -35,6 +35,41 @@ JSValue Synth(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
   return JS_UNDEFINED;
 }
 
+JSValue Controllers(JSContext* context, JSValueConst, int, JSValueConst*) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api) return JS_EXCEPTION;
+  JSValue result = JS_NewArray(context);
+  uint32_t index = 0;
+  for (const auto& controller : scope->api->gamepad.controllers) {
+    JSValue item = JS_NewObject(context);
+    JS_SetPropertyStr(context, item, "id", JS_NewString(context, controller.id.c_str()));
+    JS_SetPropertyStr(context, item, "name", JS_NewString(context, controller.name.c_str()));
+    JS_SetPropertyStr(context, item, "vendorId", JS_NewInt32(context, controller.vendor_id));
+    JS_SetPropertyStr(context, item, "productId", JS_NewInt32(context, controller.product_id));
+    JS_SetPropertyStr(context, item, "axes", JS_NewInt32(context, controller.axes));
+    JS_SetPropertyStr(context, item, "buttons", JS_NewInt32(context, controller.buttons));
+    JS_SetPropertyStr(context, item, "switches", JS_NewInt32(context, controller.switches));
+    JS_SetPropertyStr(context, item, "gamepad", JS_NewBool(context, controller.gamepad));
+    JS_SetPropertyUint32(context, result, index++, item);
+  }
+  return result;
+}
+
+JSValue Capabilities(JSContext* context, JSValueConst, int, JSValueConst*) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api) return JS_EXCEPTION;
+  JSValue result = JS_NewObject(context);
+  JS_SetPropertyStr(context, result, "platform", JS_NewString(context, "xbox-uwp"));
+  JS_SetPropertyStr(context, result, "quickjs", JS_NewBool(context, true));
+  JS_SetPropertyStr(context, result, "direct3d11", JS_NewBool(context, true));
+  JS_SetPropertyStr(context, result, "xaudio2", JS_NewBool(context, true));
+  JS_SetPropertyStr(context, result, "internetClient", JS_NewBool(context, true));
+  JS_SetPropertyStr(context, result, "privateNetworkClientServer", JS_NewBool(context, true));
+  JS_SetPropertyStr(context, result, "online", JS_NewBool(context, scope->api->system.online));
+  JS_SetPropertyStr(context, result, "liveLocalState", JS_NewBool(context, true));
+  return result;
+}
+
 class QuickJsPiece final : public JsPiece {
  public:
   QuickJsPiece(const PieceBundle& bundle, const JsLimits& limits, std::string& error)
@@ -49,6 +84,8 @@ class QuickJsPiece final : public JsPiece {
     JSValue global = JS_GetGlobalObject(context_);
     JS_SetPropertyStr(context_, global, "wipe", JS_NewCFunction(context_, Wipe, "wipe", 3));
     JS_SetPropertyStr(context_, global, "synth", JS_NewCFunction(context_, Synth, "synth", 2));
+    JS_SetPropertyStr(context_, global, "controllers", JS_NewCFunction(context_, Controllers, "controllers", 0));
+    JS_SetPropertyStr(context_, global, "capabilities", JS_NewCFunction(context_, Capabilities, "capabilities", 0));
     JS_FreeValue(context_, global);
     JSValue result = JS_Eval(context_, bundle.source.data(), bundle.source.size(),
                              bundle.slug.c_str(), JS_EVAL_TYPE_GLOBAL);
