@@ -650,12 +650,15 @@ function loadPosts(){
     // Relationship edits change work reach/count immediately. Recompute from
     // patched posts so index and detail pages continue to agree.
     for(const work of WORKS){
-      const related=POSTS_BY_CODE[work.code]||[];
+      const related=(POSTS_BY_CODE[work.code]||[]).sort((a,b)=>(b.views||0)-(a.views||0));
       if(related.length||generatedRelationships.has(work.code)){
         work.perf=related.length;
         work.views=related.reduce((sum,p)=>sum+(p.views||0),0);
+        if(!work.slug&&related[0]?.thumb) work.thumb=related[0].thumb;
       }
     }
+    WORKS=[...WORKS.slice(0,CURATED_N),...WORKS.slice(CURATED_N).sort((a,b)=>(b.views||0)-(a.views||0))];
+    BY=Object.fromEntries(WORKS.map(work=>[work.code,work]));
     return pd;
   }).catch(()=>{});
   return postsLoaded;
