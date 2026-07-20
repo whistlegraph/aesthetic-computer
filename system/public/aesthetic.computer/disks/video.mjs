@@ -1069,33 +1069,13 @@ function paint({
             ? "on grid"
             : `${n64 > 0 ? "+" : "-"}${String(Math.min(99, Math.abs(n64))).padStart(2)}/64`
       ).padStart(7);
-      // Three chips, right-aligned: [sync][±XXXXms][musical]. Values and
-      // units live in their own boxes so each is separately OCR/eye
-      // anchorable, colored by lock state only where it matters.
-      const chipY = 15;
-      const chipH = 11;
-      const mW = 40; // musical chip
-      const vW = 48; // value chip
-      const lW = 26; // label chip
-      const mX = screen.width - 6 - mW;
-      const vX = mX - 2 - vW;
-      const lX = vX - 2 - lW;
-      for (const [cx, cw] of [[lX, lW], [vX, vW], [mX, mW]]) {
-        ink(60, 75, 95, 150).box(cx, chipY, cw, chipH);
-        ink(110, 130, 160).box(cx, chipY, cw, chipH, "outline");
-      }
-      ink(180, 200, 230).write("sync", { x: lX + 3, y: chipY + 3 }, undefined, undefined, false, "MatrixChunky8");
+      // One clean boxed row — value and musical unit inside a single
+      // chip, fixed-width so nothing ever collides or shifts.
+      ink(60, 75, 95, 150).box(screen.width - 6 - 92, 15, 94, 11);
+      ink(110, 130, 160).box(screen.width - 6 - 92, 15, 94, 11, "outline");
       ink(locked ? [0, 255, 120] : [255, 170, 0]).write(
-        msStr,
-        { x: vX + vW - 2, y: chipY + 3, right: true },
-        undefined,
-        undefined,
-        false,
-        "MatrixChunky8",
-      );
-      ink(locked ? [0, 255, 120] : [255, 170, 0]).write(
-        musical.trim(),
-        { x: mX + mW - 2, y: chipY + 3, right: true },
+        `${msStr} ${musical}`,
+        { x: screen.width - 8, y: 18, right: true },
         undefined,
         undefined,
         false,

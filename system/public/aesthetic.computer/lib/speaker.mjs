@@ -98,6 +98,9 @@ class SpeakerProcessor extends AudioWorkletProcessor {
   #popMax = 0;
   #popLastReport = 0;
 
+  // Demand gate for frequency analysis (see get-frequencies).
+  #lastFrequencyRequest = -10;
+
   #reverbLeft;
   #reverbRight;
 
@@ -159,6 +162,7 @@ class SpeakerProcessor extends AudioWorkletProcessor {
       }
 
       if (msg.type === "get-frequencies") {
+        this.#lastFrequencyRequest = currentTime; // Re-arms the analysis gate
         this.port.postMessage({
           type: "frequencies",
           content: {
@@ -951,7 +955,25 @@ class SpeakerProcessor extends AudioWorkletProcessor {
     this.#currentAmplitudeLeft = ampLeft;
     this.#currentAmplitudeRight = ampRight;
 
+    // 🍿 Ship pop counts ~4Hz (must precede the analysis gate below).
+    if (this.#popCount > 0 && currentTime - this.#popLastReport > 0.25) {
+      this.#report("pops", {
+        count: this.#popCount,
+        max: +this.#popMax.toFixed(3),
+        at: currentTime,
+      });
+      this.#popCount = 0;
+      this.#popMax = 0;
+      this.#popLastReport = currentTime;
+    }
+
     // === FREQUENCY ANALYSIS (OPTIMIZED) ===
+    // Demand-gated: unless something asked for frequencies in the last
+    // 2s, skip ALL analysis work (buffer pushes, slices, FFTs) — a tape
+    // pane never visualizes, so this was pure per-pane waste.
+    if (currentTime - (this.#lastFrequencyRequest ?? -10) > 2) {
+      return true;
+    }
     // Add samples to FFT buffers
     this.#fftBufferLeft.push(...output[0]);
     this.#fftBufferRight.push(...output[1]);
@@ -992,18 +1014,6 @@ class SpeakerProcessor extends AudioWorkletProcessor {
     }    
     if (this._processCallCount <= 3) {
       console.log("🔊 #processAudio END call:", this._processCallCount);
-    }
-
-    // 🍿 Ship pop counts ~4Hz so listeners can correlate with gestures.
-    if (this.#popCount > 0 && currentTime - this.#popLastReport > 0.25) {
-      this.#report("pops", {
-        count: this.#popCount,
-        max: +this.#popMax.toFixed(3),
-        at: currentTime,
-      });
-      this.#popCount = 0;
-      this.#popMax = 0;
-      this.#popLastReport = currentTime;
     }
     return true;
   } // End of #processAudio method
