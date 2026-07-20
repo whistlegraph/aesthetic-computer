@@ -412,7 +412,7 @@ private:
       ComPtr<IDWriteTextFormat> format;
       Check(m_dwriteFactory->CreateTextFormat(L"Segoe UI", nullptr,
         DWRITE_FONT_WEIGHT_SEMI_BOLD, DWRITE_FONT_STYLE_NORMAL,
-        DWRITE_FONT_STRETCH_NORMAL, std::max(12.0f, m_frameText->size), L"en-us",
+        DWRITE_FONT_STRETCH_NORMAL, (std::max)(12.0f, m_frameText->size), L"en-us",
         &format));
       const auto text = Wide(m_frameText->value);
       const auto bounds = D2D1::RectF(m_frameText->x, m_frameText->y,
