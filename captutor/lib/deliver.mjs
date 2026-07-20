@@ -268,8 +268,12 @@ export function deliver({ clip, cues, format, out, workDir, locale = "en" }) {
   // static even though narration is still running. Never let that truncate the
   // visual stream: hold its final valid frame through the audio duration.
   const pad = Math.max(0, dur - videoDur);
+  // Give the hold a small overrun and let `-shortest` trim to narration. Some
+  // ScreenCaptureKit files carry a final-frame timestamp almost one second
+  // earlier than their reported stream duration; padding only the arithmetic
+  // delta can therefore still leave a short video track in the final MP4.
   const holdLastFrame = pad > 0.02
-    ? `tpad=stop_mode=clone:stop_duration=${pad.toFixed(3)},`
+    ? `tpad=stop_mode=clone:stop_duration=${(pad + 2).toFixed(3)},`
     : "";
   const W = F.out.w;
   const H = F.out.h;
@@ -348,6 +352,7 @@ export function deliver({ clip, cues, format, out, workDir, locale = "en" }) {
     "-crf", STAGE_MODE ? "15" : "19",
     "-pix_fmt", "yuv420p",
     "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2",
+    "-shortest",
     "-movflags", "+faststart",
     out);
 
