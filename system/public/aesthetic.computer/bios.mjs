@@ -11601,19 +11601,33 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                   Math.exp(-inHalf * 12) * 0.42; // Bass stab
               }
             } else if (style === "sine") {
-              // 〰️ Sineline: one continuous legato sine gliding through a
-              // pentatonic line, with a soft sub octave — pure pitch
-              // material, lovely under a scrub. The glide keeps frequency
-              // continuous; a 15ms edge fade softens the loop seam.
-              const noteIdx = Math.floor(tt / BEAT);
-              const target =
-                pent[(noteIdx * 2 + Math.floor(noteIdx / 3)) % pent.length] / 2;
-              sineF += (target - sineF) * 0.0004; // ~50ms portamento
+              // 〰️ Sineline, plucked: one continuous-phase sine walking a
+              // 16-step half-beat melody in a lower register, struck with a
+              // percussive envelope + a tiny thock — a bass-y kalimba line
+              // rather than a drone. Rests and octave dips give it motion.
+              // Amplitude makes the pluck; the phase never breaks, and all
+              // pitches stay 0.5Hz-quantized, so the seam is still perfect.
+              const HALF = BEAT / 2;
+              const step = Math.floor(tt / HALF) % 16;
+              const inStep = tt % HALF;
+              // Pent indices; negative = rest, 10+ = same note an octave down.
+              const MELODY = [0, 2, 4, 12, 3, 0, -1, 1, 4, 2, 10, 2, 1, -1, 3, 0];
+              const m = MELODY[step];
+              const rest = m < 0;
+              const idx = rest ? 0 : m % 10;
+              const octDown = m >= 10;
+              const target = (pent[idx] / 2) * (octDown ? 0.5 : 1);
+              sineF += (target - sineF) * 0.002; // Fast settle — pluck pitch
               ph1 += (TAU * sineF) / sampleRate;
               ph2 += (TAU * sineF) / 2 / sampleRate;
               const sineEdge = Math.min(1, tt / 0.015, (duration - tt) / 0.015);
-              v += Math.sin(ph1) * 0.48 * sineEdge;
-              v += Math.sin(ph2) * 0.16 * sineEdge;
+              if (!rest) {
+                const att = Math.min(1, inStep / 0.004); // 4ms bite
+                const env = Math.exp(-inStep * 7) * att;
+                v += Math.sin(ph1) * 0.5 * env * sineEdge;
+                v += Math.sin(ph2) * 0.2 * Math.exp(-inStep * 4) * att * sineEdge; // Sub body
+                v += noise * Math.exp(-inStep * 160) * 0.1; // Thock
+              }
             } else if (style === "dub") {
               // 🌫️ Halftime dub: deep kicks on 1 & 3, rim on 3, a sub line
               // per half-bar, and offbeat skank chords.
@@ -12319,6 +12333,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const shift = typeof content === "number" ? content : 0;
         // console.log(`📼 🎵 Shifting tape audio pitch: ${shift.toFixed(3)}`);
         sfxPlaying[tapeAudioId].update({ shift });
+      }
+      return;
+    }
+
+    if (type === "tape:volume") {
+      // 🎚️ Live volume for the playing tape loop (0..1) — the per-player
+      // mix fader and the multi-window auto-mixer both land here.
+      const tapeAudioId = Object.keys(sfxPlaying).find((id) =>
+        id.startsWith("tape:audio_"),
+      );
+      if (tapeAudioId && sfxPlaying[tapeAudioId]) {
+        const v =
+          typeof content === "number" ? Math.max(0, Math.min(1, content)) : 1;
+        sfxPlaying[tapeAudioId].update({ volume: v, duration: 0.08 });
       }
       return;
     }

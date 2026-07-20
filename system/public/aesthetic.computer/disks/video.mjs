@@ -162,6 +162,25 @@ let scrubLastSimTime = 0;
 // tape so scrub feel can be tuned without recording anything. `auto` runs a
 // scripted gesture exercise that grades the physics (🧪 SYNTHSCRUB logs).
 let isSynthTape = false;
+
+// 🎚️ Player mixer + multi-window jam coordination (BroadcastChannel).
+// Every AC tape window heartbeats on a shared channel; volume auto-scales
+// by 1/√N so a band of panes never clips, and freshly-booted panes hold
+// silence ("armed") until every sibling is ready — then all drop in on
+// the same UTC bar. Timeouts cover a pane that never finishes loading.
+let mixVolume = 1; // The local fader, 0..1
+let volBtn = null; // Left-edge fader hit area
+let jamChannel = null;
+let jamId = null;
+let jamPeers = new Map(); // id -> { t, ready }
+let jamReady = false; // This window's tape is loaded + presenting
+let jamArmed = false; // Holding silence for the coordinated drop
+let jamArmedAt = 0; // performance.now() when we became ready
+let jamStartAt = 0; // UTC ms of the agreed drop (0 = not yet agreed)
+let jamHeartbeat = null;
+let lastSentTapeVolume = -1;
+const JAM_ARM_TIMEOUT = 8000; // A never-loading sibling can't hold us hostage
+let legendBtns = null; // Tappable deck-key legend (bottom-right)
 let synthAuto = false;
 let autoScript = null; // Remaining autopilot segments
 let autoSeg = null; // Segment currently running
@@ -203,6 +222,60 @@ async function handleAudioContextAndPlay(sound, rec, triggerRender) {
   
   console.log("🎵 Audio context resume requested - BIOS will handle the rest");
   triggerRender();
+}
+
+// 🛰️ Join the local jam: open the shared channel, heartbeat readiness,
+// prune silent peers. postMessage-family (BroadcastChannel) — works across
+// Electron panes and browser tabs on the same origin alike.
+function jamJoin() {
+  if (typeof BroadcastChannel === "undefined" || jamChannel) return;
+  jamId = Math.random().toString(36).slice(2, 9);
+  jamPeers = new Map();
+  jamReady = false;
+  jamArmed = true;
+  jamArmedAt = 0;
+  jamStartAt = 0;
+  jamChannel = new BroadcastChannel("ac-tape-jam");
+  jamChannel.onmessage = (ev) => {
+    const m = ev.data || {};
+    if (!m.id || m.id === jamId) return;
+    if (m.type === "bye") {
+      jamPeers.delete(m.id);
+      return;
+    }
+    jamPeers.set(m.id, { t: performance.now(), ready: !!m.ready });
+    // Adopt the earliest announced drop time so the band agrees.
+    if (m.startAt && (!jamStartAt || m.startAt < jamStartAt)) {
+      jamStartAt = m.startAt;
+    }
+  };
+  jamHeartbeat = setInterval(() => {
+    try {
+      jamChannel?.postMessage({
+        id: jamId,
+        type: "hb",
+        ready: jamReady,
+        startAt: jamStartAt,
+      });
+    } catch {}
+    const now = performance.now();
+    for (const [id, p] of jamPeers) if (now - p.t > 3000) jamPeers.delete(id);
+  }, 500);
+}
+
+function jamLeave() {
+  try {
+    jamChannel?.postMessage({ id: jamId, type: "bye" });
+    jamChannel?.close();
+  } catch {}
+  if (jamHeartbeat) clearInterval(jamHeartbeat);
+  jamHeartbeat = null;
+  jamChannel = null;
+  jamPeers = new Map();
+  jamReady = false;
+  jamArmed = false;
+  jamStartAt = 0;
+  lastSentTapeVolume = -1;
 }
 
 function ensureScrubStripButton(ui, screen, enabled) {
@@ -476,6 +549,7 @@ function boot({ wipe, rec, gizmo, jump, notice, store, params, send, hud }) {
     tapeLoadProgress = 0;
     tapeLoadMessage = "SYNTHESIZING TAPE";
     hud?.label(`synthtape ${style}${synthAuto ? " auto" : ""}`);
+    jamJoin(); // Sibling AC windows coordinate volume + a synchronized drop.
     send({ type: "tape:play-synth", content: { duration, fps, style } });
   } else {
     // Try to restore cached video from IndexedDB
@@ -652,13 +726,19 @@ function paint({
       zipBtn = undefined;
     }
 
-    // 🔙 Back-to-cap button (bottom-left) for the cap → review → re-cap loop.
-    if (!backBtn) {
-      backBtn = new ui.TextButton("Back", { left: 6, bottom: 6, screen });
+    // 🔙 Back-to-cap button (bottom-left) for the cap → review → re-cap
+    // loop — only when we actually came from recording. A synthtape player
+    // has no cap to go back to, so it gets no Back at all.
+    if (!isSynthTape) {
+      if (!backBtn) {
+        backBtn = new ui.TextButton("Back", { left: 6, bottom: 6, screen });
+      }
+      backBtn.reposition({ left: 6, bottom: 6, screen }, "Back");
+      backBtn.disabled = disableExports;
+      backBtn.paint(api);
+    } else {
+      backBtn = undefined;
     }
-    backBtn.reposition({ left: 6, bottom: 6, screen }, "Back");
-    backBtn.disabled = disableExports;
-    backBtn.paint(api);
   } else {
     postBtn = undefined;
     gifBtn = undefined;
@@ -967,21 +1047,109 @@ function paint({
       );
     }
 
-    // ⌨️ Deck keys legend, bottom-right.
-    const keyLines = [
-      "<- -> beat jump",
-      "hold ^ 1/4 chop",
-      "hold v 1/8 chop",
-      "space reset",
+    // 🎚️ Left-edge mix fader: drag to set this player's level. The auto
+    // mixer (1/√windows) rides on top; the number shows what's actually
+    // sent. Display + control live together on the left, away from the
+    // display-only top-right.
+    if (jamChannel) {
+      const fTop = 28;
+      const fBottom = screen.height - 34;
+      const fH = Math.max(24, fBottom - fTop);
+      if (!volBtn) {
+        volBtn = new ui.Button(0, fTop - 8, 16, fH + 16);
+        volBtn.stickyScrubbing = true;
+        volBtn.noRolloverActivation = true;
+      }
+      volBtn.box.x = 0;
+      volBtn.box.y = fTop - 8;
+      volBtn.box.w = 16;
+      volBtn.box.h = fH + 16;
+      ink(255, 255, 255, 36).box(4, fTop, 3, fH); // Track
+      const fillH = Math.round(fH * mixVolume);
+      ink(volBtn.down ? [0, 255, 180] : [255, 255, 0, 180]).box(
+        4,
+        fTop + (fH - fillH),
+        3,
+        fillH,
+      ); // Level
+      const shown = Math.round((lastSentTapeVolume < 0 ? mixVolume : lastSentTapeVolume) * 100);
+      ink(255, 255, 255, 160).write(
+        `${shown}`,
+        { x: 2, y: fBottom + 4 },
+        undefined,
+        undefined,
+        false,
+        "MatrixChunky8",
+      );
+      // Band size, under the beat blink (display-only, top-right).
+      if (jamPeers.size > 0) {
+        ink(0, 255, 255, 180).write(
+          `${jamPeers.size + 1}win`,
+          { x: screen.width - 6, y: 40, right: true },
+          undefined,
+          undefined,
+          false,
+          "MatrixChunky8",
+        );
+      }
+      // ⏳ Armed: holding silence until the whole band is ready.
+      if (jamArmed) {
+        const ready = [...jamPeers.values()].filter((p) => p.ready).length + (jamReady ? 1 : 0);
+        ink(255, 255, 0).write(
+          `ARMED ${ready}/${jamPeers.size + 1}`,
+          { center: "x", y: screen.height / 2 - 20 },
+          undefined,
+          undefined,
+          false,
+          "MatrixChunky8",
+        );
+      }
+    }
+
+    // ⌨️🖲️ Deck keys legend, bottom-right — every row is also a button:
+    // tap ←/→ to beat-jump, hold the chop rows, tap reset. Keyboard and
+    // touch drive the exact same moves.
+    const keyRows = [
+      { key: "jumpL", label: "<-", extra: "-> beat jump" },
+      { key: "chop4", label: "hold ^ 1/4 chop" },
+      { key: "chop8", label: "hold v 1/8 chop" },
+      { key: "reset", label: "space reset" },
     ];
-    keyLines.forEach((l, i) => {
-      ink(255, 255, 255, 110).write(
-        l,
-        {
-          x: screen.width - 6,
-          y: screen.height - 10 - (keyLines.length - i) * 10,
-          right: true,
-        },
+    if (!legendBtns) legendBtns = {};
+    const rowH = 10;
+    keyRows.forEach((row, i) => {
+      const y = screen.height - 10 - (keyRows.length - i) * rowH;
+      const full = row.extra ? `${row.label} ${row.extra}` : row.label;
+      const w = 78; // Generous hit box for the whole row
+      if (row.key === "jumpL") {
+        // Row 1 splits: left half jumps back, right half jumps forward.
+        for (const [k, x0] of [["jumpL", screen.width - 6 - w], ["jumpR", screen.width - 6 - w / 2]]) {
+          if (!legendBtns[k]) {
+            legendBtns[k] = new ui.Button(x0, y - 1, w / 2, rowH);
+            legendBtns[k].noRolloverActivation = true;
+          }
+          legendBtns[k].box.x = x0;
+          legendBtns[k].box.y = y - 1;
+          legendBtns[k].box.w = w / 2;
+          legendBtns[k].box.h = rowH;
+        }
+      } else {
+        if (!legendBtns[row.key]) {
+          legendBtns[row.key] = new ui.Button(screen.width - 6 - w, y - 1, w, rowH);
+          legendBtns[row.key].noRolloverActivation = true;
+        }
+        legendBtns[row.key].box.x = screen.width - 6 - w;
+        legendBtns[row.key].box.y = y - 1;
+        legendBtns[row.key].box.w = w;
+        legendBtns[row.key].box.h = rowH;
+      }
+      const active =
+        row.key === "jumpL"
+          ? legendBtns.jumpL?.down || legendBtns.jumpR?.down
+          : legendBtns[row.key]?.down;
+      ink(255, 255, 255, active ? 255 : 110).write(
+        full,
+        { x: screen.width - 6, y, right: true },
         undefined,
         undefined,
         false,
@@ -1094,6 +1262,38 @@ function sim({ needsPaint, rec, send, clock, sound }) {
         volume: onBar ? 0.15 : 0.09,
         duration: 0.015,
       });
+    }
+  }
+
+  // 🎚️🛰️ Jam mix: readiness → coordinated drop → live volume.
+  if (jamChannel && rec?.presenting) {
+    if (!jamReady && tapeInfo?.totalDuration) {
+      jamReady = true;
+      jamArmedAt = performance.now();
+    }
+    if (jamArmed && jamReady) {
+      const peers = [...jamPeers.values()];
+      const allReady = peers.length > 0 && peers.every((p) => p.ready);
+      const waitedOut = performance.now() - jamArmedAt > JAM_ARM_TIMEOUT;
+      const solo = peers.length === 0 && performance.now() - jamArmedAt > 1200;
+      if (!jamStartAt && (allReady || waitedOut || solo)) {
+        // Everyone applies the same rule against the same UTC clock, so
+        // the drop is simultaneous by construction: next bar boundary.
+        const nowU = clock?.time?.()?.getTime?.() ?? Date.now();
+        const grid = peers.length ? 2000 : 500; // Band: a bar; solo: a beat
+        jamStartAt = Math.ceil((nowU + 150) / grid) * grid;
+      }
+      if (jamStartAt) {
+        const nowU = clock?.time?.()?.getTime?.() ?? Date.now();
+        if (nowU >= jamStartAt) jamArmed = false; // 🎉 The drop.
+      }
+    }
+    // Auto-mix: fader × 1/√(windows) — more panes, softer each, no clipping.
+    const autoGain = 1 / Math.sqrt(1 + jamPeers.size);
+    const target = jamArmed ? 0 : mixVolume * autoGain;
+    if (Math.abs(target - lastSentTapeVolume) > 0.004) {
+      lastSentTapeVolume = target;
+      send({ type: "tape:volume", content: target });
     }
   }
 
@@ -2413,8 +2613,8 @@ function act({
     
     // ⌨️ Spacebar is the only pause — touch never pauses, but a deliberate
     // keypress can still halt and resume the tape.
-    if (e.is("keyboard:down:space") && rec.presenting) {
-      // Spacebar also resets any parked/spinning rate back to normal.
+    // Full reset/pause — spacebar and the legend's "reset" button share it.
+    const fullReset = () => {
       isScrubbing = false;
       inertiaActive = false;
       brakeHolding = false;
@@ -2429,7 +2629,24 @@ function act({
       if (rec.playing) rec.pause();
       else rec.play();
       triggerRender();
+    };
+    if (e.is("keyboard:down:space") && rec.presenting) {
+      fullReset();
       return;
+    }
+
+    // 🎚️ Mix fader (left edge): drag sets this player's level directly.
+    if (volBtn && rec.presenting && !isPrinting && !isPostingTape) {
+      const setMixFromY = () => {
+        if (e.y === undefined) return;
+        const fTop = 28;
+        const fBottom = screen.height - 34;
+        const fH = Math.max(24, fBottom - fTop);
+        mixVolume = Math.max(0, Math.min(1, 1 - (e.y - fTop) / fH));
+        triggerRender();
+      };
+      volBtn.act(e, { down: setMixFromY, scrub: setMixFromY });
+      if (volBtn.down) return; // The fader owns this gesture
     }
 
     // 🎛️ Deck keys, Pioneer-style: ← → beat-jump the tape (audio included);
@@ -2464,6 +2681,29 @@ function act({
       }
       if (e.is("keyboard:up:arrowup") || e.is("keyboard:up:arrowdown")) {
         chopActive = 0;
+      }
+
+      // 🖲️ The legend rows are buttons too — identical moves by touch.
+      const chopDown = (fraction) => () => {
+        if (chopActive) return;
+        ensureDriven(rec, send);
+        chopActive = fraction;
+        chopStart = scrubCurrentProgress;
+        send({ type: "tape:audio-pos", content: chopStart });
+      };
+      const chopUp = () => {
+        chopActive = 0;
+      };
+      legendBtns?.jumpL?.act(e, { down: () => beatJump(-1) });
+      legendBtns?.jumpR?.act(e, { down: () => beatJump(1) });
+      legendBtns?.chop4?.act(e, { down: chopDown(0.25), up: chopUp, cancel: chopUp });
+      legendBtns?.chop8?.act(e, { down: chopDown(0.125), up: chopUp, cancel: chopUp });
+      legendBtns?.reset?.act(e, { push: fullReset });
+      if (
+        legendBtns &&
+        Object.values(legendBtns).some((b) => b?.down)
+      ) {
+        return; // A deck button owns this gesture — not the scrub strip.
       }
     }
 
@@ -3238,6 +3478,7 @@ function leave({ send, rec }) {
   // End the presentation properly — otherwise rec.presenting stays true
   // and the bottom progress bar cursor haunts the next piece (prompt).
   rec?.unpresent?.();
+  jamLeave(); // Tell sibling windows we're gone; stop heartbeating.
   isScrubbing = false;
   inertiaActive = false;
   brakeHolding = false;

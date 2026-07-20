@@ -84,61 +84,119 @@ class Performer {
     }
   }
 
+  // 👻 Virtual cursor: a visible in-page arrow that mirrors every synthetic
+  // mouse move, so a human (or a `frame` capture) can SEE each driver's
+  // hand. Machine-readable twin lives at window.__jamCursor {x,y,down}.
+  async installCursor() {
+    const color = CURSOR_COLORS[this.idx % CURSOR_COLORS.length];
+    try {
+      await this.page.evaluate(
+        ({ label, color }) => {
+          window.__jamCursorEl?.remove();
+          const el = document.createElement("div");
+          el.id = "jam-cursor";
+          el.setAttribute("role", "img");
+          el.setAttribute("aria-label", `jam-cursor-${label}`);
+          el.style.cssText =
+            "position:fixed;left:0;top:0;z-index:2147483647;pointer-events:none;" +
+            `font:bold 10px monospace;color:${color};text-shadow:1px 1px 0 #000;`;
+          el.innerHTML =
+            `<svg width="15" height="15" viewBox="0 0 15 15">` +
+            `<path d="M1 1 L1 11.5 L4.2 8.4 L6.3 13 L8.4 12 L6.3 7.4 L10.5 7 Z"` +
+            ` fill="${color}" stroke="#000" stroke-width="1"/></svg>` +
+            `<div style="margin-top:-3px">${label}</div>`;
+          document.body.appendChild(el);
+          window.__jamCursorEl = el;
+          window.__jamCursor = { x: 0, y: 0, down: false };
+          window.__jamCursorMove = (x, y, down) => {
+            window.__jamCursor = { x, y, down };
+            el.style.transform = `translate(${x}px,${y}px)`;
+            el.style.filter = down ? "brightness(1.7) drop-shadow(0 0 3px #fff)" : "none";
+          };
+        },
+        { label: this.tape, color },
+      );
+    } catch {}
+  }
+
+  // Mirror a pointer state onto the virtual cursor (fire-and-forget).
+  cur(x, y, down = this.curDown) {
+    this.curDown = down;
+    this.curX = x;
+    this.curY = y;
+    this.page
+      .evaluate((a) => window.__jamCursorMove?.(a.x, a.y, a.down), { x, y, down })
+      .catch(() => {});
+  }
+
+  // Pointer wrappers: every synthetic move/press also moves the visible
+  // cursor, so gestures are watchable and frame-capturable.
+  async mmove(x, y, opts) {
+    this.cur(x, y);
+    await this.page.mouse.move(x, y, opts);
+  }
+  async mdown() {
+    this.cur(this.curX ?? this.cx, this.curY ?? this.cy, true);
+    await this.page.mouse.down();
+  }
+  async mup() {
+    this.cur(this.curX ?? this.cx, this.curY ?? this.cy, false);
+    await this.page.mouse.up();
+  }
+
   // Unlock audio with a trusted click, then let the loop play a beat.
   async wake() {
-    const m = this.page.mouse;
-    await m.move(this.cx, this.cy);
-    await m.click(this.cx, this.cy); // Trusted → unlocks AudioContext
+    await this.installCursor();
+    await this.mmove(this.cx, this.cy);
+    this.cur(this.cx, this.cy, true);
+    await this.page.mouse.click(this.cx, this.cy); // Trusted → unlocks AudioContext
+    this.cur(this.cx, this.cy, false);
     await sleep(400);
   }
 
   async wheelBurst(deltaX, count, gap) {
-    const m = this.page.mouse;
-    await m.move(this.cx, this.cy);
+    await this.mmove(this.cx, this.cy);
     for (let i = 0; i < count && !this.stopped; i++) {
-      await m.wheel({ deltaX });
+      await this.page.mouse.wheel({ deltaX });
       await sleep(gap);
     }
   }
 
   // A rubber-band drag: grab, displace horizontally (rate), release.
   async dragScratch(dir, reach, hold) {
-    const m = this.page.mouse;
-    await m.move(this.cx, this.cy);
-    await m.down();
+    await this.mmove(this.cx, this.cy);
+    await this.mdown();
     const steps = 8;
     for (let i = 1; i <= steps && !this.stopped; i++) {
-      await m.move(this.cx + dir * reach * (i / steps), this.cy);
+      await this.mmove(this.cx + dir * reach * (i / steps), this.cy);
       await sleep(hold / steps);
     }
-    await m.up();
+    await this.mup();
   }
 
   // Back-and-forth drag scratch — the DJ wiggle.
   async wiggle(times) {
-    const m = this.page.mouse;
-    await m.move(this.cx, this.cy);
-    await m.down();
+    await this.mmove(this.cx, this.cy);
+    await this.mdown();
     for (let i = 0; i < times && !this.stopped; i++) {
-      await m.move(this.cx + 120, this.cy, { steps: 4 });
+      await this.mmove(this.cx + 120, this.cy, { steps: 4 });
       await sleep(90);
-      await m.move(this.cx - 120, this.cy, { steps: 4 });
+      await this.mmove(this.cx - 120, this.cy, { steps: 4 });
       await sleep(90);
     }
-    await m.move(this.cx, this.cy, { steps: 3 });
-    await m.up();
+    await this.mmove(this.cx, this.cy, { steps: 3 });
+    await this.mup();
   }
 
   // Flick: quick throw then release → wheel spins free, friction glides home.
   async flick(dir) {
-    const m = this.page.mouse;
-    await m.move(this.cx, this.cy);
-    await m.down();
+    await this.mmove(this.cx, this.cy);
+    await this.mdown();
     for (let i = 1; i <= 5 && !this.stopped; i++) {
-      await m.move(this.cx + dir * 30 * i, this.cy);
+      await this.mmove(this.cx + dir * 30 * i, this.cy);
       await sleep(12);
     }
-    await m.up();
+    await this.mup();
   }
 
   async beatJump(n, key) {
@@ -264,8 +322,16 @@ async function adoptPage(browser, url) {
   return page;
 }
 
-const tapeURL = (tape) =>
-  `${BASE}/video~scrub~${tape}${DENSITY ? `?density=${DENSITY}` : ""}`;
+// nogap always: the AC canvas reaches the window edge, so the tape's
+// bottom progress bar sits on the true bottom of the pane.
+const tapeURL = (tape) => {
+  const q = ["nogap=true"];
+  if (DENSITY) q.push(`density=${DENSITY}`);
+  return `${BASE}/video~scrub~${tape}?${q.join("&")}`;
+};
+
+// Per-window cursor colors — sine yellow, house cyan, dub pink, break blue.
+const CURSOR_COLORS = ["#ffdd00", "#00ffcc", "#ff66aa", "#66aaff"];
 
 async function launchWindow(tape, idx) {
   const { browser, launched } = await getBrowser(idx);
