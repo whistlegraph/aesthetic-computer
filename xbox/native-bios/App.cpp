@@ -213,7 +213,7 @@ private:
     Check(backBuffer.As(&surface));
     const auto bitmapProperties = D2D1::BitmapProperties1(
       D2D1_BITMAP_OPTIONS_TARGET | D2D1_BITMAP_OPTIONS_CANNOT_DRAW,
-      D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED));
+      D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE));
     Check(m_d2dContext->CreateBitmapFromDxgiSurface(surface.Get(), &bitmapProperties,
       &m_d2dTarget));
     m_d2dContext->SetTarget(m_d2dTarget.Get());
@@ -407,11 +407,10 @@ private:
 
   void Render(const std::array<float, 4>& color) {
     if (!m_target) return;
-    m_context->OMSetRenderTargets(1, m_target.GetAddressOf(), nullptr);
-    m_context->ClearRenderTargetView(m_target.Get(), color.data());
     if (m_frameText && m_d2dContext && m_dwriteFactory) {
-      // D3D and D2D share the swap-chain surface. Release the D3D output binding
-      // before Direct2D acquires that surface or the text pass can be discarded.
+      // Own the complete frame with Direct2D whenever text is present. Mixing a
+      // D3D clear and D2D draw against the Xbox flip-chain can report a clean
+      // EndDraw while only the D3D clear reaches the display.
       m_context->OMSetRenderTargets(0, nullptr, nullptr);
       m_context->Flush();
       ComPtr<IDWriteTextFormat> format;
@@ -423,6 +422,14 @@ private:
       const auto bounds = D2D1::RectF(m_frameText->x, m_frameText->y,
         1920.0f - m_frameText->x, 1080.0f - m_frameText->y);
       m_d2dContext->BeginDraw();
+      m_d2dContext->Clear(D2D1::ColorF(color[0], color[1], color[2], 1.0f));
+      m_textBrush->SetColor(D2D1::ColorF(0.02f, 0.02f, 0.04f, 0.92f));
+      m_d2dContext->FillRoundedRectangle(
+        D2D1::RoundedRect(D2D1::RectF(m_frameText->x - 28.0f,
+          m_frameText->y - 18.0f, 1890.0f,
+          m_frameText->y + (std::max)(150.0f, m_frameText->size * 1.6f)), 18.0f, 18.0f),
+        m_textBrush.Get());
+      m_textBrush->SetColor(D2D1::ColorF(D2D1::ColorF::White));
       m_d2dContext->DrawText(text.c_str(), static_cast<UINT32>(text.size()),
         format.Get(), bounds, m_textBrush.Get());
       const HRESULT textResult = m_d2dContext->EndDraw();
@@ -431,6 +438,9 @@ private:
           " hr=" + std::to_string(static_cast<long>(textResult)));
         m_loggedTextFrame = true;
       }
+    } else {
+      m_context->OMSetRenderTargets(1, m_target.GetAddressOf(), nullptr);
+      m_context->ClearRenderTargetView(m_target.Get(), color.data());
     }
     const HRESULT hr = m_swapChain->Present(1, 0);
     if (FAILED(hr) && hr != DXGI_STATUS_OCCLUDED) Check(hr);
