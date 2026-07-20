@@ -171,6 +171,10 @@ const BED_GAIN = parseFloat(flag("bedgain", "0.42"));
 const ACCENT = flag("accent", "#3dff88");
 const ZOOM = parseFloat(flag("zoom", "1.0"));
 const STAMP_TITLE = flag("title", "prompt.AC");
+const STAMP_SIZE = parseFloat(flag("stamp-size", "145"));
+const STAMP_TITLE_PX = parseFloat(flag("stamp-title-px", "72"));
+const STAMP_TITLE_SCALE = parseFloat(flag("stamp-title-scale", "0.62"));
+const STAMP_CHROMA = parseFloat(flag("stamp-chroma", "3"));
 const SYNC_ARG = flag("sync", "auto");
 const LIMIT = flag("seconds") ? parseFloat(flag("seconds")) : null;
 const USE_BED = !has("no-bed");
@@ -473,6 +477,10 @@ const stamps = await makeSideStamps({
   w: W, h: H, fps: FPS, frames: FRAMES,
   assetsDir: join(WORK, "stamps"),
   title: STAMP_TITLE,
+  stampSize: STAMP_SIZE,
+  titlePx: STAMP_TITLE_PX,
+  charScale: STAMP_TITLE_SCALE,
+  chromaPx: STAMP_CHROMA,
 });
 
 // The clock's own glyph atlas, drawn top-left each frame (see the loop).
@@ -595,10 +603,15 @@ const sampleTint = () => {
   hueR += (wr / wsum - hueR) * k;
   hueG += (wg / wsum - hueG) * k;
   hueB += (wb / wsum - hueB) * k;
-  return {
-    core: dayglow([hueR, hueG, hueB]),
-    hi: dayglow([hueR, hueG, hueB], { value: 255 }).map((c) => Math.min(255, c + 90)),
-  };
+  const seen = dayglow([hueR, hueG, hueB]);
+  const palette = [[255, 30, 180], [30, 255, 215], [255, 225, 25], [115, 70, 255]];
+  const pos = (frame / FPS / 4.5) % palette.length;
+  const a = palette[Math.floor(pos)];
+  const b = palette[(Math.floor(pos) + 1) % palette.length];
+  const f = pos - Math.floor(pos);
+  const cycle = a.map((c, i) => c * (1 - f) + b[i] * f);
+  const core = seen.map((c, i) => Math.round(c * 0.58 + cycle[i] * 0.42));
+  return { core, hi: cycle.map((c) => Math.min(255, Math.round(c + 55))) };
 };
 
 const write = (buf) =>

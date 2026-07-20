@@ -220,8 +220,8 @@
     "parent": "ploo",
     "second": null,
     "mutation": "invert",
-    "trait": "gravity-well implosion (collapsing rings + rim-pulled rays + a black singularity) x muffled gong/falling-riser synth",
-    "born": "2026-07-15T12:08:17.360Z"
+    "trait": "imploding shockwave / black-hole bloom x reversed cinematic score",
+    "born": "2026-07-19T20:25:13.389Z"
   },
   "thrum": {
     "parent": "nuxo",
@@ -677,5 +677,152 @@
     "mutation": "eye",
     "trait": "pond-ripple rings x pentatonic harp",
     "born": "2026-07-18T23:26:49.401Z"
+  },
+  "nembo": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "elementary cellular automaton cascade (Rule 90 XOR-fractal, rows sonified as they're born) x pentatonic pluck/bell/sub voice with mechanical hat ticks",
+    "born": "2026-07-19T00:31:20.144Z"
+  },
+  "vosho": {
+    "parent": "ploo",
+    "second": null,
+    "mutation": "voice",
+    "trait": "concentric shockwave/starburst bloom x flute+harp+bubble breath voice",
+    "born": "2026-07-19T00:33:53.450Z"
+  },
+  "shivo": {
+    "parent": "varo",
+    "second": null,
+    "mutation": "push",
+    "trait": "a live moir grid that follows your finger x continuously-detuned pad voice, its beat rate set by drag speed",
+    "born": "2026-07-19T01:37:03.205Z"
+  },
+  "cogwo": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "meshed escapement gear-train (ratchet rotation, tooth-lap chimes) x polyrhythmic pluck/bell/sub clockwork",
+    "born": "2026-07-19T02:49:04.208Z"
+  },
+  "shendo": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "hyperspace starfield burst (radial perspective streak field, points accelerating outward from a vanishing point) x plucked cosmic arpeggio with a Doppler-panned warp-jump sub",
+    "born": "2026-07-19T02:53:21.888Z"
+  },
+  "cordo": {
+    "parent": "nuxo",
+    "second": "ploo",
+    "mutation": "cross",
+    "trait": "string-art harp (nuxo) x riser/drop cinematic voice (ploo)",
+    "born": "2026-07-19T03:55:56.455Z"
+  },
+  "ondro": {
+    "parent": "nuxo",
+    "second": null,
+    "mutation": "eye",
+    "trait": "pond ripples (rock-drop rings, spatial rosette by pitch+step) x nuxo's harp/sub/bell/hat voices",
+    "born": "2026-07-19T03:59:08.738Z"
+  },
+  "yarno": {
+    "parent": "nuxo",
+    "second": "ploo",
+    "mutation": "cross",
+    "trait": "string-art harp (peg-and-thread bloom) x cinematic riser/drop score",
+    "born": "2026-07-19T17:02:11.566Z"
+  },
+  "vynko": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "spinning vinyl record  a baked spiral groove read by a swinging tonearm x turntable scratch/pluck voice (drag bends pitch like a real needle)",
+    "born": "2026-07-19T17:06:52.185Z"
+  },
+  "yavro": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "sinking-glass-mote caustic-refraction field x whole-tone glass-chime voice",
+    "born": "2026-07-19T18:10:38.910Z"
+  },
+  "ploxo": {
+    "parent": "ploo",
+    "second": "nuxo",
+    "mutation": "cross",
+    "trait": "concentric shockwave/starburst bloom x pentatonic harp pluck",
+    "born": "2026-07-19T18:12:24.661Z"
+  },
+  "volmo": {
+    "parent": "varo",
+    "second": null,
+    "mutation": "eye",
+    "trait": "dual detuned sine traces + their summed AM envelope (oscilloscope beat diagram) x same varo pad/flute/sub score",
+    "born": "2026-07-19T19:15:50.230Z"
+  },
+  "harmo": {
+    "parent": "ploo",
+    "second": "nuxo",
+    "mutation": "cross",
+    "trait": "concentric shockwave/starburst bloom (ploo) x pentatonic harp pluck score (nuxo)",
+    "born": "2026-07-19T19:18:03.298Z"
+  },
+  "glindo": {
+    "parent": "wandro",
+    "second": null,
+    "mutation": "push",
+    "trait": "dragged mallet-strum across a pendulum row (wexo) x pluck/bell voice with a Y-axis pitch-bend overtone",
+    "born": "2026-07-19T20:21:23.888Z"
+  },
+  "glimo": {
+    "parent": "ploo",
+    "second": null,
+    "mutation": "voice",
+    "trait": "concentric shockwave/starburst bloom x music-box glass chime voice",
+    "born": "2026-07-19T21:28:01.671Z"
+  },
+  "lissa": {
+    "parent": "varo",
+    "second": null,
+    "mutation": "eye",
+    "trait": "twin pendulum-wave rows drifting in and out of sync x detuned sine/triangle pad swell",
+    "born": "2026-07-19T21:32:10.903Z"
+  },
+  "quenlo": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "Ising-spin annealing lattice (Monte Carlo magnet cooling/reheating into crystallizing domains) x temperature-tied flute drone + magnetization-pitched bell arpeggio",
+    "born": "2026-07-19T22:36:13.442Z"
+  },
+  "slurvo": {
+    "parent": "ploo",
+    "second": null,
+    "mutation": "push",
+    "trait": "comet-tail ribbon painter x granular theremin slide",
+    "born": "2026-07-19T23:44:18.689Z"
+  },
+  "vielo": {
+    "parent": "ploo",
+    "second": null,
+    "mutation": "push",
+    "trait": "comet-whip harp strings x plucked harp/pluck voices, string-crossing strum",
+    "born": "2026-07-19T23:47:43.061Z"
+  },
+  "vremo": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "BSP-cut stained-glass panel that gaps open at its seams on impact x inharmonic stretched-bar chime voice",
+    "born": "2026-07-20T00:52:54.499Z"
+  },
+  "silvo": {
+    "parent": "varo",
+    "second": null,
+    "mutation": "eye",
+    "trait": "kaleidoscopic phasor rose  vector-sum tip of two detuned orbiting arms, traced as a fading comet trail x same twin-detuned pad swell + sub-bass slide voice as varo",
+    "born": "2026-07-20T00:57:40.216Z"
   }
 }
