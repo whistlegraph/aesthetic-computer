@@ -11432,6 +11432,43 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
           
           // Extract and load audio if available
+          // 🛟 Imported tapes (atproto etc.) may ship a zip whose
+          // soundtrack.wav is a silent placeholder — or no wav at all —
+          // while the mp4 rendition carries the real audio. This fallback
+          // decodes the mp4's audio track instead of playing silence
+          // (which the corrupted-sample watchdog would kill anyway).
+          const loadMp4RenditionAudio = async () => {
+            try {
+              const mp4Res = await fetch(`/media/tapes/${code}.mp4`);
+              if (!mp4Res.ok) {
+                console.log("📼 No mp4 rendition either — tape plays silent");
+                return false;
+              }
+              const mp4Buf = await mp4Res.arrayBuffer();
+              window.tapeAudioArrayBuffer = mp4Buf.slice(0);
+              const ctx2 =
+                audioContext && audioContext.state !== "closed"
+                  ? audioContext
+                  : new OfflineAudioContext(1, 1, 48000);
+              const audioBuffer = await ctx2.decodeAudioData(mp4Buf);
+              sfx["tape:audio"] = audioBuffer;
+              console.log(
+                `📼 mp4 rendition audio loaded: ${audioBuffer.duration.toFixed(2)}s, ` +
+                  `${audioBuffer.numberOfChannels}ch @ ${audioBuffer.sampleRate}Hz`,
+              );
+              return true;
+            } catch (err) {
+              console.warn("📼 mp4 rendition audio decode failed:", err?.message);
+              return false;
+            }
+          };
+          const bufferIsSilent = (buf) => {
+            const ch = buf.getChannelData(0);
+            for (let i = 0; i < ch.length; i += 128) {
+              if (Math.abs(ch[i]) > 0.001) return false;
+            }
+            return true;
+          };
           const soundtrackFile = zip.file("soundtrack.wav");
           if (soundtrackFile) {
             console.log("📼 Found soundtrack.wav, loading audio...");
@@ -11461,40 +11498,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               window.tapeAudioArrayBuffer = audioArrayBuffer.slice();
 
               const audioBuffer = await ctx.decodeAudioData(audioArrayBuffer);
-              sfx["tape:audio"] = audioBuffer;
-              console.log(`📼 Audio loaded: ${audioBuffer.duration.toFixed(2)}s, ${audioBuffer.numberOfChannels} channels, ${audioBuffer.sampleRate}Hz`);
-              console.log(`📼 Duration comparison - Video: ${(mediaRecorderDuration / 1000).toFixed(2)}s, Audio: ${audioBuffer.duration.toFixed(2)}s, Δ: ${Math.abs(audioBuffer.duration - mediaRecorderDuration / 1000).toFixed(2)}s`);
+              if (bufferIsSilent(audioBuffer)) {
+                console.log("📼 soundtrack.wav is a silent placeholder — trying mp4 rendition audio...");
+                await loadMp4RenditionAudio();
+              } else {
+                sfx["tape:audio"] = audioBuffer;
+                console.log(`📼 Audio loaded: ${audioBuffer.duration.toFixed(2)}s, ${audioBuffer.numberOfChannels} channels, ${audioBuffer.sampleRate}Hz`);
+                console.log(`📼 Duration comparison - Video: ${(mediaRecorderDuration / 1000).toFixed(2)}s, Audio: ${audioBuffer.duration.toFixed(2)}s, Δ: ${Math.abs(audioBuffer.duration - mediaRecorderDuration / 1000).toFixed(2)}s`);
+              }
             } catch (error) {
               console.error("📼 Error loading audio:", error);
               console.warn("📼 Tape will play without audio");
             }
           } else {
-            // 🛟 No soundtrack.wav in the zip (imported tapes — e.g.
-            // atproto — often ship frames-only zips). The mp4 rendition
-            // still carries the audio track, so decode THAT instead of
-            // playing silent forever.
             console.log("📼 No soundtrack.wav in zip — trying mp4 rendition audio...");
-            try {
-              const mp4Res = await fetch(`/media/tapes/${code}.mp4`);
-              if (mp4Res.ok) {
-                const mp4Buf = await mp4Res.arrayBuffer();
-                window.tapeAudioArrayBuffer = mp4Buf.slice(0);
-                const ctx2 =
-                  audioContext && audioContext.state !== "closed"
-                    ? audioContext
-                    : new OfflineAudioContext(1, 1, 48000);
-                const audioBuffer = await ctx2.decodeAudioData(mp4Buf);
-                sfx["tape:audio"] = audioBuffer;
-                console.log(
-                  `📼 mp4 rendition audio loaded: ${audioBuffer.duration.toFixed(2)}s, ` +
-                    `${audioBuffer.numberOfChannels}ch @ ${audioBuffer.sampleRate}Hz`,
-                );
-              } else {
-                console.log("📼 No mp4 rendition either — tape plays silent");
-              }
-            } catch (err) {
-              console.warn("📼 mp4 rendition audio decode failed:", err?.message);
-            }
+            await loadMp4RenditionAudio();
           }
 
           // 🎵 If the worklet is already up (warm context — Electron panes
