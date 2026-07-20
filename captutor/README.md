@@ -10,7 +10,7 @@ node captutor.mjs render  <screenplay> --outbox ~/Desktop/outbox
 node captutor.mjs deliver <screenplay> --format docs --outbox ~/Desktop/outbox
 node captutor.mjs publish <screenplay>   # into apps/docs/public/ + the MDX line
 node bin/from-docs.mjs apps/quickstart   # a docs page → a screenplay draft
-node bin/stage.mjs render <screenplay>   # reversible HiDPI full-desk filming mode
+node bin/stage.mjs render <screenplay>   # reversible HiDPI clean-stage filming mode
 ```
 
 `--outbox` (or `CAPTUTOR_OUTBOX`) publishes only the finished, burned-caption
@@ -39,6 +39,8 @@ Two consequences worth knowing:
   of the transcription-fixup every other pipeline in this repo needs
   (`recap/bin/subtitles.mjs` keeps a `transcriptFixes` table because whisper
   hears "notepat" as "Notepad"). We already know the words — we wrote them.
+  Burned captions use those same timings to highlight the word currently being
+  spoken, while a classic white-and-black subtitle remains stable underneath.
 - **Overruns cannot desync.** `reel` reports `since`, the wall-clock instant the
   video's first frame exists. Each beat is stamped where it *actually* began
   against that origin, and narration is laid at those **measured** offsets, never
@@ -77,7 +79,7 @@ driving are separable**; only the capture changed.
 
 ### Captutor Stage Mode
 
-CDP clicks do not move the macOS cursor, and `reel` films the real screen — so
+CDP clicks do not move the macOS cursor, and `reel` films the real window — so
 without coordination the video would show a dead pointer parked in a corner while
 buttons depressed by themselves. `bin/stage.mjs` is the production path: it films
 the real 1.5× macOS pointer and moves it smoothly to the exact same coordinate as
@@ -85,12 +87,14 @@ each trusted CDP click. The older shadow-DOM tutorial pointer remains available
 outside Stage Mode.
 
 Stage Mode is a reversible transaction around any Captutor command. It saves the
-current desk, switches the display to 2× HiDPI (1280×720 logical / 2560×1440
-capture), centers the browser with a desktop margin, raises encoding quality,
-uses a neutral gray wallpaper, and temporarily hides desktop icons, Dock, menu
-bar, Stats, Macpal's desktop badge, and Slab prompt sigils. Its `finally` handler
-restores the saved display mode, pointer size, wallpaper, processes, and desktop
-preferences on success, failure, or interruption.
+current desk, switches the display to 2× HiDPI (1280×720 logical), centers the
+browser, raises encoding quality, uses a neutral gray wallpaper, and temporarily
+hides desktop icons, Dock, menu bar, Stats, Macpal's desktop badge, and Slab
+prompt sigils. The recorder captures only the browser window; delivery places it
+on a synthetic 2560×1440 Space Gray stage with one uniform margin. This keeps
+macOS recording indicators and unrelated desktop chrome out of the negative.
+Its `finally` handler restores the saved display mode, pointer size, wallpaper,
+processes, and desktop preferences on success, failure, or interruption.
 
 ## Staying signed in, and not spending the client's money
 

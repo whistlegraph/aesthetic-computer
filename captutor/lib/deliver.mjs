@@ -32,7 +32,7 @@ const STAGE_MODE = process.env.CAPTUTOR_STAGE_MODE === "1";
 //
 // Colours are Tailwind's, which is what services/og-image/colors.ts resolves to.
 const MARUND = process.env.CAPTUTOR_FONT || `${HERE}../assets/Marund.ttf`;
-const CAPTION_STYLE = "large-white-black-outline-v2";
+const CAPTION_STYLE = "classic-outline-karaoke-v3";
 
 // Marund is a Latin face. It has NO Hangul, no Han, no Devanagari — ask it for
 // Korean and ImageMagick returns a blank strip (it silently drops every glyph it
@@ -86,7 +86,9 @@ function assertHasInk(png, text) {
 let FONT = MARUND;  // set per-render by deliver()
 const TEXT = "#ffffff";    // plain white — subtitles are not a brand surface
 const SHADOW = "#000000";
+const ACTIVE_TEXT = "#facc15"; // warm yellow — familiar, restrained karaoke cue
 const BG = "#0a0a0a";      // neutral-950
+const STAGE_BG = "#bebfc4"; // macOS's Solid Colors / Space Gray wallpaper
 const ACCENT = "#4f46e5";  // indigo-600 — the app's own action colour
 
 // NOTE: ImageMagick here has no fontconfig, so there is no default font at all —
@@ -119,13 +121,16 @@ export const FORMATS = {
   // Docs. A wide window at the shape a reader's own browser is: the clip should
   // look like the app they are looking at.
   docs: {
-    // Stage Mode runs the display at 2× HiDPI: 1008 logical points become a
-    // crisp 2016×1260 browser inside a native 2560×1440 desktop frame.
-    win: STAGE_MODE ? { w: 1008, h: 630 } : { w: 1512, h: 945 },
+    // Stage Mode runs the display at 2× HiDPI. A 1190×630-point window becomes
+    // 2380×1260 pixels: exactly 90 pixels of breathing room on every side of a
+    // 2560×1440 delivery. The window is intentionally wider than 16:9 so the
+    // frame's margins, rather than the browser's aspect ratio, set the geometry.
+    win: STAGE_MODE ? { w: 1190, h: 630 } : { w: 1512, h: 945 },
     out: STAGE_MODE ? { w: 2560, h: 1440 } : { w: 1512, h: 945 },
+    compose: STAGE_MODE ? { stageMargin: 90 } : undefined,
     // Stage recordings are viewed inside a docs player, often at half their
     // encoded size. Use presentation-scale captions so they remain readable,
-    // and lift them slightly to give the thicker outline breathing room.
+    // and lift them slightly to give the classic outline breathing room.
     capWidth: 0.84,
     capPx: STAGE_MODE ? 58 : 44,
     capY: STAGE_MODE ? 0.86 : 0.90,
@@ -159,40 +164,82 @@ export const FORMATS = {
   },
 };
 
-/// Rasterize one caption to a transparent PNG: Marund in neutral-50 over a hard
-/// black shadow, auto-wrapped to the band width. ImageMagick loads the .ttf by
-/// path, so nothing has to be installed into the system font book.
-function cuePng(text, { width, px, out }) {
-  const common = [
-    "-background", "none",
-    "-font", FONT,
-    "-pointsize", String(px),
-    "-size", `${width}x`,
-    "-gravity", "center",
-  ];
-  // White type in a black OUTLINE — the subtitle convention, and the right one.
-  // A drop shadow only darkens one side, so type stays legible over a dark UI and
-  // smears over a light one. An outline surrounds every stroke, so the caption
-  // holds on any background, which is the whole job when the thing behind it is a
-  // UI that changes colour from shot to shot.
-  //
-  // Two passes, not one: ImageMagick draws the stroke ON TOP of the fill, so a
-  // single stroked pass eats the letterforms from the inside and thin glyphs fill
-  // in solid black. Draw the stroked copy, then lay the unstroked fill over it.
-  // Proportional and strong enough to remain visibly black after a 2× HiDPI
-  // take is scaled into the docs player. The white fill pass keeps the thicker
-  // outside stroke from closing the counters or turning into bubble lettering.
-  const stroke = Math.max(3, Math.round(px / 12));
-  const outline = `${out}.o.png`;
-  const fill = `${out}.f.png`;
-  execFileSync("magick", [...common,
+const metricCache = new Map();
+
+function textMetrics(text, px) {
+  const key = `${FONT}\0${px}\0${text}`;
+  if (metricCache.has(key)) return metricCache.get(key);
+  const [w, h] = execFileSync("magick", [
+    "-background", "none", "-font", FONT, "-pointsize", String(px),
+    `label:${text}`, "-format", "%w,%h", "info:",
+  ], { encoding: "utf8" }).trim().split(",").map(Number);
+  const value = { w, h };
+  metricCache.set(key, value);
+  return value;
+}
+
+/// Lay out explicit words rather than asking `caption:` to hide its wrapping
+/// decisions. Besides making the result deterministic, this gives each word an
+/// exact position so its fill can change while it is spoken without moving the
+/// phrase by even one pixel.
+function layoutWords(words, { width, px }) {
+  const sample = textMetrics("Ag", px);
+  const space = Math.max(1, textMetrics("A A", px).w - textMetrics("AA", px).w);
+  const lineHeight = Math.ceil(sample.h * 1.16);
+  const lines = [];
+  let line = { words: [], width: 0 };
+  for (const [index, word] of words.entries()) {
+    const measured = textMetrics(word.text, px);
+    const gap = line.words.length ? space : 0;
+    if (line.words.length && line.width + gap + measured.w > width) {
+      lines.push(line);
+      line = { words: [], width: 0 };
+    }
+    const x = line.width + (line.words.length ? space : 0);
+    line.words.push({ ...word, index, x, width: measured.w });
+    line.width = x + measured.w;
+  }
+  if (line.words.length) lines.push(line);
+
+  const height = Math.max(lineHeight, lines.length * lineHeight);
+  return {
+    width, height,
+    words: lines.flatMap((row, rowIndex) => {
+      const inset = Math.round((width - row.width) / 2);
+      return row.words.map((word) => ({
+        ...word,
+        x: inset + word.x,
+        y: Math.round(rowIndex * lineHeight + (lineHeight - sample.h) / 2),
+      }));
+    }),
+  };
+}
+
+/// Rasterize a phrase with a classic, even outer outline. The fill is drawn a
+/// second time over the centered stroke, leaving only its outside half visible;
+/// there is no drop shadow and therefore no heavier lower edge. `activeIndex`
+/// changes only the spoken word's fill to yellow for karaoke-style tracking.
+function cuePng(words, { width, px, out, activeIndex = -1 }) {
+  const layout = layoutWords(words, { width, px });
+  const stroke = Math.max(2, Math.round(px / 18));
+  const args = [
+    "-size", `${layout.width}x${layout.height}`, "xc:none",
+    "-font", FONT, "-pointsize", String(px), "-gravity", "northwest",
     "-stroke", SHADOW, "-strokewidth", String(stroke), "-fill", TEXT,
-    `caption:${text}`, outline]);
-  execFileSync("magick", [...common,
-    "-stroke", "none", "-fill", TEXT,
-    `caption:${text}`, fill]);
-  execFileSync("magick", [outline, fill, "-composite", out]);
-  assertHasInk(out, text);
+  ];
+  for (const word of layout.words) {
+    args.push("-annotate", `+${word.x}+${word.y}`, word.text);
+  }
+  args.push("-stroke", "none", "-strokewidth", "0");
+  for (const word of layout.words) {
+    args.push(
+      "-fill", word.index === activeIndex ? ACTIVE_TEXT : TEXT,
+      "-annotate", `+${word.x}+${word.y}`, word.text,
+    );
+  }
+  args.push(out);
+  execFileSync("magick", args);
+  assertHasInk(out, words.map((word) => word.text).join(" "));
   return out;
 }
 
@@ -234,6 +281,11 @@ function phrases(cues, { maxWords = 6, pauseMs = 380 } = {}) {
         if (prev) {
           prev.text += " " + cur.map((w) => w.text).join(" ");
           prev.to = beat.offsetSec + cur[cur.length - 1].toMs / 1000;
+          prev.words.push(...cur.map((w) => ({
+            text: w.text,
+            from: beat.offsetSec + w.fromMs / 1000,
+            to: beat.offsetSec + w.toMs / 1000,
+          })));
         }
         cur = [];
         return;
@@ -242,6 +294,11 @@ function phrases(cues, { maxWords = 6, pauseMs = 380 } = {}) {
         from: beat.offsetSec + cur[0].fromMs / 1000,
         to: beat.offsetSec + cur[cur.length - 1].toMs / 1000,
         text: cur.map((w) => w.text).join(" "),
+        words: cur.map((w) => ({
+          text: w.text,
+          from: beat.offsetSec + w.fromMs / 1000,
+          to: beat.offsetSec + w.toMs / 1000,
+        })),
       });
       cur = [];
     };
@@ -287,17 +344,45 @@ export function deliver({ clip, cues, format, out, workDir, locale = "en" }) {
   const band = Math.round(W * F.capWidth);
   const cuts = phrases(cues);
   const pngs = cuts.map((c, i) => {
-    const p = join(capDir, `${String(i).padStart(3, "0")}.png`);
-    if (!existsSync(p)) cuePng(c.text, { width: band, px: F.capPx, out: p });
-    return { ...c, png: p };
+    const stem = String(i).padStart(3, "0");
+    const base = join(capDir, `${stem}-base.png`);
+    if (!existsSync(base)) cuePng(c.words, { width: band, px: F.capPx, out: base });
+    const highlights = c.words.map((word, wordIndex) => {
+      const png = join(capDir, `${stem}-word-${String(wordIndex).padStart(2, "0")}.png`);
+      if (!existsSync(png)) {
+        cuePng(c.words, { width: band, px: F.capPx, out: png, activeIndex: wordIndex });
+      }
+      return { ...word, png };
+    });
+    return { ...c, png: base, highlights };
   });
+
+  // Each phrase has one always-white base plus a full-phrase state for every
+  // word. The highlighted state is gated to that word's measured speech window;
+  // between words the clean white base remains visible.
+  const captionLayers = pngs.flatMap((phrase) => [
+    { from: phrase.from, to: phrase.to, png: phrase.png },
+    ...phrase.highlights,
+  ]);
 
   // ── video base ────────────────────────────────────────────────────────────
   const args = ["-y", "-i", clip];
-  for (const p of pngs) args.push("-i", p.png);
+  for (const p of captionLayers) args.push("-i", p.png);
 
   const chain = [];
-  if (F.compose) {
+  if (F.compose?.stageMargin != null) {
+    // Capture only the browser window, never the display. ScreenCaptureKit's
+    // recording indicator and all other macOS chrome therefore cannot enter the
+    // negative. Compose that clean window onto the same neutral Stage wallpaper
+    // with one uniform margin on all four sides.
+    const margin = F.compose.stageMargin;
+    const vw = W - margin * 2;
+    const vh = H - margin * 2;
+    chain.push(
+      `color=c=${STAGE_BG}:s=${W}x${H}:d=${dur.toFixed(3)},format=yuva420p[bg]`,
+      `[0:v]${holdLastFrame}scale=${vw}:${vh}:force_original_aspect_ratio=decrease[vid]`,
+      `[bg][vid]overlay=(W-w)/2:(H-h)/2[base]`);
+  } else if (F.compose) {
     // Portrait frame, landscape-ish window: fill the WIDTH (so the UI is scaled
     // UP, not down) and ride high, leaving the lower third as a caption stage.
     const vw = Math.round(W / 2) * 2;
@@ -319,8 +404,8 @@ export function deliver({ clip, cues, format, out, workDir, locale = "en" }) {
   // window its words are actually spoken in — the offsets came from the real
   // take, so the type lands on the frame it describes.
   let last = "base";
-  pngs.forEach((c, i) => {
-    const label = i === pngs.length - 1 && !F.bar ? "outv" : `o${i}`;
+  captionLayers.forEach((c, i) => {
+    const label = i === captionLayers.length - 1 && !F.bar ? "outv" : `o${i}`;
     const y = `${Math.round(H * F.capY)}-h/2`;
     chain.push(
       `[${last}][${i + 1}:v]overlay=(W-w)/2:${y}` +

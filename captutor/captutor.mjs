@@ -59,6 +59,7 @@ const DOCS_PUBLIC = join(FUSER, "apps", "docs", "public");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const now = () => Date.now() / 1000;
 const REAL_CURSOR = process.env.CAPTUTOR_REAL_CURSOR === "1";
+const STAGE_MODE = process.env.CAPTUTOR_STAGE_MODE === "1";
 
 const REEL_STATE = `${process.env.HOME}/.local/share/slab/state/reel.state`;
 
@@ -252,9 +253,13 @@ async function cmdRender(sp, workDir, locale, format) {
   await cdp.send("Page.bringToFront");
   await sleep(600);
 
-  console.log(`\n● recording (${sp.desktopFrame ? "centered desktop stage" : `window: ${sp.window || "whole display"}`})`);
+  const stageWindow = STAGE_MODE && sp.desktopFrame && sp.window;
+  console.log(`\n● recording (${stageWindow ? `clean stage window: ${sp.window}` : `window: ${sp.window || "whole display"}`})`);
   const state = reelStart({
-    window: sp.desktopFrame ? undefined : sp.window,
+    // Stage delivery supplies its own neutral desktop and uniform margins. Film
+    // the window, not the display, so macOS's recording indicator is impossible
+    // to capture in the first place.
+    window: stageWindow ? sp.window : (sp.desktopFrame ? undefined : sp.window),
     fps: sp.fps || 60,
     cursor: REAL_CURSOR,
   });
