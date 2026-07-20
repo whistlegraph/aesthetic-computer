@@ -1,0 +1,2205 @@
+{
+  "generatedAt": "2026-07-20T02:16:32.383Z",
+  "tapes": {
+    "cvw": {
+      "code": "cvw",
+      "owner": null,
+      "when": "2026-03-17T19:00:16.159Z",
+      "acUrl": "https://aesthetic.computer/!cvw",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/cvw.mp4",
+      "audio": {
+        "durationS": 7.083,
+        "rmsDb": -1.5,
+        "peakDb": 7.1,
+        "silenceRatio": 0.256,
+        "onsetsPerSec": 1.69,
+        "brightnessZcr": 0.0886,
+        "bpm": 179,
+        "bpmConfidence": 1.79,
+        "grid120": {
+          "bars": 4,
+          "offMs": -917,
+          "fits": false
+        }
+      }
+    },
+    "t4w": {
+      "code": "t4w",
+      "owner": null,
+      "when": "2026-02-25T06:43:01.782Z",
+      "acUrl": "https://aesthetic.computer/!t4w",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/t4w.mp4",
+      "audio": {
+        "durationS": 7.083,
+        "rmsDb": -11.3,
+        "peakDb": 2.9,
+        "silenceRatio": 0.525,
+        "onsetsPerSec": 2.82,
+        "brightnessZcr": 0.0714,
+        "bpm": 133,
+        "bpmConfidence": 0.5,
+        "grid120": {
+          "bars": 4,
+          "offMs": -917,
+          "fits": false
+        }
+      }
+    },
+    "udd": {
+      "code": "udd",
+      "owner": "@jeffrey",
+      "when": "2026-02-23T19:57:23.322Z",
+      "acUrl": "https://aesthetic.computer/!udd",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/udd.mp4",
+      "audio": {
+        "durationS": 5.12,
+        "rmsDb": -26.6,
+        "peakDb": -4.8,
+        "silenceRatio": 0.65,
+        "onsetsPerSec": 2.34,
+        "brightnessZcr": 0.1701,
+        "bpm": 75,
+        "bpmConfidence": 1.09,
+        "grid120": {
+          "bars": 3,
+          "offMs": -880,
+          "fits": false
+        }
+      }
+    },
+    "z99": {
+      "code": "z99",
+      "owner": null,
+      "when": "2026-02-04T04:33:29.891Z",
+      "acUrl": "https://aesthetic.computer/!z99",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/z99.mp4",
+      "audio": {
+        "durationS": 0.853,
+        "rmsDb": -20.9,
+        "peakDb": 2.8,
+        "silenceRatio": 0,
+        "onsetsPerSec": 2.34,
+        "brightnessZcr": 0.0777,
+        "bpm": 157,
+        "bpmConfidence": 8.97,
+        "grid120": {
+          "bars": 1,
+          "offMs": -1147,
+          "fits": false
+        }
+      }
+    },
+    "co7": {
+      "code": "co7",
+      "owner": "@jeffrey",
+      "when": "2026-02-01T06:59:39.699Z",
+      "acUrl": "https://aesthetic.computer/!co7",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/co7.mp4",
+      "audio": {
+        "durationS": 17.323,
+        "rmsDb": -31.9,
+        "peakDb": -3.2,
+        "silenceRatio": 0.993,
+        "onsetsPerSec": 0.12,
+        "brightnessZcr": 0.001,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 9,
+          "offMs": -677,
+          "fits": false
+        }
+      }
+    },
+    "uv7": {
+      "code": "uv7",
+      "owner": "@jeffrey",
+      "when": "2026-02-01T01:48:14.236Z",
+      "acUrl": "https://aesthetic.computer/!uv7",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/uv7.mp4",
+      "audio": {
+        "durationS": 11.691,
+        "rmsDb": -30.3,
+        "peakDb": -3.2,
+        "silenceRatio": 0.787,
+        "onsetsPerSec": 0.09,
+        "brightnessZcr": 0.038,
+        "bpm": 71,
+        "bpmConfidence": 1.13,
+        "grid120": {
+          "bars": 6,
+          "offMs": -309,
+          "fits": false
+        }
+      }
+    },
+    "7gl": {
+      "code": "7gl",
+      "owner": "@jeffrey",
+      "when": "2026-01-22T22:59:05.734Z",
+      "acUrl": "https://aesthetic.computer/!7gl",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/7gl.mp4",
+      "audio": {
+        "durationS": 7.083,
+        "rmsDb": -11.2,
+        "peakDb": 1.8,
+        "silenceRatio": 0.754,
+        "onsetsPerSec": 1.13,
+        "brightnessZcr": 0.0142,
+        "bpm": 148,
+        "bpmConfidence": 2.65,
+        "grid120": {
+          "bars": 4,
+          "offMs": -917,
+          "fits": false
+        }
+      }
+    },
+    "q4f": {
+      "code": "q4f",
+      "owner": "@jeffrey",
+      "when": "2026-01-19T17:15:38.018Z",
+      "acUrl": "https://aesthetic.computer/!q4f",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/q4f.mp4",
+      "audio": {
+        "durationS": 6.123,
+        "rmsDb": -10.7,
+        "peakDb": 2.3,
+        "silenceRatio": 0.795,
+        "onsetsPerSec": 0.65,
+        "brightnessZcr": 0.0113,
+        "bpm": 140,
+        "bpmConfidence": 7.35,
+        "grid120": {
+          "bars": 3,
+          "offMs": 123,
+          "fits": false
+        }
+      }
+    },
+    "aqn": {
+      "code": "aqn",
+      "owner": "@jeffrey",
+      "when": "2025-11-12T05:19:32.954Z",
+      "acUrl": "https://aesthetic.computer/!aqn",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/aqn.mp4",
+      "audio": {
+        "durationS": 8.149,
+        "rmsDb": -24,
+        "peakDb": 0.8,
+        "silenceRatio": 0.797,
+        "onsetsPerSec": 3.68,
+        "brightnessZcr": 0.0229,
+        "bpm": 127,
+        "bpmConfidence": 1.52,
+        "grid120": {
+          "bars": 4,
+          "offMs": 149,
+          "fits": false
+        }
+      }
+    },
+    "n66": {
+      "code": "n66",
+      "owner": "@jeffrey",
+      "when": "2025-11-11T03:07:09.237Z",
+      "acUrl": "https://aesthetic.computer/!n66",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/n66.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -63.6,
+        "peakDb": -36.9,
+        "silenceRatio": 0.993,
+        "onsetsPerSec": 0,
+        "brightnessZcr": 0.0005,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "opy": {
+      "code": "opy",
+      "owner": "@jeffrey",
+      "when": "2025-11-06T20:15:57.794Z",
+      "acUrl": "https://aesthetic.computer/!opy",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/opy.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -5.8,
+        "peakDb": 2.5,
+        "silenceRatio": 0.382,
+        "onsetsPerSec": 1.12,
+        "brightnessZcr": 0.0341,
+        "bpm": 140,
+        "bpmConfidence": 1.71,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "5b9": {
+      "code": "5b9",
+      "owner": "@jeffrey",
+      "when": "2025-11-04T08:53:55.253Z",
+      "acUrl": "https://aesthetic.computer/!5b9",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/5b9.mp4",
+      "audio": {
+        "durationS": 24.128,
+        "rmsDb": -15.8,
+        "peakDb": -0.9,
+        "silenceRatio": 0.097,
+        "onsetsPerSec": 2.36,
+        "brightnessZcr": 0.0481,
+        "bpm": 106,
+        "bpmConfidence": 1.57,
+        "grid120": {
+          "bars": 12,
+          "offMs": 128,
+          "fits": false
+        }
+      }
+    },
+    "brp": {
+      "code": "brp",
+      "owner": "@jeffrey",
+      "when": "2025-11-04T07:19:26.995Z",
+      "acUrl": "https://aesthetic.computer/!brp",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/brp.mp4",
+      "audio": {
+        "durationS": 24.021,
+        "rmsDb": -16,
+        "peakDb": 1,
+        "silenceRatio": 0.128,
+        "onsetsPerSec": 2.12,
+        "brightnessZcr": 0.0458,
+        "bpm": 106,
+        "bpmConfidence": 2,
+        "grid120": {
+          "bars": 12,
+          "offMs": 21,
+          "fits": true
+        }
+      }
+    },
+    "2eu": {
+      "code": "2eu",
+      "owner": "@jeffrey",
+      "when": "2025-11-02T19:08:21.004Z",
+      "acUrl": "https://aesthetic.computer/!2eu",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/2eu.mp4",
+      "audio": {
+        "durationS": 3.136,
+        "rmsDb": -60.8,
+        "peakDb": -38.9,
+        "silenceRatio": 0.985,
+        "onsetsPerSec": 0.32,
+        "brightnessZcr": 0.0011,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 2,
+          "offMs": -864,
+          "fits": false
+        }
+      }
+    },
+    "cet": {
+      "code": "cet",
+      "owner": "@jeffrey",
+      "when": "2025-10-31T17:59:30.432Z",
+      "acUrl": "https://aesthetic.computer/!cet",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/cet.mp4",
+      "audio": {
+        "durationS": 7.104,
+        "rmsDb": -34.5,
+        "peakDb": -2.1,
+        "silenceRatio": 0.98,
+        "onsetsPerSec": 0.56,
+        "brightnessZcr": 0.0017,
+        "bpm": 83,
+        "bpmConfidence": 32.8,
+        "grid120": {
+          "bars": 4,
+          "offMs": -896,
+          "fits": false
+        }
+      }
+    },
+    "ez2": {
+      "code": "ez2",
+      "owner": "@jeffrey",
+      "when": "2025-10-31T04:27:50.599Z",
+      "acUrl": "https://aesthetic.computer/!ez2",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/ez2.mp4",
+      "audio": {
+        "durationS": 7.147,
+        "rmsDb": -62.5,
+        "peakDb": -37.5,
+        "silenceRatio": 0.99,
+        "onsetsPerSec": 0.14,
+        "brightnessZcr": 0.0006,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 4,
+          "offMs": -853,
+          "fits": false
+        }
+      }
+    },
+    "iki": {
+      "code": "iki",
+      "owner": null,
+      "when": "2025-10-31T04:00:56.965Z",
+      "acUrl": "https://aesthetic.computer/!iki",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/iki.mp4",
+      "audio": {
+        "durationS": 7.147,
+        "rmsDb": -5.1,
+        "peakDb": 4.5,
+        "silenceRatio": 0.046,
+        "onsetsPerSec": 3.36,
+        "brightnessZcr": 0.0512,
+        "bpm": 148,
+        "bpmConfidence": 1.13,
+        "grid120": {
+          "bars": 4,
+          "offMs": -853,
+          "fits": false
+        }
+      }
+    },
+    "72v": {
+      "code": "72v",
+      "owner": null,
+      "when": "2025-10-31T02:55:14.741Z",
+      "acUrl": "https://aesthetic.computer/!72v",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/72v.mp4",
+      "audio": {
+        "durationS": 7.147,
+        "rmsDb": -62.6,
+        "peakDb": -37.5,
+        "silenceRatio": 0.99,
+        "onsetsPerSec": 0,
+        "brightnessZcr": 0.0005,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 4,
+          "offMs": -853,
+          "fits": false
+        }
+      }
+    },
+    "4df": {
+      "code": "4df",
+      "owner": null,
+      "when": "2025-10-31T02:39:39.502Z",
+      "acUrl": "https://aesthetic.computer/!4df",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/4df.mp4",
+      "audio": {
+        "durationS": 9.728,
+        "rmsDb": -64.1,
+        "peakDb": -37.5,
+        "silenceRatio": 0.995,
+        "onsetsPerSec": 0,
+        "brightnessZcr": 0.0004,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 5,
+          "offMs": -272,
+          "fits": false
+        }
+      }
+    },
+    "4f3": {
+      "code": "4f3",
+      "owner": null,
+      "when": "2025-10-31T02:21:18.673Z",
+      "acUrl": "https://aesthetic.computer/!4f3",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/4f3.mp4",
+      "audio": {
+        "durationS": 7.147,
+        "rmsDb": -8.2,
+        "peakDb": 2.8,
+        "silenceRatio": 0.026,
+        "onsetsPerSec": 3.36,
+        "brightnessZcr": 0.0256,
+        "bpm": 157,
+        "bpmConfidence": 0.24,
+        "grid120": {
+          "bars": 4,
+          "offMs": -853,
+          "fits": false
+        }
+      }
+    },
+    "uo8": {
+      "code": "uo8",
+      "owner": null,
+      "when": "2025-10-31T01:38:01.808Z",
+      "acUrl": "https://aesthetic.computer/!uo8",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/uo8.mp4",
+      "audio": {
+        "durationS": 7.147,
+        "rmsDb": -3.4,
+        "peakDb": 2.2,
+        "silenceRatio": 0.091,
+        "onsetsPerSec": 0.84,
+        "brightnessZcr": 0.0263,
+        "bpm": 60,
+        "bpmConfidence": 7.62,
+        "grid120": {
+          "bars": 4,
+          "offMs": -853,
+          "fits": false
+        }
+      }
+    },
+    "5sn": {
+      "code": "5sn",
+      "owner": null,
+      "when": "2025-10-31T01:12:50.298Z",
+      "acUrl": "https://aesthetic.computer/!5sn",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/5sn.mp4",
+      "audio": {
+        "durationS": 5.184,
+        "rmsDb": -3.6,
+        "peakDb": 2.4,
+        "silenceRatio": 0.045,
+        "onsetsPerSec": 2.31,
+        "brightnessZcr": 0.056,
+        "bpm": 61,
+        "bpmConfidence": 1.55,
+        "grid120": {
+          "bars": 3,
+          "offMs": -816,
+          "fits": false
+        }
+      }
+    },
+    "wwo": {
+      "code": "wwo",
+      "owner": null,
+      "when": "2025-10-29T02:41:25.784Z",
+      "acUrl": "https://aesthetic.computer/!wwo",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/wwo.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -64.2,
+        "peakDb": -37.7,
+        "silenceRatio": 0.993,
+        "onsetsPerSec": 0,
+        "brightnessZcr": 0.0006,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "5it": {
+      "code": "5it",
+      "owner": null,
+      "when": "2025-10-29T02:04:19.160Z",
+      "acUrl": "https://aesthetic.computer/!5it",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/5it.mp4",
+      "audio": {
+        "durationS": 7.147,
+        "rmsDb": -3.3,
+        "peakDb": 2.1,
+        "silenceRatio": 0.088,
+        "onsetsPerSec": 0.98,
+        "brightnessZcr": 0.0327,
+        "bpm": 60,
+        "bpmConfidence": 29.84,
+        "grid120": {
+          "bars": 4,
+          "offMs": -853,
+          "fits": false
+        }
+      }
+    },
+    "vvh": {
+      "code": "vvh",
+      "owner": null,
+      "when": "2025-10-29T01:33:20.152Z",
+      "acUrl": "https://aesthetic.computer/!vvh",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/vvh.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -20.6,
+        "peakDb": -11.8,
+        "silenceRatio": 0.078,
+        "onsetsPerSec": 3.79,
+        "brightnessZcr": 0.0528,
+        "bpm": 148,
+        "bpmConfidence": 0.93,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "apb": {
+      "code": "apb",
+      "owner": null,
+      "when": "2025-10-29T01:25:56.459Z",
+      "acUrl": "https://aesthetic.computer/!apb",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/apb.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -20.2,
+        "peakDb": -9.8,
+        "silenceRatio": 0.141,
+        "onsetsPerSec": 2.95,
+        "brightnessZcr": 0.0961,
+        "bpm": 179,
+        "bpmConfidence": 0.33,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "kxh": {
+      "code": "kxh",
+      "owner": null,
+      "when": "2025-10-29T01:10:52.987Z",
+      "acUrl": "https://aesthetic.computer/!kxh",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/kxh.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -3.1,
+        "peakDb": 2.1,
+        "silenceRatio": 0.02,
+        "onsetsPerSec": 0.84,
+        "brightnessZcr": 0.0308,
+        "bpm": 60,
+        "bpmConfidence": 5.63,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "7lw": {
+      "code": "7lw",
+      "owner": null,
+      "when": "2025-10-29T00:56:18.951Z",
+      "acUrl": "https://aesthetic.computer/!7lw",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/7lw.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -3.3,
+        "peakDb": 2.1,
+        "silenceRatio": 0.072,
+        "onsetsPerSec": 0.84,
+        "brightnessZcr": 0.0304,
+        "bpm": 60,
+        "bpmConfidence": 17.56,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "tnr": {
+      "code": "tnr",
+      "owner": null,
+      "when": "2025-10-29T00:45:03.083Z",
+      "acUrl": "https://aesthetic.computer/!tnr",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/tnr.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -2.7,
+        "peakDb": 2.1,
+        "silenceRatio": 0.042,
+        "onsetsPerSec": 1.26,
+        "brightnessZcr": 0.0272,
+        "bpm": 133,
+        "bpmConfidence": 0.63,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "od2": {
+      "code": "od2",
+      "owner": null,
+      "when": "2025-10-29T00:15:54.895Z",
+      "acUrl": "https://aesthetic.computer/!od2",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/od2.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -3,
+        "peakDb": 2.2,
+        "silenceRatio": 0.046,
+        "onsetsPerSec": 0.84,
+        "brightnessZcr": 0.0418,
+        "bpm": 88,
+        "bpmConfidence": 2.35,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "5rz": {
+      "code": "5rz",
+      "owner": null,
+      "when": "2025-10-29T00:01:54.265Z",
+      "acUrl": "https://aesthetic.computer/!5rz",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/5rz.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -64.2,
+        "peakDb": -37.7,
+        "silenceRatio": 0.993,
+        "onsetsPerSec": 0,
+        "brightnessZcr": 0.0006,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "f6j": {
+      "code": "f6j",
+      "owner": null,
+      "when": "2025-10-28T23:36:09.265Z",
+      "acUrl": "https://aesthetic.computer/!f6j",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/f6j.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -64.2,
+        "peakDb": -37.7,
+        "silenceRatio": 0.993,
+        "onsetsPerSec": 0,
+        "brightnessZcr": 0.0006,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "wkn": {
+      "code": "wkn",
+      "owner": null,
+      "when": "2025-10-28T23:28:28.624Z",
+      "acUrl": "https://aesthetic.computer/!wkn",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/wkn.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -2.5,
+        "peakDb": 2.1,
+        "silenceRatio": 0.046,
+        "onsetsPerSec": 1.26,
+        "brightnessZcr": 0.0335,
+        "bpm": 179,
+        "bpmConfidence": 0.38,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "rn3": {
+      "code": "rn3",
+      "owner": null,
+      "when": "2025-10-28T23:19:03.812Z",
+      "acUrl": "https://aesthetic.computer/!rn3",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/rn3.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -5.3,
+        "peakDb": 2.2,
+        "silenceRatio": 0.082,
+        "onsetsPerSec": 1.96,
+        "brightnessZcr": 0.051,
+        "bpm": 63,
+        "bpmConfidence": 0.73,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "2c7": {
+      "code": "2c7",
+      "owner": "@jeffrey",
+      "when": "2025-10-28T23:02:27.000Z",
+      "acUrl": "https://aesthetic.computer/!2c7",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/2c7.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -5.1,
+        "peakDb": 2.1,
+        "silenceRatio": 0.265,
+        "onsetsPerSec": 2.67,
+        "brightnessZcr": 0.0456,
+        "bpm": 91,
+        "bpmConfidence": 1.78,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "77o": {
+      "code": "77o",
+      "owner": null,
+      "when": "2025-10-28T22:59:31.474Z",
+      "acUrl": "https://aesthetic.computer/!77o",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/77o.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -64.2,
+        "peakDb": -37.7,
+        "silenceRatio": 0.993,
+        "onsetsPerSec": 0,
+        "brightnessZcr": 0.0006,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "xeb": {
+      "code": "xeb",
+      "owner": null,
+      "when": "2025-10-28T22:28:31.205Z",
+      "acUrl": "https://aesthetic.computer/!xeb",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/xeb.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -64.2,
+        "peakDb": -37.7,
+        "silenceRatio": 0.993,
+        "onsetsPerSec": 0,
+        "brightnessZcr": 0.0006,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "kne": {
+      "code": "kne",
+      "owner": null,
+      "when": "2025-10-28T22:26:28.800Z",
+      "acUrl": "https://aesthetic.computer/!kne",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/kne.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -64.2,
+        "peakDb": -37.7,
+        "silenceRatio": 0.993,
+        "onsetsPerSec": 0,
+        "brightnessZcr": 0.0006,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "stm": {
+      "code": "stm",
+      "owner": null,
+      "when": "2025-10-28T21:59:35.698Z",
+      "acUrl": "https://aesthetic.computer/!stm",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/stm.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -64.2,
+        "peakDb": -37.7,
+        "silenceRatio": 0.993,
+        "onsetsPerSec": 0,
+        "brightnessZcr": 0.0006,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "rqh": {
+      "code": "rqh",
+      "owner": null,
+      "when": "2025-10-28T21:47:59.333Z",
+      "acUrl": "https://aesthetic.computer/!rqh",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/rqh.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -64.2,
+        "peakDb": -37.7,
+        "silenceRatio": 0.993,
+        "onsetsPerSec": 0,
+        "brightnessZcr": 0.0006,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "evd": {
+      "code": "evd",
+      "owner": null,
+      "when": "2025-10-28T21:39:26.579Z",
+      "acUrl": "https://aesthetic.computer/!evd",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/evd.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -63.9,
+        "peakDb": -37.2,
+        "silenceRatio": 0.993,
+        "onsetsPerSec": 0,
+        "brightnessZcr": 0.0005,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "9s4": {
+      "code": "9s4",
+      "owner": null,
+      "when": "2025-10-28T21:12:45.089Z",
+      "acUrl": "https://aesthetic.computer/!9s4",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/9s4.mp4",
+      "audio": {
+        "durationS": 1.899,
+        "rmsDb": -57.8,
+        "peakDb": -36.9,
+        "silenceRatio": 0.975,
+        "onsetsPerSec": 0,
+        "brightnessZcr": 0.0019,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 1,
+          "offMs": -101,
+          "fits": false
+        }
+      }
+    },
+    "wuz": {
+      "code": "wuz",
+      "owner": null,
+      "when": "2025-10-28T20:53:46.203Z",
+      "acUrl": "https://aesthetic.computer/!wuz",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/wuz.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -63.9,
+        "peakDb": -37.2,
+        "silenceRatio": 0.993,
+        "onsetsPerSec": 0,
+        "brightnessZcr": 0.0005,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "5uy": {
+      "code": "5uy",
+      "owner": null,
+      "when": "2025-10-28T20:47:52.343Z",
+      "acUrl": "https://aesthetic.computer/!5uy",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/5uy.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -2.8,
+        "peakDb": 2.1,
+        "silenceRatio": 0.082,
+        "onsetsPerSec": 1.82,
+        "brightnessZcr": 0.0342,
+        "bpm": 140,
+        "bpmConfidence": 1.37,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "dfy": {
+      "code": "dfy",
+      "owner": null,
+      "when": "2025-10-28T20:24:50.961Z",
+      "acUrl": "https://aesthetic.computer/!dfy",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/dfy.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -3.4,
+        "peakDb": 1.8,
+        "silenceRatio": 0.108,
+        "onsetsPerSec": 0.98,
+        "brightnessZcr": 0.0112,
+        "bpm": 60,
+        "bpmConfidence": 28.96,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "dqu": {
+      "code": "dqu",
+      "owner": null,
+      "when": "2025-10-28T20:15:40.548Z",
+      "acUrl": "https://aesthetic.computer/!dqu",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/dqu.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -3.5,
+        "peakDb": 1.2,
+        "silenceRatio": 0.111,
+        "onsetsPerSec": 0.84,
+        "brightnessZcr": 0.011,
+        "bpm": 60,
+        "bpmConfidence": 2.89,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "6sc": {
+      "code": "6sc",
+      "owner": null,
+      "when": "2025-10-28T20:11:13.812Z",
+      "acUrl": "https://aesthetic.computer/!6sc",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/6sc.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -63.9,
+        "peakDb": -37.2,
+        "silenceRatio": 0.993,
+        "onsetsPerSec": 0,
+        "brightnessZcr": 0.0005,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "i2m": {
+      "code": "i2m",
+      "owner": null,
+      "when": "2025-10-28T16:02:03.133Z",
+      "acUrl": "https://aesthetic.computer/!i2m",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/i2m.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -63.9,
+        "peakDb": -37.2,
+        "silenceRatio": 0.993,
+        "onsetsPerSec": 0,
+        "brightnessZcr": 0.0005,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "v2f": {
+      "code": "v2f",
+      "owner": null,
+      "when": "2025-10-28T08:23:46.025Z",
+      "acUrl": "https://aesthetic.computer/!v2f",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/v2f.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -64.2,
+        "peakDb": -37.7,
+        "silenceRatio": 0.993,
+        "onsetsPerSec": 0,
+        "brightnessZcr": 0.0006,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "dr2": {
+      "code": "dr2",
+      "owner": null,
+      "when": "2025-10-28T08:14:20.604Z",
+      "acUrl": "https://aesthetic.computer/!dr2",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/dr2.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -63.9,
+        "peakDb": -37.2,
+        "silenceRatio": 0.993,
+        "onsetsPerSec": 0,
+        "brightnessZcr": 0.0005,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "hxw": {
+      "code": "hxw",
+      "owner": null,
+      "when": "2025-10-28T08:07:16.439Z",
+      "acUrl": "https://aesthetic.computer/!hxw",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/hxw.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -64.2,
+        "peakDb": -37.7,
+        "silenceRatio": 0.993,
+        "onsetsPerSec": 0,
+        "brightnessZcr": 0.0006,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "ssw": {
+      "code": "ssw",
+      "owner": null,
+      "when": "2025-10-28T08:02:52.729Z",
+      "acUrl": "https://aesthetic.computer/!ssw",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/ssw.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -63.9,
+        "peakDb": -37.2,
+        "silenceRatio": 0.993,
+        "onsetsPerSec": 0,
+        "brightnessZcr": 0.0005,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "pmu": {
+      "code": "pmu",
+      "owner": null,
+      "when": "2025-10-28T07:45:22.498Z",
+      "acUrl": "https://aesthetic.computer/!pmu",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/pmu.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -64.2,
+        "peakDb": -37.7,
+        "silenceRatio": 0.993,
+        "onsetsPerSec": 0,
+        "brightnessZcr": 0.0006,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "ro2": {
+      "code": "ro2",
+      "owner": null,
+      "when": "2025-10-28T03:58:38.607Z",
+      "acUrl": "https://aesthetic.computer/!ro2",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/ro2.mp4",
+      "audio": {
+        "durationS": 7.147,
+        "rmsDb": -64.4,
+        "peakDb": -36.6,
+        "silenceRatio": 0.993,
+        "onsetsPerSec": 0,
+        "brightnessZcr": 0.0004,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 4,
+          "offMs": -853,
+          "fits": false
+        }
+      }
+    },
+    "8bz": {
+      "code": "8bz",
+      "owner": null,
+      "when": "2025-10-28T03:54:29.978Z",
+      "acUrl": "https://aesthetic.computer/!8bz",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/8bz.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -64.7,
+        "peakDb": -36.5,
+        "silenceRatio": 0.993,
+        "onsetsPerSec": 0,
+        "brightnessZcr": 0.0005,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "gkg": {
+      "code": "gkg",
+      "owner": null,
+      "when": "2025-10-28T03:28:30.953Z",
+      "acUrl": "https://aesthetic.computer/!gkg",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/gkg.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -8.3,
+        "peakDb": 2.1,
+        "silenceRatio": 0.588,
+        "onsetsPerSec": 2.25,
+        "brightnessZcr": 0.0224,
+        "bpm": 85,
+        "bpmConfidence": 1.87,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "y6a": {
+      "code": "y6a",
+      "owner": null,
+      "when": "2025-10-28T02:36:37.348Z",
+      "acUrl": "https://aesthetic.computer/!y6a",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/y6a.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -3.9,
+        "peakDb": 2.2,
+        "silenceRatio": 0.105,
+        "onsetsPerSec": 1.54,
+        "brightnessZcr": 0.0495,
+        "bpm": 64,
+        "bpmConfidence": 1.01,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "hq2": {
+      "code": "hq2",
+      "owner": null,
+      "when": "2025-10-28T01:33:08.999Z",
+      "acUrl": "https://aesthetic.computer/!hq2",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/hq2.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -4.4,
+        "peakDb": 2.1,
+        "silenceRatio": 0.196,
+        "onsetsPerSec": 2.67,
+        "brightnessZcr": 0.0452,
+        "bpm": 148,
+        "bpmConfidence": 2.35,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "byc": {
+      "code": "byc",
+      "owner": null,
+      "when": "2025-10-28T00:21:38.848Z",
+      "acUrl": "https://aesthetic.computer/!byc",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/byc.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -32.6,
+        "peakDb": -11.9,
+        "silenceRatio": 0.948,
+        "onsetsPerSec": 0.28,
+        "brightnessZcr": 0.0033,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "hv8": {
+      "code": "hv8",
+      "owner": null,
+      "when": "2025-10-28T00:17:49.579Z",
+      "acUrl": "https://aesthetic.computer/!hv8",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/hv8.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -18.7,
+        "peakDb": -10.6,
+        "silenceRatio": 0.072,
+        "onsetsPerSec": 2.95,
+        "brightnessZcr": 0.0642,
+        "bpm": 140,
+        "bpmConfidence": 0.34,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "8in": {
+      "code": "8in",
+      "owner": null,
+      "when": "2025-10-28T00:14:48.586Z",
+      "acUrl": "https://aesthetic.computer/!8in",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/8in.mp4",
+      "audio": {
+        "durationS": 4.181,
+        "rmsDb": -3.7,
+        "peakDb": 2.1,
+        "silenceRatio": 0.144,
+        "onsetsPerSec": 0.72,
+        "brightnessZcr": 0.0373,
+        "bpm": 60,
+        "bpmConfidence": 2.62,
+        "grid120": {
+          "bars": 2,
+          "offMs": 181,
+          "fits": false
+        }
+      }
+    },
+    "z43": {
+      "code": "z43",
+      "owner": null,
+      "when": "2025-10-28T00:14:11.380Z",
+      "acUrl": "https://aesthetic.computer/!z43",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/z43.mp4",
+      "audio": {
+        "durationS": 4.565,
+        "rmsDb": -4.2,
+        "peakDb": 2.1,
+        "silenceRatio": 0.148,
+        "onsetsPerSec": 0.88,
+        "brightnessZcr": 0.0989,
+        "bpm": 69,
+        "bpmConfidence": 0.98,
+        "grid120": {
+          "bars": 2,
+          "offMs": 565,
+          "fits": false
+        }
+      }
+    },
+    "dom": {
+      "code": "dom",
+      "owner": null,
+      "when": "2025-10-28T00:12:06.953Z",
+      "acUrl": "https://aesthetic.computer/!dom",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/dom.mp4",
+      "audio": {
+        "durationS": 5.248,
+        "rmsDb": -5.4,
+        "peakDb": 2.1,
+        "silenceRatio": 0.142,
+        "onsetsPerSec": 0.95,
+        "brightnessZcr": 0.0544,
+        "bpm": 88,
+        "bpmConfidence": 0.7,
+        "grid120": {
+          "bars": 3,
+          "offMs": -752,
+          "fits": false
+        }
+      }
+    },
+    "ueu": {
+      "code": "ueu",
+      "owner": null,
+      "when": "2025-10-28T00:10:03.415Z",
+      "acUrl": "https://aesthetic.computer/!ueu",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/ueu.mp4",
+      "audio": {
+        "durationS": 3.435,
+        "rmsDb": -60.4,
+        "peakDb": -36.6,
+        "silenceRatio": 0.986,
+        "onsetsPerSec": 0,
+        "brightnessZcr": 0.001,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 2,
+          "offMs": -565,
+          "fits": false
+        }
+      }
+    },
+    "f4g": {
+      "code": "f4g",
+      "owner": null,
+      "when": "2025-10-28T00:08:07.356Z",
+      "acUrl": "https://aesthetic.computer/!f4g",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/f4g.mp4",
+      "audio": {
+        "durationS": 3.712,
+        "rmsDb": -60.7,
+        "peakDb": -36.9,
+        "silenceRatio": 0.987,
+        "onsetsPerSec": 0,
+        "brightnessZcr": 0.001,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 2,
+          "offMs": -288,
+          "fits": false
+        }
+      }
+    },
+    "emj": {
+      "code": "emj",
+      "owner": null,
+      "when": "2025-10-28T00:02:31.219Z",
+      "acUrl": "https://aesthetic.computer/!emj",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/emj.mp4",
+      "audio": {
+        "durationS": 2.944,
+        "rmsDb": -60.4,
+        "peakDb": -37.7,
+        "silenceRatio": 0.984,
+        "onsetsPerSec": 0,
+        "brightnessZcr": 0.0014,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 1,
+          "offMs": 944,
+          "fits": false
+        }
+      }
+    },
+    "a4f": {
+      "code": "a4f",
+      "owner": null,
+      "when": "2025-10-27T23:58:15.186Z",
+      "acUrl": "https://aesthetic.computer/!a4f",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/a4f.mp4",
+      "audio": {
+        "durationS": 4.011,
+        "rmsDb": -3.1,
+        "peakDb": 2.1,
+        "silenceRatio": 0.023,
+        "onsetsPerSec": 0.25,
+        "brightnessZcr": 0.0374,
+        "bpm": 60,
+        "bpmConfidence": 4.33,
+        "grid120": {
+          "bars": 2,
+          "offMs": 11,
+          "fits": true
+        }
+      }
+    },
+    "i58": {
+      "code": "i58",
+      "owner": null,
+      "when": "2025-10-27T23:55:21.676Z",
+      "acUrl": "https://aesthetic.computer/!i58",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/i58.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -3,
+        "peakDb": 2.1,
+        "silenceRatio": 0.016,
+        "onsetsPerSec": 0.98,
+        "brightnessZcr": 0.0402,
+        "bpm": 60,
+        "bpmConfidence": 9.5,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "7th": {
+      "code": "7th",
+      "owner": null,
+      "when": "2025-10-24T21:15:41.329Z",
+      "acUrl": "https://aesthetic.computer/!7th",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/7th.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -10.9,
+        "peakDb": 0.2,
+        "silenceRatio": 0.056,
+        "onsetsPerSec": 0.98,
+        "brightnessZcr": 0.0315,
+        "bpm": 60,
+        "bpmConfidence": 73.72,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "edq": {
+      "code": "edq",
+      "owner": null,
+      "when": "2025-10-24T09:36:22.637Z",
+      "acUrl": "https://aesthetic.computer/!edq",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/edq.mp4",
+      "audio": {
+        "durationS": 10.133,
+        "rmsDb": -2.9,
+        "peakDb": 2.1,
+        "silenceRatio": 0,
+        "onsetsPerSec": 0.3,
+        "brightnessZcr": 0.0144,
+        "bpm": 110,
+        "bpmConfidence": 0.86,
+        "grid120": {
+          "bars": 5,
+          "offMs": 133,
+          "fits": false
+        }
+      }
+    },
+    "5dF": {
+      "code": "5dF",
+      "owner": null,
+      "when": "2025-10-22T20:49:04.722Z",
+      "acUrl": "https://aesthetic.computer/!5dF",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/5dF.mp4",
+      "audio": {
+        "durationS": 4.373,
+        "rmsDb": -3,
+        "peakDb": 2.2,
+        "silenceRatio": 0.069,
+        "onsetsPerSec": 1.37,
+        "brightnessZcr": 0.0528,
+        "bpm": 179,
+        "bpmConfidence": 0.46,
+        "grid120": {
+          "bars": 2,
+          "offMs": 373,
+          "fits": false
+        }
+      }
+    },
+    "yd2": {
+      "code": "yd2",
+      "owner": null,
+      "when": "2025-10-22T00:12:05.454Z",
+      "acUrl": "https://aesthetic.computer/!yd2",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/yd2.mp4",
+      "audio": {
+        "durationS": 3.477,
+        "rmsDb": -2.7,
+        "peakDb": 2.1,
+        "silenceRatio": 0.054,
+        "onsetsPerSec": 2.01,
+        "brightnessZcr": 0.0542,
+        "bpm": 106,
+        "bpmConfidence": 0.96,
+        "grid120": {
+          "bars": 2,
+          "offMs": -523,
+          "fits": false
+        }
+      }
+    },
+    "Trx": {
+      "code": "Trx",
+      "owner": null,
+      "when": "2025-10-21T18:46:25.954Z",
+      "acUrl": "https://aesthetic.computer/!Trx",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/Trx.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -3.7,
+        "peakDb": 2.1,
+        "silenceRatio": 0.261,
+        "onsetsPerSec": 2.39,
+        "brightnessZcr": 0.0255,
+        "bpm": 98,
+        "bpmConfidence": 1.49,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "3Pt": {
+      "code": "3Pt",
+      "owner": null,
+      "when": "2025-10-21T18:41:59.359Z",
+      "acUrl": "https://aesthetic.computer/!3Pt",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/3Pt.mp4",
+      "audio": {
+        "durationS": 4.139,
+        "rmsDb": -4.8,
+        "peakDb": 2.3,
+        "silenceRatio": 0.202,
+        "onsetsPerSec": 2.42,
+        "brightnessZcr": 0.0446,
+        "bpm": 121,
+        "bpmConfidence": 2.29,
+        "grid120": {
+          "bars": 2,
+          "offMs": 139,
+          "fits": false
+        }
+      }
+    },
+    "iia": {
+      "code": "iia",
+      "owner": null,
+      "when": "2025-10-21T18:35:09.218Z",
+      "acUrl": "https://aesthetic.computer/!iia",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/iia.mp4",
+      "audio": {
+        "durationS": 9.877,
+        "rmsDb": -9.3,
+        "peakDb": 2.1,
+        "silenceRatio": 0.769,
+        "onsetsPerSec": 1.01,
+        "brightnessZcr": 0.0086,
+        "bpm": 148,
+        "bpmConfidence": 2.3,
+        "grid120": {
+          "bars": 5,
+          "offMs": -123,
+          "fits": false
+        }
+      }
+    },
+    "vyY": {
+      "code": "vyY",
+      "owner": null,
+      "when": "2025-10-21T18:30:58.055Z",
+      "acUrl": "https://aesthetic.computer/!vyY",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/vyY.mp4",
+      "audio": {
+        "durationS": 6.123,
+        "rmsDb": -3.1,
+        "peakDb": 2.1,
+        "silenceRatio": 0.042,
+        "onsetsPerSec": 0.65,
+        "brightnessZcr": 0.0288,
+        "bpm": 60,
+        "bpmConfidence": 3.86,
+        "grid120": {
+          "bars": 3,
+          "offMs": 123,
+          "fits": false
+        }
+      }
+    },
+    "SvZ": {
+      "code": "SvZ",
+      "owner": null,
+      "when": "2025-10-21T18:12:35.940Z",
+      "acUrl": "https://aesthetic.computer/!SvZ",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/SvZ.mp4",
+      "audio": {
+        "durationS": 2.091,
+        "rmsDb": -5.2,
+        "peakDb": 2.2,
+        "silenceRatio": 0.4,
+        "onsetsPerSec": 1.91,
+        "brightnessZcr": 0.0182,
+        "bpm": 63,
+        "bpmConfidence": 2.56,
+        "grid120": {
+          "bars": 1,
+          "offMs": 91,
+          "fits": true
+        }
+      }
+    },
+    "iS7": {
+      "code": "iS7",
+      "owner": null,
+      "when": "2025-10-21T18:07:52.782Z",
+      "acUrl": "https://aesthetic.computer/!iS7",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/iS7.mp4",
+      "audio": {
+        "durationS": 4.224,
+        "rmsDb": -5,
+        "peakDb": 2.1,
+        "silenceRatio": 0.32,
+        "onsetsPerSec": 2.6,
+        "brightnessZcr": 0.0241,
+        "bpm": 140,
+        "bpmConfidence": 2.58,
+        "grid120": {
+          "bars": 2,
+          "offMs": 224,
+          "fits": false
+        }
+      }
+    },
+    "69R": {
+      "code": "69R",
+      "owner": null,
+      "when": "2025-10-21T17:52:03.548Z",
+      "acUrl": "https://aesthetic.computer/!69R",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/69R.mp4",
+      "audio": {
+        "durationS": 6.123,
+        "rmsDb": -23.4,
+        "peakDb": -3.4,
+        "silenceRatio": 0.521,
+        "onsetsPerSec": 2.12,
+        "brightnessZcr": 0.116,
+        "bpm": 78,
+        "bpmConfidence": 1.14,
+        "grid120": {
+          "bars": 3,
+          "offMs": 123,
+          "fits": false
+        }
+      }
+    },
+    "KHw": {
+      "code": "KHw",
+      "owner": null,
+      "when": "2025-10-21T17:46:49.768Z",
+      "acUrl": "https://aesthetic.computer/!KHw",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/KHw.mp4",
+      "audio": {
+        "durationS": 3.051,
+        "rmsDb": -3.6,
+        "peakDb": 2.2,
+        "silenceRatio": 0.092,
+        "onsetsPerSec": 3.61,
+        "brightnessZcr": 0.0301,
+        "bpm": 106,
+        "bpmConfidence": 1.15,
+        "grid120": {
+          "bars": 2,
+          "offMs": -949,
+          "fits": false
+        }
+      }
+    },
+    "oSm": {
+      "code": "oSm",
+      "owner": null,
+      "when": "2025-10-19T19:12:43.961Z",
+      "acUrl": "https://aesthetic.computer/!oSm",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/oSm.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -12,
+        "peakDb": 0.1,
+        "silenceRatio": 0.078,
+        "onsetsPerSec": 5.33,
+        "brightnessZcr": 0.03,
+        "bpm": 60,
+        "bpmConfidence": 2.89,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "HVy": {
+      "code": "HVy",
+      "owner": null,
+      "when": "2025-10-19T17:40:38.231Z",
+      "acUrl": "https://aesthetic.computer/!HVy",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/HVy.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -10.3,
+        "peakDb": 0.3,
+        "silenceRatio": 0.101,
+        "onsetsPerSec": 0.98,
+        "brightnessZcr": 0.0096,
+        "bpm": 60,
+        "bpmConfidence": 82.21,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "Xe6": {
+      "code": "Xe6",
+      "owner": null,
+      "when": "2025-10-19T07:21:36.402Z",
+      "acUrl": "https://aesthetic.computer/!Xe6",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/Xe6.mp4",
+      "audio": {
+        "durationS": 5.12,
+        "rmsDb": -62.7,
+        "peakDb": -37.1,
+        "silenceRatio": 0.991,
+        "onsetsPerSec": 0,
+        "brightnessZcr": 0.0006,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 3,
+          "offMs": -880,
+          "fits": false
+        }
+      }
+    },
+    "GVa": {
+      "code": "GVa",
+      "owner": null,
+      "when": "2025-10-19T07:16:33.925Z",
+      "acUrl": "https://aesthetic.computer/!GVa",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/GVa.mp4",
+      "audio": {
+        "durationS": 5.141,
+        "rmsDb": -6.9,
+        "peakDb": 2.9,
+        "silenceRatio": 0.145,
+        "onsetsPerSec": 3.31,
+        "brightnessZcr": 0.0298,
+        "bpm": 157,
+        "bpmConfidence": 0.35,
+        "grid120": {
+          "bars": 3,
+          "offMs": -859,
+          "fits": false
+        }
+      }
+    },
+    "JIf": {
+      "code": "JIf",
+      "owner": null,
+      "when": "2025-10-19T07:11:59.424Z",
+      "acUrl": "https://aesthetic.computer/!JIf",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/JIf.mp4",
+      "audio": {
+        "durationS": 5.12,
+        "rmsDb": -7.8,
+        "peakDb": 3,
+        "silenceRatio": 0.164,
+        "onsetsPerSec": 3.32,
+        "brightnessZcr": 0.035,
+        "bpm": 127,
+        "bpmConfidence": 0.3,
+        "grid120": {
+          "bars": 3,
+          "offMs": -880,
+          "fits": false
+        }
+      }
+    },
+    "52P": {
+      "code": "52P",
+      "owner": null,
+      "when": "2025-10-19T07:04:13.237Z",
+      "acUrl": "https://aesthetic.computer/!52P",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/52P.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -3.3,
+        "peakDb": 0.2,
+        "silenceRatio": 0.098,
+        "onsetsPerSec": 0.14,
+        "brightnessZcr": 0.0221,
+        "bpm": 78,
+        "bpmConfidence": 2.1,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "HYS": {
+      "code": "HYS",
+      "owner": null,
+      "when": "2025-10-19T06:35:44.663Z",
+      "acUrl": "https://aesthetic.computer/!HYS",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/HYS.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -2.9,
+        "peakDb": 2.1,
+        "silenceRatio": 0,
+        "onsetsPerSec": 0.56,
+        "brightnessZcr": 0.0147,
+        "bpm": 110,
+        "bpmConfidence": 0.52,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "eOG": {
+      "code": "eOG",
+      "owner": null,
+      "when": "2025-10-19T06:15:03.572Z",
+      "acUrl": "https://aesthetic.computer/!eOG",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/eOG.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -5.5,
+        "peakDb": 2.2,
+        "silenceRatio": 0.046,
+        "onsetsPerSec": 0.84,
+        "brightnessZcr": 0.0396,
+        "bpm": 94,
+        "bpmConfidence": 1.04,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "eKZ": {
+      "code": "eKZ",
+      "owner": null,
+      "when": "2025-10-19T03:21:37.293Z",
+      "acUrl": "https://aesthetic.computer/!eKZ",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/eKZ.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -64.7,
+        "peakDb": -36.5,
+        "silenceRatio": 0.993,
+        "onsetsPerSec": 0,
+        "brightnessZcr": 0.0005,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "azG": {
+      "code": "azG",
+      "owner": null,
+      "when": "2025-10-19T02:48:45.168Z",
+      "acUrl": "https://aesthetic.computer/!azG",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/azG.mp4",
+      "audio": {
+        "durationS": 5.141,
+        "rmsDb": -11.7,
+        "peakDb": 3,
+        "silenceRatio": 0.059,
+        "onsetsPerSec": 3.89,
+        "brightnessZcr": 0.0319,
+        "bpm": 60,
+        "bpmConfidence": 6.79,
+        "grid120": {
+          "bars": 3,
+          "offMs": -859,
+          "fits": false
+        }
+      }
+    },
+    "vEO": {
+      "code": "vEO",
+      "owner": null,
+      "when": "2025-10-19T02:05:20.079Z",
+      "acUrl": "https://aesthetic.computer/!vEO",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/vEO.mp4",
+      "audio": {
+        "durationS": 5.141,
+        "rmsDb": -11.7,
+        "peakDb": 3,
+        "silenceRatio": 0.059,
+        "onsetsPerSec": 3.89,
+        "brightnessZcr": 0.0319,
+        "bpm": 60,
+        "bpmConfidence": 6.79,
+        "grid120": {
+          "bars": 3,
+          "offMs": -859,
+          "fits": false
+        }
+      }
+    },
+    "yBk": {
+      "code": "yBk",
+      "owner": null,
+      "when": "2025-10-19T01:56:43.273Z",
+      "acUrl": "https://aesthetic.computer/!yBk",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/yBk.mp4",
+      "audio": {
+        "durationS": 5.141,
+        "rmsDb": -12.1,
+        "peakDb": 2.2,
+        "silenceRatio": 0.136,
+        "onsetsPerSec": 3.5,
+        "brightnessZcr": 0.0293,
+        "bpm": 60,
+        "bpmConfidence": 7.89,
+        "grid120": {
+          "bars": 3,
+          "offMs": -859,
+          "fits": false
+        }
+      }
+    },
+    "g9V": {
+      "code": "g9V",
+      "owner": null,
+      "when": "2025-10-19T01:36:28.593Z",
+      "acUrl": "https://aesthetic.computer/!g9V",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/g9V.mp4",
+      "audio": {
+        "durationS": 5.12,
+        "rmsDb": -7.2,
+        "peakDb": 3,
+        "silenceRatio": 0.023,
+        "onsetsPerSec": 3.52,
+        "brightnessZcr": 0.0413,
+        "bpm": 60,
+        "bpmConfidence": 0.63,
+        "grid120": {
+          "bars": 3,
+          "offMs": -880,
+          "fits": false
+        }
+      }
+    },
+    "zQk": {
+      "code": "zQk",
+      "owner": null,
+      "when": "2025-10-19T01:30:21.256Z",
+      "acUrl": "https://aesthetic.computer/!zQk",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/zQk.mp4",
+      "audio": {
+        "durationS": 5.12,
+        "rmsDb": -6.6,
+        "peakDb": 1.9,
+        "silenceRatio": 0.091,
+        "onsetsPerSec": 1.17,
+        "brightnessZcr": 0.0484,
+        "bpm": 127,
+        "bpmConfidence": 1.93,
+        "grid120": {
+          "bars": 3,
+          "offMs": -880,
+          "fits": false
+        }
+      }
+    },
+    "adf": {
+      "code": "adf",
+      "owner": null,
+      "when": "2025-10-19T01:28:44.965Z",
+      "acUrl": "https://aesthetic.computer/!adf",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/adf.mp4",
+      "audio": {
+        "durationS": 8.128,
+        "rmsDb": -2.5,
+        "peakDb": 2.1,
+        "silenceRatio": 0.109,
+        "onsetsPerSec": 1.6,
+        "brightnessZcr": 0.0553,
+        "bpm": 133,
+        "bpmConfidence": 1.07,
+        "grid120": {
+          "bars": 4,
+          "offMs": 128,
+          "fits": false
+        }
+      }
+    },
+    "Wlb": {
+      "code": "Wlb",
+      "owner": null,
+      "when": "2025-10-19T00:27:21.273Z",
+      "acUrl": "https://aesthetic.computer/!Wlb",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/Wlb.mp4",
+      "audio": {
+        "durationS": 7.125,
+        "rmsDb": -4.3,
+        "peakDb": 2.2,
+        "silenceRatio": 0.193,
+        "onsetsPerSec": 1.54,
+        "brightnessZcr": 0.0405,
+        "bpm": 140,
+        "bpmConfidence": 1.35,
+        "grid120": {
+          "bars": 4,
+          "offMs": -875,
+          "fits": false
+        }
+      }
+    },
+    "f9v": {
+      "code": "f9v",
+      "owner": null,
+      "when": "2025-10-18T19:56:29.203Z",
+      "acUrl": "https://aesthetic.computer/!f9v",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/f9v.mp4",
+      "audio": {
+        "durationS": 5.141,
+        "rmsDb": -62.8,
+        "peakDb": -37.7,
+        "silenceRatio": 0.991,
+        "onsetsPerSec": 0,
+        "brightnessZcr": 0.0008,
+        "bpm": null,
+        "bpmConfidence": 0,
+        "grid120": {
+          "bars": 3,
+          "offMs": -859,
+          "fits": false
+        }
+      }
+    },
+    "JyK": {
+      "code": "JyK",
+      "owner": null,
+      "when": "2025-10-18T06:04:51.983Z",
+      "acUrl": "https://aesthetic.computer/!JyK",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/JyK.mp4",
+      "audio": {
+        "durationS": 3.136,
+        "rmsDb": -4.2,
+        "peakDb": 2.1,
+        "silenceRatio": 0.163,
+        "onsetsPerSec": 2.23,
+        "brightnessZcr": 0.0274,
+        "bpm": 127,
+        "bpmConfidence": 3.37,
+        "grid120": {
+          "bars": 2,
+          "offMs": -864,
+          "fits": false
+        }
+      }
+    },
+    "oOw": {
+      "code": "oOw",
+      "owner": null,
+      "when": "2025-10-18T05:43:56.417Z",
+      "acUrl": "https://aesthetic.computer/!oOw",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/oOw.mp4",
+      "audio": {
+        "durationS": 3.136,
+        "rmsDb": -3.1,
+        "peakDb": 2.1,
+        "silenceRatio": 0.207,
+        "onsetsPerSec": 0.96,
+        "brightnessZcr": 0.0245,
+        "bpm": 78,
+        "bpmConfidence": 5.03,
+        "grid120": {
+          "bars": 2,
+          "offMs": -864,
+          "fits": false
+        }
+      }
+    },
+    "AFo": {
+      "code": "AFo",
+      "owner": null,
+      "when": "2025-10-18T05:31:07.971Z",
+      "acUrl": "https://aesthetic.computer/!AFo",
+      "videoUrl": "https://at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com/tapes/AFo.mp4",
+      "audio": {
+        "durationS": 3.136,
+        "rmsDb": -6.5,
+        "peakDb": 2.1,
+        "silenceRatio": 0.37,
+        "onsetsPerSec": 1.59,
+        "brightnessZcr": 0.0231,
+        "bpm": 110,
+        "bpmConfidence": 2.62,
+        "grid120": {
+          "bars": 2,
+          "offMs": -864,
+          "fits": false
+        }
+      }
+    }
+  }
+}
