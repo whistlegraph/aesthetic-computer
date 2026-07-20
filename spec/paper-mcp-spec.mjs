@@ -57,6 +57,18 @@ test("paper search discovers the private Fuser draft when the vault is present",
   assert.match(text, /fuser:tokens-2-tlds/);
 });
 
+test("paper_find prefers the finished TeX/PDF over same-title working Markdown", async (t) => {
+  const res = await call("tools/call", {
+    name: "paper_find",
+    arguments: { paper: "Tokens 2 TLDs" },
+  });
+  const text = res.result.content[0].text;
+  if (/no paper resolves/.test(text)) return t.skip("private vault is not installed on this machine");
+  assert.equal(res.result.isError, undefined);
+  assert.match(text, /fuser:arxiv-fuser\/tokens-2-tlds/);
+  assert.match(text, /tokens-2-tlds\.pdf/);
+});
+
 test("paper tools never resolve arbitrary traversal paths", async () => {
   const res = await call("tools/call", {
     name: "paper_read",

@@ -172,13 +172,30 @@ function score(rec, query) {
   return words.length && words.every((word) => searchable(rec).includes(word)) ? 30 : 0;
 }
 
+// A title can exist both as working Markdown and as the finished TeX/PDF.
+// When the textual match is otherwise identical, resolve the built paper first;
+// explicit stable IDs still win through their higher match score above.
+function canonicalRank(rec) {
+  if (rec.kind === "tex" && rec.pdfPath) return 3;
+  if (rec.kind === "tex") return 2;
+  if (rec.pdfPath) return 1;
+  return 0;
+}
+
+function compareMatches(a, b) {
+  return b.score - a.score
+    || canonicalRank(b.rec) - canonicalRank(a.rec)
+    || b.rec.updatedAt - a.rec.updatedAt
+    || a.rec.id.localeCompare(b.rec.id);
+}
+
 async function resolvePaper(input, { one = true } = {}) {
   const query = String(input || "").trim();
   if (!query) throw new Error("`paper` is required (use paper_list to discover names).");
   const ranked = (await catalog())
     .map((rec) => ({ rec, score: score(rec, query) }))
     .filter((item) => item.score > 0)
-    .sort((a, b) => b.score - a.score || b.rec.updatedAt - a.rec.updatedAt);
+    .sort(compareMatches);
   if (!ranked.length) throw new Error(`no paper resolves «${query}». Use paper_list({query:"${query}"}).`);
   if (!one) return ranked.map((item) => item.rec);
   const best = ranked[0].score;
@@ -208,7 +225,7 @@ async function toolList({ query, scope, kind, limit = 30 } = {}) {
   if (query) {
     rows = rows.map((rec) => ({ rec, score: score(rec, String(query)) }))
       .filter((item) => item.score > 0)
-      .sort((a, b) => b.score - a.score || b.rec.updatedAt - a.rec.updatedAt)
+      .sort(compareMatches)
       .map((item) => item.rec);
   }
   const capped = rows.slice(0, Math.max(1, Math.min(100, Number(limit) || 30)));
