@@ -1896,6 +1896,7 @@ let currentPath,
   currentHUDButton,
   currentHUDButtonActive = false, // Global flag to block other button interactions when HUD is active
   currentHUDButtonDirectTouch = false, // Track if HUD button was directly tapped (not rolled over)
+  currentHUDHovered = false, // Pointer is over the corner label (passive, no press)
   currentHUDScrub = 0,
   currentHUDScrubReadyState = null, // null | "share" | "edit"
   currentHUDLabelFontName,
@@ -13266,6 +13267,16 @@ async function makeFrame({ data: { type, content } }) {
           // Corner prompt button.
           if (!TV_MODE) {
             currentHUDButton?.act(e, {
+              // Passive rollover — the label tints and shakes like a
+              // TextButton so it reads as pressable before you commit.
+              hover: () => {
+                currentHUDHovered = true;
+                $api.needsPaint();
+              },
+              leave: () => {
+                currentHUDHovered = false;
+                $api.needsPaint();
+              },
               down: () => {
                 originalColor = currentHUDTextColor;
                 currentHUDScrub = 0;
@@ -14722,6 +14733,9 @@ async function makeFrame({ data: { type, content } }) {
         hudAnimationState.labelHeight = bufferH;
         h = bufferH;
 
+        // While hovered the label shakes, so it needs a fresh frame each tick.
+        if (currentHUDHovered) $api.needsPaint();
+
         label = $api.painting(bufferW, bufferH, ($) => {
           // Ensure label renders with clean pan state
           $.unpan();
@@ -14776,12 +14790,24 @@ async function makeFrame({ data: { type, content } }) {
             }
 
             const baseX = currentHUDLeftPad + qrOffset;
+            // ✨ Rollover: tint toward the press green and shake ±1px —
+            // the same "I'm alive" cue a TextButton gives before a press.
+            const hudHovering = currentHUDHovered && !currentHUDButton?.down;
+            const shakeX = hudHovering ? Math.round((Math.random() - 0.5) * 2) : 0;
+            const shakeY = hudHovering ? Math.round((Math.random() - 0.5) * 2) : 0;
             // Keep text fixed while scrubbing left; only right-scrub shifts label content.
-            const hudTextX = baseX + HUD_LABEL_TEXT_MARGIN + Math.max(0, currentHUDScrub);
-            const hudTextY = 0;
+            const hudTextX =
+              baseX + HUD_LABEL_TEXT_MARGIN + Math.max(0, currentHUDScrub) + shakeX;
+            const hudTextY = 0 + shakeY;
             const typefaceNameForWrite = selectedHudFont;
             const hasColorCodes = textContainsColorCodes(text);
-            const baseTextColor = currentHUDTextColor || "white";
+            const baseTextColor = hudHovering
+              ? num.shiftRGB(
+                  graph.findColor(currentHUDTextColor || "white"),
+                  [0, 255, 0],
+                  0.4,
+                )
+              : currentHUDTextColor || "white";
 
             // 🎨 Character wrapping for KidLisp HUD prompts
             // Wrap based on screen width minus padding (6px total: 2px margin + 4px padding)

@@ -153,27 +153,6 @@ class Performer {
     await this.page.keyboard.up(key);
   }
 
-  // Drag the top-right rate readout vertically to set a steady rate, hold
-  // it a moment, then return to ~1× so the tape can re-sync (the dial holds
-  // friction-free while engaged — a manual tempo offset; the jam releases).
-  async steadyDial(up) {
-    const m = this.page.mouse;
-    const x = this.w - 32;
-    const y = 12;
-    await m.move(x, y);
-    await m.down();
-    for (let i = 1; i <= 6 && !this.stopped; i++) {
-      await m.move(x, y + (up ? -1 : 1) * 8 * i, { steps: 2 });
-      await sleep(70);
-    }
-    await sleep(700); // Hold the offset audibly...
-    for (let i = 6; i >= 0 && !this.stopped; i--) {
-      await m.move(x, y + (up ? -1 : 1) * 8 * i, { steps: 2 }); // ...back to center
-      await sleep(50);
-    }
-    await m.up();
-  }
-
   // One freestyle phrase, chosen at random.
   async phrase() {
     const moves = [
@@ -188,18 +167,34 @@ class Performer {
       ["jump <-", () => this.beatJump(3, "ArrowLeft")],
       ["chop 1/4", () => this.chop("ArrowUp", 900)],
       ["chop 1/8", () => this.chop("ArrowDown", 700)],
-      ["dial up", () => this.steadyDial(true)],
-      ["dial down", () => this.steadyDial(false)],
     ];
     const [name, fn] = pick(moves);
     this.last.act = name;
     await fn();
   }
 
+  // If a stray gesture navigated the pane off the tape (back to prompt),
+  // steer it home before the next phrase — the jam must outlive misclicks.
+  async ensureOnTape() {
+    try {
+      const url = this.page.url();
+      if (!url.includes(`video~scrub~${this.tape}`)) {
+        this.last.act = "re-enter tape";
+        await this.page.goto(`${BASE}/video~scrub~${this.tape}`, {
+          waitUntil: "domcontentloaded",
+          timeout: 45000,
+        });
+        await sleep(3500);
+        await this.wake();
+      }
+    } catch {}
+  }
+
   // Freestyle forever: phrase → release (let net-time re-sync) → repeat.
   async run() {
     await this.wake();
     while (!this.stopped) {
+      await this.ensureOnTape();
       await this.phrase();
       // Release: hands off, tape drifts back toward net-time unison.
       this.last.act += " → release";

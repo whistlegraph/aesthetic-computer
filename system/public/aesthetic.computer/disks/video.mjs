@@ -51,6 +51,7 @@ let printProgress = 0; // Export progress (0-1)
 let ellipsisTicker;
 let postedTapeCode = null; // Store the tape code after posting for button transformation
 let frameCount = 0; // Frame counter for animations like button blinking
+let lastClickBeat = -1; // Net-clock metronome: last UTC beat that clicked
 
 let isExportingGIF = false;
 let isExportingFrames = false;
@@ -139,10 +140,6 @@ const FLICK_KICK = 0.12; // Extra rate per px of flick velocity
 // 📟 Steady-rate dial: dragging the top-right rate readout vertically sets
 // a held steady rate — friction leaves it alone until it's brought back to
 // 1× (or spacebar resets).
-let rateBtn = null;
-let steadyHold = false;
-let rateDragStartY = 0;
-let rateDragStartRate = 1;
 
 // 🧭 Gesture vector debug: the grab anchor and current finger, so the
 // stretch reads as a drawn vector (direction + energy) on screen.
@@ -334,8 +331,6 @@ function boot({ wipe, rec, gizmo, jump, notice, store, params, send, hud }) {
   lastScrollAt = 0;
   wheelActive = false;
   sustained = false;
-  steadyHold = false;
-  rateBtn = null;
   chopActive = 0;
   flickVel = 0;
   resumeTarget = 1;
@@ -875,21 +870,15 @@ function paint({
       sustained ||
       tapDipTime >= 0;
     const liveRate = scrubDriven ? scrubSpeed : playing ? 1 : 0;
-    ink(steadyHold ? [0, 255, 180] : [255, 255, 0]).write(
+    // Top-right is display-only — no pointer targets live up here.
+    ink(255, 255, 0).write(
       `${liveRate.toFixed(2)}x`,
       { x: screen.width - 6, y: 6, right: true },
+      undefined,
+      undefined,
+      false,
+      "MatrixChunky8",
     );
-
-    // 📟 The readout is also a dial — keep its hit area in place.
-    if (!rateBtn) {
-      rateBtn = new ui.Button(screen.width - 64, 0, 64, 24);
-      rateBtn.stickyScrubbing = true;
-      rateBtn.noRolloverActivation = true;
-    }
-    rateBtn.box.x = screen.width - 64;
-    rateBtn.box.y = 0;
-    rateBtn.box.w = 64;
-    rateBtn.box.h = 24;
 
     // 🔴 The red marker rides the bottom edge at the actual playback
     // position — drawn from live state so it never lies.
@@ -916,7 +905,27 @@ function paint({
       ink(locked ? [0, 255, 120] : [255, 170, 0]).write(
         `sync ${errMs >= 0 ? "+" : ""}${errMs}ms`,
         { x: screen.width - 6, y: 18, right: true },
+        undefined,
+        undefined,
+        false,
+        "MatrixChunky8",
       );
+
+      // 🫀 Net-clock metronome blink: flashes on every 120 BPM beat of
+      // UTC, bright on the bar — identical in every window, so unison
+      // (or the lack of it) is visible at a glance across players.
+      const beatMs = 500; // 120 BPM
+      const beatPhase = (nowMs % beatMs) / beatMs;
+      const barBeat = Math.floor(nowMs / beatMs) % 4;
+      if (beatPhase < 0.3) {
+        ink(
+          barBeat === 0
+            ? [255, 255, 255]
+            : locked
+              ? [0, 255, 120]
+              : [255, 170, 0],
+        ).box(screen.width - 11, 30, 6, 6);
+      }
 
       // 📡 Telemetry for the jam harness (bios stashes it on window) —
       // throttled to ~5Hz. Lets a driver prove sync/rate numerically.
@@ -948,10 +957,14 @@ function paint({
         3,
       );
       ink(255, 255, 255, 220).box(elasticAnchorX - 2, ay - 2, 5, 5);
-      ink(255, 255, 255).write(`${scrubSpeed.toFixed(2)}x`, {
-        x: penX + 8,
-        y: (penY ?? ay) - 4,
-      });
+      ink(255, 255, 255).write(
+        `${scrubSpeed.toFixed(2)}x`,
+        { x: penX + 8, y: (penY ?? ay) - 4 },
+        undefined,
+        undefined,
+        false,
+        "MatrixChunky8",
+      );
     }
 
     // ⌨️ Deck keys legend, bottom-right.
@@ -962,11 +975,18 @@ function paint({
       "space reset",
     ];
     keyLines.forEach((l, i) => {
-      ink(255, 255, 255, 110).write(l, {
-        x: screen.width - 6,
-        y: screen.height - 10 - (keyLines.length - i) * 10,
-        right: true,
-      });
+      ink(255, 255, 255, 110).write(
+        l,
+        {
+          x: screen.width - 6,
+          y: screen.height - 10 - (keyLines.length - i) * 10,
+          right: true,
+        },
+        undefined,
+        undefined,
+        false,
+        "MatrixChunky8",
+      );
     });
   }
 
@@ -1053,9 +1073,29 @@ function paint({
   return true; // Always keep painting
 }
 
-function sim({ needsPaint, rec, send, clock }) {
+function sim({ needsPaint, rec, send, clock, sound }) {
   ellipsisTicker?.sim();
   frameCount++; // Increment frame counter for animations
+
+  // 🫀 Net-clock metronome click: one quiet tick per 120 BPM beat of UTC,
+  // bright on the bar — every window clicks the same instant, so the ear
+  // hears the tapes converge onto the shared clock (the blink's twin).
+  if (rec?.presenting && tapeInfo?.totalDuration && sound?.synth) {
+    const nowMs = clock?.time?.()?.getTime?.() ?? Date.now();
+    const beat = Math.floor(nowMs / 500);
+    if (beat !== lastClickBeat) {
+      lastClickBeat = beat;
+      const onBar = beat % 4 === 0;
+      sound.synth({
+        type: "sine",
+        tone: onBar ? 1980 : 1320,
+        attack: 0.002,
+        decay: 0.9,
+        volume: onBar ? 0.15 : 0.09,
+        duration: 0.015,
+      });
+    }
+  }
 
   // Measured wall-time per sim tick — the scrub physics scales by this so
   // commanded speed means tape-seconds per wall-second at any tick rate.
@@ -1214,9 +1254,8 @@ function sim({ needsPaint, rec, send, clock }) {
     // rate is 1× plus a phase-correcting lean (up to ±35%, decaying to 0 as
     // the loop comes into phase), and the rate eases toward it smoothly, so
     // it's always the same gesture: let go, the wheel finds the groove and
-    // locks. Never a jump. (The steady-dial holds a rate friction-free; a
-    // held chop owns position — both opt out.)
-    if (sustained && !steadyHold && !isScrubbing && !chopActive) {
+    // locks. Never a jump. (A held chop owns position — it opts out.)
+    if (sustained && !isScrubbing && !chopActive) {
       const durMs = totalDuration * 1000;
       const nowMs = clock?.time?.()?.getTime?.() ?? Date.now();
       let phaseErr = ((nowMs % durMs) / durMs) - scrubCurrentProgress;
@@ -2360,7 +2399,6 @@ function act({
       sustained = false;
       scrollScrubbing = false;
       tapDipTime = -1;
-      steadyHold = false;
       chopActive = 0;
       scrubSpeed = 0;
       nudgeTapeAudioSpeed(send, 1);
@@ -2438,54 +2476,6 @@ function act({
         nudgeTapeAudioSpeed(send, scrubSpeed);
         triggerRender();
       }
-    }
-
-    // 📟 Steady-rate dial: vertical drag on the top-right readout sets a
-    // held rate the friction won't touch.
-    if (rateBtn && rec.presenting && !isPrinting && !isPostingTape) {
-      rateBtn.act(e, {
-        down: () => {
-          rateDragStartY = e.y ?? 0;
-          rateDragStartRate =
-            isScrubbing || inertiaActive || brakeResume || wheelActive || sustained || tapDipTime >= 0
-              ? scrubSpeed
-              : rec.playing
-                ? 1
-                : 0;
-        },
-        scrub: () => {
-          if (e.y === undefined) return;
-          if (!sustained && !isScrubbing) {
-            // Engage the drive so the dialed rate actually plays.
-            scrubCurrentProgress = rec.presentProgress || scrubCurrentProgress || 0;
-            if (!rec.playing) rec.play();
-            send({
-              type: "recorder:present:seek",
-              content: { progress: scrubCurrentProgress, speedScrub: true, scrubbing: true },
-            });
-          }
-          inertiaActive = false;
-          brakeResume = false;
-          wheelActive = false;
-          tapDipTime = -1;
-          sustained = true;
-          steadyHold = true;
-          const dyRate = (rateDragStartY - e.y) * 0.03;
-          scrubSpeed = Math.max(-24, Math.min(24, rateDragStartRate + dyRate));
-          nudgeTapeAudioSpeed(send, scrubSpeed);
-          triggerRender();
-        },
-        up: () => {
-          // Release always ends the friction-free hold — otherwise a rate
-          // let go outside PARK_SNAP (say 1.11×) stays pinned forever and
-          // the net-time PLL can never re-lock. With the hold cleared, the
-          // bearing friction homes the drive to 1× and unison returns.
-          steadyHold = false;
-          if (Math.abs(scrubSpeed - 1) < PARK_SNAP) scrubSpeed = 1;
-          triggerRender();
-        },
-      });
-      if (rateBtn.down) return; // The dial owns this gesture
     }
 
     if (!anyButtonDown && !isPrinting && !isPostingTape && rec.presenting) {
@@ -3219,8 +3209,11 @@ function receive(e) {
 }
 
 // Called when leaving the video disk (e.g., pressing escape to go back to prompt)
-function leave({ send }) {
+function leave({ send, rec }) {
   console.log("📼 Leaving video disk - stopping tape playback");
+  // End the presentation properly — otherwise rec.presenting stays true
+  // and the bottom progress bar cursor haunts the next piece (prompt).
+  rec?.unpresent?.();
   isScrubbing = false;
   inertiaActive = false;
   brakeHolding = false;
@@ -3231,7 +3224,6 @@ function leave({ send }) {
   tapDipTime = -1;
   wheelActive = false;
   sustained = false;
-  steadyHold = false;
   flickVel = 0;
   scrubSpeed = 0;
   scrubCurrentProgress = 0;

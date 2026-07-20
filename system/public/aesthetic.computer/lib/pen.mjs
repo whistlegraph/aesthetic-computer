@@ -566,6 +566,10 @@ export class Pen {
     if (this.cursorCode != "native") {
       if (document.body.classList.contains("native-cursor")) {
         document.body.classList.remove("native-cursor");
+        // Drop any stale inline cursor from a previous "native" set —
+        // inline style beats the stylesheet, so leaving `auto` here pins
+        // the OS arrow and hides the CSS SVG cursor for good.
+        document.body.style.cursor = "";
       }
     }
 
