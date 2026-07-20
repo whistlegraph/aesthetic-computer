@@ -178,9 +178,6 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         // the spinning-CD menu-bar presence (persists when the window is closed)
         menuBar = MenuBarCD()
         menuBar?.onOpen = { [weak self] in self?.quickOpenFull() }
-        menuBar?.onPrevious = { [weak self] in self?.quickPrevious() }
-        menuBar?.onTogglePlay = { [weak self] in self?.quickTogglePlay() }
-        menuBar?.onNext = { [weak self] in self?.quickNext() }
         menuBar?.onVolumeChanged = { [weak self] value in self?.setQuickVolume(value) }
         menuBar?.setVolume(quickVolume)
         roomAudio.onState = { [weak self] state in

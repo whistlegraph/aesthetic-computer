@@ -50,124 +50,6 @@ private final class MenuBarTitleButton: NSButton {
     }
 }
 
-/// A transport glyph embossed directly into the menu-bar faceplate. There is
-/// deliberately no button body: the colored symbol itself rises, glows, and
-/// presses into the bar like the legends on MenuBand's instrument controls.
-private final class MenuBarKeyButton: NSButton {
-    private let hueOffset: CGFloat
-    private var hovered = false
-    private var hoverTrackingArea: NSTrackingArea?
-    var latched = false { didSet { needsDisplay = true } }
-
-    init(_ glyph: String, hueOffset: CGFloat) {
-        self.hueOffset = hueOffset
-        super.init(frame: .zero)
-        title = glyph
-        isBordered = false
-        focusRingType = .none
-        setButtonType(.momentaryChange)
-    }
-    required init?(coder: NSCoder) { fatalError() }
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let hoverTrackingArea { removeTrackingArea(hoverTrackingArea) }
-        let tracking = NSTrackingArea(rect: bounds,
-                                      options: [.mouseEnteredAndExited, .activeAlways],
-                                      owner: self, userInfo: nil)
-        addTrackingArea(tracking)
-        hoverTrackingArea = tracking
-    }
-
-    override func mouseEntered(with event: NSEvent) { hovered = true; needsDisplay = true }
-    override func mouseExited(with event: NSEvent) { hovered = false; needsDisplay = true }
-
-    override func resetCursorRects() {
-        super.resetCursorRects()
-        addCursorRect(bounds, cursor: .pointingHand)
-    }
-
-    override func highlight(_ flag: Bool) {
-        super.highlight(flag)
-        needsDisplay = true
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        let pressed = isHighlighted
-        let lit = pressed || latched
-        let accent = shiftedAccent()
-        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        let font = NSFont.systemFont(ofSize: (title == "❚❚" ? 10.8 : 12.8) + (hovered ? 1.0 : 0),
-                                     weight: .black)
-        let measure = NSAttributedString(string: title, attributes: [.font: font])
-        let size = measure.size()
-        let pressY: CGFloat = pressed ? -0.8 : 0.5
-        let origin = NSPoint(x: bounds.midX - size.width / 2,
-                             y: bounds.midY - size.height / 2 + pressY)
-
-        // Hard Riso-style offset first, then an accent enamel keyline.
-        let shadow = NSShadow()
-        shadow.shadowColor = NSColor.black.withAlphaComponent(pressed ? 0.24 : 0.68)
-        shadow.shadowOffset = NSSize(width: pressed ? 0 : 1, height: pressed ? 0 : -1)
-        shadow.shadowBlurRadius = 0
-        let outline = (accent.shadow(withLevel: dark ? 0.18 : 0.42) ?? accent)
-            .withAlphaComponent(hovered || lit ? 1 : 0.88)
-        let outlineGlyph = NSAttributedString(string: title, attributes: [
-            .font: font,
-            .foregroundColor: NSColor.clear,
-            .strokeColor: outline,
-            .strokeWidth: 3.2,
-            .shadow: shadow,
-        ])
-        outlineGlyph.draw(at: origin)
-
-        // MenuBand white-key gradient clipped inside the glyph. Hover and
-        // playback gently pick up the system accent at the lower edge.
-        let whiteHi: NSColor
-        let whiteLo: NSColor
-        if dark {
-            whiteHi = NSColor(srgbRed: 112/255, green: 124/255, blue: 134/255, alpha: 1)
-            whiteLo = NSColor(srgbRed: 58/255, green: 68/255, blue: 76/255, alpha: 1)
-        } else {
-            whiteHi = NSColor(srgbRed: 235/255, green: 242/255, blue: 245/255, alpha: 1)
-            whiteLo = NSColor(srgbRed: 195/255, green: 205/255, blue: 210/255, alpha: 1)
-        }
-        let tintAmount: CGFloat = latched ? 0.72 : (hovered ? 0.62 : 0.10)
-        let upper = (hovered || latched)
-            ? (whiteHi.blended(withFraction: hovered ? 0.20 : 0.14, of: accent) ?? whiteHi)
-            : whiteHi
-        let lower = whiteLo.blended(withFraction: tintAmount, of: accent) ?? whiteLo
-        let mask = NSImage(size: bounds.size)
-        mask.lockFocus()
-        NSAttributedString(string: title, attributes: [
-            .font: font, .foregroundColor: NSColor.white,
-        ]).draw(at: origin)
-        mask.unlockFocus()
-        let fill = NSImage(size: bounds.size)
-        fill.lockFocus()
-        NSGradient(starting: upper, ending: lower)?.draw(in: bounds, angle: -90)
-        mask.draw(at: .zero, from: NSRect(origin: .zero, size: bounds.size),
-                  operation: .destinationIn, fraction: 1)
-        fill.unlockFocus()
-        fill.draw(at: .zero, from: NSRect(origin: .zero, size: bounds.size),
-                  operation: .sourceOver, fraction: 1)
-    }
-
-    private func shiftedAccent() -> NSColor {
-        guard hueOffset != 0,
-              let rgb = NSColor.controlAccentColor.usingColorSpace(.sRGB) else {
-            return .controlAccentColor
-        }
-        var hue: CGFloat = 0, saturation: CGFloat = 0, brightness: CGFloat = 0, alpha: CGFloat = 0
-        rgb.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
-        hue = (hue + hueOffset).truncatingRemainder(dividingBy: 1)
-        if hue < 0 { hue += 1 }
-        return NSColor(calibratedHue: hue,
-                       saturation: min(1, max(0.48, saturation)),
-                       brightness: min(1, max(0.72, brightness)), alpha: alpha)
-    }
-}
-
 /// Six discrete volume zones lifted from video.mjs, stacked vertically for
 /// the temporary CD-drag popover. Louder levels climb upward and widen.
 private final class MenuBarVerticalVolumeMeter: NSView {
@@ -298,12 +180,9 @@ private final class MenuBarDiscButton: NSButton {
 final class MenuBarCD {
     private let statusItem: NSStatusItem
     private let titleButton = MenuBarTitleButton(title: "JukeWizard", target: nil, action: nil)
-    private let previousButton = MenuBarKeyButton("⏮", hueOffset: -0.075)
-    private let playButton = MenuBarKeyButton("▶", hueOffset: 0)
-    private let nextButton = MenuBarKeyButton("⏭", hueOffset: 0.075)
     private let volumeMeter = MenuBarVerticalVolumeMeter()
     private let discButton = MenuBarDiscButton(title: "", target: nil, action: nil)
-    private let fallbackImage: NSImage
+    private var fallbackImage: NSImage
     private var baseImage: NSImage
     private var timer: Timer?
     private var angle: CGFloat = 0            // degrees, clockwise
@@ -315,16 +194,14 @@ final class MenuBarCD {
     private var currentTitle = ""
     private var currentArtwork: NSImage?
     private var volumePopover: NSPopover?
+    private var colorObserver: NSObjectProtocol?
 
     var onOpen: (() -> Void)?
-    var onPrevious: (() -> Void)?
-    var onTogglePlay: (() -> Void)?
-    var onNext: (() -> Void)?
     var onVolumeChanged: ((Float) -> Void)?
 
     init() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        fallbackImage = MenuBarCD.loadCD(side: side)
+        fallbackImage = CDArtworkRenderer.accentDisc(side: side)
         baseImage = fallbackImage
         if let b = statusItem.button {
             b.title = ""
@@ -332,6 +209,9 @@ final class MenuBarCD {
             b.toolTip = "JukeWizard"
             installControls(in: b)
         }
+        colorObserver = NotificationCenter.default.addObserver(
+            forName: NSColor.systemColorsDidChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in self?.refreshAccentDisc() }
     }
 
     private func installControls(in barButton: NSStatusBarButton) {
@@ -341,16 +221,6 @@ final class MenuBarCD {
         titleButton.font = .systemFont(ofSize: 12, weight: .medium)
         titleButton.alignment = .left
         titleButton.lineBreakMode = .byTruncatingTail
-
-        previousButton.target = self
-        previousButton.action = #selector(previous)
-        previousButton.toolTip = "Previous"
-        playButton.target = self
-        playButton.action = #selector(togglePlay)
-        playButton.toolTip = "Play / Pause"
-        nextButton.target = self
-        nextButton.action = #selector(next)
-        nextButton.toolTip = "Next"
 
         discButton.isBordered = false
         discButton.image = baseImage
@@ -364,7 +234,7 @@ final class MenuBarCD {
         }
         discButton.onVolumeDragEnded = { [weak self] in self?.setVolumeGestureVisible(false) }
 
-        [titleButton, previousButton, playButton, nextButton, discButton]
+        [titleButton, discButton]
             .forEach(barButton.addSubview)
         layoutControls()
     }
@@ -376,29 +246,19 @@ final class MenuBarCD {
         var x: CGFloat = 3
         titleButton.frame = NSRect(x: x, y: y, width: titleWidth, height: buttonHeight)
         x += titleWidth + 2
-        for button in [previousButton, playButton, nextButton] {
-            button.frame = NSRect(x: x, y: y, width: 29, height: buttonHeight)
-            x += 29
-        }
         discButton.frame = NSRect(x: x, y: y, width: side + 3, height: buttonHeight)
         x += side + 6
         statusItem.length = x
     }
 
-    private static func loadCD(side: CGFloat) -> NSImage {
-        let bundle = Bundle.module
-        let url = bundle.url(forResource: "jukewizard-cd", withExtension: "png", subdirectory: "Assets")
-            ?? bundle.url(forResource: "jukewizard-cd", withExtension: "png")
-        let img = (url.flatMap { NSImage(contentsOf: $0) }) ?? NSImage(size: NSSize(width: side, height: side))
-        img.size = NSSize(width: side, height: side)
-        img.isTemplate = false               // keep the iridescent color in the bar
-        return img
-    }
-
     @objc private func openFull() { onOpen?() }
-    @objc private func previous() { onPrevious?() }
-    @objc private func togglePlay() { onTogglePlay?() }
-    @objc private func next() { onNext?() }
+
+    private func refreshAccentDisc() {
+        fallbackImage = CDArtworkRenderer.accentDisc(side: side)
+        guard currentArtwork == nil else { return }
+        baseImage = fallbackImage
+        discButton.image = angle == 0 ? baseImage : rotated(baseImage, by: angle)
+    }
 
     private func setVolumeGestureVisible(_ visible: Bool) {
         if visible {
@@ -455,10 +315,12 @@ final class MenuBarCD {
         guard p != playing else { return }
         let resumed = p && !playing
         playing = p
-        playButton.title = p ? "❚❚" : "▶"
-        playButton.latched = p
         if p { startSpin() } else { stopSpin() }
         if resumed, let button = statusItem.button { MenuBarNoteBurst.emit(from: button) }
+    }
+
+    deinit {
+        if let colorObserver { NotificationCenter.default.removeObserver(colorObserver) }
     }
 
     func setVolume(_ value: Float) {
