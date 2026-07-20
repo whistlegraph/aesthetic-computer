@@ -55,14 +55,14 @@ final class FramePreview {
 
     func open(_ rawPath: String, machine: String) {
         let path = (rawPath as NSString).expandingTildeInPath
-        if let existing = controllers[machine] { existing.focusAndReload(path: path); return }
+        if let existing = controllers[machine] { existing.reload(path: path); return }
         guard FileManager.default.fileExists(atPath: path),
               let controller = FrameWindowController(path: path, machine: machine, onClose: { [weak self] in
                   self?.controllers.removeValue(forKey: machine)
               })
         else { return }
         controllers[machine] = controller
-        controller.focus()
+        controller.showWithoutActivation()
     }
 
     func focus(_ machine: String) { controllers[machine]?.focus() }
@@ -228,9 +228,16 @@ private final class FrameWindowController: NSObject, NSWindowDelegate {
         panel.makeKeyAndOrderFront(nil)
     }
 
+    /// Preview requests are observational: show without activating Slab so a
+    /// capture can never take focus from the user's current app or Deskflow.
+    func showWithoutActivation() {
+        panel.orderFrontRegardless()
+    }
+
     /// Re-pull of an already-open machine: swap to the new path (usually the
-    /// same <machine>.jpg), reload the image, re-arm the watcher, and raise.
-    func focusAndReload(path newPath: String) {
+    /// same <machine>.jpg), reload the image, and re-arm the watcher. Do not
+    /// raise or focus it; a monitoring loop must remain invisible to input.
+    func reload(path newPath: String) {
         if newPath != path {
             monitor?.cancel()
             monitor = nil
@@ -238,7 +245,6 @@ private final class FrameWindowController: NSObject, NSWindowDelegate {
             watchFile()
         }
         if let fresh = NSImage(contentsOfFile: path) { imageView.image = fresh }
-        focus()
     }
 
     func close() { panel.close() }

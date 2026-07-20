@@ -77,40 +77,10 @@ final class FrameCapture {
         fm.createFile(atPath: Paths.frameDone, contents: nil)
     }
 
-    // A subtle whole-display flash, fired AFTER the pixels are grabbed so it
-    // never lands in the capture — just end-user awareness that a frame was
-    // snapped. Runs on the main thread, click-through, brief and low-alpha; the
-    // capture/OCR pipeline keeps going on its own queue meanwhile.
+    // Frame observation must be invisible. A previous whole-display pulse made
+    // automated polling blink the target and could interrupt Deskflow/filming.
     private func flashCaptureIndicator() {
-        DispatchQueue.main.async {
-            for screen in NSScreen.screens {
-                let win = NSWindow(contentRect: screen.frame, styleMask: .borderless,
-                                   backing: .buffered, defer: false)
-                win.isOpaque = false
-                win.backgroundColor = .clear
-                win.level = .screenSaver
-                win.ignoresMouseEvents = true
-                win.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
-                let view = NSView(frame: NSRect(origin: .zero, size: screen.frame.size))
-                view.wantsLayer = true
-                // System accent color so the whole-display pulse matches the
-                // machine's chosen tint rather than a flat white wash.
-                view.layer?.backgroundColor = NSColor.controlAccentColor.cgColor
-                win.contentView = view
-                win.alphaValue = 0.0
-                win.orderFrontRegardless()
-                self.registerOverlay(win)
-                NSAnimationContext.runAnimationGroup({ ctx in
-                    ctx.duration = 0.06
-                    win.animator().alphaValue = 0.22
-                }, completionHandler: {
-                    NSAnimationContext.runAnimationGroup({ ctx in
-                        ctx.duration = 0.34
-                        win.animator().alphaValue = 0.0
-                    }, completionHandler: { self.unregisterOverlay(win); win.orderOut(nil) })
-                })
-            }
-        }
+        // Intentionally silent and non-activating.
     }
 
     // Draw the whole-screen OCR boxes as a brief screen-wide overlay, so a
