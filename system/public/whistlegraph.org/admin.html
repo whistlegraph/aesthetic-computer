@@ -139,14 +139,16 @@
   async function loadData(){
     grid.setAttribute("aria-busy","true");document.getElementById("count").textContent="Loading archive…";
     const curationRequest=PREVIEW?Promise.resolve({data:{works:{},posts:{}}}):getJSON(`${API}?action=data`,{headers:{Authorization:`Bearer ${token}`},cache:"no-store"}).then(data=>({data})).catch(error=>({error}));
-    const [pd,gd]=await Promise.all([
+    const [pd,gd,curationResult]=await Promise.all([
       getJSON(`${STATIC_ROOT}/posts.json?t=${Date.now()}`,{cache:"no-cache"}),
-      getJSON(`${STATIC_ROOT}/graphs.json?t=${Date.now()}`,{cache:"no-cache"})
+      getJSON(`${STATIC_ROOT}/graphs.json?t=${Date.now()}`,{cache:"no-cache"}),
+      curationRequest
     ]);
-    basePosts=pd.posts||[];baseWorks=gd.works||[];applyCuration();renderReset();grid.removeAttribute("aria-busy");
-    const {data:cd,error}=await curationRequest;
-    if(error){toast(`Live edits unavailable: ${error.message}`);return}
-    curation={works:cd.works||{},posts:cd.posts||{},createdWorks:cd.createdWorks||{},deletedWorks:cd.deletedWorks||[],trashedWorks:cd.trashedWorks||{}};deployments=cd.deployments||[];recentChanges=cd.recent||[];visualCoverage=cd.visualCoverage||{count:0};applyCuration();renderReset(true);
+    basePosts=pd.posts||[];baseWorks=gd.works||[];
+    const {data:cd,error}=curationResult;
+    if(cd){curation={works:cd.works||{},posts:cd.posts||{},createdWorks:cd.createdWorks||{},deletedWorks:cd.deletedWorks||[],trashedWorks:cd.trashedWorks||{}};deployments=cd.deployments||[];recentChanges=cd.recent||[];visualCoverage=cd.visualCoverage||{count:0}}
+    applyCuration();renderReset();grid.removeAttribute("aria-busy");
+    if(error)toast(`Live edits unavailable: ${error.message}`);
   }
   function enterDesk(name){gate.classList.add("hidden");desk.classList.remove("hidden");document.getElementById("who").textContent=name;if(PREVIEW){document.getElementById("previewBadge").classList.remove("hidden");document.getElementById("logout").classList.add("hidden")}}
   function canonicalizeDesk(){if(!LOCAL&&location.pathname!==DESK_PATH)history.replaceState({},"",DESK_PATH)}
