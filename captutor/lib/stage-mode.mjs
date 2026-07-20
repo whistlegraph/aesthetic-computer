@@ -102,6 +102,7 @@ for _ in 0..<8 {
   const slider = JSON.parse(run("/usr/bin/osascript", ["-l", "JavaScript", "-e", `
 const se = Application("System Events");
 const process = se.processes.byName("System Settings");
+const wanted = ${Number(to)};
 let answer = null;
 function walk(element, depth) {
   if (answer || depth > 24) return;
@@ -109,6 +110,14 @@ function walk(element, depth) {
     if (element.role() === "AXSlider" &&
         element.attributes.byName("AXIdentifier").value() === "AX_CURSOR_SIZE") {
       answer = { value: Number(element.value()), position: element.position(), size: element.size() };
+      // The minimum is an exact semantic endpoint. AXDecrement reaches it
+      // reliably, whereas a physical drag can land a fraction of a point above
+      // the knob and leave the cursor enlarged after Stage cleanup.
+      if (wanted <= 1.05) {
+        for (let index = 0; index < 16; index += 1) {
+          element.actions.byName("AXDecrement").perform();
+        }
+      }
       return;
     }
   } catch {}
@@ -120,6 +129,16 @@ walk(process.windows[0], 0);
 if (!answer) throw new Error("AX_CURSOR_SIZE is unavailable");
 JSON.stringify(answer);
 `]));
+  if (Number(to) <= 1.05) {
+    await sleep(650);
+    const actual = Number(readDefault("com.apple.universalaccess.plist", "mouseDriverCursorSize"));
+    if (!Number.isFinite(actual) || Math.abs(actual - Number(to)) > 0.08) {
+      throw new Error(`pointer-size restore failed: wanted ${to}, got ${actual}`);
+    }
+    osa('tell application "System Settings" to quit', [], true);
+    osa('tell application "Google Chrome" to activate', [], true);
+    return;
+  }
   const left = slider.position[0];
   const y = slider.position[1] + slider.size[1] / 2;
   // AX reports the slider's full control bounds, while the knob travels on a
