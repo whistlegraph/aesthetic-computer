@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>2018 · prompt.ac</title>
+<meta name="description" content="2018 — Jeffrey's animated media memorial and Aesthetic Computer prehistory year.">
+<link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.css">
+<link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/ywft-processing-bold.css">
+<style>
+:root{--pink:#ff42b3;--mint:#36ffd2;--yellow:#ffe52c;--violet:#8e63ff;--paper:#f6f1e8;--black:#08080b}
+*{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:var(--black);color:var(--paper);font-family:YWFTProcessing-Regular,ui-monospace,monospace}
+button{font:inherit;color:inherit}.stage,.slide,.media,.shade,#chrome,.ui{position:fixed;inset:0}.stage{isolation:isolate}.slide{opacity:0;transition:opacity 1.15s ease;overflow:hidden}.slide.active{opacity:1;z-index:2}.media{width:100%;height:100%;object-fit:cover;transform:scale(1.035);filter:saturate(1.08) contrast(1.03);transition:transform 9s linear}.active .media{transform:scale(1.13)}.slide:nth-child(2n).active .media{transform:scale(1.13) translateX(1.2%)}
+.shade{background:linear-gradient(180deg,rgba(0,0,0,.1),transparent 40%,rgba(0,0,0,.88));pointer-events:none}.copy{position:absolute;z-index:2;left:clamp(3.3rem,7vw,8rem);bottom:clamp(4.7rem,10vh,8rem);max-width:min(820px,76vw);text-shadow:0 2px 18px #000}.date,.kind{color:var(--mint);letter-spacing:.17em;text-transform:uppercase;font-size:clamp(.7rem,1.2vw,1rem)}h1,h2{font-family:YWFTProcessing-Bold,YWFTProcessing-Regular,sans-serif;margin:.08em 0;line-height:.82;letter-spacing:-.055em}h1{font-size:clamp(8rem,27vw,25rem);text-shadow:.035em .035em 0 var(--pink),-.025em -.02em 0 var(--mint)}h2{font-size:clamp(3.3rem,10vw,9rem)}p{font-size:clamp(.95rem,1.7vw,1.35rem);line-height:1.3;margin:.65em 0 0;max-width:680px}.intro{display:grid;place-items:center;text-align:center;background:radial-gradient(circle at 50% 40%,#372142,#11111a 45%,#08080b 78%)}.intro .copy{position:relative;inset:auto;max-width:90vw}.intro p{margin:2rem auto 0}.film{background:#000}.film video{object-fit:contain;transform:none!important;filter:none}.work{background:linear-gradient(135deg,#261228,#081c1b)}.work:before{content:'✦';position:absolute;right:5vw;top:5vh;font-size:min(50vw,34rem);line-height:1;color:var(--pink);opacity:.13;animation:spin 18s linear infinite}.work .copy{top:50%;bottom:auto;transform:translateY(-50%)}
+#chrome{z-index:8;width:100%;height:100%;pointer-events:none;mix-blend-mode:screen}.ui{z-index:10;pointer-events:none}.ui button{pointer-events:auto;border:0;background:transparent;cursor:pointer}.enter{position:absolute;inset:0!important;width:100%;height:100%;display:grid!important;place-items:center;background:rgba(8,8,11,.56)!important;backdrop-filter:blur(10px);font-family:YWFTProcessing-Bold;font-size:clamp(1.2rem,4vw,3rem);letter-spacing:.08em}.enter span{padding:.7em 1em;border:2px solid var(--mint);box-shadow:8px 8px 0 var(--pink);background:#08080b}.enter.gone{display:none!important}.nav{position:absolute;right:clamp(3rem,6vw,7rem);bottom:2rem;display:flex;align-items:center;gap:1rem;pointer-events:auto}.nav button{font-size:1.5rem;padding:.2rem .5rem}.count{font-size:.75rem;letter-spacing:.15em}.progress{position:absolute;left:0;bottom:0;height:5px;width:100%;background:rgba(255,255,255,.15)}.progress i{display:block;width:0;height:100%;background:linear-gradient(90deg,var(--pink),var(--yellow),var(--mint))}
+@keyframes spin{to{transform:rotate(360deg)}}@media(max-width:650px){.copy{left:3rem;max-width:80vw}.nav{right:2.5rem}h1{font-size:35vw}}@media(prefers-reduced-motion:reduce){*,*:before{animation:none!important;transition-duration:.01ms!important}.media{transform:none!important}}
+</style></head>
+<body><main class="stage" id="stage" aria-live="polite">
+  <section class="slide intro active" data-duration="6500"><div class="copy"><div class="kind">Jeffrey’s prehistory year</div><h1>2018</h1><p>Pictures, performances, software, and source code already pointing toward Aesthetic Computer.</p></div></section>
+  <section class="slide film" data-film><video class="media" playsinline preload="metadata" poster="https://assets.aesthetic.computer/jeffreys/whistlegraph/BpvRHisFYFY.jpg"><source src="https://assets.aesthetic.computer/2018/2018.mp4" type="video/mp4"></video><div class="shade"></div><div class="copy"><div class="date">October 2018 · YC application tape</div><h2>creative software<br>as performance</h2></div></section>
+  <section class="slide work" data-duration="7000"><div class="copy"><div class="kind">Performance · Leipzig · December 2018</div><h2>Radical Digital Painting at 35c3</h2><p>JAS on Paper at Chaos Communication Congress: software, lecture, painting, and pop spectacle collapsing into one instrument.</p></div></section>
+  <section class="slide work" data-duration="7000"><div class="copy"><div class="kind">Software · source history</div><h2>No Paint</h2><p>Motion brushes, touch, sound, GIF export, iOS experiments—the living painting system that preceded Aesthetic Computer.</p></div></section>
+</main><canvas id="chrome" aria-hidden="true"></canvas>
+<div class="ui"><button class="enter" id="enter"><span>enter 2018 ↗</span></button><div class="nav"><button id="prev" aria-label="Previous">←</button><span class="count" id="count">01 / 04</span><button id="next" aria-label="Next">→</button></div><div class="progress"><i id="bar"></i></div></div>
+<script type="module">
+const stage=document.querySelector('#stage'),enter=document.querySelector('#enter'),count=document.querySelector('#count'),bar=document.querySelector('#bar');
+let slides=[...document.querySelectorAll('.slide')],at=0,started=false,start=0,duration=6500,timer=0;
+const manifest='https://papers.aesthetic.computer/platter/jeffrey/manifest.json';
+function safe(s=''){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+fetch(manifest).then(r=>r.json()).then(data=>{
+  const rows=(data.rows||[]).filter(x=>x.date?.startsWith('2018')&&x.full).sort((a,b)=>a.date.localeCompare(b.date));
+  for(const [i,x] of rows.entries()){const el=document.createElement('section');el.className='slide memory';el.dataset.duration='6000';el.innerHTML=`<img class="media" loading="${i<2?'eager':'lazy'}" src="${safe(x.full)}" alt="${safe(x.description||x.caption||'2018 memory')}"><div class="shade"></div><div class="copy"><div class="date">${safe(x.date)}</div>${x.caption||x.location?`<p>${safe(x.caption||x.location)}</p>`:''}</div>`;stage.append(el)}
+  slides=[...document.querySelectorAll('.slide')];show(at,false);
+}).catch(()=>{});
+function show(n,user=true){
+  const old=slides[at],oldVideo=old?.querySelector('video');if(oldVideo){oldVideo.pause()}
+  at=(n+slides.length)%slides.length;slides.forEach((s,i)=>s.classList.toggle('active',i===at));
+  const slide=slides[at],video=slide.querySelector('video');duration=+(slide.dataset.duration||6500);start=performance.now();bar.style.width='0';count.textContent=`${String(at+1).padStart(2,'0')} / ${String(slides.length).padStart(2,'0')}`;
+  if(video&&started){video.currentTime=user?0:video.currentTime;video.muted=false;video.play().catch(()=>{video.muted=true;video.play()});duration=Math.max(1000,((video.duration||62)-video.currentTime)*1000);video.onended=()=>show(at+1,false)}
+}
+function tick(now){if(started){const video=slides[at]?.querySelector('video');if(video&&Number.isFinite(video.duration))bar.style.width=`${video.currentTime/video.duration*100}%`;else{const p=(now-start)/duration;bar.style.width=`${Math.min(1,p)*100}%`;if(p>=1)show(at+1,false)}}timer=requestAnimationFrame(tick)}requestAnimationFrame(tick);
+function begin(){started=true;enter.classList.add('gone');show(at,false)}enter.onclick=begin;
+document.querySelector('#prev').onclick=()=>show(at-1);document.querySelector('#next').onclick=()=>show(at+1);
+addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key===' ')show(at+1);if(e.key==='ArrowLeft')show(at-1);if(e.key==='Enter'&&!started)begin()});
+let sx=0;addEventListener('pointerdown',e=>sx=e.clientX);addEventListener('pointerup',e=>{const dx=e.clientX-sx;if(Math.abs(dx)>55)show(at+(dx<0?1:-1))});
+
+// Animated AC side identity lives on one Canvas2D overlay.
+const cv=document.querySelector('#chrome'),ctx=cv.getContext('2d'),pals=new Image();pals.crossOrigin='anonymous';pals.src='https://assets.aesthetic.computer/aesthetic-inc/pals.png';let dpr=1;
+function size(){dpr=Math.min(2,devicePixelRatio||1);cv.width=innerWidth*dpr;cv.height=innerHeight*dpr;ctx.setTransform(dpr,0,0,dpr,0,0)}addEventListener('resize',size);size();
+const colors=['#ff42b3','#35ffd2','#ffe32b','#8d62ff'];const ink=(t,o=0)=>colors[(Math.floor(t/1.6)+o)%colors.length];
+function stamp(t,x,flip){ctx.save();ctx.translate(x,innerHeight/2);ctx.rotate(flip?Math.PI/2:-Math.PI/2);ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`bold ${Math.max(17,Math.min(31,innerWidth*.024))}px YWFTProcessing-Bold,YWFTProcessing-Regular`;const txt='prompt.AC/2018';for(const [dx,c] of [[-4,ink(t,1)],[4,ink(t,3)],[0,ink(t)]]){ctx.globalAlpha=dx?.4:1;ctx.fillStyle=c;ctx.fillText(txt,dx,Math.sin(t*1.8+(flip?2:0))*3)}ctx.restore()}
+function chrome(ms){const t=ms/1000;ctx.clearRect(0,0,innerWidth,innerHeight);ctx.globalCompositeOperation='screen';stamp(t,24,false);stamp(t,innerWidth-24,true);if(pals.complete){for(const [x,y,o] of [[52,64,0],[innerWidth-52,innerHeight-64,2]]){const beat=(t*2.15+o)%1,kick=Math.exp(-beat*12),burst=Math.max(0,Math.sin(t*7.7+o*4))**9;const s=68+9*Math.sin(t*2.15+o)+16*kick;const shake=burst*5;ctx.save();ctx.translate(x+Math.sin(t*31+o)*shake,y+Math.cos(t*27+o)*shake-kick*7);ctx.rotate(.25*Math.sin(t*2.15+o)+.09*Math.sin(t*9.3+o)+burst*.16*Math.sin(t*43));ctx.scale(1+kick*.18,1-kick*.11);for(const [dx,dy,c,a] of [[-8-shake,2,ink(t,o),.42],[8+shake,-2,ink(t,o+1),.42],[0,0,'white',.96]]){ctx.globalAlpha=a;ctx.filter=dx?'blur(1.5px) saturate(1.8)':'none';ctx.drawImage(pals,-s/2+dx,-s/2+dy,s,s)}ctx.restore()}}ctx.globalAlpha=1;ctx.filter='none';requestAnimationFrame(chrome)}requestAnimationFrame(chrome);
+</script></body></html>

@@ -554,6 +554,18 @@
         file_server
     }
 
+    # --- prompt.ac/2018 → Jeffrey's prehistory-year media memorial ---
+    @promptac_2018 {
+        host prompt.ac
+        path /2018 /2018/*
+    }
+    handle @promptac_2018 {
+        root * /opt/ac/system/public/prompt.ac
+        uri strip_prefix /2018
+        try_files {path} {path}/ /2018/index.html
+        file_server
+    }
+
     # --- prompt.ac routes ---
     # Non-root paths pass through lith's conflict-aware Whistlegraph resolver.
     # It sends live codes to whistlegraph.org and preserves the historical
