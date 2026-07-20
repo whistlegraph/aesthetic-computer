@@ -23,12 +23,16 @@ import {
   makeParticles, loadStripRig, drawStrip, stripKeyX, stripKeyColor,
   loadScore, leadOf, litAt, makeOnsets,
   renderVideo, writeMeta, makeScenes, sungMode, loadSungWords, makeKaraoke,
+  IS_WEB,
 } from "./reel-lib.mjs";
 
 const SLUG = "menuband-chords";
 // --sung: jeffrey sings the chord grammar (sing-jingle.mjs) + karaoke.
-const { sung: SUNG, suffix: VAR } = sungMode();
-const karaoke = SUNG ? makeKaraoke(loadSungWords(SLUG), { y: 1920 * 0.945 }) : null;
+const { sung: SUNG, audioSuffix: AUDIO_VAR, suffix: VAR } = sungMode();
+const karaoke = SUNG ? makeKaraoke(loadSungWords(SLUG), {
+  y: H * 0.945,
+  size: IS_WEB ? 38 : 54,
+}) : null;
 const score = loadScore(SLUG);
 const { segs } = JSON.parse(readFileSync(`${OUT}/${SLUG}.score.json`, "utf8"));
 const TOTAL = score.durationSec;
@@ -149,7 +153,7 @@ function drawFrame(t) {
 }
 
 await renderVideo({
-  canvas, audioPath: `${OUT}/${SLUG}${VAR}.mp3`, outPath: `${OUT}/base-${SLUG}${VAR}.mp4`,
+  canvas, audioPath: `${OUT}/${SLUG}${AUDIO_VAR}.mp3`, outPath: `${OUT}/base-${SLUG}${VAR}.mp4`,
   total: TOTAL, drawFrame, label: `menuband chords sim${VAR}`,
 });
 writeMeta(`${SLUG}${VAR}`, TOTAL, SCENES);

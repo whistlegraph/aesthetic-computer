@@ -171,6 +171,92 @@
       drop-shadow(0 14px 18px rgba(15, 30, 60, 0.28));
   }
 
+  /* The icon is the door into the campaign films. The player keeps the
+     native 4:3 web composition; the icon floats over its poster until the
+     visitor asks for sound. */
+  .film-stage {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    width: 100%;
+    margin: 0 auto 18px;
+    overflow: hidden;
+    border-radius: 20px;
+    background: #cfc5df;
+    box-shadow: 0 18px 38px -18px rgba(34, 22, 62, 0.55);
+  }
+  .film-stage video {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+  }
+  .film-door {
+    position: absolute;
+    inset: 0;
+    border: 0;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    background: rgba(224, 217, 238, 0.18);
+    cursor: pointer;
+    transition: opacity 300ms var(--ease-apple), background 300ms var(--ease-apple);
+  }
+  .film-door img {
+    width: 42%;
+    height: auto;
+    filter: drop-shadow(0 16px 22px rgba(29, 14, 50, 0.35));
+    transition: transform 300ms var(--ease-apple);
+  }
+  .film-door::after {
+    content: "▶";
+    position: absolute;
+    width: 48px;
+    height: 48px;
+    display: grid;
+    place-items: center;
+    padding-left: 3px;
+    border-radius: 50%;
+    color: white;
+    font-size: 18px;
+    background: rgba(20, 18, 28, 0.78);
+    box-shadow: 0 5px 18px rgba(20, 18, 28, 0.35);
+  }
+  .film-door:hover { background: rgba(255, 255, 255, 0.2); }
+  .film-door:hover img { transform: scale(1.035) rotate(-1deg); }
+  .film-stage.is-playing .film-door { opacity: 0; pointer-events: none; }
+
+  .film-rail {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(158px, 1fr);
+    gap: 9px;
+    margin: -4px 0 22px;
+    overflow-x: auto;
+    padding: 4px 2px 10px;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: thin;
+  }
+  .film-card {
+    appearance: none;
+    scroll-snap-align: start;
+    border: 1px solid rgba(255, 255, 255, 0.72);
+    border-radius: 12px;
+    padding: 10px 11px;
+    text-align: left;
+    color: var(--ink-head);
+    background: rgba(255, 255, 255, 0.48);
+    box-shadow: 0 4px 12px rgba(25, 20, 45, 0.08);
+    cursor: pointer;
+  }
+  .film-card[aria-current="true"] {
+    outline: 2px solid var(--tahoe-blue);
+    outline-offset: 1px;
+    background: rgba(255, 255, 255, 0.75);
+  }
+  .film-card b, .film-card small { display: block; }
+  .film-card b { font-family: var(--display-stack); font-size: 12px; }
+  .film-card small { margin-top: 2px; color: var(--ink-soft); font-size: 10px; }
+
   /* Apple Garamond italic — the "Think different" / classic-product wordmark
      feel. Falls back through ITC Garamond, Hoefler Text, and Garamond on
      stock macOS. */
@@ -495,6 +581,8 @@
     .hero { padding: 24px 18px 20px; border-radius: 14px; }
     .icon-stage { width: 192px; height: 192px; }
     .icon-stage img.app-icon { width: 192px; height: 192px; }
+    .film-stage { border-radius: 14px; }
+    .film-rail { grid-auto-columns: 72%; }
     h2.app-title { font-size: 40px; }
     section.panel { padding: 16px 18px; border-radius: 12px; }
   }
@@ -543,6 +631,8 @@
         0 1px 0 rgba(255, 255, 255, 0.06) inset,
         0 12px 32px -14px rgba(0, 0, 0, 0.55);
     }
+    .film-card { background: rgba(28, 28, 30, 0.62); border-color: rgba(255,255,255,0.09); }
+    .film-card[aria-current="true"] { background: rgba(44, 44, 48, 0.86); }
     code {
       background: #2c2c2e;
       border-color: #3a3a3c;
@@ -633,8 +723,21 @@
 
 <article class="window" aria-label="Menu Band">
   <div class="hero">
-    <div class="icon-stage">
-      <img class="app-icon" src="/menuband/icon.png" alt="Menu Band app icon">
+    <div class="film-stage" id="film-stage">
+      <video id="film-player" playsinline preload="metadata" poster="/menuband/icon.png">
+        <source src="/menuband/video/meet-menuband.mp4" type="video/mp4">
+      </video>
+      <button class="film-door" id="film-door" type="button" aria-label="Play Meet Menu Band">
+        <img src="/menuband/icon.png" alt="">
+      </button>
+    </div>
+    <div class="film-rail" id="film-rail" aria-label="Menu Band films">
+      <button class="film-card" type="button" aria-current="true" data-src="/menuband/video/meet-menuband.mp4" data-title="Meet Menu Band">
+        <b>Meet Menu Band</b><small>the tiny menu-bar instrument</small>
+      </button>
+      <button class="film-card" type="button" aria-current="false" data-src="/menuband/video/sing-the-scale.mp4" data-title="Sing the C scale">
+        <b>Sing the C scale</b><small>c d e f g… but weird</small>
+      </button>
     </div>
     <h2 class="app-title">Menu Band</h2>
     <p class="tagline" data-i18n="tagline">Taking your Mac's standard instruments out of the 🎸 Garage and kickin' it on the curb!</p>
@@ -691,6 +794,34 @@
 </footer>
 
 <script>
+  (function menubandFilms() {
+    const stage = document.getElementById("film-stage");
+    const player = document.getElementById("film-player");
+    const door = document.getElementById("film-door");
+    const cards = [...document.querySelectorAll(".film-card")];
+
+    async function play() {
+      stage.classList.add("is-playing");
+      player.controls = true;
+      try { await player.play(); }
+      catch { stage.classList.remove("is-playing"); }
+    }
+
+    door.addEventListener("click", play);
+    cards.forEach((card) => card.addEventListener("click", async () => {
+      const wasPlaying = !player.paused || stage.classList.contains("is-playing");
+      cards.forEach((item) => item.setAttribute("aria-current", String(item === card)));
+      if (player.getAttribute("src") !== card.dataset.src) {
+        player.src = card.dataset.src;
+        player.load();
+      }
+      door.setAttribute("aria-label", `Play ${card.dataset.title}`);
+      if (wasPlaying) await play();
+      else stage.classList.remove("is-playing");
+    }));
+    player.addEventListener("ended", () => stage.classList.remove("is-playing"));
+  })();
+
   // ── i18n. Same plug-and-play shape as kidlisp.com / help.aesthetic.computer:
   //    one table per language, `data-i18n` attributes on every translatable
   //    element, and `data-i18n-html="true"` for strings that need to keep

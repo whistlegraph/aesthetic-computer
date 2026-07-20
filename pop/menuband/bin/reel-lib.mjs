@@ -22,7 +22,19 @@ import { spawnFFmpegEncode } from "../../lib/preview-shared.mjs";
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const LANE = resolve(HERE, "..");
 export const OUT = `${LANE}/out`;
-export const W = 1080, H = 1920, FPS = 30;
+// One campaign clock, two compositions. `--format web` keeps every score,
+// capture, sung take, and word-timing sidecar intact while giving the site a
+// native 4:3 frame instead of cropping the 9:16 social master.
+export const FORMAT = process.argv.includes("--format")
+  ? process.argv[process.argv.indexOf("--format") + 1]
+  : "reel";
+if (!new Set(["reel", "web"]).has(FORMAT)) {
+  throw new Error(`unknown Menu Band format: ${FORMAT} (use reel or web)`);
+}
+export const IS_WEB = FORMAT === "web";
+export const W = IS_WEB ? 1440 : 1080;
+export const H = IS_WEB ? 1080 : 1920;
+export const FPS = 30;
 
 // macOS system fonts — registered before any canvas is created.
 try { registerFont("/System/Library/Fonts/SFNS.ttf", { family: "MBSans" }); } catch {}
@@ -396,7 +408,9 @@ export function makeKaraoke(words, { y = H * 0.925, size = 54 } = {}) {
 /// Shared --sung plumbing: audio/base/meta paths swing to the -sung variants.
 export function sungMode() {
   const sung = process.argv.includes("--sung");
-  return { sung, suffix: sung ? "-sung" : "" };
+  const audioSuffix = sung ? "-sung" : "";
+  const formatSuffix = IS_WEB ? "-web" : "";
+  return { sung, audioSuffix, formatSuffix, suffix: `${audioSuffix}${formatSuffix}` };
 }
 
 // ── notes.json helpers ─────────────────────────────────────────────────────

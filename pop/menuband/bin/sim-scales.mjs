@@ -40,10 +40,11 @@ import {
   makeParticles, loadStripRig, drawStrip, stripKeyX, stripKeyColor,
   loadScore, leadOf, litAt, makeOnsets,
   renderVideo, writeMeta, makeScenes, sungMode, loadSungWords, makeKaraoke,
+  IS_WEB,
 } from "./reel-lib.mjs";
 
 const SLUG = "menuband-scales";
-const { sung: SUNG, suffix: VAR } = sungMode();
+const { sung: SUNG, audioSuffix: AUDIO_VAR, suffix: VAR } = sungMode();
 if (!SUNG) {
   console.error("✗ the scales reel only exists sung — run with --sung");
   process.exit(1);
@@ -56,7 +57,10 @@ const onsetsBetween = makeOnsets(lead);
 
 // spoken words → normal bottom captions; sung letters drive the big keycap
 const allWords = loadSungWords(SLUG);
-const karaoke = makeKaraoke(allWords.filter((w) => w.spoken), { y: H * 0.925 });
+const karaoke = makeKaraoke(allWords.filter((w) => w.spoken), {
+  y: H * 0.94,
+  size: IS_WEB ? 38 : 54,
+});
 
 const { canvas, ctx } = makeStage();
 const rig = await loadStripRig();
@@ -348,7 +352,7 @@ function drawFrame(t) {
 }
 
 await renderVideo({
-  canvas, audioPath: `${OUT}/${SLUG}${VAR}.mp3`, outPath: `${OUT}/base-${SLUG}${VAR}.mp4`,
+  canvas, audioPath: `${OUT}/${SLUG}${AUDIO_VAR}.mp3`, outPath: `${OUT}/base-${SLUG}${VAR}.mp4`,
   total: TOTAL, drawFrame, label: `menuband scales sim${VAR}`,
 });
 writeMeta(`${SLUG}${VAR}`, TOTAL, SCENES);

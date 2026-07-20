@@ -28,7 +28,7 @@ import {
 const SLUG = "menuband-announce";
 // --sung: jeffrey's sung vocal mix + karaoke captions (sing-jingle.mjs),
 // writing the -sung base/meta so the originals stay untouched.
-const { sung: SUNG, suffix: VAR } = sungMode();
+const { sung: SUNG, audioSuffix: AUDIO_VAR, suffix: VAR } = sungMode();
 const karaoke = SUNG ? makeKaraoke(loadSungWords(SLUG)) : null;
 const score = loadScore(SLUG);
 const TOTAL = score.durationSec;
@@ -137,7 +137,7 @@ function drawFrame(t) {
 }
 
 await renderVideo({
-  canvas, audioPath: `${OUT}/${SLUG}${VAR}.mp3`, outPath: `${OUT}/base-${SLUG}${VAR}.mp4`,
+  canvas, audioPath: `${OUT}/${SLUG}${AUDIO_VAR}.mp3`, outPath: `${OUT}/base-${SLUG}${VAR}.mp4`,
   total: TOTAL, drawFrame, label: `menuband announce sim${VAR}`,
 });
 writeMeta(`${SLUG}${VAR}`, TOTAL, SCENES);
