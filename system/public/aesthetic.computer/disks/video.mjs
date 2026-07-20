@@ -51,7 +51,6 @@ let printProgress = 0; // Export progress (0-1)
 let ellipsisTicker;
 let postedTapeCode = null; // Store the tape code after posting for button transformation
 let frameCount = 0; // Frame counter for animations like button blinking
-let lastClickBeat = -1; // Net-clock metronome: last UTC beat that clicked
 
 let isExportingGIF = false;
 let isExportingFrames = false;
@@ -1313,25 +1312,8 @@ function sim({ needsPaint, rec, send, clock, sound }) {
   ellipsisTicker?.sim();
   frameCount++; // Increment frame counter for animations
 
-  // 🫀 Net-clock metronome click: one quiet tick per 120 BPM beat of UTC,
-  // bright on the bar — every window clicks the same instant, so the ear
-  // hears the tapes converge onto the shared clock (the blink's twin).
-  if (rec?.presenting && tapeInfo?.totalDuration && sound?.synth) {
-    const nowMs = clock?.time?.()?.getTime?.() ?? Date.now();
-    const beat = Math.floor(nowMs / 500);
-    if (beat !== lastClickBeat) {
-      lastClickBeat = beat;
-      const onBar = beat % 4 === 0;
-      sound.synth({
-        type: "sine",
-        tone: onBar ? 1980 : 1320,
-        attack: 0.002,
-        decay: 0.9,
-        volume: onBar ? 0.15 : 0.09,
-        duration: 0.015,
-      });
-    }
-  }
+  // (The audible metronome click lived here — retired in favor of the
+  // silent beat blink top-right; the music itself is the click now.)
 
   // 🎚️🛰️ Jam mix: readiness → coordinated drop → live volume.
   if (jamChannel && rec?.presenting) {
