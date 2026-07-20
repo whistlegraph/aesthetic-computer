@@ -54,6 +54,14 @@ const RELEASE_S = parseFloat(val("--release", "15")); // Hands-off per phrase
 const DENSITY = val("--density", null); // AC pixel density (1 = chunky)
 const SOLO = has("--solo"); // One performer messes at a time; others hold
 let soloTurn = 0; // Whose turn it is (round-robin by window index)
+
+// 🎼 Setlist mode: rotate through arrangements — "a,b,c|d,e,f|..." — every
+// --setlist-secs. Each window simply navigates to its next part; the
+// nav-guard (ensureOnTape) does the actual moving.
+const SETLIST = val("--setlist", null)
+  ?.split("|")
+  .map((s) => s.split(",").map((t) => t.trim()));
+const SETLIST_S = parseFloat(val("--setlist-secs", "180"));
 const SHOTS = has("--shots");
 const W = 720;
 const H = 480;
@@ -80,7 +88,10 @@ class Performer {
 
   async telemetry() {
     try {
-      return await this.page.evaluate(() => window.__tapeTelemetry || null);
+      return await this.page.evaluate(() => {
+        const t = window.__tapeTelemetry;
+        return t ? { ...t, pops: window.__popTelemetry?.total || 0 } : null;
+      });
     } catch {
       return null;
     }
@@ -448,6 +459,23 @@ async function main() {
   // Kick off each performer's forever-loop.
   perfs.forEach((p) => p.run().catch((e) => console.error(`perf ${p.tape}:`, e.message)));
 
+  // 🎼 Setlist rotation: every SETLIST_S seconds, hand each performer its
+  // next part — ensureOnTape() notices the mismatch and navigates.
+  if (SETLIST?.length) {
+    let arr = 0;
+    console.log(`🎼 setlist: ${SETLIST.map((a) => a.join("+")).join("  →  ")}`);
+    setInterval(() => {
+      arr = (arr + 1) % SETLIST.length;
+      const parts = SETLIST[arr];
+      console.log(`\n🎼 arrangement ${arr + 1}/${SETLIST.length}: ${parts.join(", ")}`);
+      windows.forEach((w, i) => {
+        const part = parts[i % parts.length];
+        w.tape = part;
+        w.perf.tape = part;
+      });
+    }, SETLIST_S * 1000);
+  }
+
   // Live readout: sync + rate + current move, per window, ~2Hz.
   const shotsDir = join(REPO, "toolchain", "tapes", ".jam-shots");
   if (SHOTS) await mkdir(shotsDir, { recursive: true });
@@ -468,9 +496,16 @@ async function main() {
       // 🔇 = AudioContext suspended: the tape is MOVING but SILENT — the
       // exact "I see it shift but hear nothing" condition.
       const mute = t?.audio === "suspended" ? "🔇" : "";
+      // 🍿 New pops since the last tick, correlated with the current move.
+      let pop = "";
+      if (t) {
+        const dp = t.pops - (w.perf.lastPops || 0);
+        if (dp > 0 && w.perf.lastPops !== undefined) pop = `🍿${dp}`;
+        w.perf.lastPops = t.pops;
+      }
       if (t && !t.scrubbing) syncs.push(t.syncMs);
       cells.push(
-        `${w.tape.padEnd(6)} ${lock}${hand}${mute} ${sync.padStart(7)} ${String(rate).padStart(6)}x  ${w.perf.last.act}`,
+        `${w.tape.padEnd(6)} ${lock}${hand}${mute}${pop} ${sync.padStart(7)} ${String(rate).padStart(6)}x  ${w.perf.last.act}`,
       );
     }
     // 📐 Band alignment: all syncs measure against the same UTC grid, so

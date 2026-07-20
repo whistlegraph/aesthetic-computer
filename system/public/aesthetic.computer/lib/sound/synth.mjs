@@ -38,6 +38,8 @@ export default class Synth {
 
   #sampleData; // Specific to `sample`.
   #sampleIndex = 0;
+  #declick = 0; // Samples left in the post-relocation attack ramp
+  #declickTotal = 1;
   #sampleEndIndex = 0;
   #sampleStartIndex = 0;
   #sampleSpeed = 0.25;
@@ -639,6 +641,12 @@ export default class Synth {
       // Normal (non-granular) sample playback
       else {
         value = bufferData[floor(this.#sampleIndex)];
+        // 🍿 Declick: after a samplePosition relocation (chop loops, beat
+        // jumps), ramp back in over ~4ms so the jump never pops.
+        if (this.#declick > 0) {
+          value *= 1 - this.#declick / this.#declickTotal;
+          this.#declick -= 1;
+        }
         this.#sampleIndex += this.#sampleSpeed;
         
         // Handle looping
@@ -787,6 +795,10 @@ export default class Synth {
     if (typeof samplePosition === "number" && this.#sampleData) {
       const len = this.#sampleData.channels?.[0]?.length ?? this.#sampleData.length;
       this.#sampleIndex = floor(samplePosition * len);
+      // 🍿 Arm the declick ramp — a relocated read head lands mid-wave;
+      // ~4ms of attack keeps it from popping.
+      this.#declickTotal = Math.max(1, Math.floor(sampleRate * 0.004));
+      this.#declick = this.#declickTotal;
     }
 
     // 🔄 Live buffer swap - update sample data while maintaining playback position

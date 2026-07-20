@@ -3609,6 +3609,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             return;
           }
 
+          if (msg.type === "pops") {
+            // 🍿 Discontinuity (pop/click) reports from the worklet —
+            // accumulated on window so harnesses can correlate pops with
+            // gestures per pane and prove anti-pop fixes numerically.
+            if (typeof window !== "undefined") {
+              const t = (window.__popTelemetry = window.__popTelemetry || {
+                total: 0,
+                max: 0,
+                lastAt: 0,
+              });
+              t.total += msg.content.count || 0;
+              if ((msg.content.max || 0) > t.max) t.max = msg.content.max;
+              t.lastAt = Date.now();
+            }
+            return;
+          }
+
           if (msg.type === "telemetry") {
             if (typeof window !== 'undefined') {
               window.__speaker_telemetry = window.__speaker_telemetry || {};
@@ -11853,19 +11870,26 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           const waveCols = Math.ceil(duration * pxPerSec);
           const waveMin = new Float32Array(waveCols);
           const waveMax = new Float32Array(waveCols);
+          const waveZc = new Float32Array(waveCols); // Per-column brightness (zero-cross rate)
           const samplesPerCol = sampleCount / waveCols;
           for (let c = 0; c < waveCols; c++) {
             let lo = 1;
             let hi = -1;
+            let zc = 0;
+            let prevS = 0;
             const colStart = Math.floor(c * samplesPerCol);
             const colEnd = Math.min(sampleCount, Math.ceil((c + 1) * samplesPerCol));
             for (let s = colStart; s < colEnd; s += 4) {
               const vv = pcm[s] / 32767;
+              if (vv * prevS < 0) zc++;
+              prevS = vv;
               if (vv < lo) lo = vv;
               if (vv > hi) hi = vv;
             }
             waveMin[c] = lo;
             waveMax[c] = hi;
+            // Normalized zero-cross rate (0..1-ish): bassy ≈ 0, hissy ≈ 1.
+            waveZc[c] = Math.min(1, zc / Math.max(1, (colEnd - colStart) / 4) * 6);
           }
 
           recordedFrames.length = 0;
@@ -11908,10 +11932,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             // The soundtrack's actual waveform, scrolling with the ruler
             // (wrapped past the seam like the panels).
             const midY = bandTop + bandH / 2;
-            sctx.fillStyle = "rgba(255, 220, 120, 0.9)";
             for (let x = 0; x < width; x++) {
               let c = Math.round(t * pxPerSec + x - width / 2);
               c = ((c % waveCols) + waveCols) % waveCols;
+              // 🌈 Chromatic texture: hue follows the audio's brightness
+              // (zero-cross rate — bass warm, hiss cool), luminance follows
+              // its energy, so the ruler shows WHAT is passing through.
+              const amp = Math.min(1, (waveMax[c] - waveMin[c]) * 1.2);
+              const hue = Math.round(30 + waveZc[c] * 170);
+              sctx.fillStyle = `hsl(${hue}, 90%, ${Math.round(48 + amp * 30)}%)`;
               const yTop = midY + waveMin[c] * (bandH / 2 - 2);
               const yBot = midY + waveMax[c] * (bandH / 2 - 2);
               sctx.fillRect(
@@ -15802,7 +15831,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               fctx.canvas.height = pic.height;
             }
 
-            fctx.putImageData(recordedFrames[f][1], 0, 0);
+            // Only blit when the frame actually advanced — a 30fps tape on
+            // a 60-144Hz display wastes 50-80% of putImageData calls
+            // otherwise (per-pane main-thread canvas work).
+            if (f !== window.__lastTapeDrawnF || fctx.__lastTapeCanvas !== fctx.canvas) {
+              fctx.putImageData(recordedFrames[f][1], 0, 0);
+              window.__lastTapeDrawnF = f;
+              fctx.__lastTapeCanvas = fctx.canvas;
+            }
 
             // 📼 Render multi-tape manager frames (for tv.mjs smooth transitions)
             if (tapeManager) {

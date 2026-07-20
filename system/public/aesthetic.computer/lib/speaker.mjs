@@ -92,6 +92,12 @@ class SpeakerProcessor extends AudioWorkletProcessor {
 
   #mixDivisor = 1;
 
+  // 🍿 Pop (discontinuity) listener state.
+  #popPrev = 0;
+  #popCount = 0;
+  #popMax = 0;
+  #popLastReport = 0;
+
   #reverbLeft;
   #reverbRight;
 
@@ -776,18 +782,19 @@ class SpeakerProcessor extends AudioWorkletProcessor {
     const waveformRate = 1; // Sample interval.
 
     // We assume two channels. (0 and 1)
-    for (let s = 0; s < output[0].length; s += 1) {
-      // Remove any finished instruments from the queue.
-      this.#queue = this.#queue.filter((instrument) => {
-        if (!instrument.playing) {
-          this.#report("killed", { id: instrument.id });
-          if (instrument.id !== undefined) {
-            delete this.#running[instrument.id];
-          }
-        } // Send a kill message back.
-        return instrument.playing;
-      });
+    // Remove finished instruments ONCE per block — filtering inside the
+    // per-sample loop reallocated the queue 48,000×/sec. A sound ending
+    // mid-block contributes ≤2.7ms of zeros (next() returns 0 when done).
+    for (let i = this.#queue.length - 1; i >= 0; i--) {
+      const instrument = this.#queue[i];
+      if (!instrument.playing) {
+        this.#report("killed", { id: instrument.id });
+        if (instrument.id !== undefined) delete this.#running[instrument.id];
+        this.#queue.splice(i, 1);
+      }
+    }
 
+    for (let s = 0; s < output[0].length; s += 1) {
       let voices = 0;
 
       // Loop through every instrument in the queue and add it to the output.
@@ -838,6 +845,18 @@ class SpeakerProcessor extends AudioWorkletProcessor {
 
       output[0][s] = volume.apply(output[0][s] / this.#mixDivisor);
       output[1][s] = volume.apply(output[1][s] / this.#mixDivisor);
+
+      // 🍿 Pop listener: a sample-to-sample jump this large is audible as
+      // a click/pop. Count + track the worst offender; reported per ~¼s
+      // so the jam harness can correlate pops with gestures per window.
+      {
+        const d = Math.abs(output[0][s] - this.#popPrev);
+        if (d > 0.3) {
+          this.#popCount += 1;
+          if (d > this.#popMax) this.#popMax = d;
+        }
+        this.#popPrev = output[0][s];
+      }
 
       // 🧩 Apply glitch (sample-hold + bitcrush) if enabled
       if (glitchEnabled) {
@@ -973,6 +992,18 @@ class SpeakerProcessor extends AudioWorkletProcessor {
     }    
     if (this._processCallCount <= 3) {
       console.log("🔊 #processAudio END call:", this._processCallCount);
+    }
+
+    // 🍿 Ship pop counts ~4Hz so listeners can correlate with gestures.
+    if (this.#popCount > 0 && currentTime - this.#popLastReport > 0.25) {
+      this.#report("pops", {
+        count: this.#popCount,
+        max: +this.#popMax.toFixed(3),
+        at: currentTime,
+      });
+      this.#popCount = 0;
+      this.#popMax = 0;
+      this.#popLastReport = currentTime;
     }
     return true;
   } // End of #processAudio method

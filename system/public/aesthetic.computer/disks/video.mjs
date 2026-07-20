@@ -179,6 +179,10 @@ let jamStartAt = 0; // UTC ms of the agreed drop (0 = not yet agreed)
 let jamHeartbeat = null;
 let lastSentTapeVolume = -1;
 let jamScrubbing = false; // This pane is being performed (drives scrub focus)
+let pitchSemis = 0; // Varispeed pitch offset from the p-/p+ pads (semitones)
+let stickyGrabProgress = 0; // Where the finger grabbed the tape (sticky drag)
+let stickyTargetProgress = null; // Finger-pinned position while dragging
+let lastCursorScrub = false; // Tracks cursor mode swaps (precise ↔ active)
 const JAM_ARM_TIMEOUT = 8000; // A never-loading sibling can't hold us hostage
 let legendBtns = null; // Tappable deck-key legend (bottom-right)
 let synthAuto = false;
@@ -301,11 +305,13 @@ function ensureScrubStripButton(ui, screen, enabled) {
   scrubStripBtn.box.h = h;
 }
 
-function nudgeTapeAudioSpeed(send, targetSpeed) {
+function nudgeTapeAudioSpeed(send, targetSpeed, force = false) {
   // Absolute rate: the worklet is set to exactly this speed, so repeated
   // gestures can never accumulate drift the way relative shifts did.
-  const clampedTarget = Math.max(-24, Math.min(24, targetSpeed));
-  if (Math.abs(clampedTarget - scrubAudioSpeed) < 0.0005) return;
+  // The pitch pads multiply in a varispeed factor (2^(semis/12)).
+  const pitched = targetSpeed * Math.pow(2, pitchSemis / 12);
+  const clampedTarget = Math.max(-24, Math.min(24, pitched));
+  if (!force && Math.abs(clampedTarget - scrubAudioSpeed) < 0.0005) return;
   send({ type: "tape:audio-rate", content: clampedTarget });
   scrubAudioSpeed = clampedTarget;
 }
@@ -450,9 +456,10 @@ function boot({ wipe, rec, gizmo, jump, notice, store, params, send, hud }) {
     tapeLoadProgress = 0;
     tapeLoadMessage = "FETCHING TAPE INFO";
     
-    // Update HUD label
+    // Update HUD label + a scannable QR for mobile join.
     if (hud) {
       hud.label(`!${tapeCode}`);
+      hud.qr?.(`https://aesthetic.computer/!${tapeCode}`);
     }
     
     // Fetch tape metadata and load
@@ -572,6 +579,8 @@ function boot({ wipe, rec, gizmo, jump, notice, store, params, send, hud }) {
     tapeLoadProgress = 0;
     tapeLoadMessage = "SYNTHESIZING TAPE";
     hud?.label(`synthtape ${style}${synthAuto ? " auto" : ""}`);
+    // 📱 QR so a phone can scan in and join the band on this same tape.
+    hud?.qr?.(`https://aesthetic.computer/video~scrub~${style}`);
     jamJoin(); // Sibling AC windows coordinate volume + a synchronized drop.
     send({ type: "tape:play-synth", content: { duration, fps, style } });
   } else {
@@ -604,7 +613,15 @@ function paint({
   send,
   num,
   clock,
+  cursor,
 }) {
+  // 🐭 Scrubbing gets the active cursor; at rest, precise.
+  if (isScrubbing !== lastCursorScrub) {
+    lastCursorScrub = isScrubbing;
+    try {
+      cursor?.(isScrubbing ? "active" : "precise");
+    } catch {}
+  }
   if (typeof needsPaint === "function") {
     requestPaint = needsPaint;
   }
@@ -630,18 +647,6 @@ function paint({
 
   // Always start transparent — underlay video shows through every frame.
   wipe(0, 0, 0, 0);
-
-  // 🔍 DEBUG: sample pixel buffer after wipe to confirm transparency
-  const _pc = Number(paintCount);
-  if (_pc < 10 || _pc % 60 === 0) {
-    const p = screen.pixels;
-    if (p?.length >= 4) {
-      const r = p[0], g = p[1], b = p[2], a = p[3];
-      const mid = Math.floor(p.length / 2);
-      const mr = p[mid], mg = p[mid+1], mb = p[mid+2], ma = p[mid+3];
-      console.log(`🎬 VIDEO paint #${_pc}: buf=${p.length} (${screen.width}×${screen.height}) corner=[${r},${g},${b},${a}] mid=[${mr},${mg},${mb},${ma}]`);
-    }
-  }
 
   // 📼 Video-backed tape (kind:"mp4"): the clip plays in the DOM <video>
   // underlay, so here we just draw the lightweight overlay — a pause glyph
@@ -988,16 +993,46 @@ function paint({
     );
 
     // 🔴 The red marker rides the bottom edge at the actual playback
-    // position — drawn from live state so it never lies.
+    // position — drawn from live state so it never lies. It blinks white
+    // on every UTC bar boundary, a silent visual click for timing up.
     const livePos = scrubDriven
       ? scrubCurrentProgress
       : (rec?.presentProgress ?? 0);
-    ink(255, 51, 68).box(
+    const nowBarMs = clock?.time?.()?.getTime?.() ?? Date.now();
+    const barFlash = nowBarMs % 2000 < 120; // First 120ms of each bar
+    ink(barFlash ? [255, 255, 255] : [255, 51, 68]).box(
       Math.floor(livePos * (screen.width - 6)),
-      screen.height - 4,
+      screen.height - (barFlash ? 6 : 4),
       6,
-      4,
+      barFlash ? 6 : 4,
     );
+
+    // ✂️ Chop region: while a chop is held, show the exact in/out slice
+    // looping on the tape — split across the seam when it wraps.
+    if (chopActive > 0 && tapeInfo?.totalDuration) {
+      const len = (chopActive * BEAT_SEC) / tapeInfo.totalDuration;
+      const x0 = chopStart % 1;
+      const drawSeg = (a, b) => {
+        ink(0, 255, 120, 46).box(
+          Math.floor(a * screen.width),
+          0,
+          Math.max(1, Math.ceil((b - a) * screen.width)),
+          screen.height - 6,
+        );
+        ink(0, 255, 120, 140).box(
+          Math.floor(a * screen.width),
+          0,
+          Math.max(1, Math.ceil((b - a) * screen.width)),
+          screen.height - 6,
+          "outline",
+        );
+      };
+      if (x0 + len <= 1) drawSeg(x0, x0 + len);
+      else {
+        drawSeg(x0, 1);
+        drawSeg(0, (x0 + len) % 1);
+      }
+    }
 
     // 🕰️ Net-time unison readout: phase offset vs the AC network clock's
     // grid — green when locked, amber while converging.
@@ -1034,11 +1069,33 @@ function paint({
             ? "on grid"
             : `${n64 > 0 ? "+" : "-"}${String(Math.min(99, Math.abs(n64))).padStart(2)}/64`
       ).padStart(7);
-      ink(60, 75, 95, 150).box(screen.width - 6 - 88, 15, 90, 11);
-      ink(110, 130, 160).box(screen.width - 6 - 88, 15, 90, 11, "outline");
+      // Three chips, right-aligned: [sync][±XXXXms][musical]. Values and
+      // units live in their own boxes so each is separately OCR/eye
+      // anchorable, colored by lock state only where it matters.
+      const chipY = 15;
+      const chipH = 11;
+      const mW = 40; // musical chip
+      const vW = 48; // value chip
+      const lW = 26; // label chip
+      const mX = screen.width - 6 - mW;
+      const vX = mX - 2 - vW;
+      const lX = vX - 2 - lW;
+      for (const [cx, cw] of [[lX, lW], [vX, vW], [mX, mW]]) {
+        ink(60, 75, 95, 150).box(cx, chipY, cw, chipH);
+        ink(110, 130, 160).box(cx, chipY, cw, chipH, "outline");
+      }
+      ink(180, 200, 230).write("sync", { x: lX + 3, y: chipY + 3 }, undefined, undefined, false, "MatrixChunky8");
       ink(locked ? [0, 255, 120] : [255, 170, 0]).write(
-        `sync ${msStr} ${musical}`,
-        { x: screen.width - 8, y: 18, right: true },
+        msStr,
+        { x: vX + vW - 2, y: chipY + 3, right: true },
+        undefined,
+        undefined,
+        false,
+        "MatrixChunky8",
+      );
+      ink(locked ? [0, 255, 120] : [255, 170, 0]).write(
+        musical.trim(),
+        { x: mX + mW - 2, y: chipY + 3, right: true },
         undefined,
         undefined,
         false,
@@ -1130,15 +1187,32 @@ function paint({
           "outline",
         );
       }
-      // Wedge silhouette (dim) + filled portion up to the level.
+      // Six quantized color segments — tap one to snap the fader there.
+      // Fill shows the level actually SENT (fader × auto-mix × focus), so
+      // the auto-mixer is visible on the wedge; the handle is the fader.
+      const VOL_SEGS = [
+        [255, 80, 80],
+        [255, 160, 40],
+        [255, 220, 0],
+        [0, 220, 100],
+        [0, 200, 255],
+        [255, 100, 220],
+      ];
+      const sent = lastSentTapeVolume < 0 ? mixVolume : lastSentTapeVolume;
       for (let i = 0; i < vw; i += 2) {
-        const colH = Math.max(1, Math.round(vh * (i / vw)));
-        const filled = i / vw <= mixVolume;
-        ink(
-          filled ? (volBtn.down ? [0, 255, 180] : [255, 220, 0]) : [255, 255, 255, 60],
-        ).box(vx + i, vy + vh - colH, 2, colH);
+        const frac = i / vw;
+        const colH = Math.max(1, Math.round(vh * frac));
+        const seg = Math.min(5, Math.floor(frac * 6));
+        const c = VOL_SEGS[seg];
+        const lit = frac <= sent;
+        ink(c[0], c[1], c[2], lit ? 255 : 60).box(vx + i, vy + vh - colH, 2, colH);
       }
-      // Grab handle at the level line.
+      // Segment dividers so the six tap zones read as zones.
+      for (let s2 = 1; s2 < 6; s2++) {
+        const dx = vx + Math.round((vw * s2) / 6);
+        ink(0, 0, 0, 120).box(dx, vy - 1, 1, vh + 2);
+      }
+      // Grab handle at the FADER position (may differ from sent fill).
       const hx = vx + Math.round(vw * mixVolume);
       ink(255, 255, 255).box(hx - 1, vy - 3, 3, vh + 6);
       const shown = Math.round((lastSentTapeVolume < 0 ? mixVolume : lastSentTapeVolume) * 100);
@@ -1179,11 +1253,21 @@ function paint({
     // color-coded fill + outline with distinct idle / hover / pressed
     // states. Tap ‹ › to beat-jump, HOLD the chop pads, tap reset —
     // keyboard drives the exact same moves.
+    // Color-coded per function (arena palette): jumps blue, pitch violet,
+    // 1/4 chop orange, 1/8 chop pink, reset green. Rollover activation is
+    // ON — glide across pads notepat-style to trigger them.
     const DECK = [
-      [{ key: "jumpL", label: "<" }, { key: "jumpR", label: ">" }],
-      [{ key: "chop4", label: "1/4 chop" }],
-      [{ key: "chop8", label: "1/8 chop" }],
-      [{ key: "reset", label: "reset" }],
+      [
+        { key: "jumpL", label: "<", color: [90, 130, 200] },
+        { key: "jumpR", label: ">", color: [90, 130, 200] },
+      ],
+      [
+        { key: "pitchD", label: "p-", color: [150, 110, 200] },
+        { key: "pitchU", label: "p+", color: [150, 110, 200] },
+      ],
+      [{ key: "chop4", label: "1/4 chop", color: [220, 150, 40] }],
+      [{ key: "chop8", label: "1/8 chop", color: [255, 120, 180] }],
+      [{ key: "reset", label: "reset", color: [50, 200, 100] }],
     ];
     if (!legendBtns) legendBtns = {};
     const bw = 64; // Cluster width
@@ -1197,7 +1281,6 @@ function paint({
         const bx = bx0 + ci * (cw + bgap);
         if (!legendBtns[cell.key]) {
           legendBtns[cell.key] = new ui.Button(bx, by, cw, bh);
-          legendBtns[cell.key].noRolloverActivation = true;
         }
         const b = legendBtns[cell.key];
         b.box.x = bx;
@@ -1206,26 +1289,22 @@ function paint({
         b.box.h = bh;
         const pressed = b.down;
         const hover = b.over && !pressed;
+        const [r, g, bl] = cell.color;
         const bg = pressed
-          ? [100, 140, 180, 220]
+          ? [r + 40, g + 40, bl + 40, 230]
           : hover
-            ? [80, 100, 125, 190]
-            : [60, 75, 95, 150];
+            ? [r, g, bl, 200]
+            : [r - 30, g - 30, bl - 30, 150];
         const border = pressed
           ? [255, 255, 255]
           : hover
-            ? [200, 220, 255]
-            : [110, 130, 160];
-        const txt = pressed
-          ? [255, 255, 255]
-          : hover
             ? [230, 240, 255]
-            : [180, 200, 230];
+            : [r, g, bl];
         ink(...bg).box(bx, by, cw, bh);
         ink(...border).box(bx, by, cw, bh, "outline");
-        ink(...txt).write(
+        ink(pressed ? [255, 255, 255] : [240, 245, 250]).write(
           cell.label,
-          { x: bx + (row.length > 1 ? Math.floor(cw / 2) - 2 : 5), y: by + 4 },
+          { x: bx + (row.length > 1 ? Math.floor(cw / 2) - 4 : 5), y: by + 4 },
           undefined,
           undefined,
           false,
@@ -1233,6 +1312,17 @@ function paint({
         );
       });
       by += bh + bgap;
+    }
+    // Pitch offset readout beside the pitch row when engaged.
+    if (pitchSemis !== 0) {
+      ink(200, 160, 255).write(
+        `${pitchSemis > 0 ? "+" : ""}${pitchSemis}st`,
+        { x: bx0 - 4, y: screen.height - 12 - 4 * (bh + bgap) + 4, right: true },
+        undefined,
+        undefined,
+        false,
+        "MatrixChunky8",
+      );
     }
   }
 
@@ -1316,7 +1406,7 @@ function paint({
     }
   }
 
-  return true; // Always keep painting
+  return false; // Paint on demand — sim decides when (idle ≈ 15Hz).
 }
 
 function sim({ needsPaint, rec, send, clock, sound }) {
@@ -1394,20 +1484,26 @@ function sim({ needsPaint, rec, send, clock, sound }) {
       isPrinting ||
       isLoadingTape ||
       completionMessageTimer > 0 ||
-      (rec?.presenting ?? false) ||
-      (rec?.playing ?? false) ||
-      (rec?.recording ?? false) ||
-      ((rec?.tapeProgress ?? 0) > 0 && (rec?.tapeProgress ?? 0) < 1) ||
-      postedTapeCode || // Keep painting when button shows tape code
       isScrubbing || // Keep painting during scrubbing
       inertiaActive || // Keep painting during inertia
       brakeHolding || // Keep painting while the touch brake slows the tape
       brakeResume || // Keep painting while it spins back up
       wheelActive || // Keep painting while the wheel spins down
-      sustained || // Keep painting at a parked rate
+      (sustained && Math.abs(scrubSpeed - 1) > 0.004) || // Actively leaning
       tapDipTime >= 0 // Keep painting through a tap dip
     ) {
       needsPaint();
+    } else if (
+      (rec?.presenting ?? false) ||
+      (rec?.playing ?? false) ||
+      (rec?.recording ?? false) ||
+      ((rec?.tapeProgress ?? 0) > 0 && (rec?.tapeProgress ?? 0) < 1) ||
+      postedTapeCode
+    ) {
+      // Idle playback: the tape video draws on the bios underlay — the
+      // overlay chrome (marker, sync, blink) only needs ~15Hz, cutting
+      // the full-screen buffer transfer that dominated many-window CPU.
+      if (frameCount % 8 === 0) needsPaint();
     }
   }
   
@@ -1472,6 +1568,21 @@ function sim({ needsPaint, rec, send, clock, sound }) {
     // Decay/ramp factors below were tuned at 60fps; raise them to the
     // measured tick so the feel is identical at any sim rate.
     const rate = simDt * 60;
+
+    // ✊📌 Sticky drag: while the finger is down, position is PINNED to
+    // it — the rate is whatever closes the gap this tick, so audio still
+    // rides the rate pipeline but the tape never slides under the hand.
+    // Slip belongs to release inertia and flicks only.
+    if (isScrubbing && stickyTargetProgress !== null) {
+      let dp = stickyTargetProgress - scrubCurrentProgress;
+      if (dp > 0.5) dp -= 1;
+      else if (dp < -0.5) dp += 1;
+      scrubSpeed = Math.max(
+        -24,
+        Math.min(24, (dp * totalDuration) / Math.max(simDt, 1 / 240)),
+      );
+      nudgeTapeAudioSpeed(send, scrubSpeed);
+    }
 
     // Advance position at current speed (like stample's pitch-shifted sample)
     scrubCurrentProgress += scrubSpeed * simDt / totalDuration;
@@ -1549,9 +1660,18 @@ function sim({ needsPaint, rec, send, clock, sound }) {
       const lean = Math.max(-0.08, Math.min(0.08, phaseErr * 1.4));
       const targetRate = 1 + lean;
       scrubSpeed += (targetRate - scrubSpeed) * (1 - Math.pow(0.94, rate));
-      // Locked: at 1× and in phase → pin exactly, the drive is now playback.
+      // Locked: at 1× and in phase → the drive RETIRES. Playback falls
+      // back to the bios RAF loop (UTC-anchored at seams), which ends the
+      // 120Hz seek/message loop — an idle pane costs what an untouched
+      // one does, and the seam stops flashing seek/progress mismatches.
       if (Math.abs(scrubSpeed - 1) < 0.004 && Math.abs(phaseErr) < 0.0015) {
         scrubSpeed = 1;
+        sustained = false;
+        nudgeTapeAudioSpeed(send, 1);
+        send({
+          type: "recorder:present:seek",
+          content: { progress: scrubCurrentProgress, speedScrub: true },
+        });
       }
     }
 
@@ -2695,17 +2815,30 @@ function act({
       return;
     }
 
-    // 🎚️ Volume wedge (top-right): slide horizontally to set this
-    // player's level directly.
+    // 🎚️ Volume wedge (top-right): tap a color segment to snap to that
+    // level; slide for continuous control.
     if (volBtn && rec.presenting && !isPrinting && !isPostingTape) {
-      const setMixFromX = () => {
-        if (e.x === undefined) return;
+      const wedgeX = () => {
         const vw = 44;
         const vx = screen.width - 6 - vw;
-        mixVolume = Math.max(0, Math.min(1, (e.x - vx) / vw));
-        triggerRender();
+        return { vw, vx };
       };
-      volBtn.act(e, { down: setMixFromX, scrub: setMixFromX });
+      volBtn.act(e, {
+        down: () => {
+          if (e.x === undefined) return;
+          const { vw, vx } = wedgeX();
+          // Tap-snap: quantize to the tapped segment's level (k+1)/6.
+          const seg = Math.max(0, Math.min(5, Math.floor(((e.x - vx) / vw) * 6)));
+          mixVolume = (seg + 1) / 6;
+          triggerRender();
+        },
+        scrub: () => {
+          if (e.x === undefined) return;
+          const { vw, vx } = wedgeX();
+          mixVolume = Math.max(0, Math.min(1, (e.x - vx) / vw));
+          triggerRender();
+        },
+      });
       if (volBtn.down) return; // The wedge owns this gesture
     }
 
@@ -2754,9 +2887,22 @@ function act({
       };
       legendBtns?.jumpL?.act(e, { down: () => beatJump(-1) });
       legendBtns?.jumpR?.act(e, { down: () => beatJump(1) });
+      // 🎼 Pitch pads: ±2 semitones (a full tone) per tap, varispeed-style.
+      const nudgePitch = (d) => {
+        pitchSemis = Math.max(-12, Math.min(12, pitchSemis + d));
+        nudgeTapeAudioSpeed(send, scrubSpeed || 1, true);
+        triggerRender();
+      };
+      legendBtns?.pitchD?.act(e, { down: () => nudgePitch(-2) });
+      legendBtns?.pitchU?.act(e, { down: () => nudgePitch(2) });
       legendBtns?.chop4?.act(e, { down: () => startChop(0.25), up: chopUp, cancel: chopUp });
       legendBtns?.chop8?.act(e, { down: () => startChop(0.125), up: chopUp, cancel: chopUp });
-      legendBtns?.reset?.act(e, { push: fullReset });
+      legendBtns?.reset?.act(e, {
+        push: () => {
+          pitchSemis = 0;
+          fullReset();
+        },
+      });
       if (
         legendBtns &&
         Object.values(legendBtns).some((b) => b?.down)
@@ -2834,6 +2980,8 @@ function act({
           }
           wasPlayingBeforeScrub = rec.playing;
           scrubAudioSpeed = 1;
+          stickyGrabProgress = scrubCurrentProgress; // Pin origin for sticky drag
+          stickyTargetProgress = null;
         },
         scrub: () => {
           if (e.x === undefined) return;
@@ -2855,20 +3003,22 @@ function act({
               content: { progress: scrubCurrentProgress, speedScrub: true, scrubbing: true },
             });
           }
-          // ✊ The grabbed tape moves with the hand: displacement from the
-          // grab point IS the rate — hold still and it holds still, a third
-          // of the screen right drags at 3×, left drags in reverse.
+          // ✊📌 The grabbed tape is PINNED to the hand: a full screen
+          // width of drag slides exactly one loop — pixel-sticky, no
+          // elastic slide. (Sim closes the gap each tick; release inertia
+          // is where slip lives.)
           const dx = e.x - elasticAnchorX;
           penX = e.x;
           penY = e.y ?? penY;
           if (Math.abs(dx) > 2) scrubMoved = true;
           flickVel = flickVel * 0.6 + (e.delta?.x || 0) * 0.4;
-          const K = 9 / screen.width;
-          scrubSpeed = Math.max(-8, Math.min(8, elasticBase + dx * K));
-          nudgeTapeAudioSpeed(send, scrubSpeed);
+          let sp = stickyGrabProgress + dx / screen.width;
+          sp = ((sp % 1) + 1) % 1;
+          stickyTargetProgress = sp;
           triggerRender();
         },
         up: () => {
+          stickyTargetProgress = null; // Unpin — inertia may now slip
           if (!isScrubbing) return true;
           isScrubbing = false;
           elasticAnchorX = null;

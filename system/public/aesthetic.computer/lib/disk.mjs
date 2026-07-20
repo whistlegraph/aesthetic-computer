@@ -14186,7 +14186,6 @@ async function makeFrame({ data: { type, content } }) {
           noPaint = false; // Override - GOL modified pixels, must send them
         }
 
-        if (system === "video") console.log('📝 DISK: paintOut =', paintOut, '→ noPaint =', noPaint);
 
         // Run everything that was queued to be painted, then devour paintLayers.
         //await painting.paint();
