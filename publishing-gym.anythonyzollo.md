@@ -32,7 +32,24 @@ security add-generic-password \
 
 ## Publish
 
-From the folder containing `index.html`:
+The easiest method for Claude or a person is to put these three files together
+in the project folder:
+
+- `index.html`
+- `publish-gym.command`
+- `gym.anthonyzollo.env`
+
+Then run:
+
+```bash
+./publish-gym.command ./index.html
+```
+
+The wrapper validates the token and file, retries temporary DNS/network
+failures, and prints the new private Git revision. If macOS says the script is
+not executable, run `chmod +x publish-gym.command` once.
+
+The equivalent manual command is:
 
 ```bash
 GYM_PUBLISH_TOKEN="$(security find-generic-password \
