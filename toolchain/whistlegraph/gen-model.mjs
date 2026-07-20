@@ -83,6 +83,11 @@ const workExcludes = new Set(workModel.exclude || []);
 const splits = overrides.splits || {};
 // postEdits: per-post code surgery, keyed on post id. { id: {add:[…], remove:[…]} }
 const postEdits = overrides.postEdits || {};
+// manualPosts: durable non-TikTok archival media supplied by the trio. These
+// records enter the same post model after clustering without being erased by a
+// future TikTok catalog refresh.
+const manualPosts = overrides.manualPosts || [];
+const manualWorks = overrides.manualWorks || [];
 const mergeSources = new Set(Object.keys(merges));
 // Resolve a raw cluster code to the slug it appears under: apply a recode
 // (slug change) first, then a merge (fold into another work). Posts and the
@@ -267,6 +272,30 @@ for (const [id, edit] of Object.entries(postEdits)) {
   p.graphs = p.graphs.filter((c) => !remove.has(c));
   for (const c of edit.add || []) if (!p.graphs.includes(c)) p.graphs.push(c);
 }
+for (const record of manualPosts) {
+  const id = String(record?.id || "");
+  if (!/^\d+$/.test(id) || postsById.has(id)) {
+    console.warn(`manualPosts: invalid or duplicate post ${id || "(missing id)"}`);
+    continue;
+  }
+  postsById.set(id, {
+    id,
+    platform: record.platform || "archive",
+    media: record.media || "video",
+    url: record.url || `${IDX}/posts/${id}.mp4`,
+    date: record.date || null,
+    views: record.views ?? null,
+    likes: record.likes ?? null,
+    comments: record.comments ?? null,
+    reposts: record.reposts ?? null,
+    saves: record.saves ?? null,
+    duration: record.duration ?? null,
+    desc: record.desc || "",
+    src: record.src || `${IDX}/posts/${id}.mp4`,
+    thumb: record.thumb || `${IDX}/posts/${id}.jpg`,
+    graphs: [...new Set(record.works || [])],
+  });
+}
 const posts = [...postsById.values()].sort((a, b) => (b.views || 0) - (a.views || 0));
 
 // Roll the posts up per code so a work's headline count/reach/thumb is the
@@ -384,8 +413,25 @@ const splitWorks = Object.entries(splits).map(([code, spec]) => {
   };
 });
 
+const manualWorkRecords = manualWorks.map((spec) => {
+  const r = rollup.get(spec.code) || { n: 0, views: 0, thumb: null };
+  return {
+    code: spec.code,
+    title: spec.title,
+    by: spec.by || "Whistlegraph",
+    year: spec.year || null,
+    kind: "graph",
+    status: "confirmed",
+    views: r.views,
+    perf: r.n,
+    c: spec.c || "#b44887",
+    ...(spec.asset ? { asset: spec.asset } : {}),
+    ...(r.thumb ? { thumb: r.thumb } : { noGlyph: true }),
+  };
+});
+
 const curated = liveWorks.slice(0, live.curated);
-const rest = [...liveWorks.slice(live.curated), ...freshWorks, ...twinWorks, ...splitWorks].sort((a, b) => b.views - a.views);
+const rest = [...liveWorks.slice(live.curated), ...freshWorks, ...twinWorks, ...splitWorks, ...manualWorkRecords].sort((a, b) => b.views - a.views);
 const records = [...curated, ...rest];
 const works = records.filter((w) => w.status === "confirmed");
 const candidates = records.filter((w) => w.status === "candidate");
