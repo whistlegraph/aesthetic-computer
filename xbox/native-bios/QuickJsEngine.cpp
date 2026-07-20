@@ -35,6 +35,21 @@ JSValue Synth(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
   return JS_UNDEFINED;
 }
 
+JSValue Write(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api || argc < 1) return JS_EXCEPTION;
+  const char* value = JS_ToCString(context, argv[0]);
+  if (!value) return JS_EXCEPTION;
+  double x = 80, y = 80, size = 64;
+  if (argc > 1) JS_ToFloat64(context, &x, argv[1]);
+  if (argc > 2) JS_ToFloat64(context, &y, argv[2]);
+  if (argc > 3) JS_ToFloat64(context, &size, argv[3]);
+  scope->api->graphics.write({value, static_cast<float>(x), static_cast<float>(y),
+                              static_cast<float>(size), {255, 255, 255, 255}});
+  JS_FreeCString(context, value);
+  return JS_UNDEFINED;
+}
+
 JSValue Controllers(JSContext* context, JSValueConst, int, JSValueConst*) {
   auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
   if (!scope || !scope->api) return JS_EXCEPTION;
@@ -84,6 +99,7 @@ class QuickJsPiece final : public JsPiece {
     JSValue global = JS_GetGlobalObject(context_);
     JS_SetPropertyStr(context_, global, "wipe", JS_NewCFunction(context_, Wipe, "wipe", 3));
     JS_SetPropertyStr(context_, global, "synth", JS_NewCFunction(context_, Synth, "synth", 2));
+    JS_SetPropertyStr(context_, global, "write", JS_NewCFunction(context_, Write, "write", 4));
     JS_SetPropertyStr(context_, global, "controllers", JS_NewCFunction(context_, Controllers, "controllers", 0));
     JS_SetPropertyStr(context_, global, "capabilities", JS_NewCFunction(context_, Capabilities, "capabilities", 0));
     JS_FreeValue(context_, global);

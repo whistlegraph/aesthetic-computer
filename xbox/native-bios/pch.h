@@ -3,11 +3,15 @@
 #include <windows.h>
 #include <wrl/client.h>
 #include <d3d11_1.h>
+#include <d2d1_1.h>
+#include <d2d1_1helper.h>
+#include <dwrite.h>
 #include <dxgi1_2.h>
 #include <xaudio2.h>
 #include <windows.networking.connectivity.h>
 #include <collection.h>
 #include <array>
+#include <algorithm>
 #include <atomic>
 #include <cmath>
 #include <cstdint>

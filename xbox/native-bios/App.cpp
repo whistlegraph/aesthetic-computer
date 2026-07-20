@@ -51,13 +51,24 @@ static std::string Utf8(String^ value) {
   return result;
 }
 
+static std::wstring Wide(const std::string& value) {
+  if (value.empty()) return {};
+  const int size = MultiByteToWideChar(CP_UTF8, 0, value.data(),
+    static_cast<int>(value.size()), nullptr, 0);
+  std::wstring result(static_cast<std::size_t>(size), L'\0');
+  MultiByteToWideChar(CP_UTF8, 0, value.data(), static_cast<int>(value.size()),
+    result.data(), size);
+  return result;
+}
+
 class HostGraphics final : public Graphics {
  public:
   std::function<void(Color)> on_wipe;
+  std::function<void(const ac::xbox::Text&)> on_write;
   void wipe(Color color) override { if (on_wipe) on_wipe(color); }
   void box(const ac::xbox::Rect&) override {}
   void line(const ac::xbox::Line&) override {}
-  void write(const ac::xbox::Text&) override {}
+  void write(const ac::xbox::Text& text) override { if (on_write) on_write(text); }
 };
 class HostSound final : public Sound {
  public:
@@ -90,7 +101,10 @@ public:
     CreateAudio(48000);
     m_graphics = std::make_unique<HostGraphics>();
     m_sound = std::make_unique<HostSound>();
-    m_graphics->on_wipe = [this](Color color) { Render({color.r / 255.f, color.g / 255.f, color.b / 255.f, color.a / 255.f}); };
+    m_graphics->on_wipe = [this](Color color) {
+      m_frameColor = {color.r / 255.f, color.g / 255.f, color.b / 255.f, color.a / 255.f};
+    };
+    m_graphics->on_write = [this](const ac::xbox::Text& text) { m_frameText = text; };
     m_sound->on_synth = [this](const SynthVoice&) { if (m_voice) TriggerAudio(1); };
     m_sound->on_stop = [this]() { if (m_voice) { m_voice->Stop(0); m_voice->FlushSourceBuffers(); } };
     m_sound->get_rate = [this]() { return static_cast<int>(m_sampleRate); };
@@ -118,6 +132,7 @@ public:
       RefreshCapabilities(false);
       PollController();
       PollLivePiece();
+      m_frameText.reset();
       if (m_supervisor && m_supervisor->active()) {
         try {
           m_supervisor->active()->sim(*m_api);
@@ -130,10 +145,7 @@ public:
       if (m_flashFrames > 0) {
         Render(m_flashColor);
         --m_flashFrames;
-      } else if (m_needsIdleFrame) {
-        Render({0.025f, 0.02f, 0.04f, 1.0f});
-        m_needsIdleFrame = false;
-      }
+      } else Render(m_frameColor);
       SwitchToThread();
     }
   }
@@ -189,6 +201,25 @@ private:
     ComPtr<ID3D11Texture2D> backBuffer;
     Check(m_swapChain->GetBuffer(0, IID_PPV_ARGS(&backBuffer)));
     Check(m_device->CreateRenderTargetView(backBuffer.Get(), nullptr, &m_target));
+
+    Check(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED,
+      IID_PPV_ARGS(&m_d2dFactory)));
+    ComPtr<IDXGIDevice> d2dDxgiDevice;
+    Check(m_device.As(&d2dDxgiDevice));
+    Check(m_d2dFactory->CreateDevice(d2dDxgiDevice.Get(), &m_d2dDevice));
+    Check(m_d2dDevice->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_NONE, &m_d2dContext));
+    ComPtr<IDXGISurface> surface;
+    Check(backBuffer.As(&surface));
+    const auto bitmapProperties = D2D1::BitmapProperties1(
+      D2D1_BITMAP_OPTIONS_TARGET | D2D1_BITMAP_OPTIONS_CANNOT_DRAW,
+      D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE));
+    Check(m_d2dContext->CreateBitmapFromDxgiSurface(surface.Get(), &bitmapProperties,
+      &m_d2dTarget));
+    m_d2dContext->SetTarget(m_d2dTarget.Get());
+    Check(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory),
+      reinterpret_cast<IUnknown**>(m_dwriteFactory.GetAddressOf())));
+    Check(m_d2dContext->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White),
+      &m_textBrush));
   }
 
   void CreateAudio(uint32_t sampleRate) {
@@ -377,6 +408,20 @@ private:
     if (!m_target) return;
     m_context->OMSetRenderTargets(1, m_target.GetAddressOf(), nullptr);
     m_context->ClearRenderTargetView(m_target.Get(), color.data());
+    if (m_frameText && m_d2dContext && m_dwriteFactory) {
+      ComPtr<IDWriteTextFormat> format;
+      Check(m_dwriteFactory->CreateTextFormat(L"Segoe UI", nullptr,
+        DWRITE_FONT_WEIGHT_SEMI_BOLD, DWRITE_FONT_STYLE_NORMAL,
+        DWRITE_FONT_STRETCH_NORMAL, std::max(12.0f, m_frameText->size), L"en-us",
+        &format));
+      const auto text = Wide(m_frameText->value);
+      const auto bounds = D2D1::RectF(m_frameText->x, m_frameText->y,
+        1920.0f - m_frameText->x, 1080.0f - m_frameText->y);
+      m_d2dContext->BeginDraw();
+      m_d2dContext->DrawText(text.c_str(), static_cast<UINT32>(text.size()),
+        format.Get(), bounds, m_textBrush.Get());
+      Check(m_d2dContext->EndDraw());
+    }
     const HRESULT hr = m_swapChain->Present(1, 0);
     if (FAILED(hr) && hr != DXGI_STATUS_OCCLUDED) Check(hr);
   }
@@ -393,11 +438,19 @@ private:
   std::string m_lastCapabilityInventory;
   uint32_t m_sampleRate = 48000;
   std::array<float, 4> m_flashColor{1, 1, 1, 1};
+  std::array<float, 4> m_frameColor{0.025f, 0.02f, 0.04f, 1.0f};
+  std::optional<ac::xbox::Text> m_frameText;
 
   ComPtr<ID3D11Device1> m_device;
   ComPtr<ID3D11DeviceContext1> m_context;
   ComPtr<IDXGISwapChain1> m_swapChain;
   ComPtr<ID3D11RenderTargetView> m_target;
+  ComPtr<ID2D1Factory1> m_d2dFactory;
+  ComPtr<ID2D1Device> m_d2dDevice;
+  ComPtr<ID2D1DeviceContext> m_d2dContext;
+  ComPtr<ID2D1Bitmap1> m_d2dTarget;
+  ComPtr<ID2D1SolidColorBrush> m_textBrush;
+  ComPtr<IDWriteFactory> m_dwriteFactory;
   ComPtr<IXAudio2> m_audio;
   IXAudio2MasteringVoice* m_master = nullptr;
   IXAudio2SourceVoice* m_voice = nullptr;

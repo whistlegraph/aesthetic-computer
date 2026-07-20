@@ -1,9 +1,22 @@
-let state = { online: false, count: 0 };
+let state = { online: false, count: 0, text: "probing..." };
 
 function refresh() {
   const caps = capabilities();
   const pads = controllers();
-  state = { online: caps.online, count: pads.length };
+  const lines = [
+    "AESTHETIC COMPUTER / XBOX NATIVE BIOS",
+    "",
+    `NETWORK  ${caps.online ? "ONLINE" : "OFFLINE"}`,
+    `CONTROLLERS  ${pads.length}`,
+  ];
+  for (const pad of pads) {
+    lines.push("");
+    lines.push(pad.name || "UNKNOWN CONTROLLER");
+    lines.push(`VID ${pad.vendorId}  PID ${pad.productId}`);
+    lines.push(`${pad.axes} AXES  ${pad.buttons} BUTTONS  ${pad.switches} SWITCHES`);
+  }
+  lines.push("", "PRESS A B X Y");
+  state = { online: caps.online, count: pads.length, text: lines.join("\n") };
 }
 
 function boot() {
@@ -17,6 +30,7 @@ function paint() {
   if (!state.online) wipe(170, 30, 30);
   else if (state.count === 0) wipe(140, 90, 15);
   else wipe(24, 170, 155);
+  write(state.text, 90, 70, 42);
 }
 
 function act(button) {
