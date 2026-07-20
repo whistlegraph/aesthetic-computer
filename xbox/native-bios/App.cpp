@@ -139,6 +139,7 @@ public:
           m_supervisor->active()->paint(*m_api);
         } catch (const std::exception& error) {
           OutputDebugStringA((std::string("AC_NATIVE_BIOS_JS_ERROR ") + error.what() + "\n").c_str());
+          LogTelemetry(std::string("AC_NATIVE_BIOS_JS_ERROR ") + error.what());
           m_supervisor->rollback(*m_api);
         }
       }
@@ -212,7 +213,7 @@ private:
     Check(backBuffer.As(&surface));
     const auto bitmapProperties = D2D1::BitmapProperties1(
       D2D1_BITMAP_OPTIONS_TARGET | D2D1_BITMAP_OPTIONS_CANNOT_DRAW,
-      D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE));
+      D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED));
     Check(m_d2dContext->CreateBitmapFromDxgiSurface(surface.Get(), &bitmapProperties,
       &m_d2dTarget));
     m_d2dContext->SetTarget(m_d2dTarget.Get());
@@ -409,6 +410,10 @@ private:
     m_context->OMSetRenderTargets(1, m_target.GetAddressOf(), nullptr);
     m_context->ClearRenderTargetView(m_target.Get(), color.data());
     if (m_frameText && m_d2dContext && m_dwriteFactory) {
+      // D3D and D2D share the swap-chain surface. Release the D3D output binding
+      // before Direct2D acquires that surface or the text pass can be discarded.
+      m_context->OMSetRenderTargets(0, nullptr, nullptr);
+      m_context->Flush();
       ComPtr<IDWriteTextFormat> format;
       Check(m_dwriteFactory->CreateTextFormat(L"Segoe UI", nullptr,
         DWRITE_FONT_WEIGHT_SEMI_BOLD, DWRITE_FONT_STYLE_NORMAL,
@@ -420,7 +425,12 @@ private:
       m_d2dContext->BeginDraw();
       m_d2dContext->DrawText(text.c_str(), static_cast<UINT32>(text.size()),
         format.Get(), bounds, m_textBrush.Get());
-      Check(m_d2dContext->EndDraw());
+      const HRESULT textResult = m_d2dContext->EndDraw();
+      if (!m_loggedTextFrame || FAILED(textResult)) {
+        LogTelemetry("AC_NATIVE_TEXT_FRAME chars=" + std::to_string(text.size()) +
+          " hr=" + std::to_string(static_cast<long>(textResult)));
+        m_loggedTextFrame = true;
+      }
     }
     const HRESULT hr = m_swapChain->Present(1, 0);
     if (FAILED(hr) && hr != DXGI_STATUS_OCCLUDED) Check(hr);
@@ -440,6 +450,7 @@ private:
   std::array<float, 4> m_flashColor{1, 1, 1, 1};
   std::array<float, 4> m_frameColor{0.025f, 0.02f, 0.04f, 1.0f};
   std::optional<ac::xbox::Text> m_frameText;
+  bool m_loggedTextFrame = false;
 
   ComPtr<ID3D11Device1> m_device;
   ComPtr<ID3D11DeviceContext1> m_context;

@@ -9,6 +9,9 @@ The first package boots a bundled JavaScript smoke piece. Press A/B/X/Y to
 change the Direct3D clear color and submit an XAudio2 tone. Device Portal debug
 output includes `AC_NATIVE_BIOS_READY engine=quickjs-ng piece=smoke`.
 
+Package tiles and splash art are generated from the current Pals image served
+by `https://pals.aesthetic.computer`, pinned in `xbox/assets/pals.png`.
+
 The JS environment exposes only `wipe(r,g,b)` and `synth(hz,seconds)` plus the
 piece lifecycle functions `boot`, `sim`, `paint`, `act`, and `leave`. It has no
 DOM, WebView, filesystem, WinRT, or network globals.
