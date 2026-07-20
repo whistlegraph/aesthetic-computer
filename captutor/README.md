@@ -7,6 +7,7 @@ from tooling AC already had, plus one new primitive.
 node captutor.mjs narrate <screenplay>   # just the voice — check pacing (cheap)
 node captutor.mjs render  <screenplay>   # narrate → record → drive → mp4 + vtt
 node captutor.mjs render  <screenplay> --outbox ~/Desktop/outbox
+node captutor.mjs deliver <screenplay> --format docs --outbox ~/Desktop/outbox
 node captutor.mjs publish <screenplay>   # into apps/docs/public/ + the MDX line
 node bin/from-docs.mjs apps/quickstart   # a docs page → a screenplay draft
 node bin/stage.mjs render <screenplay>   # reversible HiDPI full-desk filming mode
@@ -17,6 +18,10 @@ MP4 and its VTT sidecar. A `captutor-outbox/v1` JSON manifest lands last, after
 the media files have been copied atomically, so Iris's mission runner can treat
 the manifest as the completion signal. Set `CAPTUTOR_TASK_GID` to tie that
 delivery back to the Asana assignment that requested it.
+
+`deliver --outbox` recuts and republishes an existing take without driving the
+interface again. Use it for caption or encoding changes: the recorded negative
+and measured cue timing stay intact, so the recut costs no credits.
 
 ## The one idea
 

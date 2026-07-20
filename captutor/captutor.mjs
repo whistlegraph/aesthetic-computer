@@ -353,6 +353,7 @@ function cmdDeliver(sp, workDir, formats, locale) {
     throw new Error(`no take to cut — run: captutor render ${sp.slug}`);
   }
   const cues = JSON.parse(readFileSync(cuesPath, "utf8"));
+  const rendered = [];
   for (const format of formats) {
     const out = join(workDir, `${sp.slug}.${format}.mp4`);
     process.stdout.write(`  ${format}… `);
@@ -365,7 +366,9 @@ function cmdDeliver(sp, workDir, formats, locale) {
     const p = probe(out);
     console.log(`${r.W}×${r.H} · ${r.cues} captions · ${(p.format.size / 1e6).toFixed(1)} MB`);
     console.log(`     ${out}`);
+    rendered.push({ format, video: out });
   }
+  return rendered;
 }
 
 const [cmd, ref, ...rest] = process.argv.slice(2);
@@ -452,6 +455,25 @@ else if (cmd === "deliver") {
   const i = rest.indexOf("--format");
   const formats = i === -1 ? Object.keys(FORMATS) : rest[i + 1].split(",");
   console.log(`\n⧉ cutting ${sp.slug} (${LANGUAGES[locale].native}) → ${formats.join(", ")}`);
-  cmdDeliver(sp, workDir, formats, locale);
+  const rendered = cmdDeliver(sp, workDir, formats, locale);
+  const oi = rest.indexOf("--outbox");
+  const outbox = oi === -1 ? process.env.CAPTUTOR_OUTBOX : rest[oi + 1];
+  if (oi !== -1 && !outbox) throw new Error("--outbox needs a directory");
+  if (outbox) {
+    const captions = join(workDir, `${sp.slug}.vtt`);
+    for (const cut of rendered) {
+      const delivery = publishToOutbox({
+        outbox,
+        video: cut.video,
+        captions,
+        screenplay: sp.slug,
+        locale,
+        format: cut.format,
+        taskGid: process.env.CAPTUTOR_TASK_GID || null,
+      });
+      console.log(`\n⇢ outbox ${delivery.video}`);
+      console.log(`         ${delivery.manifest}`);
+    }
+  }
 }
 else { console.error(`unknown command: ${cmd}`); process.exit(1); }

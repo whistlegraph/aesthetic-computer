@@ -32,6 +32,7 @@ const STAGE_MODE = process.env.CAPTUTOR_STAGE_MODE === "1";
 //
 // Colours are Tailwind's, which is what services/og-image/colors.ts resolves to.
 const MARUND = process.env.CAPTUTOR_FONT || `${HERE}../assets/Marund.ttf`;
+const CAPTION_STYLE = "large-white-black-outline-v2";
 
 // Marund is a Latin face. It has NO Hangul, no Han, no Devanagari — ask it for
 // Korean and ImageMagick returns a blank strip (it silently drops every glyph it
@@ -122,7 +123,12 @@ export const FORMATS = {
     // crisp 2016×1260 browser inside a native 2560×1440 desktop frame.
     win: STAGE_MODE ? { w: 1008, h: 630 } : { w: 1512, h: 945 },
     out: STAGE_MODE ? { w: 2560, h: 1440 } : { w: 1512, h: 945 },
-    capWidth: 0.84, capPx: 34, capY: 0.90,
+    // Stage recordings are viewed inside a docs player, often at half their
+    // encoded size. Use presentation-scale captions so they remain readable,
+    // and lift them slightly to give the thicker outline breathing room.
+    capWidth: 0.84,
+    capPx: STAGE_MODE ? 58 : 44,
+    capY: STAGE_MODE ? 0.86 : 0.90,
     bar: false,
   },
   // YouTube. A true 16:9 window, so the frame IS the window — no pillarboxing.
@@ -173,10 +179,10 @@ function cuePng(text, { width, px, out }) {
   // Two passes, not one: ImageMagick draws the stroke ON TOP of the fill, so a
   // single stroked pass eats the letterforms from the inside and thin glyphs fill
   // in solid black. Draw the stroked copy, then lay the unstroked fill over it.
-  // Proportional, and THIN. px/7 was the first guess and it reads as bubble
-  // lettering — the outline closes up the counters and the words go blobby.
-  // px/18 keeps a crisp edge at every caption size we ship (34 / 44 / 56).
-  const stroke = Math.max(2, Math.round(px / 18));
+  // Proportional and strong enough to remain visibly black after a 2× HiDPI
+  // take is scaled into the docs player. The white fill pass keeps the thicker
+  // outside stroke from closing the counters or turning into bubble lettering.
+  const stroke = Math.max(3, Math.round(px / 12));
   const outline = `${out}.o.png`;
   const fill = `${out}.f.png`;
   execFileSync("magick", [...common,
@@ -253,7 +259,10 @@ export function deliver({ clip, cues, format, out, workDir, locale = "en" }) {
   const W = F.out.w;
   const H = F.out.h;
 
-  const capDir = join(workDir, `caps-${format}`);
+  // Caption PNGs are cached because multilingual rasterization is expensive.
+  // Version the directory so a style change can never silently reuse an older
+  // size or outline during a cheap recut of an existing take.
+  const capDir = join(workDir, `caps-${format}-${CAPTION_STYLE}`);
   mkdirSync(capDir, { recursive: true });
 
   const band = Math.round(W * F.capWidth);
