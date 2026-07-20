@@ -11497,6 +11497,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
           }
 
+          // 🎵 If the worklet is already up (warm context — Electron panes
+          // often boot with audio running), the worklet-ready hook that
+          // normally starts the soundtrack has ALREADY fired and missed
+          // this decode. Start the loop now or the tape plays silent.
+          if (
+            sfx["tape:audio"] &&
+            audioContext?.state === "running" &&
+            !Object.keys(sfxPlaying).some((id) => id.startsWith("tape:audio_"))
+          ) {
+            startTapeAudioLoop(currentTapePosition || 0);
+            console.log("🎵 📼 Tape audio started post-decode (worklet already up)");
+          }
+
           // Trigger presentation using existing underlay system
           // Instead of send({ type: "recorder:present" }), directly invoke presentation
           // since we're already in the bios context with frames loaded
