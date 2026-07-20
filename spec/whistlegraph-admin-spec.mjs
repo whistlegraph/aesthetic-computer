@@ -5,6 +5,7 @@ import {
   isWhistlegraphAdmin,
   normalizeDeployRequest,
   normalizePostPatch,
+  normalizeWorkCode,
   normalizeWorkPatch,
   validateDeployEvidence,
   visualSearchText,
@@ -61,6 +62,8 @@ describe("Whistlegraph Desk", () => {
     expect(() => normalizePostPatch({ works: ["missing"] }, new Set(["sos"]))).toThrowError(/Unknown Whistlegraph code/);
     expect(normalizeWorkPatch({ title: " Scared of Stairs ", by: "Jeffrey", year: 2021, c: "#B44887" }))
       .toEqual({ title: "Scared of Stairs", by: "Jeffrey", year: 2021, c: "#b44887" });
+    expect(normalizeWorkCode(" FEAR ")).toBe("fear");
+    expect(() => normalizeWorkCode("not-a-code")).toThrowError(/letters or numbers/);
   });
 
   it("publishes only patch data and a revision", () => {
@@ -70,6 +73,8 @@ describe("Whistlegraph Desk", () => {
     ]);
     expect(payload.posts).toEqual({ "123": { works: ["sos"] } });
     expect(payload.works).toEqual({ sos: { title: "Steps" } });
+    expect(payload.createdWorks).toEqual({});
+    expect(payload.deletedWorks).toEqual([]);
     expect(payload.revision).toBe("2026-07-19T11:00:00.000Z");
     expect(JSON.stringify(payload)).not.toContain("auth0|");
   });
@@ -181,6 +186,48 @@ describe("Whistlegraph Desk", () => {
       { name: "whistlegraph-curation", spec: { type: 1, key: 1 } },
       { name: "whistlegraph-curation-audit", spec: { when: -1 } },
     ]);
+  });
+
+  it("creates, soft-deletes, and restores a whistlegraph without deleting archive data", async () => {
+    const memory = memoryDatabase();
+    const handler = createHandler({
+      authorizeFn: async () => ({ sub: MINANIMALS, email_verified: true }),
+      connectFn: async () => memory.connection,
+      allowedSubs: new Set([JEFFREY, MINANIMALS]),
+      loadModelFn: () => ({ workCodes: new Set(["sos"]), workByCode: new Map([["sos", { title: "Stairs" }]]), postIds: new Set(["123"]), postWorks: new Map([["123", ["fear"]]]) }),
+    });
+    const headers = { authorization: "Bearer test" };
+    const created = await handler({ httpMethod: "POST", headers, queryStringParameters: { action: "work" }, body: JSON.stringify({ code: "fear", title: "Inside My Mouth", by: "Alex Freundlich", year: 2026, c: "#b44887" }) });
+    expect(created.statusCode).toBe(201);
+    expect(memory.records.get("work:fear").created).toBeTrue();
+
+    const removed = await handler({ httpMethod: "DELETE", headers, queryStringParameters: {}, body: JSON.stringify({ type: "work", key: "fear" }) });
+    expect(removed.statusCode).toBe(200);
+    expect(memory.records.get("work:fear").deleted).toBeTrue();
+    let publicData = JSON.parse((await handler({ httpMethod: "GET", headers: {}, queryStringParameters: { action: "curation" } })).body);
+    expect(publicData.deletedWorks).toEqual(["fear"]);
+    expect(publicData.trashedWorks).toBeUndefined();
+    const privateData = JSON.parse((await handler({ httpMethod: "GET", headers, queryStringParameters: { action: "data" } })).body);
+    expect(privateData.trashedWorks.fear.title).toBe("Inside My Mouth");
+
+    const restored = await handler({ httpMethod: "PATCH", headers, queryStringParameters: {}, body: JSON.stringify({ type: "work", key: "fear", restore: true }) });
+    expect(restored.statusCode).toBe(200);
+    publicData = JSON.parse((await handler({ httpMethod: "GET", headers: {}, queryStringParameters: { action: "curation" } })).body);
+    expect(publicData.createdWorks.fear.title).toBe("Inside My Mouth");
+    expect(publicData.deletedWorks).toEqual([]);
+    expect(publicData.activeCodes).toEqual(["fear"]);
+
+    const renamed = await handler({ httpMethod: "POST", headers, queryStringParameters: { action: "work-rename" }, body: JSON.stringify({ from: "fear", code: "mouth", title: "Inside My Mouth", by: "Alex Freundlich", year: 2026, c: "#b44887" }) });
+    expect(renamed.statusCode).toBe(200);
+    expect(JSON.parse(renamed.body).reassigned).toBe(1);
+    expect(memory.records.get("post:123").patch.works).toEqual(["mouth"]);
+    expect(memory.records.get("work:fear").deleted).toBeTrue();
+    expect(memory.records.get("work:mouth").created).toBeTrue();
+    expect(memory.records.get("work:mouth").patch.asset).toBe("fear");
+
+    const edited = await handler({ httpMethod: "PATCH", headers, queryStringParameters: {}, body: JSON.stringify({ type: "work", key: "mouth", patch: { title: "Inside My Mouth!", by: "Alex Freundlich", year: 2026, c: "#b44887" } }) });
+    expect(edited.statusCode).toBe(200);
+    expect(memory.records.get("work:mouth").patch.asset).toBe("fear");
   });
 });
 

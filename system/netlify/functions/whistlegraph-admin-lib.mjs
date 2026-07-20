@@ -11,6 +11,12 @@ const COLOR_RE = /^#[0-9a-f]{6}$/i;
 const COMMIT_RE = /^[0-9a-f]{40}$/i;
 const CHANGE_ID_RE = /^[a-z0-9-]{8,100}$/i;
 
+export function normalizeWorkCode(value) {
+  const code = cleanText(value, "Code", 24, { empty: false }).toLowerCase();
+  if (!CODE_RE.test(code)) throw new Error("Code must use 1–24 letters or numbers.");
+  return code;
+}
+
 const VISUAL_TAG_RULES = Object.freeze([
   ["drawing", /\b(draw|draws|drawn|drawing|sketch|doodle|linework|mark-making)\b/],
   ["writing", /\b(writ(?:e|es|ing|ten)|handwritten|lettering|caption|label)\b/],
@@ -178,13 +184,21 @@ export function normalizeWorkPatch(input) {
 export function curationPayload(documents = []) {
   const works = {};
   const posts = {};
+  const createdWorks = {};
+  const deletedWorks = [];
+  const trashedWorks = {};
   let revision = null;
   for (const document of documents) {
     if (!document?.key || !document?.patch) continue;
-    if (document.type === "work") works[document.key] = document.patch;
+    if (document.type === "work" && document.created && !document.deleted) createdWorks[document.key] = document.patch;
+    else if (document.type === "work" && document.deleted) {
+      deletedWorks.push(document.key);
+      trashedWorks[document.key] = { ...document.patch, created: Boolean(document.created) };
+    }
+    else if (document.type === "work") works[document.key] = document.patch;
     if (document.type === "post") posts[document.key] = document.patch;
     const stamp = document.updatedAt ? new Date(document.updatedAt).toISOString() : null;
     if (stamp && (!revision || stamp > revision)) revision = stamp;
   }
-  return { revision, works, posts };
+  return { revision, works, posts, createdWorks, deletedWorks, trashedWorks };
 }

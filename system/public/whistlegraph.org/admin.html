@@ -61,13 +61,14 @@
         <a class="brand" href="/" target="_blank">Whistlegraph <b>Desk</b></a>
         <span id="previewBadge" class="preview hidden">LOCAL PREVIEW · SAVING OFF</span>
         <span class="who" id="who"></span>
+        <button class="primary" id="newWork" data-testid="new-work">New whistlegraph</button>
         <a class="quiet" href="/" target="_blank">View site ↗</a>
         <button class="quiet" id="codexOpen" data-testid="codex-tools">Codex tools</button>
         <button class="quiet" id="logout">Sign out</button>
       </div>
       <div class="controls">
         <div class="seg" id="mode" aria-label="Archive layer">
-          <button class="on" data-mode="posts">Posts</button><button data-mode="works">Whistlegraphs</button>
+          <button class="on" data-mode="posts">Posts</button><button data-mode="works">Whistlegraphs</button><button data-mode="trash">Trash</button>
         </div>
         <input id="search" type="search" placeholder="Search captions, IDs, codes, or machine visuals…" autocomplete="off" data-testid="archive-search">
         <div class="seg" id="filter" aria-label="Post type">
@@ -101,7 +102,7 @@
   const esc=value=>String(value??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'\"':"&quot;"}[c]));
   const fmt=value=>value>=1e6?`${(value/1e6).toFixed(1)}M`:value>=1e3?`${Math.round(value/1e3)}K`:String(value||0);
   let client=null,token=null,mode="posts",kind="all",query="",shown=0,view=[];
-  let basePosts=[],baseWorks=[],posts=[],works=[],postById={},workByCode={},curation={works:{},posts:{}},deployments=[],selected=null,visualCoverage={count:0};
+  let basePosts=[],baseWorks=[],posts=[],works=[],postById={},workByCode={},curation={works:{},posts:{},createdWorks:{},deletedWorks:[],trashedWorks:{}},deployments=[],recentChanges=[],selected=null,visualCoverage={count:0};
   let machineMatchIds=new Set(),machineQuery="",machineSearchTimer=null,machineSearchVersion=0;
   const gate=document.getElementById("gate"),desk=document.getElementById("desk"),grid=document.getElementById("grid"),drawer=document.getElementById("drawer");
 
@@ -111,13 +112,17 @@
   function splitList(value){return [...new Set(String(value||"").split(",").map(x=>x.trim()).filter(Boolean))]}
   function applyCuration(){
     const loadedVisuals=new Map(posts.filter(post=>post.visual).map(post=>[post.id,post.visual]));
-    const allWorks=baseWorks.map(w=>({...w,...(curation.works?.[w.code]||{})}));
+    const deleted=new Set(curation.deletedWorks||[]);
+    const allWorks=[
+      ...baseWorks.filter(w=>!deleted.has(w.code)).map(w=>({...w,...(curation.works?.[w.code]||{})})),
+      ...Object.entries(curation.createdWorks||{}).map(([code,w])=>({code,...w,kind:"graph",created:true})),
+    ];
     const valid=new Set(allWorks.map(w=>w.code));
     posts=basePosts.map(p=>{const patch=curation.posts?.[p.id]||{};const next={...p,...patch};if(!next.visual&&loadedVisuals.has(p.id))next.visual=loadedVisuals.get(p.id);next.works=(next.works||[]).filter(code=>valid.has(code));next.relationships=next.works.map(work=>({work,role:"contributes"}));return next});
     const relatedByWork=new Map();
     for(const post of posts){for(const code of post.works||[]){let summary=relatedByWork.get(code);if(!summary){summary={perf:0,views:0};relatedByWork.set(code,summary)}summary.perf+=1;summary.views+=post.views||0}}
-    works=allWorks.filter(work=>relatedByWork.has(work.code));
-    for(const work of works){const summary=relatedByWork.get(work.code);work.perf=summary.perf;work.views=summary.views}
+    works=allWorks.filter(work=>relatedByWork.has(work.code)||work.created);
+    for(const work of works){const summary=relatedByWork.get(work.code)||{perf:0,views:0};work.perf=summary.perf;work.views=summary.views}
     postById=Object.fromEntries(posts.map(p=>[p.id,p]));workByCode=Object.fromEntries(works.map(w=>[w.code,w]));
     document.getElementById("workCodes").innerHTML=works.map(w=>`<option value="${esc(w.code)}">${esc(w.title)}</option>`).join("");
   }
@@ -132,7 +137,7 @@
     basePosts=pd.posts||[];baseWorks=gd.works||[];applyCuration();renderReset();grid.removeAttribute("aria-busy");
     const {data:cd,error}=await curationRequest;
     if(error){toast(`Live edits unavailable: ${error.message}`);return}
-    curation={works:cd.works||{},posts:cd.posts||{}};deployments=cd.deployments||[];visualCoverage=cd.visualCoverage||{count:0};applyCuration();renderReset(true);
+    curation={works:cd.works||{},posts:cd.posts||{},createdWorks:cd.createdWorks||{},deletedWorks:cd.deletedWorks||[],trashedWorks:cd.trashedWorks||{}};deployments=cd.deployments||[];recentChanges=cd.recent||[];visualCoverage=cd.visualCoverage||{count:0};applyCuration();renderReset(true);
   }
   function enterDesk(name){gate.classList.add("hidden");desk.classList.remove("hidden");document.getElementById("who").textContent=name;if(PREVIEW){document.getElementById("previewBadge").classList.remove("hidden");document.getElementById("logout").classList.add("hidden")}}
   function canonicalizeDesk(){if(!LOCAL&&location.pathname!==DESK_PATH)history.replaceState({},"",DESK_PATH)}
@@ -159,11 +164,13 @@
     const install="codex plugin marketplace add whistlegraph/aesthetic-computer --ref main\ncodex plugin add whistlegraph@personal";
     const checkout="git clone git@knot.aesthetic.computer:aesthetic.computer/core aesthetic-computer\ncd aesthetic-computer\nac-login\ncodex";
     const recent=deployments.length?deployments.slice(0,8).map(d=>`<li><code>${esc(String(d.commit||"").slice(0,12))}</code> · ${esc(d.status||"queued")} · ${esc(d.changeId||"Desk publish")}<br><small>${esc(d.when?new Date(d.when).toLocaleString():"")}</small></li>`).join(""):"<li>No Codex deployments yet.</li>";
+    const changes=recentChanges.length?recentChanges.slice(0,20).map(change=>`<li><code>${esc(change.type||"")}:${esc(change.key||"")}</code> · ${esc(change.action||"change")}${change.renamedTo?` → <code>${esc(change.renamedTo)}</code>`:""}<br><small>${esc(change.when?new Date(change.when).toLocaleString():"")}</small></li>`).join(""):"<li>No Desk changes yet.</li>";
     codexPanel.innerHTML=`<div class="codex-head"><div><h2>Whistlegraph <b>for Codex</b></h2><p>Authenticated frontend editing, ordinary Git commits, and exact-SHA deployment.</p></div><button class="close" aria-label="Close Codex tools">×</button></div>
       <section class="codex-step"><h3>1 · Install the plugin</h3><p>Add the Aesthetic Computer Git marketplace, then install Whistlegraph Desk.</p><div class="command">${esc(install)}<button class="copy" data-copy="install">Copy</button></div></section>
       <section class="codex-step"><h3>2 · Open the knot checkout</h3><p>The plugin edits a clean temporary worktree. Your normal checkout can contain other work without being touched.</p><div class="command">${esc(checkout)}<button class="copy" data-copy="checkout">Copy</button></div></section>
       <section class="codex-step"><h3>3 · Ask Codex</h3><div class="command">Find the copy I want to change on whistlegraph.org, show me the diff, then validate and publish it.<button class="copy" data-copy="prompt">Copy</button></div></section>
       <section class="codex-step guardrails">Only the immutable Auth0 subjects for @jeffrey and @minanimals pass the server check. The plugin can write only <code>system/public/whistlegraph.org/**</code>. Publishing creates a review branch and attributed commit, refuses a moved <code>main</code>, and deploys only the exact pushed SHA.</section>
+      <section class="codex-step"><h3>Recent Desk changes</h3><ul class="deploy-list">${changes}</ul></section>
       <section class="codex-step"><h3>Recent deployments</h3><ul class="deploy-list">${recent}</ul></section>
       <p><a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/plugins/whistlegraph" target="_blank" rel="noopener">Inspect the plugin source ↗</a></p>`;
     codexPanel.querySelector(".close").addEventListener("click",closeCodex);
@@ -176,6 +183,9 @@
   function heroForWork(code){return posts.filter(p=>(p.works||[]).includes(code)).sort((a,b)=>(b.views||0)-(a.views||0))[0]}
   function buildView(){
     const q=query.trim().toLowerCase();
+    if(mode==="trash"){
+      view=Object.entries(curation.trashedWorks||{}).map(([code,w])=>({code,...w,trashed:true})).filter(w=>!q||String(w.title||"").toLowerCase().includes(q)||w.code.includes(q)||String(w.by||"").toLowerCase().includes(q));return;
+    }
     if(mode==="works"){
       view=works.filter(w=>!q||w.title.toLowerCase().includes(q)||w.code.toLowerCase().includes(q)||(w.by||"").toLowerCase().includes(q)).sort((a,b)=>(b.views||0)-(a.views||0));return;
     }
@@ -187,7 +197,7 @@
     });
   }
   function tileHTML(item){
-    const isWork=mode==="works",key=isWork?item.code:item.id,post=isWork?heroForWork(item.code):item;
+    const isWork=mode!=="posts",key=isWork?item.code:item.id,post=isWork?heroForWork(item.code):item;
     const title=isWork?item.title:postTitle(item),label=isWork?`[${item.code}]`:(item.kind||"post"),meta=isWork?`${item.by||""} · ${item.perf||0} posts`:`${item.date||""} · ${fmt(item.views)} views`;
     const changed=Boolean((isWork?curation.works:curation.posts)?.[key]);
     return `<button class="tile" data-key="${esc(key)}" aria-label="Edit ${esc(title)}"><img loading="lazy" src="${post?thumb(post.id):""}" alt="${esc(post?.visual?.summary||"")}"><span class="kind">${esc(label)}</span>${changed?'<span class="changed" title="Live edit"></span>':""}<span class="tile-info"><b>${esc(title)}</b><small>${esc(meta)}</small></span></button>`;
@@ -212,8 +222,20 @@
   }
   function queueMachineSearch(){clearTimeout(machineSearchTimer);const version=++machineSearchVersion;machineSearchTimer=setTimeout(()=>searchMachineVisuals(query,version),180)}
   document.getElementById("search").addEventListener("input",event=>{query=event.target.value;renderReset();queueMachineSearch()});
-  document.getElementById("mode").addEventListener("click",event=>{const button=event.target.closest("button[data-mode]");if(!button)return;mode=button.dataset.mode;document.querySelectorAll("#mode button").forEach(x=>x.classList.toggle("on",x===button));document.getElementById("filter").classList.toggle("hidden",mode==="works");document.getElementById("search").placeholder=mode==="works"?"Search titles, codes, or authors…":"Search captions, IDs, codes, or machine visuals…";renderReset();queueMachineSearch()});
+  document.getElementById("mode").addEventListener("click",event=>{const button=event.target.closest("button[data-mode]");if(!button)return;mode=button.dataset.mode;document.querySelectorAll("#mode button").forEach(x=>x.classList.toggle("on",x===button));document.getElementById("filter").classList.toggle("hidden",mode!=="posts");document.getElementById("search").placeholder=mode==="posts"?"Search captions, IDs, codes, or machine visuals…":"Search titles, codes, or authors…";renderReset();queueMachineSearch()});
   document.getElementById("filter").addEventListener("click",event=>{const button=event.target.closest("button[data-kind]");if(!button)return;kind=button.dataset.kind;document.querySelectorAll("#filter button").forEach(x=>x.classList.toggle("on",x===button));renderReset()});
+
+  document.getElementById("newWork").addEventListener("click",()=>{
+    if(PREVIEW)return;
+    selected={type:"new-work",key:""};
+    drawer.innerHTML=`<div class="drawer-head"><div><h2>New whistlegraph</h2><p>Create an entry, then assign archive posts to its code.</p></div><button class="close" aria-label="Close editor">×</button></div>
+      <label for="workCode">Code</label><input class="field" id="workCode" maxlength="24" placeholder="fear" autocomplete="off"><p class="hint">1–24 letters or numbers. Codes become public URLs and commands.</p>
+      ${workFields({title:"",by:"",year:new Date().getFullYear(),c:"#b44887"})}
+      <div class="actions"><button class="primary save" id="createWork">Create whistlegraph</button></div>`;
+    drawer.querySelector(".close").addEventListener("click",closeEditor);
+    drawer.querySelector("#createWork").addEventListener("click",createWork);
+    drawer.classList.remove("hidden");document.getElementById("drawerShade").classList.remove("hidden");drawer.querySelector("#workCode").focus();
+  });
 
   function closeEditor(){selected=null;drawer.classList.add("hidden");document.getElementById("drawerShade").classList.add("hidden");drawer.innerHTML=""}
   document.getElementById("drawerShade").addEventListener("click",closeEditor);
@@ -223,12 +245,13 @@
     const {type,key}=selection,post=type==="work"?heroForWork(key):item,title=type==="work"?item.title:postTitle(item),changed=Boolean((type==="work"?curation.works:curation.posts)?.[key]);
     drawer.innerHTML=`<div class="drawer-head"><div><h2>${esc(title)}</h2><p>${type==="work"?`Whistlegraph [${esc(key)}]`:`Archive post ${esc(key)}`}</p></div><button class="close" aria-label="Close editor">×</button></div>
       <div class="hero"><img src="${post?thumb(post.id):""}" alt="${esc(post?.visual?.summary||"")}"><div class="facts">${type==="post"?`${esc(item.date||"date unknown")}<br>${fmt(item.views)} views · ${fmt(item.likes)} likes<br><a href="${esc(item.url)}" target="_blank" rel="noopener">Open original ↗</a><br><a href="/post/${encodeURIComponent(item.id)}" target="_blank">Open archive page ↗</a>`:`${esc(item.by||"")}<br>${item.year||""} · ${fmt(item.views)} views<br><a href="/${encodeURIComponent(item.code)}" target="_blank">Open Whistlegraph ↗</a>`}</div></div>
-      ${type==="post"?postFields(item,!PREVIEW&&!item.visual):workFields(item)}
-      <div class="actions"><button class="danger" id="reset" ${changed&&!PREVIEW?"":"disabled"}>Restore generated data</button><button class="primary save" id="save" ${PREVIEW?"disabled":""}>Save live</button></div>`;
-    drawer.querySelector(".close").addEventListener("click",closeEditor);drawer.querySelector("#save").addEventListener("click",saveEditor);drawer.querySelector("#reset").addEventListener("click",resetEditor);
+      ${type==="post"?postFields(item,!PREVIEW&&!item.visual):workFields(item,true)}
+      <div class="actions"><button class="danger" id="deleteWork" ${type==="work"&&!PREVIEW?"":"disabled"}>Move to trash</button><button class="danger" id="reset" ${changed&&!PREVIEW?"":"disabled"}>Restore generated data</button><button class="primary save" id="save" ${PREVIEW?"disabled":""}>Save live</button></div>`;
+    drawer.querySelector(".close").addEventListener("click",closeEditor);drawer.querySelector("#save").addEventListener("click",saveEditor);drawer.querySelector("#reset").addEventListener("click",resetEditor);drawer.querySelector("#deleteWork").addEventListener("click",deleteWork);
     drawer.classList.remove("hidden");document.getElementById("drawerShade").classList.remove("hidden");
   }
   async function openEditor(key){
+    if(mode==="trash"){openTrashEditor(key);return}
     const selection={type:mode==="works"?"work":"post",key};selected=selection;const item=selection.type==="work"?workByCode[key]:postById[key];if(!item)return;
     renderEditor(selection,item);
     if(selection.type==="post"&&!PREVIEW&&!item.visual){
@@ -236,6 +259,15 @@
       catch(error){if(!/not found/i.test(error.message))toast(error.message)}
       if(selected?.type===selection.type&&selected?.key===key){const machine=drawer.querySelector("#machineFields");if(machine)machine.innerHTML=machineFields(postById[key]||item)}
     }
+  }
+  function openTrashEditor(key){
+    const item=curation.trashedWorks?.[key];if(!item)return;selected={type:"trash",key};
+    drawer.innerHTML=`<div class="drawer-head"><div><h2>${esc(item.title||key)}</h2><p>Trashed whistlegraph [${esc(key)}]</p></div><button class="close" aria-label="Close editor">×</button></div><p>This entry is hidden, but its archive videos have not been deleted.</p><div class="actions"><button class="primary save" id="restoreWork">Restore whistlegraph</button></div>`;
+    drawer.querySelector(".close").addEventListener("click",closeEditor);drawer.querySelector("#restoreWork").addEventListener("click",restoreWork);drawer.classList.remove("hidden");document.getElementById("drawerShade").classList.remove("hidden");
+  }
+  async function restoreWork(){
+    if(!selected||selected.type!=="trash")return;const key=selected.key;
+    try{const result=await getJSON(API,{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({type:"work",key,restore:true})});delete curation.trashedWorks[key];curation.deletedWorks=(curation.deletedWorks||[]).filter(code=>code!==key);(result.created?curation.createdWorks:curation.works)[key]=result.patch;applyCuration();closeEditor();renderReset();toast(`Restored [${key}]`)}catch(error){toast(error.message)}
   }
   function machineList(label,items){return items?.length?`<label>${esc(label)}</label><ul class="hint">${items.map(item=>`<li>${esc(item)}</li>`).join("")}</ul>`:""}
   function machineFields(p){const v=p.visual;if(!v)return `<p class="hint">No machine visual record for this ${p.media==="audio"?"audio-only":"video"} post.</p>`;return `<label for="postVisual">Machine-read visual description</label><textarea class="field" id="postVisual" readonly>${esc(v.summary||"")}</textarea>
@@ -246,7 +278,18 @@
     <label for="postWorks">Whistlegraph relationships</label><input class="field" id="postWorks" value="${esc((p.works||[]).join(", "))}" placeholder="sos, imab" list="workCodes"><p class="hint">Comma-separated codes. Empty means this post is unfiled.</p>
     <label for="postPlots">Plots / narrative events</label><input class="field" id="postPlots" value="${esc((p.plots||[]).join(", "))}" placeholder="Us Kidnapping You"><p class="hint">Comma-separated plot names.</p>
     <label for="postDesc">Author caption</label><textarea class="field" id="postDesc">${esc(p.desc||"")}</textarea><div id="machineFields">${loadingVisual?'<p class="hint">Loading private machine visual notes…</p>':machineFields(p)}</div>`}
-  function workFields(w){return `<label for="workTitle">Title</label><input class="field" id="workTitle" value="${esc(w.title||"")}"><label for="workBy">Composed by</label><input class="field" id="workBy" value="${esc(w.by||"")}"><label for="workYear">Year</label><input class="field" id="workYear" type="number" min="1900" max="2200" value="${esc(w.year||"")}"><label for="workColor">Archive color</label><input class="field" id="workColor" type="color" value="${esc(w.c||"#b44887")}"><p class="hint">Codes remain immutable here so shared links and Aesthetic Computer commands cannot be broken accidentally.</p>`}
+  function workFields(w,editableCode=false){return `${editableCode?`<label for="editWorkCode">Code</label><input class="field" id="editWorkCode" maxlength="24" value="${esc(w.code||"")}"><p class="hint">Changing this migrates every assigned post and retires the old URL.</p>`:""}<label for="workTitle">Title</label><input class="field" id="workTitle" value="${esc(w.title||"")}"><label for="workBy">Composed by</label><input class="field" id="workBy" value="${esc(w.by||"")}"><label for="workYear">Year</label><input class="field" id="workYear" type="number" min="1900" max="2200" value="${esc(w.year||"")}"><label for="workColor">Archive color</label><input class="field" id="workColor" type="color" value="${esc(w.c||"#b44887")}">`}
+  function workPatch(){return {title:drawer.querySelector("#workTitle").value,by:drawer.querySelector("#workBy").value,year:Number(drawer.querySelector("#workYear").value),c:drawer.querySelector("#workColor").value}}
+  async function createWork(){
+    const button=drawer.querySelector("#createWork"),code=drawer.querySelector("#workCode").value.trim().toLowerCase();button.disabled=true;button.textContent="Creating…";
+    try{const result=await getJSON(`${API}?action=work`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({code,...workPatch()})});curation.createdWorks[result.key]=result.patch;applyCuration();mode="works";document.querySelectorAll("#mode button").forEach(x=>x.classList.toggle("on",x.dataset.mode==="works"));document.getElementById("filter").classList.add("hidden");renderReset();closeEditor();toast(`Created [${result.key}]`)}
+    catch(error){toast(error.message);button.disabled=false;button.textContent="Create whistlegraph"}
+  }
+  async function deleteWork(){
+    if(!selected||selected.type!=="work"||PREVIEW)return;const current={...selected};
+    if(!confirm(`Move [${current.key}] to trash? Its videos will remain in the archive and can be reassigned.`))return;
+    try{await getJSON(API,{method:"DELETE",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify(current)});const item=workByCode[current.key]||{};curation.deletedWorks=[...new Set([...(curation.deletedWorks||[]),current.key])];curation.trashedWorks[current.key]={...item,created:Boolean(curation.createdWorks[current.key])};delete curation.createdWorks[current.key];delete curation.works[current.key];applyCuration();closeEditor();renderReset(true);toast(`Moved [${current.key}] to trash`)}catch(error){toast(error.message)}
+  }
   function refreshAfterMutation(selection){
     if(mode==="posts"&&selection.type==="post"&&kind==="all"&&!query.trim()){
       buildView();const tile=grid.querySelector(`button[data-key="${CSS.escape(selection.key)}"]`),item=postById[selection.key];if(tile&&item)tile.outerHTML=tileHTML(item);updateCount();return;
@@ -254,9 +297,14 @@
     renderReset(true);
   }
   async function saveEditor(){
-    if(!selected||PREVIEW)return;const current={...selected},patch=current.type==="post"?{kind:drawer.querySelector("#postKind").value,works:splitList(drawer.querySelector("#postWorks").value),plots:splitList(drawer.querySelector("#postPlots").value),desc:drawer.querySelector("#postDesc").value}:{title:drawer.querySelector("#workTitle").value,by:drawer.querySelector("#workBy").value,year:Number(drawer.querySelector("#workYear").value),c:drawer.querySelector("#workColor").value};
+    if(!selected||PREVIEW)return;const current={...selected},patch=current.type==="post"?{kind:drawer.querySelector("#postKind").value,works:splitList(drawer.querySelector("#postWorks").value),plots:splitList(drawer.querySelector("#postPlots").value),desc:drawer.querySelector("#postDesc").value}:workPatch();
     const button=drawer.querySelector("#save");button.disabled=true;button.textContent="Saving…";
-    try{const result=await getJSON(API,{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({...current,patch})});curation[current.type==="work"?"works":"posts"][current.key]=result.patch;applyCuration();refreshAfterMutation(current);if(selected?.type===current.type&&selected?.key===current.key)renderEditor(current,current.type==="work"?workByCode[current.key]:postById[current.key]);toast("Saved live")}
+    try{
+      const nextCode=current.type==="work"?drawer.querySelector("#editWorkCode").value.trim().toLowerCase():current.key;
+      if(current.type==="work"&&nextCode!==current.key){
+        const result=await getJSON(`${API}?action=work-rename`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({from:current.key,code:nextCode,...patch})});await loadData();closeEditor();toast(`Renamed [${result.from}] to [${result.key}] · ${result.reassigned} posts migrated`);return;
+      }
+      const result=await getJSON(API,{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({...current,patch})});const bucket=current.type==="work"&&curation.createdWorks[current.key]?curation.createdWorks:curation[current.type==="work"?"works":"posts"];bucket[current.key]=result.patch;applyCuration();refreshAfterMutation(current);if(selected?.type===current.type&&selected?.key===current.key)renderEditor(current,current.type==="work"?workByCode[current.key]:postById[current.key]);toast("Saved live")}
     catch(error){toast(error.message);if(button.isConnected){button.disabled=false;button.textContent="Save live"}}
   }
   async function resetEditor(){

@@ -438,7 +438,7 @@ const esc=s=>String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&g
 // the authenticated Whistlegraph Desk layer over that model and survive deploys.
 const curationLoaded=fetch("/api/whistlegraph-admin?action=curation",{cache:"no-store"})
   .then(r=>r.ok?r.json():{works:{},posts:{}})
-  .then(data=>(LIVE_CURATION={works:data.works||{},posts:data.posts||{}},LIVE_CURATION))
+  .then(data=>(LIVE_CURATION={works:data.works||{},posts:data.posts||{},createdWorks:data.createdWorks||{},deletedWorks:data.deletedWorks||[],trashedWorks:data.trashedWorks||{}},LIVE_CURATION))
   .catch(()=>LIVE_CURATION);
 
 // A whistlegraph's posts — every published appearance, most-seen first —
@@ -669,8 +669,13 @@ Promise.all([
   fetch("/graphs.json?t="+Date.now(),{cache:"no-cache"}).then(r=>r.json()),
   curationLoaded,
 ]).then(([data,curation])=>{
-  WORKS=(data.works||data.graphs.filter(w=>w.kind==="graph"))
-    .map(work=>({...work,...(curation.works?.[work.code]||{})})); CURATED_N=data.curated;
+  const deletedWorks=new Set(curation.deletedWorks||[]);
+  const activeCodes=new Set(curation.activeCodes||[]);
+  const generatedWorks=(data.works||data.graphs.filter(w=>w.kind==="graph"))
+    .filter(work=>!deletedWorks.has(work.code)&&(!activeCodes.size||activeCodes.has(work.code)))
+    .map(work=>({...work,...(curation.works?.[work.code]||{})}));
+  const createdWorks=Object.entries(curation.createdWorks||{}).map(([code,work])=>({code,...work,kind:"graph"}));
+  WORKS=[...generatedWorks,...createdWorks]; CURATED_N=data.curated;
   BY=Object.fromEntries(WORKS.map(w=>[w.code,w]));
   LEGACY_BY=Object.fromEntries((data.legacy||[]).map(w=>[w.code,w]));
   // One delegated click for both work rows and stable archive-post rows.

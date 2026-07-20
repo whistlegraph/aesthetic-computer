@@ -3,7 +3,9 @@
 // GET   /api/whistlegraph-admin?action=curation  public overlay for the site
 // GET   /api/whistlegraph-admin?action=session   authenticated admin session
 // GET   /api/whistlegraph-admin?action=data      authenticated overlay + audit view
+// POST  /api/whistlegraph-admin?action=work      create a recoverable work
 // PATCH /api/whistlegraph-admin                  upsert/reset one post or work patch
+// DELETE /api/whistlegraph-admin                 soft-delete a work
 
 import { execFile as execFileCallback, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -18,6 +20,7 @@ import {
   isWhistlegraphAdmin,
   normalizeDeployRequest,
   normalizePostPatch,
+  normalizeWorkCode,
   normalizeWorkPatch,
   deriveVisualTags,
   visualSearchText,
@@ -35,10 +38,10 @@ const DEPLOY_SCRIPT = join(REPO_ROOT, "lith", "webhook.sh");
 const execFile = promisify(execFileCallback);
 const HEADERS = {
   "Cache-Control": "no-store",
-  "Access-Control-Allow-Methods": "GET, PATCH, POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, PATCH, POST, DELETE, OPTIONS",
 };
 
-let modelCache = { stamp: "", workCodes: new Set(), postIds: new Set() };
+let modelCache = { stamp: "", workCodes: new Set(), workByCode: new Map(), postIds: new Set(), postWorks: new Map() };
 let visualCache = { stamp: "", byId: new Map(), searchable: [], metadata: { count: 0 } };
 
 function loadBaseModel() {
@@ -51,7 +54,9 @@ function loadBaseModel() {
   modelCache = {
     stamp,
     workCodes: new Set((graphs.works || []).map((work) => String(work.code))),
+    workByCode: new Map((graphs.works || []).map((work) => [String(work.code), work])),
     postIds: new Set((posts.posts || []).map((post) => String(post.id))),
+    postWorks: new Map((posts.posts || []).map((post) => [String(post.id), post.works || []])),
   };
   return modelCache;
 }
@@ -89,9 +94,19 @@ async function requireAdmin(event, authorizeFn, allowed) {
   return { user };
 }
 
-async function readCuration(database) {
+async function readCuration(database, loadModelFn = loadBaseModel) {
   const documents = await database.db.collection(COLLECTION).find({}).toArray();
-  return curationPayload(documents);
+  const payload = curationPayload(documents);
+  const model = loadModelFn();
+  const validCodes = new Set(model.workCodes);
+  for (const code of Object.keys(payload.createdWorks)) validCodes.add(code);
+  for (const code of payload.deletedWorks) validCodes.delete(code);
+  const activeCodes = new Set();
+  for (const [postId, baseWorks] of model.postWorks || []) {
+    const assigned = payload.posts[postId]?.works || baseWorks;
+    for (const code of assigned) if (validCodes.has(code)) activeCodes.add(code);
+  }
+  return { ...payload, activeCodes: [...activeCodes] };
 }
 
 function deployError(message, statusCode = 409) {
@@ -169,7 +184,7 @@ export function createHandler({
       let database;
       try {
         database = await connectFn();
-        const payload = await readCuration(database);
+        const { trashedWorks: _privateTrash, ...payload } = await readCuration(database, loadModelFn);
         return respond(200, payload, HEADERS);
       } catch (error) {
         console.error("Whistlegraph public curation read failed:", error?.message || error);
@@ -193,7 +208,7 @@ export function createHandler({
       const database = await connectFn();
       try {
         const [curation, recent, deployments] = await Promise.all([
-          readCuration(database),
+          readCuration(database, loadModelFn),
           database.db.collection(AUDIT_COLLECTION).find({}, { projection: { admin: 0 } }).sort({ when: -1 }).limit(30).toArray(),
           database.db.collection(DEPLOY_COLLECTION).find({}).sort({ when: -1 }).limit(20).toArray(),
         ]);
@@ -265,7 +280,90 @@ export function createHandler({
       return respond(202, { deploymentId, status: "queued", ...result }, HEADERS);
     }
 
-    if (event.httpMethod !== "PATCH") {
+    if (event.httpMethod === "POST" && action === "work") {
+      let body;
+      try { body = parseBody(event); }
+      catch (error) { return respond(400, { message: error.message }, HEADERS); }
+      let model;
+      try { model = loadModelFn(); }
+      catch (error) { return respond(500, { message: `Archive model unavailable: ${error.message}` }, HEADERS); }
+      let key, patch;
+      try {
+        key = normalizeWorkCode(body.code);
+        patch = normalizeWorkPatch(body);
+      } catch (error) { return respond(400, { message: error.message }, HEADERS); }
+      const database = await connectFn();
+      try {
+        await ensureMutationIndexes(database);
+        const collection = database.db.collection(COLLECTION);
+        const audit = database.db.collection(AUDIT_COLLECTION);
+        const id = `work:${key}`;
+        const previous = await collection.findOne({ _id: id });
+        if (model.workCodes.has(key) || (previous && !previous.deleted)) {
+          return respond(409, { message: `Whistlegraph [${key}] already exists.` }, HEADERS);
+        }
+        const now = new Date();
+        await collection.updateOne(
+          { _id: id },
+          { $set: { type: "work", key, patch, created: true, deleted: false, updatedAt: now, updatedBy: user.sub } },
+          { upsert: true },
+        );
+        await audit.insertOne({ type: "work", key, action: previous?.deleted ? "restore" : "create", before: previous?.patch || null, after: patch, admin: user.sub, when: now });
+        return respond(201, { saved: true, created: true, type: "work", key, patch, revision: now.toISOString() }, HEADERS);
+      } finally {
+        await database.disconnect?.();
+      }
+    }
+
+    if (event.httpMethod === "POST" && action === "work-rename") {
+      let body;
+      try { body = parseBody(event); }
+      catch (error) { return respond(400, { message: error.message }, HEADERS); }
+      let model;
+      try { model = loadModelFn(); }
+      catch (error) { return respond(500, { message: `Archive model unavailable: ${error.message}` }, HEADERS); }
+      let from, key, patch;
+      try {
+        from = normalizeWorkCode(body.from);
+        key = normalizeWorkCode(body.code);
+        patch = normalizeWorkPatch(body);
+      } catch (error) { return respond(400, { message: error.message }, HEADERS); }
+      if (from === key) return respond(400, { message: "Choose a different code." }, HEADERS);
+      const database = await connectFn();
+      try {
+        await ensureMutationIndexes(database);
+        const collection = database.db.collection(COLLECTION);
+        const audit = database.db.collection(AUDIT_COLLECTION);
+        const [source, target, overlays] = await Promise.all([
+          collection.findOne({ _id: `work:${from}` }),
+          collection.findOne({ _id: `work:${key}` }),
+          collection.find({ type: "post" }).toArray(),
+        ]);
+        if ((!model.workCodes.has(from) && !source?.created) || source?.deleted) return respond(404, { message: `Whistlegraph [${from}] not found.` }, HEADERS);
+        if (model.workCodes.has(key) || (target && !target.deleted)) return respond(409, { message: `Whistlegraph [${key}] already exists.` }, HEADERS);
+        const overlayById = new Map(overlays.filter(row=>row.type==="post").map(row=>[row.key,row]));
+        const ids = new Set([...(model.postIds || []), ...overlayById.keys()]);
+        const now = new Date();
+        let reassigned = 0;
+        for (const postId of ids) {
+          const previous = overlayById.get(postId);
+          const works = previous?.patch?.works || model.postWorks?.get(postId) || [];
+          if (!works.includes(from)) continue;
+          const nextWorks = [...new Set(works.map(code => code === from ? key : code))];
+          const nextPatch = { ...(previous?.patch || {}), works: nextWorks };
+          await collection.updateOne({ _id: `post:${postId}` }, { $set: { type: "post", key: postId, patch: nextPatch, updatedAt: now, updatedBy: user.sub } }, { upsert: true });
+          reassigned += 1;
+        }
+        const oldPatch = source?.patch || model.workByCode?.get(from) || {};
+        patch.asset = oldPatch.asset || from;
+        await collection.updateOne({ _id: `work:${key}` }, { $set: { type: "work", key, patch, created: true, deleted: false, updatedAt: now, updatedBy: user.sub } }, { upsert: true });
+        await collection.updateOne({ _id: `work:${from}` }, { $set: { type: "work", key: from, patch: oldPatch, created: Boolean(source?.created), deleted: true, renamedTo: key, updatedAt: now, updatedBy: user.sub } }, { upsert: true });
+        await audit.insertOne({ type: "work", key: from, action: "rename", renamedTo: key, reassigned, before: oldPatch, after: patch, admin: user.sub, when: now });
+        return respond(200, { saved: true, renamed: true, from, key, patch, reassigned, revision: now.toISOString() }, HEADERS);
+      } finally { await database.disconnect?.(); }
+    }
+
+    if (event.httpMethod !== "PATCH" && event.httpMethod !== "DELETE") {
       return respond(405, { message: "Method Not Allowed." }, HEADERS);
     }
 
@@ -283,7 +381,7 @@ export function createHandler({
     try { model = loadModelFn(); }
     catch (error) { return respond(500, { message: `Archive model unavailable: ${error.message}` }, HEADERS); }
     if (type === "post" && !model.postIds.has(key)) return respond(404, { message: "Post not found." }, HEADERS);
-    if (type === "work" && !model.workCodes.has(key)) return respond(404, { message: "Whistlegraph not found." }, HEADERS);
+    // Created works are stored only in the curation overlay and are checked below.
 
     const database = await connectFn();
     try {
@@ -293,6 +391,35 @@ export function createHandler({
       const id = `${type}:${key}`;
       const previous = await collection.findOne({ _id: id });
 
+      if (type === "work" && !model.workCodes.has(key) && !previous?.created) {
+        return respond(404, { message: "Whistlegraph not found." }, HEADERS);
+      }
+
+      if (event.httpMethod === "DELETE") {
+        if (type !== "work") return respond(400, { message: "Only whistlegraphs can be retired." }, HEADERS);
+        const now = new Date();
+        const base = model.workByCode?.get(key) || {};
+        const patch = previous?.patch || { title: base.title, by: base.by, year: base.year, c: base.c };
+        await collection.updateOne(
+          { _id: id },
+          { $set: { type, key, patch, created: Boolean(previous?.created), deleted: true, updatedAt: now, updatedBy: user.sub } },
+          { upsert: true },
+        );
+        await audit.insertOne({ type, key, action: "delete", before: patch, after: null, admin: user.sub, when: now });
+        return respond(200, { saved: true, deleted: true, type, key, revision: now.toISOString() }, HEADERS);
+      }
+
+      if (body.restore === true) {
+        if (type !== "work" || !previous?.deleted) return respond(400, { message: "This whistlegraph is not in trash." }, HEADERS);
+        const now = new Date();
+        await collection.updateOne(
+          { _id: id },
+          { $set: { type, key, patch: previous.patch || {}, created: Boolean(previous.created), deleted: false, updatedAt: now, updatedBy: user.sub } },
+        );
+        await audit.insertOne({ type, key, action: "restore", before: null, after: previous.patch || {}, admin: user.sub, when: now });
+        return respond(200, { saved: true, restored: true, created: Boolean(previous.created), type, key, patch: previous.patch || {}, revision: now.toISOString() }, HEADERS);
+      }
+
       if (body.reset === true) {
         await collection.deleteOne({ _id: id });
         await audit.insertOne({ type, key, action: "reset", before: previous?.patch || null, after: null, admin: user.sub, when: new Date() });
@@ -301,16 +428,23 @@ export function createHandler({
 
       let patch;
       try {
+        const validWorkCodes = new Set(model.workCodes);
+        if (type === "post") {
+          const overlays = await collection.find({ type: "work", created: true, deleted: { $ne: true } }).toArray();
+          for (const work of overlays) if (work.created && !work.deleted) validWorkCodes.add(work.key);
+          for (const work of overlays) if (work.deleted) validWorkCodes.delete(work.key);
+        }
         patch = type === "post"
-          ? normalizePostPatch(body.patch, model.workCodes)
+          ? normalizePostPatch(body.patch, validWorkCodes)
           : normalizeWorkPatch(body.patch);
+        if (type === "work" && previous?.patch?.asset) patch.asset = previous.patch.asset;
       } catch (error) {
         return respond(400, { message: error.message }, HEADERS);
       }
       const now = new Date();
       await collection.updateOne(
         { _id: id },
-        { $set: { type, key, patch, updatedAt: now, updatedBy: user.sub } },
+        { $set: { type, key, patch, created: Boolean(previous?.created), deleted: false, updatedAt: now, updatedBy: user.sub } },
         { upsert: true },
       );
       await audit.insertOne({ type, key, action: "save", before: previous?.patch || null, after: patch, admin: user.sub, when: now });
