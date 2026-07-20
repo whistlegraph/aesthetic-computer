@@ -148,6 +148,19 @@ export function createHandler({
   loadVisualsFn = loadVisualModel,
   deployFn = deployPushedCommit,
 } = {}) {
+  let mutationIndexesReady = null;
+  function ensureMutationIndexes(database) {
+    if (!mutationIndexesReady) {
+      mutationIndexesReady = Promise.all([
+        database.db.collection(COLLECTION).createIndex({ type: 1, key: 1 }, { unique: true, background: true }),
+        database.db.collection(AUDIT_COLLECTION).createIndex({ when: -1 }, { background: true }),
+      ]).catch((error) => {
+        mutationIndexesReady = null;
+        throw error;
+      });
+    }
+    return mutationIndexesReady;
+  }
   return async function whistlegraphAdminHandler(event) {
     if (event.httpMethod === "OPTIONS") return respond(204, "", HEADERS);
     const action = event.queryStringParameters?.action || "session";
@@ -179,17 +192,11 @@ export function createHandler({
     if (event.httpMethod === "GET" && action === "data") {
       const database = await connectFn();
       try {
-        const curation = await readCuration(database);
-        const recent = await database.db.collection(AUDIT_COLLECTION)
-          .find({}, { projection: { admin: 0 } })
-          .sort({ when: -1 })
-          .limit(30)
-          .toArray();
-        const deployments = await database.db.collection(DEPLOY_COLLECTION)
-          .find({})
-          .sort({ when: -1 })
-          .limit(20)
-          .toArray();
+        const [curation, recent, deployments] = await Promise.all([
+          readCuration(database),
+          database.db.collection(AUDIT_COLLECTION).find({}, { projection: { admin: 0 } }).sort({ when: -1 }).limit(30).toArray(),
+          database.db.collection(DEPLOY_COLLECTION).find({}).sort({ when: -1 }).limit(20).toArray(),
+        ]);
         let visualCoverage = { count: 0 };
         try { visualCoverage = loadVisualsFn().metadata; } catch (error) { console.error("Whistlegraph visual coverage unavailable:", error?.message || error); }
         return respond(200, { ...curation, recent, deployments, visualCoverage }, HEADERS);
@@ -282,8 +289,7 @@ export function createHandler({
     try {
       const collection = database.db.collection(COLLECTION);
       const audit = database.db.collection(AUDIT_COLLECTION);
-      await collection.createIndex({ type: 1, key: 1 }, { unique: true, background: true });
-      await audit.createIndex({ when: -1 }, { background: true });
+      await ensureMutationIndexes(database);
       const id = `${type}:${key}`;
       const previous = await collection.findOne({ _id: id });
 

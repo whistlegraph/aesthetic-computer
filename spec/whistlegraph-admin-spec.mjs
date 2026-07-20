@@ -17,6 +17,7 @@ const MINANIMALS = "auth0|6414a4fb936cc041cfc1f011";
 function memoryDatabase() {
   const records = new Map();
   const audit = [];
+  const indexCalls = [];
   const cursor = (rows) => ({
     sort() { return this; },
     limit(n) { rows = rows.slice(0, n); return this; },
@@ -25,13 +26,13 @@ function memoryDatabase() {
   const collection = (name) => {
     if (name === "whistlegraph-curation-audit") {
       return {
-        async createIndex() {},
+        async createIndex(spec) { indexCalls.push({ name, spec }); },
         async insertOne(row) { audit.push(row); },
         find() { return cursor([...audit].reverse()); },
       };
     }
     return {
-      async createIndex() {},
+      async createIndex(spec) { indexCalls.push({ name, spec }); },
       find() { return cursor([...records.values()]); },
       async findOne({ _id }) { return records.get(_id) || null; },
       async updateOne({ _id }, { $set }) { records.set(_id, { _id, ...$set }); },
@@ -41,6 +42,7 @@ function memoryDatabase() {
   return {
     records,
     audit,
+    indexCalls,
     connection: { db: { collection }, async disconnect() {} },
   };
 }
@@ -157,6 +159,28 @@ describe("Whistlegraph Desk", () => {
     const publicRead = await handler({ httpMethod: "GET", headers: {}, queryStringParameters: { action: "curation" } });
     expect(publicRead.statusCode).toBe(200);
     expect(JSON.parse(publicRead.body).posts["123"].works).toEqual(["sos", "imab"]);
+  });
+
+  it("ensures mutation indexes once per warm handler instead of on every save", async () => {
+    const memory = memoryDatabase();
+    const handler = createHandler({
+      authorizeFn: async () => ({ sub: MINANIMALS, email_verified: true }),
+      connectFn: async () => memory.connection,
+      allowedSubs: new Set([JEFFREY, MINANIMALS]),
+      loadModelFn: () => ({ workCodes: new Set(["sos"]), postIds: new Set(["123"]) }),
+    });
+    const event = {
+      httpMethod: "PATCH",
+      headers: { authorization: "Bearer test" },
+      queryStringParameters: {},
+      body: JSON.stringify({ type: "post", key: "123", patch: { kind: "performance", works: ["sos"], plots: ["Artsy Math"] } }),
+    };
+    expect((await handler(event)).statusCode).toBe(200);
+    expect((await handler(event)).statusCode).toBe(200);
+    expect(memory.indexCalls).toEqual([
+      { name: "whistlegraph-curation", spec: { type: 1, key: 1 } },
+      { name: "whistlegraph-curation-audit", spec: { when: -1 } },
+    ]);
   });
 });
 
