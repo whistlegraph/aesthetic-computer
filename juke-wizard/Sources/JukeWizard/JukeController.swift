@@ -588,7 +588,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     private func refreshMenuBar() {
         let bpm = spotifyMode ? nil : track?.meta?.bpm.map(Double.init)
         let playing = spotifyMode ? (spotifyState?.isPlaying ?? false) : wave.isPlaying
-        let title = spotifyMode ? (spotifyState?.title ?? "Spotify") : (track?.title ?? "JukeWizard")
+        let title = spotifyMode ? (spotifyState?.title ?? "") : (track?.title ?? "")
         menuBar?.setBPM(bpm)
         menuBar?.setNowPlaying(title: title, art: currentArt)
         menuBar?.setPlaying(playing)

@@ -179,7 +179,7 @@ private final class MenuBarDiscButton: NSButton {
 
 final class MenuBarCD {
     private let statusItem: NSStatusItem
-    private let titleButton = MenuBarTitleButton(title: "JukeWizard", target: nil, action: nil)
+    private let titleButton = MenuBarTitleButton(title: "", target: nil, action: nil)
     private let volumeMeter = MenuBarVerticalVolumeMeter()
     private let discButton = MenuBarDiscButton(title: "", target: nil, action: nil)
     private var fallbackImage: NSImage
@@ -189,7 +189,7 @@ final class MenuBarCD {
     private var bpm: Double = 120
     private var playing = false
     private let side: CGFloat = 21
-    private var titleWidth: CGFloat = 72
+    private var titleWidth: CGFloat = 0
     private let beatsPerRev: Double = 8       // calm turntable pace
     private var currentTitle = ""
     private var currentArtwork: NSImage?
@@ -218,6 +218,7 @@ final class MenuBarCD {
         titleButton.target = self
         titleButton.action = #selector(openFull)
         titleButton.isBordered = false
+        titleButton.isHidden = true
         titleButton.font = .systemFont(ofSize: 12, weight: .medium)
         titleButton.alignment = .left
         titleButton.lineBreakMode = .byTruncatingTail
@@ -245,7 +246,7 @@ final class MenuBarCD {
         let y = max(0, (height - buttonHeight) / 2)
         var x: CGFloat = 3
         titleButton.frame = NSRect(x: x, y: y, width: titleWidth, height: buttonHeight)
-        x += titleWidth + 2
+        x += titleWidth + (titleButton.isHidden ? 0 : 2)
         discButton.frame = NSRect(x: x, y: y, width: side + 3, height: buttonHeight)
         x += side + 6
         statusItem.length = x
@@ -293,10 +294,10 @@ final class MenuBarCD {
         guard clipped != currentTitle || currentArtwork !== art else { return }
         currentTitle = clipped
         currentArtwork = art
-        let shownTitle = clipped.isEmpty ? "JukeWizard" : clipped
-        titleButton.title = shownTitle
-        let measured = (shownTitle as NSString).size(withAttributes: [.font: titleButton.font!]).width
-        titleWidth = min(154, max(56, ceil(measured) + 8))
+        titleButton.title = clipped
+        titleButton.isHidden = clipped.isEmpty
+        let measured = (clipped as NSString).size(withAttributes: [.font: titleButton.font!]).width
+        titleWidth = clipped.isEmpty ? 0 : min(154, max(56, ceil(measured) + 8))
         layoutControls()
         baseImage = art.map { CDArtworkRenderer.disc(from: $0, side: side) } ?? fallbackImage
         discButton.image = angle == 0 ? baseImage : rotated(baseImage, by: angle)

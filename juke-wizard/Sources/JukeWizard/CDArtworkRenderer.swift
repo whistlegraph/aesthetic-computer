@@ -25,8 +25,13 @@ enum CDArtworkRenderer {
                            width: side * 0.95, height: side * 0.95)
 
         // Dark molded edge, then a rounded accent face with directional depth.
-        (accent.shadow(withLevel: 0.58) ?? .black).setFill()
-        NSBezierPath(ovalIn: outer).fill()
+        let outerPath = NSBezierPath(ovalIn: outer)
+        let outline = accent.shadow(withLevel: 0.78) ?? .black
+        outline.setFill()
+        outerPath.fill()
+        outline.withAlphaComponent(0.96).setStroke()
+        outerPath.lineWidth = max(0.9, side * 0.052)
+        outerPath.stroke()
         let face = outer.insetBy(dx: side * 0.018, dy: side * 0.018)
         let facePath = NSBezierPath(ovalIn: face)
         let hi = accent.highlight(withLevel: 0.48) ?? accent
@@ -39,9 +44,9 @@ enum CDArtworkRenderer {
         // A couple of data rings catch the light without becoming noise at 21 pt.
         for (fraction, alpha) in [(0.88, 0.24), (0.66, 0.11)] {
             let inset = face.width * (1 - fraction) / 2
-            NSColor.white.withAlphaComponent(alpha).setStroke()
+            NSColor.white.withAlphaComponent(alpha + 0.10).setStroke()
             let ring = NSBezierPath(ovalIn: face.insetBy(dx: inset, dy: inset))
-            ring.lineWidth = max(0.35, side * 0.006)
+            ring.lineWidth = max(0.5, side * 0.012)
             ring.stroke()
         }
 
@@ -51,14 +56,22 @@ enum CDArtworkRenderer {
         let center = NSPoint(x: face.midX, y: face.midY)
         let radius = face.width * 0.56
         NSColor.white.withAlphaComponent(0.15).setFill()
-        fan(center: center, radius: radius, startAngle: 58, endAngle: 132).fill()
+        let broadFan = fan(center: center, radius: radius, startAngle: 58, endAngle: 132)
+        broadFan.fill()
+        NSColor.white.withAlphaComponent(0.30).setStroke()
+        broadFan.lineWidth = max(0.45, side * 0.021)
+        broadFan.stroke()
         NSGradient(starting: NSColor.white.withAlphaComponent(0.08),
                    ending: NSColor.white.withAlphaComponent(0.53))?
             .draw(in: fan(center: center, radius: radius,
                           startAngle: 76, endAngle: 116), angle: 90)
         // A quiet counter-reflection keeps the accent disc monochromatic.
         NSColor.white.withAlphaComponent(0.09).setFill()
-        fan(center: center, radius: radius, startAngle: 238, endAngle: 270).fill()
+        let counterFan = fan(center: center, radius: radius, startAngle: 238, endAngle: 270)
+        counterFan.fill()
+        outline.withAlphaComponent(0.22).setStroke()
+        counterFan.lineWidth = max(0.4, side * 0.018)
+        counterFan.stroke()
 
         // Sharp outer glint sells the molded plastic at menu-bar scale.
         NSColor.white.withAlphaComponent(0.82).setStroke()
@@ -75,11 +88,15 @@ enum CDArtworkRenderer {
         let hubSide = side * 0.21
         let hub = NSRect(x: side / 2 - hubSide / 2, y: side / 2 - hubSide / 2,
                          width: hubSide, height: hubSide)
-        NSColor.white.withAlphaComponent(0.34).setFill()
-        NSBezierPath(ovalIn: hub).fill()
-        NSColor.white.withAlphaComponent(0.58).setStroke()
+        let hubPath = NSBezierPath(ovalIn: hub)
+        NSColor.white.withAlphaComponent(0.38).setFill()
+        hubPath.fill()
+        outline.withAlphaComponent(0.82).setStroke()
+        hubPath.lineWidth = max(0.75, side * 0.040)
+        hubPath.stroke()
+        NSColor.white.withAlphaComponent(0.88).setStroke()
         let hubEdge = NSBezierPath(ovalIn: hub.insetBy(dx: side * 0.008, dy: side * 0.008))
-        hubEdge.lineWidth = max(0.4, side * 0.007)
+        hubEdge.lineWidth = max(0.5, side * 0.020)
         hubEdge.stroke()
         let holeSide = side * 0.078
         let hole = NSRect(x: side / 2 - holeSide / 2, y: side / 2 - holeSide / 2,
@@ -87,10 +104,14 @@ enum CDArtworkRenderer {
         NSGraphicsContext.current?.compositingOperation = .clear
         NSBezierPath(ovalIn: hole).fill()
         NSGraphicsContext.current?.compositingOperation = .sourceOver
+        outline.withAlphaComponent(0.92).setStroke()
+        let holeEdge = NSBezierPath(ovalIn: hole.insetBy(dx: -side * 0.008, dy: -side * 0.008))
+        holeEdge.lineWidth = max(0.7, side * 0.034)
+        holeEdge.stroke()
 
-        NSColor.white.withAlphaComponent(0.66).setStroke()
+        NSColor.white.withAlphaComponent(0.88).setStroke()
         let rim = NSBezierPath(ovalIn: outer.insetBy(dx: side * 0.006, dy: side * 0.006))
-        rim.lineWidth = max(0.45, side * 0.009)
+        rim.lineWidth = max(0.55, side * 0.024)
         rim.stroke()
         image.unlockFocus()
         image.isTemplate = false
@@ -117,8 +138,12 @@ enum CDArtworkRenderer {
         }
 
         // Black polycarbonate edge, then cover art printed just inside it.
-        NSColor.black.withAlphaComponent(0.92).setFill()
-        NSBezierPath(ovalIn: outer).fill()
+        let outerPath = NSBezierPath(ovalIn: outer)
+        NSColor.black.withAlphaComponent(0.96).setFill()
+        outerPath.fill()
+        NSColor.black.withAlphaComponent(0.98).setStroke()
+        outerPath.lineWidth = max(0.9, side * 0.052)
+        outerPath.stroke()
         let face = outer.insetBy(dx: side * 0.012, dy: side * 0.012)
         NSGraphicsContext.current?.saveGraphicsState()
         NSBezierPath(ovalIn: face).addClip()
@@ -136,7 +161,7 @@ enum CDArtworkRenderer {
             let inset = face.width * (1 - fraction) / 2
             color.setStroke()
             let ring = NSBezierPath(ovalIn: face.insetBy(dx: inset, dy: inset))
-            ring.lineWidth = max(0.35, width)
+            ring.lineWidth = max(0.5, width * 1.45)
             ring.stroke()
         }
 
@@ -145,7 +170,11 @@ enum CDArtworkRenderer {
         let center = NSPoint(x: face.midX, y: face.midY)
         let radius = face.width * 0.56
         NSColor.white.withAlphaComponent(0.12).setFill()
-        fan(center: center, radius: radius, startAngle: 58, endAngle: 132).fill()
+        let broadFan = fan(center: center, radius: radius, startAngle: 58, endAngle: 132)
+        broadFan.fill()
+        NSColor.white.withAlphaComponent(0.32).setStroke()
+        broadFan.lineWidth = max(0.45, side * 0.021)
+        broadFan.stroke()
         NSGradient(starting: NSColor.white.withAlphaComponent(0.05),
                    ending: NSColor.white.withAlphaComponent(0.36))?
             .draw(in: fan(center: center, radius: radius,
@@ -156,18 +185,27 @@ enum CDArtworkRenderer {
         NSColor.systemPink.withAlphaComponent(0.10).setFill()
         fan(center: center, radius: radius, startAngle: 248, endAngle: 259).fill()
         NSColor.systemYellow.withAlphaComponent(0.09).setFill()
-        fan(center: center, radius: radius, startAngle: 259, endAngle: 269).fill()
+        let spectralEdge = fan(center: center, radius: radius, startAngle: 259, endAngle: 269)
+        spectralEdge.fill()
+        NSColor.black.withAlphaComponent(0.30).setStroke()
+        let spectralFan = fan(center: center, radius: radius, startAngle: 236, endAngle: 269)
+        spectralFan.lineWidth = max(0.4, side * 0.018)
+        spectralFan.stroke()
         NSGraphicsContext.current?.restoreGraphicsState()
 
         // Clear polycarbonate hub + real die-cut center.
         let hubSide = side * 0.19
         let hub = NSRect(x: side / 2 - hubSide / 2, y: side / 2 - hubSide / 2,
                          width: hubSide, height: hubSide)
-        NSColor.white.withAlphaComponent(0.28).setFill()
-        NSBezierPath(ovalIn: hub).fill()
-        NSColor.black.withAlphaComponent(0.36).setStroke()
+        let hubPath = NSBezierPath(ovalIn: hub)
+        NSColor.white.withAlphaComponent(0.34).setFill()
+        hubPath.fill()
+        NSColor.black.withAlphaComponent(0.84).setStroke()
+        hubPath.lineWidth = max(0.75, side * 0.040)
+        hubPath.stroke()
+        NSColor.white.withAlphaComponent(0.76).setStroke()
         let hubEdge = NSBezierPath(ovalIn: hub.insetBy(dx: side * 0.007, dy: side * 0.007))
-        hubEdge.lineWidth = max(0.45, side * 0.006)
+        hubEdge.lineWidth = max(0.5, side * 0.020)
         hubEdge.stroke()
         let holeSide = side * 0.075
         let hole = NSRect(x: side / 2 - holeSide / 2, y: side / 2 - holeSide / 2,
@@ -175,14 +213,14 @@ enum CDArtworkRenderer {
         NSGraphicsContext.current?.compositingOperation = .clear
         NSBezierPath(ovalIn: hole).fill()
         NSGraphicsContext.current?.compositingOperation = .sourceOver
-        NSColor.white.withAlphaComponent(0.68).setStroke()
+        NSColor.black.withAlphaComponent(0.92).setStroke()
         let holeEdge = NSBezierPath(ovalIn: hole.insetBy(dx: -side * 0.005, dy: -side * 0.005))
-        holeEdge.lineWidth = max(0.45, side * 0.007)
+        holeEdge.lineWidth = max(0.7, side * 0.034)
         holeEdge.stroke()
 
-        NSColor.white.withAlphaComponent(0.50).setStroke()
+        NSColor.white.withAlphaComponent(0.76).setStroke()
         let rim = NSBezierPath(ovalIn: outer.insetBy(dx: side * 0.006, dy: side * 0.006))
-        rim.lineWidth = max(0.45, side * 0.008)
+        rim.lineWidth = max(0.55, side * 0.024)
         rim.stroke()
         image.unlockFocus()
         image.isTemplate = false
