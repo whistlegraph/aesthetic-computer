@@ -1059,43 +1059,47 @@ function paint({
       );
     }
 
-    // 🎚️ Left-edge mix fader: drag to set this player's level. The auto
-    // mixer (1/√windows) rides on top; the number shows what's actually
-    // sent. Display + control live together on the left, away from the
-    // display-only top-right.
+    // 🎚️ Volume wedge, top-right: a classic speaker triangle — thin left,
+    // tall right — filled to the current level. Slide it horizontally.
+    // The auto mixer (1/√windows) rides on top; the number shows what's
+    // actually sent to the speaker.
     if (jamChannel) {
-      const fTop = 28;
-      const fBottom = screen.height - 34;
-      const fH = Math.max(24, fBottom - fTop);
+      const vw = 44; // Wedge width
+      const vh = 14; // Wedge height at the tall end
+      const vx = screen.width - 6 - vw;
+      const vy = 52;
       if (!volBtn) {
-        volBtn = new ui.Button(0, fTop - 8, 16, fH + 16);
+        volBtn = new ui.Button(vx - 6, vy - 6, vw + 12, vh + 12);
         volBtn.stickyScrubbing = true;
         volBtn.noRolloverActivation = true;
       }
-      volBtn.box.x = 0;
-      volBtn.box.y = fTop - 8;
-      volBtn.box.w = 16;
-      volBtn.box.h = fH + 16;
-      ink(255, 255, 255, 36).box(4, fTop, 3, fH); // Track
-      const fillH = Math.round(fH * mixVolume);
-      ink(volBtn.down ? [0, 255, 180] : [255, 255, 0, 180]).box(
-        4,
-        fTop + (fH - fillH),
-        3,
-        fillH,
-      ); // Level
+      volBtn.box.x = vx - 6;
+      volBtn.box.y = vy - 6;
+      volBtn.box.w = vw + 12;
+      volBtn.box.h = vh + 12;
+      // Wedge silhouette (dim) + filled portion up to the level.
+      for (let i = 0; i < vw; i += 2) {
+        const colH = Math.max(1, Math.round(vh * (i / vw)));
+        const filled = i / vw <= mixVolume;
+        ink(
+          filled ? (volBtn.down ? [0, 255, 180] : [255, 220, 0]) : [255, 255, 255, 60],
+        ).box(vx + i, vy + vh - colH, 2, colH);
+      }
+      // Grab handle at the level line.
+      const hx = vx + Math.round(vw * mixVolume);
+      ink(255, 255, 255).box(hx - 1, vy - 3, 3, vh + 6);
       const shown = Math.round((lastSentTapeVolume < 0 ? mixVolume : lastSentTapeVolume) * 100);
-      ink(255, 255, 255, 160).write(
+      ink(255, 255, 255).write(
         `${shown}`,
-        { x: 2, y: fBottom + 4 },
+        { x: screen.width - 6, y: vy + vh + 6, right: true },
         undefined,
         undefined,
         false,
         "MatrixChunky8",
       );
-      // Band size, under the beat blink (display-only, top-right).
+      // Band size, under the beat blink (display-only).
       if (jamPeers.size > 0) {
-        ink(0, 255, 255, 180).write(
+        ink(0, 255, 255).write(
           `${jamPeers.size + 1}win`,
           { x: screen.width - 6, y: 40, right: true },
           undefined,
@@ -1159,9 +1163,23 @@ function paint({
         row.key === "jumpL"
           ? legendBtns.jumpL?.down || legendBtns.jumpR?.down
           : legendBtns[row.key]?.down;
-      ink(255, 255, 255, active ? 255 : 110).write(
+      // Button chrome — these are controls, not a ghosted legend.
+      ink(active ? [40, 90, 40, 220] : [0, 0, 0, 170]).box(
+        screen.width - 6 - w,
+        y - 1,
+        w,
+        rowH,
+      );
+      ink(255, 255, 255, active ? 255 : 120).box(
+        screen.width - 6 - w,
+        y - 1,
+        w,
+        rowH,
+        "outline",
+      );
+      ink(active ? [0, 255, 120] : [255, 255, 255]).write(
         full,
-        { x: screen.width - 6, y, right: true },
+        { x: screen.width - 8, y, right: true },
         undefined,
         undefined,
         false,
@@ -2661,18 +2679,18 @@ function act({
       return;
     }
 
-    // 🎚️ Mix fader (left edge): drag sets this player's level directly.
+    // 🎚️ Volume wedge (top-right): slide horizontally to set this
+    // player's level directly.
     if (volBtn && rec.presenting && !isPrinting && !isPostingTape) {
-      const setMixFromY = () => {
-        if (e.y === undefined) return;
-        const fTop = 28;
-        const fBottom = screen.height - 34;
-        const fH = Math.max(24, fBottom - fTop);
-        mixVolume = Math.max(0, Math.min(1, 1 - (e.y - fTop) / fH));
+      const setMixFromX = () => {
+        if (e.x === undefined) return;
+        const vw = 44;
+        const vx = screen.width - 6 - vw;
+        mixVolume = Math.max(0, Math.min(1, (e.x - vx) / vw));
         triggerRender();
       };
-      volBtn.act(e, { down: setMixFromY, scrub: setMixFromY });
-      if (volBtn.down) return; // The fader owns this gesture
+      volBtn.act(e, { down: setMixFromX, scrub: setMixFromX });
+      if (volBtn.down) return; // The wedge owns this gesture
     }
 
     // 🎛️ Deck keys, Pioneer-style: ← → beat-jump the tape (audio included);

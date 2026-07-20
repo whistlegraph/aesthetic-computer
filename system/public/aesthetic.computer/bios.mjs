@@ -12377,7 +12377,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "tape:telemetry") {
       // Stash on window so an external jam/test harness can read live
       // rate + net-time sync offset numerically.
-      window.__tapeTelemetry = { ...content, at: performance.now() };
+      window.__tapeTelemetry = {
+        ...content,
+        // 🔇 Surface the audio context state — "suspended" is the silent
+        // killer: visuals run, seeks shift the ruler, and no sound plays
+        // until a trusted gesture unlocks the context.
+        audio: audioContext?.state || "none",
+        at: performance.now(),
+      };
       return;
     }
 

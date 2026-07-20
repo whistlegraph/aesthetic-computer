@@ -396,9 +396,12 @@ async function main() {
       // ✊ = the piece still thinks a finger is down. A pinned rate with an
       // open hand means the drive latched, not that the gesture is ongoing.
       const hand = t?.scrubbing ? "✊" : "  ";
+      // 🔇 = AudioContext suspended: the tape is MOVING but SILENT — the
+      // exact "I see it shift but hear nothing" condition.
+      const mute = t?.audio === "suspended" ? "🔇" : "";
       if (t && !t.scrubbing) syncs.push(t.syncMs);
       cells.push(
-        `${w.tape.padEnd(6)} ${lock}${hand} ${sync.padStart(7)} ${String(rate).padStart(6)}x  ${w.perf.last.act}`,
+        `${w.tape.padEnd(6)} ${lock}${hand}${mute} ${sync.padStart(7)} ${String(rate).padStart(6)}x  ${w.perf.last.act}`,
       );
     }
     // 📐 Band alignment: all syncs measure against the same UTC grid, so
