@@ -5,9 +5,9 @@
 // show/hide the JukeWizard window; it sits near DateWizard's wand.
 import AppKit
 
-/// A tiny MenuBand-style keycap: system-accent driven, softly dimensional,
-/// and visibly depressed while clicked. Hue offsets give the transport a
-/// little rainbow without disconnecting it from the user's chosen accent.
+/// A transport glyph embossed directly into the menu-bar faceplate. There is
+/// deliberately no button body: the colored symbol itself rises, glows, and
+/// presses into the bar like the legends on MenuBand's instrument controls.
 private final class MenuBarKeyButton: NSButton {
     private let hueOffset: CGFloat
     private var hovered = false
@@ -45,52 +45,30 @@ private final class MenuBarKeyButton: NSButton {
     override func draw(_ dirtyRect: NSRect) {
         let pressed = isHighlighted
         let lit = pressed || latched
-        let offset: CGFloat = pressed ? -0.7 : 0
-        let inset: CGFloat = pressed ? 2.2 : 1.3
-        let rect = bounds.insetBy(dx: inset, dy: 2.2).offsetBy(dx: 0, dy: offset)
-        let cap = NSBezierPath(roundedRect: rect, xRadius: 4.2, yRadius: 4.2)
         let accent = shiftedAccent()
         let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-
-        NSGraphicsContext.saveGraphicsState()
+        let glyphColor = lit
+            ? (accent.highlight(withLevel: 0.40) ?? accent)
+            : hovered
+                ? accent
+                : (dark ? accent.highlight(withLevel: 0.22) ?? accent
+                        : accent.shadow(withLevel: 0.12) ?? accent)
         let shadow = NSShadow()
-        shadow.shadowColor = NSColor.black.withAlphaComponent(pressed ? 0.16 : 0.34)
+        shadow.shadowColor = latched
+            ? accent.withAlphaComponent(0.90)
+            : NSColor.black.withAlphaComponent(pressed ? 0.18 : 0.48)
         shadow.shadowOffset = NSSize(width: 0, height: pressed ? 0 : -1)
-        shadow.shadowBlurRadius = pressed ? 0 : 1.2
-        shadow.set()
-        let top = lit
-            ? (accent.highlight(withLevel: 0.34) ?? accent)
-            : accent.withAlphaComponent(hovered ? 0.42 : (dark ? 0.29 : 0.22))
-        let bottom = lit
-            ? (accent.shadow(withLevel: 0.24) ?? accent)
-            : accent.withAlphaComponent(hovered ? 0.24 : (dark ? 0.14 : 0.10))
-        cap.addClip()
-        NSGradient(starting: top, ending: bottom)?.draw(in: rect, angle: -90)
-        NSGraphicsContext.restoreGraphicsState()
-
-        accent.withAlphaComponent(lit ? 0.95 : (hovered ? 0.78 : 0.55)).setStroke()
-        cap.lineWidth = lit ? 1.0 : 0.7
-        cap.stroke()
-
-        // A hairline glint makes the cap read as glossy molded plastic.
-        let glint = NSBezierPath()
-        glint.move(to: NSPoint(x: rect.minX + 4, y: rect.maxY - 1.6))
-        glint.line(to: NSPoint(x: rect.maxX - 4, y: rect.maxY - 1.6))
-        NSColor.white.withAlphaComponent(lit ? 0.34 : 0.22).setStroke()
-        glint.lineWidth = 0.7
-        glint.stroke()
-
-        let glyphColor: NSColor = lit
-            ? .white
-            : (dark ? accent.highlight(withLevel: 0.42) ?? accent : accent.shadow(withLevel: 0.16) ?? accent)
+        shadow.shadowBlurRadius = latched ? 2.8 : (pressed ? 0 : 0.8)
         let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: title == "❚❚" ? 8.5 : 9.5, weight: .heavy),
+            .font: NSFont.systemFont(ofSize: title == "❚❚" ? 9.0 : 10.5, weight: .black),
             .foregroundColor: glyphColor,
+            .shadow: shadow,
         ]
         let glyph = NSAttributedString(string: title, attributes: attrs)
         let size = glyph.size()
-        glyph.draw(at: NSPoint(x: rect.midX - size.width / 2,
-                               y: rect.midY - size.height / 2 - 0.5))
+        let pressY: CGFloat = pressed ? -0.8 : 0.5
+        glyph.draw(at: NSPoint(x: bounds.midX - size.width / 2,
+                               y: bounds.midY - size.height / 2 + pressY))
     }
 
     private func shiftedAccent() -> NSColor {
@@ -108,14 +86,98 @@ private final class MenuBarKeyButton: NSButton {
     }
 }
 
+/// Six discrete volume zones lifted directly from video.mjs's tape wedge.
+/// The wedge is the control—there is no surrounding slider or button body.
+private final class MenuBarVolumeWedge: NSControl {
+    private static let colors: [NSColor] = [
+        .systemRed, .systemOrange, .systemYellow,
+        .systemGreen, .systemCyan, .systemPink,
+    ]
+    private(set) var level: Float = 0.8
+    private var pressed = false
+
+    override var acceptsFirstResponder: Bool { false }
+
+    func setValue(_ value: Float) {
+        level = max(0, min(1, value))
+        needsDisplay = true
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        pressed = true
+        updateValue(from: event)
+    }
+
+    override func mouseDragged(with event: NSEvent) { updateValue(from: event) }
+
+    override func mouseUp(with event: NSEvent) {
+        updateValue(from: event)
+        pressed = false
+        needsDisplay = true
+        sendAction(action, to: target)
+    }
+
+    private func updateValue(from event: NSEvent) {
+        let x = convert(event.locationInWindow, from: nil).x
+        let segment = min(5, max(0, Int((x / max(1, bounds.width)) * 6)))
+        level = Float(segment + 1) / 6
+        needsDisplay = true
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let width = bounds.width
+        let height = bounds.height - 3
+        let baseY: CGFloat = 1.5
+        let litSegments = min(6, max(0, Int(ceil(level * 6))))
+
+        // Recess the rainbow into the menu-bar surface with a tiny dark echo.
+        let silhouette = NSBezierPath()
+        silhouette.move(to: NSPoint(x: 0, y: baseY - 1))
+        silhouette.line(to: NSPoint(x: width, y: baseY - 1))
+        silhouette.line(to: NSPoint(x: width, y: baseY + height - 1))
+        silhouette.close()
+        NSColor.black.withAlphaComponent(pressed ? 0.12 : 0.28).setFill()
+        silhouette.fill()
+
+        let segmentWidth = width / 6
+        for segment in 0..<6 {
+            let x0 = CGFloat(segment) * segmentWidth
+            let x1 = CGFloat(segment + 1) * segmentWidth
+            let h0 = max(1, height * x0 / width)
+            let h1 = max(1, height * x1 / width)
+            let bar = NSBezierPath()
+            bar.move(to: NSPoint(x: x0 + 0.5, y: baseY))
+            bar.line(to: NSPoint(x: x1 - 0.5, y: baseY))
+            bar.line(to: NSPoint(x: x1 - 0.5, y: baseY + h1))
+            bar.line(to: NSPoint(x: x0 + 0.5, y: baseY + h0))
+            bar.close()
+            let lit = segment < litSegments
+            Self.colors[segment].withAlphaComponent(lit ? 0.95 : 0.20).setFill()
+            bar.fill()
+            NSColor.white.withAlphaComponent(lit ? 0.30 : 0.08).setStroke()
+            bar.lineWidth = 0.5
+            bar.stroke()
+        }
+
+        // Bright fader notch at the selected quantized boundary.
+        let handleX = min(width - 1, max(1, width * CGFloat(level)))
+        let handleHeight = max(4, height * CGFloat(level))
+        let handle = NSBezierPath()
+        handle.move(to: NSPoint(x: handleX, y: baseY - 1))
+        handle.line(to: NSPoint(x: handleX, y: baseY + handleHeight + 1))
+        NSColor.white.withAlphaComponent(0.92).setStroke()
+        handle.lineWidth = 1.2
+        handle.stroke()
+    }
+}
+
 final class MenuBarCD {
     private let statusItem: NSStatusItem
     private let titleButton = NSButton(title: "JukeWizard", target: nil, action: nil)
     private let previousButton = MenuBarKeyButton("⏮", hueOffset: -0.075)
     private let playButton = MenuBarKeyButton("▶", hueOffset: 0)
     private let nextButton = MenuBarKeyButton("⏭", hueOffset: 0.075)
-    private let volumeSlider = NSSlider(value: 0.8, minValue: 0, maxValue: 1,
-                                        target: nil, action: nil)
+    private let volumeSlider = MenuBarVolumeWedge()
     private let discButton = NSButton(title: "", target: nil, action: nil)
     private let fallbackImage: NSImage
     private var baseImage: NSImage
@@ -167,10 +229,6 @@ final class MenuBarCD {
 
         volumeSlider.target = self
         volumeSlider.action = #selector(volumeChanged)
-        volumeSlider.controlSize = .mini
-        // Commit on mouse-up so a drag does not enqueue dozens of Spotify
-        // daemon volume commands while the knob is moving.
-        volumeSlider.isContinuous = false
         volumeSlider.toolTip = "Volume"
 
         discButton.target = self
@@ -218,7 +276,7 @@ final class MenuBarCD {
     @objc private func previous() { onPrevious?() }
     @objc private func togglePlay() { onTogglePlay?() }
     @objc private func next() { onNext?() }
-    @objc private func volumeChanged() { onVolumeChanged?(volumeSlider.floatValue) }
+    @objc private func volumeChanged() { onVolumeChanged?(volumeSlider.level) }
 
     // Kept for the room mixer's anchored popover; the main music controls no
     // longer use a popover.
@@ -263,7 +321,7 @@ final class MenuBarCD {
     }
 
     func setVolume(_ value: Float) {
-        volumeSlider.floatValue = max(0, min(1, value))
+        volumeSlider.setValue(value)
     }
 
     private func startSpin() {
