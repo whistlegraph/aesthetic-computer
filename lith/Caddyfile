@@ -1,3 +1,14 @@
+# --- zero-downtime deploys ---
+# lith restarts leave :8888 dark for a few seconds (161 function imports
+# before listen). Instead of failing the first dial (502 at Cloudflare),
+# hold and retry for up to 30s so requests queue through the restart.
+(lith_proxy) {
+	reverse_proxy localhost:8888 {
+		lb_try_duration 30s
+		lb_try_interval 250ms
+	}
+}
+
 # lith production Caddyfile — full subdomain routing
 # Cloudflare handles TLS. Caddy serves HTTP on :80.
 
@@ -123,7 +134,7 @@
     @nela host nela.aesthetic.computer
     handle @nela {
         handle /api/* {
-            reverse_proxy localhost:8888
+            import lith_proxy
         }
         # Static fallback wrapped in `handle {}` — bare try_files reorders
         # ahead of `handle` and eats /api/* (see the give block above).
@@ -138,7 +149,7 @@
     @give host give.aesthetic.computer
     handle @give {
         handle /api/* {
-            reverse_proxy localhost:8888
+            import lith_proxy
         }
         handle /da {
             rewrite * /index.html?lang=da&currency=dkk
@@ -183,7 +194,7 @@
         # namespace off this host; only this narrowly-scoped function crosses
         # from the static Whistlegraph site into lith.
         handle /api/whistlegraph-admin* {
-            reverse_proxy localhost:8888
+            import lith_proxy
         }
         # Auth0 returns to the bare origin. Only a root request carrying its
         # transaction state is served by the Desk; ordinary / remains the site.
@@ -220,7 +231,7 @@
         @wgcode path_regexp wgcode ^/([A-Za-z0-9]+)$
         handle @wgcode {
             rewrite * /api/whistlegraph-og?code={re.wgcode.1}
-            reverse_proxy localhost:8888
+            import lith_proxy
         }
         handle {
             try_files {path} {path}.html /index.html
@@ -242,7 +253,7 @@
             reverse_proxy localhost:7878
         }
         handle {
-            reverse_proxy localhost:8888
+            import lith_proxy
         }
     }
 
@@ -250,18 +261,18 @@
     @news host news.aesthetic.computer
     handle @news {
         handle /api/* {
-            reverse_proxy localhost:8888
+            import lith_proxy
         }
         handle {
             rewrite * /api/news{uri}
-            reverse_proxy localhost:8888
+            import lith_proxy
         }
     }
 
     # --- api.aesthetic.computer ---
     @apidomain host api.aesthetic.computer api.prompt.ac
     handle @apidomain {
-        reverse_proxy localhost:8888
+        import lith_proxy
     }
 
     # --- feed.aesthetic.computer (DP-1 Feed V2 — Go + Postgres) ---
@@ -299,7 +310,7 @@
     @jas host justanothersystem.org
     handle @jas {
         handle /api/* {
-            reverse_proxy localhost:8888
+            import lith_proxy
         }
         redir /bio /cv 301
         redir /bio/ /cv 301
@@ -318,7 +329,7 @@
         path /api/* /.netlify/functions/*
     }
     handle @builds_api {
-        reverse_proxy localhost:8888
+        import lith_proxy
     }
     @builds host builds.false.work
     handle @builds {
@@ -331,16 +342,16 @@
     @sotce host sotce.net www.sotce.net
     handle @sotce {
         handle /api/* {
-            reverse_proxy localhost:8888
+            import lith_proxy
         }
         handle /user {
-            reverse_proxy localhost:8888
+            import lith_proxy
         }
         handle /handle {
-            reverse_proxy localhost:8888
+            import lith_proxy
         }
         handle /authorized {
-            reverse_proxy localhost:8888
+            import lith_proxy
         }
         handle /aesthetic.computer/* {
             uri strip_prefix /aesthetic.computer
@@ -350,7 +361,7 @@
         # Everything else → sotce-net function
         handle {
             rewrite * /api/sotce-net{uri}
-            reverse_proxy localhost:8888
+            import lith_proxy
         }
     }
 
@@ -358,7 +369,7 @@
     @keep host keep.kidlisp.com
     handle @keep {
         handle /api/* {
-            reverse_proxy localhost:8888
+            import lith_proxy
         }
         handle /technology {
             root * /opt/ac/system/public/kidlisp.com
@@ -394,7 +405,7 @@
     @device host device.kidlisp.com
     handle @device {
         handle /api/* {
-            reverse_proxy localhost:8888
+            import lith_proxy
         }
         handle /js/* {
             root * /opt/ac/system/public/kidlisp.com
@@ -418,13 +429,13 @@
             root * /opt/ac/system/public/kidlisp.com
             file_server
         }
-        reverse_proxy localhost:8888
+        import lith_proxy
     }
 
     @learn host learn.kidlisp.com
     handle @learn {
         handle /api/* {
-            reverse_proxy localhost:8888
+            import lith_proxy
         }
         handle /decree* {
             root * /opt/ac/system/public/kidlisp.com
@@ -445,7 +456,7 @@
 
     @keepsac host keeps.aesthetic.computer
     handle @keepsac {
-        reverse_proxy localhost:8888
+        import lith_proxy
     }
 
     # --- jas.life ---
@@ -467,7 +478,7 @@
     @pals host pals.aesthetic.computer
     handle @pals {
         rewrite * /api/logo{uri}
-        reverse_proxy localhost:8888
+        import lith_proxy
     }
 
     @l5prompt host l5.prompt.ac
@@ -552,7 +563,7 @@
         not path /
     }
     handle @promptac {
-        reverse_proxy localhost:8888
+        import lith_proxy
     }
 
     @tryshared {
@@ -568,10 +579,10 @@
     @l5 host l5.aesthetic.computer
     handle @l5 {
         handle /api/* {
-            reverse_proxy localhost:8888
+            import lith_proxy
         }
         handle /docs* {
-            reverse_proxy localhost:8888
+            import lith_proxy
         }
         # Static fallback wrapped in handle{} so handle /api/* stays terminal —
         # bare try_files is reordered ahead of handle and 405s /api/* POSTs.
@@ -586,10 +597,10 @@
     @processing host processing.aesthetic.computer
     handle @processing {
         handle /api/* {
-            reverse_proxy localhost:8888
+            import lith_proxy
         }
         handle /docs* {
-            reverse_proxy localhost:8888
+            import lith_proxy
         }
         # Static fallback wrapped in handle{} so handle /api/* stays terminal —
         # bare try_files is reordered ahead of handle and 405s /api/* POSTs.
@@ -620,10 +631,10 @@
     @kidlisproot host kidlisp.com www.kidlisp.com
     handle @kidlisproot {
         handle /api/* {
-            reverse_proxy localhost:8888
+            import lith_proxy
         }
         handle /.netlify/functions/* {
-            reverse_proxy localhost:8888
+            import lith_proxy
         }
         handle /keeps {
             redir https://keep.kidlisp.com/ 301
@@ -657,7 +668,7 @@
             root * /opt/ac/system/public
             file_server
         }
-        reverse_proxy localhost:8888
+        import lith_proxy
     }
 
     # --- wipppps.world ---
@@ -667,7 +678,7 @@
         handle @wippppsindex {
             rewrite * /wipppps
         }
-        reverse_proxy localhost:8888
+        import lith_proxy
     }
     @mainspa host aesthetic.computer www.aesthetic.computer lith.aesthetic.computer notepat.com www.notepat.com wipppps.world www.wipppps.world p5.aesthetic.computer sitemap.aesthetic.computer
     handle @mainspa {
@@ -683,14 +694,14 @@
         }
         # API → lith
         handle /api/* {
-            reverse_proxy localhost:8888
+            import lith_proxy
         }
         handle /.netlify/functions/* {
-            reverse_proxy localhost:8888
+            import lith_proxy
         }
         # Media → lith
         handle /media/* {
-            reverse_proxy localhost:8888
+            import lith_proxy
         }
         # Static rewrite shortcuts
         handle /disks/* {
@@ -711,7 +722,7 @@
                 file_server
             }
             handle {
-                reverse_proxy localhost:8888
+                import lith_proxy
             }
         }
     }
@@ -746,7 +757,7 @@
         # changes" never populates. Kept terminal (own handle{}) and ahead of
         # the static catch-all.
         handle /api/* {
-            reverse_proxy localhost:8888
+            import lith_proxy
         }
         handle /menuband/* {
             root * /opt/ac/system/public
@@ -769,7 +780,7 @@
 
     # --- Fallback for any unmatched host ---
     handle {
-        reverse_proxy localhost:8888
+        import lith_proxy
     }
 }
 

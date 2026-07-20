@@ -1260,6 +1260,10 @@ function gracefulShutdown(signal) {
     console.log("[lith] all connections drained, exiting");
     process.exit(0);
   });
+  // Sever Caddy's idle keep-alive sockets cleanly — a request reused on a
+  // dying keep-alive can ECONNRESET mid-flight, which the proxy's dial
+  // retry (lb_try_duration) can't cover for non-idempotent methods.
+  server.closeIdleConnections?.();
   // Force exit if connections don't drain in time
   setTimeout(() => {
     console.warn("[lith] drain timeout, forcing exit");
