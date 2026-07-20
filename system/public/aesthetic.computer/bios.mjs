@@ -4320,6 +4320,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     for (let i = 0; i < total && previews.length < limit; i += step) {
       const frame = sourceFrames[i];
       if (!frame) continue;
+      // Synth placeholders render on demand — previews aren't needed for
+      // synthtapes, so skip rather than choke on a non-ImageData entry.
+      if (frame[1]?.synth !== undefined) continue;
       
       // Keep original frames at full resolution for Ken Burns panning
       // No downscaling - just select frames and pass them through
@@ -11898,7 +11901,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           synthCanvas.height = height;
           const sctx = synthCanvas.getContext("2d", { willReadFrequently: true });
 
-          for (let i = 0; i < totalFrames; i++) {
+          const drawSynthFrame = (i, sctx) => {
             const t = i / fps; // seconds
             const progress = totalFrames > 1 ? i / (totalFrames - 1) : 0;
             // Position-hue background: an instant "where am I" cue.
@@ -11958,23 +11961,28 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             sctx.fillStyle = "rgba(255, 255, 255, 0.35)";
             sctx.fillRect(Math.floor(width / 2), 8, 1, height - 12);
 
-            recordedFrames.push([
-              (i * 1000) / fps,
-              sctx.getImageData(0, 0, width, height),
-            ]);
-            if (i % 30 === 0 || i === totalFrames - 1) {
-              send({
-                type: "tape:load-progress",
-                content: {
-                  code: "synth",
-                  phase: "frames",
-                  progress: (i + 1) / totalFrames,
-                  loadedFrames: i + 1,
-                  totalFrames,
-                },
-              });
-            }
+          };
+
+          // 🧠 Frames render ON DEMAND: recordedFrames holds placeholders
+          // (~10KB) instead of ~55MB of pre-baked ImageData per pane, and
+          // "synthesis" is instant. The playback paths call
+          // window.__synthFrameDraw when they meet a placeholder — each
+          // frame is one bg fill + panel fills + ~320 waveform rects,
+          // well under a millisecond.
+          window.__synthFrameDraw = drawSynthFrame;
+          for (let i = 0; i < totalFrames; i++) {
+            recordedFrames.push([(i * 1000) / fps, { synth: i, width, height }]);
           }
+          send({
+            type: "tape:load-progress",
+            content: {
+              code: "synth",
+              phase: "frames",
+              progress: 1,
+              loadedFrames: totalFrames,
+              totalFrames,
+            },
+          });
 
           mediaRecorderDuration = (totalFrames * 1000) / fps;
 
@@ -15692,9 +15700,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             const currentTime = performance.now();
             playbackStart = currentTime - (progress * playbackDurationMs);
             
-            // Update display with new frame
+            // Update display with new frame (placeholders render on demand)
             if (recordedFrames[f]) {
-              fctx.putImageData(recordedFrames[f][1], 0, 0);
+              const seekPic = recordedFrames[f][1];
+              if (seekPic?.synth !== undefined && window.__synthFrameDraw) {
+                window.__synthFrameDraw(seekPic.synth, fctx);
+              } else {
+                fctx.putImageData(seekPic, 0, 0);
+              }
+              window.__lastTapeDrawnF = f;
               send({ type: "recorder:present-progress", content: progress });
             }
 
@@ -15833,9 +15847,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
             // Only blit when the frame actually advanced — a 30fps tape on
             // a 60-144Hz display wastes 50-80% of putImageData calls
-            // otherwise (per-pane main-thread canvas work).
+            // otherwise (per-pane main-thread canvas work). Synth frames
+            // are placeholders rendered on demand (memory: ~10KB vs 55MB).
             if (f !== window.__lastTapeDrawnF || fctx.__lastTapeCanvas !== fctx.canvas) {
-              fctx.putImageData(recordedFrames[f][1], 0, 0);
+              const rafPic = recordedFrames[f][1];
+              if (rafPic?.synth !== undefined && window.__synthFrameDraw) {
+                window.__synthFrameDraw(rafPic.synth, fctx);
+              } else {
+                fctx.putImageData(rafPic, 0, 0);
+              }
               window.__lastTapeDrawnF = f;
               fctx.__lastTapeCanvas = fctx.canvas;
             }
@@ -15992,9 +16012,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 f = f + 1;
                 frameAdvancementCount++;
                 
-                // Prevent infinite loops with smaller threshold
+                // A large gap (loop re-anchor, tab wake) must be ONE jump —
+                // sweeping there over many RAFs at maxFrameJump per frame
+                // painted as a fast-forward/rewind glitch at the seam.
                 if (frameAdvancementCount > maxFrameJump) {
-                  console.warn(`🎬 ⚠️ Frame advancement limit reached: ${frameAdvancementCount} frames, breaking loop for stability`);
+                  const span =
+                    recordedFrames[recordedFrames.length - 1][0] -
+                    recordedFrames[0][0];
+                  const interval = Math.max(1, span / (recordedFrames.length - 1));
+                  f = Math.max(
+                    0,
+                    Math.min(
+                      recordedFrames.length - 1,
+                      Math.floor(playbackProgress / interval),
+                    ),
+                  );
                   break;
                 }
                 

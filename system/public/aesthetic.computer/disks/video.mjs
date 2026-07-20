@@ -1501,9 +1501,10 @@ function sim({ needsPaint, rec, send, clock, sound }) {
       postedTapeCode
     ) {
       // Idle playback: the tape video draws on the bios underlay — the
-      // overlay chrome (marker, sync, blink) only needs ~15Hz, cutting
-      // the full-screen buffer transfer that dominated many-window CPU.
-      if (frameCount % 8 === 0) needsPaint();
+      // overlay chrome (marker, sync, beat blink) runs ~30Hz, cutting the
+      // full-screen buffer transfer that dominated many-window CPU while
+      // keeping the needle's bar-blink and motion smooth.
+      if (frameCount % 4 === 0) needsPaint();
     }
   }
   

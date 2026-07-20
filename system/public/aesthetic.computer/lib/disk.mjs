@@ -14770,8 +14770,10 @@ async function makeFrame({ data: { type, content } }) {
               // Position QR at the start of visible area (after share button padding)
               // Include scrub offset so QR moves with the label when swiping to "share"
               // Move left by 4px for tighter fit (up is handled by label Y offset)
-              const qrX = currentHUDLeftPad + currentHUDScrub - 4;
-              const qrY = 0; // Top of buffer
+              // Inset from the corner so frameless desktop panes (macOS
+              // rounded corners) never clip the QR's quiet zone.
+              const qrX = currentHUDLeftPad + currentHUDScrub + 2;
+              const qrY = 4;
 
               // White background (1px border around QR)
               $.ink(255, 255, 255).box(qrX, qrY, qrSize + 2, qrSize + 2);
@@ -14812,6 +14814,15 @@ async function makeFrame({ data: { type, content } }) {
             // Wrap based on screen width minus padding (6px total: 2px margin + 4px padding)
             // Subtract the left margin since text starts at x=HUD_LABEL_TEXT_MARGIN
             const wrapBounds = isKidlispPiece ? ($api.screen.width - 6 - HUD_LABEL_TEXT_MARGIN) : undefined;
+
+            // Dark backing chip so the label reads over any tape frame —
+            // matches the deck-pad chrome instead of floating raw text.
+            $.ink(0, 0, 0, 150).box(
+              hudTextX - 3,
+              hudTextY,
+              Math.min(bufferW - hudTextX + 1, currentHUDLabelMeasuredWidth + 8),
+              (typeof hudBlockHeight === "number" ? hudBlockHeight : 10) + 4,
+            );
 
             drawHudLabelText($, text, {
               x: hudTextX,
