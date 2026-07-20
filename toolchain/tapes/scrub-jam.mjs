@@ -50,6 +50,7 @@ const CDP_PORT = val("--cdp", null); // Attach to a running Chrome/Electron
 const CDP_URL = val("--connect", null); // ...or a full ws:// endpoint
 const TAPES = val("--tapes", "sine,house").split(",").map((s) => s.trim());
 const SECS = parseFloat(val("--secs", "0")) || 0; // 0 = until Ctrl+C
+const RELEASE_S = parseFloat(val("--release", "15")); // Hands-off per phrase
 const SHOTS = has("--shots");
 const W = 720;
 const H = 480;
@@ -60,12 +61,16 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // One performer per window. Holds a puppeteer page and drives it forever.
 class Performer {
-  constructor(page, tape, idx) {
+  constructor(page, tape, idx, size) {
     this.page = page;
     this.tape = tape;
     this.idx = idx;
-    this.cx = W / 2;
-    this.cy = H / 2;
+    // Attached windows (Electron) size themselves — measure rather than
+    // assume, or the dial hit box at `w - 32` lands off-window.
+    this.w = size?.w || W;
+    this.h = size?.h || H;
+    this.cx = this.w / 2;
+    this.cy = this.h / 2;
     this.stopped = false;
     this.last = { rate: 0, syncMs: 0, locked: false, act: "boot" };
   }
@@ -153,7 +158,7 @@ class Performer {
   // friction-free while engaged — a manual tempo offset; the jam releases).
   async steadyDial(up) {
     const m = this.page.mouse;
-    const x = W - 32;
+    const x = this.w - 32;
     const y = 12;
     await m.move(x, y);
     await m.down();
@@ -198,7 +203,10 @@ class Performer {
       await this.phrase();
       // Release: hands off, tape drifts back toward net-time unison.
       this.last.act += " → release";
-      const releaseMs = rnd(3500, 6000);
+      // Long enough to actually prove a re-lock: the at-rest drive leans
+      // tempo by only ±5%, so nulling a ~1s phase error needs ~20s of
+      // hands-off. Shorter releases report a false "never locks".
+      const releaseMs = rnd(RELEASE_S * 1000, RELEASE_S * 1400);
       const until = Date.now() + releaseMs;
       while (Date.now() < until && !this.stopped) await sleep(150);
     }
@@ -240,17 +248,42 @@ async function getBrowser(idx) {
   return { browser, launched: true };
 }
 
+const claimed = new Set();
+
+// Adopt one of the app's existing windows. Electron exposes its BrowserWindows
+// as CDP page targets but cannot mint new ones (`newPage()` throws), so we
+// claim a window rather than open one — preferring one already on this tape.
+async function adoptPage(browser, url) {
+  const pages = (await browser.pages()).filter(
+    (p) => !claimed.has(p) && /^https?:/.test(p.url()),
+  );
+  if (!pages.length) {
+    throw new Error(
+      `no free window to drive — open one per tape first, e.g.\n` +
+        `   slab/bin/slab-web "video~scrub~<tape>"`,
+    );
+  }
+  const page = pages.find((p) => p.url() === url) || pages[0];
+  claimed.add(page);
+  return page;
+}
+
 async function launchWindow(tape, idx) {
   const { browser, launched } = await getBrowser(idx);
-  // Attached: open a fresh tab per tape; launched: reuse the sole page.
-  const page = launched
-    ? (await browser.pages())[0]
-    : await browser.newPage();
   const url = `${BASE}/video~scrub~${tape}`;
-  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45000 });
-  // Give boot + synth a moment.
-  await sleep(3500);
-  const perf = new Performer(page, tape, idx);
+  // Attached: claim an existing app window; launched: reuse the sole page.
+  const page = launched ? (await browser.pages())[0] : await adoptPage(browser, url);
+  // Only navigate if it isn't already there — reloading a window that is
+  // already on the tape costs another boot + synth warmup for nothing.
+  if (page.url() !== url) {
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45000 });
+    await sleep(3500); // Give boot + synth a moment.
+  }
+  await page.bringToFront().catch(() => {});
+  const size = await page
+    .evaluate(() => ({ w: innerWidth, h: innerHeight }))
+    .catch(() => null);
+  const perf = new Performer(page, tape, idx, size);
   windows.push({ browser, page, perf, tape, launched });
   return perf;
 }
@@ -282,8 +315,11 @@ async function main() {
       const rate = t ? t.rate.toFixed(2) : "--";
       const sync = t ? `${t.syncMs >= 0 ? "+" : ""}${t.syncMs}ms` : "--";
       const lock = t?.locked ? "🟢" : "🟠";
+      // ✊ = the piece still thinks a finger is down. A pinned rate with an
+      // open hand means the drive latched, not that the gesture is ongoing.
+      const hand = t?.scrubbing ? "✊" : "  ";
       cells.push(
-        `${w.tape.padEnd(6)} ${lock} ${sync.padStart(7)} ${String(rate).padStart(6)}x  ${w.perf.last.act}`,
+        `${w.tape.padEnd(6)} ${lock}${hand} ${sync.padStart(7)} ${String(rate).padStart(6)}x  ${w.perf.last.act}`,
       );
     }
     const secs = ((Date.now() - start) / 1000).toFixed(0);
@@ -309,9 +345,9 @@ async function main() {
     await sleep(300);
     for (const w of windows) {
       try {
-        // Close tabs we opened; never close an app we merely attached to.
+        // Only tear down windows we launched. Attached windows are the
+        // user's own app — we adopted them, so we leave them open.
         if (w.launched) await w.browser.close();
-        else await w.page.close();
       } catch {}
     }
     if (attached) {

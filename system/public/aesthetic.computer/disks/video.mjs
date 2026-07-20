@@ -2476,10 +2476,12 @@ function act({
           triggerRender();
         },
         up: () => {
-          if (Math.abs(scrubSpeed - 1) < PARK_SNAP) {
-            scrubSpeed = 1;
-            steadyHold = false; // Back at play speed — friction may hold it
-          }
+          // Release always ends the friction-free hold — otherwise a rate
+          // let go outside PARK_SNAP (say 1.11×) stays pinned forever and
+          // the net-time PLL can never re-lock. With the hold cleared, the
+          // bearing friction homes the drive to 1× and unison returns.
+          steadyHold = false;
+          if (Math.abs(scrubSpeed - 1) < PARK_SNAP) scrubSpeed = 1;
           triggerRender();
         },
       });
