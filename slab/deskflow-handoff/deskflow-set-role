@@ -7,6 +7,7 @@ EPOCH=${3:-0}
 STATE="$HOME/.config/slab/deskflow.json"
 CLIENT_CONF="$HOME/Library/Deskflow/Deskflow-client-role.conf"
 EPOCH_FILE="$HOME/.config/slab/deskflow-role-epoch"
+ROLE_LOCK="$HOME/.config/slab/deskflow-set-role.lock"
 LABEL="computer.aesthetic.deskflow"
 UID_=$(id -u)
 
@@ -25,6 +26,26 @@ case "$ROLE" in
 esac
 
 mkdir -p "$HOME/.config/slab" "$HOME/Library/Deskflow"
+
+# Claims from the two physical controllers can overlap. Serialize the epoch
+# check, state write, and core restart as one transaction; otherwise an older
+# claim that passed the check first can finish last and resurrect split-brain.
+LOCKED=false
+for _ in {1..500}; do
+  if /usr/bin/shlock -f "$ROLE_LOCK" -p "$$"; then
+    LOCKED=true
+    break
+  fi
+  sleep 0.01
+done
+if [[ "$LOCKED" != "true" ]]; then
+  echo "deskflow-set-role: role transaction lock timed out" >&2
+  exit 75
+fi
+cleanup_role_lock() {
+  rm -f "$ROLE_LOCK"
+}
+trap cleanup_role_lock EXIT
 
 if ! [[ "$EPOCH" =~ ^[0-9]+$ ]]; then
   echo "deskflow-set-role: invalid claim generation" >&2

@@ -25,6 +25,7 @@ except Exception:
 print(str(config.get("controller", False)).lower())
 print(state.get("role", ""))
 print(config.get("address", ""))
+print(config.get("screenName", ""))
 print(time.time_ns())
 for peer in config.get("clients", []):
     print(peer)
@@ -37,11 +38,6 @@ if [[ "$CONTROLLER" != "true" ]]; then
 fi
 
 ROLE=${VALUES[1]:-}
-if [[ "$ROLE" == "server" ]]; then
-  echo "unchanged server"
-  exit 0
-fi
-
 if ! mkdir "$LOCK" 2>/dev/null; then
   echo "deskflow claim: already switching" >&2
   exit 75
@@ -56,8 +52,9 @@ cleanup() {
 trap cleanup EXIT
 
 ADDRESS=${VALUES[2]:-}
-EPOCH=${VALUES[3]:-0}
-PEERS=("${VALUES[@]:4}")
+SCREEN_NAME=${VALUES[3]:-}
+EPOCH=${VALUES[4]:-0}
+PEERS=("${VALUES[@]:5}")
 
 if [[ ${#PEERS[@]} -lt 1 ]]; then
   echo "deskflow claim: no peer controller configured" >&2
@@ -73,10 +70,20 @@ SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=4
 # retry briefly if it wins the race and reaches the new server before it binds.
 LOCAL_OUT=$(mktemp /tmp/deskflow-local.XXXXXX)
 PEER_OUT=$(mktemp /tmp/deskflow-peer.XXXXXX)
+CORE_LOG="$HOME/Library/Logs/deskflow-core.log"
+# A byte offset lets the reconnect poll seek directly to newly appended log
+# data. A line offset made BSD tail rescan the full, long-lived core log on
+# every 25 ms poll and could stretch a three-second handoff into minutes.
+SERVER_LOG_START=$(stat -f %z "$CORE_LOG" 2>/dev/null || echo 0)
 "$SET_ROLE" server "" "$EPOCH" > "$LOCAL_OUT" 2>&1 &
 LOCAL_PID=$!
-ssh "${SSH_OPTS[@]}" "${PEERS[0]}" \
-  '~/.local/bin/deskflow-set-role client '"$ADDRESS $EPOCH" > "$PEER_OUT" 2>&1 &
+if [[ "$ROLE" == "server" ]]; then
+  ssh "${SSH_OPTS[@]}" "${PEERS[0]}" \
+    '~/.local/bin/deskflow-set-role client '"$ADDRESS $EPOCH" > "$PEER_OUT" 2>&1 &
+else
+  ssh "${SSH_OPTS[@]}" "${PEERS[0]}" \
+    '~/.local/bin/deskflow-yield-control '"$ADDRESS $EPOCH" > "$PEER_OUT" 2>&1 &
+fi
 PEER_PID=$!
 
 LOG="$HOME/Library/Logs/deskflow-handoff.log"
@@ -96,4 +103,36 @@ if [[ "$LOCAL_STATUS" != "0" || "$PEER_STATUS" != "0" ]]; then
   exit 74
 fi
 
-echo "changed server; peer controller now uses $ADDRESS"
+# Preserve the old server's active destination. The MacPal touch observer reads
+# this marker, emits the target's private hotkey on the new server, and replays
+# the gesture that happened while the cores were swapping. Wait only for that
+# one client; other fleet reconnections remain fully asynchronous.
+if [[ "$ROLE" != "server" ]]; then
+  ACTIVE_SCREEN=$(sed -n 's/^active-screen //p' "$PEER_OUT" | tail -1)
+  if [[ -n "$ACTIVE_SCREEN" && "$ACTIVE_SCREEN" != "$SCREEN_NAME" ]]; then
+    /usr/bin/python3 - "$CORE_LOG" "$SERVER_LOG_START" "$ACTIVE_SCREEN" <<'PY' || true
+import os, sys, time
+
+path, offset, screen = sys.argv[1], int(sys.argv[2]), sys.argv[3]
+needle = f'client "{screen}" has connected'
+deadline = time.monotonic() + 3.0
+buffer = ""
+with open(path, errors="replace") as log:
+    log.seek(offset)
+    while time.monotonic() < deadline:
+        chunk = log.read()
+        if chunk:
+            buffer = (buffer + chunk)[-8192:]
+            if needle in buffer:
+                raise SystemExit(0)
+        time.sleep(0.025)
+raise SystemExit(1)
+PY
+  fi
+fi
+
+if [[ "$ROLE" == "server" ]]; then
+  echo "reconciled server; peer controller now uses $ADDRESS"
+else
+  echo "changed server; peer controller now uses $ADDRESS"
+fi

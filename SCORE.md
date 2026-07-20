@@ -122,6 +122,12 @@ This is critical because `lib/pmove.mjs` is shared physics: client (lith) and se
 - [ ] KidLisp GPU compositing: render effects on GPU buffer, recompose with CPU renderer
 
 **Host Tooling (slab/)** — @jeffrey's macOS host, not a deployed service
+- **Unipointer** (`slab/deskflow-handoff/UNIPOINTER.md`) — canonical identifier
+  for the Fuser seat's one logical pointer. Neo and Blueberry can exchange the
+  physical Deskflow controller role without changing the unipointer's active
+  machine or display-local position. Code and agents should use the literal
+  identifier `unipointer` and state-record kind `unipointer-state`; every fleet
+  host exposes `~/.local/bin/unipointer` for versioned JSON state.
 - `slab/menubar-swift/` — native Swift menubar daemon (launchd `computer.slab.menubar`). Shows live Claude-session status, themes each Terminal.app/iTerm2 window by session state (working/awaiting/complete), tiles all windows into one grid, tints the desktop, and serves passphrases over a unix socket. Built + installed locally with `slab/menubar-swift/install.sh` (`swift build -c release` → universal arm64+x86_64 binary → app bundle + launchd agent); there is no remote deploy.
 - **Tiling auto-fits the type:** `tileNow` sizes each Terminal window's font to the grid (Far/Near/Tiny modes) and drives `View ▸ Default Font Size` per window so a live window actually adopts it — a per-window zoom otherwise silently overrides the profile font and is invisible to AppleScript. Floors keep it legible (Far 10 / Near 9 / Tiny 8). iTerm2 has no AppleScript font property, so it tiles by bounds only.
 - **Prompt rocks** (`slab/menubar-swift/Sources/SlabMenubar/PromptSigilOverlay.swift`) — the tumbling little stones parked at the top-right of each terminal window, one per live Claude session. Each rock is a 3D sigil rendered from the session's `sessionId + prompt` seed (so it re-forms when the session moves to a new prompt), lit by a shared global sun that tracks local time of day, wearing a pet name in bubble lettering. Its *motion* is the status channel — spin speed and direction encode working/awaiting/complete; being read by a peer makes it blink and rattle. Hovering one reveals a bubble summarizing the prompt (a cached one-line `claude -p haiku` inference). They're borderless click-through `.floating` windows, so hit-testing has to check occlusion by hand: a rock only answers the pointer while it's on screen *and* its terminal is still the topmost normal window under the cursor.

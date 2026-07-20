@@ -1,0 +1,1 @@
+%admin ALL=(root) NOPASSWD: /sbin/ifconfig awdl0 down

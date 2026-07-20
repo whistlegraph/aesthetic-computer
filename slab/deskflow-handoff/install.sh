@@ -52,10 +52,12 @@ write_fingerprints() {
   done
 }
 
-for file in deskflow-role-runner deskflow-set-role deskflow-claim-control deskflow-role-watchdog deskflow-start; do
+for file in deskflow-role-runner deskflow-set-role deskflow-claim-control deskflow-role-watchdog deskflow-seat-ready deskflow-active-screen deskflow-yield-control deskflow-start; do
   cp "$HERE/$file" "$HOME/.local/bin/$file"
   chmod 755 "$HOME/.local/bin/$file"
 done
+/usr/bin/xcrun swiftc -O "$HERE/unipointer.swift" \
+  -o "$HOME/.local/bin/unipointer"
 rm -f "$HOME/.local/bin/deskflow-role-idle"
 cp "$HERE/deskflow-server.conf" "$HOME/Library/Deskflow/deskflow-handoff-server.conf"
 mkdir -p "$HOME/Library/Deskflow/tls"
@@ -149,6 +151,21 @@ cat > "$WATCHDOG" <<EOF
 <key>StartInterval</key><integer>45</integer>
 <key>StandardOutPath</key><string>$HOME/Library/Logs/deskflow-watchdog.log</string>
 <key>StandardErrorPath</key><string>$HOME/Library/Logs/deskflow-watchdog.log</string>
+</dict></plist>
+EOF
+
+SEAT_READY="$HOME/Library/LaunchAgents/computer.aesthetic.seat-ready.plist"
+cat > "$SEAT_READY" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>Label</key><string>computer.aesthetic.seat-ready</string>
+<key>ProgramArguments</key><array><string>$HOME/.local/bin/deskflow-seat-ready</string></array>
+<key>LimitLoadToSessionType</key><string>Aqua</string>
+<key>ProcessType</key><string>Interactive</string>
+<key>RunAtLoad</key><true/>
+<key>StandardOutPath</key><string>$HOME/Library/Logs/seat-ready.log</string>
+<key>StandardErrorPath</key><string>$HOME/Library/Logs/seat-ready.log</string>
 </dict></plist>
 EOF
 

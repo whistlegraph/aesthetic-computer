@@ -1057,6 +1057,7 @@ enum MenuBuilder {
         stop.isEnabled = d.running
         sub.addItem(stop)
         sub.addItem(item("Restart", selector: #selector(AppDelegate.deskflowRestart), target: target))
+        sub.addItem(item("Wake Seat", selector: #selector(AppDelegate.deskflowWakeSeat), target: target))
         sub.addItem(.separator())
         sub.addItem(item("Open Deskflow log", selector: #selector(AppDelegate.openDeskflowLog), target: target))
         sub.addItem(item("Edit Deskflow config", selector: #selector(AppDelegate.openDeskflowConfig), target: target))

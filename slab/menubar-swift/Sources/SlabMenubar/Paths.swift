@@ -68,6 +68,14 @@ enum Paths {
     ///   { "enabled": true, "role": "server", "label": "Deskflow",
     ///     "agent": "computer.aesthetic.deskflow" }
     static var deskflowConfig: String { "\(home)/.config/slab/deskflow.json" }
+    /// Fleet identity + screen name written by deskflow-handoff/install.sh.
+    static var deskflowHandoffConfig: String { "\(home)/.config/slab/deskflow-handoff.json" }
+    /// The shared links graph installed on every Deskflow host.
+    static var deskflowServerConfig: String { "\(home)/Library/Deskflow/deskflow-handoff-server.conf" }
+    /// Carries the active controller address while this host is a client.
+    static var deskflowClientRoleConfig: String { "\(home)/Library/Deskflow/Deskflow-client-role.conf" }
+    /// Wake/reconcile the local Deskflow seat or, on a controller, the fleet.
+    static var deskflowSeatReady: String { "\(slabBin)/deskflow-seat-ready" }
     /// Where the Deskflow server/client LaunchAgent writes its log (matches
     /// the StandardOutPath in computer.aesthetic.deskflow.plist).
     static var deskflowLog: String { "\(home)/Library/Logs/deskflow-core.log" }

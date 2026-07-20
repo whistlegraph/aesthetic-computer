@@ -4,6 +4,7 @@ set -euo pipefail
 UID_=$(id -u)
 MAIN="$HOME/Library/LaunchAgents/computer.aesthetic.deskflow.plist"
 WATCHDOG="$HOME/Library/LaunchAgents/computer.aesthetic.deskflow-watchdog.plist"
+SEAT_READY="$HOME/Library/LaunchAgents/computer.aesthetic.seat-ready.plist"
 
 bootstrap_retry() {
   local plist=$1
@@ -20,6 +21,7 @@ bootstrap_retry() {
 
 launchctl enable "gui/${UID_}/computer.aesthetic.deskflow"
 launchctl enable "gui/${UID_}/computer.aesthetic.deskflow-watchdog"
+launchctl enable "gui/${UID_}/computer.aesthetic.seat-ready"
 ROLE=$(/usr/bin/python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("role", "client"))' "$HOME/.config/slab/deskflow.json" 2>/dev/null || echo client)
 
 if [[ "$ROLE" == "client" ]]; then
@@ -27,3 +29,5 @@ if [[ "$ROLE" == "client" ]]; then
 fi
 bootstrap_retry "$MAIN"
 bootstrap_retry "$WATCHDOG"
+launchctl bootout "gui/${UID_}/computer.aesthetic.seat-ready" 2>/dev/null || true
+bootstrap_retry "$SEAT_READY"

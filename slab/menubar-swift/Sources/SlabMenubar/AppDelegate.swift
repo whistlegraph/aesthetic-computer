@@ -1075,6 +1075,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ShellRunner.runShellAsync(cmd)
     }
 
+    @objc func deskflowWakeSeat() {
+        ShellRunner.runAsync(Paths.deskflowSeatReady, args: ["--fleet"]) { [weak self] in
+            DispatchQueue.main.async { self?.refresh() }
+        }
+    }
+
     @objc func openDeskflowLog() {
         ShellRunner.run("/usr/bin/open", args: ["-a", "Console", Paths.deskflowLog])
     }

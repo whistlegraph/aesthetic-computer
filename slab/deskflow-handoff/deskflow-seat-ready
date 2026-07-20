@@ -1,0 +1,103 @@
+#!/bin/bash
+set -euo pipefail
+
+HANDOFF="$HOME/.config/slab/deskflow-handoff.json"
+STATE="$HOME/.config/slab/deskflow.json"
+LABEL="computer.aesthetic.deskflow"
+UID_=$(id -u)
+MODE=${1:-local}
+
+role() {
+  /usr/bin/python3 -c \
+    'import json,sys; print(json.load(open(sys.argv[1])).get("role", "client"))' \
+    "$STATE" 2>/dev/null || echo client
+}
+
+healthy() {
+  local current_role=$1
+  if [[ "$current_role" == "server" ]]; then
+    pgrep -f "deskflow-core server" >/dev/null && \
+      nc -z -G2 127.0.0.1 24800 >/dev/null 2>&1
+  else
+    pgrep -f "deskflow-core client" >/dev/null && \
+      netstat -an 2>/dev/null | grep -E '\.[0-9]+ +[^ ]+\.24800 +ESTABLISHED' >/dev/null
+  fi
+}
+
+low_latency_wifi() {
+  # Deskflow's macOS workaround for cursor stalls: keep Apple Wireless
+  # Direct Link from time-slicing the Wi-Fi radio while the seat is active.
+  # A narrowly scoped sudoers rule installed by this setup makes the command
+  # non-interactive; on an unconfigured host this remains a harmless no-op.
+  /usr/bin/sudo -n /sbin/ifconfig awdl0 down >/dev/null 2>&1 || true
+}
+
+wake_local() {
+  local current_role
+  current_role=$(role)
+
+  low_latency_wifi
+
+  # Wake the physical panel before Deskflow asks WindowServer for its shape.
+  /usr/bin/caffeinate -u -t 15 >/dev/null 2>&1 &
+
+  if ! healthy "$current_role"; then
+    /bin/launchctl kickstart -k "gui/${UID_}/${LABEL}" 2>/dev/null || {
+      /bin/launchctl bootstrap "gui/${UID_}" \
+        "$HOME/Library/LaunchAgents/${LABEL}.plist" 2>/dev/null || true
+    }
+  fi
+
+  for _ in {1..15}; do
+    if healthy "$current_role"; then
+      echo "seat ready: $(hostname -s) $current_role"
+      return 0
+    fi
+    sleep 1
+  done
+
+  echo "seat ready: $(hostname -s) $current_role unhealthy" >&2
+  return 1
+}
+
+if [[ "$MODE" != "--fleet" ]]; then
+  wake_local
+  exit $?
+fi
+
+if [[ ! -f "$HANDOFF" ]]; then
+  echo "seat ready: no handoff config" >&2
+  exit 78
+fi
+
+controller=$(/usr/bin/python3 -c \
+  'import json,sys; print(str(json.load(open(sys.argv[1])).get("controller", False)).lower())' \
+  "$HANDOFF")
+if [[ "$controller" != "true" ]]; then
+  wake_local
+  exit $?
+fi
+
+# Claim-control also reconciles clients when this host is already the server.
+"$HOME/.local/bin/deskflow-claim-control"
+wake_local
+
+peers=()
+while IFS= read -r peer; do
+  [[ -n "$peer" ]] && peers+=("$peer")
+done < <(/usr/bin/python3 -c \
+  'import json,sys; print("\n".join(json.load(open(sys.argv[1])).get("clients", [])))' \
+  "$HANDOFF")
+
+pids=()
+for peer in "${peers[@]}"; do
+  ssh -o BatchMode=yes -o ConnectTimeout=4 "$peer" \
+    '~/.local/bin/deskflow-seat-ready' &
+  pids+=("$!")
+done
+
+status=0
+for pid in "${pids[@]}"; do
+  wait "$pid" || status=1
+done
+exit "$status"

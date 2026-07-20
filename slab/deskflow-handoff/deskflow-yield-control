@@ -1,0 +1,43 @@
+#!/bin/bash
+set -euo pipefail
+
+SERVER_HOST=${1:-}
+EPOCH=${2:-0}
+if [[ -z "$SERVER_HOST" ]]; then
+  echo "usage: deskflow-yield-control SERVER_HOST [EPOCH]" >&2
+  exit 64
+fi
+
+# Capture this before set-role stops the old server. Keeping both operations in
+# one SSH call avoids adding a network round trip to the handoff path.
+ACTIVE_SCREEN=$("$HOME/.local/bin/deskflow-active-screen" 2>/dev/null || true)
+UNIPOINTER_STATE=""
+if [[ -n "$ACTIVE_SCREEN" ]]; then
+  POINTER_PEER=$(/usr/bin/python3 - "$HOME/.config/slab/deskflow-handoff.json" "$ACTIVE_SCREEN" <<'PY'
+import json, sys
+path, screen = sys.argv[1:]
+try:
+    with open(path) as source:
+        config = json.load(source)
+except Exception:
+    config = {}
+if screen != config.get("screenName", ""):
+    token = screen.removesuffix(".local").lower()
+    for peer in config.get("clients", []):
+        if token and token in peer.lower():
+            print(peer)
+            break
+PY
+)
+  if [[ -n "$POINTER_PEER" ]]; then
+    UNIPOINTER_STATE=$(ssh -o BatchMode=yes -o ConnectTimeout=2 \
+      -o ControlMaster=auto -o ControlPersist=600 \
+      -o "ControlPath=$HOME/.ssh/deskflow-%C" "$POINTER_PEER" \
+      '~/.local/bin/unipointer' 2>/dev/null || true)
+  else
+    UNIPOINTER_STATE=$("$HOME/.local/bin/unipointer" 2>/dev/null || true)
+  fi
+fi
+"$HOME/.local/bin/deskflow-set-role" client "$SERVER_HOST" "$EPOCH"
+[[ -n "$ACTIVE_SCREEN" ]] && echo "active-screen $ACTIVE_SCREEN"
+[[ -n "$UNIPOINTER_STATE" ]] && echo "unipointer-state $ACTIVE_SCREEN $UNIPOINTER_STATE"

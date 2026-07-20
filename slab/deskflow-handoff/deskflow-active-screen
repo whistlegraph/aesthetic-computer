@@ -1,0 +1,36 @@
+#!/usr/bin/python3
+"""Print the active screen from the current Deskflow server session."""
+
+import json
+import os
+import re
+
+home = os.path.expanduser("~")
+handoff_path = os.path.join(home, ".config/slab/deskflow-handoff.json")
+log_path = os.path.join(home, "Library/Logs/deskflow-core.log")
+
+try:
+    with open(handoff_path, encoding="utf-8") as source:
+        local_screen = str(json.load(source).get("screenName", ""))
+except Exception:
+    local_screen = ""
+
+active = local_screen
+try:
+    with open(log_path, "rb") as source:
+        source.seek(0, os.SEEK_END)
+        size = source.tell()
+        source.seek(max(0, size - 2_000_000))
+        text = source.read().decode("utf-8", errors="replace")
+
+    # Ignore switches from older server lifetimes in the shared rolling log.
+    starts = list(re.finditer(r"(?:IPC|NOTE): started server", text))
+    session = text[starts[-1].start():] if starts else text
+    switches = re.findall(r'switch from "[^"]+" to "([^"]+)"', session)
+    if switches:
+        active = switches[-1]
+except Exception:
+    pass
+
+if re.fullmatch(r"[A-Za-z0-9._-]+", active):
+    print(active)
