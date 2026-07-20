@@ -3493,7 +3493,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           );
           acDISK_SEND({
             type: "tape:audio-context-state",
-            content: { state: audioContext.state, hasAudio: true },
+            content: {
+              state: audioContext.state,
+        hasAudio: true,
+        audioRate: sfx["tape:audio"]?.sampleRate || 0,
+        ctxRate: audioContext?.sampleRate || 0,
+        latencyMs: Math.round(((audioContext?.baseLatency || 0) + (audioContext?.outputLatency || 0)) * 1000),
+            },
           });
         }
 
@@ -12539,6 +12545,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    if (type === "tape:audio-pitch") {
+      // 🎼 Independent pitch factor for the playing tape — tempo, grid,
+      // and the needle stay untouched (two-tap shifter in the worklet).
+      const tapeAudioId = Object.keys(sfxPlaying).find((id) =>
+        id.startsWith("tape:audio_"),
+      );
+      if (tapeAudioId && sfxPlaying[tapeAudioId]) {
+        const f = typeof content === "number" && content > 0 ? content : 1;
+        sfxPlaying[tapeAudioId].update({ pitch: f });
+      }
+      return;
+    }
+
     if (type === "tape:volume") {
       // 🎚️ Live volume for the playing tape loop (0..1) — the per-player
       // mix fader and the multi-window auto-mixer both land here.
@@ -15942,18 +15961,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               if (gridR > mediaRecorderDuration / 2) gridR -= mediaRecorderDuration;
               playbackStart = gridNow - gridR;
               playbackProgress = 0;
-              // 🔊↔️🔴 Keep the SOUND on the needle: the video just
-              // re-anchored to the grid, so relocate the free-running
-              // audio loop to the same phase (declick ramp makes this
-              // inaudible). Without it, each lap's anchor correction
-              // accumulated as audio-vs-needle drift.
-              const anchorPos =
-                Math.max(0, gridR) / mediaRecorderDuration;
-              const tapeAudioIdA = Object.keys(sfxPlaying).find((id) =>
-                id.startsWith("tape:audio_"),
-              );
-              if (tapeAudioIdA && sfxPlaying[tapeAudioIdA]) {
-                sfxPlaying[tapeAudioIdA].update({ samplePosition: anchorPos });
+              // 🔊↔️🔴 Keep the SOUND on the needle — but relocate the
+              // audio loop SPARINGLY: every lap's 4ms declick ticked
+              // audibly on transient tapes. Drift accumulates ≲5ms/lap,
+              // so re-phasing every 4th lap keeps AV inside ~20ms with a
+              // quarter of the corrections.
+              window.__tapeAnchorLap = (window.__tapeAnchorLap || 0) + 1;
+              if (window.__tapeAnchorLap % 4 === 0) {
+                const anchorPos = Math.max(0, gridR) / mediaRecorderDuration;
+                const tapeAudioIdA = Object.keys(sfxPlaying).find((id) =>
+                  id.startsWith("tape:audio_"),
+                );
+                if (tapeAudioIdA && sfxPlaying[tapeAudioIdA]) {
+                  sfxPlaying[tapeAudioIdA].update({ samplePosition: anchorPos });
+                }
               }
               // The next update's f===0 branch would reset playbackStart to
               // "now", clobbering the grid — isResuming makes it skip once.

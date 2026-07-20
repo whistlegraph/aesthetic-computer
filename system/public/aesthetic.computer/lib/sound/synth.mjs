@@ -40,6 +40,8 @@ export default class Synth {
   #sampleIndex = 0;
   #declick = 0; // Samples left in the post-relocation attack ramp
   #declickTotal = 1;
+  #pitch = 1; // Independent pitch factor (1 = none) — tempo untouched
+  #pitchPhase = 0; // Sweep phase of the two-tap delay-line shifter
   #sampleEndIndex = 0;
   #sampleStartIndex = 0;
   #sampleSpeed = 0.25;
@@ -640,7 +642,30 @@ export default class Synth {
       }
       // Normal (non-granular) sample playback
       else {
-        value = bufferData[floor(this.#sampleIndex)];
+        if (this.#pitch !== 1 && this.#sampleLoop) {
+          // 🎼 Independent pitch: two read taps sweep a short window
+          // BEHIND the main head (which still advances at #sampleSpeed,
+          // so tempo/grid stay untouched) and crossfade sinusoidally —
+          // the classic delay-line pitch shifter. Clean for ±few
+          // semitones, exactly what the p-/p+ pads reach.
+          const W = 2048;
+          this.#pitchPhase =
+            (this.#pitchPhase + (this.#pitch - 1) * this.#sampleSpeed + W) % W;
+          const offA = this.#pitchPhase;
+          const offB = (offA + W / 2) % W;
+          const range = this.#sampleEndIndex - this.#sampleStartIndex;
+          const rd = (off) => {
+            let ix = this.#sampleIndex - off;
+            while (ix < this.#sampleStartIndex) ix += range;
+            while (ix >= this.#sampleEndIndex) ix -= range;
+            return bufferData[floor(ix)];
+          };
+          const gA = Math.sin((Math.PI * offA) / W);
+          const gB = Math.sin((Math.PI * offB) / W);
+          value = rd(offA) * gA + rd(offB) * gB;
+        } else {
+          value = bufferData[floor(this.#sampleIndex)];
+        }
         // 🍿 Declick: after a samplePosition relocation (chop loops, beat
         // jumps), ramp back in over ~4ms so the jump never pops.
         if (this.#declick > 0) {
@@ -764,7 +789,12 @@ export default class Synth {
     return out;
   }
 
-  update({ tone, volume, shift, sampleSpeed, samplePosition, sampleData, duration = 0.1 }) {
+  update({ tone, volume, shift, sampleSpeed, samplePosition, sampleData, pitch, duration = 0.1 }) {
+    // 🎼 Live independent pitch factor (tempo-preserving shifter).
+    if (typeof pitch === "number" && pitch > 0) {
+      this.#pitch = pitch;
+      if (pitch === 1) this.#pitchPhase = 0;
+    }
     if (typeof tone === "number" && tone > 0) {
       this.#futureFrequency = tone;
       this.#frequencyUpdatesTotal = duration * sampleRate;

@@ -194,6 +194,8 @@ const DESKTOP_HOST =
 const SAFE_R = DESKTOP_HOST ? 20 : 6; // Right-edge inset for chrome
 const SAFE_T = DESKTOP_HOST ? 8 : 3; // Top inset (rounded corners bite here)
 const SAFE_B = DESKTOP_HOST ? 16 : 12; // Bottom inset for the pad cluster
+let audioDiag = { audioRate: 0, ctxRate: 0, latencyMs: 0 }; // From bios
+let fpsTimes = []; // Overlay paint timestamps for the fps meter
 const JAM_ARM_TIMEOUT = 8000; // A never-loading sibling can't hold us hostage
 let legendBtns = null; // Tappable deck-key legend (bottom-right)
 let synthAuto = false;
@@ -319,9 +321,9 @@ function ensureScrubStripButton(ui, screen, enabled) {
 function nudgeTapeAudioSpeed(send, targetSpeed, force = false) {
   // Absolute rate: the worklet is set to exactly this speed, so repeated
   // gestures can never accumulate drift the way relative shifts did.
-  // The pitch pads multiply in a varispeed factor (2^(semis/12)).
-  const pitched = targetSpeed * Math.pow(2, pitchSemis / 12);
-  const clampedTarget = Math.max(-24, Math.min(24, pitched));
+  // (Pitch is INDEPENDENT — the p-/p+ pads drive tape:audio-pitch, a
+  // tempo-preserving shifter in the worklet; speed stays honest.)
+  const clampedTarget = Math.max(-24, Math.min(24, targetSpeed));
   if (!force && Math.abs(clampedTarget - scrubAudioSpeed) < 0.0005) return;
   send({ type: "tape:audio-rate", content: clampedTarget });
   scrubAudioSpeed = clampedTarget;
@@ -1012,11 +1014,44 @@ function paint({
       : (rec?.presentProgress ?? 0);
     const nowBarMs = clock?.time?.()?.getTime?.() ?? Date.now();
     const barFlash = nowBarMs % 2000 < 120; // First 120ms of each bar
+    // 🎧 Latency compensation: sound leaves the speaker latencyMs after
+    // the read head passes — the needle shows what you're HEARING.
+    const latComp =
+      (audioDiag.latencyMs || 0) / 1000 / (tapeInfo?.totalDuration || 8);
+    let needlePos = livePos - latComp;
+    needlePos = ((needlePos % 1) + 1) % 1;
     ink(barFlash ? [255, 255, 255] : [255, 51, 68]).box(
-      Math.floor(livePos * (screen.width - 6)),
+      Math.floor(needlePos * (screen.width - 6)),
       screen.height - (barFlash ? 6 : 4),
       6,
       barFlash ? 6 : 4,
+    );
+
+    // 🔬 Diagnostics row (bottom-left): overlay fps · tape fps · audio
+    // kHz (tape→context) · output latency. All live, all honest.
+    fpsTimes.push(performance.now());
+    if (fpsTimes.length > 24) fpsTimes.shift();
+    const fpsNow =
+      fpsTimes.length > 1
+        ? Math.round(
+            (1000 * (fpsTimes.length - 1)) /
+              (fpsTimes[fpsTimes.length - 1] - fpsTimes[0]),
+          )
+        : 0;
+    const tfps =
+      tapeInfo?.fps ||
+      (tapeInfo?.frameCount && tapeInfo?.totalDuration
+        ? Math.round(tapeInfo.frameCount / tapeInfo.totalDuration)
+        : 0);
+    ink(255, 255, 255, 140).write(
+      `${String(fpsNow).padStart(3)}fps ${tfps}tf ` +
+        `${(audioDiag.audioRate / 1000).toFixed(1)}k>${(audioDiag.ctxRate / 1000).toFixed(1)}k ` +
+        `${audioDiag.latencyMs}ms`,
+      { x: 6, y: screen.height - 16 },
+      undefined,
+      undefined,
+      false,
+      "MatrixChunky8",
     );
 
     // ✂️ Chop region: while a chop is held, show the exact in/out slice
@@ -2882,10 +2917,12 @@ function act({
       };
       legendBtns?.jumpL?.act(e, { down: () => beatJump(-1) });
       legendBtns?.jumpR?.act(e, { down: () => beatJump(1) });
-      // 🎼 Pitch pads: ±2 semitones (a full tone) per tap, varispeed-style.
+      // 🎼 Pitch pads: ±2 semitones (a full tone) per tap — INDEPENDENT
+      // of speed; the worklet's two-tap shifter re-pitches the audio
+      // while the tempo, needle, and grid stay exactly where they are.
       const nudgePitch = (d) => {
         pitchSemis = Math.max(-12, Math.min(12, pitchSemis + d));
-        nudgeTapeAudioSpeed(send, scrubSpeed || 1, true);
+        send({ type: "tape:audio-pitch", content: Math.pow(2, pitchSemis / 12) });
         triggerRender();
       };
       legendBtns?.pitchD?.act(e, { down: () => nudgePitch(-2) });
@@ -2895,6 +2932,7 @@ function act({
       legendBtns?.reset?.act(e, {
         push: () => {
           pitchSemis = 0;
+          send({ type: "tape:audio-pitch", content: 1 });
           fullReset();
         },
       });
@@ -3409,6 +3447,11 @@ function receive(e) {
     console.log("🎵 ✅ Video piece received AudioContext state:", e.content);
     audioContextState = e.content?.state || "suspended";
     hasAudioContext = !!e.content?.hasAudio;
+    audioDiag = {
+      audioRate: e.content?.audioRate || audioDiag.audioRate || 0,
+      ctxRate: e.content?.ctxRate || audioDiag.ctxRate || 0,
+      latencyMs: e.content?.latencyMs ?? audioDiag.latencyMs ?? 0,
+    };
     console.log(`🎵 ✅ AudioContext state updated: ${audioContextState}, hasAudio: ${hasAudioContext}`);
     return true;
   }
