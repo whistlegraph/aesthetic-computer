@@ -21,27 +21,17 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const FFMPEG = process.env.FFMPEG || "ffmpeg";
-const HERE = new URL(".", import.meta.url).pathname;
 const STAGE_MODE = process.env.CAPTUTOR_STAGE_MODE === "1";
 
-// FUSER'S brand, not AC's. These are the client's deliverables, so the type is
-// theirs: Marund, the face their own og-image renderer uses for every shareable
-// Fuser image (apps/og-image/src/components/FuserTagline.tsx). It ships as a
-// variable .woff2, which ImageMagick cannot read, so `assets/Marund.ttf` is that
-// file decompressed — regenerate with wawoff2 if they update it.
-//
-// Colours are Tailwind's, which is what services/og-image/colors.ts resolves to.
-const MARUND = process.env.CAPTUTOR_FONT || `${HERE}../assets/Marund.ttf`;
-const CAPTION_STYLE = "classic-outline-karaoke-v3";
+// Deliberately ordinary subtitle typography. Captions are navigation, not a
+// brand surface: Arial Bold stays readable over a busy UI and produces the
+// familiar white type / black keyline people already recognize as subtitles.
+const LATIN_FONT = process.env.CAPTUTOR_FONT
+  || "/System/Library/Fonts/Supplemental/Arial Bold.ttf";
+const CAPTION_STYLE = "arial-bold-outline-karaoke-v4";
 
-// Marund is a Latin face. It has NO Hangul, no Han, no Devanagari — ask it for
-// Korean and ImageMagick returns a blank strip (it silently drops every glyph it
-// cannot find and keeps the punctuation, which is a very easy thing to ship
-// without noticing). So the brand face holds for the Latin locales, and the
-// scripts it does not cover fall back to a system face designed for them.
-//
-// This is not a compromise of the brand; it is what fuser's own app does. A
-// webfont stack degrades the same way in the browser.
+// Arial does not cover every script, so non-Latin locales use the corresponding
+// macOS system face instead of silently dropping glyphs.
 const SCRIPT_FONTS = {
   "ko":    "/System/Library/Fonts/AppleSDGothicNeo.ttc",
   "zh-CN": "/System/Library/Fonts/Hiragino Sans GB.ttc",  // NOT PingFang — see below
@@ -54,14 +44,14 @@ const SCRIPT_FONTS = {
 /// A missing font file does not error: ImageMagick falls back, drops every glyph
 /// it cannot draw, and hands back a caption containing only the punctuation. We
 /// shipped a whole Chinese take that way (PingFang is NOT at
-/// /System/Library/Fonts/PingFang.ttc, so it silently used Marund and the burned
+/// /System/Library/Fonts/PingFang.ttc, so it silently used the Latin face and the burned
 /// captions read just "App"). Throwing here is the only way that stays fixed.
 function fontFor(locale) {
   const alt = SCRIPT_FONTS[locale];
-  if (!alt) return MARUND;  // Latin — the brand face covers it
+  if (!alt) return LATIN_FONT;
   if (!existsSync(alt)) {
     throw new Error(
-      `no font for "${locale}" at ${alt}. Marund cannot draw this script, and ` +
+      `no font for "${locale}" at ${alt}. The Latin face cannot draw this script, and ` +
       `falling back to it would silently produce blank captions.`);
   }
   return alt;
@@ -83,7 +73,7 @@ function assertHasInk(png, text) {
   }
 }
 
-let FONT = MARUND;  // set per-render by deliver()
+let FONT = LATIN_FONT;  // set per-render by deliver()
 const TEXT = "#ffffff";    // plain white — subtitles are not a brand surface
 const SHADOW = "#000000";
 const ACTIVE_TEXT = "#facc15"; // warm yellow — familiar, restrained karaoke cue
@@ -209,7 +199,12 @@ function layoutWords(words, { width, px }) {
       return row.words.map((word) => ({
         ...word,
         x: inset + word.x,
-        y: Math.round(rowIndex * lineHeight + (lineHeight - sample.h) / 2),
+        // `-draw text` takes a BASELINE coordinate. Every word on a row shares
+        // this exact value, unlike `-annotate`, which offsets each token from
+        // its own glyph bounds and makes short words visibly bob up and down.
+        baseline: Math.round(
+          rowIndex * lineHeight + (lineHeight - sample.h) / 2 + sample.h * 0.79,
+        ),
       }));
     }),
   };
@@ -221,20 +216,21 @@ function layoutWords(words, { width, px }) {
 /// changes only the spoken word's fill to yellow for karaoke-style tracking.
 function cuePng(words, { width, px, out, activeIndex = -1 }) {
   const layout = layoutWords(words, { width, px });
-  const stroke = Math.max(2, Math.round(px / 18));
+  const stroke = Math.max(3, Math.round(px / 16));
+  const mvg = (text) => text.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
   const args = [
     "-size", `${layout.width}x${layout.height}`, "xc:none",
-    "-font", FONT, "-pointsize", String(px), "-gravity", "northwest",
+    "-font", FONT, "-pointsize", String(px),
     "-stroke", SHADOW, "-strokewidth", String(stroke), "-fill", TEXT,
   ];
   for (const word of layout.words) {
-    args.push("-annotate", `+${word.x}+${word.y}`, word.text);
+    args.push("-draw", `text ${word.x},${word.baseline} \"${mvg(word.text)}\"`);
   }
   args.push("-stroke", "none", "-strokewidth", "0");
   for (const word of layout.words) {
     args.push(
       "-fill", word.index === activeIndex ? ACTIVE_TEXT : TEXT,
-      "-annotate", `+${word.x}+${word.y}`, word.text,
+      "-draw", `text ${word.x},${word.baseline} \"${mvg(word.text)}\"`,
     );
   }
   args.push(out);
@@ -367,6 +363,22 @@ export function deliver({ clip, cues, format, out, workDir, locale = "en" }) {
 
   // ── video base ────────────────────────────────────────────────────────────
   const args = ["-y", "-i", clip];
+  let firstCaptionInput = 1;
+  let stageMask = null;
+  if (F.compose?.stageMargin != null) {
+    const margin = F.compose.stageMargin;
+    const vw = W - margin * 2;
+    const vh = H - margin * 2;
+    stageMask = join(workDir, `stage-window-mask-${vw}x${vh}-r44.png`);
+    if (!existsSync(stageMask)) {
+      execFileSync("magick", [
+        "-size", `${vw}x${vh}`, "xc:none", "-fill", "white", "-stroke", "none",
+        "-draw", `roundrectangle 0,0,${vw - 1},${vh - 1},44,44`, stageMask,
+      ]);
+    }
+    args.push("-loop", "1", "-i", stageMask);
+    firstCaptionInput += 1;
+  }
   for (const p of captionLayers) args.push("-i", p.png);
 
   const chain = [];
@@ -380,8 +392,10 @@ export function deliver({ clip, cues, format, out, workDir, locale = "en" }) {
     const vh = H - margin * 2;
     chain.push(
       `color=c=${STAGE_BG}:s=${W}x${H}:d=${dur.toFixed(3)},format=yuva420p[bg]`,
-      `[0:v]${holdLastFrame}scale=${vw}:${vh}:force_original_aspect_ratio=decrease[vid]`,
-      `[bg][vid]overlay=(W-w)/2:(H-h)/2[base]`);
+      `[0:v]${holdLastFrame}scale=${vw}:${vh}:force_original_aspect_ratio=decrease,format=rgba[vid]`,
+      `[1:v]format=gray[mask]`,
+      `[vid][mask]alphamerge[window]`,
+      `[bg][window]overlay=(W-w)/2:(H-h)/2[base]`);
   } else if (F.compose) {
     // Portrait frame, landscape-ish window: fill the WIDTH (so the UI is scaled
     // UP, not down) and ride high, leaving the lower third as a caption stage.
@@ -408,7 +422,7 @@ export function deliver({ clip, cues, format, out, workDir, locale = "en" }) {
     const label = i === captionLayers.length - 1 && !F.bar ? "outv" : `o${i}`;
     const y = `${Math.round(H * F.capY)}-h/2`;
     chain.push(
-      `[${last}][${i + 1}:v]overlay=(W-w)/2:${y}` +
+      `[${last}][${firstCaptionInput + i}:v]overlay=(W-w)/2:${y}` +
       `:enable='between(t,${c.from.toFixed(3)},${c.to.toFixed(3)})'[${label}]`);
     last = label;
   });
