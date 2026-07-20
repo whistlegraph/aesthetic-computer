@@ -840,6 +840,31 @@ www.nopaint.art {
     redir https://nopaint.art{uri} 301
 }
 
+# --- gym.anthonyzollo.com ---
+# Anthony's zone CNAMEs this host to lith.aesthetic.computer. Unlike AC's
+# Cloudflare-origin-cert catch-all, this external hostname needs its own public
+# ACME certificate and SNI policy. The HTML is updated through the authenticated
+# Express endpoint and stored outside the git checkout.
+gym.anthonyzollo.com {
+    tls {
+        issuer acme {
+            dir https://acme-v02.api.letsencrypt.org/directory
+        }
+        protocols tls1.2 tls1.3
+    }
+    encode zstd gzip
+
+    handle /api/publish-gym {
+        import lith_proxy
+    }
+    handle {
+        root * /var/lib/aesthetic-computer/gym.anthonyzollo.com
+        try_files {path} /index.html
+        header Cache-Control "no-cache"
+        file_server
+    }
+}
+
 :80 {
     redir https://{host}{uri} 301
 }

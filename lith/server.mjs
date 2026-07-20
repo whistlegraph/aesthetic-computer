@@ -48,7 +48,7 @@ if (typeof globalThis.awslambda === "undefined") {
 
 import express from "express";
 import { userMediaTarget } from "./media-path.mjs";
-import { readdirSync, readFileSync, existsSync, mkdirSync, writeFileSync, statSync } from "fs";
+import { readdirSync, readFileSync, existsSync, mkdirSync, writeFileSync, renameSync, statSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { createServer as createHttpsServer } from "https";
@@ -599,6 +599,41 @@ app.post("/lith/deploy", (req, res) => {
 
   runDeploy(branch);
   res.status(202).send(`Deploy started for ${branch}`);
+});
+
+// --- gym.anthonyzollo.com single-file publisher ---
+// The site lives outside the git checkout so routine lith deploys cannot
+// overwrite it. Anthony publishes a complete HTML document with a dedicated
+// bearer token; the temporary-file rename keeps readers from seeing a partial
+// upload.
+const GYM_SITE_DIR = process.env.GYM_SITE_DIR || "/var/lib/aesthetic-computer/gym.anthonyzollo.com";
+const GYM_PUBLISH_TOKEN = process.env.GYM_PUBLISH_TOKEN || "";
+
+app.put("/api/publish-gym", (req, res) => {
+  const host = (req.headers.host || "").split(":")[0].toLowerCase();
+  if (host !== "gym.anthonyzollo.com") return res.status(404).send("Not found");
+
+  const authorization = req.get("authorization") || "";
+  if (!GYM_PUBLISH_TOKEN || authorization !== `Bearer ${GYM_PUBLISH_TOKEN}`) {
+    return res.status(401).set("WWW-Authenticate", "Bearer").json({ error: "Unauthorized" });
+  }
+
+  const html = Buffer.isBuffer(req.body) ? req.body : req.rawBody;
+  if (!html?.length) return res.status(400).json({ error: "Send index.html as the request body" });
+  if (html.length > 5 * 1024 * 1024) return res.status(413).json({ error: "HTML exceeds 5 MB" });
+
+  mkdirSync(GYM_SITE_DIR, { recursive: true });
+  const temporary = join(GYM_SITE_DIR, `.index.html.${process.pid}.tmp`);
+  writeFileSync(temporary, html, { mode: 0o644 });
+  renameSync(temporary, join(GYM_SITE_DIR, "index.html"));
+
+  console.log(`[gym-publish] ${html.length} bytes published`);
+  res.set("Cache-Control", "no-store").json({
+    ok: true,
+    bytes: html.length,
+    url: "https://gym.anthonyzollo.com/",
+    publishedAt: new Date().toISOString(),
+  });
 });
 
 // --- Routes ---

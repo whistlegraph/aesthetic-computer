@@ -254,6 +254,10 @@ echo -e "$GREEN-> Updating service + Caddy config...$NC"
 ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "\
 cp $REMOTE_DIR/lith/lith.service /etc/systemd/system/lith.service && \
 cp $REMOTE_DIR/lith/Caddyfile /etc/caddy/Caddyfile && \
+mkdir -p /var/lib/aesthetic-computer/gym.anthonyzollo.com && \
+if [ ! -f /var/lib/aesthetic-computer/gym.anthonyzollo.com/index.html ]; then \
+  cp $REMOTE_DIR/lith/gym/index.html /var/lib/aesthetic-computer/gym.anthonyzollo.com/index.html; \
+fi && \
 systemctl daemon-reload && \
 systemctl reload caddy"
 
