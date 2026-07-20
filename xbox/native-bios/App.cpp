@@ -61,6 +61,34 @@ static std::wstring Wide(const std::string& value) {
   return result;
 }
 
+static std::array<unsigned char, 7> BlockGlyph(char value) {
+  if (value >= 'a' && value <= 'z') value -= 'a' - 'A';
+  switch (value) {
+    case 'A': return {14,17,17,31,17,17,17}; case 'B': return {30,17,17,30,17,17,30};
+    case 'C': return {14,17,16,16,16,17,14}; case 'D': return {30,17,17,17,17,17,30};
+    case 'E': return {31,16,16,30,16,16,31}; case 'F': return {31,16,16,30,16,16,16};
+    case 'G': return {14,17,16,23,17,17,15}; case 'H': return {17,17,17,31,17,17,17};
+    case 'I': return {31,4,4,4,4,4,31}; case 'J': return {7,2,2,2,18,18,12};
+    case 'K': return {17,18,20,24,20,18,17}; case 'L': return {16,16,16,16,16,16,31};
+    case 'M': return {17,27,21,21,17,17,17}; case 'N': return {17,25,21,19,17,17,17};
+    case 'O': return {14,17,17,17,17,17,14}; case 'P': return {30,17,17,30,16,16,16};
+    case 'Q': return {14,17,17,17,21,18,13}; case 'R': return {30,17,17,30,20,18,17};
+    case 'S': return {15,16,16,14,1,1,30}; case 'T': return {31,4,4,4,4,4,4};
+    case 'U': return {17,17,17,17,17,17,14}; case 'V': return {17,17,17,17,17,10,4};
+    case 'W': return {17,17,17,21,21,21,10}; case 'X': return {17,17,10,4,10,17,17};
+    case 'Y': return {17,17,10,4,4,4,4}; case 'Z': return {31,1,2,4,8,16,31};
+    case '0': return {14,17,19,21,25,17,14}; case '1': return {4,12,4,4,4,4,14};
+    case '2': return {14,17,1,2,4,8,31}; case '3': return {30,1,1,14,1,1,30};
+    case '4': return {2,6,10,18,31,2,2}; case '5': return {31,16,16,30,1,1,30};
+    case '6': return {14,16,16,30,17,17,14}; case '7': return {31,1,2,4,8,8,8};
+    case '8': return {14,17,17,14,17,17,14}; case '9': return {14,17,17,15,1,1,14};
+    case '.': return {0,0,0,0,0,12,12}; case ':': return {0,4,4,0,4,4,0};
+    case '-': return {0,0,0,31,0,0,0}; case '/': return {1,2,2,4,8,8,16};
+    case '!': return {4,4,4,4,4,0,4}; case ' ': return {0,0,0,0,0,0,0};
+    default: return {14,17,1,2,4,0,4};
+  }
+}
+
 class HostGraphics final : public Graphics {
  public:
   std::function<void(Color)> on_wipe;
@@ -407,40 +435,33 @@ private:
 
   void Render(const std::array<float, 4>& color) {
     if (!m_target) return;
-    if (m_frameText && m_d2dContext && m_dwriteFactory) {
-      // Own the complete frame with Direct2D whenever text is present. Mixing a
-      // D3D clear and D2D draw against the Xbox flip-chain can report a clean
-      // EndDraw while only the D3D clear reaches the display.
-      m_context->OMSetRenderTargets(0, nullptr, nullptr);
-      m_context->Flush();
-      ComPtr<IDWriteTextFormat> format;
-      Check(m_dwriteFactory->CreateTextFormat(L"Segoe UI", nullptr,
-        DWRITE_FONT_WEIGHT_SEMI_BOLD, DWRITE_FONT_STYLE_NORMAL,
-        DWRITE_FONT_STRETCH_NORMAL, (std::max)(12.0f, m_frameText->size), L"en-us",
-        &format));
-      const auto text = Wide(m_frameText->value);
-      const auto bounds = D2D1::RectF(m_frameText->x, m_frameText->y,
-        1920.0f - m_frameText->x, 1080.0f - m_frameText->y);
-      m_d2dContext->BeginDraw();
-      m_d2dContext->Clear(D2D1::ColorF(color[0], color[1], color[2], 1.0f));
-      m_textBrush->SetColor(D2D1::ColorF(0.02f, 0.02f, 0.04f, 0.92f));
-      m_d2dContext->FillRoundedRectangle(
-        D2D1::RoundedRect(D2D1::RectF(m_frameText->x - 28.0f,
-          m_frameText->y - 18.0f, 1890.0f,
-          m_frameText->y + (std::max)(150.0f, m_frameText->size * 1.6f)), 18.0f, 18.0f),
-        m_textBrush.Get());
-      m_textBrush->SetColor(D2D1::ColorF(D2D1::ColorF::White));
-      m_d2dContext->DrawText(text.c_str(), static_cast<UINT32>(text.size()),
-        format.Get(), bounds, m_textBrush.Get());
-      const HRESULT textResult = m_d2dContext->EndDraw();
-      if (!m_loggedTextFrame || FAILED(textResult)) {
-        LogTelemetry("AC_NATIVE_TEXT_FRAME chars=" + std::to_string(text.size()) +
-          " hr=" + std::to_string(static_cast<long>(textResult)));
+    m_context->OMSetRenderTargets(1, m_target.GetAddressOf(), nullptr);
+    m_context->ClearRenderTargetView(m_target.Get(), color.data());
+    if (m_frameText) {
+      const float ink[] = {1.0f, 1.0f, 1.0f, 1.0f};
+      const float panel[] = {0.02f, 0.02f, 0.04f, 1.0f};
+      const int cell = (std::max)(2, static_cast<int>(m_frameText->size / 7.0f));
+      int penX = static_cast<int>(m_frameText->x);
+      int penY = static_cast<int>(m_frameText->y);
+      D3D11_RECT panelRect{penX - cell, penY - cell,
+        (std::min)(1910, penX + static_cast<int>(m_frameText->value.size()) * cell * 6 + cell),
+        (std::min)(1070, penY + cell * 8)};
+      m_context->ClearView(m_target.Get(), panel, &panelRect, 1);
+      for (const char character : m_frameText->value) {
+        const auto glyph = BlockGlyph(character);
+        for (int row = 0; row < 7; ++row) for (int column = 0; column < 5; ++column) {
+          if (!(glyph[row] & (1 << (4 - column)))) continue;
+          D3D11_RECT pixel{penX + column * cell, penY + row * cell,
+            penX + (column + 1) * cell - 1, penY + (row + 1) * cell - 1};
+          m_context->ClearView(m_target.Get(), ink, &pixel, 1);
+        }
+        penX += cell * 6;
+      }
+      if (!m_loggedTextFrame) {
+        LogTelemetry("AC_NATIVE_D3D_TEXT_FRAME chars=" +
+          std::to_string(m_frameText->value.size()) + " cell=" + std::to_string(cell));
         m_loggedTextFrame = true;
       }
-    } else {
-      m_context->OMSetRenderTargets(1, m_target.GetAddressOf(), nullptr);
-      m_context->ClearRenderTargetView(m_target.Get(), color.data());
     }
     const HRESULT hr = m_swapChain->Present(1, 0);
     if (FAILED(hr) && hr != DXGI_STATUS_OCCLUDED) Check(hr);
