@@ -11469,9 +11469,34 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               console.warn("📼 Tape will play without audio");
             }
           } else {
-            console.log("📼 No soundtrack.wav found in tape");
+            // 🛟 No soundtrack.wav in the zip (imported tapes — e.g.
+            // atproto — often ship frames-only zips). The mp4 rendition
+            // still carries the audio track, so decode THAT instead of
+            // playing silent forever.
+            console.log("📼 No soundtrack.wav in zip — trying mp4 rendition audio...");
+            try {
+              const mp4Res = await fetch(`/media/tapes/${code}.mp4`);
+              if (mp4Res.ok) {
+                const mp4Buf = await mp4Res.arrayBuffer();
+                window.tapeAudioArrayBuffer = mp4Buf.slice(0);
+                const ctx2 =
+                  audioContext && audioContext.state !== "closed"
+                    ? audioContext
+                    : new OfflineAudioContext(1, 1, 48000);
+                const audioBuffer = await ctx2.decodeAudioData(mp4Buf);
+                sfx["tape:audio"] = audioBuffer;
+                console.log(
+                  `📼 mp4 rendition audio loaded: ${audioBuffer.duration.toFixed(2)}s, ` +
+                    `${audioBuffer.numberOfChannels}ch @ ${audioBuffer.sampleRate}Hz`,
+                );
+              } else {
+                console.log("📼 No mp4 rendition either — tape plays silent");
+              }
+            } catch (err) {
+              console.warn("📼 mp4 rendition audio decode failed:", err?.message);
+            }
           }
-          
+
           // Trigger presentation using existing underlay system
           // Instead of send({ type: "recorder:present" }), directly invoke presentation
           // since we're already in the bios context with frames loaded
