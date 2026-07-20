@@ -14,7 +14,6 @@ enum GamepadButton : std::uint32_t {
 };
 
 constexpr std::string_view event_name(GamepadButton button, bool down) {
-  const auto suffix = down ? "down" : "up";
   switch (button) {
     case a: return down ? "keyboard:down:space" : "keyboard:up:space";
     case b: return down ? "gamepad:down:b" : "gamepad:up:b";

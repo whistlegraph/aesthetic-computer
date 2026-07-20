@@ -105,7 +105,7 @@ struct Api {
   double seconds = 0;
   // Sandboxed pieces can emit structured diagnostic lines without receiving
   // filesystem, process, Device Portal, or arbitrary WinRT access.
-  std::function<void(std::string_view)> telemetry;
+  std::function<void(std::string_view)> telemetry = {};
 };
 
 class Piece {
