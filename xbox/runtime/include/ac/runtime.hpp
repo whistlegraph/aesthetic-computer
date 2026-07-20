@@ -85,6 +85,8 @@ struct System {
   std::string platform = "xbox";
   std::string version;
   std::string handle;
+  std::string network_level = "none";
+  std::string network_name;
   bool dark = true;
   bool online = false;
 };
@@ -101,6 +103,9 @@ struct Api {
   std::uint64_t sim_count = 0;
   std::uint64_t paint_count = 0;
   double seconds = 0;
+  // Sandboxed pieces can emit structured diagnostic lines without receiving
+  // filesystem, process, Device Portal, or arbitrary WinRT access.
+  std::function<void(std::string_view)> telemetry;
 };
 
 class Piece {

@@ -92,9 +92,10 @@ static std::array<unsigned char, 7> BlockGlyph(char value) {
 class HostGraphics final : public Graphics {
  public:
   std::function<void(Color)> on_wipe;
+  std::function<void(const ac::xbox::Rect&)> on_box;
   std::function<void(const ac::xbox::Text&)> on_write;
   void wipe(Color color) override { if (on_wipe) on_wipe(color); }
-  void box(const ac::xbox::Rect&) override {}
+  void box(const ac::xbox::Rect& rect) override { if (on_box) on_box(rect); }
   void line(const ac::xbox::Line&) override {}
   void write(const ac::xbox::Text& text) override { if (on_write) on_write(text); }
 };
@@ -132,11 +133,19 @@ public:
     m_graphics->on_wipe = [this](Color color) {
       m_frameColor = {color.r / 255.f, color.g / 255.f, color.b / 255.f, color.a / 255.f};
     };
-    m_graphics->on_write = [this](const ac::xbox::Text& text) { m_frameText = text; };
+    m_graphics->on_box = [this](const ac::xbox::Rect& rect) { m_frameRects.push_back(rect); };
+    m_graphics->on_write = [this](const ac::xbox::Text& text) { m_frameTexts.push_back(text); };
     m_sound->on_synth = [this](const SynthVoice&) { if (m_voice) TriggerAudio(1); };
     m_sound->on_stop = [this]() { if (m_voice) { m_voice->Stop(0); m_voice->FlushSourceBuffers(); } };
     m_sound->get_rate = [this]() { return static_cast<int>(m_sampleRate); };
     m_api = std::make_unique<Api>(Api{{1920, 1080, 1}, {}, {}, {}, *m_graphics, *m_sound});
+    m_api->system.version = "1.0.0.9";
+    m_api->telemetry = [](std::string_view line) {
+      std::string safe(line);
+      for (auto& character : safe) if (character == '\n' || character == '\r') character = ' ';
+      if (safe.size() > 1024) safe.resize(1024);
+      LogTelemetry("AC_NATIVE_" + safe);
+    };
     RefreshCapabilities(true);
     m_engine = std::make_unique<QuickJsEngine>();
     m_supervisor = std::make_unique<PieceSupervisor>(*m_engine);
@@ -160,11 +169,15 @@ public:
       RefreshCapabilities(false);
       PollController();
       PollLivePiece();
-      m_frameText.reset();
+      RefreshClock();
+      m_frameRects.clear();
+      m_frameTexts.clear();
       if (m_supervisor && m_supervisor->active()) {
         try {
           m_supervisor->active()->sim(*m_api);
+          ++m_api->sim_count;
           m_supervisor->active()->paint(*m_api);
+          ++m_api->paint_count;
         } catch (const std::exception& error) {
           OutputDebugStringA((std::string("AC_NATIVE_BIOS_JS_ERROR ") + error.what() + "\n").c_str());
           LogTelemetry(std::string("AC_NATIVE_BIOS_JS_ERROR ") + error.what());
@@ -317,21 +330,41 @@ private:
 
   void PollController() {
     const auto pads = Gamepad::Gamepads;
-    if (pads->Size == 0) { m_previousButtons = 0; return; }
+    m_api->gamepad.down.clear();
+    if (pads->Size == 0) {
+      m_previousButtons = 0;
+      m_api->gamepad.left_x = m_api->gamepad.left_y = 0;
+      m_api->gamepad.right_x = m_api->gamepad.right_y = 0;
+      m_api->gamepad.left_trigger = m_api->gamepad.right_trigger = 0;
+      return;
+    }
     const auto reading = pads->GetAt(0)->GetCurrentReading();
     const unsigned buttons = static_cast<unsigned>(reading.Buttons);
+    m_api->gamepad.left_x = static_cast<float>(reading.LeftThumbstickX);
+    m_api->gamepad.left_y = static_cast<float>(reading.LeftThumbstickY);
+    m_api->gamepad.right_x = static_cast<float>(reading.RightThumbstickX);
+    m_api->gamepad.right_y = static_cast<float>(reading.RightThumbstickY);
+    m_api->gamepad.left_trigger = static_cast<float>(reading.LeftTrigger);
+    m_api->gamepad.right_trigger = static_cast<float>(reading.RightTrigger);
+    struct ButtonName { GamepadButtons bit; const char* name; };
+    static constexpr ButtonName names[] = {
+      {GamepadButtons::A, "A"}, {GamepadButtons::B, "B"},
+      {GamepadButtons::X, "X"}, {GamepadButtons::Y, "Y"},
+      {GamepadButtons::DPadUp, "ArrowUp"}, {GamepadButtons::DPadDown, "ArrowDown"},
+      {GamepadButtons::DPadLeft, "ArrowLeft"}, {GamepadButtons::DPadRight, "ArrowRight"},
+      {GamepadButtons::LeftShoulder, "LeftShoulder"},
+      {GamepadButtons::RightShoulder, "RightShoulder"},
+      {GamepadButtons::Menu, "Menu"}, {GamepadButtons::View, "View"},
+      {GamepadButtons::LeftThumbstick, "LeftStick"},
+      {GamepadButtons::RightThumbstick, "RightStick"}
+    };
+    for (const auto& named : names)
+      if (buttons & static_cast<unsigned>(named.bit)) m_api->gamepad.down.insert(named.name);
     const unsigned pressed = buttons & ~m_previousButtons;
     m_previousButtons = buttons;
     if (!pressed) return;
 
     if (m_supervisor && m_supervisor->active()) {
-      struct ButtonName { GamepadButtons bit; const char* name; };
-      static constexpr ButtonName names[] = {
-        {GamepadButtons::A, "A"}, {GamepadButtons::B, "B"},
-        {GamepadButtons::X, "X"}, {GamepadButtons::Y, "Y"},
-        {GamepadButtons::DPadUp, "ArrowUp"}, {GamepadButtons::DPadDown, "ArrowDown"},
-        {GamepadButtons::DPadLeft, "ArrowLeft"}, {GamepadButtons::DPadRight, "ArrowRight"}
-      };
       for (const auto& named : names) {
         if (pressed & static_cast<unsigned>(named.bit)) {
           LARGE_INTEGER now{}, frequency{};
@@ -366,11 +399,43 @@ private:
     m_needsIdleFrame = true;
   }
 
+  void RefreshClock() {
+    LARGE_INTEGER counter{}, frequency{};
+    QueryPerformanceCounter(&counter);
+    QueryPerformanceFrequency(&frequency);
+    m_api->clock.monotonic_us = static_cast<std::uint64_t>(
+      counter.QuadPart * 1000000 / frequency.QuadPart);
+    m_api->clock.seconds = static_cast<double>(counter.QuadPart) / frequency.QuadPart;
+    m_api->seconds = m_api->clock.seconds;
+    FILETIME fileTime{};
+    GetSystemTimeAsFileTime(&fileTime);
+    ULARGE_INTEGER ticks{};
+    ticks.LowPart = fileTime.dwLowDateTime;
+    ticks.HighPart = fileTime.dwHighDateTime;
+    m_api->clock.unix_ms = static_cast<std::int64_t>(
+      (ticks.QuadPart - 116444736000000000ULL) / 10000ULL);
+  }
+
   void RefreshCapabilities(bool force) {
     const auto now = GetTickCount64();
     if (!force && now < m_nextCapabilityPollMs) return;
     m_nextCapabilityPollMs = now + 1000;
-    m_api->system.online = NetworkInformation::GetInternetConnectionProfile() != nullptr;
+    const auto profile = NetworkInformation::GetInternetConnectionProfile();
+    m_api->system.online = false;
+    m_api->system.network_level = "none";
+    m_api->system.network_name.clear();
+    if (profile) {
+      m_api->system.network_name = Utf8(profile->ProfileName);
+      switch (profile->GetNetworkConnectivityLevel()) {
+        case NetworkConnectivityLevel::InternetAccess:
+          m_api->system.network_level = "internet"; m_api->system.online = true; break;
+        case NetworkConnectivityLevel::ConstrainedInternetAccess:
+          m_api->system.network_level = "constrained"; break;
+        case NetworkConnectivityLevel::LocalAccess:
+          m_api->system.network_level = "local"; break;
+        default: break;
+      }
+    }
     m_api->gamepad.controllers.clear();
     for (auto raw : RawGameController::RawGameControllers) {
       ControllerInfo info;
@@ -385,6 +450,7 @@ private:
       m_api->gamepad.controllers.push_back(std::move(info));
     }
     std::string inventory = "online=" + std::to_string(m_api->system.online) +
+      " network=" + m_api->system.network_level + " profile=" + m_api->system.network_name +
       " controllers=" + std::to_string(m_api->gamepad.controllers.size());
     for (const auto& controller : m_api->gamepad.controllers) {
       inventory += " | " + controller.name + " vendor=" +
@@ -443,7 +509,7 @@ private:
 
   void Render(const std::array<float, 4>& color) {
     if (!m_target) return;
-    if (m_frameText) {
+    if (!m_frameTexts.empty() || !m_frameRects.empty()) {
       const auto byte = [](float value) {
         return static_cast<unsigned>(255.0f * (std::max)(0.0f, (std::min)(1.0f, value)));
       };
@@ -460,28 +526,39 @@ private:
       };
       const float scaleX = m_frameWidth / 1920.0f;
       const float scaleY = m_frameHeight / 1080.0f;
-      const int cell = (std::max)(2, static_cast<int>(m_frameText->size / 7.0f * scaleY));
-      int penX = static_cast<int>(m_frameText->x * scaleX);
-      const int penY = static_cast<int>(m_frameText->y * scaleY);
-      fill(penX - cell, penY - cell,
-        penX + static_cast<int>(m_frameText->value.size()) * cell * 6 + cell,
-        penY + cell * 8, 0xff05050au);
-      for (const char character : m_frameText->value) {
-        const auto glyph = BlockGlyph(character);
-        for (int row = 0; row < 7; ++row) for (int column = 0; column < 5; ++column) {
-          if (!(glyph[row] & (1 << (4 - column)))) continue;
-          fill(penX + column * cell, penY + row * cell,
-            penX + (column + 1) * cell - 1, penY + (row + 1) * cell - 1, 0xffffffffu);
+      const auto packed = [](Color value) {
+        return 0xff000000u | (static_cast<uint32_t>(value.r) << 16) |
+          (static_cast<uint32_t>(value.g) << 8) | value.b;
+      };
+      for (const auto& rect : m_frameRects) {
+        fill(static_cast<int>(rect.x * scaleX), static_cast<int>(rect.y * scaleY),
+          static_cast<int>((rect.x + rect.width) * scaleX),
+          static_cast<int>((rect.y + rect.height) * scaleY), packed(rect.color));
+      }
+      for (const auto& text : m_frameTexts) {
+        const int cell = (std::max)(2, static_cast<int>(text.size / 7.0f * scaleY));
+        const int originX = static_cast<int>(text.x * scaleX);
+        int penX = originX;
+        int penY = static_cast<int>(text.y * scaleY);
+        const uint32_t ink = packed(text.color);
+        for (const char character : text.value) {
+          if (character == '\n') { penX = originX; penY += cell * 9; continue; }
+          const auto glyph = BlockGlyph(character);
+          for (int row = 0; row < 7; ++row) for (int column = 0; column < 5; ++column) {
+            if (!(glyph[row] & (1 << (4 - column)))) continue;
+            fill(penX + column * cell, penY + row * cell,
+              penX + (column + 1) * cell - 1, penY + (row + 1) * cell - 1, ink);
+          }
+          penX += cell * 6;
         }
-        penX += cell * 6;
       }
       m_context->OMSetRenderTargets(0, nullptr, nullptr);
       m_context->UpdateSubresource(m_backBuffer.Get(), 0, nullptr, m_cpuFrame.data(),
         m_frameWidth * sizeof(uint32_t), 0);
       if (!m_loggedTextFrame) {
-        LogTelemetry("AC_NATIVE_CPU_TEXT_FRAME chars=" +
-          std::to_string(m_frameText->value.size()) + " cell=" + std::to_string(cell) +
-          " surface=" + std::to_string(m_frameWidth) + "x" + std::to_string(m_frameHeight));
+        LogTelemetry("AC_NATIVE_CPU_FRAME texts=" + std::to_string(m_frameTexts.size()) +
+          " boxes=" + std::to_string(m_frameRects.size()) + " surface=" +
+          std::to_string(m_frameWidth) + "x" + std::to_string(m_frameHeight));
         m_loggedTextFrame = true;
       }
     } else {
@@ -507,7 +584,8 @@ private:
   uint32_t m_sampleRate = 48000;
   std::array<float, 4> m_flashColor{1, 1, 1, 1};
   std::array<float, 4> m_frameColor{0.025f, 0.02f, 0.04f, 1.0f};
-  std::optional<ac::xbox::Text> m_frameText;
+  std::vector<ac::xbox::Rect> m_frameRects;
+  std::vector<ac::xbox::Text> m_frameTexts;
   bool m_loggedTextFrame = false;
 
   ComPtr<ID3D11Device1> m_device;
