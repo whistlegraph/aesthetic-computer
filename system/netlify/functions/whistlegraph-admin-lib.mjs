@@ -177,6 +177,11 @@ export function normalizeWorkPatch(input) {
     if (!COLOR_RE.test(color)) throw new Error("Color must be a six-digit hex value.");
     patch.c = color.toLowerCase();
   }
+  if (own(input, "featuredPost")) {
+    const featuredPost = cleanText(input.featuredPost, "Featured post ID", 32);
+    if (featuredPost && !/^\d+$/.test(featuredPost)) throw new Error("Featured post ID must contain only numbers.");
+    patch.featuredPost = featuredPost;
+  }
   if (!Object.keys(patch).length) throw new Error("No editable Whistlegraph fields supplied.");
   return patch;
 }

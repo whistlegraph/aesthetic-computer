@@ -654,7 +654,8 @@ function loadPosts(){
       if(related.length||generatedRelationships.has(work.code)){
         work.perf=related.length;
         work.views=related.reduce((sum,p)=>sum+(p.views||0),0);
-        if(!work.slug&&related[0]?.thumb) work.thumb=related[0].thumb;
+        const featured=related.find(post=>post.id===work.featuredPost)||related[0];
+        if(!work.slug&&featured?.thumb) work.thumb=featured.thumb;
       }
     }
     WORKS=[...WORKS.slice(0,CURATED_N),...WORKS.slice(CURATED_N).sort((a,b)=>(b.views||0)-(a.views||0))];
@@ -769,7 +770,7 @@ function showDetail(code, keepScroll){
     D.videoRule.style.display=""; D.glyphCap.style.display="none"; D.glyphCap.textContent="";
     D.video.classList.toggle("wide",!!w.wide); // the Longest film is landscape
     const aset=w.asset||w.code; // renamed codes keep their original CDN asset key
-    const hero=posts[0]; // most-seen post fronts the record
+    const hero=posts.find(post=>post.id===w.featuredPost)||posts[0]; // editorial choice, then most-seen
     D.video.poster=hero&&hero.thumb?hero.thumb:(w.noGlyph?"":`${IDX}/${aset}.jpg`);
     D.video.src=hero?hero.src:`${IDX}/${aset}.mp4`;
     if(w.film){ // the Rhizome film, not a TikTok take — its own provenance + glyph
