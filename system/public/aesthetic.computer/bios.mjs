@@ -11600,6 +11600,29 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                   (Math.sin(ph1) + Math.sin(ph1 * 2) * 0.4) *
                   Math.exp(-inHalf * 12) * 0.42; // Bass stab
               }
+            } else if (
+              style === "kick" ||
+              style === "hat" ||
+              style === "snare"
+            ) {
+              // 🥁 Isolated stems of the break kit — one instrument per
+              // tape. For stem-testing a band: scrub ONE voice while its
+              // siblings hold the grid, and the ear knows exactly whose
+              // hands moved.
+              const step16 = Math.floor(tt / STEP) % 16;
+              const inStep = tt % STEP;
+              if (style === "kick" && BREAK_KICK[step16]) {
+                v +=
+                  Math.sin(TAU * (50 + 130 * Math.exp(-inStep * 30)) * inStep) *
+                  Math.exp(-inStep * 16) * 0.85;
+              }
+              if (style === "snare" && BREAK_SNARE[step16]) {
+                v += noise * Math.exp(-inStep * 40) * 0.6; // Crack
+                v += Math.sin(TAU * 190 * inStep) * Math.exp(-inStep * 30) * 0.35; // Body
+              }
+              if (style === "hat" && BREAK_HAT[step16]) {
+                v += noise * Math.exp(-inStep * 220) * 0.5;
+              }
             } else if (style === "sine") {
               // 〰️ Sineline, plucked: one continuous-phase sine walking a
               // 16-step half-beat melody in a lower register, struck with a

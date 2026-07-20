@@ -52,6 +52,8 @@ const TAPES = val("--tapes", "sine,house").split(",").map((s) => s.trim());
 const SECS = parseFloat(val("--secs", "0")) || 0; // 0 = until Ctrl+C
 const RELEASE_S = parseFloat(val("--release", "15")); // Hands-off per phrase
 const DENSITY = val("--density", null); // AC pixel density (1 = chunky)
+const SOLO = has("--solo"); // One performer messes at a time; others hold
+let soloTurn = 0; // Whose turn it is (round-robin by window index)
 const SHOTS = has("--shots");
 const W = 720;
 const H = 480;
@@ -250,16 +252,23 @@ class Performer {
   }
 
   // Freestyle forever: phrase → release (let net-time re-sync) → repeat.
+  // In --solo mode performers take turns: exactly one messes with its
+  // tape while the others hold the grid — stem-testing, one at a time.
   async run() {
     await this.wake();
     while (!this.stopped) {
+      if (SOLO) {
+        while (!this.stopped && soloTurn % TAPES.length !== this.idx) {
+          this.last.act = "hold";
+          await sleep(250);
+        }
+        if (this.stopped) break;
+      }
       await this.ensureOnTape();
       await this.phrase();
       // Release: hands off, tape drifts back toward net-time unison.
       this.last.act += " → release";
-      // Long enough to actually prove a re-lock: the at-rest drive leans
-      // tempo by only ±5%, so nulling a ~1s phase error needs ~20s of
-      // hands-off. Shorter releases report a false "never locks".
+      if (SOLO) soloTurn++; // Next player's turn while we re-lock.
       const releaseMs = rnd(RELEASE_S * 1000, RELEASE_S * 1400);
       const until = Date.now() + releaseMs;
       while (Date.now() < until && !this.stopped) await sleep(150);
@@ -317,7 +326,10 @@ async function adoptPage(browser, url) {
         `   slab/bin/slab-web "video~scrub~<tape>"`,
     );
   }
-  const page = pages.find((p) => p.url() === url) || pages[0];
+  // Match by tape token, not exact URL — boot canonicalizes query params.
+  const tapeToken = url.match(/video~scrub~[^?]+/)?.[0];
+  const page =
+    pages.find((p) => tapeToken && p.url().includes(tapeToken)) || pages[0];
   claimed.add(page);
   return page;
 }
@@ -375,6 +387,7 @@ async function main() {
   const readout = setInterval(async () => {
     tick++;
     const cells = [];
+    const syncs = [];
     for (const w of windows) {
       const t = await w.perf.telemetry();
       const rate = t ? t.rate.toFixed(2) : "--";
@@ -383,12 +396,21 @@ async function main() {
       // ✊ = the piece still thinks a finger is down. A pinned rate with an
       // open hand means the drive latched, not that the gesture is ongoing.
       const hand = t?.scrubbing ? "✊" : "  ";
+      if (t && !t.scrubbing) syncs.push(t.syncMs);
       cells.push(
         `${w.tape.padEnd(6)} ${lock}${hand} ${sync.padStart(7)} ${String(rate).padStart(6)}x  ${w.perf.last.act}`,
       );
     }
+    // 📐 Band alignment: all syncs measure against the same UTC grid, so
+    // the spread between windows IS the band's phase disagreement. 🟢
+    // under 120ms means every pane is inside the pocket together.
+    let band = "";
+    if (syncs.length >= 2) {
+      const spread = Math.max(...syncs) - Math.min(...syncs);
+      band = `  ‖ band Δ${spread}ms ${spread < 120 ? "🟢" : "🟠"}`;
+    }
     const secs = ((Date.now() - start) / 1000).toFixed(0);
-    process.stdout.write(`\r[${secs}s] ` + cells.join("  |  ") + "          \n");
+    process.stdout.write(`\r[${secs}s] ` + cells.join("  |  ") + band + "          \n");
 
     if (SHOTS && tick % 8 === 0) {
       for (const w of windows) {

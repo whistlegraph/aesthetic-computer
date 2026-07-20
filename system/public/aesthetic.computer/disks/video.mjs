@@ -179,6 +179,7 @@ let jamArmedAt = 0; // performance.now() when we became ready
 let jamStartAt = 0; // UTC ms of the agreed drop (0 = not yet agreed)
 let jamHeartbeat = null;
 let lastSentTapeVolume = -1;
+let jamScrubbing = false; // This pane is being performed (drives scrub focus)
 const JAM_ARM_TIMEOUT = 8000; // A never-loading sibling can't hold us hostage
 let legendBtns = null; // Tappable deck-key legend (bottom-right)
 let synthAuto = false;
@@ -243,7 +244,11 @@ function jamJoin() {
       jamPeers.delete(m.id);
       return;
     }
-    jamPeers.set(m.id, { t: performance.now(), ready: !!m.ready });
+    jamPeers.set(m.id, {
+      t: performance.now(),
+      ready: !!m.ready,
+      scrub: !!m.scrub,
+    });
     // Adopt the earliest announced drop time so the band agrees.
     if (m.startAt && (!jamStartAt || m.startAt < jamStartAt)) {
       jamStartAt = m.startAt;
@@ -256,11 +261,12 @@ function jamJoin() {
         type: "hb",
         ready: jamReady,
         startAt: jamStartAt,
+        scrub: jamScrubbing, // Focus flag: I'm being performed right now
       });
     } catch {}
     const now = performance.now();
     for (const [id, p] of jamPeers) if (now - p.t > 3000) jamPeers.delete(id);
-  }, 500);
+  }, 250);
 }
 
 function jamLeave() {
@@ -538,7 +544,13 @@ function boot({ wipe, rec, gizmo, jump, notice, store, params, send, hud }) {
             ? "dub"
             : rest.includes("sine") || rest.includes("line")
               ? "sine"
-              : "bed";
+              : rest.includes("kick")
+                ? "kick"
+                : rest.includes("hat") || rest.includes("hats")
+                  ? "hat"
+                  : rest.includes("snare")
+                    ? "snare"
+                    : "bed";
     const nums = rest.map(parseFloat).filter((n) => Number.isFinite(n));
     let duration = nums[0] || 8; // Four bars by default, break included
     if (rest.includes("bar")) duration = 2;
@@ -1288,9 +1300,23 @@ function sim({ needsPaint, rec, send, clock, sound }) {
         if (nowU >= jamStartAt) jamArmed = false; // 🎉 The drop.
       }
     }
+    // 🎤 Scrub focus: the pane being performed rises toward full level and
+    // its siblings duck — so an interaction is always unmistakably audible
+    // over the band, like a DJ soloing the channel they're working.
+    jamScrubbing =
+      isScrubbing ||
+      wheelActive ||
+      brakeResume ||
+      chopActive > 0 ||
+      (sustained && Math.abs(scrubSpeed - 1) > 0.06);
+    const peerScrubbing = [...jamPeers.values()].some((p) => p.scrub);
+
     // Auto-mix: fader × 1/√(windows) — more panes, softer each, no clipping.
     const autoGain = 1 / Math.sqrt(1 + jamPeers.size);
-    const target = jamArmed ? 0 : mixVolume * autoGain;
+    let focus = 1;
+    if (jamScrubbing) focus = Math.min(1 / autoGain, 1.7); // Solo boost
+    else if (peerScrubbing) focus = 0.35; // Duck under the soloist
+    const target = jamArmed ? 0 : Math.min(1, mixVolume * autoGain * focus);
     if (Math.abs(target - lastSentTapeVolume) > 0.004) {
       lastSentTapeVolume = target;
       send({ type: "tape:volume", content: target });
