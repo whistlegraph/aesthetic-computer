@@ -61,6 +61,8 @@ public:
     m_window = window;
     window->Closed += ref new TypedEventHandler<CoreWindow^, CoreWindowEventArgs^>(
       this, &App::OnClosed);
+    SystemNavigationManager::GetForCurrentView()->BackRequested +=
+      ref new EventHandler<BackRequestedEventArgs^>(this, &App::OnBackRequested);
     CreateGraphics();
     CreateAudio(48000);
     m_graphics = std::make_unique<HostGraphics>();
@@ -115,6 +117,12 @@ private:
   }
 
   void OnClosed(CoreWindow^, CoreWindowEventArgs^) { m_closed = true; }
+
+  void OnBackRequested(Object^, BackRequestedEventArgs^ args) {
+    // Xbox promotes the B button to platform Back. Keep the app alive so the
+    // same physical press remains available to the piece through Gamepad.
+    args->Handled = true;
+  }
 
   void CreateGraphics() {
     UINT flags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
