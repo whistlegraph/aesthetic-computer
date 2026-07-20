@@ -1,5 +1,6 @@
 import AppKit
 import ApplicationServices
+import ACMacAudio
 import CoreGraphics
 
 
@@ -28,6 +29,10 @@ extension Float {
 final class MenuBandController {
     private let midi = MenuBandMIDI()
     private let synth = MenuBandSynth()
+    /// Optional shared room transmitter. It is fed from the synth's existing
+    /// mixer tap alongside the tape recorder, never from a second tap.
+    private var roomAudioSender: ACAudioRoomSender?
+    private let roomAudioTapPinReason = "room-audio"
     /// Physical CoreMIDI keyboard state, keyed by channel+note. Kept apart
     /// from QWERTY state so USB note-offs cannot release a computer-keyboard
     /// voice that happens to share the same pitch.
@@ -473,6 +478,24 @@ final class MenuBandController {
                 synth.setWaveformCaptureEnabled(false)
             }
         }
+    }
+
+    /// Begin broadcasting MenuBand's post-mixer stereo bus through the shared
+    /// Mac room-audio protocol. A future popover control can call this without
+    /// changing the synthesis engine or transport implementation.
+    func startRoomAudioBroadcast(port: UInt16 = ACRoomWire.defaultPort) throws {
+        guard roomAudioSender == nil else { return }
+        let sender = ACAudioRoomSender(configuration: .init(port: port))
+        sender.onLog = { NSLog("MenuBand room audio: \($0)") }
+        try sender.start()
+        roomAudioSender = sender
+        synth.addWaveformTapPin(roomAudioTapPinReason)
+    }
+
+    func stopRoomAudioBroadcast() {
+        roomAudioSender?.stop()
+        roomAudioSender = nil
+        synth.removeWaveformTapPin(roomAudioTapPinReason)
     }
 
     // Held preview note for sonic-browse hover over the instrument map.
@@ -1509,6 +1532,7 @@ final class MenuBandController {
         synth.attachTape(tape)
         synth.onWaveformBuffer = { [weak self] buffer in
             self?.tape.ingestSynth(buffer)
+            self?.roomAudioSender?.send(buffer)
         }
         synth.onMicInputBuffer = { [weak self] buffer in
             self?.tape.ingestMic(buffer)

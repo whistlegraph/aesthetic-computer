@@ -35,6 +35,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     var menuBar: MenuBarCD?
     var watchTimer: Timer?
     var activityTimer: Timer?
+    var activityPollInFlight = false
     var watchMtimes: [String: Date] = [:]
     var keyMonitor: Any?
 
@@ -95,12 +96,30 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     var activityLabel: NSTextField!
     var linkButtons: [NSButton] = []
     var wave: WaveformView!
+    var spotifyProgress: SpotifyProgressView!
+    var spotifySearchField: NSSearchField!
+    var sourceTabs: NSSegmentedControl!
+    var appearanceTabs: NSSegmentedControl!
     var playButton: NSButton!
     var ledLabel: NSTextField!
     var notesToggle: NSButton!
+    var roomButton: NSButton!
+    var roomPopover: NSPopover?
+    var roomMixer: RoomMixerView?
+    var miniPopover: NSPopover?
+    var miniPlayer: JukeMiniPlayerView?
+    let roomAudio = JukeRoomAudio()
+    let spotify = JukeSpotify()
+    var spotifyMode = false
+    var spotifyResults: [SpotifyTrackResult] = []
+    var selectedSpotifyRow = -1
+    var spotifyState: SpotifyPlaybackState?
+    var spotifyArtworkURL: URL?
+    var spotifyArt: NSImage?
     var drawerPanel: NSView!
     var drawerOpen = false
     var currentArt: NSImage?
+    var quickVolume: Float = 0.8
     var commentNowButton: NSButton!
     var starButtons: [NSButton] = []
     var notesView: NSTextView!
@@ -111,7 +130,13 @@ final class JukeController: NSWindowController, NSWindowDelegate,
 
     let sidebarW: CGFloat = 290
 
-    init(library: Library, watch: [String], select selectArg: String? = nil) {
+    enum AppearanceMode: Int {
+        case automatic, light, dark
+    }
+    var appearanceMode: AppearanceMode = .automatic
+
+    init(library: Library, watch: [String], select selectArg: String? = nil,
+         spotifySearch: String? = nil) {
         self.library = library
         self.watchDirs = watch
         self.selectPath = selectArg
@@ -135,10 +160,34 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         super.init(window: window)
         window.delegate = self
         setupUI()
+        appearanceMode = AppearanceMode(rawValue: UserDefaults.standard.integer(forKey: "appearanceMode")) ?? .automatic
+        appearanceTabs.selectedSegment = appearanceMode.rawValue
+        applyAppearance()
+        DistributedNotificationCenter.default().addObserver(
+            forName: NSNotification.Name("AppleInterfaceThemeChangedNotification"),
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            guard self?.appearanceMode == .automatic else { return }
+            self?.applyAppearance()
+        }
+        if UserDefaults.standard.object(forKey: "playerVolume") != nil {
+            quickVolume = UserDefaults.standard.float(forKey: "playerVolume")
+        }
+        wave.volume = quickVolume
         relayout()
         // the spinning-CD menu-bar presence (persists when the window is closed)
         menuBar = MenuBarCD()
-        menuBar?.onClick = { [weak self] in self?.toggleWindowFromMenuBar() }
+        menuBar?.onClick = { [weak self] in self?.showMiniPlayer() }
+        menuBar?.onDoubleClick = { [weak self] in self?.quickOpenFull() }
+        roomAudio.onState = { [weak self] state in
+            DispatchQueue.main.async { self?.renderRoomState(state) }
+        }
+        spotify.onState = { [weak self] state in self?.renderSpotifyState(state) }
+        spotify.onStatus = { [weak self] message, failed in
+            guard let self, self.spotifyMode else { return }
+            self.activityLabel.stringValue = message
+            self.activityLabel.textColor = failed ? .systemRed : Palette.teal
+        }
         // open on the requested track (and play it) if given; else the top.
         if let sp = selectPath {
             let want = URL(fileURLWithPath: (sp as NSString).expandingTildeInPath).standardizedFileURL.path
@@ -146,6 +195,16 @@ final class JukeController: NSWindowController, NSWindowDelegate,
                 select(idx, autoplay: true)
             } else if !library.tracks.isEmpty { select(0, autoplay: false) }
         } else if !library.tracks.isEmpty { select(0, autoplay: false) }
+        activateSpotifyMode()
+        spotify.start()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+            guard let self, case .idle = self.roomAudio.state else { return }
+            self.roomAudio.apply(self.savedRoomLayout(), pan: self.savedRoomPan())
+        }
+        if let query = spotifySearch?.trimmingCharacters(in: .whitespacesAndNewlines), !query.isEmpty {
+            spotifySearchField.stringValue = query
+            searchSpotify(query, autoplayFirst: true)
+        }
         armWatch()
         armActivityStatus()
         installKeyMonitor()
@@ -171,19 +230,23 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     private func handleKey(_ e: NSEvent) -> Bool {
         switch e.keyCode {
         case 49: togglePlay(); return true                                  // space
-        case 123: wave.seek(to: wave.currentTime - 5); return true          // ←  back 5s
-        case 124: wave.seek(to: wave.currentTime + 5); return true          // →  fwd 5s
+        case 123:
+            if spotifyMode { spotify.seek(offsetMS: -5000) } else { wave.seek(to: wave.currentTime - 5) }
+            return true                                                     // ←  back 5s
+        case 124:
+            if spotifyMode { spotify.seek(offsetMS: 5000) } else { wave.seek(to: wave.currentTime + 5) }
+            return true                                                     // →  fwd 5s
         case 126: prevTrack(); return true                                  // ↑  prev track
         case 125: nextTrack(); return true                                  // ↓  next track
         case 18, 19, 20, 21, 23:                                            // 1–5 stars
             let map: [UInt16: Int] = [18: 1, 19: 2, 20: 3, 21: 4, 23: 5]
-            if let n = map[e.keyCode], let t = track {
+            if !spotifyMode, let n = map[e.keyCode], let t = track {
                 t.data.stars = n; renderStars(n); t.save()
                 listTable.reloadData(forRowIndexes: IndexSet(integer: current), columnIndexes: IndexSet(integer: 0))
             }
             return true
-        case 8: addCommentNow(); return true                               // c  comment @ now
-        case 29: clearStarsClicked(); return true                          // 0  clear stars
+        case 8: if !spotifyMode { addCommentNow() }; return true            // c  comment @ now
+        case 29: if !spotifyMode { clearStarsClicked() }; return true       // 0  clear stars
         default: return false
         }
     }
@@ -201,7 +264,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         titleLabel = label("", size: 19, bold: true)
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.textColor = Palette.gold
-        artistLabel = label("", size: 13, color: NSColor(white: 0.85, alpha: 1))
+        artistLabel = label("", size: 13, color: .secondaryLabelColor)
         laneLabel = label("", size: 11, color: .secondaryLabelColor)
         laneLabel.lineBreakMode = .byTruncatingTail
         content.addSubview(titleLabel); content.addSubview(artistLabel); content.addSubview(laneLabel)
@@ -222,6 +285,14 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         wave = WaveformView(frame: .zero)
         wave.delegate = self
         content.addSubview(wave)
+
+        spotifyProgress = SpotifyProgressView(frame: .zero)
+        spotifyProgress.isHidden = true
+        spotifyProgress.onSeek = { [weak self] target in
+            guard let self, let state = self.spotifyState else { return }
+            self.spotify.seek(offsetMS: Int((target - state.position) * 1000))
+        }
+        content.addSubview(spotifyProgress)
 
         playButton = NSButton(title: "▶", target: self, action: #selector(togglePlay))
         playButton.bezelStyle = .rounded
@@ -245,6 +316,16 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         notesToggle.setButtonType(.pushOnPushOff)
         content.addSubview(notesToggle)
 
+        roomButton = NSButton(title: "▰ Neo L · ▰ Blueberry R", target: self, action: #selector(showRoomMixer))
+        roomButton.bezelStyle = .rounded
+        roomButton.setButtonType(.momentaryPushIn)
+        roomButton.toolTip = "Choose the MacBooks, channels, and pan for room playback"
+        if #unavailable(macOS 14.2) {
+            roomButton.isEnabled = false
+            roomButton.toolTip = "Room audio requires macOS 14.2 or newer"
+        }
+        content.addSubview(roomButton)
+
         // ── the track list (underneath) ───────────────────────────────────────
         sortPopup = NSPopUpButton(frame: .zero, pullsDown: false)
         sortPopup.addItems(withTitles: SortMode.allCases.map { "sort: \($0.label)" })
@@ -255,6 +336,29 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         sortPopup.controlSize = .small
         sortPopup.font = NSFont.systemFont(ofSize: 11)
         content.addSubview(sortPopup)
+
+        sourceTabs = NSSegmentedControl(labels: ["Spotify", "Aesthetic"],
+                                        trackingMode: .selectOne, target: self,
+                                        action: #selector(sourceTabChanged))
+        sourceTabs.selectedSegment = 0
+        sourceTabs.controlSize = .small
+        content.addSubview(sourceTabs)
+
+        appearanceTabs = NSSegmentedControl(labels: ["Auto", "Light", "Dark"],
+                                             trackingMode: .selectOne, target: self,
+                                             action: #selector(appearanceChanged))
+        appearanceTabs.selectedSegment = 0
+        appearanceTabs.controlSize = .small
+        appearanceTabs.toolTip = "Follow macOS, or pin JukeWizard to light or dark"
+        content.addSubview(appearanceTabs)
+
+        spotifySearchField = NSSearchField(frame: .zero)
+        spotifySearchField.placeholderString = "Search Spotify"
+        spotifySearchField.sendsSearchStringImmediately = false
+        spotifySearchField.sendsWholeSearchString = true
+        spotifySearchField.target = self
+        spotifySearchField.action = #selector(searchSpotifyFromField)
+        content.addSubview(spotifySearchField)
 
         listTable = NSTableView()
         let col = NSTableColumn(identifier: .init("track"))
@@ -356,10 +460,27 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     }
 
     private func applyThemeBackground() {
-        // Winamp chassis is always a dark deck, regardless of system theme.
-        let chassis = NSColor(srgbRed: 0.07, green: 0.08, blue: 0.10, alpha: 1)
+        let dark = window?.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        let chassis = Palette.bg(dark)
         window?.backgroundColor = chassis
         window?.contentView?.layer?.backgroundColor = chassis.cgColor
+        window?.contentView?.needsDisplay = true
+        listTable?.reloadData()
+    }
+
+    private func applyAppearance() {
+        switch appearanceMode {
+        case .automatic: window?.appearance = nil
+        case .light: window?.appearance = NSAppearance(named: .aqua)
+        case .dark: window?.appearance = NSAppearance(named: .darkAqua)
+        }
+        applyThemeBackground()
+    }
+
+    @objc private func appearanceChanged() {
+        appearanceMode = AppearanceMode(rawValue: appearanceTabs.selectedSegment) ?? .automatic
+        UserDefaults.standard.set(appearanceMode.rawValue, forKey: "appearanceMode")
+        applyAppearance()
     }
 
     var transportExtra: [NSButton] = []
@@ -382,15 +503,19 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         guard let content = window?.contentView else { return }
         let W = content.bounds.width, H = content.bounds.height
         let pad: CGFloat = 8
+        let topBarH: CGFloat = 34
+        let contentTop = H - topBarH
+        sourceTabs.frame = NSRect(x: pad, y: H - 27, width: 170, height: 22)
+        appearanceTabs.frame = NSRect(x: W - pad - 172, y: H - 27, width: 172, height: 22)
         // ── header (now-playing) across the top ───────────────────────────────
-        let headerH = max(178, min(245, H * 0.39))
-        let headerBottom = H - headerH
+        let headerH = max(178, min(245, (H - topBarH) * 0.39))
+        let headerBottom = contentTop - headerH
         let mediaSide = min(headerH - pad * 2, W * 0.34)
         nowPlaying.frame = NSRect(x: pad, y: headerBottom + pad, width: mediaSide, height: headerH - pad * 2)
         let rx = pad + mediaSide + 10
         let rw = max(120, W - rx - pad)
 
-        var y = H - pad - 25
+        var y = contentTop - pad - 25
         titleLabel.frame = NSRect(x: rx, y: y, width: rw, height: 25)
         y -= 19
         artistLabel.frame = NSRect(x: rx, y: y, width: rw, height: 17)
@@ -413,16 +538,22 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         playButton.frame        = NSRect(x: rx + 37, y: transY, width: 44, height: 25)
         transportExtra[1].frame = NSRect(x: rx + 84, y: transY, width: 34, height: 25)
         notesToggle.frame       = NSRect(x: rx + 124, y: transY, width: 75, height: 25)
+        let roomWidth = max(70, min(210, rw - 203 - 145))
+        roomButton.frame        = NSRect(x: rx + 203, y: transY, width: roomWidth, height: 25)
         ledLabel.frame          = NSRect(x: rx + rw - 135, y: transY + 3, width: 135, height: 20)
 
         // waveform fills the space between the links row and the transport
         let waveTop = linksBottom - 6
         let waveBottom = transY + 31
         wave.frame = NSRect(x: rx, y: waveBottom, width: rw, height: max(32, waveTop - waveBottom))
+        spotifyProgress.frame = wave.frame
 
         // ── track list underneath ─────────────────────────────────────────────
         let sortY = headerBottom - 2 - 20
-        sortPopup.frame = NSRect(x: pad, y: sortY, width: 205, height: 20)
+        sortPopup.frame = NSRect(x: pad, y: sortY, width: 180, height: 20)
+        let searchX = spotifyMode ? pad : pad + 184
+        spotifySearchField.frame = NSRect(x: searchX, y: sortY,
+                                           width: max(120, W - searchX - pad), height: 20)
         listScroll.frame = NSRect(x: pad, y: pad, width: W - pad * 2, height: sortY - pad - 3)
 
         // ── drawer overlays the list when open ────────────────────────────────
@@ -454,17 +585,315 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     // ── menu-bar CD ────────────────────────────────────────────────────────
     // Keep the bar disc's tempo + spin in step with playback.
     private func refreshMenuBar() {
-        menuBar?.setBPM(track?.meta?.bpm.map(Double.init))
-        menuBar?.setPlaying(wave.isPlaying)
+        let bpm = spotifyMode ? nil : track?.meta?.bpm.map(Double.init)
+        let playing = spotifyMode ? (spotifyState?.isPlaying ?? false) : wave.isPlaying
+        let title = spotifyMode ? (spotifyState?.title ?? "Spotify") : (track?.title ?? "JukeWizard")
+        menuBar?.setBPM(bpm)
+        menuBar?.setNowPlaying(title: title, art: currentArt)
+        menuBar?.setPlaying(playing)
+        DockIcon.setNowPlaying(art: currentArt, playing: playing, bpm: bpm)
+        miniPlayer?.refresh()
     }
-    @objc private func toggleWindowFromMenuBar() {
-        guard let w = window else { return }
-        if w.isVisible && w.isKeyWindow {
-            w.orderOut(nil)
-        } else {
-            w.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
+
+    @objc private func showRoomMixer() {
+        let mixer = RoomMixerView(frame: NSRect(x: 0, y: 0, width: 420, height: 220))
+        mixer.onLayout = { [weak self, weak mixer] layout in
+            guard let self else { return }
+            UserDefaults.standard.set(layout.rawValue, forKey: "roomLayout")
+            self.roomAudio.apply(layout, pan: self.roomAudio.pan)
+            mixer?.show(self.roomAudio.state, layout: self.roomAudio.layout, pan: self.roomAudio.pan)
         }
+        mixer.onPan = { [weak self, weak mixer] pan in
+            guard let self else { return }
+            UserDefaults.standard.set(JukeRoomAudio.Layout.panMono.rawValue, forKey: "roomLayout")
+            UserDefaults.standard.set(pan, forKey: "roomPan")
+            self.roomAudio.apply(.panMono, pan: pan)
+            mixer?.show(self.roomAudio.state, layout: self.roomAudio.layout, pan: self.roomAudio.pan)
+        }
+        mixer.show(roomAudio.state, layout: roomAudio.layout, pan: roomAudio.pan)
+        let controller = NSViewController()
+        controller.view = mixer
+        let popover = NSPopover()
+        popover.behavior = .transient
+        popover.contentSize = NSSize(width: 420, height: 220)
+        popover.contentViewController = controller
+        popover.show(relativeTo: roomButton.bounds, of: roomButton, preferredEdge: .minY)
+        roomMixer = mixer
+        roomPopover = popover
+    }
+
+    private func savedRoomLayout() -> JukeRoomAudio.Layout {
+        guard UserDefaults.standard.object(forKey: "roomLayout") != nil else { return .splitLR }
+        return JukeRoomAudio.Layout(rawValue: UserDefaults.standard.integer(forKey: "roomLayout")) ?? .splitLR
+    }
+
+    private func savedRoomPan() -> Float {
+        guard UserDefaults.standard.object(forKey: "roomPan") != nil else { return 0 }
+        return UserDefaults.standard.float(forKey: "roomPan")
+    }
+
+    private func renderRoomState(_ state: JukeRoomAudio.State) {
+        switch state {
+        case .idle:
+            roomButton.state = .off
+            roomButton.title = "▰ Neo · ▰ Blueberry"
+            roomButton.contentTintColor = Palette.teal
+        case .live(let snapshot):
+            roomButton.state = .on
+            switch snapshot.layout {
+            case .neoStereo: roomButton.title = "▰ Neo · stereo"
+            case .blueberryStereo: roomButton.title = "▰ Blueberry · stereo"
+            case .mirrorStereo: roomButton.title = "▰ Neo + ▰ Blueberry"
+            case .splitLR: roomButton.title = "▰ Neo L · ▰ Blueberry R"
+            case .splitRL: roomButton.title = "▰ Neo R · ▰ Blueberry L"
+            case .panMono: roomButton.title = "▰ Neo ↔ ▰ Blueberry"
+            }
+            roomButton.toolTip = "\(snapshot.source.rawValue): Neo \(snapshot.neo), Blueberry \(snapshot.blueberry)"
+            roomButton.contentTintColor = Palette.coral
+        case .failed(let message):
+            roomButton.state = .off
+            roomButton.title = "⚠ room"
+            roomButton.toolTip = message
+            roomButton.contentTintColor = .systemRed
+        }
+        roomMixer?.show(state, layout: roomAudio.layout, pan: roomAudio.pan)
+        miniPlayer?.refresh()
+    }
+
+    // ── headless Spotify source ───────────────────────────────────────────
+    private func activateSpotifyMode() {
+        if wave?.isPlaying == true { wave.pause() }
+        if drawerOpen {
+            drawerOpen = false
+            drawerPanel?.isHidden = true
+            notesToggle?.state = .off
+        }
+        spotifyMode = true
+        roomAudio.useSource(.spotify)
+        window?.title = "JukeWizard · Spotify"
+        wave?.isHidden = true
+        spotifyProgress?.isHidden = false
+        sortPopup?.isHidden = true
+        spotifySearchField?.isHidden = false
+        notesToggle?.isEnabled = false
+        sourceTabs?.selectedSegment = 0
+        currentArt = spotifyArt
+        activityLabel?.stringValue = "● juked headless · connecting"
+        activityLabel?.textColor = Palette.teal
+        listTable?.reloadData()
+        relayout()
+        if let state = spotifyState { renderSpotifyState(state) }
+        else { refreshMenuBar() }
+    }
+
+    private func activateLibraryMode() {
+        if spotifyMode, spotifyState?.isPlaying == true { spotify.pause() }
+        spotifyMode = false
+        roomAudio.useSource(.aesthetic)
+        window?.title = "JukeWizard — \(library.tracks.count) tracks"
+        wave.isHidden = false
+        spotifyProgress.isHidden = true
+        sortPopup.isHidden = false
+        spotifySearchField.isHidden = true
+        notesToggle.isEnabled = true
+        sourceTabs.selectedSegment = 1
+        listTable.reloadData()
+        if let t = track {
+            titleLabel.stringValue = t.title
+            artistLabel.stringValue = t.meta?.artist ?? "Aesthetic Dot Computer"
+            laneLabel.stringValue = Self.metaLine(t)
+            updateNowPlaying(t); loadLinks(t); updateTime()
+        }
+        playButton.title = wave.isPlaying ? "❚❚" : "▶"
+        nowPlaying.setPaused(!wave.isPlaying)
+        relayout()
+        refreshMenuBar()
+        pollActivityStatus()
+    }
+
+    @objc private func sourceTabChanged() {
+        sourceTabs.selectedSegment == 0 ? activateSpotifyMode() : activateLibraryMode()
+    }
+
+    @objc private func searchSpotifyFromField() {
+        searchSpotify(spotifySearchField.stringValue)
+    }
+
+    private func searchSpotify(_ rawQuery: String, autoplayFirst: Bool = false) {
+        let query = rawQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return }
+        activateSpotifyMode()
+        activityLabel.stringValue = "● searching Spotify for “\(query)”"
+        spotify.search(query) { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .success(let tracks):
+                self.spotifyResults = tracks
+                self.selectedSpotifyRow = tracks.isEmpty ? -1 : 0
+                self.activityLabel.stringValue = tracks.isEmpty
+                    ? "● no Spotify tracks for “\(query)”"
+                    : "● \(tracks.count) Spotify tracks · click one to play"
+                self.activityLabel.textColor = tracks.isEmpty ? Palette.inkDim : Palette.teal
+                self.listTable.reloadData()
+                if !tracks.isEmpty { self.listTable.scrollRowToVisible(0) }
+                if autoplayFirst, !tracks.isEmpty { self.playSpotifyResult(at: 0) }
+            case .failure(let error):
+                self.activityLabel.stringValue = "⚠ \(error.localizedDescription)"
+                self.activityLabel.textColor = .systemRed
+            }
+        }
+    }
+
+    private func playSpotifyResult(at row: Int) {
+        guard row >= 0, row < spotifyResults.count else { return }
+        let old = selectedSpotifyRow
+        selectedSpotifyRow = row
+        let result = spotifyResults[row]
+        titleLabel.stringValue = result.title
+        titleLabel.textColor = NSColor(srgbRed: 0.11, green: 0.73, blue: 0.33, alpha: 1)
+        artistLabel.stringValue = result.artists
+        laneLabel.stringValue = [result.album, "Spotify · juked"].filter { !$0.isEmpty }.joined(separator: " · ")
+        spotifyProgress.duration = result.duration
+        spotifyProgress.position = 0
+        playButton.title = "❚❚"
+        spotify.play(result)
+        var rows = IndexSet(integer: row)
+        if old >= 0, old < spotifyResults.count { rows.insert(old) }
+        listTable.reloadData(forRowIndexes: rows, columnIndexes: IndexSet(integer: 0))
+    }
+
+    private func renderSpotifyState(_ state: SpotifyPlaybackState?) {
+        spotifyState = state
+        guard spotifyMode, let state else { return }
+        titleLabel.stringValue = state.title
+        titleLabel.textColor = NSColor(srgbRed: 0.11, green: 0.73, blue: 0.33, alpha: 1)
+        artistLabel.stringValue = state.artists
+        laneLabel.stringValue = [state.album, "Spotify · headless juked"].filter { !$0.isEmpty }.joined(separator: " · ")
+        laneLabel.textColor = NSColor(white: 0.68, alpha: 1)
+        spotifyProgress.duration = state.duration
+        spotifyProgress.position = state.position
+        playButton.title = state.isPlaying ? "❚❚" : "▶"
+        nowPlaying.setPaused(!state.isPlaying)
+        ledLabel.stringValue = "\(Self.mmss(state.position)) / \(Self.mmss(state.duration))"
+        if let spotifyArt {
+            currentArt = spotifyArt
+            nowPlaying.present(art: spotifyArt, videoURL: nil)
+        }
+        if state.artworkURL != spotifyArtworkURL {
+            spotifyArtworkURL = state.artworkURL
+            spotifyArt = nil
+            currentArt = nil
+            guard let url = state.artworkURL else { nowPlaying.present(art: nil, videoURL: nil); return }
+            URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
+                guard let data, let art = NSImage(data: data) else { return }
+                DispatchQueue.main.async {
+                    guard self?.spotifyArtworkURL == url else { return }
+                    self?.spotifyArt = art
+                    self?.currentArt = art
+                    self?.nowPlaying.present(art: art, videoURL: nil)
+                    self?.nowPlaying.setPaused(!state.isPlaying)
+                    self?.refreshMenuBar()
+                }
+            }.resume()
+        }
+        refreshMenuBar()
+    }
+    var quickTitle: String {
+        spotifyMode ? (spotifyState?.title ?? "Spotify") : (track?.title ?? "Aesthetic")
+    }
+    var quickSubtitle: String {
+        if spotifyMode { return [spotifyState?.artists ?? "", "Spotify"].filter { !$0.isEmpty }.joined(separator: " · ") }
+        return [track?.meta?.artist ?? "Aesthetic Dot Computer", "Aesthetic"].joined(separator: " · ")
+    }
+    var quickIsPlaying: Bool {
+        spotifyMode ? (spotifyState?.isPlaying ?? false) : wave.isPlaying
+    }
+    var quickRoomSummary: String {
+        switch roomAudio.state {
+        case .idle: return "room · off"
+        case .failed(let message): return "room · ⚠ \(message)"
+        case .live(let snapshot): return "\(snapshot.neo == "off" ? "" : "Neo \(snapshot.neo)")\(snapshot.neo != "off" && snapshot.blueberry != "off" ? "  ·  " : "")\(snapshot.blueberry == "off" ? "" : "Blueberry \(snapshot.blueberry)")"
+        }
+    }
+
+    private func showMiniPlayer() {
+        if miniPopover?.isShown == true {
+            miniPopover?.close()
+            return
+        }
+        let player = JukeMiniPlayerView(controller: self)
+        let viewController = NSViewController()
+        viewController.view = player
+        let popover = NSPopover()
+        popover.behavior = .transient
+        popover.contentSize = NSSize(width: 370, height: 170)
+        popover.contentViewController = viewController
+        miniPlayer = player
+        miniPopover = popover
+        menuBar?.show(popover)
+    }
+
+    @objc func quickOpenFull() {
+        miniPopover?.close()
+        guard let w = window else { return }
+        if w.isMiniaturized { w.deminiaturize(nil) }
+        w.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @objc func quickTogglePlay() { togglePlay(); miniPlayer?.refresh() }
+    @objc func quickPrevious() { prevTrack(); miniPlayer?.refresh() }
+    @objc func quickNext() { nextTrack(); miniPlayer?.refresh() }
+    @objc func quickVolumeChanged(_ sender: NSSlider) {
+        quickVolume = max(0, min(1, sender.floatValue))
+        wave.volume = quickVolume
+        spotify.volume(percent: Int((quickVolume * 100).rounded()))
+        UserDefaults.standard.set(quickVolume, forKey: "playerVolume")
+        miniPlayer?.refresh()
+    }
+
+    @objc func quickVolumeUp() { setQuickVolume(quickVolume + 0.1) }
+    @objc func quickVolumeDown() { setQuickVolume(quickVolume - 0.1) }
+
+    private func setQuickVolume(_ value: Float) {
+        quickVolume = max(0, min(1, value))
+        wave.volume = quickVolume
+        spotify.volume(percent: Int((quickVolume * 100).rounded()))
+        UserDefaults.standard.set(quickVolume, forKey: "playerVolume")
+        miniPlayer?.refresh()
+    }
+
+    func makeDockMenu() -> NSMenu {
+        let menu = NSMenu(title: "JukeWizard")
+        let heading = NSMenuItem(title: "\(quickTitle) — \(quickSubtitle)", action: nil, keyEquivalent: "")
+        heading.isEnabled = false
+        menu.addItem(heading)
+        menu.addItem(.separator())
+        for (title, action) in [("Previous", #selector(quickPrevious)),
+                                (quickIsPlaying ? "Pause" : "Play", #selector(quickTogglePlay)),
+                                ("Next", #selector(quickNext))] {
+            let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+            item.target = self
+            menu.addItem(item)
+        }
+        let volume = NSMenuItem(title: "Volume \(Int((quickVolume * 100).rounded()))%",
+                                action: nil, keyEquivalent: "")
+        volume.isEnabled = false
+        menu.addItem(volume)
+        let volumeUp = NSMenuItem(title: "Volume Up", action: #selector(quickVolumeUp), keyEquivalent: "")
+        volumeUp.target = self
+        menu.addItem(volumeUp)
+        let volumeDown = NSMenuItem(title: "Volume Down", action: #selector(quickVolumeDown), keyEquivalent: "")
+        volumeDown.target = self
+        menu.addItem(volumeDown)
+        menu.addItem(.separator())
+        let room = NSMenuItem(title: quickRoomSummary, action: nil, keyEquivalent: "")
+        room.isEnabled = false
+        menu.addItem(room)
+        let open = NSMenuItem(title: "Open JukeWizard", action: #selector(quickOpenFull), keyEquivalent: "")
+        open.target = self
+        menu.addItem(open)
+        return menu
     }
 
     // ── selection / playback ──────────────────────────────────────────────
@@ -472,6 +901,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
 
     func select(_ i: Int, autoplay: Bool) {
         guard i >= 0, i < library.tracks.count else { return }
+        if spotifyMode { spotify.pause(); activateLibraryMode() }
         commitNotes()
         let old = current
         current = i
@@ -555,16 +985,30 @@ final class JukeController: NSWindowController, NSWindowDelegate,
 
     @objc private func listClicked() {
         let r = listTable.clickedRow
-        if r >= 0 { select(r, autoplay: true) }
+        if spotifyMode { playSpotifyResult(at: r) }
+        else if r >= 0 { select(r, autoplay: true) }
     }
     @objc private func togglePlay() {
-        wave.togglePlay()
-        playButton.title = wave.isPlaying ? "❚❚" : "▶"
-        nowPlaying.setPaused(!wave.isPlaying)
+        if spotifyMode {
+            spotify.toggle()
+            let playing = !(spotifyState?.isPlaying ?? false)
+            playButton.title = playing ? "❚❚" : "▶"
+            nowPlaying.setPaused(!playing)
+        } else {
+            wave.togglePlay()
+            playButton.title = wave.isPlaying ? "❚❚" : "▶"
+            nowPlaying.setPaused(!wave.isPlaying)
+        }
         refreshMenuBar()
     }
-    @objc private func prevTrack() { if current > 0 { select(current - 1, autoplay: true) } }
-    @objc private func nextTrack() { if current < library.tracks.count - 1 { select(current + 1, autoplay: true) } }
+    @objc private func prevTrack() {
+        if spotifyMode { spotify.previous() }
+        else if current > 0 { select(current - 1, autoplay: true) }
+    }
+    @objc private func nextTrack() {
+        if spotifyMode { spotify.next() }
+        else if current < library.tracks.count - 1 { select(current + 1, autoplay: true) }
+    }
 
     // ── rating ─────────────────────────────────────────────────────────────
     private func renderStars(_ n: Int) {
@@ -643,7 +1087,11 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     func waveformDidFinish() { playButton.title = "▶"; nextTrack(); refreshMenuBar() }
     func waveformTick() { updateTime() }
     private func updateTime() {
-        ledLabel.stringValue = "\(JukeController.mmss(wave.currentTime)) / \(JukeController.mmss(wave.duration))"
+        if let state = spotifyMode ? spotifyState : nil {
+            ledLabel.stringValue = "\(Self.mmss(state.position)) / \(Self.mmss(state.duration))"
+        } else {
+            ledLabel.stringValue = "\(Self.mmss(wave.currentTime)) / \(Self.mmss(wave.duration))"
+        }
     }
 
     // ── live work awareness ────────────────────────────────────────────────
@@ -656,7 +1104,21 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         }
     }
     private func pollActivityStatus() {
-        let activities = WorkStatus.snapshot(tracks: library.tracks)
+        guard !spotifyMode, !activityPollInFlight else { return }
+        activityPollInFlight = true
+        let tracks = library.tracks
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let activities = WorkStatus.snapshot(tracks: tracks)
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.activityPollInFlight = false
+                guard !self.spotifyMode else { return }
+                self.renderActivityStatus(activities)
+            }
+        }
+    }
+
+    private func renderActivityStatus(_ activities: [WorkActivity]) {
         for t in library.tracks {
             let matches = activities.filter { a in
                 (a.track != nil && a.track == t.title) || (a.track == nil && a.lane == t.lane)
@@ -682,11 +1144,18 @@ final class JukeController: NSWindowController, NSWindowDelegate,
 
     // ── tables ───────────────────────────────────────────────────────────────
     func numberOfRows(in tableView: NSTableView) -> Int {
-        if tableView == listTable { return library.tracks.count }
+        if tableView == listTable { return spotifyMode ? spotifyResults.count : library.tracks.count }
         return track?.data.comments.count ?? 0
     }
     // list = dressed-up view rows; comments = plain cell strings.
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+        if tableView == listTable, spotifyMode, row < spotifyResults.count {
+            let cell = (listTable.makeView(withIdentifier: SpotifyTrackRowView.id, owner: self) as? SpotifyTrackRowView)
+                ?? { let view = SpotifyTrackRowView(); view.identifier = SpotifyTrackRowView.id; return view }()
+            cell.configure(spotifyResults[row])
+            cell.selected = row == selectedSpotifyRow
+            return cell
+        }
         guard tableView == listTable, row < library.tracks.count else { return nil }
         let cell = (listTable.makeView(withIdentifier: TrackRowView.id, owner: self) as? TrackRowView)
             ?? { let v = TrackRowView(); v.identifier = TrackRowView.id; return v }()
@@ -703,7 +1172,8 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     // file-URL pasteboard type lets each destination decide whether to copy or
     // attach it; JukeWizard never moves or mutates the source track.
     func tableView(_ tableView: NSTableView, pasteboardWriterForRow row: Int) -> NSPasteboardWriting? {
-        guard tableView == listTable, row >= 0, row < library.tracks.count else { return nil }
+        guard tableView == listTable, !spotifyMode,
+              row >= 0, row < library.tracks.count else { return nil }
         return library.tracks[row].url as NSURL
     }
 
@@ -827,7 +1297,13 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     }
     @objc private func linkClicked(_ sender: NSButton) {
         guard let t = track, let svc = LinkService(rawValue: sender.tag),
-              let s = svc.url(t.meta?.links), let u = URL(string: s) else { return }
+              let s = svc.url(t.meta?.links) else { return }
+        if svc == .spotify, let id = JukeSpotify.trackID(from: s) {
+            activateSpotifyMode()
+            spotify.play(trackID: id)
+            return
+        }
+        guard let u = URL(string: s) else { return }
         NSWorkspace.shared.open(u)
     }
 }

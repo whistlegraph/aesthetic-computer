@@ -60,8 +60,11 @@ enum WorkStatus {
         p.standardOutput = pipe
         p.standardError = FileHandle.nullDevice
         guard (try? p.run()) != nil else { return [] }
+        // Drain before waiting. A large command list can fill the pipe while
+        // waitUntilExit spins the main run loop, recursively firing this poll.
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
         p.waitUntilExit()
-        guard let text = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) else { return [] }
+        guard let text = String(data: data, encoding: .utf8) else { return [] }
         let markers = ["render-", "render-c.mjs", "bake.mjs", "ffmpeg", "swift build", "gen-score"]
         return text.split(separator: "\n").compactMap { raw in
             let command = String(raw)

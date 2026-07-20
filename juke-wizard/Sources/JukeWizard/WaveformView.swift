@@ -19,11 +19,19 @@ final class WaveformView: NSView, AVAudioPlayerDelegate {
     private var peaks: [Float] = []
     private var peaksToken = 0
     private var timer: Timer?
+    private var preferredVolume: Float = 0.8
 
     var comments: [Comment] = [] { didSet { needsDisplay = true } }
     var duration: Double { player?.duration ?? 0 }
     var currentTime: Double { player?.currentTime ?? 0 }
     var isPlaying: Bool { player?.isPlaying ?? false }
+    var volume: Float {
+        get { player?.volume ?? preferredVolume }
+        set {
+            preferredVolume = max(0, min(1, newValue))
+            player?.volume = preferredVolume
+        }
+    }
 
     override var isFlipped: Bool { true }
 
@@ -41,6 +49,7 @@ final class WaveformView: NSView, AVAudioPlayerDelegate {
         stop()
         peaks = []
         player = try? AVAudioPlayer(contentsOf: url)
+        player?.volume = preferredVolume
         player?.delegate = self
         player?.prepareToPlay()
         needsDisplay = true

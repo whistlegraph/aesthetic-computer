@@ -7,25 +7,33 @@ import AppKit
 
 final class MenuBarCD {
     private let statusItem: NSStatusItem
-    private let baseImage: NSImage
+    private let fallbackImage: NSImage
+    private var baseImage: NSImage
     private var timer: Timer?
     private var angle: CGFloat = 0            // degrees, clockwise
     private var bpm: Double = 120
     private var playing = false
-    private let side: CGFloat = 18
-    private let beatsPerRev: Double = 2       // one turn per two beats
+    private let side: CGFloat = 22
+    private let beatsPerRev: Double = 8       // calm turntable pace
+    private var currentTitle = ""
+    private var currentArtwork: NSImage?
+    private var clickGeneration = 0
 
     var onClick: (() -> Void)?
+    var onDoubleClick: (() -> Void)?
 
     init() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        baseImage = MenuBarCD.loadCD(side: side)
+        fallbackImage = MenuBarCD.loadCD(side: side)
+        baseImage = fallbackImage
         if let b = statusItem.button {
             b.image = baseImage
+            b.imagePosition = .imageRight
             b.imageScaling = .scaleProportionallyDown
             b.toolTip = "JukeWizard"
             b.target = self
             b.action = #selector(clicked)
+            b.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
     }
 
@@ -39,7 +47,42 @@ final class MenuBarCD {
         return img
     }
 
-    @objc private func clicked() { onClick?() }
+    @objc private func clicked() {
+        if NSApp.currentEvent?.type == .rightMouseUp {
+            onClick?()
+            return
+        }
+        clickGeneration += 1
+        let generation = clickGeneration
+        if (NSApp.currentEvent?.clickCount ?? 1) >= 2 {
+            onDoubleClick?()
+        } else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { [weak self] in
+                guard let self, self.clickGeneration == generation else { return }
+                self.onClick?()
+            }
+        }
+    }
+
+    func show(_ popover: NSPopover) {
+        guard let button = statusItem.button else { return }
+        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+    }
+
+    func setNowPlaying(title: String, art: NSImage?) {
+        let clipped = title.count > 28 ? String(title.prefix(27)) + "…" : title
+        let changedTrack = !currentTitle.isEmpty &&
+            (clipped != currentTitle || currentArtwork !== art)
+        guard clipped != currentTitle || currentArtwork !== art else { return }
+        currentTitle = clipped
+        currentArtwork = art
+        statusItem.button?.title = clipped.isEmpty ? "" : "\(clipped)  "
+        statusItem.button?.font = .systemFont(ofSize: 12, weight: .medium)
+        baseImage = art.map { CDArtworkRenderer.disc(from: $0, side: side) } ?? fallbackImage
+        statusItem.button?.image = angle == 0 ? baseImage : rotated(baseImage, by: angle)
+        statusItem.button?.toolTip = clipped.isEmpty ? "JukeWizard" : clipped
+        if changedTrack, let button = statusItem.button { MenuBarNoteBurst.emit(from: button) }
+    }
 
     // Feed the current track tempo; clamped to a sane spin range.
     func setBPM(_ b: Double?) {
@@ -50,8 +93,10 @@ final class MenuBarCD {
     // Start/stop the spin on a playback-state change (idempotent).
     func setPlaying(_ p: Bool) {
         guard p != playing else { return }
+        let resumed = p && !playing
         playing = p
         if p { startSpin() } else { stopSpin() }
+        if resumed, let button = statusItem.button { MenuBarNoteBurst.emit(from: button) }
     }
 
     private func startSpin() {
@@ -92,4 +137,5 @@ final class MenuBarCD {
         out.isTemplate = false
         return out
     }
+
 }

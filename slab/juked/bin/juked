@@ -1,0 +1,104 @@
+#!/bin/bash
+# Stable command boundary between AC apps and the replaceable Spotify engine.
+set -euo pipefail
+
+port=24839
+config_dir="${JUKE_CONFIG_DIR:-$HOME/.config/juked}"
+cache_dir="${JUKE_CACHE_DIR:-$HOME/.cache/juked}"
+engine="${JUKE_SPOTIFY_ENGINE:-$HOME/.local/lib/juked/bin/spotify_player}"
+
+if [[ ! -x "$engine" ]]; then
+  echo "juked: playback engine is not installed; run slab/juked/install.sh" >&2
+  exit 69
+fi
+
+base=(--config-folder "$config_dir" --cache-folder "$cache_dir")
+daemon_pid() {
+  /usr/sbin/lsof -nP -iUDP:"$port" -t 2>/dev/null | head -1
+}
+daemon_pids() {
+  local listener
+  listener="$(daemon_pid)"
+  [[ -z "$listener" ]] || echo "$listener"
+  /usr/bin/pgrep -f "^${engine} --config-folder ${config_dir} --cache-folder ${cache_dir} --daemon$" 2>/dev/null \
+    | grep -v "^${listener}$" || true
+}
+start() {
+  [[ -n "$(daemon_pid)" ]] && return 0
+  stale="$(daemon_pids)"
+  if [[ -n "$stale" ]]; then
+    while read -r pid; do [[ -z "$pid" ]] || kill "$pid" 2>/dev/null || true; done <<< "$stale"
+    sleep 0.25
+  fi
+  "$engine" "${base[@]}" --daemon
+  for _ in {1..50}; do
+    [[ -n "$(daemon_pid)" ]] && return 0
+    sleep 0.1
+  done
+  echo "juked: daemon did not open UDP 127.0.0.1:$port" >&2
+  exit 70
+}
+
+command="${1:-help}"
+shift || true
+case "$command" in
+  start) start ;;
+  stop)
+    pids="$(daemon_pids)"
+    while read -r pid; do [[ -z "$pid" ]] || kill "$pid" 2>/dev/null || true; done <<< "$pids"
+    ;;
+  restart) "$0" stop; start ;;
+  pid) daemon_pid ;;
+  authenticate|auth) exec "$engine" "${base[@]}" authenticate ;;
+  search)
+    start
+    query="$*"
+    [[ -n "$query" ]] || { echo "usage: juked search <query>" >&2; exit 64; }
+    search_dir="$cache_dir/search"
+    mkdir -p "$search_dir"
+    chmod 700 "$search_dir"
+    key="$(printf '%s' "$query" | shasum -a 256 | awk '{print $1}')"
+    cached="$search_dir/$key.json"
+    candidate="$(mktemp "$search_dir/.candidate.XXXXXX")"
+    if "$engine" "${base[@]}" search "$query" >"$candidate" 2>/dev/null \
+      && jq -e '.tracks | type == "array"' "$candidate" >/dev/null 2>&1; then
+      chmod 600 "$candidate"
+      mv "$candidate" "$cached"
+      cat "$cached"
+    elif [[ -f "$cached" ]]; then
+      rm -f "$candidate"
+      cat "$cached"
+    else
+      message="$(cat "$candidate")"
+      rm -f "$candidate"
+      echo "juked: Spotify search unavailable${message:+ ($message)}" >&2
+      exit 70
+    fi
+    ;;
+  status|state) start; exec "$engine" "${base[@]}" get key playback ;;
+  play-id)
+    [[ $# -eq 1 ]] || { echo "usage: juked play-id <spotify-track-id>" >&2; exit 64; }
+    start
+    "$engine" "${base[@]}" playback start track --id "$1"
+    # spotify_player/Spotify Connect can stage a freshly selected item in a
+    # paused state; make the Juke contract's `play-id` promise literal.
+    # The Connect device applies the selected item asynchronously and can
+    # overwrite an earlier resume with its staged paused state.
+    sleep 1
+    exec "$engine" "${base[@]}" playback play
+    ;;
+  toggle) start; exec "$engine" "${base[@]}" playback play-pause ;;
+  play|pause|next|previous) start; exec "$engine" "${base[@]}" playback "$command" ;;
+  seek)
+    [[ $# -eq 1 ]] || { echo "usage: juked seek <offset-ms>" >&2; exit 64; }
+    start; exec "$engine" "${base[@]}" playback seek "$1"
+    ;;
+  volume)
+    [[ $# -eq 1 ]] || { echo "usage: juked volume <0-100>" >&2; exit 64; }
+    start; exec "$engine" "${base[@]}" playback volume "$1"
+    ;;
+  help|--help|-h)
+    echo "usage: juked {start|stop|restart|pid|authenticate|search QUERY|status|play-id ID|toggle|play|pause|next|previous|seek MS|volume 0-100}"
+    ;;
+  *) echo "juked: unknown command: $command" >&2; exit 64 ;;
+esac

@@ -1,0 +1,16 @@
+# Juked's pinned spotify_player configuration. This file is intentionally
+# small: spotify_player overlays it on maintained defaults.
+client_port = 24839
+login_redirect_uri = "http://127.0.0.1:24840/login"
+app_refresh_duration_in_ms = 100
+playback_refresh_duration_in_ms = 0
+enable_streaming = "Always"
+
+[device]
+name = "JukeWizard"
+device_type = "computer"
+volume = 80
+bitrate = 320
+audio_cache = true
+normalization = false
+autoplay = true

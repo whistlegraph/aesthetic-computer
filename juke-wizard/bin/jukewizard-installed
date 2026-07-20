@@ -1,0 +1,5 @@
+#!/bin/sh
+# Stable launcher for a JukeWizard installed by ../install.sh.
+set -eu
+INSTALL_ROOT="${JUKEWIZARD_HOME:-$HOME/.local/lib/jukewizard}"
+exec "$INSTALL_ROOT/JukeWizard" "$@"

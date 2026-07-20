@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Repository entry point for AC's shared native Mac room-audio helper.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/../macos-audio" && pwd)"
+BIN="$ROOT/.build/release/ac-audio-room"
+if [[ ! -x "$BIN" ]]; then
+  swift build -c release --package-path "$ROOT"
+fi
+exec "$BIN" "$@"

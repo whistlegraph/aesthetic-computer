@@ -7,6 +7,7 @@
 // Usage:
 //   jukewizard [<playlist.m3u8 | folder | file.mp3> ...] [--watch <dir>]
 //   bin/jukewizard --queue <file.mp3> <file.mp3>  focused ordered queue
+//   jukewizard --spotify-search "artist or track"  headless Spotify search
 //   (no args → opens ~/Desktop/MASTER-playlist.m3u8 if present)
 //
 //   --watch <dir>   auto-pop: when a fresh audio file lands here, add it
@@ -22,15 +23,21 @@ final class JukeAppDelegate: NSObject, NSApplicationDelegate {
         var watch: [String] = []
         var paths: [String] = []
         var selectPath: String? = nil
+        var spotifySearch: String? = nil
         var i = 0
         while i < args.count {
             if args[i] == "--watch", i + 1 < args.count { watch.append(args[i + 1]); i += 2; continue }
             if args[i] == "--select", i + 1 < args.count { selectPath = args[i + 1]; i += 2; continue }
+            if args[i] == "--spotify-search", i + 1 < args.count { spotifySearch = args[i + 1]; i += 2; continue }
             paths.append(args[i]); i += 1
         }
         if paths.isEmpty {
+            var root = URL(fileURLWithPath: #filePath)
+            for _ in 0..<4 { root.deleteLastPathComponent() }
+            let aesthetic = root.appendingPathComponent("pop/out/pop-library.json").path
             let master = NSHomeDirectory() + "/Desktop/MASTER-playlist.m3u8"
-            if FileManager.default.fileExists(atPath: master) { paths = [master] }
+            if FileManager.default.fileExists(atPath: aesthetic) { paths = [aesthetic] }
+            else if FileManager.default.fileExists(atPath: master) { paths = [master] }
         }
         let library = Library(inputs: paths)
         // Make sure the requested track is in the queue even if it's a draft
@@ -42,14 +49,16 @@ final class JukeAppDelegate: NSObject, NSApplicationDelegate {
                 library.addFile(u, lane: lane)
             }
         }
-        guard !library.tracks.isEmpty else {
-            print("JukeWizard: no tracks found.")
-            print("usage: jukewizard [<playlist.m3u8 | folder | file.mp3> ...] [--select <file>] [--watch <dir>]")
-            NSApp.terminate(nil); return
-        }
-        controller = JukeController(library: library, watch: watch, select: selectPath)
+        controller = JukeController(library: library, watch: watch, select: selectPath,
+                                    spotifySearch: spotifySearch)
         controller?.showWindow(nil)
+        if controller?.window?.isMiniaturized == true { controller?.window?.deminiaturize(nil) }
+        controller?.window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        // Launch Services can re-apply the previous process's minimized Dock
+        // state just after didFinishLaunching. Restore once more on the next
+        // run-loop turn so a relaunch can never masquerade as a crash.
+        DispatchQueue.main.async { [weak self] in self?.controller?.quickOpenFull() }
     }
 
     // Stay resident when the window closes — the spinning-CD menu-bar item is
@@ -61,9 +70,14 @@ final class JukeAppDelegate: NSObject, NSApplicationDelegate {
     // window closed, which looks indistinguishable from a crash.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if !flag { controller?.showWindow(nil) }
+        if controller?.window?.isMiniaturized == true { controller?.window?.deminiaturize(nil) }
         controller?.window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         return true
+    }
+
+    func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
+        controller?.makeDockMenu()
     }
 }
 
