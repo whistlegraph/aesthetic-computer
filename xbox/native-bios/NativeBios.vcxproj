@@ -50,13 +50,13 @@
       <!-- QuickJS uses C identifiers such as `generic`, reserved by C++/CX. -->
       <CompileAsWinRT>false</CompileAsWinRT>
     </ClCompile>
-    <!-- QuickJS-ng requires C11 atomics. Its intentional unsigned wraparound also
-         triggers C4146 under MSVC's SDL checks, so suppress that warning only for
+    <!-- QuickJS-ng requires C11 atomics. Its intentional unsigned wraparound and
+         control flow trigger C4146/C4703 under MSVC's optimized checks; suppress them only for
          the vendored C translation units. -->
-    <ClCompile Include="third_party\quickjs-ng\quickjs.c"><PrecompiledHeader>NotUsing</PrecompiledHeader><CompileAsWinRT>false</CompileAsWinRT><CompileAs>CompileAsC</CompileAs><AdditionalOptions>/std:c17 /experimental:c11atomics /wd4146 %(AdditionalOptions)</AdditionalOptions></ClCompile>
-    <ClCompile Include="third_party\quickjs-ng\dtoa.c"><PrecompiledHeader>NotUsing</PrecompiledHeader><CompileAsWinRT>false</CompileAsWinRT><CompileAs>CompileAsC</CompileAs><AdditionalOptions>/std:c17 /experimental:c11atomics /wd4146 %(AdditionalOptions)</AdditionalOptions></ClCompile>
-    <ClCompile Include="third_party\quickjs-ng\libregexp.c"><PrecompiledHeader>NotUsing</PrecompiledHeader><CompileAsWinRT>false</CompileAsWinRT><CompileAs>CompileAsC</CompileAs><AdditionalOptions>/std:c17 /experimental:c11atomics /wd4146 %(AdditionalOptions)</AdditionalOptions></ClCompile>
-    <ClCompile Include="third_party\quickjs-ng\libunicode.c"><PrecompiledHeader>NotUsing</PrecompiledHeader><CompileAsWinRT>false</CompileAsWinRT><CompileAs>CompileAsC</CompileAs><AdditionalOptions>/std:c17 /experimental:c11atomics /wd4146 %(AdditionalOptions)</AdditionalOptions></ClCompile>
+    <ClCompile Include="third_party\quickjs-ng\quickjs.c"><PrecompiledHeader>NotUsing</PrecompiledHeader><CompileAsWinRT>false</CompileAsWinRT><CompileAs>CompileAsC</CompileAs><AdditionalOptions>/std:c17 /experimental:c11atomics /wd4146 /wd4703 %(AdditionalOptions)</AdditionalOptions></ClCompile>
+    <ClCompile Include="third_party\quickjs-ng\dtoa.c"><PrecompiledHeader>NotUsing</PrecompiledHeader><CompileAsWinRT>false</CompileAsWinRT><CompileAs>CompileAsC</CompileAs><AdditionalOptions>/std:c17 /experimental:c11atomics /wd4146 /wd4703 %(AdditionalOptions)</AdditionalOptions></ClCompile>
+    <ClCompile Include="third_party\quickjs-ng\libregexp.c"><PrecompiledHeader>NotUsing</PrecompiledHeader><CompileAsWinRT>false</CompileAsWinRT><CompileAs>CompileAsC</CompileAs><AdditionalOptions>/std:c17 /experimental:c11atomics /wd4146 /wd4703 %(AdditionalOptions)</AdditionalOptions></ClCompile>
+    <ClCompile Include="third_party\quickjs-ng\libunicode.c"><PrecompiledHeader>NotUsing</PrecompiledHeader><CompileAsWinRT>false</CompileAsWinRT><CompileAs>CompileAsC</CompileAs><AdditionalOptions>/std:c17 /experimental:c11atomics /wd4146 /wd4703 %(AdditionalOptions)</AdditionalOptions></ClCompile>
     <AppxManifest Include="Package.appxmanifest" />
   </ItemGroup>
   <ItemGroup><Content Include="smoke_piece.js"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content></ItemGroup>
