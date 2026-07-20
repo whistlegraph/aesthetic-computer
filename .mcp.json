@@ -34,6 +34,13 @@
       "args": [
         "slab/bin/prox-mcp.mjs"
       ]
+    },
+    "paper": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "slab/bin/paper-mcp.mjs"
+      ]
     }
   }
 }

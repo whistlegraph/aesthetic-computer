@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // prox-mcp.mjs — an MCP over the slab "prompt rocks" ledger, so any
-// agent can LIST, FIND, POKE, and launch the little tumbling sigil stones the slab
+// agent can LIST, FIND, POKE, WAKE, and launch the little tumbling sigil stones the slab
 // menubar parks over every live Claude session across the fleet.
 //
 // A "rock" is one live session (or headless agent), advertised by its machine
@@ -177,6 +177,46 @@ end tell`;
   catch { return 0; }
 }
 
+// Submit one bounded steering prompt to the live terminal behind a local rock.
+// This is the same mechanism Loopboy uses for inbound client messages, exposed
+// generically so artifact-complete and other asynchronous events can return an
+// idle agent to the task that launched them.
+async function wakeTerminalTty(tty, prompt) {
+  const terminalTty = tty.startsWith("/dev/") ? tty.slice(5) : tty;
+  const esc = (s) => String(s).replaceAll("\\", "\\\\").replaceAll('"', '\\"');
+  const t = esc(terminalTty);
+  const p = esc(prompt);
+  const osa = `tell application "Terminal"
+  repeat with w in windows
+    repeat with tabRef in tabs of w
+      try
+        if (tty of tabRef) ends with "${t}" then
+          do script "${p}" in tabRef
+          return "terminal"
+        end if
+      end try
+    end repeat
+  end repeat
+end tell
+try
+  tell application id "com.googlecode.iterm2"
+    repeat with w in windows
+      repeat with tabRef in tabs of w
+        repeat with sessionRef in sessions of tabRef
+          if (tty of sessionRef) ends with "${t}" then
+            tell sessionRef to write text "${p}"
+            return "iterm"
+          end if
+        end repeat
+      end repeat
+    end repeat
+  end tell
+end try
+return "tty-not-found"`;
+  const { stdout } = await pexec("osascript", ["-e", osa]);
+  return stdout.trim();
+}
+
 // ── tools ─────────────────────────────────────────────────────────────────────
 async function toolList({ host, status, kind, agent } = {}) {
   let rocks = await allRocks();
@@ -234,6 +274,55 @@ async function toolPoke({ handle, by }) {
     signal: AbortSignal.timeout(5000),
   }).catch((e) => { throw new Error(`poke to ${r.host} (${r.ip}) failed: ${e.message}`); });
   return [{ type: "text", text: `poked ${r.host}:${r.name} as «${poker}» — its rock should blink + rattle (HTTP ${res.status}).` }];
+}
+
+async function toolWake({ handle, prompt, by }) {
+  if (!handle) throw new Error("`handle` is required (use the stable local host:name or session id).");
+  const steering = String(prompt || "").replace(/\s+/g, " ").trim();
+  if (!steering) throw new Error("`prompt` is required.");
+  if (steering.length > 1000) throw new Error("`prompt` exceeds 1000 characters.");
+  const hits = resolve(await allRocks(), handle);
+  if (!hits.length) throw new Error(`no rock resolves «${handle}» to wake.`);
+  if (hits.length > 1) throw new Error(`«${handle}» is ambiguous (${hits.map((r) => `${r.host}:${r.name}`).join(", ")}).`);
+  const r = hits[0];
+  if (!r.self) throw new Error(`${r.host}:${r.name} runs on another machine — prox_wake currently requires the MCP on the rock's owning host.`);
+  const marker = await readMarker(r.id);
+  const tty = marker?.tty || "";
+  if (!tty) throw new Error(`no live tty marker for ${r.host}:${r.name} (id ${r.id.slice(0, 8)}).`);
+
+  const surface = await wakeTerminalTty(tty, steering);
+  if (surface === "tty-not-found") throw new Error(`the marker for ${r.host}:${r.name} points to ${tty}, but no Terminal/iTerm session owns it.`);
+
+  // Match Loopboy's visible attention signal as well as its TTY reactivation.
+  const self = (await readJson(LOCAL_FILE))?.host || hostname().split(".")[0];
+  const waker = by || `${self}:prox-wake`;
+  if (r.ip) {
+    const body = JSON.stringify({ by: waker, id: r.id, name: r.name });
+    await fetch(`http://${r.ip}:${PORT}/poke`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "content-length": Buffer.byteLength(body) },
+      body,
+      signal: AbortSignal.timeout(3000),
+    }).catch(() => {});
+  }
+  return [{ type: "text", text: `woke ${r.host}:${r.name} on ${surface} as «${waker}» with a bounded continuation prompt.` }];
+}
+
+async function toolArtifactReady({ handle, artifacts, by }) {
+  if (!Array.isArray(artifacts) || artifacts.length === 0) {
+    throw new Error("`artifacts` must contain at least one output path.");
+  }
+  if (artifacts.length > 8) throw new Error("`artifacts` accepts at most 8 paths.");
+  const paths = artifacts.map((value) => String(value || "").trim());
+  if (paths.some((value) => !value || value.length > 500)) {
+    throw new Error("each artifact path must be non-empty and at most 500 characters.");
+  }
+  const quoted = paths.map((value) => `«${value}»`).join(", ");
+  return toolWake({
+    handle,
+    by: by || "artifact-ready",
+    prompt: `Artifact output is ready at ${quoted}. Open it now and inspect it against the active request. Iterate if needed, copy the accepted artifact into the project, connect it to its intended consumer, verify the result, and continue the original task until its actual completion criterion is met. The artifact appearing is not task completion.`,
+  });
 }
 
 async function toolLaunch({ host, agent, cwd, prompt = "", by }) {
@@ -376,6 +465,40 @@ const TOOLS = [
     },
   },
   {
+    name: "prox_wake",
+    description:
+      "Wake one stable local prompt rock with a bounded steering prompt, using the same poke + TTY reactivation pattern as Loopboy. Use this when an asynchronous artifact or render completes after its agent turn: tell that same agent to open the artifact, inspect it, and continue the original task. SIDE EFFECT: submits a new prompt to the live Claude/Codex session. Refuses remote or ambiguous targets.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        handle: { type: "string", description: "Stable local host:name, session id, or an unambiguous subject fragment." },
+        prompt: { type: "string", description: "Continuation instruction, at most 1000 characters." },
+        by: { type: "string", description: "Optional source label, such as artifact:tokens-2-tlds." },
+      },
+      required: ["handle", "prompt"],
+    },
+  },
+  {
+    name: "prox_artifact_ready",
+    description:
+      "Deliver an asynchronous artifact-complete event to the stable local rock that launched it. Prox constructs and submits the continuation prompt itself: open and inspect the outputs, iterate, place accepted files in the project, wire them into their consumer, and continue the original task. Uses the Loopboy-style poke + TTY wake path. SIDE EFFECT: submits a new prompt to the live Claude/Codex session.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        handle: { type: "string", description: "Stable local host:name, session id, or an unambiguous subject fragment." },
+        artifacts: {
+          type: "array",
+          items: { type: "string" },
+          minItems: 1,
+          maxItems: 8,
+          description: "Absolute or project-relative output paths that just became ready.",
+        },
+        by: { type: "string", description: "Optional event-source label." },
+      },
+      required: ["handle", "artifacts"],
+    },
+  },
+  {
     name: "prox_close",
     description:
       "Close a prompt rock — end that Claude session and shut its terminal window. Resolves a `host:name` / fuzzy handle (refuses ambiguous matches), ends the session (SIGTERM then SIGKILL — claude traps SIGTERM), and closes its Terminal.app window. DESTRUCTIVE: the running session is terminated (its transcript persists and is resumable). Only closes rocks on THIS machine (it needs the terminal window); refuses to close the calling session.",
@@ -425,6 +548,8 @@ async function callTool(name, args) {
     case "prox_list": return toolList(args || {});
     case "prox_find": return toolFind(args || {});
     case "prox_poke": return toolPoke(args || {});
+    case "prox_wake": return toolWake(args || {});
+    case "prox_artifact_ready": return toolArtifactReady(args || {});
     case "prox_launch": return toolLaunch(args || {});
     case "prox_bind_notification": return toolBindNotification(args || {});
     case "prox_close": return toolClose(args || {});
@@ -469,4 +594,4 @@ async function handleMessage(message) {
 
 const port = httpPort(process.argv, 7773);
 if (port) serveHttp({ handleMessage, port, banner: "🪨 prox shared daemon" });
-else serveStdio({ handleMessage, banner: "🪨 prox started (prox_list, prox_find, prox_poke, prox_launch, prox_close)" });
+else serveStdio({ handleMessage, banner: "🪨 prox started (prox_list, prox_find, prox_poke, prox_wake, prox_artifact_ready, prox_launch, prox_close)" });
