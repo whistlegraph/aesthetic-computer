@@ -40,6 +40,21 @@
           "type": "piece",
           "code": "video~scrub~16",
           "name": "long bed"
+        },
+        {
+          "type": "piece",
+          "code": "video~scrub~kick",
+          "name": "kick stem"
+        },
+        {
+          "type": "piece",
+          "code": "video~scrub~hat",
+          "name": "hat stem"
+        },
+        {
+          "type": "piece",
+          "code": "video~scrub~snare",
+          "name": "snare stem"
         }
       ]
     },
