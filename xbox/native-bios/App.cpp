@@ -217,6 +217,11 @@ private:
     Check(adapter->GetParent(IID_PPV_ARGS(&factory)));
 
     DXGI_SWAP_CHAIN_DESC1 desc{};
+    // Xbox may choose its 8x8 placeholder surface when width/height are left at
+    // zero for a CoreWindow swap chain. Solid clears still stretch fullscreen,
+    // hiding the mistake while every useful drawing coordinate gets clipped.
+    desc.Width = 1920;
+    desc.Height = 1080;
     desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
     desc.SampleDesc.Count = 1;
     desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
