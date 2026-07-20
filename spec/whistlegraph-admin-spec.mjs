@@ -54,6 +54,8 @@ describe("Whistlegraph Desk", () => {
     const page = readFileSync(new URL("../system/public/whistlegraph.org/admin.html", import.meta.url), "utf8");
     expect(page).toContain("useRefreshTokensFallback:true");
     expect(page).toContain("if(!authenticated){try{token=await client.getTokenSilently()");
+    expect(page).toContain('client.getTokenSilently({cacheMode:"off"})');
+    expect(page).toContain("res.status===401&&client&&options.headers?.Authorization");
   });
 
   it("authorizes immutable AC subjects, not claimed handles", () => {

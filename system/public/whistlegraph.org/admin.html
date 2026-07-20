@@ -126,7 +126,15 @@
     postById=Object.fromEntries(posts.map(p=>[p.id,p]));workByCode=Object.fromEntries(works.map(w=>[w.code,w]));
     document.getElementById("workCodes").innerHTML=works.map(w=>`<option value="${esc(w.code)}">${esc(w.title)}</option>`).join("");
   }
-  async function getJSON(url,options){const res=await fetch(url,options);const data=await res.json().catch(()=>({}));if(!res.ok)throw new Error(data.message||`HTTP ${res.status}`);return data}
+  async function getJSON(url,options={}){
+    let res=await fetch(url,options);
+    if(res.status===401&&client&&options.headers?.Authorization){
+      token=await client.getTokenSilently({cacheMode:"off"});
+      options={...options,headers:{...options.headers,Authorization:`Bearer ${token}`}};
+      res=await fetch(url,options);
+    }
+    const data=await res.json().catch(()=>({}));if(!res.ok)throw new Error(data.message||`HTTP ${res.status}`);return data
+  }
   async function loadData(){
     grid.setAttribute("aria-busy","true");document.getElementById("count").textContent="Loading archive…";
     const curationRequest=PREVIEW?Promise.resolve({data:{works:{},posts:{}}}):getJSON(`${API}?action=data`,{headers:{Authorization:`Bearer ${token}`},cache:"no-store"}).then(data=>({data})).catch(error=>({error}));
@@ -150,7 +158,7 @@
       let authenticated=await client.isAuthenticated();
       if(!authenticated){try{token=await client.getTokenSilently();authenticated=await client.isAuthenticated()}catch{}}
       if(!authenticated){document.getElementById("gateStatus").textContent="Sign in to continue.";return}
-      token=token||await client.getTokenSilently();
+      token=await client.getTokenSilently({cacheMode:"off"});
       const session=await getJSON(`${API}?action=session`,{headers:{Authorization:`Bearer ${token}`},cache:"no-store"});
       enterDesk(session.handle?`@${session.handle}`:"authorized editor");await loadData();
     }catch(error){fail(error.message||"Could not open the Whistlegraph Desk.")}
