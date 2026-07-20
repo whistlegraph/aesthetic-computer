@@ -64,7 +64,7 @@
         <button class="primary" id="newWork" data-testid="new-work">New whistlegraph</button>
         <button class="quiet" id="bulkAssign">Bulk relationships</button>
         <a class="quiet" href="/" target="_blank">View site ↗</a>
-        <button class="quiet" id="codexOpen" data-testid="codex-tools">Codex tools</button>
+        <button class="quiet" id="codexOpen" data-testid="codex-tools">Changes &amp; tools</button>
         <button class="quiet" id="logout">Sign out</button>
       </div>
       <div class="controls">
@@ -176,12 +176,12 @@
     const checkout="git clone git@knot.aesthetic.computer:aesthetic.computer/core aesthetic-computer\ncd aesthetic-computer\nac-login\ncodex";
     const recent=deployments.length?deployments.slice(0,8).map(d=>`<li><code>${esc(String(d.commit||"").slice(0,12))}</code> · ${esc(d.status||"queued")} · ${esc(d.changeId||"Desk publish")}<br><small>${esc(d.when?new Date(d.when).toLocaleString():"")}</small></li>`).join(""):"<li>No Codex deployments yet.</li>";
     const changes=recentChanges.length?recentChanges.slice(0,20).map(change=>`<li><code>${esc(change.type||"")}:${esc(change.key||"")}</code> · ${esc(change.action||"change")}${change.renamedTo?` → <code>${esc(change.renamedTo)}</code>`:""}<br><small>${esc(change.when?new Date(change.when).toLocaleString():"")}</small></li>`).join(""):"<li>No Desk changes yet.</li>";
-    codexPanel.innerHTML=`<div class="codex-head"><div><h2>Whistlegraph <b>for Codex</b></h2><p>Authenticated frontend editing, ordinary Git commits, and exact-SHA deployment.</p></div><button class="close" aria-label="Close Codex tools">×</button></div>
+    codexPanel.innerHTML=`<div class="codex-head"><div><h2>Desk <b>changes</b></h2><p>Every saved edit with its exact local timestamp, plus Codex publishing tools.</p></div><button class="close" aria-label="Close changes and tools">×</button></div>
+      <section class="codex-step"><h3>Recent Desk changes</h3><ul class="deploy-list">${changes}</ul></section>
       <section class="codex-step"><h3>1 · Install the plugin</h3><p>Add the Aesthetic Computer Git marketplace, then install Whistlegraph Desk.</p><div class="command">${esc(install)}<button class="copy" data-copy="install">Copy</button></div></section>
       <section class="codex-step"><h3>2 · Open the knot checkout</h3><p>The plugin edits a clean temporary worktree. Your normal checkout can contain other work without being touched.</p><div class="command">${esc(checkout)}<button class="copy" data-copy="checkout">Copy</button></div></section>
       <section class="codex-step"><h3>3 · Ask Codex</h3><div class="command">Find the copy I want to change on whistlegraph.org, show me the diff, then validate and publish it.<button class="copy" data-copy="prompt">Copy</button></div></section>
       <section class="codex-step guardrails">Only the immutable Auth0 subjects for @jeffrey and @minanimals pass the server check. The plugin can write only <code>system/public/whistlegraph.org/**</code>. Publishing creates a review branch and attributed commit, refuses a moved <code>main</code>, and deploys only the exact pushed SHA.</section>
-      <section class="codex-step"><h3>Recent Desk changes</h3><ul class="deploy-list">${changes}</ul></section>
       <section class="codex-step"><h3>Recent deployments</h3><ul class="deploy-list">${recent}</ul></section>
       <p><a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/plugins/whistlegraph" target="_blank" rel="noopener">Inspect the plugin source ↗</a></p>`;
     codexPanel.querySelector(".close").addEventListener("click",closeCodex);
@@ -324,7 +324,7 @@
       if(current.type==="work"&&nextCode!==current.key){
         const result=await getJSON(`${API}?action=work-rename`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({from:current.key,code:nextCode,...patch})});await loadData();closeEditor();toast(`Renamed [${result.from}] to [${result.key}] · ${result.reassigned} posts migrated`);return;
       }
-      const result=await getJSON(API,{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({...current,patch})});const bucket=current.type==="work"&&curation.createdWorks[current.key]?curation.createdWorks:curation[current.type==="work"?"works":"posts"];bucket[current.key]=result.patch;applyCuration();refreshAfterMutation(current);if(selected?.type===current.type&&selected?.key===current.key)renderEditor(current,current.type==="work"?workByCode[current.key]:postById[current.key]);toast("Saved live")}
+      const result=await getJSON(API,{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({...current,patch})});const bucket=current.type==="work"&&curation.createdWorks[current.key]?curation.createdWorks:curation[current.type==="work"?"works":"posts"];bucket[current.key]=result.patch;applyCuration();refreshAfterMutation(current);if(selected?.type===current.type&&selected?.key===current.key)renderEditor(current,current.type==="work"?workByCode[current.key]:postById[current.key]);toast(`Saved live · ${new Date(result.revision).toLocaleTimeString()}`)}
     catch(error){toast(error.message);if(button.isConnected){button.disabled=false;button.textContent="Save live"}}
   }
   async function resetEditor(){
