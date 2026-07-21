@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import {
-  chmod, mkdtemp, mkdir, readFile, readdir, writeFile,
+  chmod, mkdtemp, mkdir, readFile, readdir, symlink, writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const wrapper = join(here, "..", "bin", "codex-slab");
+const watcher = join(here, "..", "bin", "codex-session-watch.mjs");
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function waitFor(fn, timeoutMs = 5000) {
@@ -21,6 +22,19 @@ async function waitFor(fn, timeoutMs = 5000) {
   }
   throw new Error("timed out waiting for Codex wrapper state");
 }
+
+test("Codex watcher runs when invoked through its installed symlink", async () => {
+  const root = await mkdtemp(join(tmpdir(), "codex-watch-symlink-test-"));
+  const link = join(root, "codex-session-watch.mjs");
+  await symlink(watcher, link);
+  const child = spawn(process.execPath, [link, "test-rock", "0", String(process.pid), "ttys099", root], {
+    stdio: "ignore",
+  });
+  await sleep(250);
+  assert.equal(child.exitCode, null, "watcher exited instead of following the symlink target");
+  child.kill("SIGTERM");
+  await new Promise((resolve) => child.once("exit", resolve));
+});
 
 test("SIGTERM reaches Codex while its terminal remains available", async () => {
   const root = await mkdtemp(join(tmpdir(), "codex-slab-test-"));

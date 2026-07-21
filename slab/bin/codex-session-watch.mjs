@@ -12,11 +12,12 @@
 // Launched (and killed) by codex-slab.sh. Exits when the wrapper pid dies.
 
 import { readFile, writeFile, stat, unlink, utimes } from "node:fs/promises";
+import { realpathSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 const [sid, _beginArg, wrapperArg, tty = "", cwd = ""] = process.argv.slice(2);
 if (!sid) process.exit(1);
@@ -269,7 +270,13 @@ async function main() {
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+let invokedAsMain = false;
+try {
+  // Node resolves import.meta.url to the symlink target, while argv keeps the
+  // launcher symlink (normally ~/.local/bin/codex-session-watch.mjs).
+  invokedAsMain = realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
+} catch {}
+if (invokedAsMain) {
   main().catch((error) => {
     console.error(`codex-session-watch: ${error?.stack || error}`);
     process.exit(1);

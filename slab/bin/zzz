@@ -25,7 +25,8 @@ const ZZZ_DIR = join(STATE, "zzz");
 const ACTIVE_DIR = join(STATE, "active-prompts");
 const AWAITING_DIR = join(STATE, "awaiting-prompts");
 const RUNNING_DIR = join(STATE, "running-tools");
-const LOOPBOY = join(HOME_DIR, ".config", "slab", "loopboy.json");
+const LOOPBOY = process.env.SLAB_LOOPBOY_CONFIG
+  || join(HOME_DIR, ".config", "slab", "loopboy.json");
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const readJson = async (path) => {
@@ -199,7 +200,9 @@ async function park(marker, { force = false } = {}) {
   if (!force && marker.status !== "complete" && marker.status !== "interrupted") {
     throw new Error(`refusing to zzz ${marker.status || "working"} prompt without --force`);
   }
-  if (!force && (await loopboyIds()).has(sid)) throw new Error("refusing to zzz a Loopboy-bound prompt");
+  // A live client route is stronger than --force. Force exists to override
+  // activity/idle checks, never to sever a Loopboy's notification target.
+  if ((await loopboyIds()).has(sid)) throw new Error("refusing to zzz a Loopboy-bound prompt");
   if ((await ancestorPids()).has(pid)) throw new Error("refusing to zzz the session running this harness");
   const providerSessionId = marker.agent_type === "codex"
     ? (marker.codex_session_id || await providerFromProcess(pid)) : sid;
