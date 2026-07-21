@@ -10,7 +10,7 @@ function harness({ online = true, pads = [] } = {}) {
   let input = { leftX: 0, leftY: 0, rightX: 0, rightY: 0,
     leftTrigger: 0, rightTrigger: 0, down: [] };
   const caps = { online, networkLevel: online ? "internet" : "none",
-    networkName: online ? "TEST LAN" : "", version: "1.0.0.9",
+    networkName: online ? "TEST LAN" : "", version: "1.0.0.10",
     width: 1920, height: 1080 };
   const globals = {
     Math, JSON,

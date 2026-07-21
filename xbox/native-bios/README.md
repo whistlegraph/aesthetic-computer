@@ -29,6 +29,7 @@ credentials never enter the repository or command output.
 
 ```bash
 node xbox/tools/live.mjs status
+node xbox/tools/live.mjs install xbox/builds/1.0.0.10/NativeBios_1.0.0.10_x64.msix xbox/builds/1.0.0.10/Microsoft.VCLibs.x64.14.00.appx
 node xbox/tools/live.mjs deploy xbox/live/controller-probe.js
 node xbox/tools/live.mjs logs 100
 ```
@@ -36,6 +37,12 @@ node xbox/tools/live.mjs logs 100
 The `deploy` command publishes sandboxed JavaScript into the installed package's
 `LocalState/live-piece.js`, launches the newest installed BIOS revision, and
 prints recent telemetry.
+
+After a successful Native BIOS install, the tool removes stale uninstallable AC
+development packages from earlier experiments. Cleanup is restricted to our
+`CN=AestheticComputerDev` publisher or `AestheticComputer.*` package namespace,
+and always preserves `AestheticComputer.NativeBios`; system and unrelated dev
+packages are never targeted. `prune` is also available as an explicit command.
 
 ## Build
 

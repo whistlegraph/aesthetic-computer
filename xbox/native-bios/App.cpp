@@ -139,7 +139,7 @@ public:
     m_sound->on_stop = [this]() { if (m_voice) { m_voice->Stop(0); m_voice->FlushSourceBuffers(); } };
     m_sound->get_rate = [this]() { return static_cast<int>(m_sampleRate); };
     m_api = std::make_unique<Api>(Api{{1920, 1080, 1}, {}, {}, {}, *m_graphics, *m_sound});
-    m_api->system.version = "1.0.0.9";
+    m_api->system.version = "1.0.0.10";
     m_api->telemetry = [](std::string_view line) {
       std::string safe(line);
       for (auto& character : safe) if (character == '\n' || character == '\r') character = ' ';

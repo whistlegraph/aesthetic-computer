@@ -5,7 +5,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { resolve } from "node:path";
+import { basename, resolve } from "node:path";
 
 const defaultEnv = resolve(homedir(),
   "aesthetic-computer/aesthetic-computer-vault/xbox/device-portal.env");
@@ -61,6 +61,47 @@ function installed() {
   return item;
 }
 
+const sleep = (milliseconds) =>
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
+
+function prune() {
+  const stale = curl(["-u", auth, `${base}/api/app/packagemanager/packages`], { json: true })
+    .InstalledPackages.filter((item) => item.PackageFamilyName !== "AestheticComputer.NativeBios")
+    .filter((item) => item.CanUninstall !== false)
+    .filter((item) => item.Publisher === "CN=AestheticComputerDev" ||
+      item.PackageFamilyName.startsWith("AestheticComputer."));
+  for (const item of stale) {
+    const query = new URLSearchParams({ package: item.PackageFullName });
+    curl(["-u", autoAuth, "-X", "DELETE",
+      `${base}/api/app/packagemanager/package?${query}`]);
+    console.log(`removed stale AC dev package ${item.PackageFullName}`);
+  }
+  if (stale.length === 0) console.log("no stale AC dev packages installed");
+  return stale.length;
+}
+
+function install(packagePath, dependencyPaths = []) {
+  if (!packagePath) throw new Error("usage: xbox-live install <NativeBios.msix> [dependency.appx ...]");
+  const main = resolve(packagePath);
+  const dependencies = dependencyPaths.map((item) => resolve(item));
+  for (const file of [main, ...dependencies])
+    if (!existsSync(file)) throw new Error(`package file not found: ${file}`);
+  const revision = Number.parseInt(basename(main).match(/_1\.0\.0\.(\d+)_/)?.[1] || "0", 10);
+  const form = [main, ...dependencies].flatMap((file) => ["-F", `file=@${file}`]);
+  const query = new URLSearchParams({ package: basename(main) });
+  curl(["-u", autoAuth, "-X", "POST", ...form,
+    `${base}/api/app/packagemanager/package?${query}`]);
+  let ready = false;
+  for (let attempt = 0; attempt < 60; attempt++) {
+    sleep(1000);
+    const current = packages()[0];
+    if (current && current.Version.Revision >= revision) { ready = true; break; }
+  }
+  if (!ready) throw new Error(`timed out waiting for Native BIOS revision ${revision}`);
+  console.log(`installed ${installed().PackageFullName}`);
+  prune();
+}
+
 function appFileUrl(item, filename) {
   const query = new URLSearchParams({ knownfolderid: "LocalAppData",
     packagefullname: item.PackageFullName, path: "\\LocalState",
@@ -105,13 +146,15 @@ function logs(tail = "80") {
 }
 
 function main() {
-  const [command = "status", argument] = process.argv.slice(2);
+  const [command = "status", argument, ...rest] = process.argv.slice(2);
   if (command === "status") status();
+  else if (command === "install") install(argument, rest);
+  else if (command === "prune") prune();
   else if (command === "launch") launch();
   else if (command === "publish") publish(argument);
   else if (command === "logs") logs(argument);
   else if (command === "deploy") { publish(argument); launch(); logs("20"); }
-  else throw new Error("commands: status | launch | publish <piece.js> | logs [lines] | deploy <piece.js>");
+  else throw new Error("commands: status | install <msix> [deps...] | prune | launch | publish <piece.js> | logs [lines] | deploy <piece.js>");
 }
 
 try { main(); } catch (error) { console.error(error.message); process.exit(1); }
