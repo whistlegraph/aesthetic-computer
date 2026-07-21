@@ -360,7 +360,11 @@ async function toolOpen({ paper, build = false } = {}) {
   if ((!pdfPath || !(await exists(pdfPath))) && build) pdfPath = (await buildRecord(rec, 2)).pdfPath;
   if (!pdfPath || !(await exists(pdfPath))) throw new Error(`${rec.id} has no PDF. Call paper_build first or pass build:true.`);
   const slabPdf = join(REPO, "slab", "bin", "slab-pdf");
-  if (await exists(slabPdf)) await pexec(slabPdf, [pdfPath], { timeout: 10_000 });
+  // Preview is the reliable fleet default while slab-pdf's PDFKit panel can
+  // consume a request without presenting a window. Keep slab-pdf available as
+  // the non-macOS/project fallback rather than silently claiming it opened.
+  if (process.platform === "darwin") await pexec("/usr/bin/open", ["-a", "Preview", pdfPath], { timeout: 10_000 });
+  else if (await exists(slabPdf)) await pexec(slabPdf, [pdfPath], { timeout: 10_000 });
   else await pexec("/usr/bin/open", [pdfPath], { timeout: 10_000 });
   return [{ type: "text", text: `opened ${rec.title} [${rec.id}]\n${pdfPath}` }];
 }
@@ -412,7 +416,7 @@ const TOOLS = [
   },
   {
     name: "paper_open",
-    description: "Open a resolved paper PDF in slab's native PDF viewer (or macOS open fallback). Pass build:true to build missing TeX output first. SIDE EFFECT: opens a local viewer window.",
+    description: "Open a resolved paper PDF in Preview on macOS (or the available native viewer elsewhere). Pass build:true to build missing TeX output first. SIDE EFFECT: opens a local viewer window.",
     inputSchema: {
       type: "object",
       properties: {
