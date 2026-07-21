@@ -356,6 +356,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     return s
                 }
             }
+            // `zzz` is the prompt lifecycle's cold tier: once an unbound,
+            // resumable local prompt has been genuinely idle for the configured
+            // window, persist its wake record, stop the agent, and leave its
+            // terminal open with the resume receipt.
+            ZzzManager.shared.tick(sessions: snapshot.claudeSessions)
             DispatchQueue.main.async {
                 self.gathering = false
                 self.state = snapshot
@@ -1488,6 +1493,60 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 )
             }
         }
+    }
+
+    @objc func toggleAutoZzz() {
+        let config = ZzzStore.configuration()
+        ZzzStore.setEnabled(!config.enabled)
+        refresh()
+    }
+
+    @objc func zzzIdleSession(_ sender: NSMenuItem) {
+        guard let sid = sender.representedObject as? String, !sid.isEmpty else { return }
+        ZzzManager.shared.parkIdle(sessionId: sid, sessions: state.claudeSessions) {
+            [weak self] message in
+            self?.notify(title: "slab", subtitle: "zzz", body: message)
+            self?.refresh()
+        }
+    }
+
+    @objc func wakeZzzSession(_ sender: NSMenuItem) {
+        guard let sid = sender.representedObject as? String, !sid.isEmpty else { return }
+        ShellRunner.runAsync(Paths.zzzHelper, args: ["wake", sid]) { [weak self] in
+            DispatchQueue.main.async { self?.refresh() }
+        }
+    }
+
+    /// Open the keyboard-and-mouse `zzz` harness in a terminal. Rows in the
+    /// harness accept arrow/Return or a direct click/tap to wake a prompt.
+    @objc func openZzzHarness() {
+        let helper = Paths.zzzHelper
+        guard FileManager.default.isExecutableFile(atPath: helper) else {
+            notify(title: "slab", subtitle: "zzz", body: "zzz helper is not installed.")
+            return
+        }
+        let quoted = "'" + helper.replacingOccurrences(of: "'", with: "'\\''") + "'"
+        let escaped = quoted.replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+        let app = Self.preferredTerminalApp()
+        let script: String
+        if app == "Terminal" {
+            script = """
+            tell application "Terminal"
+                activate
+                do script "\(escaped)"
+            end tell
+            """
+        } else {
+            script = """
+            tell application id "com.googlecode.iterm2"
+                activate
+                create window with default profile
+                tell current session of current window to write text "\(escaped)"
+            end tell
+            """
+        }
+        ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", script])
     }
 
     @objc func toggleAutoTile() {
