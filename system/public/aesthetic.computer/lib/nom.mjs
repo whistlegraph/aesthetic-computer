@@ -1,8 +1,9 @@
-// nom — shared engine for the muncher games (numbnom / engnom / mexinom / dannom / rusnom / notenom / catnom), 2026.06.07
+// nom — shared engine for the muncher games (numbnom / engnom / mexinom / dannom / rusnom / notenom / catnom / artnom), 2026.06.07
 // Move the muncher around a 5×5 grid and eat every square that satisfies the
 // rule at the top — but dodge the Troggles. `numbnom` = numbers, `engnom` = words,
 // `notenom` = musical notes (note mode voices each square + plays the scale),
-// `catnom` = Categories-game rounds (AC pieces, code words, slang, vibes).
+// `catnom` = Categories-game rounds (AC pieces, code words, slang, vibes),
+// `artnom` = museum thumbnails grouped by Getty AAT art-historical styles.
 
 import { Synth } from "./synth.mjs"; // shared virtual synth + perc kit
 
@@ -19,6 +20,7 @@ import { Synth } from "./synth.mjs"; // shared virtual synth + perc kit
     munchers:words    → words
     munchers:notes    → musical notes (notenom)
     munchers:cat      → categories (catnom)
+    munchers:art      → art history thumbnails (artnom)
 #endregion */
 
 /* #region 🏁 TODO
@@ -31,7 +33,7 @@ const COLS = 5;
 const ROWS = 5;
 
 // 🌐 Game state
-let mode = "number"; // "number" | "word" | "note"
+let mode = "number"; // "number" | "word" | "note" | "art"
 let lang = "en"; // word language: "en" engnom | "es" mexinom | "da" dannom | "ru" rusnom | "cat" catnom
 let hiRes = false; // 🖼️ render via the hd() native-resolution Canvas2D layer (opt-in per edition)
 let noteScale = []; // current board's scale (note mode), played on board start
@@ -59,6 +61,11 @@ let mouth = 0; // muncher mouth animation phase
 let troggleClock = null;
 let message = ""; // transient feedback line
 let messageTimer = 0;
+let artCatalog = null; // generated Getty-AAT/museum manifest (artnom only)
+let artPreload = null; // net.preload captured at boot for remote IIIF thumbnails
+let artLoadGeneration = 0; // ignores thumbnail promises from a prior boot
+let artImages = new Map(); // remote image URL -> bitmap | "loading" | "failed"
+let lastArtwork = null; // most recently munched object; I opens its museum page
 
 // 🔊 + ✨ Feel
 let snd = null; // live sound handle (captured each frame)
@@ -134,17 +141,23 @@ function reset() {
   beatMs = BEAT_MS; nowMs = 0; beatIndex = 0; lastBeatIndex = null;
   beatsLeft = 0; beatsMax = 1; beatPhase = 0; beatPulse = 0; heldChord = null;
   introTimer = 0; pendingStart = false;
+  artCatalog = null; artPreload = null; artLoadGeneration += 1;
+  artImages.clear(); lastArtwork = null;
 }
 
 // 🥾 Boot — reset all state, then drop straight onto a live board (no title gate
 // / "press any key"); a brief intro card fades over the playing board.
-function boot({ params, hud, clock, num: { randInt } }) {
+function boot({ params, hud, clock, artnom, net, num: { randInt } }) {
   reset();
   clock?.resync?.(); // network-sync the wall clock; board beats ride this grid
   const m = resolveMode(params);
   mode = m.mode;
   lang = m.lang;
-  hiRes = params?.includes?.("sd") !== true; // hi-res Canvas2D paint by default; "sd" opts out
+  artCatalog = artnom || null;
+  artPreload = net?.preload || null;
+  // The Canvas2D adapter intentionally has no bitmap-paste surface yet, so the
+  // image edition stays on the pixel renderer. All text editions remain HD.
+  hiRes = mode !== "art" && params?.includes?.("sd") !== true;
   hud?.label?.(""); // hide the top-left corner label
   resetGame({ randInt });
   newRound({ randInt });
@@ -161,6 +174,7 @@ function boot({ params, hud, clock, num: { randInt } }) {
 // meta() would otherwise mislabel (e.g. dannom showing the number edition).
 function resolveMode(params) {
   const p = params?.[0];
+  if (p === "art" || p === "artnom" || p === "museum") return { mode: "art", lang: "en" };
   if (p === "spanish" || p === "es" || p === "mexi" || p === "mexinom") return { mode: "word", lang: "es" };
   if (p === "danish" || p === "da" || p === "dansk" || p === "dannom") return { mode: "word", lang: "da" };
   if (p === "russian" || p === "ru" || p === "russkiy" || p === "rusnom") return { mode: "word", lang: "ru" };
@@ -947,7 +961,33 @@ function newRound({ randInt }) {
   const nCorrect = min(total - 4, 5 + level + rnd(3));
   const cells = [];
 
-  if (mode === "note") {
+  if (mode === "art") {
+    // 🖼️ One Getty AAT style, dealt from museum objects whose source taxonomy
+    // explicitly assigns that style. Decoys come from the other AAT rounds.
+    const categories = artCatalog?.categories || [];
+    if (!categories.length) throw new Error("Artnom catalog has no categories");
+    const category = categories[rnd(categories.length)];
+    ruleLabel = category.label.toUpperCase();
+    ruleSpeech = category.speech || category.label;
+    noteScale = [];
+    const goods = shuffle([...(category.artworks || [])], rnd);
+    const bads = shuffle(
+      categories
+        .filter((candidate) => candidate.id !== category.id)
+        .flatMap((candidate) => candidate.artworks || []),
+      rnd,
+    );
+    let nc = min(nCorrect, goods.length);
+    nc = max(nc, min(goods.length, total - bads.length));
+    for (let i = 0; i < nc; i += 1) {
+      const artwork = goods[i];
+      cells.push({ value: artwork.id, artwork, correct: true });
+    }
+    for (let i = 0; i < total - nc; i += 1) {
+      const artwork = bads[i];
+      cells.push({ value: artwork.id, artwork, correct: false });
+    }
+  } else if (mode === "note") {
     // 🎵 Build a board of note squares satisfying (or breaking) a musical rule.
     const noteRound = NOTE_ROUNDS[rnd(NOTE_ROUNDS.length)];
     const test = noteRound.test;
@@ -1069,6 +1109,54 @@ function newRound({ randInt }) {
   chompPhase = 0;
   walkTarget = null;
   walkTick = 0;
+  lastArtwork = null;
+  if (mode === "art") preloadArtBoard();
+}
+
+// Hotlink the museum's documented 200px IIIF derivatives. The generated
+// manifest keeps image URLs remote; this cache only lives for the current
+// piece session and avoids re-decoding a work when it returns as a decoy.
+function preloadArtBoard() {
+  if (!artPreload) return;
+  const generation = artLoadGeneration;
+  for (const cell of grid) {
+    const url = cell.artwork?.image;
+    if (!url || artImages.has(url)) continue;
+    artImages.set(url, "loading");
+    artPreload(url)
+      .then((file) => {
+        if (generation !== artLoadGeneration) return;
+        artImages.set(url, squareArtThumbnail(file?.img) || "failed");
+      })
+      .catch(() => {
+        if (generation !== artLoadGeneration) return;
+        artImages.set(url, "failed");
+      });
+  }
+}
+
+// Center-crop + downsample once when a museum image arrives. Rendering then
+// scales a compact square buffer instead of recropping a large IIIF bitmap on
+// every frame (25 tiles × 60fps would otherwise allocate continuously).
+function squareArtThumbnail(source, size = 64) {
+  if (!source?.pixels || !source.width || !source.height) return null;
+  const side = min(source.width, source.height);
+  const ox = floor((source.width - side) / 2);
+  const oy = floor((source.height - side) / 2);
+  const pixels = new Uint8ClampedArray(size * size * 4);
+  for (let y = 0; y < size; y += 1) {
+    const sy = oy + min(side - 1, floor((y / size) * side));
+    for (let x = 0; x < size; x += 1) {
+      const sx = ox + min(side - 1, floor((x / size) * side));
+      const si = (sy * source.width + sx) * 4;
+      const di = (y * size + x) * 4;
+      pixels[di] = source.pixels[si];
+      pixels[di + 1] = source.pixels[si + 1];
+      pixels[di + 2] = source.pixels[si + 2];
+      pixels[di + 3] = source.pixels[si + 3];
+    }
+  }
+  return { width: size, height: size, pixels };
 }
 
 function spawnTroggles(rnd) {
@@ -1372,9 +1460,12 @@ function munch() {
     else chompGood();
     camTargetZoom = 1.06; // tiny zoom punch on every good munch
 
-    // Collect the value + light up its (now frightened) duplicates.
+    if (mode === "art") revealArtwork(cell.artwork);
+
+    // Collect the value + light up its (now frightened) duplicates. Artnom
+    // objects are unique visual answers, so its reveal lives in the caption.
     const v = String(cell.value);
-    if (!foundValues.includes(v)) foundValues.push(v);
+    if (mode !== "art" && !foundValues.includes(v)) foundValues.push(v);
     grid.forEach((c) => {
       if (!c.eaten && String(c.value) === v) {
         c.known = true;
@@ -1386,7 +1477,7 @@ function munch() {
     // Speak the English translation (mexinom / dannom), else announce the last one.
     // Note mode stays musical — no speech, the note itself sounds.
     if (mode === "word" && lang !== "en") sayTranslation(v);
-    else if (mode !== "note" && remaining === 1) say("last one");
+    else if (mode !== "note" && mode !== "art" && remaining === 1) say("last one");
     if (remaining <= 0) {
       state = "clear";
       clearPhase = 96;
@@ -1401,11 +1492,29 @@ function munch() {
     cell.failed = true; // X it out — can't be tried again
     if (mode === "note") noteMunchBad(cell);
     else {
-      if (mode === "word" && lang !== "en") sayTranslation(cell.value);
+      if (mode === "art") revealArtwork(cell.artwork);
+      else if (mode === "word" && lang !== "en") sayTranslation(cell.value);
       chompBad();
     }
     loseLife();
   }
+}
+
+// Museum-object feedback: speak the full credit, but keep the visual caption
+// compact enough for a phone. The canonical record remains one I-key away.
+function revealArtwork(artwork) {
+  if (!artwork) return;
+  lastArtwork = artwork;
+  const trim = (value, length) => {
+    const text = String(value || "unknown");
+    return text.length > length ? `${text.slice(0, length - 1)}…` : text;
+  };
+  caption = `${trim(artwork.title, 30)} — ${trim(artwork.artist, 22)}`;
+  captionFrame = frames;
+  const speech = `${artwork.title}, by ${artwork.artist}, ${artwork.date}`;
+  warmed.add(speech);
+  speakFn?.(speech, "jeffrey", "cloud", { volume: 1, provider: "jeffrey" });
+  flash("I: MUSEUM RECORD");
 }
 
 // ⌨️ Smart munch (space/enter): munch what you're on; otherwise step toward the
@@ -1705,7 +1814,7 @@ function announceBoard() {
 }
 
 // 🎪 Act ─────────────────────────────────────────────────────────────────────
-function act({ event: e, sound, speak, cursor, num: { randInt } }) {
+function act({ event: e, sound, speak, cursor, net, num: { randInt } }) {
   snd = sound;
   // ⌨️/🖱️ Input mode: pressing a key hides the cursor + hover; moving the mouse
   // brings them back.
@@ -1722,6 +1831,13 @@ function act({ event: e, sound, speak, cursor, num: { randInt } }) {
   if (pendingStart && (synth || speakFn)) {
     pendingStart = false;
     announceBoard();
+  }
+
+  // 🏛️ Open the canonical museum object page for the last revealed work.
+  // Handle this before the generic end-screen "any key" advance.
+  if (mode === "art" && e.is("keyboard:down:i") && lastArtwork?.url) {
+    net?.web?.(lastArtwork.url, true);
+    return;
   }
 
   // Advance from end-of-board states (clear → next level, over/win → fresh game).
@@ -2175,7 +2291,7 @@ function hdApi(layer) {
   return api;
 }
 
-function paintGame({ wipe, ink, screen, write, box, line, text }) {
+function paintGame({ wipe, ink, screen, write, box, line, text, paste }) {
   computeLayout(screen);
   wipe(...T.bg);
   paintBackground({ ink, box, screen });
@@ -2239,6 +2355,7 @@ function paintGame({ wipe, ink, screen, write, box, line, text }) {
       else if (cd.failed) bg = T.failedBg;
       else if (cd.known) bg = [40, 168, 80]; // confirmed-correct → whole square green
       else if (missed) bg = T.missedBg; // revealed missed answer = gray
+      else if (mode === "art") bg = dark ? [28, 31, 45] : [215, 218, 226];
       else if (mode === "note") bg = noteTile(cd.letter); // pitch-class tint
       else if (colorWord) bg = colorWord; // color squares ARE that color
       else bg = tileColor(txt);
@@ -2267,6 +2384,53 @@ function paintGame({ wipe, ink, screen, write, box, line, text }) {
       const txt = String(cd.value);
       const colorWord = COLOR_WORDS[txt];
       const missed = gameOver && cd.correct && !cd.eaten;
+
+      if (mode === "art") {
+        const bitmap = artImages.get(cd.artwork?.image);
+        const inset = max(2, round(cell * 0.06));
+        const size = max(1, cell - inset * 2);
+        if (bitmap && bitmap !== "loading" && bitmap !== "failed" && paste) {
+          paste(bitmap, cx + inset, cy + inset, { width: size, height: size });
+        } else {
+          // A tiny museum-frame placeholder while IIIF arrives (or if a source
+          // image disappears); the board remains playable either way.
+          const pulse = bitmap === "failed" ? 70 : round(70 + 25 * sin(frames * 0.12));
+          ink(pulse, pulse, pulse + 12).box(cx + inset, cy + inset, size, size);
+          ink(pulse + 35).box(
+            cx + inset + round(size * 0.18),
+            cy + inset + round(size * 0.18),
+            max(1, round(size * 0.64)),
+            max(1, round(size * 0.64)),
+            "outline",
+          );
+        }
+
+        // State tint sits over the image so correctness remains legible without
+        // replacing the art. Missed works are revealed in gray at game over.
+        if (missed) ink(125, 130, 142, 145).box(cx + inset, cy + inset, size, size);
+        if (cd.known && !cd.failed)
+          ink(40, 190, 90, 105).box(cx + inset, cy + inset, size, size);
+        if (cd.failed) ink(195, 42, 52, 125).box(cx + inset, cy + inset, size, size);
+        if (cd.flash > 0) {
+          const tint = cd.correct ? [50, 220, 105] : [235, 55, 65];
+          ink(tint[0], tint[1], tint[2], min(170, cd.flash * 10)).box(
+            cx + inset,
+            cy + inset,
+            size,
+            size,
+          );
+        }
+        if (hover && hover.col === c && hover.row === r && state === "play") {
+          ink(...T.hoverOutline).box(cx + 1, cy + 1, cell - 2, cell - 2, "outline");
+          ink(...T.hoverOutline).box(cx + 2, cy + 2, cell - 4, cell - 4, "outline");
+        }
+        if (cd.failed) {
+          ink(255, 225, 225);
+          line(cx + 5, cy + 5, cx + cell - 5, cy + cell - 5);
+          line(cx + cell - 5, cy + 5, cx + 5, cy + cell - 5);
+        }
+        continue;
+      }
 
       // Value — ONE color per answer (color-words use their hue + contrast),
       // centered in the cell. Word editions: unifont, whole word, scale 1.
@@ -2309,7 +2473,7 @@ function paintGame({ wipe, ink, screen, write, box, line, text }) {
   };
   const mc = muncher.col,
     mr = muncher.row;
-  if (state === "play" && deathPhase === 0) {
+  if (mode !== "art" && state === "play" && deathPhase === 0) {
     if (mc === 0) wrapHint(COLS - 1, mr, x - cell, y + mr * cell); // wrap-left
     if (mc === COLS - 1) wrapHint(0, mr, x + COLS * cell, y + mr * cell); // wrap-right
     if (mr === 0) wrapHint(mc, ROWS - 1, x + mc * cell, y - cell); // wrap-up
@@ -2453,9 +2617,17 @@ function paintGame({ wipe, ink, screen, write, box, line, text }) {
 
   // Let the celebration play out, then show the prompt overlay.
   if (state === "clear" && clearPhase === 0)
-    overlay({ ink, screen, write }, "LEVEL CLEAR", "press any key");
+    overlay(
+      { ink, screen, write },
+      "LEVEL CLEAR",
+      mode === "art" && lastArtwork ? "I: record · press to continue" : "press any key",
+    );
   if (state === "over")
-    overlay({ ink, screen, write }, "GAME OVER", "press to retry");
+    overlay(
+      { ink, screen, write },
+      "GAME OVER",
+      mode === "art" && lastArtwork ? "I: record · press to retry" : "press to retry",
+    );
 }
 
 // Cute monster: fatter the more it has eaten; shrinks + trembles when starving
@@ -2619,6 +2791,7 @@ function paintTroggle({ ink, box, line }, cx, cy, cell, hue) {
 }
 
 function gameName() {
+  if (mode === "art") return "ARTNOM";
   if (mode === "note") return "NOTENOM";
   if (mode !== "word") return "NUMBNOM";
   return lang === "es" ? "MEXINOM" : lang === "da" ? "DANNOM" : lang === "ru" ? "RUSNOM" : lang === "cat" ? "CATNOM" : "ENGNOM";
@@ -2626,6 +2799,7 @@ function gameName() {
 // Native edition subtitle, in each language's own script/diacritics. Rendered in
 // unifont (carries accents + Cyrillic) so the symbols are correct.
 function editionText() {
+  if (mode === "art") return "art history edition";
   if (mode === "note") return "music edition";
   if (mode !== "word") return "number edition";
   return lang === "es" ? "edición mexicana"
@@ -2683,18 +2857,24 @@ function overlay({ ink, screen, write }, title, sub) {
 // piece exports `meta() { return makeMeta([<its mode>]); }`.
 function makeMeta(params) {
   const { mode: m, lang: l } = resolveMode(params);
-  const title = m === "note"
+  const title = m === "art"
+    ? "Artnom"
+    : m === "note"
     ? "Notenom"
     : m !== "word"
       ? "Numbnom"
       : l === "es" ? "Mexinom" : l === "da" ? "Dannom" : l === "ru" ? "Rusnom" : l === "cat" ? "Catnom" : "Engnom";
   return {
     title,
-    desc: "Eat the squares that match the rule — numbnom (numbers), engnom (words), mexinom (español), dannom (dansk), rusnom (русский), notenom (notes), catnom (categories).",
+    desc: m === "art"
+      ? "Munch museum thumbnails by art-historical style — Getty AAT categories, IIIF images, and canonical object records."
+      : "Eat the squares that match the rule — numbnom (numbers), engnom (words), mexinom (español), dannom (dansk), rusnom (русский), notenom (notes), catnom (categories).",
   };
 }
 function meta() {
-  return makeMeta([mode === "note" ? "notes" : mode === "word" ? lang : "numbers"]);
+  return makeMeta([
+    mode === "art" ? "art" : mode === "note" ? "notes" : mode === "word" ? lang : "numbers",
+  ]);
 }
 
 export { boot, sim, paint, act, meta, makeMeta };
