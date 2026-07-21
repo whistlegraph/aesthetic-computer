@@ -78,6 +78,9 @@ struct ClaudeSession {
     /// Native provider thread id. Claude uses `sessionId`; Codex's tracked
     /// wrapper has its own rock id, so the watcher records the rollout id here.
     var providerSessionId: String = ""
+    var loopboyState: String = ""
+    var loopboyResponse: String = ""
+    var nudgeScreen: String = ""
 
     /// True for sessions running on another machine, surfaced via the bridge.
     var isRemote: Bool { !remoteHost.isEmpty }
@@ -308,7 +311,12 @@ enum ClaudeSessionReader {
         )
         session.remoteHost = (obj["remote_host"] as? String) ?? ""
         session.agentType = (obj["agent_type"] as? String) ?? "claude"
-        session.providerSessionId = (obj["codex_session_id"] as? String) ?? ""
+        session.providerSessionId = (obj["provider_session_id"] as? String)
+            ?? (obj["codex_session_id"] as? String)
+            ?? (session.agentType == "claude" ? session.sessionId : "")
+        session.loopboyState = (obj["loopboy_state"] as? String) ?? ""
+        session.loopboyResponse = (obj["loopboy_response"] as? String) ?? ""
+        session.nudgeScreen = (obj["nudge_screen"] as? String) ?? ""
         return session
     }
 

@@ -422,6 +422,13 @@ function fetchSummary(cfg) {
        WHERE h.id IN (${ids}) AND m.is_from_me=0;`,
     )[0]?.r || 0,
   );
+  const maxAny = Number(
+    sqlite(
+      `SELECT IFNULL(MAX(m.ROWID),0) AS r FROM message m
+       JOIN handle h ON h.ROWID = m.handle_id
+       WHERE h.id IN (${ids});`,
+    )[0]?.r || 0,
+  );
   const lastRows = sqlite(
     `SELECT m.is_from_me AS fromMe, m.text AS text,
             hex(m.attributedBody) AS body, m.date AS date
@@ -439,7 +446,7 @@ function fetchSummary(cfg) {
       at: appleNsToUnix(row.date),
     };
   }
-  return { unread, maxInbound, last };
+  return { unread, maxInbound, maxAny, last };
 }
 
 // ─── state (so the bell fires once per new message, not every poll) ──────
@@ -462,17 +469,29 @@ function saveState(s) {
 // even after an agent has ingested and answered a message. The cursor is what
 // the menubar means by "un-ingested" and lives in its own file so the 3-second
 // status poll cannot race an acknowledgement write.
-function loadAcknowledgedRowid() {
+function loadAcknowledgedRowid(contactKey = null) {
   try {
-    return Number(JSON.parse(readFileSync(ACK_PATH, "utf8")).rowid) || 0;
+    const ack = JSON.parse(readFileSync(ACK_PATH, "utf8"));
+    if (contactKey && ack.contacts?.[contactKey] != null) {
+      return Number(ack.contacts[contactKey]) || 0;
+    }
+    return Number(ack.rowid) || 0;
   } catch {
     return 0;
   }
 }
 
-function saveAcknowledgedRowid(rowid) {
+function saveAcknowledgedRowid(rowid, contactKey = null) {
   mkdirSync(STATE_DIR, { recursive: true });
-  writeFileSync(ACK_PATH, JSON.stringify({ rowid: Number(rowid) || 0 }));
+  let ack = {};
+  try { ack = JSON.parse(readFileSync(ACK_PATH, "utf8")); } catch {}
+  if (contactKey) {
+    ack.contacts ||= {};
+    ack.contacts[contactKey] = Number(rowid) || 0;
+  } else {
+    ack.rowid = Number(rowid) || 0;
+  }
+  writeFileSync(ACK_PATH, JSON.stringify(ack));
 }
 
 function pendingInbound(cfg, afterRowid) {
@@ -487,9 +506,28 @@ function pendingInbound(cfg, afterRowid) {
   );
 }
 
+// Per-contact Loopboy heartbeat: unanswered inbound messages since the most
+// recent outbound in that conversation. This is independent of Messages.app's
+// read bit and the legacy single-contact acknowledgement cursor.
+function pendingSinceLastOutbound(cfg) {
+  const ids = handleList(cfg);
+  return Number(
+    sqlite(
+      `SELECT COUNT(*) AS n FROM message m
+       JOIN handle h ON h.ROWID = m.handle_id
+       WHERE h.id IN (${ids}) AND m.is_from_me=0
+         AND m.ROWID > COALESCE((
+           SELECT MAX(m2.ROWID) FROM message m2
+           JOIN handle h2 ON h2.ROWID = m2.handle_id
+           WHERE h2.id IN (${ids}) AND m2.is_from_me=1
+         ), 0);`,
+    )[0]?.n || 0,
+  );
+}
+
 function acknowledge(cfg) {
   const rowid = fetchSummary(cfg).maxInbound;
-  saveAcknowledgedRowid(rowid);
+  saveAcknowledgedRowid(rowid, cfg.default || null);
   return rowid;
 }
 
@@ -624,15 +662,16 @@ function cmdStatus() {
   const st = loadState();
   st.contacts ||= {};
   const arrivals = [];
+  const contactPending = [];
   for (const [key, contact] of Object.entries(contactsMap(cfg))) {
     const cc = contactConfig(cfg, key, contact);
     const summary = fetchSummary(cc);
     const cs = st.contacts[key] || { primed: false, lastNotifiedRowid: 0 };
     if (!cs.primed) {
       cs.primed = true;
-      cs.lastNotifiedRowid = summary.maxInbound;
-    } else if (summary.maxInbound > cs.lastNotifiedRowid) {
-      cs.lastNotifiedRowid = summary.maxInbound;
+      cs.lastNotifiedRowid = summary.maxAny;
+    } else if (summary.maxAny > cs.lastNotifiedRowid) {
+      cs.lastNotifiedRowid = summary.maxAny;
       arrivals.push({
         contact: key,
         displayName: contact.displayName,
@@ -642,6 +681,17 @@ function cmdStatus() {
       });
     }
     st.contacts[key] = cs;
+    contactPending.push({
+      contact: key,
+      displayName: contact.displayName,
+      pending: pendingSinceLastOutbound(cc),
+      // Stable, cheap observation token for Loopboy's evaluate/apply machine.
+      // A heartbeat can reuse its cached evaluation while this is unchanged.
+      contextFingerprint: `${summary.maxAny}:${summary.maxInbound}`,
+      last: summary.last
+        ? { fromMe: summary.last.fromMe, text: clip(summary.last.text, 240) }
+        : null,
+    });
   }
   let acknowledgedRowid = loadAcknowledgedRowid();
   if (!acknowledgedRowid) {
@@ -685,6 +735,7 @@ function cmdStatus() {
     systemUnread: s.unread,
     newSinceLast,
     arrivals,
+    contactPending,
     last: s.last
       ? {
           fromMe: s.last.fromMe,

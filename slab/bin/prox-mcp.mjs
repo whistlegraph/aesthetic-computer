@@ -236,7 +236,7 @@ async function toolPoke({ handle, by }) {
   return [{ type: "text", text: `poked ${r.host}:${r.name} as «${poker}» — its rock should blink + rattle (HTTP ${res.status}).` }];
 }
 
-async function toolLaunch({ host, agent, cwd, prompt = "", by }) {
+async function toolLaunch({ host, agent, cwd, prompt = "", by, loopboyContact = "" }) {
   const wanted = String(host || "").trim().toLowerCase().replace(/\.local$/, "");
   if (!wanted) throw new Error("`host` is required (for example, poorslice).");
   const agentName = String(agent || "").trim().toLowerCase();
@@ -255,6 +255,7 @@ async function toolLaunch({ host, agent, cwd, prompt = "", by }) {
     agent: agentName,
     prompt: String(prompt),
     ...(cwd ? { cwd: String(cwd) } : {}),
+    ...(loopboyContact ? { loopboyContact: String(loopboyContact).toLowerCase() } : {}),
     by: launcher,
   });
   const res = await fetch(`http://${target.ip}:${PORT}/launch`, {
@@ -267,9 +268,46 @@ async function toolLaunch({ host, agent, cwd, prompt = "", by }) {
   let result;
   try { result = JSON.parse(text); } catch { throw new Error(`launch on ${target.host} returned invalid JSON (HTTP ${res.status}).`); }
   if (!res.ok || !result.ok) throw new Error(`launch on ${target.host} failed: ${result.error || `HTTP ${res.status}`}`);
+  let binding = "";
+  if (loopboyContact) {
+    if (String(target.host).toLowerCase() !== String(self).toLowerCase()) {
+      throw new Error("Loopboy contact routes can only be launched on this local iMessage host");
+    }
+    if (!result.nudgeScreen) {
+      throw new Error("Loopboy launch did not return a nudge screen; prompt host needs the updated Slab build");
+    }
+    let marker = null;
+    for (let attempt = 0; attempt < 20 && !marker; attempt++) {
+      for (const dir of MARKER_DIRS) {
+        let names = [];
+        try { names = await readdir(dir); } catch {}
+        for (const name of names) {
+          const value = await readJson(join(dir, name));
+          if (value?.nudge_screen === result.nudgeScreen) {
+            marker = { id: value.session_id || name, value };
+            break;
+          }
+        }
+        if (marker) break;
+      }
+      if (!marker) await sleep(250);
+    }
+    if (!marker) throw new Error("Loopboy launched but its live marker did not appear");
+    await mkdir(join(homedir(), ".config", "slab"), { recursive: true });
+    const cfg = (await readJson(LOOPBOY_CONFIG)) || { version: 1, loops: {} };
+    cfg.version = 1; cfg.loops ||= {};
+    cfg.loops[String(loopboyContact).toLowerCase()] = {
+      event: "imessage", contact: String(loopboyContact).toLowerCase(),
+      sessionId: marker.id, host: result.host || target.host,
+      name: "pending-ledger-name", agent: agentName, wake: true,
+      nudgeScreen: result.nudgeScreen, assignedAt: new Date().toISOString(),
+    };
+    await writeFile(LOOPBOY_CONFIG, JSON.stringify(cfg, null, 2) + "\n", { mode: 0o600 });
+    binding = ` and bound Loopboy contact ${loopboyContact}`;
+  }
   return [{
     type: "text",
-    text: `launched ${agentName} on ${result.host || target.host} in ${result.cwd} as «${launcher}»${prompt ? " with an initial prompt" : ""}.`,
+    text: `launched ${agentName} on ${result.host || target.host} in ${result.cwd} as «${launcher}»${prompt ? " with an initial prompt" : ""}${binding}.`,
   }];
 }
 
@@ -399,6 +437,7 @@ const TOOLS = [
         cwd: { type: "string", description: "Optional absolute directory on the target. Defaults to its aesthetic-computer checkout and must stay under its home folder." },
         prompt: { type: "string", description: "Optional initial prompt, at most 4000 characters. Omit to open an idle TUI." },
         by: { type: "string", description: "Optional caller label recorded by the target." },
+        loopboyContact: { type: "string", description: "Optional iMessage contact key. Launches a screen-backed Loopboy and binds it immediately." },
       },
       required: ["host", "agent"],
     },

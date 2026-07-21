@@ -129,8 +129,8 @@
     "parent": "varo",
     "second": "nuxo",
     "mutation": "cross",
-    "trait": "moir ring-grid interference (varo) x plucked harp voice (nuxo)",
-    "born": "2026-07-15T06:30:27.523Z"
+    "trait": "moir ring-grid interference (varo) x Karplus-Strong harp pluck (nuxo)",
+    "born": "2026-07-21T00:12:39.052Z"
   },
   "fraylo": {
     "parent": "wandro",
@@ -644,11 +644,11 @@
     "born": "2026-07-18T21:12:21.420Z"
   },
   "ebbro": {
-    "parent": "varo",
+    "parent": "wandro",
     "second": null,
     "mutation": "invert",
-    "trait": "collapsing moir rings (edge-inward, shrinking toward a vanishing center) x decaying detuned pluck pair",
-    "born": "2026-07-18T21:15:41.375Z"
+    "trait": "pendulum row that swings itself to stillness (decaying just-intonation embers) x pluck/bell voice fading to silence between taps",
+    "born": "2026-07-20T18:29:16.884Z"
   },
   "fizbo": {
     "parent": "ploo",
@@ -824,5 +824,152 @@
     "mutation": "eye",
     "trait": "kaleidoscopic phasor rose  vector-sum tip of two detuned orbiting arms, traced as a fading comet trail x same twin-detuned pad swell + sub-bass slide voice as varo",
     "born": "2026-07-20T00:57:40.216Z"
+  },
+  "brask": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "rotating Euclidean-rhythm circle (Bresenham pulse-distribution necklace across n points, phrasing through classic k:n rhythms like tresillo/cinquillo) x phrase-rooted pluck/bell/sub rhythm voice",
+    "born": "2026-07-20T02:02:55.405Z"
+  },
+  "harko": {
+    "parent": "varo",
+    "second": null,
+    "mutation": "voice",
+    "trait": "moir ring interference x plucked-harp arpeggio with echo tail",
+    "born": "2026-07-20T02:06:22.654Z"
+  },
+  "welmo": {
+    "parent": "ploo",
+    "second": null,
+    "mutation": "voice",
+    "trait": "concentric shockwave/starburst bloom x breathy flute + bubble-pop voice",
+    "born": "2026-07-20T03:08:27.414Z"
+  },
+  "rilvo": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "hydraulic-erosion droplet sim carving a persistent mountain-to-sea heightmap x beat-quantized carve/deposit/arrival voicing",
+    "born": "2026-07-20T03:15:40.004Z"
+  },
+  "corvo": {
+    "parent": "varo",
+    "second": "wandro",
+    "mutation": "cross",
+    "trait": "moir ring-row visual (varo) x pendulum-physics pluck/bell/sub voice (wandro)",
+    "born": "2026-07-20T19:44:16.811Z"
+  },
+  "unravo": {
+    "parent": "nuxo",
+    "second": null,
+    "mutation": "invert",
+    "trait": "fraying nail-and-thread loom (unweaving) x descending harp pluck + strain sub",
+    "born": "2026-07-20T04:23:03.702Z"
+  },
+  "norvo": {
+    "parent": "varo",
+    "second": "nuxo",
+    "mutation": "cross",
+    "trait": "moir interference rings (varo) x harp pluck/bell/sub (nuxo)",
+    "born": "2026-07-20T05:25:16.863Z"
+  },
+  "harlo": {
+    "parent": "nuxo",
+    "second": null,
+    "mutation": "push",
+    "trait": "finger-swept radial harp strings x pentatonic pluck/bell/hat strum chain",
+    "born": "2026-07-20T05:30:50.505Z"
+  },
+  "nombo": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "Collatz-conjecture predecessor tree (integer recurrence branching, camera auto-fit) x magnitude-to-pentatonic bell/pluck voice keyed by branch type (halving vs. 3v+1)",
+    "born": "2026-07-20T16:09:55.117Z"
+  },
+  "trelvo": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "falling note-highway lanes timed to land on the next beat x pentatonic pluck/bell voice with a floor sub-pulse",
+    "born": "2026-07-20T16:17:02.847Z"
+  },
+  "mulvo": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "Wright-Fisher genetic-drift river (a Muller plot of colored lineages widening/narrowing/mutating) x frequency-weighted sustained chord voicing",
+    "born": "2026-07-20T17:22:29.887Z"
+  },
+  "flulo": {
+    "parent": "wandro",
+    "second": null,
+    "mutation": "voice",
+    "trait": "pendulum wave (wexo) x breathed flute/bubble choir",
+    "born": "2026-07-20T17:25:39.773Z"
+  },
+  "gulo": {
+    "parent": "ploo",
+    "second": null,
+    "mutation": "invert",
+    "trait": "inward vortex collapse x drained sub-drone",
+    "born": "2026-07-20T18:34:48.025Z"
+  },
+  "florko": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "pedestrian social-force lane formation (two opposing crowds self-organizing into lanes) x order-parameter-modulated pentatonic/dissonant pluck+bell+sub voice",
+    "born": "2026-07-20T19:39:33.750Z"
+  },
+  "thrumo": {
+    "parent": "nuxo",
+    "second": null,
+    "mutation": "push",
+    "trait": "bowed string x continuous-pluck harp voice",
+    "born": "2026-07-20T20:48:14.145Z"
+  },
+  "pendro": {
+    "parent": "varo",
+    "second": null,
+    "mutation": "eye",
+    "trait": "harmonograph pen-plot (two detuned pendulum curves precessing around a shared paper) x detuned pad swell",
+    "born": "2026-07-20T20:51:34.371Z"
+  },
+  "pondo": {
+    "parent": "nuxo",
+    "second": null,
+    "mutation": "eye",
+    "trait": "koi-pond ripple field x nuxo's pentatonic harp score",
+    "born": "2026-07-20T21:54:34.127Z"
+  },
+  "reevo": {
+    "parent": "nuxo",
+    "second": null,
+    "mutation": "eye",
+    "trait": "windswept reed-field ripple x pentatonic harp pluck/bell/sub",
+    "born": "2026-07-20T21:57:25.072Z"
+  },
+  "vantro": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "riffle-shuffle card permutation (out-shuffle group theory) x pentatonic pluck/bell voice resolving to a home chord",
+    "born": "2026-07-20T23:01:15.371Z"
+  },
+  "bulmo": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "soap-foam coalescence field (bubbles rise, press, and merge  area-conserving) x Laplace's-law pitch (P1/r) pluck/bell/sub voice",
+    "born": "2026-07-20T23:05:27.608Z"
+  },
+  "vamble": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "hexapod tripod-gait walk cycle (2-joint IK legs) x alternating-footfall pluck/sub groove",
+    "born": "2026-07-21T00:10:38.018Z"
   }
 }

@@ -40,6 +40,24 @@ enum ShellRunner {
         return result.status == 0 ? result.output : nil
     }
 
+    /// Run a command whose output is intentionally not consumed. Sending both
+    /// streams to /dev/null avoids the classic pipe-buffer deadlock where a
+    /// verbose long-lived child blocks before `waitUntilExit()` can return.
+    @discardableResult
+    static func runQuiet(_ path: String, args: [String], cwd: String? = nil) -> Int32 {
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: path)
+        proc.arguments = args
+        if let cwd, !cwd.isEmpty {
+            proc.currentDirectoryURL = URL(fileURLWithPath: cwd, isDirectory: true)
+        }
+        proc.standardOutput = FileHandle.nullDevice
+        proc.standardError = FileHandle.nullDevice
+        do { try proc.run() } catch { return -1 }
+        proc.waitUntilExit()
+        return proc.terminationStatus
+    }
+
     static func runAsync(_ path: String, args: [String], completion: (() -> Void)? = nil) {
         DispatchQueue.global(qos: .utility).async {
             _ = run(path, args: args)

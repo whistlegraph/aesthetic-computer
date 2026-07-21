@@ -13,6 +13,10 @@ enum ZoomSpecialMove {
     private static var sequence = 0
 
     static func fire(around cgFrame: CGRect, on screen: NSScreen) {
+        fire(around: [cgFrame], on: screen)
+    }
+
+    static func fire(around cgFrames: [CGRect], on screen: NSScreen) {
         precondition(Thread.isMainThread)
         let window = panel ?? makePanel()
         panel = window
@@ -21,12 +25,14 @@ enum ZoomSpecialMove {
         guard let root = window.contentView?.layer else { return }
         root.sublayers?.forEach { $0.removeFromSuperlayer() }
 
-        let localFrame = appKitFrame(for: cgFrame)
-            .offsetBy(dx: -screen.frame.minX, dy: -screen.frame.minY)
-        let padding: CGFloat = 42
-        let container = CALayer()
-        container.frame = localFrame.insetBy(dx: -padding, dy: -padding)
-        root.addSublayer(container)
+        var emitters: [CAEmitterLayer] = []
+        for cgFrame in cgFrames {
+          let localFrame = appKitFrame(for: cgFrame)
+              .offsetBy(dx: -screen.frame.minX, dy: -screen.frame.minY)
+          let padding: CGFloat = 42
+          let container = CALayer()
+          container.frame = localFrame.insetBy(dx: -padding, dy: -padding)
+          root.addSublayer(container)
 
         let subject = container.bounds.insetBy(dx: padding, dy: padding)
         let radius = min(18, min(subject.width, subject.height) * 0.06)
@@ -69,19 +75,21 @@ enum ZoomSpecialMove {
         emitter.emitterMode = .outline
         emitter.renderMode = .additive
         emitter.emitterCells = [flameCell(), emberCell()]
-        container.addSublayer(emitter)
+          container.addSublayer(emitter)
+          emitters.append(emitter)
 
         window.alphaValue = 1
         window.orderFrontRegardless()
-        animate(layer: bloom, peak: 1.0, duration: 0.72)
-        animate(layer: edge, peak: 1.0, duration: 0.48)
+          animate(layer: bloom, peak: 1.0, duration: 0.72)
+          animate(layer: edge, peak: 1.0, duration: 0.48)
+        }
 
         // Emit hard for a few frames, then leave only the particles already in
         // flight. A sequence token prevents an older burst hiding a newer one.
         sequence += 1
         let mySequence = sequence
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
-            emitter.birthRate = 0
+            emitters.forEach { $0.birthRate = 0 }
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.95) {
             guard sequence == mySequence else { return }

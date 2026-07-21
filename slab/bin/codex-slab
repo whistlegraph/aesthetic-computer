@@ -36,7 +36,7 @@ sid=$(uuidgen)
 begin=$(date +%s)
 # The wrapper (this bash process) is the parent of codex and holds the tab's
 # controlling tty — use it for liveness + terminal-close, matching claude_pid.
-tty=$(ps -o tty= -p $$ 2>/dev/null | tr -d ' ')
+tty=${SLAB_TERMINAL_TTY:-$(ps -o tty= -p $$ 2>/dev/null | tr -d ' ')}
 cwd=$PWD
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
@@ -44,9 +44,10 @@ ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 jq -n \
     --arg sid "$sid" --arg cwd "$cwd" --arg tty "$tty" \
     --arg pid "$$" --arg ts "$ts" \
+    --arg nudge "${SLAB_NUDGE_SCREEN:-}" --arg contact "${SLAB_LOOPBOY_CONTACT:-}" \
     '{session_id:$sid, cwd:$cwd, subject:"codex session", summary:"codex",
       tty:$tty, agent_pid:($pid|tonumber), agent_type:"codex",
-      updated:$ts, state:"blank"}' \
+      updated:$ts, state:"blank", nudge_screen:$nudge, loopboy_contact:$contact}' \
     > "$ACTIVE_DIR/$sid" 2>/dev/null
 
 # Background watcher: derives per-turn state from the rollout JSONL.

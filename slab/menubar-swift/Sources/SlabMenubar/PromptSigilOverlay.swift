@@ -23,6 +23,7 @@ import AppKit
 import CoreGraphics
 import ApplicationServices
 import SceneKit
+import Vision
 
 /// Private (but stable, widely-used by window managers) bridge from an AX
 /// window element to its CGWindowID — lets a kAXWindowMoved callback map the
@@ -53,6 +54,198 @@ enum Sun {
         }
         let len: CGFloat = 2 + (1 - e) * 4               // longer shadow when low
         return (hx, e, intensity, CGSize(width: -hx * len, height: -len))
+    }
+}
+
+/// A short, click-through typographic handoff synchronized with the real
+/// Accessibility keystrokes. It visualizes automation without becoming a
+/// second UI: the actual prompt still belongs to Terminal/Codex/Claude.
+private enum PromptGlyphFlight {
+    private static var panel: NSPanel?
+    private static var sequence = 0
+
+    static func show(text: String, from source: CGPoint, to destination: CGPoint,
+                     color: NSColor, maxWidth: CGFloat, on screen: NSScreen) {
+        precondition(Thread.isMainThread)
+        var chars = Array(text.prefix(48))
+        guard !chars.isEmpty else { return }
+        let window = panel ?? makePanel()
+        panel = window
+        window.setFrame(screen.frame, display: true)
+        guard let root = window.contentView?.layer else { return }
+        root.sublayers?.forEach { $0.removeFromSuperlayer() }
+
+        let localSource = CGPoint(x: source.x - screen.frame.minX,
+                                  y: source.y - screen.frame.minY)
+        let localDestination = CGPoint(x: destination.x - screen.frame.minX,
+                                       y: destination.y - screen.frame.minY)
+        let tileColor = color.withAlphaComponent(0.94)
+        let rgb = tileColor.usingColorSpace(.deviceRGB) ?? tileColor
+        let luminance = 0.2126 * rgb.redComponent
+            + 0.7152 * rgb.greenComponent
+            + 0.0722 * rgb.blueComponent
+        let promptColor: NSColor = luminance > 0.58
+            ? NSColor(deviceWhite: 0.06, alpha: 1)
+            : NSColor(deviceWhite: 0.98, alpha: 1)
+        // These are visibly shed by the rock's name, so they share its exact
+        // playful face before settling onto the terminal caption banner.
+        var fontSize: CGFloat = 18
+        var flightFont = playfulRockFont(fontSize)
+        var fontAttributes: [NSAttributedString.Key: Any] = [.font: flightFont]
+        var glyphOffsets: [CGFloat] = []
+        var glyphWidths: [CGFloat] = []
+        var penX: CGFloat = 0
+        func measureRow() {
+            glyphOffsets.removeAll(keepingCapacity: true)
+            glyphWidths.removeAll(keepingCapacity: true)
+            penX = 0
+            for character in chars {
+                glyphOffsets.append(penX)
+                let measured = ceil((String(character) as NSString)
+                    .size(withAttributes: fontAttributes).width)
+                let tileWidth = max(7, measured + 1)
+                glyphWidths.append(tileWidth)
+                penX += tileWidth + 0.5
+            }
+        }
+        measureRow()
+        if penX > maxWidth {
+            // Keep the whole contextual bump inside the responding terminal.
+            // Scale its actual font metrics rather than crushing only the
+            // positions, with a floor that remains readable from the wall.
+            fontSize = max(11, floor(fontSize * maxWidth / penX))
+            flightFont = playfulRockFont(fontSize)
+            fontAttributes = [.font: flightFont]
+            measureRow()
+            // Very narrow panes can still be smaller than 48 glyphs at the
+            // readable floor. The visual caption may truncate (the complete
+            // prompt is still typed into the agent) but it must never escape
+            // the responding terminal's content rectangle.
+            while chars.count > 1 && penX > maxWidth {
+                chars.removeLast()
+                measureRow()
+            }
+        }
+        let begin = CACurrentMediaTime() + 0.03
+        // Keep the already-landed letters present until the complete nudge has
+        // arrived.  Per-glyph 1.5 s fades made the head of a normal heartbeat
+        // disappear while its tail was still flying, so it never read as one
+        // persistent line of text at the terminal prompt.
+        let settleDuration = 0.62 + Double(max(0, chars.count - 1)) * 0.028
+        let visibleDuration = settleDuration + 1.35
+
+        // One continuous caption banner sits beneath the complete row.  Add
+        // it before the glyphs so Core Animation's sibling order guarantees
+        // the lettering remains in front.
+        let bannerInset: CGFloat = 6
+        let banner = CALayer()
+        banner.frame = CGRect(x: localDestination.x - bannerInset,
+                              y: localDestination.y - 11,
+                              width: penX + bannerInset * 2, height: 22)
+        banner.backgroundColor = tileColor.cgColor
+        banner.cornerRadius = 3
+        banner.shadowColor = color.cgColor
+        banner.shadowOpacity = 0.72
+        banner.shadowRadius = 4
+        banner.shadowOffset = .zero
+        root.addSublayer(banner)
+
+        let bannerReveal = CABasicAnimation(keyPath: "transform.scale.x")
+        bannerReveal.fromValue = 0
+        bannerReveal.toValue = 1
+        bannerReveal.duration = settleDuration
+        bannerReveal.beginTime = begin
+        bannerReveal.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        bannerReveal.fillMode = .both
+        bannerReveal.isRemovedOnCompletion = false
+        banner.anchorPoint = CGPoint(x: 0, y: 0.5)
+        banner.position = CGPoint(x: localDestination.x - bannerInset,
+                                  y: localDestination.y)
+        banner.add(bannerReveal, forKey: "prompt-banner-reveal")
+
+        let bannerFade = CAKeyframeAnimation(keyPath: "opacity")
+        bannerFade.values = [0, 1, 1, 0]
+        bannerFade.keyTimes = [0, 0.04, 0.94, 1]
+        bannerFade.duration = visibleDuration
+        bannerFade.beginTime = begin
+        bannerFade.fillMode = .both
+        bannerFade.isRemovedOnCompletion = false
+        banner.add(bannerFade, forKey: "prompt-banner-fade")
+        for (index, character) in chars.enumerated() {
+            let glyph = CATextLayer()
+            glyph.string = String(character)
+            glyph.font = flightFont
+            glyph.fontSize = fontSize
+            glyph.alignmentMode = .center
+            glyph.contentsScale = screen.backingScaleFactor
+            // Match the bright CLI writing color while retaining enough of
+            // this prox's palette to make the automation visibly its own.
+            glyph.foregroundColor = promptColor.cgColor
+            glyph.shadowColor = NSColor.black.withAlphaComponent(0.35).cgColor
+            glyph.shadowOpacity = 0.55
+            glyph.shadowRadius = 1
+            glyph.shadowOffset = .zero
+            let tileWidth = glyphWidths[index]
+            glyph.bounds = CGRect(x: 0, y: 0, width: tileWidth, height: 22)
+            glyph.position = localDestination
+            root.addSublayer(glyph)
+
+            let end = CGPoint(x: localDestination.x + glyphOffsets[index] + tileWidth * 0.5,
+                              y: localDestination.y)
+            let path = CGMutablePath()
+            path.move(to: CGPoint(x: localSource.x + CGFloat(index % 3) * 3,
+                                  y: localSource.y + CGFloat(index % 2) * 4))
+            path.addQuadCurve(to: end,
+                              control: CGPoint(x: (localSource.x + end.x) * 0.5,
+                                               y: max(localSource.y, end.y) + 82
+                                                   + CGFloat(index % 4) * 7))
+            let travel = CAKeyframeAnimation(keyPath: "position")
+            travel.path = path
+            travel.calculationMode = .paced
+            travel.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            travel.duration = 0.62
+            travel.beginTime = begin + Double(index) * 0.028
+            travel.fillMode = .both
+            travel.isRemovedOnCompletion = false
+            glyph.add(travel, forKey: "prompt-flight")
+
+            let fade = CAKeyframeAnimation(keyPath: "opacity")
+            fade.values = [0, 1, 1, 1, 0]
+            fade.keyTimes = [0, 0.04, 0.82, 0.94, 1]
+            fade.duration = visibleDuration
+            fade.beginTime = travel.beginTime
+            fade.fillMode = .both
+            fade.isRemovedOnCompletion = false
+            glyph.add(fade, forKey: "prompt-flight-fade")
+        }
+
+        sequence += 1
+        let token = sequence
+        window.orderFrontRegardless()
+        let duration = visibleDuration + 0.08
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration) {
+            guard sequence == token else { return }
+            window.orderOut(nil)
+            root.sublayers?.forEach { $0.removeFromSuperlayer() }
+        }
+    }
+
+    private static func makePanel() -> NSPanel {
+        let window = NSPanel(contentRect: .zero,
+                             styleMask: [.borderless, .nonactivatingPanel],
+                             backing: .buffered, defer: false)
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.hasShadow = false
+        window.level = .screenSaver
+        window.ignoresMouseEvents = true
+        window.hidesOnDeactivate = false
+        window.collectionBehavior = [.canJoinAllSpaces, .stationary,
+                                     .ignoresCycle, .fullScreenAuxiliary]
+        let view = NSView()
+        view.wantsLayer = true
+        window.contentView = view
+        return window
     }
 }
 
@@ -141,10 +334,31 @@ final class RockSummaries {
 /// so now every session's stone is always visible and pointable, and the
 /// whole raise/behind-detection dance is gone.
 final class PromptSigilOverlay {
+    private static let fuseParticle: CGImage? = {
+        let side = 8
+        guard let context = CGContext(
+            data: nil, width: side, height: side, bitsPerComponent: 8,
+            bytesPerRow: side * 4, space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        else { return nil }
+        // Deliberately blocky 2 px cluster—no antialiased radial gradient—so
+        // sparks and ash share the prompt rocks' crunchy low-resolution hand.
+        context.interpolationQuality = .none
+        context.setShouldAntialias(false)
+        context.setFillColor(NSColor.white.cgColor)
+        context.fill(CGRect(x: 2, y: 2, width: 4, height: 4))
+        context.fill(CGRect(x: 0, y: 3, width: 2, height: 2))
+        context.fill(CGRect(x: 6, y: 4, width: 2, height: 2))
+        context.setFillColor(NSColor.white.withAlphaComponent(0.55).cgColor)
+        context.fill(CGRect(x: 3, y: 0, width: 2, height: 2))
+        return context.makeImage()
+    }()
+
     let sessionId: String
     /// Bare tty name, e.g. `ttys003` — the join key the controller binds to a
     /// CGWindowID.
     let tty: String
+    private var terminalFrameCG = CGRect.zero
 
     /// Key of the sprite sheet currently installed (seed : dark : sun-minute),
     /// so the controller re-renders the frames only when the rock or the sun
@@ -163,15 +377,27 @@ final class PromptSigilOverlay {
     /// room and isn't clipped by the window edge.
     private let pad: CGFloat = 9
     /// Strip under the rock reserved for its name label.
-    private let labelH: CGFloat = 18
+    private let labelH: CGFloat = 42
     /// Fixed global sun: where the highlight/shadow come from (screen-space,
     /// shared by every stone). Down-right shadow ⇒ light from the upper-left.
     private let shadowDrop = CGSize(width: 3, height: -3)
     private let window: NSWindow
+    /// Full-width Loopboy cadence strip, parked just below Terminal's title
+    /// bar like an Instagram story timer. Separate from the gem window so it
+    /// can span the pane without changing the prox's hit or animation bounds.
+    private let heartbeatWindow: NSWindow
     private let rockLayer = CALayer()        // plays the pre-rendered rotation frames
     private let shadowLayer = CALayer()      // solid status colour, masked to the rock silhouette
     private let shadowMask = CALayer()       // plays the same frames → the shadow's tumbling shape
     private let nameLayer = CALayer()        // the rock's pet name, under the rock (pixel-text bitmap)
+    private let heartbeatTrackLayer = CALayer()
+    private let heartbeatFillLayer = CALayer()
+    private let heartbeatFuseEmitter = CAEmitterLayer()
+    private var heartbeatDeadline: Date?
+    private var heartbeatColor = NSColor.systemYellow
+    private var heartbeatUrgencyStage = 0
+    private let stateLayer = CATextLayer()   // Loopboy phase, beneath its pet name
+    private var loopboyState = ""
     private var boxCenter = CGPoint.zero
 
     /// The rock's pet name (deterministic from its session/thread id) and the
@@ -203,6 +429,20 @@ final class PromptSigilOverlay {
         // clickable — no more burying under whatever the wall accumulates.
         window.level = .floating
         window.collectionBehavior = [.fullScreenAuxiliary]
+
+        let heartbeatInitial = NSRect(x: -2000, y: -2000, width: 160, height: 40)
+        heartbeatWindow = NSWindow(contentRect: heartbeatInitial, styleMask: [.borderless],
+                                   backing: .buffered, defer: false)
+        heartbeatWindow.isOpaque = false
+        heartbeatWindow.backgroundColor = .clear
+        heartbeatWindow.hasShadow = false
+        heartbeatWindow.ignoresMouseEvents = true
+        heartbeatWindow.level = .floating
+        heartbeatWindow.collectionBehavior = [.fullScreenAuxiliary]
+        let heartbeatContainer = NSView(frame: NSRect(origin: .zero, size: heartbeatInitial.size))
+        heartbeatContainer.wantsLayer = true
+        heartbeatContainer.layer?.masksToBounds = false
+        heartbeatWindow.contentView = heartbeatContainer
 
         // Container: a flat status-colour drop-shadow disc as a backing
         // sublayer, with the rock-frame layer on top — the disc peeks out on
@@ -240,15 +480,117 @@ final class PromptSigilOverlay {
         rockLayer.contentsScale = 1
         container.layer?.addSublayer(rockLayer)
 
+        // Transparent space above/below lets smoke rise and ash fall without
+        // the heartbeat window clipping either stream.
+        heartbeatTrackLayer.frame = CGRect(x: 0, y: 24, width: heartbeatInitial.width, height: 3)
+        heartbeatTrackLayer.backgroundColor = NSColor(deviceWhite: 0.025, alpha: 0.38).cgColor
+        heartbeatTrackLayer.cornerRadius = 1.5
+        heartbeatTrackLayer.shadowColor = NSColor.systemYellow.cgColor
+        heartbeatTrackLayer.shadowOpacity = 0.42
+        heartbeatTrackLayer.shadowRadius = 3
+        heartbeatTrackLayer.shadowOffset = CGSize(width: 0, height: -1)
+        heartbeatTrackLayer.isHidden = true
+        heartbeatContainer.layer?.addSublayer(heartbeatTrackLayer)
+        heartbeatFillLayer.frame = heartbeatTrackLayer.bounds
+        // The remaining fuse is pinned to the right. Scaling it 1 → 0 moves
+        // its burning left edge from left → right until nothing remains.
+        heartbeatFillLayer.anchorPoint = CGPoint(x: 1, y: 0.5)
+        heartbeatFillLayer.position = CGPoint(x: heartbeatTrackLayer.bounds.maxX,
+                                              y: heartbeatTrackLayer.bounds.midY)
+        heartbeatFillLayer.backgroundColor = NSColor(deviceRed: 1, green: 0.9,
+                                                     blue: 0.18, alpha: 1).cgColor
+        heartbeatFillLayer.shadowColor = NSColor(deviceRed: 1, green: 0.32,
+                                                 blue: 0.04, alpha: 1).cgColor
+        heartbeatFillLayer.shadowOpacity = 1
+        heartbeatFillLayer.shadowRadius = 6
+        heartbeatFillLayer.cornerRadius = 1.5
+        heartbeatTrackLayer.addSublayer(heartbeatFillLayer)
+
+        heartbeatFuseEmitter.emitterShape = .point
+        heartbeatFuseEmitter.emitterMode = .points
+        heartbeatFuseEmitter.renderMode = .additive
+        heartbeatFuseEmitter.emitterPosition = CGPoint(x: 0, y: heartbeatTrackLayer.bounds.midY)
+        let spark = CAEmitterCell()
+        spark.name = "spark"
+        spark.contents = Self.fuseParticle
+        spark.color = NSColor(deviceRed: 1, green: 0.25, blue: 0.03, alpha: 1).cgColor
+        spark.birthRate = 11
+        spark.lifetime = 0.75
+        spark.lifetimeRange = 0.28
+        spark.velocity = 17
+        spark.velocityRange = 9
+        spark.emissionLongitude = -.pi / 2
+        spark.emissionRange = .pi / 5
+        spark.scale = 0.72
+        spark.scaleRange = 0.22
+        spark.scaleSpeed = -0.38
+        spark.alphaSpeed = -1.1
+        let ash = CAEmitterCell()
+        ash.name = "ash"
+        ash.contents = Self.fuseParticle
+        ash.color = NSColor(deviceWhite: 0.25, alpha: 0.82).cgColor
+        ash.birthRate = 9
+        ash.lifetime = 1.25
+        ash.lifetimeRange = 0.35
+        ash.velocity = 18
+        ash.velocityRange = 9
+        ash.emissionLongitude = -.pi / 2
+        ash.emissionRange = .pi / 7
+        ash.scale = 0.52
+        ash.scaleRange = 0.20
+        ash.scaleSpeed = -0.22
+        ash.alphaSpeed = -0.72
+        let smoke = CAEmitterCell()
+        smoke.name = "smoke"
+        smoke.contents = Self.fuseParticle
+        smoke.color = NSColor(deviceWhite: 0.72, alpha: 0.34).cgColor
+        smoke.birthRate = 2.4
+        smoke.lifetime = 1.25
+        smoke.lifetimeRange = 0.4
+        smoke.velocity = 10
+        smoke.velocityRange = 5
+        smoke.emissionLongitude = .pi / 2
+        smoke.emissionRange = .pi / 6
+        smoke.scale = 0.82
+        smoke.scaleRange = 0.26
+        smoke.scaleSpeed = 0.12
+        smoke.alphaSpeed = -0.55
+        // A dense, very short-lived flame cell forms the hot tip organically.
+        // It flickers and changes silhouette frame-to-frame instead of reading
+        // as a perfect circular progress scrubber.
+        let flame = CAEmitterCell()
+        flame.name = "flame"
+        flame.contents = Self.fuseParticle
+        flame.color = NSColor(deviceRed: 1, green: 0.18, blue: 0.015, alpha: 1).cgColor
+        flame.birthRate = 28
+        flame.lifetime = 0.20
+        flame.lifetimeRange = 0.09
+        flame.velocity = 7
+        flame.velocityRange = 5
+        flame.emissionLongitude = .pi / 2
+        flame.emissionRange = .pi / 2.5
+        flame.scale = 0.92
+        flame.scaleRange = 0.34
+        flame.scaleSpeed = -2.4
+        flame.alphaSpeed = -2.8
+        heartbeatFuseEmitter.emitterCells = [flame, spark, ash, smoke]
+        heartbeatTrackLayer.addSublayer(heartbeatFuseEmitter)
+
         // Name label: the rock's pet name in MacPal bubble lettering, tucked
         // right under the rock so rocks are tellable apart by word as well as
         // by shape. It's a container for per-character RockCharLayers
         // (rebuilt by `rebuildName`) and overlaps the rock box's bottom
         // margin — the sprite never reaches its own edge, so the letters sit
         // close to the stone without touching it.
-        nameLayer.frame = CGRect(x: 0, y: 19, width: box, height: labelH)
+        nameLayer.frame = CGRect(x: 0, y: 26, width: box, height: 18)
         nameLayer.masksToBounds = false
         container.layer?.addSublayer(nameLayer)
+
+        stateLayer.frame = CGRect(x: 0, y: 8, width: box, height: 18)
+        stateLayer.alignmentMode = .center
+        stateLayer.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
+        stateLayer.isHidden = true
+        container.layer?.addSublayer(stateLayer)
 
         window.contentView = container
     }
@@ -259,6 +601,137 @@ final class PromptSigilOverlay {
         guard name != newName else { return }
         name = newName
         rebuildName()
+    }
+
+    private var labelForeground = NSColor.white
+    private var loopboyStyled = false
+
+    /// Give bound client loops a separate motion axis and role-colored type.
+    func setLoopboyStyle(_ enabled: Bool, active: Bool, pending: Bool, dark: Bool) {
+        let color: NSColor = pending
+            ? NSColor(deviceRed: 1.0, green: 0.58, blue: 0.82, alpha: 1.0)
+            : NSColor(deviceRed: 1.0, green: 0.94, blue: 0.28, alpha: 1.0)
+        let changed = loopboyStyled != enabled || labelForeground != color
+        loopboyStyled = enabled
+        stateLayer.isHidden = !enabled
+        heartbeatTrackLayer.isHidden = !enabled
+        if !enabled { heartbeatWindow.orderOut(nil) }
+        labelForeground = enabled ? color : .white
+        if enabled {
+            rockLayer.removeAnimation(forKey: "loopboyYAxis")
+            shadowMask.removeAnimation(forKey: "loopboyYAxis")
+        } else {
+            rockLayer.removeAnimation(forKey: "loopboyYAxis")
+            shadowMask.removeAnimation(forKey: "loopboyYAxis")
+            rockLayer.transform = CATransform3DIdentity
+            shadowMask.transform = CATransform3DIdentity
+        }
+        if changed { rebuildName() }
+    }
+
+    func resetHeartbeatCountdown(interval: TimeInterval = 60) {
+        heartbeatDeadline = Date().addingTimeInterval(interval)
+        heartbeatUrgencyStage = 0
+        retime(rockLayer, speed: observed ? 3.2 : (hovered ? 2.6 : 1.0))
+        retime(shadowMask, speed: observed ? 3.2 : (hovered ? 2.6 : 1.0))
+        heartbeatFillLayer.removeAnimation(forKey: "heartbeatDrain")
+        heartbeatFillLayer.removeAnimation(forKey: "heartbeatUrgency")
+        heartbeatFuseEmitter.removeAnimation(forKey: "heartbeatFuseTravel")
+        heartbeatFuseEmitter.birthRate = 1
+        heartbeatFillLayer.transform = CATransform3DIdentity
+        heartbeatFillLayer.backgroundColor = heartbeatColor.cgColor
+        heartbeatFillLayer.shadowColor = heartbeatColor.cgColor
+        let drain = CABasicAnimation(keyPath: "transform.scale.x")
+        // A fuse runs OUT: its burning edge travels left → right while the
+        // remaining luminous material contracts toward the right endpoint.
+        drain.fromValue = 1.0
+        drain.toValue = 0.0
+        drain.duration = interval
+        drain.timingFunction = CAMediaTimingFunction(name: .linear)
+        drain.isRemovedOnCompletion = false
+        drain.fillMode = .forwards
+        heartbeatFillLayer.add(drain, forKey: "heartbeatDrain")
+
+        let fuseTravel = CABasicAnimation(keyPath: "emitterPosition.x")
+        fuseTravel.fromValue = 0
+        fuseTravel.toValue = heartbeatTrackLayer.bounds.maxX
+        fuseTravel.duration = interval
+        fuseTravel.timingFunction = CAMediaTimingFunction(name: .linear)
+        fuseTravel.isRemovedOnCompletion = false
+        fuseTravel.fillMode = .forwards
+        heartbeatFuseEmitter.add(fuseTravel, forKey: "heartbeatFuseTravel")
+
+        // The deadline feels increasingly alive without changing its actual
+        // timing: slow warning pulse, then quick flashes in the final seconds.
+        let urgency = CAKeyframeAnimation(keyPath: "opacity")
+        urgency.values = [1, 1, 0.48, 1, 0.42, 1, 0.35, 1, 0.3, 1]
+        urgency.keyTimes = [0, 0.82, 0.86, 0.90, 0.925, 0.947, 0.963, 0.977, 0.988, 1]
+        urgency.duration = interval
+        urgency.timingFunctions = Array(repeating: CAMediaTimingFunction(name: .easeInEaseOut), count: 9)
+        urgency.isRemovedOnCompletion = false
+        urgency.fillMode = .forwards
+        heartbeatFillLayer.add(urgency, forKey: "heartbeatUrgency")
+    }
+
+    func updateHeartbeatCountdown(now: Date) {
+        guard loopboyStyled, let deadline = heartbeatDeadline else { return }
+        let remaining = deadline.timeIntervalSince(now)
+        let urgencyStage = remaining <= 5 ? 2 : (remaining <= 12 ? 1 : 0)
+        if urgencyStage != heartbeatUrgencyStage {
+            heartbeatUrgencyStage = urgencyStage
+            let speed: Float = urgencyStage == 2 ? 3.4 : (urgencyStage == 1 ? 1.9 : 1.0)
+            retime(rockLayer, speed: speed)
+            retime(shadowMask, speed: speed)
+        }
+        guard now >= deadline else { return }
+        heartbeatFillLayer.transform = CATransform3DMakeScale(0, 1, 1)
+        heartbeatFuseEmitter.birthRate = 0
+    }
+
+    func setLoopboyState(_ state: String, animated: Bool = true) {
+        stateLayer.isHidden = !loopboyStyled
+        guard loopboyState != state else { return }
+        loopboyState = state
+        guard animated, stateLayer.string != nil else {
+            applyStateLabel(state)
+            return
+        }
+        let shake = CAKeyframeAnimation(keyPath: "transform.translation.x")
+        shake.values = [0, -4, 5, -3, 2, 0]
+        shake.duration = 0.18
+        let breakApart = CABasicAnimation(keyPath: "transform.scale")
+        breakApart.fromValue = 1.0; breakApart.toValue = 1.7
+        breakApart.duration = 0.18
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = 1.0; fade.toValue = 0.0; fade.duration = 0.18
+        stateLayer.add(shake, forKey: "stateShake")
+        stateLayer.add(breakApart, forKey: "stateBreak")
+        stateLayer.add(fade, forKey: "stateFade")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { [weak self] in
+            guard let self = self, self.loopboyState == state else { return }
+            self.applyStateLabel(state)
+            let assemble = CAKeyframeAnimation(keyPath: "transform.scale")
+            assemble.values = [0.35, 1.18, 1.0]
+            assemble.keyTimes = [0, 0.72, 1]
+            assemble.duration = 0.28
+            self.stateLayer.add(assemble, forKey: "stateAssemble")
+        }
+    }
+
+    private func applyStateLabel(_ state: String) {
+        let color: NSColor
+        switch state {
+        case "READING": color = NSColor(deviceRed: 0.28, green: 0.92, blue: 1.0, alpha: 1)
+        case "WORKING": color = NSColor(deviceRed: 1.0, green: 0.92, blue: 0.22, alpha: 1)
+        case "RESPONDING": color = NSColor(deviceRed: 1.0, green: 0.42, blue: 0.72, alpha: 1)
+        default: color = NSColor(deviceWhite: 0.72, alpha: 1)
+        }
+        stateLayer.string = NSAttributedString(string: state.lowercased(), attributes: [
+            .font: playfulRockFont(12),
+            .foregroundColor: color,
+            .strokeColor: NSColor(white: 0.08, alpha: 0.9),
+            .strokeWidth: -1.4,
+        ])
     }
 
     /// Retime a layer's animation clock without a visual jump: local time is
@@ -373,7 +846,7 @@ final class PromptSigilOverlay {
         for ch in name {
             let a = NSAttributedString(string: String(ch), attributes: [
                 .font: font,
-                .foregroundColor: NSColor.white,
+                .foregroundColor: labelForeground,
                 .strokeColor: NSColor(white: 0.08, alpha: 1),
                 .strokeWidth: -3.5,
                 .shadow: sh,
@@ -411,13 +884,15 @@ final class PromptSigilOverlay {
             l.position = CGPoint(x: x + widths[i] / 2, y: nameLayer.bounds.height / 2)
             x += widths[i]
             let begin = t0 + Double(i) * 0.12
-            let y = CAKeyframeAnimation(keyPath: "transform.translation.y")
-            y.values = [0, 1.2, -0.8, 0]
-            y.keyTimes = [0, 0.25, 0.75, 1]
-            y.timingFunctions = eases(3)
-            y.duration = 1.8; y.repeatCount = .infinity
-            y.beginTime = begin; y.isAdditive = true
-            l.add(y, forKey: "wiggleY")
+            let sway = CAKeyframeAnimation(keyPath: loopboyStyled
+                ? "transform.translation.x" : "transform.translation.y")
+            sway.values = loopboyStyled ? [0, 2.4, -2.0, 0] : [0, 1.2, -0.8, 0]
+            sway.keyTimes = [0, 0.25, 0.75, 1]
+            sway.timingFunctions = eases(3)
+            sway.duration = loopboyStyled ? 1.45 : 1.8
+            sway.repeatCount = .infinity
+            sway.beginTime = begin; sway.isAdditive = true
+            l.add(sway, forKey: loopboyStyled ? "loopboySwayX" : "wiggleY")
             let r = CAKeyframeAnimation(keyPath: "transform.rotation.z")
             r.values = [0, 1.2 * Double.pi / 180, -0.8 * Double.pi / 180, 0]
             r.keyTimes = [0, 0.25, 0.75, 1]
@@ -444,18 +919,147 @@ final class PromptSigilOverlay {
         shadowFrames = shadow
         rockLayer.contents = rock.first
         shadowMask.contents = shadow.first
+        positionLabels(for: rock)
         applyPlayback()
+    }
+
+    /// Place labels against the union alpha envelope of the animated form.
+    /// Sampling the full turn protects asymmetric gems from clipping during
+    /// rotation while eliminating the nominal-layer dead gap.
+    private func positionLabels(for frames: [CGImage]) {
+        guard let first = frames.first else { return }
+        var lowestRow = -1
+        let step = max(1, frames.count / 18)
+        for image in frames.enumerated() where image.offset % step == 0 {
+            let cg = image.element
+            guard cg.bitsPerPixel == 32, let data = cg.dataProvider?.data,
+                  let bytes = CFDataGetBytePtr(data) else { continue }
+            let alphaOffset: Int
+            switch cg.alphaInfo {
+            case .first, .premultipliedFirst, .noneSkipFirst: alphaOffset = 0
+            default: alphaOffset = 3
+            }
+            for row in 0..<cg.height {
+                let base = row * cg.bytesPerRow
+                var occupied = false
+                for col in 0..<cg.width where bytes[base + col * 4 + alphaOffset] > 10 {
+                    occupied = true; break
+                }
+                if occupied { lowestRow = max(lowestRow, row) }
+            }
+        }
+        guard lowestRow >= 0 else { return }
+        let bottomInset = CGFloat(first.height - 1 - lowestRow) / CGFloat(first.height) * size
+        let visibleBottom = rockLayer.frame.minY + bottomInset
+        let nameY = max(20, visibleBottom - 16)
+        nameLayer.frame.origin.y = nameY
+        stateLayer.frame.origin.y = max(1, nameY - 18)
     }
 
     /// Tint the flat drop-shadow disc with the session's status colour.
     private var shadowColor: NSColor?
+    private var promptColor: NSColor?
     func setShadowColor(_ color: NSColor) {
         guard shadowColor != color else { return }
         shadowColor = color
         shadowLayer.backgroundColor = color.cgColor
+        heartbeatTrackLayer.backgroundColor = NSColor(deviceWhite: 0.025, alpha: 0.38).cgColor
+        heartbeatTrackLayer.shadowColor = NSColor.black.cgColor
+        heartbeatFillLayer.backgroundColor = color.cgColor
+        heartbeatFillLayer.shadowColor = color.cgColor
         // The lettering's hard shadow wears the same status colour, so the
         // label reads as part of the same lit object as the rock.
         rebuildName()
+    }
+
+    /// The flying keystrokes wear the terminal's actual foreground colour,
+    /// which is not necessarily the rock's status/shadow colour.
+    func setPromptColor(_ color: NSColor) {
+        promptColor = color
+    }
+
+    /// The countdown belongs to the terminal it points at. Keep this separate
+    /// from the gem/status shadow so a selected Terminal profile's accent is
+    /// faithfully carried by the fuse and every falling spark.
+    func setHeartbeatColor(_ color: NSColor) {
+        heartbeatColor = color
+        heartbeatFillLayer.backgroundColor = color.cgColor
+        heartbeatFillLayer.shadowColor = color.cgColor
+    }
+
+    /// Loopboy rocks are beacons, not merely status shadows. Give their
+    /// silhouette a soft outer bloom; ordinary prompt rocks stay crisp.
+    func setShining(_ shining: Bool, color: NSColor) {
+        shadowLayer.shadowColor = shining ? color.cgColor : nil
+        shadowLayer.shadowRadius = shining ? 16 : 0
+        shadowLayer.shadowOpacity = shining ? 1.0 : 0
+        shadowLayer.shadowOffset = .zero
+    }
+
+    /// One fleet-synchronized Loopboy heartbeat beat: flash, blink, and a
+    /// short spin burst. The controller gives every gem the same begin time.
+    func heartbeatPulse(beginTime: CFTimeInterval) {
+        setLoopboyState("READING")
+        // The fuse reaches the gem's next beat, then hands its energy into the
+        // shared blink/spin/explosion rather than ending as a disconnected bar.
+        heartbeatFuseEmitter.birthRate = 2.6
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { [weak self] in
+            self?.heartbeatFuseEmitter.birthRate = 1
+        }
+        let blink = CAKeyframeAnimation(keyPath: "opacity")
+        blink.values = [1.0, 0.28, 1.0, 0.42, 1.0]
+        blink.keyTimes = [0, 0.18, 0.42, 0.66, 1]
+        blink.duration = 1.15
+        blink.beginTime = beginTime
+        blink.isRemovedOnCompletion = true
+        rockLayer.add(blink, forKey: "loopboyHeartbeatBlink")
+        nameLayer.add(blink, forKey: "loopboyHeartbeatBlink")
+
+        let color = CAKeyframeAnimation(keyPath: "backgroundColor")
+        color.values = [
+            (shadowColor ?? .systemYellow).cgColor,
+            NSColor(deviceRed: 1.0, green: 0.22, blue: 0.62, alpha: 1).cgColor,
+            NSColor(deviceRed: 1.0, green: 0.94, blue: 0.22, alpha: 1).cgColor,
+            (shadowColor ?? .systemYellow).cgColor,
+        ]
+        color.keyTimes = [0, 0.28, 0.62, 1]
+        color.duration = 1.15
+        color.beginTime = beginTime
+        shadowLayer.add(color, forKey: "loopboyHeartbeatColor")
+
+        retime(rockLayer, speed: 4.2)
+        retime(shadowMask, speed: 4.2)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
+            guard let self = self else { return }
+            self.retime(self.rockLayer, speed: self.observed ? 3.2 : (self.hovered ? 2.6 : 1.0))
+            self.retime(self.shadowMask, speed: self.observed ? 3.2 : (self.hovered ? 2.6 : 1.0))
+        }
+    }
+
+    var heartbeatTarget: (CGRect, NSScreen)? {
+        guard !terminalFrameCG.isEmpty, let screen = window.screen else { return nil }
+        return (terminalFrameCG, screen)
+    }
+
+    /// Screen-space endpoints for the heartbeat's visible prompt handoff:
+    /// gem upper-right → the terminal's bottom input line.
+    var promptFlightTarget: (CGPoint, CGPoint, NSColor, NSScreen, CGFloat)? {
+        let terminal = terminalFrameCG
+        guard !terminal.isEmpty,
+              let screen = NSScreen.screens.first(where: {
+                  terminal.intersects($0.frame)
+              }) ?? NSScreen.main else { return nil }
+        let desktopTop = NSScreen.screens.map(\.frame.maxY).max() ?? 0
+        // Emit from the visible pet name rather than the rock's corner: the
+        // sentence reads as letters jumbling out of the name itself.
+        let source = CGPoint(x: window.frame.minX + nameLayer.frame.midX,
+                             y: window.frame.minY + nameLayer.frame.midY)
+        let terminalBottom = desktopTop - terminal.maxY
+        let destination = CGPoint(x: terminal.minX + min(150, terminal.width * 0.18),
+                                  y: terminalBottom + 45)
+        return (source, destination,
+                promptColor ?? shadowColor ?? .systemYellow, screen,
+                terminal.maxX)
     }
 
     /// The global sun's direction is baked into the frames (re-rendered by the
@@ -508,6 +1112,7 @@ final class PromptSigilOverlay {
     /// spring TARGET only; `advance` does the actual easing. First placement
     /// snaps (no spring from off-screen). No z-order touched here.
     func place(bounds b: (CGFloat, CGFloat, CGFloat, CGFloat), screenHeight: CGFloat) {
+        terminalFrameCG = CGRect(x: b.0, y: b.1, width: b.2, height: b.3)
         let titleBar: CGFloat = 30, rightInset: CGFloat = 10
         // Window is padded around the rock; shift origin by -pad so the rock
         // itself (centred in the window) still lands at the top-right spot.
@@ -520,6 +1125,28 @@ final class PromptSigilOverlay {
             currentOrigin = t
             window.setFrameOrigin(t)
         }
+
+        // A slim inset keeps the story-style strip aligned to the pane's
+        // content edge rather than colliding with the rounded window corners.
+        // Terminal's text canvas begins a few pixels inside the outer window;
+        // match that inner edge so the bar and prompt share one baseline.
+        let stripInset: CGFloat = 6
+        let stripWidth = max(40, b.2 - stripInset * 2)
+        let stripTitleBar: CGFloat = 28
+        let stripY = screenHeight - (b.1 + stripTitleBar + 5)
+        // Preserve the original three-point fuse position while extending a
+        // transparent particle field 23 pt below and 12 pt above it.
+        heartbeatWindow.setFrame(NSRect(x: b.0 + stripInset, y: stripY - 23,
+                                        width: stripWidth, height: 40), display: false)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        heartbeatTrackLayer.frame = CGRect(x: 0, y: 24, width: stripWidth, height: 3)
+        heartbeatFillLayer.bounds = heartbeatTrackLayer.bounds
+        heartbeatFillLayer.position = CGPoint(x: heartbeatTrackLayer.bounds.maxX,
+                                              y: heartbeatTrackLayer.bounds.midY)
+        heartbeatFuseEmitter.emitterPosition = CGPoint(
+            x: 0, y: heartbeatTrackLayer.bounds.midY)
+        CATransaction.commit()
     }
 
     /// The rock's centre in CG screen coordinates (top-left origin), computed
@@ -535,9 +1162,11 @@ final class PromptSigilOverlay {
     func setVisible(_ v: Bool) {
         if v {
             if !window.isVisible { window.orderFrontRegardless() }
+            if loopboyStyled && !heartbeatWindow.isVisible { heartbeatWindow.orderFrontRegardless() }
         } else if window.isVisible {
             setHovered(false)   // a covered rock stops reacting to the pointer
             window.orderOut(nil)
+            heartbeatWindow.orderOut(nil)
         }
     }
 
@@ -576,8 +1205,12 @@ final class PromptSigilOverlay {
 
     func hide() {
         if window.isVisible { window.orderOut(nil) }
+        if heartbeatWindow.isVisible { heartbeatWindow.orderOut(nil) }
     }
-    func close() { window.orderOut(nil) }
+    func close() {
+        window.orderOut(nil)
+        heartbeatWindow.orderOut(nil)
+    }
 }
 
 /// The little sentence card a rock reveals on hover or click: the rock's
@@ -929,6 +1562,192 @@ final class PromptSigilOverlayController {
         })
     }
 
+    func pulseLoopboys() {
+        let ids = loopboySessions()
+        let beat = CACurrentMediaTime() + 0.08
+        for (sid, overlay) in overlays where ids.contains(sid) {
+            overlay.heartbeatPulse(beginTime: beat)
+            overlay.resetHeartbeatCountdown()
+        }
+        let targets = overlays.compactMap { ids.contains($0.key) ? $0.value.heartbeatTarget : nil }
+        for group in Dictionary(grouping: targets, by: { ObjectIdentifier($0.1) }).values {
+            if let screen = group.first?.1 {
+                ZoomSpecialMove.fire(around: group.map(\.0), on: screen)
+            }
+        }
+    }
+
+    func flyPrompt(sessionId: String, text: String) {
+        guard let overlay = overlays[sessionId],
+              let target = overlay.promptFlightTarget else { return }
+        let destination = cursorDestination(tty: overlay.tty, screen: target.3) ?? target.1
+        let availableWidth = max(120, target.4 - destination.x - 12)
+        PromptGlyphFlight.show(text: text, from: target.0, to: destination,
+                               color: target.2, maxWidth: availableWidth,
+                               on: target.3)
+    }
+
+    func setPromptColor(sessionId: String, color: NSColor) {
+        overlays[sessionId]?.setPromptColor(color)
+    }
+
+    func setHeartbeatColor(sessionId: String, color: NSColor) {
+        overlays[sessionId]?.setHeartbeatColor(color)
+    }
+
+    /// Resolve Terminal/iTerm's real insertion-point rectangle. The AX range
+    /// geometry is in global top-left coordinates; PromptGlyphFlight uses
+    /// AppKit's bottom-left coordinates, so flip it against the desktop top.
+    /// Some terminal versions omit parameterized range bounds; callers retain
+    /// the visually safe last-line fallback for that case.
+    private func cursorDestination(tty: String, screen: NSScreen) -> CGPoint? {
+        let bare = (tty as NSString).lastPathComponent
+        guard let wanted = binding[bare] else { return nil }
+        let bundleIds = Set(["com.apple.Terminal", "com.googlecode.iterm2"])
+
+        func insertionRect(in element: AXUIElement, depth: Int = 0) -> CGRect? {
+            guard depth < 8 else { return nil }
+            var roleRef: CFTypeRef?
+            _ = AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleRef)
+            if (roleRef as? String) == kAXTextAreaRole as String {
+                var rangeRef: CFTypeRef?
+                if AXUIElementCopyAttributeValue(element, kAXSelectedTextRangeAttribute as CFString,
+                                                 &rangeRef) == .success,
+                   let rangeRef {
+                    var boundsRef: CFTypeRef?
+                    if AXUIElementCopyParameterizedAttributeValue(
+                        element, kAXBoundsForRangeParameterizedAttribute as CFString,
+                        rangeRef, &boundsRef) == .success,
+                       let value = boundsRef as! AXValue?, AXValueGetType(value) == .cgRect {
+                        var rect = CGRect.zero
+                        if AXValueGetValue(value, .cgRect, &rect),
+                           rect.width.isFinite, rect.height.isFinite,
+                           rect.minX.isFinite, rect.minY.isFinite,
+                           !rect.isNull, !rect.isInfinite { return rect }
+                    }
+                }
+            }
+            var childrenRef: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString,
+                                                &childrenRef) == .success,
+                  let children = childrenRef as? [AXUIElement] else { return nil }
+            for child in children {
+                if let rect = insertionRect(in: child, depth: depth + 1) { return rect }
+            }
+            return nil
+        }
+
+        func elementRect(_ element: AXUIElement) -> CGRect? {
+            var positionRef: CFTypeRef?
+            var sizeRef: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString,
+                                                &positionRef) == .success,
+                  AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString,
+                                                &sizeRef) == .success,
+                  let position = positionRef as! AXValue?,
+                  let size = sizeRef as! AXValue? else { return nil }
+            var origin = CGPoint.zero
+            var dimensions = CGSize.zero
+            guard AXValueGetValue(position, .cgPoint, &origin),
+                  AXValueGetValue(size, .cgSize, &dimensions) else { return nil }
+            return CGRect(origin: origin, size: dimensions)
+        }
+
+        /// Terminal text areas occasionally omit selected-range bounds while
+        /// repainting. Read only the bound terminal window in that case and
+        /// use its lowest OCR row as the visible prompt-line context instead
+        /// of guessing from the desktop corner or a fixed bottom inset.
+        func ocrPromptRow(windowID: CGWindowID, windowRect: CGRect) -> CGRect? {
+            guard let image = CGWindowListCreateImage(.null, .optionIncludingWindow,
+                                                      windowID, [.boundsIgnoreFraming])
+            else { return nil }
+            let request = VNRecognizeTextRequest()
+            request.recognitionLevel = .fast
+            request.usesLanguageCorrection = false
+            request.minimumTextHeight = 0
+            try? VNImageRequestHandler(cgImage: image, options: [:]).perform([request])
+            let rows = (request.results ?? []).compactMap { observation -> CGRect? in
+                guard observation.topCandidates(1).first != nil else { return nil }
+                let box = observation.boundingBox
+                let rect = CGRect(
+                    x: windowRect.minX + box.minX * windowRect.width,
+                    y: windowRect.minY + (1 - box.maxY) * windowRect.height,
+                    width: box.width * windowRect.width,
+                    height: box.height * windowRect.height)
+                guard rect.midY > windowRect.minY + 24,
+                      rect.midY < windowRect.maxY - 6 else { return nil }
+                return rect
+            }
+            return rows.max(by: { $0.midY < $1.midY })
+        }
+
+        for app in NSWorkspace.shared.runningApplications
+            where bundleIds.contains(app.bundleIdentifier ?? "") {
+            let axApp = AXUIElementCreateApplication(app.processIdentifier)
+            var windowsRef: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(axApp, kAXWindowsAttribute as CFString,
+                                                &windowsRef) == .success,
+                  let windows = windowsRef as? [AXUIElement] else { continue }
+            for window in windows {
+                var wid = CGWindowID(0)
+                guard _AXUIElementGetWindow(window, &wid) == .success,
+                      Int(wid) == wanted,
+                      let windowRect = elementRect(window) else { continue }
+                // Terminal occasionally reports a zero/origin range while its
+                // screen buffer is repainting.  Reject it unless the insertion
+                // point is actually inside this responding terminal; otherwise
+                // the flight dives into the bottom corner of the desktop.
+                let desktopTop = NSScreen.screens.map(\.frame.maxY).max() ?? screen.frame.maxY
+                if let rect = insertionRect(in: window),
+                   windowRect.insetBy(dx: -8, dy: -8).intersects(rect),
+                   rect.maxX > windowRect.minX + 2,
+                   rect.maxY > windowRect.minY + 2 {
+                    // AX gives a top-left desktop rectangle. Preserve the
+                    // insertion x and flip only y into AppKit coordinates.
+                    return CGPoint(x: rect.minX,
+                                   y: desktopTop - rect.maxY + rect.height * 0.5)
+                }
+                if let row = ocrPromptRow(windowID: wid, windowRect: windowRect) {
+                    // OCR understands the visible terminal content: continue
+                    // immediately after its lowest row, but never beyond the
+                    // bound window's usable right edge.
+                    return CGPoint(x: min(row.maxX + 5, windowRect.maxX - 120),
+                                   y: desktopTop - row.maxY + row.height * 0.5)
+                }
+            }
+        }
+        return nil
+    }
+
+    /// Raise the terminal window already bound to this tty using Accessibility
+    /// only. This avoids Apple Events/TCC while preserving exact-window focus.
+    func focusTerminal(tty: String) -> Bool {
+        let bare = (tty as NSString).lastPathComponent
+        guard let wanted = binding[bare] else { return false }
+        let bundleIds = Set(["com.apple.Terminal", "com.googlecode.iterm2"])
+        for app in NSWorkspace.shared.runningApplications
+            where bundleIds.contains(app.bundleIdentifier ?? "") {
+            let axApp = AXUIElementCreateApplication(app.processIdentifier)
+            var raw: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(axApp, kAXWindowsAttribute as CFString,
+                                                &raw) == .success,
+                  let windows = raw as? [AXUIElement] else { continue }
+            for window in windows {
+                var wid = CGWindowID(0)
+                guard _AXUIElementGetWindow(window, &wid) == .success,
+                      Int(wid) == wanted else { continue }
+                _ = app.activate(options: [.activateIgnoringOtherApps])
+                _ = AXUIElementSetAttributeValue(window, kAXMainAttribute as CFString,
+                                                 kCFBooleanTrue)
+                _ = AXUIElementSetAttributeValue(window, kAXFocusedAttribute as CFString,
+                                                 kCFBooleanTrue)
+                _ = AXUIElementPerformAction(window, kAXRaiseAction as CFString)
+                return true
+            }
+        }
+        return false
+    }
+
     /// Reconcile the badge set with the live sessions. Off when `enabled` is
     /// false. Only sessions with a real local tty get a badge.
     func sync(sessions: [ClaudeSession], enabled: Bool) {
@@ -978,23 +1797,47 @@ final class PromptSigilOverlayController {
             // moves to a new prompt.
             let seed = SigilRenderer.seed(for: s.sessionId + "\u{1}" + s.subject)
             // Re-render the sprite sheet only when the rock or the sun moved.
-            let key = "\(seed):\(dark):\(sunMinute)"
+            let loopboy = loopIds.contains(s.sessionId)
+            let key = "\(seed):\(dark):\(sunMinute):\(loopboy)"
             if ov.frameKey != key {
                 ov.frameKey = key
                 let (hx, e, inten) = (sun.hx, sun.elevation, sun.intensity)
                 renderQueue.async { [weak ov] in
                     let hi = SigilRockFrames.render(
-                        seed: seed, dark: dark, sunHx: hx, sunElevation: e, sunIntensity: inten)
-                    let lo = hi.map { SigilRockFrames.downsample($0, to: 30) }
+                        seed: seed, dark: dark, sunHx: hx, sunElevation: e,
+                        sunIntensity: inten, gem: loopboy)
+                    // Gems stay crisp and glass-like; ordinary rocks retain
+                    // their deliberately chunky 30px pixel material.
+                    let lo = loopboy ? hi : hi.map { SigilRockFrames.downsample($0, to: 30) }
                     DispatchQueue.main.async { ov?.setFrames(rock: lo, shadow: hi) }
                 }
             }
             let (basePeriod, cw) = motion(for: s.state)
-            let loopboy = loopIds.contains(s.sessionId)
+            let loopboyActive = loopboy && (s.state == .working || s.state == .rendering)
+            let loopboyGlow = loopboyActive
+                ? NSColor(deviceRed: 1.0, green: 0.72, blue: 0.08, alpha: 1.0)
+                : NSColor(deviceRed: 1.0, green: 0.86, blue: 0.20, alpha: 1.0)
             ov.setMotion(period: loopboy ? basePeriod * 0.45 : basePeriod, clockwise: cw)
             ov.setShadowColor(loopboy
-                ? NSColor(deviceRed: 1.0, green: 0.23, blue: 0.58, alpha: 1.0)
+                ? loopboyGlow
                 : statusColor(for: s.state, agentType: s.agentType))
+            ov.setShining(loopboy, color: loopboyGlow)
+            ov.setLoopboyStyle(loopboy, active: loopboyActive, pending: false, dark: dark)
+            if loopboy {
+                let phase: String
+                if s.loopboyState == "responding" {
+                    phase = "RESPONDING"
+                } else if s.loopboyState == "reading" {
+                    phase = "READING"
+                } else {
+                    switch s.state {
+                    case .working, .rendering: phase = "WORKING"
+                    case .awaiting: phase = "RESPONDING"
+                    case .blank, .complete, .interrupted, .stale: phase = "IDLE"
+                    }
+                }
+                ov.setLoopboyState(phase)
+            }
             ov.setLighting(drop: sun.drop)
             // Name + hover copy. The name belongs to the session/thread and
             // stays fixed while the visual rock re-forms on a new prompt.
@@ -1002,10 +1845,11 @@ final class PromptSigilOverlayController {
             // haiku-inferred sentence; until that lands it shows the hook
             // summary and prompt excerpt, deduped (the hook line is usually
             // the prompt's own first words — repeating both said nothing).
-            ov.setName(SigilRenderer.name(forSessionId: s.sessionId), dark: dark)
+            ov.setName(SigilRenderer.name(for: s), dark: dark)
             let title = s.emoji.isEmpty ? ov.name : "\(s.emoji) \(ov.name)"
             ov.tooltipTitle = loopboy ? "↻ Loopboy · \(title)" : title
-            ov.tooltipBody = RockSummaries.shared.sentence(seed: seed, subject: s.subject)
+            ov.tooltipBody = (s.loopboyResponse.isEmpty ? nil : s.loopboyResponse)
+                ?? RockSummaries.shared.sentence(seed: seed, subject: s.subject)
                 ?? Self.fallbackBody(summary: s.titleString, subject: s.shortSubject)
         }
 
@@ -1081,6 +1925,7 @@ final class PromptSigilOverlayController {
         var anyObserved = false
         for (sid, ov) in overlays {
             if ov.advance(dt: dt) { settling = true }
+            ov.updateHeartbeatCountdown(now: now)
             // "Being read" reaction — on while the poke window is live, off once
             // it decays. Cheap dict lookup; the blink/shake/spin run server-side.
             if let obs = LedgerStore.shared.observation(for: sid) {

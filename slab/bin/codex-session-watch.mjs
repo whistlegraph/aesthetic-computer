@@ -27,6 +27,7 @@ const AWAITING = join(SLAB_HOME, "state", "awaiting-prompts", sid);
 const RUNNING = join(SLAB_HOME, "state", "running-tools", sid);
 const OPEN_IMAGES = join(SLAB_HOME, "state", "open-images");
 const SESSIONS = join(process.env.CODEX_HOME || join(homedir(), ".codex"), "sessions");
+const LOOPBOY_CONFIG = join(homedir(), ".config", "slab", "loopboy.json");
 const execFileAsync = promisify(execFile);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -127,16 +128,39 @@ function summarize(s) {
   return words.length > 48 ? words.slice(0, 45) + "…" : (s.split(" ").length > 7 ? words + "…" : words);
 }
 
+async function isLoopboySession() {
+  try {
+    const cfg = JSON.parse(await readFile(LOOPBOY_CONFIG, "utf8"));
+    return Object.values(cfg?.loops || {}).some((loop) => loop?.sessionId === sid);
+  } catch { return false; }
+}
+
 async function onTurnStart(subject) {
   await rm(AWAITING);
   await touch(RUNNING);
   const patch = { state: "working" };
+  // Intake is a real phase: a heartbeat first reads the assigned thread. The
+  // assistant's explicit WORKING output advances it once implementation starts.
+  if (await isLoopboySession()) patch.loopboy_state = "reading";
   if (subject) { patch.subject = subject.slice(0, 140); patch.summary = summarize(subject); }
   await updateMarker(patch);
 }
-async function onTurnComplete() {
+async function onTurnComplete(lastMessage = "") {
   try { await writeFile(AWAITING, "turn complete\n"); } catch {}
   await rm(RUNNING);
+  const patch = { state: "complete" };
+  if (await isLoopboySession()) {
+    if (/\bRESPONDING\b/i.test(lastMessage)
+        && !/\b(?:sent once|outbound appears|verified outbound)\b/i.test(lastMessage)) {
+      patch.loopboy_state = "responding";
+      patch.loopboy_response = lastMessage.slice(0, 1200);
+    } else {
+      // Sent, verified, or otherwise finished: no active phase remains.
+      patch.loopboy_state = "idle";
+      patch.loopboy_response = "";
+    }
+  }
+  await updateMarker(patch);
 }
 async function onAwaiting(msg) {
   try { await writeFile(AWAITING, (msg || "needs approval") + "\n"); } catch {}
@@ -179,10 +203,26 @@ function handleLine(line, ctx) {
     }
     return;
   }
+  if (type === "response_item" && payload.role === "assistant") {
+    const t = textOf(payload);
+    if (/\bRESPONDING\b/i.test(t)) {
+      ctx.pending.push(() => updateMarker({
+        loopboy_state: "responding",
+        loopboy_response: t.slice(0, 1200),
+      }));
+    } else if (/\bREADING\b/i.test(t)) {
+      ctx.pending.push(() => updateMarker({ loopboy_state: "reading" }));
+    } else if (/\bWORKING\b/i.test(t)) {
+      ctx.pending.push(() => updateMarker({ loopboy_state: "working" }));
+    }
+    return;
+  }
   if (type === "event_msg") {
     const pt = payload.type || "";
     if (pt === "task_started" || pt === "user_turn") ctx.pending.push(() => onTurnStart(ctx.lastUser));
-    else if (pt === "task_complete" || pt === "turn_complete") ctx.pending.push(() => onTurnComplete());
+    else if (pt === "task_complete" || pt === "turn_complete") {
+      ctx.pending.push(() => onTurnComplete(payload.last_agent_message || ""));
+    }
     else if (pt.includes("approval") || pt.includes("elicitation")) ctx.pending.push(() => onAwaiting("codex needs approval"));
   }
 }
@@ -190,6 +230,15 @@ function handleLine(line, ctx) {
 async function main() {
   const file = await findRollout();
   if (!file) process.exit(0);
+  try {
+    const first = (await readFile(file, "utf8")).split("\n")[0];
+    const meta = JSON.parse(first);
+    const providerId = meta?.type === "session_meta" ? meta?.payload?.id : null;
+    if (providerId) await updateMarker({
+      codex_session_id: providerId,
+      provider_session_id: providerId,
+    });
+  } catch {}
   // Replay once from the beginning so a resumed Codex window immediately
   // inherits its real last state (usually complete) instead of sitting blank
   // or aging into interrupted until the user submits another prompt. After
