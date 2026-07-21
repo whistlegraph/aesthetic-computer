@@ -30,13 +30,16 @@
 // That is why there is no re-sync step, no whisper pass, and no drift.
 
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, copyFileSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  appendFileSync, existsSync, mkdirSync, copyFileSync, readFileSync, writeFileSync,
+} from "node:fs";
 import { dirname, join, resolve, basename } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { narrate } from "./lib/narrate.mjs";
 import { attach } from "./lib/cdp.mjs";
 import { clickOn, pointAt, typeInto, INSTALL } from "./lib/cursor.mjs";
+import { spotlight, outline, burst, clearEffects } from "./lib/effects.mjs";
 import { mux, writeVTT, probe } from "./lib/compose.mjs";
 import { deliver, FORMATS } from "./lib/deliver.mjs";
 import { translator, selectors, setLocale, LANGUAGES } from "./lib/i18n.mjs";
@@ -62,6 +65,60 @@ const REAL_CURSOR = process.env.CAPTUTOR_REAL_CURSOR === "1";
 const STAGE_MODE = process.env.CAPTUTOR_STAGE_MODE === "1";
 
 const REEL_STATE = `${process.env.HOME}/.local/share/slab/state/reel.state`;
+const FAILURE_LOG = join(HERE, "out", "failures.ndjson");
+const UPGRADE_TEXT = "Upgrade time!";
+const AUTO_RETRIES = Number(process.env.CAPTUTOR_AUTO_RETRIES || 2);
+
+class UpgradeInterruption extends Error {
+  constructor({ beat, elapsed, aborted }) {
+    super(`${UPGRADE_TEXT} interrupted the take at beat ${beat + 1}`);
+    this.name = "UpgradeInterruption";
+    this.beat = beat;
+    this.elapsed = elapsed;
+    this.aborted = aborted;
+  }
+}
+
+async function upgradeVisible(cdp) {
+  try {
+    return Boolean(await cdp.eval(
+      `document.body?.innerText?.includes(${JSON.stringify(UPGRADE_TEXT)})`,
+    ));
+  } catch {
+    return false;
+  }
+}
+
+async function refreshPastUpgrade(cdp) {
+  if (!await upgradeVisible(cdp)) return false;
+  console.log(`  ↻ ${UPGRADE_TEXT} detected before recording; refreshing Fuser`);
+  await cdp.nav(await cdp.eval("location.href"));
+  await cdp.waitFor(
+    `!document.body?.innerText?.includes(${JSON.stringify(UPGRADE_TEXT)})`,
+    { timeoutMs: 30000 },
+  );
+  return true;
+}
+
+function logFailure({ sp, locale, format, attempt, error }) {
+  mkdirSync(dirname(FAILURE_LOG), { recursive: true });
+  const record = {
+    schema: "captutor-failure/v1",
+    at: new Date().toISOString(),
+    screenplay: sp.slug,
+    locale,
+    format,
+    attempt,
+    reason: "upgrade-time",
+    message: error.message,
+    beat: error.beat + 1,
+    elapsedSec: Number(error.elapsed.toFixed(3)),
+    abortedVideo: error.aborted,
+    action: "cancel-and-retry",
+  };
+  appendFileSync(FAILURE_LOG, `${JSON.stringify(record)}\n`);
+  return record;
+}
 
 // `since` is the load-bearing value: the wall-clock instant the recorder's first
 // frame exists, on the same machine and the same epoch as our own Date.now().
@@ -156,7 +213,7 @@ async function sizeWindow(cdp, win) {
   await new Promise((r) => setTimeout(r, 900));  // let the layout settle
 }
 
-async function cmdRender(sp, workDir, locale, format) {
+async function cmdRender(sp, workDir, locale, format, attempt = 1) {
   const beats = await cmdNarrate(sp, workDir, locale);
   const t = translator(locale);
   const s = selectors(t);
@@ -180,6 +237,16 @@ async function cmdRender(sp, workDir, locale, format) {
     click: (sel, opts) => clickOn(cdp, sel, opts),
     point: (sel, opts) => pointAt(cdp, sel, opts),
     type: (sel, text) => typeInto(cdp, sel, text),
+    spotlight: (sel, opts) => spotlight(cdp, sel, opts),
+    outline: (sel, opts) => outline(cdp, sel, opts),
+    burst: (sel, opts) => burst(cdp, sel, opts),
+    clearEffects: () => clearEffects(cdp),
+    effects: {
+      spotlight: (sel, opts) => spotlight(cdp, sel, opts),
+      outline: (sel, opts) => outline(cdp, sel, opts),
+      burst: (sel, opts) => burst(cdp, sel, opts),
+      clear: () => clearEffects(cdp),
+    },
     sleep,
     locale, t, s, setLocale,   // fuser's own strings drive both voice and clicks
   };
@@ -201,6 +268,11 @@ async function cmdRender(sp, workDir, locale, format) {
     console.log("\n⇢ checking Iris's session");
     await ensureSignedIn(cdp, { email: sp.account });
   }
+
+  // Fuser can announce a freshly deployed build at any time. Clear a notice
+  // already present before setup; the live guard below handles one that lands
+  // after the reel starts.
+  await refreshPastUpgrade(cdp);
 
   // …and be able to pay for it. Generations debit a CLIENT'S PRODUCTION account,
   // so this refuses to roll below a floor rather than filming a take that runs
@@ -244,6 +316,10 @@ async function cmdRender(sp, workDir, locale, format) {
 
   // The window IS the frame — clear the tab strip and size it, before rolling.
   const F = FORMATS[format];
+  if (F.requiresVerticalStage) {
+    cdp.close();
+    throw new Error(`format "${format}" requires: node bin/stage.mjs --vertical render …`);
+  }
   await soloTab(cdp);
   await sizeWindow(cdp, F.win);
 
@@ -266,39 +342,85 @@ async function cmdRender(sp, workDir, locale, format) {
   const since = state.since;
   if (!since) throw new Error("reel did not report a start time — cannot sync audio");
 
-  await sleep((sp.leadInMs ?? 700));  // a beat of stillness before we start moving
+  let recording = true;
+  let activeBeat = -1;
+  const stopRecording = (out) => {
+    if (!recording) return out;
+    recording = false;
+    return reelStop(out);
+  };
 
-  const timed = [];
-  for (const beat of beats) {
-    const startedAt = now();
-    const offsetSec = startedAt - since;
-    process.stdout.write(
-      `  ${String(beat.index + 1).padStart(2)}. @${offsetSec.toFixed(1)}s  ${beat.say.slice(0, 52)}\n`);
+  const take = (async () => {
+    await sleep((sp.leadInMs ?? 700));  // a beat of stillness before we start moving
+    const result = [];
+    for (const beat of beats) {
+      activeBeat = beat.index;
+      const startedAt = now();
+      const offsetSec = startedAt - since;
+      process.stdout.write(
+        `  ${String(beat.index + 1).padStart(2)}. @${offsetSec.toFixed(1)}s  ${beat.say.slice(0, 52)}\n`);
 
-    if (beat.do) {
-      try {
-        await beat.do(ctx);
-      } catch (err) {
-        console.error(`\n✗ beat ${beat.index + 1} failed: ${err.message}`);
-        reelStop(join(workDir, "aborted.mp4"));
-        // A take that died halfway may still have spent — bill it to the ledger,
-        // or a crash-loop would slip under the cap by never finishing.
-        if (purse) await credits.settle(cdp, purse, { slug: sp.slug, locale, format, aborted: true });
-        throw err;
+      if (beat.do) await beat.do(ctx);
+
+      // Hold the shot for at least as long as the line takes to say. If the action
+      // already outlasted it, we do NOT claw the time back — the next beat is
+      // stamped where it truly starts, so the voice stays glued to the picture.
+      const remain = beat.durationSec + (beat.holdMs ?? 350) / 1000 - (now() - startedAt);
+      if (remain > 0) await sleep(remain * 1000);
+      result.push({ ...beat, offsetSec });
+    }
+    await sleep((sp.tailMs ?? 900));
+    return result;
+  })();
+
+  const upgradeGuard = (async () => {
+    while (recording) {
+      if (await upgradeVisible(cdp)) {
+        const stamp = new Date().toISOString().replaceAll(/[:.]/g, "-");
+        const aborted = join(workDir, `aborted-upgrade-${stamp}.mp4`);
+        stopRecording(aborted); // stop the camera before waiting on an in-flight action
+        const error = new UpgradeInterruption({
+          beat: Math.max(0, activeBeat), elapsed: now() - since, aborted,
+        });
+        logFailure({ sp, locale, format, attempt, error });
+        throw error;
       }
+      await sleep(250);
+    }
+    return null;
+  })();
+
+  let timed;
+  try {
+    timed = await Promise.race([take, upgradeGuard]);
+  } catch (err) {
+    if (err instanceof UpgradeInterruption) {
+      // The camera is already stopped. Let any in-flight screenplay promise
+      // settle before refreshing, otherwise its late click could leak into the
+      // retry's setup.
+      await take.catch(() => {});
+      if (purse) {
+        await credits.settle(cdp, purse, {
+          slug: sp.slug, locale, format, aborted: true, reason: "upgrade-time",
+        });
+      }
+      cdp.close();
+      if (attempt > AUTO_RETRIES) {
+        throw new Error(`${err.message}; automatic retry limit (${AUTO_RETRIES}) exhausted`);
+      }
+      console.warn(`\n↻ logged and discarded interrupted take; retrying cleanly (${attempt}/${AUTO_RETRIES})`);
+      await sleep(900);
+      return cmdRender(sp, workDir, locale, format, attempt + 1);
     }
 
-    // Hold the shot for at least as long as the line takes to say. If the action
-    // already outlasted it, we do NOT claw the time back — the next beat is
-    // stamped where it truly starts, so the voice stays glued to the picture.
-    const remain = beat.durationSec + (beat.holdMs ?? 350) / 1000 - (now() - startedAt);
-    if (remain > 0) await sleep(remain * 1000);
-
-    timed.push({ ...beat, offsetSec });
+    console.error(`\n✗ beat ${activeBeat + 1} failed: ${err.message}`);
+    stopRecording(join(workDir, "aborted.mp4"));
+    if (purse) await credits.settle(cdp, purse, { slug: sp.slug, locale, format, aborted: true });
+    cdp.close();
+    throw err;
   }
 
-  await sleep((sp.tailMs ?? 900));
-  const clip = reelStop(join(workDir, "clip.mp4"));
+  const clip = stopRecording(join(workDir, "clip.mp4"));
   console.log(`■ ${clip}`);
 
   // Close the books while the browser is still up: what did this video cost?

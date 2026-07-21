@@ -11,6 +11,7 @@ node captutor.mjs deliver <screenplay> --format docs --outbox ~/Desktop/outbox
 node captutor.mjs publish <screenplay>   # into apps/docs/public/ + the MDX line
 node bin/from-docs.mjs apps/quickstart   # a docs page → a screenplay draft
 node bin/stage.mjs render <screenplay>   # reversible HiDPI clean-stage filming mode
+node bin/stage.mjs --vertical render <screenplay> --format vertical
 ```
 
 `--outbox` (or `CAPTUTOR_OUTBOX`) publishes only the finished, burned-caption
@@ -22,6 +23,16 @@ delivery back to the Asana assignment that requested it.
 `deliver --outbox` recuts and republishes an existing take without driving the
 interface again. Use it for caption or encoding changes: the recorded negative
 and measured cue timing stay intact, so the recut costs no credits.
+
+`--vertical` is Captutor's true portrait stage: Panda's display rotates 90° into
+its 720×1280 logical / 1440×2560 physical HiDPI mode, the browser is filmed in a
+630×1190-point window with uniform margins, and the exact previous display
+profile is restored afterward. It requires `brew install displayplacer` on the
+recording host.
+
+If Fuser shows **Upgrade time!** after the reel starts, Captutor stops and keeps
+the interrupted negative, appends a `captutor-failure/v1` row to
+`out/failures.ndjson`, refreshes Fuser, reruns setup, and retries automatically.
 
 ## The one idea
 
@@ -40,7 +51,7 @@ Two consequences worth knowing:
   (`recap/bin/subtitles.mjs` keeps a `transcriptFixes` table because whisper
   hears "notepat" as "Notepad"). We already know the words — we wrote them.
   Burned captions use those same timings to highlight the word currently being
-  spoken, while a classic white-and-black subtitle remains stable underneath.
+  spoken, while regular white Arial on a translucent black box remains stable.
 - **Overruns cannot desync.** `reel` reports `since`, the wall-clock instant the
   video's first frame exists. Each beat is stamped where it *actually* began
   against that origin, and narration is laid at those **measured** offsets, never
@@ -87,10 +98,11 @@ each trusted CDP click. The older shadow-DOM tutorial pointer remains available
 outside Stage Mode.
 
 Stage Mode is a reversible transaction around any Captutor command. It saves the
-current desk, switches the display to 2× HiDPI (1280×720 logical), centers the
-browser, raises encoding quality, uses a neutral gray wallpaper, and temporarily
-hides desktop icons, Dock, menu bar, Stats, Macpal's desktop badge, and Slab
-prompt sigils. The recorder captures only the browser window; delivery places it
+current desk, closes stale QuickTime previews, switches macOS to Light appearance
+and the display to 2× HiDPI (1280×720 logical), centers the browser, raises
+encoding quality, uses a neutral gray wallpaper, and temporarily hides desktop
+icons, Dock, menu bar, Stats, Macpal's desktop badge, and Slab prompt sigils. The
+recorder captures only the browser window; delivery places it
 on a synthetic 2560×1440 Space Gray stage with one uniform margin. This keeps
 macOS recording indicators and unrelated desktop chrome out of the negative.
 Its `finally` handler restores the saved display mode, pointer size, wallpaper,
@@ -181,6 +193,33 @@ CDP_PORT=9333 node captutor.mjs render smoke
 ## Screenplays
 
 A beat is one spoken line plus what the UI does while it is spoken:
+
+Screenplays also get a small decorative vocabulary. These marks live in an
+isolated, pointer-transparent layer above the product and self-clear, so they can
+guide attention without changing or intercepting the interface:
+
+```js
+{
+  say: "Add a node from the left rail.",
+  do: async ({ point, spotlight, burst }) => {
+    await point("text=Add a Node");
+    await spotlight("text=Add a Node", {
+      label: "Add a Node", dim: 0.48, durationMs: 2200,
+    });
+    await burst("text=Add a Node", { glyph: "+" });
+  },
+}
+```
+
+- `spotlight(selector, options)` dims everything outside a padded target and
+  adds an outer accent ring.
+- `outline(selector, options)` draws the same ring without dimming the frame.
+- `burst(selector, options)` emits a short deterministic glyph/particle bloom.
+- `clearEffects()` removes every active filming mark immediately.
+
+All four are also grouped under `effects` (`effects.spotlight`,
+`effects.outline`, `effects.burst`, `effects.clear`). Selectors accept the same
+CSS, `text=`, and `js=` forms as `point` and `click`.
 
 ```js
 { say: "Press Fuse, and the flow runs.",

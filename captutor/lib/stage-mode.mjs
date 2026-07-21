@@ -15,6 +15,7 @@ const BADGE_PLIST = join(HOME, "Library", "LaunchAgents", "computer.aesthetic.de
 const POINTER_SOURCE = fileURLToPath(new URL("../bin/captutor-pointer.swift", import.meta.url));
 const POINTER_BIN = join(HOME, ".local", "bin", "captutor-pointer");
 const WALLPAPER = "/System/Library/Desktop Pictures/Solid Colors/Space Gray.png";
+const DISPLAYPLACER = "/opt/homebrew/bin/displayplacer";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const run = (file, args = [], { allowFailure = false } = {}) => {
@@ -41,6 +42,26 @@ function restoreBoolean(domain, key, value) {
 
 function displayModeID() {
   return Number(swift('import CoreGraphics; print(CGDisplayCopyDisplayMode(CGMainDisplayID())!.ioDisplayModeID)'));
+}
+
+function displayProfile() {
+  if (!existsSync(DISPLAYPLACER)) return null;
+  const listing = run(DISPLAYPLACER, ["list"]);
+  return listing.match(/displayplacer "([^"]+)"\s*$/m)?.[1] || null;
+}
+
+function configureVerticalDisplay() {
+  if (!existsSync(DISPLAYPLACER)) {
+    throw new Error("vertical Stage Mode needs displayplacer (brew install displayplacer)");
+  }
+  const profile = displayProfile();
+  const id = profile?.match(/(?:^|\s)id:([^\s]+)/)?.[1];
+  if (!id) throw new Error("displayplacer could not resolve Panda's main display");
+  // The panel is physically 2560×1440. Rotated, 720×1280 with scaling enabled
+  // is its exact 2× portrait mode: 1440×2560 pixels with a large, legible UI.
+  run(DISPLAYPLACER, [
+    `id:${id} res:720x1280 hz:144 color_depth:8 enabled:true scaling:on origin:(0,0) degree:90`,
+  ]);
 }
 
 function configureDisplay(modeID = null) {
@@ -70,6 +91,14 @@ function setMenuAutohide(value) {
   osa(`tell application "System Events" to set autohide menu bar of dock preferences to ${value ? "true" : "false"}`);
 }
 
+function darkMode() {
+  return osa('tell application "System Events" to tell appearance preferences to get dark mode') === "true";
+}
+
+function setDarkMode(value) {
+  osa(`tell application "System Events" to tell appearance preferences to set dark mode to ${value ? "true" : "false"}`);
+}
+
 function setWallpaper(path) {
   osa(`on run argv
 set wallPath to item 1 of argv
@@ -81,6 +110,43 @@ end tell
 end run`, [path]);
 }
 
+function visibleApps() {
+  const raw = run("/usr/bin/osascript", ["-l", "JavaScript", "-e", `
+const se = Application("System Events");
+JSON.stringify(se.applicationProcesses.whose({ visible: true })()
+  .filter((process) => {
+    try { return !process.backgroundOnly(); } catch { return false; }
+  })
+  .map((process) => process.name()));
+`]);
+  return JSON.parse(raw || "[]");
+}
+
+function hideOtherApps() {
+  run("/usr/bin/osascript", ["-l", "JavaScript", "-e", `
+const se = Application("System Events");
+for (const process of se.applicationProcesses.whose({ visible: true })()) {
+  try {
+    if (!process.backgroundOnly() && process.name() !== "Google Chrome") {
+      process.visible = false;
+    }
+  } catch {}
+}
+`]);
+}
+
+function restoreVisibleApps(names) {
+  run("/usr/bin/osascript", ["-l", "JavaScript", "-e", `
+const wanted = new Set(${JSON.stringify(names.filter((name) => name !== "QuickTime Player"))});
+const se = Application("System Events");
+for (const process of se.applicationProcesses()) {
+  try {
+    if (wanted.has(process.name()) && !process.backgroundOnly()) process.visible = true;
+  } catch {}
+}
+`], { allowFailure: true });
+}
+
 async function setPointerSize(_from, to) {
   run("/usr/bin/open", ["x-apple.systempreferences:com.apple.Accessibility-Settings.extension?Display"]);
   await sleep(2200);
@@ -88,7 +154,7 @@ async function setPointerSize(_from, to) {
   // HiDPI Settings window initially leaves them just below the fold.
   swift(`
 import CoreGraphics
-CGWarpMouseCursorPosition(CGPoint(x: 800, y: 650))
+CGWarpMouseCursorPosition(CGPoint(x: 500, y: 650))
 for _ in 0..<8 {
   CGEvent(scrollWheelEvent2Source: nil, units: .line, wheelCount: 1,
           wheel1: -8, wheel2: 0, wheel3: 0)?.post(tap: .cghidEventTap)
@@ -110,14 +176,23 @@ function walk(element, depth) {
     if (element.role() === "AXSlider" &&
         element.attributes.byName("AXIdentifier").value() === "AX_CURSOR_SIZE") {
       answer = { value: Number(element.value()), position: element.position(), size: element.size() };
-      // The minimum is an exact semantic endpoint. AXDecrement reaches it
-      // reliably, whereas a physical drag can land a fraction of a point above
-      // the knob and leave the cursor enlarged after Stage cleanup.
-      if (wanted <= 1.05) {
-        for (let index = 0; index < 16; index += 1) {
-          element.actions.byName("AXDecrement").perform();
-        }
+      // Semantic actions are exact and do not depend on the current display's
+      // geometry. Start from the minimum, then walk to the requested value;
+      // the physical drag below remains only as a fallback for macOS builds
+      // that expose the slider but not its increment action.
+      for (let index = 0; index < 16; index += 1) {
+        element.actions.byName("AXDecrement").perform();
       }
+      if (wanted > 1.05) {
+        for (let index = 0; index < 16; index += 1) {
+          if (Number(element.value()) >= wanted - 0.04) break;
+          element.actions.byName("AXIncrement").perform();
+        }
+        // AXIncrement is quantized to 0.2 on current macOS (1.4 → 1.6), while
+        // the slider itself accepts the requested continuous value.
+        try { element.value = wanted; } catch {}
+      }
+      answer.value = Number(element.value());
       return;
     }
   } catch {}
@@ -125,6 +200,7 @@ function walk(element, depth) {
   try { children = element.uiElements(); } catch {}
   for (const child of children) walk(child, depth + 1);
 }
+
 walk(process.windows[0], 0);
 if (!answer) throw new Error("AX_CURSOR_SIZE is unavailable");
 JSON.stringify(answer);
@@ -135,6 +211,17 @@ JSON.stringify(answer);
     if (!Number.isFinite(actual) || Math.abs(actual - Number(to)) > 0.08) {
       throw new Error(`pointer-size restore failed: wanted ${to}, got ${actual}`);
     }
+    osa('tell application "System Settings" to quit', [], true);
+    osa('tell application "Google Chrome" to activate', [], true);
+    return;
+  }
+  await sleep(650);
+  const semanticActual = Number(readDefault("com.apple.universalaccess.plist", "mouseDriverCursorSize"));
+  // Current macOS exposes pointer-size keyboard increments in 0.2 steps. Its
+  // nearest semantic value to the requested 1.5 is 1.6; that tiny difference is
+  // preferable to a geometry-sensitive drag that can miss after display mode
+  // changes. Cleanup still returns to the exact 1.0 endpoint.
+  if (Number.isFinite(semanticActual) && Math.abs(semanticActual - Number(to)) <= 0.11) {
     osa('tell application "System Settings" to quit', [], true);
     osa('tell application "Google Chrome" to activate', [], true);
     return;
@@ -175,30 +262,59 @@ CGEvent(mouseEventSource: source, mouseType: .leftMouseUp,
   osa('tell application "Google Chrome" to activate', [], true);
 }
 
+async function setPointerSizeWithRetry(from, to) {
+  let last;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      await setPointerSize(from, to);
+      return;
+    } catch (error) {
+      last = error;
+      osa('tell application "System Settings" to quit', [], true);
+      await sleep(900);
+    }
+  }
+  throw last;
+}
+
 function compilePointerBridge() {
   mkdirSync(dirname(POINTER_BIN), { recursive: true });
   run("/usr/bin/swiftc", ["-O", POINTER_SOURCE, "-o", POINTER_BIN]);
 }
 
-export async function enterStageMode() {
+export async function enterStageMode({ vertical = process.env.CAPTUTOR_VERTICAL_MODE === "1" } = {}) {
   if (existsSync(STATE)) await exitStageMode();
   const cursorSize = Number(readDefault("com.apple.universalaccess.plist", "mouseDriverCursorSize") || 1);
   const state = {
     displayMode: displayModeID(),
+    displayProfile: displayProfile(),
+    vertical,
     wallpaper: osa('tell application "System Events" to get picture of desktop 1 as text'),
     createDesktop: readDefault("com.apple.finder", "CreateDesktop"),
     dockAutohide: readDefault("com.apple.dock", "autohide"),
     menuAutohide: menuAutohide(),
+    darkMode: darkMode(),
     badgeLoaded: spawnSync("/bin/launchctl", ["print", `gui/${process.getuid()}/computer.aesthetic.desktopbadge`]).status === 0,
     statsRunning: spawnSync("/usr/bin/pgrep", ["-x", "Stats"]).status === 0,
+    visibleApps: visibleApps(),
     sigilsWereOff: existsSync(SIGILS_OFF),
     cursorSize,
   };
   mkdirSync(dirname(STATE), { recursive: true });
   writeFileSync(STATE, JSON.stringify(state, null, 2));
 
+  // A preview from the previous take must never sit above Chrome or steal
+  // fullscreen/focus while the next mission rolls. Stage is an explicit clean
+  // takeover, so close QuickTime before changing display geometry.
+  osa('tell application "QuickTime Player" to close every document saving no', [], true);
+  osa('tell application "QuickTime Player" to quit', [], true);
+  setDarkMode(false);
+  await sleep(650);
+  if (darkMode()) throw new Error("macOS did not enter Light appearance");
+
   compilePointerBridge();
-  configureDisplay();
+  if (vertical) configureVerticalDisplay();
+  else configureDisplay();
   setWallpaper(WALLPAPER);
   run("/usr/bin/defaults", ["write", "com.apple.finder", "CreateDesktop", "-bool", "false"]);
   run("/usr/bin/defaults", ["write", "com.apple.dock", "autohide", "-bool", "true"]);
@@ -208,8 +324,13 @@ export async function enterStageMode() {
   writeFileSync(SIGILS_OFF, "");
   if (state.badgeLoaded) run("/bin/launchctl", ["bootout", `gui/${process.getuid()}/computer.aesthetic.desktopbadge`], { allowFailure: true });
   if (state.statsRunning) osa('tell application "Stats" to quit', [], true);
-  await setPointerSize(cursorSize, 1.5);
-  console.log("✓ Captutor Stage Mode active — 2× HiDPI, clean neutral desk, real 1.5× pointer");
+  await setPointerSizeWithRetry(cursorSize, 1.5);
+  hideOtherApps();
+  osa('tell application "Google Chrome" to activate', [], true);
+  console.log(
+    `✓ Captutor ${vertical ? "Vertical " : ""}Stage Mode active — ` +
+    `Light, 2× HiDPI, clean neutral desk, real ~1.5× pointer`,
+  );
 }
 
 export async function exitStageMode() {
@@ -234,11 +355,21 @@ export async function exitStageMode() {
     if (state.statsRunning) run("/usr/bin/open", ["-a", "Stats"], { allowFailure: true });
   });
   await restore("wallpaper", () => setWallpaper(state.wallpaper));
+  await restore("appearance", () => {
+    if (typeof state.darkMode === "boolean") setDarkMode(state.darkMode);
+  });
   await restore("desktop icons", () => restoreBoolean("com.apple.finder", "CreateDesktop", state.createDesktop));
   await restore("Dock", () => restoreBoolean("com.apple.dock", "autohide", state.dockAutohide));
   await restore("menu bar", () => setMenuAutohide(Boolean(state.menuAutohide)));
   await restore("Finder and Dock", () => sh("killall Finder >/dev/null 2>&1 || true; killall Dock >/dev/null 2>&1 || true"));
-  await restore("display", () => configureDisplay(state.displayMode));
+  await restore("display", () => {
+    if (state.displayProfile && existsSync(DISPLAYPLACER)) {
+      run(DISPLAYPLACER, [state.displayProfile]);
+    } else {
+      configureDisplay(state.displayMode);
+    }
+  });
+  await restore("application visibility", () => restoreVisibleApps(state.visibleApps || []));
   osa('tell application "Google Chrome" to activate', [], true);
 
   if (failures.length) {

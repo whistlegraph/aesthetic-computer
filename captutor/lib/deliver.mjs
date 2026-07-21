@@ -22,13 +22,14 @@ import { join } from "node:path";
 
 const FFMPEG = process.env.FFMPEG || "ffmpeg";
 const STAGE_MODE = process.env.CAPTUTOR_STAGE_MODE === "1";
+const VERTICAL_MODE = process.env.CAPTUTOR_VERTICAL_MODE === "1";
 
 // Deliberately ordinary subtitle typography. Captions are navigation, not a
-// brand surface: Arial Bold stays readable over a busy UI and produces the
-// familiar white type / black keyline people already recognize as subtitles.
+// brand surface: regular Arial stays readable over a busy UI and produces the
+// familiar neutral shape people already recognize as subtitles.
 const LATIN_FONT = process.env.CAPTUTOR_FONT
-  || "/System/Library/Fonts/Supplemental/Arial Bold.ttf";
-const CAPTION_STYLE = "arial-bold-outline-karaoke-v4";
+  || "/System/Library/Fonts/Supplemental/Arial.ttf";
+const CAPTION_STYLE = "arial-caption-box-karaoke-v5";
 
 // Arial does not cover every script, so non-Latin locales use the corresponding
 // macOS system face instead of silently dropping glyphs.
@@ -75,7 +76,6 @@ function assertHasInk(png, text) {
 
 let FONT = LATIN_FONT;  // set per-render by deliver()
 const TEXT = "#ffffff";    // plain white — subtitles are not a brand surface
-const SHADOW = "#000000";
 const ACTIVE_TEXT = "#facc15"; // warm yellow — familiar, restrained karaoke cue
 const BG = "#0a0a0a";      // neutral-950
 const STAGE_BG = "#bebfc4"; // macOS's Solid Colors / Space Gray wallpaper
@@ -125,6 +125,20 @@ export const FORMATS = {
     capPx: STAGE_MODE ? 58 : 44,
     capY: STAGE_MODE ? 0.86 : 0.90,
     bar: false,
+  },
+  // A real portrait desktop, not a landscape take cropped into a phone frame.
+  // `bin/stage.mjs --vertical` rotates Panda and selects the panel's 2× mode;
+  // 630×1190 points therefore records as 1260×2380 pixels with a uniform
+  // 90-pixel surround in the native 1440×2560 delivery.
+  vertical: {
+    win: { w: 630, h: 1190 },
+    out: { w: 1440, h: 2560 },
+    compose: { stageMargin: 90 },
+    capWidth: 0.88,
+    capPx: 58,
+    capY: 0.88,
+    bar: false,
+    requiresVerticalStage: !VERTICAL_MODE,
   },
   // YouTube. A true 16:9 window, so the frame IS the window — no pillarboxing.
   youtube: {
@@ -194,6 +208,17 @@ function layoutWords(words, { width, px }) {
   const height = Math.max(lineHeight, lines.length * lineHeight);
   return {
     width, height,
+    boxes: lines.map((row, rowIndex) => {
+      const padX = Math.round(px * 0.30);
+      const padY = Math.round(px * 0.11);
+      const inset = Math.round((width - row.width) / 2);
+      return {
+        x1: inset - padX,
+        y1: rowIndex * lineHeight - padY,
+        x2: inset + row.width + padX,
+        y2: (rowIndex + 1) * lineHeight + padY,
+      };
+    }),
     words: lines.flatMap((row, rowIndex) => {
       const inset = Math.round((width - row.width) / 2);
       return row.words.map((word) => ({
@@ -210,23 +235,24 @@ function layoutWords(words, { width, px }) {
   };
 }
 
-/// Rasterize a phrase with a classic, even outer outline. The fill is drawn a
-/// second time over the centered stroke, leaving only its outside half visible;
-/// there is no drop shadow and therefore no heavier lower edge. `activeIndex`
-/// changes only the spoken word's fill to yellow for karaoke-style tracking.
+/// Rasterize a plain subtitle: regular Arial over a compact translucent black
+/// box. There is no outline, shadow, gradient, or decorative treatment.
+/// `activeIndex` changes only the spoken word's fill for timed tracking.
 function cuePng(words, { width, px, out, activeIndex = -1 }) {
   const layout = layoutWords(words, { width, px });
-  const stroke = Math.max(3, Math.round(px / 16));
   const mvg = (text) => text.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
   const args = [
     "-size", `${layout.width}x${layout.height}`, "xc:none",
-    "-font", FONT, "-pointsize", String(px),
-    "-stroke", SHADOW, "-strokewidth", String(stroke), "-fill", TEXT,
+    "-fill", "rgba(0,0,0,0.68)", "-stroke", "none",
   ];
-  for (const word of layout.words) {
-    args.push("-draw", `text ${word.x},${word.baseline} \"${mvg(word.text)}\"`);
+  for (const box of layout.boxes) {
+    const radius = Math.round(px * 0.16);
+    args.push(
+      "-draw",
+      `roundrectangle ${box.x1},${box.y1},${box.x2},${box.y2},${radius},${radius}`,
+    );
   }
-  args.push("-stroke", "none", "-strokewidth", "0");
+  args.push("-font", FONT, "-pointsize", String(px));
   for (const word of layout.words) {
     args.push(
       "-fill", word.index === activeIndex ? ACTIVE_TEXT : TEXT,
@@ -258,6 +284,50 @@ function videoDuration(clip) {
     "-v", "error", "-select_streams", "v:0",
     "-show_entries", "stream=duration", "-of", "csv=p=0", clip,
   ], { encoding: "utf8" }).trim();
+}
+
+/// Sample the stable title-bar field beside Chrome's capture-status pill. The
+/// indicator itself is OS-owned and has no supported browser switch; replacing
+/// it with the pixels it sits on is deterministic, but the hue must come from
+/// this take rather than a hard-coded guess (Chrome themes can change it).
+function sampleColor(clip, x, y) {
+  const rgb = execFileSync(FFMPEG, [
+    "-v", "error", "-ss", "0.20", "-i", clip,
+    "-vf", `crop=2:2:${Math.round(x)}:${Math.round(y)},format=rgb24`, "-frames:v", "1",
+    "-f", "rawvideo", "pipe:1",
+  ]);
+  if (rgb.length < 3) throw new Error("could not sample Stage window color");
+  return `#${[rgb[0], rgb[1], rgb[2]].map((n) => n.toString(16).padStart(2, "0")).join("")}`;
+}
+
+/// Build a transparent repair layer for ScreenCaptureKit's H.264 flattening.
+/// Chrome's rounded window corners arrive as black wedges because H.264 has no
+/// alpha. Fill only those wedges with their immediately surrounding window
+/// colors, which squares the window without cropping content or imposing a
+/// visible rounded mask. Capture-status pills are repaired later from live
+/// same-frame pixels so their fill stays exact as Chrome focus changes.
+function stageRepair(clip, { width, height, workDir }) {
+  // The active tab reaches past the midpoint in a narrow portrait window. The
+  // trailing title-bar field remains bare in both landscape and portrait.
+  const top = sampleColor(clip, width - 200, 20);
+  const bottomLeft = sampleColor(clip, width * 0.22, height - 20);
+  const bottomRight = sampleColor(clip, width * 0.78, height - 20);
+  const key = [top, bottomLeft, bottomRight].map((c) => c.slice(1)).join("-");
+  const out = join(workDir, `stage-corners-v2-${width}x${height}-${key}.png`);
+  if (existsSync(out)) return out;
+  const r = 46;
+  execFileSync("magick", [
+    "-size", `${width}x${height}`, "xc:none", "-stroke", "none",
+    "-fill", top,
+    "-draw", `path 'M 0,0 L ${r},0 A ${r},${r} 0 0 0 0,${r} Z'`,
+    "-draw", `path 'M ${width},0 L ${width - r},0 A ${r},${r} 0 0 1 ${width},${r} Z'`,
+    "-fill", bottomLeft,
+    "-draw", `path 'M 0,${height} L ${r},${height} A ${r},${r} 0 0 1 0,${height - r} Z'`,
+    "-fill", bottomRight,
+    "-draw", `path 'M ${width},${height} L ${width - r},${height} A ${r},${r} 0 0 0 ${width},${height - r} Z'`,
+    out,
+  ]);
+  return out;
 }
 
 /// Group each beat's words into on-screen caption phrases — same rule the VTT
@@ -364,19 +434,15 @@ export function deliver({ clip, cues, format, out, workDir, locale = "en" }) {
   // ── video base ────────────────────────────────────────────────────────────
   const args = ["-y", "-i", clip];
   let firstCaptionInput = 1;
-  let stageMask = null;
+  let repair = null;
   if (F.compose?.stageMargin != null) {
     const margin = F.compose.stageMargin;
-    const vw = W - margin * 2;
-    const vh = H - margin * 2;
-    stageMask = join(workDir, `stage-window-mask-${vw}x${vh}-r44.png`);
-    if (!existsSync(stageMask)) {
-      execFileSync("magick", [
-        "-size", `${vw}x${vh}`, "xc:none", "-fill", "white", "-stroke", "none",
-        "-draw", `roundrectangle 0,0,${vw - 1},${vh - 1},44,44`, stageMask,
-      ]);
-    }
-    args.push("-loop", "1", "-i", stageMask);
+    repair = stageRepair(clip, {
+      width: W - margin * 2,
+      height: H - margin * 2,
+      workDir,
+    });
+    args.push("-loop", "1", "-i", repair);
     firstCaptionInput += 1;
   }
   for (const p of captionLayers) args.push("-i", p.png);
@@ -385,16 +451,23 @@ export function deliver({ clip, cues, format, out, workDir, locale = "en" }) {
   if (F.compose?.stageMargin != null) {
     // Capture only the browser window, never the display. ScreenCaptureKit's
     // recording indicator and all other macOS chrome therefore cannot enter the
-    // negative. Compose that clean window onto the same neutral Stage wallpaper
-    // with one uniform margin on all four sides.
+    // negative. A sampled repair layer squares the encoded black corner wedges
+    // and removes the capture-status pill without cropping any browser content.
     const margin = F.compose.stageMargin;
     const vw = W - margin * 2;
     const vh = H - margin * 2;
     chain.push(
       `color=c=${STAGE_BG}:s=${W}x${H}:d=${dur.toFixed(3)},format=yuva420p[bg]`,
-      `[0:v]${holdLastFrame}scale=${vw}:${vh}:force_original_aspect_ratio=decrease,format=rgba[vid]`,
-      `[1:v]format=gray[mask]`,
-      `[vid][mask]alphamerge[window]`,
+      // Clone live pixels from the same frame over macOS's capture badges. A
+      // static RGB patch shifts slightly when ffmpeg converts it back to YUV,
+      // and that became a visible rectangle on Chrome's blue portrait title
+      // bar. These patches remain in the source colorspace and track focus.
+      `[0:v]${holdLastFrame}scale=${vw}:${vh},split=3[vid][titleSeed][toolbarSeed]`,
+      `[titleSeed]crop=2:2:${vw - 200}:20,scale=148:62:flags=neighbor[titlePatch]`,
+      `[toolbarSeed]crop=2:2:${vw - 20}:125,scale=212:82:flags=neighbor[toolbarPatch]`,
+      `[vid][1:v]overlay=0:0:shortest=1[corners]`,
+      `[corners][titlePatch]overlay=10:8:shortest=1[titleClean]`,
+      `[titleClean][toolbarPatch]overlay=${vw - 300}:82:shortest=1[window]`,
       `[bg][window]overlay=(W-w)/2:(H-h)/2[base]`);
   } else if (F.compose) {
     // Portrait frame, landscape-ish window: fill the WIDTH (so the UI is scaled
