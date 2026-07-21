@@ -76,6 +76,30 @@ final class JukeSpotify {
     func seek(offsetMS: Int) { command(["seek", String(offsetMS)]); pollSoon() }
     func volume(percent: Int) { command(["volume", String(max(0, min(100, percent)))]) }
 
+    /// spotify_player binds its Core Audio stream when the daemon starts.
+    /// Reopen that stream on a newly selected device, then restore the staged
+    /// track, position, and paused/playing state.
+    func refreshOutputDevice(resuming state: SpotifyPlaybackState?) {
+        command(["restart"]) { [weak self] result in
+            guard let self, case .success = result else { return }
+            guard let state, let trackID = state.trackID else { self.pollSoon(); return }
+            self.command(["play-id", trackID]) { [weak self] result in
+                guard let self, case .success = result else { return }
+                let offset = max(0, Int((state.position * 1000).rounded()))
+                let restorePlayState = { [weak self] in
+                    guard let self else { return }
+                    if !state.isPlaying { self.command(["pause"]) }
+                    self.pollSoon()
+                }
+                if offset > 500 {
+                    self.command(["seek", String(offset)]) { _ in restorePlayState() }
+                } else {
+                    restorePlayState()
+                }
+            }
+        }
+    }
+
     func daemonPID() -> pid_t? {
         guard let data = try? Self.run(["pid"]),
               let text = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),

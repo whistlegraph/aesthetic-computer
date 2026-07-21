@@ -12,9 +12,37 @@ output includes `AC_NATIVE_BIOS_READY engine=quickjs-ng piece=smoke`.
 Package tiles and splash art are generated from the current Pals image served
 by `https://pals.aesthetic.computer`, pinned in `xbox/assets/pals.png`.
 
-The JS environment exposes only `wipe(r,g,b)` and `synth(hz,seconds)` plus the
-piece lifecycle functions `boot`, `sim`, `paint`, `act`, and `leave`. It has no
-DOM, WebView, filesystem, WinRT, or network globals.
+The JS environment exposes an allowlisted piece API plus the lifecycle
+functions `boot`, `sim`, `paint`, `act`, and `leave`. It has no DOM, WebView,
+filesystem, process, Device Portal, arbitrary WinRT, or arbitrary network
+globals.
+
+Current bindings are `wipe`, queued `box` and `write`, `synth`, `controllers`,
+`gamepad`, `capabilities`, `runtime`, and bounded structured `telemetry`.
+Runtime failures roll back to the last known good piece.
+
+## Live development from blueberry
+
+`xbox/tools/live.mjs` is the credential-safe control surface for agents and
+humans. It reads Device Portal credentials from the Xbox vault on blueberry;
+credentials never enter the repository or command output.
+
+```bash
+node xbox/tools/live.mjs status
+node xbox/tools/live.mjs install xbox/builds/1.0.0.10/NativeBios_1.0.0.10_x64.msix xbox/builds/1.0.0.10/Microsoft.VCLibs.x64.14.00.appx
+node xbox/tools/live.mjs deploy xbox/live/controller-probe.js
+node xbox/tools/live.mjs logs 100
+```
+
+The `deploy` command publishes sandboxed JavaScript into the installed package's
+`LocalState/live-piece.js`, launches the newest installed BIOS revision, and
+prints recent telemetry.
+
+After a successful Native BIOS install, the tool removes stale uninstallable AC
+development packages from earlier experiments. Cleanup is restricted to our
+`CN=AestheticComputerDev` publisher or `AestheticComputer.*` package namespace,
+and always preserves `AestheticComputer.NativeBios`; system and unrelated dev
+packages are never targeted. `prune` is also available as an explicit command.
 
 ## Build
 

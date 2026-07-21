@@ -118,4 +118,54 @@ enum SigilMesh {
         )
         return geo
     }
+
+    /// A deliberately regular Loopboy species: an eight-sided, vertically
+    /// symmetric cut gem. No seeded radial displacement or strata-driven
+    /// silhouette—the identity comes from its material and sigil texture.
+    static func gem(seed: UInt64) -> SCNGeometry {
+        var rng = RNG(seed ^ 0xa11c_e5ed_6e6d)
+        let sides = rng.unit() < 0.42 ? 7 : 8
+        var ring: [SIMD3<Float>] = []
+        for i in 0..<sides {
+            let a = Float(i) / Float(sides) * 2 * .pi
+            let radius: Float = 0.73 + rng.unit() * 0.10
+            let y = (rng.unit() - 0.5) * 0.075
+            ring.append(SIMD3(cos(a) * radius, y, sin(a) * radius))
+        }
+        let dx = (rng.unit() - 0.5) * 0.13
+        let dz = (rng.unit() - 0.5) * 0.13
+        let top = SIMD3<Float>(dx, 0.96 + rng.unit() * 0.12, dz)
+        let bottom = SIMD3<Float>(-dx * 0.7, -(0.96 + rng.unit() * 0.12), -dz * 0.7)
+        var positions: [SCNVector3] = []
+        var normals: [SCNVector3] = []
+        var uvs: [CGPoint] = []
+        var indexGroups = Array(repeating: [Int32](), count: 3)
+        func facet(_ a: SIMD3<Float>, _ b: SIMD3<Float>, _ c: SIMD3<Float>, group: Int) {
+            var n = simd_normalize(simd_cross(b - a, c - a))
+            if simd_dot(n, (a + b + c) / 3) < 0 { n = -n }
+            let base = Int32(positions.count)
+            for p in [a, b, c] {
+                positions.append(SCNVector3(p.x, p.y, p.z))
+                normals.append(SCNVector3(n.x, n.y, n.z))
+                uvs.append(CGPoint(x: CGFloat(0.5 + atan2(p.z, p.x) / (2 * .pi)),
+                                   y: CGFloat(0.5 - p.y * 0.42)))
+            }
+            indexGroups[group % indexGroups.count] += [base, base + 1, base + 2]
+        }
+        for i in 0..<sides {
+            let next = (i + 1) % sides
+            facet(top, ring[i], ring[next], group: i)
+            facet(bottom, ring[next], ring[i], group: i + 1)
+        }
+        return SCNGeometry(
+            sources: [
+                SCNGeometrySource(vertices: positions),
+                SCNGeometrySource(normals: normals),
+                SCNGeometrySource(textureCoordinates: uvs),
+            ],
+            elements: indexGroups.map {
+                SCNGeometryElement(indices: $0, primitiveType: .triangles)
+            }
+        )
+    }
 }

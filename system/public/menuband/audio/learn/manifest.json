@@ -1,0 +1,126 @@
+{
+  "provider": "jeffrey",
+  "stability": 0.55,
+  "lessons": [
+    {
+      "id": "chord-c",
+      "src": "/menuband/audio/learn/chord-c.mp3",
+      "text": "Here’s C major. Listen to the three notes, then play the glowing keys together."
+    },
+    {
+      "id": "scale-c",
+      "src": "/menuband/audio/learn/scale-c.mp3",
+      "text": "Here’s how to type out the C scale. Watch it climb, then play it back."
+    },
+    {
+      "id": "chord-c-sharp",
+      "src": "/menuband/audio/learn/chord-c-sharp.mp3",
+      "text": "Here’s C sharp major. Listen to the three notes, then play the glowing keys together."
+    },
+    {
+      "id": "scale-c-sharp",
+      "src": "/menuband/audio/learn/scale-c-sharp.mp3",
+      "text": "Here’s the C sharp major scale. Watch it climb, then play it back."
+    },
+    {
+      "id": "chord-d",
+      "src": "/menuband/audio/learn/chord-d.mp3",
+      "text": "Here’s D major. Listen to the three notes, then play the glowing keys together."
+    },
+    {
+      "id": "scale-d",
+      "src": "/menuband/audio/learn/scale-d.mp3",
+      "text": "Here’s the D major scale. Watch it climb, then play it back."
+    },
+    {
+      "id": "chord-e-flat",
+      "src": "/menuband/audio/learn/chord-e-flat.mp3",
+      "text": "Here’s E flat major. Listen to the three notes, then play the glowing keys together."
+    },
+    {
+      "id": "scale-e-flat",
+      "src": "/menuband/audio/learn/scale-e-flat.mp3",
+      "text": "Here’s the E flat major scale. Watch it climb, then play it back."
+    },
+    {
+      "id": "chord-e",
+      "src": "/menuband/audio/learn/chord-e.mp3",
+      "text": "Here’s E major. Listen to the three notes, then play the glowing keys together."
+    },
+    {
+      "id": "scale-e",
+      "src": "/menuband/audio/learn/scale-e.mp3",
+      "text": "Here’s the E major scale. Watch it climb, then play it back."
+    },
+    {
+      "id": "chord-f",
+      "src": "/menuband/audio/learn/chord-f.mp3",
+      "text": "Here’s F major. Listen to the three notes, then play the glowing keys together."
+    },
+    {
+      "id": "scale-f",
+      "src": "/menuband/audio/learn/scale-f.mp3",
+      "text": "Here’s the F major scale. Watch it climb, then play it back."
+    },
+    {
+      "id": "chord-f-sharp",
+      "src": "/menuband/audio/learn/chord-f-sharp.mp3",
+      "text": "Here’s F sharp major. Listen to the three notes, then play the glowing keys together."
+    },
+    {
+      "id": "scale-f-sharp",
+      "src": "/menuband/audio/learn/scale-f-sharp.mp3",
+      "text": "Here’s the F sharp major scale. Watch it climb, then play it back."
+    },
+    {
+      "id": "chord-g",
+      "src": "/menuband/audio/learn/chord-g.mp3",
+      "text": "Here’s G major. Listen to the three notes, then play the glowing keys together."
+    },
+    {
+      "id": "scale-g",
+      "src": "/menuband/audio/learn/scale-g.mp3",
+      "text": "Here’s the G major scale. Watch it climb, then play it back."
+    },
+    {
+      "id": "chord-a-flat",
+      "src": "/menuband/audio/learn/chord-a-flat.mp3",
+      "text": "Here’s A flat major. Listen to the three notes, then play the glowing keys together."
+    },
+    {
+      "id": "scale-a-flat",
+      "src": "/menuband/audio/learn/scale-a-flat.mp3",
+      "text": "Here’s the A flat major scale. Watch it climb, then play it back."
+    },
+    {
+      "id": "chord-a",
+      "src": "/menuband/audio/learn/chord-a.mp3",
+      "text": "Here’s A major. Listen to the three notes, then play the glowing keys together."
+    },
+    {
+      "id": "scale-a",
+      "src": "/menuband/audio/learn/scale-a.mp3",
+      "text": "Here’s the A major scale. Watch it climb, then play it back."
+    },
+    {
+      "id": "chord-b-flat",
+      "src": "/menuband/audio/learn/chord-b-flat.mp3",
+      "text": "Here’s B flat major. Listen to the three notes, then play the glowing keys together."
+    },
+    {
+      "id": "scale-b-flat",
+      "src": "/menuband/audio/learn/scale-b-flat.mp3",
+      "text": "Here’s the B flat major scale. Watch it climb, then play it back."
+    },
+    {
+      "id": "chord-b",
+      "src": "/menuband/audio/learn/chord-b.mp3",
+      "text": "Here’s B major. Listen to the three notes, then play the glowing keys together."
+    },
+    {
+      "id": "scale-b",
+      "src": "/menuband/audio/learn/scale-b.mp3",
+      "text": "Here’s the B major scale. Watch it climb, then play it back."
+    }
+  ]
+}

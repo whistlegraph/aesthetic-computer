@@ -38,7 +38,7 @@ if [[ -n "$input" ]]; then
         # The hook subprocess is spawned without a controlling terminal, so
         # `ps -o tty -p $$` returns "??". The claude process found above keeps
         # the Terminal tab's tty — read it from there instead.
-        tty=$(ps -o tty= -p "$claude_pid" 2>/dev/null | tr -d ' ')
+        tty=${SLAB_TERMINAL_TTY:-$(ps -o tty= -p "$claude_pid" 2>/dev/null | tr -d ' ')}
         ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
         # 4–8 word summary used as the live Terminal title and the menubar's
@@ -65,7 +65,8 @@ if [[ -n "$input" ]]; then
             --arg pid "$claude_pid" \
             --arg ts "$ts" \
             --arg sum "$summary" \
-            '{session_id: $sid, cwd: .cwd, subject: (.prompt | tostring | .[0:140]), summary: $sum, tty: $tty, claude_pid: ($pid | tonumber? // 0), agent_pid: ($pid | tonumber? // 0), agent_type: "claude", updated: $ts, state: "working"}' \
+            --arg nudge "${SLAB_NUDGE_SCREEN:-}" --arg contact "${SLAB_LOOPBOY_CONTACT:-}" \
+            '{session_id: $sid, cwd: .cwd, subject: (.prompt | tostring | .[0:140]), summary: $sum, tty: $tty, claude_pid: ($pid | tonumber? // 0), agent_pid: ($pid | tonumber? // 0), agent_type: "claude", updated: $ts, state: "working", nudge_screen:$nudge, loopboy_contact:$contact}' \
             > "$ACTIVE_DIR/$session_id" 2>/dev/null
 
         # Live terminal title: write OSC 0 ("set window + icon name") direct

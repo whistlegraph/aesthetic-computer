@@ -141,6 +141,11 @@ final class LedgerStore {
         guard prompt.count <= 4_000 else {
             return ["ok": false, "error": "prompt exceeds 4000 characters"]
         }
+        let loopboyContact = ((body["loopboyContact"] as? String) ?? "").lowercased()
+        if !loopboyContact.isEmpty,
+           loopboyContact.range(of: "^[a-z0-9_-]{1,40}$", options: .regularExpression) == nil {
+            return ["ok": false, "error": "loopboyContact must be a short contact key"]
+        }
 
         let requested = (body["cwd"] as? String).flatMap { $0.isEmpty ? nil : $0 }
             ?? Paths.acRepo
@@ -167,7 +172,18 @@ final class LedgerStore {
             return ["ok": false, "error": "\(agent) launcher is not installed"]
         }
 
-        var command = "cd \(shellQuote(cwd)) && exec \(shellQuote(binary))"
+        var command: String
+        var nudgeScreen = ""
+        if !loopboyContact.isEmpty {
+            nudgeScreen = "loopboy-\(UUID().uuidString.prefix(8).lowercased())"
+            command = "cd \(shellQuote(cwd)) && "
+                + "SLAB_TERMINAL_TTY=$(basename \"$(tty)\") "
+                + "SLAB_NUDGE_SCREEN=\(shellQuote(nudgeScreen)) "
+                + "SLAB_LOOPBOY_CONTACT=\(shellQuote(loopboyContact)) "
+                + "exec /usr/bin/screen -S \(shellQuote(nudgeScreen)) \(shellQuote(binary))"
+        } else {
+            command = "cd \(shellQuote(cwd)) && exec \(shellQuote(binary))"
+        }
         if !prompt.isEmpty { command += " \(shellQuote(prompt))" }
 
         // Hand Terminal a one-shot executable document through LaunchServices.
@@ -214,7 +230,8 @@ final class LedgerStore {
         }
         let by = String(((body["by"] as? String) ?? "prox").prefix(100))
         NSLog("🪨 [ledger] %@ launched %@ in %@", by, agent, cwd)
-        return ["ok": true, "host": selfIdentity().host, "agent": agent, "cwd": cwd]
+        return ["ok": true, "host": selfIdentity().host, "agent": agent, "cwd": cwd,
+                "loopboyContact": loopboyContact, "nudgeScreen": nudgeScreen]
     }
 
     private static func shellQuote(_ value: String) -> String {
@@ -290,7 +307,7 @@ final class LedgerStore {
             return LedgerEntry(
                 id: s.sessionId,
                 host: selfHost,
-                name: SigilRenderer.name(forSessionId: s.sessionId),
+                name: SigilRenderer.name(for: s),
                 subject: s.titleString,
                 status: statusName(s.state),
                 kind: "session",

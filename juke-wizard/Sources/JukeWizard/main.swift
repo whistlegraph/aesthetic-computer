@@ -8,6 +8,7 @@
 //   jukewizard [<playlist.m3u8 | folder | file.mp3> ...] [--watch <dir>]
 //   bin/jukewizard --queue <file.mp3> <file.mp3>  focused ordered queue
 //   jukewizard --spotify-search "artist or track"  headless Spotify search
+//   jukewizard --background  start resident without raising the full window
 //   (no args → opens ~/Desktop/MASTER-playlist.m3u8 if present)
 //
 //   --watch <dir>   auto-pop: when a fresh audio file lands here, add it
@@ -24,11 +25,13 @@ final class JukeAppDelegate: NSObject, NSApplicationDelegate {
         var paths: [String] = []
         var selectPath: String? = nil
         var spotifySearch: String? = nil
+        var launchInBackground = false
         var i = 0
         while i < args.count {
             if args[i] == "--watch", i + 1 < args.count { watch.append(args[i + 1]); i += 2; continue }
             if args[i] == "--select", i + 1 < args.count { selectPath = args[i + 1]; i += 2; continue }
             if args[i] == "--spotify-search", i + 1 < args.count { spotifySearch = args[i + 1]; i += 2; continue }
+            if args[i] == "--background" { launchInBackground = true; i += 1; continue }
             paths.append(args[i]); i += 1
         }
         if paths.isEmpty {
@@ -51,14 +54,20 @@ final class JukeAppDelegate: NSObject, NSApplicationDelegate {
         }
         controller = JukeController(library: library, watch: watch, select: selectPath,
                                     spotifySearch: spotifySearch)
-        controller?.showWindow(nil)
-        if controller?.window?.isMiniaturized == true { controller?.window?.deminiaturize(nil) }
-        controller?.window?.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        if launchInBackground {
+            controller?.window?.orderOut(nil)
+        } else {
+            controller?.showWindow(nil)
+            if controller?.window?.isMiniaturized == true { controller?.window?.deminiaturize(nil) }
+            controller?.window?.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+        }
         // Launch Services can re-apply the previous process's minimized Dock
         // state just after didFinishLaunching. Restore once more on the next
         // run-loop turn so a relaunch can never masquerade as a crash.
-        DispatchQueue.main.async { [weak self] in self?.controller?.quickOpenFull() }
+        if !launchInBackground {
+            DispatchQueue.main.async { [weak self] in self?.controller?.quickOpenFull() }
+        }
     }
 
     // Stay resident when the window closes — the spinning-CD menu-bar item is

@@ -62,8 +62,9 @@
         <span id="previewBadge" class="preview hidden">LOCAL PREVIEW · SAVING OFF</span>
         <span class="who" id="who"></span>
         <button class="primary" id="newWork" data-testid="new-work">New whistlegraph</button>
+        <button class="quiet" id="bulkAssign">Bulk relationships</button>
         <a class="quiet" href="/" target="_blank">View site ↗</a>
-        <button class="quiet" id="codexOpen" data-testid="codex-tools">Codex tools</button>
+        <button class="quiet" id="codexOpen" data-testid="codex-tools">Changes &amp; tools</button>
         <button class="quiet" id="logout">Sign out</button>
       </div>
       <div class="controls">
@@ -138,14 +139,16 @@
   async function loadData(){
     grid.setAttribute("aria-busy","true");document.getElementById("count").textContent="Loading archive…";
     const curationRequest=PREVIEW?Promise.resolve({data:{works:{},posts:{}}}):getJSON(`${API}?action=data`,{headers:{Authorization:`Bearer ${token}`},cache:"no-store"}).then(data=>({data})).catch(error=>({error}));
-    const [pd,gd]=await Promise.all([
+    const [pd,gd,curationResult]=await Promise.all([
       getJSON(`${STATIC_ROOT}/posts.json?t=${Date.now()}`,{cache:"no-cache"}),
-      getJSON(`${STATIC_ROOT}/graphs.json?t=${Date.now()}`,{cache:"no-cache"})
+      getJSON(`${STATIC_ROOT}/graphs.json?t=${Date.now()}`,{cache:"no-cache"}),
+      curationRequest
     ]);
-    basePosts=pd.posts||[];baseWorks=gd.works||[];applyCuration();renderReset();grid.removeAttribute("aria-busy");
-    const {data:cd,error}=await curationRequest;
-    if(error){toast(`Live edits unavailable: ${error.message}`);return}
-    curation={works:cd.works||{},posts:cd.posts||{},createdWorks:cd.createdWorks||{},deletedWorks:cd.deletedWorks||[],trashedWorks:cd.trashedWorks||{}};deployments=cd.deployments||[];recentChanges=cd.recent||[];visualCoverage=cd.visualCoverage||{count:0};applyCuration();renderReset(true);
+    basePosts=pd.posts||[];baseWorks=gd.works||[];
+    const {data:cd,error}=curationResult;
+    if(cd){curation={works:cd.works||{},posts:cd.posts||{},createdWorks:cd.createdWorks||{},deletedWorks:cd.deletedWorks||[],trashedWorks:cd.trashedWorks||{}};deployments=cd.deployments||[];recentChanges=cd.recent||[];visualCoverage=cd.visualCoverage||{count:0}}
+    applyCuration();renderReset();grid.removeAttribute("aria-busy");
+    if(error)toast(`Live edits unavailable: ${error.message}`);
   }
   function enterDesk(name){gate.classList.add("hidden");desk.classList.remove("hidden");document.getElementById("who").textContent=name;if(PREVIEW){document.getElementById("previewBadge").classList.remove("hidden");document.getElementById("logout").classList.add("hidden")}}
   function canonicalizeDesk(){if(!LOCAL&&location.pathname!==DESK_PATH)history.replaceState({},"",DESK_PATH)}
@@ -175,12 +178,12 @@
     const checkout="git clone git@knot.aesthetic.computer:aesthetic.computer/core aesthetic-computer\ncd aesthetic-computer\nac-login\ncodex";
     const recent=deployments.length?deployments.slice(0,8).map(d=>`<li><code>${esc(String(d.commit||"").slice(0,12))}</code> · ${esc(d.status||"queued")} · ${esc(d.changeId||"Desk publish")}<br><small>${esc(d.when?new Date(d.when).toLocaleString():"")}</small></li>`).join(""):"<li>No Codex deployments yet.</li>";
     const changes=recentChanges.length?recentChanges.slice(0,20).map(change=>`<li><code>${esc(change.type||"")}:${esc(change.key||"")}</code> · ${esc(change.action||"change")}${change.renamedTo?` → <code>${esc(change.renamedTo)}</code>`:""}<br><small>${esc(change.when?new Date(change.when).toLocaleString():"")}</small></li>`).join(""):"<li>No Desk changes yet.</li>";
-    codexPanel.innerHTML=`<div class="codex-head"><div><h2>Whistlegraph <b>for Codex</b></h2><p>Authenticated frontend editing, ordinary Git commits, and exact-SHA deployment.</p></div><button class="close" aria-label="Close Codex tools">×</button></div>
+    codexPanel.innerHTML=`<div class="codex-head"><div><h2>Desk <b>changes</b></h2><p>Every saved edit with its exact local timestamp, plus Codex publishing tools.</p></div><button class="close" aria-label="Close changes and tools">×</button></div>
+      <section class="codex-step"><h3>Recent Desk changes</h3><ul class="deploy-list">${changes}</ul></section>
       <section class="codex-step"><h3>1 · Install the plugin</h3><p>Add the Aesthetic Computer Git marketplace, then install Whistlegraph Desk.</p><div class="command">${esc(install)}<button class="copy" data-copy="install">Copy</button></div></section>
       <section class="codex-step"><h3>2 · Open the knot checkout</h3><p>The plugin edits a clean temporary worktree. Your normal checkout can contain other work without being touched.</p><div class="command">${esc(checkout)}<button class="copy" data-copy="checkout">Copy</button></div></section>
       <section class="codex-step"><h3>3 · Ask Codex</h3><div class="command">Find the copy I want to change on whistlegraph.org, show me the diff, then validate and publish it.<button class="copy" data-copy="prompt">Copy</button></div></section>
       <section class="codex-step guardrails">Only the immutable Auth0 subjects for @jeffrey and @minanimals pass the server check. The plugin can write only <code>system/public/whistlegraph.org/**</code>. Publishing creates a review branch and attributed commit, refuses a moved <code>main</code>, and deploys only the exact pushed SHA.</section>
-      <section class="codex-step"><h3>Recent Desk changes</h3><ul class="deploy-list">${changes}</ul></section>
       <section class="codex-step"><h3>Recent deployments</h3><ul class="deploy-list">${recent}</ul></section>
       <p><a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/plugins/whistlegraph" target="_blank" rel="noopener">Inspect the plugin source ↗</a></p>`;
     codexPanel.querySelector(".close").addEventListener("click",closeCodex);
@@ -190,7 +193,7 @@
   document.getElementById("codexOpen").addEventListener("click",openCodex);codexShade.addEventListener("click",closeCodex);
 
   function postTitle(p){const text=(p.desc||"").trim();return text?text.slice(0,100):`Post ${p.id}`}
-  function heroForWork(code){return posts.filter(p=>(p.works||[]).includes(code)).sort((a,b)=>(b.views||0)-(a.views||0))[0]}
+  function heroForWork(code){const related=posts.filter(p=>(p.works||[]).includes(code)).sort((a,b)=>(b.views||0)-(a.views||0));return related.find(p=>p.id===workByCode[code]?.featuredPost)||related[0]}
   function buildView(){
     const q=query.trim().toLowerCase();
     if(mode==="trash"){
@@ -234,6 +237,15 @@
   document.getElementById("search").addEventListener("input",event=>{query=event.target.value;renderReset();queueMachineSearch()});
   document.getElementById("mode").addEventListener("click",event=>{const button=event.target.closest("button[data-mode]");if(!button)return;mode=button.dataset.mode;document.querySelectorAll("#mode button").forEach(x=>x.classList.toggle("on",x===button));document.getElementById("filter").classList.toggle("hidden",mode!=="posts");document.getElementById("search").placeholder=mode==="posts"?"Search captions, IDs, codes, or machine visuals…":"Search titles, codes, or authors…";renderReset();queueMachineSearch()});
   document.getElementById("filter").addEventListener("click",event=>{const button=event.target.closest("button[data-kind]");if(!button)return;kind=button.dataset.kind;document.querySelectorAll("#filter button").forEach(x=>x.classList.toggle("on",x===button));renderReset()});
+  document.getElementById("bulkAssign").addEventListener("click",async()=>{
+    if(PREVIEW||mode!=="posts"||!view.length)return toast("Search or filter Posts first");
+    if(view.length>500)return toast("Narrow results to 500 posts or fewer");
+    const answer=prompt(`Enter a code to add it to all ${view.length} results. Prefix it with - to remove it (example: -long).`)?.trim().toLowerCase();if(!answer)return;
+    const operation=answer.startsWith("-")?"remove":"add",code=answer.replace(/^-/,"");if(!code)return;
+    const verb=operation==="add"?"Add":"Remove",tail=operation==="add"?" Existing relationships stay intact.":" Other relationships stay intact.";
+    if(!confirm(`${verb} [${code}] ${operation==="add"?"to":"from"} all ${view.length} current results?${tail}`))return;
+    try{const result=await getJSON(`${API}?action=bulk-assign`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({code,postIds:view.map(post=>post.id),operation})});await loadData();toast(`${operation==="add"?"Assigned":"Removed"} [${result.code}] ${operation==="add"?"to":"from"} ${result.count} posts`)}catch(error){toast(error.message)}
+  });
 
   document.getElementById("newWork").addEventListener("click",()=>{
     if(PREVIEW)return;
@@ -288,8 +300,8 @@
     <label for="postWorks">Whistlegraph relationships</label><input class="field" id="postWorks" value="${esc((p.works||[]).join(", "))}" placeholder="sos, imab" list="workCodes"><p class="hint">Comma-separated codes. Empty means this post is unfiled.</p>
     <label for="postPlots">Plots / narrative events</label><input class="field" id="postPlots" value="${esc((p.plots||[]).join(", "))}" placeholder="Us Kidnapping You"><p class="hint">Comma-separated plot names.</p>
     <label for="postDesc">Author caption</label><textarea class="field" id="postDesc">${esc(p.desc||"")}</textarea><div id="machineFields">${loadingVisual?'<p class="hint">Loading private machine visual notes…</p>':machineFields(p)}</div>`}
-  function workFields(w,editableCode=false){return `${editableCode?`<label for="editWorkCode">Code</label><input class="field" id="editWorkCode" maxlength="24" value="${esc(w.code||"")}"><p class="hint">Changing this migrates every assigned post and retires the old URL.</p>`:""}<label for="workTitle">Title</label><input class="field" id="workTitle" value="${esc(w.title||"")}"><label for="workBy">Composed by</label><input class="field" id="workBy" value="${esc(w.by||"")}"><label for="workYear">Year</label><input class="field" id="workYear" type="number" min="1900" max="2200" value="${esc(w.year||"")}"><label for="workColor">Archive color</label><input class="field" id="workColor" type="color" value="${esc(w.c||"#b44887")}">`}
-  function workPatch(){return {title:drawer.querySelector("#workTitle").value,by:drawer.querySelector("#workBy").value,year:Number(drawer.querySelector("#workYear").value),c:drawer.querySelector("#workColor").value}}
+  function workFields(w,editableCode=false){return `${editableCode?`<label for="editWorkCode">Code</label><input class="field" id="editWorkCode" maxlength="24" value="${esc(w.code||"")}"><p class="hint">Changing this migrates every assigned post and retires the old URL.</p>`:""}<label for="workTitle">Title</label><input class="field" id="workTitle" value="${esc(w.title||"")}"><label for="workBy">Composed by</label><input class="field" id="workBy" value="${esc(w.by||"")}"><label for="workYear">Year</label><input class="field" id="workYear" type="number" min="1900" max="2200" value="${esc(w.year||"")}"><label for="workColor">Archive color</label><input class="field" id="workColor" type="color" value="${esc(w.c||"#b44887")}"><label for="featuredPost">Featured thumbnail post ID</label><input class="field" id="featuredPost" inputmode="numeric" value="${esc(w.featuredPost||"")}" placeholder="automatic: highest-view assigned post"><p class="hint">Optional. Paste an assigned archive post ID to choose its thumbnail.</p>`}
+  function workPatch(){return {title:drawer.querySelector("#workTitle").value,by:drawer.querySelector("#workBy").value,year:Number(drawer.querySelector("#workYear").value),c:drawer.querySelector("#workColor").value,featuredPost:drawer.querySelector("#featuredPost").value.trim()}}
   async function createWork(){
     const button=drawer.querySelector("#createWork"),code=drawer.querySelector("#workCode").value.trim().toLowerCase();button.disabled=true;button.textContent="Creating…";
     try{const result=await getJSON(`${API}?action=work`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({code,...workPatch()})});curation.createdWorks[result.key]=result.patch;applyCuration();mode="works";document.querySelectorAll("#mode button").forEach(x=>x.classList.toggle("on",x.dataset.mode==="works"));document.getElementById("filter").classList.add("hidden");renderReset();closeEditor();toast(`Created [${result.key}]`)}
@@ -314,7 +326,7 @@
       if(current.type==="work"&&nextCode!==current.key){
         const result=await getJSON(`${API}?action=work-rename`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({from:current.key,code:nextCode,...patch})});await loadData();closeEditor();toast(`Renamed [${result.from}] to [${result.key}] · ${result.reassigned} posts migrated`);return;
       }
-      const result=await getJSON(API,{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({...current,patch})});const bucket=current.type==="work"&&curation.createdWorks[current.key]?curation.createdWorks:curation[current.type==="work"?"works":"posts"];bucket[current.key]=result.patch;applyCuration();refreshAfterMutation(current);if(selected?.type===current.type&&selected?.key===current.key)renderEditor(current,current.type==="work"?workByCode[current.key]:postById[current.key]);toast("Saved live")}
+      const result=await getJSON(API,{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({...current,patch})});const bucket=current.type==="work"&&curation.createdWorks[current.key]?curation.createdWorks:curation[current.type==="work"?"works":"posts"];bucket[current.key]=result.patch;applyCuration();refreshAfterMutation(current);if(selected?.type===current.type&&selected?.key===current.key)renderEditor(current,current.type==="work"?workByCode[current.key]:postById[current.key]);toast(`Saved live · ${new Date(result.revision).toLocaleTimeString()}`)}
     catch(error){toast(error.message);if(button.isConnected){button.disabled=false;button.textContent="Save live"}}
   }
   async function resetEditor(){

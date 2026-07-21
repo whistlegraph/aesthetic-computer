@@ -71,6 +71,8 @@ describe("Whistlegraph Desk", () => {
     expect(() => normalizePostPatch({ works: ["missing"] }, new Set(["sos"]))).toThrowError(/Unknown Whistlegraph code/);
     expect(normalizeWorkPatch({ title: " Scared of Stairs ", by: "Jeffrey", year: 2021, c: "#B44887" }))
       .toEqual({ title: "Scared of Stairs", by: "Jeffrey", year: 2021, c: "#b44887" });
+    expect(normalizeWorkPatch({ featuredPost: "7143034832430320939" })).toEqual({ featuredPost: "7143034832430320939" });
+    expect(() => normalizeWorkPatch({ featuredPost: "not-a-post" })).toThrowError(/only numbers/);
     expect(normalizeWorkCode(" FEAR ")).toBe("fear");
     expect(() => normalizeWorkCode("not-a-code")).toThrowError(/letters or numbers/);
   });

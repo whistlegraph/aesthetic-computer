@@ -60,10 +60,11 @@ enum ZoomLens {
     /// Floating-point slop — the compositor reports 1.0029 for "not zoomed".
     private static let zoomedThreshold: CGFloat = 1.01
     /// Window-list hit-testing is much heavier than reading a pointer sample.
-    /// 20 Hz feels immediate while keeping mouse motion cheap.
-    private static let followInterval: CFTimeInterval = 1.0 / 20.0
+    /// 30 Hz keeps cross-window dragging responsive without doing expensive
+    /// window-list hit tests for every raw mouse sample.
+    private static let followInterval: CFTimeInterval = 1.0 / 30.0
     /// A retarget should read as a deliberate camera move, not a teleport.
-    private static let panDuration: CFTimeInterval = 0.38
+    private static let panDuration: CFTimeInterval = 0.26
 
     private struct Target: Equatable {
         let id: CGWindowID?
@@ -139,7 +140,10 @@ enum ZoomLens {
             panTimer = nil
             apply(origin: centre, factor: factor)
         }
-        ZoomSpecialMove.fire(around: target.frame, on: screen)
+        // The particle bloom is punctuation for acquisition, not navigation.
+        // Rebuilding it at every cross-window drag handoff competes with the
+        // compositor pan and makes following feel sticky.
+        if !animated { ZoomSpecialMove.fire(around: target.frame, on: screen) }
     }
 
     static func zoomOut() {

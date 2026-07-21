@@ -26,11 +26,22 @@ PLIST_TMPL="${SCRIPT_DIR}/computer.aestheticcomputer.menuband.plist.tmpl"
 LAUNCHER_PLIST_PATH="${LAUNCH_AGENTS}/computer.aestheticcomputer.menubandlauncher.plist"
 LAUNCHER_PLIST_TMPL="${SCRIPT_DIR}/computer.aestheticcomputer.menubandlauncher.plist.tmpl"
 INFO_PLIST="${SCRIPT_DIR}/Info.plist"
-APP_DIR="${REPO_HOME}/Applications/Menu Band.app"
+INSTALLED_APP_DIR="${REPO_HOME}/Applications/Menu Band.app"
+# Assemble and sign away from the live bundle. Replacing individual files in a
+# running signed app invalidates executable pages that macOS has not faulted in
+# yet (SIGKILL/CODESIGNING "Invalid Page"). A sibling staging directory keeps
+# the final rename on the same filesystem and therefore atomic.
+STAGE_ROOT="$(mktemp -d "${REPO_HOME}/Applications/.menuband-install.XXXXXX")"
+APP_DIR="${STAGE_ROOT}/Menu Band.app"
 APP_BIN_DIR="${APP_DIR}/Contents/MacOS"
 APP_BIN="${APP_BIN_DIR}/MenuBand"
 APP_LAUNCHER_BIN="${APP_BIN_DIR}/MenuBandLauncher"
 APP_RES="${APP_DIR}/Contents/Resources"
+
+cleanup_stage() {
+    rm -rf "${STAGE_ROOT}"
+}
+trap cleanup_stage EXIT
 
 say() { printf "%s• %s%s\n" "$CYAN" "$1" "$RESET"; }
 ok()  { printf "%s✓ %s%s\n" "$GREEN" "$1" "$RESET"; }
@@ -161,10 +172,11 @@ ok "built universal launcher: ${BUILT_LAUNCHER}"
 # NOTE: we deliberately do NOT unload the launch agents here. A launchctl
 # unload/load (or bootout/bootstrap) cycle re-registers the background item,
 # which makes macOS re-fire the "App Background Activity — can run in the
-# background" notification on every install. We overwrite the bundle in place and
-# restart via `launchctl kickstart -k` at the end, which relaunches from the new
-# bundle WITHOUT re-registering. (First-ever install still bootstraps once.)
-say "leaving launch agents registered (in-place restart later — no macOS nag)"
+# background" notification on every install. We build and sign a sibling bundle,
+# atomically exchange it below, then restart via `launchctl kickstart -k` without
+# re-registering. The old running process keeps its untouched inode until it is
+# terminated, so it can never observe half-installed or newly-signed pages.
+say "leaving launch agents registered (atomic bundle swap later — no macOS nag)"
 
 say "installing app bundle → ${APP_DIR}"
 mkdir -p "${APP_BIN_DIR}" "${APP_RES}"
@@ -370,7 +382,28 @@ sed "s|@HOME@|${REPO_HOME}|g" "${PLIST_TMPL}" > "${PLIST_PATH}"
 sed "s|@HOME@|${REPO_HOME}|g" "${LAUNCHER_PLIST_TMPL}" > "${LAUNCHER_PLIST_PATH}"
 ok "plists written"
 
-say "(re)starting launch agents in place (kickstart, not load — avoids the macOS background nag)"
+say "atomically replacing installed bundle → ${INSTALLED_APP_DIR}"
+BACKUP_APP_DIR="${REPO_HOME}/Applications/.Menu Band.app.previous-install"
+rm -rf "${BACKUP_APP_DIR}"
+if [[ -d "${INSTALLED_APP_DIR}" ]]; then
+    mv "${INSTALLED_APP_DIR}" "${BACKUP_APP_DIR}"
+fi
+if ! mv "${APP_DIR}" "${INSTALLED_APP_DIR}"; then
+    warn "bundle swap failed — restoring previous install"
+    if [[ -d "${BACKUP_APP_DIR}" ]]; then
+        mv "${BACKUP_APP_DIR}" "${INSTALLED_APP_DIR}"
+    fi
+    exit 1
+fi
+rm -rf "${BACKUP_APP_DIR}"
+APP_DIR="${INSTALLED_APP_DIR}"
+APP_BIN_DIR="${APP_DIR}/Contents/MacOS"
+APP_BIN="${APP_BIN_DIR}/MenuBand"
+APP_LAUNCHER_BIN="${APP_BIN_DIR}/MenuBandLauncher"
+APP_RES="${APP_DIR}/Contents/Resources"
+ok "installed bundle swapped atomically"
+
+say "(re)starting launch agents after atomic swap (kickstart, not load — avoids the macOS background nag)"
 _uid="$(id -u)"
 for _svc in "computer.aestheticcomputer.menuband|${PLIST_PATH}" \
             "computer.aestheticcomputer.menubandlauncher|${LAUNCHER_PLIST_PATH}"; do

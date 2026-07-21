@@ -44,10 +44,78 @@ JSValue Write(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
   if (argc > 1) JS_ToFloat64(context, &x, argv[1]);
   if (argc > 2) JS_ToFloat64(context, &y, argv[2]);
   if (argc > 3) JS_ToFloat64(context, &size, argv[3]);
+  int32_t r = 255, g = 255, b = 255;
+  if (argc > 4) JS_ToInt32(context, &r, argv[4]);
+  if (argc > 5) JS_ToInt32(context, &g, argv[5]);
+  if (argc > 6) JS_ToInt32(context, &b, argv[6]);
   scope->api->graphics.write({value, static_cast<float>(x), static_cast<float>(y),
-                              static_cast<float>(size), {255, 255, 255, 255}});
+                              static_cast<float>(size), {static_cast<uint8_t>(r),
+                              static_cast<uint8_t>(g), static_cast<uint8_t>(b), 255}});
   JS_FreeCString(context, value);
   return JS_UNDEFINED;
+}
+
+JSValue Box(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  double x = 0, y = 0, width = 0, height = 0;
+  int32_t r = 255, g = 255, b = 255;
+  if (!scope || !scope->api || argc < 4 || JS_ToFloat64(context, &x, argv[0]) ||
+      JS_ToFloat64(context, &y, argv[1]) || JS_ToFloat64(context, &width, argv[2]) ||
+      JS_ToFloat64(context, &height, argv[3])) return JS_EXCEPTION;
+  if (argc > 4) JS_ToInt32(context, &r, argv[4]);
+  if (argc > 5) JS_ToInt32(context, &g, argv[5]);
+  if (argc > 6) JS_ToInt32(context, &b, argv[6]);
+  scope->api->graphics.box({static_cast<float>(x), static_cast<float>(y),
+    static_cast<float>(width), static_cast<float>(height),
+    {static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), 255}});
+  return JS_UNDEFINED;
+}
+
+JSValue Telemetry(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api || !scope->api->telemetry || argc < 1) return JS_UNDEFINED;
+  const char* event = JS_ToCString(context, argv[0]);
+  const char* detail = argc > 1 ? JS_ToCString(context, argv[1]) : nullptr;
+  if (!event) return JS_EXCEPTION;
+  std::string line = "JS ";
+  line += event;
+  if (detail) { line += " "; line += detail; }
+  scope->api->telemetry(line);
+  if (detail) JS_FreeCString(context, detail);
+  JS_FreeCString(context, event);
+  return JS_UNDEFINED;
+}
+
+JSValue RuntimeInfo(JSContext* context, JSValueConst, int, JSValueConst*) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api) return JS_EXCEPTION;
+  JSValue result = JS_NewObject(context);
+  JS_SetPropertyStr(context, result, "width", JS_NewInt32(context, scope->api->screen.width));
+  JS_SetPropertyStr(context, result, "height", JS_NewInt32(context, scope->api->screen.height));
+  JS_SetPropertyStr(context, result, "sampleRate", JS_NewInt32(context, scope->api->sound.sample_rate()));
+  JS_SetPropertyStr(context, result, "simCount", JS_NewInt64(context, scope->api->sim_count));
+  JS_SetPropertyStr(context, result, "paintCount", JS_NewInt64(context, scope->api->paint_count));
+  JS_SetPropertyStr(context, result, "monotonicUs", JS_NewInt64(context, scope->api->clock.monotonic_us));
+  JS_SetPropertyStr(context, result, "unixMs", JS_NewInt64(context, scope->api->clock.unix_ms));
+  return result;
+}
+
+JSValue GamepadState(JSContext* context, JSValueConst, int, JSValueConst*) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api) return JS_EXCEPTION;
+  const auto& pad = scope->api->gamepad;
+  JSValue result = JS_NewObject(context);
+  JS_SetPropertyStr(context, result, "leftX", JS_NewFloat64(context, pad.left_x));
+  JS_SetPropertyStr(context, result, "leftY", JS_NewFloat64(context, pad.left_y));
+  JS_SetPropertyStr(context, result, "rightX", JS_NewFloat64(context, pad.right_x));
+  JS_SetPropertyStr(context, result, "rightY", JS_NewFloat64(context, pad.right_y));
+  JS_SetPropertyStr(context, result, "leftTrigger", JS_NewFloat64(context, pad.left_trigger));
+  JS_SetPropertyStr(context, result, "rightTrigger", JS_NewFloat64(context, pad.right_trigger));
+  JSValue down = JS_NewArray(context); uint32_t index = 0;
+  for (const auto& button : pad.down)
+    JS_SetPropertyUint32(context, down, index++, JS_NewString(context, button.c_str()));
+  JS_SetPropertyStr(context, result, "down", down);
+  return result;
 }
 
 JSValue Controllers(JSContext* context, JSValueConst, int, JSValueConst*) {
@@ -81,6 +149,14 @@ JSValue Capabilities(JSContext* context, JSValueConst, int, JSValueConst*) {
   JS_SetPropertyStr(context, result, "internetClient", JS_NewBool(context, true));
   JS_SetPropertyStr(context, result, "privateNetworkClientServer", JS_NewBool(context, true));
   JS_SetPropertyStr(context, result, "online", JS_NewBool(context, scope->api->system.online));
+  JS_SetPropertyStr(context, result, "networkLevel",
+    JS_NewString(context, scope->api->system.network_level.c_str()));
+  JS_SetPropertyStr(context, result, "networkName",
+    JS_NewString(context, scope->api->system.network_name.c_str()));
+  JS_SetPropertyStr(context, result, "version",
+    JS_NewString(context, scope->api->system.version.c_str()));
+  JS_SetPropertyStr(context, result, "width", JS_NewInt32(context, scope->api->screen.width));
+  JS_SetPropertyStr(context, result, "height", JS_NewInt32(context, scope->api->screen.height));
   JS_SetPropertyStr(context, result, "liveLocalState", JS_NewBool(context, true));
   return result;
 }
@@ -99,7 +175,11 @@ class QuickJsPiece final : public JsPiece {
     JSValue global = JS_GetGlobalObject(context_);
     JS_SetPropertyStr(context_, global, "wipe", JS_NewCFunction(context_, Wipe, "wipe", 3));
     JS_SetPropertyStr(context_, global, "synth", JS_NewCFunction(context_, Synth, "synth", 2));
-    JS_SetPropertyStr(context_, global, "write", JS_NewCFunction(context_, Write, "write", 4));
+    JS_SetPropertyStr(context_, global, "write", JS_NewCFunction(context_, Write, "write", 7));
+    JS_SetPropertyStr(context_, global, "box", JS_NewCFunction(context_, Box, "box", 7));
+    JS_SetPropertyStr(context_, global, "telemetry", JS_NewCFunction(context_, Telemetry, "telemetry", 2));
+    JS_SetPropertyStr(context_, global, "runtime", JS_NewCFunction(context_, RuntimeInfo, "runtime", 0));
+    JS_SetPropertyStr(context_, global, "gamepad", JS_NewCFunction(context_, GamepadState, "gamepad", 0));
     JS_SetPropertyStr(context_, global, "controllers", JS_NewCFunction(context_, Controllers, "controllers", 0));
     JS_SetPropertyStr(context_, global, "capabilities", JS_NewCFunction(context_, Capabilities, "capabilities", 0));
     JS_FreeValue(context_, global);

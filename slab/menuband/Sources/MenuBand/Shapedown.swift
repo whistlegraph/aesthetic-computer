@@ -139,6 +139,15 @@ final class Shapedown {
     }
 
     private func registerCleanTap() {
+        // Opening is deliberately a double-tap so an ordinary Command chord
+        // cannot summon the wall. Once it is visible, one clean tap is an
+        // immediate escape hatch; don't make someone repeat the summon gesture
+        // while their pointer and desktop gestures are being held by the wall.
+        if isActive {
+            lastCleanTap = 0
+            DispatchQueue.main.async { [weak self] in self?.hide() }
+            return
+        }
         let now = ProcessInfo.processInfo.systemUptime
         if now - lastCleanTap < Self.doubleTapWindow {
             lastCleanTap = 0
@@ -301,17 +310,16 @@ final class Shapedown {
     }
 }
 
-/// A CGEventTap, live ONLY while the wall is up, that consumes scroll and the
+/// A CGEventTap, live ONLY while the wall is up, that consumes pointer motion,
+/// scroll, and the
 /// whole NSEvent gesture family (magnify / rotate / swipe / smart-magnify /
 /// pressure) so a finger on the trackpad can't scroll, zoom, rotate, or swipe
-/// the desktop out from under the drawing. Runs on its own run-loop thread,
-/// same shape as `KeyEventTap`.
-///
-/// One honest limit: Mission Control and Spaces swipes (3–4 finger) are acted
-/// on by the WindowServer ahead of a session-level tap, so those particular
-/// swipes can still fire. Everything delivered as an ordinary gesture/scroll
-/// event is blocked here. Needs Accessibility; without it `start()` returns
-/// false and the wall simply runs without gesture suppression.
+/// the desktop out from under the drawing. It installs at the HID entry point
+/// so Dock/Mission Control sees the consumed swipe only after Shapedown has had
+/// a chance to stop it; older systems that reject that location fall back to a
+/// session tap. Runs on its own run-loop thread, same shape as `KeyEventTap`.
+/// Needs Accessibility; without it `start()` returns false and the wall simply
+/// runs without gesture suppression.
 final class ShapedownGestureTap {
     private var tap: CFMachPort?
     private var source: CFRunLoopSource?
@@ -330,11 +338,17 @@ final class ShapedownGestureTap {
     func start() -> Bool {
         guard tap == nil else { return true }
         // Raw event-type numbers the tap sees: 1/2 left mouse down/up (the
-        // physical trackpad click), 3/4 right, 25/26 other; 22 = scrollWheel;
+        // physical trackpad click), 3/4 right, 5 move, 6/7 left/right drag,
+        // 25/26 other click, 27 other drag; 22 = scrollWheel;
         // and the NSEvent gesture family 18/19/20 (rotate/begin/end), 29
         // gesture, 30 magnify, 31 swipe, 32 smartMagnify, 33 quickLook, 34
-        // pressure. All consumed so the wall owns the trackpad completely.
-        let types: [UInt32] = [1, 2, 3, 4, 10, 18, 19, 20, 22, 25, 26, 29, 30, 31, 32, 33, 34]
+        // pressure. Movement and drags are consumed too: the cursor is hidden
+        // and detached above, and its normal position must remain frozen until
+        // the wall closes.
+        let types: [UInt32] = [
+            1, 2, 3, 4, 5, 6, 7, 10, 18, 19, 20, 22, 25, 26, 27,
+            29, 30, 31, 32, 33, 34,
+        ]
         var mask: CGEventMask = 0
         for t in types { mask |= (CGEventMask(1) << CGEventMask(t)) }
 
@@ -356,14 +370,22 @@ final class ShapedownGestureTap {
             return nil                  // consume — the wall owns the trackpad
         }
 
-        guard let tap = CGEvent.tapCreate(
+        let tap = CGEvent.tapCreate(
+            tap: .cghidEventTap,
+            place: .headInsertEventTap,
+            options: .defaultTap,
+            eventsOfInterest: mask,
+            callback: callback,
+            userInfo: opaque
+        ) ?? CGEvent.tapCreate(
             tap: .cgSessionEventTap,
             place: .headInsertEventTap,
             options: .defaultTap,
             eventsOfInterest: mask,
             callback: callback,
             userInfo: opaque
-        ) else {
+        )
+        guard let tap else {
             Unmanaged<ShapedownGestureTap>.fromOpaque(opaque).release()
             return false
         }

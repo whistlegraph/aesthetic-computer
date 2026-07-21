@@ -1,5 +1,31 @@
 {
   "_comment": "Hand-curation from the trio (Alex, broad strokes) that the clustering pass can't derive. Applied by gen-model.mjs after clustering. works.include promotes an automatic cluster into the confirmed composition/code namespace; works.exclude keeps a legacy code URL working but treats its media as archive posts. renames: code -> canonical title. recodes: oldCode -> newCode (change a work's deep-link slug; its posts retag, pair with a rename keyed on the newCode for the title). merges: sourceCode -> targetCode (source's posts retag to the target, source work drops out). crossTags: sourceCode -> [alsoUnderCode] (source's posts ALSO appear under another existing work while the source stays standalone). postTags: postId -> [tag] (keep a badge like TALK on one video after it folds into a graph). postPlots: postId -> [plot title] (cross-cutting narrative events). authors: code -> attribution (keyed on the POST-recode code). twins: mirror a cluster's clips under a NEW code+title.",
+  "manualPosts": [
+    {
+      "id": "2019020100000000001",
+      "platform": "archive",
+      "media": "video",
+      "date": "2019-02",
+      "duration": 58.337,
+      "desc": "Imaginary Instrument No. 1 — archival February 2019 performance supplied by Jeffrey Alan Scudder",
+      "works": [
+        "iin1"
+      ],
+      "provenance": {
+        "source": "iMessage attachment IMG_4534.mov",
+        "sha256": "7428718d08050db37d75af7af522cba10327f3776098691d3c01a2ec1c96d32f"
+      }
+    }
+  ],
+  "manualWorks": [
+    {
+      "code": "iin1",
+      "title": "Imaginary Instrument No. 1",
+      "by": "Jeffrey Alan Scudder",
+      "year": 2019,
+      "asset": "wg41"
+    }
+  ],
   "works": {
     "include": [
       "tppl",

@@ -55,6 +55,24 @@ enum SigilRenderer {
         name(seed: seed(for: sessionId))
     }
 
+    /// Loopboys keep the pet name stored on their contact route when a CLI
+    /// wrapper is reopened around the same provider thread. Ordinary prompts
+    /// still derive their name from the ephemeral Slab session id.
+    static func name(for session: ClaudeSession) -> String {
+        if let data = FileManager.default.contents(atPath: Paths.loopboyConfig),
+           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let loops = obj["loops"] as? [String: Any] {
+            for value in loops.values {
+                guard let loop = value as? [String: Any],
+                      (loop["sessionId"] as? String) == session.sessionId,
+                      let routeName = loop["name"] as? String,
+                      !routeName.isEmpty else { continue }
+                return routeName
+            }
+        }
+        return name(forSessionId: session.sessionId)
+    }
+
     /// SplitMix64 — a tiny, well-distributed PRNG. Seeding it from the
     /// prompt's FNV hash turns that single hash into the stream of independent
     /// draws the shape + palette want, all deterministically.
