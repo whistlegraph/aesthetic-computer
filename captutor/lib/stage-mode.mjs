@@ -2,7 +2,7 @@
 
 import { spawnSync } from "node:child_process";
 import {
-  existsSync, mkdirSync, readFileSync, rmSync, writeFileSync,
+  copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
@@ -14,6 +14,10 @@ const SIGILS_OFF = join(HOME, ".local", "share", "slab", "state", "prompt-sigils
 const BADGE_PLIST = join(HOME, "Library", "LaunchAgents", "computer.aesthetic.desktopbadge.plist");
 const POINTER_SOURCE = fileURLToPath(new URL("../bin/captutor-pointer.swift", import.meta.url));
 const POINTER_BIN = join(HOME, ".local", "bin", "captutor-pointer");
+const WALLPAPER_SOURCE = fileURLToPath(new URL("../bin/captutor-wallpaper.swift", import.meta.url));
+const WALLPAPER_LOGO = fileURLToPath(new URL("../assets/fuser-thumbnail-logo.svg", import.meta.url));
+const WALLPAPER_APP = join(HOME, ".local", "share", "captutor", "Captutor Wallpaper.app");
+const WALLPAPER_BIN = join(WALLPAPER_APP, "Contents", "MacOS", "CaptutorWallpaper");
 const WALLPAPER = "/System/Library/Desktop Pictures/Solid Colors/Space Gray.png";
 const DISPLAYPLACER = "/opt/homebrew/bin/displayplacer";
 
@@ -127,7 +131,8 @@ function hideOtherApps() {
 const se = Application("System Events");
 for (const process of se.applicationProcesses.whose({ visible: true })()) {
   try {
-    if (!process.backgroundOnly() && process.name() !== "Google Chrome") {
+    if (!process.backgroundOnly() && process.name() !== "Google Chrome" &&
+        process.name() !== "Captutor Wallpaper" && process.name() !== "CaptutorWallpaper") {
       process.visible = false;
     }
   } catch {}
@@ -282,6 +287,37 @@ function compilePointerBridge() {
   run("/usr/bin/swiftc", ["-O", POINTER_SOURCE, "-o", POINTER_BIN]);
 }
 
+function compileWallpaper() {
+  mkdirSync(dirname(WALLPAPER_BIN), { recursive: true });
+  run("/usr/bin/swiftc", ["-O", WALLPAPER_SOURCE, "-o", WALLPAPER_BIN]);
+  const contents = dirname(dirname(WALLPAPER_BIN));
+  const resources = join(contents, "Resources");
+  mkdirSync(resources, { recursive: true });
+  copyFileSync(WALLPAPER_LOGO, join(resources, "fuser-thumbnail-logo.svg"));
+  writeFileSync(join(contents, "Info.plist"), `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleExecutable</key><string>CaptutorWallpaper</string>
+<key>CFBundleIdentifier</key><string>studio.fuser.captutor-wallpaper</string>
+<key>CFBundleName</key><string>Captutor Wallpaper</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>LSUIElement</key><true/>
+</dict></plist>`);
+}
+
+function stopWallpaper() {
+  run("/usr/bin/pkill", ["-x", "CaptutorWallpaper"], { allowFailure: true });
+}
+
+async function startWallpaper() {
+  stopWallpaper();
+  run("/usr/bin/open", ["-na", WALLPAPER_APP]);
+  await sleep(900);
+  if (spawnSync("/usr/bin/pgrep", ["-x", "CaptutorWallpaper"]).status !== 0) {
+    throw new Error("Captutor dynamic wallpaper did not launch");
+  }
+}
+
 export async function enterStageMode({ vertical = process.env.CAPTUTOR_VERTICAL_MODE === "1" } = {}) {
   if (existsSync(STATE)) await exitStageMode();
   const cursorSize = Number(readDefault("com.apple.universalaccess.plist", "mouseDriverCursorSize") || 1);
@@ -313,6 +349,7 @@ export async function enterStageMode({ vertical = process.env.CAPTUTOR_VERTICAL_
   if (darkMode()) throw new Error("macOS did not enter Light appearance");
 
   compilePointerBridge();
+  compileWallpaper();
   if (vertical) configureVerticalDisplay();
   else configureDisplay();
   setWallpaper(WALLPAPER);
@@ -326,6 +363,7 @@ export async function enterStageMode({ vertical = process.env.CAPTUTOR_VERTICAL_
   if (state.statsRunning) osa('tell application "Stats" to quit', [], true);
   await setPointerSizeWithRetry(cursorSize, 1.5);
   hideOtherApps();
+  await startWallpaper();
   osa('tell application "Google Chrome" to activate', [], true);
   console.log(
     `✓ Captutor ${vertical ? "Vertical " : ""}Stage Mode active — ` +
@@ -344,6 +382,7 @@ export async function exitStageMode() {
 
   // Each restore is independent. A broken wallpaper path must never strand the
   // display in HiDPI, and a failed pointer drag must never keep Stats hidden.
+  await restore("dynamic wallpaper", () => stopWallpaper());
   await restore("pointer", () => setPointerSize(1.5, state.cursorSize ?? 1));
   await restore("prompt sigils", () => {
     if (!state.sigilsWereOff) rmSync(SIGILS_OFF, { force: true });

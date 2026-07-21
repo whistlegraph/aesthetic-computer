@@ -239,6 +239,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
 
+        // Every actively focused prompt keeps a thin system-accent outline,
+        // whether focus arrived through WindowNav or an ordinary mouse click.
+        PromptFocusHighlight.shared.start()
+
         // Terminal.app sizes windows in character cells, so its native font
         // zoom also changes the pixel frame. Preserve the frame around that
         // native action; the terminal remains responsible for its per-window
@@ -293,6 +297,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         scatterHotkey?.unregister()
         appearanceHotkey?.unregister()
         navHotkeys.forEach { $0.unregister() }
+        PromptFocusHighlight.shared.stop()
         terminalFontZoomGuard?.stop()
         imsgTimer?.invalidate()
         zoomLensTap?.stop()

@@ -993,13 +993,14 @@ function paint({
     const liveRate = scrubDriven ? scrubSpeed : playing ? 1 : 0;
     // Right-anchored readout: the box hugs the value (no dead padding),
     // and the right edge never moves — OCR and eyes anchor there.
-    // The bg param makes write() draw a box measured from the REAL glyph
-    // advances — perfectly hugging, no estimates.
     const rateStr = `${liveRate.toFixed(2)}x`;
+    const rateW = rateStr.length * 5 + 8;
+    ink(60, 75, 95, 150).box(screen.width - SAFE_R - rateW, SAFE_T, rateW + 2, 11);
+    ink(110, 130, 160).box(screen.width - SAFE_R - rateW, SAFE_T, rateW + 2, 11, "outline");
     ink(255, 255, 0).write(
       rateStr,
-      { y: SAFE_T + 2, right: SAFE_R + 2 },
-      [40, 50, 65, 170],
+      { x: screen.width - SAFE_R - 2, y: SAFE_T + 3, right: true },
+      undefined,
       undefined,
       false,
       "MatrixChunky8",
@@ -1042,17 +1043,16 @@ function paint({
       (tapeInfo?.frameCount && tapeInfo?.totalDuration
         ? Math.round(tapeInfo.frameCount / tapeInfo.totalDuration)
         : 0);
-    const diagY = screen.height - 16;
-    const diagWrite = (txt, x, color) =>
-      ink(...color).write(txt, { x, y: diagY }, undefined, undefined, false, "MatrixChunky8");
-    diagWrite(`${fpsNow}fps`, 6, fpsNow >= 28 ? [0, 255, 120] : [255, 170, 0]);
-    diagWrite(`${tfps}tf`, 48, [0, 200, 255]);
-    diagWrite(
-      `${(audioDiag.audioRate / 1000).toFixed(1)}k>${(audioDiag.ctxRate / 1000).toFixed(1)}k`,
-      78,
-      [200, 160, 255],
+    ink(255, 255, 255, 140).write(
+      `${String(fpsNow).padStart(3)}fps ${tfps}tf ` +
+        `${(audioDiag.audioRate / 1000).toFixed(1)}k>${(audioDiag.ctxRate / 1000).toFixed(1)}k ` +
+        `${audioDiag.latencyMs}ms`,
+      { x: 6, y: screen.height - 16 },
+      undefined,
+      undefined,
+      false,
+      "MatrixChunky8",
     );
-    diagWrite(`${audioDiag.latencyMs}ms`, 152, [255, 200, 80]);
 
     // ✂️ Chop region: while a chop is held, show the exact in/out slice
     // looping on the tape — split across the seam when it wraps.
@@ -1119,10 +1119,13 @@ function paint({
       // One clean boxed row — value and musical unit inside a single
       // chip, fixed-width so nothing ever collides or shifts.
       const syncStr = `${msStr} ${musical.trim()}`;
+      const syncW = syncStr.length * 5 + 8;
+      ink(60, 75, 95, 150).box(screen.width - SAFE_R - syncW, SAFE_T + 12, syncW + 2, 11);
+      ink(110, 130, 160).box(screen.width - SAFE_R - syncW, 15, syncW + 2, 11, "outline");
       ink(locked ? [0, 255, 120] : [255, 170, 0]).write(
         syncStr,
-        { y: SAFE_T + 14, right: SAFE_R + 2 },
-        [40, 50, 65, 170],
+        { x: screen.width - SAFE_R - 2, y: SAFE_T + 15, right: true },
+        undefined,
         undefined,
         false,
         "MatrixChunky8",
@@ -1157,8 +1160,6 @@ function paint({
             locked,
             scrubbing: isScrubbing,
             style: postedTapeCode || "synth",
-            safeR: SAFE_R, // Layout debug: which margin profile is live
-            ua: (typeof navigator !== "undefined" ? navigator.userAgent : "none").slice(-40),
           },
         });
       }
@@ -1205,9 +1206,6 @@ function paint({
       volBtn.box.y = vy - 6;
       volBtn.box.w = vw + 12;
       volBtn.box.h = vh + 12;
-      // Translucent container around the whole volume group (wedge +
-      // number) — same chrome family as the chips.
-      ink(40, 50, 65, 170).box(vx - 5, vy - 6, vw + 10, vh + 24);
       // Hovering shows the true hit box — you can see what you can grab.
       if (volBtn.over || volBtn.down) {
         ink(volBtn.down ? [255, 255, 255] : [200, 220, 255]).box(
@@ -1249,7 +1247,7 @@ function paint({
       const shown = Math.round((lastSentTapeVolume < 0 ? mixVolume : lastSentTapeVolume) * 100);
       ink(255, 255, 255).write(
         `${shown}`,
-        { y: vy + vh + 6, right: SAFE_R },
+        { x: screen.width - SAFE_R, y: vy + vh + 6, right: true },
         undefined,
         undefined,
         false,
@@ -1259,7 +1257,7 @@ function paint({
       if (jamPeers.size > 0) {
         ink(0, 255, 255).write(
           `${jamPeers.size + 1}win`,
-          { y: SAFE_T + 37, right: SAFE_R },
+          { x: screen.width - SAFE_R, y: SAFE_T + 37, right: true },
           undefined,
           undefined,
           false,
@@ -1348,7 +1346,7 @@ function paint({
     if (pitchSemis !== 0) {
       ink(200, 160, 255).write(
         `${pitchSemis > 0 ? "+" : ""}${pitchSemis}st`,
-        { y: screen.height - 12 - 4 * (bh + bgap) + 4, right: screen.width - bx0 + 4 },
+        { x: bx0 - 4, y: screen.height - 12 - 4 * (bh + bgap) + 4, right: true },
         undefined,
         undefined,
         false,
@@ -1409,7 +1407,7 @@ function paint({
     // Progress % at top-right, under the rate readout
     ink(...c).write(
       `${Math.floor(scrubCurrentProgress * 100)}%`,
-      { y: 20, right: 8 },
+      { x: screen.width - 8, y: 20, right: true },
     );
 
     // Drive VHS tape progress bar from scrub position
@@ -1676,21 +1674,12 @@ function sim({ needsPaint, rec, send, clock, sound }) {
     if (sustained && !isScrubbing && !chopActive) {
       const durMs = totalDuration * 1000;
       const nowMs = clock?.time?.()?.getTime?.() ?? Date.now();
-      // 🎯 Time-space beat lock: how far the playhead's absolute time
-      // sits from the nearest UTC beat line. The grid is BEAT LINES, not
-      // one phase — a deliberate ←/→ beat jump is a valid parking spot,
-      // and any landing sits at most half a beat from the pocket. Works
-      // for ANY duration: synthtapes (bar-multiple loops) fall into full
-      // unison, and real recorded tapes ride the same 120 BPM grid.
-      const beatMs = BEAT_SEC * 1000;
-      let beatResid = (nowMs - scrubCurrentProgress * durMs) % beatMs;
-      if (beatResid < 0) beatResid += beatMs;
-      if (beatResid > beatMs / 2) beatResid -= beatMs;
-      const phaseErr = beatResid / durMs; // Position-space, for the lean
-
-      // ±8% reads as the tape breathing into the pocket, not warping.
-      const lean = Math.max(-0.08, Math.min(0.08, phaseErr * 1.4));
+      let phaseErr = ((nowMs % durMs) / durMs) - scrubCurrentProgress;
+      if (phaseErr > 0.5) phaseErr -= 1;
+      else if (phaseErr < -0.5) phaseErr += 1;
+      const lean = Math.max(-0.35, Math.min(0.35, phaseErr * 1.4));
       const targetRate = 1 + lean;
+      // Ease toward target — homes a big displacement in ~2s, musical warp.
       scrubSpeed += (targetRate - scrubSpeed) * (1 - Math.pow(0.94, rate));
       // Locked: at 1× and in phase → the drive RETIRES. Playback falls
       // back to the bios RAF loop (UTC-anchored at seams), which ends the

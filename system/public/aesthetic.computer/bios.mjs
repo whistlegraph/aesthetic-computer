@@ -43,6 +43,7 @@ import * as graph from "./lib/graph.mjs";
 import * as WebGPU from "./lib/webgpu.mjs";
 import { initGPU, switchBackend } from "./lib/gpu/index.mjs"; // 🎨 New backend system (auto-registers backends)
 import { createWebGLBlitter } from "./lib/webgl-blit.mjs";
+import { handleFightRtcMessage } from "./lib/fight/rtc-main.mjs";
 
 // import * as TwoD from "./lib/2d.mjs"; // 🆕 2D GPU Renderer.
 const TwoD = undefined;
@@ -6153,6 +6154,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // not actual source code. The actual source is set via kidlisp-reload in boot.mjs.
       // if (debug) console.log("🏃‍♂️ Posting up to parent...", content);
       if (window.parent) window.parent.postMessage(content, "*");
+      return;
+    }
+
+    // Menu Fighter's pieces may execute in the disk worker. Keep WebRTC in the
+    // main Window and expose only a narrow packet/signaling bridge.
+    if (type?.startsWith("fight:rtc:")) {
+      await handleFightRtcMessage(type, content, send);
       return;
     }
 

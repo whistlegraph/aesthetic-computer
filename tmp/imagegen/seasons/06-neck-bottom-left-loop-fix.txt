@@ -1,0 +1,17 @@
+Use case: precise-object-edit
+Asset type: corrected neck-worn jewelry campaign still
+
+Primary request: Change only the tiny terminal curl inside the necklace pendant’s bottom-left petal.
+
+Input images:
+- Image 1 is the edit target. Preserve the woman, identity, skin, hair, pose, clothing, chain, background, framing, lighting, and every other pendant detail exactly.
+- Image 2 is the authoritative corrected product master. Copy its bottom-left construction at the smaller worn scale.
+- Image 3 is the original score/performance reference for the bottom-left loop.
+
+Required correction:
+- Inside the large bottom-left outer petal, the terminal gold wire forms one small complete CLOSED circular loop with a clearly enclosed round negative space.
+- It must match Image 2: polished round gold wire, tangential join, one continuous outer lobe around it.
+- It is not an open C, spiral gap, notch, heart cleft, split lobe, crevice, or loose wire end.
+- Keep the white snowflake dot at that petal’s outermost apex exactly where it is.
+
+Invariants: change only this tiny masked jewelry region. Exactly five petals and five white apex snowflakes remain. Do not alter the coral center, green trapezoid, any other petal, chain, woman, background card, or photographic texture.

@@ -1,9 +1,9 @@
 // effects — declarative visual emphasis for Captutor screenplays.
 //
 // These are page-side filming marks, not product UI: a screenplay can dim the
-// frame around one control, draw an outer accent ring, attach a short label, or
-// burst a few glyphs from a target. Everything is pointer-events:none, isolated
-// in a shadow root, tokenized against stale timers, and self-clearing.
+// frame around one control, draw an outer accent ring, attach a short label,
+// burst a few glyphs, or ease the page camera toward a target. Everything is
+// pointer-events:none, isolated, tokenized against stale timers, and reversible.
 
 const INSTALL = `(() => {
   if (window.__captutorFx) return true;
@@ -17,9 +17,10 @@ const INSTALL = `(() => {
   root.innerHTML = \`
     <style>
       svg { position:absolute; inset:0; width:100vw; height:100vh; overflow:visible; }
-      .shade { opacity:0; transition:opacity .18s ease-out; }
-      .ring { opacity:0; transition:opacity .18s ease-out;
-              filter:drop-shadow(0 0 7px color-mix(in srgb, var(--accent) 58%, transparent)); }
+      .shade { opacity:0; transition:opacity .28s ease-out; }
+      .ring { opacity:0; transition:opacity .28s ease-out;
+              filter:drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 68%, transparent))
+                     drop-shadow(0 0 18px color-mix(in srgb, var(--accent) 28%, transparent)); }
       .label { position:absolute; opacity:0; transform:translateY(4px);
                transition:opacity .18s ease-out,transform .18s ease-out;
                padding:6px 9px; border-radius:8px; color:white;
@@ -31,8 +32,11 @@ const INSTALL = `(() => {
                   text-shadow:0 1px 3px rgba(0,0,0,.35); will-change:transform,opacity; }
     </style>
     <svg>
-      <defs><mask id="cutout"><rect class="mask-bg" fill="white"/>
-        <rect class="cut" fill="black"/></mask></defs>
+      <defs>
+        <filter id="feather"><feGaussianBlur class="feather-blur" stdDeviation="14"/></filter>
+        <mask id="cutout"><rect class="mask-bg" fill="white"/>
+          <rect class="cut" fill="black" filter="url(#feather)"/></mask>
+      </defs>
       <rect class="shade" mask="url(#cutout)"/>
       <rect class="ring" fill="none" stroke-width="3"/>
     </svg>
@@ -45,7 +49,9 @@ const INSTALL = `(() => {
   const ring = root.querySelector('.ring');
   const label = root.querySelector('.label');
   const particles = root.querySelector('.particles');
+  const featherBlur = root.querySelector('.feather-blur');
   let token = 0;
+  let cameraAnimation = null;
 
   const resolve = (selector) => {
     if (selector.startsWith('js=')) return Function('return (' + selector.slice(3) + ')')();
@@ -67,6 +73,24 @@ const INSTALL = `(() => {
     particles.replaceChildren();
     return true;
   };
+  const resetCamera = (options = {}) => {
+    cameraAnimation?.cancel(); cameraAnimation = null;
+    const body = document.body;
+    if (!body) return true;
+    const ms = Math.max(0, Number(options.durationMs ?? 420));
+    const from = getComputedStyle(body).transform;
+    cameraAnimation = body.animate([
+      { transform: from === 'none' ? 'none' : from },
+      { transform: 'translate3d(0,0,0) scale(1)' },
+    ], { duration:ms, easing:'cubic-bezier(.22,.75,.22,1)', fill:'forwards' });
+    cameraAnimation.finished.then(() => {
+      body.style.transform = '';
+      body.style.transformOrigin = '';
+      document.documentElement.style.overflow = '';
+      cameraAnimation = null;
+    }).catch(() => {});
+    return true;
+  };
   const box = (selector) => {
     const el = resolve(selector);
     if (!el) throw new Error('Captutor effect target not found: ' + selector);
@@ -83,6 +107,7 @@ const INSTALL = `(() => {
     const w = Math.min(innerWidth - x, r.width + pad * 2);
     const h = Math.min(innerHeight - y, r.height + pad * 2);
     const radius = Number(options.radius ?? 12);
+    const feather = Math.max(0, Number(options.feather ?? 16));
     const color = options.color || '#7c3aed';
     const dim = Math.max(0, Math.min(.82, Number(options.dim ?? .54)));
     attrs(svg, { viewBox:'0 0 ' + innerWidth + ' ' + innerHeight });
@@ -91,6 +116,7 @@ const INSTALL = `(() => {
     attrs(shade, { x:0, y:0, width:innerWidth, height:innerHeight,
       fill:'rgba(0,0,0,' + dim + ')' });
     attrs(ring, { x, y, width:w, height:h, rx:radius, ry:radius, stroke:color });
+    featherBlur.setAttribute('stdDeviation', String(feather));
     ring.style.setProperty('--accent', color);
     shade.style.opacity = dim > 0 ? '1' : '0';
     ring.style.opacity = options.ring === false ? '0' : '1';
@@ -100,6 +126,32 @@ const INSTALL = `(() => {
     label.classList.toggle('show', !!options.label);
     const ms = Number(options.durationMs ?? 2200);
     if (ms > 0) setTimeout(() => { if (own === token) hide(); }, ms);
+    return r;
+  };
+
+  const zoom = (selector, options = {}) => {
+    const r = box(selector);
+    const scale = Math.max(1, Math.min(1.7, Number(options.scale ?? 1.16)));
+    const ms = Math.max(120, Number(options.durationMs ?? 680));
+    const cx = r.x + r.width / 2, cy = r.y + r.height / 2;
+    const tx = innerWidth / 2 - cx * scale;
+    const ty = innerHeight / 2 - cy * scale;
+    const body = document.body;
+    if (!body) return r;
+    cameraAnimation?.cancel();
+    document.documentElement.style.overflow = 'hidden';
+    body.style.transformOrigin = '0 0';
+    const from = getComputedStyle(body).transform;
+    cameraAnimation = body.animate([
+      { transform: from === 'none' ? 'translate3d(0,0,0) scale(1)' : from },
+      { transform:'translate3d(' + tx + 'px,' + ty + 'px,0) scale(' + scale + ')' },
+    ], { duration:ms, easing:'cubic-bezier(.22,.75,.22,1)', fill:'forwards' });
+    cameraAnimation.finished.then(() => {
+      body.style.transform = 'translate3d(' + tx + 'px,' + ty + 'px,0) scale(' + scale + ')';
+      cameraAnimation = null;
+    }).catch(() => {});
+    const resetMs = Number(options.resetAfterMs ?? 0);
+    if (resetMs > 0) setTimeout(() => resetCamera({ durationMs:options.resetDurationMs }), resetMs);
     return r;
   };
 
@@ -126,7 +178,10 @@ const INSTALL = `(() => {
     return r;
   };
 
-  window.__captutorFx = { spotlight, outline:(s,o={}) => spotlight(s,{...o,dim:0}), burst, clear:hide };
+  window.__captutorFx = {
+    spotlight, outline:(s,o={}) => spotlight(s,{...o,dim:0}), burst,
+    zoom, resetCamera, clear:() => { hide(); resetCamera(); return true; },
+  };
   return true;
 })()`;
 
@@ -147,6 +202,15 @@ export async function outline(cdp, selector, options = {}) {
 export async function burst(cdp, selector, options = {}) {
   await ready(cdp);
   return cdp.eval(`window.__captutorFx.burst(${JSON.stringify(selector)},${JSON.stringify(options)})`);
+}
+
+export async function zoom(cdp, selector, options = {}) {
+  await ready(cdp);
+  return cdp.eval(`window.__captutorFx.zoom(${JSON.stringify(selector)},${JSON.stringify(options)})`);
+}
+
+export async function resetCamera(cdp, options = {}) {
+  return cdp.eval(`window.__captutorFx?.resetCamera(${JSON.stringify(options)}) ?? true`);
 }
 
 export async function clearEffects(cdp) {

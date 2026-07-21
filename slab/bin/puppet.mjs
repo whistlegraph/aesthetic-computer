@@ -1012,7 +1012,7 @@ async function main() {
       if (flags.fullscreen || flags.screen) {
         const framePath = join(dirname(fileURLToPath(import.meta.url)), "frame.mjs");
         const jpgOut = /\.jpe?g$/i.test(out || "") ? out : (out || "frame") + ".jpg";
-        const fArgs = [framePath, args[0], "--out", jpgOut, "--json"];
+        const fArgs = [framePath, args[0], "--screen", "--out", jpgOut, "--json"];
         if (flags.fast) fArgs.push("--fast");
         if (flags["no-ocr"]) fArgs.push("--no-ocr");
         let envJson;

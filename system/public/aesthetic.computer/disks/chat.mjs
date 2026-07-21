@@ -35,6 +35,8 @@ const { max, floor, ceil } = Math;
 import { isKidlispSource, tokenize, KidLisp } from "../lib/kidlisp.mjs";
 import { parseMessageElements as parseMessageElementsShared } from "../lib/chat-highlighting.mjs";
 import { getCommandDescription, isPromptOnlyCommand } from "../lib/prompt-commands.mjs";
+import { parseFightCommand } from "../lib/fight/challenge.mjs";
+import { FIGHT_MANIFEST } from "../lib/fight/protocol.mjs";
 import { createHandleAutocomplete } from "../lib/autocomplete.mjs";
 import { iOS } from "../lib/platform.mjs";
 
@@ -275,6 +277,9 @@ let linkConfirmModal = null;
 // { message: string, from: string, copied: boolean, error: boolean }
 let messageCopyModal = null;
 let deleteAllowed = true; // Delete is allowed by default in all chat contexts
+let fightChallengeSocket = null;
+let fightChallengeReady = false;
+let fightPendingInvite = null;
 
 // 📰 News ticker system
 let newsHeadlines = []; // Array of { title, code, user } from news.aesthetic.computer
@@ -536,6 +541,8 @@ async function boot(
 ) {
   // Clear handle colors cache on each boot so edits are picked up.
   handleColorsCache.clear();
+  fightChallengeReady = false;
+  fightPendingInvite = null;
 
   // Capture send/notice for receive() (tape upload callbacks land there).
   sendApi = send;
@@ -624,6 +631,27 @@ async function boot(
     // console.error("🟥 Unauthorized.");
   }
 
+  // `fight @handle` works in both chat and laklok because laklok inherits this
+  // module. Authentication is independently verified by the fight coordinator;
+  // neither chat text nor a client-supplied handle can authorize a challenge.
+  fightChallengeSocket = net.socket((_id, type, content) => {
+    if (type.startsWith("connected") && token) {
+      fightChallengeSocket.send("fight:auth", { token });
+    } else if (type === "fight:auth:ok") {
+      fightChallengeReady = true;
+    } else if (type === "fight:challenge:incoming") {
+      const data = typeof content === "string" ? JSON.parse(content) : content;
+      fightPendingInvite = data.inviteId;
+      notice(`FIGHT FROM ${data.from} — TYPE FIGHT ACCEPT`, ["orange", 0]);
+    } else if (type === "fight:challenge:closed") {
+      fightPendingInvite = null;
+      notice("FIGHT DECLINED", ["orange", 0]);
+    } else if (type === "fight:error") {
+      const data = typeof content === "string" ? JSON.parse(content) : content;
+      notice(data.message || "FIGHT UNAVAILABLE", ["red", "yellow"]);
+    }
+  });
+
   // 🟢 Connected...
   // chat.connected(() => {
   //   console.log("💬 Connected... computing layout!");
@@ -693,6 +721,24 @@ async function boot(
       if (radioCmd) {
         applyRadioCommand(radioCmd, send);
         notice(radioCmd.toast || "", ["orange", 0]);
+        return;
+      }
+
+      const fightCommand = parseFightCommand(text);
+      if (fightCommand) {
+        if (!handle() || !token || !fightChallengeReady) notice("FIGHT LOGIN REQUIRED", ["red", "yellow"]);
+        else if (fightCommand.action === "challenge") {
+          jumpApi?.(`menu-fighter:challenge:${fightCommand.target.replace(/^@/, "")}`);
+        } else if (!fightPendingInvite) {
+          notice("NO FIGHT REQUEST", ["red", "yellow"]);
+        } else if (fightCommand.action === "accept") {
+          jumpApi?.(`menu-fighter:invite:${fightPendingInvite}`);
+        } else {
+          fightChallengeSocket?.send("fight:challenge:reply", {
+            inviteId: fightPendingInvite, accept: false, manifest: FIGHT_MANIFEST,
+          });
+          fightPendingInvite = null;
+        }
         return;
       }
 

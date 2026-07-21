@@ -1,0 +1,28 @@
+Create a photorealistic vertical fashion-editorial campaign still of Camille wearing the Whistlegraph [h0t] “Seasons” pendant necklace. It should feel like the best paused frame from a tasteful independent-art Instagram Reel: intimate, immediate, lightly handheld, but beautifully lit and materially convincing.
+
+INPUT ROLES:
+1. The first input image is the PRIMARY IDENTITY REFERENCE for Camille Klein. Preserve her identity: the same recognizable face, natural facial proportions, light skin, shoulder-length softly tousled brown hair, understated expression, and unpolished artist presence. Do not substitute a generic model or beautify her into a different person.
+2. The second input image is the FULL-BODY IDENTITY AND STYLING REFERENCE for Camille. Use it to reinforce the same person and her quiet, art-studio character. The photographed magazine-page angle and background are not part of the requested scene.
+3. The third input image is the APPROVED PENDANT PRODUCT MASTER. Preserve the necklace exactly: polished gold wire, exactly five petal loops, orange oval center, small green trapezoid below, exactly five tiny plain white enamel sprinkle-shaped tick marks with one crossing the gold wire at each petal tip, and the bottom-left petal's inner curl ending in a fully closed small gold loop. Each white tick is a short straight dash perpendicular to the petal line, extending only the smallest amount beyond either side. No pearl, bead, rosette, snowflake-gem, circular, or raised-stone texture.
+4. The fourth input image is the APPROVED [h0t] ARCHIVE PACKAGE MASTER. Keep its package styling, documentary frame strip, archive code, and official multicolor Whistlegraph logo faithful when it appears in the scene.
+5. The fifth input image is the OFFICIAL WHISTLEGRAPH HEADER LOGO. If the logo is visible anywhere, reproduce this supplied artwork faithfully; do not invent or typeset another wordmark.
+
+SCENE AND COMPOSITION:
+- Camille is framed from head to mid-torso, slightly off-center, looking toward the camera with a calm, present, mildly curious expression.
+- She wears a simple soft black or charcoal scoop-neck top so the necklace sits clearly against bare upper chest and remains the visual focus.
+- Pendant at realistic necklace scale, hanging naturally at the upper sternum on a fine gold chain. It must be sharp enough to inspect and must not merge into clothing or skin.
+- Camille lightly holds the [h0t] package card near one shoulder or it rests just behind her on a studio table, clearly secondary but recognizable.
+- Real artist-studio atmosphere: warm neutral wall, hints of paper, books, drawing tools and daylight, kept soft and uncluttered.
+- Preserve natural skin texture and a human, documentary feeling. No beauty-campaign retouching.
+- Vertical social-video composition with slight lens intimacy, subtle motion energy in a few hair strands, and enough negative space near the top for the supplied Whistlegraph identity without adding fake text.
+
+LIGHTING AND CAMERA:
+Soft late-afternoon window light with warm highlights on gold and a gentle cool shadow side. 35–50mm documentary portrait feel, shallow but not extreme depth of field, subtle analog grain, accurate skin and jewelry reflections. The image should look genuinely photographed, not rendered.
+
+NON-NEGOTIABLES:
+- Camille must remain recognizably the person in both identity references.
+- No “06” anywhere.
+- If archive text is legible, it is [h0t], IT'S TOO HOT, NO IT'S NOT, WHISTLEGRAPH · 2022.
+- Exactly five petals and five tiny white sprinkle-like apex ticks crossing the wire. No round white gems.
+- Bottom-left inner curl is a closed loop, never an open C or crevice.
+- No extra pendants, earrings, gems, charms, tattoos, facial changes, hands with anatomy errors, social-media UI, or fake brand marks.

@@ -122,6 +122,10 @@ This is critical because `lib/pmove.mjs` is shared physics: client (lith) and se
 - [ ] KidLisp GPU compositing: render effects on GPU buffer, recompose with CPU renderer
 
 **Host Tooling (slab/)** — @jeffrey's macOS host, not a deployed service
+- **Cleaner** (`toolchain/macos/cleaner.sh`) — canonical safe fleet-Mac disk
+  cleanup. “Call the cleaner” means run `cleaner --apply`; plain `cleaner` is
+  report-only, and APFS snapshot thinning remains separately opt-in. Install
+  with `toolchain/macos/cleaner.sh --install`. Fleet MCP exposes `fleet_cleaner`.
 - **Unipointer** (`slab/deskflow-handoff/UNIPOINTER.md`) — canonical identifier
   for the Fuser seat's one logical pointer. Neo and Blueberry can exchange the
   physical Deskflow controller role without changing the unipointer's active

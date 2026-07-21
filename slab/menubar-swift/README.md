@@ -66,6 +66,18 @@ a prompt of at most 4000 characters, and an existing cwd beneath the target
 user’s home directory. Use `slab/install.sh --prompt-host` to install the agent
 hooks and wrappers without the legacy ambient-audio or lid-control services.
 
+### Spatial prompt navigation
+
+`⌘⌥` + an arrow walks prompt panes spatially. It chooses a pane on the local
+screen first; at the edge it follows the installed Deskflow `links` geometry,
+uses the fleet ledger to skip machines without a live prox, asks the active
+Deskflow controller to carry the `unipointer` across the required screen edges,
+and focuses the nearest aligned pane on the destination host. Focus changes get
+a short acquisition flare and transfer click. The active prompt also keeps a
+quiet, borderless green glow behind its Terminal window and sheds a few
+luminous drops from its lower edge, including when focus changes by mouse
+instead of the shortcut.
+
 ## Loopboy
 
 Loopboy is Slab's client-loop router. Routes in

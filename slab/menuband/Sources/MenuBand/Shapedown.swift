@@ -1,21 +1,27 @@
 import AppKit
+import AVFoundation
 import CoreGraphics
+import QuartzCore
+import ScreenCaptureKit
 
 // Shapedown — double-tap LEFT ⌘ and the whole screen turns into a glass
 // wall you draw on with the trackpad. The trackpad maps 1:1 onto the display,
 // so every finger is a vertex somewhere on screen, and the *set* of fingers
 // is one filled, colored shape:
 //
-//     1 finger  → a dot
+//     1 finger  → nudge the whole display buffer (no pointer / no mark)
 //     2 fingers → a line
 //     3 fingers → a triangle
 //     4 fingers → a quad
 //     N fingers → an N-gon (as many contacts as the trackpad reports)
 //
-// Hold a shape still for a beat and it "sets" (it pulses to tell you). Lift
-// your fingers and the set shape stamps onto the wall, sustains, then fades.
-// Each stamp takes the next hue in a rotating palette, so a run of shapes
-// fans out into a spectrum. Double-tap ⌘ again (or press Escape) to leave.
+// One finger nudges one captured texture of the whole display by up to 12px
+// (menu bar, Dock, desktop, and windows together) and restores it on lift.
+// Two or more fingers make a shape;
+// lifting lets the fullest version settle into the display like a puddle,
+// sustain, then fade. A physical click pins that shape until the wall closes.
+// Notepat note keys choose the ink color (C is red, D orange, and so on).
+// Double-tap ⌘ again (or press Escape) to leave.
 //
 // Input is the same focus-independent MultitouchSupport tap the pitch-bend fx
 // pad uses (`MultitouchTrackpad`) — NSTouch never reaches a non-activating
@@ -27,6 +33,7 @@ import CoreGraphics
 final class Shapedown {
     private var overlay: ShapedownOverlayPanel?
     private var canvas: ShapedownCanvas?
+    private var displayCapture: AnyObject?
 
     /// Global modifier/key monitor. flagsChanged carries the ⌘ taps; keyDown
     /// carries Escape while the wall is up. Global monitors can't consume, but
@@ -83,7 +90,7 @@ final class Shapedown {
     /// it stays put until the wall closes, with a click + flash to confirm.
     private func stampPermanently() {
         guard isActive else { return }
-        canvas?.pinCurrent()
+        guard canvas?.pinCurrent() == true else { return }
         clickCue()
         flashCue(rising: true)
     }
@@ -135,7 +142,10 @@ final class Shapedown {
         let now = ProcessInfo.processInfo.systemUptime
         if now - lastCleanTap < Self.doubleTapWindow {
             lastCleanTap = 0
-            DispatchQueue.main.async { [weak self] in self?.toggle() }
+            DispatchQueue.main.async { [weak self] in
+                self?.clickCue()         // same registration tick as Menu Band focus
+                self?.toggle()
+            }
         } else {
             lastCleanTap = now
         }
@@ -151,8 +161,20 @@ final class Shapedown {
         guard overlay == nil else { return }
         guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
 
-        let canvas = ShapedownCanvas(frame: NSRect(origin: .zero, size: screen.frame.size))
+        let stage = NSView(frame: NSRect(origin: .zero, size: screen.frame.size))
+        stage.autoresizingMask = [.width, .height]
+        stage.wantsLayer = true
+        stage.layer?.backgroundColor = NSColor.clear.cgColor
+
+        // The captured display surface sits behind the ink canvas. It remains
+        // empty except during a one-finger nudge, when the live composited
+        // display below this panel is translated as a single GPU layer.
+        let displaySurface = ShapedownDisplayBufferView(frame: stage.bounds)
+        displaySurface.autoresizingMask = [.width, .height]
+        let canvas = ShapedownCanvas(frame: stage.bounds, displaySurface: displaySurface)
         canvas.autoresizingMask = [.width, .height]
+        stage.addSubview(displaySurface)
+        stage.addSubview(canvas)
 
         let panel = ShapedownOverlayPanel(
             contentRect: screen.frame,
@@ -169,10 +191,11 @@ final class Shapedown {
         panel.isReleasedWhenClosed = false
         panel.hidesOnDeactivate = false
         panel.ignoresMouseEvents = true            // input is the trackpad, not the pointer
+        panel.sharingType = .none                  // never feed the overlay back into its capture
         panel.collectionBehavior = [
             .canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle,
         ]
-        panel.contentView = canvas
+        panel.contentView = stage
         panel.alphaValue = 0
 
         self.overlay = panel
@@ -190,8 +213,24 @@ final class Shapedown {
             cursorHidden = true
         }
         gestureTap.onClick = { [weak self] in self?.stampPermanently() }
+        gestureTap.onKeyDown = { [weak self] keyCode in
+            self?.canvas?.selectColor(forKeyCode: keyCode)
+        }
         _ = gestureTap.start()          // block system gestures + catch clicks
         panel.orderFrontRegardless()
+        if #available(macOS 12.3, *) {
+            // Capture starts with the wall, not with the first finger. By the
+            // time a nudge begins there is already a current IOSurface ready;
+            // finger motion itself performs no capture or window enumeration.
+            let permission = CGPreflightScreenCaptureAccess() || CGRequestScreenCaptureAccess()
+            if permission {
+                let capture = ShapedownDisplayStream(surface: displaySurface)
+                displayCapture = capture
+                capture.start(screen: screen, excludingWindowID: CGWindowID(panel.windowNumber))
+            } else {
+                NSLog("MenuBand Shapedown: Screen Recording permission is required for display nudge")
+            }
+        }
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = 0.16
             panel.animator().alphaValue = 1
@@ -207,6 +246,11 @@ final class Shapedown {
             bellCue(rising: false)
         }
         overlay = nil
+        if #available(macOS 12.3, *),
+           let capture = displayCapture as? ShapedownDisplayStream {
+            capture.stop()
+        }
+        displayCapture = nil
         // Cursor + gestures return to the system immediately.
         if cursorHidden {
             CGAssociateMouseAndMouseCursorPosition(1)   // mouse drives the cursor again
@@ -215,6 +259,8 @@ final class Shapedown {
             cursorHidden = false
         }
         gestureTap.stop()               // gestures return to the system
+        gestureTap.onClick = nil
+        gestureTap.onKeyDown = nil
         // Bloom every committed shape out together, and fade the wall over the
         // same beat, so the whole thing leaves as one gesture.
         let dyingCanvas = canvas
@@ -275,6 +321,10 @@ final class ShapedownGestureTap {
     /// Fired (on main) when the trackpad is physically clicked in — the wall
     /// uses it to pin the current shape permanently.
     var onClick: (() -> Void)?
+    /// Note keys pass through untouched, but Shapedown sees key-down first so
+    /// TYPE mode (which consumes musical keys later in the event chain) cannot
+    /// prevent the wall from selecting the matching Notepat color.
+    var onKeyDown: ((UInt16) -> Void)?
 
     @discardableResult
     func start() -> Bool {
@@ -284,7 +334,7 @@ final class ShapedownGestureTap {
         // and the NSEvent gesture family 18/19/20 (rotate/begin/end), 29
         // gesture, 30 magnify, 31 swipe, 32 smartMagnify, 33 quickLook, 34
         // pressure. All consumed so the wall owns the trackpad completely.
-        let types: [UInt32] = [1, 2, 3, 4, 18, 19, 20, 22, 25, 26, 29, 30, 31, 32, 33, 34]
+        let types: [UInt32] = [1, 2, 3, 4, 10, 18, 19, 20, 22, 25, 26, 29, 30, 31, 32, 33, 34]
         var mask: CGEventMask = 0
         for t in types { mask |= (CGEventMask(1) << CGEventMask(t)) }
 
@@ -298,6 +348,10 @@ final class ShapedownGestureTap {
             }
             if type == .leftMouseDown {
                 DispatchQueue.main.async { me.onClick?() }
+            } else if type == .keyDown {
+                let keyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
+                DispatchQueue.main.async { me.onKeyDown?(keyCode) }
+                return Unmanaged.passUnretained(event)
             }
             return nil                  // consume — the wall owns the trackpad
         }
@@ -350,54 +404,350 @@ final class ShapedownOverlayPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
-/// The drawing surface: turns finger sets into filled shapes, holds a steady
-/// shape until it "sets", then stamps + fades it. Bottom-left origin so the
+/// Pure gesture memory shared by live drawing, lift, and physical-click pinning.
+/// Keeping this separate from AppKit makes the most important Shapedown rule
+/// directly regression-testable: once an N-point shape exists, staggered lift
+/// frames may not collapse it to N-1 points.
+struct ShapedownGestureMemory {
+    private(set) var peak: [CGPoint] = []
+
+    mutating func update(_ points: [CGPoint]) -> [CGPoint] {
+        guard !points.isEmpty else { return peak }
+        if points.count >= peak.count { peak = points }
+        return peak.count >= 2 && points.count < peak.count ? peak : points
+    }
+
+    func shape(fallback: [CGPoint] = []) -> [CGPoint] {
+        peak.isEmpty ? fallback : peak
+    }
+
+    mutating func release(fallback: [CGPoint] = []) -> [CGPoint] {
+        let result = shape(fallback: fallback)
+        peak = []
+        return result
+    }
+
+    mutating func reset() { peak = [] }
+}
+
+/// Reject isolated multitouch teleports while preserving the low latency of
+/// ordinary one-finger motion. A real fast move is accepted on the next
+/// coherent frame; a lone wild sample never throws the display across screen.
+struct ShapedownSinglePointFilter {
+    private(set) var point: CGPoint?
+    private var pendingOutlier: CGPoint?
+
+    mutating func update(raw: CGPoint, canvasSize: CGSize) -> CGPoint {
+        guard let previous = point else {
+            point = raw
+            return raw
+        }
+        let threshold = max(48, hypot(canvasSize.width, canvasSize.height) * 0.08)
+        let jump = hypot(raw.x - previous.x, raw.y - previous.y)
+        let blend: CGFloat
+        if jump > threshold {
+            guard let candidate = pendingOutlier,
+                  hypot(raw.x - candidate.x, raw.y - candidate.y) < threshold * 0.5 else {
+                pendingOutlier = raw
+                return previous
+            }
+            pendingOutlier = nil
+            blend = 0.25
+        } else {
+            pendingOutlier = nil
+            blend = 0.48
+        }
+        let filtered = CGPoint(x: previous.x + (raw.x - previous.x) * blend,
+                               y: previous.y + (raw.y - previous.y) * blend)
+        point = filtered
+        return filtered
+    }
+
+    mutating func reset() {
+        point = nil
+        pendingOutlier = nil
+    }
+}
+
+enum ShapedownPalette {
+    static func color(forKeyCode keyCode: UInt16) -> NSColor? {
+        guard let semitone = MenuBandLayout.semitone(forKeyCode: keyCode, keymap: .notepat) else { return nil }
+        let pitchClass = ((semitone % 12) + 12) % 12
+        let octaveOffset = semitone >= 0 ? semitone / 12 : (semitone - 11) / 12
+        return NoteColors.color(pitchClass: pitchClass, octave: 4 + octaveOffset)
+    }
+}
+
+/// The one live texture translated by a one-finger nudge. This view is normally
+/// transparent. ScreenCaptureKit keeps the display layer current while hidden;
+/// a nudge only reveals and transforms it. Real windows never move, and the
+/// menu bar, Dock, desktop, and windows have already been composited together.
+final class ShapedownDisplayBufferView: NSView {
+    private let displayLayer = AVSampleBufferDisplayLayer()
+    private var nudging = false
+    private var hasFrame = false
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        layer?.masksToBounds = true
+        displayLayer.videoGravity = .resize
+        displayLayer.isHidden = true
+        displayLayer.actions = [
+            "position": NSNull(), "bounds": NSNull(), "transform": NSNull(),
+            "contents": NSNull(), "opacity": NSNull(),
+        ]
+        layer?.addSublayer(displayLayer)
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func layout() {
+        super.layout()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        displayLayer.frame = bounds
+        CATransaction.commit()
+    }
+
+    /// Frames arrive on the main callback queue and go straight from the
+    /// IOSurface-backed CMSampleBuffer to the compositor without a CPU copy.
+    func enqueue(_ sampleBuffer: CMSampleBuffer) {
+        guard sampleBuffer.isValid else { return }
+        if displayLayer.status == .failed {
+            displayLayer.flush()
+        }
+        displayLayer.enqueue(sampleBuffer)
+        guard !hasFrame else { return }
+        hasFrame = true
+        if nudging { showIfReady() }
+    }
+
+    func beginNudge() {
+        nudging = true
+        showIfReady()
+    }
+
+    private func showIfReady() {
+        guard nudging, hasFrame else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer?.backgroundColor = NSColor.black.cgColor
+        displayLayer.frame = bounds
+        displayLayer.setAffineTransform(.identity)
+        displayLayer.isHidden = false
+        CATransaction.commit()
+    }
+
+    func translate(x: CGFloat, y: CGFloat) {
+        guard nudging, hasFrame else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        displayLayer.setAffineTransform(CGAffineTransform(translationX: x, y: y))
+        CATransaction.commit()
+    }
+
+    func endNudge() {
+        nudging = false
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        displayLayer.setAffineTransform(.identity)
+        displayLayer.isHidden = true
+        layer?.backgroundColor = NSColor.clear.cgColor
+        CATransaction.commit()
+    }
+
+    func stop() {
+        endNudge()
+        hasFrame = false
+        displayLayer.flushAndRemoveImage()
+    }
+}
+
+/// A display-wide ScreenCaptureKit stream feeding the hidden buffer view.
+/// Screen samples are IOSurface-backed and arrive on the main queue, where
+/// AVSampleBufferDisplayLayer can enqueue them without a CPU readback. The
+/// display-excluding filter includes the desktop, Dock, and system menu bar.
+@available(macOS 12.3, *)
+final class ShapedownDisplayStream: NSObject, SCStreamOutput, SCStreamDelegate {
+    private weak var surface: ShapedownDisplayBufferView?
+    private var stream: SCStream?
+    private var startTask: Task<Void, Never>?
+
+    init(surface: ShapedownDisplayBufferView) {
+        self.surface = surface
+        super.init()
+    }
+
+    func start(screen: NSScreen, excludingWindowID: CGWindowID) {
+        guard startTask == nil, stream == nil else { return }
+        let displayID = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")]
+                         as? NSNumber)?.uint32Value ?? CGMainDisplayID()
+        startTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let content = try await SCShareableContent.excludingDesktopWindows(
+                    false, onScreenWindowsOnly: true)
+                try Task.checkCancellation()
+                guard let display = content.displays.first(where: { $0.displayID == displayID })
+                        ?? content.displays.first else { return }
+                let excluded = content.windows.filter { $0.windowID == excludingWindowID }
+                let filter = SCContentFilter(display: display, excludingWindows: excluded)
+                if #available(macOS 14.2, *) {
+                    filter.includeMenuBar = true
+                }
+
+                let config = SCStreamConfiguration()
+                config.width = display.width
+                config.height = display.height
+                config.pixelFormat = kCVPixelFormatType_32BGRA
+                config.minimumFrameInterval = CMTime(value: 1, timescale: 60)
+                config.queueDepth = 3
+                config.showsCursor = false
+
+                let stream = SCStream(filter: filter, configuration: config, delegate: self)
+                try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: .main)
+                try Task.checkCancellation()
+                self.stream = stream
+                try await stream.startCapture()
+            } catch is CancellationError {
+                // Normal Shapedown shutdown while shareable content was loading.
+            } catch {
+                NSLog("MenuBand Shapedown: display stream failed: \(error)")
+            }
+            self.startTask = nil
+        }
+    }
+
+    func stop() {
+        startTask?.cancel()
+        startTask = nil
+        let oldStream = stream
+        stream = nil
+        surface?.stop()
+        if let oldStream {
+            Task { try? await oldStream.stopCapture() }
+        }
+    }
+
+    func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer,
+                of type: SCStreamOutputType) {
+        guard type == .screen else { return }
+        surface?.enqueue(sampleBuffer)
+    }
+
+    func stream(_ stream: SCStream, didStopWithError error: Error) {
+        NSLog("MenuBand Shapedown: display stream stopped: \(error)")
+        DispatchQueue.main.async { [weak self] in
+            self?.surface?.stop()
+            self?.stream = nil
+        }
+    }
+
+    deinit { stop() }
+}
+
+/// A tiny, reversible translation of the active display's live composited
+/// buffer. Every motion frame is only a transform on one layer, independent of
+/// the number, ownership, or type of windows visible on the display.
+final class ShapedownDisplayNudge {
+    private weak var surface: ShapedownDisplayBufferView?
+    private var active = false
+    private var lastApplied = CGPoint.zero
+
+    init(surface: ShapedownDisplayBufferView) {
+        self.surface = surface
+    }
+
+    func begin() {
+        guard !active, let surface else { return }
+        active = true
+        lastApplied = .zero
+        surface.beginNudge()
+    }
+
+    func apply(x: CGFloat, y: CGFloat) {
+        guard active, let surface else { return }
+        guard abs(x - lastApplied.x) >= 0.5 || abs(y - lastApplied.y) >= 0.5 else { return }
+        lastApplied = CGPoint(x: x, y: y)
+        surface.translate(x: x, y: y)
+    }
+
+    func restore() {
+        surface?.endNudge()
+        active = false
+        lastApplied = .zero
+    }
+
+    deinit { restore() }
+}
+
+/// The drawing surface: one finger nudges the full display buffer while finger
+/// sets become translucent highlighter puddles. Bottom-left origin so the
 /// MultitouchSupport normalized space (also bottom-left) maps straight across
 /// without a Y flip.
 final class ShapedownCanvas: NSView {
     /// A committed shape, held crisp on the wall until close.
     private struct Stamp {
         var points: [CGPoint]     // view space
-        var hue: CGFloat
+        var color: NSColor
         var born: TimeInterval    // for the pop-in entrance
     }
-    /// A transient fade — a lifted sketch evaporating, or a committed shape
-    /// blooming away as the wall closes. One mechanism for every fade.
+    /// A transient color skin — a released puddle settling/fading, or a pinned
+    /// shape blooming away as the wall closes. One mechanism for every fade.
     private struct Ghost {
         var points: [CGPoint]
-        var hue: CGFloat
+        var color: NSColor
         var born: TimeInterval
+        var settle: TimeInterval
+        var hold: TimeInterval
         var dur: TimeInterval
         var bloom: CGFloat        // outward swell across the fade (0 = none)
     }
-
     private var live: [CGPoint] = []          // fingers right now, view space
+    private var gestureMemory = ShapedownGestureMemory()
     private var pinned: [Stamp] = []          // committed shapes — held until close
-    private var ghosts: [Ghost] = []          // transient fades (evaporate / close bloom)
-    private var recent: [(t: TimeInterval, pts: [CGPoint])] = []  // short frame history
-    private var stampCount = 0                 // the pen-color index; advances per commit
-    private var committedThisTouch = false     // don't evaporate a touch that got committed
+    private var ghosts: [Ghost] = []          // transient color skins / close bloom
+    private var singleFilter = ShapedownSinglePointFilter()
+    private let displayNudge: ShapedownDisplayNudge
+    private var nudgeAnchor: CGPoint?
+    private var currentColor = NoteColors.color(pitchClass: 0, octave: 4)
+    private var committedThisTouch = false     // don't release-fade a touch already pinned
     private var closing = false
 
     private var timer: Timer?
 
     // Tuning.
-    private let evaporateDur: TimeInterval = 0.5      // lift-without-commit: quick dissolve
-    private let evaporateBloom: CGFloat = 0.06        // barely swells — it just goes
+    private let releaseSettle: TimeInterval = 0.2     // soft landing into the display
+    private let releaseHold: TimeInterval = 1.1       // readable puddle before it drains
+    private let releaseFade: TimeInterval = 1.6       // slow pixel-soak dissolve
+    private let releaseBloom: CGFloat = 0.035         // surface-tension spread
     private let popDur: TimeInterval = 0.22           // commit entrance settle
     private let closeBloomDur: TimeInterval = 0.75    // all commits bloom out together on close
     private let closeBloom: CGFloat = 0.28
     private let nodeRadius: CGFloat = 13               // ONE thickness: dot / line / corner-wrap
-    private let commitLookback: TimeInterval = 0.25   // peak-finger window a click commits from
+    private let maxNudge: CGFloat = 12
+
+    init(frame frameRect: NSRect, displaySurface: ShapedownDisplayBufferView) {
+        displayNudge = ShapedownDisplayNudge(surface: displaySurface)
+        super.init(frame: frameRect)
+    }
+
+    required init?(coder: NSCoder) { nil }
 
     override var isFlipped: Bool { false }
     override var wantsDefaultClipping: Bool { false }
 
     private var now: TimeInterval { ProcessInfo.processInfo.systemUptime }
 
-    /// Golden-ratio hue walk so consecutive stamps are always far apart in color.
-    private func hue(for index: Int) -> CGFloat {
-        CGFloat((0.08 + Double(index) * 0.6180339887).truncatingRemainder(dividingBy: 1))
+    /// Latch the ink to the exact note color used by Notepat/Menu Band.
+    /// The key table carries octave as well as pitch class, so `C` is base red
+    /// while upper-row naturals get the brighter dayglo palette.
+    func selectColor(forKeyCode keyCode: UInt16) {
+        guard let color = ShapedownPalette.color(forKeyCode: keyCode) else { return }
+        currentColor = color
+        ensureTimer()
+        needsDisplay = true
     }
 
     private func centroid(_ pts: [CGPoint]) -> CGPoint {
@@ -410,40 +760,73 @@ final class ShapedownCanvas: NSView {
     func ingest(_ normalized: [CGPoint]) {
         guard !closing else { return }
         let w = bounds.width, h = bounds.height
-        let pts = normalized.map { CGPoint(x: $0.x * w, y: $0.y * h) }
+        var pts = normalized.map {
+            CGPoint(x: min(max($0.x, 0), 1) * w,
+                    y: min(max($0.y, 0), 1) * h)
+        }
 
         if pts.isEmpty {
-            // Fingers lifted. If this touch was never committed with a click,
-            // the sketch just evaporates — using the peak shape so a press that
-            // collapsed the last frame to one finger doesn't shrink it.
-            if !live.isEmpty, !committedThisTouch {
-                ghosts.append(Ghost(points: committedShape(), hue: hue(for: stampCount),
-                                    born: now, dur: evaporateDur, bloom: evaporateBloom))
+            // Two-plus fingers land as a puddle. Use the peak across the WHOLE
+            // gesture, not a short lookback: four contacts often report 3→2→1
+            // while lifting, which used to turn a finished quad into a triangle.
+            let released = gestureMemory.release(fallback: live)
+            if released.count >= 2, !committedThisTouch {
+                let total = releaseSettle + releaseHold + releaseFade
+                ghosts.append(Ghost(points: released, color: currentColor,
+                                    born: now, settle: releaseSettle,
+                                    hold: releaseHold, dur: total,
+                                    bloom: releaseBloom))
             }
             live = []
-            recent.removeAll()
+            endDisplayNudge()
+            singleFilter.reset()
             committedThisTouch = false
         } else {
-            if live.isEmpty { committedThisTouch = false }   // a fresh touch begins
-            live = pts
-            let t = now
-            recent.append((t, pts))
-            recent.removeAll { t - $0.t > commitLookback }
+            if live.isEmpty {
+                committedThisTouch = false
+                gestureMemory.reset()
+                singleFilter.reset()
+            }
+
+            if pts.count == 1, gestureMemory.peak.count < 2 {
+                let raw = pts[0]
+                let smooth = singleFilter.update(raw: raw, canvasSize: bounds.size)
+                pts = [smooth]
+                updateDisplayNudge(at: smooth)
+            } else {
+                endDisplayNudge()
+                singleFilter.reset()
+            }
+
+            // Once an N-finger shape has formed, keep it intact through the
+            // staggered lift frames instead of visibly collapsing N→N-1→….
+            live = gestureMemory.update(pts)
         }
         ensureTimer()
         needsDisplay = true
     }
 
-    /// The shape a click should commit: the frame with the MOST fingers seen in
-    /// the last `commitLookback` (ties → most recent). Pressing the pad to click
-    /// briefly collapses the contacts to the one finger doing the pressing, so
-    /// sampling `live` at the click instant loses the line/tri/quad; the peak
-    /// over the recent window recovers what the hand was actually holding.
+    /// The shape a click or lift should commit: the fullest frame seen anywhere
+    /// in this gesture. Trackpad clicks and finger lifts both shed contacts one
+    /// at a time, so sampling only the last frame loses the intended polygon.
     private func committedShape() -> [CGPoint] {
-        let cutoff = now - commitLookback
-        let best = recent.filter { $0.t >= cutoff }
-            .max { $0.pts.count < $1.pts.count }?.pts
-        return (best?.isEmpty == false) ? best! : live
+        gestureMemory.shape(fallback: live)
+    }
+
+    private func updateDisplayNudge(at point: CGPoint) {
+        guard let anchor = nudgeAnchor else {
+            nudgeAnchor = point
+            displayNudge.begin()
+            return
+        }
+        let x = min(max((point.x - anchor.x) * 0.045, -maxNudge), maxNudge)
+        let y = min(max((point.y - anchor.y) * 0.045, -maxNudge), maxNudge)
+        displayNudge.apply(x: x, y: y)
+    }
+
+    private func endDisplayNudge() {
+        displayNudge.restore()
+        nudgeAnchor = nil
     }
 
     /// ~60fps while anything is animating — fingers down, a fade in flight, a
@@ -463,14 +846,16 @@ final class ShapedownCanvas: NSView {
     }
 
     /// Commit the shape currently under the fingers (physical trackpad click):
-    /// it pops in crisp and stays until the wall closes. Advances the pen color.
-    func pinCurrent() {
+    /// it pops in crisp and stays until the wall closes. A one-finger nudge
+    /// intentionally cannot be pinned. Returns whether a shape was committed.
+    @discardableResult
+    func pinCurrent() -> Bool {
         let shape = committedShape()
-        guard !shape.isEmpty else { return }
-        pinned.append(Stamp(points: shape, hue: hue(for: stampCount), born: now))
-        stampCount += 1
+        guard shape.count >= 2 else { return false }
+        pinned.append(Stamp(points: shape, color: currentColor, born: now))
         committedThisTouch = true
         needsDisplay = true
+        return true
     }
 
     /// Begin the closing exit: turn every committed shape into a bloom-fade so
@@ -481,12 +866,14 @@ final class ShapedownCanvas: NSView {
         closing = true
         let t = now
         for p in pinned {
-            ghosts.append(Ghost(points: p.points, hue: p.hue, born: t,
-                                dur: closeBloomDur, bloom: closeBloom))
+            ghosts.append(Ghost(points: p.points, color: p.color, born: t,
+                                settle: 0, hold: 0, dur: closeBloomDur,
+                                bloom: closeBloom))
         }
         pinned = []
         live = []
-        recent.removeAll()
+        endDisplayNudge()
+        gestureMemory.reset()
         ensureTimer()
         needsDisplay = true
         return closeBloomDur
@@ -496,9 +883,11 @@ final class ShapedownCanvas: NSView {
         timer?.invalidate()
         timer = nil
         live = []
+        gestureMemory.reset()
         pinned = []
         ghosts = []
-        recent.removeAll()
+        endDisplayNudge()
+        singleFilter.reset()
         closing = false
     }
 
@@ -506,19 +895,24 @@ final class ShapedownCanvas: NSView {
         guard let ctx = NSGraphicsContext.current?.cgContext else { return }
         let t = now
 
-        // Faint dim so bright shapes read against a busy desktop.
-        NSColor(white: 0, alpha: 0.16).setFill()
-        bounds.fill()
-
-        // Transient fades: evaporating sketches and the closing bloom, one path.
+        // The canvas itself stays perfectly clear: only placed ink affects the
+        // display, so Shapedown highlights content instead of covering it.
+        // Transient highlighter skins and the closing bloom share one path.
         ghosts.removeAll { t - $0.born > $0.dur }
         for g in ghosts {
-            let f = CGFloat(min(max((t - g.born) / g.dur, 0), 1))
-            let eased = f * f * (3 - 2 * f)                   // smoothstep
-            let alpha = (1 - eased) * 0.9
-            let scale = 1 + g.bloom * eased
+            let age = max(0, t - g.born)
+            let fadeStart = g.settle + g.hold
+            let fadeDuration = max(0.001, g.dur - fadeStart)
+            let fade = CGFloat(min(max((age - fadeStart) / fadeDuration, 0), 1))
+            let eased = fade * fade * (3 - 2 * fade)          // smoothstep
+            let settle = g.settle > 0
+                ? CGFloat(min(max(age / g.settle, 0), 1))
+                : 1
+            let alpha = (0.20 + 0.12 * settle) * (1 - eased)
+            let landingScale = 1 + 0.055 * (1 - settle)
+            let scale = landingScale + g.bloom * eased
             let pts = scale == 1 ? g.points : scaled(g.points, by: scale)
-            drawShape(pts, hue: g.hue, alpha: alpha, glow: true, ctx: ctx)
+            drawShape(pts, color: g.color, alpha: alpha, glow: true, ctx: ctx)
         }
 
         // Committed shapes: crisp and permanent, with a little pop as they land.
@@ -528,20 +922,21 @@ final class ShapedownCanvas: NSView {
             let scale: CGFloat
             if age < popDur {
                 let f = CGFloat(age / popDur)
-                alpha = f
+                alpha = 0.20 + 0.16 * f
                 scale = 1 + 0.10 * (1 - f)
             } else {
-                alpha = 1
+                alpha = 0.36
                 scale = 1
             }
             let pts = scale == 1 ? p.points : scaled(p.points, by: scale)
-            drawShape(pts, hue: p.hue, alpha: alpha * 0.95, glow: true, ctx: ctx)
+            drawShape(pts, color: p.color, alpha: alpha, glow: true, ctx: ctx)
         }
 
-        // The wet sketch under your fingers, on top — dim, and in the NEXT pen
-        // color, so it reads as provisional until you click to commit it.
-        if !live.isEmpty {
-            drawShape(live, hue: hue(for: stampCount), alpha: 0.5, glow: false, ctx: ctx)
+        // While fingers are down the multi-finger sketch is the exact, solid
+        // selected color with no halo. Highlighter translucency starts only
+        // after lift/click. One finger draws nothing; it nudges the display.
+        if live.count >= 2 {
+            drawShape(live, color: currentColor, alpha: 1, glow: false, ctx: ctx)
         }
     }
 
@@ -558,7 +953,8 @@ final class ShapedownCanvas: NSView {
         return pts.map { CGPoint(x: c.x + ($0.x - c.x) * k, y: c.y + ($0.y - c.y) * k) }
     }
 
-    private func drawShape(_ points: [CGPoint], hue: CGFloat, alpha: CGFloat, glow: Bool, ctx: CGContext) {
+    private func drawShape(_ points: [CGPoint], color: NSColor, alpha: CGFloat,
+                           glow: Bool, ctx: CGContext) {
         guard !points.isEmpty, alpha > 0.001 else { return }
         // Composite the whole shape as ONE group: draw fill + stroke fully
         // OPAQUE inside a transparency layer, then let the layer composite at
@@ -566,13 +962,12 @@ final class ShapedownCanvas: NSView {
         // and fill can't double-blend into a darker seam — the bug that showed
         // as a doubled outline at low alpha. Glow + alpha apply to the layer
         // as a whole, so the glow is drawn once around the union, not per-op.
-        let color = NSColor(hue: hue, saturation: 0.85, brightness: 1, alpha: 1)
         let r = nodeRadius
 
         ctx.saveGState()
         if glow {
             ctx.setShadow(offset: .zero, blur: 24,
-                          color: NSColor(hue: hue, saturation: 0.9, brightness: 1, alpha: 1).cgColor)
+                          color: color.withAlphaComponent(1).cgColor)
         }
         ctx.setAlpha(alpha)
         ctx.beginTransparencyLayer(auxiliaryInfo: nil)

@@ -39,6 +39,12 @@
     opacity: 0; transition: opacity .12s; pointer-events: none; max-height: 70%; overflow: hidden;
   }
   .cell:hover .cap { opacity: 1; }
+  .cell.unsafe { outline: 2px solid #d23; outline-offset: -2px; }
+  .cell .flag {
+    position: absolute; top: 3px; right: 3px; font-size: 10px; padding: 1px 4px;
+    background: #d23; color: #fff; letter-spacing: .5px;
+  }
+  body.hide-unsafe .cell.unsafe { display: none; }
   #more { text-align: center; padding: 24px; font-size: 18px; color: #666; }
   footer { padding: 24px 16px 40px; font-size: 15px; color: #666; text-align: center; }
   footer a { color: #444; }
@@ -52,6 +58,7 @@
   </div>
   <input id="q" type="search" placeholder="search paintings — colors, subjects, painted words…" autocomplete="off">
   <nav id="years"></nav>
+  <nav id="safety"></nav>
 </header>
 <div id="grid"></div>
 <div id="more"></div>
@@ -69,7 +76,9 @@
   const more = document.getElementById("more");
   const count = document.getElementById("count");
   const years = document.getElementById("years");
+  const safety = document.getElementById("safety");
   const q = document.getElementById("q");
+  let safetyMode = "all"; // all | hide | only
 
   function shuffled(a) { a = a.slice(); for (let i = a.length-1; i>0; i--) { const j = Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 
@@ -78,13 +87,17 @@
     if (p._h === undefined) p._h = [p.t, p.desc, p.tags, p.c, p.s].filter(Boolean).join(" ").toLowerCase();
     return p._h;
   }
+  const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
   function recompute() {
     let base = all;
     if (query) {
-      const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
-      base = base.filter((p) => { const h = hay(p); return terms.every((t) => h.includes(t)); });
+      // Word-boundary/prefix match per term (so "cat" hits "cat"/"cats", not "scatter").
+      const terms = query.toLowerCase().split(/\s+/).filter(Boolean).map((t) => new RegExp("\\b" + esc(t)));
+      base = base.filter((p) => { const h = hay(p); return terms.every((re) => re.test(h)); });
     }
+    if (safetyMode === "hide") base = base.filter((p) => !p.unsafe);
+    else if (safetyMode === "only") base = base.filter((p) => p.unsafe);
     if (yearFilter !== "all" && yearFilter !== "shuffle") {
       base = base.filter((p) => (p.d || "").startsWith(yearFilter));
     }
@@ -101,12 +114,13 @@
     for (; shown < end; shown++) {
       const p = view[shown];
       const a = document.createElement("a");
-      a.className = "cell"; a.href = CDN + p.id + ".png"; a.target = "_blank";
+      a.className = "cell" + (p.unsafe ? " unsafe" : ""); a.href = CDN + p.id + ".png"; a.target = "_blank";
       const img = document.createElement("img");
       img.loading = "lazy"; img.decoding = "async";
       img.src = THUMB + p.id + ".webp";
       img.alt = p.desc || ("No Paint painting " + p.id);
       a.appendChild(img);
+      if (p.unsafe) { const fl = document.createElement("div"); fl.className = "flag"; fl.textContent = "photo face"; a.appendChild(fl); }
       const cap = p.desc || p.t;
       if (cap) { const d = document.createElement("div"); d.className = "cap"; d.textContent = cap; a.appendChild(d); }
       frag.appendChild(a);
@@ -128,6 +142,14 @@
       years.appendChild(b);
     }
     years.firstChild.classList.add("on");
+    // safety filter (photographic faces = moderation-sensitive)
+    const nUnsafe = all.filter((p) => p.unsafe).length;
+    for (const [label, mode] of [["all photos", "all"], ["hide photo-faces", "hide"], ["only photo-faces", "only"]]) {
+      const b = document.createElement("button"); b.textContent = mode === "only" ? `${label} (${nUnsafe})` : label; b.dataset.m = mode;
+      b.onclick = () => { safetyMode = mode; for (const x of safety.children) x.classList.toggle("on", x.dataset.m === mode); recompute(); };
+      safety.appendChild(b);
+    }
+    safety.firstChild.classList.add("on");
     recompute();
   }).catch(() => count.textContent = "the archive could not load");
 </script>

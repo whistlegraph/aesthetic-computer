@@ -653,6 +653,9 @@ final class PromptSigilOverlayController {
     private var timer: Timer?
     /// tty (bare) → CGWindowID of its terminal window.
     private var binding: [String: Int] = [:]
+    /// Current live prox windows, shared with focus navigation/highlighting so
+    /// those features inherit the controller's tty-accurate Terminal binding.
+    var promptWindowIDs: Set<Int> { Set(binding.values) }
     private var needsRebind = false
     private var bindInFlight = false
     private var lastBind = Date.distantPast
@@ -733,6 +736,7 @@ final class PromptSigilOverlayController {
         let screenH = NSScreen.main?.frame.height ?? 0
         ov.place(bounds: (p.x, p.y, s.width, s.height), screenHeight: screenH)
         lastBoundsByNum[num] = (p.x, p.y, s.width, s.height)
+        PromptFocusHighlight.shared.refreshNow()
         promote()   // keep the spring loop warm so the badge eases to the new target
     }
 
@@ -796,7 +800,7 @@ final class PromptSigilOverlayController {
             // snap to a drag instead of lagging the CGWindowList poll.
             AXObserverAddNotification(obs, appEl, kAXWindowMovedNotification as CFString, nil)
             AXObserverAddNotification(obs, appEl, kAXWindowResizedNotification as CFString, nil)
-            CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(obs), .defaultMode)
+            CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(obs), .commonModes)
             axObservers[pid] = obs
         }
     }
@@ -1045,7 +1049,7 @@ final class PromptSigilOverlayController {
         binding.removeAll()
         removeMouseMonitors()
         for (_, obs) in axObservers {
-            CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(obs), .defaultMode)
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(obs), .commonModes)
         }
         axObservers.removeAll()
     }
@@ -1156,6 +1160,10 @@ final class PromptSigilOverlayController {
             }
         }
         lastBoundsByNum = seen
+        // Share the prompt-rock controller's adaptive movement cadence with the
+        // under-window glow. During a drag this runs at display rate; at rest it
+        // becomes only the cheap 5 Hz safety check.
+        PromptFocusHighlight.shared.refreshNow()
         // Rebind ONLY on a membership change (one-shot) or the slow safety
         // cadence — never per tick, so osascript stays capped at ~once / 5s.
         if (needsRebind || Date().timeIntervalSince(lastBind) > 5), !bindInFlight {

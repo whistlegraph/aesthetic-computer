@@ -121,6 +121,8 @@ final class LedgerStore {
         let s = try? LedgerHTTPServer(ip: selfIP, port: Self.port)
         s?.onPoke = { [weak self] body in self?.receivePoke(body) }
         s?.onLaunch = { body in Self.launchPrompt(body) }
+        s?.onNavigate = { body in DeskflowSpatialNav.receiveNavigate(body) }
+        s?.onDeskflowRoute = { body in DeskflowSpatialNav.receiveRoute(body) }
         server = s
     }
 
@@ -446,6 +448,10 @@ final class LedgerHTTPServer {
     /// Called on POST /launch. The callback owns validation and returns a
     /// compact JSON-safe result dictionary.
     var onLaunch: (([String: Any]) -> [String: Any])?
+    /// Focus one local prompt as a fleet arrow arrives on this screen.
+    var onNavigate: (([String: Any]) -> Bool)?
+    /// Ask the active Deskflow controller to traverse a validated direction path.
+    var onDeskflowRoute: (([String: Any]) -> Bool)?
     private var fd: Int32 = -1
     private let queue = DispatchQueue(label: "slab.ledger.http")
     private var running = false
@@ -550,6 +556,20 @@ final class LedgerHTTPServer {
             return
         }
 
+        if line.hasPrefix("POST"), line.contains("/navigate") {
+            let obj = decodedBody(data, bodyStart: bodyStart)
+            let ok = onNavigate?(obj) ?? false
+            respond(client, body: Data("{\"ok\":\(ok)}".utf8))
+            return
+        }
+
+        if line.hasPrefix("POST"), line.contains("/deskflow-route") {
+            let obj = decodedBody(data, bodyStart: bodyStart)
+            let ok = onDeskflowRoute?(obj) ?? false
+            respond(client, body: Data("{\"ok\":\(ok)}".utf8))
+            return
+        }
+
         // Anything else (GET /ledger) → the current local ledger JSON.
         let body = (try? Data(contentsOf: URL(fileURLWithPath: LedgerStore.localFile)))
             ?? Data("{\"host\":\"\",\"entries\":[]}".utf8)
@@ -563,5 +583,10 @@ final class LedgerHTTPServer {
             + "Connection: close\r\n\r\n"
         var out = Data(header.utf8); out.append(body)
         _ = out.withUnsafeBytes { write(client, $0.baseAddress, $0.count) }
+    }
+
+    private func decodedBody(_ data: Data, bodyStart: Int?) -> [String: Any] {
+        guard let start = bodyStart, start <= data.count else { return [:] }
+        return (try? JSONSerialization.jsonObject(with: data[start...])) as? [String: Any] ?? [:]
     }
 }

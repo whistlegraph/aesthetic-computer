@@ -14,6 +14,7 @@
 //   fleet_machine(name)           — full detail for one machine + live status
 //   fleet_find(capability)        — which machines advertise a capability
 //   fleet_designations            — the controlled vocabularies (designations + capabilities)
+//   fleet_cleaner                 — run/report the local Mac's safe Cleaner
 //
 // Hand-rolled JSON-RPC over stdio (newline-delimited), matching the house style
 // of slab/bin/frame-mcp.mjs + puppet-mcp.mjs — no SDK, node builtins only.
@@ -36,6 +37,11 @@ const TAILSCALE_BINS = [
   "/Applications/Tailscale.app/Contents/MacOS/Tailscale",
   "tailscale",
 ].filter(Boolean);
+
+const CLEANER_BINS = [
+  join(HOME, ".local/bin/cleaner"),
+  join(HOME, "aesthetic-computer/toolchain/macos/cleaner.sh"),
+];
 
 // ── static registry ─────────────────────────────────────────────────────────
 function registryPath() {
@@ -162,6 +168,24 @@ async function toolDesignations() {
   return [{ type: "text", text: L.join("\n") }];
 }
 
+async function toolCleaner({ apply = true, thinSnapshots = false } = {}) {
+  if (process.platform !== "darwin") throw new Error("Cleaner is currently defined for fleet Macs only.");
+  const bin = CLEANER_BINS.find((path) => existsSync(path));
+  if (!bin) throw new Error("Cleaner is not installed and no repository copy was found.");
+  const args = [];
+  if (apply) args.push("--apply");
+  if (thinSnapshots) {
+    if (!apply) throw new Error("thinSnapshots requires apply=true");
+    args.push("--thin-snapshots");
+  }
+  return new Promise((resolve, reject) => {
+    execFile(bin, args, { timeout: 10 * 60_000, maxBuffer: 8 * 1024 * 1024 }, (error, stdout, stderr) => {
+      if (error) return reject(new Error((stderr || stdout || error.message).trim()));
+      resolve([{ type: "text", text: stdout.trim() }]);
+    });
+  });
+}
+
 const TOOLS = [
   {
     name: "fleet_list",
@@ -183,6 +207,14 @@ const TOOLS = [
     description: "Explain the controlled vocabularies: the fleet designations (agent-endpoint, compute-node, control, build, service, display, legacy) and the capability tags. Read this to know what fleet_find accepts.",
     inputSchema: { type: "object", properties: {} },
   },
+  {
+    name: "fleet_cleaner",
+    description: "Call the Cleaner on the local fleet Mac. By default applies the canonical safe cache cleanup; set apply=false for a report only. It protects repositories, node_modules, Downloads, models, agent state, and active-app caches. APFS snapshot thinning is separately opt-in.",
+    inputSchema: { type: "object", properties: {
+      apply: { type: "boolean", description: "Apply safe cleanup (default true); false reports only." },
+      thinSnapshots: { type: "boolean", description: "Also request APFS local-snapshot thinning (default false, requires apply)." },
+    } },
+  },
 ];
 
 const HANDLERS = {
@@ -190,6 +222,7 @@ const HANDLERS = {
   fleet_machine: toolMachine,
   fleet_find: toolFind,
   fleet_designations: toolDesignations,
+  fleet_cleaner: toolCleaner,
 };
 
 async function handleMessage(message) {
@@ -224,15 +257,15 @@ async function handleMessage(message) {
 // Allow a quick CLI smoke test: `node fleet-mcp.mjs list|find <cap>|machine <name>`.
 if (process.argv[2] && process.argv[2] !== "--http") {
   const [cmd, arg] = process.argv.slice(2);
-  const map = { list: () => toolList(), find: () => toolFind({ capability: arg }), machine: () => toolMachine({ name: arg }), designations: () => toolDesignations() };
+  const map = { list: () => toolList(), find: () => toolFind({ capability: arg }), machine: () => toolMachine({ name: arg }), designations: () => toolDesignations(), cleaner: () => toolCleaner({ apply: arg !== "report" }) };
   const fn = map[cmd];
   if (!fn) {
-    console.error("usage: fleet-mcp.mjs [list | find <capability> | machine <name> | designations]");
+    console.error("usage: fleet-mcp.mjs [list | find <capability> | machine <name> | designations | cleaner [report]]");
     process.exit(1);
   }
   fn().then((c) => console.log(c.map((x) => x.text).join("\n"))).catch((e) => { console.error(String(e.message || e)); process.exit(1); });
 } else {
   const port = httpPort(process.argv, 7776);
   if (port) serveHttp({ handleMessage, port, banner: "🛰  fleet-mcp shared daemon" });
-  else serveStdio({ handleMessage, banner: "🛰  fleet-mcp server started (fleet_list, fleet_machine, fleet_find, fleet_designations)" });
+  else serveStdio({ handleMessage, banner: "🛰  fleet-mcp server started (fleet_list, fleet_machine, fleet_find, fleet_designations, fleet_cleaner)" });
 }

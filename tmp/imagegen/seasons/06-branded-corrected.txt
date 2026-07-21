@@ -1,0 +1,28 @@
+Use case: product-mockup
+Asset type: vertical 9:16 master product still for a jewelry campaign and image-to-video source
+
+Primary request: Create a premium photorealistic product photograph of the Whistlegraph “Seasons” pendant, correcting study 06 and presenting it with unmistakable Whistlegraph packaging.
+
+Input images:
+- Image 1 is the edit target and material reference: preserve its polished gold wire, translucent yellow enamel petals, coral-red central oval, green bottom trapezoid, delicate gold chain, scale, and handmade character.
+- Image 2 is the structural reference for the final lower-left petal: it must be one continuous CLOSED outer loop containing a small inward spiral curl, exactly like this walnut study. It must not become a split heart, double lobe, open cleft, gap, notch, or crevice.
+- Image 3 is the authoritative score/performance reference. Follow its five-petal topology and its white snow marks. It overrides ambiguous geometry in Image 1.
+
+Pendant construction:
+- Exactly five outer petal loops around one coral-red vertical oval center: one tall narrow top petal, one long left petal, one upper-right petal, one lower-right petal, and one closed lower-left petal containing the small interior curl.
+- Remove the accidental tiny enclosed eye/oval at the left junction in Image 1. The long left petal and lower-left loop meet cleanly at the center.
+- Add exactly FIVE small opaque white enamel dots, one centered at the OUTERMOST APEX of each of the five petals. Each white dot has a very subtle six-point snowflake relief so it reads as dot/snowflake jewelry. No snow dot on the center oval or green trapezoid; no extra white dots anywhere.
+- Preserve the little green open trapezoid directly under the center.
+- The chain passes through the top petal with no separate bail.
+
+Whistlegraph branding and scene:
+- Suspend the pendant just in front of a physical pale ruled-paper jewelry card: warm notebook yellow, fine horizontal rules, one coral-magenta margin line.
+- Print “WHISTLEGRAPH” once at the top in dark violet, expressive chunky geometric display lettering; print “SEASONS · 06” once below it in small monospaced dark-violet type.
+- Include a tiny printed chalk notation swatch near the bottom edge using only yellow, coral, green, and five white dots. Keep it secondary to the real jewelry.
+- No other wording or logos.
+
+Composition/framing: vertical 9:16, straight-on product portrait, entire pendant and enough chain visible, pendant centered and large, packaging card behind it, clean margins suitable for a Reels opening frame.
+Lighting/mood: warm daylight plus controlled jewelry softbox highlights, tactile and slightly handmade rather than luxury-corporate.
+Materials/textures: real gold wire, translucent vitreous enamel, opaque white enamel snow dots, subtly fibrous printed card stock.
+Text (verbatim): “WHISTLEGRAPH” and “SEASONS · 06”
+Constraints: product topology, five dots, colors, and text must be exact; no extra petals, stones, beads, bail, charms, hands, person, watermark, or invented symbols.

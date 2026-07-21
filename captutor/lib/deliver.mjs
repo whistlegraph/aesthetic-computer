@@ -78,7 +78,6 @@ let FONT = LATIN_FONT;  // set per-render by deliver()
 const TEXT = "#ffffff";    // plain white — subtitles are not a brand surface
 const ACTIVE_TEXT = "#facc15"; // warm yellow — familiar, restrained karaoke cue
 const BG = "#0a0a0a";      // neutral-950
-const STAGE_BG = "#bebfc4"; // macOS's Solid Colors / Space Gray wallpaper
 const ACCENT = "#4f46e5";  // indigo-600 — the app's own action colour
 
 // NOTE: ImageMagick here has no fontconfig, so there is no default font at all —
@@ -117,7 +116,7 @@ export const FORMATS = {
     // frame's margins, rather than the browser's aspect ratio, set the geometry.
     win: STAGE_MODE ? { w: 1190, h: 630 } : { w: 1512, h: 945 },
     out: STAGE_MODE ? { w: 2560, h: 1440 } : { w: 1512, h: 945 },
-    compose: STAGE_MODE ? { stageMargin: 90 } : undefined,
+    compose: STAGE_MODE ? { fullDesktop: true, badgeRepair: true } : undefined,
     // Stage recordings are viewed inside a docs player, often at half their
     // encoded size. Use presentation-scale captions so they remain readable,
     // and lift them slightly to give the classic outline breathing room.
@@ -133,7 +132,7 @@ export const FORMATS = {
   vertical: {
     win: { w: 630, h: 1190 },
     out: { w: 1440, h: 2560 },
-    compose: { stageMargin: 90 },
+    compose: { fullDesktop: true, badgeRepair: true },
     capWidth: 0.88,
     capPx: 58,
     capY: 0.88,
@@ -286,50 +285,6 @@ function videoDuration(clip) {
   ], { encoding: "utf8" }).trim();
 }
 
-/// Sample the stable title-bar field beside Chrome's capture-status pill. The
-/// indicator itself is OS-owned and has no supported browser switch; replacing
-/// it with the pixels it sits on is deterministic, but the hue must come from
-/// this take rather than a hard-coded guess (Chrome themes can change it).
-function sampleColor(clip, x, y) {
-  const rgb = execFileSync(FFMPEG, [
-    "-v", "error", "-ss", "0.20", "-i", clip,
-    "-vf", `crop=2:2:${Math.round(x)}:${Math.round(y)},format=rgb24`, "-frames:v", "1",
-    "-f", "rawvideo", "pipe:1",
-  ]);
-  if (rgb.length < 3) throw new Error("could not sample Stage window color");
-  return `#${[rgb[0], rgb[1], rgb[2]].map((n) => n.toString(16).padStart(2, "0")).join("")}`;
-}
-
-/// Build a transparent repair layer for ScreenCaptureKit's H.264 flattening.
-/// Chrome's rounded window corners arrive as black wedges because H.264 has no
-/// alpha. Fill only those wedges with their immediately surrounding window
-/// colors, which squares the window without cropping content or imposing a
-/// visible rounded mask. Capture-status pills are repaired later from live
-/// same-frame pixels so their fill stays exact as Chrome focus changes.
-function stageRepair(clip, { width, height, workDir }) {
-  // The active tab reaches past the midpoint in a narrow portrait window. The
-  // trailing title-bar field remains bare in both landscape and portrait.
-  const top = sampleColor(clip, width - 200, 20);
-  const bottomLeft = sampleColor(clip, width * 0.22, height - 20);
-  const bottomRight = sampleColor(clip, width * 0.78, height - 20);
-  const key = [top, bottomLeft, bottomRight].map((c) => c.slice(1)).join("-");
-  const out = join(workDir, `stage-corners-v2-${width}x${height}-${key}.png`);
-  if (existsSync(out)) return out;
-  const r = 46;
-  execFileSync("magick", [
-    "-size", `${width}x${height}`, "xc:none", "-stroke", "none",
-    "-fill", top,
-    "-draw", `path 'M 0,0 L ${r},0 A ${r},${r} 0 0 0 0,${r} Z'`,
-    "-draw", `path 'M ${width},0 L ${width - r},0 A ${r},${r} 0 0 1 ${width},${r} Z'`,
-    "-fill", bottomLeft,
-    "-draw", `path 'M 0,${height} L ${r},${height} A ${r},${r} 0 0 1 0,${height - r} Z'`,
-    "-fill", bottomRight,
-    "-draw", `path 'M ${width},${height} L ${width - r},${height} A ${r},${r} 0 0 0 ${width},${height - r} Z'`,
-    out,
-  ]);
-  return out;
-}
-
 /// Group each beat's words into on-screen caption phrases — same rule the VTT
 /// uses, so burned and soft captions never disagree.
 function phrases(cues, { maxWords = 6, pauseMs = 380 } = {}) {
@@ -433,42 +388,25 @@ export function deliver({ clip, cues, format, out, workDir, locale = "en" }) {
 
   // ── video base ────────────────────────────────────────────────────────────
   const args = ["-y", "-i", clip];
-  let firstCaptionInput = 1;
-  let repair = null;
-  if (F.compose?.stageMargin != null) {
-    const margin = F.compose.stageMargin;
-    repair = stageRepair(clip, {
-      width: W - margin * 2,
-      height: H - margin * 2,
-      workDir,
-    });
-    args.push("-loop", "1", "-i", repair);
-    firstCaptionInput += 1;
-  }
+  const firstCaptionInput = 1;
   for (const p of captionLayers) args.push("-i", p.png);
 
   const chain = [];
-  if (F.compose?.stageMargin != null) {
-    // Capture only the browser window, never the display. ScreenCaptureKit's
-    // recording indicator and all other macOS chrome therefore cannot enter the
-    // negative. A sampled repair layer squares the encoded black corner wedges
-    // and removes the capture-status pill without cropping any browser content.
-    const margin = F.compose.stageMargin;
-    const vw = W - margin * 2;
-    const vh = H - margin * 2;
+  if (F.compose?.fullDesktop) {
+    if (src.w !== W || src.h !== H) {
+      throw new Error(
+        `${format} Stage delivery needs a ${W}x${H} full-desktop negative; ` +
+        `got ${src.w}x${src.h}. Record a new take instead of recutting a window capture.`,
+      );
+    }
+    // Preserve the complete physical desktop. The sole repair is the tiny
+    // ScreenCaptureKit status dot at the extreme top-right: clone a live 2×2
+    // sample of the adjacent stage wallpaper over a 34×28 patch. No browser or
+    // window pixels are touched.
     chain.push(
-      `color=c=${STAGE_BG}:s=${W}x${H}:d=${dur.toFixed(3)},format=yuva420p[bg]`,
-      // Clone live pixels from the same frame over macOS's capture badges. A
-      // static RGB patch shifts slightly when ffmpeg converts it back to YUV,
-      // and that became a visible rectangle on Chrome's blue portrait title
-      // bar. These patches remain in the source colorspace and track focus.
-      `[0:v]${holdLastFrame}scale=${vw}:${vh},split=3[vid][titleSeed][toolbarSeed]`,
-      `[titleSeed]crop=2:2:${vw - 200}:20,scale=148:62:flags=neighbor[titlePatch]`,
-      `[toolbarSeed]crop=2:2:${vw - 20}:125,scale=212:82:flags=neighbor[toolbarPatch]`,
-      `[vid][1:v]overlay=0:0:shortest=1[corners]`,
-      `[corners][titlePatch]overlay=10:8:shortest=1[titleClean]`,
-      `[titleClean][toolbarPatch]overlay=${vw - 300}:82:shortest=1[window]`,
-      `[bg][window]overlay=(W-w)/2:(H-h)/2[base]`);
+      `[0:v]${holdLastFrame}scale=${W}:${H},split=2[desktop][badgeSeed]`,
+      `[badgeSeed]crop=2:2:${W - 62}:12,scale=34:28:flags=neighbor[badgePatch]`,
+      `[desktop][badgePatch]overlay=${W - 34}:0:shortest=1[base]`);
   } else if (F.compose) {
     // Portrait frame, landscape-ish window: fill the WIDTH (so the UI is scaled
     // UP, not down) and ride high, leaving the lower third as a caption stage.

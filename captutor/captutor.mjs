@@ -39,7 +39,10 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { narrate } from "./lib/narrate.mjs";
 import { attach } from "./lib/cdp.mjs";
 import { clickOn, pointAt, typeInto, INSTALL } from "./lib/cursor.mjs";
-import { spotlight, outline, burst, clearEffects } from "./lib/effects.mjs";
+import {
+  spotlight, outline, burst, zoom, resetCamera, clearEffects,
+} from "./lib/effects.mjs";
+import { tabController } from "./lib/tabs.mjs";
 import { mux, writeVTT, probe } from "./lib/compose.mjs";
 import { deliver, FORMATS } from "./lib/deliver.mjs";
 import { translator, selectors, setLocale, LANGUAGES } from "./lib/i18n.mjs";
@@ -240,11 +243,16 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
     spotlight: (sel, opts) => spotlight(cdp, sel, opts),
     outline: (sel, opts) => outline(cdp, sel, opts),
     burst: (sel, opts) => burst(cdp, sel, opts),
+    zoom: (sel, opts) => zoom(cdp, sel, opts),
+    resetCamera: (opts) => resetCamera(cdp, opts),
+    tabs: tabController(),
     clearEffects: () => clearEffects(cdp),
     effects: {
       spotlight: (sel, opts) => spotlight(cdp, sel, opts),
       outline: (sel, opts) => outline(cdp, sel, opts),
       burst: (sel, opts) => burst(cdp, sel, opts),
+      zoom: (sel, opts) => zoom(cdp, sel, opts),
+      resetCamera: (opts) => resetCamera(cdp, opts),
       clear: () => clearEffects(cdp),
     },
     sleep,
@@ -320,7 +328,7 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
     cdp.close();
     throw new Error(`format "${format}" requires: node bin/stage.mjs --vertical render …`);
   }
-  await soloTab(cdp);
+  if (!sp.preserveTabs) await soloTab(cdp);
   await sizeWindow(cdp, F.win);
 
   // Raise the window we are about to film. Not cosmetic: Chrome throttles
@@ -329,13 +337,13 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
   await cdp.send("Page.bringToFront");
   await sleep(600);
 
-  const stageWindow = STAGE_MODE && sp.desktopFrame && sp.window;
-  console.log(`\n● recording (${stageWindow ? `clean stage window: ${sp.window}` : `window: ${sp.window || "whole display"}`})`);
+  const stageDisplay = STAGE_MODE && F.compose?.fullDesktop;
+  console.log(`\n● recording (${stageDisplay ? "full Stage desktop" : `window: ${sp.window || "whole display"}`})`);
   const state = reelStart({
-    // Stage delivery supplies its own neutral desktop and uniform margins. Film
-    // the window, not the display, so macOS's recording indicator is impossible
-    // to capture in the first place.
-    window: stageWindow ? sp.window : (sp.desktopFrame ? undefined : sp.window),
+    // Stage Mode already supplies the neutral desktop and deliberately sized
+    // browser. Capture those real pixels so every rounded window edge and equal
+    // margin survives. Delivery repairs only the tiny recorder badge.
+    window: stageDisplay ? undefined : sp.window,
     fps: sp.fps || 60,
     cursor: REAL_CURSOR,
   });
@@ -426,6 +434,8 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
   // Close the books while the browser is still up: what did this video cost?
   // Written to out/takes.json, which is also what the take cap reads.
   if (purse) await credits.settle(cdp, purse, { slug: sp.slug, locale, format });
+  await clearEffects(cdp).catch(() => {});
+  if (sp.teardown) await sp.teardown(ctx);
   cdp.close();
 
   const outMp4 = join(workDir, `${sp.slug}.mp4`);

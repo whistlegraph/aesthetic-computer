@@ -25,7 +25,7 @@ interface again. Use it for caption or encoding changes: the recorded negative
 and measured cue timing stay intact, so the recut costs no credits.
 
 `--vertical` is Captutor's true portrait stage: Panda's display rotates 90° into
-its 720×1280 logical / 1440×2560 physical HiDPI mode, the browser is filmed in a
+its 720×1280 logical / 1440×2560 physical HiDPI mode, the browser sits in a
 630×1190-point window with uniform margins, and the exact previous display
 profile is restored afterward. It requires `brew install displayplacer` on the
 recording host.
@@ -102,9 +102,13 @@ current desk, closes stale QuickTime previews, switches macOS to Light appearanc
 and the display to 2× HiDPI (1280×720 logical), centers the browser, raises
 encoding quality, uses a neutral gray wallpaper, and temporarily hides desktop
 icons, Dock, menu bar, Stats, Macpal's desktop badge, and Slab prompt sigils. The
-recorder captures only the browser window; delivery places it
-on a synthetic 2560×1440 Space Gray stage with one uniform margin. This keeps
-macOS recording indicators and unrelated desktop chrome out of the negative.
+recorder captures the complete physical desktop, preserving the real rounded
+window, shadow, and equal margin. A Swift desktop-level renderer adds a subtle,
+deterministic field of rising Fuser marks and slow purple/teal light; it is
+click-through, runs behind every normal window, and exits inside the same Stage
+transaction. Delivery changes only the tiny
+ScreenCaptureKit status dot in the extreme top-right, using live pixels sampled
+from the adjacent desktop; it never masks or crops the browser window.
 Its `finally` handler restores the saved display mode, pointer size, wallpaper,
 processes, and desktop preferences on success, failure, or interruption.
 
@@ -215,10 +219,13 @@ guide attention without changing or intercepting the interface:
   adds an outer accent ring.
 - `outline(selector, options)` draws the same ring without dimming the frame.
 - `burst(selector, options)` emits a short deterministic glyph/particle bloom.
+- `zoom(selector, options)` eases and pans the page camera toward a target;
+  `resetCamera()` returns it to the exact initial view.
 - `clearEffects()` removes every active filming mark immediately.
 
-All four are also grouped under `effects` (`effects.spotlight`,
-`effects.outline`, `effects.burst`, `effects.clear`). Selectors accept the same
+The visual tools are also grouped under `effects` (`effects.spotlight`,
+`effects.outline`, `effects.burst`, `effects.zoom`, `effects.resetCamera`,
+`effects.clear`). Selectors accept the same
 CSS, `text=`, and `js=` forms as `point` and `click`.
 
 ```js
