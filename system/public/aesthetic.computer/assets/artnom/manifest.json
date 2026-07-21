@@ -1,0 +1,1246 @@
+{
+  "schema": "https://aesthetic.computer/schemas/artnom-manifest-v1.json",
+  "generatedAt": "2026-07-21T19:24:52.465Z",
+  "license": "Museum metadata is CC0; image rights are recorded per object and images remain remote.",
+  "sources": [
+    {
+      "id": "artic",
+      "label": "Art Institute of Chicago",
+      "api": "https://api.artic.edu/api/v1",
+      "url": "https://www.artic.edu/open-access/public-api",
+      "imageService": "https://www.artic.edu/iiif/2"
+    },
+    {
+      "id": "getty-aat",
+      "label": "Getty Art & Architecture Thesaurus",
+      "api": "https://vocab.getty.edu/sparql",
+      "url": "https://www.getty.edu/research/tools/vocabularies/aat/"
+    }
+  ],
+  "categories": [
+    {
+      "id": "aat:300021495",
+      "slug": "cubism",
+      "label": "Cubism",
+      "aatId": "300021495",
+      "aat": "http://vocab.getty.edu/aat/300021495",
+      "speech": "cubism",
+      "sourceTerms": [
+        {
+          "source": "artic",
+          "id": "TM-7539",
+          "label": "Cubism"
+        }
+      ],
+      "artworks": [
+        {
+          "id": "artic:111060",
+          "source": "artic",
+          "sourceId": "111060",
+          "title": "Daniel-Henry Kahnweiler",
+          "artist": "Pablo Picasso",
+          "date": "autumn 1910",
+          "classification": "oil on canvas",
+          "style": "Cubism",
+          "sourceTerms": [
+            "artic:TM-7539",
+            "artic:TM-14351"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021495"
+          ],
+          "publicDomain": false,
+          "rights": "http://rightsstatements.org/vocab/InC/1.0/",
+          "image": "https://www.artic.edu/iiif/2/aebda29e-16b8-4393-6edc-805cdb6ba459/full/200,/0/default.jpg",
+          "alt": "A abstract painting in which numerous planes of brown and gray, along with highlights of black and white, compose the figure of a man. The most recognizable features are a pair of clasped hands and the wave of his dark hair.",
+          "api": "https://api.artic.edu/api/v1/artworks/111060",
+          "url": "https://www.artic.edu/artworks/111060"
+        },
+        {
+          "id": "artic:8624",
+          "source": "artic",
+          "sourceId": "8624",
+          "title": "Portrait of Pablo Picasso",
+          "artist": "Juan Gris",
+          "date": "January–February 1912",
+          "classification": "oil on canvas",
+          "style": "Cubism",
+          "sourceTerms": [
+            "artic:TM-7539"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021495"
+          ],
+          "publicDomain": false,
+          "rights": "http://rightsstatements.org/vocab/InC/1.0/",
+          "image": "https://www.artic.edu/iiif/2/4f7ccf9f-a8ce-2bd8-2d15-a38b2e6caa7a/full/200,/0/default.jpg",
+          "alt": "Blue and brown Cubist painting of Picasso with painterǳ palette.",
+          "api": "https://api.artic.edu/api/v1/artworks/8624",
+          "url": "https://www.artic.edu/artworks/8624"
+        },
+        {
+          "id": "artic:5357",
+          "source": "artic",
+          "sourceId": "5357",
+          "title": "The Red Armchair",
+          "artist": "Pablo Picasso",
+          "date": "December 16, 1931",
+          "classification": "painting",
+          "style": "Cubism",
+          "sourceTerms": [
+            "artic:TM-7539"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021495"
+          ],
+          "publicDomain": false,
+          "rights": "http://rightsstatements.org/vocab/InC/1.0/",
+          "image": "https://www.artic.edu/iiif/2/c617e2f0-d5fe-0772-390e-6d8c83895815/full/200,/0/default.jpg",
+          "alt": "Cubist painting of woman, bright yellow, green, purple colors.",
+          "api": "https://api.artic.edu/api/v1/artworks/5357",
+          "url": "https://www.artic.edu/artworks/5357"
+        },
+        {
+          "id": "artic:135430",
+          "source": "artic",
+          "sourceId": "135430",
+          "title": "Weeping Woman I",
+          "artist": "Pablo Picasso",
+          "date": "July 1, 1937",
+          "classification": "etching",
+          "style": "Cubism",
+          "sourceTerms": [
+            "artic:TM-7539"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021495"
+          ],
+          "publicDomain": false,
+          "rights": "http://rightsstatements.org/vocab/InC/1.0/",
+          "image": "https://www.artic.edu/iiif/2/9794c354-eccb-5b8c-628b-a664416c78e6/full/200,/0/default.jpg",
+          "alt": "Print of woman with distorted and exaggerated features holding handkerchief to face.",
+          "api": "https://api.artic.edu/api/v1/artworks/135430",
+          "url": "https://www.artic.edu/artworks/135430"
+        },
+        {
+          "id": "artic:14435",
+          "source": "artic",
+          "sourceId": "14435",
+          "title": "Portrait of Picasso",
+          "artist": "Juan Gris",
+          "date": "1947",
+          "classification": "etching",
+          "style": "Cubism",
+          "sourceTerms": [
+            "artic:TM-7539"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021495"
+          ],
+          "publicDomain": false,
+          "rights": "http://rightsstatements.org/vocab/InC/1.0/",
+          "image": "https://www.artic.edu/iiif/2/fb424aff-7bcc-0191-c2c1-dd5be947cc6b/full/200,/0/default.jpg",
+          "alt": "Varyingly shaded geometric shapes compose the fractured image of a seated figure in a double-breasted jacket.",
+          "api": "https://api.artic.edu/api/v1/artworks/14435",
+          "url": "https://www.artic.edu/artworks/14435"
+        },
+        {
+          "id": "artic:12874",
+          "source": "artic",
+          "sourceId": "12874",
+          "title": "Abstraction (Guitar and Glass)",
+          "artist": "Juan Gris",
+          "date": "1913",
+          "classification": "painting",
+          "style": "Cubism",
+          "sourceTerms": [
+            "artic:TM-7539"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021495"
+          ],
+          "publicDomain": false,
+          "rights": "http://rightsstatements.org/vocab/InC/1.0/",
+          "image": "https://www.artic.edu/iiif/2/9f91f7e3-daa8-8969-31c1-892d5af19404/full/200,/0/default.jpg",
+          "alt": "Geometric forms fragment a vertical composition containing a woodgrain table with newspapers, a guitar, and a stemmed wine glass. These objects are vividly painted within a V-shaped fragment at center. Muted, shadowlike versions of the objects appear outside it. The outline of the guitar is repeated in the V in brown, green, blue, and black alongside a fragment of brown floral wallpaper.",
+          "api": "https://api.artic.edu/api/v1/artworks/12874",
+          "url": "https://www.artic.edu/artworks/12874"
+        },
+        {
+          "id": "artic:44084",
+          "source": "artic",
+          "sourceId": "44084",
+          "title": "Woman with a Bird Cage",
+          "artist": "Rufino Tamayo",
+          "date": "1941",
+          "classification": "painting",
+          "style": "Cubism",
+          "sourceTerms": [
+            "artic:TM-7539",
+            "artic:TM-5981"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021495"
+          ],
+          "publicDomain": false,
+          "rights": "http://rightsstatements.org/vocab/InC/1.0/",
+          "image": "https://www.artic.edu/iiif/2/a55d85fc-616b-629d-907b-75a35d4bb5c7/full/200,/0/default.jpg",
+          "alt": "A work made of oil on canvas.",
+          "api": "https://api.artic.edu/api/v1/artworks/44084",
+          "url": "https://www.artic.edu/artworks/44084"
+        },
+        {
+          "id": "artic:180666",
+          "source": "artic",
+          "sourceId": "180666",
+          "title": "Bal (recto); Guitar (verso)",
+          "artist": "Georges Braque",
+          "date": "1912",
+          "classification": "drawings (visual works)",
+          "style": "Cubism",
+          "sourceTerms": [
+            "artic:TM-7539"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021495"
+          ],
+          "publicDomain": false,
+          "rights": "http://rightsstatements.org/vocab/InC/1.0/",
+          "image": "https://www.artic.edu/iiif/2/e883470a-422e-20e6-0dc1-dbab6e500ead/full/200,/0/default.jpg",
+          "alt": "A work made of collage composed of charcoal and cut-and-pasted commercially printed tan wove papers (recto) and charcoal (verso) on white laid paper.",
+          "api": "https://api.artic.edu/api/v1/artworks/180666",
+          "url": "https://www.artic.edu/artworks/180666"
+        },
+        {
+          "id": "artic:265982",
+          "source": "artic",
+          "sourceId": "265982",
+          "title": "Still Life with a Box of Matches (Nature morte à la boite d'allumettes)",
+          "artist": "María Blanchard",
+          "date": "1918",
+          "classification": "painting",
+          "style": "Cubism",
+          "sourceTerms": [
+            "artic:TM-7539",
+            "artic:TM-7541"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021495"
+          ],
+          "publicDomain": false,
+          "rights": "http://rightsstatements.org/vocab/InC/1.0/",
+          "image": "https://www.artic.edu/iiif/2/b4d6fb4f-f982-4ce7-ede8-4358655fe2e6/full/200,/0/default.jpg",
+          "alt": "Abstract, Cubist painting of objects on a table, highly geometric and boldy rendered in angular shapes of yellow, green blue, and brown. Errant details and textures emerge, often indecipherable  as specific objects, but a small book of matches at center is clearly rendered, down to the writing on its cover.",
+          "api": "https://api.artic.edu/api/v1/artworks/265982",
+          "url": "https://www.artic.edu/artworks/265982"
+        },
+        {
+          "id": "artic:244527",
+          "source": "artic",
+          "sourceId": "244527",
+          "title": "Du cubisme",
+          "artist": "Albert Gleizes",
+          "date": "Paris: Compagnie Française des Arts Graphiques, 1947",
+          "classification": "etching",
+          "style": "Cubism",
+          "sourceTerms": [
+            "artic:TM-7539",
+            "artic:TM-13130"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021495"
+          ],
+          "publicDomain": false,
+          "rights": "http://rightsstatements.org/vocab/InC/1.0/",
+          "image": "https://www.artic.edu/iiif/2/b60132af-f4f8-bf05-727f-889497f8af25/full/200,/0/default.jpg",
+          "alt": "A work made of unbound book in a cardboard slip case; intaglio prints by various artists.",
+          "api": "https://api.artic.edu/api/v1/artworks/244527",
+          "url": "https://www.artic.edu/artworks/244527"
+        }
+      ]
+    },
+    {
+      "id": "aat:300021503",
+      "slug": "impressionism",
+      "label": "Impressionism",
+      "aatId": "300021503",
+      "aat": "http://vocab.getty.edu/aat/300021503",
+      "speech": "impressionism",
+      "sourceTerms": [
+        {
+          "source": "artic",
+          "id": "TM-7543",
+          "label": "Impressionism"
+        }
+      ],
+      "artworks": [
+        {
+          "id": "artic:20684",
+          "source": "artic",
+          "sourceId": "20684",
+          "title": "Paris Street; Rainy Day",
+          "artist": "Gustave Caillebotte",
+          "date": "1877",
+          "classification": "oil on canvas",
+          "style": "Impressionism",
+          "sourceTerms": [
+            "artic:TM-7543",
+            "artic:TM-13203"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021503"
+          ],
+          "publicDomain": true,
+          "rights": "https://creativecommons.org/publicdomain/mark/1.0/",
+          "image": "https://www.artic.edu/iiif/2/f8fd76e9-c396-5678-36ed-6a348c904d27/full/200,/0/default.jpg",
+          "alt": "Life-size painting of an urban scene in Paris. A man in a top hat holding an umbrella and a woman in a long fashionable dark dress walk arm in arm toward the viewer as other city dwellers with umbrellas walk in various directions across cobblestone roads and sidewalks.",
+          "api": "https://api.artic.edu/api/v1/artworks/20684",
+          "url": "https://www.artic.edu/artworks/20684"
+        },
+        {
+          "id": "artic:64818",
+          "source": "artic",
+          "sourceId": "64818",
+          "title": "Stacks of Wheat (End of Summer)",
+          "artist": "Claude Monet",
+          "date": "1890–91",
+          "classification": "oil on canvas",
+          "style": "Impressionism",
+          "sourceTerms": [
+            "artic:TM-7543",
+            "artic:TM-15636",
+            "artic:TM-13203"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021503"
+          ],
+          "publicDomain": true,
+          "rights": "https://creativecommons.org/publicdomain/mark/1.0/",
+          "image": "https://www.artic.edu/iiif/2/a38e2828-ec6f-ece1-a30f-70243449197b/full/200,/0/default.jpg",
+          "alt": "Painting composed of short, dense brushstrokes depicts two domed stacks of wheat that cast long shadows on a field. The angled light indicates either a rising or setting sun.",
+          "api": "https://api.artic.edu/api/v1/artworks/64818",
+          "url": "https://www.artic.edu/artworks/64818"
+        },
+        {
+          "id": "artic:16568",
+          "source": "artic",
+          "sourceId": "16568",
+          "title": "Water Lilies",
+          "artist": "Claude Monet",
+          "date": "1906",
+          "classification": "oil on canvas",
+          "style": "Impressionism",
+          "sourceTerms": [
+            "artic:TM-7543",
+            "artic:TM-13130"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021503"
+          ],
+          "publicDomain": true,
+          "rights": "https://creativecommons.org/publicdomain/mark/1.0/",
+          "image": "https://www.artic.edu/iiif/2/3c27b499-af56-f0d5-93b5-a7f2f1ad5813/full/200,/0/default.jpg",
+          "alt": "Painting of a pond seen up close spotted with thickly painted pink and white water lilies and a shadow across the top third of the picture.",
+          "api": "https://api.artic.edu/api/v1/artworks/16568",
+          "url": "https://www.artic.edu/artworks/16568"
+        },
+        {
+          "id": "artic:14655",
+          "source": "artic",
+          "sourceId": "14655",
+          "title": "Two Sisters (On the Terrace)",
+          "artist": "Pierre-Auguste Renoir",
+          "date": "1881",
+          "classification": "painting",
+          "style": "Impressionism",
+          "sourceTerms": [
+            "artic:TM-7543",
+            "artic:TM-15636",
+            "artic:TM-13203"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021503"
+          ],
+          "publicDomain": true,
+          "rights": "https://creativecommons.org/publicdomain/mark/1.0/",
+          "image": "https://www.artic.edu/iiif/2/3a608f55-d76e-fa96-d0b1-0789fbc48f1e/full/200,/0/default.jpg",
+          "alt": "Impressionist painting of two girls on balcony, bright flower hat, knitting basket.",
+          "api": "https://api.artic.edu/api/v1/artworks/14655",
+          "url": "https://www.artic.edu/artworks/14655"
+        },
+        {
+          "id": "artic:111442",
+          "source": "artic",
+          "sourceId": "111442",
+          "title": "The Child's Bath",
+          "artist": "Mary Cassatt",
+          "date": "1893",
+          "classification": "painting",
+          "style": "Impressionism",
+          "sourceTerms": [
+            "artic:TM-7543",
+            "artic:TM-5981"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021503"
+          ],
+          "publicDomain": true,
+          "rights": "https://creativecommons.org/publicdomain/mark/1.0/",
+          "image": "https://www.artic.edu/iiif/2/3b885ae0-4d46-5fe4-d70a-00474827f02c/full/200,/0/default.jpg",
+          "alt": "Painting of mother in blue, purple, and green-stripped dress washing child's feet.",
+          "api": "https://api.artic.edu/api/v1/artworks/111442",
+          "url": "https://www.artic.edu/artworks/111442"
+        },
+        {
+          "id": "artic:16571",
+          "source": "artic",
+          "sourceId": "16571",
+          "title": "Arrival of the Normandy Train, Gare Saint-Lazare",
+          "artist": "Claude Monet",
+          "date": "1877",
+          "classification": "painting",
+          "style": "Impressionism",
+          "sourceTerms": [
+            "artic:TM-7543",
+            "artic:TM-15636",
+            "artic:TM-13203"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021503"
+          ],
+          "publicDomain": true,
+          "rights": "https://creativecommons.org/publicdomain/mark/1.0/",
+          "image": "https://www.artic.edu/iiif/2/0f1cc0e0-e42e-be16-3f71-2022da38cb93/full/200,/0/default.jpg",
+          "alt": "Loosely painted image of an open-air train station. On the right, a parked train gives off an enormous plumb of white smoke, making the scene look as though it were full of clouds. A huddled mass of barely discernible people crowd around the train on both sides of the tracks. Blue, green, and gray tones dominate.",
+          "api": "https://api.artic.edu/api/v1/artworks/16571",
+          "url": "https://www.artic.edu/artworks/16571"
+        },
+        {
+          "id": "artic:11723",
+          "source": "artic",
+          "sourceId": "11723",
+          "title": "Woman at Her Toilette",
+          "artist": "Berthe Morisot",
+          "date": "1875–80",
+          "classification": "painting",
+          "style": "Impressionism",
+          "sourceTerms": [
+            "artic:TM-7543",
+            "artic:TM-15636",
+            "artic:TM-13203"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021503"
+          ],
+          "publicDomain": true,
+          "rights": "https://creativecommons.org/publicdomain/mark/1.0/",
+          "image": "https://www.artic.edu/iiif/2/78c80988-6524-cec7-c661-a4c0a706d06f/full/200,/0/default.jpg",
+          "alt": "Painted portrait dominated by loose, large brushstrokes of a woman, seen from the back, wearing a gauzy white off-the-shoulder dress and black choker, blond hair swept up, examining herself in a mirror at left. The background is a feathered swirl suggesting floral pattern in cool pale tones of gray, purple, pink, and blue.",
+          "api": "https://api.artic.edu/api/v1/artworks/11723",
+          "url": "https://www.artic.edu/artworks/11723"
+        },
+        {
+          "id": "artic:25865",
+          "source": "artic",
+          "sourceId": "25865",
+          "title": "The Herring Net",
+          "artist": "Winslow Homer",
+          "date": "1885",
+          "classification": "painting",
+          "style": "Impressionism",
+          "sourceTerms": [
+            "artic:TM-7543",
+            "artic:TM-7548",
+            "artic:TM-5981"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021503"
+          ],
+          "publicDomain": true,
+          "rights": "https://creativecommons.org/publicdomain/mark/1.0/",
+          "image": "https://www.artic.edu/iiif/2/5dca7347-c6dc-24dd-d073-d705b9cdc575/full/200,/0/default.jpg",
+          "alt": "Painting of two fishermen in small wooden boat on rocky seas.",
+          "api": "https://api.artic.edu/api/v1/artworks/25865",
+          "url": "https://www.artic.edu/artworks/25865"
+        },
+        {
+          "id": "artic:61603",
+          "source": "artic",
+          "sourceId": "61603",
+          "title": "Ballet at the Paris Opéra",
+          "artist": "Hilaire Germain Edgar Degas",
+          "date": "1877",
+          "classification": "pastel",
+          "style": "Impressionism",
+          "sourceTerms": [
+            "artic:TM-7543"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021503"
+          ],
+          "publicDomain": true,
+          "rights": "https://creativecommons.org/publicdomain/mark/1.0/",
+          "image": "https://www.artic.edu/iiif/2/cb34b0a8-bc51-d063-aab1-47c7debf3a7b/full/200,/0/default.jpg",
+          "alt": "Color pastel drawing of ballerinas in tutus on stage, watched by audience.",
+          "api": "https://api.artic.edu/api/v1/artworks/61603",
+          "url": "https://www.artic.edu/artworks/61603"
+        },
+        {
+          "id": "artic:69780",
+          "source": "artic",
+          "sourceId": "69780",
+          "title": "The Fountain, Villa Torlonia, Frascati, Italy",
+          "artist": "John Singer Sargent",
+          "date": "1907",
+          "classification": "oil on canvas",
+          "style": "Impressionism",
+          "sourceTerms": [
+            "artic:TM-7543",
+            "artic:TM-5981"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021503"
+          ],
+          "publicDomain": true,
+          "rights": "https://creativecommons.org/publicdomain/mark/1.0/",
+          "image": "https://www.artic.edu/iiif/2/3f9aa9db-61e1-7060-fdb0-bfd7e41ddd08/full/200,/0/default.jpg",
+          "alt": "Portrait of a woman in white with a bonnet perched on an architectural feature painting something to her right, a spouting water fountain, greenery, and a an ornate, low white fence behind her. Beside her, a man leans back, eying the canvas.",
+          "api": "https://api.artic.edu/api/v1/artworks/69780",
+          "url": "https://www.artic.edu/artworks/69780"
+        }
+      ]
+    },
+    {
+      "id": "aat:300021508",
+      "slug": "post-impressionism",
+      "label": "Post-Impressionism",
+      "aatId": "300021508",
+      "aat": "http://vocab.getty.edu/aat/300021508",
+      "speech": "post-impressionism",
+      "sourceTerms": [
+        {
+          "source": "artic",
+          "id": "TM-7547",
+          "label": "Post-Impressionism"
+        }
+      ],
+      "artworks": [
+        {
+          "id": "artic:28560",
+          "source": "artic",
+          "sourceId": "28560",
+          "title": "The Bedroom",
+          "artist": "Vincent van Gogh",
+          "date": "1889",
+          "classification": "oil on canvas",
+          "style": "Post-Impressionism",
+          "sourceTerms": [
+            "artic:TM-7547",
+            "artic:TM-13203",
+            "artic:TM-15636"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021508"
+          ],
+          "publicDomain": true,
+          "rights": "https://creativecommons.org/publicdomain/mark/1.0/",
+          "image": "https://www.artic.edu/iiif/2/6644829f-f292-c5c4-a73c-0356a6fdbf0d/full/200,/0/default.jpg",
+          "alt": "Painting of bedroom, blue walls, green window, tan bed, red bedding.",
+          "api": "https://api.artic.edu/api/v1/artworks/28560",
+          "url": "https://www.artic.edu/artworks/28560"
+        },
+        {
+          "id": "artic:80607",
+          "source": "artic",
+          "sourceId": "80607",
+          "title": "Self-Portrait",
+          "artist": "Vincent van Gogh",
+          "date": "1887",
+          "classification": "oil on board",
+          "style": "Post-Impressionism",
+          "sourceTerms": [
+            "artic:TM-7547",
+            "artic:TM-13203",
+            "artic:TM-15636"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021508"
+          ],
+          "publicDomain": true,
+          "rights": "https://creativecommons.org/publicdomain/mark/1.0/",
+          "image": "https://www.artic.edu/iiif/2/47c5bcb8-62ef-e5d7-55e7-f5121f409a30/full/200,/0/default.jpg",
+          "alt": "Painting of a red-haired, bearded man with light skin, painted in short brushstrokes and multicolored dots. The background is likewise a mass of small, closely spaced colored dots, these in green, blue, and red-orange.",
+          "api": "https://api.artic.edu/api/v1/artworks/80607",
+          "url": "https://www.artic.edu/artworks/80607"
+        },
+        {
+          "id": "artic:61128",
+          "source": "artic",
+          "sourceId": "61128",
+          "title": "At the Moulin Rouge",
+          "artist": "Henri de Toulouse-Lautrec",
+          "date": "1892–95",
+          "classification": "oil on canvas",
+          "style": "Post-Impressionism",
+          "sourceTerms": [
+            "artic:TM-7547",
+            "artic:TM-15636",
+            "artic:TM-13203"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021508"
+          ],
+          "publicDomain": true,
+          "rights": "https://creativecommons.org/publicdomain/mark/1.0/",
+          "image": "https://www.artic.edu/iiif/2/defb4004-b500-218d-3d9b-9a02423f097d/full/200,/0/default.jpg",
+          "alt": "Painting, heavy in tones of blue-green and burnt orange, depicting a bar scene at night. The men wear top hats and many are bearded; the women are dressed in voluminous gowns and decorative hats. Five people converse in the center of the composition and a woman with a green face dominates the right foreground.",
+          "api": "https://api.artic.edu/api/v1/artworks/61128",
+          "url": "https://www.artic.edu/artworks/61128"
+        },
+        {
+          "id": "artic:111436",
+          "source": "artic",
+          "sourceId": "111436",
+          "title": "The Basket of Apples",
+          "artist": "Paul Cezanne",
+          "date": "c. 1893",
+          "classification": "oil on canvas",
+          "style": "Post-Impressionism",
+          "sourceTerms": [
+            "artic:TM-7547",
+            "artic:TM-13203"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021508"
+          ],
+          "publicDomain": true,
+          "rights": "https://creativecommons.org/publicdomain/mark/1.0/",
+          "image": "https://www.artic.edu/iiif/2/52ac8996-3460-cf71-cb42-5c4d0aa29b74/full/200,/0/default.jpg",
+          "alt": "Painting of a basket of green and red-yellow apples spilling over into a white cloth placed on a wooden table, with a dark green bottle and a plate of pale biscuits behind.",
+          "api": "https://api.artic.edu/api/v1/artworks/111436",
+          "url": "https://www.artic.edu/artworks/111436"
+        },
+        {
+          "id": "artic:154235",
+          "source": "artic",
+          "sourceId": "154235",
+          "title": "The Girl by the Window",
+          "artist": "Edvard Munch",
+          "date": "1893",
+          "classification": "oil on canvas",
+          "style": "Post-Impressionism",
+          "sourceTerms": [
+            "artic:TM-7547",
+            "artic:TM-15636",
+            "artic:TM-13203"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021508"
+          ],
+          "publicDomain": true,
+          "rights": "https://creativecommons.org/publicdomain/mark/1.0/",
+          "image": "https://www.artic.edu/iiif/2/d7df2633-3b40-f570-c906-211503a37cde/full/200,/0/default.jpg",
+          "alt": "Loosely painted scene of a brown-haired girl in her nightgown standing in a dark room, gazing out a window into a brighter night, her face unseen and her hand drawing back the pale curtain. Light blues and pink whites dominate the girl and the window, while deep browns, blues, and greens color the darkened portions of her room.",
+          "api": "https://api.artic.edu/api/v1/artworks/154235",
+          "url": "https://www.artic.edu/artworks/154235"
+        },
+        {
+          "id": "artic:16487",
+          "source": "artic",
+          "sourceId": "16487",
+          "title": "The Bay of Marseille, Seen from L'Estaque",
+          "artist": "Paul Cezanne",
+          "date": "c. 1885",
+          "classification": "oil on canvas",
+          "style": "Post-Impressionism",
+          "sourceTerms": [
+            "artic:TM-7547",
+            "artic:TM-13203"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021508"
+          ],
+          "publicDomain": true,
+          "rights": "https://creativecommons.org/publicdomain/mark/1.0/",
+          "image": "https://www.artic.edu/iiif/2/d4ca6321-8656-3d3f-a362-2ee297b2b813/full/200,/0/default.jpg",
+          "alt": "Impressionist sea landscape, tan houses, blue ocean, distant mountains.",
+          "api": "https://api.artic.edu/api/v1/artworks/16487",
+          "url": "https://www.artic.edu/artworks/16487"
+        },
+        {
+          "id": "artic:144361",
+          "source": "artic",
+          "sourceId": "144361",
+          "title": "Earthly Paradise",
+          "artist": "Pierre Bonnard",
+          "date": "1916–20",
+          "classification": "oil on canvas",
+          "style": "Post-Impressionism",
+          "sourceTerms": [
+            "artic:TM-7547"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021508"
+          ],
+          "publicDomain": false,
+          "rights": "http://rightsstatements.org/vocab/InC/1.0/",
+          "image": "https://www.artic.edu/iiif/2/8b4abeed-c22b-1477-1e76-b303ac1415d1/full/200,/0/default.jpg",
+          "alt": "Vibrantly colored painting of nude woman lying, and man standing, in lush landscape.",
+          "api": "https://api.artic.edu/api/v1/artworks/144361",
+          "url": "https://www.artic.edu/artworks/144361"
+        },
+        {
+          "id": "artic:16146",
+          "source": "artic",
+          "sourceId": "16146",
+          "title": "Equestrienne (At the Cirque Fernando)",
+          "artist": "Henri de Toulouse-Lautrec",
+          "date": "1887–88",
+          "classification": "oil on canvas",
+          "style": "Post-Impressionism",
+          "sourceTerms": [
+            "artic:TM-7547",
+            "artic:TM-15636",
+            "artic:TM-13203"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021508"
+          ],
+          "publicDomain": true,
+          "rights": "https://creativecommons.org/publicdomain/mark/1.0/",
+          "image": "https://www.artic.edu/iiif/2/65db9e21-83c3-1cc6-7240-1e1996d87f52/full/200,/0/default.jpg",
+          "alt": "Painting of a performance inside a circus ring. A man wearing a suit holds a whip in his hand and looks towards a woman with red hair riding a gray horse and wearing a green dress. Audience members wearing suits and top hats watch from red and white benches on the side.",
+          "api": "https://api.artic.edu/api/v1/artworks/16146",
+          "url": "https://www.artic.edu/artworks/16146"
+        },
+        {
+          "id": "artic:19339",
+          "source": "artic",
+          "sourceId": "19339",
+          "title": "Arlésiennes (Mistral)",
+          "artist": "Paul Gauguin",
+          "date": "1888",
+          "classification": "painting",
+          "style": "Post-Impressionism",
+          "sourceTerms": [
+            "artic:TM-7547",
+            "artic:TM-13203",
+            "artic:TM-15636"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021508"
+          ],
+          "publicDomain": true,
+          "rights": "https://creativecommons.org/publicdomain/mark/1.0/",
+          "image": "https://www.artic.edu/iiif/2/ae6ac285-6887-dd76-4570-d379c786dfae/full/200,/0/default.jpg",
+          "alt": "Painting of four women with blue shawls walking near red fence.",
+          "api": "https://api.artic.edu/api/v1/artworks/19339",
+          "url": "https://www.artic.edu/artworks/19339"
+        },
+        {
+          "id": "artic:64724",
+          "source": "artic",
+          "sourceId": "64724",
+          "title": "The Home of the Heron",
+          "artist": "George Inness",
+          "date": "1893",
+          "classification": "painting",
+          "style": "Post-Impressionism",
+          "sourceTerms": [
+            "artic:TM-7547"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021508"
+          ],
+          "publicDomain": true,
+          "rights": "https://creativecommons.org/publicdomain/mark/1.0/",
+          "image": "https://www.artic.edu/iiif/2/0f2d999d-0173-2935-a6d0-0175bb97b2a9/full/200,/0/default.jpg",
+          "alt": "A heronǳ silhouette sits amongst the brush in a golden hued forest.",
+          "api": "https://api.artic.edu/api/v1/artworks/64724",
+          "url": "https://www.artic.edu/artworks/64724"
+        }
+      ]
+    },
+    {
+      "id": "aat:300021512",
+      "slug": "surrealism",
+      "label": "Surrealism",
+      "aatId": "300021512",
+      "aat": "http://vocab.getty.edu/aat/300021512",
+      "speech": "surrealism",
+      "sourceTerms": [
+        {
+          "source": "artic",
+          "id": "TM-7551",
+          "label": "Surrealism"
+        }
+      ],
+      "artworks": [
+        {
+          "id": "artic:34181",
+          "source": "artic",
+          "sourceId": "34181",
+          "title": "La durée poignardée (Time Transfixed)",
+          "artist": "René Magritte",
+          "date": "1938",
+          "classification": "oil on canvas",
+          "style": "Surrealism",
+          "sourceTerms": [
+            "artic:TM-7551",
+            "artic:TM-5981"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021512"
+          ],
+          "publicDomain": false,
+          "rights": "http://rightsstatements.org/vocab/InC/1.0/",
+          "image": "https://www.artic.edu/iiif/2/91e4c46b-9ef3-ca78-148c-86845e457d88/full/200,/0/default.jpg",
+          "alt": "A rather stark, clean-lined painting shows a fireplace mantle topped with a clock against a bare wall with wood paneling. From the back wall of the fireplace, a black locomotive emerges, belching smoke and riding an unseen track in the the air.",
+          "api": "https://api.artic.edu/api/v1/artworks/34181",
+          "url": "https://www.artic.edu/artworks/34181"
+        },
+        {
+          "id": "artic:151424",
+          "source": "artic",
+          "sourceId": "151424",
+          "title": "Inventions of the Monsters",
+          "artist": "Salvador Dalí",
+          "date": "1937",
+          "classification": "painting",
+          "style": "Surrealism",
+          "sourceTerms": [
+            "artic:TM-7551"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021512"
+          ],
+          "publicDomain": false,
+          "rights": "http://rightsstatements.org/vocab/InC/1.0/",
+          "image": "https://www.artic.edu/iiif/2/be9551d4-860f-37a0-1408-086617f1824e/full/200,/0/default.jpg",
+          "alt": "A painting of strange and surreal scene in a desert landscape with mountains in the background. The scene features a giraffe that is on fire, disembodied forms and faces, and skeletal figures.",
+          "api": "https://api.artic.edu/api/v1/artworks/151424",
+          "url": "https://www.artic.edu/artworks/151424"
+        },
+        {
+          "id": "artic:56682",
+          "source": "artic",
+          "sourceId": "56682",
+          "title": "The Rock",
+          "artist": "Peter Blume",
+          "date": "1944–48",
+          "classification": "painting",
+          "style": "Surrealism",
+          "sourceTerms": [
+            "artic:TM-7551",
+            "artic:TM-5981"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021512"
+          ],
+          "publicDomain": false,
+          "rights": "http://rightsstatements.org/vocab/InC/1.0/",
+          "image": "https://www.artic.edu/iiif/2/2843f22e-8ef1-2cd5-b53e-6712cd664e9a/full/200,/0/default.jpg",
+          "alt": "Painting of figures construction project amid smoky destruction, middle is pink crater.",
+          "api": "https://api.artic.edu/api/v1/artworks/56682",
+          "url": "https://www.artic.edu/artworks/56682"
+        },
+        {
+          "id": "artic:83905",
+          "source": "artic",
+          "sourceId": "83905",
+          "title": "That Which I Should Have Done I Did Not Do (The Door)",
+          "artist": "Ivan Albright",
+          "date": "1931–41",
+          "classification": "oil on canvas",
+          "style": "Surrealism",
+          "sourceTerms": [
+            "artic:TM-7551",
+            "artic:TM-5981"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021512"
+          ],
+          "publicDomain": false,
+          "rights": "http://rightsstatements.org/vocab/InC/1.0/",
+          "image": "https://www.artic.edu/iiif/2/0ecc7b1a-70b3-7ac6-1a46-3401d0963aa6/full/200,/0/default.jpg",
+          "alt": "Shallow and tall painting tightly focused on a black paneled door, a wreath of dying flowers hanging on it and a hand reaching to the doorknob from left.",
+          "api": "https://api.artic.edu/api/v1/artworks/83905",
+          "url": "https://www.artic.edu/artworks/83905"
+        },
+        {
+          "id": "artic:185184",
+          "source": "artic",
+          "sourceId": "185184",
+          "title": "Venus de Milo with Drawers",
+          "artist": "Salvador Dalí",
+          "date": "1936",
+          "classification": "sculpture",
+          "style": "Surrealism",
+          "sourceTerms": [
+            "artic:TM-7551"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021512"
+          ],
+          "publicDomain": false,
+          "rights": "http://rightsstatements.org/vocab/InC/1.0/",
+          "image": "https://www.artic.edu/iiif/2/678c7a7a-b8c7-2857-7b97-f3c3501b8b1c/full/200,/0/default.jpg",
+          "alt": "White plaster statue of woman with protruding compartments, each adorned with fur pompom.",
+          "api": "https://api.artic.edu/api/v1/artworks/185184",
+          "url": "https://www.artic.edu/artworks/185184"
+        },
+        {
+          "id": "artic:189807",
+          "source": "artic",
+          "sourceId": "189807",
+          "title": "Object",
+          "artist": "Claude Cahun",
+          "date": "1936",
+          "classification": "wood",
+          "style": "Surrealism",
+          "sourceTerms": [
+            "artic:TM-7551"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021512"
+          ],
+          "publicDomain": false,
+          "rights": "http://rightsstatements.org/vocab/InC/1.0/",
+          "image": "https://www.artic.edu/iiif/2/07c85e2a-d045-1e2e-ab12-4887e82a1f7f/full/200,/0/default.jpg",
+          "alt": "Three-dimensional piece featuring a large eyeball, oriented sideways, on a wooden pin set in a flat piece of yellow wood at upper right, cursive writing in French on the wood. Strands of curly hair and the wooden cutout of a cloud are affixed to the eyeball. Affixed to the wood, at lower left, is a tiny light-skinned hand with fingers reaching upward.",
+          "api": "https://api.artic.edu/api/v1/artworks/189807",
+          "url": "https://www.artic.edu/artworks/189807"
+        },
+        {
+          "id": "artic:118661",
+          "source": "artic",
+          "sourceId": "118661",
+          "title": "Juan Soriano De Lacandón",
+          "artist": "Leonora Carrington",
+          "date": "1964",
+          "classification": "painting",
+          "style": "Surrealism",
+          "sourceTerms": [
+            "artic:TM-7551",
+            "artic:TM-12062"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021512"
+          ],
+          "publicDomain": false,
+          "rights": "http://rightsstatements.org/vocab/InC/1.0/",
+          "image": "https://www.artic.edu/iiif/2/b59b290e-1ea6-dc37-4c86-1a16c948bfed/full/200,/0/default.jpg",
+          "alt": "A work made of graphite and casein on panel.",
+          "api": "https://api.artic.edu/api/v1/artworks/118661",
+          "url": "https://www.artic.edu/artworks/118661"
+        },
+        {
+          "id": "artic:72728",
+          "source": "artic",
+          "sourceId": "72728",
+          "title": "Untitled",
+          "artist": "Yves Tanguy",
+          "date": "1928",
+          "classification": "oil on panel",
+          "style": "Surrealism",
+          "sourceTerms": [
+            "artic:TM-7551"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021512"
+          ],
+          "publicDomain": false,
+          "rights": "http://rightsstatements.org/vocab/InC/1.0/",
+          "image": "https://www.artic.edu/iiif/2/64b620f1-4467-7e17-4356-d7537850aa5f/full/200,/0/default.jpg",
+          "alt": "Large painting on seven panels of dark landscape with small abstract shapes.",
+          "api": "https://api.artic.edu/api/v1/artworks/72728",
+          "url": "https://www.artic.edu/artworks/72728"
+        },
+        {
+          "id": "artic:198809",
+          "source": "artic",
+          "sourceId": "198809",
+          "title": "Self-Portrait of My Sister",
+          "artist": "Gertrude Abercrombie",
+          "date": "1941",
+          "classification": "oil on canvas",
+          "style": "Surrealism",
+          "sourceTerms": [
+            "artic:TM-7551",
+            "artic:TM-5981"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021512"
+          ],
+          "publicDomain": false,
+          "rights": "http://rightsstatements.org/vocab/InC/1.0/",
+          "image": "https://www.artic.edu/iiif/2/ae4ffb7f-58e4-7a2a-a960-0ec9a46a09ea/full/200,/0/default.jpg",
+          "alt": "A work made of oil on canvas.",
+          "api": "https://api.artic.edu/api/v1/artworks/198809",
+          "url": "https://www.artic.edu/artworks/198809"
+        },
+        {
+          "id": "artic:93798",
+          "source": "artic",
+          "sourceId": "93798",
+          "title": "Picture of Dorian Gray",
+          "artist": "Ivan Albright",
+          "date": "1943–44",
+          "classification": "painting",
+          "style": "Surrealism",
+          "sourceTerms": [
+            "artic:TM-7551",
+            "artic:TM-5981"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300021512"
+          ],
+          "publicDomain": false,
+          "rights": "http://rightsstatements.org/vocab/InC/1.0/",
+          "image": "https://www.artic.edu/iiif/2/aa2b57e9-3773-03c1-0fb4-0135e7358dc6/full/200,/0/default.jpg",
+          "alt": "A graphic, grotesque painting of a balding, bug-eyed man with white hair and decaying flesh and open boils in dominant shades of gray and magenta, his clothing tattered and torn. Behind him, a crumbling home is suggested through objects and voids of space rendered in swirls of prismatic colors like those reflected by an oil slick: dark purples, greens, blues.",
+          "api": "https://api.artic.edu/api/v1/artworks/93798",
+          "url": "https://www.artic.edu/artworks/93798"
+        }
+      ]
+    },
+    {
+      "id": "aat:300022205",
+      "slug": "pop-art",
+      "label": "Pop Art",
+      "aatId": "300022205",
+      "aat": "http://vocab.getty.edu/aat/300022205",
+      "speech": "pop art",
+      "sourceTerms": [
+        {
+          "source": "artic",
+          "id": "TM-7221",
+          "label": "Pop Art"
+        }
+      ],
+      "artworks": [
+        {
+          "id": "artic:47149",
+          "source": "artic",
+          "sourceId": "47149",
+          "title": "Mao",
+          "artist": "Andy Warhol",
+          "date": "1972",
+          "classification": "painting",
+          "style": "Pop Art",
+          "sourceTerms": [
+            "artic:TM-7221"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300022205"
+          ],
+          "publicDomain": false,
+          "rights": "http://rightsstatements.org/vocab/InC/1.0/",
+          "image": "https://www.artic.edu/iiif/2/97cb5c4b-cce5-c4d8-f303-613ce92832c7/full/200,/0/default.jpg",
+          "alt": "Large painted portrait of Mao wearing eyeshadow, blush, blue backdrop.",
+          "api": "https://api.artic.edu/api/v1/artworks/47149",
+          "url": "https://www.artic.edu/artworks/47149"
+        },
+        {
+          "id": "artic:102234",
+          "source": "artic",
+          "sourceId": "102234",
+          "title": "American Collectors (Fred and Marcia Weisman)",
+          "artist": "David Hockney",
+          "date": "1968",
+          "classification": "painting",
+          "style": "Pop Art",
+          "sourceTerms": [
+            "artic:TM-7221"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300022205"
+          ],
+          "publicDomain": false,
+          "rights": "http://rightsstatements.org/vocab/InC/1.0/",
+          "image": "https://www.artic.edu/iiif/2/f95a0a70-90c5-2806-2a66-68f27f8c0735/full/200,/0/default.jpg",
+          "alt": "A painting of a light-skinned man in a suit and glasses standing in profile and a light-skinned woman with chin-length gray hair and wearing a full-length bright-pink robe stand in a courtyard with various sculptures. Between them is a large stone on a plinth, behind them a green abstracted seated figure, and off to the right a totem pole.",
+          "api": "https://api.artic.edu/api/v1/artworks/102234",
+          "url": "https://www.artic.edu/artworks/102234"
+        },
+        {
+          "id": "artic:122054",
+          "source": "artic",
+          "sourceId": "122054",
+          "title": "Alka Seltzer",
+          "artist": "Roy Lichtenstein",
+          "date": "1966",
+          "classification": "crayon",
+          "style": "Pop Art",
+          "sourceTerms": [
+            "artic:TM-7221"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300022205"
+          ],
+          "publicDomain": false,
+          "rights": "http://rightsstatements.org/vocab/InC/1.0/",
+          "image": "https://www.artic.edu/iiif/2/3968921f-222e-37ae-5c53-fafd26a45c7b/full/200,/0/default.jpg",
+          "alt": "Depiction of comic book style cup, alka seltzer dissolving in water.",
+          "api": "https://api.artic.edu/api/v1/artworks/122054",
+          "url": "https://www.artic.edu/artworks/122054"
+        },
+        {
+          "id": "artic:24836",
+          "source": "artic",
+          "sourceId": "24836",
+          "title": "Brushstroke with Spatter",
+          "artist": "Roy Lichtenstein",
+          "date": "1966",
+          "classification": "painting",
+          "style": "Pop Art",
+          "sourceTerms": [
+            "artic:TM-7221"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300022205"
+          ],
+          "publicDomain": false,
+          "rights": "http://rightsstatements.org/vocab/InC/1.0/",
+          "image": "https://www.artic.edu/iiif/2/f8dbda50-a10b-d0ff-a35c-24c2f9e733f1/full/200,/0/default.jpg",
+          "alt": "Oil painting in cartoon style of gigantic, close-up brushstroke of paint, blue spatter.",
+          "api": "https://api.artic.edu/api/v1/artworks/24836",
+          "url": "https://www.artic.edu/artworks/24836"
+        },
+        {
+          "id": "artic:229406",
+          "source": "artic",
+          "sourceId": "229406",
+          "title": "Liz #3 [Early Colored Liz]",
+          "artist": "Andy Warhol",
+          "date": "1963",
+          "classification": "acrylic paintings (visual works)",
+          "style": "Pop Art",
+          "sourceTerms": [
+            "artic:TM-7221"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300022205"
+          ],
+          "publicDomain": false,
+          "rights": "http://rightsstatements.org/vocab/InC/1.0/",
+          "image": "https://www.artic.edu/iiif/2/362c0c2a-4576-2207-4ba9-2b87e6d0bad0/full/200,/0/default.jpg",
+          "alt": "A work made of acrylic and silkscreen ink on linen.",
+          "api": "https://api.artic.edu/api/v1/artworks/229406",
+          "url": "https://www.artic.edu/artworks/229406"
+        },
+        {
+          "id": "artic:184362",
+          "source": "artic",
+          "sourceId": "184362",
+          "title": "Mirror #3 (Six Panels)",
+          "artist": "Roy Lichtenstein",
+          "date": "1971",
+          "classification": "painting",
+          "style": "Pop Art",
+          "sourceTerms": [
+            "artic:TM-7221",
+            "artic:TM-7536"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300022205"
+          ],
+          "publicDomain": false,
+          "rights": "http://rightsstatements.org/vocab/InC/1.0/",
+          "image": "https://www.artic.edu/iiif/2/4f3baaee-14ea-81e0-6252-447ab15a9b1d/full/200,/0/default.jpg",
+          "alt": "Abstract work of numerous vertical lines dividing a horizontal image, making rectangular shapes in black, white, yellow, and white with tiny black dots forming the effect of a gray gradient. Many of the shapes have diagonal white bands running irregularly across them, evoking reflective surfaces of different angles.",
+          "api": "https://api.artic.edu/api/v1/artworks/184362",
+          "url": "https://www.artic.edu/artworks/184362"
+        },
+        {
+          "id": "artic:150044",
+          "source": "artic",
+          "sourceId": "150044",
+          "title": "Marilyn Monroe (Marilyn)",
+          "artist": "Andy Warhol",
+          "date": "1967",
+          "classification": "screenprint",
+          "style": "Pop Art",
+          "sourceTerms": [
+            "artic:TM-7221"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300022205"
+          ],
+          "publicDomain": false,
+          "rights": "http://rightsstatements.org/vocab/InC/1.0/",
+          "image": "https://www.artic.edu/iiif/2/89255d96-36c4-e941-8b13-a1b165a07a49/full/200,/0/default.jpg",
+          "alt": "A work made of color screenprint on cream card.",
+          "api": "https://api.artic.edu/api/v1/artworks/150044",
+          "url": "https://www.artic.edu/artworks/150044"
+        },
+        {
+          "id": "artic:109915",
+          "source": "artic",
+          "sourceId": "109915",
+          "title": "Clothespin",
+          "artist": "Claes Oldenburg",
+          "date": "1975",
+          "classification": "sculpture",
+          "style": "Pop Art",
+          "sourceTerms": [
+            "artic:TM-7221"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300022205"
+          ],
+          "publicDomain": false,
+          "rights": "http://rightsstatements.org/vocab/InC/1.0/",
+          "image": "https://www.artic.edu/iiif/2/daae5ff6-e38a-19bc-78e6-d9134a527af5/full/200,/0/default.jpg",
+          "alt": "A work made of cor-ten and stainless steel.",
+          "api": "https://api.artic.edu/api/v1/artworks/109915",
+          "url": "https://www.artic.edu/artworks/109915"
+        },
+        {
+          "id": "artic:146886",
+          "source": "artic",
+          "sourceId": "146886",
+          "title": "Untitled",
+          "artist": "Keith Haring",
+          "date": "September 27, 1981",
+          "classification": "ink or chalk wash",
+          "style": "Pop Art",
+          "sourceTerms": [
+            "artic:TM-7221"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300022205"
+          ],
+          "publicDomain": false,
+          "rights": "http://rightsstatements.org/vocab/InC/1.0/",
+          "image": "https://www.artic.edu/iiif/2/f8f58142-0be4-d504-b309-61ed72bc547c/full/200,/0/default.jpg",
+          "alt": "A work made of brush and black ink on white board.",
+          "api": "https://api.artic.edu/api/v1/artworks/146886",
+          "url": "https://www.artic.edu/artworks/146886"
+        },
+        {
+          "id": "artic:100864",
+          "source": "artic",
+          "sourceId": "100864",
+          "title": "Sunday Morning, Mayflower Hotel, N.Y.",
+          "artist": "David Hockney",
+          "date": "November 28, 1983",
+          "classification": "color photograph",
+          "style": "Pop Art",
+          "sourceTerms": [
+            "artic:TM-7221"
+          ],
+          "aat": [
+            "http://vocab.getty.edu/aat/300022205"
+          ],
+          "publicDomain": false,
+          "rights": "http://rightsstatements.org/vocab/InC/1.0/",
+          "image": "https://www.artic.edu/iiif/2/c04a376f-23fc-65da-bc10-6af4b77f120a/full/200,/0/default.jpg",
+          "alt": "A work made of photocollage (chromogenic prints).",
+          "api": "https://api.artic.edu/api/v1/artworks/100864",
+          "url": "https://www.artic.edu/artworks/100864"
+        }
+      ]
+    }
+  ]
+}
