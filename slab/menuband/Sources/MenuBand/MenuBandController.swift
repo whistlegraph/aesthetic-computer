@@ -179,6 +179,15 @@ final class MenuBandController {
     /// added without breaking older saved values.
     private let instrumentBackendKey = "notepat.instrumentBackend"
     private let radioStationKey = "notepat.radioStation"
+    /// Headless Spotify playback is deliberately separate from the synth's
+    /// instrument backend: the player can run underneath a GM/sample voice so
+    /// the user can play along. Selecting an internet-radio voice pauses it.
+    private let spotify = MenuBandSpotify()
+    private var spotifyCallbacksInstalled = false
+    private(set) var spotifyPlayerPresented = false
+    private(set) var spotifyPlayback: MenuBandSpotifyPlayback?
+    private(set) var spotifyStatus = "juked headless player"
+    private(set) var spotifyStatusIsError = false
     /// File URL string of the GarageBand patch the user picked. Empty
     /// when no GB patch has been selected yet (we'll fall back to the
     /// first scanned patch when the backend is GarageBand and this is
@@ -201,6 +210,10 @@ final class MenuBandController {
     var onOctaveLimitNudge: ((Int) -> Void)?
     var onLitChanged: (() -> Void)?
     var onInstrumentVisualChange: (() -> Void)?
+    /// Lightweight now-playing updates (once per second while Spotify is in
+    /// use). Kept separate from `onChange`, whose full icon/window refresh is
+    /// intentionally too expensive for a progress timer.
+    var onSpotifyChange: (() -> Void)?
     private(set) var sampleInputLevel: Float = 0
 
     /// Last MIDI note actually played (mouse tap or keyboard). Used by
@@ -1230,6 +1243,7 @@ final class MenuBandController {
     /// whichever GM program was last selected.
     func setRadioBackend(_ enabled: Bool) {
         if enabled {
+            if spotifyPlayerPresented { deactivateSpotifyPlayer() }
             UserDefaults.standard.set("kpbj", forKey: instrumentBackendKey)
             synth.setRadioStation(radioStation)  // tune to the saved station
             synth.setRadioBackend(true)
@@ -1263,6 +1277,10 @@ final class MenuBandController {
     /// behind a station cell in the chooser and the `-kpbj` / `-nts1` /
     /// `-nts2` typed commands. Tuning while already on radio just retunes.
     func selectRadioStation(_ station: RadioStation) {
+        // Radio and Spotify are peer listening sources in the bottom strip;
+        // never let both streams speak at once. This leaves the normal GM
+        // voice untouched when Spotify is later re-opened for play-along.
+        if spotifyPlayerPresented { deactivateSpotifyPlayer() }
         UserDefaults.standard.set(station.id, forKey: radioStationKey)
         synth.setRadioStation(station)
         if instrumentBackend != .kpbj {
@@ -1271,6 +1289,87 @@ final class MenuBandController {
             onChange?()
             onInstrumentVisualChange?()
         }
+    }
+
+    // MARK: - Headless Spotify player
+
+    /// Reveal and start the compact Spotify player. `juked` serializes start
+    /// before any immediately-following search/play command, so this is safe
+    /// to call from a single click on the source strip.
+    func activateSpotifyPlayer() {
+        installSpotifyCallbacksIfNeeded()
+        spotifyPlayerPresented = true
+        spotifyStatus = "connecting to juked…"
+        spotifyStatusIsError = false
+        spotify.start()
+        onSpotifyChange?()
+        onInstrumentVisualChange?()
+    }
+
+    func deactivateSpotifyPlayer() {
+        spotify.pause()
+        spotifyPlayerPresented = false
+        onSpotifyChange?()
+        onInstrumentVisualChange?()
+    }
+
+    func toggleSpotifyPlayback() {
+        if !spotifyPlayerPresented { activateSpotifyPlayer() }
+        spotify.toggle()
+    }
+
+    func previousSpotifyTrack() { spotify.previous() }
+    func nextSpotifyTrack() { spotify.next() }
+
+    func seekSpotify(to seconds: Double, from currentPosition: Double) {
+        spotify.seek(to: seconds, from: currentPosition)
+    }
+
+    func searchSpotify(
+        _ query: String,
+        completion: @escaping (Result<[MenuBandSpotifyTrack], Error>) -> Void
+    ) {
+        if !spotifyPlayerPresented { activateSpotifyPlayer() }
+        spotify.search(query, completion: completion)
+    }
+
+    func playSpotify(_ track: MenuBandSpotifyTrack) {
+        if !spotifyPlayerPresented { activateSpotifyPlayer() }
+        spotify.play(track)
+    }
+
+    private func installSpotifyCallbacksIfNeeded() {
+        guard !spotifyCallbacksInstalled else { return }
+        spotifyCallbacksInstalled = true
+        spotify.onState = { [weak self] state in
+            guard let self else { return }
+            self.spotifyPlayback = state
+            if state != nil { self.spotifyStatusIsError = false }
+            self.onSpotifyChange?()
+        }
+        spotify.onStatus = { [weak self] message, failed in
+            guard let self else { return }
+            self.spotifyStatus = message
+            self.spotifyStatusIsError = failed
+            self.onSpotifyChange?()
+        }
+    }
+
+    /// Deterministic, side-effect-free state for the offscreen popover capture
+    /// harness. Never starts `juked` or touches the user's real playback.
+    func seedSpotifyPlayerForCapture() {
+        spotifyPlayerPresented = true
+        spotifyStatus = "juked headless · ready"
+        spotifyStatusIsError = false
+        spotifyPlayback = MenuBandSpotifyPlayback(
+            trackID: "capture-track",
+            title: "Always From Here",
+            artists: "Aesthetic Computer",
+            album: "Menu Band Sessions",
+            artworkURL: nil,
+            duration: 248,
+            position: 83,
+            isPlaying: true)
     }
 
     // MARK: - Plugins (third-party AU instruments)
