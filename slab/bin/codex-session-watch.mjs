@@ -16,6 +16,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { join } from "node:path";
 import { homedir } from "node:os";
+import { pathToFileURL } from "node:url";
 
 const [sid, _beginArg, wrapperArg, tty = "", cwd = ""] = process.argv.slice(2);
 if (!sid) process.exit(1);
@@ -116,6 +117,13 @@ const touch = async (p) => {
   try { await writeFile(p, "", { flag: "a" }); await utimes(p, t, t); } catch {}
 };
 
+// rollout-<timestamp>-<provider uuid>.jsonl → the stable Codex thread id.
+// Persisting this in the active marker lets Slab refresh/zzz a tracked wrapper
+// and resume the same provider conversation instead of opening a fresh one.
+export function sessionIdFromRollout(file) {
+  return String(file || "").match(/-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$/i)?.[1] || "";
+}
+
 // Pull readable text out of a rollout content array (user prompt → subject).
 function textOf(payload) {
   const c = payload?.content;
@@ -190,6 +198,8 @@ function handleLine(line, ctx) {
 async function main() {
   const file = await findRollout();
   if (!file) process.exit(0);
+  const providerSessionId = sessionIdFromRollout(file);
+  if (providerSessionId) await updateMarker({ codex_session_id: providerSessionId });
   // Replay once from the beginning so a resumed Codex window immediately
   // inherits its real last state (usually complete) instead of sitting blank
   // or aging into interrupted until the user submits another prompt. After
@@ -216,7 +226,9 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(`codex-session-watch: ${error?.stack || error}`);
-  process.exit(1);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error(`codex-session-watch: ${error?.stack || error}`);
+    process.exit(1);
+  });
+}

@@ -26,7 +26,7 @@ private func particles() -> [Particle] {
             speed: 0.010 + unit() * 0.018,
             size: 54 + unit() * 76,
             phase: unit() * .pi * 2,
-            opacity: 0.24 + unit() * 0.16
+            opacity: 0.34 + unit() * 0.18
         )
     }
 }
@@ -60,6 +60,8 @@ private final class WallpaperView: NSView {
             ? [NSColor(calibratedWhite: 0.055, alpha: 1), NSColor(calibratedWhite: 0.14, alpha: 1)]
             : [NSColor(calibratedWhite: 0.97, alpha: 1), NSColor(calibratedWhite: 0.82, alpha: 1)]
         NSGradient(colors: background)!.draw(in: rect, angle: -72)
+
+        drawEdge(in: rect, time: t)
 
         // Two very slow color breaths keep even empty margins alive without
         // competing with the product window or subtitles.
@@ -100,6 +102,29 @@ private final class WallpaperView: NSView {
             gradient, startCenter: center, startRadius: 0,
             endCenter: center, endRadius: radius, options: [.drawsAfterEndLocation]
         )
+    }
+
+    private func drawEdge(in rect: NSRect, time: CGFloat) {
+        // A narrow, feathered brand-spectrum edge makes the recording feel
+        // intentionally staged while leaving the usable desktop margin quiet.
+        // Drawing three nested rings avoids a hard neon keyline.
+        let colors: [NSColor] = [
+            NSColor(calibratedRed: 0.49, green: 0.06, blue: 1.00, alpha: 1),
+            NSColor(calibratedRed: 0.98, green: 0.22, blue: 0.66, alpha: 1),
+            NSColor(calibratedRed: 0.06, green: 0.94, blue: 0.76, alpha: 1),
+            NSColor(calibratedRed: 0.49, green: 0.06, blue: 1.00, alpha: 1),
+        ]
+        let angle = -8 + 7 * sin(time * 0.10)
+        for (width, alpha) in [(54.0, 0.08), (28.0, 0.20), (10.0, 0.74)] {
+            guard let context = NSGraphicsContext.current?.cgContext else { return }
+            context.saveGState()
+            context.addRect(rect)
+            context.addRect(rect.insetBy(dx: width, dy: width))
+            context.clip(using: .evenOdd)
+            NSGradient(colors: colors.map { $0.withAlphaComponent(alpha) })?
+                .draw(in: rect, angle: angle)
+            context.restoreGState()
+        }
     }
 
     private func drawLogo(in rect: NSRect, opacity: CGFloat) {

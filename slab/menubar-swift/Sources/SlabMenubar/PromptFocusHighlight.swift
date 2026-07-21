@@ -220,7 +220,12 @@ final class PromptFocusHighlight {
                                      .ignoresCycle, .fullScreenAuxiliary]
         let view = NSView()
         view.wantsLayer = true
-        view.layer?.masksToBounds = true
+        // Host the layer explicitly. An unattached NSView may defer creation of
+        // its optional backing layer; optional-chaining addSublayer in that
+        // state produces a perfectly real but permanently transparent panel.
+        let root = CALayer()
+        root.masksToBounds = true
+        view.layer = root
 
         let shape = CAShapeLayer()
         shape.shadowOpacity = 0.80
@@ -229,7 +234,7 @@ final class PromptFocusHighlight {
         shape.actions = ["path": NSNull(), "fillColor": NSNull(),
                          "shadowColor": NSNull(), "position": NSNull(),
                          "bounds": NSNull()]
-        view.layer?.addSublayer(shape)
+        root.addSublayer(shape)
 
         let drops = CAEmitterLayer()
         drops.emitterShape = .line
@@ -240,7 +245,7 @@ final class PromptFocusHighlight {
         drops.actions = ["frame": NSNull(), "position": NSNull(),
                          "bounds": NSNull(), "emitterPosition": NSNull(),
                          "emitterSize": NSNull(), "birthRate": NSNull()]
-        view.layer?.addSublayer(drops)
+        root.addSublayer(drops)
 
         window.contentView = view
         panel = window
