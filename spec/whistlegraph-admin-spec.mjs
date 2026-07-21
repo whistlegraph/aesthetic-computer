@@ -50,6 +50,23 @@ function memoryDatabase() {
 }
 
 describe("Whistlegraph Desk", () => {
+  it("shows every public catalog post in the Desk archive", () => {
+    const catalog = JSON.parse(readFileSync(new URL("../toolchain/whistlegraph/downloads/CATALOG.json", import.meta.url), "utf8"));
+    const archive = JSON.parse(readFileSync(new URL("../system/public/whistlegraph.org/posts.json", import.meta.url), "utf8"));
+    const archiveIds = new Set(archive.posts.map((post) => String(post.id)));
+    const catalogIds = new Set(catalog.videos.map((post) => String(post.id)));
+
+    expect(archive.posts.length).toBe(archiveIds.size);
+    expect([...catalogIds].filter((id) => !archiveIds.has(id))).toEqual([]);
+  });
+
+  it("offers chronological post ordering in both directions", () => {
+    const page = readFileSync(new URL("../system/public/whistlegraph.org/admin.html", import.meta.url), "utf8");
+    expect(page).toContain('data-sort="newest"');
+    expect(page).toContain('data-sort="oldest"');
+    expect(page).toContain('sort==="oldest"?String(a.date||"").localeCompare(String(b.date||""))');
+  });
+
   it("recovers an existing Auth0 session before returning to the login splash", () => {
     const page = readFileSync(new URL("../system/public/whistlegraph.org/admin.html", import.meta.url), "utf8");
     expect(page).toContain("useRefreshTokensFallback:true");

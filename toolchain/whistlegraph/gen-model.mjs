@@ -175,33 +175,42 @@ const seedTitle = new Map();
 for (const [code, cs] of strongest) if (cs.reclaimed && cs.cl.known) seedTitle.set(code, cs.cl.title);
 
 // ── posts.json ──────────────────────────────────────────────────────────
-// One post per clip, tagged with its cluster's site code. (A clip lives in
-// exactly one cluster today, so graphs[] holds one code — the array is the
-// forward-compatible shape for multi-whistlegraph posts.)
+// Seed one post for every public account video, including posts that have not
+// entered a song cluster. Cluster membership then adds site codes. This keeps
+// Desk's Posts view a complete account-history surface instead of silently
+// dropping talks, process clips, and still-unclassified performances.
 const postsById = new Map();
+const makePost = (id) => {
+  const cat = catById.get(id) || {};
+  const cm = clipMeta.get(id) || {};
+  return {
+    id,
+    platform: "tiktok",
+    media: audioOnly.has(id) ? "audio" : "video",
+    url: cat.url || `https://www.tiktok.com/@whistlegraph/video/${id}`,
+    date: cat.date || cm.date || null,
+    views: cat.views ?? cm.views ?? null,
+    likes: cat.likes ?? null,
+    comments: cat.comments ?? null,
+    reposts: cat.reposts ?? null,
+    saves: cat.saves ?? null,
+    duration: cat.duration ?? null,
+    desc: cat.desc || "",
+    src: `${IDX}/posts/${id}.mp4`,
+    thumb: audioOnly.has(id) || !hasGlyph(id) ? null : `${IDX}/posts/${id}.jpg`,
+    graphs: [],
+  };
+};
+for (const cat of catalog) postsById.set(cat.id, makePost(cat.id));
+
+// A clustered clip lives in exactly one cluster today, so graphs[] usually
+// holds one code — the array is the forward-compatible shape for posts that
+// contribute to multiple whistlegraphs.
 for (const { cl, siteCode } of clusterSite) {
   for (const id of cl.clips) {
-    const cat = catById.get(id) || {};
-    const cm = clipMeta.get(id) || {};
     let post = postsById.get(id);
     if (!post) {
-      post = {
-        id,
-        platform: "tiktok",
-        media: audioOnly.has(id) ? "audio" : "video",
-        url: cat.url || `https://www.tiktok.com/@whistlegraph/video/${id}`,
-        date: cat.date || cm.date || null,
-        views: cat.views ?? cm.views ?? null,
-        likes: cat.likes ?? null,
-        comments: cat.comments ?? null,
-        reposts: cat.reposts ?? null,
-        saves: cat.saves ?? null,
-        duration: cat.duration ?? null,
-        desc: cat.desc || "",
-        src: `${IDX}/posts/${id}.mp4`,
-        thumb: audioOnly.has(id) || !hasGlyph(id) ? null : `${IDX}/posts/${id}.jpg`,
-        graphs: [],
-      };
+      post = makePost(id);
       postsById.set(id, post);
     }
     if (!post.graphs.includes(siteCode)) post.graphs.push(siteCode);

@@ -23,9 +23,9 @@
     header{position:sticky;top:0;z-index:20;background:repeating-linear-gradient(#fcf7c5f5,#fcf7c5f5 26px,#f5d78dca 26px,#f5d78dca 27px);backdrop-filter:blur(9px);border-bottom:2px solid var(--margin);padding:10px 18px 11px 47px}
     .topline{display:flex;align-items:baseline;gap:12px;min-height:38px}.brand{font-family:'YWFTProcessing',"Arial Black",system-ui,sans-serif;font-size:27px;line-height:1;color:var(--ink);text-decoration:none}.brand:visited{color:var(--ink)}.brand:hover{background:transparent}.brand b{color:var(--margin);font-weight:normal}
     .who{margin-left:auto;color:var(--dim);font-size:11.5px}.quiet{border:0;background:transparent;padding:3px 1px;color:var(--link);text-decoration:underline;text-underline-offset:2px;font-size:12px}.quiet:hover{background:var(--hi);text-decoration:none}
-    .controls{display:grid;grid-template-columns:auto minmax(220px,1fr) auto auto;gap:8px 12px;align-items:center;margin-top:5px}
+    .controls{display:grid;grid-template-columns:auto minmax(220px,1fr) auto auto auto;gap:8px 12px;align-items:center;margin-top:5px}
     .seg{display:flex;flex-wrap:nowrap;width:max-content;border-bottom:2px solid var(--ink);align-items:flex-end}.seg button{border:1px solid transparent;border-bottom:0;background:transparent;padding:6px 10px 5px;margin-bottom:-2px}.seg button:hover{border-color:var(--ink);background:rgba(255,255,255,.4)}.seg button.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
-    #filter{gap:5px;border:0}#filter button{font-size:11px;line-height:1.4;border:1px solid var(--ink);border-radius:2px;padding:2px 7px;margin:0}#filter button.on{background:var(--margin);color:var(--paper);border-color:var(--margin)}
+    #filter,#sort{gap:5px;border:0}#filter button,#sort button{font-size:11px;line-height:1.4;border:1px solid var(--ink);border-radius:2px;padding:2px 7px;margin:0}#filter button.on,#sort button.on{background:var(--margin);color:var(--paper);border-color:var(--margin)}
     #search{width:100%;border:1px solid var(--ink);border-radius:2px;background:var(--paper);padding:6px 9px;outline:none}#search:focus{border-color:var(--margin);box-shadow:0 0 0 2px rgba(180,72,135,.18)}#search::placeholder{color:var(--dim)}
     #count{font-size:11.5px;color:var(--dim);white-space:nowrap}.preview{background:var(--hi);border:1px solid var(--margin);color:var(--margin);padding:2px 7px;font-size:10px;text-transform:uppercase;letter-spacing:.05em}
     main{padding:16px 18px 80px 47px}#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(126px,1fr));gap:16px 10px;align-items:start}
@@ -41,7 +41,7 @@
     .actions{position:sticky;bottom:-44px;background:linear-gradient(transparent,var(--paper) 25%);display:flex;gap:9px;padding:30px 0 12px;margin-top:6px}.danger{border:1px solid var(--ink);border-radius:2px;background:var(--paper);padding:7px 10px}.danger:hover{background:var(--hi)}.save{margin-left:auto}
     #codexShade{position:fixed;z-index:40;inset:0;background:rgba(40,30,90,.28)}#codexPanel{position:fixed;z-index:41;right:0;top:0;bottom:0;width:min(660px,96vw);overflow:auto;background:repeating-linear-gradient(var(--paper),var(--paper) 26px,var(--rule) 26px,var(--rule) 27px);border-left:2px solid var(--margin);padding:20px 26px 56px}.codex-head{display:flex;gap:14px;align-items:start;border-bottom:2px solid var(--margin);padding-bottom:13px}.codex-head h2{font-family:'YWFTProcessing',"Arial Black",system-ui,sans-serif;font-size:29px;font-weight:normal;line-height:1;margin:2px 0 7px}.codex-head p{margin:0;color:var(--dim);font-size:11.5px}.codex-step{margin:22px 0}.codex-step h3{font-size:11px;color:var(--margin);text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px}.codex-step p{font-size:12px;color:var(--dim)}.command{position:relative;border:1px solid var(--ink);background:rgba(255,255,255,.48);padding:11px 72px 11px 12px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px;line-height:1.65}.copy{position:absolute;right:7px;top:7px;border:1px solid var(--margin);background:var(--paper);color:var(--margin);padding:3px 7px;font-size:10px}.copy:hover{background:var(--hi)}.guardrails{border-left:3px solid var(--margin);padding:2px 0 2px 12px;font-size:11px;color:var(--dim)}.deploy-list{margin:0;padding:0;list-style:none;font-size:11px}.deploy-list li{border-top:1px solid rgba(40,30,90,.2);padding:7px 0}.deploy-list code{color:var(--margin)}
     #toast{position:fixed;z-index:60;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:7px 11px;border-bottom:3px solid var(--margin);font-size:11.5px}.empty{padding:50px;text-align:center;color:var(--dim)}
-    @media(max-width:760px){body::before{left:20px}header{padding-left:30px}.topline{flex-wrap:wrap}.brand{font-size:24px}.controls{display:flex;flex-wrap:wrap}.controls #mode{order:1}.controls #search{order:2;flex:1 0 100%}.controls #filter{order:3;width:100%;max-width:100%;overflow-x:auto}.controls #count{order:4}.who{display:none}main{padding-left:30px}#grid{grid-template-columns:repeat(auto-fill,minmax(94px,1fr));gap:12px 7px}#drawer{width:calc(100vw - 12px);padding-inline:18px}.hero{grid-template-columns:104px 1fr}.hero img{width:104px}.actions{flex-wrap:wrap}}
+    @media(max-width:760px){body::before{left:20px}header{padding-left:30px}.topline{flex-wrap:wrap}.brand{font-size:24px}.controls{display:flex;flex-wrap:wrap}.controls #mode{order:1}.controls #search{order:2;flex:1 0 100%}.controls #filter{order:3;max-width:100%;overflow-x:auto}.controls #sort{order:4}.controls #count{order:5}.who{display:none}main{padding-left:30px}#grid{grid-template-columns:repeat(auto-fill,minmax(94px,1fr));gap:12px 7px}#drawer{width:calc(100vw - 12px);padding-inline:18px}.hero{grid-template-columns:104px 1fr}.hero img{width:104px}.actions{flex-wrap:wrap}}
   </style>
 </head>
 <body>
@@ -75,6 +75,9 @@
         <div class="seg" id="filter" aria-label="Post type">
           <button class="on" data-kind="all">All</button><button data-kind="performance">Performances</button><button data-kind="talk">Talks</button><button data-kind="other">Other</button><button data-kind="unfiled">Unfiled</button>
         </div>
+        <div class="seg" id="sort" aria-label="Post date order">
+          <button class="on" data-sort="newest">Newest</button><button data-sort="oldest">Oldest</button>
+        </div>
         <span id="count"></span>
       </div>
     </header>
@@ -102,7 +105,7 @@
   const PAGE_SIZE=180;
   const esc=value=>String(value??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'\"':"&quot;"}[c]));
   const fmt=value=>value>=1e6?`${(value/1e6).toFixed(1)}M`:value>=1e3?`${Math.round(value/1e3)}K`:String(value||0);
-  let client=null,token=null,mode="posts",kind="all",query="",shown=0,view=[];
+  let client=null,token=null,mode="posts",kind="all",sort="newest",query="",shown=0,view=[];
   let basePosts=[],baseWorks=[],posts=[],works=[],postById={},workByCode={},curation={works:{},posts:{},createdWorks:{},deletedWorks:[],trashedWorks:{}},deployments=[],recentChanges=[],selected=null,visualCoverage={count:0};
   let machineMatchIds=new Set(),machineQuery="",machineSearchTimer=null,machineSearchVersion=0;
   const gate=document.getElementById("gate"),desk=document.getElementById("desk"),grid=document.getElementById("grid"),drawer=document.getElementById("drawer");
@@ -207,7 +210,7 @@
       if(kind!=="all"&&kind!=="unfiled"&&p.kind!==kind)return false;
       const machineHit=machineQuery===q&&machineMatchIds.has(String(p.id));
       return !q||machineHit||postTitle(p).toLowerCase().includes(q)||String(p.id).includes(q)||(p.works||[]).some(code=>code.toLowerCase().includes(q)||(workByCode[code]?.title||"").toLowerCase().includes(q));
-    });
+    }).sort((a,b)=>sort==="oldest"?String(a.date||"").localeCompare(String(b.date||"")):String(b.date||"").localeCompare(String(a.date||"")));
   }
   function tileHTML(item){
     const isWork=mode!=="posts",key=isWork?item.code:item.id,post=isWork?heroForWork(item.code):item;
@@ -235,7 +238,8 @@
   }
   function queueMachineSearch(){clearTimeout(machineSearchTimer);const version=++machineSearchVersion;machineSearchTimer=setTimeout(()=>searchMachineVisuals(query,version),180)}
   document.getElementById("search").addEventListener("input",event=>{query=event.target.value;renderReset();queueMachineSearch()});
-  document.getElementById("mode").addEventListener("click",event=>{const button=event.target.closest("button[data-mode]");if(!button)return;mode=button.dataset.mode;document.querySelectorAll("#mode button").forEach(x=>x.classList.toggle("on",x===button));document.getElementById("filter").classList.toggle("hidden",mode!=="posts");document.getElementById("search").placeholder=mode==="posts"?"Search captions, IDs, codes, or machine visuals…":"Search titles, codes, or authors…";renderReset();queueMachineSearch()});
+  document.getElementById("sort").addEventListener("click",event=>{const button=event.target.closest("button[data-sort]");if(!button)return;sort=button.dataset.sort;document.querySelectorAll("#sort button").forEach(x=>x.classList.toggle("on",x===button));renderReset()});
+  document.getElementById("mode").addEventListener("click",event=>{const button=event.target.closest("button[data-mode]");if(!button)return;mode=button.dataset.mode;document.querySelectorAll("#mode button").forEach(x=>x.classList.toggle("on",x===button));document.getElementById("filter").classList.toggle("hidden",mode!=="posts");document.getElementById("sort").classList.toggle("hidden",mode!=="posts");document.getElementById("search").placeholder=mode==="posts"?"Search captions, IDs, codes, or machine visuals…":"Search titles, codes, or authors…";renderReset();queueMachineSearch()});
   document.getElementById("filter").addEventListener("click",event=>{const button=event.target.closest("button[data-kind]");if(!button)return;kind=button.dataset.kind;document.querySelectorAll("#filter button").forEach(x=>x.classList.toggle("on",x===button));renderReset()});
   document.getElementById("bulkAssign").addEventListener("click",async()=>{
     if(PREVIEW||mode!=="posts"||!view.length)return toast("Search or filter Posts first");
