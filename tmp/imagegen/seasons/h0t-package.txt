@@ -1,0 +1,33 @@
+Create a premium vertical editorial product photograph of a Whistlegraph pendant necklace mounted on a tactile archival package card. This is a real limited artist-edition object, photographed front-on with a slight natural tabletop perspective, suitable as the master product still for a fashion/art campaign.
+
+INPUT ROLES:
+1. The first input image is the APPROVED PRODUCT MASTER, with two precise material corrections. Preserve the polished gold wire construction, exactly five petal loops, orange oval center, small green trapezoid below, and the bottom-left petal's inner terminal curl as a fully closed small gold loop. Replace every round pearl/flower-textured white gem with a tiny plain white enamel sprinkle-shaped tick crossing the gold wire at each petal tip. Each of the exactly five white ticks is a very short straight dash perpendicular to the petal line, extending only the smallest amount beyond either side of the gold wire. Do not use beads, pearls, rosettes, snowflake gems, circles, or raised stones.
+2. The second input image is the OFFICIAL WHISTLEGRAPH HEADER LOGO. Reproduce this supplied multicolor hand-drawn logo faithfully and recognizably at the top of the package. Do not typeset a substitute, do not redraw it as plain black text, and do not invent another logo.
+3. The third input image is a THREE-FRAME STRIP FROM THE ORIGINAL [h0t] PERFORMANCE VIDEO. Print these three supplied frames as a small physical contact strip on the lower part or reverse-fold portion of the card, retaining their green pavement, chalk hands, orange center, yellow petals, green trapezoid, and final five white tick marks.
+4. The fourth input image is the ORIGINAL FINAL SCORE FRAME. Use it as the authoritative geometry and as a small documentary image on the package.
+
+PACKAGE ART DIRECTION:
+- Warm cream notebook/card-stock with subtle blue ruled lines and a faint coral margin; tactile, imperfect, artist-archive feel.
+- Actual multicolor Whistlegraph logo across the top, given generous clear space.
+- Pendant centered and large, hanging naturally from a fine gold chain.
+- Below or beside it, exact archival text in restrained typewriter/ledger typography:
+  [h0t]
+  IT'S TOO HOT, NO IT'S NOT
+  WHISTLEGRAPH · 2022
+  ALL FOUR SEASONS IN 9 SECONDS
+  6 PERFORMANCES · 65.2M VIEWS
+  WHISTLEGRAPH.ORG/h0t
+- Add a tiny line of lore: “A score drawn together in yellow, orange, green and snow-white chalk.”
+- Let the documentary frame strip feel pasted, taped, or printed into the object rather than floating digitally.
+- Keep the package sophisticated, playful, handmade and materially believable—not luxury-corporate, not generic jewelry packaging.
+
+PHOTOGRAPHY:
+Soft late-afternoon window light, subtle paper fibers, realistic gold reflections, slight analog grain, high-end independent magazine product styling, exact focus on pendant and archive typography. Vertical 2:3 composition.
+
+NON-NEGOTIABLES:
+- No “06” anywhere.
+- Do not replace [h0t] with another code.
+- Exactly five petals and five tiny white sprinkle-like apex ticks. Each tick crosses the gold wire at the petal tip and extends only slightly on both sides. No round white gems.
+- Bottom-left inner curl is a closed loop.
+- Preserve the supplied official logo rather than generating a new wordmark.
+- No extra charms, gemstones, logos, hands, people, QR codes, barcodes, social media UI, or fake awards.

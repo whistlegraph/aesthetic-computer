@@ -249,6 +249,24 @@ async function verifyACToken(token) {
   }
 }
 
+// Public fight matchmaking has a stricter identity boundary than the legacy
+// presence paths below. A handle or user.sub inside a WebSocket payload is not
+// authentication: bind the queue only after Auth0 validates the bearer token
+// and the AC handle endpoint resolves that validated subject.
+async function verifyFightIdentity(token) {
+  const authUser = await verifyACToken(token);
+  if (!authUser?.sub) return null;
+  try {
+    const response = await fetch(`https://aesthetic.computer/handle/${encodeURIComponent(authUser.sub)}`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (!data?.handle) return null;
+    return { accountId: authUser.sub, handle: data.handle };
+  } catch {
+    return null;
+  }
+}
+
 function broadcastToMachineViewers(userSub, msg) {
   const viewers = machinesViewers.get(userSub);
   if (!viewers) return;
@@ -2885,18 +2903,32 @@ wss.on("connection", async (ws, req) => {
         return;
       }
 
-      if (msg.type === "fight:join") {
-        const parsed = typeof msg.content === "string" ? JSON.parse(msg.content) : msg.content;
-        if (parsed?.handle) {
-          if (!clients[id]) clients[id] = {};
-          clients[id].handle = parsed.handle;
-          fightManager.join(parsed.handle, id);
-        }
+      if (msg.type === "fight:auth") {
+        let parsed;
+        try { parsed = typeof msg.content === "string" ? JSON.parse(msg.content) : msg.content; }
+        catch { parsed = null; }
+        verifyFightIdentity(parsed?.token).then((identity) => {
+          if (connections[id]?.readyState !== WebSocket.OPEN) return;
+          if (!identity) {
+            fightManager.error(id, "auth-required", "Your AC session could not be verified.", parsed?.requestId);
+            return;
+          }
+          if (!clients[id]) clients[id] = { websocket: true };
+          // Deliberately separate from clients[id].handle, which legacy flows
+          // may still fill from client-supplied location messages.
+          clients[id].verifiedFightIdentity = identity;
+          fightManager.authenticate(id, identity);
+        }).catch(() => fightManager.error(id, "auth-unavailable", "Fight login verification is unavailable."));
         return;
       }
-      if (msg.type === "fight:leave") {
-        const parsed = typeof msg.content === "string" ? JSON.parse(msg.content) : msg.content;
-        if (parsed?.handle) fightManager.leave(parsed.handle, id);
+      if (msg.type.startsWith("fight:")) {
+        // Legacy fight:join never enters the public queue. Guest access is
+        // available only through scoped private VS room operations.
+        if (msg.type === "fight:join") {
+          fightManager.error(id, "protocol-upgrade", "Refresh Menu Fighter to use the versioned lobby.");
+          return;
+        }
+        fightManager.dispatch(id, msg.type, msg.content);
         return;
       }
 
@@ -2942,7 +2974,7 @@ wss.on("connection", async (ws, req) => {
     const rawDepartingHandle = clients?.[id]?.handle;
     const departingHandle = normalizeProfileHandle(rawDepartingHandle);
     if (departingHandle) duelManager.playerLeave(departingHandle);
-    if (rawDepartingHandle) fightManager.leave(rawDepartingHandle, id);
+    fightManager.cleanup(id);
     // Worlds use the raw handle (matches <world>:hello), not the @-normalized
     // form. Pass the closing wsId so a quick reload-race doesn't delete the
     // freshly-rebound player (the new hello will have set a different wsId).

@@ -1,0 +1,84 @@
+<!doctype html>
+<!-- smoke.html — a stand-in for the fuser Recipes flow.
+     Not a mock of the real UI, just a deterministic target with the same SHAPE:
+     a gallery card to open, an input socket to fill, a Fuse button to press, and
+     an output that appears after a delay. It exists so captutor's machinery can
+     be proven end-to-end without booting the fuser dev server. -->
+<meta charset="utf-8">
+<title>Recipe Gallery</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: #0e0f13; color: #e8e8ee;
+    font: 15px/1.5 ui-sans-serif, -apple-system, system-ui, sans-serif;
+    padding: 40px 48px;
+  }
+  h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -.02em; }
+  .sub { color: #8b8b9a; margin-bottom: 28px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; max-width: 900px; }
+  .card {
+    background: #171a21; border: 1px solid #262a35; border-radius: 12px;
+    padding: 18px; cursor: pointer; transition: border-color .18s, transform .18s;
+  }
+  .card:hover { border-color: #4a5170; }
+  .card h3 { margin: 0 0 6px; font-size: 16px; }
+  .card p { margin: 0; color: #8b8b9a; font-size: 13px; }
+  .panel {
+    display: none; margin-top: 30px; max-width: 620px; background: #171a21;
+    border: 1px solid #262a35; border-radius: 12px; padding: 22px;
+  }
+  .panel.open { display: block; }
+  label { display: block; font-size: 12px; text-transform: uppercase;
+          letter-spacing: .08em; color: #8b8b9a; margin-bottom: 8px; }
+  input {
+    width: 100%; padding: 12px 14px; border-radius: 8px; font-size: 15px;
+    background: #0e0f13; border: 1px solid #333949; color: #e8e8ee;
+  }
+  input:focus { outline: 2px solid #5b7cff; border-color: #5b7cff; }
+  button {
+    margin-top: 16px; padding: 11px 22px; border: 0; border-radius: 8px;
+    background: #5b7cff; color: #fff; font-size: 15px; font-weight: 600;
+    cursor: pointer;
+  }
+  #shelf { display: none; margin-top: 22px; padding: 18px; border-radius: 10px;
+           background: #12241a; border: 1px solid #2c5540; }
+  #shelf.open { display: block; }
+  #shelf b { color: #6ee7a0; }
+  .spin { display: none; margin-top: 16px; color: #8b8b9a; }
+  .spin.open { display: block; }
+</style>
+
+<h1>Recipe Gallery</h1>
+<div class="sub">Published flows, ready to run.</div>
+
+<div class="grid">
+  <div class="card" data-testid="recipe-card">
+    <h3>Poster Maker</h3>
+    <p>Turn a line of text into a poster.</p>
+  </div>
+  <div class="card"><h3>Style Transfer</h3><p>Restyle an image.</p></div>
+  <div class="card"><h3>Storyboard</h3><p>Sketch a scene.</p></div>
+</div>
+
+<div class="panel" data-testid="recipe-panel">
+  <label>Headline</label>
+  <input data-testid="socket-text" placeholder="Type something…">
+  <button data-testid="fuse">✦ Fuse</button>
+  <div class="spin" data-testid="spinner">Fusing…</div>
+  <div id="shelf" data-testid="shelf">✓ Output ready — <b>poster.png</b></div>
+</div>
+
+<script>
+  const $ = (s) => document.querySelector(`[data-testid="${s}"]`);
+  $('recipe-card').addEventListener('click', () => $('recipe-panel').classList.add('open'));
+  $('fuse').addEventListener('click', () => {
+    $('spinner').classList.add('open');
+    // Deliberately slow — this is the beat that OVERRUNS its narration, which is
+    // exactly the case captutor's measured-offset sync exists to survive.
+    setTimeout(() => {
+      $('spinner').classList.remove('open');
+      $('shelf').classList.add('open');
+    }, 3200);
+  });
+</script>

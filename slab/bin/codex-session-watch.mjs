@@ -12,10 +12,12 @@
 // Launched (and killed) by codex-slab.sh. Exits when the wrapper pid dies.
 
 import { readFile, writeFile, stat, unlink, utimes } from "node:fs/promises";
+import { realpathSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { join } from "node:path";
 import { homedir } from "node:os";
+import { fileURLToPath } from "node:url";
 
 const [sid, _beginArg, wrapperArg, tty = "", cwd = ""] = process.argv.slice(2);
 if (!sid) process.exit(1);
@@ -116,6 +118,13 @@ const touch = async (p) => {
   const t = new Date();
   try { await writeFile(p, "", { flag: "a" }); await utimes(p, t, t); } catch {}
 };
+
+// rollout-<timestamp>-<provider uuid>.jsonl → the stable Codex thread id.
+// Persisting this in the active marker lets Slab refresh/zzz a tracked wrapper
+// and resume the same provider conversation instead of opening a fresh one.
+export function sessionIdFromRollout(file) {
+  return String(file || "").match(/-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$/i)?.[1] || "";
+}
 
 // Pull readable text out of a rollout content array (user prompt → subject).
 function textOf(payload) {
@@ -230,15 +239,11 @@ function handleLine(line, ctx) {
 async function main() {
   const file = await findRollout();
   if (!file) process.exit(0);
-  try {
-    const first = (await readFile(file, "utf8")).split("\n")[0];
-    const meta = JSON.parse(first);
-    const providerId = meta?.type === "session_meta" ? meta?.payload?.id : null;
-    if (providerId) await updateMarker({
-      codex_session_id: providerId,
-      provider_session_id: providerId,
-    });
-  } catch {}
+  const providerSessionId = sessionIdFromRollout(file);
+  if (providerSessionId) await updateMarker({
+    codex_session_id: providerSessionId,
+    provider_session_id: providerSessionId,
+  });
   // Replay once from the beginning so a resumed Codex window immediately
   // inherits its real last state (usually complete) instead of sitting blank
   // or aging into interrupted until the user submits another prompt. After
@@ -265,7 +270,15 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(`codex-session-watch: ${error?.stack || error}`);
-  process.exit(1);
-});
+let invokedAsMain = false;
+try {
+  // Node resolves import.meta.url to the symlink target, while argv keeps the
+  // launcher symlink (normally ~/.local/bin/codex-session-watch.mjs).
+  invokedAsMain = realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
+} catch {}
+if (invokedAsMain) {
+  main().catch((error) => {
+    console.error(`codex-session-watch: ${error?.stack || error}`);
+    process.exit(1);
+  });
+}

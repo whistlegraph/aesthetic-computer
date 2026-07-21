@@ -35,7 +35,7 @@ fi
 sid=$(uuidgen)
 begin=$(date +%s)
 # The wrapper (this bash process) is the parent of codex and holds the tab's
-# controlling tty — use it for liveness + terminal-close, matching claude_pid.
+# controlling tty — use it for liveness, graceful parking, and terminal-close.
 tty=${SLAB_TERMINAL_TTY:-$(ps -o tty= -p $$ 2>/dev/null | tr -d ' ')}
 cwd=$PWD
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -46,7 +46,7 @@ jq -n \
     --arg pid "$$" --arg ts "$ts" \
     --arg nudge "${SLAB_NUDGE_SCREEN:-}" --arg contact "${SLAB_LOOPBOY_CONTACT:-}" \
     '{session_id:$sid, cwd:$cwd, subject:"codex session", summary:"codex",
-      tty:$tty, agent_pid:($pid|tonumber), agent_type:"codex",
+      tty:$tty, agent_pid:($pid|tonumber), wrapper_pid:($pid|tonumber), agent_type:"codex",
       updated:$ts, state:"blank", nudge_screen:$nudge, loopboy_contact:$contact}' \
     > "$ACTIVE_DIR/$sid" 2>/dev/null
 
@@ -62,6 +62,41 @@ cleanup() {
     [[ -n "$watcher" ]] && kill "$watcher" 2>/dev/null
     rm -f "$ACTIVE_DIR/$sid" "$AWAITING_DIR/$sid" "$RUNNING_DIR/$sid"
 }
-trap cleanup EXIT INT TERM
+agent_pid=""
+stop_agent() {
+    trap - INT TERM
+    if [[ -n "$agent_pid" ]] && kill -0 "$agent_pid" 2>/dev/null; then
+        kill -TERM "$agent_pid" 2>/dev/null || true
+        for _ in {1..10}; do
+            kill -0 "$agent_pid" 2>/dev/null || break
+            sleep 0.05
+        done
+        kill -KILL "$agent_pid" 2>/dev/null || true
+        wait "$agent_pid" 2>/dev/null || true
+    fi
+    exit 143
+}
+trap cleanup EXIT
+trap stop_agent INT TERM
 
-codex "$@"
+# Keep Codex on this wrapper's foreground process group and explicitly attach
+# its streams to the controlling TTY. Running it as a managed child lets a ZZZ
+# SIGTERM reach the actual agent before the wrapper exits, without closing the
+# terminal that will carry the resume receipt.
+codex "$@" < "/dev/$tty" > "/dev/$tty" 2>&1 &
+agent_pid=$!
+# From this point on, lifecycle managers must signal the actual Codex process,
+# not this Bash wrapper. Bash defers TERM traps while it waits for a child;
+# tracking the wrapper here could therefore orphan Codex when ZZZ parks it.
+marker_tmp="$ACTIVE_DIR/.$sid.$$.tmp"
+if jq --arg pid "$agent_pid" --arg wrapper "$$" \
+    '.agent_pid=($pid|tonumber) | .wrapper_pid=($wrapper|tonumber)' \
+    "$ACTIVE_DIR/$sid" > "$marker_tmp" 2>/dev/null; then
+    mv "$marker_tmp" "$ACTIVE_DIR/$sid"
+else
+    rm -f "$marker_tmp"
+fi
+wait "$agent_pid"
+status=$?
+agent_pid=""
+exit "$status"

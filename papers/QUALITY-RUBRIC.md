@@ -80,6 +80,13 @@ flagship paper is expected to show its argument, not just state it.
 - **D6** Screenshots are legitimate evidence: the coarse UI being criticized, the
   AC piece being praised, the user comment proving demand. Caption them like
   exhibits — say what the reader is looking at and why it is in the paper.
+- **D7 [HARD] Aesthetic Eye.** Every diagram is inventoried in the paper's
+  `aesthetic-eye.json` and receives an explicit visual-inference verdict of
+  `design: pass|fail`. A pass requires clear tangents, accessible type, balanced
+  composition, intentional use of available space, legible hierarchy, and
+  unambiguous edge routing. The manifest's PDF hash must match the built PDF.
+  Run `node papers/aesthetic-eye.mjs prepare <paper-dir>`, inspect every crop,
+  record the verdicts, then run `node papers/aesthetic-eye.mjs check <paper-dir>`.
 
 ## E — Cover (`bin/gen-cover.mjs`)
 
@@ -161,7 +168,8 @@ flagship paper is expected to show its argument, not just state it.
 3. **Citations** — every entry cited and resolving; metadata verified against
    primary sources; ≥30% women / ≥20% non-Western (C1–C3).
 4. **Figures** — real diagrams and captured exhibits with dense captions; wide
-   ones as `figure*`; QR tiles resolve (D1–D6).
+   ones as `figure*`; QR tiles resolve; Aesthetic Eye reports `design: pass` for
+   every diagram against the current PDF hash (D1–D7).
 5. **Cover** — single emblem, cream paper, no name, 1:1; included at
    0.5–0.7\textwidth (E1–E6).
 6. **Layout** — 10pt twocolumn, Latin Modern body + ywft title, palette exact,

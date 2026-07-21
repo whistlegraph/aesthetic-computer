@@ -2,8 +2,8 @@
 // imsg.mjs — a tiny, generic iMessage bridge for the slab menubar.
 //
 // Reads Messages' chat.db (read-only) for a configured contact, reports an
-// unread/last-message summary as JSON, rings a terminal/audio bell when a
-// NEW inbound message arrives, sends replies via Messages.app, and offers a
+// unread/last-message summary as JSON, optionally rings a terminal/audio bell
+// when a NEW inbound message arrives, sends replies via Messages.app, and offers a
 // dependency-free live `tail` client.
 //
 // This file ships in the PUBLIC aesthetic.computer repo, so it carries NO
@@ -14,7 +14,7 @@
 // the `attributedBody` typedstream blob, which we decode below.
 //
 // Subcommands:
-//   imsg status        JSON summary to stdout; rings bell on new inbound
+//   imsg status        JSON summary to stdout; optional bell on new inbound
 //   imsg chats [N]     recent indexed conversations (default 20)
 //   imsg read [N]      recent messages; optional --to <name|handle>
 //   imsg search <text> full-text search; optional --to and --limit
@@ -62,7 +62,7 @@ const CONFIG_STUB = {
   bellTty: "",
   bellTtyComment:
     "optional: a tty like /dev/ttys004 — writing BEL there flashes that terminal. `tty` in the pane you want flashed.",
-  sound: true,
+  sound: false,
   soundFile: "",
   soundFileComment:
     "optional: path to an aiff/wav for afplay; default is the system Glass chime.",
@@ -541,7 +541,9 @@ function ringBell(cfg) {
       /* tty may be gone; ignore */
     }
   }
-  if (cfg.sound !== false) {
+  // Audio is opt-in. Existing multi-contact configs that predate this field
+  // should stay quiet instead of unexpectedly playing the system Glass chime.
+  if (cfg.sound === true) {
     const snd =
       cfg.soundFile && existsSync(cfg.soundFile)
         ? cfg.soundFile

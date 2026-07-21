@@ -66,6 +66,18 @@ a prompt of at most 4000 characters, and an existing cwd beneath the target
 user’s home directory. Use `slab/install.sh --prompt-host` to install the agent
 hooks and wrappers without the legacy ambient-audio or lid-control services.
 
+### Spatial prompt navigation
+
+`⌘⌥` + an arrow walks prompt panes spatially. It chooses a pane on the local
+screen first; at the edge it follows the installed Deskflow `links` geometry,
+uses the fleet ledger to skip machines without a live prox, asks the active
+Deskflow controller to carry the `unipointer` across the required screen edges,
+and focuses the nearest aligned pane on the destination host. Focus changes get
+a short acquisition flare and transfer click. The active prompt also keeps a
+quiet, borderless green glow behind its Terminal window and sheds a few
+luminous drops from its lower edge, including when focus changes by mouse
+instead of the shortcut.
+
 ## Loopboy
 
 Loopboy is Slab's client-loop router. Routes in
@@ -74,6 +86,35 @@ prox session. New inbound messages poke and optionally wake only that contact's
 rock; Loopboy never replies on its own. Armed Loopboy rocks spin faster, wear a
 pink glow, and identify themselves in their hover bubble. The Slab menu lists
 all active client loops and their prox targets.
+
+## ZZZ — resumable prompt parking
+
+`zzz` is Slab's cold tier for prompt processes. Automatic parking is opt-in;
+when enabled, its default idle window is 60 minutes. A local prompt that is
+explicitly complete or interrupted is recorded under
+`~/.local/share/slab/state/zzz/` and terminated. Its terminal stays open with
+a colored `zzz resume <id>` receipt, and its provider conversation is not
+deleted. Working, awaiting,
+rendering, remote, subagent-owning, and Loopboy-bound prompts are protected.
+The timeout and enabled state live in the host-private
+`~/.config/slab/zzz.json`.
+
+The Slab menu can zzz an idle prompt immediately, toggle the automatic reaper,
+or wake a sleeping prompt. It also opens the terminal harness:
+
+```sh
+zzz                         # mouse/touch + keyboard harness
+zzz list                    # inventory with a resume command for every row
+zzz list --json             # machine-readable sleeping prompt inventory
+zzz resume                  # resume the newest sleeping prompt
+zzz resume <number-or-text> # resume a selected prompt (wake is an alias)
+zzz park <live-id>           # park a tracked idle prompt
+zzz park <pid> --force       # explicit escape hatch for an untracked prompt
+```
+
+In the harness, tap a row or use arrow keys and Return to reinitialize that
+prompt in a fresh tracked Terminal window with the same provider thread and
+working directory.
 
 ## Passphrase modal (IPC server)
 

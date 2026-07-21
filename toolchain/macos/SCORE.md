@@ -126,18 +126,22 @@ full Bash can't even capture output, redirect to a file and Read it:
 buckets below — and check `/System/Volumes/Data` (not `/`, the sealed system
 snapshot) for the real usage.
 
-### Reusable cleanup command
+### Cleaner
 
-Fleet Macs can install [`ac-disk-clean.sh`](ac-disk-clean.sh) as a report-first
-cleanup utility:
+"Call the cleaner" means run the local fleet Mac's canonical safe disk cleanup
+utility, [`cleaner.sh`](cleaner.sh). Agents should resolve that phrase to
+`cleaner --apply`; use report-only `cleaner` when cleanup was not explicitly
+requested. It protects repositories, project dependencies, Downloads, models,
+agent state, and active-application caches.
 
 ```bash
-ac-disk-clean                            # inventory only
-ac-disk-clean --apply                    # known regenerable caches
-ac-disk-clean --apply --thin-snapshots   # opt-in APFS snapshot thinning
+cleaner                            # inventory only
+cleaner --apply                    # known regenerable caches
+cleaner --apply --thin-snapshots   # opt-in APFS snapshot thinning
 ```
 
 `--install` places it in `~/.local/bin` and enables a weekly user LaunchAgent.
+The legacy `ac-disk-clean` name remains a compatibility alias.
 Running applications keep ownership of their caches; repositories, downloads,
 models, agent state, and CoreSimulator runtimes are always report-only.
 

@@ -11412,6 +11412,15 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // Menu Fighter keeps RTCPeerConnection on the main thread, then forwards
+  // signaling, channel state, and input packets back through BIOS. Deliver
+  // those messages through the normal piece event queue so worker pieces can
+  // consume them in act() without giving arbitrary BIOS messages that power.
+  if (type === "fight:rtc:event") {
+    actAlerts.push({ name: type, content });
+    return;
+  }
+
   if (type === "store:retrieved") {
     storeRetrievalResolutions[content.key]?.(content.data);
     delete storeRetrievalResolutions[content.key];

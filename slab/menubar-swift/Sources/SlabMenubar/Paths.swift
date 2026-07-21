@@ -37,6 +37,17 @@ enum Paths {
     /// imsgConfig; Loopboy stores only contact keys and local session ids.
     static var loopboyConfig: String { "\(home)/.config/slab/loopboy.json" }
 
+    /// `zzz` parks idle prompt processes while preserving enough provider
+    /// state to wake them back into tracked terminals. The config is private
+    /// host policy; sleeping entries are runtime state under slabHome.
+    static var zzzConfig: String { "\(home)/.config/slab/zzz.json" }
+    static var zzzDir: String { "\(slabHome)/state/zzz" }
+    static var zzzHelper: String {
+        let installed = "\(slabBin)/zzz"
+        return FileManager.default.isExecutableFile(atPath: installed)
+            ? installed : "\(acRepo)/slab/bin/zzz"
+    }
+
     /// Asana bridge for the task submenu. The Personal Access Token lives in
     /// the untracked config below (never in tracked code) — same convention as
     /// imsgConfig. The helper prints a JSON tree of assigned, incomplete tasks

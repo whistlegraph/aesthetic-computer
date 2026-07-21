@@ -88,8 +88,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var mailSyncing = false
     private var mailStatus = "—"
     /// iMessage bridge state. Polled faster than mail (a chat wants low
-    /// latency) but still off-main; the helper itself rings the bell when a
-    /// NEW inbound arrives. `imsgUnread` is exposed so the theme-by-status
+    /// latency) but still off-main; the helper may ring an explicitly enabled
+    /// bell for a NEW inbound. `imsgUnread` is exposed so the theme-by-status
     /// pipeline can treat "she texted" as a first-class status accent.
     private var imsgPending = false
     private var imsgStatus = "—"
@@ -258,6 +258,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
 
+        // Every actively focused prompt keeps a thin system-accent outline,
+        // whether focus arrived through WindowNav or an ordinary mouse click.
+        PromptFocusHighlight.shared.start()
+
         // Terminal.app sizes windows in character cells, so its native font
         // zoom also changes the pixel frame. Preserve the frame around that
         // native action; the terminal remains responsible for its per-window
@@ -312,6 +316,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         scatterHotkey?.unregister()
         appearanceHotkey?.unregister()
         navHotkeys.forEach { $0.unregister() }
+        PromptFocusHighlight.shared.stop()
         terminalFontZoomGuard?.stop()
         imsgTimer?.invalidate()
         zoomLensTap?.stop()
@@ -370,6 +375,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     return s
                 }
             }
+            // `zzz` is the prompt lifecycle's cold tier: once an unbound,
+            // resumable local prompt has been genuinely idle for the configured
+            // window, persist its wake record, stop the agent, and leave its
+            // terminal open with the resume receipt.
+            ZzzManager.shared.tick(sessions: snapshot.claudeSessions)
             DispatchQueue.main.async {
                 self.gathering = false
                 self.state = snapshot
@@ -614,9 +624,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     /// Pull the iMessage summary off-main. The helper always exits 0 for
-    /// `status`, prints one JSON line, and rings the bell itself when a NEW
-    /// inbound arrives — so this never blocks the tick and the alert fires
-    /// even while the menu is closed.
+    /// `status`, prints one JSON line, and may ring an explicitly enabled bell
+    /// when a NEW inbound arrives. This never blocks the tick, and visual /
+    /// Loopboy alerts still fire while the menu is closed.
     private func refreshImsgCount() {
         guard !imsgPending else { return }
         let helper = Paths.imsgHelper
@@ -1695,6 +1705,60 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 )
             }
         }
+    }
+
+    @objc func toggleAutoZzz() {
+        let config = ZzzStore.configuration()
+        ZzzStore.setEnabled(!config.enabled)
+        refresh()
+    }
+
+    @objc func zzzIdleSession(_ sender: NSMenuItem) {
+        guard let sid = sender.representedObject as? String, !sid.isEmpty else { return }
+        ZzzManager.shared.parkIdle(sessionId: sid, sessions: state.claudeSessions) {
+            [weak self] message in
+            self?.notify(title: "slab", subtitle: "zzz", body: message)
+            self?.refresh()
+        }
+    }
+
+    @objc func wakeZzzSession(_ sender: NSMenuItem) {
+        guard let sid = sender.representedObject as? String, !sid.isEmpty else { return }
+        ShellRunner.runAsync(Paths.zzzHelper, args: ["wake", sid]) { [weak self] in
+            DispatchQueue.main.async { self?.refresh() }
+        }
+    }
+
+    /// Open the keyboard-and-mouse `zzz` harness in a terminal. Rows in the
+    /// harness accept arrow/Return or a direct click/tap to wake a prompt.
+    @objc func openZzzHarness() {
+        let helper = Paths.zzzHelper
+        guard FileManager.default.isExecutableFile(atPath: helper) else {
+            notify(title: "slab", subtitle: "zzz", body: "zzz helper is not installed.")
+            return
+        }
+        let quoted = "'" + helper.replacingOccurrences(of: "'", with: "'\\''") + "'"
+        let escaped = quoted.replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+        let app = Self.preferredTerminalApp()
+        let script: String
+        if app == "Terminal" {
+            script = """
+            tell application "Terminal"
+                activate
+                do script "\(escaped)"
+            end tell
+            """
+        } else {
+            script = """
+            tell application id "com.googlecode.iterm2"
+                activate
+                create window with default profile
+                tell current session of current window to write text "\(escaped)"
+            end tell
+            """
+        }
+        ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", script])
     }
 
     @objc func toggleAutoTile() {

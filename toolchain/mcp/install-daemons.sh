@@ -17,6 +17,7 @@
 #   cal-mcp    → http://127.0.0.1:7774/mcp
 #   chat-mcp   → http://127.0.0.1:7775/mcp
 #   fleet-mcp  → http://127.0.0.1:7776/mcp
+#   paper-mcp  → http://127.0.0.1:7777/mcp
 #
 # This script also POINTS Claude and Codex at the daemons. Claude gets same-name
 # local-scope entries that shadow the stdio ones in .mcp.json; Codex gets its
@@ -54,6 +55,7 @@ prox   7773 slab/bin/prox-mcp.mjs
 cal    7774 slab/bin/cal-mcp.mjs
 chat   7775 slab/bin/chat-mcp.mjs
 fleet  7776 toolchain/fleet/fleet-mcp.mjs
+paper  7777 slab/bin/paper-mcp.mjs
 ROWS
 }
 

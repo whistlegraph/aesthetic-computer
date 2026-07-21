@@ -243,3 +243,47 @@ straight off the pix CDN, with by-year filters and a shuffle view
 handle overlays arrive later if the Glitch data surfaces. The 1,197
 in-project stamp/profile images remain a separate, curated set from
 the extracted `.c3p`.
+
+### Archive crunch + queryable index — 2026-07-19
+
+The full 3.9 GB archive is now local and crunched. Workspace:
+`~/Documents/nopaint-recovery/` (outside the repo — not committed;
+move under `~/Documents/Shelf` for Space backup). Tools in
+`tools/`:
+
+- **`ocr.swift`** → `ocr`: macOS Vision (VNRecognizeTextRequest,
+  accurate, language-correction OFF because painted text isn't natural
+  language). Reads image paths on stdin, emits JSONL
+  `{id,text,lines,conf}`.
+- **`crunch.sh [thumbs|ocr|all]`**: resumable. Thumbs =
+  160×180 webp (~5 KB each, ~160 MB total) via 8-way `magick`. OCR =
+  6-way parallel (BSD `split -l`, NOT `-n l/N` — macOS split lacks it).
+- **`build-db.mjs`**: joins the S3 listing (date/bytes), OCR text, and
+  thumbnail presence into `db/nopaint.sqlite` (a `paintings` table +
+  FTS5 over ocr/title) and `db/gallery.json` (web-searchable manifest).
+
+**Key finding from OCR:** every painting bakes a **caption bar** into
+the bottom 32 px of the 256×288 PNG — `<title> <date> <time> <id>`.
+The canvas is the top 256×256. Titles are mostly "Untitled" (the pixel
+font makes OCR noisy — reads it as "Hntitan"), but custom titles and
+any painted-in words/signatures surface. `build-db.mjs` subtracts the
+known date (from S3) + id (from filename) to isolate a title guess and
+residual painted text. Date/time is more reliable from S3 LastModified
+than from OCR.
+
+**Next for the web gallery:** upload `thumbs/` to a CDN path (e.g.
+`pix.nopaint.art/thumb/<id>.webp` or a `thumbs.nopaint.art` bucket) and
+point the gallery grid at thumbnails instead of full PNGs (32k full
+PNGs is heavy); wire `db/gallery.json` OCR text into a search box.
+
+### Rights & monetization — 2026-07-19
+
+Analysis in vault `nopaint/rights-and-monetization.md` (business-
+sensitive). Summary: **you own the software, brand, domain, and the
+aggregate artwork outright.** The paintings are anonymous (privacy
+policy: "does not collect or store any other information"), there was
+**no ToS/EULA** assigning or restricting rights, and no attribution was
+stored. Green-light: exhibit/gallery/book/award/prints of the aggregate
+as *your* art. Get IP counsel before dataset-licensing / AI-training
+deals or claiming per-painting ownership. Going forward: when restoring
+save, add a consent/license at save time so future paintings are clean.

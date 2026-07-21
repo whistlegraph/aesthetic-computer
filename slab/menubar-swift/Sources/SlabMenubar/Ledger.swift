@@ -121,6 +121,8 @@ final class LedgerStore {
         let s = try? LedgerHTTPServer(ip: selfIP, port: Self.port)
         s?.onPoke = { [weak self] body in self?.receivePoke(body) }
         s?.onLaunch = { body in Self.launchPrompt(body) }
+        s?.onNavigate = { body in DeskflowSpatialNav.receiveNavigate(body) }
+        s?.onDeskflowRoute = { body in DeskflowSpatialNav.receiveRoute(body) }
         server = s
     }
 
@@ -171,14 +173,17 @@ final class LedgerStore {
         }
 
         var command: String
-        var nudgeScreen = ""
+        let nudgeScreen = ""
         if !loopboyContact.isEmpty {
-            nudgeScreen = "loopboy-\(UUID().uuidString.prefix(8).lowercased())"
+            // Keep Loopboys on the real Terminal PTY. GNU Screen forwards
+            // Terminal focus-report sequences (ESC [ I / ESC [ O) as literal
+            // Codex input, corrupting the prompt whenever focus changes. Slab
+            // already knows how to focus the exact tty and type the wake prompt
+            // through trusted CGEvents, so an extra terminal layer is harmful.
             command = "cd \(shellQuote(cwd)) && "
                 + "SLAB_TERMINAL_TTY=$(basename \"$(tty)\") "
-                + "SLAB_NUDGE_SCREEN=\(shellQuote(nudgeScreen)) "
                 + "SLAB_LOOPBOY_CONTACT=\(shellQuote(loopboyContact)) "
-                + "exec /usr/bin/screen -S \(shellQuote(nudgeScreen)) \(shellQuote(binary))"
+                + "exec \(shellQuote(binary))"
         } else {
             command = "cd \(shellQuote(cwd)) && exec \(shellQuote(binary))"
         }
@@ -436,7 +441,11 @@ final class LedgerStore {
         // Host is the SHORT OS hostname (neo, blueberry) — the name the fleet
         // references, not tailscale's device label ("Jeffrey's MacBook Neo").
         // IP is this machine's tailscale v4, for binding + advertising.
-        let raw = ProcessInfo.processInfo.hostName
+        let fleetName = ShellRunner.output(
+            "/usr/sbin/scutil", args: ["--get", "LocalHostName"], timeout: 2
+        )?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let raw = fleetName.flatMap { $0.isEmpty ? nil : $0 }
+            ?? ProcessInfo.processInfo.hostName
         let host = raw.split(separator: ".").first.map { $0.lowercased() } ?? raw.lowercased()
         var ip = ""
         if let ts = Tools.resolve("tailscale"),
@@ -463,6 +472,10 @@ final class LedgerHTTPServer {
     /// Called on POST /launch. The callback owns validation and returns a
     /// compact JSON-safe result dictionary.
     var onLaunch: (([String: Any]) -> [String: Any])?
+    /// Focus one local prompt as a fleet arrow arrives on this screen.
+    var onNavigate: (([String: Any]) -> Bool)?
+    /// Ask the active Deskflow controller to traverse a validated direction path.
+    var onDeskflowRoute: (([String: Any]) -> Bool)?
     private var fd: Int32 = -1
     private let queue = DispatchQueue(label: "slab.ledger.http")
     private var running = false
@@ -567,6 +580,20 @@ final class LedgerHTTPServer {
             return
         }
 
+        if line.hasPrefix("POST"), line.contains("/navigate") {
+            let obj = decodedBody(data, bodyStart: bodyStart)
+            let ok = onNavigate?(obj) ?? false
+            respond(client, body: Data("{\"ok\":\(ok)}".utf8))
+            return
+        }
+
+        if line.hasPrefix("POST"), line.contains("/deskflow-route") {
+            let obj = decodedBody(data, bodyStart: bodyStart)
+            let ok = onDeskflowRoute?(obj) ?? false
+            respond(client, body: Data("{\"ok\":\(ok)}".utf8))
+            return
+        }
+
         // Anything else (GET /ledger) → the current local ledger JSON.
         let body = (try? Data(contentsOf: URL(fileURLWithPath: LedgerStore.localFile)))
             ?? Data("{\"host\":\"\",\"entries\":[]}".utf8)
@@ -580,5 +607,10 @@ final class LedgerHTTPServer {
             + "Connection: close\r\n\r\n"
         var out = Data(header.utf8); out.append(body)
         _ = out.withUnsafeBytes { write(client, $0.baseAddress, $0.count) }
+    }
+
+    private func decodedBody(_ data: Data, bodyStart: Int?) -> [String: Any] {
+        guard let start = bodyStart, start <= data.count else { return [:] }
+        return (try? JSONSerialization.jsonObject(with: data[start...])) as? [String: Any] ?? [:]
     }
 }
