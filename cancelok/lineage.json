@@ -105,11 +105,11 @@
     "born": "2026-07-14T22:32:32.343Z"
   },
   "vorlo": {
-    "parent": "wandro",
+    "parent": "ploo",
     "second": null,
-    "mutation": "eye",
-    "trait": "rotating mandala of spokes around a hub x drolo's pendulum voice (just-intonation pluck/bell/sub)",
-    "born": "2026-07-15T13:18:36.046Z"
+    "mutation": "invert",
+    "trait": "contracting rings & inward-pulled starburst rays x draining swell voices with a silent implosion drop",
+    "born": "2026-07-21T09:20:07.647Z"
   },
   "fravo": {
     "parent": "dax",
@@ -985,5 +985,54 @@
     "mutation": "cross",
     "trait": "moir interference rings (varo) x cinematic riser/drop score (ploo)",
     "born": "2026-07-21T01:17:46.686Z"
+  },
+  "shimro": {
+    "parent": "varo",
+    "second": null,
+    "mutation": "push",
+    "trait": "finger-pinned moir grid x continuous glide-pad theremin",
+    "born": "2026-07-21T02:33:12.563Z"
+  },
+  "vindro": {
+    "parent": "ploo",
+    "second": null,
+    "mutation": "push",
+    "trait": "drag-drawn light ribbon x plucked harp glissando",
+    "born": "2026-07-21T06:31:43.444Z"
+  },
+  "solvo": {
+    "parent": "varo",
+    "second": null,
+    "mutation": "invert",
+    "trait": "collapsing moir lattice (detune erodes back to unison) x decaying pluck score (harp/bubble/sub)",
+    "born": "2026-07-21T09:13:48.726Z"
+  },
+  "phaslo": {
+    "parent": "varo",
+    "second": null,
+    "mutation": "voice",
+    "trait": "moir ring grids x Reich-style plucked phase process",
+    "born": "2026-07-21T10:22:57.832Z"
+  },
+  "plyko": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "rigid hinged fan-pleat unfurl (accordion kinematics, not an oscillator) x pentatonic pluck/bell ascent that snaps into a descending run + sub thud on close",
+    "born": "2026-07-21T10:26:50.223Z"
+  },
+  "tarvo": {
+    "parent": "varo",
+    "second": null,
+    "mutation": "eye",
+    "trait": "synchronizing firefly orbits (phase-lock beat) x detuned pad swell",
+    "born": "2026-07-21T11:30:11.132Z"
+  },
+  "quazo": {
+    "parent": null,
+    "second": null,
+    "mutation": "blind",
+    "trait": "five-fold quasicrystal plane-wave interference field x golden-ratio-tuned five-voice bell/pluck chord",
+    "born": "2026-07-21T11:36:23.633Z"
   }
 }
