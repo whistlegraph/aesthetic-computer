@@ -438,7 +438,11 @@ final class LedgerStore {
         // Host is the SHORT OS hostname (neo, blueberry) — the name the fleet
         // references, not tailscale's device label ("Jeffrey's MacBook Neo").
         // IP is this machine's tailscale v4, for binding + advertising.
-        let raw = ProcessInfo.processInfo.hostName
+        let fleetName = ShellRunner.output(
+            "/usr/sbin/scutil", args: ["--get", "LocalHostName"], timeout: 2
+        )?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let raw = fleetName.flatMap { $0.isEmpty ? nil : $0 }
+            ?? ProcessInfo.processInfo.hostName
         let host = raw.split(separator: ".").first.map { $0.lowercased() } ?? raw.lowercased()
         var ip = ""
         if let ts = Tools.resolve("tailscale"),
