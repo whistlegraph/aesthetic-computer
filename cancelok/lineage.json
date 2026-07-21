@@ -971,5 +971,19 @@
     "mutation": "blind",
     "trait": "hexapod tripod-gait walk cycle (2-joint IK legs) x alternating-footfall pluck/sub groove",
     "born": "2026-07-21T00:10:38.018Z"
+  },
+  "wafo": {
+    "parent": "wandro",
+    "second": null,
+    "mutation": "voice",
+    "trait": "pendulum wave x breath (flute/harp) voice",
+    "born": "2026-07-21T01:15:03.910Z"
+  },
+  "plavo": {
+    "parent": "varo",
+    "second": "ploo",
+    "mutation": "cross",
+    "trait": "moir interference rings (varo) x cinematic riser/drop score (ploo)",
+    "born": "2026-07-21T01:17:46.686Z"
   }
 }
