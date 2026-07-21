@@ -116,6 +116,7 @@ export const FORMATS = {
     // frame's margins, rather than the browser's aspect ratio, set the geometry.
     win: STAGE_MODE ? { w: 1190, h: 630 } : { w: 1512, h: 945 },
     out: STAGE_MODE ? { w: 2560, h: 1440 } : { w: 1512, h: 945 },
+    fps: STAGE_MODE ? 60 : 30,
     compose: STAGE_MODE ? { fullDesktop: true, badgeRepair: true } : undefined,
     // Stage recordings are viewed inside a docs player, often at half their
     // encoded size. Use presentation-scale captions so they remain readable,
@@ -132,6 +133,7 @@ export const FORMATS = {
   vertical: {
     win: { w: 630, h: 1190 },
     out: { w: 1440, h: 2560 },
+    fps: 60,
     compose: { fullDesktop: true, badgeRepair: true },
     capWidth: 0.88,
     capPx: 58,
@@ -451,7 +453,7 @@ export function deliver({ clip, cues, format, out, workDir, locale = "en" }) {
   // The body is encoded to settings a title card can be concatenated onto:
   // fixed fps, yuv420p, stereo 48k. Without pinning these the two halves differ and
   // the concat demuxer silently drops one of them.
-  const FPS = 30;
+  const FPS = F.fps || 30;
 
   args.push(
     "-filter_complex", chain.join(";"),

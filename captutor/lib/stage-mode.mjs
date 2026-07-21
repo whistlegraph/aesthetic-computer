@@ -367,7 +367,7 @@ export async function enterStageMode({ vertical = process.env.CAPTUTOR_VERTICAL_
   osa('tell application "Google Chrome" to activate', [], true);
   console.log(
     `✓ Captutor ${vertical ? "Vertical " : ""}Stage Mode active — ` +
-    `Light, 2× HiDPI, clean neutral desk, real ~1.5× pointer`,
+    `Light, 2× HiDPI, icon-only branded desk, real ~1.5× pointer`,
   );
 }
 

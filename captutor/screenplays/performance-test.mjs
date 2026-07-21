@@ -23,9 +23,10 @@ export default {
   title: "Fuser Tutor recording performance test",
   subtitle: "Five live tabs, one measured multilingual tutorial mission",
 
-  setup: async ({ cdp, locale, setLocale, tabs }) => {
+  setup: async ({ cdp, locale, setLocale, tabs, s }) => {
     await setLocale(cdp, locale, WORKSPACE);
     await cdp.waitFor("document.body && document.body.innerText.length > 20");
+    await cdp.waitFor(`document.querySelector('${s.blankProject}')`);
     await tabs.prepare(PERFORMANCE_TABS, { keepMatch: "fuser.studio" });
     // Warm every motion page in the foreground. Chrome deliberately throttles
     // hidden WebGL tabs, so merely opening them does not prove their shaders and
@@ -70,9 +71,37 @@ export default {
     },
     {
       say: line(
-        "Five live tabs form the test. Roz begins with a dense generative scene, checking motion, compositing, browser chrome, and sixty-frame-per-second capture together.",
-        "Cinco pestañas activas forman la prueba. Roz comienza con una escena generativa densa que comprueba movimiento, composición, interfaz del navegador y captura a sesenta cuadros por segundo.",
-        "五个实时标签页组成这项测试。Roz 先展示密集的生成场景，同时检验运动、合成、浏览器界面和每秒六十帧录制。",
+        "The test starts with real product work. Iris opens a blank project and waits for Fuser's infinite canvas to become fully interactive.",
+        "La prueba comienza con trabajo real en el producto. Iris abre un proyecto en blanco y espera a que el lienzo infinito de Fuser sea completamente interactivo.",
+        "测试从真实的产品操作开始。Iris 打开一个空白项目，并等待 Fuser 的无限画布完全可交互。",
+      ),
+      do: async ({ click, cdp, s }) => {
+        await click(s.blankProject);
+        await cdp.waitFor("location.pathname.startsWith('/flow/')");
+        await cdp.waitFor("document.querySelector('.react-flow')");
+      },
+    },
+    {
+      say: line(
+        "It opens the node library, searches for App, creates the node, and restores a readable one-hundred-percent canvas view. This checks precise pointer, keyboard, and interface timing before the graphics tests.",
+        "Abre la biblioteca de nodos, busca App, crea el nodo y restaura una vista legible del lienzo al cien por cien. Esto comprueba el puntero, el teclado y la sincronización de la interfaz antes de las pruebas gráficas.",
+        "接着打开节点库、搜索 App、创建节点，并把画布恢复到清晰的一百百分比视图。这会在图形测试前检验指针、键盘和界面时序。",
+      ),
+      do: async ({ click, type, cdp, s }) => {
+        await click(s.addNode);
+        await cdp.waitFor(`document.querySelector('${s.nodeSearch}')`);
+        await type(s.nodeSearch, s.appNodeQuery);
+        await cdp.key("Enter", "Enter", 13);
+        await cdp.waitFor("document.querySelectorAll('.react-flow__node').length > 0");
+        await click(s.zoomButton);
+        await click(s.zoom100);
+      },
+    },
+    {
+      say: line(
+        "Five live browser tabs form the full test. Roz begins with a dense generative scene, checking motion, compositing, browser chrome, and sixty-frame-per-second capture together.",
+        "Cinco pestañas activas forman la prueba completa. Roz comienza con una escena generativa densa que comprueba movimiento, composición, interfaz del navegador y captura a sesenta cuadros por segundo.",
+        "五个实时浏览器标签页组成完整测试。Roz 先展示密集的生成场景，同时检验运动、合成、浏览器界面和每秒六十帧录制。",
       ),
       do: async ({ tabs, sleep }) => { await tabs.activate(PERFORMANCE_TABS[0].match); await sleep(900); },
     },
@@ -109,8 +138,8 @@ export default {
       do: async ({ tabs, sleep, spotlight, zoom }) => {
         await tabs.activate("fuser.studio");
         await sleep(700);
-        await spotlight("body", { label: "One screenplay · many editions", dim: 0.22, ring: false, feather: 34, durationMs: 4200 });
-        await zoom("body", { scale: 1.14, durationMs: 900 });
+        await spotlight(".react-flow__node", { label: "One screenplay · many editions", dim: 0.22, ring: false, feather: 34, durationMs: 4200 });
+        await zoom(".react-flow__node", { scale: 1.14, durationMs: 900 });
       },
       holdMs: 900,
     },

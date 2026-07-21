@@ -100,11 +100,13 @@ outside Stage Mode.
 Stage Mode is a reversible transaction around any Captutor command. It saves the
 current desk, closes stale QuickTime previews, switches macOS to Light appearance
 and the display to 2× HiDPI (1280×720 logical), centers the browser, raises
-encoding quality, uses a neutral gray wallpaper, and temporarily hides desktop
+encoding quality, uses a branded light wallpaper, and temporarily hides desktop
 icons, Dock, menu bar, Stats, Macpal's desktop badge, and Slab prompt sigils. The
 recorder captures the complete physical desktop, preserving the real rounded
 window, shadow, and equal margin. A Swift desktop-level renderer adds a subtle,
-deterministic field of rising Fuser marks and slow purple/teal light; it is
+deterministic field of rising icon-only production Fuser SVG marks. The
+wallpaper contains no wordmark or decorative color field: it renders only the
+mark, black-on-white or white-on-black from the active macOS appearance. It is
 click-through, runs behind every normal window, and exits inside the same Stage
 transaction. Delivery changes only the tiny
 ScreenCaptureKit status dot in the extreme top-right, using live pixels sampled

@@ -20,13 +20,13 @@ private func particles() -> [Particle] {
         state = state &* 6364136223846793005 &+ 1442695040888963407
         return CGFloat((state >> 33) & 0xFFFF) / CGFloat(0xFFFF)
     }
-    return (0..<22).map { _ in
+    return (0..<12).map { _ in
         Particle(
             x: unit(), y: unit() * 1.28 - 0.14,
             speed: 0.010 + unit() * 0.018,
-            size: 54 + unit() * 76,
+            size: 32 + unit() * 24,
             phase: unit() * .pi * 2,
-            opacity: 0.34 + unit() * 0.18
+            opacity: 0.72 + unit() * 0.18
         )
     }
 }
@@ -56,34 +56,15 @@ private final class WallpaperView: NSView {
         let rect = bounds
         let t = CGFloat(ProcessInfo.processInfo.systemUptime - born)
 
-        let background = dark
-            ? [NSColor(calibratedWhite: 0.055, alpha: 1), NSColor(calibratedWhite: 0.14, alpha: 1)]
-            : [NSColor(calibratedWhite: 0.97, alpha: 1), NSColor(calibratedWhite: 0.82, alpha: 1)]
-        NSGradient(colors: background)!.draw(in: rect, angle: -72)
-
-        drawEdge(in: rect, time: t)
-
-        // Two very slow color breaths keep even empty margins alive without
-        // competing with the product window or subtitles.
-        drawGlow(
-            center: NSPoint(x: rect.width * (0.18 + 0.025 * sin(t * 0.09)),
-                            y: rect.height * (0.76 + 0.020 * cos(t * 0.08))),
-            radius: max(rect.width, rect.height) * 0.34,
-            color: NSColor(calibratedRed: 0.49, green: 0.12, blue: 1.0, alpha: 0.10)
-        )
-        drawGlow(
-            center: NSPoint(x: rect.width * (0.82 + 0.022 * cos(t * 0.07)),
-                            y: rect.height * (0.24 + 0.026 * sin(t * 0.10))),
-            radius: max(rect.width, rect.height) * 0.30,
-            color: NSColor(calibratedRed: 0.06, green: 0.90, blue: 0.70, alpha: 0.08)
-        )
+        (dark ? NSColor.black : NSColor.white).setFill()
+        rect.fill()
 
         for particle in field {
             let progress = (particle.y + t * particle.speed).truncatingRemainder(dividingBy: 1.28)
             let y = (progress - 0.14) * rect.height
             let sway = sin(t * 0.20 + particle.phase) * rect.width * 0.012
             let x = particle.x * rect.width + sway
-            let logoWidth = particle.size * 1.255
+            let logoWidth = particle.size
             drawLogo(
                 in: NSRect(x: x - logoWidth / 2, y: y - particle.size / 2,
                            width: logoWidth, height: particle.size),
@@ -92,45 +73,9 @@ private final class WallpaperView: NSView {
         }
     }
 
-    private func drawGlow(center: NSPoint, radius: CGFloat, color: NSColor) {
-        let colors = [color, color.withAlphaComponent(0)] as CFArray
-        let locations: [CGFloat] = [0, 1]
-        guard let gradient = CGGradient(
-            colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: locations
-        ), let context = NSGraphicsContext.current?.cgContext else { return }
-        context.drawRadialGradient(
-            gradient, startCenter: center, startRadius: 0,
-            endCenter: center, endRadius: radius, options: [.drawsAfterEndLocation]
-        )
-    }
-
-    private func drawEdge(in rect: NSRect, time: CGFloat) {
-        // A narrow, feathered brand-spectrum edge makes the recording feel
-        // intentionally staged while leaving the usable desktop margin quiet.
-        // Drawing three nested rings avoids a hard neon keyline.
-        let colors: [NSColor] = [
-            NSColor(calibratedRed: 0.49, green: 0.06, blue: 1.00, alpha: 1),
-            NSColor(calibratedRed: 0.98, green: 0.22, blue: 0.66, alpha: 1),
-            NSColor(calibratedRed: 0.06, green: 0.94, blue: 0.76, alpha: 1),
-            NSColor(calibratedRed: 0.49, green: 0.06, blue: 1.00, alpha: 1),
-        ]
-        let angle = -8 + 7 * sin(time * 0.10)
-        for (width, alpha) in [(54.0, 0.08), (28.0, 0.20), (10.0, 0.74)] {
-            guard let context = NSGraphicsContext.current?.cgContext else { return }
-            context.saveGState()
-            context.addRect(rect)
-            context.addRect(rect.insetBy(dx: width, dy: width))
-            context.clip(using: .evenOdd)
-            NSGradient(colors: colors.map { $0.withAlphaComponent(alpha) })?
-                .draw(in: rect, angle: angle)
-            context.restoreGState()
-        }
-    }
-
     private func drawLogo(in rect: NSRect, opacity: CGFloat) {
-        // The source SVG is the production Fuser thumbnail mark, including its
-        // own purple→teal halo. Draw it as a single vector-backed image so the
-        // logo remains sharp in the 2× Stage capture.
+        // The icon path is extracted verbatim from Fuser's production SVG. Draw
+        // it as a vector-backed image so it remains sharp in the 2× Stage capture.
         logo.draw(in: rect, from: .zero, operation: .sourceOver, fraction: opacity)
     }
 
@@ -139,19 +84,25 @@ private final class WallpaperView: NSView {
               let source = try? String(contentsOf: url, encoding: .utf8) else {
             fatalError("Captutor Wallpaper is missing fuser-thumbnail-logo.svg")
         }
-        let themed: String
-        if dark {
-            // Keep the production geometry and colorful halo; swap only the
-            // neutral logo surfaces so Dark is truly white-on-black.
-            themed = source
-                .replacingOccurrences(of: "#171717", with: "__FUSER_DARK__")
-                .replacingOccurrences(of: "#FAFAFA", with: "#171717")
-                .replacingOccurrences(of: "fill=\"white\"", with: "fill=\"#171717\"")
-                .replacingOccurrences(of: "__FUSER_DARK__", with: "#FAFAFA")
-        } else {
-            themed = source
+        // The production thumbnail contains a wordmark and glow as well as the
+        // actual icon. Extract its first path verbatim so the desktop shows only
+        // the real mark—never the product name—and theme that mark by contrast.
+        guard let groupStart = source.range(of: "<g filter=\"url(#filter1_ddii_0_1)\">")?.upperBound,
+              let groupEnd = source.range(of: "</g>", range: groupStart..<source.endIndex)?.lowerBound,
+              let pathStart = source.range(of: "<path", range: groupStart..<groupEnd)?.lowerBound,
+              let pathEndToken = source.range(of: "/>", range: pathStart..<groupEnd)?.upperBound else {
+            fatalError("Captutor Wallpaper could not isolate the Fuser mark")
         }
-        guard let image = NSImage(data: Data(themed.utf8)) else {
+        let color = dark ? "#FAFAFA" : "#171717"
+        let path = String(source[pathStart..<pathEndToken])
+            .replacingOccurrences(of: "fill=\"#FAFAFA\"", with: "fill=\"\(color)\"")
+            .replacingOccurrences(of: "fill=\"white\"", with: "fill=\"\(color)\"")
+        let iconOnly = """
+        <svg width="96" height="96" viewBox="45 63 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+        \(path)
+        </svg>
+        """
+        guard let image = NSImage(data: Data(iconOnly.utf8)) else {
             fatalError("Captutor Wallpaper could not decode the Fuser SVG")
         }
         return image
