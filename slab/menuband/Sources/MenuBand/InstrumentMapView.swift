@@ -84,16 +84,13 @@ final class InstrumentListView: NSView {
     /// BOTTOM of the board, below the patch grid. Set by the host view;
     /// empty = no radio cells.
     var radioStations: [RadioStation] = [] { didSet { needsDisplay = true } }
-    /// True while the radio ("voice −1") backend is the active instrument —
-    /// fills the selected station cell, like `midiModeActive` fills MIDI OUT.
+    /// True while an internet station is the active CDJ Radio source.
     var radioBackendActive: Bool = false { didSet { needsDisplay = true } }
     /// Which station id is currently tuned (highlighted when active).
     var selectedRadioStationID: String? { didSet { needsDisplay = true } }
     /// Fires when the user clicks a radio-station cell.
     var onRadioCommit: ((RadioStation) -> Void)?
-    /// Direct-download builds append Spotify to the same listening-source
-    /// strip. It is a player (not a pitchable radio voice), so it gets its own
-    /// state/callback while sharing the row's geometry and interaction.
+    /// Direct-download builds append Spotify to the same CDJ source strip.
     var spotifyEnabled: Bool = false { didSet { needsDisplay = true } }
     var spotifyActive: Bool = false { didSet { needsDisplay = true } }
     var onSpotifyCommit: (() -> Void)?
@@ -140,10 +137,10 @@ final class InstrumentListView: NSView {
             return "🦜 Squawk — click to toggle, or hold ⌘⌃⌥` to talk; types into the frontmost app"
         }
         if let i = radioStationIndex(at: point) {
-            return "\(radioStations[i].name) - click to play the live radio as voice −1"
+            return "CDJ Radio · \(radioStations[i].name) — play alongside the piano"
         }
         if isSpotifyHit(point) {
-            return "Spotify — headless juked player with search, artwork, and transport"
+            return "CDJ Radio · Spotify — juked playback through Menu Band effects"
         }
         if isMidiOutHit(point) {
             return "0 MIDI OUT - route notes to the virtual MIDI port; local synth is muted"
@@ -599,7 +596,7 @@ final class InstrumentListView: NSView {
         // immediately after the user picks an initial cell.
         window?.makeFirstResponder(self)
         let pt = convert(event.locationInWindow, from: nil)
-        // Radio-station cell — tune the radio voice to that station. Like
+        // CDJ source cell — tune the independent deck to that station. Like
         // MIDI OUT, there's no audible preview, so it bypasses the drag path.
         if let i = radioStationIndex(at: pt) {
             onRadioCommit?(radioStations[i])

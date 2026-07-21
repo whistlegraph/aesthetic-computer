@@ -32,7 +32,6 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     let watchDirs: [String]
     let selectPath: String?
     var current: Int = -1
-    var menuBar: MenuBarCD?
     var watchTimer: Timer?
     var activityTimer: Timer?
     var activityPollInFlight = false
@@ -175,10 +174,9 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         }
         wave.volume = quickVolume
         relayout()
-        // the spinning-CD menu-bar presence (persists when the window is closed)
-        menuBar = MenuBarCD()
-        menuBar?.onClick = { [weak self] in self?.showMiniPlayer() }
-        menuBar?.onDoubleClick = { [weak self] in self?.quickOpenFull() }
+        // CDJ Radio and its spinning menu-bar disc now belong to Menu Band.
+        // JukeWizard remains the library/editor and does not create a second
+        // status item that would compete for the same juked session.
         roomAudio.onState = { [weak self] state in
             DispatchQueue.main.async { self?.renderRoomState(state) }
         }
@@ -582,15 +580,11 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         notesPlaceholder.frame = NSRect(x: dp + 6, y: notesBottom + notesH - 20, width: 100, height: 16)
     }
 
-    // ── menu-bar CD ────────────────────────────────────────────────────────
-    // Keep the bar disc's tempo + spin in step with playback.
-    private func refreshMenuBar() {
+    // Keep Dock artwork and any open in-window mini player in sync. The
+    // menu-bar CD itself is owned by Menu Band's CDJ Radio.
+    private func refreshPlaybackPresence() {
         let bpm = spotifyMode ? nil : track?.meta?.bpm.map(Double.init)
         let playing = spotifyMode ? (spotifyState?.isPlaying ?? false) : wave.isPlaying
-        let title = spotifyMode ? (spotifyState?.title ?? "Spotify") : (track?.title ?? "JukeWizard")
-        menuBar?.setBPM(bpm)
-        menuBar?.setNowPlaying(title: title, art: currentArt)
-        menuBar?.setPlaying(playing)
         DockIcon.setNowPlaying(art: currentArt, playing: playing, bpm: bpm)
         miniPlayer?.refresh()
     }
@@ -683,7 +677,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         listTable?.reloadData()
         relayout()
         if let state = spotifyState { renderSpotifyState(state) }
-        else { refreshMenuBar() }
+        else { refreshPlaybackPresence() }
     }
 
     private func activateLibraryMode() {
@@ -707,7 +701,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         playButton.title = wave.isPlaying ? "❚❚" : "▶"
         nowPlaying.setPaused(!wave.isPlaying)
         relayout()
-        refreshMenuBar()
+        refreshPlaybackPresence()
         pollActivityStatus()
     }
 
@@ -792,11 +786,11 @@ final class JukeController: NSWindowController, NSWindowDelegate,
                     self?.currentArt = art
                     self?.nowPlaying.present(art: art, videoURL: nil)
                     self?.nowPlaying.setPaused(!state.isPlaying)
-                    self?.refreshMenuBar()
+                    self?.refreshPlaybackPresence()
                 }
             }.resume()
         }
-        refreshMenuBar()
+        refreshPlaybackPresence()
     }
     var quickTitle: String {
         spotifyMode ? (spotifyState?.title ?? "Spotify") : (track?.title ?? "Aesthetic")
@@ -814,23 +808,6 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         case .failed(let message): return "room · ⚠ \(message)"
         case .live(let snapshot): return "\(snapshot.neo == "off" ? "" : "Neo \(snapshot.neo)")\(snapshot.neo != "off" && snapshot.blueberry != "off" ? "  ·  " : "")\(snapshot.blueberry == "off" ? "" : "Blueberry \(snapshot.blueberry)")"
         }
-    }
-
-    private func showMiniPlayer() {
-        if miniPopover?.isShown == true {
-            miniPopover?.close()
-            return
-        }
-        let player = JukeMiniPlayerView(controller: self)
-        let viewController = NSViewController()
-        viewController.view = player
-        let popover = NSPopover()
-        popover.behavior = .transient
-        popover.contentSize = NSSize(width: 370, height: 170)
-        popover.contentViewController = viewController
-        miniPlayer = player
-        miniPopover = popover
-        menuBar?.show(popover)
     }
 
     @objc func quickOpenFull() {
@@ -928,7 +905,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         updateTime()
         if autoplay { wave.play(); playButton.title = "❚❚"; nowPlaying.setPaused(false) }
         else { playButton.title = "▶"; nowPlaying.setPaused(true) }
-        refreshMenuBar()               // new tempo + play state → spin the bar CD
+        refreshPlaybackPresence()
     }
 
     // ── sorting ────────────────────────────────────────────────────────────
@@ -999,7 +976,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
             playButton.title = wave.isPlaying ? "❚❚" : "▶"
             nowPlaying.setPaused(!wave.isPlaying)
         }
-        refreshMenuBar()
+        refreshPlaybackPresence()
     }
     @objc private func prevTrack() {
         if spotifyMode { spotify.previous() }
@@ -1064,7 +1041,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
             }
         }
         if wasPlaying { wave.play(); playButton.title = "❚❚"; nowPlaying.setPaused(false) }
-        refreshMenuBar()
+        refreshPlaybackPresence()
     }
     @objc private func commentClicked() {
         guard let t = track else { return }
@@ -1084,7 +1061,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     }
 
     // ── waveform delegate ───────────────────────────────────────────────────
-    func waveformDidFinish() { playButton.title = "▶"; nextTrack(); refreshMenuBar() }
+    func waveformDidFinish() { playButton.title = "▶"; nextTrack(); refreshPlaybackPresence() }
     func waveformTick() { updateTime() }
     private func updateTime() {
         if let state = spotifyMode ? spotifyState : nil {

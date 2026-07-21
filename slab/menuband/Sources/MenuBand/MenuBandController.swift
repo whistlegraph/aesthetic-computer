@@ -179,15 +179,19 @@ final class MenuBandController {
     /// added without breaking older saved values.
     private let instrumentBackendKey = "notepat.instrumentBackend"
     private let radioStationKey = "notepat.radioStation"
-    /// Headless Spotify playback is deliberately separate from the synth's
-    /// instrument backend: the player can run underneath a GM/sample voice so
-    /// the user can play along. Selecting an internet-radio voice pauses it.
+    /// CDJ Radio is deliberately separate from the piano instrument backend:
+    /// the deck can run beneath GM/sample/MIDI playback, and only the explicit
+    /// Sample-to-Piano action moves a slice onto the keys.
     private let spotify = MenuBandSpotify()
     private var spotifyCallbacksInstalled = false
-    private(set) var spotifyPlayerPresented = false
+    private(set) var cdjRadioPresented = false
+    private(set) var cdjRadioSource: CDJRadioSource = .station(.kpbj)
     private(set) var spotifyPlayback: MenuBandSpotifyPlayback?
-    private(set) var spotifyStatus = "juked headless player"
+    private(set) var spotifyStatus = "CDJ Radio"
     private(set) var spotifyStatusIsError = false
+    var spotifyPlayerPresented: Bool {
+        cdjRadioPresented && cdjRadioSource == .spotify
+    }
     /// File URL string of the GarageBand patch the user picked. Empty
     /// when no GB patch has been selected yet (we'll fall back to the
     /// first scanned patch when the backend is GarageBand and this is
@@ -210,10 +214,10 @@ final class MenuBandController {
     var onOctaveLimitNudge: ((Int) -> Void)?
     var onLitChanged: (() -> Void)?
     var onInstrumentVisualChange: (() -> Void)?
-    /// Lightweight now-playing updates (once per second while Spotify is in
-    /// use). Kept separate from `onChange`, whose full icon/window refresh is
-    /// intentionally too expensive for a progress timer.
-    var onSpotifyChange: (() -> Void)?
+    /// Lightweight CDJ deck / now-playing updates. Kept separate from
+    /// `onChange`, whose full icon/window refresh is too expensive for the
+    /// Spotify progress timer.
+    var onCDJRadioChange: (() -> Void)?
     private(set) var sampleInputLevel: Float = 0
 
     /// Last MIDI note actually played (mouse tap or keyboard). Used by
@@ -1236,33 +1240,28 @@ final class MenuBandController {
         onChange?()
     }
 
-    /// Switch the active backend to the live KPBJ.FM radio stream
-    /// (conceptually "voice −1"). The piano keys play the live audio
-    /// pitched by 2^((note−60)/12) — middle C is unpitched, every other
-    /// note is varispeed-shifted off the same buffer. Disabling restores
-    /// whichever GM program was last selected.
+    /// Compatibility entry point for the former radio-as-instrument mode.
+    /// Radio now toggles the independent CDJ deck and never changes the
+    /// piano's selected instrument.
     func setRadioBackend(_ enabled: Bool) {
         if enabled {
-            if spotifyPlayerPresented { deactivateSpotifyPlayer() }
-            UserDefaults.standard.set("kpbj", forKey: instrumentBackendKey)
-            synth.setRadioStation(radioStation)  // tune to the saved station
-            synth.setRadioBackend(true)
+            selectRadioStation(radioStation)
         } else {
-            UserDefaults.standard.set("gm", forKey: instrumentBackendKey)
-            synth.setRadioBackend(false)
-            // Reload whatever GM voice was last picked so the user lands
-            // back on a familiar instrument instead of silence.
-            synth.setMelodicProgram(melodicProgram)
+            deactivateCDJRadio()
         }
-        onChange?()
-        onInstrumentVisualChange?()
     }
 
     func toggleRadioBackend() {
-        setRadioBackend(instrumentBackend != .kpbj)
+        let sameStation: Bool
+        if case .station(let station) = cdjRadioSource {
+            sameStation = station == radioStation
+        } else {
+            sameStation = false
+        }
+        setRadioBackend(!(cdjRadioPresented && sameStation))
     }
 
-    /// The radio station the "voice −1" backend is tuned to (persisted).
+    /// The persisted internet station for the CDJ Radio deck.
     var radioStation: RadioStation {
         get { RadioStation.by(id: UserDefaults.standard.string(forKey: radioStationKey) ?? "kpbj") }
         set {
@@ -1273,43 +1272,67 @@ final class MenuBandController {
         }
     }
 
-    /// Pick a station AND make the radio the active backend — the action
-    /// behind a station cell in the chooser and the `-kpbj` / `-nts1` /
-    /// `-nts2` typed commands. Tuning while already on radio just retunes.
+    /// Tune the standalone CDJ deck. The currently-selected piano instrument
+    /// continues to receive every key and can be played over the station.
     func selectRadioStation(_ station: RadioStation) {
-        // Radio and Spotify are peer listening sources in the bottom strip;
-        // never let both streams speak at once. This leaves the normal GM
-        // voice untouched when Spotify is later re-opened for play-along.
-        if spotifyPlayerPresented { deactivateSpotifyPlayer() }
-        UserDefaults.standard.set(station.id, forKey: radioStationKey)
-        synth.setRadioStation(station)
-        if instrumentBackend != .kpbj {
-            setRadioBackend(true)   // engages radio + applies this station
+        if cdjRadioSource == .spotify {
+            synth.silenceCDJSpotify()
+            spotify.pause { [weak self] in
+                guard let self,
+                      !self.cdjRadioPresented || self.cdjRadioSource != .spotify
+                else { return }
+                self.synth.stopCDJSpotify()
+            }
         } else {
-            onChange?()
-            onInstrumentVisualChange?()
+            synth.stopCDJSpotify()
         }
+        UserDefaults.standard.set(station.id, forKey: radioStationKey)
+        cdjRadioSource = .station(station)
+        cdjRadioPresented = true
+        spotifyStatus = "LIVE · through Menu Band FX"
+        spotifyStatusIsError = false
+        synth.startCDJRadio(station: station)
+        onCDJRadioChange?()
+        onInstrumentVisualChange?()
     }
 
-    // MARK: - Headless Spotify player
+    // MARK: - CDJ Radio / headless Spotify
 
     /// Reveal and start the compact Spotify player. `juked` serializes start
     /// before any immediately-following search/play command, so this is safe
     /// to call from a single click on the source strip.
     func activateSpotifyPlayer() {
         installSpotifyCallbacksIfNeeded()
-        spotifyPlayerPresented = true
+        synth.stopCDJInternetRadio()
+        cdjRadioSource = .spotify
+        cdjRadioPresented = true
         spotifyStatus = "connecting to juked…"
         spotifyStatusIsError = false
         spotify.start()
-        onSpotifyChange?()
+        connectSpotifyDeckSoon()
+        onCDJRadioChange?()
         onInstrumentVisualChange?()
     }
 
     func deactivateSpotifyPlayer() {
-        spotify.pause()
-        spotifyPlayerPresented = false
-        onSpotifyChange?()
+        deactivateCDJRadio()
+    }
+
+    func deactivateCDJRadio() {
+        if cdjRadioSource == .spotify {
+            synth.silenceCDJSpotify()
+            spotify.pause { [weak self] in
+                guard let self,
+                      !self.cdjRadioPresented || self.cdjRadioSource != .spotify
+                else { return }
+                self.synth.stopCDJSpotify()
+            }
+        } else {
+            synth.stopCDJSpotify()
+        }
+        synth.stopCDJInternetRadio()
+        cdjRadioPresented = false
+        onCDJRadioChange?()
         onInstrumentVisualChange?()
     }
 
@@ -1338,6 +1361,79 @@ final class MenuBandController {
         spotify.play(track)
     }
 
+    /// Explicit CDJ Radio → Piano Sampler handoff. A short slice ending at
+    /// the current playhead becomes the sampler's global recording; only a
+    /// successful capture switches the piano instrument to SAMPLE.
+    @discardableResult
+    func sampleCDJRadioToPiano() -> Bool {
+        guard cdjRadioPresented else { return false }
+        let captured = synth.sampleCDJRadioToPiano(source: cdjRadioSource)
+        if captured {
+            spotifyStatus = "Sampled 2.5 s → Piano"
+            spotifyStatusIsError = false
+            setSampleBackend(true)
+        } else {
+            spotifyStatus = "CDJ buffer is still filling — try again"
+            spotifyStatusIsError = true
+        }
+        onCDJRadioChange?()
+        return captured
+    }
+
+    var cdjRadioTitle: String {
+        switch cdjRadioSource {
+        case .station(let station): return station.name
+        case .spotify: return spotifyPlayback?.title ?? "Spotify"
+        }
+    }
+
+    var cdjRadioSubtitle: String {
+        switch cdjRadioSource {
+        case .station: return "LIVE INTERNET RADIO"
+        case .spotify: return spotifyPlayback?.artists ?? "juked headless"
+        }
+    }
+
+    var cdjRadioArtworkURL: URL? {
+        cdjRadioSource == .spotify ? spotifyPlayback?.artworkURL : nil
+    }
+
+    var cdjRadioPlaying: Bool {
+        guard cdjRadioPresented else { return false }
+        switch cdjRadioSource {
+        case .station: return true
+        case .spotify: return spotifyPlayback?.isPlaying == true
+        }
+    }
+
+    private func connectSpotifyDeckSoon(attemptsRemaining: Int = 8) {
+        spotify.daemonPID { [weak self] processID in
+            guard let self, self.cdjRadioPresented,
+                  self.cdjRadioSource == .spotify else { return }
+            guard let processID else {
+                guard attemptsRemaining > 0 else {
+                    self.spotifyStatus = "juked started, but its audio process was not found"
+                    self.spotifyStatusIsError = true
+                    self.onCDJRadioChange?()
+                    return
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                    [weak self] in self?.connectSpotifyDeckSoon(
+                        attemptsRemaining: attemptsRemaining - 1)
+                }
+                return
+            }
+            self.synth.startCDJSpotify(processID: processID) {
+                [weak self] message in
+                DispatchQueue.main.async {
+                    self?.spotifyStatus = message
+                    self?.spotifyStatusIsError = true
+                    self?.onCDJRadioChange?()
+                }
+            }
+        }
+    }
+
     private func installSpotifyCallbacksIfNeeded() {
         guard !spotifyCallbacksInstalled else { return }
         spotifyCallbacksInstalled = true
@@ -1345,20 +1441,21 @@ final class MenuBandController {
             guard let self else { return }
             self.spotifyPlayback = state
             if state != nil { self.spotifyStatusIsError = false }
-            self.onSpotifyChange?()
+            self.onCDJRadioChange?()
         }
         spotify.onStatus = { [weak self] message, failed in
             guard let self else { return }
             self.spotifyStatus = message
             self.spotifyStatusIsError = failed
-            self.onSpotifyChange?()
+            self.onCDJRadioChange?()
         }
     }
 
     /// Deterministic, side-effect-free state for the offscreen popover capture
     /// harness. Never starts `juked` or touches the user's real playback.
     func seedSpotifyPlayerForCapture() {
-        spotifyPlayerPresented = true
+        cdjRadioSource = .spotify
+        cdjRadioPresented = true
         spotifyStatus = "juked headless · ready"
         spotifyStatusIsError = false
         spotifyPlayback = MenuBandSpotifyPlayback(
@@ -1657,11 +1754,13 @@ final class MenuBandController {
         // volume (matches previous behaviour); explicit lower picks
         // survive the relaunch.
         synth.setMasterVolume(masterVolume)
-        // Restore radio backend if it was active in the previous session.
-        // Done after setMelodicProgram so the GM voice is primed underneath
-        // — toggling radio off later returns the user to that voice.
+        // Migrate the former radio-as-piano backend into the standalone CDJ
+        // deck. The saved GM voice remains the keyboard instrument.
         if instrumentBackend == .kpbj {
-            synth.setRadioBackend(true)
+            UserDefaults.standard.set("gm", forKey: instrumentBackendKey)
+            cdjRadioSource = .station(radioStation)
+            cdjRadioPresented = true
+            synth.startCDJRadio(station: radioStation)
         }
         // Sample backend doesn't survive relaunch — there's no
         // recording on disk yet, so fall back to GM. Persist the
@@ -2764,19 +2863,17 @@ final class MenuBandController {
     /// `voiceDigitFlushInterval` means the user is picking a new voice,
     /// not continuing a multi-digit number.
     private var voiceDigitLastPress: CFTimeInterval = 0
-    /// True after the `-` key was pressed and the next digit will be
-    /// read as part of a negative voice slot (currently only `-1`
-    /// = KPBJ radio). Same `voiceDigitFlushInterval` timeout as the
+    /// True after `-` primes a CDJ Radio shortcut (`-1` toggles the saved
+    /// station). Same `voiceDigitFlushInterval` timeout as the
     /// digit buffer so a stray `-` doesn't hijack the next typed
     /// voice number.
     private var voiceDigitNegative: Bool = false
-    /// Letters typed after a `-` accumulate here so a negative voice can be
-    /// picked by NAME instead of slot number — e.g. `-kpbj`, `-nts1`,
-    /// `-nts2` each tune the radio backend ("voice −1") to that station.
+    /// Letters typed after `-` accumulate into a CDJ station callsign — e.g.
+    /// `-kpbj`, `-nts1`, or `-nts2`. The piano instrument is unchanged.
     /// Cleared on `-`, on a match, on divergence from any known name, and on
     /// the same `voiceDigitFlushInterval` staleness window as the digits.
     private var voiceCommandBuffer: String = ""
-    /// Negative voice names recognized after a `-` — one per radio station
+    /// CDJ station names recognized after `-` — one per radio station
     /// id. Matched as the buffer grows so it can bail the moment it diverges
     /// from every known name.
     private static let negativeVoiceNames: Set<String> =
@@ -3066,15 +3163,9 @@ final class MenuBandController {
             break
         }
 
-        // Minus key (`-`, keyCode 27) primes a negative voice slot. The
-        // trigger is `-1` OR a voice name like `-kpbj`, NOT a bare `-`.
-        // Either selects the live KPBJ radio backend ("voice −1": the
-        // piano plays the live stream pitched per note, stalls fading into
-        // AM-style static). `-1` toggles; `-<name>` accumulates the letters
-        // that follow and selects by callsign. Standalone `-` is a no-op so
-        // the negative-prefix UX matches how positive voices are typed
-        // (the rest of the sequence commits the pick). Consumed in both
-        // directions so the key never leaks to the focused app.
+        // Minus primes a CDJ Radio shortcut. `-1` toggles the saved station;
+        // `-kpbj`, `-r8dio`, `-nts1`, and `-nts2` tune the separate deck.
+        // None of these commands changes the piano instrument.
         if keyCode == 27 {
             if isDown && !isRepeat {
                 voiceDigitBuffer = ""
@@ -3173,10 +3264,8 @@ final class MenuBandController {
                 let now = CACurrentMediaTime()
                 let staleGap = now - voiceDigitLastPress
                     > Self.voiceDigitFlushInterval
-                // Negative-voice slot, primed by a preceding `-`.
-                // `-1` is the only negative voice today (KPBJ radio);
-                // it toggles, so a second `-1` switches back to the
-                // last GM voice. Other digits after `-` are no-ops —
+                // CDJ Radio shortcut, primed by a preceding `-`.
+                // `-1` toggles the saved station. Other digits are no-ops —
                 // we consume them so they don't quietly pick a GM
                 // voice the user wasn't aiming for.
                 if voiceDigitNegative && !staleGap {
@@ -3217,9 +3306,8 @@ final class MenuBandController {
             return true
         }
 
-        // Negative voice by NAME: once `-` has primed negative mode, the
-        // letters that follow spell a voice callsign — `-kpbj` selects the
-        // KPBJ radio. We accumulate letters and match against the known
+        // CDJ station by NAME: once `-` primes the shortcut, the letters
+        // spell a callsign. We accumulate and match against the known
         // names as the buffer grows, bailing the moment it can't be any of
         // them. The letter keys are consumed (no note plays) only while a
         // name is still plausibly being typed; a stale `-` or a divergent
@@ -3238,9 +3326,8 @@ final class MenuBandController {
                 let token = voiceCommandBuffer
                 let isPrefix = Self.negativeVoiceNames.contains { $0.hasPrefix(token) }
                 if Self.negativeVoiceNames.contains(token) {
-                    // Complete match → tune the radio to that station and
-                    // engage it (idempotent: a name selects, it doesn't
-                    // toggle off like `-1` does).
+                    // Complete match → tune the separate CDJ deck. A name
+                    // selects; it does not toggle off like `-1` does.
                     voiceDigitNegative = false
                     voiceCommandBuffer = ""
                     let station = RadioStation.by(id: token)
