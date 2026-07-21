@@ -53,7 +53,7 @@ node toolchain/youtube/yt.mjs upload <video.mp4> \
 Flags: `--title` (required), `--description` / `--description-file`,
 `--tags a,b,c`, `--privacy private|unlisted|public` (default
 `private`), `--category` (default `10` = Music), `--thumbnail`,
-`--playlist <id>`, `--made-for-kids`.
+`--playlist <id>`, `--language <code>`, `--made-for-kids`.
 
 Every upload drops a `<video>.youtube.json` receipt next to the file
 with the resulting `videoId`, watch URL, and the metadata that was
@@ -71,6 +71,54 @@ node toolchain/youtube/yt.mjs whoami --as whistlegraph
 node toolchain/youtube/yt.mjs upload video.mp4 --as whistlegraph --title "..."
 ```
 
+Use `--login-hint <email>` on `auth` when several Google accounts are
+present in the browser and the token must belong to one specific account.
+
+## Playlists and resumable batches
+
+Create or reuse a playlist by exact title (safe to rerun):
+
+```bash
+node toolchain/youtube/yt.mjs playlist-ensure --as <channel> \
+  --title "Playlist title" --description-file description.txt \
+  --privacy unlisted
+```
+
+For a set of uploads, put the channel, playlist, defaults, and a `videos[]`
+array in a JSON manifest, then run:
+
+```bash
+node toolchain/youtube/batch.mjs path/to/manifest.json
+node toolchain/youtube/batch.mjs path/to/manifest.json --dry-run
+```
+
+The batch runner uses the same per-channel OAuth token as `yt.mjs`. Each
+successful video leaves its usual `.youtube.json` receipt; rerunning skips
+matching receipts, reuses the playlist, and resumes at the first unfinished
+video. This is useful when the YouTube API quota resets between upload days.
+
+### Unlisted uploads before a YouTube API audit
+
+YouTube forces uploads from unaudited API projects created after July 28, 2020
+to Private, even if `videos.insert` asks for Unlisted. While an audit is
+pending, `studio-batch.mjs` drives an already signed-in, remote-debugging
+Chrome profile through YouTube Studio instead. It applies the same manifest
+metadata, playlist, not-made-for-kids setting, and Unlisted visibility, and
+writes the same resumable receipts:
+
+```bash
+open -na "Google Chrome" --args \
+  --user-data-dir="$HOME/.local/share/fuser-youtube-chrome" \
+  --remote-debugging-port=9444 https://studio.youtube.com
+
+node toolchain/youtube/studio-batch.mjs path/to/manifest.json --port=9444
+node toolchain/youtube/studio-batch.mjs path/to/manifest.json --start=4 --limit=1
+```
+
+Keep the dedicated profile private: Studio automation uses its signed-in
+browser session. The batch is safe to resume because a receipt is written only
+after Studio accepts the Unlisted publish action.
+
 During consent, Google's account chooser lists the channel identities —
 pick **whistlegraph**. If the whistlegraph channel lives under a
 *different* Google account (not a brand channel of
@@ -82,9 +130,8 @@ Services → OAuth consent screen), then sign in as it.
 
 - **Private-first.** The default privacy is `private` — uploads land
   as drafts you flip to public yourself in YouTube Studio.
-- **Quota.** A single upload costs ~1600 units of the default
-  10,000/day API quota — roughly six uploads a day before you'd need
-  a quota bump.
+- **Quota.** `videos.insert` currently allows 100 calls/day and costs one unit
+  in the Video Uploads quota bucket.
 - **Music visualizers** come from `pop/dance/bin/cover-video.mjs`
   rendered at `--size 1920x1080`. See `pop/RELEASES.md` for per-track
   build recipes.

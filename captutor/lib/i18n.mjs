@@ -85,6 +85,14 @@ export function selectors(t) {
     // a whole Chinese tutorial that added a Kling video node). Search for the
     // node by the name the app itself gives it.
     appNodeQuery: t("flow.nodes.AppNode.name"),
+    textNodeQuery: t("flow.nodes.TextNode.name"),
+    imageNodeQuery: t("flow.nodes.ImageNode.name"),
+
+    // The first node is the subject of Captutor's single-node lessons. These
+    // structural anchors survive localization and node-title wording changes.
+    firstNode: ".react-flow__node",
+    firstNodeInput: ".react-flow__node .react-flow__handle-left",
+    firstNodeOutput: ".react-flow__node .react-flow__handle-right",
 
     // (3) structure. The App node's pre-deploy invitation ("Start an app") is
     // simply the BIGGEST button on the node — no key, no test id.

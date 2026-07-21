@@ -605,9 +605,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     /// Pull the iMessage summary off-main. The helper always exits 0 for
-    /// `status`, prints one JSON line, and rings the bell itself when a NEW
-    /// inbound arrives — so this never blocks the tick and the alert fires
-    /// even while the menu is closed.
+    /// `status`, prints one JSON line, and may ring an explicitly enabled bell
+    /// when a NEW inbound arrives. This never blocks the tick, and visual /
+    /// Loopboy alerts still fire while the menu is closed.
     private func refreshImsgCount() {
         let helper = Paths.imsgHelper
         guard FileManager.default.isExecutableFile(atPath: helper) else {
@@ -771,7 +771,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         let t = esc((tty as NSString).lastPathComponent)
         let p = esc(prompt)
-        let script = """
+        var script = """
         tell application "Terminal"
             repeat with w in windows
                 repeat with tabRef in tabs of w
@@ -784,7 +784,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 end repeat
             end repeat
         end tell
-        try
+        """
+        // Missing application terminology is a compile-time AppleScript error,
+        // so a `try` cannot protect the Terminal path. Append iTerm2 only when
+        // it is actually installed on this host.
+        if NSWorkspace.shared.urlForApplication(
+            withBundleIdentifier: "com.googlecode.iterm2") != nil {
+            script += """
+
             tell application id "com.googlecode.iterm2"
                 repeat with w in windows
                     repeat with tabRef in tabs of w
@@ -797,7 +804,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     end repeat
                 end repeat
             end tell
-        end try
+            """
+        }
+        script += """
+
         return "tty-not-found"
         """
         ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", script])

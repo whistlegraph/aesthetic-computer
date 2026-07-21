@@ -67,7 +67,9 @@ export default {
         "La voz se genera primero. Los tiempos medidos de cada palabra controlan la interacción y los subtítulos resaltados, manteniendo sincronizados la narración, el puntero y la imagen.",
         "语音会先生成。每个词的精确时间驱动交互和高亮字幕，让旁白、指针和画面始终同步。",
       ),
-      do: async ({ zoom }) => zoom("body", { scale: 1.10, durationMs: 760, resetAfterMs: 3400 }),
+      do: async ({ outline }) => outline("body", {
+        label: "Voice → timing → interaction", feather: 28, durationMs: 3200,
+      }),
     },
     {
       say: line(
@@ -135,11 +137,13 @@ export default {
         "La misión vuelve a Fuser y acerca suavemente la cámara para dar énfasis. El mismo guion puede repetirse en formato horizontal, vertical o como edición accesible localizada.",
         "任务最后返回 Fuser，并平滑推进镜头以加强重点。同一份脚本现在可以重新生成横向、纵向或本地化无障碍版本。",
       ),
-      do: async ({ tabs, sleep, spotlight, zoom }) => {
+      do: async ({ tabs, sleep, spotlight }) => {
         await tabs.activate("fuser.studio");
         await sleep(700);
-        await spotlight(".react-flow__node", { label: "One screenplay · many editions", dim: 0.22, ring: false, feather: 34, durationMs: 4200 });
-        await zoom(".react-flow__node", { scale: 1.14, durationMs: 900 });
+        await spotlight(".react-flow__node", {
+          label: "One screenplay · many editions", dim: 0.30,
+          ring: true, feather: 34, durationMs: 4200,
+        });
       },
       holdMs: 900,
     },

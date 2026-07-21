@@ -16,7 +16,6 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { pathToFileURL } from "node:url";
 
 const [sid, _beginArg, wrapperArg, tty = "", cwd = ""] = process.argv.slice(2);
 if (!sid) process.exit(1);
@@ -120,7 +119,7 @@ const touch = async (p) => {
 // rollout-<timestamp>-<provider uuid>.jsonl → the stable Codex thread id.
 // Persisting this in the active marker lets Slab refresh/zzz a tracked wrapper
 // and resume the same provider conversation instead of opening a fresh one.
-export function sessionIdFromRollout(file) {
+function sessionIdFromRollout(file) {
   return String(file || "").match(/-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$/i)?.[1] || "";
 }
 
@@ -226,9 +225,7 @@ async function main() {
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main().catch((error) => {
-    console.error(`codex-session-watch: ${error?.stack || error}`);
-    process.exit(1);
-  });
-}
+main().catch((error) => {
+  console.error(`codex-session-watch: ${error?.stack || error}`);
+  process.exit(1);
+});

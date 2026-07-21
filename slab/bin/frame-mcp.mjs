@@ -47,6 +47,8 @@ const settle = (ms = 180) => new Promise((resolve) => setTimeout(resolve, ms));
 // state cannot disappear before the next agent observation.
 const ACTION_SAMPLE_TIMES = [120, 500, 1100, 2200, 4000, 6500, 9000, 12000, 15000];
 const MAX_TRAIL_TEXT = 24;
+const MANUAL_APPROVAL_WAIT_MS = Math.max(0, Math.min(30000,
+  Number(process.env.SLAB_FRAME_MANUAL_APPROVAL_MS || 10000)));
 
 // Run frame.mjs with args; resolve { stdout, stderr }. frame prints its JSON
 // envelope (with --json) to stdout and writes the JPEG to --out, so a capture
@@ -105,7 +107,7 @@ function digest(env) {
 const stagedClicks = new Map();
 const recentActionTrails = new Map();
 
-async function captureFrame({ machine, ocr = true, fast = false, screen = false, cursor = true, cursorAt, targetAt, pressAt, pressCount = 1, pressTitle, actionOnly = false, clearTarget = false, crop, baseline = false, diff = false } = {}) {
+async function captureFrame({ machine, ocr = true, fast = false, screen = false, cursor = true, cursorAt, targetAt, targetId, manualCheck, pressAt, pressCount = 1, pressTitle, actionOnly = false, clearTarget = false, crop, baseline = false, diff = false } = {}) {
   if (!machine) throw new Error("`machine` is required (see frame_list)");
   // A unique path matters now that an action trail may capture while another
   // session asks for a normal frame of the same machine.
@@ -117,6 +119,8 @@ async function captureFrame({ machine, ocr = true, fast = false, screen = false,
   if (cursorAt) args.push("--cursor-at", `${cursorAt[0]},${cursorAt[1]}`);
   else if (cursor) args.push("--cursor");
   if (targetAt) args.push("--target-at", `${targetAt[0]},${targetAt[1]}`);
+  if (targetId) args.push("--target-id", String(targetId));
+  if (manualCheck) args.push("--manual-check", String(manualCheck));
   if (pressAt) args.push("--press-at", `${pressAt[0]},${pressAt[1]}`, "--press-count", String(pressCount));
   if (pressTitle) args.push("--press-title", String(pressTitle));
   if (actionOnly) args.push("--action-only");
@@ -340,7 +344,9 @@ async function toolStageClick({ machine, x, y, count = 1, label, ocr = true, fas
   const approvalId = randomUUID();
   hoverPoint(machineSpec(machine), x, y);
   await settle(80);
-  const capture = await captureFrame({ machine, ocr, fast, cursorAt: [x, y], targetAt: [x, y] });
+  const capture = await captureFrame({
+    machine, ocr, fast, cursorAt: [x, y], targetAt: [x, y], targetId: approvalId,
+  });
   const target = clickTargetPrediction(capture.env, x, y);
   label = String(label || target.title || "Confirm click").trim();
   stagedClicks.set(machine, {
@@ -350,6 +356,38 @@ async function toolStageClick({ machine, x, y, count = 1, label, ocr = true, fas
     targetBasis: target.basis,
     baselineText: visibleText(capture.env),
   });
+  const deadline = Date.now() + MANUAL_APPROVAL_WAIT_MS;
+  while (Date.now() < deadline) {
+    await settle(Math.min(250, Math.max(1, deadline - Date.now())));
+    const check = await captureFrame({
+      machine, ocr: false, fast: true, cursor: false, manualCheck: approvalId,
+    });
+    if (check.env.manual_action?.approval_id !== approvalId) continue;
+
+    const pending = stagedClicks.get(machine);
+    if (!pending || pending.approvalId !== approvalId) {
+      throw new Error("The manually approved click was superseded by a newer staged action.");
+    }
+    stagedClicks.delete(machine);
+    await settle(220);
+    const post = await captureFrame({ machine, ocr, fast, cursorAt: [x, y] });
+    const current = visibleText(post.env);
+    const added = [...current]
+      .filter(([key]) => !pending.baselineText.has(key)).map(([, text]) => text);
+    const removed = [...pending.baselineText]
+      .filter(([key]) => !current.has(key)).map(([, text]) => text);
+    const sample = { atMs: 220, added, removed, capture: post };
+    recentActionTrails.set(machine, {
+      machine, label: pending.label, recordedAt: new Date().toISOString(),
+      durationMs: 220, samples: [sample], representative: sample,
+    });
+    const content = frameContent(post, machine);
+    content.push({
+      type: "text",
+      text: `\nMANUALLY APPROVED — observed a human tap inside the staged “${pending.label}” target. The underlying app received the click and this tool call resumed automatically.`,
+    });
+    return content;
+  }
   const content = frameContent(capture, machine);
   content.push({ type: "text", text: `\n\`\`\`text\n${choiceBox(label, target.probability)}\n\`\`\`\napproval_id: ${approvalId}\ntarget_confidence: ${target.probability.toFixed(2)} (${Math.round(target.probability * 100)}%)\ntarget_basis: ${target.basis}` });
   return content;
@@ -465,7 +503,7 @@ const TOOLS = [
   },
   {
     name: "frame_stage_click",
-    description: "HUMAN-IN-THE-LOOP: stage, but do not perform, a native click. Dims the display and outlines the full target control (point fallback), returning an approval_id. Ask the human for y to click or n to cancel before calling frame_commit_click or frame_reject_click.",
+    description: "HUMAN-IN-THE-LOOP: stage, but do not perform, a native click. Dims the display and outlines the full target control (point fallback). A direct human tap on the highlighted control approves it and resumes this tool automatically; otherwise it returns an approval_id for the existing y/n commit-or-reject flow.",
     inputSchema: {
       type: "object",
       properties: {

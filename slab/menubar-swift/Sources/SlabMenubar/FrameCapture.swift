@@ -38,6 +38,9 @@ final class FrameCapture {
     private var overlayWindowIDs = Set<Int>()
     private var ocrOverlayWindow: NSWindow?
     private var pendingClickWindows: [NSWindow] = []
+    private var pendingClickMonitor: Any?
+    private var pendingClickApprovalId: String?
+    private var pendingClickScreenRect: CGRect?
     private var diffBaseline: (rect: CGRect, image: CGImage)?
     private func registerOverlay(_ w: NSWindow) {
         overlayLock.lock(); overlayWindowIDs.insert(w.windowNumber); overlayLock.unlock()
@@ -62,6 +65,12 @@ final class FrameCapture {
         let mode = (try? String(contentsOfFile: Paths.frameReq, encoding: .utf8)) ?? ""
         try? fm.removeItem(atPath: Paths.frameReq)
         try? fm.removeItem(atPath: Paths.frameDone)
+        if let token = mode.split(separator: " ").first(where: { $0.hasPrefix("manual-check=") }) {
+            let approvalId = String(token.dropFirst("manual-check=".count))
+            writeManualActionAcknowledgement(approvalId: approvalId)
+            fm.createFile(atPath: Paths.frameDone, contents: nil)
+            return
+        }
         var cursorOverride: CGPoint?
         if let token = mode.split(separator: " ").first(where: { $0.hasPrefix("cursor=") }) {
             let xy = token.dropFirst("cursor=".count).split(separator: ",").compactMap { Double($0) }
@@ -76,6 +85,10 @@ final class FrameCapture {
         if let token = mode.split(separator: " ").first(where: { $0.hasPrefix("target=") }) {
             let xy = token.dropFirst("target=".count).split(separator: ",").compactMap { Double($0) }
             if xy.count == 2 { pendingClickTarget = CGPoint(x: xy[0], y: xy[1]) }
+        }
+        var pendingClickApprovalId: String?
+        if let token = mode.split(separator: " ").first(where: { $0.hasPrefix("target-id=") }) {
+            pendingClickApprovalId = String(token.dropFirst("target-id=".count))
         }
         var approvedClick: (point: CGPoint, count: Int)?
         if let token = mode.split(separator: " ").first(where: { $0.hasPrefix("press=") }) {
@@ -110,7 +123,9 @@ final class FrameCapture {
                 wholeScreen: mode.contains("screen"),
                 virtualCursor: mode.contains("cursor"), cursorOverride: cursorOverride, crop: crop,
                 saveBaseline: mode.contains("baseline"), includeDiff: mode.contains("diff"))
-        if let pendingClickTarget { showPendingClickTarget(at: pendingClickTarget) }
+        if let pendingClickTarget {
+            showPendingClickTarget(at: pendingClickTarget, approvalId: pendingClickApprovalId)
+        }
         fm.createFile(atPath: Paths.frameDone, contents: nil)
     }
 
@@ -118,10 +133,10 @@ final class FrameCapture {
     /// the point to the whole control (button, field, link, etc.); when no
     /// bounded control can be resolved we fall back to a compact point target.
     /// The rest of the display is dimmed while the target outline pulses until
-    /// a later `target-clear` request approves or rejects the staged action.
+    /// the human taps it directly or a later `target-clear` request resolves it.
     /// The click-through overlay is excluded from captures, whose virtual
     /// cursor still records the exact staged coordinate.
-    private func showPendingClickTarget(at point: CGPoint) {
+    private func showPendingClickTarget(at point: CGPoint, approvalId: String?) {
         DispatchQueue.main.async {
             self.clearPendingClickTargetOnMain()
             guard let screen = NSScreen.main else { return }
@@ -183,6 +198,7 @@ final class FrameCapture {
             view.layer?.addSublayer(dim)
             view.layer?.addSublayer(pulse)
             self.addPendingChoiceQuestionMarks(to: view, above: spotlight)
+            self.addPendingTapHint(to: view, near: spotlight)
             let blink = CABasicAnimation(keyPath: "opacity")
             blink.fromValue = 1.0
             blink.toValue = 0.28
@@ -195,7 +211,94 @@ final class FrameCapture {
             win.orderFrontRegardless()
             self.registerOverlay(win)
             self.pendingClickWindows = [win]
+            if let approvalId, !approvalId.isEmpty {
+                // Clear a signal left by an older staged action before arming
+                // this approval id. The overlay remains click-through, so the
+                // same human tap still reaches the underlying application.
+                try? self.fm.removeItem(atPath: Paths.frameManualAction)
+                let screenRect = targetInScreen.offsetBy(
+                    dx: screen.frame.minX, dy: screen.frame.minY
+                ).insetBy(dx: -2, dy: -2)
+                self.installPendingClickMonitor(approvalId: approvalId,
+                                                screenRect: screenRect)
+            }
         }
+    }
+
+    /// Explain the direct-approval gesture on the overlay itself. This matters
+    /// while the staging tool is intentionally still pending and the chat has
+    /// not yet had a chance to print its textual yes/no fallback.
+    private func addPendingTapHint(to view: NSView, near target: CGRect) {
+        guard let root = view.layer else { return }
+        let text = "Tap the highlighted control to approve"
+        let width: CGFloat = 310
+        let height: CGFloat = 34
+        let preferredY = target.minY - height - 14
+        let y = preferredY >= 12
+            ? preferredY
+            : min(view.bounds.maxY - height - 12, target.maxY + 14)
+        let frame = CGRect(
+            x: min(max(12, target.midX - width / 2), view.bounds.maxX - width - 12),
+            y: y, width: width, height: height
+        )
+
+        let bubble = CAShapeLayer()
+        bubble.path = CGPath(roundedRect: frame, cornerWidth: 17,
+                             cornerHeight: 17, transform: nil)
+        bubble.fillColor = NSColor.black.withAlphaComponent(0.78).cgColor
+        bubble.strokeColor = NSColor.white.withAlphaComponent(0.72).cgColor
+        bubble.lineWidth = 1
+        bubble.shadowColor = NSColor.black.cgColor
+        bubble.shadowOpacity = 0.7
+        bubble.shadowRadius = 5
+
+        let label = CATextLayer()
+        label.string = text
+        label.alignmentMode = .center
+        label.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
+        label.font = NSFont.systemFont(ofSize: 14, weight: .semibold)
+        label.fontSize = 14
+        label.foregroundColor = NSColor.white.cgColor
+        label.frame = frame.insetBy(dx: 10, dy: 8)
+
+        root.addSublayer(bubble)
+        root.addSublayer(label)
+    }
+
+    private func installPendingClickMonitor(approvalId: String, screenRect: CGRect) {
+        removePendingClickMonitor()
+        pendingClickApprovalId = approvalId
+        pendingClickScreenRect = screenRect
+        pendingClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseUp) {
+            [weak self] _ in
+            DispatchQueue.main.async { self?.observePendingHumanClick() }
+        }
+    }
+
+    private func observePendingHumanClick() {
+        guard let approvalId = pendingClickApprovalId,
+              let screenRect = pendingClickScreenRect else { return }
+        let location = NSEvent.mouseLocation
+        guard screenRect.contains(location) else { return }
+        let action: [String: Any] = [
+            "kind": "manual-commit",
+            "approval_id": approvalId,
+            "x": location.x,
+            "y": location.y,
+            "observed_at": ISO8601DateFormatter().string(from: Date()),
+        ]
+        if let data = try? JSONSerialization.data(withJSONObject: action) {
+            try? data.write(to: URL(fileURLWithPath: Paths.frameManualAction),
+                            options: .atomic)
+        }
+        clearPendingClickTargetOnMain(animated: false)
+    }
+
+    private func removePendingClickMonitor() {
+        if let pendingClickMonitor { NSEvent.removeMonitor(pendingClickMonitor) }
+        pendingClickMonitor = nil
+        pendingClickApprovalId = nil
+        pendingClickScreenRect = nil
     }
 
     /// A light, repeating “choice needed” cue. Three question marks rise and
@@ -428,11 +531,38 @@ final class FrameCapture {
         }
     }
 
+    private func writeManualActionAcknowledgement(approvalId: String) {
+        try? Data().write(to: URL(fileURLWithPath: Paths.frameOutJpg))
+        var manualAction: Any = NSNull()
+        if let data = try? Data(contentsOf: URL(fileURLWithPath: Paths.frameManualAction)),
+           let object = try? JSONSerialization.jsonObject(with: data),
+           let action = object as? [String: Any],
+           action["approval_id"] as? String == approvalId {
+            manualAction = action
+            try? fm.removeItem(atPath: Paths.frameManualAction)
+        }
+        let acknowledgement: [String: Any] = [
+            "capture": "manual-check",
+            "capture_scope": "none",
+            "manual_action": manualAction,
+            "ocr": [[String: Any]](),
+            "visual": [[String: Any]](),
+            "diff": [[String: Any]](),
+            "ax": ["trusted": AXIsProcessTrusted(),
+                   "elements": [[String: Any]]()] as [String: Any],
+            "thumb_bytes": 0,
+        ]
+        if let data = try? JSONSerialization.data(withJSONObject: acknowledgement) {
+            try? data.write(to: URL(fileURLWithPath: Paths.frameOut))
+        }
+    }
+
     private func clearPendingClickTarget() {
         DispatchQueue.main.async { self.clearPendingClickTargetOnMain() }
     }
 
     private func clearPendingClickTargetOnMain(animated: Bool = true) {
+        removePendingClickMonitor()
         let windows = pendingClickWindows
         pendingClickWindows.removeAll()
         for win in windows {

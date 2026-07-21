@@ -37,6 +37,19 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # this directory goes on the daemon's PATH below — launchd inherits no shell.
 NODE="$HOME/.local/share/fnm/aliases/default/bin/node"
 [ -x "$NODE" ] || NODE="$(command -v node)"
+EMACSCLIENT="$(command -v emacsclient 2>/dev/null || true)"
+if [ -z "$EMACSCLIENT" ]; then
+  for candidate in \
+    /Applications/Emacs.app/Contents/MacOS/bin/emacsclient \
+    "$HOME/Applications/Emacs.app/Contents/MacOS/bin/emacsclient" \
+    /opt/homebrew/bin/emacsclient \
+    /usr/local/bin/emacsclient; do
+    if [ -x "$candidate" ]; then
+      EMACSCLIENT="$candidate"
+      break
+    fi
+  done
+fi
 AGENTS="$HOME/Library/LaunchAgents"
 mkdir -p "$AGENTS"
 
@@ -46,7 +59,13 @@ mkdir -p "$AGENTS"
 servers() {
   cat <<'ROWS'
 mail   7765 ants/mail-mcp/server.mjs
+ROWS
+  if [ -n "$EMACSCLIENT" ]; then
+    cat <<'ROWS'
 emacs  7766 artery/emacs-mcp.mjs
+ROWS
+  fi
+  cat <<'ROWS'
 frame  7767 slab/bin/frame-mcp.mjs
 puppet 7769 slab/bin/puppet-mcp.mjs
 dm     7771 slab/bin/dm-mcp.mjs
@@ -65,7 +84,7 @@ ROWS
 # broken rather than obviously dead.
 extra_env() {
   case "$1" in
-    emacs) printf '        <key>EMACSCLIENT</key>\n        <string>emacsclient</string>\n' ;;
+    emacs) printf '        <key>EMACSCLIENT</key>\n        <string>%s</string>\n' "$EMACSCLIENT" ;;
     mail)  printf '        <key>AC_EMAIL_STYLE_GUIDE</key>\n        <string>%s/toolchain/email/style-guide.md</string>\n' "$REPO" ;;
   esac
 }
@@ -110,11 +129,69 @@ EOF
   launchctl bootstrap "gui/$(id -u)" "$AGENTS/$label.plist"
 }
 
+# puppet-mcp is a thin HTTP facade over a warm, stateful CDP multiplexer. Keep
+# that backend under launchd too; otherwise the MCP port looks healthy while
+# every browser tool fails against a stale unix socket after logout or reboot.
+write_puppet_core_plist() {
+  local label="computer.aesthetic.puppet-core"
+  cat > "$AGENTS/$label.plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>$label</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>$NODE</string>
+        <string>$REPO/slab/bin/puppet.mjs</string>
+        <string>daemon</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>$HOME</string>
+        <key>PATH</key>
+        <string>$(dirname "$NODE"):/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>5</integer>
+    <key>StandardOutPath</key>
+    <string>/tmp/$label.out</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/$label.err</string>
+</dict>
+</plist>
+EOF
+  launchctl bootout "gui/$(id -u)/$label" 2>/dev/null || true
+  launchctl bootstrap "gui/$(id -u)" "$AGENTS/$label.plist"
+  echo "✓ puppet core → $HOME/.local/share/puppet/puppet.sock"
+}
+
 HAVE_CLAUDE=0
 command -v claude >/dev/null 2>&1 && HAVE_CLAUDE=1
 HAVE_CODEX=0
 command -v codex >/dev/null 2>&1 && HAVE_CODEX=1
 cd "$REPO"  # `claude mcp --scope local` is per-project
+
+if [ -f "$HOME/.config/slab/puppet.json" ]; then
+  write_puppet_core_plist
+else
+  echo "⚠ puppet core skipped — missing ~/.config/slab/puppet.json"
+fi
+
+# An unavailable optional editor bridge should not remain advertised as a
+# working MCP. Re-running this installer after Emacs is installed restores it.
+if [ -z "$EMACSCLIENT" ]; then
+  launchctl bootout "gui/$(id -u)/computer.aesthetic.emacs-mcp" 2>/dev/null || true
+  [ "$HAVE_CLAUDE" = 1 ] && claude mcp remove emacs --scope local >/dev/null 2>&1 || true
+  [ "$HAVE_CODEX" = 1 ] && codex mcp remove emacs >/dev/null 2>&1 || true
+  echo "⚠ emacs-mcp disabled — emacsclient is not installed on this host"
+fi
 
 while read -r name port script; do
   [ -n "$name" ] || continue

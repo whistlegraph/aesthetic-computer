@@ -221,8 +221,11 @@ guide attention without changing or intercepting the interface:
   adds an outer accent ring.
 - `outline(selector, options)` draws the same ring without dimming the frame.
 - `burst(selector, options)` emits a short deterministic glyph/particle bloom.
-- `zoom(selector, options)` eases and pans the page camera toward a target;
-  `resetCamera()` returns it to the exact initial view.
+- `zoom(selector, options)` is a compatibility alias for the same feathered
+  outline + dim treatment. Captutor never transforms the product DOM: doing so
+  changes fixed/sticky layout and can crop the interface being taught.
+- `resetCamera()` remains available for old screenplay cleanup, but current
+  screenplays do not move the page camera.
 - `clearEffects()` removes every active filming mark immediately.
 
 The visual tools are also grouped under `effects` (`effects.spotlight`,

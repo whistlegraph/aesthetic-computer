@@ -114,6 +114,10 @@ enum Paths {
     static var frameOut: String { "\(slabHome)/state/frame.out.json" }
     static var frameOutJpg: String { "\(slabHome)/state/frame.out.jpg" }
     static var frameDone: String { "\(slabHome)/state/frame.done" }
+    /// A click-through staged target writes here when the human taps the
+    /// highlighted control directly. The controller consumes the matching
+    /// approval id, completing the still-pending tool call that staged it.
+    static var frameManualAction: String { "\(slabHome)/state/frame.manual-action.json" }
 
     /// `reel` video capture handshake (see ScreenRecord.swift) — the moving-picture
     /// sibling of `frame`. The controller drops a JSON `reel.req`

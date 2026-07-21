@@ -73,10 +73,12 @@ screen first; at the edge it follows the installed Deskflow `links` geometry,
 uses the fleet ledger to skip machines without a live prox, asks the active
 Deskflow controller to carry the `unipointer` across the required screen edges,
 and focuses the nearest aligned pane on the destination host. Focus changes get
-a short acquisition flare and transfer click. The active prompt also keeps a
-quiet, borderless green glow behind its Terminal window and sheds a few
-luminous drops from its lower edge, including when focus changes by mouse
-instead of the shortcut.
+a short acquisition flare and transfer click. Every live prompt sheds a few
+luminous drops from its lower edge in that prompt's current status-theme
+colour; the focused prompt emits a little more strongly. The effect uses only
+a shallow strip below each window and lets Core Animation's render server move
+the particles, with no per-frame Swift timer, window capture, or extra geometry
+polling.
 
 ## Loopboy
 

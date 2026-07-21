@@ -19,6 +19,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { captionPhrases, isHighlightableCaptionToken } from "./captions.mjs";
 
 const FFMPEG = process.env.FFMPEG || "ffmpeg";
 const STAGE_MODE = process.env.CAPTUTOR_STAGE_MODE === "1";
@@ -29,7 +30,7 @@ const VERTICAL_MODE = process.env.CAPTUTOR_VERTICAL_MODE === "1";
 // familiar neutral shape people already recognize as subtitles.
 const LATIN_FONT = process.env.CAPTUTOR_FONT
   || "/System/Library/Fonts/Supplemental/Arial.ttf";
-const CAPTION_STYLE = "arial-caption-box-karaoke-v5";
+const CAPTION_STYLE = "arial-caption-box-karaoke-v6";
 
 // Arial does not cover every script, so non-Latin locales use the corresponding
 // macOS system face instead of silently dropping glyphs.
@@ -239,30 +240,32 @@ function layoutWords(words, { width, px }) {
 /// Rasterize a plain subtitle: regular Arial over a compact translucent black
 /// box. There is no outline, shadow, gradient, or decorative treatment.
 /// `activeIndex` changes only the spoken word's fill for timed tracking.
-function cuePng(words, { width, px, out, activeIndex = -1 }) {
+function cuePng(words, { width, px, out, activeIndex = -1, highlightOnly = false }) {
   const layout = layoutWords(words, { width, px });
   const mvg = (text) => text.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
-  const args = [
-    "-size", `${layout.width}x${layout.height}`, "xc:none",
-    "-fill", "rgba(0,0,0,0.68)", "-stroke", "none",
-  ];
-  for (const box of layout.boxes) {
-    const radius = Math.round(px * 0.16);
-    args.push(
-      "-draw",
-      `roundrectangle ${box.x1},${box.y1},${box.x2},${box.y2},${radius},${radius}`,
-    );
+  const args = ["-size", `${layout.width}x${layout.height}`, "xc:none"];
+  if (!highlightOnly) {
+    args.push("-fill", "rgba(0,0,0,0.68)", "-stroke", "none");
+    for (const box of layout.boxes) {
+      const radius = Math.round(px * 0.16);
+      args.push(
+        "-draw",
+        `roundrectangle ${box.x1},${box.y1},${box.x2},${box.y2},${radius},${radius}`,
+      );
+    }
   }
   args.push("-font", FONT, "-pointsize", String(px));
   for (const word of layout.words) {
+    if (highlightOnly && word.index !== activeIndex) continue;
     args.push(
-      "-fill", word.index === activeIndex ? ACTIVE_TEXT : TEXT,
+      "-fill", highlightOnly ? ACTIVE_TEXT : TEXT,
       "-draw", `text ${word.x},${word.baseline} \"${mvg(word.text)}\"`,
     );
   }
   args.push(out);
   execFileSync("magick", args);
-  assertHasInk(out, words.map((word) => word.text).join(" "));
+  const ink = highlightOnly ? words[activeIndex]?.text : words.map((word) => word.text).join(" ");
+  assertHasInk(out, ink || "highlight");
   return out;
 }
 
@@ -285,55 +288,6 @@ function videoDuration(clip) {
     "-v", "error", "-select_streams", "v:0",
     "-show_entries", "stream=duration", "-of", "csv=p=0", clip,
   ], { encoding: "utf8" }).trim();
-}
-
-/// Group each beat's words into on-screen caption phrases — same rule the VTT
-/// uses, so burned and soft captions never disagree.
-function phrases(cues, { maxWords = 6, pauseMs = 380 } = {}) {
-  const out = [];
-  const HAS_WORD = /[\p{L}\p{N}]/u;
-  for (const beat of cues) {
-    let cur = [];
-    const flush = () => {
-      if (!cur.length) return;
-      // A cue of pure punctuation ("—") is not a caption. It renders as an almost
-      // empty PNG, which the blank-caption guard correctly refuses — so never
-      // make one: fold it into the phrase before it.
-      if (!HAS_WORD.test(cur.map((w) => w.text).join(""))) {
-        const prev = out[out.length - 1];
-        if (prev) {
-          prev.text += " " + cur.map((w) => w.text).join(" ");
-          prev.to = beat.offsetSec + cur[cur.length - 1].toMs / 1000;
-          prev.words.push(...cur.map((w) => ({
-            text: w.text,
-            from: beat.offsetSec + w.fromMs / 1000,
-            to: beat.offsetSec + w.toMs / 1000,
-          })));
-        }
-        cur = [];
-        return;
-      }
-      out.push({
-        from: beat.offsetSec + cur[0].fromMs / 1000,
-        to: beat.offsetSec + cur[cur.length - 1].toMs / 1000,
-        text: cur.map((w) => w.text).join(" "),
-        words: cur.map((w) => ({
-          text: w.text,
-          from: beat.offsetSec + w.fromMs / 1000,
-          to: beat.offsetSec + w.toMs / 1000,
-        })),
-      });
-      cur = [];
-    };
-    for (const [i, w] of beat.words.entries()) {
-      cur.push(w);
-      const next = beat.words[i + 1];
-      if (/[.!?,—]$/.test(w.text) || (next && next.fromMs - w.toMs >= pauseMs)
-          || cur.length >= maxWords) flush();
-    }
-    flush();
-  }
-  return out;
 }
 
 export function deliver({ clip, cues, format, out, workDir, locale = "en" }) {
@@ -365,24 +319,30 @@ export function deliver({ clip, cues, format, out, workDir, locale = "en" }) {
   mkdirSync(capDir, { recursive: true });
 
   const band = Math.round(W * F.capWidth);
-  const cuts = phrases(cues);
+  const cuts = captionPhrases(cues);
   const pngs = cuts.map((c, i) => {
     const stem = String(i).padStart(3, "0");
     const base = join(capDir, `${stem}-base.png`);
     if (!existsSync(base)) cuePng(c.words, { width: band, px: F.capPx, out: base });
-    const highlights = c.words.map((word, wordIndex) => {
-      const png = join(capDir, `${stem}-word-${String(wordIndex).padStart(2, "0")}.png`);
-      if (!existsSync(png)) {
-        cuePng(c.words, { width: band, px: F.capPx, out: png, activeIndex: wordIndex });
-      }
-      return { ...word, png };
-    });
+    const highlights = c.words
+      .map((word, wordIndex) => ({ word, wordIndex }))
+      .filter(({ word }) => isHighlightableCaptionToken(word.text))
+      .map(({ word, wordIndex }) => {
+        const png = join(capDir, `${stem}-word-${String(wordIndex).padStart(2, "0")}.png`);
+        if (!existsSync(png)) {
+          cuePng(c.words, {
+            width: band, px: F.capPx, out: png, activeIndex: wordIndex, highlightOnly: true,
+          });
+        }
+        return { ...word, png };
+      });
     return { ...c, png: base, highlights };
   });
 
-  // Each phrase has one always-white base plus a full-phrase state for every
-  // word. The highlighted state is gated to that word's measured speech window;
-  // between words the clean white base remains visible.
+  // Each phrase has one stable box + white-text base. Timed layers contain only
+  // one transparent yellow word, so the box and inactive text are never stacked
+  // twice. The old full-phrase highlight layers darkened the box on every word
+  // and briefly doubled it at boundaries, producing the reported gray flicker.
   const captionLayers = pngs.flatMap((phrase) => [
     { from: phrase.from, to: phrase.to, png: phrase.png },
     ...phrase.highlights,

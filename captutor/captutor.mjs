@@ -223,6 +223,24 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
 
   console.log(`\n⇢ attaching to ${sp.window || "browser"} over CDP`);
   const cdp = await attach(sp.match || sp.baseURL);
+
+  // DevTools overlay switches persist on the target across sessions. If a
+  // debugging run left paint rectangles or compositor borders enabled, those
+  // diagnostics would otherwise be burned into the recording. Reset every
+  // known visual overlay before staging the take; older Chrome builds may not
+  // support every switch, so an unknown method is harmless here.
+  await Promise.all([
+    ["Overlay.setShowDebugBorders", { show: false }],
+    ["Overlay.setShowPaintRects", { result: false }],
+    ["Overlay.setShowLayoutShiftRegions", { result: false }],
+    ["Overlay.setShowHitTestBorders", { show: false }],
+    ["Overlay.setShowScrollBottleneckRects", { show: false }],
+    ["Overlay.setShowFPSCounter", { show: false }],
+    ["Overlay.setShowWebVitals", { show: false }],
+    ["Overlay.setShowViewportSizeOnResize", { show: false }],
+    ["Overlay.setShowAdHighlights", { show: false }],
+  ].map(([method, params]) => cdp.send(method, params).catch(() => {})));
+
   if (REAL_CURSOR) {
     await cdp.eval(`(() => {
       document.getElementById('__captutor_cursor')?.remove();

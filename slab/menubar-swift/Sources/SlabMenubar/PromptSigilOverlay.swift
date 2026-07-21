@@ -646,6 +646,12 @@ final class SigilBubble {
 /// membership change / when a binding goes missing / at a slow safety cadence
 /// — never per frame.
 final class PromptSigilOverlayController {
+    struct PromptParticleTarget {
+        let windowID: Int
+        let frame: CGRect       // CG/AX coordinates: top-left origin
+        let color: NSColor
+    }
+
     static let shared = PromptSigilOverlayController()
     private init() {}
 
@@ -653,9 +659,21 @@ final class PromptSigilOverlayController {
     private var timer: Timer?
     /// tty (bare) → CGWindowID of its terminal window.
     private var binding: [String: Int] = [:]
+    /// Bare tty → the same cursor accent used by that prompt's live Terminal
+    /// status palette. The under-window particles consume this directly.
+    private var particleColors: [String: NSColor] = [:]
     /// Current live prox windows, shared with focus navigation/highlighting so
     /// those features inherit the controller's tty-accurate Terminal binding.
     var promptWindowIDs: Set<Int> { Set(binding.values) }
+    var promptParticleTargets: [PromptParticleTarget] {
+        particleColors.compactMap { tty, color in
+            guard let id = binding[tty], let b = lastBoundsByNum[id] else { return nil }
+            return PromptParticleTarget(
+                windowID: id,
+                frame: CGRect(x: b.0, y: b.1, width: b.2, height: b.3),
+                color: color)
+        }
+    }
     private var needsRebind = false
     private var bindInFlight = false
     private var lastBind = Date.distantPast
@@ -958,6 +976,7 @@ final class PromptSigilOverlayController {
         }
 
         var membershipChanged = false
+        var liveParticleTtys = Set<String>()
         for (sid, ov) in overlays where !liveIds.contains(sid) {
             ov.close(); overlays.removeValue(forKey: sid); membershipChanged = true
             if bubbleFor == sid {
@@ -967,6 +986,7 @@ final class PromptSigilOverlayController {
         }
         for s in live {
             let bare = (s.tty as NSString).lastPathComponent
+            liveParticleTtys.insert(bare)
             let ov: PromptSigilOverlay
             if let existing = overlays[s.sessionId], existing.tty == bare {
                 ov = existing
@@ -996,9 +1016,11 @@ final class PromptSigilOverlayController {
             let (basePeriod, cw) = motion(for: s.state)
             let loopboy = loopIds.contains(s.sessionId)
             ov.setMotion(period: loopboy ? basePeriod * 0.45 : basePeriod, clockwise: cw)
+            let terminalThemeColor = statusColor(for: s.state, agentType: s.agentType)
+            particleColors[bare] = terminalThemeColor
             ov.setShadowColor(loopboy
                 ? NSColor(deviceRed: 1.0, green: 0.23, blue: 0.58, alpha: 1.0)
-                : statusColor(for: s.state, agentType: s.agentType))
+                : terminalThemeColor)
             ov.setLighting(drop: sun.drop)
             // Name + hover copy. The name belongs to the session/thread and
             // stays fixed while the visual rock re-forms on a new prompt.
@@ -1012,6 +1034,7 @@ final class PromptSigilOverlayController {
             ov.tooltipBody = RockSummaries.shared.sentence(seed: seed, subject: s.subject)
                 ?? Self.fallbackBody(summary: s.titleString, subject: s.shortSubject)
         }
+        particleColors = particleColors.filter { liveParticleTtys.contains($0.key) }
 
         if membershipChanged { needsRebind = true }
         startTimerIfNeeded()
@@ -1047,6 +1070,8 @@ final class PromptSigilOverlayController {
         for (_, ov) in overlays { ov.close() }
         overlays.removeAll()
         binding.removeAll()
+        particleColors.removeAll()
+        PromptFocusHighlight.shared.refreshNow()
         removeMouseMonitors()
         for (_, obs) in axObservers {
             CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(obs), .commonModes)

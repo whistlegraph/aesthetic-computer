@@ -15,6 +15,7 @@
 
 import { execFileSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
+import { captionPhrases } from "./captions.mjs";
 
 const FFMPEG = process.env.FFMPEG || "ffmpeg";
 
@@ -26,36 +27,8 @@ const stamp = (sec) => {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${ss}`;
 };
 
-/// Group a beat's words into readable caption cues.
-///
-/// One cue per beat would sit on screen too long to read comfortably; one cue
-/// per word flickers. We break on sentence punctuation, then on a long pause
-/// (people naturally chunk where the speaker breathed), then on a word ceiling.
-function cues(beat, offsetSec, { maxWords = 7, pauseMs = 380 } = {}) {
-  const out = [];
-  let cur = [];
-  const flush = () => {
-    if (!cur.length) return;
-    out.push({
-      from: offsetSec + cur[0].fromMs / 1000,
-      to: offsetSec + cur[cur.length - 1].toMs / 1000,
-      text: cur.map((w) => w.text).join(" "),
-    });
-    cur = [];
-  };
-  for (const [i, w] of beat.words.entries()) {
-    cur.push(w);
-    const next = beat.words[i + 1];
-    const endsSentence = /[.!?]$/.test(w.text);
-    const bigPause = next && next.fromMs - w.toMs >= pauseMs;
-    if (endsSentence || bigPause || cur.length >= maxWords) flush();
-  }
-  flush();
-  return out;
-}
-
 export function writeVTT(beats, path) {
-  const all = beats.flatMap((b) => cues(b, b.offsetSec));
+  const all = captionPhrases(beats);
   const body = all
     .map((c, i) => `${i + 1}\n${stamp(c.from)} --> ${stamp(c.to)}\n${c.text}\n`)
     .join("\n");

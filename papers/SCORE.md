@@ -97,7 +97,7 @@ Lecture transcripts paired with commentary and references. Material that started
 ### 8. Platters (sub-platters)
 
 Smaller scoped collections. Each has its own `manifest.json` + `sync.mjs`:
-- [`jeffrey-platter/`](jeffrey-platter/) — biographical materials, image corpus, archival sources for Jeffrey-as-subject
+- [`jeffrey-platter/`](jeffrey-platter/) — biographical materials, image corpus, and archival sources for Jeffrey-as-subject, including the 3,996-work `drawings.rey.sc` history (2006–2016)
 - [`jeffrey-lexicon/`](jeffrey-lexicon/) — frequency-attributed dictionary of words used by Jeffrey, sourced only from first-hand textual + transcribed material (textual analogue of `jeffrey-platter`'s photo index and the `jeffrey-pvc` voice clone)
 - [`whistlegraph-platter/`](whistlegraph-platter/) — Whistlegraph-specific artifacts and references
 - [`people-platter/`](people-platter/) — TODO; will hold AC-adjacent people biographies

@@ -2,7 +2,7 @@
 //
 // These are page-side filming marks, not product UI: a screenplay can dim the
 // frame around one control, draw an outer accent ring, attach a short label,
-// burst a few glyphs, or ease the page camera toward a target. Everything is
+// or burst a few glyphs. Everything is
 // pointer-events:none, isolated, tokenized against stale timers, and reversible.
 
 const INSTALL = `(() => {
@@ -129,31 +129,15 @@ const INSTALL = `(() => {
     return r;
   };
 
-  const zoom = (selector, options = {}) => {
-    const r = box(selector);
-    const scale = Math.max(1, Math.min(1.7, Number(options.scale ?? 1.16)));
-    const ms = Math.max(120, Number(options.durationMs ?? 680));
-    const cx = r.x + r.width / 2, cy = r.y + r.height / 2;
-    const tx = innerWidth / 2 - cx * scale;
-    const ty = innerHeight / 2 - cy * scale;
-    const body = document.body;
-    if (!body) return r;
-    cameraAnimation?.cancel();
-    document.documentElement.style.overflow = 'hidden';
-    body.style.transformOrigin = '0 0';
-    const from = getComputedStyle(body).transform;
-    cameraAnimation = body.animate([
-      { transform: from === 'none' ? 'translate3d(0,0,0) scale(1)' : from },
-      { transform:'translate3d(' + tx + 'px,' + ty + 'px,0) scale(' + scale + ')' },
-    ], { duration:ms, easing:'cubic-bezier(.22,.75,.22,1)', fill:'forwards' });
-    cameraAnimation.finished.then(() => {
-      body.style.transform = 'translate3d(' + tx + 'px,' + ty + 'px,0) scale(' + scale + ')';
-      cameraAnimation = null;
-    }).catch(() => {});
-    const resetMs = Number(options.resetAfterMs ?? 0);
-    if (resetMs > 0) setTimeout(() => resetCamera({ durationMs:options.resetDurationMs }), resetMs);
-    return r;
-  };
+  // Kept as a compatibility alias for older screenplays. Transforming <body>
+  // changes sticky/fixed containing blocks and clips real product UI, so visual
+  // emphasis is now always a feathered outline + dim with no layout mutation.
+  const zoom = (selector, options = {}) => spotlight(selector, {
+    ...options,
+    dim: Number(options.dim ?? .30),
+    feather: Number(options.feather ?? 26),
+    ring: true,
+  });
 
   const burst = (selector, options = {}) => {
     const r = box(selector);

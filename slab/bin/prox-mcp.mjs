@@ -186,6 +186,27 @@ async function wakeTerminalTty(tty, prompt) {
   const esc = (s) => String(s).replaceAll("\\", "\\\\").replaceAll('"', '\\"');
   const t = esc(terminalTty);
   const p = esc(prompt);
+  // AppleScript resolves application terms while compiling the whole script;
+  // merely wrapping a missing iTerm2 in `try` still aborts before the Terminal
+  // block can run. Only include iTerm's terminology when the app is installed.
+  let itermInstalled = false;
+  try {
+    await pexec("/usr/bin/open", ["-Ra", "iTerm"]);
+    itermInstalled = true;
+  } catch {}
+  const itermBlock = itermInstalled ? `
+tell application id "com.googlecode.iterm2"
+  repeat with w in windows
+    repeat with tabRef in tabs of w
+      repeat with sessionRef in sessions of tabRef
+        if (tty of sessionRef) ends with "${t}" then
+          tell sessionRef to write text "${p}"
+          return "iterm"
+        end if
+      end repeat
+    end repeat
+  end repeat
+end tell` : "";
   const osa = `tell application "Terminal"
   repeat with w in windows
     repeat with tabRef in tabs of w
@@ -198,20 +219,7 @@ async function wakeTerminalTty(tty, prompt) {
     end repeat
   end repeat
 end tell
-try
-  tell application id "com.googlecode.iterm2"
-    repeat with w in windows
-      repeat with tabRef in tabs of w
-        repeat with sessionRef in sessions of tabRef
-          if (tty of sessionRef) ends with "${t}" then
-            tell sessionRef to write text "${p}"
-            return "iterm"
-          end if
-        end repeat
-      end repeat
-    end repeat
-  end tell
-end try
+${itermBlock}
 return "tty-not-found"`;
   const { stdout } = await pexec("osascript", ["-e", osa]);
   return stdout.trim();
