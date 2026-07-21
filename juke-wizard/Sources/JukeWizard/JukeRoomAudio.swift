@@ -49,6 +49,12 @@ final class JukeRoomAudio {
     private var localReceiver: ACAudioRoomReceiver?
     private var spotifyTap: AnyObject?
     private var remoteReceiver: Process?
+    private var localOutputGeneration = 0
+
+    var isDistributing: Bool {
+        guard case .live = state else { return false }
+        return layout != .neoStereo
+    }
 
     func useSource(_ nextSource: Source) {
         guard source != nextSource else { return }
@@ -141,7 +147,45 @@ final class JukeRoomAudio {
     }
 
     func stop() { stop(notify: true) }
+
+    /// Reopen only Neo's renderer on the newly selected Core Audio output.
+    /// The sender, clock, and Blueberry receiver continue uninterrupted.
+    func refreshLocalOutputDevice() {
+        guard isDistributing, let mix = channels(for: layout).local else { return }
+        localOutputGeneration += 1
+        let generation = localOutputGeneration
+        // Retain the old engine for the worker closure before clearing the
+        // property. Both AVAudioEngine.stop() and deinit may wait on the HAL
+        // while a route changes, so neither belongs on AppKit's main thread.
+        let previousReceiver = localReceiver
+        localReceiver = nil
+        // Core Audio can take a moment to settle a Bluetooth/virtual-device
+        // route change. AVAudioEngine may block while opening during that
+        // interval, so never make AppKit's menu action wait for the HAL.
+        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 0.35) { [weak self] in
+            guard let self else { return }
+            previousReceiver?.stop()
+            let receiver = ACAudioRoomReceiver(configuration: .init(
+                host: "127.0.0.1", name: "Neo", channel: mix.channel, gain: mix.gain))
+            receiver.onLog = { NSLog("JukeWizard room Neo: \($0)") }
+            do {
+                try receiver.start()
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { receiver.stop(); return }
+                    guard self.localOutputGeneration == generation else { receiver.stop(); return }
+                    self.localReceiver = receiver
+                }
+            } catch {
+                DispatchQueue.main.async { [weak self] in
+                    guard let self, self.localOutputGeneration == generation else { return }
+                    self.state = .failed("Neo output: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
     private func stop(notify: Bool) {
+        localOutputGeneration += 1
         if #available(macOS 14.2, *), let tap = spotifyTap as? ACProcessAudioTap { tap.stop() }
         spotifyTap = nil
         localReceiver?.stop(); localReceiver = nil

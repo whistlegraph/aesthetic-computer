@@ -16,6 +16,7 @@ protocol WaveformViewDelegate: AnyObject {
 final class WaveformView: NSView, AVAudioPlayerDelegate {
     weak var delegate: WaveformViewDelegate?
     private var player: AVAudioPlayer?
+    private var loadedURL: URL?
     private var peaks: [Float] = []
     private var peaksToken = 0
     private var timer: Timer?
@@ -47,13 +48,31 @@ final class WaveformView: NSView, AVAudioPlayerDelegate {
     // ── load / transport ────────────────────────────────────────────────
     func load(url: URL) {
         stop()
+        loadedURL = url
         peaks = []
+        openPlayer(url: url)
+        needsDisplay = true
+        computePeaks(url: url)
+    }
+
+    /// AVAudioPlayer opens the current Core Audio default when it is created.
+    /// Recreate it after an output-device change while preserving transport.
+    func reopenAudioOutput() {
+        guard let loadedURL else { return }
+        let position = currentTime
+        let resume = isPlaying
+        player?.stop()
+        openPlayer(url: loadedURL)
+        player?.currentTime = min(position, duration)
+        if resume { player?.play(); startTimer() }
+        needsDisplay = true
+    }
+
+    private func openPlayer(url: URL) {
         player = try? AVAudioPlayer(contentsOf: url)
         player?.volume = preferredVolume
         player?.delegate = self
         player?.prepareToPlay()
-        needsDisplay = true
-        computePeaks(url: url)
     }
 
     func play() { player?.play(); startTimer() }

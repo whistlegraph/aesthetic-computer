@@ -100,6 +100,8 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     var spotifySearchField: NSSearchField!
     var sourceTabs: NSSegmentedControl!
     var appearanceTabs: NSSegmentedControl!
+    var outputPopup: AudioOutputPopUpButton!
+    var outputDevices: [MacAudioOutput.Device] = []
     var playButton: NSButton!
     var ledLabel: NSTextField!
     var notesToggle: NSButton!
@@ -353,6 +355,17 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         appearanceTabs.toolTip = "Follow macOS, or pin JukeWizard to light or dark"
         content.addSubview(appearanceTabs)
 
+        outputPopup = AudioOutputPopUpButton(frame: .zero, pullsDown: false)
+        outputPopup.controlSize = .small
+        outputPopup.bezelStyle = .rounded
+        outputPopup.font = NSFont.systemFont(ofSize: 11, weight: .medium)
+        outputPopup.target = self
+        outputPopup.action = #selector(outputDeviceChanged(_:))
+        outputPopup.toolTip = "Mac audio output · speakers, headphones, Bluetooth, USB, and displays"
+        outputPopup.prepareMenu = { [weak self] in self?.reloadOutputDevices() }
+        content.addSubview(outputPopup)
+        reloadOutputDevices()
+
         spotifySearchField = NSSearchField(frame: .zero)
         spotifySearchField.placeholderString = "Search Spotify"
         spotifySearchField.sendsSearchStringImmediately = false
@@ -508,6 +521,10 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         let contentTop = H - topBarH
         sourceTabs.frame = NSRect(x: pad, y: H - 27, width: 170, height: 22)
         appearanceTabs.frame = NSRect(x: W - pad - 172, y: H - 27, width: 172, height: 22)
+        let outputX = pad + 178
+        let outputRight = appearanceTabs.frame.minX - 8
+        outputPopup.frame = NSRect(x: outputX, y: H - 27,
+                                   width: max(110, min(260, outputRight - outputX)), height: 22)
         // ── header (now-playing) across the top ───────────────────────────────
         let headerH = max(178, min(245, (H - topBarH) * 0.39))
         let headerBottom = contentTop - headerH
@@ -857,6 +874,59 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     @objc func quickVolumeUp() { setQuickVolume(quickVolume + 0.1) }
     @objc func quickVolumeDown() { setQuickVolume(quickVolume - 0.1) }
 
+    private func reloadOutputDevices() {
+        let current = MacAudioOutput.defaultDeviceID()
+        outputDevices = MacAudioOutput.devices()
+        outputPopup.removeAllItems()
+        guard !outputDevices.isEmpty else {
+            outputPopup.addItem(withTitle: "No audio outputs")
+            outputPopup.isEnabled = false
+            return
+        }
+        outputPopup.isEnabled = true
+        for device in outputDevices {
+            outputPopup.addItem(withTitle: device.name)
+            outputPopup.lastItem?.image = NSImage(systemSymbolName: device.symbolName,
+                                                  accessibilityDescription: device.name)
+        }
+        if let index = outputDevices.firstIndex(where: { $0.id == current }) {
+            outputPopup.selectItem(at: index)
+            outputPopup.toolTip = "Mac audio output · \(outputDevices[index].name)"
+        }
+    }
+
+    @objc private func outputDeviceChanged(_ sender: NSPopUpButton) {
+        guard outputDevices.indices.contains(sender.indexOfSelectedItem) else { return }
+        chooseOutput(outputDevices[sender.indexOfSelectedItem])
+    }
+
+    @objc private func outputDeviceMenuItem(_ sender: NSMenuItem) {
+        guard let id = (sender.representedObject as? NSNumber)?.uint32Value,
+              let device = MacAudioOutput.devices().first(where: { $0.id == id }) else { return }
+        chooseOutput(device)
+    }
+
+    private func chooseOutput(_ device: MacAudioOutput.Device) {
+        guard device.id != MacAudioOutput.defaultDeviceID() else { reloadOutputDevices(); return }
+        do {
+            try MacAudioOutput.select(device)
+            reloadOutputDevices()
+            wave.reopenAudioOutput()
+            if roomAudio.isDistributing {
+                roomAudio.refreshLocalOutputDevice()
+            } else if spotifyMode {
+                spotify.refreshOutputDevice(resuming: spotifyState)
+            }
+            activityLabel.stringValue = "● output · \(device.name)"
+            activityLabel.textColor = Palette.teal
+        } catch {
+            reloadOutputDevices()
+            activityLabel.stringValue = "⚠ \(error.localizedDescription)"
+            activityLabel.textColor = .systemRed
+            NSSound.beep()
+        }
+    }
+
     private func setQuickVolume(_ value: Float) {
         quickVolume = max(0, min(1, value))
         wave.volume = quickVolume
@@ -892,6 +962,20 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         let room = NSMenuItem(title: quickRoomSummary, action: nil, keyEquivalent: "")
         room.isEnabled = false
         menu.addItem(room)
+        let output = NSMenuItem(title: "Audio Output", action: nil, keyEquivalent: "")
+        let outputMenu = NSMenu(title: "Audio Output")
+        let currentOutput = MacAudioOutput.defaultDeviceID()
+        for device in MacAudioOutput.devices() {
+            let item = NSMenuItem(title: device.name, action: #selector(outputDeviceMenuItem(_:)),
+                                  keyEquivalent: "")
+            item.target = self
+            item.representedObject = NSNumber(value: device.id)
+            item.state = device.id == currentOutput ? .on : .off
+            item.image = NSImage(systemSymbolName: device.symbolName, accessibilityDescription: device.name)
+            outputMenu.addItem(item)
+        }
+        output.submenu = outputMenu
+        menu.addItem(output)
         let open = NSMenuItem(title: "Open JukeWizard", action: #selector(quickOpenFull), keyEquivalent: "")
         open.target = self
         menu.addItem(open)
