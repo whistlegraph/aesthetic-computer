@@ -171,8 +171,11 @@ final class JukeRoomAudio {
             do {
                 try receiver.start()
                 DispatchQueue.main.async { [weak self] in
-                    guard let self else { receiver.stop(); return }
-                    guard self.localOutputGeneration == generation else { receiver.stop(); return }
+                    guard let self else { Self.retireOffMain(receiver); return }
+                    guard self.localOutputGeneration == generation else {
+                        Self.retireOffMain(receiver)
+                        return
+                    }
                     self.localReceiver = receiver
                 }
             } catch {
@@ -182,6 +185,12 @@ final class JukeRoomAudio {
                 }
             }
         }
+    }
+
+    /// Keep AVAudioEngine teardown away from AppKit even when a completed
+    /// reopen has already been superseded by another device selection.
+    private static func retireOffMain(_ receiver: ACAudioRoomReceiver) {
+        DispatchQueue.global(qos: .utility).async { receiver.stop() }
     }
 
     private func stop(notify: Bool) {
