@@ -347,12 +347,21 @@ async function toolLaunch({ host, agent, cwd, prompt = "", by, loopboyContact = 
   if (!target) throw new Error(`no cached ledger for host «${host}» — it must be online in prox first.`);
   if (!target.ip) throw new Error(`no tailnet IP known for ${target.host}.`);
   const self = (await readJson(LOCAL_FILE))?.host || hostname().split(".")[0];
+  const contactKey = String(loopboyContact || "").toLowerCase();
+  const existingMarkerIds = new Set();
+  if (contactKey) {
+    for (const dir of MARKER_DIRS) {
+      let names = [];
+      try { names = await readdir(dir); } catch {}
+      for (const name of names) existingMarkerIds.add(name);
+    }
+  }
   const launcher = by || `${self}:prox`;
   const body = JSON.stringify({
     agent: agentName,
     prompt: String(prompt),
     ...(cwd ? { cwd: String(cwd) } : {}),
-    ...(loopboyContact ? { loopboyContact: String(loopboyContact).toLowerCase() } : {}),
+    ...(contactKey ? { loopboyContact: contactKey } : {}),
     by: launcher,
   });
   const res = await fetch(`http://${target.ip}:${PORT}/launch`, {
@@ -366,12 +375,9 @@ async function toolLaunch({ host, agent, cwd, prompt = "", by, loopboyContact = 
   try { result = JSON.parse(text); } catch { throw new Error(`launch on ${target.host} returned invalid JSON (HTTP ${res.status}).`); }
   if (!res.ok || !result.ok) throw new Error(`launch on ${target.host} failed: ${result.error || `HTTP ${res.status}`}`);
   let binding = "";
-  if (loopboyContact) {
+  if (contactKey) {
     if (String(target.host).toLowerCase() !== String(self).toLowerCase()) {
       throw new Error("Loopboy contact routes can only be launched on this local iMessage host");
-    }
-    if (!result.nudgeScreen) {
-      throw new Error("Loopboy launch did not return a nudge screen; prompt host needs the updated Slab build");
     }
     let marker = null;
     for (let attempt = 0; attempt < 20 && !marker; attempt++) {
@@ -380,7 +386,8 @@ async function toolLaunch({ host, agent, cwd, prompt = "", by, loopboyContact = 
         try { names = await readdir(dir); } catch {}
         for (const name of names) {
           const value = await readJson(join(dir, name));
-          if (value?.nudge_screen === result.nudgeScreen) {
+          const id = value?.session_id || name;
+          if (!existingMarkerIds.has(id) && value?.loopboy_contact === contactKey) {
             marker = { id: value.session_id || name, value };
             break;
           }
@@ -393,14 +400,13 @@ async function toolLaunch({ host, agent, cwd, prompt = "", by, loopboyContact = 
     await mkdir(join(homedir(), ".config", "slab"), { recursive: true });
     const cfg = (await readJson(LOOPBOY_CONFIG)) || { version: 1, loops: {} };
     cfg.version = 1; cfg.loops ||= {};
-    cfg.loops[String(loopboyContact).toLowerCase()] = {
-      event: "imessage", contact: String(loopboyContact).toLowerCase(),
+    cfg.loops[contactKey] = {
+      event: "imessage", contact: contactKey,
       sessionId: marker.id, host: result.host || target.host,
-      name: "pending-ledger-name", agent: agentName, wake: true,
-      nudgeScreen: result.nudgeScreen, assignedAt: new Date().toISOString(),
+      agent: agentName, wake: true, assignedAt: new Date().toISOString(),
     };
     await writeFile(LOOPBOY_CONFIG, JSON.stringify(cfg, null, 2) + "\n", { mode: 0o600 });
-    binding = ` and bound Loopboy contact ${loopboyContact}`;
+    binding = ` and bound Loopboy contact ${contactKey}`;
   }
   return [{
     type: "text",

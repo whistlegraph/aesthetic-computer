@@ -173,14 +173,17 @@ final class LedgerStore {
         }
 
         var command: String
-        var nudgeScreen = ""
+        let nudgeScreen = ""
         if !loopboyContact.isEmpty {
-            nudgeScreen = "loopboy-\(UUID().uuidString.prefix(8).lowercased())"
+            // Keep Loopboys on the real Terminal PTY. GNU Screen forwards
+            // Terminal focus-report sequences (ESC [ I / ESC [ O) as literal
+            // Codex input, corrupting the prompt whenever focus changes. Slab
+            // already knows how to focus the exact tty and type the wake prompt
+            // through trusted CGEvents, so an extra terminal layer is harmful.
             command = "cd \(shellQuote(cwd)) && "
                 + "SLAB_TERMINAL_TTY=$(basename \"$(tty)\") "
-                + "SLAB_NUDGE_SCREEN=\(shellQuote(nudgeScreen)) "
                 + "SLAB_LOOPBOY_CONTACT=\(shellQuote(loopboyContact)) "
-                + "exec /usr/bin/screen -S \(shellQuote(nudgeScreen)) \(shellQuote(binary))"
+                + "exec \(shellQuote(binary))"
         } else {
             command = "cd \(shellQuote(cwd)) && exec \(shellQuote(binary))"
         }
