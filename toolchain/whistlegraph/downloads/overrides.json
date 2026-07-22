@@ -206,6 +206,7 @@
     ]
   },
   "merges": {
+    "wg41": "iin1",
     "hlfn": "imab",
     "knkm": "wg4",
     "wtm": "enuf",
