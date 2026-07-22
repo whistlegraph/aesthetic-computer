@@ -29,6 +29,9 @@ func argValue(_ flag: String) -> String? {
 let profile = argValue("--profile") ?? "star"
 let recipient = argValue("--to") ?? "fia"
 let host = argValue("--host") ?? "https://aesthetic.computer"
+// Machine-addressed Loopboy observer mode. The value resolves through the
+// canonical fleet registry; it is never interpreted as a hard-coded host list.
+let loopboyMachine = argValue("--loopboy")
 // 3D avatar: `--model3d` turns the pal into a SceneKit model (procedural berry
 // placeholder when no path/file is given); `--model3d <path/to.obj>` loads a
 // specific mesh. The blueberry machine gets it automatically.
@@ -145,6 +148,12 @@ if profile == "fuser" {
     ]
 }
 
+// The machine heartbeat is an explicit mode, not an ordinary Macpal feature.
+// Its plugin is absent unless --loopboy <registered-machine> was requested.
+if let machine = loopboyMachine {
+    plugins.append(LoopboyHeartbeatPlugin(target: machine))
+}
+
 // Every pal — star and machine badge alike — carries the OTA self-updater,
 // so new builds ship from `node macpal/release.mjs` instead of over iMessage.
 plugins.append(UpdatePlugin())
@@ -176,6 +185,24 @@ if let snapPath = argValue("--snapshot") {
     } else {
         print("✗ snapshot failed")
     }
+    exit(0)
+}
+
+// Headless contract smoke test used by CI/local verification. It exercises the
+// Swift renderer model without opening a Macpal window.
+if argv.contains("--test-loopboy-heartbeat") {
+    let now = Date().timeIntervalSince1970
+    let active = LoopboyHeartbeatContract.aggregate(known: true, online: true, now: now,
+        machineUpdated: now, rocks: [["status": "working", "updated": now * 1000]], mission: nil)
+    let unknown = LoopboyHeartbeatContract.aggregate(known: false, online: nil, now: now,
+        machineUpdated: 0, rocks: [], mission: nil)
+    let bounded = LoopboyHeartbeatContract.aggregate(known: true, online: true, now: now,
+        machineUpdated: now, rocks: [], mission: ["bounded": true, "progress": 0.4, "updatedAt": now])
+    precondition(active.state == .active)
+    precondition(unknown.state == .unknown)
+    precondition(bounded.boundedProgress == 0.4)
+    precondition(loopboyMachine == nil, "ordinary Macpal test must not enable Loopboy mode")
+    print("Loopboy heartbeat contract OK")
     exit(0)
 }
 
