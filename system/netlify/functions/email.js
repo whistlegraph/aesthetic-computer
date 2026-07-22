@@ -100,7 +100,7 @@ export async function handler(event, context) {
             ? SOTCE_STRIPE_API_TEST_PRIV_KEY
             : SOTCE_STRIPE_API_PRIV_KEY;
 
-          const stripe = Stripe(key);
+          const stripe = new Stripe(key);
 
           // Fetch customer by user ID (sub) from metadata
           const customers = await stripe.customers.search({

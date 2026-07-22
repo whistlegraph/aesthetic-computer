@@ -177,7 +177,7 @@ export const handler = async (event, context) => {
       shell.log("🔍 Checking Stripe for subscription...");
       // 🩷 Then query it from Stripe,
 
-      const stripe = Stripe(key);
+      const stripe = new Stripe(key);
       // Fetch customer by user ID (sub) from subscription metadata field.
       const customers = await stripe.customers.search({
         query: "metadata['sub']:'" + user.sub + "'",
@@ -231,7 +231,7 @@ export const handler = async (event, context) => {
   // TODO: Put this behind a redis cache... 24.10.14.01.23
   async function getActiveSubscriptionCount(productId) {
     try {
-      const stripe = Stripe(key);
+      const stripe = new Stripe(key);
 
       // Fetch all subscriptions with the active status
       let hasMore = true;
@@ -270,7 +270,7 @@ export const handler = async (event, context) => {
   // TODO: Put this behind a redis cache... 24.10.14.01.23
   async function getCumulativeSubscriptionCount(productId) {
     try {
-      const stripe = Stripe(key);
+      const stripe = new Stripe(key);
 
       // Fetch all subscriptions regardless of status.
       let hasMore = true;
@@ -10182,7 +10182,7 @@ export const handler = async (event, context) => {
     }
   } else if (path === "/subscribe" && method === "post") {
     try {
-      const stripe = Stripe(key);
+      const stripe = new Stripe(key);
       const redirectPath =
         event.headers.origin === "https://sotce.net" ? "" : "sotce-net";
 
@@ -11061,7 +11061,7 @@ async function cancelSubscription(user, key) {
   const email = user.email;
   const result = { status: undefined, body: undefined };
   try {
-    const stripe = Stripe(key);
+    const stripe = new Stripe(key);
     // Fetch customer by email
     const customers = await stripe.customers.list({ email, limit: 1 });
     if (customers.data.length === 0) {
