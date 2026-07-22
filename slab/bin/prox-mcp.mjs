@@ -14,7 +14,7 @@
 //   ~/.config/slab/ledger/local.json      — THIS machine's rocks
 //   ~/.config/slab/ledger/peers/<host>.json — each online peer's rocks
 // Each file is {host, ip, updatedAt, entries:[{id,host,name,subject,status,
-// kind,seed,cwd,updated}]}. Reads are O(1) local file loads (the menubar keeps
+// kind,seed,cwd,started,updated,memoir}]}. Reads are O(1) local file loads (the menubar keeps
 // them fresh over the tailnet); a poke is a POST to the owning machine's ledger
 // server (:5252 /poke {by,id,name}), which makes its rock blink + rattle.
 //
@@ -52,6 +52,15 @@ async function readJson(path) {
   }
 }
 
+async function loopboyContactsBySession() {
+  const cfg = await readJson(LOOPBOY_CONFIG);
+  const contacts = new Map();
+  for (const [contact, loop] of Object.entries(cfg?.loops || {})) {
+    if (loop?.sessionId) contacts.set(String(loop.sessionId), contact);
+  }
+  return contacts;
+}
+
 // Every ledger this machine knows about: its own local one first, then each
 // cached peer. Returns [{host, ip, updatedAt, entries, self}].
 async function allLedgers() {
@@ -73,9 +82,16 @@ async function allLedgers() {
 // where to go. Sorted newest-activity-first within each host.
 async function allRocks() {
   const rows = [];
+  const loopboyContacts = await loopboyContactsBySession();
   for (const led of await allLedgers()) {
     for (const e of led.entries || []) {
-      rows.push({ ...e, host: e.host || led.host, ip: led.ip, self: led.self });
+      rows.push({
+        ...e,
+        host: e.host || led.host,
+        ip: led.ip,
+        self: led.self,
+        loopboyContact: e.loopboyContact || (led.self ? loopboyContacts.get(e.id) || "" : ""),
+      });
     }
   }
   return rows;
@@ -102,7 +118,9 @@ function line(r) {
   // Tag the owning agent when it isn't the default (Claude), so a mixed
   // fleet reads clearly: "session·codex".
   const agent = r.agentType && r.agentType !== "claude" ? `·${r.agentType}` : "";
-  return `${mark} ${r.host}:${r.name}  [${r.status}] ${r.kind}${agent}  ·${age(r.updated)}  ${subj}`;
+  const loopboy = r.loopboyContact ? `·loopboy:${r.loopboyContact}` : "";
+  const up = r.started ? `  ·up ${age(r.started)}` : "";
+  return `${mark} ${r.host}:${r.name}  [${r.status}] ${r.kind}${agent}${loopboy}${up}  ·active ${age(r.updated)}  ${subj}`;
 }
 
 // ── resolve a `host:name` / bare-name / fuzzy handle to rock rows ────────────
@@ -178,54 +196,6 @@ end tell`;
   catch { return 0; }
 }
 
-// Submit one bounded steering prompt to the live terminal behind a local rock.
-// This is the same mechanism Loopboy uses for inbound client messages, exposed
-// generically so artifact-complete and other asynchronous events can return an
-// idle agent to the task that launched them.
-async function wakeTerminalTty(tty, prompt) {
-  const terminalTty = tty.startsWith("/dev/") ? tty.slice(5) : tty;
-  const esc = (s) => String(s).replaceAll("\\", "\\\\").replaceAll('"', '\\"');
-  const t = esc(terminalTty);
-  const p = esc(prompt);
-  // AppleScript resolves application terms while compiling the whole script;
-  // merely wrapping a missing iTerm2 in `try` still aborts before the Terminal
-  // block can run. Only include iTerm's terminology when the app is installed.
-  let itermInstalled = false;
-  try {
-    await pexec("/usr/bin/open", ["-Ra", "iTerm"]);
-    itermInstalled = true;
-  } catch {}
-  const itermBlock = itermInstalled ? `
-tell application id "com.googlecode.iterm2"
-  repeat with w in windows
-    repeat with tabRef in tabs of w
-      repeat with sessionRef in sessions of tabRef
-        if (tty of sessionRef) ends with "${t}" then
-          tell sessionRef to write text "${p}"
-          return "iterm"
-        end if
-      end repeat
-    end repeat
-  end repeat
-end tell` : "";
-  const osa = `tell application "Terminal"
-  repeat with w in windows
-    repeat with tabRef in tabs of w
-      try
-        if (tty of tabRef) ends with "${t}" then
-          do script "${p}" in tabRef
-          return "terminal"
-        end if
-      end try
-    end repeat
-  end repeat
-end tell
-${itermBlock}
-return "tty-not-found"`;
-  const { stdout } = await pexec("osascript", ["-e", osa]);
-  return stdout.trim();
-}
-
 // ── tools ─────────────────────────────────────────────────────────────────────
 async function toolList({ host, status, kind, agent } = {}) {
   let rocks = await allRocks();
@@ -255,13 +225,35 @@ async function toolFind({ handle }) {
     L.push(
       `\n${r.host}:${r.name}  ${r.self ? "(this machine)" : ""}`,
       `  status:  ${r.status}   kind: ${r.kind}   last active: ${age(r.updated)} ago`,
+      `  uptime:  ${r.started ? age(r.started) : "?"}`,
+      ...(r.loopboyContact ? [`  loopboy: ${r.loopboyContact}`] : []),
       `  subject: ${(r.subject || "").replace(/\s+/g, " ")}`,
+      `  memoir:  ${(r.memoir || "(still gathering its story)").replace(/\s+/g, " ")}`,
       `  cwd:     ${r.cwd || "?"}`,
       `  id:      ${r.id}`,
       `  seed:    ${r.seed || "?"}   (re-render the same sigil anywhere)`,
     );
   }
   return [{ type: "text", text: L.join("\n") }];
+}
+
+// A narrative-first view for agents deciding whether a prox is the right
+// continuation target. Inference remains owned by the menubar heartbeat; this
+// read can never fan out model calls or transcript I/O.
+async function toolRecap({ handle }) {
+  if (!handle) throw new Error("`handle` is required (use host:name, session id, or a fuzzy fragment).");
+  const hits = resolve(await allRocks(), handle);
+  if (!hits.length) throw new Error(`no rock resolves «${handle}».`);
+  if (hits.length > 1) {
+    return [{ type: "text", text: `«${handle}» is ambiguous (${hits.map((r) => `${r.host}:${r.name}`).join(", ")}). Use a specific host:name.` }];
+  }
+  const r = hits[0];
+  const story = (r.memoir || r.subject || "No story has landed yet.").replace(/\s+/g, " ").trim();
+  return [{ type: "text", text: [
+    `${r.host}:${r.name} · ${r.status} · ${r.agentType || "claude"}`,
+    `Up ${r.started ? age(r.started) : "?"}; active ${age(r.updated)} ago.`,
+    story,
+  ].join("\n\n") }];
 }
 
 async function toolPoke({ handle, by }) {
@@ -333,26 +325,29 @@ async function toolWake({ handle, prompt, by }) {
   if (hits.length > 1) throw new Error(`«${handle}» is ambiguous (${hits.map((r) => `${r.host}:${r.name}`).join(", ")}).`);
   const r = hits[0];
   if (!r.self) throw new Error(`${r.host}:${r.name} runs on another machine — prox_wake currently requires the MCP on the rock's owning host.`);
-  const marker = await readMarker(r.id);
-  const tty = marker?.tty || "";
-  if (!tty) throw new Error(`no live tty marker for ${r.host}:${r.name} (id ${r.id.slice(0, 8)}).`);
+  if (!r.ip) throw new Error(`no tailnet ip known for ${r.host} — can't reach its menubar wake path.`);
 
-  const surface = await wakeTerminalTty(tty, steering);
-  if (surface === "tty-not-found") throw new Error(`the marker for ${r.host}:${r.name} points to ${tty}, but no Terminal/iTerm session owns it.`);
-
-  // Match Loopboy's visible attention signal as well as its TTY reactivation.
+  // Route through the menubar so prox and Loopboy share one re-entry UX:
+  // poke/fly the rock, coalesce overlapping wakes, paste + Return through the
+  // guarded Accessibility path, restore the clipboard/frontmost app, and
+  // retry transient focus failures. Do not inject keyboard events here.
   const self = (await readJson(LOCAL_FILE))?.host || hostname().split(".")[0];
   const waker = by || `${self}:prox-wake`;
-  if (r.ip) {
-    const body = JSON.stringify({ by: waker, id: r.id, name: r.name });
-    await fetch(`http://${r.ip}:${PORT}/poke`, {
-      method: "POST",
-      headers: { "content-type": "application/json", "content-length": Buffer.byteLength(body) },
-      body,
-      signal: AbortSignal.timeout(3000),
-    }).catch(() => {});
+  const body = JSON.stringify({ by: waker, id: r.id, name: r.name, prompt: steering });
+  const res = await fetch(`http://${r.ip}:${PORT}/wake`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "content-length": Buffer.byteLength(body) },
+    body,
+    signal: AbortSignal.timeout(3000),
+  }).catch((e) => { throw new Error(`menubar wake for ${r.host}:${r.name} failed: ${e.message}`); });
+  const responseText = await res.text();
+  let result;
+  try { result = JSON.parse(responseText); }
+  catch { throw new Error(`menubar wake for ${r.host}:${r.name} returned invalid JSON (HTTP ${res.status}).`); }
+  if (!res.ok || !result.ok) {
+    throw new Error(`menubar wake for ${r.host}:${r.name} failed: ${result.error || `HTTP ${res.status}`}`);
   }
-  return [{ type: "text", text: `woke ${r.host}:${r.name} on ${surface} as «${waker}» with a bounded continuation prompt.` }];
+  return [{ type: "text", text: `queued ${r.host}:${r.name} through the shared Loopboy heartbeat re-entry path as «${waker}».` }];
 }
 
 async function toolArtifactReady({ handle, artifacts, by }) {
@@ -372,7 +367,7 @@ async function toolArtifactReady({ handle, artifacts, by }) {
   });
 }
 
-async function toolLaunch({ host, agent, cwd, prompt = "", by }) {
+async function toolLaunch({ host, agent, cwd, prompt = "", by, loopboyContact = "" }) {
   const wanted = String(host || "").trim().toLowerCase().replace(/\.local$/, "");
   if (!wanted) throw new Error("`host` is required (for example, poorslice).");
   const agentName = String(agent || "").trim().toLowerCase();
@@ -386,11 +381,21 @@ async function toolLaunch({ host, agent, cwd, prompt = "", by }) {
   if (!target) throw new Error(`no cached ledger for host «${host}» — it must be online in prox first.`);
   if (!target.ip) throw new Error(`no tailnet IP known for ${target.host}.`);
   const self = (await readJson(LOCAL_FILE))?.host || hostname().split(".")[0];
+  const contactKey = String(loopboyContact || "").trim().toLowerCase();
+  const existingMarkerIds = new Set();
+  if (contactKey) {
+    for (const dir of MARKER_DIRS) {
+      let names = [];
+      try { names = await readdir(dir); } catch {}
+      for (const name of names) existingMarkerIds.add(name);
+    }
+  }
   const launcher = by || `${self}:prox`;
   const body = JSON.stringify({
     agent: agentName,
     prompt: String(prompt),
     ...(cwd ? { cwd: String(cwd) } : {}),
+    ...(contactKey ? { loopboyContact: contactKey } : {}),
     by: launcher,
   });
   const res = await fetch(`http://${target.ip}:${PORT}/launch`, {
@@ -403,9 +408,48 @@ async function toolLaunch({ host, agent, cwd, prompt = "", by }) {
   let result;
   try { result = JSON.parse(text); } catch { throw new Error(`launch on ${target.host} returned invalid JSON (HTTP ${res.status}).`); }
   if (!res.ok || !result.ok) throw new Error(`launch on ${target.host} failed: ${result.error || `HTTP ${res.status}`}`);
+  let binding = "";
+  if (contactKey) {
+    if (String(target.host).toLowerCase() !== String(self).toLowerCase()) {
+      throw new Error("Loopboy contact routes can only be launched on this local iMessage host");
+    }
+    let marker = null;
+    for (let attempt = 0; attempt < 20 && !marker; attempt++) {
+      for (const dir of MARKER_DIRS) {
+        let names = [];
+        try { names = await readdir(dir); } catch {}
+        for (const name of names) {
+          const value = await readJson(join(dir, name));
+          const id = value?.session_id || name;
+          if (!existingMarkerIds.has(id) && value?.loopboy_contact === contactKey) {
+            marker = { id, value };
+            break;
+          }
+        }
+        if (marker) break;
+      }
+      if (!marker) await sleep(250);
+    }
+    if (!marker) throw new Error("Loopboy launched but its live marker did not appear");
+    await mkdir(join(homedir(), ".config", "slab"), { recursive: true });
+    const cfg = (await readJson(LOOPBOY_CONFIG)) || { version: 1, loops: {} };
+    cfg.version = 1;
+    cfg.loops ||= {};
+    cfg.loops[contactKey] = {
+      event: "imessage",
+      contact: contactKey,
+      sessionId: marker.id,
+      host: result.host || target.host,
+      agent: agentName,
+      wake: true,
+      assignedAt: new Date().toISOString(),
+    };
+    await writeFile(LOOPBOY_CONFIG, JSON.stringify(cfg, null, 2) + "\n", { mode: 0o600 });
+    binding = ` and bound Loopboy contact ${contactKey}`;
+  }
   return [{
     type: "text",
-    text: `launched ${agentName} on ${result.host || target.host} in ${result.cwd} as «${launcher}»${prompt ? " with an initial prompt" : ""}.`,
+    text: `launched ${agentName} on ${result.host || target.host} in ${result.cwd} as «${launcher}»${prompt ? " with an initial prompt" : ""}${binding}.`,
   }];
 }
 
@@ -489,11 +533,23 @@ const TOOLS = [
   {
     name: "prox_find",
     description:
-      "Resolve a `machine:promptname` reference (e.g. neo:regif) — or a bare name / fuzzy fragment — to the exact session: its status, subject, working directory (cwd), session id, and sigil seed. This is how you turn a `host:name` handle someone mentions into what/where it actually is.",
+      "Resolve a `machine:promptname` reference (e.g. neo:regif) — or a bare name / fuzzy fragment — to the exact session: its status, uptime, living memoir, subject, working directory (cwd), session id, and sigil seed. This is how you turn a `host:name` handle someone mentions into what/where it actually is.",
     inputSchema: {
       type: "object",
       properties: {
         handle: { type: "string", description: "`host:name` (e.g. neo:regif), a bare pet-name, or a fuzzy fragment of the name or subject." },
+      },
+      required: ["handle"],
+    },
+  },
+  {
+    name: "prox_recap",
+    description:
+      "Read the cached living recap for one prompt rock, including how long it has been up and how recently it was active. This is a cheap local-ledger read: it never starts inference or reads a transcript. Use it to understand a session before poking or waking it.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        handle: { type: "string", description: "Stable host:name, session id, or an unambiguous name/subject fragment." },
       },
       required: ["handle"],
     },
@@ -569,6 +625,7 @@ const TOOLS = [
         cwd: { type: "string", description: "Optional absolute directory on the target. Defaults to its aesthetic-computer checkout and must stay under its home folder." },
         prompt: { type: "string", description: "Optional initial prompt, at most 4000 characters. Omit to open an idle TUI." },
         by: { type: "string", description: "Optional caller label recorded by the target." },
+        loopboyContact: { type: "string", description: "Optional iMessage contact key. Launches a direct-terminal Loopboy and binds it after its live marker appears." },
       },
       required: ["host", "agent"],
     },
@@ -617,6 +674,7 @@ async function callTool(name, args) {
   switch (name) {
     case "prox_list": return toolList(args || {});
     case "prox_find": return toolFind(args || {});
+    case "prox_recap": return toolRecap(args || {});
     case "prox_poke": return toolPoke(args || {});
     case "prox_wake": return toolWake(args || {});
     case "prox_artifact_ready": return toolArtifactReady(args || {});
@@ -666,4 +724,4 @@ async function handleMessage(message) {
 
 const port = httpPort(process.argv, 7773);
 if (port) serveHttp({ handleMessage, port, banner: "🪨 prox shared daemon" });
-else serveStdio({ handleMessage, banner: "🪨 prox started (prox_list, prox_find, prox_poke, prox_wake, prox_artifact_ready, prox_launch, prox_close)" });
+else serveStdio({ handleMessage, banner: "🪨 prox started (prox_list, prox_find, prox_recap, prox_poke, prox_wake, prox_artifact_ready, prox_launch, prox_close)" });

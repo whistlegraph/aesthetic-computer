@@ -2,7 +2,8 @@ import Foundation
 
 enum ShellRunner {
     @discardableResult
-    static func run(_ path: String, args: [String], timeout: TimeInterval? = nil) -> (status: Int32, output: String) {
+    static func run(_ path: String, args: [String], timeout: TimeInterval? = nil,
+                    input: String? = nil) -> (status: Int32, output: String) {
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: path)
         proc.arguments = args
@@ -11,11 +12,21 @@ enum ShellRunner {
         let errPipe = Pipe()
         proc.standardOutput = outPipe
         proc.standardError = errPipe
+        let inPipe: Pipe? = input == nil ? nil : Pipe()
+        if let inPipe { proc.standardInput = inPipe }
 
         do {
             try proc.run()
         } catch {
             return (-1, "")
+        }
+
+        // Feeding prompts over stdin keeps arbitrary session text out of a
+        // shell command line. Close immediately so consumers waiting for EOF
+        // (notably `claude -p`) can begin inference.
+        if let input, let inPipe {
+            inPipe.fileHandleForWriting.write(Data(input.utf8))
+            try? inPipe.fileHandleForWriting.close()
         }
 
         var timedOut = false

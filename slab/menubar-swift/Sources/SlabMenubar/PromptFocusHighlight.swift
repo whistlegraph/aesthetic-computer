@@ -80,9 +80,12 @@ private final class PromptParticleView: NSView {
         cell.lifetimeRange = 0.55
         cell.velocity = 27
         cell.velocityRange = 11
-        cell.yAcceleration = -29
-        cell.emissionLongitude = -.pi / 2
-        cell.emissionRange = .pi / 16
+        // Radiate from the prompt in every direction; a light downward pull
+        // keeps the field attached to the window without collapsing it back
+        // into the narrow one-way stream this replaced.
+        cell.yAcceleration = -8
+        cell.emissionLongitude = 0
+        cell.emissionRange = .pi * 2
         cell.scale = 0.43
         cell.scaleRange = 0.16
         cell.scaleSpeed = -0.10

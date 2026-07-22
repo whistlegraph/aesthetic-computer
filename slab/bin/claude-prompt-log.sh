@@ -40,6 +40,8 @@ if [[ -n "$input" ]]; then
         # the Terminal tab's tty — read it from there instead.
         tty=$(ps -o tty= -p "$claude_pid" 2>/dev/null | tr -d ' ')
         ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        started_at=$(jq -r '.started_at // empty' "$ACTIVE_DIR/$session_id" 2>/dev/null || true)
+        [[ -n "$started_at" ]] || started_at=$ts
 
         # 4–8 word summary used as the live Terminal title and the menubar's
         # short subject. We collapse whitespace, take the first 7 words, and
@@ -64,8 +66,9 @@ if [[ -n "$input" ]]; then
             --arg tty "$tty" \
             --arg pid "$claude_pid" \
             --arg ts "$ts" \
+            --arg started "$started_at" \
             --arg sum "$summary" \
-            '{session_id: $sid, cwd: .cwd, subject: (.prompt | tostring | .[0:140]), summary: $sum, tty: $tty, claude_pid: ($pid | tonumber? // 0), agent_pid: ($pid | tonumber? // 0), agent_type: "claude", updated: $ts, state: "working"}' \
+            '{session_id: $sid, cwd: .cwd, subject: (.prompt | tostring | .[0:140]), summary: $sum, tty: $tty, claude_pid: ($pid | tonumber? // 0), agent_pid: ($pid | tonumber? // 0), agent_type: "claude", transcript_path: (.transcript_path // ""), started_at: $started, updated: $ts, state: "working"}' \
             > "$ACTIVE_DIR/$session_id" 2>/dev/null
 
         # Live terminal title: write OSC 0 ("set window + icon name") direct

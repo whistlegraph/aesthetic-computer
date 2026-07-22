@@ -48,6 +48,14 @@ struct ClaudeSession {
     let tty: String
     let claudePid: Int
     let updated: Date
+    /// When this prox first appeared on this host. Unlike `updated`, this does
+    /// not advance on prompts/tool heartbeats, so hover copy can say how long
+    /// the actual prompt window has been alive.
+    var started: Date = Date()
+    /// Native Claude/Codex transcript, when the launcher/hook supplied it.
+    /// Prox memoir inference reads a bounded tail off-main; the UI never opens
+    /// this file itself.
+    var transcriptPath: String = ""
     var state: State
     var awaitingMessage: String?
     /// Absolute path to this session's iTerm2 background-image wallpaper,
@@ -78,6 +86,9 @@ struct ClaudeSession {
     /// Native provider thread id. Claude uses `sessionId`; Codex's tracked
     /// wrapper has its own rock id, so the watcher records the rollout id here.
     var providerSessionId: String = ""
+    var loopboyState: String = ""
+    var loopboyResponse: String = ""
+    var nudgeScreen: String = ""
 
     /// True for sessions running on another machine, surfaced via the bridge.
     var isRemote: Bool { !remoteHost.isEmpty }
@@ -285,6 +296,11 @@ enum ClaudeSessionReader {
             if let s = obj["updated"] as? String, let d = formatter.date(from: s) { return d }
             return (try? FileManager.default.attributesOfItem(atPath: path)[.modificationDate] as? Date) ?? Date()
         }()
+        let attrs = try? FileManager.default.attributesOfItem(atPath: path)
+        let started: Date = {
+            if let s = obj["started_at"] as? String, let d = formatter.date(from: s) { return d }
+            return (attrs?[.creationDate] as? Date) ?? updated
+        }()
 
         // Only `blank` is read from the marker — every other state comes
         // from the awaiting-prompts cross-check in `active()`. We surface
@@ -308,7 +324,14 @@ enum ClaudeSessionReader {
         )
         session.remoteHost = (obj["remote_host"] as? String) ?? ""
         session.agentType = (obj["agent_type"] as? String) ?? "claude"
-        session.providerSessionId = (obj["codex_session_id"] as? String) ?? ""
+        session.providerSessionId = (obj["provider_session_id"] as? String)
+            ?? (obj["codex_session_id"] as? String)
+            ?? (session.agentType == "claude" ? session.sessionId : "")
+        session.loopboyState = (obj["loopboy_state"] as? String) ?? ""
+        session.loopboyResponse = (obj["loopboy_response"] as? String) ?? ""
+        session.nudgeScreen = (obj["nudge_screen"] as? String) ?? ""
+        session.started = started
+        session.transcriptPath = (obj["transcript_path"] as? String) ?? ""
         return session
     }
 

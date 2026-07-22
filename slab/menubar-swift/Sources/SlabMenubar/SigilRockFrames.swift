@@ -27,7 +27,7 @@ enum SigilRockFrames {
     static func render(
         seed: UInt64, dark: Bool,
         sunHx: CGFloat, sunElevation: CGFloat, sunIntensity: CGFloat,
-        frameCount: Int = 108, px: CGFloat = 96
+        gem: Bool = false, frameCount: Int = 108, px: CGFloat = 96
     ) -> [CGImage] {
         guard let device = device else { return [] }
         let renderer = SCNRenderer(device: device, options: nil)
@@ -37,7 +37,7 @@ enum SigilRockFrames {
 
         let cam = SCNCamera()
         cam.usesOrthographicProjection = true
-        cam.orthographicScale = 1.85          // margin for stretched/craggy forms
+        cam.orthographicScale = gem ? 1.48 : 1.85
         cam.zNear = 0.1
         cam.zFar = 100
         let camNode = SCNNode()
@@ -46,17 +46,52 @@ enum SigilRockFrames {
         scene.rootNode.addChildNode(camNode)
         renderer.pointOfView = camNode
 
-        let geo = SigilMesh.rock(seed: seed)
+        let geo = gem ? SigilMesh.gem(seed: seed) : SigilMesh.rock(seed: seed)
         let mat = SCNMaterial()
         mat.diffuse.contents = SigilRenderer.texture(seed: seed, dark: dark)
         mat.diffuse.wrapS = .repeat
         mat.diffuse.wrapT = .clamp
         mat.lightingModel = .blinn
-        mat.specular.contents = NSColor(white: 0.22, alpha: 1)   // matte, barely glossy
-        mat.shininess = 0.06
+        mat.specular.contents = NSColor(white: gem ? 0.92 : 0.22, alpha: 1)
+        mat.shininess = gem ? 0.72 : 0.06
+        if gem {
+            mat.transparency = 1.0
+            mat.blendMode = .replace
+            mat.writesToDepthBuffer = true
+            mat.readsFromDepthBuffer = true
+            mat.fresnelExponent = 1.8
+        }
         mat.isDoubleSided = true
-        geo.firstMaterial = mat
+        if gem {
+            let baseHue = CGFloat(seed % 10_000) / 10_000
+            geo.materials = [0.0, 0.13, 0.31].map { offset in
+                let facet = mat.copy() as! SCNMaterial
+                let hue = (baseHue + offset).truncatingRemainder(dividingBy: 1)
+                let color = NSColor(calibratedHue: hue, saturation: 0.72,
+                                    brightness: dark ? 0.88 : 0.96, alpha: 1)
+                facet.diffuse.contents = color
+                facet.emission.contents = color.blended(
+                    withFraction: 0.28, of: .white) ?? color
+                return facet
+            }
+        } else {
+            geo.firstMaterial = mat
+        }
         let rock = SCNNode(geometry: geo)
+        if gem, let edgeGeo = geo.copy() as? SCNGeometry {
+            let edge = SCNMaterial()
+            edge.fillMode = .lines
+            edge.lightingModel = .constant
+            edge.diffuse.contents = NSColor(deviceWhite: 1.0, alpha: 0.46)
+            edge.emission.contents = NSColor(deviceWhite: 1.0, alpha: 0.18)
+            edge.transparency = 0.46
+            edge.isDoubleSided = true
+            edge.writesToDepthBuffer = false
+            edgeGeo.materials = [edge, edge, edge]
+            let lattice = SCNNode(geometry: edgeGeo)
+            lattice.scale = SCNVector3(1.012, 1.012, 1.012)
+            rock.addChildNode(lattice)
+        }
         scene.rootNode.addChildNode(rock)
 
         let sun = SCNLight()
@@ -81,7 +116,8 @@ enum SigilRockFrames {
         out.reserveCapacity(frameCount)
         for i in 0..<frameCount {
             let ang = Float(i) / Float(frameCount) * 2 * .pi
-            rock.simdOrientation = simd_quatf(angle: ang, axis: axis)
+            let spinAxis = gem ? SIMD3<Float>(0, 1, 0) : axis
+            rock.simdOrientation = simd_quatf(angle: ang, axis: spinAxis)
             let img = renderer.snapshot(atTime: 0, with: size, antialiasingMode: .multisampling4X)
             if let cg = img.cgImage(forProposedRect: nil, context: nil, hints: nil) {
                 out.append(cg)

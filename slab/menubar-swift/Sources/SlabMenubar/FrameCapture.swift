@@ -71,6 +71,12 @@ final class FrameCapture {
             fm.createFile(atPath: Paths.frameDone, contents: nil)
             return
         }
+        if mode.split(separator: " ").contains("overlay-clear") {
+            clearTransientOverlays()
+            writeActionAcknowledgement()
+            fm.createFile(atPath: Paths.frameDone, contents: nil)
+            return
+        }
         var cursorOverride: CGPoint?
         if let token = mode.split(separator: " ").first(where: { $0.hasPrefix("cursor=") }) {
             let xy = token.dropFirst("cursor=".count).split(separator: ",").compactMap { Double($0) }
@@ -122,7 +128,8 @@ final class FrameCapture {
         produce(noOCR: mode.contains("noocr"), fast: mode.contains("fast"),
                 wholeScreen: mode.contains("screen"),
                 virtualCursor: mode.contains("cursor"), cursorOverride: cursorOverride, crop: crop,
-                saveBaseline: mode.contains("baseline"), includeDiff: mode.contains("diff"))
+                saveBaseline: mode.contains("baseline"), includeDiff: mode.contains("diff"),
+                showOverlay: !mode.contains("quiet-overlay"))
         if let pendingClickTarget {
             showPendingClickTarget(at: pendingClickTarget, approvalId: pendingClickApprovalId)
         }
@@ -569,6 +576,7 @@ final class FrameCapture {
             guard animated else {
                 unregisterOverlay(win)
                 win.orderOut(nil)
+                win.close()
                 continue
             }
             NSAnimationContext.runAnimationGroup({ context in
@@ -578,8 +586,30 @@ final class FrameCapture {
             }, completionHandler: {
                 self.unregisterOverlay(win)
                 win.orderOut(nil)
+                win.close()
             })
         }
+    }
+
+    /// Remove every transient surface owned by FrameCapture. This is both the
+    /// replacement primitive used before drawing a new overlay and a recovery
+    /// path for a fleet host that was upgraded while an old overlay was live.
+    private func clearTransientOverlays() {
+        let clear = {
+            self.clearPendingClickTargetOnMain(animated: false)
+            self.clearOcrOverlayOnMain()
+        }
+        if Thread.isMainThread { clear() }
+        else { DispatchQueue.main.sync(execute: clear) }
+    }
+
+    private func clearOcrOverlayOnMain() {
+        guard let win = ocrOverlayWindow else { return }
+        ocrOverlayWindow = nil
+        unregisterOverlay(win)
+        win.alphaValue = 0
+        win.orderOut(nil)
+        win.close()
     }
 
     // Frame observation must be invisible. A previous whole-display pulse made
@@ -591,13 +621,15 @@ final class FrameCapture {
     // Draw the whole-screen OCR boxes as a brief screen-wide overlay, so a
     // watcher sees what was read across the ENTIRE display — not just inside a
     // browser window (puppet's page-side scan). Click-through, excluded from
-    // captures by windowID, holds ~7s then fades. Boxes are points/top-left
+    // captures by windowID, holds ~1s then fades. Boxes are points/top-left
     // (from ocr()); CALayer is bottom-left, so Y flips against screen height.
     private func showOcrOverlay(_ boxes: [[String: Any]]) {
-        guard !boxes.isEmpty else { return }
         DispatchQueue.main.async {
+            // Replacement is destructive by design: there can be at most one
+            // OCR surface, even when several frame requests overlap.
+            self.clearOcrOverlayOnMain()
+            guard !boxes.isEmpty else { return }
             guard let screen = NSScreen.main else { return }
-            if let old = self.ocrOverlayWindow { self.unregisterOverlay(old); old.orderOut(nil) }
             let H = screen.frame.height
             let win = NSWindow(contentRect: screen.frame, styleMask: .borderless,
                                backing: .buffered, defer: false)
@@ -628,13 +660,18 @@ final class FrameCapture {
             win.orderFrontRegardless()
             self.registerOverlay(win)
             self.ocrOverlayWindow = win
-            DispatchQueue.main.asyncAfter(deadline: .now() + 7.0) {
-                guard self.ocrOverlayWindow === win else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                // Always retire this exact window. A later overlay may have
+                // replaced the tracked pointer, but that must never orphan an
+                // earlier surface or leave its timer as a no-op.
                 NSAnimationContext.runAnimationGroup({ ctx in
-                    ctx.duration = 0.4
+                    ctx.duration = 0.18
                     win.animator().alphaValue = 0.0
                 }, completionHandler: {
-                    self.unregisterOverlay(win); win.orderOut(nil); self.ocrOverlayWindow = nil
+                    self.unregisterOverlay(win)
+                    win.orderOut(nil)
+                    win.close()
+                    if self.ocrOverlayWindow === win { self.ocrOverlayWindow = nil }
                 })
             }
         }
@@ -1005,7 +1042,7 @@ final class FrameCapture {
     private func produce(noOCR: Bool, fast: Bool = false, wholeScreen: Bool = false,
                          virtualCursor: Bool = false, cursorOverride: CGPoint? = nil,
                          crop: CGRect? = nil, saveBaseline: Bool = false,
-                         includeDiff: Bool = false) {
+                         includeDiff: Bool = false, showOverlay: Bool = true) {
         func nowNs() -> UInt64 { DispatchTime.now().uptimeNanoseconds }
         func msSince(_ t: UInt64) -> Double { (Double(nowNs() - t) / 1e6 * 10).rounded() / 10 }
         var env: [String: Any] = [:]
@@ -1052,9 +1089,15 @@ final class FrameCapture {
         var jpgBytes = 0
         if let cg = cg {
             let region = captureRegion
-            if includeDiff, let baseline = diffBaseline, baseline.rect.equalTo(region) {
-                t = nowNs(); env["diff"] = differenceMap(baseline.image, cg,
-                    origin: region.origin, scale: captureScale); tm["diff"] = msSince(t)
+            if includeDiff {
+                if let baseline = diffBaseline, baseline.rect.equalTo(region) {
+                    t = nowNs(); env["diff"] = differenceMap(baseline.image, cg,
+                        origin: region.origin, scale: captureScale); tm["diff"] = msSince(t)
+                    env["diff_baseline"] = "matched"
+                } else {
+                    env["diff"] = []
+                    env["diff_baseline"] = diffBaseline == nil ? "missing" : "geometry-changed"
+                }
             } else { env["diff"] = [] }
             if saveBaseline { diffBaseline = (region, cg) }
             if noOCR {
@@ -1063,7 +1106,7 @@ final class FrameCapture {
                 t = nowNs(); let boxes = ocr(cg, scale: captureScale, fast: fast,
                                              origin: region.origin); tm["ocr"] = msSince(t)
                 env["ocr"] = boxes
-                showOcrOverlay(boxes)
+                if showOverlay { showOcrOverlay(boxes) }
             }
             let cursorMeta = (mt["cursor"] as? [String: Int]).map {
                 CGPoint(x: $0["x"] ?? 0, y: $0["y"] ?? 0)

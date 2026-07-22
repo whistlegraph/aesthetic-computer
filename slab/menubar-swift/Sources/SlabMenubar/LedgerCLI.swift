@@ -126,9 +126,14 @@ enum LedgerCLI {
 
     // ── output ──────────────────────────────────────────────────────────
     private static func encodeEntry(_ e: LedgerEntry) -> [String: Any] {
-        ["id": e.id, "host": e.host, "name": e.name, "subject": e.subject,
-         "status": e.status, "kind": e.kind, "seed": e.seed, "cwd": e.cwd,
-         "handle": "\(e.host):\(e.name)"]
+        var out: [String: Any] = [
+            "id": e.id, "host": e.host, "name": e.name, "subject": e.subject,
+            "status": e.status, "kind": e.kind, "seed": e.seed, "cwd": e.cwd,
+            "updated": e.updated, "handle": "\(e.host):\(e.name)"
+        ]
+        if let started = e.started { out["started"] = started }
+        if let memoir = e.memoir { out["memoir"] = memoir }
+        return out
     }
 
     private static func printJSON(_ obj: Any) {

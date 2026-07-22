@@ -36,7 +36,7 @@ sid=$(uuidgen)
 begin=$(date +%s)
 # The wrapper (this bash process) is the parent of codex and holds the tab's
 # controlling tty — use it for liveness and graceful prompt parking.
-tty=$(ps -o tty= -p $$ 2>/dev/null | tr -d ' ')
+tty=${SLAB_TERMINAL_TTY:-$(ps -o tty= -p $$ 2>/dev/null | tr -d ' ')}
 cwd=$PWD
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
@@ -44,9 +44,10 @@ ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 jq -n \
     --arg sid "$sid" --arg cwd "$cwd" --arg tty "$tty" \
     --arg pid "$$" --arg ts "$ts" \
+    --arg nudge "${SLAB_NUDGE_SCREEN:-}" --arg contact "${SLAB_LOOPBOY_CONTACT:-}" \
     '{session_id:$sid, cwd:$cwd, subject:"codex session", summary:"codex",
       tty:$tty, agent_pid:($pid|tonumber), wrapper_pid:($pid|tonumber), agent_type:"codex",
-      updated:$ts, state:"blank"}' \
+      started_at:$ts, updated:$ts, state:"blank", nudge_screen:$nudge, loopboy_contact:$contact}' \
     > "$ACTIVE_DIR/$sid" 2>/dev/null
 
 # Background watcher: derives per-turn state from the rollout JSONL.
@@ -78,11 +79,35 @@ stop_agent() {
 trap cleanup EXIT
 trap stop_agent INT TERM
 
+# Loopboys are background client loops, never fleet/UI operators. Remove every
+# browser, frame, pointer, and remote-machine surface at process startup; an
+# auto-response route authorizes its named messaging helper, not GUI control.
+codex_guard_args=()
+if [[ -n "${SLAB_LOOPBOY_CONTACT:-}" ]]; then
+    codex_guard_args+=(
+        -c 'mcp_servers.puppet.enabled=false'
+        -c 'mcp_servers.frame.enabled=false'
+        -c 'mcp_servers.fleet.enabled=false'
+        -c 'mcp_servers.emacs.enabled=false'
+        --disable browser_use
+        --disable browser_use_external
+        --disable browser_use_full_cdp_access
+        --disable in_app_browser
+    )
+fi
+
 # Keep Codex on this wrapper's foreground process group and explicitly attach
 # its streams to the controlling TTY. Running it as a managed child lets a ZZZ
 # SIGTERM reach the actual agent before the wrapper exits, without closing the
 # terminal that will carry the resume receipt.
-codex "$@" < "/dev/$tty" > "/dev/$tty" 2>&1 &
+# macOS still ships Bash 3.2, where expanding an empty array under `set -u`
+# raises "unbound variable". Keep the guarded and ordinary launch forms
+# explicit so the everyday `co` path never touches an empty array expansion.
+if (( ${#codex_guard_args[@]} )); then
+    codex "${codex_guard_args[@]}" "$@" < "/dev/$tty" > "/dev/$tty" 2>&1 &
+else
+    codex "$@" < "/dev/$tty" > "/dev/$tty" 2>&1 &
+fi
 agent_pid=$!
 # From this point on, lifecycle managers must signal the actual Codex process,
 # not this Bash wrapper. Bash defers TERM traps while it waits for a child;

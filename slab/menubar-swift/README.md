@@ -42,9 +42,21 @@ says "prompt rocks", this is it.
 - **Motion = status.** Spin speed and direction encode working / awaiting /
   complete / stale. A poke from a peer (the ledger's "observed" note) makes the
   stone blink and rattle.
-- **Name + bubble.** A deterministic pet name in Comic Sans bubble lettering
-  sits under the stone; pointing at it reveals a card summarizing the prompt
-  (one cheap `claude -p haiku` sentence, cached per seed).
+- **Name + living memoir.** A deterministic pet name in Comic Sans bubble
+  lettering sits under the stone; pointing at it instantly reveals a compact
+  5:7 collectible summary card—the same 250 × 350 design geometry as the
+  KidLisp cards, displayed at 76% on the desktop—with a crisp
+  framed rock portrait, paper texture, a few sentences about what the session
+  has done, its current position, uptime, and recent activity. The stock follows
+  system Light/Dark appearance while the keyline and status jewel keep each
+  prox colour-coded. Clicking the card renders it as PNG and opens the native
+  macOS share picker (Messages, AirDrop, Mail, and installed share services);
+  Loopboy cards wear the pink Loopboy edition mark.
+  One change-aware heartbeat runs at a time, slowly refining a persistent
+  per-session cache from bounded transcript tails. It prefers Apple's local
+  Foundation Model, can fall back to Haiku, and uses the active agent's own
+  recent prose when neither is available. Hover and prox MCP reads never
+  trigger inference themselves.
 - **A shared sun** lights every rock from the local time of day, so the whole
   wall of stones re-lights together.
 
@@ -55,6 +67,10 @@ price is that **occlusion is hand-rolled**, in two places that must agree:
 refuses the pointer to a rock that is hidden or covered *at the cursor*. Skip
 either and a stone will wake up and pop its bubble through the window sitting on
 top of it.
+
+The fleet ledger carries the same cached `memoir` and `started` fields. Use
+`prox_recap` for a narrative-first, read-only view before poking or waking a
+session; older peers remain compatible because both fields are optional.
 
 ## Fleet prompt hosts
 

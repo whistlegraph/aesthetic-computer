@@ -34,6 +34,10 @@ struct LedgerEntry: Codable, Equatable {
     var seed: String       // hex of the sigil seed
     var cwd: String
     var updated: Double     // ms since epoch
+    /// Prox lifetime and cached living summary. Optional keeps decoding older
+    /// fleet ledgers backward-compatible during rolling installs.
+    var started: Double?
+    var memoir: String?
     // Owning CLI agent ("claude" | "codex" | …). Optional so ledgers published
     // by older peers (no field) still decode; nil is treated as "claude".
     var agentType: String?
@@ -69,6 +73,10 @@ final class LedgerStore {
     /// overlay loop wakes from idle and shows the reaction without waiting for
     /// the next lazy tick.
     static let observedNote = Notification.Name("slab.ledger.observed")
+    /// Posted on the main queue when prox asks this host to re-enter a live
+    /// prompt. AppDelegate handles it through the exact same guarded terminal
+    /// wake primitive used by Loopboy heartbeats.
+    static let wakeNote = Notification.Name("slab.ledger.wake")
 
     // ── on-disk layout (kept: survives restarts) ─────────────────────────
     static var dir: String { "\(Paths.home)/.config/slab/ledger" }
@@ -120,6 +128,9 @@ final class LedgerStore {
         server?.stop()
         let s = try? LedgerHTTPServer(ip: selfIP, port: Self.port)
         s?.onPoke = { [weak self] body in self?.receivePoke(body) }
+        s?.onWake = { [weak self] body in
+            self?.receiveWake(body) ?? ["ok": false, "error": "ledger unavailable"]
+        }
         s?.onLaunch = { body in Self.launchPrompt(body) }
         s?.onNavigate = { body in DeskflowSpatialNav.receiveNavigate(body) }
         s?.onDeskflowRoute = { body in DeskflowSpatialNav.receiveRoute(body) }
@@ -140,6 +151,11 @@ final class LedgerStore {
         let prompt = (body["prompt"] as? String) ?? ""
         guard prompt.count <= 4_000 else {
             return ["ok": false, "error": "prompt exceeds 4000 characters"]
+        }
+        let loopboyContact = ((body["loopboyContact"] as? String) ?? "").lowercased()
+        if !loopboyContact.isEmpty,
+           loopboyContact.range(of: "^[a-z0-9_-]{1,40}$", options: .regularExpression) == nil {
+            return ["ok": false, "error": "loopboyContact must be a short contact key"]
         }
 
         let requested = (body["cwd"] as? String).flatMap { $0.isEmpty ? nil : $0 }
@@ -167,7 +183,19 @@ final class LedgerStore {
             return ["ok": false, "error": "\(agent) launcher is not installed"]
         }
 
-        var command = "cd \(shellQuote(cwd)) && exec \(shellQuote(binary))"
+        var command: String
+        let nudgeScreen = ""
+        if !loopboyContact.isEmpty {
+            // Keep Loopboys on the real Terminal PTY. GNU Screen forwards
+            // Terminal focus-report sequences as literal Codex input, while
+            // Slab can already focus and wake the exact tty directly.
+            command = "cd \(shellQuote(cwd)) && "
+                + "SLAB_TERMINAL_TTY=$(basename \"$(tty)\") "
+                + "SLAB_LOOPBOY_CONTACT=\(shellQuote(loopboyContact)) "
+                + "exec \(shellQuote(binary))"
+        } else {
+            command = "cd \(shellQuote(cwd)) && exec \(shellQuote(binary))"
+        }
         if !prompt.isEmpty { command += " \(shellQuote(prompt))" }
 
         // Hand Terminal a one-shot executable document through LaunchServices.
@@ -214,7 +242,8 @@ final class LedgerStore {
         }
         let by = String(((body["by"] as? String) ?? "prox").prefix(100))
         NSLog("🪨 [ledger] %@ launched %@ in %@", by, agent, cwd)
-        return ["ok": true, "host": selfIdentity().host, "agent": agent, "cwd": cwd]
+        return ["ok": true, "host": selfIdentity().host, "agent": agent, "cwd": cwd,
+                "loopboyContact": loopboyContact, "nudgeScreen": nudgeScreen]
     }
 
     private static func shellQuote(_ value: String) -> String {
@@ -249,6 +278,29 @@ final class LedgerStore {
     /// evolve.
     func pokeLocal(sessionId: String, by: String) {
         receivePoke(["id": sessionId, "by": by])
+    }
+
+    /// Validate and enqueue a bounded prox continuation. The HTTP server never
+    /// touches Accessibility, the pasteboard, or Terminal directly; all UX is
+    /// owned by AppDelegate's shared Loopboy re-entry path on the main queue.
+    private func receiveWake(_ body: [String: Any]) -> [String: Any] {
+        let sid = ((body["id"] as? String) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let prompt = ((body["prompt"] as? String) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !sid.isEmpty else { return ["ok": false, "error": "id is required"] }
+        guard !prompt.isEmpty else { return ["ok": false, "error": "prompt is required"] }
+        guard prompt.count <= 1_000 else {
+            return ["ok": false, "error": "prompt exceeds 1000 characters"]
+        }
+        let by = String(((body["by"] as? String) ?? "prox-wake").prefix(100))
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(
+                name: Self.wakeNote,
+                object: nil,
+                userInfo: ["id": sid, "prompt": prompt, "by": by])
+        }
+        return ["ok": true, "queued": true, "id": sid]
     }
 
     /// Live observed record for a session, or nil once the window has decayed.
@@ -297,6 +349,8 @@ final class LedgerStore {
                 seed: String(format: "%016llx", seed),
                 cwd: s.cwd,
                 updated: s.updated.timeIntervalSince1970 * 1000,
+                started: s.started.timeIntervalSince1970 * 1000,
+                memoir: ProxMemoirs.shared.text(for: s.sessionId),
                 agentType: s.agentType)
         }
         entries.append(contentsOf: advertisedAgents())
@@ -340,6 +394,8 @@ final class LedgerStore {
                 kind: "agent", seed: String(format: "%016llx", seed),
                 cwd: (obj["cwd"] as? String) ?? "",
                 updated: mtime.timeIntervalSince1970 * 1000,
+                started: (obj["started"] as? Double),
+                memoir: (obj["memoir"] as? String),
                 agentType: (obj["agent_type"] as? String)))
         }
         return out
@@ -445,6 +501,9 @@ final class LedgerHTTPServer {
     /// Called on `POST /poke` with the decoded JSON body — the owner marks the
     /// referenced handle "observed".
     var onPoke: (([String: Any]) -> Void)?
+    /// Called on POST /wake after JSON framing. The owner validates and queues
+    /// re-entry through the menubar's shared Loopboy wake path.
+    var onWake: (([String: Any]) -> [String: Any])?
     /// Called on POST /launch. The callback owns validation and returns a
     /// compact JSON-safe result dictionary.
     var onLaunch: (([String: Any]) -> [String: Any])?
@@ -535,6 +594,18 @@ final class LedgerHTTPServer {
                 onPoke?(obj)
             }
             respond(client, body: Data("{\"ok\":true}".utf8))
+            return
+        }
+
+        // POST /wake — queue one bounded continuation through AppDelegate.
+        // The response only acknowledges the queue; terminal focus/paste work
+        // remains asynchronous so this tailnet server stays responsive.
+        if line.hasPrefix("POST"), line.contains("/wake") {
+            let obj = decodedBody(data, bodyStart: bodyStart)
+            let result = onWake?(obj) ?? ["ok": false, "error": "wake unavailable"]
+            let body = (try? JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]))
+                ?? Data("{\"ok\":false,\"error\":\"encoding failed\"}".utf8)
+            respond(client, body: body)
             return
         }
 

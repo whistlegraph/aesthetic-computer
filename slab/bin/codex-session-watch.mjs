@@ -188,9 +188,16 @@ function handleLine(line, ctx) {
   }
   if (type === "event_msg") {
     const pt = payload.type || "";
-    if (pt === "task_started" || pt === "user_turn") ctx.pending.push(() => onTurnStart(ctx.lastUser));
-    else if (pt === "task_complete" || pt === "turn_complete") ctx.pending.push(() => onTurnComplete());
-    else if (pt.includes("approval") || pt.includes("elicitation")) ctx.pending.push(() => onAwaiting("codex needs approval"));
+    if (pt === "task_started" || pt === "user_turn") {
+      ctx.turnActive = true;
+      ctx.pending.push(() => onTurnStart(ctx.lastUser));
+    } else if (pt === "task_complete" || pt === "turn_complete") {
+      ctx.turnActive = false;
+      ctx.pending.push(() => onTurnComplete());
+    } else if (pt.includes("approval") || pt.includes("elicitation")) {
+      ctx.turnActive = false;
+      ctx.pending.push(() => onAwaiting("codex needs approval"));
+    }
   }
 }
 
@@ -198,13 +205,16 @@ async function main() {
   const file = await findRollout();
   if (!file) process.exit(0);
   const providerSessionId = sessionIdFromRollout(file);
-  if (providerSessionId) await updateMarker({ codex_session_id: providerSessionId });
+  if (providerSessionId) await updateMarker({
+    codex_session_id: providerSessionId,
+    transcript_path: file,
+  });
   // Replay once from the beginning so a resumed Codex window immediately
   // inherits its real last state (usually complete) instead of sitting blank
   // or aging into interrupted until the user submits another prompt. After
   // that first pass `offset` makes this an ordinary incremental tail.
   let offset = 0;
-  const ctx = { lastUser: "", pending: [] };
+  const ctx = { lastUser: "", pending: [], turnActive: false, lastHeartbeatAt: 0 };
   while (wrapperAlive()) {
     let size = offset;
     try { size = (await stat(file)).size; } catch { break; }
@@ -220,6 +230,16 @@ async function main() {
       // Apply transitions in order; last one wins the visible state.
       for (const fn of ctx.pending) await fn();
       ctx.pending = [];
+    }
+    // Codex can spend many minutes inside one tool call without appending a
+    // new rollout event. Keep both marker channels fresh for the full active
+    // turn so Slab's reducer does not misclassify visible progress as an
+    // interrupted prompt. Completion/approval events clear turnActive first.
+    const now = Date.now();
+    if (ctx.turnActive && now - ctx.lastHeartbeatAt >= 5000) {
+      await touch(RUNNING);
+      await updateMarker({ state: "working" });
+      ctx.lastHeartbeatAt = now;
     }
     await sleep(600);
   }
