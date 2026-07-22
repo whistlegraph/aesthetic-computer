@@ -244,6 +244,7 @@ describe("Whistlegraph Desk", () => {
     expect(publicData.createdWorks.fear.title).toBe("Inside My Mouth");
     expect(publicData.deletedWorks).toEqual([]);
     expect(publicData.activeCodes).toEqual(["fear"]);
+    expect(publicData.materializedWorks.fear).toEqual({ perf: 1, views: 0 });
 
     const renamed = await handler({ httpMethod: "POST", headers, queryStringParameters: { action: "work-rename" }, body: JSON.stringify({ from: "fear", code: "mouth", title: "Inside My Mouth", by: "Alex Freundlich", year: 2026, c: "#b44887" }) });
     expect(renamed.statusCode).toBe(200);

@@ -440,7 +440,7 @@ const esc=s=>String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&g
 // the authenticated Whistlegraph Desk layer over that model and survive deploys.
 const curationLoaded=fetch("/api/whistlegraph-admin?action=curation",{cache:"no-store"})
   .then(r=>r.ok?r.json():{works:{},posts:{}})
-  .then(data=>(LIVE_CURATION={works:data.works||{},posts:data.posts||{},createdWorks:data.createdWorks||{},deletedWorks:data.deletedWorks||[],trashedWorks:data.trashedWorks||{},activeCodes:data.activeCodes||[]},LIVE_CURATION))
+  .then(data=>(LIVE_CURATION={works:data.works||{},posts:data.posts||{},createdWorks:data.createdWorks||{},deletedWorks:data.deletedWorks||[],trashedWorks:data.trashedWorks||{},activeCodes:data.activeCodes||[],materializedWorks:data.materializedWorks||{}},LIVE_CURATION))
   .catch(()=>LIVE_CURATION);
 
 // A whistlegraph's posts — every published appearance, most-seen first —
@@ -679,8 +679,8 @@ Promise.all([
   const activeCodes=new Set(curation.activeCodes||[]);
   const generatedWorks=(data.works||data.graphs.filter(w=>w.kind==="graph"))
     .filter(work=>!deletedWorks.has(work.code)&&(!activeCodes.size||activeCodes.has(work.code)))
-    .map(work=>({...work,...(curation.works?.[work.code]||{})}));
-  const createdWorks=Object.entries(curation.createdWorks||{}).map(([code,work])=>({code,...work,kind:"graph"}));
+    .map(work=>({...work,...(curation.works?.[work.code]||{}),...(curation.materializedWorks?.[work.code]||{})}));
+  const createdWorks=Object.entries(curation.createdWorks||{}).map(([code,work])=>({code,...work,...(curation.materializedWorks?.[code]||{}),kind:"graph"}));
   WORKS=[...generatedWorks,...createdWorks]; CURATED_N=data.curated;
   BY=Object.fromEntries(WORKS.map(w=>[w.code,w]));
   LEGACY_BY=Object.fromEntries((data.legacy||[]).map(w=>[w.code,w]));
@@ -731,11 +731,11 @@ Promise.all([
     selectSection(section,true);
   }));
   routeLocation();
-  // Reconcile Desk relationship edits immediately after first paint. Deferring
-  // this to requestIdleCallback left newly created works showing their count
-  // but no assigned gallery/thumbnail indefinitely in background or busy tabs.
+  // Counts and thumbnails are materialized by the curation API, so the heavy
+  // post archive can return to an idle/deferred fetch. Detail routes still load
+  // it immediately when opened.
   const reconcilePosts=()=>loadPosts().then(()=>{if(curSection==="works"&&!document.getElementById("detail").classList.contains("on"))renderReset(true)});
-  reconcilePosts();
+  if("requestIdleCallback" in window)requestIdleCallback(reconcilePosts);else setTimeout(reconcilePosts,0);
 });
 
 function showDetail(code, keepScroll){

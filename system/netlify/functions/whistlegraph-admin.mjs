@@ -41,7 +41,7 @@ const HEADERS = {
   "Access-Control-Allow-Methods": "GET, PATCH, POST, DELETE, OPTIONS",
 };
 
-let modelCache = { stamp: "", workCodes: new Set(), workByCode: new Map(), postIds: new Set(), postWorks: new Map() };
+let modelCache = { stamp: "", workCodes: new Set(), workByCode: new Map(), postIds: new Set(), postWorks: new Map(), postById: new Map() };
 let visualCache = { stamp: "", byId: new Map(), searchable: [], metadata: { count: 0 } };
 
 function loadBaseModel() {
@@ -57,6 +57,7 @@ function loadBaseModel() {
     workByCode: new Map((graphs.works || []).map((work) => [String(work.code), work])),
     postIds: new Set((posts.posts || []).map((post) => String(post.id))),
     postWorks: new Map((posts.posts || []).map((post) => [String(post.id), post.works || []])),
+    postById: new Map((posts.posts || []).map((post) => [String(post.id), post])),
   };
   return modelCache;
 }
@@ -102,11 +103,30 @@ async function readCuration(database, loadModelFn = loadBaseModel) {
   for (const code of Object.keys(payload.createdWorks)) validCodes.add(code);
   for (const code of payload.deletedWorks) validCodes.delete(code);
   const activeCodes = new Set();
+  const materialized = new Map();
   for (const [postId, baseWorks] of model.postWorks || []) {
     const assigned = payload.posts[postId]?.works || baseWorks;
-    for (const code of assigned) if (validCodes.has(code)) activeCodes.add(code);
+    const post = model.postById?.get(postId) || {};
+    for (const code of assigned) if (validCodes.has(code)) {
+      activeCodes.add(code);
+      const row = materialized.get(code) || { perf: 0, views: 0, posts: [] };
+      row.perf += 1;
+      row.views += Number(post.views) || 0;
+      row.posts.push(post);
+      materialized.set(code, row);
+    }
   }
-  return { ...payload, activeCodes: [...activeCodes] };
+  const materializedWorks = {};
+  for (const [code, row] of materialized) {
+    const work = { ...(model.workByCode?.get(code) || {}), ...(payload.works[code] || {}), ...(payload.createdWorks[code] || {}) };
+    const featured = row.posts.find((post) => String(post.id) === String(work.featuredPost || ""));
+    const hero = featured || row.posts.sort((a, b) => (Number(b.views) || 0) - (Number(a.views) || 0))[0];
+    const thumb = hero?.thumb || (hero?.media !== "audio" && hero?.id
+      ? `https://assets.aesthetic.computer/whistlegraph/index/posts/${hero.id}.jpg`
+      : null);
+    materializedWorks[code] = { perf: row.perf, views: row.views, ...(thumb ? { thumb } : {}) };
+  }
+  return { ...payload, activeCodes: [...activeCodes], materializedWorks };
 }
 
 function deployError(message, statusCode = 409) {
