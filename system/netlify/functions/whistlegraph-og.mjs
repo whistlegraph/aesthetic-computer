@@ -24,7 +24,7 @@ const DEFAULT_IMG =
 
 // Cache index.html + the code→work map, refreshed when either file's mtime moves
 // (a curation deploy rewrites graphs.json, so previews track it without a restart).
-let cache = { indexMtime: 0, graphsMtime: 0, html: "", byCode: null };
+let cache = { indexMtime: 0, graphsMtime: 0, html: "", byCode: null, aliases: null };
 
 function load() {
   const im = statSync(INDEX).mtimeMs;
@@ -34,7 +34,7 @@ function load() {
     const data = JSON.parse(readFileSync(GRAPHS, "utf-8"));
     const works = Array.isArray(data) ? data : data.graphs || [];
     const byCode = new Map(works.map((w) => [w.code, w]));
-    cache = { indexMtime: im, graphsMtime: gm, html, byCode };
+    cache = { indexMtime: im, graphsMtime: gm, html, byCode, aliases: data.aliases || {} };
   }
   return cache;
 }
@@ -57,6 +57,10 @@ export const handler = async (event) => {
     return { statusCode: 302, headers: { location: "/index.html" }, body: "" };
   }
   let html = store.html;
+  const alias = store.aliases[code];
+  if (alias && store.byCode.has(alias)) {
+    return { statusCode: 302, headers: { location: `/${encodeURIComponent(alias)}` }, body: "" };
+  }
   const work = store.byCode.get(code);
 
   if (work) {

@@ -428,6 +428,7 @@ const D={t:document.getElementById("dTitle"),by:document.getElementById("dBy"),c
 
 let BY={};              // confirmed work code → whistlegraph work.
 let LEGACY_BY={};       // retired/candidate code → compatibility archive record.
+let ALIASES={};         // old recoded/merged slug → canonical confirmed work.
 let POSTS_BY_CODE={};   // confirmed work code → [contributing posts].
 let POSTS_BY_ID={};     // stable archive post id → post.
 let LIVE_CURATION={works:{},posts:{}}; // Auth0-admin edits, stored durably by lith.
@@ -683,6 +684,7 @@ Promise.all([
   WORKS=[...generatedWorks,...createdWorks]; CURATED_N=data.curated;
   BY=Object.fromEntries(WORKS.map(w=>[w.code,w]));
   LEGACY_BY=Object.fromEntries((data.legacy||[]).map(w=>[w.code,w]));
+  ALIASES=data.aliases||{};
   // One delegated click for both work rows and stable archive-post rows.
   document.querySelector("#idx tbody").addEventListener("click",e=>{
     const tr=e.target.closest("tr[data-code],tr[data-post]"); if(!tr) return;
@@ -871,6 +873,10 @@ function routeLocation(){
   if(parts[0]==="archive"&&!parts[1]){ showIndex(); return selectSection("archive"); }
   if(parts[0]==="archive"&&parts[1]) return loadPosts().then(()=>showLegacy(decodeURIComponent(parts[1]),false));
   const code=parts.length===1?decodeURIComponent(parts[0]):"";
+  if(ALIASES[code]&&BY[ALIASES[code]]){
+    history.replaceState({code:ALIASES[code]},"",`/${encodeURIComponent(ALIASES[code])}`);
+    return showDetail(ALIASES[code]);
+  }
   if(BY[code]) return showDetail(code);
   if(LEGACY_BY[code]) return loadPosts().then(()=>showLegacy(code,true));
   showIndex(); selectSection("works");

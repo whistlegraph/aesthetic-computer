@@ -447,6 +447,12 @@ const candidates = records.filter((w) => w.status === "candidate");
 const legacy = records.filter((w) => w.status !== "confirmed");
 const workCodes = new Set(works.map((w) => w.code));
 const recordByCode = new Map(records.map((w) => [w.code, w]));
+// Preserve old deep links after a recode or merge. The target must still be a
+// confirmed work; aliases never reintroduce retired codes into commands.json.
+const aliases = Object.fromEntries(
+  [...Object.entries(recodes), ...Object.entries(merges)]
+    .filter(([source, target]) => source !== target && workCodes.has(target)),
+);
 
 // Normalize the many-to-many relationship layer without breaking the old
 // `graphs` field. `works` is the canonical set of compositions this post
@@ -477,6 +483,7 @@ const graphsOut = {
   works,
   candidates,
   legacy,
+  aliases,
   // Compatibility for the OG endpoint and any old data clients. New code must
   // consume `works`; this full record list is the migration bridge.
   graphs: records,
