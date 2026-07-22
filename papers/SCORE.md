@@ -143,6 +143,28 @@ Briefings are **private but not secret**: they live in `aesthetic-computer-vault
 
 **A rule the first briefing earned the hard way.** Rev 1 told its recipient that Adrian Freed "pointedly declines to claim" he invented the DAW — inferred from an institutional bio page he doesn't control and a 1985 paper that asserts no priority (which, read properly, is a paper about RS-232 protocol design; the silence was genre, not modesty). Sage, standing next to the man: *"adrian DOES say he invented the daw."* **Never build a behavioral instruction on an argument from silence.** A briefing's corrective clause is its sharpest edge and its biggest liability: the recipient is going to act on it, in a room you are not in, in front of people whose feelings are real. Correct only what you can source *positively*, and where the recipient has primary access and you have the internet, defer to them. The lane's `\soft{}` inline-uncertainty flag exists precisely for this and rev 1 failed to use it on the one claim that mattered.
 
+### 12. Gear guesses (`gear-guess-*/`)
+
+The procurement lane (added **2026-07-22**). A gear guess is a dated, sourced
+answer to a practical studio question: *what would we buy now, why, what would
+change the answer, and how does it enter the score?* It is deliberately not a
+review or a buyer's guide. Prices expire, port names conceal bottlenecks, and a
+purchase without an operating method is just a new object in the room.
+
+Each guess fixes seven moves: **best guess, price rail, alternatives,
+compatibility catches, day-one score, canonical object plate, source shelf**.
+Manufacturer claims are identified as such; material performance claims get an
+independent measurement when one is available. Product photography comes from
+the manufacturer's canonical page or press kit and carries an asset ledger.
+Source URLs and a checked date are part of the form.
+Shared layout and components live in
+[`ac-paper-gear-guess.sty`](ac-paper-gear-guess.sty); the complete form is
+specified in [`GEAR-GUESS.md`](GEAR-GUESS.md).
+
+| Gear guess | Job | Status |
+|---|---|---|
+| [`aesthetic-computer-media`](gear-guess-aesthetic-computer-media/aesthetic-computer-media.tex) | One fast portable media workspace across the fleet | guess 1 |
+
 ## Tooling
 
 The mill's code lives at the top of `papers/` and in [`bin/`](bin/). All scripts are runnable as `node papers/bin/<name>.mjs`.
@@ -175,6 +197,7 @@ The mill's code lives at the top of `papers/` and in [`bin/`](bin/). All scripts
 | [`ac-paper-layout.sty`](ac-paper-layout.sty) | Shared visual identity for arxiv papers: AC color palette, font commands, draft watermark, pals logo watermark, section formatting, header/footer. |
 | [`ac-paper-cards.sty`](ac-paper-cards.sty) | Cards-format layout. |
 | [`ac-paper-essay.sty`](ac-paper-essay.sty) | Essay-format layout: single-column magazine essay style with title block macros (`\essaydeck`, `\essaytitle`, `\essaysubtitle`, `\essaybyline`), `\dropcap`, `\sectionbreak` (silcrow ornament), `\begin{pullquote}`, `\enote{}` for endnotes, and `\begin{further}` / `\reading{}` for the Further Reading coda. |
+| [`ac-paper-gear-guess.sty`](ac-paper-gear-guess.sty) | Gear-guess layout: dated decision block, price rail, alternatives, compatibility warnings, setup score, and direct source shelf. |
 
 ## Formats
 
@@ -182,6 +205,7 @@ The mill's code lives at the top of `papers/` and in [`bin/`](bin/). All scripts
 - **Dossier**: arXiv-format twocolumn but with a vignette cover, AI-generated colored-pencil illustration as hero, QR top-right pointing to permalink, structured `data/` folder with raw CSVs alongside the `.tex`. Posture is fact-surfacing, not argumentative.
 - **Cards**: Single-sheet index-card layout reformatted from arXiv source. Designed for printing, passing hand to hand, pinning on walls.
 - **JOSS**: Condensed software papers for Journal of Open Source Software. Markdown with LaTeX includes. JOSS reviews focus on software quality, documentation, and community impact.
+- **Gear guess**: Single-column, dated procurement hypothesis with one answer, explicit price uncertainty, compatibility catches, an operating score, and direct source URLs.
 
 ## Translations
 
@@ -195,6 +219,7 @@ Sorted by most recently edited/added.
 
 | Paper | Format | PDF | Source |
 |-------|--------|-----|--------|
+| aesthetic-computer-media: one fast portable workspace for the fleet | gear guess (LaTeX, guess 1) | `gear-guess-aesthetic-computer-media/aesthetic-computer-media.pdf` | `gear-guess-aesthetic-computer-media/aesthetic-computer-media.tex` |
 | The nom Games: A Muncher Arcade for Aesthetic Computer (numbnom / engnom / mexinom / notenom; one shared engine + virtual synth controller) | arXiv (LaTeX, ~5pp first-pass) | `arxiv-nom/nom.pdf` | `arxiv-nom/nom.tex` |
 | MicroVision: A Dossier (Genealogy, Products, People, Money, Dilution Mechanics, Takeover Theory, 1993–2026) | arXiv (LaTeX, dossier, 7pp first-pass) | `arxiv-microvision/microvision.pdf` | `arxiv-microvision/microvision.tex` |
 | Comp Strats: Compositional Strategies in AC --- Aphorisms for a Shielded Media-Arts Practice | arXiv (LaTeX, ~7pp first-pass) | `arxiv-comp-strats/comp-strats.pdf` | `arxiv-comp-strats/comp-strats.tex` |
