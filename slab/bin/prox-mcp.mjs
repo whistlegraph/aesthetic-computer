@@ -26,6 +26,7 @@ import { promisify } from "node:util";
 import { join } from "node:path";
 import { homedir, hostname } from "node:os";
 import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
+import { boundedNudge, makeIrisContact, parseAgentAddress } from "../lib/loopboy-family.mjs";
 
 const pexec = promisify(execFile);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -282,6 +283,44 @@ async function toolPoke({ handle, by }) {
     signal: AbortSignal.timeout(5000),
   }).catch((e) => { throw new Error(`poke to ${r.host} (${r.ip}) failed: ${e.message}`); });
   return [{ type: "text", text: `poked ${r.host}:${r.name} as «${poker}» — its rock should blink + rattle (HTTP ${res.status}).` }];
+}
+
+// First-class non-human Loopboy contacts. V1 is intentionally a status +
+// bounded-accountability surface over the existing prompt ledger. It cannot
+// send iMessage, run shell commands, or wake an arbitrary remote terminal.
+function agentContact(address) {
+  const parsed = parseAgentAddress(address);
+  const iris = makeIrisContact();
+  if (address.toLowerCase() === iris.address) return { ...iris, parsed };
+  throw new Error(`unknown Loopboy agent contact: ${address}`);
+}
+
+async function toolLoopboyAgentStatus({ address }) {
+  const contact = agentContact(address);
+  const rocks = await allRocks();
+  const rock = rocks.find((r) => r.host.toLowerCase() === contact.machine &&
+    (r.id.toLowerCase() === contact.ledgerId || r.name.toLowerCase() === contact.ledgerId));
+  const status = rock ? {
+    state: rock.status, updated: rock.updated, age: age(rock.updated),
+    subject: rock.subject || "", host: rock.host, ledgerId: rock.id,
+  } : { state: "offline", host: contact.machine, ledgerId: contact.ledgerId };
+  return [{ type: "text", text: JSON.stringify({
+    address: contact.address, displayName: contact.displayName,
+    kind: contact.kind, status, responsibility: contact.responsibility,
+  }, null, 2) }];
+}
+
+async function toolLoopboyAgentNudge({ address, text }) {
+  const contact = agentContact(address);
+  const nudge = boundedNudge(contact, text);
+  const rocks = await allRocks();
+  const rock = rocks.find((r) => r.host.toLowerCase() === contact.machine &&
+    (r.id.toLowerCase() === contact.ledgerId || r.name.toLowerCase() === contact.ledgerId));
+  if (!rock) throw new Error(`${contact.address} is offline — no ${contact.machine}:${contact.ledgerId} agent rock is available.`);
+  // The ledger's fixed /poke endpoint is the only V1 transport. Encode the
+  // bounded note in the observer label so it is auditable without opening a
+  // general-purpose remote prompt or command channel.
+  return toolPoke({ handle: rock.id, by: `loopboy:${contact.address} · ${nudge.text}` });
 }
 
 async function toolWake({ handle, prompt, by }) {
@@ -549,6 +588,29 @@ const TOOLS = [
       required: ["handle", "contact"],
     },
   },
+  {
+    name: "prox_loopboy_agent_status",
+    description:
+      "Report a first-class Loopboy agent contact by stable agent:<name>@<machine> address. V1 reads the fleet prompt ledger and the contact's bounded responsibility; it is not an iMessage identity.",
+    inputSchema: {
+      type: "object",
+      properties: { address: { type: "string", description: "Stable agent address, currently agent:iris@panda." } },
+      required: ["address"],
+    },
+  },
+  {
+    name: "prox_loopboy_agent_nudge",
+    description:
+      "Send a bounded accountability attention nudge (max 500 characters) to a live Loopboy agent contact. V1 uses the target agent rock's fixed poke channel and provides no arbitrary remote control.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        address: { type: "string", description: "Stable agent address, currently agent:iris@panda." },
+        text: { type: "string", maxLength: 500, description: "Accountability note, not a shell command or unrestricted prompt." },
+      },
+      required: ["address", "text"],
+    },
+  },
 ];
 
 async function callTool(name, args) {
@@ -560,6 +622,8 @@ async function callTool(name, args) {
     case "prox_artifact_ready": return toolArtifactReady(args || {});
     case "prox_launch": return toolLaunch(args || {});
     case "prox_bind_notification": return toolBindNotification(args || {});
+    case "prox_loopboy_agent_status": return toolLoopboyAgentStatus(args || {});
+    case "prox_loopboy_agent_nudge": return toolLoopboyAgentNudge(args || {});
     case "prox_close": return toolClose(args || {});
     default: throw new Error(`Unknown tool: ${name}`);
   }
