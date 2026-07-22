@@ -199,6 +199,10 @@ export function createHandler({ connectFn = connect } = {}) {
       await ensureProjection(database.db);
       const p = event.queryStringParameters || {};
       const action = p.action || "posts";
+      if (action === "meta") {
+        const meta = await database.db.collection(META).findOne({ _id: "projection" }, { projection: { _id: 0 } });
+        return respond(200, { meta }, { ...HEADERS, "Cache-Control": "no-store" });
+      }
       if (action === "post") {
         const item = await database.db.collection(POSTS).findOne({ _id: clean(p.id, 32) }, { projection: { projectionRevision: 0, searchText: 0 } });
         return item ? respond(200, { item }, HEADERS) : respond(404, { message: "Post not found." }, HEADERS);
