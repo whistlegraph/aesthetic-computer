@@ -1,0 +1,230 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper]{article}
+\usepackage{../ac-paper-gear-guess}
+\input{buy-links.tex}
+
+\gearsetshorttitle{aesthetic-computer-media}
+\hypersetup{
+  pdftitle={aesthetic-computer-media — a gear guess},
+  pdfsubject={A portable high-speed media workspace for the Aesthetic Computer fleet},
+  pdfkeywords={external SSD, USB4, media workflow, Aesthetic Computer}
+}
+
+\begin{document}
+
+\gearGuessTitle
+  {aesthetic-computer-media}
+  {one fast portable workspace for neo, blueberry, and whatever is next}
+  {22 July 2026}
+  {guess 1}
+
+\begin{bestguess}
+Buy the \textbf{OWC Express 1M2 USB4 enclosure} and put a
+\textbf{Samsung 990 PRO 2TB NVMe} inside it. Give the physical object the long
+name \texttt{aesthetic-computer-media}; format its shared volume as
+\texttt{AC\_MEDIA}. This is the useful middle: near-internal-disk speed on a
+USB4/Thunderbolt host, ordinary USB-C fallback, a replaceable SSD, and no wall
+wart. Start at 2TB because the drive is the \emph{active table}, not the archive.
+DigitalOcean Spaces remains the shelf.
+\end{bestguess}
+
+\subsection{canonical object plate}
+\gearproduct
+  {figures/owc-express-1m2.png}
+  {OWC Express 1M2}
+  {preferred enclosure}
+  {\$119.99 observed}
+  {https://www.owc.com/solutions/express-1m2}
+  {\buyOWCExpressOneMTwo}
+\hfill
+\gearproduct
+  {figures/samsung-990-pro.jpg}
+  {Samsung 990 PRO 2TB}
+  {preferred blade}
+  {\$390 allowance}
+  {https://www.samsung.com/us/memory-storage/nvme-ssd/990-pro-pcie-4-0-nvme-ssd-1tb-sku-mz-v9p2t0b-am/}
+  {\buySamsungNineNineZeroPro}
+
+\vspace{0.12in}
+\gearproduct
+  {figures/sandisk-pro-g40.png}
+  {SanDisk Professional PRO-G40}
+  {rugged alternate}
+  {\$919.99 observed}
+  {https://www.sandisk.com/products/ssd/external-ssd/sandisk-professional-pro-g40-usb-3-2-ssd}
+  {\buySanDiskProGForty}
+\hfill
+\gearproduct
+  {figures/samsung-t9.png}
+  {Samsung Portable SSD T9}
+  {one-piece alternate}
+  {\$799.99 observed}
+  {https://www.samsung.com/us/memory-storage/portable-ssd/portable-ssd-t9-usb-3-2-4tb-black-sku-mu-pg4t0b-am/}
+  {\buySamsungTNine}
+
+\gearaffiliatedisclosure
+
+\subsection{capacity rail}
+
+\begin{tabularx}{\linewidth}{@{}Y R R@{}}
+\toprule
+\textbf{decision rail} & \textbf{2TB now} & \textbf{4TB step-up} \\
+\midrule
+Enclosure allowance & \$120 & \$120 \\
+NVMe allowance & \$390 & \$700--750 \\
+Working total & \textbf{\$510} & \textbf{\$820--870} \\
+\bottomrule
+\end{tabularx}
+{\footnotesize\color{acgray}Prices are observed/working allowances checked 22 July 2026, before tax and shipping. They are not quotes. The 4TB number is a range because flash pricing moves quickly.}
+
+\section{buy this}
+
+\begin{gearcard}{1 / the enclosure}
+\gearprice{OWC Express 1M2 — USB4, 40Gb/s}{\$119.99 observed}
+Bus-powered aluminum enclosure; a short certified 40Gb/s cable is included.
+OWC reports roughly 3,189 MB/s on Apple silicon and up to 3,836 MB/s on
+USB4/Thunderbolt 4 PCs, with roughly 990 MB/s fallback on a 10Gb/s USB-C link.
+The enclosure is the durable purchase. The blade inside can change later.
+\end{gearcard}
+
+\begin{gearcard}{2 / the blade}
+\gearprice{Samsung 990 PRO NVMe — 2TB}{\$390 allowance}
+The bare drive is rated up to 7,450 MB/s read and 6,900 MB/s write, so the USB4
+enclosure---not the flash---sets portable speed. That headroom is still useful:
+the blade is never the obvious bottleneck, and it can move into a workstation
+or a future enclosure. Samsung gives the line a five-year limited warranty;
+the 4TB part is rated for 2,400 TBW.
+\end{gearcard}
+
+\begin{gearwarning}[THE PRICE RULE]
+Do not pay extra for the 990 PRO name if another reputable TLC NVMe with a
+five-year warranty makes the 2TB build materially cheaper. The enclosure caps
+the result near 4 GB/s. The exact blade is negotiable; USB4, thermals, and a
+replaceable drive are not. Step up to 4TB only when the live working set is
+regularly above 1TB or the price delta falls below roughly \$250.
+\end{gearwarning}
+
+\section{the other two}
+
+\begin{gearcard}{rugged, sealed, simple / SanDisk Professional PRO-G40 4TB}
+\gearprice{Best when the drive will travel hard}{\$919.99 observed}
+Thunderbolt 3 performance is advertised up to 3,000 MB/s read and 2,500 MB/s
+write. The enclosure is IP68-rated, drop-rated to 3m, crush-resistant to
+4,000lb, and carries a five-year warranty. Pick this instead when weather,
+bags, stages, and other people's hands matter more than replaceable internals.
+The official compatibility list names macOS and Windows; test the intended
+Fedora machine before making it the fleet standard.
+\end{gearcard}
+
+\begin{gearcard}{one-piece fallback / Samsung T9 4TB}
+\gearprice{Best only at a real discount}{\$799.99 observed}
+Small, light, and broadly available. Its 2,000 MB/s headline needs a USB 3.2
+Gen 2x2 host. On a 10Gb/s USB link, expect the neighborhood of 1 GB/s instead.
+An independent sustained-write test also found roughly 900 MB/s after the
+cache emptied. Pick it if it falls well below the modular build and maximum
+Mac speed is not the point.
+\end{gearcard}
+
+\begin{gearwarning}[SKIP FOR THIS FLEET]
+Skip the newer 80Gb/s USB4 v2 / Thunderbolt 5 enclosure for now. Its advantage
+appears only on hosts with those ports. Mixed Macs and PCs make the 40Gb/s 1M2
+the more portable kind of fast.
+\end{gearwarning}
+
+\section{port reality}
+
+\begin{tabularx}{\linewidth}{@{}p{0.27\linewidth}Y p{0.22\linewidth}@{}}
+\toprule
+\textbf{host link} & \textbf{what it means} & \textbf{working ceiling} \\
+\midrule
+USB4 / Thunderbolt 4 & The recommended build gets its full reason to exist. & about 3.2--3.8 GB/s \\
+Thunderbolt 3 & Fast path; controller and host still matter. & about 2.5--3.0 GB/s \\
+USB-C, 10Gb/s & Compatible fallback, not failure. & about 1.0 GB/s \\
+USB 3.2 Gen 2x2 & Helps the T9 only when the exact host supports it. & up to 2.0 GB/s \\
+\bottomrule
+\end{tabularx}
+
+The connector shape proves nothing. Before blaming the disk, identify the host
+port, use the included short cable, and run one large sequential read/write
+test. Keep the aluminum enclosure exposed during long writes; it is the heat
+sink.
+
+\section{day-one score}
+
+\begin{gearcard}{label + format}
+\gearcheck Put \texttt{aesthetic-computer-media} on the physical case.\par
+\gearcheck Initialize a GUID partition table and one exFAT volume named
+\texttt{AC\_MEDIA}. exFAT's volume label is limited to eleven Unicode
+characters; the short name is deliberate.\par
+\gearcheck Leave hardware-password features off if Fedora must read the drive.
+Encrypt sensitive project bundles separately instead of making the whole
+working disk depend on vendor unlock software.\par
+\gearcheck Always eject. exFAT is the shared language here, not a journaled
+filesystem and not a backup.
+\end{gearcard}
+
+\begin{gearcard}{same object, predictable places}
+\begin{tabularx}{\linewidth}{@{}p{0.24\linewidth}Y@{}}
+macOS & \texttt{/Volumes/AC\_MEDIA} \\
+Windows & reserve \texttt{M:\textbackslash} \\
+Fedora & \texttt{/run/media/jas/AC\_MEDIA} \\
+\end{tabularx}
+\vspace{0.25em}
+Create only four roots at first:
+\texttt{active/}, \texttt{inbox/<machine>/}, \texttt{exports/}, and
+\texttt{manifests/}. Projects move between machines; machine names belong only
+in \texttt{inbox/}.
+\end{gearcard}
+
+\begin{gearcard}{the shelf loop}
+\begin{enumerate}
+  \item Copy new media to \texttt{inbox/<machine>/}; keep the source intact.
+  \item Promote the working set into \texttt{active/<project>/}.
+  \item Write a SHA-256 manifest under \texttt{manifests/<project>/}.
+  \item \texttt{rclone copy} the project to the private Spaces
+        \texttt{media/} prefix.
+  \item Run \texttt{rclone check --download}. Delete the ingest source only
+        after the check succeeds.
+  \item Enable Spaces versioning before treating cloud-only media as recoverable.
+\end{enumerate}
+\end{gearcard}
+
+\begin{bestguess}[WHAT WOULD CHANGE THE GUESS]
+A fleet-wide move to Thunderbolt 5 would justify an 80Gb/s enclosure. A
+working set consistently above 1TB would justify 4TB. Regular field abuse would
+move the PRO-G40 into first place. A strong sale on a reputable TLC blade would
+change the SSD model without changing the system. Until one of those happens,
+the 1M2 + 2TB NVMe is the clean answer.
+\end{bestguess}
+
+\section{source shelf}
+
+Every product number above is a dated observation, not a promise from the
+future. Product capabilities come from the manufacturer unless an independent
+measurement is named.
+
+\begin{multicols}{2}
+\raggedcolumns
+\gearcompactsource{OWC Express 1M2 product page}{checked 22 July 2026}{https://www.owc.com/solutions/express-1m2}
+\gearcompactsource{Samsung 990 PRO product page}{checked 22 July 2026}{https://www.samsung.com/us/memory-storage/nvme-ssd/990-pro-pcie-4-0-nvme-ssd-1tb-sku-mz-v9p2t0b-am/}
+\gearcompactsource{Samsung 990 PRO data sheet, revision 2.0}{checked 22 July 2026}{https://download.semiconductor.samsung.com/resources/data-sheet/samsung_nvme_ssd_990_pro_datasheet_rev.2.0.pdf}
+\gearcompactsource{SanDisk Professional PRO-G40 product page}{checked 22 July 2026}{https://www.sandisk.com/products/ssd/external-ssd/sandisk-professional-pro-g40-usb-3-2-ssd}
+\gearcompactsource{Samsung Portable SSD T9 product page}{checked 22 July 2026}{https://www.samsung.com/us/memory-storage/portable-ssd/portable-ssd-t9-usb-3-2-4tb-black-sku-mu-pg4t0b-am/}
+\gearcompactsource{Best Buy — Samsung T9 4TB listing}{checked 22 July 2026}{https://www.bestbuy.com/product/samsung-t9-portable-ssd-4tb-up-to-2000mb-s-usb-3-2-gen2-black/6559268}
+\gearcompactsource{PC Gamer — Samsung T9 sustained-write review}{checked 22 July 2026}{https://www.pcgamer.com/hardware/ssds/samsung-t9-external-ssd-review/}
+\gearcompactsource{Microsoft exFAT specification}{checked 22 July 2026}{https://learn.microsoft.com/en-us/windows/win32/fileio/exfat-specification}
+\gearcompactsource{Microsoft filesystem functionality comparison}{checked 22 July 2026}{https://learn.microsoft.com/en-us/windows/win32/fileio/filesystem-functionality-comparison}
+\gearcompactsource{DigitalOcean — enable Spaces versioning}{checked 22 July 2026}{https://docs.digitalocean.com/products/spaces/how-to/enable-versioning/}
+\gearcompactsource{DigitalOcean — transfer and verify with rclone}{checked 22 July 2026}{https://docs.digitalocean.com/products/spaces/how-to/transfer-between-regions/}
+\gearcompactsource{Canonical product image ledger}{checked 22 July 2026}{https://github.com/whistlegraph/aesthetic-computer/tree/main/papers/gear-guess-aesthetic-computer-media/figures/product-images.md}
+\end{multicols}
+
+\vfill
+{\color{acpink}\rule{\linewidth}{1pt}}\par
+{\small\sffamily
+\textbf{Gear Guess 1 / aesthetic-computer-media.}
+This paper names a working decision. Recheck price, stock, host ports, and
+warranty terms at purchase time. The operating idea is more stable than the
+specific SKU: fast replaceable local table; verified private cloud shelf.}
+
+\end{document}

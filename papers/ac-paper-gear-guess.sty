@@ -1,0 +1,229 @@
+% ac-paper-gear-guess.sty — Aesthetic Computer "gear guess" layout
+%
+% A gear guess is a dated, sourced procurement hypothesis: what we would buy
+% now, why, what could change the answer, and the score for putting it to work.
+% Usage from papers/gear-guess-<slug>/<slug>.tex:
+%   \usepackage{../ac-paper-gear-guess}
+
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{ac-paper-gear-guess}[2026/07/22 Aesthetic Computer gear guess]
+
+\RequirePackage[
+  letterpaper,
+  top=0.62in,
+  bottom=0.62in,
+  left=0.72in,
+  right=0.72in
+]{geometry}
+
+\RequirePackage{fontspec}
+\setmainfont{lmroman10-regular.otf}[
+  BoldFont=lmroman10-bold.otf,
+  ItalicFont=lmroman10-italic.otf,
+  BoldItalicFont=lmroman10-bolditalic.otf
+]
+\setsansfont{lmsans10-regular.otf}[
+  BoldFont=lmsans10-bold.otf,
+  ItalicFont=lmsans10-oblique.otf,
+  BoldItalicFont=lmsans10-boldoblique.otf
+]
+\setmonofont{lmmono10-regular.otf}[Scale=0.88]
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+
+\RequirePackage{xcolor}
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{gearpaper}{RGB}{249,246,239}
+\definecolor{gearmist}{RGB}{243,237,246}
+\definecolor{geargreen}{RGB}{55,126,105}
+\definecolor{gearamber}{RGB}{174,111,42}
+
+\pagecolor{gearpaper}
+\color{acdark}
+
+\RequirePackage{microtype}
+\RequirePackage{graphicx}
+\RequirePackage{booktabs}
+\RequirePackage{tabularx}
+\RequirePackage{array}
+\RequirePackage{enumitem}
+\RequirePackage{multicol}
+\RequirePackage{ragged2e}
+\RequirePackage{titlesec}
+\RequirePackage{fancyhdr}
+\RequirePackage[most]{tcolorbox}
+\RequirePackage{hyperref}
+\RequirePackage{xurl}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey / Aesthetic Computer}
+}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.38em}
+\setlength{\emergencystretch}{2em}
+\setlist[itemize]{leftmargin=1.3em,itemsep=0.18em,topsep=0.25em}
+\setlist[enumerate]{leftmargin=1.55em,itemsep=0.22em,topsep=0.25em}
+
+\newcommand{\gearshorttitle}{gear guess}
+\newcommand{\gearsetshorttitle}[1]{\renewcommand{\gearshorttitle}{#1}}
+\newif\ifgearaffiliate
+\gearaffiliatefalse
+
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[L]{\acbold\fontsize{8pt}{9pt}\selectfont\color{acpink} GEAR GUESS}
+\fancyhead[R]{\footnotesize\color{acgray}\gearshorttitle}
+\fancyfoot[L]{\footnotesize\href{https://prompt.ac/@jeffrey}{@jeffrey} \textcolor{acpink}{/} aesthetic.computer}
+\fancyfoot[R]{\footnotesize\thepage}
+
+\titleformat{\section}
+  {\sffamily\bfseries\fontsize{16pt}{18pt}\selectfont\color{acdark}}
+  {}{0pt}{}
+\titlespacing*{\section}{0pt}{1.05em}{0.35em}
+
+\titleformat{\subsection}
+  {\sffamily\bfseries\small\color{acpurple}}
+  {}{0pt}{}
+\titlespacing*{\subsection}{0pt}{0.7em}{0.18em}
+
+\newcommand{\geartag}[2][acpurple]{%
+  \begingroup\setlength{\fboxsep}{3pt}%
+  \colorbox{#1!12}{\textcolor{#1}{\sffamily\bfseries\scriptsize\MakeUppercase{#2}}}%
+  \endgroup
+}
+
+\newcommand{\gearGuessTitle}[4]{%
+  \thispagestyle{fancy}
+  \vspace*{0.08in}
+  {\aclight\fontsize{10pt}{12pt}\selectfont\color{acpink} AESTHETIC COMPUTER / FIELD PAPER}\par
+  \vspace{0.12in}
+  {\acbold\fontsize{34pt}{35pt}\selectfont\color{acdark} #1}\par
+  \vspace{0.05in}
+  {\sffamily\fontsize{13pt}{16pt}\selectfont\color{acpurple} #2}\par
+  \vspace{0.18in}
+  \begin{tabularx}{\linewidth}{@{}X>{\RaggedLeft\arraybackslash}p{0.38\linewidth}@{}}
+    \small\href{https://prompt.ac/@jeffrey}{@jeffrey} · \href{https://aesthetic.computer}{aesthetic.computer} &
+    \small\color{acgray} #3 · #4
+  \end{tabularx}
+  \vspace{0.08in}
+  {\color{acpink}\rule{\linewidth}{1.5pt}}\par
+  \vspace{0.08in}
+}
+
+\newtcolorbox{bestguess}[1][BEST GUESS]{
+  enhanced,
+  breakable,
+  colback=acpink!7,
+  colframe=acpink,
+  boxrule=0.8pt,
+  arc=3pt,
+  left=10pt,right=10pt,top=9pt,bottom=9pt,
+  before skip=7pt,after skip=7pt,
+  title={\sffamily\bfseries\fontsize{10pt}{11pt}\selectfont #1},
+  coltitle=acdark,
+  colbacktitle=acpink!14,
+  fontupper=\small
+}
+
+\newtcolorbox{gearcard}[1]{
+  enhanced,
+  breakable,
+  colback=white,
+  colframe=acpurple!30,
+  boxrule=0.5pt,
+  arc=3pt,
+  left=9pt,right=9pt,top=7pt,bottom=7pt,
+  before skip=5pt,after skip=5pt,
+  title={\sffamily\bfseries\small #1},
+  coltitle=acdark,
+  colbacktitle=gearmist
+}
+
+\newtcolorbox{gearwarning}[1][THE CATCH]{
+  enhanced,
+  breakable,
+  colback=gearamber!7,
+  colframe=gearamber!65,
+  boxrule=0.6pt,
+  arc=3pt,
+  left=9pt,right=9pt,top=7pt,bottom=7pt,
+  before skip=5pt,after skip=5pt,
+  title={\sffamily\bfseries\small #1},
+  coltitle=acdark,
+  colbacktitle=gearamber!14
+}
+
+\newcommand{\gearprice}[2]{%
+  {\sffamily\bfseries\color{acdark}#1}\hfill
+  {\sffamily\bfseries\color{acpink}#2}\par
+}
+
+\newcommand{\gearbuybutton}[1]{%
+  \begingroup
+  \setlength{\fboxsep}{3.5pt}%
+  \href{#1}{\colorbox{acdark}{%
+    \textcolor{white}{\sffamily\bfseries\fontsize{7pt}{8pt}\selectfont BUY NOW}%
+  }}%
+  \ifgearaffiliate\hspace{0.35em}{\scriptsize\color{acgray}(paid link)}\fi
+  \endgroup
+}
+
+\newcommand{\gearaffiliatedisclosure}{%
+  \ifgearaffiliate
+    \par\vspace{0.3em}
+    {\footnotesize\color{acgray}\textbf{Affiliate disclosure.}
+    As an Amazon Associate I earn from qualifying purchases.}\par
+  \fi
+}
+
+\newcommand{\gearcheck}{%
+  \raisebox{0.1ex}{\fbox{\rule{0pt}{0.8ex}\rule{0.8ex}{0pt}}}\hspace{0.48em}%
+}
+
+\newcommand{\gearsource}[3]{%
+  \par\noindent
+  {\sffamily\bfseries\small #1}\hfill{\footnotesize\color{acgray}#2}\par
+  {\footnotesize\url{#3}}\par\vspace{0.22em}
+}
+
+\newcommand{\gearcompactsource}[3]{%
+  \par\noindent\begin{minipage}{\linewidth}
+    {\sffamily\bfseries\footnotesize #1}\par
+    {\scriptsize\color{acgray}#2}\par
+    {\scriptsize\url{#3}}\par\vspace{0.28em}
+  \end{minipage}\par
+}
+
+% Canonical manufacturer image + clickable product name. Product instances
+% keep their exact asset URL in figures/product-images.md.
+\newcommand{\gearproduct}[6]{%
+  \begin{minipage}[t]{0.475\linewidth}
+    \centering
+    \href{#5}{\includegraphics[width=0.96\linewidth,height=1.18in,keepaspectratio]{#1}}\par
+    \vspace{0.12em}
+    {\sffamily\bfseries\footnotesize\href{#5}{#2}}\par
+    {\sffamily\bfseries\fontsize{8.5pt}{10pt}\selectfont\color{acpink}#4}%
+    \hspace{0.55em}\gearbuybutton{#6}\par
+    {\scriptsize\color{acgray}#3 · manufacturer image}
+  \end{minipage}%
+}
+
+\newcolumntype{Y}{>{\RaggedRight\arraybackslash}X}
+\newcolumntype{R}{>{\RaggedLeft\arraybackslash}p{0.18\linewidth}}
+
+\endinput
