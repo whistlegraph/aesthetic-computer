@@ -64,7 +64,8 @@ describe("Whistlegraph Desk", () => {
     const page = readFileSync(new URL("../system/public/whistlegraph.org/admin.html", import.meta.url), "utf8");
     expect(page).toContain('data-sort="newest"');
     expect(page).toContain('data-sort="oldest"');
-    expect(page).toContain('sort==="oldest"?String(a.date||"").localeCompare(String(b.date||""))');
+    expect(page).toContain('params.set("sort",sort)');
+    expect(page).toContain('QUERY_API="/api/whistlegraph-query"');
   });
 
   it("recovers an existing Auth0 session before returning to the login splash", () => {
