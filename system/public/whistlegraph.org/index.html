@@ -440,7 +440,7 @@ const esc=s=>String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&g
 // the authenticated Whistlegraph Desk layer over that model and survive deploys.
 const curationLoaded=fetch("/api/whistlegraph-admin?action=curation",{cache:"no-store"})
   .then(r=>r.ok?r.json():{works:{},posts:{}})
-  .then(data=>(LIVE_CURATION={works:data.works||{},posts:data.posts||{},createdWorks:data.createdWorks||{},deletedWorks:data.deletedWorks||[],trashedWorks:data.trashedWorks||{}},LIVE_CURATION))
+  .then(data=>(LIVE_CURATION={works:data.works||{},posts:data.posts||{},createdWorks:data.createdWorks||{},deletedWorks:data.deletedWorks||[],trashedWorks:data.trashedWorks||{},activeCodes:data.activeCodes||[]},LIVE_CURATION))
   .catch(()=>LIVE_CURATION);
 
 // A whistlegraph's posts — every published appearance, most-seen first —
@@ -731,10 +731,11 @@ Promise.all([
     selectSection(section,true);
   }));
   routeLocation();
-  // Keep the first paint light, then reconcile Desk relationship edits so
-  // works whose final post was removed disappear without waiting for a click.
+  // Reconcile Desk relationship edits immediately after first paint. Deferring
+  // this to requestIdleCallback left newly created works showing their count
+  // but no assigned gallery/thumbnail indefinitely in background or busy tabs.
   const reconcilePosts=()=>loadPosts().then(()=>{if(curSection==="works"&&!document.getElementById("detail").classList.contains("on"))renderReset(true)});
-  if("requestIdleCallback" in window)requestIdleCallback(reconcilePosts);else setTimeout(reconcilePosts,0);
+  reconcilePosts();
 });
 
 function showDetail(code, keepScroll){
