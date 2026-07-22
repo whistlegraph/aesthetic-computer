@@ -72,3 +72,8 @@ would force ugly wrapping. Prefer a dark semantic header, lightly tinted row or
 status cells, thin colored outlines, aligned values, and concise cell copy. Color
 must explain categories, time windows, status, risk, or recommendation—not merely
 decorate the grid.
+
+For Fuser-facing internal documents, also apply
+[`FUSER-PAPER-STYLE.md`](FUSER-PAPER-STYLE.md). Its exact-logo, cover-image,
+palette, diagram-flow, and brand-fidelity checks are part of visual acceptance,
+not optional decoration.
