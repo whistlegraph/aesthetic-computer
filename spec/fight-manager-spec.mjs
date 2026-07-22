@@ -25,6 +25,27 @@ manager.signal("wa", { matchId, signal: { candidate: "private" } });
 assert.deepEqual(sent.map((m) => m.wsId), ["wc"]);
 assert.equal(sent[0].type, "fight:signal");
 
+// Native clients pair only with their relay transport, and live input remains
+// scoped to the accepted opponent.
+const native = new FightManager({ now: () => now, id: () => `native-${++serial}` });
+const nativeSent = [];
+native.setSendFunction((wsId, type, content) => nativeSent.push({ wsId, type, content }));
+for (const [wsId, accountId] of [["n1", "n1"], ["web", "web"], ["n2", "n2"]])
+  native.authenticate(wsId, { accountId, handle: `@${accountId}` });
+native.queueJoin("n1", { manifest: FIGHT_MANIFEST, region: "us-west", transport: "ws-input-v1" });
+native.queueJoin("web", { manifest: FIGHT_MANIFEST, region: "us-west" });
+assert.equal(nativeSent.filter((m) => m.type === "fight:match:proposal").length, 0);
+native.queueJoin("n2", { manifest: FIGHT_MANIFEST, region: "us-west", transport: "ws-input-v1" });
+const nativeProposals = nativeSent.filter((m) => m.type === "fight:match:proposal");
+const nativeMatchId = nativeProposals[0].content.matchId;
+native.proposalAccept("n1", { matchId: nativeMatchId, manifest: FIGHT_MANIFEST });
+native.proposalAccept("n2", { matchId: nativeMatchId, manifest: FIGHT_MANIFEST });
+nativeSent.length = 0;
+assert.equal(native.input("n1", { matchId: nativeMatchId, frame: 7, buttons: 9 }), true);
+assert.deepEqual(nativeSent, [{ wsId: "n2", type: "fight:input", content: {
+  matchId: nativeMatchId, fromSeat: 0, frame: 7, buttons: 9,
+} }]);
+
 // Payload handles cannot impersonate a handled user; the server-bound socket wins.
 manager.queueLeave("wb");
 assert.equal(manager.queueJoin("guest", { handle: "@alice", manifest: FIGHT_MANIFEST, region: "us-west" }), false);

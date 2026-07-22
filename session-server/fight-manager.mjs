@@ -105,6 +105,7 @@ export class FightManager {
       region,
       mode: data.mode === "ranked" ? "ranked" : "casual",
       platform: String(data.platform || "web").slice(0, 24),
+      transport: String(data.transport || "webrtc-v1").slice(0, 24),
       joinedAt: this.queue.get(wsId)?.joinedAt || now,
       expiresAt: now + QUEUE_TTL,
     });
@@ -121,7 +122,7 @@ export class FightManager {
 
   compatible(a, b, now = this.now()) {
     if (!compatibleManifest(a.manifest, b.manifest)) return false;
-    if (a.mode !== b.mode || a.accountId === b.accountId) return false;
+    if (a.mode !== b.mode || a.transport !== b.transport || a.accountId === b.accountId) return false;
     const aRegions = allowedOpponentRegions(a.region, now - a.joinedAt);
     const bRegions = allowedOpponentRegions(b.region, now - b.joinedAt);
     return aRegions.includes(b.region) && bRegions.includes(a.region);
@@ -161,6 +162,7 @@ export class FightManager {
       manifest: { ...this.manifest },
       seed: crypto.randomBytes(4).readUInt32LE(0),
       mode: a.mode || "casual",
+      transport: a.transport || "webrtc-v1",
       regions: [a.region || null, b.region || null],
       roomId,
       createdAt: now,
@@ -183,6 +185,7 @@ export class FightManager {
         manifest: match.manifest,
         seed: match.seed,
         mode: match.mode,
+        transport: match.transport,
         region: match.regions[player.seat],
         candidateRelayRegions: Object.keys(FIGHT_REGIONS),
         probeNonce: match.probeNonce,
@@ -223,6 +226,23 @@ export class FightManager {
     this.send(target.wsId, "fight:signal", {
       matchId: match.id, revision: match.revision, fromSeat: sender.seat, signal: data.signal,
     });
+    return true;
+  }
+
+  input(wsId, raw) {
+    const data = cleanPayload(raw);
+    const match = this.memberMatch(wsId, data.matchId);
+    if (!match || match.transport !== "ws-input-v1" || !match.accepted.has(wsId)) {
+      return this.error(wsId, "bad-input", "Invalid native match input.");
+    }
+    const frame = Number(data.frame);
+    const buttons = Number(data.buttons);
+    if (!Number.isSafeInteger(frame) || frame < 0 || !Number.isInteger(buttons) || buttons < 0 || buttons > 31) {
+      return this.error(wsId, "bad-input", "Invalid native input payload.");
+    }
+    const sender = match.players.find((player) => player.wsId === wsId);
+    const target = match.players.find((player) => player.wsId !== wsId);
+    this.send(target.wsId, "fight:input", { matchId: match.id, fromSeat: sender.seat, frame, buttons });
     return true;
   }
 
@@ -380,6 +400,7 @@ export class FightManager {
     if (type === "fight:queue:leave") return this.queueLeave(wsId);
     if (type === "fight:match:accept") return this.proposalAccept(wsId, raw);
     if (type === "fight:signal") return this.signal(wsId, raw);
+    if (type === "fight:input") return this.input(wsId, raw);
     if (type === "fight:route:report") return this.routeReport(wsId, raw);
     if (type === "fight:room:create") return this.roomCreate(wsId, raw);
     if (type === "fight:room:join") return this.roomJoin(wsId, raw);
