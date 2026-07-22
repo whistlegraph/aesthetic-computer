@@ -286,6 +286,10 @@ class Machine {
     if (filter) {
       const m = pages.find(p => p.id.includes(filter) || (p.url || "").includes(filter));
       if (m) return m;
+      // A caller that names a target is asserting ownership. Falling back to
+      // the most-recent page can write one flow's prompt into another flow
+      // when its tab closes or moves between windows.
+      return null;
     }
     return pages.filter(p => /^https?:/.test(p.url || "")).pop() || pages.pop();
   }
