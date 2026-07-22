@@ -196,6 +196,10 @@
         handle /api/whistlegraph-admin* {
             import lith_proxy
         }
+        # Public, indexed read projection used by the Desk's paginated index.
+        handle /api/whistlegraph-query* {
+            import lith_proxy
+        }
         # Auth0 returns to the bare origin. Only a root request carrying its
         # transaction state is served by the Desk; ordinary / remains the site.
         @wgcallback {
