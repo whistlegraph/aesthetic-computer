@@ -121,13 +121,13 @@ async function readCuration(database, loadModelFn = loadBaseModel) {
     const work = { ...(model.workByCode?.get(code) || {}), ...(payload.works[code] || {}), ...(payload.createdWorks[code] || {}) };
     const featured = row.posts.find((post) => String(post.id) === String(work.featuredPost || ""));
     const rankedVisuals = row.posts
-      .filter((post) => post?.media !== "audio")
+      .filter((post) => post?.media !== "audio" || post?.platform === "tiktok")
       .sort((a, b) => (Number(b.views) || 0) - (Number(a.views) || 0));
-    const hero = featured && featured.media !== "audio" ? featured : rankedVisuals[0] || featured;
-    const thumb = hero?.thumb || (hero?.media !== "audio" && hero?.id
+    const hero = featured && (featured.media !== "audio" || featured.platform === "tiktok") ? featured : rankedVisuals[0] || featured;
+    const thumb = hero?.thumb || (hero?.platform === "tiktok" && hero?.id
       ? `https://assets.aesthetic.computer/whistlegraph/index/posts/${hero.id}.jpg`
       : null);
-    materializedWorks[code] = { perf: row.perf, views: row.views, ...(thumb ? { thumb, noGlyph: false } : { noGlyph: true }) };
+    materializedWorks[code] = { perf: row.perf, views: row.views, ...(thumb ? { thumb, noGlyph: false } : { noGlyph: true }), ...(hero?.id ? { thumbPost: String(hero.id) } : {}) };
   }
   return { ...payload, activeCodes: [...activeCodes], materializedWorks };
 }

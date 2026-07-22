@@ -17,6 +17,7 @@ const POSTS = "whistlegraph-public-posts";
 const WORKS = "whistlegraph-public-works";
 const META = "whistlegraph-public-meta";
 const HEADERS = { "Cache-Control": "public, max-age=15, stale-while-revalidate=60" };
+const FRESH_HEADERS = { "Cache-Control": "no-store" };
 const MAX_LIMIT = 100;
 let syncPromise = null;
 let indexesPromise = null;
@@ -29,7 +30,7 @@ const decodeCursor = (value) => {
   try { return JSON.parse(Buffer.from(String(value), "base64url").toString("utf8")); }
   catch { return null; }
 };
-const thumbFor = (post) => post?.thumb || (post?.media !== "audio" && post?.id
+const thumbFor = (post) => post?.thumb || (post?.platform === "tiktok" && post?.id
   ? `https://assets.aesthetic.computer/whistlegraph/index/posts/${post.id}.jpg`
   : null);
 const searchText = (parts) => parts.filter(Boolean).join(" ").toLowerCase();
@@ -37,14 +38,14 @@ const searchText = (parts) => parts.filter(Boolean).join(" ").toLowerCase();
 async function ensureIndexes(db) {
   if (indexesPromise) return indexesPromise;
   indexesPromise = Promise.all([
-    db.collection(POSTS).createIndex({ works: 1, views: -1, _id: 1 }, { background: true }),
-    db.collection(POSTS).createIndex({ kind: 1, views: -1, _id: 1 }, { background: true }),
-    db.collection(POSTS).createIndex({ workCount: 1, date: -1, _id: 1 }, { background: true }),
-    db.collection(POSTS).createIndex({ kind: 1, date: -1, _id: 1 }, { background: true }),
-    db.collection(POSTS).createIndex({ plots: 1, views: -1, _id: 1 }, { background: true }),
-    db.collection(POSTS).createIndex({ tags: 1, views: -1, _id: 1 }, { background: true }),
-    db.collection(POSTS).createIndex({ date: -1, _id: 1 }, { background: true }),
-    db.collection(POSTS).createIndex({ views: -1, _id: 1 }, { background: true }),
+    db.collection(POSTS).createIndex({ works: 1, viewsSort: -1, _id: 1 }, { background: true }),
+    db.collection(POSTS).createIndex({ kind: 1, viewsSort: -1, _id: 1 }, { background: true }),
+    db.collection(POSTS).createIndex({ workCount: 1, dateSort: -1, _id: 1 }, { background: true }),
+    db.collection(POSTS).createIndex({ kind: 1, dateSort: -1, _id: 1 }, { background: true }),
+    db.collection(POSTS).createIndex({ plots: 1, viewsSort: -1, _id: 1 }, { background: true }),
+    db.collection(POSTS).createIndex({ tags: 1, viewsSort: -1, _id: 1 }, { background: true }),
+    db.collection(POSTS).createIndex({ dateSort: -1, _id: 1 }, { background: true }),
+    db.collection(POSTS).createIndex({ viewsSort: -1, _id: 1 }, { background: true }),
     db.collection(POSTS).createIndex({ searchText: "text" }, { background: true, name: "post_taxonomy_text" }),
     db.collection(WORKS).createIndex({ views: -1, _id: 1 }, { background: true }),
     db.collection(WORKS).createIndex({ year: 1, _id: 1 }, { background: true }),
@@ -92,6 +93,8 @@ async function rebuildProjection(db, revision) {
     const post = { ...base, ...(overlay.posts[base.id] || {}) };
     post.works = (post.works || []).filter((code) => workMap.has(code));
     post.workCount = post.works.length;
+    post.viewsSort = post.views == null || !Number.isFinite(Number(post.views)) ? -1 : Number(post.views);
+    post.dateSort = String(post.date || "");
     post.relationships = post.works.map((work) => ({ work, role: "contributes" }));
     post.plots = post.plots || [];
     post.tags = post.tags || [];
@@ -118,6 +121,7 @@ async function rebuildProjection(db, revision) {
       perf: row.perf,
       views: row.views,
       ...(thumbFor(hero) ? { thumb: thumbFor(hero) } : {}),
+      ...(hero?.id ? { thumbPost: String(hero.id) } : {}),
       titleLower: String(work.title || "").toLowerCase(),
       byLower: String(work.by || "").toLowerCase(),
       searchText: searchText([work.code, work.title, work.by, work.year]),
@@ -167,7 +171,7 @@ export async function listCollection(collection, params, kind) {
     else if (params.kind && params.kind !== "all") filter.kind = clean(params.kind, 24);
     if (params.plot) filter.plots = clean(params.plot, 100);
     if (params.tag) filter.tags = clean(params.tag, 80);
-    sortField = params.sort === "oldest" || params.sort === "newest" ? "date" : "views";
+    sortField = params.sort === "oldest" || params.sort === "newest" ? "dateSort" : "viewsSort";
     direction = params.sort === "oldest" ? 1 : -1;
   } else {
     sortField = params.sort === "year" ? "year" : params.sort === "title" ? "titleLower" : params.sort === "author" ? "byLower" : "views";
@@ -177,7 +181,7 @@ export async function listCollection(collection, params, kind) {
   const ranged = !q ? cursorQuery(sortField, direction, cursor) : null;
   const query = ranged ? { $and: [filter, ranged] } : filter;
   const total = await collection.countDocuments(filter);
-  let find = collection.find(query, { projection: { projectionRevision: 0, searchText: 0, titleLower: 0, byLower: 0, visual: 0 } });
+  let find = collection.find(query, { projection: { projectionRevision: 0, searchText: 0, titleLower: 0, byLower: 0, viewsSort: 0, dateSort: 0, visual: 0 } });
   if (q) find = find.sort({ score: { $meta: "textScore" }, _id: 1 }).skip(Number(cursor?.offset) || 0);
   else find = find.sort({ [sortField]: direction, _id: 1 });
   const rows = await find.limit(limit + 1).toArray();
@@ -196,27 +200,28 @@ export function createHandler({ connectFn = connect } = {}) {
     let database;
     try {
       database = await connectFn();
-      await ensureProjection(database.db);
+      const revision = await ensureProjection(database.db);
       const p = event.queryStringParameters || {};
       const action = p.action || "posts";
+      const responseHeaders = p.fresh === "1" ? FRESH_HEADERS : HEADERS;
       if (action === "meta") {
         const meta = await database.db.collection(META).findOne({ _id: "projection" }, { projection: { _id: 0 } });
         return respond(200, { meta }, { ...HEADERS, "Cache-Control": "no-store" });
       }
       if (action === "post") {
-        const item = await database.db.collection(POSTS).findOne({ _id: clean(p.id, 32) }, { projection: { projectionRevision: 0, searchText: 0 } });
-        return item ? respond(200, { item }, HEADERS) : respond(404, { message: "Post not found." }, HEADERS);
+        const item = await database.db.collection(POSTS).findOne({ _id: clean(p.id, 32) }, { projection: { projectionRevision: 0, searchText: 0, viewsSort: 0, dateSort: 0 } });
+        return item ? respond(200, { item, revision }, responseHeaders) : respond(404, { message: "Post not found." }, responseHeaders);
       }
       if (action === "work") {
         const code = clean(p.code, 24).toLowerCase();
         const item = await database.db.collection(WORKS).findOne({ _id: code }, { projection: { projectionRevision: 0, searchText: 0, titleLower: 0, byLower: 0 } });
-        if (!item) return respond(404, { message: "Whistlegraph not found." }, HEADERS);
+        if (!item) return respond(404, { message: "Whistlegraph not found." }, responseHeaders);
         const page = await listCollection(database.db.collection(POSTS), { ...p, work: code }, "posts");
-        return respond(200, { item, posts: page.items, nextCursor: page.nextCursor }, HEADERS);
+        return respond(200, { item, posts: page.items, nextCursor: page.nextCursor, revision }, responseHeaders);
       }
       const kind = action === "works" ? "works" : "posts";
       const page = await listCollection(database.db.collection(kind === "works" ? WORKS : POSTS), p, kind);
-      return respond(200, { ...page, action: kind }, HEADERS);
+      return respond(200, { ...page, action: kind, revision }, responseHeaders);
     } catch (error) {
       console.error("Whistlegraph query failed:", error?.message || error);
       return respond(500, { message: "Whistlegraph query unavailable." }, { ...HEADERS, "Cache-Control": "no-store" });

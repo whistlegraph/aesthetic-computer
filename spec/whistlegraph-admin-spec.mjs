@@ -66,6 +66,22 @@ describe("Whistlegraph Desk", () => {
     expect(page).toContain('data-sort="oldest"');
     expect(page).toContain('params.set("sort",sort)');
     expect(page).toContain('QUERY_API="/api/whistlegraph-query"');
+    expect(page).toContain('fresh:"1"');
+    expect(page).not.toContain("sessionStorage");
+  });
+
+  it("shows each post's Whistlegraph codes beside its view count", () => {
+    const page = readFileSync(new URL("../system/public/whistlegraph.org/admin.html", import.meta.url), "utf8");
+    expect(page).toContain('const postCodes=isWork?"":(item.works||[]).map(code=>`[${code}]`).join(" ")');
+    expect(page).toContain('<span class="post-codes">${esc(postCodes)}</span>');
+    expect(page).toContain(".post-codes{margin-left:1ch");
+  });
+
+  it("recovers TikTok posters without routing archival media through TikTok", () => {
+    const page = readFileSync(new URL("../system/public/whistlegraph.org/index.html", import.meta.url), "utf8");
+    expect(page).toContain('const videoPoster=p=>p?.platform==="tiktok"&&p?.id?`/api/whistlegraph-thumbnail?id=${encodeURIComponent(p.id)}`:postThumb(p)');
+    expect(page).toContain("D.video.poster=hero?videoPoster(hero)");
+    expect(page).toContain("D.video.poster=videoPoster(p)");
   });
 
   it("supports shareable Desk search and view URLs", () => {
@@ -154,7 +170,7 @@ describe("Whistlegraph Desk", () => {
         postWorks: new Map([["audio", ["magi"]], ["video", ["magi"]]]),
         postById: new Map([
           ["audio", { id: "1", media: "audio", views: 100 }],
-          ["video", { id: "2", media: "video", views: 10 }],
+          ["video", { id: "2", platform: "tiktok", media: "video", views: 10 }],
         ]),
       }),
     });
@@ -164,6 +180,30 @@ describe("Whistlegraph Desk", () => {
       views: 110,
       thumb: "https://assets.aesthetic.computer/whistlegraph/index/posts/2.jpg",
       noGlyph: false,
+      thumbPost: "2",
+    });
+  });
+
+  it("materializes a poster for an older TikTok video mislabeled as audio", async () => {
+    const memory = memoryDatabase();
+    const handler = createHandler({
+      connectFn: async () => memory.connection,
+      loadModelFn: () => ({
+        workCodes: new Set(["away"]),
+        workByCode: new Map([["away", { code: "away" }]]),
+        postWorks: new Map([["old", ["away"]]]),
+        postById: new Map([["old", {
+          id: "6784161421195218182", platform: "tiktok", media: "audio", views: 13_300,
+        }]]),
+      }),
+    });
+    const response = await handler({ httpMethod: "GET", headers: {}, queryStringParameters: { action: "curation" } });
+    expect(JSON.parse(response.body).materializedWorks.away).toEqual({
+      perf: 1,
+      views: 13_300,
+      thumb: "https://assets.aesthetic.computer/whistlegraph/index/posts/6784161421195218182.jpg",
+      noGlyph: false,
+      thumbPost: "6784161421195218182",
     });
   });
 

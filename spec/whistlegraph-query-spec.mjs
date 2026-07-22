@@ -17,20 +17,34 @@ function collectionWith(rows) {
 
 describe("Whistlegraph Mongo query pages", () => {
   it("uses the indexed workCount field for unfiled posts", async () => {
-    const collection = collectionWith([{ _id: "1", id: "1", date: "2026-01-01" }]);
+    const collection = collectionWith([{ _id: "1", id: "1", date: "2026-01-01", dateSort: "2026-01-01" }]);
     const page = await listCollection(collection, { kind: "unfiled", sort: "newest", limit: "60" }, "posts");
     expect(collection.calls.find).toEqual({ workCount: 0 });
-    expect(collection.calls.sort).toEqual({ date: -1, _id: 1 });
+    expect(collection.calls.sort).toEqual({ dateSort: -1, _id: 1 });
     expect(page.total).toBe(123);
   });
 
   it("caps pages and returns an opaque continuation cursor", async () => {
-    const rows = Array.from({ length: 101 }, (_, i) => ({ _id: String(i), id: String(i), views: 200 - i }));
+    const rows = Array.from({ length: 101 }, (_, i) => ({ _id: String(i), id: String(i), views: 200 - i, viewsSort: 200 - i }));
     const collection = collectionWith(rows);
     const page = await listCollection(collection, { limit: "500" }, "posts");
     expect(page.items.length).toBe(100);
     expect(page.nextCursor).toEqual(jasmine.any(String));
     expect(collection.calls.limit).toBe(101);
+    expect(collection.calls.sort).toEqual({ viewsSort: -1, _id: 1 });
+  });
+
+  it("paginates missing view counts through a numeric sentinel", async () => {
+    const rows = Array.from({ length: 101 }, (_, i) => ({
+      _id: String(i), id: String(i), views: i === 100 ? null : 100 - i, viewsSort: i === 100 ? -1 : 100 - i,
+    }));
+    const first = collectionWith(rows);
+    const page = await listCollection(first, { limit: "100" }, "posts");
+    const second = collectionWith([rows[100]]);
+    await listCollection(second, { limit: "100", cursor: page.nextCursor }, "posts");
+    expect(second.calls.find).toEqual({
+      $and: [{}, { $or: [{ viewsSort: { $lt: 1 } }, { viewsSort: 1, _id: { $gt: "99" } }] }],
+    });
   });
 
   it("routes taxonomy text through Mongo text search", async () => {

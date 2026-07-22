@@ -31,7 +31,7 @@
     main{padding:10px 18px 80px 47px}#grid{display:block;max-width:1180px;border-top:1px solid rgba(40,30,90,.28)}
     .tile{position:relative;display:grid;grid-template-columns:44px minmax(90px,auto) minmax(0,1fr);align-items:center;gap:9px;width:100%;min-height:48px;border:0;border-bottom:1px solid rgba(40,30,90,.2);background:rgba(255,255,255,.08);padding:3px 7px 3px 3px;text-align:left;color:var(--ink);content-visibility:auto;contain-intrinsic-size:auto 48px}
     .tile:nth-child(even){background:rgba(255,255,255,.2)}.tile:hover{background:var(--hi)}.tile:focus-visible{outline:2px solid var(--margin);outline-offset:-2px}.tile img{width:40px;height:40px;object-fit:cover;display:block;background:#fff;border:1px solid rgba(40,30,90,.35)}
-    .tile-info{display:grid;grid-template-columns:minmax(160px,2fr) minmax(140px,1fr);align-items:center;gap:12px;min-width:0;font-size:11px}.tile-info b{font-size:12px;font-weight:normal;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--link);text-decoration:underline;text-underline-offset:2px}.tile-info small{color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.kind{position:static;justify-self:start;background:transparent;color:var(--margin);padding:0;font-size:9px;letter-spacing:.04em;text-transform:uppercase}.changed{position:absolute;right:6px;top:6px;width:7px;height:7px;border-radius:50%;background:var(--margin)}
+    .tile-info{display:grid;grid-template-columns:minmax(160px,2fr) minmax(140px,1fr);align-items:center;gap:12px;min-width:0;font-size:11px}.tile-info b{font-size:12px;font-weight:normal;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--link);text-decoration:underline;text-underline-offset:2px}.tile-info small{color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.post-codes{margin-left:1ch;color:var(--margin)}.kind{position:static;justify-self:start;background:transparent;color:var(--margin);padding:0;font-size:9px;letter-spacing:.04em;text-transform:uppercase}.changed{position:absolute;right:6px;top:6px;width:7px;height:7px;border-radius:50%;background:var(--margin)}
     #sentinel{height:2px}#drawerShade{position:fixed;z-index:30;inset:0;background:rgba(40,30,90,.28)}
     #drawer{position:fixed;z-index:31;right:0;top:0;bottom:0;width:min(540px,96vw);background:repeating-linear-gradient(var(--paper),var(--paper) 26px,var(--rule) 26px,var(--rule) 27px);border-left:2px solid var(--margin);overflow:auto;padding:20px 24px 44px}
     .drawer-head{display:flex;align-items:start;gap:12px;border-bottom:2px solid var(--margin);padding-bottom:12px}.drawer-head h2{font-family:'YWFTProcessing',"Arial Black",system-ui,sans-serif;font-weight:normal;font-size:24px;line-height:1.05;margin:2px 0 5px;overflow-wrap:anywhere}.drawer-head p{margin:0;color:var(--dim);font-size:11px}.close{margin-left:auto;border:1px solid var(--ink);border-radius:2px;background:var(--paper);width:32px;height:32px;font-size:19px;flex:0 0 auto}.close:hover{background:var(--hi)}
@@ -100,7 +100,7 @@
   const QUERY_API="/api/whistlegraph-query";
   const LOCAL=/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
   const PREVIEW=LOCAL&&new URLSearchParams(location.search).get("preview")==="1";
-  const THUMBS="https://assets.aesthetic.computer/whistlegraph/index/posts";
+  const EMPTY_THUMB="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 13'%3E%3Crect width='9' height='13' fill='%23fcf7c5'/%3E%3Cpath d='M1 1l7 11M8 1L1 12' stroke='%23b44887' stroke-width='.35'/%3E%3C/svg%3E";
   const PAGE_SIZE=60;
   const esc=value=>String(value??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'\"':"&quot;"}[c]));
   const fmt=value=>value>=1e6?`${(value/1e6).toFixed(1)}M`:value>=1e3?`${Math.round(value/1e3)}K`:String(value||0);
@@ -130,8 +130,9 @@
 
   function toast(message){const el=document.getElementById("toast");el.textContent=message;el.classList.remove("hidden");clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.add("hidden"),2400)}
   function fail(message){document.getElementById("gateError").textContent=message;document.getElementById("gateStatus").textContent=""}
-  function thumb(id){return `${THUMBS}/${encodeURIComponent(id)}.jpg`}
-  function imageFor(item,isWork=false){return isWork?item?.thumb||"":item?.thumb||thumb(item?.id)}
+  function imageFor(item,isWork=false){return item?.thumb||(!isWork&&item?.platform==="tiktok"&&item?.id?`https://assets.aesthetic.computer/whistlegraph/index/posts/${encodeURIComponent(item.id)}.jpg`:EMPTY_THUMB)}
+  function thumbPostFor(item,isWork=false){return String(isWork?item?.thumbPost||"":item?.id||"")}
+  document.addEventListener("error",event=>{const img=event.target;if(img?.tagName!=="IMG")return;const id=img.dataset.thumbPost;if(!id)return;if(img.dataset.thumbRecovered){img.src=EMPTY_THUMB;delete img.dataset.thumbPost;return}img.dataset.thumbRecovered="1";img.src=`/api/whistlegraph-thumbnail?id=${encodeURIComponent(id)}`},true);
   function splitList(value){return [...new Set(String(value||"").split(",").map(x=>x.trim()).filter(Boolean))]}
   function applyCuration(){
     const loadedVisuals=new Map(posts.filter(post=>post.visual).map(post=>[post.id,post.visual]));
@@ -162,12 +163,12 @@
     await loadListing(true);grid.removeAttribute("aria-busy");if(position)restoreGridPosition(position);
     if(error)toast(`Live edits unavailable: ${error.message}`);
   }
-  function listingURL(cursor=null){const params=new URLSearchParams({action:mode==="works"?"works":"posts",limit:String(PAGE_SIZE),q:query.trim()});if(mode==="posts"){params.set("kind",kind);params.set("sort",sort)}if(cursor)params.set("cursor",cursor);return `${QUERY_API}?${params}`}
-  function usePage(page,reset,requestedMode){if(requestedMode==="works")baseWorks=reset?page.items:[...baseWorks,...page.items];else basePosts=reset?page.items:[...basePosts,...page.items];nextCursor=page.nextCursor||null;total=page.total||0;applyCuration();if(reset)renderReset();else{buildView();renderMore()}}
+  function listingURL(cursor=null){const params=new URLSearchParams({action:mode==="works"?"works":"posts",limit:String(PAGE_SIZE),q:query.trim(),fresh:"1"});if(mode==="posts"){params.set("kind",kind);params.set("sort",sort)}if(cursor)params.set("cursor",cursor);return `${QUERY_API}?${params}`}
+  function usePage(page,reset,requestedMode){projectionRevision=page.revision||projectionRevision;if(requestedMode==="works")baseWorks=reset?page.items:[...baseWorks,...page.items];else basePosts=reset?page.items:[...basePosts,...page.items];nextCursor=page.nextCursor||null;total=page.total||0;applyCuration();if(reset)renderReset();else{buildView();renderMore()}}
   async function loadListing(reset=false){
-    if(mode==="trash"||loadingPage&&!reset)return;const version=reset?++listingVersion:listingVersion,requestedMode=mode,url=listingURL(reset?null:nextCursor),cacheKey=`wg:${url}`;if(reset){queryController?.abort();queryController=new AbortController();nextCursor=null;basePosts=[];baseWorks=[];grid.innerHTML="";shown=0;try{const cached=JSON.parse(sessionStorage.getItem(cacheKey));if(cached?.items?.length)usePage(cached,true,requestedMode)}catch{}}
+    if(mode==="trash"||loadingPage&&!reset)return;const version=reset?++listingVersion:listingVersion,requestedMode=mode,url=listingURL(reset?null:nextCursor);if(reset){queryController?.abort();queryController=new AbortController();nextCursor=null;basePosts=[];baseWorks=[];grid.innerHTML="";shown=0}
     loadingPage=true;grid.setAttribute("aria-busy","true");
-    try{const page=await getJSON(url,{cache:"no-store",signal:reset?queryController.signal:undefined});if(version!==listingVersion||requestedMode!==mode)return;if(reset)try{sessionStorage.setItem(cacheKey,JSON.stringify(page))}catch{}usePage(page,reset,requestedMode)}
+    try{const page=await getJSON(url,{cache:"no-store",signal:reset?queryController.signal:undefined});if(version!==listingVersion||requestedMode!==mode)return;usePage(page,reset,requestedMode)}
     catch(error){if(error.name!=="AbortError"&&version===listingVersion)toast(error.message)}finally{if(version===listingVersion){loadingPage=false;grid.removeAttribute("aria-busy")}}
   }
   async function checkRevision(){if(document.hidden)return;try{const {meta}=await getJSON(`${QUERY_API}?action=meta`,{cache:"no-store"});const revision=meta?.revision;if(projectionRevision&&revision&&revision!==projectionRevision)await loadData(true);projectionRevision=revision}catch{}}
@@ -226,8 +227,9 @@
   function tileHTML(item){
     const isWork=mode!=="posts",key=isWork?item.code:item.id,post=isWork?heroForWork(item.code):item;
     const title=isWork?item.title:postTitle(item),label=isWork?`[${item.code}]`:(item.kind||"post"),meta=isWork?`${item.by||""} · ${item.perf||0} posts`:`${item.date||""} · ${fmt(item.views)} views`;
+    const postCodes=isWork?"":(item.works||[]).map(code=>`[${code}]`).join(" ");
     const changed=Boolean((isWork?curation.works:curation.posts)?.[key]);
-    return `<button class="tile" data-key="${esc(key)}" aria-label="Edit ${esc(title)}"><img loading="lazy" src="${esc(imageFor(isWork?item:post,isWork))}" alt="${esc(post?.visual?.summary||"")}"><span class="kind">${esc(label)}</span>${changed?'<span class="changed" title="Live edit"></span>':""}<span class="tile-info"><b>${esc(title)}</b><small>${esc(meta)}</small></span></button>`;
+    return `<button class="tile" data-key="${esc(key)}" aria-label="Edit ${esc(title)}"><img loading="lazy" src="${esc(imageFor(isWork?item:post,isWork))}" data-thumb-post="${esc(thumbPostFor(isWork?item:post,isWork))}" alt="${esc(post?.visual?.summary||"")}"><span class="kind">${esc(label)}</span>${changed?'<span class="changed" title="Live edit"></span>':""}<span class="tile-info"><b>${esc(title)}</b><small>${esc(meta)}${isWork?"":`<span class="post-codes">${esc(postCodes)}</span>`}</small></span></button>`;
   }
   function updateCount(){const coverage=mode==="posts"&&visualCoverage.count?` · ${visualCoverage.count.toLocaleString()} described`:"";const count=mode==="trash"?view.length:total;document.getElementById("count").textContent=`${count.toLocaleString()} ${mode}${coverage}`}
   function renderMore(){const end=Math.min(shown+PAGE_SIZE,view.length);grid.insertAdjacentHTML("beforeend",view.slice(shown,end).map(tileHTML).join(""));shown=end;updateCount()}
@@ -286,7 +288,7 @@
     if(!item||selected?.type!==selection.type||selected?.key!==selection.key)return;
     const {type,key}=selection,post=type==="work"?heroForWork(key):item,title=type==="work"?item.title:postTitle(item),changed=Boolean((type==="work"?curation.works:curation.posts)?.[key]);
     drawer.innerHTML=`<div class="drawer-head"><div><h2>${esc(title)}</h2><p>${type==="work"?`Whistlegraph [${esc(key)}]`:`Archive post ${esc(key)}`}</p></div><button class="close" aria-label="Close editor">×</button></div>
-      <div class="hero"><img src="${esc(imageFor(type==="work"?item:post,type==="work"))}" alt="${esc(post?.visual?.summary||"")}"><div class="facts">${type==="post"?`${esc(item.date||"date unknown")}<br>${fmt(item.views)} views · ${fmt(item.likes)} likes<br><a href="${esc(item.url)}" target="_blank" rel="noopener">Open original ↗</a><br><a href="/post/${encodeURIComponent(item.id)}" target="_blank">Open archive page ↗</a>`:`${esc(item.by||"")}<br>${item.year||""} · ${fmt(item.views)} views<br><a href="/${encodeURIComponent(item.code)}" target="_blank">Open Whistlegraph ↗</a>`}</div></div>
+      <div class="hero"><img src="${esc(imageFor(type==="work"?item:post,type==="work"))}" data-thumb-post="${esc(thumbPostFor(type==="work"?item:post,type==="work"))}" alt="${esc(post?.visual?.summary||"")}"><div class="facts">${type==="post"?`${esc(item.date||"date unknown")}<br>${fmt(item.views)} views · ${fmt(item.likes)} likes<br><a href="${esc(item.url)}" target="_blank" rel="noopener">Open original ↗</a><br><a href="/post/${encodeURIComponent(item.id)}" target="_blank">Open archive page ↗</a>`:`${esc(item.by||"")}<br>${item.year||""} · ${fmt(item.views)} views<br><a href="/${encodeURIComponent(item.code)}" target="_blank">Open Whistlegraph ↗</a>`}</div></div>
       ${type==="post"?postFields(item,!PREVIEW&&!item.visual):workFields(item,true)}
       <div class="actions"><button class="danger" id="deleteWork" ${type==="work"&&!PREVIEW?"":"disabled"}>Move to trash</button><button class="danger" id="reset" ${changed&&!PREVIEW?"":"disabled"}>Restore generated data</button><button class="primary save" id="save" ${PREVIEW?"disabled":""}>Save live</button></div>`;
     drawer.querySelector(".close").addEventListener("click",closeEditor);drawer.querySelector("#save").addEventListener("click",saveEditor);drawer.querySelector("#reset").addEventListener("click",resetEditor);drawer.querySelector("#deleteWork").addEventListener("click",deleteWork);

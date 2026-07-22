@@ -82,3 +82,14 @@ Status: `received` → `verified` → `applied` → `live`
 | live | Add Rose Cave `[rscv]`, Partials `[part]`, Corn `[corn]`, and Building A Face From Parts `[face]` as individual whistlegraphs with their source posts. |
 | live | Recover the 291 archive posts whose video URLs returned 403: 272 videos now have restored MP4s and posters; 19 audio-only originals have restored playable MP4 containers and are recorded in `audio-only.json`. |
 | verified | Reconcile Alex's marked “Most Whistlegraphs Dec. 2020” chart. Marked numbers are 5, 21, 23, 25, 27, 29, 36, 42, 44, 45, 47, 49, 50, 55, 56, 62, 63, 88, 92, 104, 105, 106, 108, 110, 112, and 113; Alex also called out 109. The named entries above are applied; do not invent titles or codes for the remaining chart-only marks without a confident source-post match. |
+
+## Received July 21, 2026
+
+| Status | Request |
+|---|---|
+| live | Scan “Big Fuzzy Bee” `[fuzz]`: the transcript archive contains one exact performance (`6906792695579135238`), already filed. |
+| live | Scan “Fuzzy Spiral” `[cray]`: found three exact performances and added the missing February 11, 2020 post (`6792281844004949253`) through Desk; the work now has all three. |
+| verified | Scan “Spooky Spiral” `[sspi]`: the June 19, 2021 song is filed. The only other text hit (`6881864743754173702`) is a spoken diary listing “spooky spiral” among several brush names, not another performance of the composition. |
+| live | Scan “Hooked On Magic Tricks” `[magi]`: both exact performances (`6798024291049819397`, `6798030404147252485`) are filed. |
+| live | Scan “Bownootn Silo” `[silo]`: all three related performances are filed; the transcript scan found no additional match. |
+| applied | Show associated `[codes]` immediately to the right of each view count in Desk’s Posts list; leave the field blank for unfiled posts. Implemented and tested locally, pending an authorized code deployment. |
