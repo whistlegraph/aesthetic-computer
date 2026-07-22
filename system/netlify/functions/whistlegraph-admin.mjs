@@ -186,18 +186,25 @@ export function createHandler({
   loadVisualsFn = loadVisualModel,
   deployFn = deployPushedCommit,
 } = {}) {
-  let mutationIndexesReady = null;
-  function ensureMutationIndexes(database) {
-    if (!mutationIndexesReady) {
-      mutationIndexesReady = Promise.all([
+  let databaseIndexesReady = null;
+  function ensureDatabaseIndexes(database) {
+    if (!databaseIndexesReady) {
+      databaseIndexesReady = Promise.all([
         database.db.collection(COLLECTION).createIndex({ type: 1, key: 1 }, { unique: true, background: true }),
+        database.db.collection(COLLECTION).createIndex({ type: 1, created: 1, deleted: 1 }, { background: true }),
+        database.db.collection(COLLECTION).createIndex({ type: 1, "patch.works": 1 }, { background: true }),
+        database.db.collection(COLLECTION).createIndex({ type: 1, "patch.kind": 1, updatedAt: -1 }, { background: true }),
+        database.db.collection(COLLECTION).createIndex({ type: 1, "patch.plots": 1, updatedAt: -1 }, { background: true }),
         database.db.collection(AUDIT_COLLECTION).createIndex({ when: -1 }, { background: true }),
+        database.db.collection(AUDIT_COLLECTION).createIndex({ type: 1, key: 1, when: -1 }, { background: true }),
+        database.db.collection(DEPLOY_COLLECTION).createIndex({ when: -1 }, { background: true }),
+        database.db.collection(DEPLOY_COLLECTION).createIndex({ status: 1, when: -1 }, { background: true }),
       ]).catch((error) => {
-        mutationIndexesReady = null;
+        databaseIndexesReady = null;
         throw error;
       });
     }
-    return mutationIndexesReady;
+    return databaseIndexesReady;
   }
   return async function whistlegraphAdminHandler(event) {
     if (event.httpMethod === "OPTIONS") return respond(204, "", HEADERS);
@@ -207,6 +214,7 @@ export function createHandler({
       let database;
       try {
         database = await connectFn();
+        await ensureDatabaseIndexes(database);
         const { trashedWorks: _privateTrash, ...payload } = await readCuration(database, loadModelFn);
         return respond(200, payload, HEADERS);
       } catch (error) {
@@ -230,6 +238,7 @@ export function createHandler({
     if (event.httpMethod === "GET" && action === "data") {
       const database = await connectFn();
       try {
+        await ensureDatabaseIndexes(database);
         const [curation, recent, deployments] = await Promise.all([
           readCuration(database, loadModelFn),
           database.db.collection(AUDIT_COLLECTION).find({}, { projection: { admin: 0 } }).sort({ when: -1 }).limit(30).toArray(),
@@ -277,7 +286,6 @@ export function createHandler({
       let result;
       try {
         const deployments = database.db.collection(DEPLOY_COLLECTION);
-        await deployments.createIndex({ when: -1 }, { background: true });
         await deployments.insertOne({
           _id: deploymentId,
           commit,
@@ -317,7 +325,7 @@ export function createHandler({
       } catch (error) { return respond(400, { message: error.message }, HEADERS); }
       const database = await connectFn();
       try {
-        await ensureMutationIndexes(database);
+        await ensureDatabaseIndexes(database);
         const collection = database.db.collection(COLLECTION);
         const audit = database.db.collection(AUDIT_COLLECTION);
         const id = `work:${key}`;
@@ -354,7 +362,7 @@ export function createHandler({
       if (from === key) return respond(400, { message: "Choose a different code." }, HEADERS);
       const database = await connectFn();
       try {
-        await ensureMutationIndexes(database);
+        await ensureDatabaseIndexes(database);
         const collection = database.db.collection(COLLECTION);
         const audit = database.db.collection(AUDIT_COLLECTION);
         const [source, target, overlays] = await Promise.all([
@@ -399,7 +407,7 @@ export function createHandler({
       if (postIds.some(id => !model.postIds.has(id))) return respond(404, { message: "One or more posts were not found." }, HEADERS);
       const database = await connectFn();
       try {
-        await ensureMutationIndexes(database);
+        await ensureDatabaseIndexes(database);
         const collection = database.db.collection(COLLECTION), audit = database.db.collection(AUDIT_COLLECTION);
         const work = await collection.findOne({ _id: `work:${code}` });
         if ((!model.workCodes.has(code) && !work?.created) || work?.deleted) return respond(404, { message: `Whistlegraph [${code}] not found.` }, HEADERS);
@@ -439,7 +447,7 @@ export function createHandler({
     try {
       const collection = database.db.collection(COLLECTION);
       const audit = database.db.collection(AUDIT_COLLECTION);
-      await ensureMutationIndexes(database);
+      await ensureDatabaseIndexes(database);
       const id = `${type}:${key}`;
       const previous = await collection.findOne({ _id: id });
 

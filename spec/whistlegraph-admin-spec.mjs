@@ -216,7 +216,7 @@ describe("Whistlegraph Desk", () => {
     expect(JSON.parse(publicRead.body).posts["123"].works).toEqual(["sos", "imab"]);
   });
 
-  it("ensures mutation indexes once per warm handler instead of on every save", async () => {
+  it("ensures query and taxonomy indexes once per warm handler instead of on every request", async () => {
     const memory = memoryDatabase();
     const handler = createHandler({
       authorizeFn: async () => ({ sub: MINANIMALS, email_verified: true }),
@@ -234,7 +234,14 @@ describe("Whistlegraph Desk", () => {
     expect((await handler(event)).statusCode).toBe(200);
     expect(memory.indexCalls).toEqual([
       { name: "whistlegraph-curation", spec: { type: 1, key: 1 } },
+      { name: "whistlegraph-curation", spec: { type: 1, created: 1, deleted: 1 } },
+      { name: "whistlegraph-curation", spec: { type: 1, "patch.works": 1 } },
+      { name: "whistlegraph-curation", spec: { type: 1, "patch.kind": 1, updatedAt: -1 } },
+      { name: "whistlegraph-curation", spec: { type: 1, "patch.plots": 1, updatedAt: -1 } },
       { name: "whistlegraph-curation-audit", spec: { when: -1 } },
+      { name: "whistlegraph-curation-audit", spec: { type: 1, key: 1, when: -1 } },
+      { name: "whistlegraph-deployments", spec: { when: -1 } },
+      { name: "whistlegraph-deployments", spec: { status: 1, when: -1 } },
     ]);
   });
 
