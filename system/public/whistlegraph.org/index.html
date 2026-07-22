@@ -656,7 +656,8 @@ function loadPosts(){
       if(related.length||generatedRelationships.has(work.code)){
         work.perf=related.length;
         work.views=related.reduce((sum,p)=>sum+(p.views||0),0);
-        const featured=related.find(post=>post.id===work.featuredPost)||related[0];
+        const selected=related.find(post=>post.id===work.featuredPost);
+        const featured=(selected&&postThumb(selected)?selected:null)||related.find(post=>postThumb(post));
         if(!work.slug&&postThumb(featured)) work.thumb=postThumb(featured);
       }
     }

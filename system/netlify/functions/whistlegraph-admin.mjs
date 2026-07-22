@@ -120,7 +120,10 @@ async function readCuration(database, loadModelFn = loadBaseModel) {
   for (const [code, row] of materialized) {
     const work = { ...(model.workByCode?.get(code) || {}), ...(payload.works[code] || {}), ...(payload.createdWorks[code] || {}) };
     const featured = row.posts.find((post) => String(post.id) === String(work.featuredPost || ""));
-    const hero = featured || row.posts.sort((a, b) => (Number(b.views) || 0) - (Number(a.views) || 0))[0];
+    const rankedVisuals = row.posts
+      .filter((post) => post?.media !== "audio")
+      .sort((a, b) => (Number(b.views) || 0) - (Number(a.views) || 0));
+    const hero = featured && featured.media !== "audio" ? featured : rankedVisuals[0] || featured;
     const thumb = hero?.thumb || (hero?.media !== "audio" && hero?.id
       ? `https://assets.aesthetic.computer/whistlegraph/index/posts/${hero.id}.jpg`
       : null);

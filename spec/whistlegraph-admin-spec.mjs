@@ -107,6 +107,28 @@ describe("Whistlegraph Desk", () => {
     expect(JSON.stringify(payload)).not.toContain("auth0|");
   });
 
+  it("materializes a visual thumbnail when the highest-view post is audio-only", async () => {
+    const memory = memoryDatabase();
+    const handler = createHandler({
+      connectFn: async () => memory.connection,
+      loadModelFn: () => ({
+        workCodes: new Set(["magi"]),
+        workByCode: new Map([["magi", { code: "magi" }]]),
+        postWorks: new Map([["audio", ["magi"]], ["video", ["magi"]]]),
+        postById: new Map([
+          ["audio", { id: "1", media: "audio", views: 100 }],
+          ["video", { id: "2", media: "video", views: 10 }],
+        ]),
+      }),
+    });
+    const response = await handler({ httpMethod: "GET", headers: {}, queryStringParameters: { action: "curation" } });
+    expect(JSON.parse(response.body).materializedWorks.magi).toEqual({
+      perf: 2,
+      views: 110,
+      thumb: "https://assets.aesthetic.computer/whistlegraph/index/posts/2.jpg",
+    });
+  });
+
   it("indexes every machine-read visual field and derives stable visual tags", () => {
     const record = {
       visual: {
