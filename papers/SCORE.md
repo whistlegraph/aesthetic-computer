@@ -164,6 +164,7 @@ specified in [`GEAR-GUESS.md`](GEAR-GUESS.md).
 | Gear guess | Job | Status |
 |---|---|---|
 | [`aesthetic-computer-media`](gear-guess-aesthetic-computer-media/aesthetic-computer-media.tex) | One fast portable media workspace across the fleet | guess 1 |
+| [`xbox-native-fleet`](gear-guess-xbox-native-fleet/xbox-native-fleet.tex) | Three native screens, a narrow tailnet route, and no imaginary pooled GPU | guess 1 |
 
 ## Tooling
 
@@ -220,6 +221,7 @@ Sorted by most recently edited/added.
 | Paper | Format | PDF | Source |
 |-------|--------|-----|--------|
 | aesthetic-computer-media: one fast portable workspace for the fleet | gear guess (LaTeX, guess 1) | `gear-guess-aesthetic-computer-media/aesthetic-computer-media.pdf` | `gear-guess-aesthetic-computer-media/aesthetic-computer-media.tex` |
+| xbox-native-fleet: three native screens and one controller | gear guess (LaTeX, guess 1) | `gear-guess-xbox-native-fleet/xbox-native-fleet.pdf` | `gear-guess-xbox-native-fleet/xbox-native-fleet.tex` |
 | The nom Games: A Muncher Arcade for Aesthetic Computer (numbnom / engnom / mexinom / notenom; one shared engine + virtual synth controller) | arXiv (LaTeX, ~5pp first-pass) | `arxiv-nom/nom.pdf` | `arxiv-nom/nom.tex` |
 | MicroVision: A Dossier (Genealogy, Products, People, Money, Dilution Mechanics, Takeover Theory, 1993–2026) | arXiv (LaTeX, dossier, 7pp first-pass) | `arxiv-microvision/microvision.pdf` | `arxiv-microvision/microvision.tex` |
 | Comp Strats: Compositional Strategies in AC --- Aphorisms for a Shielded Media-Arts Practice | arXiv (LaTeX, ~7pp first-pass) | `arxiv-comp-strats/comp-strats.pdf` | `arxiv-comp-strats/comp-strats.tex` |

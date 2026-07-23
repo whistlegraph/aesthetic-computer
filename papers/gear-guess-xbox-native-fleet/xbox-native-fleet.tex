@@ -1,0 +1,243 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper]{article}
+\usepackage{../ac-paper-gear-guess}
+\input{buy-links.tex}
+
+\gearsetshorttitle{xbox-native-fleet}
+\hypersetup{
+  pdftitle={xbox-native-fleet — a gear guess},
+  pdfsubject={A bounded native Aesthetic Computer display fleet, with media generation kept off-console},
+  pdfkeywords={Xbox, UWP, native graphics, Tailscale, DirectML, media generation}
+}
+
+\begin{document}
+
+\gearGuessTitle
+  {xbox-native-fleet}
+  {three native screens, one controller, no imaginary pooled GPU}
+  {22 July 2026}
+  {guess 1}
+
+\begin{bestguess}
+\textbf{Buy nothing today.} Finish the 48-hour proof on the Xbox already in the
+room. If native BIOS 1.0.0.11 remains stable, add at most
+\textbf{two Xbox Series S 512GB consoles} and one
+\textbf{TP-Link TL-SG108 eight-port gigabit switch}. That produces the largest
+ordinary retail-Dev-Mode fleet allowed by Microsoft's published activation
+terms: three active consoles total for an individual or company, affiliates
+included. Use the Xboxes as synchronized native Aesthetic Computer screens and
+independent job workers. Keep video generation on a CUDA/AI workstation; an
+Xbox fleet does not pool memory into one larger GPU.
+\end{bestguess}
+
+\subsection{canonical object plate}
+\gearproduct
+  {figures/xbox-series-s.jpg}
+  {Xbox Series S 512GB}
+  {fleet unit / buy only after proof}
+  {\$399.99 new; \$329.99 refurb observed}
+  {https://www.xbox.com/en-US/consoles/xbox-series-s}
+  {\buyXboxSeriesS}
+\hfill
+\gearproduct
+  {figures/tl-sg108.jpg}
+  {TP-Link TL-SG108}
+  {wired fleet spine}
+  {\$25 working allowance}
+  {https://www.tp-link.com/us/home-networking/8-port-switch/tl-sg108/}
+  {\buyTpLinkSwitch}
+
+\vspace{0.12in}
+\gearproduct
+  {figures/xbox-series-x.jpg}
+  {Xbox Series X}
+  {benchmark-gated alternate}
+  {\$599.99 digital observed}
+  {https://www.xbox.com/en-US/consoles/xbox-series-x}
+  {\buyXboxSeriesX}
+\hfill
+\gearproduct
+  {figures/dgx-spark.jpg}
+  {NVIDIA DGX Spark}
+  {separate media-compute shelf}
+  {\$4,699 current MSRP}
+  {https://www.nvidia.com/en-us/products/workstations/dgx-spark/}
+  {\buyDgxSpark}
+
+\gearaffiliatedisclosure
+
+\section{the price rail}
+
+\begin{tabularx}{\linewidth}{@{}Y R R R@{}}
+\toprule
+\textbf{physical fleet} & \textbf{new Series S} & \textbf{refurb Series S} & \textbf{activation status} \\
+\midrule
+1 unit & owned & owned & prove this now \\
+3 units / add 2 & \$799.98 & \$659.98 & standard-program ceiling \\
+4 units / add 3 & \$1,199.97 & \$989.97 & not permitted concurrently \\
+5 units / add 4 & \$1,599.96 & \$1,319.96 & not permitted concurrently \\
+\bottomrule
+\end{tabularx}
+{\footnotesize\color{acgray}Console prices were observed 22 July 2026, before tax and shipping. Add roughly \$25 for the switch and \$30 for labeled Cat6 patch leads.}
+
+\begin{gearwarning}[THE THREE-CONSOLE LINE]
+Microsoft's retail Developer Mode activation agreement limits the stated test
+and demonstration purpose to three consoles active at one time for an
+individual or company, including affiliates. Do not buy a fourth active worker
+under the assumption that retail Dev Mode is an unlimited lab license. A larger
+fleet needs a different written program path from Microsoft, not a technical
+workaround.
+\end{gearwarning}
+
+\section{why Series S wins the screen job}
+
+\begin{gearcard}{same native surface / lower acquisition cost}
+Series S supplies the same x64 UWP, Direct3D 11, XAudio2,
+Windows.Gaming.Input, DirectWrite, HTTPS, and Device Portal shape now proven by
+AC Native BIOS. Microsoft's hardware sheet lists an 8-core custom Zen 2 CPU, a
+4-TFLOPS / 20-CU RDNA 2 GPU, 10GB physical GDDR6, 512GB NVMe storage, and
+gigabit Ethernet. A display worker does not need the Series X disc drive or 4K
+game target.
+\end{gearcard}
+
+\begin{gearcard}{the app budget matters more than the box number}
+Retail Dev Mode runs the current BIOS as a UWP application. The archived
+Microsoft Xbox resource table puts app-class work around 1GB of memory and
+45\% of the GPU, while expanded game-class resources follow a restricted and
+deprecated path. BIOS 1.0.0.11 therefore displays live
+\texttt{MemoryManager} usage, limit, and expected limit on the console itself.
+Use those measured values for purchasing decisions; do not count all 10GB or
+16GB printed on the retail box as model memory.
+\end{gearcard}
+
+\begin{gearwarning}[WHEN SERIES X EARNS ITS PRICE]
+Buy Series X only if the same packaged DirectML benchmark, same OS build, and
+same app resource class demonstrate a useful wall-clock gain on a real target
+model. Its 12-TFLOPS / 52-CU GPU and 16GB physical memory are impressive game
+specifications, but they do not prove a larger UWP allocation. At today's
+prices, two new Series X digital consoles cost \$1,199.98 versus \$799.98 for
+two Series S units.
+\end{gearwarning}
+
+\section{tailnet shape}
+
+The console cannot presently be treated as a supported first-class Tailscale
+node. Put the route on the always-on \texttt{blueberry} controller instead:
+
+\begin{gearcard}{one narrow route per console}
+\begin{enumerate}
+  \item Reserve wired DHCP addresses, initially
+        \texttt{192.168.1.101} through \texttt{.103}.
+  \item On \texttt{blueberry}, advertise only those individual \texttt{/32}
+        routes---not the entire home \texttt{/24}.
+  \item Approve the routes in the tailnet and grant the deployment identity
+        only TCP 11443 to those addresses.
+  \item Keep Device Portal credentials in the controller vault. Never copy
+        them to a console job or repository.
+  \item Never port-forward Device Portal and never place it behind Funnel.
+\end{enumerate}
+\end{gearcard}
+
+The Xboxes remain ordinary LAN devices behind a Tailscale subnet router; only
+\texttt{blueberry} appears as a tailnet node. That is a feature for this fleet:
+one controller owns authentication, package install, live source publication,
+health polling, and the job ledger.
+
+\section{what jobs actually distribute}
+
+\begin{tabularx}{\linewidth}{@{}p{0.29\linewidth}Y p{0.18\linewidth}@{}}
+\toprule
+\textbf{job} & \textbf{fleet shape} & \textbf{verdict} \\
+\midrule
+Synchronized AC pieces & Broadcast one immutable piece/version; each screen renders locally. & excellent \\
+Independent image seeds & Send one seed or small frame job per console; collect outputs centrally. & plausible after benchmark \\
+Tiny vision / style models & ONNX Runtime DirectML on bounded tensors; measure allocation and operators. & plausible \\
+Model-parallel diffusion & Split one model across console memory over gigabit Ethernet. & poor \\
+Modern video generation & Multi-GB weights plus attention, activations, VAE, and frame state exceed app-class headroom. & workstation job \\
+\bottomrule
+\end{tabularx}
+
+ONNX Runtime's DirectML provider gives the honest experimental route for small
+models. It requires DirectX 12-capable hardware and does not support parallel
+execution on one inference session. That still fits a fan-out controller:
+independent sessions, independent seeds, immutable inputs, results returned to
+the shelf.
+
+Modern open video models are the wrong first workload. Wan 2.1's smallest
+published model still documents roughly 8.19GB VRAM and minutes for a five
+second clip on an RTX 4090. LTX-Video's 2B FP16 weights occupy roughly 4GB
+before runtime state; Mochi 1 is commonly documented around 60GB VRAM. No
+arrangement of four small UWP allocations makes one shared 16GB or 60GB
+device. If video generation becomes the requirement, price a CUDA workstation
+or the 128GB DGX Spark as a separate compute shelf and let the Xboxes request,
+display, animate, and sonify its results.
+
+\section{day-one score}
+
+\begin{gearcard}{proof gate / current Xbox}
+\gearcheck Run Native BIOS 1.0.0.11 for 48 hours on wired Ethernet.\par
+\gearcheck Record the exact Xbox model, OS build, live UWP memory limit,
+controller inventory, feed refreshes, painting decodes, and oscillator state.\par
+\gearcheck Publish and rollback at least twenty live pieces through Device
+Portal without restarting the package.\par
+\gearcheck Leave the rotating cube and paint counters visible as the living
+render proof; capture one telemetry bundle after the run.\par
+\gearcheck Fetch and render \texttt{\$obk} natively once the bounded KidLisp
+closure is ready; no WebView success may satisfy this line.
+\end{gearcard}
+
+\begin{gearcard}{three-screen fleet / only after the gate}
+\gearcheck Buy two matching Series S 512GB units, preferably the same hardware
+revision and seller return window.\par
+\gearcheck Label consoles \texttt{xbox-01} through \texttt{xbox-03}; label both
+ends of every HDMI, power, and Ethernet lead.\par
+\gearcheck Reserve \texttt{.101--.103}; vault each Device Portal identity by
+device; never reuse a password outside this fleet.\par
+\gearcheck Put immutable package hash, live-piece hash, temperature/power
+observation, last heartbeat, and current job in one controller ledger.\par
+\gearcheck Test loss: unplug one worker during a fan-out. The controller must
+requeue only that worker's independent job and the other screens must continue.
+\end{gearcard}
+
+\begin{bestguess}[WHAT WOULD CHANGE THE GUESS]
+A written Microsoft path above three active retail consoles would reopen the
+four- or five-screen question. A measured Series X advantage under the same UWP
+allocation would justify mixed hardware. A proven DirectML piece whose weights,
+activations, and output fit below 70\% of the measured memory limit would earn a
+small-model worker queue. None of those turns Xboxes into a pooled video GPU.
+Until evidence changes, buy zero now, then two Series S units after the proof.
+\end{bestguess}
+
+\newpage
+\section{source shelf}
+
+\begin{multicols}{2}
+\raggedcolumns
+\gearcompactsource{Xbox Series S product page and specifications}{checked 22 July 2026}{https://www.xbox.com/en-US/consoles/xbox-series-s}
+\gearcompactsource{Xbox Series X product page and specifications}{checked 22 July 2026}{https://www.xbox.com/en-US/consoles/xbox-series-x}
+\gearcompactsource{Xbox retail Developer Mode activation agreement}{checked 22 July 2026}{https://learn.microsoft.com/en-us/legal/windows/agreements/xbox-one-developer-mode-activation}
+\gearcompactsource{Microsoft Xbox UWP resource allocation, archived source}{checked 22 July 2026}{https://github.com/MicrosoftDocs/windows-dev-docs/blob/6b9dd4aa2f7e3cf0018663cfeafd4538dc0ecf70/uwp/xbox-apps/system-resource-allocation.md}
+\gearcompactsource{Windows MemoryManager expected app limit}{checked 22 July 2026}{https://learn.microsoft.com/en-us/uwp/api/windows.system.memorymanager.expectedappmemoryusagelimit}
+\gearcompactsource{Gaming device model information API}{checked 22 July 2026}{https://learn.microsoft.com/en-us/windows/win32/api/gamingdeviceinformation/nf-gamingdeviceinformation-getgamingdevicemodelinformation}
+\gearcompactsource{Tailscale subnet routers}{checked 22 July 2026}{https://tailscale.com/docs/features/subnet-routers}
+\gearcompactsource{Tailscale devices without a client}{checked 22 July 2026}{https://tailscale.com/docs/reference/devices-without-tailscale}
+\gearcompactsource{TP-Link TL-SG108 product and specifications}{checked 22 July 2026}{https://www.tp-link.com/us/home-networking/8-port-switch/tl-sg108/}
+\gearcompactsource{ONNX Runtime DirectML execution provider}{checked 22 July 2026}{https://onnxruntime.ai/docs/execution-providers/DirectML-ExecutionProvider.html}
+\gearcompactsource{Wan 2.1 open video models}{checked 22 July 2026}{https://github.com/Wan-Video/Wan2.1}
+\gearcompactsource{LTX-Video open video models}{checked 22 July 2026}{https://github.com/Lightricks/LTX-Video}
+\gearcompactsource{Mochi 1 open video model}{checked 22 July 2026}{https://github.com/genmoai/models}
+\gearcompactsource{NVIDIA DGX Spark product page}{checked 22 July 2026}{https://www.nvidia.com/en-us/products/workstations/dgx-spark/}
+\gearcompactsource{NVIDIA DGX Spark 2026 MSRP update}{checked 22 July 2026}{https://forums.developer.nvidia.com/t/2-23-2026-price-change-announcement/361713}
+\gearcompactsource{Canonical product image ledger}{checked 22 July 2026}{https://github.com/whistlegraph/aesthetic-computer/tree/main/papers/gear-guess-xbox-native-fleet/figures/product-images.md}
+\end{multicols}
+
+\vfill
+{\color{acpink}\rule{\linewidth}{1pt}}\par
+{\small\sffamily
+\textbf{Gear Guess 1 / xbox-native-fleet.}
+Recheck prices, activation terms, stock, and app allocations at purchase time.
+The stable rule is architectural: Xboxes are bounded native displays and
+independent workers; the controller routes jobs; the media workstation owns
+large-model inference.}
+
+\end{document}
