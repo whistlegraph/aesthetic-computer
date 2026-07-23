@@ -66,6 +66,7 @@ export class StateRepository {
     this.headRecordHash = headRecordHash;
     this.segmentPath = segmentPath;
     this.recoveries = recoveries;
+    this.writeTail = Promise.resolve();
   }
 
   static async create(root, { seed, terrariumId = "intelligent-terrarium", profile = "1gb" } = {}) {
@@ -112,6 +113,12 @@ export class StateRepository {
   }
 
   async transact(kind, payload) {
+    const result = this.writeTail.then(() => this.#appendTransaction(kind, payload));
+    this.writeTail = result.catch(() => {});
+    return result;
+  }
+
+  async #appendTransaction(kind, payload) {
     const candidate = Terrarium.fromSnapshot(this.terrarium.snapshot());
     const record = {
       schema: 1,
@@ -128,6 +135,10 @@ export class StateRepository {
     this.records.push(record);
     this.headRecordHash = record.recordHash;
     return { record: clone(record), outputs: clone(outputs) };
+  }
+
+  async idle() {
+    await this.writeTail;
   }
 
   stateHash() {

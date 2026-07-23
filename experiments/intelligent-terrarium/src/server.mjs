@@ -53,6 +53,7 @@ export async function createTerrariumServer({
   capabilities = {},
   tickMs = 100,
   webRoot = defaultWebRoot,
+  onTickError = (error) => console.error("terrarium tick failed:", error.message),
 } = {}) {
   if (!LOOPBACK.has(host)) throw new Error("terrarium server refuses non-loopback binding");
   let repository;
@@ -150,14 +151,11 @@ export async function createTerrariumServer({
     server.once("error", reject);
     server.listen(port, host, resolveListen);
   });
-  const interval = tickMs > 0 ? setInterval(async () => {
-    try {
-      const result = await exclusive(() => repository.transact("advance", { ticks: 1 }));
+  const interval = tickMs > 0 ? setInterval(() => {
+    void exclusive(() => repository.transact("advance", { ticks: 1 })).then((result) => {
       broadcast({ type: "snapshot", state: publicState(repository) });
       for (const event of result.outputs) broadcast({ type: "sonic", event });
-    } catch (error) {
-      console.error("terrarium tick failed:", error.message);
-    }
+    }).catch(onTickError);
   }, tickMs) : null;
   interval?.unref();
 
@@ -171,6 +169,7 @@ export async function createTerrariumServer({
       for (const response of streams) response.end();
       await new Promise((resolveClose) => server.close(resolveClose));
       await writeTail;
+      await repository.idle();
       return sleep ? sleepCommit(repository) : null;
     },
   };

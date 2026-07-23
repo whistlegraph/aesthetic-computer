@@ -286,3 +286,26 @@ semantics, but the in-app browser-control bridge was unavailable, so visual and
 physical-controller QA remain unchecked. The real AC Auth0/handle path is also
 Stage 3, and the 9,000-tick memory run was accelerated rather than a wall-clock
 15-minute soak.
+
+### Stage 2 one-writer review
+
+The private keeper review identified the repository append race that would
+exist if ticks and outside prods could enter `StateRepository.transact`
+concurrently. The authority now has two deliberate layers: the server queue
+serializes whole mutations such as a Mediorgan prod, while the repository owns
+an intrinsic append queue so no caller can clone the same pre-append head.
+Shutdown drains both queues before sleep. The timer callback does not return an
+unobserved promise; tick failures terminate in the injected `onTickError`
+handler and later ticks continue.
+
+The expanded local suite passes 13/13. Its race case mixes the 1 ms autonomous
+tick interval with eight simultaneous authenticated prods, then proves sequence
+numbers are contiguous, every `prevHash` names the preceding record, all prods
+land exactly once, and a fresh replay has the same final state/head hashes.
+An injected tick failure is observed without stopping subsequent ticks. Both
+tests also passed 20/20 focused stress repetitions.
+
+Alex's current execution boundary prohibits browser automation and all GUI
+control, so the remaining visual, WebAudio-device, and physical Xbox-controller
+checks were not attempted. Pure spatial-audio geometry/deduplication tests stay
+green; interactive QA remains an explicit acceptance blocker.
