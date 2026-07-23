@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Intelligent Terrarium — Mediorgan</title>
+  <style>
+    :root { color-scheme: dark; font-family: ui-monospace, SFMono-Regular, monospace; }
+    * { box-sizing: border-box; }
+    body { margin: 0; overflow: hidden; background: #07100c; color: #d8f5df; }
+    canvas { display: block; width: 100vw; height: 100vh; }
+    .panel { position: fixed; inset: 16px auto auto 16px; width: min(380px, calc(100vw - 32px)); padding: 14px; border: 1px solid #70d69a55; border-radius: 14px; background: #06100ccc; backdrop-filter: blur(10px); }
+    h1 { margin: 0 0 4px; font-size: 17px; font-weight: 600; }
+    .status { margin: 0 0 12px; color: #8edca9; font-size: 12px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+    input, select, button { min-width: 0; padding: 9px; border: 1px solid #70d69a55; border-radius: 8px; color: inherit; background: #102319; font: inherit; }
+    button { cursor: pointer; background: #1a5b37; }
+    .hint { margin: 10px 0 0; color: #799e85; font-size: 11px; line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <canvas id="terrarium" aria-label="Three-dimensional intelligent terrarium"></canvas>
+  <section class="panel" aria-label="Mediorgan controls">
+    <h1>Intelligent Terrarium</h1>
+    <p id="status" class="status" data-testid="status">mediorgan asleep</p>
+    <div class="row">
+      <input id="capability" aria-label="Development capability" value="local-alex-demo" autocomplete="off">
+      <button id="connect" data-testid="connect">Connect mediorgan</button>
+    </div>
+    <div class="row">
+      <select id="organ" aria-label="Target organ">
+        <option>sensory</option><option>spatial</option><option>drive</option>
+        <option>memory</option><option>action</option><option selected>voice</option>
+      </select>
+      <select id="modality" aria-label="Prod modality">
+        <option selected>text</option><option>gesture</option><option>proximity</option>
+        <option>sound</option><option>media</option>
+      </select>
+    </div>
+    <div class="row">
+      <input id="stimulus" aria-label="Stimulus" value="hello, small voice">
+      <button id="prod" data-testid="prod" disabled>Prod organ</button>
+    </div>
+    <p class="hint">Move with WASD / arrows or an Xbox-compatible controller. A prod is a stimulus through the mediorgan, never a direct state write.</p>
+  </section>
+  <script type="module" src="/client.mjs"></script>
+</body>
+</html>

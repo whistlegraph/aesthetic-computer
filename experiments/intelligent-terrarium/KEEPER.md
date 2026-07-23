@@ -16,6 +16,13 @@ synthesis, never world truth. Durable growth is replayable text data in a
 separate Git repository; model weights, caches, tokens, and derived binaries
 never enter autobiographical history.
 
+The mind's bounded subsystems are **organs**: sensory, spatial, drive, memory,
+action, voice, and sleep. The **mediorgan** is their externally touchable
+membrane. An authenticated visitor can prod a named organ with a bounded text,
+gesture, proximity, sound, or media stimulus. The prod receives a causal ID and
+spatial origin and is journaled, but it is never a direct state mutation; the
+target organ decides whether and how the body responds.
+
 ```mermaid
 flowchart TD
   V[AC visitor<br/>WebGL + gamepad] -->|token + input| A[terrariumd authority]
@@ -95,11 +102,14 @@ about 6 MiB. No unrelated dirty files were changed.
    `{id, tick, kind, source:[x,y,z], voice, pitch, intensity, radius, duration,
    cause}`. Clients deduplicate by `id` and render locally. No live audio stream
    is part of world truth.
-6. **Git is sleep, not the hot database:** append journal segments during wake;
+6. **Proddable organs, authoritative body:** every outside prod crosses the
+   mediorgan, which resolves identity, enforces modality/size/rate bounds, and
+   records causality before routing. Organs can ignore or transform prods.
+7. **Git is sleep, not the hot database:** append journal segments during wake;
    on sleep, fsync and close the segment, write an atomic checkpoint and
    autobiographical summary, verify replay, then commit only if content changed.
    No automatic push.
-7. **Crash safety:** the last valid commit plus any fully written, checksummed
+8. **Crash safety:** the last valid commit plus any fully written, checksummed
    journal records is sufficient for recovery. A partially written tail is
    quarantined, never guessed through.
 

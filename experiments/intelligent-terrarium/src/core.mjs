@@ -9,6 +9,15 @@ export const LIMITS = Object.freeze({
   advanceTicks: 600,
 });
 
+export const ORGAN_NAMES = Object.freeze([
+  "sensory",
+  "spatial",
+  "drive",
+  "memory",
+  "action",
+  "voice",
+]);
+
 const WORLD_RADIUS = 12;
 const round = (value) => Math.round(value * 1e6) / 1e6;
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
@@ -106,6 +115,9 @@ export class Terrarium {
       case "visitor-signal":
         outputs = this.#visitorSignal(payload);
         break;
+      case "organ-prod":
+        outputs = this.#organProd(payload);
+        break;
       case "visitor-leave":
         this.#visitorLeave(payload);
         break;
@@ -158,6 +170,52 @@ export class Terrarium {
       delete this.state.visitors[handle];
       pushEpisode(this.state, { tick: this.state.tick, kind: "parted", actor: handle });
     }
+  }
+
+  #organProd(payload) {
+    const handle = normalizeHandle(payload.handle);
+    const visitor = this.state.visitors[handle];
+    if (!visitor) throw new Error("visitor is not present");
+    const target = String(payload.target || "");
+    if (!ORGAN_NAMES.includes(target)) throw new Error("unknown target organ");
+    const modality = String(payload.modality || "text");
+    if (!["text", "gesture", "proximity", "sound", "media"].includes(modality)) {
+      throw new Error("unknown prod modality");
+    }
+    const prodId = String(payload.prodId || "").slice(0, 96);
+    if (!prodId) throw new Error("prod requires a causal id");
+    const stimulus = typeof payload.stimulus === "string"
+      ? payload.stimulus.slice(0, LIMITS.signalLength)
+      : clone(payload.stimulus || {});
+    const summary = typeof stimulus === "string" ? stimulus : canonical(stimulus).slice(0, LIMITS.signalLength);
+    pushEpisode(this.state, {
+      tick: this.state.tick,
+      kind: "prodded",
+      actor: handle,
+      organ: target,
+      modality,
+      prodId,
+      stimulus: summary,
+    });
+
+    if (target === "spatial") Object.assign(visitor, position(payload.position || stimulus?.position));
+    if (target === "drive" || target === "sensory") {
+      this.state.mind.drives.curiosity = round(clamp(this.state.mind.drives.curiosity + 0.03, 0, 1));
+    }
+    if (target === "action") {
+      this.state.mind.weights.approach = round(clamp(this.state.mind.weights.approach + 0.02, 0, 1));
+    }
+    if (target === "voice" || modality === "sound") {
+      const entity = this.state.entities[this.state.tick % this.state.entities.length];
+      return [this.#sonic({
+        entity,
+        cause: `prod:${prodId}:${target}`,
+        voice: target === "voice" ? "mediorgan-answer" : "felt-sound",
+        pitch: 180 + summary.length * 3,
+        intensity: 0.48,
+      })];
+    }
+    return [];
   }
 
   #advance(value) {

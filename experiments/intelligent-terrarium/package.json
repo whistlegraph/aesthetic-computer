@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test test/*.test.mjs",
-    "demo": "node src/cli.mjs demo"
+    "demo": "node src/cli.mjs demo",
+    "visit": "node src/server.mjs"
   }
 }
