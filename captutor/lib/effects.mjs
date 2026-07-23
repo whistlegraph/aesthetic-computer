@@ -24,7 +24,12 @@ const INSTALL = `(() => {
       .ring-glow { filter:blur(var(--glow-blur,8px))
                           drop-shadow(0 0 var(--glow-shadow-blur,18px) var(--glow-shadow-color)); }
       .label { position:absolute; display:block; opacity:0;
-               transition:opacity .16s ease-out; color:var(--label-color,AccentColor);
+               transition:opacity .16s ease-out; color:var(--label-color,#fff);
+               background:var(--label-background,AccentColor);
+               border:1px solid var(--label-border-color,rgba(255,255,255,.94));
+               border-radius:3px;
+               box-shadow:var(--label-box-shadow,
+                 4px 5px 0 rgba(0,0,0,.92),0 10px 22px rgba(0,0,0,.44));
                font:900 22px/1 system-ui,-apple-system,BlinkMacSystemFont,
                     "PingFang SC","Noto Sans CJK SC",sans-serif;
                font-kerning:normal; font-variant-ligatures:none;
@@ -92,9 +97,16 @@ const INSTALL = `(() => {
       label.classList.remove('show');
       return;
     }
-    label.style.setProperty('--label-color', options.labelColor || color);
+    const padX = Number(options.labelPadX ?? 11);
+    const padY = Number(options.labelPadY ?? 7);
+    label.style.setProperty('--label-color', options.labelColor || '#fff');
+    label.style.setProperty('--label-background', options.labelBackground || color);
+    label.style.setProperty('--label-border-color', options.labelBorderColor ||
+      'rgba(255,255,255,.94)');
+    label.style.setProperty('--label-box-shadow', options.labelBoxShadow ||
+      '4px 5px 0 rgba(0,0,0,.92), 0 10px 22px rgba(0,0,0,.44)');
     label.style.setProperty('--label-shadow', options.labelShadow ||
-      '0 1px 0 rgba(255,255,255,.95), 0 0 7px rgba(255,255,255,.92), 0 5px 14px rgba(17,12,28,.26)');
+      '0 1px 0 rgba(0,0,0,.72)');
     const style = getComputedStyle(label);
     const measure = document.createElement('canvas').getContext('2d');
     measure.font = style.font ||
@@ -111,8 +123,9 @@ const INSTALL = `(() => {
         // Prefix measurement preserves pair kerning while each glyph remains
         // independently animatable. Flexed spans cannot kern across elements.
         const withCharacter = prefix + char;
-        glyph.style.left = Math.max(0,
-          measure.measureText(withCharacter).width - measure.measureText(char).width) + 'px';
+        glyph.style.left = (padX + Math.max(0,
+          measure.measureText(withCharacter).width - measure.measureText(char).width)) + 'px';
+        glyph.style.top = padY + 'px';
         label.appendChild(glyph);
         glyphs.push({ glyph, index:glyphIndex });
         glyphIndex += 1;
@@ -121,10 +134,10 @@ const INSTALL = `(() => {
     }
     const metrics = measure.measureText(value);
     const fontSize = parseFloat(style.fontSize) || 22;
-    label.style.width = Math.ceil(metrics.width) + 'px';
+    label.style.width = Math.ceil(metrics.width + padX * 2) + 'px';
     label.style.height = Math.ceil(Math.max(fontSize,
       (metrics.actualBoundingBoxAscent || fontSize * .8) +
-      (metrics.actualBoundingBoxDescent || fontSize * .2))) + 'px';
+      (metrics.actualBoundingBoxDescent || fontSize * .2)) + padY * 2) + 'px';
     for (const { glyph, index } of glyphs) {
       const drift = ((index * 17) % 9) - 4;
       const tilt = ((index * 11) % 7) - 3;

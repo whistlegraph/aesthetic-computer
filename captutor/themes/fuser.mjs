@@ -34,9 +34,9 @@ export default Object.freeze({
   opacity: 0.97,
   shadow: { opacity: 92, blur: 1.2, x: 2, y: 3 },
   formats: {
-    docs: { edgeFraction: 0.038, markSideFraction:0.105, labelPxFraction:0.048 },
-    youtube: { edgeFraction: 0.042, markSideFraction:0.11, labelPxFraction:0.05 },
-    reel: { edgeFraction: 0.072, markSideFraction:0.12, labelPxFraction:0.054 },
-    vertical: { edgeFraction: 0.068, markSideFraction:0.115, labelPxFraction:0.052 },
+    docs: { edgeFraction: 0.038, markSideFraction:0.105, labelPxFraction:0.075 },
+    youtube: { edgeFraction: 0.042, markSideFraction:0.11, labelPxFraction:0.078 },
+    reel: { edgeFraction: 0.072, markSideFraction:0.12, labelPxFraction:0.084 },
+    vertical: { edgeFraction: 0.068, markSideFraction:0.115, labelPxFraction:0.082 },
   },
 });
