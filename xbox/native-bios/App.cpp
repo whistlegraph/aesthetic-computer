@@ -213,7 +213,7 @@ public:
     m_sound->on_oscillator_stop = [this]() { StopOscillator(); };
     m_sound->get_rate = [this]() { return static_cast<int>(m_sampleRate); };
     m_api = std::make_unique<Api>(Api{{1920, 1080, 1}, {}, {}, {}, *m_graphics, *m_sound});
-    m_api->system.version = "1.0.0.11";
+    m_api->system.version = "1.0.0.12";
     m_api->telemetry = [](std::string_view line) {
       std::string safe(line);
       for (auto& character : safe) if (character == '\n' || character == '\r') character = ' ';
@@ -631,7 +631,7 @@ private:
     if (!m_acRequestInFlight.compare_exchange_strong(expected, true)) return;
 
     auto client = ref new HttpClient();
-    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.11 Xbox");
+    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.12 Xbox");
     std::vector<task<String^>> requests;
     requests.push_back(create_task(client->GetStringAsync(
       ref new Uri(L"https://aesthetic.computer/api/mood/moods-of-the-day"))));
@@ -906,10 +906,20 @@ private:
         m_d2dContext->SetTransform(D2D1::Matrix3x2F::Identity());
         const auto drawText = [this, scaleX, scaleY](const std::wstring& value,
             const wchar_t* family, float x, float y, float size, Color color) {
-          ComPtr<IDWriteTextFormat> format;
-          if (FAILED(m_dwriteFactory->CreateTextFormat(family, nullptr,
+          // DirectWrite retains internal font data for each format it sees.
+          // Creating 25 formats at 60 Hz grew the Xbox UWP working set by
+          // roughly 8 MB/s. Quantize and cache the two system families so a
+          // piece cannot turn animated point sizes into an unbounded cache.
+          const auto pointSize = static_cast<unsigned>((std::max)(6.0f,
+            (std::min)(256.0f, std::round(size * scaleY))));
+          std::wstring key(family);
+          key += L'#';
+          key += std::to_wstring(pointSize);
+          auto& format = m_textFormats[key];
+          if (!format && FAILED(m_dwriteFactory->CreateTextFormat(family, nullptr,
               DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL,
-              DWRITE_FONT_STRETCH_NORMAL, size * scaleY, L"en-us", &format))) return;
+              DWRITE_FONT_STRETCH_NORMAL, static_cast<float>(pointSize),
+              L"en-us", &format))) return;
           m_textBrush->SetColor(D2D1::ColorF(color.r / 255.0f, color.g / 255.0f,
             color.b / 255.0f, color.a / 255.0f));
           const auto area = D2D1::RectF(x * scaleX, y * scaleY,
@@ -982,6 +992,7 @@ private:
   ComPtr<ID2D1Bitmap1> m_d2dTarget;
   ComPtr<ID2D1SolidColorBrush> m_textBrush;
   ComPtr<IDWriteFactory> m_dwriteFactory;
+  std::unordered_map<std::wstring, ComPtr<IDWriteTextFormat>> m_textFormats;
   ComPtr<IXAudio2> m_audio;
   IXAudio2MasteringVoice* m_master = nullptr;
   IXAudio2SourceVoice* m_voice = nullptr;
