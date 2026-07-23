@@ -1,6 +1,7 @@
 #pragma once
 
 #include <windows.h>
+#include <windows.applicationmodel.h>
 #include <gamingdeviceinformation.h>
 #include <wrl/client.h>
 #include <d3d11_1.h>

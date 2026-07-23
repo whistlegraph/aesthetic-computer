@@ -61,6 +61,14 @@
   </ItemGroup>
   <ItemGroup><Content Include="smoke_piece.js"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content></ItemGroup>
   <ItemGroup>
+    <FxCompile Include="TriangleVertexShader.hlsl">
+      <ShaderType>Vertex</ShaderType><ShaderModel>5.0</ShaderModel><EntryPointName>main</EntryPointName>
+    </FxCompile>
+    <FxCompile Include="TrianglePixelShader.hlsl">
+      <ShaderType>Pixel</ShaderType><ShaderModel>5.0</ShaderModel><EntryPointName>main</EntryPointName>
+    </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
     <Image Include="Assets\Square150x150Logo.png" />
     <Image Include="Assets\Square44x44Logo.png" />
     <Image Include="Assets\Wide310x150Logo.png" />

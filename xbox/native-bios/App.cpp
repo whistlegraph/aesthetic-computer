@@ -31,6 +31,11 @@ struct PaintingImage {
   std::vector<uint32_t> pixels;
 };
 
+struct GpuTriangleVertex {
+  float x, y, z;
+  float r, g, b, a;
+};
+
 static constexpr char kSmokePiece[] = R"JS(
 let color=[12,8,24];
 function boot(){color=[12,8,24]}
@@ -74,6 +79,24 @@ static std::wstring Wide(const std::string& value) {
   std::wstring result(static_cast<std::size_t>(size), L'\0');
   MultiByteToWideChar(CP_UTF8, 0, value.data(), static_cast<int>(value.size()),
     result.data(), size);
+  return result;
+}
+
+static std::vector<uint8_t> ReadPackageBytes(const wchar_t* name) {
+  const auto folder = Windows::ApplicationModel::Package::Current->InstalledLocation->Path;
+  std::wstring path(folder->Data());
+  path += L"\\";
+  path += name;
+  FILE* file = nullptr;
+  if (_wfopen_s(&file, path.c_str(), L"rb") != 0 || !file) return {};
+  std::fseek(file, 0, SEEK_END);
+  const long length = std::ftell(file);
+  std::rewind(file);
+  if (length <= 0) { std::fclose(file); return {}; }
+  std::vector<uint8_t> result(static_cast<std::size_t>(length));
+  const auto read = std::fread(result.data(), 1, result.size(), file);
+  std::fclose(file);
+  result.resize(read);
   return result;
 }
 
@@ -232,7 +255,7 @@ public:
     m_sound->on_oscillator_stop = [this]() { StopOscillator(); };
     m_sound->get_rate = [this]() { return static_cast<int>(m_sampleRate); };
     m_api = std::make_unique<Api>(Api{{1920, 1080, 1}, {}, {}, {}, *m_graphics, *m_sound});
-    m_api->system.version = "1.0.0.16";
+    m_api->system.version = "1.0.0.17";
     m_api->telemetry = [](std::string_view line) {
       std::string safe(line);
       for (auto& character : safe) if (character == '\n' || character == '\r') character = ' ';
@@ -373,6 +396,101 @@ private:
       reinterpret_cast<IUnknown**>(m_dwriteFactory.GetAddressOf())));
     Check(m_d2dContext->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White),
       &m_textBrush));
+    CreateTrianglePipeline();
+  }
+
+  void CreateTrianglePipeline() {
+    const auto vertexBytes = ReadPackageBytes(L"TriangleVertexShader.cso");
+    const auto pixelBytes = ReadPackageBytes(L"TrianglePixelShader.cso");
+    if (vertexBytes.empty() || pixelBytes.empty()) {
+      LogTelemetry("AC_NATIVE_GPU_TRIANGLES unavailable=shader-assets");
+      return;
+    }
+    Check(m_device->CreateVertexShader(vertexBytes.data(), vertexBytes.size(), nullptr,
+      &m_triangleVertexShader));
+    Check(m_device->CreatePixelShader(pixelBytes.data(), pixelBytes.size(), nullptr,
+      &m_trianglePixelShader));
+    const D3D11_INPUT_ELEMENT_DESC elements[] = {
+      {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,
+        D3D11_INPUT_PER_VERTEX_DATA, 0},
+      {"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12,
+        D3D11_INPUT_PER_VERTEX_DATA, 0},
+    };
+    Check(m_device->CreateInputLayout(elements, ARRAYSIZE(elements), vertexBytes.data(),
+      vertexBytes.size(), &m_triangleInputLayout));
+
+    D3D11_BUFFER_DESC buffer{};
+    buffer.ByteWidth = static_cast<UINT>(kMaxTriangles * 3 * sizeof(GpuTriangleVertex));
+    buffer.Usage = D3D11_USAGE_DYNAMIC;
+    buffer.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+    buffer.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+    Check(m_device->CreateBuffer(&buffer, nullptr, &m_triangleVertexBuffer));
+
+    D3D11_TEXTURE2D_DESC depth{};
+    depth.Width = m_frameWidth;
+    depth.Height = m_frameHeight;
+    depth.MipLevels = 1;
+    depth.ArraySize = 1;
+    depth.Format = DXGI_FORMAT_D32_FLOAT;
+    depth.SampleDesc.Count = 1;
+    depth.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+    ComPtr<ID3D11Texture2D> depthTexture;
+    Check(m_device->CreateTexture2D(&depth, nullptr, &depthTexture));
+    Check(m_device->CreateDepthStencilView(depthTexture.Get(), nullptr, &m_triangleDepthView));
+
+    D3D11_DEPTH_STENCIL_DESC depthState{};
+    depthState.DepthEnable = TRUE;
+    depthState.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+    depthState.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
+    Check(m_device->CreateDepthStencilState(&depthState, &m_triangleDepthState));
+
+    D3D11_RASTERIZER_DESC raster{};
+    raster.FillMode = D3D11_FILL_SOLID;
+    raster.CullMode = D3D11_CULL_NONE;
+    raster.DepthClipEnable = TRUE;
+    Check(m_device->CreateRasterizerState(&raster, &m_triangleRasterState));
+    LogTelemetry("AC_NATIVE_GPU_TRIANGLES ready=1 max=4096 depth=d32");
+  }
+
+  bool DrawGpuTriangles() {
+    if (m_frameTriangles.empty()) return true;
+    if (!m_triangleVertexBuffer || !m_triangleVertexShader || !m_trianglePixelShader ||
+        !m_triangleDepthView) return false;
+    D3D11_MAPPED_SUBRESOURCE mapped{};
+    if (FAILED(m_context->Map(m_triangleVertexBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD,
+        0, &mapped))) return false;
+    auto* output = static_cast<GpuTriangleVertex*>(mapped.pData);
+    std::size_t count = 0;
+    const auto append = [this, &output, &count](float x, float y, float z, Color color) {
+      output[count++] = {
+        x / 960.0f - 1.0f,
+        1.0f - y / 540.0f,
+        (std::max)(0.0f, (std::min)(1.0f, (z + 1.5f) / 3.0f)),
+        color.r / 255.0f, color.g / 255.0f, color.b / 255.0f, 1.0f,
+      };
+    };
+    for (const auto& triangle : m_frameTriangles) {
+      append(triangle.x1, triangle.y1, triangle.z1, triangle.color);
+      append(triangle.x2, triangle.y2, triangle.z2, triangle.color);
+      append(triangle.x3, triangle.y3, triangle.z3, triangle.color);
+    }
+    m_context->Unmap(m_triangleVertexBuffer.Get(), 0);
+
+    const UINT stride = sizeof(GpuTriangleVertex), offset = 0;
+    m_context->IASetInputLayout(m_triangleInputLayout.Get());
+    m_context->IASetVertexBuffers(0, 1, m_triangleVertexBuffer.GetAddressOf(), &stride, &offset);
+    m_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    m_context->VSSetShader(m_triangleVertexShader.Get(), nullptr, 0);
+    m_context->PSSetShader(m_trianglePixelShader.Get(), nullptr, 0);
+    m_context->RSSetState(m_triangleRasterState.Get());
+    const D3D11_VIEWPORT viewport{0, 0, static_cast<float>(m_frameWidth),
+      static_cast<float>(m_frameHeight), 0, 1};
+    m_context->RSSetViewports(1, &viewport);
+    m_context->OMSetDepthStencilState(m_triangleDepthState.Get(), 0);
+    m_context->OMSetRenderTargets(1, m_target.GetAddressOf(), m_triangleDepthView.Get());
+    m_context->ClearDepthStencilView(m_triangleDepthView.Get(), D3D11_CLEAR_DEPTH, 1, 0);
+    m_context->Draw(static_cast<UINT>(count), 0);
+    return true;
   }
 
   void CreateAudio(uint32_t sampleRate) {
@@ -654,7 +772,7 @@ private:
     if (!m_acRequestInFlight.compare_exchange_strong(expected, true)) return;
 
     auto client = ref new HttpClient();
-    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.16 Xbox");
+    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.17 Xbox");
     std::vector<task<String^>> requests;
     requests.push_back(create_task(client->GetStringAsync(
       ref new Uri(L"https://aesthetic.computer/api/mood/moods-of-the-day"))));
@@ -940,39 +1058,39 @@ private:
       const auto edge = [](float ax, float ay, float bx, float by, float px, float py) {
         return (px - ax) * (by - ay) - (py - ay) * (bx - ax);
       };
-      if (!m_frameTriangles.empty()) {
+      if (!m_triangleVertexBuffer && !m_frameTriangles.empty()) {
         m_cpuDepth.resize(static_cast<std::size_t>(m_frameWidth) * m_frameHeight);
         std::fill(m_cpuDepth.begin(), m_cpuDepth.end(),
           std::numeric_limits<float>::infinity());
-      }
-      for (const auto& triangle : m_frameTriangles) {
-        const float x1 = triangle.x1 * scaleX, y1 = triangle.y1 * scaleY;
-        const float x2 = triangle.x2 * scaleX, y2 = triangle.y2 * scaleY;
-        const float x3 = triangle.x3 * scaleX, y3 = triangle.y3 * scaleY;
-        const float area = edge(x1, y1, x2, y2, x3, y3);
-        if (std::abs(area) < 0.25f) continue;
-        const int left = (std::max)(0, static_cast<int>(std::floor(
-          (std::min)(x1, (std::min)(x2, x3)))));
-        const int right = (std::min)(static_cast<int>(m_frameWidth) - 1,
-          static_cast<int>(std::ceil((std::max)(x1, (std::max)(x2, x3)))));
-        const int top = (std::max)(0, static_cast<int>(std::floor(
-          (std::min)(y1, (std::min)(y2, y3)))));
-        const int bottom = (std::min)(static_cast<int>(m_frameHeight) - 1,
-          static_cast<int>(std::ceil((std::max)(y1, (std::max)(y2, y3)))));
-        const uint32_t ink = packed(triangle.color);
-        for (int y = top; y <= bottom; ++y) for (int x = left; x <= right; ++x) {
-          const float px = x + 0.5f, py = y + 0.5f;
-          const float w0 = edge(x2, y2, x3, y3, px, py);
-          const float w1 = edge(x3, y3, x1, y1, px, py);
-          const float w2 = edge(x1, y1, x2, y2, px, py);
-          if (!((area > 0 && w0 >= 0 && w1 >= 0 && w2 >= 0) ||
-                (area < 0 && w0 <= 0 && w1 <= 0 && w2 <= 0))) continue;
-          const float depth = (w0 * triangle.z1 + w1 * triangle.z2 +
-            w2 * triangle.z3) / area;
-          const auto pixel = static_cast<std::size_t>(y) * m_frameWidth + x;
-          if (depth <= m_cpuDepth[pixel]) {
-            m_cpuDepth[pixel] = depth;
-            m_cpuFrame[pixel] = ink;
+        for (const auto& triangle : m_frameTriangles) {
+          const float x1 = triangle.x1 * scaleX, y1 = triangle.y1 * scaleY;
+          const float x2 = triangle.x2 * scaleX, y2 = triangle.y2 * scaleY;
+          const float x3 = triangle.x3 * scaleX, y3 = triangle.y3 * scaleY;
+          const float area = edge(x1, y1, x2, y2, x3, y3);
+          if (std::abs(area) < 0.25f) continue;
+          const int left = (std::max)(0, static_cast<int>(std::floor(
+            (std::min)(x1, (std::min)(x2, x3)))));
+          const int right = (std::min)(static_cast<int>(m_frameWidth) - 1,
+            static_cast<int>(std::ceil((std::max)(x1, (std::max)(x2, x3)))));
+          const int top = (std::max)(0, static_cast<int>(std::floor(
+            (std::min)(y1, (std::min)(y2, y3)))));
+          const int bottom = (std::min)(static_cast<int>(m_frameHeight) - 1,
+            static_cast<int>(std::ceil((std::max)(y1, (std::max)(y2, y3)))));
+          const uint32_t ink = packed(triangle.color);
+          for (int y = top; y <= bottom; ++y) for (int x = left; x <= right; ++x) {
+            const float px = x + 0.5f, py = y + 0.5f;
+            const float w0 = edge(x2, y2, x3, y3, px, py);
+            const float w1 = edge(x3, y3, x1, y1, px, py);
+            const float w2 = edge(x1, y1, x2, y2, px, py);
+            if (!((area > 0 && w0 >= 0 && w1 >= 0 && w2 >= 0) ||
+                  (area < 0 && w0 <= 0 && w1 <= 0 && w2 <= 0))) continue;
+            const float depth = (w0 * triangle.z1 + w1 * triangle.z2 +
+              w2 * triangle.z3) / area;
+            const auto pixel = static_cast<std::size_t>(y) * m_frameWidth + x;
+            if (depth <= m_cpuDepth[pixel]) {
+              m_cpuDepth[pixel] = depth;
+              m_cpuFrame[pixel] = ink;
+            }
           }
         }
       }
@@ -1009,6 +1127,7 @@ private:
       m_context->OMSetRenderTargets(0, nullptr, nullptr);
       m_context->UpdateSubresource(m_backBuffer.Get(), 0, nullptr, m_cpuFrame.data(),
         m_frameWidth * sizeof(uint32_t), 0);
+      DrawGpuTriangles();
       if (!m_frameSystemTexts.empty() || !m_frameSystemGlyphs.empty()) {
         m_d2dContext->BeginDraw();
         m_d2dContext->SetTransform(D2D1::Matrix3x2F::Identity());
@@ -1045,7 +1164,9 @@ private:
         if (FAILED(hr) && hr != D2DERR_RECREATE_TARGET) Check(hr);
       }
       if (!m_loggedTextFrame) {
-        LogTelemetry("AC_NATIVE_CPU_FRAME texts=" + std::to_string(m_frameTexts.size()) +
+        LogTelemetry("AC_NATIVE_FRAME trianglePath=" +
+          std::string(m_triangleVertexBuffer ? "gpu" : "cpu") +
+          " texts=" + std::to_string(m_frameTexts.size()) +
           " systemTexts=" + std::to_string(m_frameSystemTexts.size()) +
           " glyphs=" + std::to_string(m_frameSystemGlyphs.size()) +
           " systemDropped=" + std::to_string(m_frameSystemDrawsDropped) +
@@ -1112,6 +1233,13 @@ private:
   ComPtr<ID2D1SolidColorBrush> m_textBrush;
   ComPtr<IDWriteFactory> m_dwriteFactory;
   std::unordered_map<std::wstring, ComPtr<IDWriteTextFormat>> m_textFormats;
+  ComPtr<ID3D11VertexShader> m_triangleVertexShader;
+  ComPtr<ID3D11PixelShader> m_trianglePixelShader;
+  ComPtr<ID3D11InputLayout> m_triangleInputLayout;
+  ComPtr<ID3D11Buffer> m_triangleVertexBuffer;
+  ComPtr<ID3D11DepthStencilView> m_triangleDepthView;
+  ComPtr<ID3D11DepthStencilState> m_triangleDepthState;
+  ComPtr<ID3D11RasterizerState> m_triangleRasterState;
   ComPtr<IXAudio2> m_audio;
   IXAudio2MasteringVoice* m_master = nullptr;
   IXAudio2SourceVoice* m_voice = nullptr;

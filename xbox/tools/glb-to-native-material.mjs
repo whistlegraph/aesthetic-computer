@@ -139,8 +139,8 @@ const code = `// Pals Material Skybox, 26.07.22
 const vertices=${JSON.stringify(vertices)};
 const faces=${JSON.stringify(faceRows)};
 const stars=${JSON.stringify(stars)};
-let rotationX=0,rotationY=0,frameCount=0,perfStarted=0,fpsLabel="-- FPS";
-function boot(){telemetry("PALS_MATERIAL_BOOT","triangles=${indices.length / 3} material=glb-textures glossy skybox procedural hud=fps")}
+let rotationX=0,rotationY=0,frameCount=0,perfStarted=0,fpsLabel="-- FPS",frameMsLabel="-- MS";
+function boot(){telemetry("PALS_MATERIAL_BOOT","triangles=${indices.length / 3} material=glb-textures glossy skybox procedural hud=fps+stack")}
 function sim(){
   const pad=gamepad();
   if(pad.down.includes("ArrowLeft"))rotationY-=0.035;
@@ -157,11 +157,6 @@ function rotate(point,ax,ay){
 }
 function skybox(t){
   wipe(3,5,18);
-  for(let band=0;band<30;band++){
-    const mix=band/29;
-    const r=5+Math.floor(24*mix*mix),g=8+Math.floor(14*mix),b=28+Math.floor(32*mix);
-    box(0,band*36,1920,37,r,g,b);
-  }
   box(0,700,1920,4,64,38,86);
   box(0,704,1920,7,32,22,58);
   for(let index=0;index<stars.length;index++){
@@ -190,7 +185,9 @@ function paint(){
   if(!perfStarted)perfStarted=t;
   frameCount++;
   if(t-perfStarted>=2){
-    fpsLabel=(frameCount/(t-perfStarted)).toFixed(1)+" FPS";
+    const measuredFps=frameCount/(t-perfStarted);
+    fpsLabel=measuredFps.toFixed(1)+" FPS";
+    frameMsLabel=(1000/measuredFps).toFixed(1)+" MS";
     telemetry("PALS_MATERIAL_PERF","fps="+fpsLabel.slice(0,-4));
     perfStarted=t;frameCount=0;
   }
@@ -199,7 +196,7 @@ function paint(){
   const ay=rotationY+t*.72;
   const world=vertices.map((point)=>rotate(point,ax,ay));
   const points=world.map((point)=>{
-    const scale=1010/(3.45+point[2]);
+    const scale=930/(3.45+point[2]);
     return [960+point[0]*scale,530-point[1]*scale,point[2]];
   });
   const light=[Math.sin(t*.31)*.48,-.56,.72];
@@ -215,7 +212,8 @@ function paint(){
     let nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx;
     const length=Math.hypot(nx,ny,nz);if(length<.00001)continue;
     nx/=length;ny/=length;nz/=length;
-    if(nz<0){nx=-nx;ny=-ny;nz=-nz}
+    if(nz>=0)continue;
+    nx=-nx;ny=-ny;nz=-nz;
     const diffuse=.38+.68*Math.max(0,nx*light[0]+ny*light[1]+nz*light[2]);
     const rough=face[7],metal=face[6];
     const specular=Math.pow(Math.max(0,nx*half[0]+ny*half[1]+nz*half[2]),12+56*(1-rough))*(.55+.75*metal);
@@ -228,9 +226,13 @@ function paint(){
     const blue=clamp(face[5]*diffuse+face[10]*.22+255*specular+128*fresnel+132*sky+122*rim);
     triangle3d(p0[0],p0[1],p0[2],p1[0],p1[1],p1[2],p2[0],p2[1],p2[2],red,green,blue);
   }
-  box(36,34,164,58,8,10,29);
-  line(36,92,200,92,2,92,66,126);
-  systemWrite(fpsLabel,52,44,30,224,218,255);
+  box(36,34,274,58,8,10,29);
+  line(36,92,310,92,2,92,66,126);
+  systemWrite(fpsLabel+" / "+frameMsLabel,52,46,25,224,218,255);
+  box(1384,34,500,384,7,9,25);
+  line(1384,98,1884,98,2,92,66,126);
+  systemWrite("STACK / LIVE PIPELINE",1412,52,27,234,228,255);
+  systemWrite("MESHY GLB + TEXTURE MAPS\\n> OFFLINE MATERIAL BAKE\\n> LIVE JS / QUICKJS\\n> C++ GPU BRIDGE (${indices.length / 3} TRIS)\\n> D3D11 VERTEX + DEPTH BUFFERS\\n> 1 HARDWARE DRAW CALL\\n> PRESENT(1) / VSYNC\\nTARGET 60 FPS / 16.67 MS",1412,116,21,190,176,224);
 }
 function act(button){telemetry("PALS_MATERIAL_BUTTON",button)}
 function leave(){telemetry("PALS_MATERIAL_LEAVE","ok")}
