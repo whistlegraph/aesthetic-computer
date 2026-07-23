@@ -181,11 +181,19 @@ testing; no LAN/public listener or persistent service.
 
 ### Stage 3 — real AC identity and hidden piece
 
-Add a development-only AC piece and a token-first handshake modeled on
-`fight:auth`. Resolve the current handle server-side, bind actions to the
-verified account, rate-limit intentions, and reject replayed/expired sessions.
-This stage touches served paths and therefore requires a keeper decision before
-any commit, push, or deploy.
+Implemented on the isolated branch after an explicit keeper decision. The
+hidden `terrarium-dev` piece calls AC's `authorize()` and sends the bearer token
+only to the fixed loopback authority. The server follows the existing AC seam:
+Auth0 `/userinfo` verifies the token, then `/handle/<encoded-sub>` resolves the
+public handle. Only that server-resolved handle authors a prod. The payload has
+no authorship field, unknown spoofed identity fields are discarded, and audit
+records contain outcome/status but no token, subject, email, or handle.
+
+Real identity is opt-in at process start with `TERRARIUM_AC_AUTH=1`; the earlier
+development capability remains available. CORS permits the same authority
+origin and the two local AC development origins only. The process still
+refuses every non-loopback bind. The piece deliberately omits `meta()` so it is
+reachable as `terrarium-dev[:port]` without appearing in list/autocomplete.
 
 ### Stage 4 — 2 GB reflection experiment
 
@@ -242,10 +250,12 @@ The first thin slice is accepted only when all of these pass:
 
 ## Next keeper action
 
-Hold at the Stage 3 boundary for a keeper decision. Real AC identity requires a
-hidden development piece and token-verifying gateway changes in served paths.
-No model installation, push, deployment, persistent service, or public listener
-is authorized.
+Hold after Stage 3. A real logged-in-token exercise and interactive piece QA
+remain blocked by the current no-browser/no-GUI execution boundary; the tests
+use faithful local Auth0/handle response doubles and never read a real token.
+Stage 4 also requires a keeper choice of user-space runtime/model before any
+download or installation. No model installation, push, deployment, persistent
+service, or public listener is authorized.
 
 ## 2026-07-23 implementation evidence
 
@@ -309,3 +319,30 @@ Alex's current execution boundary prohibits browser automation and all GUI
 control, so the remaining visual, WebAudio-device, and physical Xbox-controller
 checks were not attempted. Pure spatial-audio geometry/deduplication tests stay
 green; interactive QA remains an explicit acceptance blocker.
+
+### Stage 3 identity evidence
+
+Stage 3 adds the dependency-free `identity.mjs` verifier and the hidden
+`system/public/aesthetic.computer/disks/terrarium-dev.mjs` client. The CLI wires
+the verifier only when `TERRARIUM_AC_AUTH=1`; it reports the auth mode but never
+the bearer value or identity claims. No production/session-server code was
+changed.
+
+The complete local suite passes 18/18. Identity cases prove:
+
+- a valid Auth0 response resolves its subject through the server-side AC handle
+  endpoint and returns only normalized `@alex`;
+- missing, malformed, locally expired JWT-shaped, and Auth0-rejected opaque
+  tokens fail with 401-class identity errors;
+- a request claiming `@mallory` plus spoofed subject/email/token fields is
+  journaled only as the verified `@alex`, and none of the forbidden values
+  occur in the journal or structured audit fixture;
+- a fixed-clock two-prods-per-second profile accepts exactly two actions and
+  returns 429 for the third, with exactly two `organ-prod` records; and
+- allowed local CORS preflight succeeds, a foreign origin is rejected, the
+  piece contains no `meta()` export, and its endpoint is fixed to loopback.
+
+Both the client and identity modules pass Node syntax checks. No live Auth0
+request, real bearer token, GUI/browser action, non-loopback listener, remote
+machine access, push, deployment, or live hook was used for this stage. A real
+logged-in handle test is therefore still required for first-demo criterion 4.

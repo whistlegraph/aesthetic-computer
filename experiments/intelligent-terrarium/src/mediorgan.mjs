@@ -11,10 +11,11 @@ function sameSecret(a, b) {
 }
 
 export class Mediorgan {
-  constructor(repository, { capabilities = {}, maxProdsPerSecond = 12 } = {}) {
+  constructor(repository, { capabilities = {}, maxProdsPerSecond = 12, now = Date.now } = {}) {
     this.repository = repository;
     this.capabilities = new Map(Object.entries(capabilities).map(([token, handle]) => [token, normalizeHandle(handle)]));
     this.maxProdsPerSecond = maxProdsPerSecond;
+    this.now = now;
     this.rate = new Map();
   }
 
@@ -54,7 +55,7 @@ export class Mediorgan {
   }
 
   #takeRate(handle) {
-    const second = Math.floor(Date.now() / 1000);
+    const second = Math.floor(this.now() / 1000);
     const previous = this.rate.get(handle);
     const current = previous?.second === second ? previous : { second, count: 0 };
     current.count += 1;

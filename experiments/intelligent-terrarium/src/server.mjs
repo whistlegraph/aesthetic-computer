@@ -3,6 +3,7 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createACIdentityVerifier } from "./identity.mjs";
 import { Mediorgan } from "./mediorgan.mjs";
 import { StateRepository } from "./repository.mjs";
 import { sleepCommit } from "./sleep.mjs";
@@ -51,9 +52,14 @@ export async function createTerrariumServer({
   host = "127.0.0.1",
   port = 0,
   capabilities = {},
+  identityVerifier = null,
+  maxProdsPerSecond = 12,
+  now = Date.now,
   tickMs = 100,
   webRoot = defaultWebRoot,
   onTickError = (error) => console.error("terrarium tick failed:", error.message),
+  audit = () => {},
+  allowedOrigins = ["http://127.0.0.1:8888", "http://localhost:8888"],
 } = {}) {
   if (!LOOPBACK.has(host)) throw new Error("terrarium server refuses non-loopback binding");
   let repository;
@@ -63,8 +69,9 @@ export async function createTerrariumServer({
     repository = await StateRepository.create(root, { seed: "intelligent-terrarium-visit-v1", profile: "1gb" });
     repository.segmentPath = join(root, "journal", "segments", "visit.ndjson");
   }
-  const mediorgan = new Mediorgan(repository, { capabilities });
+  const mediorgan = new Mediorgan(repository, { capabilities, maxProdsPerSecond, now });
   const streams = new Set();
+  const originAllowlist = new Set(allowedOrigins);
   let writeTail = Promise.resolve();
 
   function exclusive(operation) {
@@ -83,19 +90,55 @@ export async function createTerrariumServer({
     }
   }
 
+  function safeAudit(value) {
+    try { audit(value); } catch { /* Audit sinks cannot affect authority. */ }
+  }
+
   async function authenticate(request, response) {
-    const handle = mediorgan.authenticate(request.headers.authorization);
+    const authorization = request.headers.authorization;
+    let handle = mediorgan.authenticate(authorization);
+    let method = "development-capability";
+    if (!handle && identityVerifier) {
+      method = "ac-token";
+      try {
+        handle = await identityVerifier.verifyAuthorization(authorization);
+      } catch (error) {
+        safeAudit({ kind: "authentication", method, outcome: "rejected", status: error.statusCode || 401 });
+        throw error;
+      }
+    }
     if (!handle) {
+      safeAudit({ kind: "authentication", method, outcome: "rejected", status: 401 });
       json(response, 401, { error: "valid development capability required" });
       return null;
     }
     await exclusive(() => mediorgan.ensurePresent(handle));
+    safeAudit({ kind: "authentication", method, outcome: "accepted", status: 200 });
     return handle;
   }
 
   const server = createServer(async (request, response) => {
     try {
       const url = new URL(request.url, `http://${request.headers.host || "127.0.0.1"}`);
+      const origin = request.headers.origin;
+      if (origin) {
+        if (origin !== url.origin && !originAllowlist.has(origin)) {
+          json(response, 403, { error: "origin is not allowed" });
+          return;
+        }
+        response.setHeader("access-control-allow-origin", origin);
+        response.setHeader("vary", "origin");
+      }
+      if (request.method === "OPTIONS" && url.pathname.startsWith("/api/")) {
+        response.writeHead(204, {
+          "access-control-allow-methods": "GET, POST, OPTIONS",
+          "access-control-allow-headers": "authorization, content-type",
+          "access-control-max-age": "600",
+          "content-length": "0",
+        });
+        response.end();
+        return;
+      }
       if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/client.mjs" || url.pathname === "/spatial-audio.mjs")) {
         const filename = url.pathname === "/" ? "index.html" : url.pathname.slice(1);
         const content = await readFile(join(webRoot, filename));
@@ -143,7 +186,8 @@ export async function createTerrariumServer({
       }
       json(response, 404, { error: "not found" });
     } catch (error) {
-      json(response, /rate limit|too large/.test(error.message) ? 429 : 400, { error: error.message });
+      const status = error.statusCode || (/rate limit|too large/.test(error.message) ? 429 : 400);
+      json(response, status, { error: error.publicMessage || error.message });
     }
   });
 
@@ -185,8 +229,15 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const port = Number(option("--port", "8787"));
   const root = resolve(option("--root", "./terrarium-state"));
   const capabilities = JSON.parse(process.env.TERRARIUM_DEV_CAPS || "{}");
-  const app = await createTerrariumServer({ root, host, port, capabilities });
-  console.log(JSON.stringify({ listening: `http://${app.address.address}:${app.address.port}`, binding: app.address, root }));
+  const acAuth = process.env.TERRARIUM_AC_AUTH === "1";
+  const identityVerifier = acAuth ? createACIdentityVerifier() : null;
+  const app = await createTerrariumServer({ root, host, port, capabilities, identityVerifier });
+  console.log(JSON.stringify({
+    listening: `http://${app.address.address}:${app.address.port}`,
+    binding: app.address,
+    auth: acAuth ? "ac+development-capability" : "development-capability",
+    root,
+  }));
   const shutdown = async () => {
     await app.stop({ sleep: true });
     process.exit(0);
