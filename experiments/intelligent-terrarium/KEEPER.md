@@ -248,8 +248,9 @@ The first thin slice is accepted only when all of these pass:
 
 ## Next keeper action
 
-Hold after Stage 4. The local fullscreen score may remain as a display-only
-rehearsal, but its QR is deliberately marked as a non-live Stage 5 preview.
+Hold after Stage 4. The local fullscreen imagination may remain as a display-only
+rehearsal. Client-route details and the earlier QR concept are deliberately
+absent from the screen; the Stage 5 gateway remains closed.
 A real logged-in-token exercise, WebAudio-device check, physical Xbox-controller
 check, and any reachable authenticated gateway still require keeper decisions.
 No push, deployment, persistent authority service, or public listener is
@@ -418,11 +419,13 @@ state repository. Nothing was pushed or deployed.
   rejected/stale shares, and a 1-hour average of 3,754.7 nonce/s. The final
   CPU-only reflection run proves live coexistence after recovery, not
   uninterrupted coexistence across the build.
-- `score.html` is a self-contained 1920×1080 spatial graphic measure: the six
-  organs are colored staves, outside prods ripple through the Mediorgan
-  membrane, reflection breathes inside the body, and quiet proof marks show the
-  journal, replay, resident envelope, and miner boundary. Its QR encodes the
-  intended `https://aesthetic.computer/terrarium-dev` route but visibly says the
-  client gate is only a preview pending Stage 5. It opens from `file://` in a
-  fullscreen Chromium kiosk on the existing `jastow` GNOME session; it opens no
-  port and depends on no remote script.
+- `score.html` is now only the terrarium's **imagination**: one large living
+  volumetric pixel lava lamp, per the keeper's display direction. It has no
+  visible title, panel, metric, legend, or QR.
+  A fixed 48 × 36 × 48 WebGL2 voxel lattice renders the overlap of six bounded
+  organ fields, culture growth, outside-prod waves, and reflection pulses as
+  density, color, and motion. Provenance, identity, memory, miner, and Stage 5
+  gate facts remain screen-reader metadata and keeper evidence rather than
+  visual chrome. It opens from `file://` in a fullscreen Chromium kiosk on the
+  existing `jastow` GNOME session; it opens no port and depends on no remote
+  script.

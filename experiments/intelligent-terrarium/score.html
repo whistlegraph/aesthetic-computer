@@ -3,145 +3,176 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Intelligent Terrarium — Mediorgan Score</title>
+  <title>Intelligent Terrarium — Imagination</title>
   <style>
-    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
     * { box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #07100f; }
-    body::after { content: ""; position: fixed; inset: 0; pointer-events: none; opacity: .18;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.34'/%3E%3C/svg%3E"); mix-blend-mode: soft-light; }
-    canvas { position: fixed; inset: 0; width: 100%; height: 100%; }
-    header { position: fixed; z-index: 2; top: 4.6vh; left: 4.3vw; letter-spacing: .04em; }
-    h1 { margin: 0; font-size: clamp(28px, 3.25vw, 66px); font-weight: 440; line-height: .92; color: #f4f0d7; }
-    h1 i { font-family: Georgia, serif; font-weight: 400; color: #ff78ba; }
-    .eyebrow { margin-bottom: 1.2vh; font: 600 clamp(9px, .7vw, 14px)/1 ui-monospace, SFMono-Regular, monospace; letter-spacing: .24em; color: #81ebd0; }
-    .sub { margin-top: 1.5vh; max-width: 42vw; font: 400 clamp(11px, .85vw, 17px)/1.45 ui-monospace, SFMono-Regular, monospace; color: #a9c5bb; }
-    aside { position: fixed; z-index: 2; right: 3.2vw; top: 4.4vh; width: min(20vw, 360px); display: grid; gap: 1.2vh; }
-    .card { border: 1px solid #d9fff42b; border-radius: 18px; padding: clamp(12px, 1.1vw, 22px); background: #071413b8; box-shadow: 0 24px 70px #0006; backdrop-filter: blur(12px); }
-    .card h2 { margin: 0 0 1.2vh; font: 600 clamp(9px, .67vw, 13px)/1.2 ui-monospace, monospace; letter-spacing: .18em; color: #81ebd0; }
-    .metric { display: flex; justify-content: space-between; gap: 1em; padding: .46vh 0; font: 500 clamp(9px, .65vw, 13px)/1.2 ui-monospace, monospace; color: #86a69d; }
-    .metric b { color: #f4f0d7; font-weight: 500; text-align: right; }
-    .bar { height: 5px; border-radius: 5px; overflow: hidden; background: #d8fff412; margin: .5vh 0 1.2vh; }
-    .bar span { display: block; height: 100%; width: 42%; background: linear-gradient(90deg,#70e6c6,#ff78ba); box-shadow: 0 0 12px #ff78ba88; }
-    .qr { display: grid; grid-template-columns: minmax(78px, 7vw) 1fr; align-items: center; gap: 1vw; }
-    .qr img { width: 100%; border-radius: 10px; background: #f4f0d7; padding: 6px; }
-    .qr p { margin: 0; font: 500 clamp(9px, .64vw, 13px)/1.45 ui-monospace, monospace; color: #a9c5bb; }
-    .qr strong { display: block; margin-bottom: .4vh; color: #ff78ba; letter-spacing: .08em; }
-    footer { position: fixed; z-index: 2; left: 4.3vw; right: 4.3vw; bottom: 3.4vh; display: flex; justify-content: space-between; align-items: end; gap: 2vw; font: 500 clamp(8px, .58vw, 12px)/1.4 ui-monospace, monospace; letter-spacing: .08em; color: #759088; }
-    footer b { color: #b6d0c7; font-weight: 500; }
-    .legend { display: flex; flex-wrap: wrap; gap: .65vw 1.25vw; max-width: 55vw; }
-    .legend span::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: var(--c); box-shadow: 0 0 10px var(--c); }
-    @media (max-aspect-ratio: 4/3) { aside { width: 28vw; } .sub { max-width: 52vw; } }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #010504; }
+    canvas { position: fixed; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+    .sr-only { position: fixed; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
   </style>
 </head>
 <body>
-  <canvas id="score" aria-label="Animated spatial score of the Intelligent Terrarium organs"></canvas>
-  <header>
-    <div class="eyebrow">JAS-NZXT · LOCAL REHEARSAL · 23 JULY 2026</div>
-    <h1>Intelligent Terrarium<br><i>Mediorgan score</i></h1>
-    <div class="sub">outside prods cross the membrane as stimulus · organs listen and answer · one authority writes the body</div>
-  </header>
-  <aside>
-    <section class="card" data-testid="authority-status">
-      <h2>AUTHORITATIVE BODY</h2>
-      <div class="metric"><span>journal measure</span><b id="seq">000912</b></div>
-      <div class="metric"><span>replay</span><b>VERIFIED</b></div>
-      <div class="metric"><span>state</span><b id="hash">1e0174be</b></div>
-      <div class="metric"><span>writer</span><b>ONE</b></div>
-    </section>
-    <section class="card">
-      <h2>RESIDENT ENVELOPE</h2>
-      <div class="metric"><span>reflection RSS</span><b id="rss">807 MiB</b></div>
-      <div class="bar"><span id="memory-bar"></span></div>
-      <div class="metric"><span>hard ceiling</span><b>2 GiB · SWAP 0</b></div>
-      <div class="metric"><span>inference</span><b id="decision">ACCEPT · SENSORY +.25</b></div>
-      <div class="metric"><span>GPU</span><b>GUARD AUTO-RESUMED</b></div>
-    </section>
-    <section class="card qr" data-testid="join-gate">
-      <img src="score-assets/join-preview.svg" alt="QR code for the future authenticated terrarium web client route">
-      <p><strong>CLIENT GATE · PREVIEW</strong>Scan to remember the intended AC route. Authentication and a reachable gateway remain closed pending Stage 5 approval.</p>
-    </section>
-  </aside>
-  <footer>
-    <div class="legend" aria-label="Organ legend">
-      <span style="--c:#6ee7c5">SENSORY</span><span style="--c:#76bfff">SPATIAL</span><span style="--c:#ff78ba">DRIVE</span>
-      <span style="--c:#f6d66b">MEMORY</span><span style="--c:#c29bff">ACTION</span><span style="--c:#ff9c72">VOICE</span>
-    </div>
-    <div><b>QWEN3 0.6B Q8_0</b> · LLAMA.CPP CPU · CTX 2048 · OUTPUT ≤ 128</div>
-  </footer>
+  <canvas id="imagination" aria-label="The jas-nzxt terrarium imagination, moving like a volumetric pixel lava lamp"></canvas>
+  <div class="sr-only" data-testid="buffer-status">
+    Intelligent Terrarium measure 912. Replay verified. One authoritative writer.
+    Sensory, spatial, drive, memory, action, and voice organs. Reflection accepted:
+    sensory plus 0.25. Two GiB hard ceiling, zero swap. Miner guard auto-resumed.
+    Authenticated client gate remains closed pending Stage 5 approval.
+  </div>
   <script>
-    const canvas = document.querySelector("#score");
-    const ctx = canvas.getContext("2d", { alpha: false });
-    const params = new URLSearchParams(location.search);
-    const state = {
-      seq: params.get("seq") || "912",
-      hash: (params.get("hash") || "1e0174be").slice(0, 8),
-      rss: Math.max(0, Number(params.get("rss") || 807)),
-      decision: (params.get("decision") || "ACCEPT · SENSORY +.25").slice(0, 24),
-    };
-    document.querySelector("#seq").textContent = state.seq.padStart(6, "0");
-    document.querySelector("#hash").textContent = state.hash;
-    document.querySelector("#rss").textContent = `${state.rss} MiB`;
-    document.querySelector("#decision").textContent = state.decision;
-    document.querySelector("#memory-bar").style.width = `${Math.min(100, state.rss / 2048 * 100)}%`;
+    const canvas = document.querySelector("#imagination");
+    const gl = canvas.getContext("webgl2", {
+      alpha: false, antialias: false, depth: false, stencil: false,
+      powerPreference: "high-performance", preserveDrawingBuffer: false,
+    });
+    if (!gl) throw new Error("This volumetric pixel buffer requires WebGL2");
 
-    const organs = [
-      ["SENSORY", "#6ee7c5", .72, .13], ["SPATIAL", "#76bfff", .58, .31],
-      ["DRIVE", "#ff78ba", .72, .52], ["MEMORY", "#f6d66b", .54, .68],
-      ["ACTION", "#c29bff", .72, .82], ["VOICE", "#ff9c72", .57, .94],
-    ];
-    const motes = Array.from({ length: 90 }, (_, i) => ({
-      x: ((i * 47) % 101) / 101, y: ((i * 71) % 97) / 97,
-      z: .2 + ((i * 29) % 73) / 90, p: i * .73,
-    }));
-    function resize() {
-      const dpr = Math.min(devicePixelRatio || 1, 2);
-      canvas.width = Math.floor(innerWidth * dpr); canvas.height = Math.floor(innerHeight * dpr);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    }
-    addEventListener("resize", resize); resize();
-    const line = (x1,y1,x2,y2,color,width=1) => { ctx.strokeStyle=color; ctx.lineWidth=width; ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); };
-    function ellipse(x,y,rx,ry,color,width=1) { ctx.strokeStyle=color; ctx.lineWidth=width; ctx.beginPath(); ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2); ctx.stroke(); }
-    function frame(ms) {
-      const t = ms / 1000, w = innerWidth, h = innerHeight;
-      const bg = ctx.createRadialGradient(w*.56,h*.49,0,w*.56,h*.49,w*.78);
-      bg.addColorStop(0,"#12312a"); bg.addColorStop(.34,"#0b201d"); bg.addColorStop(1,"#050b0b");
-      ctx.fillStyle=bg; ctx.fillRect(0,0,w,h);
+    const vertexSource = `#version 300 es
+      precision highp float;
+      in vec3 a_position;
+      uniform float u_time;
+      uniform float u_aspect;
+      uniform float u_pixel_ratio;
+      out vec4 v_pixel;
 
-      // Perspective measure: the score advances through a spatial field.
-      const horizon=h*.55, floor=h*.88;
-      for (let i=0;i<18;i++) { const q=i/17, y=horizon+(floor-horizon)*q*q; line(w*.035,y,w*.79,y,`rgba(148,228,202,${.035+.08*q})`); }
-      for (let i=0;i<22;i++) { const x=w*.08+i*w*.035; line(w*.47+(x-w*.47)*.18,horizon,x,floor,"rgba(148,228,202,.055)"); }
-
-      // Mediorgan membrane and outside prods.
-      const cx=w*.49, cy=h*.535, rx=w*.245, ry=h*.31;
-      ellipse(cx,cy,rx,ry,"rgba(129,235,208,.2)",1.2);
-      ellipse(cx,cy,rx*1.025,ry*1.04,"rgba(255,120,186,.09)",1);
-      const pulse=(t*.105)%1, px=w*.17+(cx-rx-w*.17)*pulse, py=cy+Math.sin(t*.8)*ry*.55;
-      for(let k=0;k<4;k++) ellipse(px,py,8+k*13+Math.sin(t*3)*3,5+k*8,"rgba(255,120,186,"+(.3-k*.055)+")",1);
-      ctx.fillStyle="#ff78ba"; ctx.beginPath(); ctx.arc(px,py,3.2,0,Math.PI*2); ctx.fill();
-      ctx.font=`${Math.max(9,w*.006)}px ui-monospace, monospace`; ctx.fillStyle="#d397b5"; ctx.fillText("OUTSIDE PROD",Math.max(w*.04,px-55),py-23);
-
-      // Organ staves: each voice writes a distinct spatial measure.
-      const x0=w*.24, x1=w*.72, measure=(t*.055)%1, head=x0+(x1-x0)*measure;
-      for (let i=0;i<organs.length;i++) {
-        const [name,color,amp,phase]=organs[i], base=h*(.30+i*.087);
-        ctx.strokeStyle=color+"2c"; ctx.lineWidth=1; ctx.beginPath();
-        for(let s=0;s<=120;s++) { const q=s/120, x=x0+q*(x1-x0), wave=Math.sin(q*34+i*1.7+t*(.55+i*.06))*h*.008*amp + Math.sin(q*9-t*.2+phase*5)*h*.004; s?ctx.lineTo(x,base+wave):ctx.moveTo(x,base+wave); } ctx.stroke();
-        const y=base+Math.sin(measure*34+i*1.7+t*(.55+i*.06))*h*.008*amp;
-        const glow=ctx.createRadialGradient(head,y,0,head,y,24); glow.addColorStop(0,color); glow.addColorStop(.16,color+"aa"); glow.addColorStop(1,color+"00"); ctx.fillStyle=glow; ctx.fillRect(head-25,y-25,50,50);
-        ctx.fillStyle=color; ctx.beginPath(); ctx.arc(head,y,2.8,0,Math.PI*2); ctx.fill();
-        ctx.font=`600 ${Math.max(9,w*.006)}px ui-monospace, monospace`; ctx.fillStyle=color+"cc"; ctx.fillText(name,x0-73,base+3);
+      float hash31(vec3 p) {
+        p = fract(p * .1031);
+        p += dot(p, p.yzx + 33.33);
+        return fract((p.x + p.y) * p.z);
       }
-      line(head,h*.265,head,h*.775,"rgba(244,240,215,.16)",1);
 
-      // Terrarium entities orbit behind the score; depth changes their note size.
-      for(const m of motes){ const a=t*(.045+m.z*.018)+m.p, ex=cx+Math.cos(a)*rx*m.x, ey=cy+Math.sin(a*1.3)*ry*(m.y-.5)*1.35; const size=.7+m.z*2.3; ctx.fillStyle=`rgba(129,235,208,${.06+m.z*.19})`; ctx.beginPath();ctx.arc(ex,ey,size,0,Math.PI*2);ctx.fill(); }
+      vec3 palette(float t) {
+        vec3 a = vec3(.48, .52, .48);
+        vec3 b = vec3(.48, .42, .50);
+        vec3 c = vec3(1.0, 1.0, 1.0);
+        vec3 d = vec3(.17, .48, .73);
+        return a + b * cos(6.28318 * (c * t + d));
+      }
 
-      // Reflection organ is a slow bounded modulation around the body.
-      const breathe=1+Math.sin(t*.72)*.045;
-      ellipse(cx,cy,rx*.60*breathe,ry*.61*breathe,"rgba(246,214,107,.18)",1);
-      ctx.font=`${Math.max(9,w*.006)}px ui-monospace, monospace`; ctx.fillStyle="#f6d66b99"; ctx.fillText("REFLECTION · ONE REQUEST",cx-rx*.23,cy-ry*.64);
+      mat2 turn(float a) {
+        float s = sin(a), c = cos(a);
+        return mat2(c, -s, s, c);
+      }
+
+      void main() {
+        float t = u_time;
+        vec3 p = a_position;
+        float grain = hash31(p * 19.0 + 7.0);
+
+        // Six organ fields inhabit the same bounded volume. Their overlap is
+        // the visible imagination; no label or panel stands outside it.
+        float field = 0.0;
+        float nearest = 0.0;
+        float voice = 0.0;
+        for (int i = 0; i < 6; i++) {
+          float fi = float(i);
+          float a = fi * 1.0471976 + t * (.071 + fi * .004);
+          vec3 organ = vec3(
+            cos(a) * (.27 + .08 * sin(t * .13 + fi)),
+            sin(a * .57 + fi * 1.71) * .46,
+            sin(a) * (.27 + .07 * cos(t * .11 - fi))
+          );
+          vec3 convection = vec3(
+            sin(p.y * 3.7 + t * .19 + fi) * .065,
+            sin(p.x * 2.3 - p.z * 2.7 + t * .11) * .035,
+            cos(p.y * 3.1 - t * .17 - fi) * .065
+          );
+          vec3 d = p + convection - organ;
+          float pulse = exp(-dot(d, d) * (19.0 + 4.0 * sin(t * .17 + fi)));
+          field += pulse * (1.0 + .22 * sin(t * .41 + fi * 2.1));
+          if (pulse > nearest) { nearest = pulse; voice = fi / 6.0; }
+        }
+
+        float radius = length(p * vec3(1.0, 1.14, 1.0));
+        float membrane = exp(-abs(radius - .72) * 25.0) * .36;
+        float core = exp(-radius * radius * 4.2) * .42;
+        float branches = pow(max(0.0, sin(dot(p, vec3(19.0, 23.0, 17.0)) + t * .27)), 9.0) * .28;
+        float reflection = exp(-abs(radius - (.39 + .025 * sin(t * .72))) * 31.0) * .20;
+        float prod = exp(-abs(length(p - vec3(sin(t * .19) * .92, .12 * sin(t), cos(t * .19) * .92)) - mod(t * .15, .75)) * 24.0) * .24;
+        field = field * .79 + membrane + core + branches + reflection + prod;
+
+        // A deterministic lava-lamp threshold makes imagination appear, merge,
+        // split, and recede without allocating an unbounded object graph.
+        float threshold = .31 + grain * .37 + .045 * sin(t * .09 + grain * 12.0);
+        float activity = smoothstep(threshold - .055, threshold + .055, field);
+        float nerve = smoothstep(.02, .7, nearest) * (.68 + .32 * sin(t * 1.3 + grain * 9.0));
+
+        vec3 q = p;
+        q.xz = turn(t * .075) * q.xz;
+        q.yz = turn(-.21 + sin(t * .051) * .12) * q.yz;
+        float depth = 2.28 + q.z * .82;
+        float perspective = 1.0 / depth;
+        gl_Position = vec4(q.x * 3.55 * perspective / u_aspect, q.y * 2.65 * perspective, 0.0, 1.0);
+        gl_PointSize = max(1.0, u_pixel_ratio * (1.2 + activity * 4.8 + nerve * 1.5) * 2.13 * perspective);
+
+        vec3 color = palette(voice + .06 * sin(t * .08));
+        color = mix(color, vec3(.76, 1.0, .91), membrane * .55 + reflection * .35);
+        color *= .38 + activity * 1.35 + nerve * .48;
+        float alpha = activity * (.12 + .47 * grain) + nerve * .16;
+        v_pixel = vec4(color, alpha);
+      }
+    `;
+
+    const fragmentSource = `#version 300 es
+      precision highp float;
+      in vec4 v_pixel;
+      out vec4 out_color;
+      void main() {
+        if (v_pixel.a < .018) discard;
+        // A square point is intentional: each visible cell is a voxel sample.
+        out_color = v_pixel;
+      }
+    `;
+
+    function shader(type, source) {
+      const value = gl.createShader(type);
+      gl.shaderSource(value, source); gl.compileShader(value);
+      if (!gl.getShaderParameter(value, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(value));
+      return value;
+    }
+    const program = gl.createProgram();
+    gl.attachShader(program, shader(gl.VERTEX_SHADER, vertexSource));
+    gl.attachShader(program, shader(gl.FRAGMENT_SHADER, fragmentSource));
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program));
+    gl.useProgram(program);
+
+    // A fixed 48 × 36 × 48 lattice is the resident volumetric pixel buffer.
+    // Imagination changes shader density; memory use never grows with time.
+    const dimensions = [48, 36, 48];
+    const voxels = new Float32Array(dimensions[0] * dimensions[1] * dimensions[2] * 3);
+    let at = 0;
+    for (let z = 0; z < dimensions[2]; z++) for (let y = 0; y < dimensions[1]; y++) for (let x = 0; x < dimensions[0]; x++) {
+      voxels[at++] = (x / (dimensions[0] - 1) * 2 - 1) * .92;
+      voxels[at++] = (y / (dimensions[1] - 1) * 2 - 1) * .72;
+      voxels[at++] = (z / (dimensions[2] - 1) * 2 - 1) * .92;
+    }
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, voxels, gl.STATIC_DRAW);
+    const position = gl.getAttribLocation(program, "a_position");
+    gl.enableVertexAttribArray(position);
+    gl.vertexAttribPointer(position, 3, gl.FLOAT, false, 0, 0);
+    const timeLocation = gl.getUniformLocation(program, "u_time");
+    const aspectLocation = gl.getUniformLocation(program, "u_aspect");
+    const ratioLocation = gl.getUniformLocation(program, "u_pixel_ratio");
+
+    function resize() {
+      const ratio = Math.min(devicePixelRatio || 1, 2);
+      const width = Math.floor(innerWidth * ratio), height = Math.floor(innerHeight * ratio);
+      if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
+      gl.viewport(0, 0, width, height);
+      gl.uniform1f(aspectLocation, width / height);
+      gl.uniform1f(ratioLocation, ratio);
+    }
+    addEventListener("resize", resize);
+    gl.clearColor(.004, .014, .012, 1.0);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+    function frame(ms) {
+      resize(); gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.uniform1f(timeLocation, ms / 1000);
+      gl.drawArrays(gl.POINTS, 0, voxels.length / 3);
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
