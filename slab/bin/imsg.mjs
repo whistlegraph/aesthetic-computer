@@ -20,7 +20,8 @@
 //   imsg search <text> full-text search; optional --to and --limit
 //   imsg index         incrementally refresh the private local FTS index
 //   imsg use <name>    switch the notification/default contact safely
-//   imsg send <text>   send to an explicitly selected contact via Messages.app
+//   imsg send <text>   send to an explicitly selected contact via Messages.app;
+//                      --rich renders lightweight Markdown as safe styled text
 //   imsg react <kind>  classic Tapback on that contact's latest incoming message
 //   imsg tail          live terminal client (prints + BEL on new inbound)
 //   imsg open          open the Messages.app conversation
@@ -37,6 +38,7 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { join, dirname } from "node:path";
+import { formatRichText } from "../lib/imessage-rich-text.mjs";
 
 const HOME = homedir();
 const CONFIG_PATH =
@@ -1009,11 +1011,23 @@ try {
       // Optional `--to <name|handle>` selects a contact; default otherwise.
       const args = [...rest];
       let toArg = null;
+      const richIndex = args.indexOf("--rich");
+      const rich = richIndex >= 0;
+      if (rich) args.splice(richIndex, 1);
       const ti = args.indexOf("--to");
-      if (ti >= 0) { toArg = args[ti + 1]; args.splice(ti, 2); }
-      const body = args.join(" ").trim();
+      if (ti >= 0) {
+        const candidate = args[ti + 1];
+        if (!candidate || candidate.startsWith("--")) {
+          console.error("imsg send: --to requires a nonempty contact name or handle");
+          process.exit(1);
+        }
+        toArg = candidate;
+        args.splice(ti, 2);
+      }
+      const source = args.join(" ").trim();
+      const body = rich ? formatRichText(source) : source;
       if (!body) {
-        console.error("usage: imsg send <text> [--to <name|handle>]");
+        console.error("usage: imsg send [--rich] <text> [--to <name|handle>]");
         process.exit(1);
       }
       const rcpt = resolveRecipient(cfg, toArg);
@@ -1064,7 +1078,7 @@ try {
       break;
     default:
       console.error(
-        "usage: imsg status|chats [N]|read [N] [--to <name|handle>]|search <text> [--to <name|handle>] [--limit N]|index [--all] [--rebuild]|use <contact>|ack|resolve [--to] <name|handle>|send <text> [--to <name|handle>]|react <kind> --to <name|handle>|tail|open|config",
+        "usage: imsg status|chats [N]|read [N] [--to <name|handle>]|search <text> [--to <name|handle>] [--limit N]|index [--all] [--rebuild]|use <contact>|ack|resolve [--to] <name|handle>|send [--rich] <text> [--to <name|handle>]|react <kind> --to <name|handle>|tail|open|config",
       );
       process.exit(1);
   }

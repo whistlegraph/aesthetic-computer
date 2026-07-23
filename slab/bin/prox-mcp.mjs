@@ -27,6 +27,7 @@ import { join } from "node:path";
 import { homedir, hostname } from "node:os";
 import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
 import { boundedNudge, makeIrisContact, parseAgentAddress } from "../lib/loopboy-family.mjs";
+import { enqueueLoopboyEvent, waitLoopboyEvent } from "../lib/loopboy-inbox.mjs";
 
 const pexec = promisify(execFile);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -325,6 +326,21 @@ async function toolWake({ handle, prompt, by }) {
   if (hits.length > 1) throw new Error(`«${handle}» is ambiguous (${hits.map((r) => `${r.host}:${r.name}`).join(", ")}).`);
   const r = hits[0];
   if (!r.self) throw new Error(`${r.host}:${r.name} runs on another machine — prox_wake currently requires the MCP on the rock's owning host.`);
+
+  // Loopboys never accept Terminal/UI injection. Their own long-polling MCP
+  // call consumes this session-addressed event without touching user focus.
+  if (r.loopboyContact) {
+    await enqueueLoopboyEvent({
+      sessionId: r.id,
+      contact: r.loopboyContact,
+      displayName: r.loopboyContact,
+      kind: "message",
+      prompt: steering,
+      excerpt: String(by || "prox-wake"),
+    });
+    return [{ type: "text", text: `queued ${r.host}:${r.name} in its isolated Loopboy inbox; no Terminal or GUI input was emitted.` }];
+  }
+
   if (!r.ip) throw new Error(`no tailnet ip known for ${r.host} — can't reach its menubar wake path.`);
 
   // Route through the menubar so prox and Loopboy share one re-entry UX:
@@ -382,6 +398,13 @@ async function toolLaunch({ host, agent, cwd, prompt = "", by, loopboyContact = 
   if (!target.ip) throw new Error(`no tailnet IP known for ${target.host}.`);
   const self = (await readJson(LOCAL_FILE))?.host || hostname().split(".")[0];
   const contactKey = String(loopboyContact || "").trim().toLowerCase();
+  const loopboyListenerPrompt = contactKey
+    ? `\n\nLoopboy listener contract: after completing this turn, call prox_loopboy_wait with contact ${contactKey} and timeoutSeconds 50. Call it again after every event or timeout so this client loop remains available. Events arrive only through that private MCP inbox. Never use Terminal, clipboard, mouse, keyboard, browser, or GUI injection to wake or operate this loop.`
+    : "";
+  const launchPrompt = `${String(prompt)}${loopboyListenerPrompt}`.trim();
+  if (launchPrompt.length > 4000) {
+    throw new Error("Loopboy listener instructions make the initial prompt exceed 4000 characters.");
+  }
   const existingMarkerIds = new Set();
   if (contactKey) {
     for (const dir of MARKER_DIRS) {
@@ -393,7 +416,7 @@ async function toolLaunch({ host, agent, cwd, prompt = "", by, loopboyContact = 
   const launcher = by || `${self}:prox`;
   const body = JSON.stringify({
     agent: agentName,
-    prompt: String(prompt),
+    prompt: launchPrompt,
     ...(cwd ? { cwd: String(cwd) } : {}),
     ...(contactKey ? { loopboyContact: contactKey } : {}),
     by: launcher,
@@ -441,7 +464,8 @@ async function toolLaunch({ host, agent, cwd, prompt = "", by, loopboyContact = 
       sessionId: marker.id,
       host: result.host || target.host,
       agent: agentName,
-      wake: true,
+      wake: false,
+      delivery: "inbox",
       assignedAt: new Date().toISOString(),
     };
     await writeFile(LOOPBOY_CONFIG, JSON.stringify(cfg, null, 2) + "\n", { mode: 0o600 });
@@ -453,7 +477,7 @@ async function toolLaunch({ host, agent, cwd, prompt = "", by, loopboyContact = 
   }];
 }
 
-async function toolBindNotification({ handle, contact, event = "imessage", wake = true }) {
+async function toolBindNotification({ handle, contact, event = "imessage" }) {
   if (event !== "imessage") throw new Error("only the `imessage` Slab notification is supported");
   if (!handle) throw new Error("`handle` is required (use the stable host:name or session id)");
   const contactKey = String(contact || "").trim().toLowerCase();
@@ -469,7 +493,8 @@ async function toolBindNotification({ handle, contact, event = "imessage", wake 
     sessionId: r.id,
     host: r.host,
     name: r.name,
-    wake: wake !== false,
+    wake: false,
+    delivery: "inbox",
     assignedAt: new Date().toISOString(),
   };
   await mkdir(join(homedir(), ".config", "slab"), { recursive: true });
@@ -478,7 +503,49 @@ async function toolBindNotification({ handle, contact, event = "imessage", wake 
   cfg.loops ||= {};
   cfg.loops[contactKey] = loop;
   await writeFile(LOOPBOY_CONFIG, JSON.stringify(cfg, null, 2) + "\n", { mode: 0o600 });
-  return [{ type: "text", text: `Loopboy bound ${contactKey} → ${r.host}:${r.name} (${r.id}) — poke${loop.wake ? " + reactivate" : " only"}.` }];
+  return [{ type: "text", text: `Loopboy bound ${contactKey} → ${r.host}:${r.name} (${r.id}) — isolated inbox delivery; no Terminal/UI injection.` }];
+}
+
+async function toolLoopboyWait({ handle, contact, timeoutSeconds = 50 }) {
+  const cfg = await readJson(LOOPBOY_CONFIG);
+  const loops = cfg?.loops || {};
+  const boundContact = String(process.env.SLAB_LOOPBOY_CONTACT || "").trim().toLowerCase();
+  if (!boundContact) {
+    throw new Error("prox_loopboy_wait is available only inside a SLAB_LOOPBOY_CONTACT session");
+  }
+  const requestedContact = String(contact || "").trim().toLowerCase();
+  if (requestedContact && requestedContact !== boundContact) {
+    throw new Error(`this Loopboy is bound to ${boundContact}, not ${requestedContact}`);
+  }
+  let contactKey = boundContact;
+  let loop = contactKey ? loops[contactKey] : null;
+  if (!loop && handle) {
+    const hits = resolve(await allRocks(), handle);
+    if (!hits.length) throw new Error(`no rock resolves «${handle}» for Loopboy wait.`);
+    if (hits.length > 1) throw new Error(`«${handle}» is ambiguous.`);
+    const rock = hits[0];
+    const found = Object.entries(loops).find(([, value]) => value?.sessionId === rock.id);
+    if (found) [contactKey, loop] = found;
+  }
+  if (!loop?.sessionId) {
+    throw new Error("Loopboy wait requires a bound `contact` or Loopboy `handle`.");
+  }
+  const seconds = Math.max(0, Math.min(55, Number(timeoutSeconds) || 0));
+  const event = await waitLoopboyEvent(loop.sessionId, { timeoutMs: seconds * 1000 });
+  if (!event) {
+    return [{
+      type: "text",
+      text: `No event arrived for Loopboy ${contactKey} during this wait. Call prox_loopboy_wait again; do not poll Messages through GUI automation.`,
+    }];
+  }
+  return [{
+    type: "text",
+    text: [
+      `Loopboy inbox event for ${contactKey} (${event.kind}, ${event.createdAt}).`,
+      event.prompt,
+      "After handling this event, call prox_loopboy_wait again to remain available. Never use Terminal, clipboard, mouse, keyboard, browser, or GUI injection.",
+    ].filter(Boolean).join("\n\n"),
+  }];
 }
 
 async function toolClose({ handle }) {
@@ -625,7 +692,7 @@ const TOOLS = [
         cwd: { type: "string", description: "Optional absolute directory on the target. Defaults to its aesthetic-computer checkout and must stay under its home folder." },
         prompt: { type: "string", description: "Optional initial prompt, at most 4000 characters. Omit to open an idle TUI." },
         by: { type: "string", description: "Optional caller label recorded by the target." },
-        loopboyContact: { type: "string", description: "Optional iMessage contact key. Launches a direct-terminal Loopboy and binds it after its live marker appears." },
+        loopboyContact: { type: "string", description: "Optional iMessage contact key. Launches a guarded Loopboy, binds its isolated inbox after the live marker appears, and starts its listener contract." },
       },
       required: ["host", "agent"],
     },
@@ -633,16 +700,28 @@ const TOOLS = [
   {
     name: "prox_bind_notification",
     description:
-      "Create or replace one contact-keyed Loopboy route from iMessage to a stable local prox. Every new inbound from that contact pokes the rock and, by default, reactivates its terminal session with a steering prompt. This does not send or react to the incoming message.",
+      "Create or replace one contact-keyed Loopboy route from iMessage to a stable local prox. Events are delivered only through that session's isolated inbox and prox_loopboy_wait; this never types into Terminal or other user-space UI.",
     inputSchema: {
       type: "object",
       properties: {
         handle: { type: "string", description: "Stable local host:name, session id, or an unambiguous subject fragment." },
         contact: { type: "string", description: "Contact key from ~/.config/slab/imsg.json, for example alex." },
         event: { type: "string", enum: ["imessage"], default: "imessage" },
-        wake: { type: "boolean", default: true, description: "Also reactivate the agent session; false means visual poke only." },
       },
       required: ["handle", "contact"],
+    },
+  },
+  {
+    name: "prox_loopboy_wait",
+    description:
+      "Wait up to 55 seconds for the next event in one bound Loopboy session's isolated inbox. The event is claimed exactly once and returned only to that session/contact. This is the safe replacement for Terminal, clipboard, mouse, and keyboard wake injection. Call it again after handling each event.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        handle: { type: "string", description: "Bound Loopboy host:name or session id. Either handle or contact is required." },
+        contact: { type: "string", description: "Bound iMessage contact key, for example alex or loretta." },
+        timeoutSeconds: { type: "number", minimum: 0, maximum: 55, default: 50 },
+      },
     },
   },
   {
@@ -680,6 +759,7 @@ async function callTool(name, args) {
     case "prox_artifact_ready": return toolArtifactReady(args || {});
     case "prox_launch": return toolLaunch(args || {});
     case "prox_bind_notification": return toolBindNotification(args || {});
+    case "prox_loopboy_wait": return toolLoopboyWait(args || {});
     case "prox_loopboy_agent_status": return toolLoopboyAgentStatus(args || {});
     case "prox_loopboy_agent_nudge": return toolLoopboyAgentNudge(args || {});
     case "prox_close": return toolClose(args || {});

@@ -101,7 +101,9 @@ polling.
 Loopboy is Slab's client-loop router. Routes in
 `~/.config/slab/loopboy.json` map one private iMessage contact key to one local
 prox session. New inbound messages poke and optionally wake only that contact's
-rock; Loopboy never replies on its own. Armed Loopboy rocks spin faster, wear a
+rock. Heartbeats and messages are written to a private, per-session inbox and
+consumed by `prox_loopboy_wait`; they never type into Terminal, use the
+clipboard, or move focus. Loopboy never replies on its own. Armed Loopboy rocks spin faster, wear a
 pink glow, and identify themselves in their hover bubble. The Slab menu lists
 all active client loops and their prox targets.
 

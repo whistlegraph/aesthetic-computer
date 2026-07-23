@@ -104,7 +104,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// become observation-only and spend no agent turn/tokens.
     private var loopboyEvaluatedFingerprint: [String: String] = [:]
     private var loopboyEvaluatedAt: [String: Date] = [:]
-    private var loopboyWakeInFlight = Set<String>()
     /// Generic prox bumps use the same re-entry primitive and overlap guard as
     /// Loopboy, keyed by stable session id instead of contact.
     private var proxWakeInFlight = Set<String>()
@@ -845,10 +844,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             || Date() < imsgArrivalVisibleUntil
     }
 
-    /// Poke the prox explicitly assigned to iMessage awareness and optionally
-    /// submit a small steering prompt to its live TTY. This is deliberately
-    /// opt-in via an untracked binding file; Slab never guesses which agent to
-    /// wake. A route may separately opt into a validated automatic response.
+    /// Poke the prox explicitly assigned to iMessage awareness and enqueue a
+    /// session-addressed event for its long-polling MCP listener. Loopboy must
+    /// never type into Terminal, touch the clipboard, or use foreground UI.
     private func bumpBoundProx(contact: String, displayLabel: String, message: String,
                                fromMe: Bool = false, heartbeat: Bool = false) {
         guard let data = FileManager.default.contents(atPath: Paths.loopboyConfig),
@@ -865,10 +863,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                   contact, routeHost, localHost)
             return
         }
-        let wake = (loop["wake"] as? Bool) ?? false
         let autoRespond = (loop["autoRespond"] as? Bool) ?? false
         LedgerStore.shared.pokeLocal(sessionId: sid, by: "loopboy:\(contact)")
-        guard wake, let tty = ttyForSession(sid), !tty.isEmpty else { return }
 
         let clean = message.replacingOccurrences(of: "\n", with: " ")
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -876,7 +872,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let direction = fromMe ? "outgoing to" : "incoming from"
         let boundSession = state.claudeSessions.first(where: { $0.sessionId == sid })
         let responsePolicy = autoRespond
-            ? " This route explicitly authorizes automatic responses: after completing and validating any work, reread the newest thread context, discard stale drafts, send one appropriate reply using `node slab/bin/imsg.mjs send <reply> --to \(contact)`, and verify it appears outbound. Never duplicate a response."
+            ? " This route explicitly authorizes automatic responses: after completing and validating any work, reread the newest thread context, discard stale drafts, compose concise Markdown with paragraphs, bullets, links, and restrained emphasis, then send one appropriate reply using `node slab/bin/imsg.mjs send --rich <reply> --to \(contact)`. Verify it appears outbound. Never duplicate a response."
             : " Do not send or react automatically."
         let taskPrompt: String
         if heartbeat {
@@ -899,36 +895,58 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         let localOnly = " Execution boundary: remain on this local Neo host and use only non-interactive shell, repository, HTTP, and service API operations. Do not use browser automation, Puppet, Frame, CDP, GUI apps, mouse or keyboard control, open/reveal commands, SSH, or any other machine—including Panda or Blueberry—unless Jeffrey explicitly requests that exact interactive action in the current thread. If validation would require GUI control, report the blocker locally instead."
         let prompt = taskPrompt + localOnly
-        let providerId = boundSession?.providerSessionId ?? ""
-        let nudgeScreen = boundSession?.nudgeScreen ?? ""
-        let sessionCwd = boundSession?.cwd ?? Paths.acRepo
-        let agentType = boundSession?.agentType ?? "claude"
-        guard !loopboyWakeInFlight.contains(contact) else {
-            NSLog("💬 [loopboy] \(contact) wake already in flight; coalescing")
-            return
-        }
-        loopboyWakeInFlight.insert(contact)
-        if heartbeat {
-            PromptSigilOverlayController.shared.flyPrompt(sessionId: sid, text: prompt)
-        }
-        wakeTerminal(tty: tty, prompt: prompt, providerSessionId: providerId,
-                     nudgeScreen: nudgeScreen, cwd: sessionCwd,
-                     agentType: agentType) { [weak self] status in
-            DispatchQueue.main.async {
-                self?.loopboyWakeInFlight.remove(contact)
-                NSLog("💬 [loopboy] \(contact) wake finished status=\(status) prox=\(sid.prefix(8))")
-                if status == 2 || status == 3 || status == 4 {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
-                        self?.bumpBoundProx(contact: contact,
-                                            displayLabel: displayLabel,
-                                            message: message,
-                                            fromMe: fromMe,
-                                            heartbeat: heartbeat)
-                    }
+        let queued = enqueueLoopboyEvent(
+            sessionId: sid, contact: contact, displayName: displayLabel,
+            kind: heartbeat ? "heartbeat" : "message", fromMe: fromMe,
+            excerpt: excerpt, prompt: prompt)
+        NSLog("💬 [loopboy] %@ event %@ inbox=%@ prox=%@",
+              contact, heartbeat ? "heartbeat" : "message",
+              queued ? "queued" : "failed", String(sid.prefix(8)))
+    }
+
+    private func enqueueLoopboyEvent(sessionId: String, contact: String,
+                                     displayName: String, kind: String,
+                                     fromMe: Bool, excerpt: String,
+                                     prompt: String) -> Bool {
+        guard sessionId.range(of: "^[A-Za-z0-9-]{8,128}$",
+                              options: .regularExpression) != nil else { return false }
+        let dir = "\(Paths.slabHome)/loopboy/inbox/\(sessionId)"
+        do {
+            try FileManager.default.createDirectory(
+                atPath: dir, withIntermediateDirectories: true,
+                attributes: [.posixPermissions: 0o700])
+            let id = UUID().uuidString
+            let event: [String: Any] = [
+                "version": 1,
+                "id": id,
+                "sessionId": sessionId,
+                "contact": contact,
+                "displayName": displayName,
+                "kind": kind,
+                "fromMe": fromMe,
+                "excerpt": String(excerpt.prefix(500)),
+                "prompt": String(prompt.prefix(6000)),
+                "createdAt": ISO8601DateFormatter().string(from: Date()),
+            ]
+            let data = try JSONSerialization.data(withJSONObject: event)
+            let stamp = String(Int(Date().timeIntervalSince1970 * 1000))
+            if kind == "heartbeat", let names = try? FileManager.default.contentsOfDirectory(atPath: dir) {
+                for name in names where name.range(
+                    of: "^[0-9]{13}-heartbeat-.*\\.json$",
+                    options: .regularExpression) != nil {
+                    try? FileManager.default.removeItem(atPath: "\(dir)/\(name)")
                 }
             }
+            let final = URL(fileURLWithPath: "\(dir)/\(stamp)-\(kind)-\(id).json")
+            try data.write(to: final, options: .atomic)
+            try? FileManager.default.setAttributes(
+                [.posixPermissions: 0o600], ofItemAtPath: final.path)
+            return true
+        } catch {
+            NSLog("💬 [loopboy] inbox write failed for %@: %@",
+                  String(sessionId.prefix(8)), error.localizedDescription)
+            return false
         }
-        NSLog("💬 [loopboy] \(contact) poked + starting wake prox \(sid.prefix(8)) on \(tty)")
     }
 
     /// Receive one bounded prox continuation from the ledger server and route

@@ -33,6 +33,7 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 
 sid=$(uuidgen)
+export SLAB_PROMPT_SESSION_ID="$sid"
 begin=$(date +%s)
 # The wrapper (this bash process) is the parent of codex and holds the tab's
 # controlling tty — use it for liveness and graceful prompt parking.
