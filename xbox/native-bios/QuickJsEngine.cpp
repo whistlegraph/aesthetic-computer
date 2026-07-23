@@ -446,6 +446,11 @@ JSValue RuntimeInfo(JSContext* context, JSValueConst, int, JSValueConst*) {
   JS_SetPropertyStr(context, result, "midiEvents", JS_NewInt64(context, scope->api->audio.midi_events));
   JS_SetPropertyStr(context, result, "midiNote", JS_NewInt32(context, scope->api->audio.midi_note));
   JS_SetPropertyStr(context, result, "midiVelocity", JS_NewInt32(context, scope->api->audio.midi_velocity));
+  JS_SetPropertyStr(context, result, "midiChannel", JS_NewInt32(context, scope->api->audio.midi_channel));
+  JS_SetPropertyStr(context, result, "midiPitchBend", JS_NewInt32(context, scope->api->audio.midi_pitch_bend));
+  JS_SetPropertyStr(context, result, "midiControl", JS_NewInt32(context, scope->api->audio.midi_control));
+  JS_SetPropertyStr(context, result, "midiControlValue", JS_NewInt32(context, scope->api->audio.midi_control_value));
+  JS_SetPropertyStr(context, result, "midiGate", JS_NewBool(context, scope->api->audio.midi_gate));
   JS_SetPropertyStr(context, result, "midiStatus", JS_NewString(context, scope->api->audio.midi_status.c_str()));
   return result;
 }

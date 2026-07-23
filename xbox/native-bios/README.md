@@ -25,6 +25,12 @@ continuous `oscillator` / `oscillatorStop`, `controllers`, `gamepad`,
 clock-chat, and painting endpoints; sandboxed pieces do not receive a general
 HTTP primitive. Runtime failures roll back to the last known good piece.
 
+Revision 22 turns the existing `Windows.Devices.Midi` probe into a hot-plug
+monophonic instrument. Note On/Off gates a native XAudio2 sine oscillator,
+14-bit pitch bend shifts it continuously, CC1 is exposed for modulation, and
+CC7 controls level. `runtime()` reports the gate, channel, note, velocity,
+pitch bend, last controller/value, port status, and input-to-audio latency.
+
 Revision 13 also exposes bounded `stampPainting` and `blur` primitives to the
 trusted host-side KidLisp compiler. See [`../KIDLISP-NATIVE.md`](../KIDLISP-NATIVE.md)
 for the supported subset and `$obk` wire-deploy flow.

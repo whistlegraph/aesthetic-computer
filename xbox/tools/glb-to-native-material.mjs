@@ -137,8 +137,8 @@ const stars = Array.from({ length: 72 }, () => [
   next() > 0.82 ? 3 : 2, Math.round(125 + next() * 120),
 ]);
 
-let code = `// Pals Material Skybox, 26.07.22
-// Connected Pals GLB plus the 24-joint ThespianJas Meshy idle skin.
+let code = `// Jeffrey Portrait Skybox, 26.07.23
+// Camera-facing ThespianJas portrait, colored terrain, Pals, and fireflies.
 const vertices=${JSON.stringify(vertices)};
 const faces=${JSON.stringify(faceRows)};
 const stars=${JSON.stringify(stars)};
@@ -178,7 +178,7 @@ function emitSprite(x,y,z,size,r,g,b,frame){
 }
 function boot(){
   oscillator(55,.06);
-  telemetry("PALS_MATERIAL_BOOT","pals=${indices.length / 3} jeffrey=${skinBake ? skinBake.triangles : 0} joints=${skinBake ? skinBake.joints : 0} material=uv-texture lights=3 shadows=1 stencil=d24s8 fog=depth sprites=point post=fullscreen attract=2.5d audio=harmonic-xaudio2");
+  telemetry("PALS_MATERIAL_BOOT","pals=${indices.length / 3} jeffrey=${skinBake ? skinBake.triangles : 0} joints=${skinBake ? skinBake.joints : 0} material=uv-texture portrait=front lights=3 terrain=color fireflies=world midi=note-gate-bend-cc audio=sine-xaudio2");
 }
 function sim(){
   const pad=gamepad(),run=runtime(),t=run.monotonicUs/1000000;
@@ -203,7 +203,14 @@ function sim(){
   cameraX+=((playerX-1315)*.3-cameraX)*Math.min(1,dt*2.6);
   scenePulse*=.92;
   if(run.midiEvents>lastMidiEvent){lastMidiEvent=run.midiEvents;scenePulse=1;}
-  if(audioOn&&t-lastSoundAt>.05){
+  if(audioOn&&run.midiGate){
+    const bend=((run.midiPitchBend||8192)-8192)/8192*2;
+    const mod=run.midiControl===1?(run.midiControlValue||0)/127:0;
+    const vibrato=Math.sin(t*(5+mod*3))*mod*.22;
+    oscillator(440*Math.pow(2,((run.midiNote||69)-69+bend+vibrato)/12),
+      Math.max(.02,(run.midiVelocity||1)/127*.34));
+    lastSoundAt=t;
+  }else if(audioOn&&t-lastSoundAt>.05){
     const roots=[55,65.406,73.416,82.407];
     const root=roots[Math.floor(t/4)%roots.length];
     oscillator(root*(1+.012*Math.sin(t*.37)+.004*Math.sin(t*1.71)),.06+scenePulse*.04);
@@ -218,9 +225,13 @@ function rotate(point,ax,ay){
   return [x,y,point[1]*Math.sin(ax)+z*Math.cos(ax)];
 }
 function skybox(t){
-  wipe(3,5,18);
-  box(0,700,1920,4,64,38,86);
-  box(0,704,1920,7,32,22,58);
+  wipe(30,19,74);
+  const skyBands=[[43,28,101],[56,36,128],[76,48,151],[104,64,162],[147,86,166],[205,124,162],[242,166,151]];
+  for(let band=0;band<skyBands.length;band++){
+    const color=skyBands[band],y=band*100;
+    box(0,y,1920,104,color[0],color[1],color[2]);
+  }
+  box(0,690,1920,15,255,168,126);
   for(let index=0;index<stars.length;index++){
     const star=stars[index];
     const pulse=.62+.38*Math.sin(t*.7+star[0]*.017+star[1]*.009);
@@ -236,10 +247,29 @@ function skybox(t){
     line(x,y,x-62,y-31,2,210,198,255);
     box(x-2,y-2,5,5,240,236,255);
   }
-  for(let lane=-5;lane<=5;lane++)line(960,710,960+lane*245,1080,1,21,16,42);
+  const groundBands=[[38,35,93],[34,52,105],[28,70,112],[24,88,113],[29,105,106],[45,119,96]];
+  for(let row=0;row<groundBands.length;row++){
+    const color=groundBands[row],y=705+row*63;
+    box(0,y,1920,66,color[0],color[1],color[2]);
+  }
+  for(let lane=-5;lane<=5;lane++)line(960,710,960+lane*245,1080,1,87,156,151);
   for(let row=0;row<6;row++){
     const y=725+Math.pow(row/5,1.7)*345;
-    line(0,y,1920,y,1,18+row*2,14+row,38+row*3);
+    line(0,y,1920,y,1,70+row*8,121+row*7,130+row*5);
+  }
+}
+function fireflies(t){
+  // Environmental emitters live in world space, independent of Jeffrey's
+  // joints. Three depth layers create slow firefly parallax across the field.
+  for(let i=0;i<108;i++){
+    const layer=i%3,phase=i*2.399+t*(.19+layer*.055);
+    const drift=(t*(18+layer*13)+i*173)%2100-90;
+    const x=(drift+Math.sin(phase*.73)*76+2100)%2100-90;
+    const y=170+(i*83)%710+Math.sin(phase)*42;
+    const pulse=.35+.65*Math.pow(.5+.5*Math.sin(t*2.1+i*.91),3);
+    const size=(2+layer*2+pulse*4),z=.58+layer*.16;
+    const warm=i%5===0;
+    emitSprite(x,y,z,size,warm?255:132,warm?194:255,warm?94:205,i&1);
   }
 }
 function orbitalScene(t,run){
@@ -294,14 +324,17 @@ function animatedJeffrey(t){
   const position=(clipTime%jeffrey.duration)/jeffrey.duration*jeffrey.frameCount;
   const frame0=Math.floor(position)%jeffrey.frameCount,frame1=(frame0+1)%jeffrey.frameCount,mix=position-Math.floor(position);
   const source0=jeffrey.frames[frame0],source1=jeffrey.frames[frame1];
-  const lean=clamp(playerVelocity/285,-1,1)*-.12;
-  const angle=-.22+Math.sin(t*.23)*.08+lean,cos=Math.cos(angle),sin=Math.sin(angle);
+  // Portrait framing: keep the generated face square to the camera and allow
+  // only a small living idle turn. D-pad motion shifts the portrait without
+  // flipping it into a profile view.
+  const angle=Math.sin(t*.23)*.018,cos=Math.cos(angle),sin=Math.sin(angle);
   const world=source0.map((point,index)=>{
-    const next=source1[index],x=(point[0]+(next[0]-point[0])*mix)*playerFacing;
+    const next=source1[index],x=point[0]+(next[0]-point[0])*mix;
     const y=point[1]+(next[1]-point[1])*mix,z=point[2]+(next[2]-point[2])*mix;
     return [x*cos-z*sin,y,x*sin+z*cos];
   });
-  const cx=playerX-cameraX,ground=722-(moving?Math.abs(Math.sin(runPhase*Math.PI))*10:0),scale=260;
+  const cx=960+(playerX-1315)*.16-cameraX*.08;
+  const ground=1125-(moving?Math.abs(Math.sin(runPhase*Math.PI))*4:0),scale=720;
   const points=world.map((point)=>[cx+point[0]*scale,ground-point[1]*scale,point[2]+.05]);
   // Project a bounded subset onto the floor for a moving cast-shadow pass.
   for(let index=0;index<jeffrey.faces.length;index+=8){
@@ -323,8 +356,8 @@ function animatedJeffrey(t){
     const a=world[face[0]],b=world[face[1]],c=world[face[2]];
     const ux=b[0]-a[0],uy=b[1]-a[1],uz=b[2]-a[2],vx=c[0]-a[0],vy=c[1]-a[1],vz=c[2]-a[2];
     let nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx;
-    const length=Math.hypot(nx,ny,nz);if(length<.00001||nz*playerFacing>=0)continue;
-    nx=-nx*playerFacing/length;ny=-ny*playerFacing/length;nz=-nz*playerFacing/length;
+    const length=Math.hypot(nx,ny,nz);if(length<.00001||nz>=0)continue;
+    nx=-nx/length;ny=-ny/length;nz=-nz/length;
     let red=.28,green=.28,blue=.32;
     for(const light of lights){
       const amount=Math.max(0,nx*light[0]+ny*light[1]+nz*light[2]);
@@ -343,22 +376,9 @@ function animatedJeffrey(t){
   const jointPoints=joints0.map((point,index)=>{
     const next=joints1[index],x=point[0]+(next[0]-point[0])*mix;
     const y=point[1]+(next[1]-point[1])*mix,z=point[2]+(next[2]-point[2])*mix;
-    return [cx+((x*playerFacing)*cos-z*sin)*scale,ground-y*scale];
+    return [cx+(x*cos-z*sin)*scale,ground-y*scale];
   });
   for(const bone of jeffrey.bones){const a=jointPoints[bone[0]],b=jointPoints[bone[1]];line(a[0],a[1],b[0],b[1],2,102,242,214);}
-  // Two point-sampled billboard emitters tied to animated ankle/hand space.
-  for(let emitter=0;emitter<2;emitter++)for(let i=0;i<34;i++){
-    const life=(t*(.38+emitter*.08)+i*.071)%1,phase=i*2.399+emitter*1.7;
-    const x=cx+(emitter?88:-84)+Math.sin(phase+t*.7)*life*85;
-    const y=ground-18-life*310+Math.cos(phase*1.3)*22;
-    const size=2+((i+emitter)%4),z=-.18+life*.5;
-    const r=emitter?255:72,g=emitter?96:228,b=emitter?156:255;
-    emitSprite(x,y,z,size*2,r,g,b,(i+emitter)&1);
-  }
-  if(moving)for(let i=0;i<18;i++){
-    const life=(runPhase*.7+i*.083)%1;
-    emitSprite(cx-playerFacing*(28+life*92),ground-4-life*34,.7,5+(i%3)*3,174,126,224,i&1);
-  }
 }
 function paint(){
   const run=runtime(),t=run.monotonicUs/1000000;
@@ -374,13 +394,14 @@ function paint(){
   }
   skybox(t);
   orbitalScene(t,run);
+  fireflies(t);
   animatedJeffrey(t);
   const ax=rotationX+Math.sin(t*.31)*.1;
   const ay=rotationY+t*.72;
   const world=vertices.map((point)=>rotate(point,ax,ay));
   const points=world.map((point)=>{
-    const scale=930/(3.45+point[2]);
-    return [960-cameraX*.38+point[0]*scale,530-point[1]*scale,point[2]];
+    const scale=470/(3.45+point[2]);
+    return [1510-cameraX*.08+point[0]*scale,310-point[1]*scale,point[2]];
   });
   const light=[Math.sin(t*.31)*.48,-.56,.72];
   const lightLength=Math.hypot(light[0],light[1],light[2]);
@@ -414,16 +435,12 @@ function paint(){
   submitSpriteBatch(spriteBatch,spriteBatchIndex/8);
   const audioLatency=run.audioLatencyMs>0?run.audioLatencyMs.toFixed(1)+" MS":"MEASURING";
   const audioSubmit=Number(run.audioSubmitUs||0),inputToAudio=Number(run.inputToAudioUs||0);
-  const midi=run.midiInputs>0?run.midiInputs+" IN / NOTE "+run.midiNote+" / #"+(run.midiEvents||0):"NO MIDI INPUT";
+  const midi=run.midiInputs>0?run.midiInputs+" IN / "+(run.midiGate?"ON ":"OFF ")+"NOTE "+run.midiNote+" / BEND "+(run.midiPitchBend||8192)+" / CC "+(run.midiControl||0)+":"+(run.midiControlValue||0):"NO MIDI INPUT";
   const clock=run.clockSynced?(run.clockOffsetMs>=0?"+":"")+run.clockOffsetMs+" MS / RTT "+run.clockRttMs+" MS":"SYNCING";
-  box(36,34,520,132,8,10,29);
-  line(36,92,556,92,2,92,66,126);
-  systemWrite(fpsLabel+" / "+frameMsLabel,52,46,25,224,218,255);
-  systemWrite("AUDIO "+audioLatency+" / SUBMIT "+audioSubmit.toFixed(1)+" US / GLITCH "+(run.audioGlitches||0)+"\\nMIDI "+midi+" / EVENT>VOICE "+inputToAudio.toFixed(1)+" US\\nNET CLOCK "+clock,52,104,17,176,194,228);
-  box(1384,34,500,384,7,9,25);
-  line(1384,98,1884,98,2,92,66,126);
-  systemWrite("STACK / LIVE PIPELINE",1412,52,27,234,228,255);
-  systemWrite("PALS + UV-TEXTURED JEFFREY\\n> 24-JOINT 2.5D ATTRACT RUN\\n> D-PAD LEFT / RIGHT CONTROL\\n> 3 LIGHTS + D24S8 STENCIL\\n> DEPTH FOG + POINT SPRITES\\n> FULLSCREEN POST SHADER\\n> 3 BATCHED GPU DRAWS\\n> XAUDIO2 + MIDI + NET CLOCK\\n> PRESENT(1) / 60 HZ VSYNC",1412,116,19,190,176,224);
+  box(30,28,370,52,27,21,70);
+  systemWrite(fpsLabel+" / "+frameMsLabel,48,38,23,245,232,255);
+  box(1140,28,750,78,27,21,70);
+  systemWrite("MIDI "+midi+" / "+inputToAudio.toFixed(0)+" US\\nAUDIO "+audioLatency+" / CLOCK "+clock,1160,38,18,227,224,255);
 }
 function act(button){
   lastButton=button;scenePulse=1;

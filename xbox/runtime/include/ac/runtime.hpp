@@ -128,6 +128,11 @@ struct AudioStats {
   std::uint64_t midi_events = 0;
   int midi_note = -1;
   int midi_velocity = 0;
+  int midi_channel = 0;
+  int midi_pitch_bend = 8192;
+  int midi_control = -1;
+  int midi_control_value = 0;
+  bool midi_gate = false;
   std::string midi_status = "scanning";
 };
 

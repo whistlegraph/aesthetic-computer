@@ -650,13 +650,16 @@ private:
     Check(m_device->CreateShaderResourceView(atlasTexture.Get(), nullptr, &m_spriteAtlasView));
 
     const auto jeffreyPixels = ReadPackageBytes(L"Assets\\JeffreyTexture.rgba");
-    if (jeffreyPixels.size() == 256 * 256 * 4) {
-      texture.Width = 256; texture.Height = 256;
-      pixels.pSysMem = jeffreyPixels.data(); pixels.SysMemPitch = 256 * 4;
+    const auto jeffreySide = static_cast<UINT>(std::sqrt(jeffreyPixels.size() / 4.0));
+    if (jeffreySide >= 256 && jeffreySide <= 2048 &&
+        static_cast<std::size_t>(jeffreySide) * jeffreySide * 4 == jeffreyPixels.size()) {
+      texture.Width = jeffreySide; texture.Height = jeffreySide;
+      pixels.pSysMem = jeffreyPixels.data(); pixels.SysMemPitch = jeffreySide * 4;
       ComPtr<ID3D11Texture2D> jeffreyTexture;
       Check(m_device->CreateTexture2D(&texture, &pixels, &jeffreyTexture));
       Check(m_device->CreateShaderResourceView(jeffreyTexture.Get(), nullptr,
         &m_jeffreyTextureView));
+      m_jeffreyTextureSize = jeffreySide;
     }
 
     D3D11_SAMPLER_DESC sampler{};
@@ -664,14 +667,17 @@ private:
     sampler.AddressU = sampler.AddressV = sampler.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
     sampler.MaxLOD = D3D11_FLOAT32_MAX;
     Check(m_device->CreateSamplerState(&sampler, &m_pointSampler));
+    sampler.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+    Check(m_device->CreateSamplerState(&sampler, &m_linearSampler));
     LogTelemetry("AC_NATIVE_GPU_SPRITES ready=1 max=512 atlas=16x8 filter=point jeffreyTexture=" +
-      std::string(m_jeffreyTextureView ? "256x256" : "missing"));
+      (m_jeffreyTextureView ? std::to_string(m_jeffreyTextureSize) + "x" +
+        std::to_string(m_jeffreyTextureSize) + " filter=linear" : "missing"));
   }
 
   bool DrawGpuTexturedTriangles() {
     if (m_frameTexturedTriangles.empty()) return true;
     if (!m_spriteVertexBuffer || !m_spriteVertexShader || !m_spritePixelShader ||
-        !m_jeffreyTextureView || !m_triangleDepthView) return false;
+        !m_jeffreyTextureView || !m_linearSampler || !m_triangleDepthView) return false;
     D3D11_MAPPED_SUBRESOURCE mapped{};
     if (FAILED(m_context->Map(m_spriteVertexBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD,
         0, &mapped))) return false;
@@ -699,7 +705,7 @@ private:
     m_context->VSSetShader(m_spriteVertexShader.Get(), nullptr, 0);
     m_context->PSSetShader(m_spritePixelShader.Get(), nullptr, 0);
     m_context->PSSetShaderResources(0, 1, m_jeffreyTextureView.GetAddressOf());
-    m_context->PSSetSamplers(0, 1, m_pointSampler.GetAddressOf());
+    m_context->PSSetSamplers(0, 1, m_linearSampler.GetAddressOf());
     m_context->RSSetState(m_triangleRasterState.Get());
     m_context->OMSetDepthStencilState(m_triangleDepthState.Get(), 1);
     m_context->OMSetRenderTargets(1, m_sceneTarget.GetAddressOf(), m_triangleDepthView.Get());
@@ -862,9 +868,7 @@ private:
     m_oscSamples.resize(oscillatorFrames);
     for (uint32_t i = 0; i < oscillatorFrames; ++i) {
       const double phase = tau * i / oscillatorFrames;
-      const double harmonic = std::sin(phase) + .23 * std::sin(phase * 2) +
-        .11 * std::sin(phase * 3) + .045 * std::sin(phase * 5);
-      m_oscSamples[i] = static_cast<int16_t>(harmonic * 12500.0);
+      m_oscSamples[i] = static_cast<int16_t>(std::sin(phase) * 15500.0);
     }
     m_oscBuffer = {};
     m_oscBuffer.AudioBytes = static_cast<UINT32>(m_oscSamples.size() * sizeof(int16_t));
@@ -965,9 +969,18 @@ private:
       std::to_string(m_api->audio.glitches) + " midi=" + m_api->audio.midi_status);
   }
 
-  struct PendingMidiEvent { int note = 0, velocity = 0; long long qpc = 0; };
+  enum class MidiEventKind { NoteOn, NoteOff, PitchBend, ControlChange };
+  struct PendingMidiEvent {
+    MidiEventKind kind = MidiEventKind::NoteOn;
+    int channel = 0;
+    int data1 = 0;
+    int data2 = 0;
+    long long qpc = 0;
+  };
 
   void InitializeMidi() {
+    bool expected = false;
+    if (m_midiInPort || !m_midiScanInFlight.compare_exchange_strong(expected, true)) return;
     create_task(DeviceInformation::FindAllAsync(MidiInPort::GetDeviceSelector()))
       .then([this](DeviceInformationCollection^ devices) {
         if (!m_api) return create_task([] {});
@@ -1003,6 +1016,8 @@ private:
           if (m_api) m_api->audio.midi_status = "error";
           LogTelemetry("AC_NATIVE_MIDI_ERROR " + Utf8(error->Message));
         }
+        m_midiScanInFlight = false;
+        m_nextMidiScanMs = GetTickCount64() + 3000;
       });
   }
 
@@ -1015,36 +1030,100 @@ private:
   }
 
   void OnMidiMessage(MidiInPort^, MidiMessageReceivedEventArgs^ args) {
-    if (!args || !args->Message || args->Message->Type != MidiMessageType::NoteOn) return;
-    auto noteOn = dynamic_cast<MidiNoteOnMessage^>(args->Message);
-    if (!noteOn || noteOn->Velocity == 0) return;
+    if (!args || !args->Message) return;
+    PendingMidiEvent event;
     LARGE_INTEGER now{};
     QueryPerformanceCounter(&now);
+    event.qpc = now.QuadPart;
+    switch (args->Message->Type) {
+      case MidiMessageType::NoteOn: {
+        const auto message = dynamic_cast<MidiNoteOnMessage^>(args->Message);
+        if (!message) return;
+        event.kind = message->Velocity ? MidiEventKind::NoteOn : MidiEventKind::NoteOff;
+        event.channel = message->Channel; event.data1 = message->Note;
+        event.data2 = message->Velocity;
+        break;
+      }
+      case MidiMessageType::NoteOff: {
+        const auto message = dynamic_cast<MidiNoteOffMessage^>(args->Message);
+        if (!message) return;
+        event.kind = MidiEventKind::NoteOff; event.channel = message->Channel;
+        event.data1 = message->Note; event.data2 = message->Velocity;
+        break;
+      }
+      case MidiMessageType::PitchBendChange: {
+        const auto message = dynamic_cast<MidiPitchBendChangeMessage^>(args->Message);
+        if (!message) return;
+        event.kind = MidiEventKind::PitchBend; event.channel = message->Channel;
+        event.data1 = message->Bend;
+        break;
+      }
+      case MidiMessageType::ControlChange: {
+        const auto message = dynamic_cast<MidiControlChangeMessage^>(args->Message);
+        if (!message) return;
+        event.kind = MidiEventKind::ControlChange; event.channel = message->Channel;
+        event.data1 = message->Controller; event.data2 = message->ControlValue;
+        break;
+      }
+      default: return;
+    }
     std::lock_guard<std::mutex> lock(m_midiMutex);
     if (m_pendingMidi.size() < 32)
-      m_pendingMidi.push_back({noteOn->Note, noteOn->Velocity, now.QuadPart});
+      m_pendingMidi.push_back(event);
+  }
+
+  void UpdateMidiOscillator(long long eventQpc) {
+    if (!m_api || !m_api->audio.midi_gate) return;
+    const double bendSemitones = (m_api->audio.midi_pitch_bend - 8192) / 8192.0 * 2.0;
+    const float frequency = static_cast<float>(440.0 *
+      std::pow(2.0, (m_api->audio.midi_note - 69 + bendSemitones) / 12.0));
+    const float volume = (std::max)(.02f,
+      m_api->audio.midi_velocity / 127.0f * .34f * m_midiVolume);
+    LARGE_INTEGER after{}, counterFrequency{};
+    SetOscillator(frequency, volume);
+    QueryPerformanceCounter(&after);
+    QueryPerformanceFrequency(&counterFrequency);
+    if (eventQpc > 0) m_api->audio.input_to_submit_us =
+      (after.QuadPart - eventQpc) * 1000000.0 / counterFrequency.QuadPart;
   }
 
   void PollMidi() {
     if (!m_api) return;
+    if (!m_midiInPort && GetTickCount64() >= m_nextMidiScanMs) InitializeMidi();
     std::vector<PendingMidiEvent> events;
     {
       std::lock_guard<std::mutex> lock(m_midiMutex);
       events.swap(m_pendingMidi);
     }
     for (const auto& event : events) {
-      m_api->audio.midi_note = event.note;
-      m_api->audio.midi_velocity = event.velocity;
+      m_api->audio.midi_channel = event.channel;
       ++m_api->audio.midi_events;
       m_lastAudioEventQpc = event.qpc;
-      SynthVoice voice;
-      voice.frequency_hz = static_cast<float>(440.0 *
-        std::pow(2.0, (event.note - 69) / 12.0));
-      voice.duration_s = .18f;
-      voice.volume = (std::max)(.08f, event.velocity / 127.0f * .45f);
-      PlaySynth(voice);
-      LogTelemetry("AC_NATIVE_MIDI_NOTE note=" + std::to_string(event.note) +
-        " velocity=" + std::to_string(event.velocity) + " inputToSubmitUs=" +
+      if (event.kind == MidiEventKind::NoteOn) {
+        m_api->audio.midi_note = event.data1;
+        m_api->audio.midi_velocity = event.data2;
+        m_api->audio.midi_gate = true;
+        UpdateMidiOscillator(event.qpc);
+      } else if (event.kind == MidiEventKind::NoteOff) {
+        if (event.data1 == m_api->audio.midi_note) {
+          m_api->audio.midi_gate = false;
+          m_api->audio.midi_velocity = 0;
+          StopOscillator();
+        }
+      } else if (event.kind == MidiEventKind::PitchBend) {
+        m_api->audio.midi_pitch_bend = event.data1;
+        UpdateMidiOscillator(event.qpc);
+      } else if (event.kind == MidiEventKind::ControlChange) {
+        m_api->audio.midi_control = event.data1;
+        m_api->audio.midi_control_value = event.data2;
+        if (event.data1 == 7) m_midiVolume = event.data2 / 127.0f;
+        UpdateMidiOscillator(event.qpc);
+      }
+      LogTelemetry("AC_NATIVE_MIDI kind=" + std::to_string(static_cast<int>(event.kind)) +
+        " ch=" + std::to_string(event.channel + 1) + " data1=" +
+        std::to_string(event.data1) + " data2=" + std::to_string(event.data2) +
+        " gate=" + std::to_string(m_api->audio.midi_gate) + " bend=" +
+        std::to_string(m_api->audio.midi_pitch_bend) + " inputToSubmitUs=" +
         std::to_string(m_api->audio.input_to_submit_us));
     }
   }
@@ -1798,6 +1877,8 @@ private:
   ComPtr<ID3D11ShaderResourceView> m_spriteAtlasView;
   ComPtr<ID3D11ShaderResourceView> m_jeffreyTextureView;
   ComPtr<ID3D11SamplerState> m_pointSampler;
+  ComPtr<ID3D11SamplerState> m_linearSampler;
+  UINT m_jeffreyTextureSize = 0;
   ComPtr<ID3D11VertexShader> m_postVertexShader;
   ComPtr<ID3D11PixelShader> m_postPixelShader;
   ComPtr<ID3D11Buffer> m_postConstants;
@@ -1811,6 +1892,9 @@ private:
   bool m_midiSubscribed = false;
   std::mutex m_midiMutex;
   std::vector<PendingMidiEvent> m_pendingMidi;
+  std::atomic_bool m_midiScanInFlight{false};
+  ULONGLONG m_nextMidiScanMs = 0;
+  float m_midiVolume = 1;
   std::vector<int16_t> m_samples;
   std::vector<int16_t> m_oscSamples;
   std::vector<uint32_t> m_cpuFrame;

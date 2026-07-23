@@ -7,8 +7,11 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import sharp from "sharp";
 
-const [source, destination, requestedFrames = "24", textureDestination] = process.argv.slice(2);
+const [source, destination, requestedFrames = "24", textureDestination,
+  requestedTextureSize = "1024"] = process.argv.slice(2);
 const frameCount = Math.max(8, Math.min(60, Number.parseInt(requestedFrames, 10) || 24));
+const textureSize = Math.max(256, Math.min(2048,
+  Number.parseInt(requestedTextureSize, 10) || 1024));
 if (!source || !destination) {
   throw new Error("usage: glb-skin-bake.mjs <animated.glb> <bake.json> [frames] [texture.rgba]");
 }
@@ -197,7 +200,7 @@ async function decodedBaseImage() {
   if (!view) return null;
   const encoded = binary.subarray(view.byteOffset || 0, (view.byteOffset || 0) + view.byteLength);
   if (textureDestination) {
-    const texture = await sharp(encoded).resize(256, 256, { fit: "fill" })
+    const texture = await sharp(encoded).resize(textureSize, textureSize, { fit: "fill" })
       .ensureAlpha().raw().toBuffer();
     writeFileSync(textureDestination, texture);
   }
@@ -208,7 +211,10 @@ function texel(image, uv) {
   if (!image) return [170, 155, 190];
   const wrap = (value) => ((value % 1) + 1) % 1;
   const x = Math.min(image.width - 1, Math.floor(wrap(uv[0]) * image.width));
-  const y = Math.min(image.height - 1, Math.floor((1 - wrap(uv[1])) * image.height));
+  // glTF and the D3D texture path both address the decoded image from its top
+  // row. Flipping V here (and again in the emitted UVs) mapped Jeffrey's face
+  // onto unrelated shirt and trouser islands in the atlas.
+  const y = Math.min(image.height - 1, Math.floor(wrap(uv[1]) * image.height));
   const offset = (y * image.width + x) * image.channels;
   return [image.data[offset], image.data[offset + 1], image.data[offset + 2]];
 }
@@ -248,8 +254,9 @@ const output = {
   duration: round(duration, 5), frameCount, vertices: positions.length,
   triangles: indices.length / 3, joints: skin.joints.length,
   frames, jointFrames, faces, bones,
-  uvs: uvs.map((uv) => [round(uv[0], 5), round(1 - uv[1], 5)]),
-  texture: textureDestination ? { width: 256, height: 256, filter: "point" } : null,
+  uvs: uvs.map((uv) => [round(uv[0], 5), round(uv[1], 5)]),
+  texture: textureDestination ? { width: textureSize, height: textureSize,
+    filter: "linear" } : null,
 };
 writeFileSync(destination, JSON.stringify(output));
 console.log(JSON.stringify({ destination, bytes: Buffer.byteLength(JSON.stringify(output)),
