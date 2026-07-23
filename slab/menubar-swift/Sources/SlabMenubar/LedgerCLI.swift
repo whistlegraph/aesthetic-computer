@@ -133,6 +133,9 @@ enum LedgerCLI {
         ]
         if let started = e.started { out["started"] = started }
         if let memoir = e.memoir { out["memoir"] = memoir }
+        if let platformTarget = e.platformTarget, !platformTarget.isEmpty {
+            out["platformTarget"] = platformTarget
+        }
         return out
     }
 

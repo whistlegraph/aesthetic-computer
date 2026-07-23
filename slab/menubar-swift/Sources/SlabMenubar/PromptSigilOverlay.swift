@@ -271,6 +271,65 @@ final class RockCharLayer: CALayer {
     }
 }
 
+/// Compact, metadata-driven destination mark parked at the bottom-left of a
+/// prompt terminal. The deliberately long type name is the feature's canonical
+/// identifier: `platform-target-awareness-identifier-badge`. It is not keyed
+/// to a pet name or tty; the owning session's `platform_target` marker decides
+/// what this view acknowledges.
+final class PlatformTargetAwarenessIdentifierBadgeView: NSView {
+    var platformTarget = "" {
+        didSet { needsDisplay = true }
+    }
+
+    override var isFlipped: Bool { false }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        guard !platformTarget.isEmpty else { return }
+        let xbox = platformTarget == "xbox"
+        let green = NSColor(deviceRed: 0.063, green: 0.486, blue: 0.063, alpha: 1)
+        let body = NSBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 1),
+                                xRadius: 7, yRadius: 7)
+        (xbox ? green : NSColor(deviceWhite: 0.10, alpha: 0.92)).setFill()
+        body.fill()
+        NSColor.white.withAlphaComponent(0.25).setStroke()
+        body.lineWidth = 1
+        body.stroke()
+
+        if xbox {
+            // A small Xbox sphere: white field with the familiar green X.
+            // It is drawn locally so the acknowledgement needs no network or
+            // bundled raster asset and stays sharp at every display scale.
+            let sphereRect = NSRect(x: 4, y: 4, width: 16, height: 16)
+            NSColor.white.setFill()
+            NSBezierPath(ovalIn: sphereRect).fill()
+            let xMark = NSBezierPath()
+            xMark.lineWidth = 2.15
+            xMark.lineCapStyle = .round
+            xMark.move(to: NSPoint(x: 7.5, y: 17.0))
+            xMark.curve(to: NSPoint(x: 16.5, y: 7.0),
+                        controlPoint1: NSPoint(x: 10.0, y: 14.7),
+                        controlPoint2: NSPoint(x: 14.3, y: 10.0))
+            xMark.move(to: NSPoint(x: 16.5, y: 17.0))
+            xMark.curve(to: NSPoint(x: 7.5, y: 7.0),
+                        controlPoint1: NSPoint(x: 14.0, y: 14.7),
+                        controlPoint2: NSPoint(x: 9.7, y: 10.0))
+            green.setStroke()
+            xMark.stroke()
+        }
+
+        let label = xbox ? "XBOX" : String(platformTarget.uppercased().prefix(8))
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 9, weight: .bold),
+            .foregroundColor: NSColor.white,
+            .kern: 0.6,
+        ]
+        let labelRect = NSRect(x: xbox ? 24 : 6, y: 5,
+                               width: bounds.width - (xbox ? 27 : 12), height: 13)
+        (label as NSString).draw(in: labelRect, withAttributes: attributes)
+    }
+}
+
 /// One borderless, click-through badge window holding a session's per-prompt
 /// sigil — a PromptRock — parked top-right under the title bar of its terminal window. The
 /// sigil image is still (shape + strata = which prompt); the badge spins it
@@ -335,6 +394,13 @@ final class PromptSigilOverlay {
     /// bar like an Instagram story timer. Separate from the gem window so it
     /// can span the pane without changing the prox's hit or animation bounds.
     private let heartbeatWindow: NSWindow
+    /// Independent bottom-left prompt-terminal acknowledgement. Keeping this
+    /// separate from the top-right rock window lets it follow the terminal's
+    /// opposite corner while sharing the same tty binding and z-order rules.
+    private let platformTargetBadgeWindow: NSWindow
+    private let platformTargetBadgeView: PlatformTargetAwarenessIdentifierBadgeView
+    private var platformTargetBadgeOrderedAbove: Int?
+    private var platformTarget = ""
     private let rockLayer = CALayer()        // plays the pre-rendered rotation frames
     private let shadowLayer = CALayer()      // solid status colour, masked to the rock silhouette
     private let shadowMask = CALayer()       // plays the same frames → the shadow's tumbling shape
@@ -407,6 +473,23 @@ final class PromptSigilOverlay {
         heartbeatContainer.wantsLayer = true
         heartbeatContainer.layer?.masksToBounds = false
         heartbeatWindow.contentView = heartbeatContainer
+
+        let targetBadgeSize = NSSize(width: 60, height: 24)
+        let targetBadgeInitial = NSRect(origin: NSPoint(x: -2000, y: -2000),
+                                        size: targetBadgeSize)
+        platformTargetBadgeWindow = NSWindow(
+            contentRect: targetBadgeInitial, styleMask: [.borderless],
+            backing: .buffered, defer: false)
+        platformTargetBadgeWindow.isOpaque = false
+        platformTargetBadgeWindow.backgroundColor = .clear
+        platformTargetBadgeWindow.hasShadow = true
+        platformTargetBadgeWindow.ignoresMouseEvents = true
+        platformTargetBadgeWindow.level = .normal
+        platformTargetBadgeWindow.collectionBehavior = [.fullScreenAuxiliary]
+        platformTargetBadgeView = PlatformTargetAwarenessIdentifierBadgeView(
+            frame: NSRect(origin: .zero, size: targetBadgeSize))
+        platformTargetBadgeView.wantsLayer = true
+        platformTargetBadgeWindow.contentView = platformTargetBadgeView
 
         // Container: a flat status-colour drop-shadow disc as a backing
         // sublayer, with the rock-frame layer on top — the disc peeks out on
@@ -565,6 +648,21 @@ final class PromptSigilOverlay {
         guard name != newName else { return }
         name = newName
         rebuildName()
+    }
+
+    /// Update the platform-target-awareness-identifier-badge from durable
+    /// session metadata. Normalization keeps marker writers case-insensitive;
+    /// clearing the marker removes the acknowledgement immediately.
+    func setPlatformTarget(_ rawTarget: String) {
+        let normalized = rawTarget.trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        guard platformTarget != normalized else { return }
+        platformTarget = normalized
+        platformTargetBadgeView.platformTarget = normalized
+        if normalized.isEmpty {
+            platformTargetBadgeWindow.orderOut(nil)
+            platformTargetBadgeOrderedAbove = nil
+        }
     }
 
     private var labelForeground = NSColor.white
@@ -1106,6 +1204,13 @@ final class PromptSigilOverlay {
         // transparent particle field 23 pt below and 12 pt above it.
         heartbeatWindow.setFrame(NSRect(x: b.0 + stripInset, y: stripY - 23,
                                         width: stripWidth, height: 40), display: false)
+        // `b` is in CG's top-left coordinates while AppKit windows use a
+        // bottom-left origin. Inset the compact target acknowledgement from
+        // the prompt terminal's lower-left content corner.
+        let targetInset: CGFloat = 10
+        platformTargetBadgeWindow.setFrameOrigin(NSPoint(
+            x: b.0 + targetInset,
+            y: screenHeight - (b.1 + b.3) + targetInset))
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         heartbeatTrackLayer.frame = CGRect(x: 0, y: 24, width: stripWidth, height: 3)
@@ -1147,11 +1252,19 @@ final class PromptSigilOverlay {
                 heartbeatWindow.order(.above, relativeTo: terminalWindowNumber)
                 heartbeatOrderedAbove = terminalWindowNumber
             }
+            if !platformTarget.isEmpty
+                && (!platformTargetBadgeWindow.isVisible
+                    || platformTargetBadgeOrderedAbove != terminalWindowNumber) {
+                platformTargetBadgeWindow.order(.above, relativeTo: terminalWindowNumber)
+                platformTargetBadgeOrderedAbove = terminalWindowNumber
+            }
         } else {
             setHovered(false)   // a covered rock stops reacting to the pointer
             if window.isVisible { window.orderOut(nil) }
             if heartbeatWindow.isVisible { heartbeatWindow.orderOut(nil) }
+            if platformTargetBadgeWindow.isVisible { platformTargetBadgeWindow.orderOut(nil) }
             heartbeatOrderedAbove = nil
+            platformTargetBadgeOrderedAbove = nil
         }
     }
 
@@ -1189,12 +1302,16 @@ final class PromptSigilOverlay {
     func hide() {
         if window.isVisible { window.orderOut(nil) }
         if heartbeatWindow.isVisible { heartbeatWindow.orderOut(nil) }
+        if platformTargetBadgeWindow.isVisible { platformTargetBadgeWindow.orderOut(nil) }
         heartbeatOrderedAbove = nil
+        platformTargetBadgeOrderedAbove = nil
     }
     func close() {
         window.orderOut(nil)
         heartbeatWindow.orderOut(nil)
+        platformTargetBadgeWindow.orderOut(nil)
         heartbeatOrderedAbove = nil
+        platformTargetBadgeOrderedAbove = nil
     }
 }
 
@@ -2200,6 +2317,7 @@ final class PromptSigilOverlayController {
             // summary and prompt excerpt, deduped (the hook line is usually
             // the prompt's own first words — repeating both said nothing).
             ov.setName(SigilRenderer.name(for: s), dark: dark)
+            ov.setPlatformTarget(s.platformTarget)
             let title = s.emoji.isEmpty ? ov.name : "\(s.emoji) \(ov.name)"
             ov.tooltipTitle = loopboy ? "↻ Loopboy · \(title)" : title
             let story = (s.loopboyResponse.isEmpty ? nil : s.loopboyResponse)
