@@ -11,6 +11,8 @@ test("fullscreen score presents organs, honest gated QR, and no network dependen
   }
   assert.match(html, /CLIENT GATE · PREVIEW/);
   assert.match(html, /remain closed pending Stage 5 approval/);
+  assert.match(html, /GUARD AUTO-RESUMED/);
+  assert.doesNotMatch(html, /MINER UNTOUCHED/);
   assert.match(html, /score-assets\/join-preview\.svg/);
   assert.doesNotMatch(html, /<script\s+src=|fetch\(|WebSocket|EventSource/);
 });

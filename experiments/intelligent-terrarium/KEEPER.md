@@ -388,8 +388,9 @@ state repository. Nothing was pushed or deployed.
   `MemoryHigh=900 MiB`, zero swap, and low priority. It journaled `disabled`
   fallback deterministically; cgroup peak was 31,932,416 bytes and Node RSS was
   78,917,632 bytes. The 1 GB floor still never loads the model.
-- The final 2 GB coexistence run completed in 6.71 seconds while
-  `matador-miner` remained active at 100% GPU use. Qwen generated at 13.3
+- The final 2 GB coexistence run completed in 6.71 seconds after the miner's
+  automatic recovery, while `matador-miner` remained active at 100% GPU use.
+  Qwen generated at 13.3
   tokens/second after an 88.9 tokens/second prompt pass. `/proc` smaps peak RSS
   was 825,940 KiB (about 807 MiB), below both policy thresholds; cgroup peak was
   227,233,792 bytes because model file pages were already warm and charged
@@ -404,10 +405,19 @@ state repository. Nothing was pushed or deployed.
   Two earlier retries also completed and slept cleanly as sequences 910–911.
 - A scan of journal, checkpoints, autobiography, manifest, and visitor facts
   found no bearer/token, email-like identifier, model/cache path, or GGUF name.
-  The listening-socket hash was identical before and after inference. The miner
-  had independently exited during the earlier build window and later returned;
-  no keeper command signalled, stopped, restarted, or reconfigured it. The
-  final run proves live coexistence after its return.
+  The listening-socket hash was identical before and after inference.
+- Stage 4 did affect mining indirectly: `btx-miner-guard` detected the nice-15
+  compiler/build workload, stopped PID 2928 at 12:34:02, and automatically
+  restarted the service as PID 136022 at 12:49:41 after the build processes
+  exited. This was a 15 minute 39 second guard pause, so Stage 4 does **not**
+  claim zero miner effect. No keeper command signalled, stopped, restarted, or
+  reconfigured the miner. Immediately before the pause it reported about 4,115
+  nonce/s and used 3,298 MiB process VRAM; after automatic recovery it reported
+  4,141 then 4,169 nonce/s and returned to the same 3,298 MiB process VRAM.
+  The later audit showed `mining_state:"mining"`, 100% GPU utilization, no
+  rejected/stale shares, and a 1-hour average of 3,754.7 nonce/s. The final
+  CPU-only reflection run proves live coexistence after recovery, not
+  uninterrupted coexistence across the build.
 - `score.html` is a self-contained 1920×1080 spatial graphic measure: the six
   organs are colored staves, outside prods ripple through the Mediorgan
   membrane, reflection breathes inside the body, and quiet proof marks show the
