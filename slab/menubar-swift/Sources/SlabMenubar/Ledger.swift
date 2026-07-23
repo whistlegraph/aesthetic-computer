@@ -77,6 +77,10 @@ final class LedgerStore {
     /// prompt. AppDelegate handles it through the exact same guarded terminal
     /// wake primitive used by Loopboy heartbeats.
     static let wakeNote = Notification.Name("slab.ledger.wake")
+    /// Posted after Terminal accepts a prox/Loopboy prompt launch. The app
+    /// waits briefly for the new window, then normalizes the wall so Terminal's
+    /// tall default frame never survives as a special case.
+    static let promptLaunchedNote = Notification.Name("slab.ledger.prompt-launched")
 
     // ── on-disk layout (kept: survives restarts) ─────────────────────────
     static var dir: String { "\(Paths.home)/.config/slab/ledger" }
@@ -242,6 +246,9 @@ final class LedgerStore {
         }
         let by = String(((body["by"] as? String) ?? "prox").prefix(100))
         NSLog("🪨 [ledger] %@ launched %@ in %@", by, agent, cwd)
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: Self.promptLaunchedNote, object: nil)
+        }
         return ["ok": true, "host": selfIdentity().host, "agent": agent, "cwd": cwd,
                 "loopboyContact": loopboyContact, "nudgeScreen": nudgeScreen]
     }

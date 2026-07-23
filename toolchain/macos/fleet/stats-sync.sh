@@ -1,4 +1,7 @@
 #!/bin/bash
+echo "stats-sync.sh is deprecated; enable Slab > Resource graph on each fleet Mac instead." >&2
+exit 2
+# Historical implementation retained below for reference.
 # stats-sync.sh — push the canonical Stats (exelban) menu-bar config to fleet Macs,
 # register Stats as a login item, and launch it. Idempotent.
 #

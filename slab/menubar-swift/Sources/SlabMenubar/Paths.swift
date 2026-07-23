@@ -153,6 +153,8 @@ enum Paths {
     /// chimes and stops ambient instead of starting it. Toggled from the
     /// menubar's "Mute ambient sonification" item.
     static var muteFlag: String { "\(slabHome)/state/muted" }
+    /// Opt-in compact resource graph status item (RAM, SSD, GPU, CPU, network).
+    static var resourceGraphFlag: String { "\(slabHome)/state/resource-graph" }
     /// When this file exists, restored / restarted Claude windows are
     /// auto-tiled across the main display in a grid sized by the window
     /// count, with the Terminal font scaled so no cell is too cramped.

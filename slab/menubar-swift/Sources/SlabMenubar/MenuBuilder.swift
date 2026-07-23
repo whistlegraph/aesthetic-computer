@@ -142,6 +142,12 @@ enum MenuBuilder {
         menu.addItem(section("Mac", symbol: "desktopcomputer", submenu: mac))
 
         let slab = NSMenu()
+        let graph = item("Resource graph (RAM · SSD · GPU · CPU · network)",
+                         selector: #selector(AppDelegate.toggleResourceGraph), target: target)
+        graph.state = ResourceGraph.shared.enabled ? .on : .off
+        graph.toolTip = "Show a compact Slab-owned five-channel history graph in the menu bar."
+        slab.addItem(graph)
+        slab.addItem(.separator())
         slab.addItem(item("Open daemon log", selector: #selector(AppDelegate.openDaemonLog), target: target))
         slab.addItem(item("Open sounds folder", selector: #selector(AppDelegate.openSoundsFolder), target: target))
         slab.addItem(.separator())

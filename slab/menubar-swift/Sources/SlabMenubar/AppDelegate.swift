@@ -168,6 +168,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.autoenablesItems = false
         menu.delegate = self
         statusItem.menu = menu
+        ResourceGraph.shared.syncEnabled()
 
         do {
             try passphraseServer.start()
@@ -193,6 +194,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         imsgTimer = contactTimer
         RunLoop.main.add(contactTimer, forMode: .common)
+
+        NotificationCenter.default.addObserver(
+            forName: LedgerStore.promptLaunchedNote, object: nil, queue: .main
+        ) { [weak self] _ in
+            guard let self, self.state.autoTile else { return }
+            // `open -a Terminal` returns before the new window has acquired
+            // its final AX frame. One delayed tile plus the tiler's own settle
+            // passes gives it a proper grid-sized cell (especially height).
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+                self?.tileNowImpl(resetZoom: false)
+            }
+        }
 
         // Title-component hygiene for the Slab-* Terminal profiles: the
         // working-dir and active-process checkboxes are NOT scriptable and
@@ -328,6 +341,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         passphraseServer.stop()
         LedgerStore.shared.stop()
         NotificationCenter.default.removeObserver(self)
+        ResourceGraph.shared.stop()
         NSWorkspace.shared.notificationCenter.removeObserver(self)
     }
 
@@ -999,6 +1013,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         NSLog("🪨 [prox] %@ poked + starting shared wake on %@",
               String(sid.prefix(8)), tty)
+        // A Loopboy terminal may have been launched at Terminal.app's tall
+        // default size or survived an older wall layout. When auto-tile is on,
+        // normalize the whole wall after the wake so the client prompt returns
+        // to a real grid cell without the focus-stealing font reset.
+        if state.autoTile {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
+                self?.tileNowImpl(resetZoom: false)
+            }
+        }
     }
 
     private func ttyForSession(_ sid: String) -> String? {
@@ -1701,6 +1724,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                                  args: ["--kill-slab-afplay"])
         }
         refresh()
+    }
+
+    @objc func toggleResourceGraph() {
+        ResourceGraph.shared.toggle()
     }
 
     @objc func syncBoth() { syncMail(account: nil) }
@@ -3357,6 +3384,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 // Reset decor memo so the next refresh re-themes every
                 // window from scratch (a re-pack invalidates prior placement).
                 self?.lastTerminalDecor.removeAll()
+                PromptSigilOverlayController.shared.terminalsDidRetile()
             }
             // Geometry is already done — the grid snapped above. Terminal
             // text size catches up asynchronously, and only when needed:
@@ -3399,9 +3427,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 // above; these are tiny AX corrections (sub-ms, no focus steal),
                 // so it stays snappy while resolving cleanly after the reflow.
                 Self.axTilePass(geom: geom, textSize: textSize)
+                DispatchQueue.main.async {
+                    PromptSigilOverlayController.shared.terminalsDidRetile()
+                }
                 for delay in [0.06, 0.16] {
                     DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                         Self.axTilePass(geom: geom, textSize: textSize)
+                        PromptSigilOverlayController.shared.terminalsDidRetile()
                     }
                 }
             }
@@ -3608,7 +3640,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             guard !lines.isEmpty else { return }
             let script = lines.joined(separator: "\n")
-            ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", script])
+            ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", script]) {
+                DispatchQueue.main.async {
+                    PromptSigilOverlayController.shared.terminalsDidRetile()
+                }
+            }
         }
     }
 

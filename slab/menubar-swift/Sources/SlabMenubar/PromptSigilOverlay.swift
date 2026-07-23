@@ -11,13 +11,11 @@
 // rattle. It carries a pet name in bubble lettering, and pointing at it
 // reveals a slowly evolving account of the session.
 //
-// Each rock is a borderless, click-through `.floating` window, so it rides
-// above the whole normal-window stack and can't be buried by the wall of
-// preview cards. That means occlusion is OUR job, in two places that must
-// agree: `reposition` hides a rock whose terminal corner is covered, and
-// `overlayAt` refuses the pointer to a rock that is hidden or covered at the
-// cursor — otherwise a stone wakes up and pops its bubble through whatever
-// window is sitting on top of it.
+// Each rock is a borderless, click-through normal-level window ordered directly
+// above its own terminal. AppKit then gives it the terminal's real place in the
+// window stack: windows above that terminal also cover the rock. `overlayAt`
+// still checks the stack at the pointer so a covered stone cannot answer hover
+// or clicks during the short interval before AppKit/window snapshots settle.
 
 import AppKit
 import CoreGraphics
@@ -281,11 +279,9 @@ final class RockCharLayer: CALayer {
 /// channel. The layer spin is GPU-driven (render-server side, CPU stays idle),
 /// so the only recurring cost is the controller's light reposition tick.
 ///
-/// Compositing: the window FLOATS above the normal-window stack. Rocks used
-/// to ride the z-order just above their terminal (correctly occluded by
-/// covering windows), but a wall full of preview cards kept burying them —
-/// so now every session's stone is always visible and pointable, and the
-/// whole raise/behind-detection dance is gone.
+/// Compositing: the window lives at normal level and is inserted immediately
+/// above its terminal. It therefore follows the terminal's z-order instead of
+/// painting over unrelated foreground windows.
 final class PromptSigilOverlay {
     private static let fuseParticle: CGImage? = {
         let side = 8
@@ -389,10 +385,10 @@ final class PromptSigilOverlay {
         window.backgroundColor = .clear
         window.hasShadow = false
         window.ignoresMouseEvents = true
-        // Floating: rocks ride above the whole normal-window soup (preview
-        // cards, other apps), so every session's stone is always visible and
-        // clickable — no more burying under whatever the wall accumulates.
-        window.level = .floating
+        // Stay in the normal-window stack. `orderAbove` places this rock just
+        // above its terminal, leaving every window above that terminal above
+        // the rock as well.
+        window.level = .normal
         window.collectionBehavior = [.fullScreenAuxiliary]
 
         let heartbeatInitial = NSRect(x: -2000, y: -2000, width: 160, height: 40)
@@ -1160,9 +1156,7 @@ final class PromptSigilOverlay {
     }
 
     /// Is the badge actually on screen right now? A hidden rock keeps its
-    /// `hitRect` (the frame doesn't move when it's ordered out), so the hover
-    /// hit-test has to consult this or the stone answers the pointer from
-    /// under whatever is covering it.
+    /// `hitRect`, so the hover hit-test still consults visibility.
     var isOnScreen: Bool { window.isVisible }
 
     /// Ease the badge toward its target by a frame-rate-independent step.
@@ -1593,6 +1587,7 @@ final class PromptSigilOverlayController {
         let windowID: Int
         let frame: CGRect       // CG/AX coordinates: top-left origin
         let color: NSColor
+        let seed: UInt64        // stable prox pet-name seed
     }
 
     static let shared = PromptSigilOverlayController()
@@ -1610,10 +1605,12 @@ final class PromptSigilOverlayController {
     var promptParticleTargets: [PromptParticleTarget] {
         particleColors.compactMap { tty, color in
             guard let id = binding[tty], let b = lastBoundsByNum[id] else { return nil }
+            let proxName = overlays.values.first(where: { $0.tty == tty })?.name ?? tty
             return PromptParticleTarget(
                 windowID: id,
                 frame: CGRect(x: b.0, y: b.1, width: b.2, height: b.3),
-                color: color)
+                color: color,
+                seed: SigilRenderer.seed(for: proxName))
         }
     }
     private var needsRebind = false
@@ -1708,6 +1705,16 @@ final class PromptSigilOverlayController {
         if currentInterval > activeInterval + 1e-6 {
             scheduleTick(after: activeInterval)
         }
+    }
+
+    /// The tiler can move several terminal windows in one AX sweep faster than
+    /// per-window notifications arrive. Refresh tty → window ownership now so
+    /// rocks transfer with the completed layout instead of waiting for the
+    /// five-second safety bind.
+    func terminalsDidRetile() {
+        needsRebind = true
+        promote()
+        reposition()
     }
 
     /// Read an AXValue geometry attribute (point or size) off an element.
@@ -2328,15 +2335,16 @@ final class PromptSigilOverlayController {
 
     /// In-process snapshot of the on-screen window stack. `terminals` maps
     /// each Terminal/iTerm2 window's CGWindowID to its bounds {x,y,w,h};
-    /// `stack` is EVERY normal-level window front-to-back — what the
+    /// `stack` is EVERY normal-level window front-to-back — what the pointer
     /// occlusion check walks to find the topmost window at a rock's spot.
-    /// (Badges float at a higher level and the bubble sits higher still, so
-    /// neither appears in the layer-0 stack.) No fork.
+    /// Rock windows belong to this layer too, but are mouse-transparent and
+    /// are ignored below by window number when appropriate. No fork.
     private func snapshotWindows()
         -> (terminals: [Int: (CGFloat, CGFloat, CGFloat, CGFloat)], stack: [(num: Int, rect: CGRect)]) {
         let pids = Set(NSWorkspace.shared.runningApplications
             .filter { Self.terminalBundleIds.contains($0.bundleIdentifier ?? "") }
             .map { $0.processIdentifier })
+        let rockWindowNumbers = Set(overlays.values.map(\.windowNumber))
         guard let infos = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]]
         else { return ([:], []) }
         var terminals: [Int: (CGFloat, CGFloat, CGFloat, CGFloat)] = [:]
