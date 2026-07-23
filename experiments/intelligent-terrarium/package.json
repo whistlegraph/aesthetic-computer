@@ -1,0 +1,9 @@
+{
+  "name": "intelligent-terrarium-experiment",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "demo": "node src/cli.mjs demo"
+  }
+}
