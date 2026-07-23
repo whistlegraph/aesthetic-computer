@@ -115,8 +115,8 @@ about 6 MiB. No unrelated dirty files were changed.
 
 ### Durable state repository on `jastow`
 
-Proposed location, to create only after a keeper decision:
-`/home/me/intelligent-terrarium-state`. Keep it separate from
+Approved and created location: `/home/me/intelligent-terrarium-state`. It is
+kept separate from
 `/home/me/aesthetic-computer` so autonomous sleep commits cannot trigger AC
 hooks, mingle with application history, or stage unrelated work.
 
@@ -175,7 +175,7 @@ commit. Git operations use explicit allowlisted paths; never `git add -A`.
 ### Stage 2 — loopback browser visitor
 
 Serve snapshots and sonic events on `127.0.0.1` only, by an ephemeral manual
-process. Render a small Three.js terrarium, listener-relative stereo audio,
+process. Render a small WebGL2 terrarium, listener-relative stereo audio,
 keyboard, and standard Gamepad API input. Use an SSH local forward for neo-side
 testing; no LAN/public listener or persistent service.
 
@@ -232,8 +232,6 @@ The first thin slice is accepted only when all of these pass:
 
 ## Keeper decisions still required
 
-- Permission to create `/home/me/intelligent-terrarium-state` and run an
-  ephemeral loopback-only process on `jastow`.
 - Whether/when to install or build a user-space inference runtime and acquire a
   specific quantized model. No system package installation is assumed.
 - The future authenticated gateway and who may visit/interact versus observe.
@@ -244,6 +242,47 @@ The first thin slice is accepted only when all of these pass:
 
 ## Next keeper action
 
-Implement Stage 0 locally in this sparse worktree with deterministic replay and
-memory-accounting tests only. It needs no remote writes, model installation,
-network listener, production path, or deployment.
+Hold at the Stage 3 boundary for a keeper decision. Real AC identity requires a
+hidden development piece and token-verifying gateway changes in served paths.
+No model installation, push, deployment, persistent service, or public listener
+is authorized.
+
+## 2026-07-23 implementation evidence
+
+Keeper approval arrived through the private `alex` Loopboy inbox for Stages
+0–1, an isolated branch commit, creation of the state repository, and an
+ephemeral loopback-only 1 GB process. Stage 2 was permitted only after 0–1 were
+green; that gate passed.
+
+- Stage 0–1 code commit:
+  `4a6f2ec654ed3a6f1dd19c22706ea68156a6f404`.
+- Stage 2 Mediorgan/visitor commit:
+  `d1528bd4bccdb5c560a5b97aa5aa68988fd2ec4a`.
+- Local and Fedora suites: 12/12 Node tests pass. Coverage includes seeded
+  determinism, bounded memory, journal replay/tamper detection, truncated-tail
+  quarantine, allowlisted/no-op sleep commits, loopback refusal, capability
+  exclusion from journals, concurrent prod serialization, stereo geometry, and
+  sonic deduplication.
+- Stage 0–1 Fedora run: 9,000 ticks, 902 records, state
+  `e469e1009e673571d539189621e3ab238ed388881a0a7cd8a11ec564a280fba7`,
+  cgroup `MemoryPeak=30277632`, `MemoryHigh=943718400`,
+  `MemoryMax=1073741824`, `MemorySwapMax=0`. State commit:
+  `27009678b7bf8f9d1ddbe481fd7d9edcef8491d7`.
+- Stage 2 Fedora run: exact listener `127.0.0.1:18787`; unauthenticated state
+  request returned 401; a `voice` organ prod via `media` returned a causal
+  semantic sound. Peak cgroup charge was 26,771,456 bytes under the same hard
+  limit. Shutdown removed the listener and committed state as
+  `f8b09a1ac95c6db20aeb743434b9cc943c48e9ad`, with replay state
+  `7e21bc07cbd52b6291304d524041ee43191f7a11254990f9636a7482b6222c12`.
+- The listener-set hash was identical before and after both remote experiments.
+  `matador-miner` remained PID 2928 at 3,298 MiB VRAM before, during, and after.
+  The tower AC checkout retained only its two pre-existing untracked files.
+- No package/model was installed; no branch or state was pushed; no production
+  or served path was changed.
+
+The first-demo acceptance list is not yet wholly satisfied. The code exercises
+WebGL2, keyboard/Gamepad input, WebAudio stereo rendering, and two-client stream
+semantics, but the in-app browser-control bridge was unavailable, so visual and
+physical-controller QA remain unchecked. The real AC Auth0/handle path is also
+Stage 3, and the 9,000-tick memory run was accelerated rather than a wall-clock
+15-minute soak.
