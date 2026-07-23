@@ -266,6 +266,19 @@ JSValue RuntimeInfo(JSContext* context, JSValueConst, int, JSValueConst*) {
   JS_SetPropertyStr(context, result, "paintCount", JS_NewInt64(context, scope->api->paint_count));
   JS_SetPropertyStr(context, result, "monotonicUs", JS_NewInt64(context, scope->api->clock.monotonic_us));
   JS_SetPropertyStr(context, result, "unixMs", JS_NewInt64(context, scope->api->clock.unix_ms));
+  JS_SetPropertyStr(context, result, "clockSynced", JS_NewBool(context, scope->api->clock.network_synced));
+  JS_SetPropertyStr(context, result, "clockOffsetMs", JS_NewInt64(context, scope->api->clock.network_offset_ms));
+  JS_SetPropertyStr(context, result, "clockRttMs", JS_NewInt32(context, scope->api->clock.network_rtt_ms));
+  JS_SetPropertyStr(context, result, "clockSyncAgeMs", JS_NewInt64(context, scope->api->clock.network_sync_age_ms));
+  JS_SetPropertyStr(context, result, "audioLatencyMs", JS_NewFloat64(context, scope->api->audio.output_latency_ms));
+  JS_SetPropertyStr(context, result, "audioSubmitUs", JS_NewFloat64(context, scope->api->audio.submit_us));
+  JS_SetPropertyStr(context, result, "inputToAudioUs", JS_NewFloat64(context, scope->api->audio.input_to_submit_us));
+  JS_SetPropertyStr(context, result, "audioGlitches", JS_NewInt32(context, scope->api->audio.glitches));
+  JS_SetPropertyStr(context, result, "midiInputs", JS_NewInt32(context, scope->api->audio.midi_inputs));
+  JS_SetPropertyStr(context, result, "midiEvents", JS_NewInt64(context, scope->api->audio.midi_events));
+  JS_SetPropertyStr(context, result, "midiNote", JS_NewInt32(context, scope->api->audio.midi_note));
+  JS_SetPropertyStr(context, result, "midiVelocity", JS_NewInt32(context, scope->api->audio.midi_velocity));
+  JS_SetPropertyStr(context, result, "midiStatus", JS_NewString(context, scope->api->audio.midi_status.c_str()));
   return result;
 }
 

@@ -9,6 +9,8 @@ using namespace Windows::ApplicationModel::Activation;
 using namespace Windows::Gaming::Input;
 using namespace Windows::Networking::Connectivity;
 using namespace Windows::Data::Json;
+using namespace Windows::Devices::Enumeration;
+using namespace Windows::Devices::Midi;
 using namespace Windows::Graphics::Imaging;
 using namespace Windows::Security::ExchangeActiveSyncProvisioning;
 using namespace Windows::Storage;
@@ -80,6 +82,32 @@ static std::wstring Wide(const std::string& value) {
   MultiByteToWideChar(CP_UTF8, 0, value.data(), static_cast<int>(value.size()),
     result.data(), size);
   return result;
+}
+
+static std::int64_t SystemUnixMs() {
+  FILETIME fileTime{};
+  GetSystemTimeAsFileTime(&fileTime);
+  ULARGE_INTEGER ticks{};
+  ticks.LowPart = fileTime.dwLowDateTime;
+  ticks.HighPart = fileTime.dwHighDateTime;
+  return static_cast<std::int64_t>(
+    (ticks.QuadPart - 116444736000000000ULL) / 10000ULL);
+}
+
+// Howard Hinnant's civil-date transform, used here to parse the fixed ISO-8601
+// response from /api/clock without depending on locale-sensitive date parsing.
+static std::int64_t ParseIsoUnixMs(const std::string& value) {
+  int year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0, millis = 0;
+  if (sscanf_s(value.c_str(), "%d-%d-%dT%d:%d:%d.%dZ", &year, &month, &day,
+      &hour, &minute, &second, &millis) != 7) throw std::runtime_error("invalid clock ISO");
+  year -= month <= 2;
+  const auto era = (year >= 0 ? year : year - 399) / 400;
+  const auto yoe = static_cast<unsigned>(year - era * 400);
+  const auto shiftedMonth = static_cast<unsigned>(month + (month > 2 ? -3 : 9));
+  const auto doy = (153 * shiftedMonth + 2) / 5 + static_cast<unsigned>(day) - 1;
+  const auto doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+  const auto days = static_cast<std::int64_t>(era) * 146097 + doe - 719468;
+  return (((days * 24 + hour) * 60 + minute) * 60 + second) * 1000 + millis;
 }
 
 static std::vector<uint8_t> ReadPackageBytes(const wchar_t* name) {
@@ -254,16 +282,18 @@ public:
     };
     m_sound->on_oscillator_stop = [this]() { StopOscillator(); };
     m_sound->get_rate = [this]() { return static_cast<int>(m_sampleRate); };
-    m_api = std::make_unique<Api>(Api{{1920, 1080, 1}, {}, {}, {}, *m_graphics, *m_sound});
-    m_api->system.version = "1.0.0.17";
+    m_api = std::make_unique<Api>(Api{{1920, 1080, 1}, {}, {}, {}, *m_graphics, *m_sound, {}});
+    m_api->system.version = "1.0.0.18";
     m_api->telemetry = [](std::string_view line) {
       std::string safe(line);
       for (auto& character : safe) if (character == '\n' || character == '\r') character = ' ';
       if (safe.size() > 1024) safe.resize(1024);
       LogTelemetry("AC_NATIVE_" + safe);
     };
+    InitializeMidi();
     RefreshCapabilities(true);
     RefreshAcData(true);
+    RefreshNetworkClock(true);
     m_engine = std::make_unique<QuickJsEngine>();
     m_supervisor = std::make_unique<PieceSupervisor>(*m_engine);
     std::string error;
@@ -277,7 +307,7 @@ public:
   }
 
   virtual void Load(String^) {}
-  virtual void Uninitialize() { DestroyAudio(); }
+  virtual void Uninitialize() { DestroyMidi(); DestroyAudio(); }
 
   virtual void Run() {
     Render({0.025f, 0.02f, 0.04f, 1.0f});
@@ -285,9 +315,12 @@ public:
       m_window->Dispatcher->ProcessEvents(CoreProcessEventsOption::ProcessAllIfPresent);
       RefreshCapabilities(false);
       RefreshAcData(false);
+      RefreshNetworkClock(false);
       PollController();
+      PollMidi();
       PollLivePiece();
       RefreshClock();
+      RefreshAudioPerformance();
       m_frameRects.clear();
       m_frameLines.clear();
       m_frameTriangles.clear();
@@ -524,8 +557,12 @@ private:
 
     const uint32_t oscillatorFrames = sampleRate / 100; // one 100 Hz cycle
     m_oscSamples.resize(oscillatorFrames);
-    for (uint32_t i = 0; i < oscillatorFrames; ++i)
-      m_oscSamples[i] = static_cast<int16_t>(std::sin(tau * i / oscillatorFrames) * 16000.0);
+    for (uint32_t i = 0; i < oscillatorFrames; ++i) {
+      const double phase = tau * i / oscillatorFrames;
+      const double harmonic = std::sin(phase) + .23 * std::sin(phase * 2) +
+        .11 * std::sin(phase * 3) + .045 * std::sin(phase * 5);
+      m_oscSamples[i] = static_cast<int16_t>(harmonic * 12500.0);
+    }
     m_oscBuffer = {};
     m_oscBuffer.AudioBytes = static_cast<UINT32>(m_oscSamples.size() * sizeof(int16_t));
     m_oscBuffer.pAudioData = reinterpret_cast<const BYTE*>(m_oscSamples.data());
@@ -595,11 +632,118 @@ private:
     Check(m_voice->Start(0));
     QueryPerformanceCounter(&after);
     const double micros = (after.QuadPart - before.QuadPart) * 1000000.0 / frequency.QuadPart;
+    if (m_api) {
+      m_api->audio.submit_us = micros;
+      const auto eventQpc = m_lastAudioEventQpc.exchange(0);
+      if (eventQpc > 0)
+        m_api->audio.input_to_submit_us =
+          (after.QuadPart - eventQpc) * 1000000.0 / frequency.QuadPart;
+    }
     wchar_t line[200];
     swprintf_s(line,
       L"AC_NATIVE_INPUT button=0x%X rate=%uHz submit=%.2fus qpc=%lld\n",
       buttonMask, m_sampleRate, micros, before.QuadPart);
     OutputDebugStringW(line);
+  }
+
+  void RefreshAudioPerformance() {
+    const auto now = GetTickCount64();
+    if (!m_audio || !m_api || now < m_nextAudioPerfPollMs) return;
+    m_nextAudioPerfPollMs = now + 1000;
+    XAUDIO2_PERFORMANCE_DATA data{};
+    m_audio->GetPerformanceData(&data);
+    m_api->audio.output_latency_ms = m_sampleRate
+      ? data.CurrentLatencyInSamples * 1000.0 / m_sampleRate : 0;
+    m_api->audio.glitches = data.GlitchesSinceEngineStarted;
+    LogTelemetry("AC_NATIVE_AUDIO_PERF latencyMs=" +
+      std::to_string(m_api->audio.output_latency_ms) + " submitUs=" +
+      std::to_string(m_api->audio.submit_us) + " inputToSubmitUs=" +
+      std::to_string(m_api->audio.input_to_submit_us) + " glitches=" +
+      std::to_string(m_api->audio.glitches) + " midi=" + m_api->audio.midi_status);
+  }
+
+  struct PendingMidiEvent { int note = 0, velocity = 0; long long qpc = 0; };
+
+  void InitializeMidi() {
+    create_task(DeviceInformation::FindAllAsync(MidiInPort::GetDeviceSelector()))
+      .then([this](DeviceInformationCollection^ devices) {
+        if (!m_api) return create_task([] {});
+        m_api->audio.midi_inputs = devices ? devices->Size : 0;
+        if (!devices || devices->Size == 0) {
+          m_api->audio.midi_status = "no-input";
+          LogTelemetry("AC_NATIVE_MIDI inputs=0 status=no-input");
+          return create_task([] {});
+        }
+        const auto device = devices->GetAt(0);
+        const auto name = Utf8(device->Name);
+        return create_task(MidiInPort::FromIdAsync(device->Id)).then(
+          [this, name](MidiInPort^ port) {
+            if (!m_api) return;
+            if (!port) {
+              m_api->audio.midi_status = "open-failed";
+              LogTelemetry("AC_NATIVE_MIDI inputs=" +
+                std::to_string(m_api->audio.midi_inputs) + " status=open-failed");
+              return;
+            }
+            m_midiInPort = port;
+            m_midiToken = m_midiInPort->MessageReceived +=
+              ref new TypedEventHandler<MidiInPort^, MidiMessageReceivedEventArgs^>(
+                this, &App::OnMidiMessage);
+            m_midiSubscribed = true;
+            m_api->audio.midi_status = "ready: " + name;
+            LogTelemetry("AC_NATIVE_MIDI inputs=" +
+              std::to_string(m_api->audio.midi_inputs) + " status=ready name=" + name);
+          });
+      }).then([this](task<void> completed) {
+        try { completed.get(); }
+        catch (Exception^ error) {
+          if (m_api) m_api->audio.midi_status = "error";
+          LogTelemetry("AC_NATIVE_MIDI_ERROR " + Utf8(error->Message));
+        }
+      });
+  }
+
+  void DestroyMidi() {
+    if (!m_midiInPort) return;
+    if (m_midiSubscribed) m_midiInPort->MessageReceived -= m_midiToken;
+    m_midiInPort->Close();
+    m_midiInPort = nullptr;
+    m_midiSubscribed = false;
+  }
+
+  void OnMidiMessage(MidiInPort^, MidiMessageReceivedEventArgs^ args) {
+    if (!args || !args->Message || args->Message->Type != MidiMessageType::NoteOn) return;
+    auto noteOn = dynamic_cast<MidiNoteOnMessage^>(args->Message);
+    if (!noteOn || noteOn->Velocity == 0) return;
+    LARGE_INTEGER now{};
+    QueryPerformanceCounter(&now);
+    std::lock_guard<std::mutex> lock(m_midiMutex);
+    if (m_pendingMidi.size() < 32)
+      m_pendingMidi.push_back({noteOn->Note, noteOn->Velocity, now.QuadPart});
+  }
+
+  void PollMidi() {
+    if (!m_api) return;
+    std::vector<PendingMidiEvent> events;
+    {
+      std::lock_guard<std::mutex> lock(m_midiMutex);
+      events.swap(m_pendingMidi);
+    }
+    for (const auto& event : events) {
+      m_api->audio.midi_note = event.note;
+      m_api->audio.midi_velocity = event.velocity;
+      ++m_api->audio.midi_events;
+      m_lastAudioEventQpc = event.qpc;
+      SynthVoice voice;
+      voice.frequency_hz = static_cast<float>(440.0 *
+        std::pow(2.0, (event.note - 69) / 12.0));
+      voice.duration_s = .18f;
+      voice.volume = (std::max)(.08f, event.velocity / 127.0f * .45f);
+      PlaySynth(voice);
+      LogTelemetry("AC_NATIVE_MIDI_NOTE note=" + std::to_string(event.note) +
+        " velocity=" + std::to_string(event.velocity) + " inputToSubmitUs=" +
+        std::to_string(m_api->audio.input_to_submit_us));
+    }
   }
 
   void PollController() {
@@ -647,6 +791,7 @@ private:
           LogTelemetry("AC_NATIVE_INPUT button=" + std::string(named.name) +
             " qpc_us=" + std::to_string(
               static_cast<unsigned long long>(now.QuadPart * 1000000 / frequency.QuadPart)));
+          m_lastAudioEventQpc = now.QuadPart;
           try { m_supervisor->active()->act(*m_api, {named.name, 1, 0}); }
           catch (const std::exception& error) {
             OutputDebugStringA((std::string("AC_NATIVE_BIOS_ACT_ERROR ") + error.what() + "\n").c_str());
@@ -681,13 +826,47 @@ private:
       counter.QuadPart * 1000000 / frequency.QuadPart);
     m_api->clock.seconds = static_cast<double>(counter.QuadPart) / frequency.QuadPart;
     m_api->seconds = m_api->clock.seconds;
-    FILETIME fileTime{};
-    GetSystemTimeAsFileTime(&fileTime);
-    ULARGE_INTEGER ticks{};
-    ticks.LowPart = fileTime.dwLowDateTime;
-    ticks.HighPart = fileTime.dwHighDateTime;
-    m_api->clock.unix_ms = static_cast<std::int64_t>(
-      (ticks.QuadPart - 116444736000000000ULL) / 10000ULL);
+    const auto localUnixMs = SystemUnixMs();
+    const auto syncAt = m_networkClockSyncUnixMs.load();
+    m_api->clock.network_synced = syncAt > 0;
+    m_api->clock.network_offset_ms = m_networkClockOffsetMs.load();
+    m_api->clock.network_rtt_ms = m_networkClockRttMs.load();
+    m_api->clock.network_sync_age_ms = syncAt > 0 && localUnixMs >= syncAt
+      ? static_cast<std::uint64_t>(localUnixMs - syncAt) : 0;
+    m_api->clock.unix_ms = localUnixMs + m_api->clock.network_offset_ms;
+  }
+
+  void RefreshNetworkClock(bool force) {
+    const auto now = GetTickCount64();
+    if (!force && now < m_nextNetworkClockPollMs) return;
+    m_nextNetworkClockPollMs = now + 10000;
+    bool expected = false;
+    if (!m_networkClockRequestInFlight.compare_exchange_strong(expected, true)) return;
+    const auto sentAt = SystemUnixMs();
+    auto client = ref new HttpClient();
+    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.18 Xbox ClockSync");
+    create_task(client->GetStringAsync(
+      ref new Uri(L"https://aesthetic.computer/api/clock")))
+      .then([this, client, sentAt](task<String^> completed) {
+        try {
+          const auto serverAt = ParseIsoUnixMs(Utf8(completed.get()));
+          const auto receivedAt = SystemUnixMs();
+          const auto rtt = (std::max)(std::int64_t{0}, receivedAt - sentAt);
+          const auto midpoint = sentAt + rtt / 2;
+          m_networkClockOffsetMs = serverAt - midpoint;
+          m_networkClockRttMs = static_cast<std::uint32_t>((std::min)(
+            rtt, static_cast<std::int64_t>(UINT32_MAX)));
+          m_networkClockSyncUnixMs = receivedAt;
+          LogTelemetry("AC_NATIVE_CLOCK_SYNC offsetMs=" +
+            std::to_string(m_networkClockOffsetMs.load()) + " rttMs=" +
+            std::to_string(m_networkClockRttMs.load()) + " source=/api/clock");
+        } catch (Exception^ error) {
+          LogTelemetry("AC_NATIVE_CLOCK_ERROR " + Utf8(error->Message));
+        } catch (const std::exception& error) {
+          LogTelemetry("AC_NATIVE_CLOCK_ERROR " + std::string(error.what()));
+        }
+        m_networkClockRequestInFlight = false;
+      });
   }
 
   void RefreshCapabilities(bool force) {
@@ -1197,7 +1376,14 @@ private:
   unsigned long long m_nextLivePollMs = 0;
   unsigned long long m_nextCapabilityPollMs = 0;
   unsigned long long m_nextAcPollMs = 0;
+  unsigned long long m_nextNetworkClockPollMs = 0;
+  unsigned long long m_nextAudioPerfPollMs = 0;
   std::atomic<bool> m_acRequestInFlight{false};
+  std::atomic<bool> m_networkClockRequestInFlight{false};
+  std::atomic<std::int64_t> m_networkClockOffsetMs{0};
+  std::atomic<std::uint32_t> m_networkClockRttMs{0};
+  std::atomic<std::int64_t> m_networkClockSyncUnixMs{0};
+  std::atomic<long long> m_lastAudioEventQpc{0};
   unsigned m_frameWidth = 0;
   unsigned m_frameHeight = 0;
   unsigned m_frameBlurRadius = 0;
@@ -1244,6 +1430,11 @@ private:
   IXAudio2MasteringVoice* m_master = nullptr;
   IXAudio2SourceVoice* m_voice = nullptr;
   IXAudio2SourceVoice* m_oscVoice = nullptr;
+  MidiInPort^ m_midiInPort = nullptr;
+  EventRegistrationToken m_midiToken{};
+  bool m_midiSubscribed = false;
+  std::mutex m_midiMutex;
+  std::vector<PendingMidiEvent> m_pendingMidi;
   std::vector<int16_t> m_samples;
   std::vector<int16_t> m_oscSamples;
   std::vector<uint32_t> m_cpuFrame;

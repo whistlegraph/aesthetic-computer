@@ -12,11 +12,12 @@ an experimental comparison target, not the production architecture.
 |---|---|---|
 | `boot(api)` / `sim(api)` / `paint(api)` / `act(api)` / `leave(api)` | `Piece` virtual methods | Same lifecycle and fixed-step intent |
 | `api.screen.{width,height}` | `Api::screen` | Physical backbuffer dimensions |
-| `api.clock.time()` / `seconds` | `Api::clock`, `Api::seconds` | QPC monotonic time plus network-adjustable Unix time |
+| `api.clock.time()` / `seconds` | `Api::clock`, `Api::seconds` | QPC monotonic time plus midpoint-adjusted `/api/clock` Unix time and sync RTT |
 | `wipe`, `box`, `line`, `write` | `Graphics` command interface | D3D renderer batches these commands |
 | system type and Xbox button symbols | `systemWrite`, `systemGlyph` | DirectWrite with Segoe UI / Segoe MDL2 Assets |
 | latest user painting | `painting` | Host downloads and decodes an allowlisted AC image |
 | `sound.synth({...})` | `Sound::synth(SynthVoice)` | Submit immediately to XAudio2, outside Present |
+| MIDI note input | `Windows.Devices.Midi` → XAudio2 | Auto-opens the first input, timestamps Note On with QPC, and reports event-to-submit latency |
 | continuous sine oscillator | `Sound::oscillator` | One looped XAudio2 buffer, pitch and level changed in real time |
 | mood / clock chat / painting metadata | `Api::ac` | Immutable host-polled snapshot; no general piece HTTP API |
 | keyboard direction events | translated D-pad events | Existing `nom.mjs` names are preserved |
@@ -37,6 +38,11 @@ game rules but use native text and basic oscillator cues.
 4. Build one graphics command list in `paint`, then present once.
 5. Enqueue `Sound::synth` directly to a preallocated XAudio2 source voice.
 6. Poll the outbound `ControlChannel` and emit timestamped telemetry.
+
+The host reports XAudio2's `CurrentLatencyInSamples`, submit time, event-to-submit
+time, and engine glitch count through `runtime()`. These are pipeline
+measurements, not an acoustic round-trip measurement; measuring speaker-to-room
+latency still requires a microphone or loopback interface.
 
 ## Live piece loading
 

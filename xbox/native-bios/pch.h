@@ -12,6 +12,8 @@
 #include <xaudio2.h>
 #include <windows.networking.connectivity.h>
 #include <windows.data.json.h>
+#include <windows.devices.enumeration.h>
+#include <windows.devices.midi.h>
 #include <windows.graphics.imaging.h>
 #include <windows.security.exchangeactivesyncprovisioning.h>
 #include <windows.system.h>

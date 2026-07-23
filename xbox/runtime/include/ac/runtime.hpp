@@ -104,6 +104,22 @@ struct Clock {
   std::uint64_t monotonic_us = 0;
   std::int64_t unix_ms = 0;
   double seconds = 0;
+  bool network_synced = false;
+  std::int64_t network_offset_ms = 0;
+  std::uint32_t network_rtt_ms = 0;
+  std::uint64_t network_sync_age_ms = 0;
+};
+
+struct AudioStats {
+  double output_latency_ms = 0;
+  double submit_us = 0;
+  double input_to_submit_us = 0;
+  std::uint32_t glitches = 0;
+  std::uint32_t midi_inputs = 0;
+  std::uint64_t midi_events = 0;
+  int midi_note = -1;
+  int midi_velocity = 0;
+  std::string midi_status = "scanning";
 };
 
 struct System {
@@ -142,6 +158,7 @@ struct Api {
   GamepadState gamepad;
   Graphics& graphics;
   Sound& sound;
+  AudioStats audio;
   std::uint64_t sim_count = 0;
   std::uint64_t paint_count = 0;
   double seconds = 0;

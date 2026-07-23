@@ -140,13 +140,26 @@ const vertices=${JSON.stringify(vertices)};
 const faces=${JSON.stringify(faceRows)};
 const stars=${JSON.stringify(stars)};
 let rotationX=0,rotationY=0,frameCount=0,perfStarted=0,fpsLabel="-- FPS",frameMsLabel="-- MS";
-function boot(){telemetry("PALS_MATERIAL_BOOT","triangles=${indices.length / 3} material=glb-textures glossy skybox procedural hud=fps+stack")}
+let audioOn=true,lastSoundAt=-1,scenePulse=0,lastMidiEvent=0,lastButton="--";
+function boot(){
+  oscillator(55,.06);
+  telemetry("PALS_MATERIAL_BOOT","triangles=${indices.length / 3} material=glb-textures glossy skybox orbital-scene audio=harmonic-xaudio2 hud=perf+clock");
+}
 function sim(){
   const pad=gamepad();
   if(pad.down.includes("ArrowLeft"))rotationY-=0.035;
   if(pad.down.includes("ArrowRight"))rotationY+=0.035;
   if(pad.down.includes("ArrowUp"))rotationX-=0.035;
   if(pad.down.includes("ArrowDown"))rotationX+=0.035;
+  const run=runtime(),t=run.monotonicUs/1000000;
+  scenePulse*=.92;
+  if(run.midiEvents>lastMidiEvent){lastMidiEvent=run.midiEvents;scenePulse=1;}
+  if(audioOn&&t-lastSoundAt>.05){
+    const roots=[55,65.406,73.416,82.407];
+    const root=roots[Math.floor(t/4)%roots.length];
+    oscillator(root*(1+.012*Math.sin(t*.37)+.004*Math.sin(t*1.71)),.06+scenePulse*.04);
+    lastSoundAt=t;
+  }
 }
 function clamp(value,low=0,high=255){return Math.max(low,Math.min(high,value))}
 function rotate(point,ax,ay){
@@ -180,8 +193,53 @@ function skybox(t){
     line(0,y,1920,y,1,18+row*2,14+row,38+row*3);
   }
 }
+function orbitalScene(t,run){
+  const pulse=1+scenePulse*.42;
+  // Three faceted moons orbit behind the Pals mesh. Their rings and facets are
+  // emitted through the same GPU triangle list as the GLB.
+  const moons=[[350,315,66,.19],[1560,655,48,-.27],[1510,250,32,.34]];
+  for(let moon=0;moon<moons.length;moon++){
+    const base=moons[moon],phase=t*(base[3]+moon*.035)+moon*2.1;
+    const cx=base[0]+Math.cos(phase)*55,cy=base[1]+Math.sin(phase*.83)*34;
+    const radius=base[2]*pulse,z=.9+moon*.08,segments=16;
+    for(let i=0;i<segments;i++){
+      const a=phase+i*Math.PI*2/segments,b=phase+(i+1)*Math.PI*2/segments;
+      const shade=.55+.45*Math.sin(a*2.7+t*.41);
+      triangle3d(cx,cy,z,cx+Math.cos(a)*radius,cy+Math.sin(a)*radius,z,cx+Math.cos(b)*radius,cy+Math.sin(b)*radius,z,
+        34+shade*72,28+shade*58,92+shade*112);
+    }
+    for(let i=0;i<24;i++){
+      const a=phase*.55+i*Math.PI*2/24,b=phase*.55+(i+1)*Math.PI*2/24;
+      const rx=radius*1.82,ry=radius*.38,thick=2.6+moon;
+      triangle3d(cx+Math.cos(a)*rx,cy+Math.sin(a)*ry,z-.035,cx+Math.cos(b)*rx,cy+Math.sin(b)*ry,z-.035,
+        cx+Math.cos(b)*(rx-thick),cy+Math.sin(b)*(ry-thick*.3),z-.035,88,68,156);
+      triangle3d(cx+Math.cos(a)*rx,cy+Math.sin(a)*ry,z-.035,cx+Math.cos(b)*(rx-thick),cy+Math.sin(b)*(ry-thick*.3),z-.035,
+        cx+Math.cos(a)*(rx-thick),cy+Math.sin(a)*(ry-thick*.3),z-.035,138,106,208);
+    }
+  }
+  // A living dust field: tiny depth-layered diamonds that drift in parallax.
+  for(let i=0;i<84;i++){
+    const phase=t*(.05+(i%7)*.008)+i*1.731;
+    const x=(i*227+phase*91)%1840+40,y=125+((i*97)%720)+Math.sin(phase)*18;
+    const size=(1.5+(i%4))*(i%17===0?pulse:1),z=.72+(i%5)*.045;
+    const glow=70+(i%6)*24;
+    triangle3d(x,y-size,z,x+size,y,z,x,y+size,z,glow*.64,glow*.54,glow);
+    triangle3d(x,y-size,z,x,y+size,z,x-size,y,z,glow*.38,glow*.46,glow*.82);
+  }
+  // Clock-synchronized energy ribbon. Every console using /api/clock sees the
+  // same phase, while local monotonic time keeps motion smooth between syncs.
+  const clockT=run.unixMs/1000;
+  for(let lane=0;lane<3;lane++)for(let i=0;i<28;i++){
+    const x0=i*72-40,x1=x0+76;
+    const y0=760+lane*54+Math.sin(clockT*.72+i*.46+lane*2)*18;
+    const y1=760+lane*54+Math.sin(clockT*.72+(i+1)*.46+lane*2)*18;
+    const width=3+scenePulse*5,z=.82+lane*.025;
+    triangle3d(x0,y0-width,z,x1,y1-width,z,x1,y1+width,z,24+lane*22,72+lane*18,104+lane*38);
+    triangle3d(x0,y0-width,z,x1,y1+width,z,x0,y0+width,z,42+lane*28,98+lane*18,142+lane*36);
+  }
+}
 function paint(){
-  const t=runtime().monotonicUs/1000000;
+  const run=runtime(),t=run.monotonicUs/1000000;
   if(!perfStarted)perfStarted=t;
   frameCount++;
   if(t-perfStarted>=2){
@@ -192,6 +250,7 @@ function paint(){
     perfStarted=t;frameCount=0;
   }
   skybox(t);
+  orbitalScene(t,run);
   const ax=rotationX+Math.sin(t*.31)*.1;
   const ay=rotationY+t*.72;
   const world=vertices.map((point)=>rotate(point,ax,ay));
@@ -226,16 +285,31 @@ function paint(){
     const blue=clamp(face[5]*diffuse+face[10]*.22+255*specular+128*fresnel+132*sky+122*rim);
     triangle3d(p0[0],p0[1],p0[2],p1[0],p1[1],p1[2],p2[0],p2[1],p2[2],red,green,blue);
   }
-  box(36,34,274,58,8,10,29);
-  line(36,92,310,92,2,92,66,126);
+  const audioLatency=run.audioLatencyMs>0?run.audioLatencyMs.toFixed(1)+" MS":"MEASURING";
+  const audioSubmit=Number(run.audioSubmitUs||0),inputToAudio=Number(run.inputToAudioUs||0);
+  const midi=run.midiInputs>0?run.midiInputs+" IN / NOTE "+run.midiNote+" / #"+(run.midiEvents||0):"NO MIDI INPUT";
+  const clock=run.clockSynced?(run.clockOffsetMs>=0?"+":"")+run.clockOffsetMs+" MS / RTT "+run.clockRttMs+" MS":"SYNCING";
+  box(36,34,520,132,8,10,29);
+  line(36,92,556,92,2,92,66,126);
   systemWrite(fpsLabel+" / "+frameMsLabel,52,46,25,224,218,255);
+  systemWrite("AUDIO "+audioLatency+" / SUBMIT "+audioSubmit.toFixed(1)+" US / GLITCH "+(run.audioGlitches||0)+"\\nMIDI "+midi+" / EVENT>VOICE "+inputToAudio.toFixed(1)+" US\\nNET CLOCK "+clock,52,104,17,176,194,228);
   box(1384,34,500,384,7,9,25);
   line(1384,98,1884,98,2,92,66,126);
   systemWrite("STACK / LIVE PIPELINE",1412,52,27,234,228,255);
-  systemWrite("MESHY GLB + TEXTURE MAPS\\n> OFFLINE MATERIAL BAKE\\n> LIVE JS / QUICKJS\\n> C++ GPU BRIDGE (${indices.length / 3} TRIS)\\n> D3D11 VERTEX + DEPTH BUFFERS\\n> 1 HARDWARE DRAW CALL\\n> PRESENT(1) / VSYNC\\nTARGET 60 FPS / 16.67 MS",1412,116,21,190,176,224);
+  systemWrite("MESHY GLB + TEXTURE MAPS\\n> OFFLINE MATERIAL BAKE\\n> LIVE JS / QUICKJS + CLOCK\\n> C++ GPU BRIDGE (${indices.length / 3} GLB TRIS)\\n> D3D11 VERTEX + DEPTH BUFFERS\\n> 1 HARDWARE DRAW CALL\\n> XAUDIO2 HARMONIC SYNTH\\n> PRESENT(1) / VSYNC\\nTARGET 60 FPS / 16.67 MS",1412,116,20,190,176,224);
 }
-function act(button){telemetry("PALS_MATERIAL_BUTTON",button)}
-function leave(){telemetry("PALS_MATERIAL_LEAVE","ok")}
+function act(button){
+  lastButton=button;scenePulse=1;
+  if(button==="Menu"){
+    audioOn=!audioOn;
+    if(audioOn)oscillator(55,.06);else oscillatorStop();
+  }else{
+    const notes={A:220,B:277.18,X:329.63,Y:440,ArrowLeft:164.81,ArrowRight:196,ArrowUp:246.94,ArrowDown:146.83};
+    if(notes[button])synth(notes[button],.14);
+  }
+  telemetry("PALS_MATERIAL_BUTTON",button+" audio="+audioOn);
+}
+function leave(){oscillatorStop();telemetry("PALS_MATERIAL_LEAVE","ok")}
 `;
 
 writeFileSync(destination, code);
