@@ -139,8 +139,8 @@ const code = `// Pals Material Skybox, 26.07.22
 const vertices=${JSON.stringify(vertices)};
 const faces=${JSON.stringify(faceRows)};
 const stars=${JSON.stringify(stars)};
-let rotationX=0,rotationY=0,frameCount=0,perfStarted=0;
-function boot(){telemetry("PALS_MATERIAL_BOOT","triangles=${indices.length / 3} material=glb-textures glossy skybox procedural hud=0")}
+let rotationX=0,rotationY=0,frameCount=0,perfStarted=0,fpsLabel="-- FPS";
+function boot(){telemetry("PALS_MATERIAL_BOOT","triangles=${indices.length / 3} material=glb-textures glossy skybox procedural hud=fps")}
 function sim(){
   const pad=gamepad();
   if(pad.down.includes("ArrowLeft"))rotationY-=0.035;
@@ -190,7 +190,8 @@ function paint(){
   if(!perfStarted)perfStarted=t;
   frameCount++;
   if(t-perfStarted>=2){
-    telemetry("PALS_MATERIAL_PERF","fps="+(frameCount/(t-perfStarted)).toFixed(1));
+    fpsLabel=(frameCount/(t-perfStarted)).toFixed(1)+" FPS";
+    telemetry("PALS_MATERIAL_PERF","fps="+fpsLabel.slice(0,-4));
     perfStarted=t;frameCount=0;
   }
   skybox(t);
@@ -227,6 +228,9 @@ function paint(){
     const blue=clamp(face[5]*diffuse+face[10]*.22+255*specular+128*fresnel+132*sky+122*rim);
     triangle3d(p0[0],p0[1],p0[2],p1[0],p1[1],p1[2],p2[0],p2[1],p2[2],red,green,blue);
   }
+  box(36,34,164,58,8,10,29);
+  line(36,92,200,92,2,92,66,126);
+  systemWrite(fpsLabel,52,44,30,224,218,255);
 }
 function act(button){telemetry("PALS_MATERIAL_BUTTON",button)}
 function leave(){telemetry("PALS_MATERIAL_LEAVE","ok")}
