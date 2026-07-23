@@ -2,8 +2,9 @@
 // render-spatial-jeffrey.mjs — Jeffrey's stretched phoneme choir for the
 // two-minute spatial sineabye room mix.
 //
-// The first four bars remain voice-free so the decelerating whole-room spin
-// can fuse into its own hum.  The choir enters as mm/oo, opens through oh,
+// The first four bars remain Jeffrey-choir-free while the C bed's melody and
+// beat move through the decelerating whole-room spin.  The choir enters as
+// mm/oo, opens through oh,
 // blooms to ah/eh through the 62–70 s eight-turn centrifuge, then closes back
 // toward oo/mm.  All sources are the project-owned, pitch-locked Jeffrey takes
 // already used by momabobasheep; this renderer makes no network/API calls.
@@ -284,7 +285,7 @@ const provenancePath = outPath.replace(/\.[^.]+$/, ".provenance.json");
 writeFileSync(provenancePath, JSON.stringify({
   title: "spatial sineabye — Jeffrey choir candidate",
   bed: bedPath.replace(REPO + "/", ""), bpm: BPM, duration: TOTAL_SEC,
-  opening: "bars 0–3 voice-free; 96-turn decelerating room spin is rendered in C bed",
+  opening: "bars 0–3 Jeffrey-choir-free; melody, beat, and 96-turn decelerating room spin are rendered in C bed",
   superSpin: { start: 62, end: 70, turns: 8, vocalOrbitMatched: true },
   voiceManifest: manifestPath.replace(REPO + "/", ""),
   sources: manifest.map(({ file, flatFile, vowel, midi }) => ({ file, flatFile, vowel, midi })),
