@@ -1462,6 +1462,30 @@ private:
     BoxBlurBgra(m_cpuFrame, m_frameWidth, m_frameHeight, radius, m_blurScratch);
   }
 
+  void DrawVectorBackground(const std::array<float, 4>& color,
+      float scaleX, float scaleY) {
+    m_d2dContext->BeginDraw();
+    m_d2dContext->SetTransform(D2D1::Matrix3x2F::Identity());
+    m_d2dContext->SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED);
+    m_d2dContext->Clear(D2D1::ColorF(color[0], color[1], color[2], color[3]));
+    for (const auto& rect : m_frameRects) {
+      m_textBrush->SetColor(D2D1::ColorF(rect.color.r / 255.f, rect.color.g / 255.f,
+        rect.color.b / 255.f, rect.color.a / 255.f));
+      m_d2dContext->FillRectangle(D2D1::RectF(rect.x * scaleX, rect.y * scaleY,
+        (rect.x + rect.width) * scaleX, (rect.y + rect.height) * scaleY),
+        m_textBrush.Get());
+    }
+    for (const auto& line : m_frameLines) {
+      m_textBrush->SetColor(D2D1::ColorF(line.color.r / 255.f, line.color.g / 255.f,
+        line.color.b / 255.f, line.color.a / 255.f));
+      m_d2dContext->DrawLine(D2D1::Point2F(line.x1 * scaleX, line.y1 * scaleY),
+        D2D1::Point2F(line.x2 * scaleX, line.y2 * scaleY), m_textBrush.Get(),
+        (std::max)(1.f, line.width * (scaleX + scaleY) * .5f));
+    }
+    const auto hr = m_d2dContext->EndDraw();
+    if (FAILED(hr) && hr != D2DERR_RECREATE_TARGET) Check(hr);
+  }
+
   void Render(const std::array<float, 4>& color) {
     if (!m_target) return;
     LARGE_INTEGER renderStart{}, beforePresent{}, afterPresent{}, frequency{};
@@ -1472,6 +1496,12 @@ private:
         !m_frameSprites.empty() ||
         !m_frameImages.empty() || m_frameBlurRadius > 0 ||
         !m_frameSystemTexts.empty() || !m_frameSystemGlyphs.empty()) {
+      const float scaleX = m_frameWidth / 1920.0f;
+      const float scaleY = m_frameHeight / 1080.0f;
+      const bool vectorFastPath = m_frameImages.empty() && m_frameTexts.empty() &&
+        m_frameBlurRadius == 0 && m_d2dContext.Get() && m_d2dTarget.Get();
+      if (vectorFastPath) DrawVectorBackground(color, scaleX, scaleY);
+      else {
       const auto byte = [](float value) {
         return static_cast<unsigned>(255.0f * (std::max)(0.0f, (std::min)(1.0f, value)));
       };
@@ -1486,8 +1516,6 @@ private:
           std::fill(m_cpuFrame.begin() + static_cast<std::size_t>(y) * m_frameWidth + left,
             m_cpuFrame.begin() + static_cast<std::size_t>(y) * m_frameWidth + right, value);
       };
-      const float scaleX = m_frameWidth / 1920.0f;
-      const float scaleY = m_frameHeight / 1080.0f;
       const auto packed = [](Color value) {
         return 0xff000000u | (static_cast<uint32_t>(value.r) << 16) |
           (static_cast<uint32_t>(value.g) << 8) | value.b;
@@ -1613,6 +1641,7 @@ private:
       m_context->OMSetRenderTargets(0, nullptr, nullptr);
       m_context->UpdateSubresource(m_sceneTexture.Get(), 0, nullptr, m_cpuFrame.data(),
         m_frameWidth * sizeof(uint32_t), 0);
+      }
       if ((!m_frameTriangles.empty() || !m_frameTexturedTriangles.empty() ||
           !m_frameSprites.empty()) && m_triangleDepthView)
         m_context->ClearDepthStencilView(m_triangleDepthView.Get(),
@@ -1659,6 +1688,7 @@ private:
       if (!m_loggedTextFrame) {
         LogTelemetry("AC_NATIVE_FRAME trianglePath=" +
           std::string(m_triangleVertexBuffer ? "gpu" : "cpu") +
+          " backgroundPath=" + std::string(vectorFastPath ? "d2d" : "cpu") +
           " texts=" + std::to_string(m_frameTexts.size()) +
           " systemTexts=" + std::to_string(m_frameSystemTexts.size()) +
           " glyphs=" + std::to_string(m_frameSystemGlyphs.size()) +
