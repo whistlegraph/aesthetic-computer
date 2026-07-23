@@ -68,9 +68,14 @@ Its listening law is intentionally selective: distance falls steeply after a
 few room units, so wandering actively remixes the piece. Faint grey tethers in
 the video show physical source distance; colored halos and lines show the
 post-distance energy that actually reaches the stereo listener.
-From 0:50–1:18 the complete source constellation eases through two physical
-rotations. The audio and gravity use the rotating coordinates, so this passage
-produces real proximity, Doppler, and stereo movement rather than a camera spin.
+The opening is four voice-free bars of sustained resonators: the complete room
+starts near 30 rotations per second, completing 96 turns as it decelerates to a
+stop. At that speed the HRTF and proximity motion fuse into a spatial hum before
+the written lullaby arrives. From 0:50–1:18 the complete source constellation
+eases through two more physical rotations, including an eight-turn centrifuge
+from 1:02–1:10. The audio and gravity use the rotating coordinates, so these
+passages produce real proximity, Doppler, and stereo movement rather than a
+camera spin.
 The echo and air sources are follower bodies: they occupy the listener's
 position 2.2 and 5.5 seconds in the past, respectively. Their sound and gravity
 therefore chase the player; a fading breadcrumb in the video exposes the same
@@ -81,7 +86,8 @@ sh pop/nullabye/c/build-spatial.sh
 cd pop/nullabye/c
 ./spatial-sineabye --wav ../out/spatial-sineabye.wav \
   --mp3 ../out/spatial-sineabye.mp3 \
-  --video ../out/spatial-sineabye.mp4 --spatial-wet 0.58
+  --video ../out/spatial-sineabye.mp4 \
+  --spatial-wet 0.58 --noise-level 0.55
 ```
 
 `--spatial-wet 0..1` interpolates every voice between a restrained fixed-pan,
@@ -92,6 +98,32 @@ bus is implemented by `c/ac_hrtf.h`, an allocation-free procedural binaural
 core designed to compile unchanged to WebAssembly. It models fractional ITD,
 far-ear head shadow, distance and elevation-dependent pinna notches. This is
 portable directional DSP, not yet a personalized measured HRIR dataset.
+
+`--noise-level 0.05..1` scales the hat, nose, and air voices without permitting
+an unnaturally silent floor. Room, globe, and lattice renders default to the
+composed 76 BPM / 2:00 form; cosmos stays at 104 BPM unless `--bpm` overrides it.
+
+### Jeffrey choir release candidate
+
+`bin/render-spatial-jeffrey.mjs` layers the existing project-owned, pitch-locked
+Jeffrey `mm/oo/oh/ah/eh` takes over a room render. It leaves the opening spin
+voice-free, then stretches compact harmonies around the takes' natural B2
+register. During the 1:02–1:10 super-spin, the choir's orbit follows the exact
+eight-turn C trajectory. The renderer makes no network or voice-generation API
+calls and records every source and placement in a provenance sidecar.
+
+```bash
+node pop/nullabye/bin/render-spatial-jeffrey.mjs
+# → out/review/spatial-room-spin-jeffrey-MASTER.wav (48 kHz / 24-bit)
+# → out/review/spatial-room-spin-jeffrey-MASTER.mp3 (listening copy)
+
+# Reconnect the accepted master to the engine-generated picture:
+cd pop/nullabye/c
+./spatial-sineabye --wav ../out/review/spatial-room-spin-clean.wav \
+  --video ../out/review/spatial-room-spin-jeffrey.mp4 \
+  --video-audio ../out/review/spatial-room-spin-jeffrey-MASTER.wav \
+  --spatial-wet 0.58 --noise-level 0.55
+```
 
 ## nuellaby — the complexity-arch cut
 

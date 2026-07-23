@@ -34,7 +34,9 @@ function clamp(value, min, max) {
 
 export function layoutBrandChrome(theme, { width, height, format = "docs" }) {
   if (!theme || typeof theme !== "object") throw new Error("brand chrome needs a theme object");
-  if (!theme.asset) throw new Error(`brand theme "${theme.id || "unnamed"}" needs an asset`);
+  if (!theme.asset && !(theme.markAsset && theme.label)) {
+    throw new Error(`brand theme "${theme.id || "unnamed"}" needs an asset or markAsset + label`);
+  }
   if (!(width > 0 && height > 0)) throw new Error(`invalid brand frame ${width}x${height}`);
 
   const override = theme.formats?.[format] || {};
@@ -45,7 +47,10 @@ export function layoutBrandChrome(theme, { width, height, format = "docs" }) {
   ));
   return {
     id: theme.id || "client",
-    asset: resolve(String(theme.asset)),
+    asset: theme.asset ? resolve(String(theme.asset)) : null,
+    markAsset: theme.markAsset ? resolve(String(theme.markAsset)) : null,
+    label: theme.label || null,
+    font: theme.font ? resolve(String(theme.font)) : null,
     opacity: clamp(finite(merged.opacity, defaults.opacity), 0.1, 1),
     periodSec: clamp(finite(merged.periodSec, defaults.periodSec), 6, 90),
     driftPx: Math.round(short * finite(merged.driftFraction, 0)) ||
@@ -60,6 +65,12 @@ export function layoutBrandChrome(theme, { width, height, format = "docs" }) {
     rightCenterY: clamp(finite(merged.rightCenterY, defaults.rightCenterY), 0.08, 0.92),
     shadow: { ...defaults.shadow, ...(theme.shadow || {}), ...(override.shadow || {}) },
     transparentColors: override.transparentColors || theme.transparentColors || [],
+    markSide: Math.round(short * finite(merged.markSideFraction, 0.105)),
+    labelPx: Math.round(short * finite(merged.labelPxFraction, 0.048)),
+    leftMarkCenterY: finite(merged.leftMarkCenterY, 0.68),
+    leftLabelCenterY: finite(merged.leftLabelCenterY, 0.82),
+    rightMarkCenterY: finite(merged.rightMarkCenterY, 0.32),
+    rightLabelCenterY: finite(merged.rightLabelCenterY, 0.18),
   };
 }
 
@@ -134,6 +145,52 @@ function renderLockups(layout, workDir) {
   return { left, right };
 }
 
+function sharpShadow(input, output, shadow) {
+  execFileSync("magick", [
+    input,
+    "(", "+clone", "-channel", "A", "-evaluate", "multiply",
+    String(clamp(finite(shadow.opacity, 88), 1, 100) / 100), "+channel",
+    "-background", "black", "-shadow",
+    `${clamp(finite(shadow.opacity, 88), 1, 100)}x${clamp(finite(shadow.blur, 1.4), 0, 8)}+${finite(shadow.x, 2)}+${finite(shadow.y, 3)}`,
+    ")", "+swap", "-background", "none", "-layers", "merge", "+repage", output,
+  ], { stdio:"pipe" });
+}
+
+function renderSeparateElements(layout, workDir) {
+  if (!existsSync(layout.markAsset)) throw new Error(`brand mark does not exist: ${layout.markAsset}`);
+  if (!layout.font || !existsSync(layout.font)) throw new Error(`brand font does not exist: ${layout.font}`);
+  mkdirSync(workDir, { recursive:true });
+  const stem = `${layout.id}-${layout.markSide}-${layout.labelPx}`.replace(/[^a-z0-9_.-]+/gi, "-");
+  const mark = join(workDir, `${stem}-mark.png`);
+  const markShadow = join(workDir, `${stem}-mark-shadow.png`);
+  const label = join(workDir, `${stem}-label.png`);
+  const labelShadow = join(workDir, `${stem}-label-shadow.png`);
+  execFileSync("rsvg-convert", [
+    "-w", String(layout.markSide * 2), "-h", String(layout.markSide * 2),
+    "-o", mark, layout.markAsset,
+  ], { stdio:"pipe" });
+  execFileSync("magick", [
+    "-background", "none", "-fill", "white", "-stroke", "black",
+    "-strokewidth", String(Math.max(2, Math.round(layout.labelPx * 0.045))),
+    "-font", layout.font, "-pointsize", String(layout.labelPx * 2),
+    `label:${layout.label}`, "-resize", "50%", label,
+  ], { stdio:"pipe" });
+  sharpShadow(mark, markShadow, layout.shadow);
+  sharpShadow(label, labelShadow, layout.shadow);
+  const rotate = (source, suffix, degrees) => {
+    const output = join(workDir, `${stem}-${suffix}.png`);
+    execFileSync("magick", [source, "-background", "none", "-rotate", String(degrees), output], { stdio:"pipe" });
+    return output;
+  };
+  return {
+    kind:"separate",
+    markLeft:rotate(markShadow, "mark-left", 90),
+    labelLeft:rotate(labelShadow, "label-left", 90),
+    markRight:rotate(markShadow, "mark-right", -90),
+    labelRight:rotate(labelShadow, "label-right", -90),
+  };
+}
+
 export function brandChromeFilter(layout) {
   const phase = "2*PI*t/" + layout.periodSec.toFixed(3);
   const leftX = `${layout.edgePx}-overlay_w/2+${layout.driftPx}*sin(${phase})`;
@@ -148,19 +205,43 @@ export function brandChromeFilter(layout) {
   ].join(";");
 }
 
+export function separateBrandChromeFilter(layout) {
+  const phase = "2*PI*t/" + layout.periodSec.toFixed(3);
+  const edge = layout.edgePx;
+  const leftX = `${edge}-overlay_w/2`;
+  const rightX = `main_w-${edge}-overlay_w/2`;
+  const y = (fraction, sign, offset) =>
+    `main_h*${fraction.toFixed(5)}-overlay_h/2${sign}${offset}*sin(${phase})`;
+  return [
+    `[1:v]format=rgba,colorchannelmixer=aa=${layout.opacity.toFixed(3)}[ml]`,
+    `[2:v]format=rgba,colorchannelmixer=aa=${layout.opacity.toFixed(3)}[tl]`,
+    `[3:v]format=rgba,colorchannelmixer=aa=${layout.opacity.toFixed(3)}[mr]`,
+    `[4:v]format=rgba,colorchannelmixer=aa=${layout.opacity.toFixed(3)}[tr]`,
+    `[0:v][ml]overlay=x='${leftX}+${layout.driftPx}*sin(${phase})':y='${y(layout.leftMarkCenterY, "+", layout.bobPx)}':eval=frame:shortest=1[a]`,
+    `[a][tl]overlay=x='${leftX}-${layout.driftPx}*sin(${phase}+1.7)':y='${y(layout.leftLabelCenterY, "-", layout.bobPx)}':eval=frame:shortest=1[b]`,
+    `[b][mr]overlay=x='${rightX}-${layout.driftPx}*sin(${phase}+.6)':y='${y(layout.rightMarkCenterY, "-", layout.bobPx)}':eval=frame:shortest=1[c]`,
+    `[c][tr]overlay=x='${rightX}+${layout.driftPx}*sin(${phase}+2.1)':y='${y(layout.rightLabelCenterY, "+", layout.bobPx)}':eval=frame:shortest=1[outv]`,
+  ].join(";");
+}
+
 export function applyBrandChrome({ input, out, theme, workDir, format = "docs" }) {
   if (!existsSync(input)) throw new Error(`brand input does not exist: ${input}`);
   const media = probeVideo(input);
   const layout = layoutBrandChrome(theme, { ...media, format });
   const assetsDir = join(workDir || dirname(out), "brand-chrome", layout.id);
-  const lockups = renderLockups(layout, assetsDir);
+  const lockups = layout.markAsset && layout.label
+    ? renderSeparateElements(layout, assetsDir)
+    : renderLockups(layout, assetsDir);
   mkdirSync(dirname(out), { recursive: true });
+  const overlayInputs = lockups.kind === "separate"
+    ? [lockups.markLeft, lockups.labelLeft, lockups.markRight, lockups.labelRight]
+    : [lockups.left, lockups.right];
+  const ffmpegInputs = overlayInputs.flatMap((path) => ["-loop", "1", "-i", path]);
   execFileSync(FFMPEG, [
-    "-y", "-i", input,
-    "-loop", "1", "-i", lockups.left,
-    "-loop", "1", "-i", lockups.right,
+    "-y", "-i", input, ...ffmpegInputs,
     "-filter_complex_threads", "1",
-    "-filter_complex", brandChromeFilter(layout),
+    "-filter_complex", lockups.kind === "separate"
+      ? separateBrandChromeFilter(layout) : brandChromeFilter(layout),
     "-map", "[outv]", "-map", "0:a?",
     "-t", media.duration.toFixed(3), "-r", media.fps,
     "-c:v", "libx264", "-preset", "medium", "-crf", "18",

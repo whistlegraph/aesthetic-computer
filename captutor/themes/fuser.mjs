@@ -25,17 +25,18 @@ export const fuserEffectTheme = Object.freeze({
 
 export default Object.freeze({
   id: "fuser",
-  asset: join(HERE, "..", "assets", "fuser-thumbnail-logo.svg"),
+  markAsset: join(HERE, "..", "assets", "fuser-mark.svg"),
+  label: "Fuser",
+  font: join(HERE, "..", "assets", "Marund.ttf"),
   periodSec: 20,
   driftFraction: 0.0032,
   bobFraction: 0.0018,
   opacity: 0.97,
-  transparentColors: [{ color:"#171717", fuzz:12 }],
-  shadow: { opacity: 86, blur: 1.6, x: 2, y: 3 },
+  shadow: { opacity: 92, blur: 1.2, x: 2, y: 3 },
   formats: {
-    docs: { longSideFraction: 0.16, edgeFraction: 0.038, leftCenterY: 0.79, rightCenterY: 0.21 },
-    youtube: { longSideFraction: 0.17, edgeFraction: 0.042, leftCenterY: 0.78, rightCenterY: 0.22 },
-    reel: { longSideFraction: 0.18, edgeFraction: 0.072, leftCenterY: 0.81, rightCenterY: 0.19 },
-    vertical: { longSideFraction: 0.17, edgeFraction: 0.068, leftCenterY: 0.82, rightCenterY: 0.18 },
+    docs: { edgeFraction: 0.038, markSideFraction:0.105, labelPxFraction:0.048 },
+    youtube: { edgeFraction: 0.042, markSideFraction:0.11, labelPxFraction:0.05 },
+    reel: { edgeFraction: 0.072, markSideFraction:0.12, labelPxFraction:0.054 },
+    vertical: { edgeFraction: 0.068, markSideFraction:0.115, labelPxFraction:0.052 },
   },
 });
