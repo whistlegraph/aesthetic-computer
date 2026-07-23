@@ -68,14 +68,25 @@ Its listening law is intentionally selective: distance falls steeply after a
 few room units, so wandering actively remixes the piece. Faint grey tethers in
 the video show physical source distance; colored halos and lines show the
 post-distance energy that actually reaches the stereo listener.
-The opening is four voice-free bars of sustained resonators: the complete room
-starts near 30 rotations per second, completing 96 turns as it decelerates to a
-stop. At that speed the HRTF and proximity motion fuse into a spatial hum before
-the written lullaby arrives. From 0:50–1:18 the complete source constellation
-eases through two more physical rotations, including an eight-turn centrifuge
-from 1:02–1:10. The audio and gravity use the rotating coordinates, so these
-passages produce real proximity, Doppler, and stereo movement rather than a
-camera spin.
+The opening starts near 30 rotations per second, completing 96 turns as it
+decelerates to a stop. Sustained resonators make that HRTF/proximity motion fuse
+into a spatial hum, but the track no longer waits inside atmosphere: the
+lullaby melody, quarter-note low pulse, and alternating air answers begin in
+bar one. From 0:50–1:18 the complete source constellation eases through two
+more physical rotations, including an eight-turn centrifuge from 1:02–1:10.
+The audio and gravity use the rotating coordinates, so these passages produce
+real proximity, Doppler, and stereo movement rather than a camera spin.
+
+In the first-person receiver view, emitters are twelve-slice spectrographic
+volumes instead of small source dots. Frequency rises vertically, live band
+energy controls each cross-section, and longitudinal ribs join the slices into
+one body. Six historical post-HRTF measurements launch expanding three-plane
+shells from each body's position at the moment its sound was emitted; captured
+per-source waveform samples deform those shells instead of leaving them as
+smooth decorative rings. The cockpit windshield is a 55 ms perspective surface
+of the exact final stereo master decoded back into C. Source-colored waveform
+particles strike it at the emitter's measured L/R position and spectral height,
+producing impact ripples on the calculated sound plane.
 The echo and air sources are follower bodies: they occupy the listener's
 position 2.2 and 5.5 seconds in the past, respectively. Their sound and gravity
 therefore chase the player; a fading breadcrumb in the video exposes the same
@@ -107,8 +118,8 @@ composed 76 BPM / 2:00 form; cosmos stays at 104 BPM unless `--bpm` overrides it
 
 `bin/render-spatial-jeffrey.mjs` layers the existing project-owned, pitch-locked
 Jeffrey `mm/oo/oh/ah/eh` takes over a room render. It leaves the opening spin
-voice-free, then stretches compact harmonies around the takes' natural B2
-register. During the 1:02–1:10 super-spin, the choir's orbit follows the exact
+free of Jeffrey's choir, then stretches compact harmonies around the takes'
+natural B2 register. During the 1:02–1:10 super-spin, the choir's orbit follows the exact
 eight-turn C trajectory. The renderer makes no network or voice-generation API
 calls and records every source and placement in a provenance sidecar.
 
@@ -124,6 +135,12 @@ cd pop/nullabye/c
   --video-audio ../out/review/spatial-room-spin-jeffrey-MASTER.wav \
   --spatial-wet 0.58 --noise-level 0.55
 ```
+
+Accepted listening/video snapshot:
+
+- `release/spatial-sineabye/spatial-sineabye.mp3` — 320 kbps listening copy.
+- `release/spatial-sineabye/spatial-sineabye.mp4` — 720×720, 24 fps,
+  Git-safe H.264 delivery encode with the calculated stereo windshield.
 
 ## nuellaby — the complexity-arch cut
 

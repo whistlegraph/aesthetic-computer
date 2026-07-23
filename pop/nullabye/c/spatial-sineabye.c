@@ -49,6 +49,10 @@ static Listener *L; static float *busL,*busR,*fieldGain;
 // Measured post-HRTF contribution of every source in every video frame.  The
 // visualizer reads this telemetry instead of guessing loudness from envelopes.
 static double *meterL,*meterR;
+#define WAVE_POINTS 48
+// Per-emitter post-HRTF waveform thumbnails, accumulated at the same retarded
+// arrival time as the audio bus.  Expanding shells carry these actual samples.
+static float *sourceWave;
 static double spatialWet=.32;
 // The noise voices are part of the instrument, not recording dirt.  Keep a
 // permanent breath floor while letting the release mix sit behind the tones.
@@ -254,10 +258,15 @@ static void score(void){
  }
  for(int b=0;b<38;b++){
   double t=b*BAR, tr=(b>=20&&b<28)?4.0/3:1;
-  // Opening: no beat and no written melody, only four resonators carried by
-  // the decelerating room spin.  A faint continuous air voice prevents the
-  // release from ever becoming clinically noiseless.
-  if(b<4){if(b==0){ev(t,4*BAR+.3,36,.055,0,2.8,2.6);ev(t,4*BAR+.3,43,.038,2,3.4,2.8);ev(t,4*BAR+.3,48,.030,3,4.0,3.0);ev(t,4*BAR+.3,55,.018,4,4.8,3.4);noisev(t,4*BAR+.3,2100,7200,.0065*noiseLevel,11);}continue;}
+  // Opening: no choir yet, but the twisting room is already the song.  Four
+  // sustained resonators make the rotational hum; a quarter-note low wave,
+  // alternating air answers, and a lighter statement of the lullaby give the
+  // visible bodies clear emissions throughout the 96-turn deceleration.
+  if(b<4){
+   if(b==0){ev(t,4*BAR+.3,36,.055,0,2.8,2.6);ev(t,4*BAR+.3,43,.038,2,3.4,2.8);ev(t,4*BAR+.3,48,.030,3,4.0,3.0);ev(t,4*BAR+.3,55,.018,4,4.8,3.4);noisev(t,4*BAR+.3,2100,7200,.0065*noiseLevel,11);}
+   for(int q=0;q<4;q++){glide(t+q*BEAT,.36,72,38,(q==0?.090:.066),1);noisev(t+(q+.5)*BEAT,.12,2400,6800,.025*noiseLevel,q&1?7:6);ev(t+q*BEAT,BEAT*.72,mel[b%4][q]-12,.050,4,.035,.25);}
+   continue;
+  }
   for(int k=0;k<4;k++)ev(t,BAR+.1,69+12*log2(hz(chord[b%4][k])*tr/440),.034,k<2?2:3,.7,1.0);
   // Continuous independently filtered noise voices.
   double noiseScale=noiseLevel;
@@ -345,7 +354,7 @@ static void propagation(int src,double t,double *wall,double *cutoff,double *win
  // intersection occludes; high sources and paths around its ends remain clear.
  if((x-1.2)*(so.x-1.2)<0){double q=(1.2-x)/(so.x-x),iy=y+(so.y-y)*q,iz=1.6+(so.z-1.6)*q;if(iy>-3&&iy<2.5&&iz<2.4){*wall=.46;*cutoff=1450;}}
  double wx=.7*cos(t*.11),wy=.7*sin(t*.083+.8);*wind=.0045*(wx*dx+wy*dy)/(d+1);*rain=1-.075*fmin(1,d/8.0)*fabs(sin(t*19.7+src*2.13));}
-static void render(void){long n=(long)(DUR*SR);busL=calloc(n,4);busR=calloc(n,4);meterL=calloc(NFRAMES*NSRC,sizeof(*meterL));meterR=calloc(NFRAMES*NSRC,sizeof(*meterR));
+static void render(void){long n=(long)(DUR*SR);busL=calloc(n,4);busR=calloc(n,4);meterL=calloc(NFRAMES*NSRC,sizeof(*meterL));meterR=calloc(NFRAMES*NSRC,sizeof(*meterR));sourceWave=calloc(NFRAMES*NSRC*WAVE_POINTS,sizeof(*sourceWave));
  for(int j=0;j<NE;j++){Event*e=&E[j];long s0=(long)(e->t*SR),nn=(long)(e->dur*SR);double ph=0,lp=0,hpLP=0,envLP=0,saz=0,sel=0,sd=0,mode1[3]={0},mode2[3]={0};int spatialInit=0;uint32_t rs=e->seed;ACHrtf hs;memset(&hs,0,sizeof hs);
   for(long k=0;k<nn&&s0+k<n;k++){double t=(s0+k)/(double)SR,u=k/(double)SR,a=env(e,t),az,el,d,wall,cutoff,wind,rain;spatial_params(e->src,t,&az,&el,&d);if(!spatialInit){saz=az;sel=el;sd=d;spatialInit=1;}else{double smooth=1-exp(-1.0/(SR*.018)),da=atan2(sin(az-saz),cos(az-saz));saz+=da*smooth;sel+=(el-sel)*smooth;sd+=(d-sd)*smooth;}az=saz;el=sel;d=sd;propagation(e->src,t,&wall,&cutoff,&wind,&rain);double spaceD=d+(globeMode?(1-a)*18.0:0),microA=fmin(1,u/.006),microR=fmin(1,(e->dur-u)/.028),clickGate=sin(microA*M_PI/2)*sin(microA*M_PI/2)*sin(microR*M_PI/2)*sin(microR*M_PI/2);
    double v;if(e->type==0||e->type==3){double base=e->type==3?e->f0:(cosmosMode?cosmos_frequency(e->src,t):(duetMode?duet_frequency(e->src,t):e->f0*pow(e->f1/e->f0,u/e->dur))),f=base*(1+wind*spatialWet);ph+=TAU*f/SR;v=sin(ph);}
@@ -360,7 +369,7 @@ static void render(void){long n=(long)(DUR*SR);busL=calloc(n,4);busR=calloc(n,4)
     // Per-emitter air/room tail; unlike the later master reflections this delay
     // remains attached to the originating voice and its stereo observation.
     long echo=at+(long)((.075+.011*e->src)*SR);if(!duetMode&&!cosmosMode&&echo<n){busL[echo]+=(float)(cl*.055);busR[echo]+=(float)(cr*.055);}
-    int fr=(int)(at*FPS/(double)SR);if(fr>=0&&fr<NFRAMES){int mi=fr*NSRC+e->src;meterL[mi]+=cl*cl;meterR[mi]+=cr*cr;}}
+    int fr=(int)(at*FPS/(double)SR);if(fr>=0&&fr<NFRAMES){int mi=fr*NSRC+e->src;meterL[mi]+=cl*cl;meterR[mi]+=cr*cr;long frameStart=(long)fr*SR/FPS;int wi=(int)((at-frameStart)*WAVE_POINTS*FPS/SR);if(wi<0)wi=0;if(wi>=WAVE_POINTS)wi=WAVE_POINTS-1;sourceWave[(mi*WAVE_POINTS)+wi]+=(float)((cl+cr)*.5*(WAVE_POINTS*FPS/(double)SR));}}
   }
  }
  // Cross-room early reflections.
@@ -370,6 +379,12 @@ static void render(void){long n=(long)(DUR*SR);busL=calloc(n,4);busR=calloc(n,4)
 }
 static int wav(const char*p){FILE*f=fopen(p,"wb");if(!f)return 0;long n=(long)(DUR*SR);uint32_t ds=n*8,sz=36+ds,sr=SR,br=SR*8,fs=16;uint16_t fm=3,ch=2,ba=8,bi=32;
  fwrite("RIFF",1,4,f);fwrite(&sz,4,1,f);fwrite("WAVEfmt ",1,8,f);fwrite(&fs,4,1,f);fwrite(&fm,2,1,f);fwrite(&ch,2,1,f);fwrite(&sr,4,1,f);fwrite(&br,4,1,f);fwrite(&ba,2,1,f);fwrite(&bi,2,1,f);fwrite("data",1,4,f);fwrite(&ds,4,1,f);for(long i=0;i<n;i++){fwrite(&busL[i],4,1,f);fwrite(&busR[i],4,1,f);}fclose(f);return 1;}
+// Decode an accepted external master back onto the visualization bus.  This is
+// intentionally after the raw C bed has been written: the windshield and its
+// little scope windows then show the exact stereo file muxed into the video,
+// including Jeffrey's choir and mastering, while source telemetry stays tied
+// to the individual C emitters that launched it.
+static int load_visual_mix(const char*path){char cmd[4096];snprintf(cmd,sizeof cmd,"ffmpeg -hide_banner -loglevel error -i '%s' -f f32le -ar %d -ac 2 -",path,SR);FILE*f=popen(cmd,"r");if(!f)return 0;long n=(long)(DUR*SR),i=0;float pair[2];while(i<n&&fread(pair,sizeof(float),2,f)==2){busL[i]=pair[0];busR[i]=pair[1];i++;}int status=pclose(f);long got=i;for(;i<n;i++)busL[i]=busR[i]=0;return status==0&&got==n;}
 static void dot(unsigned char*p,int x,int y,int r,uint32_t c){for(int yy=-r;yy<=r;yy++)for(int xx=-r;xx<=r;xx++)if(xx*xx+yy*yy<=r*r){int X=x+xx,Y=y+yy;if(X>=0&&X<W&&Y>=0&&Y<H){int o=(Y*W+X)*3;p[o]=c>>16;p[o+1]=c>>8;p[o+2]=c;}}}
 static void glow(unsigned char*p,int x,int y,int r,uint32_t c,double strength){int rr=c>>16,gg=(c>>8)&255,bb=c&255;for(int yy=-r;yy<=r;yy++)for(int xx=-r;xx<=r;xx++){double d=sqrt(xx*xx+yy*yy)/(double)r;if(d>1)continue;int X=x+xx,Y=y+yy;if(X<0||X>=W||Y<0||Y>=H)continue;double a=strength*(1-d)*(1-d);int o=(Y*W+X)*3;p[o]=p[o]*(1-a)+rr*a;p[o+1]=p[o+1]*(1-a)+gg*a;p[o+2]=p[o+2]*(1-a)+bb*a;}}
 typedef struct{double x,y,z;} V3;typedef struct{int x,y;double z;int ok;} P2;
@@ -406,6 +421,45 @@ static void source_meter(int fr,int src,double *l,double *r){
  double sl=0,sr=0;int count=0;for(int q=-2;q<=2;q++){int f=fr+q;if(f<0||f>=NFRAMES)continue;double w=q?1.0/(1+abs(q)):1.0;sl+=meterL[f*NSRC+src]*w;sr+=meterR[f*NSRC+src]*w;count+=(int)(SR/(double)FPS*w);}
  *l=count?sqrt(sl/count):0;*r=count?sqrt(sr/count):0;
 }
+// A source is drawn as a spectrum with volume, not as a status dot.  Frequency
+// climbs through twelve logarithmic slices; current event energy controls each
+// slice's cross-section.  Ribs connect the slices into one translucent body.
+#define SPEC_BANDS 12
+#define SPEC_RIBS 10
+static void source_spectrum(int src,double t,double band[SPEC_BANDS]){
+ for(int b=0;b<SPEC_BANDS;b++)band[b]=0;
+ double loAll=45,hiAll=14000,span=log(hiAll/loAll);
+ for(int j=0;j<NE;j++){Event*e=&E[j];if(e->src!=src)continue;double a=env(e,t)*e->g;if(a<=0)continue;double u=fmax(0,fmin(1,(t-e->t)/e->dur)),f0=fmin(e->f0,e->f1),f1=fmax(e->f0,e->f1);
+  if(e->type==1||e->type==2||e->type==4||e->type==5){for(int b=0;b<SPEC_BANDS;b++){double f=loAll*exp(span*b/(SPEC_BANDS-1.0));if(f>=f0*.82&&f<=f1*1.18)band[b]+=a*(.55+.45*sin(M_PI*(b+.5)/SPEC_BANDS));}}
+  else{double f=e->type==3?e->f0:(cosmosMode?cosmos_frequency(src,t):(duetMode?duet_frequency(src,t):e->f0*pow(e->f1/e->f0,u)));for(int b=0;b<SPEC_BANDS;b++){double bf=loAll*exp(span*b/(SPEC_BANDS-1.0)),d=log(bf/f)/log(2.0);band[b]+=a*exp(-d*d/.055);}}
+ }
+}
+static void wave_ring3plane(unsigned char*p,V3 c,double r,int plane,const float*wave,double peak,V3 cam,V3 target,uint32_t color,double alpha){V3 first=c,prev=c;for(int i=0;i<=28;i++){int wi=(i%28)*WAVE_POINTS/28;double displacement=peak>1e-8?.30*wave[wi]/peak:0,rr=fmax(.04,r+displacement),a=TAU*i/28,x=cos(a)*rr,y=sin(a)*rr;V3 q=plane==0?(V3){c.x+x,c.y+y,c.z}:plane==1?(V3){c.x+x,c.y,c.z+y}:(V3){c.x,c.y+x,c.z+y};if(i)line3(p,prev,q,cam,target,color,alpha);else first=q;prev=q;}line3(p,prev,first,cam,target,color,alpha);}
+static void spectral_volume(unsigned char*p,int src,int fr,double t,V3 c,V3 cam,V3 target,int focus){double band[SPEC_BANDS],peak=0,ml,mr;source_spectrum(src,t,band);source_meter(fr,src,&ml,&mr);double heard=hypot(ml,mr);for(int b=0;b<SPEC_BANDS;b++)if(band[b]>peak)peak=band[b];if(peak<1e-9)peak=1;
+ V3 pt[SPEC_BANDS][SPEC_RIBS];double bodyScale=focus?1.22:1.0,alpha=.10+fmin(.42,heard*19)+(focus?.08:0);
+ for(int b=0;b<SPEC_BANDS;b++){double z=(b-(SPEC_BANDS-1)*.5)*.125,r=bodyScale*(.11+.58*sqrt(band[b]/peak));uint32_t col=shade_color(S[src].color,.56+.64*b/(SPEC_BANDS-1.0));V3 center={c.x,c.y,c.z+z};P2 pc=project(center,cam,target),pe=project((V3){center.x+r,center.y,center.z},cam,target);if(pc.ok&&pe.ok){int rr=(int)fmax(3,fmin(42,hypot(pe.x-pc.x,pe.y-pc.y)));glow(p,pc.x,pc.y,rr,col,.012+fmin(.055,heard*3.5));}
+  for(int k=0;k<SPEC_RIBS;k++){double a=TAU*k/SPEC_RIBS+t*.16+src*.37;pt[b][k]=(V3){c.x+cos(a)*r,c.y+sin(a)*r,c.z+z};if(k)line3(p,pt[b][k-1],pt[b][k],cam,target,col,alpha*.72);if(b)line3(p,pt[b-1][k],pt[b][k],cam,target,col,alpha);}
+  line3(p,pt[b][SPEC_RIBS-1],pt[b][0],cam,target,col,alpha*.72);
+ }
+}
+// Acoustic shells are emitted from each body's historical world position.  A
+// shell exists only when that source's measured post-HRTF output existed, so
+// the waves remain signal visualization rather than decorative animation.
+static void sound_shells(unsigned char*p,int src,int fr,V3 cam,V3 target){for(int q=1;q<=6;q++){int pf=fr-q*5;if(pf<0)continue;double ml,mr;source_meter(pf,src,&ml,&mr);double e=hypot(ml,mr);if(e<.00008)continue;double age=(fr-pf)/(double)FPS,et=pf/(double)FPS,fade=(1-age/1.35);fade*=fade;Source so=source_at(src,et);V3 c={so.x,so.y,so.z};double r=.16+age*2.35,a=(.025+fmin(.20,e*15))*fade;uint32_t col=shade_color(S[src].color,.72+q*.055);const float*wave=&sourceWave[(pf*NSRC+src)*WAVE_POINTS];double peak=0;for(int i=0;i<WAVE_POINTS;i++)peak=fmax(peak,fabs(wave[i]));wave_ring3plane(p,c,r,0,wave,peak,cam,target,col,a);wave_ring3plane(p,c,r,1,wave,peak,cam,target,col,a*.78);wave_ring3plane(p,c,r,2,wave,peak,cam,target,col,a*.62);}}
+static uint32_t stereo_color(double pan){double u=(pan+1)*.5;int lr=0x4e,lg=0xcd,lb=0xc4,rr=0xf8,rg=0xa5,rb=0xc2,r=(int)(lr+(rr-lr)*u),g=(int)(lg+(rg-lg)*u),b=(int)(lb+(rb-lb)*u);return(uint32_t)(r<<16|g<<8|b);}
+// The canopy glass is the final stereo waveform, decoded from the exact master
+// that video() will mux.  Perspective rows hold the preceding 55 ms; left to
+// right is the calculated L/R interpolation, so this is a sound plane rather
+// than a decorative HUD grid.
+static void stereo_windshield(unsigned char*p,double t){long now=(long)(t*SR);int rows=10,cols=28,prevX[29],prevY[29];for(int row=0;row<=rows;row++){double v=row/(double)rows,left=178+(35-178)*v,right=542+(685-542)*v,baseY=105+(510-105)*v;long base=now-(long)((1-v)*.055*SR);int lastX=0,lastY=0;for(int col=0;col<=cols;col++){double u=col/(double)cols,pan=u*2-1;long si=base+col*3;if(si<0)si=0;if(si>=(long)(DUR*SR))si=(long)(DUR*SR)-1;double sample=busL[si]*(1-u)+busR[si]*u,x=left+(right-left)*u,y=baseY-sample*(52+40*v);uint32_t c=stereo_color(pan);if(col)line2(p,lastX,lastY,(int)x,(int)y,c,.10+fmin(.18,fabs(sample)*.9));if(row)line2(p,prevX[col],prevY[col],(int)x,(int)y,c,.055+fmin(.12,fabs(sample)*.55));prevX[col]=(int)x;prevY[col]=(int)y;lastX=(int)x;lastY=(int)y;}}
+ // A bright current-time trace makes the plane's instantaneous stereo wave
+ // legible against its own short perspective history.
+ int lastX=0,lastY=0;for(int col=0;col<=cols;col++){double u=col/(double)cols,pan=u*2-1;long si=now+col*3;if(si>=(long)(DUR*SR))si=(long)(DUR*SR)-1;double sample=busL[si]*(1-u)+busR[si]*u,x=178+(542-178)*u,y=105-sample*62;if(col)line2(p,lastX,lastY,(int)x,(int)y,stereo_color(pan),.42);lastX=(int)x;lastY=(int)y;}}
+// Source packets travel from their projected spectral body to the windshield.
+// Existence/size comes from captured per-source waveform samples; impact x is
+// the source's measured post-HRTF stereo balance and impact y its live spectral
+// centroid.  The collision splash therefore says what arrived and where.
+static void windshield_particles(unsigned char*p,int fr,double t,V3 cam,V3 target){for(int s=0;s<NSRC;s++){double ml,mr,e,band[SPEC_BANDS],sum=0,weighted=0;source_meter(fr,s,&ml,&mr);e=ml+mr;if(e<.00016)continue;double pan=(mr-ml)/(e+1e-9);source_spectrum(s,t,band);for(int b=0;b<SPEC_BANDS;b++){sum+=band[b];weighted+=band[b]*b;}double centroid=sum?weighted/(sum*(SPEC_BANDS-1.0)):.5;int ix=(int)(360+pan*230),iy=(int)(390-centroid*220);Source so=source_at(s,t);P2 sp=project((V3){so.x,so.y,so.z},cam,target);if(!sp.ok)continue;const float*wave=&sourceWave[(fr*NSRC+s)*WAVE_POINTS];double peak=0;for(int i=0;i<WAVE_POINTS;i++)peak=fmax(peak,fabs(wave[i]));if(peak<1e-8)continue;for(int k=0;k<4;k++){int wi=(k*11+s*3)%WAVE_POINTS;double sample=wave[wi]/peak,phase=fmod(t*(1.35+.055*s)+s*.137+k*.241,1.0);phase=phase*phase*(3-2*phase);double prev=fmax(0,phase-.065),arc=sin(M_PI*phase)*(18+8*k),x=sp.x+(ix-sp.x)*phase,y=sp.y+(iy-sp.y)*phase-arc,x0=sp.x+(ix-sp.x)*prev,y0=sp.y+(iy-sp.y)*prev-sin(M_PI*prev)*(18+8*k),strength=.12+.42*fabs(sample);line2(p,(int)x0,(int)y0,(int)x,(int)y,S[s].color,strength);int r=1+(int)(3*fabs(sample));glow(p,(int)x,(int)y,r*3,S[s].color,.13+.20*fabs(sample));dot(p,(int)x,(int)y,r,S[s].color);if(phase>.90){double u=(phase-.90)/.10;int rr=3+(int)(25*u);ellipse2(p,ix,iy,rr,(int)(rr*.46),S[s].color,(1-u)*(.18+.32*fabs(sample)));for(int ray=0;ray<5;ray++){double a=TAU*(ray/5.0+s*.071),len=5+14*u;line2(p,ix+(int)(cos(a)*3),iy+(int)(sin(a)*2),ix+(int)(cos(a)*len),iy+(int)(sin(a)*len*.46),S[s].color,(1-u)*.34);}}}}}
 static P2 chart_point(double x,double y){return(P2){226+(int)(x*13.0),260-(int)(y*13.0),0,1};}
 static void acoustics_frame(unsigned char*p,int fr,double t,Listener l){
  uint32_t ink=brightMode?0x24383c:0xc7e5e5,sub=brightMode?0x718b8e:0x527a7e,panel=brightMode?0xe4ebe8:0x101c20;
@@ -561,15 +615,19 @@ static void video(const char*wavp,const char*outp){char cmd[2048];size_t ol=strl
   // Six-second fading breadcrumb: the path that the two follower voices chase.
   for(int q=1;q<=36;q++){int ia=li-(q-1)*CTRL/6,ib=li-q*CTRL/6;if(ib<0)break;V3 a={L[ia].x,L[ia].y,1.58},b={L[ib].x,L[ib].y,1.58};line3(p,a,b,cam,target,0xff6b9d,.42*(1-q/37.0));}
   for(int s=0;s<NSRC;s++){double ml,mr;source_meter(fr,s,&ml,&mr);double heard=hypot(ml,mr);Source so=source_at(s,t);V3 sv={so.x,so.y,so.z};P2 sp=project(sv,cam,target);double gl,gr,dd;gains(s,t,&gl,&gr,&dd);
-   // Grey is physical distance. Color and lobe area are measured post-HRTF
-   // energy arriving at the listener's two ears in this exact video frame.
+   // Grey is physical distance. Spectral volume and emitted-shell intensity
+   // come from this body's score spectrum and measured post-HRTF energy.
    line3(p,lv,sv,cam,target,0x778087,.18);circle3(p,(V3){so.x,so.y,.025},1.35,cam,target,S[s].color,s==ts?.34:.08);if(s==ts&&t<104)circle3(p,(V3){so.x,so.y,.03},4.05,cam,target,S[s].color,.2);
+   sound_shells(p,s,fr,cam,target);
    // Phosphor streak = true recent emitter trajectory. Distant transmissions
    // persist longer, making their longer radio flight time visible.
    {double trail=.18+fmin(.9,dd/12);V3 prev=sv;for(int q=1;q<=16;q++){double pt=fmax(0,t-q*trail/16),fade=(1-q/17.0)*(.08+fmin(.55,heard*18));Source old=source_at(s,pt);V3 ov={old.x,old.y,old.z};line3(p,prev,ov,cam,target,S[s].color,fade);prev=ov;}}
    if(heard>.00005)line3(p,lv,sv,cam,target,S[s].color,.03+fmin(.84,heard*28));
-   if(sp.ok){double sc=W/360.0;int core=(int)fmax(3,fmin(11,52*sc/sp.z));int halo=(int)fmax(core*2,fmin(62,(4+heard*1500)*sc*10/sp.z));P2 sh=project((V3){so.x,so.y,.02},cam,target);if(sh.ok)glow(p,sh.x,sh.y,(int)fmax(5,halo*.8),S[s].color,.06+fmin(.4,heard*14));if(s==ts&&t<104)glow(p,sp.x,sp.y,halo+18,0xffffff,.16);glow(p,sp.x,sp.y,halo,S[s].color,.18+fmin(.7,heard*16));stereo_lobes(p,sp,ml,mr,core,S[s].color);marble(p,sp.x,sp.y,core+2,S[s].color,heard);}
+   if(sp.ok){double sc=W/360.0;int core=(int)fmax(3,fmin(11,52*sc/sp.z));int halo=(int)fmax(core*2,fmin(62,(4+heard*1500)*sc*10/sp.z));P2 sh=project((V3){so.x,so.y,.02},cam,target);if(sh.ok)glow(p,sh.x,sh.y,(int)fmax(5,halo*.8),S[s].color,.06+fmin(.4,heard*14));if(s==ts&&t<104)glow(p,sp.x,sp.y,halo+18,0xffffff,.16);glow(p,sp.x,sp.y,halo,S[s].color,.10+fmin(.36,heard*10));}
+   spectral_volume(p,s,fr,t,sv,cam,target,s==ts);
   }
+  stereo_windshield(p,t);
+  windshield_particles(p,fr,t,cam,target);
   P2 lp=project(lv,cam,target),hd=project((V3){l.x+cos(l.heading)*.55,l.y+sin(l.heading)*.55,1.6},cam,target);
   if(lp.ok){int rr=(int)fmax(4,fmin(20,130/lp.z));glow(p,lp.x,lp.y,rr*3,0xf6c915,.35);dot(p,lp.x,lp.y,rr,0xffd54f);if(hd.ok)line2(p,lp.x,lp.y,hd.x,hd.y,0xff6b9d,.95);}
   // Receiver cockpit. The canopy frames the view while the lower scanner maps
@@ -593,4 +651,4 @@ static void video(const char*wavp,const char*outp){char cmd[2048];size_t ol=strl
  for(int i=1;i+1<argc;i++)if(!strcmp(argv[i],"--visual"))acousticsView=!strcmp(argv[i+1],"acoustics");
  score();filter_score();simulate();if(ptStill){globeMode=1;if(!pathtrace_still(ptStill,fmax(0,fmin(DUR,ptTime)),fmax(1,ptSpp))){fprintf(stderr,"pathtrace write failed\n");return 1;}fprintf(stderr,"✓ %s · path traced · %d spp\n",ptStill,ptSpp);return 0;}render();if(sceneOut&&!export_scene(sceneOut,fmax(1,fmin(NFRAMES,sceneFrames)))){fprintf(stderr,"scene export failed\n");return 1;}if(!wav(w)){fprintf(stderr,"write failed\n");return 1;}fprintf(stderr,"✓ %s · %.1fs · %d sound bodies/events · %d voices · spatial wet %.0f%%\n",w,DUR,NE,voiceCount,spatialWet*100);
  if(mp3){char cmd[4096];snprintf(cmd,sizeof cmd,"ffmpeg -hide_banner -y -loglevel error -i '%s' -af 'highpass=f=28,equalizer=f=72:t=q:w=.8:g=1.2,equalizer=f=7200:t=q:w=.9:g=-1,lowpass=f=15800,alimiter=limit=.90:attack=6:release=100,volume=.84' -c:a libmp3lame -q:a 2 '%s'",w,mp3);if(system(cmd)!=0)return 1;}
- if(v&&strcmp(v,"none"))video(videoAudio?videoAudio:w,v);return 0;}
+ if(v&&strcmp(v,"none")){if(videoAudio&&!load_visual_mix(videoAudio))fprintf(stderr,"warning: final master could not be decoded for windshield telemetry\n");video(videoAudio?videoAudio:w,v);}return 0;}
