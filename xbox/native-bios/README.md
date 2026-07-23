@@ -17,9 +17,13 @@ functions `boot`, `sim`, `paint`, `act`, and `leave`. It has no DOM, WebView,
 filesystem, process, Device Portal, arbitrary WinRT, or arbitrary network
 globals.
 
-Current bindings are `wipe`, queued `box` and `write`, `synth`, `controllers`,
-`gamepad`, `capabilities`, `runtime`, and bounded structured `telemetry`.
-Runtime failures roll back to the last known good piece.
+Current bindings are `wipe`, queued `box`, `line`, bitmap `write`, native
+`systemWrite`, Segoe MDL2 `systemGlyph`, latest AC `painting`, one-shot `synth`,
+continuous `oscillator` / `oscillatorStop`, `controllers`, `gamepad`,
+`capabilities`, `runtime`, the host-mediated `ac` feed, and bounded structured
+`telemetry`. The `ac` snapshot polls only declared Aesthetic Computer mood,
+clock-chat, and painting endpoints; sandboxed pieces do not receive a general
+HTTP primitive. Runtime failures roll back to the last known good piece.
 
 ## Live development from blueberry
 
@@ -31,6 +35,7 @@ credentials never enter the repository or command output.
 node xbox/tools/live.mjs status
 node xbox/tools/live.mjs install xbox/builds/1.0.0.10/NativeBios_1.0.0.10_x64.msix xbox/builds/1.0.0.10/Microsoft.VCLibs.x64.14.00.appx
 node xbox/tools/live.mjs deploy xbox/live/controller-probe.js
+node xbox/tools/live.mjs deploy xbox/live/native-showcase.js
 node xbox/tools/live.mjs logs 100
 ```
 

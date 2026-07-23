@@ -1,6 +1,7 @@
 #pragma once
 
 #include <windows.h>
+#include <gamingdeviceinformation.h>
 #include <wrl/client.h>
 #include <d3d11_1.h>
 #include <d2d1_1.h>
@@ -9,7 +10,14 @@
 #include <dxgi1_2.h>
 #include <xaudio2.h>
 #include <windows.networking.connectivity.h>
+#include <windows.data.json.h>
+#include <windows.graphics.imaging.h>
+#include <windows.security.exchangeactivesyncprovisioning.h>
+#include <windows.system.h>
+#include <windows.system.profile.h>
+#include <windows.web.http.h>
 #include <collection.h>
+#include <ppltasks.h>
 #include <array>
 #include <algorithm>
 #include <atomic>
@@ -18,6 +26,8 @@
 #include <cstdio>
 #include <functional>
 #include <memory>
+#include <mutex>
+#include <unordered_map>
 #include <string>
 #include <stdexcept>
 #include <sys/stat.h>

@@ -14,7 +14,11 @@ an experimental comparison target, not the production architecture.
 | `api.screen.{width,height}` | `Api::screen` | Physical backbuffer dimensions |
 | `api.clock.time()` / `seconds` | `Api::clock`, `Api::seconds` | QPC monotonic time plus network-adjustable Unix time |
 | `wipe`, `box`, `line`, `write` | `Graphics` command interface | D3D renderer batches these commands |
+| system type and Xbox button symbols | `systemWrite`, `systemGlyph` | DirectWrite with Segoe UI / Segoe MDL2 Assets |
+| latest user painting | `painting` | Host downloads and decodes an allowlisted AC image |
 | `sound.synth({...})` | `Sound::synth(SynthVoice)` | Submit immediately to XAudio2, outside Present |
+| continuous sine oscillator | `Sound::oscillator` | One looped XAudio2 buffer, pitch and level changed in real time |
+| mood / clock chat / painting metadata | `Api::ac` | Immutable host-polled snapshot; no general piece HTTP API |
 | keyboard direction events | translated D-pad events | Existing `nom.mjs` names are preserved |
 | Space/Enter munch | A/Menu translated events | A maps to Space, Menu maps to Enter |
 | `api.dark`, handle, online state | `Api::system` | Populated by host/control session |

@@ -39,7 +39,7 @@
       <AdditionalIncludeDirectories>third_party\quickjs-ng;..\runtime\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WINAPI_FAMILY=WINAPI_FAMILY_APP;QUICKJS_NG_BUILD;WIN32_LEAN_AND_MEAN;_WIN32_WINNT=0x0A00;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
-    <Link><SubSystem>Windows</SubSystem><AdditionalDependencies>d3d11.lib;d2d1.lib;dwrite.lib;dxgi.lib;xaudio2.lib;%(AdditionalDependencies)</AdditionalDependencies></Link>
+    <Link><SubSystem>Windows</SubSystem><AdditionalDependencies>d3d11.lib;d2d1.lib;dwrite.lib;dxgi.lib;xaudio2.lib;OneCore.lib;%(AdditionalDependencies)</AdditionalDependencies></Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp"><PrecompiledHeader>Create</PrecompiledHeader></ClCompile>

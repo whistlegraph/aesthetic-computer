@@ -35,6 +35,23 @@ JSValue Synth(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
   return JS_UNDEFINED;
 }
 
+JSValue Oscillator(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  double frequency = 220.0, volume = .12;
+  if (!scope || !scope->api || argc < 1 || JS_ToFloat64(context, &frequency, argv[0]))
+    return JS_EXCEPTION;
+  if (argc > 1 && JS_ToFloat64(context, &volume, argv[1])) return JS_EXCEPTION;
+  scope->api->sound.oscillator(static_cast<float>(frequency), static_cast<float>(volume));
+  return JS_UNDEFINED;
+}
+
+JSValue OscillatorStop(JSContext* context, JSValueConst, int, JSValueConst*) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api) return JS_EXCEPTION;
+  scope->api->sound.oscillator_stop();
+  return JS_UNDEFINED;
+}
+
 JSValue Write(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
   auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
   if (!scope || !scope->api || argc < 1) return JS_EXCEPTION;
@@ -68,6 +85,76 @@ JSValue Box(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
   scope->api->graphics.box({static_cast<float>(x), static_cast<float>(y),
     static_cast<float>(width), static_cast<float>(height),
     {static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), 255}});
+  return JS_UNDEFINED;
+}
+
+JSValue Line(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  double x1 = 0, y1 = 0, x2 = 0, y2 = 0, width = 1;
+  int32_t r = 255, g = 255, b = 255;
+  if (!scope || !scope->api || argc < 4 || JS_ToFloat64(context, &x1, argv[0]) ||
+      JS_ToFloat64(context, &y1, argv[1]) || JS_ToFloat64(context, &x2, argv[2]) ||
+      JS_ToFloat64(context, &y2, argv[3])) return JS_EXCEPTION;
+  if (argc > 4) JS_ToFloat64(context, &width, argv[4]);
+  if (argc > 5) JS_ToInt32(context, &r, argv[5]);
+  if (argc > 6) JS_ToInt32(context, &g, argv[6]);
+  if (argc > 7) JS_ToInt32(context, &b, argv[7]);
+  scope->api->graphics.line({static_cast<float>(x1), static_cast<float>(y1),
+    static_cast<float>(x2), static_cast<float>(y2), static_cast<float>(width),
+    {static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), 255}});
+  return JS_UNDEFINED;
+}
+
+JSValue SystemWrite(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api || argc < 1) return JS_EXCEPTION;
+  const char* value = JS_ToCString(context, argv[0]);
+  if (!value) return JS_EXCEPTION;
+  double x = 80, y = 80, size = 48;
+  int32_t r = 255, g = 255, b = 255;
+  if (argc > 1) JS_ToFloat64(context, &x, argv[1]);
+  if (argc > 2) JS_ToFloat64(context, &y, argv[2]);
+  if (argc > 3) JS_ToFloat64(context, &size, argv[3]);
+  if (argc > 4) JS_ToInt32(context, &r, argv[4]);
+  if (argc > 5) JS_ToInt32(context, &g, argv[5]);
+  if (argc > 6) JS_ToInt32(context, &b, argv[6]);
+  scope->api->graphics.system_write({value, "Segoe UI", static_cast<float>(x),
+    static_cast<float>(y), static_cast<float>(size),
+    {static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), 255}});
+  JS_FreeCString(context, value);
+  return JS_UNDEFINED;
+}
+
+JSValue SystemGlyph(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api || argc < 1) return JS_EXCEPTION;
+  const char* name = JS_ToCString(context, argv[0]);
+  if (!name) return JS_EXCEPTION;
+  double x = 80, y = 80, size = 64;
+  int32_t r = 255, g = 255, b = 255;
+  if (argc > 1) JS_ToFloat64(context, &x, argv[1]);
+  if (argc > 2) JS_ToFloat64(context, &y, argv[2]);
+  if (argc > 3) JS_ToFloat64(context, &size, argv[3]);
+  if (argc > 4) JS_ToInt32(context, &r, argv[4]);
+  if (argc > 5) JS_ToInt32(context, &g, argv[5]);
+  if (argc > 6) JS_ToInt32(context, &b, argv[6]);
+  scope->api->graphics.system_glyph({name, static_cast<float>(x),
+    static_cast<float>(y), static_cast<float>(size),
+    {static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), 255}});
+  JS_FreeCString(context, name);
+  return JS_UNDEFINED;
+}
+
+JSValue Painting(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  double x = 0, y = 0, width = 640, height = 480;
+  if (!scope || !scope->api) return JS_EXCEPTION;
+  if (argc > 0) JS_ToFloat64(context, &x, argv[0]);
+  if (argc > 1) JS_ToFloat64(context, &y, argv[1]);
+  if (argc > 2) JS_ToFloat64(context, &width, argv[2]);
+  if (argc > 3) JS_ToFloat64(context, &height, argv[3]);
+  scope->api->graphics.image({"latest-painting", static_cast<float>(x),
+    static_cast<float>(y), static_cast<float>(width), static_cast<float>(height)});
   return JS_UNDEFINED;
 }
 
@@ -155,9 +242,38 @@ JSValue Capabilities(JSContext* context, JSValueConst, int, JSValueConst*) {
     JS_NewString(context, scope->api->system.network_name.c_str()));
   JS_SetPropertyStr(context, result, "version",
     JS_NewString(context, scope->api->system.version.c_str()));
+  JS_SetPropertyStr(context, result, "deviceFamily",
+    JS_NewString(context, scope->api->system.device_family.c_str()));
+  JS_SetPropertyStr(context, result, "deviceFamilyVersion",
+    JS_NewString(context, scope->api->system.device_family_version.c_str()));
+  JS_SetPropertyStr(context, result, "productName",
+    JS_NewString(context, scope->api->system.product_name.c_str()));
+  JS_SetPropertyStr(context, result, "memoryUsageBytes",
+    JS_NewInt64(context, scope->api->system.memory_usage_bytes));
+  JS_SetPropertyStr(context, result, "memoryLimitBytes",
+    JS_NewInt64(context, scope->api->system.memory_limit_bytes));
+  JS_SetPropertyStr(context, result, "expectedMemoryLimitBytes",
+    JS_NewInt64(context, scope->api->system.expected_memory_limit_bytes));
   JS_SetPropertyStr(context, result, "width", JS_NewInt32(context, scope->api->screen.width));
   JS_SetPropertyStr(context, result, "height", JS_NewInt32(context, scope->api->screen.height));
   JS_SetPropertyStr(context, result, "liveLocalState", JS_NewBool(context, true));
+  return result;
+}
+
+JSValue AcData(JSContext* context, JSValueConst, int, JSValueConst*) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api) return JS_EXCEPTION;
+  const auto snapshot = std::atomic_load(&scope->api->ac);
+  JSValue result = JS_NewObject(context);
+  if (!snapshot) return result;
+  JS_SetPropertyStr(context, result, "mood", JS_NewString(context, snapshot->mood.c_str()));
+  JS_SetPropertyStr(context, result, "moodHandle", JS_NewString(context, snapshot->mood_handle.c_str()));
+  JS_SetPropertyStr(context, result, "clockFrom", JS_NewString(context, snapshot->clock_from.c_str()));
+  JS_SetPropertyStr(context, result, "clockText", JS_NewString(context, snapshot->clock_text.c_str()));
+  JS_SetPropertyStr(context, result, "paintingUrl", JS_NewString(context, snapshot->painting_url.c_str()));
+  JS_SetPropertyStr(context, result, "paintingHandle", JS_NewString(context, snapshot->painting_handle.c_str()));
+  JS_SetPropertyStr(context, result, "status", JS_NewString(context, snapshot->status.c_str()));
+  JS_SetPropertyStr(context, result, "refreshedUnixMs", JS_NewInt64(context, snapshot->refreshed_unix_ms));
   return result;
 }
 
@@ -175,13 +291,20 @@ class QuickJsPiece final : public JsPiece {
     JSValue global = JS_GetGlobalObject(context_);
     JS_SetPropertyStr(context_, global, "wipe", JS_NewCFunction(context_, Wipe, "wipe", 3));
     JS_SetPropertyStr(context_, global, "synth", JS_NewCFunction(context_, Synth, "synth", 2));
+    JS_SetPropertyStr(context_, global, "oscillator", JS_NewCFunction(context_, Oscillator, "oscillator", 2));
+    JS_SetPropertyStr(context_, global, "oscillatorStop", JS_NewCFunction(context_, OscillatorStop, "oscillatorStop", 0));
     JS_SetPropertyStr(context_, global, "write", JS_NewCFunction(context_, Write, "write", 7));
     JS_SetPropertyStr(context_, global, "box", JS_NewCFunction(context_, Box, "box", 7));
+    JS_SetPropertyStr(context_, global, "line", JS_NewCFunction(context_, Line, "line", 8));
+    JS_SetPropertyStr(context_, global, "systemWrite", JS_NewCFunction(context_, SystemWrite, "systemWrite", 7));
+    JS_SetPropertyStr(context_, global, "systemGlyph", JS_NewCFunction(context_, SystemGlyph, "systemGlyph", 7));
+    JS_SetPropertyStr(context_, global, "painting", JS_NewCFunction(context_, Painting, "painting", 4));
     JS_SetPropertyStr(context_, global, "telemetry", JS_NewCFunction(context_, Telemetry, "telemetry", 2));
     JS_SetPropertyStr(context_, global, "runtime", JS_NewCFunction(context_, RuntimeInfo, "runtime", 0));
     JS_SetPropertyStr(context_, global, "gamepad", JS_NewCFunction(context_, GamepadState, "gamepad", 0));
     JS_SetPropertyStr(context_, global, "controllers", JS_NewCFunction(context_, Controllers, "controllers", 0));
     JS_SetPropertyStr(context_, global, "capabilities", JS_NewCFunction(context_, Capabilities, "capabilities", 0));
+    JS_SetPropertyStr(context_, global, "ac", JS_NewCFunction(context_, AcData, "ac", 0));
     JS_FreeValue(context_, global);
     JSValue result = JS_Eval(context_, bundle.source.data(), bundle.source.size(),
                              bundle.slug.c_str(), JS_EVAL_TYPE_GLOBAL);

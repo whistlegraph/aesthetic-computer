@@ -47,6 +47,21 @@ struct Color { std::uint8_t r, g, b, a = 255; };
 struct Rect { float x, y, width, height; Color color; };
 struct Line { float x1, y1, x2, y2, width; Color color; };
 struct Text { std::string value; float x, y, size; Color color; };
+struct SystemText {
+  std::string value;
+  std::string family = "Segoe UI";
+  float x = 0, y = 0, size = 32;
+  Color color{255, 255, 255, 255};
+};
+struct SystemGlyph {
+  std::string name;
+  float x = 0, y = 0, size = 64;
+  Color color{255, 255, 255, 255};
+};
+struct ImageDraw {
+  std::string source = "latest-painting";
+  float x = 0, y = 0, width = 0, height = 0;
+};
 
 class Graphics {
  public:
@@ -55,6 +70,9 @@ class Graphics {
   virtual void box(const Rect&) = 0;
   virtual void line(const Line&) = 0;
   virtual void write(const Text&) = 0;
+  virtual void system_write(const SystemText&) {}
+  virtual void system_glyph(const SystemGlyph&) {}
+  virtual void image(const ImageDraw&) {}
 };
 
 struct SynthVoice {
@@ -73,6 +91,8 @@ class Sound {
   virtual void synth(const SynthVoice&) = 0;
   virtual void stop_all() = 0;
   virtual int sample_rate() const = 0;
+  virtual void oscillator(float, float) {}
+  virtual void oscillator_stop() {}
 };
 
 struct Clock {
@@ -84,11 +104,28 @@ struct Clock {
 struct System {
   std::string platform = "xbox";
   std::string version;
+  std::string device_family;
+  std::string device_family_version;
+  std::string product_name;
   std::string handle;
   std::string network_level = "none";
   std::string network_name;
+  std::uint64_t memory_usage_bytes = 0;
+  std::uint64_t memory_limit_bytes = 0;
+  std::uint64_t expected_memory_limit_bytes = 0;
   bool dark = true;
   bool online = false;
+};
+
+struct AcSnapshot {
+  std::string mood;
+  std::string mood_handle;
+  std::string clock_from;
+  std::string clock_text;
+  std::string painting_url;
+  std::string painting_handle;
+  std::string status = "loading";
+  std::int64_t refreshed_unix_ms = 0;
 };
 
 // The stable native lifecycle context. Names intentionally follow piece API
@@ -103,6 +140,9 @@ struct Api {
   std::uint64_t sim_count = 0;
   std::uint64_t paint_count = 0;
   double seconds = 0;
+  // Host-polled, read-only snapshots from allowlisted aesthetic.computer
+  // endpoints. Pieces never receive a general network primitive.
+  std::shared_ptr<const AcSnapshot> ac = std::make_shared<const AcSnapshot>();
   // Sandboxed pieces can emit structured diagnostic lines without receiving
   // filesystem, process, Device Portal, or arbitrary WinRT access.
   std::function<void(std::string_view)> telemetry = {};

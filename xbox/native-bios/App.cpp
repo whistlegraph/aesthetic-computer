@@ -7,13 +7,28 @@ using namespace Windows::ApplicationModel::Core;
 using namespace Windows::ApplicationModel::Activation;
 using namespace Windows::Gaming::Input;
 using namespace Windows::Networking::Connectivity;
+using namespace Windows::Data::Json;
+using namespace Windows::Graphics::Imaging;
+using namespace Windows::Security::ExchangeActiveSyncProvisioning;
 using namespace Windows::Storage;
+using namespace Windows::Storage::Streams;
+using namespace Windows::System;
+using namespace Windows::System::Profile;
 using namespace Windows::UI::Core;
 using namespace Windows::Foundation;
+using namespace Windows::Web::Http;
+using namespace concurrency;
 
 namespace NativeBios {
 
 using namespace ac::xbox;
+
+struct PaintingImage {
+  unsigned width = 0;
+  unsigned height = 0;
+  std::string url;
+  std::vector<uint32_t> pixels;
+};
 
 static constexpr char kSmokePiece[] = R"JS(
 let color=[12,8,24];
@@ -89,24 +104,69 @@ static std::array<unsigned char, 7> BlockGlyph(char value) {
   }
 }
 
+static wchar_t Mdl2Glyph(const std::string& name) {
+  static const std::unordered_map<std::string, wchar_t> glyphs = {
+    {"Wifi", 0xE701}, {"GameConsole", 0xE967}, {"XboxOneConsole", 0xE990},
+    {"ButtonA", 0xF093}, {"ButtonB", 0xF094}, {"ButtonY", 0xF095},
+    {"ButtonX", 0xF096}, {"LeftStick", 0xF108}, {"RightStick", 0xF109},
+    {"TriggerLeft", 0xF10A}, {"TriggerRight", 0xF10B},
+    {"BumperLeft", 0xF10C}, {"BumperRight", 0xF10D}, {"Dpad", 0xF10E},
+    {"ButtonView", 0xEECA},
+  };
+  const auto found = glyphs.find(name);
+  return found == glyphs.end() ? L'?' : found->second;
+}
+
+static std::string GamingDeviceName() {
+  GAMING_DEVICE_MODEL_INFORMATION information{};
+  if (FAILED(GetGamingDeviceModelInformation(&information))) return {};
+  switch (static_cast<unsigned>(information.deviceId)) {
+    case 0x768BAE26: return "Xbox One";
+    case 0x2A7361D9: return "Xbox One S";
+    case 0x5AD617C7: return "Xbox One X";
+    case 0x10F7CDE3: return "Xbox One X Dev Kit";
+    case 0x1D27FABB: return "Xbox Series S";
+    case 0x2F7A3DFF: return "Xbox Series X";
+    case 0xDE8A5661: return "Xbox Series X Dev Kit";
+    default: return {};
+  }
+}
+
 class HostGraphics final : public Graphics {
  public:
   std::function<void(Color)> on_wipe;
   std::function<void(const ac::xbox::Rect&)> on_box;
+  std::function<void(const ac::xbox::Line&)> on_line;
   std::function<void(const ac::xbox::Text&)> on_write;
+  std::function<void(const ac::xbox::SystemText&)> on_system_write;
+  std::function<void(const ac::xbox::SystemGlyph&)> on_system_glyph;
+  std::function<void(const ac::xbox::ImageDraw&)> on_image;
   void wipe(Color color) override { if (on_wipe) on_wipe(color); }
   void box(const ac::xbox::Rect& rect) override { if (on_box) on_box(rect); }
-  void line(const ac::xbox::Line&) override {}
+  void line(const ac::xbox::Line& line) override { if (on_line) on_line(line); }
   void write(const ac::xbox::Text& text) override { if (on_write) on_write(text); }
+  void system_write(const ac::xbox::SystemText& text) override {
+    if (on_system_write) on_system_write(text);
+  }
+  void system_glyph(const ac::xbox::SystemGlyph& glyph) override {
+    if (on_system_glyph) on_system_glyph(glyph);
+  }
+  void image(const ac::xbox::ImageDraw& draw) override { if (on_image) on_image(draw); }
 };
 class HostSound final : public Sound {
  public:
   std::function<void(const SynthVoice&)> on_synth;
   std::function<void()> on_stop;
+  std::function<void(float, float)> on_oscillator;
+  std::function<void()> on_oscillator_stop;
   std::function<int()> get_rate;
   void synth(const SynthVoice& voice) override { if (on_synth) on_synth(voice); }
   void stop_all() override { if (on_stop) on_stop(); }
   int sample_rate() const override { return get_rate ? get_rate() : 0; }
+  void oscillator(float frequency, float volume) override {
+    if (on_oscillator) on_oscillator(frequency, volume);
+  }
+  void oscillator_stop() override { if (on_oscillator_stop) on_oscillator_stop(); }
 };
 
 static void Check(HRESULT hr) {
@@ -134,12 +194,26 @@ public:
       m_frameColor = {color.r / 255.f, color.g / 255.f, color.b / 255.f, color.a / 255.f};
     };
     m_graphics->on_box = [this](const ac::xbox::Rect& rect) { m_frameRects.push_back(rect); };
+    m_graphics->on_line = [this](const ac::xbox::Line& line) { m_frameLines.push_back(line); };
     m_graphics->on_write = [this](const ac::xbox::Text& text) { m_frameTexts.push_back(text); };
-    m_sound->on_synth = [this](const SynthVoice&) { if (m_voice) TriggerAudio(1); };
+    m_graphics->on_system_write = [this](const ac::xbox::SystemText& text) {
+      m_frameSystemTexts.push_back(text);
+    };
+    m_graphics->on_system_glyph = [this](const ac::xbox::SystemGlyph& glyph) {
+      m_frameSystemGlyphs.push_back(glyph);
+    };
+    m_graphics->on_image = [this](const ac::xbox::ImageDraw& draw) {
+      m_frameImages.push_back(draw);
+    };
+    m_sound->on_synth = [this](const SynthVoice& voice) { PlaySynth(voice); };
     m_sound->on_stop = [this]() { if (m_voice) { m_voice->Stop(0); m_voice->FlushSourceBuffers(); } };
+    m_sound->on_oscillator = [this](float frequency, float volume) {
+      SetOscillator(frequency, volume);
+    };
+    m_sound->on_oscillator_stop = [this]() { StopOscillator(); };
     m_sound->get_rate = [this]() { return static_cast<int>(m_sampleRate); };
     m_api = std::make_unique<Api>(Api{{1920, 1080, 1}, {}, {}, {}, *m_graphics, *m_sound});
-    m_api->system.version = "1.0.0.10";
+    m_api->system.version = "1.0.0.11";
     m_api->telemetry = [](std::string_view line) {
       std::string safe(line);
       for (auto& character : safe) if (character == '\n' || character == '\r') character = ' ';
@@ -147,6 +221,7 @@ public:
       LogTelemetry("AC_NATIVE_" + safe);
     };
     RefreshCapabilities(true);
+    RefreshAcData(true);
     m_engine = std::make_unique<QuickJsEngine>();
     m_supervisor = std::make_unique<PieceSupervisor>(*m_engine);
     std::string error;
@@ -167,11 +242,16 @@ public:
     while (!m_closed) {
       m_window->Dispatcher->ProcessEvents(CoreProcessEventsOption::ProcessAllIfPresent);
       RefreshCapabilities(false);
+      RefreshAcData(false);
       PollController();
       PollLivePiece();
       RefreshClock();
       m_frameRects.clear();
+      m_frameLines.clear();
       m_frameTexts.clear();
+      m_frameSystemTexts.clear();
+      m_frameSystemGlyphs.clear();
+      m_frameImages.clear();
       if (m_supervisor && m_supervisor->active()) {
         try {
           m_supervisor->active()->sim(*m_api);
@@ -287,6 +367,7 @@ private:
     format.nBlockAlign = format.nChannels * format.wBitsPerSample / 8;
     format.nAvgBytesPerSec = format.nSamplesPerSec * format.nBlockAlign;
     Check(m_audio->CreateSourceVoice(&m_voice, &format, 0, XAUDIO2_DEFAULT_FREQ_RATIO));
+    Check(m_audio->CreateSourceVoice(&m_oscVoice, &format, 0, 64.0f));
 
     const uint32_t frames = sampleRate / 20; // 50 ms; data is allocated once per rate.
     m_samples.resize(frames);
@@ -300,15 +381,67 @@ private:
     m_buffer.pAudioData = reinterpret_cast<const BYTE*>(m_samples.data());
     m_buffer.Flags = XAUDIO2_END_OF_STREAM;
 
+    const uint32_t oscillatorFrames = sampleRate / 100; // one 100 Hz cycle
+    m_oscSamples.resize(oscillatorFrames);
+    for (uint32_t i = 0; i < oscillatorFrames; ++i)
+      m_oscSamples[i] = static_cast<int16_t>(std::sin(tau * i / oscillatorFrames) * 16000.0);
+    m_oscBuffer = {};
+    m_oscBuffer.AudioBytes = static_cast<UINT32>(m_oscSamples.size() * sizeof(int16_t));
+    m_oscBuffer.pAudioData = reinterpret_cast<const BYTE*>(m_oscSamples.data());
+    m_oscBuffer.LoopCount = XAUDIO2_LOOP_INFINITE;
+    Check(m_oscVoice->SubmitSourceBuffer(&m_oscBuffer));
+    Check(m_oscVoice->SetVolume(0));
+    Check(m_oscVoice->Start(0));
+
     wchar_t line[160];
     swprintf_s(line, L"AC_NATIVE_AUDIO_READY rate=%uHz frames=%u\n", sampleRate, frames);
     OutputDebugStringW(line);
   }
 
   void DestroyAudio() {
+    if (m_oscVoice) { m_oscVoice->DestroyVoice(); m_oscVoice = nullptr; }
     if (m_voice) { m_voice->DestroyVoice(); m_voice = nullptr; }
     if (m_master) { m_master->DestroyVoice(); m_master = nullptr; }
     m_audio.Reset();
+  }
+
+  void PlaySynth(const SynthVoice& voice) {
+    if (!m_voice || m_sampleRate == 0) return;
+    // XAudio2 keeps the submitted sample pointer rather than copying it. Stop
+    // and release the old buffer before a resize can invalidate that pointer.
+    m_voice->Stop(0);
+    m_voice->FlushSourceBuffers();
+    const float frequency = (std::max)(20.0f, (std::min)(5000.0f, voice.frequency_hz));
+    const float duration = (std::max)(.005f, (std::min)(2.0f, voice.duration_s));
+    const float volume = (std::max)(0.0f, (std::min)(1.0f, voice.volume));
+    const auto frames = static_cast<uint32_t>(m_sampleRate * duration);
+    m_samples.resize(frames);
+    constexpr double tau = 6.2831853071795864769;
+    for (uint32_t i = 0; i < frames; ++i) {
+      const double envelope = 1.0 - static_cast<double>(i) / frames;
+      m_samples[i] = static_cast<int16_t>(std::sin(tau * frequency * i / m_sampleRate) *
+        envelope * volume * 32767.0);
+    }
+    m_buffer = {};
+    m_buffer.AudioBytes = static_cast<UINT32>(m_samples.size() * sizeof(int16_t));
+    m_buffer.pAudioData = reinterpret_cast<const BYTE*>(m_samples.data());
+    m_buffer.Flags = XAUDIO2_END_OF_STREAM;
+    TriggerAudio(0);
+  }
+
+  void SetOscillator(float frequency, float volume) {
+    if (!m_oscVoice) return;
+    frequency = (std::max)(20.0f, (std::min)(5000.0f, frequency));
+    volume = (std::max)(0.0f, (std::min)(.5f, volume));
+    Check(m_oscVoice->SetFrequencyRatio(frequency / 100.0f));
+    Check(m_oscVoice->SetVolume(volume));
+    m_oscillatorFrequency = frequency;
+    m_oscillatorVolume = volume;
+  }
+
+  void StopOscillator() {
+    if (m_oscVoice) Check(m_oscVoice->SetVolume(0));
+    m_oscillatorVolume = 0;
   }
 
   void TriggerAudio(unsigned buttonMask) {
@@ -420,6 +553,25 @@ private:
     const auto now = GetTickCount64();
     if (!force && now < m_nextCapabilityPollMs) return;
     m_nextCapabilityPollMs = now + 1000;
+    try {
+      m_api->system.device_family = Utf8(AnalyticsInfo::VersionInfo->DeviceFamily);
+      const auto packed = std::stoull(Utf8(AnalyticsInfo::VersionInfo->DeviceFamilyVersion));
+      m_api->system.device_family_version =
+        std::to_string((packed >> 48) & 0xffff) + "." +
+        std::to_string((packed >> 32) & 0xffff) + "." +
+        std::to_string((packed >> 16) & 0xffff) + "." +
+        std::to_string(packed & 0xffff);
+      m_api->system.product_name = GamingDeviceName();
+      if (m_api->system.product_name.empty()) {
+        const auto device = ref new EasClientDeviceInformation();
+        m_api->system.product_name = Utf8(device->SystemProductName);
+      }
+    } catch (...) {
+      if (m_api->system.device_family.empty()) m_api->system.device_family = "Windows.Xbox";
+    }
+    m_api->system.memory_usage_bytes = MemoryManager::AppMemoryUsage;
+    m_api->system.memory_limit_bytes = MemoryManager::AppMemoryUsageLimit;
+    m_api->system.expected_memory_limit_bytes = MemoryManager::ExpectedAppMemoryUsageLimit;
     const auto profile = NetworkInformation::GetInternetConnectionProfile();
     m_api->system.online = false;
     m_api->system.network_level = "none";
@@ -451,6 +603,10 @@ private:
     }
     std::string inventory = "online=" + std::to_string(m_api->system.online) +
       " network=" + m_api->system.network_level + " profile=" + m_api->system.network_name +
+      " family=" + m_api->system.device_family + " product=" + m_api->system.product_name +
+      " memory=" + std::to_string(m_api->system.memory_usage_bytes) + "/" +
+      std::to_string(m_api->system.memory_limit_bytes) + "/" +
+      std::to_string(m_api->system.expected_memory_limit_bytes) +
       " controllers=" + std::to_string(m_api->gamepad.controllers.size());
     for (const auto& controller : m_api->gamepad.controllers) {
       inventory += " | " + controller.name + " vendor=" +
@@ -465,6 +621,141 @@ private:
       m_lastCapabilityInventory = inventory;
       LogTelemetry("AC_NATIVE_CAPABILITIES " + inventory);
     }
+  }
+
+  void RefreshAcData(bool force) {
+    const auto now = GetTickCount64();
+    if (!force && now < m_nextAcPollMs) return;
+    m_nextAcPollMs = now + 15000;
+    bool expected = false;
+    if (!m_acRequestInFlight.compare_exchange_strong(expected, true)) return;
+
+    auto client = ref new HttpClient();
+    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.11 Xbox");
+    std::vector<task<String^>> requests;
+    requests.push_back(create_task(client->GetStringAsync(
+      ref new Uri(L"https://aesthetic.computer/api/mood/moods-of-the-day"))));
+    requests.push_back(create_task(client->GetStringAsync(
+      ref new Uri(L"https://aesthetic.computer/api/chat-messages?instance=clock&limit=12"))));
+    requests.push_back(create_task(client->GetStringAsync(
+      ref new Uri(L"https://aesthetic.computer/media-collection?for=%40jeffrey%2Fpainting"))));
+
+    when_all(requests.begin(), requests.end()).then(
+      [this, client](task<std::vector<String^>> completed) {
+        auto snapshot = std::make_shared<AcSnapshot>();
+        try {
+          const auto bodies = completed.get();
+          const auto mood = JsonObject::Parse(bodies[0]);
+          if (mood->HasKey(L"mood")) snapshot->mood = Utf8(mood->GetNamedString(L"mood"));
+          if (mood->HasKey(L"handle")) snapshot->mood_handle = Utf8(mood->GetNamedString(L"handle"));
+
+          const auto chat = JsonObject::Parse(bodies[1]);
+          if (chat->HasKey(L"messages")) {
+            const auto messages = chat->GetNamedArray(L"messages");
+            if (messages->Size > 0) {
+              const auto latest = messages->GetObjectAt(messages->Size - 1);
+              if (latest->HasKey(L"from")) snapshot->clock_from = Utf8(latest->GetNamedString(L"from"));
+              if (latest->HasKey(L"text")) snapshot->clock_text = Utf8(latest->GetNamedString(L"text"));
+            }
+          }
+
+          const auto paintings = JsonObject::Parse(bodies[2]);
+          if (paintings->HasKey(L"files")) {
+            const auto files = paintings->GetNamedArray(L"files");
+            if (files->Size > 0) {
+              snapshot->painting_url = Utf8(files->GetStringAt(files->Size - 1));
+              snapshot->painting_handle = "@jeffrey";
+            }
+          }
+          FILETIME fileTime{};
+          GetSystemTimeAsFileTime(&fileTime);
+          ULARGE_INTEGER ticks{};
+          ticks.LowPart = fileTime.dwLowDateTime;
+          ticks.HighPart = fileTime.dwHighDateTime;
+          snapshot->refreshed_unix_ms = static_cast<std::int64_t>(
+            (ticks.QuadPart - 116444736000000000ULL) / 10000ULL);
+          snapshot->status = "ready";
+          std::atomic_store(&m_api->ac,
+            std::static_pointer_cast<const AcSnapshot>(snapshot));
+          DownloadPainting(snapshot->painting_url);
+          LogTelemetry("AC_NATIVE_AC_READY mood=" + snapshot->mood_handle +
+            " clock=" + snapshot->clock_from +
+            " painting=" + std::to_string(!snapshot->painting_url.empty()));
+        } catch (Exception^ error) {
+          snapshot->status = "error: " + Utf8(error->Message);
+          std::atomic_store(&m_api->ac,
+            std::static_pointer_cast<const AcSnapshot>(snapshot));
+          LogTelemetry("AC_NATIVE_AC_ERROR " + Utf8(error->Message));
+        } catch (const std::exception& error) {
+          snapshot->status = "error: " + std::string(error.what());
+          std::atomic_store(&m_api->ac,
+            std::static_pointer_cast<const AcSnapshot>(snapshot));
+          LogTelemetry("AC_NATIVE_AC_ERROR " + std::string(error.what()));
+        }
+        m_acRequestInFlight = false;
+      });
+  }
+
+  void DownloadPainting(const std::string& url) {
+    if (url.empty()) return;
+    const auto current = std::atomic_load(&m_paintingImage);
+    if ((current && current->url == url) || m_paintingRequestInFlight.exchange(true)) return;
+    auto client = ref new HttpClient();
+    create_task(client->GetBufferAsync(ref new Uri(ref new String(Wide(url).c_str()))))
+      .then([](IBuffer^ buffer) {
+        auto stream = ref new InMemoryRandomAccessStream();
+        auto writer = ref new DataWriter(stream);
+        writer->WriteBuffer(buffer);
+        return create_task(writer->StoreAsync()).then([stream, writer](unsigned) {
+          writer->DetachStream();
+          stream->Seek(0);
+          return stream;
+        });
+      })
+      .then([](InMemoryRandomAccessStream^ stream) {
+        return create_task(BitmapDecoder::CreateAsync(stream)).then([stream](BitmapDecoder^ decoder) {
+          auto transform = ref new BitmapTransform();
+          const double scale = (std::min)(1.0, 1024.0 /
+            static_cast<double>((std::max)(decoder->PixelWidth, decoder->PixelHeight)));
+          const unsigned width = (std::max)(1u, static_cast<unsigned>(decoder->PixelWidth * scale));
+          const unsigned height = (std::max)(1u, static_cast<unsigned>(decoder->PixelHeight * scale));
+          transform->ScaledWidth = width;
+          transform->ScaledHeight = height;
+          return create_task(decoder->GetPixelDataAsync(BitmapPixelFormat::Bgra8,
+            BitmapAlphaMode::Straight, transform, ExifOrientationMode::RespectExifOrientation,
+            ColorManagementMode::DoNotColorManage)).then(
+              [stream, width, height](PixelDataProvider^ provider) {
+                auto result = std::make_shared<PaintingImage>();
+                result->width = width;
+                result->height = height;
+                const auto bytes = provider->DetachPixelData();
+                result->pixels.resize(static_cast<std::size_t>(width) * height);
+                for (std::size_t i = 0; i < result->pixels.size(); ++i) {
+                  const auto offset = i * 4;
+                  result->pixels[i] = (static_cast<uint32_t>(bytes[offset + 3]) << 24) |
+                    (static_cast<uint32_t>(bytes[offset + 2]) << 16) |
+                    (static_cast<uint32_t>(bytes[offset + 1]) << 8) |
+                    static_cast<uint32_t>(bytes[offset]);
+                }
+                return result;
+              });
+        });
+      })
+      .then([this, client, url](task<std::shared_ptr<PaintingImage>> completed) {
+        try {
+          auto image = completed.get();
+          image->url = url;
+          std::atomic_store(&m_paintingImage,
+            std::static_pointer_cast<const PaintingImage>(image));
+          LogTelemetry("AC_NATIVE_PAINTING_READY " + std::to_string(image->width) + "x" +
+            std::to_string(image->height));
+        } catch (Exception^ error) {
+          LogTelemetry("AC_NATIVE_PAINTING_ERROR " + Utf8(error->Message));
+        } catch (const std::exception& error) {
+          LogTelemetry("AC_NATIVE_PAINTING_ERROR " + std::string(error.what()));
+        }
+        m_paintingRequestInFlight = false;
+      });
   }
 
   void PollLivePiece() {
@@ -503,13 +794,16 @@ private:
       LogTelemetry("AC_NATIVE_LIVE_REJECT reason=" + error);
       return;
     }
+    m_loggedTextFrame = false;
     LogTelemetry("AC_NATIVE_LIVE_READY bytes=" + std::to_string(source.size()) +
       " generation=" + std::to_string(m_supervisor->generation()));
   }
 
   void Render(const std::array<float, 4>& color) {
     if (!m_target) return;
-    if (!m_frameTexts.empty() || !m_frameRects.empty()) {
+    if (!m_frameTexts.empty() || !m_frameRects.empty() || !m_frameLines.empty() ||
+        !m_frameImages.empty() ||
+        !m_frameSystemTexts.empty() || !m_frameSystemGlyphs.empty()) {
       const auto byte = [](float value) {
         return static_cast<unsigned>(255.0f * (std::max)(0.0f, (std::min)(1.0f, value)));
       };
@@ -535,6 +829,58 @@ private:
           static_cast<int>((rect.x + rect.width) * scaleX),
           static_cast<int>((rect.y + rect.height) * scaleY), packed(rect.color));
       }
+      // Images sit above panel rectangles and below vector lines/type. This
+      // preserves the piece's intended dashboard layering without requiring a
+      // GPU resource per downloaded painting.
+      const auto painting = std::atomic_load(&m_paintingImage);
+      if (painting && painting->width > 0 && painting->height > 0) {
+        for (const auto& draw : m_frameImages) {
+          const int destLeft = static_cast<int>(draw.x * scaleX);
+          const int destTop = static_cast<int>(draw.y * scaleY);
+          const int destWidth = (std::max)(1, static_cast<int>(draw.width * scaleX));
+          const int destHeight = (std::max)(1, static_cast<int>(draw.height * scaleY));
+          const int left = (std::max)(0, destLeft);
+          const int top = (std::max)(0, destTop);
+          const int right = (std::min)(static_cast<int>(m_frameWidth), destLeft + destWidth);
+          const int bottom = (std::min)(static_cast<int>(m_frameHeight), destTop + destHeight);
+          for (int y = top; y < bottom; ++y) {
+            const unsigned sourceY = (std::min)(painting->height - 1,
+              static_cast<unsigned>((y - destTop) * painting->height / destHeight));
+            for (int x = left; x < right; ++x) {
+              const unsigned sourceX = (std::min)(painting->width - 1,
+                static_cast<unsigned>((x - destLeft) * painting->width / destWidth));
+              const uint32_t source = painting->pixels[
+                static_cast<std::size_t>(sourceY) * painting->width + sourceX];
+              const unsigned alpha = source >> 24;
+              auto& destination = m_cpuFrame[static_cast<std::size_t>(y) * m_frameWidth + x];
+              if (alpha >= 255) destination = source;
+              else if (alpha > 0) {
+                const unsigned inverse = 255 - alpha;
+                const unsigned red = (((source >> 16) & 255) * alpha +
+                  ((destination >> 16) & 255) * inverse) / 255;
+                const unsigned green = (((source >> 8) & 255) * alpha +
+                  ((destination >> 8) & 255) * inverse) / 255;
+                const unsigned blue = ((source & 255) * alpha +
+                  (destination & 255) * inverse) / 255;
+                destination = 0xff000000u | (red << 16) | (green << 8) | blue;
+              }
+            }
+          }
+        }
+      }
+      for (const auto& line : m_frameLines) {
+        const float x1 = line.x1 * scaleX, y1 = line.y1 * scaleY;
+        const float x2 = line.x2 * scaleX, y2 = line.y2 * scaleY;
+        const float dx = x2 - x1, dy = y2 - y1;
+        const int steps = (std::max)(1, static_cast<int>((std::max)(std::abs(dx), std::abs(dy))));
+        const int radius = (std::max)(1, static_cast<int>(line.width * (scaleX + scaleY) * .25f));
+        for (int step = 0; step <= steps; ++step) {
+          const float mix = static_cast<float>(step) / steps;
+          const int x = static_cast<int>(x1 + dx * mix);
+          const int y = static_cast<int>(y1 + dy * mix);
+          fill(x - radius, y - radius, x + radius + 1, y + radius + 1, packed(line.color));
+        }
+      }
       for (const auto& text : m_frameTexts) {
         const int cell = (std::max)(2, static_cast<int>(text.size / 7.0f * scaleY));
         const int originX = static_cast<int>(text.x * scaleX);
@@ -555,9 +901,38 @@ private:
       m_context->OMSetRenderTargets(0, nullptr, nullptr);
       m_context->UpdateSubresource(m_backBuffer.Get(), 0, nullptr, m_cpuFrame.data(),
         m_frameWidth * sizeof(uint32_t), 0);
+      if (!m_frameSystemTexts.empty() || !m_frameSystemGlyphs.empty()) {
+        m_d2dContext->BeginDraw();
+        m_d2dContext->SetTransform(D2D1::Matrix3x2F::Identity());
+        const auto drawText = [this, scaleX, scaleY](const std::wstring& value,
+            const wchar_t* family, float x, float y, float size, Color color) {
+          ComPtr<IDWriteTextFormat> format;
+          if (FAILED(m_dwriteFactory->CreateTextFormat(family, nullptr,
+              DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL,
+              DWRITE_FONT_STRETCH_NORMAL, size * scaleY, L"en-us", &format))) return;
+          m_textBrush->SetColor(D2D1::ColorF(color.r / 255.0f, color.g / 255.0f,
+            color.b / 255.0f, color.a / 255.0f));
+          const auto area = D2D1::RectF(x * scaleX, y * scaleY,
+            static_cast<float>(m_frameWidth), static_cast<float>(m_frameHeight));
+          m_d2dContext->DrawText(value.data(), static_cast<UINT32>(value.size()),
+            format.Get(), area, m_textBrush.Get());
+        };
+        for (const auto& text : m_frameSystemTexts)
+          drawText(Wide(text.value), L"Segoe UI", text.x, text.y, text.size, text.color);
+        for (const auto& glyph : m_frameSystemGlyphs) {
+          const std::wstring symbol(1, Mdl2Glyph(glyph.name));
+          drawText(symbol, L"Segoe MDL2 Assets", glyph.x, glyph.y, glyph.size, glyph.color);
+        }
+        const auto hr = m_d2dContext->EndDraw();
+        if (FAILED(hr) && hr != D2DERR_RECREATE_TARGET) Check(hr);
+      }
       if (!m_loggedTextFrame) {
         LogTelemetry("AC_NATIVE_CPU_FRAME texts=" + std::to_string(m_frameTexts.size()) +
-          " boxes=" + std::to_string(m_frameRects.size()) + " surface=" +
+          " systemTexts=" + std::to_string(m_frameSystemTexts.size()) +
+          " glyphs=" + std::to_string(m_frameSystemGlyphs.size()) +
+          " images=" + std::to_string(m_frameImages.size()) +
+          " boxes=" + std::to_string(m_frameRects.size()) +
+          " lines=" + std::to_string(m_frameLines.size()) + " surface=" +
           std::to_string(m_frameWidth) + "x" + std::to_string(m_frameHeight));
         m_loggedTextFrame = true;
       }
@@ -578,6 +953,9 @@ private:
   unsigned long long m_livePieceSignature = 0;
   unsigned long long m_nextLivePollMs = 0;
   unsigned long long m_nextCapabilityPollMs = 0;
+  unsigned long long m_nextAcPollMs = 0;
+  std::atomic<bool> m_acRequestInFlight{false};
+  std::atomic<bool> m_paintingRequestInFlight{false};
   unsigned m_frameWidth = 0;
   unsigned m_frameHeight = 0;
   std::string m_lastCapabilityInventory;
@@ -585,7 +963,12 @@ private:
   std::array<float, 4> m_flashColor{1, 1, 1, 1};
   std::array<float, 4> m_frameColor{0.025f, 0.02f, 0.04f, 1.0f};
   std::vector<ac::xbox::Rect> m_frameRects;
+  std::vector<ac::xbox::Line> m_frameLines;
   std::vector<ac::xbox::Text> m_frameTexts;
+  std::vector<ac::xbox::SystemText> m_frameSystemTexts;
+  std::vector<ac::xbox::SystemGlyph> m_frameSystemGlyphs;
+  std::vector<ac::xbox::ImageDraw> m_frameImages;
+  std::shared_ptr<const PaintingImage> m_paintingImage;
   bool m_loggedTextFrame = false;
 
   ComPtr<ID3D11Device1> m_device;
@@ -602,9 +985,14 @@ private:
   ComPtr<IXAudio2> m_audio;
   IXAudio2MasteringVoice* m_master = nullptr;
   IXAudio2SourceVoice* m_voice = nullptr;
+  IXAudio2SourceVoice* m_oscVoice = nullptr;
   std::vector<int16_t> m_samples;
+  std::vector<int16_t> m_oscSamples;
   std::vector<uint32_t> m_cpuFrame;
   XAUDIO2_BUFFER m_buffer{};
+  XAUDIO2_BUFFER m_oscBuffer{};
+  float m_oscillatorFrequency = 0;
+  float m_oscillatorVolume = 0;
   std::unique_ptr<HostGraphics> m_graphics;
   std::unique_ptr<HostSound> m_sound;
   std::unique_ptr<Api> m_api;

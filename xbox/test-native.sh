@@ -6,6 +6,7 @@ build_dir=$(mktemp -d "${TMPDIR:-/tmp}/ac-xbox-tests.XXXXXX")
 trap 'rm -rf "$build_dir"' EXIT INT TERM
 
 node --check "$repo_dir/xbox/live/controller-probe.js"
+node --check "$repo_dir/xbox/live/native-showcase.js"
 node "$repo_dir/xbox/live/tests/controller-probe.test.mjs"
 
 clang++ -std=c++20 -Wall -Wextra \
