@@ -41,6 +41,10 @@ struct LedgerEntry: Codable, Equatable {
     // Owning CLI agent ("claude" | "codex" | …). Optional so ledgers published
     // by older peers (no field) still decode; nil is treated as "claude".
     var agentType: String?
+    /// Optional hardware/platform destination surfaced by the local prompt's
+    /// platform-target-awareness-identifier-badge. Optional preserves rolling
+    /// compatibility with fleet ledgers published before target awareness.
+    var platformTarget: String?
 }
 
 struct Ledger: Codable {
@@ -358,7 +362,8 @@ final class LedgerStore {
                 updated: s.updated.timeIntervalSince1970 * 1000,
                 started: s.started.timeIntervalSince1970 * 1000,
                 memoir: ProxMemoirs.shared.text(for: s.sessionId),
-                agentType: s.agentType)
+                agentType: s.agentType,
+                platformTarget: s.platformTarget.isEmpty ? nil : s.platformTarget)
         }
         entries.append(contentsOf: advertisedAgents())
 
@@ -403,7 +408,8 @@ final class LedgerStore {
                 updated: mtime.timeIntervalSince1970 * 1000,
                 started: (obj["started"] as? Double),
                 memoir: (obj["memoir"] as? String),
-                agentType: (obj["agent_type"] as? String)))
+                agentType: (obj["agent_type"] as? String),
+                platformTarget: (obj["platform_target"] as? String)))
         }
         return out
     }

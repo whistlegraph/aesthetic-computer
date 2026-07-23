@@ -59,6 +59,12 @@ says "prompt rocks", this is it.
   trigger inference themselves.
 - **A shared sun** lights every rock from the local time of day, so the whole
   wall of stones re-lights together.
+- **Platform target awareness.** A session marker may carry
+  `"platform_target":"xbox"`. Its
+  `platform-target-awareness-identifier-badge` appears as a compact branded
+  Xbox acknowledgement at the bottom-left of that prompt terminal. The target
+  is session metadata—not a pet-name or tty rule—and is also advertised in the
+  fleet ledger. Clearing the field removes the badge.
 
 The rocks are borderless, click-through `.floating` windows — they ride above
 the normal-window stack so a busy wall of preview cards can't bury them. The

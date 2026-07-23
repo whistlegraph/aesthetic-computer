@@ -83,6 +83,12 @@ struct ClaudeSession {
     /// display-only.
     var agentType: String = "claude"
 
+    /// Optional hardware/platform destination for this prompt (for example
+    /// `xbox`). The active-prompt marker owns this metadata so the
+    /// platform-target-awareness-identifier-badge follows the session across
+    /// prompt changes, titles, and terminal retiling without name-based rules.
+    var platformTarget: String = ""
+
     /// Native provider thread id. Claude uses `sessionId`; Codex's tracked
     /// wrapper has its own rock id, so the watcher records the rollout id here.
     var providerSessionId: String = ""
@@ -324,6 +330,7 @@ enum ClaudeSessionReader {
         )
         session.remoteHost = (obj["remote_host"] as? String) ?? ""
         session.agentType = (obj["agent_type"] as? String) ?? "claude"
+        session.platformTarget = (obj["platform_target"] as? String) ?? ""
         session.providerSessionId = (obj["provider_session_id"] as? String)
             ?? (obj["codex_session_id"] as? String)
             ?? (session.agentType == "claude" ? session.sessionId : "")

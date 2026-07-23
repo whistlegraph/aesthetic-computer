@@ -126,6 +126,7 @@ function tick(cfg) {
       claude_pid: lr.livePid,
       updated: marker.updated,
       state: marker.state,
+      platform_target: marker.platform_target,
       remote_host: cfg.name,
     };
     writeFileSync(join(ACTIVE, sid), JSON.stringify(local));
