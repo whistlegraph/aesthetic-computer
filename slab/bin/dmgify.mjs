@@ -161,7 +161,7 @@ const plistEscape = (value) => String(value)
 
 async function makeGalleryThumbnails(source, destination) {
   const manifest = JSON.parse(await readFile(join(source, "manifest.json"), "utf8"));
-  const files = [...new Set((manifest.posts || [])
+  const files = [...new Set([...(manifest.posts || []), ...(manifest.taggedPosts || [])]
     .map((post) => post?.stills?.[0]?.file).filter(Boolean))];
   const sourceRoot = resolve(source);
   const destinationRoot = resolve(destination);
