@@ -434,6 +434,8 @@ state repository. Nothing was pushed or deployed.
   full-screen numeric information soup. Flux, entropy, membrane, lineage, and
   division traces retain at most 240 samples each; hashed glyphs and shader
   nutrient fields are derived rather than accumulated. The focused source test
-  verifies these bounds. Interactive visual QA of this refinement remains
-  pending because the current execution boundary is Neo-local and forbids
-  browser/GUI control and SSH.
+  verifies these bounds. A supplied 1920×1080 static render was visually
+  inspected: the volume remains dominant, soup glyphs are subordinate, and the
+  numeric/chart bands remain legible. Live/interactive QA of the added
+  lineage/division traces remains pending because the current execution
+  boundary is Neo-local and forbids browser/GUI control and SSH.
