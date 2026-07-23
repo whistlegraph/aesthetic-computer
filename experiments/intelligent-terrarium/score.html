@@ -112,12 +112,12 @@
         float depth = 2.28 + q.z * .82;
         float perspective = 1.0 / depth;
         gl_Position = vec4(q.x * 3.55 * perspective / u_aspect, q.y * 2.65 * perspective, 0.0, 1.0);
-        gl_PointSize = max(1.0, u_pixel_ratio * (1.2 + activity * (4.8 + gnarl * 2.2) + nerve * 1.5) * 2.13 * perspective);
+        gl_PointSize = max(1.0, u_pixel_ratio * (1.0 + activity * (3.4 + gnarl * 1.3) + nerve) * 2.13 * perspective);
 
         vec3 color = palette(voice + .06 * sin(t * .08));
         color = mix(color, vec3(.76, 1.0, .91), membrane * .55 + reflection * .35);
-        color *= .38 + activity * 1.35 + nerve * .48;
-        float alpha = activity * (.12 + .47 * grain) + nerve * .16;
+        color *= .24 + activity * .82 + nerve * .31;
+        float alpha = activity * (.07 + .31 * grain) + nerve * .11;
         v_pixel = vec4(color, alpha);
       }
     `;
@@ -194,6 +194,73 @@
       value ^= value >>> 13;
       return (value >>> 0).toString(16).padStart(8, "0");
     }
+    const organCreatures = [
+      { name: "SENSORY", color: "#69f4c5", phase: .2, size: 78, lobes: 7 },
+      { name: "SPATIAL", color: "#79bfff", phase: 1.3, size: 94, lobes: 6 },
+      { name: "DRIVE", color: "#ff73bd", phase: 2.35, size: 86, lobes: 9 },
+      { name: "MEMORY", color: "#f4d96a", phase: 3.45, size: 108, lobes: 8 },
+      { name: "ACTION", color: "#c59aff", phase: 4.5, size: 82, lobes: 5 },
+      { name: "VOICE", color: "#ff9b70", phase: 5.55, size: 91, lobes: 7 },
+    ];
+    function creaturePosition(organ, age, w, h) {
+      return {
+        x: w * (.5 + Math.cos(organ.phase + age * (.014 + organ.phase * .0007)) * .285),
+        y: h * (.45 + Math.sin(organ.phase * 1.43 + age * (.018 - organ.phase * .0006)) * .235),
+      };
+    }
+    function organismPath(x, y, radius, lobes, phase, age) {
+      trace2d.beginPath();
+      for (let step = 0; step <= 96; step++) {
+        const angle = step / 96 * Math.PI * 2;
+        const skin = 1 + Math.sin(angle * lobes + age * .37 + phase) * .15
+          + Math.sin(angle * (lobes + 3) - age * .21) * .065;
+        const px = x + Math.cos(angle) * radius * skin;
+        const py = y + Math.sin(angle) * radius * skin * .72;
+        step ? trace2d.lineTo(px, py) : trace2d.moveTo(px, py);
+      }
+      trace2d.closePath();
+    }
+    function drawCreature(organ, index, age, w, h) {
+      const { x, y } = creaturePosition(organ, age, w, h);
+      const breathe = 1 + Math.sin(age * .43 + organ.phase) * .09;
+      for (let echo = 4; echo >= 1; echo--) {
+        organismPath(x, y, organ.size * breathe * (1 + echo * .105), organ.lobes, organ.phase, age - echo * .8);
+        trace2d.strokeStyle = organ.color + (echo === 1 ? "42" : "16"); trace2d.lineWidth = echo === 1 ? 1.4 : .7; trace2d.stroke();
+      }
+      const body = trace2d.createRadialGradient(x - organ.size * .22, y - organ.size * .18, 2, x, y, organ.size * 1.25);
+      body.addColorStop(0, organ.color + "c9"); body.addColorStop(.24, organ.color + "5f"); body.addColorStop(.72, organ.color + "20"); body.addColorStop(1, organ.color + "05");
+      organismPath(x, y, organ.size * breathe, organ.lobes, organ.phase, age);
+      trace2d.fillStyle = body; trace2d.fill(); trace2d.strokeStyle = organ.color + "b0"; trace2d.lineWidth = 1.8; trace2d.stroke();
+      for (let arm = 0; arm < organ.lobes; arm++) {
+        const angle = organ.phase + arm * Math.PI * 2 / organ.lobes + Math.sin(age * .11 + arm) * .25;
+        const reach = organ.size * (1.05 + .42 * Math.sin(age * .17 + arm * 1.9));
+        trace2d.strokeStyle = organ.color + "61"; trace2d.lineWidth = 1.1; trace2d.beginPath(); trace2d.moveTo(x, y);
+        trace2d.quadraticCurveTo(x + Math.cos(angle + .45) * reach * .6, y + Math.sin(angle + .45) * reach * .4, x + Math.cos(angle) * reach * 1.35, y + Math.sin(angle) * reach * .88);
+        trace2d.stroke();
+      }
+      const nucleusRadius = organ.size * (.19 + .025 * Math.sin(age * .8 + index));
+      const nucleus = trace2d.createRadialGradient(x - nucleusRadius * .3, y - nucleusRadius * .3, 0, x, y, nucleusRadius);
+      nucleus.addColorStop(0, "#f7fff2"); nucleus.addColorStop(.18, organ.color); nucleus.addColorStop(1, organ.color + "08");
+      trace2d.fillStyle = nucleus; trace2d.beginPath(); trace2d.arc(x, y, nucleusRadius, 0, Math.PI * 2); trace2d.fill();
+      trace2d.font = `700 ${Math.max(13, w * .009)}px ui-monospace, monospace`; trace2d.fillStyle = organ.color; trace2d.textAlign = "center";
+      trace2d.fillText(organ.name, x, y + organ.size * .95); trace2d.textAlign = "left";
+      return { x, y };
+    }
+    function drawWaveText(text, y, amplitude, phase, size, color, w) {
+      trace2d.save(); trace2d.font = `800 ${size}px ui-monospace, monospace`;
+      const widths = [...text].map(character => trace2d.measureText(character).width);
+      const total = widths.reduce((sum, width) => sum + width, 0), frequency = Math.PI * 2 / Math.max(1, total) * 1.65;
+      let x = (w - total) / 2;
+      trace2d.fillStyle = color; trace2d.shadowColor = color; trace2d.shadowBlur = 15;
+      for (let index = 0; index < text.length; index++) {
+        const width = widths[index], center = x + width / 2;
+        const offset = Math.sin(center * frequency + phase) * amplitude;
+        const angle = Math.atan(Math.cos(center * frequency + phase) * amplitude * frequency);
+        trace2d.save(); trace2d.translate(center, y + offset); trace2d.rotate(angle); trace2d.textAlign = "center"; trace2d.fillText(text[index], 0, 0); trace2d.restore();
+        x += width;
+      }
+      trace2d.restore();
+    }
     function drawTrace(age) {
       const ratio = Math.min(devicePixelRatio || 1, 2), w = trace.width / ratio, h = trace.height / ratio;
       trace2d.setTransform(ratio, 0, 0, ratio, 0, 0);
@@ -216,6 +283,15 @@
         trace2d.fillStyle = `rgba(${80 + row * 5},${176 + col * 2},${150 + row * 3},${.018 + ((col + row) % 4) * .009})`;
         trace2d.fillText(code, col * w / 20 + 7, row * h / 12 + 16);
       }
+      const creaturePoints = organCreatures.map((organ) => creaturePosition(organ, age, w, h));
+      for (let index = 0; index < creaturePoints.length; index++) {
+        const from = creaturePoints[index], to = creaturePoints[(index + 2) % creaturePoints.length];
+        trace2d.strokeStyle = organCreatures[index].color + "2b"; trace2d.lineWidth = 1; trace2d.beginPath(); trace2d.moveTo(from.x, from.y);
+        trace2d.bezierCurveTo(w * .5, from.y, w * .5, to.y, to.x, to.y); trace2d.stroke();
+      }
+      organCreatures.forEach((organ, index) => drawCreature(organ, index, age, w, h));
+      drawWaveText("INTELLIGENT TERRARIUM", h * .14, 24, age * .38, Math.max(34, w * .026), "rgba(224,255,237,.82)", w);
+      drawWaveText("SENSORY · SPATIAL · DRIVE · MEMORY · ACTION · VOICE", h * .71, 19, -age * .29, Math.max(22, w * .014), "rgba(255,135,195,.72)", w);
       trace2d.fillStyle = "rgba(199,255,232,.76)";
       trace2d.font = `600 ${Math.max(10, w * .0064)}px ui-monospace, monospace`;
       const generation = Math.floor(age / 18), ageText = new Date(age * 1000).toISOString().slice(11, 19);
