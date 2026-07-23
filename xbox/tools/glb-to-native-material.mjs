@@ -139,7 +139,7 @@ const code = `// Pals Material Skybox, 26.07.22
 const vertices=${JSON.stringify(vertices)};
 const faces=${JSON.stringify(faceRows)};
 const stars=${JSON.stringify(stars)};
-let rotationX=0,rotationY=0;
+let rotationX=0,rotationY=0,frameCount=0,perfStarted=0;
 function boot(){telemetry("PALS_MATERIAL_BOOT","triangles=${indices.length / 3} material=glb-textures glossy skybox procedural hud=0")}
 function sim(){
   const pad=gamepad();
@@ -162,34 +162,44 @@ function skybox(t){
     const r=5+Math.floor(24*mix*mix),g=8+Math.floor(14*mix),b=28+Math.floor(32*mix);
     box(0,band*36,1920,37,r,g,b);
   }
-  box(0,700,1920,5,90,54,112);
-  box(0,705,1920,8,42,28,70);
-  for(const star of stars){
+  box(0,700,1920,4,64,38,86);
+  box(0,704,1920,7,32,22,58);
+  for(let index=0;index<stars.length;index++){
+    const star=stars[index];
     const pulse=.62+.38*Math.sin(t*.7+star[0]*.017+star[1]*.009);
     const glow=Math.floor(star[3]*pulse);
-    box(star[0],star[1],star[2],star[2],glow*.72,glow*.82,glow);
+    const drift=index<22?(t*(2+index%4))%1920:0;
+    const x=(star[0]+drift)%1920,y=star[1]+(index<22?Math.sin(t*.45+index)*5:0);
+    box(x,y,star[2],star[2],glow*.72,glow*.82,glow);
   }
-  for(let lane=-7;lane<=7;lane++)line(960,710,960+lane*190,1080,1,32,24,56);
-  for(let row=0;row<8;row++){
-    const y=720+Math.pow(row/7,1.7)*350;
-    line(0,y,1920,y,1,25+row*3,19+row*2,48+row*4);
+  for(let comet=0;comet<3;comet++){
+    const phase=(t*(.052+comet*.009)+comet*.34)%1;
+    const x=phase*2240-160,y=150+comet*155+phase*115;
+    line(x,y,x-112,y-55,2,142,122,208);
+    line(x,y,x-62,y-31,2,210,198,255);
+    box(x-2,y-2,5,5,240,236,255);
+  }
+  for(let lane=-5;lane<=5;lane++)line(960,710,960+lane*245,1080,1,21,16,42);
+  for(let row=0;row<6;row++){
+    const y=725+Math.pow(row/5,1.7)*345;
+    line(0,y,1920,y,1,18+row*2,14+row,38+row*3);
   }
 }
 function paint(){
   const t=runtime().monotonicUs/1000000;
+  if(!perfStarted)perfStarted=t;
+  frameCount++;
+  if(t-perfStarted>=2){
+    telemetry("PALS_MATERIAL_PERF","fps="+(frameCount/(t-perfStarted)).toFixed(1));
+    perfStarted=t;frameCount=0;
+  }
   skybox(t);
-  const ax=rotationX+Math.sin(t*.17)*.09;
-  const ay=rotationY+Math.sin(t*.13)*.34;
+  const ax=rotationX+Math.sin(t*.31)*.1;
+  const ay=rotationY+t*.72;
   const world=vertices.map((point)=>rotate(point,ax,ay));
   const points=world.map((point)=>{
-    const scale=930/(3.45+point[2]);
+    const scale=1010/(3.45+point[2]);
     return [960+point[0]*scale,530-point[1]*scale,point[2]];
-  });
-  const order=faces.map((_,index)=>index);
-  order.sort((left,right)=>{
-    const a=faces[left],b=faces[right];
-    return (points[b[0]][2]+points[b[1]][2]+points[b[2]][2])-
-      (points[a[0]][2]+points[a[1]][2]+points[a[2]][2]);
   });
   const light=[Math.sin(t*.31)*.48,-.56,.72];
   const lightLength=Math.hypot(light[0],light[1],light[2]);
@@ -197,23 +207,24 @@ function paint(){
   const half=[light[0],light[1],light[2]+1];
   const halfLength=Math.hypot(half[0],half[1],half[2]);
   half[0]/=halfLength;half[1]/=halfLength;half[2]/=halfLength;
-  for(const index of order){
-    const face=faces[index],a=world[face[0]],b=world[face[1]],c=world[face[2]];
+  for(const face of faces){
+    const a=world[face[0]],b=world[face[1]],c=world[face[2]];
     const ux=b[0]-a[0],uy=b[1]-a[1],uz=b[2]-a[2];
     const vx=c[0]-a[0],vy=c[1]-a[1],vz=c[2]-a[2];
     let nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx;
     const length=Math.hypot(nx,ny,nz);if(length<.00001)continue;
     nx/=length;ny/=length;nz/=length;
     if(nz<0){nx=-nx;ny=-ny;nz=-nz}
-    const diffuse=.16+.72*Math.max(0,nx*light[0]+ny*light[1]+nz*light[2]);
+    const diffuse=.38+.68*Math.max(0,nx*light[0]+ny*light[1]+nz*light[2]);
     const rough=face[7],metal=face[6];
     const specular=Math.pow(Math.max(0,nx*half[0]+ny*half[1]+nz*half[2]),12+56*(1-rough))*(.55+.75*metal);
-    const fresnel=Math.pow(1-Math.max(0,nz),3)*(.16+.32*metal);
-    const sky=Math.max(0,.5-.5*ny)*(.14+.24*metal);
+    const fresnel=Math.pow(1-Math.max(0,nz),2.4)*(.24+.4*metal);
+    const sky=(.2+.8*Math.max(0,.5-.5*ny))*(.26+.34*metal);
+    const rim=Math.pow(Math.max(0,-nx*.62-ny*.18+nz*.28),2)*(.16+.24*metal);
     const p0=points[face[0]],p1=points[face[1]],p2=points[face[2]];
-    const red=clamp(face[3]*diffuse+face[8]*.22+255*specular+70*fresnel+32*sky);
-    const green=clamp(face[4]*diffuse+face[9]*.22+240*specular+42*fresnel+34*sky);
-    const blue=clamp(face[5]*diffuse+face[10]*.22+255*specular+110*fresnel+88*sky);
+    const red=clamp(face[3]*diffuse+face[8]*.22+255*specular+78*fresnel+58*sky+42*rim);
+    const green=clamp(face[4]*diffuse+face[9]*.22+240*specular+48*fresnel+52*sky+52*rim);
+    const blue=clamp(face[5]*diffuse+face[10]*.22+255*specular+128*fresnel+132*sky+122*rim);
     triangle3d(p0[0],p0[1],p0[2],p1[0],p1[1],p1[2],p2[0],p2[1],p2[2],red,green,blue);
   }
 }
