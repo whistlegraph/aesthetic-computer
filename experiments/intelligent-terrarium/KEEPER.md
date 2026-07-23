@@ -429,3 +429,11 @@ state repository. Nothing was pushed or deployed.
   visual chrome. It opens from `file://` in a fullscreen Chromium kiosk on the
   existing `jastow` GNOME session; it opens no port and depends on no remote
   script.
+- A later keeper refinement makes that imagination grow gnarlier from a
+  file-origin `localStorage` culture epoch, hides the cursor, and overlays a
+  full-screen numeric information soup. Flux, entropy, membrane, lineage, and
+  division traces retain at most 240 samples each; hashed glyphs and shader
+  nutrient fields are derived rather than accumulated. The focused source test
+  verifies these bounds. Interactive visual QA of this refinement remains
+  pending because the current execution boundary is Neo-local and forbids
+  browser/GUI control and SSH.

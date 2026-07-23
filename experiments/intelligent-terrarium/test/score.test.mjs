@@ -13,7 +13,8 @@ test("fullscreen score is a bounded persistent imagination and numeric soup", as
   assert.match(html, /cursor: none/);
   assert.match(html, /localStorage\.getItem\(epochKey\)/);
   assert.match(html, /LIVE NUMERIC FIELD/);
-  assert.match(html, /FLUX.*ENTROPY.*MEMBRANE/);
+  assert.match(html, /FLUX.*ENTROPY.*MEMBRANE.*LINEAGE.*DIVISION/);
+  assert.match(html, /traces\[key\]\.length > 240/);
   assert.match(html, /VOXELS 82,944/);
   assert.match(html, /Sensory, spatial, drive, memory, action, and voice organs/);
   assert.match(html, /Miner guard auto-resumed/);

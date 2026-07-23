@@ -187,7 +187,7 @@
       if (Number.isFinite(saved) && saved > 0 && saved <= Date.now()) cultureEpoch = saved;
       else localStorage.setItem(epochKey, String(cultureEpoch));
     } catch { /* Remain live if file-origin storage is disabled. */ }
-    const traces = { flux: [], entropy: [], membrane: [] };
+    const traces = { flux: [], entropy: [], membrane: [], lineage: [], division: [] };
     let lastTraceSecond = -1;
     function soupHash(x, y, second) {
       let value = Math.imul(x + 17, 374761393) ^ Math.imul(y + 31, 668265263) ^ Math.imul(second + 1, 2246822519);
@@ -202,9 +202,11 @@
       const flux = .52 + Math.sin(age * .17) * .19 + Math.sin(age * .043) * .11;
       const entropy = .64 + Math.sin(age * .071 + 1.7) * .13;
       const membrane = .48 + Math.sin(age * .31) * .21;
+      const lineage = Math.min(.96, .19 + Math.log1p(age / 9) * .11 + Math.sin(age * .029) * .04);
+      const division = .18 + Math.pow(.5 + .5 * Math.sin(age * .349), 8) * .73;
       if (second !== lastTraceSecond) {
         lastTraceSecond = second;
-        for (const [key, value] of Object.entries({ flux, entropy, membrane })) {
+        for (const [key, value] of Object.entries({ flux, entropy, membrane, lineage, division })) {
           traces[key].push(value); if (traces[key].length > 240) traces[key].shift();
         }
       }
@@ -218,7 +220,7 @@
       trace2d.font = `600 ${Math.max(10, w * .0064)}px ui-monospace, monospace`;
       const generation = Math.floor(age / 18), ageText = new Date(age * 1000).toISOString().slice(11, 19);
       trace2d.fillText(`CULTURE ${ageText}  ·  GENERATION ${String(generation).padStart(5,"0")}  ·  VOXELS 82,944`, 25, 34);
-      trace2d.fillText(`FLUX ${flux.toFixed(4)}  ENTROPY ${entropy.toFixed(4)}  MEMBRANE ${membrane.toFixed(4)}  GIT 000912`, 25, 57);
+      trace2d.fillText(`FLUX ${flux.toFixed(4)}  ENTROPY ${entropy.toFixed(4)}  MEMBRANE ${membrane.toFixed(4)}  LINEAGE ${lineage.toFixed(4)}  DIVISION ${division.toFixed(4)}`, 25, 57);
       trace2d.textAlign = "right";
       trace2d.fillText("RSS 807 MiB  ·  LIMIT 2 GiB  ·  SWAP 0  ·  MINER ACTIVE", w - 25, 34);
       trace2d.textAlign = "left";
@@ -227,7 +229,7 @@
       for (let line = 0; line <= 4; line++) {
         trace2d.beginPath(); trace2d.moveTo(20, top + height * line / 4); trace2d.lineTo(w - 20, top + height * line / 4); trace2d.stroke();
       }
-      const colors = { flux: "#69f4c5", entropy: "#ff73bd", membrane: "#79bfff" };
+      const colors = { flux: "#69f4c5", entropy: "#ff73bd", membrane: "#79bfff", lineage: "#f4d96a", division: "#c59aff" };
       for (const [key, values] of Object.entries(traces)) {
         trace2d.strokeStyle = colors[key]; trace2d.lineWidth = 1.35; trace2d.beginPath();
         values.forEach((value, index) => {
@@ -238,7 +240,7 @@
       }
       trace2d.font = `${Math.max(8, w * .005)}px ui-monospace, monospace`;
       trace2d.fillStyle = "rgba(199,255,232,.55)";
-      trace2d.fillText("LIVE NUMERIC FIELD  —  FLUX / ENTROPY / MEMBRANE", 25, top - 10);
+      trace2d.fillText("LIVE NUMERIC FIELD  —  FLUX / ENTROPY / MEMBRANE / LINEAGE / DIVISION", 25, top - 10);
     }
     function frame() {
       resize(); gl.clear(gl.COLOR_BUFFER_BIT);
