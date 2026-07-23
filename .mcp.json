@@ -41,6 +41,13 @@
       "args": [
         "slab/bin/paper-mcp.mjs"
       ]
+    },
+    "dmgify": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "slab/bin/dmgify-mcp.mjs"
+      ]
     }
   }
 }
