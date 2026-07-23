@@ -6,6 +6,28 @@ import test from "node:test";
 import { verifyRepository } from "../src/repository.mjs";
 import { createTerrariumServer } from "../src/server.mjs";
 
+function ndjsonReader(response) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let pending = "";
+  return {
+    async next() {
+      for (;;) {
+        const newline = pending.indexOf("\n");
+        if (newline >= 0) {
+          const line = pending.slice(0, newline);
+          pending = pending.slice(newline + 1);
+          if (line) return JSON.parse(line);
+        }
+        const { done, value } = await reader.read();
+        if (done) throw new Error("terrarium stream ended before the next message");
+        pending += decoder.decode(value, { stream: true });
+      }
+    },
+    cancel: () => reader.cancel(),
+  };
+}
+
 test("server refuses every non-loopback binding", async () => {
   const root = await mkdtemp(join(tmpdir(), "terrarium-bind-"));
   await assert.rejects(createTerrariumServer({ root, host: "0.0.0.0" }), /refuses non-loopback/);
@@ -49,6 +71,47 @@ test("loopback visitor page exposes a WebGL terrarium and mediorgan controls", a
   assert.match(html, /Prod organ/);
   assert.match(html, /Xbox-compatible controller/);
   await app.stop();
+});
+
+test("two visitors receive the same authoritative snapshot and sonic event", async () => {
+  const root = await mkdtemp(join(tmpdir(), "terrarium-two-visitors-"));
+  const capabilities = { "cap-alex": "@alex", "cap-beth": "@beth" };
+  const app = await createTerrariumServer({ root, capabilities, tickMs: 0 });
+  const base = `http://${app.address.address}:${app.address.port}`;
+  const connect = async (capability) => {
+    const response = await fetch(`${base}/api/stream`, {
+      headers: { Authorization: `Bearer ${capability}` },
+    });
+    assert.equal(response.status, 200);
+    return ndjsonReader(response);
+  };
+  const [alex, beth] = await Promise.all([connect("cap-alex"), connect("cap-beth")]);
+  const [alexWelcome, bethWelcome] = await Promise.all([alex.next(), beth.next()]);
+  assert.equal(alexWelcome.type, "welcome");
+  assert.equal(bethWelcome.type, "welcome");
+  assert.equal(alexWelcome.handle, "@alex");
+  assert.equal(bethWelcome.handle, "@beth");
+
+  try {
+    const prod = await fetch(`${base}/api/prod`, {
+      method: "POST",
+      headers: { Authorization: "Bearer cap-alex", "Content-Type": "application/json" },
+      body: JSON.stringify({ target: "voice", modality: "text", stimulus: "sing together", position: { x: -2, y: 1, z: 1 } }),
+    });
+    assert.equal(prod.status, 202);
+    const [alexSnapshot, bethSnapshot] = await Promise.all([alex.next(), beth.next()]);
+    assert.equal(alexSnapshot.type, "snapshot");
+    assert.equal(bethSnapshot.type, "snapshot");
+    assert.equal(alexSnapshot.state.stateHash, bethSnapshot.state.stateHash);
+    assert.equal(alexSnapshot.state.lastSeq, bethSnapshot.state.lastSeq);
+    const [alexSonic, bethSonic] = await Promise.all([alex.next(), beth.next()]);
+    assert.equal(alexSonic.type, "sonic");
+    assert.equal(bethSonic.type, "sonic");
+    assert.deepEqual(alexSonic.event, bethSonic.event);
+  } finally {
+    await Promise.all([alex.cancel(), beth.cancel()]);
+    await app.stop();
+  }
 });
 
 test("concurrent ticks and outside prods remain one contiguous replayable journal", async () => {

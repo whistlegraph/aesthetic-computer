@@ -143,15 +143,14 @@ to evade the RAM cap.
 | Budget | Hard controls | Active mind | Expected steady RSS |
 |---|---|---|---|
 | **1 GB** | `MemoryHigh=900M`, `MemoryMax=1024M`; Node old-space 256 MiB; bounded 4 MiB journal buffer; stop cleanly on allocation pressure | Deterministic recurrent drives, salience/novelty scoring, bounded episodic recall, spatial relation graph, and generative behavior policy. No resident language model. | 300–600 MiB; acceptance requires `<900 MiB` peak over the demo |
-| **2 GB** | `MemoryHigh=1800M`, `MemoryMax=2048M`; same core bounds; inference has explicit model/context caps and one request at a time | 1 GB mind plus an optional approved user-space llama.cpp runner using a roughly 0.5–1B Q4 model, at most 2k context, quantized/bounded KV cache, and no unbounded embedding index | 1.2–1.8 GiB; acceptance requires `<1.8 GiB` peak |
+| **2 GB** | `MemoryHigh=1800M`, `MemoryMax=2048M`; same core bounds; inference has explicit model/context caps and one request at a time | 1 GB mind plus the approved CPU-only Qwen3 0.6B Q8_0 reflection organ, at most 2k context, quantized/bounded KV cache, and no unbounded embedding index | Measured smaps RSS is about 807 MiB; acceptance requires `<1.8 GiB` peak |
 
 The 1 GB profile is the product floor and remains intelligent without an LLM:
 it perceives events, maintains drives and relationships, recalls salient
 episodes, chooses behaviors, composes semantic sounds, and learns bounded
 weights that become autobiography. The 2 GB model is a slow reflection/wording
-organ, never the simulation authority. Given current GPU saturation, it should
-run CPU-only at low priority first. Acquiring/building llama.cpp or model weights
-is an explicit later decision because no suitable runtime is installed.
+organ, never the simulation authority. Its approved runner is CPU-only and low
+priority, so the existing GPU miner remains independent.
 
 Measure `memory.current`, `memory.peak`, `/proc/<pid>/smaps_rollup`, event-loop
 lag, journal backlog, and inference queue depth. Reject startup when a requested
@@ -197,11 +196,12 @@ reachable as `terrarium-dev[:port]` without appearing in list/autocomplete.
 
 ### Stage 4 — 2 GB reflection experiment
 
-After an explicit tooling/model decision, benchmark one small quantized model
-CPU-only under the 2 GB cgroup. Feed it a bounded selected-memory digest, accept
-only schema-validated proposals, and journal both proposal and deterministic
-authority decision. Fall back to the 1 GB policy on timeout, malformed output,
-or pressure.
+Implemented after explicit approval. A pinned user-space llama.cpp and official
+Qwen3 0.6B Q8_0 run CPU-only under the 2 GB cgroup. The organ receives a bounded,
+secret-free selected-memory digest and may submit one strict proposal. The
+deterministic authority independently accepts or rejects it and journals the
+decision. Timeout, malformed output, disabled inference, or pressure always
+falls back to the 1 GB policy.
 
 ### Stage 5 — visitable service / Xbox gate
 
@@ -240,8 +240,6 @@ The first thin slice is accepted only when all of these pass:
 
 ## Keeper decisions still required
 
-- Whether/when to install or build a user-space inference runtime and acquire a
-  specific quantized model. No system package installation is assumed.
 - The future authenticated gateway and who may visit/interact versus observe.
 - Any coordination with `matador-miner`; the default is strict coexistence and
   no GPU use.
@@ -250,12 +248,12 @@ The first thin slice is accepted only when all of these pass:
 
 ## Next keeper action
 
-Hold after Stage 3. A real logged-in-token exercise and interactive piece QA
-remain blocked by the current no-browser/no-GUI execution boundary; the tests
-use faithful local Auth0/handle response doubles and never read a real token.
-Stage 4 also requires a keeper choice of user-space runtime/model before any
-download or installation. No model installation, push, deployment, persistent
-service, or public listener is authorized.
+Hold after Stage 4. The local fullscreen score may remain as a display-only
+rehearsal, but its QR is deliberately marked as a non-live Stage 5 preview.
+A real logged-in-token exercise, WebAudio-device check, physical Xbox-controller
+check, and any reachable authenticated gateway still require keeper decisions.
+No push, deployment, persistent authority service, or public listener is
+authorized.
 
 ## 2026-07-23 implementation evidence
 
@@ -346,3 +344,75 @@ Both the client and identity modules pass Node syntax checks. No live Auth0
 request, real bearer token, GUI/browser action, non-loopback listener, remote
 machine access, push, deployment, or live hook was used for this stage. A real
 logged-in handle test is therefore still required for first-demo criterion 4.
+
+### Stage 4 reflection and graphic-score evidence
+
+Keeper approval arrived through the private `alex` Loopboy inbox for a strictly
+user-space CPU experiment on `jastow`. The final source and display remain in
+the isolated worktree/runtime; the durable autobiography remains the separate
+state repository. Nothing was pushed or deployed.
+
+- llama.cpp is pinned to official `ggml-org/llama.cpp` commit
+  `c0bc8591e8815c63cb01dd3f051a8b0df02501c9`. It was compiled with the
+  existing CMake 3.31.11 and GCC 15.2.1: CUDA, Vulkan, SYCL, OpenCL, BLAS,
+  curl, UI, tests, and examples are off. This revision couples the CLI to the
+  server source target, so `LLAMA_BUILD_SERVER=ON` was needed to produce the
+  CLI; no server was launched and no socket was opened. An initial configure
+  touched only the ignored user cache before UI was explicitly disabled; no
+  system or npm package was installed.
+- The official Apache-2.0 `Qwen/Qwen3-0.6B-GGUF` Q8_0 file is 639,446,688
+  bytes with SHA-256
+  `9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031`.
+  Exact URL, hashes, build flags, and cache paths are recorded in
+  `provenance/stage4.json`; caches are excluded from autobiographical Git.
+- The reflection request is capped at 2,048 context tokens, 128 output tokens
+  (96 in the measured run), 6,000 prompt characters, 30 seconds, four CPU
+  threads, and one request at a time. The selected-memory digest contains only
+  hashes, tick/count aggregates, drives, weights, and episode-kind counts.
+  Tokens, handles, stimuli, email, paths, and raw memories do not enter the
+  prompt or journal.
+- The pinned llama.cpp numeric-range grammar path threw in its sampler, so the
+  model is not trusted to enforce its own grammar. The runner removes its exact
+  echoed prompt, and the application accepts only the strict four-field schema.
+  The authority re-evaluates the policy during both append and replay; a model
+  cannot authorize `broadcast`, add a field, exceed `±0.25`, or forge a prior
+  decision.
+- The complete Neo suite passes 26/26. The complete Fedora suite passes 25/25
+  under `MemoryMax=2 GiB`, `MemoryHigh=1800 MiB`, `MemorySwapMax=0`,
+  `CPUQuota=200%`, and `Nice=15`; its only environment-specific input is the
+  path to the hidden AC piece. Coverage includes malformed/timeout/disabled
+  fallback, deterministic rejection, prompt-echo separation, one-request
+  serialization, secret exclusion, and journal ordering by sequence across
+  segment filenames.
+- The strict 1 GB policy fallback ran under `MemoryMax=1 GiB`,
+  `MemoryHigh=900 MiB`, zero swap, and low priority. It journaled `disabled`
+  fallback deterministically; cgroup peak was 31,932,416 bytes and Node RSS was
+  78,917,632 bytes. The 1 GB floor still never loads the model.
+- The final 2 GB coexistence run completed in 6.71 seconds while
+  `matador-miner` remained active at 100% GPU use. Qwen generated at 13.3
+  tokens/second after an 88.9 tokens/second prompt pass. `/proc` smaps peak RSS
+  was 825,940 KiB (about 807 MiB), below both policy thresholds; cgroup peak was
+  227,233,792 bytes because model file pages were already warm and charged
+  elsewhere. This is not represented as a cold-cache peak. Swap stayed zero.
+- The deterministic authority accepted
+  `{action:"attune", target:"sensory", intensity:0.25}` at final sequence 912.
+  Sleep created local state commit
+  `7b801ff08c998574d23f353934e4204752c61bf4`; fresh replay produced state
+  `1e0174be53f69e8497683676e7e6cc9be4c589765fcb9eb5bda22c79b6c94764`
+  and head
+  `8b660c4aebad3236fa1fe8609d2504e0dedc68f439032aec7fed4270898af12e`.
+  Two earlier retries also completed and slept cleanly as sequences 910–911.
+- A scan of journal, checkpoints, autobiography, manifest, and visitor facts
+  found no bearer/token, email-like identifier, model/cache path, or GGUF name.
+  The listening-socket hash was identical before and after inference. The miner
+  had independently exited during the earlier build window and later returned;
+  no keeper command signalled, stopped, restarted, or reconfigured it. The
+  final run proves live coexistence after its return.
+- `score.html` is a self-contained 1920×1080 spatial graphic measure: the six
+  organs are colored staves, outside prods ripple through the Mediorgan
+  membrane, reflection breathes inside the body, and quiet proof marks show the
+  journal, replay, resident envelope, and miner boundary. Its QR encodes the
+  intended `https://aesthetic.computer/terrarium-dev` route but visibly says the
+  client gate is only a preview pending Stage 5. It opens from `file://` in a
+  fullscreen Chromium kiosk on the existing `jastow` GNOME session; it opens no
+  port and depends on no remote script.

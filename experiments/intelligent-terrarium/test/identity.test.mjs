@@ -128,7 +128,8 @@ test("verified prods obey a deterministic per-handle rate bound", async () => {
 });
 
 test("terrarium-dev is a hidden authorize-only loopback client seam", async () => {
-  const source = await readFile(resolve("../../system/public/aesthetic.computer/disks/terrarium-dev.mjs"), "utf8");
+  const piecePath = process.env.TERRARIUM_PIECE_PATH || resolve("../../system/public/aesthetic.computer/disks/terrarium-dev.mjs");
+  const source = await readFile(piecePath, "utf8");
   const serverSource = await readFile(resolve("src/server.mjs"), "utf8");
   assert.match(source, /await authorize\(\)/);
   assert.match(source, /Authorization: `Bearer \$\{token\}`/);

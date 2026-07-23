@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-07-23",
+  "host": "jastow",
+  "llamaCpp": {
+    "repository": "https://github.com/ggml-org/llama.cpp.git",
+    "commit": "c0bc8591e8815c63cb01dd3f051a8b0df02501c9",
+    "cache": "/home/me/.cache/intelligent-terrarium/tools/llama.cpp-c0bc8591e8815c63cb01dd3f051a8b0df02501c9",
+    "cmake": "3.31.11",
+    "gcc": "15.2.1",
+    "buildFlags": {
+      "CMAKE_BUILD_TYPE": "Release",
+      "GGML_CUDA": false,
+      "GGML_VULKAN": false,
+      "GGML_SYCL": false,
+      "GGML_OPENCL": false,
+      "GGML_BLAS": false,
+      "GGML_NATIVE": true,
+      "LLAMA_CURL": false,
+      "LLAMA_BUILD_SERVER": true,
+      "LLAMA_BUILD_UI": false,
+      "LLAMA_BUILD_TESTS": false,
+      "LLAMA_BUILD_EXAMPLES": false,
+      "LLAMA_BUILD_TOOLS": true
+    }
+  },
+  "model": {
+    "repository": "Qwen/Qwen3-0.6B-GGUF",
+    "file": "Qwen3-0.6B-Q8_0.gguf",
+    "url": "https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q8_0.gguf",
+    "license": "Apache-2.0",
+    "bytes": 639446688,
+    "sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+    "cache": "/home/me/.cache/intelligent-terrarium/models/Qwen3-0.6B-Q8_0.gguf"
+  }
+}

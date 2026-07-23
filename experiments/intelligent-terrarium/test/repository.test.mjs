@@ -32,6 +32,19 @@ test("tampered journal content fails hash verification", async () => {
   await assert.rejects(StateRepository.open(root), /record hash mismatch|state hash mismatch/);
 });
 
+test("journal replay follows sequence rather than segment filename order", async () => {
+  const root = await mkdtemp(join(tmpdir(), "terrarium-segment-order-"));
+  const repository = await StateRepository.create(root, { seed: "segment-order" });
+  repository.segmentPath = join(root, "journal", "segments", "zzz-first.ndjson");
+  await repository.transact("advance", { ticks: 3 });
+  repository.segmentPath = join(root, "journal", "segments", "aaa-second.ndjson");
+  await repository.transact("advance", { ticks: 4 });
+  const replay = await verifyRepository(root);
+  assert.equal(replay.lastSeq, 2);
+  assert.equal(replay.stateHash, repository.stateHash());
+  assert.equal(replay.headRecordHash, repository.headRecordHash);
+});
+
 test("sleep commits only allowlisted state and no-op sleep makes no commit", async () => {
   const root = await mkdtemp(join(tmpdir(), "terrarium-sleep-"));
   const repository = await StateRepository.create(root, { seed: "sleep-cycle" });

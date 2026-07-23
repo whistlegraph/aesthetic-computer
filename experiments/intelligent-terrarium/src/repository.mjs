@@ -92,19 +92,25 @@ export class StateRepository {
     const terrarium = new Terrarium(seedDocument.seed);
     const records = [];
     let previousHash = ZERO_HASH;
+    const journalRecords = [];
     for (const file of journalFiles) {
       const contents = await readFile(file, "utf8");
       for (const line of contents.split("\n")) {
         if (!line.trim()) continue;
         const record = JSON.parse(line);
-        if (record.schema !== 1) throw new Error(`unsupported journal schema ${record.schema}`);
-        if (record.prevHash !== previousHash) throw new Error(`journal hash chain broken at event ${record.seq}`);
-        if (record.recordHash !== recordHash(record)) throw new Error(`journal record hash mismatch at event ${record.seq}`);
-        terrarium.apply(record);
-        if (terrarium.stateHash() !== record.stateHash) throw new Error(`state hash mismatch at event ${record.seq}`);
-        previousHash = record.recordHash;
-        records.push(record);
+        if (!Number.isSafeInteger(record.seq) || record.seq < 1) throw new Error(`invalid journal sequence in ${file}`);
+        journalRecords.push(record);
       }
+    }
+    journalRecords.sort((left, right) => left.seq - right.seq);
+    for (const record of journalRecords) {
+      if (record.schema !== 1) throw new Error(`unsupported journal schema ${record.schema}`);
+      if (record.prevHash !== previousHash) throw new Error(`journal hash chain broken at event ${record.seq}`);
+      if (record.recordHash !== recordHash(record)) throw new Error(`journal record hash mismatch at event ${record.seq}`);
+      terrarium.apply(record);
+      if (terrarium.stateHash() !== record.stateHash) throw new Error(`state hash mismatch at event ${record.seq}`);
+      previousHash = record.recordHash;
+      records.push(record);
     }
 
     const segmentPath = join(journalRoot, "segments", `${segmentId}.ndjson`);

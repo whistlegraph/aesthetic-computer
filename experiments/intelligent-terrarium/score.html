@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Intelligent Terrarium — Mediorgan Score</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #07100f; }
+    body::after { content: ""; position: fixed; inset: 0; pointer-events: none; opacity: .18;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.34'/%3E%3C/svg%3E"); mix-blend-mode: soft-light; }
+    canvas { position: fixed; inset: 0; width: 100%; height: 100%; }
+    header { position: fixed; z-index: 2; top: 4.6vh; left: 4.3vw; letter-spacing: .04em; }
+    h1 { margin: 0; font-size: clamp(28px, 3.25vw, 66px); font-weight: 440; line-height: .92; color: #f4f0d7; }
+    h1 i { font-family: Georgia, serif; font-weight: 400; color: #ff78ba; }
+    .eyebrow { margin-bottom: 1.2vh; font: 600 clamp(9px, .7vw, 14px)/1 ui-monospace, SFMono-Regular, monospace; letter-spacing: .24em; color: #81ebd0; }
+    .sub { margin-top: 1.5vh; max-width: 42vw; font: 400 clamp(11px, .85vw, 17px)/1.45 ui-monospace, SFMono-Regular, monospace; color: #a9c5bb; }
+    aside { position: fixed; z-index: 2; right: 3.2vw; top: 4.4vh; width: min(20vw, 360px); display: grid; gap: 1.2vh; }
+    .card { border: 1px solid #d9fff42b; border-radius: 18px; padding: clamp(12px, 1.1vw, 22px); background: #071413b8; box-shadow: 0 24px 70px #0006; backdrop-filter: blur(12px); }
+    .card h2 { margin: 0 0 1.2vh; font: 600 clamp(9px, .67vw, 13px)/1.2 ui-monospace, monospace; letter-spacing: .18em; color: #81ebd0; }
+    .metric { display: flex; justify-content: space-between; gap: 1em; padding: .46vh 0; font: 500 clamp(9px, .65vw, 13px)/1.2 ui-monospace, monospace; color: #86a69d; }
+    .metric b { color: #f4f0d7; font-weight: 500; text-align: right; }
+    .bar { height: 5px; border-radius: 5px; overflow: hidden; background: #d8fff412; margin: .5vh 0 1.2vh; }
+    .bar span { display: block; height: 100%; width: 42%; background: linear-gradient(90deg,#70e6c6,#ff78ba); box-shadow: 0 0 12px #ff78ba88; }
+    .qr { display: grid; grid-template-columns: minmax(78px, 7vw) 1fr; align-items: center; gap: 1vw; }
+    .qr img { width: 100%; border-radius: 10px; background: #f4f0d7; padding: 6px; }
+    .qr p { margin: 0; font: 500 clamp(9px, .64vw, 13px)/1.45 ui-monospace, monospace; color: #a9c5bb; }
+    .qr strong { display: block; margin-bottom: .4vh; color: #ff78ba; letter-spacing: .08em; }
+    footer { position: fixed; z-index: 2; left: 4.3vw; right: 4.3vw; bottom: 3.4vh; display: flex; justify-content: space-between; align-items: end; gap: 2vw; font: 500 clamp(8px, .58vw, 12px)/1.4 ui-monospace, monospace; letter-spacing: .08em; color: #759088; }
+    footer b { color: #b6d0c7; font-weight: 500; }
+    .legend { display: flex; flex-wrap: wrap; gap: .65vw 1.25vw; max-width: 55vw; }
+    .legend span::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: var(--c); box-shadow: 0 0 10px var(--c); }
+    @media (max-aspect-ratio: 4/3) { aside { width: 28vw; } .sub { max-width: 52vw; } }
+  </style>
+</head>
+<body>
+  <canvas id="score" aria-label="Animated spatial score of the Intelligent Terrarium organs"></canvas>
+  <header>
+    <div class="eyebrow">JAS-NZXT · LOCAL REHEARSAL · 23 JULY 2026</div>
+    <h1>Intelligent Terrarium<br><i>Mediorgan score</i></h1>
+    <div class="sub">outside prods cross the membrane as stimulus · organs listen and answer · one authority writes the body</div>
+  </header>
+  <aside>
+    <section class="card" data-testid="authority-status">
+      <h2>AUTHORITATIVE BODY</h2>
+      <div class="metric"><span>journal measure</span><b id="seq">000912</b></div>
+      <div class="metric"><span>replay</span><b>VERIFIED</b></div>
+      <div class="metric"><span>state</span><b id="hash">1e0174be</b></div>
+      <div class="metric"><span>writer</span><b>ONE</b></div>
+    </section>
+    <section class="card">
+      <h2>RESIDENT ENVELOPE</h2>
+      <div class="metric"><span>reflection RSS</span><b id="rss">807 MiB</b></div>
+      <div class="bar"><span id="memory-bar"></span></div>
+      <div class="metric"><span>hard ceiling</span><b>2 GiB · SWAP 0</b></div>
+      <div class="metric"><span>inference</span><b id="decision">ACCEPT · SENSORY +.25</b></div>
+      <div class="metric"><span>GPU</span><b>MINER UNTOUCHED</b></div>
+    </section>
+    <section class="card qr" data-testid="join-gate">
+      <img src="score-assets/join-preview.svg" alt="QR code for the future authenticated terrarium web client route">
+      <p><strong>CLIENT GATE · PREVIEW</strong>Scan to remember the intended AC route. Authentication and a reachable gateway remain closed pending Stage 5 approval.</p>
+    </section>
+  </aside>
+  <footer>
+    <div class="legend" aria-label="Organ legend">
+      <span style="--c:#6ee7c5">SENSORY</span><span style="--c:#76bfff">SPATIAL</span><span style="--c:#ff78ba">DRIVE</span>
+      <span style="--c:#f6d66b">MEMORY</span><span style="--c:#c29bff">ACTION</span><span style="--c:#ff9c72">VOICE</span>
+    </div>
+    <div><b>QWEN3 0.6B Q8_0</b> · LLAMA.CPP CPU · CTX 2048 · OUTPUT ≤ 128</div>
+  </footer>
+  <script>
+    const canvas = document.querySelector("#score");
+    const ctx = canvas.getContext("2d", { alpha: false });
+    const params = new URLSearchParams(location.search);
+    const state = {
+      seq: params.get("seq") || "912",
+      hash: (params.get("hash") || "1e0174be").slice(0, 8),
+      rss: Math.max(0, Number(params.get("rss") || 807)),
+      decision: (params.get("decision") || "ACCEPT · SENSORY +.25").slice(0, 24),
+    };
+    document.querySelector("#seq").textContent = state.seq.padStart(6, "0");
+    document.querySelector("#hash").textContent = state.hash;
+    document.querySelector("#rss").textContent = `${state.rss} MiB`;
+    document.querySelector("#decision").textContent = state.decision;
+    document.querySelector("#memory-bar").style.width = `${Math.min(100, state.rss / 2048 * 100)}%`;
+
+    const organs = [
+      ["SENSORY", "#6ee7c5", .72, .13], ["SPATIAL", "#76bfff", .58, .31],
+      ["DRIVE", "#ff78ba", .72, .52], ["MEMORY", "#f6d66b", .54, .68],
+      ["ACTION", "#c29bff", .72, .82], ["VOICE", "#ff9c72", .57, .94],
+    ];
+    const motes = Array.from({ length: 90 }, (_, i) => ({
+      x: ((i * 47) % 101) / 101, y: ((i * 71) % 97) / 97,
+      z: .2 + ((i * 29) % 73) / 90, p: i * .73,
+    }));
+    function resize() {
+      const dpr = Math.min(devicePixelRatio || 1, 2);
+      canvas.width = Math.floor(innerWidth * dpr); canvas.height = Math.floor(innerHeight * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    addEventListener("resize", resize); resize();
+    const line = (x1,y1,x2,y2,color,width=1) => { ctx.strokeStyle=color; ctx.lineWidth=width; ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); };
+    function ellipse(x,y,rx,ry,color,width=1) { ctx.strokeStyle=color; ctx.lineWidth=width; ctx.beginPath(); ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2); ctx.stroke(); }
+    function frame(ms) {
+      const t = ms / 1000, w = innerWidth, h = innerHeight;
+      const bg = ctx.createRadialGradient(w*.56,h*.49,0,w*.56,h*.49,w*.78);
+      bg.addColorStop(0,"#12312a"); bg.addColorStop(.34,"#0b201d"); bg.addColorStop(1,"#050b0b");
+      ctx.fillStyle=bg; ctx.fillRect(0,0,w,h);
+
+      // Perspective measure: the score advances through a spatial field.
+      const horizon=h*.55, floor=h*.88;
+      for (let i=0;i<18;i++) { const q=i/17, y=horizon+(floor-horizon)*q*q; line(w*.035,y,w*.79,y,`rgba(148,228,202,${.035+.08*q})`); }
+      for (let i=0;i<22;i++) { const x=w*.08+i*w*.035; line(w*.47+(x-w*.47)*.18,horizon,x,floor,"rgba(148,228,202,.055)"); }
+
+      // Mediorgan membrane and outside prods.
+      const cx=w*.49, cy=h*.535, rx=w*.245, ry=h*.31;
+      ellipse(cx,cy,rx,ry,"rgba(129,235,208,.2)",1.2);
+      ellipse(cx,cy,rx*1.025,ry*1.04,"rgba(255,120,186,.09)",1);
+      const pulse=(t*.105)%1, px=w*.17+(cx-rx-w*.17)*pulse, py=cy+Math.sin(t*.8)*ry*.55;
+      for(let k=0;k<4;k++) ellipse(px,py,8+k*13+Math.sin(t*3)*3,5+k*8,"rgba(255,120,186,"+(.3-k*.055)+")",1);
+      ctx.fillStyle="#ff78ba"; ctx.beginPath(); ctx.arc(px,py,3.2,0,Math.PI*2); ctx.fill();
+      ctx.font=`${Math.max(9,w*.006)}px ui-monospace, monospace`; ctx.fillStyle="#d397b5"; ctx.fillText("OUTSIDE PROD",Math.max(w*.04,px-55),py-23);
+
+      // Organ staves: each voice writes a distinct spatial measure.
+      const x0=w*.24, x1=w*.72, measure=(t*.055)%1, head=x0+(x1-x0)*measure;
+      for (let i=0;i<organs.length;i++) {
+        const [name,color,amp,phase]=organs[i], base=h*(.30+i*.087);
+        ctx.strokeStyle=color+"2c"; ctx.lineWidth=1; ctx.beginPath();
+        for(let s=0;s<=120;s++) { const q=s/120, x=x0+q*(x1-x0), wave=Math.sin(q*34+i*1.7+t*(.55+i*.06))*h*.008*amp + Math.sin(q*9-t*.2+phase*5)*h*.004; s?ctx.lineTo(x,base+wave):ctx.moveTo(x,base+wave); } ctx.stroke();
+        const y=base+Math.sin(measure*34+i*1.7+t*(.55+i*.06))*h*.008*amp;
+        const glow=ctx.createRadialGradient(head,y,0,head,y,24); glow.addColorStop(0,color); glow.addColorStop(.16,color+"aa"); glow.addColorStop(1,color+"00"); ctx.fillStyle=glow; ctx.fillRect(head-25,y-25,50,50);
+        ctx.fillStyle=color; ctx.beginPath(); ctx.arc(head,y,2.8,0,Math.PI*2); ctx.fill();
+        ctx.font=`600 ${Math.max(9,w*.006)}px ui-monospace, monospace`; ctx.fillStyle=color+"cc"; ctx.fillText(name,x0-73,base+3);
+      }
+      line(head,h*.265,head,h*.775,"rgba(244,240,215,.16)",1);
+
+      // Terrarium entities orbit behind the score; depth changes their note size.
+      for(const m of motes){ const a=t*(.045+m.z*.018)+m.p, ex=cx+Math.cos(a)*rx*m.x, ey=cy+Math.sin(a*1.3)*ry*(m.y-.5)*1.35; const size=.7+m.z*2.3; ctx.fillStyle=`rgba(129,235,208,${.06+m.z*.19})`; ctx.beginPath();ctx.arc(ex,ey,size,0,Math.PI*2);ctx.fill(); }
+
+      // Reflection organ is a slow bounded modulation around the body.
+      const breathe=1+Math.sin(t*.72)*.045;
+      ellipse(cx,cy,rx*.60*breathe,ry*.61*breathe,"rgba(246,214,107,.18)",1);
+      ctx.font=`${Math.max(9,w*.006)}px ui-monospace, monospace`; ctx.fillStyle="#f6d66b99"; ctx.fillText("REFLECTION · ONE REQUEST",cx-rx*.23,cy-ry*.64);
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  </script>
+</body>
+</html>

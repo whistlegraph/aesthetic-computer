@@ -1,5 +1,6 @@
 import { canonical, clone, hash } from "./canonical.mjs";
 import { Prng } from "./prng.mjs";
+import { decideReflection } from "./reflection-policy.mjs";
 
 export const LIMITS = Object.freeze({
   entities: 12,
@@ -118,6 +119,9 @@ export class Terrarium {
       case "organ-prod":
         outputs = this.#organProd(payload);
         break;
+      case "reflection-decision":
+        this.#reflectionDecision(payload);
+        break;
       case "visitor-leave":
         this.#visitorLeave(payload);
         break;
@@ -216,6 +220,40 @@ export class Terrarium {
       })];
     }
     return [];
+  }
+
+  #reflectionDecision(payload) {
+    if (payload.schema !== 1) throw new TypeError("reflection event schema must be 1");
+    const expectedFields = ["decision", "engine", "outputDigest", "reason", "requestId", "schema", payload.proposal ? "proposal" : "failure"].sort();
+    if (Object.keys(payload).sort().join(",") !== expectedFields.join(",")) {
+      throw new TypeError("reflection event fields do not match schema");
+    }
+    if (!/^[a-f0-9]{24}$/.test(String(payload.requestId || ""))) throw new TypeError("invalid reflection request id");
+    if (!/^[a-f0-9]{64}$/.test(String(payload.outputDigest || ""))) throw new TypeError("invalid reflection output digest");
+    if (!/^[a-zA-Z0-9._:/-]{1,160}$/.test(String(payload.engine || ""))) throw new TypeError("invalid reflection engine");
+    const evaluation = decideReflection({ proposal: payload.proposal, failure: payload.failure });
+    if (payload.decision !== evaluation.decision || payload.reason !== evaluation.reason) {
+      throw new Error("reflection decision does not match deterministic policy");
+    }
+    pushEpisode(this.state, {
+      tick: this.state.tick,
+      kind: "reflected",
+      requestId: payload.requestId,
+      outcome: evaluation.decision,
+      reason: evaluation.reason,
+      organ: evaluation.proposal?.target || null,
+    });
+    if (evaluation.decision !== "accepted") return;
+    const { target, intensity } = evaluation.proposal;
+    if (target === "sensory" || target === "drive") {
+      this.state.mind.drives.curiosity = round(clamp(this.state.mind.drives.curiosity + intensity, 0, 1));
+    } else if (target === "memory") {
+      this.state.mind.drives.rest = round(clamp(this.state.mind.drives.rest - intensity, 0, 1));
+    } else if (target === "voice") {
+      this.state.mind.drives.social = round(clamp(this.state.mind.drives.social + intensity, 0, 1));
+    } else {
+      this.state.mind.weights.approach = round(clamp(this.state.mind.weights.approach + intensity, 0, 1));
+    }
   }
 
   #advance(value) {
