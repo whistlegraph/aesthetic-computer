@@ -188,9 +188,9 @@ JSValue Triangles3d(JSContext* context, JSValueConst, int argc, JSValueConst* ar
     JS_FreeValue(context, arrayBuffer);
     return JS_ThrowRangeError(context, "triangles3d count exceeds the buffer");
   }
-  if (count > 4096) {
+  if (count > 8192) {
     JS_FreeValue(context, arrayBuffer);
-    return JS_ThrowRangeError(context, "triangles3d accepts at most 4096 triangles");
+    return JS_ThrowRangeError(context, "triangles3d accepts at most 8192 triangles");
   }
 
   const float* values = reinterpret_cast<const float*>(bytes + byteOffset);
