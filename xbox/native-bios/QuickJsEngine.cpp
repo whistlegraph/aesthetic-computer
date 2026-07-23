@@ -2,6 +2,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <string>
 #include "QuickJsEngine.hpp"
@@ -150,6 +151,67 @@ JSValue Triangle3d(JSContext* context, JSValueConst, int argc, JSValueConst* arg
     static_cast<float>(value[8]), {static_cast<uint8_t>(r), static_cast<uint8_t>(g),
     static_cast<uint8_t>(b), 255}});
   return JS_UNDEFINED;
+}
+
+// One native boundary crossing for an entire frame's triangle stream. The
+// Float32Array layout repeats x1,y1,z1,x2,y2,z2,x3,y3,z3,r,g,b. Keeping this
+// API deliberately flat lets QuickJS fill a reusable buffer without allocating
+// thousands of argument arrays or calling into C++ once per face.
+JSValue Triangles3d(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api || argc < 1)
+    return JS_ThrowTypeError(context, "triangles3d requires a Float32Array");
+  if (JS_GetTypedArrayType(argv[0]) != JS_TYPED_ARRAY_FLOAT32)
+    return JS_ThrowTypeError(context, "triangles3d requires a Float32Array");
+
+  size_t byteOffset = 0, byteLength = 0, bytesPerElement = 0;
+  JSValue arrayBuffer = JS_GetTypedArrayBuffer(
+    context, argv[0], &byteOffset, &byteLength, &bytesPerElement);
+  if (JS_IsException(arrayBuffer)) return arrayBuffer;
+  size_t bufferLength = 0;
+  uint8_t* bytes = JS_GetArrayBuffer(context, &bufferLength, arrayBuffer);
+  if (!bytes || bytesPerElement != sizeof(float) ||
+      byteOffset > bufferLength || byteLength > bufferLength - byteOffset ||
+      byteLength % (12 * sizeof(float)) != 0) {
+    JS_FreeValue(context, arrayBuffer);
+    return JS_ThrowRangeError(context,
+      "triangles3d length must be a multiple of 12 floats");
+  }
+  const size_t capacity = byteLength / (12 * sizeof(float));
+  uint32_t requestedCount = static_cast<uint32_t>(capacity);
+  if (argc > 1 && JS_ToUint32(context, &requestedCount, argv[1])) {
+    JS_FreeValue(context, arrayBuffer);
+    return JS_EXCEPTION;
+  }
+  const size_t count = requestedCount;
+  if (count > capacity) {
+    JS_FreeValue(context, arrayBuffer);
+    return JS_ThrowRangeError(context, "triangles3d count exceeds the buffer");
+  }
+  if (count > 4096) {
+    JS_FreeValue(context, arrayBuffer);
+    return JS_ThrowRangeError(context, "triangles3d accepts at most 4096 triangles");
+  }
+
+  const float* values = reinterpret_cast<const float*>(bytes + byteOffset);
+  for (size_t triangle = 0; triangle < count; ++triangle) {
+    const float* value = values + triangle * 12;
+    bool valid = true;
+    for (int index = 0; index < 9; ++index)
+      valid = valid && std::isfinite(value[index]) && std::abs(value[index]) <= 32768.f;
+    if (!valid) {
+      JS_FreeValue(context, arrayBuffer);
+      return JS_ThrowRangeError(context, "invalid 3D triangle coordinates");
+    }
+    const auto color = [](float channel) {
+      return static_cast<uint8_t>((std::max)(0.f, (std::min)(255.f, channel)));
+    };
+    scope->api->graphics.triangle({value[0], value[1], value[2], value[3], value[4],
+      value[5], value[6], value[7], value[8],
+      {color(value[9]), color(value[10]), color(value[11]), 255}});
+  }
+  JS_FreeValue(context, arrayBuffer);
+  return JS_NewInt32(context, static_cast<int32_t>(count));
 }
 
 JSValue SystemWrite(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
@@ -393,6 +455,7 @@ class QuickJsPiece final : public JsPiece {
     JS_SetPropertyStr(context_, global, "line", JS_NewCFunction(context_, Line, "line", 8));
     JS_SetPropertyStr(context_, global, "triangle", JS_NewCFunction(context_, TriangleFill, "triangle", 9));
     JS_SetPropertyStr(context_, global, "triangle3d", JS_NewCFunction(context_, Triangle3d, "triangle3d", 12));
+    JS_SetPropertyStr(context_, global, "triangles3d", JS_NewCFunction(context_, Triangles3d, "triangles3d", 2));
     JS_SetPropertyStr(context_, global, "systemWrite", JS_NewCFunction(context_, SystemWrite, "systemWrite", 7));
     JS_SetPropertyStr(context_, global, "systemGlyph", JS_NewCFunction(context_, SystemGlyph, "systemGlyph", 7));
     JS_SetPropertyStr(context_, global, "painting", JS_NewCFunction(context_, Painting, "painting", 4));

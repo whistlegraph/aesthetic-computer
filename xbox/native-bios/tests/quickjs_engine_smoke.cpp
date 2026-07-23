@@ -12,10 +12,10 @@ int main() {
   QuickJsEngine engine; std::string error;
   api.clock.network_synced = true; api.clock.network_offset_ms = 3; api.clock.network_rtt_ms = 21;
   api.audio.output_latency_ms = 11.5; api.audio.midi_status = "no-input";
-  auto piece = engine.compile({"smoke", "test", "function boot(){telemetry('BOOT','OK');ac()} function sim(){gamepad();const r=runtime();if(!r.clockSynced||r.clockOffsetMs!==3||r.audioLatencyMs!==11.5||r.midiStatus!=='no-input')throw Error('runtime telemetry');capabilities();controllers();oscillator(220,.1)} function paint(){wipe(1,2,3);box(1,2,3,4,5,6,7);line(1,2,3,4,2,5,6,7);triangle(1,2,3,4,5,6,7,8,9);write('OK',8,9,10,11,12,13);systemWrite('HI',20,30,40);systemGlyph('ButtonA',50,60,70);painting(80,90,100,110);stampPainting('#j8t',200,300,1);blur(4)} function act(b){if(b==='A')synth(440,.01);if(b==='B')oscillatorStop()}", "test"}, {}, error);
+  auto piece = engine.compile({"smoke", "test", "function boot(){telemetry('BOOT','OK');ac()} function sim(){gamepad();const r=runtime();if(!r.clockSynced||r.clockOffsetMs!==3||r.audioLatencyMs!==11.5||r.midiStatus!=='no-input')throw Error('runtime telemetry');capabilities();controllers();oscillator(220,.1)} function paint(){wipe(1,2,3);box(1,2,3,4,5,6,7);line(1,2,3,4,2,5,6,7);triangle(1,2,3,4,5,6,7,8,9);const batch=new Float32Array([1,2,.1,3,4,.1,5,6,.1,7,8,9,10,20,.2,30,40,.2,50,60,.2,70,80,90]);if(triangles3d(batch)!==2)throw Error('triangle batch');write('OK',8,9,10,11,12,13);systemWrite('HI',20,30,40);systemGlyph('ButtonA',50,60,70);painting(80,90,100,110);stampPainting('#j8t',200,300,1);blur(4)} function act(b){if(b==='A')synth(440,.01);if(b==='B')oscillatorStop()}", "test"}, {}, error);
   assert(piece && error.empty()); piece->boot(api); piece->paint(api);
   assert(graphics.color.r == 1 && graphics.color.g == 2 && graphics.color.b == 3);
-  assert(graphics.boxes == 1 && graphics.lines == 1 && graphics.triangles == 1 && graphics.writes == 1 &&
+  assert(graphics.boxes == 1 && graphics.lines == 1 && graphics.triangles == 3 && graphics.writes == 1 &&
     graphics.systemWrites == 1 && graphics.glyphs == 1 && graphics.images == 2 &&
     graphics.blurs == 1 && graphics.lastImage.source == "#j8t" &&
     graphics.lastImage.centered &&

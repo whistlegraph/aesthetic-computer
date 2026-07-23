@@ -6,10 +6,13 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import sharp from "sharp";
 
-const [source, destination] = process.argv.slice(2);
+const [source, destination, skinBakePath] = process.argv.slice(2);
 if (!source || !destination) {
-  throw new Error("usage: glb-to-native-material.mjs <simplified.glb> <piece.js>");
+  throw new Error("usage: glb-to-native-material.mjs <simplified.glb> <piece.js> [skin-bake.json]");
 }
+const skinBake = skinBakePath ? JSON.parse(readFileSync(skinBakePath, "utf8")) : null;
+if (skinBake && (skinBake.triangles > 2400 || skinBake.frames?.length < 2))
+  throw new Error("skin bake must contain 2+ frames and at most 2400 triangles");
 
 const bytes = readFileSync(source);
 if (bytes.toString("ascii", 0, 4) !== "glTF" || bytes.readUInt32LE(4) !== 2) {
@@ -134,16 +137,28 @@ const stars = Array.from({ length: 72 }, () => [
   next() > 0.82 ? 3 : 2, Math.round(125 + next() * 120),
 ]);
 
-const code = `// Pals Material Skybox, 26.07.22
-// Connected ${indices.length / 3}-triangle derivative of the recovered Meshy GLB.
+let code = `// Pals Material Skybox, 26.07.22
+// Connected Pals GLB plus the 24-joint ThespianJas Meshy idle skin.
 const vertices=${JSON.stringify(vertices)};
 const faces=${JSON.stringify(faceRows)};
 const stars=${JSON.stringify(stars)};
+const jeffrey=${skinBake ? JSON.stringify(skinBake) : "null"};
 let rotationX=0,rotationY=0,frameCount=0,perfStarted=0,fpsLabel="-- FPS",frameMsLabel="-- MS";
 let audioOn=true,lastSoundAt=-1,scenePulse=0,lastMidiEvent=0,lastButton="--";
+const submitTriangleBatch=triangles3d,triangleBatch=new Float32Array(4096*12);
+let triangleBatchIndex=0;
+function emitTriangle(x1,y1,z1,x2,y2,z2,x3,y3,z3,r,g,b){
+  if(triangleBatchIndex>=triangleBatch.length)return;
+  const i=triangleBatchIndex;
+  triangleBatch[i]=x1;triangleBatch[i+1]=y1;triangleBatch[i+2]=z1;
+  triangleBatch[i+3]=x2;triangleBatch[i+4]=y2;triangleBatch[i+5]=z2;
+  triangleBatch[i+6]=x3;triangleBatch[i+7]=y3;triangleBatch[i+8]=z3;
+  triangleBatch[i+9]=r;triangleBatch[i+10]=g;triangleBatch[i+11]=b;
+  triangleBatchIndex=i+12;
+}
 function boot(){
   oscillator(55,.06);
-  telemetry("PALS_MATERIAL_BOOT","triangles=${indices.length / 3} material=glb-textures glossy skybox orbital-scene audio=harmonic-xaudio2 hud=perf+clock");
+  telemetry("PALS_MATERIAL_BOOT","pals=${indices.length / 3} jeffrey=${skinBake ? skinBake.triangles : 0} joints=${skinBake ? skinBake.joints : 0} material=pbr-bakes lights=3 shadows=1 stencil=geometry fog=depth sprites=nearest audio=harmonic-xaudio2");
 }
 function sim(){
   const pad=gamepad();
@@ -238,8 +253,82 @@ function orbitalScene(t,run){
     triangle3d(x0,y0-width,z,x1,y1+width,z,x0,y0+width,z,42+lane*28,98+lane*18,142+lane*36);
   }
 }
+function animatedJeffrey(t){
+  if(!jeffrey)return;
+  const position=(t%jeffrey.duration)/jeffrey.duration*jeffrey.frameCount;
+  const frame0=Math.floor(position)%jeffrey.frameCount,frame1=(frame0+1)%jeffrey.frameCount,mix=position-Math.floor(position);
+  const source0=jeffrey.frames[frame0],source1=jeffrey.frames[frame1];
+  const angle=-.22+Math.sin(t*.23)*.13,cos=Math.cos(angle),sin=Math.sin(angle);
+  const world=source0.map((point,index)=>{
+    const next=source1[index],x=point[0]+(next[0]-point[0])*mix;
+    const y=point[1]+(next[1]-point[1])*mix,z=point[2]+(next[2]-point[2])*mix;
+    return [x*cos-z*sin,y,x*sin+z*cos];
+  });
+  const cx=1315,ground=722,scale=260;
+  const points=world.map((point)=>[cx+point[0]*scale,ground-point[1]*scale,point[2]+.05]);
+  // Project a bounded subset onto the floor for a moving cast-shadow pass.
+  for(let index=0;index<jeffrey.faces.length;index+=4){
+    const face=jeffrey.faces[index],a=world[face[0]],b=world[face[1]],c=world[face[2]];
+    const shadow=(point)=>[cx+point[0]*scale+92,735+point[2]*82,.98];
+    const p0=shadow(a),p1=shadow(b),p2=shadow(c);
+    triangle3d(p0[0],p0[1],p0[2],p1[0],p1[1],p1[2],p2[0],p2[1],p2[2],9,6,20);
+  }
+  // Stencil-style expanded silhouette. Revision 18 keeps this as a geometry
+  // pass; the native D24S8 post pipeline upgrades it to hardware stencil.
+  for(const face of jeffrey.faces){
+    const a=world[face[0]],b=world[face[1]],c=world[face[2]];
+    const ux=b[0]-a[0],uy=b[1]-a[1],uz=b[2]-a[2],vx=c[0]-a[0],vy=c[1]-a[1],vz=c[2]-a[2];
+    const nz=ux*vy-uy*vx;if(nz>=0)continue;
+    const expand=(point)=>[cx+point[0]*scale*1.035,ground-point[1]*scale*1.035,point[2]+.11];
+    const p0=expand(a),p1=expand(b),p2=expand(c);
+    triangle3d(p0[0],p0[1],p0[2],p1[0],p1[1],p1[2],p2[0],p2[1],p2[2],38,8,58);
+  }
+  const lights=[
+    [Math.sin(t*.71)*.72,-.48,.7,1,.48,.82],
+    [Math.cos(t*.43)*-.66,.18,.74,.42,.8,1],
+    [Math.sin(t*.29+.7)*.38,.78,.5,1,.32,.42],
+  ];
+  for(const light of lights){const length=Math.hypot(light[0],light[1],light[2]);light[0]/=length;light[1]/=length;light[2]/=length;}
+  for(const face of jeffrey.faces){
+    const a=world[face[0]],b=world[face[1]],c=world[face[2]];
+    const ux=b[0]-a[0],uy=b[1]-a[1],uz=b[2]-a[2],vx=c[0]-a[0],vy=c[1]-a[1],vz=c[2]-a[2];
+    let nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx;
+    const length=Math.hypot(nx,ny,nz);if(length<.00001||nz>=0)continue;
+    nx=-nx/length;ny=-ny/length;nz=-nz/length;
+    let red=face[3]*.2,green=face[4]*.2,blue=face[5]*.2;
+    for(const light of lights){
+      const amount=Math.max(0,nx*light[0]+ny*light[1]+nz*light[2]);
+      red+=face[3]*amount*light[3]*.52;green+=face[4]*amount*light[4]*.52;blue+=face[5]*amount*light[5]*.52;
+    }
+    const spec=Math.pow(Math.max(0,nx*.2+ny*-.35+nz*.92),34)*190;
+    const fog=clamp((a[2]+b[2]+c[2])/3*.24+.1,0,.42);
+    red=red*(1-fog)+18*fog+spec;green=green*(1-fog)+16*fog+spec*.86;blue=blue*(1-fog)+38*fog+spec;
+    const p0=points[face[0]],p1=points[face[1]],p2=points[face[2]];
+    triangle3d(p0[0],p0[1],p0[2],p1[0],p1[1],p1[2],p2[0],p2[1],p2[2],clamp(red),clamp(green),clamp(blue));
+  }
+  // Real 24-joint idle skeleton, interpolated from the same baked clip. Lines
+  // are submitted before GPU skin triangles, so the body naturally occludes them.
+  const joints0=jeffrey.jointFrames[frame0],joints1=jeffrey.jointFrames[frame1];
+  const jointPoints=joints0.map((point,index)=>{
+    const next=joints1[index],x=point[0]+(next[0]-point[0])*mix;
+    const y=point[1]+(next[1]-point[1])*mix,z=point[2]+(next[2]-point[2])*mix;
+    return [cx+(x*cos-z*sin)*scale,ground-y*scale];
+  });
+  for(const bone of jeffrey.bones){const a=jointPoints[bone[0]],b=jointPoints[bone[1]];line(a[0],a[1],b[0],b[1],2,102,242,214);}
+  // Two point-sampled billboard emitters tied to animated ankle/hand space.
+  for(let emitter=0;emitter<2;emitter++)for(let i=0;i<34;i++){
+    const life=(t*(.38+emitter*.08)+i*.071)%1,phase=i*2.399+emitter*1.7;
+    const x=cx+(emitter?88:-84)+Math.sin(phase+t*.7)*life*85;
+    const y=ground-18-life*310+Math.cos(phase*1.3)*22;
+    const size=2+((i+emitter)%4),z=-.18+life*.5;
+    const r=emitter?255:72,g=emitter?96:228,b=emitter?156:255;
+    triangle3d(x-size,y-size,z,x+size,y-size,z,x+size,y+size,z,r,g,b);
+    triangle3d(x-size,y-size,z,x+size,y+size,z,x-size,y+size,z,r,g,b);
+  }
+}
 function paint(){
   const run=runtime(),t=run.monotonicUs/1000000;
+  triangleBatchIndex=0;
   if(!perfStarted)perfStarted=t;
   frameCount++;
   if(t-perfStarted>=2){
@@ -251,6 +340,7 @@ function paint(){
   }
   skybox(t);
   orbitalScene(t,run);
+  animatedJeffrey(t);
   const ax=rotationX+Math.sin(t*.31)*.1;
   const ay=rotationY+t*.72;
   const world=vertices.map((point)=>rotate(point,ax,ay));
@@ -285,6 +375,7 @@ function paint(){
     const blue=clamp(face[5]*diffuse+face[10]*.22+255*specular+128*fresnel+132*sky+122*rim);
     triangle3d(p0[0],p0[1],p0[2],p1[0],p1[1],p1[2],p2[0],p2[1],p2[2],red,green,blue);
   }
+  submitTriangleBatch(triangleBatch,triangleBatchIndex/12);
   const audioLatency=run.audioLatencyMs>0?run.audioLatencyMs.toFixed(1)+" MS":"MEASURING";
   const audioSubmit=Number(run.audioSubmitUs||0),inputToAudio=Number(run.inputToAudioUs||0);
   const midi=run.midiInputs>0?run.midiInputs+" IN / NOTE "+run.midiNote+" / #"+(run.midiEvents||0):"NO MIDI INPUT";
@@ -296,7 +387,7 @@ function paint(){
   box(1384,34,500,384,7,9,25);
   line(1384,98,1884,98,2,92,66,126);
   systemWrite("STACK / LIVE PIPELINE",1412,52,27,234,228,255);
-  systemWrite("MESHY GLB + TEXTURE MAPS\\n> OFFLINE MATERIAL BAKE\\n> LIVE JS / QUICKJS + CLOCK\\n> C++ GPU BRIDGE (${indices.length / 3} GLB TRIS)\\n> D3D11 VERTEX + DEPTH BUFFERS\\n> 1 HARDWARE DRAW CALL\\n> XAUDIO2 HARMONIC SYNTH\\n> PRESENT(1) / VSYNC\\nTARGET 60 FPS / 16.67 MS",1412,116,20,190,176,224);
+  systemWrite("PALS + TEXTURED JEFFREY GLB\\n> 24-JOINT IDLE SKIN BAKE\\n> 3 LIGHTS + SHADOW + STENCIL\\n> DEPTH FOG + BILLBOARD EMITTERS\\n> LIVE JS / QUICKJS + CLOCK\\n> C++ D3D11 GPU BRIDGE\\n> 1 HARDWARE DRAW CALL\\n> XAUDIO2 HARMONIC SYNTH\\n> PRESENT(1) / 60 HZ VSYNC",1412,116,19,190,176,224);
 }
 function act(button){
   lastButton=button;scenePulse=1;
@@ -312,8 +403,14 @@ function act(button){
 function leave(){oscillatorStop();telemetry("PALS_MATERIAL_LEAVE","ok")}
 `;
 
+// The generated scene uses a reusable typed stream so every apparent
+// triangle3d call remains readable in this template but becomes a cheap JS
+// buffer append in the published piece.
+code = code.replaceAll("triangle3d(", "emitTriangle(");
+
 writeFileSync(destination, code);
 console.log(JSON.stringify({ source, destination, vertices: vertices.length,
   triangles: faceRows.length, bytes: Buffer.byteLength(code), textures: {
     baseColor: !!baseImage, metallicRoughness: !!metallicImage, emissive: !!emissiveImage,
-  } }));
+  }, skin: skinBake ? { source: skinBake.source, frames: skinBake.frameCount,
+    vertices: skinBake.vertices, triangles: skinBake.triangles, joints: skinBake.joints } : null }));

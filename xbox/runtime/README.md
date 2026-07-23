@@ -14,6 +14,7 @@ an experimental comparison target, not the production architecture.
 | `api.screen.{width,height}` | `Api::screen` | Physical backbuffer dimensions |
 | `api.clock.time()` / `seconds` | `Api::clock`, `Api::seconds` | QPC monotonic time plus midpoint-adjusted `/api/clock` Unix time and sync RTT |
 | `wipe`, `box`, `line`, `write` | `Graphics` command interface | D3D renderer batches these commands |
+| `triangles3d(Float32Array, count?)` | Flat 12-float triangle stream | One JS→native call and one hardware draw for up to 4,096 triangles |
 | system type and Xbox button symbols | `systemWrite`, `systemGlyph` | DirectWrite with Segoe UI / Segoe MDL2 Assets |
 | latest user painting | `painting` | Host downloads and decodes an allowlisted AC image |
 | `sound.synth({...})` | `Sound::synth(SynthVoice)` | Submit immediately to XAudio2, outside Present |
