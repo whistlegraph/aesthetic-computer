@@ -17,9 +17,10 @@
 // is for platforms that autoplay muted and strip tracks — reels, shorts, feeds.
 
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { captionPhrases, isHighlightableCaptionToken } from "./captions.mjs";
+import { applyBrandChrome } from "./brand-chrome.mjs";
 
 const FFMPEG = process.env.FFMPEG || "ffmpeg";
 const STAGE_MODE = process.env.CAPTUTOR_STAGE_MODE === "1";
@@ -80,6 +81,23 @@ const TEXT = "#ffffff";    // plain white — subtitles are not a brand surface
 const ACTIVE_TEXT = "#facc15"; // warm yellow — familiar, restrained karaoke cue
 const BG = "#0a0a0a";      // neutral-950
 const ACCENT = "#4f46e5";  // indigo-600 — the app's own action colour
+
+// A clamshell Mac can expose a true HiDPI desktop that is taller than the
+// 16:9 docs delivery while still matching its full output width. Keep that
+// extra source resolution honest: accept only an exact-width, at-least-tall
+// full-desktop negative, then remove equal amounts from the top and bottom.
+// Smaller inputs and arbitrary window-shaped captures remain rejected.
+export function fullDesktopCrop({ source, target }) {
+  if (source.w !== target.w || source.h < target.h) {
+    throw new Error(
+      `full-desktop negative must be ${target.w}px wide and at least ${target.h}px tall; ` +
+      `got ${source.w}x${source.h}`,
+    );
+  }
+  if (source.h === target.h) return "";
+  const y = Math.floor((source.h - target.h) / 2);
+  return `crop=${target.w}:${target.h}:0:${y},`;
+}
 
 // NOTE: ImageMagick here has no fontconfig, so there is no default font at all —
 // omit `-font` and it errors rather than guessing. That is a feature: a silent
@@ -290,7 +308,9 @@ function videoDuration(clip) {
   ], { encoding: "utf8" }).trim();
 }
 
-export function deliver({ clip, cues, format, out, workDir, locale = "en" }) {
+export function deliver({
+  clip, cues, format, out, workDir, locale = "en", brandChrome = null,
+}) {
   FONT = fontFor(locale);  // brand face for Latin, script-capable fallback otherwise
   const F = FORMATS[format];
   if (!F) throw new Error(`unknown format: ${format} (have: ${Object.keys(FORMATS).join(", ")})`);
@@ -355,18 +375,22 @@ export function deliver({ clip, cues, format, out, workDir, locale = "en" }) {
 
   const chain = [];
   if (F.compose?.fullDesktop) {
-    if (src.w !== W || src.h !== H) {
+    let desktopCrop;
+    try {
+      desktopCrop = fullDesktopCrop({ source: src, target: { w: W, h: H } });
+    } catch {
       throw new Error(
-        `${format} Stage delivery needs a ${W}x${H} full-desktop negative; ` +
-        `got ${src.w}x${src.h}. Record a new take instead of recutting a window capture.`,
+        `${format} Stage delivery needs a ${W}px-wide full-desktop negative at least ${H}px tall; ` +
+        `got ${src.w}x${src.h}. Record a new take instead of enlarging or recutting a window capture.`,
       );
     }
-    // Preserve the complete physical desktop. The sole repair is the tiny
+    // Preserve the complete 16:9 center of the physical desktop. A taller
+    // clamshell negative is cropped symmetrically, never enlarged. The sole repair is the tiny
     // ScreenCaptureKit status dot at the extreme top-right: clone a live 2×2
     // sample of the adjacent stage wallpaper over a 34×28 patch. No browser or
     // window pixels are touched.
     chain.push(
-      `[0:v]${holdLastFrame}scale=${W}:${H},split=2[desktop][badgeSeed]`,
+      `[0:v]${holdLastFrame}${desktopCrop}scale=${W}:${H},split=2[desktop][badgeSeed]`,
       `[badgeSeed]crop=2:2:${W - 62}:12,scale=34:28:flags=neighbor[badgePatch]`,
       `[desktop][badgePatch]overlay=${W - 34}:0:shortest=1[base]`);
   } else if (F.compose) {
@@ -415,7 +439,13 @@ export function deliver({ clip, cues, format, out, workDir, locale = "en" }) {
   // the concat demuxer silently drops one of them.
   const FPS = F.fps || 30;
 
+  const encodedOut = brandChrome ? `${out}.pre-brand.mp4` : out;
   args.push(
+    // Hundreds of short caption PNG inputs can make ffmpeg eagerly create more
+    // scaler workers than macOS will grant, producing a nondeterministic
+    // `Resource temporarily unavailable` before frame zero. One filter graph
+    // thread is fast enough for this offline pass and removes that ceiling.
+    "-filter_complex_threads", "1",
     "-filter_complex", chain.join(";"),
     "-map", "[outv]", "-map", "0:a?",
     "-r", String(FPS),
@@ -423,10 +453,14 @@ export function deliver({ clip, cues, format, out, workDir, locale = "en" }) {
     "-preset", STAGE_MODE ? "slow" : "medium",
     "-crf", STAGE_MODE ? "15" : "19",
     "-pix_fmt", "yuv420p",
+    // Narration can end before a programmed closing signboard. Extend the
+    // audio with digital silence through the full filmed negative so
+    // `-shortest` trims to the picture, not to the last spoken word.
+    "-af", `apad=whole_dur=${dur.toFixed(3)}`,
     "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2",
     "-shortest",
     "-movflags", "+faststart",
-    out);
+    encodedOut);
 
   try {
     execFileSync(FFMPEG, args, { stdio: ["ignore", "ignore", "pipe"] });
@@ -436,6 +470,13 @@ export function deliver({ clip, cues, format, out, workDir, locale = "en" }) {
     // which filter it choked on.
     const msg = (err.stderr?.toString() || "").trim().split("\n").slice(-22).join("\n");
     throw new Error(`ffmpeg failed (${format}):\n${msg}`);
+  }
+  if (brandChrome) {
+    try {
+      applyBrandChrome({ input:encodedOut, out, theme:brandChrome, workDir, format });
+    } finally {
+      if (existsSync(encodedOut)) unlinkSync(encodedOut);
+    }
   }
   return { out, W, H, cues: pngs.length };
 }
