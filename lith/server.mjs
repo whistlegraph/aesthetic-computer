@@ -1260,6 +1260,7 @@ app.all("/m4l-plugins", directFn("m4l-plugins"));
 app.all("/slash", directFn("slash"));
 app.all("/sotce-blog/*rest", directFn("sotce-blog"));
 app.all("/profile/*rest", directFn("profile"));
+app.all("/client/*rest", directFn("client-media"));
 
 // Menu Band crash-log intake → MongoDB collection "menuband-logs". Body is
 // the raw .ips text; metadata comes from headers. The text-body parser
