@@ -1,5 +1,9 @@
 let tick = 0;
 let oscillatorOn = false;
+let rotationX = 0;
+let rotationY = 0;
+let previousDown = [];
+const inputEvents = [];
 
 const edges = [
   [0, 1], [1, 2], [2, 3], [3, 0],
@@ -19,9 +23,23 @@ function sim() {
   tick += 1;
   if (tick % 4 !== 0) return;
   const pad = gamepad();
-  const active = pad.down.includes("A") || pad.leftTrigger > 0.04 || pad.rightTrigger > 0.04;
+  for (const name of pad.down) {
+    if (!previousDown.includes(name)) inputEvents.push("+" + name.toUpperCase());
+  }
+  for (const name of previousDown) {
+    if (!pad.down.includes(name)) inputEvents.push("-" + name.toUpperCase());
+  }
+  while (inputEvents.length > 8) inputEvents.shift();
+  previousDown = pad.down.slice();
+  if (pad.down.includes("ArrowLeft")) rotationY -= 0.075;
+  if (pad.down.includes("ArrowRight")) rotationY += 0.075;
+  if (pad.down.includes("ArrowUp")) rotationX -= 0.075;
+  if (pad.down.includes("ArrowDown")) rotationX += 0.075;
+  const notes = { A: 261.63, B: 329.63, X: 392.00, Y: 523.25 };
+  const noteButton = ["A", "B", "X", "Y"].find((name) => pad.down.includes(name));
+  const active = !!noteButton || pad.leftTrigger > 0.04 || pad.rightTrigger > 0.04;
   if (active) {
-    const frequency = 110 + pad.rightTrigger * 880 + (pad.rightX + 1) * 110;
+    const frequency = notes[noteButton] || 110 + pad.rightTrigger * 880;
     oscillator(frequency, 0.08 + pad.leftTrigger * 0.12);
     oscillatorOn = true;
   } else if (oscillatorOn) {
@@ -45,7 +63,8 @@ function paint() {
   const feed = ac();
   const pad = gamepad();
   const t = run.monotonicUs / 1000000;
-  const points = vertices.map((point) => project(point, t * 0.72, t * 0.47));
+  const points = vertices.map((point) =>
+    project(point, rotationX + t * 0.08, rotationY + t * 0.12));
 
   wipe(7, 8, 20);
   box(0, 0, 1920, 132, 18, 20, 42);
@@ -65,8 +84,8 @@ function paint() {
 
   box(48, 170, 520, 730, 14, 17, 34);
   systemWrite("SYSTEM", 78, 196, 34, 255, 240, 105);
-  systemWrite("BIOS " + caps.version, 78, 254, 25, 210, 220, 235);
-  systemWrite("OS " + caps.deviceFamilyVersion, 78, 294, 21, 150, 175, 205);
+  write("BIOS " + caps.version, 78, 254, 20, 210, 220, 235);
+  write("OS " + caps.deviceFamilyVersion, 78, 294, 16, 150, 175, 205);
   systemWrite("RAM USE " + (caps.memoryUsageBytes / 1048576).toFixed(0) + " MB",
     78, 354, 25, 120, 235, 195);
   systemWrite("RAM CAP " + (caps.memoryLimitBytes / 1048576).toFixed(0) + " MB",
@@ -76,37 +95,46 @@ function paint() {
   systemGlyph("Wifi", 78, 512, 44, caps.online ? 70 : 245,
     caps.online ? 230 : 80, caps.online ? 145 : 80);
   systemWrite((caps.networkLevel || "none").toUpperCase(), 140, 515, 24, 200, 215, 230);
-  systemWrite("UP " + (run.monotonicUs / 1000000).toFixed(1) + " SEC",
-    78, 584, 24, 160, 185, 215);
-  systemWrite("PAINT " + run.paintCount, 78, 628, 24, 160, 185, 215);
+  write("UP " + (run.monotonicUs / 1000000).toFixed(1) + " SEC",
+    78, 584, 18, 160, 185, 215);
+  write("PAINT " + run.paintCount, 78, 628, 18, 160, 185, 215);
 
   systemWrite("SYSTEM ASSETS", 78, 700, 25, 255, 240, 105);
-  systemGlyph("ButtonA", 78, 752, 48, 80, 235, 145);
-  systemGlyph("ButtonB", 142, 752, 48, 245, 90, 95);
-  systemGlyph("ButtonX", 206, 752, 48, 80, 180, 255);
-  systemGlyph("ButtonY", 270, 752, 48, 255, 220, 80);
-  systemGlyph("Dpad", 344, 752, 48, 220, 225, 235);
-  systemGlyph("LeftStick", 412, 752, 48, 220, 225, 235);
+  const aHeld = pad.down.includes("A");
+  const bHeld = pad.down.includes("B");
+  const xHeld = pad.down.includes("X");
+  const yHeld = pad.down.includes("Y");
+  const dpadHeld = pad.down.some((name) => name.startsWith("Arrow"));
+  systemGlyph("ButtonA", 78, 752, 48, aHeld ? 80 : 55, aHeld ? 235 : 65, aHeld ? 145 : 75);
+  systemGlyph("ButtonB", 142, 752, 48, bHeld ? 245 : 70, bHeld ? 90 : 55, bHeld ? 95 : 65);
+  systemGlyph("ButtonX", 206, 752, 48, xHeld ? 80 : 55, xHeld ? 180 : 65, xHeld ? 255 : 80);
+  systemGlyph("ButtonY", 270, 752, 48, yHeld ? 255 : 75, yHeld ? 220 : 70, yHeld ? 80 : 55);
+  systemGlyph("Dpad", 344, 752, 48, dpadHeld ? 255 : 70, dpadHeld ? 255 : 75, dpadHeld ? 255 : 85);
+  write("8BITDO LEVERLESS 2DC8:202C", 78, 818, 12, 180, 195, 215);
+  write("HELD " + (pad.down.length ? pad.down.join(" ").toUpperCase() : "NONE"),
+    78, 848, 12, 120, 235, 195);
+  write("EVENTS " + (inputEvents.length ? inputEvents.join(" ") : "WAITING"),
+    78, 878, 10, 255, 190, 95);
 
   box(1352, 170, 520, 730, 14, 17, 34);
   systemWrite("AESTHETIC FEED", 1382, 196, 34, 255, 240, 105);
-  systemWrite("MOOD OF THE DAY", 1382, 262, 20, 150, 175, 205);
+  write("MOOD OF THE DAY", 1382, 262, 15, 150, 175, 205);
   systemWrite((feed.mood || feed.status).slice(0, 28), 1382, 300, 27, 245, 245, 250);
   systemWrite((feed.moodHandle || "").slice(0, 24), 1382, 344, 20, 180, 150, 220);
-  systemWrite("LAER KLOKKEN", 1382, 420, 20, 150, 175, 205);
+  write("LAER KLOKKEN", 1382, 420, 15, 150, 175, 205);
   systemWrite((feed.clockFrom || "WAITING").slice(0, 24), 1382, 458, 22, 255, 180, 80);
   systemWrite((feed.clockText || "").slice(0, 32), 1382, 500, 23, 245, 245, 250);
-  systemWrite("LATEST PAINTING", 1382, 578, 20, 150, 175, 205);
+  write("LATEST PAINTING", 1382, 578, 15, 150, 175, 205);
   systemWrite(feed.paintingUrl ? "FOUND / " + feed.paintingHandle : "WAITING",
     1382, 616, 22, 120, 235, 195);
   if (feed.paintingUrl) painting(1382, 654, 460, 138);
 
-  systemWrite("HOLD A OR A TRIGGER", 1382, 812, 22, 255, 240, 105);
+  write("DPAD ROTATES / A B X Y SING", 1382, 812, 15, 255, 240, 105);
   systemWrite("LIVE SINE " + (oscillatorOn ? "ON" : "OFF"),
     1382, 850, 25, oscillatorOn ? 90 : 150, oscillatorOn ? 235 : 175, 190);
 
-  systemWrite("NATIVE D3D11 + XAUDIO2 + QUICKJS / ALLOWLISTED AC READS",
-    48, 1010, 23, 130, 150, 185);
+  write("NATIVE D3D11 + XAUDIO2 + QUICKJS / ALLOWLISTED AC READS",
+    48, 1010, 15, 130, 150, 185);
 }
 
 function act(button) {

@@ -5,7 +5,7 @@
          IgnorableNamespaces="uap mp">
   <Identity Name="AestheticComputer.NativeBios"
             Publisher="CN=AestheticComputerDev"
-            Version="1.0.0.13" />
+            Version="1.0.0.14" />
   <mp:PhoneIdentity PhoneProductId="892d830b-d069-4770-ad28-33d1d9bdd856"
                     PhonePublisherId="00000000-0000-0000-0000-000000000000" />
   <Properties>

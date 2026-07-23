@@ -200,10 +200,14 @@ public:
     m_graphics->on_line = [this](const ac::xbox::Line& line) { m_frameLines.push_back(line); };
     m_graphics->on_write = [this](const ac::xbox::Text& text) { m_frameTexts.push_back(text); };
     m_graphics->on_system_write = [this](const ac::xbox::SystemText& text) {
-      m_frameSystemTexts.push_back(text);
+      if (m_frameSystemTexts.size() + m_frameSystemGlyphs.size() < kMaxSystemDraws)
+        m_frameSystemTexts.push_back(text);
+      else ++m_frameSystemDrawsDropped;
     };
     m_graphics->on_system_glyph = [this](const ac::xbox::SystemGlyph& glyph) {
-      m_frameSystemGlyphs.push_back(glyph);
+      if (m_frameSystemTexts.size() + m_frameSystemGlyphs.size() < kMaxSystemDraws)
+        m_frameSystemGlyphs.push_back(glyph);
+      else ++m_frameSystemDrawsDropped;
     };
     m_graphics->on_image = [this](const ac::xbox::ImageDraw& draw) {
       m_frameImages.push_back(draw);
@@ -220,7 +224,7 @@ public:
     m_sound->on_oscillator_stop = [this]() { StopOscillator(); };
     m_sound->get_rate = [this]() { return static_cast<int>(m_sampleRate); };
     m_api = std::make_unique<Api>(Api{{1920, 1080, 1}, {}, {}, {}, *m_graphics, *m_sound});
-    m_api->system.version = "1.0.0.13";
+    m_api->system.version = "1.0.0.14";
     m_api->telemetry = [](std::string_view line) {
       std::string safe(line);
       for (auto& character : safe) if (character == '\n' || character == '\r') character = ' ';
@@ -260,6 +264,7 @@ public:
       m_frameSystemGlyphs.clear();
       m_frameImages.clear();
       m_frameBlurRadius = 0;
+      m_frameSystemDrawsDropped = 0;
       if (m_supervisor && m_supervisor->active()) {
         try {
           m_supervisor->active()->sim(*m_api);
@@ -639,7 +644,7 @@ private:
     if (!m_acRequestInFlight.compare_exchange_strong(expected, true)) return;
 
     auto client = ref new HttpClient();
-    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.13 Xbox");
+    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.14 Xbox");
     std::vector<task<String^>> requests;
     requests.push_back(create_task(client->GetStringAsync(
       ref new Uri(L"https://aesthetic.computer/api/mood/moods-of-the-day"))));
@@ -993,6 +998,7 @@ private:
         LogTelemetry("AC_NATIVE_CPU_FRAME texts=" + std::to_string(m_frameTexts.size()) +
           " systemTexts=" + std::to_string(m_frameSystemTexts.size()) +
           " glyphs=" + std::to_string(m_frameSystemGlyphs.size()) +
+          " systemDropped=" + std::to_string(m_frameSystemDrawsDropped) +
           " images=" + std::to_string(m_frameImages.size()) +
           " blur=" + std::to_string(m_frameBlurRadius) +
           " boxes=" + std::to_string(m_frameRects.size()) +
@@ -1022,6 +1028,8 @@ private:
   unsigned m_frameWidth = 0;
   unsigned m_frameHeight = 0;
   unsigned m_frameBlurRadius = 0;
+  static constexpr std::size_t kMaxSystemDraws = 24;
+  std::size_t m_frameSystemDrawsDropped = 0;
   std::string m_lastCapabilityInventory;
   uint32_t m_sampleRate = 48000;
   std::array<float, 4> m_flashColor{1, 1, 1, 1};
