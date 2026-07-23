@@ -38,6 +38,16 @@ struct GpuTriangleVertex {
   float r, g, b, a;
 };
 
+struct GpuSpriteVertex {
+  float x, y, z;
+  float u, v;
+  float r, g, b, a;
+};
+
+struct PostConstants {
+  float texelX, texelY, timeSeconds, stencilPass;
+};
+
 static constexpr char kSmokePiece[] = R"JS(
 let color=[12,8,24];
 function boot(){color=[12,8,24]}
@@ -190,6 +200,8 @@ class HostGraphics final : public Graphics {
   std::function<void(const ac::xbox::Rect&)> on_box;
   std::function<void(const ac::xbox::Line&)> on_line;
   std::function<void(const ac::xbox::Triangle&)> on_triangle;
+  std::function<void(const ac::xbox::TexturedTriangle&)> on_textured_triangle;
+  std::function<void(const ac::xbox::Sprite&)> on_sprite;
   std::function<void(const ac::xbox::Text&)> on_write;
   std::function<void(const ac::xbox::SystemText&)> on_system_write;
   std::function<void(const ac::xbox::SystemGlyph&)> on_system_glyph;
@@ -200,6 +212,12 @@ class HostGraphics final : public Graphics {
   void line(const ac::xbox::Line& line) override { if (on_line) on_line(line); }
   void triangle(const ac::xbox::Triangle& triangle) override {
     if (on_triangle) on_triangle(triangle);
+  }
+  void textured_triangle(const ac::xbox::TexturedTriangle& triangle) override {
+    if (on_textured_triangle) on_textured_triangle(triangle);
+  }
+  void sprite(const ac::xbox::Sprite& sprite) override {
+    if (on_sprite) on_sprite(sprite);
   }
   void write(const ac::xbox::Text& text) override { if (on_write) on_write(text); }
   void system_write(const ac::xbox::SystemText& text) override {
@@ -256,6 +274,15 @@ public:
     m_graphics->on_triangle = [this](const ac::xbox::Triangle& triangle) {
       if (m_frameTriangles.size() < kMaxTriangles) m_frameTriangles.push_back(triangle);
       else ++m_frameTrianglesDropped;
+    };
+    m_graphics->on_textured_triangle = [this](const ac::xbox::TexturedTriangle& triangle) {
+      if (m_frameTexturedTriangles.size() < kMaxTexturedTriangles)
+        m_frameTexturedTriangles.push_back(triangle);
+      else ++m_frameTexturedTrianglesDropped;
+    };
+    m_graphics->on_sprite = [this](const ac::xbox::Sprite& sprite) {
+      if (m_frameSprites.size() < kMaxSprites) m_frameSprites.push_back(sprite);
+      else ++m_frameSpritesDropped;
     };
     m_graphics->on_write = [this](const ac::xbox::Text& text) { m_frameTexts.push_back(text); };
     m_graphics->on_system_write = [this](const ac::xbox::SystemText& text) {
@@ -324,6 +351,8 @@ public:
       m_frameRects.clear();
       m_frameLines.clear();
       m_frameTriangles.clear();
+      m_frameTexturedTriangles.clear();
+      m_frameSprites.clear();
       m_frameTexts.clear();
       m_frameSystemTexts.clear();
       m_frameSystemGlyphs.clear();
@@ -331,6 +360,8 @@ public:
       m_frameBlurRadius = 0;
       m_frameSystemDrawsDropped = 0;
       m_frameTrianglesDropped = 0;
+      m_frameTexturedTrianglesDropped = 0;
+      m_frameSpritesDropped = 0;
       if (m_supervisor && m_supervisor->active()) {
         try {
           m_supervisor->active()->sim(*m_api);
@@ -411,6 +442,15 @@ private:
     m_frameHeight = backBufferDesc.Height;
     Check(m_device->CreateRenderTargetView(m_backBuffer.Get(), nullptr, &m_target));
 
+    D3D11_TEXTURE2D_DESC sceneDesc = backBufferDesc;
+    sceneDesc.Usage = D3D11_USAGE_DEFAULT;
+    sceneDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+    sceneDesc.CPUAccessFlags = 0;
+    sceneDesc.MiscFlags = 0;
+    Check(m_device->CreateTexture2D(&sceneDesc, nullptr, &m_sceneTexture));
+    Check(m_device->CreateRenderTargetView(m_sceneTexture.Get(), nullptr, &m_sceneTarget));
+    Check(m_device->CreateShaderResourceView(m_sceneTexture.Get(), nullptr, &m_sceneView));
+
     Check(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED,
       IID_PPV_ARGS(&m_d2dFactory)));
     ComPtr<IDXGIDevice> d2dDxgiDevice;
@@ -418,7 +458,7 @@ private:
     Check(m_d2dFactory->CreateDevice(d2dDxgiDevice.Get(), &m_d2dDevice));
     Check(m_d2dDevice->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_NONE, &m_d2dContext));
     ComPtr<IDXGISurface> surface;
-    Check(m_backBuffer.As(&surface));
+    Check(m_sceneTexture.As(&surface));
     const auto bitmapProperties = D2D1::BitmapProperties1(
       D2D1_BITMAP_OPTIONS_TARGET | D2D1_BITMAP_OPTIONS_CANNOT_DRAW,
       D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE));
@@ -430,6 +470,8 @@ private:
     Check(m_d2dContext->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White),
       &m_textBrush));
     CreateTrianglePipeline();
+    CreateSpritePipeline();
+    CreatePostPipeline();
   }
 
   void CreateTrianglePipeline() {
@@ -464,7 +506,7 @@ private:
     depth.Height = m_frameHeight;
     depth.MipLevels = 1;
     depth.ArraySize = 1;
-    depth.Format = DXGI_FORMAT_D32_FLOAT;
+    depth.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
     depth.SampleDesc.Count = 1;
     depth.BindFlags = D3D11_BIND_DEPTH_STENCIL;
     ComPtr<ID3D11Texture2D> depthTexture;
@@ -475,6 +517,14 @@ private:
     depthState.DepthEnable = TRUE;
     depthState.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
     depthState.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
+    depthState.StencilEnable = TRUE;
+    depthState.StencilReadMask = D3D11_DEFAULT_STENCIL_READ_MASK;
+    depthState.StencilWriteMask = D3D11_DEFAULT_STENCIL_WRITE_MASK;
+    depthState.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+    depthState.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
+    depthState.FrontFace.StencilPassOp = D3D11_STENCIL_OP_REPLACE;
+    depthState.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+    depthState.BackFace = depthState.FrontFace;
     Check(m_device->CreateDepthStencilState(&depthState, &m_triangleDepthState));
 
     D3D11_RASTERIZER_DESC raster{};
@@ -482,7 +532,7 @@ private:
     raster.CullMode = D3D11_CULL_NONE;
     raster.DepthClipEnable = TRUE;
     Check(m_device->CreateRasterizerState(&raster, &m_triangleRasterState));
-    LogTelemetry("AC_NATIVE_GPU_TRIANGLES ready=1 max=4096 depth=d32");
+    LogTelemetry("AC_NATIVE_GPU_TRIANGLES ready=1 max=4096 depth=d24s8 stencil=write");
   }
 
   bool DrawGpuTriangles() {
@@ -519,11 +569,244 @@ private:
     const D3D11_VIEWPORT viewport{0, 0, static_cast<float>(m_frameWidth),
       static_cast<float>(m_frameHeight), 0, 1};
     m_context->RSSetViewports(1, &viewport);
-    m_context->OMSetDepthStencilState(m_triangleDepthState.Get(), 0);
-    m_context->OMSetRenderTargets(1, m_target.GetAddressOf(), m_triangleDepthView.Get());
-    m_context->ClearDepthStencilView(m_triangleDepthView.Get(), D3D11_CLEAR_DEPTH, 1, 0);
+    m_context->OMSetDepthStencilState(m_triangleDepthState.Get(), 1);
+    m_context->OMSetRenderTargets(1, m_sceneTarget.GetAddressOf(), m_triangleDepthView.Get());
     m_context->Draw(static_cast<UINT>(count), 0);
     return true;
+  }
+
+  void CreateSpritePipeline() {
+    const auto vertexBytes = ReadPackageBytes(L"SpriteVertexShader.cso");
+    const auto pixelBytes = ReadPackageBytes(L"SpritePixelShader.cso");
+    if (vertexBytes.empty() || pixelBytes.empty()) {
+      LogTelemetry("AC_NATIVE_GPU_SPRITES unavailable=shader-assets");
+      return;
+    }
+    Check(m_device->CreateVertexShader(vertexBytes.data(), vertexBytes.size(), nullptr,
+      &m_spriteVertexShader));
+    Check(m_device->CreatePixelShader(pixelBytes.data(), pixelBytes.size(), nullptr,
+      &m_spritePixelShader));
+    const D3D11_INPUT_ELEMENT_DESC elements[] = {
+      {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,
+        D3D11_INPUT_PER_VERTEX_DATA, 0},
+      {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12,
+        D3D11_INPUT_PER_VERTEX_DATA, 0},
+      {"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 20,
+        D3D11_INPUT_PER_VERTEX_DATA, 0},
+    };
+    Check(m_device->CreateInputLayout(elements, ARRAYSIZE(elements), vertexBytes.data(),
+      vertexBytes.size(), &m_spriteInputLayout));
+    D3D11_BUFFER_DESC buffer{};
+    buffer.ByteWidth = static_cast<UINT>((std::max)(kMaxSprites * 6,
+      kMaxTexturedTriangles * 3) * sizeof(GpuSpriteVertex));
+    buffer.Usage = D3D11_USAGE_DYNAMIC;
+    buffer.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+    buffer.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+    Check(m_device->CreateBuffer(&buffer, nullptr, &m_spriteVertexBuffer));
+
+    std::array<uint32_t, 16 * 8> atlas{};
+    for (int y = 0; y < 8; ++y) for (int x = 0; x < 16; ++x) {
+      const int localX = x % 8;
+      const bool diamond = std::abs(localX - 3) + std::abs(y - 3) <= 3;
+      const bool spark = localX == 3 || localX == 4 || y == 3 || y == 4 ||
+        ((localX == 2 || localX == 5) && (y == 2 || y == 5));
+      const bool visible = x < 8 ? diamond : spark;
+      atlas[static_cast<std::size_t>(y) * 16 + x] = visible ? 0xffffffffu : 0u;
+    }
+    D3D11_TEXTURE2D_DESC texture{};
+    texture.Width = 16; texture.Height = 8; texture.MipLevels = 1; texture.ArraySize = 1;
+    texture.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    texture.SampleDesc.Count = 1;
+    texture.Usage = D3D11_USAGE_IMMUTABLE;
+    texture.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    D3D11_SUBRESOURCE_DATA pixels{};
+    pixels.pSysMem = atlas.data(); pixels.SysMemPitch = 16 * sizeof(uint32_t);
+    ComPtr<ID3D11Texture2D> atlasTexture;
+    Check(m_device->CreateTexture2D(&texture, &pixels, &atlasTexture));
+    Check(m_device->CreateShaderResourceView(atlasTexture.Get(), nullptr, &m_spriteAtlasView));
+
+    const auto jeffreyPixels = ReadPackageBytes(L"Assets\\JeffreyTexture.rgba");
+    if (jeffreyPixels.size() == 256 * 256 * 4) {
+      texture.Width = 256; texture.Height = 256;
+      pixels.pSysMem = jeffreyPixels.data(); pixels.SysMemPitch = 256 * 4;
+      ComPtr<ID3D11Texture2D> jeffreyTexture;
+      Check(m_device->CreateTexture2D(&texture, &pixels, &jeffreyTexture));
+      Check(m_device->CreateShaderResourceView(jeffreyTexture.Get(), nullptr,
+        &m_jeffreyTextureView));
+    }
+
+    D3D11_SAMPLER_DESC sampler{};
+    sampler.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
+    sampler.AddressU = sampler.AddressV = sampler.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+    sampler.MaxLOD = D3D11_FLOAT32_MAX;
+    Check(m_device->CreateSamplerState(&sampler, &m_pointSampler));
+    LogTelemetry("AC_NATIVE_GPU_SPRITES ready=1 max=512 atlas=16x8 filter=point jeffreyTexture=" +
+      std::string(m_jeffreyTextureView ? "256x256" : "missing"));
+  }
+
+  bool DrawGpuTexturedTriangles() {
+    if (m_frameTexturedTriangles.empty()) return true;
+    if (!m_spriteVertexBuffer || !m_spriteVertexShader || !m_spritePixelShader ||
+        !m_jeffreyTextureView || !m_triangleDepthView) return false;
+    D3D11_MAPPED_SUBRESOURCE mapped{};
+    if (FAILED(m_context->Map(m_spriteVertexBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD,
+        0, &mapped))) return false;
+    auto* output = static_cast<GpuSpriteVertex*>(mapped.pData);
+    std::size_t count = 0;
+    const auto append = [&output, &count](float x, float y, float z, float u, float v,
+        Color color) {
+      output[count++] = {x / 960.f - 1.f, 1.f - y / 540.f,
+        (std::max)(0.f, (std::min)(1.f, (z + 1.5f) / 3.f)), u, v,
+        color.r / 255.f, color.g / 255.f, color.b / 255.f, color.a / 255.f};
+    };
+    for (const auto& triangle : m_frameTexturedTriangles) {
+      append(triangle.x1, triangle.y1, triangle.z1, triangle.u1, triangle.v1,
+        triangle.color);
+      append(triangle.x2, triangle.y2, triangle.z2, triangle.u2, triangle.v2,
+        triangle.color);
+      append(triangle.x3, triangle.y3, triangle.z3, triangle.u3, triangle.v3,
+        triangle.color);
+    }
+    m_context->Unmap(m_spriteVertexBuffer.Get(), 0);
+    const UINT stride = sizeof(GpuSpriteVertex), offset = 0;
+    m_context->IASetInputLayout(m_spriteInputLayout.Get());
+    m_context->IASetVertexBuffers(0, 1, m_spriteVertexBuffer.GetAddressOf(), &stride, &offset);
+    m_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    m_context->VSSetShader(m_spriteVertexShader.Get(), nullptr, 0);
+    m_context->PSSetShader(m_spritePixelShader.Get(), nullptr, 0);
+    m_context->PSSetShaderResources(0, 1, m_jeffreyTextureView.GetAddressOf());
+    m_context->PSSetSamplers(0, 1, m_pointSampler.GetAddressOf());
+    m_context->RSSetState(m_triangleRasterState.Get());
+    m_context->OMSetDepthStencilState(m_triangleDepthState.Get(), 1);
+    m_context->OMSetRenderTargets(1, m_sceneTarget.GetAddressOf(), m_triangleDepthView.Get());
+    m_context->Draw(static_cast<UINT>(count), 0);
+    ID3D11ShaderResourceView* nullView = nullptr;
+    m_context->PSSetShaderResources(0, 1, &nullView);
+    return true;
+  }
+
+  bool DrawGpuSprites() {
+    if (m_frameSprites.empty()) return true;
+    if (!m_spriteVertexBuffer || !m_spriteVertexShader || !m_spritePixelShader ||
+        !m_spriteAtlasView || !m_triangleDepthView) return false;
+    D3D11_MAPPED_SUBRESOURCE mapped{};
+    if (FAILED(m_context->Map(m_spriteVertexBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD,
+        0, &mapped))) return false;
+    auto* output = static_cast<GpuSpriteVertex*>(mapped.pData);
+    std::size_t count = 0;
+    const auto append = [&output, &count](float x, float y, float z, float u, float v,
+        Color color) {
+      output[count++] = {x / 960.f - 1.f, 1.f - y / 540.f,
+        (std::max)(0.f, (std::min)(1.f, (z + 1.5f) / 3.f)), u, v,
+        color.r / 255.f, color.g / 255.f, color.b / 255.f, color.a / 255.f};
+    };
+    for (const auto& sprite : m_frameSprites) {
+      const float half = sprite.size * .5f;
+      const float left = sprite.x - half, right = sprite.x + half;
+      const float top = sprite.y - half, bottom = sprite.y + half;
+      const float u0 = sprite.frame ? .5f : 0.f, u1 = u0 + .5f;
+      append(left, top, sprite.z, u0, 0, sprite.color);
+      append(right, top, sprite.z, u1, 0, sprite.color);
+      append(right, bottom, sprite.z, u1, 1, sprite.color);
+      append(left, top, sprite.z, u0, 0, sprite.color);
+      append(right, bottom, sprite.z, u1, 1, sprite.color);
+      append(left, bottom, sprite.z, u0, 1, sprite.color);
+    }
+    m_context->Unmap(m_spriteVertexBuffer.Get(), 0);
+    const UINT stride = sizeof(GpuSpriteVertex), offset = 0;
+    m_context->IASetInputLayout(m_spriteInputLayout.Get());
+    m_context->IASetVertexBuffers(0, 1, m_spriteVertexBuffer.GetAddressOf(), &stride, &offset);
+    m_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    m_context->VSSetShader(m_spriteVertexShader.Get(), nullptr, 0);
+    m_context->PSSetShader(m_spritePixelShader.Get(), nullptr, 0);
+    m_context->PSSetShaderResources(0, 1, m_spriteAtlasView.GetAddressOf());
+    m_context->PSSetSamplers(0, 1, m_pointSampler.GetAddressOf());
+    m_context->RSSetState(m_triangleRasterState.Get());
+    m_context->OMSetDepthStencilState(m_triangleDepthState.Get(), 1);
+    m_context->OMSetRenderTargets(1, m_sceneTarget.GetAddressOf(), m_triangleDepthView.Get());
+    m_context->Draw(static_cast<UINT>(count), 0);
+    ID3D11ShaderResourceView* nullView = nullptr;
+    m_context->PSSetShaderResources(0, 1, &nullView);
+    return true;
+  }
+
+  void CreatePostPipeline() {
+    const auto vertexBytes = ReadPackageBytes(L"PostVertexShader.cso");
+    const auto pixelBytes = ReadPackageBytes(L"PostPixelShader.cso");
+    if (vertexBytes.empty() || pixelBytes.empty()) {
+      LogTelemetry("AC_NATIVE_POST unavailable=shader-assets");
+      return;
+    }
+    Check(m_device->CreateVertexShader(vertexBytes.data(), vertexBytes.size(), nullptr,
+      &m_postVertexShader));
+    Check(m_device->CreatePixelShader(pixelBytes.data(), pixelBytes.size(), nullptr,
+      &m_postPixelShader));
+    D3D11_BUFFER_DESC constants{};
+    constants.ByteWidth = sizeof(PostConstants);
+    constants.Usage = D3D11_USAGE_DYNAMIC;
+    constants.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    constants.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+    Check(m_device->CreateBuffer(&constants, nullptr, &m_postConstants));
+    D3D11_DEPTH_STENCIL_DESC stencil{};
+    stencil.DepthEnable = FALSE;
+    stencil.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+    stencil.StencilEnable = TRUE;
+    stencil.StencilReadMask = D3D11_DEFAULT_STENCIL_READ_MASK;
+    stencil.StencilWriteMask = 0;
+    stencil.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+    stencil.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
+    stencil.FrontFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+    stencil.FrontFace.StencilFunc = D3D11_COMPARISON_EQUAL;
+    stencil.BackFace = stencil.FrontFace;
+    Check(m_device->CreateDepthStencilState(&stencil, &m_postStencilState));
+    LogTelemetry("AC_NATIVE_POST ready=1 filter=point effects=chromatic,scan,dither,vignette stencil=d24s8");
+  }
+
+  void UpdatePostConstants(float stencilPass) {
+    D3D11_MAPPED_SUBRESOURCE mapped{};
+    Check(m_context->Map(m_postConstants.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped));
+    const float seconds = m_api ? static_cast<float>((m_api->clock.monotonic_us %
+      1000000000ull) / 1000000.0) : 0.f;
+    *static_cast<PostConstants*>(mapped.pData) = {
+      1.f / m_frameWidth, 1.f / m_frameHeight, seconds, stencilPass};
+    m_context->Unmap(m_postConstants.Get(), 0);
+  }
+
+  void DrawPostProcess() {
+    m_context->OMSetRenderTargets(0, nullptr, nullptr);
+    if (!m_postVertexShader || !m_postPixelShader || !m_sceneView || !m_pointSampler) {
+      m_context->CopyResource(m_backBuffer.Get(), m_sceneTexture.Get());
+      return;
+    }
+    ID3D11Buffer* nullBuffer = nullptr;
+    const UINT zero = 0;
+    m_context->IASetInputLayout(nullptr);
+    m_context->IASetVertexBuffers(0, 1, &nullBuffer, &zero, &zero);
+    m_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    m_context->VSSetShader(m_postVertexShader.Get(), nullptr, 0);
+    m_context->PSSetShader(m_postPixelShader.Get(), nullptr, 0);
+    m_context->PSSetShaderResources(0, 1, m_sceneView.GetAddressOf());
+    m_context->PSSetSamplers(0, 1, m_pointSampler.GetAddressOf());
+    m_context->PSSetConstantBuffers(0, 1, m_postConstants.GetAddressOf());
+    m_context->RSSetState(m_triangleRasterState.Get());
+    const D3D11_VIEWPORT viewport{0, 0, static_cast<float>(m_frameWidth),
+      static_cast<float>(m_frameHeight), 0, 1};
+    m_context->RSSetViewports(1, &viewport);
+
+    UpdatePostConstants(0);
+    m_context->OMSetDepthStencilState(nullptr, 0);
+    m_context->OMSetRenderTargets(1, m_target.GetAddressOf(), nullptr);
+    m_context->Draw(3, 0);
+    if (!m_frameTriangles.empty() || !m_frameTexturedTriangles.empty() ||
+        !m_frameSprites.empty()) {
+      UpdatePostConstants(1);
+      m_context->OMSetDepthStencilState(m_postStencilState.Get(), 1);
+      m_context->OMSetRenderTargets(1, m_target.GetAddressOf(), m_triangleDepthView.Get());
+      m_context->Draw(3, 0);
+    }
+    ID3D11ShaderResourceView* nullView = nullptr;
+    m_context->PSSetShaderResources(0, 1, &nullView);
+    m_context->OMSetDepthStencilState(nullptr, 0);
   }
 
   void CreateAudio(uint32_t sampleRate) {
@@ -1162,7 +1445,8 @@ private:
   void Render(const std::array<float, 4>& color) {
     if (!m_target) return;
     if (!m_frameTexts.empty() || !m_frameRects.empty() || !m_frameLines.empty() ||
-        !m_frameTriangles.empty() ||
+        !m_frameTriangles.empty() || !m_frameTexturedTriangles.empty() ||
+        !m_frameSprites.empty() ||
         !m_frameImages.empty() || m_frameBlurRadius > 0 ||
         !m_frameSystemTexts.empty() || !m_frameSystemGlyphs.empty()) {
       const auto byte = [](float value) {
@@ -1304,9 +1588,15 @@ private:
         }
       }
       m_context->OMSetRenderTargets(0, nullptr, nullptr);
-      m_context->UpdateSubresource(m_backBuffer.Get(), 0, nullptr, m_cpuFrame.data(),
+      m_context->UpdateSubresource(m_sceneTexture.Get(), 0, nullptr, m_cpuFrame.data(),
         m_frameWidth * sizeof(uint32_t), 0);
+      if ((!m_frameTriangles.empty() || !m_frameTexturedTriangles.empty() ||
+          !m_frameSprites.empty()) && m_triangleDepthView)
+        m_context->ClearDepthStencilView(m_triangleDepthView.Get(),
+          D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1, 0);
       DrawGpuTriangles();
+      DrawGpuTexturedTriangles();
+      DrawGpuSprites();
       if (!m_frameSystemTexts.empty() || !m_frameSystemGlyphs.empty()) {
         m_d2dContext->BeginDraw();
         m_d2dContext->SetTransform(D2D1::Matrix3x2F::Identity());
@@ -1342,6 +1632,7 @@ private:
         const auto hr = m_d2dContext->EndDraw();
         if (FAILED(hr) && hr != D2DERR_RECREATE_TARGET) Check(hr);
       }
+      DrawPostProcess();
       if (!m_loggedTextFrame) {
         LogTelemetry("AC_NATIVE_FRAME trianglePath=" +
           std::string(m_triangleVertexBuffer ? "gpu" : "cpu") +
@@ -1354,6 +1645,10 @@ private:
           " boxes=" + std::to_string(m_frameRects.size()) +
           " triangles=" + std::to_string(m_frameTriangles.size()) +
           " trianglesDropped=" + std::to_string(m_frameTrianglesDropped) +
+          " texturedTriangles=" + std::to_string(m_frameTexturedTriangles.size()) +
+          " texturedDropped=" + std::to_string(m_frameTexturedTrianglesDropped) +
+          " sprites=" + std::to_string(m_frameSprites.size()) +
+          " spritesDropped=" + std::to_string(m_frameSpritesDropped) +
           " lines=" + std::to_string(m_frameLines.size()) + " surface=" +
           std::to_string(m_frameWidth) + "x" + std::to_string(m_frameHeight));
         m_loggedTextFrame = true;
@@ -1389,8 +1684,12 @@ private:
   unsigned m_frameBlurRadius = 0;
   static constexpr std::size_t kMaxSystemDraws = 24;
   static constexpr std::size_t kMaxTriangles = 4096;
+  static constexpr std::size_t kMaxTexturedTriangles = 2048;
+  static constexpr std::size_t kMaxSprites = 512;
   std::size_t m_frameSystemDrawsDropped = 0;
   std::size_t m_frameTrianglesDropped = 0;
+  std::size_t m_frameTexturedTrianglesDropped = 0;
+  std::size_t m_frameSpritesDropped = 0;
   std::string m_lastCapabilityInventory;
   uint32_t m_sampleRate = 48000;
   std::array<float, 4> m_flashColor{1, 1, 1, 1};
@@ -1398,6 +1697,8 @@ private:
   std::vector<ac::xbox::Rect> m_frameRects;
   std::vector<ac::xbox::Line> m_frameLines;
   std::vector<ac::xbox::Triangle> m_frameTriangles;
+  std::vector<ac::xbox::TexturedTriangle> m_frameTexturedTriangles;
+  std::vector<ac::xbox::Sprite> m_frameSprites;
   std::vector<ac::xbox::Text> m_frameTexts;
   std::vector<ac::xbox::SystemText> m_frameSystemTexts;
   std::vector<ac::xbox::SystemGlyph> m_frameSystemGlyphs;
@@ -1412,6 +1713,9 @@ private:
   ComPtr<IDXGISwapChain1> m_swapChain;
   ComPtr<ID3D11Texture2D> m_backBuffer;
   ComPtr<ID3D11RenderTargetView> m_target;
+  ComPtr<ID3D11Texture2D> m_sceneTexture;
+  ComPtr<ID3D11RenderTargetView> m_sceneTarget;
+  ComPtr<ID3D11ShaderResourceView> m_sceneView;
   ComPtr<ID2D1Factory1> m_d2dFactory;
   ComPtr<ID2D1Device> m_d2dDevice;
   ComPtr<ID2D1DeviceContext> m_d2dContext;
@@ -1426,6 +1730,17 @@ private:
   ComPtr<ID3D11DepthStencilView> m_triangleDepthView;
   ComPtr<ID3D11DepthStencilState> m_triangleDepthState;
   ComPtr<ID3D11RasterizerState> m_triangleRasterState;
+  ComPtr<ID3D11VertexShader> m_spriteVertexShader;
+  ComPtr<ID3D11PixelShader> m_spritePixelShader;
+  ComPtr<ID3D11InputLayout> m_spriteInputLayout;
+  ComPtr<ID3D11Buffer> m_spriteVertexBuffer;
+  ComPtr<ID3D11ShaderResourceView> m_spriteAtlasView;
+  ComPtr<ID3D11ShaderResourceView> m_jeffreyTextureView;
+  ComPtr<ID3D11SamplerState> m_pointSampler;
+  ComPtr<ID3D11VertexShader> m_postVertexShader;
+  ComPtr<ID3D11PixelShader> m_postPixelShader;
+  ComPtr<ID3D11Buffer> m_postConstants;
+  ComPtr<ID3D11DepthStencilState> m_postStencilState;
   ComPtr<IXAudio2> m_audio;
   IXAudio2MasteringVoice* m_master = nullptr;
   IXAudio2SourceVoice* m_voice = nullptr;

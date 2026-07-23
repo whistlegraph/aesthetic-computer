@@ -145,8 +145,12 @@ const stars=${JSON.stringify(stars)};
 const jeffrey=${skinBake ? JSON.stringify(skinBake) : "null"};
 let rotationX=0,rotationY=0,frameCount=0,perfStarted=0,fpsLabel="-- FPS",frameMsLabel="-- MS";
 let audioOn=true,lastSoundAt=-1,scenePulse=0,lastMidiEvent=0,lastButton="--";
+let playerX=1315,playerVelocity=0,playerFacing=1,cameraX=0,runPhase=0;
+let attractDirection=-1,lastSimTime=0,lastPlayerInput=-1e9,attractMode=true;
 const submitTriangleBatch=triangles3d,triangleBatch=new Float32Array(4096*12);
-let triangleBatchIndex=0;
+const submitTextureBatch=texturedTriangles3d,textureBatch=new Float32Array(2048*18);
+const submitSpriteBatch=sprites3d,spriteBatch=new Float32Array(512*8);
+let triangleBatchIndex=0,textureBatchIndex=0,spriteBatchIndex=0;
 function emitTriangle(x1,y1,z1,x2,y2,z2,x3,y3,z3,r,g,b){
   if(triangleBatchIndex>=triangleBatch.length)return;
   const i=triangleBatchIndex;
@@ -156,17 +160,47 @@ function emitTriangle(x1,y1,z1,x2,y2,z2,x3,y3,z3,r,g,b){
   triangleBatch[i+9]=r;triangleBatch[i+10]=g;triangleBatch[i+11]=b;
   triangleBatchIndex=i+12;
 }
+function emitTexturedTriangle(x1,y1,z1,u1,v1,x2,y2,z2,u2,v2,x3,y3,z3,u3,v3,r,g,b){
+  if(textureBatchIndex>=textureBatch.length)return;
+  const i=textureBatchIndex;
+  textureBatch[i]=x1;textureBatch[i+1]=y1;textureBatch[i+2]=z1;textureBatch[i+3]=u1;textureBatch[i+4]=v1;
+  textureBatch[i+5]=x2;textureBatch[i+6]=y2;textureBatch[i+7]=z2;textureBatch[i+8]=u2;textureBatch[i+9]=v2;
+  textureBatch[i+10]=x3;textureBatch[i+11]=y3;textureBatch[i+12]=z3;textureBatch[i+13]=u3;textureBatch[i+14]=v3;
+  textureBatch[i+15]=r;textureBatch[i+16]=g;textureBatch[i+17]=b;
+  textureBatchIndex=i+18;
+}
+function emitSprite(x,y,z,size,r,g,b,frame){
+  if(spriteBatchIndex>=spriteBatch.length)return;
+  const i=spriteBatchIndex;
+  spriteBatch[i]=x;spriteBatch[i+1]=y;spriteBatch[i+2]=z;spriteBatch[i+3]=size;
+  spriteBatch[i+4]=r;spriteBatch[i+5]=g;spriteBatch[i+6]=b;spriteBatch[i+7]=frame;
+  spriteBatchIndex=i+8;
+}
 function boot(){
   oscillator(55,.06);
-  telemetry("PALS_MATERIAL_BOOT","pals=${indices.length / 3} jeffrey=${skinBake ? skinBake.triangles : 0} joints=${skinBake ? skinBake.joints : 0} material=pbr-bakes lights=3 shadows=1 stencil=geometry fog=depth sprites=nearest audio=harmonic-xaudio2");
+  telemetry("PALS_MATERIAL_BOOT","pals=${indices.length / 3} jeffrey=${skinBake ? skinBake.triangles : 0} joints=${skinBake ? skinBake.joints : 0} material=uv-texture lights=3 shadows=1 stencil=d24s8 fog=depth sprites=point post=fullscreen attract=2.5d audio=harmonic-xaudio2");
 }
 function sim(){
-  const pad=gamepad();
-  if(pad.down.includes("ArrowLeft"))rotationY-=0.035;
-  if(pad.down.includes("ArrowRight"))rotationY+=0.035;
+  const pad=gamepad(),run=runtime(),t=run.monotonicUs/1000000;
+  const dt=lastSimTime?clamp(t-lastSimTime,0,.05):1/60;lastSimTime=t;
+  let direction=0;
+  if(pad.down.includes("ArrowLeft")){direction=-1;lastPlayerInput=t;}
+  if(pad.down.includes("ArrowRight")){direction=1;lastPlayerInput=t;}
   if(pad.down.includes("ArrowUp"))rotationX-=0.035;
   if(pad.down.includes("ArrowDown"))rotationX+=0.035;
-  const run=runtime(),t=run.monotonicUs/1000000;
+  attractMode=t-lastPlayerInput>6;
+  if(attractMode){
+    if(playerX<820)attractDirection=1;
+    if(playerX>1650)attractDirection=-1;
+    direction=attractDirection;
+  }
+  playerVelocity+=direction*980*dt;
+  playerVelocity*=Math.pow(direction ? .48 : .025,dt);
+  playerVelocity=clamp(playerVelocity,-285,285);
+  playerX=clamp(playerX+playerVelocity*dt,760,1710);
+  if(Math.abs(playerVelocity)>8)playerFacing=playerVelocity<0?-1:1;
+  runPhase+=Math.abs(playerVelocity)*dt*.038;
+  cameraX+=((playerX-1315)*.3-cameraX)*Math.min(1,dt*2.6);
   scenePulse*=.92;
   if(run.midiEvents>lastMidiEvent){lastMidiEvent=run.midiEvents;scenePulse=1;}
   if(audioOn&&t-lastSoundAt>.05){
@@ -255,16 +289,19 @@ function orbitalScene(t,run){
 }
 function animatedJeffrey(t){
   if(!jeffrey)return;
-  const position=(t%jeffrey.duration)/jeffrey.duration*jeffrey.frameCount;
+  const moving=Math.abs(playerVelocity)>18;
+  const clipTime=moving?runPhase*.32:t;
+  const position=(clipTime%jeffrey.duration)/jeffrey.duration*jeffrey.frameCount;
   const frame0=Math.floor(position)%jeffrey.frameCount,frame1=(frame0+1)%jeffrey.frameCount,mix=position-Math.floor(position);
   const source0=jeffrey.frames[frame0],source1=jeffrey.frames[frame1];
-  const angle=-.22+Math.sin(t*.23)*.13,cos=Math.cos(angle),sin=Math.sin(angle);
+  const lean=clamp(playerVelocity/285,-1,1)*-.12;
+  const angle=-.22+Math.sin(t*.23)*.08+lean,cos=Math.cos(angle),sin=Math.sin(angle);
   const world=source0.map((point,index)=>{
-    const next=source1[index],x=point[0]+(next[0]-point[0])*mix;
+    const next=source1[index],x=(point[0]+(next[0]-point[0])*mix)*playerFacing;
     const y=point[1]+(next[1]-point[1])*mix,z=point[2]+(next[2]-point[2])*mix;
     return [x*cos-z*sin,y,x*sin+z*cos];
   });
-  const cx=1315,ground=722,scale=260;
+  const cx=playerX-cameraX,ground=722-(moving?Math.abs(Math.sin(runPhase*Math.PI))*10:0),scale=260;
   const points=world.map((point)=>[cx+point[0]*scale,ground-point[1]*scale,point[2]+.05]);
   // Project a bounded subset onto the floor for a moving cast-shadow pass.
   for(let index=0;index<jeffrey.faces.length;index+=4){
@@ -278,7 +315,7 @@ function animatedJeffrey(t){
   for(const face of jeffrey.faces){
     const a=world[face[0]],b=world[face[1]],c=world[face[2]];
     const ux=b[0]-a[0],uy=b[1]-a[1],uz=b[2]-a[2],vx=c[0]-a[0],vy=c[1]-a[1],vz=c[2]-a[2];
-    const nz=ux*vy-uy*vx;if(nz>=0)continue;
+    const nz=ux*vy-uy*vx;if(nz*playerFacing>=0)continue;
     const expand=(point)=>[cx+point[0]*scale*1.035,ground-point[1]*scale*1.035,point[2]+.11];
     const p0=expand(a),p1=expand(b),p2=expand(c);
     triangle3d(p0[0],p0[1],p0[2],p1[0],p1[1],p1[2],p2[0],p2[1],p2[2],38,8,58);
@@ -293,18 +330,19 @@ function animatedJeffrey(t){
     const a=world[face[0]],b=world[face[1]],c=world[face[2]];
     const ux=b[0]-a[0],uy=b[1]-a[1],uz=b[2]-a[2],vx=c[0]-a[0],vy=c[1]-a[1],vz=c[2]-a[2];
     let nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx;
-    const length=Math.hypot(nx,ny,nz);if(length<.00001||nz>=0)continue;
-    nx=-nx/length;ny=-ny/length;nz=-nz/length;
-    let red=face[3]*.2,green=face[4]*.2,blue=face[5]*.2;
+    const length=Math.hypot(nx,ny,nz);if(length<.00001||nz*playerFacing>=0)continue;
+    nx=-nx*playerFacing/length;ny=-ny*playerFacing/length;nz=-nz*playerFacing/length;
+    let red=.28,green=.28,blue=.32;
     for(const light of lights){
       const amount=Math.max(0,nx*light[0]+ny*light[1]+nz*light[2]);
-      red+=face[3]*amount*light[3]*.52;green+=face[4]*amount*light[4]*.52;blue+=face[5]*amount*light[5]*.52;
+      red+=amount*light[3]*.52;green+=amount*light[4]*.52;blue+=amount*light[5]*.52;
     }
-    const spec=Math.pow(Math.max(0,nx*.2+ny*-.35+nz*.92),34)*190;
+    const spec=Math.pow(Math.max(0,nx*.2+ny*-.35+nz*.92),34)*.74;
     const fog=clamp((a[2]+b[2]+c[2])/3*.24+.1,0,.42);
-    red=red*(1-fog)+18*fog+spec;green=green*(1-fog)+16*fog+spec*.86;blue=blue*(1-fog)+38*fog+spec;
+    red=red*(1-fog)+.16*fog+spec;green=green*(1-fog)+.15*fog+spec*.86;blue=blue*(1-fog)+.3*fog+spec;
     const p0=points[face[0]],p1=points[face[1]],p2=points[face[2]];
-    triangle3d(p0[0],p0[1],p0[2],p1[0],p1[1],p1[2],p2[0],p2[1],p2[2],clamp(red),clamp(green),clamp(blue));
+    const uv0=jeffrey.uvs[face[0]],uv1=jeffrey.uvs[face[1]],uv2=jeffrey.uvs[face[2]];
+    emitTexturedTriangle(p0[0],p0[1],p0[2],uv0[0],uv0[1],p1[0],p1[1],p1[2],uv1[0],uv1[1],p2[0],p2[1],p2[2],uv2[0],uv2[1],clamp(red*255),clamp(green*255),clamp(blue*255));
   }
   // Real 24-joint idle skeleton, interpolated from the same baked clip. Lines
   // are submitted before GPU skin triangles, so the body naturally occludes them.
@@ -312,7 +350,7 @@ function animatedJeffrey(t){
   const jointPoints=joints0.map((point,index)=>{
     const next=joints1[index],x=point[0]+(next[0]-point[0])*mix;
     const y=point[1]+(next[1]-point[1])*mix,z=point[2]+(next[2]-point[2])*mix;
-    return [cx+(x*cos-z*sin)*scale,ground-y*scale];
+    return [cx+((x*playerFacing)*cos-z*sin)*scale,ground-y*scale];
   });
   for(const bone of jeffrey.bones){const a=jointPoints[bone[0]],b=jointPoints[bone[1]];line(a[0],a[1],b[0],b[1],2,102,242,214);}
   // Two point-sampled billboard emitters tied to animated ankle/hand space.
@@ -322,13 +360,16 @@ function animatedJeffrey(t){
     const y=ground-18-life*310+Math.cos(phase*1.3)*22;
     const size=2+((i+emitter)%4),z=-.18+life*.5;
     const r=emitter?255:72,g=emitter?96:228,b=emitter?156:255;
-    triangle3d(x-size,y-size,z,x+size,y-size,z,x+size,y+size,z,r,g,b);
-    triangle3d(x-size,y-size,z,x+size,y+size,z,x-size,y+size,z,r,g,b);
+    emitSprite(x,y,z,size*2,r,g,b,(i+emitter)&1);
+  }
+  if(moving)for(let i=0;i<18;i++){
+    const life=(runPhase*.7+i*.083)%1;
+    emitSprite(cx-playerFacing*(28+life*92),ground-4-life*34,.7,5+(i%3)*3,174,126,224,i&1);
   }
 }
 function paint(){
   const run=runtime(),t=run.monotonicUs/1000000;
-  triangleBatchIndex=0;
+  triangleBatchIndex=0;textureBatchIndex=0;spriteBatchIndex=0;
   if(!perfStarted)perfStarted=t;
   frameCount++;
   if(t-perfStarted>=2){
@@ -346,7 +387,7 @@ function paint(){
   const world=vertices.map((point)=>rotate(point,ax,ay));
   const points=world.map((point)=>{
     const scale=930/(3.45+point[2]);
-    return [960+point[0]*scale,530-point[1]*scale,point[2]];
+    return [960-cameraX*.38+point[0]*scale,530-point[1]*scale,point[2]];
   });
   const light=[Math.sin(t*.31)*.48,-.56,.72];
   const lightLength=Math.hypot(light[0],light[1],light[2]);
@@ -376,6 +417,8 @@ function paint(){
     triangle3d(p0[0],p0[1],p0[2],p1[0],p1[1],p1[2],p2[0],p2[1],p2[2],red,green,blue);
   }
   submitTriangleBatch(triangleBatch,triangleBatchIndex/12);
+  submitTextureBatch(textureBatch,textureBatchIndex/18);
+  submitSpriteBatch(spriteBatch,spriteBatchIndex/8);
   const audioLatency=run.audioLatencyMs>0?run.audioLatencyMs.toFixed(1)+" MS":"MEASURING";
   const audioSubmit=Number(run.audioSubmitUs||0),inputToAudio=Number(run.inputToAudioUs||0);
   const midi=run.midiInputs>0?run.midiInputs+" IN / NOTE "+run.midiNote+" / #"+(run.midiEvents||0):"NO MIDI INPUT";
@@ -387,10 +430,11 @@ function paint(){
   box(1384,34,500,384,7,9,25);
   line(1384,98,1884,98,2,92,66,126);
   systemWrite("STACK / LIVE PIPELINE",1412,52,27,234,228,255);
-  systemWrite("PALS + TEXTURED JEFFREY GLB\\n> 24-JOINT IDLE SKIN BAKE\\n> 3 LIGHTS + SHADOW + STENCIL\\n> DEPTH FOG + BILLBOARD EMITTERS\\n> LIVE JS / QUICKJS + CLOCK\\n> C++ D3D11 GPU BRIDGE\\n> 1 HARDWARE DRAW CALL\\n> XAUDIO2 HARMONIC SYNTH\\n> PRESENT(1) / 60 HZ VSYNC",1412,116,19,190,176,224);
+  systemWrite("PALS + UV-TEXTURED JEFFREY\\n> 24-JOINT 2.5D ATTRACT RUN\\n> D-PAD LEFT / RIGHT CONTROL\\n> 3 LIGHTS + D24S8 STENCIL\\n> DEPTH FOG + POINT SPRITES\\n> FULLSCREEN POST SHADER\\n> 3 BATCHED GPU DRAWS\\n> XAUDIO2 + MIDI + NET CLOCK\\n> PRESENT(1) / 60 HZ VSYNC",1412,116,19,190,176,224);
 }
 function act(button){
   lastButton=button;scenePulse=1;
+  lastPlayerInput=runtime().monotonicUs/1000000;
   if(button==="Menu"){
     audioOn=!audioOn;
     if(audioOn)oscillator(55,.06);else oscillatorStop();

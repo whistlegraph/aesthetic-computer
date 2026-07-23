@@ -7,10 +7,10 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import sharp from "sharp";
 
-const [source, destination, requestedFrames = "24"] = process.argv.slice(2);
+const [source, destination, requestedFrames = "24", textureDestination] = process.argv.slice(2);
 const frameCount = Math.max(8, Math.min(60, Number.parseInt(requestedFrames, 10) || 24));
 if (!source || !destination) {
-  throw new Error("usage: glb-skin-bake.mjs <animated.glb> <bake.json> [frames]");
+  throw new Error("usage: glb-skin-bake.mjs <animated.glb> <bake.json> [frames] [texture.rgba]");
 }
 
 function readGlb(path) {
@@ -196,6 +196,11 @@ async function decodedBaseImage() {
   const view = json.bufferViews?.[image?.bufferView];
   if (!view) return null;
   const encoded = binary.subarray(view.byteOffset || 0, (view.byteOffset || 0) + view.byteLength);
+  if (textureDestination) {
+    const texture = await sharp(encoded).resize(256, 256, { fit: "fill" })
+      .ensureAlpha().raw().toBuffer();
+    writeFileSync(textureDestination, texture);
+  }
   const { data, info } = await sharp(encoded).removeAlpha().raw().toBuffer({ resolveWithObject: true });
   return { data, width: info.width, height: info.height, channels: info.channels };
 }
@@ -243,8 +248,11 @@ const output = {
   duration: round(duration, 5), frameCount, vertices: positions.length,
   triangles: indices.length / 3, joints: skin.joints.length,
   frames, jointFrames, faces, bones,
+  uvs: uvs.map((uv) => [round(uv[0], 5), round(1 - uv[1], 5)]),
+  texture: textureDestination ? { width: 256, height: 256, filter: "point" } : null,
 };
 writeFileSync(destination, JSON.stringify(output));
 console.log(JSON.stringify({ destination, bytes: Buffer.byteLength(JSON.stringify(output)),
   frames: frameCount, vertices: positions.length, triangles: indices.length / 3,
-  joints: skin.joints.length, bones: bones.length, duration: output.duration }));
+  joints: skin.joints.length, bones: bones.length, duration: output.duration,
+  texture: textureDestination || null }));

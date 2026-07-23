@@ -60,11 +60,24 @@
     <AppxManifest Include="Package.appxmanifest" />
   </ItemGroup>
   <ItemGroup><Content Include="smoke_piece.js"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content></ItemGroup>
+  <ItemGroup><Content Include="Assets\JeffreyTexture.rgba"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content></ItemGroup>
   <ItemGroup>
     <FxCompile Include="TriangleVertexShader.hlsl">
       <ShaderType>Vertex</ShaderType><ShaderModel>5.0</ShaderModel><EntryPointName>main</EntryPointName>
     </FxCompile>
     <FxCompile Include="TrianglePixelShader.hlsl">
+      <ShaderType>Pixel</ShaderType><ShaderModel>5.0</ShaderModel><EntryPointName>main</EntryPointName>
+    </FxCompile>
+    <FxCompile Include="PostVertexShader.hlsl">
+      <ShaderType>Vertex</ShaderType><ShaderModel>5.0</ShaderModel><EntryPointName>main</EntryPointName>
+    </FxCompile>
+    <FxCompile Include="PostPixelShader.hlsl">
+      <ShaderType>Pixel</ShaderType><ShaderModel>5.0</ShaderModel><EntryPointName>main</EntryPointName>
+    </FxCompile>
+    <FxCompile Include="SpriteVertexShader.hlsl">
+      <ShaderType>Vertex</ShaderType><ShaderModel>5.0</ShaderModel><EntryPointName>main</EntryPointName>
+    </FxCompile>
+    <FxCompile Include="SpritePixelShader.hlsl">
       <ShaderType>Pixel</ShaderType><ShaderModel>5.0</ShaderModel><EntryPointName>main</EntryPointName>
     </FxCompile>
   </ItemGroup>

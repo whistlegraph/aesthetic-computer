@@ -15,6 +15,8 @@ an experimental comparison target, not the production architecture.
 | `api.clock.time()` / `seconds` | `Api::clock`, `Api::seconds` | QPC monotonic time plus midpoint-adjusted `/api/clock` Unix time and sync RTT |
 | `wipe`, `box`, `line`, `write` | `Graphics` command interface | D3D renderer batches these commands |
 | `triangles3d(Float32Array, count?)` | Flat 12-float triangle stream | One JS→native call and one hardware draw for up to 4,096 triangles |
+| `sprites3d(Float32Array, count?)` | Flat 8-float screen-facing sprite stream | Point-sampled two-frame atlas, depth/stencil tested, up to 512 sprites |
+| `texturedTriangles3d(Float32Array, count?)` | Flat 18-float position/UV/light stream | Point-sampled Jeffrey material texture, depth/stencil tested, up to 2,048 triangles |
 | system type and Xbox button symbols | `systemWrite`, `systemGlyph` | DirectWrite with Segoe UI / Segoe MDL2 Assets |
 | latest user painting | `painting` | Host downloads and decodes an allowlisted AC image |
 | `sound.synth({...})` | `Sound::synth(SynthVoice)` | Submit immediately to XAudio2, outside Present |

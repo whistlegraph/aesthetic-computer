@@ -47,6 +47,13 @@ struct Color { std::uint8_t r, g, b, a = 255; };
 struct Rect { float x, y, width, height; Color color; };
 struct Line { float x1, y1, x2, y2, width; Color color; };
 struct Triangle { float x1, y1, z1, x2, y2, z2, x3, y3, z3; Color color; };
+struct TexturedTriangle {
+  float x1, y1, z1, u1, v1;
+  float x2, y2, z2, u2, v2;
+  float x3, y3, z3, u3, v3;
+  Color color;
+};
+struct Sprite { float x, y, z, size; Color color; std::uint8_t frame = 0; };
 struct Text { std::string value; float x, y, size; Color color; };
 struct SystemText {
   std::string value;
@@ -73,6 +80,8 @@ class Graphics {
   virtual void box(const Rect&) = 0;
   virtual void line(const Line&) = 0;
   virtual void triangle(const Triangle&) {}
+  virtual void textured_triangle(const TexturedTriangle&) {}
+  virtual void sprite(const Sprite&) {}
   virtual void write(const Text&) = 0;
   virtual void system_write(const SystemText&) {}
   virtual void system_glyph(const SystemGlyph&) {}

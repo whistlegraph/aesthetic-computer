@@ -214,6 +214,112 @@ JSValue Triangles3d(JSContext* context, JSValueConst, int argc, JSValueConst* ar
   return JS_NewInt32(context, static_cast<int32_t>(count));
 }
 
+// Screen-facing point-sampled sprites. Layout repeats x,y,z,size,r,g,b,frame.
+JSValue Sprites3d(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api || argc < 1 ||
+      JS_GetTypedArrayType(argv[0]) != JS_TYPED_ARRAY_FLOAT32)
+    return JS_ThrowTypeError(context, "sprites3d requires a Float32Array");
+  size_t byteOffset = 0, byteLength = 0, bytesPerElement = 0;
+  JSValue arrayBuffer = JS_GetTypedArrayBuffer(
+    context, argv[0], &byteOffset, &byteLength, &bytesPerElement);
+  if (JS_IsException(arrayBuffer)) return arrayBuffer;
+  size_t bufferLength = 0;
+  uint8_t* bytes = JS_GetArrayBuffer(context, &bufferLength, arrayBuffer);
+  if (!bytes || bytesPerElement != sizeof(float) || byteOffset > bufferLength ||
+      byteLength > bufferLength - byteOffset || byteLength % (8 * sizeof(float)) != 0) {
+    JS_FreeValue(context, arrayBuffer);
+    return JS_ThrowRangeError(context, "sprites3d length must be a multiple of 8 floats");
+  }
+  const size_t capacity = byteLength / (8 * sizeof(float));
+  uint32_t requestedCount = static_cast<uint32_t>(capacity);
+  if (argc > 1 && JS_ToUint32(context, &requestedCount, argv[1])) {
+    JS_FreeValue(context, arrayBuffer);
+    return JS_EXCEPTION;
+  }
+  if (requestedCount > capacity || requestedCount > 512) {
+    JS_FreeValue(context, arrayBuffer);
+    return JS_ThrowRangeError(context, "sprites3d count exceeds the buffer or 512 sprites");
+  }
+  const float* values = reinterpret_cast<const float*>(bytes + byteOffset);
+  const auto color = [](float channel) {
+    return static_cast<uint8_t>((std::max)(0.f, (std::min)(255.f, channel)));
+  };
+  for (size_t sprite = 0; sprite < requestedCount; ++sprite) {
+    const float* value = values + sprite * 8;
+    bool valid = true;
+    for (int index = 0; index < 4; ++index)
+      valid = valid && std::isfinite(value[index]) && std::abs(value[index]) <= 32768.f;
+    if (!valid || value[3] <= 0) {
+      JS_FreeValue(context, arrayBuffer);
+      return JS_ThrowRangeError(context, "invalid sprite coordinates or size");
+    }
+    scope->api->graphics.sprite({value[0], value[1], value[2], value[3],
+      {color(value[4]), color(value[5]), color(value[6]), 255},
+      static_cast<uint8_t>((std::max)(0.f, (std::min)(1.f, value[7])))});
+  }
+  JS_FreeValue(context, arrayBuffer);
+  return JS_NewInt32(context, static_cast<int32_t>(requestedCount));
+}
+
+// UV-mapped triangle stream. Layout repeats three x,y,z,u,v vertices followed
+// by an RGB light tint: 18 floats per triangle.
+JSValue TexturedTriangles3d(JSContext* context, JSValueConst, int argc,
+    JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api || argc < 1 ||
+      JS_GetTypedArrayType(argv[0]) != JS_TYPED_ARRAY_FLOAT32)
+    return JS_ThrowTypeError(context, "texturedTriangles3d requires a Float32Array");
+  size_t byteOffset = 0, byteLength = 0, bytesPerElement = 0;
+  JSValue arrayBuffer = JS_GetTypedArrayBuffer(
+    context, argv[0], &byteOffset, &byteLength, &bytesPerElement);
+  if (JS_IsException(arrayBuffer)) return arrayBuffer;
+  size_t bufferLength = 0;
+  uint8_t* bytes = JS_GetArrayBuffer(context, &bufferLength, arrayBuffer);
+  if (!bytes || bytesPerElement != sizeof(float) || byteOffset > bufferLength ||
+      byteLength > bufferLength - byteOffset || byteLength % (18 * sizeof(float)) != 0) {
+    JS_FreeValue(context, arrayBuffer);
+    return JS_ThrowRangeError(context,
+      "texturedTriangles3d length must be a multiple of 18 floats");
+  }
+  const size_t capacity = byteLength / (18 * sizeof(float));
+  uint32_t requestedCount = static_cast<uint32_t>(capacity);
+  if (argc > 1 && JS_ToUint32(context, &requestedCount, argv[1])) {
+    JS_FreeValue(context, arrayBuffer);
+    return JS_EXCEPTION;
+  }
+  if (requestedCount > capacity || requestedCount > 2048) {
+    JS_FreeValue(context, arrayBuffer);
+    return JS_ThrowRangeError(context,
+      "texturedTriangles3d count exceeds the buffer or 2048 triangles");
+  }
+  const float* values = reinterpret_cast<const float*>(bytes + byteOffset);
+  const auto color = [](float channel) {
+    return static_cast<uint8_t>((std::max)(0.f, (std::min)(255.f, channel)));
+  };
+  for (size_t triangle = 0; triangle < requestedCount; ++triangle) {
+    const float* value = values + triangle * 18;
+    bool valid = true;
+    for (int vertex = 0; vertex < 3; ++vertex) {
+      const int base = vertex * 5;
+      for (int index = 0; index < 5; ++index)
+        valid = valid && std::isfinite(value[base + index]) &&
+          std::abs(value[base + index]) <= 32768.f;
+    }
+    if (!valid) {
+      JS_FreeValue(context, arrayBuffer);
+      return JS_ThrowRangeError(context, "invalid textured triangle coordinates");
+    }
+    scope->api->graphics.textured_triangle({
+      value[0], value[1], value[2], value[3], value[4],
+      value[5], value[6], value[7], value[8], value[9],
+      value[10], value[11], value[12], value[13], value[14],
+      {color(value[15]), color(value[16]), color(value[17]), 255}});
+  }
+  JS_FreeValue(context, arrayBuffer);
+  return JS_NewInt32(context, static_cast<int32_t>(requestedCount));
+}
+
 JSValue SystemWrite(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
   auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
   if (!scope || !scope->api || argc < 1) return JS_EXCEPTION;
@@ -456,6 +562,8 @@ class QuickJsPiece final : public JsPiece {
     JS_SetPropertyStr(context_, global, "triangle", JS_NewCFunction(context_, TriangleFill, "triangle", 9));
     JS_SetPropertyStr(context_, global, "triangle3d", JS_NewCFunction(context_, Triangle3d, "triangle3d", 12));
     JS_SetPropertyStr(context_, global, "triangles3d", JS_NewCFunction(context_, Triangles3d, "triangles3d", 2));
+    JS_SetPropertyStr(context_, global, "sprites3d", JS_NewCFunction(context_, Sprites3d, "sprites3d", 2));
+    JS_SetPropertyStr(context_, global, "texturedTriangles3d", JS_NewCFunction(context_, TexturedTriangles3d, "texturedTriangles3d", 2));
     JS_SetPropertyStr(context_, global, "systemWrite", JS_NewCFunction(context_, SystemWrite, "systemWrite", 7));
     JS_SetPropertyStr(context_, global, "systemGlyph", JS_NewCFunction(context_, SystemGlyph, "systemGlyph", 7));
     JS_SetPropertyStr(context_, global, "painting", JS_NewCFunction(context_, Painting, "painting", 4));
