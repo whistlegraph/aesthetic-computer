@@ -4,15 +4,19 @@
 // and procedural skybox reflection without exposing file or network APIs to JS.
 
 import { readFileSync, writeFileSync } from "node:fs";
+import { MeshoptSimplifier } from "meshoptimizer";
 import sharp from "sharp";
 
-const [source, destination, skinBakePath] = process.argv.slice(2);
+const [source, destination, skinBakePath, headBakePath] = process.argv.slice(2);
 if (!source || !destination) {
   throw new Error("usage: glb-to-native-material.mjs <simplified.glb> <piece.js> [skin-bake.json]");
 }
 const skinBake = skinBakePath ? JSON.parse(readFileSync(skinBakePath, "utf8")) : null;
+const headBake = headBakePath ? JSON.parse(readFileSync(headBakePath, "utf8")) : null;
 if (skinBake && (skinBake.triangles > 2400 || skinBake.frames?.length < 2))
   throw new Error("skin bake must contain 2+ frames and at most 2400 triangles");
+if (headBake && (headBake.triangles > 6500 || headBake.points?.length < 3))
+  throw new Error("head bake must contain 3+ vertices and at most 6500 triangles");
 
 const bytes = readFileSync(source);
 if (bytes.toString("ascii", 0, 4) !== "glTF" || bytes.readUInt32LE(4) !== 2) {
@@ -83,12 +87,25 @@ if (!primitive || primitive.attributes?.POSITION === undefined ||
     primitive.attributes?.TEXCOORD_0 === undefined || primitive.indices === undefined) {
   throw new Error("GLB needs one indexed triangle primitive with POSITION and TEXCOORD_0");
 }
-const positions = accessor(primitive.attributes.POSITION);
-const uvs = accessor(primitive.attributes.TEXCOORD_0);
-const indices = accessor(primitive.indices);
-if (indices.length % 3 || indices.length / 3 > 4096) {
+let positions = accessor(primitive.attributes.POSITION);
+let uvs = accessor(primitive.attributes.TEXCOORD_0);
+let indices = accessor(primitive.indices);
+if (indices.length % 3) {
   throw new Error("material piece requires 1-4096 triangles");
 }
+if (indices.length / 3 > 4096) {
+  await MeshoptSimplifier.ready;
+  const targetTriangles = Math.max(566, Math.floor(indices.length / 3 * .05));
+  const [lod] = MeshoptSimplifier.simplifySloppy(Uint32Array.from(indices),
+    Float32Array.from(positions.flat()), 3, null, targetTriangles * 3, 1);
+  const used = [...new Set(lod)];
+  const remap = new Map(used.map((id, index) => [id, index]));
+  positions = used.map((id) => positions[id]);
+  uvs = used.map((id) => uvs[id]);
+  indices = Array.from(lod, (id) => remap.get(id));
+}
+if (indices.length / 3 > 4096)
+  throw new Error("material simplification did not reach the 4096-triangle runtime limit");
 
 const material = json.materials?.[primitive.material || 0] || {};
 const pbr = material.pbrMetallicRoughness || {};
@@ -143,11 +160,12 @@ const vertices=${JSON.stringify(vertices)};
 const faces=${JSON.stringify(faceRows)};
 const stars=${JSON.stringify(stars)};
 const jeffrey=${skinBake ? JSON.stringify(skinBake) : "null"};
+const jeffreyHead=${headBake ? JSON.stringify(headBake) : "null"};
 let rotationX=0,rotationY=0,frameCount=0,perfStarted=0,fpsLabel="-- FPS",frameMsLabel="-- MS";
 let audioOn=true,lastSoundAt=-1,scenePulse=0,lastMidiEvent=0,lastButton="--";
-let playerX=1315,playerVelocity=0,playerFacing=1,cameraX=0,runPhase=0;
+let playerX=960,playerDepth=.7,playerVelocityX=0,playerVelocityDepth=0,playerFacing=1,cameraX=0,runPhase=0;
 let attractDirection=-1,lastSimTime=0,lastPlayerInput=-1e9,attractMode=true;
-const submitTriangleBatch=triangles3d,triangleBatch=new Float32Array(4096*12);
+const submitTriangleBatch=triangles3d,triangleBatch=new Float32Array(8192*12);
 const submitTextureBatch=texturedTriangles3d,textureBatch=new Float32Array(2048*18);
 const submitSpriteBatch=sprites3d,spriteBatch=new Float32Array(512*8);
 let triangleBatchIndex=0,textureBatchIndex=0,spriteBatchIndex=0;
@@ -183,24 +201,30 @@ function boot(){
 function sim(){
   const pad=gamepad(),run=runtime(),t=run.monotonicUs/1000000;
   const dt=lastSimTime?clamp(t-lastSimTime,0,.05):1/60;lastSimTime=t;
-  let direction=0;
-  if(pad.down.includes("ArrowLeft")){direction=-1;lastPlayerInput=t;}
-  if(pad.down.includes("ArrowRight")){direction=1;lastPlayerInput=t;}
-  if(pad.down.includes("ArrowUp"))rotationX-=0.035;
-  if(pad.down.includes("ArrowDown"))rotationX+=0.035;
+  let directionX=0,directionDepth=0;
+  if(pad.down.includes("ArrowLeft")){directionX=-1;lastPlayerInput=t;}
+  if(pad.down.includes("ArrowRight")){directionX=1;lastPlayerInput=t;}
+  if(pad.down.includes("ArrowUp")){directionDepth=-1;lastPlayerInput=t;}
+  if(pad.down.includes("ArrowDown")){directionDepth=1;lastPlayerInput=t;}
   attractMode=t-lastPlayerInput>6;
   if(attractMode){
-    if(playerX<820)attractDirection=1;
-    if(playerX>1650)attractDirection=-1;
-    direction=attractDirection;
+    if(playerX<510)attractDirection=1;
+    if(playerX>1410)attractDirection=-1;
+    directionX=attractDirection;
+    directionDepth=clamp(.57+Math.sin(t*.41)*.2-playerDepth,-1,1);
   }
-  playerVelocity+=direction*980*dt;
-  playerVelocity*=Math.pow(direction ? .48 : .025,dt);
-  playerVelocity=clamp(playerVelocity,-285,285);
-  playerX=clamp(playerX+playerVelocity*dt,760,1710);
-  if(Math.abs(playerVelocity)>8)playerFacing=playerVelocity<0?-1:1;
-  runPhase+=Math.abs(playerVelocity)*dt*.038;
-  cameraX+=((playerX-1315)*.3-cameraX)*Math.min(1,dt*2.6);
+  playerVelocityX+=directionX*1120*dt;
+  playerVelocityDepth+=directionDepth*2.2*dt;
+  playerVelocityX*=Math.pow(directionX ? .42 : .018,dt);
+  playerVelocityDepth*=Math.pow(directionDepth ? .36 : .012,dt);
+  playerVelocityX=clamp(playerVelocityX,-330,330);
+  playerVelocityDepth=clamp(playerVelocityDepth,-.72,.72);
+  playerX=clamp(playerX+playerVelocityX*dt,390,1530);
+  playerDepth=clamp(playerDepth+playerVelocityDepth*dt,.05,1);
+  if(Math.abs(playerVelocityX)>8)playerFacing=playerVelocityX<0?-1:1;
+  const playerSpeed=Math.hypot(playerVelocityX,playerVelocityDepth*430);
+  runPhase+=playerSpeed*dt*.0049;
+  cameraX+=((playerX-960)*.16-cameraX)*Math.min(1,dt*2.6);
   scenePulse*=.92;
   if(run.midiEvents>lastMidiEvent){lastMidiEvent=run.midiEvents;scenePulse=1;}
   if(audioOn&&run.midiGate){
@@ -319,27 +343,32 @@ function orbitalScene(t,run){
 }
 function animatedJeffrey(t){
   if(!jeffrey)return;
-  const moving=Math.abs(playerVelocity)>18;
-  const clipTime=moving?runPhase*.32:t;
-  const position=(clipTime%jeffrey.duration)/jeffrey.duration*jeffrey.frameCount;
-  const frame0=Math.floor(position)%jeffrey.frameCount,frame1=(frame0+1)%jeffrey.frameCount,mix=position-Math.floor(position);
-  const source0=jeffrey.frames[frame0],source1=jeffrey.frames[frame1];
+  const moving=Math.hypot(playerVelocityX,playerVelocityDepth*430)>18;
+  const frames=moving&&jeffrey.runFrames?jeffrey.runFrames:jeffrey.frames;
+  const jointFrames=moving&&jeffrey.runJointFrames?jeffrey.runJointFrames:jeffrey.jointFrames;
+  const clipDuration=moving&&jeffrey.runDuration?jeffrey.runDuration:jeffrey.duration;
+  const clipFrames=moving&&jeffrey.runFrameCount?jeffrey.runFrameCount:jeffrey.frameCount;
+  const clipTime=moving?runPhase:t;
+  const position=(clipTime%clipDuration)/clipDuration*clipFrames;
+  const frame0=Math.floor(position)%clipFrames,frame1=(frame0+1)%clipFrames,mix=position-Math.floor(position);
+  const source0=frames[frame0],source1=frames[frame1];
   // Portrait framing: keep the generated face square to the camera and allow
   // only a small living idle turn. D-pad motion shifts the portrait without
   // flipping it into a profile view.
-  const angle=Math.sin(t*.23)*.018,cos=Math.cos(angle),sin=Math.sin(angle);
+  const angle=Math.PI+Math.sin(t*.23)*.018+playerFacing*.012,cos=Math.cos(angle),sin=Math.sin(angle);
   const world=source0.map((point,index)=>{
     const next=source1[index],x=point[0]+(next[0]-point[0])*mix;
     const y=point[1]+(next[1]-point[1])*mix,z=point[2]+(next[2]-point[2])*mix;
     return [x*cos-z*sin,y,x*sin+z*cos];
   });
-  const cx=960+(playerX-1315)*.16-cameraX*.08;
-  const ground=1125-(moving?Math.abs(Math.sin(runPhase*Math.PI))*4:0),scale=720;
+  const cx=playerX-cameraX*.08;
+  const scale=570+playerDepth*210;
+  const ground=930+playerDepth*190-(moving?Math.abs(Math.sin(runPhase*Math.PI*2))*7:0);
   const points=world.map((point)=>[cx+point[0]*scale,ground-point[1]*scale,point[2]+.05]);
   // Project a bounded subset onto the floor for a moving cast-shadow pass.
   for(let index=0;index<jeffrey.faces.length;index+=8){
     const face=jeffrey.faces[index],a=world[face[0]],b=world[face[1]],c=world[face[2]];
-    const shadow=(point)=>[cx+point[0]*scale+92,735+point[2]*82,.98];
+    const shadow=(point)=>[cx+point[0]*scale+70+playerDepth*30,700+playerDepth*220+point[2]*(58+playerDepth*36),.98];
     const p0=shadow(a),p1=shadow(b),p2=shadow(c);
     triangle3d(p0[0],p0[1],p0[2],p1[0],p1[1],p1[2],p2[0],p2[1],p2[2],9,6,20);
   }
@@ -370,15 +399,44 @@ function animatedJeffrey(t){
     const uv0=jeffrey.uvs[face[0]],uv1=jeffrey.uvs[face[1]],uv2=jeffrey.uvs[face[2]];
     emitTexturedTriangle(p0[0],p0[1],p0[2],uv0[0],uv0[1],p1[0],p1[1],p1[2],uv1[0],uv1[1],p2[0],p2[1],p2[2],uv2[0],uv2[1],clamp(red*255),clamp(green*255),clamp(blue*255));
   }
-  // Real 24-joint idle skeleton, interpolated from the same baked clip. Lines
+  // Real 24-joint skeleton, interpolated from the active idle/run clip. Lines
   // are submitted before GPU skin triangles, so the body naturally occludes them.
-  const joints0=jeffrey.jointFrames[frame0],joints1=jeffrey.jointFrames[frame1];
+  const joints0=jointFrames[frame0],joints1=jointFrames[frame1];
   const jointPoints=joints0.map((point,index)=>{
     const next=joints1[index],x=point[0]+(next[0]-point[0])*mix;
     const y=point[1]+(next[1]-point[1])*mix,z=point[2]+(next[2]-point[2])*mix;
     return [cx+(x*cos-z*sin)*scale,ground-y*scale];
   });
   for(const bone of jeffrey.bones){const a=jointPoints[bone[0]],b=jointPoints[bone[1]];line(a[0],a[1],b[0],b[1],2,102,242,214);}
+  detailedJeffreyHead(t,cx,ground,scale,moving);
+}
+function detailedJeffreyHead(t,cx,ground,bodyScale,moving){
+  if(!jeffreyHead)return;
+  const yaw=Math.PI+Math.sin(t*.19)*.012+playerFacing*.008;
+  const cosine=Math.cos(yaw),sine=Math.sin(yaw),lean=moving?playerVelocityX/330*.045:0;
+  const world=jeffreyHead.points.map((point)=>{
+    const x=point[0]*cosine-point[2]*sine,y=point[1]+point[0]*lean;
+    return [x,y,point[0]*sine+point[2]*cosine];
+  });
+  const headScale=bodyScale*.47,centerY=ground-bodyScale*.91;
+  const points=world.map((point)=>[cx+point[0]*headScale,centerY-point[1]*headScale,point[2]*.16-1.08]);
+  const light=[Math.sin(t*.53)*.34,-.42,-.84];
+  const lightLength=Math.hypot(...light);for(let i=0;i<3;i++)light[i]/=lightLength;
+  for(const face of jeffreyHead.faces){
+    const a=world[face[0]],b=world[face[1]],c=world[face[2]];
+    const ux=b[0]-a[0],uy=b[1]-a[1],uz=b[2]-a[2],vx=c[0]-a[0],vy=c[1]-a[1],vz=c[2]-a[2];
+    let nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx;
+    const length=Math.hypot(nx,ny,nz);if(length<.00001)continue;
+    const toward=nz>0?-1:1;nx=nx/length*toward;ny=ny/length*toward;nz=nz/length*toward;
+    const diffuse=.5+.64*Math.max(0,nx*light[0]+ny*light[1]+nz*light[2]);
+    const spec=Math.pow(Math.max(0,nx*.1+ny*-.25+nz*-.96),28)*(1-(face[7]||.5))*.46;
+    const rim=Math.pow(1-Math.abs(nz),2.2)*.18;
+    const p0=points[face[0]],p1=points[face[1]],p2=points[face[2]];
+    triangle3d(p0[0],p0[1],p0[2],p1[0],p1[1],p1[2],p2[0],p2[1],p2[2],
+      clamp(face[3]*diffuse+(face[8]||0)*.12+255*spec+86*rim),
+      clamp(face[4]*diffuse+(face[9]||0)*.12+240*spec+62*rim),
+      clamp(face[5]*diffuse+(face[10]||0)*.12+255*spec+112*rim));
+  }
 }
 function paint(){
   const run=runtime(),t=run.monotonicUs/1000000;
@@ -435,7 +493,7 @@ function paint(){
   submitSpriteBatch(spriteBatch,spriteBatchIndex/8);
   const audioLatency=run.audioLatencyMs>0?run.audioLatencyMs.toFixed(1)+" MS":"MEASURING";
   const audioSubmit=Number(run.audioSubmitUs||0),inputToAudio=Number(run.inputToAudioUs||0);
-  const midi=run.midiInputs>0?run.midiInputs+" IN / "+(run.midiGate?"ON ":"OFF ")+"NOTE "+run.midiNote+" / BEND "+(run.midiPitchBend||8192)+" / CC "+(run.midiControl||0)+":"+(run.midiControlValue||0):"NO MIDI INPUT";
+  const midi=run.midiInputs>0?run.midiInputs+" IN / "+(run.midiGate?"ON ":"OFF ")+"NOTE "+run.midiNote+" / BEND "+(run.midiPitchBend||8192)+" / CC "+(run.midiControl||0)+":"+(run.midiControlValue||0):(run.midiStatus||"NO MIDI INPUT").toUpperCase();
   const clock=run.clockSynced?(run.clockOffsetMs>=0?"+":"")+run.clockOffsetMs+" MS / RTT "+run.clockRttMs+" MS":"SYNCING";
   box(30,28,370,52,27,21,70);
   systemWrite(fpsLabel+" / "+frameMsLabel,48,38,23,245,232,255);

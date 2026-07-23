@@ -11,6 +11,7 @@
 #include <dxgi1_2.h>
 #include <xaudio2.h>
 #include <windows.networking.connectivity.h>
+#include <windows.networking.sockets.h>
 #include <windows.data.json.h>
 #include <windows.devices.enumeration.h>
 #include <windows.devices.midi.h>

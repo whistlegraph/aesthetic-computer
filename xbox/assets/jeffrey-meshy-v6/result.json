@@ -1,0 +1,105 @@
+{
+  "source": "thespianjas/assets/versions/v002/refs/jeffrey-modeling-plate.png",
+  "endpoint": "fal-ai/meshy/v6/multi-image-to-3d",
+  "generated": "2026-07-23T17:37:13.503Z",
+  "input": {
+    "image_urls": [
+      "refs/front.png",
+      "refs/profile.png",
+      "refs/three-quarter.png",
+      "refs/full-body.png"
+    ],
+    "topology": "triangle",
+    "target_polycount": 50000,
+    "symmetry_mode": "auto",
+    "should_remesh": true,
+    "should_texture": true,
+    "enable_pbr": true,
+    "texture_prompt": "identity-faithful Jeffrey Alan Scudder portrait from the supplied photographic views; natural warm skin, green eyes, medium brown ear-length hair with individual locks, white pinstripe overshirt, peach t-shirt, cropped blue trousers, realistic matte fabric",
+    "enable_rigging": true,
+    "rigging_height_meters": 1.82,
+    "enable_safety_checker": true
+  },
+  "result": {
+    "animation_glb": null,
+    "animation_fbx": null,
+    "model_glb": {
+      "url": "https://v3b.fal.media/files/b/0aa36e8d/1hhdaUFH33aQ6zbDTuT6C_model.glb",
+      "content_type": "model/gltf-binary",
+      "file_name": "model.glb",
+      "file_size": 17075760
+    },
+    "thumbnail": {
+      "url": "https://v3b.fal.media/files/b/0aa36e81/D0v56ypchdksHMsrmlink_preview.png",
+      "content_type": "image/png",
+      "file_name": "preview.png",
+      "file_size": 140501
+    },
+    "model_urls": {
+      "glb": {
+        "url": "https://v3b.fal.media/files/b/0aa36e8d/1hhdaUFH33aQ6zbDTuT6C_model.glb",
+        "content_type": "model/gltf-binary",
+        "file_name": "model.glb",
+        "file_size": 17075760
+      },
+      "fbx": {
+        "url": "https://v3b.fal.media/files/b/0aa36e80/du6xmP_DuFNUVhZk51wSC_model.fbx",
+        "content_type": "application/octet-stream",
+        "file_name": "model.fbx",
+        "file_size": 16786172
+      },
+      "obj": {
+        "url": "https://v3b.fal.media/files/b/0aa36e80/PwAEOVZHrKQ5vAolj4yAJ_model.obj",
+        "content_type": "text/plain",
+        "file_name": "model.obj",
+        "file_size": 5185219
+      },
+      "usdz": {
+        "url": "https://v3b.fal.media/files/b/0aa36e8e/08DuNyNY3JKeufrSjiN3g_model.usdz",
+        "content_type": "model/vnd.usdz+zip",
+        "file_name": "model.usdz",
+        "file_size": 18240613
+      },
+      "blend": null,
+      "stl": {
+        "url": "https://v3b.fal.media/files/b/0aa36e81/g8K_AnGkDfDA6DqhY0a8S_model.stl",
+        "content_type": "application/octet-stream",
+        "file_name": "model.stl",
+        "file_size": 2387534
+      }
+    },
+    "texture_urls": [
+      {
+        "base_color": {
+          "url": "https://v3b.fal.media/files/b/0aa36e8f/X77f9UjN02Zzi0MeRWT8B_texture_0.png",
+          "content_type": "image/png",
+          "file_name": "texture_0.png",
+          "file_size": 7309738
+        },
+        "metallic": {
+          "url": "https://v3b.fal.media/files/b/0aa36e82/PhyAatAntvUs3a0Ai6bSi_texture_0_metallic.png",
+          "content_type": "image/png",
+          "file_name": "texture_0_metallic.png",
+          "file_size": 13297
+        },
+        "normal": {
+          "url": "https://v3b.fal.media/files/b/0aa36e90/hA1lIFFEc-M016nQfT-y-_texture_0_normal.png",
+          "content_type": "image/png",
+          "file_name": "texture_0_normal.png",
+          "file_size": 8606858
+        },
+        "roughness": {
+          "url": "https://v3b.fal.media/files/b/0aa36e82/58qiNi3WA9HEwDm8k35QV_texture_0_roughness.png",
+          "content_type": "image/png",
+          "file_name": "texture_0_roughness.png",
+          "file_size": 1063125
+        }
+      }
+    ],
+    "seed": 1679151266,
+    "rigged_character_glb": null,
+    "rigged_character_fbx": null,
+    "basic_animations": null,
+    "rig_task_id": null
+  }
+}

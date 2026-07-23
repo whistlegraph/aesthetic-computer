@@ -31,6 +31,20 @@ monophonic instrument. Note On/Off gates a native XAudio2 sine oscillator,
 CC7 controls level. `runtime()` reports the gate, channel, note, velocity,
 pitch bend, last controller/value, port status, and input-to-audio latency.
 
+Revision 23 adds a bounded UDP MIDI inlet on port `51337`. It accepts only the
+`ACM1` bridge envelope and only Note On/Off, CC, and pitch-bend messages, then
+feeds the exact same native oscillator/event path as a local MIDI port. This is
+needed for instruments such as Yamaha reface whose vendor USB-MIDI driver is
+not available inside Xbox UWP. On a Mac connected to the same private network:
+
+```bash
+swift xbox/tools/midi-bridge.swift <xbox-host> reface
+```
+
+The bridge reads CoreMIDI, prints the live event stream, and sends one compact
+UDP datagram per musical event. The Xbox HUD changes from
+`NETWORK-LISTENING :51337` to `NETWORK: REFACE YC` after the first packet.
+
 Revision 13 also exposes bounded `stampPainting` and `blur` primitives to the
 trusted host-side KidLisp compiler. See [`../KIDLISP-NATIVE.md`](../KIDLISP-NATIVE.md)
 for the supported subset and `$obk` wire-deploy flow.

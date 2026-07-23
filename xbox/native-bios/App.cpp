@@ -8,6 +8,7 @@ using namespace Windows::ApplicationModel::Core;
 using namespace Windows::ApplicationModel::Activation;
 using namespace Windows::Gaming::Input;
 using namespace Windows::Networking::Connectivity;
+using namespace Windows::Networking::Sockets;
 using namespace Windows::Data::Json;
 using namespace Windows::Devices::Enumeration;
 using namespace Windows::Devices::Midi;
@@ -310,7 +311,7 @@ public:
     m_sound->on_oscillator_stop = [this]() { StopOscillator(); };
     m_sound->get_rate = [this]() { return static_cast<int>(m_sampleRate); };
     m_api = std::make_unique<Api>(Api{{1920, 1080, 1}, {}, {}, {}, *m_graphics, *m_sound, {}});
-    m_api->system.version = "1.0.0.18";
+    m_api->system.version = "1.0.0.23";
     m_api->telemetry = [](std::string_view line) {
       std::string safe(line);
       for (auto& character : safe) if (character == '\n' || character == '\r') character = ' ';
@@ -318,6 +319,7 @@ public:
       LogTelemetry("AC_NATIVE_" + safe);
     };
     InitializeMidi();
+    InitializeNetworkMidi();
     RefreshCapabilities(true);
     RefreshAcData(true);
     RefreshNetworkClock(true);
@@ -334,7 +336,7 @@ public:
   }
 
   virtual void Load(String^) {}
-  virtual void Uninitialize() { DestroyMidi(); DestroyAudio(); }
+  virtual void Uninitialize() { DestroyNetworkMidi(); DestroyMidi(); DestroyAudio(); }
 
   virtual void Run() {
     Render({0.025f, 0.02f, 0.04f, 1.0f});
@@ -556,7 +558,8 @@ private:
     raster.CullMode = D3D11_CULL_NONE;
     raster.DepthClipEnable = TRUE;
     Check(m_device->CreateRasterizerState(&raster, &m_triangleRasterState));
-    LogTelemetry("AC_NATIVE_GPU_TRIANGLES ready=1 max=4096 depth=d24s8 stencil=write");
+    LogTelemetry("AC_NATIVE_GPU_TRIANGLES ready=1 max=" +
+      std::to_string(kMaxTriangles) + " depth=d24s8 stencil=write");
   }
 
   bool DrawGpuTriangles() {
@@ -978,6 +981,75 @@ private:
     long long qpc = 0;
   };
 
+  void InitializeNetworkMidi() {
+    if (m_midiNetworkSocket) return;
+    m_midiNetworkSocket = ref new DatagramSocket();
+    m_midiNetworkToken = m_midiNetworkSocket->MessageReceived +=
+      ref new TypedEventHandler<DatagramSocket^, DatagramSocketMessageReceivedEventArgs^>(
+        this, &App::OnNetworkMidiMessage);
+    create_task(m_midiNetworkSocket->BindServiceNameAsync(ref new String(L"51337")))
+      .then([this](task<void> completed) {
+        try {
+          completed.get();
+          m_midiNetworkListening = true;
+          LogTelemetry("AC_NATIVE_MIDI_NETWORK status=listening udp=51337");
+        } catch (Exception^ error) {
+          m_midiNetworkFailed = true;
+          LogTelemetry("AC_NATIVE_MIDI_NETWORK_ERROR " + Utf8(error->Message));
+        }
+      });
+  }
+
+  void DestroyNetworkMidi() {
+    if (!m_midiNetworkSocket) return;
+    m_midiNetworkSocket->MessageReceived -= m_midiNetworkToken;
+    delete m_midiNetworkSocket;
+    m_midiNetworkSocket = nullptr;
+  }
+
+  void OnNetworkMidiMessage(DatagramSocket^, DatagramSocketMessageReceivedEventArgs^ args) {
+    if (!args) return;
+    try {
+      auto reader = args->GetDataReader();
+      const auto length = reader->UnconsumedBufferLength;
+      if (length == 0 || length > 192) return;
+      const auto text = Utf8(reader->ReadString(length));
+      unsigned sequence = 0, status = 0, data1 = 0, data2 = 0;
+      long long sentUs = 0;
+      if (sscanf_s(text.c_str(), "ACM1 %u %lld %x %u %u", &sequence, &sentUs,
+          &status, &data1, &data2) != 5 || status > 255 || data1 > 127 || data2 > 127) return;
+      PendingMidiEvent event;
+      LARGE_INTEGER received{};
+      QueryPerformanceCounter(&received);
+      event.qpc = received.QuadPart;
+      event.channel = static_cast<int>(status & 0x0f);
+      const auto command = status & 0xf0;
+      if (command == 0x90) {
+        event.kind = data2 ? MidiEventKind::NoteOn : MidiEventKind::NoteOff;
+        event.data1 = static_cast<int>(data1); event.data2 = static_cast<int>(data2);
+      } else if (command == 0x80) {
+        event.kind = MidiEventKind::NoteOff;
+        event.data1 = static_cast<int>(data1); event.data2 = static_cast<int>(data2);
+      } else if (command == 0xe0) {
+        event.kind = MidiEventKind::PitchBend;
+        event.data1 = static_cast<int>(data1 | (data2 << 7));
+      } else if (command == 0xb0) {
+        event.kind = MidiEventKind::ControlChange;
+        event.data1 = static_cast<int>(data1); event.data2 = static_cast<int>(data2);
+      } else {
+        return;
+      }
+      {
+        std::lock_guard<std::mutex> lock(m_midiMutex);
+        if (m_pendingMidi.size() < 32) m_pendingMidi.push_back(event);
+      }
+      m_midiNetworkActive = true;
+      ++m_midiNetworkPackets;
+    } catch (Exception^) {
+      // Ignore malformed or disconnected datagrams; the listener stays alive.
+    }
+  }
+
   void InitializeMidi() {
     bool expected = false;
     if (m_midiInPort || !m_midiScanInFlight.compare_exchange_strong(expected, true)) return;
@@ -986,8 +1058,14 @@ private:
         if (!m_api) return create_task([] {});
         m_api->audio.midi_inputs = devices ? devices->Size : 0;
         if (!devices || devices->Size == 0) {
-          m_api->audio.midi_status = "no-input";
-          LogTelemetry("AC_NATIVE_MIDI inputs=0 status=no-input");
+          if (m_midiNetworkActive) {
+            m_api->audio.midi_inputs = 1;
+            m_api->audio.midi_status = "network: reface YC";
+          } else {
+            m_api->audio.midi_status = "no-input";
+          }
+          LogTelemetry("AC_NATIVE_MIDI inputs=0 status=no-input network=" +
+            std::to_string(m_midiNetworkActive.load()));
           return create_task([] {});
         }
         const auto device = devices->GetAt(0);
@@ -1090,6 +1168,15 @@ private:
   void PollMidi() {
     if (!m_api) return;
     if (!m_midiInPort && GetTickCount64() >= m_nextMidiScanMs) InitializeMidi();
+    const auto networkPackets = m_midiNetworkPackets.exchange(0);
+    if (networkPackets > 0) {
+      m_api->audio.midi_inputs = 1;
+      m_api->audio.midi_status = "network: reface YC";
+    } else if (!m_midiInPort && !m_midiNetworkActive && m_midiNetworkListening) {
+      m_api->audio.midi_status = "network-listening :51337";
+    } else if (!m_midiInPort && m_midiNetworkFailed) {
+      m_api->audio.midi_status = "network-bind-failed";
+    }
     std::vector<PendingMidiEvent> events;
     {
       std::lock_guard<std::mutex> lock(m_midiMutex);
@@ -1226,7 +1313,7 @@ private:
     if (!m_networkClockRequestInFlight.compare_exchange_strong(expected, true)) return;
     const auto sentAt = SystemUnixMs();
     auto client = ref new HttpClient();
-    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.18 Xbox ClockSync");
+    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.23 Xbox ClockSync");
     create_task(client->GetStringAsync(
       ref new Uri(L"https://aesthetic.computer/api/clock")))
       .then([this, client, sentAt](task<String^> completed) {
@@ -1821,7 +1908,7 @@ private:
   unsigned m_frameHeight = 0;
   unsigned m_frameBlurRadius = 0;
   static constexpr std::size_t kMaxSystemDraws = 24;
-  static constexpr std::size_t kMaxTriangles = 4096;
+  static constexpr std::size_t kMaxTriangles = 8192;
   static constexpr std::size_t kMaxTexturedTriangles = 2048;
   static constexpr std::size_t kMaxSprites = 512;
   std::size_t m_frameSystemDrawsDropped = 0;
@@ -1895,6 +1982,12 @@ private:
   std::atomic_bool m_midiScanInFlight{false};
   ULONGLONG m_nextMidiScanMs = 0;
   float m_midiVolume = 1;
+  DatagramSocket^ m_midiNetworkSocket = nullptr;
+  Windows::Foundation::EventRegistrationToken m_midiNetworkToken{};
+  std::atomic_bool m_midiNetworkListening{false};
+  std::atomic_bool m_midiNetworkFailed{false};
+  std::atomic_bool m_midiNetworkActive{false};
+  std::atomic_uint64_t m_midiNetworkPackets{0};
   std::vector<int16_t> m_samples;
   std::vector<int16_t> m_oscSamples;
   std::vector<uint32_t> m_cpuFrame;
