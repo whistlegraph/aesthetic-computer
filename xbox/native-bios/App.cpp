@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "QuickJsEngine.hpp"
+#include "../runtime/include/ac/image_effects.hpp"
 
 using Microsoft::WRL::ComPtr;
 using namespace Platform;
@@ -141,6 +142,7 @@ class HostGraphics final : public Graphics {
   std::function<void(const ac::xbox::SystemText&)> on_system_write;
   std::function<void(const ac::xbox::SystemGlyph&)> on_system_glyph;
   std::function<void(const ac::xbox::ImageDraw&)> on_image;
+  std::function<void(unsigned)> on_blur;
   void wipe(Color color) override { if (on_wipe) on_wipe(color); }
   void box(const ac::xbox::Rect& rect) override { if (on_box) on_box(rect); }
   void line(const ac::xbox::Line& line) override { if (on_line) on_line(line); }
@@ -152,6 +154,7 @@ class HostGraphics final : public Graphics {
     if (on_system_glyph) on_system_glyph(glyph);
   }
   void image(const ac::xbox::ImageDraw& draw) override { if (on_image) on_image(draw); }
+  void blur(unsigned radius) override { if (on_blur) on_blur(radius); }
 };
 class HostSound final : public Sound {
  public:
@@ -204,6 +207,10 @@ public:
     };
     m_graphics->on_image = [this](const ac::xbox::ImageDraw& draw) {
       m_frameImages.push_back(draw);
+      RequestFrameImage(draw.source);
+    };
+    m_graphics->on_blur = [this](unsigned radius) {
+      m_frameBlurRadius = (std::max)(m_frameBlurRadius, (std::min)(16u, radius));
     };
     m_sound->on_synth = [this](const SynthVoice& voice) { PlaySynth(voice); };
     m_sound->on_stop = [this]() { if (m_voice) { m_voice->Stop(0); m_voice->FlushSourceBuffers(); } };
@@ -213,7 +220,7 @@ public:
     m_sound->on_oscillator_stop = [this]() { StopOscillator(); };
     m_sound->get_rate = [this]() { return static_cast<int>(m_sampleRate); };
     m_api = std::make_unique<Api>(Api{{1920, 1080, 1}, {}, {}, {}, *m_graphics, *m_sound});
-    m_api->system.version = "1.0.0.12";
+    m_api->system.version = "1.0.0.13";
     m_api->telemetry = [](std::string_view line) {
       std::string safe(line);
       for (auto& character : safe) if (character == '\n' || character == '\r') character = ' ';
@@ -252,6 +259,7 @@ public:
       m_frameSystemTexts.clear();
       m_frameSystemGlyphs.clear();
       m_frameImages.clear();
+      m_frameBlurRadius = 0;
       if (m_supervisor && m_supervisor->active()) {
         try {
           m_supervisor->active()->sim(*m_api);
@@ -631,7 +639,7 @@ private:
     if (!m_acRequestInFlight.compare_exchange_strong(expected, true)) return;
 
     auto client = ref new HttpClient();
-    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.12 Xbox");
+    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.13 Xbox");
     std::vector<task<String^>> requests;
     requests.push_back(create_task(client->GetStringAsync(
       ref new Uri(L"https://aesthetic.computer/api/mood/moods-of-the-day"))));
@@ -677,7 +685,7 @@ private:
           snapshot->status = "ready";
           std::atomic_store(&m_api->ac,
             std::static_pointer_cast<const AcSnapshot>(snapshot));
-          DownloadPainting(snapshot->painting_url);
+          DownloadPainting("latest-painting", snapshot->painting_url);
           LogTelemetry("AC_NATIVE_AC_READY mood=" + snapshot->mood_handle +
             " clock=" + snapshot->clock_from +
             " painting=" + std::to_string(!snapshot->painting_url.empty()));
@@ -696,13 +704,46 @@ private:
       });
   }
 
-  void DownloadPainting(const std::string& url) {
-    if (url.empty()) return;
-    const auto current = std::atomic_load(&m_paintingImage);
-    if ((current && current->url == url) || m_paintingRequestInFlight.exchange(true)) return;
+  void RequestFrameImage(const std::string& source) {
+    if (source == "latest-painting") return;
+    if (source.size() < 2 || source.size() > 9 || source.front() != '#' ||
+        !std::all_of(source.begin() + 1, source.end(), [](unsigned char character) {
+          return (character >= '0' && character <= '9') ||
+            (character >= 'A' && character <= 'Z') ||
+            (character >= 'a' && character <= 'z');
+        })) {
+      LogTelemetry("AC_NATIVE_IMAGE_REJECT reason=source");
+      return;
+    }
+    DownloadPainting(source, "https://aesthetic.computer/media/paintings/" +
+      source.substr(1) + ".png");
+  }
+
+  std::shared_ptr<const PaintingImage> FrameImage(const std::string& source) {
+    std::lock_guard<std::mutex> lock(m_imageMutex);
+    const auto found = m_paintingImages.find(source);
+    return found == m_paintingImages.end() ? nullptr : found->second;
+  }
+
+  void DownloadPainting(const std::string& key, const std::string& url) {
+    if (key.empty() || url.empty()) return;
+    {
+      std::lock_guard<std::mutex> lock(m_imageMutex);
+      const auto current = m_paintingImages.find(key);
+      if (current != m_paintingImages.end() && current->second &&
+          current->second->url == url) return;
+      if (m_paintingRequests.find(key) != m_paintingRequests.end()) return;
+      if (m_paintingImages.size() + m_paintingRequests.size() >= 8) {
+        LogTelemetry("AC_NATIVE_IMAGE_REJECT reason=cache-limit");
+        return;
+      }
+      m_paintingRequests.insert(key);
+    }
     auto client = ref new HttpClient();
     create_task(client->GetBufferAsync(ref new Uri(ref new String(Wide(url).c_str()))))
       .then([](IBuffer^ buffer) {
+        if (!buffer || buffer->Length == 0 || buffer->Length > 8 * 1024 * 1024)
+          throw std::runtime_error("painting payload exceeds 8 MiB limit");
         auto stream = ref new InMemoryRandomAccessStream();
         auto writer = ref new DataWriter(stream);
         writer->WriteBuffer(buffer);
@@ -741,20 +782,23 @@ private:
               });
         });
       })
-      .then([this, client, url](task<std::shared_ptr<PaintingImage>> completed) {
+      .then([this, client, key, url](task<std::shared_ptr<PaintingImage>> completed) {
         try {
           auto image = completed.get();
           image->url = url;
-          std::atomic_store(&m_paintingImage,
-            std::static_pointer_cast<const PaintingImage>(image));
-          LogTelemetry("AC_NATIVE_PAINTING_READY " + std::to_string(image->width) + "x" +
-            std::to_string(image->height));
+          {
+            std::lock_guard<std::mutex> lock(m_imageMutex);
+            m_paintingImages[key] = std::static_pointer_cast<const PaintingImage>(image);
+          }
+          LogTelemetry("AC_NATIVE_PAINTING_READY key=" + key + " " +
+            std::to_string(image->width) + "x" + std::to_string(image->height));
         } catch (Exception^ error) {
           LogTelemetry("AC_NATIVE_PAINTING_ERROR " + Utf8(error->Message));
         } catch (const std::exception& error) {
           LogTelemetry("AC_NATIVE_PAINTING_ERROR " + std::string(error.what()));
         }
-        m_paintingRequestInFlight = false;
+        std::lock_guard<std::mutex> lock(m_imageMutex);
+        m_paintingRequests.erase(key);
       });
   }
 
@@ -799,10 +843,14 @@ private:
       " generation=" + std::to_string(m_supervisor->generation()));
   }
 
+  void ApplyBoxBlur(unsigned radius) {
+    BoxBlurBgra(m_cpuFrame, m_frameWidth, m_frameHeight, radius, m_blurScratch);
+  }
+
   void Render(const std::array<float, 4>& color) {
     if (!m_target) return;
     if (!m_frameTexts.empty() || !m_frameRects.empty() || !m_frameLines.empty() ||
-        !m_frameImages.empty() ||
+        !m_frameImages.empty() || m_frameBlurRadius > 0 ||
         !m_frameSystemTexts.empty() || !m_frameSystemGlyphs.empty()) {
       const auto byte = [](float value) {
         return static_cast<unsigned>(255.0f * (std::max)(0.0f, (std::min)(1.0f, value)));
@@ -832,13 +880,17 @@ private:
       // Images sit above panel rectangles and below vector lines/type. This
       // preserves the piece's intended dashboard layering without requiring a
       // GPU resource per downloaded painting.
-      const auto painting = std::atomic_load(&m_paintingImage);
-      if (painting && painting->width > 0 && painting->height > 0) {
-        for (const auto& draw : m_frameImages) {
-          const int destLeft = static_cast<int>(draw.x * scaleX);
-          const int destTop = static_cast<int>(draw.y * scaleY);
-          const int destWidth = (std::max)(1, static_cast<int>(draw.width * scaleX));
-          const int destHeight = (std::max)(1, static_cast<int>(draw.height * scaleY));
+      for (const auto& draw : m_frameImages) {
+        const auto painting = FrameImage(draw.source);
+        if (painting && painting->width > 0 && painting->height > 0) {
+          const float requestedWidth = draw.width > 0 ? draw.width : painting->width * draw.scale;
+          const float requestedHeight = draw.height > 0 ? draw.height : painting->height * draw.scale;
+          const int destWidth = (std::max)(1, static_cast<int>(std::abs(requestedWidth) * scaleX));
+          const int destHeight = (std::max)(1, static_cast<int>(std::abs(requestedHeight) * scaleY));
+          const int centerOffsetX = draw.centered ? destWidth / 2 : 0;
+          const int centerOffsetY = draw.centered ? destHeight / 2 : 0;
+          const int destLeft = static_cast<int>(draw.x * scaleX) - centerOffsetX;
+          const int destTop = static_cast<int>(draw.y * scaleY) - centerOffsetY;
           const int left = (std::max)(0, destLeft);
           const int top = (std::max)(0, destTop);
           const int right = (std::min)(static_cast<int>(m_frameWidth), destLeft + destWidth);
@@ -868,6 +920,7 @@ private:
           }
         }
       }
+      ApplyBoxBlur(m_frameBlurRadius);
       for (const auto& line : m_frameLines) {
         const float x1 = line.x1 * scaleX, y1 = line.y1 * scaleY;
         const float x2 = line.x2 * scaleX, y2 = line.y2 * scaleY;
@@ -941,6 +994,7 @@ private:
           " systemTexts=" + std::to_string(m_frameSystemTexts.size()) +
           " glyphs=" + std::to_string(m_frameSystemGlyphs.size()) +
           " images=" + std::to_string(m_frameImages.size()) +
+          " blur=" + std::to_string(m_frameBlurRadius) +
           " boxes=" + std::to_string(m_frameRects.size()) +
           " lines=" + std::to_string(m_frameLines.size()) + " surface=" +
           std::to_string(m_frameWidth) + "x" + std::to_string(m_frameHeight));
@@ -965,9 +1019,9 @@ private:
   unsigned long long m_nextCapabilityPollMs = 0;
   unsigned long long m_nextAcPollMs = 0;
   std::atomic<bool> m_acRequestInFlight{false};
-  std::atomic<bool> m_paintingRequestInFlight{false};
   unsigned m_frameWidth = 0;
   unsigned m_frameHeight = 0;
+  unsigned m_frameBlurRadius = 0;
   std::string m_lastCapabilityInventory;
   uint32_t m_sampleRate = 48000;
   std::array<float, 4> m_flashColor{1, 1, 1, 1};
@@ -978,7 +1032,9 @@ private:
   std::vector<ac::xbox::SystemText> m_frameSystemTexts;
   std::vector<ac::xbox::SystemGlyph> m_frameSystemGlyphs;
   std::vector<ac::xbox::ImageDraw> m_frameImages;
-  std::shared_ptr<const PaintingImage> m_paintingImage;
+  std::mutex m_imageMutex;
+  std::unordered_map<std::string, std::shared_ptr<const PaintingImage>> m_paintingImages;
+  std::unordered_set<std::string> m_paintingRequests;
   bool m_loggedTextFrame = false;
 
   ComPtr<ID3D11Device1> m_device;
@@ -1000,6 +1056,7 @@ private:
   std::vector<int16_t> m_samples;
   std::vector<int16_t> m_oscSamples;
   std::vector<uint32_t> m_cpuFrame;
+  std::vector<uint32_t> m_blurScratch;
   XAUDIO2_BUFFER m_buffer{};
   XAUDIO2_BUFFER m_oscBuffer{};
   float m_oscillatorFrequency = 0;

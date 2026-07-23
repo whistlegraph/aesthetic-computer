@@ -6,6 +6,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, resolve } from "node:path";
+import { compilePublishedKidLisp } from "./kidlisp-native.mjs";
 
 const defaultEnv = resolve(homedir(),
   "aesthetic-computer/aesthetic-computer-vault/xbox/device-portal.env");
@@ -41,9 +42,10 @@ const base = `https://${host}:${port}`;
 const auth = `${username}:${password}`;
 const autoAuth = `auto-${username}:${password}`;
 
-function curl(args, { json = false } = {}) {
+function curl(args, { json = false, input } = {}) {
   const result = spawnSync("curl", ["-k", "-sS", ...args], {
     encoding: "utf8", maxBuffer: 16 * 1024 * 1024,
+    ...(input === undefined ? {} : { input }),
   });
   if (result.status !== 0) throw new Error(result.stderr.trim() || `curl exited ${result.status}`);
   return json ? JSON.parse(result.stdout || "null") : result.stdout;
@@ -139,13 +141,35 @@ function publish(sourcePath) {
   console.log(JSON.stringify({ published: absolute, package: item.PackageFullName }));
 }
 
+function publishSource(source, label) {
+  if (typeof source !== "string" || source.length === 0 ||
+      Buffer.byteLength(source, "utf8") > 2 * 1024 * 1024)
+    throw new Error("generated piece source is empty or exceeds 2 MiB");
+  const item = installed();
+  curl(["-u", autoAuth, "-X", "POST", "-F",
+    "file=@-;filename=live-piece.js;type=application/javascript", appFileUrl(item)], { input: source });
+  console.log(JSON.stringify({ published: label, bytes: Buffer.byteLength(source, "utf8"),
+    package: item.PackageFullName }));
+}
+
+async function deployKidLisp(code) {
+  if (!code) throw new Error("usage: xbox-live deploy-kidlisp <$code>");
+  const compiled = await compilePublishedKidLisp(code);
+  publishSource(compiled.generated, `$${compiled.code} by ${compiled.handle}`);
+  console.log(JSON.stringify({ kidlisp: `$${compiled.code}`, handle: compiled.handle,
+    forms: compiled.formCount, paintings: compiled.paintings }));
+  launch();
+  sleep(1200);
+  logs("30");
+}
+
 function logs(tail = "80") {
   const count = Math.max(1, Math.min(5000, Number.parseInt(tail, 10) || 80));
   const content = curl(["-u", autoAuth, appFileUrl(installed(), "ac-native-bios.log")]);
   console.log(content.trimEnd().split(/\r?\n/).slice(-count).join("\n"));
 }
 
-function main() {
+async function main() {
   const [command = "status", argument, ...rest] = process.argv.slice(2);
   if (command === "status") status();
   else if (command === "install") install(argument, rest);
@@ -154,7 +178,8 @@ function main() {
   else if (command === "publish") publish(argument);
   else if (command === "logs") logs(argument);
   else if (command === "deploy") { publish(argument); launch(); logs("20"); }
-  else throw new Error("commands: status | install <msix> [deps...] | prune | launch | publish <piece.js> | logs [lines] | deploy <piece.js>");
+  else if (command === "deploy-kidlisp") await deployKidLisp(argument);
+  else throw new Error("commands: status | install <msix> [deps...] | prune | launch | publish <piece.js> | logs [lines] | deploy <piece.js> | deploy-kidlisp <$code>");
 }
 
-try { main(); } catch (error) { console.error(error.message); process.exit(1); }
+try { await main(); } catch (error) { console.error(error.message); process.exit(1); }
