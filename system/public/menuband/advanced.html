@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Menu Band — Advanced</title>
-<meta name="description" content="The unsandboxed Menu Band: a direct download with the features the Mac App Store build can't ship.">
+<meta name="description" content="Download Menu Band directly for extra Mac features.">
 <link rel="icon" href="/menuband/icon.png">
 <style>
   :root {
@@ -193,38 +193,34 @@
 
   <div class="content">
     <h2>Advanced</h2>
-    <p class="tagline">The unsandboxed Menu Band — a direct download, with the parts the App Store can't carry.</p>
+    <p class="tagline">Download Menu Band directly for a few extra Mac features.</p>
 
     <div class="note-card">
-      <p><b>Most people want the <a href="https://apps.apple.com/us/app/menu-band/id6767311903?mt=12">Mac App Store version</a>.</b> It updates itself, it's signed and sandboxed, and it plays the same instruments. This page is for the build that does more than Apple's sandbox permits.</p>
+      <p><b>Most people want the <a href="https://apps.apple.com/us/app/menu-band/id6767311903?mt=12">Mac App Store version</a>.</b> It updates automatically and plays the same instruments. Choose this download if you want the extra features below.</p>
     </div>
 
-    <h3>What only this build can do</h3>
-    <p>The Mac App Store requires the App Sandbox, which forbids the APIs these features are built on. They aren't disabled in the store version — they aren't compiled into it.</p>
+    <h3>What this version can do</h3>
     <ul class="flat">
-      <li><b>Type to play in any app.</b> The store build only listens while Menu Band is frontmost. This one plays notes while you're in another window.</li>
-      <li><b>The ⌘⌘ launcher.</b> A background daemon that summons Menu Band from a double-tap of Command, anywhere.</li>
-      <li><b>The fleet.</b> Nearby Macs discover each other and play together over MultipeerConnectivity.</li>
-      <li><b>Multitouch trackpad.</b> Your trackpad becomes a continuous, multi-finger surface rather than a mouse.</li>
+      <li><b>Type to play in any app.</b> Keep playing notes while you work in another window.</li>
+      <li><b>Open with ⌘⌘.</b> Double-tap Command to bring up Menu Band from anywhere.</li>
+      <li><b>Play with nearby Macs.</b> Menu Band finds them and connects automatically.</li>
+      <li><b>Play with more than one finger.</b> Turn your trackpad into an expressive musical surface.</li>
     </ul>
 
-    <h3>What you give up</h3>
+    <h3>Good to know</h3>
     <ul class="flat">
-      <li><b>Self-updating is on us, not Apple.</b> The app checks for its own updates and tells you when one lands.</li>
-      <li><b>Permissions to grant by hand.</b> Global typing needs Accessibility access in <b>System Settings → Privacy &amp; Security</b>; the store version never asks because it never uses it.</li>
-      <li><b>First launch is a gatekeeper conversation.</b> The build is notarized, so it opens — but macOS will still want a moment to check it.</li>
+      <li><b>Updates come directly from Menu Band.</b> The app will let you know when a new version is ready.</li>
+      <li><b>Typing in other apps needs permission.</b> Turn on Menu Band in <b>System Settings → Privacy &amp; Security → Accessibility</b>.</li>
+      <li><b>The first launch may take a moment.</b> macOS checks the app before opening it.</li>
     </ul>
 
     <div class="download-stage">
       <a id="download-link" class="download" href="https://assets.aesthetic.computer/menuband/Menu-Band-1.5.3.dmg" data-version="1.5.3" download>
         <span>Download</span>
-        <small id="download-meta">1.5.3 · Universal · 8.3 MB</small>
+        <small id="download-meta">macOS 11 or later · 8.3 MB</small>
       </a>
       <p id="downloads-counter" class="downloads" aria-live="polite" hidden></p>
     </div>
-
-    <h3>Source</h3>
-    <p>Both builds come from one codebase; the store version is carved out of it with <code>#if MAC_APP_STORE</code>. Read it at <a href="https://tangled.org/@aesthetic.computer/core/tree/main/slab/menuband">tangled.org</a>.</p>
 
     <h3>Help</h3>
     <p>Playing tips and troubleshooting live on the <a href="/menuband/support.html">support page</a>. Email <a href="mailto:mail@aesthetic.computer?subject=Menu%20Band%20advanced">mail@aesthetic.computer</a> for anything else.</p>
@@ -289,9 +285,8 @@
           link.setAttribute('data-version', entry.version);
         }
         if (meta) {
-          const arch = (entry.requirements || 'Universal').replace(/^macOS [^·]+·\s*/, '');
           const size = fmtBytes(entry.size);
-          meta.textContent = [entry.version, arch].concat(size ? [size] : []).join(' · ');
+          meta.textContent = ['macOS 11 or later'].concat(size ? [size] : []).join(' · ');
         }
       })
       .catch(() => { /* leave hardcoded fallback */ });
