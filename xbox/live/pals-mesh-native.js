@@ -28,7 +28,7 @@ function project(point,t){
   const z1=point[0]*Math.sin(ay)+point[2]*Math.cos(ay);
   const y1=point[1]*Math.cos(ax)-z1*Math.sin(ax);
   const z2=point[1]*Math.sin(ax)+z1*Math.cos(ax);
-  const scale=720/(3.7+z2);
+  const scale=1080/(3.7+z2);
   return [960+x1*scale,535-y1*scale,z2];
 }
 
@@ -47,12 +47,11 @@ function paint(){
     const b=points[edge[1]];
     const depth=(a[2]+b[2])*0.5;
     const glow=Math.max(0,Math.min(1,(depth+1.2)/2.4));
-    line(a[0],a[1],b[0],b[1],2.1,190+glow*55,80+glow*110,190+glow*60);
+    line(a[0],a[1],b[0],b[1],3.4,190+glow*55,80+glow*110,190+glow*60);
   }
-  write("HELD "+(pad.down.length?pad.down.join(" ").toUpperCase():"NONE"),46,994,14,120,235,195);
-  write("EVENTS "+(events.length?events.join(" "):"WAITING"),960,994,12,255,190,95);
+  write("HELD "+(pad.down.length?pad.down.join(" ").toUpperCase():"NONE"),46,970,24,155,255,215);
+  write("EVENTS "+(events.length?events.join(" "):"WAITING"),960,970,22,255,210,125);
 }
 
 function act(button){telemetry("PALS_MESH_BUTTON",button);}
 function leave(){telemetry("PALS_MESH_LEAVE","ok");}
-
