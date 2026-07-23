@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <memory>
@@ -104,6 +105,50 @@ JSValue Line(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
   scope->api->graphics.line({static_cast<float>(x1), static_cast<float>(y1),
     static_cast<float>(x2), static_cast<float>(y2), static_cast<float>(width),
     {static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), 255}});
+  return JS_UNDEFINED;
+}
+
+JSValue TriangleFill(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  double x1 = 0, y1 = 0, x2 = 0, y2 = 0, x3 = 0, y3 = 0;
+  int32_t r = 255, g = 255, b = 255;
+  if (!scope || !scope->api || argc < 6 ||
+      JS_ToFloat64(context, &x1, argv[0]) || JS_ToFloat64(context, &y1, argv[1]) ||
+      JS_ToFloat64(context, &x2, argv[2]) || JS_ToFloat64(context, &y2, argv[3]) ||
+      JS_ToFloat64(context, &x3, argv[4]) || JS_ToFloat64(context, &y3, argv[5]))
+    return JS_EXCEPTION;
+  if (argc > 6) JS_ToInt32(context, &r, argv[6]);
+  if (argc > 7) JS_ToInt32(context, &g, argv[7]);
+  if (argc > 8) JS_ToInt32(context, &b, argv[8]);
+  const std::array<double, 6> coordinates{x1, y1, x2, y2, x3, y3};
+  if (!std::all_of(coordinates.begin(), coordinates.end(), [](double value) {
+        return std::isfinite(value) && std::abs(value) <= 32768.0;
+      })) return JS_ThrowRangeError(context, "invalid triangle coordinates");
+  scope->api->graphics.triangle({static_cast<float>(x1), static_cast<float>(y1),
+    0, static_cast<float>(x2), static_cast<float>(y2), 0, static_cast<float>(x3),
+    static_cast<float>(y3), 0, {static_cast<uint8_t>(r), static_cast<uint8_t>(g),
+    static_cast<uint8_t>(b), 255}});
+  return JS_UNDEFINED;
+}
+
+JSValue Triangle3d(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  std::array<double, 9> value{};
+  if (!scope || !scope->api || argc < 9) return JS_EXCEPTION;
+  for (int index = 0; index < 9; ++index)
+    if (JS_ToFloat64(context, &value[index], argv[index])) return JS_EXCEPTION;
+  if (!std::all_of(value.begin(), value.end(), [](double item) {
+        return std::isfinite(item) && std::abs(item) <= 32768.0;
+      })) return JS_ThrowRangeError(context, "invalid 3D triangle coordinates");
+  int32_t r = 255, g = 255, b = 255;
+  if (argc > 9) JS_ToInt32(context, &r, argv[9]);
+  if (argc > 10) JS_ToInt32(context, &g, argv[10]);
+  if (argc > 11) JS_ToInt32(context, &b, argv[11]);
+  scope->api->graphics.triangle({static_cast<float>(value[0]), static_cast<float>(value[1]),
+    static_cast<float>(value[2]), static_cast<float>(value[3]), static_cast<float>(value[4]),
+    static_cast<float>(value[5]), static_cast<float>(value[6]), static_cast<float>(value[7]),
+    static_cast<float>(value[8]), {static_cast<uint8_t>(r), static_cast<uint8_t>(g),
+    static_cast<uint8_t>(b), 255}});
   return JS_UNDEFINED;
 }
 
@@ -333,6 +378,8 @@ class QuickJsPiece final : public JsPiece {
     JS_SetPropertyStr(context_, global, "write", JS_NewCFunction(context_, Write, "write", 7));
     JS_SetPropertyStr(context_, global, "box", JS_NewCFunction(context_, Box, "box", 7));
     JS_SetPropertyStr(context_, global, "line", JS_NewCFunction(context_, Line, "line", 8));
+    JS_SetPropertyStr(context_, global, "triangle", JS_NewCFunction(context_, TriangleFill, "triangle", 9));
+    JS_SetPropertyStr(context_, global, "triangle3d", JS_NewCFunction(context_, Triangle3d, "triangle3d", 12));
     JS_SetPropertyStr(context_, global, "systemWrite", JS_NewCFunction(context_, SystemWrite, "systemWrite", 7));
     JS_SetPropertyStr(context_, global, "systemGlyph", JS_NewCFunction(context_, SystemGlyph, "systemGlyph", 7));
     JS_SetPropertyStr(context_, global, "painting", JS_NewCFunction(context_, Painting, "painting", 4));

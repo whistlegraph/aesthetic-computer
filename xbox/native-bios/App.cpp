@@ -138,6 +138,7 @@ class HostGraphics final : public Graphics {
   std::function<void(Color)> on_wipe;
   std::function<void(const ac::xbox::Rect&)> on_box;
   std::function<void(const ac::xbox::Line&)> on_line;
+  std::function<void(const ac::xbox::Triangle&)> on_triangle;
   std::function<void(const ac::xbox::Text&)> on_write;
   std::function<void(const ac::xbox::SystemText&)> on_system_write;
   std::function<void(const ac::xbox::SystemGlyph&)> on_system_glyph;
@@ -146,6 +147,9 @@ class HostGraphics final : public Graphics {
   void wipe(Color color) override { if (on_wipe) on_wipe(color); }
   void box(const ac::xbox::Rect& rect) override { if (on_box) on_box(rect); }
   void line(const ac::xbox::Line& line) override { if (on_line) on_line(line); }
+  void triangle(const ac::xbox::Triangle& triangle) override {
+    if (on_triangle) on_triangle(triangle);
+  }
   void write(const ac::xbox::Text& text) override { if (on_write) on_write(text); }
   void system_write(const ac::xbox::SystemText& text) override {
     if (on_system_write) on_system_write(text);
@@ -198,6 +202,10 @@ public:
     };
     m_graphics->on_box = [this](const ac::xbox::Rect& rect) { m_frameRects.push_back(rect); };
     m_graphics->on_line = [this](const ac::xbox::Line& line) { m_frameLines.push_back(line); };
+    m_graphics->on_triangle = [this](const ac::xbox::Triangle& triangle) {
+      if (m_frameTriangles.size() < kMaxTriangles) m_frameTriangles.push_back(triangle);
+      else ++m_frameTrianglesDropped;
+    };
     m_graphics->on_write = [this](const ac::xbox::Text& text) { m_frameTexts.push_back(text); };
     m_graphics->on_system_write = [this](const ac::xbox::SystemText& text) {
       if (m_frameSystemTexts.size() + m_frameSystemGlyphs.size() < kMaxSystemDraws)
@@ -224,7 +232,7 @@ public:
     m_sound->on_oscillator_stop = [this]() { StopOscillator(); };
     m_sound->get_rate = [this]() { return static_cast<int>(m_sampleRate); };
     m_api = std::make_unique<Api>(Api{{1920, 1080, 1}, {}, {}, {}, *m_graphics, *m_sound});
-    m_api->system.version = "1.0.0.15";
+    m_api->system.version = "1.0.0.16";
     m_api->telemetry = [](std::string_view line) {
       std::string safe(line);
       for (auto& character : safe) if (character == '\n' || character == '\r') character = ' ';
@@ -259,12 +267,14 @@ public:
       RefreshClock();
       m_frameRects.clear();
       m_frameLines.clear();
+      m_frameTriangles.clear();
       m_frameTexts.clear();
       m_frameSystemTexts.clear();
       m_frameSystemGlyphs.clear();
       m_frameImages.clear();
       m_frameBlurRadius = 0;
       m_frameSystemDrawsDropped = 0;
+      m_frameTrianglesDropped = 0;
       if (m_supervisor && m_supervisor->active()) {
         try {
           m_supervisor->active()->sim(*m_api);
@@ -644,7 +654,7 @@ private:
     if (!m_acRequestInFlight.compare_exchange_strong(expected, true)) return;
 
     auto client = ref new HttpClient();
-    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.15 Xbox");
+    client->DefaultRequestHeaders->UserAgent->ParseAdd("AC-Native-BIOS/1.0.0.16 Xbox");
     std::vector<task<String^>> requests;
     requests.push_back(create_task(client->GetStringAsync(
       ref new Uri(L"https://aesthetic.computer/api/mood/moods-of-the-day"))));
@@ -855,6 +865,7 @@ private:
   void Render(const std::array<float, 4>& color) {
     if (!m_target) return;
     if (!m_frameTexts.empty() || !m_frameRects.empty() || !m_frameLines.empty() ||
+        !m_frameTriangles.empty() ||
         !m_frameImages.empty() || m_frameBlurRadius > 0 ||
         !m_frameSystemTexts.empty() || !m_frameSystemGlyphs.empty()) {
       const auto byte = [](float value) {
@@ -926,6 +937,45 @@ private:
         }
       }
       ApplyBoxBlur(m_frameBlurRadius);
+      const auto edge = [](float ax, float ay, float bx, float by, float px, float py) {
+        return (px - ax) * (by - ay) - (py - ay) * (bx - ax);
+      };
+      if (!m_frameTriangles.empty()) {
+        m_cpuDepth.resize(static_cast<std::size_t>(m_frameWidth) * m_frameHeight);
+        std::fill(m_cpuDepth.begin(), m_cpuDepth.end(),
+          std::numeric_limits<float>::infinity());
+      }
+      for (const auto& triangle : m_frameTriangles) {
+        const float x1 = triangle.x1 * scaleX, y1 = triangle.y1 * scaleY;
+        const float x2 = triangle.x2 * scaleX, y2 = triangle.y2 * scaleY;
+        const float x3 = triangle.x3 * scaleX, y3 = triangle.y3 * scaleY;
+        const float area = edge(x1, y1, x2, y2, x3, y3);
+        if (std::abs(area) < 0.25f) continue;
+        const int left = (std::max)(0, static_cast<int>(std::floor(
+          (std::min)(x1, (std::min)(x2, x3)))));
+        const int right = (std::min)(static_cast<int>(m_frameWidth) - 1,
+          static_cast<int>(std::ceil((std::max)(x1, (std::max)(x2, x3)))));
+        const int top = (std::max)(0, static_cast<int>(std::floor(
+          (std::min)(y1, (std::min)(y2, y3)))));
+        const int bottom = (std::min)(static_cast<int>(m_frameHeight) - 1,
+          static_cast<int>(std::ceil((std::max)(y1, (std::max)(y2, y3)))));
+        const uint32_t ink = packed(triangle.color);
+        for (int y = top; y <= bottom; ++y) for (int x = left; x <= right; ++x) {
+          const float px = x + 0.5f, py = y + 0.5f;
+          const float w0 = edge(x2, y2, x3, y3, px, py);
+          const float w1 = edge(x3, y3, x1, y1, px, py);
+          const float w2 = edge(x1, y1, x2, y2, px, py);
+          if (!((area > 0 && w0 >= 0 && w1 >= 0 && w2 >= 0) ||
+                (area < 0 && w0 <= 0 && w1 <= 0 && w2 <= 0))) continue;
+          const float depth = (w0 * triangle.z1 + w1 * triangle.z2 +
+            w2 * triangle.z3) / area;
+          const auto pixel = static_cast<std::size_t>(y) * m_frameWidth + x;
+          if (depth <= m_cpuDepth[pixel]) {
+            m_cpuDepth[pixel] = depth;
+            m_cpuFrame[pixel] = ink;
+          }
+        }
+      }
       for (const auto& line : m_frameLines) {
         const float x1 = line.x1 * scaleX, y1 = line.y1 * scaleY;
         const float x2 = line.x2 * scaleX, y2 = line.y2 * scaleY;
@@ -1002,6 +1052,8 @@ private:
           " images=" + std::to_string(m_frameImages.size()) +
           " blur=" + std::to_string(m_frameBlurRadius) +
           " boxes=" + std::to_string(m_frameRects.size()) +
+          " triangles=" + std::to_string(m_frameTriangles.size()) +
+          " trianglesDropped=" + std::to_string(m_frameTrianglesDropped) +
           " lines=" + std::to_string(m_frameLines.size()) + " surface=" +
           std::to_string(m_frameWidth) + "x" + std::to_string(m_frameHeight));
         m_loggedTextFrame = true;
@@ -1029,13 +1081,16 @@ private:
   unsigned m_frameHeight = 0;
   unsigned m_frameBlurRadius = 0;
   static constexpr std::size_t kMaxSystemDraws = 24;
+  static constexpr std::size_t kMaxTriangles = 4096;
   std::size_t m_frameSystemDrawsDropped = 0;
+  std::size_t m_frameTrianglesDropped = 0;
   std::string m_lastCapabilityInventory;
   uint32_t m_sampleRate = 48000;
   std::array<float, 4> m_flashColor{1, 1, 1, 1};
   std::array<float, 4> m_frameColor{0.025f, 0.02f, 0.04f, 1.0f};
   std::vector<ac::xbox::Rect> m_frameRects;
   std::vector<ac::xbox::Line> m_frameLines;
+  std::vector<ac::xbox::Triangle> m_frameTriangles;
   std::vector<ac::xbox::Text> m_frameTexts;
   std::vector<ac::xbox::SystemText> m_frameSystemTexts;
   std::vector<ac::xbox::SystemGlyph> m_frameSystemGlyphs;
@@ -1064,6 +1119,7 @@ private:
   std::vector<int16_t> m_samples;
   std::vector<int16_t> m_oscSamples;
   std::vector<uint32_t> m_cpuFrame;
+  std::vector<float> m_cpuDepth;
   std::vector<uint32_t> m_blurScratch;
   XAUDIO2_BUFFER m_buffer{};
   XAUDIO2_BUFFER m_oscBuffer{};
