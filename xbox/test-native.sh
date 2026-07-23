@@ -8,12 +8,19 @@ trap 'rm -rf "$build_dir"' EXIT INT TERM
 node --check "$repo_dir/xbox/live/controller-probe.js"
 node --check "$repo_dir/xbox/live/native-showcase.js"
 node "$repo_dir/xbox/live/tests/controller-probe.test.mjs"
+node "$repo_dir/xbox/tools/tests/kidlisp-native.test.mjs"
 
 clang++ -std=c++20 -Wall -Wextra \
   -I "$repo_dir/xbox/runtime/include" \
   "$repo_dir/xbox/runtime/tests/runtime_contract.cpp" \
   -o "$build_dir/runtime-contract"
 "$build_dir/runtime-contract"
+
+clang++ -std=c++20 -Wall -Wextra \
+  -I "$repo_dir/xbox/runtime/include" \
+  "$repo_dir/xbox/runtime/tests/image_effects_contract.cpp" \
+  -o "$build_dir/image-effects-contract"
+"$build_dir/image-effects-contract"
 
 qjs="$repo_dir/xbox/native-bios/third_party/quickjs-ng"
 for source_file in quickjs.c dtoa.c libregexp.c libunicode.c; do

@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -158,6 +160,41 @@ JSValue Painting(JSContext* context, JSValueConst, int argc, JSValueConst* argv)
   return JS_UNDEFINED;
 }
 
+JSValue StampPainting(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api || argc < 3) return JS_EXCEPTION;
+  const char* source = JS_ToCString(context, argv[0]);
+  if (!source) return JS_EXCEPTION;
+  std::string code(source);
+  JS_FreeCString(context, source);
+  const bool valid = code.size() >= 2 && code.size() <= 9 && code.front() == '#' &&
+    std::all_of(code.begin() + 1, code.end(), [](unsigned char character) {
+      return (character >= '0' && character <= '9') ||
+        (character >= 'A' && character <= 'Z') ||
+        (character >= 'a' && character <= 'z');
+    });
+  if (!valid) return JS_ThrowTypeError(context, "painting code must match #[0-9A-Za-z]{1,8}");
+  double x = 0, y = 0, scale = 1;
+  if (JS_ToFloat64(context, &x, argv[1]) || JS_ToFloat64(context, &y, argv[2]) ||
+      (argc > 3 && JS_ToFloat64(context, &scale, argv[3]))) return JS_EXCEPTION;
+  if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(scale) ||
+      std::abs(scale) > 8.0) return JS_ThrowRangeError(context, "invalid painting transform");
+  scope->api->graphics.image({code, static_cast<float>(x), static_cast<float>(y),
+    0, 0, static_cast<float>(scale), true});
+  return JS_UNDEFINED;
+}
+
+JSValue Blur(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  int32_t radius = 0;
+  if (!scope || !scope->api || argc < 1 || JS_ToInt32(context, &radius, argv[0]))
+    return JS_EXCEPTION;
+  if (radius < 0 || radius > 16)
+    return JS_ThrowRangeError(context, "blur radius must be between 0 and 16");
+  scope->api->graphics.blur(static_cast<unsigned>(radius));
+  return JS_UNDEFINED;
+}
+
 JSValue Telemetry(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
   auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
   if (!scope || !scope->api || !scope->api->telemetry || argc < 1) return JS_UNDEFINED;
@@ -299,6 +336,8 @@ class QuickJsPiece final : public JsPiece {
     JS_SetPropertyStr(context_, global, "systemWrite", JS_NewCFunction(context_, SystemWrite, "systemWrite", 7));
     JS_SetPropertyStr(context_, global, "systemGlyph", JS_NewCFunction(context_, SystemGlyph, "systemGlyph", 7));
     JS_SetPropertyStr(context_, global, "painting", JS_NewCFunction(context_, Painting, "painting", 4));
+    JS_SetPropertyStr(context_, global, "stampPainting", JS_NewCFunction(context_, StampPainting, "stampPainting", 4));
+    JS_SetPropertyStr(context_, global, "blur", JS_NewCFunction(context_, Blur, "blur", 1));
     JS_SetPropertyStr(context_, global, "telemetry", JS_NewCFunction(context_, Telemetry, "telemetry", 2));
     JS_SetPropertyStr(context_, global, "runtime", JS_NewCFunction(context_, RuntimeInfo, "runtime", 0));
     JS_SetPropertyStr(context_, global, "gamepad", JS_NewCFunction(context_, GamepadState, "gamepad", 0));

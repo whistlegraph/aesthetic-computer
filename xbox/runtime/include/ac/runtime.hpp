@@ -61,6 +61,8 @@ struct SystemGlyph {
 struct ImageDraw {
   std::string source = "latest-painting";
   float x = 0, y = 0, width = 0, height = 0;
+  float scale = 1;
+  bool centered = false;
 };
 
 class Graphics {
@@ -73,6 +75,7 @@ class Graphics {
   virtual void system_write(const SystemText&) {}
   virtual void system_glyph(const SystemGlyph&) {}
   virtual void image(const ImageDraw&) {}
+  virtual void blur(unsigned) {}
 };
 
 struct SynthVoice {

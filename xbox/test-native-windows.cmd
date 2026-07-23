@@ -11,13 +11,21 @@ if exist "%BUILD%" rmdir /s /q "%BUILD%"
 mkdir "%BUILD%" || exit /b 2
 
 node --check "%ROOT%\xbox\live\controller-probe.js" || exit /b 1
+node --check "%ROOT%\xbox\live\native-showcase.js" || exit /b 1
 node "%ROOT%\xbox\live\tests\controller-probe.test.mjs" || exit /b 1
+node "%ROOT%\xbox\tools\tests\kidlisp-native.test.mjs" || exit /b 1
 
 cl /nologo /std:c++20 /EHsc /W4 ^
   /I"%ROOT%\xbox\runtime\include" ^
   "%ROOT%\xbox\runtime\tests\runtime_contract.cpp" ^
   /Fe:"%BUILD%\runtime-contract.exe" || exit /b 1
 "%BUILD%\runtime-contract.exe" || exit /b 1
+
+cl /nologo /std:c++20 /EHsc /W4 ^
+  /I"%ROOT%\xbox\runtime\include" ^
+  "%ROOT%\xbox\runtime\tests\image_effects_contract.cpp" ^
+  /Fe:"%BUILD%\image-effects-contract.exe" || exit /b 1
+"%BUILD%\image-effects-contract.exe" || exit /b 1
 
 set "QJS=%ROOT%\xbox\native-bios\third_party\quickjs-ng"
 for %%f in (quickjs dtoa libregexp libunicode) do (

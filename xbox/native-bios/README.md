@@ -25,6 +25,10 @@ continuous `oscillator` / `oscillatorStop`, `controllers`, `gamepad`,
 clock-chat, and painting endpoints; sandboxed pieces do not receive a general
 HTTP primitive. Runtime failures roll back to the last known good piece.
 
+Revision 13 also exposes bounded `stampPainting` and `blur` primitives to the
+trusted host-side KidLisp compiler. See [`../KIDLISP-NATIVE.md`](../KIDLISP-NATIVE.md)
+for the supported subset and `$obk` wire-deploy flow.
+
 ## Live development from blueberry
 
 `xbox/tools/live.mjs` is the credential-safe control surface for agents and
@@ -36,6 +40,7 @@ node xbox/tools/live.mjs status
 node xbox/tools/live.mjs install xbox/builds/1.0.0.10/NativeBios_1.0.0.10_x64.msix xbox/builds/1.0.0.10/Microsoft.VCLibs.x64.14.00.appx
 node xbox/tools/live.mjs deploy xbox/live/controller-probe.js
 node xbox/tools/live.mjs deploy xbox/live/native-showcase.js
+node xbox/tools/live.mjs deploy-kidlisp '$obk'
 node xbox/tools/live.mjs logs 100
 ```
 
