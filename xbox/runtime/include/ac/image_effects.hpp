@@ -17,7 +17,11 @@ inline void BoxBlurBgra(std::vector<std::uint32_t>& frame, unsigned width,
   const int frameWidth = static_cast<int>(width);
   const int frameHeight = static_cast<int>(height);
   const int diameter = static_cast<int>(radius) * 2 + 1;
-  scratch.resize(frame.size());
+  const int historySize = static_cast<int>(radius) + 1;
+  // Keep only the overwritten source pixels that the sliding window can still
+  // need. A full 1080p scratch surface caused Xbox's working set to retain one
+  // additional ~8 MiB allocation per slow blur frame.
+  scratch.resize(historySize);
   const auto channel = [](std::uint32_t pixel, unsigned shift) {
     return (pixel >> shift) & 255u;
   };
@@ -38,9 +42,13 @@ inline void BoxBlurBgra(std::vector<std::uint32_t>& frame, unsigned width,
       g += channel(pixel, 8); b += channel(pixel, 0);
     }
     for (int x = 0; x < frameWidth; ++x) {
-      scratch[static_cast<std::size_t>(y) * frameWidth + x] = packAverage(a, r, g, b);
-      const auto remove = sample(x - static_cast<int>(radius));
-      const auto add = sample(x + static_cast<int>(radius) + 1);
+      const auto current = sample(x);
+      scratch[x % historySize] = current;
+      frame[static_cast<std::size_t>(y) * frameWidth + x] = packAverage(a, r, g, b);
+      const int removeX = (std::max)(0, x - static_cast<int>(radius));
+      const int addX = (std::min)(frameWidth - 1, x + static_cast<int>(radius) + 1);
+      const auto remove = removeX <= x ? scratch[removeX % historySize] : sample(removeX);
+      const auto add = addX <= x ? scratch[addX % historySize] : sample(addX);
       a = a + channel(add, 24) - channel(remove, 24);
       r = r + channel(add, 16) - channel(remove, 16);
       g = g + channel(add, 8) - channel(remove, 8);
@@ -50,9 +58,9 @@ inline void BoxBlurBgra(std::vector<std::uint32_t>& frame, unsigned width,
 
   for (int x = 0; x < frameWidth; ++x) {
     unsigned a = 0, r = 0, g = 0, b = 0;
-    const auto sample = [&scratch, x, frameHeight, frameWidth](int y) {
+    const auto sample = [&frame, x, frameHeight, frameWidth](int y) {
       y = (std::max)(0, (std::min)(frameHeight - 1, y));
-      return scratch[static_cast<std::size_t>(y) * frameWidth + x];
+      return frame[static_cast<std::size_t>(y) * frameWidth + x];
     };
     for (int offset = -static_cast<int>(radius); offset <= static_cast<int>(radius); ++offset) {
       const auto pixel = sample(offset);
@@ -60,9 +68,13 @@ inline void BoxBlurBgra(std::vector<std::uint32_t>& frame, unsigned width,
       g += channel(pixel, 8); b += channel(pixel, 0);
     }
     for (int y = 0; y < frameHeight; ++y) {
+      const auto current = sample(y);
+      scratch[y % historySize] = current;
       frame[static_cast<std::size_t>(y) * frameWidth + x] = packAverage(a, r, g, b);
-      const auto remove = sample(y - static_cast<int>(radius));
-      const auto add = sample(y + static_cast<int>(radius) + 1);
+      const int removeY = (std::max)(0, y - static_cast<int>(radius));
+      const int addY = (std::min)(frameHeight - 1, y + static_cast<int>(radius) + 1);
+      const auto remove = removeY <= y ? scratch[removeY % historySize] : sample(removeY);
+      const auto add = addY <= y ? scratch[addY % historySize] : sample(addY);
       a = a + channel(add, 24) - channel(remove, 24);
       r = r + channel(add, 16) - channel(remove, 16);
       g = g + channel(add, 8) - channel(remove, 8);
