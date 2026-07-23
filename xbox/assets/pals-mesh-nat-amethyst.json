@@ -1,0 +1,18 @@
+{
+  "source": "FAL Meshy v6 image-to-3d",
+  "requestId": "019f4f69-8db1-7b51-b12b-f829b769d3aa",
+  "sentAt": "2026-07-11T04:22:25.457Z",
+  "endedAt": "2026-07-11T04:27:10.248Z",
+  "sourceImage": "marketing/podcast/out/pals/nat-amethyst.png",
+  "glbBytes": 5051816,
+  "glbSha256": "f80ad9b6ff10f79f9d6b1de2a44f9c35f1ed4a290d8295ed27f461af3a32d834",
+  "thumbnailSha256": "77d81487522f6405c170b01af393c9b66df31bb91218c7d7cbaf6ea1ce33247f",
+  "generator": "marketing/podcast/bin/mesh-pals.mjs",
+  "nativeWire": {
+    "sourceVertices": 6766,
+    "sourceTriangles": 11334,
+    "selectedEdges": 1000,
+    "piece": "xbox/live/pals-mesh-native.js",
+    "converter": "xbox/tools/glb-to-native-wire.mjs"
+  }
+}
