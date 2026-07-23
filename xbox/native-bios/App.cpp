@@ -706,7 +706,7 @@ private:
   void DestroyMidi() {
     if (!m_midiInPort) return;
     if (m_midiSubscribed) m_midiInPort->MessageReceived -= m_midiToken;
-    m_midiInPort->Close();
+    delete m_midiInPort;
     m_midiInPort = nullptr;
     m_midiSubscribed = false;
   }
@@ -1431,7 +1431,7 @@ private:
   IXAudio2SourceVoice* m_voice = nullptr;
   IXAudio2SourceVoice* m_oscVoice = nullptr;
   MidiInPort^ m_midiInPort = nullptr;
-  EventRegistrationToken m_midiToken{};
+  Windows::Foundation::EventRegistrationToken m_midiToken{};
   bool m_midiSubscribed = false;
   std::mutex m_midiMutex;
   std::vector<PendingMidiEvent> m_pendingMidi;
