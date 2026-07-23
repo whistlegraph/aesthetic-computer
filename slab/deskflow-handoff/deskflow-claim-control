@@ -3,6 +3,8 @@ set -euo pipefail
 
 CONFIG="$HOME/.config/slab/deskflow-handoff.json"
 SET_ROLE="$HOME/.local/bin/deskflow-set-role"
+RETARGET="$HOME/.local/bin/deskflow-retarget-client"
+RECONCILE="$HOME/.local/bin/deskflow-reconcile-topology"
 LOCK="$HOME/.config/slab/deskflow-claim.lock"
 
 if [[ ! -f "$CONFIG" ]]; then
@@ -61,10 +63,23 @@ if [[ ${#PEERS[@]} -lt 1 ]]; then
   exit 78
 fi
 
-mkdir -p "$HOME/.ssh"
 SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=4
-          -o ControlMaster=auto -o ControlPersist=600
-          -o "ControlPath=$HOME/.ssh/deskflow-%C")
+          -o ConnectionAttempts=1 -o ControlMaster=no -o ControlPath=none)
+
+peer_transition() {
+  local peer=$1
+  local command=$2
+  local status=1
+  for attempt in 1 2 3; do
+    if ssh "${SSH_OPTS[@]}" "$peer" "$command"; then
+      return 0
+    else
+      status=$?
+    fi
+    [[ "$attempt" == "3" ]] || sleep "$attempt"
+  done
+  return "$status"
+}
 
 # Flip the local core and the other controller concurrently. The client will
 # retry briefly if it wins the race and reaches the new server before it binds.
@@ -78,18 +93,17 @@ SERVER_LOG_START=$(stat -f %z "$CORE_LOG" 2>/dev/null || echo 0)
 "$SET_ROLE" server "" "$EPOCH" > "$LOCAL_OUT" 2>&1 &
 LOCAL_PID=$!
 if [[ "$ROLE" == "server" ]]; then
-  ssh "${SSH_OPTS[@]}" "${PEERS[0]}" \
-    '~/.local/bin/deskflow-set-role client '"$ADDRESS $EPOCH" > "$PEER_OUT" 2>&1 &
+  peer_transition "${PEERS[0]}" \
+    "~/.local/bin/deskflow-set-role client '$ADDRESS' '$EPOCH'" > "$PEER_OUT" 2>&1 &
 else
-  ssh "${SSH_OPTS[@]}" "${PEERS[0]}" \
-    '~/.local/bin/deskflow-yield-control '"$ADDRESS $EPOCH" > "$PEER_OUT" 2>&1 &
+  peer_transition "${PEERS[0]}" \
+    "~/.local/bin/deskflow-yield-control '$ADDRESS' '$EPOCH'" > "$PEER_OUT" 2>&1 &
 fi
 PEER_PID=$!
 
 LOG="$HOME/Library/Logs/deskflow-handoff.log"
 for peer in "${PEERS[@]:1}"; do
-  nohup ssh -n "${SSH_OPTS[@]}" "$peer" \
-    '~/.local/bin/deskflow-set-role client '"$ADDRESS $EPOCH" >> "$LOG" 2>&1 &
+  nohup "$RETARGET" "$peer" "$ADDRESS" "$EPOCH" >> "$LOG" 2>&1 &
 done
 
 LOCAL_STATUS=0
@@ -99,6 +113,7 @@ wait "$PEER_PID" || PEER_STATUS=$?
 cat "$LOCAL_OUT"
 cat "$PEER_OUT"
 if [[ "$LOCAL_STATUS" != "0" || "$PEER_STATUS" != "0" ]]; then
+  "$RECONCILE" >> "$LOG" 2>&1 || true
   echo "deskflow claim: controller pair did not converge" >&2
   exit 74
 fi

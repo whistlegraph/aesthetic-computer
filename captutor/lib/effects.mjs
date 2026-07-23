@@ -18,15 +18,21 @@ const INSTALL = `(() => {
     <style>
       svg { position:absolute; inset:0; width:100vw; height:100vh; overflow:visible; }
       .shade { opacity:0; transition:opacity .28s ease-out; }
-      .ring { opacity:0; transition:opacity .28s ease-out;
-              filter:drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 68%, transparent))
-                     drop-shadow(0 0 18px color-mix(in srgb, var(--accent) 28%, transparent)); }
-      .label { position:absolute; opacity:0; transform:translateY(4px);
-               transition:opacity .18s ease-out,transform .18s ease-out;
-               padding:6px 9px; border-radius:8px; color:white;
-               background:rgba(12,12,14,.82); font:600 13px/1.2 Arial,sans-serif;
-               box-shadow:0 2px 12px rgba(0,0,0,.25); white-space:nowrap; }
-      .show { opacity:1; transform:translateY(0); }
+      .ring,.ring-glow { opacity:0; transition:opacity .32s ease-out; }
+      .ring { filter:blur(var(--ring-blur,.45px))
+                     drop-shadow(0 0 var(--ring-shadow-blur,7px) var(--ring-shadow-color)); }
+      .ring-glow { filter:blur(var(--glow-blur,8px))
+                          drop-shadow(0 0 var(--glow-shadow-blur,18px) var(--glow-shadow-color)); }
+      .label { position:absolute; display:block; opacity:0;
+               transition:opacity .16s ease-out; color:var(--label-color,AccentColor);
+               font:900 22px/1 system-ui,-apple-system,BlinkMacSystemFont,
+                    "PingFang SC","Noto Sans CJK SC",sans-serif;
+               font-kerning:normal; font-variant-ligatures:none;
+               white-space:nowrap;
+               text-shadow:var(--label-shadow); }
+      .label.show { opacity:1; }
+      .label-glyph { position:absolute; left:0; top:0; display:block;
+                     transform-origin:center 72%; will-change:transform,opacity; }
       .particles { position:absolute; inset:0; overflow:hidden; }
       .particle { position:absolute; translate:-50% -50%; font:700 22px/1 Arial,sans-serif;
                   text-shadow:0 1px 3px rgba(0,0,0,.35); will-change:transform,opacity; }
@@ -38,7 +44,8 @@ const INSTALL = `(() => {
           <rect class="cut" fill="black" filter="url(#feather)"/></mask>
       </defs>
       <rect class="shade" mask="url(#cutout)"/>
-      <rect class="ring" fill="none" stroke-width="3"/>
+      <rect class="ring-glow" fill="none" stroke-width="9"/>
+      <rect class="ring" fill="none" stroke-width="2"/>
     </svg>
     <div class="label"></div><div class="particles"></div>\`;
 
@@ -46,6 +53,7 @@ const INSTALL = `(() => {
   const maskBg = root.querySelector('.mask-bg');
   const cut = root.querySelector('.cut');
   const shade = root.querySelector('.shade');
+  const ringGlow = root.querySelector('.ring-glow');
   const ring = root.querySelector('.ring');
   const label = root.querySelector('.label');
   const particles = root.querySelector('.particles');
@@ -68,10 +76,106 @@ const INSTALL = `(() => {
   const hide = () => {
     token += 1;
     shade.style.opacity = '0';
+    ringGlow.style.opacity = '0';
     ring.style.opacity = '0';
     label.classList.remove('show');
     particles.replaceChildren();
     return true;
+  };
+  const showLabel = (text, options, color, r) => {
+    label.replaceChildren();
+    const value = String(text || '').replace(
+      /(^|[\\s:–—-])([\\p{L}\\p{N}])/gu,
+      (_, boundary, character) => boundary + character.toLocaleUpperCase(),
+    );
+    if (!value) {
+      label.classList.remove('show');
+      return;
+    }
+    label.style.setProperty('--label-color', options.labelColor || color);
+    label.style.setProperty('--label-shadow', options.labelShadow ||
+      '0 1px 0 rgba(255,255,255,.95), 0 0 7px rgba(255,255,255,.92), 0 5px 14px rgba(17,12,28,.26)');
+    const style = getComputedStyle(label);
+    const measure = document.createElement('canvas').getContext('2d');
+    measure.font = style.font ||
+      (style.fontWeight + ' ' + style.fontSize + ' ' + style.fontFamily);
+    if ('fontKerning' in measure) measure.fontKerning = 'normal';
+    const glyphs = [];
+    let prefix = '';
+    let glyphIndex = 0;
+    for (const char of value) {
+      if (!/\\s/.test(char)) {
+        const glyph = document.createElement('span');
+        glyph.className = 'label-glyph';
+        glyph.textContent = char;
+        // Prefix measurement preserves pair kerning while each glyph remains
+        // independently animatable. Flexed spans cannot kern across elements.
+        const withCharacter = prefix + char;
+        glyph.style.left = Math.max(0,
+          measure.measureText(withCharacter).width - measure.measureText(char).width) + 'px';
+        label.appendChild(glyph);
+        glyphs.push({ glyph, index:glyphIndex });
+        glyphIndex += 1;
+      }
+      prefix += char;
+    }
+    const metrics = measure.measureText(value);
+    const fontSize = parseFloat(style.fontSize) || 22;
+    label.style.width = Math.ceil(metrics.width) + 'px';
+    label.style.height = Math.ceil(Math.max(fontSize,
+      (metrics.actualBoundingBoxAscent || fontSize * .8) +
+      (metrics.actualBoundingBoxDescent || fontSize * .2))) + 'px';
+    for (const { glyph, index } of glyphs) {
+      const drift = ((index * 17) % 9) - 4;
+      const tilt = ((index * 11) % 7) - 3;
+      const delay = index * 34;
+      glyph.animate([
+        { opacity:0, transform:'translate3d(' + drift + 'px,11px,0) rotate(' + tilt + 'deg) scale(.72)' },
+        { opacity:1, transform:'translate3d(0,-2px,0) rotate(' + (-tilt * .3) + 'deg) scale(1.08)', offset:.72 },
+        { opacity:1, transform:'translate3d(0,0,0) rotate(0) scale(1)' },
+      ], {
+        duration:620, delay, fill:'both',
+        easing:'cubic-bezier(.18,.82,.2,1)',
+      });
+      // Once landed, every letter keeps a barely-there independent buoyancy.
+      // The short amplitude reads as alive, not as a novelty title effect.
+      glyph.animate([
+        { translate:'0 -1px', rotate:'-0.55deg' },
+        { translate:'0 1.5px', rotate:'0.55deg' },
+      ], {
+        duration:1700 + (index % 5) * 170,
+        delay:620 + delay,
+        direction:'alternate', iterations:Infinity,
+        easing:'ease-in-out', composite:'add',
+      });
+    }
+    label.setAttribute('aria-label', value);
+    label.style.left = '0px';
+    label.style.top = '0px';
+    label.classList.add('show');
+    const measured = label.getBoundingClientRect();
+    let left;
+    let top;
+    if (options.labelPosition === 'above') {
+      left = r.x + (r.width - measured.width) / 2;
+      top = r.y - measured.height - Number(options.labelGap ?? 12);
+    } else if (options.labelPosition === 'side' &&
+        r.x + r.width + measured.width + 24 <= innerWidth) {
+      left = r.x + r.width + 12;
+      top = r.y + (r.height - measured.height) / 2;
+    } else if (options.labelPosition === 'side' && r.x >= measured.width + 24) {
+      left = r.x - measured.width - 12;
+      top = r.y + (r.height - measured.height) / 2;
+    } else {
+      left = Math.max(12, Math.min(innerWidth - measured.width - 12, r.x));
+      top = r.y >= measured.height + 20
+        ? r.y - measured.height - 12
+        : Math.min(innerHeight - measured.height - 12, r.y + r.height + 12);
+    }
+    left += Number(options.labelOffsetX ?? 0);
+    top += Number(options.labelOffsetY ?? 0);
+    label.style.left = Math.max(12, Math.min(innerWidth - measured.width - 12, left)) + 'px';
+    label.style.top = Math.max(12, Math.min(innerHeight - measured.height - 12, top)) + 'px';
   };
   const resetCamera = (options = {}) => {
     cameraAnimation?.cancel(); cameraAnimation = null;
@@ -91,39 +195,84 @@ const INSTALL = `(() => {
     }).catch(() => {});
     return true;
   };
-  const box = (selector) => {
+  const box = (selector, options = {}) => {
     const el = resolve(selector);
     if (!el) throw new Error('Captutor effect target not found: ' + selector);
-    el.scrollIntoView({ block:'center', inline:'center', behavior:'instant' });
+    if (options.scrollIntoView !== false) {
+      el.scrollIntoView({ block:'center', inline:'center', behavior:'instant' });
+    }
     const r = el.getBoundingClientRect();
-    return { x:r.x, y:r.y, width:r.width, height:r.height };
+    // React Flow applies radius before its viewport scale, while our SVG lives
+    // in screen pixels outside that transform. Inspect descendants whose box
+    // exactly matches the requested node, take their strongest authored corner,
+    // and scale it into the overlay's coordinate system. This catches Fuser's
+    // rounded inner card even when the outer React Flow wrapper is less rounded.
+    const candidates = [el, ...el.querySelectorAll(':scope > *, :scope > * > *, :scope > * > * > *')];
+    let inferredRadius = 0;
+    for (const candidate of candidates) {
+      const q = candidate.getBoundingClientRect();
+      const tolerance = 3;
+      const sameBox = Math.abs(q.left - r.left) <= tolerance &&
+        Math.abs(q.top - r.top) <= tolerance &&
+        Math.abs(q.right - r.right) <= tolerance &&
+        Math.abs(q.bottom - r.bottom) <= tolerance;
+      if (!sameBox) continue;
+      const style = getComputedStyle(candidate);
+      const scaleX = candidate.offsetWidth ? q.width / candidate.offsetWidth : 1;
+      const scaleY = candidate.offsetHeight ? q.height / candidate.offsetHeight : 1;
+      const scale = Math.min(scaleX, scaleY);
+      const corners = [
+        style.borderTopLeftRadius, style.borderTopRightRadius,
+        style.borderBottomRightRadius, style.borderBottomLeftRadius,
+      ];
+      for (const corner of corners) {
+        const authored = parseFloat(corner) || 0;
+        inferredRadius = Math.max(inferredRadius, authored * scale);
+      }
+    }
+    inferredRadius = Math.min(inferredRadius, r.width / 2, r.height / 2);
+    return { x:r.x, y:r.y, width:r.width, height:r.height, radius:inferredRadius };
   };
 
   const spotlight = (selector, options = {}) => {
     const own = ++token;
-    const r = box(selector);
+    const r = box(selector, options);
     const pad = Number(options.padding ?? 12);
     const x = Math.max(0, r.x - pad), y = Math.max(0, r.y - pad);
     const w = Math.min(innerWidth - x, r.width + pad * 2);
     const h = Math.min(innerHeight - y, r.height + pad * 2);
-    const radius = Number(options.radius ?? 12);
+    // Expanding a rounded rectangle by the pad expands its radius by the same
+    // amount; using the raw node radius would still pinch the frame's corners.
+    const radius = Number(options.radius ?? (r.radius ? r.radius + pad : 12));
     const feather = Math.max(0, Number(options.feather ?? 16));
-    const color = options.color || '#7c3aed';
+    // Follow the filming machine by default. A screenplay can merge a client
+    // effectTheme into these options without changing the generic effect.
+    const color = options.color || 'AccentColor';
+    const ringColor = options.ringColor || color;
+    const glowColor = options.glowColor || color;
     const dim = Math.max(0, Math.min(.82, Number(options.dim ?? .54)));
     attrs(svg, { viewBox:'0 0 ' + innerWidth + ' ' + innerHeight });
     attrs(maskBg, { x:0, y:0, width:innerWidth, height:innerHeight });
     attrs(cut, { x, y, width:w, height:h, rx:radius, ry:radius });
     attrs(shade, { x:0, y:0, width:innerWidth, height:innerHeight,
       fill:'rgba(0,0,0,' + dim + ')' });
-    attrs(ring, { x, y, width:w, height:h, rx:radius, ry:radius, stroke:color });
+    attrs(ring, { x, y, width:w, height:h, rx:radius, ry:radius, stroke:ringColor });
+    attrs(ringGlow, { x, y, width:w, height:h, rx:radius, ry:radius, stroke:glowColor });
     featherBlur.setAttribute('stdDeviation', String(feather));
     ring.style.setProperty('--accent', color);
+    ringGlow.style.setProperty('--accent', color);
+    ring.style.setProperty('--ring-blur', Number(options.ringBlur ?? .45) + 'px');
+    ring.style.setProperty('--ring-shadow-blur', Number(options.ringShadowBlur ?? 7) + 'px');
+    ring.style.setProperty('--ring-shadow-color', options.ringShadowColor ||
+      'color-mix(in srgb, ' + color + ' 55%, transparent)');
+    ringGlow.style.setProperty('--glow-blur', Number(options.glowBlur ?? 8) + 'px');
+    ringGlow.style.setProperty('--glow-shadow-blur', Number(options.glowShadowBlur ?? 18) + 'px');
+    ringGlow.style.setProperty('--glow-shadow-color', options.glowShadowColor ||
+      'color-mix(in srgb, ' + color + ' 34%, transparent)');
     shade.style.opacity = dim > 0 ? '1' : '0';
-    ring.style.opacity = options.ring === false ? '0' : '1';
-    label.textContent = options.label || '';
-    label.style.left = Math.max(8, Math.min(innerWidth - 220, x)) + 'px';
-    label.style.top = (y >= 42 ? y - 34 : y + h + 8) + 'px';
-    label.classList.toggle('show', !!options.label);
+    ring.style.opacity = options.ring === false ? '0' : String(options.ringOpacity ?? .82);
+    ringGlow.style.opacity = options.ring === false ? '0' : String(options.glowOpacity ?? .46);
+    showLabel(options.label, options, color, { x, y, width:w, height:h });
     const ms = Number(options.durationMs ?? 2200);
     if (ms > 0) setTimeout(() => { if (own === token) hide(); }, ms);
     return r;
@@ -140,7 +289,7 @@ const INSTALL = `(() => {
   });
 
   const burst = (selector, options = {}) => {
-    const r = box(selector);
+    const r = box(selector, options);
     const x = r.x + r.width / 2, y = r.y + r.height / 2;
     const glyph = String(options.glyph || '?').slice(0, 3);
     const color = options.color || '#facc15';

@@ -36,6 +36,19 @@ export function writeVTT(beats, path) {
   return all.length;
 }
 
+export function narrationFilter(beats) {
+  const chains = beats.map((b, i) => {
+    const ms = Math.round(b.offsetSec * 1000);
+    return `[${i + 1}:a]adelay=${ms}|${ms}[d${i}]`;
+  });
+  const mixIn = beats.map((_, i) => `[d${i}]`).join("");
+  return (
+    `${chains.join(";")};${mixIn}` +
+    `amix=inputs=${beats.length}:normalize=0:dropout_transition=0,` +
+    `loudnorm=I=-16:LRA=7:TP=-1.5,aresample=48000[a]`
+  );
+}
+
 /// Mux: video from the reel clip (stream-copied — it is already h264 and
 /// re-encoding would only soften the text), narration mixed in at each beat's
 /// measured offset.
@@ -44,6 +57,11 @@ export function writeVTT(beats, path) {
 /// so an N-beat tutorial would come out roughly 1/N as loud — quiet in a way
 /// that reads as a broken render rather than a mixing choice. The beats never
 /// overlap, so summing them straight is exactly right.
+///
+/// The ElevenLabs source clips are intentionally conservative (the finished
+/// tutorials measured around -30 LUFS), so normalize the summed narration bus
+/// to a web-friendly spoken-word target. `loudnorm` oversamples internally for
+/// true-peak detection; bring the result back to 48 kHz before AAC encoding.
 export function mux({ clip, beats, out, vtt }) {
   const args = ["-y", "-i", clip];
   for (const b of beats) args.push("-i", b.mp3);
@@ -53,13 +71,7 @@ export function mux({ clip, beats, out, vtt }) {
   // simply are not there. Embedding means the file carries them everywhere.
   if (vtt) args.push("-i", vtt);
 
-  const chains = beats.map((b, i) => {
-    const ms = Math.round(b.offsetSec * 1000);
-    return `[${i + 1}:a]adelay=${ms}|${ms}[d${i}]`;
-  });
-  const mixIn = beats.map((_, i) => `[d${i}]`).join("");
-  const filter =
-    `${chains.join(";")};${mixIn}amix=inputs=${beats.length}:normalize=0:dropout_transition=0[a]`;
+  const filter = narrationFilter(beats);
 
   args.push(
     "-filter_complex", filter,

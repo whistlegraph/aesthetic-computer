@@ -15,7 +15,10 @@
 #include "ac_mesh_acoustics.h"
 #define TAU (2*M_PI)
 #define SR 48000
-#define BPM 104.0
+#define ROOM_BPM 76.0
+#define COSMOS_BPM 104.0
+static double tempoBpm=ROOM_BPM;
+#define BPM (tempoBpm)
 #define BEAT (60.0/BPM)
 #define BAR (4*BEAT)
 #define DUR (38*BAR)
@@ -47,6 +50,9 @@ static Listener *L; static float *busL,*busR,*fieldGain;
 // visualizer reads this telemetry instead of guessing loudness from envelopes.
 static double *meterL,*meterR;
 static double spatialWet=.32;
+// The noise voices are part of the instrument, not recording dirt.  Keep a
+// permanent breath floor while letting the release mix sit behind the tones.
+static double noiseLevel=.55;
 static int brightMode=0;
 static int themeExplicit=0;
 static int globeMode=0;
@@ -159,6 +165,13 @@ static Source source_at(int s,double t){Source q=S[s];
   }
   return q;
  }
+ // The lullaby begins as rotation alone.  Ninety-six complete turns land at
+ // the original orientation, while the quartic ease gives ~30 rotations/sec
+ // at the first instant and exactly zero angular velocity at the hand-off.
+ // At that speed the moving HRTF/proximity field fuses into a spatial hum.
+ if(t<4*BAR){double u=fmax(0,fmin(1,t/(4*BAR))),a=TAU*96*(1-pow(1-u,4));
+  double x=q.x,y=q.y;q.x=x*cos(a)-y*sin(a);q.y=x*sin(a)+y*cos(a);q.z+=.16*sin(a+s*.7);
+ }
  if(t>=50&&t<=78){double u=(t-50)/28;u=u*u*(3-2*u);double a=TAU*2*u;
  // Eight-turn centrifuge from 62–70 s.  Smoothstep gives it a physical ramp;
  // eight whole turns land at the original orientation with no visual/audio cut.
@@ -241,10 +254,13 @@ static void score(void){
  }
  for(int b=0;b<38;b++){
   double t=b*BAR, tr=(b>=20&&b<28)?4.0/3:1;
-  if(globeMode&&b<4){if(b==0){ev(t,4*BAR+.3,36,.055,0,2.8,2.6);ev(t,4*BAR+.3,43,.038,2,3.4,2.8);ev(t,4*BAR+.3,48,.03,3,4.0,3.0);ev(t,4*BAR+.3,55,.018,4,4.8,3.4);}continue;}
+  // Opening: no beat and no written melody, only four resonators carried by
+  // the decelerating room spin.  A faint continuous air voice prevents the
+  // release from ever becoming clinically noiseless.
+  if(b<4){if(b==0){ev(t,4*BAR+.3,36,.055,0,2.8,2.6);ev(t,4*BAR+.3,43,.038,2,3.4,2.8);ev(t,4*BAR+.3,48,.030,3,4.0,3.0);ev(t,4*BAR+.3,55,.018,4,4.8,3.4);noisev(t,4*BAR+.3,2100,7200,.0065*noiseLevel,11);}continue;}
   for(int k=0;k<4;k++)ev(t,BAR+.1,69+12*log2(hz(chord[b%4][k])*tr/440),.034,k<2?2:3,.7,1.0);
   // Continuous independently filtered noise voices.
-  double noiseScale=globeMode?.16:1.0;
+  double noiseScale=noiseLevel;
   for(int q=0;q<4;q++)noisev(t+(q+.5)*BEAT,.085,4200,10200,.065*noiseScale,q&1?7:6);
   noisev(t,BAR,1700,5700,.013*noiseScale,11);
   for(int q=1;q<4;q+=2)noisev(t+q*BEAT,.15,620,2100,.052*noiseScale,q==1?8:9);
@@ -521,10 +537,10 @@ static void globe_frame(unsigned char*p,int fr,double t,Listener l){
  }
 }
 static void video(const char*wavp,const char*outp){char cmd[2048];size_t ol=strlen(outp);int lossless=ol>=4&&!strcmp(outp+ol-4,".mov");const char*clean=globeMode?"-af 'highpass=f=30,equalizer=f=7600:t=q:w=.75:g=-4,lowpass=f=11800,alimiter=limit=.90:attack=6:release=110,volume=.88'":"",*pixels=(globeMode&&!acousticsView)?"-vf 'scale=240:240:flags=neighbor,scale=720:720:flags=neighbor'":"";if(lossless)
- snprintf(cmd,sizeof cmd,"ffmpeg -hide_banner -y -loglevel error -f image2pipe -vcodec ppm -r %d -i - -i '%s' -c:v libx265 -preset medium -x265-params lossless=1:log-level=error -pix_fmt yuv444p -tag:v hvc1 %s -c:a pcm_s24le -ar 48000 -shortest '%s'",FPS,wavp,clean,outp);
- else snprintf(cmd,sizeof cmd,"ffmpeg -hide_banner -y -loglevel error -f image2pipe -vcodec ppm -r %d -i - -i '%s' %s -c:v libx264 -preset slow -pix_fmt yuv420p -crf 14 %s -c:a aac -b:a 320k -shortest '%s'",FPS,wavp,pixels,clean,outp);FILE*ff=popen(cmd,"w");if(!ff)return;unsigned char*p=malloc(W*H*3);
+ snprintf(cmd,sizeof cmd,"ffmpeg -hide_banner -y -loglevel error -f rawvideo -pixel_format rgb24 -video_size %dx%d -framerate %d -i - -i '%s' -c:v libx265 -preset medium -x265-params lossless=1:log-level=error -pix_fmt yuv444p -tag:v hvc1 %s -c:a pcm_s24le -ar 48000 -shortest '%s'",W,H,FPS,wavp,clean,outp);
+ else snprintf(cmd,sizeof cmd,"ffmpeg -hide_banner -y -loglevel error -f rawvideo -pixel_format rgb24 -video_size %dx%d -framerate %d -i - -i '%s' %s -c:v libx264 -preset slow -pix_fmt yuv420p -crf 14 %s -c:a aac -b:a 320k -shortest '%s'",W,H,FPS,wavp,pixels,clean,outp);FILE*ff=popen(cmd,"w");if(!ff)return;unsigned char*p=malloc(W*H*3);
  for(int fr=0;fr<(int)(DUR*FPS);fr++){double t=fr/(double)FPS;for(int y=0;y<H;y++){unsigned char v=brightMode?(unsigned char)(250-15*y/(double)H):(unsigned char)(24-10*y/(double)H);for(int x=0;x<W;x++){int o=(y*W+x)*3;p[o]=v;p[o+1]=(unsigned char)fmax(0,v-(brightMode?3:1));p[o+2]=(unsigned char)fmin(255,v+(brightMode?0:2));}}int li=(int)(t*CTRL);Listener l=L[li];
-  if(globeMode){globe_frame(p,fr,t,l);fprintf(ff,"P6\n%d %d\n255\n",W,H);fwrite(p,1,W*H*3,ff);continue;}
+  if(globeMode){globe_frame(p,fr,t,l);fwrite(p,1,W*H*3,ff);continue;}
   // Camera begins among the sources, orbits with the listener, then after 78 s
   // retreats far beyond the room until the ensemble is a small constellation.
   int ts=tour_source(t),tn=TOUR[(ts==TOUR[11])?0:((int)(t/9.0)+1)%12];double phase=fmod(t,9.0)/9.0,lookMix=phase<.78?0:(phase-.78)/.22;lookMix=lookMix*lookMix*(3-2*lookMix);Source la=source_at(ts,t),lb=source_at(tn,t);
@@ -569,12 +585,12 @@ static void video(const char*wavp,const char*outp){char cmd[2048];size_t ol=strl
   line2(p,rcx,rcy-7,rcx-6,rcy+6,0xf6c915,.95);line2(p,rcx-6,rcy+6,rcx+6,rcy+6,0xf6c915,.95);line2(p,rcx+6,rcy+6,rcx,rcy-7,0xf6c915,.95);
   double sumL=0,sumR=0;for(int s=0;s<NSRC;s++){double ml,mr;source_meter(fr,s,&ml,&mr);sumL+=ml;sumR+=mr;Source so=source_at(s,t);double dx=so.x-l.x,dy=so.y-l.y,rx=dx*cos(l.heading)+dy*sin(l.heading),ry=-dx*sin(l.heading)+dy*cos(l.heading),scale=11.0,rr=hypot(rx,ry);if(rr>10.5){rx*=10.5/rr;ry*=10.5/rr;}int bx=rcx+(int)(ry*scale),base=rcy-(int)(rx*scale*.5),by=base-(int)((so.z-1.6)*10),weak=hypot(ml,mr)<.0015;double vis=weak?(.16+.24*(sin(t*31+s*7)>0)):.9;line2(p,bx,base,bx,by,S[s].color,vis*.7);if(s==ts)glow(p,bx,by,12,0xffffff,.28);dot(p,bx,by,s==ts?4:3,S[s].color);}
   int lm=(int)fmin(110,sumL*850),rm=(int)fmin(110,sumR*850);fill2(p,70,H-55,70+lm,H-45,0x4ecdc4,.9);fill2(p,W-70-rm,H-55,W-70,H-45,0xf8a5c2,.9);
-  fprintf(ff,"P6\n%d %d\n255\n",W,H);fwrite(p,1,W*H*3,ff);
+  fwrite(p,1,W*H*3,ff);
  }
  free(p);pclose(ff);
 }
-  int main(int argc,char**argv){const char*w="../out/spatial-sineabye.wav",*v="../out/spatial-sineabye.mp4",*mp3=NULL,*ptStill=NULL,*sceneOut=NULL;double ptTime=32;int ptSpp=32,sceneFrames=NFRAMES;for(int i=1;i<argc;i++){if(!strcmp(argv[i],"--wav")&&i+1<argc)w=argv[++i];else if(!strcmp(argv[i],"--video")&&i+1<argc)v=argv[++i];else if(!strcmp(argv[i],"--mp3")&&i+1<argc)mp3=argv[++i];else if(!strcmp(argv[i],"--spatial-wet")&&i+1<argc)spatialWet=fmax(0,fmin(1,atof(argv[++i])));else if(!strcmp(argv[i],"--bright")){brightMode=1;themeExplicit=1;}else if(!strcmp(argv[i],"--dark")){brightMode=0;themeExplicit=1;}else if(!strcmp(argv[i],"--theme")&&i+1<argc){const char*th=argv[++i];if(!strcmp(th,"light"))brightMode=1;else if(!strcmp(th,"dark"))brightMode=0;themeExplicit=strcmp(th,"auto")!=0;}else if(!strcmp(argv[i],"--globe"))globeMode=1;else if(!strcmp(argv[i],"--lattice-duet")){globeMode=1;duetMode=1;voiceCount=4;}else if(!strcmp(argv[i],"--cosmos")){globeMode=1;cosmosMode=1;voiceCount=12;}else if(!strcmp(argv[i],"--camera")&&i+1<argc){cameraMode=!strcmp(argv[++i],"ship");}else if(!strcmp(argv[i],"--voices")&&i+1<argc)voiceCount=atoi(argv[++i]);else if(!strcmp(argv[i],"--pathtrace-still")&&i+1<argc)ptStill=argv[++i];else if(!strcmp(argv[i],"--pt-time")&&i+1<argc)ptTime=atof(argv[++i]);else if(!strcmp(argv[i],"--pt-spp")&&i+1<argc)ptSpp=atoi(argv[++i]);else if(!strcmp(argv[i],"--scene-data")&&i+1<argc)sceneOut=argv[++i];else if(!strcmp(argv[i],"--scene-frames")&&i+1<argc)sceneFrames=atoi(argv[++i]);}resolve_render_theme();
+  int main(int argc,char**argv){const char*w="../out/spatial-sineabye.wav",*v="../out/spatial-sineabye.mp4",*videoAudio=NULL,*mp3=NULL,*ptStill=NULL,*sceneOut=NULL;double ptTime=32;int ptSpp=32,sceneFrames=0,tempoExplicit=0;for(int i=1;i<argc;i++){if(!strcmp(argv[i],"--wav")&&i+1<argc)w=argv[++i];else if(!strcmp(argv[i],"--video")&&i+1<argc)v=argv[++i];else if(!strcmp(argv[i],"--video-audio")&&i+1<argc)videoAudio=argv[++i];else if(!strcmp(argv[i],"--mp3")&&i+1<argc)mp3=argv[++i];else if(!strcmp(argv[i],"--spatial-wet")&&i+1<argc)spatialWet=fmax(0,fmin(1,atof(argv[++i])));else if(!strcmp(argv[i],"--noise-level")&&i+1<argc)noiseLevel=fmax(.05,fmin(1,atof(argv[++i])));else if(!strcmp(argv[i],"--bpm")&&i+1<argc){tempoBpm=fmax(30,fmin(240,atof(argv[++i])));tempoExplicit=1;}else if(!strcmp(argv[i],"--bright")){brightMode=1;themeExplicit=1;}else if(!strcmp(argv[i],"--dark")){brightMode=0;themeExplicit=1;}else if(!strcmp(argv[i],"--theme")&&i+1<argc){const char*th=argv[++i];if(!strcmp(th,"light"))brightMode=1;else if(!strcmp(th,"dark"))brightMode=0;themeExplicit=strcmp(th,"auto")!=0;}else if(!strcmp(argv[i],"--globe"))globeMode=1;else if(!strcmp(argv[i],"--lattice-duet")){globeMode=1;duetMode=1;voiceCount=4;}else if(!strcmp(argv[i],"--cosmos")){globeMode=1;cosmosMode=1;voiceCount=12;}else if(!strcmp(argv[i],"--camera")&&i+1<argc){cameraMode=!strcmp(argv[++i],"ship");}else if(!strcmp(argv[i],"--voices")&&i+1<argc)voiceCount=atoi(argv[++i]);else if(!strcmp(argv[i],"--pathtrace-still")&&i+1<argc)ptStill=argv[++i];else if(!strcmp(argv[i],"--pt-time")&&i+1<argc)ptTime=atof(argv[++i]);else if(!strcmp(argv[i],"--pt-spp")&&i+1<argc)ptSpp=atoi(argv[++i]);else if(!strcmp(argv[i],"--scene-data")&&i+1<argc)sceneOut=argv[++i];else if(!strcmp(argv[i],"--scene-frames")&&i+1<argc)sceneFrames=atoi(argv[++i]);}if(!tempoExplicit)tempoBpm=cosmosMode?COSMOS_BPM:ROOM_BPM;if(sceneFrames<=0)sceneFrames=NFRAMES;resolve_render_theme();
  for(int i=1;i+1<argc;i++)if(!strcmp(argv[i],"--visual"))acousticsView=!strcmp(argv[i+1],"acoustics");
  score();filter_score();simulate();if(ptStill){globeMode=1;if(!pathtrace_still(ptStill,fmax(0,fmin(DUR,ptTime)),fmax(1,ptSpp))){fprintf(stderr,"pathtrace write failed\n");return 1;}fprintf(stderr,"✓ %s · path traced · %d spp\n",ptStill,ptSpp);return 0;}render();if(sceneOut&&!export_scene(sceneOut,fmax(1,fmin(NFRAMES,sceneFrames)))){fprintf(stderr,"scene export failed\n");return 1;}if(!wav(w)){fprintf(stderr,"write failed\n");return 1;}fprintf(stderr,"✓ %s · %.1fs · %d sound bodies/events · %d voices · spatial wet %.0f%%\n",w,DUR,NE,voiceCount,spatialWet*100);
  if(mp3){char cmd[4096];snprintf(cmd,sizeof cmd,"ffmpeg -hide_banner -y -loglevel error -i '%s' -af 'highpass=f=28,equalizer=f=72:t=q:w=.8:g=1.2,equalizer=f=7200:t=q:w=.9:g=-1,lowpass=f=15800,alimiter=limit=.90:attack=6:release=100,volume=.84' -c:a libmp3lame -q:a 2 '%s'",w,mp3);if(system(cmd)!=0)return 1;}
- if(v&&strcmp(v,"none"))video(w,v);return 0;}
+ if(v&&strcmp(v,"none"))video(videoAudio?videoAudio:w,v);return 0;}

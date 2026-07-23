@@ -10,13 +10,16 @@ test("publishes media before a task-bound completion manifest", () => {
   const root = mkdtempSync(join(tmpdir(), "captutor-outbox-"));
   const video = join(root, "take.mp4");
   const captions = join(root, "take.vtt");
+  const receipt = join(root, "take.storyboard-receipt.pdf");
   writeFileSync(video, "video bytes");
   writeFileSync(captions, "WEBVTT\n");
+  writeFileSync(receipt, "%PDF receipt");
 
   const result = publishToOutbox({
     outbox: join(root, "outbox"),
     video,
     captions,
+    receipt,
     screenplay: "smoke",
     locale: "en",
     format: "docs",
@@ -32,4 +35,6 @@ test("publishes media before a task-bound completion manifest", () => {
   assert.match(manifest.sha256, /^[a-f0-9]{64}$/);
   assert.ok(existsSync(result.video));
   assert.ok(existsSync(result.captions));
+  assert.ok(existsSync(result.receipt));
+  assert.match(manifest.receipt, /storyboard-receipt\.pdf$/);
 });

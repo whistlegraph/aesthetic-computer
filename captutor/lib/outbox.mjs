@@ -42,6 +42,8 @@ export function publishToOutbox({
   locale,
   format,
   taskGid = null,
+  storyboard = null,
+  receipt = null,
   now = new Date(),
 }) {
   if (!existsSync(video)) throw new Error(`outbox video does not exist: ${video}`);
@@ -52,10 +54,14 @@ export function publishToOutbox({
   const stem = `${screenplay}.${locale}.${format}.${stamp(now)}`;
   const videoOut = join(dir, `${stem}.mp4`);
   const captionsOut = join(dir, `${stem}.vtt`);
+  const storyboardOut = storyboard ? join(dir, `${stem}.storyboard.json`) : null;
+  const receiptOut = receipt ? join(dir, `${stem}.storyboard-receipt.pdf`) : null;
   const manifestOut = join(dir, `${stem}.json`);
 
   atomicCopy(video, videoOut);
   atomicCopy(captions, captionsOut);
+  if (storyboard) atomicCopy(storyboard, storyboardOut);
+  if (receipt) atomicCopy(receipt, receiptOut);
 
   const manifest = {
     schema: "captutor-outbox/v1",
@@ -67,6 +73,8 @@ export function publishToOutbox({
     format,
     video: basename(videoOut),
     captions: basename(captionsOut),
+    storyboard: storyboardOut ? basename(storyboardOut) : null,
+    receipt: receiptOut ? basename(receiptOut) : null,
     bytes: statSync(videoOut).size,
     sha256: sha256(videoOut),
   };
@@ -74,5 +82,12 @@ export function publishToOutbox({
   writeFileSync(manifestTmp, JSON.stringify(manifest, null, 2) + "\n");
   renameSync(manifestTmp, manifestOut);
 
-  return { video: videoOut, captions: captionsOut, manifest: manifestOut, metadata: manifest };
+  return {
+    video:videoOut,
+    captions:captionsOut,
+    storyboard:storyboardOut,
+    receipt:receiptOut,
+    manifest:manifestOut,
+    metadata:manifest,
+  };
 }

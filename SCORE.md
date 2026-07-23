@@ -22,6 +22,31 @@ Interpret names and requests in this order unless the user explicitly points els
 
 Do not interpret a known machine name as an Aesthetic Computer piece until the seat/fleet meaning has been ruled out.
 
+## Pull Request Score
+
+Keep a small PR terse. When the work is a recovery, migration, or design change
+that benefits from a fuller review story, use this structure:
+
+1. Lead with the developer story: the concrete incident, who needs what, and
+   why it matters. A substantial PR may title it `## 🧑‍💻 Developer story`.
+2. Add `## 🔗 Recovery chain` when the work follows earlier accepted PRs, and
+   state the responsibility contributed by each one.
+3. Prefer one narrow, top-to-bottom Mermaid `flowchart TD` with short labels.
+   Add another diagram only for a distinct layer that prose cannot explain as
+   clearly.
+4. Use color sparingly inside Mermaid through semantic `classDef` styles.
+   GitHub does not reliably color ordinary Markdown text, so do not use HTML or
+   CSS hacks. For textual emphasis, prefer a durable blockquote such as
+   `> 🛡️ **Core safety rule:** …`.
+5. Sprinkle a few semantic emoji before major headings for navigation (`🔗`,
+   `🔄`, `🛡️`, `🎯`, `✅`). Do not mark every heading or decorate body prose.
+6. Make safety invariants, exact validation, known limits, and deliberately
+   out-of-scope work explicit. Use concrete identifiers when they help readers
+   verify the story, but never expose secrets or irrelevant private host data.
+
+The reading order is story → related work → simple flow → safety → evidence →
+limits. The complexity of the work must earn the length and diagrams.
+
 ## Front Door
 
 <!-- stats:start -->

@@ -28,6 +28,7 @@ import { homedir, hostname } from "node:os";
 import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
 import { boundedNudge, makeIrisContact, parseAgentAddress } from "../lib/loopboy-family.mjs";
 import { enqueueLoopboyEvent, waitLoopboyEvent } from "../lib/loopboy-inbox.mjs";
+import { authorizeLoopboyWait } from "../lib/loopboy-request-auth.mjs";
 
 const pexec = promisify(execFile);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -506,29 +507,21 @@ async function toolBindNotification({ handle, contact, event = "imessage" }) {
   return [{ type: "text", text: `Loopboy bound ${contactKey} → ${r.host}:${r.name} (${r.id}) — isolated inbox delivery; no Terminal/UI injection.` }];
 }
 
-async function toolLoopboyWait({ handle, contact, timeoutSeconds = 50 }) {
+async function toolLoopboyWait({ handle, contact, timeoutSeconds = 50 }, context = {}) {
   const cfg = await readJson(LOOPBOY_CONFIG);
   const loops = cfg?.loops || {};
-  const boundContact = String(process.env.SLAB_LOOPBOY_CONTACT || "").trim().toLowerCase();
-  if (!boundContact) {
-    throw new Error("prox_loopboy_wait is available only inside a SLAB_LOOPBOY_CONTACT session");
-  }
-  const requestedContact = String(contact || "").trim().toLowerCase();
-  if (requestedContact && requestedContact !== boundContact) {
-    throw new Error(`this Loopboy is bound to ${boundContact}, not ${requestedContact}`);
-  }
-  let contactKey = boundContact;
-  let loop = contactKey ? loops[contactKey] : null;
-  if (!loop && handle) {
+  const { contact: contactKey, sessionId: callerSessionId, loop } = authorizeLoopboyWait({
+    context,
+    loops,
+    requestedContact: contact,
+  });
+  if (handle) {
     const hits = resolve(await allRocks(), handle);
     if (!hits.length) throw new Error(`no rock resolves «${handle}» for Loopboy wait.`);
     if (hits.length > 1) throw new Error(`«${handle}» is ambiguous.`);
-    const rock = hits[0];
-    const found = Object.entries(loops).find(([, value]) => value?.sessionId === rock.id);
-    if (found) [contactKey, loop] = found;
-  }
-  if (!loop?.sessionId) {
-    throw new Error("Loopboy wait requires a bound `contact` or Loopboy `handle`.");
+    if (String(hits[0].id) !== callerSessionId) {
+      throw new Error(`«${handle}» is not this Loopboy session`);
+    }
   }
   const seconds = Math.max(0, Math.min(55, Number(timeoutSeconds) || 0));
   const event = await waitLoopboyEvent(loop.sessionId, { timeoutMs: seconds * 1000 });
@@ -749,7 +742,7 @@ const TOOLS = [
   },
 ];
 
-async function callTool(name, args) {
+async function callTool(name, args, context) {
   switch (name) {
     case "prox_list": return toolList(args || {});
     case "prox_find": return toolFind(args || {});
@@ -759,7 +752,7 @@ async function callTool(name, args) {
     case "prox_artifact_ready": return toolArtifactReady(args || {});
     case "prox_launch": return toolLaunch(args || {});
     case "prox_bind_notification": return toolBindNotification(args || {});
-    case "prox_loopboy_wait": return toolLoopboyWait(args || {});
+    case "prox_loopboy_wait": return toolLoopboyWait(args || {}, context);
     case "prox_loopboy_agent_status": return toolLoopboyAgentStatus(args || {});
     case "prox_loopboy_agent_nudge": return toolLoopboyAgentNudge(args || {});
     case "prox_close": return toolClose(args || {});
@@ -767,7 +760,7 @@ async function callTool(name, args) {
   }
 }
 
-async function handleMessage(message) {
+async function handleMessage(message, context = {}) {
   const { id, method, params } = message;
   try {
     switch (method) {
@@ -788,7 +781,7 @@ async function handleMessage(message) {
       case "tools/list":
         return { jsonrpc: "2.0", id, result: { tools: TOOLS } };
       case "tools/call": {
-        const content = await callTool(params?.name, params?.arguments);
+        const content = await callTool(params?.name, params?.arguments, context);
         return { jsonrpc: "2.0", id, result: { content } };
       }
       default:

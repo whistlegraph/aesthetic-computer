@@ -1,0 +1,41 @@
+#!/bin/bash
+set -euo pipefail
+
+STATE="$HOME/.config/slab/deskflow.json"
+HANDOFF="$HOME/.config/slab/deskflow-handoff.json"
+CLIENT_CONF="$HOME/Library/Deskflow/Deskflow-client-role.conf"
+EPOCH_FILE="$HOME/.config/slab/deskflow-role-epoch"
+
+/usr/bin/python3 - "$STATE" "$HANDOFF" "$CLIENT_CONF" "$EPOCH_FILE" <<'PY'
+import json, pathlib, re, sys
+
+state_path, handoff_path, client_path, epoch_path = map(pathlib.Path, sys.argv[1:])
+
+def load(path):
+    try:
+        return json.loads(path.read_text())
+    except Exception:
+        return {}
+
+state = load(state_path)
+handoff = load(handoff_path)
+try:
+    epoch = int(epoch_path.read_text().strip())
+except Exception:
+    epoch = 0
+try:
+    match = re.search(r"^remoteHost=(.*)$", client_path.read_text(), re.MULTILINE)
+    remote_host = match.group(1).strip() if match else ""
+except Exception:
+    remote_host = ""
+
+print(json.dumps({
+    "address": handoff.get("address", ""),
+    "controller": bool(handoff.get("controller", False)),
+    "epoch": epoch,
+    "machine": handoff.get("machine", ""),
+    "remoteHost": remote_host,
+    "role": state.get("role", "client"),
+    "screenName": handoff.get("screenName", ""),
+}, separators=(",", ":"), sort_keys=True))
+PY

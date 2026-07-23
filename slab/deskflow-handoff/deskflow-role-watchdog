@@ -4,6 +4,8 @@ set -euo pipefail
 LABEL="computer.aesthetic.deskflow"
 UID_=$(id -u)
 STATE="$HOME/.config/slab/deskflow.json"
+HANDOFF="$HOME/.config/slab/deskflow-handoff.json"
+CLIENT_CONF="$HOME/Library/Deskflow/Deskflow-client-role.conf"
 MISS="$HOME/.deskflow-role-watchdog.miss"
 
 ROLE=$(/usr/bin/python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("role", "client"))' "$STATE" 2>/dev/null || echo client)
@@ -12,15 +14,26 @@ healthy=0
 if [[ "$ROLE" == "server" ]]; then
   pgrep -f "deskflow-core server" >/dev/null && nc -z -G3 127.0.0.1 24800 >/dev/null 2>&1 && healthy=1
 else
-  line=$(netstat -an 2>/dev/null | grep -E '\.[0-9]+ +[^ ]+\.24800 +ESTABLISHED' | head -1 || true)
-  if pgrep -f "deskflow-core client" >/dev/null && [[ -n "$line" ]]; then
-    recvq=$(awk '{print $2}' <<<"$line")
-    [[ "$recvq" == "0" ]] && healthy=1
+  remote_host=$(sed -n 's/^remoteHost=//p' "$CLIENT_CONF" 2>/dev/null | head -1)
+  if pgrep -f "deskflow-core client" >/dev/null && [[ -n "$remote_host" ]]; then
+    netstat -an 2>/dev/null | awk -v endpoint="${remote_host}.24800" \
+      '$1 ~ /^tcp/ && $2 == 0 && $5 == endpoint && $6 == "ESTABLISHED" { found=1 } END { exit !found }' \
+      && healthy=1
   fi
 fi
 
 if [[ "$healthy" == "1" ]]; then
   rm -f "$MISS"
+  if [[ "$ROLE" == "server" && -x "$HOME/.local/bin/deskflow-reconcile-topology" ]]; then
+    expected=$(/usr/bin/python3 -c \
+      'import json,sys; print(len(json.load(open(sys.argv[1])).get("clients", [])))' \
+      "$HANDOFF" 2>/dev/null || echo 0)
+    connected=$(netstat -an 2>/dev/null | awk \
+      '$1 ~ /^tcp/ && $4 ~ /\.24800$/ && $6 == "ESTABLISHED" { count++ } END { print count+0 }')
+    if [[ "$connected" -lt "$expected" ]]; then
+      "$HOME/.local/bin/deskflow-reconcile-topology" >/dev/null 2>&1 || true
+    fi
+  fi
   exit 0
 fi
 

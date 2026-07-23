@@ -38,7 +38,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { narrate } from "./lib/narrate.mjs";
 import { attach } from "./lib/cdp.mjs";
-import { clickOn, pointAt, typeInto, INSTALL } from "./lib/cursor.mjs";
+import { clickOn, dragBetween, pointAt, typeInto, INSTALL } from "./lib/cursor.mjs";
 import {
   spotlight, outline, burst, zoom, resetCamera, clearEffects,
 } from "./lib/effects.mjs";
@@ -49,6 +49,7 @@ import { translator, selectors, setLocale, LANGUAGES } from "./lib/i18n.mjs";
 import { ensureSignedIn, WORKSPACE } from "./lib/login.mjs";
 import * as credits from "./lib/credits.mjs";
 import { publishToOutbox } from "./lib/outbox.mjs";
+import { presentSignboard, setAmbient } from "./lib/signboard.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -66,6 +67,35 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const now = () => Date.now() / 1000;
 const REAL_CURSOR = process.env.CAPTUTOR_REAL_CURSOR === "1";
 const STAGE_MODE = process.env.CAPTUTOR_STAGE_MODE === "1";
+
+// Some filming seats (notably clamshell Macs on native-only external panels)
+// cannot expose Captutor's usual 2560×1440/1280×720 HiDPI pair. Keep those
+// pixels honest: allow Stage Mode to declare the physical desktop and its
+// deliberately smaller browser window instead of upscaling a 1080p capture.
+if (STAGE_MODE && process.env.CAPTUTOR_STAGE_GEOMETRY) {
+  const match = process.env.CAPTUTOR_STAGE_GEOMETRY.match(
+    /^(\d+)x(\d+):(\d+)x(\d+)$/,
+  );
+  if (!match) {
+    throw new Error("CAPTUTOR_STAGE_GEOMETRY must be desktopWxH:windowWxH");
+  }
+  const [, outW, outH, winW, winH] = match.map(Number);
+  FORMATS.docs.out = { w: outW, h: outH };
+  FORMATS.docs.win = { w: winW, h: winH };
+}
+if (!STAGE_MODE && process.env.CAPTUTOR_WINDOW_GEOMETRY) {
+  const match = process.env.CAPTUTOR_WINDOW_GEOMETRY.match(/^(\d+)x(\d+)$/);
+  if (!match) throw new Error("CAPTUTOR_WINDOW_GEOMETRY must be windowWxH");
+  const [, width, height] = match.map(Number);
+  FORMATS.docs.win = { w: width, h: height };
+  FORMATS.docs.out = { w: width, h: height };
+}
+if (!STAGE_MODE && process.env.CAPTUTOR_OUTPUT_GEOMETRY) {
+  const match = process.env.CAPTUTOR_OUTPUT_GEOMETRY.match(/^(\d+)x(\d+)$/);
+  if (!match) throw new Error("CAPTUTOR_OUTPUT_GEOMETRY must be outputWxH");
+  const [, width, height] = match.map(Number);
+  FORMATS.docs.out = { w: width, h: height };
+}
 
 const REEL_STATE = `${process.env.HOME}/.local/share/slab/state/reel.state`;
 const FAILURE_LOG = join(HERE, "out", "failures.ndjson");
@@ -220,9 +250,17 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
   const beats = await cmdNarrate(sp, workDir, locale);
   const t = translator(locale);
   const s = selectors(t);
+  const F = FORMATS[format];
+  if (!F) throw new Error(`unknown format: ${format}`);
 
   console.log(`\n⇢ attaching to ${sp.window || "browser"} over CDP`);
   const cdp = await attach(sp.match || sp.baseURL);
+
+  // Stage takes over the whole desk before screenplay setup begins. Put Chrome
+  // in its final, centered delivery bounds immediately so the operator never
+  // sees a misleading off-center transitional window while login/setup runs.
+  // Re-applying the same bounds after the theme reload below remains harmless.
+  if (STAGE_MODE && F.compose?.fullDesktop) await sizeWindow(cdp, F.win);
 
   // DevTools overlay switches persist on the target across sessions. If a
   // debugging run left paint rectangles or compositor borders enabled, those
@@ -253,28 +291,62 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
   // The screenplay says `click('[data-testid=fuse]')`, not
   // `click(cdp, '[data-testid=fuse]')` — the session is plumbing, and a
   // screenplay should read like stage directions. Bind it in here.
+  // AccentColor remains the generic default. Client screenplays may provide a
+  // reusable effectTheme; a beat's local options are the most specific layer.
+  const themedEffectOptions = (opts = {}) => ({ ...(sp.effectTheme || {}), ...opts });
+  let traceSince = null;
+  const storyboardEvents = [];
+  const trace = (kind, details = {}) => {
+    if (traceSince == null) return;
+    storyboardEvents.push({ kind, atSec:+(now() - traceSince).toFixed(3), ...details });
+  };
+  const perform = async (kind, details, action) => {
+    const startedAt = now();
+    const result = await action();
+    trace(kind, {
+      ...details,
+      durationSec:+(now() - startedAt).toFixed(3),
+      result,
+    });
+    return result;
+  };
+  const localizeCard = (card) => Object.fromEntries(Object.entries(card || {}).map(
+    ([key, value]) => [key, key === "durationMs" ? value : say(value, locale)],
+  ));
   const ctx = {
     cdp,
-    click: (sel, opts) => clickOn(cdp, sel, opts),
-    point: (sel, opts) => pointAt(cdp, sel, opts),
+    click: (sel, opts) => perform("click", { selector:sel, options:opts },
+      () => clickOn(cdp, sel, opts)),
+    drag: (from, to, opts) => perform("drag", { from, to, options:opts },
+      () => dragBetween(cdp, from, to, opts)),
+    point: (sel, opts) => perform("point", { selector:sel, options:opts },
+      () => pointAt(cdp, sel, opts)),
     type: (sel, text) => typeInto(cdp, sel, text),
-    spotlight: (sel, opts) => spotlight(cdp, sel, opts),
-    outline: (sel, opts) => outline(cdp, sel, opts),
-    burst: (sel, opts) => burst(cdp, sel, opts),
-    zoom: (sel, opts) => zoom(cdp, sel, opts),
+    spotlight: (sel, opts) => perform("spotlight", { selector:sel, options:opts },
+      () => spotlight(cdp, sel, themedEffectOptions(opts))),
+    outline: (sel, opts) => perform("outline", { selector:sel, options:opts },
+      () => outline(cdp, sel, themedEffectOptions(opts))),
+    burst: (sel, opts) => perform("burst", { selector:sel, options:opts },
+      () => burst(cdp, sel, themedEffectOptions(opts))),
+    zoom: (sel, opts) => perform("zoom", { selector:sel, options:opts },
+      () => zoom(cdp, sel, themedEffectOptions(opts))),
     resetCamera: (opts) => resetCamera(cdp, opts),
     tabs: tabController(),
     clearEffects: () => clearEffects(cdp),
+    signboard: (card, options) => perform("signboard", {
+      card:localizeCard(card), options,
+    }, () => presentSignboard(cdp, localizeCard(card), options)),
+    check: (name, evidence = {}) => trace("check", { name, evidence }),
     effects: {
-      spotlight: (sel, opts) => spotlight(cdp, sel, opts),
-      outline: (sel, opts) => outline(cdp, sel, opts),
-      burst: (sel, opts) => burst(cdp, sel, opts),
-      zoom: (sel, opts) => zoom(cdp, sel, opts),
+      spotlight: (sel, opts) => spotlight(cdp, sel, themedEffectOptions(opts)),
+      outline: (sel, opts) => outline(cdp, sel, themedEffectOptions(opts)),
+      burst: (sel, opts) => burst(cdp, sel, themedEffectOptions(opts)),
+      zoom: (sel, opts) => zoom(cdp, sel, themedEffectOptions(opts)),
       resetCamera: (opts) => resetCamera(cdp, opts),
       clear: () => clearEffects(cdp),
     },
     sleep,
-    locale, t, s, setLocale,   // fuser's own strings drive both voice and clicks
+    locale, format, t, s, setLocale,   // fuser's own strings drive both voice and clicks
   };
 
   // BEFORE ANYTHING ELSE: be logged in.
@@ -341,13 +413,20 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
   await cdp.waitFor(`document.cookie.includes("fuser-theme=${theme}")`);
 
   // The window IS the frame — clear the tab strip and size it, before rolling.
-  const F = FORMATS[format];
   if (F.requiresVerticalStage) {
     cdp.close();
     throw new Error(`format "${format}" requires: node bin/stage.mjs --vertical render …`);
   }
   if (!sp.preserveTabs) await soloTab(cdp);
   await sizeWindow(cdp, F.win);
+
+  // Some canvas state is viewport-relative. Let a screenplay do its final,
+  // off-camera framing only after the theme reload and delivery window size
+  // have settled; doing this in setup can be invalidated by either operation.
+  if (sp.beforeRecord) {
+    console.log("  finalizing shot…");
+    await sp.beforeRecord(ctx);
+  }
 
   // Raise the window we are about to film. Not cosmetic: Chrome throttles
   // rendering and requestAnimationFrame in a backgrounded window, which would
@@ -367,6 +446,7 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
   });
   const since = state.since;
   if (!since) throw new Error("reel did not report a start time — cannot sync audio");
+  traceSince = since;
 
   let recording = true;
   let activeBeat = -1;
@@ -378,11 +458,22 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
 
   const take = (async () => {
     await sleep((sp.leadInMs ?? 700));  // a beat of stillness before we start moving
+    if (sp.openingCard) {
+      const card = {
+        phase: "title", ...localizeCard(sp.openingCard),
+      };
+      await perform("signboard", { card, role:"opening" },
+        () => presentSignboard(cdp, card, {
+          durationMs:sp.openingCard.durationMs ?? 2400,
+          transition:sp.openingCard.transition,
+        }));
+    }
     const result = [];
     for (const beat of beats) {
       activeBeat = beat.index;
       const startedAt = now();
       const offsetSec = startedAt - since;
+      trace("beat", { index:beat.index, narration:beat.say });
       process.stdout.write(
         `  ${String(beat.index + 1).padStart(2)}. @${offsetSec.toFixed(1)}s  ${beat.say.slice(0, 52)}\n`);
 
@@ -395,6 +486,17 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
       if (remain > 0) await sleep(remain * 1000);
       result.push({ ...beat, offsetSec });
     }
+    if (sp.closingCard) {
+      const card = {
+        phase: "end", ...localizeCard(sp.closingCard),
+      };
+      await perform("signboard", { card, role:"closing" },
+        () => presentSignboard(cdp, card, {
+          durationMs:sp.closingCard.durationMs ?? 2200,
+          transition:sp.closingCard.transition,
+        }));
+    }
+    setAmbient();
     await sleep((sp.tailMs ?? 900));
     return result;
   })();
@@ -451,7 +553,9 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
 
   // Close the books while the browser is still up: what did this video cost?
   // Written to out/takes.json, which is also what the take cap reads.
-  if (purse) await credits.settle(cdp, purse, { slug: sp.slug, locale, format });
+  const settlement = purse
+    ? await credits.settle(cdp, purse, { slug: sp.slug, locale, format })
+    : null;
   await clearEffects(cdp).catch(() => {});
   if (sp.teardown) await sp.teardown(ctx);
   cdp.close();
@@ -475,11 +579,58 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
   console.log(`  → ${outVtt} (${n} caption cues)`);
 
   const burned = join(workDir, `${sp.slug}.${format}.mp4`);
-  const r = deliver({ clip: outMp4, cues: timed, format, out: burned, workDir, locale });
+  const r = deliver({
+    clip:outMp4, cues:timed, format, out:burned, workDir, locale,
+    brandChrome:sp.brandChrome || null,
+  });
   const p = probe(burned);
   console.log(`  → ${burned}`);
   console.log(`     ${r.W}×${r.H} · ${(+p.format.duration).toFixed(1)}s · ${(p.format.size / 1e6).toFixed(1)} MB · burned captions`);
-  return { outMp4, outVtt, burned };
+  const storyboard = join(workDir, "storyboard.json");
+  writeFileSync(storyboard, JSON.stringify({
+    schema:"captutor-storyboard/v1",
+    createdAt:new Date().toISOString(),
+    screenplay:sp.slug,
+    locale,
+    format,
+    theme,
+    effectTheme:sp.effectTheme || null,
+    title:say(sp.title, locale),
+    subtitle:say(sp.subtitle, locale),
+    openingCard:sp.openingCard ? localizeCard(sp.openingCard) : null,
+    closingCard:sp.closingCard ? localizeCard(sp.closingCard) : null,
+    acceptance:sp.acceptance || null,
+    brandChrome:sp.brandChrome ? { id:sp.brandChrome.id || "client" } : null,
+    media:{
+      file:basename(burned), width:r.W, height:r.H,
+      durationSec:+(+p.format.duration).toFixed(3), bytes:+p.format.size,
+    },
+    credits:purse ? {
+      before:purse.spendable,
+      after:settlement?.after?.spendable ?? null,
+      spent:settlement?.spent ?? null,
+    } : null,
+    beats:timed.map((beat) => ({
+      index:beat.index,
+      offsetSec:+beat.offsetSec.toFixed(3),
+      durationSec:+beat.durationSec.toFixed(3),
+      narration:beat.say,
+      logic:sp.beats[beat.index].logic ? say(sp.beats[beat.index].logic, locale) : null,
+      cursorIntent:sp.beats[beat.index].cursorIntent
+        ? say(sp.beats[beat.index].cursorIntent, locale) : null,
+    })),
+    events:storyboardEvents,
+  }, null, 2) + "\n");
+  const receipt = join(workDir, `${sp.slug}.${format}.storyboard-receipt.pdf`);
+  const receiptResult = JSON.parse(execFileSync(process.execPath, [
+    join(HERE, "bin", "storyboard-receipt.mjs"),
+    "--video", burned, "--storyboard", storyboard, "--out", receipt,
+  ], { encoding:"utf8" }));
+  if (!receiptResult.accepted) {
+    throw new Error(`storyboard QA requires review: ${receipt}`);
+  }
+  console.log(`  → ${receipt} (storyboard + QA receipt)`);
+  return { outMp4, outVtt, burned, storyboard, receipt };
 }
 
 function cmdPublish(sp, workDir) {
@@ -520,6 +671,7 @@ function cmdDeliver(sp, workDir, formats, locale) {
       locale,
       title: say(sp.title, locale),
       subtitle: say(sp.subtitle, locale),
+      brandChrome:sp.brandChrome || null,
     });
     const p = probe(out);
     console.log(`${r.W}×${r.H} · ${r.cues} captions · ${(p.format.size / 1e6).toFixed(1)} MB`);
@@ -603,6 +755,8 @@ else if (cmd === "render") {
       locale,
       format,
       taskGid: process.env.CAPTUTOR_TASK_GID || null,
+      storyboard: rendered.storyboard,
+      receipt: rendered.receipt,
     });
     console.log(`\n⇢ outbox ${delivery.video}`);
     console.log(`         ${delivery.manifest}`);

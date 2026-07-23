@@ -129,6 +129,29 @@ EOF
   launchctl bootstrap "gui/$(id -u)" "$AGENTS/$label.plist"
 }
 
+configure_codex_prox_headers() {
+  local config_root="${CODEX_HOME:-$HOME/.codex}"
+  local config="$config_root/config.toml"
+  [ -f "$config" ] || return 1
+  "$NODE" --input-type=module - "$config" <<'NODE'
+import { readFile, writeFile } from "node:fs/promises";
+
+const path = process.argv[2];
+const headerLine = 'env_http_headers = { "X-Slab-Loopboy-Contact" = "SLAB_LOOPBOY_CONTACT", "X-Slab-Prompt-Session-Id" = "SLAB_PROMPT_SESSION_ID" }';
+let text = await readFile(path, "utf8");
+const section = /(^\[mcp_servers\.prox\]\n)([\s\S]*?)(?=^\[[^\]]+\]\s*$|(?![\s\S]))/m;
+const match = text.match(section);
+if (!match) throw new Error("Codex prox MCP section is missing");
+let body = match[2].replace(/^env_http_headers\s*=.*\n?/m, "");
+const urlLine = /^url\s*=.*$/m;
+body = urlLine.test(body)
+  ? body.replace(urlLine, (line) => `${line}\n${headerLine}`)
+  : `${headerLine}\n${body}`;
+text = text.replace(section, `${match[1]}${body}`);
+await writeFile(path, text);
+NODE
+}
+
 # puppet-mcp is a thin HTTP facade over a warm, stateful CDP multiplexer. Keep
 # that backend under launchd too; otherwise the MCP port looks healthy while
 # every browser tool fails against a stale unix socket after logout or reboot.
@@ -206,6 +229,9 @@ while read -r name port script; do
   if [ "$HAVE_CODEX" = 1 ]; then
     codex mcp remove "$name" >/dev/null 2>&1 || true
     codex mcp add "$name" --url "http://127.0.0.1:$port/mcp" >/dev/null
+    if [ "$name" = prox ]; then
+      configure_codex_prox_headers
+    fi
     echo "  ↳ codex  → http://127.0.0.1:$port/mcp"
   fi
 done <<<"$(servers)"

@@ -2,11 +2,15 @@
 // Run any Captutor command inside the reversible full-desk filming profile.
 
 import { spawn, spawnSync } from "node:child_process";
-import { dirname, resolve } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { enterStageMode, exitStageMode } from "../lib/stage-mode.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+const REEL = resolve(HERE, "../vendor/reel.mjs");
+const REEL_STATE = join(process.env.HOME, ".local", "share", "slab", "state", "reel.state");
 const rawArgs = process.argv.slice(2);
 const vertical = rawArgs.includes("--vertical");
 const args = rawArgs.filter((arg) => arg !== "--vertical");
@@ -23,6 +27,22 @@ const forward = (signal) => {
 };
 process.on("SIGINT", () => forward("SIGINT"));
 process.on("SIGTERM", () => forward("SIGTERM"));
+
+function stopOwnedReelIfNeeded() {
+  if (!child || !existsSync(REEL_STATE)) return;
+  let state;
+  try { state = JSON.parse(readFileSync(REEL_STATE, "utf8")); }
+  catch { return; }
+  if (!state.recording) return;
+  const interruptedClip = join(tmpdir(), `captutor-stage-interrupted-${Date.now()}.mp4`);
+  spawnSync(process.execPath, [REEL, "stop", "--out", interruptedClip], {
+    stdio: "inherit",
+    env: {
+      ...process.env,
+      PATH: `/opt/homebrew/bin:${process.env.HOME}/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin`,
+    },
+  });
+}
 
 let code = 1;
 try {
@@ -48,13 +68,16 @@ try {
       ...process.env,
       CAPTUTOR_STAGE_MODE: "1",
       CAPTUTOR_VERTICAL_MODE: vertical ? "1" : "0",
-      CAPTUTOR_REAL_CURSOR: "1",
+      // Accessibility-free filming seats can retain Captutor's deterministic
+      // in-page pointer while still using the full native Stage desktop.
+      CAPTUTOR_REAL_CURSOR: process.env.CAPTUTOR_REAL_CURSOR ?? "1",
       CDP_PORT: process.env.CDP_PORT || "9333",
       PATH: `/opt/homebrew/bin:${process.env.HOME}/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin`,
     },
   });
   code = await new Promise((done) => child.once("exit", (status) => done(status ?? 1)));
 } finally {
+  stopOwnedReelIfNeeded();
   await exitStageMode();
 }
 process.exit(interrupted ? 130 : code);

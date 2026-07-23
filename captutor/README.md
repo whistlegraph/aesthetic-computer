@@ -12,6 +12,7 @@ node captutor.mjs publish <screenplay>   # into apps/docs/public/ + the MDX line
 node bin/from-docs.mjs apps/quickstart   # a docs page → a screenplay draft
 node bin/stage.mjs render <screenplay>   # reversible HiDPI clean-stage filming mode
 node bin/stage.mjs --vertical render <screenplay> --format vertical
+node bin/brand-video.mjs --input take.mp4 --format docs --theme themes/fuser.mjs
 ```
 
 `--outbox` (or `CAPTUTOR_OUTBOX`) publishes only the finished, burned-caption
@@ -23,6 +24,28 @@ delivery back to the Asana assignment that requested it.
 `deliver --outbox` recuts and republishes an existing take without driving the
 interface again. Use it for caption or encoding changes: the recorded negative
 and measured cue timing stay intact, so the recut costs no credits.
+
+## Reusable client branding and QA receipts
+
+Captutor owns a client-neutral final brand pass in `lib/brand-chrome.mjs`.
+Screenplays opt in with `brandChrome`; the theme supplies a client asset and
+per-format geometry. The renderer preserves the lockup's aspect ratio, turns
+the two copies inward, scales their safe margins from the delivery frame, and
+gives them the slow `/marketing` + `/pop` drift. Its compact, high-opacity
+shadow keeps a glowing mark separated from live UI without a broad gray halo.
+
+The bundled Fuser example is `themes/fuser.mjs`. Fuser's repository also owns a
+copy of its values at `tools/fuser-tutor/brand-theme.mjs`, pointing to Fuser's
+own canonical asset. Future clients should add their own small theme object;
+they do not fork Captutor's renderer.
+
+Every render writes `captutor-storyboard/v1` trace data and generates a PDF
+storyboard/QA receipt from frames extracted from the encoded MP4. A screenplay's
+`acceptance` block declares the minimum duration, required cards, client chrome,
+audio range, and named `check()` events that must be evidenced. Renders with an
+acceptance contract fail closed when the PDF reports review required. The PDF
+travels with the video, captions, storyboard JSON, and checksum manifest in the
+outbox.
 
 `--vertical` is Captutor's true portrait stage: Panda's display rotates 90° into
 its 720×1280 logical / 1440×2560 physical HiDPI mode, the browser sits in a

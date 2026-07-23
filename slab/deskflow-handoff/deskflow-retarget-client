@@ -1,0 +1,33 @@
+#!/bin/bash
+set -euo pipefail
+
+PEER=${1:-}
+SERVER_HOST=${2:-}
+EPOCH=${3:-0}
+LOG="$HOME/Library/Logs/deskflow-handoff.log"
+
+if [[ -z "$PEER" || -z "$SERVER_HOST" || ! "$EPOCH" =~ ^[0-9]+$ ]]; then
+  echo "usage: deskflow-retarget-client PEER SERVER_HOST EPOCH" >&2
+  exit 64
+fi
+
+# Role changes must not depend on a long-lived SSH mux. A stale master can
+# accept the local command but fail before the remote generation is applied.
+SSH_OPTS=(-n -o BatchMode=yes -o ConnectTimeout=4
+          -o ConnectionAttempts=1 -o ControlMaster=no -o ControlPath=none)
+
+status=1
+for attempt in 1 2 3; do
+  if ssh "${SSH_OPTS[@]}" "$PEER" \
+      "~/.local/bin/deskflow-set-role client '$SERVER_HOST' '$EPOCH'"; then
+    exit 0
+  else
+    status=$?
+  fi
+  [[ "$attempt" == "3" ]] || sleep "$attempt"
+done
+
+printf '%s retarget failed peer=%s server=%s epoch=%s status=%s\n' \
+  "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$PEER" "$SERVER_HOST" "$EPOCH" "$status" \
+  >> "$LOG"
+exit "$status"

@@ -14,16 +14,18 @@ const SIGILS_OFF = join(HOME, ".local", "share", "slab", "state", "prompt-sigils
 const BADGE_PLIST = join(HOME, "Library", "LaunchAgents", "computer.aesthetic.desktopbadge.plist");
 const POINTER_SOURCE = fileURLToPath(new URL("../bin/captutor-pointer.swift", import.meta.url));
 const POINTER_BIN = join(HOME, ".local", "bin", "captutor-pointer");
-const WALLPAPER_SOURCE = fileURLToPath(new URL("../bin/captutor-wallpaper.swift", import.meta.url));
+const WALLPAPER_SOURCE = process.env.CAPTUTOR_WALLPAPER_SOURCE
+  || fileURLToPath(new URL("../bin/captutor-wallpaper.swift", import.meta.url));
 const WALLPAPER_LOGO = fileURLToPath(new URL("../assets/fuser-thumbnail-logo.svg", import.meta.url));
 const WALLPAPER_APP = join(HOME, ".local", "share", "captutor", "Captutor Wallpaper.app");
 const WALLPAPER_BIN = join(WALLPAPER_APP, "Contents", "MacOS", "CaptutorWallpaper");
+const WALLPAPER_STATE = join(HOME, ".local", "share", "captutor", "wallpaper-card.json");
 const WALLPAPER = "/System/Library/Desktop Pictures/Solid Colors/Space Gray.png";
 const DISPLAYPLACER = "/opt/homebrew/bin/displayplacer";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-const run = (file, args = [], { allowFailure = false } = {}) => {
-  const result = spawnSync(file, args, { encoding: "utf8" });
+const run = (file, args = [], { allowFailure = false, timeout } = {}) => {
+  const result = spawnSync(file, args, { encoding: "utf8", timeout });
   if (!allowFailure && result.status !== 0) {
     throw new Error(`${file} failed: ${(result.stderr || result.stdout || "").trim()}`);
   }
@@ -31,7 +33,7 @@ const run = (file, args = [], { allowFailure = false } = {}) => {
 };
 const sh = (script, allowFailure = false) => run("/bin/bash", ["-lc", script], { allowFailure });
 const osa = (script, args = [], allowFailure = false) =>
-  run("/usr/bin/osascript", ["-e", script, ...args], { allowFailure });
+  run("/usr/bin/osascript", ["-e", script, ...args], { allowFailure, timeout: 10000 });
 const swift = (source, args = []) => run("/usr/bin/swift", ["-e", source, ...args]);
 
 function readDefault(domain, key) {
@@ -335,6 +337,7 @@ export async function enterStageMode({ vertical = process.env.CAPTUTOR_VERTICAL_
     visibleApps: visibleApps(),
     sigilsWereOff: existsSync(SIGILS_OFF),
     cursorSize,
+    pointerChanged: process.env.CAPTUTOR_STAGE_KEEP_POINTER !== "1",
   };
   mkdirSync(dirname(STATE), { recursive: true });
   writeFileSync(STATE, JSON.stringify(state, null, 2));
@@ -342,8 +345,10 @@ export async function enterStageMode({ vertical = process.env.CAPTUTOR_VERTICAL_
   // A preview from the previous take must never sit above Chrome or steal
   // fullscreen/focus while the next mission rolls. Stage is an explicit clean
   // takeover, so close QuickTime before changing display geometry.
-  osa('tell application "QuickTime Player" to close every document saving no', [], true);
-  osa('tell application "QuickTime Player" to quit', [], true);
+  if (process.env.CAPTUTOR_STAGE_SKIP_QUICKTIME !== "1") {
+    osa('tell application "QuickTime Player" to close every document saving no', [], true);
+    osa('tell application "QuickTime Player" to quit', [], true);
+  }
   setDarkMode(false);
   await sleep(650);
   if (darkMode()) throw new Error("macOS did not enter Light appearance");
@@ -351,7 +356,7 @@ export async function enterStageMode({ vertical = process.env.CAPTUTOR_VERTICAL_
   compilePointerBridge();
   compileWallpaper();
   if (vertical) configureVerticalDisplay();
-  else configureDisplay();
+  else if (process.env.CAPTUTOR_STAGE_KEEP_DISPLAY !== "1") configureDisplay();
   setWallpaper(WALLPAPER);
   run("/usr/bin/defaults", ["write", "com.apple.finder", "CreateDesktop", "-bool", "false"]);
   run("/usr/bin/defaults", ["write", "com.apple.dock", "autohide", "-bool", "true"]);
@@ -361,13 +366,15 @@ export async function enterStageMode({ vertical = process.env.CAPTUTOR_VERTICAL_
   writeFileSync(SIGILS_OFF, "");
   if (state.badgeLoaded) run("/bin/launchctl", ["bootout", `gui/${process.getuid()}/computer.aesthetic.desktopbadge`], { allowFailure: true });
   if (state.statsRunning) osa('tell application "Stats" to quit', [], true);
-  await setPointerSizeWithRetry(cursorSize, 1.5);
+  if (state.pointerChanged) await setPointerSizeWithRetry(cursorSize, 1.5);
   hideOtherApps();
+  writeFileSync(WALLPAPER_STATE, JSON.stringify({ phase: "ambient" }));
   await startWallpaper();
   osa('tell application "Google Chrome" to activate', [], true);
   console.log(
     `✓ Captutor ${vertical ? "Vertical " : ""}Stage Mode active — ` +
-    `Light, 2× HiDPI, icon-only branded desk, real ~1.5× pointer`,
+    `Light, ${process.env.CAPTUTOR_STAGE_KEEP_DISPLAY === "1" ? "native display" : "2× HiDPI"}, ` +
+    `branded desk, real ~1.5× pointer`,
   );
 }
 
@@ -383,7 +390,9 @@ export async function exitStageMode() {
   // Each restore is independent. A broken wallpaper path must never strand the
   // display in HiDPI, and a failed pointer drag must never keep Stats hidden.
   await restore("dynamic wallpaper", () => stopWallpaper());
-  await restore("pointer", () => setPointerSize(1.5, state.cursorSize ?? 1));
+  if (state.pointerChanged !== false) {
+    await restore("pointer", () => setPointerSize(1.5, state.cursorSize ?? 1));
+  }
   await restore("prompt sigils", () => {
     if (!state.sigilsWereOff) rmSync(SIGILS_OFF, { force: true });
   });

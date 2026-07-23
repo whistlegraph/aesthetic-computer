@@ -664,6 +664,11 @@ function paint({
 
   ink(96).box(0, screen.height - 1 - btnBar, screen.width, 1);
 
+  function paintStatus(text, background) {
+    const dots = text === "Fetching" ? ellipsisTicker.text(help.repeat) : "";
+    ink().write(`${text}${dots}`, { center: "xy" }, background);
+  }
+
   // Executes every display frame.
   if (
     (pastRecord && system.nopaint.record?.length > 0) ||
@@ -765,18 +770,11 @@ function paint({
     paintPainting(finalPainting);
     paintUi();
   } else {
-    ink().write(`${interim}${ellipsisTicker.text(help.repeat)}`, {
-      x: 6,
-      y: 18,
-    });
+    paintStatus(interim);
   }
 
   if (recordingCode && !pastRecord && finalPainting) {
-    ink().write(
-      `Fetching${ellipsisTicker.text(help.repeat)}`,
-      { x: 6, y: 18 },
-      [0, 127],
-    );
+    paintStatus("Fetching", [0, 127]);
   }
 }
 
@@ -912,14 +910,14 @@ function act({
 }
 
 // 🧮 Sim
-async function sim({ simCount, system, net, api }) {
+async function sim({ simCount, system, net, api, clock }) {
   //if (running && !step.gesture) {
   if (running) {
     advanceCount += 1n;
     if (advanceCount % advanceSpeed === 0n) advance(system);
   }
 
-  ellipsisTicker?.sim();
+  ellipsisTicker?.update(clock?.time());
 
   /*
   if (running && step.gesture) {
