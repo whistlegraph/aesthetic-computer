@@ -7,7 +7,8 @@ It has two runtimes:
 - `electron` (default) wraps an arbitrary dependency-free HTML directory.
 - `swift-gallery` builds a small native AppKit image archive from `manifest.json`.
   It virtualizes the post grid, downsamples only visible images, caches decoded
-  thumbnails, offers a dense responsive thumbnail view and a sortable native
+  thumbnails, prebuilds compact first-image previews at packaging time, offers
+  an immediate-hover dense thumbnail view and a sortable native
   list, opens originals in Quick Look, and uses AppKit's dedicated sharing
   toolbar item. Shares contain the original image files, untouched caption,
   and canonical source URL. It has no WebView or Electron dependency.

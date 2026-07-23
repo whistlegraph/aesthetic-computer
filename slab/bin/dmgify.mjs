@@ -159,6 +159,30 @@ const plistEscape = (value) => String(value)
   .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
   .replaceAll('"', "&quot;").replaceAll("'", "&apos;");
 
+async function makeGalleryThumbnails(source, destination) {
+  const manifest = JSON.parse(await readFile(join(source, "manifest.json"), "utf8"));
+  const files = [...new Set((manifest.posts || [])
+    .map((post) => post?.stills?.[0]?.file).filter(Boolean))];
+  const sourceRoot = resolve(source);
+  const destinationRoot = resolve(destination);
+  let cursor = 0;
+  const worker = async () => {
+    while (cursor < files.length) {
+      const file = String(files[cursor++]);
+      const original = resolve(sourceRoot, file);
+      const thumbnail = resolve(destinationRoot, `${file}.jpg`);
+      if (!original.startsWith(`${sourceRoot}${sep}`) || !thumbnail.startsWith(`${destinationRoot}${sep}`)) {
+        throw new Error(`thumbnail path escapes archive: ${file}`);
+      }
+      await mkdir(dirname(thumbnail), { recursive: true });
+      await run("sips", ["-Z", "512", "-s", "format", "jpeg", "-s", "formatOptions", "82",
+        original, "--out", thumbnail]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(8, files.length) }, worker));
+  return files.length;
+}
+
 async function makeNativeGalleryApp(plan, work, icon, identityHash) {
   const appDir = join(plan.output, "mac-universal", `${plan.name}.app`);
   const contents = join(appDir, "Contents");
@@ -185,6 +209,7 @@ async function makeNativeGalleryApp(plan, work, icon, identityHash) {
     "--exclude", "/release/", "--exclude", "/dist/", "--exclude", "/node_modules/",
     "--exclude", "/.git/", "--exclude", "/.dmgify-work/",
     `${plan.source}/`, `${archive}/`]);
+  await makeGalleryThumbnails(plan.source, join(resources, "thumbnails"));
 
   const info = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

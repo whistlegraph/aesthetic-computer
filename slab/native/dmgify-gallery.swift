@@ -64,6 +64,42 @@ final class ResponsiveFlowLayout: NSCollectionViewFlowLayout {
   override func shouldInvalidateLayout(forBoundsChange newBounds: NSRect) -> Bool { true }
 }
 
+final class CardSurface: NSView {
+  var selected = false { didSet { updateStyle() } }
+  private var hovered = false
+  private var tracking: NSTrackingArea?
+
+  override init(frame frameRect: NSRect) {
+    super.init(frame: frameRect)
+    wantsLayer = true
+    layer?.cornerRadius = 12
+    layer?.masksToBounds = true
+    layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
+    updateStyle()
+  }
+
+  required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+  override func updateTrackingAreas() {
+    super.updateTrackingAreas()
+    if let tracking { removeTrackingArea(tracking) }
+    let area = NSTrackingArea(rect: .zero,
+      options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect, .cursorUpdate], owner: self)
+    addTrackingArea(area)
+    tracking = area
+  }
+
+  override func mouseEntered(with event: NSEvent) { hovered = true; updateStyle() }
+  override func mouseExited(with event: NSEvent) { hovered = false; updateStyle() }
+  override func cursorUpdate(with event: NSEvent) { NSCursor.pointingHand.set() }
+
+  private func updateStyle() {
+    layer?.borderWidth = selected ? 3 : (hovered ? 2 : 1)
+    layer?.borderColor = (selected ? NSColor.controlAccentColor :
+      (hovered ? NSColor.controlAccentColor.withAlphaComponent(0.72) : NSColor.separatorColor)).cgColor
+  }
+}
+
 final class ThumbnailTableCell: NSTableCellView {
   private let picture = NSImageView()
   private var representedURL: URL?
@@ -104,6 +140,7 @@ final class ArchiveCardItem: NSCollectionViewItem {
   private let dateLabel = NSTextField(labelWithString: "")
   private let captionLabel = NSTextField(wrappingLabelWithString: "")
   private let countLabel = NSTextField(labelWithString: "")
+  private var surface: CardSurface?
   private var representedURL: URL?
 
   override var isSelected: Bool {
@@ -111,13 +148,8 @@ final class ArchiveCardItem: NSCollectionViewItem {
   }
 
   override func loadView() {
-    let card = NSView()
-    card.wantsLayer = true
-    card.layer?.cornerRadius = 12
-    card.layer?.masksToBounds = true
-    card.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
-    card.layer?.borderWidth = 1
-    card.layer?.borderColor = NSColor.separatorColor.cgColor
+    let card = CardSurface()
+    surface = card
 
     picture.translatesAutoresizingMaskIntoConstraints = false
     picture.imageScaling = .scaleProportionallyUpOrDown
@@ -179,7 +211,7 @@ final class ArchiveCardItem: NSCollectionViewItem {
     countLabel.isHidden = true
   }
 
-  func configure(post: ArchivePost, archiveRoot: URL) {
+  func configure(post: ArchivePost, imageURL: URL?) {
     let day = String(post.date.prefix(10))
     dateLabel.stringValue = "\(day)  ·  \(post.shortcode)"
     captionLabel.stringValue = post.caption.isEmpty ? "No caption" : post.caption
@@ -190,8 +222,7 @@ final class ArchiveCardItem: NSCollectionViewItem {
     } else {
       countLabel.isHidden = true
     }
-    guard let file = post.stills.first?.file else { return }
-    let url = archiveRoot.appendingPathComponent(file)
+    guard let url = imageURL else { return }
     representedURL = url
     ThumbnailLoader.shared.load(url, maximumPixelSize: 480) { [weak self] image in
       guard let self, self.representedURL == url else { return }
@@ -201,21 +232,21 @@ final class ArchiveCardItem: NSCollectionViewItem {
 
   private func updateSelection() {
     guard isViewLoaded else { return }
-    view.layer?.borderWidth = isSelected ? 3 : 1
-    view.layer?.borderColor = (isSelected ? NSColor.controlAccentColor : NSColor.separatorColor).cgColor
+    surface?.selected = isSelected
   }
 }
 
 final class GalleryController: NSViewController, NSCollectionViewDataSource,
   NSCollectionViewDelegate, NSCollectionViewDelegateFlowLayout, NSSearchFieldDelegate,
   NSTableViewDataSource, NSTableViewDelegate, NSToolbarDelegate,
-  NSSharingServicePickerToolbarItemDelegate, QLPreviewPanelDataSource {
+  NSSharingServicePickerToolbarItemDelegate, NSSharingServiceDelegate, QLPreviewPanelDataSource {
 
   private static let searchID = NSToolbarItem.Identifier("ArchiveSearch")
   private static let modeID = NSToolbarItem.Identifier("ArchiveViewMode")
   private static let shareID = NSToolbarItem.Identifier("ArchiveShare")
   private let manifest: ArchiveManifest
   private let archiveRoot: URL
+  private let thumbnailRoot: URL
   private var filteredPosts: [ArchivePost]
   private let collectionView = NSCollectionView()
   private let tableView = NSTableView()
@@ -240,6 +271,7 @@ final class GalleryController: NSViewController, NSCollectionViewDataSource,
   init(manifest: ArchiveManifest, archiveRoot: URL) {
     self.manifest = manifest
     self.archiveRoot = archiveRoot
+    self.thumbnailRoot = archiveRoot.deletingLastPathComponent().appendingPathComponent("thumbnails", isDirectory: true)
     self.filteredPosts = manifest.posts
     super.init(nibName: nil, bundle: nil)
   }
@@ -281,6 +313,7 @@ final class GalleryController: NSViewController, NSCollectionViewDataSource,
     collectionView.register(ArchiveCardItem.self, forItemWithIdentifier: ArchiveCardItem.identifier)
     let doubleClick = NSClickGestureRecognizer(target: self, action: #selector(handleDoubleClick(_:)))
     doubleClick.numberOfClicksRequired = 2
+    doubleClick.delaysPrimaryMouseButtonEvents = false
     collectionView.addGestureRecognizer(doubleClick)
 
     gridScroll.translatesAutoresizingMaskIntoConstraints = false
@@ -392,7 +425,8 @@ final class GalleryController: NSViewController, NSCollectionViewDataSource,
 
   func collectionView(_ collectionView: NSCollectionView, itemForRepresentedObjectAt indexPath: IndexPath) -> NSCollectionViewItem {
     let item = collectionView.makeItem(withIdentifier: ArchiveCardItem.identifier, for: indexPath) as! ArchiveCardItem
-    item.configure(post: filteredPosts[indexPath.item], archiveRoot: archiveRoot)
+    let post = filteredPosts[indexPath.item]
+    item.configure(post: post, imageURL: thumbnailURL(for: post))
     return item
   }
 
@@ -424,7 +458,7 @@ final class GalleryController: NSViewController, NSCollectionViewDataSource,
         created.identifier = id
         return created
       }()
-      let url = post.stills.first?.file.map { archiveRoot.appendingPathComponent($0) }
+      let url = thumbnailURL(for: post)
       cell.configure(url: url)
       return cell
     }
@@ -534,6 +568,13 @@ final class GalleryController: NSViewController, NSCollectionViewDataSource,
     post.stills.compactMap { $0.file }.map { archiveRoot.appendingPathComponent($0) }
   }
 
+  private func thumbnailURL(for post: ArchivePost) -> URL? {
+    guard let file = post.stills.first?.file else { return nil }
+    let thumbnail = thumbnailRoot.appendingPathComponent(file + ".jpg")
+    if FileManager.default.fileExists(atPath: thumbnail.path) { return thumbnail }
+    return archiveRoot.appendingPathComponent(file)
+  }
+
   @objc private func openSelection() {
     guard let post = selectedPost() else { return }
     previewURLs = urls(for: post)
@@ -558,9 +599,21 @@ final class GalleryController: NSViewController, NSCollectionViewDataSource,
   func items(for pickerToolbarItem: NSSharingServicePickerToolbarItem) -> [Any] {
     guard let post = selectedPost() else { return [] }
     var items: [Any] = urls(for: post)
-    if !post.caption.isEmpty { items.append(post.caption as NSString) }
-    if let source = URL(string: post.url) { items.append(source as NSURL) }
+    let context = [post.caption, post.url].filter { !$0.isEmpty }.joined(separator: "\n\n")
+    if !context.isEmpty { items.append(context as NSString) }
     return items
+  }
+
+  func sharingServicePicker(_ sharingServicePicker: NSSharingServicePicker,
+                            delegateFor sharingService: NSSharingService) -> NSSharingServiceDelegate? {
+    self
+  }
+
+  func sharingService(_ sharingService: NSSharingService, didFailToShareItems items: [Any], error: Error) {
+    let alert = NSAlert(error: error)
+    alert.messageText = "The post could not be shared"
+    alert.informativeText = error.localizedDescription
+    alert.runModal()
   }
 
   func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
