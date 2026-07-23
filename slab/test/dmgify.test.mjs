@@ -24,3 +24,15 @@ test("dmgify rejects entry traversal", async () => {
     /entry may not traverse/,
   );
 });
+
+test("dmgify plans a native Swift gallery from manifest.json", async () => {
+  const dir = await mkdtemp(join(homedir(), ".dmgify-native-test-"));
+  await writeFile(join(dir, "manifest.json"), JSON.stringify({
+    title: "Native Test", account: "test", counts: { posts: 0, stills: 0 }, posts: [],
+  }));
+  const plan = await planDmg({
+    source: dir, runtime: "swift-gallery", name: "Native Test", bundleId: "computer.aesthetic.nativetest",
+  });
+  assert.equal(plan.runtime, "swift-gallery");
+  assert.equal(plan.entryPath, join(dir, "manifest.json"));
+});

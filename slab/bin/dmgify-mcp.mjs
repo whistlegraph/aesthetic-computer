@@ -1,12 +1,13 @@
 #!/usr/bin/env node
-// MCP front door for the local signed/notarized Electron DMG pipeline.
+// MCP front door for the local signed/notarized archive DMG pipeline.
 
 import { buildDmg, planDmg, verifyArtifact } from "./dmgify.mjs";
 import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
 
 const sharedProperties = {
-  source: { type: "string", description: "Absolute local directory containing the offline HTML app." },
+  source: { type: "string", description: "Absolute local directory containing the offline archive." },
   entry: { type: "string", default: "index.html", description: "HTML entry path relative to source." },
+  runtime: { type: "string", enum: ["electron", "swift-gallery"], default: "electron", description: "Use Electron for arbitrary HTML, or a virtualized native Swift/AppKit gallery for manifest.json image archives." },
   name: { type: "string", description: "macOS product/display name." },
   bundleId: { type: "string", description: "Reverse-DNS application identifier." },
   version: { type: "string", default: "1.0.0", description: "Semantic version." },
@@ -19,12 +20,12 @@ const sharedProperties = {
 const TOOLS = [
   {
     name: "dmgify_plan",
-    description: "Validate and size a local offline HTML directory before packaging. Read-only: reports entry/icon/builder/certificate/credential readiness and payload size.",
+    description: "Validate and size a local offline archive before packaging. Read-only: reports runtime/entry/icon/certificate/credential readiness and payload size.",
     inputSchema: { type: "object", properties: sharedProperties, required: ["source"] },
   },
   {
     name: "dmgify_build",
-    description: "Build a universal Electron app, sign it with the local Developer ID, notarize and staple the app, create/sign/notarize/staple a drag-to-Applications DMG, verify Gatekeeper, and write a receipt. SIDE EFFECTS: writes app/DMG artifacts and submits both to Apple's notary service.",
+    description: "Build a universal Electron or native Swift gallery app, sign it with the local Developer ID, notarize and staple the app, create/sign/notarize/staple a drag-to-Applications DMG, verify Gatekeeper, and write a receipt. SIDE EFFECTS: writes app/DMG artifacts and submits both to Apple's notary service.",
     inputSchema: {
       type: "object",
       properties: {

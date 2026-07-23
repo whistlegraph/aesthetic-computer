@@ -1,10 +1,20 @@
 # Dmgify
 
-`dmgify` turns a local, dependency-free HTML directory into a universal macOS
-Electron application and distributable DMG. It is the reusable form of Menu
-Band's certificate pipeline:
+`dmgify` turns a local offline directory into a universal macOS application and
+distributable DMG. It is the reusable form of Menu Band's certificate pipeline.
+It has two runtimes:
 
-1. wrap the directory in a sandboxed Electron shell;
+- `electron` (default) wraps an arbitrary dependency-free HTML directory.
+- `swift-gallery` builds a small native AppKit image archive from `manifest.json`.
+  It virtualizes the post grid, downsamples only visible images, caches decoded
+  thumbnails, offers a dense responsive thumbnail view and a sortable native
+  list, opens originals in Quick Look, and uses AppKit's dedicated sharing
+  toolbar item. Shares contain the original image files, untouched caption,
+  and canonical source URL. It has no WebView or Electron dependency.
+
+Both runtimes follow the same release chain:
+
+1. wrap the directory in its selected runtime;
 2. build universal `arm64 + x86_64` code;
 3. sign with the keychain's Developer ID Application identity and hardened runtime;
 4. submit the app to Apple's notary service and staple its ticket;
@@ -13,7 +23,7 @@ Band's certificate pipeline:
 7. verify signature, staple, and Gatekeeper acceptance; and
 8. emit a JSON receipt next to the DMG.
 
-The generated shell also embeds a signed universal AppKit helper. Offline
+The generated Electron shell also embeds a signed universal AppKit helper. Offline
 archives can opt into the preload's two narrow APIs through
 `window.archiveBridge`: `share(paths)` opens the native macOS sharing service
 picker, while `export(paths)` copies original bundled files to a user-selected
@@ -53,6 +63,7 @@ node slab/bin/dmgify.mjs plan \
 
 node slab/bin/dmgify.mjs build \
   --source /absolute/path/to/archive \
+  --runtime swift-gallery \
   --entry index.html \
   --name "Example Archive" \
   --bundle-id computer.aesthetic.examplearchive \
@@ -67,3 +78,8 @@ node slab/bin/dmgify.mjs verify \
 Use repeated `--include` flags (or the MCP `include` array) to narrow the files
 embedded under `Contents/Resources/archive/`. Defaults omit common build and
 repository directories.
+
+The native gallery expects the archive manifest to contain `title`, `account`,
+`counts.posts`, `counts.stills`, and posts with `shortcode`, `date`, `caption`,
+and `stills[].file`. The ordinary `index.html` remains in the archive as a
+portable double-click fallback, but the native app does not load it.

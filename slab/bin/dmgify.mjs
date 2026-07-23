@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// dmgify.mjs — turn a local HTML directory into a signed, notarized Electron DMG.
+// dmgify.mjs — turn a local offline archive into a signed, notarized macOS DMG.
 //
 // This is the reusable form of Menu Band's release discipline:
 // Developer ID + hardened runtime → notarize/staple app → DMG + Applications
@@ -22,6 +22,7 @@ const pexec = promisify(execFile);
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 export const REPO = resolve(SCRIPT_DIR, "../..");
 const BUILDER = join(REPO, "node_modules/.bin/electron-builder");
+const NATIVE_GALLERY_SOURCE = join(REPO, "slab/native/dmgify-gallery.swift");
 const DEFAULT_CREDENTIALS = join(REPO, "aesthetic-computer-vault/apple/app-specific-password.env");
 const MAX_OUTPUT = 16 * 1024 * 1024;
 
@@ -72,6 +73,8 @@ function normalizeOptions(options = {}) {
   const source = assertPathUnderHome(options.source, "source");
   const entry = String(options.entry || "index.html").replace(/^\/+/, "");
   if (entry.includes("..")) throw new Error("entry may not traverse outside source");
+  const runtime = String(options.runtime || "electron");
+  if (!["electron", "swift-gallery"].includes(runtime)) throw new Error(`runtime must be electron or swift-gallery: ${runtime}`);
   const name = safeName(options.name || basename(source));
   const bundleId = String(options.bundleId || `computer.aesthetic.${slug(name).toLowerCase()}`);
   if (!/^[A-Za-z0-9.-]+$/.test(bundleId) || !bundleId.includes(".")) throw new Error(`invalid bundleId: ${bundleId}`);
@@ -86,7 +89,7 @@ function normalizeOptions(options = {}) {
     ? options.include.map(String)
     : ["**/*", "!release{,/**}", "!dist{,/**}", "!node_modules{,/**}", "!.git{,/**}", "!.dmgify-work{,/**}"];
   return {
-    source, entry, name, bundleId, version, output, icon, credentials, include,
+    source, entry, runtime, name, bundleId, version, output, icon, credentials, include,
     notarize: options.notarize !== false,
     category: String(options.category || "public.app-category.photography"),
   };
@@ -96,10 +99,11 @@ export async function planDmg(options = {}) {
   const opts = normalizeOptions(options);
   if (!(await exists(opts.source))) throw new Error(`source directory not found: ${opts.source}`);
   if (!(await lstat(opts.source)).isDirectory()) throw new Error(`source is not a directory: ${opts.source}`);
-  const entryPath = join(opts.source, opts.entry);
-  if (!(await exists(entryPath))) throw new Error(`entry not found: ${entryPath}`);
+  const entryPath = join(opts.source, opts.runtime === "swift-gallery" ? "manifest.json" : opts.entry);
+  if (!(await exists(entryPath))) throw new Error(`${opts.runtime === "swift-gallery" ? "manifest" : "entry"} not found: ${entryPath}`);
   if (opts.icon && !(await exists(opts.icon))) throw new Error(`icon not found: ${opts.icon}`);
-  if (!(await exists(BUILDER))) throw new Error(`electron-builder not installed: ${BUILDER}`);
+  if (opts.runtime === "electron" && !(await exists(BUILDER))) throw new Error(`electron-builder not installed: ${BUILDER}`);
+  if (opts.runtime === "swift-gallery" && !(await exists(NATIVE_GALLERY_SOURCE))) throw new Error(`native gallery source not found: ${NATIVE_GALLERY_SOURCE}`);
   const payload = await walkStats(opts.source);
   const identity = await developerIdentity().catch(() => null);
   return {
@@ -149,6 +153,62 @@ async function makeIcns(source, work) {
   const target = join(work, "AppIcon.icns");
   await pexec("iconutil", ["-c", "icns", set, "-o", target]);
   return target;
+}
+
+const plistEscape = (value) => String(value)
+  .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+  .replaceAll('"', "&quot;").replaceAll("'", "&apos;");
+
+async function makeNativeGalleryApp(plan, work, icon, identityHash) {
+  const appDir = join(plan.output, "mac-universal", `${plan.name}.app`);
+  const contents = join(appDir, "Contents");
+  const macos = join(contents, "MacOS");
+  const resources = join(contents, "Resources");
+  const archive = join(resources, "archive");
+  await rm(appDir, { recursive: true, force: true });
+  await mkdir(macos, { recursive: true });
+  await mkdir(archive, { recursive: true });
+
+  const sdk = (await run("xcrun", ["--sdk", "macosx", "--show-sdk-path"])).trim();
+  const arm64 = join(work, "ArchiveGallery-arm64");
+  const x64 = join(work, "ArchiveGallery-x64");
+  const executable = join(macos, "ArchiveGallery");
+  const compile = (target, output) => run("xcrun", ["swiftc", "-O", "-whole-module-optimization",
+    "-sdk", sdk, "-target", target, "-framework", "AppKit", "-framework", "ImageIO",
+    "-framework", "Quartz", NATIVE_GALLERY_SOURCE, "-o", output], { timeout: 20 * 60_000 });
+  await compile("arm64-apple-macos11.0", arm64);
+  await compile("x86_64-apple-macos11.0", x64);
+  await run("lipo", ["-create", arm64, x64, "-output", executable]);
+
+  if (icon) await cp(icon, join(resources, "AppIcon.icns"));
+  await run("rsync", ["-a", "--delete",
+    "--exclude", "/release/", "--exclude", "/dist/", "--exclude", "/node_modules/",
+    "--exclude", "/.git/", "--exclude", "/.dmgify-work/",
+    `${plan.source}/`, `${archive}/`]);
+
+  const info = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleDevelopmentRegion</key><string>en</string>
+  <key>CFBundleExecutable</key><string>ArchiveGallery</string>
+  <key>CFBundleIdentifier</key><string>${plistEscape(plan.bundleId)}</string>
+  <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+  ${icon ? "<key>CFBundleIconFile</key><string>AppIcon</string>" : ""}
+  <key>CFBundleName</key><string>${plistEscape(plan.name)}</string>
+  <key>CFBundleDisplayName</key><string>${plistEscape(plan.name)}</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>${plistEscape(plan.version)}</string>
+  <key>CFBundleVersion</key><string>1</string>
+  <key>LSApplicationCategoryType</key><string>${plistEscape(plan.category)}</string>
+  <key>LSMinimumSystemVersion</key><string>11.0</string>
+  <key>NSHighResolutionCapable</key><true/>
+</dict></plist>
+`;
+  await writeFile(join(contents, "Info.plist"), info);
+  await run("plutil", ["-lint", join(contents, "Info.plist")]);
+  await run("codesign", ["--force", "--deep", "--options", "runtime", "--timestamp",
+    "--sign", identityHash, appDir], { timeout: 20 * 60_000 });
+  return appDir;
 }
 
 const shareHelperSource = `import AppKit
@@ -408,7 +468,7 @@ export async function buildDmg(options = {}) {
   // symlink. Canonicalize the temporary root before writing any project file.
   const work = await realpath(await mkdtemp(join(tmpdir(), "dmgify-build-")));
   const receipt = { schema: 1, startedAt: new Date().toISOString(), plan: {
-    source: plan.source, entry: plan.entry, name: plan.name, bundleId: plan.bundleId,
+    source: plan.source, entry: plan.entry, runtime: plan.runtime, name: plan.name, bundleId: plan.bundleId,
     version: plan.version, payload: plan.payload, include: plan.include,
     developerId: plan.developerId.name,
   }, steps: [] };
@@ -431,48 +491,52 @@ export async function buildDmg(options = {}) {
   try {
     await mkdir(plan.output, { recursive: true });
     const icon = await step("icon", () => makeIcns(plan.icon, work));
-    const shareHelper = await step("native share helper", () => makeShareHelper(work, plan.developerId.hash));
-    await writeFile(join(work, "main.cjs"), mainSource().replace("__ENTRY__", plan.entry));
-    await writeFile(join(work, "preload.cjs"), preloadSource);
-    await writeFile(join(work, "package.json"), JSON.stringify({
-      name: slug(plan.name).toLowerCase(), version: plan.version, private: true, main: "main.cjs",
-      devDependencies: { electron: "38.1.2", "electron-builder": "26.0.12" },
-    }, null, 2) + "\n");
-    await writeFile(join(work, "entitlements.mac.plist"), entitlements);
-    const config = {
-      appId: plan.bundleId,
-      productName: plan.name,
-      asar: true,
-      directories: { output: plan.output, buildResources: work },
-      files: ["main.cjs", "preload.cjs", "package.json"],
-      extraResources: [
-        { from: plan.source, to: "archive", filter: plan.include },
-        { from: shareHelper, to: "bin/dmgify-share" },
-      ],
-      mac: {
-        category: plan.category, hardenedRuntime: true, gatekeeperAssess: false,
-        entitlements: join(work, "entitlements.mac.plist"),
-        entitlementsInherit: join(work, "entitlements.mac.plist"),
-        icon: icon || undefined,
-        // The helper is already a lipo-created universal Mach-O, so the two
-        // architecture staging apps intentionally contain identical bytes.
-        x64ArchFiles: "Contents/Resources/bin/dmgify-share",
-        // electron-osx-sign otherwise attempts a separate codesign invocation
-        // for every JPG/JSON in a large extraResources archive. The outer app
-        // signature still seals these bytes; they simply are not executable
-        // code that needs its own nested signature.
-        signIgnore: "^.*\\/Contents\\/Resources\\/archive(?:\\/.*)?$",
-        target: ["dir"],
-      },
-    };
-    const configPath = join(work, "electron-builder.json");
-    await writeFile(configPath, JSON.stringify(config, null, 2) + "\n");
-    await step("electron-builder universal app", () => run(BUILDER,
-      ["--projectDir", work, "--config", configPath, "--mac", "dir", "--universal"],
-      { cwd: REPO, timeout: 45 * 60_000 }));
-
-    const appPath = join(plan.output, "mac-universal", `${plan.name}.app`);
-    if (!(await exists(appPath))) throw new Error(`electron-builder did not produce ${appPath}`);
+    let appPath;
+    if (plan.runtime === "swift-gallery") {
+      appPath = await step("native Swift gallery", () => makeNativeGalleryApp(plan, work, icon, plan.developerId.hash));
+    } else {
+      const shareHelper = await step("native share helper", () => makeShareHelper(work, plan.developerId.hash));
+      await writeFile(join(work, "main.cjs"), mainSource().replace("__ENTRY__", plan.entry));
+      await writeFile(join(work, "preload.cjs"), preloadSource);
+      await writeFile(join(work, "package.json"), JSON.stringify({
+        name: slug(plan.name).toLowerCase(), version: plan.version, private: true, main: "main.cjs",
+        devDependencies: { electron: "38.1.2", "electron-builder": "26.0.12" },
+      }, null, 2) + "\n");
+      await writeFile(join(work, "entitlements.mac.plist"), entitlements);
+      const config = {
+        appId: plan.bundleId,
+        productName: plan.name,
+        asar: true,
+        directories: { output: plan.output, buildResources: work },
+        files: ["main.cjs", "preload.cjs", "package.json"],
+        extraResources: [
+          { from: plan.source, to: "archive", filter: plan.include },
+          { from: shareHelper, to: "bin/dmgify-share" },
+        ],
+        mac: {
+          category: plan.category, hardenedRuntime: true, gatekeeperAssess: false,
+          entitlements: join(work, "entitlements.mac.plist"),
+          entitlementsInherit: join(work, "entitlements.mac.plist"),
+          icon: icon || undefined,
+          // The helper is already a lipo-created universal Mach-O, so the two
+          // architecture staging apps intentionally contain identical bytes.
+          x64ArchFiles: "Contents/Resources/bin/dmgify-share",
+          // electron-osx-sign otherwise attempts a separate codesign invocation
+          // for every JPG/JSON in a large extraResources archive. The outer app
+          // signature still seals these bytes; they simply are not executable
+          // code that needs its own nested signature.
+          signIgnore: "^.*\\/Contents\\/Resources\\/archive(?:\\/.*)?$",
+          target: ["dir"],
+        },
+      };
+      const configPath = join(work, "electron-builder.json");
+      await writeFile(configPath, JSON.stringify(config, null, 2) + "\n");
+      await step("electron-builder universal app", () => run(BUILDER,
+        ["--projectDir", work, "--config", configPath, "--mac", "dir", "--universal"],
+        { cwd: REPO, timeout: 45 * 60_000 }));
+      appPath = join(plan.output, "mac-universal", `${plan.name}.app`);
+      if (!(await exists(appPath))) throw new Error(`electron-builder did not produce ${appPath}`);
+    }
     await step("verify signed app", () => run("codesign", ["--verify", "--deep", "--strict", "--verbose=2", appPath]));
 
     let creds = null;
@@ -491,7 +555,16 @@ export async function buildDmg(options = {}) {
       await step("notarize DMG", () => notarize(dmgPath, creds));
       await step("staple DMG", () => run("xcrun", ["stapler", "staple", dmgPath]));
     }
-    const verification = await verifyArtifact(dmgPath);
+    const verification = plan.notarize ? await verifyArtifact(dmgPath) : {
+      artifact: dmgPath,
+      kind: "dmg",
+      bytes: (await stat(dmgPath)).size,
+      human: humanSize((await stat(dmgPath)).size),
+      ok: true,
+      checks: [{ name: "dmg signature", ok: true,
+        output: (await run("codesign", ["--verify", "--verbose=2", dmgPath])).trim().slice(-4000) }],
+      localOnly: true,
+    };
     if (!verification.ok) throw new Error(`final DMG verification failed: ${JSON.stringify(verification.checks)}`);
     receipt.finishedAt = new Date().toISOString();
     receipt.artifact = dmgPath;
