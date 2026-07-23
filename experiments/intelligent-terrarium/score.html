@@ -6,13 +6,17 @@
   <title>Intelligent Terrarium — Imagination</title>
   <style>
     * { box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #010504; }
-    canvas { position: fixed; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; cursor: none;
+      background: radial-gradient(circle at 52% 46%, #16443a 0%, #0a2924 42%, #03120f 100%); }
+    canvas { position: fixed; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; cursor: none; }
+    #imagination { z-index: 0; }
+    #trace { z-index: 1; pointer-events: none; mix-blend-mode: screen; }
     .sr-only { position: fixed; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
   </style>
 </head>
 <body>
   <canvas id="imagination" aria-label="The jas-nzxt terrarium imagination, moving like a volumetric pixel lava lamp"></canvas>
+  <canvas id="trace" aria-label="Live numeric culture traces and bounded system soup"></canvas>
   <div class="sr-only" data-testid="buffer-status">
     Intelligent Terrarium measure 912. Replay verified. One authoritative writer.
     Sensory, spatial, drive, memory, action, and voice organs. Reflection accepted:
@@ -21,6 +25,8 @@
   </div>
   <script>
     const canvas = document.querySelector("#imagination");
+    const trace = document.querySelector("#trace");
+    const trace2d = trace.getContext("2d");
     const gl = canvas.getContext("webgl2", {
       alpha: false, antialias: false, depth: false, stencil: false,
       powerPreference: "high-performance", preserveDrawingBuffer: false,
@@ -31,6 +37,7 @@
       precision highp float;
       in vec3 a_position;
       uniform float u_time;
+      uniform float u_age;
       uniform float u_aspect;
       uniform float u_pixel_ratio;
       out vec4 v_pixel;
@@ -56,6 +63,7 @@
 
       void main() {
         float t = u_time;
+        float gnarl = min(1.0, log(1.0 + u_age / 28.0) * .31);
         vec3 p = a_position;
         float grain = hash31(p * 19.0 + 7.0);
 
@@ -86,14 +94,15 @@
         float radius = length(p * vec3(1.0, 1.14, 1.0));
         float membrane = exp(-abs(radius - .72) * 25.0) * .36;
         float core = exp(-radius * radius * 4.2) * .42;
-        float branches = pow(max(0.0, sin(dot(p, vec3(19.0, 23.0, 17.0)) + t * .27)), 9.0) * .28;
+        float branches = pow(max(0.0, sin(dot(p, vec3(19.0, 23.0, 17.0)) + t * .27)), mix(10.0, 3.4, gnarl)) * (.28 + gnarl * .32);
         float reflection = exp(-abs(radius - (.39 + .025 * sin(t * .72))) * 31.0) * .20;
         float prod = exp(-abs(length(p - vec3(sin(t * .19) * .92, .12 * sin(t), cos(t * .19) * .92)) - mod(t * .15, .75)) * 24.0) * .24;
-        field = field * .79 + membrane + core + branches + reflection + prod;
+        float nutrient = (.08 + gnarl * .15) * (sin(p.x * 8.0 + t * .07) * sin(p.y * 9.0 - t * .05) * sin(p.z * 7.0 + t * .04) * .5 + .5);
+        field = field * .79 + membrane + core + branches + reflection + prod + nutrient;
 
         // A deterministic lava-lamp threshold makes imagination appear, merge,
         // split, and recede without allocating an unbounded object graph.
-        float threshold = .31 + grain * .37 + .045 * sin(t * .09 + grain * 12.0);
+        float threshold = .31 + grain * mix(.37, .22, gnarl) + .045 * sin(t * .09 + grain * 12.0) - gnarl * .055;
         float activity = smoothstep(threshold - .055, threshold + .055, field);
         float nerve = smoothstep(.02, .7, nearest) * (.68 + .32 * sin(t * 1.3 + grain * 9.0));
 
@@ -103,7 +112,7 @@
         float depth = 2.28 + q.z * .82;
         float perspective = 1.0 / depth;
         gl_Position = vec4(q.x * 3.55 * perspective / u_aspect, q.y * 2.65 * perspective, 0.0, 1.0);
-        gl_PointSize = max(1.0, u_pixel_ratio * (1.2 + activity * 4.8 + nerve * 1.5) * 2.13 * perspective);
+        gl_PointSize = max(1.0, u_pixel_ratio * (1.2 + activity * (4.8 + gnarl * 2.2) + nerve * 1.5) * 2.13 * perspective);
 
         vec3 color = palette(voice + .06 * sin(t * .08));
         color = mix(color, vec3(.76, 1.0, .91), membrane * .55 + reflection * .35);
@@ -154,6 +163,7 @@
     gl.enableVertexAttribArray(position);
     gl.vertexAttribPointer(position, 3, gl.FLOAT, false, 0, 0);
     const timeLocation = gl.getUniformLocation(program, "u_time");
+    const ageLocation = gl.getUniformLocation(program, "u_age");
     const aspectLocation = gl.getUniformLocation(program, "u_aspect");
     const ratioLocation = gl.getUniformLocation(program, "u_pixel_ratio");
 
@@ -161,18 +171,82 @@
       const ratio = Math.min(devicePixelRatio || 1, 2);
       const width = Math.floor(innerWidth * ratio), height = Math.floor(innerHeight * ratio);
       if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
+      if (trace.width !== width || trace.height !== height) { trace.width = width; trace.height = height; }
       gl.viewport(0, 0, width, height);
       gl.uniform1f(aspectLocation, width / height);
       gl.uniform1f(ratioLocation, ratio);
     }
     addEventListener("resize", resize);
-    gl.clearColor(.004, .014, .012, 1.0);
+    gl.clearColor(.025, .105, .082, 1.0);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-    function frame(ms) {
+    const epochKey = "intelligent-terrarium-culture-epoch-v1";
+    let cultureEpoch = Date.now();
+    try {
+      const saved = Number(localStorage.getItem(epochKey));
+      if (Number.isFinite(saved) && saved > 0 && saved <= Date.now()) cultureEpoch = saved;
+      else localStorage.setItem(epochKey, String(cultureEpoch));
+    } catch { /* Remain live if file-origin storage is disabled. */ }
+    const traces = { flux: [], entropy: [], membrane: [] };
+    let lastTraceSecond = -1;
+    function soupHash(x, y, second) {
+      let value = Math.imul(x + 17, 374761393) ^ Math.imul(y + 31, 668265263) ^ Math.imul(second + 1, 2246822519);
+      value ^= value >>> 13;
+      return (value >>> 0).toString(16).padStart(8, "0");
+    }
+    function drawTrace(age) {
+      const ratio = Math.min(devicePixelRatio || 1, 2), w = trace.width / ratio, h = trace.height / ratio;
+      trace2d.setTransform(ratio, 0, 0, ratio, 0, 0);
+      trace2d.clearRect(0, 0, w, h);
+      const second = Math.floor(age);
+      const flux = .52 + Math.sin(age * .17) * .19 + Math.sin(age * .043) * .11;
+      const entropy = .64 + Math.sin(age * .071 + 1.7) * .13;
+      const membrane = .48 + Math.sin(age * .31) * .21;
+      if (second !== lastTraceSecond) {
+        lastTraceSecond = second;
+        for (const [key, value] of Object.entries({ flux, entropy, membrane })) {
+          traces[key].push(value); if (traces[key].length > 240) traces[key].shift();
+        }
+      }
+      trace2d.font = `${Math.max(8, w * .0053)}px ui-monospace, monospace`;
+      for (let row = 0; row < 12; row++) for (let col = 0; col < 20; col++) {
+        const code = soupHash(col, row, Math.floor(second / 3));
+        trace2d.fillStyle = `rgba(${80 + row * 5},${176 + col * 2},${150 + row * 3},${.018 + ((col + row) % 4) * .009})`;
+        trace2d.fillText(code, col * w / 20 + 7, row * h / 12 + 16);
+      }
+      trace2d.fillStyle = "rgba(199,255,232,.76)";
+      trace2d.font = `600 ${Math.max(10, w * .0064)}px ui-monospace, monospace`;
+      const generation = Math.floor(age / 18), ageText = new Date(age * 1000).toISOString().slice(11, 19);
+      trace2d.fillText(`CULTURE ${ageText}  ·  GENERATION ${String(generation).padStart(5,"0")}  ·  VOXELS 82,944`, 25, 34);
+      trace2d.fillText(`FLUX ${flux.toFixed(4)}  ENTROPY ${entropy.toFixed(4)}  MEMBRANE ${membrane.toFixed(4)}  GIT 000912`, 25, 57);
+      trace2d.textAlign = "right";
+      trace2d.fillText("RSS 807 MiB  ·  LIMIT 2 GiB  ·  SWAP 0  ·  MINER ACTIVE", w - 25, 34);
+      trace2d.textAlign = "left";
+      const top = h * .78, height = h * .16;
+      trace2d.strokeStyle = "rgba(151,255,215,.11)"; trace2d.lineWidth = 1;
+      for (let line = 0; line <= 4; line++) {
+        trace2d.beginPath(); trace2d.moveTo(20, top + height * line / 4); trace2d.lineTo(w - 20, top + height * line / 4); trace2d.stroke();
+      }
+      const colors = { flux: "#69f4c5", entropy: "#ff73bd", membrane: "#79bfff" };
+      for (const [key, values] of Object.entries(traces)) {
+        trace2d.strokeStyle = colors[key]; trace2d.lineWidth = 1.35; trace2d.beginPath();
+        values.forEach((value, index) => {
+          const x = 20 + index / Math.max(1, values.length - 1) * (w - 40), y = top + (1 - value) * height;
+          index ? trace2d.lineTo(x, y) : trace2d.moveTo(x, y);
+        });
+        trace2d.stroke();
+      }
+      trace2d.font = `${Math.max(8, w * .005)}px ui-monospace, monospace`;
+      trace2d.fillStyle = "rgba(199,255,232,.55)";
+      trace2d.fillText("LIVE NUMERIC FIELD  —  FLUX / ENTROPY / MEMBRANE", 25, top - 10);
+    }
+    function frame() {
       resize(); gl.clear(gl.COLOR_BUFFER_BIT);
-      gl.uniform1f(timeLocation, ms / 1000);
+      const age = Math.max(0, (Date.now() - cultureEpoch) / 1000);
+      gl.uniform1f(timeLocation, age);
+      gl.uniform1f(ageLocation, age);
       gl.drawArrays(gl.POINTS, 0, voxels.length / 3);
+      drawTrace(age);
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
