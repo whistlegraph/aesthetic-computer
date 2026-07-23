@@ -250,15 +250,15 @@ function orbitalScene(t,run){
   for(let moon=0;moon<moons.length;moon++){
     const base=moons[moon],phase=t*(base[3]+moon*.035)+moon*2.1;
     const cx=base[0]+Math.cos(phase)*55,cy=base[1]+Math.sin(phase*.83)*34;
-    const radius=base[2]*pulse,z=.9+moon*.08,segments=16;
+    const radius=base[2]*pulse,z=.9+moon*.08,segments=12;
     for(let i=0;i<segments;i++){
       const a=phase+i*Math.PI*2/segments,b=phase+(i+1)*Math.PI*2/segments;
       const shade=.55+.45*Math.sin(a*2.7+t*.41);
       triangle3d(cx,cy,z,cx+Math.cos(a)*radius,cy+Math.sin(a)*radius,z,cx+Math.cos(b)*radius,cy+Math.sin(b)*radius,z,
         34+shade*72,28+shade*58,92+shade*112);
     }
-    for(let i=0;i<24;i++){
-      const a=phase*.55+i*Math.PI*2/24,b=phase*.55+(i+1)*Math.PI*2/24;
+    for(let i=0;i<16;i++){
+      const a=phase*.55+i*Math.PI*2/16,b=phase*.55+(i+1)*Math.PI*2/16;
       const rx=radius*1.82,ry=radius*.38,thick=2.6+moon;
       triangle3d(cx+Math.cos(a)*rx,cy+Math.sin(a)*ry,z-.035,cx+Math.cos(b)*rx,cy+Math.sin(b)*ry,z-.035,
         cx+Math.cos(b)*(rx-thick),cy+Math.sin(b)*(ry-thick*.3),z-.035,88,68,156);
@@ -267,7 +267,7 @@ function orbitalScene(t,run){
     }
   }
   // A living dust field: tiny depth-layered diamonds that drift in parallax.
-  for(let i=0;i<84;i++){
+  for(let i=0;i<48;i++){
     const phase=t*(.05+(i%7)*.008)+i*1.731;
     const x=(i*227+phase*91)%1840+40,y=125+((i*97)%720)+Math.sin(phase)*18;
     const size=(1.5+(i%4))*(i%17===0?pulse:1),z=.72+(i%5)*.045;
@@ -278,8 +278,8 @@ function orbitalScene(t,run){
   // Clock-synchronized energy ribbon. Every console using /api/clock sees the
   // same phase, while local monotonic time keeps motion smooth between syncs.
   const clockT=run.unixMs/1000;
-  for(let lane=0;lane<3;lane++)for(let i=0;i<28;i++){
-    const x0=i*72-40,x1=x0+76;
+  for(let lane=0;lane<3;lane++)for(let i=0;i<20;i++){
+    const x0=i*101-50,x1=x0+106;
     const y0=760+lane*54+Math.sin(clockT*.72+i*.46+lane*2)*18;
     const y1=760+lane*54+Math.sin(clockT*.72+(i+1)*.46+lane*2)*18;
     const width=3+scenePulse*5,z=.82+lane*.025;
@@ -304,22 +304,15 @@ function animatedJeffrey(t){
   const cx=playerX-cameraX,ground=722-(moving?Math.abs(Math.sin(runPhase*Math.PI))*10:0),scale=260;
   const points=world.map((point)=>[cx+point[0]*scale,ground-point[1]*scale,point[2]+.05]);
   // Project a bounded subset onto the floor for a moving cast-shadow pass.
-  for(let index=0;index<jeffrey.faces.length;index+=4){
+  for(let index=0;index<jeffrey.faces.length;index+=8){
     const face=jeffrey.faces[index],a=world[face[0]],b=world[face[1]],c=world[face[2]];
     const shadow=(point)=>[cx+point[0]*scale+92,735+point[2]*82,.98];
     const p0=shadow(a),p1=shadow(b),p2=shadow(c);
     triangle3d(p0[0],p0[1],p0[2],p1[0],p1[1],p1[2],p2[0],p2[1],p2[2],9,6,20);
   }
-  // Stencil-style expanded silhouette. Revision 18 keeps this as a geometry
-  // pass; the native D24S8 post pipeline upgrades it to hardware stencil.
-  for(const face of jeffrey.faces){
-    const a=world[face[0]],b=world[face[1]],c=world[face[2]];
-    const ux=b[0]-a[0],uy=b[1]-a[1],uz=b[2]-a[2],vx=c[0]-a[0],vy=c[1]-a[1],vz=c[2]-a[2];
-    const nz=ux*vy-uy*vx;if(nz*playerFacing>=0)continue;
-    const expand=(point)=>[cx+point[0]*scale*1.035,ground-point[1]*scale*1.035,point[2]+.11];
-    const p0=expand(a),p1=expand(b),p2=expand(c);
-    triangle3d(p0[0],p0[1],p0[2],p1[0],p1[1],p1[2],p2[0],p2[1],p2[2],38,8,58);
-  }
+  // The native D24S8 target now records the visible body directly; the
+  // fullscreen stencil pass supplies the living edge without duplicating the
+  // entire mesh as expanded geometry.
   const lights=[
     [Math.sin(t*.71)*.72,-.48,.7,1,.48,.82],
     [Math.cos(t*.43)*-.66,.18,.74,.42,.8,1],

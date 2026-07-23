@@ -338,7 +338,13 @@ public:
 
   virtual void Run() {
     Render({0.025f, 0.02f, 0.04f, 1.0f});
+    LARGE_INTEGER profileFrequency{};
+    QueryPerformanceFrequency(&profileFrequency);
+    double profileHostJsMs = 0, profileRenderCpuMs = 0, profilePresentMs = 0;
+    unsigned profileFrames = 0;
     while (!m_closed) {
+      LARGE_INTEGER profileStart{}, profileAfterJs{};
+      QueryPerformanceCounter(&profileStart);
       m_window->Dispatcher->ProcessEvents(CoreProcessEventsOption::ProcessAllIfPresent);
       RefreshCapabilities(false);
       RefreshAcData(false);
@@ -375,9 +381,27 @@ public:
         }
       }
       if (m_flashFrames > 0) {
+        QueryPerformanceCounter(&profileAfterJs);
         Render(m_flashColor);
         --m_flashFrames;
-      } else Render(m_frameColor);
+      } else {
+        QueryPerformanceCounter(&profileAfterJs);
+        Render(m_frameColor);
+      }
+      profileHostJsMs += (profileAfterJs.QuadPart - profileStart.QuadPart) *
+        1000.0 / profileFrequency.QuadPart;
+      profileRenderCpuMs += m_lastRenderCpuMs;
+      profilePresentMs += m_lastPresentMs;
+      if (++profileFrames >= 120) {
+        LogTelemetry("AC_NATIVE_PROFILE hostJsMs=" +
+          std::to_string(profileHostJsMs / profileFrames) + " renderCpuMs=" +
+          std::to_string(profileRenderCpuMs / profileFrames) + " presentMs=" +
+          std::to_string(profilePresentMs / profileFrames) + " totalMs=" +
+          std::to_string((profileHostJsMs + profileRenderCpuMs + profilePresentMs) /
+            profileFrames));
+        profileFrames = 0; profileHostJsMs = 0; profileRenderCpuMs = 0;
+        profilePresentMs = 0;
+      }
       SwitchToThread();
     }
   }
@@ -759,7 +783,7 @@ private:
     stencil.FrontFace.StencilFunc = D3D11_COMPARISON_EQUAL;
     stencil.BackFace = stencil.FrontFace;
     Check(m_device->CreateDepthStencilState(&stencil, &m_postStencilState));
-    LogTelemetry("AC_NATIVE_POST ready=1 filter=point effects=chromatic,scan,dither,vignette stencil=d24s8");
+    LogTelemetry("AC_NATIVE_POST ready=1 filter=point effects=chromatic,scan,dither,vignette stencil=d24s8-write overlay=off");
   }
 
   void UpdatePostConstants(float stencilPass) {
@@ -797,13 +821,9 @@ private:
     m_context->OMSetDepthStencilState(nullptr, 0);
     m_context->OMSetRenderTargets(1, m_target.GetAddressOf(), nullptr);
     m_context->Draw(3, 0);
-    if (!m_frameTriangles.empty() || !m_frameTexturedTriangles.empty() ||
-        !m_frameSprites.empty()) {
-      UpdatePostConstants(1);
-      m_context->OMSetDepthStencilState(m_postStencilState.Get(), 1);
-      m_context->OMSetRenderTargets(1, m_target.GetAddressOf(), m_triangleDepthView.Get());
-      m_context->Draw(3, 0);
-    }
+    // Geometry and sprites still write the real D24S8 mask. Keep the costly
+    // second fullscreen stencil overlay off by default; it can be re-enabled
+    // as a quality tier once the 60 Hz budget has headroom.
     ID3D11ShaderResourceView* nullView = nullptr;
     m_context->PSSetShaderResources(0, 1, &nullView);
     m_context->OMSetDepthStencilState(nullptr, 0);
@@ -1444,6 +1464,9 @@ private:
 
   void Render(const std::array<float, 4>& color) {
     if (!m_target) return;
+    LARGE_INTEGER renderStart{}, beforePresent{}, afterPresent{}, frequency{};
+    QueryPerformanceFrequency(&frequency);
+    QueryPerformanceCounter(&renderStart);
     if (!m_frameTexts.empty() || !m_frameRects.empty() || !m_frameLines.empty() ||
         !m_frameTriangles.empty() || !m_frameTexturedTriangles.empty() ||
         !m_frameSprites.empty() ||
@@ -1657,7 +1680,13 @@ private:
       m_context->OMSetRenderTargets(1, m_target.GetAddressOf(), nullptr);
       m_context->ClearRenderTargetView(m_target.Get(), color.data());
     }
+    QueryPerformanceCounter(&beforePresent);
     const HRESULT hr = m_swapChain->Present(1, 0);
+    QueryPerformanceCounter(&afterPresent);
+    m_lastRenderCpuMs = (beforePresent.QuadPart - renderStart.QuadPart) *
+      1000.0 / frequency.QuadPart;
+    m_lastPresentMs = (afterPresent.QuadPart - beforePresent.QuadPart) *
+      1000.0 / frequency.QuadPart;
     if (FAILED(hr) && hr != DXGI_STATUS_OCCLUDED) Check(hr);
   }
 
@@ -1707,6 +1736,8 @@ private:
   std::unordered_map<std::string, std::shared_ptr<const PaintingImage>> m_paintingImages;
   std::unordered_set<std::string> m_paintingRequests;
   bool m_loggedTextFrame = false;
+  double m_lastRenderCpuMs = 0;
+  double m_lastPresentMs = 0;
 
   ComPtr<ID3D11Device1> m_device;
   ComPtr<ID3D11DeviceContext1> m_context;
