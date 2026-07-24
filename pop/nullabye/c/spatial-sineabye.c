@@ -21,8 +21,11 @@ static double tempoBpm=ROOM_BPM;
 #define BPM (tempoBpm)
 #define BEAT (60.0/BPM)
 #define BAR (4*BEAT)
-#define DUR (38*BAR)
-#define CTRL 60
+#define DUR (40*BAR)
+// Physics/control substeps are independent of the 24 fps picture. 240 Hz
+// keeps listener forces, loading, and recursive antenna motion below audible
+// control-rate stepping before their states are interpolated at 48 kHz.
+#define CTRL 240
 #define FPS 24
 #define W 720
 #define H 720
@@ -54,6 +57,10 @@ static double *meterL,*meterR;
 // arrival time as the audio bus.  Expanding shells carry these actual samples.
 static float *sourceWave;
 static double spatialWet=.32;
+// A slow, bounded radio-like AM field: clean carriers acquire warm sidebands
+// from listener-relative 3D interference rather than distortion or aliasing.
+static double antennaDepth=.065;
+static float *antennaField;
 // The noise voices are part of the instrument, not recording dirt.  Keep a
 // permanent breath floor while letting the release mix sit behind the tones.
 static double noiseLevel=.55;
@@ -80,6 +87,7 @@ static const EmitterDef COSMOS[NSRC]={
 };
 static ACRock BODY_MESH[NSRC+3];static ACMeshAcoustics BODY_ACOUSTICS[NSRC+3];static ACMaterial BODY_MATERIAL[NSRC+3];
 static Source source_at(int s,double t);
+static double kick_gravity(double t);
 static ACMaterial cosmos_material(int i){if(i%5==0)return AC_MAT_ALUMINUM;if(i%5==1)return AC_MAT_WOOD;if(i%5==2)return AC_MAT_GLASS;return AC_MAT_STONE;}
 static void init_cosmos_bodies(void){for(int i=0;i<NSRC+3;i++){uint64_t seed=UINT64_C(0xcbf29ce484222325)^(uint64_t)(i+1)*UINT64_C(0x100000001b3);ac_rock_generate(seed,&BODY_MESH[i]);BODY_MATERIAL[i]=cosmos_material(i);ac_mesh_analyze(&BODY_MESH[i],BODY_MATERIAL[i],&BODY_ACOUSTICS[i]);}}
 static Source system_sun_at(int k,double t){StarSystem d=SYSTEMS[k];double x=d.x,y=d.y,z=d.z;
@@ -104,6 +112,32 @@ static const int TOUR[]={4,8,0,2,10,9,3,5,1,6,11,7};
 static int tour_source(double t){return TOUR[((int)fmax(0,t/9.0))%12];}
 static double hz(double m){return 440*pow(2,(m-69)/12);}
 static double dominant_turns(double t){return (BPM/60.0)*t;}
+static double smooth01(double u){u=fmax(0,fmin(1,u));return u*u*(3-2*u);}
+static double ease01(double u){u=fmax(0,fmin(1,u));return u*u*u*(10+u*(-15+6*u));}
+static double ending_motion_time(double t){
+ // Integrate a squared ease-out velocity over the release's final six seconds:
+ // the mechanism winds down like a music box and is motionless at its cut.
+ // The final authored cadence ends at bar 38; retain roughly 325 ms for its
+ // physical room return, then stop. The former 38.516-bar endpoint left more
+ // than a second of effectively silent transport after the decay.
+ double end=38*BAR+.325,span=6.0,start=end-span;if(t<=start)return t;double u=fmax(0,fmin(1,(t-start)/span));return start+span*(u-u*u+u*u*u/3.0);
+}
+static double world_wobble(double t){
+ // Long platter-like rocks begin away from bar lines and use non-integer
+ // periods. A squared-sine window still guarantees zero displacement and
+ // velocity at both ends, but the internal drift no longer feels quantized.
+ double at[4]={10*BAR+.37,14*BAR+.83,26*BAR-.64,31*BAR+.41};
+ static const double dur[4]={10.8,4.1,12.4,11.6},cycles[4]={1.37,.72,2.18,1.46},amp[4]={.34,.36,.54,.38};
+ for(int i=0;i<4;i++)if(t>=at[i]&&t<=at[i]+dur[i]){double u=(t-at[i])/dur[i],e=sin(M_PI*u);e=smooth01(e*e);double drift=u+.075*sin(M_PI*u)*sin(TAU*(.63*u+i*.17)),phase=TAU*cycles[i]*drift;return M_PI*amp[i]*e*(.82*sin(phase)+.18*sin(phase*.47+i*1.31));}
+ return 0;
+}
+static double super_spin_burst(double t,double at,double dur,double turns,double wobble,double cycles){
+ // Integer-turn platter bursts return to the exact incoming orientation.
+ // Quintic progress and a squared-sine wobble window make angular velocity and
+ // the elastic displacement both reach zero at either end—never a scratch cut.
+ if(t<at||t>at+dur)return 0;double raw=(t-at)/dur,u=ease01(raw),window=sin(M_PI*raw);window*=window;
+ return TAU*turns*u+wobble*window*(.76*sin(TAU*(cycles*raw+.075*sin(TAU*raw)))+.24*sin(TAU*.67*raw+.41));
+}
 static double eccentric_phase(double mean,double eccentricity){
  // Solve Kepler's equation. Uniform score-time becomes continuous nonuniform
  // orbital speed: a fast periapsis crossing and a long, slow far-field arc.
@@ -114,7 +148,7 @@ static double eccentric_phase(double mean,double eccentricity){
 // Whole-room choreography: from 0:50–1:18 the source constellation eases
 // through two complete rotations. Because every physics/audio lookup uses this
 // function, the spin changes gravity, distance, Doppler and stereo—not just pixels.
-static Source source_at(int s,double t){Source q=S[s];
+static Source source_at(int s,double t){if(!cosmosMode&&!globeMode)t=ending_motion_time(t);Source q=S[s];
  if(cosmosMode){
   EmitterDef e=COSMOS[s];Source sun=system_sun_at(e.system,t);StarSystem sys=SYSTEMS[e.system];
   double parent=TAU*(sys.tempo/60.0)*t+sys.phase*TAU;
@@ -169,6 +203,10 @@ static Source source_at(int s,double t){Source q=S[s];
   }
   return q;
  }
+ // Common room-mode listener anchor. The fast release tornado pivots every
+ // ordinary score body around this interpolated receiver position.
+ Listener anchor={0,-.5,0,0,0};
+ if(L){double at=fmax(0,t-.06)*CTRL;int i=(int)at,max=(int)(DUR*CTRL)-1;if(i>max)i=max;double f=at-i;Listener a=L[i],b=L[i+1];anchor.x=a.x+(b.x-a.x)*f;anchor.y=a.y+(b.y-a.y)*f;anchor.vx=a.vx+(b.vx-a.vx)*f;anchor.vy=a.vy+(b.vy-a.vy)*f;anchor.heading=a.heading+(b.heading-a.heading)*f;}
  // The lullaby begins as rotation alone.  Ninety-six complete turns land at
  // the original orientation, while the quartic ease gives ~30 rotations/sec
  // at the first instant and exactly zero angular velocity at the hand-off.
@@ -176,11 +214,41 @@ static Source source_at(int s,double t){Source q=S[s];
  if(t<4*BAR){double u=fmax(0,fmin(1,t/(4*BAR))),a=TAU*96*(1-pow(1-u,4));
   double x=q.x,y=q.y;q.x=x*cos(a)-y*sin(a);q.y=x*sin(a)+y*cos(a);q.z+=.16*sin(a+s*.7);
  }
- if(t>=50&&t<=78){double u=(t-50)/28;u=u*u*(3-2*u);double a=TAU*2*u;
- // Eight-turn centrifuge from 62–70 s.  Smoothstep gives it a physical ramp;
- // eight whole turns land at the original orientation with no visual/audio cut.
- if(t>=62){double x=fmin(1,(t-62)/8);x=x*x*(3-2*x);a+=TAU*8*x;}
- double x=q.x,y=q.y;q.x=x*cos(a)-y*sin(a);q.y=x*sin(a)+y*cos(a);q.z+=.22*sin(a+s*.7);}
+ if(t>=50&&t<=78){double raw=(t-50)/28,u=ease01(ease01(raw)),window=sin(M_PI*raw);window*=window;double a=TAU*2*u;
+ // The eight-turn centrifuge gathers momentum over eleven seconds. A long,
+ // windowed platter wobble now rides inside the turn instead of arriving as a
+ // separate scratch afterward. Both displacement and velocity return cleanly
+ // to zero at the endpoints, so the gesture stays elastic without a skid.
+ if(t>=61.5){double raw=fmax(0,fmin(1,(t-61.5)/11.0)),x=ease01(raw),window=sin(M_PI*raw);window*=window;double wobble=.31*window*(.78*sin(TAU*(1.63*raw+.08*sin(TAU*raw)))+.22*sin(TAU*.71*raw+.4));a+=TAU*8*x+wobble;}
+ double x=q.x,y=q.y;q.x=x*cos(a)-y*sin(a);q.y=x*sin(a)+y*cos(a);q.z+=.22*window*sin(a+s*.7);}
+ // Three smaller super-spins join the central centrifuge: a four-turn bloom
+ // at release 0:14, a two-turn pickup around 0:25, and a late four-turn bloom.
+ // All overlap long world-wobble windows, so their orbits audibly bend and
+ // breathe instead of skating.
+ {
+  double intro=super_spin_burst(t,32.6,6.2,32,.46,1.42);
+  double early=super_spin_burst(t,43.6,5.9,2,.42,1.18);
+  double late=super_spin_burst(t,85.7,8.6,4,.49,1.73);
+  if(intro!=0){
+   // The fast tornado is listener-centric: translate into head space, rotate
+   // and taper there, then return to the world. Thus every sounding body truly
+   // crosses the receiver instead of orbiting an unrelated room origin.
+   double x=q.x-anchor.x,y=q.y-anchor.y;
+   double rx=x*cos(intro)-y*sin(intro),ry=x*sin(intro)+y*cos(intro);
+   double w0=pow(sin(M_PI*(t-32.6)/6.2),2),funnel=1-.38*w0;
+   q.x=anchor.x+rx*funnel;q.y=anchor.y+ry*funnel;
+   q.z+=1.15*w0+.30*w0*sin(intro*.22+s*.67);
+  }
+  double roomSpin=early+late;
+  if(roomSpin!=0){
+   double x=q.x,y=q.y;
+   q.x=x*cos(roomSpin)-y*sin(roomSpin);q.y=x*sin(roomSpin)+y*cos(roomSpin);
+   double w1=(t>=43.6&&t<=49.5)?pow(sin(M_PI*(t-43.6)/5.9),2):0;
+   double w2=(t>=85.7&&t<=94.3)?pow(sin(M_PI*(t-85.7)/8.6),2):0;
+   q.z+=.16*fmax(w1,w2)*sin(roomSpin+s*.39);
+  }
+ }
+ {double a=world_wobble(t);if(a!=0){double x=q.x,y=q.y;q.x=x*cos(a)-y*sin(a);q.y=x*sin(a)+y*cos(a);q.z+=.12*sin(a+s*.51);}}
  // In the visual/listening-field cut, the whole composition physically winds
  // up after its opening assembly. This rotation feeds gravity, Doppler, HRTF,
  // telemetry, and light transport; the camera does not manufacture the spin.
@@ -190,6 +258,10 @@ static Source source_at(int s,double t){Source q=S[s];
  // Final movement: every voice peels away from the room and occupies a
  // progressively older point on the listener's path, forming an audible snake.
  if(L&&t>=82){double mix=fmin(1,(t-82)/10);mix=mix*mix*(3-2*mix);double lag=1.0+s*.72;int i=(int)(fmax(0,t-lag)*CTRL),max=(int)(DUR*CTRL);if(i>max)i=max;Listener p=L[i];double side=((s&1)?1:-1)*(.08+.018*s),tx=p.x-sin(p.heading)*side,ty=p.y+cos(p.heading)*side,tz=.55+fmod(s*1.37,2.5);q.x=q.x*(1-mix)+tx*mix;q.y=q.y*(1-mix)+ty*mix;q.z=q.z*(1-mix)+tz*mix;}
+ // Kick Gravity is a shared physical effector: tonal bodies contract toward
+ // the boom source, then overshoot outward on the eased elastic rebound. This
+ // changes listener forces, Doppler, HRTF, distance, pixels, and room returns.
+ if(s!=1){double gravity=kick_gravity(t),pull=.11*gravity;q.x+=(S[1].x-q.x)*pull;q.y+=(S[1].y-q.y)*pull;q.z+=(S[1].z-q.z)*pull;}
  return q;}
 static void ev(double t,double d,double m,double g,int src,double a,double r){
  if(NE<MAXE){int n=NE++;E[n]=(Event){t,d,hz(m),hz(m),g,a,r,src,0,(uint32_t)(n*2654435761u)};}
@@ -199,6 +271,22 @@ static void glide(double t,double d,double f0,double f1,double g,int src){
 }
 static void noisev(double t,double d,double lo,double hi,double g,int src){
  if(NE<MAXE){int n=NE++;E[n]=(Event){t,d,lo,hi,g,.006,d*.9,src,1,(uint32_t)(n*2654435761u)};}
+}
+static void tornado_whir(double t,double d,double g,int src){
+ // Type 8 is a band-limited rotor whose blade rate is derived from the exact
+ // 32-turn tornado ease. It is observed through the moving source path below,
+ // rather than pasted into the stereo master as a centered sound effect.
+ if(NE<MAXE){int n=NE++;E[n]=(Event){t,d,0,0,g,.035,.16,src,8,(uint32_t)(n*2654435761u)};}
+}
+static void crash_cymbal(double t,double g,int src){
+ // One broad, spatially positioned cymbal bloom. Three filtered noise strata
+ // create a metallic attack and a long darkening tail without a sample click.
+ if(NE<MAXE){int n=NE++;E[n]=(Event){t,3.65,3100,14200,g,.045,3.28,src,1,(uint32_t)(n*2654435761u)};}
+ if(NE<MAXE){int n=NE++;E[n]=(Event){t+.012,3.15,1350,7600,g*.58,.052,2.82,src,1,(uint32_t)(n*2654435761u)};}
+ if(NE<MAXE){int n=NE++;E[n]=(Event){t+.028,2.45,620,3400,g*.31,.060,2.18,src,1,(uint32_t)(n*2654435761u)};}
+}
+static void whistlev(double t,double d,double m,double g,int src){
+ if(NE<MAXE){int n=NE++;E[n]=(Event){t,d,hz(m),hz(m),g,.24,.72,src,7,(uint32_t)(n*2654435761u)};}
 }
 static void blastv(double t,double g,int src){
  // One collision excites a pressure crack, bright debris, body noise, and an
@@ -217,15 +305,140 @@ static void blastv(double t,double g,int src){
 static void chipv(double t,double g,int src){
  if(NE<MAXE){int n=NE++;E[n]=(Event){t,.105,1800,7800,g,.0003,.090,src,5,(uint32_t)(n*2654435761u)};}
 }
+static void ticktack(double t,int tack,double g,int src){
+ // Diamond ticks are tiny resonant strikes, not broadband groove pops.
+ double f=tack?920:2860;if(NE<MAXE){int n=NE++;E[n]=(Event){t,tack?.145:.105,f,f,g*.72,.006,tack?.125:.088,src,3,(uint32_t)(n*2654435761u)};}if(NE<MAXE){int n=NE++;E[n]=(Event){t+.003,tack?.095:.072,f*2.71,f*2.71,g*.20,.008,tack?.078:.058,src,3,(uint32_t)(n*2654435761u)};}
+}
 static void gong(double t,double root,double g){
- double q[]={1,1.41,1.98,2.91,4.07},a[]={1,.52,.34,.2,.1},d[]={8.5,7.2,6.1,4.8,3.5};
- for(int i=0;i<5;i++)if(NE<MAXE){int n=NE++;E[n]=(Event){t,d[i],root*q[i],root*q[i],g*a[i],.018+i*.006,d[i]*.92,10,0,(uint32_t)(n*2654435761u)};}
+ // One deterministic FEM-style gong: a generated triangular body supplies
+ // its inharmonic mode ratios, normalized around a very low struck root.
+ ACRock body;double mode[5],weight[5];ac_rock_generate(UINT64_C(0xf36a91b72d4c8801),&body);ac_rock_modes(&body,mode,weight);double base=fmax(1,mode[0]);
+ for(int i=0;i<5&&NE<MAXE;i++){double ratio=fmax(1,mode[i]/base),f=root*ratio,d=11.8-i*1.35,a=g*(i?weight[i]*.72:1);int n=NE++;E[n]=(Event){t+i*.009,d,f,f,a,.022+i*.009,d*.94,10,3,(uint32_t)(n*2654435761u)};}
+ if(NE<MAXE){int n=NE++;E[n]=(Event){t,10.5,root*.5,root*.5,g*.28,.030,9.8,10,3,(uint32_t)(n*2654435761u)};}
+ noisev(t,.12,520,4600,g*.075,10);
 }
 static double env(const Event*e,double t){double u=t-e->t;if(u<0||u>=e->dur)return 0;double a=fmin(1,u/e->atk),r=fmin(1,(e->dur-u)/e->rel);return sin(a*M_PI/2)*sin(a*M_PI/2)*sin(r*M_PI/2)*sin(r*M_PI/2);}
 
 static const int chord[4][4]={{48,55,64,74},{45,52,60,71},{53,60,69,67},{55,62,71,69}};
+// Middle-act body voicings remain unequivocally beneath Theme B. The earlier
+// upper pad tones (69/71 in particular) duplicated and crossed its lead around
+// release 0:36; this register fence leaves 9–17 semitones of vertical air.
+static const int underChord[4][4]={{36,48,52,55},{33,45,48,52},{41,48,53,57},{43,50,55,59}};
 static const int root[4]={36,33,41,43};
-static const int mel[4][4]={{76,79,81,81},{79,76,74,74},{72,74,76,79},{74,76,76,72}};
+// Two related four-bar phrases make the melody a developing story rather than
+// one cell copied 38 times. -1 is a sung breath/rest. Phrase A is the intimate
+// question; B opens its register and answers it before the bridge transforms it.
+static const int THEME_A[4][8]={
+ {64,-1,67,69,67,-1,64,62},{64,67,-1,69,72,71,69,-1},
+ {65,-1,69,72,69,67,-1,65},{62,67,71,-1,69,67,64,62}
+};
+static const int THEME_B[4][8]={
+ {67,69,72,-1,71,69,67,64},{69,-1,72,76,74,72,71,69},
+ {69,72,77,-1,76,72,69,67},{71,-1,74,79,77,74,71,69}
+};
+static const int COUNTER[4][4]={
+ {55,52,48,52},{57,52,48,45},{53,57,60,57},{55,59,62,59}
+};
+static const int ARP[4][8]={
+ {48,52,55,60,64,67,72,67},{45,48,52,57,60,64,69,64},
+ {41,45,48,53,57,60,65,60},{43,47,50,55,59,62,67,62}
+};
+static double human_unit(int bar,int step,int lane){uint32_t x=(uint32_t)(bar+1)*0x9e3779b9u^(uint32_t)(step+3)*0x85ebca6bu^(uint32_t)(lane+7)*0xc2b2ae35u;x^=x>>16;x*=0x7feb352du;x^=x>>15;x*=0x846ca68bu;x^=x>>16;return(x&0xffff)/65535.0;}
+static double human_time_offset(int bar,int step,int lane){double form=ease01((bar-6)/32.0),bias=.030*(1-form)-.022*form,commit=.65+.70*human_unit(bar,step,lane+41),jitter=(human_unit(bar,step,lane)-.5)*.038;return bias*commit+jitter;}
+static double swung_eighth(double barStart,int bar,int step,int lane){double swing=(step&1)*BEAT*.105,jitter=human_time_offset(bar,step,lane);return fmax(0,barStart+step*BEAT*.5+swing+jitter);}
+static double human_gain(int bar,int step,int lane){return .84+.28*human_unit(bar,step,lane);}
+static double human_kick_gain(int bar,int step){return .94+.12*human_unit(bar,step,1);}
+static int narrative_note(int bar,int step){const int(*theme)[8]=(bar>=12&&bar<28)?THEME_B:THEME_A;int note=theme[bar&3][step];if(note<0)return note;
+ // The answer reaches upward before the super-spin. The homecoming keeps the
+ // contour but drops occasional notes an octave, like a tired singer returning.
+ if(bar>=16&&bar<24&&(step==2||step==4)&&note<=72)note+=12;
+ if(bar>=28&&bar<34&&(step==1||step==5)&&note>67)note-=12;
+ if(bar>=34&&step>3)return-1;
+ return note;
+}
+static void melody_story_bar(int bar,double t,double transpose,double level){for(int q=0;q<8;q++){int note=narrative_note(bar,q);if(note<0)continue;note+=(int)lrint(12*log2(transpose));while(note>81)note-=12;double at=swung_eighth(t,bar,q,0),dur=BEAT*((q&1)?.37:.45),accent=(q==0||q==4)?1.12:1;ev(at,dur,note,level*accent*human_gain(bar,q,0),4,.035,.22+(q&1)*.05);
+  // A few breathy octave ghosts answer phrase endings, never every note.
+  if(bar>=12&&bar<32&&(q==3||q==7))ev(at+BEAT*.055,dur*.72,note+12,.0105*human_gain(bar,q,4),5,.06,.25);
+ }}
+static void counterpoint_bar(int bar,double t,double transpose){if(bar<13||bar>=34)return;double section=bar<16?.022:(bar<20?.030:(bar<23?.030+.003*(bar-19):(bar<28?.039:.025))),delay=bar>=20&&bar<28?BEAT*.54:BEAT*.16;for(int q=0;q<4;q++){int note=COUNTER[bar&3][q]+(int)lrint(12*log2(transpose));if(bar>=28&&q>1)note-=12;double at=swung_eighth(t,bar,q*2,2)+delay+(human_unit(bar,q,2)-.5)*.018;ev(at,BEAT*(bar>=20&&bar<28?1.28:.88),note,section*human_gain(bar,q,2),5,.12,.48);}}
+static void arpeggio_bar(int bar,double t,double transpose){if(bar<12||bar>=32)return;int sparse=bar<16||bar>=28;double level=bar<16?.010:(bar<20?.0145:(bar==20?.016:(bar==21?.018:(bar<28?.020:.0115))));for(int q=0;q<8;q++){if(sparse&&!(q&1))continue;int note=ARP[bar&3][q]+(int)lrint(12*log2(transpose));while(note>79)note-=12;if(bar>=12&&bar<20){int lead=narrative_note(bar,q);if(lead>=0){lead+=(int)lrint(12*log2(transpose));while(note>lead-9)note-=12;}}double at=swung_eighth(t,bar,q,3);ev(at,BEAT*.31,note,level*((q==0||q==4)?1.2:1)*human_gain(bar,q,3),q&1?3:2,.022,.19);}}
+static void opening_glide(double t,double d,double f0,double f1,double g,int src){if(NE<MAXE){int n=NE++;E[n]=(Event){t,d,f0,f1,g,.028,d*.78,src,0,(uint32_t)(n*2654435761u)};}}
+static void opening_air(double t,double d,double lo,double hi,double g,int src){if(NE<MAXE){int n=NE++;E[n]=(Event){t,d,lo,hi,g,.024,d*.72,src,1,(uint32_t)(n*2654435761u)};}}
+static void electro_kick(double t,double g){
+ // The sub/fundamental owns full-range systems; a short clean upper-bass bend
+ // and tiny beater band make the same impact legible on laptop speakers.
+ if(NE<MAXE){int n=NE++;E[n]=(Event){t,.40,142,45,g,.018,.31,1,0,(uint32_t)(n*2654435761u)};}
+ if(NE<MAXE){int n=NE++;E[n]=(Event){t,.21,68,44,g*.22,.014,.17,1,0,(uint32_t)(n*2654435761u)};}
+ if(NE<MAXE){int n=NE++;E[n]=(Event){t+.001,.145,318,112,g*.34,.004,.118,1,0,(uint32_t)(n*2654435761u)};}
+ if(NE<MAXE){int n=NE++;E[n]=(Event){t,.030,1180,3900,g*.075,.004,.022,1,1,(uint32_t)(n*2654435761u)};}
+}
+static double percussion_fade(double t){return t<8*BAR?0:ease01((t-8*BAR)/(4.5*BAR));}
+static double rolling_fade(double t){return .22+.78*ease01((t-6*BAR)/(3*BAR));}
+static double low_voice_fade(double t){return t<9.5*BAR?0:ease01((t-9.5*BAR)/(4.5*BAR));}
+static double kick_gravity(double t){
+ if(t<10*BAR||t>=35*BAR)return 0;int bar=(int)floor(t/BAR);double force=0;
+ for(int b=bar-1;b<=bar;b++){if(b<10||b>=35)continue;double start=b*BAR,hit[2]={swung_eighth(start,b,0,1),swung_eighth(start,b,4,1)};
+  for(int k=0;k<2;k++){double age=t-hit[k];if(age<0||age>.78)continue;double attack=ease01(age/.028),suck=attack*exp(-age/.245),rebound=.18*attack*exp(-age/.44)*sin(TAU*age/.34);force+=low_voice_fade(hit[k])*(suck+rebound);}}
+ return fmax(-.28,fmin(1.12,force));
+}
+static void triangle_bell(double t,double d,int note,double g,int src){if(NE<MAXE){int n=NE++;E[n]=(Event){t,d,hz(note),2.713,g,.42,1.35,src,6,(uint32_t)(n*2654435761u)};}}
+static void fem_bell(double t,double d,int note,double g,int src,uint64_t seed){
+ // A generated asymmetric body supplies a small set of inharmonic resonances.
+ // Every partial is still a clean Nyquist-bounded sine; texture comes from the
+ // mesh's geometry and independent decay, not clipping or folded waveforms.
+ ACRock body;double mode[5],weight[5];ac_rock_generate(seed,&body);ac_rock_modes(&body,mode,weight);double fundamental=hz(note),base=fmax(1,mode[0]);
+ for(int k=0;k<5&&NE<MAXE;k++){double ratio=k?mode[k]/base:1,f=fundamental*ratio;if(f>SR*.38)continue;double dur=d*(1-.105*k),gain=g*(k?weight[k]*1.08:1),attack=.018+.017*k,release=fmax(.24,dur*(.82-.09*k));int n=NE++;E[n]=(Event){t+k*.006,dur,f,f,gain,attack,release,src,3,(uint32_t)(n*2654435761u)};}
+}
+static void marimba_note(double t,int note,double g,int src){double f=hz(note);if(NE<MAXE){int n=NE++;E[n]=(Event){t,.58,f,f,g,.002,.51,src,3,(uint32_t)(n*2654435761u)};}if(NE<MAXE){int n=NE++;E[n]=(Event){t+.001,.34,f*3.97,f*3.97,g*.23,.0015,.30,src,3,(uint32_t)(n*2654435761u)};}if(NE<MAXE){int n=NE++;E[n]=(Event){t+.002,.19,f*9.18,f*9.18,g*.055,.001,.16,src,3,(uint32_t)(n*2654435761u)};}}
+static void marimba_bar(int bar,double t){if(bar<30||bar>32)return;static const int notes[3][4]={{60,64,67,72},{62,67,71,74},{65,69,72,76}};static const int step[4]={0,2,4,6};int row=bar-30;for(int i=0;i<4;i++){double at=swung_eighth(t,bar,step[i],18)+BEAT*.18+(human_unit(bar,i,18)-.5)*.016;marimba_note(at,notes[row][i],.0115*human_gain(bar,i,18),i&1?8:10);}}
+static void sine_coda_note(double t,double d,int note,double g,int lane){ev(t,d,note,g,lane&1?3:2,.012,fmin(d*.72,.46));if(note>=67)ev(t+.014,d*.62,note+12,g*.16,lane&1?2:3,.018,fmin(d*.52,.32));}
+static void early_sine_dilly(int bar,double t){
+ if(bar<14||bar>=27||(bar&1))return;
+ static const int motif[4][8]={{72,-1,74,76,-1,74,71,-1},{69,72,-1,76,74,-1,72,-1},{69,-1,72,77,-1,76,72,-1},{71,74,-1,79,77,-1,74,-1}};
+ double arc=bar<14?.82:(bar<20?1.0:1.16),level=.0225*arc;
+ for(int q=0;q<8;q++){int note=motif[(bar/2)&3][q];if(note<0)continue;double at=swung_eighth(t,bar,q,12);sine_coda_note(at,BEAT*((q&1)?.27:.38),note,level*human_gain(bar,q,12),q);}
+}
+static void sine_coda_bar(int bar,double t){
+ if(bar<27||bar>37)return;
+ // The late-act "piano" role remains, but every key is now a positioned sine:
+ // C6/9, Cmaj9, Am9, Fmaj9, G13, then an explicit G9 -> Cmaj9 close.
+ static const int voicing[11][6]={
+  {36,48,52,55,62,-1},{36,55,59,62,64,-1},{45,52,55,59,60,-1},
+  {41,48,52,55,57,-1},{43,50,53,59,64,-1},{36,55,59,62,64,-1},
+  {45,52,55,59,60,-1},{41,48,52,55,57,-1},{43,50,53,59,64,-1},
+  {43,50,53,59,62,-1},{36,48,52,55,59,62}
+ };
+ static const int run[11][8]={
+  {-1,76,74,71,-1,72,74,-1},{64,-1,67,71,74,-1,72,75},
+  {76,72,-1,71,-1,67,64,-1},{69,-1,72,76,-1,79,-1,76},
+  {71,-1,74,77,76,-1,74,-1},{76,75,74,-1,71,-1,67,-1},
+  {72,-1,76,79,-1,83,-1,79},{69,-1,72,-1,76,79,-1,81},
+  {71,-1,74,77,-1,76,74,-1},{79,-1,77,-1,74,-1,71,-1},
+  {-1,-1,76,74,72,-1,-1,-1}
+ };
+ int row=bar-27;double arc=bar<30?.68:(bar<34?.94:(bar<37?1.24:.74)),chordGain=.012*arc;
+ for(int i=0;i<6&&voicing[row][i]>=0;i++){double at=t+i*.020+(human_unit(bar,i,10)-.5)*.010;sine_coda_note(at,BAR*(bar==37?.96:.84)-i*.020,voicing[row][i],chordGain*(i<2?.82:1)*human_gain(bar,i,10),i);}
+ for(int q=0;q<8;q++)if(run[row][q]>=0){double at=swung_eighth(t,bar,q,11);int note=run[row][q];if((bar==30&&q>=2)||bar==31||(bar==32&&q<=4))note+=12;sine_coda_note(at,BEAT*((q&1)?.30:.42),note,.023*arc*human_gain(bar,q,11),q);}
+}
+static void sine_coda_pickup(void){static const int n[6]={74,77,79,81,80,79};static const double dt[6]={0,.24,.50,.82,1.08,1.28};for(int i=0;i<6;i++)sine_coda_note(84+dt[i],i==5?.36:.18,n[i],.0135+i*.0008,i);}
+static void triangle_bell_melody(int bar,double t,double transpose){
+ // A restrained FEM field begins one bar before the intro tornado. Its long
+ // tails are therefore already radiating when the 32-turn pickup arrives,
+ // instead of entering nine seconds after the spin has ended.
+ if(bar<10||bar>=36)return;
+ static const int melody[4][4]={{84,88,95,91},{81,84,91,88},{89,93,96,95},{91,95,98,93}};
+ static const int step[4][4]={{0,3,5,7},{0,2,6,7},{0,3,4,7},{0,2,5,7}};
+ double arc=bar<16?.70:(bar<24?1.0:(bar<30?1.18:.82)),tr=12*log2(transpose);
+ for(int i=0;i<4;i++){int note=melody[bar&3][i]+(int)lrint(tr);while(note>100)note-=12;double at=swung_eighth(t,bar,step[bar&3][i],14)+(human_unit(bar,i,14)-.5)*.035,d=2.7+.85*human_unit(bar,i,15),gain=.0058*arc*human_gain(bar,i,14);uint64_t seed=UINT64_C(0x62a9d9ed799705f5)^(uint64_t)(bar+1)*UINT64_C(0x9e3779b97f4a7c15)^(uint64_t)(i+3)*UINT64_C(0xbf58476d1ce4e5b9);fem_bell(at,d,note,gain,i&1?10:5,seed);if(((bar+i)&3)==1)triangle_bell(at+.035,d*.82,note,gain*.34,i&1?10:5);}
+}
+static void whistle_answer(int bar,double t){
+ // Sparse native AC-OS/Notepat waveguide-flute answers: held, breathy tones
+ // in the E4-C5 register. The opening remains whistle-free.
+ if(bar==14){whistlev(t+BEAT*.35,BEAT*2.80,64,.0125,5);whistlev(t+BEAT*2.20,BEAT*2.35,67,.0110,5);}
+ else if(bar==22){whistlev(t+BEAT*.20,BEAT*3.00,69,.0135,9);whistlev(t+BEAT*2.35,BEAT*2.50,67,.0115,9);}
+ else if(bar==29){whistlev(t+BEAT*.45,BEAT*3.25,72,.0130,5);}
+ else if(bar==35){whistlev(t+BEAT*.30,BEAT*2.80,67,.0110,9);whistlev(t+BEAT*2.15,BEAT*2.40,64,.0100,9);}
+}
 static double duet_frequency(int s,double t){
  if(s==0)return 36;
  if(s==1){static const double roots[8]={36,36,33,33,29,31,33,28};double turns=dominant_turns(t)*.25,whole=floor(turns),phase=turns-whole;int i=((long)whole)%8;if(i<0)i+=8;double x=fmax(0,fmin(1,(phase-.86)/.14));x=x*x*(3-2*x);return hz(roots[i]+(roots[(i+1)%8]-roots[i])*x);}
@@ -256,6 +469,9 @@ static void score(void){
   for(int s=0;s<NSRC;s++)ev(0,DUR+.2,pitch[s],gain[s],s,.006,.035);
   return;
  }
+ // The release hears one physical rotor during the 8x intro tornado. Source 11
+ // is the air body, so its whirr follows the same 3D funnel as the other forms.
+ tornado_whir(32.6,6.2,.052,11);
  for(int b=0;b<38;b++){
   double t=b*BAR, tr=(b>=20&&b<28)?4.0/3:1;
   // Opening: no choir yet, but the twisting room is already the song.  Four
@@ -263,25 +479,53 @@ static void score(void){
   // alternating air answers, and a lighter statement of the lullaby give the
   // visible bodies clear emissions throughout the 96-turn deceleration.
   if(b<4){
-   if(b==0){ev(t,4*BAR+.3,36,.055,0,2.8,2.6);ev(t,4*BAR+.3,43,.038,2,3.4,2.8);ev(t,4*BAR+.3,48,.030,3,4.0,3.0);ev(t,4*BAR+.3,55,.018,4,4.8,3.4);noisev(t,4*BAR+.3,2100,7200,.0065*noiseLevel,11);}
-   for(int q=0;q<4;q++){glide(t+q*BEAT,.36,72,38,(q==0?.090:.066),1);noisev(t+(q+.5)*BEAT,.12,2400,6800,.025*noiseLevel,q&1?7:6);ev(t+q*BEAT,BEAT*.72,mel[b%4][q]-12,.050,4,.035,.25);}
+   if(b==0){ev(t,4*BAR-.55,36,.055,0,2.8,2.6);ev(t,4*BAR-.55,43,.038,2,3.4,2.8);ev(t,4*BAR-.55,48,.030,3,4.0,3.0);ev(t,4*BAR-.55,55,.018,4,4.8,3.4);noisev(t,4*BAR-.55,2100,7200,.0065*noiseLevel,11);}
+   for(int q=0;q<4;q++){double pulse=swung_eighth(t,b,q*2,1),air=swung_eighth(t,b,q*2+1,6);opening_glide(pulse,.36,72,38,(q==0?.090:.066)*human_gain(b,q,1),1);opening_air(air,.12,2400,6800,.025*noiseLevel*human_gain(b,q,6),q&1?7:6);}
    continue;
   }
-  for(int k=0;k<4;k++)ev(t,BAR+.1,69+12*log2(hz(chord[b%4][k])*tr/440),.034,k<2?2:3,.7,1.0);
+  // Bars four and five are deliberately empty handles between the discarded
+  // source prelude and release. The published track starts directly at bar six
+  // so no oscillator pre-roll or reflected residue leaks across its first beat.
+  if(b==4||b==5)continue;
+  double roll=rolling_fade(t);
+  // Release entrance: lead alone, then one new sustained body per bar from
+  // high to low. Four distinct spatial bodies make the additive build audible.
+  int padVoices=b<=6?0:(b==7?1:(b==8?2:(b==9?3:4))),firstPad=4-padVoices;
+  static const int padSource[4]={2,3,5,10};
+  for(int k=firstPad;k<4;k++){int note=b==36?((int[]){43,50,53,59})[k]:b==37?((int[]){36,48,52,59})[k]:(b>=12&&b<20?underChord[b%4][k]:chord[b%4][k]);ev(t,BAR+.1,note+12*log2(tr),.034*roll,padSource[k],.7,1.0);}
   // Continuous independently filtered noise voices.
   double noiseScale=noiseLevel;
-  for(int q=0;q<4;q++)noisev(t+(q+.5)*BEAT,.085,4200,10200,.065*noiseScale,q&1?7:6);
-  noisev(t,BAR,1700,5700,.013*noiseScale,11);
-  for(int q=1;q<4;q+=2)noisev(t+q*BEAT,.15,620,2100,.052*noiseScale,q==1?8:9);
-  if(b>=4&&b<35){ev(t,BAR,root[b%4],.055,0,.08,.5);glide(t,.34,66,40,.13,1);glide(t,.58,46,31,.105,1);glide(t+2*BEAT,.34,66,40,.12,1);glide(t+2*BEAT,.58,46,31,.095,1);}
-  // Immediate melodic line; small rhythmic cells stay consonant in the bridge.
-  for(int q=0;q<4;q++){double raw=mel[b%4][q]-12+12*log2(tr),m=fmin(69,raw);ev(t+q*BEAT,BEAT*.88,m,.075,4,.045,.34);if(b>=12&&b<32)ev(t+(q+.5)*BEAT,BEAT*.48,m+12,.014,5,.06,.28);}
-  if(b>=12&&b<32)for(int q=0;q<4;q++)ev(t+(q+.5)*BEAT,.18,chord[b%4][q]+24+12*log2(tr),.017,q&1?5:4,.01,.15);
+  for(int q=0;q<4;q++){double at=swung_eighth(t,b,q*2+1,6),fade=percussion_fade(at);if(fade>0)noisev(at,.085,4200,10200,.065*noiseScale*fade*human_gain(b,q,6),q&1?7:6);}
+  {double airFade=percussion_fade(t);if(airFade>0)noisev(t,BAR,1700,5700,.013*noiseScale*airFade,11);}
+  for(int q=1;q<4;q+=2){double at=swung_eighth(t,b,q*2,7),fade=percussion_fade(at);if(fade>0)noisev(at,.15,620,2100,.052*noiseScale*fade*human_gain(b,q,7),q==1?8:9);}
+  // A clockwork trot rather than another hat grid: one bright tick and one
+  // lower woody tack occupy the spaces between the two kick anchors.
+  if(b>=7&&b<35){double tick=swung_eighth(t,b,2,16),tack=swung_eighth(t,b,6,17),tf=percussion_fade(tick),af=percussion_fade(tack);if(tf>0)ticktack(tick,0,.017*tf*human_gain(b,2,16),8);if(af>0)ticktack(tack,1,.020*af*human_gain(b,6,17),9);}
+  if(b>=10&&b<35){double down=swung_eighth(t,b,0,1),back=swung_eighth(t,b,4,1),section=b<12?.76:(b<20?.90:(b<28?1.08:(b<32?.82:.62))),density=exp(-.5*pow((b-25)/1.65,2));section*=1-.60*density;double lowDown=low_voice_fade(down),lowBack=low_voice_fade(back),downArc=section*lowDown,backArc=section*lowBack,bassDelay=.055;ev(down+bassDelay,BAR-bassDelay,root[b%4],.050*(.45+.55*roll)*lowDown*human_gain(b,0,1),0,.13,.5);if(downArc>0)electro_kick(down,.0330*downArc*human_kick_gain(b,1));if(backArc>0)electro_kick(back,.0300*backArc*human_kick_gain(b,4));}
+  // The melody now moves through a question, an answering register, a bridge
+  // climax, and a partial homecoming. Counterpoint and arpeggios enter only
+  // after the theme is known, then recede before the final unaccompanied cadence.
+  if(b<36){double lead=b<12?.057:(b<20?.064:(b<28?.070:(b<34?.056:.047)));melody_story_bar(b,t,tr,lead*(.48+.52*roll));}
+  counterpoint_bar(b,t,tr);
+  arpeggio_bar(b,t,tr);
+  early_sine_dilly(b,t);
+  triangle_bell_melody(b,t,tr);
+  whistle_answer(b,t);
+  // Let the bridge harmony arrive before the cymbal: the former downbeat hit
+  // stacked with two vowel choirs and made release 0:44 a quantized wall.
+  if(b==20)crash_cymbal(t+BEAT*3.10,.036*noiseLevel,10);
+  sine_coda_bar(b,t);
+  marimba_bar(b,t);
  }
- gong(12*BAR,65.41,.035);gong(20*BAR,87.31,.042);gong(28*BAR,65.41,.035);gong(34*BAR,65.41,.024);
- // Melody owns the final cadence.
- ev(36*BAR,BEAT*.9,60,.08,4,.05,.35);ev(36*BAR+BEAT,BEAT*.9,62,.075,4,.05,.35);
- ev(36*BAR+2*BEAT,BEAT*.9,64,.07,4,.05,.4);ev(36*BAR+3*BEAT,BEAT*1.8,60,.075,4,.06,1.2);
+ sine_coda_pickup();
+ gong(30*BAR+BEAT*.18,43.65,.052);
+ // An explicit G7 -> Cmaj9 homecoming replaces the former unresolved Am tail.
+ ev(36*BAR,BAR,43,.060,0,.08,.5);ev(37*BAR,BAR,36,.058,0,.08,1.1);
+ ev(36*BAR,BEAT*.86,67,.078,4,.05,.32);ev(36*BAR+BEAT,BEAT*.86,65,.074,4,.05,.32);
+ ev(36*BAR+2*BEAT,BEAT*.86,62,.071,4,.05,.36);ev(36*BAR+3*BEAT,BEAT*.92,59,.068,4,.05,.42);
+ ev(37*BAR,BAR-.08,60,.082,4,.07,2.2);ev(37*BAR+BEAT*.18,BAR-.35,64,.026,5,.11,2.0);ev(37*BAR+BEAT*.34,BAR-.55,67,.022,5,.13,1.9);
+ // No second outro: the bar-37 C-major cadence and its spatial room returns
+ // are the final musical event. Mastering does not add a global fade.
 }
 
 static void simulate(void){
@@ -298,7 +542,15 @@ static void simulate(void){
   }
   fieldGain=calloc(n*NSRC,sizeof(*fieldGain));for(int i=0;i<n*NSRC;i++)fieldGain[i]=1;return;
  }
+ // In the room cut the listener/ear starts in deepest space. The source-only
+ // prelude circles at that far anchor; the release intro (bars 4–5) then makes
+ // one exponential, zero-velocity approach into the sounding wobble room.
+ if(!globeMode)L[0]=(Listener){-30,-16,0,0,atan2(15.5,30)};
  for(int i=1;i<n;i++){double t=i*dt,fx=0,fy=0,energy[NSRC]={0};
+  if(!globeMode&&t<=6*BAR){double u,px,py;
+   if(t<=4*BAR){u=t/(4*BAR);double window=sin(M_PI*u);window*=window;double phase=TAU*(1.5*ease01(u));px=-30+3.4*window*cos(phase);py=-16+3.4*window*sin(phase);}
+   else{u=(t-4*BAR)/(2*BAR);double s=ease01(u),floor=exp(-5.4),approach=(exp(-5.4*s)-floor)/(1-floor),arc=3.2*pow(sin(M_PI*u),2)*approach;px=-30*approach;py=-.5-15.5*approach+arc;}
+   Listener prev=L[i-1],p={px,py,0,0,0};p.vx=(p.x-prev.x)/dt;p.vy=(p.y-prev.y)/dt;if(hypot(p.vx,p.vy)>.0001)p.heading=atan2(p.vy,p.vx);else p.heading=prev.heading;L[i]=p;continue;}
   for(int j=0;j<NE;j++){double a=env(&E[j],t);energy[E[j].src]+=a*E[j].g;}
   Listener p=L[i-1];
   for(int s=0;s<NSRC;s++){Source so=source_at(s,t);double dx=so.x-p.x,dy=so.y-p.y,r2=dx*dx+dy*dy+.8;
@@ -313,11 +565,15 @@ static void simulate(void){
   // At 104 s turn around and accelerate through progressively older points in
   // the breadcrumb path—the listener physically crosses the trailing voices.
   if(t>=104&&t<118){double back=2+(t-104)*2.35,pt=fmax(0,t-back);Listener old=L[(int)(pt*CTRL)];double dx=old.x-p.x,dy=old.y-p.y;fx+=dx*.34;fy+=dy*.34;}
+  // Human path phrasing: deterministic off-grid windows first hesitate, then
+  // catch up. The sine-squared window keeps force and velocity derivatives
+  // continuous, so spatialization bends without an audible positional jump.
+  double pathGesture=0;static const double hesitateAt[4]={35.7,58.4,82.9,106.2},hesitateDur[4]={3.8,4.6,3.5,4.2};for(int h=0;h<4;h++)if(t>=hesitateAt[h]&&t<=hesitateAt[h]+hesitateDur[h]){double u=(t-hesitateAt[h])/hesitateDur[h],window=sin(M_PI*u);pathGesture-=sin(TAU*u)*window*window;break;}
   // Two irrational-feeling wander periods prevent the listener settling into
   // one polite orbit. Weak room gravity eventually draws every excursion back.
   fx+=.27*sin(TAU*t/31)+.13*sin(TAU*t/11.7)-.018*p.x;
   fy+=.24*cos(TAU*t/23)+.11*cos(TAU*t/13.1)-.018*p.y;
-  p.vx=(p.vx+fx*dt)*.995;p.vy=(p.vy+fy*dt)*.995;p.x+=p.vx*dt;p.y+=p.vy*dt;
+  double forcePhrase=1+.20*pathGesture,drag60=.995-.010*fmax(0,-pathGesture),drag=pow(drag60,60.0/CTRL);p.vx=(p.vx+fx*forcePhrase*dt)*drag;p.vy=(p.vy+fy*forcePhrase*dt)*drag;double listenerSpeed=hypot(p.vx,p.vy),speedCeiling=1.08;if(listenerSpeed>speedCeiling){double scale=speedCeiling/listenerSpeed;p.vx*=scale;p.vy*=scale;}p.x+=p.vx*dt;p.y+=p.vy*dt;
   if(hypot(p.vx,p.vy)>.01)p.heading=atan2(p.vy,p.vx);L[i]=p;
  }
  // Mutual acoustic loading. Active neighboring fields damp one another; mass
@@ -326,7 +582,33 @@ static void simulate(void){
  fieldGain=calloc(n*NSRC,sizeof(*fieldGain));for(int i=0;i<n;i++){double t=i/(double)CTRL,en[NSRC]={0};for(int j=0;j<NE;j++)en[E[j].src]+=env(&E[j],t)*E[j].g;
   for(int s=0;s<NSRC;s++){Source a=source_at(s,t);double load=0;for(int o=0;o<NSRC;o++)if(o!=s&&en[o]>0){Source b=source_at(o,t);double dx=a.x-b.x,dy=a.y-b.y,dz=a.z-b.z;load+=en[o]*S[o].mass/(1+dx*dx+dy*dy+.35*dz*dz);}fieldGain[i*NSRC+s]=(float)(.32+.68/(1+5.5*load));}}
 }
+static double event_frequency_at(const Event*e,double t){double u=t-e->t;if(u<0||u>=e->dur)return 0;if(e->type==0)return e->f0*pow(e->f1/e->f0,u/e->dur);if(e->type==3||e->type==6)return e->f0;if(e->type==8){double r=u/e->dur,turnsPerSec=32*30*r*r*(1-r)*(1-r)/e->dur;return 24*turnsPerSec;}return 0;}
+static void build_antenna_field(void){
+ int n=(int)(DUR*CTRL)+1;antennaField=calloc(n*NSRC,sizeof(*antennaField));if(!antennaField||antennaDepth<=0)return;
+ double state[NSRC]={0};Source previous[NSRC];for(int s=0;s<NSRC;s++)previous[s]=source_at(s,0);
+ for(int i=0;i<n;i++){double t=i/(double)CTRL,en[NSRC]={0},fw[NSRC]={0},freq[NSRC]={0};Source body[NSRC];
+  for(int j=0;j<NE;j++){Event*e=&E[j];double f=event_frequency_at(e,t);if(f<=0)continue;double a=env(e,t)*e->g;en[e->src]+=a;fw[e->src]+=a*f;}
+  for(int s=0;s<NSRC;s++){if(en[s]>1e-9)freq[s]=fw[s]/en[s];body[s]=source_at(s,t);}
+  Listener listener=L[i<n?i:n-1];double next[NSRC]={0};
+  for(int s=0;s<NSRC;s++){double raw=0,weightSum=0,recursive=0,recursiveWeight=0;if(en[s]>1e-7&&freq[s]>0){
+    for(int o=0;o<NSRC;o++)if(o!=s&&en[o]>1e-7&&freq[o]>0){double dx=body[o].x-body[s].x,dy=body[o].y-body[s].y,dz=body[o].z-body[s].z,d=sqrt(dx*dx+dy*dy+dz*dz)+1e-6,oldDx=previous[o].x-previous[s].x,oldDy=previous[o].y-previous[s].y,oldDz=previous[o].z-previous[s].z,oldD=sqrt(oldDx*oldDx+oldDy*oldDy+oldDz*oldDz),radial=(d-oldD)*CTRL;
+      double oct=log2((freq[s]+1e-6)/(freq[o]+1e-6)),cross=exp(-.5*(oct/.24)*(oct/.24)),mx=(body[o].x+body[s].x)*.5-listener.x,my=(body[o].y+body[s].y)*.5-listener.y,mz=(body[o].z+body[s].z)*.5-1.6,listenerDistance=sqrt(mx*mx+my*my+mz*mz),bearing=atan2(my,mx)-listener.heading,receiverPolarization=.58+.42*fabs(cos(bearing));
+      // A moving body radiates as a soft dipole aligned to its travel. Close
+      // bodies couple through a reactive 1/r^3 term; distant ones transition
+      // to a radiative 1/r field according to separation in wavelengths.
+      double vx=(body[o].x-previous[o].x)*CTRL,vy=(body[o].y-previous[o].y)*CTRL,vz=(body[o].z-previous[o].z)*CTRL,speed=sqrt(vx*vx+vy*vy+vz*vz),travelDot=speed>1e-6?fabs((vx*(-dx)+vy*(-dy)+vz*(-dz))/(speed*d)):0,transmitLobe=.38+.62*travelDot,meanFrequency=.5*(freq[s]+freq[o]),wavelength=343.0/fmax(35,meanFrequency),zone=d/wavelength,reactive=1/(1+d*d*d),radiative=1/(1+d),fieldLaw=reactive/(1+zone)+radiative*(zone/(1+zone)),listenerFalloff=1/(1+.055*listenerDistance*listenerDistance),weight=sqrt(en[s]*en[o])*cross*fieldLaw*listenerFalloff*receiverPolarization*transmitLobe;
+      double beat=fmin(14.0,fabs(freq[s]-freq[o])),phase=TAU*beat*t+TAU*d/wavelength+radial*.31;raw+=weight*sin(phase);weightSum+=weight;
+      // Retarded recursion: an antenna hears the other body's already-bounded
+      // control field only after acoustic propagation time, never its audio.
+      int delayTicks=1+(int)fmin(5.0,round(d*CTRL/343.0)),ri=i-delayTicks;double delayed=ri>=0?antennaField[ri*NSRC+o]:0;recursive+=delayed*weight;recursiveWeight+=weight;}
+   }
+   double presence=fmin(1,weightSum*210),interference=weightSum>1e-10?raw/weightSum:0,memory=recursiveWeight>1e-10?recursive/recursiveWeight:0,target=tanh(1.25*interference+.20*memory)*presence,antennaSlew=1-exp(-1.0/(CTRL*.096));next[s]=state[s]+(target-state[s])*antennaSlew;antennaField[i*NSRC+s]=(float)next[s];
+  }
+  for(int s=0;s<NSRC;s++){state[s]=next[s];previous[s]=body[s];}
+ }
+}
 static double field_gain(int src,double t){double u=t*CTRL;int i=(int)u,n=(int)(DUR*CTRL);if(i>=n)return fieldGain[n*NSRC+src];double f=u-i;return fieldGain[i*NSRC+src]*(1-f)+fieldGain[(i+1)*NSRC+src]*f;}
+static double antenna_mod(int src,double t){if(!antennaField||antennaDepth<=0)return 0;double u=t*CTRL;int i=(int)u,n=(int)(DUR*CTRL);if(i>=n)return antennaField[n*NSRC+src];double f=u-i;return antennaField[i*NSRC+src]*(1-f)+antennaField[(i+1)*NSRC+src]*f;}
 static void gains(int src,double t,double *gl,double *gr,double *dist){
  double u=t*CTRL;int i=(int)u, n=(int)(DUR*CTRL);if(i>=n)i=n-1;double f=u-i;
  Listener a=L[i],b=L[i+1];double x=a.x+(b.x-a.x)*f,y=a.y+(b.y-a.y)*f,h=a.heading+(b.heading-a.heading)*f;
@@ -349,23 +631,103 @@ static void spatial_params(int src,double t,double *az,double *el,double *dist){
   double pf=cp*forward+sp*up,pu=-sp*forward+cp*up,rr=cr*right+sr*pu,uu=-sr*right+cr*pu;*dist=local+sqrt(dx*dx+dy*dy+dz*dz);*az=atan2(rr,pf);*el=atan2(uu,hypot(pf,rr));return;}
  double dx=so.x-x,dy=so.y-y,dz=so.z-1.6,horiz=hypot(dx,dy);*dist=hypot(horiz,dz);*az=atan2(dy,dx)-h;*el=atan2(dz,horiz);
 }
+static double tornado_directional_pickup(int src,double t){
+ // Instantaneous tangent of the actual moving body supplies its forward axis.
+ // A cardioid receiver catches the rotor strongly as it points toward the
+ // listener and softly from behind, producing real directional sweep pulses.
+ if(!L||t<32.6||t>38.8)return 1;
+ double dt=.5/CTRL,t0=fmax(32.6,t-dt),t1=fmin(38.8,t+dt);
+ Source p0=source_at(src,t0),p1=source_at(src,t1),p=source_at(src,t);
+ double u=t*CTRL;int i=(int)u,n=(int)(DUR*CTRL);if(i>=n)i=n-1;double f=u-i;
+ Listener a=L[i],b=L[i+1];double lx=a.x+(b.x-a.x)*f,ly=a.y+(b.y-a.y)*f;
+ double vx=p1.x-p0.x,vy=p1.y-p0.y,rx=lx-p.x,ry=ly-p.y;
+ double vn=hypot(vx,vy),rn=hypot(rx,ry);if(vn<1e-8||rn<1e-8)return 1;
+ double facing=fmax(-1,fmin(1,(vx*rx+vy*ry)/(vn*rn)));
+ double cardioid=.5+.5*facing;
+ return .10+.90*cardioid*cardioid;
+}
 static void propagation(int src,double t,double *wall,double *cutoff,double *wind,double *rain){double u=t*CTRL;int i=(int)u,n=(int)(DUR*CTRL);if(i>=n)i=n-1;double f=u-i;Listener a=L[i],b=L[i+1];double x=a.x+(b.x-a.x)*f,y=a.y+(b.y-a.y)*f;Source so=source_at(src,t);double dx=so.x-x,dy=so.y-y,d=hypot(dx,dy);*wall=1;*cutoff=20000;if(duetMode||cosmosMode){*wind=0;*rain=1;return;}
  // Brick barrier at x=1.2, y=-3..2.5, height 2.4. Only an actual ray
  // intersection occludes; high sources and paths around its ends remain clear.
  if((x-1.2)*(so.x-1.2)<0){double q=(1.2-x)/(so.x-x),iy=y+(so.y-y)*q,iz=1.6+(so.z-1.6)*q;if(iy>-3&&iy<2.5&&iz<2.4){*wall=.46;*cutoff=1450;}}
  double wx=.7*cos(t*.11),wy=.7*sin(t*.083+.8);*wind=.0045*(wx*dx+wy*dy)/(d+1);*rain=1-.075*fmin(1,d/8.0)*fabs(sin(t*19.7+src*2.13));}
-static void render(void){long n=(long)(DUR*SR);busL=calloc(n,4);busR=calloc(n,4);meterL=calloc(NFRAMES*NSRC,sizeof(*meterL));meterR=calloc(NFRAMES*NSRC,sizeof(*meterR));sourceWave=calloc(NFRAMES*NSRC*WAVE_POINTS,sizeof(*sourceWave));
- for(int j=0;j<NE;j++){Event*e=&E[j];long s0=(long)(e->t*SR),nn=(long)(e->dur*SR);double ph=0,lp=0,hpLP=0,envLP=0,saz=0,sel=0,sd=0,mode1[3]={0},mode2[3]={0};int spatialInit=0;uint32_t rs=e->seed;ACHrtf hs;memset(&hs,0,sizeof hs);
-  for(long k=0;k<nn&&s0+k<n;k++){double t=(s0+k)/(double)SR,u=k/(double)SR,a=env(e,t),az,el,d,wall,cutoff,wind,rain;spatial_params(e->src,t,&az,&el,&d);if(!spatialInit){saz=az;sel=el;sd=d;spatialInit=1;}else{double smooth=1-exp(-1.0/(SR*.018)),da=atan2(sin(az-saz),cos(az-saz));saz+=da*smooth;sel+=(el-sel)*smooth;sd+=(d-sd)*smooth;}az=saz;el=sel;d=sd;propagation(e->src,t,&wall,&cutoff,&wind,&rain);double spaceD=d+(globeMode?(1-a)*18.0:0),microA=fmin(1,u/.006),microR=fmin(1,(e->dur-u)/.028),clickGate=sin(microA*M_PI/2)*sin(microA*M_PI/2)*sin(microR*M_PI/2)*sin(microR*M_PI/2);
-   double v;if(e->type==0||e->type==3){double base=e->type==3?e->f0:(cosmosMode?cosmos_frequency(e->src,t):(duetMode?duet_frequency(e->src,t):e->f0*pow(e->f1/e->f0,u/e->dur))),f=base*(1+wind*spatialWet);ph+=TAU*f/SR;v=sin(ph);}
+static double whistle_frac_read(const float*buf,int size,int write,double delay){double rd=write-delay;while(rd<0)rd+=size;int a=(int)rd,b=(a+1)%size;double f=rd-a;return buf[a]*(1-f)+buf[b]*f;}
+static void render(void){long n=(long)(DUR*SR);busL=calloc(n,4);busR=calloc(n,4);meterL=calloc(NFRAMES*NSRC,sizeof(*meterL));meterR=calloc(NFRAMES*NSRC,sizeof(*meterR));sourceWave=calloc(NFRAMES*NSRC*WAVE_POINTS,sizeof(*sourceWave));build_antenna_field();
+ for(int j=0;j<NE;j++){Event*e=&E[j];long s0=(long)(e->t*SR),nn=(long)(e->dur*SR);double ph=0,lp=0,hpLP=0,envLP=0,saz=0,sel=0,sd=0,swall=1,scutoff=20000,spatialGainState=0,mode1[3]={0},mode2[3]={0},whistleBreath=0,whistleVibrato=0,whistleLP=0,whistleHPX=0,whistleHPY=0;float whistleBore[2048]={0},whistleJet[512]={0};int spatialInit=0,propInit=0,spatialGainInit=0,whistleBoreW=0,whistleJetW=0;uint32_t rs=e->seed;ACHrtf hs;memset(&hs,0,sizeof hs);
+  for(long k=0;k<nn&&s0+k<n;k++){double t=(s0+k)/(double)SR,u=k/(double)SR,a=env(e,t),az,el,d,wall,cutoff,wind,rain;int tornadoActive=t>=32.6&&t<=38.8;spatial_params(e->src,t,&az,&el,&d);if(!spatialInit){saz=az;sel=el;sd=d;spatialInit=1;}else{double motionTau=e->type==8?.009:(tornadoActive?.022:((t>=61.5&&t<=72.5)?.18:(t>=50&&t<=78?.24:.18))),smooth=1-exp(-1.0/(SR*motionTau)),da=atan2(sin(az-saz),cos(az-saz));saz+=da*smooth;sel+=(el-sel)*smooth;sd+=(d-sd)*smooth;}az=saz;el=sel;d=sd;propagation(e->src,t,&wall,&cutoff,&wind,&rain);
+   // A ray crossing the brick wall must not switch gain and bandwidth as a
+   // boolean. During the opening centrifuge that crossing happens many times
+   // per second; a hard switch becomes zipper clicks locked to the twist.
+   // Smooth both coefficients, more slowly during the 96-turn deceleration.
+   if(!propInit){swall=wall;scutoff=cutoff;propInit=1;}else{double tau=t<4*BAR?.045:.022,pc=1-exp(-1.0/(SR*tau));swall+=(wall-swall)*pc;scutoff+=(cutoff-scutoff)*pc;}wall=swall;cutoff=scutoff;
+   double spaceD=d+(globeMode?(1-a)*18.0:0),microA=fmin(1,u/.006),microR=fmin(1,(e->dur-u)/.028),clickGate=sin(microA*M_PI/2)*sin(microA*M_PI/2)*sin(microR*M_PI/2)*sin(microR*M_PI/2),gravity=kick_gravity(t);int tonal=e->src!=1&&(e->type==0||e->type==3||e->type==6);if(tonal)cutoff=fmin(cutoff,18500-4500*fmax(0,gravity));
+   double v,currentF=0;if(e->type==0||e->type==3){double base=e->type==3?e->f0:(cosmosMode?cosmos_frequency(e->src,t):(duetMode?duet_frequency(e->src,t):e->f0*pow(e->f1/e->f0,u/e->dur))),f=base*(1+wind*spatialWet);currentF=f;ph+=TAU*f/SR;v=sin(ph);}
+   else if(e->type==6){double wiggle=1+.0032*sin(TAU*u*5.1+(e->seed&255)*.01)+.0018*sin(TAU*u*7.73);ph+=TAU*e->f0*wiggle/SR;double glint=exp(-u/(e->dur*.48)),seedPhase=(e->seed&1023)*TAU/1024.0,fm=(.045+.31*glint)*sin(ph*e->f1+seedPhase),bellEnv;
+    if(u<e->atk)bellEnv=smooth01(u/e->atk);else if(u<e->atk+.72)bellEnv=1-.27*smooth01((u-e->atk)/.72);else if(e->dur-u<e->rel)bellEnv=.73*smooth01((e->dur-u)/e->rel);else bellEnv=.73;
+    double bp=ph+fm,triangle=0,saw=0,square=0;
+    // Every destination is additive and Nyquist-limited. The old asin(sin())
+    // triangle carried infinite harmonics; its upper partials folded back as
+    // the top-end fizz that survived otherwise linear mastering.
+    int maxH=(int)floor((SR*.45)/e->f0);if(maxH>15)maxH=15;
+    for(int h=1;h<=maxH;h+=2){double sign=((h-1)/2)&1?-1:1;triangle+=sign*sin(bp*h)/(h*h);}
+    triangle*=8/(M_PI*M_PI);
+    for(int h=1;h<=5&&h<=maxH;h++)saw+=sin(bp*h)/h;
+    for(int h=1;h<=7&&h<=maxH;h+=2)square+=sin(bp*h)/h;
+    saw*=.58;square*=.78;double shape=((e->seed>>9)&1)?square:saw,morphWindow=sin(M_PI*fmax(0,fmin(1,u/e->dur))),morph=smooth01(morphWindow*morphWindow)*(.18+.22*((e->seed>>13)&3)/3.0);if(((e->seed>>7)&3)==0)morph*=.28;
+    v=(triangle*(1-morph)+shape*morph+.035*glint*sin(ph*3.917+seedPhase*.37))*bellEnv;}
+   else if(e->type==7){
+    // The same Cook/STK digital waveguide signal path as native AC-OS:
+    // DC breath -> jet delay -> cubic limit cycle -> DC block -> bore loop.
+    double breathTarget=.18+.82*sqrt(a),slew=a>whistleBreath?.012:.003;whistleBreath+=(breathTarget-whistleBreath)*slew;
+    whistleVibrato+=5.0/SR;if(whistleVibrato>=1)whistleVibrato-=1;
+    rs^=rs<<13;rs^=rs>>17;rs^=rs<<5;double white=(rs/(double)UINT32_MAX)*2-1,breath=whistleBreath*(1+(.08+.05*(1-a))*white+.03*sin(TAU*whistleVibrato));
+    double freq=fmax(30,fmin(SR*.20,e->f0)),boreDelay=SR/(freq*(2.0/3.0)),jetDelay;if(boreDelay>2046)boreDelay=2046;jetDelay=boreDelay*.32;if(jetDelay>510)jetDelay=510;
+    double boreOut=whistle_frac_read(whistleBore,2048,whistleBoreW,boreDelay);whistleLP=.35*(-boreOut)+.65*whistleLP;double temp=whistleLP,pd=breath-.5*temp;
+    whistleJet[whistleJetW]=(float)pd;whistleJetW=(whistleJetW+1)%512;pd=whistle_frac_read(whistleJet,512,whistleJetW,jetDelay);pd=pd*(pd*pd-1);pd=fmax(-1,fmin(1,pd));
+    double y=pd-whistleHPX+.995*whistleHPY;whistleHPX=pd;whistleHPY=y;double intoBore=y+.5*temp;whistleBore[whistleBoreW]=(float)intoBore;whistleBoreW=(whistleBoreW+1)%2048;v=.3*intoBore*sqrt(a);
+   }
+   else if(e->type==8){
+    // Twenty-four aerodynamic lobes turn the 0..9.68 revolutions/second body
+    // motion into a clearly pitched 0..232 Hz whirr. The phase integrates the
+    // exact instantaneous angular velocity, so there is no stepped pitch ramp.
+    double r=fmax(0,fmin(1,u/e->dur)),spinShape=16*r*r*(1-r)*(1-r);
+    double turnsPerSec=32*30*r*r*(1-r)*(1-r)/e->dur,bladeHz=24*turnsPerSec;
+    ph+=TAU*bladeHz/SR;
+    rs=rs*1664525u+1013904223u;double white=((rs>>8)/8388608.0)-1;
+    double airC=exp(-TAU*1450/SR),bodyC=exp(-TAU*95/SR);
+    lp=(1-airC)*white+airC*lp;hpLP=(1-bodyC)*lp+bodyC*hpLP;
+    double airBand=lp-hpLP;
+    v=spinShape*(.68*sin(ph)+.21*sin(2*ph+.19)+.075*sin(3*ph+.43)+.12*airBand);
+   }
    else {rs=rs*1664525u+1013904223u;double w=((rs>>8)/8388608.0)-1;double ca=exp(-TAU*e->f0/SR),cb=exp(-TAU*e->f1/SR);lp=(1-ca)*w+ca*lp;double hi=w-lp;hpLP=(1-cb)*hi+cb*hpLP;v=hpLP;}
+   double radioField=tonal?antenna_mod(e->src,t):0;
+   if(e->type==0&&antennaDepth>0){
+    // Geometry controls the depth of two low radio-rate modulators. Their
+    // close sidebands add an intentional receiver shimmer while the carrier
+    // remains a mathematically clean sine. A minute, Nyquist-gated 2nd/3rd
+    // harmonic tint lets the broadcast speak on small transducers too.
+    double activity=.22+.78*fabs(radioField),rate=17.0+1.71*e->src+3.2*activity,phaseSeed=(e->seed&1023)*TAU/1024.0,am=antennaDepth*activity*(.62*sin(TAU*rate*t+phaseSeed)+.25*sin(TAU*(rate*.503)*t+phaseSeed*.37));v*=1+am;
+    double color=antennaDepth*(.020+.080*fabs(radioField));if(currentF*2<SR*.42)v+=color*.72*sin(2*ph+radioField*.65+phaseSeed*.19);if(currentF*3<SR*.42)v+=color*.28*sin(3*ph-radioField*.42+phaseSeed*.31);
+   }
    if(cosmosMode&&e->type!=2&&e->type!=3){double modal=0;ACMeshAcoustics*ma=&BODY_ACOUSTICS[e->src];ACMaterial mm=BODY_MATERIAL[e->src];for(int m=0;m<3;m++){double mf=fmax(45,fmin(12000,ma->mode[m])),r=exp(-M_PI*mf*fmax(.004,mm.loss)/SR),y=2*r*cos(TAU*mf/SR)*mode1[m]-r*r*mode2[m]+(1-r)*v;mode2[m]=mode1[m];mode1[m]=y;modal+=y;}v=.68*v+.32*(modal/3.0);}
-   if(cutoff<19000){double c=exp(-TAU*cutoff/SR);envLP=(1-c)*v+c*envLP;v=envLP;}v*=wall*rain*e->g*clickGate*field_gain(e->src,t)*(cosmosMode?cosmos_plane_gain(e->src,t,az,el):1);float hl,hr;ac_hrtf_process(&hs,(float)v,az,el,spaceD,&hl,&hr);
+   // Keep the filter state alive even while the path is nominally open. This
+   // prevents a stale filter accumulator from jumping in at the next crossing.
+   if(k==0)envLP=v;{double c=exp(-TAU*fmin(20000,cutoff)/SR);envLP=(1-c)*v+c*envLP;v=envLP;}double ampEnv=(e->type==6||e->type==7)?1:sqrt(a),tonePump=tonal?1-.18*fmax(0,gravity)+.10*fmax(0,-gravity):1,antenna=tonal?1+antennaDepth*radioField:1,directional=tornadoActive?tornado_directional_pickup(e->src,t):1,spatialTarget=antenna*tonePump*wall*rain*directional*field_gain(e->src,t)*(cosmosMode?cosmos_plane_gain(e->src,t,az,el):1);if(!spatialGainInit){spatialGainState=spatialTarget;spatialGainInit=1;}else{double receiverTau=e->type==8?.007:(tornadoActive?.018:((t>=61.5&&t<=72.5)?.28:(t>=50&&t<=78?.36:.24))),receiverSlew=1-exp(-1.0/(SR*receiverTau));spatialGainState+=(spatialTarget-spatialGainState)*receiverSlew;}v*=spatialGainState*ampEnv*e->g*clickGate;float hl,hr;ac_hrtf_process(&hs,(float)v,az,el,spaceD,&hl,&hr);
    double dryPan=fmax(-.62,fmin(.62,S[e->src].x/6.0)),range=(globeMode||cosmosMode)?.008+.992/(1+.32*spaceD*spaceD):1,dl=sqrt((1-dryPan)*.5)*range,dr=sqrt((1+dryPan)*.5)*range;
-   double dg=cos(spatialWet*M_PI*.5),wg=sin(spatialWet*M_PI*.5),cl=v*dl*dg+hl*wg,cr=v*dr*dg+hr*wg;
+   // Keep the far release opening genuinely in the acoustic field instead of
+   // letting the fixed studio panorama collapse its distance illusion.
+   if(!globeMode&&!cosmosMode&&t>=4*BAR&&t<6*BAR){double arrive=ease01((t-4*BAR)/(2*BAR)),depth=.055+.945*arrive;dl*=depth;dr*=depth;}
+   // Preserve listener-relative position with a clean equal-power field, then
+   // blend in only enough HRTF detail for head/elevation cues. This keeps pure
+   // oscillators pure while retaining unmistakable per-body motion.
+   // Equal-power listener-relative pan carries the position. A restrained
+   // procedural HRTF layer adds ITD/head/elevation cues without letting its
+   // moving pinna comb become the audible rubber-squeegee gesture.
+   double listenerPan=sin(az),listenerNear=.012+.988/(1+.18*spaceD*spaceD),cleanL=v*sqrt((1-listenerPan)*.5)*listenerNear,cleanR=v*sqrt((1+listenerPan)*.5)*listenerNear,hrtfDetail=.24,spaceL=cleanL*(1-hrtfDetail)+hl*hrtfDetail,spaceR=cleanR*(1-hrtfDetail)+hr*hrtfDetail;
+   double dg=cos(spatialWet*M_PI*.5),wg=sin(spatialWet*M_PI*.5),cl=v*dl*dg+spaceL*wg,cr=v*dr*dg+spaceR*wg;
    // Retarded reception: radio energy is written when it reaches the listener,
    // not when the emitter produced it. Distance therefore becomes real delay.
-   double arrival=s0+k+spaceD*SR/343.0;long at=(long)floor(arrival);double af=arrival-at;if(at>=0&&at<n){busL[at]+=(float)(cl*(1-af));busR[at]+=(float)(cr*(1-af));if(at+1<n){busL[at+1]+=(float)(cl*af);busR[at+1]+=(float)(cr*af);}
+   double arrival=s0+k+spaceD*SR/343.0;long at=(long)floor(arrival);double af=arrival-at;if(at>=0&&at<n){if(at>=1&&at+2<n){double f2=af*af,f3=f2*af,w0=(1-3*af+3*f2-f3)/6,w1=(4-6*f2+3*f3)/6,w2=(1+3*af+3*f2-3*f3)/6,w3=f3/6;busL[at-1]+=(float)(cl*w0);busR[at-1]+=(float)(cr*w0);busL[at]+=(float)(cl*w1);busR[at]+=(float)(cr*w1);busL[at+1]+=(float)(cl*w2);busR[at+1]+=(float)(cr*w2);busL[at+2]+=(float)(cl*w3);busR[at+2]+=(float)(cr*w3);}else{busL[at]+=(float)(cl*(1-af));busR[at]+=(float)(cr*(1-af));if(at+1<n){busL[at+1]+=(float)(cl*af);busR[at+1]+=(float)(cr*af);}}
     // Per-emitter air/room tail; unlike the later master reflections this delay
     // remains attached to the originating voice and its stereo observation.
     long echo=at+(long)((.075+.011*e->src)*SR);if(!duetMode&&!cosmosMode&&echo<n){busL[echo]+=(float)(cl*.055);busR[echo]+=(float)(cr*.055);}
@@ -373,7 +735,10 @@ static void render(void){long n=(long)(DUR*SR);busL=calloc(n,4);busR=calloc(n,4)
   }
  }
  // Cross-room early reflections.
- int ds[]={3408,5424,8688};double dg[]={.075,.048,.03};if(!duetMode&&!cosmosMode)for(int q=0;q<3;q++)for(long i=ds[q];i<n;i++){float l=busL[i-ds[q]],r=busR[i-ds[q]];double room=.22+.78*spatialWet;busL[i]+=r*dg[q]*room;busR[i]+=l*dg[q]*room;}
+ // Four FIR room images.  Read every return from one immutable snapshot of
+ // the direct/per-voice field: reading the destination bus in-place turns each
+ // intended tap into a recursive comb lattice (the former creak/fuzz).
+ int ds[]={3408,5424,8688,14400};double dg[]={.075,.048,.03,.018};if(!duetMode&&!cosmosMode){float*roomL=malloc(n*sizeof(*roomL)),*roomR=malloc(n*sizeof(*roomR));if(roomL&&roomR){memcpy(roomL,busL,n*sizeof(*roomL));memcpy(roomR,busR,n*sizeof(*roomR));for(int q=0;q<4;q++)for(long i=ds[q];i<n;i++){float l=roomL[i-ds[q]],r=roomR[i-ds[q]];double t=i/(double)SR,room=.22+.78*spatialWet,farRoom=(t>=4*BAR&&t<6*BAR)?1+2.2*(1-ease01((t-4*BAR)/(2*BAR))):1;busL[i]+=r*dg[q]*room*farRoom;busR[i]+=l*dg[q]*room*farRoom;}free(roomL);free(roomR);}else{free(roomL);free(roomR);}}
  double pk=0;for(long i=0;i<n;i++){double a=fmax(fabs(busL[i]),fabs(busR[i]));if(a>pk)pk=a;}double g=pk?.88/pk:1;
  for(long i=0;i<n;i++){double fo=i>n-SR?((n-i)/(double)SR):1;busL[i]*=g*fo;busR[i]*=g*fo;}
 }
@@ -590,20 +955,21 @@ static void globe_frame(unsigned char*p,int fr,double t,Listener l){
   for(int m=1;m<8;m++)if(bars[m]>bar){double away=bars[m]-bar;if(away<2.0){int nx=x0+(int)(span*bars[m]/38.0),r=5+(int)(8*(1-away/2.0));glow(p,nx,y,r,colors[m<7?m:6],.18+.32*(1-away/2.0));}break;}
  }
 }
-static void video(const char*wavp,const char*outp){char cmd[2048];size_t ol=strlen(outp);int lossless=ol>=4&&!strcmp(outp+ol-4,".mov");const char*clean=globeMode?"-af 'highpass=f=30,equalizer=f=7600:t=q:w=.75:g=-4,lowpass=f=11800,alimiter=limit=.90:attack=6:release=110,volume=.88'":"",*pixels=(globeMode&&!acousticsView)?"-vf 'scale=240:240:flags=neighbor,scale=720:720:flags=neighbor'":"";if(lossless)
+static void video(const char*wavp,const char*outp,double videoStart,double videoDuration){char cmd[2048];size_t ol=strlen(outp);int lossless=ol>=4&&!strcmp(outp+ol-4,".mov");const char*clean=globeMode?"-af 'highpass=f=30,equalizer=f=7600:t=q:w=.75:g=-4,lowpass=f=11800,alimiter=limit=.90:attack=6:release=110,volume=.88'":"",*pixels=(globeMode&&!acousticsView)?"-vf 'scale=240:240:flags=neighbor,scale=720:720:flags=neighbor'":"";if(lossless)
  snprintf(cmd,sizeof cmd,"ffmpeg -hide_banner -y -loglevel error -f rawvideo -pixel_format rgb24 -video_size %dx%d -framerate %d -i - -i '%s' -c:v libx265 -preset medium -x265-params lossless=1:log-level=error -pix_fmt yuv444p -tag:v hvc1 %s -c:a pcm_s24le -ar 48000 -shortest '%s'",W,H,FPS,wavp,clean,outp);
  else snprintf(cmd,sizeof cmd,"ffmpeg -hide_banner -y -loglevel error -f rawvideo -pixel_format rgb24 -video_size %dx%d -framerate %d -i - -i '%s' %s -c:v libx264 -preset slow -pix_fmt yuv420p -crf 14 %s -c:a aac -b:a 320k -shortest '%s'",W,H,FPS,wavp,pixels,clean,outp);FILE*ff=popen(cmd,"w");if(!ff)return;unsigned char*p=malloc(W*H*3);
- for(int fr=0;fr<(int)(DUR*FPS);fr++){double t=fr/(double)FPS;for(int y=0;y<H;y++){unsigned char v=brightMode?(unsigned char)(250-15*y/(double)H):(unsigned char)(24-10*y/(double)H);for(int x=0;x<W;x++){int o=(y*W+x)*3;p[o]=v;p[o+1]=(unsigned char)fmax(0,v-(brightMode?3:1));p[o+2]=(unsigned char)fmin(255,v+(brightMode?0:2));}}int li=(int)(t*CTRL);Listener l=L[li];
+ int videoFrames=(int)floor(videoDuration*FPS+.5);for(int outFr=0;outFr<videoFrames;outFr++){double t=videoStart+outFr/(double)FPS;int fr=(int)floor(t*FPS);for(int y=0;y<H;y++){unsigned char v=brightMode?(unsigned char)(250-15*y/(double)H):(unsigned char)(24-10*y/(double)H);for(int x=0;x<W;x++){int o=(y*W+x)*3;p[o]=v;p[o+1]=(unsigned char)fmax(0,v-(brightMode?3:1));p[o+2]=(unsigned char)fmin(255,v+(brightMode?0:2));}}int li=(int)(t*CTRL);Listener l=L[li];
   if(globeMode){globe_frame(p,fr,t,l);fwrite(p,1,W*H*3,ff);continue;}
   // Camera begins among the sources, orbits with the listener, then after 78 s
   // retreats far beyond the room until the ensemble is a small constellation.
   int ts=tour_source(t),tn=TOUR[(ts==TOUR[11])?0:((int)(t/9.0)+1)%12];double phase=fmod(t,9.0)/9.0,lookMix=phase<.78?0:(phase-.78)/.22;lookMix=lookMix*lookMix*(3-2*lookMix);Source la=source_at(ts,t),lb=source_at(tn,t);
   // First-person radio receiver at ear height. Smooth focus handoffs avoid cuts;
   // parallax and changing radii now reveal the listener's physical travel.
-  V3 cam={l.x,l.y,1.62},target={la.x+(lb.x-la.x)*lookMix,la.y+(lb.y-la.y)*lookMix,la.z+(lb.z-la.z)*lookMix};
+  V3 cam,target;if(cameraMode){cam=(V3){l.x,l.y,1.62};target=(V3){la.x+(lb.x-la.x)*lookMix,la.y+(lb.y-la.y)*lookMix,la.z+(lb.z-la.z)*lookMix};}
+  else{double cx=l.x,cy=l.y,cz=1.6;for(int s=0;s<NSRC;s++){Source q=source_at(s,t);cx+=q.x;cy+=q.y;cz+=q.z;}cx/=NSRC+1;cy/=NSRC+1;cz/=NSRC+1;double orbitTime=ending_motion_time(t),orbit=-.72+.16*sin(orbitTime/19.0);cam=(V3){cx+19*cos(orbit),cy+19*sin(orbit),cz+12.5};target=(V3){cx,cy,cz*.55};}
   // Faceted receiver-world horizon. Large triangles scroll gently with travel,
   // providing scale without pretending to be another sound source.
-  int horizon=brightMode?300:330,shift=(int)(l.x*9+l.y*5);for(int q=-1;q<10;q++){int x0=q*92-(shift%92),x1=x0+46,x2=x0+92,y1=horizon-28-(int)(38*(.5+.5*sin(q*2.31+l.heading)));uint32_t c1=brightMode?(q&1?0xc9d2cf:0xbcc8c6):(q&1?0x20282b:0x182124);tri2(p,x0,horizon,x1,y1,x2,horizon,c1,.82);tri2(p,x0,horizon,x2,horizon,x2,H-205,brightMode?0xd9ded8:0x111719,.52);}line2(p,0,horizon,W,horizon,brightMode?0x7f9292:0x52656a,.55);
+  if(cameraMode){int horizon=brightMode?300:330,shift=(int)(l.x*9+l.y*5);for(int q=-1;q<10;q++){int x0=q*92-(shift%92),x1=x0+46,x2=x0+92,y1=horizon-28-(int)(38*(.5+.5*sin(q*2.31+l.heading)));uint32_t c1=brightMode?(q&1?0xc9d2cf:0xbcc8c6):(q&1?0x20282b:0x182124);tri2(p,x0,horizon,x1,y1,x2,horizon,c1,.82);tri2(p,x0,horizon,x2,horizon,x2,H-205,brightMode?0xd9ded8:0x111719,.52);}line2(p,0,horizon,W,horizon,brightMode?0x7f9292:0x52656a,.55);}
   // Perspective floor grid makes depth and the final pull-away legible.
   for(int q=-8;q<=8;q++){line3(p,(V3){q,-8,0},(V3){q,8,0},cam,target,brightMode?0x9eafb2:0x536069,brightMode?.42:.28);line3(p,(V3){-8,q,0},(V3){8,q,0},cam,target,brightMode?0x9eafb2:0x536069,brightMode?.42:.28);}
   // The same propagation world the radio hears: brick occluder and wind-raked
@@ -624,8 +990,9 @@ static void video(const char*wavp,const char*outp){char cmd[2048];size_t ol=strl
    {double trail=.18+fmin(.9,dd/12);V3 prev=sv;for(int q=1;q<=16;q++){double pt=fmax(0,t-q*trail/16),fade=(1-q/17.0)*(.08+fmin(.55,heard*18));Source old=source_at(s,pt);V3 ov={old.x,old.y,old.z};line3(p,prev,ov,cam,target,S[s].color,fade);prev=ov;}}
    if(heard>.00005)line3(p,lv,sv,cam,target,S[s].color,.03+fmin(.84,heard*28));
    if(sp.ok){double sc=W/360.0;int core=(int)fmax(3,fmin(11,52*sc/sp.z));int halo=(int)fmax(core*2,fmin(62,(4+heard*1500)*sc*10/sp.z));P2 sh=project((V3){so.x,so.y,.02},cam,target);if(sh.ok)glow(p,sh.x,sh.y,(int)fmax(5,halo*.8),S[s].color,.06+fmin(.4,heard*14));if(s==ts&&t<104)glow(p,sp.x,sp.y,halo+18,0xffffff,.16);glow(p,sp.x,sp.y,halo,S[s].color,.10+fmin(.36,heard*10));}
-   spectral_volume(p,s,fr,t,sv,cam,target,s==ts);
+   spectral_volume(p,s,fr,t,sv,cam,target,s==ts);if(!cameraMode&&sp.ok)text3(p,sp.x+9,sp.y-7,S[s].name,1,brightMode?0x33484c:0xd5e5e2);
   }
+  if(cameraMode){
   stereo_windshield(p,t);
   windshield_particles(p,fr,t,cam,target);
   P2 lp=project(lv,cam,target),hd=project((V3){l.x+cos(l.heading)*.55,l.y+sin(l.heading)*.55,1.6},cam,target);
@@ -643,12 +1010,13 @@ static void video(const char*wavp,const char*outp){char cmd[2048];size_t ol=strl
   line2(p,rcx,rcy-7,rcx-6,rcy+6,0xf6c915,.95);line2(p,rcx-6,rcy+6,rcx+6,rcy+6,0xf6c915,.95);line2(p,rcx+6,rcy+6,rcx,rcy-7,0xf6c915,.95);
   double sumL=0,sumR=0;for(int s=0;s<NSRC;s++){double ml,mr;source_meter(fr,s,&ml,&mr);sumL+=ml;sumR+=mr;Source so=source_at(s,t);double dx=so.x-l.x,dy=so.y-l.y,rx=dx*cos(l.heading)+dy*sin(l.heading),ry=-dx*sin(l.heading)+dy*cos(l.heading),scale=11.0,rr=hypot(rx,ry);if(rr>10.5){rx*=10.5/rr;ry*=10.5/rr;}int bx=rcx+(int)(ry*scale),base=rcy-(int)(rx*scale*.5),by=base-(int)((so.z-1.6)*10),weak=hypot(ml,mr)<.0015;double vis=weak?(.16+.24*(sin(t*31+s*7)>0)):.9;line2(p,bx,base,bx,by,S[s].color,vis*.7);if(s==ts)glow(p,bx,by,12,0xffffff,.28);dot(p,bx,by,s==ts?4:3,S[s].color);}
   int lm=(int)fmin(110,sumL*850),rm=(int)fmin(110,sumR*850);fill2(p,70,H-55,70+lm,H-45,0x4ecdc4,.9);fill2(p,W-70-rm,H-55,W-70,H-45,0xf8a5c2,.9);
+  }else{P2 lp=project(lv,cam,target),hd=project((V3){l.x+cos(l.heading)*.75,l.y+sin(l.heading)*.75,1.6},cam,target);if(lp.ok){glow(p,lp.x,lp.y,26,0xffd54f,.28);dot(p,lp.x,lp.y,7,0xffffff);if(hd.ok)line2(p,lp.x,lp.y,hd.x,hd.y,0xff6b9d,.9);}text3(p,24,22,"GLOBAL ARRANGEMENT",2,brightMode?0x324a4d:0xe2efed);text3(p,24,42,"SOUND BODIES - GRAVITY - WAVES",1,brightMode?0x536e73:0x75aeb2);}
   fwrite(p,1,W*H*3,ff);
  }
  free(p);pclose(ff);
 }
-  int main(int argc,char**argv){const char*w="../out/spatial-sineabye.wav",*v="../out/spatial-sineabye.mp4",*videoAudio=NULL,*mp3=NULL,*ptStill=NULL,*sceneOut=NULL;double ptTime=32;int ptSpp=32,sceneFrames=0,tempoExplicit=0;for(int i=1;i<argc;i++){if(!strcmp(argv[i],"--wav")&&i+1<argc)w=argv[++i];else if(!strcmp(argv[i],"--video")&&i+1<argc)v=argv[++i];else if(!strcmp(argv[i],"--video-audio")&&i+1<argc)videoAudio=argv[++i];else if(!strcmp(argv[i],"--mp3")&&i+1<argc)mp3=argv[++i];else if(!strcmp(argv[i],"--spatial-wet")&&i+1<argc)spatialWet=fmax(0,fmin(1,atof(argv[++i])));else if(!strcmp(argv[i],"--noise-level")&&i+1<argc)noiseLevel=fmax(.05,fmin(1,atof(argv[++i])));else if(!strcmp(argv[i],"--bpm")&&i+1<argc){tempoBpm=fmax(30,fmin(240,atof(argv[++i])));tempoExplicit=1;}else if(!strcmp(argv[i],"--bright")){brightMode=1;themeExplicit=1;}else if(!strcmp(argv[i],"--dark")){brightMode=0;themeExplicit=1;}else if(!strcmp(argv[i],"--theme")&&i+1<argc){const char*th=argv[++i];if(!strcmp(th,"light"))brightMode=1;else if(!strcmp(th,"dark"))brightMode=0;themeExplicit=strcmp(th,"auto")!=0;}else if(!strcmp(argv[i],"--globe"))globeMode=1;else if(!strcmp(argv[i],"--lattice-duet")){globeMode=1;duetMode=1;voiceCount=4;}else if(!strcmp(argv[i],"--cosmos")){globeMode=1;cosmosMode=1;voiceCount=12;}else if(!strcmp(argv[i],"--camera")&&i+1<argc){cameraMode=!strcmp(argv[++i],"ship");}else if(!strcmp(argv[i],"--voices")&&i+1<argc)voiceCount=atoi(argv[++i]);else if(!strcmp(argv[i],"--pathtrace-still")&&i+1<argc)ptStill=argv[++i];else if(!strcmp(argv[i],"--pt-time")&&i+1<argc)ptTime=atof(argv[++i]);else if(!strcmp(argv[i],"--pt-spp")&&i+1<argc)ptSpp=atoi(argv[++i]);else if(!strcmp(argv[i],"--scene-data")&&i+1<argc)sceneOut=argv[++i];else if(!strcmp(argv[i],"--scene-frames")&&i+1<argc)sceneFrames=atoi(argv[++i]);}if(!tempoExplicit)tempoBpm=cosmosMode?COSMOS_BPM:ROOM_BPM;if(sceneFrames<=0)sceneFrames=NFRAMES;resolve_render_theme();
- for(int i=1;i+1<argc;i++)if(!strcmp(argv[i],"--visual"))acousticsView=!strcmp(argv[i+1],"acoustics");
+  int main(int argc,char**argv){const char*w="../out/spatial-sineabye.wav",*v="../out/spatial-sineabye.mp4",*videoAudio=NULL,*mp3=NULL,*ptStill=NULL,*sceneOut=NULL;double ptTime=32,videoStart=0,videoDuration=DUR;int ptSpp=32,sceneFrames=0,tempoExplicit=0;for(int i=1;i<argc;i++){if(!strcmp(argv[i],"--wav")&&i+1<argc)w=argv[++i];else if(!strcmp(argv[i],"--video")&&i+1<argc)v=argv[++i];else if(!strcmp(argv[i],"--video-audio")&&i+1<argc)videoAudio=argv[++i];else if(!strcmp(argv[i],"--video-start")&&i+1<argc)videoStart=atof(argv[++i]);else if(!strcmp(argv[i],"--video-duration")&&i+1<argc)videoDuration=atof(argv[++i]);else if(!strcmp(argv[i],"--mp3")&&i+1<argc)mp3=argv[++i];else if(!strcmp(argv[i],"--spatial-wet")&&i+1<argc)spatialWet=fmax(0,fmin(1,atof(argv[++i])));else if(!strcmp(argv[i],"--noise-level")&&i+1<argc)noiseLevel=fmax(.05,fmin(1,atof(argv[++i])));else if(!strcmp(argv[i],"--bpm")&&i+1<argc){tempoBpm=fmax(30,fmin(240,atof(argv[++i])));tempoExplicit=1;}else if(!strcmp(argv[i],"--bright")){brightMode=1;themeExplicit=1;}else if(!strcmp(argv[i],"--dark")){brightMode=0;themeExplicit=1;}else if(!strcmp(argv[i],"--theme")&&i+1<argc){const char*th=argv[++i];if(!strcmp(th,"light"))brightMode=1;else if(!strcmp(th,"dark"))brightMode=0;themeExplicit=strcmp(th,"auto")!=0;}else if(!strcmp(argv[i],"--globe"))globeMode=1;else if(!strcmp(argv[i],"--lattice-duet")){globeMode=1;duetMode=1;voiceCount=4;}else if(!strcmp(argv[i],"--cosmos")){globeMode=1;cosmosMode=1;voiceCount=12;}else if(!strcmp(argv[i],"--camera")&&i+1<argc){cameraMode=!strcmp(argv[++i],"ship");}else if(!strcmp(argv[i],"--voices")&&i+1<argc)voiceCount=atoi(argv[++i]);else if(!strcmp(argv[i],"--pathtrace-still")&&i+1<argc)ptStill=argv[++i];else if(!strcmp(argv[i],"--pt-time")&&i+1<argc)ptTime=atof(argv[++i]);else if(!strcmp(argv[i],"--pt-spp")&&i+1<argc)ptSpp=atoi(argv[++i]);else if(!strcmp(argv[i],"--scene-data")&&i+1<argc)sceneOut=argv[++i];else if(!strcmp(argv[i],"--scene-frames")&&i+1<argc)sceneFrames=atoi(argv[++i]);}if(!tempoExplicit)tempoBpm=cosmosMode?COSMOS_BPM:ROOM_BPM;if(sceneFrames<=0)sceneFrames=NFRAMES;resolve_render_theme();videoStart=fmax(0,fmin(DUR,videoStart));videoDuration=fmax(0,fmin(DUR-videoStart,videoDuration));
+ for(int i=1;i+1<argc;i++){if(!strcmp(argv[i],"--visual"))acousticsView=!strcmp(argv[i+1],"acoustics");else if(!strcmp(argv[i],"--antenna-am"))antennaDepth=fmax(0,fmin(.18,atof(argv[i+1])));}
  score();filter_score();simulate();if(ptStill){globeMode=1;if(!pathtrace_still(ptStill,fmax(0,fmin(DUR,ptTime)),fmax(1,ptSpp))){fprintf(stderr,"pathtrace write failed\n");return 1;}fprintf(stderr,"✓ %s · path traced · %d spp\n",ptStill,ptSpp);return 0;}render();if(sceneOut&&!export_scene(sceneOut,fmax(1,fmin(NFRAMES,sceneFrames)))){fprintf(stderr,"scene export failed\n");return 1;}if(!wav(w)){fprintf(stderr,"write failed\n");return 1;}fprintf(stderr,"✓ %s · %.1fs · %d sound bodies/events · %d voices · spatial wet %.0f%%\n",w,DUR,NE,voiceCount,spatialWet*100);
  if(mp3){char cmd[4096];snprintf(cmd,sizeof cmd,"ffmpeg -hide_banner -y -loglevel error -i '%s' -af 'highpass=f=28,equalizer=f=72:t=q:w=.8:g=1.2,equalizer=f=7200:t=q:w=.9:g=-1,lowpass=f=15800,alimiter=limit=.90:attack=6:release=100,volume=.84' -c:a libmp3lame -q:a 2 '%s'",w,mp3);if(system(cmd)!=0)return 1;}
- if(v&&strcmp(v,"none")){if(videoAudio&&!load_visual_mix(videoAudio))fprintf(stderr,"warning: final master could not be decoded for windshield telemetry\n");video(videoAudio?videoAudio:w,v);}return 0;}
+ if(v&&strcmp(v,"none")){if(videoAudio&&cameraMode&&!load_visual_mix(videoAudio))fprintf(stderr,"warning: final master could not be decoded for windshield telemetry\n");video(videoAudio?videoAudio:w,v,videoStart,videoDuration);}return 0;}
