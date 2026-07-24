@@ -52,6 +52,9 @@ enum PopoverCLI {
             controller.seedSpotifyPlayerForCapture()
         }
 #endif
+        if args.contains("--radio") {
+            controller.selectRadioStation(.nts1)
+        }
 
         let vc = MenuBandPopoverViewController()
         vc.menuBand = controller

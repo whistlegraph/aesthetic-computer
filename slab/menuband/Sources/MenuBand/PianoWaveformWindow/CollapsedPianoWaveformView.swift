@@ -196,8 +196,8 @@ final class CollapsedPianoWaveformView: NSView {
                 keyCode: kc, isDown: isDown, isRepeat: isRepeat, flags: flags
             ) ?? false
         }
-        // Radio-station cells sit in the top row, left of MIDI OUT. Clicking
-        // one tunes the radio ("voice −1") to that station and engages it.
+        // Listening sources drive the standalone CDJ Radio deck; they never
+        // replace the instrument played by the piano keys.
         instrumentList.radioStations = RadioStation.all
         instrumentList.onRadioCommit = { [weak self] station in
             self?.menuBand?.selectRadioStation(station)
@@ -534,7 +534,11 @@ final class CollapsedPianoWaveformView: NSView {
         // voice while the preview note plays a different program.
         instrumentList.selectedProgram = menuBand.effectiveMelodicProgram
         instrumentList.midiModeActive = menuBand.midiMode
-        instrumentList.radioBackendActive = (menuBand.instrumentBackend == .kpbj)
+        if case .station = menuBand.cdjRadioSource {
+            instrumentList.radioBackendActive = menuBand.cdjRadioPresented
+        } else {
+            instrumentList.radioBackendActive = false
+        }
         instrumentList.sampleBackendActive = (menuBand.instrumentBackend == .sample)
         instrumentList.selectedRadioStationID = menuBand.radioStation.id
         instrumentList.spotifyActive = menuBand.spotifyPlayerPresented

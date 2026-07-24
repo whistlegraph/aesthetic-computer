@@ -89,13 +89,31 @@ final class MenuBandSpotify {
         pollSoon()
     }
     func toggle() { command(["toggle"]); pollSoon() }
-    func pause() { command(["pause"]); pollSoon() }
+    func pause(completion: (() -> Void)? = nil) {
+        command(["pause"]) { _ in completion?() }
+        pollSoon()
+    }
     func next() { command(["next"]); pollSoon() }
     func previous() { command(["previous"]); pollSoon() }
     func seek(to seconds: Double, from currentPosition: Double) {
         let offset = Int(((seconds - currentPosition) * 1_000).rounded())
         command(["seek", String(offset)])
         pollSoon()
+    }
+
+    /// Resolve the headless daemon's PID so CDJ Radio can attach a first-party
+    /// Core Audio process tap and route Spotify through Menu Band's FX graph.
+    func daemonPID(_ completion: @escaping (pid_t?) -> Void) {
+        command(["pid"], reportError: false) { result in
+            guard case .success(let data) = result,
+                  let text = String(data: data, encoding: .utf8)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines),
+                  let value = Int32(text) else {
+                completion(nil)
+                return
+            }
+            completion(value)
+        }
     }
 
     private func pollSoon() {

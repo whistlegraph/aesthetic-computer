@@ -10,6 +10,8 @@ extension Notification.Name {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
+    /// The spinning album-art disc owned by Menu Band's CDJ Radio deck.
+    private var cdjStatusItem: MenuBandCDJStatusItem?
     private let menuBand = MenuBandController()
     /// Live conductible drone/arp/drum loop (see MenuBandEngine + the
     /// `engine.*` distributed-notification handlers).
@@ -730,15 +732,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.updatePianoWaveformWindow()
             }
         }
-#if !MAC_APP_STORE
-        menuBand.onSpotifyChange = { [weak self] in
+        menuBand.onCDJRadioChange = { [weak self] in
             DispatchQueue.main.async {
                 guard let self else { return }
-                self.popoverVC?.refreshSpotifyPlayer()
+                self.popoverVC?.refreshCDJRadio()
+                self.updateCDJStatusItem()
                 self.updatePianoWaveformWindow()
             }
         }
-#endif
         menuBand.onMIDIEvent = {
             // Spike the square indicator to full on every
             // outbound noteOn; the visualizer animation tick
@@ -747,6 +748,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // [v1 cutoff] KidLisp TV amp-envelope stamp removed with the TV.
         }
         menuBand.bootstrap()
+        let cdjStatusItem = MenuBandCDJStatusItem()
+        cdjStatusItem.onClick = { [weak self] in self?.showPopover() }
+        self.cdjStatusItem = cdjStatusItem
+        updateCDJStatusItem()
         // Subscribe to mic RMS during sample-voice recording. The
         // sample voice's input tap fires this on the main queue with
         // each block's RMS [0, 1]. We just stash it; the visualizer
@@ -2606,6 +2611,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if elapsed >= Self.flashDuration { return 0 }
         let t = CGFloat(elapsed / Self.flashDuration)
         return flashStrength * (1 - t)
+    }
+
+    private func updateCDJStatusItem() {
+        guard let cdjStatusItem else { return }
+        cdjStatusItem.setVisible(menuBand.cdjRadioPresented)
+        cdjStatusItem.update(
+            title: menuBand.cdjRadioTitle,
+            artworkURL: menuBand.cdjRadioArtworkURL,
+            playing: menuBand.cdjRadioPlaying)
     }
 
     func updateIcon() {

@@ -303,11 +303,9 @@ final class MenuBandPopoverViewController: NSViewController {
     /// out of the now-retired floating piano window and hosted directly in
     /// this popover so the whole instrument lives in a single column.
     private var instrumentCluster: CollapsedPianoWaveformView?
-#if !MAC_APP_STORE
-    /// `juked`-backed now-playing card. Hidden/collapsed until the Spotify
-    /// cell in the instrument cluster's listening-source strip is chosen.
-    private var spotifyPlayerView: MenuBandSpotifyPlayerView?
-#endif
+    /// Unified CDJ Radio card. Direct-download builds additionally expose the
+    /// Spotify source; App Store builds use the same deck for radio stations.
+    private var cdjRadioView: MenuBandCDJRadioView?
     /// Transport controls that appear next to the metronome when a
     /// Menu Band PDF score has been loaded into the staff. Play
     /// restarts from the head; Stop cancels in-flight playback.
@@ -557,20 +555,15 @@ final class MenuBandPopoverViewController: NSViewController {
             stack.addArrangedSubview(cluster)
             stack.setCustomSpacing(8, after: cluster)
 
-#if !MAC_APP_STORE
-            let spotifyPlayer = MenuBandSpotifyPlayerView(menuBand: mb)
-            spotifyPlayer.translatesAutoresizingMaskIntoConstraints = false
-            spotifyPlayer.isHidden = !mb.spotifyPlayerPresented
-            spotifyPlayer.widthAnchor.constraint(
-                equalToConstant: MenuBandSpotifyPlayerView.preferredSize.width
+            let cdjRadio = MenuBandCDJRadioView(menuBand: mb)
+            cdjRadio.translatesAutoresizingMaskIntoConstraints = false
+            cdjRadio.isHidden = !mb.cdjRadioPresented
+            cdjRadio.widthAnchor.constraint(
+                equalToConstant: MenuBandCDJRadioView.preferredSize.width
             ).isActive = true
-            spotifyPlayer.heightAnchor.constraint(
-                equalToConstant: MenuBandSpotifyPlayerView.preferredSize.height
-            ).isActive = true
-            spotifyPlayerView = spotifyPlayer
-            stack.addArrangedSubview(spotifyPlayer)
-            stack.setCustomSpacing(6, after: spotifyPlayer)
-#endif
+            cdjRadioView = cdjRadio
+            stack.addArrangedSubview(cdjRadio)
+            stack.setCustomSpacing(6, after: cdjRadio)
         }
 
         // Input mode picker. Three states:
@@ -1424,9 +1417,7 @@ final class MenuBandPopoverViewController: NSViewController {
         applyPopoverRootChrome()
         applyAppearanceToVisualizer()
         updateInstrumentReadout()
-#if !MAC_APP_STORE
-        refreshSpotifyPlayer(resize: false)
-#endif
+        refreshCDJRadio(resize: false)
         // Keep the QWERTY layout's keymap + tint synced with the
         // controller. Voice color picks up the family hue for the
         // current voice; keymap variant follows the controller.
@@ -1473,13 +1464,11 @@ final class MenuBandPopoverViewController: NSViewController {
         // correct (self-contained constraint chain), so the target is
         // cluster + the non-cluster chrome measured at loadView.
         var extra = chromeExtraHeight
-#if !MAC_APP_STORE
-        if spotifyPlayerView?.isHidden == false {
+        if cdjRadioView?.isHidden == false {
             // Baseline chrome already includes the cluster→footer spacing.
             // Revealing the card adds its height plus its own footer gap.
-            extra += MenuBandSpotifyPlayerView.preferredSize.height + 6
+            extra += (cdjRadioView?.intrinsicContentSize.height ?? 0) + 6
         }
-#endif
         let target = NSSize(
             width: preferredContentSize.width,
             height: extra + cluster.fittingSize.height)
@@ -1801,22 +1790,22 @@ final class MenuBandPopoverViewController: NSViewController {
         instrumentCluster?.refresh()
     }
 
-#if !MAC_APP_STORE
     /// Update the compact now-playing card without running the popover's full
     /// state sync every second. Only a visibility edge changes panel geometry;
     /// ordinary position/title ticks repaint in place.
-    func refreshSpotifyPlayer(resize: Bool = true) {
-        guard isViewLoaded, let player = spotifyPlayerView, let menuBand else {
+    func refreshCDJRadio(resize: Bool = true) {
+        guard isViewLoaded, let player = cdjRadioView, let menuBand else {
             return
         }
-        let shouldHide = !menuBand.spotifyPlayerPresented
+        let shouldHide = !menuBand.cdjRadioPresented
         let visibilityChanged = player.isHidden != shouldHide
+        let oldHeight = player.intrinsicContentSize.height
         player.isHidden = shouldHide
         player.refresh()
+        let heightChanged = oldHeight != player.intrinsicContentSize.height
         instrumentCluster?.refresh()
-        if resize && visibilityChanged { refitAndResizePanel() }
+        if resize && (visibilityChanged || heightChanged) { refitAndResizePanel() }
     }
-#endif
 
     private func currentVoiceColor() -> NSColor {
         guard let m = menuBand else { return .controlAccentColor }

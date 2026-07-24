@@ -512,6 +512,62 @@ final class MenuBandSampleVoice {
         }
     }
 
+    /// Replace the global Piano Sampler recording with audio supplied by an
+    /// in-process source such as CDJ Radio. Unlike microphone recording this
+    /// is an instantaneous, explicit handoff: no input permission, no key
+    /// gate, and no accidental monitoring of the room.
+    @discardableResult
+    func loadRecording(from input: AVAudioPCMBuffer) -> Bool {
+        let minimumFrames = Int(sampleRate * 0.1)
+        guard input.frameLength > 0,
+              let converter = AVAudioConverter(
+                from: input.format, to: storageFormat) else { return false }
+        let ratio = storageFormat.sampleRate / input.format.sampleRate
+        let capacity = AVAudioFrameCount(
+            ceil(Double(input.frameLength) * ratio) + 16)
+        guard let converted = AVAudioPCMBuffer(
+            pcmFormat: storageFormat, frameCapacity: capacity) else { return false }
+        var supplied = false
+        var conversionError: NSError?
+        let status = converter.convert(to: converted, error: &conversionError) {
+            _, outStatus in
+            if supplied {
+                outStatus.pointee = .noDataNow
+                return nil
+            }
+            supplied = true
+            outStatus.pointee = .haveData
+            return input
+        }
+        let frames = Int(converted.frameLength)
+        guard status != .error, conversionError == nil, frames >= minimumFrames,
+              let data = converted.floatChannelData?[0] else { return false }
+
+        let stats = shapeCapturedSample(data, frames: frames)
+        // The rolling CDJ snapshot ends at "now", so soften that arbitrary
+        // cut before the sampler loops it.
+        let fadeFrames = min(frames, Int(sampleRate * 0.015))
+        if fadeFrames > 1 {
+            for index in 0..<fadeFrames {
+                let t = Float(index) / Float(fadeFrames)
+                data[frames - fadeFrames + index] *=
+                    0.5 + 0.5 * cosf(Float.pi * t)
+            }
+        }
+        let fundamental = detectFundamental(
+            data, frames: frames, rate: sampleRate) ?? 261.63
+        bufferLock.lock()
+        recordedBuffer = converted
+        detectedFundamental = fundamental
+        bufferLock.unlock()
+        chromaticSample = false
+        let durationText = String(format: "%.2f", Double(frames) / sampleRate)
+        NSLog("MenuBand SampleVoice: loaded CDJ sample \(frames) frames " +
+              "(\(durationText) s), " +
+              "peak \(stats.peakBefore)→\(stats.peakAfter)")
+        return true
+    }
+
     /// Direct read of mic authorization so the tape can mirror the
     /// permission-prompt path without each call site re-implementing
     /// the TCC check.

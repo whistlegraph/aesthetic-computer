@@ -4,9 +4,12 @@ import AudioToolbox
 import CoreMedia
 import Darwin
 
-/// Live KPBJ.FM Icecast stream surfaced as a "voice -1" backend for the
-/// menuband synth: pads play the live audio pitched per note (middle C =
-/// unpitched/live, up/down by semitones). Pitch is shifted INDEPENDENTLY
+/// Live Icecast stream used by Menu Band's standalone CDJ Radio deck.
+/// The continuous deck is independent from the piano instrument; its recent
+/// ring can be copied into the Piano Sampler only through the explicit
+/// "Sample to Piano" action. The older per-note radio voices remain as an
+/// internal compatibility path, but ordinary piano notes never route here.
+/// Pitch is shifted INDEPENDENTLY
 /// of speed via AVAudioUnitTimePitch — a high note is higher, not faster —
 /// so every voice consumes the stream at real time and stays locked to the
 /// live edge (no tape-style speed-up, no drift, no replay). (Earlier this
@@ -40,7 +43,7 @@ import Darwin
 /// fades into static the way a real AM dial does. Static volume is also
 /// modulated by total NIC bytes/sec — quiet network = soft hiss; bursty
 /// traffic = crackle.
-/// A live MP3 radio station the synth can tune into as "voice −1". All
+/// A live MP3 station selectable on the standalone CDJ Radio deck. All
 /// stations are plain Icecast MP3 (KPBJ direct; NTS via a 302 the URLSession
 /// follows), so they share the same decode path — only the URL changes.
 struct RadioStation: Equatable {
@@ -123,12 +126,10 @@ final class KPBJRadioStream: NSObject, URLSessionDataDelegate {
     /// path. Allocated lazily; once attached they stay in the graph.
     private var voices: [UInt8: Voice] = [:]
 
-    /// Faint always-on monitor of the live stream — plays the ring at
-    /// rate 1.0 underneath the per-pad voices so the user always hears
-    /// the radio "tuned in" while in voice −1, even before pressing a
-    /// pad. Volume is intentionally low (~0.18) so a held chord still
-    /// dominates the mix.
+    /// Continuous unity-rate CDJ deck player. This used to be a faint bed
+    /// under key-gated radio voices; it is now the primary radio output.
     private let bedNode = AVAudioPlayerNode()
+    private let bedTimePitch = AVAudioUnitTimePitch()
     private var bedReadFrame: Int64 = 0
     private var bedActive = false
 
@@ -236,8 +237,10 @@ final class KPBJRadioStream: NSObject, URLSessionDataDelegate {
         engine.attach(voiceMixer)
         engine.attach(crossfadeMixer)
         engine.attach(bedNode)
-        engine.connect(bedNode, to: voiceMixer, format: format)
-        bedNode.volume = 0.18
+        engine.attach(bedTimePitch)
+        engine.connect(bedNode, to: bedTimePitch, format: format)
+        engine.connect(bedTimePitch, to: voiceMixer, format: format)
+        bedNode.volume = 1.0
 
         // Bandpass via two EQ bands: high-pass at 250 Hz, low-pass at
         // 4 kHz. AM broadcast voicing is roughly 100–5 kHz; we narrow it
@@ -278,9 +281,7 @@ final class KPBJRadioStream: NSObject, URLSessionDataDelegate {
 
     // MARK: - Master output gate
 
-    /// Whether the radio is the active backend (synth opens it; the
-    /// 15 s linger closes it). The radio only actually SOUNDS while a
-    /// pad is also held — see `updateMasterGate`.
+    /// Whether this station is the selected CDJ Radio source.
     private var outputEnabled = false
 
     /// Open/close the radio's master output. When closed, the radio's
@@ -289,17 +290,15 @@ final class KPBJRadioStream: NSObject, URLSessionDataDelegate {
     /// case and for the synth's 15 s linger window.
     func setOutputEnabled(_ enabled: Bool) {
         outputEnabled = enabled
+        if enabled, streaming { startBed() }
         if !enabled { stopBed() }
         updateMasterGate()
     }
 
-    /// Key-gate: the radio behaves like a sampler of the live stream, not
-    /// an always-on tuner. The master mixer — which carries both the
-    /// pitched per-pad voices and the AM static — only opens while at
-    /// least one pad is held. Lift every pad and the radio goes silent.
+    /// CDJ Radio is a continuous deck. Piano key state never controls this
+    /// gate; the source selector and close button do.
     private func updateMasterGate() {
-        let anyHeld = voices.contains { $0.value.held }
-        crossfadeMixer.outputVolume = (outputEnabled && anyHeld) ? 1.0 : 0.0
+        crossfadeMixer.outputVolume = outputEnabled ? 1.0 : 0.0
     }
 
     // MARK: - Stream lifecycle
@@ -311,9 +310,8 @@ final class KPBJRadioStream: NSObject, URLSessionDataDelegate {
         NSLog("MenuBand radio: startStreaming (\(station.name), direct MP3 decode) → \(station.url.absoluteString)")
         beginStreamRequest()
 
-        // No always-on bed: the radio stays silent until a pad is held
-        // (key-gated sampler semantics). The health timer shapes the AM
-        // static and tracks stream freshness for the crossfade.
+        if outputEnabled { startBed() }
+        // The health timer shapes the AM static and tracks stream freshness.
         startHealthTimer()
     }
 
@@ -663,6 +661,7 @@ final class KPBJRadioStream: NSObject, URLSessionDataDelegate {
     /// live and stashes the amount so notes started mid-bend pick it up.
     func setBend(amount: Float) {
         bendSemitones = amount * 12.0
+        bedTimePitch.pitch = max(-2400, min(2400, bendSemitones * 100))
         for (_, v) in voices where v.node.isPlaying {
             applyPitch(v)
         }
@@ -797,6 +796,29 @@ final class KPBJRadioStream: NSObject, URLSessionDataDelegate {
         ringLock.unlock()
         readFrame &+= Int64(n)
         return out
+    }
+
+    /// Copy the newest decoded station audio for CDJ Radio's explicit
+    /// Sample-to-Piano handoff. The live deck keeps playing unchanged.
+    func copyRecentAudio(seconds: Double) -> AVAudioPCMBuffer? {
+        ringLock.lock(); defer { ringLock.unlock() }
+        let available = min(Int64(ringFrames), ringWriteFrame)
+        let wanted = min(available, Int64(max(0.1, seconds) * sampleRate))
+        guard wanted > 0,
+              let output = AVAudioPCMBuffer(
+                pcmFormat: format, frameCapacity: AVAudioFrameCount(wanted)),
+              let source = ring.floatChannelData,
+              let destination = output.floatChannelData else { return nil }
+        output.frameLength = AVAudioFrameCount(wanted)
+        let start = ringWriteFrame - wanted
+        for channel in 0..<Int(format.channelCount) {
+            for frame in 0..<Int(wanted) {
+                let sourceIndex = Int(
+                    (start + Int64(frame)) % Int64(ringFrames))
+                destination[channel][frame] = source[channel][sourceIndex]
+            }
+        }
+        return output
     }
 
     // MARK: - AM crossfade health timer
