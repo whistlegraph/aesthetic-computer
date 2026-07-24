@@ -3,9 +3,11 @@
 //
 //   node bin/asc.mjs status                     version states + latest builds
 //   node bin/asc.mjs get <path>                 raw GET, prints JSON
+//   node bin/asc.mjs delete <path>              DELETE one ASC resource
 //   node bin/asc.mjs sales [YYYY-MM-DD]         Sales & Trends daily units (gzip TSV)
 //   node bin/asc.mjs analytics                  ensure report requests; list reports
 //   node bin/asc.mjs analytics <reportId>       list a report's instances/segments
+//   node bin/asc.mjs analytics-data <reportId>  print the newest daily CSV
 //
 // Auth: the Admin key (App Manager keys can't cloud-sign but CAN read reports).
 // Signature must be ES256 in ieee-p1363 form — DER signatures are rejected.
@@ -51,10 +53,26 @@ async function get(path, raw = false) {
   return body;
 }
 
+async function remove(path) {
+  const res = await fetch(`${API}${path}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token()}` },
+  });
+  if (!res.ok) {
+    let body = "";
+    try { body = await res.text(); } catch {}
+    throw new Error(`${res.status} ${body}`);
+  }
+  console.log(`deleted ${path}`);
+}
+
 const [cmd, arg] = process.argv.slice(2);
 
 if (cmd === "get") {
   console.log(JSON.stringify(await get(arg), null, 2));
+} else if (cmd === "delete") {
+  if (!arg?.startsWith("/v1/")) throw new Error("delete path must start with /v1/");
+  await remove(arg);
 } else if (cmd === "status") {
   const versions = await get(
     `/v1/apps/${APP_ID}/appStoreVersions?limit=8&fields[appStoreVersions]=versionString,appStoreState,createdDate`,
@@ -103,6 +121,20 @@ if (cmd === "get") {
     console.log(
       `  ${r[idx("Product Type Identifier")]}  units=${r[idx("Units")]}  country=${r[idx("Country Code")]}  device=${r[idx("Device")] ?? ""}`,
     );
+} else if (cmd === "analytics-data") {
+  if (!arg) throw new Error("analytics-data requires a report id");
+  const instances = await get(`/v1/analyticsReports/${arg}/instances?limit=200`);
+  const daily = instances.data
+    .filter((i) => i.attributes.granularity === "DAILY")
+    .sort((a, b) => String(b.attributes.processingDate).localeCompare(String(a.attributes.processingDate)))[0];
+  if (!daily) throw new Error(`no daily instance for ${arg}`);
+  const segs = await get(`/v1/analyticsReportInstances/${daily.id}/segments?limit=200`);
+  for (const segment of segs.data) {
+    const res = await fetch(segment.attributes.url);
+    if (!res.ok) throw new Error(`segment download failed: ${res.status}`);
+    const data = Buffer.from(await res.arrayBuffer());
+    process.stdout.write(zlib.gunzipSync(data));
+  }
 } else if (cmd === "analytics") {
   if (arg) {
     // List a specific report's instances, then each instance's segment URLs.
@@ -162,5 +194,5 @@ if (cmd === "get") {
     }
   }
 } else {
-  console.log("usage: asc.mjs status | get <path> | sales [date] | analytics [reportId]");
+  console.log("usage: asc.mjs status | get <path> | delete <path> | sales [date] | analytics [reportId] | analytics-data <reportId>");
 }

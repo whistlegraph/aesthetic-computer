@@ -42,6 +42,10 @@ The first launch is a learning release, not a vanity-metric sprint. Record:
 
 Apple campaign reporting suppresses tiny cohorts; a campaign normally needs at
 least five first-time downloads before it appears. Keep campaign names stable.
+The API key cannot reveal the account's provider token, and the available
+browser session was not signed in to App Store Connect. Generate links only
+after retrieving that numeric token from App Analytics in an authenticated
+session.
 
 ## Assets
 
@@ -51,4 +55,3 @@ least five first-time downloads before it appears. Keep campaign names stable.
 - Public page: <https://menuband.app/>
 - App Store: <https://apps.apple.com/us/app/menu-band/id6767311903>
 - Advanced direct edition: <https://menuband.app/advanced>
-

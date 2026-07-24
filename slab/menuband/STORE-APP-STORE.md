@@ -31,11 +31,11 @@ version is `PREPARE_FOR_SUBMISSION`, `DELETE /v1/appScreenshots/{id}` works.
 `bin/asc.mjs` wraps the JWT + common queries: `status` / `get <path>` / `sales`
 / `analytics`.
 
-**NEXT — v1.6.5 (build 165).** Hardware MIDI input, the sandbox-safe internet
-radio side of CDJ Radio, smoother recording cues, and Command-key fixes. The
-direct-only Spotify process tap and room-audio host are compiled out of the
-App Store target. The release gate is a successful Xcode build/archive plus
-the signed sandbox runtime checks in §5.
+**IN REVIEW — v1.6.5 (build 165), submitted July 24.** Hardware MIDI input, the
+sandbox-safe internet-radio side of CDJ Radio, smoother recording cues, and
+Command-key fixes. The direct-only Spotify process tap and room-audio host are
+compiled out of the App Store target. Build 165 is `VALID`, the version and
+review submission are both `WAITING_FOR_REVIEW`, and automatic release is on.
 
 ### Review log
 
@@ -46,6 +46,7 @@ the signed sandbox runtime checks in §5.
 | 3 | Jul 11 (build 154) | **approved Jul 12** | — | — | Released same day. |
 | 4 | Jul 15 (build 155) | **approved Jul 16** | — | v1.5.4 post-launch fixes and submission hardening. | Released automatically as configured. |
 | 5 | Jul 18 (build 156) | **approved + released Jul 18** | — | v1.5.5: menu-bar 3·2·1 count-in, save-anywhere tape export, tape cover art, spoken digits; deduplicated screenshot set. | Released automatically. |
+| 6 | Jul 24 (build 165) | **waiting for review** | — | v1.6.5: hardware MIDI, CDJ Radio, scratch/sample capture, recording and command-key polish. | Three unique sandbox-build screenshots verified through the API; automatic release on approval. |
 
 ### Screenshot duplication found after release
 
