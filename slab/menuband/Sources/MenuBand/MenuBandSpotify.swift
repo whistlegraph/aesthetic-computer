@@ -138,6 +138,13 @@ final class MenuBandSpotify {
         reportError: Bool = true,
         completion: ((Result<Data, Error>) -> Void)? = nil
     ) {
+#if MAC_APP_STORE
+        let result: Result<Data, Error> = .failure(BackendError.missing)
+        if reportError, case .failure(let error) = result {
+            onStatus?(error.localizedDescription, true)
+        }
+        completion?(result)
+#else
         work.async {
             let result = Result { try Self.run(arguments) }
             DispatchQueue.main.async { [weak self] in
@@ -147,8 +154,10 @@ final class MenuBandSpotify {
                 completion?(result)
             }
         }
+#endif
     }
 
+#if !MAC_APP_STORE
     private static func executableURL() -> URL? {
         let installed = URL(fileURLWithPath: NSHomeDirectory())
             .appendingPathComponent(".local/bin/juked")
@@ -191,6 +200,7 @@ final class MenuBandSpotify {
         }
         return data
     }
+#endif
 
     static func decodeSearch(_ data: Data) throws -> [MenuBandSpotifyTrack] {
         guard

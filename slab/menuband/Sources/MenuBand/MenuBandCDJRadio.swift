@@ -1,4 +1,6 @@
+#if !MAC_APP_STORE
 import ACMacAudio
+#endif
 import AppKit
 import AVFoundation
 import Darwin
@@ -133,6 +135,7 @@ final class MenuBandCDJScratchVoice {
 /// process tap mutes juked's original output, then this player re-emits it on
 /// Menu Band's pre-FX bus so space, echo, proximity, compression, tape, and
 /// waveform capture all see the same audio.
+#if !MAC_APP_STORE
 final class MenuBandCDJSpotifyDeck {
     private let format = AVAudioFormat(
         commonFormat: .pcmFormatFloat32, sampleRate: 44_100,
@@ -294,6 +297,25 @@ final class MenuBandCDJSpotifyDeck {
 
     deinit { stop() }
 }
+#else
+/// The App Store build intentionally omits process-audio capture. Spotify is
+/// hidden from its source picker, and this inert implementation keeps the
+/// shared CDJ routing code source-compatible without linking ACMacAudio or
+/// shipping a sandbox-incompatible process tap.
+final class MenuBandCDJSpotifyDeck {
+    var onError: ((String) -> Void)?
+
+    func attach(to engine: AVAudioEngine, output: AVAudioNode) {}
+    func start(processID: pid_t) {
+        onError?("Spotify routing is available in the direct-download build")
+    }
+    func stop() {}
+    func setPitch(semitones: Float) {}
+    func setOutputEnabled(_ enabled: Bool) {}
+    func resumeLiveOutput() {}
+    func copyRecentAudio(seconds: Double) -> AVAudioPCMBuffer? { nil }
+}
+#endif
 
 /// Album artwork printed as a compact disc. Menu Band owns this renderer so
 /// the CD status item no longer depends on JukeWizard's process or assets.

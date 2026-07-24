@@ -2,6 +2,8 @@ Menu Band brings the built-in instruments — the ones GarageBand uses — into 
 
 A tiny piano sits at the right of your menu bar. Click any key to play, or type to play while Menu Band is the active app, using the Notepat or Ableton-style QWERTY layouts.
 
+Plug in a hardware MIDI keyboard and Menu Band becomes its compact sound module. Or tune KPBJ, R8DIO, NTS 1, and NTS 2 into the separate CDJ Radio deck, scratch the live buffer, and sample a short slice onto the piano.
+
 Menu Band publishes a virtual MIDI source named "Menu Band": pick it as an input in any DAW and the keys you tap (or letters you type) play through your DAW's instruments. When no DAW is running, a built-in General MIDI synth covers hundreds of patches.
 
 More to play with:

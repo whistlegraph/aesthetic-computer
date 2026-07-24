@@ -7,33 +7,35 @@ the review log. Written 2026-05-29 against v1.4.1 (build 141) as a plan; kept
 since as the standing account of what Apple has said back.
 
 The App Store build ships as a **reduced, sandboxed subset** of the
-direct-download version. The full version stays at prompt.ac/menuband.
+direct-download version. The full version stays at menuband.app/advanced.
 
 ---
 
 ## 0. Where it stands
 
-**PUBLISHED — v1.5.3 (build 154) went live on the Mac App Store 2026-07-12.**
+**PUBLISHED — v1.5.5 (build 156) is live on the Mac App Store.** The initial
+1.5.3 release went live 2026-07-12; 1.5.4 followed on July 16 and 1.5.5 on
+July 18.
 
 > **https://apps.apple.com/us/app/menu-band/id6767311903**
 
 App Apple ID `6767311903`, SKU `MENUBAND`, bundle id `computer.aesthetic.menuband`,
 **$4.99**, Music category, macOS 11.0+, seller "Jeffrey Scudder". Approved on the
-third submission; the shipped commit is tagged **`menuband-v1.5.3`**. It was
+third submission; the first shipped commit is tagged **`menuband-v1.5.3`**. It was
 indexed in App Store search immediately (top hit for "menu band") rather than
 taking the usual day.
 
-**PUBLISHED — v1.5.4 (build 155) went live on 2026-07-16.** The next patch will
-also replace the duplicated 1.5.4 screenshot assets; see the review log below.
+The 1.5.5 lane order ran as documented (`meta → shots → upload → ship`). It
+also repaired the duplicated screenshot assets inherited from 1.5.4: while a
+version is `PREPARE_FOR_SUBMISSION`, `DELETE /v1/appScreenshots/{id}` works.
+`bin/asc.mjs` wraps the JWT + common queries: `status` / `get <path>` / `sales`
+/ `analytics`.
 
-**SUBMITTED — v1.5.5 (build 156), 2026-07-18, `WAITING_FOR_REVIEW`.** Lane
-order ran as documented (`meta → shots → upload → ship`), but the version
-still inherited duplicated screenshot assets (00×2, 01×3 — `shots` even added
-a third `01-reel` copy). Fixed via the API before submitting: while the
-version is `PREPARE_FOR_SUBMISSION`, `DELETE /v1/appScreenshots/{id}` works —
-listed the set's assets with their `sourceFileChecksum`s, kept the first of
-each, deleted the rest. `bin/asc.mjs` (new) wraps the JWT + common queries:
-`status` / `get <path>` / `sales` / `analytics`.
+**NEXT — v1.6.5 (build 165).** Hardware MIDI input, the sandbox-safe internet
+radio side of CDJ Radio, smoother recording cues, and Command-key fixes. The
+direct-only Spotify process tap and room-audio host are compiled out of the
+App Store target. The release gate is a successful Xcode build/archive plus
+the signed sandbox runtime checks in §5.
 
 ### Review log
 
@@ -43,7 +45,7 @@ each, deleted the rest. `bin/asc.mjs` (new) wraps the JWT + common queries:
 | 2 | Jul 9 (build 153) | rejected Jul 11 | **2.4.5(i)** | The app declared `com.apple.security.device.bluetooth` for features the sandboxed build doesn't ship — an entitlement it never uses. | `8fce4eb70` — dropped the entitlement, **build 154**. The MultipeerConnectivity fleet is `#if !MAC_APP_STORE` anyway, and game controllers ride the high-level GameController framework (no `CBCentralManager` anywhere), so paired controllers still work without it. |
 | 3 | Jul 11 (build 154) | **approved Jul 12** | — | — | Released same day. |
 | 4 | Jul 15 (build 155) | **approved Jul 16** | — | v1.5.4 post-launch fixes and submission hardening. | Released automatically as configured. |
-| 5 | Jul 18 (build 156) | pending | — | v1.5.5: menu-bar 3·2·1 count-in, save-anywhere tape export, tape cover art, spoken digits; deduplicated screenshot set. | — |
+| 5 | Jul 18 (build 156) | **approved + released Jul 18** | — | v1.5.5: menu-bar 3·2·1 count-in, save-anywhere tape export, tape cover art, spoken digits; deduplicated screenshot set. | Released automatically. |
 
 ### Screenshot duplication found after release
 
@@ -93,8 +95,10 @@ keep it truthful, and prune the entitlement whenever a feature gets gated out.
       `LocalKeyCapture`; no global typing).
 - [x] Xcode app target + archive — see §3. Archived and uploaded; the signing
       prerequisites below are all resolved.
-- [x] Screenshots — see §4. Live in `fastlane/screenshots/en-US/`
-      (`00-keyboard-menu`, `01-reel`, 1440×900).
+- [x] Screenshots — see §4. Generated from a `MAC_APP_STORE` capture binary
+      into `fastlane/screenshots/en-US/` (`00-keyboard-menu`, `01-reel`, and
+      `02-midi`, all 1440×900). The generator builds the sandboxed binary itself
+      so Advanced-only controls cannot leak into storefront artwork.
 
 ### Environment prerequisites (resolved — kept as the record of what it took)
 

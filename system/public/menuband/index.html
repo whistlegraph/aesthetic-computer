@@ -6,6 +6,8 @@
 <title>Menu Band — Built-in instruments, in the menu bar.</title>
 <meta name="description" content="Menu Band brings the built-in instruments — the ones GarageBand uses — to your menu bar. Tap, type, or send to your DAW over MIDI.">
 
+<link rel="canonical" href="https://menuband.app/">
+
 <link rel="icon" href="/menuband/icon.png">
 <link rel="apple-touch-icon" href="/menuband/icon.png">
 <meta name="theme-color" content="#0A84FF">
@@ -14,17 +16,35 @@
      can fetch the image and surface a caption alongside it. -->
 <meta property="og:title" content="Menu Band">
 <meta property="og:description" content="Built-in instruments, in the menu bar.">
-<meta property="og:url" content="https://aesthetic.computer/menuband">
+<meta property="og:url" content="https://menuband.app/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Aesthetic Computer">
-<meta property="og:image" content="https://aesthetic.computer/menuband/icon.png">
-<meta property="og:image:width" content="512">
-<meta property="og:image:height" content="512">
-<meta property="og:image:alt" content="Menu Band app icon">
-<meta name="twitter:card" content="summary">
+<meta property="og:image" content="https://menuband.app/share-card.png">
+<meta property="og:image:width" content="1440">
+<meta property="og:image:height" content="900">
+<meta property="og:image:alt" content="Menu Band playing across a Mac menu bar">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Menu Band">
 <meta name="twitter:description" content="Built-in instruments, in the menu bar.">
-<meta name="twitter:image" content="https://aesthetic.computer/menuband/icon.png">
+<meta name="twitter:image" content="https://menuband.app/share-card.png">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Menu Band",
+  "applicationCategory": "MusicApplication",
+  "operatingSystem": "macOS 11 or later",
+  "description": "Built-in instruments, live radio, and MIDI in the Mac menu bar.",
+  "url": "https://menuband.app/",
+  "downloadUrl": "https://apps.apple.com/us/app/menu-band/id6767311903?mt=12",
+  "offers": {
+    "@type": "Offer",
+    "price": "4.99",
+    "priceCurrency": "USD"
+  }
+}
+</script>
 
 <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
 
@@ -360,6 +380,56 @@
   section.panel p { margin: 0 0 10px; color: var(--ink-body); }
   section.panel p:last-child { margin-bottom: 0; }
 
+  .film-shelf {
+    position: relative;
+    z-index: 1;
+    max-width: 820px;
+    margin: 34px auto 0;
+  }
+  .film-heading {
+    max-width: 520px;
+    margin: 0 auto 16px;
+    text-align: center;
+  }
+  .film-heading h3 {
+    margin: 0 0 6px;
+    font-family: var(--display-stack);
+    font-size: 22px;
+    color: var(--ink-head);
+  }
+  .film-heading p { margin: 0; color: var(--ink-body); }
+  .film-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .film-card {
+    overflow: hidden;
+    margin: 0;
+    background: rgba(255, 255, 255, 0.52);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.72);
+    border-radius: 18px;
+    box-shadow: 0 12px 34px -22px rgba(15, 30, 60, 0.34);
+  }
+  .film-card video {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    background: #101216;
+  }
+  .film-card figcaption { padding: 14px 16px 16px; }
+  .film-card strong {
+    display: block;
+    margin-bottom: 3px;
+    font-family: var(--display-stack);
+    font-size: 15px;
+    color: var(--ink-head);
+  }
+  .film-card span { color: var(--ink-body); }
+
   ul.modes {
     list-style: none;
     padding: 0;
@@ -553,6 +623,9 @@
     .black-key { border-radius: 0 0 5px 5px; }
     h2.app-title { font-size: 40px; }
     section.panel { padding: 16px 18px; border-radius: 12px; }
+    .film-shelf { margin-top: 26px; }
+    .film-grid { grid-template-columns: 1fr; }
+    .film-heading { padding: 0 16px; }
     .learn-tab { top: auto; right: 14px; bottom: 14px; translate: 0; }
     .learn-drawer { top: auto; right: 8px; bottom: 58px; width: calc(100vw - 16px); translate: 0 calc(100% + 80px); }
     .learn-drawer.is-open { translate: 0 0; }
@@ -599,7 +672,7 @@
     body::before {
       background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='180' viewBox='0 0 240 180'><g opacity='0.28' font-family='Georgia,serif'><text x='10' y='34' fill='%23ff8a8a' font-size='34' transform='rotate(-14 10 34)'>♪</text><text x='80' y='28' fill='%23ffb964' font-size='52' transform='rotate(8 80 28)'>♫</text><text x='170' y='44' fill='%23ffd757' font-size='22' transform='rotate(-28 170 44)'>♩</text><text x='215' y='80' fill='%2387dd9c' font-size='40' transform='rotate(18 215 80)'>♬</text><text x='38' y='80' fill='%2379b1ff' font-size='62' transform='rotate(22 38 80)'>♬</text><text x='118' y='98' fill='%23bf95ee' font-size='18' transform='rotate(-42 118 98)'>♭</text><text x='195' y='138' fill='%23ff8a8a' font-size='30' transform='rotate(12 195 138)'>♯</text><text x='12' y='148' fill='%23ffb964' font-size='28' transform='rotate(-6 12 148)'>♮</text><text x='72' y='162' fill='%2387dd9c' font-size='44' transform='rotate(28 72 162)'>♩</text><text x='148' y='172' fill='%2379b1ff' font-size='20' transform='rotate(-18 148 172)'>♪</text><text x='100' y='58' fill='%23bf95ee' font-size='16' transform='rotate(55 100 58)'>♭</text><text x='160' y='110' fill='%23ff8a8a' font-size='24' transform='rotate(-50 160 110)'>♯</text></g></svg>");
     }
-    .hero, section.panel {
+    .hero, section.panel, .film-card {
       background: rgba(28, 28, 30, 0.55);
       border-color: rgba(255, 255, 255, 0.08);
       box-shadow:
@@ -765,9 +838,36 @@
   <section class="panel">
     <p data-i18n="lede" data-i18n-html="true">A tiny piano lives in the right side of your menu bar. Click the keys, type letters, or pipe notes to your DAW over MIDI — Menu Band publishes a virtual MIDI source named <code>Menu Band</code> that any DAW can pick as input. When nothing's listening, a built-in General MIDI synth covers hundreds of patches.</p>
     <div class="button-row">
-      <a id="store-link" class="aqua" href="https://apps.apple.com/us/app/menu-band/id6767311903?mt=12"><span data-i18n="storeCta">🍏 Mac App Store</span><small data-i18n="storeMeta">1.5.3 · $4.99 · macOS 11+</small></a>
+      <a id="store-link" class="aqua" href="https://apps.apple.com/us/app/menu-band/id6767311903?mt=12"><span data-i18n="storeCta">🍏 Mac App Store</span><small data-i18n="storeMeta">$4.99 · macOS 11+</small></a>
     </div>
     <p class="aux"><a href="/advanced" data-i18n="advanced">advanced</a> · <a href="https://tangled.org/@aesthetic.computer/core/tree/main/slab/menuband" data-i18n="viewSource">view source</a></p>
+  </section>
+
+  <section class="film-shelf" aria-labelledby="films-title">
+    <div class="film-heading">
+      <h3 id="films-title" data-i18n="filmsTitle">Menu Band in motion</h3>
+      <p data-i18n="filmsIntro">Two tiny films about making music without leaving the menu bar.</p>
+    </div>
+    <div class="film-grid">
+      <figure class="film-card">
+        <video controls playsinline preload="metadata" poster="/menuband/video/meet-menuband-poster.jpg">
+          <source src="/menuband/video/meet-menuband.mp4" type="video/mp4">
+        </video>
+        <figcaption>
+          <strong data-i18n="filmMeet">Meet Menu Band</strong>
+          <span data-i18n="filmMeetBody">The menu-bar instrument in under a minute.</span>
+        </figcaption>
+      </figure>
+      <figure class="film-card">
+        <video controls playsinline preload="metadata" poster="/menuband/video/sing-the-scale-poster.jpg">
+          <source src="/menuband/video/sing-the-scale.mp4" type="video/mp4">
+        </video>
+        <figcaption>
+          <strong data-i18n="filmScale">Sing the scale</strong>
+          <span data-i18n="filmScaleBody">C D E F G… but weird.</span>
+        </figcaption>
+      </figure>
+    </div>
   </section>
 </article>
 
@@ -1077,9 +1177,15 @@
         description: "Menu Band brings the built-in instruments — the ones GarageBand uses — to your menu bar. Tap, type, or send to your DAW over MIDI.",
         tagline: "Taking your Mac's standard instruments out of the 🎸 Garage and kickin' it on the curb!",
         storeCta: "🍏 Mac App Store",
-        storeMeta: "1.5.3 · $4.99 · macOS 11+",
+        storeMeta: "$4.99 · macOS 11+",
         advanced: "advanced",
         viewSource: "view source",
+        filmsTitle: "Menu Band in motion",
+        filmsIntro: "Two tiny films about making music without leaving the menu bar.",
+        filmMeet: "Meet Menu Band",
+        filmMeetBody: "The menu-bar instrument in under a minute.",
+        filmScale: "Sing the scale",
+        filmScaleBody: "C D E F G… but weird.",
         by: "by",
         lede: 'A tiny piano lives in the right side of your menu bar. Click the keys, type letters, or pipe notes to your DAW over MIDI — Menu Band publishes a virtual MIDI source named <code>Menu Band</code> that any DAW can pick as input. When nothing\'s listening, a built-in General MIDI synth covers hundreds of patches.',
         testimonial: "“i use it on my macbook neo. practice notepat, play ableton without leaving my menu bar.”",
@@ -1107,9 +1213,15 @@
         description: "Menu Band trae los instrumentos integrados — los que usa GarageBand — a tu barra de menús. Toca, escribe o envíalos a tu DAW por MIDI.",
         tagline: "¡Sacando los instrumentos clásicos de tu Mac del 🎸 Garage para tocarlos en la acera!",
         storeCta: "🍏 Mac App Store",
-        storeMeta: "1.5.3 · 4,99 $ · macOS 11+",
+        storeMeta: "4,99 $ · macOS 11+",
         advanced: "avanzado",
         viewSource: "ver código",
+        filmsTitle: "Menu Band en movimiento",
+        filmsIntro: "Dos minipelículas para hacer música sin salir de la barra de menús.",
+        filmMeet: "Conoce Menu Band",
+        filmMeetBody: "El instrumento de la barra de menús en menos de un minuto.",
+        filmScale: "Canta la escala",
+        filmScaleBody: "Do re mi fa sol… pero raro.",
         by: "por",
         lede: 'Un piano diminuto vive a la derecha de tu barra de menús. Toca las teclas, escribe letras o envía notas a tu DAW por MIDI — Menu Band publica una fuente MIDI virtual llamada <code>Menu Band</code> que cualquier DAW puede tomar como entrada. Cuando nadie escucha, un sintetizador General MIDI integrado cubre cientos de timbres.',
         testimonial: "«lo uso en mi macbook neo. practico notepat y toco ableton sin salir de la barra de menús».",

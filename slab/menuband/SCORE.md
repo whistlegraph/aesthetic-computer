@@ -1,6 +1,6 @@
 # Menu Band
 
-**On the Mac App Store since 2026-07-12 (v1.5.3, $4.99):**
+**On the Mac App Store since 2026-07-12 (current release v1.5.5, $4.99):**
 <https://apps.apple.com/us/app/menu-band/id6767311903> — that build is a reduced,
 sandboxed subset of this codebase; `STORE-APP-STORE.md` is the record of what it
 forks out and what review said. The full version stays at prompt.ac/menuband

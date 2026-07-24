@@ -1,6 +1,8 @@
 import AppKit
 import ApplicationServices
+#if !MAC_APP_STORE
 import ACMacAudio
+#endif
 import CoreGraphics
 
 
@@ -29,10 +31,14 @@ extension Float {
 final class MenuBandController {
     private let midi = MenuBandMIDI()
     private let synth = MenuBandSynth()
+#if !MAC_APP_STORE
     /// Optional shared room transmitter. It is fed from the synth's existing
-    /// mixer tap alongside the tape recorder, never from a second tap.
+    /// mixer tap alongside the tape recorder, never from a second tap. Room
+    /// hosting is direct-download only: the App Store target has no listener
+    /// entitlement and deliberately does not link ACMacAudio.
     private var roomAudioSender: ACAudioRoomSender?
     private let roomAudioTapPinReason = "room-audio"
+#endif
     /// Physical CoreMIDI keyboard state, keyed by channel+note. Kept apart
     /// from QWERTY state so USB note-offs cannot release a computer-keyboard
     /// voice that happens to share the same pitch.
@@ -498,6 +504,7 @@ final class MenuBandController {
         }
     }
 
+#if !MAC_APP_STORE
     /// Begin broadcasting MenuBand's post-mixer stereo bus through the shared
     /// Mac room-audio protocol. A future popover control can call this without
     /// changing the synthesis engine or transport implementation.
@@ -515,6 +522,7 @@ final class MenuBandController {
         roomAudioSender = nil
         synth.removeWaveformTapPin(roomAudioTapPinReason)
     }
+#endif
 
     // Held preview note for sonic-browse hover over the instrument map.
     // Continuous tone — switching cells stops the old note + starts a new
@@ -1751,7 +1759,9 @@ final class MenuBandController {
         synth.attachTape(tape)
         synth.onWaveformBuffer = { [weak self] buffer in
             self?.tape.ingestSynth(buffer)
+#if !MAC_APP_STORE
             self?.roomAudioSender?.send(buffer)
+#endif
         }
         synth.onMicInputBuffer = { [weak self] buffer in
             self?.tape.ingestMic(buffer)

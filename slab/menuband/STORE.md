@@ -1,7 +1,7 @@
 # Menu Band — distribution metadata
 
-Prepared 2026-04-28. Notarized + stapled bundle: `~/Applications/Menu Band.app` (1.0, build 1).
-Notary submission ID for this build: `7cd9617a-ef01-4962-b4f5-fd6cff249de8`.
+Prepared 2026-04-28; refreshed for the 1.6.5 release in July 2026. The direct
+build is Developer ID signed, notarized, and distributed as a universal DMG.
 
 ## Core copy
 
@@ -12,9 +12,9 @@ Notary submission ID for this build: `7cd9617a-ef01-4962-b4f5-fd6cff249de8`.
 | Category | Music |
 | Bundle ID | `computer.aestheticcomputer.menuband` |
 | Team ID | `FB5948YR3S` (Jeffrey Scudder) |
-| Version | 1.0 (build 1) |
+| Version | 1.6.5 (build 165) |
 | Minimum macOS | 11.0 |
-| Architectures | arm64 (Apple Silicon) |
+| Architectures | Universal (Apple Silicon + Intel) |
 | Signing | Developer ID Application + hardened runtime + notarized |
 
 ## Long description
@@ -68,20 +68,23 @@ The Mac App Store requires at least one screenshot. For direct download, screens
 
 `./install.sh` then `./notarize.sh` produces a Developer ID-signed, hardened-runtime, notarized, stapled bundle at `~/Applications/Menu Band.app`. Package with `./dmg.sh` and host the DMG behind a download button on notepat.com / aesthetic.computer. Gatekeeper accepts it without warnings.
 
-### (b) Mac App Store — blocked by sandbox
+### (b) Mac App Store — shipping as a sandboxed subset
 
-The current build uses `CGEventTap` (TYPE mode) and Carbon `RegisterEventHotKey` (⌃⌥⌘P), neither of which run under the App Sandbox that the Mac App Store mandates.
+The App Store target compiles out global event taps, direct process launching,
+process-audio capture, room hosting, and other features the sandbox forbids.
+Focused typing, built-in instruments, hardware MIDI, DAW MIDI output, recording,
+and internet radio remain available.
 
-To ship a Mac App Store version:
+The standing release process is:
 
-1. Drop TYPE mode and the global hotkey (Pointer-only).
-2. Add `com.apple.security.app-sandbox = true` to `MenuBand.entitlements`.
-3. Add the App Sandbox's `com.apple.security.network.client` if any net call sneaks in (none today).
-4. Re-archive in Xcode (Mac App Store distribution requires the Xcode archive flow, not raw `swift build`).
-5. Upload via Xcode Organizer or `xcrun altool`.
-6. Submit for review (1–7 days typical).
+1. Keep direct-only code behind `#if !MAC_APP_STORE`.
+2. Generate the Xcode project from `project.yml` and compile the Release target.
+3. Archive with App Store signing and export the installer package.
+4. Run `fastlane mac meta → shots → upload → ship` exactly once per lane.
+5. Verify the signed sandboxed build using `STORE-APP-STORE.md` §5.
 
-This would ship as a strict subset of the direct-download version. Maintaining both means a `#if MAC_APP_STORE` flag around the TYPE mode + hotkey.
+This ships as a strict subset of the direct-download version from the same
+source tree.
 
 ### (c) Both — recommended long-term
 
