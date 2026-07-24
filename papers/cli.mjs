@@ -128,6 +128,11 @@ const PAPER_MAP = {
     siteName: "kidlisp-26-arxiv",
     title: "KidLisp '26",
   },
+  "arxiv-hott-kidlisp": {
+    base: "hott-kidlisp",
+    siteName: "hott-kidlisp-26-arxiv",
+    title: "Equal Enough to Draw",
+  },
   "arxiv-kidlisp-reference": {
     base: "kidlisp-reference",
     siteName: "kidlisp-reference-26-arxiv",
@@ -446,6 +451,7 @@ const CATEGORIES = [
       "arxiv-stack-summer-26",
       "arxiv-ac",
       "arxiv-kidlisp",
+      "arxiv-hott-kidlisp",
       "arxiv-os",
       "arxiv-api",
       "arxiv-pieces",
@@ -949,6 +955,7 @@ function updateIndex(entries) {
     "keymaps-social-software-26-arxiv": 0.5,
     "aesthetic-computer-26-arxiv": 1,
     "kidlisp-26-arxiv": 2,
+    "hott-kidlisp-26-arxiv": 2.5,
     "plorking-the-planet-26-arxiv": 3,
     "ac-native-os-26-arxiv": 4,
     "piece-api-26-arxiv": 5,
@@ -1069,6 +1076,11 @@ function updateIndex(entries) {
       detail: "A Minimal Lisp for Generative Art on a Social Platform &middot; arXiv 6pp",
       abstract:
         "KidLisp is the platform's tiny Lisp for building visual and musical pieces in the browser. The paper shows how a minimal language can stay approachable while still supporting generative art and composition.",
+    },
+    "hott-kidlisp-26-arxiv": {
+      detail: "Paths, Equivalence, and Evidence in a Tiny Creative Language &middot; arXiv 7pp",
+      abstract:
+        "Equal Enough to Draw studies what homotopy type theory can honestly contribute to KidLisp without pretending the live language is a proof assistant. It separates source, AST, render, trace, contextual, and type-level identity; defines bounded observational equivalence over a host, input trace, frame horizon, and tolerance; and proposes content-addressed path certificates beside the permissive paint loop.",
     },
     "plorking-the-planet-26-arxiv": {
       detail: "Laptop Orchestras, PLOrk Heritage, and Aesthetic Computer &middot; arXiv",

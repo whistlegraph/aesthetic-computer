@@ -1,0 +1,10 @@
+Use case: stylized-concept
+Asset type: square academic-paper cover emblem for papers.aesthetic.computer
+Primary request: a single emblem that joins homotopy paths with Lisp syntax — one continuous ribbon bends like a pair of nested parentheses, closes into a soft loop, and passes through two small endpoint beads, suggesting that equality is a path and a program is a shape
+Scene/backdrop: warm bare cream paper; the emblem floats in the central two-thirds and the periphery dissolves to untouched paper
+Style/medium: hand-rendered record-label seal, colored pencil plus matte gouache, slight silkscreen misregistration and human imperfection
+Composition/framing: one singular centered subject, square 1:1, generous bare paper around it, strong readable silhouette
+Color palette: muted Aesthetic Computer pink, dusty purple, charcoal, a tiny touch of cyan; natural paper color
+Materials/textures: visible pencil grain, dry gouache, lightly uneven ink edges
+Constraints: no frame, no border, no background scene, no clusters, no letters, no words, no mathematical notation, no code, no title, no watermark; do not spell Homotopy, KidLisp, Lisp, HoTT, or Aesthetic Computer
+Avoid: glossy 3D, photorealism, neon, gradients, busy geometry, multiple disconnected objects
