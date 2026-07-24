@@ -18,6 +18,117 @@ enum CDJRadioSource: Equatable {
     }
 }
 
+/// Shared platter feel for the status-item CD. A point of pointer travel moves
+/// the needle by a small, fixed amount of tape; velocity controls varispeed.
+/// Keeping this pure makes the gesture curve regression-testable without an
+/// audio device.
+enum MenuBandCDJScratchGesture {
+    static let secondsPerPoint = 0.015
+
+    static func signedRate(forVelocity velocity: Double) -> Float {
+        guard velocity.isFinite, abs(velocity) > 0.01 else { return 0 }
+        let direction: Float = velocity < 0 ? -1 : 1
+        let magnitude = max(0.16, min(4.0, abs(velocity) / 120.0))
+        return direction * Float(magnitude)
+    }
+}
+
+/// A tiny grain player fed from the active deck's rolling PCM ring. Each drag
+/// event moves a virtual needle and replaces the currently sounding grain.
+/// Reading the grain backwards gives a real reverse scratch; varispeed makes
+/// faster hand motion sound and pitch faster like a physical platter.
+final class MenuBandCDJScratchVoice {
+    private let player = AVAudioPlayerNode()
+    private let varispeed = AVAudioUnitVarispeed()
+    private weak var engine: AVAudioEngine?
+    private var attached = false
+    private var tape: AVAudioPCMBuffer?
+    private var needleFrame = 0
+
+    func attach(to engine: AVAudioEngine, output: AVAudioNode,
+                format: AVAudioFormat) {
+        guard !attached else { return }
+        self.engine = engine
+        engine.attach(player)
+        engine.attach(varispeed)
+        engine.connect(player, to: varispeed, format: format)
+        engine.connect(varispeed, to: output, format: format)
+        attached = true
+    }
+
+    @discardableResult
+    func begin(with buffer: AVAudioPCMBuffer?) -> Bool {
+        end()
+        guard attached, let buffer,
+              buffer.frameLength > 256,
+              buffer.floatChannelData != nil else { return false }
+        tape = buffer
+        // Leave a little forward runway while beginning at the audible live
+        // edge. A rightward flick can therefore accelerate before it catches
+        // the newest captured frame.
+        let runway = Int(buffer.format.sampleRate * 0.18)
+        needleFrame = max(0, Int(buffer.frameLength) - 1 - runway)
+        return true
+    }
+
+    func scrub(deltaPoints: Double, velocity: Double) {
+        guard let tape,
+              let source = tape.floatChannelData,
+              abs(deltaPoints) > 0.001 else { return }
+        let sampleRate = tape.format.sampleRate
+        let lastFrame = max(0, Int(tape.frameLength) - 1)
+        let movedFrames = Int(
+            deltaPoints * MenuBandCDJScratchGesture.secondsPerPoint * sampleRate)
+        needleFrame = max(0, min(lastFrame, needleFrame + movedFrames))
+
+        let signedRate = MenuBandCDJScratchGesture.signedRate(
+            forVelocity: velocity)
+        let direction = deltaPoints < 0 ? -1 : 1
+        let rate = max(0.16, min(4.0, abs(signedRate)))
+        // Consume enough source for a roughly 85 ms output grain at the
+        // current hand speed. Frequent drag events replace this grain, so a
+        // held platter naturally stops instead of free-running underneath.
+        let requested = max(256, Int(sampleRate * 0.085 * Double(rate)))
+        let available = direction > 0
+            ? lastFrame - needleFrame + 1
+            : needleFrame + 1
+        let frameCount = min(requested, available)
+        guard frameCount > 128,
+              let grain = AVAudioPCMBuffer(
+                pcmFormat: tape.format,
+                frameCapacity: AVAudioFrameCount(frameCount)),
+              let destination = grain.floatChannelData else { return }
+        grain.frameLength = AVAudioFrameCount(frameCount)
+
+        let channels = Int(tape.format.channelCount)
+        let fadeFrames = min(frameCount / 2, max(1, Int(sampleRate * 0.003)))
+        for channel in 0..<channels {
+            for frame in 0..<frameCount {
+                let sourceFrame = needleFrame + direction * frame
+                var gain: Float = 1
+                if frame < fadeFrames {
+                    gain = Float(frame) / Float(fadeFrames)
+                } else if frame >= frameCount - fadeFrames {
+                    gain = Float(frameCount - 1 - frame) / Float(fadeFrames)
+                }
+                destination[channel][frame] = source[channel][sourceFrame] * gain
+            }
+        }
+
+        varispeed.rate = rate
+        player.stop()
+        player.scheduleBuffer(grain, at: nil, options: .interrupts)
+        player.play()
+    }
+
+    func end() {
+        player.stop()
+        varispeed.rate = 1
+        tape = nil
+        needleFrame = 0
+    }
+}
+
 /// Routes `juked`'s Core Audio process into Menu Band's AVAudioEngine. The
 /// process tap mutes juked's original output, then this player re-emits it on
 /// Menu Band's pre-FX bus so space, echo, proximity, compression, tape, and
@@ -104,6 +215,15 @@ final class MenuBandCDJSpotifyDeck {
 
     func setOutputEnabled(_ enabled: Bool) {
         mixer.outputVolume = enabled ? 1 : 0
+    }
+
+    /// Return from a platter scratch at the live edge. Stopping the player
+    /// drops any buffers accumulated while the live deck was gated; the next
+    /// process-tap buffer starts immediately at unity rate.
+    func resumeLiveOutput() {
+        player.stop()
+        timePitch.rate = 1
+        mixer.outputVolume = 1
     }
 
     /// Snapshot the newest deck audio for the explicit CDJ → Piano Sampler
@@ -240,7 +360,14 @@ final class MenuBandCDJStatusItem {
     private var artworkTask: URLSessionDataTask?
     private var representedArtworkURL: URL?
     private let side: CGFloat = 22
+    private var mouseDownPoint: NSPoint?
+    private var lastDragPoint: NSPoint?
+    private var lastDragTimestamp: TimeInterval = 0
+    private var scratching = false
     var onClick: (() -> Void)?
+    var onScratchBegin: (() -> Bool)?
+    var onScratch: ((_ deltaPoints: Double, _ velocity: Double) -> Void)?
+    var onScratchEnd: (() -> Void)?
 
     init() {
         statusItem = NSStatusBar.system.statusItem(withLength: 25)
@@ -252,20 +379,25 @@ final class MenuBandCDJStatusItem {
             button.imagePosition = .imageOnly
             button.imageScaling = .scaleProportionallyDown
             button.target = self
-            button.action = #selector(clicked)
-            button.toolTip = "Menu Band CDJ Radio"
+            button.action = #selector(handlePlatterEvent)
+            button.sendAction(on: [.leftMouseDown, .leftMouseDragged, .leftMouseUp])
+            button.toolTip = "Menu Band CDJ Radio · drag the disc to scratch"
         }
         setVisible(false)
     }
 
     func setVisible(_ visible: Bool) {
         statusItem.isVisible = visible
-        if !visible { setPlaying(false) }
+        if !visible {
+            finishScratch()
+            setPlaying(false)
+        }
     }
 
     func update(title: String, artworkURL: URL?, playing: Bool) {
         statusItem.button?.toolTip = title.isEmpty
-            ? "Menu Band CDJ Radio" : "CDJ Radio · \(title)"
+            ? "Menu Band CDJ Radio · drag the disc to scratch"
+            : "CDJ Radio · \(title) · drag to scratch"
         updateArtwork(artworkURL)
         setPlaying(playing)
     }
@@ -279,6 +411,7 @@ final class MenuBandCDJStatusItem {
             RunLoop.main.add(timer, forMode: .common)
             self.timer = timer
         } else {
+            finishScratch()
             timer?.invalidate()
             timer = nil
             angle = 0
@@ -307,9 +440,54 @@ final class MenuBandCDJStatusItem {
         artworkTask?.resume()
     }
 
-    @objc private func clicked() { onClick?() }
+    @objc private func handlePlatterEvent() {
+        guard let event = NSApp.currentEvent,
+              let button = statusItem.button else { return }
+        let point = button.convert(event.locationInWindow, from: nil)
+        switch event.type {
+        case .leftMouseDown:
+            mouseDownPoint = point
+            lastDragPoint = point
+            lastDragTimestamp = event.timestamp
+            scratching = false
+        case .leftMouseDragged:
+            guard let down = mouseDownPoint, let previous = lastDragPoint else { return }
+            let totalDistance = hypot(point.x - down.x, point.y - down.y)
+            if !scratching, totalDistance >= 1.5 {
+                guard onScratchBegin?() == true else { return }
+                scratching = true
+            }
+            guard scratching else { return }
+            // Horizontal travel dominates, with a little vertical coupling so
+            // a circular finger motion around the tiny disc still feels live.
+            let delta = Double((point.x - previous.x) - (point.y - previous.y) * 0.35)
+            let elapsed = max(1.0 / 240.0, event.timestamp - lastDragTimestamp)
+            let velocity = delta / elapsed
+            angle -= CGFloat(delta * 7.5)
+            angle.formTruncatingRemainder(dividingBy: 360)
+            button.image = rotated(baseImage, by: angle)
+            onScratch?(delta, velocity)
+            lastDragPoint = point
+            lastDragTimestamp = event.timestamp
+        case .leftMouseUp:
+            let wasScratching = scratching
+            finishScratch()
+            if !wasScratching { onClick?() }
+        default:
+            break
+        }
+    }
+
+    private func finishScratch() {
+        if scratching { onScratchEnd?() }
+        scratching = false
+        mouseDownPoint = nil
+        lastDragPoint = nil
+        lastDragTimestamp = 0
+    }
 
     private func tick() {
+        guard !scratching else { return }
         angle -= 1.5
         if angle <= -360 { angle += 360 }
         statusItem.button?.image = rotated(baseImage, by: angle)
@@ -332,6 +510,7 @@ final class MenuBandCDJStatusItem {
     }
 
     deinit {
+        finishScratch()
         timer?.invalidate()
         artworkTask?.cancel()
         NSStatusBar.system.removeStatusItem(statusItem)

@@ -40,6 +40,9 @@ final class MenuBandSynth {
     /// Headless Spotify audio re-emitted inside Menu Band's pre-FX graph for
     /// the standalone Spotify side of CDJ Radio.
     private let spotifyDeck = MenuBandCDJSpotifyDeck()
+    /// Gesture-driven grain voice for the little spinning status-item disc.
+    /// Fed only from the active deck's ring while the pointer is held.
+    private let cdjScratch = MenuBandCDJScratchVoice()
     /// Microphone-sampled "voice": user holds backtick to record a clip,
     /// then plays it back as a duration-preserving pitch-shifted piano
     /// voice (TimePitch). Same
@@ -402,6 +405,14 @@ final class MenuBandSynth {
         // listening source is selected.
         radio.attach(to: engine, output: preLimiterMixer)
         spotifyDeck.attach(to: engine, output: preLimiterMixer)
+        cdjScratch.attach(
+            to: engine,
+            output: preLimiterMixer,
+            format: AVAudioFormat(
+                commonFormat: .pcmFormatFloat32,
+                sampleRate: 44_100,
+                channels: 2,
+                interleaved: false)!)
         // Sample voice: same pre-limiter sum bus. Master gate stays
         // closed until the user records a clip and `setSampleBackend`
         // opens it. Voice nodes attach lazily on first noteOn.
@@ -1710,6 +1721,43 @@ final class MenuBandSynth {
 
     func stopCDJSpotify() { spotifyDeck.stop() }
     func silenceCDJSpotify() { spotifyDeck.setOutputEnabled(false) }
+
+    /// Lift the live deck off the bus and put the gesture grain voice on its
+    /// rolling audio. Returns false until enough current-CD audio exists.
+    @discardableResult
+    func beginCDJScratch(source: CDJRadioSource) -> Bool {
+        let audio: AVAudioPCMBuffer?
+        switch source {
+        case .station:
+            audio = radio.copyRecentAudio(seconds: 8)
+        case .spotify:
+            audio = spotifyDeck.copyRecentAudio(seconds: 8)
+        }
+        guard cdjScratch.begin(with: audio) else { return false }
+        switch source {
+        case .station:
+            radio.setOutputEnabled(false)
+        case .spotify:
+            spotifyDeck.setOutputEnabled(false)
+        }
+        return true
+    }
+
+    func scratchCDJ(deltaPoints: Double, velocity: Double) {
+        cdjScratch.scrub(deltaPoints: deltaPoints, velocity: velocity)
+    }
+
+    /// Drop the scratch grain, restore the live edge, and explicitly return
+    /// every rate control to unity. This is the platter's mouse-up snap.
+    func endCDJScratch(source: CDJRadioSource) {
+        cdjScratch.end()
+        switch source {
+        case .station:
+            radio.setOutputEnabled(true)
+        case .spotify:
+            spotifyDeck.resumeLiveOutput()
+        }
+    }
 
     /// Copy a short rolling slice into the global Piano Sampler. The caller
     /// switches the piano backend only after a successful import.

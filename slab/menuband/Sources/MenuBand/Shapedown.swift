@@ -486,6 +486,7 @@ final class ShapedownDisplayBufferView: NSView {
     private let displayLayer = AVSampleBufferDisplayLayer()
     private var nudging = false
     private var hasFrame = false
+    private var pixelScale: CGFloat = 1
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -508,6 +509,11 @@ final class ShapedownDisplayBufferView: NSView {
         CATransaction.setDisableActions(true)
         displayLayer.frame = bounds
         CATransaction.commit()
+    }
+
+    func configure(pixelScale: CGFloat) {
+        self.pixelScale = max(1, pixelScale)
+        displayLayer.contentsScale = self.pixelScale
     }
 
     /// Frames arrive on the main callback queue and go straight from the
@@ -541,9 +547,14 @@ final class ShapedownDisplayBufferView: NSView {
 
     func translate(x: CGFloat, y: CGFloat) {
         guard nudging, hasFrame else { return }
+        // Fractional backing-pixel transforms make the entire captured display
+        // soft. Land the surface on exact pixels so menu text and glyph edges
+        // stay as sharp while moving as they are in the live framebuffer.
+        let crispX = (x * pixelScale).rounded() / pixelScale
+        let crispY = (y * pixelScale).rounded() / pixelScale
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        displayLayer.setAffineTransform(CGAffineTransform(translationX: x, y: y))
+        displayLayer.setAffineTransform(CGAffineTransform(translationX: crispX, y: crispY))
         CATransaction.commit()
     }
 
@@ -598,12 +609,19 @@ final class ShapedownDisplayStream: NSObject, SCStreamOutput, SCStreamDelegate {
                 }
 
                 let config = SCStreamConfiguration()
-                config.width = display.width
-                config.height = display.height
+                // SCDisplay dimensions are POINTS; SCStreamConfiguration takes
+                // PIXELS. Passing the point size here produced a half-resolution
+                // stream on Retina displays and then enlarged it over the screen.
+                let pixelScale = screen.backingScaleFactor
+                config.width = Int(CGFloat(display.width) * pixelScale)
+                config.height = Int(CGFloat(display.height) * pixelScale)
                 config.pixelFormat = kCVPixelFormatType_32BGRA
                 config.minimumFrameInterval = CMTime(value: 1, timescale: 60)
                 config.queueDepth = 3
                 config.showsCursor = false
+                await MainActor.run { [weak self] in
+                    self?.surface?.configure(pixelScale: pixelScale)
+                }
 
                 let stream = SCStream(filter: filter, configuration: config, delegate: self)
                 try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: .main)

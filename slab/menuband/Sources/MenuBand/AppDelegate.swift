@@ -750,6 +750,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBand.bootstrap()
         let cdjStatusItem = MenuBandCDJStatusItem()
         cdjStatusItem.onClick = { [weak self] in self?.showPopover() }
+        cdjStatusItem.onScratchBegin = { [weak self] in
+            self?.menuBand.beginCDJScratch() ?? false
+        }
+        cdjStatusItem.onScratch = { [weak self] delta, velocity in
+            self?.menuBand.scratchCDJ(deltaPoints: delta, velocity: velocity)
+        }
+        cdjStatusItem.onScratchEnd = { [weak self] in
+            self?.menuBand.endCDJScratch()
+        }
         self.cdjStatusItem = cdjStatusItem
         updateCDJStatusItem()
         // Subscribe to mic RMS during sample-voice recording. The

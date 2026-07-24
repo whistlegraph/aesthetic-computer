@@ -40,4 +40,14 @@ final class CDJRadioTests: XCTestCase {
         XCTAssertFalse(sampler.loadRecording(from: buffer))
         XCTAssertFalse(sampler.hasRecording)
     }
+
+    func testScratchGestureTracksHandDirectionAndClampsRate() {
+        XCTAssertEqual(MenuBandCDJScratchGesture.signedRate(forVelocity: 0), 0)
+        XCTAssertEqual(MenuBandCDJScratchGesture.signedRate(forVelocity: 12), 0.16)
+        XCTAssertEqual(MenuBandCDJScratchGesture.signedRate(forVelocity: -12), -0.16)
+        XCTAssertEqual(MenuBandCDJScratchGesture.signedRate(forVelocity: 120), 1)
+        XCTAssertEqual(MenuBandCDJScratchGesture.signedRate(forVelocity: -120), -1)
+        XCTAssertEqual(MenuBandCDJScratchGesture.signedRate(forVelocity: 2_000), 4)
+        XCTAssertEqual(MenuBandCDJScratchGesture.signedRate(forVelocity: -2_000), -4)
+    }
 }

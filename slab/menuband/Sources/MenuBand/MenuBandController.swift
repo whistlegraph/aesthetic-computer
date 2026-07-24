@@ -186,6 +186,7 @@ final class MenuBandController {
     private var spotifyCallbacksInstalled = false
     private(set) var cdjRadioPresented = false
     private(set) var cdjRadioSource: CDJRadioSource = .station(.kpbj)
+    private var cdjScratchSource: CDJRadioSource?
     private(set) var spotifyPlayback: MenuBandSpotifyPlayback?
     private(set) var spotifyStatus = "CDJ Radio"
     private(set) var spotifyStatusIsError = false
@@ -1275,6 +1276,7 @@ final class MenuBandController {
     /// Tune the standalone CDJ deck. The currently-selected piano instrument
     /// continues to receive every key and can be played over the station.
     func selectRadioStation(_ station: RadioStation) {
+        endCDJScratch()
         if cdjRadioSource == .spotify {
             synth.silenceCDJSpotify()
             spotify.pause { [weak self] in
@@ -1302,6 +1304,7 @@ final class MenuBandController {
     /// before any immediately-following search/play command, so this is safe
     /// to call from a single click on the source strip.
     func activateSpotifyPlayer() {
+        endCDJScratch()
         installSpotifyCallbacksIfNeeded()
         synth.stopCDJInternetRadio()
         cdjRadioSource = .spotify
@@ -1319,6 +1322,7 @@ final class MenuBandController {
     }
 
     func deactivateCDJRadio() {
+        endCDJScratch()
         if cdjRadioSource == .spotify {
             synth.silenceCDJSpotify()
             spotify.pause { [weak self] in
@@ -1346,6 +1350,25 @@ final class MenuBandController {
 
     func seekSpotify(to seconds: Double, from currentPosition: Double) {
         spotify.seek(to: seconds, from: currentPosition)
+    }
+
+    @discardableResult
+    func beginCDJScratch() -> Bool {
+        guard cdjRadioPresented, cdjScratchSource == nil,
+              synth.beginCDJScratch(source: cdjRadioSource) else { return false }
+        cdjScratchSource = cdjRadioSource
+        return true
+    }
+
+    func scratchCDJ(deltaPoints: Double, velocity: Double) {
+        guard cdjScratchSource != nil else { return }
+        synth.scratchCDJ(deltaPoints: deltaPoints, velocity: velocity)
+    }
+
+    func endCDJScratch() {
+        guard let source = cdjScratchSource else { return }
+        cdjScratchSource = nil
+        synth.endCDJScratch(source: source)
     }
 
     func searchSpotify(
