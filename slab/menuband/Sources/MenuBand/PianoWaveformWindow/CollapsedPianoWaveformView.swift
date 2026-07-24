@@ -203,6 +203,13 @@ final class CollapsedPianoWaveformView: NSView {
             self?.menuBand?.selectRadioStation(station)
             self?.refresh()
         }
+#if !MAC_APP_STORE
+        instrumentList.spotifyEnabled = true
+        instrumentList.onSpotifyCommit = { [weak self] in
+            self?.menuBand?.activateSpotifyPlayer()
+            self?.refresh()
+        }
+#endif
 
         qwertyMap.translatesAutoresizingMaskIntoConstraints = false
         qwertyMap.scale = 1.0
@@ -530,6 +537,7 @@ final class CollapsedPianoWaveformView: NSView {
         instrumentList.radioBackendActive = (menuBand.instrumentBackend == .kpbj)
         instrumentList.sampleBackendActive = (menuBand.instrumentBackend == .sample)
         instrumentList.selectedRadioStationID = menuBand.radioStation.id
+        instrumentList.spotifyActive = menuBand.spotifyPlayerPresented
         // The 🦜 MIC cell is retired from the sampling row in ALL builds — the
         // instrument grid stays SAMPLE + MIDI OUT only. Squawk itself lives on
         // for direct-download via its own window + the ⌘⌃⌥` hotkey; it just no

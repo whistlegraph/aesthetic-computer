@@ -730,6 +730,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.updatePianoWaveformWindow()
             }
         }
+#if !MAC_APP_STORE
+        menuBand.onSpotifyChange = { [weak self] in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.popoverVC?.refreshSpotifyPlayer()
+                self.updatePianoWaveformWindow()
+            }
+        }
+#endif
         menuBand.onMIDIEvent = {
             // Spike the square indicator to full on every
             // outbound noteOn; the visualizer animation tick

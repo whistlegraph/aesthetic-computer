@@ -303,6 +303,11 @@ final class MenuBandPopoverViewController: NSViewController {
     /// out of the now-retired floating piano window and hosted directly in
     /// this popover so the whole instrument lives in a single column.
     private var instrumentCluster: CollapsedPianoWaveformView?
+#if !MAC_APP_STORE
+    /// `juked`-backed now-playing card. Hidden/collapsed until the Spotify
+    /// cell in the instrument cluster's listening-source strip is chosen.
+    private var spotifyPlayerView: MenuBandSpotifyPlayerView?
+#endif
     /// Transport controls that appear next to the metronome when a
     /// Menu Band PDF score has been loaded into the staff. Play
     /// restarts from the head; Stop cancels in-flight playback.
@@ -551,6 +556,21 @@ final class MenuBandPopoverViewController: NSViewController {
             instrumentCluster = cluster
             stack.addArrangedSubview(cluster)
             stack.setCustomSpacing(8, after: cluster)
+
+#if !MAC_APP_STORE
+            let spotifyPlayer = MenuBandSpotifyPlayerView(menuBand: mb)
+            spotifyPlayer.translatesAutoresizingMaskIntoConstraints = false
+            spotifyPlayer.isHidden = !mb.spotifyPlayerPresented
+            spotifyPlayer.widthAnchor.constraint(
+                equalToConstant: MenuBandSpotifyPlayerView.preferredSize.width
+            ).isActive = true
+            spotifyPlayer.heightAnchor.constraint(
+                equalToConstant: MenuBandSpotifyPlayerView.preferredSize.height
+            ).isActive = true
+            spotifyPlayerView = spotifyPlayer
+            stack.addArrangedSubview(spotifyPlayer)
+            stack.setCustomSpacing(6, after: spotifyPlayer)
+#endif
         }
 
         // Input mode picker. Three states:
@@ -1404,6 +1424,9 @@ final class MenuBandPopoverViewController: NSViewController {
         applyPopoverRootChrome()
         applyAppearanceToVisualizer()
         updateInstrumentReadout()
+#if !MAC_APP_STORE
+        refreshSpotifyPlayer(resize: false)
+#endif
         // Keep the QWERTY layout's keymap + tint synced with the
         // controller. Voice color picks up the family hue for the
         // current voice; keymap variant follows the controller.
@@ -1449,9 +1472,17 @@ final class MenuBandPopoverViewController: NSViewController {
         // engine solved at install time. The CLUSTER's fitting stays
         // correct (self-contained constraint chain), so the target is
         // cluster + the non-cluster chrome measured at loadView.
+        var extra = chromeExtraHeight
+#if !MAC_APP_STORE
+        if spotifyPlayerView?.isHidden == false {
+            // Baseline chrome already includes the cluster→footer spacing.
+            // Revealing the card adds its height plus its own footer gap.
+            extra += MenuBandSpotifyPlayerView.preferredSize.height + 6
+        }
+#endif
         let target = NSSize(
             width: preferredContentSize.width,
-            height: chromeExtraHeight + cluster.fittingSize.height)
+            height: extra + cluster.fittingSize.height)
         NSLog("MenuBand popover refit: cluster=%.0f extra=%.0f → %.0f×%.0f",
               cluster.fittingSize.height, chromeExtraHeight,
               target.width, target.height)
@@ -1769,6 +1800,23 @@ final class MenuBandPopoverViewController: NSViewController {
         qwertyMap?.voiceColor = currentVoiceColor()
         instrumentCluster?.refresh()
     }
+
+#if !MAC_APP_STORE
+    /// Update the compact now-playing card without running the popover's full
+    /// state sync every second. Only a visibility edge changes panel geometry;
+    /// ordinary position/title ticks repaint in place.
+    func refreshSpotifyPlayer(resize: Bool = true) {
+        guard isViewLoaded, let player = spotifyPlayerView, let menuBand else {
+            return
+        }
+        let shouldHide = !menuBand.spotifyPlayerPresented
+        let visibilityChanged = player.isHidden != shouldHide
+        player.isHidden = shouldHide
+        player.refresh()
+        instrumentCluster?.refresh()
+        if resize && visibilityChanged { refitAndResizePanel() }
+    }
+#endif
 
     private func currentVoiceColor() -> NSColor {
         guard let m = menuBand else { return .controlAccentColor }
