@@ -137,7 +137,6 @@ const audioOnlyPath = existsSync(join(D, "audio-only.json"))
   ? join(D, "audio-only.json")
   : "/tmp/wg-audio-only.json";
 const audioOnly = new Set(existsSync(audioOnlyPath) ? rd(audioOnlyPath) : []);
-const hasGlyph = (id) => existsSync(join(D, "glyphs", `${id}.jpg`));
 
 const IDX = "https://assets.aesthetic.computer/whistlegraph/index";
 
@@ -197,7 +196,10 @@ const makePost = (id) => {
     duration: cat.duration ?? null,
     desc: cat.desc || "",
     src: `${IDX}/posts/${id}.mp4`,
-    thumb: audioOnly.has(id) || !hasGlyph(id) ? null : `${IDX}/posts/${id}.jpg`,
+    // Poster availability is a property of the published archive, not of the
+    // checkout that happens to regenerate this file. Every video post has a
+    // CDN poster; only confirmed audio-only posts omit one.
+    thumb: audioOnly.has(id) ? null : `${IDX}/posts/${id}.jpg`,
     graphs: [],
   };
 };
