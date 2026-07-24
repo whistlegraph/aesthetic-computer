@@ -38,6 +38,14 @@ set -l MANIFEST $REPO_ROOT/system/public/menuband/manifest.json
 set -l LATEST   $REPO_ROOT/system/public/assets/menuband/latest.json
 set -l ASSETS_DIR $REPO_ROOT/system/public/assets/menuband
 
+# A clean worktree intentionally omits the gitignored asset mirror. Create the
+# release leaf before writing latest.json or copying the DMG into it.
+mkdir -p $ASSETS_DIR
+or begin
+    echo "could not create asset directory: $ASSETS_DIR" >&2
+    exit 1
+end
+
 set -l CYAN (set_color cyan)
 set -l GREEN (set_color green)
 set -l RED (set_color red)
@@ -176,6 +184,10 @@ if (newNotes) latest.notes = newNotes;
 fs.writeFileSync(latestPath, JSON.stringify(latest, null, 2) + "\n");
 console.log("✓ CDN latest.json updated: version=" + latest.version);
 '
+or begin
+    err "failed to update release manifests"
+    exit 1
+end
 
 ok "manifests written"
 ok "  web:   $MANIFEST"
@@ -188,6 +200,10 @@ ok "  CDN:   $LATEST"
 set -l ASSET_TARGET $ASSETS_DIR/(basename $DMG)
 if not test "$DMG" = "$ASSET_TARGET"
     cp $DMG $ASSET_TARGET
+    or begin
+        err "failed to copy DMG to asset mirror: $ASSET_TARGET"
+        exit 1
+    end
     ok "DMG copied to $ASSET_TARGET"
 end
 
