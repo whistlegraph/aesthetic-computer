@@ -226,6 +226,12 @@
             header Access-Control-Allow-Origin "*"
             file_server
         }
+        # Stable /post/<id> links get the same record-specific unfurl treatment.
+        @wgpost path_regexp wgpost ^/post/([0-9]+)$
+        handle @wgpost {
+            rewrite * /api/whistlegraph-og?id={re.wgpost.1}
+            import lith_proxy
+        }
         # Bare /<code> deep links (e.g. /imab, /clth) go to lith, which returns
         # index.html with THAT work's og:title / og:image / og:video injected —
         # so iMessage, Slack, Twitter, etc. unfurl the specific whistlegraph
