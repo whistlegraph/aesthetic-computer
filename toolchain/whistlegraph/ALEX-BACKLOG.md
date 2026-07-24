@@ -62,3 +62,12 @@ Status: `received` → `verified` → `applied` → `live`
 | applied | Explicit human curation (titles, authors, recodes, and merge targets) remains confirmed across taxonomy rebuilds; restores “All These Fingers” `[fing]` and the other July curation entries demoted on July 17. |
 | applied | Hide work codes whose last contributing post was removed by a Desk relationship edit. |
 | received | Add richer hidden tags / visual descriptions so archive search can find concepts such as “finger painting,” colors, and number of people. |
+
+## Received July 24, 2026
+
+| Status | Request |
+|---|---|
+| live | Split Artsy Math into six individually titled whistlegraphs (`[am1]`–`[am6]`) and link each exact source post. |
+| live | Add Rose Cave `[rscv]`, Partials `[part]`, Corn `[corn]`, and Building A Face From Parts `[face]` as individual whistlegraphs with their source posts. |
+| live | Recover the 291 archive posts whose video URLs returned 403: 272 videos now have restored MP4s and posters; 19 audio-only originals have restored playable MP4 containers and are recorded in `audio-only.json`. |
+| verified | Reconcile Alex's marked “Most Whistlegraphs Dec. 2020” chart. Marked numbers are 5, 21, 23, 25, 27, 29, 36, 42, 44, 45, 47, 49, 50, 55, 56, 62, 63, 88, 92, 104, 105, 106, 108, 110, 112, and 113; Alex also called out 109. The named entries above are applied; do not invent titles or codes for the remaining chart-only marks without a confident source-post match. |
