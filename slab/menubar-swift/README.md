@@ -110,8 +110,12 @@ prox session. New inbound messages poke and optionally wake only that contact's
 rock. Heartbeats and messages are written to a private, per-session inbox and
 consumed by `prox_loopboy_wait`; they never type into Terminal, use the
 clipboard, or move focus. Loopboy never replies on its own. Armed Loopboy rocks spin faster, wear a
-pink glow, and identify themselves in their hover bubble. The Slab menu lists
-all active client loops and their prox targets.
+pink glow, show their verified contact beside the current phase, and identify
+themselves in their hover bubble. A saved route becomes active only when it
+matches the contact identity placed in the live session marker by the guarded
+launcher; editing `loopboy.json` cannot retrofit an ordinary prompt. The Slab
+menu counts verified client loops and labels stale or mismatched saved routes
+as inactive.
 
 ## ZZZ — resumable prompt parking
 

@@ -45,6 +45,9 @@ struct LedgerEntry: Codable, Equatable {
     /// platform-target-awareness-identifier-badge. Optional preserves rolling
     /// compatibility with fleet ledgers published before target awareness.
     var platformTarget: String?
+    /// Guarded launch identity. Optional keeps older fleet ledgers readable;
+    /// unlike the route registry, this originates in the live marker.
+    var loopboyContact: String?
 }
 
 struct Ledger: Codable {
@@ -363,7 +366,8 @@ final class LedgerStore {
                 started: s.started.timeIntervalSince1970 * 1000,
                 memoir: ProxMemoirs.shared.text(for: s.sessionId),
                 agentType: s.agentType,
-                platformTarget: s.platformTarget.isEmpty ? nil : s.platformTarget)
+                platformTarget: s.platformTarget.isEmpty ? nil : s.platformTarget,
+                loopboyContact: s.loopboyContact.isEmpty ? nil : s.loopboyContact)
         }
         entries.append(contentsOf: advertisedAgents())
 
@@ -409,7 +413,8 @@ final class LedgerStore {
                 started: (obj["started"] as? Double),
                 memoir: (obj["memoir"] as? String),
                 agentType: (obj["agent_type"] as? String),
-                platformTarget: (obj["platform_target"] as? String)))
+                platformTarget: (obj["platform_target"] as? String),
+                loopboyContact: (obj["loopboy_contact"] as? String)))
         }
         return out
     }

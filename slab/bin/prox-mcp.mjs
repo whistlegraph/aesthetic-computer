@@ -63,15 +63,6 @@ async function readJson(path) {
   }
 }
 
-async function loopboyContactsBySession() {
-  const cfg = await readJson(LOOPBOY_CONFIG);
-  const contacts = new Map();
-  for (const [contact, loop] of Object.entries(cfg?.loops || {})) {
-    if (loop?.sessionId) contacts.set(String(loop.sessionId), contact);
-  }
-  return contacts;
-}
-
 // Every ledger this machine knows about: its own local one first, then each
 // cached peer. Returns [{host, ip, updatedAt, entries, self}].
 async function allLedgers() {
@@ -93,7 +84,6 @@ async function allLedgers() {
 // where to go. Sorted newest-activity-first within each host.
 async function allRocks(ledgers = null) {
   const rows = [];
-  const loopboyContacts = await loopboyContactsBySession();
   for (const led of ledgers || await allLedgers()) {
     for (const e of led.entries || []) {
       rows.push({
@@ -102,7 +92,10 @@ async function allRocks(ledgers = null) {
         ip: led.ip,
         self: led.self,
         ledgerUpdatedAt: led.updatedAt,
-        loopboyContact: e.loopboyContact || (led.self ? loopboyContacts.get(e.id) || "" : ""),
+        // Trust only the immutable launch identity advertised by the live
+        // marker. The mutable route registry cannot turn an ordinary process
+        // into a guarded Loopboy after startup.
+        loopboyContact: e.loopboyContact || "",
       });
     }
   }
@@ -549,6 +542,17 @@ async function toolBindNotification({ handle, contact, event = "imessage" }) {
   if (!contactKey) throw new Error("`contact` is required (the key from ~/.config/slab/imsg.json)");
   const r = actionResolution(await allRocks(), handle, "bind");
   if (!r.self) throw new Error("iMessage notification wake targets must be a local prox on this machine");
+  if (!r.loopboyContact) {
+    throw new Error(
+      `${canonicalHandle(r)} was not launched as a guarded Loopboy; ` +
+      `start a dedicated session with prox_launch and loopboyContact=${contactKey}`,
+    );
+  }
+  if (String(r.loopboyContact).toLowerCase() !== contactKey) {
+    throw new Error(
+      `${canonicalHandle(r)} was launched for ${r.loopboyContact}, not ${contactKey}`,
+    );
+  }
   const loop = {
     event: "imessage",
     contact: contactKey,
@@ -747,7 +751,7 @@ const TOOLS = [
   {
     name: "prox_bind_notification",
     description:
-      "Create or replace one contact-keyed Loopboy route from iMessage to a stable local prox. Events are delivered only through that session's isolated inbox and prox_loopboy_wait; this never types into Terminal or other user-space UI.",
+      "Register or repair the route for a local prox that was already launched with the same guarded Loopboy contact identity. Refuses ordinary sessions because route JSON cannot retrofit the listener identity or reduced tool surface; use prox_launch with loopboyContact to create a new Loopboy.",
     inputSchema: {
       type: "object",
       properties: {

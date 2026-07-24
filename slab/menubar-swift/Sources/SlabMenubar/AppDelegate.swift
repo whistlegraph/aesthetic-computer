@@ -863,12 +863,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// never type into Terminal, touch the clipboard, or use foreground UI.
     private func bumpBoundProx(contact: String, displayLabel: String, message: String,
                                fromMe: Bool = false, heartbeat: Bool = false) {
-        guard let data = FileManager.default.contents(atPath: Paths.loopboyConfig),
-              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let loops = obj["loops"] as? [String: Any],
-              let loop = loops[contact] as? [String: Any],
-              let sid = loop["sessionId"] as? String, !sid.isEmpty else { return }
-        let routeHost = ((loop["host"] as? String) ?? "")
+        guard let route = LoopboyRoutes.all()[contact],
+              let boundSession = state.claudeSessions.first(where: {
+                  $0.sessionId == route.sessionId
+                      && LoopboyRoutes.verifiedContact(for: $0) == contact
+              }) else {
+            NSLog("💬 [loopboy] %@ route has no matching guarded live session; refusing delivery",
+                  contact)
+            return
+        }
+        let sid = route.sessionId
+        let routeHost = route.host
             .lowercased().replacingOccurrences(of: ".local", with: "")
         let localHost = ProcessInfo.processInfo.hostName.lowercased()
             .replacingOccurrences(of: ".local", with: "")
@@ -877,14 +882,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                   contact, routeHost, localHost)
             return
         }
-        let autoRespond = (loop["autoRespond"] as? Bool) ?? false
+        let data = FileManager.default.contents(atPath: Paths.loopboyConfig)
+        let obj = data.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+        let loops = obj?["loops"] as? [String: Any]
+        let loop = loops?[contact] as? [String: Any]
+        let autoRespond = (loop?["autoRespond"] as? Bool) ?? false
         LedgerStore.shared.pokeLocal(sessionId: sid, by: "loopboy:\(contact)")
 
         let clean = message.replacingOccurrences(of: "\n", with: " ")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let excerpt = String(clean.prefix(240))
         let direction = fromMe ? "outgoing to" : "incoming from"
-        let boundSession = state.claudeSessions.first(where: { $0.sessionId == sid })
         let responsePolicy = autoRespond
             ? " This route explicitly authorizes automatic responses: after completing and validating any work, reread the newest thread context, discard stale drafts, compose concise Markdown with paragraphs, bullets, links, and restrained emphasis, then send one appropriate reply using `node slab/bin/imsg.mjs send --rich <reply> --to \(contact)`. Verify it appears outbound. Never duplicate a response."
             : " Do not send or react automatically."
@@ -895,8 +903,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // the prompt hook's inferred title so each heartbeat names this
             // prox's actual mission instead of asking a context-free "what's
             // next?" every minute.
-            let topic = boundSession?.titleString
-                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let topic = boundSession.titleString
+                .trimmingCharacters(in: .whitespacesAndNewlines)
             let continuation = topic.isEmpty || topic == "(no subject)"
                 ? "Re-read the latest thread with \(displayLabel), infer the next concrete action, and do it."
                 : "Continue \(topic) for \(displayLabel): infer the next concrete action from the latest thread, then do it."
@@ -1041,16 +1049,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// visually different from an ordinary manually-launched prox even while
     /// both agents share the same working/awaiting state.
     private func loopboySessionLabels() -> [String: String] {
-        guard let data = FileManager.default.contents(atPath: Paths.loopboyConfig),
-              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let loops = obj["loops"] as? [String: Any] else { return [:] }
-        var labels: [String: String] = [:]
-        for (contact, value) in loops {
-            guard let loop = value as? [String: Any],
-                  let sid = loop["sessionId"] as? String, !sid.isEmpty else { continue }
-            labels[sid] = contact
-        }
-        return labels
+        LoopboyRoutes.verifiedBySession(state.claudeSessions)
     }
 
     private func loopboyAutoRespondContacts() -> Set<String> {

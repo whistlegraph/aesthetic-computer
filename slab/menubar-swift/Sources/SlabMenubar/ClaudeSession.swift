@@ -92,6 +92,9 @@ struct ClaudeSession {
     /// Native provider thread id. Claude uses `sessionId`; Codex's tracked
     /// wrapper has its own rock id, so the watcher records the rollout id here.
     var providerSessionId: String = ""
+    /// Immutable contact identity supplied by the guarded launcher. A saved
+    /// route is trusted only when it agrees with this marker field.
+    var loopboyContact: String = ""
     var loopboyState: String = ""
     var loopboyResponse: String = ""
     var nudgeScreen: String = ""
@@ -334,6 +337,7 @@ enum ClaudeSessionReader {
         session.providerSessionId = (obj["provider_session_id"] as? String)
             ?? (obj["codex_session_id"] as? String)
             ?? (session.agentType == "claude" ? session.sessionId : "")
+        session.loopboyContact = (obj["loopboy_contact"] as? String) ?? ""
         session.loopboyState = (obj["loopboy_state"] as? String) ?? ""
         session.loopboyResponse = (obj["loopboy_response"] as? String) ?? ""
         session.nudgeScreen = (obj["nudge_screen"] as? String) ?? ""

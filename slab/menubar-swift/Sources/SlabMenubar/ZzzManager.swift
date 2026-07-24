@@ -165,7 +165,7 @@ final class ZzzManager {
         if session.agentType == "codex" && session.providerSessionId.isEmpty {
             return "Codex provider thread is not known yet"
         }
-        if loopboySessionIds().contains(session.sessionId) { return "Loopboy-bound prompt" }
+        if LoopboyRoutes.verifiedContact(for: session) != nil { return "Loopboy-bound prompt" }
         if let seconds = minimumIdle,
            Date().timeIntervalSince(session.updated) < seconds { return "idle timer has not elapsed" }
         return nil
@@ -221,15 +221,6 @@ final class ZzzManager {
               session.sessionId, reason)
         let selector = String(session.sessionId.prefix(8))
         return "zzz'd \(session.shortSubject). Resume with: zzz resume \(selector)"
-    }
-
-    private func loopboySessionIds() -> Set<String> {
-        guard let data = FileManager.default.contents(atPath: Paths.loopboyConfig),
-              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let loops = obj["loops"] as? [String: Any] else { return [] }
-        return Set(loops.values.compactMap {
-            ($0 as? [String: Any])?["sessionId"] as? String
-        })
     }
 
     private static func pidAlive(_ pid: pid_t) -> Bool {

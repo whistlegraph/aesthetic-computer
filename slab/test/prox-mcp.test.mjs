@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -78,4 +78,61 @@ test("prox_list includes stale empty ledger snapshots", async () => {
   assert.match(text, /ledger snapshots \(2\)/);
   assert.match(text, /mac: .*stale\), 0 rock\(s\)/);
   assert.match(text, /\(no prompt rocks match\)/);
+});
+
+test("registry-only routes neither badge nor retrofit an ordinary session", async () => {
+  const home = await mkdtemp(join(tmpdir(), "prox-mcp-test-"));
+  const slabDir = join(home, ".config", "slab");
+  const ledgerDir = join(slabDir, "ledger");
+  await mkdir(join(ledgerDir, "peers"), { recursive: true });
+  const now = Date.now();
+  const id = "aaaaaaaa-1111-2222-3333-444444444444";
+  await writeFile(join(ledgerDir, "local.json"), JSON.stringify({
+    host: "neo", ip: "127.0.0.1", updatedAt: now,
+    entries: [{
+      id, host: "neo", name: "fotos", subject: "ordinary prompt",
+      status: "working", kind: "session", seed: "1234", cwd: home,
+      updated: now, started: now - 5_000,
+    }],
+  }));
+  await writeFile(join(slabDir, "loopboy.json"), JSON.stringify({
+    version: 1,
+    loops: { alex: { contact: "alex", sessionId: id, host: "neo", name: "fotos" } },
+  }));
+
+  const list = await callProx(home, "prox_list", { host: "neo" });
+  assert.doesNotMatch(list, /loopboy:alex/);
+  const bound = await callProx(home, "prox_bind_notification", {
+    handle: "neo:fotos#aaaaaaaa", contact: "alex",
+  });
+  assert.match(bound, /was not launched as a guarded Loopboy/);
+});
+
+test("binding accepts a live marker identity only for its own contact", async () => {
+  const home = await mkdtemp(join(tmpdir(), "prox-mcp-test-"));
+  const slabDir = join(home, ".config", "slab");
+  const ledgerDir = join(slabDir, "ledger");
+  await mkdir(join(ledgerDir, "peers"), { recursive: true });
+  const now = Date.now();
+  const id = "bbbbbbbb-1111-2222-3333-444444444444";
+  await writeFile(join(ledgerDir, "local.json"), JSON.stringify({
+    host: "neo", ip: "127.0.0.1", updatedAt: now,
+    entries: [{
+      id, host: "neo", name: "nimef", subject: "guarded prompt",
+      status: "working", kind: "session", seed: "5678", cwd: home,
+      updated: now, started: now - 5_000, loopboyContact: "alex",
+    }],
+  }));
+
+  const wrong = await callProx(home, "prox_bind_notification", {
+    handle: "neo:nimef#bbbbbbbb", contact: "fia",
+  });
+  assert.match(wrong, /was launched for alex, not fia/);
+
+  const bound = await callProx(home, "prox_bind_notification", {
+    handle: "neo:nimef#bbbbbbbb", contact: "alex",
+  });
+  assert.match(bound, /Loopboy bound alex/);
+  const config = JSON.parse(await readFile(join(slabDir, "loopboy.json"), "utf8"));
+  assert.equal(config.loops.alex.sessionId, id);
 });

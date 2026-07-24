@@ -785,7 +785,9 @@ final class PromptSigilOverlay {
 
     private func applyStateLabel(_ state: String) {
         let color: NSColor
-        switch state {
+        let phase = state.split(separator: "·").last?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? state
+        switch phase {
         case "READING": color = NSColor(deviceRed: 0.28, green: 0.92, blue: 1.0, alpha: 1)
         case "WORKING": color = NSColor(deviceRed: 1.0, green: 0.92, blue: 0.22, alpha: 1)
         case "RESPONDING": color = NSColor(deviceRed: 1.0, green: 0.42, blue: 0.72, alpha: 1)
@@ -2024,18 +2026,14 @@ final class PromptSigilOverlayController {
         }
     }
 
-    private func loopboySessions() -> Set<String> {
-        guard let data = FileManager.default.contents(atPath: Paths.loopboyConfig),
-              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let loops = obj["loops"] as? [String: Any] else { return [] }
-        return Set(loops.values.compactMap {
-            ($0 as? [String: Any])?["sessionId"] as? String
-        })
-    }
+    /// Updated by `sync` from sessions whose immutable launch identity agrees
+    /// with their saved route. Registry-only or dead bindings never become
+    /// gems and cannot receive heartbeat animation.
+    private var verifiedLoopboyContacts: [String: String] = [:]
 
     func pulseLoopboy(sessionId: String) {
-        let ids = loopboySessions()
-        guard ids.contains(sessionId), let overlay = overlays[sessionId] else { return }
+        guard verifiedLoopboyContacts[sessionId] != nil,
+              let overlay = overlays[sessionId] else { return }
         let beat = CACurrentMediaTime() + 0.08
         overlay.heartbeatPulse(beginTime: beat)
         overlay.resetHeartbeatCountdown()
@@ -2226,7 +2224,8 @@ final class PromptSigilOverlayController {
 
         let live = sessions.filter { !$0.tty.isEmpty && $0.remoteHost.isEmpty }
         let liveIds = Set(live.map { $0.sessionId })
-        let loopIds = loopboySessions()
+        let loopContacts = LoopboyRoutes.verifiedBySession(live)
+        verifiedLoopboyContacts = loopContacts
         let dark = AppDelegate.isDarkAppearance()
         var liveParticleTtys = Set<String>()
 
@@ -2266,7 +2265,8 @@ final class PromptSigilOverlayController {
             // moves to a new prompt.
             let seed = SigilRenderer.seed(for: s.sessionId + "\u{1}" + s.subject)
             // Re-render the sprite sheet only when the rock or the sun moved.
-            let loopboy = loopIds.contains(s.sessionId)
+            let loopboyContact = loopContacts[s.sessionId]
+            let loopboy = loopboyContact != nil
             let key = "\(seed):\(dark):\(sunMinute):\(loopboy)"
             if ov.frameKey != key {
                 ov.frameKey = key
@@ -2294,7 +2294,7 @@ final class PromptSigilOverlayController {
                 : terminalThemeColor)
             ov.setShining(loopboy, color: loopboyGlow)
             ov.setLoopboyStyle(loopboy, active: loopboyActive, pending: false, dark: dark)
-            if loopboy {
+            if let loopboyContact {
                 let phase: String
                 if s.loopboyState == "responding" {
                     phase = "RESPONDING"
@@ -2307,7 +2307,7 @@ final class PromptSigilOverlayController {
                     case .blank, .complete, .interrupted, .stale: phase = "IDLE"
                     }
                 }
-                ov.setLoopboyState(phase)
+                ov.setLoopboyState("\(loopboyContact!.uppercased()) · \(phase)")
             }
             ov.setLighting(drop: sun.drop)
             // Name + hover copy. The name belongs to the session/thread and
@@ -2319,7 +2319,9 @@ final class PromptSigilOverlayController {
             ov.setName(SigilRenderer.name(for: s), dark: dark)
             ov.setPlatformTarget(s.platformTarget)
             let title = s.emoji.isEmpty ? ov.name : "\(s.emoji) \(ov.name)"
-            ov.tooltipTitle = loopboy ? "↻ Loopboy · \(title)" : title
+            ov.tooltipTitle = loopboyContact.map {
+                "↻ Loopboy · \($0) · \(title)"
+            } ?? title
             let story = (s.loopboyResponse.isEmpty ? nil : s.loopboyResponse)
                 ?? ProxMemoirs.shared.text(for: s.sessionId)
                 ?? Self.fallbackBody(summary: s.titleString, subject: s.shortSubject)
