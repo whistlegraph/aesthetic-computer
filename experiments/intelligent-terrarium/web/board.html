@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Piecefarm — Sort Soup Observatory</title>
+  <link rel="stylesheet" href="/soup.css">
+</head>
+<body>
+  <main class="board">
+    <canvas id="board-raster" class="board-raster" aria-hidden="true"></canvas>
+    <header class="mast">
+      <h1>PIECEFARM MISSION</h1>
+      <p id="season">PIECEFARM · JAS-NZXT · REFERENCE SEASON</p>
+    </header>
+    <div id="mission" class="source">SEARCH PROGRAM-OUTPUT SPACE WITHOUT SURRENDERING VERIFICATION</div>
+    <div class="program-ticker" aria-label="Live Piecefarm ticker">
+      <b>LIVE</b><span id="ticker">AWAKENING THE FARM</span>
+    </div>
+    <div class="countdown" aria-label="Countdown to next Git checkpoint">
+      <b>GIT CHECKPOINT IN</b>
+      <span id="countdown-clock">--:--:--</span>
+      <small id="countdown-detail">CALCULATING NEXT EDITION</small>
+    </div>
+    <section class="progress-rack" aria-label="Piecefarm progress">
+      <article class="progress-card phase-progress">
+        <header><b>PROJECT PHASE</b><span id="phase-value">2 / 5</span></header>
+        <div class="progress-track"><i id="phase-fill"></i></div>
+        <small>VERIFIED SEARCH · TYPED LISP NEXT</small>
+      </article>
+      <article class="progress-card">
+        <header><b>MAP COVERAGE</b><span id="coverage-value">0 / 96</span></header>
+        <div class="progress-track"><i id="coverage-fill"></i></div>
+        <small>OCCUPIED BEHAVIOR NICHES</small>
+      </article>
+      <article class="progress-card">
+        <header><b>VERIFY YIELD</b><span id="yield-value">0%</span></header>
+        <div class="progress-track"><i id="yield-fill"></i></div>
+        <small>PROGRAMS RETAINED AFTER CHECKING</small>
+      </article>
+      <article class="progress-card">
+        <header><b>ACTIVE NOVELTY</b><span id="novelty-value">0.000</span></header>
+        <div class="progress-track"><i id="novelty-fill"></i></div>
+        <small>DISTANCE FROM KNOWN BEHAVIOR</small>
+      </article>
+    </section>
+    <div class="next-strip"><b>NEXT →</b><span>BUILD THE TYPED LISP CORE</span></div>
+    <div class="board-body">
+      <section class="metrics" aria-label="Live search measurements">
+        <div class="metric"><b>ITERATION</b><span id="iteration">0</span></div>
+        <div class="metric"><b>NOVELTY</b><span id="novelty">0.000</span></div>
+        <div class="metric"><b>COVERAGE</b><span id="coverage">0/96</span></div>
+        <div class="metric"><b>VERIFIED</b><span id="accepted">0</span></div>
+        <div class="metric"><b>DISSOLVED</b><span id="rejected">0</span></div>
+        <div class="metric"><b>OPERATIONS</b><span id="operations">0</span></div>
+      </section>
+    </div>
+    <canvas id="chart" class="chart" aria-label="Archive coverage history"></canvas>
+  </main>
+  <script type="module" src="/board.mjs"></script>
+</body>
+</html>

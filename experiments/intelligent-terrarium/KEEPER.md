@@ -439,3 +439,41 @@ state repository. Nothing was pushed or deployed.
   numeric/chart bands remain legible. Live/interactive QA of the added
   lineage/division traces remains pending because the current execution
   boundary is Neo-local and forbids browser/GUI control and SSH.
+
+### Piecefarm SDL3 display evidence
+
+The later Piecefarm/Sort Soup installation replaces both Chromium kiosk
+windows with one SDL3 process owning two detected displays. After a two-window
+version allowed compositor state to leave the upper display gray, the renderer
+was paused and recast as one borderless stage spanning `2560×2880@0,0`. The
+upper board occupies `2560×1440@0,0`; the lower soup occupies
+`2560×1440@0,1440`. One OpenGL renderer presents both halves atomically, so
+z-order, fullscreen state, and frame pacing cannot diverge between monitors.
+Each half is composed in a 640×360 CPU pixel buffer using the same embedded
+MatrixChunky8 glyph table as AC-OS. Together they form one 640×720 streaming
+texture enlarged 4× with nearest-neighbor sampling. The stage checks and
+restores its union geometry every two seconds. SDL is pinned to the X11 backend
+because ordinary Wayland top-level positioning does not guarantee a window can
+span outputs. The first per-primitive SDL attempt was rejected after visibly
+poor performance; it issued thousands of tiny renderer calls. SDL measured the
+two physical modes as 143.87 and 143.91 Hz. After replacing millisecond delay
+polling with refresh-derived nanosecond pacing, the final X11/OpenGL
+single-upload stage measured 143.1–143.6 complete two-display frames/second.
+The display no longer exposes every 250 ms search mutation as a hard cut:
+population/text focus dwells for one second, while hue flow, sinusoidal
+shimmer, and traveling vector light are evaluated continuously every frame.
+
+The native display reads a compact loopback-only text membrane. It does not
+parse the full verification traces or hold archive authority. The focused test
+proves that membrane stays below 64 KiB and excludes trace arrays; the complete
+suite passes 34/34. At measurement, the SDL process used 7.3% CPU and reported
+122,632 KiB RSS; the authority used 0.9% CPU and 96,832 KiB RSS. The service
+cgroup reported 78,213,120 bytes current and 78,802,944 bytes peak because
+shared mapped pages may be charged elsewhere; summed process RSS is therefore
+also recorded rather than treating the cgroup figure as total resident cost.
+The initial 30 FPS framebuffer version left the RTX 3070 dominated by
+`matador-miner`. At 60 FPS, a one-sample process monitor attributed 11% SM to
+Piecefarm and 66% SM to the miner, so the higher visual rate is not represented
+as free GPU work. Search remains serialized, but the configured cycle is now
+250 ms; a five-second live measurement observed 20 verified attempts, or
+3.992 candidates/second. CPU worker search has not yet been built.

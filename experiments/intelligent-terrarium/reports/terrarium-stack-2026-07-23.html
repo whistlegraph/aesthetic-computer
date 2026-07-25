@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Intelligent Terrarium — Stack, Findings, and Possible Futures</title>
+<style>
+  @page { size: Letter; margin: 0; }
+  * { box-sizing: border-box; }
+  :root {
+    --ink: #17352c;
+    --deep: #0c241d;
+    --moss: #2d6b4f;
+    --leaf: #6da86f;
+    --lime: #c7dc81;
+    --cream: #f6f1df;
+    --paper: #fffdf5;
+    --rust: #c46b45;
+    --blue: #4d83a2;
+    --muted: #62736a;
+    --line: #cbd5bf;
+  }
+  html, body { margin: 0; padding: 0; background: #ddd8ca; color: var(--ink); }
+  body { font-family: Arial, Helvetica, sans-serif; }
+  .page {
+    width: 8.5in; height: 11in; padding: 0.62in 0.68in 0.58in;
+    background: var(--paper); position: relative; overflow: hidden;
+    page-break-after: always;
+  }
+  .page:last-child { page-break-after: auto; }
+  .page::after {
+    content: attr(data-page); position: absolute; right: 0.68in; bottom: 0.26in;
+    font-size: 8pt; letter-spacing: .14em; color: #728176;
+  }
+  .running {
+    display: flex; justify-content: space-between; align-items: center;
+    padding-bottom: 8px; margin-bottom: 22px; border-bottom: 1px solid var(--line);
+    color: var(--muted); font-size: 8pt; letter-spacing: .13em; text-transform: uppercase;
+  }
+  h1, h2, h3, p { margin-top: 0; }
+  h1 { font-family: Georgia, 'Times New Roman', serif; font-size: 31pt; line-height: 1.02; letter-spacing: -.025em; }
+  h2 { font-family: Georgia, 'Times New Roman', serif; font-size: 21pt; line-height: 1.08; margin-bottom: 14px; }
+  h3 { font-size: 10pt; line-height: 1.2; letter-spacing: .11em; text-transform: uppercase; color: var(--moss); margin: 0 0 7px; }
+  p { font-size: 10.2pt; line-height: 1.43; margin-bottom: 10px; }
+  .small { font-size: 8.5pt; line-height: 1.38; color: var(--muted); }
+  .eyebrow { font-size: 8.5pt; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: var(--rust); }
+  .lead { font-family: Georgia, 'Times New Roman', serif; font-size: 15pt; line-height: 1.35; color: var(--deep); }
+  .rule { width: 46px; height: 4px; background: var(--rust); margin: 14px 0 22px; }
+  .pill { display: inline-block; border: 1px solid currentColor; border-radius: 30px; padding: 4px 9px 3px; font-size: 7.5pt; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .card { border: 1px solid var(--line); border-radius: 12px; padding: 14px; background: #fffef9; }
+  .card.dark { background: var(--deep); border-color: var(--deep); color: var(--cream); }
+  .card.dark h3 { color: var(--lime); }
+  .callout { border-left: 5px solid var(--rust); padding: 12px 15px; background: #f5ecdf; border-radius: 0 10px 10px 0; }
+  .callout p:last-child, .card p:last-child { margin-bottom: 0; }
+  ul { margin: 6px 0 0 18px; padding: 0; }
+  li { font-size: 9.5pt; line-height: 1.36; margin-bottom: 6px; }
+  .cover { background: var(--deep); color: var(--cream); padding: .74in; }
+  .cover::after { color: #9fbaa7; right: .74in; }
+  .cover .eyebrow { color: var(--lime); }
+  .cover h1 { font-size: 42pt; max-width: 6.2in; margin-top: .9in; }
+  .cover .lead { color: #dce7d4; max-width: 5.85in; font-size: 16.5pt; }
+  .cover-orbit { position: absolute; width: 3.25in; height: 3.25in; right: -.65in; bottom: -.45in; border: 1px solid #739477; border-radius: 50%; }
+  .cover-orbit::before, .cover-orbit::after { content: ''; position: absolute; border: 1px solid #53735c; border-radius: 50%; }
+  .cover-orbit::before { inset: 24px; }
+  .cover-orbit::after { inset: 58px; background: radial-gradient(circle at 38% 36%, #c7dc81 0 7%, #6da86f 8% 24%, #2d6b4f 25% 52%, #17352c 53%); }
+  .cover-meta { position: absolute; left: .74in; bottom: .62in; color: #9fbaa7; font-size: 8.5pt; line-height: 1.55; }
+  .status-row { display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 10px; margin: 16px 0 20px; }
+  .status { border-top: 3px solid var(--moss); padding-top: 8px; }
+  .status .num { font-family: Georgia, serif; font-size: 21pt; color: var(--deep); }
+  .status .label { font-size: 7.5pt; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .truth-table { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .truth-table > div { padding: 13px 15px; min-height: 1.06in; }
+  .truth-table > div:nth-child(odd) { border-right: 1px solid var(--line); }
+  .truth-table > div:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+  .yes { background: #eef5e8; }
+  .no { background: #f8eee7; }
+  .architecture { margin: 18px 0 14px; }
+  .arch-row { display: grid; grid-template-columns: 1fr 34px 1fr 34px 1fr; align-items: center; }
+  .node { min-height: .76in; padding: 11px; border: 1.5px solid var(--moss); border-radius: 12px; text-align: center; background: #f8fbf2; }
+  .node strong { display: block; font-family: Georgia, serif; font-size: 13pt; margin-bottom: 4px; }
+  .node span { display: block; font-size: 7.8pt; line-height: 1.3; color: var(--muted); }
+  .arrow { text-align: center; color: var(--rust); font-size: 18pt; }
+  .organ-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin: 12px 0 18px; }
+  .organ { aspect-ratio: 1; border-radius: 50% 43% 52% 45%; display:flex; align-items:center; justify-content:center; text-align:center; padding: 4px; color: #fff; font-size: 6.5pt; font-weight: 700; letter-spacing: .04em; }
+  .organ:nth-child(1){background:#5c8d74}.organ:nth-child(2){background:#4d83a2}.organ:nth-child(3){background:#c46b45}.organ:nth-child(4){background:#7a6a9d}.organ:nth-child(5){background:#8b9c55}.organ:nth-child(6){background:#b27773}.organ:nth-child(7){background:#344e48}
+  .memory-stack { margin: 18px 0 12px; }
+  .budget { margin-bottom: 17px; }
+  .budget-head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom: 6px; }
+  .budget-head strong { font-family: Georgia, serif; font-size: 16pt; }
+  .bar { height: 19px; border-radius: 10px; background: #e6eadf; overflow: hidden; position: relative; }
+  .bar > span { display:block; height:100%; background: linear-gradient(90deg, var(--moss), var(--leaf)); }
+  .bar i { position:absolute; right:8px; top:3px; font-style:normal; font-size:7.5pt; font-weight:700; color:var(--deep); }
+  .metric-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin: 15px 0; }
+  .metric { background:#f1f4e9; border-radius:9px; padding:10px; }
+  .metric strong { display:block; font-family:Georgia,serif; font-size:15pt; margin-bottom:3px; }
+  .metric span { font-size:6.8pt; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+  .cycle { display:grid; grid-template-columns:repeat(5, 1fr); gap:8px; margin: 18px 0; align-items:stretch; }
+  .cycle-step { position:relative; border:1px solid var(--line); border-radius:50%; aspect-ratio:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:8px; background:#fbfcf5; }
+  .cycle-step:not(:last-child)::after { content:'›'; position:absolute; right:-11px; top:39%; color:var(--rust); font-size:19pt; z-index:2; }
+  .cycle-step b { font-family:Georgia,serif; font-size:11pt; }
+  .cycle-step span { font-size:6.5pt; line-height:1.25; color:var(--muted); margin-top:3px; }
+  .layers { margin-top: 8px; }
+  .layer { display:grid; grid-template-columns:1.25in 1fr; gap:14px; padding:11px 0; border-bottom:1px solid var(--line); }
+  .layer:last-child { border-bottom:0; }
+  .layer b { font-size:8pt; letter-spacing:.1em; text-transform:uppercase; color:var(--moss); }
+  .layer span { font-size:9.3pt; line-height:1.35; }
+  .roadmap { position:relative; margin: 16px 0 8px 10px; padding-left:24px; border-left:2px solid var(--line); }
+  .phase { position:relative; padding:0 0 14px 0; }
+  .phase::before { content:''; position:absolute; width:11px; height:11px; border-radius:50%; background:var(--rust); left:-30px; top:2px; box-shadow:0 0 0 4px var(--paper); }
+  .phase b { display:block; font-family:Georgia,serif; font-size:12pt; margin-bottom:3px; }
+  .phase span { display:block; font-size:8.8pt; line-height:1.35; color:var(--muted); }
+  .verdict { background:var(--deep); color:var(--cream); border-radius:18px; padding:18px 20px; margin:14px 0 18px; }
+  .verdict .lead { color:var(--cream); margin-bottom:0; font-size:16pt; }
+  .footnote { position:absolute; left:.68in; bottom:.25in; font-size:7pt; color:#77847a; }
+</style>
+</head>
+<body>
+
+<section class="page cover" data-page="01">
+  <div class="eyebrow">Field report / 23 July 2026</div>
+  <h1>Intelligent<br>Terrarium</h1>
+  <div class="rule"></div>
+  <p class="lead">What we built on <b>jas-nzxt</b>, what the screen actually was, how much mind fits inside 1–2 GB of RAM, and how this could become a personal computer that grows a strange history of its own.</p>
+  <div style="margin-top:30px"><span class="pill">Experiment closed cleanly</span></div>
+  <div class="cover-meta">
+    ISOLATED BRANCH&nbsp;&nbsp; agent/intelligent-terrarium<br>
+    STATE REPOSITORY&nbsp;&nbsp; /home/me/intelligent-terrarium-state<br>
+    STATUS&nbsp;&nbsp; kiosk stopped · authority absent · miner active
+  </div>
+  <div class="cover-orbit"></div>
+</section>
+
+<section class="page" data-page="02">
+  <div class="running"><span>Intelligent Terrarium</span><span>Honest state</span></div>
+  <div class="eyebrow">The answer in one sentence</div>
+  <h2>A real bounded mind was prototyped; the beautiful fullscreen creature was not yet connected to it.</h2>
+  <p class="lead">The work separated world truth from spectacle. That was technically correct, but it also meant the final screen was procedural theater: lively, persistent-looking, and visually suggestive—yet not evidence that the terrarium was thinking.</p>
+
+  <div class="status-row">
+    <div class="status"><div class="num">26/26</div><div class="label">local tests passed</div></div>
+    <div class="status"><div class="num">912</div><div class="label">final journal sequence</div></div>
+    <div class="status"><div class="num">0</div><div class="label">live terrarium processes now</div></div>
+  </div>
+
+  <div class="truth-table">
+    <div class="yes"><h3>Real and tested</h3><p>Deterministic simulation, bounded episodic memory, semantic sound events, hash-chained journal/replay, crash-tail quarantine, Git sleep commits, identity seam, loopback visitor, and a constrained reflection organ.</p></div>
+    <div class="no"><h3>Not yet real</h3><p>An always-on authority, live telemetry driving the display, physical Xbox QA, a public authenticated gateway, multi-user spatial presence, and continuous autonomous growth.</p></div>
+    <div class="yes"><h3>Measured on jas-nzxt</h3><p>1 GB fallback stayed tiny. A 2 GB run loaded Qwen3 0.6B Q8_0 CPU-only, peaked near 807 MiB RSS for the inference child, used no swap, and coexisted with the GPU miner after its automatic recovery.</p></div>
+    <div class="no"><h3>The screen’s deception</h3><p>The 82,944 voxels, amoeboid organs, traces, “culture age,” and numeric soup were generated by browser time functions and local storage. They did not read a live mind or operating-system telemetry.</p></div>
+  </div>
+
+  <div class="callout" style="margin-top:18px">
+    <h3>Why “84k” was bounded</h3>
+    <p>That number was approximately the fixed <b>48 × 36 × 48 voxel lattice</b>—a rendering budget, not the terrarium’s memory or intelligence. Bounded memory is a safety property: old experience is compressed into summaries and weights so the organism can accumulate history without eventually consuming the machine.</p>
+  </div>
+</section>
+
+<section class="page" data-page="03">
+  <div class="running"><span>Intelligent Terrarium</span><span>The stack so far</span></div>
+  <div class="eyebrow">System anatomy</div>
+  <h2>One authority, one touchable membrane, many renderers.</h2>
+  <p>The core architectural choice is strong: the browser is a visitor, never the source of truth. The authority receives verified intentions, advances a deterministic world, emits snapshots and sonic events, and periodically sleeps into a separate Git autobiography.</p>
+
+  <div class="architecture">
+    <div class="arch-row">
+      <div class="node"><strong>Visitors</strong><span>Web / AC piece / keyboard / gamepad / future Xbox</span></div>
+      <div class="arrow">→</div>
+      <div class="node"><strong>Mediorgan</strong><span>loopback gate · identity · rate bounds · causal prods</span></div>
+      <div class="arrow">→</div>
+      <div class="node"><strong>terrariumd</strong><span>single writer · deterministic policy · bounded world</span></div>
+    </div>
+    <div style="text-align:center;color:var(--rust);font-size:18pt;line-height:1.2">↓</div>
+    <div class="arch-row" style="grid-template-columns:1fr 34px 1fr 34px 1fr">
+      <div class="node"><strong>Semantic sound</strong><span>source, pitch, voice, radius, cause—not an audio stream</span></div>
+      <div class="arrow">←</div>
+      <div class="node"><strong>Snapshots</strong><span>positions · drives · behaviors · measurements</span></div>
+      <div class="arrow">→</div>
+      <div class="node"><strong>Git sleep</strong><span>journal · checkpoint · autobiography · replay hash</span></div>
+    </div>
+  </div>
+
+  <h3>The bounded organs</h3>
+  <div class="organ-row">
+    <div class="organ">SENSORY</div><div class="organ">SPATIAL</div><div class="organ">DRIVE</div><div class="organ">MEMORY</div><div class="organ">ACTION</div><div class="organ">VOICE</div><div class="organ">SLEEP</div>
+  </div>
+
+  <div class="grid2">
+    <div class="card"><h3>Durable substrate</h3><ul><li>Canonical NDJSON facts with sequence and hash chain</li><li>Atomic checkpoints that are verified by replay</li><li>Bounded human-readable autobiographies</li><li>Local Git commits on sleep; no automatic push</li></ul></div>
+    <div class="card dark"><h3>Safety boundary</h3><ul><li>Loopback-only authority in the prototype</li><li>One writer for state and journal ordering</li><li>Tokens, emails, IPs, model caches, and raw memories excluded</li><li>Hard cgroup RAM and zero-swap profiles</li></ul></div>
+  </div>
+
+  <p class="small" style="margin-top:14px">The working implementation lives under <b>experiments/intelligent-terrarium/</b> on an isolated branch. The autobiographical state lives separately on the tower so autonomous commits cannot trigger Aesthetic Computer deployment hooks.</p>
+</section>
+
+<section class="page" data-page="04">
+  <div class="running"><span>Intelligent Terrarium</span><span>How much mind fits?</span></div>
+  <div class="eyebrow">Resident intelligence budgets</div>
+  <h2>One gigabyte is enough for a creature. Two is enough for a creature that occasionally reflects in language.</h2>
+
+  <div class="memory-stack">
+    <div class="budget">
+      <div class="budget-head"><strong>1 GB profile</strong><span class="pill" style="color:var(--moss)">product floor</span></div>
+      <div class="bar"><span style="width:13%"></span><i>measured core peak ≈ 32 MB cgroup</i></div>
+      <p class="small" style="margin-top:7px">Deterministic drives, spatial graph, bounded episodes, salience/novelty, learned weights, behavior policy, semantic sound, journaling, and replay. No resident language model. Most of the budget remains safety headroom.</p>
+    </div>
+    <div class="budget">
+      <div class="budget-head"><strong>2 GB profile</strong><span class="pill" style="color:var(--rust)">measured reflection</span></div>
+      <div class="bar"><span style="width:40%"></span><i>Qwen child peak ≈ 807 MiB RSS</i></div>
+      <p class="small" style="margin-top:7px">Everything above plus one CPU-only Qwen3 0.6B Q8_0 reflection request at a time: bounded prompt, 2,048-token context cap, short output, strict parsing, and deterministic accept/reject/fallback.</p>
+    </div>
+  </div>
+
+  <div class="metric-grid">
+    <div class="metric"><strong>639 MB</strong><span>model file</span></div>
+    <div class="metric"><strong>0</strong><span>swap used</span></div>
+    <div class="metric"><strong>4</strong><span>CPU threads</span></div>
+    <div class="metric"><strong>1</strong><span>inference at once</span></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>What creates intelligence here</h3>
+      <p>Continuity, perception, drives, memory selection, prediction, action, social consequence, and replayable learning. Parameter count helps with language, but it is not the same thing as having a life.</p>
+    </div>
+    <div class="card">
+      <h3>Where tiny models belong</h3>
+      <p>As slow organs: naming, dreaming, summarizing, proposing, or translating internal state into language. They should never be the authority and never be allowed to rewrite their own history unchecked.</p>
+    </div>
+  </div>
+
+  <div class="callout" style="margin-top:18px">
+    <h3>My practical judgment</h3>
+    <p>A 1 GB machine can host a compelling persistent artificial organism if its intelligence is <b>architectural</b>, not chatbot-shaped. At 2 GB, a sub-billion-parameter model can add linguistic texture. Trying to cram a much larger general assistant into the same envelope would sacrifice responsiveness, safety headroom, or both.</p>
+  </div>
+</section>
+
+<section class="page" data-page="05">
+  <div class="running"><span>Intelligent Terrarium</span><span>How it gets gnarly</span></div>
+  <div class="eyebrow">Growth without RAM creep</div>
+  <h2>The terrarium should grow by changing its history and phenotype—not by keeping everything resident.</h2>
+  <p class="lead">A bounded organism can become stranger for years if yesterday changes how today is perceived. Long duration is a compression problem, not a hoarding problem.</p>
+
+  <div class="cycle">
+    <div class="cycle-step"><b>Wake</b><span>replay last verified state</span></div>
+    <div class="cycle-step"><b>Perceive</b><span>world, visitors, machine weather</span></div>
+    <div class="cycle-step"><b>Act</b><span>behavior, sound, growth</span></div>
+    <div class="cycle-step"><b>Digest</b><span>retain novelty; compress repetition</span></div>
+    <div class="cycle-step"><b>Sleep</b><span>verify, narrate, Git commit</span></div>
+  </div>
+
+  <div class="layers">
+    <div class="layer"><b>Fast life</b><span>10 Hz simulation, movement, impulses, oscillators, energy flow, local sound. It is ephemeral and cheap.</span></div>
+    <div class="layer"><b>Working memory</b><span>A few hundred recent and salient episodes, bounded queues, current relationships, and active drives.</span></div>
+    <div class="layer"><b>Long memory</b><span>Hierarchical summaries, learned dispositions, named places, visitor relationships, recurring motifs, and hashes back to source events.</span></div>
+    <div class="layer"><b>Phenotype</b><span>A compact “genome” of weights, thresholds, palettes, rhythmic tendencies, growth rules, and scars. Small mutations create visible divergence.</span></div>
+    <div class="layer"><b>Autobiography</b><span>Git commits as sleep epochs: diffable, branchable, inspectable, reversible, and shareable without model weights.</span></div>
+  </div>
+
+  <div class="grid2" style="margin-top:14px">
+    <div class="card"><h3>Good gnarliness</h3><p>New habits, grudges, affinities, routes, timbres, morphology, seasonal cycles, fossils, and myths that can be traced to experience.</p></div>
+    <div class="card"><h3>Bad gnarliness</h3><p>Unbounded logs, self-rewriting authority, prompt accumulation, random visual noise, uncontrolled network access, or a dashboard pretending to measure cognition.</p></div>
+  </div>
+
+  <p class="small" style="margin-top:14px"><b>Key design move:</b> batch or summarize hot simulation before journaling. Writing every 100 ms forever would create roughly 864,000 records per day and turn Git into a landfill. A real daemon should record meaningful transitions or minute-scale digests, then make hour/day-scale sleep commits.</p>
+</section>
+
+<section class="page" data-page="06">
+  <div class="running"><span>Intelligent Terrarium</span><span>Visitors and possible futures</span></div>
+  <div class="eyebrow">A credible resurrection</div>
+  <h2>Make the screen truthful first. Then make the terrarium visitable.</h2>
+
+  <div class="roadmap">
+    <div class="phase"><b>1 · Continuous local authority</b><span>Run a supervised loopback-only daemon under the 1 GB cgroup. Journal meaningful transitions at a slow bounded cadence. Expose read-only live telemetry to the display.</span></div>
+    <div class="phase"><b>2 · A display that is the organism</b><span>Every voxel field, organ shape, number, and sound must derive from actual drives, events, episodes, mutations, and system measurements. No decorative metrics presented as cognition.</span></div>
+    <div class="phase"><b>3 · Ecological memory</b><span>Add energy, metabolism, territories, reproduction, inheritance, mutation, and a compact phenotype. Let visitors leave consequences that survive sleep and replay.</span></div>
+    <div class="phase"><b>4 · AC handles and spatial-sonic visitors</b><span>Complete the verified token → Auth0 subject → current AC handle path. Ship a hidden web client with keyboard/gamepad navigation, semantic WebAudio, and an observer/interactor access distinction.</span></div>
+    <div class="phase"><b>5 · Xbox and remote gateway</b><span>Only after threat review: TLS gateway, bounded sessions, restore drills, handle policy, Edge/Xbox testing, and public spectatorship without exposing the authority directly.</span></div>
+  </div>
+
+  <div class="grid3">
+    <div class="card"><h3>Spatial</h3><p>Walk through regions that have history. Near/far and left/right sound comes from authoritative coordinates. The camera is a body, not a free dashboard.</p></div>
+    <div class="card"><h3>Social</h3><p>Handled visitors become remembered relationships. Consent and rate limits decide who may observe, prod, teach, or alter the ecology.</p></div>
+    <div class="card"><h3>Generative</h3><p>The terrarium can emit paintings, scores, stories, maps, seeds, or playable scenes as metabolic by-products with causal links back to lived events.</p></div>
+  </div>
+
+  <div class="verdict">
+    <div class="eyebrow" style="color:var(--lime);margin-bottom:8px">What I think is possible</div>
+    <p class="lead">Not a miniature omniscient assistant. Something more interesting: a small, continuous, situated intelligence whose limits become its character—an inspectable machine ecology that remembers visitors, mutates its audiovisual body, dreams in tiny language bursts, and can be forked from its own Git past.</p>
+  </div>
+
+  <p class="small"><b>Closed state, 23 July 2026:</b> <code>terrarium-score-0723.service</code> inactive; no process matching the terrarium runtime; no listeners on 8787 or 18787. The unrelated system-level <code>btx-miner.service</code> remains active. No branch, state repository, or model was pushed or publicly deployed.</p>
+  <div class="footnote">Prepared from the experiment source, KEEPER.md evidence, provenance record, and final tower shutdown verification.</div>
+</section>
+
+</body>
+</html>

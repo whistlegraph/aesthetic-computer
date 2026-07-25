@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+target="${1:-}"
+address="${2:-64}"
+requested_by="${3:-loopboy}"
+api="${PIECEFARM_API:-http://127.0.0.1:8788}"
+
+if [[ -z "$target" ]]; then
+  echo "usage: piecefarm-probe <A1..D3|specimen-id> [visible-address] [requested-by]" >&2
+  exit 2
+fi
+if [[ ! "$address" =~ ^[0-9]+$ ]] || ! (( address < 556 || (address >= 5300 && address < 5856) )); then
+  echo "address must be a visible core cell 0..555 or fringe cell 5300..5855" >&2
+  exit 2
+fi
+
+id="$target"
+if [[ "$target" =~ ^[A-D][1-3]$ ]]; then
+  id="$(curl --fail --silent "$api/api/state" | jq --arg address "$target" -r \
+    '.displayPrograms[] | select(.address == $address) | .id' | head -1)"
+fi
+if [[ ! "$id" =~ ^[a-f0-9]{12}$ ]]; then
+  echo "no visible Piecefarm resident resolves from '$target'" >&2
+  exit 3
+fi
+
+payload="$(jq -n --arg id "$id" --argjson address "$address" --arg requestedBy "$requested_by" \
+  '{id:$id,address:$address,requestedBy:$requestedBy}')"
+curl --fail --silent --show-error -X POST "$api/api/margin-probe" \
+  -H 'content-type: application/json' --data "$payload" | jq .
