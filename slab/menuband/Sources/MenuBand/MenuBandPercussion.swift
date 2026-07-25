@@ -107,7 +107,20 @@ final class MenuBandPercussion {
 
     /// Master headroom so a fistful of simultaneous drums doesn't slam the
     /// limiter — the kit's raw layer volumes sum well past 1.0 by design.
+    /// `outputLevel` is the user's independent percussion trim: 1.0 retains
+    /// the kit's historical loudness, while fresh installs begin at 0.75.
     private let masterGain: Float = 0.34
+    private var outputLevel: Float = 0.75
+
+    /// Set the independent percussion trim. Snapshot under the same tiny lock
+    /// used for staged hits so the audio thread sees one stable value per
+    /// render block. The block-level change avoids zipper noise while arrows
+    /// auto-repeat through the 0...100 range.
+    func setOutputLevel(_ value: Float) {
+        lock.lock()
+        outputLevel = max(0, min(1, value))
+        lock.unlock()
+    }
 
     /// Global pitch multiplier applied to every voice's phase increment
     /// (and noise LPF cutoff) so the trackpad pitch-bend warps the whole
@@ -559,6 +572,7 @@ final class MenuBandPercussion {
         let pitch = pitchScale
         // Drain staged voices, releases, and honor a flush request.
         lock.lock()
+        let level = outputLevel
         if flushRequested { active.removeAll(keepingCapacity: true); flushRequested = false }
         if !pending.isEmpty {
             for p in pending where active.count < maxVoices { active.append(p) }
@@ -592,7 +606,7 @@ final class MenuBandPercussion {
         if active.isEmpty { return }
 
         let dt = 1.0 / sampleRate
-        let g = Double(masterGain)
+        let g = Double(masterGain * level)
         var w = 0
         for idx in 0..<active.count {
             var v = active[idx]

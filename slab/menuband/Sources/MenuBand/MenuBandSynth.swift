@@ -1618,6 +1618,13 @@ final class MenuBandSynth {
     /// Read the current master volume (last persisted or set value).
     var currentMasterVolume: Float { masterVolume }
 
+    /// Independent drum-kit trim. Percussion intentionally bypasses the
+    /// melodic pre-FX/master mixer, so this leaves keys at the normal macOS
+    /// output level while allowing the kit to sit above or below them.
+    func setPercussionVolume(_ value: Float) {
+        percussion.setOutputLevel(value)
+    }
+
     /// Switch the current melodic program. Instant when MIDISynth is ready
     /// (sub-millisecond MIDI Program Change); blocks ~100 ms otherwise
     /// (sampler bank reload).

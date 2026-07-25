@@ -116,6 +116,14 @@ final class MenuBandController {
     /// Display note each held drum key lit, so key-up extinguishes the
     /// right menubar cell (drum keys stay accent-lit for the whole hold).
     private var heldDrumDisplay: [UInt16: UInt8] = [:]
+    /// `[` / `]` double as momentary percussion-volume modifiers while held.
+    /// Arrow keys claimed during that hold remain claimed through key-up so
+    /// their release can never leak into the focused app after the bracket is
+    /// released first.
+    private var percussionControlKeysHeld: Set<UInt16> = []
+    private var percussionVolumeArrowKeysHeld: Set<UInt16> = []
+    private var percussionControlStartedEnabled: [UInt16: Bool] = [:]
+    private var percussionControlsUsedForVolume: Set<UInt16> = []
     private let heldLock = NSLock()
 
     /// Refcount of held drum lights per display note (a display note can be
@@ -172,6 +180,7 @@ final class MenuBandController {
     private let keymapKey = "notepat.keymap"
     private let percussionLeftKey = KeyboardIconRenderer.percussionLeftDefaultsKey
     private let percussionRightKey = KeyboardIconRenderer.percussionRightDefaultsKey
+    private let percussionVolumeKey = "notepat.percussionVolume"
     private let masterVolumeKey = "notepat.masterVolume"
     /// Active instrument backend: `"gm"` for the General MIDI bank, or
     /// `"gb"` for a GarageBand sampler patch. Default is GM. Stored as a
@@ -969,6 +978,41 @@ final class MenuBandController {
             UserDefaults.standard.set(Double(clamped), forKey: masterVolumeKey)
             synth.setMasterVolume(clamped)
         }
+    }
+
+    /// Persistent percussion-only output trim. 100% is the kit's historical
+    /// fixed loudness; fresh installs start at 75% so drums have room to move
+    /// above or below the melodic/system-volume mix.
+    var percussionVolume: Float {
+        get {
+            if UserDefaults.standard.object(forKey: percussionVolumeKey) == nil {
+                return 0.75
+            }
+            let raw = UserDefaults.standard.double(forKey: percussionVolumeKey)
+            return Float(max(0.0, min(1.0, raw)))
+        }
+        set {
+            let clamped = max(0, min(1, newValue))
+            UserDefaults.standard.set(Double(clamped), forKey: percussionVolumeKey)
+            synth.setPercussionVolume(clamped)
+            onChange?()
+        }
+    }
+
+    /// A deliberate tap moves 10 percentage points; macOS key repeat then
+    /// switches to 1-point steps, making a held arrow feel like a 100-value
+    /// analog trim without making single taps imperceptible.
+    static func steppedPercussionVolume(_ current: Float,
+                                        direction: Int,
+                                        isRepeat: Bool) -> Float {
+        let step: Float = isRepeat ? 0.01 : 0.10
+        let next = current + (direction >= 0 ? step : -step)
+        return max(0, min(1, next))
+    }
+
+    private func adjustPercussionVolume(direction: Int, isRepeat: Bool) {
+        percussionVolume = Self.steppedPercussionVolume(
+            percussionVolume, direction: direction, isRepeat: isRepeat)
     }
 
     var effectiveMelodicProgram: UInt8 {
@@ -1777,6 +1821,7 @@ final class MenuBandController {
         // volume (matches previous behaviour); explicit lower picks
         // survive the relaunch.
         synth.setMasterVolume(masterVolume)
+        synth.setPercussionVolume(percussionVolume)
         // Migrate the former radio-as-piano backend into the standalone CDJ
         // deck. The saved GM voice remains the keyboard instrument.
         if instrumentBackend == .kpbj {
@@ -3086,21 +3131,72 @@ final class MenuBandController {
         if hasModifier && isDown
             && !(chordModifier && percussionActive(forKeyCode: keyCode)) { return false }
 
+        // Hold either percussion latch key (`[` / `]`) and use Up/Down as a
+        // percussion-only level trim. An initial press moves 10%; key repeat
+        // moves 1% at a time for a smooth 0...100 sweep. Unmodified arrows
+        // remain untouched unless a bracket is physically down.
+        if keyCode == 126 /* kVK_UpArrow */ || keyCode == 125 /* kVK_DownArrow */ {
+            heldLock.lock()
+            let modifierHeld = !percussionControlKeysHeld.isEmpty
+            let alreadyClaimed = percussionVolumeArrowKeysHeld.contains(keyCode)
+            if isDown && modifierHeld {
+                percussionVolumeArrowKeysHeld.insert(keyCode)
+                percussionControlsUsedForVolume.formUnion(percussionControlKeysHeld)
+            }
+            if !isDown && alreadyClaimed { percussionVolumeArrowKeysHeld.remove(keyCode) }
+            heldLock.unlock()
+
+            if isDown && modifierHeld {
+                let direction = keyCode == 126 ? 1 : -1
+                DispatchQueue.main.async { [weak self] in
+                    self?.adjustPercussionVolume(direction: direction,
+                                                 isRepeat: isRepeat)
+                }
+                return true
+            }
+            if !isDown && alreadyClaimed { return true }
+        }
+
         // Brackets latch the sided percussion split: `[` (33) flips the
         // LEFT half of the board to drums, `]` (30) the RIGHT half — `]`
-        // gave up its old ++d note for this. Bare presses only (a modified
-        // bracket like ⌘-[ passed through above). Consumed in both
-        // directions; the toggle cue pans to the side that flipped.
+        // gave up its old ++d note for this. A quick tap still toggles. If
+        // the key is HELD with a volume arrow, that gesture instead leaves
+        // (or turns) its half on, so adjusting an already-enabled kit never
+        // momentarily switches it off. Bare presses only (a modified bracket
+        // like ⌘-[ passed through above). Consumed in both directions.
         if keyCode == 33 /* [ */ || keyCode == 30 /* ] */ {
+            let left = keyCode == 33
+            let currentlyEnabled = left ? percussionLeft : percussionRight
+            var startedEnabled = false
+            var usedForVolume = false
+            heldLock.lock()
             if isDown && !isRepeat {
-                let left = keyCode == 33
+                percussionControlKeysHeld.insert(keyCode)
+                percussionControlStartedEnabled[keyCode] = currentlyEnabled
+            } else if !isDown {
+                percussionControlKeysHeld.remove(keyCode)
+                startedEnabled = percussionControlStartedEnabled.removeValue(
+                    forKey: keyCode) ?? currentlyEnabled
+                usedForVolume = percussionControlsUsedForVolume.remove(keyCode) != nil
+            }
+            heldLock.unlock()
+
+            // Enabling remains immediate on key-down so the player can hold
+            // the bracket and start drumming before release. Disabling waits
+            // for key-up, which is what lets bracket+arrow mean adjustment.
+            if isDown && !isRepeat && !currentlyEnabled {
                 DispatchQueue.main.async { [weak self] in
                     guard let self = self else { return }
-                    if left { self.togglePercussionLeft() }
-                    else { self.togglePercussionRight() }
-                    self.playPercussionToggleCue(
-                        on: left ? self.percussionLeft : self.percussionRight,
-                        pan: left ? 32 : 96)
+                    if left { self.percussionLeft = true }
+                    else { self.percussionRight = true }
+                    self.playPercussionToggleCue(on: true, pan: left ? 32 : 96)
+                }
+            } else if !isDown && startedEnabled && !usedForVolume {
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self else { return }
+                    if left { self.percussionLeft = false }
+                    else { self.percussionRight = false }
+                    self.playPercussionToggleCue(on: false, pan: left ? 32 : 96)
                 }
             }
             return true
@@ -3676,6 +3772,10 @@ final class MenuBandController {
         let drumDisplaySnapshot = heldDrumDisplay
         heldDrumKeys.removeAll()
         heldDrumDisplay.removeAll()
+        percussionControlKeysHeld.removeAll()
+        percussionVolumeArrowKeysHeld.removeAll()
+        percussionControlStartedEnabled.removeAll()
+        percussionControlsUsedForVolume.removeAll()
         heldLock.unlock()
         // Silence any held chord-extension voices (panic() below also catches
         // these, but be explicit so MIDI listeners get clean note-offs). The
