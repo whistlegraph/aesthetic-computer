@@ -109,6 +109,24 @@
   let machineMatchIds=new Set(),machineQuery="",machineSearchTimer=null,machineSearchVersion=0;
   const gate=document.getElementById("gate"),desk=document.getElementById("desk"),grid=document.getElementById("grid"),drawer=document.getElementById("drawer");
 
+  const DESK_MODES=new Set(["posts","works","trash"]),DESK_KINDS=new Set(["all","performance","talk","other","unfiled"]),DESK_SORTS=new Set(["newest","oldest"]);
+  function readDeskURL(){
+    const params=new URLSearchParams(location.search),nextMode=params.get("mode"),nextKind=params.get("kind"),nextSort=params.get("sort");
+    mode=DESK_MODES.has(nextMode)?nextMode:"posts";kind=DESK_KINDS.has(nextKind)?nextKind:"all";sort=DESK_SORTS.has(nextSort)?nextSort:"newest";query=params.get("q")||"";
+  }
+  function applyDeskControls(){
+    const search=document.getElementById("search");search.value=query;search.placeholder=mode==="posts"?"Search captions, IDs, codes, or machine visuals…":"Search titles, codes, or authors…";
+    document.querySelectorAll("#mode button").forEach(x=>x.classList.toggle("on",x.dataset.mode===mode));
+    document.querySelectorAll("#filter button").forEach(x=>x.classList.toggle("on",x.dataset.kind===kind));
+    document.querySelectorAll("#sort button").forEach(x=>x.classList.toggle("on",x.dataset.sort===sort));
+    document.getElementById("filter").classList.toggle("hidden",mode!=="posts");document.getElementById("sort").classList.toggle("hidden",mode!=="posts");
+  }
+  function writeDeskURL(push=false){
+    const params=new URLSearchParams();if(PREVIEW)params.set("preview","1");if(mode!=="posts")params.set("mode",mode);if(query.trim())params.set("q",query.trim());if(mode==="posts"&&kind!=="all")params.set("kind",kind);if(mode==="posts"&&sort!=="newest")params.set("sort",sort);
+    const url=`${DESK_PATH}${params.size?`?${params}`:""}`;history[push?"pushState":"replaceState"]({},"",url);
+  }
+  readDeskURL();applyDeskControls();
+
   function toast(message){const el=document.getElementById("toast");el.textContent=message;el.classList.remove("hidden");clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.add("hidden"),2400)}
   function fail(message){document.getElementById("gateError").textContent=message;document.getElementById("gateStatus").textContent=""}
   function thumb(id){return `${THUMBS}/${encodeURIComponent(id)}.jpg`}
@@ -138,20 +156,20 @@
     }
     const data=await res.json().catch(()=>({}));if(!res.ok)throw new Error(data.message||`HTTP ${res.status}`);return data
   }
-  async function loadData(){
+  async function loadData(preservePosition=false){
     grid.setAttribute("aria-busy","true");document.getElementById("count").textContent="Loading archive…";
     const curationRequest=PREVIEW?Promise.resolve({data:{works:{},posts:{}}}):getJSON(`${API}?action=data`,{headers:{Authorization:`Bearer ${token}`},cache:"no-store"}).then(data=>({data})).catch(error=>({error}));
     const [pd,gd]=await Promise.all([
       getJSON(`${STATIC_ROOT}/posts.json?t=${Date.now()}`,{cache:"no-cache"}),
       getJSON(`${STATIC_ROOT}/graphs.json?t=${Date.now()}`,{cache:"no-cache"})
     ]);
-    basePosts=pd.posts||[];baseWorks=gd.works||[];applyCuration();renderReset();grid.removeAttribute("aria-busy");
+    basePosts=pd.posts||[];baseWorks=gd.works||[];applyCuration();renderReset(preservePosition);grid.removeAttribute("aria-busy");
     const {data:cd,error}=await curationRequest;
     if(error){toast(`Live edits unavailable: ${error.message}`);return}
     curation={works:cd.works||{},posts:cd.posts||{},createdWorks:cd.createdWorks||{},deletedWorks:cd.deletedWorks||[],trashedWorks:cd.trashedWorks||{}};deployments=cd.deployments||[];recentChanges=cd.recent||[];visualCoverage=cd.visualCoverage||{count:0};applyCuration();renderReset(true);
   }
   function enterDesk(name){gate.classList.add("hidden");desk.classList.remove("hidden");document.getElementById("who").textContent=name;if(PREVIEW){document.getElementById("previewBadge").classList.remove("hidden");document.getElementById("logout").classList.add("hidden")}}
-  function canonicalizeDesk(){if(!LOCAL&&location.pathname!==DESK_PATH)history.replaceState({},"",DESK_PATH)}
+  function canonicalizeDesk(){if(!LOCAL&&location.pathname!==DESK_PATH)writeDeskURL()}
   async function init(){
     if(PREVIEW){enterDesk("preview");await loadData();return}
     try{
@@ -217,10 +235,21 @@
   }
   function updateCount(){const coverage=mode==="posts"&&visualCoverage.count?` · ${visualCoverage.count.toLocaleString()} described`:"";document.getElementById("count").textContent=`${view.length.toLocaleString()} ${mode}${coverage}`}
   function renderMore(){const end=Math.min(shown+PAGE_SIZE,view.length);grid.insertAdjacentHTML("beforeend",view.slice(shown,end).map(tileHTML).join(""));shown=end;updateCount()}
+  function captureGridPosition(){
+    const tiles=[...grid.querySelectorAll("button[data-key]")],top=0;
+    const anchor=tiles.find(tile=>tile.getBoundingClientRect().bottom>top)||tiles.at(-1);
+    return {scrollY:window.scrollY,key:anchor?.dataset.key||"",top:anchor?.getBoundingClientRect().top||0}
+  }
+  function restoreGridPosition(position){
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      const anchor=position.key&&grid.querySelector(`button[data-key="${CSS.escape(position.key)}"]`);
+      if(anchor)scrollBy(0,anchor.getBoundingClientRect().top-position.top);else scrollTo(0,position.scrollY)
+    }))
+  }
   function renderReset(preservePosition=false){
-    const scrollY=window.scrollY,previouslyShown=shown;
+    const position=preservePosition?captureGridPosition():null,previouslyShown=shown;
     buildView();shown=Math.min(preservePosition?Math.max(previouslyShown,PAGE_SIZE):PAGE_SIZE,view.length);grid.innerHTML=view.slice(0,shown).map(tileHTML).join("");document.getElementById("empty").classList.toggle("hidden",view.length>0);updateCount();
-    if(preservePosition)requestAnimationFrame(()=>scrollTo(0,scrollY))
+    if(position)restoreGridPosition(position)
   }
   new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting)&&shown<view.length)renderMore()},{rootMargin:"600px"}).observe(document.getElementById("sentinel"));
   grid.addEventListener("click",event=>{const tile=event.target.closest("button[data-key]");if(tile)openEditor(tile.dataset.key)});
@@ -234,10 +263,11 @@
     }catch(error){if(version===machineSearchVersion)toast(error.message)}
   }
   function queueMachineSearch(){clearTimeout(machineSearchTimer);const version=++machineSearchVersion;machineSearchTimer=setTimeout(()=>searchMachineVisuals(query,version),180)}
-  document.getElementById("search").addEventListener("input",event=>{query=event.target.value;renderReset();queueMachineSearch()});
-  document.getElementById("sort").addEventListener("click",event=>{const button=event.target.closest("button[data-sort]");if(!button)return;sort=button.dataset.sort;document.querySelectorAll("#sort button").forEach(x=>x.classList.toggle("on",x===button));renderReset()});
-  document.getElementById("mode").addEventListener("click",event=>{const button=event.target.closest("button[data-mode]");if(!button)return;mode=button.dataset.mode;document.querySelectorAll("#mode button").forEach(x=>x.classList.toggle("on",x===button));document.getElementById("filter").classList.toggle("hidden",mode!=="posts");document.getElementById("sort").classList.toggle("hidden",mode!=="posts");document.getElementById("search").placeholder=mode==="posts"?"Search captions, IDs, codes, or machine visuals…":"Search titles, codes, or authors…";renderReset();queueMachineSearch()});
-  document.getElementById("filter").addEventListener("click",event=>{const button=event.target.closest("button[data-kind]");if(!button)return;kind=button.dataset.kind;document.querySelectorAll("#filter button").forEach(x=>x.classList.toggle("on",x===button));renderReset()});
+  document.getElementById("search").addEventListener("input",event=>{query=event.target.value;writeDeskURL();renderReset();queueMachineSearch()});
+  document.getElementById("sort").addEventListener("click",event=>{const button=event.target.closest("button[data-sort]");if(!button)return;sort=button.dataset.sort;applyDeskControls();writeDeskURL(true);renderReset()});
+  document.getElementById("mode").addEventListener("click",event=>{const button=event.target.closest("button[data-mode]");if(!button)return;mode=button.dataset.mode;applyDeskControls();writeDeskURL(true);renderReset();queueMachineSearch()});
+  document.getElementById("filter").addEventListener("click",event=>{const button=event.target.closest("button[data-kind]");if(!button)return;kind=button.dataset.kind;applyDeskControls();writeDeskURL(true);renderReset()});
+  addEventListener("popstate",()=>{readDeskURL();applyDeskControls();renderReset();queueMachineSearch()});
 
   document.getElementById("newWork").addEventListener("click",()=>{
     if(PREVIEW)return;
@@ -281,7 +311,7 @@
   }
   async function restoreWork(){
     if(!selected||selected.type!=="trash")return;const key=selected.key;
-    try{const result=await getJSON(API,{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({type:"work",key,restore:true})});delete curation.trashedWorks[key];curation.deletedWorks=(curation.deletedWorks||[]).filter(code=>code!==key);(result.created?curation.createdWorks:curation.works)[key]=result.patch;applyCuration();closeEditor();renderReset();toast(`Restored [${key}]`)}catch(error){toast(error.message)}
+    try{const result=await getJSON(API,{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({type:"work",key,restore:true})});delete curation.trashedWorks[key];curation.deletedWorks=(curation.deletedWorks||[]).filter(code=>code!==key);(result.created?curation.createdWorks:curation.works)[key]=result.patch;applyCuration();closeEditor();renderReset(true);toast(`Restored [${key}]`)}catch(error){toast(error.message)}
   }
   function machineList(label,items){return items?.length?`<label>${esc(label)}</label><ul class="hint">${items.map(item=>`<li>${esc(item)}</li>`).join("")}</ul>`:""}
   function machineFields(p){const v=p.visual;if(!v)return `<p class="hint">No machine visual record for this ${p.media==="audio"?"audio-only":"video"} post.</p>`;return `<label for="postVisual">Machine-read visual description</label><textarea class="field" id="postVisual" readonly>${esc(v.summary||"")}</textarea>
@@ -296,7 +326,7 @@
   function workPatch(){return {title:drawer.querySelector("#workTitle").value,by:drawer.querySelector("#workBy").value,year:Number(drawer.querySelector("#workYear").value),c:drawer.querySelector("#workColor").value}}
   async function createWork(){
     const button=drawer.querySelector("#createWork"),code=drawer.querySelector("#workCode").value.trim().toLowerCase();button.disabled=true;button.textContent="Creating…";
-    try{const result=await getJSON(`${API}?action=work`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({code,...workPatch()})});curation.createdWorks[result.key]=result.patch;applyCuration();mode="works";document.querySelectorAll("#mode button").forEach(x=>x.classList.toggle("on",x.dataset.mode==="works"));document.getElementById("filter").classList.add("hidden");renderReset();closeEditor();toast(`Created [${result.key}]`)}
+    try{const result=await getJSON(`${API}?action=work`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({code,...workPatch()})});curation.createdWorks[result.key]=result.patch;applyCuration();renderReset(true);closeEditor();toast(`Created [${result.key}]`)}
     catch(error){toast(error.message);button.disabled=false;button.textContent="Create whistlegraph"}
   }
   async function deleteWork(){
@@ -316,7 +346,7 @@
     try{
       const nextCode=current.type==="work"?drawer.querySelector("#editWorkCode").value.trim().toLowerCase():current.key;
       if(current.type==="work"&&nextCode!==current.key){
-        const result=await getJSON(`${API}?action=work-rename`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({from:current.key,code:nextCode,...patch})});await loadData();closeEditor();toast(`Renamed [${result.from}] to [${result.key}] · ${result.reassigned} posts migrated`);return;
+        const result=await getJSON(`${API}?action=work-rename`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({from:current.key,code:nextCode,...patch})});await loadData(true);closeEditor();toast(`Renamed [${result.from}] to [${result.key}] · ${result.reassigned} posts migrated`);return;
       }
       const result=await getJSON(API,{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({...current,patch})});const bucket=current.type==="work"&&curation.createdWorks[current.key]?curation.createdWorks:curation[current.type==="work"?"works":"posts"];bucket[current.key]=result.patch;applyCuration();refreshAfterMutation(current);if(selected?.type===current.type&&selected?.key===current.key)renderEditor(current,current.type==="work"?workByCode[current.key]:postById[current.key]);toast("Saved live")}
     catch(error){toast(error.message);if(button.isConnected){button.disabled=false;button.textContent="Save live"}}
