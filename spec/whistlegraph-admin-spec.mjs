@@ -77,6 +77,15 @@ describe("Whistlegraph Desk", () => {
     expect(page).toContain('addEventListener("popstate"');
   });
 
+  it("keeps the Desk viewport stable across curation mutations", () => {
+    const page = readFileSync(new URL("../system/public/whistlegraph.org/admin.html", import.meta.url), "utf8");
+    expect(page).toContain("function captureGridPosition()");
+    expect(page).toContain("function restoreGridPosition(position)");
+    expect(page).toContain("applyCuration();renderReset(true);closeEditor();toast(`Created");
+    expect(page).toContain("await loadData(true);closeEditor();toast(`Renamed");
+    expect(page).not.toContain('applyCuration();mode="works"');
+  });
+
   it("recovers an existing Auth0 session before returning to the login splash", () => {
     const page = readFileSync(new URL("../system/public/whistlegraph.org/admin.html", import.meta.url), "utf8");
     expect(page).toContain("useRefreshTokensFallback:true");

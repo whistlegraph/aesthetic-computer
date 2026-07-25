@@ -152,13 +152,14 @@
     }
     const data=await res.json().catch(()=>({}));if(!res.ok)throw new Error(data.message||`HTTP ${res.status}`);if(options.method&&options.method!=="GET")deskChannel?.postMessage({type:"changed",at:Date.now()});return data
   }
-  async function loadData(){
+  async function loadData(preservePosition=false){
+    const position=preservePosition?captureGridPosition():null;
     grid.setAttribute("aria-busy","true");document.getElementById("count").textContent="Loading archive…";
     const curationRequest=PREVIEW?Promise.resolve({data:{works:{},posts:{}}}):getJSON(`${API}?action=data`,{headers:{Authorization:`Bearer ${token}`},cache:"no-store"}).then(data=>({data})).catch(error=>({error}));
     const curationResult=await curationRequest;
     const {data:cd,error}=curationResult;
     if(cd){curation={works:cd.works||{},posts:cd.posts||{},createdWorks:cd.createdWorks||{},deletedWorks:cd.deletedWorks||[],trashedWorks:cd.trashedWorks||{}};deployments=cd.deployments||[];recentChanges=cd.recent||[];visualCoverage=cd.visualCoverage||{count:0}}
-    await loadListing(true);grid.removeAttribute("aria-busy");
+    await loadListing(true);grid.removeAttribute("aria-busy");if(position)restoreGridPosition(position);
     if(error)toast(`Live edits unavailable: ${error.message}`);
   }
   function listingURL(cursor=null){const params=new URLSearchParams({action:mode==="works"?"works":"posts",limit:String(PAGE_SIZE),q:query.trim()});if(mode==="posts"){params.set("kind",kind);params.set("sort",sort)}if(cursor)params.set("cursor",cursor);return `${QUERY_API}?${params}`}
@@ -169,8 +170,8 @@
     try{const page=await getJSON(url,{cache:"no-store",signal:reset?queryController.signal:undefined});if(version!==listingVersion||requestedMode!==mode)return;if(reset)try{sessionStorage.setItem(cacheKey,JSON.stringify(page))}catch{}usePage(page,reset,requestedMode)}
     catch(error){if(error.name!=="AbortError"&&version===listingVersion)toast(error.message)}finally{if(version===listingVersion){loadingPage=false;grid.removeAttribute("aria-busy")}}
   }
-  async function checkRevision(){if(document.hidden)return;try{const {meta}=await getJSON(`${QUERY_API}?action=meta`,{cache:"no-store"});const revision=meta?.revision;if(projectionRevision&&revision&&revision!==projectionRevision)await loadData();projectionRevision=revision}catch{}}
-  deskChannel?.addEventListener("message",event=>{if(event.data?.type==="changed")loadData()});setInterval(checkRevision,5000);addEventListener("visibilitychange",()=>{if(!document.hidden)checkRevision()});
+  async function checkRevision(){if(document.hidden)return;try{const {meta}=await getJSON(`${QUERY_API}?action=meta`,{cache:"no-store"});const revision=meta?.revision;if(projectionRevision&&revision&&revision!==projectionRevision)await loadData(true);projectionRevision=revision}catch{}}
+  deskChannel?.addEventListener("message",event=>{if(event.data?.type==="changed")loadData(true)});setInterval(checkRevision,5000);addEventListener("visibilitychange",()=>{if(!document.hidden)checkRevision()});
   function enterDesk(name){gate.classList.add("hidden");desk.classList.remove("hidden");document.getElementById("who").textContent=name;if(PREVIEW){document.getElementById("previewBadge").classList.remove("hidden");document.getElementById("logout").classList.add("hidden")}}
   function canonicalizeDesk(){if(!LOCAL&&location.pathname!==DESK_PATH)writeDeskURL()}
   async function init(){
@@ -230,10 +231,21 @@
   }
   function updateCount(){const coverage=mode==="posts"&&visualCoverage.count?` · ${visualCoverage.count.toLocaleString()} described`:"";const count=mode==="trash"?view.length:total;document.getElementById("count").textContent=`${count.toLocaleString()} ${mode}${coverage}`}
   function renderMore(){const end=Math.min(shown+PAGE_SIZE,view.length);grid.insertAdjacentHTML("beforeend",view.slice(shown,end).map(tileHTML).join(""));shown=end;updateCount()}
+  function captureGridPosition(){
+    const tiles=[...grid.querySelectorAll("button[data-key]")];
+    const anchor=tiles.find(tile=>tile.getBoundingClientRect().bottom>0)||tiles.at(-1);
+    return {scrollY:window.scrollY,key:anchor?.dataset.key||"",top:anchor?.getBoundingClientRect().top||0}
+  }
+  function restoreGridPosition(position){
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      const anchor=position.key&&grid.querySelector(`button[data-key="${CSS.escape(position.key)}"]`);
+      if(anchor)scrollBy(0,anchor.getBoundingClientRect().top-position.top);else scrollTo(0,position.scrollY)
+    }))
+  }
   function renderReset(preservePosition=false){
-    const scrollY=window.scrollY,previouslyShown=shown;
+    const position=preservePosition?captureGridPosition():null,previouslyShown=shown;
     buildView();shown=Math.min(preservePosition?Math.max(previouslyShown,PAGE_SIZE):PAGE_SIZE,view.length);grid.innerHTML=view.slice(0,shown).map(tileHTML).join("");document.getElementById("empty").classList.toggle("hidden",view.length>0);updateCount();
-    if(preservePosition)requestAnimationFrame(()=>scrollTo(0,scrollY))
+    if(position)restoreGridPosition(position)
   }
   new IntersectionObserver(entries=>{if(!entries.some(e=>e.isIntersecting))return;if(shown<view.length)renderMore();else if(nextCursor)loadListing(false)},{rootMargin:"600px"}).observe(document.getElementById("sentinel"));
   grid.addEventListener("click",event=>{const tile=event.target.closest("button[data-key]");if(tile)openEditor(tile.dataset.key)});
@@ -251,7 +263,7 @@
     const operation=answer.startsWith("-")?"remove":"add",code=answer.replace(/^-/,"");if(!code)return;
     const verb=operation==="add"?"Add":"Remove",tail=operation==="add"?" Existing relationships stay intact.":" Other relationships stay intact.";
     if(!confirm(`${verb} [${code}] ${operation==="add"?"to":"from"} all ${total} current results?${tail}`))return;
-    try{const postIds=[];let cursor=null;do{const page=await getJSON(listingURL(cursor),{cache:"no-store"});postIds.push(...page.items.map(post=>post.id));cursor=page.nextCursor}while(cursor&&postIds.length<=500);const result=await getJSON(`${API}?action=bulk-assign`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({code,postIds,operation})});await loadData();toast(`${operation==="add"?"Assigned":"Removed"} [${result.code}] ${operation==="add"?"to":"from"} ${result.count} posts`)}catch(error){toast(error.message)}
+    try{const postIds=[];let cursor=null;do{const page=await getJSON(listingURL(cursor),{cache:"no-store"});postIds.push(...page.items.map(post=>post.id));cursor=page.nextCursor}while(cursor&&postIds.length<=500);const result=await getJSON(`${API}?action=bulk-assign`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({code,postIds,operation})});await loadData(true);toast(`${operation==="add"?"Assigned":"Removed"} [${result.code}] ${operation==="add"?"to":"from"} ${result.count} posts`)}catch(error){toast(error.message)}
   });
 
   document.getElementById("newWork").addEventListener("click",()=>{
@@ -296,7 +308,7 @@
   }
   async function restoreWork(){
     if(!selected||selected.type!=="trash")return;const key=selected.key;
-    try{const result=await getJSON(API,{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({type:"work",key,restore:true})});delete curation.trashedWorks[key];curation.deletedWorks=(curation.deletedWorks||[]).filter(code=>code!==key);(result.created?curation.createdWorks:curation.works)[key]=result.patch;applyCuration();closeEditor();renderReset();toast(`Restored [${key}]`)}catch(error){toast(error.message)}
+    try{const result=await getJSON(API,{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({type:"work",key,restore:true})});delete curation.trashedWorks[key];curation.deletedWorks=(curation.deletedWorks||[]).filter(code=>code!==key);(result.created?curation.createdWorks:curation.works)[key]=result.patch;applyCuration();closeEditor();renderReset(true);toast(`Restored [${key}]`)}catch(error){toast(error.message)}
   }
   function machineList(label,items){return items?.length?`<label>${esc(label)}</label><ul class="hint">${items.map(item=>`<li>${esc(item)}</li>`).join("")}</ul>`:""}
   function machineFields(p){const v=p.visual;if(!v)return `<p class="hint">No machine visual record for this ${p.media==="audio"?"audio-only":"video"} post.</p>`;return `<label for="postVisual">Machine-read visual description</label><textarea class="field" id="postVisual" readonly>${esc(v.summary||"")}</textarea>
@@ -311,7 +323,7 @@
   function workPatch(){return {title:drawer.querySelector("#workTitle").value,by:drawer.querySelector("#workBy").value,year:Number(drawer.querySelector("#workYear").value),c:drawer.querySelector("#workColor").value,featuredPost:drawer.querySelector("#featuredPost").value.trim()}}
   async function createWork(){
     const button=drawer.querySelector("#createWork"),code=drawer.querySelector("#workCode").value.trim().toLowerCase();button.disabled=true;button.textContent="Creating…";
-    try{const result=await getJSON(`${API}?action=work`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({code,...workPatch()})});curation.createdWorks[result.key]=result.patch;applyCuration();mode="works";document.querySelectorAll("#mode button").forEach(x=>x.classList.toggle("on",x.dataset.mode==="works"));document.getElementById("filter").classList.add("hidden");renderReset();closeEditor();toast(`Created [${result.key}]`)}
+    try{const result=await getJSON(`${API}?action=work`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({code,...workPatch()})});curation.createdWorks[result.key]=result.patch;applyCuration();renderReset(true);closeEditor();toast(`Created [${result.key}]`)}
     catch(error){toast(error.message);button.disabled=false;button.textContent="Create whistlegraph"}
   }
   async function deleteWork(){
@@ -331,7 +343,7 @@
     try{
       const nextCode=current.type==="work"?drawer.querySelector("#editWorkCode").value.trim().toLowerCase():current.key;
       if(current.type==="work"&&nextCode!==current.key){
-        const result=await getJSON(`${API}?action=work-rename`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({from:current.key,code:nextCode,...patch})});await loadData();closeEditor();toast(`Renamed [${result.from}] to [${result.key}] · ${result.reassigned} posts migrated`);return;
+        const result=await getJSON(`${API}?action=work-rename`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({from:current.key,code:nextCode,...patch})});await loadData(true);closeEditor();toast(`Renamed [${result.from}] to [${result.key}] · ${result.reassigned} posts migrated`);return;
       }
       const result=await getJSON(API,{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({...current,patch})});const bucket=current.type==="work"&&curation.createdWorks[current.key]?curation.createdWorks:curation[current.type==="work"?"works":"posts"];bucket[current.key]=result.patch;applyCuration();refreshAfterMutation(current);if(selected?.type===current.type&&selected?.key===current.key)renderEditor(current,current.type==="work"?workByCode[current.key]:postById[current.key]);toast(`Saved live · ${new Date(result.revision).toLocaleTimeString()}`)}
     catch(error){toast(error.message);if(button.isConnected){button.disabled=false;button.textContent="Save live"}}
