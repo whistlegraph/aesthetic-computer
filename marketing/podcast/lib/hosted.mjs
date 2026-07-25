@@ -20,6 +20,7 @@ export const HOSTED = {
   "granularity": "the-record-is-a-better-interface-essay",
   "console-browser": "the-console-has-a-browser-essay",
   "physical-mail": "a-record-in-the-mail-essay",
+  "the-machine-that-came-back": "the-machine-that-came-back-field-note",
 };
 
 // slug → hosted basename, or null if the slug is not cleared to publish.

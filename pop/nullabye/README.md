@@ -136,11 +136,35 @@ cd pop/nullabye/c
   --spatial-wet 0.58 --noise-level 0.55
 ```
 
-Accepted listening/video snapshot:
+Spatial-engine listening/video snapshot:
 
 - `release/spatial-sineabye/spatial-sineabye.mp3` — 320 kbps listening copy.
 - `release/spatial-sineabye/spatial-sineabye.mp4` — 720×720, 24 fps,
   Git-safe H.264 delivery encode with the calculated stereo windshield.
+
+### Special Sign — locked release master
+
+The release-length work grown from this engine is **Special Sign**. Its accepted
+cut begins at source bar 6, runs 1:41.375, and keeps the lead-first assembly,
+all-body hum, Jeffrey phoneme choir, listener-relative gravity/HRTF motion, and
+the eight-turn super-spin. The final C-major cadence decelerates the spatial
+world to rest without changing musical tempo or adding a global fade.
+
+The 2026-07-24 release lock is
+`release/special-sign/special-sign-MASTER.wav`: 48 kHz/24-bit stereo, −15.0
+LUFS, 7.1 LU range, and −1.7 dBFS true peak. Its `diamond` master is linear—no
+saturation, recursive audio feedback, or added master echo. A side-only parallel
+return from the 68%-wet listener engine sits at 0.20 and rises smoothly to 0.85
+through the eight-turn super-spin; that rotation is 4.1 dB stronger in the side
+field than the previous master while remaining mono-safe. The paired 320 kbps
+MP3 carries release tags and the 3000-square radial-score cover. The same 1,967
+visible score events print as a synchronized 2160-square MP4: twelve physical
+sound-body lanes, Jeffrey's vowel lane, chords, spatial rotation, kick gravity,
+and the locked master's measured dynamic arc move through one fixed playhead.
+The paired 720-square first-person 3D spatial graph shows the physical bodies,
+wave shells, listener path, gravity field, and aligned mastered stereo receiver.
+See `release/special-sign/README.md` and `release.json` for the exact files,
+checksums, and QC receipt.
 
 ## nuellaby — the complexity-arch cut
 

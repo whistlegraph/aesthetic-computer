@@ -21,7 +21,9 @@ const defaults = Object.freeze({
   edgeFraction: 0.055,
   leftCenterY: 0.78,
   rightCenterY: 0.22,
-  shadow: { opacity: 78, blur: 2, x: 2, y: 3 },
+  markColor: "#ffffff",
+  labelColor: "#ffffff",
+  shadow: { color: "#000000", opacity: 78, blur: 2, x: 2, y: 3 },
 });
 
 function finite(value, fallback) {
@@ -34,8 +36,8 @@ function clamp(value, min, max) {
 
 export function layoutBrandChrome(theme, { width, height, format = "docs" }) {
   if (!theme || typeof theme !== "object") throw new Error("brand chrome needs a theme object");
-  if (!theme.asset && !(theme.markAsset && theme.label)) {
-    throw new Error(`brand theme "${theme.id || "unnamed"}" needs an asset or markAsset + label`);
+  if (!theme.asset && !(theme.markAsset && (theme.label || theme.labelAsset))) {
+    throw new Error(`brand theme "${theme.id || "unnamed"}" needs an asset or markAsset + label/labelAsset`);
   }
   if (!(width > 0 && height > 0)) throw new Error(`invalid brand frame ${width}x${height}`);
 
@@ -50,7 +52,15 @@ export function layoutBrandChrome(theme, { width, height, format = "docs" }) {
     asset: theme.asset ? resolve(String(theme.asset)) : null,
     markAsset: theme.markAsset ? resolve(String(theme.markAsset)) : null,
     label: theme.label || null,
+    labelAsset: theme.labelAsset ? resolve(String(theme.labelAsset)) : null,
+    labelAssetCrop: theme.labelAssetCrop || null,
+    labelCharacterCuts: Array.isArray(theme.labelCharacterCuts)
+      ? theme.labelCharacterCuts : null,
     font: theme.font ? resolve(String(theme.font)) : null,
+    markColor: String(merged.markColor || defaults.markColor),
+    labelColor: String(merged.labelColor || defaults.labelColor),
+    labelWeight: Math.round(clamp(finite(merged.labelWeight, 500), 100, 900)),
+    labelStrokeFraction: clamp(finite(merged.labelStrokeFraction, 0.03), 0, 0.08),
     opacity: clamp(finite(merged.opacity, defaults.opacity), 0.1, 1),
     periodSec: clamp(finite(merged.periodSec, defaults.periodSec), 6, 90),
     driftPx: Math.round(short * finite(merged.driftFraction, 0)) ||
@@ -71,6 +81,14 @@ export function layoutBrandChrome(theme, { width, height, format = "docs" }) {
     leftLabelCenterY: finite(merged.leftLabelCenterY, 0.82),
     rightMarkCenterY: finite(merged.rightMarkCenterY, 0.32),
     rightLabelCenterY: finite(merged.rightLabelCenterY, 0.18),
+    characterMotion: merged.characterMotion && typeof merged.characterMotion === "object"
+      ? {
+          driftPx: Math.max(0, Math.round(short * finite(merged.characterMotion.driftFraction, 0.0014))),
+          periodSec: clamp(finite(merged.characterMotion.periodSec, 3.2), 1.2, 12),
+          shimmerPeriodSec: clamp(finite(merged.characterMotion.shimmerPeriodSec, 2.4), 1, 12),
+          shimmerAmount: clamp(finite(merged.characterMotion.shimmerAmount, 0.18), 0, 0.35),
+        }
+      : null,
   };
 }
 
@@ -135,7 +153,7 @@ function renderLockups(layout, workDir) {
     styledSource,
     "(", "+clone", "-channel", "A", "-evaluate", "multiply",
     String(clamp(finite(shadow.opacity, 78), 1, 100) / 100), "+channel",
-    "-background", "black", "-shadow",
+    "-background", String(shadow.color || defaults.shadow.color), "-shadow",
     `${clamp(finite(shadow.opacity, 78), 1, 100)}x${clamp(finite(shadow.blur, 2), 0, 12)}+${finite(shadow.x, 2)}+${finite(shadow.y, 3)}`,
     ")", "+swap", "-background", "none", "-layers", "merge", "+repage",
     "-resize", `${layout.longSide}x${layout.longSide}>`, styled,
@@ -150,7 +168,7 @@ function sharpShadow(input, output, shadow) {
     input,
     "(", "+clone", "-channel", "A", "-evaluate", "multiply",
     String(clamp(finite(shadow.opacity, 88), 1, 100) / 100), "+channel",
-    "-background", "black", "-shadow",
+    "-background", String(shadow.color || defaults.shadow.color), "-shadow",
     `${clamp(finite(shadow.opacity, 88), 1, 100)}x${clamp(finite(shadow.blur, 1.4), 0, 8)}+${finite(shadow.x, 2)}+${finite(shadow.y, 3)}`,
     ")", "+swap", "-background", "none", "-layers", "merge", "+repage", output,
   ], { stdio:"pipe" });
@@ -158,23 +176,57 @@ function sharpShadow(input, output, shadow) {
 
 function renderSeparateElements(layout, workDir) {
   if (!existsSync(layout.markAsset)) throw new Error(`brand mark does not exist: ${layout.markAsset}`);
-  if (!layout.font || !existsSync(layout.font)) throw new Error(`brand font does not exist: ${layout.font}`);
+  if (layout.labelAsset && !existsSync(layout.labelAsset)) {
+    throw new Error(`brand wordmark does not exist: ${layout.labelAsset}`);
+  }
+  if (!layout.labelAsset && (!layout.font || !existsSync(layout.font))) {
+    throw new Error(`brand font does not exist: ${layout.font}`);
+  }
   mkdirSync(workDir, { recursive:true });
   const stem = `${layout.id}-${layout.markSide}-${layout.labelPx}`.replace(/[^a-z0-9_.-]+/gi, "-");
+  const markMaster = join(workDir, `${stem}-mark-master.png`);
   const mark = join(workDir, `${stem}-mark.png`);
   const markShadow = join(workDir, `${stem}-mark-shadow.png`);
   const label = join(workDir, `${stem}-label.png`);
   const labelShadow = join(workDir, `${stem}-label-shadow.png`);
   execFileSync("rsvg-convert", [
     "-w", String(layout.markSide * 2), "-h", String(layout.markSide * 2),
-    "-o", mark, layout.markAsset,
+    "-o", markMaster, layout.markAsset,
   ], { stdio:"pipe" });
+  // Rasterize at 2× for clean SVG edges, then return to the contracted size.
+  // Keeping the 2× raster as the overlay accidentally doubled client marks and
+  // allowed a nominally small glyph to collide with the adjacent wordmark.
   execFileSync("magick", [
-    "-background", "none", "-fill", "white", "-stroke", "black",
-    "-strokewidth", String(Math.max(2, Math.round(layout.labelPx * 0.045))),
-    "-font", layout.font, "-pointsize", String(layout.labelPx * 2),
-    `label:${layout.label}`, "-resize", "50%", label,
+    markMaster, "-resize", `${layout.markSide}x${layout.markSide}!`,
+    "-fill", layout.markColor, "-colorize", "100", mark,
   ], { stdio:"pipe" });
+  if (layout.labelAsset) {
+    const crop = layout.labelAssetCrop || { x:0, y:0, width:1, height:1 };
+    const fullHeight = Math.max(64, Math.round((layout.labelPx * 2) / finite(crop.height, 1)));
+    const fullWidth = Math.round(fullHeight * finite(crop.aspect, 202 / 161));
+    const wordmarkMaster = join(workDir, `${stem}-wordmark-master.png`);
+    execFileSync("rsvg-convert", [
+      "-w", String(fullWidth), "-h", String(fullHeight), "-o", wordmarkMaster, layout.labelAsset,
+    ], { stdio:"pipe" });
+    const x = Math.round(fullWidth * finite(crop.x, 0));
+    const y = Math.round(fullHeight * finite(crop.y, 0));
+    const width = Math.max(1, Math.round(fullWidth * finite(crop.width, 1)));
+    const height = Math.max(1, Math.round(fullHeight * finite(crop.height, 1)));
+    execFileSync("magick", [
+      wordmarkMaster, "-crop", `${width}x${height}+${x}+${y}`, "+repage",
+      "-colorspace", "gray", "-level", "20%,100%", "-alpha", "copy",
+      "-fill", layout.labelColor, "-colorize", "100",
+      "-resize", `x${layout.labelPx}`, label,
+    ], { stdio:"pipe" });
+  } else {
+    execFileSync("magick", [
+      "-background", "none", "-fill", layout.labelColor, "-stroke", layout.shadow.color || defaults.shadow.color,
+      "-strokewidth", String(Math.max(1, Math.round(layout.labelPx * layout.labelStrokeFraction))),
+      "-weight", String(layout.labelWeight),
+      "-font", layout.font, "-pointsize", String(layout.labelPx * 2),
+      `label:${layout.label}`, "-resize", "50%", label,
+    ], { stdio:"pipe" });
+  }
   sharpShadow(mark, markShadow, layout.shadow);
   sharpShadow(label, labelShadow, layout.shadow);
   const rotate = (source, suffix, degrees) => {
@@ -182,13 +234,45 @@ function renderSeparateElements(layout, workDir) {
     execFileSync("magick", [source, "-background", "none", "-rotate", String(degrees), output], { stdio:"pipe" });
     return output;
   };
-  return {
+  const result = {
     kind:"separate",
     markLeft:rotate(markShadow, "mark-left", 90),
     labelLeft:rotate(labelShadow, "label-left", 90),
     markRight:rotate(markShadow, "mark-right", -90),
     labelRight:rotate(labelShadow, "label-right", -90),
   };
+
+  // Canonical client wordmarks can opt into the /pop-style traveling-letter
+  // treatment without falling back to an approximate font. Each interval is a
+  // normalized horizontal slice of the authored wordmark. The slices remain on
+  // the original transparent canvas, so their kerning is preserved exactly.
+  if (layout.characterMotion && layout.labelCharacterCuts?.length) {
+    const [labelWidth, labelHeight] = execFileSync("identify", [
+      "-format", "%w %h", label,
+    ], { encoding:"utf8" }).trim().split(/\s+/).map(Number);
+    result.labelLeftChars = [];
+    result.labelRightChars = [];
+    for (const [index, interval] of layout.labelCharacterCuts.entries()) {
+      const from = clamp(finite(interval?.[0], 0), 0, 1);
+      const to = clamp(finite(interval?.[1], 1), from, 1);
+      const x = Math.round(labelWidth * from);
+      const x2 = Math.max(x + 1, Math.round(labelWidth * to));
+      const charCrop = join(workDir, `${stem}-char-${index}-crop.png`);
+      const charCanvas = join(workDir, `${stem}-char-${index}.png`);
+      const charShadow = join(workDir, `${stem}-char-${index}-shadow.png`);
+      execFileSync("magick", [
+        label, "-crop", `${x2 - x}x${labelHeight}+${x}+0`, "+repage", charCrop,
+      ], { stdio:"pipe" });
+      execFileSync("magick", [
+        "-size", `${labelWidth}x${labelHeight}`, "canvas:none", charCrop,
+        "-geometry", `+${x}+0`, "-composite", charCanvas,
+      ], { stdio:"pipe" });
+      sharpShadow(charCanvas, charShadow, layout.shadow);
+      result.labelLeftChars.push(rotate(charShadow, `char-${index}-left`, 90));
+      result.labelRightChars.push(rotate(charShadow, `char-${index}-right`, -90));
+    }
+  }
+  return result;
 }
 
 export function brandChromeFilter(layout) {
@@ -205,13 +289,58 @@ export function brandChromeFilter(layout) {
   ].join(";");
 }
 
-export function separateBrandChromeFilter(layout) {
+export function separateBrandChromeFilter(layout, characterCount = 0) {
   const phase = "2*PI*t/" + layout.periodSec.toFixed(3);
   const edge = layout.edgePx;
   const leftX = `${edge}-overlay_w/2`;
   const rightX = `main_w-${edge}-overlay_w/2`;
+  const layered = (sign = 1, offset = 0) => {
+    const s = sign < 0 ? "-" : "+";
+    return `${s}${layout.driftPx}*sin(${phase}+${offset})${s}${(layout.driftPx * 0.35).toFixed(2)}*sin(${phase}*.43+${offset + 1.1})`;
+  };
   const y = (fraction, sign, offset) =>
     `main_h*${fraction.toFixed(5)}-overlay_h/2${sign}${offset}*sin(${phase})`;
+  if (characterCount > 0 && layout.characterMotion) {
+    const filters = [];
+    const leftMarkIndex = 1;
+    const leftCharStart = 2;
+    const rightMarkIndex = leftCharStart + characterCount;
+    const rightCharStart = rightMarkIndex + 1;
+    filters.push(`[${leftMarkIndex}:v]format=rgba,colorchannelmixer=aa=${layout.opacity.toFixed(3)}[ml]`);
+    filters.push(`[${rightMarkIndex}:v]format=rgba,colorchannelmixer=aa=${layout.opacity.toFixed(3)}[mr]`);
+    const motion = layout.characterMotion;
+    for (let i = 0; i < characterCount; i += 1) {
+      const shimmerPhase = (i * 0.72).toFixed(3);
+      const shimmer = `${(1 - motion.shimmerAmount).toFixed(3)}+${motion.shimmerAmount.toFixed(3)}*sin(2*PI*T/${motion.shimmerPeriodSec.toFixed(3)}-${shimmerPhase})`;
+      for (const [input, name] of [
+        [leftCharStart + i, `cl${i}`],
+        [rightCharStart + i, `cr${i}`],
+      ]) {
+        filters.push(
+          `[${input}:v]format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='alpha(X,Y)*${layout.opacity.toFixed(3)}*(${shimmer})'[${name}]`,
+        );
+      }
+    }
+    const leftPairY = y(layout.leftMarkCenterY, "+", layout.bobPx);
+    const rightPairY = y(layout.rightMarkCenterY, "-", layout.bobPx);
+    filters.push(`[0:v][ml]overlay=x='${leftX}${layered(1, 0)}':y='${leftPairY}':eval=frame:shortest=1[v0]`);
+    let previous = "v0";
+    for (let i = 0; i < characterCount; i += 1) {
+      const drift = `${motion.driftPx}*sin(2*PI*t/${motion.periodSec.toFixed(3)}-${(i * 0.8).toFixed(3)})`;
+      const next = `vl${i}`;
+      filters.push(`[${previous}][cl${i}]overlay=x='${leftX}${layered(1, 0)}+${drift}':y='main_h*${layout.leftLabelCenterY.toFixed(5)}-overlay_h/2+${layout.bobPx}*sin(${phase})':eval=frame:shortest=1[${next}]`);
+      previous = next;
+    }
+    filters.push(`[${previous}][mr]overlay=x='${rightX}${layered(-1, 0.6)}':y='${rightPairY}':eval=frame:shortest=1[vr0]`);
+    previous = "vr0";
+    for (let i = 0; i < characterCount; i += 1) {
+      const drift = `${motion.driftPx}*sin(2*PI*t/${motion.periodSec.toFixed(3)}-${(i * 0.8 + 0.6).toFixed(3)})`;
+      const next = i === characterCount - 1 ? "outv" : `vr${i + 1}`;
+      filters.push(`[${previous}][cr${i}]overlay=x='${rightX}${layered(-1, 0.6)}-${drift}':y='main_h*${layout.rightLabelCenterY.toFixed(5)}-overlay_h/2-${layout.bobPx}*sin(${phase})':eval=frame:shortest=1[${next}]`);
+      previous = next;
+    }
+    return filters.join(";");
+  }
   return [
     `[1:v]format=rgba,colorchannelmixer=aa=${layout.opacity.toFixed(3)}[ml]`,
     `[2:v]format=rgba,colorchannelmixer=aa=${layout.opacity.toFixed(3)}[tl]`,
@@ -229,19 +358,21 @@ export function applyBrandChrome({ input, out, theme, workDir, format = "docs" }
   const media = probeVideo(input);
   const layout = layoutBrandChrome(theme, { ...media, format });
   const assetsDir = join(workDir || dirname(out), "brand-chrome", layout.id);
-  const lockups = layout.markAsset && layout.label
+  const lockups = layout.markAsset && (layout.label || layout.labelAsset)
     ? renderSeparateElements(layout, assetsDir)
     : renderLockups(layout, assetsDir);
   mkdirSync(dirname(out), { recursive: true });
   const overlayInputs = lockups.kind === "separate"
-    ? [lockups.markLeft, lockups.labelLeft, lockups.markRight, lockups.labelRight]
+    ? lockups.labelLeftChars?.length
+      ? [lockups.markLeft, ...lockups.labelLeftChars, lockups.markRight, ...lockups.labelRightChars]
+      : [lockups.markLeft, lockups.labelLeft, lockups.markRight, lockups.labelRight]
     : [lockups.left, lockups.right];
   const ffmpegInputs = overlayInputs.flatMap((path) => ["-loop", "1", "-i", path]);
   execFileSync(FFMPEG, [
     "-y", "-i", input, ...ffmpegInputs,
     "-filter_complex_threads", "1",
     "-filter_complex", lockups.kind === "separate"
-      ? separateBrandChromeFilter(layout) : brandChromeFilter(layout),
+      ? separateBrandChromeFilter(layout, lockups.labelLeftChars?.length || 0) : brandChromeFilter(layout),
     "-map", "[outv]", "-map", "0:a?",
     "-t", media.duration.toFixed(3), "-r", media.fps,
     "-c:v", "libx264", "-preset", "medium", "-crf", "18",

@@ -13,10 +13,10 @@ const CLIENT_MEDIA = new Map([
   ["fia/jeannette-montgomery-barron", {
     accessHash: "a3d63ea8a6fe63f3d3b093b46d75adfe451c0de05aa10c5891a1741e965aabb1",
     title: "Jeannette Montgomery Barron Archive",
-    eyebrow: "Aesthetic Computer · Client media",
-    description: "A private, offline archive of posts, original videos, tagged work, captions, and a point-in-time follower snapshot.",
+    eyebrow: "Private archive",
+    description: "A private copy of the Instagram archive, including posts, videos, tagged work, captions, and the follower list as it appeared when the archive was made.",
     version: "1.1.0",
-    platform: "macOS · Apple Silicon + Intel",
+    platform: "For Mac",
     size: "151.7 MB",
     filename: "Jeannette-Montgomery-Barron-Archive-1.1.0.dmg",
     bucket: "releases-aesthetic-computer",
@@ -97,7 +97,7 @@ function landing(entry, token, event, key) {
 <meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${title}">
 <meta name="twitter:description" content="${description}"><meta name="twitter:image" content="${escape(entry.ogImage)}">
 <style>:root{color-scheme:light;--paper:#f1eadb;--ink:#1c1b18;--red:#a92420}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--paper);color:var(--ink);font:16px/1.5 ui-sans-serif,system-ui,sans-serif}main{width:min(760px,calc(100% - 32px));margin:32px;background:#f8f3e9;border:1px solid #d8cebd;box-shadow:0 22px 70px #382f231f}.hero{display:block;width:100%;height:auto;border-bottom:1px solid #d8cebd}.copy{padding:clamp(24px,5vw,48px)}.eyebrow{margin:0 0 12px;color:var(--red);font-size:12px;font-weight:750;letter-spacing:.12em;text-transform:uppercase}h1{font:700 clamp(32px,6vw,58px)/.98 ui-serif,Georgia,serif;letter-spacing:-.035em;margin:0 0 18px;max-width:650px}p{margin:0 0 24px;color:#5e584f}.facts{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 28px}.facts span{border:1px solid #cfc4b2;border-radius:999px;padding:6px 10px;font-size:12px}.download{display:inline-block;background:var(--ink);color:white;text-decoration:none;border-radius:999px;padding:13px 19px;font-weight:700}.download:hover{background:var(--red)}footer{padding:0 48px 30px;color:#81796e;font-size:11px}@media(max-width:520px){footer{padding:0 24px 24px}}</style></head>
-<body><main><img class="hero" src="${escape(entry.ogImage)}" width="1200" height="630" alt="JMB archive mark"><div class="copy"><p class="eyebrow">${escape(entry.eyebrow)}</p><h1>${title}</h1><p>${description}</p><div class="facts"><span>Version ${escape(entry.version)}</span><span>${escape(entry.platform)}</span><span>${escape(entry.size)}</span><span>Signed &amp; notarized</span></div><a class="download" href="${escape(downloadURL)}">Download for Mac</a></div><footer>Private client delivery · The download authorization is generated when you click.</footer></main></body></html>`, "text/html; charset=utf-8");
+<body><main><img class="hero" src="${escape(entry.ogImage)}" width="1200" height="630" alt="JMB archive mark"><div class="copy"><p class="eyebrow">${escape(entry.eyebrow)}</p><h1>${title}</h1><p>${description}</p><div class="facts"><span>${escape(entry.platform)}</span><span>${escape(entry.size)}</span></div><a class="download" href="${escape(downloadURL)}">Download for Mac</a></div><footer>Prepared for Jeannette Montgomery Barron.</footer></main></body></html>`, "text/html; charset=utf-8");
 }
 
 export async function handler(event) {

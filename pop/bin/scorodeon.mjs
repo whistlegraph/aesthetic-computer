@@ -324,7 +324,7 @@ function drawFrame(now, fi) {
 if (opt("frame", null) != null) {
   const ft = parseFloat(opt("frame", "0"));
   drawFrame(ft, Math.floor(ft * FPS));
-  const fp = join(dirname(OUT), "scorodeon-frame.png");
+  const fp = resolve(opt("frame-out", join(dirname(OUT), "scorodeon-frame.png")));
   const { writeFileSync } = await import("node:fs");
   writeFileSync(fp, canvas.toBuffer("image/png"));
   rmSync(TMP, { recursive: true, force: true });

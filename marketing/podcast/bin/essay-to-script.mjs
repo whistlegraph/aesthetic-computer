@@ -174,13 +174,15 @@ function parseTex(raw) {
 // ── .md parser (opinion essays) ────────────────────────────────────────
 function parseMd(raw) {
   let s = raw;
-  let title = "Untitled", date = "", author = "@jeffrey";
+  let title = "Untitled", date = "", author = "@jeffrey", link = "";
   const fm = s.match(/^---\n([\s\S]*?)\n---\n/);
   if (fm) {
     const block = fm[1];
     const t = block.match(/title:\s*["']?(.+?)["']?\s*$/m); if (t) title = t[1].trim();
-    const d = block.match(/date:\s*(.+)$/m); if (d) date = d[1].trim();
-    const a = block.match(/author:\s*(.+)$/m); if (a) author = a[1].trim();
+    const unquote = (value) => value.trim().replace(/^(["'])(.*)\1$/, "$2");
+    const d = block.match(/date:\s*(.+)$/m); if (d) date = unquote(d[1]);
+    const a = block.match(/author:\s*(.+)$/m); if (a) author = unquote(a[1]);
+    const l = block.match(/link:\s*(.+)$/m); if (l) link = unquote(l[1]);
     s = s.slice(fm[0].length);
   }
   let body = s
@@ -193,13 +195,13 @@ function parseMd(raw) {
     .replace(/`([^`]+)`/g, "$1")
     .replace(/—/g, ", ")
     .replace(/[ \t]+/g, " ");
-  return { title, date, author, body };
+  return { title, date, author, link, body };
 }
 
 export function essayToScript(path) {
   const raw = readFileSync(path, "utf8");
   const isTex = path.endsWith(".tex");
-  const { title, date, author, body } = isTex ? parseTex(raw) : parseMd(raw);
+  const { title, date, author, link = "", body } = isTex ? parseTex(raw) : parseMd(raw);
 
   const paragraphs = body
     .split(/\n\s*\n/)
@@ -208,7 +210,7 @@ export function essayToScript(path) {
 
   const wordCount = paragraphs.join(" ").split(/\s+/).filter(Boolean).length;
   const slug = basename(path).replace(/\.[^.]+$/, "");
-  return { slug, title, date, author, paragraphs, wordCount };
+  return { slug, title, date, author, link, paragraphs, wordCount };
 }
 
 // CLI: print the script as JSON.

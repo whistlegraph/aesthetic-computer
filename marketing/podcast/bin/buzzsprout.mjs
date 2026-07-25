@@ -65,7 +65,8 @@ const episodeDescription = (slug, meta = {}) => {
   const title = meta.title || slug;
   const siteName = hosted(slug) || `aesthetic-${slug}-essay`;
   const essayUrl = `https://papers.aesthetic.computer/${siteName}.pdf`;
-  return `${meta.description || `A reading of "${title}" in @jeffrey's voice.`}\n\nWrite with questions and feedback: mail@aesthetic.computer. Unless you ask us not to, your letter may be read or mentioned on a future episode.\n\nRead the essay: ${essayUrl}\nMore readings + papers: https://papers.aesthetic.computer`;
+  const sourceLine = meta.link ? `Explore Aesthetic Computer: ${meta.link}` : `Read the essay: ${essayUrl}`;
+  return `${meta.description || `A reading of "${title}" in @jeffrey's voice.`}\n\nWrite with questions and feedback: mail@aesthetic.computer. Unless you ask us not to, your letter may be read or mentioned on a future episode.\n\n${sourceLine}\nMore readings + papers: https://papers.aesthetic.computer`;
 };
 
 // ── list ───────────────────────────────────────────────────────────────
@@ -92,6 +93,23 @@ if (positional[0] === "publish") {
   const ep = await res.json();
   writeFileSync(rp, JSON.stringify(ep, null, 2) + "\n");
   console.log(`✓ ${s} is now public · episode #${ep.episode_number ?? ep.id}`);
+  process.exit(0);
+}
+
+// Temporarily withdraw an uploaded episode without deleting its stable ID.
+// Useful when a live master must be replaced: stage → replace → publish.
+if (positional[0] === "stage") {
+  const s = positional[1];
+  const rp = resolve(OUT, `${s}.buzzsprout.json`);
+  if (!existsSync(rp)) { console.error(`✗ no receipt ${rp} — upload it first`); process.exit(1); }
+  const id = JSON.parse(readFileSync(rp, "utf8")).id;
+  const fd = new FormData();
+  fd.append("private", "true");
+  const res = await fetch(`${API}/episodes/${id}.json`, { method: "PUT", headers: auth, body: fd });
+  if (!res.ok) { console.error(`✗ stage ${res.status}: ${(await res.text()).slice(0, 300)}`); process.exit(1); }
+  const ep = await res.json();
+  writeFileSync(rp, JSON.stringify(ep, null, 2) + "\n");
+  console.log(`✓ ${s} is private/staged · episode #${ep.episode_number ?? ep.id}`);
   process.exit(0);
 }
 
@@ -160,7 +178,7 @@ if (positional[0] === "replace") {
 
 // ── publish an episode ─────────────────────────────────────────────────
 const slug = positional[0];
-if (!slug) { console.error("usage: buzzsprout.mjs <slug> [--private] | publish <slug> | replace <slug> | artwork <slug> | list"); process.exit(1); }
+if (!slug) { console.error("usage: buzzsprout.mjs <slug> [--private] | stage <slug> | publish <slug> | replace <slug> | artwork <slug> | list"); process.exit(1); }
 
 const mp3 = resolve(OUT, `${slug}.mp3`);
 const metaPath = resolve(OUT, `${slug}.json`);

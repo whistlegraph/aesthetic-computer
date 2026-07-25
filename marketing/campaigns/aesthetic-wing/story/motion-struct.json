@@ -1,0 +1,29 @@
+{
+  "sections": [
+    {
+      "name": "road",
+      "startSec": 0,
+      "endSec": 4.841
+    },
+    {
+      "name": "unfold",
+      "startSec": 4.841,
+      "endSec": 7.976
+    },
+    {
+      "name": "lift",
+      "startSec": 7.976,
+      "endSec": 17.148
+    },
+    {
+      "name": "settle",
+      "startSec": 17.148,
+      "endSec": 22.163
+    },
+    {
+      "name": "design",
+      "startSec": 22.163,
+      "endSec": 26.738
+    }
+  ]
+}

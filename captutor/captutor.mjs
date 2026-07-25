@@ -313,6 +313,9 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
   const localizeCard = (card) => Object.fromEntries(Object.entries(card || {}).map(
     ([key, value]) => [key, key === "durationMs" ? value : say(value, locale)],
   ));
+  const englishCard = (card) => Object.fromEntries(Object.entries(card || {}).map(
+    ([key, value]) => [key, key === "durationMs" ? value : say(value, "en")],
+  ));
   const ctx = {
     cdp,
     click: (sel, opts) => perform("click", { selector:sel, options:opts },
@@ -597,6 +600,20 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
     effectTheme:sp.effectTheme || null,
     title:say(sp.title, locale),
     subtitle:say(sp.subtitle, locale),
+    // QA receipts are operational documents, not localized deliverables. Keep
+    // an English copy beside the filmed language so reviewers can always read
+    // the acceptance evidence without changing the captions or narration.
+    receiptEnglish:{
+      title:say(sp.title, "en"),
+      subtitle:say(sp.subtitle, "en"),
+      openingCard:sp.openingCard ? englishCard(sp.openingCard) : null,
+      closingCard:sp.closingCard ? englishCard(sp.closingCard) : null,
+      beats:sp.beats.map((beat) => ({
+        narration:say(beat.say, "en"),
+        logic:beat.logic ? say(beat.logic, "en") : null,
+        cursorIntent:beat.cursorIntent ? say(beat.cursorIntent, "en") : null,
+      })),
+    },
     openingCard:sp.openingCard ? localizeCard(sp.openingCard) : null,
     closingCard:sp.closingCard ? localizeCard(sp.closingCard) : null,
     acceptance:sp.acceptance || null,

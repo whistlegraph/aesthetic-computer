@@ -399,6 +399,7 @@ final class PromptSigilOverlay {
     /// opposite corner while sharing the same tty binding and z-order rules.
     private let platformTargetBadgeWindow: NSWindow
     private let platformTargetBadgeView: PlatformTargetAwarenessIdentifierBadgeView
+    private var rockOrderedAbove: Int?
     private var platformTargetBadgeOrderedAbove: Int?
     private var platformTarget = ""
     private let rockLayer = CALayer()        // plays the pre-rendered rotation frames
@@ -1246,17 +1247,32 @@ final class PromptSigilOverlay {
     /// illusion. The badge floats above everything, but it only *shows* while
     /// its corner of the terminal is genuinely visible, so it hides and
     /// reappears with its window exactly as if it were part of it.
-    func setVisible(_ v: Bool, above terminalWindowNumber: Int) {
+    func setVisible(_ v: Bool, above terminalWindowNumber: Int,
+                    reassertOrder: Bool) {
         if v {
-            if !window.isVisible { window.orderFrontRegardless() }
+            // A normal-level Terminal returns to the front whenever it is
+            // focused. `isVisible` remains true while that happens, so merely
+            // ordering a rock the first time it appears eventually leaves the
+            // still-visible rock behind its own Terminal. Reassert the sibling
+            // order whenever the controller sees the normal-window stack
+            // change. The occlusion gate in `reposition` has already proved
+            // this terminal is topmost at the rock, so this cannot lift the
+            // rock over another app.
+            if !window.isVisible || rockOrderedAbove != terminalWindowNumber
+                || reassertOrder {
+                window.order(.above, relativeTo: terminalWindowNumber)
+                rockOrderedAbove = terminalWindowNumber
+            }
             if loopboyStyled && (!heartbeatWindow.isVisible
-                                 || heartbeatOrderedAbove != terminalWindowNumber) {
+                                 || heartbeatOrderedAbove != terminalWindowNumber
+                                 || reassertOrder) {
                 heartbeatWindow.order(.above, relativeTo: terminalWindowNumber)
                 heartbeatOrderedAbove = terminalWindowNumber
             }
             if !platformTarget.isEmpty
                 && (!platformTargetBadgeWindow.isVisible
-                    || platformTargetBadgeOrderedAbove != terminalWindowNumber) {
+                    || platformTargetBadgeOrderedAbove != terminalWindowNumber
+                    || reassertOrder) {
                 platformTargetBadgeWindow.order(.above, relativeTo: terminalWindowNumber)
                 platformTargetBadgeOrderedAbove = terminalWindowNumber
             }
@@ -1265,6 +1281,7 @@ final class PromptSigilOverlay {
             if window.isVisible { window.orderOut(nil) }
             if heartbeatWindow.isVisible { heartbeatWindow.orderOut(nil) }
             if platformTargetBadgeWindow.isVisible { platformTargetBadgeWindow.orderOut(nil) }
+            rockOrderedAbove = nil
             heartbeatOrderedAbove = nil
             platformTargetBadgeOrderedAbove = nil
         }
@@ -1305,6 +1322,7 @@ final class PromptSigilOverlay {
         if window.isVisible { window.orderOut(nil) }
         if heartbeatWindow.isVisible { heartbeatWindow.orderOut(nil) }
         if platformTargetBadgeWindow.isVisible { platformTargetBadgeWindow.orderOut(nil) }
+        rockOrderedAbove = nil
         heartbeatOrderedAbove = nil
         platformTargetBadgeOrderedAbove = nil
     }
@@ -1312,6 +1330,7 @@ final class PromptSigilOverlay {
         window.orderOut(nil)
         heartbeatWindow.orderOut(nil)
         platformTargetBadgeWindow.orderOut(nil)
+        rockOrderedAbove = nil
         heartbeatOrderedAbove = nil
         platformTargetBadgeOrderedAbove = nil
     }
@@ -2307,7 +2326,7 @@ final class PromptSigilOverlayController {
                     case .blank, .complete, .interrupted, .stale: phase = "IDLE"
                     }
                 }
-                ov.setLoopboyState("\(loopboyContact!.uppercased()) · \(phase)")
+                ov.setLoopboyState("\(loopboyContact.uppercased()) · \(phase)")
             }
             ov.setLighting(drop: sun.drop)
             // Name + hover copy. The name belongs to the session/thread and
@@ -2496,6 +2515,7 @@ final class PromptSigilOverlayController {
     private func reposition() {
         guard !overlays.isEmpty else { timer?.invalidate(); timer = nil; return }
         let snap = snapshotWindows()
+        let stackOrderChanged = snap.stack.map(\.num) != lastStack.map(\.num)
         lastStack = snap.stack        // the hover hit-test reads this between ticks
         let screenH = NSScreen.main?.frame.height ?? 0
         var seen: [Int: (CGFloat, CGFloat, CGFloat, CGFloat)] = [:]
@@ -2511,7 +2531,7 @@ final class PromptSigilOverlayController {
             let p = ov.rockPoint(bounds: b)
             let top = snap.stack.first(where: { $0.rect.contains(p) })?.num
             let visible = (top == nil || top == num)
-            ov.setVisible(visible, above: num)
+            ov.setVisible(visible, above: num, reassertOrder: stackOrderChanged)
             if !visible { dropInteraction(for: ov) }
             seen[num] = b
             if let prev = lastBoundsByNum[num], prev != b {

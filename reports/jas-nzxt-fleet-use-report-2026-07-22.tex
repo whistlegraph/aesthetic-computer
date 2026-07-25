@@ -87,30 +87,30 @@
 \textbf{Prepared} & 22 July 2026, America/Los\_Angeles \\
 \textbf{Window} & 2--22 July 2026; live counters begin at the current boot on 8 July \\
 \textbf{Evidence} & Live read-only host audit, system journal, filesystem metadata, AC repository history, \mono{machines.json}, and Tailnet status \\
-\textbf{Decision} & Preserve, stabilize, then designate as AC's x86/Linux + CUDA workhorse \\
+\textbf{Decision} & Preserve accepted output, retire ChromeOS state, then designate as AC's CUDA media worker \\
 \end{tabularx}
 
 \vspace{10pt}
 \begin{decisionbox}
-\textbf{Recommended assignment.} Keep \mono{jas-nzxt} as a three-tier worker: 
-\textbf{(1) primary} AC native/Fleet OS and x86 Linux builds, 
-\textbf{(2) secondary} queued NVIDIA rendering, transcoding, and bounded local inference, and 
+\textbf{Recommended assignment.} Keep \mono{jas-nzxt} as a three-tier worker:
+\textbf{(1) primary} queued NVIDIA rendering, transcription, and bounded local inference,
+\textbf{(2) secondary} trusted x86/Linux validation and packaging, and
 \textbf{(3) idle-only} BTX mining under the existing power cap. Do not use it as a public production host, canonical datastore, or unrestricted CI runner.
 \end{decisionbox}
 
 \begin{center}
 \begin{tabular}{@{}ccccc@{}}
-\textbf{Ryzen 5 5600X} & \textbf{RTX 3070} & \textbf{16 GiB RAM} & \textbf{753 GiB free} & \textbf{169 Mb/s test} \\
-\small 6c/12t & \small 8 GiB VRAM & \small 7 GiB swap used & \small NVMe healthy & \small Wi-Fi, 10 MB sample \\
+\textbf{Ryzen 5 5600X} & \textbf{RTX 3070} & \textbf{16 GiB RAM} & \textbf{912 GiB free} & \textbf{169 Mb/s test} \\
+\small 6c/12t & \small 8 GiB VRAM & \small 0 GiB swap used & \small NVMe healthy & \small Wi-Fi, 10 MB sample \\
 \end{tabular}
 \end{center}
 
 \section{Executive readout}
 
-The machine is not a blank slate. In the last two weeks it became the fleet's ChromiumOS/Fleet OS laboratory, built and mutated Octopus/Celes images through B8, generated OTA payloads, ran a persistent Fedora builder VM, received the CUDA toolkit, and briefly served BTX mining. That work maps closely to AC's present needs and should be consolidated rather than erased.
+The machine was not a blank slate. In the last two weeks it became the fleet's ChromiumOS/Fleet OS laboratory, built and mutated Octopus/Celes images through B8, generated OTA payloads, ran a persistent Fedora builder VM, received the CUDA toolkit, and briefly served BTX mining. That history first required preservation; after the accepted artifact was copied and verified, the user elected to retire the bandwidth-heavy local ChromiumOS lane and redirect the machine toward media compute.
 
 \begin{itemize}
-  \item \textbf{Preserve the expensive state.} The \mono{fleet-os-builds} tree appears as 285 GiB by directory accounting, but the Btrfs filesystem is only 194 GiB physically used and still has 753 GiB free. Deleting the 265 GiB ChromiumOS subtree would sacrifice cached source and packages, then spend bandwidth recreating them.
+  \item \textbf{Preserve before deciding.} The \mono{fleet-os-builds} tree appeared as 285 GiB by directory accounting, but Btrfs used far less physical space. The accepted image and setup records were copied first; this made the later decision to delete the local tree recoverable at the artifact level, though rebuilding the source/cache state would still require substantial bandwidth.
   \item \textbf{Resolve state before cleanup.} A QEMU builder VM has remained alive since 16 July, a ChromeOS SDK session since 10 July, and one tmux session contains 41 windows. The AC clone also has two untracked setup files. Those are preservation tasks, not trash.
   \item \textbf{Treat memory as the limiting resource.} The 8 GiB VM allocation on a 16 GiB host coincides with 7 GiB of swap use. The RTX 3070 is capable, but \mono{terrarium-cuda} triggered repeated NVIDIA memory faults on 18 July. Run either the VM build lane or a substantial GPU lane, not both.
   \item \textbf{Keep production elsewhere.} Lith, session-server, and Silo already own public serving, realtime state, and data. A Wi-Fi residential workstation should not become their hidden dependency.
@@ -220,7 +220,8 @@ Poorslice & Offline & Always-on 16 GB M1 Pro macOS compute candidate. Best for m
 Windows tower & Offline & Main dev RTX tower. Potential NVIDIA peer, but unavailable now and tied to Windows/WSL interactive development. \\
 Jasellite & Online & Remote Linux shell box and BTX full node/wallet. Good coordinator; not a local GPU/build replacement. \\
 Lith / Session / Silo & External production & Public monolith, realtime authority, and database/storage duties already have homes. Keep \mono{jas-nzxt} out of their critical serving path. \\
-\textbf{Jas-nzxt} & \status{Good}{Online, direct} & Only currently online x86/Linux CUDA workstation in the observed fleet; already holds the costly native build state. \\
+\textbf{Jas-nzxt} & \status{Good}{Online, direct} & Only currently online x86/Linux CUDA workstation in the observed fleet; its retired native-build lineage is preserved on Silo. \\
+\textbf{Xbox at Narek} & Not on Tailnet & Existing Dev Mode receiver and native BIOS test target. Treat as a display/gamepad/audio/suspend endpoint behind a Narek relay, not as a build or inference worker. \\
 \bottomrule
 \end{tabularx}
 
@@ -230,13 +231,13 @@ The live Tailnet and \mono{machines.json} are not a clean one-to-one registry. \
 
 \section{Best application to AC's needs now}
 
-\subsection{1. Primary lane: native OS + x86 Linux build laboratory}
+\subsection{1. Primary lane: CUDA/NVENC media worker}
 
-This is the highest-value assignment because it is already working and difficult to replace on the ARM Mac fleet. Use it for \mono{fedac/native}, ChromiumOS/Fleet OS image work, Linux Electron packaging, kernel/initramfs experiments, and reproducible x86 release artifacts. Formalize the accepted-image ledger, checksums, and cleanup boundaries. This directly supports AC Native needs such as safer OTA work, A/B kernel experimentation, device log upload, and hardware-facing validation.
+Create a one-job-at-a-time queue for Whisper transcription, Captutor/FFmpeg composition and encoding, contact sheets, image masks/depth/upscaling, audio analysis, and carefully chosen local models that fit 8 GiB VRAM. Transfer compact inputs, return accepted outputs to Neo/Silo, and make every AC job preempt mining. Start with Whisper Large V3 Turbo, then a utility-vision bundle: SAM 2.1 Small, Depth Anything V2 Small, Real-ESRGAN, and Practical RIFE.
 
-\subsection{2. Secondary lane: CUDA/NVENC render worker}
+\subsection{2. Secondary lane: trusted x86/Linux validation}
 
-Create a one-job-at-a-time queue for tasks that can run headlessly: Captutor/FFmpeg composition and encoding, contact sheets, image upscaling, transcription, audio analysis, and carefully chosen local image models that fit 8 GiB VRAM. Capture should remain on the Macs when macOS APIs are required; transfer compact inputs, perform compute on \mono{jas-nzxt}, then return accepted outputs. Enforce VRAM preflight and do not overlap this lane with the 8 GiB VM.
+Use the clean Fedora host for Linux Electron packaging, scheduled AC/KidLisp tests, browser checks, dependency audits, and reproducibility checks from trusted branches. Do not recreate the ChromiumOS checkout unless a specific accepted-image project justifies its storage and bandwidth cost.
 
 \subsection{3. Controlled lane: trusted Linux validation}
 
@@ -244,24 +245,24 @@ Run scheduled full AC tests, KidLisp specs, Linux browser checks, dependency aud
 
 \subsection{4. Idle-only lane: BTX mining}
 
-Mining can remain the lowest-priority filler under the 150 W cap, but its 30-second guard currently produces repetitive journal activity while builds or sessions remain present. Move toward state-change logging and a longer check interval. AC build/render jobs should always preempt it.
+Mining remains the lowest-priority filler under the 150 W cap. Matador v0.8.58 and the 60-second guard are active; AC build/render/inference jobs must always preempt it.
 
 \begin{decisionbox}
-\textbf{Do next:} preserve the untracked setup work and accepted Fleet OS artifacts, gracefully close or checkpoint the stale VM/tmux state, complete a controlled Fedora maintenance window, then stand up a Tailnet-only single-job worker interface with two queues: \textbf{build} and \textbf{render}. Leave production and canonical data on their existing hosts.
+\textbf{Do next:} add bandwidth/job accounting, then stand up a Tailnet-only single-job media queue with miner preemption. Validate Whisper transcription first and utility vision second. Register the Narek Xbox as a receiver endpoint only after a tailnet relay exists at that site. Leave production and canonical data on their existing hosts.
 \end{decisionbox}
 
 \section{Maintenance completed on 22 July}
 
-The preservation and maintenance portion of ``Do next'' was completed after the audit. The accepted Octopus image was compressed losslessly from 7.71 GB to 919 MB, tested with \mono{zstd -t}, and copied with SHA-256 \mono{d3701cb1\ldots aefdd}. The two untracked native-Fedora setup files were also copied into the report preservation bundle. The ChromiumOS checkout, SDK, package caches, build scripts, private state, and accepted raw image were deliberately retained.
+The preservation and maintenance portion of ``Do next'' was completed after the audit. The accepted Octopus image was compressed losslessly from 7.71 GB to 919 MB, tested with \mono{zstd -t}, and copied to Silo with SHA-256 \mono{d3701cb1\ldots aefdd}. The two untracked native-Fedora setup files were also copied into the report preservation bundle.
 
 The six-day Fedora builder guest accepted a clean in-guest poweroff. Its QEMU process exited normally; the 41-window tmux workspace contained only empty shells afterward. The older custom tmux server held one idle SDK shell, completed helper shells, and a watcher; all were exited gracefully. No build process was killed while active.
 
-Targeted cleanup reclaimed approximately 7.8 GiB: six finished, reproducible osbuild-composer jobs from January 2025 (6.5 GiB); four unreferenced Docker volumes, including an 840 MiB VS Code cache last used in 2025; safe development caches; and the oldest Fedora kernel. The 265 GiB apparent ChromiumOS tree remains protected. The obsolete failing \mono{xhost-docker} unit and the timer capable of restarting idle BTX mining were disabled; systemd reports no failed units.
+Targeted maintenance first reclaimed approximately 7.8 GiB: six finished, reproducible osbuild-composer jobs from January 2025 (6.5 GiB); four unreferenced Docker volumes, including an 840 MiB VS Code cache last used in 2025; safe development caches; and the oldest Fedora kernel. After preservation was verified, the user explicitly retired \mono{/home/me/fleet-os-builds}: 286 GiB by directory accounting, dominated by 283.5 GB of ChromiumOS state. Btrfs physical use fell from 186 GB to 27 GB, leaving 912 GB free. The deletion is not locally recoverable; the accepted compressed artifact remains on Silo.
 
 Fedora upgraded 151 packages and installed kernel 7.1.4-104. The host rebooted cleanly into that kernel with a matching NVIDIA 580.173 module. Post-reboot checks found CUDA 13.2 operational, no pending DNF or Flatpak updates, zero Btrfs device errors, zero swap use, 761 GiB free, direct Tailnet reachability, and no failed services. The CUDA repository is now excluded from replacing RPM Fusion's NVIDIA driver-facing packages, preventing mixed driver families while retaining the CUDA toolkit.
 
 \begin{notebox}
-\textbf{Next operational step.} Maintenance is complete. The remaining work is to reconcile fleet identity, add bandwidth/job accounting, and install the Tailnet-only single-job \textbf{build} and \textbf{render} queues. Mining remains disabled until those AC lanes have preemption and resource locks.
+\textbf{Next operational step.} Maintenance is complete and guarded mining is restored at roughly 4.0 kH/s, 149 W, and 61\textdegree C with zero rejected/stale shares at verification. Reconcile fleet identity, add bandwidth/job accounting, and install the Tailnet-only single-job \textbf{media} queue. A Narek tailnet relay is the prerequisite for treating the Xbox as a reachable receiver endpoint.
 \end{notebox}
 
 % Named compact-action-plan override: 10 pt body for the final operator page.
@@ -270,11 +271,11 @@ Fedora upgraded 151 packages and installed kernel 7.1.4-104. The host rebooted c
 \section{First-week plan}
 
 \begin{enumerate}
-  \item \textbf{Day 0 -- preserve.} Commit/copy the two untracked AC files; identify the accepted B-series artifact; checksum and copy it with the relevant logs/state manifest; capture the tmux/VM purpose.
-  \item \textbf{Day 1 -- maintenance window.} Gracefully stop completed guest/build sessions, remove only confirmed stale Docker/composer/package material, retire the oldest kernel, apply Fedora updates, reboot, and verify NVIDIA, Btrfs, Tailscale, and the build toolchain.
-  \item \textbf{Day 2 -- fleet identity.} Add a canonical \mono{jastow} record with \mono{jas-nzxt} as alias; reconcile duplicate Panda/Chicken Tailnet nodes; label AC-owned versus client-owned machines; align Tailscale versions.
-  \item \textbf{Day 3 -- observe.} Enable daily/monthly interface accounting and per-job metrics for transfer size, CPU, GPU, and disk. Establish a disk floor and artifact-retention policy without deleting expensive caches.
-  \item \textbf{Days 4--5 -- operationalize.} Add a Tailnet-only, authenticated single-job queue for builds and renders; resource-lock VM and GPU lanes; return artifacts to Neo/Silo; validate with one native build and one Captutor/NVENC job.
+  \item \textbf{Complete -- preserve and clean.} Accepted image and setup records copied; stale guest/sessions closed; Fedora updated; ChromiumOS/Fleet OS local build state retired; mining restored.
+  \item \textbf{Day 1 -- fleet identity.} Add a canonical \mono{jastow} record with \mono{jas-nzxt} as alias; reconcile duplicate Panda/Chicken Tailnet nodes; add \mono{narek-xbox} as a receiver endpoint only after its relay is named.
+  \item \textbf{Day 2 -- observe.} Enable daily/monthly interface accounting and per-job metrics for transfer size, CPU, GPU, and disk. Record mining energy/thermal output separately from useful jobs.
+  \item \textbf{Days 3--4 -- operationalize.} Add a Tailnet-only, authenticated one-job GPU queue; stop miner, run job, clear VRAM, and resume. Validate one Whisper transcription and one mask/depth/upscale task.
+  \item \textbf{Day 5 -- Narek receiver.} Place an always-on tailnet relay at Narek, reserve/discover the Xbox LAN address, and validate Device Portal screenshot/deploy without exposing port 11443 publicly.
   \item \textbf{End of week -- decide idle economics.} Compare useful compute hours, energy, thermals, and BTX returns. Keep mining only if it adds value without interfering with AC work.
 \end{enumerate}
 
@@ -283,15 +284,15 @@ Fedora upgraded 151 packages and installed kernel 7.1.4-104. The host rebooted c
 \begin{itemize}
   \item Accepted build artifacts and setup scripts exist in a second durable location.
   \item No unexplained long-running VM, stale tmux work, failed custom unit, or full \mono{/boot} remains.
-  \item A native build and a GPU render complete separately with predictable memory limits.
+  \item A Whisper job and a utility-vision job complete separately with predictable memory limits.
   \item Daily bandwidth totals and per-job bytes are visible.
-  \item \mono{jastow} resolves canonically from fleet tooling and directly over Tailnet.
+  \item \mono{jastow} resolves canonically from fleet tooling and directly over Tailnet; \mono{narek-xbox} resolves through a named site relay.
   \item No public port, production database, or broad secret set has been added to the box.
 \end{itemize}
 
 \section{Evidence boundaries}
 
-The usage findings are based on the original read-only audit; the later maintenance section records the authorized actions and post-reboot validation performed the same day. Network totals are kernel interface counters since the 8 July boot, not billing-grade historical records. The short WAN test downloaded 10 MB and performed no upload test. Directory sizes on Btrfs can double-count reflinked/shared extents. Tailnet status is a point-in-time view; offline machines may simply have been asleep. Workload source and caches were retained, and cleanup was restricted to reproducible composer jobs, confirmed-unreferenced Docker volumes, the oldest kernel, and safe caches.
+The usage findings are based on the original read-only audit; the later maintenance section records authorized actions and post-reboot validation performed the same day. Network totals are kernel interface counters since the 8 July boot, not billing-grade historical records. The short WAN test downloaded 10 MB and performed no upload test. Directory sizes on Btrfs can double-count reflinked/shared extents, which is why deleting 286 GiB of logical build state reclaimed about 159 GB physically. Tailnet status is a point-in-time view; offline machines may simply have been asleep. The Xbox's Narek location is user-supplied; no Narek relay or Xbox tailnet peer was visible at audit.
 
 \endgroup
 

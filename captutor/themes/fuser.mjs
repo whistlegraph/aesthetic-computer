@@ -4,8 +4,7 @@ import { fileURLToPath } from "node:url";
 const HERE = dirname(fileURLToPath(import.meta.url));
 
 // Fuser owns these values; Captutor only consumes the generic contract.
-// The supplied asset is already the Fuser glyph + the word “Fuser”, so each
-// inward-facing side mark remains a single responsive lockup.
+// The mark and Marund word are deliberately separate, compact signatures.
 export const fuserEffectTheme = Object.freeze({
   color: "#111111",
   ringColor: "#111111",
@@ -27,16 +26,33 @@ export default Object.freeze({
   id: "fuser",
   markAsset: join(HERE, "..", "assets", "fuser-mark.svg"),
   label: "Fuser",
+  labelAsset: "/Users/jas/Developer/fuser/apps/app/public/fuser-thumbnail-logo.svg",
+  labelAssetCrop: { x:86 / 202, y:69 / 161, width:65 / 202, height:21 / 161, aspect:202 / 161 },
   font: join(HERE, "..", "assets", "Marund.ttf"),
-  periodSec: 20,
-  driftFraction: 0.0032,
-  bobFraction: 0.0018,
-  opacity: 0.97,
-  shadow: { opacity: 92, blur: 1.2, x: 2, y: 3 },
+  labelWeight: 700,
+  labelStrokeFraction: 0.018,
+  periodSec: 8,
+  driftFraction: 0.0035,
+  bobFraction: 0.002,
+  opacity: 0.84,
+  markColor: "#17151a",
+  labelColor: "#17151a",
+  shadow: { color:"#a58cbc", opacity:92, blur:0.55, x:1, y:2 },
+  leftMarkCenterY: 0.748,
+  leftLabelCenterY: 0.8,
+  rightMarkCenterY: 0.252,
+  rightLabelCenterY: 0.2,
+  labelCharacterCuts: [[0, 0.225], [0.225, 0.423], [0.423, 0.626], [0.626, 0.843], [0.843, 1]],
+  characterMotion: {
+    driftFraction: 0.0014,
+    periodSec: 3.2,
+    shimmerPeriodSec: 2.4,
+    shimmerAmount: 0.18,
+  },
   formats: {
-    docs: { edgeFraction: 0.038, markSideFraction:0.105, labelPxFraction:0.075 },
-    youtube: { edgeFraction: 0.042, markSideFraction:0.11, labelPxFraction:0.078 },
-    reel: { edgeFraction: 0.072, markSideFraction:0.12, labelPxFraction:0.084 },
-    vertical: { edgeFraction: 0.068, markSideFraction:0.115, labelPxFraction:0.082 },
+    docs: { edgeFraction: 0.018, markSideFraction:0.017, labelPxFraction:0.024 },
+    youtube: { edgeFraction: 0.02, markSideFraction:0.019, labelPxFraction:0.026 },
+    reel: { edgeFraction: 0.034, markSideFraction:0.022, labelPxFraction:0.03 },
+    vertical: { edgeFraction: 0.032, markSideFraction:0.021, labelPxFraction:0.029 },
   },
 });

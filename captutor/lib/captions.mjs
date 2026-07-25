@@ -34,7 +34,10 @@ export function captionPhrases(beats, { maxWords = 6, pauseMs = 380 } = {}) {
         current = [];
         return;
       }
-      out.push({ from: words[0].from, to: words.at(-1).to, text, words });
+      out.push({
+        from:words[0].from, to:words.at(-1).to, text, words,
+        color:beat.captionColor || null,
+      });
       current = [];
     };
 

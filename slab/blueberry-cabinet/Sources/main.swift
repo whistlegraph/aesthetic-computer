@@ -48,63 +48,31 @@ final class CabinetView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
 
-        let bg = NSGradient(colors: [
-            NSColor(calibratedRed: 0.035, green: 0.055, blue: 0.12, alpha: 1),
-            NSColor(calibratedRed: 0.02, green: 0.025, blue: 0.055, alpha: 1),
-        ])!
-        bg.draw(in: bounds, angle: -90)
+        // The only surround is a compact control clue below MAME. Everything
+        // else in this click-through window remains transparent.
+        let deck = NSRect(x: screenLeft, y: 566, width: screenWidth, height: 62)
+        rounded(deck, radius: 16,
+                color: NSColor(calibratedRed: 0.035, green: 0.055, blue: 0.11, alpha: 0.94))
 
-        // Marquee.
-        rounded(NSRect(x: 24, y: 18, width: bounds.width - 48, height: 62), radius: 18,
-                color: NSColor(calibratedRed: 0.08, green: 0.20, blue: 0.48, alpha: 1))
-        centered("BLUEBERRY FIGHT CLUB", y: 31, size: 28,
-                 color: NSColor(calibratedRed: 0.65, green: 0.88, blue: 1, alpha: 1), weight: .black)
+        let muted = NSColor(calibratedWhite: 0.58, alpha: 1)
+        text("MOVE", at: NSPoint(x: 96, y: 578), size: 10, color: muted)
+        text("W A S D", at: NSPoint(x: 96, y: 597), size: 14, color: .systemBlue, weight: .heavy)
 
-        // Bezel—the live MAME window sits over the black aperture.
-        rounded(NSRect(x: screenLeft - 18, y: screenTop - 18,
-                       width: screenWidth + 36, height: screenHeight + 36), radius: 22,
-                color: NSColor(calibratedWhite: 0.015, alpha: 1))
-        rounded(NSRect(x: screenLeft, y: screenTop, width: screenWidth, height: screenHeight),
-                radius: 4, color: .black)
+        text("PUNCH", at: NSPoint(x: 224, y: 578), size: 10, color: muted)
+        text("J K L", at: NSPoint(x: 224, y: 597), size: 14, color: .systemPink, weight: .heavy)
 
-        // Control deck.
-        rounded(NSRect(x: 32, y: 566, width: bounds.width - 64, height: 126), radius: 22,
-                color: NSColor(calibratedRed: 0.055, green: 0.085, blue: 0.16, alpha: 1))
-        text("MOVE", at: NSPoint(x: 64, y: 582), size: 12,
-             color: NSColor(calibratedWhite: 0.62, alpha: 1))
-        key("W", x: 117, y: 576, color: .systemBlue)
-        key("A", x: 68, y: 618, color: .systemBlue)
-        key("S", x: 117, y: 618, color: .systemBlue)
-        key("D", x: 166, y: 618, color: .systemBlue)
+        text("KICK", at: NSPoint(x: 322, y: 578), size: 10, color: muted)
+        text("N M ,", at: NSPoint(x: 322, y: 597), size: 14, color: .systemOrange, weight: .heavy)
 
-        text("PUNCH", at: NSPoint(x: 286, y: 582), size: 12,
-             color: NSColor(calibratedWhite: 0.62, alpha: 1))
-        key("J", x: 286, y: 608, color: .systemPink)
-        key("K", x: 336, y: 608, color: .systemPink)
-        key("L", x: 386, y: 608, color: .systemPink)
+        text("COIN", at: NSPoint(x: 420, y: 578), size: 10, color: muted)
+        text("RETURN", at: NSPoint(x: 420, y: 597), size: 14, color: .systemGreen, weight: .heavy)
 
-        text("KICK", at: NSPoint(x: 286, y: 654), size: 12,
-             color: NSColor(calibratedWhite: 0.62, alpha: 1))
-        key("N", x: 336, y: 650, color: .systemOrange)
-        key("M", x: 386, y: 650, color: .systemOrange)
-        key(",", x: 436, y: 650, color: .systemOrange)
+        text("START", at: NSPoint(x: 534, y: 578), size: 10, color: muted)
+        text("1", at: NSPoint(x: 534, y: 597), size: 14, color: .systemPurple, weight: .heavy)
 
-        key("↩", x: 546, y: 608, color: .systemGreen)
-        text("COIN", at: NSPoint(x: 547, y: 654), size: 11,
-             color: NSColor(calibratedWhite: 0.7, alpha: 1))
-        key("1", x: 612, y: 608, color: .systemPurple)
-        text("START", at: NSPoint(x: 610, y: 654), size: 11,
-             color: NSColor(calibratedWhite: 0.7, alpha: 1))
-
-        rounded(NSRect(x: 708, y: 592, width: 154, height: 66), radius: 14,
-                color: NSColor(calibratedRed: 0.03, green: 0.14, blue: 0.10, alpha: 1))
-        text("PERFORMANCE", at: NSPoint(x: 724, y: 603), size: 10,
-             color: NSColor(calibratedWhite: 0.65, alpha: 1))
-        text("18.6× HEADROOM", at: NSPoint(x: 724, y: 625), size: 15,
-             color: .systemGreen, weight: .heavy)
-
-        centered("TAB  settings     ESC  quit", y: 698, size: 11,
-                 color: NSColor(calibratedWhite: 0.48, alpha: 1), weight: .medium)
+        text("SYSTEM", at: NSPoint(x: 618, y: 578), size: 10, color: muted)
+        text("TAB  ·  ESC", at: NSPoint(x: 618, y: 597), size: 13,
+             color: NSColor(calibratedWhite: 0.82, alpha: 1), weight: .heavy)
     }
 }
 
@@ -165,6 +133,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             "-ctrlr", "blueberry",
             "-pluginspath", "/opt/homebrew/share/mame/plugins",
             "-plugin", "hiscore",
+            "-video", "opengl",
+            "-lowlatency",
+            "-sound", "coreaudio",
+            "-samplerate", "44100",
+            "-audio_latency", "3",
+            "-noui_mouse",
+            "-mouseprovider", "none",
+            "-lightgunprovider", "none",
             "-joystick", "-skip_gameinfo", "-window", "-nomaximize", "-nofilter",
             "-resolution", "\(Int(screenWidth))x\(Int(screenHeight))",
             "sf2ce",

@@ -24,6 +24,13 @@ if (!existsSync(video) || !existsSync(storyboardPath)) {
 }
 
 const story = JSON.parse(readFileSync(storyboardPath, "utf8"));
+const receiptEnglish = story.receiptEnglish || null;
+const nonEnglish = !/^en(?:-|$)/i.test(story.locale || "en");
+if (nonEnglish && (!receiptEnglish?.title || !Array.isArray(receiptEnglish?.beats))) {
+  throw new Error(
+    `non-English storyboard ${storyboardPath} must include receiptEnglish title, subtitle, and beats`,
+  );
+}
 const work = mkdtempSync(join(tmpdir(), "captutor-receipt-"));
 const frames = join(work, "frames");
 mkdirSync(frames);
@@ -42,6 +49,14 @@ function escapeTex(value) {
     .replaceAll("^", "\\textasciicircum{}")
     .replaceAll("→", "\\ensuremath{\\rightarrow}");
 }
+
+const usesDevanagari = /^hi(?:-|$)/i.test(story.locale || "");
+const storyTex = (value) => usesDevanagari
+  ? `{\\storyfont ${escapeTex(value)}}`
+  : escapeTex(value);
+const englishTitle = receiptEnglish?.title || story.title;
+const englishSubtitle = receiptEnglish?.subtitle || story.subtitle;
+const englishBeat = (beat) => receiptEnglish?.beats?.[beat.index] || null;
 
 const probe = JSON.parse(run("ffprobe", [
   "-v", "error", "-show_entries",
@@ -77,12 +92,21 @@ const evidenceSummary = (event) => {
   const evidence = event.evidence;
   if (typeof evidence === "string") return evidence;
   if (evidence == null) return `observed at ${event.atSec.toFixed(2)}s`;
-  const compact = JSON.stringify(evidence);
-  return compact.length > 128 ? compact.slice(0, 125) + "…" : compact;
+  if (evidence.note) return evidence.note;
+  const compact = Object.entries(evidence)
+    .filter(([key]) => key !== "pass")
+    .map(([key, value]) => `${key}=${Array.isArray(value) ? value.join("×") : value}`)
+    .join("; ") || "trace check passed";
+  return compact.length > 92 ? compact.slice(0, 89) + "…" : compact;
 };
 const requiredChecks = acceptance.requiredChecks || [];
 const loudnessRange = acceptance.loudnessLufs || null;
 const validations = [
+  ["English receipt copy", !nonEnglish || Boolean(receiptEnglish?.title &&
+    receiptEnglish?.subtitle && receiptEnglish?.beats?.length === story.beats.length),
+  nonEnglish
+    ? `${receiptEnglish?.beats?.length || 0}/${story.beats.length} beats carry English QA copy`
+    : "source and receipt language are English"],
   ["Delivery geometry", videoStream?.width === expected[0] && videoStream?.height === expected[1],
     `${videoStream?.width}×${videoStream?.height}; expected ${expected.join("×")}`],
   ...(acceptance.minimumDurationSec ? [[
@@ -144,9 +168,12 @@ const beatFrames = story.beats.map((beat, index) => {
 });
 
 const acFonts = resolve(HERE, "../../system/public/type/webfonts");
-const statusRows = validations.map(([name, pass, evidence]) => `
-${pass ? "\\pass" : "\\fail"} & \\textbf{${escapeTex(name)}} & ${escapeTex(evidence)} \\\\`).join("\n");
+const statusRow = ([name, pass, evidence]) => `
+${pass ? "\\pass" : "\\fail"} & \\textbf{${escapeTex(name)}} & ${escapeTex(evidence)} \\\\`;
+const statusRows = validations.slice(0, 10).map(statusRow).join("\n");
+const continuedStatusRows = validations.slice(10).map(statusRow).join("\n");
 const beatPages = beatFrames.map((beat) => {
+  const english = englishBeat(beat);
   const eventText = beat.event
     ? `${beat.event.kind} at ${beat.event.atSec.toFixed(2)}s`
     : "timed narration frame";
@@ -157,9 +184,9 @@ const beatPages = beatFrames.map((beat) => {
 \\fbox{\\includegraphics[width=0.96\\textwidth,height=0.53\\textheight,keepaspectratio]{\\detokenize{${beat.frame}}}}
 \\end{center}
 \\begin{tabularx}{\\textwidth}{@{}>{\\bfseries}p{0.95in}X@{}}
-Said & ${escapeTex(beat.narration)} \\\\
-Logic & ${escapeTex(beat.logic || "—")} \\\\
-Cursor & ${escapeTex(beat.cursorIntent || "—")} \\\\
+English & ${escapeTex(english?.narration || beat.narration)} \\\\
+${nonEnglish ? `Caption (${escapeTex(story.locale)}) & ${storyTex(beat.narration)} \\\\\n+` : ""}Logic & ${escapeTex(english?.logic || beat.logic || "—")} \\\\
+Cursor & ${escapeTex(english?.cursorIntent || beat.cursorIntent || "—")} \\\\
 Trace & ${escapeTex(eventText)} \\\\
 \\end{tabularx}
 `;
@@ -168,7 +195,10 @@ const cards = storyboardCards.map((card, index) => `
 \\begin{minipage}[t]{0.48\\textwidth}
 \\textbf{${escapeTex(card.role || card.card?.phase || `card ${index + 1}`)}}\\par\\smallskip
 \\includegraphics[width=\\linewidth]{\\detokenize{${card.frame}}}\\par
-\\scriptsize ${escapeTex(card.card?.title || "Concept card")} · ${(card.atSec - card.durationSec).toFixed(2)}–${card.atSec.toFixed(2)}s
+\\scriptsize ${escapeTex((card.role === "opening"
+    ? receiptEnglish?.openingCard?.title
+    : receiptEnglish?.closingCard?.title) || card.card?.title || "Concept card")} · ${(card.atSec - card.durationSec).toFixed(2)}–${card.atSec.toFixed(2)}s
+${nonEnglish ? `\\par\\scriptsize\\color{acgray} Filmed caption: ${storyTex(card.card?.title || "Concept card")}` : ""}
 \\end{minipage}`).join("\\hfill\n");
 
 const tex = `
@@ -179,6 +209,7 @@ const tex = `
 \\setmainfont{Avenir Next}
 \\setsansfont{Avenir Next}
 \\setCJKmainfont{Hiragino Sans GB}
+\\newfontfamily\\storyfont{Kohinoor Devanagari}[Script=Devanagari]
 \\newfontfamily\\acbold{ywft-processing-bold}[Path=${acFonts}/,Extension=.ttf]
 \\newfontfamily\\aclight{ywft-processing-light}[Path=${acFonts}/,Extension=.ttf]
 \\usepackage{xcolor,graphicx,tabularx,array,booktabs,fancyhdr,hyperref,pifont,titlesec}
@@ -200,8 +231,9 @@ const tex = `
 \\begin{document}
 \\begin{center}
 {\\aclight\\fontsize{13pt}{15pt}\\selectfont\\color{acpink} STORYBOARD RECEIPT}\\par\\vspace{0.2em}
-{\\acbold\\fontsize{27pt}{31pt}\\selectfont\\color{acdark} ${escapeTex(story.title)}}\\par
-{\\large\\color{acgray} ${escapeTex(story.subtitle)}}\\par\\vspace{0.5em}
+{\\acbold\\fontsize{27pt}{31pt}\\selectfont\\color{acdark} ${escapeTex(englishTitle)}}\\par
+{\\large\\color{acgray} ${escapeTex(englishSubtitle)}}\\par
+${nonEnglish ? `{\\small\\color{acgray} Filmed language: ${storyTex(story.title)} — ${storyTex(story.subtitle)}}\\par` : ""}\\vspace{0.5em}
 {\\small ${escapeTex(story.locale)} · ${escapeTex(story.format)} · ${escapeTex(basename(video))}}\\par
 \\vspace{0.45em}\\rule{\\textwidth}{1.1pt}
 \\end{center}
@@ -210,11 +242,21 @@ const tex = `
 {\\acbold\\fontsize{18pt}{20pt}\\selectfont\\color{${accepted ? "acgreen" : "acred"}} ${accepted ? "ACCEPTED" : "REVIEW REQUIRED"}}
 \\end{center}
 
-\\begin{tabularx}{\\textwidth}{@{}p{0.28in}p{1.55in}X@{}}
+\\begin{tabularx}{\\textwidth}{@{}p{0.28in}p{1.78in}X@{}}
 \\toprule & Check & Evidence \\\\ \\midrule
 ${statusRows}
 \\bottomrule
 \\end{tabularx}
+
+${continuedStatusRows ? `
+\\clearpage
+\\section*{Validation evidence continued}
+\\begin{tabularx}{\\textwidth}{@{}p{0.28in}p{1.78in}X@{}}
+\\toprule & Check & Evidence \\\\ \\midrule
+${continuedStatusRows}
+\\bottomrule
+\\end{tabularx}
+` : ""}
 
 \\section*{Programmed cards}
 ${cards || "No signboard events recorded."}

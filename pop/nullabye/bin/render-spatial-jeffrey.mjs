@@ -5,7 +5,7 @@
 // The release's first three bars remain Jeffrey-choir-free while the C bed's
 // melody and beat establish the decelerating whole-room spin.  The choir enters as
 // mm/oo, opens through oh,
-// blooms to ah/eh through the 62–70 s eight-turn centrifuge, then closes back
+// blooms to ah/eh through the 58.5–74.5 s eight-turn centrifuge, then closes back
 // toward oo/mm.  All sources are the project-owned, pitch-locked Jeffrey takes
 // already used by momabobasheep; this renderer makes no network/API calls.
 //
@@ -104,14 +104,14 @@ const takes = new Map(manifest.map((m) => {
 const busL = new Float32Array(NS), busR = new Float32Array(NS);
 const smooth = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
 
-// Match the C renderer's exact eight-turn 62–70 s centrifuge.  The vocal
+// Match the C renderer's exact sixteen-second, eight-turn centrifuge. The vocal
 // images orbit with the room instead of sitting like a centered overdub.
 function orbitPan(t, basePan, phase) {
   const slow = 0.12 * Math.sin(t * 0.19 + phase);
   if (layout === "mono") return 0;
   if (layout === "stereo") return Math.max(-0.72, Math.min(0.72, basePan + slow * 0.22));
-  if (t < 61.5 || t > 72.5) return Math.max(-0.84, Math.min(0.84, basePan + slow));
-  const u = smooth((t - 61.5) / 11);
+  if (t < 58.5 || t > 74.5) return Math.max(-0.84, Math.min(0.84, basePan + slow));
+  const u = smooth((t - 58.5) / 16);
   const a = Math.PI * 2 * 8 * u + phase;
   return Math.max(-0.9, Math.min(0.9, basePan * 0.28 + 0.78 * Math.sin(a)));
 }
@@ -329,7 +329,7 @@ writeFileSync(provenancePath, JSON.stringify({
   sourceDuration: TOTAL_SEC, releaseStartSeconds: startSec, material, layout,
   opening: "source prelude and oscillator handles are excluded; release bar 6 begins with the lead alone, one sustained spatial body enters per bar from high to low, percussion begins at bar 8, and bass plus electro kick begin at bar 10; 8 ms safety ramp",
   ending: `bar-37 C-major cadence is the final musical event; its spatial room returns end naturally by ${releaseDuration.toFixed(3)} release seconds; no second outro and no global fade`,
-  superSpin: { start: 61.5, end: 72.5, turns: 8, vocalOrbitMatched: true, launch: "zero-velocity eleven-second ease after the preceding wobble has released" },
+  superSpin: { start: 58.5, end: 74.5, turns: 8, vocalOrbitMatched: true, launch: "zero-velocity sixteen-second ease; slower and longer so wet speed can bloom around dry flyby windows" },
   spatialEffectors: {
     kickGravity: { tonalDuck: 0.18, bodyPull: 0.11, recoverySeconds: 0.78, elasticRebound: 0.22, affects: ["gravity", "distance", "doppler", "hrtf", "roomReturns", "visuals"] },
     antennaAM: { depth: 0.065, controlRateHz: 240, recursiveControlField: true, audioFeedback: false, drivers: ["listener-relative orientation", "3D body separation", "frequency convergence", "beat phase", "relative radial motion"] },

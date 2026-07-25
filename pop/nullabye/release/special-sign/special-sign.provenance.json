@@ -1,0 +1,491 @@
+{
+  "title": "Special Sign",
+  "bed": "pop/nullabye/out/review/Special-Sign-SPEED-DRY-listener-bed.wav",
+  "bpm": 76,
+  "duration": 101.375,
+  "sourceDuration": 126.31578947368422,
+  "releaseStartSeconds": 18.947368,
+  "material": "diamond",
+  "layout": "spatial",
+  "opening": "source prelude and oscillator handles are excluded; release bar 6 begins with the lead alone, one sustained spatial body enters per bar from high to low, percussion begins at bar 8, and bass plus electro kick begin at bar 10; 8 ms safety ramp",
+  "ending": "bar-37 C-major cadence is the final musical event; its spatial room returns end naturally by 101.375 release seconds; no second outro and no global fade",
+  "superSpin": {
+    "start": 58.5,
+    "end": 74.5,
+    "turns": 8,
+    "vocalOrbitMatched": true,
+    "launch": "zero-velocity sixteen-second ease; slower and longer so wet speed can bloom around dry flyby windows"
+  },
+  "spatialEffectors": {
+    "kickGravity": {
+      "tonalDuck": 0.18,
+      "bodyPull": 0.11,
+      "recoverySeconds": 0.78,
+      "elasticRebound": 0.22,
+      "affects": [
+        "gravity",
+        "distance",
+        "doppler",
+        "hrtf",
+        "roomReturns",
+        "visuals"
+      ]
+    },
+    "antennaAM": {
+      "depth": 0.065,
+      "controlRateHz": 240,
+      "recursiveControlField": true,
+      "audioFeedback": false,
+      "drivers": [
+        "listener-relative orientation",
+        "3D body separation",
+        "frequency convergence",
+        "beat phase",
+        "relative radial motion"
+      ]
+    },
+    "hrtfBlend": {
+      "proceduralDetail": 0.24,
+      "cleanListenerRelativeField": 0.76,
+      "purpose": "retain ITD/head/elevation cues without a dominant moving pinna-comb squeak"
+    }
+  },
+  "endingSpatialDeceleration": {
+    "releaseSeconds": [
+      95.375,
+      101.375
+    ],
+    "reachesZeroVelocityAtReleaseEnd": true,
+    "character": "music box running out of energy",
+    "musicalTempoUnaffected": true,
+    "affects": [
+      "sourceMotion",
+      "gravity",
+      "distance",
+      "doppler",
+      "hrtf",
+      "waves",
+      "globalCamera"
+    ]
+  },
+  "rhythm": {
+    "bpm": 76,
+    "swingBeatFraction": 0.105,
+    "stochasticTiming": {
+      "openingBiasMs": 30,
+      "endingBiasMs": -22,
+      "jitterPeakMs": 19,
+      "character": "lazy opening gradually becomes eager ending"
+    },
+    "velocityRange": [
+      0.84,
+      1.12
+    ],
+    "tickTack": {
+      "pattern": "kick-tick-kick-tack",
+      "sources": [
+        "nose-l",
+        "nose-r"
+      ]
+    }
+  },
+  "voiceManifest": "pop/momboba/voice/manifest.json",
+  "sources": [
+    {
+      "file": "pop/momboba/voice/locked/oo.wav",
+      "flatFile": "pop/momboba/voice/locked/oo-flat.wav",
+      "vowel": "oo",
+      "midi": 47
+    },
+    {
+      "file": "pop/momboba/voice/locked/oh.wav",
+      "flatFile": "pop/momboba/voice/locked/oh-flat.wav",
+      "vowel": "oh",
+      "midi": 47
+    },
+    {
+      "file": "pop/momboba/voice/locked/ah.wav",
+      "flatFile": "pop/momboba/voice/locked/ah-flat.wav",
+      "vowel": "ah",
+      "midi": 47
+    },
+    {
+      "file": "pop/momboba/voice/locked/eh.wav",
+      "flatFile": "pop/momboba/voice/locked/eh-flat.wav",
+      "vowel": "eh",
+      "midi": 47
+    },
+    {
+      "file": "pop/momboba/voice/locked/mm.wav",
+      "flatFile": "pop/momboba/voice/locked/mm-flat.wav",
+      "vowel": "mm",
+      "midi": 47
+    }
+  ],
+  "events": [
+    {
+      "vowel": "oo",
+      "midi": 48,
+      "start": 28.421,
+      "dur": 5.684,
+      "pan": 0
+    },
+    {
+      "vowel": "oo",
+      "midi": 43,
+      "start": 35.053,
+      "dur": 5.368,
+      "pan": -0.56
+    },
+    {
+      "vowel": "oo",
+      "midi": 50,
+      "start": 35.183,
+      "dur": 5.238,
+      "pan": 0.56
+    },
+    {
+      "vowel": "oh",
+      "midi": 45,
+      "start": 41.526,
+      "dur": 6.158,
+      "pan": -0.56
+    },
+    {
+      "vowel": "oh",
+      "midi": 52,
+      "start": 41.656,
+      "dur": 6.028,
+      "pan": 0.56
+    },
+    {
+      "vowel": "oh",
+      "midi": 43,
+      "start": 47.368,
+      "dur": 5.763,
+      "pan": -0.56
+    },
+    {
+      "vowel": "oh",
+      "midi": 50,
+      "start": 47.498,
+      "dur": 5.633,
+      "pan": 0.56
+    },
+    {
+      "vowel": "mm",
+      "midi": 41,
+      "start": 56.842,
+      "dur": 4.737,
+      "pan": -0.56
+    },
+    {
+      "vowel": "mm",
+      "midi": 48,
+      "start": 56.972,
+      "dur": 4.607,
+      "pan": 0.56
+    },
+    {
+      "vowel": "mm",
+      "midi": 43,
+      "start": 60.789,
+      "dur": 3.158,
+      "pan": -0.56
+    },
+    {
+      "vowel": "mm",
+      "midi": 47,
+      "start": 60.919,
+      "dur": 3.028,
+      "pan": 0
+    },
+    {
+      "vowel": "mm",
+      "midi": 50,
+      "start": 61.049,
+      "dur": 2.898,
+      "pan": 0.56
+    },
+    {
+      "vowel": "oh",
+      "midi": 45,
+      "start": 64.145,
+      "dur": 4.895,
+      "pan": -0.56
+    },
+    {
+      "vowel": "oh",
+      "midi": 48,
+      "start": 64.275,
+      "dur": 4.765,
+      "pan": 0
+    },
+    {
+      "vowel": "oh",
+      "midi": 53,
+      "start": 64.405,
+      "dur": 4.635,
+      "pan": 0.56
+    },
+    {
+      "vowel": "ah",
+      "midi": 45,
+      "start": 67.895,
+      "dur": 4.737,
+      "pan": -0.56
+    },
+    {
+      "vowel": "ah",
+      "midi": 50,
+      "start": 68.025,
+      "dur": 4.607,
+      "pan": 0
+    },
+    {
+      "vowel": "ah",
+      "midi": 53,
+      "start": 68.155,
+      "dur": 4.477,
+      "pan": 0.56
+    },
+    {
+      "vowel": "eh",
+      "midi": 46,
+      "start": 70.263,
+      "dur": 3.947,
+      "pan": -0.56
+    },
+    {
+      "vowel": "eh",
+      "midi": 50,
+      "start": 70.393,
+      "dur": 3.817,
+      "pan": 0
+    },
+    {
+      "vowel": "eh",
+      "midi": 53,
+      "start": 70.523,
+      "dur": 3.687,
+      "pan": 0.56
+    },
+    {
+      "vowel": "ah",
+      "midi": 43,
+      "start": 74.211,
+      "dur": 5.526,
+      "pan": -0.56
+    },
+    {
+      "vowel": "ah",
+      "midi": 48,
+      "start": 74.341,
+      "dur": 5.396,
+      "pan": 0
+    },
+    {
+      "vowel": "ah",
+      "midi": 52,
+      "start": 74.471,
+      "dur": 5.266,
+      "pan": 0.56
+    },
+    {
+      "vowel": "oh",
+      "midi": 45,
+      "start": 78.947,
+      "dur": 5.684,
+      "pan": -0.56
+    },
+    {
+      "vowel": "oh",
+      "midi": 50,
+      "start": 79.077,
+      "dur": 5.554,
+      "pan": 0
+    },
+    {
+      "vowel": "oh",
+      "midi": 53,
+      "start": 79.207,
+      "dur": 5.424,
+      "pan": 0.56
+    },
+    {
+      "vowel": "oh",
+      "midi": 43,
+      "start": 88.421,
+      "dur": 6.316,
+      "pan": -0.56
+    },
+    {
+      "vowel": "oh",
+      "midi": 48,
+      "start": 88.551,
+      "dur": 6.186,
+      "pan": 0
+    },
+    {
+      "vowel": "oh",
+      "midi": 52,
+      "start": 88.681,
+      "dur": 6.056,
+      "pan": 0.56
+    },
+    {
+      "vowel": "oo",
+      "midi": 43,
+      "start": 97.895,
+      "dur": 5.842,
+      "pan": -0.56
+    },
+    {
+      "vowel": "oo",
+      "midi": 50,
+      "start": 98.025,
+      "dur": 5.712,
+      "pan": 0.56
+    },
+    {
+      "vowel": "mm",
+      "midi": 41,
+      "start": 107.368,
+      "dur": 5.526,
+      "pan": -0.56
+    },
+    {
+      "vowel": "mm",
+      "midi": 48,
+      "start": 107.498,
+      "dur": 5.396,
+      "pan": 0.56
+    },
+    {
+      "vowel": "oo",
+      "midi": 48,
+      "start": 113.684,
+      "dur": 5.921,
+      "pan": 0
+    }
+  ],
+  "mastering": {
+    "material": "diamond",
+    "layout": "spatial",
+    "targetLufs": -15,
+    "maxTruePeakDb": -1.2,
+    "tubeGlue": null,
+    "monoFocus": {
+      "midLevel": 1,
+      "sideLevel": 1.08,
+      "purpose": "preserve every orchestral voice on one-speaker fold-down while permitting an explicit spatial-width audition"
+    },
+    "diamondNeedle": {
+      "character": "clean spectral polish; temporally transparent at note attacks",
+      "delaysMs": [],
+      "nonlinearSaturation": false,
+      "grooveNoise": false,
+      "spatialResonance": "full per-voice listener-relative field; four non-recursive room images"
+    },
+    "needleCrisp": null,
+    "measuredPremasterLufs": -14.47,
+    "measuredPremasterTruePeakDb": -2.23,
+    "linearGainDb": -0.5299999999999994,
+    "sampleRate": 48000,
+    "bitDepth": 24
+  },
+  "finalMix": {
+    "acceptedAudition": "pop/nullabye/out/review/Special-Sign-SLIGHTLY-DRIER-AUDITION.wav",
+    "base": "pop/nullabye/out/review/Special-Sign-SPEED-DRY-AUDITION.wav",
+    "spatialField": "pop/nullabye/out/review/Special-Sign-SPEED-WET97-CLEANFIELD-AUDITION.wav",
+    "automation": "pop/nullabye/out/review/Special-Sign-SPEED-WET-AUDITION.automation.json",
+    "topology": "intact dry master plus antisymmetric speed-following spatial return",
+    "returnFilterHz": {
+      "highpass": 80,
+      "lowpass": 11500
+    },
+    "sideGain": 1,
+    "wetCurveExponent": 1.1,
+    "introSpatialCap": {
+      "wetCeiling": 0.24,
+      "releaseSeconds": [
+        0,
+        20.5
+      ],
+      "transitionEndSeconds": 23
+    },
+    "motionDryPocket": {
+      "enter": 21.25,
+      "hold": 22.25,
+      "release": 25.25,
+      "exit": 26.75,
+      "wetCeiling": 0.035,
+      "purpose": "keep the low-velocity turn near 24 seconds direct and remove the apparent amplitude dip"
+    },
+    "materialKick": {
+      "name": "material kick",
+      "triggers": 50,
+      "oversample": 4,
+      "level": 0.085,
+      "sidechainDuckDbMaximum": 1.35,
+      "sidechainMotionFollow": "30% floor plus 70% square-root of spatial send",
+      "sidechainReleaseSeconds": 0.185,
+      "placement": "whole-mix sidechain key; dry mono return added after the spatial field"
+    },
+    "reverseGestures": {
+      "kick": {
+        "triggers": [
+          36.334088,
+          48.943198,
+          61.571316,
+          74.19672,
+          86.838853
+        ],
+        "every": "eighth authored material kick",
+        "leadSeconds": 0.42,
+        "level": 0.043,
+        "placement": "dry mono mastering return"
+      },
+      "bell": {
+        "events": [
+          {
+            "t": 34.799551,
+            "midi": 69,
+            "pan": -0.58
+          },
+          {
+            "t": 47.450581,
+            "midi": 69,
+            "pan": 0.58
+          },
+          {
+            "t": 60.040371,
+            "midi": 69,
+            "pan": -0.58
+          },
+          {
+            "t": 72.683624,
+            "midi": 69,
+            "pan": 0.58
+          },
+          {
+            "t": 85.278407,
+            "midi": 69,
+            "pan": -0.58
+          }
+        ],
+        "every": "fourth authored bass event",
+        "leadSeconds": 1.28,
+        "level": 0.024,
+        "placement": "alternating wide stereo mastering return"
+      }
+    },
+    "monoInvariant": "the added return is L=-R and cancels exactly before the final linear trim",
+    "fuzzRemoval": "no full-band dry/wet crossfade; one direct timeline plus filtered side field",
+    "measuredPremixLufs": -14.74,
+    "measuredPremixTruePeakDb": -1.21,
+    "targetLufs": -15,
+    "maxTruePeakDb": -1.2,
+    "linearGainDb": -0.2599999999999998
+  }
+}

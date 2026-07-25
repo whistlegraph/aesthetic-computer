@@ -362,6 +362,7 @@ writeFileSync(sidecarPath, JSON.stringify({
   description: script.paragraphs[0], lengthText,
   durationSec: Math.round(total), bytes: readFileSync(outMp3).length,
   wordCount: script.wordCount,
+  link: script.link || undefined,
   audio: `${script.slug}.mp3`, cover: `${script.slug}-cover.png`,
   source: positional[0], pubDate,
 }, null, 2) + "\n");

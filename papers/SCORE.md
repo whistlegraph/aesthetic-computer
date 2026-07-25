@@ -164,6 +164,7 @@ specified in [`GEAR-GUESS.md`](GEAR-GUESS.md).
 | Gear guess | Job | Status |
 |---|---|---|
 | [`aesthetic-computer-media`](gear-guess-aesthetic-computer-media/aesthetic-computer-media.tex) | One fast portable media workspace across the fleet | guess 1 |
+| [`xbox-dev-node`](gear-guess-xbox-dev-node/xbox-dev-node.tex) | The least expensive responsible retail Xbox target for the native deployment loop | guess 1 |
 
 ## Tooling
 

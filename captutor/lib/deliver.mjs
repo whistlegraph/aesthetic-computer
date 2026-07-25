@@ -31,14 +31,14 @@ const VERTICAL_MODE = process.env.CAPTUTOR_VERTICAL_MODE === "1";
 // familiar neutral shape people already recognize as subtitles.
 const LATIN_FONT = process.env.CAPTUTOR_FONT
   || "/System/Library/Fonts/Supplemental/Arial.ttf";
-const CAPTION_STYLE = "arial-caption-box-karaoke-v6";
+const CAPTION_STYLE = "outlined-color-caption-karaoke-v9-sharp-shadow";
 
 // Arial does not cover every script, so non-Latin locales use the corresponding
 // macOS system face instead of silently dropping glyphs.
 const SCRIPT_FONTS = {
   "ko":    "/System/Library/Fonts/AppleSDGothicNeo.ttc",
   "zh-CN": "/System/Library/Fonts/Hiragino Sans GB.ttc",  // NOT PingFang — see below
-  "hi":    "/System/Library/Fonts/Supplemental/Kohinoor.ttc",
+  "hi":    "/System/Library/Fonts/Kohinoor.ttc",
   "fa":    "/System/Library/Fonts/Supplemental/GeezaPro.ttc",
 };
 
@@ -255,10 +255,12 @@ function layoutWords(words, { width, px }) {
   };
 }
 
-/// Rasterize a plain subtitle: regular Arial over a compact translucent black
-/// box. There is no outline, shadow, gradient, or decorative treatment.
+/// Rasterize a large color-coded subtitle over a compact translucent black
+/// box, with a tight outline and hanging shadow for legibility over product UI.
 /// `activeIndex` changes only the spoken word's fill for timed tracking.
-function cuePng(words, { width, px, out, activeIndex = -1, highlightOnly = false }) {
+function cuePng(words, {
+  width, px, out, activeIndex = -1, highlightOnly = false, color = TEXT,
+}) {
   const layout = layoutWords(words, { width, px });
   const mvg = (text) => text.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
   const args = ["-size", `${layout.width}x${layout.height}`, "xc:none"];
@@ -272,11 +274,31 @@ function cuePng(words, { width, px, out, activeIndex = -1, highlightOnly = false
       );
     }
   }
-  args.push("-font", FONT, "-pointsize", String(px));
+  args.push(
+    "-font", FONT, "-pointsize", String(px),
+    "-stroke", "rgba(0,0,0,.98)", "-strokewidth", String(Math.max(1, Math.round(px * 0.022))),
+  );
+  // A compact, high-opacity hanging shadow keeps large outlined transcript
+  // labels crisp over live browser UI. Draw it as a second glyph instead of a
+  // broad blur so fine Devanagari counters and UI details remain clear.
+  const shadowOffset = Math.max(2, Math.round(px * 0.038));
   for (const word of layout.words) {
     if (highlightOnly && word.index !== activeIndex) continue;
     args.push(
-      "-fill", highlightOnly ? ACTIVE_TEXT : TEXT,
+      "-fill", "rgba(24,18,31,.92)",
+      "-stroke", "rgba(165,140,188,.86)",
+      "-strokewidth", String(Math.max(1, Math.round(px * 0.014))),
+      "-draw", `text ${word.x + 1},${word.baseline + shadowOffset} \"${mvg(word.text)}\"`,
+    );
+  }
+  args.push(
+    "-stroke", "rgba(0,0,0,.98)",
+    "-strokewidth", String(Math.max(1, Math.round(px * 0.022))),
+  );
+  for (const word of layout.words) {
+    if (highlightOnly && word.index !== activeIndex) continue;
+    args.push(
+      "-fill", highlightOnly ? "#ffffff" : (color || TEXT),
       "-draw", `text ${word.x},${word.baseline} \"${mvg(word.text)}\"`,
     );
   }
@@ -310,6 +332,7 @@ function videoDuration(clip) {
 
 export function deliver({
   clip, cues, format, out, workDir, locale = "en", brandChrome = null,
+  geometry = null, captionPx = null, captionY = null,
 }) {
   FONT = fontFor(locale);  // brand face for Latin, script-capable fallback otherwise
   const F = FORMATS[format];
@@ -329,8 +352,10 @@ export function deliver({
   const holdLastFrame = pad > 0.02
     ? `tpad=stop_mode=clone:stop_duration=${(pad + 2).toFixed(3)},`
     : "";
-  const W = F.out.w;
-  const H = F.out.h;
+  const W = geometry?.w || F.out.w;
+  const H = geometry?.h || F.out.h;
+  const capPx = captionPx || F.capPx;
+  const capY = captionY ?? F.capY;
 
   // Caption PNGs are cached because multilingual rasterization is expensive.
   // Version the directory so a style change can never silently reuse an older
@@ -343,7 +368,9 @@ export function deliver({
   const pngs = cuts.map((c, i) => {
     const stem = String(i).padStart(3, "0");
     const base = join(capDir, `${stem}-base.png`);
-    if (!existsSync(base)) cuePng(c.words, { width: band, px: F.capPx, out: base });
+    if (!existsSync(base)) cuePng(c.words, {
+      width:band, px:capPx, out:base, color:c.color,
+    });
     const highlights = c.words
       .map((word, wordIndex) => ({ word, wordIndex }))
       .filter(({ word }) => isHighlightableCaptionToken(word.text))
@@ -351,7 +378,8 @@ export function deliver({
         const png = join(capDir, `${stem}-word-${String(wordIndex).padStart(2, "0")}.png`);
         if (!existsSync(png)) {
           cuePng(c.words, {
-            width: band, px: F.capPx, out: png, activeIndex: wordIndex, highlightOnly: true,
+            width:band, px:capPx, out:png, activeIndex:wordIndex,
+            highlightOnly:true, color:c.color,
           });
         }
         return { ...word, png };
@@ -417,7 +445,7 @@ export function deliver({
   let last = "base";
   captionLayers.forEach((c, i) => {
     const label = i === captionLayers.length - 1 && !F.bar ? "outv" : `o${i}`;
-    const y = `${Math.round(H * F.capY)}-h/2`;
+    const y = `${Math.round(H * capY)}-h/2`;
     chain.push(
       `[${last}][${firstCaptionInput + i}:v]overlay=(W-w)/2:${y}` +
       `:enable='between(t,${c.from.toFixed(3)},${c.to.toFixed(3)})'[${label}]`);

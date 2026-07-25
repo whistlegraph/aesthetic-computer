@@ -67,6 +67,20 @@ describe("Whistlegraph Desk", () => {
     expect(page).toContain('sort==="oldest"?String(a.date||"").localeCompare(String(b.date||""))');
   });
 
+  it("keeps the current Posts depth and scroll position after creating a Whistlegraph", () => {
+    const page = readFileSync(new URL("../system/public/whistlegraph.org/admin.html", import.meta.url), "utf8");
+    const createWork = page.match(/async function createWork\(\)\{([\s\S]*?)\n  \}/)?.[1] || "";
+    expect(createWork).toContain("applyCuration();renderReset(true,listPosition);closeEditor()");
+    expect(createWork).not.toContain('mode="works"');
+  });
+
+  it("restores the pre-editor list position after saving a post", () => {
+    const page = readFileSync(new URL("../system/public/whistlegraph.org/admin.html", import.meta.url), "utf8");
+    expect(page).toContain("listPosition={scrollY:window.scrollY,shown}");
+    expect(page).toContain("renderReset(true,listPosition)");
+    expect(page).toContain("requestAnimationFrame(()=>scrollTo(0,listPosition?.scrollY??window.scrollY))");
+  });
+
   it("recovers an existing Auth0 session before returning to the login splash", () => {
     const page = readFileSync(new URL("../system/public/whistlegraph.org/admin.html", import.meta.url), "utf8");
     expect(page).toContain("useRefreshTokensFallback:true");

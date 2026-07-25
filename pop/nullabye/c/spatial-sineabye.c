@@ -32,6 +32,10 @@ static double tempoBpm=ROOM_BPM;
 #define MAXE 4096
 #define NSRC 12
 #define NFRAMES ((int)(DUR*FPS))
+#define SUPER_SPIN_START 58.5
+#define SUPER_SPIN_DURATION 16.0
+#define SUPER_SPIN_END (SUPER_SPIN_START+SUPER_SPIN_DURATION)
+#define SUPER_SPIN_TURNS 8.0
 #include "ac_terrarium_pt.h"
 
 typedef struct { double x,y,z,mass; const char *name; uint32_t color; } Source;
@@ -108,6 +112,8 @@ static double shell_arrival(int s,double t){
 static double shell_listen(int s,double t){double u=(shell_arrival(s,t)-.36)/.24;if(u<=0)return 0;if(u>=1)return 1;return u*u*(3-2*u);}
 static int voice_enabled(int s){if(cosmosMode)return 1;if(duetMode)return s==0||s==1||s==4||s==6;static const int order[4]={4,0,2,3};if(voiceCount>=12)return 1;for(int i=0;i<voiceCount&&i<4;i++)if(s==order[i])return 1;return 0;}
 static void filter_score(void){if(voiceCount>=12)return;int w=0;for(int i=0;i<NE;i++)if(voice_enabled(E[i].src))E[w++]=E[i];NE=w;}
+static const char*event_type_name(int type){switch(type){case 0:return"tone";case 1:return"noise";case 2:return"impact";case 3:return"resonator";case 5:return"chip";case 6:return"triangle";case 7:return"whistle";case 8:return"rotor";default:return"event";}}
+static int export_score_json(const char*path){FILE*f=fopen(path,"w");if(!f)return 0;fprintf(f,"{\n  \"title\": \"Special Sign engine score\",\n  \"bpm\": %.6f,\n  \"duration\": %.9f,\n  \"sources\": [\n",BPM,DUR);for(int s=0;s<NSRC;s++)fprintf(f,"    {\"index\":%d,\"name\":\"%s\",\"color\":\"#%06x\"}%s\n",s,S[s].name,S[s].color&0xffffff,s==NSRC-1?"":",");fprintf(f,"  ],\n  \"events\": [\n");for(int i=0;i<NE;i++){Event*e=&E[i];fprintf(f,"    {\"t\":%.9f,\"dur\":%.9f,\"f0\":%.9f,\"f1\":%.9f,\"g\":%.9f,\"attack\":%.9f,\"release\":%.9f,\"source\":%d,\"type\":%d,\"kind\":\"%s\",\"seed\":%u}%s\n",e->t,e->dur,e->f0,e->f1,e->g,e->atk,e->rel,e->src,e->type,event_type_name(e->type),e->seed,i==NE-1?"":",");}fprintf(f,"  ]\n}\n");int ok=!ferror(f);fclose(f);return ok;}
 static const int TOUR[]={4,8,0,2,10,9,3,5,1,6,11,7};
 static int tour_source(double t){return TOUR[((int)fmax(0,t/9.0))%12];}
 static double hz(double m){return 440*pow(2,(m-69)/12);}
@@ -215,11 +221,14 @@ static Source source_at(int s,double t){if(!cosmosMode&&!globeMode)t=ending_moti
   double x=q.x,y=q.y;q.x=x*cos(a)-y*sin(a);q.y=x*sin(a)+y*cos(a);q.z+=.16*sin(a+s*.7);
  }
  if(t>=50&&t<=78){double raw=(t-50)/28,u=ease01(ease01(raw)),window=sin(M_PI*raw);window*=window;double a=TAU*2*u;
- // The eight-turn centrifuge gathers momentum over eleven seconds. A long,
+ // The eight-turn centrifuge now gathers momentum over sixteen seconds. Its
+ // lower peak speed leaves time for the wet field to bloom and for selected
+ // close flybys to expose the dry body before their spatial tails arrive. A
+ // long,
  // windowed platter wobble now rides inside the turn instead of arriving as a
  // separate scratch afterward. Both displacement and velocity return cleanly
  // to zero at the endpoints, so the gesture stays elastic without a skid.
- if(t>=61.5){double raw=fmax(0,fmin(1,(t-61.5)/11.0)),x=ease01(raw),window=sin(M_PI*raw);window*=window;double wobble=.31*window*(.78*sin(TAU*(1.63*raw+.08*sin(TAU*raw)))+.22*sin(TAU*.71*raw+.4));a+=TAU*8*x+wobble;}
+ if(t>=SUPER_SPIN_START){double raw=fmax(0,fmin(1,(t-SUPER_SPIN_START)/SUPER_SPIN_DURATION)),x=ease01(raw),window=sin(M_PI*raw);window*=window;double wobble=.31*window*(.78*sin(TAU*(1.63*raw+.08*sin(TAU*raw)))+.22*sin(TAU*.71*raw+.4));a+=TAU*SUPER_SPIN_TURNS*x+wobble;}
  double x=q.x,y=q.y;q.x=x*cos(a)-y*sin(a);q.y=x*sin(a)+y*cos(a);q.z+=.22*window*sin(a+s*.7);}
  // Three smaller super-spins join the central centrifuge: a four-turn bloom
  // at release 0:14, a two-turn pickup around 0:25, and a late four-turn bloom.
@@ -348,6 +357,16 @@ static double human_time_offset(int bar,int step,int lane){double form=ease01((b
 static double swung_eighth(double barStart,int bar,int step,int lane){double swing=(step&1)*BEAT*.105,jitter=human_time_offset(bar,step,lane);return fmax(0,barStart+step*BEAT*.5+swing+jitter);}
 static double human_gain(int bar,int step,int lane){return .84+.28*human_unit(bar,step,lane);}
 static double human_kick_gain(int bar,int step){return .94+.12*human_unit(bar,step,1);}
+// Score decoration follows the authored rotational gestures. The opening of
+// the small 43.6 s turn intentionally stays sparse; ornaments arrive only once
+// its motion is established, so the release's ~24 s breath remains grounded.
+static double melodic_motion_arc(double t){
+ double arc=0;
+ if(t>=44.4&&t<49.5){double u=(t-44.4)/5.1;arc=fmax(arc,pow(sin(M_PI*u),2));}
+ if(t>=SUPER_SPIN_START&&t<SUPER_SPIN_END){double u=(t-SUPER_SPIN_START)/SUPER_SPIN_DURATION;arc=fmax(arc,pow(sin(M_PI*u),2));}
+ if(t>=86.5&&t<94.3){double u=(t-86.5)/7.8;arc=fmax(arc,.82*pow(sin(M_PI*u),2));}
+ return arc;
+}
 static int narrative_note(int bar,int step){const int(*theme)[8]=(bar>=12&&bar<28)?THEME_B:THEME_A;int note=theme[bar&3][step];if(note<0)return note;
  // The answer reaches upward before the super-spin. The homecoming keeps the
  // contour but drops occasional notes an octave, like a tired singer returning.
@@ -356,12 +375,21 @@ static int narrative_note(int bar,int step){const int(*theme)[8]=(bar>=12&&bar<2
  if(bar>=34&&step>3)return-1;
  return note;
 }
-static void melody_story_bar(int bar,double t,double transpose,double level){for(int q=0;q<8;q++){int note=narrative_note(bar,q);if(note<0)continue;note+=(int)lrint(12*log2(transpose));while(note>81)note-=12;double at=swung_eighth(t,bar,q,0),dur=BEAT*((q&1)?.37:.45),accent=(q==0||q==4)?1.12:1;ev(at,dur,note,level*accent*human_gain(bar,q,0),4,.035,.22+(q&1)*.05);
+static void melody_story_bar(int bar,double t,double transpose,double level){for(int q=0;q<8;q++){int note=narrative_note(bar,q);if(note<0)continue;note+=(int)lrint(12*log2(transpose));while(note>81)note-=12;double at=swung_eighth(t,bar,q,0),motion=melodic_motion_arc(at),shape=human_unit(bar,q,24),velocity=.70+.60*human_unit(bar,q,25);int held=((bar+q*3)%7==0)||(motion>.58&&(q==0||q==4));double dur=held?BEAT*(.92+.72*shape):BEAT*((q&1)?.34+.10*shape:.42+.13*shape),soft=((bar*3+q)%5==0)||(held&&shape>.42),attack=soft?.095+.12*shape:.024+.025*shape,release=held?fmin(dur*.72,.98):.20+.18*(1-shape),accent=(q==0||q==4)?1.12:1;ev(at,dur,note,level*accent*velocity,4,attack,release);
+  // Sparse doubles make selected melody strikes become small two-body chords.
+  // They lag by a few milliseconds and sit well below the principal sine.
+  if((bar+q*2)%6==1||((q==0||q==4)&&motion>.72)){int interval=((bar+q)&1)?12:-12;ev(at+.010+.010*shape,dur*(.78+.14*shape),note+interval,level*(.17+.10*motion)*velocity,5,.045+.05*shape,fmin(dur*.62,.72));}
   // A few breathy octave ghosts answer phrase endings, never every note.
   if(bar>=12&&bar<32&&(q==3||q==7))ev(at+BEAT*.055,dur*.72,note+12,.0105*human_gain(bar,q,4),5,.06,.25);
  }}
 static void counterpoint_bar(int bar,double t,double transpose){if(bar<13||bar>=34)return;double section=bar<16?.022:(bar<20?.030:(bar<23?.030+.003*(bar-19):(bar<28?.039:.025))),delay=bar>=20&&bar<28?BEAT*.54:BEAT*.16;for(int q=0;q<4;q++){int note=COUNTER[bar&3][q]+(int)lrint(12*log2(transpose));if(bar>=28&&q>1)note-=12;double at=swung_eighth(t,bar,q*2,2)+delay+(human_unit(bar,q,2)-.5)*.018;ev(at,BEAT*(bar>=20&&bar<28?1.28:.88),note,section*human_gain(bar,q,2),5,.12,.48);}}
-static void arpeggio_bar(int bar,double t,double transpose){if(bar<12||bar>=32)return;int sparse=bar<16||bar>=28;double level=bar<16?.010:(bar<20?.0145:(bar==20?.016:(bar==21?.018:(bar<28?.020:.0115))));for(int q=0;q<8;q++){if(sparse&&!(q&1))continue;int note=ARP[bar&3][q]+(int)lrint(12*log2(transpose));while(note>79)note-=12;if(bar>=12&&bar<20){int lead=narrative_note(bar,q);if(lead>=0){lead+=(int)lrint(12*log2(transpose));while(note>lead-9)note-=12;}}double at=swung_eighth(t,bar,q,3);ev(at,BEAT*.31,note,level*((q==0||q==4)?1.2:1)*human_gain(bar,q,3),q&1?3:2,.022,.19);}}
+static void arpeggio_bar(int bar,double t,double transpose){if(bar<12||bar>=32)return;int sparse=bar<16||bar>=28;double level=bar<16?.010:(bar<20?.0145:(bar==20?.016:(bar==21?.018:(bar<28?.020:.0115))));for(int q=0;q<8;q++){if(sparse&&!(q&1))continue;int note=ARP[bar&3][q]+(int)lrint(12*log2(transpose));while(note>79)note-=12;if(bar>=12&&bar<20){int lead=narrative_note(bar,q);if(lead>=0){lead+=(int)lrint(12*log2(transpose));while(note>lead-9)note-=12;}}double at=swung_eighth(t,bar,q,3),motion=melodic_motion_arc(at),shape=human_unit(bar,q,27),dur=BEAT*(.25+.24*shape+.18*motion),gain=level*((q==0||q==4)?1.2:1)*(.72+.56*human_unit(bar,q,28));ev(at,dur,note,gain,q&1?3:2,.018+.055*(1-shape),.15+.28*shape);
+  // A neighbor-tone pickup curls into selected arpeggio notes. Faster spatial
+  // passages admit more of them; quiet turns retain the unornamented pattern.
+  if((motion>.46&&((bar+q)&2))||((bar+q)%9==0)){double graceAt=fmax(t,at-BEAT*(.11+.05*shape));ev(graceAt,BEAT*(.15+.07*shape),note+(((bar+q)&1)?2:-2),gain*(.34+.18*motion),q&1?2:3,.055,.12+.08*shape);}
+  // Phrase anchors occasionally open into a quiet fifth rather than another
+  // single ping, decorating the harmony without crossing the lead register.
+  if((q==0||q==4)&&((bar+q/4)%4==2))ev(at+.024,dur*.88,note+7,gain*.31,q&1?2:3,.075,fmin(.42,dur*.7));}}
 static void opening_glide(double t,double d,double f0,double f1,double g,int src){if(NE<MAXE){int n=NE++;E[n]=(Event){t,d,f0,f1,g,.028,d*.78,src,0,(uint32_t)(n*2654435761u)};}}
 static void opening_air(double t,double d,double lo,double hi,double g,int src){if(NE<MAXE){int n=NE++;E[n]=(Event){t,d,lo,hi,g,.024,d*.72,src,1,(uint32_t)(n*2654435761u)};}}
 static void electro_kick(double t,double g){
@@ -492,7 +520,12 @@ static void score(void){
   // high to low. Four distinct spatial bodies make the additive build audible.
   int padVoices=b<=6?0:(b==7?1:(b==8?2:(b==9?3:4))),firstPad=4-padVoices;
   static const int padSource[4]={2,3,5,10};
-  for(int k=firstPad;k<4;k++){int note=b==36?((int[]){43,50,53,59})[k]:b==37?((int[]){36,48,52,59})[k]:(b>=12&&b<20?underChord[b%4][k]:chord[b%4][k]);ev(t,BAR+.1,note+12*log2(tr),.034*roll,padSource[k],.7,1.0);}
+  double chordMotion=melodic_motion_arc(t+BEAT*2),chordRoll=(b>=14&&b<35)?(.010+.026*chordMotion):0;
+  for(int k=firstPad;k<4;k++){int note=b==36?((int[]){43,50,53,59})[k]:b==37?((int[]){36,48,52,59})[k]:(b>=12&&b<20?underChord[b%4][k]:chord[b%4][k]);double padShape=human_unit(b,k,30),padAt=t+(k-firstPad)*chordRoll;ev(padAt,BAR+.1-(k-firstPad)*chordRoll,note+12*log2(tr),.034*roll*(.88+.22*padShape),padSource[k],.58+.34*padShape,.86+.34*(1-padShape));}
+  // After the small turn has committed, a ninth/fifth extension occasionally
+  // blossoms late inside the sustained chord. It uses an existing sound body,
+  // so the decoration is also visible as a real change in the spatial system.
+  if(b>=14&&b<34&&((b&3)==2||((b&3)==0&&chordMotion>.62))){int top=(b>=12&&b<20?underChord[b%4][3]:chord[b%4][3]),extension=((b&3)==2)?2:7;double at=t+BEAT*(2.55+.24*human_unit(b,4,31));ev(at,BEAT*(.74+.36*chordMotion),top+extension+12*log2(tr),.0085*(.82+.48*chordMotion)*roll,((b>>1)&1)?5:10,.14,.48);}
   // Continuous independently filtered noise voices.
   double noiseScale=noiseLevel;
   for(int q=0;q<4;q++){double at=swung_eighth(t,b,q*2+1,6),fade=percussion_fade(at);if(fade>0)noisev(at,.085,4200,10200,.065*noiseScale*fade*human_gain(b,q,6),q&1?7:6);}
@@ -654,7 +687,7 @@ static void propagation(int src,double t,double *wall,double *cutoff,double *win
 static double whistle_frac_read(const float*buf,int size,int write,double delay){double rd=write-delay;while(rd<0)rd+=size;int a=(int)rd,b=(a+1)%size;double f=rd-a;return buf[a]*(1-f)+buf[b]*f;}
 static void render(void){long n=(long)(DUR*SR);busL=calloc(n,4);busR=calloc(n,4);meterL=calloc(NFRAMES*NSRC,sizeof(*meterL));meterR=calloc(NFRAMES*NSRC,sizeof(*meterR));sourceWave=calloc(NFRAMES*NSRC*WAVE_POINTS,sizeof(*sourceWave));build_antenna_field();
  for(int j=0;j<NE;j++){Event*e=&E[j];long s0=(long)(e->t*SR),nn=(long)(e->dur*SR);double ph=0,lp=0,hpLP=0,envLP=0,saz=0,sel=0,sd=0,swall=1,scutoff=20000,spatialGainState=0,mode1[3]={0},mode2[3]={0},whistleBreath=0,whistleVibrato=0,whistleLP=0,whistleHPX=0,whistleHPY=0;float whistleBore[2048]={0},whistleJet[512]={0};int spatialInit=0,propInit=0,spatialGainInit=0,whistleBoreW=0,whistleJetW=0;uint32_t rs=e->seed;ACHrtf hs;memset(&hs,0,sizeof hs);
-  for(long k=0;k<nn&&s0+k<n;k++){double t=(s0+k)/(double)SR,u=k/(double)SR,a=env(e,t),az,el,d,wall,cutoff,wind,rain;int tornadoActive=t>=32.6&&t<=38.8;spatial_params(e->src,t,&az,&el,&d);if(!spatialInit){saz=az;sel=el;sd=d;spatialInit=1;}else{double motionTau=e->type==8?.009:(tornadoActive?.022:((t>=61.5&&t<=72.5)?.18:(t>=50&&t<=78?.24:.18))),smooth=1-exp(-1.0/(SR*motionTau)),da=atan2(sin(az-saz),cos(az-saz));saz+=da*smooth;sel+=(el-sel)*smooth;sd+=(d-sd)*smooth;}az=saz;el=sel;d=sd;propagation(e->src,t,&wall,&cutoff,&wind,&rain);
+  for(long k=0;k<nn&&s0+k<n;k++){double t=(s0+k)/(double)SR,u=k/(double)SR,a=env(e,t),az,el,d,wall,cutoff,wind,rain;int tornadoActive=t>=32.6&&t<=38.8;spatial_params(e->src,t,&az,&el,&d);if(!spatialInit){saz=az;sel=el;sd=d;spatialInit=1;}else{double motionTau=e->type==8?.009:(tornadoActive?.022:((t>=SUPER_SPIN_START&&t<=SUPER_SPIN_END)?.18:(t>=50&&t<=78?.24:.18))),smooth=1-exp(-1.0/(SR*motionTau)),da=atan2(sin(az-saz),cos(az-saz));saz+=da*smooth;sel+=(el-sel)*smooth;sd+=(d-sd)*smooth;}az=saz;el=sel;d=sd;propagation(e->src,t,&wall,&cutoff,&wind,&rain);
    // A ray crossing the brick wall must not switch gain and bandwidth as a
    // boolean. During the opening centrifuge that crossing happens many times
    // per second; a hard switch becomes zipper clicks locked to the twist.
@@ -712,7 +745,7 @@ static void render(void){long n=(long)(DUR*SR);busL=calloc(n,4);busR=calloc(n,4)
    if(cosmosMode&&e->type!=2&&e->type!=3){double modal=0;ACMeshAcoustics*ma=&BODY_ACOUSTICS[e->src];ACMaterial mm=BODY_MATERIAL[e->src];for(int m=0;m<3;m++){double mf=fmax(45,fmin(12000,ma->mode[m])),r=exp(-M_PI*mf*fmax(.004,mm.loss)/SR),y=2*r*cos(TAU*mf/SR)*mode1[m]-r*r*mode2[m]+(1-r)*v;mode2[m]=mode1[m];mode1[m]=y;modal+=y;}v=.68*v+.32*(modal/3.0);}
    // Keep the filter state alive even while the path is nominally open. This
    // prevents a stale filter accumulator from jumping in at the next crossing.
-   if(k==0)envLP=v;{double c=exp(-TAU*fmin(20000,cutoff)/SR);envLP=(1-c)*v+c*envLP;v=envLP;}double ampEnv=(e->type==6||e->type==7)?1:sqrt(a),tonePump=tonal?1-.18*fmax(0,gravity)+.10*fmax(0,-gravity):1,antenna=tonal?1+antennaDepth*radioField:1,directional=tornadoActive?tornado_directional_pickup(e->src,t):1,spatialTarget=antenna*tonePump*wall*rain*directional*field_gain(e->src,t)*(cosmosMode?cosmos_plane_gain(e->src,t,az,el):1);if(!spatialGainInit){spatialGainState=spatialTarget;spatialGainInit=1;}else{double receiverTau=e->type==8?.007:(tornadoActive?.018:((t>=61.5&&t<=72.5)?.28:(t>=50&&t<=78?.36:.24))),receiverSlew=1-exp(-1.0/(SR*receiverTau));spatialGainState+=(spatialTarget-spatialGainState)*receiverSlew;}v*=spatialGainState*ampEnv*e->g*clickGate;float hl,hr;ac_hrtf_process(&hs,(float)v,az,el,spaceD,&hl,&hr);
+   if(k==0)envLP=v;{double c=exp(-TAU*fmin(20000,cutoff)/SR);envLP=(1-c)*v+c*envLP;v=envLP;}double ampEnv=(e->type==6||e->type==7)?1:sqrt(a),tonePump=tonal?1-.18*fmax(0,gravity)+.10*fmax(0,-gravity):1,antenna=tonal?1+antennaDepth*radioField:1,directional=tornadoActive?tornado_directional_pickup(e->src,t):1,spatialTarget=antenna*tonePump*wall*rain*directional*field_gain(e->src,t)*(cosmosMode?cosmos_plane_gain(e->src,t,az,el):1);if(!spatialGainInit){spatialGainState=spatialTarget;spatialGainInit=1;}else{double receiverTau=e->type==8?.007:(tornadoActive?.018:((t>=SUPER_SPIN_START&&t<=SUPER_SPIN_END)?.28:(t>=50&&t<=78?.36:.24))),receiverSlew=1-exp(-1.0/(SR*receiverTau));spatialGainState+=(spatialTarget-spatialGainState)*receiverSlew;}v*=spatialGainState*ampEnv*e->g*clickGate;float hl,hr;ac_hrtf_process(&hs,(float)v,az,el,spaceD,&hl,&hr);
    double dryPan=fmax(-.62,fmin(.62,S[e->src].x/6.0)),range=(globeMode||cosmosMode)?.008+.992/(1+.32*spaceD*spaceD):1,dl=sqrt((1-dryPan)*.5)*range,dr=sqrt((1+dryPan)*.5)*range;
    // Keep the far release opening genuinely in the acoustic field instead of
    // letting the fixed studio panorama collapse its distance illusion.
@@ -749,7 +782,7 @@ static int wav(const char*p){FILE*f=fopen(p,"wb");if(!f)return 0;long n=(long)(D
 // little scope windows then show the exact stereo file muxed into the video,
 // including Jeffrey's choir and mastering, while source telemetry stays tied
 // to the individual C emitters that launched it.
-static int load_visual_mix(const char*path){char cmd[4096];snprintf(cmd,sizeof cmd,"ffmpeg -hide_banner -loglevel error -i '%s' -f f32le -ar %d -ac 2 -",path,SR);FILE*f=popen(cmd,"r");if(!f)return 0;long n=(long)(DUR*SR),i=0;float pair[2];while(i<n&&fread(pair,sizeof(float),2,f)==2){busL[i]=pair[0];busR[i]=pair[1];i++;}int status=pclose(f);long got=i;for(;i<n;i++)busL[i]=busR[i]=0;return status==0&&got==n;}
+static int load_visual_mix(const char*path,double sourceStart){char cmd[4096];snprintf(cmd,sizeof cmd,"ffmpeg -hide_banner -loglevel error -i '%s' -f f32le -ar %d -ac 2 -",path,SR);FILE*f=popen(cmd,"r");if(!f)return 0;long n=(long)(DUR*SR),i=(long)llround(sourceStart*SR),start=i;memset(busL,0,n*sizeof(*busL));memset(busR,0,n*sizeof(*busR));float pair[2];while(i<n&&fread(pair,sizeof(float),2,f)==2){busL[i]=pair[0];busR[i]=pair[1];i++;}int status=pclose(f);return status==0&&i>start;}
 static void dot(unsigned char*p,int x,int y,int r,uint32_t c){for(int yy=-r;yy<=r;yy++)for(int xx=-r;xx<=r;xx++)if(xx*xx+yy*yy<=r*r){int X=x+xx,Y=y+yy;if(X>=0&&X<W&&Y>=0&&Y<H){int o=(Y*W+X)*3;p[o]=c>>16;p[o+1]=c>>8;p[o+2]=c;}}}
 static void glow(unsigned char*p,int x,int y,int r,uint32_t c,double strength){int rr=c>>16,gg=(c>>8)&255,bb=c&255;for(int yy=-r;yy<=r;yy++)for(int xx=-r;xx<=r;xx++){double d=sqrt(xx*xx+yy*yy)/(double)r;if(d>1)continue;int X=x+xx,Y=y+yy;if(X<0||X>=W||Y<0||Y>=H)continue;double a=strength*(1-d)*(1-d);int o=(Y*W+X)*3;p[o]=p[o]*(1-a)+rr*a;p[o+1]=p[o+1]*(1-a)+gg*a;p[o+2]=p[o+2]*(1-a)+bb*a;}}
 typedef struct{double x,y,z;} V3;typedef struct{int x,y;double z;int ok;} P2;
@@ -1015,8 +1048,8 @@ static void video(const char*wavp,const char*outp,double videoStart,double video
  }
  free(p);pclose(ff);
 }
-  int main(int argc,char**argv){const char*w="../out/spatial-sineabye.wav",*v="../out/spatial-sineabye.mp4",*videoAudio=NULL,*mp3=NULL,*ptStill=NULL,*sceneOut=NULL;double ptTime=32,videoStart=0,videoDuration=DUR;int ptSpp=32,sceneFrames=0,tempoExplicit=0;for(int i=1;i<argc;i++){if(!strcmp(argv[i],"--wav")&&i+1<argc)w=argv[++i];else if(!strcmp(argv[i],"--video")&&i+1<argc)v=argv[++i];else if(!strcmp(argv[i],"--video-audio")&&i+1<argc)videoAudio=argv[++i];else if(!strcmp(argv[i],"--video-start")&&i+1<argc)videoStart=atof(argv[++i]);else if(!strcmp(argv[i],"--video-duration")&&i+1<argc)videoDuration=atof(argv[++i]);else if(!strcmp(argv[i],"--mp3")&&i+1<argc)mp3=argv[++i];else if(!strcmp(argv[i],"--spatial-wet")&&i+1<argc)spatialWet=fmax(0,fmin(1,atof(argv[++i])));else if(!strcmp(argv[i],"--noise-level")&&i+1<argc)noiseLevel=fmax(.05,fmin(1,atof(argv[++i])));else if(!strcmp(argv[i],"--bpm")&&i+1<argc){tempoBpm=fmax(30,fmin(240,atof(argv[++i])));tempoExplicit=1;}else if(!strcmp(argv[i],"--bright")){brightMode=1;themeExplicit=1;}else if(!strcmp(argv[i],"--dark")){brightMode=0;themeExplicit=1;}else if(!strcmp(argv[i],"--theme")&&i+1<argc){const char*th=argv[++i];if(!strcmp(th,"light"))brightMode=1;else if(!strcmp(th,"dark"))brightMode=0;themeExplicit=strcmp(th,"auto")!=0;}else if(!strcmp(argv[i],"--globe"))globeMode=1;else if(!strcmp(argv[i],"--lattice-duet")){globeMode=1;duetMode=1;voiceCount=4;}else if(!strcmp(argv[i],"--cosmos")){globeMode=1;cosmosMode=1;voiceCount=12;}else if(!strcmp(argv[i],"--camera")&&i+1<argc){cameraMode=!strcmp(argv[++i],"ship");}else if(!strcmp(argv[i],"--voices")&&i+1<argc)voiceCount=atoi(argv[++i]);else if(!strcmp(argv[i],"--pathtrace-still")&&i+1<argc)ptStill=argv[++i];else if(!strcmp(argv[i],"--pt-time")&&i+1<argc)ptTime=atof(argv[++i]);else if(!strcmp(argv[i],"--pt-spp")&&i+1<argc)ptSpp=atoi(argv[++i]);else if(!strcmp(argv[i],"--scene-data")&&i+1<argc)sceneOut=argv[++i];else if(!strcmp(argv[i],"--scene-frames")&&i+1<argc)sceneFrames=atoi(argv[++i]);}if(!tempoExplicit)tempoBpm=cosmosMode?COSMOS_BPM:ROOM_BPM;if(sceneFrames<=0)sceneFrames=NFRAMES;resolve_render_theme();videoStart=fmax(0,fmin(DUR,videoStart));videoDuration=fmax(0,fmin(DUR-videoStart,videoDuration));
+  int main(int argc,char**argv){const char*w="../out/spatial-sineabye.wav",*v="../out/spatial-sineabye.mp4",*videoAudio=NULL,*mp3=NULL,*ptStill=NULL,*sceneOut=NULL,*scoreOut=NULL;double ptTime=32,videoStart=0,videoDuration=DUR;int ptSpp=32,sceneFrames=0,tempoExplicit=0,scoreOnly=0;for(int i=1;i<argc;i++){if(!strcmp(argv[i],"--wav")&&i+1<argc)w=argv[++i];else if(!strcmp(argv[i],"--video")&&i+1<argc)v=argv[++i];else if(!strcmp(argv[i],"--video-audio")&&i+1<argc)videoAudio=argv[++i];else if(!strcmp(argv[i],"--video-start")&&i+1<argc)videoStart=atof(argv[++i]);else if(!strcmp(argv[i],"--video-duration")&&i+1<argc)videoDuration=atof(argv[++i]);else if(!strcmp(argv[i],"--mp3")&&i+1<argc)mp3=argv[++i];else if(!strcmp(argv[i],"--spatial-wet")&&i+1<argc)spatialWet=fmax(0,fmin(1,atof(argv[++i])));else if(!strcmp(argv[i],"--noise-level")&&i+1<argc)noiseLevel=fmax(.05,fmin(1,atof(argv[++i])));else if(!strcmp(argv[i],"--bpm")&&i+1<argc){tempoBpm=fmax(30,fmin(240,atof(argv[++i])));tempoExplicit=1;}else if(!strcmp(argv[i],"--bright")){brightMode=1;themeExplicit=1;}else if(!strcmp(argv[i],"--dark")){brightMode=0;themeExplicit=1;}else if(!strcmp(argv[i],"--theme")&&i+1<argc){const char*th=argv[++i];if(!strcmp(th,"light"))brightMode=1;else if(!strcmp(th,"dark"))brightMode=0;themeExplicit=strcmp(th,"auto")!=0;}else if(!strcmp(argv[i],"--globe"))globeMode=1;else if(!strcmp(argv[i],"--lattice-duet")){globeMode=1;duetMode=1;voiceCount=4;}else if(!strcmp(argv[i],"--cosmos")){globeMode=1;cosmosMode=1;voiceCount=12;}else if(!strcmp(argv[i],"--camera")&&i+1<argc){cameraMode=!strcmp(argv[++i],"ship");}else if(!strcmp(argv[i],"--voices")&&i+1<argc)voiceCount=atoi(argv[++i]);else if(!strcmp(argv[i],"--pathtrace-still")&&i+1<argc)ptStill=argv[++i];else if(!strcmp(argv[i],"--pt-time")&&i+1<argc)ptTime=atof(argv[++i]);else if(!strcmp(argv[i],"--pt-spp")&&i+1<argc)ptSpp=atoi(argv[++i]);else if(!strcmp(argv[i],"--scene-data")&&i+1<argc)sceneOut=argv[++i];else if(!strcmp(argv[i],"--scene-frames")&&i+1<argc)sceneFrames=atoi(argv[++i]);else if(!strcmp(argv[i],"--score-data")&&i+1<argc)scoreOut=argv[++i];else if(!strcmp(argv[i],"--score-only"))scoreOnly=1;}if(!tempoExplicit)tempoBpm=cosmosMode?COSMOS_BPM:ROOM_BPM;if(sceneFrames<=0)sceneFrames=NFRAMES;resolve_render_theme();videoStart=fmax(0,fmin(DUR,videoStart));videoDuration=fmax(0,fmin(DUR-videoStart,videoDuration));
  for(int i=1;i+1<argc;i++){if(!strcmp(argv[i],"--visual"))acousticsView=!strcmp(argv[i+1],"acoustics");else if(!strcmp(argv[i],"--antenna-am"))antennaDepth=fmax(0,fmin(.18,atof(argv[i+1])));}
- score();filter_score();simulate();if(ptStill){globeMode=1;if(!pathtrace_still(ptStill,fmax(0,fmin(DUR,ptTime)),fmax(1,ptSpp))){fprintf(stderr,"pathtrace write failed\n");return 1;}fprintf(stderr,"✓ %s · path traced · %d spp\n",ptStill,ptSpp);return 0;}render();if(sceneOut&&!export_scene(sceneOut,fmax(1,fmin(NFRAMES,sceneFrames)))){fprintf(stderr,"scene export failed\n");return 1;}if(!wav(w)){fprintf(stderr,"write failed\n");return 1;}fprintf(stderr,"✓ %s · %.1fs · %d sound bodies/events · %d voices · spatial wet %.0f%%\n",w,DUR,NE,voiceCount,spatialWet*100);
+ score();filter_score();if(scoreOut){if(!export_score_json(scoreOut)){fprintf(stderr,"score export failed\n");return 1;}fprintf(stderr,"✓ %s · %d authored events\n",scoreOut,NE);}if(scoreOnly)return scoreOut?0:1;simulate();if(ptStill){globeMode=1;if(!pathtrace_still(ptStill,fmax(0,fmin(DUR,ptTime)),fmax(1,ptSpp))){fprintf(stderr,"pathtrace write failed\n");return 1;}fprintf(stderr,"✓ %s · path traced · %d spp\n",ptStill,ptSpp);return 0;}render();if(sceneOut&&!export_scene(sceneOut,fmax(1,fmin(NFRAMES,sceneFrames)))){fprintf(stderr,"scene export failed\n");return 1;}if(!wav(w)){fprintf(stderr,"write failed\n");return 1;}fprintf(stderr,"✓ %s · %.1fs · %d sound bodies/events · %d voices · spatial wet %.0f%%\n",w,DUR,NE,voiceCount,spatialWet*100);
  if(mp3){char cmd[4096];snprintf(cmd,sizeof cmd,"ffmpeg -hide_banner -y -loglevel error -i '%s' -af 'highpass=f=28,equalizer=f=72:t=q:w=.8:g=1.2,equalizer=f=7200:t=q:w=.9:g=-1,lowpass=f=15800,alimiter=limit=.90:attack=6:release=100,volume=.84' -c:a libmp3lame -q:a 2 '%s'",w,mp3);if(system(cmd)!=0)return 1;}
- if(v&&strcmp(v,"none")){if(videoAudio&&cameraMode&&!load_visual_mix(videoAudio))fprintf(stderr,"warning: final master could not be decoded for windshield telemetry\n");video(videoAudio?videoAudio:w,v,videoStart,videoDuration);}return 0;}
+ if(v&&strcmp(v,"none")){if(videoAudio&&cameraMode&&!load_visual_mix(videoAudio,videoStart))fprintf(stderr,"warning: final master could not be decoded for windshield telemetry\n");video(videoAudio?videoAudio:w,v,videoStart,videoDuration);}return 0;}
