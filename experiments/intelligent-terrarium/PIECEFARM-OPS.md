@@ -1,6 +1,6 @@
 # Piecefarm live operations
 
-Last verified: 2026-07-24 17:46 PDT
+Last verified: 2026-07-24 18:03 PDT
 
 ## Current season
 
@@ -9,11 +9,13 @@ Last verified: 2026-07-24 17:46 PDT
 - State root: `/home/me/.local/share/piecefarm/state`
 - Experiment: `/home/me/piecefarm/experiments/intelligent-terrarium`
 - API: loopback-only at `127.0.0.1:8788`
-- Displays: two native SDL3/OpenGL panels at 2560×1440, approximately 142–143 FPS
+- Displays: stopped; the last live run held two native SDL3/OpenGL panels at
+  2560×1440 and approximately 139–144 FPS
 - Visible embodiment: twelve fixed-address RGB residents, sampled pixel-perfectly
 - Search population: heterogeneous 32×32, 64×64, 128×128, and 256×256 fields
-- Audio: active stereo Piecefarm stream on the tower's ALC1220 analog Line Out
-- Search cadence: 100 ms launch clock, eight CPU workers, 64-proposal look-ahead
+- Audio: stopped; the last route was the tower's ALC1220 analog Line Out at 38%
+- Search cadence when resumed: 100 ms launch clock, eight CPU workers,
+  64-proposal look-ahead
 
 The launch clock and worker count are user-manager environment overrides
 (`PIECEFARM_CYCLE_MS=100`, `PIECEFARM_WORKERS=8`,
@@ -21,19 +23,18 @@ The launch clock and worker count are user-manager environment overrides
 user-manager lifetime, but not necessarily a logout or reboot. The source
 defaults remain deliberately more conservative.
 
-The service is running but deliberately **disabled** for login autostart. Do
-not enable it or make the current launch/worker overrides permanent without a
-keeper decision.
+The service was explicitly stopped before handoff and is `inactive`. It remains
+deliberately **disabled** for login autostart. Do not start it, enable it, or
+make the current launch/worker overrides permanent without a keeper decision.
 The separate fleet status cockpit is closed; its login autostart entry is
 unchanged.
 
 ## Loopboy caretaker
 
-- Canonical prox: `neo:tal#A2F2270F` (host machine `neo.local`)
-- Agent: Codex on `neo.local`, advertised as `neo` by the fresh fleet ledger
-- CWD: this experiment directory
-- Private route: the existing Piecefarm `alex` Loopboy contact
-- Delivery: isolated prox inbox; no Terminal, clipboard, pointer, or keyboard injection
+There is no active Piecefarm caretaker at handoff. The final Neo replacement
+exited before Neo's battery shutdown. A successor on Blueberry should use this
+experiment directory, bind the existing private `alex` contact, and use the
+isolated prox inbox—never Terminal, clipboard, pointer, or keyboard injection.
 
 The caretaker verifies service health, iteration movement, display assignment,
 display rate, and the actual PipeWire sink/port. It should re-enter
@@ -48,20 +49,33 @@ The earlier `neo:tupas#758ACE5E` rock disappeared from Neo's fresh ledger after
 the client switched to a mobile network. Its first replacement inherited an
 unrelated stale session and was allowed to exit. At 17:57 PDT the genuinely
 fresh guarded `neo:tal#A2F2270F` session was launched in the same worktree and
-bound to the same isolated `alex` Loopboy route; the autonomous jas-nzxt
-service did not stop during either control-plane change.
+bound to the same isolated `alex` Loopboy route. It later exited, and at 18:03
+PDT the jas-nzxt service was explicitly stopped and reset to clean `inactive`
+state.
+
+## Blueberry pickup
+
+The complete source handoff is branch `agent/intelligent-terrarium`, commit
+`e904bf8f5` or later, on the canonical Tangled `origin`. On Blueberry:
+
+```sh
+git fetch origin agent/intelligent-terrarium
+git switch --track origin/agent/intelligent-terrarium
+cd experiments/intelligent-terrarium
+npm test
+```
+
+Read this file and `SCORE.md` before touching the remote runtime. The saved farm
+state and its autonomous Git history remain on jas-nzxt under the paths above;
+the source branch intentionally does not contain that mutable state.
 
 ## Capacity reading
 
-The desktop is near its shared compute capacity, but not its RAM capacity.
-With the 64-proposal look-ahead live, Piecefarm uses roughly 5–7 logical cores
-in Node plus 1.1–1.4 cores in the native display/VM. The independent miner uses
-about two more CPU cores, so the observed system load is roughly 11 on 12
-logical CPUs. Piecefarm is about 1.12 GB current / 1.21 GB peak of its 2 GB
-cgroup maximum and the host still has about 12 GiB available RAM. Sustained
-two-display presentation is roughly 136–142 FPS. Under the co-resident miner,
-mixed-resolution search completes roughly 38–45 evaluations/second, up from
-20–25/second with the old eight-proposal barrier.
+The final live snapshot used about 1.73 GB current / 1.89 GB peak of its 2 GB
+cgroup maximum. Sustained two-display presentation was roughly 139–144 FPS.
+The final mixed-resolution search snapshot reported 12.8 evaluations/second;
+earlier windows reached 38–45/second, so a successor should treat throughput as
+load-sensitive rather than quoting a single capacity number.
 
 The RTX 3070 is effectively saturated: the latest process sample attributed
 about 84% SM to `matador-miner` and 14% graphics work to Piecefarm. Piecefarm's OpenGL presentation remains smooth,
