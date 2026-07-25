@@ -68,6 +68,15 @@ describe("Whistlegraph Desk", () => {
     expect(page).toContain('QUERY_API="/api/whistlegraph-query"');
   });
 
+  it("supports shareable Desk search and view URLs", () => {
+    const page = readFileSync(new URL("../system/public/whistlegraph.org/admin.html", import.meta.url), "utf8");
+    expect(page).toContain('query=params.get("q")||""');
+    expect(page).toContain('params.set("mode",mode)');
+    expect(page).toContain('params.set("kind",kind)');
+    expect(page).toContain('params.set("sort",sort)');
+    expect(page).toContain('addEventListener("popstate"');
+  });
+
   it("recovers an existing Auth0 session before returning to the login splash", () => {
     const page = readFileSync(new URL("../system/public/whistlegraph.org/admin.html", import.meta.url), "utf8");
     expect(page).toContain("useRefreshTokensFallback:true");
