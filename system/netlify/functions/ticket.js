@@ -104,7 +104,7 @@ export async function handler(event, context) {
       ? process.env[`${envKey}STRIPE_API_TEST_PRIV_KEY`]
       : process.env[`${envKey}STRIPE_API_PRIV_KEY`];
 
-    const stripe = Stripe(key);
+    const stripe = new Stripe(key);
 
     try {
       // Create a PaymentIntent with the order amount and currency
@@ -137,7 +137,7 @@ export async function handler(event, context) {
       ? process.env[`${prefix}STRIPE_API_TEST_PRIV_KEY`]
       : process.env[`${prefix}STRIPE_API_PRIV_KEY`];
 
-    const stripe = Stripe(key);
+    const stripe = new Stripe(key);
 
     const sig = event.headers["stripe-signature"];
     const secret = dev ? devSecret : prodSecret;
