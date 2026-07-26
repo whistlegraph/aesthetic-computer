@@ -5,6 +5,7 @@
 
 using namespace Platform;
 using namespace Windows::Foundation;
+using namespace Windows::Foundation::Collections;
 using namespace Windows::Graphics::Imaging;
 using namespace Windows::Storage;
 using namespace Windows::Storage::Streams;
