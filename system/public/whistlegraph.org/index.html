@@ -501,9 +501,9 @@ function renderPosts(code){
 }
 
 function rowHTML(w){
-  const thumb=w.noGlyph
+  const thumb=w.noGlyph||!w.thumb
     ? `<span class="sw noglyph" style="--c:${w.c}"></span>`
-    : `<img loading="lazy" alt="Final glyph of ${w.title}" src="${w.thumb||`${IDX}/${w.asset||w.code}.jpg`}">`;
+    : `<img loading="lazy" alt="Final glyph of ${w.title}" src="${w.thumb}">`;
   return `<td class="th"><a href="/${w.code}">${thumb}</a></td>`+
     `<td class="cd"><span class="sw" style="--c:${w.c}"></span>[<a href="/${w.code}">${w.code}</a>]</td>`+
     `<td class="ti"><a href="/${w.code}">${w.title}</a><span class="by">${w.by}${w.perf>1?` · ${w.perf} posts`:""}</span></td>`+
@@ -681,7 +681,9 @@ Promise.all([
   const generatedWorks=(data.works||data.graphs.filter(w=>w.kind==="graph"))
     .filter(work=>!deletedWorks.has(work.code)&&(!activeCodes.size||activeCodes.has(work.code)))
     .map(work=>({...work,...(curation.works?.[work.code]||{}),...(curation.materializedWorks?.[work.code]||{})}));
-  const createdWorks=Object.entries(curation.createdWorks||{}).map(([code,work])=>({code,...work,...(curation.materializedWorks?.[code]||{}),kind:"graph"}));
+  const createdWorks=Object.entries(curation.createdWorks||{})
+    .map(([code,work])=>({code,...work,...(curation.materializedWorks?.[code]||{}),kind:"graph"}))
+    .filter(work=>!deletedWorks.has(work.code)&&(!activeCodes.size||activeCodes.has(work.code)));
   WORKS=[...generatedWorks,...createdWorks]; CURATED_N=data.curated;
   BY=Object.fromEntries(WORKS.map(w=>[w.code,w]));
   LEGACY_BY=Object.fromEntries((data.legacy||[]).map(w=>[w.code,w]));
