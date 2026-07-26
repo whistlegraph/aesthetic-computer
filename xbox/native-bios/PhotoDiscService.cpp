@@ -193,7 +193,7 @@ void PhotoDiscService::show(std::int64_t requested_index) {
     " name=" + name);
 
   create_task(file->OpenAsync(FileAccessMode::Read)).then(
-    [](IRandomAccessStreamWithContentType^ stream) {
+    [](IRandomAccessStream^ stream) {
       if (!stream || stream->Size == 0 || stream->Size > kMaxEncodedBytes)
         throw std::runtime_error("photo payload is empty or exceeds 128 MiB");
       return create_task(BitmapDecoder::CreateAsync(stream)).then(
