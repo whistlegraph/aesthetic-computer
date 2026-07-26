@@ -33,6 +33,12 @@ class PhotoDiscService final {
   concurrency::task<void> collect_optical_drive_letters(
     const std::shared_ptr<std::vector<Windows::Storage::StorageFile^>>& output,
     const std::shared_ptr<std::vector<std::string>>& volume_names);
+  concurrency::task<void> collect_win32_optical_root(
+    const std::wstring& root,
+    const std::shared_ptr<std::vector<Windows::Storage::StorageFile^>>& output,
+    const std::shared_ptr<std::vector<std::string>>& volume_names);
+  bool collect_win32_paths(const std::wstring& folder,
+    const std::shared_ptr<std::vector<std::wstring>>& output, unsigned depth);
   void update(const std::function<void(ac::xbox::PhotoDiscSnapshot&)>& edit);
   void fail_scan(const std::string& message);
 

@@ -39,6 +39,17 @@ bool is_photo_file(StorageFile^ file) {
     extension == ".pcd";
 }
 
+bool is_photo_path(const std::wstring& path) {
+  const auto dot = path.find_last_of(L'.');
+  if (dot == std::wstring::npos) return false;
+  auto extension = path.substr(dot);
+  std::transform(extension.begin(), extension.end(), extension.begin(),
+    [](wchar_t value) { return static_cast<wchar_t>(std::towlower(value)); });
+  return extension == L".jpg" || extension == L".jpeg" || extension == L".jpe" ||
+    extension == L".png" || extension == L".tif" || extension == L".tiff" ||
+    extension == L".pcd";
+}
+
 std::string clean_error(String^ value) {
   auto result = utf8(value);
   for (auto& character : result)
@@ -114,6 +125,7 @@ task<void> PhotoDiscService::collect_optical_drive_letters(
               if (m_log) m_log("AC_NATIVE_DISC_OPTICAL_OPEN_ERROR path=" +
                 std::string(1, static_cast<char>(path[0])) + ":\\ error=" +
                 clean_error(error->Message));
+              return collect_win32_optical_root(path, output, volume_names);
             }
             return task_from_result();
           });
@@ -121,6 +133,65 @@ task<void> PhotoDiscService::collect_optical_drive_letters(
   }
   if (candidates == 0 && m_log)
     m_log("AC_NATIVE_DISC_OPTICAL_ROOT count=0");
+  return chain;
+}
+
+bool PhotoDiscService::collect_win32_paths(const std::wstring& folder,
+    const std::shared_ptr<std::vector<std::wstring>>& output, unsigned depth) {
+  if (depth > kMaxFolderDepth || output->size() >= kMaxPhotoFiles) return true;
+  std::wstring pattern = folder;
+  if (!pattern.empty() && pattern.back() != L'\\') pattern += L'\\';
+  pattern += L'*';
+  WIN32_FIND_DATAW found{};
+  const auto handle = FindFirstFileExFromAppW(pattern.c_str(), FindExInfoBasic,
+    &found, FindExSearchNameMatch, nullptr, FIND_FIRST_EX_LARGE_FETCH);
+  if (handle == INVALID_HANDLE_VALUE) {
+    if (depth == 0 && m_log) m_log("AC_NATIVE_DISC_WIN32_ENUM_ERROR path=" +
+      std::string(1, static_cast<char>(folder[0])) + ":\\ win32=" +
+      std::to_string(GetLastError()));
+    return false;
+  }
+  do {
+    const std::wstring name(found.cFileName);
+    if (name == L"." || name == L"..") continue;
+    std::wstring path = folder;
+    if (!path.empty() && path.back() != L'\\') path += L'\\';
+    path += name;
+    if ((found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0) {
+      if ((found.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) == 0)
+        collect_win32_paths(path, output, depth + 1);
+    } else if (is_photo_path(path)) {
+      output->push_back(std::move(path));
+    }
+  } while (output->size() < kMaxPhotoFiles && FindNextFileW(handle, &found));
+  FindClose(handle);
+  return true;
+}
+
+task<void> PhotoDiscService::collect_win32_optical_root(const std::wstring& root,
+    const std::shared_ptr<std::vector<StorageFile^>>& output,
+    const std::shared_ptr<std::vector<std::string>>& volume_names) {
+  auto paths = std::make_shared<std::vector<std::wstring>>();
+  if (!collect_win32_paths(root, paths, 0)) return task_from_result();
+  volume_names->push_back(std::string(1, static_cast<char>(root[0])) + ":\\");
+  if (m_log) m_log("AC_NATIVE_DISC_WIN32_ENUM_READY path=" +
+    std::string(1, static_cast<char>(root[0])) + ":\\ photos=" +
+    std::to_string(paths->size()));
+  task<void> chain = task_from_result();
+  for (const auto& path : *paths) {
+    chain = chain.then([this, output, path]() {
+      return create_task(StorageFile::GetFileFromPathAsync(
+        ref new String(path.c_str()))).then([this, output, path](task<StorageFile^> completed) {
+          try {
+            output->push_back(completed.get());
+          } catch (Exception^ error) {
+            if (m_log) m_log("AC_NATIVE_DISC_WIN32_FILE_ERROR name=" +
+              utf8(ref new String(path.substr(path.find_last_of(L'\\') + 1).c_str())) +
+              " error=" + clean_error(error->Message));
+          }
+        });
+    });
+  }
   return chain;
 }
 

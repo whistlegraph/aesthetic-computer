@@ -1,6 +1,7 @@
 #pragma once
 
 #include <windows.h>
+#include <fileapifromapp.h>
 #include <windows.applicationmodel.h>
 #include <gamingdeviceinformation.h>
 #include <wrl/client.h>
@@ -28,6 +29,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cwctype>
 #include <functional>
 #include <limits>
 #include <memory>
