@@ -30,6 +30,9 @@ class PhotoDiscService final {
     Windows::Storage::StorageFolder^ folder,
     const std::shared_ptr<std::vector<Windows::Storage::StorageFile^>>& output,
     unsigned depth);
+  concurrency::task<void> collect_optical_drive_letters(
+    const std::shared_ptr<std::vector<Windows::Storage::StorageFile^>>& output,
+    const std::shared_ptr<std::vector<std::string>>& volume_names);
   void update(const std::function<void(ac::xbox::PhotoDiscSnapshot&)>& edit);
   void fail_scan(const std::string& message);
 

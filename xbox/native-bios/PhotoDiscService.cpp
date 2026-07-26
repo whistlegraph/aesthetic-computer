@@ -89,6 +89,41 @@ task<void> PhotoDiscService::collect(StorageFolder^ folder,
     });
 }
 
+task<void> PhotoDiscService::collect_optical_drive_letters(
+    const std::shared_ptr<std::vector<StorageFile^>>& output,
+    const std::shared_ptr<std::vector<std::string>>& volume_names) {
+  task<void> chain = task_from_result();
+  unsigned candidates = 0;
+  for (wchar_t letter = L'D'; letter <= L'Z'; ++letter) {
+    wchar_t root[] = {letter, L':', L'\\', L'\0'};
+    const auto type = GetDriveTypeW(root);
+    if (type != DRIVE_CDROM) continue;
+    ++candidates;
+    const std::wstring path(root);
+    if (m_log) m_log("AC_NATIVE_DISC_OPTICAL_ROOT path=" +
+      std::string(1, static_cast<char>(letter)) + ":\\");
+    chain = chain.then([this, output, volume_names, path]() {
+      return create_task(StorageFolder::GetFolderFromPathAsync(
+        ref new String(path.c_str()))).then(
+          [this, output, volume_names, path](task<StorageFolder^> completed) {
+            try {
+              auto folder = completed.get();
+              volume_names->push_back(utf8(folder->Name));
+              return collect(folder, output, 0);
+            } catch (Exception^ error) {
+              if (m_log) m_log("AC_NATIVE_DISC_OPTICAL_OPEN_ERROR path=" +
+                std::string(1, static_cast<char>(path[0])) + ":\\ error=" +
+                clean_error(error->Message));
+            }
+            return task_from_result();
+          });
+    });
+  }
+  if (candidates == 0 && m_log)
+    m_log("AC_NATIVE_DISC_OPTICAL_ROOT count=0");
+  return chain;
+}
+
 void PhotoDiscService::fail_scan(const std::string& message) {
   update([&message](ac::xbox::PhotoDiscSnapshot& snapshot) {
     snapshot.status = "error: " + message;
@@ -117,8 +152,10 @@ void PhotoDiscService::scan() {
   auto volumeNames = std::make_shared<std::vector<std::string>>();
   create_task(KnownFolders::RemovableDevices->GetFoldersAsync()).then(
     [this, photos, volumeNames](IVectorView<StorageFolder^>^ volumes) {
-      if (!volumes || volumes->Size == 0)
-        throw std::runtime_error("no mounted removable volume");
+      if (!volumes || volumes->Size == 0) {
+        if (m_log) m_log("AC_NATIVE_DISC_REMOVABLE_ROOT count=0 fallback=drive-letter");
+        return collect_optical_drive_letters(photos, volumeNames);
+      }
       task<void> chain = task_from_result();
       for (auto volume : volumes) {
         volumeNames->push_back(utf8(volume->Name));
@@ -130,6 +167,8 @@ void PhotoDiscService::scan() {
     }).then([this, photos, volumeNames](task<void> completed) {
       try {
         completed.get();
+        if (volumeNames->empty())
+          throw std::runtime_error("no mounted optical or removable volume");
         std::sort(photos->begin(), photos->end(), [](StorageFile^ left, StorageFile^ right) {
           return utf8(left ? left->Path : nullptr) < utf8(right ? right->Path : nullptr);
         });
