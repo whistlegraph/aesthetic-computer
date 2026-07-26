@@ -545,6 +545,74 @@ JSValue AcData(JSContext* context, JSValueConst, int, JSValueConst*) {
   return result;
 }
 
+JSValue DiscState(JSContext* context, JSValueConst, int, JSValueConst*) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api) return JS_EXCEPTION;
+  const auto snapshot = std::atomic_load(&scope->api->disc.snapshot);
+  JSValue result = JS_NewObject(context);
+  if (!snapshot) return result;
+  JS_SetPropertyStr(context, result, "status", JS_NewString(context, snapshot->status.c_str()));
+  JS_SetPropertyStr(context, result, "volume", JS_NewString(context, snapshot->volume.c_str()));
+  JS_SetPropertyStr(context, result, "name", JS_NewString(context, snapshot->name.c_str()));
+  JS_SetPropertyStr(context, result, "count", JS_NewInt64(context,
+    static_cast<std::int64_t>(snapshot->count)));
+  JS_SetPropertyStr(context, result, "index", JS_NewInt64(context,
+    static_cast<std::int64_t>(snapshot->index)));
+  JS_SetPropertyStr(context, result, "width", JS_NewInt32(context, snapshot->width));
+  JS_SetPropertyStr(context, result, "height", JS_NewInt32(context, snapshot->height));
+  JS_SetPropertyStr(context, result, "currentReady",
+    JS_NewBool(context, snapshot->current_ready));
+  JS_SetPropertyStr(context, result, "copyStatus",
+    JS_NewString(context, snapshot->copy_status.c_str()));
+  JS_SetPropertyStr(context, result, "copied", JS_NewInt64(context,
+    static_cast<std::int64_t>(snapshot->copied)));
+  JS_SetPropertyStr(context, result, "copyFailed", JS_NewInt64(context,
+    static_cast<std::int64_t>(snapshot->copy_failed)));
+  return result;
+}
+
+JSValue DiscScan(JSContext* context, JSValueConst, int, JSValueConst*) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api) return JS_EXCEPTION;
+  if (!scope->api->disc.scan) return JS_NewBool(context, false);
+  scope->api->disc.scan();
+  return JS_NewBool(context, true);
+}
+
+JSValue DiscShow(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  std::int64_t index = 0;
+  if (!scope || !scope->api || argc < 1 || JS_ToInt64(context, &index, argv[0]))
+    return JS_EXCEPTION;
+  if (!scope->api->disc.show) return JS_NewBool(context, false);
+  scope->api->disc.show(index);
+  return JS_NewBool(context, true);
+}
+
+JSValue DiscCopy(JSContext* context, JSValueConst, int, JSValueConst*) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api) return JS_EXCEPTION;
+  if (!scope->api->disc.copy) return JS_NewBool(context, false);
+  scope->api->disc.copy();
+  return JS_NewBool(context, true);
+}
+
+JSValue DiscPhoto(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  double x = 0, y = 0, width = 1920, height = 1080;
+  if (!scope || !scope->api) return JS_EXCEPTION;
+  if (argc > 0 && JS_ToFloat64(context, &x, argv[0])) return JS_EXCEPTION;
+  if (argc > 1 && JS_ToFloat64(context, &y, argv[1])) return JS_EXCEPTION;
+  if (argc > 2 && JS_ToFloat64(context, &width, argv[2])) return JS_EXCEPTION;
+  if (argc > 3 && JS_ToFloat64(context, &height, argv[3])) return JS_EXCEPTION;
+  if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(width) ||
+      !std::isfinite(height) || width <= 0 || height <= 0 || width > 3840 ||
+      height > 2160) return JS_ThrowRangeError(context, "invalid disc photo rectangle");
+  scope->api->graphics.image({"disc-photo", static_cast<float>(x),
+    static_cast<float>(y), static_cast<float>(width), static_cast<float>(height)});
+  return JS_UNDEFINED;
+}
+
 class QuickJsPiece final : public JsPiece {
  public:
   QuickJsPiece(const PieceBundle& bundle, const JsLimits& limits, std::string& error)
@@ -580,6 +648,11 @@ class QuickJsPiece final : public JsPiece {
     JS_SetPropertyStr(context_, global, "controllers", JS_NewCFunction(context_, Controllers, "controllers", 0));
     JS_SetPropertyStr(context_, global, "capabilities", JS_NewCFunction(context_, Capabilities, "capabilities", 0));
     JS_SetPropertyStr(context_, global, "ac", JS_NewCFunction(context_, AcData, "ac", 0));
+    JS_SetPropertyStr(context_, global, "disc", JS_NewCFunction(context_, DiscState, "disc", 0));
+    JS_SetPropertyStr(context_, global, "discScan", JS_NewCFunction(context_, DiscScan, "discScan", 0));
+    JS_SetPropertyStr(context_, global, "discShow", JS_NewCFunction(context_, DiscShow, "discShow", 1));
+    JS_SetPropertyStr(context_, global, "discCopy", JS_NewCFunction(context_, DiscCopy, "discCopy", 0));
+    JS_SetPropertyStr(context_, global, "discPhoto", JS_NewCFunction(context_, DiscPhoto, "discPhoto", 4));
     JS_FreeValue(context_, global);
     JSValue result = JS_Eval(context_, bundle.source.data(), bundle.source.size(),
                              bundle.slug.c_str(), JS_EVAL_TYPE_GLOBAL);

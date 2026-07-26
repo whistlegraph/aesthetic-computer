@@ -21,9 +21,22 @@ Current bindings are `wipe`, queued `box`, `line`, bitmap `write`, native
 `systemWrite`, Segoe MDL2 `systemGlyph`, latest AC `painting`, one-shot `synth`,
 continuous `oscillator` / `oscillatorStop`, `controllers`, `gamepad`,
 `capabilities`, `runtime`, the host-mediated `ac` feed, and bounded structured
-`telemetry`. The `ac` snapshot polls only declared Aesthetic Computer mood,
+`telemetry`. Revision 25 adds the host-mediated `disc`, `discScan`, `discShow`,
+`discPhoto`, and `discCopy` photo-disc surface. The `ac` snapshot polls only declared Aesthetic Computer mood,
 clock-chat, and painting endpoints; sandboxed pieces do not receive a general
 HTTP primitive. Runtime failures roll back to the last known good piece.
+
+The photo-disc service recursively searches mounted removable volumes for
+`.jpg`, `.jpeg`, `.jpe`, `.png`, `.tif`, `.tiff`, and `.pcd`. It keeps WinRT
+`StorageFile` objects and paths inside the native host, bounds discovery to
+4,096 photos, bounds encoded input to 128 MiB, decodes through Windows Imaging
+to an sRGB image no larger than 2,048 pixels per side, and publishes only an
+immutable status snapshot to JavaScript. `discPhoto` draws the current decoded
+image through the existing scene texture path. `discCopy` makes a flat,
+numbered copy of the discovered photos under `LocalState/photo-cd`, where Xbox
+Device Portal can retrieve them. `.pcd` is inventoried because Kodak Photo CDs
+commonly use it; display still depends on the Xbox Windows image decoder having
+a codec for that particular file.
 
 Revision 22 turns the existing `Windows.Devices.Midi` probe into a hot-plug
 monophonic instrument. Note On/Off gates a native XAudio2 sine oscillator,
@@ -60,6 +73,7 @@ node xbox/tools/live.mjs status
 node xbox/tools/live.mjs install xbox/builds/1.0.0.10/NativeBios_1.0.0.10_x64.msix xbox/builds/1.0.0.10/Microsoft.VCLibs.x64.14.00.appx
 node xbox/tools/live.mjs deploy xbox/live/controller-probe.js
 node xbox/tools/live.mjs deploy xbox/live/native-showcase.js
+node xbox/tools/live.mjs deploy xbox/live/photo-disc.js
 node xbox/tools/live.mjs deploy-kidlisp '$obk'
 node xbox/tools/live.mjs logs 100
 ```

@@ -5,7 +5,7 @@
          IgnorableNamespaces="uap mp">
   <Identity Name="AestheticComputer.NativeBios"
             Publisher="CN=AestheticComputerDev"
-            Version="1.0.0.24" />
+            Version="1.0.0.25" />
   <mp:PhoneIdentity PhoneProductId="892d830b-d069-4770-ad28-33d1d9bdd856"
                     PhonePublisherId="00000000-0000-0000-0000-000000000000" />
   <Properties>
@@ -29,10 +29,28 @@
         <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
         <uap:SplashScreen Image="Assets\SplashScreen.png" BackgroundColor="#120F1A" />
       </uap:VisualElements>
+      <Extensions>
+        <uap:Extension Category="windows.fileTypeAssociation">
+          <uap:FileTypeAssociation Name="acphotodisc">
+            <uap:DisplayName>Photo disc images</uap:DisplayName>
+            <uap:SupportedFileTypes>
+              <uap:FileType>.jpg</uap:FileType>
+              <uap:FileType>.jpeg</uap:FileType>
+              <uap:FileType>.jpe</uap:FileType>
+              <uap:FileType>.png</uap:FileType>
+              <uap:FileType>.tif</uap:FileType>
+              <uap:FileType>.tiff</uap:FileType>
+              <uap:FileType>.pcd</uap:FileType>
+            </uap:SupportedFileTypes>
+          </uap:FileTypeAssociation>
+        </uap:Extension>
+      </Extensions>
     </Application>
   </Applications>
   <Capabilities>
     <Capability Name="internetClient" />
     <Capability Name="privateNetworkClientServer" />
+    <uap:Capability Name="removableStorage" />
+    <DeviceCapability Name="optical" />
   </Capabilities>
 </Package>

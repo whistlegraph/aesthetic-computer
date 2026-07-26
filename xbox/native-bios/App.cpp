@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "QuickJsEngine.hpp"
+#include "PhotoDiscService.hpp"
 #include "../runtime/include/ac/image_effects.hpp"
 
 using Microsoft::WRL::ComPtr;
@@ -27,12 +28,7 @@ namespace NativeBios {
 
 using namespace ac::xbox;
 
-struct PaintingImage {
-  unsigned width = 0;
-  unsigned height = 0;
-  std::string url;
-  std::vector<uint32_t> pixels;
-};
+using PaintingImage = PhotoDiscImage;
 
 struct GpuTriangleVertex {
   float x, y, z;
@@ -311,13 +307,18 @@ public:
     m_sound->on_oscillator_stop = [this]() { StopOscillator(); };
     m_sound->get_rate = [this]() { return static_cast<int>(m_sampleRate); };
     m_api = std::make_unique<Api>(Api{{1920, 1080, 1}, {}, {}, {}, *m_graphics, *m_sound, {}});
-    m_api->system.version = "1.0.0.24";
+    m_api->system.version = "1.0.0.25";
     m_api->telemetry = [](std::string_view line) {
       std::string safe(line);
       for (auto& character : safe) if (character == '\n' || character == '\r') character = ' ';
       if (safe.size() > 1024) safe.resize(1024);
       LogTelemetry("AC_NATIVE_" + safe);
     };
+    m_photoDisc = std::make_unique<PhotoDiscService>(*m_api,
+      [this](std::shared_ptr<const PhotoDiscImage> image) {
+        std::lock_guard<std::mutex> lock(m_imageMutex);
+        m_paintingImages["disc-photo"] = std::move(image);
+      }, [](const std::string& line) { LogTelemetry(line); });
     InitializeMidi();
     InitializeNetworkMidi();
     RefreshCapabilities(true);
@@ -333,6 +334,7 @@ public:
       OutputDebugStringA("AC_NATIVE_BIOS_READY engine=quickjs-ng piece=smoke\n");
       LogTelemetry("AC_NATIVE_BIOS_READY engine=quickjs-ng piece=smoke");
     }
+    m_photoDisc->scan();
   }
 
   virtual void Load(String^) {}
@@ -1486,7 +1488,7 @@ private:
   }
 
   void RequestFrameImage(const std::string& source) {
-    if (source == "latest-painting") return;
+    if (source == "latest-painting" || source == "disc-photo") return;
     if (source.size() < 2 || source.size() > 9 || source.front() != '#' ||
         !std::all_of(source.begin() + 1, source.end(), [](unsigned char character) {
           return (character >= '0' && character <= '9') ||
@@ -2002,6 +2004,7 @@ private:
   std::unique_ptr<Api> m_api;
   std::unique_ptr<QuickJsEngine> m_engine;
   std::unique_ptr<PieceSupervisor> m_supervisor;
+  std::unique_ptr<PhotoDiscService> m_photoDisc;
 };
 
 ref class AppSource sealed : public IFrameworkViewSource {

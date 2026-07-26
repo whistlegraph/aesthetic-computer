@@ -12,6 +12,7 @@ mkdir "%BUILD%" || exit /b 2
 
 node --check "%ROOT%\xbox\live\controller-probe.js" || exit /b 1
 node --check "%ROOT%\xbox\live\native-showcase.js" || exit /b 1
+node --check "%ROOT%\xbox\live\photo-disc.js" || exit /b 1
 node "%ROOT%\xbox\live\tests\controller-probe.test.mjs" || exit /b 1
 node "%ROOT%\xbox\tools\tests\kidlisp-native.test.mjs" || exit /b 1
 

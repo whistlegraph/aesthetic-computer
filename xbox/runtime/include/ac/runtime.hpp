@@ -163,6 +163,32 @@ struct AcSnapshot {
   std::int64_t refreshed_unix_ms = 0;
 };
 
+// Read-only view of a host-mediated photo disc. Pieces can request a scan,
+// choose a discovered image, draw the decoded current image, or ask the host
+// to copy the allowlisted photos into app-local storage. They never receive a
+// path, StorageFile, raw sector handle, or general filesystem primitive.
+struct PhotoDiscSnapshot {
+  std::string status = "idle";
+  std::string volume;
+  std::string name;
+  std::string copy_status = "idle";
+  std::size_t count = 0;
+  std::size_t index = 0;
+  std::size_t copied = 0;
+  std::size_t copy_failed = 0;
+  unsigned width = 0;
+  unsigned height = 0;
+  bool current_ready = false;
+};
+
+struct PhotoDisc {
+  std::shared_ptr<const PhotoDiscSnapshot> snapshot =
+    std::make_shared<const PhotoDiscSnapshot>();
+  std::function<void()> scan = {};
+  std::function<void(std::int64_t)> show = {};
+  std::function<void()> copy = {};
+};
+
 // The stable native lifecycle context. Names intentionally follow piece API
 // fields so portable engines need a thin adapter rather than a rewrite.
 struct Api {
@@ -179,6 +205,7 @@ struct Api {
   // Host-polled, read-only snapshots from allowlisted aesthetic.computer
   // endpoints. Pieces never receive a general network primitive.
   std::shared_ptr<const AcSnapshot> ac = std::make_shared<const AcSnapshot>();
+  PhotoDisc disc;
   // Sandboxed pieces can emit structured diagnostic lines without receiving
   // filesystem, process, Device Portal, or arbitrary WinRT access.
   std::function<void(std::string_view)> telemetry = {};
