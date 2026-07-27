@@ -21,7 +21,7 @@ was titled **“Hi — I’m Jeffrey.”** The final source is
 | 10 | “And not only people read these days” could be read ambiguously. | Changed it to “People aren’t the only ones reading these days.” | Preserves the transition to machine readers with a clear subject. |
 | 11 | “This page” was vague. | Changed it to “This essay accompanies the first numbered print edition…” | Names the object precisely. |
 | 12 | Calling the edition “its own little act of social software” needed explanation. | Reframed the paragraph around the shared agreement: every participant made sixty-four copies, met in one room, and assembled sixty-four complete publications. | Shows the social mechanism instead of merely labeling it. |
-| 13 | The interactive keymap needed an instruction. | Added: “Press the letter keys in the keyboard below to hear the layout for yourself.” | Gives the embedded keyboard a direct prompt. |
+| 13 | The interactive keymap needed an instruction. | Added: “Press the letter keys on your keyboard to hear the layout in the interactive canvas at the top of the page.” | Gives the embedded keyboard a direct prompt and points to its actual location. |
 
 ## Direct suggestion audit
 
@@ -43,7 +43,8 @@ needed a fuller resolution or official title casing.
   - Darlyn Phan — *Line Piece 1*
   - Banyi Huang — *A Cosmographic Score for Folding Back into the Kernel*
 - Removed the inaccurate generic “play it for yourself below” sign-off and
-  replaced it with Casey’s concrete keyboard instruction.
+  replaced it with Casey’s concrete keyboard instruction, pointing readers to
+  the canvas at the top of the page.
 - Added durable links for notepat, Aesthetic.Computer, the paper, Vim, the
   three audio apps, Social Software, Casey Reas, Lauren Lee McCarthy,
   *do it*, and The Getty Scores Project.
@@ -68,13 +69,13 @@ needed a fuller resolution or official title casing.
 - [x] Edition roster reconciled with the project catalog.
 - [x] Markdown and video-recovery scripts pass syntax/whitespace checks.
 - [x] Framer article updated from the final source through the Server API.
-- [x] Public URL checked after corrected production deployment `48c12600d`.
+- [x] Public URL checked after final placement-fix deployment `0e162dc63`.
 
 ## Publication evidence
 
 - Staging deployment: `58ce73b28`
-- Corrected staging deployment after full suggestion audit: `bfb0a89bd`
-- Corrected production deployment: `48c12600d`
+- Final staging deployment after the canvas-placement copy fix: `7d25242e5`
+- Final production deployment: `0e162dc63`
 - Published URL: <https://sosoft.arts.ucla.edu/keymaps-as-social-software/>
 - The production HTML contains every required Casey-derived phrase and corrected
   contributor title; all obsolete phrases in the audit are absent.

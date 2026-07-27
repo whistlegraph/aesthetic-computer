@@ -48,6 +48,6 @@ Everyone came with a score: Jordan Silver’s *Sonic Architecture*, Em Lugo’s 
 
 The keymap I made for [notepat.com](https://notepat.com) is still right there in the interface. Still no code. Still just a table of agreements — which turns out to be one of the oldest and most durable kinds of software we have. It only ever needed a name.
 
-Press the letter keys in the keyboard below to hear the layout for yourself.
+Press the letter keys on your keyboard to hear the layout in the interactive canvas at the top of the page.
 
 *—Jeffrey Alan Scudder, June 2026*
