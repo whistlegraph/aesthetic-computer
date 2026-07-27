@@ -702,7 +702,18 @@
         }
         import lith_proxy
     }
-    @mainspa host aesthetic.computer www.aesthetic.computer lith.aesthetic.computer notepat.com www.notepat.com wipppps.world www.wipppps.world p5.aesthetic.computer sitemap.aesthetic.computer
+
+    # --- danzballet.studio ---
+    @danzballetroot host danzballet.studio www.danzballet.studio
+    handle @danzballetroot {
+        @danzballetindex path /
+        handle @danzballetindex {
+            rewrite * /danzballet
+        }
+        import lith_proxy
+    }
+
+    @mainspa host aesthetic.computer www.aesthetic.computer lith.aesthetic.computer notepat.com www.notepat.com wipppps.world www.wipppps.world danzballet.studio www.danzballet.studio p5.aesthetic.computer sitemap.aesthetic.computer
     handle @mainspa {
         # Assets → DO Spaces CDN. The bucket root maps directly to
         # assets.aesthetic.computer (no /assets/ prefix exists in the
