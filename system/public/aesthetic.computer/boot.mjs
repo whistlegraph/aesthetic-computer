@@ -1047,6 +1047,8 @@ if (window.acDEBUG === true || window.acDEBUG === false) {
   window.location.hostname.endsWith(".ac") ||
   window.location.hostname === "notepat.com" ||
   window.location.hostname === "www.notepat.com" ||
+  window.location.hostname === "danzballet.studio" ||
+  window.location.hostname === "www.danzballet.studio" ||
   window.location.hostname === "laklok.com" ||
   window.location.hostname === "www.laklok.com" ||
   window.location.hostname === "m2w2.whistlegraph.com" ||
@@ -1086,6 +1088,12 @@ if (
   location.hostname === "www.notepat.com"
 ) {
   window.acSTARTING_PIECE = "notepat";
+}
+if (
+  location.hostname === "danzballet.studio" ||
+  location.hostname === "www.danzballet.studio"
+) {
+  window.acSTARTING_PIECE = "danzballet";
 }
 if (
   location.hostname === "laklok.com" ||
