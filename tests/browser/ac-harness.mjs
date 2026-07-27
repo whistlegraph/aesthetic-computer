@@ -17,7 +17,7 @@
 // degrade to screenshot-only smoke and `state()` returns null.
 
 import puppeteer from "puppeteer";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -34,6 +34,7 @@ export class ACSession {
   browser = null;
   page = null;
   shots = [];
+  downloadDir = null;
 
   // One Chrome instance only (this laptop is 8 GB — never run parallel).
   static async open() {
@@ -55,8 +56,28 @@ export class ACSession {
     // Surface the test hook at boot (prompt.mjs gates it on acDEBUG).
     await s.page.evaluateOnNewDocument(() => {
       window.acDEBUG = true;
+      let snapshot = null;
+      const testChannel = new BroadcastChannel("ac-nopaint-test");
+      testChannel.onmessage = ({ data }) => {
+        if (data?.version) snapshot = data;
+      };
+      window.__acNoPaintTest = () => snapshot;
+      const originalURL = new URL(location.href);
+      const requestedSeed = originalURL.searchParams.get("seed");
+      if (requestedSeed) {
+        const timer = setInterval(() => {
+          testChannel.postMessage({ type: "configure", seed: requestedSeed });
+        }, 100);
+        setTimeout(() => clearInterval(timer), 5000);
+      }
     });
     s.page.on("pageerror", (e) => console.warn("  ⚠️  pageerror:", e.message));
+    s.downloadDir = join(CONFIG.shotDir, "downloads", String(Date.now()));
+    mkdirSync(s.downloadDir, { recursive: true });
+    await s.page._client().send("Page.setDownloadBehavior", {
+      behavior: "allow",
+      downloadPath: s.downloadDir,
+    });
     return s;
   }
 
@@ -145,8 +166,29 @@ export class ACSession {
     );
   }
 
+  async nopaintState() {
+    return await this.page.evaluate(() =>
+      typeof window.__acNoPaintTest === "function"
+        ? window.__acNoPaintTest()
+        : null,
+    );
+  }
+
+  async waitForDownload({ timeoutMs = 10000 } = {}) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const files = readdirSync(this.downloadDir).filter(
+        (name) => !name.endsWith(".crdownload"),
+      );
+      if (files.length > 0) return files;
+      await this.wait(100);
+    }
+    return [];
+  }
+
   async shot(name) {
     const path = join(CONFIG.shotDir, `${name}.png`);
+    mkdirSync(dirname(path), { recursive: true });
     await this.page.screenshot({ path });
     this.shots.push(path);
     console.log(`  📸 ${path}`);

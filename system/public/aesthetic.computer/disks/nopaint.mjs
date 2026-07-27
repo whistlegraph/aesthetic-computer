@@ -3,7 +3,9 @@
 
 import {
   NOPAINT_LOOP_STATES,
+  NOPAINT_VERSION,
   makeProposal,
+  proposalDefinition,
   seededRandom,
   seedFrom,
 } from "../lib/nopaint-proposals.mjs";
@@ -16,6 +18,21 @@ let proposalNumber = 0;
 let sessionSeed = 0;
 let random = seededRandom(1);
 let cameraFeed = null;
+let decisions = [];
+let saveCount = 0;
+let lastDownload = null;
+let testApi = null;
+let testChannel = null;
+
+function initialNavigationURL() {
+  if (typeof window === "undefined") return null;
+  const initial = performance.getEntriesByType?.("navigation")?.[0]?.name;
+  try {
+    return new URL(initial || window.location.href);
+  } catch {
+    return null;
+  }
+}
 let noButton;
 let paintButton;
 let saveButton;
@@ -62,8 +79,10 @@ function chooseProposal(api) {
 function discardProposal(api) {
   if (loopState !== "proposing" && loopState !== "paused") return;
   transition("discarding");
+  recordDecision(api, "no");
   clearProposal(api);
   chooseProposal(api);
+  publishTestState();
 }
 
 function persistPainting({ store, system }) {
@@ -72,12 +91,27 @@ function persistPainting({ store, system }) {
     height: system.painting.height,
     pixels: new Uint8ClampedArray(system.painting.pixels),
   };
-  store.persist("painting", "local:db");
+  store.persist("painting", "nopaint:session", "local:db");
+}
+
+function recordDecision({ store }, decision) {
+  decisions.push(Object.freeze({
+    number: proposalNumber,
+    operation: proposal?.kind,
+    decision,
+  }));
+  store["nopaint:session"] = {
+    version: NOPAINT_VERSION,
+    seed: sessionSeed,
+    decisions: decisions.slice(),
+  };
+  store.persist("nopaint:session", "local:db");
 }
 
 function commitProposal(api) {
   if (loopState !== "proposing" && loopState !== "paused") return;
   transition("committing");
+  recordDecision(api, "paint");
 
   api.page(api.system.painting).paste(api.system.nopaint.buffer);
   api.flatten();
@@ -88,6 +122,7 @@ function commitProposal(api) {
   persistPainting(api);
   clearProposal(api);
   chooseProposal(api);
+  publishTestState();
 }
 
 function togglePaused({ needsPaint }) {
@@ -98,19 +133,98 @@ function togglePaused({ needsPaint }) {
     transition("paused");
   }
   needsPaint();
+  publishTestState();
 }
 
 function savePainting({ canShare, download, num, system }) {
-  download(`nopaint-${num.timestamp()}.png`, system.painting, {
+  saveCount += 1;
+  lastDownload = `nopaint-${num.timestamp()}.png`;
+  download(lastDownload, system.painting, {
     scale: 2,
     cropToScreen: true,
     sharing: canShare,
   });
+  publishTestState();
+}
+
+function paintingFingerprint(painting) {
+  if (!painting?.pixels) return null;
+  let hash = 2166136261;
+  const stride = Math.max(1, Math.floor(painting.pixels.length / 4096));
+  for (let index = 0; index < painting.pixels.length; index += stride) {
+    hash ^= painting.pixels[index];
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+function testSnapshot() {
+  return {
+    version: NOPAINT_VERSION,
+    state: loopState,
+    seed: sessionSeed,
+    proposalNumber,
+    proposalFrame,
+    operation: proposal?.kind || null,
+    decisions: decisions.map((decision) => ({ ...decision })),
+    saveCount,
+    lastDownload,
+    ready: Boolean(proposal && testApi?.system?.nopaint?.buffer),
+    controls: {
+      no: noButton?.btn?.box ? {
+        x: noButton.btn.box.x, y: noButton.btn.box.y,
+        w: noButton.btn.box.w, h: noButton.btn.box.h,
+      } : null,
+      paint: paintButton?.btn?.box ? {
+        x: paintButton.btn.box.x, y: paintButton.btn.box.y,
+        w: paintButton.btn.box.w, h: paintButton.btn.box.h,
+      } : null,
+      save: saveButton?.btn?.box ? {
+        x: saveButton.btn.box.x, y: saveButton.btn.box.y,
+        w: saveButton.btn.box.w, h: saveButton.btn.box.h,
+      } : null,
+    },
+    paintingFingerprint: paintingFingerprint(testApi?.system?.painting),
+  };
+}
+
+function publishTestState() {
+  testChannel?.postMessage(testSnapshot());
+}
+
+function installTestHook(debug) {
+  const explicitlyTesting = initialNavigationURL()?.searchParams.has("test");
+  if (!debug && !explicitlyTesting && typeof window !== "undefined" && !window.acDEBUG) return;
+
+  if (typeof BroadcastChannel !== "undefined") {
+    testChannel?.close();
+    testChannel = new BroadcastChannel("ac-nopaint-test");
+    testChannel.onmessage = ({ data }) => {
+      if (data?.type !== "configure" || !data.seed || !testApi) return;
+      const configuredSeed = /^\d+$/.test(String(data.seed))
+        ? Number(data.seed) >>> 0
+        : seedFrom(String(data.seed));
+      if (configuredSeed === sessionSeed) return;
+      sessionSeed = configuredSeed;
+      random = seededRandom(sessionSeed);
+      proposalNumber = 0;
+      clearProposal(testApi);
+      chooseProposal(testApi);
+      publishTestState();
+    };
+  }
+
+  if (typeof window !== "undefined") {
+    window.__acNoPaintTest = () => Object.freeze(testSnapshot());
+  }
 }
 
 // 🥾 Boot
-function boot({ colon, hud, net, num, params, screen, system, ui, ...api }) {
-  const requestedSeed = colon[0] || params[0];
+function boot({ colon, debug, hud, net, num, params, screen, system, ui, ...api }) {
+  // The runtime may rewrite the visible route before the piece boots. The
+  // Navigation Timing entry retains the original tutorial/test URL.
+  const urlSeed = initialNavigationURL()?.searchParams.get("seed") || null;
+  const requestedSeed = urlSeed || colon[0] || params[0];
   const numericSeed = /^\d+$/.test(requestedSeed || "")
     ? Number(requestedSeed) >>> 0
     : null;
@@ -122,6 +236,10 @@ function boot({ colon, hud, net, num, params, screen, system, ui, ...api }) {
   proposalFrame = 0;
   proposalNumber = 0;
   cameraFeed = null;
+  decisions = [];
+  saveCount = 0;
+  lastDownload = null;
+  testApi = { ...api, screen, system };
   stateBeforePause = "proposing";
 
   noButton = new ui.TextButton("No");
@@ -131,7 +249,9 @@ function boot({ colon, hud, net, num, params, screen, system, ui, ...api }) {
 
   hud.label("No Paint — No [N] / Paint [Enter]");
   net.rewrite(`/nopaint:${sessionSeed}`);
-  chooseProposal({ ...api, screen, system });
+  installTestHook(debug);
+  chooseProposal(testApi);
+  publishTestState();
 }
 
 // 🧮 Sim
@@ -139,6 +259,7 @@ function sim({ needsPaint }) {
   if (loopState === "proposing") {
     proposalFrame += 1;
     needsPaint();
+    if (proposalFrame % 12 === 0) publishTestState();
   }
 }
 
@@ -186,6 +307,76 @@ function renderProposal($) {
       proposal.y + proposal.h - drift,
       proposal.thickness,
     );
+  } else if (proposal.kind === "softy") {
+    proposal.points.slice(0, 12).forEach((point, index) => {
+      const breathe = 1 + Math.sin(phase + index * 0.7) * 0.18;
+      ink(color[0], color[1], color[2], 22).oval(
+        point.x + drift,
+        point.y - drift,
+        point.size * 2.8 * breathe,
+        point.size * 2.8 * breathe,
+        true,
+      );
+    });
+  } else if (proposal.kind === "bubbles") {
+    proposal.points.forEach((point, index) => {
+      const rise = (proposalFrame * (0.08 + (index % 4) * 0.03)) % buffer.height;
+      ink(color[0], color[1], color[2], 150).oval(
+        point.x,
+        (point.y - rise + buffer.height) % buffer.height,
+        point.size,
+        point.size,
+        false,
+        Math.max(1, proposal.thickness / 3),
+      );
+    });
+  } else if (proposal.kind === "grid-worm") {
+    const cell = Math.max(8, Math.floor(Math.min(buffer.width, buffer.height) / 14));
+    const path = proposal.points.map((point, index) => ({
+      x: Math.floor(point.x / cell) * cell + Math.sin(phase + index) * 2,
+      y: Math.floor(point.y / cell) * cell + Math.cos(phase + index) * 2,
+    }));
+    for (let index = 1; index < path.length; index += 1) {
+      ink(color).line(path[index - 1].x, path[index - 1].y, path[index].x, path[index].y, proposal.thickness);
+    }
+  } else if (proposal.kind === "walker") {
+    let x = proposal.x;
+    let y = proposal.y;
+    proposal.points.forEach((point, index) => {
+      const nextX = x + Math.cos(proposal.phase + index * 1.7) * point.size;
+      const nextY = y + Math.sin(proposal.phase + index * 1.3) * point.size;
+      ink(color).line(x + drift, y, nextX + drift, nextY, proposal.thickness);
+      x = nextX;
+      y = nextY;
+    });
+  } else if (proposal.kind === "banner") {
+    const stripes = 9;
+    for (let index = 0; index < stripes; index += 1) {
+      const y = proposal.y + (proposal.h / stripes) * index;
+      const sway = Math.sin(phase + index * 0.55) * proposal.drift;
+      ink(color[0], color[1], color[2], 80 + index * 14).box(
+        proposal.x + sway,
+        y,
+        proposal.w,
+        Math.max(2, proposal.h / stripes - 1),
+      );
+    }
+  } else if (proposal.kind === "wafer") {
+    const cols = 7;
+    const rows = 7;
+    const cw = proposal.w / cols;
+    const ch = proposal.h / rows;
+    for (let row = 0; row < rows; row += 1) {
+      for (let col = 0; col < cols; col += 1) {
+        const lift = Math.sin(phase + row * 0.5 + col * 0.35) * 3;
+        ink(color[0], color[1], color[2], (row + col) % 2 ? 70 : 150).box(
+          proposal.x + col * cw,
+          proposal.y + row * ch + lift,
+          Math.max(1, cw - 1),
+          Math.max(1, ch - 1),
+        );
+      }
+    }
   } else if (proposal.kind === "wipe") {
     ink(color[0], color[1], color[2], 255).box(
       0,
@@ -221,11 +412,12 @@ function paint($) {
   $.system.nopaint.needsPresent = true;
 
   const paused = loopState === "paused" ? " · paused" : "";
+  const definition = proposalDefinition(proposal.kind);
   $.ink(255).write(
-    `${proposal.kind} ${proposalNumber}${paused}`,
+    `${definition?.label || proposal.kind} ${proposalNumber}${paused}`,
     { x: 8, y: 8 },
   );
-  $.ink(255, 150).write(`seed ${sessionSeed}`, { x: 8, y: 20 });
+  $.ink(255, 150).write(`No Paint ${NOPAINT_VERSION} · seed ${sessionSeed}`, { x: 8, y: 20 });
 
   positionButtons($.screen);
   noButton.paint($, [[20, 20, 20], [255, 255, 255], [255, 255, 255]]);
@@ -270,6 +462,13 @@ function act($) {
 // never commit a proposal behind the participant's back.
 function bake() {}
 
+function leave() {
+  if (typeof window !== "undefined") delete window.__acNoPaintTest;
+  testChannel?.close();
+  testChannel = null;
+  testApi = null;
+}
+
 function meta() {
   return {
     title: "No Paint",
@@ -286,4 +485,4 @@ function meta() {
 // the accepted painting without silently accepting the live proposal.
 export const system = "nopaint:bake-on-leave";
 
-export { act, bake, boot, meta, paint, sim };
+export { act, bake, boot, leave, meta, paint, sim };
