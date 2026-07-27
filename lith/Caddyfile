@@ -834,7 +834,24 @@ nopaint.art {
     handle_path /classic* {
         file_server
     }
-    file_server
+    handle /gallery* {
+        file_server
+    }
+    # A single archive id gets a human-readable record page. Existing files
+    # (runtime assets, icons, manifests) continue through the final handler.
+    @nopaint_archive_record {
+        not {
+            file
+        }
+        path_regexp archiveRecord ^/[^/]+/?$
+    }
+    handle @nopaint_archive_record {
+        rewrite * /painting/index.html
+        file_server
+    }
+    handle {
+        file_server
+    }
 }
 
 www.nopaint.art {

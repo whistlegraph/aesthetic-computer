@@ -273,6 +273,28 @@ Existing AC contracts make this concrete:
 
 Saving therefore has four explicit levels: \textbf{local checkpoint}, \textbf{cloud session sync}, \textbf{published painting}, and \textbf{published Lisp organism}. Only the last two should emit public profile events.
 
+\section{Archive records, ownership, privacy, and removal}
+
+The historical archive contains 32,184 anonymous paintings saved between 2021 and 2025. Each index slug should resolve to a stable human-readable record at \mono{nopaint.art/SLUG}, not directly to an uncontextualized PNG. The record presents the image, archive id, save date, machine-generated description and tags, privacy-review status, provenance limits, original file, and a prominent flag/removal route. Gallery thumbnails link to these records.
+
+\begin{tabularx}{\textwidth}{@{}L{1.35in}Y@{}}
+\toprule
+\textbf{Question} & \textbf{Current conclusion and product rule} \\
+\midrule
+What AC owns & The No Paint software, brand, domain, storage infrastructure, archive compilation, metadata work, and aggregate curatorial presentation. \\
+Individual image rights & Anonymous saving and archive custody do not by themselves prove a complete copyright assignment for every individual painting. Do not present that uncertainty as settled ownership. \\
+Personal data & A camera-derived image, recognizable face, painted name, signature, location clue, or other identifying content can create a privacy interest even when the record has no account or handle. \\
+Removal standing & A person may flag privacy, personal safety, a minor, accidental capture, personal information, creator interest, or another rights concern without first proving copyright ownership. \\
+Data minimization & A removal request asks for archive id, reason, and only enough contact information to reply. Do not publish the request or require an account. Preserve a minimal private review/audit receipt. \\
+\bottomrule
+\end{tabularx}
+
+\begin{plain}
+\textbf{Audit finding, 2026-07-27:} the gallery contains a photo-face moderation interface, and its descriptions visibly include selfie/person records, but the published 32,184-item manifest currently marks \textbf{zero} records as \mono{unsafe}. Therefore the archive-wide face/privacy test is \textbf{not complete}. Until a documented detector plus human review has run, every unflagged record must say ``archive-wide face/privacy review pending,'' never ``cleared.''
+\end{plain}
+
+Recommended review states are \mono{pending}, \mono{machine-flagged}, \mono{human-review}, \mono{restricted}, \mono{removal-requested}, \mono{removed}, and \mono{cleared-with-date}. A face detector is a triage aid, not a privacy verdict: false negatives are expected, stylized or embedded photos may evade detection, and non-face personal data still matters. Default public behavior should blur/restrict strong photographic-person matches pending review; removed records retain only a non-public minimal tombstone sufficient to prevent accidental re-publication.
+
 \section{Painting to code, without pretending}
 
 A raster cannot reveal one true source program. The product should call the result a \textbf{reading}, \textbf{response}, or \textbf{inferred score}.
