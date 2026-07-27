@@ -68,6 +68,7 @@
 
       body::before {
         background: var(--paper) url("/hero-pointe-shoes.jpg") center / cover no-repeat;
+        animation: hero-breathe 18s ease-in-out infinite alternate;
       }
 
       body::after {
@@ -96,15 +97,7 @@
 
       .mark {
         width: min(570px, 52vw);
-      }
-
-      .eyebrow {
-        margin: 0 0 20px;
-        color: color-mix(in srgb, var(--wine) 72%, transparent);
-        font-size: 11px;
-        font-weight: 600;
-        letter-spacing: 0.48em;
-        text-transform: uppercase;
+        animation: logo-reveal 1.15s cubic-bezier(0.2, 0.75, 0.25, 1) both;
       }
 
       h1 {
@@ -123,67 +116,45 @@
         display: block;
         width: min(610px, 58vw);
         max-width: none;
-        margin: clamp(-76px, -5vw, -42px) 0 clamp(-62px, -4vw, -34px) clamp(-86px, -6vw, -46px);
+        margin: clamp(-76px, -5vw, -42px) 0 clamp(-76px, -5vw, -42px) clamp(-86px, -6vw, -46px);
+        filter: drop-shadow(0 18px 28px rgba(126, 38, 58, 0.08));
+        animation: logo-float 7s ease-in-out 1.15s infinite;
+        transform-origin: 48% 52%;
       }
 
-      .rule {
-        display: flex;
-        align-items: center;
-        width: min(430px, 72vw);
-        margin: clamp(20px, 3vw, 34px) 0;
-        color: var(--wine);
+      @keyframes logo-reveal {
+        from {
+          opacity: 0;
+          transform: translateY(18px) scale(0.975);
+          filter: blur(5px);
+        }
+
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+          filter: blur(0);
+        }
       }
 
-      .rule::before,
-      .rule::after {
-        height: 1px;
-        flex: 1;
-        background: currentColor;
-        content: "";
-        opacity: 0.42;
+      @keyframes logo-float {
+        0%,
+        100% {
+          transform: translate3d(0, 0, 0) rotate(-0.12deg);
+        }
+
+        50% {
+          transform: translate3d(0, -7px, 0) rotate(0.12deg);
+        }
       }
 
-      .rule span {
-        width: 5px;
-        height: 5px;
-        margin: 0 15px;
-        background: currentColor;
-        transform: rotate(45deg);
-      }
+      @keyframes hero-breathe {
+        from {
+          transform: scale(1.005) translate3d(-0.15%, 0, 0);
+        }
 
-      .message {
-        margin: 0;
-        font-family: Didot, "Bodoni 72", "Times New Roman", serif;
-        font-size: clamp(18px, 2.4vw, 30px);
-        letter-spacing: 0.08em;
-      }
-
-      .details {
-        display: flex;
-        justify-content: flex-start;
-        gap: 12px 24px;
-        margin: 18px 0 0;
-        color: color-mix(in srgb, var(--ink) 62%, transparent);
-        font-size: 10px;
-        font-weight: 600;
-        letter-spacing: 0.22em;
-        text-transform: uppercase;
-      }
-
-      .details span + span::before {
-        margin-right: 24px;
-        color: var(--rose);
-        content: "·";
-      }
-
-      .soon {
-        margin: 22px 0 0;
-        color: color-mix(in srgb, var(--wine) 56%, transparent);
-        font-size: 10px;
-        font-weight: 600;
-        letter-spacing: 0.42em;
-        text-indent: 0.42em;
-        text-transform: uppercase;
+        to {
+          transform: scale(1.035) translate3d(0.35%, -0.2%, 0);
+        }
       }
 
       @media (max-width: 520px) {
@@ -207,35 +178,19 @@
           width: 100%;
         }
 
-        .eyebrow {
-          margin-bottom: 16px;
-          font-size: 9px;
-          letter-spacing: 0.35em;
-        }
-
         .brand-logo {
           width: 100%;
-          margin: -38px auto -30px;
-        }
-
-        .rule {
-          margin-right: auto;
-          margin-left: auto;
-        }
-
-        .details {
-          justify-content: center;
-          flex-wrap: wrap;
-          gap: 8px 14px;
-          line-height: 1.6;
-        }
-
-        .details span + span::before {
-          margin-right: 14px;
+          margin: -38px auto;
         }
       }
 
       @media (prefers-reduced-motion: reduce) {
+        body::before,
+        .mark,
+        .brand-logo {
+          animation: none;
+        }
+
         canvas {
           display: none;
         }
@@ -246,15 +201,8 @@
     <canvas id="stage" aria-hidden="true"></canvas>
     <main>
       <section class="mark" aria-label="Danz Ballet Studio, coming soon">
-        <p class="eyebrow">A new space is taking shape</p>
         <img class="brand-logo" src="/logo.png" alt="" />
         <h1>Danz Ballet Studio</h1>
-        <div class="rule" aria-hidden="true"><span></span></div>
-        <p class="message">Movement. Artistry. Belonging.</p>
-        <p class="details">
-          <span>Classes</span><span>Schedule</span><span>Registration</span>
-        </p>
-        <p class="soon">Coming soon</p>
       </section>
     </main>
     <script>
