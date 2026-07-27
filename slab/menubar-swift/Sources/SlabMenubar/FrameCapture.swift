@@ -1145,7 +1145,11 @@ final class FrameCapture {
         }
         env["ax"] = axResult
         tm["ax"] = axMs
-        tm["wall"] = (tm["meta"]! + tm["capture"]! + (tm["ocr"] ?? 0) + tm["thumb"]!)  // serial part; ax overlapped
+        // A denied/failed ScreenCaptureKit request has no image and therefore
+        // no thumbnail timing. Keep the permission-needed envelope alive
+        // instead of trapping while trying to report that failure.
+        tm["wall"] = ((tm["meta"] ?? 0) + (tm["capture"] ?? 0) +
+                      (tm["ocr"] ?? 0) + (tm["thumb"] ?? 0))  // serial part; ax overlapped
         env["timings_ms"] = tm
         if let d = try? JSONSerialization.data(withJSONObject: env, options: []) {
             try? d.write(to: URL(fileURLWithPath: Paths.frameOut))
