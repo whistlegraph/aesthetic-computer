@@ -4,6 +4,10 @@
 // The public repo and the adjacent private vault both contain paper sources.
 // This MCP makes those sources discoverable by stable, fuzzy names and keeps
 // the normal paper loop together: find/read → XeLaTeX build → slab PDF viewer.
+// “Use the papers stack” names the scholarly mill workflow: consult the
+// Platter and prior work first, then default to an archival/arXiv-style LaTeX
+// paper unless the user requests a distinct lane. These tools support that
+// workflow; merely building a PDF does not satisfy it.
 // It deliberately indexes known paper roots rather than arbitrary filesystem
 // paths, and XeLaTeX runs without shell escape.
 
@@ -24,6 +28,12 @@ const SKIP_DIRS = new Set([".git", "node_modules", "figures", "logos", "data", "
 const SOURCE_EXTS = new Set([".tex", ".md"]);
 const PAPER_EXTS = new Set([".tex", ".md", ".pdf"]);
 const MAX_READ_CHARS = 60_000;
+const PAPERS_STACK_INSTRUCTIONS = [
+  "The papers stack is the Aesthetic Computer scholarly publishing workflow, not a generic PDF renderer.",
+  "For requests such as 'use the papers stack' or 'use /papers', first consult papers/SCORE.md, the public Platter index, relevant sub-platters, prior papers and bibliographies, and primary code/data/evidence.",
+  "Unless the user explicitly requests another mill lane, default to an archival/arXiv-style LaTeX paper with abstract, context/related work, method/system, implementation, evidence/evaluation, ethics/privacy/limitations, conclusion, references, and captioned figures/tables.",
+  "Briefings, dossiers, essays, decks, cards, and visual reports are distinct outputs. Build, then run Figure-Table-QA-Check and visually inspect; compilation alone is not completion.",
+].join(" ");
 
 async function exists(path) {
   try { await access(path, fsConstants.F_OK); return true; }
@@ -372,7 +382,7 @@ async function toolOpen({ paper, build = false } = {}) {
 const TOOLS = [
   {
     name: "paper_list",
-    description: "List and search the Aesthetic Computer papers stack: public papers plus private/vault papers, including Fuser client papers. Returns stable paper IDs, source/PDF paths, kind, and modification date.",
+    description: `List and search the Aesthetic Computer papers and Platter sources: public papers plus private/vault papers, including Fuser client papers. Use this to consult relevant prior work before shaping a /papers deliverable. Returns stable paper IDs, source/PDF paths, kind, and modification date. ${PAPERS_STACK_INSTRUCTIONS}`,
     inputSchema: {
       type: "object",
       properties: {
@@ -449,7 +459,8 @@ async function handleMessage(message) {
           result: {
             protocolVersion: "2024-11-05",
             capabilities: { tools: {} },
-            serverInfo: { name: "paper-mcp", version: "1.0.0" },
+            serverInfo: { name: "paper-mcp", version: "1.1.0" },
+            instructions: PAPERS_STACK_INSTRUCTIONS,
           },
         };
       case "initialized":
