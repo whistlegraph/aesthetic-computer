@@ -1,21 +1,21 @@
-# Menu Fighter — native macOS
+# Trackpad Fighter — native macOS
 
-A browserless Swift/AppKit build of Menu Fighter. SpriteKit supplies the native
+A browserless Swift/AppKit starfighter game built around the Mac trackpad. SpriteKit supplies the native
 Metal-backed render loop; GameController and AppKit provide input; AVFoundation
 supplies immediate hit/round audio.
 
 ```sh
 cd macos/menu-fighter-native
-swift run menu-fighter
+swift run trackpad-fighter
 ```
 
-Put the fighters on a small central stage over the macOS desktop in a
-transparent, chromeless, click-through overlay. Shots win through knockback and
-ring-out; normal clicks continue to reach the app underneath. The overlay closes
-itself after the round ends.
+Put two tiny, high-contrast triangle starfighters over the macOS desktop in a
+transparent, chromeless overlay. Ships rotate, thrust, fire, and wrap around the
+screen while sparse drifting asteroids threaten both players and break under fire.
+The overlay closes itself after the round ends.
 
 ```sh
-swift run menu-fighter --desktop
+swift run trackpad-fighter --desktop
 ```
 
 Install the fleet-only four-corner trackpad watcher:
@@ -24,21 +24,55 @@ Install the fleet-only four-corner trackpad watcher:
 ./install.sh
 ```
 
-Hold one finger in each trackpad corner for five uninterrupted seconds. A
-rising noise countdown cancels as soon as the pose breaks. Completion opens the
-desktop stage in search/practice mode with Player 2 acting as the dummy. Practice
-continues while it searches for another native player, then both clients enter
-the scoped online round.
-
-Public matchmaking requires an Aesthetic Computer access token. Save it in the
-macOS Keychain once with `menu-fighter auth <token>`. `AC_TOKEN` and
-`~/.config/aesthetic-computer/token` are also supported for development.
+Touch all four trackpad corners at once. A strong accent-color flash immediately
+covers every display and launches the encounter; lifting the fingers cannot cancel
+startup. Sparse star streaks then warp from the desktop center toward all four
+corners and brake to a stop as a short ascending beep phrase plays. There is no
+separate intro screen. Once the stars stop, the live scene unlocks directly into
+play with no login step.
 
 Controls:
 
-- Trackpad (Player 1): move the pointer to run, click/tap to shoot, two-finger
-  click to fire a heavy shot, and two-finger swipe upward to jump.
-- Player 1: `A/D` move, `W` jump, `F` light attack, `G` heavy attack.
-- Player 2: arrows move/jump, `/` light attack, `.` heavy attack.
+- Trackpad (Player 1): touch with one finger to highlight the ship. Every finger
+  movement immediately points and thrusts the ship in that direction; lifting
+  stops adding force while momentum continues. A short stationary tap fires.
+  Two-finger acceleration is intentionally disabled for now. Player 1 begins at
+  screen center, and the ship palette follows the current macOS system accent color.
+- All game marks use the same cursor-like line stack: black outer edge, light
+  keyline, and system-accent center line. There is no separate reticle, tether,
+  stored charge, or release animation.
+- Active thrust sheds short line particles from the rear of the triangle. They
+  inherit ship momentum and enter SpriteKit's shared gravity field with damping
+  and a short lifetime.
+- Player 1: `A/D` rotate, `W` thrust, `F` light shot, `G` heavy shot.
+- Player 2: left/right arrows rotate, up arrow thrust, `/` light shot, `.` heavy shot.
 - Controllers: d-pad/stick, A jump, X light, Y heavy.
-- `Escape` opens the Menu Fighter card; `Return` starts/resets TRAIN.
+- The desktop round captures mouse, trackpad, and keyboard input across every
+  display so clicks, drags, scrolling, and hover state never reach apps or Prox
+  rocks underneath it. The standard cursor stays hidden until the round ends;
+  `Escape` quits immediately. In windowed mode, `Escape` opens the local pause
+  card and `Return` starts/resets the fight.
+
+## Round lifetime logs
+
+Every watcher launch and fight round appends structured JSON lines to:
+
+```text
+~/.local/share/trackpad-fighter/rounds.jsonl
+```
+
+Events share process, launch, scene, and round IDs and include monotonic elapsed
+times. The trace starts before the scene is built, records duplicate scene-attach
+attempts, intro/reset/combat events, attacks and hits, and finishes with the round
+outcome and process teardown. A crash or forced kill deliberately leaves a
+`round_started` entry without `round_finished`, so incomplete lifetimes remain
+discoverable.
+
+```sh
+# Follow new events.
+tail -f ~/.local/share/trackpad-fighter/rounds.jsonl | jq .
+
+# Reconstruct one round in order.
+jq --arg id '<roundId>' 'select(.roundId == $id)' \
+  ~/.local/share/trackpad-fighter/rounds.jsonl
+```
