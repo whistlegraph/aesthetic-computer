@@ -65,6 +65,7 @@ const INSTALL = `(() => {
   const featherBlur = root.querySelector('.feather-blur');
   let token = 0;
   let cameraAnimation = null;
+  let labelReady = Promise.resolve(true);
 
   const resolve = (selector) => {
     if (selector.startsWith('js=')) return Function('return (' + selector.slice(3) + ')')();
@@ -84,6 +85,7 @@ const INSTALL = `(() => {
     ringGlow.style.opacity = '0';
     ring.style.opacity = '0';
     label.classList.remove('show');
+    labelReady = Promise.resolve(true);
     particles.replaceChildren();
     return true;
   };
@@ -95,6 +97,7 @@ const INSTALL = `(() => {
     );
     if (!value) {
       label.classList.remove('show');
+      labelReady = Promise.resolve(true);
       return;
     }
     const padX = Number(options.labelPadX ?? 11);
@@ -138,18 +141,19 @@ const INSTALL = `(() => {
     label.style.height = Math.ceil(Math.max(fontSize,
       (metrics.actualBoundingBoxAscent || fontSize * .8) +
       (metrics.actualBoundingBoxDescent || fontSize * .2)) + padY * 2) + 'px';
+    const entrances = [];
     for (const { glyph, index } of glyphs) {
       const drift = ((index * 17) % 9) - 4;
       const tilt = ((index * 11) % 7) - 3;
       const delay = index * 34;
-      glyph.animate([
+      entrances.push(glyph.animate([
         { opacity:0, transform:'translate3d(' + drift + 'px,11px,0) rotate(' + tilt + 'deg) scale(.72)' },
         { opacity:1, transform:'translate3d(0,-2px,0) rotate(' + (-tilt * .3) + 'deg) scale(1.08)', offset:.72 },
         { opacity:1, transform:'translate3d(0,0,0) rotate(0) scale(1)' },
       ], {
         duration:620, delay, fill:'both',
         easing:'cubic-bezier(.18,.82,.2,1)',
-      });
+      }));
       // Once landed, every letter keeps a barely-there independent buoyancy.
       // The short amplitude reads as alive, not as a novelty title effect.
       glyph.animate([
@@ -162,6 +166,14 @@ const INSTALL = `(() => {
         easing:'ease-in-out', composite:'add',
       });
     }
+    // A still capture can arrive immediately after spotlight() resolves. Keep a
+    // readiness promise for the finite entrance animations so screenshots never
+    // freeze a full label background with only its first glyph visible. The
+    // infinite, low-amplitude buoyancy animation is deliberately excluded.
+    labelReady = Promise.allSettled(entrances.map((animation) => animation.finished))
+      .then(() => new Promise((resolveReady) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolveReady(true)));
+      }));
     label.setAttribute('aria-label', value);
     label.style.left = '0px';
     label.style.top = '0px';
@@ -327,6 +339,7 @@ const INSTALL = `(() => {
   window.__captutorFx = {
     spotlight, outline:(s,o={}) => spotlight(s,{...o,dim:0}), burst,
     zoom, resetCamera, clear:() => { hide(); resetCamera(); return true; },
+    captureReady:() => labelReady,
   };
   return true;
 })()`;
@@ -337,12 +350,20 @@ async function ready(cdp) {
 
 export async function spotlight(cdp, selector, options = {}) {
   await ready(cdp);
-  return cdp.eval(`window.__captutorFx.spotlight(${JSON.stringify(selector)},${JSON.stringify(options)})`);
+  const result = await cdp.eval(
+    `window.__captutorFx.spotlight(${JSON.stringify(selector)},${JSON.stringify(options)})`,
+  );
+  await cdp.eval(`window.__captutorFx.captureReady()`);
+  return result;
 }
 
 export async function outline(cdp, selector, options = {}) {
   await ready(cdp);
-  return cdp.eval(`window.__captutorFx.outline(${JSON.stringify(selector)},${JSON.stringify(options)})`);
+  const result = await cdp.eval(
+    `window.__captutorFx.outline(${JSON.stringify(selector)},${JSON.stringify(options)})`,
+  );
+  await cdp.eval(`window.__captutorFx.captureReady()`);
+  return result;
 }
 
 export async function burst(cdp, selector, options = {}) {
