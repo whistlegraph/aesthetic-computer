@@ -6,16 +6,21 @@ import { existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { enterStageMode, exitStageMode } from "../lib/stage-mode.mjs";
+import { enterStageMode, exitStageMode, parseStageFlags } from "../lib/stage-mode.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REEL = resolve(HERE, "../vendor/reel.mjs");
 const REEL_STATE = join(process.env.HOME, ".local", "share", "slab", "state", "reel.state");
 const rawArgs = process.argv.slice(2);
-const vertical = rawArgs.includes("--vertical");
-const args = rawArgs.filter((arg) => arg !== "--vertical");
+let parsed;
+try { parsed = parseStageFlags(rawArgs); }
+catch (error) {
+  console.error(error.message);
+  process.exit(2);
+}
+const { vertical, brand, args } = parsed;
 if (!args.length) {
-  console.error("usage: node bin/stage.mjs [--vertical] render <screenplay> [captutor options]");
+  console.error("usage: node bin/stage.mjs [--vertical] [--brand fuser|classic] render <screenplay> [captutor options]");
   process.exit(2);
 }
 
@@ -27,6 +32,34 @@ const forward = (signal) => {
 };
 process.on("SIGINT", () => forward("SIGINT"));
 process.on("SIGTERM", () => forward("SIGTERM"));
+
+function verifyFilmingPermissions() {
+  const recorder = spawnSync(process.execPath, [REEL, "status"], {
+    encoding: "utf8",
+    env: process.env,
+  });
+  if (recorder.status !== 0) {
+    throw new Error(
+      `SlabMenubar recording bridge is unavailable: ${(recorder.stderr || recorder.stdout || "").trim()}`,
+    );
+  }
+  let status;
+  try { status = JSON.parse(recorder.stdout || "{}"); }
+  catch { throw new Error("SlabMenubar recording bridge returned invalid status"); }
+  if (typeof status.recording !== "boolean") {
+    throw new Error("SlabMenubar recording bridge did not report recording permission state");
+  }
+
+  const accessibility = spawnSync("/usr/bin/osascript", [
+    "-e", 'tell application "System Events" to get UI elements enabled',
+  ], { encoding:"utf8", env:process.env });
+  if (accessibility.status !== 0 || accessibility.stdout.trim() !== "true") {
+    throw new Error(
+      "System Events Accessibility is not enabled for Captutor; allow it in System Settings before filming",
+    );
+  }
+  console.log("✓ filming permissions — SlabMenubar recorder + System Events Accessibility");
+}
 
 function stopOwnedReelIfNeeded() {
   if (!child || !existsSync(REEL_STATE)) return;
@@ -46,9 +79,10 @@ function stopOwnedReelIfNeeded() {
 
 let code = 1;
 try {
+  verifyFilmingPermissions();
   // Enter is inside the guarded region deliberately: if a preference change
   // fails halfway through, the state file still lets `finally` unwind it.
-  await enterStageMode({ vertical });
+  await enterStageMode({ vertical, brand });
   if (vertical) {
     // Rotation can leave Chrome's process alive with no page window. Relaunch
     // the dedicated filming profile only when its Fuser target disappeared.
@@ -68,9 +102,10 @@ try {
       ...process.env,
       CAPTUTOR_STAGE_MODE: "1",
       CAPTUTOR_VERTICAL_MODE: vertical ? "1" : "0",
-      // Accessibility-free filming seats can retain Captutor's deterministic
-      // in-page pointer while still using the full native Stage desktop.
-      CAPTUTOR_REAL_CURSOR: process.env.CAPTUTOR_REAL_CURSOR ?? "1",
+      CAPTUTOR_BRAND: brand,
+      // The capture-visible Swift overlay is the normal filmed pointer. Keep
+      // the system cursor opt-in for explicitly human-driven takes only.
+      CAPTUTOR_REAL_CURSOR: process.env.CAPTUTOR_REAL_CURSOR ?? "0",
       CDP_PORT: process.env.CDP_PORT || "9333",
       PATH: `/opt/homebrew/bin:${process.env.HOME}/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin`,
     },

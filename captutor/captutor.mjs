@@ -37,8 +37,10 @@ import { dirname, join, resolve, basename } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { narrate } from "./lib/narrate.mjs";
-import { attach } from "./lib/cdp.mjs";
-import { clickOn, dragBetween, pointAt, typeInto, INSTALL } from "./lib/cursor.mjs";
+import { attach, BrowserCrashError } from "./lib/cdp.mjs";
+import {
+  clickOn, dragBetween, pointAt, stopNativeCursor, typeInto,
+} from "./lib/cursor.mjs";
 import {
   spotlight, outline, burst, zoom, resetCamera, clearEffects,
 } from "./lib/effects.mjs";
@@ -50,6 +52,7 @@ import { ensureSignedIn, WORKSPACE } from "./lib/login.mjs";
 import * as credits from "./lib/credits.mjs";
 import { publishToOutbox } from "./lib/outbox.mjs";
 import { presentSignboard, setAmbient } from "./lib/signboard.mjs";
+import { assertHiDPIStage } from "./lib/stage-contract.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -60,6 +63,12 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const INSTALLED_REEL = join(process.env.HOME, ".local", "bin", "reel.mjs");
 const REEL = process.env.CAPTUTOR_REEL
   || (existsSync(INSTALLED_REEL) ? INSTALLED_REEL : join(resolve(HERE, "../../.."), "slab", "bin", "reel.mjs"));
+const INSTALLED_FRAME = join(process.env.HOME, ".local", "bin", "frame.mjs");
+const REPO_FRAME = join(resolve(HERE, ".."), "slab", "bin", "frame.mjs");
+const FRAME = process.env.CAPTUTOR_FRAME
+  || (existsSync(INSTALLED_FRAME) ? INSTALLED_FRAME
+    : existsSync(REPO_FRAME) ? REPO_FRAME
+      : join(resolve(HERE, "../../.."), "slab", "bin", "frame.mjs"));
 const FUSER = process.env.FUSER_REPO || `${process.env.HOME}/Developer/fuser`;
 const DOCS_PUBLIC = join(FUSER, "apps", "docs", "public");
 
@@ -67,6 +76,23 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const now = () => Date.now() / 1000;
 const REAL_CURSOR = process.env.CAPTUTOR_REAL_CURSOR === "1";
 const STAGE_MODE = process.env.CAPTUTOR_STAGE_MODE === "1";
+// CAPTUTOR_TASK_GID is present on every Iris mission, including a worker that
+// was already running when this invariant was deployed. Local development
+// renders remain possible without Stage; fleet takes do not.
+const REQUIRE_HIDPI = process.env.CAPTUTOR_REQUIRE_HIDPI === "1"
+  || Boolean(process.env.CAPTUTOR_TASK_GID);
+const VERTICAL_MODE = process.env.CAPTUTOR_VERTICAL_MODE === "1";
+
+// Frame's native OCR/target surfaces live above app windows, so even a window
+// capture can film one. Retire every Frame-owned transient immediately before
+// the reel starts. If Frame is installed, failure is a capture-safety failure:
+// it is better to abort a take than ship tooling UI inside the tutorial.
+function clearFrameOverlays() {
+  if (!existsSync(FRAME)) return;
+  execFileSync(process.execPath, [
+    FRAME, "local", "--clear-overlays", "--quiet-overlay", "--no-ocr", "--json",
+  ], { encoding: "utf8", timeout: 10_000, stdio: ["ignore", "pipe", "pipe"] });
+}
 
 // Some filming seats (notably clamshell Macs on native-only external panels)
 // cannot expose Captutor's usual 2560×1440/1280×720 HiDPI pair. Keep those
@@ -148,6 +174,27 @@ function logFailure({ sp, locale, format, attempt, error }) {
     elapsedSec: Number(error.elapsed.toFixed(3)),
     abortedVideo: error.aborted,
     action: "cancel-and-retry",
+  };
+  appendFileSync(FAILURE_LOG, `${JSON.stringify(record)}\n`);
+  return record;
+}
+
+function logBrowserFailure({ sp, locale, format, attempt, error, beat, elapsed, aborted }) {
+  mkdirSync(dirname(FAILURE_LOG), { recursive: true });
+  const record = {
+    schema:"captutor-failure/v1",
+    at:new Date().toISOString(),
+    screenplay:sp.slug,
+    locale,
+    format,
+    attempt,
+    reason:"browser-renderer-crash",
+    message:error.message,
+    beat:Math.max(0, beat) + 1,
+    elapsedSec:Number(elapsed.toFixed(3)),
+    abortedVideo:aborted,
+    signal:error.details?.signal || null,
+    action:"abort-and-restart-browser",
   };
   appendFileSync(FAILURE_LOG, `${JSON.stringify(record)}\n`);
   return record;
@@ -247,6 +294,11 @@ async function sizeWindow(cdp, win) {
 }
 
 async function cmdRender(sp, workDir, locale, format, attempt = 1) {
+  assertHiDPIStage({
+    required:REQUIRE_HIDPI,
+    stageMode:STAGE_MODE,
+    vertical:VERTICAL_MODE,
+  });
   const beats = await cmdNarrate(sp, workDir, locale);
   const t = translator(locale);
   const s = selectors(t);
@@ -279,14 +331,23 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
     ["Overlay.setShowAdHighlights", { show: false }],
   ].map(([method, params]) => cdp.send(method, params).catch(() => {})));
 
-  if (REAL_CURSOR) {
-    await cdp.eval(`(() => {
-      document.getElementById('__captutor_cursor')?.remove();
-      delete window.__captutor;
-    })()`);
-  } else {
-    await cdp.eval(INSTALL);
-  }
+  // Puppet and the shared analysis layer draw directly into the page at the
+  // highest z-index. They normally self-fade, but a tutorial take must not
+  // depend on a timeout or on which automation client touched the tab last.
+  await cdp.eval(`(() => {
+    document.getElementById('__puppet_cursor')?.remove();
+    document.getElementById('__analysis_overlay')?.remove();
+    clearTimeout(window.__pcTimer);
+    delete window.__pcTimer;
+  })()`);
+
+  // Captutor's visible pointer is a native click-through Swift surface. Remove
+  // any cursor left in the page by an older build; trusted input still travels
+  // through CDP and therefore remains independent from the presentation layer.
+  await cdp.eval(`(() => {
+    document.getElementById('__captutor_cursor')?.remove();
+    delete window.__captutor;
+  })()`);
 
   // The screenplay says `click('[data-testid=fuse]')`, not
   // `click(cdp, '[data-testid=fuse]')` — the session is plumbing, and a
@@ -437,6 +498,30 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
   await cdp.send("Page.bringToFront");
   await sleep(600);
 
+  clearFrameOverlays();
+
+  // /json retains the original Fuser URL and title after a renderer dies, so
+  // those fields are not a health check. Require the page itself to answer just
+  // before the camera starts; this catches a pre-existing "Aw, Snap!" without
+  // filming it or debiting a generation.
+  try {
+    await cdp.assertHealthy("pre-record");
+    const screen = await cdp.eval(`({
+      width: screen.width,
+      height: screen.height,
+      dpr: window.devicePixelRatio,
+    })`);
+    assertHiDPIStage({
+      required:REQUIRE_HIDPI,
+      stageMode:STAGE_MODE,
+      vertical:VERTICAL_MODE,
+      screen,
+    });
+  } catch (error) {
+    await cdp.close();
+    throw error;
+  }
+
   const stageDisplay = STAGE_MODE && F.compose?.fullDesktop;
   console.log(`\n● recording (${stageDisplay ? "full Stage desktop" : `window: ${sp.window || "whole display"}`})`);
   const state = reelStart({
@@ -456,6 +541,7 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
   const stopRecording = (out) => {
     if (!recording) return out;
     recording = false;
+    stopNativeCursor();
     return reelStop(out);
   };
 
@@ -463,7 +549,7 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
     await sleep((sp.leadInMs ?? 700));  // a beat of stillness before we start moving
     if (sp.openingCard) {
       const card = {
-        phase: "title", ...localizeCard(sp.openingCard),
+        phase: "title", ...localizeCard(sp.openingCard), title: "Learn Fuser",
       };
       await perform("signboard", { card, role:"opening" },
         () => presentSignboard(cdp, card, {
@@ -521,9 +607,17 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
     return null;
   })();
 
+  const browserGuard = (async () => {
+    while (recording) {
+      await cdp.assertHealthy(`recording beat ${Math.max(0, activeBeat) + 1}`);
+      await sleep(500);
+    }
+    return null;
+  })();
+
   let timed;
   try {
-    timed = await Promise.race([take, upgradeGuard]);
+    timed = await Promise.race([take, upgradeGuard, browserGuard]);
   } catch (err) {
     if (err instanceof UpgradeInterruption) {
       // The camera is already stopped. Let any in-flight screenplay promise
@@ -542,6 +636,25 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
       console.warn(`\n↻ logged and discarded interrupted take; retrying cleanly (${attempt}/${AUTO_RETRIES})`);
       await sleep(900);
       return cmdRender(sp, workDir, locale, format, attempt + 1);
+    }
+
+    if (err instanceof BrowserCrashError) {
+      const stamp = new Date().toISOString().replaceAll(/[:.]/g, "-");
+      const aborted = stopRecording(join(workDir, `aborted-browser-${stamp}.mp4`));
+      logBrowserFailure({
+        sp, locale, format, attempt, error:err,
+        beat:activeBeat, elapsed:now() - since, aborted,
+      });
+      console.error(`\n✗ browser renderer crashed at beat ${Math.max(0, activeBeat) + 1}; take aborted`);
+      if (purse) {
+        await credits.settle(cdp, purse, {
+          slug:sp.slug, locale, format, aborted:true, reason:"browser-renderer-crash",
+        }).catch((settleError) => {
+          console.warn(`  credit settlement unavailable after crash: ${settleError.message}`);
+        });
+      }
+      await cdp.close();
+      throw err;
     }
 
     console.error(`\n✗ beat ${activeBeat + 1} failed: ${err.message}`);

@@ -115,10 +115,12 @@ driving are separable**; only the capture changed.
 
 CDP clicks do not move the macOS cursor, and `reel` films the real window — so
 without coordination the video would show a dead pointer parked in a corner while
-buttons depressed by themselves. `bin/stage.mjs` is the production path: it films
-the real 1.5× macOS pointer and moves it smoothly to the exact same coordinate as
-each trusted CDP click. The older shadow-DOM tutorial pointer remains available
-outside Stage Mode.
+buttons depressed by themselves. `bin/stage.mjs` is the production path: it
+compiles a transparent, click-through Swift cursor overlay and moves its exact
+arrow-tip hotspot to the same coordinate as each trusted CDP click. The native
+overlay eases at 120 Hz, leaves a restrained particle trail, and emits a small
+click burst. It is capture-visible but never participates in browser hit-testing;
+`CAPTUTOR_REAL_CURSOR=1` remains available for explicitly human-driven takes.
 
 Stage Mode is a reversible transaction around any Captutor command. It saves the
 current desk, closes stale QuickTime previews, switches macOS to Light appearance
@@ -126,16 +128,37 @@ and the display to 2× HiDPI (1280×720 logical), centers the browser, raises
 encoding quality, uses a branded light wallpaper, and temporarily hides desktop
 icons, Dock, menu bar, Stats, Macpal's desktop badge, and Slab prompt sigils. The
 recorder captures the complete physical desktop, preserving the real rounded
-window, shadow, and equal margin. A Swift desktop-level renderer adds a subtle,
-deterministic field of rising icon-only production Fuser SVG marks. The
-wallpaper contains no wordmark or decorative color field: it renders only the
-mark, black-on-white or white-on-black from the active macOS appearance. It is
-click-through, runs behind every normal window, and exits inside the same Stage
-transaction. Delivery changes only the tiny
+window, shadow, and equal margin. A Swift desktop-level renderer supplies the
+selected client backdrop. It is click-through, runs behind every normal window,
+and exits inside the same Stage transaction. Delivery changes only the tiny
 ScreenCaptureKit status dot in the extreme top-right, using live pixels sampled
 from the adjacent desktop; it never masks or crops the browser window.
-Its `finally` handler restores the saved display mode, pointer size, wallpaper,
+Its `finally` handler restores the saved display mode, optional real-pointer size, wallpaper,
 processes, and desktop preferences on success, failure, or interruption.
+
+Stage backdrops are selected per brand. `fuser` is currently the default and
+uses the twelve node positions from the production `fuser-mark.svg` as one
+connected glossy metaball sculpture over a quiet black-and-white field. Obsidian,
+pearl, and graphite variants stay inside Fuser's monochrome brand system. One
+instanced Metal pass raymarches the live smooth-union field at the display's
+native backing resolution; each logo tumbles independently through yaw, pitch,
+and roll. Smaller background marks use a softer, lower-step depth-of-field
+treatment to preserve the power budget. There is no sprite
+stepping, opacity pulse, wordmark, or generated approximation. The former
+monochrome rising-mark field remains available as `classic`.
+The ambient drift reverses gently inside a per-logo safe inset, so even the
+largest rotating metaball volume remains fully on-screen without edge fades.
+
+Regenerate the three palette stills after changing the implicit surface:
+
+```bash
+swift captutor/bin/render-fuser-metaballs.swift captutor/assets
+```
+
+```bash
+node bin/stage.mjs --brand fuser render <screenplay>
+node bin/stage.mjs --brand classic render <screenplay>
+```
 
 ## Staying signed in, and not spending the client's money
 
@@ -190,6 +213,36 @@ the page so the session cookie rides along. (Its REST twin at
 `/api/v1/account/getQuotas` looks nicer and is CORS-blocked from `app.` — don't.)
 
 ## Running it
+
+### Pathfinding preflight (invisible CDP frame)
+
+Before authoring selectors, take one structured internal frame of the real
+Fuser tab:
+
+```sh
+CDP_PORT=9333 node bin/cdp-frame.mjs --match fuser.studio
+CDP_PORT=9333 node bin/cdp-frame.mjs --match fuser.studio \
+  --screenshot /tmp/fuser-preflight.png
+```
+
+The JSON reports the viewport, focus, visible controls with locator candidates,
+and React Flow nodes, handles, and edges. The optional screenshot comes from
+`Page.captureScreenshot`: it is read directly from Chrome's compositor and
+never draws Frame, OCR, target, cursor, or Puppet UI on the filming display.
+
+Use this command for exploratory preflight instead of one-off `node -e` scripts
+that call `attach()` and forget to close the socket. Programmatic probes should
+use `withSession()` from `lib/cdp.mjs`, or close a directly owned session in a
+`finally` block. The CLI has a 15-second hard ceiling and always closes CDP, so
+pathfinding cannot silently turn into repeated 120-second tool timeouts.
+
+Captutor also enables Chrome's renderer-crash event before setup and runs a
+bounded page heartbeat immediately before recording and throughout every take.
+Chrome can leave an "Aw, Snap!" target in `/json` with its old Fuser title and
+URL, so target metadata alone is never treated as proof of health. A crash stops
+the reel, preserves an `aborted-browser-*.mp4`, and records
+`browser-renderer-crash` in `out/failures.ndjson` instead of leaving the mission
+apparently in progress.
 
 `reel` needs SlabMenubar running with the Screen Recording grant
 (`node slab/bin/frame.mjs doctor`).
@@ -277,6 +330,23 @@ Deriving the video from the page is what keeps the two from drifting apart.
 `apps/` has 13 pages ready to draft. **Recipes has no docs page at all** — so that
 one is authored by hand (`screenplays/smoke.mjs` is its skeleton), and the page and
 the video get written together.
+
+### Fuser onboarding contract
+
+Tutorial capture must not depend on translated button copy, generated classes,
+or the portal structure of a tooltip. Fuser exposes active tutorial state through
+semantic DOM attributes:
+
+- `data-onboarding-step` and `data-onboarding-active` mark the product target;
+- `data-onboarding-overlay` and `data-onboarding-content-index` identify the card;
+- `data-onboarding-requirement` reports a gated interaction;
+- `data-onboarding-action` names Previous, Next, Finish, Skip, and Replay controls.
+
+`lib/onboarding.mjs` reads this contract, waits for an exact step, and advances
+the walkthrough. On localhost it can satisfy manual tutorial requirements through
+Fuser's narrow `window.__fuserOnboardingAudit` bridge, allowing a non-billable
+replay audit without reaching into Zustand or executing a model. The bridge is
+absent in production.
 
 ## Known gaps
 

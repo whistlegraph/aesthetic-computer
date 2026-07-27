@@ -23,6 +23,7 @@ import { fileURLToPath } from "node:url";
 import { homedir, tmpdir } from "node:os";
 import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
 import { clickPoint, hoverPoint, sendKeys } from "./macos.mjs";
+import { buildHoverProbes, changesNearPoint } from "../lib/frame-hover-atlas.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "../..");
@@ -157,6 +158,7 @@ function inferenceEvidence(env) {
 // ── the capture tool: frame a machine, return image + digest ────────────────
 const stagedClicks = new Map();
 const recentActionTrails = new Map();
+const recentFrames = new Map();
 const visionCache = new Map();
 
 async function captureFrame({ machine, ocr = true, fast = false, screen = false, cursor = true, cursorAt, targetAt, targetId, manualCheck, pressAt, pressCount = 1, pressTitle, actionOnly = false, clearTarget = false, clearOverlays = false, quietOverlay = false, crop, baseline = false, diff = false } = {}) {
@@ -225,7 +227,9 @@ async function toolFrame(options = {}) {
 
 // FRAME establishes the stable observation baseline used by later reframes.
 async function toolInitialFrame(options = {}) {
-  return toolFrame({ ...options, baseline: true });
+  const capture = await captureFrame({ ...options, baseline: true });
+  recentFrames.set(options.machine, capture.env);
+  return frameContent(capture, options.machine);
 }
 
 // REFRAME is change-driven: one silent full-window diff probe advances the
@@ -810,6 +814,84 @@ async function toolHover({ machine, x, y, width = 720, height = 520, ocr = true,
     baseline: true, quietOverlay: true });
 }
 
+function hoverAtlasText(mode, results) {
+  const observed = results.filter((result) => result.near.cells > 0).length;
+  const lines = [
+    `HOVER AFFORDANCE ATLAS — ${mode}: ${results.length} no-click probes, ${observed} local visual changes`,
+    "Possible actions are evidence, not actions performed:",
+  ];
+  for (const result of results) {
+    const state = result.near.cells > 0 ? "observed-hover-change" : "candidate";
+    const label = result.probe.label ? ` “${result.probe.label}”` : "";
+    lines.push(
+      `  [${state}] ${result.probe.kind}${label} @(${result.probe.x},${result.probe.y})` +
+      ` — ${result.probe.possibility}; local diff cells=${result.near.cells}`,
+    );
+  }
+  lines.push("No clicks, drags, or resizes were performed. Use an intentional action tool after choosing an affordance.");
+  return lines.join("\n");
+}
+
+async function toolHoverAtlas({
+  machine, mode = "wanderer", x, y, radius = 18, steps,
+  settleMs = 140, ocr = true, fast = true,
+} = {}) {
+  const spec = machineSpec(machine);
+  settleMs = Math.max(60, Math.min(600, Number(settleMs) || 140));
+  const initial = await captureFrame({
+    machine, ocr: false, fast: true, cursor: false,
+    baseline: true, quietOverlay: true,
+  });
+  recentFrames.set(machine, initial.env);
+  const probes = buildHoverProbes(initial.env, { mode, x, y, radius, steps });
+  const results = [];
+  for (const probe of probes) {
+    hoverPoint(spec, probe.x, probe.y);
+    await settle(settleMs);
+    const capture = await captureFrame({
+      machine, ocr: false, fast: true, cursor: false,
+      diff: true, baseline: true, quietOverlay: true,
+    });
+    results.push({ probe, near:changesNearPoint(capture.env, probe.x, probe.y), capture });
+  }
+
+  const ranked = [...results].sort((a, b) =>
+    b.near.cells - a.near.cells || b.near.count - a.near.count);
+  const representative = ranked.find((result) => result.near.cells > 0) || ranked[0];
+  const content = [{ type:"text", text:hoverAtlasText(mode, results) }];
+  if (representative) {
+    hoverPoint(spec, representative.probe.x, representative.probe.y);
+    await settle(settleMs);
+    const bounds = captureBounds(initial.env);
+    const crop = clampCrop([
+      representative.probe.x - 240, representative.probe.y - 180, 480, 360,
+    ], bounds);
+    const detail = await captureFrame({
+      machine, ocr, fast, cursor: false, crop, quietOverlay: true,
+    });
+    if (detail.jpg) content.unshift({
+      type:"image", data:detail.jpg.toString("base64"), mimeType:"image/jpeg",
+    });
+    content.push({
+      type:"text",
+      text:`\nMOST INFORMATIVE PROBE — ${representative.probe.kind} @(${representative.probe.x},${representative.probe.y})\n${digest(detail.env)}`,
+    });
+  }
+  const original = initial.env?.meta?.cursor;
+  if (Number.isFinite(original?.x) && Number.isFinite(original?.y)) {
+    hoverPoint(spec, original.x, original.y);
+  }
+  return content;
+}
+
+async function toolWander(args = {}) {
+  return toolHoverAtlas({ ...args, mode:"wanderer" });
+}
+
+async function toolWiggle(args = {}) {
+  return toolHoverAtlas({ ...args, mode:"wiggler" });
+}
+
 // Native exploration primitives return the post-action frame in the SAME MCP
 // response. Agents need one tool round-trip, not act → wait → call frame again.
 async function toolClick({ machine, x, y, count = 1, ocr = true, fast = true }) {
@@ -1056,6 +1138,35 @@ const TOOLS = [
     inputSchema: { type: "object", properties: { machine: { type: "string" }, x: { type: "number" }, y: { type: "number" }, width: { type: "number", description: "Crop width (default 720)." }, height: { type: "number", description: "Crop height (default 520)." }, ocr: { type: "boolean" }, fast: { type: "boolean" } }, required: ["machine", "x", "y"] },
   },
   {
+    name: "frame_wander",
+    description: "WANDERER: without clicking, sweep likely buttons, hover controls, the titlebar, and focused-window resize edges/corners. Performs rapid mouse-move visual diffs and returns a hover-affordance atlas plus the most informative crop. Run after a frame when you need more context about what the current surface may allow.",
+    inputSchema: {
+      type:"object",
+      properties:{
+        machine:{ type:"string" },
+        steps:{ type:"number", minimum:1, maximum:24, description:"Maximum no-click probes (default 14)." },
+        settleMs:{ type:"number", minimum:60, maximum:600, description:"Hover settle time per probe (default 140 ms)." },
+        ocr:{ type:"boolean" }, fast:{ type:"boolean" },
+      },
+      required:["machine"],
+    },
+  },
+  {
+    name: "frame_wiggle",
+    description: "WIGGLER: without clicking, micro-sweep around one global screen coordinate to expose hover boundaries, cursor-shape transitions, nearby controls, or resize affordances. Uses quick visual diffs and returns an affordance atlas plus the strongest changed crop.",
+    inputSchema: {
+      type:"object",
+      properties:{
+        machine:{ type:"string" }, x:{ type:"number" }, y:{ type:"number" },
+        radius:{ type:"number", minimum:4, maximum:120, description:"Sweep radius in screen points (default 18)." },
+        steps:{ type:"number", minimum:1, maximum:24, description:"Maximum no-click probes (default 9)." },
+        settleMs:{ type:"number", minimum:60, maximum:600, description:"Hover settle time per probe (default 140 ms)." },
+        ocr:{ type:"boolean" }, fast:{ type:"boolean" },
+      },
+      required:["machine", "x", "y"],
+    },
+  },
+  {
     name: "frame_click",
     description: "ACTS + OBSERVES: click a native macOS screen coordinate from frame OCR/AX, then immediately return a fresh frame with a virtual marker at the click. Use for low-risk UI exploration; inspect labels and avoid destructive controls.",
     inputSchema: {
@@ -1156,6 +1267,8 @@ async function callTool(name, args) {
     case "frame_describe": return toolDescribe(args || {});
     case "frame_design": return toolDesign(args || {});
     case "frame_hover": return toolHover(args || {});
+    case "frame_wander": return toolWander(args || {});
+    case "frame_wiggle": return toolWiggle(args || {});
     case "frame_click": return toolClick(args || {});
     case "frame_stage_click": return toolStageClick(args || {});
     case "frame_commit_click": return toolCommitClick(args || {});
