@@ -18,6 +18,14 @@ Each paper starts from a question or observation inside the Aesthetic Computer p
 
 ## Process
 
+### `/papers` request contract
+
+When a user says **“use the papers stack,” “use `/papers`,” or “render this with the paper stack,”** treat that as a request for the mill, not as a synonym for generic PDF generation. The default deliverable is a scholarly, archival LaTeX paper in the arXiv lane unless the user explicitly asks for a briefing, dossier, essay, deck, card, or another form.
+
+Before outlining or designing it, consult the Platter: this score, the rendered public Platter index, relevant sub-platter manifests, prior AC papers and their bibliographies, and the code, data, images, or other primary evidence behind the subject. Record what was consulted in the source, notes, or bibliography so the result remains reproducible. The Platter supplies context and evidence; it is not permission to inflate the scope or silently publish private vault material.
+
+An arXiv-lane default should include a title, `@jeffrey` byline and date, abstract, introduction/problem, related work or project context, system/method, implementation, evaluation or evidence, ethics/privacy/limitations, conclusion, references, and numbered, captioned figures/tables where they aid the argument. Source, bibliography, figures, and data provenance live beside the paper. Building is followed by Figure-Table-QA-Check and human/model visual inspection; a compiling PDF alone is not finished.
+
 ```
 platter (raw material: notes, code, conversations, references)
   → thread (a question or observation worth following)
