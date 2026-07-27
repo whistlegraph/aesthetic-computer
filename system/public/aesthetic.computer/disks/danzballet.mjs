@@ -101,16 +101,22 @@ function paint({ wipe, ink, line, screen, circle }) {
     y: ruleY + 19,
     screen,
   });
-  ink(153, 125, 119).write("CLASSES  ·  SCHEDULE  ·  REGISTRATION", {
-    center: "x",
-    y: ruleY + 35,
-    screen,
-  });
-  ink(177, 149, 142).write("COMING SOON", {
-    center: "x",
-    y: ruleY + 51,
-    screen,
-  });
+  ink(153, 125, 119).write(
+    compact ? "CLASSES  ·  SCHEDULE" : "CLASSES  ·  SCHEDULE  ·  REGISTRATION",
+    {
+      center: "x",
+      y: ruleY + 35,
+      screen,
+    },
+  );
+  ink(177, 149, 142).write(
+    compact ? "REGISTRATION  ·  COMING SOON" : "COMING SOON",
+    {
+      center: "x",
+      y: ruleY + 51,
+      screen,
+    },
+  );
 
   // Quiet stage line and footlights.
   const stageY = h - max(24, floor(h * 0.075));
