@@ -141,13 +141,25 @@ uses the twelve node positions from the production `fuser-mark.svg` as one
 connected glossy metaball sculpture over a quiet black-and-white field. Obsidian,
 pearl, and graphite variants stay inside Fuser's monochrome brand system. One
 instanced Metal pass raymarches the live smooth-union field at the display's
-native backing resolution; each logo tumbles independently through yaw, pitch,
-and roll. Smaller background marks use a softer, lower-step depth-of-field
-treatment to preserve the power budget. There is no sprite
+native backing resolution. Each logo turns continuously around its spatial
+vertical axis, retaining true depth while always remaining exactly right-side
+up. Rotational bounds include the mark's full
+diagonal extent, preventing internal quad clipping in edge-on poses. Smaller
+background marks use a softer, lower-step depth-of-field treatment to preserve
+the power budget. Native-resolution 4× per-sample Metal coverage (with a 2×
+fallback) antialiases the implicit silhouette. There is no sprite
 stepping, opacity pulse, wordmark, or generated approximation. The former
 monochrome rising-mark field remains available as `classic`.
-The ambient drift reverses gently inside a per-logo safe inset, so even the
-largest rotating metaball volume remains fully on-screen without edge fades.
+On 1× displays such as Panda's QHD Stage, the Metal surface renders at 1.5×
+(3840×2160) and downsamples to the display, with tighter foreground sphere
+tracing and normals; Retina hosts use their native backing resolution.
+One global local-time light moves from a warm morning edge through a high neutral
+midday key and warm evening rim, then shifts to a cooler night illumination.
+Every logo shares that direction, keeping highlights spatially coherent.
+The ambient field moves only upward: each complete logo enters through the
+bottom, passes through the top, and wraps only after leaving the frame. A wide
+horizontal safe gutter and expanded rotational quad prevent accidental side or
+internal clipping; the intentional bottom/top passage uses no edge fade.
 
 Regenerate the three palette stills after changing the implicit surface:
 

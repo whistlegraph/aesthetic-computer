@@ -257,6 +257,7 @@ private struct MetaballUniforms {
     var viewport: SIMD2<Float>
     var time: Float
     var dark: Float
+    var daylight: SIMD4<Float>
 }
 
 // One transparent, instanced Metal pass renders every logo. Only each logo's
@@ -267,6 +268,8 @@ private final class MetaballRenderer {
     private let device: MTLDevice
     private let queue: MTLCommandQueue
     private let pipeline: MTLRenderPipelineState
+    private let sampleCount: Int
+    private var multisampleTexture: MTLTexture?
     private var instances: [MetaballInstance] = []
     private var timer: Timer?
     private var started = ProcessInfo.processInfo.systemUptime
@@ -277,6 +280,8 @@ private final class MetaballRenderer {
               let queue = device.makeCommandQueue() else { return nil }
         self.device = device
         self.queue = queue
+        sampleCount = device.supportsTextureSampleCount(4) ? 4
+            : (device.supportsTextureSampleCount(2) ? 2 : 1)
         layer.device = device
         layer.pixelFormat = .bgra8Unorm
         layer.framebufferOnly = true
@@ -289,6 +294,7 @@ private final class MetaballRenderer {
             let descriptor = MTLRenderPipelineDescriptor()
             descriptor.vertexFunction = library.makeFunction(name: "metaballVertex")
             descriptor.fragmentFunction = library.makeFunction(name: "metaballFragment")
+            descriptor.rasterSampleCount = sampleCount
             descriptor.colorAttachments[0].pixelFormat = layer.pixelFormat
             descriptor.colorAttachments[0].isBlendingEnabled = true
             descriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
@@ -323,10 +329,14 @@ private final class MetaballRenderer {
         layer.frame = bounds
         // Match the display's backing pixels for crisp foreground silhouettes.
         // Small marks spend fewer shader steps and use softer shading below.
-        let renderScale = max(1, backingScale)
+        // A 1× QHD display exposes raymarched contour quantization more readily
+        // than Retina. Render those hosts at 1.5× and let Core Animation perform
+        // a high-quality downsample; Retina hosts already have enough pixels.
+        let renderScale = backingScale < 1.5 ? 1.5 : backingScale
         layer.contentsScale = renderScale
         layer.drawableSize = CGSize(width: max(1, bounds.width * renderScale),
                                     height: max(1, bounds.height * renderScale))
+        multisampleTexture = nil
         let logoScale = min(max(bounds.width / 1280, 0.78), 1.30) * renderScale
         instances = specs.enumerated().map { index, spec in
             let opacity: Float = spec.2 > 100 ? 0.72 : 0.58
@@ -345,10 +355,19 @@ private final class MetaballRenderer {
               let drawable = layer.nextDrawable(),
               let command = queue.makeCommandBuffer(),
               let encoder = command.makeRenderCommandEncoder(descriptor: renderPass(for: drawable.texture)) else { return }
+        let components = Calendar.current.dateComponents([.hour, .minute, .second], from: Date())
+        let seconds = Float((components.hour ?? 12) * 3600
+                            + (components.minute ?? 0) * 60
+                            + (components.second ?? 0))
+        let dayPhase = seconds / 86_400
+        let sunHeight = max(0, sin((dayPhase - 0.25) * Float.pi * 2))
+        let dayProgress = min(max((dayPhase - 0.25) / 0.5, 0), 1)
+        let horizonWarmth = sunHeight > 0 ? pow(abs(dayProgress - 0.5) * 2, 1.35) : 0
         var uniforms = MetaballUniforms(
             viewport: SIMD2(Float(layer.drawableSize.width), Float(layer.drawableSize.height)),
             time: Float(ProcessInfo.processInfo.systemUptime - started),
-            dark: dark ? 1 : 0
+            dark: dark ? 1 : 0,
+            daylight: SIMD4(dayPhase, sunHeight, horizonWarmth, dayProgress)
         )
         encoder.setRenderPipelineState(pipeline)
         instances.withUnsafeBytes { bytes in
@@ -365,9 +384,26 @@ private final class MetaballRenderer {
 
     private func renderPass(for texture: MTLTexture) -> MTLRenderPassDescriptor {
         let pass = MTLRenderPassDescriptor()
-        pass.colorAttachments[0].texture = texture
+        if sampleCount > 1 {
+            if multisampleTexture?.width != texture.width || multisampleTexture?.height != texture.height {
+                let descriptor = MTLTextureDescriptor()
+                descriptor.textureType = .type2DMultisample
+                descriptor.pixelFormat = layer.pixelFormat
+                descriptor.width = texture.width
+                descriptor.height = texture.height
+                descriptor.sampleCount = sampleCount
+                descriptor.storageMode = .private
+                descriptor.usage = .renderTarget
+                multisampleTexture = device.makeTexture(descriptor: descriptor)
+            }
+            pass.colorAttachments[0].texture = multisampleTexture
+            pass.colorAttachments[0].resolveTexture = texture
+            pass.colorAttachments[0].storeAction = .multisampleResolve
+        } else {
+            pass.colorAttachments[0].texture = texture
+            pass.colorAttachments[0].storeAction = .store
+        }
         pass.colorAttachments[0].loadAction = .clear
-        pass.colorAttachments[0].storeAction = .store
         pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
         return pass
     }
@@ -377,7 +413,7 @@ private final class MetaballRenderer {
     using namespace metal;
 
     struct Instance { float4 placement; float4 motion; float4 appearance; };
-    struct Uniforms { float2 viewport; float time; float dark; };
+    struct Uniforms { float2 viewport; float time; float dark; float4 daylight; };
     struct Raster {
         float4 position [[position]];
         float2 local;
@@ -434,60 +470,66 @@ private final class MetaballRenderer {
         Instance item = instances[instanceID];
         float2 corner = corners[vertexID];
         float size = item.placement.z;
-        float cycle = fract(item.placement.y + u.time / item.motion.x);
-        // A cosine lift keeps the volume fully visible and reverses gently at
-        // the vertical safe bounds instead of cropping or fading at the edge.
-        float rise = 0.5 - 0.5 * cos(cycle * TAU);
-        // Reserve about 3% of the display height beyond the rotating quad. This
-        // clears the menu-bar/dock occlusion as well as the raw pixel boundary.
-        float margin = size * 0.54 + max(8.0, u.viewport.y * 0.03);
+        // The diagonal extent of the rotated twelve-node field is larger than
+        // its front-facing box. Expand the transparent quad without changing
+        // the apparent sculpture scale so no spatial pose can clip internally.
+        float quadSize = size * 1.28;
+        // A strict sawtooth moves only upward: fully below the screen, through
+        // the complete frame, fully beyond the top, then back to the bottom.
+        float rise = fract(item.placement.y + u.time / item.motion.x);
+        float verticalMargin = quadSize * 0.56;
+        float horizontalMargin = quadSize * 0.52 + max(8.0, u.viewport.x * 0.07);
         float2 center = float2(item.placement.x * u.viewport.x,
-                               mix(margin, u.viewport.y - margin, rise));
+                               mix(-verticalMargin, u.viewport.y + verticalMargin, rise));
         center.x += sin(u.time * 0.18 + item.placement.y * TAU) * item.motion.z;
-        center.x = clamp(center.x, margin, u.viewport.x - margin);
+        center.x = clamp(center.x, horizontalMargin, u.viewport.x - horizontalMargin);
         float2 ndc = float2(center.x / u.viewport.x * 2.0 - 1.0,
                             center.y / u.viewport.y * 2.0 - 1.0);
-        ndc += corner * float2(size / u.viewport.x, size / u.viewport.y);
+        ndc += corner * float2(quadSize / u.viewport.x, quadSize / u.viewport.y);
         Raster out;
         out.position = float4(ndc, 0, 1);
-        out.local = corner * 1.73;
+        out.local = corner * 2.18;
         out.placement = item.placement;
         out.motion = item.motion;
         out.appearance = item.appearance;
         return out;
     }
 
-    fragment float4 metaballFragment(Raster in [[stage_in]], constant Uniforms &u [[buffer(0)]]) {
+    fragment float4 metaballFragment(Raster in [[stage_in]], uint sampleID [[sample_id]],
+                                      constant Uniforms &u [[buffer(0)]]) {
+        // Referencing sample_id requests true per-sample implicit-surface
+        // coverage instead of merely antialiasing the outer billboard quad.
+        float sampleGuard = float(sampleID) * 0.0;
         float direction = in.appearance.y;
         float seed = in.appearance.z;
         float turn = direction * (u.time / in.motion.y * TAU) + in.placement.y * TAU;
-        // Non-commensurate angular rates prevent the mark from remaining upright
-        // or repeating a simple front/back flip.
-        float3 angle = float3(turn * 0.67 + seed, turn, turn * 0.39 - seed * 0.6);
+        // Rotation is around the spatial vertical axis only. The silhouette and
+        // depth change continuously, but the canonical top can never tilt over.
+        float3 angle = float3(0.0, turn, 0.0);
         float3 ro = inverseTurn(float3(in.local, 3.0), angle);
         float3 rd = inverseTurn(float3(0, 0, -1), angle);
 
         // Skip empty corners analytically before entering the implicit field.
         float b = dot(ro, rd);
-        float c = dot(ro, ro) - 1.72 * 1.72;
+        float c = dot(ro, ro) - 2.12 * 2.12;
         float discriminant = b * b - c;
         if (discriminant < 0.0) discard_fragment();
         float traveled = max(0.0, -b - sqrt(discriminant));
         float3 p = ro + rd * traveled;
         float blur = in.motion.w;
-        float hitEpsilon = mix(0.0045, 0.012, blur);
-        uint stepLimit = blur > 0.75 ? 26 : (blur > 0.1 ? 32 : 40);
+        float hitEpsilon = mix(0.0025, 0.011, blur);
+        uint stepLimit = blur > 0.75 ? 28 : (blur > 0.1 ? 40 : 56);
         bool hit = false;
         for (uint step = 0; step < stepLimit; ++step) {
             float d = field(p);
             if (d < hitEpsilon) { hit = true; break; }
-            traveled += max(d * 0.74, hitEpsilon);
+            traveled += max(d * 0.68, hitEpsilon);
             if (traveled > 6.0) break;
             p = ro + rd * traveled;
         }
         if (!hit) discard_fragment();
 
-        float e = mix(0.006, 0.016, blur);
+        float e = mix(0.004, 0.015, blur);
         float3 normal = normalize(float3(
             field(p + float3(e,0,0)) - field(p - float3(e,0,0)),
             field(p + float3(0,e,0)) - field(p - float3(0,e,0)),
@@ -496,13 +538,25 @@ private final class MetaballRenderer {
         float3 worldNormal = rotateX(normal, angle.x);
         worldNormal = rotateY(worldNormal, angle.y);
         worldNormal = rotateZ(worldNormal, angle.z);
-        float3 light = normalize(float3(-0.48, 0.72, 0.62));
-        float3 fill = normalize(float3(0.68, -0.22, 0.70));
+        // One global light travels across every logo with local solar time.
+        float day = u.daylight.y;
+        float progress = u.daylight.w;
+        float3 sun = normalize(float3(mix(-0.86, 0.86, progress),
+                                      0.26 + sin(progress * PI) * 0.72, 0.62));
+        float3 moon = normalize(float3(0.62, 0.46, 0.66));
+        float dayMix = smoothstep(0.0, 0.12, day);
+        float3 light = normalize(mix(moon, sun, dayMix));
+        float3 fill = normalize(float3(-light.x * 0.72, -0.24, 0.70));
+        float3 sunColor = mix(float3(1.0, 0.97, 0.92), float3(1.0, 0.76, 0.54),
+                              u.daylight.z * 0.32);
+        float3 lightColor = mix(float3(0.66, 0.78, 1.0), sunColor, dayMix);
         float diffuse = max(dot(worldNormal, light), 0.0);
         float fillLight = max(dot(worldNormal, fill), 0.0);
         float specular = pow(max(dot(worldNormal, normalize(light + float3(0,0,1))), 0.0),
                              mix(52.0, 18.0, blur));
         float rim = pow(1.0 - abs(worldNormal.z), 2.25);
+        float3 edgeDirection = normalize(float3(-light.x, light.y * 0.18, -light.z));
+        float edgeLight = pow(max(dot(worldNormal, edgeDirection), 0.0), 3.2) * rim;
 
         int variant = int(in.appearance.x + 0.5);
         float baseValue;
@@ -510,12 +564,15 @@ private final class MetaballRenderer {
             baseValue = variant == 0 ? 0.82 : (variant == 1 ? 0.48 : 0.68);
         else
             baseValue = variant == 0 ? 0.035 : (variant == 1 ? 0.72 : 0.22);
-        float lightShape = 0.25 + diffuse * 0.70 + fillLight * 0.18;
+        float illumination = mix(0.86, 1.04, day);
+        float lightShape = (0.25 + diffuse * 0.70 + fillLight * 0.18) * illumination;
         lightShape = mix(lightShape, 0.54 + diffuse * 0.36, blur * 0.72);
-        float value = baseValue * lightShape;
+        float value = baseValue * lightShape + sampleGuard;
         value += rim * mix(u.dark > 0.5 ? 0.42 : 0.30, 0.18, blur)
                + specular * mix(0.92, 0.46, blur);
         float3 color = float3(clamp(value, 0.0, 1.0));
+        color += lightColor * (specular * 0.20 + edgeLight * mix(0.20, 0.38, 1.0 - blur));
+        color = clamp(color, 0.0, 1.0);
         return float4(color, in.placement.w);
     }
     """#
