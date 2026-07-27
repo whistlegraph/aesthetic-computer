@@ -29,11 +29,13 @@ import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { commandDescriptions } from "../../system/public/aesthetic.computer/lib/prompt-commands.mjs";
+import { assertCurationLock, DEFAULT_LOCK_PATH, writeCurationLock } from "./curation-lock.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const D = join(HERE, "downloads");
 const SITE = join(HERE, "..", "..", "system", "public", "whistlegraph.org");
 const DRY = process.argv.includes("--dry");
+const ACCEPT_CURATION = process.argv.includes("--accept-curation");
 const rd = (p) => JSON.parse(readFileSync(p, "utf8"));
 
 const codes = rd(join(D, "CODES.json")).songs;
@@ -52,6 +54,10 @@ const priorSnap = existsSync("/tmp/CODES-before.json") ? rd("/tmp/CODES-before.j
 //            whistlegraph; the source's posts retag to the target, the source
 //            work drops out, and /sourceCode falls back to the index)
 const overrides = existsSync(join(D, "overrides.json")) ? rd(join(D, "overrides.json")) : {};
+// Exhibited/featured presentation is deliberately separate from clustering and
+// taxonomy. It is the small, human-reviewed set of works allowed to carry a
+// colored archive marker or external performance media.
+const specialWorks = existsSync(join(D, "special-works.json")) ? rd(join(D, "special-works.json")) : {};
 const renames = overrides.renames || {};
 const authors = overrides.authors || {}; // code → attribution ("Alex Freundlich", …)
 const recodes = overrides.recodes || {};
@@ -309,12 +315,18 @@ const workKind = (code, fallback) =>
 const liveWorks = live.graphs.filter((e) => !mergeSources.has(e.code)).map((e) => {
   const code = recodes[e.code] || e.code; // a recode changes a live work's slug too
   const r = rollup.get(code);
+  const { c: seedColor, ...stable } = e;
+  const presentation = specialWorks[code] || {};
   // Title precedence: an explicit rename wins, else a canonical seed title
   // corrects a stale live label, else keep the curated title.
   const title = renames[code] ?? (seedTitle.has(e.code) ? seedTitle.get(e.code) : undefined);
   return {
-    ...e,
+    ...stable,
     code,
+    // The ten featured score-sheet works keep their intentional palette.
+    // Everything else is neutral unless it is explicitly listed as exhibited.
+    ...(e.slug && seedColor ? { c: seedColor } : {}),
+    ...presentation,
     ...(title !== undefined ? { title } : {}),
     ...(authors[code] ? { by: authors[code] } : {}), // durable attribution override
     kind: workKind(code, e.kind || kindByLiveCode.get(e.code) || "graph"),
@@ -348,7 +360,6 @@ const freshWorks = clusterSite
           : normKind(cl.kind) === "graph" ? "candidate" : "archived",
       views: r.views,
       perf: r.n,
-      c: "#b44887",
       ...(r.thumb ? { thumb: r.thumb } : { noGlyph: true }),
     };
   });
@@ -366,7 +377,6 @@ const twinWorks = twins.map((t) => {
     status: workExcludes.has(t.code) ? "archived" : "confirmed",
     views: r.views,
     perf: r.n,
-    c: "#b44887",
     ...(r.thumb ? { thumb: r.thumb } : { noGlyph: true }),
   };
 });
@@ -388,7 +398,6 @@ const splitWorks = Object.entries(splits).map(([code, spec]) => {
     status: workExcludes.has(code) ? "archived" : "confirmed",
     views: r.views,
     perf: r.n,
-    c: "#b44887",
     ...(r.thumb ? { thumb: r.thumb } : { noGlyph: true }),
   };
 });
@@ -476,6 +485,17 @@ const commandsOut = {
     };
   }),
 };
+
+// Curation is a reviewed input, never an incidental generator side effect.
+// Any change to a confirmed work's identity/credit or an existing post→work
+// edge stops the completed build before any generated output is written.
+if (ACCEPT_CURATION) {
+  const accepted = writeCurationLock(DEFAULT_LOCK_PATH, works, posts);
+  console.log(`accepted curation lock: ${accepted.works.length} works · ${accepted.postWorks.length} post relationships`);
+} else {
+  if (!existsSync(DEFAULT_LOCK_PATH)) throw new Error("Missing downloads/curation-lock.json; create it only after reviewing generated curation with --accept-curation.");
+  assertCurationLock(rd(DEFAULT_LOCK_PATH), works, posts);
+}
 
 const archiveKinds = posts.reduce((m, p) => ((m[p.kind] = (m[p.kind] || 0) + 1), m), {});
 console.log(`works: ${works.length} confirmed · ${candidates.length} candidates · ${legacy.length} legacy archive records`);

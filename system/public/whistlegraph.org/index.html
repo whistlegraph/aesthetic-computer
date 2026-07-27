@@ -143,6 +143,7 @@
   td.th{width:56px} td.th img{width:52px; height:65px; object-fit:cover; border:1px solid var(--ink); display:block; background:#fff}
   td.cd{white-space:nowrap}
   .sw{display:inline-block; width:.72em; height:.72em; margin-right:6px; border:1px solid rgba(0,0,0,.45); background:var(--c); vertical-align:baseline}
+  .sw.quiet{background:transparent; border-color:var(--dim)}
   td.th .sw.noglyph{width:42px; height:52px; margin:0; border:1px solid var(--ink)} /* audio-only: no frame */
   td.cd a{font-weight:normal}
   td.ti a{color:var(--ink)}
@@ -178,6 +179,7 @@
   #detail .lbl{font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--margin); margin:0 0 7px}
   #detail .back{font-size:13px}
   #dVersions video.ver{width:300px; max-width:64vw; height:auto; border:1px solid var(--ink); background:#000; display:block; margin:6px 0 2px}
+  #dVersions iframe.ver{width:560px; max-width:88vw; aspect-ratio:16/9; height:auto; border:1px solid var(--ink); background:#000; display:block; margin:6px 0 2px}
   /* Posts gallery — every published appearance of a whistlegraph */
   /* Takes list — jukebox style: the featured take plays in the top player and
      the rest are a tap-to-play list underneath. Each row is a lazy thumbnail +
@@ -500,10 +502,10 @@ function renderPosts(code){
 
 function rowHTML(w){
   const thumb=w.noGlyph
-    ? `<span class="sw noglyph" style="--c:${w.c}"></span>`
+    ? `<span class="sw noglyph${w.c?"":" quiet"}"${w.c?` style="--c:${w.c}"`:""}></span>`
     : `<img loading="lazy" alt="Final glyph of ${w.title}" src="${w.thumb||`${IDX}/${w.asset||w.code}.jpg`}">`;
   return `<td class="th"><a href="/${w.code}">${thumb}</a></td>`+
-    `<td class="cd"><span class="sw" style="--c:${w.c}"></span>[<a href="/${w.code}">${w.code}</a>]</td>`+
+    `<td class="cd"><span class="sw${w.c?"":" quiet"}"${w.c?` style="--c:${w.c}"`:""}></span>[<a href="/${w.code}">${w.code}</a>]</td>`+
     `<td class="ti"><a href="/${w.code}">${w.title}</a><span class="by">${w.by}${w.perf>1?` · ${w.perf} posts`:""}</span></td>`+
     `<td class="yr">${w.year}</td>`;
 }
@@ -769,9 +771,9 @@ function showDetail(code, keepScroll){
     const hero=posts[0]; // most-seen post fronts the record
     D.video.poster=hero&&hero.thumb?hero.thumb:(w.noGlyph?"":`${IDX}/${aset}.jpg`);
     D.video.src=hero?hero.src:`${IDX}/${aset}.mp4`;
-    if(w.film){ // the Rhizome film, not a TikTok take — its own provenance + glyph
-      D.archiveNote.innerHTML=`Code <code>${w.code}</code> &nbsp; — &nbsp; ${fmtViews(w.views)} views &nbsp;·&nbsp; the ~22-minute <a href="https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/">Rhizome commission</a>, chalk on a 4×6 blackboard.`;
-      D.glyphCap.textContent="The glyph is the whole piece, transcribed as one score."; D.glyphCap.style.display="";
+    if(w.film){ // the archive preview introduces the complete Rhizome film below
+      D.archiveNote.innerHTML=`Code <code>${w.code}</code> &nbsp; — &nbsp; ${fmtViews(w.views)} TikTok views &nbsp;·&nbsp; archive preview above; the complete ~22-minute <a href="https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/">Rhizome commission</a> is below.`;
+      D.glyphCap.textContent="Archive preview; complete film and related features below."; D.glyphCap.style.display="";
     }else{
       D.archiveNote.innerHTML=`Code <code>${w.code}</code> &nbsp; — &nbsp; ${reach} &nbsp;·&nbsp; from the <a href="https://www.tiktok.com/@whistlegraph">@whistlegraph archive</a>.`;
     }
@@ -779,7 +781,15 @@ function showDetail(code, keepScroll){
   renderPosts(code); // the full gallery of appearances, by media type
   const dv=document.getElementById("dVersions");
   if(w.versions&&w.versions.length){
-    dv.innerHTML=`<hr><p class="lbl">Performances</p>`+w.versions.map(v=>`<video class="ver" controls playsinline preload="metadata" loop src="${v.url}"></video><p class="dim" style="font-size:12px;margin:2px 0 10px">${v.title||v.label}</p>`).join("");
+    const version=v=>{
+      const title=esc(v.title||v.label||"Performance");
+      if(v.type==="youtube"&&/^[\w-]{11}$/.test(v.id||"")){
+        const source=esc(v.source||`https://www.youtube.com/watch?v=${v.id}`);
+        return `<iframe class="ver" loading="lazy" src="https://www.youtube-nocookie.com/embed/${v.id}" title="${title}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe><p class="dim" style="font-size:12px;margin:2px 0 10px">${title} · <a href="${source}" target="_blank" rel="noopener">YouTube ↗</a></p>`;
+      }
+      return `<video class="ver" controls playsinline preload="metadata" loop src="${v.url}"></video><p class="dim" style="font-size:12px;margin:2px 0 10px">${title}</p>`;
+    };
+    dv.innerHTML=`<hr><p class="lbl">${w.film?"Film & features":"Performances"}</p>`+w.versions.map(version).join("");
     dv.style.display="";
   }else{ dv.style.display="none"; dv.innerHTML=""; }
   det.classList.add("on"); idx.classList.add("off");

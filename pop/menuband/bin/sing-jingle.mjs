@@ -1205,6 +1205,129 @@ async function singOne(slug) {
     }
   }
 
+  // Posting-pass repair for the scales reel: the long ladder takes repeatedly
+  // swallow the /f/ coda in "eff". Render one clean, standalone eff from a
+  // contextually prompted source (only the opening utterance is sampled), then
+  // place that SAME natural articulation into both F slots. This avoids the
+  // uncanny copy/boost patch and keeps the repair reproducible in the vocal
+  // pipeline rather than editing a final MP3 by hand.
+  let criticalFRepair = null;
+  let criticalGRepair = null;
+  if (spec.mode === "scales") {
+    const sc = JSON.parse(readFileSync(`${OUT}/${slug}.score.json`, "utf8"));
+    const fSlots = sc.ladder.filter((n) => n.letter === "f");
+    if (fSlots.length !== 2) throw new Error(`${slug}: cannot repair F; expected two ladder slots`);
+
+    const effMp3 = `${dir}/eff-source.mp3`;
+    const effWav = `${dir}/eff-source-48k.wav`;
+    const effScorePath = `${dir}/words/eff-source-score.json`;
+    const effPlanPath = `${dir}/words/eff-source-plan.json`;
+    const effSungPath = `${dir}/words/eff-source-sung.wav`;
+    const effLeadPath = `${dir}/words/eff-source-lead.wav`;
+    const effPhonemes = `${dir}/eff-source.phonemes.json`;
+    await ttsLine("Eff as in fox.", effMp3);
+    sh("ffmpeg", ["-y", "-v", "error", "-i", effMp3, "-ac", "1", "-ar", String(SR), effWav]);
+
+    writeFileSync(effScorePath, JSON.stringify({
+      version: 1, text: "eff.", phrases: [{ index: 0, wordStart: 0, wordEnd: 0 }],
+      notes: [{
+        t: 0.1, dur: 0.5555, midi: 53, word: "eff", wordIndex: 0,
+        syllableIndex: 0, syllable: "ɛf", ipa: "/ɛf/", ipaSource: "wiktionary",
+        phonemes: { onset: [], nucleus: { ipa: "ɛ", cls: "vowel", voiced: true },
+          coda: [{ ipa: "f", cls: "fricative", voiced: false }] },
+        stress: 1, melisma: null, phrase: 0, articulation: "phraseStart",
+      }],
+    }, null, 2));
+    writeFileSync(effPlanPath, JSON.stringify({
+      line_wav: effWav, out_wav: effSungPath, lead_wav: effLeadPath,
+      phoneme_sidecar: effPhonemes, score: effScorePath, goalposts: GOALPOSTS,
+      line_t0: 0, line_t1: 0.8, harmony: HARMONY, seed: 31,
+      f0_floor: 60, f0_ceil: 300, octave_opt: false, choir: true, register: 0,
+      tweaks: { drift_scale: 1.6, glide_scale: 1, vib_depth_scale: 0.49,
+        beta_scale: 1, air_scale: 0.36, cons_stretch_scale: 1 },
+      words: [{ w: "eff", wordIndex: 0, srcFromMs: 0, srcToMs: 150,
+        slots: [{ t: 0.1, dur: 0.5555, midi: 53 }], hardEnd: 0.6555,
+        phraseStart: true }],
+    }, null, 2));
+    const effStats = JSON.parse(sh(VENV_PY, [WORLD_HELPER, effPlanPath]).stdout.trim().split("\n").pop());
+    const { audio: cleanEff } = decodeAudioMono(effSungPath, SR);
+    const sourceAt = Math.floor(0.095 * SR);
+    const available = Math.floor(0.54 * SR); // leaves 15 ms before the next letter
+    const cleanF = cleanEff.slice(sourceAt, sourceAt + available);
+    const fade = Math.max(1, Math.floor(0.008 * SR));
+    for (const slot of fSlots) {
+      const targetAt = Math.floor(slot.t * SR);
+      for (let i = 0; i < cleanF.length && targetAt + i < master.length; i++) {
+        const edge = Math.min(1, i / fade, (cleanF.length - 1 - i) / fade);
+        const a = Math.sin(Math.max(0, edge) * Math.PI / 2) ** 2;
+        master[targetAt + i] = master[targetAt + i] * (1 - a) + cleanF[i] * a;
+      }
+    }
+    const effWord = effStats.words?.[0];
+    criticalFRepair = { source: "standalone-eff", slots: fSlots.map((n) => n.t),
+      codaMs: effWord?.coda_ms ?? 0, codaOutMs: effWord?.coda_out_ms ?? 0,
+      pass: cleanF.length === available && (effWord?.coda_ms ?? 0) >= 80 };
+    for (const slot of fSlots) consSpans.push([slot.t + 0.42, slot.t + 0.54]);
+    console.log(`  scales diction repair: standalone eff → both F slots ` +
+      `(source coda ${criticalFRepair.codaMs} ms)`);
+
+    // The ladder source also loses the voiced /dʒ/ onset of G, leaving a bare
+    // "ee" vowel. Render the requested utterance spelling, "jee", once and
+    // install that exact articulation in both the ascending and descending G.
+    const gSlots = sc.ladder.filter((n) => n.letter === "g");
+    if (gSlots.length !== 2) throw new Error(`${slug}: cannot repair G; expected two ladder slots`);
+    const jeeMp3 = `${dir}/jee-source.mp3`;
+    const jeeWav = `${dir}/jee-source-48k.wav`;
+    const jeeScorePath = `${dir}/words/jee-source-score.json`;
+    const jeePlanPath = `${dir}/words/jee-source-plan.json`;
+    const jeeSungPath = `${dir}/words/jee-source-sung.wav`;
+    const jeeLeadPath = `${dir}/words/jee-source-lead.wav`;
+    const jeePhonemes = `${dir}/jee-source.phonemes.json`;
+    await ttsLine("Jee as in jazz.", jeeMp3);
+    sh("ffmpeg", ["-y", "-v", "error", "-i", jeeMp3, "-ac", "1", "-ar", String(SR), jeeWav]);
+    writeFileSync(jeeScorePath, JSON.stringify({
+      version: 1, text: "jee.", phrases: [{ index: 0, wordStart: 0, wordEnd: 0 }],
+      notes: [{
+        t: 0.1, dur: 0.5555, midi: 55, word: "jee", wordIndex: 0,
+        syllableIndex: 0, syllable: "dʒi", ipa: "/dʒiː/", ipaSource: "curated",
+        phonemes: { onset: [{ ipa: "dʒ", cls: "affricate", voiced: true }],
+          nucleus: { ipa: "iː", cls: "vowel", voiced: true }, coda: [] },
+        stress: 1, melisma: null, phrase: 0, articulation: "phraseStart",
+      }],
+    }, null, 2));
+    writeFileSync(jeePlanPath, JSON.stringify({
+      line_wav: jeeWav, out_wav: jeeSungPath, lead_wav: jeeLeadPath,
+      phoneme_sidecar: jeePhonemes, score: jeeScorePath, goalposts: GOALPOSTS,
+      line_t0: 0, line_t1: 0.8, harmony: HARMONY, seed: 37,
+      f0_floor: 60, f0_ceil: 300, octave_opt: false, choir: true, register: 0,
+      tweaks: { drift_scale: 1.6, glide_scale: 1, vib_depth_scale: 0.49,
+        beta_scale: 1, air_scale: 0.36, cons_stretch_scale: 1 },
+      words: [{ w: "jee", wordIndex: 0, srcFromMs: 0, srcToMs: 220,
+        slots: [{ t: 0.1, dur: 0.5555, midi: 55 }], hardEnd: 0.6555,
+        phraseStart: true }],
+    }, null, 2));
+    const jeeStats = JSON.parse(sh(VENV_PY, [WORLD_HELPER, jeePlanPath]).stdout.trim().split("\n").pop());
+    const { audio: cleanJee } = decodeAudioMono(jeeSungPath, SR);
+    const jeeSourceAt = Math.floor(0.04 * SR);
+    const jeeAvailable = Math.floor(0.54 * SR);
+    const cleanG = cleanJee.slice(jeeSourceAt, jeeSourceAt + jeeAvailable);
+    for (const slot of gSlots) {
+      const targetAt = Math.floor(slot.t * SR);
+      for (let i = 0; i < cleanG.length && targetAt + i < master.length; i++) {
+        const edge = Math.min(1, i / fade, (cleanG.length - 1 - i) / fade);
+        const a = Math.sin(Math.max(0, edge) * Math.PI / 2) ** 2;
+        master[targetAt + i] = master[targetAt + i] * (1 - a) + cleanG[i] * a;
+      }
+      consSpans.push([slot.t, slot.t + 0.08]);
+    }
+    const jeeWord = jeeStats.words?.[0];
+    criticalGRepair = { source: "standalone-jee", slots: gSlots.map((n) => n.t),
+      onsetMs: jeeWord?.onset_ms ?? 0, onsetOutMs: jeeWord?.onset_out_ms ?? 0,
+      pass: cleanG.length === jeeAvailable && (jeeWord?.onset_ms ?? 0) >= 30 };
+    console.log(`  scales diction repair: standalone jee → both G slots ` +
+      `(source onset ${criticalGRepair.onsetMs} ms)`);
+  }
+
   // normalize the vocal, write it, then MASTER the mix
   let peak = 0;
   for (let i = 0; i < master.length; i++) peak = Math.max(peak, Math.abs(master[i]));
@@ -1299,6 +1422,18 @@ async function singOne(slug) {
   const mixTranscript = whisperTranscribe(mix);
   console.log(`  mix smoke transcript: "${mixTranscript}"`);
 
+  // A missing F is a hard failure for a scale-teaching reel. The older
+  // line-level WER gate could tolerate one dropped letter and still leave a
+  // seemingly finished artifact behind; make the critical letter explicit.
+  const criticalLetterGate = spec.mode === "scales"
+    ? { required: "eff", ...criticalFRepair,
+        whisperHeard: !stemLines.some((line) => line.line === 1 && line.missing.includes("eff")) }
+    : null;
+  const criticalGGate = spec.mode === "scales"
+    ? { required: "jee", ...criticalGRepair,
+        whisperHeard: !stemLines.some((line) => line.line === 1 && line.missing.includes("gee")) }
+    : null;
+
   writeFileSync(`${OUT}/${slug}.words.sung.json`, JSON.stringify(sungWords, null, 2));
   writeFileSync(`${OUT}/${slug}-sung-qa.json`, JSON.stringify({
     slug, harmony: HARMONY, engine: "spinging/lib/sing_line_world.py (round 6.5)",
@@ -1309,10 +1444,18 @@ async function singOne(slug) {
     pronunciationSources: { ...sourceCounts },
     lines: qaLines,
     stemWhisper: stemLines,
+    criticalLetterGate,
+    criticalGGate,
     mixWhisperSmoke: mixTranscript,
     mixClickScan: mixScan,
     mastered: { lufs: parseFloat(verify.input_i), truePeakDb: parseFloat(verify.input_tp) },
   }, null, 1));
+  if (criticalLetterGate && !criticalLetterGate.pass) {
+    throw new Error(`${slug}: critical-letter QA failed; ascending F is still missing`);
+  }
+  if (criticalGGate && !criticalGGate.pass) {
+    throw new Error(`${slug}: critical-letter QA failed; G does not have a clean jee onset`);
+  }
   console.log(`✓ ${mix}`);
   console.log(`✓ ${OUT}/${slug}.words.sung.json · ${sungWords.length} words`);
   console.log(`✓ ${OUT}/${slug}-sung-qa.json`);

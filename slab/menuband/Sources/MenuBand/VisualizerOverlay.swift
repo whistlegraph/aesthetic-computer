@@ -71,6 +71,7 @@ final class VisualizerOverlay: NSObject {
         // The host bezel is the screen itself — no recessed plate, no rounded
         // corners, glass straight out to the edges.
         strip.drawsPlate = false
+        strip.hoverColorFeedbackEnabled = false
         strip.setCellGeometry(step: cellStep, size: cellSize)
         return strip
     }

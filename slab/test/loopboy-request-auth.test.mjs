@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { authorizeLoopboyWait } from "../lib/loopboy-request-auth.mjs";
+import { authorizeLoopboyWait, loopboyWaitIdentity } from "../lib/loopboy-request-auth.mjs";
 
 const loops = {
   fia: { sessionId: "session-fia", delivery: "inbox" },
@@ -53,4 +53,13 @@ test("Loopboy wait retains stdio environment fallback", () => {
   });
   assert.equal(result.contact, "fia");
   assert.equal(result.sessionId, "session-fia");
+});
+
+test("Loopboy launch identity can authenticate before a stale route is repaired", () => {
+  const result = loopboyWaitIdentity({
+    context: context("alex", "session-new"),
+    env: {},
+    requestedContact: "alex",
+  });
+  assert.deepEqual(result, { contact: "alex", sessionId: "session-new" });
 });

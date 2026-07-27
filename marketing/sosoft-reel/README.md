@@ -37,6 +37,28 @@ The broader catalog and provenance live in `social-software/scores-for-social-so
 6. Build the vertical composite using shared reframing and side-stamp libraries.
 7. Master the delivery to −14 LUFS and check phone playback.
 
+## Recovery finish
+
+The outgoing Signal review is the fallback visual source if the original July
+camera masters have been cleaned from `Downloads`. It contains the full edit,
+but its first-pass narration and captions precede Casey Reas’s review. Recover
+the visual spine, then regenerate the corrected audio/caption master:
+
+```bash
+node slab/bin/signal.mjs save 1 --to "Casey Reas"
+node marketing/sosoft-reel/recover-from-signal-edit.mjs \
+  "$HOME/.local/share/slab/signal/attachments/scores-for-social-software-master-vertical.mov"
+node marketing/sosoft-reel/tts.mjs --force --force-timestamps
+node marketing/sosoft-reel/alignment-to-words.mjs
+node marketing/sosoft-reel/caption-and-mix.mjs
+node marketing/sosoft-reel/export-delivery.mjs
+```
+
+The recovery layout preserves the tactile page-through above a fixed lower
+information panel. That panel removes the obsolete burned captions without
+stretching the image and gives the corrected captions and chapter labels a
+stable home.
+
 ## Social derivatives
 
 - `node identity-proof.mjs [seconds]` renders a short proof of the combined

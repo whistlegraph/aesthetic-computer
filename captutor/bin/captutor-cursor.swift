@@ -24,6 +24,7 @@ private struct Particle {
 private final class CursorView: NSView {
     var pointer = CGPoint.zero
     var isPointerVisible = false
+    var pointerAlpha: CGFloat = 1
     var isPressed = false
     var particles: [Particle] = []
 
@@ -55,44 +56,24 @@ private final class CursorView: NSView {
 
         guard isPointerVisible else { return }
 
-        // The path begins at (0, 0): pointer is the actual click hotspot, not
-        // the centre of an oversized cursor box. Its proportions follow the
-        // familiar macOS arrow while the dark face and light rim read cleanly
-        // on both Fuser's pale canvas and its darker controls.
-        context.saveGState()
-        context.translateBy(x: pointer.x, y: pointer.y)
-        let pressedScale: CGFloat = isPressed ? 0.92 : 1
-        context.scaleBy(x: pressedScale, y: pressedScale)
-
-        let path = CGMutablePath()
-        path.move(to: CGPoint(x: 0, y: 0))
-        path.addLine(to: CGPoint(x: 1.6, y: 22.8))
-        path.addLine(to: CGPoint(x: 7.3, y: 17.1))
-        path.addLine(to: CGPoint(x: 12.0, y: 27.0))
-        path.addLine(to: CGPoint(x: 17.0, y: 24.6))
-        path.addLine(to: CGPoint(x: 12.3, y: 15.0))
-        path.addLine(to: CGPoint(x: 20.4, y: 14.2))
-        path.closeSubpath()
-
-        context.setShadow(offset: CGSize(width: 0.7, height: 1.4), blur: 2.4,
-                          color: NSColor.black.withAlphaComponent(0.55).cgColor)
-        context.setFillColor(NSColor(calibratedWhite: 0.055, alpha: 1).cgColor)
-        context.addPath(path)
-        context.fillPath()
-        context.setShadow(offset: .zero, blur: 0, color: nil)
-        context.setStrokeColor(NSColor(calibratedWhite: 0.98, alpha: 0.98).cgColor)
-        context.setLineWidth(2.25)
-        context.setLineJoin(.round)
-        context.addPath(path)
-        context.strokePath()
-
-        // A restrained cool hairline gives the familiar pointer a little life
-        // without turning it into an annotation or obscuring the target.
-        context.setStrokeColor(NSColor(calibratedRed: 0.42, green: 0.78, blue: 1, alpha: 0.72).cgColor)
-        context.setLineWidth(0.62)
-        context.addPath(path)
-        context.strokePath()
-        context.restoreGState()
+        // Use AppKit's own arrow artwork and hotspot instead of approximating
+        // the silhouette. This keeps Captutor's filmed pointer at the exact
+        // proportions of the macOS cursor while preserving our native particle
+        // trail and capture-visible overlay surface.
+        let arrow = NSCursor.arrow
+        let image = arrow.image
+        let hotspot = arrow.hotSpot
+        image.draw(
+            in: CGRect(
+                origin: CGPoint(x: pointer.x - hotspot.x, y: pointer.y - hotspot.y),
+                size: image.size
+            ),
+            from: .zero,
+            operation: .sourceOver,
+            fraction: pointerAlpha * (isPressed ? 0.88 : 1),
+            respectFlipped: true,
+            hints: [.interpolation: NSImageInterpolation.high]
+        )
     }
 }
 
@@ -111,18 +92,54 @@ private final class CursorController {
     private var moveTargetGlobal = CGPoint.zero
     private var moveStartedAt: TimeInterval = 0
     private var moveDuration: TimeInterval = 0
+    private var dillydallyCenterGlobal: CGPoint?
+    private var dillydallyStartedAt: TimeInterval = 0
+    private var dillydallyDuration: TimeInterval = 0
+    private var lastIntentAt: TimeInterval = 0
+    private var idleBurstEmitted = false
     private var lastTrailGlobal: CGPoint?
     private var timer: Timer?
+    private var systemCursorHidden = false
+    private var originalSystemCursorPoint: CGPoint?
 
     init() {
         rebuildSurfaces()
+        hideSystemCursor()
         timer = Timer(timeInterval: 1.0 / 120.0, repeats: true) { [weak self] _ in
             self?.tick()
         }
         RunLoop.main.add(timer!, forMode: .common)
     }
 
-    deinit { timer?.invalidate() }
+    deinit {
+        timer?.invalidate()
+        restoreSystemCursor()
+    }
+
+    private func hideSystemCursor() {
+        guard !systemCursorHidden else { return }
+        originalSystemCursorPoint = CGEvent(source: nil)?.location
+        NSCursor.hide()
+        CGAssociateMouseAndMouseCursorPosition(boolean_t(0))
+        if let surface = surfaces.first {
+            CGWarpMouseCursorPosition(CGPoint(
+                x: surface.quartzFrame.maxX - 2,
+                y: surface.quartzFrame.maxY - 2
+            ))
+        }
+        systemCursorHidden = true
+    }
+
+    func restoreSystemCursor() {
+        guard systemCursorHidden else { return }
+        CGAssociateMouseAndMouseCursorPosition(boolean_t(1))
+        if let point = originalSystemCursorPoint {
+            CGWarpMouseCursorPosition(point)
+        }
+        NSCursor.unhide()
+        originalSystemCursorPoint = nil
+        systemCursorHidden = false
+    }
 
     private func rebuildSurfaces() {
         for screen in NSScreen.screens {
@@ -188,6 +205,7 @@ private final class CursorController {
         let local = localPoint(global, on: surface)
         surface.view.pointer = local
         surface.view.isPointerVisible = true
+        surface.view.pointerAlpha = 1
         currentGlobal = global
 
         if emitTrail {
@@ -201,15 +219,36 @@ private final class CursorController {
     }
 
     func move(to target: CGPoint, durationMs: Double) {
+        settleDillydally()
         let fallback = surfaces.first.map {
             CGPoint(x: $0.quartzFrame.midX, y: $0.quartzFrame.midY)
         } ?? target
         moveStartGlobal = currentGlobal ?? fallback
         moveTargetGlobal = target
         moveStartedAt = ProcessInfo.processInfo.systemUptime
+        lastIntentAt = moveStartedAt
+        idleBurstEmitted = false
         moveDuration = max(0, durationMs / 1000)
         if currentGlobal == nil { setGlobalPoint(moveStartGlobal, emitTrail: false) }
         if moveDuration == 0 { setGlobalPoint(target, emitTrail: true) }
+    }
+
+    func dillydally(at target: CGPoint, durationMs: Double) {
+        moveDuration = 0
+        dillydallyCenterGlobal = target
+        dillydallyStartedAt = ProcessInfo.processInfo.systemUptime
+        dillydallyDuration = max(0, durationMs / 1000)
+        lastIntentAt = dillydallyStartedAt
+        idleBurstEmitted = false
+        setGlobalPoint(target, emitTrail: false)
+    }
+
+    func settleDillydally() {
+        guard let center = dillydallyCenterGlobal else { return }
+        dillydallyCenterGlobal = nil
+        dillydallyDuration = 0
+        lastIntentAt = ProcessInfo.processInfo.systemUptime
+        setGlobalPoint(center, emitTrail: false)
     }
 
     func setPressed(_ pressed: Bool) {
@@ -220,6 +259,8 @@ private final class CursorController {
 
     func click() {
         guard let index = activeSurface else { return }
+        lastIntentAt = ProcessInfo.processInfo.systemUptime
+        idleBurstEmitted = false
         let surface = surfaces[index]
         for _ in 0..<9 { emitParticle(at: surface.view.pointer, in: surface.view, burst: true) }
         surface.view.needsDisplay = true
@@ -235,6 +276,9 @@ private final class CursorController {
         activeSurface = nil
         currentGlobal = nil
         lastTrailGlobal = nil
+        dillydallyCenterGlobal = nil
+        dillydallyDuration = 0
+        idleBurstEmitted = false
     }
 
     private func emitParticle(at point: CGPoint, in view: CursorView, burst: Bool) {
@@ -261,7 +305,20 @@ private final class CursorController {
 
     private func tick() {
         let now = ProcessInfo.processInfo.systemUptime
-        if moveDuration > 0, now < moveStartedAt + moveDuration {
+        if let center = dillydallyCenterGlobal {
+            let elapsed = now - dillydallyStartedAt
+            if dillydallyDuration > 0 && elapsed >= dillydallyDuration {
+                settleDillydally()
+            } else {
+                // An asymmetric figure-eight keeps the cursor alive over a
+                // blue in-progress control without implying another click.
+                let phase = elapsed * 2 * Double.pi * 3.2
+                setGlobalPoint(CGPoint(
+                    x: center.x + sin(phase) * 3.8 + sin(phase * 0.43) * 1.2,
+                    y: center.y + cos(phase * 1.7) * 1.8
+                ), emitTrail: false)
+            }
+        } else if moveDuration > 0, now < moveStartedAt + moveDuration {
             let t = min(1, max(0, (now - moveStartedAt) / moveDuration))
             let eased = t < 0.5
                 ? 4 * t * t * t
@@ -272,7 +329,24 @@ private final class CursorController {
             ), emitTrail: true)
         } else if moveDuration > 0 {
             moveDuration = 0
+            lastIntentAt = now
             setGlobalPoint(moveTargetGlobal, emitTrail: true)
+        }
+
+        if dillydallyCenterGlobal == nil && moveDuration == 0,
+           let index = activeSurface {
+            let idleFor = now - lastIntentAt
+            let fade = max(0, min(1, (idleFor - 1.6) / 0.5))
+            let surface = surfaces[index]
+            if fade > 0 && !idleBurstEmitted {
+                idleBurstEmitted = true
+                for _ in 0..<6 {
+                    emitParticle(at: surface.view.pointer, in: surface.view, burst: true)
+                }
+            }
+            surface.view.pointerAlpha = CGFloat(1 - fade)
+            surface.view.isPointerVisible = fade < 1
+            if fade > 0 { surface.view.needsDisplay = true }
         }
 
         for surface in surfaces {
@@ -304,11 +378,22 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         FileHandle.standardOutput.write(Data("ready\n".utf8))
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        controller?.restoreSystemCursor()
+    }
+
     private func handle(_ command: Command) {
         switch command.op {
         case "move":
             guard let x = command.x, let y = command.y else { return }
             controller?.move(to: CGPoint(x: x, y: y), durationMs: command.durationMs ?? 0)
+        case "dillydally":
+            guard let x = command.x, let y = command.y else { return }
+            controller?.dillydally(
+                at: CGPoint(x: x, y: y),
+                durationMs: command.durationMs ?? 0
+            )
+        case "settle": controller?.settleDillydally()
         case "down": controller?.setPressed(true)
         case "up": controller?.setPressed(false)
         case "click": controller?.click()

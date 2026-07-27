@@ -6,11 +6,11 @@
 // singing) around the notepat two-octave letter ladder — c d e f g a b
 // h i j k l m n up and back down — each letter sung on its own scale degree.
 //
-// v7 layout (jeffrey's round-7 spec): the video is ONLY the performance —
+// v8 layout (jeffrey's posting pass): the video is ONLY the performance —
 // no desktop scenery, no falling-in window animation, no end-card theatrics.
 // Top to bottom in 1080x1920:
-//   · the REAL captured menu-bar strip (strip rig), parked, keys lighting
-//     per sung note — the Menu Band GUI as the centerpiece instrument
+//   · the REAL captured menu-bar strip (strip rig), centered vertically,
+//     keys lighting per sung note — the Menu Band GUI as the centerpiece
 //   · the BIG teaching keycap (the letter you type, huge, karaoke-style)
 //   · the 14-letter ladder chart
 //   · a QWERTY keyboard modeled on the app's fullscreen-popover keymap view
@@ -35,11 +35,11 @@
 
 import { readFileSync } from "node:fs";
 import {
-  W, H, FPS, OUT, INK, INK_RGB, easeOut, clamp01, rgb,
-  makeStage, roundRect, text, drawDesktop, vignette, drawIcon,
+  W, H, FPS, OUT, INK, easeOut, clamp01, rgb,
+  makeStage, roundRect, text, drawDesktop, vignette,
   makeParticles, loadStripRig, drawStrip, stripKeyX, stripKeyColor,
   loadScore, leadOf, litAt, makeOnsets,
-  renderVideo, writeMeta, makeScenes, sungMode, loadSungWords, makeKaraoke,
+  renderVideo, writeMeta, makeScenes, sungMode,
 } from "./reel-lib.mjs";
 
 const SLUG = "menuband-scales";
@@ -54,28 +54,24 @@ const TOTAL = score.durationSec;
 const lead = leadOf(score);
 const onsetsBetween = makeOnsets(lead);
 
-// spoken words → normal bottom captions; sung letters drive the big keycap
-const allWords = loadSungWords(SLUG);
-const karaoke = makeKaraoke(allWords.filter((w) => w.spoken), { y: H * 0.925 });
-
 const { canvas, ctx } = makeStage();
 const rig = await loadStripRig();
 const particles = makeParticles(ctx);
 
 const SING0 = sc.sing.t0, SING1 = sc.sing.t1;
-const { scenes: SCENES, sceneAt } = makeScenes([
+const { scenes: SCENES } = makeScenes([
   { name: "intro", from: 0, to: SING0 / TOTAL, tint: [97, 158, 255] },
   { name: "sing-up", from: SING0 / TOTAL, to: (SING0 + (SING1 - SING0) * 0.52) / TOTAL, tint: [51, 209, 179] },
   { name: "sing-down", from: (SING0 + (SING1 - SING0) * 0.52) / TOTAL, to: (SING1 + 0.8) / TOTAL, tint: [167, 139, 250] },
   { name: "end", from: (SING1 + 0.8) / TOTAL, to: 1.0, tint: [255, 77, 107] },
 ], TOTAL);
 
-// ── the strip: parked at the top, playing the ladder (no fly-in) ───────────
+// ── the strip: parked on the vertical centerline, playing the ladder ───────
 const HERO_W = W * 0.94, HERO_X = (W - HERO_W) / 2;
 function heroRect(t) {
   const h = HERO_W / rig.aspect;
   const bob = Math.sin(t * 1.5) * 4;
-  return { x: HERO_X, y: H * 0.10 - h / 2 + bob, w: HERO_W, h };
+  return { x: HERO_X, y: H * 0.50 - h / 2 + bob, w: HERO_W, h };
 }
 
 // ── the ladder clock: which letter is active at t ──────────────────────────
@@ -92,7 +88,7 @@ const LETTER_STRIP = new Map(LADDER.map((n) => [n.letter, n.strip]));
 
 // ── the BIG teaching keycap — the letter you type, huge, in the key's own
 // strip color, pressing on every onset ─────────────────────────────────────
-const CAP_CY = H * 0.295;
+const CAP_CY = H * 0.275;
 function drawKeycap(t) {
   const n = activeNote(t);
   if (!n) return;
@@ -127,7 +123,7 @@ function drawKeycap(t) {
 }
 
 // ── the ladder chart — all 14 letters, the singalong teaching row ──────────
-const CHART_Y = H * 0.475;
+const CHART_Y = H * 0.575;
 function drawChart(t) {
   const a = easeOut(clamp01((t - SING0 + 0.6) / 0.5)) *
     (1 - easeOut(clamp01((t - (SING1 + 0.5)) / 0.5)));
@@ -192,7 +188,7 @@ function buildKeyboard() {
   ];
   const wellH = rows.reduce((s, r) => s + r.h * U, 0);
   const deckW = 14.5 * U + PAD * 2, deckH = wellH + PAD * 2;
-  const deckX = (W - deckW) / 2, deckY = H * 0.535;
+  const deckX = (W - deckW) / 2, deckY = H * 0.64;
   const keys = [];
   let y = deckY + PAD;
   for (const row of rows) {
@@ -299,19 +295,14 @@ function drawKeyboard(t) {
   ctx.restore();
 }
 
-// ── the end beat — icon + menuband.app inside the performance framing ──────
+// ── the end beat — one quiet URL, no icon or subtitle ─────────────────────
 function drawEndBeat(t) {
   const e = easeOut(clamp01((t - (SING1 + 1.0)) / 0.7));
   if (e <= 0) return;
   ctx.save();
   ctx.globalAlpha = e;
   ctx.translate(0, (1 - e) * 40);
-  const ipx = 260;
-  const litIcon = new Set(litAt(lead, t).map((mm) => ((mm % 12) + 12) % 12 % 5));
-  drawIcon(ctx, W / 2 - ipx / 2, CAP_CY - ipx / 2 - 50, ipx, litIcon);
-  text(ctx, "menuband.app", W / 2, CAP_CY + ipx / 2 + 40, 70, INK, 800);
-  text(ctx, "free on the Mac App Store", W / 2, CAP_CY + ipx / 2 + 110, 38,
-    "rgba(60,50,80,0.85)", 600);
+  text(ctx, "menuband.app", W / 2, CAP_CY, 84, INK, 800);
   ctx.restore();
 }
 
@@ -344,7 +335,6 @@ function drawFrame(t) {
 
   particles.stepAndDraw(dt);
   vignette(ctx);
-  karaoke.draw(ctx, t);
 }
 
 await renderVideo({

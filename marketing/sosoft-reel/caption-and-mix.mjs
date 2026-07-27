@@ -19,11 +19,9 @@ if (!existsSync(VIDEO) || !existsSync(VOICE)) throw new Error("render the real-t
 
 const W = 1080, H = 1920, FPS = 30;
 const duration = Number(spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", VOICE], { encoding: "utf8" }).stdout.trim());
-const YWFT_BOLD = resolve(ROOT, "../../slab/menuband/Sources/MenuBand/Resources/ywft-processing-bold.ttf");
-const YWFT_REGULAR = resolve(ROOT, "../../slab/menuband/Sources/MenuBand/Resources/ywft-processing-regular.ttf");
 try {
-  registerFont(YWFT_BOLD, { family: "YWFT Processing", weight: "bold" });
-  registerFont(YWFT_REGULAR, { family: "YWFT Processing", weight: "normal" });
+  registerFont("/System/Library/Fonts/Supplemental/Arial.ttf", { family: "Arial", weight: "normal" });
+  registerFont("/System/Library/Fonts/Supplemental/Arial Bold.ttf", { family: "Arial", weight: "bold" });
 } catch {}
 
 console.log("generate sine-wave bed");
@@ -49,7 +47,7 @@ const canvas = createCanvas(W, H), ctx = canvas.getContext("2d");
 const FRAME_BYTES = W * H * 4;
 const frame = Buffer.alloc(FRAME_BYTES);
 const image = ctx.createImageData(W, H);
-const font = "bold 68px YWFT Processing, Arial";
+const font = "bold 68px Arial";
 const lineH = 86, maxW = 850, gap = 19;
 const narration = readFileSync(resolve(ROOT, "narration.txt"), "utf8").trim();
 const alignment = JSON.parse(readFileSync(resolve(OUT, "narration-alignment.json"), "utf8")).alignment;
@@ -66,7 +64,7 @@ const chapters = [
   { artist: "BANYI HUANG", work: "A COSMOGRAPHIC SCORE", fromMs: chapterStart("Banyi Huang") },
   { artist: "ALEXANDER ESPINOSA", work: "MUSIC FOR WORLD COMPUTERS", fromMs: chapterStart("Alexander Espinosa") },
   { artist: "MAVYN VU", work: "THE RADIO IS AN ALTAR: PORTAL", fromMs: chapterStart("Mavyn Vu") },
-  { artist: "LAUREN LEE MCCARTHY + CASEY REAS", work: "AUTO TUNE", fromMs: chapterStart("Casey Reas") },
+  { artist: "LAUREN LEE MCCARTHY + CASEY REAS", work: "SCORES FOR SOCIAL SOFTWARE", fromMs: chapterStart("Casey Reas") },
 ];
 const chapterPlates = chapters.map((chapter) => {
   const plate = createCanvas(1000, 105);
@@ -77,10 +75,10 @@ const chapterPlates = chapters.map((chapter) => {
   p.strokeStyle = "rgba(0,0,0,.82)";
   p.fillStyle = "#ffffff";
   p.lineWidth = 7;
-  p.font = "bold 38px YWFT Processing, Arial";
+  p.font = "bold 38px Arial";
   p.strokeText(chapter.artist, 10, 48);
   p.fillText(chapter.artist, 10, 48);
-  p.font = "normal 27px YWFT Processing, Arial";
+  p.font = "normal 27px Arial";
   p.strokeText(chapter.work, 10, 88);
   p.fillText(chapter.work, 10, 88);
   return plate;

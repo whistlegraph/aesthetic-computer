@@ -39,7 +39,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { narrate } from "./lib/narrate.mjs";
 import { attach, BrowserCrashError } from "./lib/cdp.mjs";
 import {
-  clickOn, dragBetween, pointAt, stopNativeCursor, typeInto,
+  clickOn, dillydallyAtPoint, dragBetween, pointAt, startNativeCursor,
+  stopNativeCursor, typeInto,
 } from "./lib/cursor.mjs";
 import {
   spotlight, outline, burst, zoom, resetCamera, clearEffects,
@@ -385,6 +386,8 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
       () => dragBetween(cdp, from, to, opts)),
     point: (sel, opts) => perform("point", { selector:sel, options:opts },
       () => pointAt(cdp, sel, opts)),
+    dillydally: (point, opts) => perform("dillydally", { point, options:opts },
+      () => dillydallyAtPoint(cdp, point, opts)),
     type: (sel, text) => typeInto(cdp, sel, text),
     spotlight: (sel, opts) => perform("spotlight", { selector:sel, options:opts },
       () => spotlight(cdp, sel, themedEffectOptions(opts))),
@@ -524,16 +527,30 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
 
   const stageDisplay = STAGE_MODE && F.compose?.fullDesktop;
   console.log(`\n● recording (${stageDisplay ? "full Stage desktop" : `window: ${sp.window || "whole display"}`})`);
-  const state = reelStart({
-    // Stage Mode already supplies the neutral desktop and deliberately sized
-    // browser. Capture those real pixels so every rounded window edge and equal
-    // margin survives. Delivery repairs only the tiny recorder badge.
-    window: stageDisplay ? undefined : sp.window,
-    fps: sp.fps || 60,
-    cursor: REAL_CURSOR,
-  });
+  // Start the native pointer before the reel. Besides making its first frame
+  // deterministic, the overlay process explicitly hides the physical macOS
+  // cursor until capture ends. Reel also excludes the system cursor unless an
+  // explicitly human-driven REAL_CURSOR take opts back in.
+  await startNativeCursor();
+  let state;
+  try {
+    state = reelStart({
+      // Stage Mode already supplies the neutral desktop and deliberately sized
+      // browser. Capture those real pixels so every rounded window edge and equal
+      // margin survives. Delivery repairs only the tiny recorder badge.
+      window: stageDisplay ? undefined : sp.window,
+      fps: sp.fps || 60,
+      cursor: REAL_CURSOR,
+    });
+  } catch (error) {
+    stopNativeCursor();
+    throw error;
+  }
   const since = state.since;
-  if (!since) throw new Error("reel did not report a start time — cannot sync audio");
+  if (!since) {
+    stopNativeCursor();
+    throw new Error("reel did not report a start time — cannot sync audio");
+  }
   traceSince = since;
 
   let recording = true;

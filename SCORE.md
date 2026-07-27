@@ -22,6 +22,38 @@ Interpret names and requests in this order unless the user explicitly points els
 
 Do not interpret a known machine name as an Aesthetic Computer piece until the seat/fleet meaning has been ruled out.
 
+## Editorial Output Score — Wordcrust + Slidecop
+
+These rules apply to authored output across personal and client work.
+
+### Wordcrust
+
+**Wordcrust** is explanatory text accumulating around the thing: marginalia,
+duplicated labels, decorative headings, restatements, throat-clearing, and
+LLM-sounding description. Remove it before delivery.
+
+- No marginalia by default. Do not add eyebrows, kickers, explanatory
+  subheads, side notes, callout prose, or summaries unless they add information
+  needed to use, verify, attribute, access, or safely interpret the artifact.
+- One visible label per idea. Do not restate a title in a subtitle, body, badge,
+  diagram label, or callout.
+- Prefer the artifact, evidence, or action over prose about it. If deleting a
+  text element changes neither meaning nor action, delete it.
+- Preserve necessary facts, source attribution, accessibility text, safety
+  constraints, and the user's voice. Concision is not vagueness.
+
+### Slidecop
+
+A slide passes **Slidecop** only when it works at conference-room distance.
+
+- One claim per slide.
+- No marginalia.
+- Essential type is large, high-contrast, and readable in a 10%-scale preview.
+- Evidence dominates the frame. Select and crop screenshots to the exact useful
+  state; never shrink a whole interface into an unreadable postcard.
+- Inspect the rendered slide or video, not only its source. Fail any slide whose
+  claim or evidence requires zooming.
+
 ## Pull Request Score
 
 Keep a small PR terse. When the work is a recovery, migration, or design change
@@ -158,6 +190,8 @@ This is critical because `lib/pmove.mjs` is shared physics: client (lith) and se
   identifier `unipointer` and state-record kind `unipointer-state`; every fleet
   host exposes `~/.local/bin/unipointer` for versioned JSON state.
 - `slab/menubar-swift/` — native Swift menubar daemon (launchd `computer.slab.menubar`). Shows live Claude-session status, themes each Terminal.app/iTerm2 window by session state (working/awaiting/complete), tiles all windows into one grid, tints the desktop, and serves passphrases over a unix socket. Built + installed locally with `slab/menubar-swift/install.sh` (`swift build -c release` → universal arm64+x86_64 binary → app bundle + launchd agent); there is no remote deploy.
+- **Swift build budget** — `~/.local/bin/swift` is the host build guard (`toolchain/macos/swift-guard.sh`): shell-invoked `swift build` commands inside this repo serialize per Swift package, run at lower priority, and default to two compiler jobs on ≤16 GB hosts (an explicit `--jobs` still wins). For Slab Menubar iteration use `slab/menubar-swift/build-dev.sh`; run its `install.sh` only for the final release install. Do not bypass the guard with `/usr/bin/swift build` unless deliberately diagnosing the guard itself.
+- **Media render budget** — `~/.local/bin/{ffmpeg,ffprobe}` point at the repo QoS shims in `toolchain/shims/`, so shell/agent media work runs at utility priority and yields to the interactive UI under contention. Do not invoke the Homebrew binaries by absolute path unless deliberately bypassing QoS for a benchmark.
 - **Tiling auto-fits the type:** `tileNow` sizes each Terminal window's font to the grid (Far/Near/Tiny modes) and drives `View ▸ Default Font Size` per window so a live window actually adopts it — a per-window zoom otherwise silently overrides the profile font and is invisible to AppleScript. Floors keep it legible (Far 10 / Near 9 / Tiny 8). iTerm2 has no AppleScript font property, so it tiles by bounds only.
 - **Prompt rocks** (`slab/menubar-swift/Sources/SlabMenubar/PromptSigilOverlay.swift`) — the tumbling little stones parked at the top-right of each terminal window, one per live Claude session. Each rock is a 3D sigil rendered from the session's `sessionId + prompt` seed (so it re-forms when the session moves to a new prompt), lit by a shared global sun that tracks local time of day, wearing a pet name in bubble lettering. Its *motion* is the status channel — spin speed and direction encode working/awaiting/complete; being read by a peer makes it blink and rattle. Hovering one reveals a bubble summarizing the prompt (a cached one-line `claude -p haiku` inference). They're borderless click-through `.floating` windows, so hit-testing has to check occlusion by hand: a rock only answers the pointer while it's on screen *and* its terminal is still the topmost normal window under the cursor.
 - **Prompt rocks MCP** (`slab/bin/prox-mcp.mjs`, registered as `prox` in `.mcp.json`) — an MCP over the fleet handle ledger (`Ledger.swift`; `~/.config/slab/ledger/{local,peers/*}.json`, served per-machine on tailnet-only `:5252`) so any agent can `prox_list` every live session across machines, `prox_find` a `host:name` reference (e.g. `neo:regif`) to its status/subject/cwd/seed, `prox_poke` one (`POST /poke` → the target rock blinks + rattles), `prox_wake` a local one with a bounded steering prompt, send `prox_artifact_ready` the output paths from an asynchronous render, and `prox_launch` a new Claude/Codex Terminal on a prompt host. Wake uses the same poke + TTY reactivation pattern as Loopboy; `prox_artifact_ready` supplies the standard inspect/iterate/integrate/continue prompt itself. Launch is deliberately not a remote shell: the target accepts only those two fixed agents, a bounded prompt, and a cwd beneath that user's home. `prox_close` reads the session marker for tty+pid and closes locally only (refuses the calling session). This is how a `machine:promptname` handle resolves without an SSH crawl.

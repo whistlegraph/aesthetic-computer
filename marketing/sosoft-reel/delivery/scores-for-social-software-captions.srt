@@ -1,215 +1,215 @@
 1
-00:00:00,000 --> 00:00:01,788
+00:00:00,000 --> 00:00:01,881
 This blue folder just arrived from Social
 
 2
-00:00:01,834 --> 00:00:03,077
+00:00:01,927 --> 00:00:03,529
 Software at UCLA.
 
 3
-00:00:03,460 --> 00:00:06,455
+00:00:03,971 --> 00:00:07,105
 Inside is Scores for Social Software, a
 
 4
-00:00:06,525 --> 00:00:10,054
+00:00:07,175 --> 00:00:10,472
 spring 2026 edition of sixty-four.
 
 5
-00:00:10,565 --> 00:00:11,912
+00:00:10,983 --> 00:00:12,202
 The copy in my hands is number
 
 6
-00:00:11,981 --> 00:00:15,105
+00:00:12,260 --> 00:00:15,662
 fifty-one, assembled after ten weeks of making,
 
 7
-00:00:15,139 --> 00:00:17,230
+00:00:15,685 --> 00:00:17,821
 testing, and performing together.
 
 8
-00:00:17,833 --> 00:00:19,795
+00:00:18,425 --> 00:00:20,306
 My contribution is Notepat.
 
 9
-00:00:20,237 --> 00:00:22,721
+00:00:20,689 --> 00:00:22,674
 A folded white user manual opens into
 
 10
-00:00:22,837 --> 00:00:25,705
+00:00:22,755 --> 00:00:25,600
 a pointed shape, combining an illustrated player,
 
 11
-00:00:25,798 --> 00:00:29,176
+00:00:25,925 --> 00:00:29,396
 a QR code, instructions, and circular keyboard
 
 12
-00:00:29,350 --> 00:00:30,291
+00:00:29,570 --> 00:00:30,488
 diagrams.
 
 13
-00:00:30,732 --> 00:00:33,356
+00:00:31,091 --> 00:00:33,750
 Æther Cavendish’s Vigil Score arrives as a
 
 14
-00:00:33,414 --> 00:00:36,119
+00:00:33,808 --> 00:00:36,548
 matte-black folded packet, closed with a small
 
 15
-00:00:36,200 --> 00:00:37,524
+00:00:36,629 --> 00:00:37,976
 circular silver seal.
 
 16
-00:00:37,965 --> 00:00:40,647
+00:00:38,359 --> 00:00:41,378
 Chelly Jin’s Software as a Choreography presents
 
 17
-00:00:40,728 --> 00:00:43,886
+00:00:41,412 --> 00:00:43,688
 a grid of silhouetted hands and arms,
 
 18
-00:00:44,060 --> 00:00:46,951
+00:00:43,897 --> 00:00:46,521
 pairing each gesture with marks for timing
 
 19
-00:00:47,334 --> 00:00:48,217
+00:00:46,602 --> 00:00:47,403
 and movement.
 
 20
-00:00:48,658 --> 00:00:51,247
+00:00:47,786 --> 00:00:50,700
 Jordan Silver’s Sonic Architecture is a single
 
 21
-00:00:51,270 --> 00:00:54,080
+00:00:50,723 --> 00:00:53,568
 sheet of printed columns, large numbers, and
 
 22
-00:00:54,150 --> 00:00:57,261
+00:00:53,637 --> 00:00:56,517
 typewritten commands, anchored by a looping spiral
 
 23
-00:00:57,644 --> 00:01:01,278
+00:00:56,563 --> 00:00:59,907
 diagram for inhabiting and measuring space through
 
 24
-00:01:01,452 --> 00:01:02,161
+00:00:59,965 --> 00:01:00,510
 sound.
 
 25
-00:01:02,544 --> 00:01:06,003
+00:01:01,207 --> 00:01:04,191
 Em Lugo’s Cues for Losing Direction fits
 
 26
-00:01:06,085 --> 00:01:08,511
+00:01:04,249 --> 00:01:06,408
 on a small black card, its title
 
 27
-00:01:08,546 --> 00:01:11,042
+00:01:06,443 --> 00:01:08,649
 set in pale condensed type like a
 
 28
-00:01:11,112 --> 00:01:13,283
+00:01:08,707 --> 00:01:10,657
 portable instruction carried in the hand.
 
 29
-00:01:13,794 --> 00:01:17,126
+00:01:11,041 --> 00:01:13,676
 Darlyn Phan’s Line Piece 1 begins on
 
 30
-00:01:17,172 --> 00:01:18,635
+00:01:13,722 --> 00:01:15,116
 translucent white paper.
 
 31
-00:01:19,076 --> 00:01:22,292
+00:01:15,441 --> 00:01:18,343
 Its faint rainbow cast and minimal title
 
 32
-00:01:22,501 --> 00:01:24,312
+00:01:18,517 --> 00:01:20,700
 let the page behave like a line
 
 33
-00:01:24,335 --> 00:01:25,067
+00:01:20,769 --> 00:01:21,501
 or veil.
 
 34
-00:01:25,508 --> 00:01:27,842
+00:01:21,942 --> 00:01:24,287
 Thomas Noya’s Biophonía is a branching field
 
 35
-00:01:27,900 --> 00:01:31,011
+00:01:24,334 --> 00:01:27,747
 of blue, yellow, black, and beige organic
 
 36
-00:01:31,081 --> 00:01:31,708
+00:01:27,805 --> 00:01:28,374
 forms.
 
 37
-00:01:32,091 --> 00:01:34,958
+00:01:28,757 --> 00:01:31,903
 In the video, these cell-like clusters drift
 
 38
-00:01:35,284 --> 00:01:36,456
+00:01:32,078 --> 00:01:33,239
 and reorganize.
 
 39
-00:01:36,897 --> 00:01:40,264
+00:01:33,680 --> 00:01:36,756
 Banyi Huang’s A Cosmographic Score for Folding
 
 40
-00:01:40,323 --> 00:01:42,598
+00:01:36,814 --> 00:01:38,927
 Back into the Kernel centers a luminous
 
 41
-00:01:42,645 --> 00:01:45,675
+00:01:38,962 --> 00:01:41,237
 circle and a small diagram of connected
 
 42
-00:01:45,744 --> 00:01:48,798
+00:01:41,295 --> 00:01:43,583
 nodes inside a lavender field.
 
 43
-00:01:49,471 --> 00:01:52,896
+00:01:44,163 --> 00:01:47,263
 Alexander Espinosa’s Music for World Computers is
 
 44
-00:01:52,943 --> 00:01:57,517
+00:01:47,309 --> 00:01:51,501
 a white typographic score: awake, expand, decrease,
 
 45
-00:01:57,587 --> 00:02:00,152
+00:01:51,814 --> 00:01:56,377
 oxygen, forest, junk, cinnamon, hammer.
 
 46
-00:02:00,965 --> 00:02:03,693
+00:01:56,818 --> 00:01:59,163
 Mavyn Vu’s The Radio Is an Altar:
 
 47
-00:02:04,506 --> 00:02:06,654
+00:01:59,488 --> 00:02:01,520
 Portal combines translucent blue and white score
 
 48
-00:02:06,689 --> 00:02:09,951
+00:02:01,555 --> 00:02:04,666
 cards, a target-like radio image, small figures,
 
 49
-00:02:10,067 --> 00:02:12,180
+00:02:04,817 --> 00:02:06,802
 and instructions arranged around their edges.
 
 50
-00:02:12,691 --> 00:02:15,280
+00:02:07,185 --> 00:02:09,658
 Casey Reas facilitated the cycle, with Lauren
 
 51
-00:02:15,326 --> 00:02:17,637
+00:02:09,705 --> 00:02:11,841
 Lee McCarthy and the Social Software community.
 
 52
-00:02:18,078 --> 00:02:21,073
+00:02:12,224 --> 00:02:15,080
 Together, the contributions open many paths through
 
 53
-00:02:21,143 --> 00:02:25,079
+00:02:15,161 --> 00:02:18,598
 a question: if software organizes behavior, what
 
 54
-00:02:25,148 --> 00:02:27,958
+00:02:18,668 --> 00:02:21,082
 else can we ask it to organize?

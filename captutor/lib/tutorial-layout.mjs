@@ -100,7 +100,7 @@ export async function setTutorialZoom(ctx, target = 80) {
     return button ? parseInt(button.innerText, 10) : NaN;
   })()`));
 
-  for (let attempt = 0; attempt < 5; attempt += 1) {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
     const current = await zoomValue();
     if (!Number.isFinite(current)) throw new Error("Fuser zoom control is unavailable");
     if (Math.abs(current - target) <= 3) return current;
@@ -108,22 +108,33 @@ export async function setTutorialZoom(ctx, target = 80) {
     // Clamp extreme fit-view recovery into a few smooth, bounded events.
     const deltaY = Math.max(-80, Math.min(80,
       -Math.log(target / current) / 0.0138));
-    const point = await cdp.eval(`(() => {
+    const points = await cdp.eval(`(() => {
       const pane = document.querySelector('.react-flow__pane');
       const rect = pane?.getBoundingClientRect();
-      return rect
-        ? { x:rect.left + rect.width / 2, y:rect.top + rect.height / 2 }
-        : { x:innerWidth / 2, y:innerHeight / 2 };
+      if (!rect) return [{ x:innerWidth / 2, y:innerHeight / 2 }];
+      return [
+        { x:rect.left + 36, y:rect.bottom - 36 },
+        { x:rect.right - 36, y:rect.top + 36 },
+        { x:rect.right - 36, y:rect.bottom - 36 },
+        { x:rect.left + rect.width / 2, y:rect.top + rect.height / 2 },
+      ];
     })()`);
-    await cdp.send("Input.dispatchMouseEvent", {
-      type:"mouseWheel", x:point.x, y:point.y,
-      deltaX:0, deltaY, modifiers:2,
-    });
-    await cdp.waitFor(`(() => {
-      const button = [...document.querySelectorAll('button')].find((element) =>
-        /^\\d+\\s*%$/.test((element.innerText || '').trim()));
-      return button && parseInt(button.innerText, 10) !== ${current};
-    })()`);
+    let changed = false;
+    for (const point of points) {
+      await cdp.send("Input.dispatchMouseEvent", {
+        type:"mouseMoved", x:point.x, y:point.y,
+      });
+      await cdp.send("Input.dispatchMouseEvent", {
+        type:"mouseWheel", x:point.x, y:point.y,
+        deltaX:0, deltaY, modifiers:2,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 280));
+      if (await zoomValue() !== current) {
+        changed = true;
+        break;
+      }
+    }
+    if (!changed) continue;
   }
   throw new Error(`Could not reach tutorial zoom near ${target}%`);
 }
@@ -249,6 +260,7 @@ export async function tutorialLayoutScores(cdp, selectors, {
       truncated,
       outsideSafeRegion:outside.map((node) => node.selector),
       narrowNodes:narrow.map((node) => node.selector),
+      nodeRects:raw.nodes.map(({ selector, rect }) => ({ selector, ...rect })),
       safeRegion:raw.safe,
     },
     "balanced-layout-score": {

@@ -1038,6 +1038,12 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
 - **Safety rule:** the packaged WAV is canonical. Rebuilding the C engine makes
   a new audition and never silently supersedes the locked master. SHA-256
   receipts and complete spatial/choir provenance live beside the release.
+- **Special Sign 720 remix (2026-07-26):** a separate exact-six-minute
+  dance/trance variant in `variants/special-sign-720/`. Its sparse 72 BPM build
+  turns into a 144 BPM pop pulse at 2:00; the arrangement stays to the locked
+  spatial field, one sub, kick, clap, hats, and one C-major trance voice.
+  Review WAV/MP3 and the full receipt live under
+  `out/review/variants/special-sign-720/`; the release master remains untouched.
 - **Next:** submit the locked WAV + cover to distribution, then add platform and
   CDN links here. This external publication step is deliberately still open.
 

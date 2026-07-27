@@ -34,6 +34,9 @@ say() { printf "%s• %s%s\n" "$CYAN" "$1" "$RESET"; }
 ok()  { printf "%s✓ %s%s\n" "$GREEN" "$1" "$RESET"; }
 warn(){ printf "%s! %s%s\n" "$YELLOW" "$1" "$RESET"; }
 
+source "${SCRIPT_DIR}/../bin/build-lock.sh"
+acquire_build_lock slab-menubar
+
 if [[ -z "${SLAB_PREBUILT:-}" ]] && ! command -v swift >/dev/null 2>&1; then
     echo "swift not found — install Xcode Command Line Tools first:"
     echo "    xcode-select --install"
@@ -236,7 +239,7 @@ provision_terminal_close_warning() {
     local names
     names="$(${pb} -c "Print :'Window Settings'" "${pl}" 2>/dev/null \
         | LC_ALL=C tr -cd '\11\12\15\40-\176' \
-        | LC_ALL=C sed -n 's/^    \([^ ].*\) = Dict {$/\1/p')"
+        | LC_ALL=C sed -n 's/^    \([^ ].*\) = Dict {$/\1/p' || true)"
     local IFS=$'\n'
     for name in ${names}; do
         ${pb} -c "Set :'Window Settings':'${name}':warnOnShellCloseAction 2" "${pl}" 2>/dev/null \

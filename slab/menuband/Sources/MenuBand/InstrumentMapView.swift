@@ -41,6 +41,22 @@ final class InstrumentListView: NSView {
 
     var selectedProgram: UInt8 = 0 { didSet { needsDisplay = true } }
     private(set) var hoveredProgram: UInt8?
+    /// Visual hover is deliberately separate from `hoveredProgram`: moving
+    /// the pointer should make every picker element feel clickable, while
+    /// instrument preview audio remains press-and-drag only.
+    private enum HoverTarget: Equatable {
+        case mic
+        case midiOut
+        case sample
+        case program(Int)
+        case radio(Int)
+        case spotify
+    }
+    private var hoveredTarget: HoverTarget? {
+        didSet {
+            if hoveredTarget != oldValue { needsDisplay = true }
+        }
+    }
     /// Lit when the controller's `midiMode` is on. Drives the
     /// MIDI-OUT cell's filled/outlined appearance and tints the
     /// rest of the grid as deselected.
@@ -110,6 +126,11 @@ final class InstrumentListView: NSView {
 
     override var intrinsicContentSize: NSSize {
         NSSize(width: Self.preferredWidth, height: Self.preferredHeight)
+    }
+
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        addCursorRect(bounds, cursor: .pointingHand)
     }
 
     override func updateTrackingAreas() {
@@ -256,6 +277,16 @@ final class InstrumentListView: NSView {
         midiOutRect.contains(point)
     }
 
+    private func hoverTarget(at point: NSPoint) -> HoverTarget? {
+        if isMicHit(point) { return .mic }
+        if isMidiOutHit(point) { return .midiOut }
+        if isSampleHit(point) { return .sample }
+        if let program = program(at: point) { return .program(program) }
+        if let station = radioStationIndex(at: point) { return .radio(station) }
+        if isSpotifyHit(point) { return .spotify }
+        return nil
+    }
+
     /// Hand-picked color per GM family (16 families × 8 programs each;
     /// each row of the 8-col grid is one family). RGB values mirror
     /// standard CSS named colors so the timbre→color mapping reads
@@ -338,14 +369,16 @@ final class InstrumentListView: NSView {
             let micR = micRect
             if micR.intersects(dirtyRect) {
                 let tint = NSColor.systemPink
+                let hovered = hoveredTarget == .mic
                 let cap = NSBezierPath(roundedRect: micR.insetBy(dx: 1.75, dy: 1.5),
                                        xRadius: 3, yRadius: 3)
                 if squawkListening {
-                    tint.withAlphaComponent(0.85).setFill(); cap.fill()
+                    tint.withAlphaComponent(hovered ? 0.98 : 0.85).setFill(); cap.fill()
                     tint.setStroke(); cap.lineWidth = 1.4; cap.stroke()
                 } else {
-                    tint.withAlphaComponent(0.30).setFill(); cap.fill()
-                    tint.withAlphaComponent(0.85).setStroke(); cap.lineWidth = 1.0; cap.stroke()
+                    tint.withAlphaComponent(hovered ? 0.48 : 0.30).setFill(); cap.fill()
+                    tint.withAlphaComponent(hovered ? 1.0 : 0.85).setStroke()
+                    cap.lineWidth = hovered ? 1.4 : 1.0; cap.stroke()
                 }
                 let str = NSAttributedString(string: "🦜", attributes: [
                     .font: NSFont.systemFont(ofSize: 12, weight: .semibold),
@@ -361,19 +394,20 @@ final class InstrumentListView: NSView {
         let midiR = midiOutRect
         if midiR.intersects(dirtyRect) {
             let accent = NSColor.controlAccentColor
+            let hovered = hoveredTarget == .midiOut
             let cap = NSBezierPath(roundedRect: midiR.insetBy(dx: 1.75, dy: 1.5),
                                    xRadius: 3, yRadius: 3)
             if midiModeActive {
-                accent.withAlphaComponent(0.85).setFill()
+                accent.withAlphaComponent(hovered ? 0.98 : 0.85).setFill()
                 cap.fill()
                 accent.setStroke()
                 cap.lineWidth = 1.4
                 cap.stroke()
             } else {
-                accent.withAlphaComponent(0.30).setFill()
+                accent.withAlphaComponent(hovered ? 0.48 : 0.30).setFill()
                 cap.fill()
-                accent.withAlphaComponent(0.85).setStroke()
-                cap.lineWidth = 1.0
+                accent.withAlphaComponent(hovered ? 1.0 : 0.85).setStroke()
+                cap.lineWidth = hovered ? 1.4 : 1.0
                 cap.stroke()
             }
             let labelText = "0  MIDI OUT"
@@ -394,14 +428,16 @@ final class InstrumentListView: NSView {
         let sampleR = sampleRect
         if sampleR.intersects(dirtyRect) {
             let tint = NSColor.systemRed
+            let hovered = hoveredTarget == .sample
             let cap = NSBezierPath(roundedRect: sampleR.insetBy(dx: 1.75, dy: 1.5),
                                    xRadius: 3, yRadius: 3)
             if sampleBackendActive {
-                tint.withAlphaComponent(0.85).setFill(); cap.fill()
+                tint.withAlphaComponent(hovered ? 0.98 : 0.85).setFill(); cap.fill()
                 tint.setStroke(); cap.lineWidth = 1.4; cap.stroke()
             } else {
-                tint.withAlphaComponent(0.30).setFill(); cap.fill()
-                tint.withAlphaComponent(0.85).setStroke(); cap.lineWidth = 1.0; cap.stroke()
+                tint.withAlphaComponent(hovered ? 0.48 : 0.30).setFill(); cap.fill()
+                tint.withAlphaComponent(hovered ? 1.0 : 0.85).setStroke()
+                cap.lineWidth = hovered ? 1.4 : 1.0; cap.stroke()
             }
             let labelColor: NSColor = sampleBackendActive ? .white : .labelColor
             let str = NSAttributedString(string: "SAMPLE", attributes: [
@@ -422,15 +458,17 @@ final class InstrumentListView: NSView {
             let rr = radioStationRect(i)
             guard rr.intersects(dirtyRect) else { continue }
             let active = radioBackendActive && selectedRadioStationID == st.id
+            let hovered = hoveredTarget == .radio(i)
             let teal = NSColor.systemTeal
             let cap = NSBezierPath(roundedRect: rr.insetBy(dx: 1.75, dy: 1.5),
                                    xRadius: 3, yRadius: 3)
             if active {
-                teal.withAlphaComponent(0.85).setFill(); cap.fill()
+                teal.withAlphaComponent(hovered ? 0.98 : 0.85).setFill(); cap.fill()
                 teal.setStroke(); cap.lineWidth = 1.4; cap.stroke()
             } else {
-                teal.withAlphaComponent(0.30).setFill(); cap.fill()
-                teal.withAlphaComponent(0.85).setStroke(); cap.lineWidth = 1.0; cap.stroke()
+                teal.withAlphaComponent(hovered ? 0.48 : 0.30).setFill(); cap.fill()
+                teal.withAlphaComponent(hovered ? 1.0 : 0.85).setStroke()
+                cap.lineWidth = hovered ? 1.4 : 1.0; cap.stroke()
             }
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: 9, weight: .semibold),
@@ -446,16 +484,17 @@ final class InstrumentListView: NSView {
         if spotifyEnabled {
             let rr = spotifyRect
             let green = NSColor.systemGreen
+            let hovered = hoveredTarget == .spotify
             let cap = NSBezierPath(
                 roundedRect: rr.insetBy(dx: 1.75, dy: 1.5),
                 xRadius: 3, yRadius: 3)
             if spotifyActive {
-                green.withAlphaComponent(0.85).setFill(); cap.fill()
+                green.withAlphaComponent(hovered ? 0.98 : 0.85).setFill(); cap.fill()
                 green.setStroke(); cap.lineWidth = 1.4; cap.stroke()
             } else {
-                green.withAlphaComponent(0.30).setFill(); cap.fill()
-                green.withAlphaComponent(0.85).setStroke()
-                cap.lineWidth = 1; cap.stroke()
+                green.withAlphaComponent(hovered ? 0.48 : 0.30).setFill(); cap.fill()
+                green.withAlphaComponent(hovered ? 1.0 : 0.85).setStroke()
+                cap.lineWidth = hovered ? 1.4 : 1; cap.stroke()
             }
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: 8.2, weight: .semibold),
@@ -482,6 +521,7 @@ final class InstrumentListView: NSView {
             let dy = CGFloat(row - selectedRow)
             let dist = sqrt(dx * dx + dy * dy)
             let isSelected = (selectedProgram == UInt8(p))
+            let isHovered = hoveredTarget == .program(p)
 
             // Opaque base so the grid reads as a solid panel
             // sitting ON the popover's glass material rather than
@@ -502,10 +542,17 @@ final class InstrumentListView: NSView {
                 // pop instead of fading into the glass.
                 fam.withAlphaComponent(0.55).setFill()
                 NSBezierPath(rect: r).fill()
-                if hoveredProgram == UInt8(p) {
+                if hoveredProgram == UInt8(p) || isHovered {
                     NSColor.controlAccentColor.withAlphaComponent(0.35).setFill()
                     NSBezierPath(rect: r).fill()
                 }
+            }
+
+            // Selected cells also respond on hover; their solid family fill
+            // otherwise hid the passive-hover treatment used by the rest.
+            if isSelected && isHovered {
+                NSColor.white.withAlphaComponent(0.18).setFill()
+                NSBezierPath(rect: r).fill()
             }
 
             // Chiclet-style keycap outline.
@@ -513,9 +560,9 @@ final class InstrumentListView: NSView {
                                         xRadius: 2.5, yRadius: 2.5)
             // Selected cell gets a brighter ring so it reads as the
             // visual focus even without the radial pulse on top.
-            let strokeAlpha: CGFloat = isSelected ? 1.0 : 0.65
+            let strokeAlpha: CGFloat = (isSelected || isHovered) ? 1.0 : 0.65
             fam.withAlphaComponent(strokeAlpha).setStroke()
-            capPath.lineWidth = isSelected ? 1.4 : 0.8
+            capPath.lineWidth = (isSelected || isHovered) ? 1.4 : 0.8
             capPath.stroke()
 
             // Bee-vision program number — biggest at the selected
@@ -557,30 +604,32 @@ final class InstrumentListView: NSView {
 
     // MARK: - Mouse
 
-    // Hover preview is press-gated: passive mouse-over does NOT light cells
-    // or trigger preview audio. The user has to mouseDown first; while held,
-    // dragging across cells lights/sounds each one and unlights it on the
-    // way out. mouseUp stops the sound and commits the cell under the cursor.
+    // Visual hover is passive for every picker element. Audio preview stays
+    // press-gated: the user has to mouseDown first; while held, dragging
+    // across program cells sounds each one. mouseUp stops the sound and
+    // commits the cell under the cursor.
     private var dragging = false
 
     override func mouseEntered(with event: NSEvent) {
-        guard dragging else { return }
-        updateHover(at: convert(event.locationInWindow, from: nil))
+        let point = convert(event.locationInWindow, from: nil)
+        hoveredTarget = hoverTarget(at: point)
+        if dragging { updatePreviewHover(at: point) }
     }
     override func mouseMoved(with event: NSEvent) {
-        guard dragging else { return }
-        updateHover(at: convert(event.locationInWindow, from: nil))
+        let point = convert(event.locationInWindow, from: nil)
+        hoveredTarget = hoverTarget(at: point)
+        if dragging { updatePreviewHover(at: point) }
     }
     override func mouseExited(with event: NSEvent) {
-        guard dragging else { return }
-        if let prev = hoveredProgram {
+        hoveredTarget = nil
+        if dragging, let prev = hoveredProgram {
             hoveredProgram = nil
             setNeedsDisplay(cellRect(program: Int(prev)))
             onHover?(nil)
         }
     }
 
-    private func updateHover(at point: NSPoint) {
+    private func updatePreviewHover(at point: NSPoint) {
         let p = program(at: point).map { UInt8($0) }
         if p != hoveredProgram {
             let prev = hoveredProgram
@@ -596,6 +645,7 @@ final class InstrumentListView: NSView {
         // immediately after the user picks an initial cell.
         window?.makeFirstResponder(self)
         let pt = convert(event.locationInWindow, from: nil)
+        hoveredTarget = hoverTarget(at: pt)
         // CDJ source cell — tune the independent deck to that station. Like
         // MIDI OUT, there's no audible preview, so it bypasses the drag path.
         if let i = radioStationIndex(at: pt) {
@@ -640,13 +690,16 @@ final class InstrumentListView: NSView {
 
     override func mouseDragged(with event: NSEvent) {
         guard dragging else { return }
-        updateHover(at: convert(event.locationInWindow, from: nil))
+        let point = convert(event.locationInWindow, from: nil)
+        hoveredTarget = hoverTarget(at: point)
+        updatePreviewHover(at: point)
     }
 
     override func mouseUp(with event: NSEvent) {
         guard dragging else { return }
         dragging = false
         let pt = convert(event.locationInWindow, from: nil)
+        hoveredTarget = hoverTarget(at: pt)
         // Release stops the preview note + clears the lit highlight, then
         // commits the cell that was under the cursor at release time. The
         // commit path will re-light the cell as the *selected* program.

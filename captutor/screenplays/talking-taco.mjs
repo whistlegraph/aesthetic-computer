@@ -24,6 +24,7 @@ const GEMINI_NODE = ".react-flow__node-FalGeminiImageNode";
 const KLING_NODE = ".react-flow__node-FalKling30VideoNode";
 const GEMINI_PROMPT = `${GEMINI_NODE} textarea`;
 const KLING_PROMPT = `${KLING_NODE} textarea`;
+const KLING_DURATION = `${KLING_NODE} input[type="range"][aria-label="flow.nodes.FalKling30VideoNode.inputs.duration.label"]`;
 const GEMINI_GENERATED_IMAGE = `${GEMINI_NODE} img[alt="Displaying input"]`;
 const KLING_GENERATED_VIDEO = `${KLING_NODE} video`;
 const EXECUTE = '[data-ph-capture-attribute-node-toolbar-action="execute_node"]';
@@ -142,7 +143,7 @@ async function suppressDuplicateIrisPresence(cdp) {
 // documented in image-generation-workflow.mjs). Reselect and retry with a
 // trusted Enter on the focused Generate button rather than double-firing it.
 async function runNode(ctx, nodeSelector, startedExpr) {
-  const { cdp, click, sleep } = ctx;
+  const { cdp, click, dillydally, sleep } = ctx;
   // Belt-and-suspenders: a node executed with an empty required prompt comes
   // back as a hard "Operation failed" from Fuser rather than a queued run, and
   // was the one error observed to occasionally knock the whole flow back to
@@ -170,20 +171,40 @@ async function runNode(ctx, nodeSelector, startedExpr) {
   };
   await select(480);
   await closePropertiesInspector(cdp);
+  let generatePoint = await cdp.eval(`(() => {
+    const rect = document.querySelector(${JSON.stringify(EXECUTE)})?.getBoundingClientRect();
+    return rect ? { x:rect.left + rect.width / 2, y:rect.top + rect.height / 2 } : null;
+  })()`);
   await click(EXECUTE, { moveMs: 480 });
-  await sleep(900);
-  if (!(await cdp.eval(startedExpr))) {
+  // Quota badges can settle a few seconds after Fuser has already accepted a
+  // job. Treat the selected toolbar becoming disabled as equally strong start
+  // evidence, and wait before considering a safe keyboard retry.
+  const observedStarted = `(${startedExpr}) || (() => {
+    const execute = document.querySelector(${JSON.stringify(EXECUTE)});
+    return !!execute && execute.disabled;
+  })()`;
+  let started = false;
+  try {
+    await cdp.waitFor(observedStarted, { timeoutMs: 8000, everyMs: 100 });
+    started = true;
+  } catch {}
+  if (!started) {
     await select(260);
     await closePropertiesInspector(cdp);
+    generatePoint = await cdp.eval(`(() => {
+      const rect = document.querySelector(${JSON.stringify(EXECUTE)})?.getBoundingClientRect();
+      return rect ? { x:rect.left + rect.width / 2, y:rect.top + rect.height / 2 } : null;
+    })()`);
     await cdp.eval(`document.querySelector(${JSON.stringify(EXECUTE)}).focus()`);
     await cdp.key("Enter", "Enter", 13);
   }
-  await cdp.waitFor(startedExpr, { timeoutMs: 10000, everyMs: 100 });
+  await cdp.waitFor(observedStarted, { timeoutMs: 10000, everyMs: 100 });
+  if (generatePoint) await dillydally(generatePoint);
 }
 
 const creditsExpr = `[...document.querySelectorAll('button')]
-  .map((button) => (button.innerText || '').trim())
-  .find((text) => /^[\\d,]+✦$/.test(text)) || ''`;
+  .map((button) => (button.innerText || '').replace(/\\s+/g, ' ').trim())
+  .find((text) => /✦/.test(text) && /\\d/.test(text)) || ''`;
 
 export default {
   slug: "talking-taco",
@@ -258,6 +279,12 @@ export default {
     await maybeClickOnboarding("Skip", 1500);
     await closePropertiesInspector(cdp);
     await suppressDuplicateIrisPresence(cdp);
+  },
+
+  // Captutor pins the theme with a page reload after `setup`, then applies the
+  // final filming window geometry. Install page-owned layout CSS only after
+  // that reload so the widened, legible nodes survive into the actual reel.
+  beforeRecord: async ({ cdp }) => {
     await installTutorialLayout(cdp, [GEMINI_NODE, KLING_NODE]);
   },
 
@@ -397,6 +424,21 @@ export default {
         check("video_node_added", await cdp.eval(`({
           nodeCount: document.querySelectorAll('.react-flow__node').length,
         })`));
+      },
+    },
+    {
+      say: "Keep the lesson quick: set Kling's duration to three seconds.",
+      do: async ({ cdp, check, click }) => {
+        await click(KLING_DURATION, { moveMs: 420 });
+        await cdp.key("Home", "Home", 36);
+        await cdp.waitFor(
+          `document.querySelector(${JSON.stringify(KLING_DURATION)}).value === "3"`,
+        );
+        check("video_duration_set", {
+          seconds: Number(await cdp.eval(
+            `document.querySelector(${JSON.stringify(KLING_DURATION)}).value`,
+          )),
+        });
       },
     },
     {

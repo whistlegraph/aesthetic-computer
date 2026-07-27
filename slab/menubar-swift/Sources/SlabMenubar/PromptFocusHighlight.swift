@@ -318,6 +318,14 @@ final class PromptFocusHighlight {
     private var effects: [Int: PromptParticleEffect] = [:]
     private var running = false
 
+    /// Transparent desktop-sized particle canvases are visual children of the
+    /// terminal wall, not occluders. Prompt rocks exclude exactly these own
+    /// windows from their normal-window ownership snapshot while still letting
+    /// real Slab previews and cards cover a rock.
+    var transparentWindowIDs: Set<Int> {
+        Set(effects.values.map { $0.panel.windowNumber })
+    }
+
     private init() {}
 
     func start() {

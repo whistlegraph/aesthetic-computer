@@ -200,9 +200,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         refresh()
-        let timer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+        let timer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
             self?.refresh()
         }
+        timer.tolerance = 0.5
         refreshTimer = timer
         RunLoop.main.add(timer, forMode: .common)
 
@@ -210,11 +211,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // the fleet refresh. Poll once at launch, then every three seconds.
         refreshImsgCount()
         refreshSignalCount()
-        let contactTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) {
+        let contactTimer = Timer.scheduledTimer(withTimeInterval: 15.0, repeats: true) {
             [weak self] _ in
             self?.refreshImsgCount()
             self?.refreshSignalCount()
         }
+        contactTimer.tolerance = 2.0
         imsgTimer = contactTimer
         RunLoop.main.add(contactTimer, forMode: .common)
 
@@ -888,36 +890,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             || Date() < imsgArrivalVisibleUntil
     }
 
-    /// Poke the prox explicitly assigned to iMessage awareness and enqueue a
-    /// session-addressed event for its long-polling MCP listener. Loopboy must
+    /// Save every iMessage edge to the contact-addressed global bus, then poke
+    /// the currently verified prox when one exists. Loopboy must
     /// never type into Terminal, touch the clipboard, or use foreground UI.
     private func bumpBoundProx(contact: String, displayLabel: String, message: String,
                                fromMe: Bool = false, heartbeat: Bool = false) {
-        guard let route = LoopboyRoutes.all()[contact],
-              let boundSession = state.claudeSessions.first(where: {
-                  $0.sessionId == route.sessionId
-                      && LoopboyRoutes.verifiedContact(for: $0) == contact
-              }) else {
-            NSLog("💬 [loopboy] %@ route has no matching guarded live session; refusing delivery",
-                  contact)
-            return
-        }
-        let sid = route.sessionId
-        let routeHost = route.host
-            .lowercased().replacingOccurrences(of: ".local", with: "")
-        let localHost = ProcessInfo.processInfo.hostName.lowercased()
-            .replacingOccurrences(of: ".local", with: "")
-        guard routeHost.isEmpty || routeHost == localHost else {
-            NSLog("💬 [loopboy] %@ route host %@ is not local %@; refusing wake",
-                  contact, routeHost, localHost)
-            return
+        let contactKey = contact.trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        let route = LoopboyRoutes.all()[contactKey]
+        let boundSession = route.flatMap { candidate in
+            state.claudeSessions.first(where: {
+                $0.sessionId == candidate.sessionId
+                    && LoopboyRoutes.verifiedContact(for: $0) == contactKey
+            })
         }
         let data = FileManager.default.contents(atPath: Paths.loopboyConfig)
         let obj = data.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
         let loops = obj?["loops"] as? [String: Any]
-        let loop = loops?[contact] as? [String: Any]
+        let loop = loops?[contactKey] as? [String: Any]
         let autoRespond = (loop?["autoRespond"] as? Bool) ?? false
-        LedgerStore.shared.pokeLocal(sessionId: sid, by: "loopboy:\(contact)")
 
         let clean = message.replacingOccurrences(of: "\n", with: " ")
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -933,8 +924,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // the prompt hook's inferred title so each heartbeat names this
             // prox's actual mission instead of asking a context-free "what's
             // next?" every minute.
-            let topic = boundSession.titleString
-                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let topic = boundSession?.titleString
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             let continuation = topic.isEmpty || topic == "(no subject)"
                 ? "Re-read the latest thread with \(displayLabel), infer the next concrete action, and do it."
                 : "Continue \(topic) for \(displayLabel): infer the next concrete action from the latest thread, then do it."
@@ -948,21 +939,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let localOnly = " Execution boundary: remain on this local Neo host and use only non-interactive shell, repository, HTTP, and service API operations. Do not use browser automation, Puppet, Frame, CDP, GUI apps, mouse or keyboard control, open/reveal commands, SSH, or any other machine—including Panda or Blueberry—unless Jeffrey explicitly requests that exact interactive action in the current thread. If validation would require GUI control, report the blocker locally instead."
         let prompt = taskPrompt + localOnly
         let queued = enqueueLoopboyEvent(
-            sessionId: sid, contact: contact, displayName: displayLabel,
+            sessionId: route?.sessionId ?? "", contact: contactKey,
+            displayName: displayLabel, channel: "imessage",
             kind: heartbeat ? "heartbeat" : "message", fromMe: fromMe,
             excerpt: excerpt, prompt: prompt)
+        guard let route, boundSession != nil else {
+            NSLog("💬 [loopboy] %@ event saved to global bus=%@; route will auto-heal on wait",
+                  contactKey, queued ? "yes" : "failed")
+            return
+        }
+        let sid = route.sessionId
+        let routeHost = route.host
+            .lowercased().replacingOccurrences(of: ".local", with: "")
+        let localHost = ProcessInfo.processInfo.hostName.lowercased()
+            .replacingOccurrences(of: ".local", with: "")
+        guard routeHost.isEmpty || routeHost == localHost else {
+            NSLog("💬 [loopboy] %@ event saved globally; route host %@ is not local %@",
+                  contactKey, routeHost, localHost)
+            return
+        }
+        LedgerStore.shared.pokeLocal(sessionId: sid, by: "loopboy:\(contactKey)")
         NSLog("💬 [loopboy] %@ event %@ inbox=%@ prox=%@",
-              contact, heartbeat ? "heartbeat" : "message",
+              contactKey, heartbeat ? "heartbeat" : "message",
               queued ? "queued" : "failed", String(sid.prefix(8)))
     }
 
     private func enqueueLoopboyEvent(sessionId: String, contact: String,
-                                     displayName: String, kind: String,
+                                     displayName: String, channel: String,
+                                     kind: String,
                                      fromMe: Bool, excerpt: String,
                                      prompt: String) -> Bool {
-        guard sessionId.range(of: "^[A-Za-z0-9-]{8,128}$",
-                              options: .regularExpression) != nil else { return false }
-        let dir = "\(Paths.slabHome)/loopboy/inbox/\(sessionId)"
+        guard contact.range(of: "^[a-z0-9_-]{1,40}$",
+                            options: .regularExpression) != nil else { return false }
+        let dir = "\(Paths.slabHome)/loopboy/bus/\(contact)"
         do {
             try FileManager.default.createDirectory(
                 atPath: dir, withIntermediateDirectories: true,
@@ -973,6 +982,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 "id": id,
                 "sessionId": sessionId,
                 "contact": contact,
+                "channel": channel,
                 "displayName": displayName,
                 "kind": kind,
                 "fromMe": fromMe,
@@ -3424,7 +3434,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func probeTilePopulation(force: Bool = false) {
         guard state.autoTile, AXTiler.trusted, !tilePopulationProbeInFlight else { return }
         let now = Date()
-        let interval = now < tilePopulationFastUntil ? 0.18 : 0.75
+        // Window launches get a short responsive burst; a stable wall needs
+        // only a low-frequency safety census. AX enumeration is surprisingly
+        // expensive with a tiled wall, so do not pay it every 750 ms forever.
+        let interval = now < tilePopulationFastUntil ? 0.18 : 3.0
         guard force || now.timeIntervalSince(tilePopulationLastProbeAt) >= interval else { return }
         tilePopulationLastProbeAt = now
         tilePopulationProbeInFlight = true

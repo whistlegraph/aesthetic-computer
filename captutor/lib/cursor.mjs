@@ -110,6 +110,27 @@ async function moveNativePointer(cdp, point, durationMs, geometry = null) {
   await sleep(durationMs);
 }
 
+// A long-running generation is still an action. Hold the cursor over its blue
+// progress control and give it a small native figure-eight until the next move
+// takes over. No browser click or DOM mutation is sent.
+export async function dillydallyAtPoint(cdp, point, {
+  offsetX = 0, offsetY = 0, durationMs = 0,
+} = {}) {
+  if (REAL_CURSOR || NO_CURSOR) return;
+  await startNativeCursor();
+  const viewport = await cdp.eval(`({ width:innerWidth, height:innerHeight })`);
+  const pagePoint = {
+    x: Math.max(12, Math.min(viewport.width - 28, point.x + Number(offsetX))),
+    y: Math.max(12, Math.min(viewport.height - 28, point.y + Number(offsetY))),
+  };
+  const geometry = await cdp.eval(`({
+    screenX, screenY, outerWidth, outerHeight, innerWidth, innerHeight
+  })`);
+  const screen = pagePointToScreen(geometry, pagePoint);
+  nativeCommand("dillydally", { x:screen.x, y:screen.y, durationMs });
+  await cdp.mouse("mouseMoved", pagePoint.x, pagePoint.y);
+}
+
 async function pointWithin(cdp, selector, { anchorX = 0.5, anchorY = 0.5 } = {}) {
   // Let Session.center provide its normal wait/retry behavior first. Anchored
   // points are intentionally CSS-only: text=/js= selectors name an element by

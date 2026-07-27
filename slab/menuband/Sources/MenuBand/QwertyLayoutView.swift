@@ -17,7 +17,10 @@ final class QwertyLayoutView: NSView {
     /// "note-mapped" (Notepat = 2-octave layout, Ableton = Live's
     /// M-mode QWERTY).
     var keymap: Keymap = .notepat {
-        didSet { needsDisplay = true }
+        didSet {
+            needsDisplay = true
+            if let window { window.invalidateCursorRects(for: self) }
+        }
     }
     /// Current voice's family color — used to tint note-mapped
     /// keycaps so the keymap reads as part of the chosen instrument.
@@ -44,6 +47,12 @@ final class QwertyLayoutView: NSView {
     /// release-then-press when a drag crosses into a new cap and clean
     /// up on mouseUp.
     private var heldByPointer: UInt16?
+    private var hoveredKeyCode: UInt16? {
+        didSet {
+            if hoveredKeyCode != oldValue { needsDisplay = true }
+        }
+    }
+    private var hoverTrackingArea: NSTrackingArea?
 
     // 5 rows of 14pt caps + 4 row gaps of 1pt = 74pt + a touch of
     // breathing room. (Was 60pt back when there were 4 rows.)
@@ -55,6 +64,7 @@ final class QwertyLayoutView: NSView {
         didSet {
             invalidateIntrinsicContentSize()
             needsDisplay = true
+            if let window { window.invalidateCursorRects(for: self) }
         }
     }
     override var intrinsicContentSize: NSSize {
@@ -81,6 +91,33 @@ final class QwertyLayoutView: NSView {
     /// click-and-drag-across-keys when the user starts on the
     /// QWERTY map after another window had focus.
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        guard onKey != nil else { return }
+        forEachVisibleCap { _, rect in
+            addCursorRect(rect, cursor: .pointingHand)
+        }
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let area = hoverTrackingArea { removeTrackingArea(area) }
+        hoverTrackingArea = nil
+        guard onKey != nil else {
+            hoveredKeyCode = nil
+            return
+        }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .mouseMoved,
+                      .activeAlways, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        hoverTrackingArea = area
+    }
 
     /// Cap descriptor — `width` is in standard-key units (1.0 = a
     /// regular letter cap; shift = 1.5, space = 5.0). `altLabel`
@@ -155,6 +192,7 @@ final class QwertyLayoutView: NSView {
                 || Self.percussionKeyCodes.contains(cap.kc)
             let black = (st.map { Self.isBlackKey(semitone: $0) }) ?? false
             let isLit = litKeyCodes.contains(cap.kc)
+            let isHovered = hoveredKeyCode == cap.kc
             // Out-of-range: this key is mapped to a note, but at the
             // current octave shift that note would fall outside
             // MIDI 0…127. Dim the cap so the user can see at a
@@ -172,7 +210,8 @@ final class QwertyLayoutView: NSView {
                         // glance which presses change state vs play
                         // a note.
                         isOctaveKey: isOctaveKey || isVoiceKey,
-                        outOfRange: outOfRange)
+                        outOfRange: outOfRange,
+                        hovered: isHovered)
         }
     }
 
@@ -267,8 +306,21 @@ final class QwertyLayoutView: NSView {
     // across caps with proper release-then-press so chords don't get
     // stuck and notes glissando smoothly.
 
+    override func mouseEntered(with event: NSEvent) {
+        hoveredKeyCode = keyCode(at: convert(event.locationInWindow, from: nil))
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        hoveredKeyCode = keyCode(at: convert(event.locationInWindow, from: nil))
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        hoveredKeyCode = nil
+    }
+
     override func mouseDown(with event: NSEvent) {
         let p = convert(event.locationInWindow, from: nil)
+        hoveredKeyCode = keyCode(at: p)
         guard let kc = keyCode(at: p) else { return }
         heldByPointer = kc
         onKey?(kc, true)
@@ -277,6 +329,7 @@ final class QwertyLayoutView: NSView {
     override func mouseDragged(with event: NSEvent) {
         let p = convert(event.locationInWindow, from: nil)
         let kc = keyCode(at: p)
+        hoveredKeyCode = kc
         if kc == heldByPointer { return }
         if let prev = heldByPointer { onKey?(prev, false) }
         heldByPointer = kc
@@ -316,7 +369,8 @@ final class QwertyLayoutView: NSView {
                              altLabel: String? = nil,
                              mapped: Bool, isBlack: Bool, lit: Bool,
                              isOctaveKey: Bool = false,
-                             outOfRange: Bool = false) {
+                             outOfRange: Bool = false,
+                             hovered: Bool = false) {
         let path = NSBezierPath(roundedRect: rect,
                                  xRadius: scaledCornerRadius,
                                  yRadius: scaledCornerRadius)
@@ -363,8 +417,17 @@ final class QwertyLayoutView: NSView {
             NSColor.labelColor.withAlphaComponent(0.05).setFill()
             path.fill()
         }
+        if hovered {
+            // A translucent cyan wash preserves each key's white/black/control
+            // identity while making its pointer target unmistakable.
+            let cyan = NSColor(srgbRed: 0.08, green: 0.82, blue: 0.94, alpha: 1)
+            cyan.withAlphaComponent(lit ? 0.16 : 0.25).setFill()
+            path.fill()
+        }
         let stroke: NSColor
-        if lit {
+        if hovered {
+            stroke = NSColor(srgbRed: 0.08, green: 0.82, blue: 0.94, alpha: 1)
+        } else if lit {
             stroke = NSColor.controlAccentColor
         } else if isOctaveKey && !mapped {
             stroke = NSColor.controlAccentColor.withAlphaComponent(0.65)
@@ -375,7 +438,7 @@ final class QwertyLayoutView: NSView {
             stroke = NSColor.labelColor.withAlphaComponent(mapped ? 0.45 : 0.13)
         }
         stroke.setStroke()
-        path.lineWidth = 0.7
+        path.lineWidth = hovered ? 1.25 : 0.7
         path.stroke()
         // Letter glyph centered in the cap, color follows the piano-
         // key convention: white caps get black text, black caps get
