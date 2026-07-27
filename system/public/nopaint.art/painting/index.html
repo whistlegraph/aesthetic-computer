@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>No Paint — archive record</title>
+<meta name="description" content="A record from the No Paint painting archive.">
+<link rel="icon" type="image/png" href="/icons/icon-1024.png">
+<style>
+  @font-face { font-family: Pixelar; src: url("/fonts/pixelar-regular-w01.woff2") format("woff2"); }
+  * { box-sizing: border-box; }
+  html,body { margin:0; min-height:100%; background:#ebebeb; color:#222; font-family:Pixelar,monospace; }
+  body { padding:20px; }
+  main { width:min(880px,100%); margin:auto; }
+  nav { display:flex; justify-content:space-between; gap:16px; margin-bottom:18px; font-size:18px; }
+  a { color:#222; }
+  .record { display:grid; grid-template-columns:minmax(256px,1fr) minmax(240px,1fr); gap:24px; align-items:start; }
+  .image { width:100%; background:#ddd; border:2px solid #222; image-rendering:pixelated; }
+  h1 { font-size:30px; font-weight:normal; margin:0 0 12px; overflow-wrap:anywhere; }
+  dl { display:grid; grid-template-columns:90px 1fr; gap:7px 10px; margin:0 0 22px; font-size:17px; }
+  dt { color:#666; } dd { margin:0; overflow-wrap:anywhere; }
+  .notice { border:2px solid #222; background:#fff; padding:14px; font:15px/1.35 Arial,sans-serif; margin:16px 0; }
+  .notice strong { font-family:Pixelar,monospace; font-size:19px; font-weight:normal; }
+  .actions { display:flex; flex-wrap:wrap; gap:8px; }
+  .button { display:inline-block; padding:7px 11px; border:2px solid #222; background:#fff; font-size:17px; text-decoration:none; }
+  .button.danger { background:#222; color:#fff; }
+  #missing { display:none; padding:28px 0; font-size:20px; }
+  @media(max-width:650px){ body{padding:12px}.record{grid-template-columns:1fr}.image{max-width:520px} }
+</style>
+</head>
+<body>
+<main>
+  <nav><a href="/gallery/">← archive</a><a href="/">play No Paint</a></nav>
+  <section id="record" class="record" hidden>
+    <div><img id="image" class="image" alt=""></div>
+    <div>
+      <h1 id="title"></h1>
+      <dl>
+        <dt>archive id</dt><dd id="id"></dd>
+        <dt>saved</dt><dd id="date"></dd>
+        <dt>description</dt><dd id="description"></dd>
+        <dt>tags</dt><dd id="tags"></dd>
+        <dt>privacy</dt><dd id="privacy"></dd>
+      </dl>
+      <div class="notice">
+        <strong>Archive and authorship</strong><br>
+        This image was anonymously saved through No Paint. The archive has no verified painter identity or ownership assignment for this individual image. Aesthetic Computer maintains the software, storage, and aggregate archive presentation; that does not erase a depicted person's privacy interests or settle every creator-rights question.
+      </div>
+      <div class="notice">
+        <strong>Removal and privacy review</strong><br>
+        You can request review for an accidental camera image, recognizable person, minor-safety concern, personal information, creator request, or other rights issue. You do not need to claim copyright to raise a privacy or safety concern. Include this archive id and only the minimum contact information needed for a reply.
+      </div>
+      <div class="actions">
+        <a id="flag" class="button danger" href="#">flag / request removal</a>
+        <a id="original" class="button" href="#">open original PNG</a>
+      </div>
+    </div>
+  </section>
+  <section id="missing">This archive record was not found. <a href="/gallery/">Browse the gallery.</a></section>
+</main>
+<script>
+  const id = decodeURIComponent(location.pathname.replace(/^\/+|\/+$/g, ""));
+  const record = document.getElementById("record");
+  const missing = document.getElementById("missing");
+  const text = (name, value) => document.getElementById(name).textContent = value || "—";
+  fetch("/gallery/gallery.json").then(r => r.ok ? r.json() : Promise.reject()).then(manifest => {
+    const painting = manifest.paintings.find(item => item.id === id);
+    if (!painting) throw new Error("not found");
+    const original = (manifest.cdn || "https://pix.nopaint.art/") + encodeURIComponent(id) + ".png";
+    document.title = `No Paint — ${id}`;
+    text("id", id); text("title", painting.t || `No Paint ${id}`);
+    text("date", painting.d ? new Date(painting.d).toLocaleString() : "Unknown");
+    text("description", painting.desc); text("tags", painting.tags);
+    text("privacy", painting.unsafe ? "flagged for photographic-face review" : "archive-wide face/privacy review pending");
+    const image = document.getElementById("image"); image.src = original; image.alt = painting.desc || `No Paint archive painting ${id}`;
+    document.getElementById("original").href = original;
+    const subject = encodeURIComponent(`No Paint archive review: ${id}`);
+    const body = encodeURIComponent(`Archive record: https://nopaint.art/${id}\nReason for review/removal:\n\nRelationship to the image (optional):\nPreferred reply address:`);
+    document.getElementById("flag").href = `mailto:mail@aesthetic.computer?subject=${subject}&body=${body}`;
+    record.hidden = false;
+  }).catch(() => { missing.style.display = "block"; });
+</script>
+</body>
+</html>
