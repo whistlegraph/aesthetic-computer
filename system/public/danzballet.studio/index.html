@@ -28,6 +28,8 @@
       content="A new space for movement, artistry, and ballet is taking shape."
     />
     <meta name="twitter:image" content="https://danzballet.studio/og-image.png" />
+    <link rel="icon" href="/logo.png" />
+    <link rel="preload" href="/hero-pointe-shoes.jpg" as="image" />
     <style>
       :root {
         color-scheme: light;
@@ -50,10 +52,28 @@
       }
 
       body {
+        position: relative;
         min-height: 100svh;
         overflow: hidden;
         color: var(--ink);
         font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      }
+
+      body::before,
+      body::after {
+        position: fixed;
+        inset: 0;
+        content: "";
+      }
+
+      body::before {
+        background: var(--paper) url("/hero-pointe-shoes.jpg") center / cover no-repeat;
+      }
+
+      body::after {
+        background:
+          linear-gradient(90deg, rgba(248, 242, 235, 0.94) 0%, rgba(248, 242, 235, 0.72) 36%, rgba(248, 242, 235, 0.08) 72%),
+          linear-gradient(0deg, rgba(126, 38, 58, 0.06), transparent 52%);
       }
 
       canvas {
@@ -61,21 +81,21 @@
         inset: 0;
         width: 100%;
         height: 100%;
+        z-index: 1;
       }
 
       main {
         position: relative;
-        z-index: 1;
+        z-index: 2;
         display: grid;
         min-height: 100svh;
-        place-items: center;
-        padding: clamp(28px, 7vw, 84px) 24px;
-        text-align: center;
+        align-items: center;
+        padding: clamp(28px, 7vw, 84px) clamp(24px, 8vw, 128px);
+        text-align: left;
       }
 
       .mark {
-        width: min(680px, 100%);
-        transform: translateY(4vh);
+        width: min(570px, 52vw);
       }
 
       .eyebrow {
@@ -88,30 +108,29 @@
       }
 
       h1 {
-        margin: 0;
-        color: var(--wine);
-        font-family: Didot, "Bodoni 72", "Times New Roman", serif;
-        font-size: clamp(76px, 13vw, 158px);
-        font-weight: 400;
-        letter-spacing: 0.08em;
-        line-height: 0.78;
-        text-indent: 0.08em;
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
       }
 
-      .studio {
-        margin: clamp(22px, 4vw, 34px) 0 0;
-        font-size: clamp(13px, 2vw, 23px);
-        font-weight: 400;
-        letter-spacing: 0.36em;
-        text-indent: 0.36em;
-        text-transform: uppercase;
+      .brand-logo {
+        display: block;
+        width: min(610px, 58vw);
+        max-width: none;
+        margin: clamp(-76px, -5vw, -42px) 0 clamp(-62px, -4vw, -34px) clamp(-86px, -6vw, -46px);
       }
 
       .rule {
         display: flex;
         align-items: center;
         width: min(430px, 72vw);
-        margin: clamp(26px, 5vw, 42px) auto;
+        margin: clamp(20px, 3vw, 34px) 0;
         color: var(--wine);
       }
 
@@ -141,7 +160,7 @@
 
       .details {
         display: flex;
-        justify-content: center;
+        justify-content: flex-start;
         gap: 12px 24px;
         margin: 18px 0 0;
         color: color-mix(in srgb, var(--ink) 62%, transparent);
@@ -168,8 +187,24 @@
       }
 
       @media (max-width: 520px) {
+        body::before {
+          background-position: 68% center;
+        }
+
+        body::after {
+          background:
+            linear-gradient(0deg, rgba(248, 242, 235, 0.9), rgba(248, 242, 235, 0.64)),
+            linear-gradient(90deg, rgba(248, 242, 235, 0.8), rgba(248, 242, 235, 0.22));
+        }
+
+        main {
+          justify-items: center;
+          padding: 28px 22px;
+          text-align: center;
+        }
+
         .mark {
-          transform: translateY(3vh);
+          width: 100%;
         }
 
         .eyebrow {
@@ -178,16 +213,18 @@
           letter-spacing: 0.35em;
         }
 
-        h1 {
-          font-size: clamp(70px, 24vw, 104px);
+        .brand-logo {
+          width: 100%;
+          margin: -38px auto -30px;
         }
 
-        .studio {
-          letter-spacing: 0.25em;
-          text-indent: 0.25em;
+        .rule {
+          margin-right: auto;
+          margin-left: auto;
         }
 
         .details {
+          justify-content: center;
           flex-wrap: wrap;
           gap: 8px 14px;
           line-height: 1.6;
@@ -210,8 +247,8 @@
     <main>
       <section class="mark" aria-label="Danz Ballet Studio, coming soon">
         <p class="eyebrow">A new space is taking shape</p>
-        <h1>Danz</h1>
-        <p class="studio">Ballet Studio</p>
+        <img class="brand-logo" src="/logo.png" alt="" />
+        <h1>Danz Ballet Studio</h1>
         <div class="rule" aria-hidden="true"><span></span></div>
         <p class="message">Movement. Artistry. Belonging.</p>
         <p class="details">
