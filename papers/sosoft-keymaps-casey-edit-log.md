@@ -68,7 +68,7 @@ needed a fuller resolution or official title casing.
 - [x] Edition roster reconciled with the project catalog.
 - [x] Markdown and video-recovery scripts pass syntax/whitespace checks.
 - [x] Framer article updated from the final source through the Server API.
-- [x] Public URL checked after production deployment `ab007e478`.
+- [x] Public URL checked after corrected production deployment `48c12600d`.
 
 ## Publication evidence
 
