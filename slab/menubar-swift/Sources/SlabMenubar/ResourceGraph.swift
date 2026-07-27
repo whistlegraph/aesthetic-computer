@@ -84,14 +84,17 @@ final class ResourceGraph: NSObject {
             let boardEdge = NSBezierPath(rect: bounds.insetBy(dx: 0.5, dy: 0.5))
             boardEdge.lineWidth = 1
             boardEdge.stroke()
+            let content = bounds.insetBy(dx: 4, dy: 4)
             let rowHeight: CGFloat = 20
             let labelWidth: CGFloat = 64
             let gap: CGFloat = 2
-            let stripWidth = bounds.width - labelWidth
+            let stripWidth = content.width - labelWidth
             for (index, worker) in workers.prefix(5).enumerated() {
-                let y = bounds.maxY - CGFloat(index + 1) * rowHeight - CGFloat(index) * gap
-                drawLabel(worker, in: NSRect(x: 0, y: y, width: labelWidth - 4, height: rowHeight))
-                drawStrip(worker, in: NSRect(x: labelWidth, y: y, width: stripWidth, height: rowHeight))
+                let y = content.maxY - CGFloat(index + 1) * rowHeight - CGFloat(index) * gap
+                drawLabel(worker, in: NSRect(x: content.minX, y: y,
+                                              width: labelWidth - 4, height: rowHeight))
+                drawStrip(worker, in: NSRect(x: content.minX + labelWidth, y: y,
+                                              width: stripWidth, height: rowHeight))
             }
         }
 
@@ -135,7 +138,7 @@ final class ResourceGraph: NSObject {
                     drawTexture(value: raw, color: color, in: cell)
                 }
                 let tagRect = NSRect(x: cell.minX + 1, y: cell.maxY - 7,
-                                     width: min(16, cell.width - 2), height: 6)
+                                     width: cell.width - 2, height: 6)
                 color.withAlphaComponent(worker.online ? 0.90 : 0.20).setFill()
                 tagRect.fill()
                 let tag = NSAttributedString(string: labels[index], attributes: [
@@ -471,7 +474,7 @@ final class ResourceGraph: NSObject {
 
     private func drawModuleTag(_ metric: Metric, in rect: NSRect) {
         let tagRect = NSRect(x: rect.minX + 1.5, y: rect.maxY - 7.8,
-                             width: min(17, rect.width - 3), height: 6.2)
+                             width: rect.width - 3, height: 6.2)
         metric.color.withAlphaComponent(0.94).setFill()
         tagRect.fill()
         let label = NSAttributedString(string: metric.name, attributes: [
@@ -793,12 +796,16 @@ final class ResourceGraph: NSObject {
     private func showHoverCard() {
         guard hoverPanel?.isVisible != true, let button = item?.button,
               let window = button.window else { return }
-        let rowCount = max(1, fleetWorkers.isEmpty ? fleetTargets().count : fleetWorkers.count)
-        let size = NSSize(width: 258, height: CGFloat(rowCount * 20 + max(0, rowCount - 1) * 2))
         let windowRect = button.convert(button.bounds, to: nil)
         let statusRect = window.convertToScreen(windowRect)
+        let rowCount = max(1, fleetWorkers.isEmpty ? fleetTargets().count : fleetWorkers.count)
+        let labelWidth: CGFloat = 64
+        let padding: CGFloat = 4
+        let size = NSSize(width: statusRect.width + labelWidth + padding * 2,
+                          height: CGFloat(rowCount * 20 + max(0, rowCount - 1) * 2 + 8))
         let screen = window.screen ?? NSScreen.main
-        var origin = NSPoint(x: statusRect.minX - 58, y: statusRect.minY - size.height - 2)
+        var origin = NSPoint(x: statusRect.minX - labelWidth - padding,
+                             y: statusRect.minY - size.height - 4)
         if let visible = screen?.visibleFrame {
             origin.x = min(max(origin.x, visible.minX + 2), visible.maxX - size.width - 2)
         }

@@ -6,9 +6,8 @@ count, or duplicate AC Caddy servers exceed their budgets. Three consecutive
 pressure samples produce a rate-limited macOS notification.
 
 While a threshold is active, the guard exposes
-`~/.local/share/slab/performance/pressure-active`. Slab uses this as an eco
-governor: prompt rocks hold a static frame until pressure clears, preserving
-their identity while removing continuous compositor animation.
+`~/.local/share/slab/performance/pressure-active` as a stable eco-governor
+signal for Slab renderers and other local tools.
 
 The fleet worker uses the same flag as an admission gate. An active render is
 allowed to finish, but that host accepts no additional missions until pressure

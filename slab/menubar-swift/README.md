@@ -30,6 +30,12 @@ The footer contains a native About Slab window and Quit Slab.
 
 Refresh cadence: 2 s. Mail unread count refreshes every 30 s (15 ticks).
 
+The installer compares Mach-O build UUIDs before touching the app bundle. An
+identical signed build is a true no-op: it is not copied, re-signed, or
+restarted, so routine fleet deployment does not churn macOS privacy prompts.
+Startup also avoids reading the current photo wallpaper; capture permissions
+remain lazy until an explicit frame or reel request needs them.
+
 ### Resource TVs
 
 The optional resource strip is five small, squared category TVs: CPU, RAM,

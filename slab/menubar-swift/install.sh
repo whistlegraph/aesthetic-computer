@@ -310,6 +310,35 @@ else
     ok "built: ${BUILT}"
 fi
 
+# Re-running the installer with the exact same build used to overwrite and
+# re-sign the app, producing a fresh cdhash and restarting every TCC-sensitive
+# subsystem for no functional change. macOS can then repeat Screen Recording,
+# Photos, Accessibility, and background-item notices even though their sliders
+# are already enabled. The Mach-O UUID survives signing and identifies the
+# compiled payload, so an identical, valid bundle is a true no-op.
+binary_uuid() {
+    /usr/bin/dwarfdump --uuid "$1" 2>/dev/null | awk '{print $2}' | paste -sd, -
+}
+BUILT_UUID="$(binary_uuid "${BUILT}")"
+APP_UUID="$(binary_uuid "${APP_BIN}")"
+if [[ -x "${APP_BIN}" && -f "${PLIST_PATH}" ]] \
+   && [[ -n "${BUILT_UUID}" && "${BUILT_UUID}" == "${APP_UUID}" ]] \
+   && cmp -s "${INFO_PLIST}" "${APP_DIR}/Contents/Info.plist" \
+   && codesign --verify --deep --strict "${APP_DIR}" >/dev/null 2>&1; then
+    _sig="$(codesign -dvv "${APP_DIR}" 2>&1)"
+    if [[ "${_sig}" == *"Authority=${SIGN_CN}"* ]]; then
+        provision_tailscale_cli
+        if launchctl print "gui/$(id -u)/computer.slab.menubar" >/dev/null 2>&1 \
+           && pgrep -f "SlabMenubar.app/Contents/MacOS/slab-menubar" >/dev/null 2>&1; then
+            ok "identical signed build is already running — no copy, re-sign, restart, or permission churn"
+            exit 0
+        fi
+        ok "identical signed build is installed; starting the existing launch agent"
+        launchctl kickstart "gui/$(id -u)/computer.slab.menubar" 2>/dev/null || true
+        exit 0
+    fi
+fi
+
 provision_tailscale_cli
 provision_iterm2_profiles
 provision_terminal_close_warning
