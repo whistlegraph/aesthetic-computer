@@ -21,7 +21,7 @@
 // Hand-rolled JSON-RPC over stdio, matching the house style of the sibling
 // frame-mcp / puppet-mcp — no SDK, only node builtins + the shared front.
 import { readFile, readdir, writeFile, mkdir, rename } from "node:fs/promises";
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import { join } from "node:path";
 import { homedir, hostname } from "node:os";
@@ -281,6 +281,48 @@ async function closeTerminalTty(tty) {
 end tell`;
   try { const { stdout } = await pexec("osascript", ["-e", osa]); return parseInt(stdout.trim(), 10) || 0; }
   catch { return 0; }
+}
+
+// A calling Loopboy cannot synchronously close the terminal that must carry
+// its MCP response. Hand the close to a detached helper, giving the agent a
+// brief window to return its shutdown receipt. Slab's terminal-population
+// watcher observes the close and re-tiles the remaining panes.
+function scheduleTerminalClose(tty, pid, delayMs = 4_000) {
+  const dev = tty.startsWith("/dev/") ? tty : `/dev/${tty}`;
+  if (!/^\/dev\/(ttys\d+|pts\/\d+)$/.test(dev)) {
+    throw new Error(`refusing unsafe tty marker: ${tty}`);
+  }
+  const osa = `tell application "Terminal"
+  set n to 0
+  repeat with w in windows
+    repeat with t in tabs of w
+      try
+        if (tty of t) is "${dev}" then
+          close w saving no
+          set n to n + 1
+        end if
+      end try
+    end repeat
+  end repeat
+  return n
+end tell`;
+  const helper = `
+const { execFile } = require("node:child_process");
+const script = process.argv[1];
+const pid = Number(process.argv[2]) || 0;
+const delay = Number(process.argv[3]) || 4000;
+setTimeout(() => {
+  execFile("/usr/bin/osascript", ["-e", script], { timeout: 8000 }, () => {
+    if (pid > 1) setTimeout(() => { try { process.kill(pid, "SIGTERM"); } catch {} }, 750);
+  });
+}, delay);
+`;
+  const child = spawn(process.execPath, ["-e", helper, osa, String(pid || 0), String(delayMs)], {
+    detached: true,
+    stdio: "ignore",
+  });
+  child.unref();
+  return child.pid;
 }
 
 // ── tools ─────────────────────────────────────────────────────────────────────
@@ -694,7 +736,7 @@ async function toolLoopboyWait({ handle, contact, timeoutSeconds = 50 }, context
   }];
 }
 
-async function toolClose({ handle }) {
+async function toolClose({ handle }, context = {}) {
   if (!handle) throw new Error("`handle` is required (a canonical host:name#id, exact host:name, unique pet name, or session id; see prox_find).");
   const r = actionResolution(await allRocks(), handle, "close");
   // Closing means killing a process + shutting its terminal window — only doable
@@ -707,9 +749,37 @@ async function toolClose({ handle }) {
   // legacy `claude_pid` so existing Claude markers still close.
   const pid = mk?.agent_pid || mk?.claude_pid || 0;
   if (!tty && !pid) throw new Error(`no live tty/pid marker for ${r.host}:${r.name} (id ${r.id.slice(0, 8)}) — it may already be gone.`);
-  // Never close the session that is asking.
+  // Ordinary prompts can never close themselves. A guarded Loopboy is the
+  // narrow exception: an authenticated matching launch identity may release
+  // its own route and schedule its own terminal close after the MCP receipt.
   const anc = await ancestorPids(process.pid);
-  if (pid && anc.has(pid)) throw new Error(`refusing to close ${r.host}:${r.name} — that is the session calling prox_close.`);
+  let callerIdentity = null;
+  try { callerIdentity = loopboyWaitIdentity({ context }); } catch {}
+  const identifiedSelf = callerIdentity && String(callerIdentity.sessionId) === String(r.id);
+  const processSelf = pid && anc.has(pid);
+  if (identifiedSelf || processSelf) {
+    const contact = String(callerIdentity?.contact || "").toLowerCase();
+    if (!identifiedSelf || !contact || String(r.loopboyContact || "").toLowerCase() !== contact) {
+      throw new Error(`refusing to close ${r.host}:${r.name} — that is the session calling prox_close.`);
+    }
+    if (!tty) throw new Error(`no live tty marker for guarded Loopboy ${canonicalHandle(r)}`);
+    const cfg = (await readJson(LOOPBOY_CONFIG)) || { version: 1, loops: {} };
+    cfg.loops ||= {};
+    if (String(cfg.loops[contact]?.sessionId || "") !== String(r.id)) {
+      throw new Error(`this Loopboy session is not the bound ${contact} listener`);
+    }
+    delete cfg.loops[contact];
+    await writeLoopboyConfig(cfg);
+    if (process.env.SLAB_PROX_CLOSE_DRY_RUN !== "1") {
+      scheduleTerminalClose(tty, pid);
+    }
+    return [{
+      type: "text",
+      text: `checked_at: ${isoTime(r.resolvedAt)}\n` +
+        `scheduled guarded Loopboy shutdown for ${canonicalHandle(r)} — ` +
+        `released ${contact} route; terminal closes after the receipt; Slab re-tiles the remaining panes.`,
+    }];
+  }
   const steps = [];
   // Graceful first, then force. claude traps SIGTERM, so don't wait long on it.
   if (pid && pidAlive(pid)) {
@@ -812,7 +882,7 @@ const TOOLS = [
   {
     name: "prox_close",
     description:
-      "Close a prompt rock and its terminal window. DESTRUCTIVE: requires a fresh ledger and a canonical host:name#id, session id, exact host:name, or fleet-unique exact pet name; refuses fuzzy, duplicate, stale, remote, or calling-session targets.",
+      "Close a prompt rock and its terminal window. DESTRUCTIVE: requires a fresh ledger and a canonical host:name#id, session id, exact host:name, or fleet-unique exact pet name; refuses fuzzy, duplicate, stale, and remote targets. Ordinary sessions cannot close themselves; a guarded Loopboy may release its own route and schedule a self-close so Slab can re-tile.",
     inputSchema: {
       type: "object",
       properties: {
@@ -903,7 +973,7 @@ async function callTool(name, args, context) {
     case "prox_loopboy_wait": return toolLoopboyWait(args || {}, context);
     case "prox_loopboy_agent_status": return toolLoopboyAgentStatus(args || {});
     case "prox_loopboy_agent_nudge": return toolLoopboyAgentNudge(args || {});
-    case "prox_close": return toolClose(args || {});
+    case "prox_close": return toolClose(args || {}, context);
     default: throw new Error(`Unknown tool: ${name}`);
   }
 }

@@ -216,3 +216,40 @@ test("a second live Loopboy cannot steal an active contact route", async () => {
   }, { SLAB_LOOPBOY_CONTACT: "alex", SLAB_PROMPT_SESSION_ID: callerId });
   assert.match(text, /not the bound alex listener.*neo:owner#aaaaaaaa/);
 });
+
+test("a guarded Loopboy can release its route and schedule its own shutdown", async () => {
+  const home = await mkdtemp(join(tmpdir(), "prox-mcp-test-"));
+  const slabDir = join(home, ".config", "slab");
+  const ledgerDir = join(slabDir, "ledger");
+  const markerDir = join(home, ".local", "share", "slab", "state", "active-prompts");
+  await mkdir(join(ledgerDir, "peers"), { recursive: true });
+  await mkdir(markerDir, { recursive: true });
+  const now = Date.now();
+  const id = "cccccccc-1111-2222-3333-444444444444";
+  await writeFile(join(ledgerDir, "local.json"), JSON.stringify({
+    host: "neo", ip: "127.0.0.1", updatedAt: now,
+    entries: [{
+      id, host: "neo", name: "closer", subject: "alex listener",
+      status: "working", kind: "session", cwd: home, updated: now,
+      started: now, loopboyContact: "alex", agentType: "codex",
+    }],
+  }));
+  await writeFile(join(markerDir, id), JSON.stringify({
+    id, tty: "ttys999", agent_pid: process.pid,
+  }));
+  await writeFile(join(slabDir, "loopboy.json"), JSON.stringify({
+    version: 1,
+    loops: { alex: { contact: "alex", sessionId: id, host: "neo", name: "closer" } },
+  }));
+
+  const text = await callProx(home, "prox_close", { handle: id }, {
+    SLAB_LOOPBOY_CONTACT: "alex",
+    SLAB_PROMPT_SESSION_ID: id,
+    SLAB_PROX_CLOSE_DRY_RUN: "1",
+  });
+  assert.match(text, /scheduled guarded Loopboy shutdown/);
+  assert.match(text, /released alex route/);
+  assert.match(text, /Slab re-tiles/);
+  const config = JSON.parse(await readFile(join(slabDir, "loopboy.json"), "utf8"));
+  assert.equal(config.loops.alex, undefined);
+});

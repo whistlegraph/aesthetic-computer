@@ -716,8 +716,14 @@ final class FrameCapture {
         var capturedScope = "screen"
         Task {
             defer { sem.signal() }
-            guard let content = try? await SCShareableContent.excludingDesktopWindows(
-                    false, onScreenWindowsOnly: true) else { return }
+            let content: SCShareableContent
+            do {
+                content = try await SCShareableContent.excludingDesktopWindows(
+                    false, onScreenWindowsOnly: true)
+            } catch {
+                NSLog("Frame capture: shareable content failed: %@", String(describing: error))
+                return
+            }
             if crop == nil, let focusedWindowID,
                let window = content.windows.first(where: { $0.windowID == focusedWindowID }) {
                 let region = window.frame
@@ -731,8 +737,12 @@ final class FrameCapture {
                 cfg.ignoreShadowsSingleWindow = true
                 capturedRegion = region
                 capturedScope = "window"
-                img = try? await SCScreenshotManager.captureImage(
-                    contentFilter: filter, configuration: cfg)
+                do {
+                    img = try await SCScreenshotManager.captureImage(
+                        contentFilter: filter, configuration: cfg)
+                } catch {
+                    NSLog("Frame capture: focused-window screenshot failed: %@", String(describing: error))
+                }
                 return
             }
             guard let display = content.displays.first else { return }
@@ -759,7 +769,11 @@ final class FrameCapture {
             cfg.width = Int(Double(region.width) * self.captureScale)
             cfg.height = Int(Double(region.height) * self.captureScale)
             cfg.showsCursor = true
-            img = try? await SCScreenshotManager.captureImage(contentFilter: filter, configuration: cfg)
+            do {
+                img = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: cfg)
+            } catch {
+                NSLog("Frame capture: display screenshot failed: %@", String(describing: error))
+            }
         }
         sem.wait()
         return (img, capturedRegion, capturedScope)

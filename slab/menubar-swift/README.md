@@ -141,6 +141,14 @@ launcher; editing `loopboy.json` cannot retrofit an ordinary prompt. The Slab
 menu counts verified client loops and labels stale or mismatched saved routes
 as inactive.
 
+“Shut this Loopboy down” is a lifecycle command: finish and compush in-scope
+changes, then call `prox_close` on the Loopboy's own stable handle. Only the
+guarded session whose immutable contact identity matches the active route may
+self-close. Prox releases that route first, returns a shutdown receipt, and
+then closes the terminal asynchronously; Slab's terminal-population watcher
+re-tiles the remaining panes. Ordinary prompts remain unable to close the
+calling session.
+
 ## ZZZ — resumable prompt parking
 
 `zzz` is Slab's cold tier for prompt processes. Automatic parking is opt-in;

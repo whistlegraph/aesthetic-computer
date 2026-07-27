@@ -56,7 +56,6 @@ export default {
       { selector:".react-flow__node-FalGeminiImageNode", title:"Gemini Image" },
     ];
     await frameTutorialNodes(ctx, imageNode);
-    await frameTutorialNodes(ctx, imageNode, { moveMs:220, dragMs:300 });
     await assertTutorialLayout(ctx, [".react-flow__node-FalGeminiImageNode"]);
   },
   // Resume at "There it is". The preceding reel already includes the real

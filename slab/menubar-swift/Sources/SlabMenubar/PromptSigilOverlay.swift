@@ -533,10 +533,6 @@ final class PromptSigilOverlay {
         heartbeatTrackLayer.frame = CGRect(x: 0, y: 24, width: heartbeatInitial.width, height: 3)
         heartbeatTrackLayer.backgroundColor = NSColor(deviceWhite: 0.025, alpha: 0.38).cgColor
         heartbeatTrackLayer.cornerRadius = 0
-        heartbeatTrackLayer.shadowColor = NSColor.systemYellow.cgColor
-        heartbeatTrackLayer.shadowOpacity = 0.42
-        heartbeatTrackLayer.shadowRadius = 3
-        heartbeatTrackLayer.shadowOffset = CGSize(width: 0, height: -1)
         heartbeatTrackLayer.isHidden = true
         heartbeatContainer.layer?.addSublayer(heartbeatTrackLayer)
         heartbeatFillLayer.frame = heartbeatTrackLayer.bounds
@@ -547,10 +543,6 @@ final class PromptSigilOverlay {
                                               y: heartbeatTrackLayer.bounds.midY)
         heartbeatFillLayer.backgroundColor = NSColor(deviceRed: 1, green: 0.9,
                                                      blue: 0.18, alpha: 1).cgColor
-        heartbeatFillLayer.shadowColor = NSColor(deviceRed: 1, green: 0.32,
-                                                 blue: 0.04, alpha: 1).cgColor
-        heartbeatFillLayer.shadowOpacity = 1
-        heartbeatFillLayer.shadowRadius = 6
         heartbeatFillLayer.cornerRadius = 0
         heartbeatTrackLayer.addSublayer(heartbeatFillLayer)
 
@@ -706,7 +698,6 @@ final class PromptSigilOverlay {
         heartbeatFillLayer.opacity = 1
         heartbeatFillLayer.transform = CATransform3DIdentity
         heartbeatFillLayer.backgroundColor = heartbeatColor.cgColor
-        heartbeatFillLayer.shadowColor = heartbeatColor.cgColor
         CATransaction.commit()
         // Fill edge and ember are laid out from one clock in
         // updateHeartbeatCountdown. Keeping no independent x animations means
@@ -1031,7 +1022,6 @@ final class PromptSigilOverlay {
         shadowColor = color
         shadowLayer.backgroundColor = color.cgColor
         heartbeatTrackLayer.backgroundColor = NSColor(deviceWhite: 0.025, alpha: 0.38).cgColor
-        heartbeatTrackLayer.shadowColor = NSColor.black.cgColor
         // The lettering's hard shadow wears the same status colour, so the
         // label reads as part of the same lit object as the rock.
         rebuildName()
@@ -1051,7 +1041,6 @@ final class PromptSigilOverlay {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         heartbeatFillLayer.backgroundColor = color.cgColor
-        heartbeatFillLayer.shadowColor = color.cgColor
         CATransaction.commit()
     }
 

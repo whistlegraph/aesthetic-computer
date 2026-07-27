@@ -89,6 +89,39 @@ function targetSelector(nodeSelector, index, count, options) {
   })()`;
 }
 
+function placementExpression(nodeSelector, index, count, options) {
+  return `(() => {
+    const node = document.querySelector(${JSON.stringify(nodeSelector)});
+    if (!node) return null;
+    const nodeRect = node.getBoundingClientRect();
+    const chatButton = [...document.querySelectorAll('button')].find((element) => {
+      const rect = element.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0 &&
+        (element.innerText || '').trim() === 'Continue the chat';
+    });
+    const chatTop = chatButton?.getBoundingClientRect().top;
+    const safe = {
+      left:${options.insets.left}, top:${options.insets.top},
+      right:innerWidth - ${options.insets.right},
+      bottom:Math.min(
+        innerHeight - ${options.insets.bottom},
+        Number.isFinite(chatTop) ? chatTop - 20 : innerHeight,
+      ),
+    };
+    const safeWidth = safe.right - safe.left;
+    const groupWidth = nodeRect.width * ${count} + ${options.gap} * Math.max(0, ${count} - 1);
+    const desiredLeft = safe.left + (safeWidth - groupWidth) / 2 +
+      ${index} * (nodeRect.width + ${options.gap});
+    const desiredTop = safe.top + Math.max(0, (safe.bottom - safe.top - nodeRect.height) / 2);
+    return {
+      dx:desiredLeft - nodeRect.left,
+      dy:desiredTop - nodeRect.top,
+      current:{ left:nodeRect.left, top:nodeRect.top },
+      desired:{ left:desiredLeft, top:desiredTop },
+    };
+  })()`;
+}
+
 // Drive React Flow's continuous pinch-zoom path rather than opening its menu.
 // This lets the teaching layout land around 80% (large enough to read, small
 // enough to clear the chat composer) without filming a mystery menu detour.
@@ -144,17 +177,34 @@ export async function frameTutorialNodes(ctx, nodes, {
   gap = 64,
   moveMs = 380,
   dragMs = 480,
+  maxAttempts = 3,
+  tolerance = 6,
 } = {}) {
-  const { drag, sleep } = ctx;
+  const { cdp, drag, sleep } = ctx;
+  const placements = [];
   for (let index = 0; index < nodes.length; index += 1) {
     const node = nodes[index];
-    await drag(
-      titleSelector(node.selector, node.title),
-      targetSelector(node.selector, index, nodes.length, { title:node.title, insets, gap }),
-      { moveMs, dragMs },
-    );
-    await sleep(180);
+    let placement = null;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      await drag(
+        titleSelector(node.selector, node.title),
+        targetSelector(node.selector, index, nodes.length, { title:node.title, insets, gap }),
+        { moveMs, dragMs },
+      );
+      await sleep(180);
+      placement = await cdp.eval(placementExpression(
+        node.selector, index, nodes.length, { insets, gap },
+      ));
+      if (placement && Math.abs(placement.dx) <= tolerance &&
+          Math.abs(placement.dy) <= tolerance) break;
+    }
+    if (!placement || Math.abs(placement.dx) > tolerance ||
+        Math.abs(placement.dy) > tolerance) {
+      throw new Error(`Tutorial node placement did not converge for ${node.title}: ${JSON.stringify(placement)}`);
+    }
+    placements.push({ selector:node.selector, title:node.title, ...placement });
   }
+  return placements;
 }
 
 export async function tutorialLayoutScores(cdp, selectors, {
