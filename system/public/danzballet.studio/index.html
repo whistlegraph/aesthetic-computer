@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Danz Ballet Studio</title>
+    <meta
+      name="description"
+      content="A new space for movement, artistry, and ballet is taking shape. Danz Ballet Studio is coming soon."
+    />
+    <meta name="theme-color" content="#f7f0e9" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Danz Ballet Studio" />
+    <meta property="og:title" content="Danz Ballet Studio" />
+    <meta
+      property="og:description"
+      content="A new space for movement, artistry, and ballet is taking shape."
+    />
+    <meta property="og:url" content="https://danzballet.studio/" />
+    <meta property="og:image" content="https://danzballet.studio/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Danz Ballet Studio — coming soon" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Danz Ballet Studio" />
+    <meta
+      name="twitter:description"
+      content="A new space for movement, artistry, and ballet is taking shape."
+    />
+    <meta name="twitter:image" content="https://danzballet.studio/og-image.png" />
+    <style>
+      :root {
+        color-scheme: light;
+        --paper: #f8f2eb;
+        --wine: #7e263a;
+        --rose: #d79aa3;
+        --ink: #3d3030;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 100%;
+        min-height: 100%;
+        margin: 0;
+        background: var(--paper);
+      }
+
+      body {
+        min-height: 100svh;
+        overflow: hidden;
+        color: var(--ink);
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      }
+
+      canvas {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+
+      main {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        min-height: 100svh;
+        place-items: center;
+        padding: clamp(28px, 7vw, 84px) 24px;
+        text-align: center;
+      }
+
+      .mark {
+        width: min(680px, 100%);
+        transform: translateY(4vh);
+      }
+
+      .eyebrow {
+        margin: 0 0 20px;
+        color: color-mix(in srgb, var(--wine) 72%, transparent);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.48em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0;
+        color: var(--wine);
+        font-family: Didot, "Bodoni 72", "Times New Roman", serif;
+        font-size: clamp(76px, 13vw, 158px);
+        font-weight: 400;
+        letter-spacing: 0.08em;
+        line-height: 0.78;
+        text-indent: 0.08em;
+      }
+
+      .studio {
+        margin: clamp(22px, 4vw, 34px) 0 0;
+        font-size: clamp(13px, 2vw, 23px);
+        font-weight: 400;
+        letter-spacing: 0.36em;
+        text-indent: 0.36em;
+        text-transform: uppercase;
+      }
+
+      .rule {
+        display: flex;
+        align-items: center;
+        width: min(430px, 72vw);
+        margin: clamp(26px, 5vw, 42px) auto;
+        color: var(--wine);
+      }
+
+      .rule::before,
+      .rule::after {
+        height: 1px;
+        flex: 1;
+        background: currentColor;
+        content: "";
+        opacity: 0.42;
+      }
+
+      .rule span {
+        width: 5px;
+        height: 5px;
+        margin: 0 15px;
+        background: currentColor;
+        transform: rotate(45deg);
+      }
+
+      .message {
+        margin: 0;
+        font-family: Didot, "Bodoni 72", "Times New Roman", serif;
+        font-size: clamp(18px, 2.4vw, 30px);
+        letter-spacing: 0.08em;
+      }
+
+      .details {
+        display: flex;
+        justify-content: center;
+        gap: 12px 24px;
+        margin: 18px 0 0;
+        color: color-mix(in srgb, var(--ink) 62%, transparent);
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+      }
+
+      .details span + span::before {
+        margin-right: 24px;
+        color: var(--rose);
+        content: "·";
+      }
+
+      .soon {
+        margin: 22px 0 0;
+        color: color-mix(in srgb, var(--wine) 56%, transparent);
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.42em;
+        text-indent: 0.42em;
+        text-transform: uppercase;
+      }
+
+      @media (max-width: 520px) {
+        .mark {
+          transform: translateY(3vh);
+        }
+
+        .eyebrow {
+          margin-bottom: 16px;
+          font-size: 9px;
+          letter-spacing: 0.35em;
+        }
+
+        h1 {
+          font-size: clamp(70px, 24vw, 104px);
+        }
+
+        .studio {
+          letter-spacing: 0.25em;
+          text-indent: 0.25em;
+        }
+
+        .details {
+          flex-wrap: wrap;
+          gap: 8px 14px;
+          line-height: 1.6;
+        }
+
+        .details span + span::before {
+          margin-right: 14px;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        canvas {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="stage" aria-hidden="true"></canvas>
+    <main>
+      <section class="mark" aria-label="Danz Ballet Studio, coming soon">
+        <p class="eyebrow">A new space is taking shape</p>
+        <h1>Danz</h1>
+        <p class="studio">Ballet Studio</p>
+        <div class="rule" aria-hidden="true"><span></span></div>
+        <p class="message">Movement. Artistry. Belonging.</p>
+        <p class="details">
+          <span>Classes</span><span>Schedule</span><span>Registration</span>
+        </p>
+        <p class="soon">Coming soon</p>
+      </section>
+    </main>
+    <script>
+      (() => {
+        const canvas = document.querySelector("#stage");
+        const context = canvas.getContext("2d");
+        const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+        let width = 0;
+        let height = 0;
+        let ratio = 1;
+        let start = performance.now();
+
+        function resize() {
+          ratio = Math.min(devicePixelRatio || 1, 2);
+          width = innerWidth;
+          height = innerHeight;
+          canvas.width = Math.round(width * ratio);
+          canvas.height = Math.round(height * ratio);
+          context.setTransform(ratio, 0, 0, ratio, 0, 0);
+        }
+
+        function ribbon(baseY, phase, color, time) {
+          context.beginPath();
+          for (let x = -20; x <= width + 20; x += 8) {
+            const progress = x / width;
+            const y =
+              baseY +
+              Math.sin(progress * Math.PI * 2.35 + phase + time * 0.16) * height * 0.055 +
+              Math.sin(progress * Math.PI) * height * 0.025;
+            if (x === -20) context.moveTo(x, y);
+            else context.lineTo(x, y);
+          }
+          context.strokeStyle = color;
+          context.lineWidth = 1;
+          context.stroke();
+        }
+
+        function dancer(time) {
+          const scale = Math.min(width, height) / 720;
+          const x = width / 2 + Math.sin(time * 0.27) * 4 * scale;
+          const y = height * (width < 520 ? 0.21 : 0.22);
+          const stroke = "rgba(126, 38, 58, 0.32)";
+
+          context.strokeStyle = stroke;
+          context.fillStyle = "rgba(126, 38, 58, 0.28)";
+          context.lineWidth = Math.max(1, scale);
+          context.lineCap = "round";
+          context.beginPath();
+          context.arc(x, y - 30 * scale, 7 * scale, 0, Math.PI * 2);
+          context.fill();
+
+          context.beginPath();
+          context.moveTo(x, y - 22 * scale);
+          context.lineTo(x - 3 * scale, y + 12 * scale);
+          context.lineTo(x - 40 * scale, y + 62 * scale);
+          context.moveTo(x - 3 * scale, y + 12 * scale);
+          context.lineTo(x + 52 * scale, y + 34 * scale);
+          context.moveTo(x, y - 11 * scale);
+          context.lineTo(x - 64 * scale, y + 4 * scale);
+          context.moveTo(x, y - 11 * scale);
+          context.lineTo(x + 62 * scale, y - 36 * scale);
+          context.stroke();
+        }
+
+        function draw(now) {
+          const time = reduced ? 0 : (now - start) / 1000;
+          context.clearRect(0, 0, width, height);
+
+          const glow = context.createRadialGradient(
+            width / 2,
+            height * 0.48,
+            0,
+            width / 2,
+            height * 0.48,
+            Math.min(width, height) * 0.55,
+          );
+          glow.addColorStop(0, "rgba(215, 154, 163, 0.16)");
+          glow.addColorStop(0.55, "rgba(215, 154, 163, 0.055)");
+          glow.addColorStop(1, "rgba(215, 154, 163, 0)");
+          context.fillStyle = glow;
+          context.fillRect(0, 0, width, height);
+
+          ribbon(height * 0.28, 0, "rgba(126, 38, 58, 0.28)", time);
+          ribbon(height * 0.72, Math.PI, "rgba(215, 154, 163, 0.36)", time);
+          dancer(time);
+
+          context.strokeStyle = "rgba(126, 38, 58, 0.18)";
+          context.beginPath();
+          context.moveTo(width * 0.12, height * 0.91);
+          context.lineTo(width * 0.88, height * 0.91);
+          context.stroke();
+
+          if (!reduced) requestAnimationFrame(draw);
+        }
+
+        addEventListener("resize", resize, { passive: true });
+        resize();
+        draw(performance.now());
+      })();
+    </script>
+  </body>
+</html>
