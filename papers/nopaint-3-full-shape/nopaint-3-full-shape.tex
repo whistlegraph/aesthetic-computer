@@ -1,0 +1,355 @@
+\documentclass[11pt,letterpaper]{article}
+\usepackage[margin=0.78in,headheight=18pt,footskip=0.35in]{geometry}
+\usepackage{fontspec}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{microtype}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,fit}
+\usepackage[most]{tcolorbox}
+\usepackage[hidelinks]{hyperref}
+\usepackage{titlesec}
+\usepackage{ragged2e}
+
+\setmainfont{Arial}
+\setsansfont{Arial}
+\setmonofont{Menlo}[Scale=0.82]
+\definecolor{Pink}{HTML}{E84A8A}
+\definecolor{Teal}{HTML}{168E8A}
+\definecolor{Purple}{HTML}{7651A8}
+\definecolor{Gold}{HTML}{B88212}
+\definecolor{Green}{HTML}{247A52}
+\definecolor{Red}{HTML}{B43A42}
+\definecolor{Ink}{HTML}{171B22}
+\definecolor{Muted}{HTML}{626B76}
+\definecolor{Pale}{HTML}{F2F4F6}
+\definecolor{PalePink}{HTML}{FCEAF2}
+\definecolor{PaleTeal}{HTML}{E8F6F4}
+\definecolor{Rule}{HTML}{D8DEE4}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5pt}
+\linespread{1.06}
+\setlist[itemize]{leftmargin=0.25in,itemsep=2.5pt,topsep=3pt}
+\setlist[enumerate]{leftmargin=0.30in,itemsep=3pt,topsep=3pt}
+\renewcommand\labelitemi{\textcolor{Teal}{\small\textbullet}}
+\titleformat{\section}{\Large\bfseries\color{Teal}}{}{0pt}{}
+\titleformat{\subsection}{\large\bfseries\color{Ink}}{}{0pt}{}
+\titlespacing*{\section}{0pt}{12pt}{5pt}
+\titlespacing*{\subsection}{0pt}{8pt}{4pt}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\footnotesize\color{Muted}\textbf{AESTHETIC COMPUTER} / NO PAINT 3.0}
+\rhead{\footnotesize\color{Muted}FULL SHAPE}
+\cfoot{\footnotesize\color{Muted}27 July 2026 \hfill Page \thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrule}{\hbox to\headwidth{\color{Rule}\leaders\hrule height \headrulewidth\hfill}}
+
+\newcolumntype{L}[1]{>{\RaggedRight\arraybackslash}p{#1}}
+\newcolumntype{Y}{>{\RaggedRight\arraybackslash}X}
+\newcommand{\mono}[1]{\texttt{#1}}
+\newcommand{\shipped}{\textcolor{Green}{\textbf{SHIPPED}}}
+\newcommand{\nexttag}{\textcolor{Gold}{\textbf{CONNECT NEXT}}}
+\newcommand{\explore}{\textcolor{Purple}{\textbf{EXPLORE}}}
+
+\newtcolorbox{hero}{colback=PalePink,colframe=Pink,boxrule=0.9pt,arc=2pt,left=10pt,right=10pt,top=8pt,bottom=8pt}
+\newtcolorbox{note}{colback=PaleTeal,colframe=Teal,boxrule=0.65pt,arc=2pt,left=9pt,right=9pt,top=7pt,bottom=7pt}
+\newtcolorbox{plain}{colback=Pale,colframe=Rule,boxrule=0.55pt,arc=2pt,left=9pt,right=9pt,top=7pt,bottom=7pt}
+
+\tikzset{
+  nodebox/.style={draw=Rule,rounded corners=2pt,fill=white,minimum height=0.42in,text width=1.15in,align=center,font=\small},
+  pinkbox/.style={nodebox,draw=Pink,fill=PalePink},
+  tealbox/.style={nodebox,draw=Teal,fill=PaleTeal},
+  flow/.style={-{Latex[length=2.2mm]},line width=0.7pt,draw=Muted},
+  feedback/.style={-{Latex[length=2.2mm]},line width=0.8pt,draw=Pink,dashed}
+}
+
+\begin{document}
+
+\vspace*{0.08in}
+{\small\bfseries\color{Pink}ARTWORK + PRODUCT + COMPUTE + COMMUNITY SCORE}\par
+\vspace{3pt}
+{\fontsize{27}{31}\selectfont\bfseries\color{Ink}No Paint 3.0}\par
+{\fontsize{15}{19}\selectfont\color{Muted}The complete AC-backed shape, from first proposal to evolving KidLisp lineage}\par
+\vspace{10pt}
+
+\begin{hero}
+\textbf{The center stays human.} A machine proposes. A person perceives. \textbf{No} discards; \textbf{Paint / Yes / Yay} preserves. Everything else---basic brushes, KidLisp growth, visual inference, Merry sequencing, remote GPU search, handles, uploads, tutorials, and archives---is a way to supply, judge, remember, or continue that encounter.
+\end{hero}
+
+\begin{tabularx}{\textwidth}{@{}L{1.12in}Y@{}}
+\textbf{Artwork} & \emph{No Paint, 2016--present}; recovered Construct lineage plus a living Aesthetic Computer implementation. \\
+\textbf{Version} & 3.0: AC owns proposal rendering, painting state, persistence, sharing, identity, and lineage. \\
+\textbf{Evidence} & Repository implementation and tests; recovered 2021 source/export; 32,184 archived paintings; AC Merry, nopaint, KidLisp, handle, and storage systems. \\
+\textbf{Status key} & \shipped\ exists now. \nexttag\ has an existing AC contract to wire. \explore\ is a deliberate possible UX path. \\
+\end{tabularx}
+
+\section{One loop, many intelligences}
+
+\begin{center}
+\begin{tikzpicture}[node distance=0.42in and 0.42in]
+\node[tealbox] (supplier) {candidate supplier};
+\node[pinkbox,right=of supplier] (proposal) {live proposal buffer};
+\node[nodebox,right=of proposal] (human) {human perception};
+\node[nodebox,below right=0.42in and -0.15in of human] (no) {No / Nay\\discard};
+\node[pinkbox,above right=0.42in and -0.15in of human] (yes) {Paint / Yes / Yay\\commit};
+\node[tealbox,right=0.65in of human] (lineage) {painting + score + lineage};
+\draw[flow] (supplier)--(proposal);
+\draw[flow] (proposal)--(human);
+\draw[flow] (human)--(no);
+\draw[flow] (human)--(yes);
+\draw[flow] (yes)--(lineage);
+\draw[feedback] (no.south) to[bend right=28] (supplier.south);
+\draw[feedback] (lineage.north) to[bend left=25] (supplier.north);
+\end{tikzpicture}
+\end{center}
+
+Candidate suppliers are interchangeable. The decision contract is not.
+
+\begin{tabularx}{\textwidth}{@{}L{1.55in}L{1.0in}Y@{}}
+\toprule
+\textbf{Supplier} & \textbf{State} & \textbf{What it proposes} \\
+\midrule
+AC 3.0 catalog & \shipped & Deterministic Box, Ellipse, Line, Wipe, Camera, Softy, Bubbles, Grid Worm, Walker, Banner, and Wafer operations. \\
+Basic AC brushes & \nexttag & Ordinary \mono{system = "nopaint"} pieces with their existing boot/paint/act/bake behavior and parameter vocabulary. \\
+KidLisp rule queue & \nexttag & User-authored or machine-grown programs rendered into an isolated proposal surface. \\
+Merry pipeline & \nexttag & Ordered, preloaded, timed, URL-addressable sequences; optionally crossfaded and UTC-synchronized. \\
+Painting interpreter & \explore & Several honest coded readings inferred from a finished raster---never a false claim of original source recovery. \\
+\mono{jastow} search & \explore & Bounded population growth, rendering, ranking, and mutation; never canonical storage or required live infrastructure. \\
+\bottomrule
+\end{tabularx}
+
+\section{What has been built}
+
+\begin{tabularx}{\textwidth}{@{}L{1.65in}Y@{}}
+\toprule
+\textbf{Layer} & \textbf{Current implementation} \\
+\midrule
+Recovered lineage & Complete editable Construct project recovered and hash-verified; 2021 export served at \mono{nopaint.art} and preserved for \mono{/classic}. \\
+Archive & 32,184 paintings from 2021--2025 indexed; searchable gallery with CDN thumbnails and visual descriptions. \\
+Native conductor & Explicit choosing, proposing, committing, discarding, and paused states over AC's separate proposal buffer and persistent painting. \\
+Determinism & Seeded weighted selection; a session URL can describe a repeatable score. Recovered weighting includes duplicated Box, Softy 1.5, and rare Walker 0.2. \\
+Decision record & \mono{nopaint:session} stores version, seed, proposal number, operation, and No/Paint decisions alongside the local AC painting. \\
+Migration ledger & All 35 recovered operations are enumerated in a machine-readable catalog; 11 currently render natively. \\
+Testing/tutorial spine & Unit contract, browser journey, optional native Frame receipts, and a fail-closed Captutor first-painting screenplay have been scaffolded. \\
+\bottomrule
+\end{tabularx}
+
+\begin{note}
+\textbf{Already credible as an artwork.} The recovered source, multi-year public archive, playable classic, gallery, native proposal loop, and decision score establish continuity. Feature parity, user sync, and the broader Lisp ecology remain implementation work.
+\end{note}
+
+\section{AC systems we should reuse}
+
+\subsection{The existing nopaint system is the painting substrate}
+
+Every basic brush can inherit \mono{system = "nopaint"}. The runtime supplies a persistent painting, transparent proposal buffer, coordinate transforms, pan/zoom, gesture recording, undo paintings, local database persistence, brush parameter parsing, robot input, present/bake behavior, and shared input handling.
+
+The historical \mono{system.nopaint.no(api, yes)} operation is undo/redo over committed pixel snapshots. It must remain distinct from a proposal decision: \textbf{proposal No/Paint} judges a live candidate; \textbf{history back/forward} navigates already committed revisions. UI copy may say No/Yes, but internal events must not conflate them.
+
+\begin{center}
+\begin{tikzpicture}[node distance=0.36in]
+\node[nodebox] (boot) {brush boot\\parse params};
+\node[nodebox,right=of boot] (paint) {brush paint\\preview buffer};
+\node[pinkbox,right=of paint] (decision) {No / Paint};
+\node[nodebox,right=of decision] (bake) {brush bake\\accepted pixels};
+\node[tealbox,right=of bake] (store) {painting + undo + record};
+\draw[flow] (boot)--(paint); \draw[flow] (paint)--(decision); \draw[flow] (decision)--(bake); \draw[flow] (bake)--(store);
+\end{tikzpicture}
+\end{center}
+
+\textbf{Rule:} No Paint 3.0 should be a conductor over this system, not a second painting engine. Basic brushes remain normal AC pieces; the conductor adapts their preview and bake into explicit proposals.
+
+\subsection{Merry is the sequencing substrate}
+
+Merry already parses duration-wrapped pieces, expands named bags, preloads modules, aligns playback to UTC, exposes current index/progress, advances steps, loops, stops cleanly, records tape, and can host KidLisp crossfades without jumping pieces. No Paint needs its sequencing ideas, but not automatic acceptance.
+
+\begin{plain}
+\textbf{Adaptation:} replace Merry's timer-only transition with a \emph{review gate}. A candidate can animate for a bounded preview; No/Paint advances immediately. Optional auto-step can advance undecided candidates as \textbf{Skip}, never as acceptance. The progress bar becomes a lineage/population bar.
+\end{plain}
+
+\section{The UX family}
+
+These are modes over one event model, not competing product definitions.
+
+\begin{tabularx}{\textwidth}{@{}L{1.40in}L{1.15in}Y@{}}
+\toprule
+\textbf{Path} & \textbf{Decision} & \textbf{Experience} \\
+\midrule
+Classic No Paint & No / Paint & A live operation animates over the current painting; Paint commits pixels and asks again. \\
+Lisp jury & Nay / Yay & One rendered KidLisp rule at a time; human perception supplies clean binary fitness. \\
+Pairwise garden & Left / Right & Two mutations render from the same seed; choose which survives. \\
+Rule studio & Reject / Accept / Edit & Code, render, parents, and parameters remain visible; accepted code becomes user-owned source. \\
+Merry review & No / Yes / Step & Traverse a bag/population manually; previous/next/skip never alter the painting unless explicitly accepted. \\
+Painting reading & Nay / Yay & A finished raster yields several compact coded interpretations; the participant curates the reading. \\
+Autonomous growth & Interrupt / Judge & Remote compute evolves between visits, but pauses at meaningful perceptual forks. \\
+Curatorial grid & Keep / Remove / Compare & Rapid review outside a painting; selections seed later No Paint sessions. \\
+Teaching mode & Explain / Continue & Show how a rule, render, mutation, and decision relate; the same journey becomes a tutorial test. \\
+\bottomrule
+\end{tabularx}
+
+\section{Canonical state and events}
+
+\subsection{Session}
+
+\begin{verbatim}
+NoPaintSession {
+  id, version, ownerSub?, ownerHandle?, seed,
+  mode, state, currentCandidateId?, currentStep,
+  basePaintingHash, acceptedPaintingHash,
+  createdAt, updatedAt, visibility
+}
+\end{verbatim}
+
+\subsection{Candidate}
+
+\begin{verbatim}
+Candidate {
+  id, kind: brush | kidlisp | transform | inferred,
+  source, sourceHash, renderSeed, runtimeVersion,
+  parameters, parentIds[], generation?, supplier,
+  sourcePaintingHash?, previewArtifact?, createdAt
+}
+\end{verbatim}
+
+\subsection{Immutable event stream}
+
+\begin{verbatim}
+NoPaintEvent {
+  id, sessionId, sequence, at,
+  type: proposed | no | paint | yay | nay | skip |
+        step-forward | step-back | edit | save | publish,
+  candidateId?, paintingBeforeHash?, paintingAfterHash?,
+  actorSub?, actorHandle?, input: key | pointer | touch | voice | robot
+}
+\end{verbatim}
+
+The event stream is the artwork's score. Current state is a projection. Uploads are idempotent by \mono{sessionId + sequence}; local-first queues retry after reconnection. Pixels and large artifacts live in object storage; Mongo documents retain ownership, hashes, source, lineage, decisions, and URLs.
+
+\begin{plain}
+\textbf{Reducer boundary.} Input surfaces dispatch events; one reducer/effect layer owns state. Commit is atomic: candidate + before fingerprint $\rightarrow$ composite and flatten $\rightarrow$ undo snapshot, persist, and cross-tab broadcast $\rightarrow$ after fingerprint $\rightarrow$ append decision $\rightarrow$ clear overlay $\rightarrow$ request next. Reject clears only the overlay and never changes canvas revision, fingerprint, or history.
+\end{plain}
+
+\begin{hero}
+\textbf{Core safety rule.} Remote growth and visual inference may propose candidates. Only an explicit human acceptance event may mutate the accepted painting or publish a user-owned rule.
+\end{hero}
+
+\section{Identity, handles, and ownership}
+
+The first encounter must remain playable without registration. Account creation becomes meaningful at the moment a person wants continuity, public authorship, or cross-device growth.
+
+\begin{center}
+\begin{tikzpicture}[node distance=0.36in]
+\node[nodebox] (anon) {anonymous play\\local session};
+\node[pinkbox,right=of anon] (save) {save / continue\\across devices};
+\node[nodebox,right=of save] (new) {\mono{imnew}\\verify email};
+\node[nodebox,right=of new] (handle) {\mono{handle name}\\claim identity};
+\node[tealbox,right=of handle] (sync) {upload score, rules, paintings};
+\draw[flow] (anon)--(save); \draw[flow] (save)--(new); \draw[flow] (new)--(handle); \draw[flow] (handle)--(sync);
+\end{tikzpicture}
+\end{center}
+
+\begin{itemize}
+  \item Anonymous sessions persist locally and can export a portable bundle.
+  \item After authentication, queued events attach to the stable user subject; a handle supplies public attribution.
+  \item Handle creation is never required to say No or Paint. It is invited when authorship has something worth naming.
+  \item Public rule pages can live at handle-addressed AC routes; private sessions remain private by default.
+  \item Publishing records source/runtime hashes so a visible render can always be traced to its code and score.
+\end{itemize}
+
+Existing AC contracts make this concrete:
+
+\begin{itemize}
+  \item \mono{imnew} calls the existing signup/login flow; \mono{handle name} claims a unique, verified-email handle through the authenticated \mono{/handle} backend. Ownership binds to immutable user subject, never to the mutable public handle.
+  \item The common \mono{upload(...)} pipeline stores a PNG, calls authenticated \mono{/api/track-media}, returns the painting code, and already connects profile/ATProto records.
+  \item Accepted public Lisp can use authenticated \mono{/api/store-kidlisp}; source-hash dedup means it is a publication store, not the authoritative decision ledger.
+  \item Add one dedicated authenticated \mono{/api/nopaint-sessions} endpoint and collection for idempotent session/step sync. Keep pixel buffers out of Mongo; reference painting codes and Lisp codes.
+\end{itemize}
+
+Saving therefore has four explicit levels: \textbf{local checkpoint}, \textbf{cloud session sync}, \textbf{published painting}, and \textbf{published Lisp organism}. Only the last two should emit public profile events.
+
+\section{Painting to code, without pretending}
+
+A raster cannot reveal one true source program. The product should call the result a \textbf{reading}, \textbf{response}, or \textbf{inferred score}.
+
+\begin{center}
+\begin{tikzpicture}[node distance=0.35in]
+\node[tealbox] (raster) {finished painting};
+\node[nodebox,right=of raster] (features) {palette, edges, rhythm, density, symmetry};
+\node[nodebox,right=of features] (synth) {constrained KidLisp synthesis};
+\node[pinkbox,right=of synth] (jury) {human Yay / Nay};
+\node[tealbox,right=of jury] (organism) {editable rule + lineage};
+\draw[flow] (raster)--(features); \draw[flow] (features)--(synth); \draw[flow] (synth)--(jury); \draw[flow] (jury)--(organism);
+\end{tikzpicture}
+\end{center}
+
+Deterministic vision supplies the initial structural sketch. A bounded synthesizer produces valid KidLisp. Render similarity can rank candidates, but perception chooses. The accepted rule can mutate, render at any resolution, and become a supplier for another painting.
+
+\section{The role of jastow}
+
+\mono{jastow} is an optional worker, not part of the artwork's availability path. At this writing it is offline on the Tailnet and was last seen two days ago, so the most recent Lisp growth results could not be audited for this report.
+
+\begin{tabularx}{\textwidth}{@{}L{1.2in}Y@{}}
+\toprule
+\textbf{Do there} & Population mutation, batch KidLisp rendering, visual embeddings, bounded search, thumbnail/video generation, and offline evaluation. \\
+\textbf{Do in AC} & Canonical compilation, sandboxed preview, user decision, painting mutation, identity, persistence, publishing, and cached offline playback. \\
+\textbf{Never require} & A live SSH connection, residential workstation uptime, or unbounded generated code to play a saved session. \\
+\bottomrule
+\end{tabularx}
+
+\section{Testing and tutorial production are one surface}
+
+Every canonical journey should exist twice from one behavioral contract:
+
+\begin{enumerate}
+  \item A fast real-browser e2e asserts the read-only No Paint state hook, painting fingerprints, decision sequence, animation freeze, persistence, and PNG delivery.
+  \item A Captutor screenplay performs the same journey with narration, visible cursor intent, opening/closing cards, and required evidence checks.
+  \item Frame captures the actual macOS display at milestones, including browser chrome, clipping, cursor, OCR, and compositor reality.
+  \item The encoded tutorial emits a storyboard/QA receipt and fails closed when required evidence is missing.
+\end{enumerate}
+
+\begin{plain}
+\textbf{First canonical journey:} boot a reproducible proposal $\rightarrow$ No without mutation $\rightarrow$ Paint with mutation $\rightarrow$ pause/freeze $\rightarrow$ resume $\rightarrow$ save a PNG. Future journeys add handle creation, Lisp jury, pairwise growth, painting reading, and publishing.
+\end{plain}
+
+\section{Delivery sequence}
+
+\begin{enumerate}
+  \item \textbf{Stabilize the spine.} Finish the seeded browser e2e against the real AC boot shell; retain deterministic unit coverage and Captutor's static acceptance contract.
+  \item \textbf{Adapt basic brushes.} Create a proposal adapter that runs existing nopaint brush preview/bake behavior without duplicating brush implementations.
+  \item \textbf{Add manual Lisp jury.} Frozen fixture population first; Yay/Nay/Skip/Previous/Next; immutable local event log.
+  \item \textbf{Sync to account.} Authenticated idempotent event upload, session list, handle attribution, private-by-default visibility, portable export.
+  \item \textbf{Complete authored parity.} Port the remaining 10 brushes and 15 transforms; connect stamps/profiles, sound, playlists, and painter stories.
+  \item \textbf{Connect growth.} Import recent \mono{jastow} experiment outputs, define a versioned candidate packet, and run bounded asynchronous generations with cached fallback.
+  \item \textbf{Add painting readings.} Deterministic feature extraction, constrained KidLisp candidates, perceptual review, and explicit ``inferred from'' provenance.
+  \item \textbf{Change the front door.} When 3.0 is credible and recoverable, route \mono{nopaint.art} to it; retain \mono{/classic}, \mono{/gallery}, and add \mono{/story}.
+\end{enumerate}
+
+\section{Launch definition}
+
+No Paint 3.0 succeeds when:
+
+\begin{itemize}
+  \item A new person understands No/Paint in seconds without an account.
+  \item The same piece works with keyboard, pointer, touch, voice, and robot inputs.
+  \item Existing AC brushes can become proposals without forks.
+  \item KidLisp candidates remain inspectable, editable, reproducible, and sandboxed.
+  \item No/Yay/Nay/step changes survive locally, sync idempotently, and belong to a user account after optional handle creation.
+  \item Every published painting connects to its score, accepted rules, runtime versions, and lineage.
+  \item Offline play works without \mono{jastow}; remote compute enriches rather than controls the artwork.
+  \item Each major UX path ships with a passing browser journey, Captutor tutorial, Frame evidence, and storyboard receipt.
+\end{itemize}
+
+\begin{hero}
+\centering
+{\large\bfseries Paintings become scores. Scores grow paintings.}\par
+\vspace{3pt}
+The machine can propose forever. The artwork happens where a person decides what survives.
+\end{hero}
+
+\end{document}

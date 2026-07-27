@@ -262,6 +262,13 @@ const PAPER_MAP = {
     title: "The Media Estate",
     format: "deck",
   },
+  "nopaint-3-full-shape": {
+    base: "nopaint-3-full-shape",
+    siteName: "nopaint-3-full-shape-2026",
+    title: "No Paint 3.0: The Full Shape",
+    format: "briefing",
+    hidden: true,
+  },
   "arxiv-identity": {
     base: "identity",
     siteName: "handle-identity-atproto-26-arxiv",

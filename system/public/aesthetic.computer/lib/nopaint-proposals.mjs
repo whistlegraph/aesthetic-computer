@@ -8,15 +8,47 @@ export const NOPAINT_LOOP_STATES = Object.freeze([
   "paused",
 ]);
 
+export const NOPAINT_VERSION = "3.0";
+
+// Names recovered from the Construct picker. This is the migration ledger;
+// entries stay here even before their AC renderer is ready.
+export const NOPAINT_RECOVERED_CATALOG = Object.freeze({
+  brushes: Object.freeze([
+    "softy", "build", "bubbles", "banner", "dark-window", "wafer",
+    "walker", "aura", "box", "triangle", "line", "ellipse", "breathe",
+    "vignette", "caterpillar", "frame", "grid-worm", "stamp", "rainbow",
+  ]),
+  transforms: Object.freeze([
+    "wipe", "blur", "sharpen", "mirror", "noise", "flip", "saturate",
+    "invert", "scroll", "contrast", "zoom", "recurse", "quicksand",
+    "spin", "light-bump", "turn",
+  ]),
+});
+
+export const NOPAINT_IMPLEMENTED_OPERATIONS = Object.freeze([
+  "box", "ellipse", "line", "softy", "bubbles", "grid-worm", "walker",
+  "banner", "wafer", "wipe", "camera",
+]);
+
 // The recovered Construct picker contains Box twice. The other first-pass
 // operations occur once, so rect keeps that aggregate 2x weight here.
 export const NOPAINT_PROPOSAL_CATALOG = Object.freeze([
-  Object.freeze({ name: "rect", weight: 2 }),
-  Object.freeze({ name: "oval", weight: 1 }),
-  Object.freeze({ name: "line", weight: 1 }),
+  Object.freeze({ name: "rect", label: "Box", family: "brush", weight: 2 }),
+  Object.freeze({ name: "oval", label: "Ellipse", family: "brush", weight: 1 }),
+  Object.freeze({ name: "line", label: "Line", family: "brush", weight: 1 }),
+  Object.freeze({ name: "softy", label: "Softy", family: "authored", weight: 1.5 }),
+  Object.freeze({ name: "bubbles", label: "Bubbles", family: "authored", weight: 1 }),
+  Object.freeze({ name: "grid-worm", label: "Grid Worm", family: "authored", weight: 1 }),
+  Object.freeze({ name: "walker", label: "Walker", family: "authored", weight: 0.2 }),
+  Object.freeze({ name: "banner", label: "Banner", family: "authored", weight: 1 }),
+  Object.freeze({ name: "wafer", label: "Wafer", family: "authored", weight: 1 }),
   Object.freeze({ name: "wipe", weight: 1 }),
   Object.freeze({ name: "camera", weight: 1 }),
 ]);
+
+export function proposalDefinition(name, catalog = NOPAINT_PROPOSAL_CATALOG) {
+  return catalog.find((entry) => entry.name === name) || null;
+}
 
 export function seedFrom(value) {
   const text = String(value ?? "nopaint");
@@ -63,6 +95,11 @@ export function makeProposal(random, width, height) {
   const h = Math.max(12, Math.floor(height * (0.12 + random() * 0.42)));
   const x = Math.floor(random() * Math.max(1, width - w));
   const y = Math.floor(random() * Math.max(1, height - h));
+  const points = Array.from({ length: 18 }, () => Object.freeze({
+    x: Math.floor(random() * width),
+    y: Math.floor(random() * height),
+    size: Math.floor(3 + random() * Math.max(4, Math.min(width, height) * 0.12)),
+  }));
 
   return Object.freeze({
     kind,
@@ -73,5 +110,7 @@ export function makeProposal(random, width, height) {
     h,
     drift: Math.floor(4 + random() * Math.max(5, Math.min(width, height) * 0.08)),
     thickness: Math.floor(1 + random() * 8),
+    points: Object.freeze(points),
+    phase: random() * Math.PI * 2,
   });
 }
