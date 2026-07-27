@@ -78,9 +78,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// tick — so while this is set, `applyTerminalDecor` pins `scatterFontSize`
     /// instead. Any tile pass clears it.
     private var scatterMode = false
-    /// Count of AC Electron (preview) windows seen last tick — when it changes
-    /// we auto re-pack the grid so previews slot in with the terminals.
-    private var lastAcWindowCount = 0
+    /// Stable identity census for every tileable Terminal, iTerm, and AC pane.
+    /// Population changes are confirmed across samples before auto-repacking.
+    private var tilePopulationTimer: Timer?
+    private var tilePopulationProbeInFlight = false
+    private var tilePopulationCandidate: [CGWindowID]?
+    private var tilePopulationCandidateSamples = 0
+    private var lastTiledWindowSignature: [CGWindowID]?
+    private var tilePopulationLastProbeAt = Date.distantPast
+    private var tilePopulationFastUntil = Date.distantPast
+    /// Coalesce launch/close/wake bursts before they reach AX. All geometry
+    /// work is serialized; Terminal's slower font-menu work has its own queue
+    /// so a fresh grid snap never waits behind an old normalization pass.
+    private let tileQueue = DispatchQueue(label: "computer.slab.tile", qos: .userInitiated)
+    private let tileFontQueue = DispatchQueue(label: "computer.slab.tile-font", qos: .utility)
+    private let tilePopulationQueue = DispatchQueue(label: "computer.slab.tile-population",
+                                                     qos: .userInitiated)
+    private var tileRequestWorkItem: DispatchWorkItem?
+    private var tileRequestGeneration: UInt64 = 0
+    private var pendingTileResetZoom = false
+    private var pendingTileExpectedSignature: [CGWindowID]?
+    private var pendingTileIsUnconditional = false
+    /// Exact pixel placements from the newest successful AX tile. Terminal
+    /// decor/profile changes are allowed to recolor and retitle a window, then
+    /// reapply this frozen map so character-row reflow cannot grow one pane.
+    /// Read and written only on `tileQueue`.
+    private var lastAXPass: AXPass?
     private var rainbowPhase: CGFloat = 0
     private var rotationPhase: CGFloat = 0
     private var mailTickCount = 0
@@ -199,12 +222,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             forName: LedgerStore.promptLaunchedNote, object: nil, queue: .main
         ) { [weak self] _ in
             guard let self, self.state.autoTile else { return }
-            // `open -a Terminal` returns before the new window has acquired
-            // its final AX frame. One delayed tile plus the tiler's own settle
-            // passes gives it a proper grid-sized cell (especially height).
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
-                self?.tileNowImpl(resetZoom: false)
-            }
+            // `open -a Terminal` returns before the new AX window necessarily
+            // exists. Probe now for the fast case; the population monitor then
+            // confirms the eventual stable identity set instead of gambling on
+            // one fixed launch delay.
+            self.beginFastTilePopulationWatch()
         }
 
         // Title-component hygiene for the Slab-* Terminal profiles: the
@@ -230,13 +252,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                            modifiers: UInt32(cmdKey | optionKey)) {
             tileHotkey = hotkey
         }
-        // A rebuild restarts this process while Terminal windows survive.
-        // Normalize their geometry once profiles, AX trust, and overlays have
-        // settled so an in-place Slab refresh never leaves the wall separated.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            guard let self, self.state.autoTile else { return }
-            self.tileNowImpl(resetZoom: true)
+        // A lightweight identity census catches ordinary Terminal/iTerm window
+        // creation and closure too (not only prox launches or AC previews).
+        // Two matching samples are required before a population becomes the
+        // grid source, filtering the transient empty AX replies Terminal emits
+        // while its font menu is being automated.
+        let populationTimer = Timer(timeInterval: 0.20, repeats: true) { [weak self] _ in
+            self?.probeTilePopulation()
         }
+        populationTimer.tolerance = 0.035
+        tilePopulationTimer = populationTimer
+        RunLoop.main.add(populationTimer, forMode: .common)
+        beginFastTilePopulationWatch()
 
         // Global ⌘⌥S scatters the session windows — same payload as the menu's
         // "Scatter now" item. Distinct id (3) so it has its own hotkey slot.
@@ -335,6 +362,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         PromptFocusHighlight.shared.stop()
         terminalFontZoomGuard?.stop()
         imsgTimer?.invalidate()
+        tilePopulationTimer?.invalidate()
+        tileRequestWorkItem?.cancel()
         zoomLensTap?.stop()
         // Compositor zoom outlives us — never quit leaving the screen magnified.
         if ZoomLens.isZoomed { ZoomLens.zoomOut() }
@@ -449,18 +478,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
                 PdfViewer.shared.consumeRequests(emojiFor: emojiFor)
                 VideoViewer.shared.consumeRequests(emojiFor: emojiFor)
-                // Auto-tile: when the number of AC Electron preview windows
-                // changes (a slab-web preview opened or closed), re-pack the
-                // grid so the buffer fits in with the terminals — no manual
-                // ⌘⌥T. Only meaningful when AX-trusted (else count stays 0).
-                if AXTiler.trusted {
-                    let acCount = AXTiler.windows(bundleId: "computer.aesthetic.app",
-                                                  requireStandardSubrole: false).count
-                    if acCount != self.lastAcWindowCount {
-                        self.lastAcWindowCount = acCount
-                        self.tileNowImpl(resetZoom: true)
-                    }
-                }
                 // Pulled `frame` screenshots open in FramePreview, badged with
                 // the source machine name (see FramePreview.swift / `frame
                 // --preview`). Machine identity leads, so no session emoji here.
@@ -689,6 +706,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 guard let self = self else { return }
                 if let helperError = helperError {
                     NSLog("💬 [imsg] watcher error: \(helperError)")
+                    // A failed Messages read has no trustworthy arrivals,
+                    // pending set, or thread context. In particular, do not
+                    // emit the ordinary Loopboy heartbeat below: doing so
+                    // makes an FDA/TCC outage look like a healthy, quiet
+                    // inbox and can hide a real inbound message behind a
+                    // stream of empty heartbeats. Keep the last known unread
+                    // state until a successful poll replaces it.
+                    self.imsgStatus = label
+                    self.imsgConfigured = configured
+                    self.imsgPending = false
+                    self.updateIcon()
+                    self.updateAnimTimer()
+                    return
                 }
                 let wasWaiting = self.state.messageWaiting
                 self.imsgStatus = label
@@ -1021,15 +1051,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         NSLog("🪨 [prox] %@ poked + starting shared wake on %@",
               String(sid.prefix(8)), tty)
-        // A Loopboy terminal may have been launched at Terminal.app's tall
-        // default size or survived an older wall layout. When auto-tile is on,
-        // normalize the whole wall after the wake so the client prompt returns
-        // to a real grid cell without the focus-stealing font reset.
-        if state.autoTile {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
-                self?.tileNowImpl(resetZoom: false)
-            }
-        }
+        // Waking an existing tty does not change window membership. The
+        // population monitor handles the separate launch case; retiling every
+        // ordinary prox/Loopboy wake only made overlapping geometry passes.
     }
 
     private func ttyForSession(_ sid: String) -> String? {
@@ -1633,9 +1657,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             DispatchQueue.main.async {
                 guard let self = self else { return }
                 if self.state.autoTile {
-                    // A tile is a normalization boundary: remaining windows
-                    // return to one grid-derived font size after the close.
-                    self.tileNowImpl(resetZoom: true)
+                    // AppleScript may return before Terminal removes the AX
+                    // object. Let the confirmed population path decide when
+                    // the close is real instead of tiling a stale census.
+                    self.beginFastTilePopulationWatch()
                 }
                 self.refresh()
             }
@@ -1972,12 +1997,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func toggleAutoTile() {
         let path = Paths.autoTileFlag
         let fm = FileManager.default
-        if fm.fileExists(atPath: path) {
+        let enabling = !fm.fileExists(atPath: path)
+        if !enabling {
             try? fm.removeItem(atPath: path)
         } else {
             let dir = (path as NSString).deletingLastPathComponent
             try? fm.createDirectory(atPath: dir, withIntermediateDirectories: true)
             fm.createFile(atPath: path, contents: nil)
+        }
+        // The snapshot gather is asynchronous. Reflect the preference now so
+        // the population monitor cannot spend one cycle observing stale state.
+        state.autoTile = enabling
+        tilePopulationCandidate = nil
+        tilePopulationCandidateSamples = 0
+        if enabling {
+            tileNowImpl(resetZoom: false)
+            beginFastTilePopulationWatch()
         }
         refresh()
     }
@@ -2724,11 +2759,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             tm.append("    try")
             tm.append("      set font name of slabSS to font name of default settings")
             tm.append("    end try")
-            // Keep the family from the user's default, but pin the size so a
-            // re-theme on the blink tick doesn't bounce the window back to the
-            // un-tiled 12pt. In scatter mode that pin is the tiny scatter font
-            // (otherwise the refresh would undo the shrink every tick); tiled
-            // otherwise; default before the first tile of the session.
+            tm.append("    end if")
+            // Keep the family from the user's default, but ALWAYS refresh the
+            // size. Existing Slab profiles may have been created for an older
+            // grid at 10pt; assigning one of those after an 11-window tile at
+            // 9pt makes Terminal grow the window by several character rows.
+            // Scatter pins the tiny font; tiled uses the newest grid font;
+            // before the first tile, inherit the user's default.
             let decorFont = scatterMode ? Self.scatterFontSize : lastTiledFontSize
             tm.append("    try")
             if let f = decorFont {
@@ -2737,7 +2774,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 tm.append("      set font size of slabSS to font size of default settings")
             }
             tm.append("    end try")
-            tm.append("    end if")
             // Close windows without the "terminate running processes?" modal:
             // `clean commands` is Terminal's allowlist of processes ignored when
             // deciding whether to warn on close. Include shells + dev runtimes so
@@ -2828,7 +2864,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             dlog("wrote /tmp/slab-decor-*.scpt iterm=\(itermInstalled) "
                 + "profiles=\(profileOrder.count)")
         }
-        ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", tmScript])
+        // Terminal profile assignment can mutate font and character rows. Run
+        // it on the same serial queue as tile font normalization so a heartbeat
+        // decor pass can never interleave with snap → font → settle. Once the
+        // script's own short settles finish, restore the latest canonical AX
+        // placements without re-counting or issuing another tile transaction.
+        tileFontQueue.async { [weak self] in
+            _ = ShellRunner.run("/usr/bin/osascript", args: ["-e", tmScript])
+            guard let self else { return }
+            self.tileQueue.async {
+                guard let pass = self.lastAXPass else { return }
+                // The script has already restored Terminal's exact native
+                // bounds. AX size writes are character-cell quantized for
+                // Terminal and can undo that correction by a whole row.
+                Self.repin(pass, includeTerminal: false)
+                DispatchQueue.main.async {
+                    PromptSigilOverlayController.shared.terminalsDidRetile()
+                }
+            }
+        }
     }
 
     // MARK: - Desktop tint (status wallpaper)
@@ -3355,6 +3409,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Terminal window's font zoom so the grid-derived size actually lands.
     @objc func tileNow() { tileNowImpl(resetZoom: true) }
 
+    /// Known launch/close boundaries get a short eager census window. The
+    /// repeating timer remains cheap at rest (usually only a Date comparison)
+    /// while still sampling quickly enough to catch AX's eventual window.
+    private func beginFastTilePopulationWatch() {
+        tilePopulationFastUntil = Date().addingTimeInterval(1.2)
+        probeTilePopulation(force: true)
+    }
+
+    /// Sample the complete tileable population off-main. A candidate must be
+    /// seen twice consecutively before it can trigger a layout. At rest the
+    /// expensive AX + Window Server census runs only every 0.75 s; a known or
+    /// newly observed change temporarily restores the 0.2 s confirmation loop.
+    private func probeTilePopulation(force: Bool = false) {
+        guard state.autoTile, AXTiler.trusted, !tilePopulationProbeInFlight else { return }
+        let now = Date()
+        let interval = now < tilePopulationFastUntil ? 0.18 : 0.75
+        guard force || now.timeIntervalSince(tilePopulationLastProbeAt) >= interval else { return }
+        tilePopulationLastProbeAt = now
+        tilePopulationProbeInFlight = true
+        tilePopulationQueue.async { [weak self] in
+            let signature = AXTiler.signature()
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.tilePopulationProbeInFlight = false
+                if signature == self.tilePopulationCandidate {
+                    self.tilePopulationCandidateSamples += 1
+                } else {
+                    self.tilePopulationCandidate = signature
+                    self.tilePopulationCandidateSamples = 1
+                    // First sight of an unannounced external window change:
+                    // collect its confirming sample on the very next tick.
+                    self.tilePopulationFastUntil = Date().addingTimeInterval(0.8)
+                }
+                guard self.tilePopulationCandidateSamples >= 2,
+                      signature != self.lastTiledWindowSignature else { return }
+                self.tileNowImpl(resetZoom: false, expectedSignature: signature)
+            }
+        }
+    }
+
     /// `resetZoom`: when true, drive View ▸ Default Font Size on every
     /// Terminal window so a live window adopts the new profile font (a
     /// per-window zoom otherwise silently overrides it — see
@@ -3367,43 +3461,113 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// is an async catch-up that only runs when the grid font actually
     /// changed (or on an explicit resetZoom tile). Falls back to the legacy
     /// osascript path when Accessibility trust is missing.
-    func tileNowImpl(resetZoom: Bool) {
+    func tileNowImpl(resetZoom: Bool, expectedSignature: [CGWindowID]? = nil) {
+        // All callers are UI/notification callbacks today, but keeping the
+        // entry point main-confined makes generation/coalescing deterministic
+        // if a future prox path invokes it from a server queue.
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in
+                self?.tileNowImpl(resetZoom: resetZoom,
+                                  expectedSignature: expectedSignature)
+            }
+            return
+        }
         guard let geom = Self.screenGeom() else { return }
         scatterMode = false  // tiling supersedes a prior scatter; restore tile font
         let textSize = state.textSize
         guard AXTiler.trusted else {
+            tileQueue.async { [weak self] in self?.lastAXPass = nil }
             tileNowLegacy(resetZoom: resetZoom, geom: geom, textSize: textSize)
             return
         }
+        pendingTileResetZoom = pendingTileResetZoom || resetZoom
+        if let expectedSignature {
+            if !pendingTileIsUnconditional {
+                pendingTileExpectedSignature = expectedSignature
+            }
+        } else {
+            pendingTileIsUnconditional = true
+            pendingTileExpectedSignature = nil
+        }
+        tileRequestGeneration &+= 1
+        let generation = tileRequestGeneration
+        tileRequestWorkItem?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, generation == self.tileRequestGeneration else { return }
+            let shouldResetZoom = self.pendingTileResetZoom
+            let expected = self.pendingTileIsUnconditional
+                ? nil : self.pendingTileExpectedSignature
+            self.pendingTileResetZoom = false
+            self.pendingTileExpectedSignature = nil
+            self.pendingTileIsUnconditional = false
+            self.performAXTile(generation: generation, resetZoom: shouldResetZoom,
+                               expectedSignature: expected,
+                               geom: geom, textSize: textSize)
+        }
+        tileRequestWorkItem = work
+        // A short trailing-edge debounce collapses prox callbacks and a whole
+        // synthetic hotkey burst. Five System Events keypresses can span about
+        // 40 ms on Blueberry, so 18 ms still admitted two geometry passes;
+        // 55 ms remains imperceptible for one human keypress.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.055, execute: work)
+    }
+
+    private func performAXTile(generation: UInt64, resetZoom: Bool,
+                               expectedSignature: [CGWindowID]?,
+                               geom: ScreenGeom, textSize: TextSize) {
         let prevFont = lastTiledFontSize
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let pass = Self.axTilePass(geom: geom, textSize: textSize) else { return }
+        tileQueue.async { [weak self] in
+            guard let self else { return }
+            let snapshot = AXTiler.snapshot()
+            // A monitor request is valid only for the stable census that
+            // caused it. If the population changed again between confirmation
+            // and execution, do nothing; the next samples will nominate the
+            // newer set. This prevents false empty/partial samples from
+            // producing an identical healthy re-tile when AX recovers.
+            if let expectedSignature, snapshot.signature != expectedSignature {
+                DispatchQueue.main.async { [weak self] in
+                    self?.beginFastTilePopulationWatch()
+                }
+                return
+            }
+            let pass = Self.axTilePass(snapshot: snapshot, geom: geom, textSize: textSize)
+            self.lastAXPass = pass
             DispatchQueue.main.async {
-                self?.lastTiledFontSize = pass.fontSize
+                guard generation == self.tileRequestGeneration else { return }
+                self.lastTiledWindowSignature = snapshot.signature
+                self.tilePopulationCandidate = snapshot.signature
+                self.tilePopulationCandidateSamples = max(2, self.tilePopulationCandidateSamples)
+                guard let pass else { return }
+                self.lastTiledFontSize = pass.fontSize
                 // Reset decor memo so the next refresh re-themes every
                 // window from scratch (a re-pack invalidates prior placement).
-                self?.lastTerminalDecor.removeAll()
+                self.lastTerminalDecor.removeAll()
                 PromptSigilOverlayController.shared.terminalsDidRetile()
             }
+            guard let pass, pass.nTerm > 0 else { return }
+            let needsFontUpdate = resetZoom || prevFont != pass.fontSize
+            guard needsFontUpdate || !pass.misfitTerminalIDs.isEmpty else { return }
             // Geometry is already done — the grid snapped above. Terminal
             // text size catches up asynchronously, and only when needed:
             // the profile-font write + Default-Font-Size menu dance is the
             // slow, focus-stealing part of the old tiler.
-            guard pass.nTerm > 0, resetZoom || prevFont != pass.fontSize else { return }
             // Set the shared profile size first. An explicit/automatic tile is
             // also a normalization boundary: clear Terminal's invisible
             // per-window Cmd +/- override via View ▸ Default Font Size so all
             // Claude and Codex panes actually render at the same size.
-            var lines: [String] = [
-                "tell application \"Terminal\"",
-                "  set _slabIds to id of (every window whose miniaturized is false)",
-                "  repeat with _w in (every window whose miniaturized is false)",
-                "    try",
-                "      set font size of current settings of _w to \(pass.fontSize)",
-                "    end try",
-                "  end repeat",
-                "end tell",
-            ]
+            var lines: [String] = []
+            if needsFontUpdate {
+                lines.append(contentsOf: [
+                    "tell application \"Terminal\"",
+                    "  set _slabIds to id of (every window whose miniaturized is false)",
+                    "  repeat with _w in (every window whose miniaturized is false)",
+                    "    try",
+                    "      set font size of current settings of _w to \(pass.fontSize)",
+                    "    end try",
+                    "  end repeat",
+                    "end tell",
+                ])
+            }
             if resetZoom {
                 lines.append(contentsOf: [
                     "tell application \"Terminal\" to activate",
@@ -3416,7 +3580,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     "end repeat",
                 ])
             }
-            ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", lines.joined(separator: "\n")]) {
+            // AX gives the wall its immediate snap, but Terminal quantizes AX
+            // size writes to its current character-cell grid. Its own bounds
+            // command can express the exact pixel cell. Finish all windows
+            // after a font change, or only measured outliers otherwise, in
+            // this same single AppleScript process (no extra enumeration).
+            let exactPlacements = needsFontUpdate
+                ? pass.terminalPlacements
+                : pass.terminalPlacements.filter { pass.misfitTerminalIDs.contains($0.id) }
+            lines.append("tell application \"Terminal\"")
+            for placement in exactPlacements {
+                let b = placement.bounds
+                lines.append("  try")
+                lines.append("    set bounds of (first window whose id is \(placement.id)) to {\(b.left), \(b.top), \(b.right), \(b.bottom)}")
+                lines.append("  end try")
+            }
+            // Font/profile reflow can arrive shortly after the initiating
+            // command. Reassert exact native bounds twice without another
+            // process spawn or Accessibility population read.
+            for delay in [0.06, 0.16] {
+                lines.append("  delay \(delay)")
+                for placement in exactPlacements {
+                    let b = placement.bounds
+                    lines.append("  try")
+                    lines.append("    set bounds of (first window whose id is \(placement.id)) to {\(b.left), \(b.top), \(b.right), \(b.bottom)}")
+                    lines.append("  end try")
+                }
+            }
+            lines.append("end tell")
+            let script = lines.joined(separator: "\n")
+            self.tileFontQueue.async { [weak self] in
+                guard let self, self.tileGenerationIsCurrent(generation) else { return }
+                _ = ShellRunner.run("/usr/bin/osascript", args: ["-e", script])
+                // A newer request may have snapped its grid while this slow
+                // Terminal menu pass was running. Never let an old settle pass
+                // overwrite it; the newer generation already owns final geometry.
+                guard self.tileGenerationIsCurrent(generation) else {
+                    return
+                }
                 // Terminal sizes by character CELLS, so the font change reflows
                 // each window to a new pixel size — and that reflow can land a
                 // beat AFTER osascript returns, undoing a single re-pin (window
@@ -3425,18 +3626,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 // wins. The windows already snapped instantly in the first pass
                 // above; these are tiny AX corrections (sub-ms, no focus steal),
                 // so it stays snappy while resolving cleanly after the reflow.
-                Self.axTilePass(geom: geom, textSize: textSize)
+                Self.repin(pass, includeTerminal: false)
                 DispatchQueue.main.async {
                     PromptSigilOverlayController.shared.terminalsDidRetile()
                 }
                 for delay in [0.06, 0.16] {
                     DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                        Self.axTilePass(geom: geom, textSize: textSize)
-                        PromptSigilOverlayController.shared.terminalsDidRetile()
+                        guard self.tileRequestGeneration == generation else { return }
+                        self.tileQueue.async {
+                            Self.repin(pass, includeTerminal: false)
+                            DispatchQueue.main.async {
+                                guard self.tileRequestGeneration == generation else { return }
+                                PromptSigilOverlayController.shared.terminalsDidRetile()
+                            }
+                        }
                     }
                 }
             }
         }
+    }
+
+    /// Read the main-confined request generation from a worker without racing.
+    private func tileGenerationIsCurrent(_ generation: UInt64) -> Bool {
+        if Thread.isMainThread { return tileRequestGeneration == generation }
+        var current = false
+        DispatchQueue.main.sync { current = tileRequestGeneration == generation }
+        return current
     }
 
     /// Scatter every open session into tiny confetti windows spread across the
@@ -3457,6 +3672,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             NSLog("🎲 [scatter] skipped — Accessibility not trusted")
             return
         }
+        // Decor completions must not restore the previous tiled wall while the
+        // user is intentionally scattered.
+        tileQueue.async { [weak self] in self?.lastAXPass = nil }
         // Enter scatter mode so the decor refresh pins the tiny font instead of
         // bouncing it back to the tile size every 0.6s tick.
         scatterMode = true
@@ -3520,21 +3738,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    /// One AX tile sweep: enumerate both terminals' tileable windows
-    /// (iTerm2 fills the grid first, matching the legacy order), compute
-    /// the layout, and pin every frame. Returns nil when nothing is open.
-    private struct AXPass { let nIterm: Int; let nTerm: Int; let fontSize: Int }
+    /// One AX tile sweep from a frozen census. The placement list is retained
+    /// so post-font-reflow settles move the exact same windows to the exact same
+    /// cells; they never re-count or reassign a changing population mid-pass.
+    private struct AXPlacement {
+        let window: AXUIElement
+        let id: CGWindowID
+        let isTerminal: Bool
+        let bounds: (left: Int, top: Int, right: Int, bottom: Int)
+    }
+    private struct AXPass {
+        let nIterm: Int
+        let nTerm: Int
+        let fontSize: Int
+        let placements: [AXPlacement]
+        let terminalPlacements: [AXPlacement]
+        let misfitTerminalIDs: [CGWindowID]
+    }
     @discardableResult
-    private static func axTilePass(geom: ScreenGeom, textSize: TextSize) -> AXPass? {
-        let iterm = AXTiler.windows(bundleId: "com.googlecode.iterm2")
-        let term = AXTiler.windows(bundleId: "com.apple.Terminal")
-        // AC Electron preview windows (slab-web) are created frame:false, so
-        // macOS reports a non-standard window subrole — accept any subrole here
-        // so these frameless previews pack into the same grid as the terminals.
-        let acpane = AXTiler.windows(bundleId: "computer.aesthetic.app", requireStandardSubrole: false)
-        let acProcs = NSRunningApplication.runningApplications(withBundleIdentifier: "computer.aesthetic.app").count
-        NSLog("🧩 [tile] trusted=\(AXTiler.trusted) acProcs=\(acProcs) iterm=\(iterm.count) term=\(term.count) acpane=\(acpane.count)")
-        let all = iterm + term + acpane
+    private static func axTilePass(snapshot: AXTiler.Snapshot,
+                                   geom: ScreenGeom, textSize: TextSize) -> AXPass? {
+        let all = snapshot.all
+        NSLog("🧩 [tile] windows=%d ids=%@ iterm=%d term=%d acpane=%d",
+              all.count, snapshot.signature.map(String.init).joined(separator: ","),
+              snapshot.iterm.count, snapshot.terminal.count, snapshot.acPanes.count)
         guard !all.isEmpty,
               let layout = computeTileLayout(count: all.count, geom: geom, size: textSize)
         else { return nil }
@@ -3547,17 +3774,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return CGPoint(x: Double(b.left + b.right) / 2, y: Double(b.top + b.bottom) / 2)
         }
         let windowCenters: [CGPoint] = all.enumerated().map { i, w in
-            AXTiler.center(w) ?? cellCenters[i]
+            AXTiler.center(w.element) ?? cellCenters[i]
         }
         let pick = localityAssignment(windowCenters: windowCenters, cellCenters: cellCenters)
+        let terminalIDs = Set(snapshot.terminal.map(\.id))
+        var placements: [AXPlacement] = []
+        var terminalPlacements: [AXPlacement] = []
+        var misfitTerminalIDs: [CGWindowID] = []
+        placements.reserveCapacity(all.count)
         for c in 0..<cellCenters.count {
             let wi = pick[c]
             guard wi >= 0 else { continue }
             let cell = layout.cellAt(index: c).bounds
-            AXTiler.setFrame(all[wi], left: cell.left, top: cell.top,
-                             right: cell.right, bottom: cell.bottom)
+            let residual = AXTiler.setFrameFitting(
+                all[wi].element, left: cell.left, top: cell.top,
+                right: cell.right, bottom: cell.bottom)
+            let isTerminal = terminalIDs.contains(all[wi].id)
+            if isTerminal,
+               let residual,
+               abs(residual.width) > 1 || abs(residual.height) > 1 {
+                misfitTerminalIDs.append(all[wi].id)
+            }
+            let placement = AXPlacement(window: all[wi].element, id: all[wi].id,
+                                        isTerminal: isTerminal, bounds: cell)
+            placements.append(placement)
+            if isTerminal { terminalPlacements.append(placement) }
         }
-        return AXPass(nIterm: iterm.count, nTerm: term.count, fontSize: layout.fontSize)
+        return AXPass(nIterm: snapshot.iterm.count, nTerm: snapshot.terminal.count,
+                      fontSize: layout.fontSize, placements: placements,
+                      terminalPlacements: terminalPlacements,
+                      misfitTerminalIDs: misfitTerminalIDs)
+    }
+
+    private static func repin(_ pass: AXPass, includeTerminal: Bool = true) {
+        for placement in pass.placements where includeTerminal || !placement.isTerminal {
+            let b = placement.bounds
+            AXTiler.setFrameFitting(placement.window, left: b.left, top: b.top,
+                                    right: b.right, bottom: b.bottom)
+        }
     }
 
     /// The pre-AX tiler, kept verbatim as the no-Accessibility fallback:
