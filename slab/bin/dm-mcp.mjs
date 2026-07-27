@@ -267,13 +267,23 @@ async function toolSend({ channel, to, text: body, confirm, machine } = {}) {
     if (!confirm) {
       return text(
         `PREVIEW — not sent. Re-call with confirm:true to send.\n` +
-        `channel: iMessage   machine: ${isLocal(machine) ? "local" : machine}\n` +
+        `channel: Messages (iMessage/RCS/SMS)   machine: ${isLocal(machine) ? "local" : machine}\n` +
         `to: ${rcpt.displayName}  [requested: "${to}"]\n` +
         `--- message ---\n${body}`,
       );
     }
     const { stdout } = await runBridge(IMSG, ["send", body, ...toArgs], machine, { timeoutMs: 30000 });
-    return text(`✅ iMessage sent to ${rcpt.displayName}${stdout.trim() ? `: ${stdout.trim()}` : ""}`);
+    let delivery = null;
+    try { delivery = JSON.parse(stdout.trim()); } catch {}
+    if (delivery?.status) {
+      if (delivery.status === "failed") {
+        throw new Error(`Messages rejected the send to ${rcpt.displayName}`);
+      }
+      const verb = delivery.status === "delivered" ? "delivered" : "sent";
+      const service = delivery.service || "Messages";
+      return text(`✅ ${verb} to ${rcpt.displayName} via ${service}`);
+    }
+    return text(`✅ Messages send completed for ${rcpt.displayName}${stdout.trim() ? `: ${stdout.trim()}` : ""}`);
   }
 
   throw new Error(`unknown channel "${channel}" (use "signal" or "imessage")`);
@@ -394,7 +404,7 @@ const TOOLS = [
   },
   {
     name: "dm_send",
-    description: "Send a DM. TWO-STEP AND SAFE: the first call PREVIEWS the resolved recipient + message and does NOT send; call again with confirm:true to actually send. `to` is required. Signal accepts an ACI, +E164, or name. iMessage accepts a named contact from imsg.json or a raw handle and shows the resolved display name in the preview.",
+    description: "Send a DM. TWO-STEP AND SAFE: the first call PREVIEWS the resolved recipient + message and does NOT send; call again with confirm:true to actually send. `to` is required. Signal accepts an ACI, +E164, or name. The imessage channel uses Messages.app, selects the conversation's current iMessage/RCS/SMS transport, verifies sent/delivered state, and accepts a named contact from imsg.json or a raw handle.",
     inputSchema: {
       type: "object",
       properties: {
