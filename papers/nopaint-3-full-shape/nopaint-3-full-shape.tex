@@ -8,6 +8,10 @@
 \usepackage{enumitem}
 \usepackage{fancyhdr}
 \usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{needspace}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta,positioning,shapes.geometric,fit}
 \usepackage[most]{tcolorbox}
@@ -89,6 +93,22 @@
 \textbf{Status key} & \shipped\ exists now. \nexttag\ has an existing AC contract to wire. \explore\ is a deliberate possible UX path. \\
 \end{tabularx}
 
+\section{Visual lineage: instrument to archive to living system}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.49\textwidth}
+\includegraphics[width=\linewidth,height=2.55in,keepaspectratio]{assets/classic.png}
+\caption*{\textbf{Classic instrument.} The preserved 2021 Construct export at \mono{nopaint.art/classic}: image-making is organized around the large hand-drawn No/Paint decision language.}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.49\textwidth}
+\includegraphics[width=\linewidth,height=2.55in,keepaspectratio]{assets/gallery.png}
+\caption*{\textbf{Archive as public memory.} The searchable gallery exposes the accumulated field of 32,184 saved paintings with year and text/vision metadata.}
+\end{minipage}
+\end{figure}
+
+These are not mood-board references; they are live surfaces from the recovered system. The classic view establishes the interaction vocabulary and visual identity. The gallery demonstrates that repeated private decisions became a multi-year public body of work. No Paint 3.0 connects those histories to AC's state, identity, code, test, and publishing systems without erasing the older instrument.
+
 \section{One loop, many intelligences}
 
 \begin{center}
@@ -143,6 +163,26 @@ Testing/tutorial spine & Unit contract, browser journey, optional native Frame r
 \begin{note}
 \textbf{Already credible as an artwork.} The recovered source, multi-year public archive, playable classic, gallery, native proposal loop, and decision score establish continuity. Feature parity, user sync, and the broader Lisp ecology remain implementation work.
 \end{note}
+
+\Needspace{4.4in}
+\subsection{The implemented 3.0 loop, as tested}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.315\textwidth}
+\includegraphics[width=\linewidth,height=3.18in,keepaspectratio]{assets/ac-3-first-proposal.png}
+\caption*{\textbf{1. Propose.} A seeded operation animates only in the temporary proposal buffer.}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.315\textwidth}
+\includegraphics[width=\linewidth,height=3.18in,keepaspectratio]{assets/ac-3-after-no.png}
+\caption*{\textbf{2. No.} The candidate is discarded; the accepted painting fingerprint is unchanged.}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.315\textwidth}
+\includegraphics[width=\linewidth,height=3.18in,keepaspectratio]{assets/ac-3-after-paint.png}
+\caption*{\textbf{3. Paint.} Pixels commit atomically, an undo point and score event persist, and the next proposal begins.}
+\end{minipage}
+\caption{Real-browser receipts from the canonical automated journey. The same behavioral contract drives the Captutor tutorial and optional native Frame evidence.}
+\end{figure}
 
 \section{AC systems we should reuse}
 
@@ -294,6 +334,70 @@ Data minimization & A removal request asks for archive id, reason, and only enou
 \end{plain}
 
 Recommended review states are \mono{pending}, \mono{machine-flagged}, \mono{human-review}, \mono{restricted}, \mono{removal-requested}, \mono{removed}, and \mono{cleared-with-date}. A face detector is a triage aid, not a privacy verdict: false negatives are expected, stylized or embedded photos may evade detection, and non-face personal data still matters. Default public behavior should blur/restrict strong photographic-person matches pending review; removed records retain only a non-public minimal tombstone sufficient to prevent accidental re-publication.
+
+\Needspace{4.5in}
+\subsection{What one anonymous user-data record actually contains}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.28\textwidth}
+\centering
+\includegraphics[width=\linewidth,height=3.0in,keepaspectratio]{assets/archive-l4f0ipzy.png}
+\caption*{\textbf{Archived PNG.} The upper 256-by-256 field is the painting; the historical app baked title, local date/time, and stable id into a 32-pixel caption bar. This abstract record was selected to avoid knowingly reproducing a face while review remains incomplete.}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.69\textwidth}
+\includegraphics[width=\linewidth,height=3.0in,keepaspectratio]{assets/record.png}
+\caption*{\textbf{Canonical record surface.} The live \mono{nopaint.art/l4f0ipzy} page joins image and id to save timestamp, OCR/title guess, machine description, tags, colors, subject class, privacy status, original file, removal contact, continuation actions, and merchandise eligibility.}
+\end{minipage}
+\caption{User data is presented with context and uncertainty rather than as a bare image. Generated descriptions are search aids, not author statements.}
+\end{figure}
+
+\Needspace{2.7in}
+\subsection{Continuation and productization}
+
+Each record is a fork point. \textbf{No} opens a fresh deterministic canvas while retaining a private provenance note that the archive image was declined as a starting surface. \textbf{Paint} imports the top 256-by-256 artwork (not its baked caption bar), establishes it as the undo base, and carries archive id, record URL, image URL, and load status into the No Paint session. The displayed save date and derived metadata remain attached to the public record.
+
+The existing AC mug checkout already supplies Stripe payment, Printful mockups, fulfillment, product records, and order recovery. Archive commerce reuses it through a strict manifest allowlist and the \mono{np-ID} image adapter; arbitrary remote URLs are never accepted. A record exposes purchase only when it has explicit \mono{merchEligible: true} after face/privacy and rights review. Missing or false means ``merchandise review pending.'' Removal must disable future checkout and discovery and remove cached product previews where appropriate.
+
+The product ladder is \textbf{mug first}, then \textbf{standard mouse pad}, then \textbf{desk mat}; posters, framed prints, and stickers follow after the review workflow is operating. Mouse pads should use a generalized catalog record---product, variant, print geometry, placement, retail price, mockup, and eligibility---rather than a copied mug endpoint. Printful mockups are asynchronous and rate-limited, so generate on product intent and cache, never on every archive-page view.
+
+\subsection{Complete UX path map}
+
+\begin{center}
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[node distance=0.28in and 0.28in,every node/.append style={font=\footnotesize}]
+\node[tealbox] (entry) {entry\\new / archive / saved};
+\node[pinkbox,right=of entry] (candidate) {live candidate};
+\node[nodebox,above right=of candidate] (no) {No\\discard only};
+\node[pinkbox,right=of candidate] (paint) {Paint\\commit};
+\node[nodebox,below right=of candidate] (pause) {Pause / Step\\inspect};
+\node[tealbox,right=of paint] (accepted) {accepted painting\\undo + score};
+\node[nodebox,above right=of accepted] (save) {Save local\\export PNG};
+\node[nodebox,right=of accepted] (account) {Account + handle\\private sync};
+\node[nodebox,below right=of accepted] (publish) {Publish\\painting / Lisp};
+\node[tealbox,right=of account] (record) {public record\\metadata + removal};
+\node[nodebox,above=of record] (product) {eligible product\\mug / pad / mat};
+\node[pinkbox,below=of record] (grow) {Lisp jury / growth\\Yay / Nay};
+\draw[flow] (entry)--(candidate); \draw[flow] (candidate)--(no); \draw[flow] (candidate)--(paint); \draw[flow] (candidate)--(pause);
+\draw[flow] (paint)--(accepted); \draw[feedback] (no) to[bend left=18] (candidate); \draw[feedback] (pause) to[bend right=15] (candidate);
+\draw[flow] (accepted)--(save); \draw[flow] (accepted)--(account); \draw[flow] (accepted)--(publish); \draw[flow] (account)--(record);
+\draw[flow] (record)--(product); \draw[flow] (publish)--(grow); \draw[feedback] (grow) to[bend left=20] (candidate);
+\end{tikzpicture}
+}
+\end{center}
+
+\begin{tabularx}{\textwidth}{@{}L{1.32in}Y@{}}
+\toprule
+\textbf{Path} & \textbf{Promise and evidence} \\
+\midrule
+First painting & Seeded proposal $\rightarrow$ No without mutation $\rightarrow$ Paint with mutation $\rightarrow$ pause/resume $\rightarrow$ PNG request. Browser-tested and mirrored by Captutor. \\
+Archive continuation & Gallery $\rightarrow$ record $\rightarrow$ No/new or Paint/import $\rightarrow$ archive provenance retained. Real CDN import is browser-tested. \\
+Account continuity & Anonymous local work $\rightarrow$ optional \mono{imnew} $\rightarrow$ verified handle $\rightarrow$ idempotent private session sync $\rightarrow$ deliberate publication. \\
+Lisp jury & Candidate source + deterministic render $\rightarrow$ Yay/Nay/Skip/Previous/Next $\rightarrow$ accepted rule lineage; code stays inspectable and editable. \\
+Painting reading & Finished raster $\rightarrow$ multiple inferred KidLisp responses $\rightarrow$ perceptual jury $\rightarrow$ one editable descendant, never false source recovery. \\
+Products & Reviewed record $\rightarrow$ product choice $\rightarrow$ cached mockup $\rightarrow$ Stripe $\rightarrow$ Printful; removal/restriction blocks new checkout. \\
+\bottomrule
+\end{tabularx}
 
 \section{Painting to code, without pretending}
 
