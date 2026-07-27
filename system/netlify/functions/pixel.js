@@ -26,6 +26,25 @@ import { fileURLToPath } from "url";
 import { execSync } from "child_process";
 import { respond } from "../../backend/http.mjs";
 const dev = process.env.CONTEXT === "dev";
+let nopaintArchiveIds;
+
+function isNopaintArchiveId(id) {
+  if (!/^[A-Za-z0-9]{4,32}$/.test(id)) return false;
+  if (!nopaintArchiveIds) {
+    try {
+      const here = dirname(fileURLToPath(import.meta.url));
+      const manifest = JSON.parse(readFileSync(
+        join(here, "../../public/nopaint.art/gallery/gallery.json"),
+        "utf8",
+      ));
+      nopaintArchiveIds = new Set(manifest.paintings.map((painting) => painting.id));
+    } catch (error) {
+      console.error("Could not load No Paint archive allowlist:", error.message);
+      nopaintArchiveIds = new Set();
+    }
+  }
+  return nopaintArchiveIds.has(id);
+}
 
 // Load Comic Relief Bold font and register with fontconfig
 let comicReliefFontAvailable = false;
@@ -94,6 +113,17 @@ async function fun(event, context) {
         console.error(`❌ Error looking up product code: ${error.message}`);
         imageUrl = `https://art.aesthetic.computer/products/${productCode}.webp`;
       }
+    }
+
+    // Explicit, allowlisted bridge from the historical No Paint archive into
+    // AC's resize/product pipeline. Never accept an arbitrary external URL.
+    const nopaintMatch = !imageUrl && slug.match(/^np-([A-Za-z0-9]{4,32})(?:\.png)?$/);
+    if (nopaintMatch) {
+      const archiveId = nopaintMatch[1];
+      if (!isNopaintArchiveId(archiveId)) {
+        return respond(404, { message: "No Paint archive record not found." });
+      }
+      imageUrl = `https://pix.nopaint.art/${archiveId}.png`;
     }
     
     // Check if slug is a painting code (short alphanumeric without path separators)

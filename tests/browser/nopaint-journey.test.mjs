@@ -96,6 +96,20 @@ try {
       "the browser received a PNG download or native-share export request",
     );
   });
+
+  await scenario("An archive record can become the starting painting", async (expect) => {
+    await ac.boot("nopaint~archive~l4f0ipzy");
+    let state = await ac.nopaintState();
+    for (let attempt = 0; attempt < 40 && state?.origin?.status !== "ready"; attempt++) {
+      await ac.wait(250);
+      state = await ac.nopaintState();
+    }
+    await receipt("06-archive-origin");
+    expect(state?.origin?.id === "l4f0ipzy", "archive id remains attached as provenance");
+    expect(state?.origin?.status === "ready", `archive pixels load (${state?.origin?.status})`);
+    expect(state?.paintingFingerprint !== null, "archive image establishes a painting base");
+    expect(state?.proposalNumber === 1, "proposal sequence restarts over the imported painting");
+  });
 } finally {
   await ac.close();
 }

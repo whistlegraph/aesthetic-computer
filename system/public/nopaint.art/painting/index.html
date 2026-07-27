@@ -24,6 +24,8 @@
   .actions { display:flex; flex-wrap:wrap; gap:8px; }
   .button { display:inline-block; padding:7px 11px; border:2px solid #222; background:#fff; font-size:17px; text-decoration:none; }
   .button.danger { background:#222; color:#fff; }
+  .button[aria-disabled="true"] { color:#777; border-color:#aaa; background:#ddd; cursor:not-allowed; }
+  .product { margin-top:18px; padding-top:14px; border-top:2px solid #222; }
   #missing { display:none; padding:28px 0; font-size:20px; }
   @media(max-width:650px){ body{padding:12px}.record{grid-template-columns:1fr}.image{max-width:520px} }
 </style>
@@ -40,6 +42,8 @@
         <dt>saved</dt><dd id="date"></dd>
         <dt>description</dt><dd id="description"></dd>
         <dt>tags</dt><dd id="tags"></dd>
+        <dt>colors</dt><dd id="colors"></dd>
+        <dt>subject</dt><dd id="subject"></dd>
         <dt>privacy</dt><dd id="privacy"></dd>
       </dl>
       <div class="notice">
@@ -51,8 +55,18 @@
         You can request review for an accidental camera image, recognizable person, minor-safety concern, personal information, creator request, or other rights issue. You do not need to claim copyright to raise a privacy or safety concern. Include this archive id and only the minimum contact information needed for a reply.
       </div>
       <div class="actions">
+        <a id="no" class="button" href="#">No — start fresh</a>
+        <a id="paint" class="button danger" href="#">Paint — continue working</a>
         <a id="flag" class="button danger" href="#">flag / request removal</a>
         <a id="original" class="button" href="#">open original PNG</a>
+      </div>
+      <div class="product">
+        <strong>Make it physical</strong>
+        <p id="merchStatus">Merchandise review pending for this painting.</p>
+        <div class="actions">
+          <a id="mug" class="button" href="#" aria-disabled="true">Mug · $18</a>
+          <a id="mousepad" class="button" href="#" aria-disabled="true">Mouse pad · planned</a>
+        </div>
       </div>
     </div>
   </section>
@@ -71,12 +85,24 @@
     text("id", id); text("title", painting.t || `No Paint ${id}`);
     text("date", painting.d ? new Date(painting.d).toLocaleString() : "Unknown");
     text("description", painting.desc); text("tags", painting.tags);
+    text("colors", painting.c); text("subject", painting.s);
     text("privacy", painting.unsafe ? "flagged for photographic-face review" : "archive-wide face/privacy review pending");
     const image = document.getElementById("image"); image.src = original; image.alt = painting.desc || `No Paint archive painting ${id}`;
     document.getElementById("original").href = original;
+    document.getElementById("no").href = `https://aesthetic.computer/nopaint~new~${encodeURIComponent(id)}`;
+    document.getElementById("paint").href = `https://aesthetic.computer/nopaint~archive~${encodeURIComponent(id)}`;
     const subject = encodeURIComponent(`No Paint archive review: ${id}`);
     const body = encodeURIComponent(`Archive record: https://nopaint.art/${id}\nReason for review/removal:\n\nRelationship to the image (optional):\nPreferred reply address:`);
     document.getElementById("flag").href = `mailto:mail@aesthetic.computer?subject=${subject}&body=${body}`;
+    if (painting.merchEligible === true) {
+      const mug = document.getElementById("mug");
+      mug.href = `https://aesthetic.computer/mug~np-${encodeURIComponent(id)}`;
+      mug.removeAttribute("aria-disabled");
+      document.getElementById("merchStatus").textContent = "Approved for made-to-order products.";
+    }
+    for (const disabled of document.querySelectorAll('[aria-disabled="true"]')) {
+      disabled.addEventListener("click", event => event.preventDefault());
+    }
     record.hidden = false;
   }).catch(() => { missing.style.display = "block"; });
 </script>

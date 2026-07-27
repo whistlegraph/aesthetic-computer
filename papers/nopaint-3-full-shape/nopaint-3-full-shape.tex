@@ -295,6 +295,14 @@ Data minimization & A removal request asks for archive id, reason, and only enou
 
 Recommended review states are \mono{pending}, \mono{machine-flagged}, \mono{human-review}, \mono{restricted}, \mono{removal-requested}, \mono{removed}, and \mono{cleared-with-date}. A face detector is a triage aid, not a privacy verdict: false negatives are expected, stylized or embedded photos may evade detection, and non-face personal data still matters. Default public behavior should blur/restrict strong photographic-person matches pending review; removed records retain only a non-public minimal tombstone sufficient to prevent accidental re-publication.
 
+\subsection{Continuation and productization}
+
+Each record is also a fork point. \textbf{No} opens a fresh deterministic canvas while retaining a private provenance note that the archive image was declined as a starting surface. \textbf{Paint} imports the top 256-by-256 artwork (not its baked caption bar), establishes it as the undo base, and carries a \mono{derivedFrom} archive id, record URL, and image URL into the No Paint session. The displayed save date, title/OCR text, visual description, tags, colors, and subject remain attached to the public archive record.
+
+The existing AC mug checkout already supplies Stripe payment, Printful mockups, fulfillment, product records, and order recovery. Archive commerce should reuse it through a narrow, allowlisted image-source adapter rather than accepting arbitrary URLs. A record exposes merchandise only when it has an explicit \mono{merchEligible: true} following face/privacy and rights review; missing or false means ``merchandise review pending.'' Removal must disable future checkout and product discovery and remove cached previews where appropriate.
+
+The product ladder is \textbf{mug first}, then \textbf{standard mouse pad}, then \textbf{desk mat}; posters, framed prints, and stickers follow only after the review system is operating. Mouse pads suit full-surface sublimation, but should use a generalized product catalog (product, variant, print geometry, placement, retail price, mockup, eligibility) rather than a copied mug endpoint. Printful mockups are asynchronous and rate-limited, so generate on product intent and cache the result instead of creating mockups during every record-page view.
+
 \section{Painting to code, without pretending}
 
 A raster cannot reveal one true source program. The product should call the result a \textbf{reading}, \textbf{response}, or \textbf{inferred score}.

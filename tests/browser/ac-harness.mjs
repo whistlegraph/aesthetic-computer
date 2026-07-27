@@ -85,7 +85,9 @@ export class ACSession {
   async boot(piece = "prompt") {
     const url = `${CONFIG.baseURL}/${piece}`;
     console.log(`  → ${url}`);
-    await this.page.goto(url, { waitUntil: "networkidle2", timeout: 45000 });
+    // Pieces may intentionally keep media/CDN requests open (archive imports,
+    // cameras, streams), so readiness comes from AC's boot marker/test hook.
+    await this.page.goto(url, { waitUntil: "domcontentloaded", timeout: 45000 });
     // Prefer the prompt test hook; fall back to the boot marker; then a
     // fixed settle so the canvas has painted.
     try {

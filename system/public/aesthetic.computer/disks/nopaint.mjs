@@ -23,6 +23,7 @@ let saveCount = 0;
 let lastDownload = null;
 let testApi = null;
 let testChannel = null;
+let archiveOrigin = null;
 
 function initialNavigationURL() {
   if (typeof window === "undefined") return null;
@@ -94,17 +95,60 @@ function persistPainting({ store, system }) {
   store.persist("painting", "nopaint:session", "local:db");
 }
 
+async function loadArchivePainting(api, archiveId) {
+  const id = String(archiveId || "").trim();
+  if (!/^[A-Za-z0-9]{4,32}$/.test(id)) return;
+
+  archiveOrigin = {
+    type: "nopaint-archive",
+    id,
+    record: `https://nopaint.art/${id}`,
+    image: `https://pix.nopaint.art/${id}.png`,
+    status: "loading",
+  };
+  api.store["nopaint:origin"] = { ...archiveOrigin };
+  api.store.persist("nopaint:origin", "local:db");
+
+  try {
+    const loaded = await api.net.preload({
+      path: archiveOrigin.image,
+      extension: "png",
+    });
+    const bitmap = loaded?.img || loaded;
+    const source = api.painting(256, 256, (p) => p.paste(bitmap, 0, 0));
+    api.system.nopaint.replace(api, source, `nopaint-archive:${id}`);
+    api.system.nopaint.buffer = api.painting(256, 256, (p) =>
+      p.wipe(255, 255, 255, 0)
+    );
+    archiveOrigin.status = "ready";
+    api.store["nopaint:origin"] = { ...archiveOrigin };
+    api.store.persist("nopaint:origin", "local:db");
+    proposalNumber = 0;
+    chooseProposal(api);
+    api.hud.label(`No Paint ← archive ${id}`);
+    publishTestState();
+  } catch (error) {
+    archiveOrigin.status = "error";
+    archiveOrigin.error = error?.message || "Archive painting could not load";
+    api.store["nopaint:origin"] = { ...archiveOrigin };
+    api.store.persist("nopaint:origin", "local:db");
+    console.error(`No Paint archive load failed for ${id}:`, error);
+  }
+}
+
 function recordDecision({ store }, decision) {
   decisions.push(Object.freeze({
     number: proposalNumber,
     operation: proposal?.kind,
     decision,
   }));
-  store["nopaint:session"] = {
+  const session = {
     version: NOPAINT_VERSION,
     seed: sessionSeed,
     decisions: decisions.slice(),
   };
+  if (archiveOrigin) session.origin = { ...archiveOrigin };
+  store["nopaint:session"] = session;
   store.persist("nopaint:session", "local:db");
 }
 
@@ -185,6 +229,7 @@ function testSnapshot() {
       } : null,
     },
     paintingFingerprint: paintingFingerprint(testApi?.system?.painting),
+    origin: archiveOrigin ? { ...archiveOrigin } : null,
   };
 }
 
@@ -194,7 +239,8 @@ function publishTestState() {
 
 function installTestHook(debug) {
   const explicitlyTesting = initialNavigationURL()?.searchParams.has("test");
-  if (!debug && !explicitlyTesting && typeof window !== "undefined" && !window.acDEBUG) return;
+  const windowDebug = typeof window !== "undefined" && window.acDEBUG;
+  if (!debug && !explicitlyTesting && !windowDebug) return;
 
   if (typeof BroadcastChannel !== "undefined") {
     testChannel?.close();
@@ -224,7 +270,9 @@ function boot({ colon, debug, hud, net, num, params, screen, system, ui, ...api 
   // The runtime may rewrite the visible route before the piece boots. The
   // Navigation Timing entry retains the original tutorial/test URL.
   const urlSeed = initialNavigationURL()?.searchParams.get("seed") || null;
-  const requestedSeed = urlSeed || colon[0] || params[0];
+  const archiveId = params[0] === "archive" ? params[1] : null;
+  const freshFromId = params[0] === "new" ? params[1] : null;
+  const requestedSeed = urlSeed || archiveId || freshFromId || colon[0] || params[0];
   const numericSeed = /^\d+$/.test(requestedSeed || "")
     ? Number(requestedSeed) >>> 0
     : null;
@@ -239,7 +287,19 @@ function boot({ colon, debug, hud, net, num, params, screen, system, ui, ...api 
   decisions = [];
   saveCount = 0;
   lastDownload = null;
-  testApi = { ...api, screen, system };
+  archiveOrigin = archiveId ? {
+    type: "nopaint-archive",
+    id: archiveId,
+    record: `https://nopaint.art/${archiveId}`,
+    image: `https://pix.nopaint.art/${archiveId}.png`,
+    status: "queued",
+  } : freshFromId ? {
+    type: "nopaint-archive",
+    id: freshFromId,
+    record: `https://nopaint.art/${freshFromId}`,
+    action: "rejected-as-start",
+  } : null;
+  testApi = { ...api, hud, net, screen, system };
   stateBeforePause = "proposing";
 
   noButton = new ui.TextButton("No");
@@ -248,10 +308,11 @@ function boot({ colon, debug, hud, net, num, params, screen, system, ui, ...api 
   positionButtons(screen);
 
   hud.label("No Paint — No [N] / Paint [Enter]");
-  net.rewrite(`/nopaint:${sessionSeed}`);
+  net.rewrite(archiveId ? `/nopaint~archive~${archiveId}` : `/nopaint:${sessionSeed}`);
   installTestHook(debug);
   chooseProposal(testApi);
   publishTestState();
+  if (archiveId) loadArchivePainting(testApi, archiveId);
 }
 
 // 🧮 Sim
