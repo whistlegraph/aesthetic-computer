@@ -41,6 +41,7 @@ function initialNavigationURL() {
 let noButton;
 let paintButton;
 let doneButton;
+let backButton;
 
 function transition(next) {
   if (!NOPAINT_LOOP_STATES.includes(next)) {
@@ -94,27 +95,70 @@ function positionButtons(screen) {
     w: paintWidth, h: decisionHeight,
   });
   const done = doneButton?.btn || doneButton;
+  const back = backButton?.btn || backButton;
   if (done) {
     done.box ||= {};
     Object.assign(done.box, {
+      x: margin + noWidth + gap, y: buttonY,
+      w: paintWidth, h: decisionHeight,
+    });
+  }
+  if (back) {
+    back.box ||= {};
+    Object.assign(back.box, {
       x: margin, y: buttonY,
-      w: available, h: decisionHeight,
+      w: noWidth, h: decisionHeight,
     });
   }
 }
 
+const MARKER_GLYPHS = Object.freeze({
+  N: [[[0, 1], [0, 0], [1, 1], [1, 0]]],
+  O: [[[0.2, 0], [0.8, 0], [1, 0.2], [1, 0.8], [0.8, 1], [0.2, 1], [0, 0.8], [0, 0.2], [0.2, 0]]],
+  P: [[[0, 1], [0, 0], [0.72, 0], [1, 0.2], [1, 0.45], [0.72, 0.58], [0, 0.58]]],
+  A: [[[0, 1], [0.5, 0], [1, 1]], [[0.2, 0.62], [0.8, 0.62]]],
+  I: [[[0.15, 0], [0.85, 0]], [[0.5, 0], [0.5, 1]], [[0.15, 1], [0.85, 1]]],
+  T: [[[0, 0], [1, 0]], [[0.5, 0], [0.5, 1]]],
+});
+
+function paintMarkerLabel($, button, label, color) {
+  const letters = label.toUpperCase().split("");
+  const glyphWidth = 0.72;
+  const gap = 0.3;
+  const unitsWide = letters.length * glyphWidth + Math.max(0, letters.length - 1) * gap;
+  const scale = Math.max(4, Math.min(button.box.h * 0.42, button.box.w * 0.68 / unitsWide));
+  const originX = button.box.x + (button.box.w - unitsWide * scale) / 2;
+  const originY = button.box.y + (button.box.h - scale) / 2;
+  const thickness = Math.max(2, Math.round(scale * 0.11));
+
+  letters.forEach((letter, letterIndex) => {
+    const paths = MARKER_GLYPHS[letter] || [];
+    const offsetX = originX + letterIndex * (glyphWidth + gap) * scale;
+    for (let pass = 0; pass < 3; pass += 1) {
+      const jitterX = Math.sin((letterIndex + 1) * 17 + pass * 11) * scale * 0.018;
+      const jitterY = Math.cos((letterIndex + 1) * 13 + pass * 7) * scale * 0.018;
+      paths.forEach((path) => {
+        for (let point = 1; point < path.length; point += 1) {
+          $.ink(color[0], color[1], color[2], pass === 1 ? 175 : 105).line(
+            offsetX + path[point - 1][0] * glyphWidth * scale + jitterX,
+            originY + path[point - 1][1] * scale + jitterY,
+            offsetX + path[point][0] * glyphWidth * scale + jitterX,
+            originY + path[point][1] * scale + jitterY,
+            thickness,
+          );
+        }
+      });
+    }
+  });
+}
+
 function paintDecisionButton($, button, label, light = false) {
   const active = button.down || button.over;
-  const textWidth = label.length * 6;
-  const textHeight = 10;
-  $.ink(light ? [250, 250, 250, active ? 235 : 205] : [10, 10, 10, active ? 225 : 190])
+  $.ink(light ? [250, 250, 250, active ? 235 : 205] : [205, 38, 48, active ? 255 : 235])
     .box(button.box, "fill")
     .ink(light ? [20, 20, 20] : [255, 255, 255])
-    .box(button.box, "outline")
-    .write(label, {
-      x: Math.floor(button.box.x + (button.box.w - textWidth) / 2),
-      y: Math.floor(button.box.y + (button.box.h - textHeight) / 2),
-    });
+    .box(button.box, "outline");
+  paintMarkerLabel($, button, label, light ? [20, 20, 20] : [255, 245, 235]);
 }
 
 function clearProposal({ flatten, needsPaint, page, screen, system }) {
@@ -291,7 +335,7 @@ function testSnapshot() {
     lastDownload,
     ready: Boolean(proposal && testApi?.system?.nopaint?.buffer),
     controls: finishMode
-      ? { done: controlBox(doneButton) }
+      ? { back: controlBox(backButton), done: controlBox(doneButton) }
       : { no: controlBox(noButton), paint: controlBox(paintButton) },
     layout: layout ? {
       paintingViewport: { ...layout.stage },
@@ -389,6 +433,7 @@ function boot({ colon, debug, hud, net, num, params, screen, store, system, ui, 
   noButton = new ui.TextButton("No");
   paintButton = new ui.TextButton("Paint");
   doneButton = new ui.TextButton("Done");
+  backButton = new ui.TextButton("Back");
   positionButtons(screen);
 
   hud.label("No Paint — No [N] / Paint [Enter]");
@@ -575,6 +620,7 @@ function paint($) {
 
   positionButtons($.screen);
   if (finishMode) {
+    paintDecisionButton($, backButton.btn, "Back");
     paintDecisionButton($, doneButton.btn, "Done", true);
   } else {
     paintDecisionButton($, noButton.btn, "No");
@@ -590,13 +636,26 @@ function isAny(e, names) {
 // 🎪 Act — every input surface reaches the same two decision functions.
 function act($) {
   const { event: e } = $;
+  const leaveFinishMode = () => {
+    finishMode = false;
+    transition(stateBeforePause === "paused" ? "proposing" : stateBeforePause);
+    $.needsPaint();
+    publishTestState();
+  };
 
   if (finishMode) {
+    backButton.btn.act(e, leaveFinishMode);
     doneButton.btn.act(e, () => {
       doneCount += 1;
       publishTestState();
       if (!initialNavigationURL()?.searchParams.has("test")) $.jump("done");
     });
+    const stage = interfaceLayout($.screen).stage;
+    if (
+      e.is("lift:1") &&
+      e.x >= stage.x && e.x <= stage.x + stage.w &&
+      e.y >= stage.y && e.y <= stage.y + stage.h
+    ) leaveFinishMode();
     return;
   }
 

@@ -221,10 +221,26 @@ try {
       rect.y + (stage.y + stage.h / 2) * scaleY,
     );
     await ac.wait(250);
-    const finishing = await ac.nopaintState();
+    let finishing = await ac.nopaintState();
     await receipt("05-done-ready");
     expect(finishing?.finishMode === true, "tapping the painting enters completion mode");
-    expect(Object.keys(finishing?.controls || {}).join(",") === "done", "Done is the only visible action");
+    expect(
+      Object.keys(finishing?.controls || {}).join(",") === "back,done",
+      "Back and Done replace the painting decisions",
+    );
+
+    await ac.page.mouse.click(
+      rect.x + (stage.x + stage.w / 2) * scaleX,
+      rect.y + (stage.y + stage.h / 2) * scaleY,
+    );
+    await ac.wait(200);
+    expect((await ac.nopaintState())?.finishMode === false, "tapping the painting again goes Back");
+    await ac.page.mouse.click(
+      rect.x + (stage.x + stage.w / 2) * scaleX,
+      rect.y + (stage.y + stage.h / 2) * scaleY,
+    );
+    await ac.wait(200);
+    finishing = await ac.nopaintState();
 
     const done = finishing.controls.done;
     await ac.page.mouse.click(
