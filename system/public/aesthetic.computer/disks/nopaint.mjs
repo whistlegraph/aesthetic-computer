@@ -32,11 +32,36 @@ const cueSamples = new Map();
 let cueEvents = [];
 
 const LEGACY_CUES = Object.freeze({
+  "no-down": "generic - no button pressed (metal brush).webm",
   no: "generic - no button released (middle).webm",
+  "paint-down": "generic - paint button pressed (psst).webm",
   paint: "generic - paint button released (cha).webm",
-  back: "generic - cancel.webm",
-  done: "generic - saved.webm",
+  rollover: "generic - button rollover.webm",
+  "button-down": "generic - button press.webm",
+  back: "generic - pause release.webm",
+  "done-down": "generic - save button pressed.webm",
+  done: "generic - save button released.webm",
+  "pause-in": "generic - entering pause.webm",
+  "pause-out": "generic - pause release.webm",
+  "primitive-release": "primitive - released.webm",
 });
+
+const BRUSH_CUES = Object.freeze({
+  rect: "box - start.webm",
+  oval: "elipse - start.webm",
+  line: "line - start.webm",
+  softy: "softy - landed.webm",
+  bubbles: "bubbles - theme.webm",
+  "grid-worm": "grid worm - theme.webm",
+  walker: "common - jitter.webm",
+  banner: "banner - theme.webm",
+  wafer: "wafer - nibble appear.webm",
+  wipe: "wipe - individual wipe.webm",
+  camera: "camera - fx.webm",
+});
+
+const brushCueSamples = new Map();
+let brushCueProposal = 0;
 
 function playCue(api, name) {
   const fallback = () => api.sound?.synth?.({
@@ -55,6 +80,16 @@ function playCue(api, name) {
   }
   cueEvents.push({ name, path: "synth" });
   return fallback();
+}
+
+function playBrushCue(api, kind) {
+  if (brushCueProposal === proposalNumber) return;
+  const sample = brushCueSamples.get(kind);
+  if (!sample || !api.sound?.play) return;
+  brushCueProposal = proposalNumber;
+  cueEvents.push({ name: `brush:${kind}`, path: "legacy" });
+  api.sound.play(sample, { volume: 0.48 });
+  publishTestState();
 }
 
 function initialNavigationURL() {
@@ -218,6 +253,7 @@ function chooseProposal(api) {
   proposalNumber += 1;
   proposalFrame = 0;
   transition("proposing");
+  playBrushCue(api, proposal.kind);
   api.system.nopaint.needsPresent = true;
   api.needsPaint();
 }
@@ -301,6 +337,9 @@ function recordDecision({ store }, decision) {
 function commitProposal(api) {
   if (loopState !== "proposing" && loopState !== "paused") return;
   playCue(api, "paint");
+  if (["rect", "oval", "line"].includes(proposal?.kind)) {
+    playCue(api, "primitive-release");
+  }
   transition("committing");
   recordDecision(api, "paint");
 
@@ -316,10 +355,13 @@ function commitProposal(api) {
   publishTestState();
 }
 
-function togglePaused({ needsPaint }) {
+function togglePaused(api) {
+  const { needsPaint } = api;
   if (loopState === "paused") {
+    playCue(api, "pause-out");
     transition(stateBeforePause);
   } else if (loopState === "proposing") {
+    playCue(api, "pause-in");
     stateBeforePause = loopState;
     transition("paused");
   }
@@ -370,6 +412,7 @@ function testSnapshot() {
     doneCount,
     audio: {
       ready: [...cueSamples.keys()],
+      brushReady: [...brushCueSamples.keys()],
       events: cueEvents.map((event) => ({ ...event })),
     },
     lastDownload,
@@ -412,6 +455,7 @@ function installTestHook(debug) {
       sessionSeed = configuredSeed;
       random = seededRandom(sessionSeed);
       proposalNumber = 0;
+      brushCueProposal = 0;
       clearProposal(testApi);
       chooseProposal(testApi);
       publishTestState();
@@ -447,6 +491,7 @@ function boot({ colon, debug, hud, net, num, params, screen, store, system, ui, 
   finishMode = false;
   doneCount = 0;
   cueEvents = [];
+  brushCueProposal = 0;
   lastDownload = null;
   archiveOrigin = archiveId ? {
     type: "nopaint-archive",
@@ -482,6 +527,15 @@ function boot({ colon, debug, hud, net, num, params, screen, store, system, ui, 
       net.preload(`/nopaint.art/media/${filename}`)
         .then((sample) => cueSamples.set(name, sample))
         .catch(() => {}); // playCue supplies an immediate native synth fallback.
+    }
+    for (const [kind, filename] of Object.entries(BRUSH_CUES)) {
+      net.preload(`/nopaint.art/media/${filename}`)
+        .then((sample) => {
+          brushCueSamples.set(kind, sample);
+          if (proposal?.kind === kind) playBrushCue(testApi, kind);
+          publishTestState();
+        })
+        .catch(() => {});
     }
   }
 
@@ -696,12 +750,18 @@ function act($) {
   };
 
   if (finishMode) {
-    backButton.btn.act(e, leaveFinishMode);
-    doneButton.btn.act(e, () => {
-      playCue($, "done");
-      doneCount += 1;
-      publishTestState();
-      if (!initialNavigationURL()?.searchParams.has("test")) $.jump("done");
+    backButton.btn.act(e, {
+      down: () => playCue($, "button-down"),
+      push: leaveFinishMode,
+    });
+    doneButton.btn.act(e, {
+      down: () => playCue($, "done-down"),
+      push: () => {
+        playCue($, "done");
+        doneCount += 1;
+        publishTestState();
+        if (!initialNavigationURL()?.searchParams.has("test")) $.jump("done");
+      },
     });
     const stage = interfaceLayout($.screen).stage;
     if (
@@ -712,8 +772,18 @@ function act($) {
     return;
   }
 
-  noButton.btn.act(e, () => discardProposal($));
-  paintButton.btn.act(e, () => commitProposal($));
+  noButton.btn.act(e, {
+    down: () => playCue($, "no-down"),
+    rollover: () => playCue($, "rollover"),
+    cancel: () => playCue($, "back"),
+    push: () => discardProposal($),
+  });
+  paintButton.btn.act(e, {
+    down: () => playCue($, "paint-down"),
+    rollover: () => playCue($, "rollover"),
+    cancel: () => playCue($, "back"),
+    push: () => commitProposal($),
+  });
   const stage = interfaceLayout($.screen).stage;
   if (
     e.is("lift:1") &&

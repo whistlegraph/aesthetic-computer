@@ -34,6 +34,16 @@ try {
       );
       await ac.wait(500);
     }
+    try {
+      await ac.page.waitForFunction(
+        () => window.__acNoPaintTest?.()?.audio?.events?.some(
+          ({ name, path }) => name === "brush:banner" && path === "legacy",
+        ),
+        { timeout: 15000 },
+      );
+    } catch (error) {
+      throw new Error(`${error.message}; audio=${JSON.stringify((await ac.nopaintState())?.audio)}`);
+    }
     const state = await ac.nopaintState();
     await receipt("01-first-proposal");
     if (!state) {
@@ -50,6 +60,10 @@ try {
     expect(state?.proposalNumber === 1, "first proposal is numbered 1");
     expect(state?.operation === "banner", `seed begins with Banner, not Camera (got ${state?.operation})`);
     expect(state?.ready === true, "proposal buffer reports ready");
+    expect(
+      state?.audio?.events?.some(({ name, path }) => name === "brush:banner" && path === "legacy"),
+      "the proposal starts its recovered Banner theme",
+    );
     expect(
       [state?.controls?.no, state?.controls?.paint]
         .every((box) => box && box.w > 0 && box.h > 0),
@@ -133,8 +147,9 @@ try {
       after?.paintingFingerprint === before?.paintingFingerprint,
       "No leaves the accepted painting unchanged",
     );
-    expect(after?.audio?.events?.at(-1)?.name === "no", "No emits its interaction cue");
-    expect(after?.audio?.events?.at(-1)?.path === "legacy", "No uses the recovered Construct sample");
+    const noCue = after?.audio?.events?.findLast(({ name }) => name === "no");
+    expect(Boolean(noCue), "No emits its interaction cue");
+    expect(noCue?.path === "legacy", "No uses the recovered Construct sample");
   });
 
   await scenario("Paint commits and persists the proposal score", async (expect) => {
@@ -148,8 +163,39 @@ try {
       after?.paintingFingerprint !== before?.paintingFingerprint,
       "Paint changes the accepted painting",
     );
-    expect(after?.audio?.events?.at(-1)?.name === "paint", "Paint emits its interaction cue");
-    expect(after?.audio?.events?.at(-1)?.path === "legacy", "Paint uses the recovered Construct sample");
+    const paintCue = after?.audio?.events?.findLast(({ name }) => name === "paint");
+    expect(Boolean(paintCue), "Paint emits its interaction cue");
+    expect(paintCue?.path === "legacy", "Paint uses the recovered Construct sample");
+  });
+
+  await scenario("A held pointer can slide from No to Paint before release", async (expect) => {
+    const before = await ac.nopaintState();
+    const rect = await ac.page.evaluate(() => Array.from(document.querySelectorAll("canvas"))
+      .map((canvas) => {
+        const box = canvas.getBoundingClientRect();
+        return { x: box.x, y: box.y, width: box.width, height: box.height };
+      })
+      .filter((box) => box.width > 0 && box.height > 0)
+      .sort((a, b) => b.width * b.height - a.width * a.height)[0]);
+    const screen = before.layout.screenResolution;
+    const point = (box) => ({
+      x: rect.x + (box.x + box.w / 2) * rect.width / screen.width,
+      y: rect.y + (box.y + box.h / 2) * rect.height / screen.height,
+    });
+    const no = point(before.controls.no);
+    const paint = point(before.controls.paint);
+    await ac.page.mouse.move(no.x, no.y);
+    await ac.page.mouse.down();
+    await ac.page.mouse.move(paint.x, paint.y, { steps: 12 });
+    await ac.page.mouse.up();
+    await ac.wait(250);
+    const after = await ac.nopaintState();
+    expect(after?.proposalNumber === before.proposalNumber + 1, "release chooses the slid-to button");
+    expect(after?.decisions?.at(-1)?.decision === "paint", "sliding No → Paint commits Paint");
+    const recentCues = after?.audio?.events?.slice(-6).map(({ name }) => name) || [];
+    expect(recentCues.includes("no-down"), "hold begins with the No press cue");
+    expect(recentCues.includes("paint-down") || recentCues.includes("rollover"), "crossing announces Paint");
+    expect(recentCues.includes("paint"), "release emits the Paint cue before the next brush theme");
   });
 
   await scenario("Pause freezes and resumes the live proposal", async (expect) => {
