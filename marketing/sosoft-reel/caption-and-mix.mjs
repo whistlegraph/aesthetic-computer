@@ -74,6 +74,10 @@ for (const entry of eventImages) {
     throw new Error(`event source ${entry.id} is only ${entry.image.width}x${entry.image.height}; fetch the original before rendering`);
   }
 }
+const editionEvidence = new Map(await Promise.all([
+  [3, "SSF-03-software-as-choreography.jpg"],
+  [7, "SSF-07-biophonia.jpg"],
+].map(async ([chapter, file]) => [chapter, await loadImage(resolve(ROOT, "qa", file))])));
 const FRAME_BYTES = SOURCE_W * H * 4;
 const frame = Buffer.alloc(FRAME_BYTES);
 const image = videoCtx.createImageData(SOURCE_W, H);
@@ -229,8 +233,8 @@ for (let i = 0; i < phrases.length - 1; i += 1) {
 // Horizontal subject centers within the 1620px aspect-fill source. Most of the
 // page-through is centered; small offsets follow the object being introduced.
 const chapterFocus = [0.50, 0.54, 0.50, 0.50, 0.48, 0.46, 0.50, 0.50, 0.50, 0.52, 0.50, 0.50];
-const chapterFocusY = [0.60, 0.62, 0.62, 0.75, 0.58, 0.62, 0.62, 0.50, 0.74, 0.62, 0.62, 0.60];
-const chapterBaseZoom = [1.06, 1.10, 1.10, 2.15, 1.00, 1.10, 1.10, 1, 1.32, 1.10, 1.10, 1.08];
+const chapterFocusY = [0.60, 0.62, 0.62, 0.75, 0.58, 0.72, 0.62, 0.50, 0.74, 0.62, 0.62, 0.60];
+const chapterBaseZoom = [1.06, 1.10, 1.10, 2.15, 1.00, 1.40, 1.10, 1, 1.32, 1.10, 1.10, 1.08];
 const rgba = (hex, alpha) => {
   const [r, g, b] = hexRgb(hex);
   return `rgba(${r},${g},${b},${alpha})`;
@@ -446,6 +450,34 @@ function drawVideo(ms) {
   ctx.drawImage(videoCanvas, sx, sy, sw, sh, 0, 0, W, H);
 }
 
+function drawEditionEvidence(ms) {
+  const index = chapterIndexAt(ms);
+  const evidence = editionEvidence.get(index);
+  if (!evidence) return;
+  const from = chapters[index].fromMs;
+  const to = chapters[index + 1]?.fromMs ?? duration * 1000;
+  const progress = Math.max(0, Math.min(1, (ms - from) / Math.max(1, to - from)));
+  // Establish the physical edition beside the moving work, then clear it so
+  // the video can occupy the whole frame. The crop excludes old guide-caption
+  // pixels from the evidence frame while retaining its title and work image.
+  const fadeIn = Math.max(0, Math.min(1, progress / 0.08));
+  const fadeOut = 1 - Math.max(0, Math.min(1, (progress - 0.40) / 0.14));
+  const alpha = fadeIn * fadeOut;
+  if (alpha <= 0) return;
+  const sourceHeight = Math.min(522, evidence.height);
+  const width = 405;
+  const height = sourceHeight;
+  const x = 64 + (1 - fadeIn) * 18;
+  const y = 146;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.shadowColor = "rgba(0, 9, 18, 0.30)";
+  ctx.shadowBlur = 16;
+  ctx.shadowOffsetY = 7;
+  ctx.drawImage(evidence, 0, 0, evidence.width, sourceHeight, x, y, width, height);
+  ctx.restore();
+}
+
 function drawEventDocumentation(ms) {
   const start = chapters[11].fromMs;
   if (ms < start || !eventImages.length) return false;
@@ -526,7 +558,10 @@ for await (const chunk of dec.stdout) {
     if (off === FRAME_BYTES) {
       off = 0; image.data.set(frame); videoCtx.putImageData(image, 0, 0);
       const ms = (fi / FPS) * 1000;
-      if (!drawEventDocumentation(ms)) drawVideo(ms);
+      if (!drawEventDocumentation(ms)) {
+        drawVideo(ms);
+        drawEditionEvidence(ms);
+      }
       drawCaptions(ms);
       const identityEnvelope = Math.max(0, Math.sin(ms / 1000 * Math.PI * 2 * 1.8)) ** 5;
       sideIdentity.draw(ctx, ms / 1000, identityEnvelope, pinkCaptionPulse(ms));

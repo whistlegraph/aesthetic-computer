@@ -69,7 +69,9 @@ without a separate title card or persistent corner label. The segmented bottom
 timeline alternates blue and teal chapter colors instead of forming a gradient.
 Chelly Jin's installation chapter uses a
 dedicated vertical focus so the projection, not its blank upper field, occupies
-the center.
+the center. Chelly Jin and Thomas Noya each retain a brief physical-edition
+inset over the moving-image excerpt; Em Lugo's card sequence is sampled higher
+so the cards clear the subtitle and progress lanes.
 The animated SO SOFT double-box identity runs fully inside the side edges as the
 reel watermark; the Pals badges and climbing title layer are deliberately off.
 The closing event photograph is a verified 4080×3072 official source, edited as

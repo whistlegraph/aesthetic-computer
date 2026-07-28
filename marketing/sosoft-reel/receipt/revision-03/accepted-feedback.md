@@ -24,11 +24,17 @@
   “copy #51.”
 - `SSF-04` — Widened Jordan Silver’s sheet framing so its columns, large
   numbers, and typewritten commands remain visible through the passage.
+- `SSF-03` and `SSF-07` — Added brief physical-edition views beside Chelly
+  Jin’s and Thomas Noya’s moving work.
+- `SSF-05` — Raised and tightened Em Lugo’s crop so the cards sit inside the
+  useful center of the vertical frame.
 - `SSF-08` — Kept Banyi Huang and the complete work title in one wrapped
   caption utterance.
 - Identity system — Staggered each artist/title character into place and
   slowed its release; replaced the sharp SO/SOFT shake with a softer wobble
   and blink.
+- `SSF-11` — Replaced the 480 px event derivatives with the verified
+  4080×3072 source and removed the dated photo label.
 
 Continue recording accepted Google Doc comments here under their stable
 `SSF-00`–`SSF-11` scene IDs so decisions survive later timestamp changes.

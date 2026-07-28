@@ -45,7 +45,7 @@ const html = `<!doctype html>
 </style></head><body>
 <h1>Scores for Social Software</h1>
 <p><strong>Revision 03 video receipt + timecoded screenplay</strong></p>
-<p class="meta">Review cut · ${stamp(timeline.totalDuration)} · 1080 × 1920 vertical · prepared 27 July 2026</p>
+<p class="meta">Review cut · ${stamp(timeline.totalDuration)} · 1080 × 1920 vertical · prepared 28 July 2026</p>
 <h3>Review links</h3>
 <p class="links"><a href="${REVIEW_VIDEO}">Watch the revision 03 review video</a><a href="${REVIEW_DOC}">Comment on the Google Doc screenplay</a><a href="${FINAL_SOURCE}">Open the final article source + Casey edit log</a><a href="${ARTICLE}">Open the published article: The Keymap Is the Score</a></p>
 <h3>How to review</h3>
@@ -54,7 +54,7 @@ const html = `<!doctype html>
 <h3>What changed in revision 03</h3>
 <p><strong>Casey’s copy feedback.</strong> Corrected the Æther description, replaced the limiting “same question” conclusion, and incorporated the accepted Google Doc copy edits into the published article and screenplay.</p>
 <p><strong>Event documentation.</strong> The closing now moves through Casey’s June 13 Fuser photographs: the room, presentation, cohort, audience, and floor performance.</p>
-<p><strong>Final polish.</strong> Changed the edition line to “copy #51,” kept Banyi Huang’s artist/title credit in one utterance, animated credit letters individually, softened the SO/SOFT response into a wobble, and widened Jordan Silver’s sheet evidence.</p>
+<p><strong>Final polish.</strong> Changed the edition line to “copy #51,” kept Banyi Huang’s artist/title credit in one utterance, showed Chelly Jin’s and Thomas Noya’s physical editions beside their moving images, raised Em Lugo’s cards, widened Jordan Silver’s sheet evidence, and sharpened the Fuser close.</p>
 ${scenes}
 </body></html>`;
 

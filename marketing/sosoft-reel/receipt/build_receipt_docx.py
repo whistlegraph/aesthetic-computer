@@ -127,7 +127,7 @@ p = doc.add_paragraph()
 r = p.add_run("Revision 03 video receipt + timecoded screenplay")
 r.bold = True
 r.font.size = Pt(14)
-p = doc.add_paragraph(f"Review cut · {review_duration} · 1080 × 1920 vertical · prepared 27 July 2026")
+p = doc.add_paragraph(f"Review cut · {review_duration} · 1080 × 1920 vertical · prepared 28 July 2026")
 p.runs[0].font.color.rgb = RGBColor(90, 90, 90)
 
 doc.add_heading("Review links", level=1)
@@ -150,7 +150,7 @@ doc.add_paragraph(
 doc.add_heading("What changed in revision 03", level=1)
 changes = (
     ("Casey’s copy feedback", "Corrected the Æther packet description, replaced the limiting ‘same question’ conclusion, and incorporated the accepted Google Doc copy edits into the published article and screenplay."),
-    ("Content", "Added ‘64 hand-produced artist scores,’ ‘copy #51,’ the two-edition invitation, Jeffrey’s goodbye, and Casey’s June 13 Fuser photographs; widened Jordan Silver and kept Banyi Huang’s complete credit in one utterance."),
+    ("Content", "Added ‘64 hand-produced artist scores,’ ‘copy #51,’ the two-edition invitation, Jeffrey’s goodbye, and Casey’s Fuser photographs; showed Chelly Jin’s and Thomas Noya’s physical editions, raised Em Lugo’s cards, widened Jordan Silver’s sheet evidence, and kept Banyi Huang’s complete credit in one utterance."),
     ("Picture and identity", "Reframed the moving images, sharpened the crop, raised the captions, added a blue chapter bar, animated credit letters individually, and softened the SO/SOFT response into a wobble."),
     ("Sound and delivery", f"Retimed the full picture spine to {review_duration}, expanded the music, balanced the guide voice, and exported a color-tagged BT.709 review cut."),
 )

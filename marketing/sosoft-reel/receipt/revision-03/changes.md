@@ -18,3 +18,8 @@
 - Rendered “copy #51,” held Banyi Huang’s complete artist/title as one caption
   utterance, added slower per-character credit motion, softened the SO/SOFT
   wobble, and widened Jordan Silver’s evidence crop.
+- Paired Chelly Jin’s and Thomas Noya’s moving chapters with brief views of
+  their physical editions; raised Em Lugo’s card crop away from the lower edge.
+- Replaced low-resolution event derivatives with the verified 4080×3072 Fuser
+  source, refreshed every screenplay screenshot, and replaced the existing
+  Drive review video without changing Casey’s links.
