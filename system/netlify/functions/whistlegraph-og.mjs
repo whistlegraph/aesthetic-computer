@@ -45,7 +45,23 @@ function load() {
     const postData = JSON.parse(readFileSync(POSTS, "utf-8"));
     const works = Array.isArray(data) ? data : data.graphs || [];
     const posts = Array.isArray(postData) ? postData : postData.posts || [];
-    const byCode = new Map(works.map((w) => [w.code, w]));
+    const visualPostsByCode = new Map();
+    for (const post of posts) {
+      if (!post?.thumb || post.media === "audio") continue;
+      for (const code of post.works || post.graphs || []) {
+        const current = visualPostsByCode.get(code);
+        if (!current || (Number(post.views) || 0) > (Number(current.views) || 0)) {
+          visualPostsByCode.set(code, post);
+        }
+      }
+    }
+    const byCode = new Map(works.map((work) => {
+      const visual = visualPostsByCode.get(work.code);
+      return [work.code, {
+        ...work,
+        thumb: work.thumb || visual?.thumb,
+      }];
+    }));
     const byPost = new Map(posts.map((post) => [String(post.id), post]));
     cache = {
       indexMtime: im,
@@ -92,7 +108,6 @@ export const handler = async (event) => {
     const yr = work.year ? ` (${work.year})` : "";
     const desc = `${title} — a whistlegraph${by}${yr}. A drawing you sing; the score teaches you how to play it.`;
     const img = work.thumb || DEFAULT_IMG;
-    const vid = videoFor(work.thumb);
     const url = `https://whistlegraph.org/${code}`;
 
     html = html
@@ -109,18 +124,14 @@ export const handler = async (event) => {
         /<meta property="og:image"[^>]*>/,
         [
           `<meta property="og:image" content="${esc(img)}">`,
+          `<meta property="og:image:secure_url" content="${esc(img)}">`,
+          `<meta property="og:image:type" content="image/jpeg">`,
+          `<meta property="og:image:alt" content="${esc(`Final glyph of ${title}`)}">`,
           `<meta property="og:url" content="${esc(url)}">`,
-          `<meta property="og:type" content="video.other">`,
-          `<meta name="twitter:card" content="${vid ? "player" : "summary_large_image"}">`,
+          `<meta property="og:type" content="website">`,
+          `<meta name="twitter:card" content="summary_large_image">`,
           `<meta name="twitter:title" content="${esc(title)}">`,
           `<meta name="twitter:image" content="${esc(img)}">`,
-          ...(vid
-            ? [
-                `<meta property="og:video" content="${esc(vid)}">`,
-                `<meta property="og:video:secure_url" content="${esc(vid)}">`,
-                `<meta property="og:video:type" content="video/mp4">`,
-              ]
-            : []),
         ].join("\n"),
       );
   } else if (post) {
