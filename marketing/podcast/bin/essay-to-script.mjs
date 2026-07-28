@@ -100,6 +100,10 @@ function stripLineComments(s) {
 // ── .tex parser (AC essay format) ──────────────────────────────────────
 function parseTex(raw) {
   let s = stripLineComments(raw);
+  const linkM = raw.match(/^%\s*canonical-url:\s*(\S+)\s*$/m);
+  const link = linkM ? linkM[1] : "";
+  const paperM = raw.match(/^%\s*paper-url:\s*(\S+)\s*$/m);
+  const paper = paperM ? paperM[1] : "";
 
   const grab = (name) => {
     const m = s.match(new RegExp(`\\\\${name}\\s*\\{`));
@@ -154,6 +158,7 @@ function parseTex(raw) {
 
   // Punctuation / spacing normalization for TTS prosody.
   body = body
+    .replace(/:wq\b/gi, "colon W Q")
     .replace(/\\textcolor\s*\{[^}]*\}\s*\{([^}]*)\}/g, "$1")
     .replace(/---/g, ", ")           // em dash → comma pause
     .replace(/--/g, ", ")
@@ -168,7 +173,7 @@ function parseTex(raw) {
     .replace(/\s+([,.;:])/g, "$1")   // no space before punctuation
     .replace(/,\s*,/g, ",");          // collapse doubled commas
 
-  return { title, date, author, body };
+  return { title, date, author, link, paper, body };
 }
 
 // ── .md parser (opinion essays) ────────────────────────────────────────
@@ -201,7 +206,7 @@ function parseMd(raw) {
 export function essayToScript(path) {
   const raw = readFileSync(path, "utf8");
   const isTex = path.endsWith(".tex");
-  const { title, date, author, link = "", body } = isTex ? parseTex(raw) : parseMd(raw);
+  const { title, date, author, link = "", paper = "", body } = isTex ? parseTex(raw) : parseMd(raw);
 
   const paragraphs = body
     .split(/\n\s*\n/)
@@ -210,7 +215,7 @@ export function essayToScript(path) {
 
   const wordCount = paragraphs.join(" ").split(/\s+/).filter(Boolean).length;
   const slug = basename(path).replace(/\.[^.]+$/, "");
-  return { slug, title, date, author, link, paragraphs, wordCount };
+  return { slug, title, date, author, link, paper, paragraphs, wordCount };
 }
 
 // CLI: print the script as JSON.

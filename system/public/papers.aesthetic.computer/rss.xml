@@ -5,13 +5,23 @@
   <link rel="alternate" type="text/html" href="https://papers.aesthetic.computer/"/>
   <link rel="self" type="application/atom+xml" href="https://papers.aesthetic.computer/feed.xml"/>
   <id>https://papers.aesthetic.computer/</id>
-  <updated>2026-07-18T18:43:30.990Z</updated>
+  <updated>2026-07-28T06:08:34.000Z</updated>
   <author>
     <name>@jeffrey</name>
     <uri>https://prompt.ac/@jeffrey</uri>
   </author>
   <icon>https://papers.aesthetic.computer/papers-og.jpg</icon>
   <rights>CC BY 4.0 unless noted otherwise.</rights>
+  <entry>
+    <title>The Keymap Is the Score</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/the-keymap-is-the-score-essay.pdf"/>
+    <id>https://papers.aesthetic.computer/the-keymap-is-the-score-essay.pdf</id>
+    <updated>2026-07-28T06:08:34.000Z</updated>
+    <published>2026-07-27T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">A plain-spoken companion to Keymaps as Social Software · essay — A keymap is more than a hidden preference table: it is an agreement that travels between people, programs, and machines. This essay names the inherited AWSED piano layout, introduces notepat&apos;s notes-that-name-themselves alternative, and follows that argument into the hand-assembled Scores for Social Software edition at UCLA.</summary>
+  </entry>
   <entry>
     <title>A Record in the Mail</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/a-record-in-the-mail-essay.pdf"/>

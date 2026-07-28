@@ -182,11 +182,38 @@ for (let i = 0; i < phrases.length - 1; i += 1) {
   current.toMs = current.words.at(-1).toMs + 260;
   next.fromMs = next.words[0].fromMs - 120;
 }
+
+// Banyi Huang's long artist/title identifier is one utterance. Keep it in a
+// single caption phrase (wrapping across lines) instead of cutting the title at
+// the generic seven-word boundary.
+{
+  const from = chapters[8].fromMs;
+  const to = chapters[9].fromMs;
+  const titleWords = words.filter((word) => word.identity && word.fromMs >= from && word.fromMs < to);
+  const titleSet = new Set(titleWords);
+  const firstPhrase = phrases.findIndex((phrase) => phrase.words.some((word) => titleSet.has(word)));
+  if (firstPhrase >= 0 && titleWords.length) {
+    for (let i = phrases.length - 1; i >= 0; i -= 1) {
+      if (!phrases[i].words.some((word) => titleSet.has(word))) continue;
+      phrases[i].words = phrases[i].words.filter((word) => !titleSet.has(word));
+      if (!phrases[i].words.length) phrases.splice(i, 1);
+      else {
+        phrases[i].fromMs = phrases[i].words[0].fromMs - 120;
+        phrases[i].toMs = phrases[i].words.at(-1).toMs + 260;
+      }
+    }
+    phrases.splice(Math.min(firstPhrase, phrases.length), 0, {
+      words: titleWords,
+      fromMs: titleWords[0].fromMs - 120,
+      toMs: titleWords.at(-1).toMs + 260,
+    });
+  }
+}
 // Horizontal subject centers within the 1620px aspect-fill source. Most of the
 // page-through is centered; small offsets follow the object being introduced.
 const chapterFocus = [0.50, 0.54, 0.50, 0.50, 0.48, 0.46, 0.50, 0.50, 0.50, 0.52, 0.50, 0.50];
-const chapterFocusY = [0.60, 0.62, 0.62, 0.75, 0.62, 0.62, 0.62, 0.50, 0.74, 0.62, 0.62, 0.60];
-const chapterBaseZoom = [1.06, 1.10, 1.10, 2.15, 1.10, 1.10, 1.10, 1, 1.32, 1.10, 1.10, 1.08];
+const chapterFocusY = [0.60, 0.62, 0.62, 0.75, 0.58, 0.62, 0.62, 0.50, 0.74, 0.62, 0.62, 0.60];
+const chapterBaseZoom = [1.06, 1.10, 1.10, 2.15, 1.00, 1.10, 1.10, 1, 1.32, 1.10, 1.10, 1.08];
 const rgba = (hex, alpha) => {
   const [r, g, b] = hexRgb(hex);
   return `rgba(${r},${g},${b},${alpha})`;
@@ -219,10 +246,18 @@ function linesFor(items) {
 }
 function drawCaptionPhrase(phrase, ms, {
   identityOnly = false, alpha = 1, driftX = 0, driftY = 0, centerY = 1320,
+  lingerProgress = null,
 } = {}) {
   const colors = colorsFor(chapterIndexAt(ms));
   const displayWords = identityOnly ? phrase.words.filter((word) => word.identity) : phrase.words;
   const lines = linesFor(displayWords);
+  const identityCharStart = new Map();
+  let identityCharCount = 0;
+  for (const word of displayWords) {
+    if (!word.identity) continue;
+    identityCharStart.set(word, identityCharCount);
+    identityCharCount += [...word.text].length;
+  }
   const boxH = lines.length * lineH + 70;
   const y0 = centerY - boxH / 2;
   let y = y0 + 58 + driftY;
@@ -237,23 +272,61 @@ function drawCaptionPhrase(phrase, ms, {
     let x = (W - total) / 2 + driftX;
     line.forEach((word, i) => {
       const active = ms >= word.fromMs && ms <= word.toMs + 90;
-      // A compact dark offset keeps the caption legible without reintroducing
-      // a translucent strip or softening the face itself.
-      ctx.save();
-      ctx.translate(3, 6);
-      ctx.lineWidth = 12;
-      ctx.strokeStyle = "rgba(3,15,25,0.58)";
-      ctx.strokeText(word.text, x, y);
-      ctx.restore();
-      ctx.lineWidth = 11;
-      ctx.strokeStyle = word.identityType === "artist" ? rgba("#7b334d", 0.88)
-        : word.identityType === "work" ? rgba("#19555f", 0.9)
-          : rgba(chapterBlues[chapterIndexAt(ms)], 0.96);
-      ctx.strokeText(word.text, x, y);
-      ctx.fillStyle = word.identityType === "artist" ? (active ? "#ff9fb0" : "#f47f91")
-        : word.identityType === "work" ? (active ? "#9ce7de" : "#72cfc6")
-          : (active ? colors.active : colors.caption);
-      ctx.fillText(word.text, x, y);
+      const drawText = (text, tx, ty, opacity = 1, rotation = 0) => {
+        ctx.save();
+        ctx.globalAlpha *= opacity;
+        ctx.translate(tx, ty);
+        ctx.rotate(rotation);
+        // A compact dark offset keeps the caption legible without
+        // reintroducing a translucent strip or softening the face itself.
+        ctx.save();
+        ctx.translate(3, 6);
+        ctx.lineWidth = 12;
+        ctx.strokeStyle = "rgba(3,15,25,0.58)";
+        ctx.strokeText(text, 0, 0);
+        ctx.restore();
+        ctx.lineWidth = 11;
+        ctx.strokeStyle = word.identityType === "artist" ? rgba("#7b334d", 0.88)
+          : word.identityType === "work" ? rgba("#19555f", 0.9)
+            : rgba(chapterBlues[chapterIndexAt(ms)], 0.96);
+        ctx.strokeText(text, 0, 0);
+        ctx.fillStyle = word.identityType === "artist" ? (active ? "#ff9fb0" : "#f47f91")
+          : word.identityType === "work" ? (active ? "#9ce7de" : "#72cfc6")
+            : (active ? colors.active : colors.caption);
+        ctx.fillText(text, 0, 0);
+        ctx.restore();
+      };
+
+      if (word.identity) {
+        let charX = x;
+        const chars = [...word.text];
+        const base = identityCharStart.get(word) ?? 0;
+        chars.forEach((char, charAt) => {
+          const width = ctx.measureText(char).width;
+          const index = base + charAt;
+          const seed = ((Math.sin((index + 1) * 12.9898) * 43758.5453) % 1 + 1) % 1;
+          let offsetX = 0, offsetY = 0, rotation = 0, charAlpha = 1;
+          if (lingerProgress === null) {
+            const enterStart = word.fromMs - 260 + charAt * 34;
+            const enter = Math.max(0, Math.min(1, (ms - enterStart) / 620));
+            const eased = 1 - (1 - enter) ** 3;
+            offsetX = (seed - 0.5) * 7 * (1 - eased);
+            offsetY = (12 + seed * 14) * (1 - eased);
+            rotation = (seed - 0.5) * 0.11 * (1 - eased);
+            charAlpha = 0.04 + 0.96 * eased;
+          } else {
+            const start = 0.08 + (index / Math.max(1, identityCharCount - 1)) * 0.24;
+            const exit = Math.max(0, Math.min(1, (lingerProgress - start) / (0.92 - start)));
+            const eased = exit * exit * (3 - 2 * exit);
+            offsetX = (seed - 0.5) * 24 * eased;
+            offsetY = -(120 + seed * 70) * eased;
+            rotation = (seed - 0.5) * 0.16 * eased;
+            charAlpha = 1 - eased;
+          }
+          drawText(char, charX + offsetX, y + offsetY, charAlpha, rotation);
+          charX += width;
+        });
+      } else drawText(word.text, x, y);
       x += widths[i] + gap;
     });
     y += lineH;
@@ -261,8 +334,10 @@ function drawCaptionPhrase(phrase, ms, {
   ctx.restore();
 }
 
+const identityLingerMs = 4200;
+
 function drawCaptions(ms) {
-  const lingerMs = 2300;
+  const lingerMs = identityLingerMs;
   const lingering = phrases.filter((phrase) => phrase.words.some((word) => word.identity)
     && ms > phrase.toMs && ms <= phrase.toMs + lingerMs).slice(-2);
   for (const phrase of lingering) {
@@ -270,10 +345,11 @@ function drawCaptions(ms) {
     const eased = progress * progress * (3 - 2 * progress);
     drawCaptionPhrase(phrase, ms, {
       identityOnly: true,
-      alpha: (1 - eased) * 0.7,
-      driftX: Math.sin(progress * Math.PI) * 14,
-      // Identity words occupy their own upper lane and drift away slowly.
-      centerY: 1080 - 100 * eased,
+      alpha: 0.72,
+      // Characters lift directly from their caption positions, staggered by
+      // their own seeds, instead of jumping to a separate title lane.
+      centerY: 1320,
+      lingerProgress: progress,
     });
   }
   const active = phrases.find((phrase) => ms >= phrase.fromMs && ms <= phrase.toMs);
@@ -281,7 +357,7 @@ function drawCaptions(ms) {
 }
 
 function pinkCaptionPulse(ms) {
-  const lingerMs = 2300;
+  const lingerMs = identityLingerMs;
   let pulse = 0;
   for (const phrase of phrases) {
     if (!phrase.words.some((word) => word.identityType === "artist")) continue;

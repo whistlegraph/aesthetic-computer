@@ -38,6 +38,8 @@ export async function makeSosoftSideIdentity({
     const a = rgb(from), b = rgb(to);
     return `#${a.map((value, i) => Math.round(value + (b[i] - value) * amount).toString(16).padStart(2, "0")).join("")}`;
   };
+  const softPinkBlink = (t, response) => response
+    * (0.64 + 0.36 * ((Math.sin(t * Math.PI * 2.2) + 1) / 2));
 
   function advanceSpring(env) {
     const dt = 1 / fps;
@@ -71,12 +73,12 @@ export async function makeSosoftSideIdentity({
     // as a color state rather than a continuously flickering rainbow.
     const rawBlue = (Math.sin(t * 0.48 - 0.9) + 1) / 2;
     const blue = rawBlue * rawBlue * (3 - 2 * rawBlue);
-    const flicker = pinkResponse * (0.72 + 0.28 * Math.sin(t * Math.PI * 19) ** 2);
+    const flicker = softPinkBlink(t, pinkResponse);
     const color = mix(mix("#ff9bae", "#287ea6", blue), "#ffadc0", flicker);
     const shadowX = 1.5 + Math.sin(t * 0.71) * 0.35;
     const shadowY = 1.5 + Math.cos(t * 0.63) * 0.3;
     const layers = [
-      { dx: shadowX, dy: shadowY, color: pinkResponse > 0.01 ? "#ff5e86" : "#071f35", alpha: .14 + flicker * .16, width: 6.75 + flicker * 1.5 },
+      { dx: shadowX, dy: shadowY, color: pinkResponse > 0.01 ? "#ff5e86" : "#071f35", alpha: .12 + flicker * .12, width: 6.75 + flicker * 1.1 },
       { dx: 0, dy: 0, color, alpha: 1, width: 6.25 },
     ];
     for (const { dx, dy, color, alpha, width } of layers) {
@@ -101,25 +103,26 @@ export async function makeSosoftSideIdentity({
   function draw(ctx, t, env = 0, pinkResponse = 0) {
     pals?.draw(ctx, t, env, null);
     advanceSpring(env);
-    const flicker = pinkResponse * (0.72 + 0.28 * Math.sin(t * Math.PI * 19) ** 2);
-    const pulse = (1 + spring * 0.12 + flicker * 0.06) * 0.88;
+    const flicker = softPinkBlink(t, pinkResponse);
+    const pulse = (1 + spring * 0.12 + flicker * 0.04) * 0.88;
     for (const side of [-1, 1]) {
       ctx.save();
       // The mark's vertical footprint becomes horizontal after rotation. Keep
-      // generous edge room for its pulse, glow, and shake at full response.
+      // generous edge room for its pulse, glow, and wobble at full response.
       const baseY = side < 0 ? h * 0.87 : h * 0.13;
       const smoothBob = Math.sin(t * 0.55 + (side < 0 ? 0 : Math.PI)) * 12;
-      const shakeX = pinkResponse * Math.sin(t * Math.PI * 31 + side) * 3.4;
-      const shakeY = pinkResponse * Math.sin(t * Math.PI * 37 - side) * 4.2;
-      ctx.translate((side < 0 ? 126 : w - 126) + shakeX, baseY + smoothBob + shakeY);
-      ctx.rotate(side < 0 ? Math.PI / 2 : -Math.PI / 2);
+      const wobbleX = pinkResponse * Math.sin(t * 2.1 + side) * 2.2;
+      const wobbleY = pinkResponse * Math.sin(t * 1.7 - side) * 3;
+      const wobbleAngle = pinkResponse * Math.sin(t * 2.4 + side) * 0.025;
+      ctx.translate((side < 0 ? 126 : w - 126) + wobbleX, baseY + smoothBob + wobbleY);
+      ctx.rotate((side < 0 ? Math.PI / 2 : -Math.PI / 2) + wobbleAngle);
       ctx.scale(pulse, pulse);
       ctx.translate(-200, -75);
       // Draw directly into the final frame. Avoiding a rotated/scaled bitmap
       // keeps the Latin counters, square corners, and rope edge genuinely crisp.
       if (pinkResponse > 0.01) {
-        ctx.shadowColor = `rgba(255,94,134,${0.26 * flicker})`;
-        ctx.shadowBlur = 9 + 8 * flicker;
+        ctx.shadowColor = `rgba(255,94,134,${0.18 * flicker})`;
+        ctx.shadowBlur = 7 + 5 * flicker;
       }
       drawMarkVector(ctx, t, 0.82 + 0.16 * flicker, pinkResponse);
       ctx.restore();

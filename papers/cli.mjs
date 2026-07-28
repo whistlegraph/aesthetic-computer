@@ -256,6 +256,12 @@ const PAPER_MAP = {
     title: "A Record in the Mail",
     format: "essay",
   },
+  "essay-keymap-score": {
+    base: "keymap-score",
+    siteName: "the-keymap-is-the-score-essay",
+    title: "The Keymap Is the Score",
+    format: "essay",
+  },
   "deck-media-estate": {
     base: "media-estate",
     siteName: "media-estate-26-deck",
@@ -492,6 +498,7 @@ const CATEGORIES = [
       "essay-granularity",
       "essay-console-browser",
       "essay-physical-mail",
+      "essay-keymap-score",
     ],
   },
   {
@@ -1051,6 +1058,11 @@ function updateIndex(entries) {
       detail: "An essay on API-made vinyl and cassette fulfillment &middot; podcast",
       abstract:
         "A podcast asks to become an object. This essay maps two routes from an Aesthetic Computer episode to the mailbox: Kunaki's product-and-order API for one-off vinyl, and Tape On Demand's more human cassette workflow. It argues for a shared physical-release manifest, a deliberate payment gate, and a side B that can turn physical media into correspondence.",
+    },
+    "the-keymap-is-the-score-essay": {
+      detail: "A plain-spoken companion to Keymaps as Social Software &middot; essay",
+      abstract:
+        "A keymap is more than a hidden preference table: it is an agreement that travels between people, programs, and machines. This essay names the inherited AWSED piano layout, introduces notepat's notes-that-name-themselves alternative, and follows that argument into the hand-assembled Scores for Social Software edition at UCLA.",
     },
     "the-record-is-a-better-interface-essay": {
       detail: "An essay on expressive playback &middot; podcast",

@@ -24,6 +24,7 @@ import { renderJingles, renderBed, BED_BPM } from "./jingle.mjs";
 import { renderCover } from "./cover.mjs";
 import { master } from "./master.mjs";
 import { EPISODE_SUBSTRATE, DEFAULT_SUBSTRATE } from "../lib/substrates.mjs";
+import { hosted } from "../lib/hosted.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
@@ -359,10 +360,12 @@ if (existsSync(sidecarPath)) {
 }
 writeFileSync(sidecarPath, JSON.stringify({
   slug: script.slug, title: script.title, author: speaker, date: script.date,
+  status: hosted(script.slug) ? "publish-cleared" : "draft-unpublished",
   description: script.paragraphs[0], lengthText,
   durationSec: Math.round(total), bytes: readFileSync(outMp3).length,
   wordCount: script.wordCount,
   link: script.link || undefined,
+  paper: script.paper || undefined,
   audio: `${script.slug}.mp3`, cover: `${script.slug}-cover.png`,
   source: positional[0], pubDate,
 }, null, 2) + "\n");

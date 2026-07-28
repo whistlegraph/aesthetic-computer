@@ -15,3 +15,6 @@
   a comment loop for subsequent revisions.
 - Changed the live Notepat sketch so sharp piano keys display the computer-key
   letters that play them.
+- Rendered “copy #51,” held Banyi Huang’s complete artist/title as one caption
+  utterance, added slower per-character credit motion, softened the SO/SOFT
+  wobble, and widened Jordan Silver’s evidence crop.

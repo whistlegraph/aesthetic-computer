@@ -2,11 +2,11 @@
 
 Voice: Jeffrey PVC, `neutral:0`. Read as an introduction to a collective object, not a review or ranking. Names and titles follow the blue colophon and official event page.
 
-**Timing:** 377 words. The current guide cut is 2:55, including natural pauses and the closing event-documentation sequence.
+**Timing:** 377 words. The current guide cut is 2:53, including natural pauses and the closing event-documentation sequence.
 
 ## Continuous read
 
-This blue folder just arrived from Social Software at UCLA. Inside is *Scores for Social Software*, a spring 2026 edition of 64 hand-produced artist scores. The copy in my hands is number fifty-one, assembled after ten weeks of making, testing, and performing together.
+This blue folder just arrived from Social Software at UCLA. Inside is *Scores for Social Software*, a spring 2026 edition of 64 hand-produced artist scores. This is copy #51, assembled after ten weeks of making, testing, and performing together.
 
 I’m Jeffrey Alan Scudder. My contribution is *Notepat*, a folded white research paper that combines an illustrated player, a QR code, instructions, and circular keyboard diagrams.
 
@@ -46,7 +46,7 @@ Casey Reas facilitated the cycle, with Lauren Lee McCarthy and the Social Softwa
 | 09 | banyi huang · a cosmographic score… | cosmographic drawing/spread |
 | 10 | alexander espinosa · music for world computers | computer/music score card; verify exact page before lock |
 | 11 | mavyn vu · the radio is an altar: portal | orange/yellow radio-altar print |
-| 12 | copy 51 of 64 | cover number, then June 13 Fuser room, presentation, cohort, audience, and performance documentation |
+| 12 | copy #51 of 64 | cover number, then June 13 Fuser room, presentation, cohort, audience, and performance documentation |
 
 ## Accuracy notes
 

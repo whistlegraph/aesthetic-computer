@@ -1,25 +1,25 @@
 {
-  "generatedAt": "2026-07-28T05:45:34.530Z",
+  "generatedAt": "2026-07-28T06:18:45.226Z",
   "files": [
     {
       "file": "scores-for-social-software-master-vertical.mp4",
-      "bytes": 195335225,
-      "sha256": "f5c4887683bf92588d105c387f89dd91a56ab293156dca4f0d564c65865a49a4"
+      "bytes": 194118019,
+      "sha256": "9a008909dbaa8e9e7e29ffed8e089e15f604946fe21c64f82380282fdcf51dd7"
     },
     {
       "file": "scores-for-social-software-review-vertical.mp4",
-      "bytes": 60451031,
-      "sha256": "f385ad8cd4529c08da6362aab59272b5e4677e15ed3c300cbc2ee5e4386a4659"
+      "bytes": 60381498,
+      "sha256": "a61d9ff584e01f09fa88a92a39e79b323368b68c4a6e9891fbdda9c2c4bed369"
     },
     {
       "file": "scores-for-social-software-poster.jpg",
-      "bytes": 178311,
-      "sha256": "3254ff5ee9107b25cf860d96a752bdad32c71955b692ff0ae2131f832f047b24"
+      "bytes": 178498,
+      "sha256": "ba3dd913f58278d059f4d0d7aa97e6763a192b5b2c052f6abf154cdf7a98bf3a"
     },
     {
       "file": "scores-for-social-software-captions.srt",
-      "bytes": 4584,
-      "sha256": "e47e5a8431aa671301971c674e065578704ea3d2b865e7213dc30f056cc8f55d"
+      "bytes": 4526,
+      "sha256": "ecf39643e94169e461162cdc55cb6d580b821769a1bf0882f4f20ce3c5d50787"
     }
   ]
 }
