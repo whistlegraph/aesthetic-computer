@@ -1,29 +1,29 @@
 #!/usr/bin/env node
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { loadNarrationTimeline, sceneStart } from "./timing.mjs";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const VIDEO = resolve(ROOT, "out/scores-for-social-software-captioned-08.mp4");
 const OUT = "/Users/jas/Desktop/Scores-for-Social-Software-Loops";
-const narration = readFileSync(resolve(ROOT, "narration.txt"), "utf8").trim();
-const alignment = JSON.parse(readFileSync(resolve(ROOT, "out/narration-alignment.json"), "utf8")).alignment;
-const at = (phrase) => alignment.character_start_times_seconds[narration.indexOf(phrase)];
+const timing = loadNarrationTimeline(ROOT);
+const at = (id) => sceneStart(timing, id);
 
 const loops = [
   { slug: "00-intro", title: "Intro", start: 0.5, duration: 4 },
-  { slug: "01-jeffrey-alan-scudder-notepat", title: "Jeffrey Alan Scudder — Notepat", start: at("My contribution") + 0.3, duration: 4 },
-  { slug: "02-aether-cavendish-vigil-score", title: "Æther Cavendish — Vigil Score", start: at("Æther Cavendish") + 0.3, duration: 4 },
-  { slug: "03-chelly-jin-software-as-a-choreography", title: "Chelly Jin — Software as a Choreography", start: at("Chelly Jin") + 0.3, duration: 4 },
-  { slug: "04-jordan-silver-sonic-architecture", title: "Jordan Silver — Sonic Architecture", start: at("Jordan Silver") + 0.3, duration: 4 },
-  { slug: "05-em-lugo-cues-for-losing-direction", title: "Em Lugo — Cues for Losing Direction", start: at("Em Lugo") + 0.3, duration: 4 },
-  { slug: "06-darlyn-phan-line-piece-1", title: "Darlyn Phan — Line Piece 1", start: at("Darlyn Phan") + 0.3, duration: 4 },
-  { slug: "07-thomas-noya-biophonia", title: "Thomas Noya — Biophonía", start: at("Thomas Noya") + 0.3, duration: 4 },
-  { slug: "08-banyi-huang-cosmographic-score", title: "Banyi Huang — A Cosmographic Score", start: at("Banyi Huang") + 0.3, duration: 4 },
-  { slug: "09-alexander-espinosa-music-for-world-computers", title: "Alexander Espinosa — Music for World Computers", start: at("Alexander Espinosa") + 0.3, duration: 4 },
-  { slug: "10-mavyn-vu-radio-is-an-altar", title: "Mavyn Vu — The Radio Is an Altar: Portal", start: at("Mavyn Vu") + 0.3, duration: 4 },
-  { slug: "11-lauren-lee-mccarthy-casey-reas-auto-tune", title: "Lauren Lee McCarthy and Casey Reas — Auto Tune", start: at("Casey Reas") + 0.3, duration: 4 },
+  { slug: "01-jeffrey-alan-scudder-notepat", title: "Jeffrey Alan Scudder — Notepat", start: at("SSF-01") + 0.3, duration: 4 },
+  { slug: "02-aether-cavendish-vigil-score", title: "Æther Cavendish — Vigil Score", start: at("SSF-02") + 0.3, duration: 4 },
+  { slug: "03-chelly-jin-software-as-a-choreography", title: "Chelly Jin — Software as a Choreography", start: at("SSF-03") + 0.3, duration: 4 },
+  { slug: "04-jordan-silver-sonic-architecture", title: "Jordan Silver — Sonic Architecture", start: at("SSF-04") + 0.3, duration: 4 },
+  { slug: "05-em-lugo-cues-for-losing-direction", title: "Em Lugo — Cues for Losing Direction", start: at("SSF-05") + 0.3, duration: 4 },
+  { slug: "06-darlyn-phan-line-piece-1", title: "Darlyn Phan — Line Piece 1", start: at("SSF-06") + 0.3, duration: 4 },
+  { slug: "07-thomas-noya-biophonia", title: "Thomas Noya — Biophonía", start: at("SSF-07") + 0.3, duration: 4 },
+  { slug: "08-banyi-huang-cosmographic-score", title: "Banyi Huang — A Cosmographic Score", start: at("SSF-08") + 0.3, duration: 4 },
+  { slug: "09-alexander-espinosa-music-for-world-computers", title: "Alexander Espinosa — Music for World Computers", start: at("SSF-09") + 0.3, duration: 4 },
+  { slug: "10-mavyn-vu-radio-is-an-altar", title: "Mavyn Vu — The Radio Is an Altar: Portal", start: at("SSF-10") + 0.3, duration: 4 },
+  { slug: "11-lauren-lee-mccarthy-casey-reas-auto-tune", title: "Lauren Lee McCarthy and Casey Reas — Auto Tune", start: at("SSF-11") + 0.3, duration: 4 },
 ];
 
 mkdirSync(OUT, { recursive: true });

@@ -21,7 +21,7 @@ was titled **“Hi — I’m Jeffrey.”** The final source is
 | 10 | “And not only people read these days” could be read ambiguously. | Changed it to “People aren’t the only ones reading these days.” | Preserves the transition to machine readers with a clear subject. |
 | 11 | “This page” was vague. | Changed it to “This essay accompanies the first numbered print edition…” | Names the object precisely. |
 | 12 | Calling the edition “its own little act of social software” needed explanation. | Reframed the paragraph around the shared agreement: every participant made sixty-four copies, met in one room, and assembled sixty-four complete publications. | Shows the social mechanism instead of merely labeling it. |
-| 13 | The interactive keymap needed an instruction. | Added: “Press the letter keys on your keyboard to hear the layout in the interactive canvas at the top of the page.” | Gives the embedded keyboard a direct prompt and points to its actual location. |
+| 13 | The interactive keymap needed an instruction. | Added: “Press the letter keys on your keyboard to hear the layout in the interactive canvas below.” | Gives the embedded keyboard a direct prompt and points to its final location after the prose. |
 
 ## Direct suggestion audit
 
@@ -42,9 +42,10 @@ needed a fuller resolution or official title casing.
   - Em Lugo — *Cues for Losing Direction*
   - Darlyn Phan — *Line Piece 1*
   - Banyi Huang — *A Cosmographic Score for Folding Back into the Kernel*
-- Removed the inaccurate generic “play it for yourself below” sign-off and
-  replaced it with Casey’s concrete keyboard instruction, pointing readers to
-  the canvas at the top of the page.
+- Replaced the inaccurate generic “play it for yourself below” sign-off with
+  Casey’s concrete keyboard instruction. After final placement review, the
+  existing interactive was moved below the prose and the instruction now names
+  that location directly.
 - Added durable links for notepat, Aesthetic.Computer, the paper, Vim, the
   three audio apps, Social Software, Casey Reas, Lauren Lee McCarthy,
   *do it*, and The Getty Scores Project.
@@ -69,19 +70,20 @@ needed a fuller resolution or official title casing.
 - [x] Edition roster reconciled with the project catalog.
 - [x] Markdown and video-recovery scripts pass syntax/whitespace checks.
 - [x] Framer article updated from the final source through the Server API.
-- [x] Public URL checked after final placement-fix deployment `0e162dc63`.
+- [x] Public URL checked after final placement-fix deployment `d6ee5719c`.
 
 ## Publication evidence
 
-- Staging deployment: `58ce73b28`
-- Final staging deployment after the canvas-placement copy fix: `7d25242e5`
-- Final production deployment: `0e162dc63`
+- Initial copy-edit staging deployment: `58ce73b28`
+- Final bottom-placement branch review: `b5144c31d`
+- Final production deployment: `d6ee5719c`
 - Published URL: <https://sosoft.arts.ucla.edu/keymaps-as-social-software/>
 - The production HTML contains every required Casey-derived phrase and corrected
   contributor title; all obsolete phrases in the audit are absent.
-- The Framer staging page rendered correctly in visual QA. The UCLA proxy’s
-  previously documented blank headless-render behavior remains, so the public
-  deployment was additionally verified from its returned HTML.
+- Chrome-window captures of the branch review rendered correctly at desktop
+  and phone widths. Public HTML then verified the prose → instruction →
+  interactive order, the lower white-key labels, and the absence of stale
+  top-placement wording after production publish.
 - Drive API receipt: all 13 Casey comments now have a change reply and are
   resolved; the API reports 13 resolved and 0 unresolved.
 - The document’s 12 suggestion records were audited through accepted/rejected

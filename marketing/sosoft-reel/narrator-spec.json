@@ -1,0 +1,79 @@
+{
+  "title": "Scores for Social Software — revision 03 narration",
+  "outDir": "narration-takes",
+  "gapMs": 350,
+  "lines": [
+    {
+      "id": "SSF-00",
+      "title": "Introduction",
+      "image": "qa/SSF-00-introduction.jpg",
+      "text": "This blue folder just arrived from Social Software at UCLA. Inside is Scores for Social Software, a spring 2026 edition of sixty-four. The copy in my hands is number fifty-one, assembled after ten weeks of making, testing, and performing together."
+    },
+    {
+      "id": "SSF-01",
+      "title": "Jeffrey Alan Scudder — Notepat",
+      "image": "qa/SSF-01-notepat.jpg",
+      "text": "My contribution is Notepat. A folded white user manual opens into a pointed shape, combining an illustrated player, a QR code, instructions, and circular keyboard diagrams."
+    },
+    {
+      "id": "SSF-02",
+      "title": "Æther Cavendish — Vigil Score",
+      "image": "qa/SSF-02-vigil-score.jpg",
+      "text": "Æther Cavendish’s Vigil Score arrives as a matte-black folded packet, closed with a small circular silver seal."
+    },
+    {
+      "id": "SSF-03",
+      "title": "Chelly Jin — Software as a Choreography",
+      "image": "qa/SSF-03-software-as-choreography.jpg",
+      "text": "Chelly Jin’s Software as a Choreography presents a grid of silhouetted hands and arms, pairing each gesture with marks for timing and movement."
+    },
+    {
+      "id": "SSF-04",
+      "title": "Jordan Silver — Sonic Architecture",
+      "image": "qa/SSF-04-sonic-architecture.jpg",
+      "text": "Jordan Silver’s Sonic Architecture is a single sheet of printed columns, large numbers, and typewritten commands, anchored by a looping spiral diagram for inhabiting and measuring space through sound."
+    },
+    {
+      "id": "SSF-05",
+      "title": "Em Lugo — Cues for Losing Direction",
+      "image": "qa/SSF-05-cues-for-losing-direction.jpg",
+      "text": "Em Lugo’s Cues for Losing Direction fits on a small black card, its title set in pale condensed type like a portable instruction carried in the hand."
+    },
+    {
+      "id": "SSF-06",
+      "title": "Darlyn Phan — Line Piece 1",
+      "image": "qa/SSF-06-line-piece-1.jpg",
+      "text": "Darlyn Phan’s Line Piece 1 begins on translucent white paper. Its faint rainbow cast and minimal title let the page behave like a line or veil."
+    },
+    {
+      "id": "SSF-07",
+      "title": "Thomas Noya — Biophonía",
+      "image": "qa/SSF-07-biophonia.jpg",
+      "text": "Thomas Noya’s Biophonía is a branching field of blue, yellow, black, and beige organic forms. In the video, these cell-like clusters drift and reorganize."
+    },
+    {
+      "id": "SSF-08",
+      "title": "Banyi Huang — A Cosmographic Score for Folding Back into the Kernel",
+      "image": "qa/SSF-08-cosmographic-score.jpg",
+      "text": "Banyi Huang’s A Cosmographic Score for Folding Back into the Kernel centers a luminous circle and a small diagram of connected nodes inside a lavender field."
+    },
+    {
+      "id": "SSF-09",
+      "title": "Alexander Espinosa — Music for World Computers",
+      "image": "qa/SSF-09-music-for-world-computers.jpg",
+      "text": "Alexander Espinosa’s Music for World Computers is a white typographic score: awake, expand, decrease, oxygen, forest, junk, cinnamon, hammer."
+    },
+    {
+      "id": "SSF-10",
+      "title": "Mavyn Vu — The Radio Is an Altar: Portal",
+      "image": "qa/SSF-10-radio-altar-portal.jpg",
+      "text": "Mavyn Vu’s The Radio Is an Altar: Portal combines translucent blue and white score cards, a target-like radio image, small figures, and instructions arranged around their edges."
+    },
+    {
+      "id": "SSF-11",
+      "title": "Closing",
+      "image": "qa/SSF-11-closing.jpg",
+      "text": "Casey Reas facilitated the cycle, with Lauren Lee McCarthy and the Social Software community. Together, the contributions open many paths through a question: if software organizes behavior, what else can we ask it to organize?"
+    }
+  ]
+}
