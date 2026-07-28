@@ -30,6 +30,7 @@ let proposalFrame = 0;
 let proposalPixels = null;
 let proposalNumber = 0;
 let sessionSeed = 0;
+let freshStart = false;
 let random = seededRandom(1);
 let cameraFeed = null;
 let decisions = [];
@@ -214,6 +215,15 @@ function initialNavigationURL() {
   } catch {
     return null;
   }
+}
+
+function freshLaunchRequested(url, colon = [], params = []) {
+  const queryValue = url?.searchParams?.get("fresh");
+  const queryRequestsFresh = url?.searchParams?.has("fresh") &&
+    !["0", "false", "no", "off"].includes(String(queryValue).toLowerCase());
+  const launchRequestsFresh = [...colon, ...params].some((value) =>
+    ["fresh", "fresh=1", "new"].includes(String(value).trim().toLowerCase()));
+  return Boolean(queryRequestsFresh || launchRequestsFresh);
 }
 let noButton;
 let paintButton;
@@ -565,6 +575,7 @@ function testSnapshot() {
     version: NOPAINT_VERSION,
     state: loopState,
     seed: sessionSeed,
+    freshStart,
     proposalNumber,
     proposalFrame,
     operation: proposal?.kind || null,
@@ -659,13 +670,25 @@ function installTestHook(debug) {
 }
 
 // 🥾 Boot
-function boot({ colon, debug, hud, net, num, params, screen, store, system, ui, ...api }) {
+function boot({ colon, debug, hud, net, num, params, query = {}, screen, store, system, ui, ...api }) {
   // The runtime may rewrite the visible route before the piece boots. The
   // Navigation Timing entry retains the original tutorial/test URL.
-  const urlSeed = initialNavigationURL()?.searchParams.get("seed") || null;
+  const navigationURL = initialNavigationURL();
+  let visibleURL = null;
+  try {
+    if (typeof window !== "undefined") visibleURL = new URL(window.location.href);
+  } catch {}
   const archiveId = params[0] === "archive" ? params[1] : null;
   const freshFromId = params[0] === "new" ? params[1] : null;
-  const requestedSeed = urlSeed || archiveId || freshFromId || colon[0] || params[0];
+  const urlSeed = query.seed || navigationURL?.searchParams.get("seed") || null;
+  freshStart = freshLaunchRequested(navigationURL, colon, params) ||
+    freshLaunchRequested(visibleURL, colon, params) ||
+    Boolean(freshFromId) ||
+    (Object.hasOwn(query, "fresh") &&
+      !["0", "false", "no", "off"].includes(String(query.fresh).toLowerCase()));
+  const launchSeed = [...colon, ...params].find((value) =>
+    !["fresh", "fresh=1", "new"].includes(String(value).trim().toLowerCase()));
+  const requestedSeed = urlSeed || archiveId || freshFromId || launchSeed;
   const numericSeed = /^\d+$/.test(requestedSeed || "")
     ? Number(requestedSeed) >>> 0
     : null;
@@ -717,6 +740,11 @@ function boot({ colon, debug, hud, net, num, params, screen, store, system, ui, 
     width: system.painting.width,
     height: system.painting.height,
   };
+  if (freshStart) {
+    api.page(system.painting).wipe(255, 255, 255, 0);
+    api.flatten();
+    api.page(screen);
+  }
   store["painting:resolution-lock"] = true;
   store.persist("painting:resolution-lock", "local:db");
   testApi = { ...api, hud, net, screen, store, system };
@@ -795,6 +823,24 @@ function animatedColor(color, phase) {
     Math.max(0, Math.min(255, color[2] + pulse)),
     color[3],
   ];
+}
+
+function paintParallaxCheckers($, bar) {
+  const size = Math.max(18, Math.round(Math.min($.screen.width, $.screen.height) / 18));
+  const pointerX = cursorPoint?.x ?? $.screen.width / 2;
+  const pointerY = cursorPoint?.y ?? bar.y / 2;
+  const offsetX = Math.round((pointerX / $.screen.width - 0.5) * size * 0.7);
+  const offsetY = Math.round((pointerY / Math.max(1, bar.y) - 0.5) * size * 0.7);
+  $.ink(22, 22, 24).box(0, 0, $.screen.width, bar.y);
+  for (let y = -size + offsetY; y < bar.y; y += size) {
+    for (let x = -size + offsetX; x < $.screen.width; x += size) {
+      const column = Math.floor((x - offsetX) / size);
+      const row = Math.floor((y - offsetY) / size);
+      if ((column + row) % 2 === 0) {
+        $.ink(34, 34, 38).box(x, y, size, size);
+      }
+    }
+  }
 }
 
 function renderProposal($) {
@@ -943,6 +989,7 @@ function paint($) {
   // Present the entire fixed-resolution painting above the controls. The
   // viewport may fit/letterbox responsively, but its pixels never reflow.
   $.wipe(18);
+  paintParallaxCheckers($, bar);
   $.paste($.system.painting, stage.x, stage.y, scale);
   $.paste($.system.nopaint.buffer, stage.x, stage.y, scale);
   if (paintingPressed || hoveredDecision === "painting") {
@@ -956,7 +1003,7 @@ function paint($) {
       : completionCode
         ? `#${completionCode}`
         : completionError || definition?.label || proposal.kind,
-    { x: stage.x + 8, y: stage.y + 8 },
+    { x: 8, y: 8 },
   );
 
   positionButtons($.screen);
@@ -1292,8 +1339,8 @@ function meta() {
     title: "No Paint",
     desc: "Collaborate with a proposing machine: press No to discard or Paint to keep.",
     controls: "No: Left/N/Escape/B/X · Paint: Right/Enter/P/A · finish: Y/View · pause: Space/Menu or drag painting",
-    params: "optional deterministic session seed",
-    example: "nopaint award-entry",
+    params: "optional deterministic session seed; fresh starts with a blank painting",
+    example: "nopaint fresh",
   };
 }
 
@@ -1303,4 +1350,4 @@ function meta() {
 // the accepted painting without silently accepting the live proposal.
 export const system = "nopaint:bake-on-leave";
 
-export { act, bake, boot, leave, meta, paint, sim };
+export { act, bake, boot, freshLaunchRequested, leave, meta, paint, sim };

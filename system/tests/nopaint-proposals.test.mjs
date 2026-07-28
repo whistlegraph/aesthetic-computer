@@ -11,6 +11,14 @@ import {
   seededRandom,
 } from "../public/aesthetic.computer/lib/nopaint-proposals.mjs";
 import * as nopaintPiece from "../public/aesthetic.computer/disks/nopaint.mjs";
+
+test("fresh launch accepts query and piece arguments without mistaking false for true", () => {
+  assert.equal(nopaintPiece.freshLaunchRequested(new URL("https://aesthetic.computer/nopaint?fresh=1")), true);
+  assert.equal(nopaintPiece.freshLaunchRequested(new URL("https://aesthetic.computer/nopaint?fresh")), true);
+  assert.equal(nopaintPiece.freshLaunchRequested(new URL("https://aesthetic.computer/nopaint?fresh=false")), false);
+  assert.equal(nopaintPiece.freshLaunchRequested(null, ["fresh"], []), true);
+  assert.equal(nopaintPiece.freshLaunchRequested(null, [], ["new"]), true);
+});
 import { nopaint_act } from "../public/aesthetic.computer/systems/nopaint.mjs";
 
 test("native No Paint exposes the recovered loop states", () => {

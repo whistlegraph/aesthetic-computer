@@ -22,7 +22,7 @@ async function receipt(name) {
 
 try {
   await scenario("No Paint 3.0 boots a reproducible first proposal", async (expect) => {
-    await ac.boot("nopaint?seed=nopaint-perf-v1&test=1");
+    await ac.boot("nopaint?seed=nopaint-perf-v1&fresh=1&test=1");
     // The AC front door intentionally waits for a first human gesture. A
     // center-stage tap activates the piece without touching the decision bar.
     if (!(await ac.nopaintState())?.ready) {
@@ -62,6 +62,7 @@ try {
     expect(state?.version === "3.0", `version is 3.0 (got ${state?.version})`);
     expect(state?.state === "proposing", `state is proposing (got ${state?.state})`);
     expect(state?.proposalNumber === 1, "first proposal is numbered 1");
+    expect(state?.freshStart === true, "query launch requests a fresh painting");
     expect(state?.operation !== "camera", `seed never begins with Camera (got ${state?.operation})`);
     expect(state?.ready === true, "proposal buffer reports ready");
     expect(state?.cursor?.ready === true, "the original Construct cursor sheet is loaded");
