@@ -302,7 +302,7 @@ function paintMarkerLabel($, button, label, color) {
 function paintDecisionButton($, button, label, flavor = "no") {
   const active = button.down || button.over;
   const palette = flavor === "paint"
-    ? { fill: [250, 250, 250, active ? 235 : 205], ink: [20, 20, 20] }
+    ? { fill: [45, 170, 76, active ? 255 : 235], ink: [245, 255, 245] }
     : flavor === "back"
       ? { fill: [232, 119, 28, active ? 255 : 235], ink: [255, 250, 235] }
       : flavor === "done"

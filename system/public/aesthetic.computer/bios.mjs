@@ -12884,6 +12884,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           handler.state = "up";
         }
       };
+      handler.contains = (e) => {
+        const frame = canvas.getBoundingClientRect();
+        const xscale = projectedWidth / canvas.width;
+        const yscale = projectedHeight / canvas.height;
+        return Box.from({
+          x: frame.left + content.box.x * xscale,
+          y: frame.top + content.box.y * yscale,
+          w: content.box.w * xscale,
+          h: content.box.h * yscale,
+        }).contains({ x: e.x, y: e.y });
+      };
       handler.state = hitboxes[content.label]?.state || "up";
       hitboxes[content.label] = handler;
 
@@ -12974,7 +12985,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       };
       if (code === "native") document.body.classList.add("native-cursor");
       else document.body.classList.remove("native-cursor");
-      document.body.style.cursor = code in CURSOR_CSS ? CURSOR_CSS[code] : code;
+      const cursorCss = code in CURSOR_CSS ? CURSOR_CSS[code] : code;
+      window.acPieceCursorCss = cursorCss;
+      document.body.style.cursor = cursorCss;
       return;
     }
 
@@ -22076,6 +22089,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   window.addEventListener("pointerdown", async (e) => {
     keys(hitboxes).forEach((key) => hitboxes[key]?.(e));
+  });
+
+  // BIOS overlays stay reachable when a piece hides the OS pointer in favor
+  // of a painted cursor. Raise the native hand over system hitboxes, then
+  // restore the piece's exact cursor request when it leaves.
+  window.addEventListener("pointermove", (e) => {
+    const overSystemControl = keys(hitboxes).some((key) =>
+      hitboxes[key]?.contains?.(e));
+    document.body.style.cursor = overSystemControl
+      ? "pointer"
+      : (window.acPieceCursorCss || "auto");
   });
 
   // 📄 Drag and Drop File API
