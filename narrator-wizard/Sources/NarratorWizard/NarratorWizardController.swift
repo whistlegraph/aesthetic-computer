@@ -611,23 +611,30 @@ final class NarratorWizardController: NSWindowController, NSWindowDelegate, AVAu
             return
         }
         let player = AVPlayer(url: url)
-        let playerView = AVPlayerView(frame: NSRect(x: 0, y: 0, width: 450, height: 800))
+        let availableHeight = (window?.screen ?? NSScreen.main)?.visibleFrame.height ?? 900
+        let playerHeight = min(960, max(640, availableHeight - 80))
+        let playerWidth = playerHeight * 9 / 16
+        let playerSize = NSSize(width: playerWidth, height: playerHeight)
+        let playerView = AVPlayerView(frame: NSRect(origin: .zero, size: playerSize))
+        playerView.autoresizingMask = [.width, .height]
         playerView.player = player
         // Inline controls keep the playback timeline visibly distinct from
         // the main window's microphone input meter.
         playerView.controlsStyle = .inline
-        playerView.videoGravity = .resizeAspect
+        playerView.videoGravity = .resizeAspectFill
         playerView.showsFullScreenToggleButton = true
 
         let preview = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 450, height: 800),
+            contentRect: NSRect(origin: .zero, size: playerSize),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
         preview.title = "Current cut — \(spec.title)"
-        preview.minSize = NSSize(width: 315, height: 560)
+        preview.contentAspectRatio = NSSize(width: 9, height: 16)
+        preview.contentMinSize = playerSize
         preview.contentView = playerView
+        preview.setContentSize(playerSize)
         preview.isReleasedWhenClosed = false
         preview.center()
         window?.addChildWindow(preview, ordered: .above)

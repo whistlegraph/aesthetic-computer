@@ -2,9 +2,9 @@
 // Recover the clean visual spine when the original July camera masters are no
 // longer local. The outgoing Signal review still contains the complete edit,
 // but its first-pass captions are burned into the lower third. Keep the visual
-// performance above a deliberate black information panel; caption-and-mix.mjs
-// then lays the corrected narration, captions, chapter label, and progress bar
-// into that panel.
+// performance above a replaceable information panel; caption-and-mix.mjs then
+// fills that field with an envelope-derived chapter color and lays in the
+// corrected narration, captions, chapter label, and progress bar.
 
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
@@ -36,8 +36,9 @@ for (let i = 0; i < count; i++) {
   filters.push(`[v${i}]trim=start=${oldStarts[i]}:end=${oldStarts[i + 1]},setpts=(PTS-STARTPTS)*${ratio.toFixed(9)}[s${i}]`);
 }
 // The original captions occupy the lower third. Crop just above them, then
-// preserve the missing area as a stable editorial panel instead of stretching
-// the image or hiding the correction with another floating subtitle stack.
+// preserve the missing area as a stable editorial field instead of stretching
+// the image or hiding the correction with another floating subtitle stack. Its
+// temporary color is completely replaced by caption-and-mix.mjs.
 filters.push(
   `${Array.from({ length: count }, (_, i) => `[s${i}]`).join("")}concat=n=${count}:v=1:a=0,` +
   "crop=1080:1280:0:0,pad=1080:1920:0:0:color=0x101014," +

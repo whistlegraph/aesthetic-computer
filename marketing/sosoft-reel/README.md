@@ -54,10 +54,13 @@ node marketing/sosoft-reel/caption-and-mix.mjs
 node marketing/sosoft-reel/export-delivery.mjs
 ```
 
-The recovery layout preserves the tactile page-through above a fixed lower
-information panel. That panel removes the obsolete burned captions without
-stretching the image and gives the corrected captions and chapter labels a
-stable home.
+The recovery layout enlarges the tactile page-through into the upper three
+quarters of the portrait frame and reserves only the bottom quarter for a
+striped information field. Its twelve envelope-derived blue variations carry
+matching captions and a segmented timeline. Artist and work titles appear as a
+centered introduction card for the opening seconds of their chapter, then clear
+instead of persisting in a corner. The shared Pals + animated SO SOFT double-box
+identity runs along the side edges as the reel watermark.
 
 ## Social derivatives
 
