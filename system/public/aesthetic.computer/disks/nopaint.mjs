@@ -28,6 +28,7 @@ let stateBeforePause = "proposing";
 let proposal = null;
 let proposalFrame = 0;
 let proposalPixels = null;
+let proposalPixelsPresented = false;
 let proposalNumber = 0;
 let sessionSeed = 0;
 let freshStart = false;
@@ -457,6 +458,7 @@ function chooseProposal(api) {
         proposal.brush.parameters,
       )
     : null;
+  proposalPixelsPresented = false;
   proposalNumber += 1;
   proposalFrame = 0;
   transition("proposing");
@@ -912,16 +914,20 @@ function renderProposal($) {
   const color = animatedColor(proposal.color, phase);
   color[3] = Math.min(color[3], NOPAINT_MAX_RANDOM_ALPHA);
 
-  page(buffer).wipe(255, 255, 255, 0);
-
   const contract = COMPATIBLE_BRUSHES.get(proposal.kind);
   if (proposalPixels) {
-    buffer.pixels.set(proposalPixels);
-  } else if (contract?.render && proposal.kind !== "line") {
+    page(buffer);
+    if (!proposalPixelsPresented) {
+      buffer.pixels.set(proposalPixels);
+      proposalPixelsPresented = true;
+    }
+  } else {
+    page(buffer).wipe(255, 255, 255, 0);
+    if (contract?.render && proposal.kind !== "line") {
     contract.render($, proposal, proposalFrame);
-  } else
+    } else
 
-  if (proposal.kind === "rect") {
+    if (proposal.kind === "rect") {
     ink(color).box(
       proposal.x + drift,
       proposal.y - drift,
@@ -1034,6 +1040,7 @@ function renderProposal($) {
         y: Math.floor(buffer.height / 2),
       });
     }
+    }
   }
 
   page($.screen);
@@ -1143,6 +1150,7 @@ async function completePainting($) {
   proposal = null;
   proposalFrame = 0;
   proposalPixels = null;
+  proposalPixelsPresented = false;
     decisions = [];
     finishMode = false;
     transition("proposing");
@@ -1180,8 +1188,10 @@ function act($) {
   const xboxButton = xboxButtonPush(e);
   const xboxAction = nopaintXboxAction(xboxButton, finishMode);
   let cursorDeltaX = 0;
+  let cursorDeltaY = 0;
   if (e.device === "mouse" && Number.isFinite(e.x) && Number.isFinite(e.y)) {
     cursorDeltaX = cursorPoint ? e.x - cursorPoint.x : 0;
+    cursorDeltaY = cursorPoint ? e.y - cursorPoint.y : 0;
     cursorPoint = { x: e.x, y: e.y };
   } else if (e.device === "touch") {
     cursorPoint = null;
@@ -1222,11 +1232,11 @@ function act($) {
         playCue($, "rollover");
       }
     }
-    if (target && Math.abs(cursorDeltaX) > 1) {
+    if (target && Math.hypot(cursorDeltaX, cursorDeltaY) > 0) {
       // Construct events 78/79 explicitly select directional hand poses;
       // WagCursorTimer later restores frame zero. These are logical states,
       // not a seven-frame playback loop.
-      cursorFrame = cursorDeltaX > 0 ? 2 : 1;
+      if (Math.abs(cursorDeltaX) > 1) cursorFrame = cursorDeltaX > 0 ? 2 : 1;
       cursorWagFrames = 6;
       $.needsPaint();
     }
