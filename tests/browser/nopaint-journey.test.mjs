@@ -154,7 +154,7 @@ try {
     performanceResults.decisions.no = await ac.measureNopaintDecision("ArrowLeft");
     const after = await ac.nopaintState();
     await receipt("02-after-no");
-    expect(after?.proposalNumber === 2, "No advances to proposal 2");
+    expect(after?.proposalNumber === before?.proposalNumber + 1, "No advances by one proposal");
     expect(after?.decisions.at(-1)?.decision === "no", "decision score records No");
     expect(
       after?.paintingFingerprint === before?.paintingFingerprint,
@@ -170,7 +170,7 @@ try {
     performanceResults.decisions.paint = await ac.measureNopaintDecision("ArrowRight");
     const after = await ac.nopaintState();
     await receipt("03-after-paint");
-    expect(after?.proposalNumber === 3, "Paint advances to proposal 3");
+    expect(after?.proposalNumber === before?.proposalNumber + 1, "Paint advances by one proposal");
     expect(after?.decisions.at(-1)?.decision === "paint", "decision score records Paint");
     expect(
       after?.paintingFingerprint !== before?.paintingFingerprint,

@@ -56,6 +56,7 @@ let cursorFrame = 0;
 let cursorWagFrames = 0;
 const cueSamples = new Map();
 let cueEvents = [];
+const PROPOSAL_MERRY_FRAMES = 5 * 60;
 
 const LEGACY_CUES = Object.freeze({
   "no-down": "generic - no button pressed (metal brush).webm",
@@ -389,6 +390,42 @@ function clearProposal({ flatten, needsPaint, page, screen, system }) {
   needsPaint();
 }
 
+function paintHasContent(painting) {
+  if (!painting?.pixels) return false;
+  for (let index = 3; index < painting.pixels.length; index += 4) {
+    if (painting.pixels[index] > 0) return true;
+  }
+  return false;
+}
+
+function seedNoiseSubstrate(painting, seed) {
+  if (!painting?.pixels) return;
+  const substrateRandom = seededRandom(`${seed}:noise-substrate`);
+  const base = [
+    112 + Math.floor(substrateRandom() * 32),
+    112 + Math.floor(substrateRandom() * 32),
+    112 + Math.floor(substrateRandom() * 32),
+  ];
+  painting.pixels.fill(0);
+  const rectWidth = Math.min(192, Math.max(48, Math.floor(painting.width * 0.4)));
+  const rectHeight = Math.min(192, Math.max(48, Math.floor(painting.height * 0.4)));
+  const left = Math.floor((painting.width - rectWidth) / 2);
+  const top = Math.floor((painting.height - rectHeight) / 2);
+  for (let y = top; y < top + rectHeight; y += 1) {
+    for (let x = left; x < left + rectWidth; x += 1) {
+      // A stippled rectangle reads as paper grain while preserving transparent
+      // interstices for AC's sparse compositor and the checker field beneath it.
+      if (substrateRandom() > 0.38) continue;
+      const index = (y * painting.width + x) * 4;
+      const grain = Math.floor(substrateRandom() * 25) - 12;
+      painting.pixels[index] = Math.max(0, Math.min(255, base[0] + grain));
+      painting.pixels[index + 1] = Math.max(0, Math.min(255, base[1] + grain));
+      painting.pixels[index + 2] = Math.max(0, Math.min(255, base[2] + grain));
+      painting.pixels[index + 3] = 150 + Math.floor(substrateRandom() * 70);
+    }
+  }
+}
+
 function chooseProposal(api) {
   stopBrushCue();
   decisionHeld = false;
@@ -432,6 +469,14 @@ function discardProposal(api) {
   playCue(api, "no");
   transition("discarding");
   recordDecision(api, "no");
+  clearProposal(api);
+  chooseProposal(api);
+  publishTestState();
+}
+
+function merryProposal(api) {
+  if (loopState !== "proposing") return;
+  cueEvents.push({ name: `brush-timeout:${proposal?.kind}`, path: "merry" });
   clearProposal(api);
   chooseProposal(api);
   publishTestState();
@@ -512,7 +557,8 @@ function commitProposal(api) {
   transition("committing");
   recordDecision(api, "paint");
 
-  api.page(api.system.painting).paste(api.system.nopaint.buffer);
+  if (proposalPixels) api.system.painting.pixels.set(api.system.nopaint.buffer.pixels);
+  else api.page(api.system.painting).paste(api.system.nopaint.buffer);
   api.flatten();
   api.system.nopaint.addUndoPainting(
     api.system.painting,
@@ -578,6 +624,10 @@ function testSnapshot() {
     freshStart,
     proposalNumber,
     proposalFrame,
+    merry: {
+      durationFrames: PROPOSAL_MERRY_FRAMES,
+      remainingFrames: Math.max(0, PROPOSAL_MERRY_FRAMES - proposalFrame),
+    },
     operation: proposal?.kind || null,
     brush: proposal?.brush ? {
       slug: proposal.brush.slug,
@@ -740,8 +790,9 @@ function boot({ colon, debug, hud, net, num, params, query = {}, screen, store, 
     width: system.painting.width,
     height: system.painting.height,
   };
-  if (freshStart) {
-    api.page(system.painting).wipe(255, 255, 255, 0);
+  const needsStarterSubstrate = freshStart || (!archiveId && !paintHasContent(system.painting));
+  if (needsStarterSubstrate) {
+    seedNoiseSubstrate(system.painting, sessionSeed);
     api.flatten();
     api.page(screen);
   }
@@ -810,6 +861,10 @@ function sim({ needsPaint }) {
   }
   if (loopState === "proposing" && !decisionHeld) {
     proposalFrame += 1;
+    if (proposalFrame >= PROPOSAL_MERRY_FRAMES) {
+      merryProposal(testApi);
+      return;
+    }
     needsPaint();
     if (proposalFrame % 12 === 0) publishTestState();
   }
@@ -990,8 +1045,12 @@ function paint($) {
   // viewport may fit/letterbox responsively, but its pixels never reflow.
   $.wipe(18);
   paintParallaxCheckers($, bar);
-  $.paste($.system.painting, stage.x, stage.y, scale);
-  $.paste($.system.nopaint.buffer, stage.x, stage.y, scale);
+  if (proposalPixels) {
+    $.paste($.system.nopaint.buffer, stage.x, stage.y, scale);
+  } else {
+    $.paste($.system.painting, stage.x, stage.y, scale);
+    $.paste($.system.nopaint.buffer, stage.x, stage.y, scale);
+  }
   if (paintingPressed || hoveredDecision === "painting") {
     $.ink(255, 255, 255, paintingPressed ? 235 : 145).box(stage, "outline");
   }
@@ -1068,6 +1127,8 @@ async function completePainting($) {
       nextResolution.h,
       (page) => page.wipe(255, 255, 255, 0),
     );
+    seedNoiseSubstrate($.system.painting, `${sessionSeed}:${doneCount}`);
+    $.flatten();
   proposal = null;
   proposalFrame = 0;
   proposalPixels = null;
