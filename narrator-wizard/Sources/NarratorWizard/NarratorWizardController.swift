@@ -163,6 +163,15 @@ final class NarratorWizardController: NSWindowController, NSWindowDelegate, AVAu
         levelMeter.criticalValue = -4
         levelMeter.levelIndicatorStyle = .continuousCapacity
         levelMeter.isEditable = false
+        levelMeter.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        let levelLabel = NSTextField(labelWithString: "INPUT LEVEL")
+        levelLabel.font = .monospacedSystemFont(ofSize: 11, weight: .bold)
+        levelLabel.textColor = .secondaryLabelColor
+        levelLabel.widthAnchor.constraint(equalToConstant: 82).isActive = true
+        let meterRow = NSStackView(views: [levelLabel, levelMeter])
+        meterRow.orientation = .horizontal
+        meterRow.alignment = .centerY
+        meterRow.spacing = 10
 
         inputPopup.target = self
         inputPopup.action = #selector(inputChanged)
@@ -205,7 +214,7 @@ final class NarratorWizardController: NSWindowController, NSWindowDelegate, AVAu
         controls.alignment = .centerY
         controls.spacing = 10
 
-        let root = NSStackView(views: [header, body, audioBar, levelMeter, controls])
+        let root = NSStackView(views: [header, body, audioBar, meterRow, controls])
         root.orientation = .vertical
         root.alignment = .leading
         root.spacing = 18
@@ -221,7 +230,7 @@ final class NarratorWizardController: NSWindowController, NSWindowDelegate, AVAu
             body.widthAnchor.constraint(equalTo: root.widthAnchor, constant: -48),
             body.heightAnchor.constraint(greaterThanOrEqualToConstant: 430),
             audioBar.widthAnchor.constraint(equalTo: root.widthAnchor, constant: -48),
-            levelMeter.widthAnchor.constraint(equalTo: root.widthAnchor, constant: -48),
+            meterRow.widthAnchor.constraint(equalTo: root.widthAnchor, constant: -48),
             levelMeter.heightAnchor.constraint(equalToConstant: 12),
             controls.widthAnchor.constraint(equalTo: root.widthAnchor, constant: -48),
         ])
@@ -604,7 +613,9 @@ final class NarratorWizardController: NSWindowController, NSWindowDelegate, AVAu
         let player = AVPlayer(url: url)
         let playerView = AVPlayerView(frame: NSRect(x: 0, y: 0, width: 450, height: 800))
         playerView.player = player
-        playerView.controlsStyle = .floating
+        // Inline controls keep the playback timeline visibly distinct from
+        // the main window's microphone input meter.
+        playerView.controlsStyle = .inline
         playerView.videoGravity = .resizeAspect
         playerView.showsFullScreenToggleButton = true
 
