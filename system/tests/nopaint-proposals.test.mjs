@@ -27,7 +27,7 @@ test("the first native catalog retains the recovered duplicate Box weight", () =
   const rect = NOPAINT_PROPOSAL_CATALOG.find(({ name }) => name === "rect");
   assert.equal(rect.weight, 2);
   assert.equal(NOPAINT_VERSION, "3.0");
-  assert.equal(NOPAINT_PROPOSAL_CATALOG.length, 10);
+  assert.equal(NOPAINT_PROPOSAL_CATALOG.length, 11);
   assert.equal(NOPAINT_PROPOSAL_CATALOG.some(({ name }) => name === "camera"), false);
   assert.equal(NOPAINT_PROPOSAL_CATALOG.find(({ name }) => name === "softy").weight, 1.5);
   assert.equal(NOPAINT_PROPOSAL_CATALOG.find(({ name }) => name === "walker").weight, 0.2);
@@ -146,6 +146,10 @@ test("Paint commits the proposal buffer while No only discards it", () => {
     ...common,
     event: { is: (name) => name === "keyboard:down:enter" },
   });
+  nopaintPiece.act({
+    ...common,
+    event: { is: (name) => name === "keyboard:up:enter" },
+  });
 
   assert.deepEqual([...painting.pixels], new Array(16).fill(90));
   assert.equal(undoCount, 1);
@@ -165,6 +169,10 @@ test("Paint commits the proposal buffer while No only discards it", () => {
   nopaintPiece.act({
     ...common,
     event: { is: (name) => name === "keyboard:down:n" },
+  });
+  nopaintPiece.act({
+    ...common,
+    event: { is: (name) => name === "keyboard:up:n" },
   });
 
   assert.deepEqual([...painting.pixels], new Array(16).fill(90));
@@ -188,12 +196,15 @@ test("pointer Paint survives inherited touch/lift handling before module act", (
       this.width = 40;
       this.btn = {
         down: false,
-        act: (event, push) => {
+        act: (event, handlers) => {
           if (event.target !== this.label) return;
-          if (event.is("touch:1")) this.btn.down = true;
+          if (event.is("touch:1")) {
+            this.btn.down = true;
+            handlers.down?.();
+          }
           if (event.is("lift:1") && this.btn.down) {
             this.btn.down = false;
-            push();
+            handlers.push?.();
           }
         },
       };

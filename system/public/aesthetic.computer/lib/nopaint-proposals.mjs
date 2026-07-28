@@ -28,7 +28,7 @@ export const NOPAINT_RECOVERED_CATALOG = Object.freeze({
 
 export const NOPAINT_IMPLEMENTED_OPERATIONS = Object.freeze([
   "box", "ellipse", "line", "softy", "bubbles", "grid-worm", "walker",
-  "banner", "wafer", "wipe", "camera",
+  "banner", "wafer", "dark-window", "wipe", "camera",
 ]);
 
 // The recovered Construct picker contains Box twice. The other first-pass
@@ -40,6 +40,7 @@ export const NOPAINT_PROPOSAL_CATALOG = Object.freeze([
   Object.freeze({ name: "softy", label: "Softy", family: "authored", weight: 1.5 }),
   Object.freeze({ name: "bubbles", label: "Bubbles", family: "authored", weight: 1 }),
   Object.freeze({ name: "grid-worm", label: "Grid Worm", family: "authored", weight: 1 }),
+  Object.freeze({ name: "dark-window", label: "Dark Window", family: "authored", weight: 1 }),
   Object.freeze({ name: "walker", label: "Walker", family: "authored", weight: 0.2 }),
   Object.freeze({ name: "banner", label: "Banner", family: "authored", weight: 1 }),
   Object.freeze({ name: "wafer", label: "Wafer", family: "authored", weight: 1 }),

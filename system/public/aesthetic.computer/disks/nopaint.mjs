@@ -75,7 +75,10 @@ const BRUSH_CUES = Object.freeze({
   softy: "softy - landed.webm",
   bubbles: "bubbles - theme.webm",
   "grid-worm": "grid worm - theme.webm",
-  "dark-window": "dark window - note 1.webm",
+  "dark-window:1": "dark window - note 1.webm",
+  "dark-window:2": "dark window - note 2.webm",
+  "dark-window:3": "dark window - note 3.webm",
+  "dark-window:4": "dark window - note 4.webm",
   walker: "common - jitter.webm",
   banner: "banner - theme.webm",
   wafer: "wafer - nibble appear.webm",
@@ -130,7 +133,8 @@ function playCue(api, name) {
 
 function playBrushCue(api, kind) {
   if (brushCueProposal === proposalNumber) return;
-  const sample = brushCueSamples.get(kind);
+  const sampleKey = kind === "dark-window" ? `${kind}:${(proposal?.note ?? 0) + 1}` : kind;
+  const sample = brushCueSamples.get(sampleKey);
   if (!sample || !api.sound?.play) return;
   stopBrushCue();
   brushCueProposal = proposalNumber;
@@ -713,7 +717,9 @@ function boot({ colon, debug, hud, net, num, params, screen, store, system, ui, 
       net.preload(`/nopaint.art/media/${filename}`)
         .then((sample) => {
           brushCueSamples.set(kind, sample);
-          if (proposal?.kind === kind) playBrushCue(testApi, kind);
+          if (proposal?.kind === kind || (proposal?.kind === "dark-window" && kind.startsWith("dark-window:"))) {
+            playBrushCue(testApi, proposal.kind);
+          }
           publishTestState();
         })
         .catch(() => {});
