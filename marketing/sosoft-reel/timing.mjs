@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 
 export const SCENES = [
   ["SSF-00", "Introduction", null],
-  ["SSF-01", "Jeffrey Alan Scudder — Notepat", "My contribution"],
+  ["SSF-01", "Jeffrey Alan Scudder — Notepat", "I’m Jeffrey"],
   ["SSF-02", "Æther Cavendish — Vigil Score", "Æther Cavendish"],
   ["SSF-03", "Chelly Jin — Software as a Choreography", "Chelly Jin"],
   ["SSF-04", "Jordan Silver — Sonic Architecture", "Jordan Silver"],

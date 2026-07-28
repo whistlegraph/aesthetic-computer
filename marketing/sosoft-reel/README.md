@@ -54,18 +54,25 @@ node marketing/sosoft-reel/caption-and-mix.mjs
 node marketing/sosoft-reel/export-delivery.mjs
 ```
 
-The recovery layout enlarges the tactile page-through into the upper three
-quarters of the portrait frame and reserves only the bottom quarter for a
-striped information field. Its twelve envelope-derived blue variations carry
-matching captions and a segmented timeline. Artist and work titles appear as a
-centered introduction card for the opening seconds of their chapter, then clear
-instead of persisting in a corner. The shared Pals + animated SO SOFT double-box
-identity runs along the side edges as the reel watermark.
+The recovery layout aspect-fills the sharp 1080×1280 page-through into a
+1620×1920 source, then makes a smooth subject crop for the 1080×1920 delivery.
+Each chapter begins wide, eases inward toward its object, and eases out before
+the next chapter without a crop jump. Every delivered pixel is sharp moving
+footage: there is no blurred extension, bottom strip, caption field, or title
+backdrop. Captions use twelve envelope-derived blue variations and float above
+the lower third at a restrained size with glyph outlines. Artist names stay
+inside the narration captions in salmon; work titles stay inside them in teal.
+Identity words hold and drift longer than surrounding copy, without a separate
+title card or persistent corner label. Chelly Jin's installation chapter uses a
+dedicated vertical focus so the projection, not its blank upper field, occupies
+the center.
+The animated SO SOFT double-box identity runs fully inside the side edges as the
+reel watermark; the Pals badges and climbing title layer are deliberately off.
 
 ## Social derivatives
 
-- `node identity-proof.mjs [seconds]` renders a short proof of the combined
-  Pals + animated SO SOFT double-box side identity over the delivery master.
+- `node identity-proof.mjs [seconds]` renders a short proof of the animated
+  SO SOFT double-box side identity over the delivery master.
 - `node export-carousel.mjs` masters the ten selected work stills as a numbered
   1080×1350 Instagram multi-swipe set in `out/carousel/`.
 

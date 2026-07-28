@@ -6,9 +6,9 @@ Voice: Jeffrey PVC, `neutral:0`. Read as an introduction to a collective object,
 
 ## Continuous read
 
-This blue folder just arrived from Social Software at UCLA. Inside is *Scores for Social Software*, a spring 2026 edition of sixty-four. The copy in my hands is number fifty-one, assembled after ten weeks of making, testing, and performing together.
+This blue folder just arrived from Social Software at UCLA. Inside is *Scores for Social Software*, a spring 2026 edition of 64 hand-produced artist scores. The copy in my hands is number fifty-one, assembled after ten weeks of making, testing, and performing together.
 
-My contribution is *Notepat*. A folded white user manual opens into a pointed shape, combining an illustrated player, a QR code, instructions, and circular keyboard diagrams.
+I’m Jeffrey Alan Scudder. My contribution is *Notepat*. A folded white user manual opens into a pointed shape, combining an illustrated player, a QR code, instructions, and circular keyboard diagrams.
 
 Æther Cavendish’s *Vigil Score* arrives as a matte-black folded packet, closed with a small circular silver seal.
 
@@ -28,7 +28,7 @@ Alexander Espinosa’s *Music for World Computers* is a white typographic score:
 
 Mavyn Vu’s *The Radio Is an Altar: Portal* combines translucent blue and white score cards, a target-like radio image, small figures, and instructions arranged around their edges.
 
-Casey Reas facilitated the cycle, with Lauren Lee McCarthy and the Social Software community. Together, the contributions open many paths through a question: if software organizes behavior, what else can we ask it to organize?
+Casey Reas facilitated the cycle, with Lauren Lee McCarthy and the Social Software community. Together, the contributions open many paths through a question: if software organizes behavior, what else can we ask it to organize? If you’re watching this and know any of the artists involved, feel free to ask them to see their envelope. Each artist received two editions as part of the project: one to keep and one to distribute. This is Jeffrey. Thanks for watching, and a friendly goodbye from me and the Social Software Cohort 2.
 
 ## Caption-safe beats
 

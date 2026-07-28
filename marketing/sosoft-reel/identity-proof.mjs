@@ -16,7 +16,9 @@ const W = 1080, H = 1920, FPS = 30, SECONDS = Number(process.argv[2] || 8);
 const FRAMES = Math.ceil(SECONDS * FPS), BYTES = W * H * 4;
 const canvas = createCanvas(W, H), ctx = canvas.getContext("2d");
 const image = ctx.createImageData(W, H), frame = Buffer.alloc(BYTES);
-const identity = await makeSosoftSideIdentity({ w: W, h: H, fps: FPS, frames: FRAMES, assetsDir });
+const identity = await makeSosoftSideIdentity({
+  w: W, h: H, fps: FPS, frames: FRAMES, assetsDir, showPals: false,
+});
 const dec = spawn("ffmpeg", ["-v", "error", "-t", String(SECONDS), "-i", input, "-f", "rawvideo", "-pix_fmt", "rgba", "-"], { stdio: ["ignore", "pipe", "inherit"] });
 const enc = spawn("ffmpeg", ["-y", "-v", "error", "-f", "rawvideo", "-pix_fmt", "bgra", "-s", `${W}x${H}`, "-r", String(FPS), "-i", "-", "-t", String(SECONDS), "-i", input, "-map", "0:v", "-map", "1:a?", "-c:v", "libx264", "-crf", "18", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart", output], { stdio: ["pipe", "inherit", "inherit"] });
 let off = 0, fi = 0;
@@ -29,7 +31,8 @@ for await (const chunk of dec.stdout) {
       off = 0; image.data.set(frame); ctx.putImageData(image, 0, 0);
       const t = fi / FPS;
       const env = Math.max(0, Math.sin(t * Math.PI * 2 * 1.8)) ** 5;
-      identity.draw(ctx, t, env);
+      const pink = t >= 2 && t <= 5 ? Math.min(1, (t - 2) * 4, (5 - t) * 2) : 0;
+      identity.draw(ctx, t, env, pink);
       if (!enc.stdin.write(canvas.toBuffer("raw"))) await once(enc.stdin, "drain");
       fi++;
     }

@@ -1,215 +1,263 @@
 1
-00:00:00,000 --> 00:00:01,881
+00:00:00,000 --> 00:00:01,927
 This blue folder just arrived from Social
 
 2
-00:00:01,927 --> 00:00:03,529
+00:00:01,985 --> 00:00:03,901
 Software at UCLA.
 
 3
-00:00:03,971 --> 00:00:07,105
+00:00:04,261 --> 00:00:08,800
 Inside is Scores for Social Software, a
 
 4
-00:00:07,175 --> 00:00:10,472
-spring 2026 edition of sixty-four.
+00:00:08,858 --> 00:00:13,932
+spring 2026 edition of 64 hand-produced artist
 
 5
-00:00:10,983 --> 00:00:12,202
-The copy in my hands is number
+00:00:14,025 --> 00:00:14,721
+scores.
 
 6
-00:00:12,260 --> 00:00:15,662
-fifty-one, assembled after ten weeks of making,
+00:00:15,093 --> 00:00:16,405
+The copy in my hands is number
 
 7
-00:00:15,685 --> 00:00:17,821
-testing, and performing together.
+00:00:16,475 --> 00:00:19,412
+fifty-one, assembled after ten weeks of making,
 
 8
-00:00:18,425 --> 00:00:20,306
-My contribution is Notepat.
+00:00:19,574 --> 00:00:21,594
+testing, and performing together.
 
 9
-00:00:20,689 --> 00:00:22,674
-A folded white user manual opens into
+00:00:22,036 --> 00:00:23,266
+I’m Jeffrey Alan Scudder.
 
 10
-00:00:22,755 --> 00:00:25,600
-a pointed shape, combining an illustrated player,
+00:00:23,870 --> 00:00:25,681
+My contribution is Notepat.
 
 11
-00:00:25,925 --> 00:00:29,396
-a QR code, instructions, and circular keyboard
+00:00:26,192 --> 00:00:28,050
+A folded white user manual opens into
 
 12
-00:00:29,570 --> 00:00:30,488
-diagrams.
+00:00:28,119 --> 00:00:30,848
+a pointed shape, combining an illustrated player,
 
 13
-00:00:31,091 --> 00:00:33,750
-Æther Cavendish’s Vigil Score arrives as a
+00:00:31,231 --> 00:00:34,690
+a QR code, instructions, and circular keyboard
 
 14
-00:00:33,808 --> 00:00:36,548
-matte-black folded packet, closed with a small
+00:00:34,725 --> 00:00:35,537
+diagrams.
 
 15
-00:00:36,629 --> 00:00:37,976
-circular silver seal.
+00:00:35,979 --> 00:00:38,440
+Æther Cavendish’s Vigil Score arrives as a
 
 16
-00:00:38,359 --> 00:00:41,378
-Chelly Jin’s Software as a Choreography presents
+00:00:38,498 --> 00:00:41,354
+matte-black folded packet, closed with a small
 
 17
-00:00:41,412 --> 00:00:43,688
-a grid of silhouetted hands and arms,
+00:00:41,470 --> 00:00:43,444
+circular silver seal.
 
 18
-00:00:43,897 --> 00:00:46,521
-pairing each gesture with marks for timing
+00:00:44,558 --> 00:00:47,635
+Chelly Jin’s Software as a Choreography presents
 
 19
-00:00:46,602 --> 00:00:47,403
-and movement.
+00:00:47,670 --> 00:00:50,131
+a grid of silhouetted hands and arms,
 
 20
-00:00:47,786 --> 00:00:50,700
-Jordan Silver’s Sonic Architecture is a single
+00:00:50,305 --> 00:00:52,871
+pairing each gesture with marks for timing
 
 21
-00:00:50,723 --> 00:00:53,568
-sheet of printed columns, large numbers, and
+00:00:53,150 --> 00:00:54,055
+and movement.
 
 22
-00:00:53,637 --> 00:00:56,517
-typewritten commands, anchored by a looping spiral
+00:00:54,438 --> 00:00:57,236
+Jordan Silver’s Sonic Architecture is a single
 
 23
-00:00:56,563 --> 00:00:59,907
-diagram for inhabiting and measuring space through
+00:00:57,283 --> 00:01:01,335
+sheet of printed columns, large numbers, and
 
 24
-00:00:59,965 --> 00:01:00,510
-sound.
+00:01:01,404 --> 00:01:04,910
+typewritten commands, anchored by a looping spiral
 
 25
-00:01:01,207 --> 00:01:04,191
-Em Lugo’s Cues for Losing Direction fits
+00:01:04,969 --> 00:01:08,927
+diagram for inhabiting and measuring space through
 
 26
-00:01:04,249 --> 00:01:06,408
-on a small black card, its title
+00:01:08,974 --> 00:01:09,473
+sound.
 
 27
-00:01:06,443 --> 00:01:08,649
-set in pale condensed type like a
+00:01:10,170 --> 00:01:12,921
+Em Lugo’s Cues for Losing Direction fits
 
 28
-00:01:08,707 --> 00:01:10,657
-portable instruction carried in the hand.
+00:01:12,991 --> 00:01:16,184
+on a small black card, its title
 
 29
-00:01:11,041 --> 00:01:13,676
-Darlyn Phan’s Line Piece 1 begins on
+00:01:16,218 --> 00:01:18,877
+set in pale condensed type like a
 
 30
-00:01:13,722 --> 00:01:15,116
-translucent white paper.
+00:01:18,958 --> 00:01:22,035
+portable instruction carried in the hand.
 
 31
-00:01:15,441 --> 00:01:18,343
-Its faint rainbow cast and minimal title
+00:01:22,639 --> 00:01:25,065
+Darlyn Phan’s Line Piece 1 begins on
 
 32
-00:01:18,517 --> 00:01:20,700
-let the page behave like a line
+00:01:25,112 --> 00:01:26,575
+translucent white paper.
 
 33
-00:01:20,769 --> 00:01:21,501
-or veil.
+00:01:27,086 --> 00:01:29,431
+Its faint rainbow cast and minimal title
 
 34
-00:01:21,942 --> 00:01:24,287
-Thomas Noya’s Biophonía is a branching field
+00:01:29,582 --> 00:01:32,043
+let the page behave like a line
 
 35
-00:01:24,334 --> 00:01:27,747
-of blue, yellow, black, and beige organic
+00:01:32,391 --> 00:01:33,134
+or veil.
 
 36
-00:01:27,805 --> 00:01:28,374
-forms.
+00:01:33,982 --> 00:01:36,757
+Thomas Noya’s Biophonía is a branching field
 
 37
-00:01:28,757 --> 00:01:31,903
-In the video, these cell-like clusters drift
+00:01:37,163 --> 00:01:40,727
+of blue, yellow, black, and beige organic
 
 38
-00:01:32,078 --> 00:01:33,239
-and reorganize.
+00:01:40,785 --> 00:01:41,377
+forms.
 
 39
-00:01:33,680 --> 00:01:36,756
-Banyi Huang’s A Cosmographic Score for Folding
+00:01:41,772 --> 00:01:44,675
+In the video, these cell-like clusters drift
 
 40
-00:01:36,814 --> 00:01:38,927
-Back into the Kernel centers a luminous
+00:01:45,012 --> 00:01:46,057
+and reorganize.
 
 41
-00:01:38,962 --> 00:01:41,237
-circle and a small diagram of connected
+00:01:46,347 --> 00:01:49,133
+Banyi Huang’s A Cosmographic Score for Folding
 
 42
-00:01:41,295 --> 00:01:43,583
-nodes inside a lavender field.
+00:01:49,737 --> 00:01:51,478
+Back into the Kernel centers a luminous
 
 43
-00:01:44,163 --> 00:01:47,263
-Alexander Espinosa’s Music for World Computers is
+00:01:51,525 --> 00:01:54,613
+circle and a small diagram of connected
 
 44
-00:01:47,309 --> 00:01:51,501
-a white typographic score: awake, expand, decrease,
+00:01:54,694 --> 00:01:57,527
+nodes inside a lavender field.
 
 45
-00:01:51,814 --> 00:01:56,377
-oxygen, forest, junk, cinnamon, hammer.
+00:01:58,131 --> 00:02:01,811
+Alexander Espinosa’s Music for World Computers is
 
 46
-00:01:56,818 --> 00:01:59,163
-Mavyn Vu’s The Radio Is an Altar:
+00:02:01,858 --> 00:02:06,107
+a white typographic score: awake, expand, decrease,
 
 47
-00:01:59,488 --> 00:02:01,520
-Portal combines translucent blue and white score
+00:02:06,490 --> 00:02:11,610
+oxygen, forest, junk, cinnamon, hammer.
 
 48
-00:02:01,555 --> 00:02:04,666
-cards, a target-like radio image, small figures,
+00:02:12,214 --> 00:02:15,244
+Mavyn Vu’s The Radio Is an Altar:
 
 49
-00:02:04,817 --> 00:02:06,802
-and instructions arranged around their edges.
+00:02:15,616 --> 00:02:17,984
+Portal combines translucent blue and white score
 
 50
-00:02:07,185 --> 00:02:09,658
-Casey Reas facilitated the cycle, with Lauren
+00:02:18,019 --> 00:02:21,119
+cards, a target-like radio image, small figures,
 
 51
-00:02:09,705 --> 00:02:11,841
-Lee McCarthy and the Social Software community.
+00:02:21,270 --> 00:02:23,255
+and instructions arranged around their edges.
 
 52
-00:02:12,224 --> 00:02:15,080
-Together, the contributions open many paths through
+00:02:23,638 --> 00:02:26,784
+Casey Reas facilitated the cycle, with Lauren
 
 53
-00:02:15,161 --> 00:02:18,598
-a question: if software organizes behavior, what
+00:02:26,819 --> 00:02:29,037
+Lee McCarthy and the Social Software community.
 
 54
-00:02:18,668 --> 00:02:21,082
+00:02:29,478 --> 00:02:32,438
+Together, the contributions open many paths through
+
+55
+00:02:32,520 --> 00:02:36,908
+a question: if software organizes behavior, what
+
+56
+00:02:36,978 --> 00:02:38,986
 else can we ask it to organize?
+
+57
+00:02:39,497 --> 00:02:40,681
+If you’re watching this and know any
+
+58
+00:02:40,716 --> 00:02:42,434
+of the artists involved, feel free to
+
+59
+00:02:42,492 --> 00:02:43,874
+ask them to see their envelope.
+
+60
+00:02:44,315 --> 00:02:47,136
+Each artist received two editions as part
+
+61
+00:02:47,160 --> 00:02:49,052
+of the project: one to keep and
+
+62
+00:02:49,133 --> 00:02:50,062
+one to distribute.
+
+63
+00:02:50,387 --> 00:02:51,060
+This is Jeffrey.
+
+64
+00:02:51,084 --> 00:02:53,847
+Thanks for watching, and a friendly goodbye
+
+65
+00:02:54,172 --> 00:02:56,401
+from me and the Social Software Cohort
+
+66
+00:02:56,517 --> 00:02:57,074
+2.
