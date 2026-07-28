@@ -4,6 +4,7 @@ struct NarrationSpec: Codable {
     var title: String
     var outDir: String
     var gapMs: Int?
+    var video: String?
     var lines: [NarrationLine]
 }
 
