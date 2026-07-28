@@ -81,6 +81,7 @@ node bin/ship.mjs <slug> --papers # also deploy the papers PDF + index
 Legacy self-hosted feed: `node bin/feed.mjs && node bin/publish.mjs --push`.
 
 Flags: `--open` (slab-afplay the result), `--force` (bypass say cache),
+`--bedstyle sosoft|lofi`, `--bedgain 0.34`, `--nobed`,
 `--stability 0.55 --similarity 0.8 --speed 0.98` (voice tuning),
 `--base <url>` on `feed.mjs` (override the asset host).
 

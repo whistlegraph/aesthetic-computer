@@ -330,8 +330,9 @@ export function renderSineBed(durationSec, outPath, opts = {}) {
     // pings, while alternating pans leave the narration clear in the center.
     const motif = [523.25, 659.25, 783.99, 880.00, 783.99, 587.33, 659.25, 523.25];
     const step = (60 / BED_BPM) * 1.5;
+    const phraseRest = Math.max(0, Number(opts.melodyRestBars) || 0) * bar;
     for (let t = 1.0, i = 0; t < dur; t += step, i += 1) {
-      const phraseBreath = i % 8 === 7 ? step * 0.85 : 0;
+      const phraseBreath = i % 8 === 7 ? step * 0.85 + phraseRest : 0;
       addSine(L, R, motif[i % motif.length], t, 2.35, 0.052, i % 2 ? 0.42 : -0.42);
       t += phraseBreath;
     }

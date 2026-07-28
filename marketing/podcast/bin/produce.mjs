@@ -20,7 +20,7 @@ import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { execFileSync, spawnSync } from "node:child_process";
 import { essayToScript } from "./essay-to-script.mjs";
-import { renderJingles, renderBed, BED_BPM } from "./jingle.mjs";
+import { renderJingles, renderBed, renderSineBed, BED_BPM } from "./jingle.mjs";
 import { renderCover } from "./cover.mjs";
 import { master } from "./master.mjs";
 import { EPISODE_SUBSTRATE, DEFAULT_SUBSTRATE } from "../lib/substrates.mjs";
@@ -138,6 +138,10 @@ function silence(dst, seconds) {
 // ── main ──────────────────────────────────────────────────────────────────
 const script = essayToScript(essayPath);
 const speaker = script.author.replace(/^@/, "");
+const episodeBedStyle = {
+  "keymap-score": "sosoft",
+};
+const bedStyle = String(flags.bedstyle || episodeBedStyle[script.slug] || "lofi");
 console.log(`\n▸ ${script.title} — ${script.paragraphs.length} paragraphs · ${script.wordCount} words · voice ${VOICE.provider}/${VOICE.voice}\n`);
 
 // ── beat grid (shared with the bed) ────────────────────────────────────
@@ -292,27 +296,39 @@ if (flags.novoicemaster) {
   execFileSync("ffmpeg", ["-y", "-i", voiceRaw, "-af", vmaster, "-ac", "2", "-c:a", "pcm_s16le", voiceWav], { stdio: "ignore" });
 }
 
-// 5b. Score a lo-fi bed (melody + rhythm) under the whole reading,
-// sidechain-ducked by the voice so speech stays clear. --nobed to skip;
-// --bedgain N to tune (default 0.35).
+// 5b. Score a bed under the whole reading, sidechain-ducked by the voice so
+// speech stays clear. `sosoft` uses the same blue sine-pad + pentatonic
+// language as the Scores for Social Software reel, with longer phrase breaths
+// for an essay-length listen. --nobed skips; --bedstyle selects sosoft|lofi.
 const premaster = resolve(build, "premaster.wav");
 const audioTmp = resolve(build, "audio.mp3");
 if (flags.nobed) {
   execFileSync("ffmpeg", ["-y", "-i", voiceWav, "-ac", "2", "-c:a", "pcm_s16le", premaster], { stdio: "ignore" });
 } else {
   const kit = flags.kit || "felt";
-  console.log(`Scoring bed… (kit: ${kit})`);
-  const bedGain = flags.bedgain !== undefined ? Number(flags.bedgain) : 0.42;
+  console.log(`Scoring bed… (${bedStyle}${bedStyle === "lofi" ? ` · kit: ${kit}` : ""})`);
+  const bedGain = flags.bedgain !== undefined ? Number(flags.bedgain) : (bedStyle === "sosoft" ? 0.34 : 0.42);
   const bedWav = resolve(build, "bed.wav");
-  renderBed(dur(voiceWav) + 1.0, bedWav, { kit });
-  // The voice is already voice-mastered, so the mix just ducks a quiet, phaser-
-  // swept bed hard under it — speech always sits on top.
-  const bedfx = `volume=${bedGain},aphaser=type=t:speed=0.25:decay=0.4`;
+  if (bedStyle === "sosoft") {
+    renderSineBed(dur(voiceWav) + 1.0, bedWav, { melody: true, melodyRestBars: 2 });
+  } else if (bedStyle === "lofi") {
+    renderBed(dur(voiceWav) + 1.0, bedWav, { kit });
+  } else {
+    throw new Error(`Unknown --bedstyle ${bedStyle}; use sosoft or lofi.`);
+  }
+  // The voice is already voice-mastered. The Social Software bed keeps the
+  // reel's clear sine tone; the default lo-fi bed retains its slow phaser.
+  const bedfx = bedStyle === "sosoft"
+    ? `volume=${bedGain},highpass=f=55,lowpass=f=9000`
+    : `volume=${bedGain},aphaser=type=t:speed=0.25:decay=0.4`;
+  const duck = bedStyle === "sosoft"
+    ? "threshold=0.035:ratio=9:attack=10:release=520"
+    : "threshold=0.02:ratio=6:attack=6:release=380";
   execFileSync("ffmpeg", [
     "-y", "-i", voiceWav, "-i", bedWav,
     "-filter_complex",
       `[1:a]${bedfx}[bedfx];` +
-      `[bedfx][0:a]sidechaincompress=threshold=0.02:ratio=6:attack=6:release=380[bd];` +
+      `[bedfx][0:a]sidechaincompress=${duck}[bd];` +
       `[0:a][bd]amix=inputs=2:duration=first:normalize=0[out]`,
     "-map", "[out]", "-ac", "2", "-c:a", "pcm_s16le", premaster,
   ], { stdio: "ignore" });
@@ -366,6 +382,7 @@ writeFileSync(sidecarPath, JSON.stringify({
   wordCount: script.wordCount,
   link: script.link || undefined,
   paper: script.paper || undefined,
+  musicBed: flags.nobed ? "none" : bedStyle,
   audio: `${script.slug}.mp3`, cover: `${script.slug}-cover.png`,
   source: positional[0], pubDate,
 }, null, 2) + "\n");
