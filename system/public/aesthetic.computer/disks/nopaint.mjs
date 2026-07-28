@@ -12,17 +12,22 @@ import {
 } from "../lib/nopaint-proposals.mjs";
 import { nopaintProposal as lineProposal } from "./line.mjs";
 import { darkWindowProposal, gridWormProposal } from "../lib/nopaint-construct-brushes.mjs";
+import { nonConflictingConstructProposals } from "../lib/nopaint-construct-catalog.mjs";
+import { recoveredConstructTransforms } from "../lib/nopaint-construct-transforms.mjs";
 
 const COMPATIBLE_BRUSHES = Object.freeze(new Map([
   [lineProposal.slug, lineProposal],
   [gridWormProposal.slug, gridWormProposal],
   [darkWindowProposal.slug, darkWindowProposal],
+  ...nonConflictingConstructProposals.map((contract) => [contract.slug, contract]),
+  ...recoveredConstructTransforms.map((contract) => [contract.slug, contract]),
 ]));
 
 let loopState = "choosing";
 let stateBeforePause = "proposing";
 let proposal = null;
 let proposalFrame = 0;
+let proposalPixels = null;
 let proposalNumber = 0;
 let sessionSeed = 0;
 let random = seededRandom(1);
@@ -79,6 +84,28 @@ const BRUSH_CUES = Object.freeze({
   "dark-window:2": "dark window - note 2.webm",
   "dark-window:3": "dark window - note 3.webm",
   "dark-window:4": "dark window - note 4.webm",
+  aura: "aura - theme.webm",
+  build: "build - builder's beat.webm",
+  breathe: "breathe - theme.webm",
+  caterpillar: "caterpillar - trotting along.webm",
+  ellipse: "elipse - start.webm",
+  frame: "frame - knock.webm",
+  rainbow: "rainbow - theme.webm",
+  triangle: "triangle - start.webm",
+  vignette: "vignette - theme.webm",
+  contrast: "contrast - theme.webm",
+  flip: "flip - first flipping.webm",
+  invert: "invert - on.webm",
+  "light-bump": "light bump - theme.webm",
+  mirror: "mirror - theme.webm",
+  quicksand: "quicksand - brief theme.webm",
+  recurse: "recurse - thup.webm",
+  saturate: "saturate - theme.webm",
+  scroll: "scroll - theme.webm",
+  sharpen: "sharpen - theme.webm",
+  spin: "spin - theme.webm",
+  turn: "turn - note 1.webm",
+  zoom: "zoom - in.webm",
   walker: "common - jitter.webm",
   banner: "banner - theme.webm",
   wafer: "wafer - nibble appear.webm",
@@ -374,6 +401,14 @@ function chooseProposal(api) {
         base: baseProposal,
       })
     : baseProposal;
+  proposalPixels = compatibleBrush?.applyPixels
+    ? compatibleBrush.applyPixels(
+        api.system.painting.pixels,
+        resolution.width,
+        resolution.height,
+        proposal.brush.parameters,
+      )
+    : null;
   proposalNumber += 1;
   proposalFrame = 0;
   transition("proposing");
@@ -773,6 +808,13 @@ function renderProposal($) {
 
   page(buffer).wipe(255, 255, 255, 0);
 
+  const contract = COMPATIBLE_BRUSHES.get(proposal.kind);
+  if (proposalPixels) {
+    buffer.pixels.set(proposalPixels);
+  } else if (contract?.render && proposal.kind !== "line") {
+    contract.render($, proposal, proposalFrame);
+  } else
+
   if (proposal.kind === "rect") {
     ink(color).box(
       proposal.x + drift,
@@ -979,8 +1021,9 @@ async function completePainting($) {
       nextResolution.h,
       (page) => page.wipe(255, 255, 255, 0),
     );
-    proposal = null;
-    proposalFrame = 0;
+  proposal = null;
+  proposalFrame = 0;
+  proposalPixels = null;
     decisions = [];
     finishMode = false;
     transition("proposing");

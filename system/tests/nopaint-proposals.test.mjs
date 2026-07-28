@@ -27,7 +27,7 @@ test("the first native catalog retains the recovered duplicate Box weight", () =
   const rect = NOPAINT_PROPOSAL_CATALOG.find(({ name }) => name === "rect");
   assert.equal(rect.weight, 2);
   assert.equal(NOPAINT_VERSION, "3.0");
-  assert.equal(NOPAINT_PROPOSAL_CATALOG.length, 11);
+  assert.equal(NOPAINT_PROPOSAL_CATALOG.length, 33);
   assert.equal(NOPAINT_PROPOSAL_CATALOG.some(({ name }) => name === "camera"), false);
   assert.equal(NOPAINT_PROPOSAL_CATALOG.find(({ name }) => name === "softy").weight, 1.5);
   assert.equal(NOPAINT_PROPOSAL_CATALOG.find(({ name }) => name === "walker").weight, 0.2);

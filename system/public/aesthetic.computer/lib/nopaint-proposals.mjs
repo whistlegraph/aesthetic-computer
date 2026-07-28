@@ -28,7 +28,10 @@ export const NOPAINT_RECOVERED_CATALOG = Object.freeze({
 
 export const NOPAINT_IMPLEMENTED_OPERATIONS = Object.freeze([
   "box", "ellipse", "line", "softy", "bubbles", "grid-worm", "walker",
-  "banner", "wafer", "dark-window", "wipe", "camera",
+  "banner", "wafer", "dark-window", "build", "aura", "triangle", "breathe",
+  "vignette", "caterpillar", "frame", "rainbow", "wipe", "camera",
+  "contrast", "flip", "invert", "light-bump", "mirror", "quicksand",
+  "recurse", "saturate", "scroll", "sharpen", "spin", "turn", "zoom",
 ]);
 
 // The recovered Construct picker contains Box twice. The other first-pass
@@ -41,10 +44,32 @@ export const NOPAINT_PROPOSAL_CATALOG = Object.freeze([
   Object.freeze({ name: "bubbles", label: "Bubbles", family: "authored", weight: 1 }),
   Object.freeze({ name: "grid-worm", label: "Grid Worm", family: "authored", weight: 1 }),
   Object.freeze({ name: "dark-window", label: "Dark Window", family: "authored", weight: 1 }),
+  Object.freeze({ name: "build", label: "Build", family: "authored", weight: 1 }),
+  Object.freeze({ name: "aura", label: "Aura", family: "authored", weight: 1 }),
+  Object.freeze({ name: "triangle", label: "Triangle", family: "brush", weight: 1 }),
+  Object.freeze({ name: "ellipse", label: "Ellipse", family: "brush", weight: 1 }),
+  Object.freeze({ name: "breathe", label: "Breathe", family: "authored", weight: 1 }),
+  Object.freeze({ name: "vignette", label: "Vignette", family: "authored", weight: 1 }),
+  Object.freeze({ name: "caterpillar", label: "Caterpillar", family: "authored", weight: 1 }),
+  Object.freeze({ name: "frame", label: "Frame", family: "authored", weight: 1 }),
+  Object.freeze({ name: "rainbow", label: "Rainbow", family: "authored", weight: 1 }),
   Object.freeze({ name: "walker", label: "Walker", family: "authored", weight: 0.2 }),
   Object.freeze({ name: "banner", label: "Banner", family: "authored", weight: 1 }),
   Object.freeze({ name: "wafer", label: "Wafer", family: "authored", weight: 1 }),
   Object.freeze({ name: "wipe", label: "Wash", family: "transform", weight: 1 }),
+  Object.freeze({ name: "contrast", label: "Contrast", family: "transform", weight: 1 }),
+  Object.freeze({ name: "flip", label: "Flip", family: "transform", weight: 1 }),
+  Object.freeze({ name: "invert", label: "Invert", family: "transform", weight: 1 }),
+  Object.freeze({ name: "light-bump", label: "Light Bump", family: "transform", weight: 1 }),
+  Object.freeze({ name: "mirror", label: "Mirror", family: "transform", weight: 1 }),
+  Object.freeze({ name: "quicksand", label: "Quicksand", family: "transform", weight: 1 }),
+  Object.freeze({ name: "recurse", label: "Recurse", family: "transform", weight: 1 }),
+  Object.freeze({ name: "saturate", label: "Saturate", family: "transform", weight: 1 }),
+  Object.freeze({ name: "scroll", label: "Scroll", family: "transform", weight: 1 }),
+  Object.freeze({ name: "sharpen", label: "Sharpen", family: "transform", weight: 1 }),
+  Object.freeze({ name: "spin", label: "Spin", family: "transform", weight: 1 }),
+  Object.freeze({ name: "turn", label: "Turn", family: "transform", weight: 1 }),
+  Object.freeze({ name: "zoom", label: "Zoom", family: "transform", weight: 1 }),
   // Camera is implemented but deliberately absent from random proposals.
   // Device access belongs to an explicit camera-tool action, never page load.
 ]);

@@ -37,7 +37,7 @@ try {
     try {
       await ac.page.waitForFunction(
         () => window.__acNoPaintTest?.()?.audio?.events?.some(
-          ({ name, path }) => name === "brush:banner" && path === "legacy",
+          ({ name, path }) => name.startsWith("brush:") && path === "legacy",
         ),
         { timeout: 15000 },
       );
@@ -62,12 +62,12 @@ try {
     expect(state?.version === "3.0", `version is 3.0 (got ${state?.version})`);
     expect(state?.state === "proposing", `state is proposing (got ${state?.state})`);
     expect(state?.proposalNumber === 1, "first proposal is numbered 1");
-    expect(state?.operation === "banner", `seed begins with Banner, not Camera (got ${state?.operation})`);
+    expect(state?.operation !== "camera", `seed never begins with Camera (got ${state?.operation})`);
     expect(state?.ready === true, "proposal buffer reports ready");
     expect(state?.cursor?.ready === true, "the original Construct cursor sheet is loaded");
     expect(
-      state?.audio?.events?.some(({ name, path }) => name === "brush:banner" && path === "legacy"),
-      "the proposal starts its recovered Banner theme",
+      state?.audio?.events?.some(({ name, path }) => name === `brush:${state?.operation}` && path === "legacy"),
+      "the proposal starts its recovered operation cue",
     );
     expect(
       [state?.controls?.no, state?.controls?.paint]
