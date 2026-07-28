@@ -20,6 +20,11 @@ wizard restores the input that was selected before launch when it closes.
 
 Appearance follows macOS Auto/Light/Dark and updates while the app is open.
 
+When a screenplay supplies a `video` path, **Play current cut** opens that video
+inside Narrator Wizard using native AVKit playback, scrubbing, volume, and
+full-screen controls. This lets the narrator review the existing edit without
+leaving the recording session.
+
 The Social Software reel is already wired:
 
 ```bash

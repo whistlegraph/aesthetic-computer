@@ -1,5 +1,6 @@
 import AppKit
 import AVFoundation
+import AVKit
 import CoreAudio
 
 final class NarratorWizardController: NSWindowController, NSWindowDelegate, AVAudioPlayerDelegate {
@@ -13,6 +14,9 @@ final class NarratorWizardController: NSWindowController, NSWindowDelegate, AVAu
     private var player: AVAudioPlayer?
     private var monitorEngine: AVAudioEngine?
     private var originalInputID: AudioDeviceID?
+    private var videoWindow: NSWindow?
+    private var videoPlayer: AVPlayer?
+    private var videoCloseObserver: NSObjectProtocol?
     private var meterTimer: Timer?
     private var pendingTake: NarrationTake?
 
@@ -33,6 +37,7 @@ final class NarratorWizardController: NSWindowController, NSWindowDelegate, AVAu
     private let redoButton = NSButton(title: "↺ New take", target: nil, action: nil)
     private let keepButton = NSButton(title: "Keep & Next →", target: nil, action: nil)
     private let revealButton = NSButton(title: "Reveal recordings", target: nil, action: nil)
+    private let currentVideoButton = NSButton(title: "▶ Play current cut", target: nil, action: nil)
 
     init(spec: NarrationSpec, specURL: URL) throws {
         self.spec = spec
@@ -112,7 +117,7 @@ final class NarratorWizardController: NSWindowController, NSWindowDelegate, AVAu
         content.wantsLayer = true
         applyTheme()
 
-        let header = NSStackView(views: [progressLabel, NSView(), revealButton])
+        let header = NSStackView(views: [progressLabel, NSView(), currentVideoButton, revealButton])
         header.orientation = .horizontal
         header.alignment = .centerY
         header.spacing = 10
@@ -121,6 +126,10 @@ final class NarratorWizardController: NSWindowController, NSWindowDelegate, AVAu
         revealButton.target = self
         revealButton.action = #selector(revealRecordings)
         revealButton.bezelStyle = .rounded
+        currentVideoButton.target = self
+        currentVideoButton.action = #selector(showCurrentVideo)
+        currentVideoButton.bezelStyle = .rounded
+        currentVideoButton.isHidden = spec.video == nil
 
         imageView.imageScaling = .scaleProportionallyUpOrDown
         imageView.imageAlignment = .alignCenter
@@ -573,14 +582,74 @@ final class NarratorWizardController: NSWindowController, NSWindowDelegate, AVAu
         NSWorkspace.shared.activateFileViewerSelecting([manifestURL])
     }
 
+    private func resolvedProjectURL(_ path: String) -> URL {
+        let expanded = NSString(string: path).expandingTildeInPath
+        return expanded.hasPrefix("/")
+            ? URL(fileURLWithPath: expanded).standardizedFileURL
+            : specURL.deletingLastPathComponent().appendingPathComponent(expanded).standardizedFileURL
+    }
+
+    @objc private func showCurrentVideo() {
+        if let videoWindow {
+            videoWindow.makeKeyAndOrderFront(nil)
+            videoPlayer?.play()
+            return
+        }
+        guard let path = spec.video else { return }
+        let url = resolvedProjectURL(path)
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            statusLabel.stringValue = "Current video is missing: \(url.path)"
+            return
+        }
+        let player = AVPlayer(url: url)
+        let playerView = AVPlayerView(frame: NSRect(x: 0, y: 0, width: 450, height: 800))
+        playerView.player = player
+        playerView.controlsStyle = .floating
+        playerView.videoGravity = .resizeAspect
+        playerView.showsFullScreenToggleButton = true
+
+        let preview = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 450, height: 800),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        preview.title = "Current cut — \(spec.title)"
+        preview.minSize = NSSize(width: 315, height: 560)
+        preview.contentView = playerView
+        preview.isReleasedWhenClosed = false
+        preview.center()
+        window?.addChildWindow(preview, ordered: .above)
+        videoWindow = preview
+        videoPlayer = player
+        videoCloseObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: preview,
+            queue: .main
+        ) { [weak self] _ in
+            self?.videoPlayer?.pause()
+            self?.videoPlayer = nil
+            self?.videoWindow = nil
+            if let observer = self?.videoCloseObserver {
+                NotificationCenter.default.removeObserver(observer)
+                self?.videoCloseObserver = nil
+            }
+        }
+        preview.makeKeyAndOrderFront(nil)
+        player.play()
+    }
+
     func windowWillClose(_ notification: Notification) {
         recorder?.stop()
         stopMonitoring()
+        videoPlayer?.pause()
+        videoWindow?.close()
         restoreOriginalInput()
         persist()
     }
 
     deinit {
         DistributedNotificationCenter.default().removeObserver(self)
+        if let videoCloseObserver { NotificationCenter.default.removeObserver(videoCloseObserver) }
     }
 }
