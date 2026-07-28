@@ -54,6 +54,7 @@ let cursorSheet = null;
 let cursorPoint = null;
 let cursorFrame = 0;
 let cursorWagFrames = 0;
+let checkerFrame = 0;
 const cueSamples = new Map();
 let cueEvents = [];
 const PROPOSAL_MERRY_FRAMES = 5 * 60;
@@ -768,6 +769,7 @@ function boot({ colon, debug, hud, net, num, params, query = {}, screen, store, 
   cursorPoint = null;
   cursorFrame = 0;
   cursorWagFrames = 0;
+  checkerFrame = 0;
   cueEvents = [];
   brushCueProposal = 0;
   activeBrushSound = null;
@@ -855,6 +857,8 @@ function boot({ colon, debug, hud, net, num, params, query = {}, screen, store, 
 
 // 🧮 Sim
 function sim({ needsPaint }) {
+  checkerFrame += 1;
+  needsPaint();
   if (cursorWagFrames > 0) {
     cursorWagFrames -= 1;
     if (cursorWagFrames === 0 && cursorFrame !== 0) {
@@ -885,10 +889,8 @@ function animatedColor(color, phase) {
 
 function paintParallaxCheckers($, bar) {
   const size = Math.max(18, Math.round(Math.min($.screen.width, $.screen.height) / 18));
-  const pointerX = cursorPoint?.x ?? $.screen.width / 2;
-  const pointerY = cursorPoint?.y ?? bar.y / 2;
-  const offsetX = Math.round((pointerX / $.screen.width - 0.5) * size * 0.7);
-  const offsetY = Math.round((pointerY / Math.max(1, bar.y) - 0.5) * size * 0.7);
+  const offsetX = Math.floor((checkerFrame * 0.08) % size);
+  const offsetY = Math.floor((checkerFrame * 0.04) % size);
   $.ink(22, 22, 24).box(0, 0, $.screen.width, bar.y);
   for (let y = -size + offsetY; y < bar.y; y += size) {
     for (let x = -size + offsetX; x < $.screen.width; x += size) {
