@@ -135,6 +135,7 @@ let progressTrick; // A faux growth period on the progress bar.
 let cachedGizmo; // Reference to gizmo for use in act() function
 let progressPhase = ""; // Current phase of upload (e.g., "ZIPPING", "UPLOADING IMAGE")
 let progressPercentage = 0; // 0-100
+let paintingCompletionBusy = false;
 
 // 📦 Pack progress state
 let packProgress = null; // { timeline, startTime, code } or null
@@ -1099,6 +1100,7 @@ async function boot({
   net: { socket },
   vscode,
 }) {
+  paintingCompletionBusy = false;
   promptSend = send;
   promptNeedsPaint = needsPaint;
   cachedGizmo = gizmo; // Cache gizmo for use in act() function
@@ -2477,6 +2479,8 @@ async function halt($, text) {
     makeFlash($);
     return true;
   } else if (slug === "painting:done" || slug === "yes!" || slug === "done") {
+    paintingCompletionBusy = true;
+    send({ type: "keyboard:lock" });
     let destination = params[0] || "upload"; // or "upload"
     if (destination === "u" || slug === "yes!") destination = "upload";
     //                                  ^ "yes!" is always an upload.
@@ -2587,6 +2591,7 @@ async function halt($, text) {
         progressBar = -1;
         progressPhase = "";
         progressPercentage = 0;
+        paintingCompletionBusy = false;
         makeFlash($);
         return true;
       }
@@ -7853,6 +7858,13 @@ function act({
   notice,
   ui,
 }) {
+  // Done is a transaction, not a background task. Prompt remains visible as
+  // its progress surface but cannot accept edits or commands until upload
+  // yields painting#CODE or reports a recoverable failure.
+  if (paintingCompletionBusy) {
+    send({ type: "keyboard:lock" });
+    return;
+  }
   // 🎞️ Rolodex: a predominantly-vertical drag on the focused prompt
   // scrubs command history pixel-by-pixel and stays where you let go
   // (the snap). Only engages past a threshold so taps / horizontal

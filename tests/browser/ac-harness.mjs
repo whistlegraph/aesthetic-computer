@@ -87,7 +87,10 @@ export class ACSession {
         setTimeout(() => clearInterval(timer), 5000);
       }
     });
-    s.page.on("pageerror", (e) => console.warn("  ⚠️  pageerror:", e.message));
+    s.page.on("pageerror", (e) => console.warn(
+      "  ⚠️  pageerror:",
+      e?.message || String(e || "unknown browser error"),
+    ));
     s.downloadDir = join(CONFIG.shotDir, "downloads", String(Date.now()));
     mkdirSync(s.downloadDir, { recursive: true });
     await s.page._client().send("Page.setDownloadBehavior", {

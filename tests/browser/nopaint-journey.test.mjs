@@ -82,6 +82,11 @@ try {
     );
     expect(state?.controls?.no?.y === state?.controls?.paint?.y, "No and Paint align in one bottom row");
     expect(
+      state?.controls?.no?.y + state?.controls?.no?.h === state?.layout?.screenResolution?.height &&
+      state?.controls?.paint?.y + state?.controls?.paint?.h === state?.layout?.screenResolution?.height,
+      "No and Paint are flush with the bottom edge",
+    );
+    expect(
       state?.layout?.controlBar?.x === 0 &&
       state?.layout?.controlBar?.w >=
         state?.layout?.paintingViewport?.x + state?.layout?.paintingViewport?.w,
@@ -131,8 +136,8 @@ try {
         `${viewport.label}: controls stay inside bar`);
       expect(no.x + no.w <= paint.x && paint.x + paint.w <= bar.x + bar.w,
         `${viewport.label}: No and Paint do not overlap`);
-      expect(no.y + no.h <= modeline.y && paint.y + paint.h <= modeline.y,
-        `${viewport.label}: modeline stays below No and Paint`);
+      expect(no.y + no.h === screenResolution.height && paint.y + paint.h === screenResolution.height,
+        `${viewport.label}: controls remain flush with the bottom edge`);
     }
     // Synthetic viewport probes may exceed the filming display. Return to the
     // harness's screen-safe size before taking any more native Frame receipts.

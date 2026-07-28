@@ -187,8 +187,7 @@ function transition(next) {
 }
 
 function interfaceLayout(screen) {
-  const barHeight = Math.max(96, Math.floor(screen.height * 0.18));
-  const statusHeight = Math.max(22, Math.floor(barHeight * 0.22));
+  const barHeight = Math.max(96, Math.floor(screen.height * 0.2));
   const available = { x: 0, y: 0, w: screen.width, h: screen.height - barHeight };
   const source = paintingResolution || { width: available.w, height: available.h };
   const scale = Math.min(available.w / source.width, available.h / source.height);
@@ -203,9 +202,9 @@ function interfaceLayout(screen) {
     bar: { x: 0, y: screen.height - barHeight, w: screen.width, h: barHeight },
     status: {
       x: 0,
-      y: screen.height - statusHeight,
+      y: screen.height,
       w: screen.width,
-      h: statusHeight,
+      h: 0,
     },
     scale,
   };
@@ -215,24 +214,23 @@ function positionButtons(screen) {
   // The recovered instrument keeps the decision pair together along the
   // bottom edge: No on the left, Paint larger on the right. They are the
   // architecture of the surface, not ordinary toolbar buttons.
-  const { bar, status } = interfaceLayout(screen);
+  const { bar } = interfaceLayout(screen);
   const gap = Math.max(4, Math.floor(screen.width * 0.006));
-  const margin = Math.max(6, Math.floor(screen.width * 0.008));
-  const available = screen.width - margin * 2 - gap;
+  const available = screen.width - gap;
   const noWidth = Math.floor(available * 0.38);
   const paintWidth = available - noWidth;
-  const buttonY = bar.y + margin;
-  const decisionHeight = status.y - buttonY - margin;
+  const buttonY = bar.y;
+  const decisionHeight = bar.h;
   const no = noButton.btn || noButton;
   const paint = paintButton.btn || paintButton;
   no.box ||= {};
   paint.box ||= {};
   Object.assign(no.box, {
-    x: margin, y: buttonY,
+    x: 0, y: buttonY,
     w: noWidth, h: decisionHeight,
   });
   Object.assign(paint.box, {
-    x: margin + noWidth + gap, y: buttonY,
+    x: noWidth + gap, y: buttonY,
     w: paintWidth, h: decisionHeight,
   });
   const done = doneButton?.btn || doneButton;
@@ -240,14 +238,14 @@ function positionButtons(screen) {
   if (done) {
     done.box ||= {};
     Object.assign(done.box, {
-      x: margin + noWidth + gap, y: buttonY,
+      x: noWidth + gap, y: buttonY,
       w: paintWidth, h: decisionHeight,
     });
   }
   if (back) {
     back.box ||= {};
     Object.assign(back.box, {
-      x: margin, y: buttonY,
+      x: 0, y: buttonY,
       w: noWidth, h: decisionHeight,
     });
   }
@@ -508,6 +506,7 @@ function paintingFingerprint(painting) {
 }
 
 function testSnapshot() {
+  if (testApi?.screen && noButton && paintButton) positionButtons(testApi.screen);
   const controlBox = (control) => {
     const box = control?.box || control?.btn?.box;
     return box ? { x: box.x, y: box.y, w: box.w, h: box.h } : null;
