@@ -19,6 +19,8 @@ const pages = {
   beyond: "https://www.thomaslawson.com/beyond-the-studio/",
   writing: "https://www.thomaslawson.com/bookshelf/",
   broader: "https://www.thomaslawson.com/art-in-a-broader-context/",
+  artforum: "https://www.thomaslawson.com/bookshelf_artforum/",
+  experimental: "https://www.thomaslawson.com/art-in-context-hot-coffee/",
 };
 const viewports = {
   desktop: { width: 1440, height: 1000, deviceScaleFactor: 1 },
@@ -70,6 +72,15 @@ try {
       const observed = await page.evaluate(() => ({
         page: { width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight },
         horizontalOverflow: document.documentElement.scrollWidth > innerWidth,
+        headings: [...document.querySelectorAll("h1,h2,h3,h4,h5,h6")].slice(0, 20).map((node) => {
+          const rect = node.getBoundingClientRect();
+          const style = getComputedStyle(node);
+          return { text: node.textContent.replace(/\s+/g, " ").trim(), x: rect.x, width: rect.width, fontSize: style.fontSize, textAlign: style.textAlign };
+        }),
+        sampleImages: [...document.querySelectorAll("[data-elementor-type='wp-page'] img")].slice(0, 12).map((node) => {
+          const rect = node.getBoundingClientRect();
+          return { width: rect.width, height: rect.height, naturalWidth: node.naturalWidth, naturalHeight: node.naturalHeight };
+        }),
         contextLabels: [...document.querySelectorAll(".tl-context-card .elementor-heading-title")]
           .map((node) => node.textContent.replace(/\s+/g, " ").trim()),
       }));

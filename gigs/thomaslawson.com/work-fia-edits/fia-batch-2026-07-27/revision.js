@@ -45,3 +45,78 @@
     }
   });
 })();
+
+(() => {
+  const path = location.pathname.replace(/\/+$/, "");
+  const bookshelfDetails = [
+    "/bookshelf_artforum", "/bookshelf_afterall", "/bookshelf_eastofborneo",
+    "/bookshelf-reallife", "/elementor-1796", "/bookshelf_writingsabouttl",
+    "/elementor-395", "/bookshelf-anthologies",
+  ];
+  if (bookshelfDetails.includes(path)) document.body.classList.add("tl-bookshelf-detail");
+  if (path.startsWith("/art-in-context-")) document.body.classList.add("tl-exhibition-detail");
+
+  if (document.body.classList.contains("tl-bookshelf-detail")) {
+    document.querySelectorAll("h1,h2").forEach((heading) => {
+      if (heading.textContent.replace(/\s+/g, " ").trim() === "PUBLICATIONS") heading.textContent = "Publications";
+    });
+  }
+
+  if (document.body.classList.contains("page-id-808")) {
+    document.querySelectorAll(".tl-shelf-strip").forEach((strip) => {
+      const section = strip.closest(".elementor-top-section");
+      const heading = section?.querySelector(".elementor-heading-title");
+      const headingLink = heading?.querySelector("a[href]");
+      const href = headingLink?.href;
+      const name = heading?.textContent.replace(/\s+/g, " ").trim() || "publication section";
+      if (href && !heading.querySelector(".tl-shelf-more")) {
+        const more = document.createElement("a");
+        more.className = "tl-shelf-more";
+        more.href = href;
+        more.textContent = "More →";
+        more.setAttribute("aria-label", `More from ${name}`);
+        heading.appendChild(more);
+      }
+      if (!href) return;
+      [...strip.children].forEach((child, index) => {
+        if (child.matches("a.tl-shelf-cover")) return;
+        const image = child.matches("img") ? child : child.querySelector("img");
+        if (!image) return;
+        image.alt = `${name} preview ${index + 1}`;
+        const cover = document.createElement("a");
+        cover.className = "tl-shelf-cover";
+        cover.href = href;
+        cover.setAttribute("aria-label", `Open ${name}`);
+        strip.insertBefore(cover, child);
+        cover.appendChild(child);
+      });
+    });
+  }
+
+  if (document.body.classList.contains("page-id-68")) {
+    const cards = {
+      "GOLD DOG":["Gold Dog","Artwork"], "REALLIFE COVER":["REALLIFE Cover","Magazine cover"],
+      "FORMANESQUE DRAWING WALL":["Formanesque Drawing Wall","Installation"], "RED SHOE":["Red Shoe","Painting"],
+      "LAST EXIT":["Last Exit","Artforum essay"], "SHOT FOR A BIKE":["Shot for a Bike","Painting"],
+      "THE BRITISH ART SHOW":["The British Art Show","Exhibition"], "BROAD STUDIOS":["Broad Studios","Art-school project"],
+      "LOS ANGELES PAINTING":["Los Angeles Painting","Painting"], "SUBURBAN INSTALL":["Suburban Install","Installation"],
+      "PATRICK CAUFIELD ESSAY":["Patrick Caulfield Essay","Essay"], "PARTICIPANT INSTALL":["Participant Install","Installation"],
+      "THE JOURNEY WEST":["The Journey West","East of Borneo essay"], "PATTERN OF THOUGHT":["Pattern of Thought","Painting"],
+      "DREAMS OF THE ARROGANT PRINCE":["Dreams of the Arrogant Prince","Painting"], "STUDIO":["Studio","Studio view"],
+      "MICHAEL ASHER":["Michael Asher","East of Borneo essay"], "DISCARDED PROTECTION":["Discarded Protection","Artwork"],
+    };
+    document.querySelectorAll("h5.elementor-heading-title").forEach((title) => {
+      const key = title.textContent.replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/\s+/g, " ").trim().toUpperCase();
+      const card = cards[key];
+      if (!card) return;
+      const meta = title.closest(".elementor-column")?.querySelector("h6.elementor-heading-title");
+      const year = meta?.textContent.replace(/\s+/g, " ").trim() || "";
+      title.textContent = card[0];
+      title.classList.add("tl-about-card-title");
+      if (meta) {
+        meta.textContent = card[1] + (year && year !== "-" ? ` · ${year}` : "");
+        meta.classList.add("tl-about-card-meta");
+      }
+    });
+  }
+})();

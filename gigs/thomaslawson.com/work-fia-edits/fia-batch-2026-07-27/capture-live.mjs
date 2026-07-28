@@ -18,6 +18,8 @@ const pages = {
   beyond: "https://www.thomaslawson.com/beyond-the-studio/",
   writing: "https://www.thomaslawson.com/bookshelf/",
   broader: "https://www.thomaslawson.com/art-in-a-broader-context/",
+  artforum: "https://www.thomaslawson.com/bookshelf_artforum/",
+  experimental: "https://www.thomaslawson.com/art-in-context-hot-coffee/",
 };
 
 const viewports = {

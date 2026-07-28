@@ -2,7 +2,16 @@
 /**
  * Plugin Name: TL — Fía polish pass
  * Description: CSS+JS polish on top of the existing TL theme + Elementor build, per Fía's notes (2026-05-19 + her two replies later that night). Header chrome (no underline / no rule_ hrs / no Home), cream-everywhere, home laid out as a 5-up desktop strip (vertical stack on mobile) in Fía's section order with subtitles, divider widgets dropped on the homepage, Notes image-width capped, In-the-Studio + About years reversed newest-first (with !important on the flex parent so the reorder actually applies), Beyond-the-Studio collapsed to one column with centered subsection labels, 1980-82 caption normalisation, and a JS-injected horizontal cover preview strip per shelf on /bookshelf/.
- * Version: 1.7.0
+ * Version: 1.8.0
+ *
+ * v1.8.0 — Fía's 2026-07-27 follow-up:
+ *  - Clarify Studio period ranges with larger labels and a trailing rule.
+ *  - Align Bookshelf to the archive gutter; enlarge and link every preview
+ *    cover to its verified section and add one restrained More → action.
+ *  - Normalize publication and exhibition detail captions for legibility,
+ *    including a one-column publication layout on narrow screens.
+ *  - Match About's title to the archive system and identify trajectory cards
+ *    by concise item type while preserving titles, years, artwork, and order.
  *
  * v1.7.0 — Fía's 2026-07-27 archive-page notes:
  *  - Give About, News, Studio, Beyond, Bookshelf, and Broader Context one
@@ -209,9 +218,25 @@ add_filter('body_class', 'tl_fia_polish_body_class');
  */
 function tl_fia_polish_body_class($classes) {
     global $post;
-    if ($post && isset($post->post_name) &&
-        strpos($post->post_name, 'inthestudio_') === 0) {
-        $classes[] = 'tl-studio-detail';
+    if ($post && isset($post->post_name)) {
+        $slug = $post->post_name;
+        if (strpos($slug, 'inthestudio_') === 0) {
+            $classes[] = 'tl-studio-detail';
+        }
+        if (strpos($slug, 'bookshelf_') === 0 ||
+            strpos($slug, 'bookshelf-') === 0 ||
+            in_array($slug, ['elementor-1796', 'elementor-395'], true)) {
+            $classes[] = 'tl-bookshelf-detail';
+        }
+        if (strpos($slug, 'art-in-context-') === 0 ||
+            in_array($slug, [
+                'elementor-1878',
+                'critical-perspectives-art-in-context',
+                'reallife-magazine-presents-whitecolumns-art-in-context',
+                'pat-douthewaite-art-in-context'
+            ], true)) {
+            $classes[] = 'tl-exhibition-detail';
+        }
     }
     return $classes;
 }
@@ -1297,10 +1322,20 @@ body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa)
 body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa)
     .elementor-inner-column:has(.elementor-widget-heading) > .elementor-widget-wrap {
     display: flex !important;
-    align-items: baseline !important;
+    align-items: center !important;
     gap: 0.45rem !important;
-    border-top: 1px solid var(--tl-rule) !important;
-    padding: 0.85rem 0 0 !important;
+    border-top: 0 !important;
+    padding: 0 !important;
+}
+body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa)
+    .elementor-inner-column:has(.elementor-widget-heading) > .elementor-widget-wrap::after {
+    content: "";
+    display: block;
+    height: 1px;
+    min-width: 2rem;
+    flex: 1 1 auto;
+    margin-left: 0.75rem;
+    background: var(--tl-rule);
 }
 body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa)
     .elementor-inner-column:has(.elementor-widget-heading) .elementor-widget-divider {
@@ -1308,10 +1343,11 @@ body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa)
 }
 body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa)
     .elementor-inner-column:has(.elementor-widget-heading) .elementor-heading-title {
-    font-size: 1.45rem !important;
-    font-weight: 500 !important;
+    font-size: clamp(1.65rem, 2.4vw, 2.05rem) !important;
+    font-weight: 400 !important;
     line-height: 1.15 !important;
     margin: 0 !important;
+    letter-spacing: -0.025em !important;
 }
 body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa)
     .elementor-inner-column:has(.elementor-widget-heading) .elementor-widget-heading {
@@ -1347,6 +1383,14 @@ body.page-id-140 .elementor-top-section:not(.elementor-element-71fa6aa) .element
 }
 
 /* About */
+body.page-id-68 .tl-about-heading,
+body.page-id-68 .tl-about-heading .elementor-widget-container {
+    max-width: none !important;
+    margin-inline: 0 !important;
+}
+body.page-id-68 .tl-about-heading .elementor-heading-title {
+    color: #24211d !important;
+}
 body.page-id-68 .elementor-element-3d58b5f {
     margin-top: 0 !important;
     padding-top: 0 !important;
@@ -1406,6 +1450,31 @@ body.page-id-68 :is(
     font-style: normal !important;
     line-height: 1.55 !important;
 }
+body.page-id-68 .tl-about-card-title,
+body.page-id-68 .tl-about-card-meta {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    text-align: left !important;
+    text-transform: none !important;
+    text-decoration: none !important;
+    font-style: normal !important;
+    letter-spacing: 0 !important;
+}
+body.page-id-68 .tl-about-card-title {
+    margin-top: 0.7rem !important;
+    font-size: 0.92rem !important;
+    font-weight: 500 !important;
+    line-height: 1.3 !important;
+}
+body.page-id-68 .tl-about-card-meta {
+    margin-top: 0.18rem !important;
+    color: #625c53 !important;
+    font-size: 0.78rem !important;
+    font-weight: 400 !important;
+    line-height: 1.35 !important;
+}
 
 /* Beyond the Studio and Art in a Broader Context */
 body:is(.page-id-1147, .page-id-1177)
@@ -1435,12 +1504,33 @@ body:is(.page-id-1147, .page-id-1177)
 }
 
 /* Bookshelf */
+body.page-id-808 .elementor-element-825b6e9 > .elementor-container > .elementor-column > .elementor-widget-wrap {
+    max-width: none !important;
+}
+body.page-id-808 .elementor-element-825b6e9 :is(.elementor-widget-heading, .elementor-widget-text-editor) {
+    max-width: var(--tl-reading-width) !important;
+    margin-left: 0 !important;
+    margin-right: auto !important;
+}
 body.page-id-808 .elementor-top-section:not(.elementor-element-825b6e9) {
     width: min(100%, var(--tl-content-width)) !important;
     max-width: var(--tl-content-width) !important;
     margin-inline: auto !important;
     padding-inline: var(--tl-gutter) !important;
     box-sizing: border-box !important;
+}
+body.page-id-808 .elementor-top-section:not(.elementor-element-825b6e9) > .elementor-container,
+body.page-id-808 .elementor-top-section:not(.elementor-element-825b6e9) > .elementor-container > .elementor-column,
+body.page-id-808 .elementor-top-section:not(.elementor-element-825b6e9) > .elementor-container > .elementor-column > .elementor-widget-wrap {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding-inline: 0 !important;
+}
+body.page-id-808 .elementor-top-section:not(.elementor-element-825b6e9)
+    .elementor-widget-heading .elementor-widget-container {
+    margin: 0 !important;
+    padding: 0 !important;
 }
 body.page-id-808 .elementor-top-section:not(.elementor-element-825b6e9) .elementor-widget-heading,
 body.page-id-808 .elementor-top-section:not(.elementor-element-825b6e9) .elementor-heading-title {
@@ -1449,20 +1539,142 @@ body.page-id-808 .elementor-top-section:not(.elementor-element-825b6e9) .element
     text-align: left !important;
 }
 body.page-id-808 .elementor-top-section:not(.elementor-element-825b6e9) .elementor-heading-title {
-    border-top: 1px solid var(--tl-rule) !important;
-    padding-top: 0.75rem !important;
+    display: flex !important;
+    align-items: baseline !important;
+    justify-content: space-between !important;
+    gap: 1rem !important;
+    border-top: 0 !important;
+    padding-top: 0 !important;
     font-size: 1.45rem !important;
     font-weight: 500 !important;
     line-height: 1.2 !important;
 }
-body.page-id-808 .tl-shelf-strip {
-    gap: 0.8rem !important;
-    margin: 0.85rem 0 clamp(2.75rem, 5vw, 4.5rem) !important;
-    padding: 0 0 0.75rem !important;
+body.page-id-808 .tl-shelf-more,
+body.page-id-808 .tl-shelf-more:visited,
+body.page-id-808 .tl-shelf-more:hover {
+    display: inline-flex !important;
+    align-items: center;
+    min-height: 44px;
+    flex: 0 0 auto;
+    color: inherit !important;
+    border: 0 !important;
+    text-decoration: none !important;
+    font-size: 0.82rem !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.01em !important;
 }
-body.page-id-808 .tl-shelf-strip img:first-child,
-body.page-id-808 .tl-shelf-strip img:last-child {
+body.page-id-808 .tl-shelf-strip {
+    gap: 1rem !important;
+    margin: 0.85rem 0 clamp(3rem, 6vw, 5rem) !important;
+    padding: 0 0 1rem !important;
+    border-bottom: 1px solid var(--tl-rule);
+}
+body.page-id-808 .tl-shelf-cover {
+    display: block;
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+}
+body.page-id-808 .tl-shelf-strip img {
+    display: block !important;
+    width: auto !important;
+    height: 210px !important;
+}
+body.page-id-808 .tl-shelf-cover:first-child,
+body.page-id-808 .tl-shelf-cover:last-child {
     margin-inline: 0 !important;
+}
+
+/* Writing and exhibition details: large source images remain untouched;
+   this pass only normalises the page claim and image-caption relationship. */
+body:is(.tl-bookshelf-detail, .tl-exhibition-detail) {
+    --tl-content-width: 1120px;
+    --tl-gutter: clamp(1.25rem, 4vw, 3rem);
+    background: #fff9ef !important;
+}
+body:is(.tl-bookshelf-detail, .tl-exhibition-detail)
+    [data-elementor-type="wp-page"] > .elementor-top-section > .elementor-container {
+    width: min(100%, var(--tl-content-width)) !important;
+    max-width: var(--tl-content-width) !important;
+    margin-inline: auto !important;
+    padding-inline: var(--tl-gutter) !important;
+    box-sizing: border-box !important;
+}
+body:is(.tl-bookshelf-detail, .tl-exhibition-detail) .elementor-heading-title {
+    font-family: "Poppins", sans-serif !important;
+    color: #24211d !important;
+    text-align: left !important;
+    text-transform: none !important;
+    text-decoration: none !important;
+    font-style: normal !important;
+    letter-spacing: 0 !important;
+}
+body:is(.tl-bookshelf-detail, .tl-exhibition-detail)
+    .elementor-widget-heading .elementor-widget-container {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+body.tl-bookshelf-detail
+    .elementor-top-section:first-child .elementor-heading-title {
+    font-size: clamp(2.25rem, 5vw, 4rem) !important;
+    font-weight: 500 !important;
+    line-height: 1.05 !important;
+    letter-spacing: -0.035em !important;
+}
+body.tl-bookshelf-detail
+    .elementor-top-section:first-child .elementor-widget-heading + .elementor-widget-heading .elementor-heading-title {
+    margin-top: 0.5rem !important;
+    font-size: clamp(1.25rem, 2vw, 1.6rem) !important;
+    font-weight: 500 !important;
+    line-height: 1.2 !important;
+    letter-spacing: -0.01em !important;
+}
+body.tl-bookshelf-detail
+    .elementor-top-section:not(:first-child) .elementor-column > .elementor-widget-wrap {
+    width: min(100%, 420px) !important;
+    max-width: 420px !important;
+    margin-inline: auto !important;
+    align-content: start !important;
+}
+body.tl-bookshelf-detail .elementor-inner-column > .elementor-widget-wrap {
+    width: min(100%, 420px) !important;
+    max-width: 420px !important;
+    margin-inline: auto !important;
+}
+body.tl-bookshelf-detail
+    .elementor-top-section:not(:first-child) .elementor-widget-heading .elementor-heading-title {
+    width: 100% !important;
+    margin: 0.7rem 0 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    font-size: 0.95rem !important;
+    font-weight: 500 !important;
+    line-height: 1.35 !important;
+}
+body.tl-bookshelf-detail
+    .elementor-top-section:not(:first-child) .elementor-widget-heading + .elementor-widget-heading .elementor-heading-title {
+    margin-top: 0.15rem !important;
+    color: #625c53 !important;
+    font-size: 0.8rem !important;
+    font-weight: 400 !important;
+}
+body.tl-bookshelf-detail .elementor-widget-image,
+body.tl-bookshelf-detail .elementor-widget-image .elementor-widget-container {
+    width: 100% !important;
+}
+body.tl-bookshelf-detail .elementor-widget-image img {
+    display: block !important;
+    width: min(100%, 260px) !important;
+    max-width: 100% !important;
+    height: auto !important;
+    margin-inline: auto !important;
+    object-fit: contain !important;
+}
+body.tl-exhibition-detail .elementor-widget-heading,
+body.tl-exhibition-detail .elementor-widget-heading .elementor-widget-container,
+body.tl-exhibition-detail .elementor-widget-heading .elementor-heading-title {
+    width: 100% !important;
+    margin-left: 0 !important;
+    text-align: left !important;
 }
 
 @media (max-width: 720px) {
@@ -1488,7 +1700,25 @@ body.page-id-808 .tl-shelf-strip img:last-child {
         font-size: 1.25rem !important;
     }
     body.page-id-808 .tl-shelf-strip img {
-        height: 145px !important;
+        height: 180px !important;
+    }
+    body.tl-bookshelf-detail .elementor-inner-column,
+    body.tl-bookshelf-detail .elementor-top-section:not(:first-child) .elementor-column {
+        width: 100% !important;
+        max-width: 100% !important;
+        flex-basis: 100% !important;
+    }
+    body.tl-bookshelf-detail
+        .elementor-top-section:not(:first-child) .elementor-column > .elementor-widget-wrap {
+        width: min(100%, 340px) !important;
+        max-width: 340px !important;
+        margin-bottom: 2.5rem !important;
+    }
+    body.tl-bookshelf-detail .elementor-inner-column > .elementor-widget-wrap {
+        width: min(100%, 340px) !important;
+        max-width: 340px !important;
+        margin-inline: auto !important;
+        margin-bottom: 2.5rem !important;
     }
 }
 </style>
@@ -1502,6 +1732,12 @@ function tl_fia_polish_js() {
     $is_studio_detail = ($post && isset($post->post_name)
         && strpos($post->post_name, 'inthestudio_') === 0);
     if ($is_studio_detail) { tl_fia_polish_js_studio_lightbox(); return; }
+    $is_bookshelf_detail = ($post && isset($post->post_name) && (
+        strpos($post->post_name, 'bookshelf_') === 0 ||
+        strpos($post->post_name, 'bookshelf-') === 0 ||
+        in_array($post->post_name, ['elementor-1796', 'elementor-395'], true)
+    ));
+    if ($is_bookshelf_detail) { tl_fia_polish_js_bookshelf_detail(); return; }
 
     if (is_page(10))   { tl_fia_polish_js_home();    return; }
     if (is_page(1898)) { tl_fia_polish_js_news();    return; }
@@ -1637,18 +1873,43 @@ function tl_fia_polish_js() {
         var section = document.querySelector('.elementor-element-' + sid);
         if (!section) return;
         if (section.querySelector('.tl-shelf-strip')) return; // already injected
+        var head = section.querySelector('.elementor-widget-heading');
+        var headingTitle = head && head.querySelector('.elementor-heading-title');
+        var headingLink = headingTitle && headingTitle.querySelector('a[href]');
+        var shelfHref = headingLink ? headingLink.href : null;
+        var shelfName = headingTitle
+            ? headingTitle.textContent.replace(/\s+/g, ' ').trim()
+            : 'publication section';
+
+        if (shelfHref && headingTitle && !headingTitle.querySelector('.tl-shelf-more')) {
+            var more = document.createElement('a');
+            more.className = 'tl-shelf-more';
+            more.href = shelfHref;
+            more.textContent = 'More →';
+            more.setAttribute('aria-label', 'More from ' + shelfName);
+            headingTitle.appendChild(more);
+        }
+
         var strip = document.createElement('div');
         strip.className = 'tl-shelf-strip';
-        shelves[sid].forEach(function (url) {
+        shelves[sid].forEach(function (url, index) {
             var img = document.createElement('img');
             img.src = url;
             img.loading = 'lazy';
-            img.alt = '';
-            strip.appendChild(img);
+            img.alt = shelfName + ' preview ' + (index + 1);
+            if (shelfHref) {
+                var cover = document.createElement('a');
+                cover.className = 'tl-shelf-cover';
+                cover.href = shelfHref;
+                cover.setAttribute('aria-label', 'Open ' + shelfName);
+                cover.appendChild(img);
+                strip.appendChild(cover);
+            } else {
+                strip.appendChild(img);
+            }
         });
         // Place the strip directly after the shelf's subheading so it
         // stacks beneath it, never beside it (Fía, 2026-05-22).
-        var head = section.querySelector('.elementor-widget-heading');
         if (head && head.parentNode) {
             head.parentNode.insertBefore(strip, head.nextSibling);
         } else {
@@ -1659,6 +1920,22 @@ function tl_fia_polish_js() {
 })();
 </script>
 <?php
+}
+
+/** Normalise the one authored all-caps page label without rewriting captions. */
+function tl_fia_polish_js_bookshelf_detail() {
+    ?>
+<script id="tl-fia-bookshelf-detail">
+(function () {
+    if (!document.body.classList.contains('tl-bookshelf-detail')) return;
+    document.querySelectorAll('h1, h2').forEach(function (heading) {
+        if (heading.textContent.replace(/\s+/g, ' ').trim() === 'PUBLICATIONS') {
+            heading.textContent = 'Publications';
+        }
+    });
+})();
+</script>
+    <?php
 }
 
 /**
@@ -2074,13 +2351,53 @@ function tl_fia_polish_js_about() {
     wrap.appendChild(inner);
     var widgetWrap = textCol.querySelector('.elementor-widget-wrap') || textCol;
     widgetWrap.insertBefore(wrap, widgetWrap.firstChild);
+
+    // The trajectory is a mixed practice, not a single all-caps medium.
+    // Keep the authored titles and years, but give each card one readable
+    // title and one factual type/year line (Fía, 2026-07-27).
+    var cards = {
+        'GOLD DOG': ['Gold Dog', 'Artwork'],
+        'REALLIFE COVER': ['REALLIFE Cover', 'Magazine cover'],
+        'FORMANESQUE DRAWING WALL': ['Formanesque Drawing Wall', 'Installation'],
+        'RED SHOE': ['Red Shoe', 'Painting'],
+        'LAST EXIT': ['Last Exit', 'Artforum essay'],
+        'SHOT FOR A BIKE': ['Shot for a Bike', 'Painting'],
+        'THE BRITISH ART SHOW': ['The British Art Show', 'Exhibition'],
+        'BROAD STUDIOS': ['Broad Studios', 'Art-school project'],
+        'LOS ANGELES PAINTING': ['Los Angeles Painting', 'Painting'],
+        'SUBURBAN INSTALL': ['Suburban Install', 'Installation'],
+        'PATRICK CAUFIELD ESSAY': ['Patrick Caulfield Essay', 'Essay'],
+        'PARTICIPANT INSTALL': ['Participant Install', 'Installation'],
+        'THE JOURNEY WEST': ['The Journey West', 'East of Borneo essay'],
+        'PATTERN OF THOUGHT': ['Pattern of Thought', 'Painting'],
+        'DREAMS OF THE ARROGANT PRINCE': ['Dreams of the Arrogant Prince', 'Painting'],
+        'STUDIO': ['Studio', 'Studio view'],
+        'MICHAEL ASHER': ['Michael Asher', 'East of Borneo essay'],
+        'DISCARDED PROTECTION': ['Discarded Protection', 'Artwork']
+    };
+    document.querySelectorAll('body.page-id-68 h5.elementor-heading-title').forEach(function (title) {
+        var key = title.textContent.replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, ' ').trim().toUpperCase();
+        var card = cards[key];
+        if (!card) return;
+        var column = title.closest('.elementor-column');
+        var meta = column && column.querySelector('h6.elementor-heading-title');
+        var year = meta ? meta.textContent.replace(/\s+/g, ' ').trim() : '';
+        title.textContent = card[0];
+        title.classList.add('tl-about-card-title');
+        if (meta) {
+            meta.textContent = card[1] + (year && year !== '-' ? ' · ' + year : '');
+            meta.classList.add('tl-about-card-meta');
+        }
+    });
 })();
 </script>
 <style id="tl-fia-about-style">
 body.page-id-68 .tl-about-heading {
-    width: 100% !important;
-    max-width: 820px !important;
-    margin: 0 auto !important;
+    width: calc(100% + var(--tl-gutter)) !important;
+    max-width: none !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    transform: translateX(calc(0px - var(--tl-gutter)));
 }
 body.page-id-68 .tl-about-heading .elementor-heading-title {
     font-family: "Poppins", sans-serif !important;
@@ -2090,6 +2407,7 @@ body.page-id-68 .tl-about-heading .elementor-heading-title {
     margin: 0.4rem 0 1rem !important;
     text-align: left !important;
     letter-spacing: -0.035em !important;
+    color: #24211d !important;
 }
 body.page-id-68 .elementor-element-3d58b5f .elementor-widget-text-editor {
     max-width: 820px !important;

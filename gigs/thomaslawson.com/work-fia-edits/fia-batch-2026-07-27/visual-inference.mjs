@@ -6,9 +6,10 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const evidenceDir = join(here, "evidence", "current");
-const outputPath = join(here, "inference.json");
-const files = [
+const evidenceName = process.env.TL_INFERENCE_EVIDENCE || "current";
+const evidenceDir = join(here, "evidence", evidenceName);
+const outputPath = join(here, process.env.TL_INFERENCE_OUTPUT || "inference.json");
+const defaultFiles = [
   "desktop-about.jpg", "mobile-about.jpg",
   "desktop-news.jpg", "mobile-news.jpg",
   "desktop-studio.jpg", "mobile-studio.jpg",
@@ -16,6 +17,9 @@ const files = [
   "desktop-writing.jpg", "mobile-writing.jpg",
   "desktop-broader.jpg", "mobile-broader.jpg",
 ];
+const files = process.env.TL_INFERENCE_FILES
+  ? process.env.TL_INFERENCE_FILES.split(",").map((file) => file.trim()).filter(Boolean)
+  : defaultFiles;
 
 const envFiles = [
   process.env.TL_OPENAI_ENV,
@@ -36,14 +40,16 @@ function secret(name) {
 const apiKey = secret("OPENAI_API_KEY");
 if (!apiKey) throw new Error("OPENAI_API_KEY is unavailable");
 
-const feedback = [
-  "About: remove the beige/photo band peeking above the hero.",
-  "Across News, In the Studio, and sibling sections: standardize margins, prioritize legibility, remove random italics and inconsistent spacing.",
-  "In the Studio overview: keep reverse chronology but replace the current period-list design and make period headers more elegant.",
-  "Beyond the Studio: project labels must identify title, venue, and year using facts already present on their detail pages.",
-  "Writing/Bookshelf: make the publication taxonomy and section headings aligned and easy to scan so the writing leads.",
-  "Remove CSS-driven all caps, especially where it changes the authored capitalization of factual titles.",
-];
+const feedback = process.env.TL_INFERENCE_FEEDBACK
+  ? JSON.parse(process.env.TL_INFERENCE_FEEDBACK)
+  : [
+      "About: remove the beige/photo band peeking above the hero.",
+      "Across News, In the Studio, and sibling sections: standardize margins, prioritize legibility, remove random italics and inconsistent spacing.",
+      "In the Studio overview: keep reverse chronology but replace the current period-list design and make period headers more elegant.",
+      "Beyond the Studio: project labels must identify title, venue, and year using facts already present on their detail pages.",
+      "Writing/Bookshelf: make the publication taxonomy and section headings aligned and easy to scan so the writing leads.",
+      "Remove CSS-driven all caps, especially where it changes the authored capitalization of factual titles.",
+    ];
 
 const prompt = `You are reviewing current desktop and mobile evidence for Thomas Lawson's artist and writer website. Produce a single restrained revision plan for implementation as a WordPress mu-plugin CSS/JS override.
 

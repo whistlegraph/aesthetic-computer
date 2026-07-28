@@ -1,0 +1,428 @@
+{
+  "schema": "thomas-lawson-live-evidence/v1",
+  "capturedAt": "2026-07-28T06:07:17.224Z",
+  "pages": [
+    {
+      "slug": "experimental",
+      "url": "https://www.thomaslawson.com/art-in-context-hot-coffee/",
+      "viewportName": "desktop",
+      "file": "desktop-experimental.jpg",
+      "title": "Art in Context – The Experimental Impulse – Thomas Lawson",
+      "bodyClasses": "wp-singular page-template-default page page-id-1343 wp-custom-logo wp-embed-responsive wp-theme-astra ast-page-builder-template ast-no-sidebar astra-4.12.4 ast-single-post ast-inherit-site-logo-transparent ast-hfb-header elementor-default elementor-kit-8 elementor-page elementor-page-1343 e--ua-blink e--ua-chrome e--ua-mac e--ua-webkit ast-desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 6861
+      },
+      "page": {
+        "width": 1440,
+        "height": 6861
+      },
+      "horizontalOverflow": false,
+      "headings": [
+        {
+          "level": 5,
+          "text": "Installation view"
+        },
+        {
+          "level": 2,
+          "text": "The Experimental Impulse"
+        },
+        {
+          "level": 2,
+          "text": "2011"
+        },
+        {
+          "level": 2,
+          "text": "Essay and Reviews"
+        },
+        {
+          "level": 5,
+          "text": "Artslant"
+        },
+        {
+          "level": 5,
+          "text": "Daily Serving"
+        },
+        {
+          "level": 5,
+          "text": "LA Times"
+        },
+        {
+          "level": 5,
+          "text": "CMagazine"
+        },
+        {
+          "level": 5,
+          "text": "May"
+        }
+      ],
+      "links": [
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/wp-content/uploads/2026/05/ExpImpBrochure5-1-1.pdf"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/wp-content/uploads/2023/10/Artslant-12_19_12.pdf"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/wp-content/uploads/2023/10/Daily-Serving-12_16_12.pdf"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/wp-content/uploads/2023/10/LA-Times-12_23_11.pdf"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/wp-content/uploads/2023/10/TheExperimentalImpulse_CMagazine_Spring2012.pdf"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/wp-content/uploads/2023/10/TheExperimentalImpulse_May_February2012.pdf"
+        }
+      ],
+      "images": [
+        {
+          "alt": "Logo",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+          "complete": true,
+          "naturalWidth": 301,
+          "naturalHeight": 99,
+          "loading": "eager"
+        },
+        {
+          "alt": "Logo",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+          "complete": true,
+          "naturalWidth": 301,
+          "naturalHeight": 99,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/10/CIA_20111119_6045-1536x1024.jpg",
+          "complete": true,
+          "naturalWidth": 1439,
+          "naturalHeight": 959,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/10/CIA_20111119_6640-683x1024.jpg",
+          "complete": true,
+          "naturalWidth": 683,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/10/CIA_20111119_6414-1536x1024.jpg",
+          "complete": true,
+          "naturalWidth": 1439,
+          "naturalHeight": 959,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/10/CIA_20111119_6006-1024x683.jpg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 683,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/10/CIA_20111119_6002-1536x1024.jpg",
+          "complete": true,
+          "naturalWidth": 1439,
+          "naturalHeight": 959,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/10/CIA_20111119_6263-1024x683.jpg",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 683,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/10/CIA_20111119_6244-1536x1024.jpg",
+          "complete": true,
+          "naturalWidth": 1439,
+          "naturalHeight": 959,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2026/05/Experimental.-Impulse-693x1024.jpg",
+          "complete": true,
+          "naturalWidth": 693,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/10/Artslant-12_19_12_Page_1-791x1024.jpg",
+          "complete": true,
+          "naturalWidth": 791,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/10/Daily-Serving-12_16_12_Page_1-1583x2048.jpg",
+          "complete": true,
+          "naturalWidth": 1440,
+          "naturalHeight": 1862,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/10/LA-Times-12_23_11_Page_1-791x1024.jpg",
+          "complete": true,
+          "naturalWidth": 791,
+          "naturalHeight": 1024,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/10/TheExperimentalImpulse_CMagazine_Spring2012_Page_1.jpg",
+          "complete": true,
+          "naturalWidth": 1440,
+          "naturalHeight": 2063,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/10/TheExperimentalImpulse_May_February2012_Page_1.jpg",
+          "complete": true,
+          "naturalWidth": 1358,
+          "naturalHeight": 1884,
+          "loading": "eager"
+        },
+        {
+          "alt": "Logo Footer",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSONFOOTER-1024x457.png",
+          "complete": true,
+          "naturalWidth": 1024,
+          "naturalHeight": 457,
+          "loading": "eager"
+        }
+      ]
+    },
+    {
+      "slug": "experimental",
+      "url": "https://www.thomaslawson.com/art-in-context-hot-coffee/",
+      "viewportName": "mobile",
+      "file": "mobile-experimental.jpg",
+      "title": "Art in Context – The Experimental Impulse – Thomas Lawson",
+      "bodyClasses": "wp-singular page-template-default page page-id-1343 wp-custom-logo wp-embed-responsive wp-theme-astra ast-page-builder-template ast-no-sidebar astra-4.12.4 ast-single-post ast-inherit-site-logo-transparent ast-hfb-header elementor-default elementor-kit-8 elementor-page elementor-page-1343 ast-header-break-point e--ua-blink e--ua-chrome e--ua-mac e--ua-webkit",
+      "viewport": {
+        "width": 390,
+        "height": 6463
+      },
+      "page": {
+        "width": 390,
+        "height": 6463
+      },
+      "horizontalOverflow": false,
+      "headings": [
+        {
+          "level": 5,
+          "text": "Installation view"
+        },
+        {
+          "level": 2,
+          "text": "The Experimental Impulse"
+        },
+        {
+          "level": 2,
+          "text": "2011"
+        },
+        {
+          "level": 2,
+          "text": "Essay and Reviews"
+        },
+        {
+          "level": 5,
+          "text": "Artslant"
+        },
+        {
+          "level": 5,
+          "text": "Daily Serving"
+        },
+        {
+          "level": 5,
+          "text": "LA Times"
+        },
+        {
+          "level": 5,
+          "text": "CMagazine"
+        },
+        {
+          "level": 5,
+          "text": "May"
+        }
+      ],
+      "links": [
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/wp-content/uploads/2026/05/ExpImpBrochure5-1-1.pdf"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/wp-content/uploads/2023/10/Artslant-12_19_12.pdf"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/wp-content/uploads/2023/10/Daily-Serving-12_16_12.pdf"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/wp-content/uploads/2023/10/LA-Times-12_23_11.pdf"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/wp-content/uploads/2023/10/TheExperimentalImpulse_CMagazine_Spring2012.pdf"
+        },
+        {
+          "text": "",
+          "href": "https://www.thomaslawson.com/wp-content/uploads/2023/10/TheExperimentalImpulse_May_February2012.pdf"
+        }
+      ],
+      "images": [
+        {
+          "alt": "Logo",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+          "complete": true,
+          "naturalWidth": 301,
+          "naturalHeight": 99,
+          "loading": "eager"
+        },
+        {
+          "alt": "Logo",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png",
+          "complete": true,
+          "naturalWidth": 301,
+          "naturalHeight": 99,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/10/CIA_20111119_6045-768x512.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 260,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/10/CIA_20111119_6640-683x1024.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 584,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/10/CIA_20111119_6414-768x512.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 260,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/10/CIA_20111119_6006-768x512.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 260,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/10/CIA_20111119_6002-768x512.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 260,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/10/CIA_20111119_6263-768x512.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 260,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/10/CIA_20111119_6244-768x512.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 260,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2026/05/Experimental.-Impulse-693x1024.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 576,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/10/Artslant-12_19_12_Page_1-768x994.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 504,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/10/Daily-Serving-12_16_12_Page_1-768x994.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 504,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/10/LA-Times-12_23_11_Page_1-768x994.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 504,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/10/TheExperimentalImpulse_CMagazine_Spring2012_Page_1-714x1024.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 559,
+          "loading": "eager"
+        },
+        {
+          "alt": "",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2023/10/TheExperimentalImpulse_May_February2012_Page_1-738x1024.jpg",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 541,
+          "loading": "eager"
+        },
+        {
+          "alt": "Logo Footer",
+          "src": "https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSONFOOTER-768x342.png",
+          "complete": true,
+          "naturalWidth": 390,
+          "naturalHeight": 173,
+          "loading": "eager"
+        }
+      ]
+    }
+  ]
+}

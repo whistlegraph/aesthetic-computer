@@ -1,0 +1,258 @@
+{
+  "schema": "thomas-lawson-fia-inference/v1",
+  "createdAt": "2026-07-28T06:08:49.961Z",
+  "request": {
+    "model": "gpt-5.6-terra",
+    "reasoningEffort": "medium",
+    "maxOutputTokens": 5000,
+    "screenshots": [
+      "desktop-studio.jpg",
+      "mobile-studio.jpg",
+      "desktop-writing.jpg",
+      "mobile-writing.jpg",
+      "desktop-about.jpg",
+      "mobile-about.jpg",
+      "desktop-artforum.jpg",
+      "mobile-artforum.jpg",
+      "desktop-experimental.jpg",
+      "mobile-experimental.jpg"
+    ]
+  },
+  "response": {
+    "id": "resp_05665c3492ce527e016a684747a7088199b9c6bbda05ac1e1b",
+    "model": "gpt-5.6-terra",
+    "usage": {
+      "input_tokens": 8599,
+      "input_tokens_details": {
+        "cache_write_tokens": 8596,
+        "cached_tokens": 0
+      },
+      "output_tokens": 3939,
+      "output_tokens_details": {
+        "reasoning_tokens": 387
+      },
+      "total_tokens": 12538
+    }
+  },
+  "feedback": [
+    "In the Studio: make the time-period titles clearer and improve their flow within the design.",
+    "Bookshelf: conform its spacing and alignment to the other archive pages.",
+    "Bookshelf: make every preview cover larger and clickable to its publication section, with a restrained More arrow for each section.",
+    "Remove the remaining outlier all-caps title treatment.",
+    "Publication detail captions: replace the combined all-caps, bold, underline and italics with one elegant, legible hierarchy.",
+    "Exhibition detail pages: left-align captions and make image/caption relationships coherent on desktop and mobile.",
+    "About: make the title color, spacing and format match the main archive titles.",
+    "About trajectory cards: preserve titles and years while adding concise, verifiable item types; Michael Asher is an East of Borneo essay."
+  ],
+  "inference": {
+    "claim": "Unify Studio, Bookshelf, About, publication details, and exhibition details around one restrained archive system: a shared readable content measure, consistent gutters, sans-serif title hierarchy, sentence/title case, and image-led layouts that preserve all authored content and source order.",
+    "system": {
+      "contentWidth": "min(960px, calc(100% - 2 * var(--tl-gutter))) for archive and detail content; retain existing full-bleed hero images and the logo mark.",
+      "gutters": "Desktop: clamp(24px, 5vw, 64px); mobile: 20px. Apply the same gutter token to headers, archive content, detail content, and footer.",
+      "type": "Use the existing site sans-serif for all interface, archive, section, and caption hierarchy. Reserve the existing logo treatment for the logo only. Establish headings at 28–40px desktop and 25–32px mobile; body at 15–17px desktop and 15–16px mobile with 1.45–1.55 line-height; metadata at 12–14px.",
+      "spacing": "Use a small token scale of 8px, 16px, 24px, 40px, and 64px. Section headings sit directly above their content; archive sections use a consistent top rule and 40px desktop/32px mobile separation.",
+      "case": "Sentence case or authored title case only. Remove presentational text-transform: uppercase from remaining outlier page titles and captions; do not alter authored title strings."
+    },
+    "diagnosis": [
+      {
+        "page": "In the Studio archive",
+        "visibleProblems": [
+          "The period labels are visually slight and read as isolated annotations rather than clear archive sections.",
+          "Period rules, labels, and artwork groups do not consistently establish the start and end of each time period, especially at mobile scale.",
+          "The mobile image arrangement becomes narrow and uneven, weakening the period hierarchy."
+        ],
+        "preserve": [
+          "All period labels and their source order.",
+          "Every artwork image, existing crop boundary, artwork order, and link destination.",
+          "The existing hero image and introductory text."
+        ]
+      },
+      {
+        "page": "Bookshelf archive",
+        "visibleProblems": [
+          "The archive content measure, section spacing, and left alignment differ from the other archive pages.",
+          "Preview covers are too small to operate as useful visual entry points.",
+          "Section rows truncate or overflow on mobile without a clear indication of additional publications.",
+          "Publication sections lack a consistent restrained action linking to their full section."
+        ],
+        "preserve": [
+          "Every section name, cover image, cover order, image crop boundary, and existing publication destination.",
+          "The Bookshelf hero image and introductory text.",
+          "The authored archive sequence."
+        ]
+      },
+      {
+        "page": "Publication detail pages, including Artforum",
+        "visibleProblems": [
+          "The remaining all-caps title treatment makes the page title stylistically inconsistent with archive titles.",
+          "Captions combine all caps, bold, underline, and italics, creating competing emphasis and reduced legibility.",
+          "The two-column publication presentation becomes excessively narrow on mobile."
+        ],
+        "preserve": [
+          "Every publication title, caption string, issue image, image crop boundary, link, and source order.",
+          "Existing publication grouping and publication-page pagination or sequence."
+        ]
+      },
+      {
+        "page": "Exhibition detail pages, including The Experimental Impulse",
+        "visibleProblems": [
+          "Image captions are not consistently aligned with their images.",
+          "Desktop image grids can make the image-to-caption relationship ambiguous.",
+          "On mobile, captions and image spacing need a consistent figure rhythm so each caption is visibly attached to the preceding image."
+        ],
+        "preserve": [
+          "All exhibition titles, introductory text, captions, images, image crop boundaries, essay and review items, links, and source order.",
+          "The current exhibition image sequence."
+        ]
+      },
+      {
+        "page": "About",
+        "visibleProblems": [
+          "The About title uses a distinct blue color and spacing treatment rather than the main archive-title system.",
+          "Trajectory cards do not consistently identify what each item is beyond its title and year.",
+          "The mobile card presentation makes titles, years, captions, and supporting text difficult to scan as a coherent timeline."
+        ],
+        "preserve": [
+          "All biography text, trajectory titles, years, images, image crop boundaries, captions, links, and source order.",
+          "Existing trajectory chronology.",
+          "The existing About hero image."
+        ]
+      }
+    ],
+    "implementation": [
+      {
+        "page": "Global archive and detail templates",
+        "css": [
+          "Define --tl-content-width: 960px; --tl-gutter: clamp(20px, 5vw, 64px); and apply width: min(var(--tl-content-width), calc(100% - (var(--tl-gutter) * 2))); margin-inline: auto to shared archive/detail content wrappers.",
+          "Apply box-sizing: border-box globally within the override scope and prevent accidental horizontal overflow with max-width: 100% on content images.",
+          "Normalize content headings, section headings, labels, links, and captions to the existing sans-serif stack; do not override the logo mark font treatment.",
+          "Remove only presentational uppercase with text-transform: none on scoped page-title and caption selectors. Do not change authored text nodes.",
+          "Set visible hierarchy at 10% scale with high-contrast text, page titles at clamp(28px, 3.2vw, 40px), section titles at clamp(18px, 2vw, 24px), and metadata at 12–14px.",
+          "Use a single section pattern: border-top: 1px solid currentColor at reduced opacity; padding-top: 16px; margin-top: 40px desktop and 32px mobile."
+        ],
+        "dom": [
+          "Add stable body/template classes only where absent, for example .tl-template-studio, .tl-template-bookshelf, .tl-template-publication, .tl-template-exhibition, and .tl-template-about.",
+          "Add non-content structural classes to existing wrappers, headings, section lists, figures, captions, and footer blocks; do not move source nodes."
+        ],
+        "contentNeeded": []
+      },
+      {
+        "page": "In the Studio archive",
+        "css": [
+          "Style each existing period group as a semantic visual section: border-top rule, 16px top padding, and 40px desktop/32px mobile separation.",
+          "Style the existing year-range label as a section heading with font-weight: 600, letter-spacing: 0, line-height: 1.2, and no uppercase transformation.",
+          "Use a responsive artwork grid that retains source order: three columns on desktop, two columns on mobile, with a consistent gap of 16px desktop and 12px mobile.",
+          "Allow each image to retain intrinsic aspect ratio with width: 100%; height: auto; object-fit: contain. Do not impose aspect-ratio cropping.",
+          "Keep the introductory text at the shared content measure and separate it from the first period by 32px."
+        ],
+        "dom": [
+          "Wrap each existing period label and its following artwork items in a .tl-studio-period container without changing item order.",
+          "Add .tl-period-title to the existing period label and .tl-studio-grid to the existing artwork-item wrapper."
+        ],
+        "contentNeeded": []
+      },
+      {
+        "page": "Bookshelf archive",
+        "css": [
+          "Move the Bookshelf title, introduction, archive sections, and footer onto the shared content width and gutter system used by the other archives.",
+          "Apply the shared ruled-section pattern to every publication section, with section titles aligned to the archive content edge.",
+          "Increase preview covers to a consistent responsive display size: desktop grid columns minmax(112px, 1fr) and mobile columns minmax(96px, 1fr), while preserving intrinsic cover proportions.",
+          "Use a horizontally scrollable cover row only when a section cannot fit its source-order covers; apply scroll-snap and retain a visible trailing More control rather than clipping content.",
+          "Make each cover anchor display block with a restrained focus outline and no decorative hover treatment beyond a subtle opacity or underline-free outline state.",
+          "Style each section's More link as a compact text action with a right arrow, for example More →, aligned with the section title or section end; do not use a large button."
+        ],
+        "dom": [
+          "Wrap each existing cover image in its existing publication link where one already exists.",
+          "Where a cover is not linked, use JavaScript to wrap it in an anchor only after a verified destination URL has been supplied from the source-page extraction.",
+          "Append one .tl-bookshelf-more link per existing section, using the verified section destination; do not infer URLs from title slugs.",
+          "Add accessible labels to cover links using the already authored publication title where available; otherwise require extracted accessible-label data."
+        ],
+        "contentNeeded": [
+          "Source-page extraction is required for every currently unlinked cover's exact publication destination and accessible label.",
+          "Source-page extraction is required for the exact destination of each section-level More link.",
+          "Confirm whether each Bookshelf section has a dedicated publication listing page, anchor target, or filtered archive route before adding More links."
+        ]
+      },
+      {
+        "page": "Publication detail pages, including Artforum",
+        "css": [
+          "Restyle the page title to match archive titles: sans-serif, title case as authored, normal or medium weight, no text-transform, no decorative underline, and shared title spacing.",
+          "Replace combined caption emphasis with one hierarchy: publication/item title at 14–16px medium weight; issue/date and contributor metadata at 12–14px normal weight; optional source or link at 12–14px with a standard text underline only on the actual link.",
+          "Remove font-style: italic, font-weight: bold, text-decoration: underline, and text-transform: uppercase from the general caption wrapper; reapply only semantic link underlines.",
+          "Use a two-column grid on desktop with a stable column gap and one column on mobile. Keep each image and its caption in the same figure wrapper.",
+          "Left-align captions and constrain caption width to the associated figure width."
+        ],
+        "dom": [
+          "Wrap each existing publication image and its following caption in a .tl-publication-figure element without changing source order.",
+          "If caption markup is plain text, add presentation-only spans for parsed title and metadata only after source extraction confirms field boundaries; retain the original full caption in the DOM if parsing is not reliable.",
+          "Add .tl-publication-grid to the existing publication item list."
+        ],
+        "contentNeeded": [
+          "Source-page extraction is required to identify reliable title, issue/date, contributor, and source fields within publication captions before applying field-level hierarchy.",
+          "Confirm which all-caps page title is authored content versus CSS text-transform. Only remove the presentational treatment."
+        ]
+      },
+      {
+        "page": "Exhibition detail pages, including The Experimental Impulse",
+        "css": [
+          "Treat each image and caption as a figure: display: grid; gap: 8px; align-items: start; with figcaption text-align: left.",
+          "Use a two-column desktop gallery only for complete figure units, not independent images and captions. Collapse to one column at 700px or below.",
+          "Set gallery figure margin: 0 and use a consistent 16px desktop/12px mobile grid gap so captions sit immediately below their own images.",
+          "Keep exhibition images at width: 100%; height: auto; object-fit: contain to preserve existing crop boundaries.",
+          "Use the same caption hierarchy as publication details, without decorative italics, all caps, bold-plus-underline combinations, or centered captions."
+        ],
+        "dom": [
+          "Wrap each existing exhibition image and its associated caption in a .tl-exhibition-figure element while retaining original source order.",
+          "For images with no caption, retain an empty structural caption slot only if needed for grid consistency; do not invent caption text.",
+          "Keep essay and review items in their existing order and apply the same figure containment when an image and caption are paired."
+        ],
+        "contentNeeded": [
+          "Source-page extraction is required where current markup does not make the image-to-caption association explicit.",
+          "Confirm whether each short text below an image is a caption, credit, link, or independent body text before assigning caption styling."
+        ]
+      },
+      {
+        "page": "About",
+        "css": [
+          "Restyle the About page title with the same color, font family, size, weight, case, alignment, and title-to-introduction spacing as the main archive titles.",
+          "Remove the exceptional blue title color unless that color is part of an authored image asset; use the site text color.",
+          "Apply the shared ruled-section pattern to each trajectory period and align period title, description, and card grid to the shared content edge.",
+          "Use a three-column desktop and one-column mobile trajectory-card grid, retaining source order. Keep card image, existing caption, title, year, and new item type together.",
+          "Style the trajectory item type as subdued metadata beneath or beside the existing title/year: 12–14px, normal weight, sentence case, and no italics."
+        ],
+        "dom": [
+          "Add a presentation-only .tl-trajectory-meta element to each trajectory card, preserving existing title and year nodes unchanged.",
+          "Populate .tl-trajectory-meta from verified type data only; do not derive types from image filenames, visual appearance, or guessed venues.",
+          "For the Michael Asher item, add the verified type text East of Borneo essay without changing its existing title or year.",
+          "Add .tl-trajectory-grid and .tl-trajectory-card classes to existing wrappers only; do not reorder chronology or cards."
+        ],
+        "contentNeeded": [
+          "Source-page extraction is required for concise, verifiable item types for every trajectory card other than the explicitly identified Michael Asher East of Borneo essay.",
+          "Confirm the exact existing Michael Asher title and year in source markup; preserve both exactly.",
+          "Do not add venue names, dates, publication names, or biographical claims unless they are present in the source page or supplied as verified editorial data."
+        ]
+      }
+    ],
+    "mobileRisks": [
+      "Do not solve Bookshelf overflow by shrinking covers below usable size; use a source-order-preserving horizontal cover row with visible continuation and a More link where required.",
+      "Do not use fixed image heights, aspect-ratio crops, or object-fit: cover on artwork, publication, exhibition, or About images because crop boundaries must remain unchanged.",
+      "Ensure all period headings, section titles, and More links remain visible without zoom and are not hidden behind the mobile menu or hero image.",
+      "Keep image-caption pairs inseparable in mobile layout; CSS columns or independently positioned captions would break the relationship.",
+      "Avoid applying global uppercase removal to the logo mark or authored all-caps content embedded in images.",
+      "Test 320px through 430px widths for horizontal scrolling, clipped cover rows, orphaned captions, and footer collisions.",
+      "Maintain at least 44px effective tap targets for cover links and section-level More links without adding visually heavy controls."
+    ],
+    "validation": [
+      "At desktop and mobile widths, inspect each page at 10% scale: page title, introductory claim, section sequence, and primary navigation must remain immediately legible.",
+      "Verify Studio period labels are visibly stronger than artwork metadata and each label clearly begins its associated group.",
+      "Verify Bookshelf uses the same content width, left edge, rule rhythm, and section spacing as the other archive pages.",
+      "Verify every Bookshelf preview cover is larger, keyboard reachable, clickable, and points to a verified publication destination; verify every section has one restrained More → link with a verified destination.",
+      "Verify no title or caption receives CSS uppercase, bold, italic, and underline simultaneously; retain underlines only for actual links.",
+      "Verify all publication and exhibition captions are left aligned, readable, and structurally associated with the correct preceding image on desktop and mobile.",
+      "Verify exhibition desktop grids contain complete image-caption figure units and mobile retains the original source sequence.",
+      "Verify About uses the archive-title treatment and every trajectory card retains its original title, year, image, caption, link, and order.",
+      "Verify Michael Asher is labeled East of Borneo essay and all other added trajectory types are backed by extracted source data.",
+      "Regression-test all existing URLs, image URLs, image dimensions, link targets, keyboard focus states, and footer content before deployment."
+    ]
+  }
+}
