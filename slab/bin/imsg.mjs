@@ -33,16 +33,23 @@ import {
   chmodSync,
   existsSync,
   mkdirSync,
+  mkdtempSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
-import { homedir } from "node:os";
-import { join, dirname } from "node:path";
+import { homedir, tmpdir } from "node:os";
+import { join, dirname, extname, resolve } from "node:path";
+import { createHash } from "node:crypto";
+import { fileURLToPath } from "node:url";
 import { formatRichText } from "../lib/imessage-rich-text.mjs";
 import {
   chooseMessagesRoute,
+  classifyMessagesAttachment,
   classifyMessagesDelivery,
+  conversationTitleMatches,
+  isMessagesComposerEmpty,
   shouldRetryViaSms,
 } from "../lib/imessage-send-routing.mjs";
 
@@ -59,6 +66,7 @@ const INDEX_PATH = join(STATE_DIR, "index.sqlite");
 const CHAT_DB = join(HOME, "Library", "Messages", "chat.db");
 const SQLITE3 = "/usr/bin/sqlite3";
 const DEFAULT_INDEX_DAYS = 730;
+const FRAME = join(dirname(fileURLToPath(import.meta.url)), "frame.mjs");
 
 // ─── config ──────────────────────────────────────────────────────────────
 
@@ -667,6 +675,327 @@ async function sendMessage(handles, body) {
   return result;
 }
 
+const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp"]);
+
+function inspectImage(path) {
+  const absolute = resolve(String(path || ""));
+  if (!existsSync(absolute)) throw new Error(`image not found: ${absolute}`);
+  const stat = statSync(absolute);
+  if (!stat.isFile()) throw new Error(`image is not a file: ${absolute}`);
+  const extension = extname(absolute).toLowerCase();
+  if (!IMAGE_EXTENSIONS.has(extension)) {
+    throw new Error(`unsupported Messages image type "${extension || "(none)"}" — use jpg, png, heic, or webp`);
+  }
+  if (stat.size <= 0) throw new Error("image is empty");
+  if (stat.size > 20 * 1024 * 1024) throw new Error("image exceeds the 20 MB guarded send limit");
+  return {
+    path: absolute,
+    bytes: stat.size,
+    sha256: createHash("sha256").update(readFileSync(absolute)).digest("hex"),
+  };
+}
+
+function normalizeImageForClipboard(info) {
+  const dir = mkdtempSync(join(tmpdir(), "slab-imsg-media-"));
+  const output = join(dir, "image.jpg");
+  const converted = spawnSync(
+    "/usr/bin/sips",
+    ["-s", "format", "jpeg", "-s", "formatOptions", "88", info.path, "--out", output],
+    { encoding: "utf8" },
+  );
+  if (converted.status !== 0 || !existsSync(output)) {
+    rmSync(dir, { recursive: true, force: true });
+    throw new Error((converted.stderr || "could not normalize image for Messages").trim());
+  }
+  return { dir, output };
+}
+
+function outgoingMediaAfter(handles, baseline) {
+  const ids = (handles || []).map(sqlString).join(",");
+  return sqlite(
+    `SELECT m.ROWID AS rowid, m.service AS service, m.error AS error,
+            m.is_sent AS is_sent, m.is_delivered AS is_delivered,
+            a.ROWID AS attachment_rowid, a.transfer_state AS transfer_state,
+            a.mime_type AS mime_type, a.total_bytes AS total_bytes
+     FROM message m
+     JOIN handle h ON h.ROWID=m.handle_id
+     JOIN message_attachment_join maj ON maj.message_id=m.ROWID
+     JOIN attachment a ON a.ROWID=maj.attachment_id
+     WHERE h.id IN (${ids}) AND m.is_from_me=1
+       AND m.ROWID > ${Number(baseline) || 0}
+     ORDER BY m.ROWID DESC, a.ROWID DESC LIMIT 1;`,
+  )[0] || null;
+}
+
+function localFrameMachine() {
+  if (process.env.SLAB_FRAME_MACHINE) return process.env.SLAB_FRAME_MACHINE;
+  const result = spawnSync("/usr/sbin/scutil", ["--get", "LocalHostName"], { encoding: "utf8" });
+  return (result.stdout || "").trim() || "local";
+}
+
+function visibleMessagesState(outPath = null) {
+  const args = [FRAME, localFrameMachine(), "--no-ocr", "--quiet-overlay", "--json"];
+  if (outPath) args.push("--out", outPath);
+  const framed = spawnSync(
+    process.execPath,
+    args,
+    { encoding: "utf8", maxBuffer: 32 * 1024 * 1024 },
+  );
+  if (framed.status !== 0) {
+    throw new Error((framed.stderr || "could not verify the visible Messages conversation").trim());
+  }
+  const snapshot = JSON.parse((framed.stdout || "{}").trim());
+  if (snapshot?.meta?.frontmost?.bundle !== "com.apple.MobileSMS") {
+    return { title: "", composer: "" };
+  }
+  const fields = (snapshot?.ax?.elements || [])
+    .filter((element) => element.role === "AXTextField")
+    .sort((a, b) => (Number(b.cy) || 0) - (Number(a.cy) || 0));
+  return {
+    title: String((snapshot?.meta?.windows || []).find((window) => window.app === "Messages")?.title || "").trim(),
+    composer: String(fields[0]?.title || "").trim(),
+  };
+}
+
+async function selectVerifiedConversation(handle, expectedTitle, timeoutMs = 10000) {
+  const opened = spawnSync(
+    "/usr/bin/open",
+    [`im:${encodeURIComponent(String(handle))}`],
+    { encoding: "utf8" },
+  );
+  if (opened.status !== 0) {
+    throw new Error((opened.stderr || "could not open Messages conversation").trim());
+  }
+  const deadline = Date.now() + timeoutMs;
+  let visible = { title: "", composer: "" };
+  while (Date.now() < deadline) {
+    await wait(450);
+    visible = visibleMessagesState();
+    if (!conversationTitleMatches(visible.title, expectedTitle)) continue;
+    if (!isMessagesComposerEmpty(visible.composer)) {
+      throw new Error(
+        `recipient guard preserved an existing draft in "${visible.title}"; clear or send it before attaching media`,
+      );
+    }
+    return visible.title;
+  }
+  throw new Error(
+    `recipient guard refused image paste: requested "${expectedTitle}" but Messages showed "${visible.title || "no verified conversation"}"`,
+  );
+}
+
+function pasteImageIntoConversation(imagePath) {
+  const script = `
+on run argv
+  set imageFile to POSIX file (item 1 of argv)
+  set savedClipboard to the clipboard as record
+  try
+    set the clipboard to (read imageFile as JPEG picture)
+    tell application "Messages" to activate
+    delay 0.2
+    tell application "System Events"
+      tell process "Messages"
+        keystroke "v" using command down
+      end tell
+    end tell
+    delay 0.4
+  on error errorMessage number errorNumber
+    set the clipboard to savedClipboard
+    error errorMessage number errorNumber
+  end try
+  set the clipboard to savedClipboard
+end run`;
+  const pasted = spawnSync("/usr/bin/osascript", ["-e", script, imagePath], { encoding: "utf8" });
+  if (pasted.status !== 0) throw new Error((pasted.stderr || "Messages image paste failed").trim());
+}
+
+function pasteTextIntoConversation(value) {
+  const script = `
+on run argv
+  set savedClipboard to the clipboard as record
+  try
+    set the clipboard to item 1 of argv
+    tell application "Messages" to activate
+    delay 0.2
+    tell application "System Events" to tell process "Messages" to keystroke "v" using command down
+    delay 0.4
+  on error errorMessage number errorNumber
+    set the clipboard to savedClipboard
+    error errorMessage number errorNumber
+  end try
+  set the clipboard to savedClipboard
+end run`;
+  const pasted = spawnSync("/usr/bin/osascript", ["-e", script, value], { encoding: "utf8" });
+  if (pasted.status !== 0) throw new Error((pasted.stderr || "Messages text paste failed").trim());
+}
+
+function pressMessagesReturn() {
+  const pressed = spawnSync(
+    "/usr/bin/osascript",
+    ["-e", 'tell application "Messages" to activate', "-e", "delay 0.2", "-e", 'tell application "System Events" to tell process "Messages" to key code 36'],
+    { encoding: "utf8" },
+  );
+  if (pressed.status !== 0) throw new Error((pressed.stderr || "Messages send key failed").trim());
+}
+
+function clearOwnedComposer(expectedTitle, ownedText = "") {
+  const state = visibleMessagesState();
+  const ownsDraft = state.composer.includes("\uFFFC") || state.composer.trim() === String(ownedText).trim();
+  if (!conversationTitleMatches(state.title, expectedTitle) || !ownsDraft) return false;
+  const cleared = spawnSync(
+    "/usr/bin/osascript",
+    [
+      "-e", 'tell application "Messages" to activate',
+      "-e", "delay 0.2",
+      "-e", 'tell application "System Events" to tell process "Messages" to keystroke "a" using command down',
+      "-e", 'tell application "System Events" to tell process "Messages" to key code 51',
+    ],
+    { encoding: "utf8" },
+  );
+  return cleared.status === 0;
+}
+
+async function waitForRichDraft(expectedTitle, timeoutMs = 12000, settleMs = 2400) {
+  const deadline = Date.now() + timeoutMs;
+  let state = { title: "", composer: "" };
+  while (Date.now() < deadline) {
+    await wait(500);
+    state = visibleMessagesState();
+    if (!conversationTitleMatches(state.title, expectedTitle)) {
+      throw new Error(`recipient changed while building preview: expected "${expectedTitle}", saw "${state.title || "none"}"`);
+    }
+    if (state.composer.includes("\uFFFC")) {
+      // The attachment object appears before Messages finishes fetching and
+      // painting link metadata.  Hold the route, then verify it a second time
+      // so the evidence frame and Return key cannot race a loading card.
+      await wait(settleMs);
+      const settled = visibleMessagesState();
+      if (!conversationTitleMatches(settled.title, expectedTitle)) {
+        throw new Error(
+          `recipient changed while preview settled: expected "${expectedTitle}", saw "${settled.title || "none"}"`,
+        );
+      }
+      if (!settled.composer.includes("\uFFFC")) {
+        throw new Error("Messages preview disappeared before it became ready");
+      }
+      return settled;
+    }
+  }
+  throw new Error(`Messages did not build a rich preview in ${timeoutMs / 1000}s`);
+}
+
+function captureSendEvidence(prefix, expectedTitle) {
+  const dir = join(STATE_DIR, "evidence");
+  mkdirSync(dir, { recursive: true });
+  const path = join(dir, `${prefix}-${Date.now()}.jpg`);
+  const state = visibleMessagesState(path);
+  if (!conversationTitleMatches(state.title, expectedTitle) || !state.composer.includes("\uFFFC")) {
+    rmSync(path, { force: true });
+    throw new Error("preview changed before visual evidence could be captured");
+  }
+  return path;
+}
+
+function outgoingLinkAfter(handles, baseline) {
+  const ids = (handles || []).map(sqlString).join(",");
+  return sqlite(
+    `SELECT m.ROWID AS rowid, m.service AS service, m.error AS error,
+            m.is_sent AS is_sent, m.is_delivered AS is_delivered,
+            m.balloon_bundle_id AS balloon_bundle_id,
+            length(m.payload_data) AS payload_bytes
+     FROM message m JOIN handle h ON h.ROWID=m.handle_id
+     WHERE h.id IN (${ids}) AND m.is_from_me=1
+       AND m.ROWID > ${Number(baseline) || 0}
+       AND m.balloon_bundle_id='com.apple.messages.URLBalloonProvider'
+     ORDER BY m.ROWID DESC LIMIT 1;`,
+  )[0] || null;
+}
+
+async function sendLinkPreview(handles, url, expectedTitle, timeoutMs = 20000) {
+  let parsed;
+  try { parsed = new URL(String(url)); } catch { throw new Error("link preview requires a valid URL"); }
+  if (!new Set(["http:", "https:"]).has(parsed.protocol)) throw new Error("link preview URL must use http or https");
+  const route = chooseMessagesRoute(handles, latestSuccessfulRoute(handles));
+  const baseline = latestRecipientRowid(handles);
+  let submitted = false;
+  try {
+    const visibleConversation = await selectVerifiedConversation(route.handle, expectedTitle);
+    pasteTextIntoConversation(parsed.href);
+    await waitForRichDraft(expectedTitle);
+    const evidencePath = captureSendEvidence("link-preview", expectedTitle);
+    pressMessagesReturn();
+    submitted = true;
+    const deadline = Date.now() + timeoutMs;
+    let lastRow = null;
+    while (Date.now() < deadline) {
+      lastRow = outgoingLinkAfter(handles, baseline);
+      const state = classifyMessagesDelivery(lastRow);
+      if (state.status === "failed") throw new Error(`Messages rejected rich-link row ${lastRow?.rowid || "unknown"}`);
+      if (state.status === "sent" || state.status === "delivered") {
+        return {
+          ...state,
+          rowid: Number(lastRow.rowid),
+          balloonBundleId: lastRow.balloon_bundle_id,
+          payloadBytes: Number(lastRow.payload_bytes) || 0,
+          evidencePath,
+          visibleConversation,
+          url: parsed.href,
+        };
+      }
+      await wait(250);
+    }
+    throw new Error(`Messages rich-link send did not confirm within ${timeoutMs / 1000}s`);
+  } finally {
+    if (!submitted) clearOwnedComposer(expectedTitle, parsed.href);
+  }
+}
+
+async function sendImage(handles, path, expectedTitle, timeoutMs = 20000) {
+  const info = inspectImage(path);
+  const normalized = normalizeImageForClipboard(info);
+  const route = chooseMessagesRoute(handles, latestSuccessfulRoute(handles));
+  const baseline = latestRecipientRowid(handles);
+  let submitted = false;
+  try {
+    const visibleConversation = await selectVerifiedConversation(route.handle, expectedTitle);
+    pasteImageIntoConversation(normalized.output);
+    await waitForRichDraft(expectedTitle);
+    const evidencePath = captureSendEvidence("image", expectedTitle);
+    pressMessagesReturn();
+    submitted = true;
+    const deadline = Date.now() + timeoutMs;
+    let lastRow = null;
+    while (Date.now() < deadline) {
+      lastRow = outgoingMediaAfter(handles, baseline);
+      const state = classifyMessagesAttachment(lastRow);
+      if (state.status === "failed") {
+        throw new Error(
+          `Messages rejected image row ${lastRow?.rowid || "unknown"} ` +
+          `(message error ${state.error}, transfer state ${state.transferState || 0})`,
+        );
+      }
+      if (state.status === "sent" || state.status === "delivered") {
+        return {
+          ...state,
+          rowid: Number(lastRow.rowid),
+          attachmentRowid: Number(lastRow.attachment_rowid),
+          mimeType: lastRow.mime_type || "image/jpeg",
+          bytes: Number(lastRow.total_bytes) || info.bytes,
+          sourceBytes: info.bytes,
+          sourceSha256: info.sha256,
+          visibleConversation,
+          evidencePath,
+        };
+      }
+      await wait(250);
+    }
+    throw new Error(`Messages image paste did not confirm within ${timeoutMs / 1000}s`);
+  } finally {
+    if (!submitted) clearOwnedComposer(expectedTitle);
+    rmSync(normalized.dir, { recursive: true, force: true });
+  }
+}
+
 const TAPBACKS = new Map([
   ["heart", { key: "1", label: "heart" }],
   ["love", { key: "1", label: "heart" }],
@@ -1086,6 +1415,9 @@ try {
       // Optional `--to <name|handle>` selects a contact; default otherwise.
       const args = [...rest];
       let toArg = null;
+      let mediaPath = null;
+      let linkPreview = null;
+      let expectedTitle = null;
       const richIndex = args.indexOf("--rich");
       const rich = richIndex >= 0;
       if (rich) args.splice(richIndex, 1);
@@ -1099,19 +1431,62 @@ try {
         toArg = candidate;
         args.splice(ti, 2);
       }
+      const mi = args.indexOf("--media");
+      if (mi >= 0) {
+        const candidate = args[mi + 1];
+        if (!candidate || candidate.startsWith("--")) {
+          console.error("imsg send: --media requires an image path");
+          process.exit(1);
+        }
+        mediaPath = candidate;
+        args.splice(mi, 2);
+      }
+      const li = args.indexOf("--link-preview");
+      if (li >= 0) {
+        const candidate = args[li + 1];
+        if (!candidate || candidate.startsWith("--")) {
+          console.error("imsg send: --link-preview requires a URL");
+          process.exit(1);
+        }
+        linkPreview = candidate;
+        args.splice(li, 2);
+      }
+      const ei = args.indexOf("--expected-title");
+      if (ei >= 0) {
+        const candidate = args[ei + 1];
+        if (!candidate || candidate.startsWith("--")) {
+          console.error("imsg send: --expected-title requires the visible Messages title");
+          process.exit(1);
+        }
+        expectedTitle = candidate;
+        args.splice(ei, 2);
+      }
       const source = args.join(" ").trim();
       const body = rich ? formatRichText(source) : source;
-      if (!body) {
-        console.error("usage: imsg send [--rich] <text> [--to <name|handle>]");
+      if (!body && !mediaPath && !linkPreview) {
+        console.error("usage: imsg send [--rich] [--media image | --link-preview URL] [text] [--to <name|handle>]");
         process.exit(1);
       }
+      if (mediaPath && linkPreview) throw new Error("send one guarded rich attachment at a time");
       const rcpt = resolveRecipient(cfg, toArg);
-      const delivery = await sendMessage(rcpt.handles, body);
+      const guardedTitle = expectedTitle || rcpt.displayName;
+      const mediaDelivery = mediaPath
+        ? await sendImage(rcpt.handles, mediaPath, guardedTitle)
+        : null;
+      const linkDelivery = linkPreview
+        ? await sendLinkPreview(rcpt.handles, linkPreview, guardedTitle)
+        : null;
+      const delivery = body ? await sendMessage(rcpt.handles, body) : null;
       const watched = defaultContact(cfg);
       if (watched && rcpt.handles.some((h) => watched.handles.includes(h))) {
         acknowledge(cfg);
       }
-      print({ displayName: rcpt.displayName, ...delivery });
+      print({
+        displayName: rcpt.displayName,
+        ...(delivery || linkDelivery || mediaDelivery),
+        ...(mediaDelivery ? { media: mediaDelivery } : {}),
+        ...(linkDelivery ? { linkPreview: linkDelivery } : {}),
+      });
       break;
     }
     case "react": {

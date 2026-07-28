@@ -29,16 +29,18 @@
 // SAFETY: dm_send NEVER sends on the first call. It resolves + echoes the target
 // and the message and asks for `confirm: true` — outward, hard-to-unsend, often
 // to NDA contacts. This is the send guardrail baked in, not bolted on.
+import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SIGNAL = join(HERE, "signal.mjs");
 const IMSG = join(HERE, "imsg.mjs");
+const VISUAL_EVIDENCE = join(HERE, "visual-evidence.mjs");
 const PUPPET_JSON = join(homedir(), ".config", "slab", "puppet.json");
 
 // ── shell helpers ───────────────────────────────────────────────────────────
@@ -234,21 +236,51 @@ async function toolContacts({ query, machine } = {}) {
 
 // Send — two-step by design. First call previews the resolved target + message;
 // only `confirm: true` actually sends.
-async function toolSend({ channel, to, text: body, confirm, machine } = {}) {
+function inspectOutgoingFiles(values = []) {
+  return values.map((value) => {
+    const path = isAbsolute(String(value)) ? String(value) : resolve(String(value));
+    if (!existsSync(path)) throw new Error(`attachment does not exist: ${path}`);
+    const info = statSync(path);
+    if (!info.isFile()) throw new Error(`attachment is not a file: ${path}`);
+    if (info.size > 20 * 1024 * 1024) throw new Error(`attachment exceeds the 20 MB backend limit: ${path}`);
+    return {
+      path,
+      bytes: info.size,
+      sha256: createHash("sha256").update(readFileSync(path)).digest("hex"),
+    };
+  });
+}
+
+async function toolSend({
+  channel, to, text: body = "", image, attachments = [], linkPreview,
+  visibleTitle, confirm, machine,
+} = {}) {
   const ch = (channel || "").toLowerCase();
-  if (!body) throw new Error("`text` (the message) is required");
+  const requestedFiles = [image, ...(Array.isArray(attachments) ? attachments : [attachments])].filter(Boolean);
+  const files = inspectOutgoingFiles(requestedFiles);
+  const message = String(body || "");
+  if (!message && !files.length && !linkPreview) {
+    throw new Error("provide `text`, `image`/`attachments`, or `linkPreview`");
+  }
 
   if (ch === "signal") {
+    if (linkPreview) throw new Error("`linkPreview` is Messages-only; put the URL in `text` for Signal");
     const rcpt = await resolveSignalRecipient(to, machine);
     if (!confirm) {
       return text(
         `PREVIEW — not sent. Re-call with confirm:true to send.\n` +
         `channel: Signal   machine: ${isLocal(machine) ? "local" : machine}\n` +
-        `to: ${rcpt.label}  [${rcpt.how}]\n--- message ---\n${body}`,
+        `to: ${rcpt.label}  [${rcpt.how}]\n` +
+        `${files.map((file) => `attachment: ${file.path} (${file.bytes} bytes, sha256 ${file.sha256})`).join("\n")}` +
+        `${files.length && message ? "\n" : ""}${message ? `--- message ---\n${message}` : ""}`,
       );
     }
     const acct = await signalAccount(machine);
-    const { stdout } = await runSignalCli(["-a", acct, "send", "-m", body, rcpt.id], machine, { timeoutMs: 60000 });
+    const sendArgs = ["-a", acct, "send"];
+    if (message) sendArgs.push("-m", message);
+    for (const file of files) sendArgs.push("-a", file.path);
+    sendArgs.push(rcpt.id);
+    const { stdout } = await runSignalCli(sendArgs, machine, { timeoutMs: 60000 });
     // Best effort: if this is the conversation Slab watches, replying is also
     // an acknowledgement. Other conversations keep independent cursors.
     await runBridge(SIGNAL, ["ack", "--to", String(to)], machine).catch(() => {});
@@ -265,28 +297,70 @@ async function toolSend({ channel, to, text: body, confirm, machine } = {}) {
     const { stdout: resolved } = await runBridge(IMSG, ["resolve", ...toArgs], machine, { timeoutMs: 30000 });
     const rcpt = JSON.parse(resolved);
     if (!confirm) {
+      const previewLines = [
+        "PREVIEW — not sent. Re-call with confirm:true to send.",
+        `channel: Messages (iMessage/RCS/SMS)   machine: ${isLocal(machine) ? "local" : machine}`,
+        `to: ${rcpt.displayName}  [requested: "${to}"]`,
+        `visible recipient guard: ${visibleTitle || rcpt.displayName}`,
+        ...files.map((file) => `attachment: ${file.path} (${file.bytes} bytes, sha256 ${file.sha256})`),
+        ...(linkPreview ? [`rich link preview: ${linkPreview}`] : []),
+        ...(message ? ["--- message ---", message] : []),
+      ];
       return text(
-        `PREVIEW — not sent. Re-call with confirm:true to send.\n` +
-        `channel: Messages (iMessage/RCS/SMS)   machine: ${isLocal(machine) ? "local" : machine}\n` +
-        `to: ${rcpt.displayName}  [requested: "${to}"]\n` +
-        `--- message ---\n${body}`,
+        previewLines.join("\n"),
       );
     }
-    const { stdout } = await runBridge(IMSG, ["send", body, ...toArgs], machine, { timeoutMs: 30000 });
-    let delivery = null;
-    try { delivery = JSON.parse(stdout.trim()); } catch {}
-    if (delivery?.status) {
-      if (delivery.status === "failed") {
-        throw new Error(`Messages rejected the send to ${rcpt.displayName}`);
-      }
-      const verb = delivery.status === "delivered" ? "delivered" : "sent";
-      const service = delivery.service || "Messages";
-      return text(`✅ ${verb} to ${rcpt.displayName} via ${service}`);
+    const guardArgs = ["--expected-title", String(visibleTitle || rcpt.displayName)];
+    const receipts = [];
+    for (const file of files) {
+      const { stdout } = await runBridge(
+        IMSG,
+        ["send", "--media", file.path, ...guardArgs, ...toArgs],
+        machine,
+        { timeoutMs: 60000 },
+      );
+      receipts.push({ kind: "attachment", ...JSON.parse(stdout.trim()) });
     }
-    return text(`✅ Messages send completed for ${rcpt.displayName}${stdout.trim() ? `: ${stdout.trim()}` : ""}`);
+    if (linkPreview) {
+      const { stdout } = await runBridge(
+        IMSG,
+        ["send", "--link-preview", String(linkPreview), ...guardArgs, ...toArgs],
+        machine,
+        { timeoutMs: 60000 },
+      );
+      receipts.push({ kind: "link-preview", ...JSON.parse(stdout.trim()) });
+    }
+    // If text is exactly the rich-preview URL, the URL balloon already carries
+    // it; do not emit a duplicate plain bubble.
+    if (message && message.trim() !== String(linkPreview || "").trim()) {
+      const { stdout } = await runBridge(IMSG, ["send", message, ...toArgs], machine, { timeoutMs: 30000 });
+      receipts.push({ kind: "text", ...JSON.parse(stdout.trim()) });
+    }
+    for (const receipt of receipts) {
+      if (receipt.status === "failed") throw new Error(`Messages rejected ${receipt.kind} to ${rcpt.displayName}`);
+    }
+    return text(JSON.stringify({ ok: true, to: rcpt.displayName, receipts }, null, 2));
   }
 
   throw new Error(`unknown channel "${channel}" (use "signal" or "imessage")`);
+}
+
+async function toolVisualCapture({ kind = "url", url, selector, label, machine, region, out } = {}) {
+  const mode = String(kind).toLowerCase();
+  const args = [mode];
+  if (mode === "url") {
+    if (!url || !selector) throw new Error("URL evidence requires `url` and a CSS `selector`");
+    args.push("--url", String(url), "--selector", String(selector));
+    if (label) args.push("--label", String(label));
+  } else if (mode === "frame") {
+    args.push("--machine", String(machine || "local"));
+    if (region) args.push("--region", String(region));
+  } else {
+    throw new Error('`kind` must be "url" or "frame"');
+  }
+  if (out) args.push("--out", String(out));
+  const { stdout } = await run(process.execPath, [VISUAL_EVIDENCE, ...args], { timeoutMs: 90000 });
+  return text(stdout.trim());
 }
 
 const TAPBACK_LABELS = new Map([
@@ -404,17 +478,37 @@ const TOOLS = [
   },
   {
     name: "dm_send",
-    description: "Send a DM. TWO-STEP AND SAFE: the first call PREVIEWS the resolved recipient + message and does NOT send; call again with confirm:true to actually send. `to` is required. Signal accepts an ACI, +E164, or name. The imessage channel uses Messages.app, selects the conversation's current iMessage/RCS/SMS transport, verifies sent/delivered state, and accepts a named contact from imsg.json or a raw handle.",
+    description: "Send text, image attachments, or a real rich link preview. TWO-STEP AND SAFE: the first call PREVIEWS the resolved recipient and exact payload and does NOT send; call again with confirm:true. Messages media sends bind the visible conversation title, preserve existing drafts, capture a pre-send evidence frame, and verify the recipient-scoped database receipt. Use linkPreview (not plain text) when an Apple URL preview card is required.",
     inputSchema: {
       type: "object",
       properties: {
         channel: { type: "string", enum: ["signal", "imessage"], description: "Which channel." },
         to: { type: "string", description: "Required recipient. Signal: ACI / +number / name. iMessage: named imsg.json contact or raw +number/email." },
-        text: { type: "string", description: "The message body (multi-line ok)." },
+        text: { type: "string", description: "Optional message body (multi-line ok)." },
+        image: { type: "string", description: "Optional absolute/local image path; alias for one attachments entry." },
+        attachments: { type: "array", items: { type: "string" }, description: "Optional file paths. Messages currently accepts supported images; Signal passes files to signal-cli." },
+        linkPreview: { type: "string", description: "Messages only: send this http(s) URL as an Apple rich URL balloon with metadata." },
+        visibleTitle: { type: "string", description: "Optional exact/contained Messages conversation title for the recipient guard; defaults to the resolved contact display name." },
         confirm: { type: "boolean", description: "Must be true to actually send. Omit/false = preview only." },
         machine: { type: "string", description: "Machine (default local; signal-cli sends route over ssh for remote)." },
       },
-      required: ["channel", "text"],
+      required: ["channel", "to"],
+    },
+  },
+  {
+    name: "dm_visual_capture",
+    description: "Create send-ready visual evidence without raw browser control. URL mode loads one http(s) page, applies a Captutor spotlight to one ordinary CSS selector, labels it, and crops until the evidence dominates. Frame mode captures the focused window from a named fleet Mac and can crop an explicit x,y,width,height region. Returns path, hash, bounds, and source metadata; it never sends.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        kind: { type: "string", enum: ["url", "frame"], description: "Capture source (default url)." },
+        url: { type: "string", description: "URL mode: http(s) page to capture." },
+        selector: { type: "string", description: "URL mode: ordinary CSS selector to spotlight; js=/text= selectors are refused." },
+        label: { type: "string", description: "URL mode: short visible evidence label (max 80 characters)." },
+        machine: { type: "string", description: "Frame mode: fleet machine (default local)." },
+        region: { type: "string", description: "Frame mode: optional x,y,width,height crop in image pixels." },
+        out: { type: "string", description: "Optional output path; defaults under ~/.local/share/slab/visual-evidence/." },
+      },
     },
   },
   {
@@ -443,6 +537,7 @@ async function callTool(name, args) {
     case "dm_attachments": return toolAttachments(args || {});
     case "dm_contacts": return toolContacts(args || {});
     case "dm_send": return toolSend(args || {});
+    case "dm_visual_capture": return toolVisualCapture(args || {});
     case "dm_react": return toolReact(args || {});
     default: throw new Error(`Unknown tool: ${name}`);
   }
@@ -458,7 +553,7 @@ async function handleMessage(message) {
           result: {
             protocolVersion: "2024-11-05",
             capabilities: { tools: {} },
-            serverInfo: { name: "dm-mcp", version: "1.1.0" },
+            serverInfo: { name: "dm-mcp", version: "1.2.0" },
           },
         };
       case "initialized":
@@ -485,4 +580,4 @@ async function handleMessage(message) {
 
 const port = httpPort(process.argv, 7771);
 if (port) serveHttp({ handleMessage, port, banner: "✉️  dm-mcp shared daemon" });
-else serveStdio({ handleMessage, banner: "✉️  dm-mcp server started (dm_inbox, dm_chats, dm_read, dm_search, dm_groups, dm_attachments, dm_contacts, dm_send, dm_react)" });
+else serveStdio({ handleMessage, banner: "✉️  dm-mcp server started (dm_inbox, dm_chats, dm_read, dm_search, dm_groups, dm_attachments, dm_contacts, dm_send, dm_visual_capture, dm_react)" });
