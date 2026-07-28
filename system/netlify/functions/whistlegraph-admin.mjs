@@ -127,7 +127,7 @@ async function readCuration(database, loadModelFn = loadBaseModel) {
     const thumb = hero?.thumb || (hero?.media !== "audio" && hero?.id
       ? `https://assets.aesthetic.computer/whistlegraph/index/posts/${hero.id}.jpg`
       : null);
-    materializedWorks[code] = { perf: row.perf, views: row.views, ...(thumb ? { thumb } : {}) };
+    materializedWorks[code] = { perf: row.perf, views: row.views, ...(thumb ? { thumb, noGlyph: false } : { noGlyph: true }) };
   }
   return { ...payload, activeCodes: [...activeCodes], materializedWorks };
 }

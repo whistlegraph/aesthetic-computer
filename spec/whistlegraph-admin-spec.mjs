@@ -145,7 +145,23 @@ describe("Whistlegraph Desk", () => {
       perf: 2,
       views: 110,
       thumb: "https://assets.aesthetic.computer/whistlegraph/index/posts/2.jpg",
+      noGlyph: false,
     });
+  });
+
+  it("lets recovered poster thumbnails replace stale no-glyph flags", () => {
+    const page = readFileSync(new URL("../system/public/whistlegraph.org/index.html", import.meta.url), "utf8");
+    expect(page).toContain("const thumb=!w.thumb");
+    expect(page).toContain("work.noGlyph=false");
+  });
+
+  it("renders preserved YouTube versions through privacy-enhanced embeds", () => {
+    const page = readFileSync(new URL("../system/public/whistlegraph.org/index.html", import.meta.url), "utf8");
+    const archive = JSON.parse(readFileSync(new URL("../system/public/whistlegraph.org/graphs.json", import.meta.url), "utf8"));
+    expect(page).toContain("https://www.youtube-nocookie.com/embed/${v.id}");
+    expect(page).toContain('w.film?"Film & features":"Performances"');
+    expect(archive.works.find((work) => work.code === "long").versions.length).toBe(4);
+    expect(archive.works.find((work) => work.code === "undr").versions.length).toBe(2);
   });
 
   it("indexes every machine-read visual field and derives stable visual tags", () => {
@@ -292,7 +308,7 @@ describe("Whistlegraph Desk", () => {
     expect(publicData.createdWorks.fear.title).toBe("Inside My Mouth");
     expect(publicData.deletedWorks).toEqual([]);
     expect(publicData.activeCodes).toEqual(["fear"]);
-    expect(publicData.materializedWorks.fear).toEqual({ perf: 1, views: 0 });
+    expect(publicData.materializedWorks.fear).toEqual({ perf: 1, views: 0, noGlyph: true });
 
     const renamed = await handler({ httpMethod: "POST", headers, queryStringParameters: { action: "work-rename" }, body: JSON.stringify({ from: "fear", code: "mouth", title: "Inside My Mouth", by: "Alex Freundlich", year: 2026, c: "#b44887" }) });
     expect(renamed.statusCode).toBe(200);

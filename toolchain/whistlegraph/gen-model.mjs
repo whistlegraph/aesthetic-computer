@@ -52,6 +52,9 @@ const priorSnap = existsSync("/tmp/CODES-before.json") ? rd("/tmp/CODES-before.j
 //            whistlegraph; the source's posts retag to the target, the source
 //            work drops out, and /sourceCode falls back to the index)
 const overrides = existsSync(join(D, "overrides.json")) ? rd(join(D, "overrides.json")) : {};
+// Human-reviewed presentation media is independent of clustering and remains
+// attached to its confirmed work across archive regeneration.
+const specialWorks = existsSync(join(D, "special-works.json")) ? rd(join(D, "special-works.json")) : {};
 const renames = overrides.renames || {};
 const authors = overrides.authors || {}; // code → attribution ("Alex Freundlich", …)
 const recodes = overrides.recodes || {};
@@ -346,6 +349,7 @@ const liveWorks = live.graphs.filter((e) => !mergeSources.has(e.code)).map((e) =
   return {
     ...e,
     code,
+    ...(specialWorks[code] || {}),
     ...(title !== undefined ? { title } : {}),
     ...(authors[code] ? { by: authors[code] } : {}), // durable attribution override
     kind: workKind(code, e.kind || kindByLiveCode.get(e.code) || "graph"),
