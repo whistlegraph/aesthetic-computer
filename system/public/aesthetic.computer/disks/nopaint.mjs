@@ -34,6 +34,7 @@ let paintingResolution = null;
 let finishMode = false;
 let doneCount = 0;
 let paintingDragPaused = false;
+let paintingPressed = false;
 let hoveredDecision = null;
 let cursorSheet = null;
 let cursorPoint = null;
@@ -49,6 +50,7 @@ const LEGACY_CUES = Object.freeze({
   paint: "generic - paint button released (cha).webm",
   rollover: "generic - button rollover.webm",
   "button-down": "generic - button press.webm",
+  "button-up": "generic - button release.webm",
   back: "generic - pause release.webm",
   "done-down": "generic - save button pressed.webm",
   done: "generic - save button released.webm",
@@ -535,6 +537,11 @@ function testSnapshot() {
       animation: hoveredDecision ? "Over Button" : "Normal",
       frame: cursorFrame,
     },
+    paintingButton: layout ? {
+      ...layout.stage,
+      down: paintingPressed,
+      over: hoveredDecision === "painting",
+    } : null,
     lastDownload,
     ready: Boolean(proposal && testApi?.system?.nopaint?.buffer),
     controls: finishMode
@@ -612,6 +619,7 @@ function boot({ colon, debug, hud, net, num, params, screen, store, system, ui, 
   finishMode = false;
   doneCount = 0;
   paintingDragPaused = false;
+  paintingPressed = false;
   hoveredDecision = null;
   cursorSheet = null;
   cursorPoint = null;
@@ -859,6 +867,9 @@ function paint($) {
   $.wipe(18);
   $.paste($.system.painting, stage.x, stage.y, scale);
   $.paste($.system.nopaint.buffer, stage.x, stage.y, scale);
+  if (paintingPressed || hoveredDecision === "painting") {
+    $.ink(255, 255, 255, paintingPressed ? 235 : 145).box(stage, "outline");
+  }
   const definition = proposalDefinition(proposal.kind);
   $.ink(18).box(bar, "fill");
   $.ink(255, 180).write(
@@ -958,6 +969,16 @@ function act($) {
     return;
   }
 
+  const overPainting = e.x >= stage.x && e.x <= stage.x + stage.w &&
+    e.y >= stage.y && e.y <= stage.y + stage.h;
+  if (e.is("touch:1") && overPainting) {
+    paintingPressed = true;
+    playCue($, "button-down");
+    setDecisionHeld(true);
+    $.needsPaint();
+    publishTestState();
+  }
+
   if (
     loopState === "proposing" &&
     e.is("draw:1") &&
@@ -966,6 +987,8 @@ function act($) {
     e.drag.y >= stage.y && e.drag.y <= stage.y + stage.h
   ) {
     paintingDragPaused = true;
+    paintingPressed = false;
+    setDecisionHeld(false);
     playCue($, "pause-down");
     togglePaused($);
     return;
@@ -995,13 +1018,17 @@ function act($) {
   });
   if (
     e.is("lift:1") &&
-    e.x >= stage.x && e.x <= stage.x + stage.w &&
-    e.y >= stage.y && e.y <= stage.y + stage.h
+    overPainting
   ) {
     if (paintingDragPaused) {
       paintingDragPaused = false;
+      paintingPressed = false;
       return;
     }
+    if (!paintingPressed) return;
+    paintingPressed = false;
+    setDecisionHeld(false);
+    playCue($, "button-up");
     stopBrushCue();
     finishMode = true;
     stateBeforePause = loopState;
@@ -1009,6 +1036,13 @@ function act($) {
     $.needsPaint();
     publishTestState();
     return;
+  }
+  if (e.is("lift:1") && paintingPressed) {
+    paintingPressed = false;
+    setDecisionHeld(false);
+    playCue($, "back");
+    $.needsPaint();
+    publishTestState();
   }
   if (isAny(e, [
     "keyboard:down:n",

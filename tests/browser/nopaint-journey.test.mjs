@@ -328,6 +328,9 @@ try {
 
   await scenario("The painting is the gateway to the canonical Done command", async (expect) => {
     const before = await ac.nopaintState();
+    expect(before?.paintingButton?.w === before?.layout?.paintingViewport?.w &&
+      before?.paintingButton?.h === before?.layout?.paintingViewport?.h,
+    "the entire visible painting is one giant button");
     const rect = await ac.page.evaluate(() => Array.from(document.querySelectorAll("canvas"))
       .map((canvas) => {
         const box = canvas.getBoundingClientRect();
@@ -348,6 +351,9 @@ try {
     let finishing = await ac.nopaintState();
     await receipt("05-done-ready");
     expect(finishing?.finishMode === true, "tapping the painting enters completion mode");
+    expect(finishing?.audio?.events?.some(({ name }) => name === "button-down") &&
+      finishing?.audio?.events?.some(({ name }) => name === "button-up"),
+    "painting tap emits button press and release cues");
     expect(
       Object.keys(finishing?.controls || {}).join(",") === "back,done",
       "Back and Done replace the painting decisions",
