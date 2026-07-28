@@ -29,7 +29,12 @@ export const CONFIG = {
   slowMo: parseInt(process.env.AC_SLOWMO || "0", 10) || 0,
   shotDir: process.env.AC_SHOT_DIR || join(HERE, "__screens__"),
   viewportWidth: parseInt(process.env.AC_VIEWPORT_WIDTH || "1200", 10),
-  viewportHeight: parseInt(process.env.AC_VIEWPORT_HEIGHT || "900", 10),
+  // A headed content viewport must leave room for macOS + Chrome chrome.
+  // Blueberry's 881 px display cannot physically show a 900 px page.
+  viewportHeight: parseInt(
+    process.env.AC_VIEWPORT_HEIGHT || (process.env.AC_HEADED === "1" ? "720" : "900"),
+    10,
+  ),
 };
 
 function percentile(sorted, fraction) {

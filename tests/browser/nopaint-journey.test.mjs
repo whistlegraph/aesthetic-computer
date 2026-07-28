@@ -51,9 +51,9 @@ try {
     expect(state?.operation === "banner", `seed begins with Banner, not Camera (got ${state?.operation})`);
     expect(state?.ready === true, "proposal buffer reports ready");
     expect(
-      [state?.controls?.no, state?.controls?.paint, state?.controls?.save]
+      [state?.controls?.no, state?.controls?.paint]
         .every((box) => box && box.w > 0 && box.h > 0),
-      "No, Paint, and Save expose visible control rectangles",
+      "No and Paint expose visible control rectangles",
     );
     const controls = Object.values(state?.controls || {});
     const stageBottom = state?.layout?.paintingViewport?.y + state?.layout?.paintingViewport?.h;
@@ -87,7 +87,7 @@ try {
       const { paintingViewport: stage, controlBar: bar } = state.layout;
       const resolution = state.layout.paintingResolution;
       const screenResolution = state.layout.screenResolution;
-      const { no, paint, save } = state.controls;
+      const { no, paint } = state.controls;
       const canvasRect = await ac.page.evaluate(() => {
         const canvas = document.querySelector("canvas");
         if (!canvas) return null;
@@ -108,11 +108,18 @@ try {
         `${viewport.label}: control bar spans the fixed AC surface`);
       expect(canvasRect && canvasRect.w <= viewport.width && canvasRect.h <= viewport.height,
         `${viewport.label}: AC fits the fixed surface within the browser`);
-      expect([no, paint, save].every((box) => box.y >= bar.y && box.y + box.h <= bar.y + bar.h),
+      expect([no, paint].every((box) => box.y >= bar.y && box.y + box.h <= bar.y + bar.h),
         `${viewport.label}: controls stay inside bar`);
-      expect(no.x + no.w <= paint.x && paint.x + paint.w <= save.x,
-        `${viewport.label}: No, Paint, and Save do not overlap`);
+      expect(no.x + no.w <= paint.x && paint.x + paint.w <= bar.x + bar.w,
+        `${viewport.label}: No and Paint do not overlap`);
     }
+    // Synthetic viewport probes may exceed the filming display. Return to the
+    // harness's screen-safe size before taking any more native Frame receipts.
+    await ac.page.setViewport({
+      width: CONFIG.viewportWidth,
+      height: CONFIG.viewportHeight,
+    });
+    await ac.wait(350);
   });
 
   await scenario("No rejects without changing the accepted painting", async (expect) => {
@@ -195,17 +202,38 @@ try {
     }
   });
 
-  await scenario("Save uses the AC painting export path", async (expect) => {
-    await ac.press("KeyS");
-    const downloads = await ac.waitForDownload();
-    const state = await ac.nopaintState();
-    await receipt("05-saved");
-    expect(state?.saveCount === 1, `one save was requested (got ${state?.saveCount})`);
-    expect(state?.lastDownload?.endsWith(".png"), `download is named as PNG (${state?.lastDownload})`);
-    expect(
-      downloads.some((name) => name.endsWith(".png")) || state?.lastDownload?.endsWith(".png"),
-      "the browser received a PNG download or native-share export request",
+  await scenario("The painting is the gateway to the canonical Done command", async (expect) => {
+    const before = await ac.nopaintState();
+    const rect = await ac.page.evaluate(() => Array.from(document.querySelectorAll("canvas"))
+      .map((canvas) => {
+        const box = canvas.getBoundingClientRect();
+        return { x: box.x, y: box.y, width: box.width, height: box.height };
+      })
+      .filter((box) => box.width > 0 && box.height > 0)
+      .sort((a, b) => b.width * b.height - a.width * a.height)[0] || null);
+    expect(rect !== null, "a visible AC canvas receives the painting tap");
+    const screen = before.layout.screenResolution;
+    const stage = before.layout.paintingViewport;
+    const scaleX = rect.width / screen.width;
+    const scaleY = rect.height / screen.height;
+    await ac.page.mouse.click(
+      rect.x + (stage.x + stage.w / 2) * scaleX,
+      rect.y + (stage.y + stage.h / 2) * scaleY,
     );
+    await ac.wait(250);
+    const finishing = await ac.nopaintState();
+    await receipt("05-done-ready");
+    expect(finishing?.finishMode === true, "tapping the painting enters completion mode");
+    expect(Object.keys(finishing?.controls || {}).join(",") === "done", "Done is the only visible action");
+
+    const done = finishing.controls.done;
+    await ac.page.mouse.click(
+      rect.x + (done.x + done.w / 2) * scaleX,
+      rect.y + (done.y + done.h / 2) * scaleY,
+    );
+    await ac.wait(250);
+    const completed = await ac.nopaintState();
+    expect(completed?.doneCount === 1, "Done invokes the canonical prompt completion command");
   });
 
   await scenario("An archive record can become the starting painting", async (expect) => {

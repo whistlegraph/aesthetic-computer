@@ -25,6 +25,8 @@ let testApi = null;
 let testChannel = null;
 let archiveOrigin = null;
 let paintingResolution = null;
+let finishMode = false;
+let doneCount = 0;
 
 function initialNavigationURL() {
   if (typeof window === "undefined") return null;
@@ -37,7 +39,7 @@ function initialNavigationURL() {
 }
 let noButton;
 let paintButton;
-let saveButton;
+let doneButton;
 
 function transition(next) {
   if (!NOPAINT_LOOP_STATES.includes(next)) {
@@ -73,8 +75,7 @@ function positionButtons(screen) {
   const { bar, statusHeight } = interfaceLayout(screen);
   const gap = Math.max(4, Math.floor(screen.width * 0.006));
   const margin = Math.max(6, Math.floor(screen.width * 0.008));
-  const saveWidth = Math.max(72, Math.floor(screen.width * 0.12));
-  const available = screen.width - margin * 2 - gap * 2 - saveWidth;
+  const available = screen.width - margin * 2 - gap;
   const noWidth = Math.floor(available * 0.38);
   const paintWidth = available - noWidth;
   const buttonY = bar.y + statusHeight;
@@ -91,11 +92,14 @@ function positionButtons(screen) {
     x: margin + noWidth + gap, y: buttonY,
     w: paintWidth, h: decisionHeight,
   });
-  saveButton.reposition({
-    left: margin + noWidth + gap + paintWidth + gap,
-    top: buttonY + Math.floor((decisionHeight - saveButton.height) / 2),
-    screen,
-  });
+  const done = doneButton?.btn || doneButton;
+  if (done) {
+    done.box ||= {};
+    Object.assign(done.box, {
+      x: margin, y: buttonY,
+      w: available, h: decisionHeight,
+    });
+  }
 }
 
 function paintDecisionButton($, button, label, light = false) {
@@ -281,13 +285,13 @@ function testSnapshot() {
     operation: proposal?.kind || null,
     decisions: decisions.map((decision) => ({ ...decision })),
     saveCount,
+    finishMode,
+    doneCount,
     lastDownload,
     ready: Boolean(proposal && testApi?.system?.nopaint?.buffer),
-    controls: {
-      no: controlBox(noButton),
-      paint: controlBox(paintButton),
-      save: controlBox(saveButton),
-    },
+    controls: finishMode
+      ? { done: controlBox(doneButton) }
+      : { no: controlBox(noButton), paint: controlBox(paintButton) },
     layout: layout ? {
       paintingViewport: { ...layout.stage },
       paintingResolution: { ...paintingResolution },
@@ -355,6 +359,8 @@ function boot({ colon, debug, hud, net, num, params, screen, store, system, ui, 
   cameraFeed = null;
   decisions = [];
   saveCount = 0;
+  finishMode = false;
+  doneCount = 0;
   lastDownload = null;
   archiveOrigin = archiveId ? {
     type: "nopaint-archive",
@@ -381,7 +387,7 @@ function boot({ colon, debug, hud, net, num, params, screen, store, system, ui, 
 
   noButton = new ui.TextButton("No");
   paintButton = new ui.TextButton("Paint");
-  saveButton = new ui.TextButton("Save");
+  doneButton = new ui.TextButton("Done");
   positionButtons(screen);
 
   hud.label("No Paint — No [N] / Paint [Enter]");
@@ -564,9 +570,12 @@ function paint($) {
   );
 
   positionButtons($.screen);
-  noButton.paint($, [[10, 10, 10], [80, 80, 80], [255, 255, 255]]);
-  paintButton.paint($, [[245, 245, 245], [210, 210, 210], [15, 15, 15]]);
-  saveButton.paint($, [[20, 20, 20], [180, 180, 180], [255, 255, 255]]);
+  if (finishMode) {
+    doneButton.paint($, [[245, 245, 245], [210, 210, 210], [15, 15, 15]]);
+  } else {
+    noButton.paint($, [[10, 10, 10], [80, 80, 80], [255, 255, 255]]);
+    paintButton.paint($, [[245, 245, 245], [210, 210, 210], [15, 15, 15]]);
+  }
   return loopState === "proposing";
 }
 
@@ -578,10 +587,30 @@ function isAny(e, names) {
 function act($) {
   const { event: e } = $;
 
+  if (finishMode) {
+    doneButton.btn.act(e, () => {
+      doneCount += 1;
+      publishTestState();
+      if (!initialNavigationURL()?.searchParams.has("test")) $.jump("done");
+    });
+    return;
+  }
+
   noButton.btn.act(e, () => discardProposal($));
   paintButton.btn.act(e, () => commitProposal($));
-  saveButton.btn.act(e, () => savePainting($));
-
+  const stage = interfaceLayout($.screen).stage;
+  if (
+    e.is("lift:1") &&
+    e.x >= stage.x && e.x <= stage.x + stage.w &&
+    e.y >= stage.y && e.y <= stage.y + stage.h
+  ) {
+    finishMode = true;
+    stateBeforePause = loopState;
+    transition("paused");
+    $.needsPaint();
+    publishTestState();
+    return;
+  }
   if (isAny(e, [
     "keyboard:down:n",
     "keyboard:down:escape",
@@ -599,7 +628,6 @@ function act($) {
   ])) commitProposal($);
 
   if (e.is("keyboard:down:space")) togglePaused($);
-  if (e.is("keyboard:down:s")) savePainting($);
 }
 
 // The conductor makes decisions explicitly; generic pointer-lift baking must
