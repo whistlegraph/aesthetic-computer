@@ -359,9 +359,9 @@ try {
 
   await scenario("The painting is the gateway to the canonical Done command", async (expect) => {
     const before = await ac.nopaintState();
-    expect(before?.paintingButton?.w === before?.layout?.paintingViewport?.w &&
-      before?.paintingButton?.h === before?.layout?.paintingViewport?.h,
-    "the entire visible painting is one giant button");
+    expect(before?.paintingButton?.w === before?.layout?.controlBar?.w &&
+      before?.paintingButton?.h === before?.layout?.controlBar?.y,
+    "the entire top surface is one giant painting button");
     const rect = await ac.page.evaluate(() => Array.from(document.querySelectorAll("canvas"))
       .map((canvas) => {
         const box = canvas.getBoundingClientRect();

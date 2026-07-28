@@ -661,7 +661,10 @@ function testSnapshot() {
       frame: cursorFrame,
     },
     paintingButton: layout ? {
-      ...layout.stage,
+      x: 0,
+      y: 0,
+      w: testApi.screen.width,
+      h: layout.bar.y,
       down: paintingPressed,
       over: hoveredDecision === "painting",
     } : null,
@@ -1041,6 +1044,7 @@ function paint($) {
   $.system.nopaint.needsPresent = true;
 
   const { bar, stage, status, scale } = interfaceLayout($.screen);
+  const surface = { x: 0, y: 0, w: $.screen.width, h: bar.y };
   // Present the entire fixed-resolution painting above the controls. The
   // viewport may fit/letterbox responsively, but its pixels never reflow.
   $.wipe(18);
@@ -1052,8 +1056,13 @@ function paint($) {
     $.paste($.system.nopaint.buffer, stage.x, stage.y, scale);
   }
   if (paintingPressed || hoveredDecision === "painting") {
-    $.ink(255, 255, 255, paintingPressed ? 235 : 145).box(stage, "outline");
+    $.ink(255, 255, 255, paintingPressed ? 38 : 22).box(surface, "fill");
+    $.ink(255, 255, 255, paintingPressed ? 235 : 145).box(surface, "outline");
   }
+  const merryRemaining = Math.max(0, 1 - proposalFrame / PROPOSAL_MERRY_FRAMES);
+  const merryBarHeight = Math.max(3, Math.round($.screen.height / 240));
+  $.ink(10, 10, 12, 210).box(0, 0, surface.w, merryBarHeight);
+  $.ink(92, 220, 128, 235).box(0, 0, Math.round(surface.w * merryRemaining), merryBarHeight);
   const definition = proposalDefinition(proposal.kind);
   $.ink(18).box(bar, "fill");
   $.ink(255, 180).write(
@@ -1062,7 +1071,7 @@ function paint($) {
       : completionCode
         ? `#${completionCode}`
         : completionError || definition?.label || proposal.kind,
-    { x: 8, y: 8 },
+    { x: 8, y: merryBarHeight + 6 },
   );
 
   positionButtons($.screen);
@@ -1175,7 +1184,10 @@ function act($) {
   } else if (e.device === "touch") {
     cursorPoint = null;
   }
-  const stage = interfaceLayout($.screen).stage;
+  const { stage, bar } = interfaceLayout($.screen);
+  const surface = { x: 0, y: 0, w: $.screen.width, h: bar.y };
+  const overSurface = (point) => point.x >= surface.x && point.x <= surface.x + surface.w &&
+    point.y >= surface.y && point.y <= surface.y + surface.h;
   const leaveFinishMode = () => {
     playCue($, "back");
     finishMode = false;
@@ -1192,8 +1204,7 @@ function act($) {
       ? finishMode ? "back" : "no"
       : rightControl.box.contains(e)
         ? finishMode ? "done" : "paint"
-        : e.x >= stage.x && e.x <= stage.x + stage.w &&
-            e.y >= stage.y && e.y <= stage.y + stage.h
+        : overSurface(e)
           ? "painting"
           : null;
     if (target !== hoveredDecision) {
@@ -1241,14 +1252,12 @@ function act($) {
     }
     if (
       e.is("lift:1") &&
-      e.x >= stage.x && e.x <= stage.x + stage.w &&
-      e.y >= stage.y && e.y <= stage.y + stage.h
+      overSurface(e)
     ) leaveFinishMode();
     return;
   }
 
-  const overPainting = e.x >= stage.x && e.x <= stage.x + stage.w &&
-    e.y >= stage.y && e.y <= stage.y + stage.h;
+  const overPainting = overSurface(e);
   if (e.is("touch:1") && overPainting) {
     paintingPressed = true;
     // The painting is the pause surface. Construct uses the same tactile
@@ -1263,8 +1272,7 @@ function act($) {
     loopState === "proposing" &&
     e.is("draw:1") &&
     e.drag &&
-    e.drag.x >= stage.x && e.drag.x <= stage.x + stage.w &&
-    e.drag.y >= stage.y && e.drag.y <= stage.y + stage.h
+    overSurface(e.drag)
   ) {
     paintingDragPaused = true;
     paintingPressed = false;
