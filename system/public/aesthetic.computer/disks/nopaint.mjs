@@ -28,6 +28,35 @@ let archiveOrigin = null;
 let paintingResolution = null;
 let finishMode = false;
 let doneCount = 0;
+const cuePlayers = new Map();
+
+const LEGACY_CUES = Object.freeze({
+  no: "generic - no button released (middle).webm",
+  paint: "generic - paint button released (cha).webm",
+  back: "generic - cancel.webm",
+  done: "generic - saved.webm",
+});
+
+function playCue(api, name) {
+  const fallback = () => api.synth?.({
+    type: name === "no" || name === "back" ? "triangle" : "sine",
+    tone: name === "no" ? 180 : name === "back" ? 260 : name === "done" ? 880 : 520,
+    duration: name === "done" ? 0.14 : 0.07,
+    volume: 0.16,
+    attack: 0.003,
+    decay: 0.08,
+  });
+  if (typeof Audio === "undefined" || !LEGACY_CUES[name]) return fallback();
+  let player = cuePlayers.get(name);
+  if (!player) {
+    player = new Audio(`https://nopaint.art/media/${LEGACY_CUES[name]}`);
+    player.preload = "auto";
+    player.volume = 0.72;
+    cuePlayers.set(name, player);
+  }
+  player.currentTime = 0;
+  player.play().catch(fallback);
+}
 
 function initialNavigationURL() {
   if (typeof window === "undefined") return null;
@@ -114,15 +143,21 @@ function positionButtons(screen) {
 
 const MARKER_GLYPHS = Object.freeze({
   N: [[[0, 1], [0, 0], [1, 1], [1, 0]]],
-  O: [[[0.2, 0], [0.8, 0], [1, 0.2], [1, 0.8], [0.8, 1], [0.2, 1], [0, 0.8], [0, 0.2], [0.2, 0]]],
+  o: [[[0.2, 0.3], [0.8, 0.3], [1, 0.48], [1, 0.82], [0.8, 1], [0.2, 1], [0, 0.82], [0, 0.48], [0.2, 0.3]]],
   P: [[[0, 1], [0, 0], [0.72, 0], [1, 0.2], [1, 0.45], [0.72, 0.58], [0, 0.58]]],
-  A: [[[0, 1], [0.5, 0], [1, 1]], [[0.2, 0.62], [0.8, 0.62]]],
-  I: [[[0.15, 0], [0.85, 0]], [[0.5, 0], [0.5, 1]], [[0.15, 1], [0.85, 1]]],
-  T: [[[0, 0], [1, 0]], [[0.5, 0], [0.5, 1]]],
+  a: [[[0, 0.55], [0.2, 0.32], [0.75, 0.32], [0.92, 0.5], [0.92, 1]], [[0.92, 0.55], [0.2, 0.55], [0, 0.72], [0.18, 0.95], [0.92, 0.72]]],
+  i: [[[0.5, 0.35], [0.5, 1]], [[0.5, 0.08], [0.5, 0.12]]],
+  n: [[[0, 1], [0, 0.35], [0.72, 0.35], [1, 0.55], [1, 1]]],
+  t: [[[0.5, 0.05], [0.5, 0.82], [0.7, 1], [0.95, 0.92]], [[0.12, 0.35], [0.9, 0.35]]],
+  B: [[[0, 1], [0, 0], [0.65, 0], [0.92, 0.18], [0.65, 0.5], [0, 0.5]], [[0.65, 0.5], [1, 0.68], [0.72, 1], [0, 1]]],
+  c: [[[0.95, 0.42], [0.75, 0.3], [0.2, 0.3], [0, 0.5], [0, 0.82], [0.2, 1], [0.8, 1], [1, 0.88]]],
+  k: [[[0, 0], [0, 1]], [[0.9, 0.32], [0, 0.7], [1, 1]]],
+  D: [[[0, 1], [0, 0], [0.55, 0], [1, 0.25], [1, 0.75], [0.55, 1], [0, 1]]],
+  e: [[[0, 0.68], [1, 0.68], [0.88, 0.42], [0.2, 0.3], [0, 0.52], [0.08, 0.88], [0.35, 1], [0.9, 0.92]]],
 });
 
 function paintMarkerLabel($, button, label, color) {
-  const letters = label.toUpperCase().split("");
+  const letters = label.split("");
   const glyphWidth = 0.72;
   const gap = 0.3;
   const unitsWide = letters.length * glyphWidth + Math.max(0, letters.length - 1) * gap;
@@ -190,6 +225,7 @@ function chooseProposal(api) {
 
 function discardProposal(api) {
   if (loopState !== "proposing" && loopState !== "paused") return;
+  playCue(api, "no");
   transition("discarding");
   recordDecision(api, "no");
   clearProposal(api);
@@ -265,6 +301,7 @@ function recordDecision({ store }, decision) {
 
 function commitProposal(api) {
   if (loopState !== "proposing" && loopState !== "paused") return;
+  playCue(api, "paint");
   transition("committing");
   recordDecision(api, "paint");
 
@@ -436,7 +473,9 @@ function boot({ colon, debug, hud, net, num, params, screen, store, system, ui, 
   backButton = new ui.TextButton("Back");
   positionButtons(screen);
 
-  hud.label("No Paint — No [N] / Paint [Enter]");
+  // A non-empty blank suppresses the runtime's default slug fallback without
+  // drawing instructional chrome over the painting.
+  hud.label(" ", [0, 0, 0, 0]);
   net.rewrite(archiveId ? `/nopaint~archive~${archiveId}` : `/nopaint:${sessionSeed}`);
   installTestHook(debug);
   chooseProposal(testApi);
@@ -637,6 +676,7 @@ function isAny(e, names) {
 function act($) {
   const { event: e } = $;
   const leaveFinishMode = () => {
+    playCue($, "back");
     finishMode = false;
     transition(stateBeforePause === "paused" ? "proposing" : stateBeforePause);
     $.needsPaint();
@@ -646,6 +686,7 @@ function act($) {
   if (finishMode) {
     backButton.btn.act(e, leaveFinishMode);
     doneButton.btn.act(e, () => {
+      playCue($, "done");
       doneCount += 1;
       publishTestState();
       if (!initialNavigationURL()?.searchParams.has("test")) $.jump("done");
