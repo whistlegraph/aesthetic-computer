@@ -351,9 +351,9 @@ try {
     let finishing = await ac.nopaintState();
     await receipt("05-done-ready");
     expect(finishing?.finishMode === true, "tapping the painting enters completion mode");
-    expect(finishing?.audio?.events?.some(({ name }) => name === "button-down") &&
-      finishing?.audio?.events?.some(({ name }) => name === "button-up"),
-    "painting tap emits button press and release cues");
+    expect(finishing?.audio?.events?.some(({ name }) => name === "pause-down") &&
+      finishing?.audio?.events?.some(({ name }) => name === "pause-in"),
+    "painting tap emits the same tactile pause cues as Space");
     expect(
       Object.keys(finishing?.controls || {}).join(",") === "back,done",
       "Back and Done replace the painting decisions",

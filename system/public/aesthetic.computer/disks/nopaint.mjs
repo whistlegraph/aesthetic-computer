@@ -299,13 +299,20 @@ function paintMarkerLabel($, button, label, color) {
   });
 }
 
-function paintDecisionButton($, button, label, light = false) {
+function paintDecisionButton($, button, label, flavor = "no") {
   const active = button.down || button.over;
-  $.ink(light ? [250, 250, 250, active ? 235 : 205] : [205, 38, 48, active ? 255 : 235])
+  const palette = flavor === "paint"
+    ? { fill: [250, 250, 250, active ? 235 : 205], ink: [20, 20, 20] }
+    : flavor === "back"
+      ? { fill: [232, 119, 28, active ? 255 : 235], ink: [255, 250, 235] }
+      : flavor === "done"
+        ? { fill: [45, 170, 76, active ? 255 : 235], ink: [245, 255, 245] }
+        : { fill: [205, 38, 48, active ? 255 : 235], ink: [255, 245, 235] };
+  $.ink(palette.fill)
     .box(button.box, "fill")
-    .ink(light ? [20, 20, 20] : [255, 255, 255])
+    .ink(palette.ink)
     .box(button.box, "outline");
-  paintMarkerLabel($, button, label, light ? [20, 20, 20] : [255, 245, 235]);
+  paintMarkerLabel($, button, label, palette.ink);
 }
 
 function paintOriginalCursor($) {
@@ -879,11 +886,11 @@ function paint($) {
 
   positionButtons($.screen);
   if (finishMode) {
-    paintDecisionButton($, backButton.btn, "Back");
-    paintDecisionButton($, doneButton.btn, "Done", true);
+    paintDecisionButton($, backButton.btn, "Back", "back");
+    paintDecisionButton($, doneButton.btn, "Done", "done");
   } else {
     paintDecisionButton($, noButton.btn, "No");
-    paintDecisionButton($, paintButton.btn, "Paint", true);
+    paintDecisionButton($, paintButton.btn, "Paint", "paint");
   }
   paintOriginalCursor($);
   return loopState === "proposing";
@@ -958,7 +965,11 @@ function act($) {
         playCue($, "done");
         doneCount += 1;
         publishTestState();
-        if (!initialNavigationURL()?.searchParams.has("test")) $.jump("done");
+        // `done` is a Prompt command, not a piece. Autorun the canonical
+        // completion pipeline so it uploads and yields `painting#CODE`.
+        if (!initialNavigationURL()?.searchParams.has("test")) {
+          $.jump("prompt~done~!autorun");
+        }
       },
     });
     if (
@@ -973,7 +984,9 @@ function act($) {
     e.y >= stage.y && e.y <= stage.y + stage.h;
   if (e.is("touch:1") && overPainting) {
     paintingPressed = true;
-    playCue($, "button-down");
+    // The painting is the pause surface. Construct uses the same tactile
+    // press vocabulary heard on Space here, not a generic UI-button click.
+    playCue($, "pause-down");
     setDecisionHeld(true);
     $.needsPaint();
     publishTestState();
@@ -1028,7 +1041,7 @@ function act($) {
     if (!paintingPressed) return;
     paintingPressed = false;
     setDecisionHeld(false);
-    playCue($, "button-up");
+    playCue($, "pause-in");
     stopBrushCue();
     finishMode = true;
     stateBeforePause = loopState;
