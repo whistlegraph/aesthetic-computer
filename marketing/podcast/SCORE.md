@@ -28,7 +28,9 @@ content-hash cached (`out/cache/`), so re-runs are free.
 
 1. **`essay-to-script.mjs`** — strips LaTeX/Markdown to clean spoken prose.
    Drops footnotes, section headings, colophon, URLs; keeps the argument. Emits
-   `{ title, author, date, paragraphs[], wordCount }`.
+   `{ title, author, date, paragraphs[], wordCount }`. Spoken-form replacements
+   expand print abbreviations such as `Ave` to `Avenue` without changing the
+   canonical essay.
 2. **`jingle.mjs`** — synthesizes `intro.wav` / `outro.wav`: a short pentatonic
    bell motif (ascending in, resolving out). Deterministic, $0, no samples.
 3. **`cover.mjs`** — one canonical PALS-mark cover identity for the series and
@@ -38,8 +40,11 @@ content-hash cached (`out/cache/`), so re-runs are free.
 4. **`produce.mjs`** — the orchestrator. Narrates intro + each paragraph + outro
    via `/api/say`, measures the real body duration with ffprobe to fill in the
    announced length, assembles jingle + VO + paragraph breaths with ffmpeg
-   (loudnorm → mp3), embeds the cover, and writes a metadata sidecar
-   `out/<slug>.json`. Output: `out/<slug>.mp3`.
+   (loudnorm → mp3), embeds the cover, then runs the delivered body back through
+   local Whisper. The round-trip report at `out/<slug>-speech-qa.json` compares
+   heard words with the spoken script and identifies phrases for human review.
+   It checks intelligibility, not prosody. The metadata sidecar records the QA
+   status. Output: `out/<slug>.mp3`.
 5. **`feed.mjs`** — aggregates the sidecars into `out/index.json` (catalog) +
    `out/feed.xml` (RSS 2.0 + iTunes), and renders the series cover `out/cover.png`.
    Filtered by the shared publish allowlist `lib/hosted.mjs`.
@@ -81,6 +86,7 @@ node bin/ship.mjs <slug> --papers # also deploy the papers PDF + index
 Legacy self-hosted feed: `node bin/feed.mjs && node bin/publish.mjs --push`.
 
 Flags: `--open` (slab-afplay the result), `--force` (bypass say cache),
+`--forceqa` (bypass Whisper QA cache), `--noqa` (skip Whisper QA),
 `--bedstyle sosoft|lofi`, `--bedgain 0.34`, `--nobed`,
 `--stability 0.55 --similarity 0.8 --speed 0.98` (voice tuning),
 `--base <url>` on `feed.mjs` (override the asset host).

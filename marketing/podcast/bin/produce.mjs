@@ -23,6 +23,7 @@ import { essayToScript } from "./essay-to-script.mjs";
 import { renderJingles, renderBed, renderSineBed, BED_BPM } from "./jingle.mjs";
 import { renderCover } from "./cover.mjs";
 import { master } from "./master.mjs";
+import { verifySpeech } from "./verify-speech.mjs";
 import { EPISODE_SUBSTRATE, DEFAULT_SUBSTRATE } from "../lib/substrates.mjs";
 import { hosted } from "../lib/hosted.mjs";
 
@@ -363,9 +364,31 @@ execFileSync("ffmpeg", [
   outMp3,
 ], { stdio: "ignore" });
 
-rmSync(build, { recursive: true, force: true });
 console.log(`  cover: ${coverFull}`);
 const total = dur(outMp3);
+
+// Final intelligibility pass: transcribe the delivered body (voice + score)
+// back through local Whisper and compare it with the spoken script. This is a
+// review aid, not a substitute for listening to pronunciation and delivery.
+let speechQa;
+if (!flags.noqa) {
+  console.log("Speech QA… (Whisper round-trip)");
+  const speechQaPath = resolve(ROOT, "out", `${script.slug}-speech-qa.json`);
+  speechQa = verifySpeech({
+    audioPath: outMp3,
+    units: cues,
+    outPath: speechQaPath,
+    workDir: build,
+    force: FORCE || flags.forceqa === true,
+  });
+  const qaDetail = speechQa.status === "unavailable"
+    ? speechQa.reason
+    : `${(speechQa.wordErrorRate * 100).toFixed(1)}% WER · ${speechQa.issues.length} review candidates${speechQa.cached ? " · cached" : ""}`;
+  console.log(`  ${speechQa.status === "pass" ? "✓" : "!"} ${speechQa.status}: ${qaDetail}`);
+  console.log(`  qa:    ${speechQaPath}`);
+}
+
+rmSync(build, { recursive: true, force: true });
 
 // Episode metadata sidecar → drives the RSS feed / index.json. Preserve the
 // original pubDate across re-runs so the feed order stays stable.
@@ -383,6 +406,7 @@ writeFileSync(sidecarPath, JSON.stringify({
   link: script.link || undefined,
   paper: script.paper || undefined,
   musicBed: flags.nobed ? "none" : bedStyle,
+  speechQa: speechQa ? { status: speechQa.status, wordErrorRate: speechQa.wordErrorRate } : undefined,
   audio: `${script.slug}.mp3`, cover: `${script.slug}-cover.png`,
   source: positional[0], pubDate,
 }, null, 2) + "\n");

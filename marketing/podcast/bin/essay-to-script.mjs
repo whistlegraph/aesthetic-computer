@@ -203,6 +203,15 @@ function parseMd(raw) {
   return { title, date, author, link, body };
 }
 
+// Print copy and spoken copy have different jobs. Expand compact written
+// abbreviations only in the narration script so an address reads naturally
+// without rewriting the canonical essay.
+function normalizeSpokenForms(text) {
+  return text
+    .replace(/\bAve\.(?=\s|$)/g, "Avenue")
+    .replace(/\bAve\b/g, "Avenue");
+}
+
 export function essayToScript(path) {
   const raw = readFileSync(path, "utf8");
   const isTex = path.endsWith(".tex");
@@ -210,7 +219,7 @@ export function essayToScript(path) {
 
   const paragraphs = body
     .split(/\n\s*\n/)
-    .map((p) => p.replace(/\s+/g, " ").trim())
+    .map((p) => normalizeSpokenForms(p.replace(/\s+/g, " ").trim()))
     .filter((p) => p.length > 1);
 
   const wordCount = paragraphs.join(" ").split(/\s+/).filter(Boolean).length;
