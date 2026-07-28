@@ -900,9 +900,29 @@ function isAny(e, names) {
   return names.some((name) => e.is(name));
 }
 
+function xboxButtonPush(e) {
+  const match = e.name?.match(/^gamepad:\d+:button:(\d+):push$/);
+  return match ? Number(match[1]) : null;
+}
+
+export function nopaintXboxAction(button, completing = false) {
+  if (completing) {
+    if (button === 0 || button === 15) return "done";
+    if ([1, 2, 3, 8, 14].includes(button)) return "back";
+    return null;
+  }
+  if ([1, 2, 14].includes(button)) return "no";
+  if (button === 0 || button === 15) return "paint";
+  if (button === 3 || button === 8) return "finish";
+  if (button === 9) return "pause";
+  return null;
+}
+
 // 🎪 Act — every input surface reaches the same two decision functions.
 function act($) {
   const { event: e } = $;
+  const xboxButton = xboxButtonPush(e);
+  const xboxAction = nopaintXboxAction(xboxButton, finishMode);
   let cursorDeltaX = 0;
   if (e.device === "mouse" && Number.isFinite(e.x) && Number.isFinite(e.y)) {
     cursorDeltaX = cursorPoint ? e.x - cursorPoint.x : 0;
@@ -972,6 +992,21 @@ function act($) {
         }
       },
     });
+    // Xbox parity: A/Right confirms Done; B/X/Left goes Back; Y/View toggles
+    // the same completion surface as tapping the painting.
+    if (xboxAction === "done") {
+      playCue($, "done");
+      doneCount += 1;
+      publishTestState();
+      if (!initialNavigationURL()?.searchParams.has("test")) {
+        $.jump("prompt~done~!autorun");
+      }
+      return;
+    }
+    if (xboxAction === "back") {
+      leaveFinishMode();
+      return;
+    }
     if (
       e.is("lift:1") &&
       e.x >= stage.x && e.x <= stage.x + stage.w &&
@@ -1064,7 +1099,7 @@ function act($) {
     "voice:no",
     "robot:no",
     "nopaint:no",
-  ])) discardProposal($);
+  ]) || xboxAction === "no") discardProposal($);
 
   if (isAny(e, [
     "keyboard:down:enter",
@@ -1073,9 +1108,22 @@ function act($) {
     "voice:paint",
     "robot:paint",
     "nopaint:paint",
-  ])) commitProposal($);
+  ]) || xboxAction === "paint") commitProposal($);
 
-  if (e.is("keyboard:down:space")) {
+  // Y and View are the pointer-free equivalent of tapping the painting.
+  if (xboxAction === "finish") {
+    playCue($, "pause-down");
+    playCue($, "pause-in");
+    stopBrushCue();
+    finishMode = true;
+    stateBeforePause = loopState;
+    transition("paused");
+    $.needsPaint();
+    publishTestState();
+    return;
+  }
+
+  if (e.is("keyboard:down:space") || xboxAction === "pause") {
     playCue($, "pause-down");
     togglePaused($);
   }
@@ -1098,7 +1146,7 @@ function meta() {
   return {
     title: "No Paint",
     desc: "Collaborate with a proposing machine: press No to discard or Paint to keep.",
-    controls: "No: Left/N/Escape · Paint: Right/Enter/P · pause: Space or drag painting",
+    controls: "No: Left/N/Escape/B/X · Paint: Right/Enter/P/A · finish: Y/View · pause: Space/Menu or drag painting",
     params: "optional deterministic session seed",
     example: "nopaint award-entry",
   };

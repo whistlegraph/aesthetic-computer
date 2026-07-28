@@ -1,4 +1,5 @@
 import { nopaintProposal as lineProposal } from "../system/public/aesthetic.computer/disks/line.mjs";
+import { nopaintXboxAction } from "../system/public/aesthetic.computer/disks/nopaint.mjs";
 import {
   makeProposal,
   seededRandom,
@@ -6,6 +7,22 @@ import {
 } from "../system/public/aesthetic.computer/lib/nopaint-proposals.mjs";
 
 describe("No Paint compatible brush proposals", () => {
+  it("maps the complete Xbox control surface without a pointer", () => {
+    expect(nopaintXboxAction(0)).toBe("paint");
+    expect(nopaintXboxAction(1)).toBe("no");
+    expect(nopaintXboxAction(2)).toBe("no");
+    expect(nopaintXboxAction(3)).toBe("finish");
+    expect(nopaintXboxAction(8)).toBe("finish");
+    expect(nopaintXboxAction(9)).toBe("pause");
+    expect(nopaintXboxAction(14)).toBe("no");
+    expect(nopaintXboxAction(15)).toBe("paint");
+    expect(nopaintXboxAction(0, true)).toBe("done");
+    expect(nopaintXboxAction(3, true)).toBe("back");
+    expect(nopaintXboxAction(8, true)).toBe("back");
+    expect(nopaintXboxAction(14, true)).toBe("back");
+    expect(nopaintXboxAction(15, true)).toBe("done");
+  });
+
   it("lets Line own a deterministic, bounded parameter score", () => {
     const make = () => {
       const random = seededRandom(seedFrom("line-test-3"));
