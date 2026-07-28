@@ -12,7 +12,7 @@ const timeline = JSON.parse(readFileSync(resolve(REEL, "out/narration-timeline.j
 const timingById = new Map(timeline.lines.map((line) => [line.id, line]));
 
 const REVIEW_VIDEO = "https://drive.google.com/file/d/17jMTkVX7OCekLxKq8X1-4iRLrWzMA0E5/view";
-const REVIEW_DOC = "https://docs.google.com/document/d/1yJH9n1Xg_90VN7Shmu07Q1NOIwlPIlL0gU5mz9mYfps/edit";
+const REVIEW_DOC = "https://docs.google.com/document/d/13YiibAH8Jfsyq-qZ3ugHpxF6XulM-hY8GDo_f854Hd0/edit";
 const ARTICLE = "https://sosoft.arts.ucla.edu/keymaps-as-social-software/";
 const FINAL_SOURCE = "https://docs.google.com/document/d/1hNzUm3SmsEBRtM3zWhcQqsYvsoRf4ZioFIQMFndlwXY/edit";
 
@@ -45,12 +45,15 @@ const html = `<!doctype html>
 </style></head><body>
 <h1>Scores for Social Software</h1>
 <p><strong>Revision 03 video receipt + timecoded screenplay</strong></p>
-<p class="meta">Review cut · 02:57 · 1080 × 1920 vertical · prepared 27 July 2026</p>
+<p class="meta">Review cut · 02:55 · 1080 × 1920 vertical · prepared 27 July 2026</p>
 <h3>Review links</h3>
 <p class="links"><a href="${REVIEW_VIDEO}">Watch the revision 03 review video</a><a href="${REVIEW_DOC}">Comment on the Google Doc screenplay</a><a href="${FINAL_SOURCE}">Open the final article source + Casey edit log</a><a href="${ARTICLE}">Open the published article: The Keymap Is the Score</a></p>
 <h3>How to review</h3>
 <p>Comment on the words or image you want changed and include the stable scene ID. Script, timing, image choice, and crop notes are all welcome.</p>
 <p>The current voice is a temporary guide. This screenplay is the review surface before Jeffrey records the final narration in Narrator Wizard.</p>
+<h3>What changed in revision 03</h3>
+<p><strong>Casey’s copy feedback.</strong> Corrected the Æther description, replaced the limiting “same question” conclusion, and incorporated the accepted Google Doc copy edits into the published article and screenplay.</p>
+<p><strong>Event documentation.</strong> The closing now moves through Casey’s June 13 Fuser photographs: the room, presentation, cohort, audience, and floor performance.</p>
 ${scenes}
 </body></html>`;
 

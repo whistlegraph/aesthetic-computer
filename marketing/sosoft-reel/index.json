@@ -42,7 +42,7 @@
     "style": "lowercase, calm, descriptive"
   },
   "items": [
-    {"order": 1, "artist": "Jeffrey Alan Scudder", "title": "Notepat", "unboxingTime": 140, "visualDescription": "A folded white user manual opens into a pointed shape, combining an illustrated player, a QR code, instructions, and circular keyboard diagrams.", "status": "identified"},
+    {"order": 1, "artist": "Jeffrey Alan Scudder", "title": "Notepat", "unboxingTime": 140, "visualDescription": "A folded white research paper combines an illustrated player, a QR code, instructions, and circular keyboard diagrams.", "status": "identified"},
     {"order": 2, "artist": "Æther Cavendish", "title": "Vigil Score", "unboxingTime": 215, "visualDescription": "A matte-black folded packet is closed by a small circular silver seal.", "status": "identified"},
     {"order": 3, "artist": "Chelly Jin", "title": "Software as a Choreography", "unboxingTime": 250, "visualDescription": "A white score sheet presents a grid of black silhouetted hands and arms paired with timing and movement marks.", "status": "identified"},
     {"order": 4, "artist": "Jordan Silver", "title": "Sonic Architecture", "unboxingTime": 300, "visualDescription": "A single sheet combines printed columns, the large numbers 375 and 136, typewritten spatial commands, and a bold looping spiral diagram.", "status": "identified"},

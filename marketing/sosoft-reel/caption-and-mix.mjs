@@ -4,7 +4,7 @@ import { once } from "node:events";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createCanvas, registerFont } from "canvas";
+import { createCanvas, loadImage, registerFont } from "canvas";
 import { renderSineBed } from "../podcast/bin/jingle.mjs";
 import { makeSosoftSideIdentity } from "../lib/sosoft-side-identity.mjs";
 import { loadNarrationSource, loadNarrationTimeline, sceneStart } from "./timing.mjs";
@@ -51,6 +51,20 @@ for (let i = 0; i < words.length;) {
 const SOURCE_W = 1620;
 const canvas = createCanvas(W, H), ctx = canvas.getContext("2d");
 const videoCanvas = createCanvas(SOURCE_W, H), videoCtx = videoCanvas.getContext("2d");
+const eventDocumentation = [
+  { id: "SS-187", file: "187-PXL_20260613_181248080.jpg" },
+  { id: "SS-207", file: "207-PXL_20260613_194004087.jpg" },
+  { id: "SS-220", file: "220-PXL_20260613_201009709.jpg" },
+  { id: "SS-230", file: "230-PXL_20260613_202347418.jpg" },
+  { id: "SS-245", file: "245-PXL_20260613_202953418.jpg" },
+].map((entry) => ({
+  ...entry,
+  path: resolve(ROOT, "index", "thumbs", entry.file),
+}));
+const eventImages = await Promise.all(eventDocumentation.map(async (entry) => ({
+  ...entry,
+  image: await loadImage(entry.path),
+})));
 const FRAME_BYTES = SOURCE_W * H * 4;
 const frame = Buffer.alloc(FRAME_BYTES);
 const image = videoCtx.createImageData(SOURCE_W, H);
@@ -336,6 +350,68 @@ function drawVideo(ms) {
   ctx.drawImage(videoCanvas, sx, sy, sw, sh, 0, 0, W, H);
 }
 
+function drawEventDocumentation(ms) {
+  const start = chapters[11].fromMs;
+  if (ms < start || !eventImages.length) return false;
+  const slideDuration = Math.max(1, (duration * 1000 - start) / eventImages.length);
+  const slidePosition = Math.max(0, (ms - start) / slideDuration);
+  const slideIndex = Math.min(eventImages.length - 1, Math.floor(slidePosition));
+  const local = slidePosition - slideIndex;
+  const transition = 0.12;
+
+  ctx.save();
+  ctx.fillStyle = mixHex(chapterBlues[11], "#061824", 0.84);
+  ctx.fillRect(0, 0, W, H);
+
+  const drawSlide = (entry, alpha, progress, offsetX = 0) => {
+    if (!entry || alpha <= 0) return;
+    const image = entry.image;
+    const maxWidth = 1010;
+    // Leave a clean caption lane below the documented moment. Portrait
+    // performance frames stop above the subtitle baseline instead of floating
+    // behind it.
+    const maxHeight = image.height > image.width ? 940 : 820;
+    const baseScale = Math.min(maxWidth / image.width, maxHeight / image.height);
+    const zoom = 1 + 0.035 * Math.max(0, Math.min(1, progress));
+    const dw = image.width * baseScale * zoom;
+    const dh = image.height * baseScale * zoom;
+    const x = (W - dw) / 2 + offsetX;
+    const y = image.height > image.width ? 210 - (dh - image.height * baseScale) * 0.35
+      : 250 - (dh - image.height * baseScale) * 0.35;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.shadowColor = "rgba(0, 10, 18, 0.42)";
+    ctx.shadowBlur = 18;
+    ctx.shadowOffsetY = 9;
+    ctx.fillStyle = "rgba(219, 240, 246, 0.96)";
+    ctx.fillRect(x - 8, y - 8, dw + 16, dh + 16);
+    ctx.shadowColor = "transparent";
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(image, x, y, dw, dh);
+    ctx.restore();
+  };
+
+  // A restrained contact-print cadence: one documented moment at a time,
+  // crossfading from the Fuser room to presentation, cohort, audience, and
+  // performance. The photographs remain sharp cards on a solid field—there
+  // is no blurred duplicate or artificial background fill.
+  const fadeOut = local > 1 - transition ? (local - (1 - transition)) / transition : 0;
+  drawSlide(eventImages[slideIndex], 1 - fadeOut, local, -18 * fadeOut);
+  if (fadeOut > 0 && slideIndex + 1 < eventImages.length) {
+    drawSlide(eventImages[slideIndex + 1], fadeOut, 0, 18 * (1 - fadeOut));
+  }
+
+  ctx.globalAlpha = 0.86;
+  ctx.fillStyle = "#9ce7de";
+  ctx.font = "bold 34px Arial";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("Fuser · June 13, 2026", W / 2, 124);
+  ctx.restore();
+  return true;
+}
+
 console.log(`burn exact captions · ${phrases.length} phrases`);
 // The recoverable sharp image is 1080x1280. Scale it to a sharp 1620x1920
 // aspect-fill source; the frame loop performs the smooth, chapter-aware crop.
@@ -368,7 +444,7 @@ for await (const chunk of dec.stdout) {
     if (off === FRAME_BYTES) {
       off = 0; image.data.set(frame); videoCtx.putImageData(image, 0, 0);
       const ms = (fi / FPS) * 1000;
-      drawVideo(ms);
+      if (!drawEventDocumentation(ms)) drawVideo(ms);
       drawCaptions(ms);
       const identityEnvelope = Math.max(0, Math.sin(ms / 1000 * Math.PI * 2 * 1.8)) ** 5;
       sideIdentity.draw(ctx, ms / 1000, identityEnvelope, pinkCaptionPulse(ms));

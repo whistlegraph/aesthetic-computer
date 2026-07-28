@@ -4,7 +4,7 @@ These are reel-length English descriptions of what is visibly removed from the b
 
 | Order | Artist / piece | What appears in the unboxing |
 |---:|---|---|
-| 1 | Jeffrey Alan Scudder — *Notepat* | A folded white user manual opens into an irregular, pointed shape. Its pages combine an illustrated seated player, dense instructions, a QR code, and circular keyboard/interface diagrams. |
+| 1 | Jeffrey Alan Scudder — *Notepat* | A folded white research paper combines an illustrated seated player, dense instructions, a QR code, and circular keyboard/interface diagrams. |
 | 2 | Æther Cavendish — *Vigil Score* | A matte-black folded packet is closed by a small circular silver seal. Its crisp folds and restrained surface make the packet itself the primary visible form. |
 | 3 | Chelly Jin — *Software as a Choreography* | A white score sheet presents a grid of black silhouetted hands and arms. Thin horizontal marks and arrows pair each gesture with timing and movement instructions. |
 | 4 | Jordan Silver — *Sonic Architecture* | A single sheet combines printed columns, the large numbers “375” and “136,” typewritten spatial commands, and a bold looping spiral diagram. One passage asks the reader to inhabit a space for seventy-five seconds and follow 136 cycles of sound. |

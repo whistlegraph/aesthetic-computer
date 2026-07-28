@@ -23,7 +23,7 @@ OUTPUT = REV / "scores-for-social-software-r03-receipt.docx"
 SCREENPLAY = REV / "screenplay.md"
 MASTER = OUT / "scores-for-social-software-captioned-08.mp4"
 REVIEW_VIDEO = "https://drive.google.com/file/d/17jMTkVX7OCekLxKq8X1-4iRLrWzMA0E5/view"
-REVIEW_DOC = "https://docs.google.com/document/d/1yJH9n1Xg_90VN7Shmu07Q1NOIwlPIlL0gU5mz9mYfps/edit"
+REVIEW_DOC = "https://docs.google.com/document/d/13YiibAH8Jfsyq-qZ3ugHpxF6XulM-hY8GDo_f854Hd0/edit"
 ARTICLE = "https://sosoft.arts.ucla.edu/keymaps-as-social-software/"
 FINAL_SOURCE = "https://docs.google.com/document/d/1hNzUm3SmsEBRtM3zWhcQqsYvsoRf4ZioFIQMFndlwXY/edit"
 
@@ -69,7 +69,9 @@ FRAMES.mkdir(parents=True, exist_ok=True)
 for beat in beats:
     slug = beat["id"].lower()
     frame = FRAMES / f"{slug}.jpg"
-    offset = 6.5 if beat["id"] == "SSF-00" else (7.0 if beat["id"] == "SSF-11" else 1.0)
+    # Sample the closing after its first transition so the receipt visibly
+    # records the new Fuser documentation rather than a crossfade boundary.
+    offset = 6.5 if beat["id"] == "SSF-00" else (9.5 if beat["id"] == "SSF-11" else 1.0)
     at = min(beat["endSec"] - 0.2, beat["startSec"] + offset)
     subprocess.run(
         [
@@ -124,7 +126,7 @@ p = doc.add_paragraph()
 r = p.add_run("Revision 03 video receipt + timecoded screenplay")
 r.bold = True
 r.font.size = Pt(14)
-p = doc.add_paragraph("Review cut · 02:57 · 1080 × 1920 vertical · prepared 27 July 2026")
+p = doc.add_paragraph("Review cut · 02:55 · 1080 × 1920 vertical · prepared 27 July 2026")
 p.runs[0].font.color.rgb = RGBColor(90, 90, 90)
 
 doc.add_heading("Review links", level=1)
@@ -145,11 +147,12 @@ doc.add_paragraph(
 
 doc.add_heading("What changed in revision 03", level=1)
 changes = (
+    ("Casey’s copy feedback", "Corrected the Æther packet description, replaced the limiting ‘same question’ conclusion, and incorporated the accepted Google Doc copy edits into the published article and screenplay."),
     ("Narration", "Added “64 hand-produced artist scores,” Jeffrey’s spoken introduction, the envelope invitation, two-edition context, and the Social Software Cohort 2 goodbye."),
     ("Identity", "Artists are pink, work titles are teal, names stay intact, and the SO/SOFT side stamps respond to each pink artist introduction."),
-    ("Picture", "Reframed Chelly Jin, rotated and filled Thomas Noya, centered Banyi Huang, lifted bottom-heavy crops, and sharpened the image with stronger black points."),
+    ("Picture", "Reframed Chelly Jin, rotated and filled Thomas Noya, centered Banyi Huang, lifted bottom-heavy crops, sharpened the image, and added Casey’s June 13 Fuser documentation to the closing."),
     ("Captions", "Raised and reduced the subtitles, removed the backdrop strip, added a restrained dark shadow, and added a proportional blue chapter progress bar."),
-    ("Sound and delivery", "Retimed the full picture spine to 02:57, expanded the music, balanced the guide voice, and exported a color-tagged BT.709 review cut."),
+    ("Sound and delivery", "Retimed the full picture spine to 02:55, expanded the music, balanced the guide voice, and exported a color-tagged BT.709 review cut."),
 )
 for label, text in changes:
     p = doc.add_paragraph()
@@ -205,6 +208,6 @@ for beat in beats:
         beat["text"],
         "",
     ))
-SCREENPLAY.write_text("\n".join(markdown) + "\n")
+SCREENPLAY.write_text("\n".join(markdown).rstrip() + "\n")
 print(OUTPUT)
 print(SCREENPLAY)

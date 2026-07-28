@@ -1,14 +1,14 @@
-# Narration draft 01
+# Narration — revision 03
 
 Voice: Jeffrey PVC, `neutral:0`. Read as an introduction to a collective object, not a review or ranking. Names and titles follow the blue colophon and official event page.
 
-**Timing:** 254 words. Approximately 1:42 at 150 wpm, 1:57 at 130 wpm, before brief title pauses. Target a 1:50–2:00 finished reel by letting visual overlaps absorb the pauses rather than holding every page in isolation.
+**Timing:** 377 words. The current guide cut is 2:55, including natural pauses and the closing event-documentation sequence.
 
 ## Continuous read
 
 This blue folder just arrived from Social Software at UCLA. Inside is *Scores for Social Software*, a spring 2026 edition of 64 hand-produced artist scores. The copy in my hands is number fifty-one, assembled after ten weeks of making, testing, and performing together.
 
-I’m Jeffrey Alan Scudder. My contribution is *Notepat*. A folded white user manual opens into a pointed shape, combining an illustrated player, a QR code, instructions, and circular keyboard diagrams.
+I’m Jeffrey Alan Scudder. My contribution is *Notepat*, a folded white research paper that combines an illustrated player, a QR code, instructions, and circular keyboard diagrams.
 
 Æther Cavendish’s *Vigil Score* arrives as a matte-black folded packet, closed with a small circular silver seal.
 
@@ -46,7 +46,7 @@ Casey Reas facilitated the cycle, with Lauren Lee McCarthy and the Social Softwa
 | 09 | banyi huang · a cosmographic score… | cosmographic drawing/spread |
 | 10 | alexander espinosa · music for world computers | computer/music score card; verify exact page before lock |
 | 11 | mavyn vu · the radio is an altar: portal | orange/yellow radio-altar print |
-| 12 | copy 51 of 64 | cover number + publication pile |
+| 12 | copy 51 of 64 | cover number, then June 13 Fuser room, presentation, cohort, audience, and performance documentation |
 
 ## Accuracy notes
 
