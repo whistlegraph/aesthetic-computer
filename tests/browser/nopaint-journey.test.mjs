@@ -244,6 +244,31 @@ try {
       "cursor uses Construct's logical frame replacements rather than atlas cycling");
   });
 
+  await scenario("Keyboard decisions commit on key-up and support cancellation", async (expect) => {
+    const before = await ac.nopaintState();
+    await ac.page.keyboard.down("ArrowLeft");
+    await ac.wait(120);
+    const heldNo = await ac.nopaintState();
+    expect(heldNo?.proposalNumber === before?.proposalNumber,
+      "holding Left does not perform No before key-up");
+    expect(heldNo?.audio?.decisionHeld === true,
+      "holding Left enters the same held state as pressing No");
+
+    await ac.page.keyboard.down("ArrowRight");
+    await ac.page.keyboard.up("ArrowLeft");
+    await ac.wait(100);
+    expect((await ac.nopaintState())?.proposalNumber === before?.proposalNumber,
+      "releasing a canceled key performs no action");
+
+    await ac.page.keyboard.up("ArrowRight");
+    await ac.wait(180);
+    const after = await ac.nopaintState();
+    expect(after?.proposalNumber === before?.proposalNumber + 1,
+      "releasing the currently held Right key performs Paint");
+    expect(after?.decisions?.at(-1)?.decision === "paint",
+      "the replacement key owns the final decision");
+  });
+
   await scenario("Pause freezes and resumes the live proposal", async (expect) => {
     await ac.press("Space");
     const paused = await ac.nopaintState();
@@ -390,6 +415,10 @@ try {
     expect(completed?.doneCount === 1, "Done invokes one in-place completion transaction");
     expect(completed?.completion?.code === "test" && completed?.completion?.stayedInNoPaint === true,
       "Done yields a #code without leaving the No Paint shim");
+    expect(completed?.finishMode === false && completed?.state === "proposing",
+      "Done clears the finished picture and resumes a fresh No Paint session");
+    expect(completed?.paintingFingerprint !== finishing?.paintingFingerprint,
+      "the fresh session starts from a cleared painting");
   });
 
   await scenario("An archive record can become the starting painting", async (expect) => {

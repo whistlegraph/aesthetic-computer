@@ -11,9 +11,12 @@ import {
   seedFrom,
 } from "../lib/nopaint-proposals.mjs";
 import { nopaintProposal as lineProposal } from "./line.mjs";
+import { darkWindowProposal, gridWormProposal } from "../lib/nopaint-construct-brushes.mjs";
 
 const COMPATIBLE_BRUSHES = Object.freeze(new Map([
   [lineProposal.slug, lineProposal],
+  [gridWormProposal.slug, gridWormProposal],
+  [darkWindowProposal.slug, darkWindowProposal],
 ]));
 
 let loopState = "choosing";
@@ -72,6 +75,7 @@ const BRUSH_CUES = Object.freeze({
   softy: "softy - landed.webm",
   bubbles: "bubbles - theme.webm",
   "grid-worm": "grid worm - theme.webm",
+  "dark-window": "dark window - note 1.webm",
   walker: "common - jitter.webm",
   banner: "banner - theme.webm",
   wafer: "wafer - nibble appear.webm",
@@ -84,6 +88,7 @@ let brushCueProposal = 0;
 let activeBrushSound = null;
 let activeBrushKind = null;
 let decisionHeld = false;
+let heldKeyboardDecision = null;
 
 // Exact frame rectangles and origins from Construct's Cursor object (ID 90).
 // The animated hand is the original `Over Button` sequence in cursor-sheet0.
@@ -653,6 +658,7 @@ function boot({ colon, debug, hud, net, num, params, screen, store, system, ui, 
   activeBrushSound = null;
   activeBrushKind = null;
   decisionHeld = false;
+  heldKeyboardDecision = null;
   lastDownload = null;
   archiveOrigin = archiveId ? {
     type: "nopaint-archive",
@@ -931,15 +937,6 @@ async function completePainting($) {
   $.needsPaint();
   publishTestState();
 
-  if (testMode) {
-    completionCode = "test";
-    completionProgress = 1;
-    completionBusy = false;
-    $.needsPaint();
-    publishTestState();
-    return;
-  }
-
   try {
     const painting = {
       width: $.system.painting.width,
@@ -948,17 +945,40 @@ async function completePainting($) {
       ...($.store["painting:tags"] ? { tags: $.store["painting:tags"] } : {}),
     };
     const filename = `painting-${$.num.timestamp()}.png`;
-    const data = await $.upload(filename, painting, (progress) => {
-      completionProgress = Math.max(0, Math.min(1, Number(progress) || 0));
-      $.needsPaint();
-      publishTestState();
-    });
+    const data = testMode
+      ? { code: "test" }
+      : await $.upload(filename, painting, (progress) => {
+          completionProgress = Math.max(0, Math.min(1, Number(progress) || 0));
+          $.needsPaint();
+          publishTestState();
+        });
     if (!data?.code) throw new Error("Painting upload completed without a code");
     completionCode = data.code;
     completionProgress = 1;
     $.system.painting.code = data.code;
     $.store["painting:code"] = data.code;
     $.store.persist?.("painting:code", "local:db");
+    const layout = interfaceLayout($.screen);
+    const nextResolution = {
+      w: $.screen.width,
+      h: Math.max(1, layout.bar.y),
+    };
+    await $.system.nopaint.noBang($, nextResolution);
+    paintingResolution = {
+      width: nextResolution.w,
+      height: nextResolution.h,
+    };
+    $.system.nopaint.buffer = $.painting(
+      nextResolution.w,
+      nextResolution.h,
+      (page) => page.wipe(255, 255, 255, 0),
+    );
+    proposal = null;
+    proposalFrame = 0;
+    decisions = [];
+    finishMode = false;
+    transition("proposing");
+    chooseProposal($);
   } catch (error) {
     completionError = error?.message || "Upload failed";
   } finally {
@@ -1148,22 +1168,43 @@ function act($) {
     publishTestState();
   }
   if (isAny(e, [
-    "keyboard:down:n",
-    "keyboard:down:arrowleft",
-    "keyboard:down:escape",
     "voice:no",
     "robot:no",
     "nopaint:no",
   ]) || xboxAction === "no") discardProposal($);
 
   if (isAny(e, [
-    "keyboard:down:enter",
-    "keyboard:down:p",
-    "keyboard:down:arrowright",
     "voice:paint",
     "robot:paint",
     "nopaint:paint",
   ]) || xboxAction === "paint") commitProposal($);
+
+  const keyDecision = isAny(e, [
+    "keyboard:down:n", "keyboard:down:arrowleft", "keyboard:down:escape",
+  ]) ? "no" : isAny(e, [
+    "keyboard:down:enter", "keyboard:down:p", "keyboard:down:arrowright",
+  ]) ? "paint" : null;
+  if (keyDecision) {
+    if (heldKeyboardDecision === keyDecision) return;
+    if (heldKeyboardDecision) playCue($, "back");
+    heldKeyboardDecision = keyDecision;
+    playCue($, keyDecision === "no" ? "no-down" : "paint-down");
+    setDecisionHeld(true);
+    publishTestState();
+    return;
+  }
+
+  const releasedDecision = isAny(e, [
+    "keyboard:up:n", "keyboard:up:arrowleft", "keyboard:up:escape",
+  ]) ? "no" : isAny(e, [
+    "keyboard:up:enter", "keyboard:up:p", "keyboard:up:arrowright",
+  ]) ? "paint" : null;
+  if (releasedDecision && heldKeyboardDecision === releasedDecision) {
+    heldKeyboardDecision = null;
+    if (releasedDecision === "no") discardProposal($);
+    else commitProposal($);
+    return;
+  }
 
   // Y and View are the pointer-free equivalent of tapping the painting.
   if (xboxAction === "finish") {
