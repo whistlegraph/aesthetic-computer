@@ -3,7 +3,7 @@
 
 import { createReadStream, existsSync, statSync } from "node:fs";
 import http from "node:http";
-import { extname, join, normalize } from "node:path";
+import { dirname, extname, join, normalize } from "node:path";
 
 const root = process.argv[2];
 const port = Number(process.argv[3] || 8888);
@@ -21,6 +21,7 @@ const types = {
   ".png": "image/png",
   ".svg": "image/svg+xml",
   ".wasm": "application/wasm",
+  ".webm": "audio/webm",
   ".woff2": "font/woff2",
 };
 
@@ -37,12 +38,16 @@ const shell = `<!doctype html>
 
 http.createServer((request, response) => {
   const pathname = decodeURIComponent(new URL(request.url, "http://localhost").pathname);
+  const isNoPaintArchiveAsset = pathname.startsWith("/nopaint.art/");
   const assetPath = pathname.startsWith("/aesthetic.computer/")
     ? pathname.slice("/aesthetic.computer".length)
-    : pathname;
+    : isNoPaintArchiveAsset
+      ? pathname.slice("/nopaint.art".length)
+      : pathname;
   const relative = normalize(assetPath).replace(/^[/\\]+/, "");
-  let file = join(root, relative);
-  if (!file.startsWith(root) || !existsSync(file) || statSync(file).isDirectory()) {
+  const assetRoot = isNoPaintArchiveAsset ? join(dirname(root), "nopaint.art") : root;
+  let file = join(assetRoot, relative);
+  if (!file.startsWith(assetRoot) || !existsSync(file) || statSync(file).isDirectory()) {
     response.writeHead(200, {
       "cache-control": "no-store",
       "content-type": "text/html; charset=utf-8",

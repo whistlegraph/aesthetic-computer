@@ -28,7 +28,8 @@ let archiveOrigin = null;
 let paintingResolution = null;
 let finishMode = false;
 let doneCount = 0;
-const cuePlayers = new Map();
+const cueSamples = new Map();
+let cueEvents = [];
 
 const LEGACY_CUES = Object.freeze({
   no: "generic - no button released (middle).webm",
@@ -38,24 +39,22 @@ const LEGACY_CUES = Object.freeze({
 });
 
 function playCue(api, name) {
-  const fallback = () => api.synth?.({
+  const fallback = () => api.sound?.synth?.({
     type: name === "no" || name === "back" ? "triangle" : "sine",
     tone: name === "no" ? 180 : name === "back" ? 260 : name === "done" ? 880 : 520,
     duration: name === "done" ? 0.14 : 0.07,
     volume: 0.16,
     attack: 0.003,
     decay: 0.08,
+    immediate: true,
   });
-  if (typeof Audio === "undefined" || !LEGACY_CUES[name]) return fallback();
-  let player = cuePlayers.get(name);
-  if (!player) {
-    player = new Audio(`https://nopaint.art/media/${LEGACY_CUES[name]}`);
-    player.preload = "auto";
-    player.volume = 0.72;
-    cuePlayers.set(name, player);
+  const sample = cueSamples.get(name);
+  if (sample && api.sound?.play) {
+    cueEvents.push({ name, path: "legacy" });
+    return api.sound.play(sample, { volume: 0.72 });
   }
-  player.currentTime = 0;
-  player.play().catch(fallback);
+  cueEvents.push({ name, path: "synth" });
+  return fallback();
 }
 
 function initialNavigationURL() {
@@ -369,6 +368,10 @@ function testSnapshot() {
     saveCount,
     finishMode,
     doneCount,
+    audio: {
+      ready: [...cueSamples.keys()],
+      events: cueEvents.map((event) => ({ ...event })),
+    },
     lastDownload,
     ready: Boolean(proposal && testApi?.system?.nopaint?.buffer),
     controls: finishMode
@@ -443,6 +446,7 @@ function boot({ colon, debug, hud, net, num, params, screen, store, system, ui, 
   saveCount = 0;
   finishMode = false;
   doneCount = 0;
+  cueEvents = [];
   lastDownload = null;
   archiveOrigin = archiveId ? {
     type: "nopaint-archive",
@@ -472,6 +476,14 @@ function boot({ colon, debug, hud, net, num, params, screen, store, system, ui, 
   doneButton = new ui.TextButton("Done");
   backButton = new ui.TextButton("Back");
   positionButtons(screen);
+
+  if (typeof net.preload === "function") {
+    for (const [name, filename] of Object.entries(LEGACY_CUES)) {
+      net.preload(`/nopaint.art/media/${filename}`)
+        .then((sample) => cueSamples.set(name, sample))
+        .catch(() => {}); // playCue supplies an immediate native synth fallback.
+    }
+  }
 
   // A non-empty blank suppresses the runtime's default slug fallback without
   // drawing instructional chrome over the painting.

@@ -133,6 +133,8 @@ try {
       after?.paintingFingerprint === before?.paintingFingerprint,
       "No leaves the accepted painting unchanged",
     );
+    expect(after?.audio?.events?.at(-1)?.name === "no", "No emits its interaction cue");
+    expect(after?.audio?.events?.at(-1)?.path === "legacy", "No uses the recovered Construct sample");
   });
 
   await scenario("Paint commits and persists the proposal score", async (expect) => {
@@ -146,6 +148,8 @@ try {
       after?.paintingFingerprint !== before?.paintingFingerprint,
       "Paint changes the accepted painting",
     );
+    expect(after?.audio?.events?.at(-1)?.name === "paint", "Paint emits its interaction cue");
+    expect(after?.audio?.events?.at(-1)?.path === "legacy", "Paint uses the recovered Construct sample");
   });
 
   await scenario("Pause freezes and resumes the live proposal", async (expect) => {
