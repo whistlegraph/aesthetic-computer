@@ -14,8 +14,9 @@ describe("Whistlegraph Open Graph previews", () => {
     expect(response.statusCode).toBe(200);
     expect(response.body).toContain('<meta property="og:title" content="Hey There, Apple">');
     expect(response.body).toContain(`<meta property="og:image" content="${apple.thumb}">`);
+    expect(response.body).toContain(`<meta property="og:video" content="${apple.src}">`);
+    expect(response.body).toContain('<meta property="og:video:type" content="video/mp4">');
     expect(response.body).toContain('<meta property="og:type" content="website">');
-    expect(response.body).not.toContain('<meta property="og:video"');
   });
 
   it("gives stable post links their own archive preview", async () => {

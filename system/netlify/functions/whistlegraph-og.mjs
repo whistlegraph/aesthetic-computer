@@ -60,6 +60,7 @@ function load() {
       return [work.code, {
         ...work,
         thumb: work.thumb || visual?.thumb,
+        ogVideo: visual?.src || videoFor(visual?.thumb),
       }];
     }));
     const byPost = new Map(posts.map((post) => [String(post.id), post]));
@@ -108,6 +109,7 @@ export const handler = async (event) => {
     const yr = work.year ? ` (${work.year})` : "";
     const desc = `${title} — a whistlegraph${by}${yr}. A drawing you sing; the score teaches you how to play it.`;
     const img = work.thumb || DEFAULT_IMG;
+    const vid = work.ogVideo;
     const url = `https://whistlegraph.org/${code}`;
 
     html = html
@@ -127,6 +129,13 @@ export const handler = async (event) => {
           `<meta property="og:image:secure_url" content="${esc(img)}">`,
           `<meta property="og:image:type" content="image/jpeg">`,
           `<meta property="og:image:alt" content="${esc(`Final glyph of ${title}`)}">`,
+          ...(vid
+            ? [
+                `<meta property="og:video" content="${esc(vid)}">`,
+                `<meta property="og:video:secure_url" content="${esc(vid)}">`,
+                `<meta property="og:video:type" content="video/mp4">`,
+              ]
+            : []),
           `<meta property="og:url" content="${esc(url)}">`,
           `<meta property="og:type" content="website">`,
           `<meta name="twitter:card" content="summary_large_image">`,
