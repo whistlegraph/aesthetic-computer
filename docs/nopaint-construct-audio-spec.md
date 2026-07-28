@@ -24,6 +24,12 @@ release on the other. Crossing replays the destination's press cue; only the
 control under release performs the decision. Passive mouse hover uses the
 rollover cue once on entry rather than on every movement tick.
 
+The Construct sheets contain no passive hover condition for `Painting`,
+`PaintingBuffer`, or `PaintingOverlay`. No Paint 3.0 deliberately extends the
+grammar by playing the same restrained rollover sample once when the pointer
+enters the painting. This is a new behavior requested for the native version,
+not a claim of restoration fidelity.
+
 ## Pause, completion, and saving
 
 | Action | Canonical asset |

@@ -30,6 +30,8 @@ let finishMode = false;
 let doneCount = 0;
 let paintingDragPaused = false;
 let hoveredDecision = null;
+let cursorSheet = null;
+let cursorPoint = null;
 const cueSamples = new Map();
 let cueEvents = [];
 
@@ -68,6 +70,24 @@ let brushCueProposal = 0;
 let activeBrushSound = null;
 let activeBrushKind = null;
 
+// Exact frame rectangles and origins from Construct's Cursor object (ID 90).
+// The animated hand is the original `Over Button` sequence in cursor-sheet0.
+const CURSOR_FRAMES = Object.freeze({
+  normal: Object.freeze([
+    { x: 52, y: 33, w: 11, h: 15, ox: 1 / 11, oy: 1 / 15 },
+    { x: 1, y: 33, w: 12, h: 19, ox: 8 / 12, oy: 0.22180451127819545 },
+  ]),
+  hand: Object.freeze([
+    { x: 35, y: 33, w: 15, h: 17, ox: 0.2, oy: 2 / 17 },
+    { x: 35, y: 1, w: 15, h: 17, ox: 0.2, oy: 2 / 17 },
+    { x: 18, y: 20, w: 15, h: 17, ox: 0.2, oy: 2 / 17 },
+    { x: 1, y: 1, w: 15, h: 18, ox: 1 / 15, oy: 0 },
+    { x: 15, y: 39, w: 15, h: 15, ox: 4 / 15, oy: 2 / 15 },
+    { x: 18, y: 1, w: 15, h: 17, ox: 0.2, oy: 1 / 17 },
+    { x: 33, y: 65, w: 14, h: 16, ox: 2 / 14, oy: 0 },
+  ]),
+});
+
 function playCue(api, name) {
   const fallback = () => api.sound?.synth?.({
     type: name === "no" || name === "back" ? "triangle" : "sine",
@@ -78,7 +98,8 @@ function playCue(api, name) {
     decay: 0.08,
     immediate: true,
   });
-  const sample = cueSamples.get(name);
+  const sample = cueSamples.get(name) ||
+    (name === "painting-hover" ? cueSamples.get("rollover") : null);
   if (sample && api.sound?.play) {
     cueEvents.push({ name, path: "legacy" });
     return api.sound.play(sample, { volume: 0.72 });
@@ -264,6 +285,23 @@ function paintDecisionButton($, button, label, light = false) {
     .ink(light ? [20, 20, 20] : [255, 255, 255])
     .box(button.box, "outline");
   paintMarkerLabel($, button, label, light ? [20, 20, 20] : [255, 245, 235]);
+}
+
+function paintOriginalCursor($) {
+  if (!cursorSheet || !cursorPoint) return;
+  const frames = hoveredDecision ? CURSOR_FRAMES.hand : CURSOR_FRAMES.normal;
+  const cadence = hoveredDecision ? 4 : 18;
+  const frame = frames[Math.floor(proposalFrame / cadence) % frames.length];
+  const scale = Math.max(1, Math.round(Math.min($.screen.width, $.screen.height) / 300));
+  $.paste(
+    {
+      painting: cursorSheet,
+      crop: { x: frame.x, y: frame.y, w: frame.w, h: frame.h },
+    },
+    Math.round(cursorPoint.x - frame.w * frame.ox * scale),
+    Math.round(cursorPoint.y - frame.h * frame.oy * scale),
+    scale,
+  );
 }
 
 function clearProposal({ flatten, needsPaint, page, screen, system }) {
@@ -456,6 +494,11 @@ function testSnapshot() {
       hovered: hoveredDecision,
       events: cueEvents.map((event) => ({ ...event })),
     },
+    cursor: {
+      ready: Boolean(cursorSheet),
+      visible: Boolean(cursorPoint),
+      animation: hoveredDecision ? "Over Button" : "Normal",
+    },
     lastDownload,
     ready: Boolean(proposal && testApi?.system?.nopaint?.buffer),
     controls: finishMode
@@ -534,6 +577,8 @@ function boot({ colon, debug, hud, net, num, params, screen, store, system, ui, 
   doneCount = 0;
   paintingDragPaused = false;
   hoveredDecision = null;
+  cursorSheet = null;
+  cursorPoint = null;
   cueEvents = [];
   brushCueProposal = 0;
   activeBrushSound = null;
@@ -560,6 +605,7 @@ function boot({ colon, debug, hud, net, num, params, screen, store, system, ui, 
   store["painting:resolution-lock"] = true;
   store.persist("painting:resolution-lock", "local:db");
   testApi = { ...api, hud, net, screen, store, system };
+  api.cursor?.("none");
   stateBeforePause = "proposing";
 
   noButton = new ui.TextButton("No");
@@ -569,8 +615,20 @@ function boot({ colon, debug, hud, net, num, params, screen, store, system, ui, 
   positionButtons(screen);
 
   if (typeof net.preload === "function") {
+    net.preload("/nopaint.art/images/cursor-sheet0.png")
+      .then((image) => {
+        cursorSheet = image.img || image;
+        api.needsPaint();
+      })
+      .catch(() => {});
+    const interactionLoads = new Map();
     for (const [name, filename] of Object.entries(LEGACY_CUES)) {
-      net.preload(`/nopaint.art/media/${filename}`)
+      let loading = interactionLoads.get(filename);
+      if (!loading) {
+        loading = net.preload(`/nopaint.art/media/${filename}`);
+        interactionLoads.set(filename, loading);
+      }
+      loading
         .then((sample) => cueSamples.set(name, sample))
         .catch(() => {}); // playCue supplies an immediate native synth fallback.
     }
@@ -777,6 +835,7 @@ function paint($) {
     paintDecisionButton($, noButton.btn, "No");
     paintDecisionButton($, paintButton.btn, "Paint", true);
   }
+  paintOriginalCursor($);
   return loopState === "proposing";
 }
 
@@ -787,6 +846,12 @@ function isAny(e, names) {
 // 🎪 Act — every input surface reaches the same two decision functions.
 function act($) {
   const { event: e } = $;
+  if (e.device === "mouse" && Number.isFinite(e.x) && Number.isFinite(e.y)) {
+    cursorPoint = { x: e.x, y: e.y };
+  } else if (e.device === "touch") {
+    cursorPoint = null;
+  }
+  const stage = interfaceLayout($.screen).stage;
   const leaveFinishMode = () => {
     playCue($, "back");
     finishMode = false;
@@ -796,14 +861,37 @@ function act($) {
     publishTestState();
   };
 
+  const leftControl = finishMode ? backButton.btn : noButton.btn;
+  const rightControl = finishMode ? doneButton.btn : paintButton.btn;
+  if ((e.device === "mouse" || e.is("move")) && !leftControl.down && !rightControl.down) {
+    const target = leftControl.box.contains(e)
+      ? finishMode ? "back" : "no"
+      : rightControl.box.contains(e)
+        ? finishMode ? "done" : "paint"
+        : e.x >= stage.x && e.x <= stage.x + stage.w &&
+            e.y >= stage.y && e.y <= stage.y + stage.h
+          ? "painting"
+          : null;
+    if (target !== hoveredDecision) {
+      hoveredDecision = target;
+      if (target === "painting") {
+        cueEvents.push({
+          name: "painting-hover",
+          path: cueSamples.has("rollover") ? "legacy" : "synth",
+        });
+        playCue($, "rollover");
+      } else if (target) {
+        playCue($, "rollover");
+      }
+    }
+  }
+
   if (finishMode) {
     backButton.btn.act(e, {
-      hover: () => playCue($, "rollover"),
       down: () => playCue($, "button-down"),
       push: leaveFinishMode,
     });
     doneButton.btn.act(e, {
-      hover: () => playCue($, "rollover"),
       down: () => playCue($, "done-down"),
       push: () => {
         playCue($, "done");
@@ -812,7 +900,6 @@ function act($) {
         if (!initialNavigationURL()?.searchParams.has("test")) $.jump("done");
       },
     });
-    const stage = interfaceLayout($.screen).stage;
     if (
       e.is("lift:1") &&
       e.x >= stage.x && e.x <= stage.x + stage.w &&
@@ -821,18 +908,6 @@ function act($) {
     return;
   }
 
-  const stage = interfaceLayout($.screen).stage;
-  if ((e.device === "mouse" || e.is("move")) && !noButton.btn.down && !paintButton.btn.down) {
-    const target = noButton.btn.box.contains(e)
-      ? "no"
-      : paintButton.btn.box.contains(e)
-        ? "paint"
-        : null;
-    if (target !== hoveredDecision) {
-      hoveredDecision = target;
-      if (target) playCue($, "rollover");
-    }
-  }
   if (
     loopState === "proposing" &&
     e.is("draw:1") &&
@@ -903,6 +978,7 @@ function bake() {}
 
 function leave() {
   stopBrushCue();
+  testApi?.cursor?.("native");
   if (typeof window !== "undefined") delete window.__acNoPaintTest;
   testChannel?.close();
   testChannel = null;

@@ -44,6 +44,10 @@ try {
     } catch (error) {
       throw new Error(`${error.message}; audio=${JSON.stringify((await ac.nopaintState())?.audio)}`);
     }
+    await ac.page.waitForFunction(
+      () => window.__acNoPaintTest?.()?.cursor?.ready === true,
+      { timeout: 5000 },
+    );
     const state = await ac.nopaintState();
     await receipt("01-first-proposal");
     if (!state) {
@@ -60,6 +64,7 @@ try {
     expect(state?.proposalNumber === 1, "first proposal is numbered 1");
     expect(state?.operation === "banner", `seed begins with Banner, not Camera (got ${state?.operation})`);
     expect(state?.ready === true, "proposal buffer reports ready");
+    expect(state?.cursor?.ready === true, "the original Construct cursor sheet is loaded");
     expect(
       state?.audio?.events?.some(({ name, path }) => name === "brush:banner" && path === "legacy"),
       "the proposal starts its recovered Banner theme",
@@ -215,6 +220,12 @@ try {
       hovered.audio.events.filter(({ name }) => name === "rollover").length > rolloversBefore,
       `hovering No emits one recovered rollover cue (hovered=${hovered.audio.hovered})`,
     );
+    const painting = point(after.layout.paintingViewport);
+    await ac.page.mouse.move(painting.x, painting.y);
+    await ac.wait(100);
+    const paintingHovered = await ac.nopaintState();
+    expect(paintingHovered.cursor?.ready === true,
+      "the original cursor remains active across painting hover transitions");
   });
 
   await scenario("Pause freezes and resumes the live proposal", async (expect) => {
