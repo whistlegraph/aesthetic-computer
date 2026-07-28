@@ -382,9 +382,14 @@ try {
       rect.x + (done.x + done.w / 2) * scaleX,
       rect.y + (done.y + done.h / 2) * scaleY,
     );
-    await ac.wait(250);
+    await ac.page.waitForFunction(
+      () => window.__acNoPaintTest?.()?.completion?.code === "test",
+      { timeout: 3000 },
+    );
     const completed = await ac.nopaintState();
-    expect(completed?.doneCount === 1, "Done invokes the canonical prompt completion command");
+    expect(completed?.doneCount === 1, "Done invokes one in-place completion transaction");
+    expect(completed?.completion?.code === "test" && completed?.completion?.stayedInNoPaint === true,
+      "Done yields a #code without leaving the No Paint shim");
   });
 
   await scenario("An archive record can become the starting painting", async (expect) => {

@@ -30,9 +30,14 @@ let lastDownload = null;
 let testApi = null;
 let testChannel = null;
 let archiveOrigin = null;
+let testMode = false;
 let paintingResolution = null;
 let finishMode = false;
 let doneCount = 0;
+let completionBusy = false;
+let completionProgress = 0;
+let completionCode = null;
+let completionError = null;
 let paintingDragPaused = false;
 let paintingPressed = false;
 let hoveredDecision = null;
@@ -529,6 +534,13 @@ function testSnapshot() {
     saveCount,
     finishMode,
     doneCount,
+    completion: {
+      busy: completionBusy,
+      progress: completionProgress,
+      code: completionCode,
+      error: completionError,
+      stayedInNoPaint: true,
+    },
     audio: {
       ready: [...cueSamples.keys()],
       brushReady: [...brushCueSamples.keys()],
@@ -576,6 +588,7 @@ function installTestHook(debug) {
   const explicitlyTesting = initialNavigationURL()?.searchParams.has("test");
   const windowDebug = typeof window !== "undefined" && window.acDEBUG;
   if (!debug && !explicitlyTesting && !windowDebug) return;
+  testMode = true;
 
   if (typeof BroadcastChannel !== "undefined") {
     testChannel?.close();
@@ -624,6 +637,10 @@ function boot({ colon, debug, hud, net, num, params, screen, store, system, ui, 
   saveCount = 0;
   finishMode = false;
   doneCount = 0;
+  completionBusy = false;
+  completionProgress = 0;
+  completionCode = null;
+  completionError = null;
   paintingDragPaused = false;
   paintingPressed = false;
   hoveredDecision = null;
@@ -658,6 +675,7 @@ function boot({ colon, debug, hud, net, num, params, screen, store, system, ui, 
   store["painting:resolution-lock"] = true;
   store.persist("painting:resolution-lock", "local:db");
   testApi = { ...api, hud, net, screen, store, system };
+  testMode = false;
   api.cursor?.("none");
   stateBeforePause = "proposing";
 
@@ -879,7 +897,11 @@ function paint($) {
   const definition = proposalDefinition(proposal.kind);
   $.ink(18).box(bar, "fill");
   $.ink(255, 180).write(
-    definition?.label || proposal.kind,
+    completionBusy
+      ? `Uploading ${Math.round(completionProgress * 100)}%`
+      : completionCode
+        ? `#${completionCode}`
+        : completionError || definition?.label || proposal.kind,
     { x: stage.x + 8, y: stage.y + 8 },
   );
 
@@ -897,6 +919,53 @@ function paint($) {
 
 function isAny(e, names) {
   return names.some((name) => e.is(name));
+}
+
+async function completePainting($) {
+  if (completionBusy || completionCode) return;
+  playCue($, "done");
+  doneCount += 1;
+  completionBusy = true;
+  completionProgress = 0;
+  completionError = null;
+  $.needsPaint();
+  publishTestState();
+
+  if (testMode) {
+    completionCode = "test";
+    completionProgress = 1;
+    completionBusy = false;
+    $.needsPaint();
+    publishTestState();
+    return;
+  }
+
+  try {
+    const painting = {
+      width: $.system.painting.width,
+      height: $.system.painting.height,
+      pixels: $.system.painting.pixels,
+      ...($.store["painting:tags"] ? { tags: $.store["painting:tags"] } : {}),
+    };
+    const filename = `painting-${$.num.timestamp()}.png`;
+    const data = await $.upload(filename, painting, (progress) => {
+      completionProgress = Math.max(0, Math.min(1, Number(progress) || 0));
+      $.needsPaint();
+      publishTestState();
+    });
+    if (!data?.code) throw new Error("Painting upload completed without a code");
+    completionCode = data.code;
+    completionProgress = 1;
+    $.system.painting.code = data.code;
+    $.store["painting:code"] = data.code;
+    $.store.persist?.("painting:code", "local:db");
+  } catch (error) {
+    completionError = error?.message || "Upload failed";
+  } finally {
+    completionBusy = false;
+    $.needsPaint();
+    publishTestState();
+  }
 }
 
 function xboxButtonPush(e) {
@@ -974,32 +1043,19 @@ function act($) {
   }
 
   if (finishMode) {
+    if (completionBusy) return;
     backButton.btn.act(e, {
       down: () => playCue($, "button-down"),
       push: leaveFinishMode,
     });
     doneButton.btn.act(e, {
       down: () => playCue($, "done-down"),
-      push: () => {
-        playCue($, "done");
-        doneCount += 1;
-        publishTestState();
-        // `done` is a Prompt command, not a piece. Autorun the canonical
-        // completion pipeline so it uploads and yields `painting#CODE`.
-        if (!initialNavigationURL()?.searchParams.has("test")) {
-          $.jump("prompt~done~!autorun");
-        }
-      },
+      push: () => completePainting($),
     });
     // Xbox parity: A/Right confirms Done; B/X/Left goes Back; Y/View toggles
     // the same completion surface as tapping the painting.
     if (xboxAction === "done") {
-      playCue($, "done");
-      doneCount += 1;
-      publishTestState();
-      if (!initialNavigationURL()?.searchParams.has("test")) {
-        $.jump("prompt~done~!autorun");
-      }
+      completePainting($);
       return;
     }
     if (xboxAction === "back") {

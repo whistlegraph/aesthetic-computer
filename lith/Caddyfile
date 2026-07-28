@@ -45,6 +45,12 @@
     header @cacheable Cache-Control "public, max-age=3600, stale-while-revalidate=86400"
     header @cacheable ?Access-Control-Allow-Origin * # set-if-absent — see @code note
 
+    # These are database-backed resolvers, not static object URLs. In
+    # particular, do not cache the brief 404 window while a new #code and its
+    # object-store upload converge. The redirect target remains cacheable.
+    @mediaLookup path /media/paintings/* /media/tapes/*
+    header @mediaLookup Cache-Control "no-cache, no-store, must-revalidate"
+
     # Service workers must always revalidate — cached sw.js delays rollout of
     # bumped CACHE_NAME, pinning clients to stale module caches.
     @serviceworker path /sw.js /firebase-messaging-sw.js

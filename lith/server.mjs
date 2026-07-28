@@ -1132,6 +1132,7 @@ app.all("/media/*rest", async (req, res) => {
         return res.redirect(302, `https://${bucket}.sfo3.digitaloceanspaces.com/${key}`);
       }
     } catch {}
+    res.set("Cache-Control", "no-store, max-age=0");
     return res.status(404).send("Tape not found");
   }
 
@@ -1158,6 +1159,10 @@ app.all("/media/*rest", async (req, res) => {
         return res.redirect(302, `https://${bucket}.sfo3.digitaloceanspaces.com/${key}`);
       }
     } catch {}
+    // A freshly uploaded object and its Mongo record become visible on
+    // separate network hops. Never let Cloudflare turn that brief race into a
+    // cached one-hour failure for a valid new #code.
+    res.set("Cache-Control", "no-store, max-age=0");
     return res.status(404).send("Painting not found");
   }
 
