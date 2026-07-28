@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createCanvas, loadImage, registerFont } from "canvas";
 import { renderSineBed } from "../podcast/bin/jingle.mjs";
+import { verifySpeech } from "../podcast/bin/verify-speech.mjs";
 import { makeSosoftSideIdentity } from "../lib/sosoft-side-identity.mjs";
 import { loadNarrationSource, loadNarrationTimeline, sceneStart } from "./timing.mjs";
 
@@ -20,6 +21,8 @@ const BED = resolve(OUT, "sine-bed.wav");
 const MIX = resolve(OUT, "narration-sine-mix.wav");
 const OUTPUT = resolve(OUT, "scores-for-social-software-captioned-08.mp4");
 const words = JSON.parse(readFileSync(resolve(OUT, "words.json"), "utf8"));
+const narratorSpec = JSON.parse(readFileSync(resolve(ROOT, "narrator-spec.json"), "utf8"));
+const pronunciationReview = JSON.parse(readFileSync(resolve(ROOT, "pronunciations.json"), "utf8"));
 if (!existsSync(VIDEO) || !existsSync(VOICE)) throw new Error("render the real-time spine and narration first");
 
 const W = 1080, H = 1920, FPS = 30;
@@ -51,20 +54,26 @@ for (let i = 0; i < words.length;) {
 const SOURCE_W = 1620;
 const canvas = createCanvas(W, H), ctx = canvas.getContext("2d");
 const videoCanvas = createCanvas(SOURCE_W, H), videoCtx = videoCanvas.getContext("2d");
+// The public event page carries the full 4080x3072 SS-227 original. Treat it
+// as three editorial shots—room, audience, and right-hand gathering—rather
+// than enlarging the 480px catalog derivatives that were used in early cuts.
 const eventDocumentation = [
-  { id: "SS-187", file: "187-PXL_20260613_181248080.jpg" },
-  { id: "SS-207", file: "207-PXL_20260613_194004087.jpg" },
-  { id: "SS-220", file: "220-PXL_20260613_201009709.jpg" },
-  { id: "SS-230", file: "230-PXL_20260613_202347418.jpg" },
-  { id: "SS-245", file: "245-PXL_20260613_202953418.jpg" },
+  { id: "SS-227-room", file: "PXL_20260613_202338629.jpg", from: [0.31, 0.55], to: [0.39, 0.53], zoom: [1.02, 1.10] },
+  { id: "SS-227-audience", file: "PXL_20260613_202338629.jpg", from: [0.47, 0.60], to: [0.55, 0.56], zoom: [1.15, 1.26] },
+  { id: "SS-227-gathering", file: "PXL_20260613_202338629.jpg", from: [0.73, 0.62], to: [0.66, 0.57], zoom: [1.08, 1.18] },
 ].map((entry) => ({
   ...entry,
-  path: resolve(ROOT, "index", "thumbs", entry.file),
+  path: resolve(OUT, "event-originals", entry.file),
 }));
 const eventImages = await Promise.all(eventDocumentation.map(async (entry) => ({
   ...entry,
   image: await loadImage(entry.path),
 })));
+for (const entry of eventImages) {
+  if (entry.image.width < W || entry.image.height < H) {
+    throw new Error(`event source ${entry.id} is only ${entry.image.width}x${entry.image.height}; fetch the original before rendering`);
+  }
+}
 const FRAME_BYTES = SOURCE_W * H * 4;
 const frame = Buffer.alloc(FRAME_BYTES);
 const image = videoCtx.createImageData(SOURCE_W, H);
@@ -92,6 +101,14 @@ const chapterBlues = [
   "#c9e8f7", "#bde2f4", "#b1dcf1", "#a5d6ee",
   "#99d0eb", "#8dc9e7", "#81c3e4", "#75bde1",
   "#69b7de", "#5db1db", "#51abd8", "#45a5d5",
+];
+// The timeline is a sequence, not another gradient. Alternating envelope-blue
+// and teal families make each chapter boundary read at a glance while the
+// back-and-forth rhythm still belongs to one palette.
+const progressColors = [
+  "#79d8cf", "#438fc4", "#62bed9", "#2f79b0",
+  "#79d8cf", "#438fc4", "#62bed9", "#2f79b0",
+  "#79d8cf", "#438fc4", "#62bed9", "#2f79b0",
 ];
 const hexRgb = (hex) => [1, 3, 5].map((at) => parseInt(hex.slice(at, at + 2), 16));
 const mixHex = (from, to, amount) => {
@@ -315,11 +332,11 @@ function drawCaptionPhrase(phrase, ms, {
             rotation = (seed - 0.5) * 0.11 * (1 - eased);
             charAlpha = 0.04 + 0.96 * eased;
           } else {
-            const start = 0.08 + (index / Math.max(1, identityCharCount - 1)) * 0.24;
-            const exit = Math.max(0, Math.min(1, (lingerProgress - start) / (0.92 - start)));
+            const start = 0.02 + (index / Math.max(1, identityCharCount - 1)) * 0.12;
+            const exit = Math.max(0, Math.min(1, (lingerProgress - start) / (0.78 - start)));
             const eased = exit * exit * (3 - 2 * exit);
-            offsetX = (seed - 0.5) * 24 * eased;
-            offsetY = -(120 + seed * 70) * eased;
+            offsetX = (seed - 0.5) * 18 * eased;
+            offsetY = (105 + seed * 65) * eased;
             rotation = (seed - 0.5) * 0.16 * eased;
             charAlpha = 1 - eased;
           }
@@ -334,20 +351,24 @@ function drawCaptionPhrase(phrase, ms, {
   ctx.restore();
 }
 
-const identityLingerMs = 4200;
+const identityLingerMs = 1350;
+
+function identityLingerEnd(phrase) {
+  const next = phrases[phrases.indexOf(phrase) + 1];
+  return Math.min(phrase.toMs + identityLingerMs, (next?.fromMs ?? Infinity) - 80);
+}
 
 function drawCaptions(ms) {
-  const lingerMs = identityLingerMs;
   const lingering = phrases.filter((phrase) => phrase.words.some((word) => word.identity)
-    && ms > phrase.toMs && ms <= phrase.toMs + lingerMs).slice(-2);
+    && ms > phrase.toMs && ms <= identityLingerEnd(phrase)).slice(-1);
   for (const phrase of lingering) {
-    const progress = (ms - phrase.toMs) / lingerMs;
-    const eased = progress * progress * (3 - 2 * progress);
+    const end = identityLingerEnd(phrase);
+    const progress = (ms - phrase.toMs) / Math.max(1, end - phrase.toMs);
     drawCaptionPhrase(phrase, ms, {
       identityOnly: true,
-      alpha: 0.72,
-      // Characters lift directly from their caption positions, staggered by
-      // their own seeds, instead of jumping to a separate title lane.
+      alpha: 0.70,
+      // Credits fall out of their caption positions and finish before the next
+      // phrase begins, so identity never competes with incoming narration.
       centerY: 1320,
       lingerProgress: progress,
     });
@@ -357,13 +378,12 @@ function drawCaptions(ms) {
 }
 
 function pinkCaptionPulse(ms) {
-  const lingerMs = identityLingerMs;
   let pulse = 0;
   for (const phrase of phrases) {
     if (!phrase.words.some((word) => word.identityType === "artist")) continue;
     if (ms >= phrase.fromMs && ms <= phrase.toMs) pulse = 1;
-    else if (ms > phrase.toMs && ms <= phrase.toMs + lingerMs) {
-      pulse = Math.max(pulse, 1 - (ms - phrase.toMs) / lingerMs);
+    else if (ms > phrase.toMs && ms <= identityLingerEnd(phrase)) {
+      pulse = Math.max(pulse, 1 - (ms - phrase.toMs) / Math.max(1, identityLingerEnd(phrase) - phrase.toMs));
     }
   }
   return pulse;
@@ -379,11 +399,11 @@ function drawProgressBar(ms) {
     const x0 = i === 0 ? 0 : chapters[i].fromMs / (duration * 1000) * W;
     const x1 = i === chapters.length - 1 ? W : chapters[i + 1].fromMs / (duration * 1000) * W;
     const gap = i === chapters.length - 1 ? 0 : 2;
-    ctx.fillStyle = rgba(chapterBlues[i], 0.32);
+    ctx.fillStyle = rgba(progressColors[i], 0.28);
     ctx.fillRect(x0, barY, Math.max(0, x1 - x0 - gap), 13);
     const fillX = Math.min(x1 - gap, playedX);
     if (fillX > x0) {
-      ctx.fillStyle = rgba(chapterBlues[i], 0.98);
+      ctx.fillStyle = rgba(progressColors[i], 0.98);
       ctx.fillRect(x0, barY, fillX - x0, 13);
     }
   }
@@ -439,51 +459,37 @@ function drawEventDocumentation(ms) {
   ctx.fillStyle = mixHex(chapterBlues[11], "#061824", 0.84);
   ctx.fillRect(0, 0, W, H);
 
-  const drawSlide = (entry, alpha, progress, offsetX = 0) => {
+  const drawSlide = (entry, alpha, progress) => {
     if (!entry || alpha <= 0) return;
     const image = entry.image;
-    const maxWidth = 1010;
-    // Leave a clean caption lane below the documented moment. Portrait
-    // performance frames stop above the subtitle baseline instead of floating
-    // behind it.
-    const maxHeight = image.height > image.width ? 940 : 820;
-    const baseScale = Math.min(maxWidth / image.width, maxHeight / image.height);
-    const zoom = 1 + 0.035 * Math.max(0, Math.min(1, progress));
-    const dw = image.width * baseScale * zoom;
-    const dh = image.height * baseScale * zoom;
-    const x = (W - dw) / 2 + offsetX;
-    const y = image.height > image.width ? 210 - (dh - image.height * baseScale) * 0.35
-      : 250 - (dh - image.height * baseScale) * 0.35;
+    const p = Math.max(0, Math.min(1, progress));
+    const eased = p * p * (3 - 2 * p);
+    const zoom = entry.zoom[0] + (entry.zoom[1] - entry.zoom[0]) * eased;
+    // Portrait aspect-fill plus a hand-selected start/end focus makes every
+    // photograph an active shot. The crop follows the room, audience, speaker,
+    // and floor performance instead of floating a small card over a field.
+    const scale = Math.max(W / image.width, H / image.height) * zoom;
+    const dw = image.width * scale;
+    const dh = image.height * scale;
+    const focusX = entry.from[0] + (entry.to[0] - entry.from[0]) * eased;
+    const focusY = entry.from[1] + (entry.to[1] - entry.from[1]) * eased;
+    const x = Math.min(0, Math.max(W - dw, W / 2 - focusX * dw));
+    const y = Math.min(0, Math.max(H - dh, H / 2 - focusY * dh));
     ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.shadowColor = "rgba(0, 10, 18, 0.42)";
-    ctx.shadowBlur = 18;
-    ctx.shadowOffsetY = 9;
-    ctx.fillStyle = "rgba(219, 240, 246, 0.96)";
-    ctx.fillRect(x - 8, y - 8, dw + 16, dh + 16);
-    ctx.shadowColor = "transparent";
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(image, x, y, dw, dh);
     ctx.restore();
   };
 
-  // A restrained contact-print cadence: one documented moment at a time,
-  // crossfading from the Fuser room to presentation, cohort, audience, and
-  // performance. The photographs remain sharp cards on a solid field—there
-  // is no blurred duplicate or artificial background fill.
+  // One documented moment at a time, crossfading through the room,
+  // presentation, cohort, audience, and performance as moving portrait crops.
   const fadeOut = local > 1 - transition ? (local - (1 - transition)) / transition : 0;
-  drawSlide(eventImages[slideIndex], 1 - fadeOut, local, -18 * fadeOut);
+  drawSlide(eventImages[slideIndex], 1 - fadeOut, local);
   if (fadeOut > 0 && slideIndex + 1 < eventImages.length) {
-    drawSlide(eventImages[slideIndex + 1], fadeOut, 0, 18 * (1 - fadeOut));
+    drawSlide(eventImages[slideIndex + 1], fadeOut, 0);
   }
-
-  ctx.globalAlpha = 0.86;
-  ctx.fillStyle = "#9ce7de";
-  ctx.font = "bold 34px Arial";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText("Fuser · June 13, 2026", W / 2, 124);
   ctx.restore();
   return true;
 }
@@ -533,4 +539,37 @@ for await (const chunk of dec.stdout) {
 }
 enc.stdin.end();
 await new Promise((ok, fail) => enc.on("close", (code) => code === 0 ? ok() : fail(new Error(`encode ${code}`))));
-process.stdout.write(`\r${fi} frames\n${OUTPUT}\n`);
+process.stdout.write(`\r${fi} frames\n`);
+
+// Check the delivered mix—not a clean TTS intermediate—against the canonical
+// screenplay. Proper nouns and non-English titles remain a separate human
+// approval queue even when Whisper can recover their spelling.
+console.log("pronunciation QA · local Whisper round-trip");
+const specById = new Map(narratorSpec.lines.map((line) => [line.id, line]));
+const qaUnits = timing.lines.map((line) => ({
+  text: specById.get(line.id)?.text || "",
+  start: line.startSec,
+  end: line.endSec,
+}));
+const qaPath = resolve(OUT, "scores-for-social-software-speech-qa.json");
+const speechQa = verifySpeech({
+  audioPath: OUTPUT,
+  units: qaUnits,
+  outPath: qaPath,
+  workDir: resolve(OUT, "speech-qa-work"),
+});
+speechQa.pronunciationSensitive = pronunciationReview.entries.map((entry) => {
+  const unitNumbers = entry.scenes.map((id) => timing.lines.findIndex((line) => line.id === id) + 1).filter(Boolean);
+  const sceneIssues = (speechQa.issues || []).filter((issue) => unitNumbers.includes(issue.unit));
+  return {
+    written: entry.written,
+    scenes: entry.scenes,
+    approvedSpoken: entry.approvedSpoken,
+    status: entry.approvedSpoken ? "human-approved" : "needs-human-approval",
+    whisperSceneResult: sceneIssues.length ? "review" : "matched",
+    whisperSceneIssues: sceneIssues,
+  };
+});
+writeFileSync(qaPath, JSON.stringify(speechQa, null, 2) + "\n");
+console.log(`${speechQa.status} · ${(speechQa.wordErrorRate * 100).toFixed(1)}% WER · ${speechQa.issues.length} review candidates`);
+console.log(`${OUTPUT}\n${qaPath}`);

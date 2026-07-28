@@ -1,0 +1,17 @@
+{
+  "policy": "Visible spelling is canonical. Whisper checks whether the delivered mix is intelligible; personal names and non-English titles still require human approval before a phonetic spoken form may replace them.",
+  "entries": [
+    { "written": "UCLA", "scenes": ["SSF-00"], "approvedSpoken": null },
+    { "written": "Æther Cavendish", "scenes": ["SSF-02"], "approvedSpoken": null },
+    { "written": "Chelly Jin", "scenes": ["SSF-03"], "approvedSpoken": null },
+    { "written": "Em Lugo", "scenes": ["SSF-05"], "approvedSpoken": null },
+    { "written": "Darlyn Phan", "scenes": ["SSF-06"], "approvedSpoken": null },
+    { "written": "Thomas Noya", "scenes": ["SSF-07"], "approvedSpoken": null },
+    { "written": "Biophonía", "scenes": ["SSF-07"], "approvedSpoken": null },
+    { "written": "Banyi Huang", "scenes": ["SSF-08"], "approvedSpoken": null },
+    { "written": "Alexander Espinosa", "scenes": ["SSF-09"], "approvedSpoken": null },
+    { "written": "Mavyn Vu", "scenes": ["SSF-10"], "approvedSpoken": null },
+    { "written": "Casey Reas", "scenes": ["SSF-11"], "approvedSpoken": null },
+    { "written": "Lauren Lee McCarthy", "scenes": ["SSF-11"], "approvedSpoken": null }
+  ]
+}

@@ -12,7 +12,8 @@ The reel begins with the blue inter-department-delivery cover and the physical u
 - Jeffrey PVC / `neutral:0`
 - lowercase, calm, descriptive narration
 - Arial Bold captions using the shared caption pipeline
-- shared `/marketing` side stamps; no progress bar or ornamental timecode
+- shared `/marketing` side stamps; alternating segmented chapter progress,
+  with no ornamental timecode
 - preserve paper texture, gloves, red string, punched holes, and the blue delivery-folder motif
 - target about 1:50–2:00 for the primary cut; the current 254-word script supports that pace
 - treat the 11:28 page-through as source footage and cut assertively through it; retain a 2:30–3:00 archival cut only if verified score details justify the extra time
@@ -50,6 +51,7 @@ node marketing/sosoft-reel/recover-from-signal-edit.mjs \
   "$HOME/.local/share/slab/signal/attachments/scores-for-social-software-master-vertical.mov"
 node marketing/sosoft-reel/tts.mjs --force --force-timestamps
 node marketing/sosoft-reel/alignment-to-words.mjs
+node marketing/sosoft-reel/fetch-event-documentation.mjs
 node marketing/sosoft-reel/caption-and-mix.mjs
 node marketing/sosoft-reel/export-delivery.mjs
 ```
@@ -62,12 +64,24 @@ footage: there is no blurred extension, bottom strip, caption field, or title
 backdrop. Captions use twelve envelope-derived blue variations and float above
 the lower third at a restrained size with glyph outlines. Artist names stay
 inside the narration captions in salmon; work titles stay inside them in teal.
-Identity words hold and drift longer than surrounding copy, without a separate
-title card or persistent corner label. Chelly Jin's installation chapter uses a
+Identity words fall away quickly, always clearing before the next caption,
+without a separate title card or persistent corner label. The segmented bottom
+timeline alternates blue and teal chapter colors instead of forming a gradient.
+Chelly Jin's installation chapter uses a
 dedicated vertical focus so the projection, not its blank upper field, occupies
 the center.
 The animated SO SOFT double-box identity runs fully inside the side edges as the
 reel watermark; the Pals badges and climbing title layer are deliberately off.
+The closing event photograph is a verified 4080×3072 official source, edited as
+three full-frame, subject-directed Ken Burns shots without a redundant
+Fuser/date label. The renderer rejects thumbnail-sized sources. When the event
+ZIP is present, `index/generate-index.mjs` preserves selected originals under
+ignored `out/event-originals/` before removing its temporary extraction.
+The final delivered mix is transcribed through local Whisper and compared with
+the screenplay in `out/scores-for-social-software-speech-qa.json`. The separate
+`pronunciations.json` queue keeps personal names and non-English titles pending
+human approval even when the automatic round-trip matches them; visible spelling
+never changes to accommodate TTS.
 
 ## Social derivatives
 
