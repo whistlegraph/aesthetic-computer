@@ -40,6 +40,18 @@ CAPTUTOR_AC_MATCH=localhost:8888 \
 node captutor/captutor.mjs render nopaint-first-painting
 ```
 
+Each No Paint journey writes
+`tests/browser/__screens__/nopaint-journey/performance.json` with proposal FPS
+and frame-time percentiles, Long Tasks, JS heap use where Chrome supports it,
+and input-to-next-proposal latency for No and Paint. Results are informational
+by default because headed and headless hardware differ. Set
+`NOPAINT_PERF_STRICT=1` to enforce budgets; override them with
+`NOPAINT_PERF_FPS_FLOOR` (default 59.5, the practical sustained-60 gate),
+`NOPAINT_PERF_P95_MS` (default 20), `NOPAINT_PERF_LATENCY_MS`, and
+`NOPAINT_PERF_SAMPLE_MS`. The canonical receipt uses the recovered interface's
+4:3 landscape proportion (1200×900); set `AC_VIEWPORT_WIDTH` and
+`AC_VIEWPORT_HEIGHT` for the additional profiling matrix.
+
 Use a dedicated browser profile for filmed tutorials. The journey deliberately
 commits and saves a painting, so a personal AC painting store is the wrong test
 fixture.

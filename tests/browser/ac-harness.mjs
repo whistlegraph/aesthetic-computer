@@ -28,7 +28,14 @@ export const CONFIG = {
   headed: process.env.AC_HEADED === "1",
   slowMo: parseInt(process.env.AC_SLOWMO || "0", 10) || 0,
   shotDir: process.env.AC_SHOT_DIR || join(HERE, "__screens__"),
+  viewportWidth: parseInt(process.env.AC_VIEWPORT_WIDTH || "1200", 10),
+  viewportHeight: parseInt(process.env.AC_VIEWPORT_HEIGHT || "900", 10),
 };
+
+function percentile(sorted, fraction) {
+  if (sorted.length === 0) return null;
+  return sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * fraction) - 1)];
+}
 
 export class ACSession {
   browser = null;
@@ -48,11 +55,11 @@ export class ACSession {
         "--disable-setuid-sandbox",
         "--ignore-certificate-errors", // local https://localhost:8888
         "--disable-web-security",
-        "--window-size=900,1200",
+        `--window-size=${CONFIG.viewportWidth},${CONFIG.viewportHeight}`,
       ],
     });
     s.page = await s.browser.newPage();
-    await s.page.setViewport({ width: 900, height: 1200 });
+    await s.page.setViewport({ width: CONFIG.viewportWidth, height: CONFIG.viewportHeight });
     // Surface the test hook at boot (prompt.mjs gates it on acDEBUG).
     await s.page.evaluateOnNewDocument(() => {
       window.acDEBUG = true;
@@ -174,6 +181,85 @@ export class ACSession {
         ? window.__acNoPaintTest()
         : null,
     );
+  }
+
+  // Measure real presentation frames. This stays in the test harness so the
+  // profiler adds no cost to production No Paint sessions.
+  async performanceProfile({ durationMs = 1500 } = {}) {
+    const raw = await this.page.evaluate((duration) => new Promise((resolve) => {
+      const frameTimes = [];
+      const longTasks = [];
+      const memoryBefore = performance.memory ? {
+        usedJSHeapSize: performance.memory.usedJSHeapSize,
+        totalJSHeapSize: performance.memory.totalJSHeapSize,
+        jsHeapSizeLimit: performance.memory.jsHeapSizeLimit,
+      } : null;
+      let observer = null;
+      if (typeof PerformanceObserver !== "undefined") {
+        try {
+          observer = new PerformanceObserver((list) => {
+            for (const entry of list.getEntries()) {
+              longTasks.push({ startTime: entry.startTime, duration: entry.duration });
+            }
+          });
+          observer.observe({ type: "longtask", buffered: true });
+        } catch {}
+      }
+      const startedAt = performance.now();
+      let previous = null;
+      const tick = (now) => {
+        if (previous !== null) frameTimes.push(now - previous);
+        previous = now;
+        if (now - startedAt < duration) return requestAnimationFrame(tick);
+        observer?.disconnect();
+        resolve({
+          elapsedMs: now - startedAt,
+          frameTimes,
+          longTasks: longTasks.filter((task) => task.startTime >= startedAt),
+          memoryBefore,
+          memoryAfter: performance.memory ? {
+            usedJSHeapSize: performance.memory.usedJSHeapSize,
+            totalJSHeapSize: performance.memory.totalJSHeapSize,
+            jsHeapSizeLimit: performance.memory.jsHeapSizeLimit,
+          } : null,
+        });
+      };
+      requestAnimationFrame(tick);
+    }), durationMs);
+    const sorted = raw.frameTimes.slice().sort((a, b) => a - b);
+    const totalFrameTime = raw.frameTimes.reduce((sum, value) => sum + value, 0);
+    return {
+      sampledAt: new Date().toISOString(), elapsedMs: raw.elapsedMs,
+      frames: raw.frameTimes.length,
+      fps: totalFrameTime > 0 ? raw.frameTimes.length * 1000 / totalFrameTime : 0,
+      frameTimeMs: {
+        average: raw.frameTimes.length ? totalFrameTime / raw.frameTimes.length : null,
+        p50: percentile(sorted, 0.5), p95: percentile(sorted, 0.95),
+        max: sorted.at(-1) ?? null,
+      },
+      slowFrames: raw.frameTimes.filter((value) => value > 1000 / 30).length,
+      longTasks: raw.longTasks,
+      longTaskTotalMs: raw.longTasks.reduce((sum, task) => sum + task.duration, 0),
+      memory: raw.memoryBefore && raw.memoryAfter ? {
+        ...raw.memoryAfter,
+        usedJSHeapDelta: raw.memoryAfter.usedJSHeapSize - raw.memoryBefore.usedJSHeapSize,
+      } : null,
+    };
+  }
+
+  // Input-to-next-proposal latency, measured entirely on the renderer clock.
+  async measureNopaintDecision(key, { timeoutMs = 5000 } = {}) {
+    const before = await this.nopaintState();
+    const startedAt = await this.page.evaluate(() => performance.now());
+    await this.page.keyboard.press(key);
+    await this.page.waitForFunction(
+      (number) => window.__acNoPaintTest?.()?.proposalNumber > number,
+      { timeout: timeoutMs }, before?.proposalNumber ?? 0,
+    );
+    const endedAt = await this.page.evaluate(() => performance.now());
+    return { key, fromProposal: before?.proposalNumber ?? null,
+      toProposal: (await this.nopaintState())?.proposalNumber ?? null,
+      latencyMs: endedAt - startedAt };
   }
 
   async waitForDownload({ timeoutMs = 10000 } = {}) {

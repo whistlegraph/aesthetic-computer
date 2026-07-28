@@ -46,12 +46,37 @@ function transition(next) {
 }
 
 function positionButtons(screen) {
-  const gap = 8;
-  const totalWidth = noButton.width + paintButton.width + gap;
-  const left = Math.floor(screen.width / 2 - totalWidth / 2);
-  noButton.reposition({ left, bottom: 8, screen });
-  paintButton.reposition({ left: left + noButton.width + gap, bottom: 8, screen });
+  // The recovered instrument makes the two words architectural: No occupies
+  // the upper field and Paint anchors the lower field. Keep those proportions
+  // across landscape and portrait surfaces instead of shrinking both choices
+  // into ordinary adjacent toolbar buttons.
+  const noWidth = Math.max(120, Math.floor(screen.width * 0.48));
+  const paintWidth = Math.max(150, Math.floor(screen.width * 0.62));
+  const decisionHeight = Math.max(44, Math.floor(screen.height * 0.13));
+  Object.assign(noButton.box, {
+    x: Math.floor((screen.width - noWidth) / 2), y: Math.floor(screen.height * 0.05),
+    w: noWidth, h: decisionHeight,
+  });
+  Object.assign(paintButton.box, {
+    x: Math.floor((screen.width - paintWidth) / 2),
+    y: screen.height - decisionHeight - Math.floor(screen.height * 0.04),
+    w: paintWidth, h: decisionHeight,
+  });
   saveButton.reposition({ right: 8, top: 8, screen });
+}
+
+function paintDecisionButton($, button, label, light = false) {
+  const active = button.down || button.over;
+  const size = Math.max(2, Math.floor(Math.min(button.box.w, button.box.h) / 18));
+  $.ink(light ? [250, 250, 250, active ? 235 : 205] : [10, 10, 10, active ? 225 : 190])
+    .box(button.box, "fill")
+    .ink(light ? [20, 20, 20] : [255, 255, 255])
+    .box(button.box, "outline")
+    .write(label, {
+      x: Math.floor(button.box.x + button.box.w / 2 - label.length * size * 2),
+      y: Math.floor(button.box.y + button.box.h / 2 - size * 4),
+      size,
+    }, undefined, undefined, false, "MatrixChunky8");
 }
 
 function clearProposal({ flatten, needsPaint, page, screen, system }) {
@@ -203,6 +228,10 @@ function paintingFingerprint(painting) {
 }
 
 function testSnapshot() {
+  const controlBox = (control) => {
+    const box = control?.box || control?.btn?.box;
+    return box ? { x: box.x, y: box.y, w: box.w, h: box.h } : null;
+  };
   return {
     version: NOPAINT_VERSION,
     state: loopState,
@@ -215,18 +244,9 @@ function testSnapshot() {
     lastDownload,
     ready: Boolean(proposal && testApi?.system?.nopaint?.buffer),
     controls: {
-      no: noButton?.btn?.box ? {
-        x: noButton.btn.box.x, y: noButton.btn.box.y,
-        w: noButton.btn.box.w, h: noButton.btn.box.h,
-      } : null,
-      paint: paintButton?.btn?.box ? {
-        x: paintButton.btn.box.x, y: paintButton.btn.box.y,
-        w: paintButton.btn.box.w, h: paintButton.btn.box.h,
-      } : null,
-      save: saveButton?.btn?.box ? {
-        x: saveButton.btn.box.x, y: saveButton.btn.box.y,
-        w: saveButton.btn.box.w, h: saveButton.btn.box.h,
-      } : null,
+      no: controlBox(noButton),
+      paint: controlBox(paintButton),
+      save: controlBox(saveButton),
     },
     paintingFingerprint: paintingFingerprint(testApi?.system?.painting),
     origin: archiveOrigin ? { ...archiveOrigin } : null,
@@ -302,8 +322,8 @@ function boot({ colon, debug, hud, net, num, params, screen, system, ui, ...api 
   testApi = { ...api, hud, net, screen, system };
   stateBeforePause = "proposing";
 
-  noButton = new ui.TextButton("No");
-  paintButton = new ui.TextButton("Paint");
+  noButton = new ui.Button({ x: 0, y: 0, w: 1, h: 1 });
+  paintButton = new ui.Button({ x: 0, y: 0, w: 1, h: 1 });
   saveButton = new ui.TextButton("Save");
   positionButtons(screen);
 
@@ -481,8 +501,8 @@ function paint($) {
   $.ink(255, 150).write(`No Paint ${NOPAINT_VERSION} · seed ${sessionSeed}`, { x: 8, y: 20 });
 
   positionButtons($.screen);
-  noButton.paint($, [[20, 20, 20], [255, 255, 255], [255, 255, 255]]);
-  paintButton.paint($, [[245, 245, 245], [255, 255, 255], [0, 0, 0]]);
+  paintDecisionButton($, noButton, "No");
+  paintDecisionButton($, paintButton, "Paint", true);
   saveButton.paint($, [[20, 20, 20], [180, 180, 180], [255, 255, 255]]);
   return loopState === "proposing";
 }
@@ -495,8 +515,8 @@ function isAny(e, names) {
 function act($) {
   const { event: e } = $;
 
-  noButton.btn.act(e, () => discardProposal($));
-  paintButton.btn.act(e, () => commitProposal($));
+  noButton.act(e, () => discardProposal($));
+  paintButton.act(e, () => commitProposal($));
   saveButton.btn.act(e, () => savePainting($));
 
   if (isAny(e, [
