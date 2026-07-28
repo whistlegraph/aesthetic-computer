@@ -101,6 +101,8 @@ export class ACSession {
       await this.page.waitForFunction(
         () =>
           typeof window.__acPromptTest === "function" ||
+          (typeof window.__acNoPaintTest === "function" &&
+            window.__acNoPaintTest()?.ready === true) ||
           window.acBOOT_START_TIME,
         { timeout: 20000 },
       );

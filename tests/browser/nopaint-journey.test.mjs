@@ -22,7 +22,18 @@ async function receipt(name) {
 
 try {
   await scenario("No Paint 3.0 boots a reproducible first proposal", async (expect) => {
-    await ac.boot("nopaint?seed=nopaint-e2e-v1&test=1");
+    await ac.boot("nopaint?seed=nopaint-perf-v1&test=1");
+    // The AC front door intentionally waits for a first human gesture. A
+    // center-stage tap activates the piece without touching the decision bar.
+    if (!(await ac.nopaintState())?.ready) {
+      const viewport = ac.page.viewport();
+      await ac.page.mouse.click(viewport.width / 2, viewport.height / 2);
+      await ac.page.waitForFunction(
+        () => window.__acNoPaintTest?.()?.ready === true,
+        { timeout: 20000 },
+      );
+      await ac.wait(500);
+    }
     const state = await ac.nopaintState();
     await receipt("01-first-proposal");
     if (!state) {
@@ -37,13 +48,71 @@ try {
     expect(state?.version === "3.0", `version is 3.0 (got ${state?.version})`);
     expect(state?.state === "proposing", `state is proposing (got ${state?.state})`);
     expect(state?.proposalNumber === 1, "first proposal is numbered 1");
-    expect(state?.operation === "camera", `seed begins with Camera (got ${state?.operation})`);
+    expect(state?.operation === "banner", `seed begins with Banner, not Camera (got ${state?.operation})`);
     expect(state?.ready === true, "proposal buffer reports ready");
     expect(
       [state?.controls?.no, state?.controls?.paint, state?.controls?.save]
         .every((box) => box && box.w > 0 && box.h > 0),
       "No, Paint, and Save expose visible control rectangles",
     );
+    const controls = Object.values(state?.controls || {});
+    const stageBottom = state?.layout?.paintingViewport?.y + state?.layout?.paintingViewport?.h;
+    expect(
+      controls.every((box) => box.y >= stageBottom),
+      "all controls share the below-painting control bar",
+    );
+    expect(state?.controls?.no?.y === state?.controls?.paint?.y, "No and Paint align in one bottom row");
+    expect(
+      state?.layout?.controlBar?.x === 0 &&
+      state?.layout?.controlBar?.w >=
+        state?.layout?.paintingViewport?.x + state?.layout?.paintingViewport?.w,
+      "control bar spans the full width below the painting",
+    );
+  });
+
+  await scenario("The first load locks painting resolution while its presentation responds", async (expect) => {
+    const initial = await ac.nopaintState();
+    const lockedResolution = initial.layout.paintingResolution;
+    const acceptedFingerprint = initial.paintingFingerprint;
+    const viewports = [
+      { width: 390, height: 844, label: "phone portrait" },
+      { width: 844, height: 390, label: "short landscape" },
+      { width: 1024, height: 768, label: "tablet landscape" },
+      { width: 1200, height: 900, label: "desktop 4:3" },
+    ];
+    for (const viewport of viewports) {
+      await ac.page.setViewport({ width: viewport.width, height: viewport.height });
+      await new Promise((resolve) => setTimeout(resolve, 350));
+      const state = await ac.nopaintState();
+      const { paintingViewport: stage, controlBar: bar } = state.layout;
+      const resolution = state.layout.paintingResolution;
+      const screenResolution = state.layout.screenResolution;
+      const { no, paint, save } = state.controls;
+      const canvasRect = await ac.page.evaluate(() => {
+        const canvas = document.querySelector("canvas");
+        if (!canvas) return null;
+        const rect = canvas.getBoundingClientRect();
+        return { x: rect.x, y: rect.y, w: rect.width, h: rect.height };
+      });
+      expect(
+        resolution.width === lockedResolution.width && resolution.height === lockedResolution.height,
+        `${viewport.label}: logical painting remains ${lockedResolution.width}×${lockedResolution.height}`,
+      );
+      expect(state.paintingFingerprint === acceptedFingerprint,
+        `${viewport.label}: resize does not mutate accepted pixels`);
+      expect(stage.w > 0 && stage.h > 0 && stage.x >= 0 && stage.y >= 0,
+        `${viewport.label}: fitted painting viewport is visible`);
+      expect(stage.x + stage.w <= viewport.width && stage.y + stage.h <= bar.y,
+        `${viewport.label}: full painting fits above controls`);
+      expect(bar.x === 0 && bar.w === screenResolution.width,
+        `${viewport.label}: control bar spans the fixed AC surface`);
+      expect(canvasRect && canvasRect.w <= viewport.width && canvasRect.h <= viewport.height,
+        `${viewport.label}: AC fits the fixed surface within the browser`);
+      expect([no, paint, save].every((box) => box.y >= bar.y && box.y + box.h <= bar.y + bar.h),
+        `${viewport.label}: controls stay inside bar`);
+      expect(no.x + no.w <= paint.x && paint.x + paint.w <= save.x,
+        `${viewport.label}: No, Paint, and Save do not overlap`);
+    }
   });
 
   await scenario("No rejects without changing the accepted painting", async (expect) => {

@@ -43,7 +43,8 @@ export const NOPAINT_PROPOSAL_CATALOG = Object.freeze([
   Object.freeze({ name: "banner", label: "Banner", family: "authored", weight: 1 }),
   Object.freeze({ name: "wafer", label: "Wafer", family: "authored", weight: 1 }),
   Object.freeze({ name: "wipe", weight: 1 }),
-  Object.freeze({ name: "camera", weight: 1 }),
+  // Camera is implemented but deliberately absent from random proposals.
+  // Device access belongs to an explicit camera-tool action, never page load.
 ]);
 
 export function proposalDefinition(name, catalog = NOPAINT_PROPOSAL_CATALOG) {

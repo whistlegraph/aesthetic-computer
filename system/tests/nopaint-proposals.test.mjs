@@ -26,7 +26,8 @@ test("the first native catalog retains the recovered duplicate Box weight", () =
   const rect = NOPAINT_PROPOSAL_CATALOG.find(({ name }) => name === "rect");
   assert.equal(rect.weight, 2);
   assert.equal(NOPAINT_VERSION, "3.0");
-  assert.equal(NOPAINT_PROPOSAL_CATALOG.length, 11);
+  assert.equal(NOPAINT_PROPOSAL_CATALOG.length, 10);
+  assert.equal(NOPAINT_PROPOSAL_CATALOG.some(({ name }) => name === "camera"), false);
   assert.equal(NOPAINT_PROPOSAL_CATALOG.find(({ name }) => name === "softy").weight, 1.5);
   assert.equal(NOPAINT_PROPOSAL_CATALOG.find(({ name }) => name === "walker").weight, 0.2);
 });
@@ -130,6 +131,7 @@ test("Paint commits the proposal buffer while No only discards it", () => {
   };
 
   nopaintPiece.boot(common);
+  assert.equal(store["painting:resolution-lock"], true);
   nopaintPiece.act({
     ...common,
     event: { is: (name) => name === "keyboard:down:enter" },
@@ -137,7 +139,7 @@ test("Paint commits the proposal buffer while No only discards it", () => {
 
   assert.deepEqual([...painting.pixels], new Array(16).fill(90));
   assert.equal(undoCount, 1);
-  assert.equal(persistCount, 2);
+  assert.equal(persistCount, 3);
   assert.deepEqual(store["nopaint:session"], {
     version: "3.0",
     seed: store["nopaint:session"].seed,
@@ -157,7 +159,7 @@ test("Paint commits the proposal buffer while No only discards it", () => {
 
   assert.deepEqual([...painting.pixels], new Array(16).fill(90));
   assert.equal(undoCount, 1);
-  assert.equal(persistCount, 3);
+  assert.equal(persistCount, 4);
   assert.deepEqual(store["nopaint:session"].decisions, [
     {
       number: 1,

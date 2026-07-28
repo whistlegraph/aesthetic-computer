@@ -50,7 +50,7 @@ export default {
   },
 
   setup: async ({ cdp }) => {
-    await cdp.nav(`${AC_URL}/nopaint?seed=nopaint-e2e-v1&test=1`);
+    await cdp.nav(`${AC_URL}/nopaint?seed=nopaint-perf-v1&test=1`);
     await cdp.waitFor("typeof window.__acNoPaintTest === 'function'");
     await cdp.waitFor("window.__acNoPaintTest().state === 'proposing'");
   },

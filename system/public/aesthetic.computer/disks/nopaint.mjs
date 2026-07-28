@@ -24,6 +24,7 @@ let lastDownload = null;
 let testApi = null;
 let testChannel = null;
 let archiveOrigin = null;
+let paintingResolution = null;
 
 function initialNavigationURL() {
   if (typeof window === "undefined") return null;
@@ -45,24 +46,56 @@ function transition(next) {
   loopState = next;
 }
 
+function interfaceLayout(screen) {
+  const barHeight = Math.max(96, Math.floor(screen.height * 0.18));
+  const statusHeight = Math.max(22, Math.floor(barHeight * 0.22));
+  const available = { x: 0, y: 0, w: screen.width, h: screen.height - barHeight };
+  const source = paintingResolution || { width: available.w, height: available.h };
+  const scale = Math.min(available.w / source.width, available.h / source.height);
+  const viewport = {
+    x: Math.floor((available.w - source.width * scale) / 2),
+    y: Math.floor((available.h - source.height * scale) / 2),
+    w: Math.floor(source.width * scale),
+    h: Math.floor(source.height * scale),
+  };
+  return {
+    stage: viewport,
+    bar: { x: 0, y: screen.height - barHeight, w: screen.width, h: barHeight },
+    statusHeight,
+    scale,
+  };
+}
+
 function positionButtons(screen) {
-  // The recovered instrument makes the two words architectural: No occupies
-  // the upper field and Paint anchors the lower field. Keep those proportions
-  // across landscape and portrait surfaces instead of shrinking both choices
-  // into ordinary adjacent toolbar buttons.
-  const noWidth = Math.max(120, Math.floor(screen.width * 0.48));
-  const paintWidth = Math.max(150, Math.floor(screen.width * 0.62));
-  const decisionHeight = Math.max(44, Math.floor(screen.height * 0.13));
-  Object.assign(noButton.box, {
-    x: Math.floor((screen.width - noWidth) / 2), y: Math.floor(screen.height * 0.05),
+  // The recovered instrument keeps the decision pair together along the
+  // bottom edge: No on the left, Paint larger on the right. They are the
+  // architecture of the surface, not ordinary toolbar buttons.
+  const { bar, statusHeight } = interfaceLayout(screen);
+  const gap = Math.max(4, Math.floor(screen.width * 0.006));
+  const margin = Math.max(6, Math.floor(screen.width * 0.008));
+  const saveWidth = Math.max(72, Math.floor(screen.width * 0.12));
+  const available = screen.width - margin * 2 - gap * 2 - saveWidth;
+  const noWidth = Math.floor(available * 0.38);
+  const paintWidth = available - noWidth;
+  const buttonY = bar.y + statusHeight;
+  const decisionHeight = bar.h - statusHeight - margin;
+  const no = noButton.btn || noButton;
+  const paint = paintButton.btn || paintButton;
+  no.box ||= {};
+  paint.box ||= {};
+  Object.assign(no.box, {
+    x: margin, y: buttonY,
     w: noWidth, h: decisionHeight,
   });
-  Object.assign(paintButton.box, {
-    x: Math.floor((screen.width - paintWidth) / 2),
-    y: screen.height - decisionHeight - Math.floor(screen.height * 0.04),
+  Object.assign(paint.box, {
+    x: margin + noWidth + gap, y: buttonY,
     w: paintWidth, h: decisionHeight,
   });
-  saveButton.reposition({ right: 8, top: 8, screen });
+  saveButton.reposition({
+    left: margin + noWidth + gap + paintWidth + gap,
+    top: buttonY + Math.floor((decisionHeight - saveButton.height) / 2),
+    screen,
+  });
 }
 
 function paintDecisionButton($, button, label, light = false) {
@@ -90,10 +123,14 @@ function clearProposal({ flatten, needsPaint, page, screen, system }) {
 
 function chooseProposal(api) {
   transition("choosing");
+  const resolution = paintingResolution || {
+    width: api.system.painting.width,
+    height: api.system.painting.height,
+  };
   proposal = makeProposal(
     random,
-    api.system.painting.width,
-    api.system.painting.height,
+    resolution.width,
+    resolution.height,
   );
   proposalNumber += 1;
   proposalFrame = 0;
@@ -211,7 +248,9 @@ function savePainting({ canShare, download, num, system }) {
   download(lastDownload, system.painting, {
     scale: 2,
     cropToScreen: true,
-    sharing: canShare,
+    // Browser journeys need a deterministic downloaded artifact; native share
+    // sheets detach the page/iframe and are covered by their own integration.
+    sharing: canShare && !initialNavigationURL()?.searchParams.has("test"),
   });
   publishTestState();
 }
@@ -232,6 +271,7 @@ function testSnapshot() {
     const box = control?.box || control?.btn?.box;
     return box ? { x: box.x, y: box.y, w: box.w, h: box.h } : null;
   };
+  const layout = testApi?.screen ? interfaceLayout(testApi.screen) : null;
   return {
     version: NOPAINT_VERSION,
     state: loopState,
@@ -248,6 +288,15 @@ function testSnapshot() {
       paint: controlBox(paintButton),
       save: controlBox(saveButton),
     },
+    layout: layout ? {
+      paintingViewport: { ...layout.stage },
+      paintingResolution: { ...paintingResolution },
+      screenResolution: {
+        width: testApi.screen.width,
+        height: testApi.screen.height,
+      },
+      controlBar: { ...layout.bar },
+    } : null,
     paintingFingerprint: paintingFingerprint(testApi?.system?.painting),
     origin: archiveOrigin ? { ...archiveOrigin } : null,
   };
@@ -286,7 +335,7 @@ function installTestHook(debug) {
 }
 
 // 🥾 Boot
-function boot({ colon, debug, hud, net, num, params, screen, system, ui, ...api }) {
+function boot({ colon, debug, hud, net, num, params, screen, store, system, ui, ...api }) {
   // The runtime may rewrite the visible route before the piece boots. The
   // Navigation Timing entry retains the original tutorial/test URL.
   const urlSeed = initialNavigationURL()?.searchParams.get("seed") || null;
@@ -319,11 +368,19 @@ function boot({ colon, debug, hud, net, num, params, screen, system, ui, ...api 
     record: `https://nopaint.art/${freshFromId}`,
     action: "rejected-as-start",
   } : null;
-  testApi = { ...api, hud, net, screen, system };
+  // AC's painting contract: the initial canvas establishes this painting's
+  // pixel resolution. Window changes after boot only alter presentation.
+  paintingResolution = {
+    width: system.painting.width,
+    height: system.painting.height,
+  };
+  store["painting:resolution-lock"] = true;
+  store.persist("painting:resolution-lock", "local:db");
+  testApi = { ...api, hud, net, screen, store, system };
   stateBeforePause = "proposing";
 
-  noButton = new ui.Button({ x: 0, y: 0, w: 1, h: 1 });
-  paintButton = new ui.Button({ x: 0, y: 0, w: 1, h: 1 });
+  noButton = new ui.TextButton("No");
+  paintButton = new ui.TextButton("Paint");
   saveButton = new ui.TextButton("Save");
   positionButtons(screen);
 
@@ -492,17 +549,23 @@ function paint($) {
   renderProposal($);
   $.system.nopaint.needsPresent = true;
 
+  const { bar, stage, scale } = interfaceLayout($.screen);
+  // Present the entire fixed-resolution painting above the controls. The
+  // viewport may fit/letterbox responsively, but its pixels never reflow.
+  $.wipe(18);
+  $.paste($.system.painting, stage.x, stage.y, scale);
+  $.paste($.system.nopaint.buffer, stage.x, stage.y, scale);
   const paused = loopState === "paused" ? " · paused" : "";
   const definition = proposalDefinition(proposal.kind);
-  $.ink(255).write(
-    `${definition?.label || proposal.kind} ${proposalNumber}${paused}`,
-    { x: 8, y: 8 },
+  $.ink(18).box(bar, "fill");
+  $.ink(255, 180).write(
+    `No Paint ${NOPAINT_VERSION} · ${definition?.label || proposal.kind} ${proposalNumber}${paused} · seed ${sessionSeed}`,
+    { x: 8, y: bar.y + 5 },
   );
-  $.ink(255, 150).write(`No Paint ${NOPAINT_VERSION} · seed ${sessionSeed}`, { x: 8, y: 20 });
 
   positionButtons($.screen);
-  paintDecisionButton($, noButton, "No");
-  paintDecisionButton($, paintButton, "Paint", true);
+  noButton.paint($, [[10, 10, 10], [80, 80, 80], [255, 255, 255]]);
+  paintButton.paint($, [[245, 245, 245], [210, 210, 210], [15, 15, 15]]);
   saveButton.paint($, [[20, 20, 20], [180, 180, 180], [255, 255, 255]]);
   return loopState === "proposing";
 }
@@ -515,8 +578,8 @@ function isAny(e, names) {
 function act($) {
   const { event: e } = $;
 
-  noButton.act(e, () => discardProposal($));
-  paintButton.act(e, () => commitProposal($));
+  noButton.btn.act(e, () => discardProposal($));
+  paintButton.btn.act(e, () => commitProposal($));
   saveButton.btn.act(e, () => savePainting($));
 
   if (isAny(e, [
