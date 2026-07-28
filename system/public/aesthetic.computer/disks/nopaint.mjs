@@ -10,6 +10,11 @@ import {
   seededRandom,
   seedFrom,
 } from "../lib/nopaint-proposals.mjs";
+import { nopaintProposal as lineProposal } from "./line.mjs";
+
+const COMPATIBLE_BRUSHES = Object.freeze(new Map([
+  [lineProposal.slug, lineProposal],
+]));
 
 let loopState = "choosing";
 let stateBeforePause = "proposing";
@@ -32,6 +37,8 @@ let paintingDragPaused = false;
 let hoveredDecision = null;
 let cursorSheet = null;
 let cursorPoint = null;
+let cursorFrame = 0;
+let cursorWagFrames = 0;
 const cueSamples = new Map();
 let cueEvents = [];
 
@@ -69,6 +76,7 @@ const brushCueSamples = new Map();
 let brushCueProposal = 0;
 let activeBrushSound = null;
 let activeBrushKind = null;
+let decisionHeld = false;
 
 // Exact frame rectangles and origins from Construct's Cursor object (ID 90).
 // The animated hand is the original `Over Button` sequence in cursor-sheet0.
@@ -136,6 +144,17 @@ function stopBrushCue() {
   activeBrushKind = null;
   playing.kill?.(0.04);
   cueEvents.push({ name: `brush-stop:${kind}`, path: "lifecycle" });
+  publishTestState();
+}
+
+function setDecisionHeld(held) {
+  if (decisionHeld === held) return;
+  decisionHeld = held;
+  activeBrushSound?.update?.({ sampleSpeed: held ? 0.18 : 1 });
+  cueEvents.push({
+    name: held ? "brush-scratch-slow" : "brush-scratch-resume",
+    path: "lifecycle",
+  });
   publishTestState();
 }
 
@@ -290,8 +309,7 @@ function paintDecisionButton($, button, label, light = false) {
 function paintOriginalCursor($) {
   if (!cursorSheet || !cursorPoint) return;
   const frames = hoveredDecision ? CURSOR_FRAMES.hand : CURSOR_FRAMES.normal;
-  const cadence = hoveredDecision ? 4 : 18;
-  const frame = frames[Math.floor(proposalFrame / cadence) % frames.length];
+  const frame = frames[Math.min(cursorFrame, frames.length - 1)];
   const scale = Math.max(1, Math.round(Math.min($.screen.width, $.screen.height) / 300));
   $.paste(
     {
@@ -315,16 +333,26 @@ function clearProposal({ flatten, needsPaint, page, screen, system }) {
 
 function chooseProposal(api) {
   stopBrushCue();
+  decisionHeld = false;
   transition("choosing");
   const resolution = paintingResolution || {
     width: api.system.painting.width,
     height: api.system.painting.height,
   };
-  proposal = makeProposal(
+  const baseProposal = makeProposal(
     random,
     resolution.width,
     resolution.height,
   );
+  const compatibleBrush = COMPATIBLE_BRUSHES.get(baseProposal.kind);
+  proposal = compatibleBrush
+    ? compatibleBrush.generate({
+        random,
+        width: resolution.width,
+        height: resolution.height,
+        base: baseProposal,
+      })
+    : baseProposal;
   proposalNumber += 1;
   proposalFrame = 0;
   transition("proposing");
@@ -483,6 +511,12 @@ function testSnapshot() {
     proposalNumber,
     proposalFrame,
     operation: proposal?.kind || null,
+    brush: proposal?.brush ? {
+      slug: proposal.brush.slug,
+      params: [...proposal.brush.params],
+      colon: [...proposal.brush.colon],
+      parameters: { ...proposal.brush.parameters },
+    } : null,
     decisions: decisions.map((decision) => ({ ...decision })),
     saveCount,
     finishMode,
@@ -491,6 +525,7 @@ function testSnapshot() {
       ready: [...cueSamples.keys()],
       brushReady: [...brushCueSamples.keys()],
       activeBrush: activeBrushKind,
+      decisionHeld,
       hovered: hoveredDecision,
       events: cueEvents.map((event) => ({ ...event })),
     },
@@ -498,6 +533,7 @@ function testSnapshot() {
       ready: Boolean(cursorSheet),
       visible: Boolean(cursorPoint),
       animation: hoveredDecision ? "Over Button" : "Normal",
+      frame: cursorFrame,
     },
     lastDownload,
     ready: Boolean(proposal && testApi?.system?.nopaint?.buffer),
@@ -579,10 +615,13 @@ function boot({ colon, debug, hud, net, num, params, screen, store, system, ui, 
   hoveredDecision = null;
   cursorSheet = null;
   cursorPoint = null;
+  cursorFrame = 0;
+  cursorWagFrames = 0;
   cueEvents = [];
   brushCueProposal = 0;
   activeBrushSound = null;
   activeBrushKind = null;
+  decisionHeld = false;
   lastDownload = null;
   archiveOrigin = archiveId ? {
     type: "nopaint-archive",
@@ -655,7 +694,14 @@ function boot({ colon, debug, hud, net, num, params, screen, store, system, ui, 
 
 // 🧮 Sim
 function sim({ needsPaint }) {
-  if (loopState === "proposing") {
+  if (cursorWagFrames > 0) {
+    cursorWagFrames -= 1;
+    if (cursorWagFrames === 0 && cursorFrame !== 0) {
+      cursorFrame = 0;
+      needsPaint();
+    }
+  }
+  if (loopState === "proposing" && !decisionHeld) {
     proposalFrame += 1;
     needsPaint();
     if (proposalFrame % 12 === 0) publishTestState();
@@ -700,13 +746,7 @@ function renderProposal($) {
       true,
     );
   } else if (proposal.kind === "line") {
-    ink(color).line(
-      proposal.x - drift,
-      proposal.y + drift,
-      proposal.x + proposal.w + drift,
-      proposal.y + proposal.h - drift,
-      proposal.thickness,
-    );
+    lineProposal.render($, proposal, proposalFrame);
   } else if (proposal.kind === "softy") {
     proposal.points.slice(0, 12).forEach((point, index) => {
       const breathe = 1 + Math.sin(phase + index * 0.7) * 0.18;
@@ -819,12 +859,11 @@ function paint($) {
   $.wipe(18);
   $.paste($.system.painting, stage.x, stage.y, scale);
   $.paste($.system.nopaint.buffer, stage.x, stage.y, scale);
-  const paused = loopState === "paused" ? " · paused" : "";
   const definition = proposalDefinition(proposal.kind);
   $.ink(18).box(bar, "fill");
   $.ink(255, 180).write(
-    `No Paint ${NOPAINT_VERSION} · ${definition?.label || proposal.kind} ${proposalNumber}${paused} · seed ${sessionSeed}`,
-    { x: 8, y: status.y + 5 },
+    definition?.label || proposal.kind,
+    { x: stage.x + 8, y: stage.y + 8 },
   );
 
   positionButtons($.screen);
@@ -846,7 +885,9 @@ function isAny(e, names) {
 // 🎪 Act — every input surface reaches the same two decision functions.
 function act($) {
   const { event: e } = $;
+  let cursorDeltaX = 0;
   if (e.device === "mouse" && Number.isFinite(e.x) && Number.isFinite(e.y)) {
+    cursorDeltaX = cursorPoint ? e.x - cursorPoint.x : 0;
     cursorPoint = { x: e.x, y: e.y };
   } else if (e.device === "touch") {
     cursorPoint = null;
@@ -874,6 +915,7 @@ function act($) {
           : null;
     if (target !== hoveredDecision) {
       hoveredDecision = target;
+      cursorFrame = 0;
       if (target === "painting") {
         cueEvents.push({
           name: "painting-hover",
@@ -883,6 +925,14 @@ function act($) {
       } else if (target) {
         playCue($, "rollover");
       }
+    }
+    if (target && Math.abs(cursorDeltaX) > 1) {
+      // Construct events 78/79 explicitly select directional hand poses;
+      // WagCursorTimer later restores frame zero. These are logical states,
+      // not a seven-frame playback loop.
+      cursorFrame = cursorDeltaX > 0 ? 2 : 1;
+      cursorWagFrames = 6;
+      $.needsPaint();
     }
   }
 
@@ -922,13 +972,25 @@ function act($) {
   }
 
   noButton.btn.act(e, {
-    down: () => playCue($, "no-down"),
-    cancel: () => playCue($, "back"),
+    down: () => {
+      playCue($, "no-down");
+      setDecisionHeld(true);
+    },
+    cancel: () => {
+      playCue($, "back");
+      setDecisionHeld(false);
+    },
     push: () => discardProposal($),
   });
   paintButton.btn.act(e, {
-    down: () => playCue($, "paint-down"),
-    cancel: () => playCue($, "back"),
+    down: () => {
+      playCue($, "paint-down");
+      setDecisionHeld(true);
+    },
+    cancel: () => {
+      playCue($, "back");
+      setDecisionHeld(false);
+    },
     push: () => commitProposal($),
   });
   if (

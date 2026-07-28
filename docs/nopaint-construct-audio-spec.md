@@ -53,6 +53,12 @@ is replaced, the piece pauses, completion mode opens, the seed changes, or the
 piece exits. Resuming restarts the current proposal's cue. One-shot decision
 and primitive samples end naturally.
 
+No Paint 3.0 adds a held-decision inspection state: while No or Paint remains
+down, proposal-frame stepping stops and the active proposal sample is reduced
+to `sampleSpeed: 0.18` for a scratch-like slowdown. Sliding between decisions
+preserves the hold. Release chooses the destination and the next proposal begins
+at normal speed; cancellation restores the current proposal to speed `1`.
+
 ## Brush and tool cues
 
 Primitive starts are `box - start`, `line - start`, `triangle - start`, and the

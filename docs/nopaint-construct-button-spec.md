@@ -190,20 +190,43 @@ presentation hit polygons only; pointer anchoring must use the origins above.
 
 Cursor behavior is centralized in Buttons sheet `project[6][38]`:
 
-- Nudge start/stop is events around `.1.8.8.9-.11`. Nudge makes Cursor visible
-  and starts its animation; desktop NoNudge selects `No Nudge` at
+- Nudge start/stop is events around `.1.8.8.9-.11`. Event 5 calls
+  `StartAnim(fromBeginning=true)` at `project.6.38.1.8.8.9.8.1.7.0` when
+  `DesktopMode=true`. This starts whichever animation is current; the later
+  every-tick decision at events 64-68 selects `Nudging`. Desktop NoNudge event
+  11 selects `No Nudge` with
+  `SetAnim(name, fromBeginning=true)` at
   `project.6.38.1.8.8.11.8.0.7.0`.
 - Normal desktop restoration selects `Normal` at
-  `project.6.38.1.8.8.36.7.2`, `.40.7.0`, and related release/reset branches.
+  `project.6.38.1.8.8.36.7.2` (mouse release, a button was carried, target is
+  enabled) and `.40.7.0` (the Else branch while not nudging). Both restart the
+  selected animation from frame zero.
 - Passive or carried button targeting selects `Over Button` at
   `project.6.38.1.8.8.39.8.0.8.1.7.0` and `.41.7.0`; nudge selection occurs at
   `.39.8.0.8.0.8.0.7.0`. These serialized constants resolve to
   `618=Nudging`, `619=Over Button`, `613=Normal`.
-- Event 43 (`project.6.38.1.8.8.43`) advances/starts the hand animation for
-  touch activity. Event 44 (`.44`) sets Cursor position to current Mouse X/Y.
-  Its children set frame 0/4 according to pointer/button state, hide on
-  incompatible touch mode, and re-show/reset the sprite when appropriate.
-- Event 45 (`.45`) applies the current cursor color and opacity treatment.
+- Event 72 (`project.6.38.1.8.8.41`) selects and restarts `Over Button` when
+  Mouse is over an enabled Button in desktop mode, not peeking, and the target
+  semantic value is No, Paint, or PlayMode. This is name selection, not frame
+  cycling.
+- Mouse OnObjectClicked event 51 (`project.6.38.1.8.8.34`) runs for an enabled
+  Button and, in action order, sets `AnyButtonPressed=true`, Cursor visible,
+  opacity 100, then the canonical packed color. It does not select an animation;
+  the subsequent state-selection events do that.
+- Event 74 (`project.6.38.1.8.8.43`) is `WagCursorTimer` while the current
+  animation name is `Over Button`; it explicitly sets animation frame **0**.
+- Event 75 and its descendants (`project.6.38.1.8.8.44`) are the cursor
+  position/wag/visibility loop, not events 43-45 in Construct's displayed event
+  numbering. Event 76, desktop mode, sets position to
+  `(floor(Mouse.X), floor(Mouse.Y))` at `.44.8.0.7.0`. Event 78 sets frame **2**
+  when horizontal displacement from `MouseLastX` is greater than 1
+  (`.44.8.0.8.0.8.0.7.0`); sibling Else event 79 sets frame **1** for the
+  opposite horizontal direction threshold (`.44.8.0.8.0.8.1.7.0`). Event 81
+  hides the cursor when its bounds fail the exported on-canvas test. Event 83
+  re-shows it after pointer movement and restores opacity/color.
+- Event 86 (`project.6.38.1.8.8.45`) is `HideCursorTimer` while no button is
+  carried: it changes the color to expression 625 and opacity to 25. It does
+  not select an animation.
 - PainterStoriesIndex hides Cursor at `project.6.41.1.1.7.32`; transition
   sheet hides it at `project.6.42.1.1.7.0`; Index moves it to the proper UI
   layer and toggles visibility at `project.6.43.1.10.8.5.8.3`; Splash performs
@@ -214,6 +237,70 @@ its sprite position from the Construct-space mouse coordinates every tick, use
 `Over Button` for generic Button hit targets, use `Nudging`/`No Nudge` during
 nudge modes, and restore `Normal` on unhover/release. Preserve each frame's
 per-frame origin or the hand visibly jumps while waving.
+
+### Explicit cursor transition table
+
+Construct animation frames are **zero-based**. `SetAnimFrame(0)` means the first
+frame, and the runtime floors/clamps the requested index. Every cursor
+`SetAnim` action shown here passes `fromBeginning=true`; selection therefore
+immediately resets to frame 0 even though `Normal` and `Over Button` have speed
+zero.
+
+| prior/input state | condition and path | ordered cursor actions | resulting state |
+|---|---|---|---|
+| nudge begins, desktop | event 5, `.9.8.1` | `StartAnim(true)` | current animation restarts; events 64-68 subsequently select the nudge/hand state |
+| enabled Button clicked | event 51, `.34` | `SetVisible(true)`, `SetOpacity(100)`, `SetDefaultColor(-281492157629439)` | visible full-strength cursor; animation name unchanged until later selection |
+| desktop NoNudge | event 11, `.11.8.0` | `SetAnim("No Nudge", true)` | one-frame No Nudge visual, animation speed 20 is immaterial |
+| mouse release after carried button | event 56, `.36` | `SetAnim("Normal", true)` | Normal frame 0 |
+| nudge mode chosen | events 64/65/66/67, `.39.8.0.8.0.8.0` | `SetAnim("Nudging", true)` | looping frames 0/1 at speed 5 |
+| same decision's Else | event 68, `.39.8.0.8.1` | `SetAnim("Over Button", true)` | hand frame 0 |
+| no applicable button/nudge | event 70, `.40` | `SetAnim("Normal", true)` | Normal frame 0 |
+| over enabled No/Paint/PlayMode Button | event 72, `.41` | `SetAnim("Over Button", true)` | hand frame 0 |
+| wag timer fires while Over Button | event 74, `.43` | `SetAnimFrame(0)` | neutral hand pose |
+| desktop pointer loop | event 76, `.44.8.0` | `SetPos(floor(Mouse.X), floor(Mouse.Y))` | hotspot follows pointer |
+| horizontal movement one direction | event 78, `.44.8.0.8.0.8.0` | `SetAnimFrame(2)` | directional wag pose 2 |
+| horizontal movement opposite direction | event 79, `.44.8.0.8.0.8.1` | `SetAnimFrame(1)` | directional wag pose 1 |
+| cursor bounds outside accepted canvas test | event 81, `.44.8.0.8.1` | `SetVisible(false)` | hidden |
+| pointer moved since last mouse sample | event 83, `.44.8.0.8.2.8.0` | `SetVisible(true)`, `SetOpacity(100)`, `SetDefaultColor(-281492157629439)` | visible, fully opaque, canonical packed color |
+| hide timer, no carried button | event 86, `.45` | `SetDefaultColor(-140746078815231)`, `SetOpacity(25)` | dimmed/tinted idle cursor |
+
+The packed color constants above are the exact evaluated values of expression
+611 (`-281492157629439`, hexadecimal `-0x10004001003ff`) and expression 625
+(`-140746078815231`, hexadecimal `-0x8002000803ff`). They should be decoded with
+Construct's packed-color helper if exact channel values are needed; do not treat
+them as CSS integers. Expression 103 is opacity 100, 613 is `Normal`, 618 is
+`Nudging`, 619 is `Over Button`, 621 is `WagCursorTimer`, and 624 is
+`HideCursorTimer`.
+
+Events 43-45 in the displayed Construct numbering are unrelated to the cursor:
+event 43 ends a touch text-cursor drag, while events 44-50 implement Peek
+dragging. Their proximity in the serialized sheet is easy to misread; the
+cursor's displayed events begin at 51 and resume at 56, 64, 70, 72, 74-86.
+
+## Animation selection versus frame selection
+
+The export does not imply that every spritesheet should auto-cycle.
+
+- `SetAnim(name, fromBeginning)` selects a named animation. With
+  `fromBeginning=true`, it resets to zero-based frame 0. The authored animation's
+  speed and loop flags then control whether it advances.
+- `SetAnimFrame(index)` chooses a specific zero-based pose. It does not mean
+  “play the sheet.” The cursor hand uses only frames 0, 1, and 2 of the
+  seven-frame `Over Button` animation in these events; the other authored poses
+  are retained assets, not evidence for automatic playback.
+- `StartAnim(fromBeginning)` resumes/starts the currently selected animation;
+  it does not select a different animation name.
+- Cursor `Normal` and `Over Button` have speed 0 and non-looping flags, so all
+  motion is event-selected. `Nudging` is speed 5 and looping; `No Nudge` is
+  marked looping but contains one frame.
+- Pressed feedback generally uses separate logical replacement objects
+  (`NoPressed`, `PaintPressed`, `SavePressed`, `BackPressed`, and the other
+  `*Pressed` types). Core button events show/hide those objects or select their
+  frames. They are not alternate frames of the invisible generic Button.
+- Consequently, a faithful importer should model atlas frame rectangles,
+  per-frame origins, named-animation speed/loop metadata, explicit frame
+  selection, and separate replacement-object visibility as distinct concepts.
+  Never infer cycling merely because multiple frames share a spritesheet.
 
 ## Fidelity checklist
 

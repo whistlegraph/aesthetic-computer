@@ -193,12 +193,21 @@ try {
     const paint = point(before.controls.paint);
     await ac.page.mouse.move(no.x, no.y);
     await ac.page.mouse.down();
+    await ac.wait(100);
+    const held = await ac.nopaintState();
+    await ac.wait(250);
+    const stillHeld = await ac.nopaintState();
+    expect(held?.audio?.decisionHeld === true, "holding No enters the scratch-slow state");
+    expect(stillHeld?.proposalFrame === held?.proposalFrame, "holding a decision pauses brush stepping");
+    expect(stillHeld?.audio?.events?.some(({ name }) => name === "brush-scratch-slow"),
+      "holding records the brush playback slowdown");
     await ac.page.mouse.move(paint.x, paint.y, { steps: 12 });
     await ac.page.mouse.up();
     await ac.wait(250);
     const after = await ac.nopaintState();
     expect(after?.proposalNumber === before.proposalNumber + 1, "release chooses the slid-to button");
     expect(after?.decisions?.at(-1)?.decision === "paint", "sliding No → Paint commits Paint");
+    expect(after?.audio?.decisionHeld === false, "release resumes normal proposal playback");
     const recentCues = after?.audio?.events?.slice(-6).map(({ name }) => name) || [];
     expect(recentCues.includes("no-down"), "hold begins with the No press cue");
     expect(recentCues.includes("paint-down") || recentCues.includes("rollover"), "crossing announces Paint");
@@ -226,6 +235,8 @@ try {
     const paintingHovered = await ac.nopaintState();
     expect(paintingHovered.cursor?.ready === true,
       "the original cursor remains active across painting hover transitions");
+    expect([0, 1, 2].includes(paintingHovered.cursor?.frame),
+      "cursor uses Construct's logical frame replacements rather than atlas cycling");
   });
 
   await scenario("Pause freezes and resumes the live proposal", async (expect) => {
