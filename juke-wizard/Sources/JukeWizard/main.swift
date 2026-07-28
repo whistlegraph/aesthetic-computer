@@ -31,14 +31,28 @@ final class JukeAppDelegate: NSObject, NSApplicationDelegate {
             if args[i] == "--spotify-search", i + 1 < args.count { spotifySearch = args[i + 1]; i += 2; continue }
             paths.append(args[i]); i += 1
         }
+        var root = URL(fileURLWithPath: #filePath)
+        for _ in 0..<4 { root.deleteLastPathComponent() }
+        let aesthetic = root.appendingPathComponent("pop/out/pop-library.json").path
         if paths.isEmpty {
-            var root = URL(fileURLWithPath: #filePath)
-            for _ in 0..<4 { root.deleteLastPathComponent() }
-            let aesthetic = root.appendingPathComponent("pop/out/pop-library.json").path
             let master = NSHomeDirectory() + "/Desktop/MASTER-playlist.m3u8"
             if FileManager.default.fileExists(atPath: aesthetic) { paths = [aesthetic] }
             else if FileManager.default.fileExists(atPath: master) { paths = [master] }
         }
+        let masterPath = URL(fileURLWithPath: aesthetic).standardizedFileURL.path
+        let includesMasterLibrary = paths.contains {
+            URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath)
+                .standardizedFileURL.path == masterPath
+        }
+        let scopedInputs = includesMasterLibrary ? [] : paths
+        let playlistName: String? = scopedInputs.isEmpty ? nil : {
+            if scopedInputs.count > 1 { return "\(scopedInputs.count)-track playlist" }
+            let url = URL(fileURLWithPath: (scopedInputs[0] as NSString).expandingTildeInPath)
+            if ["m3u", "m3u8"].contains(url.pathExtension.lowercased()) {
+                return url.deletingPathExtension().lastPathComponent
+            }
+            return url.hasDirectoryPath ? url.lastPathComponent : "Playlist"
+        }()
         let library = Library(inputs: paths)
         // Make sure the requested track is in the queue even if it's a draft
         // not yet in the library index — so we can always select + play it.
@@ -50,7 +64,9 @@ final class JukeAppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         controller = JukeController(library: library, watch: watch, select: selectPath,
-                                    spotifySearch: spotifySearch)
+                                    spotifySearch: spotifySearch,
+                                    playlistName: playlistName,
+                                    fullLibraryPath: aesthetic)
         controller?.showWindow(nil)
         if controller?.window?.isMiniaturized == true { controller?.window?.deminiaturize(nil) }
         controller?.window?.makeKeyAndOrderFront(nil)
@@ -61,9 +77,8 @@ final class JukeAppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.async { [weak self] in self?.controller?.quickOpenFull() }
     }
 
-    // The persistent spinning CD now belongs to Menu Band's CDJ Radio. With
-    // no JukeWizard status item to reopen, closing its last window exits.
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+    // Stay resident while its compact spinning CD is present in the menu bar.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
     // A hidden resident window should always come back from a Dock click.
     // Without this, AppKit can activate the process while leaving its only

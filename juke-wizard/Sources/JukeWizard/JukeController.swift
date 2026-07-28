@@ -31,7 +31,10 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     let library: Library
     let watchDirs: [String]
     let selectPath: String?
+    var playlistName: String?
+    let fullLibraryPath: String
     var current: Int = -1
+    var menuBar: MenuBarCD?
     var watchTimer: Timer?
     var activityTimer: Timer?
     var activityPollInFlight = false
@@ -56,6 +59,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     }
     var sortMode: SortMode = .defaultOrder
     var sortPopup: NSPopUpButton!
+    var scopeButton: NSButton!
 
     // release-link services (button per platform, shown when a URL exists)
     enum LinkService: Int, CaseIterable {
@@ -102,6 +106,9 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     var playButton: NSButton!
     var ledLabel: NSTextField!
     var notesToggle: NSButton!
+    var djButton: NSButton!
+    var djMixer: DJMixerView!
+    var djMode = false
     var roomButton: NSButton!
     var roomPopover: NSPopover?
     var roomMixer: RoomMixerView?
@@ -135,10 +142,13 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     var appearanceMode: AppearanceMode = .automatic
 
     init(library: Library, watch: [String], select selectArg: String? = nil,
-         spotifySearch: String? = nil) {
+         spotifySearch: String? = nil, playlistName: String? = nil,
+         fullLibraryPath: String) {
         self.library = library
         self.watchDirs = watch
         self.selectPath = selectArg
+        self.playlistName = playlistName
+        self.fullLibraryPath = fullLibraryPath
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 820, height: 540),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
@@ -174,9 +184,8 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         }
         wave.volume = quickVolume
         relayout()
-        // CDJ Radio and its spinning menu-bar disc now belong to Menu Band.
-        // JukeWizard remains the library/editor and does not create a second
-        // status item that would compete for the same juked session.
+        menuBar = MenuBarCD()
+        menuBar?.onClick = { [weak self] in self?.quickOpenFull() }
         roomAudio.onState = { [weak self] state in
             DispatchQueue.main.async { self?.renderRoomState(state) }
         }
@@ -193,7 +202,9 @@ final class JukeController: NSWindowController, NSWindowDelegate,
                 select(idx, autoplay: true)
             } else if !library.tracks.isEmpty { select(0, autoplay: false) }
         } else if !library.tracks.isEmpty { select(0, autoplay: false) }
-        activateSpotifyMode()
+        let requestedSpotify = !(spotifySearch?.trimmingCharacters(
+            in: .whitespacesAndNewlines).isEmpty ?? true)
+        requestedSpotify ? activateSpotifyMode() : activateLibraryMode()
         spotify.start()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
             guard let self, case .idle = self.roomAudio.state else { return }
@@ -227,12 +238,17 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     }
     private func handleKey(_ e: NSEvent) -> Bool {
         switch e.keyCode {
+        case 53:
+            if playlistName != nil { escapePlaylist(); return true }
+            return false                                                     // esc leaves playlist scope
         case 49: togglePlay(); return true                                  // space
         case 123:
-            if spotifyMode { spotify.seek(offsetMS: -5000) } else { wave.seek(to: wave.currentTime - 5) }
+            if djMode { djMixer.dominantDeck.deck.seek(to: djMixer.dominantDeck.deck.currentTime - 5) }
+            else if spotifyMode { spotify.seek(offsetMS: -5000) } else { wave.seek(to: wave.currentTime - 5) }
             return true                                                     // ←  back 5s
         case 124:
-            if spotifyMode { spotify.seek(offsetMS: 5000) } else { wave.seek(to: wave.currentTime + 5) }
+            if djMode { djMixer.dominantDeck.deck.seek(to: djMixer.dominantDeck.deck.currentTime + 5) }
+            else if spotifyMode { spotify.seek(offsetMS: 5000) } else { wave.seek(to: wave.currentTime + 5) }
             return true                                                     // →  fwd 5s
         case 126: prevTrack(); return true                                  // ↑  prev track
         case 125: nextTrack(); return true                                  // ↓  next track
@@ -335,6 +351,14 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         sortPopup.font = NSFont.systemFont(ofSize: 11)
         content.addSubview(sortPopup)
 
+        scopeButton = NSButton(title: "", target: self, action: #selector(escapePlaylist))
+        scopeButton.bezelStyle = .inline
+        scopeButton.controlSize = .small
+        scopeButton.contentTintColor = Palette.coral
+        scopeButton.toolTip = "Leave this playlist and show all local tracks (Esc)"
+        content.addSubview(scopeButton)
+        refreshPlaylistScopeButton()
+
         sourceTabs = NSSegmentedControl(labels: ["Spotify", "Aesthetic"],
                                         trackingMode: .selectOne, target: self,
                                         action: #selector(sourceTabChanged))
@@ -349,6 +373,13 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         appearanceTabs.controlSize = .small
         appearanceTabs.toolTip = "Follow macOS, or pin JukeWizard to light or dark"
         content.addSubview(appearanceTabs)
+
+        djButton = NSButton(title: "DJ", target: self, action: #selector(toggleDJMode))
+        djButton.bezelStyle = .rounded
+        djButton.setButtonType(.pushOnPushOff)
+        djButton.contentTintColor = Palette.teal
+        djButton.toolTip = "Mix two local tracks"
+        content.addSubview(djButton)
 
         spotifySearchField = NSSearchField(frame: .zero)
         spotifySearchField.placeholderString = "Search Spotify"
@@ -378,6 +409,11 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         content.addSubview(listScroll)
 
         buildDrawer(in: content)
+
+        djMixer = DJMixerView(frame: .zero)
+        djMixer.isHidden = true
+        djMixer.onStateChange = { [weak self] in self?.refreshPlaybackPresence() }
+        content.addSubview(djMixer)
 
         playButton.contentTintColor = Palette.teal
         transportExtra.forEach { $0.contentTintColor = Palette.teal }
@@ -457,6 +493,72 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         relayout()
     }
 
+    @objc private func toggleDJMode() { setDJMode(!djMode) }
+
+    private func setDJMode(_ enabled: Bool) {
+        guard enabled != djMode else { return }
+        if enabled {
+            if spotifyMode { activateLibraryMode() }
+            wave.pause()
+            playButton.title = "▶"
+            nowPlaying.setPaused(true)
+            if drawerOpen {
+                drawerOpen = false
+                notesToggle.state = .off
+            }
+            djMixer.configure(tracks: library.tracks, primaryIndex: max(0, current))
+            djMixer.setMasterVolume(quickVolume)
+            djMode = true
+            djButton.state = .on
+            djButton.contentTintColor = Palette.coral
+            djMixer.isHidden = false
+            setPlayerChromeHidden(true)
+            djMixer.startDisplay()
+            roomAudio.useSource(.aesthetic)
+            window?.isMovableByWindowBackground = false
+            window?.title = "JukeWizard · DJ"
+        } else {
+            djMixer.pauseAll()
+            djMixer.stopDisplay()
+            djMixer.isHidden = true
+            djMode = false
+            djButton.state = .off
+            djButton.contentTintColor = Palette.teal
+            window?.isMovableByWindowBackground = true
+            setPlayerChromeHidden(false)
+            window?.title = spotifyMode ? "JukeWizard · Spotify" : "JukeWizard — \(library.tracks.count) tracks"
+        }
+        relayout()
+        refreshPlaybackPresence()
+    }
+
+    private func setPlayerChromeHidden(_ hidden: Bool) {
+        [nowPlaying, titleLabel, artistLabel, laneLabel, activityLabel, playButton,
+         ledLabel, notesToggle, roomButton, sortPopup, spotifySearchField,
+         listScroll, wave, spotifyProgress, drawerPanel].forEach { $0?.isHidden = hidden }
+        transportExtra.forEach { $0.isHidden = hidden }
+        linkButtons.forEach { $0.isHidden = hidden }
+        guard !hidden else { return }
+
+        nowPlaying.isHidden = false
+        titleLabel.isHidden = false
+        artistLabel.isHidden = false
+        laneLabel.isHidden = false
+        activityLabel.isHidden = false
+        playButton.isHidden = false
+        ledLabel.isHidden = false
+        roomButton.isHidden = false
+        listScroll.isHidden = false
+        transportExtra.forEach { $0.isHidden = false }
+        wave.isHidden = spotifyMode
+        spotifyProgress.isHidden = !spotifyMode
+        sortPopup.isHidden = spotifyMode
+        spotifySearchField.isHidden = !spotifyMode
+        notesToggle.isHidden = false
+        drawerPanel.isHidden = !drawerOpen
+        if !spotifyMode, let t = track { loadLinks(t) }
+    }
+
     private func applyThemeBackground() {
         let dark = window?.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
         let chassis = Palette.bg(dark)
@@ -505,6 +607,15 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         let contentTop = H - topBarH
         sourceTabs.frame = NSRect(x: pad, y: H - 27, width: 170, height: 22)
         appearanceTabs.frame = NSRect(x: W - pad - 172, y: H - 27, width: 172, height: 22)
+        djButton.frame = NSRect(x: 184, y: H - 28, width: 52, height: 24)
+        scopeButton.frame = NSRect(x: 242, y: H - 27,
+                                   width: max(0, W - 242 - 188), height: 22)
+
+        if djMode {
+            djMixer.frame = NSRect(x: pad, y: pad, width: W - pad * 2,
+                                   height: H - topBarH - pad)
+            return
+        }
         // ── header (now-playing) across the top ───────────────────────────────
         let headerH = max(178, min(245, (H - topBarH) * 0.39))
         let headerBottom = contentTop - headerH
@@ -580,13 +691,59 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         notesPlaceholder.frame = NSRect(x: dp + 6, y: notesBottom + notesH - 20, width: 100, height: 16)
     }
 
-    // Keep Dock artwork and any open in-window mini player in sync. The
-    // menu-bar CD itself is owned by Menu Band's CDJ Radio.
+    // Keep the compact menu-bar CD, Dock artwork, and mini player in sync.
     private func refreshPlaybackPresence() {
-        let bpm = spotifyMode ? nil : track?.meta?.bpm.map(Double.init)
-        let playing = spotifyMode ? (spotifyState?.isPlaying ?? false) : wave.isPlaying
+        let bpm = djMode ? djMixer.dominantBPM
+            : (spotifyMode ? nil : track?.meta?.bpm.map(Double.init))
+        let playing = djMode ? djMixer.isPlaying
+            : (spotifyMode ? (spotifyState?.isPlaying ?? false) : wave.isPlaying)
+        let title = djMode ? djMixer.dominantTitle
+            : (spotifyMode ? (spotifyState?.title ?? "Spotify") : (track?.title ?? "JukeWizard"))
+        if djMode {
+            menuBar?.setDecks([
+                .init(id: "A", title: djMixer.deckA.deck.track?.title ?? "Deck A",
+                      art: Self.artwork(for: djMixer.deckA.deck.track), accent: Palette.teal,
+                      bpm: djMixer.deckA.deck.targetBPM, playing: djMixer.deckA.deck.isPlaying),
+                .init(id: "B", title: djMixer.deckB.deck.track?.title ?? "Deck B",
+                      art: Self.artwork(for: djMixer.deckB.deck.track), accent: Palette.coral,
+                      bpm: djMixer.deckB.deck.targetBPM, playing: djMixer.deckB.deck.isPlaying),
+            ])
+        } else {
+            menuBar?.setSingleDeck(title: title, art: currentArt, bpm: bpm, playing: playing)
+        }
         DockIcon.setNowPlaying(art: currentArt, playing: playing, bpm: bpm)
         miniPlayer?.refresh()
+    }
+
+    private static func artwork(for track: Track?) -> NSImage? {
+        track?.meta?.art.flatMap {
+            NSImage(contentsOf: URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath))
+        }
+    }
+
+    private func refreshPlaylistScopeButton() {
+        guard let scopeButton else { return }
+        scopeButton.isHidden = playlistName == nil
+        scopeButton.title = playlistName.map { "\($0)  ·  All tracks" } ?? ""
+    }
+
+    @objc private func escapePlaylist() {
+        guard playlistName != nil else { return }
+        let currentPath = track?.url.standardizedFileURL.path
+        library.add(path: fullLibraryPath)
+        playlistName = nil
+        refreshPlaylistScopeButton()
+        if let currentPath,
+           let index = library.tracks.firstIndex(where: {
+               $0.url.standardizedFileURL.path == currentPath
+           }) {
+            current = index
+        }
+        listTable.reloadData()
+        window?.title = "JukeWizard — \(library.tracks.count) tracks"
+        activityLabel.stringValue = "● full Aesthetic library · \(library.tracks.count) tracks"
+        activityLabel.textColor = Palette.teal
+        relayout()
     }
 
     @objc private func showRoomMixer() {
@@ -656,6 +813,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
 
     // ── headless Spotify source ───────────────────────────────────────────
     private func activateSpotifyMode() {
+        if djMode { setDJMode(false) }
         if wave?.isPlaying == true { wave.pause() }
         if drawerOpen {
             drawerOpen = false
@@ -681,6 +839,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     }
 
     private func activateLibraryMode() {
+        if djMode { setDJMode(false) }
         if spotifyMode, spotifyState?.isPlaying == true { spotify.pause() }
         spotifyMode = false
         roomAudio.useSource(.aesthetic)
@@ -793,14 +952,16 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         refreshPlaybackPresence()
     }
     var quickTitle: String {
-        spotifyMode ? (spotifyState?.title ?? "Spotify") : (track?.title ?? "Aesthetic")
+        djMode ? djMixer.dominantTitle
+            : (spotifyMode ? (spotifyState?.title ?? "Spotify") : (track?.title ?? "Aesthetic"))
     }
     var quickSubtitle: String {
+        if djMode { return String(format: "DJ mix · %.1f BPM", djMixer.dominantBPM) }
         if spotifyMode { return [spotifyState?.artists ?? "", "Spotify"].filter { !$0.isEmpty }.joined(separator: " · ") }
         return [track?.meta?.artist ?? "Aesthetic Dot Computer", "Aesthetic"].joined(separator: " · ")
     }
     var quickIsPlaying: Bool {
-        spotifyMode ? (spotifyState?.isPlaying ?? false) : wave.isPlaying
+        djMode ? djMixer.isPlaying : (spotifyMode ? (spotifyState?.isPlaying ?? false) : wave.isPlaying)
     }
     var quickRoomSummary: String {
         switch roomAudio.state {
@@ -824,6 +985,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     @objc func quickVolumeChanged(_ sender: NSSlider) {
         quickVolume = max(0, min(1, sender.floatValue))
         wave.volume = quickVolume
+        djMixer.setMasterVolume(quickVolume)
         spotify.volume(percent: Int((quickVolume * 100).rounded()))
         UserDefaults.standard.set(quickVolume, forKey: "playerVolume")
         miniPlayer?.refresh()
@@ -835,6 +997,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     private func setQuickVolume(_ value: Float) {
         quickVolume = max(0, min(1, value))
         wave.volume = quickVolume
+        djMixer.setMasterVolume(quickVolume)
         spotify.volume(percent: Int((quickVolume * 100).rounded()))
         UserDefaults.standard.set(quickVolume, forKey: "playerVolume")
         miniPlayer?.refresh()
@@ -878,6 +1041,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
 
     func select(_ i: Int, autoplay: Bool) {
         guard i >= 0, i < library.tracks.count else { return }
+        if djMode { setDJMode(false) }
         if spotifyMode { spotify.pause(); activateLibraryMode() }
         commitNotes()
         let old = current
@@ -966,7 +1130,9 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         else if r >= 0 { select(r, autoplay: true) }
     }
     @objc private func togglePlay() {
-        if spotifyMode {
+        if djMode {
+            djMixer.toggleDominant()
+        } else if spotifyMode {
             spotify.toggle()
             let playing = !(spotifyState?.isPlaying ?? false)
             playButton.title = playing ? "❚❚" : "▶"
@@ -979,11 +1145,13 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         refreshPlaybackPresence()
     }
     @objc private func prevTrack() {
-        if spotifyMode { spotify.previous() }
+        if djMode { djMixer.stepDominant(by: -1) }
+        else if spotifyMode { spotify.previous() }
         else if current > 0 { select(current - 1, autoplay: true) }
     }
     @objc private func nextTrack() {
-        if spotifyMode { spotify.next() }
+        if djMode { djMixer.stepDominant(by: 1) }
+        else if spotifyMode { spotify.next() }
         else if current < library.tracks.count - 1 { select(current + 1, autoplay: true) }
     }
 
