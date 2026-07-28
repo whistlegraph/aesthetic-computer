@@ -1,0 +1,8 @@
+Use case: illustration-story
+Asset type: archival dossier cover vignette
+Primary request: A single compact editorial still life representing ProPublica's investigative newsroom: a slightly skewed stack of government records and Form 990 pages, several thick black redaction bars, a small magnifying glass resting across the papers, a thin network of red thread leading outward to five tiny regional newsroom pins, and one subtle database-grid sheet beneath the stack.
+Scene/backdrop: warm cream archival paper, empty surrounding field, faded irregular edges.
+Style/medium: restrained colored-pencil and graphite illustration, hand-drawn, tactile paper grain, serious archival research dossier.
+Composition/framing: centered floating object, square composition, generous negative space, no floor plane.
+Color palette: graphite gray, black, paper cream, one restrained ProPublica-red accent.
+Constraints: no people, readable text, logos, emblems, flags, photorealism, or watermark; legible when printed three inches wide.

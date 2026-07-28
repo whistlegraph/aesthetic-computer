@@ -414,6 +414,11 @@ const PAPER_MAP = {
     siteName: "creative-capital-dossier-26-arxiv",
     title: "Creative Capital — A Dossier",
   },
+  "arxiv-propublica": {
+    base: "propublica",
+    siteName: "propublica-dossier-26-arxiv",
+    title: "ProPublica — A Dossier",
+  },
 };
 
 // Dossier swimlane — rendered in their own "dossiers;" section on the
@@ -435,6 +440,7 @@ const DOSSIER_DIRS = [
   "arxiv-heavy-manners-library",
   "arxiv-creative-time",
   "arxiv-creative-capital",
+  "arxiv-propublica",
   "arxiv-microvision",
   "arxiv-calarts-news",
 ];
@@ -1335,6 +1341,11 @@ function updateIndex(entries) {
       detail: "501(c)(3) artist-grant funder &middot; 990 + grantee record &middot; arXiv",
       abstract:
         "What is publicly recoverable about Creative Capital, the New York nonprofit (1999–) that regrants to individual artists: structure, the award, people, and money from the IRS 990 series and the public grantee record. Scaffold revision — figures pending; fact-surfacing, not argument.",
+    },
+    "propublica-dossier-26-arxiv": {
+      detail: "501(c)(3) investigative newsroom &middot; IRS 990 + accountability record &middot; arXiv",
+      abstract:
+        "What is publicly recoverable about ProPublica: origin, nonprofit structure, newsroom and partner network, data tools, people, money, reach, awards, corrections, and disputed work. Fact-surfacing, not argument.",
     },
   };
 

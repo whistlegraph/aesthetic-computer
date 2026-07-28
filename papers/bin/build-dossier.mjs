@@ -40,6 +40,7 @@ const DOSSIER_SLUGS = new Set([
   "arxiv-internet-archive", "arxiv-mellon", "arxiv-pioneer-works",
   "arxiv-new-inc", "arxiv-studio-museum", "arxiv-hathitrust",
   "arxiv-the-kitchen", "arxiv-machine-project", "arxiv-heavy-manners-library",
+  "arxiv-propublica",
 ]);
 
 function run(cmd, args, cwd) {

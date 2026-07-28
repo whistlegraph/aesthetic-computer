@@ -63,6 +63,7 @@ const PAPER_MAP = {
   "arxiv-heavy-manners-library": { base: "heavy-manners-library", title: "Heavy Manners Library — A Dossier", siteName: "heavy-manners-library-dossier-26-arxiv" },
   "arxiv-creative-time": { base: "creative-time", title: "Creative Time — A Dossier", siteName: "creative-time-dossier-26-arxiv" },
   "arxiv-creative-capital": { base: "creative-capital", title: "Creative Capital — A Dossier", siteName: "creative-capital-dossier-26-arxiv" },
+  "arxiv-propublica": { base: "propublica", title: "ProPublica — A Dossier", siteName: "propublica-dossier-26-arxiv" },
   "arxiv-microvision": { base: "microvision", title: "MicroVision — A Dossier", siteName: "microvision-dossier-26-arxiv" },
   "arxiv-calarts-news": { base: "calarts-news", title: "What's New CalArts!? — A Dossier", siteName: "whats-new-calarts-26-arxiv" },
 };
@@ -252,6 +253,9 @@ function generateCardsTeX(dir, info, parsed) {
   // Git hash for revision stamp
   let gitHash = "unknown";
   try { gitHash = execSync("git rev-parse --short HEAD", { encoding: "utf8" }).trim(); } catch (_) {}
+  const sourceDate = parsed.extraCommands
+    .join("\n")
+    .match(/\\newcommand\{\\papercreated\}\{([^}]+)\}/)?.[1] || "undated";
 
   // Translation links for title card
   const cjkLangs = new Set(["zh", "ja", "ko"]);
@@ -357,7 +361,7 @@ ${subtitle ? `{\\fontsize{9pt}{11pt}\\selectfont\\color{acpink} ${subtitle}}\\pa
 \\vspace{0.1em}\\fi
 ${translationLinks ? `{\\small\\sffamily ${translationLinks}}\\par
 \\vspace{0.15em}
-` : ""}{\\scriptsize\\color{acgray} March 2026 \\,\\textperiodcentered\\, \\href{https://github.com/whistlegraph/aesthetic-computer/commit/${gitHash}}{${gitHash}}}\\par
+` : ""}{\\scriptsize\\color{acgray} ${sourceDate} \\,\\textperiodcentered\\, \\href{https://github.com/whistlegraph/aesthetic-computer/commit/${gitHash}}{${gitHash}}}\\par
 \\end{center}
 
 % ============================================================
