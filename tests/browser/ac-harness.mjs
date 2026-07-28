@@ -37,6 +37,8 @@ export const CONFIG = {
   ),
 };
 
+const HEADED_CHROME_HEIGHT = 120;
+
 function percentile(sorted, fraction) {
   if (sorted.length === 0) return null;
   return sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * fraction) - 1)];
@@ -60,7 +62,9 @@ export class ACSession {
         "--disable-setuid-sandbox",
         "--ignore-certificate-errors", // local https://localhost:8888
         "--disable-web-security",
-        `--window-size=${CONFIG.viewportWidth},${CONFIG.viewportHeight}`,
+        `--window-size=${CONFIG.viewportWidth},${
+          CONFIG.viewportHeight + (CONFIG.headed ? HEADED_CHROME_HEIGHT : 0)
+        }`,
       ],
     });
     s.page = await s.browser.newPage();

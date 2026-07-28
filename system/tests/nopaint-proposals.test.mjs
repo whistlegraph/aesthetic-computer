@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  NOPAINT_MAX_RANDOM_ALPHA,
   NOPAINT_LOOP_STATES,
   NOPAINT_PROPOSAL_CATALOG,
   NOPAINT_VERSION,
@@ -30,6 +31,15 @@ test("the first native catalog retains the recovered duplicate Box weight", () =
   assert.equal(NOPAINT_PROPOSAL_CATALOG.some(({ name }) => name === "camera"), false);
   assert.equal(NOPAINT_PROPOSAL_CATALOG.find(({ name }) => name === "softy").weight, 1.5);
   assert.equal(NOPAINT_PROPOSAL_CATALOG.find(({ name }) => name === "walker").weight, 0.2);
+});
+
+test("random proposals are always translucent and wipe is a non-destructive Wash", () => {
+  for (let seed = 1; seed <= 128; seed += 1) {
+    const proposal = makeProposal(seededRandom(seed), 640, 480);
+    assert.ok(proposal.color[3] > 0);
+    assert.ok(proposal.color[3] <= NOPAINT_MAX_RANDOM_ALPHA);
+  }
+  assert.equal(NOPAINT_PROPOSAL_CATALOG.find(({ name }) => name === "wipe").label, "Wash");
 });
 
 test("the same session seed produces the same proposal sequence", () => {

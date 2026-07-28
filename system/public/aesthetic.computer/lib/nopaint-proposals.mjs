@@ -9,6 +9,7 @@ export const NOPAINT_LOOP_STATES = Object.freeze([
 ]);
 
 export const NOPAINT_VERSION = "3.0";
+export const NOPAINT_MAX_RANDOM_ALPHA = 192;
 
 // Names recovered from the Construct picker. This is the migration ledger;
 // entries stay here even before their AC renderer is ready.
@@ -42,7 +43,7 @@ export const NOPAINT_PROPOSAL_CATALOG = Object.freeze([
   Object.freeze({ name: "walker", label: "Walker", family: "authored", weight: 0.2 }),
   Object.freeze({ name: "banner", label: "Banner", family: "authored", weight: 1 }),
   Object.freeze({ name: "wafer", label: "Wafer", family: "authored", weight: 1 }),
-  Object.freeze({ name: "wipe", weight: 1 }),
+  Object.freeze({ name: "wipe", label: "Wash", family: "transform", weight: 1 }),
   // Camera is implemented but deliberately absent from random proposals.
   // Device access belongs to an explicit camera-tool action, never page load.
 ]);
@@ -90,7 +91,7 @@ export function makeProposal(random, width, height) {
     Math.floor(random() * 256),
     Math.floor(random() * 256),
     Math.floor(random() * 256),
-    224,
+    128,
   ];
   const w = Math.max(12, Math.floor(width * (0.12 + random() * 0.42)));
   const h = Math.max(12, Math.floor(height * (0.12 + random() * 0.42)));

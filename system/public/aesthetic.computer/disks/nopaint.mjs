@@ -3,6 +3,7 @@
 
 import {
   NOPAINT_LOOP_STATES,
+  NOPAINT_MAX_RANDOM_ALPHA,
   NOPAINT_VERSION,
   makeProposal,
   proposalDefinition,
@@ -104,16 +105,16 @@ function positionButtons(screen) {
 
 function paintDecisionButton($, button, label, light = false) {
   const active = button.down || button.over;
-  const size = Math.max(2, Math.floor(Math.min(button.box.w, button.box.h) / 18));
+  const textWidth = label.length * 6;
+  const textHeight = 10;
   $.ink(light ? [250, 250, 250, active ? 235 : 205] : [10, 10, 10, active ? 225 : 190])
     .box(button.box, "fill")
     .ink(light ? [20, 20, 20] : [255, 255, 255])
     .box(button.box, "outline")
     .write(label, {
-      x: Math.floor(button.box.x + button.box.w / 2 - label.length * size * 2),
-      y: Math.floor(button.box.y + button.box.h / 2 - size * 4),
-      size,
-    }, undefined, undefined, false, "MatrixChunky8");
+      x: Math.floor(button.box.x + (button.box.w - textWidth) / 2),
+      y: Math.floor(button.box.y + (button.box.h - textHeight) / 2),
+    });
 }
 
 function clearProposal({ flatten, needsPaint, page, screen, system }) {
@@ -424,6 +425,7 @@ function renderProposal($) {
   const wave = Math.sin(phase);
   const drift = Math.round(wave * proposal.drift);
   const color = animatedColor(proposal.color, phase);
+  color[3] = Math.min(color[3], NOPAINT_MAX_RANDOM_ALPHA);
 
   page(buffer).wipe(255, 255, 255, 0);
 
@@ -522,7 +524,9 @@ function renderProposal($) {
       }
     }
   } else if (proposal.kind === "wipe") {
-    ink(color[0], color[1], color[2], 255).box(
+    // A recovered "wipe" is a translucent wash in No Paint 3.0. Random
+    // proposals must accumulate history; they may never replace it opaquely.
+    ink(color[0], color[1], color[2], 96).box(
       0,
       0,
       system.painting.width,
@@ -571,10 +575,10 @@ function paint($) {
 
   positionButtons($.screen);
   if (finishMode) {
-    doneButton.paint($, [[245, 245, 245], [210, 210, 210], [15, 15, 15]]);
+    paintDecisionButton($, doneButton.btn, "Done", true);
   } else {
-    noButton.paint($, [[10, 10, 10], [80, 80, 80], [255, 255, 255]]);
-    paintButton.paint($, [[245, 245, 245], [210, 210, 210], [15, 15, 15]]);
+    paintDecisionButton($, noButton.btn, "No");
+    paintDecisionButton($, paintButton.btn, "Paint", true);
   }
   return loopState === "proposing";
 }
