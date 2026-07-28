@@ -67,3 +67,34 @@ stable home.
   1080×1350 Instagram multi-swipe set in `out/carousel/`.
 
 See [SCRIPT.md](SCRIPT.md) and [index.json](index.json).
+
+## Record Jeffrey's narration
+
+The Narrator Wizard presents the revision screenplay one scene at a time with
+the corresponding video frame. Each line can be recorded, replayed, replaced,
+and explicitly kept. The session is resumable and no generated voice is needed
+to record it.
+
+```bash
+narrator-wizard/bin/narratorwizard marketing/sosoft-reel/narrator-spec.json
+```
+
+After all twelve lines show as kept, assemble and align the human voice, then
+rebuild the visuals, captions, mix, and delivery:
+
+```bash
+node marketing/sosoft-reel/use-human-narration.mjs --check
+node marketing/sosoft-reel/use-human-narration.mjs
+node marketing/sosoft-reel/render-realtime-spine.mjs
+node marketing/sosoft-reel/caption-and-mix.mjs
+node marketing/sosoft-reel/export-delivery.mjs
+```
+
+`use-human-narration.mjs` joins the kept WAVs, runs local Whisper word timing,
+and writes the same timing/source contract consumed by the existing renderer.
+Running `tts.mjs` followed by `alignment-to-words.mjs` deliberately switches the
+contract back to the synthetic fallback.
+
+The wizard follows the current macOS Light/Dark appearance. Its input menu can
+be refreshed after a Focusrite or other CoreAudio interface is connected; live
+monitoring is optional and intended for headphones.

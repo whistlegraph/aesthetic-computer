@@ -3,23 +3,22 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadNarrationSource, loadNarrationTimeline } from "./timing.mjs";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(ROOT, "out");
 const spine = resolve(OUT, "unboxing-spine-2m.mp4");
-const audio = resolve(OUT, "narration.mp3");
+const audio = loadNarrationSource(ROOT).audio;
 const output = resolve(OUT, "scores-for-social-software-review-01.mp4");
 const project = JSON.parse(readFileSync(resolve(ROOT, "index.json"), "utf8"));
-const alignment = JSON.parse(readFileSync(resolve(OUT, "narration-alignment.json"), "utf8")).alignment;
+const timing = loadNarrationTimeline(ROOT);
 if (!existsSync(spine) || !existsSync(audio)) throw new Error("render spine and narration first");
 
 const probe = (path) => Number(spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", path], { encoding: "utf8" }).stdout.trim());
 const spineDuration = probe(spine);
 const audioDuration = probe(audio);
 const ratio = audioDuration / spineDuration;
-const narration = readFileSync(resolve(ROOT, "narration.txt"), "utf8").trim();
-const starts = ["My contribution", "Æther Cavendish", "Chelly Jin", "Jordan Silver", "Em Lugo", "Darlyn Phan", "Thomas Noya", "Banyi Huang", "Alexander Espinosa", "Mavyn Vu", "Casey Reas"]
-  .map((phrase) => alignment.character_start_times_seconds[narration.indexOf(phrase)]);
+const starts = timing.lines.slice(1).map((line) => line.startSec);
 const slug = (item) => String(item.order).padStart(2, "0") + "-" + item.title
   .normalize("NFKD").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase();
 

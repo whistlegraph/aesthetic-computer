@@ -70,6 +70,8 @@ let wizards = [
            blurb: "parametric type authoring from glyph skeletons", needsSpec: false),
     Wizard(dir: "juke-wizard", exe: "JukeWizard",
            blurb: "play, rate, and annotate the whole /pop library", needsSpec: false),
+    Wizard(dir: "narrator-wizard", exe: "NarratorWizard",
+           blurb: "follow a screenplay and record a kept voice take for every line", needsSpec: true),
     Wizard(dir: "shot-wizard", exe: "ShotWizard",
            blurb: "storyboard shots and watch the sequence play through", needsSpec: false),
     Wizard(dir: "wave-wizard", exe: "WaveWizard",

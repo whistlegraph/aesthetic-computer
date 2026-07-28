@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadNarrationTimeline } from "./timing.mjs";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(ROOT, "out");
@@ -19,11 +20,9 @@ const BIO = raw("Biophonia_SoSoft_Fuser_V2.mp4");
 const CHELLY = raw("ChellyJin_SoSoftPresentation.mp4");
 const output = resolve(OUT, "unboxing-spine-realtime.mp4");
 
-const narration = readFileSync(resolve(ROOT, "narration.txt"), "utf8").trim();
-const alignment = JSON.parse(readFileSync(resolve(OUT, "narration-alignment.json"), "utf8")).alignment;
-const phrases = ["My contribution", "Æther Cavendish", "Chelly Jin", "Jordan Silver", "Em Lugo", "Darlyn Phan", "Thomas Noya", "Banyi Huang", "Alexander Espinosa", "Mavyn Vu", "Casey Reas"];
-const starts = phrases.map((p) => alignment.character_start_times_seconds[narration.indexOf(p)]);
-const total = alignment.character_end_times_seconds.at(-1);
+const timing = loadNarrationTimeline(ROOT);
+const starts = timing.lines.slice(1).map((line) => line.startSec);
+const total = timing.totalDuration;
 const sectionDur = (i) => (i + 1 < starts.length ? starts[i + 1] : total) - starts[i];
 const heldSection = (at, dur, holdAt, label) => {
   const hold = Math.min(3, dur * 0.28);
