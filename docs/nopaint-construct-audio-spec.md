@@ -12,15 +12,17 @@ Audio `PlayByName`. Runtime playback is implemented in
 | Control phase | Canonical asset | Event-sheet evidence |
 |---|---|---|
 | No down | `generic - no button pressed (metal brush)` | Core / `CheckButtonsCore`, event 270 |
-| No held crossing | `generic - button rollover` | Core / `CheckButtonsCore`, event 278 |
+| No held crossing | `generic - no button pressed (metal brush)` | Core / `CheckButtonsCore`, event 270 |
 | No release | `generic - no button released (middle)` | Core / `No & Paint` / `No` |
 | Paint down | `generic - paint button pressed (psst)` | Core / `CheckButtonsCore`, event 281 |
-| Paint held crossing | `generic - button rollover` | Core / `CheckButtonsCore`, event 289 |
+| Paint held crossing | `generic - paint button pressed (psst)` | Core / `CheckButtonsCore`, event 281 |
 | Paint release | `generic - paint button released (cha)` | Core / `No & Paint` / `Paint` |
+| Passive hover | `generic - button rollover` | Core / `CheckButtonsCore`, events 278 and 289 |
 
 A pointer may go down on one decision, remain held, cross the boundary, and
-release on the other. Crossing announces the newly selected control; only the
-control under release performs the decision.
+release on the other. Crossing replays the destination's press cue; only the
+control under release performs the decision. Passive mouse hover uses the
+rollover cue once on entry rather than on every movement tick.
 
 ## Pause, completion, and saving
 
@@ -36,7 +38,14 @@ control under release performs the decision.
 
 In No Paint 3.0, tapping the painting enters completion mode. Back returns to
 the decision loop; tapping the painting again is the same Back transition.
-Done invokes the existing AC prompt `done` command.
+Done invokes the existing AC prompt `done` command. Space and a drag beginning
+on the painting both perform pause: pressing plays `pressing pause`, entering
+plays `entering pause`, and resuming plays `pause release`.
+
+Long brush/theme playback is proposal-owned. It must be ended when a proposal
+is replaced, the piece pauses, completion mode opens, the seed changes, or the
+piece exits. Resuming restarts the current proposal's cue. One-shot decision
+and primitive samples end naturally.
 
 ## Brush and tool cues
 

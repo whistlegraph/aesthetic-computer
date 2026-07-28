@@ -98,7 +98,7 @@ try {
       await ac.page.setViewport({ width: viewport.width, height: viewport.height });
       await new Promise((resolve) => setTimeout(resolve, 350));
       const state = await ac.nopaintState();
-      const { paintingViewport: stage, controlBar: bar } = state.layout;
+      const { paintingViewport: stage, controlBar: bar, modeline } = state.layout;
       const resolution = state.layout.paintingResolution;
       const screenResolution = state.layout.screenResolution;
       const { no, paint } = state.controls;
@@ -126,6 +126,8 @@ try {
         `${viewport.label}: controls stay inside bar`);
       expect(no.x + no.w <= paint.x && paint.x + paint.w <= bar.x + bar.w,
         `${viewport.label}: No and Paint do not overlap`);
+      expect(no.y + no.h <= modeline.y && paint.y + paint.h <= modeline.y,
+        `${viewport.label}: modeline stays below No and Paint`);
     }
     // Synthetic viewport probes may exceed the filming display. Return to the
     // harness's screen-safe size before taking any more native Frame receipts.
@@ -138,7 +140,7 @@ try {
 
   await scenario("No rejects without changing the accepted painting", async (expect) => {
     const before = await ac.nopaintState();
-    performanceResults.decisions.no = await ac.measureNopaintDecision("KeyN");
+    performanceResults.decisions.no = await ac.measureNopaintDecision("ArrowLeft");
     const after = await ac.nopaintState();
     await receipt("02-after-no");
     expect(after?.proposalNumber === 2, "No advances to proposal 2");
@@ -154,7 +156,7 @@ try {
 
   await scenario("Paint commits and persists the proposal score", async (expect) => {
     const before = await ac.nopaintState();
-    performanceResults.decisions.paint = await ac.measureNopaintDecision("KeyP");
+    performanceResults.decisions.paint = await ac.measureNopaintDecision("ArrowRight");
     const after = await ac.nopaintState();
     await receipt("03-after-paint");
     expect(after?.proposalNumber === 3, "Paint advances to proposal 3");
@@ -196,6 +198,23 @@ try {
     expect(recentCues.includes("no-down"), "hold begins with the No press cue");
     expect(recentCues.includes("paint-down") || recentCues.includes("rollover"), "crossing announces Paint");
     expect(recentCues.includes("paint"), "release emits the Paint cue before the next brush theme");
+    const stopIndex = after.audio.events.findLastIndex(({ name }) => name.startsWith("brush-stop:"));
+    const nextIndex = after.audio.events.findLastIndex(({ name }) => name === `brush:${after.operation}`);
+    expect(stopIndex >= 0 && nextIndex > stopIndex, "the old brush sound ends before the next cue starts");
+    const rolloversBefore = after.audio.events.filter(({ name }) => name === "rollover").length;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await ac.page.mouse.move(rect.x + 2 + attempt, rect.y + 2 + attempt);
+      await ac.wait(100);
+      await ac.page.mouse.move(no.x, no.y);
+      await ac.wait(100);
+      const probe = await ac.nopaintState();
+      if (probe.audio.events.filter(({ name }) => name === "rollover").length > rolloversBefore) break;
+    }
+    const hovered = await ac.nopaintState();
+    expect(
+      hovered.audio.events.filter(({ name }) => name === "rollover").length > rolloversBefore,
+      `hovering No emits one recovered rollover cue (hovered=${hovered.audio.hovered})`,
+    );
   });
 
   await scenario("Pause freezes and resumes the live proposal", async (expect) => {
@@ -205,12 +224,45 @@ try {
     const stillPaused = await ac.nopaintState();
     await receipt("04-paused");
     expect(paused?.state === "paused", `state is paused (got ${paused?.state})`);
+    expect(paused?.audio?.activeBrush === null, "pause ends the active brush sound");
+    expect(paused?.audio?.events?.findLast(({ name }) => name === "pause-down")?.path === "legacy",
+      "pressing pause uses the recovered press sound");
+    expect(paused?.audio?.events?.findLast(({ name }) => name === "pause-in")?.path === "legacy",
+      "entering pause uses the recovered pause sound");
     expect(stillPaused?.proposalFrame === paused?.proposalFrame, "proposal frame freezes while paused");
     await ac.press("Space");
     await ac.wait(250);
     const resumed = await ac.nopaintState();
     expect(resumed?.state === "proposing", "Space resumes proposing");
     expect(resumed?.proposalFrame > stillPaused?.proposalFrame, "proposal animation resumes");
+    expect(resumed?.audio?.events?.findLast(({ name }) => name.startsWith("brush:"))?.name ===
+      `brush:${resumed?.operation}`, "unpause restarts the current brush sound");
+    expect(resumed?.audio?.events?.findLast(({ name }) => name === "pause-out")?.path === "legacy",
+      "unpause uses the recovered pause-release sound");
+
+    const rect = await ac.page.evaluate(() => Array.from(document.querySelectorAll("canvas"))
+      .map((canvas) => {
+        const box = canvas.getBoundingClientRect();
+        return { x: box.x, y: box.y, width: box.width, height: box.height };
+      })
+      .filter((box) => box.width > 0 && box.height > 0)
+      .sort((a, b) => b.width * b.height - a.width * a.height)[0]);
+    const stage = resumed.layout.paintingViewport;
+    const screen = resumed.layout.screenResolution;
+    const start = {
+      x: rect.x + (stage.x + stage.w * 0.35) * rect.width / screen.width,
+      y: rect.y + (stage.y + stage.h * 0.35) * rect.height / screen.height,
+    };
+    await ac.page.mouse.move(start.x, start.y);
+    await ac.page.mouse.down();
+    await ac.page.mouse.move(start.x + 48, start.y + 36, { steps: 5 });
+    await ac.page.mouse.up();
+    await ac.wait(150);
+    const dragPaused = await ac.nopaintState();
+    expect(dragPaused?.state === "paused", "dragging from the painting always pauses");
+    expect(dragPaused?.finishMode === false, "the drag release cannot open Done mode");
+    await ac.press("Space");
+    await ac.wait(150);
   });
 
   await scenario("Proposal performance produces an automated profile", async (expect) => {

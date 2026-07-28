@@ -28,6 +28,8 @@ let archiveOrigin = null;
 let paintingResolution = null;
 let finishMode = false;
 let doneCount = 0;
+let paintingDragPaused = false;
+let hoveredDecision = null;
 const cueSamples = new Map();
 let cueEvents = [];
 
@@ -41,6 +43,7 @@ const LEGACY_CUES = Object.freeze({
   back: "generic - pause release.webm",
   "done-down": "generic - save button pressed.webm",
   done: "generic - save button released.webm",
+  "pause-down": "generic - pressing pause.webm",
   "pause-in": "generic - entering pause.webm",
   "pause-out": "generic - pause release.webm",
   "primitive-release": "primitive - released.webm",
@@ -62,6 +65,8 @@ const BRUSH_CUES = Object.freeze({
 
 const brushCueSamples = new Map();
 let brushCueProposal = 0;
+let activeBrushSound = null;
+let activeBrushKind = null;
 
 function playCue(api, name) {
   const fallback = () => api.sound?.synth?.({
@@ -86,10 +91,36 @@ function playBrushCue(api, kind) {
   if (brushCueProposal === proposalNumber) return;
   const sample = brushCueSamples.get(kind);
   if (!sample || !api.sound?.play) return;
+  stopBrushCue();
   brushCueProposal = proposalNumber;
+  activeBrushKind = kind;
   cueEvents.push({ name: `brush:${kind}`, path: "legacy" });
-  api.sound.play(sample, { volume: 0.48 });
+  const playing = api.sound.play(sample, { volume: 0.48 }, {
+    kill: () => {
+      if (activeBrushSound !== playing) return;
+      activeBrushSound = null;
+      activeBrushKind = null;
+      publishTestState();
+    },
+  });
+  activeBrushSound = playing;
   publishTestState();
+}
+
+function stopBrushCue() {
+  if (!activeBrushSound) return;
+  const kind = activeBrushKind;
+  const playing = activeBrushSound;
+  activeBrushSound = null;
+  activeBrushKind = null;
+  playing.kill?.(0.04);
+  cueEvents.push({ name: `brush-stop:${kind}`, path: "lifecycle" });
+  publishTestState();
+}
+
+function resumeBrushCue(api) {
+  brushCueProposal = 0;
+  if (proposal?.kind) playBrushCue(api, proposal.kind);
 }
 
 function initialNavigationURL() {
@@ -128,7 +159,12 @@ function interfaceLayout(screen) {
   return {
     stage: viewport,
     bar: { x: 0, y: screen.height - barHeight, w: screen.width, h: barHeight },
-    statusHeight,
+    status: {
+      x: 0,
+      y: screen.height - statusHeight,
+      w: screen.width,
+      h: statusHeight,
+    },
     scale,
   };
 }
@@ -137,14 +173,14 @@ function positionButtons(screen) {
   // The recovered instrument keeps the decision pair together along the
   // bottom edge: No on the left, Paint larger on the right. They are the
   // architecture of the surface, not ordinary toolbar buttons.
-  const { bar, statusHeight } = interfaceLayout(screen);
+  const { bar, status } = interfaceLayout(screen);
   const gap = Math.max(4, Math.floor(screen.width * 0.006));
   const margin = Math.max(6, Math.floor(screen.width * 0.008));
   const available = screen.width - margin * 2 - gap;
   const noWidth = Math.floor(available * 0.38);
   const paintWidth = available - noWidth;
-  const buttonY = bar.y + statusHeight;
-  const decisionHeight = bar.h - statusHeight - margin;
+  const buttonY = bar.y + margin;
+  const decisionHeight = status.y - buttonY - margin;
   const no = noButton.btn || noButton;
   const paint = paintButton.btn || paintButton;
   no.box ||= {};
@@ -240,6 +276,7 @@ function clearProposal({ flatten, needsPaint, page, screen, system }) {
 }
 
 function chooseProposal(api) {
+  stopBrushCue();
   transition("choosing");
   const resolution = paintingResolution || {
     width: api.system.painting.width,
@@ -360,8 +397,10 @@ function togglePaused(api) {
   if (loopState === "paused") {
     playCue(api, "pause-out");
     transition(stateBeforePause);
+    resumeBrushCue(api);
   } else if (loopState === "proposing") {
     playCue(api, "pause-in");
+    stopBrushCue();
     stateBeforePause = loopState;
     transition("paused");
   }
@@ -413,6 +452,8 @@ function testSnapshot() {
     audio: {
       ready: [...cueSamples.keys()],
       brushReady: [...brushCueSamples.keys()],
+      activeBrush: activeBrushKind,
+      hovered: hoveredDecision,
       events: cueEvents.map((event) => ({ ...event })),
     },
     lastDownload,
@@ -428,6 +469,7 @@ function testSnapshot() {
         height: testApi.screen.height,
       },
       controlBar: { ...layout.bar },
+      modeline: { ...layout.status },
     } : null,
     paintingFingerprint: paintingFingerprint(testApi?.system?.painting),
     origin: archiveOrigin ? { ...archiveOrigin } : null,
@@ -490,8 +532,12 @@ function boot({ colon, debug, hud, net, num, params, screen, store, system, ui, 
   saveCount = 0;
   finishMode = false;
   doneCount = 0;
+  paintingDragPaused = false;
+  hoveredDecision = null;
   cueEvents = [];
   brushCueProposal = 0;
+  activeBrushSound = null;
+  activeBrushKind = null;
   lastDownload = null;
   archiveOrigin = archiveId ? {
     type: "nopaint-archive",
@@ -709,7 +755,7 @@ function paint($) {
   renderProposal($);
   $.system.nopaint.needsPresent = true;
 
-  const { bar, stage, scale } = interfaceLayout($.screen);
+  const { bar, stage, status, scale } = interfaceLayout($.screen);
   // Present the entire fixed-resolution painting above the controls. The
   // viewport may fit/letterbox responsively, but its pixels never reflow.
   $.wipe(18);
@@ -720,7 +766,7 @@ function paint($) {
   $.ink(18).box(bar, "fill");
   $.ink(255, 180).write(
     `No Paint ${NOPAINT_VERSION} · ${definition?.label || proposal.kind} ${proposalNumber}${paused} · seed ${sessionSeed}`,
-    { x: 8, y: bar.y + 5 },
+    { x: 8, y: status.y + 5 },
   );
 
   positionButtons($.screen);
@@ -745,16 +791,19 @@ function act($) {
     playCue($, "back");
     finishMode = false;
     transition(stateBeforePause === "paused" ? "proposing" : stateBeforePause);
+    resumeBrushCue($);
     $.needsPaint();
     publishTestState();
   };
 
   if (finishMode) {
     backButton.btn.act(e, {
+      hover: () => playCue($, "rollover"),
       down: () => playCue($, "button-down"),
       push: leaveFinishMode,
     });
     doneButton.btn.act(e, {
+      hover: () => playCue($, "rollover"),
       down: () => playCue($, "done-down"),
       push: () => {
         playCue($, "done");
@@ -772,24 +821,51 @@ function act($) {
     return;
   }
 
+  const stage = interfaceLayout($.screen).stage;
+  if ((e.device === "mouse" || e.is("move")) && !noButton.btn.down && !paintButton.btn.down) {
+    const target = noButton.btn.box.contains(e)
+      ? "no"
+      : paintButton.btn.box.contains(e)
+        ? "paint"
+        : null;
+    if (target !== hoveredDecision) {
+      hoveredDecision = target;
+      if (target) playCue($, "rollover");
+    }
+  }
+  if (
+    loopState === "proposing" &&
+    e.is("draw:1") &&
+    e.drag &&
+    e.drag.x >= stage.x && e.drag.x <= stage.x + stage.w &&
+    e.drag.y >= stage.y && e.drag.y <= stage.y + stage.h
+  ) {
+    paintingDragPaused = true;
+    playCue($, "pause-down");
+    togglePaused($);
+    return;
+  }
+
   noButton.btn.act(e, {
     down: () => playCue($, "no-down"),
-    rollover: () => playCue($, "rollover"),
     cancel: () => playCue($, "back"),
     push: () => discardProposal($),
   });
   paintButton.btn.act(e, {
     down: () => playCue($, "paint-down"),
-    rollover: () => playCue($, "rollover"),
     cancel: () => playCue($, "back"),
     push: () => commitProposal($),
   });
-  const stage = interfaceLayout($.screen).stage;
   if (
     e.is("lift:1") &&
     e.x >= stage.x && e.x <= stage.x + stage.w &&
     e.y >= stage.y && e.y <= stage.y + stage.h
   ) {
+    if (paintingDragPaused) {
+      paintingDragPaused = false;
+      return;
+    }
+    stopBrushCue();
     finishMode = true;
     stateBeforePause = loopState;
     transition("paused");
@@ -799,6 +875,7 @@ function act($) {
   }
   if (isAny(e, [
     "keyboard:down:n",
+    "keyboard:down:arrowleft",
     "keyboard:down:escape",
     "voice:no",
     "robot:no",
@@ -808,12 +885,16 @@ function act($) {
   if (isAny(e, [
     "keyboard:down:enter",
     "keyboard:down:p",
+    "keyboard:down:arrowright",
     "voice:paint",
     "robot:paint",
     "nopaint:paint",
   ])) commitProposal($);
 
-  if (e.is("keyboard:down:space")) togglePaused($);
+  if (e.is("keyboard:down:space")) {
+    playCue($, "pause-down");
+    togglePaused($);
+  }
 }
 
 // The conductor makes decisions explicitly; generic pointer-lift baking must
@@ -821,6 +902,7 @@ function act($) {
 function bake() {}
 
 function leave() {
+  stopBrushCue();
   if (typeof window !== "undefined") delete window.__acNoPaintTest;
   testChannel?.close();
   testChannel = null;
@@ -831,7 +913,7 @@ function meta() {
   return {
     title: "No Paint",
     desc: "Collaborate with a proposing machine: press No to discard or Paint to keep.",
-    controls: "No: N/Escape · Paint: Enter/P · pause: Space · save/share: S",
+    controls: "No: Left/N/Escape · Paint: Right/Enter/P · pause: Space or drag painting",
     params: "optional deterministic session seed",
     example: "nopaint award-entry",
   };
