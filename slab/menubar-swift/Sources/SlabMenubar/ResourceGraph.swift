@@ -330,7 +330,10 @@ final class ResourceGraph: NSObject {
         let isDark = NSApp.effectiveAppearance.bestMatch(
             from: [.aqua, .darkAqua]) == .darkAqua
         let metrics = visibleMetrics
-        let frameRect = NSRect(x: 0, y: 1, width: size.width, height: size.height - 2)
+        // The image canvas already uses MenuBand's adaptive 22pt base-height
+        // formula. Let the housing occupy that complete canvas; an earlier
+        // extra 1pt top/bottom inset made it visibly shorter than the keys.
+        let frameRect = NSRect(origin: .zero, size: size)
         let frame = NSBezierPath(roundedRect: frameRect.insetBy(dx: 0.35, dy: 0.35),
                                  xRadius: 2.2, yRadius: 2.2)
         let faceHi: NSColor
