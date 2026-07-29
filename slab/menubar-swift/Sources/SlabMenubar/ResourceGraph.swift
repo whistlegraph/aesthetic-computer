@@ -324,12 +324,30 @@ final class ResourceGraph: NSObject {
         NSColor.clear.setFill()
         NSRect(origin: .zero, size: size).fill()
 
-        // Five plain bar-graph channels. Keep them narrow and independent:
-        // there is deliberately no enclosing capsule or background plate.
+        // One five-channel instrument, framed like MenuBand's joined piano
+        // keys: a softly rounded outer keycap, a shallow vertical face, and a
+        // crisp groove around the whole graph rather than around each bar.
         let isDark = NSApp.effectiveAppearance.bestMatch(
             from: [.aqua, .darkAqua]) == .darkAqua
         let metrics = visibleMetrics
-        let content = NSRect(x: 0, y: 1, width: size.width, height: size.height - 2)
+        let frameRect = NSRect(x: 0, y: 1, width: size.width, height: size.height - 2)
+        let frame = NSBezierPath(roundedRect: frameRect.insetBy(dx: 0.35, dy: 0.35),
+                                 xRadius: 2.2, yRadius: 2.2)
+        let faceHi: NSColor
+        let faceLo: NSColor
+        if isDark {
+            faceHi = NSColor(srgbRed: 58/255, green: 70/255, blue: 82/255, alpha: 1)
+            faceLo = NSColor(srgbRed: 44/255, green: 54/255, blue: 62/255, alpha: 1)
+        } else {
+            faceHi = NSColor(srgbRed: 1, green: 1, blue: 1, alpha: 0.88)
+            faceLo = NSColor(srgbRed: 238/255, green: 240/255, blue: 244/255, alpha: 0.88)
+        }
+        NSGradient(starting: faceHi, ending: faceLo)?.draw(in: frame, angle: -90)
+        NSColor.black.withAlphaComponent(isDark ? 0.72 : 0.24).setStroke()
+        frame.lineWidth = 0.7
+        frame.stroke()
+
+        let content = frameRect.insetBy(dx: 2, dy: 2)
         let gap: CGFloat = 1
         let cellWidth = (content.width - gap * CGFloat(max(0, metrics.count - 1))) /
             CGFloat(metrics.count)
