@@ -253,7 +253,7 @@ function inspectOutgoingFiles(values = []) {
 
 async function toolSend({
   channel, to, text: body = "", image, attachments = [], linkPreview,
-  visibleTitle, confirm, machine,
+  visibleTitle, mediaTransport = "auto", confirm, machine,
 } = {}) {
   const ch = (channel || "").toLowerCase();
   const requestedFiles = [image, ...(Array.isArray(attachments) ? attachments : [attachments])].filter(Boolean);
@@ -289,6 +289,16 @@ async function toolSend({
   }
 
   if (ch === "imessage" || ch === "imsg") {
+    if (!new Set(["auto", "backend", "ui"]).has(String(mediaTransport))) {
+      throw new Error('`mediaTransport` must be "auto", "backend", or "ui"');
+    }
+    const hasDistinctText = message && message.trim() !== String(linkPreview || "").trim();
+    const sendParts = files.length + (linkPreview ? 1 : 0) + (hasDistinctText ? 1 : 0);
+    if (sendParts > 1) {
+      throw new Error(
+        "Messages sends accept one attachment, link preview, or text part per confirmed call; preview and send each part separately to prevent partial-success retries",
+      );
+    }
     // Never silently fall back to imsg.json's default contact. An explicit
     // recipient is required, resolved before preview, and resolved again by
     // imsg.mjs at send time.
@@ -301,7 +311,8 @@ async function toolSend({
         "PREVIEW — not sent. Re-call with confirm:true to send.",
         `channel: Messages (iMessage/RCS/SMS)   machine: ${isLocal(machine) ? "local" : machine}`,
         `to: ${rcpt.displayName}  [requested: "${to}"]`,
-        `visible recipient guard: ${visibleTitle || rcpt.displayName}`,
+        `UI fallback recipient guard: ${visibleTitle || rcpt.displayName}`,
+        ...(files.length ? [`Messages media transport: ${mediaTransport}`] : []),
         ...files.map((file) => `attachment: ${file.path} (${file.bytes} bytes, sha256 ${file.sha256})`),
         ...(linkPreview ? [`rich link preview: ${linkPreview}`] : []),
         ...(message ? ["--- message ---", message] : []),
@@ -311,11 +322,12 @@ async function toolSend({
       );
     }
     const guardArgs = ["--expected-title", String(visibleTitle || rcpt.displayName)];
+    const transportArgs = ["--media-transport", String(mediaTransport)];
     const receipts = [];
     for (const file of files) {
       const { stdout } = await runBridge(
         IMSG,
-        ["send", "--media", file.path, ...guardArgs, ...toArgs],
+        ["send", "--media", file.path, ...transportArgs, ...guardArgs, ...toArgs],
         machine,
         { timeoutMs: 60000 },
       );
@@ -332,7 +344,7 @@ async function toolSend({
     }
     // If text is exactly the rich-preview URL, the URL balloon already carries
     // it; do not emit a duplicate plain bubble.
-    if (message && message.trim() !== String(linkPreview || "").trim()) {
+    if (hasDistinctText) {
       const { stdout } = await runBridge(IMSG, ["send", message, ...toArgs], machine, { timeoutMs: 30000 });
       receipts.push({ kind: "text", ...JSON.parse(stdout.trim()) });
     }
@@ -478,7 +490,7 @@ const TOOLS = [
   },
   {
     name: "dm_send",
-    description: "Send text, image attachments, or a real rich link preview. TWO-STEP AND SAFE: the first call PREVIEWS the resolved recipient and exact payload and does NOT send; call again with confirm:true. Messages media sends bind the visible conversation title, preserve existing drafts, capture a pre-send evidence frame, and verify the recipient-scoped database receipt. Use linkPreview (not plain text) when an Apple URL preview card is required.",
+    description: "Send one text, image attachment, or real rich link preview per call. TWO-STEP AND SAFE: the first call PREVIEWS the resolved recipient and exact payload and does NOT send; call again with confirm:true. Messages media uses a request-scoped staged-file backend for verified iMessage routes; RCS/SMS remain guarded-UI by default and can be tested explicitly with mediaTransport=backend. Use linkPreview when an Apple URL preview card is required.",
     inputSchema: {
       type: "object",
       properties: {
@@ -489,6 +501,7 @@ const TOOLS = [
         attachments: { type: "array", items: { type: "string" }, description: "Optional file paths. Messages currently accepts supported images; Signal passes files to signal-cli." },
         linkPreview: { type: "string", description: "Messages only: send this http(s) URL as an Apple rich URL balloon with metadata." },
         visibleTitle: { type: "string", description: "Optional exact/contained Messages conversation title for the recipient guard; defaults to the resolved contact display name." },
+        mediaTransport: { type: "string", enum: ["auto", "backend", "ui"], description: "Messages attachments only. auto (default) uses the verified non-UI backend for iMessage and guarded UI for unverified RCS/SMS; backend explicitly tests non-UI and forbids ambiguous UI fallback; ui forces the guarded visible-conversation path." },
         confirm: { type: "boolean", description: "Must be true to actually send. Omit/false = preview only." },
         machine: { type: "string", description: "Machine (default local; signal-cli sends route over ssh for remote)." },
       },

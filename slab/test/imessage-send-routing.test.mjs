@@ -10,7 +10,7 @@ import {
   shouldRetryViaSms,
 } from "../lib/imessage-send-routing.mjs";
 
-test("routes an RCS conversation through the Messages SMS account", () => {
+test("routes an RCS conversation through the Messages RCS account", () => {
   assert.deepEqual(
     chooseMessagesRoute(["+15551234567"], {
       handle: "+15551234567",
@@ -18,7 +18,7 @@ test("routes an RCS conversation through the Messages SMS account", () => {
     }),
     {
       handle: "+15551234567",
-      appleService: "SMS",
+      appleService: "RCS",
       observedService: "RCS",
     },
   );
@@ -34,6 +34,20 @@ test("keeps an iMessage conversation on iMessage", () => {
       handle: "person@example.com",
       appleService: "iMessage",
       observedService: "iMessage",
+    },
+  );
+});
+
+test("keeps an SMS conversation on the Messages SMS account", () => {
+  assert.deepEqual(
+    chooseMessagesRoute(["+15551234567"], {
+      handle: "+15551234567",
+      service: "SMS",
+    }),
+    {
+      handle: "+15551234567",
+      appleService: "SMS",
+      observedService: "SMS",
     },
   );
 });

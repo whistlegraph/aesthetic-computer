@@ -4,9 +4,11 @@ export function chooseMessagesRoute(handles, latest = null) {
 
   const observedService = String(latest?.service || "");
   const observedHandle = String(latest?.handle || "");
-  const appleService = observedService === "RCS" || observedService === "SMS"
-    ? "SMS"
-    : "iMessage";
+  const appleService = observedService === "RCS"
+    ? "RCS"
+    : observedService === "SMS"
+      ? "SMS"
+      : "iMessage";
 
   return {
     handle: observedHandle || configured[0],
