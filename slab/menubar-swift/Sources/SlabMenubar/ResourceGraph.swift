@@ -30,161 +30,12 @@ private final class ResourceHoverTracker: NSView {
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
 
-/// A Slab-owned replacement for the Stats menu extra. The status item is one
-/// continuous data balloon: it grows from one rotating channel to the three
-/// most useful live channels, then all five when the current display is wide
-/// enough. Fast probes and presentation run at 4 Hz; slower IOKit/filesystem
-/// probes are deliberately staggered so the fluid display stays inexpensive.
+/// A Slab-owned replacement for the Stats menu extra. Five narrow coloured
+/// bottom-to-top bars share one compact meter: CPU, RAM, network, SSD, and GPU.
+/// Fast probes and presentation run at 4 Hz; slower IOKit/filesystem probes are
+/// deliberately staggered so the fluid display stays inexpensive.
 final class ResourceGraph: NSObject {
     static let shared = ResourceGraph()
-
-    private struct FleetWorker {
-        let name: String
-        let online: Bool
-        let cpu: Double
-        let ram: Double
-        let disk: Double
-        let memoryGB: Double
-        let cores: Int
-        let pressure: Bool
-        let reason: String
-        let accepting: Bool
-        let active: Int
-        let queued: Int
-        let role: String
-    }
-
-    /// Three transparent, status-item-width rows of the same category TVs as
-    /// the main strip. There is intentionally no enclosing card: hovering the
-    /// local instrument simply reveals more instruments directly beneath it.
-    private final class FleetStripView: NSView {
-        var workers: [FleetWorker] = [] { didSet { needsDisplay = true } }
-        var highlightedMetricIndex: Int? { didSet { needsDisplay = true } }
-
-        private let colors = [
-            NSColor(srgbRed: 0.10, green: 0.84, blue: 0.34, alpha: 1),
-            NSColor(srgbRed: 1.00, green: 0.24, blue: 0.55, alpha: 1),
-            NSColor(srgbRed: 0.00, green: 0.68, blue: 1.00, alpha: 1),
-            NSColor(srgbRed: 1.00, green: 0.55, blue: 0.06, alpha: 1),
-            NSColor(srgbRed: 0.62, green: 0.30, blue: 1.00, alpha: 1),
-        ]
-
-        private var darkAppearance: Bool {
-            effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-        }
-
-        override func draw(_ dirtyRect: NSRect) {
-            super.draw(dirtyRect)
-            let dark = darkAppearance
-            (dark
-                ? NSColor(srgbRed: 0.035, green: 0.050, blue: 0.070, alpha: 1)
-                : NSColor(srgbRed: 0.94, green: 0.96, blue: 0.97, alpha: 1)).setFill()
-            bounds.fill()
-            (dark ? NSColor.white : NSColor.black).withAlphaComponent(0.14).setStroke()
-            let boardEdge = NSBezierPath(rect: bounds.insetBy(dx: 0.5, dy: 0.5))
-            boardEdge.lineWidth = 1
-            boardEdge.stroke()
-            let content = bounds.insetBy(dx: 4, dy: 4)
-            let rowHeight: CGFloat = 20
-            let labelWidth: CGFloat = 64
-            let gap: CGFloat = 2
-            let stripWidth = content.width - labelWidth
-            for (index, worker) in workers.prefix(5).enumerated() {
-                let y = content.maxY - CGFloat(index + 1) * rowHeight - CGFloat(index) * gap
-                drawLabel(worker, in: NSRect(x: content.minX, y: y,
-                                              width: labelWidth - 4, height: rowHeight))
-                drawStrip(worker, in: NSRect(x: content.minX + labelWidth, y: y,
-                                              width: stripWidth, height: rowHeight))
-            }
-        }
-
-        private func drawLabel(_ worker: FleetWorker, in rect: NSRect) {
-            let dot = worker.online
-                ? (worker.accepting ? NSColor.systemGreen : worker.pressure ? .systemRed : .systemOrange)
-                : NSColor.tertiaryLabelColor
-            dot.setFill()
-            NSBezierPath(ovalIn: NSRect(x: rect.minX + 1, y: rect.midY - 2.5, width: 5, height: 5)).fill()
-            let name = worker.name.uppercased()
-            let attrs: [NSAttributedString.Key: Any] = [
-                .font: NSFont.monospacedSystemFont(ofSize: 7.2, weight: .semibold),
-                .foregroundColor: (darkAppearance ? NSColor.white : NSColor.black)
-                    .withAlphaComponent(worker.online ? 0.88 : 0.34),
-                .kern: 0.05,
-            ]
-            let text = NSAttributedString(string: name, attributes: attrs)
-            text.draw(at: NSPoint(x: rect.minX + 9, y: rect.midY - text.size().height / 2))
-        }
-
-        private func drawStrip(_ worker: FleetWorker, in rect: NSRect) {
-            let labels = ["CPU", "RAM", "NET", "SSD", "GPU"]
-            let values = worker.online
-                ? [String(format: "%.0f%%", worker.cpu), String(format: "%.0f%%", worker.ram),
-                   "—", String(format: "%.0f%%", worker.disk), "—"]
-                : ["—", "—", "—", "—", "—"]
-            let cellWidth = rect.width / 5
-            for index in 0..<5 {
-                let cell = NSRect(x: rect.minX + CGFloat(index) * cellWidth + 0.5,
-                                  y: rect.minY + 0.5, width: cellWidth - 1, height: rect.height - 1)
-                let path = NSBezierPath(roundedRect: cell, xRadius: 1, yRadius: 1)
-                let color = colors[index]
-                (darkAppearance
-                    ? NSColor(srgbRed: 0.015, green: 0.025, blue: 0.038, alpha: 0.96)
-                    : NSColor(srgbRed: 0.97, green: 0.98, blue: 0.985, alpha: 0.98)).setFill()
-                path.fill()
-                color.withAlphaComponent(worker.online ? 0.16 : 0.025).setFill()
-                path.fill()
-                if worker.online {
-                    let raw = [worker.cpu, worker.ram, 0, worker.disk, 0][index] / 100
-                    drawTexture(value: raw, color: color, in: cell)
-                }
-                let tagRect = NSRect(x: cell.minX + 1, y: cell.maxY - 7,
-                                     width: cell.width - 2, height: 6)
-                color.withAlphaComponent(worker.online ? 0.90 : 0.20).setFill()
-                tagRect.fill()
-                let tag = NSAttributedString(string: labels[index], attributes: [
-                    .font: NSFont.monospacedSystemFont(ofSize: 5.2, weight: .heavy),
-                    .foregroundColor: NSColor.black.withAlphaComponent(worker.online ? 0.90 : 0.42),
-                    .kern: 0.05,
-                ])
-                tag.draw(at: NSPoint(x: tagRect.midX - tag.size().width / 2,
-                                     y: tagRect.midY - tag.size().height / 2 + 0.2))
-                (worker.pressure ? NSColor.systemRed : color)
-                    .withAlphaComponent(worker.online ? (highlightedMetricIndex == index ? 0.96 : 0.62) : 0.13).setStroke()
-                path.lineWidth = worker.pressure || highlightedMetricIndex == index ? 1.05 : 0.55
-                path.stroke()
-                if highlightedMetricIndex == index {
-                    let attrs: [NSAttributedString.Key: Any] = [
-                        .font: NSFont.monospacedDigitSystemFont(ofSize: 8.5, weight: .heavy),
-                        .foregroundColor: (darkAppearance ? NSColor.white : NSColor.black)
-                            .withAlphaComponent(worker.online ? 0.98 : 0.38),
-                        .kern: -0.10,
-                    ]
-                    let text = NSAttributedString(string: values[index], attributes: attrs)
-                    text.draw(at: NSPoint(x: cell.midX - text.size().width / 2,
-                                          y: cell.midY - text.size().height / 2))
-                }
-            }
-        }
-
-        private func drawTexture(value: Double, color: NSColor, in rect: NSRect) {
-            let graph = NSRect(x: rect.minX + 1.5, y: rect.minY + 1.5,
-                               width: rect.width - 3, height: max(3, rect.height - 10))
-            let columns = 7
-            let rows = 3
-            let filled = Int(max(0, min(1, value)) * Double(rows))
-            let pixelWidth = graph.width / CGFloat(columns)
-            let pixelHeight = graph.height / CGFloat(rows)
-            for x in 0..<columns {
-                for y in 0..<rows {
-                    color.withAlphaComponent(y < filled ? 0.82 : (darkAppearance ? 0.09 : 0.13)).setFill()
-                    NSRect(x: graph.minX + CGFloat(x) * pixelWidth + 0.45,
-                           y: graph.minY + CGFloat(y) * pixelHeight + 0.35,
-                           width: max(1, pixelWidth - 0.9),
-                           height: max(1, pixelHeight - 0.7)).fill()
-                }
-            }
-        }
-    }
 
     private struct Sample {
         var ram = 0.0, ssd = 0.0, gpu = 0.0, cpu = 0.0, net = 0.0
@@ -229,15 +80,112 @@ final class ResourceGraph: NSObject {
         }
     }
 
-    private enum Layout: Equatable {
-        case compact, live, complete
+    /// Hover expands the local meter into five readable history rows. It uses
+    /// the samples already collected for the status item and performs no
+    /// network or fleet polling.
+    private final class LocalStatsView: NSView {
+        var samples: [Sample] = [] { didSet { needsDisplay = true } }
+        var current = Sample() { didSet { needsDisplay = true } }
+        var highlightedMetric: Metric? { didSet { needsDisplay = true } }
 
-        var width: CGFloat {
-            switch self {
-            case .compact: return 48
-            case .live: return 120
-            case .complete: return 200
+        private var darkAppearance: Bool {
+            effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        }
+
+        override func draw(_ dirtyRect: NSRect) {
+            super.draw(dirtyRect)
+            let dark = darkAppearance
+            let panel = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5),
+                                     xRadius: 8, yRadius: 8)
+            (dark
+                ? NSColor(srgbRed: 0.025, green: 0.035, blue: 0.050, alpha: 1)
+                : NSColor(srgbRed: 0.965, green: 0.975, blue: 0.98, alpha: 1)).setFill()
+            panel.fill()
+            (dark ? NSColor.white : NSColor.black).withAlphaComponent(0.22).setStroke()
+            panel.lineWidth = 1
+            panel.stroke()
+
+            let content = bounds.insetBy(dx: 8, dy: 8)
+            let gap: CGFloat = 4
+            let rowHeight = (content.height - gap * CGFloat(Metric.allCases.count - 1)) /
+                CGFloat(Metric.allCases.count)
+            for (index, metric) in Metric.allCases.enumerated() {
+                let y = content.maxY - CGFloat(index + 1) * rowHeight - CGFloat(index) * gap
+                drawRow(metric, in: NSRect(x: content.minX, y: y,
+                                           width: content.width, height: rowHeight), dark: dark)
             }
+        }
+
+        private func drawRow(_ metric: Metric, in rect: NSRect, dark: Bool) {
+            let selected = metric == highlightedMetric
+            let row = NSBezierPath(roundedRect: rect, xRadius: 4, yRadius: 4)
+            metric.color.withAlphaComponent(selected ? 0.20 : (dark ? 0.09 : 0.12)).setFill()
+            row.fill()
+            metric.color.withAlphaComponent(selected ? 0.95 : 0.34).setStroke()
+            row.lineWidth = selected ? 1.2 : 0.7
+            row.stroke()
+
+            let foreground = (dark ? NSColor.white : NSColor.black)
+                .withAlphaComponent(selected ? 0.98 : 0.84)
+            let name = NSAttributedString(string: metric.name, attributes: [
+                .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .heavy),
+                .foregroundColor: metric.color,
+                .kern: 0.2,
+            ])
+            name.draw(at: NSPoint(x: rect.minX + 8,
+                                  y: rect.midY - name.size().height / 2))
+
+            let value = NSAttributedString(string: detail(for: metric), attributes: [
+                .font: NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .semibold),
+                .foregroundColor: foreground,
+                .kern: -0.1,
+            ])
+            value.draw(at: NSPoint(x: rect.minX + 42,
+                                   y: rect.midY - value.size().height / 2))
+
+            let graph = NSRect(x: rect.minX + 145, y: rect.minY + 4,
+                               width: rect.width - 151, height: rect.height - 8)
+            drawHistory(metric, in: graph, dark: dark)
+        }
+
+        private func drawHistory(_ metric: Metric, in rect: NSRect, dark: Bool) {
+            guard !samples.isEmpty, rect.width > 0, rect.height > 0 else { return }
+            let points = Array(samples.suffix(60))
+            let columnWidth = rect.width / CGFloat(points.count)
+            for (index, sample) in points.enumerated() {
+                let value = max(0, min(1, metric.value(sample)))
+                let height = max(value > 0 ? 1 : 0, rect.height * CGFloat(value))
+                let age = CGFloat(index + 1) / CGFloat(points.count)
+                metric.color.withAlphaComponent((dark ? 0.42 : 0.50) + age * 0.46).setFill()
+                NSRect(x: rect.minX + CGFloat(index) * columnWidth,
+                       y: rect.minY,
+                       width: max(1, columnWidth - 0.7), height: height).fill()
+            }
+        }
+
+        private func detail(for metric: Metric) -> String {
+            switch metric {
+            case .cpu:
+                return String(format: "%.0f%%  %.1f load", current.cpu * 100, current.load)
+            case .ram:
+                return String(format: "%.1f/%.0f GB", current.ramUsedGB, current.ramTotalGB)
+            case .network:
+                return "↓\(rate(current.down)) ↑\(rate(current.up))"
+            case .ssd:
+                return String(format: "%.0f/%.0f GB", current.ssdUsedGB, current.ssdTotalGB)
+            case .gpu:
+                if current.gpuMemoryGB > 0 {
+                    return String(format: "%.0f%%  %.1f GB", current.gpu * 100, current.gpuMemoryGB)
+                }
+                return String(format: "%.0f%%", current.gpu * 100)
+            }
+        }
+
+        private func rate(_ mbPerSecond: Double) -> String {
+            if mbPerSecond >= 100 { return String(format: "%.0fM", mbPerSecond) }
+            if mbPerSecond >= 10 { return String(format: "%.0fM", mbPerSecond) }
+            if mbPerSecond >= 1 { return String(format: "%.1fM", mbPerSecond) }
+            return String(format: "%.0fK", mbPerSecond * 1024)
         }
     }
 
@@ -249,19 +197,16 @@ final class ResourceGraph: NSObject {
     private var sample = Sample()
     private var tickCount = 0
     private var sampleInFlight = false
-    private var currentLayout = Layout.compact
     private var hoverTracker: ResourceHoverTracker?
     private var hoverPanel: NSPanel?
     private var hoverPinned = false
     private var highlightedMetric: Metric?
-    private let fleetStripView = FleetStripView(frame: .zero)
+    private let localStatsView = LocalStatsView(frame: .zero)
     private var hoverGlobalMonitor: Any?
     private var hoverLocalMonitor: Any?
-    private var fleetWorkers: [FleetWorker] = []
-    private var fleetRefreshInFlight = false
-    private var fleetRefreshedAt = Date.distantPast
 
     private let sampleInterval: TimeInterval = 1.0 / 4.0
+    private let meterWidth: CGFloat = 38
     private let historyLimit = 60        // 15 seconds at 4 Hz.
     private let networkStride = 2        // Network reads at 2 Hz to calm short bursts.
     private let gpuStride = 8            // IOKit once per two seconds.
@@ -315,12 +260,11 @@ final class ResourceGraph: NSObject {
 
     private func start() {
         guard item == nil else { return }
-        currentLayout = preferredLayout()
-        let status = NSStatusBar.system.statusItem(withLength: currentLayout.width)
+        let status = NSStatusBar.system.statusItem(withLength: meterWidth)
         status.button?.imagePosition = .imageOnly
         status.button?.imageScaling = .scaleNone
         status.button?.target = self
-        status.button?.action = #selector(toggleHoverBoard(_:))
+        status.button?.action = #selector(toggleStatsPanel(_:))
         status.button?.sendAction(on: [.leftMouseUp])
         item = status
         installHoverTracker(on: status.button)
@@ -353,49 +297,20 @@ final class ResourceGraph: NSObject {
                     self.history.removeFirst(self.history.count - self.historyLimit)
                 }
                 self.tickCount += 1
-                if self.tickCount == 1 || self.tickCount % 8 == 0 {
-                    self.updateLayout()
-                }
                 self.redraw()
             }
         }
     }
 
-    private func preferredLayout() -> Layout {
-        let screen = item?.button?.window?.screen ?? NSScreen.main
-        let width = screen?.visibleFrame.width ?? 1200
-        // A 200pt five-channel instrument fits ordinary 1380pt+ desktops while
-        // leaving the foreground app menus breathing room. Smaller displays
-        // fall back to the live trio, then one rotating channel.
-        if width >= 1380 { return .complete }
-        if width >= 1100 { return .live }
-        return .compact
-    }
-
-    private func updateLayout() {
-        let layout = preferredLayout()
-        guard layout != currentLayout else { return }
-        currentLayout = layout
-        item?.length = layout.width
-    }
-
     private var visibleMetrics: [Metric] {
-        switch currentLayout {
-        case .compact:
-            let all = Metric.allCases
-            return [all[(tickCount / 16) % all.count]]
-        case .live:
-            return [.cpu, .ram, .network]
-        case .complete:
-            return Metric.allCases
-        }
+        Metric.allCases
     }
 
     private func redraw() {
         guard let button = item?.button else { return }
         button.image = render()
         button.contentTintColor = nil
-        // The same board serves hover and click; there is deliberately no
+        // The same local panel serves hover and click; there is deliberately no
         // second click-only menu or tooltip path.
         guard tickCount == 1 || tickCount % 4 == 0 else { return }
         button.toolTip = nil
@@ -403,42 +318,31 @@ final class ResourceGraph: NSObject {
     }
 
     private func render() -> NSImage {
-        let size = NSSize(width: currentLayout.width - 2, height: displayHeight)
+        let size = NSSize(width: meterWidth - 2, height: displayHeight)
         let image = NSImage(size: size)
         image.lockFocus()
         NSColor.clear.setFill()
         NSRect(origin: .zero, size: size).fill()
 
-        // Five independent LED modules; there is deliberately no wrapper box.
+        // Five plain bar-graph channels. Keep them narrow and independent:
+        // there is deliberately no enclosing capsule or background plate.
         let isDark = NSApp.effectiveAppearance.bestMatch(
             from: [.aqua, .darkAqua]) == .darkAqua
         let metrics = visibleMetrics
-        let content = NSRect(x: 0.5, y: 0.5, width: size.width - 1, height: size.height - 1)
-        let gap: CGFloat = 2
+        let content = NSRect(x: 0, y: 1, width: size.width, height: size.height - 2)
+        let gap: CGFloat = 1
         let cellWidth = (content.width - gap * CGFloat(max(0, metrics.count - 1))) /
             CGFloat(metrics.count)
 
         for (index, metric) in metrics.enumerated() {
-            let cell = NSRect(x: content.minX + CGFloat(index) * (cellWidth + gap),
-                              y: content.minY,
-                              width: cellWidth,
-                              height: content.height)
-            let viewport = NSBezierPath(roundedRect: cell.insetBy(dx: 0.25, dy: 0.25),
-                                        xRadius: 1.2, yRadius: 1.2)
-            (isDark
-                ? NSColor(srgbRed: 0.025, green: 0.035, blue: 0.050, alpha: 0.96)
-                : NSColor(srgbRed: 0.965, green: 0.975, blue: 0.98, alpha: 0.98)).setFill()
-            viewport.fill()
-            metric.color.withAlphaComponent(0.10).setFill()
-            viewport.fill()
-            drawRaster(metric, in: cell, color: metric.color, dark: isDark)
-            drawModuleTag(metric, in: cell)
-            if metric == highlightedMetric {
-                drawHighlightedValue(metric, in: cell, dark: isDark)
-            }
-            metric.color.withAlphaComponent(metric == highlightedMetric ? 0.98 : 0.68).setStroke()
-            viewport.lineWidth = metric == highlightedMetric ? 1.15 : 0.7
-            viewport.stroke()
+            let stripe = NSRect(x: content.minX + CGFloat(index) * (cellWidth + gap),
+                                y: content.minY,
+                                width: cellWidth,
+                                height: content.height)
+            drawMetricStripe(metric, in: stripe, color: metric.color, dark: isDark)
+        }
+        if let highlightedMetric {
+            drawHighlightedValue(highlightedMetric, in: content, dark: isDark)
         }
 
         image.unlockFocus()
@@ -446,44 +350,21 @@ final class ResourceGraph: NSObject {
         return image
     }
 
-    private func drawRaster(_ metric: Metric, in rect: NSRect, color: NSColor, dark: Bool) {
-        let graph = NSRect(x: rect.minX + 1.6, y: rect.minY + 1.5,
-                           width: rect.width - 3.2, height: max(3, rect.height - 10))
-        let columns = max(4, Int(graph.width / 3.6))
-        let rows = 4
-        let points = Array(history.suffix(columns))
-        guard !points.isEmpty else { return }
-        let start = columns - points.count
-        let pixelWidth = graph.width / CGFloat(columns)
-        let pixelHeight = graph.height / CGFloat(rows)
-        for (offset, point) in points.enumerated() {
-            let value = max(0, min(1, metric.value(point)))
-            let filled = Int(ceil(value * Double(rows)))
-            let x = graph.minX + CGFloat(start + offset) * pixelWidth
-            for row in 0..<rows {
-                let lit = row < filled
-                let age = CGFloat(offset + 1) / CGFloat(max(1, points.count))
-                color.withAlphaComponent(lit ? 0.48 + age * 0.42 : (dark ? 0.075 : 0.13)).setFill()
-                NSRect(x: x + 0.45,
-                       y: graph.minY + CGFloat(row) * pixelHeight + 0.35,
-                       width: max(1, pixelWidth - 0.9),
-                       height: max(1, pixelHeight - 0.7)).fill()
-            }
-        }
-    }
-
-    private func drawModuleTag(_ metric: Metric, in rect: NSRect) {
-        let tagRect = NSRect(x: rect.minX + 1.5, y: rect.maxY - 7.8,
-                             width: rect.width - 3, height: 6.2)
-        metric.color.withAlphaComponent(0.94).setFill()
-        tagRect.fill()
-        let label = NSAttributedString(string: metric.name, attributes: [
-            .font: NSFont.monospacedSystemFont(ofSize: 5.4, weight: .heavy),
-            .foregroundColor: NSColor.black.withAlphaComponent(0.88),
-            .kern: 0.05,
-        ])
-        label.draw(at: NSPoint(x: tagRect.midX - label.size().width / 2,
-                               y: tagRect.midY - label.size().height / 2 + 0.25))
+    private func drawMetricStripe(_ metric: Metric, in rect: NSRect,
+                                  color: NSColor, dark: Bool) {
+        // A quiet full-height track gives the five values a shared scale. The
+        // live value then rises linearly from the bottom; no easing or minimum
+        // lift makes unlike values look artificially alike.
+        color.withAlphaComponent(dark ? 0.045 : 0.07).setFill()
+        rect.fill()
+        let value = max(0, min(1, metric.value(sample)))
+        guard value > 0.001 else { return }
+        let pixel: CGFloat = 0.5
+        let height = min(rect.height,
+                         max(pixel, round(rect.height * CGFloat(value) / pixel) * pixel))
+        color.withAlphaComponent(metric == highlightedMetric ? 1 : 0.90).setFill()
+        NSRect(x: rect.minX, y: rect.minY,
+               width: rect.width, height: height).fill()
     }
 
     /// The TVs are pure raster at rest. Pointer focus reveals one stable label
@@ -492,8 +373,7 @@ final class ResourceGraph: NSObject {
         (dark
             ? NSColor(srgbRed: 0.015, green: 0.020, blue: 0.030, alpha: 0.94)
             : NSColor(srgbRed: 0.985, green: 0.99, blue: 0.995, alpha: 0.96)).setFill()
-        NSBezierPath(roundedRect: rect.insetBy(dx: 0.8, dy: 0.8),
-                     xRadius: 0.8, yRadius: 0.8).fill()
+        rect.insetBy(dx: 0.5, dy: 0.5).fill()
         let textColor = dark
             ? NSColor.white.withAlphaComponent(0.94)
             : NSColor.black.withAlphaComponent(0.84)
@@ -539,50 +419,6 @@ final class ResourceGraph: NSObject {
         return String(format: "%.0fK", kb)
     }
 
-    private func drawNetworkBits(in rect: NSRect, dark: Bool) {
-        let downColor = Metric.network.color
-        let upColor = NSColor(srgbRed: 1.00, green: 0.25, blue: 0.62, alpha: 1)
-        drawBitStream(intensity: networkIntensity(sample.down),
-                      in: NSRect(x: rect.minX + 2, y: rect.minY + 1.2,
-                                 width: rect.width - 4, height: 2),
-                      forward: true, color: downColor, dark: dark)
-        drawBitStream(intensity: networkIntensity(sample.up),
-                      in: NSRect(x: rect.minX + 2, y: rect.maxY - 3.2,
-                                 width: rect.width - 4, height: 2),
-                      forward: false, color: upColor, dark: dark)
-    }
-
-    private func drawMetricBits(_ metric: Metric, in rect: NSRect, dark: Bool) {
-        let index = Metric.allCases.firstIndex(of: metric) ?? 0
-        drawBitStream(intensity: metric.value(sample),
-                      in: NSRect(x: rect.minX + 2, y: rect.minY + 1.2,
-                                 width: rect.width - 4, height: 2),
-                      forward: index % 2 == 0, color: metric.color, dark: dark)
-    }
-
-    private func networkIntensity(_ rate: Double) -> Double {
-        min(1, log10(1 + max(0, rate)) / log10(101))
-    }
-
-    private func drawBitStream(intensity rawIntensity: Double, in lane: NSRect, forward: Bool,
-                               color: NSColor, dark: Bool) {
-        let intensity = max(0, min(1, rawIntensity))
-        guard intensity >= 0.01 else { return }
-        let count = max(1, min(6, Int(ceil(1 + intensity * 5))))
-        // Preserve the former visual travel rate after moving 12 → 4 fps.
-        let speed = 0.054 + intensity * 0.135
-        let bitSize = 1.1 + CGFloat(intensity) * 0.7
-        for index in 0..<count {
-            var phase = (Double(index) / Double(count)
-                         + Double(tickCount) * speed).truncatingRemainder(dividingBy: 1)
-            if !forward { phase = 1 - phase }
-            let x = lane.minX + CGFloat(phase) * max(0, lane.width - bitSize)
-            color.withAlphaComponent(dark ? 0.95 : 0.82).setFill()
-            NSRect(x: x, y: lane.midY - bitSize / 2,
-                   width: bitSize, height: bitSize).fill()
-        }
-    }
-
     private func readSample(previous: Sample, readNetwork: Bool,
                             readGPU: Bool, readDisk: Bool) -> Sample {
         var s = previous
@@ -619,106 +455,6 @@ final class ResourceGraph: NSObject {
             s.net = previous.net + (rawNet - previous.net) * glide
         }
         return s
-    }
-
-    private func fleetTargets() -> [(name: String, ip: String)] {
-        let wanted = ["poorslice", "blueberry", "neo", "chicken", "panda"]
-        let local = ProcessInfo.processInfo.hostName
-            .lowercased().replacingOccurrences(of: ".local", with: "")
-        let fallback = [
-            "poorslice": "100.86.206.3",
-            "blueberry": "100.79.75.53",
-            "neo": "100.108.5.81",
-            "chicken": "100.98.158.126",
-            "panda": "100.88.155.94",
-        ]
-        let path = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("aesthetic-computer-vault/machines.normalized.json")
-        guard let data = try? Data(contentsOf: path),
-              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-        else {
-            return wanted.filter { $0 != local }.compactMap { name in
-                fallback[name].map { (name, $0) }
-            }
-        }
-        let machineList: [[String: Any]]
-        if let array = root["machines"] as? [[String: Any]] {
-            machineList = array
-        } else if let dictionary = root["machines"] as? [String: Any] {
-            machineList = dictionary.compactMap { key, value in
-                guard var machine = value as? [String: Any] else { return nil }
-                machine["name"] = machine["name"] ?? key
-                return machine
-            }
-        } else {
-            machineList = []
-        }
-        return wanted.filter { $0 != local }.compactMap { name in
-            let machine = machineList.first {
-                ($0["name"] as? String)?.lowercased() == name
-            }
-            let tailscale = machine?["tailscale"] as? [String: Any]
-            let ip = tailscale?["ip"] as? String ?? fallback[name]
-            return ip.map { (name, $0) }
-        }
-    }
-
-    private func refreshFleetWorkers(force: Bool = false) {
-        guard !fleetRefreshInFlight else { return }
-        guard force || Date().timeIntervalSince(fleetRefreshedAt) >= 10 else { return }
-        fleetRefreshInFlight = true
-        let targets = fleetTargets()
-        if fleetWorkers.isEmpty {
-            fleetWorkers = targets.map { FleetWorker(name: $0.name, online: false, cpu: 0, ram: 0,
-                disk: 0, memoryGB: 0, cores: 0, pressure: false, reason: "", accepting: false,
-                active: 0, queued: 0, role: "") }
-        }
-        refreshHoverCardText()
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.timeoutIntervalForRequest = 1.6
-        configuration.timeoutIntervalForResource = 2.0
-        let session = URLSession(configuration: configuration)
-        let group = DispatchGroup()
-        let lock = NSLock()
-        var results: [String: FleetWorker] = [:]
-        for target in targets {
-            group.enter()
-            let url = URL(string: "http://\(target.ip):5263/health")!
-            session.dataTask(with: url) { data, response, _ in
-                defer { group.leave() }
-                guard let http = response as? HTTPURLResponse, http.statusCode == 200,
-                      let data,
-                      let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-                else { return }
-                let active = (object["active"] as? [Any])?.count ?? 0
-                let worker = FleetWorker(
-                    name: target.name, online: true,
-                    cpu: (object["cpuPct"] as? NSNumber)?.doubleValue ?? 0,
-                    ram: (object["memoryUsedPct"] as? NSNumber)?.doubleValue ?? 0,
-                    disk: (object["diskUsedPct"] as? NSNumber)?.doubleValue ?? 0,
-                    memoryGB: (object["memoryTotalGB"] as? NSNumber)?.doubleValue ?? 0,
-                    cores: (object["cores"] as? NSNumber)?.intValue ?? 0,
-                    pressure: object["pressure"] as? Bool ?? false,
-                    reason: object["pressureReason"] as? String ?? "",
-                    accepting: object["accepting"] as? Bool ?? false,
-                    active: active,
-                    queued: (object["queued"] as? NSNumber)?.intValue ?? 0,
-                    role: object["role"] as? String ?? "")
-                lock.lock(); results[target.name] = worker; lock.unlock()
-            }.resume()
-        }
-        group.notify(queue: .main) { [weak self] in
-            guard let self else { return }
-            session.invalidateAndCancel()
-            self.fleetWorkers = targets.map { target in
-                results[target.name] ?? FleetWorker(name: target.name, online: false, cpu: 0,
-                    ram: 0, disk: 0, memoryGB: 0, cores: 0, pressure: false, reason: "",
-                    accepting: false, active: 0, queued: 0, role: "")
-            }
-            self.fleetRefreshInFlight = false
-            self.fleetRefreshedAt = Date()
-            self.refreshHoverCardText()
-        }
     }
 
     private func installHoverTracker(on button: NSStatusBarButton?) {
@@ -774,11 +510,11 @@ final class ResourceGraph: NSObject {
         let metric = metrics[index]
         guard metric != highlightedMetric else { return }
         highlightedMetric = metric
-        fleetStripView.highlightedMetricIndex = Metric.allCases.firstIndex(of: metric)
+        localStatsView.highlightedMetric = metric
         redraw()
     }
 
-    @objc private func toggleHoverBoard(_ sender: Any?) {
+    @objc private func toggleStatsPanel(_ sender: Any?) {
         hoverPinned.toggle()
         if hoverPinned {
             showHoverCard()
@@ -798,13 +534,9 @@ final class ResourceGraph: NSObject {
               let window = button.window else { return }
         let windowRect = button.convert(button.bounds, to: nil)
         let statusRect = window.convertToScreen(windowRect)
-        let rowCount = max(1, fleetWorkers.isEmpty ? fleetTargets().count : fleetWorkers.count)
-        let labelWidth: CGFloat = 64
-        let padding: CGFloat = 4
-        let size = NSSize(width: statusRect.width + labelWidth + padding * 2,
-                          height: CGFloat(rowCount * 20 + max(0, rowCount - 1) * 2 + 8))
+        let size = NSSize(width: 320, height: 160)
         let screen = window.screen ?? NSScreen.main
-        var origin = NSPoint(x: statusRect.minX - labelWidth - padding,
+        var origin = NSPoint(x: statusRect.maxX - size.width,
                              y: statusRect.minY - size.height - 4)
         if let visible = screen?.visibleFrame {
             origin.x = min(max(origin.x, visible.minX + 2), visible.maxX - size.width - 2)
@@ -821,16 +553,14 @@ final class ResourceGraph: NSObject {
         panel.becomesKeyOnlyIfNeeded = true
         panel.ignoresMouseEvents = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
-        fleetStripView.frame = NSRect(origin: .zero, size: size)
-        fleetStripView.autoresizingMask = [.width, .height]
-        fleetStripView.workers = fleetWorkers
-        fleetStripView.highlightedMetricIndex = highlightedMetric.flatMap {
-            Metric.allCases.firstIndex(of: $0)
-        }
-        panel.contentView = fleetStripView
+        localStatsView.frame = NSRect(origin: .zero, size: size)
+        localStatsView.autoresizingMask = [.width, .height]
+        localStatsView.samples = history
+        localStatsView.current = sample
+        localStatsView.highlightedMetric = highlightedMetric
+        panel.contentView = localStatsView
         hoverPanel = panel
         panel.orderFrontRegardless()
-        refreshFleetWorkers(force: true)
     }
 
     private func hideHoverCard() {
@@ -840,16 +570,9 @@ final class ResourceGraph: NSObject {
 
     private func refreshHoverCard() {
         guard hoverPanel?.isVisible == true else { return }
-        refreshFleetWorkers()
-        refreshHoverCardText()
-    }
-
-    private func refreshHoverCardText() {
-        guard hoverPanel?.isVisible == true else { return }
-        fleetStripView.workers = fleetWorkers
-        fleetStripView.highlightedMetricIndex = highlightedMetric.flatMap {
-            Metric.allCases.firstIndex(of: $0)
-        }
+        localStatsView.samples = history
+        localStatsView.current = sample
+        localStatsView.highlightedMetric = highlightedMetric
     }
 
     private func memoryUse() -> (fraction: Double, usedGB: Double, totalGB: Double) {
