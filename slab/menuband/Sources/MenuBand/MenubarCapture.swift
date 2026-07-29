@@ -9,7 +9,8 @@ import AppKit
 //   MenuBand --render-menubar --notes 60,64,67 --out frame.png \
 //            [--voice "Marimba"] [--program 0] [--scale 3] \
 //            [--light] [--accent "#000000"] [--midi] [--no-settings]
-//            [--key-accent] [--emit-keys keys.json]
+//            [--key-accent] [--percussion-left|--percussion-right]
+//            [--emit-keys keys.json]
 //
 // Renders KeyboardIconRenderer.image(...) (the full status-item icon: piano
 // keys + settings/voice/MIDI chips) to a TRANSPARENT PNG at `scale`× the
@@ -46,6 +47,8 @@ enum MenubarCLI {
         // than the accent. Under a black accent the accent-lit state can only
         // come out grey, and the rainbow is the strip's whole idea anyway.
         KeyboardIconRenderer.perKeyAccent = args.contains("--key-accent")
+        KeyboardIconRenderer.percussionLeftActive = args.contains("--percussion-left")
+        KeyboardIconRenderer.percussionRightActive = args.contains("--percussion-right")
 
         // `--emit-keys <path>`: dump where each key sits (fraction of image
         // width) and what color its stripe is, so a promo can fire particles
