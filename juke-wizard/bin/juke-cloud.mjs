@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { createReadStream, createWriteStream, promises as fs } from "node:fs";
+import { request as httpRequest } from "node:http";
+import { request as httpsRequest } from "node:https";
 import { homedir } from "node:os";
 import { basename, resolve } from "node:path";
 import { Readable } from "node:stream";
@@ -49,6 +51,31 @@ async function list() {
   return (await api()).tracks || [];
 }
 
+function uploadFile(url, path, headers, bytes) {
+  return new Promise((resolve, reject) => {
+    const target = new URL(url);
+    const requester = target.protocol === "https:" ? httpsRequest : httpRequest;
+    const request = requester(target, {
+      method: "PUT",
+      headers: { ...headers, "Content-Length": String(bytes) },
+    }, (response) => {
+      const chunks = [];
+      response.on("data", (chunk) => chunks.push(chunk));
+      response.on("end", () => {
+        const status = response.statusCode || 0;
+        if (status >= 200 && status < 300) return resolve();
+        const body = Buffer.concat(chunks).toString("utf8");
+        const detail = body.match(/<Message>([^<]+)<\/Message>/)?.[1];
+        reject(new Error(`Upload failed (${status})${detail ? `: ${detail}` : ""}`));
+      });
+    });
+    request.on("error", reject);
+    const input = createReadStream(path);
+    input.on("error", reject);
+    input.pipe(request);
+  });
+}
+
 async function push(path) {
   const absolute = resolve(path);
   const stat = await fs.stat(absolute);
@@ -58,16 +85,7 @@ async function push(path) {
     filename: basename(absolute),
     bytes: stat.size,
   });
-  const response = await fetch(prepared.uploadURL, {
-    method: "PUT",
-    headers: { ...prepared.headers, "Content-Length": String(stat.size) },
-    body: Readable.toWeb(createReadStream(absolute)),
-    duplex: "half",
-  });
-  if (!response.ok) {
-    const detail = (await response.text()).match(/<Message>([^<]+)<\/Message>/)?.[1];
-    throw new Error(`Upload failed (${response.status})${detail ? `: ${detail}` : ""}`);
-  }
+  await uploadFile(prepared.uploadURL, absolute, prepared.headers, stat.size);
   return prepared.track;
 }
 
