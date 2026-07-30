@@ -48,6 +48,13 @@
       "args": [
         "slab/bin/dmgify-mcp.mjs"
       ]
+    },
+    "jukewizard": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "juke-wizard/bin/jukewizard-mcp.mjs"
+      ]
     }
   }
 }

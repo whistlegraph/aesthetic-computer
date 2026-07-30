@@ -104,6 +104,9 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     var sourceTabs: NSSegmentedControl!
     var appearanceTabs: NSSegmentedControl!
     var playButton: NSButton!
+    var speedSlider: NSSlider!
+    var speedLabel: NSTextField!
+    var speedResetButton: NSButton!
     var ledLabel: NSTextField!
     var notesToggle: NSButton!
     var djButton: NSButton!
@@ -183,6 +186,11 @@ final class JukeController: NSWindowController, NSWindowDelegate,
             quickVolume = UserDefaults.standard.float(forKey: "playerVolume")
         }
         wave.volume = quickVolume
+        if UserDefaults.standard.object(forKey: "listPlaybackRate") != nil {
+            speedSlider.doubleValue = max(0.5, min(1.5,
+                UserDefaults.standard.double(forKey: "listPlaybackRate")))
+        }
+        speedLabel.stringValue = String(format: "%.2f×", speedSlider.doubleValue)
         relayout()
         menuBar = MenuBarCD()
         menuBar?.onClick = { [weak self] in self?.quickOpenFull() }
@@ -312,6 +320,21 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         playButton.bezelStyle = .rounded
         playButton.setButtonType(.momentaryPushIn)
         content.addSubview(playButton)
+        speedSlider = NSSlider(value: 1, minValue: 0.5, maxValue: 1.5,
+                               target: self, action: #selector(speedChanged(_:)))
+        speedSlider.controlSize = .small
+        speedSlider.isContinuous = true
+        speedSlider.toolTip = "Playback speed · drag the waveform to scratch"
+        content.addSubview(speedSlider)
+        speedLabel = label("1.00×", size: 11, color: Palette.teal)
+        speedLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
+        speedLabel.alignment = .right
+        content.addSubview(speedLabel)
+        speedResetButton = NSButton(title: "↺", target: self, action: #selector(resetSpeed))
+        speedResetButton.bezelStyle = .inline
+        speedResetButton.toolTip = "Reset playback speed"
+        speedResetButton.contentTintColor = Palette.teal
+        content.addSubview(speedResetButton)
         let prev = NSButton(title: "⏮", target: self, action: #selector(prevTrack))
         prev.bezelStyle = .rounded; prev.tag = 1
         let next = NSButton(title: "⏭", target: self, action: #selector(nextTrack))
@@ -534,7 +557,8 @@ final class JukeController: NSWindowController, NSWindowDelegate,
 
     private func setPlayerChromeHidden(_ hidden: Bool) {
         [nowPlaying, titleLabel, artistLabel, laneLabel, activityLabel, playButton,
-         ledLabel, notesToggle, roomButton, sortPopup, spotifySearchField,
+         ledLabel, notesToggle, roomButton, speedSlider, speedLabel, speedResetButton,
+         sortPopup, spotifySearchField,
          listScroll, wave, spotifyProgress, drawerPanel].forEach { $0?.isHidden = hidden }
         transportExtra.forEach { $0.isHidden = hidden }
         linkButtons.forEach { $0.isHidden = hidden }
@@ -548,6 +572,9 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         playButton.isHidden = false
         ledLabel.isHidden = false
         roomButton.isHidden = false
+        speedSlider.isHidden = spotifyMode
+        speedLabel.isHidden = spotifyMode
+        speedResetButton.isHidden = spotifyMode
         listScroll.isHidden = false
         transportExtra.forEach { $0.isHidden = false }
         wave.isHidden = spotifyMode
@@ -653,7 +680,11 @@ final class JukeController: NSWindowController, NSWindowDelegate,
 
         // waveform fills the space between the links row and the transport
         let waveTop = linksBottom - 6
-        let waveBottom = transY + 31
+        let speedY = transY + 30
+        speedLabel.frame = NSRect(x: rx, y: speedY + 1, width: 45, height: 18)
+        speedSlider.frame = NSRect(x: rx + 48, y: speedY, width: max(70, rw - 80), height: 20)
+        speedResetButton.frame = NSRect(x: rx + rw - 27, y: speedY, width: 27, height: 20)
+        let waveBottom = speedY + 23
         wave.frame = NSRect(x: rx, y: waveBottom, width: rw, height: max(32, waveTop - waveBottom))
         spotifyProgress.frame = wave.frame
 
@@ -824,6 +855,9 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         roomAudio.useSource(.spotify)
         window?.title = "JukeWizard · Spotify"
         wave?.isHidden = true
+        speedSlider?.isHidden = true
+        speedLabel?.isHidden = true
+        speedResetButton?.isHidden = true
         spotifyProgress?.isHidden = false
         sortPopup?.isHidden = true
         spotifySearchField?.isHidden = false
@@ -845,6 +879,9 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         roomAudio.useSource(.aesthetic)
         window?.title = "JukeWizard — \(library.tracks.count) tracks"
         wave.isHidden = false
+        speedSlider.isHidden = false
+        speedLabel.isHidden = false
+        speedResetButton.isHidden = false
         spotifyProgress.isHidden = true
         sortPopup.isHidden = false
         spotifySearchField.isHidden = true
@@ -1055,7 +1092,8 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         updateNowPlaying(t)
         loadLinks(t)
         relayout()                    // link count changes the header row width
-        wave.load(url: t.url)
+        wave.load(track: t)
+        wave.playbackRate = speedSlider.doubleValue
         wave.comments = t.data.comments
         notesView.string = t.data.notes
         notesPlaceholder.isHidden = !t.data.notes.isEmpty
@@ -1144,6 +1182,16 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         }
         refreshPlaybackPresence()
     }
+    @objc private func speedChanged(_ sender: NSSlider) {
+        guard !spotifyMode, !djMode else { return }
+        wave.playbackRate = sender.doubleValue
+        speedLabel.stringValue = String(format: "%.2f×", sender.doubleValue)
+        UserDefaults.standard.set(sender.doubleValue, forKey: "listPlaybackRate")
+    }
+    @objc private func resetSpeed() {
+        speedSlider.doubleValue = 1
+        speedChanged(speedSlider)
+    }
     @objc private func prevTrack() {
         if djMode { djMixer.stepDominant(by: -1) }
         else if spotifyMode { spotify.previous() }
@@ -1153,6 +1201,82 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         if djMode { djMixer.stepDominant(by: 1) }
         else if spotifyMode { spotify.next() }
         else if current < library.tracks.count - 1 { select(current + 1, autoplay: true) }
+    }
+
+    /// Stable command surface used by the user-only Unix socket. This is
+    /// always called on AppKit's main thread by JukeControlServer.
+    func control(_ request: [String: Any]) -> [String: Any] {
+        guard Thread.isMainThread else { return ["ok": false, "error": "control must run on main thread"] }
+        guard let command = request["command"] as? String else {
+            return ["ok": false, "error": "missing command"]
+        }
+        func state() -> [String: Any] {
+            var out: [String: Any] = [
+                "ok": true, "mode": djMode ? "dj" : (spotifyMode ? "spotify" : "library"),
+                "playing": quickIsPlaying, "index": current,
+                "queueCount": library.tracks.count
+            ]
+            if let t = track { out["title"] = t.title; out["path"] = t.url.path; out["lane"] = t.lane }
+            if !spotifyMode && !djMode {
+                out["position"] = wave.currentTime; out["duration"] = wave.duration
+                out["speed"] = wave.playbackRate
+            }
+            return out
+        }
+        switch command {
+        case "status": return state()
+        case "list":
+            let limit = max(1, min(1000, request["limit"] as? Int ?? 500))
+            let rows: [[String: Any]] = library.tracks.prefix(limit).enumerated().map { i, t in
+                ["index": i, "title": t.title, "path": t.url.path, "lane": t.lane]
+            }
+            return ["ok": true, "count": library.tracks.count, "tracks": rows, "truncated": rows.count < library.tracks.count]
+        case "select", "play":
+            if let path = request["path"] as? String {
+                let wanted = URL(fileURLWithPath: (path as NSString).expandingTildeInPath).standardizedFileURL.path
+                guard let i = library.tracks.firstIndex(where: { $0.url.standardizedFileURL.path == wanted }) else {
+                    return ["ok": false, "error": "exact path is not in the queue"]
+                }
+                select(i, autoplay: command == "play")
+            } else if let title = request["title"] as? String {
+                let matches = library.tracks.indices.filter { library.tracks[$0].title == title }
+                guard matches.count == 1 else {
+                    return ["ok": false, "error": matches.isEmpty ? "exact title not found" : "title is ambiguous; use path or index"]
+                }
+                select(matches[0], autoplay: command == "play")
+            } else if let i = request["index"] as? Int {
+                guard library.tracks.indices.contains(i) else { return ["ok": false, "error": "index out of range"] }
+                select(i, autoplay: command == "play")
+            } else if command == "play" {
+                guard !spotifyMode, !djMode else { return ["ok": false, "error": "plain play is unavailable in Spotify or DJ mode"] }
+                wave.play(); playButton.title = "❚❚"; nowPlaying.setPaused(false); refreshPlaybackPresence()
+            } else { return ["ok": false, "error": "select requires exact path, title, or index"] }
+            return state()
+        case "pause":
+            guard !spotifyMode, !djMode else { return ["ok": false, "error": "pause is unavailable in Spotify or DJ mode"] }
+            wave.pause(); playButton.title = "▶"; nowPlaying.setPaused(true); refreshPlaybackPresence(); return state()
+        case "toggle":
+            guard !spotifyMode, !djMode else { return ["ok": false, "error": "toggle is unavailable in Spotify or DJ mode"] }
+            togglePlay(); return state()
+        case "seek":
+            guard !spotifyMode, !djMode, let seconds = request["seconds"] as? Double, seconds.isFinite else {
+                return ["ok": false, "error": "seek requires finite seconds in library mode"]
+            }
+            wave.seek(to: seconds); return state()
+        case "speed":
+            guard !spotifyMode, !djMode, let value = request["speed"] as? Double,
+                  value.isFinite, (0.5...1.5).contains(value) else {
+                return ["ok": false, "error": "speed must be between 0.5 and 1.5 in library mode"]
+            }
+            speedSlider.doubleValue = value; speedChanged(speedSlider); return state()
+        case "next":
+            guard !spotifyMode, !djMode else { return ["ok": false, "error": "next is unavailable in Spotify or DJ mode"] }
+            nextTrack(); return state()
+        case "previous":
+            guard !spotifyMode, !djMode else { return ["ok": false, "error": "previous is unavailable in Spotify or DJ mode"] }
+            prevTrack(); return state()
+        default: return ["ok": false, "error": "unknown command"]
+        }
     }
 
     // ── rating ─────────────────────────────────────────────────────────────

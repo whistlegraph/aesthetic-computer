@@ -20,6 +20,14 @@ set -e
 HERE="$(cd "$(dirname "$0")" && pwd)"
 WIZ="$HERE/.."
 REPO="$(cd "$WIZ/.." && pwd)"
+
+# Probeable transport commands talk to the already-running native player and
+# emit stable JSON. The MCP is deliberately only a thin wrapper over this CLI.
+case "${1:-}" in
+  status|list|play|select|pause|toggle|seek|speed|next|previous|prev)
+    exec node "$HERE/jukewizard-control.mjs" "$@"
+    ;;
+esac
 swift build -c release --package-path "$WIZ" 2>&1 | grep -v '^$' | tail -2 || true
 
 BIN="$WIZ/.build/release/JukeWizard"

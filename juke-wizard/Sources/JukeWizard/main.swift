@@ -16,6 +16,7 @@ import AppKit
 
 final class JukeAppDelegate: NSObject, NSApplicationDelegate {
     var controller: JukeController?
+    var controlServer: JukeControlServer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         DockIcon.install(prefix: "jukewizard")
@@ -67,6 +68,10 @@ final class JukeAppDelegate: NSObject, NSApplicationDelegate {
                                     spotifySearch: spotifySearch,
                                     playlistName: playlistName,
                                     fullLibraryPath: aesthetic)
+        if let controller {
+            controlServer = JukeControlServer(controller: controller)
+            controlServer?.start()
+        }
         controller?.showWindow(nil)
         if controller?.window?.isMiniaturized == true { controller?.window?.deminiaturize(nil) }
         controller?.window?.makeKeyAndOrderFront(nil)
@@ -76,6 +81,8 @@ final class JukeAppDelegate: NSObject, NSApplicationDelegate {
         // run-loop turn so a relaunch can never masquerade as a crash.
         DispatchQueue.main.async { [weak self] in self?.controller?.quickOpenFull() }
     }
+
+    func applicationWillTerminate(_ notification: Notification) { controlServer?.stop() }
 
     // Stay resident while its compact spinning CD is present in the menu bar.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
