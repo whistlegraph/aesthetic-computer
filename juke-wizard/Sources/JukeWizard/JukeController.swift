@@ -23,6 +23,16 @@ enum Palette {
     static func bg(_ dark: Bool) -> NSColor {
         dark ? NSColor(srgbRed: 0.10, green: 0.12, blue: 0.13, alpha: 1) : cream
     }
+    static func deckSurface(_ accent: NSColor, dark: Bool, alpha: CGFloat = 1) -> NSColor {
+        let base = dark ? NSColor(white: 0.025, alpha: 1) : cream
+        let wash = dark ? 0.20 : 0.14
+        return base.blended(withFraction: wash, of: accent)?.withAlphaComponent(alpha)
+            ?? base.withAlphaComponent(alpha)
+    }
+    static func deckInk(_ accent: NSColor, dark: Bool) -> NSColor {
+        let target = dark ? NSColor.white : NSColor.black
+        return accent.blended(withFraction: dark ? 0.38 : 0.48, of: target) ?? target
+    }
 }
 
 final class JukeController: NSWindowController, NSWindowDelegate,
@@ -107,6 +117,8 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     var ledLabel: NSTextField!
     var notesToggle: NSButton!
     var djButton: NSButton!
+    var cloudButton: NSButton!
+    var cloudWindow: JukeCloudWindowController?
     var djMixer: DJMixerView!
     var djMode = false
     var roomButton: NSButton!
@@ -142,7 +154,9 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     var appearanceMode: AppearanceMode = .automatic
 
     init(library: Library, watch: [String], select selectArg: String? = nil,
-         spotifySearch: String? = nil, playlistName: String? = nil,
+         spotifySearch: String? = nil, startPrimpats: Bool = false,
+         startBeats: Bool = false,
+         playlistName: String? = nil,
          fullLibraryPath: String) {
         self.library = library
         self.watchDirs = watch
@@ -205,6 +219,13 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         let requestedSpotify = !(spotifySearch?.trimmingCharacters(
             in: .whitespacesAndNewlines).isEmpty ?? true)
         requestedSpotify ? activateSpotifyMode() : activateLibraryMode()
+        if startBeats {
+            setDJMode(true, singleDeck: true)
+            djMixer.loadBeats(solo: true)
+        } else if startPrimpats {
+            setDJMode(true)
+            djMixer.loadPrimpats()
+        }
         spotify.start()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
             guard let self, case .idle = self.roomAudio.state else { return }
@@ -381,6 +402,12 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         djButton.toolTip = "Mix two local tracks"
         content.addSubview(djButton)
 
+        cloudButton = NSButton(title: "☁︎", target: self, action: #selector(showCloud))
+        cloudButton.bezelStyle = .rounded
+        cloudButton.contentTintColor = Palette.teal
+        cloudButton.toolTip = "Sign in and sync tracks with Juke Cloud"
+        content.addSubview(cloudButton)
+
         spotifySearchField = NSSearchField(frame: .zero)
         spotifySearchField.placeholderString = "Search Spotify"
         spotifySearchField.sendsSearchStringImmediately = false
@@ -413,6 +440,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         djMixer = DJMixerView(frame: .zero)
         djMixer.isHidden = true
         djMixer.onStateChange = { [weak self] in self?.refreshPlaybackPresence() }
+        djMixer.onDetach = { [weak self] in self?.window?.orderOut(nil) }
         content.addSubview(djMixer)
 
         playButton.contentTintColor = Palette.teal
@@ -495,7 +523,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
 
     @objc private func toggleDJMode() { setDJMode(!djMode) }
 
-    private func setDJMode(_ enabled: Bool) {
+    private func setDJMode(_ enabled: Bool, singleDeck: Bool = false) {
         guard enabled != djMode else { return }
         if enabled {
             if spotifyMode { activateLibraryMode() }
@@ -506,7 +534,11 @@ final class JukeController: NSWindowController, NSWindowDelegate,
                 drawerOpen = false
                 notesToggle.state = .off
             }
-            djMixer.configure(tracks: library.tracks, primaryIndex: max(0, current))
+            if singleDeck {
+                djMixer.configureSolo(tracks: library.tracks, primaryIndex: max(0, current))
+            } else {
+                djMixer.configure(tracks: library.tracks, primaryIndex: max(0, current))
+            }
             djMixer.setMasterVolume(quickVolume)
             djMode = true
             djButton.state = .on
@@ -574,7 +606,18 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         case .light: window?.appearance = NSAppearance(named: .aqua)
         case .dark: window?.appearance = NSAppearance(named: .darkAqua)
         }
+        djMixer?.setAppearance(window?.appearance)
         applyThemeBackground()
+    }
+
+    func showDetachedPrimpats() {
+        if !djMode { setDJMode(true) }
+        djMixer.loadPrimpats(openPopouts: true)
+    }
+
+    func showDetachedBeats() {
+        if !djMode { setDJMode(true, singleDeck: true) }
+        djMixer.loadBeats(openPopouts: true, autoplay: true, solo: true)
     }
 
     @objc private func appearanceChanged() {
@@ -608,8 +651,9 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         sourceTabs.frame = NSRect(x: pad, y: H - 27, width: 170, height: 22)
         appearanceTabs.frame = NSRect(x: W - pad - 172, y: H - 27, width: 172, height: 22)
         djButton.frame = NSRect(x: 184, y: H - 28, width: 52, height: 24)
-        scopeButton.frame = NSRect(x: 242, y: H - 27,
-                                   width: max(0, W - 242 - 188), height: 22)
+        cloudButton.frame = NSRect(x: 240, y: H - 28, width: 46, height: 24)
+        scopeButton.frame = NSRect(x: 292, y: H - 27,
+                                   width: max(0, W - 292 - 188), height: 22)
 
         if djMode {
             djMixer.frame = NSRect(x: pad, y: pad, width: W - pad * 2,
@@ -1034,6 +1078,34 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         open.target = self
         menu.addItem(open)
         return menu
+    }
+
+    @objc private func showCloud() {
+        if cloudWindow == nil {
+            cloudWindow = JukeCloudWindowController(
+                currentFile: { [weak self] in self?.track?.url },
+                loadLocalFile: { [weak self] in self?.loadCloudFile($0) })
+        }
+        cloudWindow?.prepareForDisplay()
+        cloudWindow?.showWindow(nil)
+        cloudWindow?.window?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func loadCloudFile(_ url: URL) {
+        if let index = library.tracks.firstIndex(where: {
+            $0.url.standardizedFileURL == url.standardizedFileURL
+        }) {
+            select(index, autoplay: true)
+            return
+        }
+        library.addFile(url, lane: "cloud")
+        listTable.reloadData()
+        if let index = library.tracks.firstIndex(where: {
+            $0.url.standardizedFileURL == url.standardizedFileURL
+        }) {
+            select(index, autoplay: true)
+        }
     }
 
     // ── selection / playback ──────────────────────────────────────────────

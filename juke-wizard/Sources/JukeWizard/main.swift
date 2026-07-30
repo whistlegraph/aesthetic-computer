@@ -8,6 +8,8 @@
 //   jukewizard [<playlist.m3u8 | folder | file.mp3> ...] [--watch <dir>]
 //   bin/jukewizard --queue <file.mp3> <file.mp3>  focused ordered queue
 //   jukewizard --spotify-search "artist or track"  headless Spotify search
+//   jukewizard --primpats  open DJ mode with two floating bass-sine records
+//   jukewizard --beats     open one floating C-rendered scratch lab record
 //   (no args → opens ~/Desktop/MASTER-playlist.m3u8 if present)
 //
 //   --watch <dir>   auto-pop: when a fresh audio file lands here, add it
@@ -24,11 +26,15 @@ final class JukeAppDelegate: NSObject, NSApplicationDelegate {
         var paths: [String] = []
         var selectPath: String? = nil
         var spotifySearch: String? = nil
+        var startPrimpats = false
+        var startBeats = false
         var i = 0
         while i < args.count {
             if args[i] == "--watch", i + 1 < args.count { watch.append(args[i + 1]); i += 2; continue }
             if args[i] == "--select", i + 1 < args.count { selectPath = args[i + 1]; i += 2; continue }
             if args[i] == "--spotify-search", i + 1 < args.count { spotifySearch = args[i + 1]; i += 2; continue }
+            if args[i] == "--primpats" { startPrimpats = true; i += 1; continue }
+            if args[i] == "--beats" { startBeats = true; i += 1; continue }
             paths.append(args[i]); i += 1
         }
         var root = URL(fileURLWithPath: #filePath)
@@ -65,6 +71,8 @@ final class JukeAppDelegate: NSObject, NSApplicationDelegate {
         }
         controller = JukeController(library: library, watch: watch, select: selectPath,
                                     spotifySearch: spotifySearch,
+                                    startPrimpats: startPrimpats,
+                                    startBeats: startBeats,
                                     playlistName: playlistName,
                                     fullLibraryPath: aesthetic)
         controller?.showWindow(nil)
@@ -74,7 +82,13 @@ final class JukeAppDelegate: NSObject, NSApplicationDelegate {
         // Launch Services can re-apply the previous process's minimized Dock
         // state just after didFinishLaunching. Restore once more on the next
         // run-loop turn so a relaunch can never masquerade as a crash.
-        DispatchQueue.main.async { [weak self] in self?.controller?.quickOpenFull() }
+        if startBeats {
+            DispatchQueue.main.async { [weak self] in self?.controller?.showDetachedBeats() }
+        } else if startPrimpats {
+            DispatchQueue.main.async { [weak self] in self?.controller?.showDetachedPrimpats() }
+        } else {
+            DispatchQueue.main.async { [weak self] in self?.controller?.quickOpenFull() }
+        }
     }
 
     // Stay resident while its compact spinning CD is present in the menu bar.

@@ -27,16 +27,30 @@ void ac_scratch_init(ACScratchState *state) {
 double ac_scratch_motion(ACScratchState *state, double hand_velocity,
                          double position_error, int scratching,
                          double sample_rate) {
-    // A light platter has fast attack but retains enough inertia for a throw.
-    const double follow = scratching ? 0.075 : 0.018;
-    state->velocity += (hand_velocity - state->velocity) * follow;
-    if (!scratching) return state->velocity;
+    if (!scratching) {
+        // Playback-rate changes slew over roughly 8 ms.
+        const double follow = 1.0 - exp(-1.0 / fmax(1.0, sample_rate * 0.008));
+        state->velocity += (hand_velocity - state->velocity) * follow;
+        return state->velocity;
+    }
 
-    // The stylus follows the hand through a bounded spring instead of jumping
-    // to every pointer event. This is the click-prevention layer.
-    const double throw_limit = fmax(2.0, fabs(state->velocity) * 2.5);
-    double spring = tanh(position_error / fmax(1.0, sample_rate * 0.012)) * throw_limit;
-    return state->velocity + spring;
+    // video.mjs uses drag velocity as the playback rate. Keep that direct
+    // musical mapping here, with only a gentle position correction so event
+    // timing cannot accumulate drift between the hand and the groove.
+    double correction = position_error / fmax(1.0, sample_rate * 0.012);
+    correction = fmax(-0.35, fmin(0.35, correction));
+    double desired = hand_velocity + correction;
+    const double follow = 1.0 - exp(-1.0 / fmax(1.0, sample_rate * 0.0035));
+    state->velocity += (desired - state->velocity) * follow;
+
+    // A still hand catches the record and lands exactly without oscillating.
+    // While the hand is moving, velocity remains continuous through targets.
+    if (fabs(hand_velocity) < 0.02 &&
+        fabs(position_error) <= fmax(0.002, fabs(state->velocity))) {
+        state->velocity = 0.0;
+        return position_error;
+    }
+    return state->velocity;
 }
 
 float ac_scratch_cubic(float xm1, float x0, float x1, float x2, float t) {
@@ -65,16 +79,44 @@ float ac_scratch_material(ACScratchState *state, float sample, int channel,
     float x = sample;
     if (scratching) {
         float grain = pixel_groove(sample_position, (uint32_t)c);
-        float grain_gain = (float)fmin(0.017, 0.0025 + fabs(motion) * 0.0014);
+        float grain_gain = (float)fmin(0.0045, 0.0007 + fabs(motion) * 0.0005);
         state->body[c] += (x - state->body[c]) * 0.12f;
         float edge = x - state->body[c];
-        x = soft(x + edge * 0.18f + grain * grain_gain);
-        state->output[c] += (x - state->output[c]) * 0.70f;
+        x = soft(x + edge * 0.08f + grain * grain_gain);
+        state->output[c] += (x - state->output[c]) * 0.42f;
     } else {
         state->body[c] = x;
         state->output[c] = x;
     }
     return state->output[c];
+}
+
+double ac_platter_contact_motion(const ACPlatterContact *contacts, size_t count,
+                                 double seconds_per_revolution) {
+    if (!contacts || count == 0 || seconds_per_revolution <= 0.0) return 0.0;
+
+    double torque = 0.0;
+    size_t engaged = 0;
+    for (size_t i = 0; i < count; i++) {
+        const ACPlatterContact *contact = &contacts[i];
+        const double previous_radius = hypot(contact->previous_x, contact->previous_y);
+        const double current_radius = hypot(contact->current_x, contact->current_y);
+        const double radius = (previous_radius + current_radius) * 0.5;
+        if (radius <= 0.08) continue;
+
+        double delta = atan2(contact->current_y, contact->current_x)
+                     - atan2(contact->previous_y, contact->previous_x);
+        if (delta > M_PI) delta -= TAU;
+        if (delta < -M_PI) delta += TAU;
+
+        const double leverage = fmax(0.0, fmin(1.0, (radius - 0.08) / 0.92));
+        torque += delta * leverage;
+        engaged++;
+    }
+    if (engaged == 0) return 0.0;
+
+    const double angular_motion = torque / sqrt((double)engaged);
+    return -(angular_motion / TAU) * seconds_per_revolution * 0.62;
 }
 
 void ac_practice_render(int variant, float *left, float *right, size_t frames,
@@ -123,9 +165,15 @@ void ac_practice_render(int variant, float *left, float *right, size_t frames,
             wave = tanh((saw + 0.35 * sin(TAU * hz * t)) * 1.1) * 0.13 * sidechain;
         }
 
-        double drums = (variant == 0 ? kick * 0.72 : kick * 0.58) + hat + (variant ? clap : 0.0);
+        double voice;
+        switch (variant) {
+            case 0: voice = kick * 0.78; break;
+            case 1: voice = hat * 1.35; break;
+            case 2: voice = clap * 1.45; break;
+            default: voice = wave * 1.35; break;
+        }
         double pan = (half_index & 1) ? 0.16 : -0.16;
-        left[i] = soft((float)(drums * (1.0 - pan * 0.5) + wave));
-        right[i] = soft((float)(drums * (1.0 + pan * 0.5) + wave));
+        left[i] = soft((float)(voice * (1.0 - pan * 0.35)));
+        right[i] = soft((float)(voice * (1.0 + pan * 0.35)));
     }
 }

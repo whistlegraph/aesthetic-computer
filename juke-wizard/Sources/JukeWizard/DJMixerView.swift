@@ -2,6 +2,61 @@ import AppKit
 import AVFoundation
 import JukeDSP
 
+enum DJRunLoopTimer {
+    @discardableResult
+    static func scheduled(every interval: TimeInterval, repeats: Bool = true,
+                          _ block: @escaping (Timer) -> Void) -> Timer {
+        let timer = Timer(timeInterval: interval, repeats: repeats, block: block)
+        RunLoop.main.add(timer, forMode: .common)
+        return timer
+    }
+}
+
+enum DJPlatterGeometry {
+    // A slower visual platter gives each rendered groove enough radial room
+    // to carry real waveform detail while preserving exact scratch mapping.
+    static let secondsPerRevolution = 3.6
+}
+
+enum DJTempoAnalyzer {
+    static func estimate(samples: [Float], sampleRate: Double) -> Double? {
+        guard sampleRate > 0, samples.count > Int(sampleRate * 4) else { return nil }
+        let hop = 512
+        let limit = min(samples.count, Int(sampleRate * 90))
+        var novelty: [Double] = []
+        novelty.reserveCapacity(limit / hop)
+        var previousEnergy = 0.0
+        var frame = 0
+        while frame + hop <= limit {
+            var sum = 0.0
+            for index in frame..<(frame + hop) {
+                let sample = Double(samples[index])
+                sum += sample * sample
+            }
+            let energy = sqrt(sum / Double(hop))
+            novelty.append(max(0, energy - previousEnergy * 0.86))
+            previousEnergy = energy
+            frame += hop
+        }
+        guard novelty.count > 64 else { return nil }
+
+        let stepsPerSecond = sampleRate / Double(hop)
+        var bestBPM = 0.0
+        var bestScore = 0.0
+        for bpmStep in 700...1800 {
+            let bpm = Double(bpmStep) / 10
+            let lag = Int((60 / bpm * stepsPerSecond).rounded())
+            guard lag > 1, lag < novelty.count / 2 else { continue }
+            var score = 0.0
+            for index in lag..<novelty.count { score += novelty[index] * novelty[index - lag] }
+            // A slight musical-range prior resolves common half-time ties.
+            if bpm >= 90, bpm <= 150 { score *= 1.06 }
+            if score > bestScore { bestScore = score; bestBPM = bpm }
+        }
+        return bestScore > 0.000_001 ? bestBPM : nil
+    }
+}
+
 private final class DJDeckPCMState {
     private let lock = NSLock()
     private var samples: [[Float]] = []
@@ -26,6 +81,13 @@ private final class DJDeckPCMState {
     var isPlaying: Bool {
         lock.lock(); defer { lock.unlock() }
         return playing
+    }
+    var visualState: (motion: Double, energy: Float) {
+        lock.lock(); defer { lock.unlock() }
+        let energy = lastOutput.isEmpty
+            ? 0
+            : lastOutput.reduce(Float(0)) { $0 + abs($1) } / Float(lastOutput.count)
+        return (material.velocity, min(1, energy * 2.5))
     }
 
     func load(samples: [[Float]], sampleRate: Double, looping: Bool) {
@@ -65,22 +127,37 @@ private final class DJDeckPCMState {
 
     func seek(seconds: Double) {
         lock.lock()
-        let finalFrame = Double(max(0, (samples.first?.count ?? 1) - 1))
-        positionFrames = max(0, min(finalFrame, seconds * sampleRate))
+        let finalFrame = Double(max(1, (samples.first?.count ?? 1) - 1))
+        var target = seconds * sampleRate
+        if looping {
+            target = target.truncatingRemainder(dividingBy: finalFrame)
+            if target < 0 { target += finalFrame }
+            positionFrames = target
+        } else {
+            positionFrames = max(0, min(finalFrame, target))
+        }
         lock.unlock()
     }
 
     func scratch(positionSeconds: Double, velocity: Double) {
         lock.lock()
-        let finalFrame = Double(max(0, (samples.first?.count ?? 1) - 1))
-        scratchTargetFrames = max(0, min(finalFrame, positionSeconds * sampleRate))
-        playbackRate = max(-6, min(6, velocity))
+        let finalFrame = Double(max(1, (samples.first?.count ?? 1) - 1))
+        var target = positionSeconds * sampleRate
+        if looping {
+            target = target.truncatingRemainder(dividingBy: finalFrame)
+            if target < 0 { target += finalFrame }
+        } else {
+            target = max(0, min(finalFrame, target))
+        }
+        scratchTargetFrames = target
+        playbackRate = velocity.isFinite ? velocity : 0
         playing = true
         lock.unlock()
     }
 
     func endScratch(normalRate: Double, resume: Bool) {
         lock.lock()
+        if let target = scratchTargetFrames { positionFrames = target }
         scratching = false
         scratchTargetFrames = nil
         playbackRate = normalRate
@@ -120,7 +197,12 @@ private final class DJDeckPCMState {
                     break
                 }
             }
-            let error = (scratchTargetFrames ?? positionFrames) - positionFrames
+            var error = (scratchTargetFrames ?? positionFrames) - positionFrames
+            if looping, scratching {
+                let length = Double(total - 1)
+                if error > length / 2 { error -= length }
+                if error < -length / 2 { error += length }
+            }
             let motion = ac_scratch_motion(&material, playbackRate, error,
                                            scratching ? 1 : 0, sampleRate)
             // A stopped hand emits silence; movement resumes from the same
@@ -139,6 +221,14 @@ private final class DJDeckPCMState {
                         &material, raw, Int32(channel), positionFrames, motion, scratching ? 1 : 0)
                     pointer[frame] = lastOutput[channel]
                 }
+            } else {
+                // A caught record decays into silence instead of dropping the
+                // output buffer to zero in one sample (the old audible click).
+                for channel in 0..<min(outputs.count, lastOutput.count) {
+                    lastOutput[channel] *= 0.995
+                    guard let data = outputs[channel].mData else { continue }
+                    data.assumingMemoryBound(to: Float.self)[frame] = lastOutput[channel]
+                }
             }
             positionFrames += motion
         }
@@ -152,24 +242,34 @@ final class DJDeckPlayer: NSObject {
     private(set) var track: Track?
     private var engine = AVAudioEngine()
     private var sourceNode: AVAudioSourceNode?
+    private var pitchNode: AVAudioUnitTimePitch?
     private var pcm = DJDeckPCMState()
     private var resumeAfterScratch = false
     private(set) var sourceBPM: Double = 120
     private(set) var targetBPM: Double = 120
+    private(set) var bpmAnalyzed = false
     private(set) var gain: Float = 1
+    private(set) var pitchSemitones: Double = 0
+    private(set) var motorEnabled = false
     var onStateChange: (() -> Void)?
 
     var duration: Double { pcm.duration }
     var currentTime: Double { pcm.currentTime }
-    var isPlaying: Bool { pcm.isPlaying }
+    var isPlaying: Bool { motorEnabled }
+    var visualState: (motion: Double, energy: Float) { pcm.visualState }
     var rate: Double { sourceBPM > 0 ? targetBPM / sourceBPM : 1 }
 
     func load(_ track: Track) {
         engine.stop()
         sourceNode = nil
+        pitchNode = nil
         self.track = track
-        sourceBPM = Double(track.meta?.bpm ?? 120)
+        let suppliedBPM = track.meta?.bpm
+        sourceBPM = Double(suppliedBPM ?? 120)
         targetBPM = sourceBPM
+        pitchSemitones = 0
+        motorEnabled = false
+        bpmAnalyzed = false
         guard let file = try? AVAudioFile(forReading: track.url) else { return }
         let format = file.processingFormat
         let capacity = AVAudioFrameCount(file.length)
@@ -181,16 +281,38 @@ final class DJDeckPlayer: NSObject {
             Array(UnsafeBufferPointer(start: channelData[channel], count: frameCount))
         }
         pcm = DJDeckPCMState()
-        pcm.load(samples: channels, sampleRate: format.sampleRate, looping: track.lane == "practice")
+        pcm.load(samples: channels, sampleRate: format.sampleRate,
+                 looping: track.lane == "practice" || track.lane == "primpats")
+
+        if suppliedBPM == nil, let analysisChannel = channels.first {
+            let trackURL = track.url
+            DispatchQueue.global(qos: .utility).async { [weak self] in
+                guard let estimate = DJTempoAnalyzer.estimate(samples: analysisChannel,
+                                                               sampleRate: format.sampleRate) else { return }
+                DispatchQueue.main.async {
+                    guard let self, self.track?.url == trackURL else { return }
+                    self.sourceBPM = estimate
+                    self.targetBPM = estimate
+                    self.bpmAnalyzed = true
+                    self.applyRate()
+                    self.onStateChange?()
+                }
+            }
+        }
 
         engine = AVAudioEngine()
         let state = pcm
         let node = AVAudioSourceNode(format: format) { _, _, frameCount, audioBufferList -> OSStatus in
             state.render(frameCount: frameCount, audioBufferList: audioBufferList)
         }
+        let pitch = AVAudioUnitTimePitch()
+        pitch.pitch = 0
         sourceNode = node
+        pitchNode = pitch
         engine.attach(node)
-        engine.connect(node, to: engine.mainMixerNode, format: format)
+        engine.attach(pitch)
+        engine.connect(node, to: pitch, format: format)
+        engine.connect(pitch, to: engine.mainMixerNode, format: format)
         engine.mainMixerNode.outputVolume = gain
         engine.prepare()
         try? engine.start()
@@ -203,13 +325,18 @@ final class DJDeckPlayer: NSObject {
     func play() {
         guard sourceNode != nil else { return }
         if !engine.isRunning { try? engine.start() }
+        motorEnabled = true
         pcm.setRate(rate)
         pcm.setPlaying(true)
         onStateChange?()
     }
 
     func pause() {
-        pcm.setPlaying(false)
+        motorEnabled = false
+        // A motor-off deck remains available to the hand; zero transport
+        // velocity is silence until the platter is pushed or thrown.
+        pcm.setRate(0)
+        pcm.setPlaying(true)
         onStateChange?()
     }
 
@@ -218,7 +345,7 @@ final class DJDeckPlayer: NSObject {
     }
 
     func beginScratch() {
-        resumeAfterScratch = isPlaying
+        resumeAfterScratch = motorEnabled
         pcm.beginScratch()
     }
 
@@ -227,15 +354,31 @@ final class DJDeckPlayer: NSObject {
         pcm.scratch(positionSeconds: time, velocity: velocity)
     }
 
-    func endScratch() {
-        pcm.endScratch(normalRate: rate, resume: resumeAfterScratch)
+    func endScratch(momentum: Double? = nil) {
+        let releaseRate = momentum ?? (motorEnabled ? rate : 0)
+        pcm.endScratch(normalRate: releaseRate,
+                       resume: resumeAfterScratch || abs(releaseRate) >= 0.002)
         onStateChange?()
     }
 
     func holdScratch() { pcm.setRate(0) }
 
+    /// Touch-brake multiplier used by the floating record. The underlying
+    /// musical/BPM rate remains unchanged and can be restored without a seek.
+    func setTransportScale(_ scale: Double) {
+        pcm.setRate(rate * max(0, min(1, scale)))
+    }
+
+    func restoreTransportRate() { applyRate() }
+
+    func setTransportVelocity(_ velocity: Double) {
+        guard velocity.isFinite else { return }
+        pcm.setRate(velocity)
+        pcm.setPlaying(true)
+    }
+
     func setBPM(_ bpm: Double) {
-        targetBPM = max(sourceBPM * 0.5, min(sourceBPM * 1.5, bpm))
+        targetBPM = max(sourceBPM * 0.5, min(sourceBPM * 2.0, bpm))
         applyRate()
         onStateChange?()
     }
@@ -247,26 +390,35 @@ final class DJDeckPlayer: NSObject {
         engine.mainMixerNode.outputVolume = gain
     }
 
+    func setPitchSemitones(_ value: Double) {
+        pitchSemitones = max(-12, min(12, value))
+        pitchNode?.pitch = Float(pitchSemitones * 100)
+        onStateChange?()
+    }
+
     private func applyRate() {
-        pcm.setRate(max(0.5, min(2, rate)))
+        pcm.setRate(motorEnabled ? max(0.5, min(2, rate)) : 0)
     }
 }
 
 enum DJPracticeTracks {
     private static let sampleRate = 48_000.0
     private static let bpm = 120
+    private static let duration = 32.0
 
     static func make() -> [Track] {
         let specs = [
-            ("Practice · Sine Kicks + Hats", 0, "practice-sine-kicks-hats-v2.wav"),
-            ("Practice · Waves + Claps", 1, "practice-waves-claps-v2.wav")
+            ("Primpats · Sine Kick", 0, "primpat-sine-kick-v4.wav", "A1"),
+            ("Primpats · Closed Hat", 1, "primpat-closed-hat-v4.wav", "noise"),
+            ("Primpats · Clap", 2, "primpat-clap-v4.wav", "noise"),
+            ("Primpats · Wave Bass", 3, "primpat-wave-bass-v4.wav", "A1")
         ]
-        return specs.compactMap { name, variant, filename in
+        return specs.compactMap { name, variant, filename, key in
             guard let url = render(name: filename, variant: variant) else { return nil }
             let track = Track(url: url, lane: "practice", title: name)
             track.meta = TrackMeta(artist: "JukeWizard", backend: "C synthesis", status: "PRACTICE",
-                                   updated: nil, revisions: nil, bytes: nil, durationSec: 16,
-                                   bpm: bpm, key: variant == 0 ? "A1" : "A minor",
+                                   updated: nil, revisions: nil, bytes: nil, durationSec: duration,
+                                   bpm: bpm, key: key,
                                    releaseDate: nil, art: nil, media: nil, links: nil)
             return track
         }
@@ -280,7 +432,7 @@ enum DJPracticeTracks {
         let url = directory.appendingPathComponent(name)
         if fm.fileExists(atPath: url.path) { return url }
 
-        let frames = Int(sampleRate * 16)
+        let frames = Int(sampleRate * duration)
         var left = [Float](repeating: 0, count: frames)
         var right = [Float](repeating: 0, count: frames)
         left.withUnsafeMutableBufferPointer { l in
@@ -371,7 +523,7 @@ final class DJPlatterView: NSView {
         NSBezierPath(ovalIn: NSRect(x: c.x - 4, y: c.y - 4, width: 8, height: 8)).fill()
 
         let seconds = deck?.currentTime ?? 0
-        let angle = CGFloat(-seconds / 1.8 * Double.pi * 2) + .pi / 2
+        let angle = CGFloat(-seconds / DJPlatterGeometry.secondsPerRevolution * Double.pi * 2) + .pi / 2
         let marker = NSBezierPath()
         marker.move(to: NSPoint(x: c.x + cos(angle) * r * 0.42,
                                 y: c.y + sin(angle) * r * 0.42))
@@ -417,7 +569,7 @@ final class DJPlatterView: NSView {
         scratchOffset = 0
         deck?.beginScratch()
         scratchIdleTimer?.invalidate()
-        scratchIdleTimer = Timer.scheduledTimer(withTimeInterval: 0.02, repeats: true) { [weak self] _ in
+        scratchIdleTimer = DJRunLoopTimer.scheduled(every: 0.02) { [weak self] _ in
             guard let self, let timestamp = self.lastTimestamp else { return }
             if ProcessInfo.processInfo.systemUptime - timestamp > 0.04 { self.deck?.holdScratch() }
         }
@@ -429,8 +581,7 @@ final class DJPlatterView: NSView {
         var delta = next - prior
         if delta > .pi { delta -= .pi * 2 }
         if delta < -.pi { delta += .pi * 2 }
-        // At 33⅓ RPM a full turn is 1.8 seconds. Clockwise advances.
-        let seconds = Double(-delta / (.pi * 2)) * 1.8
+        let seconds = Double(-delta / (.pi * 2)) * DJPlatterGeometry.secondsPerRevolution
         let elapsed = max(1.0 / 240.0, event.timestamp - (lastTimestamp ?? event.timestamp))
         scratchOffset += seconds
         deck?.scratch(to: scratchOrigin + scratchOffset, movement: seconds, elapsed: elapsed)
@@ -456,6 +607,7 @@ final class DJWaveformOutputView: NSView {
     weak var deck: DJDeckPlayer?
     var accent: NSColor = Palette.teal
     var deckName = "A"
+    var vertical = false
     private var peaks: [Float] = []
     private var peakDuration: Double = 0
     private var loadToken = 0
@@ -464,9 +616,12 @@ final class DJWaveformOutputView: NSView {
     private var scratchOrigin: Double = 0
     private var scratchOffset: Double = 0
     private var scratchIdleTimer: Timer?
+    private var cachedDark: Bool?
+    private var cachedSurface = NSColor.clear
+    private var cachedInk = NSColor.clear
 
     override var mouseDownCanMoveWindow: Bool { false }
-    private var visibleSourceSpan: Double { 16.0 * (deck?.rate ?? 1) }
+    private var visibleSourceSpan: Double { 12.0 * (deck?.rate ?? 1) }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -485,6 +640,19 @@ final class DJWaveformOutputView: NSView {
         addTrackingArea(NSTrackingArea(rect: bounds, options: [.activeInKeyWindow, .cursorUpdate], owner: self))
     }
     override func cursorUpdate(with event: NSEvent) { NSCursor.resizeLeftRight.set() }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        cachedDark = nil
+        needsDisplay = true
+    }
+
+    private func updateColors(dark: Bool) {
+        guard cachedDark != dark else { return }
+        cachedDark = dark
+        cachedSurface = Palette.deckSurface(accent, dark: dark)
+        cachedInk = Palette.deckInk(accent, dark: dark)
+    }
 
     func load(_ track: Track) {
         loadToken += 1
@@ -531,71 +699,80 @@ final class DJWaveformOutputView: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        NSColor(white: 0.035, alpha: 1).setFill()
-        bounds.fill()
+        let dark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        updateColors(dark: dark)
+        guard let context = NSGraphicsContext.current?.cgContext else { return }
+        context.setFillColor(cachedSurface.cgColor)
+        context.fill(bounds)
         guard let deck else { return }
         let centerX = bounds.midX
+        let centerY = bounds.midY
         let current = deck.currentTime
         let sourceSpan = visibleSourceSpan
         let startTime = current - sourceSpan / 2
-        let secondsPerPoint = sourceSpan / Double(max(1, bounds.width))
+        let axisLength = vertical ? bounds.height : bounds.width
+        let secondsPerPoint = sourceSpan / Double(max(1, axisLength))
 
         if !peaks.isEmpty, peakDuration > 0 {
-            let mid = bounds.midY
-            accent.setFill()
-            var x: CGFloat = 0
-            while x < bounds.width {
-                let time = startTime + Double(x) * secondsPerPoint
+            let mid = vertical ? bounds.midX : bounds.midY
+            var bars: [CGRect] = []
+            bars.reserveCapacity(Int(axisLength / 2) + 1)
+            var axis: CGFloat = 0
+            while axis < axisLength {
+                let time = startTime + Double(axis) * secondsPerPoint
                 if time >= 0, time <= peakDuration {
                     let index = min(peaks.count - 1, max(0, Int(time / peakDuration * Double(peaks.count))))
                     let amplitude = CGFloat(peaks[index]) * (mid - 4)
-                    NSBezierPath(rect: NSRect(x: x, y: mid - amplitude,
-                                              width: 1.5, height: amplitude * 2)).fill()
+                    let rect = vertical
+                        ? NSRect(x: mid - amplitude, y: axis, width: amplitude * 2, height: 1.5)
+                        : NSRect(x: axis, y: mid - amplitude, width: 1.5, height: amplitude * 2)
+                    bars.append(rect)
                 }
-                x += 2
+                axis += 2
             }
+            context.setFillColor(accent.cgColor)
+            context.fill(bars)
         }
 
         // Beat marks share output-time geometry with the waveform.
         if deck.sourceBPM > 0 {
             let beat = 60.0 / deck.sourceBPM
             var time = floor(startTime / beat) * beat
+            let marks = CGMutablePath()
             while time <= startTime + sourceSpan {
                 if time >= 0 {
-                    let x = CGFloat((time - startTime) / sourceSpan) * bounds.width
-                    NSColor.white.withAlphaComponent(0.18).setStroke()
-                    let mark = NSBezierPath()
-                    mark.move(to: NSPoint(x: x, y: 0)); mark.line(to: NSPoint(x: x, y: bounds.height))
-                    mark.lineWidth = 1; mark.stroke()
+                    let axis = CGFloat((time - startTime) / sourceSpan) * axisLength
+                    if vertical {
+                        marks.move(to: CGPoint(x: 0, y: axis)); marks.addLine(to: CGPoint(x: bounds.width, y: axis))
+                    } else {
+                        marks.move(to: CGPoint(x: axis, y: 0)); marks.addLine(to: CGPoint(x: axis, y: bounds.height))
+                    }
                 }
                 time += beat
             }
+            context.addPath(marks)
+            context.setStrokeColor(cachedInk.withAlphaComponent(0.16).cgColor)
+            context.setLineWidth(1)
+            context.strokePath()
         }
 
-        Palette.gold.setStroke()
-        let playhead = NSBezierPath()
-        playhead.move(to: NSPoint(x: centerX, y: 0))
-        playhead.line(to: NSPoint(x: centerX, y: bounds.height))
-        playhead.lineWidth = 2
-        playhead.stroke()
-
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 14, weight: .black),
-            .foregroundColor: accent
-        ]
-        (deckName as NSString).draw(at: NSPoint(x: 8, y: bounds.midY - 9), withAttributes: attrs)
+        context.setFillColor(Palette.gold.cgColor)
+        context.fill(vertical
+            ? CGRect(x: 0, y: centerY - 1, width: bounds.width, height: 2)
+            : CGRect(x: centerX - 1, y: 0, width: 2, height: bounds.height))
     }
 
     override func mouseDown(with event: NSEvent) {
         guard let deck else { return }
         window?.makeFirstResponder(self)
-        lastX = convert(event.locationInWindow, from: nil).x
+        let point = convert(event.locationInWindow, from: nil)
+        lastX = vertical ? point.y : point.x
         lastTimestamp = event.timestamp
         scratchOrigin = deck.currentTime
         scratchOffset = 0
         deck.beginScratch()
         scratchIdleTimer?.invalidate()
-        scratchIdleTimer = Timer.scheduledTimer(withTimeInterval: 0.02, repeats: true) { [weak self] _ in
+        scratchIdleTimer = DJRunLoopTimer.scheduled(every: 0.02) { [weak self] _ in
             guard let self, let timestamp = self.lastTimestamp else { return }
             if ProcessInfo.processInfo.systemUptime - timestamp > 0.04 { self.deck?.holdScratch() }
         }
@@ -603,9 +780,11 @@ final class DJWaveformOutputView: NSView {
 
     override func mouseDragged(with event: NSEvent) {
         guard let deck, let prior = lastX else { return }
-        let x = convert(event.locationInWindow, from: nil).x
+        let point = convert(event.locationInWindow, from: nil)
+        let x = vertical ? point.y : point.x
         // Pulling the printed waveform right pulls the record backward.
-        let movement = -Double(x - prior) / Double(max(1, bounds.width)) * visibleSourceSpan
+        let dimension = vertical ? bounds.height : bounds.width
+        let movement = -Double(x - prior) / Double(max(1, dimension)) * visibleSourceSpan
         let elapsed = max(1.0 / 240.0, event.timestamp - (lastTimestamp ?? event.timestamp))
         scratchOffset += movement
         deck.scratch(to: scratchOrigin + scratchOffset, movement: movement, elapsed: elapsed)
@@ -623,6 +802,309 @@ final class DJWaveformOutputView: NSView {
     }
 }
 
+final class DJAlignmentSurface: NSView {
+    let strips: [DJWaveformOutputView]
+    private let decks: [DJDeckPlayer]
+    private let pitches: [NSSlider]
+    private let volumes: [NSSlider]
+    private let bpmLabels: [NSTextField]
+    private let trackPickers: [NSPopUpButton]
+    private let rateLabels: [NSTextField]
+    private let volumeLabels: [NSTextField]
+    private let rateButtons: [NSSegmentedControl]
+    private let playButtons: [NSButton]
+    private var recordChoices: [Track] = []
+    private let syncButton = NSButton(title: "SYNC RATES", target: nil, action: nil)
+    private let alignButton = NSButton(title: "ALIGN PEAKS", target: nil, action: nil)
+    var onSyncRates: (() -> Void)?
+    var onAlignPeaks: (() -> Void)?
+    var onChooseTrack: ((Int, Track) -> Void)?
+
+    init(decks: [DJDeckPlayer], names: [String], accents: [NSColor]) {
+        self.decks = decks
+        strips = decks.indices.map { index in
+            let strip = DJWaveformOutputView(frame: .zero)
+            strip.deck = decks[index]
+            strip.accent = accents[index]
+            strip.deckName = names[index]
+            strip.vertical = true
+            return strip
+        }
+        pitches = decks.indices.map { _ in
+            NSSlider(value: 0, minValue: -12, maxValue: 12, target: nil, action: nil)
+        }
+        volumes = decks.indices.map { _ in
+            NSSlider(value: 0.5, minValue: 0, maxValue: 1, target: nil, action: nil)
+        }
+        bpmLabels = decks.indices.map { _ in NSTextField(labelWithString: "120.0 BPM") }
+        trackPickers = decks.indices.map { _ in NSPopUpButton(frame: .zero, pullsDown: false) }
+        rateLabels = decks.indices.map { _ in NSTextField(labelWithString: "rate") }
+        volumeLabels = decks.indices.map { _ in NSTextField(labelWithString: "vol") }
+        rateButtons = decks.indices.map { _ in
+            NSSegmentedControl(labels: ["½×", "1×", "2×"], trackingMode: .selectOne,
+                               target: nil, action: nil)
+        }
+        playButtons = decks.indices.map { _ in NSButton(title: "▶", target: nil, action: nil) }
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.cornerRadius = 18
+        layer?.masksToBounds = true
+        for index in decks.indices {
+            pitches[index].tag = index
+            pitches[index].target = self
+            pitches[index].action = #selector(pitchChanged(_:))
+            pitches[index].isContinuous = true
+            pitches[index].isVertical = false
+            pitches[index].numberOfTickMarks = 25
+            pitches[index].allowsTickMarkValuesOnly = false
+            pitches[index].toolTip = "Deck \(names[index]) pitch, independent of rate"
+            volumes[index].tag = index
+            volumes[index].target = self
+            volumes[index].action = #selector(volumeChanged(_:))
+            volumes[index].isContinuous = true
+            volumes[index].isVertical = false
+            volumes[index].toolTip = "Deck \(names[index]) volume"
+            bpmLabels[index].font = .monospacedDigitSystemFont(ofSize: 12, weight: .bold)
+            bpmLabels[index].textColor = accents[index]
+            trackPickers[index].tag = index
+            trackPickers[index].target = self
+            trackPickers[index].action = #selector(trackChanged(_:))
+            trackPickers[index].controlSize = .small
+            trackPickers[index].font = .systemFont(ofSize: 11, weight: .semibold)
+            for label in [rateLabels[index], volumeLabels[index]] {
+                label.font = .systemFont(ofSize: 10, weight: .medium)
+                label.textColor = .secondaryLabelColor
+            }
+            rateButtons[index].tag = index
+            rateButtons[index].target = self
+            rateButtons[index].action = #selector(rateButtonChanged(_:))
+            rateButtons[index].selectedSegment = 1
+            rateButtons[index].controlSize = .small
+            playButtons[index].tag = index
+            playButtons[index].target = self
+            playButtons[index].action = #selector(playChanged(_:))
+            playButtons[index].bezelStyle = .inline
+            playButtons[index].contentTintColor = accents[index]
+            addSubview(strips[index])
+            addSubview(pitches[index])
+            addSubview(volumes[index])
+            addSubview(bpmLabels[index])
+            addSubview(trackPickers[index])
+            addSubview(rateLabels[index])
+            addSubview(volumeLabels[index])
+            addSubview(rateButtons[index])
+            addSubview(playButtons[index])
+        }
+        syncButton.target = self
+        syncButton.action = #selector(sync)
+        syncButton.bezelStyle = .rounded
+        syncButton.contentTintColor = Palette.gold
+        syncButton.isHidden = decks.count < 2
+        alignButton.target = self
+        alignButton.action = #selector(align)
+        alignButton.bezelStyle = .rounded
+        alignButton.contentTintColor = Palette.teal
+        alignButton.isHidden = decks.count < 2
+        addSubview(syncButton)
+        addSubview(alignButton)
+        setAccessibilityLabel("Deck alignment read strips")
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let dark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        (dark ? NSColor(white: 0.02, alpha: 0.88)
+              : Palette.cream.withAlphaComponent(0.94)).setFill()
+        bounds.fill()
+
+        let channelTop = bounds.height - 52
+        let channelBottom: CGFloat = 112
+        let width = bounds.width / CGFloat(max(1, strips.count))
+        for index in strips.indices {
+            Palette.deckSurface(strips[index].accent, dark: dark).setFill()
+            NSRect(x: CGFloat(index) * width, y: channelBottom,
+                   width: width, height: max(0, channelTop - channelBottom)).fill()
+        }
+    }
+
+    override func layout() {
+        let pad: CGFloat = 12
+        let footer: CGFloat = 40
+        let channelBottom: CGFloat = 112
+        let column = bounds.width / CGFloat(max(1, strips.count))
+        for index in strips.indices {
+            let x = CGFloat(index) * column
+            trackPickers[index].frame = NSRect(x: x + 2, y: bounds.height - 31,
+                                               width: max(38, column - 33), height: 24)
+            bpmLabels[index].frame = NSRect(x: x + 6, y: bounds.height - 49,
+                                            width: max(30, column - 12), height: 16)
+            playButtons[index].frame = NSRect(x: x + column - 29, y: bounds.height - 31,
+                                              width: 25, height: 23)
+            rateButtons[index].frame = NSRect(x: x + 4, y: footer + 3,
+                                              width: max(36, column - 8), height: 24)
+            let stripTop = bounds.height - 52
+            strips[index].frame = NSRect(x: x, y: channelBottom,
+                                         width: column, height: stripTop - channelBottom)
+            rateLabels[index].stringValue = "P"
+            rateLabels[index].alignment = .center
+            rateLabels[index].frame = NSRect(x: x + 2, y: 90, width: 14, height: 14)
+            pitches[index].frame = NSRect(x: x + 16, y: 88,
+                                          width: max(24, column - 20), height: 17)
+            volumeLabels[index].stringValue = "V"
+            volumeLabels[index].alignment = .center
+            volumeLabels[index].frame = NSRect(x: x + 2, y: 69, width: 14, height: 14)
+            volumes[index].frame = NSRect(x: x + 16, y: 67,
+                                          width: max(24, column - 20), height: 17)
+        }
+        syncButton.frame = NSRect(x: bounds.midX - 127, y: pad + 1, width: 120, height: 28)
+        alignButton.frame = NSRect(x: bounds.midX + 7, y: pad + 1, width: 120, height: 28)
+    }
+
+    func refresh() {
+        for index in decks.indices {
+            pitches[index].doubleValue = decks[index].pitchSemitones
+            volumes[index].doubleValue = Double(decks[index].gain)
+            playButtons[index].title = decks[index].isPlaying ? "Ⅱ" : "▶"
+            let rate = decks[index].rate
+            rateButtons[index].selectedSegment = abs(rate - 0.5) < 0.01 ? 0
+                : abs(rate - 1) < 0.01 ? 1
+                : abs(rate - 2) < 0.01 ? 2 : -1
+            rateLabels[index].toolTip = String(format: "Pitch %+.1f semitones",
+                                                decks[index].pitchSemitones)
+            bpmLabels[index].stringValue = String(format: "%@%.1f BPM",
+                                                   decks[index].bpmAnalyzed ? "≈" : "",
+                                                   decks[index].targetBPM)
+        }
+    }
+
+    func setRecordChoices(_ tracks: [Track]) {
+        recordChoices = tracks
+        let titles = tracks.map {
+            $0.title
+                .replacingOccurrences(of: "Primpats · ", with: "")
+                .replacingOccurrences(of: "Practice · ", with: "")
+        }
+        for index in trackPickers.indices {
+            trackPickers[index].removeAllItems()
+            trackPickers[index].addItems(withTitles: titles)
+            if let url = decks[index].track?.url,
+               let selected = tracks.firstIndex(where: { $0.url == url }) {
+                trackPickers[index].selectItem(at: selected)
+            }
+        }
+    }
+
+    func load(_ track: Track, at index: Int) {
+        guard strips.indices.contains(index) else { return }
+        strips[index].load(track)
+        if let selected = recordChoices.firstIndex(where: { $0.url == track.url }) {
+            trackPickers[index].selectItem(at: selected)
+        }
+    }
+
+    @objc private func trackChanged(_ sender: NSPopUpButton) {
+        guard decks.indices.contains(sender.tag),
+              recordChoices.indices.contains(sender.indexOfSelectedItem) else { return }
+        onChooseTrack?(sender.tag, recordChoices[sender.indexOfSelectedItem])
+    }
+
+    @objc private func pitchChanged(_ sender: NSSlider) {
+        guard decks.indices.contains(sender.tag) else { return }
+        decks[sender.tag].setPitchSemitones(sender.doubleValue)
+        rateLabels[sender.tag].toolTip = String(format: "Pitch %+.1f semitones",
+                                                sender.doubleValue)
+    }
+    @objc private func volumeChanged(_ sender: NSSlider) {
+        guard decks.indices.contains(sender.tag) else { return }
+        decks[sender.tag].setGain(Float(sender.doubleValue))
+    }
+    @objc private func rateButtonChanged(_ sender: NSSegmentedControl) {
+        guard decks.indices.contains(sender.tag) else { return }
+        let multiplier = [0.5, 1.0, 2.0][max(0, sender.selectedSegment)]
+        decks[sender.tag].setBPM(decks[sender.tag].sourceBPM * multiplier)
+        refresh()
+    }
+    @objc private func playChanged(_ sender: NSButton) {
+        guard decks.indices.contains(sender.tag) else { return }
+        decks[sender.tag].toggle()
+        refresh()
+    }
+    @objc private func sync() { onSyncRates?(); refresh() }
+    @objc private func align() { onAlignPeaks?(); refresh() }
+}
+
+final class DJAlignmentWindowController: NSWindowController, NSWindowDelegate {
+    private let surface: DJAlignmentSurface
+    private var displayTimer: Timer?
+    private var positioned = false
+    private var displayFrame = 0
+
+    init(decks: [DJDeckPlayer], names: [String], accents: [NSColor]) {
+        surface = DJAlignmentSurface(decks: decks, names: names, accents: accents)
+        let solo = decks.count == 1
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: solo ? 150 : 300, height: 400),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered, defer: false)
+        window.title = "JukeWizard · Alignment"
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.isMovableByWindowBackground = true
+        window.level = .floating
+        window.collectionBehavior = [.fullScreenAuxiliary, .moveToActiveSpace]
+        window.minSize = NSSize(width: solo ? 120 : 260, height: 340)
+        window.backgroundColor = .clear
+        window.isOpaque = false
+        window.hasShadow = true
+        window.contentView = surface
+        super.init(window: window)
+        window.delegate = self
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+    deinit { displayTimer?.invalidate() }
+
+    func show(tracks: [Track?]) {
+        for (index, track) in tracks.enumerated() {
+            if let track { surface.load(track, at: index) }
+        }
+        if !positioned, let window, let screen = NSScreen.main {
+            positioned = true
+            let visible = screen.visibleFrame
+            window.setFrameOrigin(NSPoint(x: visible.midX - window.frame.width / 2,
+                                          y: visible.midY - window.frame.height / 2))
+        }
+        showWindow(nil)
+        window?.orderFrontRegardless()
+        displayTimer?.invalidate()
+        let timer = DJRunLoopTimer.scheduled(every: 1.0 / 60.0) { [weak self] _ in
+            guard let self else { return }
+            self.surface.strips.forEach { $0.needsDisplay = true }
+            self.displayFrame &+= 1
+            if self.displayFrame.isMultiple(of: 4) { self.surface.refresh() }
+        }
+        displayTimer = timer
+    }
+
+    func setSyncActions(rates: @escaping () -> Void, peaks: @escaping () -> Void) {
+        surface.onSyncRates = rates
+        surface.onAlignPeaks = peaks
+    }
+
+    func trackChanged(_ track: Track, at index: Int) { surface.load(track, at: index) }
+
+    func setRecordChoices(_ tracks: [Track], onChoose: @escaping (Int, Track) -> Void) {
+        surface.onChooseTrack = onChoose
+        surface.setRecordChoices(tracks)
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        displayTimer?.invalidate()
+        displayTimer = nil
+    }
+}
+
 final class DJDeckView: NSView {
     let deck = DJDeckPlayer()
     let platter = DJPlatterView(frame: .zero)
@@ -634,10 +1116,12 @@ final class DJDeckView: NSView {
     private let timeLabel = NSTextField(labelWithString: "0:00 / 0:00")
     private let syncButton = NSButton(title: "SYNC", target: nil, action: nil)
     private let resetButton = NSButton(title: "1×", target: nil, action: nil)
+    private let popoutButton = NSButton(title: "↗", target: nil, action: nil)
     private var tracks: [Track] = []
     var onStateChange: (() -> Void)?
     var onTrackLoaded: ((Track) -> Void)?
     var onSync: (() -> Void)?
+    var onPopout: (() -> Void)?
 
     init(name: String, accent: NSColor) {
         deckLabel = NSTextField(labelWithString: name)
@@ -677,9 +1161,14 @@ final class DJDeckView: NSView {
         resetButton.action = #selector(resetBPM)
         resetButton.bezelStyle = .rounded
         resetButton.toolTip = "Reset this deck to the track's original tempo"
+        popoutButton.target = self
+        popoutButton.action = #selector(popout)
+        popoutButton.bezelStyle = .rounded
+        popoutButton.contentTintColor = accent
+        popoutButton.toolTip = "Float this record as its own scratch deck"
 
         [deckLabel, trackPopup, platter, playButton, bpmSlider, bpmLabel,
-         timeLabel, syncButton, resetButton].forEach(addSubview)
+         timeLabel, syncButton, resetButton, popoutButton].forEach(addSubview)
         deck.onStateChange = { [weak self] in
             self?.refresh()
             self?.onStateChange?()
@@ -702,6 +1191,13 @@ final class DJDeckView: NSView {
         let next = max(0, min(tracks.count - 1, trackPopup.indexOfSelectedItem + offset))
         trackPopup.selectItem(at: next)
         load(next)
+    }
+
+    func select(_ track: Track, autoplay: Bool) {
+        guard let index = tracks.firstIndex(where: { $0.url == track.url }) else { return }
+        trackPopup.selectItem(at: index)
+        load(index)
+        if autoplay { deck.play() }
     }
 
     func refresh() {
@@ -727,7 +1223,8 @@ final class DJDeckView: NSView {
         bpmLabel.frame = NSRect(x: 64, y: 62, width: max(80, bounds.width - 128), height: 18)
         bpmSlider.frame = NSRect(x: 65, y: 38, width: max(70, bounds.width - 130), height: 20)
         playButton.frame = NSRect(x: pad, y: 36, width: 45, height: 27)
-        timeLabel.frame = NSRect(x: pad, y: 10, width: max(80, bounds.width - 132), height: 18)
+        timeLabel.frame = NSRect(x: pad, y: 10, width: max(70, bounds.width - 170), height: 18)
+        popoutButton.frame = NSRect(x: bounds.width - 150, y: 8, width: 34, height: 24)
         syncButton.frame = NSRect(x: bounds.width - 112, y: 8, width: 58, height: 24)
         resetButton.frame = NSRect(x: bounds.width - 50, y: 8, width: 38, height: 24)
     }
@@ -749,22 +1246,38 @@ final class DJDeckView: NSView {
     @objc private func bpmChanged() { deck.setBPM(bpmSlider.doubleValue); refresh() }
     @objc private func sync() { onSync?() }
     @objc private func resetBPM() { deck.resetBPM(); refresh() }
+    @objc private func popout() { onPopout?() }
 }
 
 final class DJMixerView: NSView {
     let deckA = DJDeckView(name: "A", accent: Palette.teal)
     let deckB = DJDeckView(name: "B", accent: Palette.coral)
+    private let deckC = DJDeckPlayer()
+    private let deckD = DJDeckPlayer()
     private let waveformA = DJWaveformOutputView(frame: .zero)
     private let waveformB = DJWaveformOutputView(frame: .zero)
     private let crossfader = NSSlider(value: 0, minValue: -1, maxValue: 1, target: nil, action: nil)
     private let crossLabel = NSTextField(labelWithString: "A 50  ·  50 B")
-    private let practiceButton = NSButton(title: "PRACTICE", target: nil, action: nil)
+    private let practiceButton = NSButton(title: "PRIMPATS", target: nil, action: nil)
     private var displayTimer: Timer?
     private var availableTracks: [Track] = []
+    private var primpatCount = 0
+    private var practiceStartIndex = 0
+    private var practiceCount = 0
+    private var soloMode = false
+    private var popoutA: DJPopoutDeckController?
+    private var popoutB: DJPopoutDeckController?
+    private var popoutC: DJPopoutDeckController?
+    private var popoutD: DJPopoutDeckController?
+    private var alignmentPopout: DJAlignmentWindowController?
+    private var rateSyncTimer: Timer?
+    private var peakAlignTimer: Timer?
     private(set) var masterVolume: Float = 0.8
     var onStateChange: (() -> Void)?
+    var onDetach: (() -> Void)?
+    private var deckAppearance: NSAppearance?
 
-    var isPlaying: Bool { deckA.deck.isPlaying || deckB.deck.isPlaying }
+    var isPlaying: Bool { deckA.deck.isPlaying || deckB.deck.isPlaying || deckC.isPlaying || deckD.isPlaying }
     var dominantDeck: DJDeckView { crossfader.doubleValue <= 0 ? deckA : deckB }
     var dominantTitle: String { dominantDeck.deck.track?.title ?? "DJ Mix" }
     var dominantBPM: Double { dominantDeck.deck.targetBPM }
@@ -781,7 +1294,7 @@ final class DJMixerView: NSView {
         practiceButton.action = #selector(loadPractice)
         practiceButton.bezelStyle = .rounded
         practiceButton.contentTintColor = Palette.gold
-        practiceButton.toolTip = "Load the C-synthesized kick, hat, clap, and wave loops"
+        practiceButton.toolTip = "Load four one-voice primitive records"
         waveformA.deck = deckA.deck
         waveformA.accent = Palette.teal
         waveformA.deckName = "A"
@@ -793,19 +1306,38 @@ final class DJMixerView: NSView {
         [deckA, deckB, waveformA, waveformB, crossfader, crossLabel, practiceButton].forEach(addSubview)
         deckA.onStateChange = { [weak self] in self?.onStateChange?() }
         deckB.onStateChange = { [weak self] in self?.onStateChange?() }
-        deckA.onTrackLoaded = { [weak waveformA] track in waveformA?.load(track) }
-        deckB.onTrackLoaded = { [weak waveformB] track in waveformB?.load(track) }
+        deckA.onTrackLoaded = { [weak self] track in
+            self?.waveformA.load(track)
+            self?.popoutA?.trackChanged(track)
+            self?.alignmentPopout?.trackChanged(track, at: 0)
+        }
+        deckB.onTrackLoaded = { [weak self] track in
+            self?.waveformB.load(track)
+            self?.popoutB?.trackChanged(track)
+            self?.alignmentPopout?.trackChanged(track, at: 1)
+        }
         deckA.onSync = { [weak self] in self?.sync(self?.deckA, to: self?.deckB) }
         deckB.onSync = { [weak self] in self?.sync(self?.deckB, to: self?.deckA) }
+        deckA.onPopout = { [weak self] in self?.showPopoutA() }
+        deckB.onPopout = { [weak self] in self?.showPopoutB() }
         applyCrossfade()
     }
     required init?(coder: NSCoder) { fatalError() }
-    deinit { displayTimer?.invalidate() }
+    deinit {
+        displayTimer?.invalidate()
+        rateSyncTimer?.invalidate()
+        peakAlignTimer?.invalidate()
+    }
 
     func configure(tracks: [Track], primaryIndex: Int) {
+        soloMode = false
+        let primpats = DJPrimpats.makeTracks()
         let practice = DJPracticeTracks.make()
-        availableTracks = practice + tracks
-        let requested = primaryIndex + practice.count
+        primpatCount = primpats.count
+        practiceStartIndex = primpats.count
+        practiceCount = practice.count
+        availableTracks = primpats + practice + tracks
+        let requested = primaryIndex + primpatCount + practiceCount
         let first = max(0, min(max(0, availableTracks.count - 1), requested))
         let second = availableTracks.count > 1 ? (first + 1) % availableTracks.count : first
         deckA.configure(tracks: availableTracks, selectedIndex: first)
@@ -814,18 +1346,36 @@ final class DJMixerView: NSView {
         applyCrossfade()
     }
 
+    func configureSolo(tracks: [Track], primaryIndex: Int) {
+        soloMode = true
+        let primpats = DJPrimpats.makeTracks()
+        let practice = DJPracticeTracks.make()
+        primpatCount = primpats.count
+        practiceStartIndex = primpats.count
+        practiceCount = practice.count
+        availableTracks = primpats + practice + tracks
+        let requested = primaryIndex + primpatCount + practiceCount
+        let first = max(0, min(max(0, availableTracks.count - 1), requested))
+        deckA.configure(tracks: availableTracks, selectedIndex: first)
+        crossfader.doubleValue = -1
+        applyCrossfade()
+    }
+
     func startDisplay() {
         displayTimer?.invalidate()
-        displayTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
-            self?.deckA.refresh()
-            self?.deckB.refresh()
-            self?.waveformA.needsDisplay = true
-            self?.waveformB.needsDisplay = true
+        displayTimer = DJRunLoopTimer.scheduled(every: 1.0 / 60.0) { [weak self] _ in
+            guard let self else { return }
+            self.deckA.refresh()
+            self.waveformA.needsDisplay = true
+            if !self.soloMode {
+                self.deckB.refresh()
+                self.waveformB.needsDisplay = true
+            }
         }
     }
 
     func stopDisplay() { displayTimer?.invalidate(); displayTimer = nil }
-    func pauseAll() { deckA.deck.pause(); deckB.deck.pause() }
+    func pauseAll() { deckA.deck.pause(); deckB.deck.pause(); deckC.pause(); deckD.pause() }
     func toggleDominant() { dominantDeck.deck.toggle() }
     func stepDominant(by offset: Int) { dominantDeck.step(by: offset) }
 
@@ -834,39 +1384,242 @@ final class DJMixerView: NSView {
         applyCrossfade()
     }
 
-    @objc private func loadPractice() {
-        guard availableTracks.count >= 2 else { return }
+    func setAppearance(_ appearance: NSAppearance?) {
+        deckAppearance = appearance
+        popoutA?.window?.appearance = appearance
+        popoutB?.window?.appearance = appearance
+        popoutC?.window?.appearance = appearance
+        popoutD?.window?.appearance = appearance
+        alignmentPopout?.window?.appearance = appearance
+        popoutA?.window?.contentView?.needsDisplay = true
+        popoutB?.window?.contentView?.needsDisplay = true
+        popoutC?.window?.contentView?.needsDisplay = true
+        popoutD?.window?.contentView?.needsDisplay = true
+        alignmentPopout?.window?.contentView?.needsDisplay = true
+    }
+
+    @objc func loadPractice() { loadPrimpats() }
+
+    func loadPrimpats(openPopouts: Bool = false) {
+        guard primpatCount >= 8 else { return }
         deckA.configure(tracks: availableTracks, selectedIndex: 0)
-        deckB.configure(tracks: availableTracks, selectedIndex: 1)
+        deckB.configure(tracks: availableTracks, selectedIndex: 2)
+        deckC.load(availableTracks[4])
+        deckD.load(availableTracks[7])
         crossfader.doubleValue = 0
+        applyCrossfade()
+        if openPopouts {
+            showPopoutA()
+            showPopoutB()
+            showPopoutC()
+            showPopoutD()
+            showAlignmentPopout()
+            onDetach?()
+        }
+        onStateChange?()
+    }
+
+    func loadBeats(openPopouts: Bool = false, autoplay: Bool = false, solo: Bool = false) {
+        guard practiceCount >= 4 else { return }
+        deckA.configure(tracks: availableTracks, selectedIndex: practiceStartIndex)
+        if !solo {
+            deckB.configure(tracks: availableTracks, selectedIndex: practiceStartIndex + 1)
+            deckC.load(availableTracks[practiceStartIndex + 2])
+            deckD.load(availableTracks[practiceStartIndex + 3])
+        }
+        crossfader.doubleValue = solo ? -1 : 0
+        applyCrossfade()
+        if autoplay {
+            deckA.deck.play()
+            if !solo {
+                deckB.deck.play()
+                deckC.play()
+                deckD.play()
+            }
+        }
+        if openPopouts {
+            showPopoutA()
+            if solo {
+                showSoloAlignmentPopout()
+            } else {
+                showPopoutB()
+                showPopoutC()
+                showPopoutD()
+                showAlignmentPopout()
+            }
+            onDetach?()
+        }
+        onStateChange?()
+    }
+
+    private func showPopoutA() {
+        if popoutA == nil {
+            popoutA = DJPopoutDeckController(deck: deckA.deck, name: "A", accent: Palette.teal)
+        }
+        popoutA?.window?.appearance = deckAppearance
+        popoutA?.show(track: deckA.deck.track)
+    }
+
+    private func showPopoutB() {
+        if popoutB == nil {
+            popoutB = DJPopoutDeckController(deck: deckB.deck, name: "B", accent: Palette.coral)
+        }
+        popoutB?.window?.appearance = deckAppearance
+        popoutB?.show(track: deckB.deck.track)
+    }
+
+    private func showPopoutC() {
+        if popoutC == nil {
+            popoutC = DJPopoutDeckController(deck: deckC, name: "C", accent: Palette.gold)
+        }
+        popoutC?.window?.appearance = deckAppearance
+        popoutC?.show(track: deckC.track)
+    }
+
+    private func showPopoutD() {
+        if popoutD == nil {
+            popoutD = DJPopoutDeckController(deck: deckD, name: "D", accent: .systemPurple)
+        }
+        popoutD?.window?.appearance = deckAppearance
+        popoutD?.show(track: deckD.track)
+    }
+
+    private func showAlignmentPopout() {
+        if alignmentPopout == nil {
+            alignmentPopout = DJAlignmentWindowController(
+                decks: [deckA.deck, deckB.deck, deckC, deckD],
+                names: ["A", "B", "C", "D"],
+                accents: [Palette.teal, Palette.coral, Palette.gold, .systemPurple])
+            alignmentPopout?.setSyncActions(
+                rates: { [weak self] in
+                    guard let self else { return }
+                    let decks = self.audibleDecks
+                    guard let reference = decks.first, decks.count > 1 else { return }
+                    self.slideRates(Array(decks.dropFirst()), to: reference)
+                },
+                peaks: { [weak self] in
+                    guard let self else { return }
+                    let decks = self.audibleDecks
+                    guard let reference = decks.first, decks.count > 1 else { return }
+                    self.alignPeaks(Array(decks.dropFirst()), to: reference)
+                })
+        }
+        alignmentPopout?.setRecordChoices(availableTracks) { [weak self] index, track in
+            self?.replaceTrack(at: index, with: track)
+        }
+        alignmentPopout?.window?.appearance = deckAppearance
+        alignmentPopout?.show(tracks: [deckA.deck.track, deckB.deck.track, deckC.track, deckD.track])
+    }
+
+    private func showSoloAlignmentPopout() {
+        alignmentPopout = DJAlignmentWindowController(
+            decks: [deckA.deck], names: ["A"], accents: [Palette.teal])
+        let primitiveEnd = min(availableTracks.count, practiceStartIndex + practiceCount)
+        let primitiveTracks = Array(availableTracks.prefix(primitiveEnd))
+        alignmentPopout?.setRecordChoices(primitiveTracks) { [weak self] index, track in
+            self?.replaceTrack(at: index, with: track)
+        }
+        alignmentPopout?.window?.appearance = deckAppearance
+        alignmentPopout?.show(tracks: [deckA.deck.track])
+    }
+
+    private func replaceTrack(at index: Int, with track: Track) {
+        let decks = [deckA.deck, deckB.deck, deckC, deckD]
+        guard decks.indices.contains(index) else { return }
+        let autoplay = decks[index].motorEnabled
+        switch index {
+        case 0:
+            deckA.select(track, autoplay: autoplay)
+        case 1:
+            deckB.select(track, autoplay: autoplay)
+        case 2:
+            deckC.load(track)
+            if autoplay { deckC.play() }
+            popoutC?.trackChanged(track)
+            alignmentPopout?.trackChanged(track, at: 2)
+        default:
+            deckD.load(track)
+            if autoplay { deckD.play() }
+            popoutD?.trackChanged(track)
+            alignmentPopout?.trackChanged(track, at: 3)
+        }
         applyCrossfade()
         onStateChange?()
     }
 
     private func sync(_ target: DJDeckView?, to reference: DJDeckView?) {
         guard let target, let reference else { return }
-        let referenceBPM = reference.deck.targetBPM
-        let candidates = [referenceBPM / 2, referenceBPM, referenceBPM * 2]
-        let tempo = candidates
-            .filter { $0 >= target.deck.sourceBPM * 0.5 && $0 <= target.deck.sourceBPM * 1.5 }
-            .min { abs(log($0 / target.deck.sourceBPM)) < abs(log($1 / target.deck.sourceBPM)) }
-            ?? referenceBPM
-        target.deck.setBPM(tempo)
+        slideRates([target.deck], to: reference.deck)
+    }
 
-        // File time zero is the initial beat-grid anchor. The nearest target
-        // beat is moved onto the reference deck's current output phase.
-        let beatDuration = 60.0 / max(1, referenceBPM)
-        let referenceOutputTime = reference.deck.currentTime / max(0.01, reference.deck.rate)
-        let phase = referenceOutputTime.truncatingRemainder(dividingBy: beatDuration)
-        let targetOutputTime = target.deck.currentTime / max(0.01, target.deck.rate)
-        let beatIndex = ((targetOutputTime - phase) / beatDuration).rounded()
-        let alignedOutputTime = max(0, beatIndex * beatDuration + phase)
-        target.deck.seek(to: alignedOutputTime * target.deck.rate)
-        if reference.deck.isPlaying { target.deck.play() }
-        target.refresh()
-        waveformA.needsDisplay = true
-        waveformB.needsDisplay = true
-        onStateChange?()
+    private var audibleDecks: [DJDeckPlayer] {
+        [deckA.deck, deckB.deck, deckC, deckD].filter {
+            $0.motorEnabled && $0.gain > 0.0001
+        }
+    }
+
+    private func matchedTempo(for target: DJDeckPlayer, referenceBPM: Double) -> Double {
+        let candidates = [referenceBPM / 2, referenceBPM, referenceBPM * 2]
+        return candidates
+            .filter { $0 >= target.sourceBPM * 0.5 && $0 <= target.sourceBPM * 2.0 }
+            .min { abs(log($0 / target.sourceBPM)) < abs(log($1 / target.sourceBPM)) }
+            ?? referenceBPM
+    }
+
+    private func slideRates(_ targets: [DJDeckPlayer], to reference: DJDeckPlayer) {
+        rateSyncTimer?.invalidate()
+        guard reference.motorEnabled, reference.gain > 0.0001 else { return }
+        let targets = targets.filter { $0.motorEnabled && $0.gain > 0.0001 }
+        guard !targets.isEmpty else { return }
+        let starts = targets.map(\.targetBPM)
+        let destinations = targets.map { matchedTempo(for: $0, referenceBPM: reference.targetBPM) }
+        let began = ProcessInfo.processInfo.systemUptime
+        let duration = 0.65
+        rateSyncTimer = DJRunLoopTimer.scheduled(every: 1.0 / 30.0) { [weak self] timer in
+            let raw = min(1, (ProcessInfo.processInfo.systemUptime - began) / duration)
+            let eased = raw * raw * (3 - 2 * raw)
+            for index in targets.indices {
+                targets[index].setBPM(starts[index] + (destinations[index] - starts[index]) * eased)
+            }
+            if raw >= 1 {
+                timer.invalidate()
+                self?.rateSyncTimer = nil
+            }
+        }
+    }
+
+    private func alignPeaks(_ targets: [DJDeckPlayer], to reference: DJDeckPlayer) {
+        peakAlignTimer?.invalidate()
+        guard reference.motorEnabled, reference.gain > 0.0001 else { return }
+        let targets = targets.filter { $0.motorEnabled && $0.gain > 0.0001 }
+        guard !targets.isEmpty else { return }
+        let beat = 60 / max(1, reference.targetBPM)
+        let referenceOutput = reference.currentTime / max(0.01, reference.rate)
+        let referencePhase = referenceOutput.truncatingRemainder(dividingBy: beat)
+        let corrections = targets.map { target -> Double in
+            let output = target.currentTime / max(0.01, target.rate)
+            let phase = output.truncatingRemainder(dividingBy: beat)
+            var delta = referencePhase - phase
+            if delta > beat / 2 { delta -= beat }
+            if delta < -beat / 2 { delta += beat }
+            return delta * target.rate
+        }
+        let began = ProcessInfo.processInfo.systemUptime
+        let duration = 0.42
+        var priorEase = 0.0
+        peakAlignTimer = DJRunLoopTimer.scheduled(every: 1.0 / 60.0) { [weak self] timer in
+            let raw = min(1, (ProcessInfo.processInfo.systemUptime - began) / duration)
+            let eased = raw * raw * (3 - 2 * raw)
+            let step = eased - priorEase
+            priorEase = eased
+            for index in targets.indices {
+                targets[index].seek(to: targets[index].currentTime + corrections[index] * step)
+            }
+            if raw >= 1 {
+                timer.invalidate()
+                self?.peakAlignTimer = nil
+            }
+        }
     }
 
     override func layout() {
@@ -903,6 +1656,8 @@ final class DJMixerView: NSView {
         let b = sin(blend * .pi / 2)
         deckA.deck.setGain(Float(a) * masterVolume)
         deckB.deck.setGain(Float(b) * masterVolume)
+        deckC.setGain(masterVolume * 0.42)
+        deckD.setGain(masterVolume * 0.42)
         crossLabel.stringValue = "A \(Int((a * a * 100).rounded()))  ·  \(Int((b * b * 100).rounded())) B"
     }
 }

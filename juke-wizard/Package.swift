@@ -29,5 +29,10 @@ let package = Package(
             dependencies: ["JukeDSP"],
             path: "Tests/JukeDSPTests"
         ),
+        .testTarget(
+            name: "JukeWizardTests",
+            dependencies: ["JukeWizard"],
+            path: "Tests/JukeWizardTests"
+        ),
     ]
 )

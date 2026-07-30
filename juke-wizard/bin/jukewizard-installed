@@ -2,4 +2,16 @@
 # Stable launcher for a JukeWizard installed by ../install.sh.
 set -eu
 INSTALL_ROOT="${JUKEWIZARD_HOME:-$HOME/.local/lib/jukewizard}"
+if [ "${1:-}" = "login" ]; then
+  shift
+  exec ac-login "$@"
+fi
+if [ "${1:-}" = "cloud" ]; then
+  shift
+  exec node "$INSTALL_ROOT/juke-cloud.mjs" "$@"
+fi
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "help" ]; then
+  node "$INSTALL_ROOT/juke-cloud.mjs" --help
+  exit 0
+fi
 exec "$INSTALL_ROOT/JukeWizard" "$@"

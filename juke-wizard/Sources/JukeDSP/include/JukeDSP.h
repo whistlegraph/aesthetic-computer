@@ -10,6 +10,15 @@ typedef struct {
     float output[2];
 } ACScratchState;
 
+// One trackpad contact mapped into platter space, where -1...1 spans the
+// visible record in each axis.
+typedef struct {
+    double previous_x;
+    double previous_y;
+    double current_x;
+    double current_y;
+} ACPlatterContact;
+
 void ac_scratch_init(ACScratchState *state);
 
 // Hand inertia + stylus compliance. position_error is measured in samples.
@@ -25,7 +34,12 @@ float ac_scratch_cubic(float xm1, float x0, float x1, float x2, float fraction);
 float ac_scratch_material(ACScratchState *state, float sample, int channel,
                           double sample_position, double motion, int scratching);
 
-// Two deterministic practice loops: sine kick/hats and waves/claps.
+// Convert simultaneous spatial contacts into record-time movement. Contacts
+// near the rim have more leverage; moving fingers add torque for crab scratches.
+double ac_platter_contact_motion(const ACPlatterContact *contacts, size_t count,
+                                 double seconds_per_revolution);
+
+// Deterministic one-voice practice loops: kick, hat, clap, or wave bass.
 void ac_practice_render(int variant, float *left, float *right, size_t frames,
                         double sample_rate, double bpm);
 
