@@ -20,6 +20,20 @@ set -e
 HERE="$(cd "$(dirname "$0")" && pwd)"
 WIZ="$HERE/.."
 REPO="$(cd "$WIZ/.." && pwd)"
+
+if [ "${1:-}" = "login" ]; then
+  shift
+  exec ac-login "$@"
+fi
+if [ "${1:-}" = "cloud" ]; then
+  shift
+  exec node "$HERE/juke-cloud.mjs" "$@"
+fi
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "help" ]; then
+  node "$HERE/juke-cloud.mjs" --help
+  exit 0
+fi
+
 swift build -c release --package-path "$WIZ" 2>&1 | grep -v '^$' | tail -2 || true
 
 BIN="$WIZ/.build/release/JukeWizard"

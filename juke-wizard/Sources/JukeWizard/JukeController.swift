@@ -106,6 +106,8 @@ final class JukeController: NSWindowController, NSWindowDelegate,
     var ledLabel: NSTextField!
     var notesToggle: NSButton!
     var roomButton: NSButton!
+    var cloudButton: NSButton!
+    var cloudWindow: JukeCloudWindowController?
     var roomPopover: NSPopover?
     var roomMixer: RoomMixerView?
     var miniPopover: NSPopover?
@@ -355,6 +357,12 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         appearanceTabs.toolTip = "Follow macOS, or pin JukeWizard to light or dark"
         content.addSubview(appearanceTabs)
 
+        cloudButton = NSButton(title: "☁︎", target: self, action: #selector(showCloud))
+        cloudButton.bezelStyle = .rounded
+        cloudButton.contentTintColor = Palette.teal
+        cloudButton.toolTip = "Sign in and sync tracks with Juke Cloud"
+        content.addSubview(cloudButton)
+
         outputPopup = AudioOutputPopUpButton(frame: .zero, pullsDown: false)
         outputPopup.controlSize = .small
         outputPopup.bezelStyle = .rounded
@@ -522,7 +530,9 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         sourceTabs.frame = NSRect(x: pad, y: H - 27, width: 170, height: 22)
         appearanceTabs.frame = NSRect(x: W - pad - 172, y: H - 27, width: 172, height: 22)
         let outputX = pad + 178
-        let outputRight = appearanceTabs.frame.minX - 8
+        cloudButton.frame = NSRect(x: appearanceTabs.frame.minX - 50, y: H - 28,
+                                   width: 44, height: 24)
+        let outputRight = cloudButton.frame.minX - 6
         outputPopup.frame = NSRect(x: outputX, y: H - 27,
                                    width: max(110, min(260, outputRight - outputX)), height: 22)
         // ── header (now-playing) across the top ───────────────────────────────
@@ -980,6 +990,34 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         open.target = self
         menu.addItem(open)
         return menu
+    }
+
+    @objc private func showCloud() {
+        if cloudWindow == nil {
+            cloudWindow = JukeCloudWindowController(
+                currentFile: { [weak self] in self?.track?.url },
+                loadLocalFile: { [weak self] in self?.loadCloudFile($0) })
+        }
+        cloudWindow?.prepareForDisplay()
+        cloudWindow?.showWindow(nil)
+        cloudWindow?.window?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func loadCloudFile(_ url: URL) {
+        if let index = library.tracks.firstIndex(where: {
+            $0.url.standardizedFileURL == url.standardizedFileURL
+        }) {
+            select(index, autoplay: true)
+            return
+        }
+        library.addFile(url, lane: "cloud")
+        listTable.reloadData()
+        if let index = library.tracks.firstIndex(where: {
+            $0.url.standardizedFileURL == url.standardizedFileURL
+        }) {
+            select(index, autoplay: true)
+        }
     }
 
     // ── selection / playback ──────────────────────────────────────────────

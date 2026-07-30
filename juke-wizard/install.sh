@@ -10,8 +10,8 @@ LAUNCH_AGENT_DIR="$HOME/Library/LaunchAgents"
 LAUNCH_AGENT="$LAUNCH_AGENT_DIR/$LAUNCH_LABEL.plist"
 LOG_DIR="$HOME/Library/Logs"
 
-/usr/bin/swift build -c release --package-path "$ROOT"
-BUILD_BIN="$(/usr/bin/swift build -c release --package-path "$ROOT" --show-bin-path)"
+swift build -c release --package-path "$ROOT"
+BUILD_BIN="$(swift build -c release --package-path "$ROOT" --show-bin-path)"
 BUNDLE="$BUILD_BIN/JukeWizard_JukeWizard.bundle"
 
 test -x "$BUILD_BIN/JukeWizard"
@@ -19,6 +19,7 @@ test -d "$BUNDLE"
 /bin/mkdir -p "$INSTALL_ROOT" "$BIN_DIR"
 /usr/bin/install -m 0755 "$BUILD_BIN/JukeWizard" "$INSTALL_ROOT/JukeWizard"
 /usr/bin/ditto "$BUNDLE" "$INSTALL_ROOT/JukeWizard_JukeWizard.bundle"
+/usr/bin/install -m 0755 "$ROOT/bin/juke-cloud.mjs" "$INSTALL_ROOT/juke-cloud.mjs"
 /usr/bin/install -m 0755 "$ROOT/bin/jukewizard-installed" "$BIN_DIR/jukewizard"
 
 # Own the resident menu-bar process with the user's Aqua launchd session.
