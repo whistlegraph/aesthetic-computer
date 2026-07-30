@@ -14,6 +14,7 @@ function usage() {
   jukewizard cloud list [--json]
   jukewizard cloud push <audio-file> [...]
   jukewizard cloud pull <cloud-key> [destination]
+  jukewizard cloud remove <cloud-key>
   jukewizard cloud url <cloud-key>`);
 }
 
@@ -96,8 +97,15 @@ async function main() {
   }
   if (command === "push") {
     if (!args.length) throw new Error("Choose at least one audio file.");
+    const existing = new Map((await list()).map((track) => [track.name, track]));
     for (const path of args) {
+      const name = basename(resolve(path));
+      if (existing.has(name)) {
+        console.log(`exists ${name}`);
+        continue;
+      }
       const track = await push(path);
+      existing.set(track.name, track);
       console.log(`uploaded ${track.name}\n  ${track.key}\n  ${track.command}`);
     }
     return;
@@ -112,6 +120,12 @@ async function main() {
     const track = (await list()).find((item) => item.key === args[0]);
     if (!track) throw new Error("Cloud track not found.");
     console.log(track.url);
+    return;
+  }
+  if (command === "remove") {
+    if (!args[0]) throw new Error("Provide the cloud key shown by `jukewizard cloud list`.");
+    await api("POST", { action: "delete", key: args[0] });
+    console.log(`removed ${args[0]}`);
     return;
   }
   usage();

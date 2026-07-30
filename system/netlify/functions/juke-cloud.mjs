@@ -2,6 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
@@ -145,6 +146,12 @@ export async function handler(event) {
         ResponseContentDisposition: `attachment; filename="${safeTrackName(input.key)}"`,
       }), { expiresIn: 15 * 60 });
       return respond(200, { url });
+    }
+
+    if (input.action === "delete") {
+      if (!ownsKey(user.sub, input.key)) return respond(403, { error: "Track is outside your cloud library." });
+      await client().send(new DeleteObjectCommand({ Bucket: bucket, Key: input.key }));
+      return respond(200, { deleted: true, key: input.key });
     }
 
     if (input.action !== "upload") return respond(400, { error: "Unknown action." });
