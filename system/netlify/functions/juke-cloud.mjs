@@ -5,6 +5,7 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   ListObjectsV2Command,
+  PutObjectAclCommand,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -154,6 +155,21 @@ export async function handler(event) {
       return respond(200, { deleted: true, key: input.key });
     }
 
+    if (input.action === "publish") {
+      if (!ownsKey(user.sub, input.key)) return respond(403, { error: "Track is outside your cloud library." });
+      await client().send(new PutObjectAclCommand({
+        Bucket: bucket,
+        Key: input.key,
+        ACL: "public-read",
+      }));
+      return respond(200, {
+        published: true,
+        key: input.key,
+        url: publicURL(input.key),
+        command: `play ${publicURL(input.key)}`,
+      });
+    }
+
     if (input.action !== "upload") return respond(400, { error: "Unknown action." });
     const filename = safeTrackName(input.filename);
     const contentType = audioType(filename);
@@ -168,7 +184,6 @@ export async function handler(event) {
       Key: key,
       ContentType: contentType,
       ContentDisposition: "inline",
-      ACL: "public-read",
     }), { expiresIn: 15 * 60 });
     const track = trackFromObject({ Key: key, Size: bytes, LastModified: new Date() });
     return respond(200, {

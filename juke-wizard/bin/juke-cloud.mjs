@@ -16,6 +16,7 @@ function usage() {
   jukewizard cloud list [--json]
   jukewizard cloud push <audio-file> [...]
   jukewizard cloud pull <cloud-key> [destination]
+  jukewizard cloud publish <cloud-key>
   jukewizard cloud remove <cloud-key>
   jukewizard cloud url <cloud-key>`);
 }
@@ -86,6 +87,7 @@ async function push(path) {
     bytes: stat.size,
   });
   await uploadFile(prepared.uploadURL, absolute, prepared.headers, stat.size);
+  await api("POST", { action: "publish", key: prepared.track.key });
   return prepared.track;
 }
 
@@ -144,6 +146,12 @@ async function main() {
     if (!args[0]) throw new Error("Provide the cloud key shown by `jukewizard cloud list`.");
     await api("POST", { action: "delete", key: args[0] });
     console.log(`removed ${args[0]}`);
+    return;
+  }
+  if (command === "publish") {
+    if (!args[0]) throw new Error("Provide the cloud key shown by `jukewizard cloud list`.");
+    const published = await api("POST", { action: "publish", key: args[0] });
+    console.log(published.command);
     return;
   }
   usage();
